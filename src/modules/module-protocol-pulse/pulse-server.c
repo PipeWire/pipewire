@@ -139,8 +139,8 @@ struct client {
 	uint32_t subscribed;
 
 	struct pw_manager_object *metadata_default;
-	uint32_t default_sink;
-	uint32_t default_source;
+	char *default_sink;
+	char *default_source;
 	struct pw_manager_object *metadata_routes;
 	struct pw_properties *routes;
 
@@ -899,25 +899,75 @@ static void manager_removed(void *data, struct pw_manager_object *o)
 	send_default_change_subscribe_event(client, object_is_sink(o), object_is_source_or_monitor(o));
 }
 
+static int json_object_find(const char *obj, const char *key, char *value, size_t len)
+{
+	struct spa_json it[2];
+	const char *v;
+	char k[128];
+
+	spa_json_init(&it[0], obj, strlen(obj));
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+		return -EINVAL;
+
+	while (spa_json_get_string(&it[1], k, sizeof(k)-1) > 0) {
+		if (strcmp(k, key) == 0) {
+			if (spa_json_get_string(&it[1], value, len) <= 0)
+				continue;
+			return 0;
+		} else {
+			if (spa_json_next(&it[1], &v) <= 0)
+				break;
+		}
+	}
+	return -ENOENT;
+}
+
+static inline int strzcmp(const char *s1, const char *s2)
+{
+	if (s1 == s2)
+		return 0;
+	if (s1 == NULL || s2 == NULL)
+		return 1;
+	return strcmp(s1, s2);
+}
+
 static void manager_metadata(void *data, struct pw_manager_object *o,
 		uint32_t subject, const char *key, const char *type, const char *value)
 {
 	struct client *client = data;
-	uint32_t val;
 	bool changed = false;
 
 	pw_log_debug("meta id:%d subject:%d key:%s type:%s value:%s",
 			o->id, subject, key, type, value);
 
 	if (subject == PW_ID_CORE && o == client->metadata_default) {
-		val = (key && value) ? (uint32_t)atoi(value) : SPA_ID_INVALID;
+		char name[1024];
+
 		if (key == NULL || strcmp(key, "default.audio.sink") == 0) {
-			changed = client->default_sink != val;
-			client->default_sink = val;
+			if (value != NULL) {
+				if (json_object_find(value,
+						"name", name, sizeof(name)) < 0)
+					value = NULL;
+				else
+					value = name;
+			}
+			if ((changed = strzcmp(client->default_sink, value))) {
+				free(client->default_sink);
+				client->default_sink = strdup(value);
+			}
 		}
 		if (key == NULL || strcmp(key, "default.audio.source") == 0) {
-			changed = client->default_source != val;
-			client->default_source = val;
+			if (value != NULL) {
+				if (json_object_find(value,
+						"name", name, sizeof(name)) < 0)
+					value = NULL;
+				else
+					value = name;
+			}
+			if ((changed = strzcmp(client->default_source, value))) {
+				free(client->default_source);
+				client->default_source = strdup(value);
+			}
 		}
 		if (changed)
 			send_default_change_subscribe_event(client, true, true);
@@ -2594,11 +2644,13 @@ static const char *get_default(struct client *client, bool sink)
 	spa_zero(sel);
 	if (sink) {
 		sel.type = object_is_sink;
-		sel.id = client->default_sink;
+		sel.key = PW_KEY_NODE_NAME;
+		sel.value = client->default_sink;
 		def = DEFAULT_SINK;
 	} else {
 		sel.type = object_is_source_or_monitor;
-		sel.id = client->default_source;
+		sel.key = PW_KEY_NODE_NAME;
+		sel.value = client->default_source;
 		def = DEFAULT_SOURCE;
 	}
 	sel.accumulate = select_best;
@@ -4801,7 +4853,7 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 	if ((res = pw_manager_set_metadata(manager, client->metadata_default,
 			PW_ID_CORE,
 			sink ? METADATA_CONFIG_DEFAULT_SINK : METADATA_CONFIG_DEFAULT_SOURCE,
-			SPA_TYPE_INFO_BASE"Id", "%d", o->id)) < 0)
+			"Spa:String:JSON", "{ \"name\": \"%s\" }", name)) < 0)
 		return res;
 
 	return reply_simple_ack(client, tag);
@@ -5280,6 +5332,8 @@ static void client_free(struct client *client)
 		client->disconnecting = true;
 		pw_core_disconnect(client->core);
 	}
+	free(client->default_sink);
+	free(client->default_source);
 	if (client->props)
 		pw_properties_free(client->props);
 	if (client->routes)

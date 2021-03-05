@@ -26,6 +26,7 @@
 #include <alsa/control_external.h>
 
 #include <spa/utils/result.h>
+#include <spa/utils/json.h>
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
 
@@ -62,11 +63,11 @@ typedef struct {
 	int pending_seq;
 	int error;
 
-	uint32_t sink;
+	char default_sink[1024];
 	int sink_muted;
 	struct volume sink_volume;
 
-	uint32_t source;
+	char default_source[1024];
 	int source_muted;
 	struct volume source_volume;
 
@@ -153,16 +154,25 @@ static int wait_resync(snd_ctl_pipewire_t *ctl)
 	return 0;
 }
 
-static struct global *find_global(snd_ctl_pipewire_t *ctl, uint32_t id, const char *type)
+static struct global *find_global(snd_ctl_pipewire_t *ctl, uint32_t id,
+		const char *name, const char *type)
 {
 	struct global *g;
+	uint32_t name_id = name ? (uint32_t)atoi(name) : SPA_ID_INVALID;
+	const char *str;
+
 	spa_list_for_each(g, &ctl->globals, link) {
-		if (g->id == id &&
+		if ((g->id == id || g->id == name_id) &&
 		    (type == NULL || strcmp(g->ginfo->type, type) == 0))
+			return g;
+		if (name != NULL && name[0] != '\0' &&
+		    (str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) != NULL &&
+		    strcmp(name, str) == 0)
 			return g;
 	}
 	return NULL;
 }
+
 static struct global *find_best_node(snd_ctl_pipewire_t *ctl, uint32_t flags)
 {
 	struct global *g, *best = NULL;
@@ -202,13 +212,13 @@ static int pipewire_update_volume(snd_ctl_pipewire_t * ctl)
 	bool changed = false;
 	struct global *g;
 
-	if (ctl->sink == 0)
+	if (ctl->default_sink[0] == '\0')
 		g = find_best_node(ctl, NODE_FLAG_SINK);
 	else
-		g = find_global(ctl, ctl->sink, PW_TYPE_INTERFACE_Node);
+		g = find_global(ctl, SPA_ID_INVALID, ctl->default_sink,
+				PW_TYPE_INTERFACE_Node);
 
 	if (g) {
-		ctl->sink = g->id;
 		if (!!ctl->sink_muted != !!g->node.mute) {
 			ctl->sink_muted = g->node.mute;
 			ctl->updated |= UPDATE_SINK_MUTE;
@@ -221,13 +231,13 @@ static int pipewire_update_volume(snd_ctl_pipewire_t * ctl)
 		}
 	}
 
-	if (ctl->source == 0)
+	if (ctl->default_source[0] == '\0')
 		g = find_best_node(ctl, NODE_FLAG_SOURCE);
 	else
-		g = find_global(ctl, ctl->source, PW_TYPE_INTERFACE_Node);
+		g = find_global(ctl, SPA_ID_INVALID, ctl->default_source,
+				PW_TYPE_INTERFACE_Node);
 
 	if (g) {
-		ctl->source = g->id;
 		if (!!ctl->source_muted != !!g->node.mute) {
 			ctl->source_muted = g->node.mute;
 			ctl->updated |= UPDATE_SOURCE_MUTE;
@@ -270,9 +280,9 @@ static int pipewire_elem_count(snd_ctl_ext_t * ext)
 		goto finish;
 	}
 
-	if (ctl->source)
+	if (ctl->default_source[0] != '\0')
 		count += 2;
-	if (ctl->sink)
+	if (ctl->default_sink[0] != '\0')
 		count += 2;
 
 finish:
@@ -300,7 +310,7 @@ static int pipewire_elem_list(snd_ctl_ext_t * ext, unsigned int offset,
 	if (err < 0)
 		goto finish;
 
-	if (ctl->source) {
+	if (ctl->default_source[0] != '\0') {
 		if (offset == 0)
 			snd_ctl_elem_id_set_name(id, SOURCE_VOL_NAME);
 		else if (offset == 1)
@@ -479,7 +489,7 @@ static struct spa_pod *build_volume_mute(struct spa_pod_builder *b, struct volum
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
-static int set_volume_mute(snd_ctl_pipewire_t *ctl, uint32_t node, struct volume *volume, int *mute)
+static int set_volume_mute(snd_ctl_pipewire_t *ctl, const char *name, struct volume *volume, int *mute)
 {
 	struct global *g, *dg;
 	uint32_t id = SPA_ID_INVALID, device_id = SPA_ID_INVALID;
@@ -488,12 +498,12 @@ static int set_volume_mute(snd_ctl_pipewire_t *ctl, uint32_t node, struct volume
 	struct spa_pod_frame f[2];
 	struct spa_pod *param;
 
-	g = find_global(ctl, node, PW_TYPE_INTERFACE_Node);
+	g = find_global(ctl, SPA_ID_INVALID, name, PW_TYPE_INTERFACE_Node);
 	if (g == NULL)
 		return -EINVAL;
 
 	if (SPA_FLAG_IS_SET(g->node.flags, NODE_FLAG_DEVICE_VOLUME) &&
-	    (dg = find_global(ctl, g->node.device_id, PW_TYPE_INTERFACE_Device)) != NULL) {
+	    (dg = find_global(ctl, g->node.device_id, NULL, PW_TYPE_INTERFACE_Device)) != NULL) {
 		if (g->node.flags & NODE_FLAG_SINK)
 			id = dg->device.active_route_output;
 		else if (g->node.flags & NODE_FLAG_SOURCE)
@@ -589,14 +599,14 @@ static int pipewire_write_integer(snd_ctl_ext_t * ext, snd_ctl_ext_key_t key,
 			vol->values[i] = value[i];
 
 		if (key == 0)
-			set_volume_mute(ctl, ctl->source, vol, NULL);
+			set_volume_mute(ctl, ctl->default_source, vol, NULL);
 		else
-			set_volume_mute(ctl, ctl->sink, vol, NULL);
+			set_volume_mute(ctl, ctl->default_sink, vol, NULL);
 	} else {
 		if (key == 1)
-			set_volume_mute(ctl, ctl->source, NULL, &ctl->source_muted);
+			set_volume_mute(ctl, ctl->default_source, NULL, &ctl->source_muted);
 		else
-			set_volume_mute(ctl, ctl->sink, NULL, &ctl->sink_muted);
+			set_volume_mute(ctl, ctl->default_sink, NULL, &ctl->sink_muted);
 	}
 
 	wait_resync(ctl);
@@ -651,7 +661,7 @@ static int pipewire_read_event(snd_ctl_ext_t * ext, snd_ctl_elem_id_t * id,
 		goto finish;
 	}
 
-	if (ctl->source)
+	if (ctl->default_source[0] != '\0')
 		offset = 2;
 	else
 		offset = 0;
@@ -968,6 +978,29 @@ struct global_info node_info = {
 };
 
 /** metadata */
+static int json_object_find(const char *obj, const char *key, char *value, size_t len)
+{
+	struct spa_json it[2];
+	const char *v;
+	char k[128];
+
+	spa_json_init(&it[0], obj, strlen(obj));
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+		return -EINVAL;
+
+	while (spa_json_get_string(&it[1], k, sizeof(k)-1) > 0) {
+		if (strcmp(k, key) == 0) {
+			if (spa_json_get_string(&it[1], value, len) <= 0)
+				continue;
+			return 0;
+		} else {
+			if (spa_json_next(&it[1], &v) <= 0)
+				break;
+		}
+	}
+	return -ENOENT;
+}
+
 static int metadata_property(void *object,
                         uint32_t subject,
                         const char *key,
@@ -978,11 +1011,20 @@ static int metadata_property(void *object,
 	snd_ctl_pipewire_t *ctl = g->ctl;
 
 	if (subject == PW_ID_CORE) {
-		uint32_t val = (key && value) ? (uint32_t)atoi(value) : 0;
-		if (key == NULL || strcmp(key, "default.audio.sink") == 0)
-			ctl->sink = val;
-		if (key == NULL || strcmp(key, "default.audio.source") == 0)
-			ctl->source = val;
+		if (key == NULL || strcmp(key, "default.audio.sink") == 0) {
+			if (value == NULL ||
+			    json_object_find(value, "name",
+					ctl->default_sink, sizeof(ctl->default_sink)) < 0)
+				ctl->default_sink[0] = '\0';
+			pw_log_debug("found default sink: %s", ctl->default_sink);
+		}
+		if (key == NULL || strcmp(key, "default.audio.source") == 0) {
+			if (value == NULL ||
+			    json_object_find(value, "name",
+					ctl->default_source, sizeof(ctl->default_source)) < 0)
+				ctl->default_source[0] = '\0';
+			pw_log_debug("found default source: %s", ctl->default_source);
+		}
         }
         return 0;
 }
@@ -1094,10 +1136,18 @@ static void registry_event_global(void *data, uint32_t id,
 static void registry_event_global_remove(void *data, uint32_t id)
 {
 	snd_ctl_pipewire_t *ctl = data;
-	if (ctl->sink == id)
-		ctl->sink = 0;
-	if (ctl->source == id)
-		ctl->source = 0;
+	struct global *g;
+	const char *name;
+
+	if ((g = find_global(ctl, id, NULL, PW_TYPE_INTERFACE_Node)) == NULL)
+		return;
+	if ((name = pw_properties_get(g->props, PW_KEY_NODE_NAME)) == NULL)
+		return;
+
+	if (strcmp(name, ctl->default_sink) == 0)
+		ctl->default_sink[0] = '\0';
+	if (strcmp(name, ctl->default_source) == 0)
+		ctl->default_source[0] = '\0';
 }
 
 static const struct pw_registry_events registry_events = {
@@ -1229,25 +1279,16 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 
 	spa_list_init(&ctl->globals);
 
-	if (source)
-		ctl->source = atoi(source);
-	else if (device)
-		ctl->source = atoi(device);
-
-	if ((source || device) && !ctl->source) {
-		err = -EINVAL;
-		goto error;
-	}
-
-	if (sink)
-		ctl->sink = atoi(sink);
-	else if (device)
-		ctl->sink = atoi(device);
-
-	if ((sink || device) && !ctl->sink) {
-		err = -EINVAL;
-		goto error;
-	}
+	if (source == NULL)
+		source = device;
+	if (source != NULL)
+		snprintf(ctl->default_source, sizeof(ctl->default_source),
+				"%s", source);
+	if (sink == NULL)
+		sink = device;
+	if (sink != NULL)
+		snprintf(ctl->default_sink, sizeof(ctl->default_sink),
+				"%s", sink);
 
 	ctl->mainloop = pw_thread_loop_new("alsa-pipewire", NULL);
 	if (ctl->mainloop == NULL) {

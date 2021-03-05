@@ -44,6 +44,7 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/debug/types.h>
 #include <spa/debug/pod.h>
+#include <spa/utils/json.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
@@ -110,6 +111,7 @@ struct object {
 	union {
 		struct {
 			char name[JACK_CLIENT_NAME_SIZE+1];
+			char node_name[512];
 			int32_t priority;
 			uint32_t client_id;
 		} node;
@@ -132,6 +134,7 @@ struct object {
 			int32_t priority;
 			struct port *port;
 			bool is_monitor;
+			struct object *node;
 		} port;
 	};
 };
@@ -241,8 +244,8 @@ struct metadata {
 	struct pw_metadata *proxy;
 	struct spa_hook listener;
 
-	uint32_t default_audio_sink;
-	uint32_t default_audio_source;
+	char default_audio_sink[1024];
+	char default_audio_source[1024];
 };
 
 struct client {
@@ -548,6 +551,21 @@ static struct object *find_node(struct client *c, const char *name)
 	return NULL;
 }
 
+static bool is_port_default(struct client *c, struct object *o)
+{
+	struct object *ot;
+
+	if (c->metadata == NULL)
+		return false;
+
+	if ((ot = o->port.node) != NULL &&
+	    (strcmp(ot->node.node_name, c->metadata->default_audio_source) == 0 ||
+	     strcmp(ot->node.node_name, c->metadata->default_audio_sink) == 0))
+		return true;
+
+	return false;
+}
+
 static struct object *find_port(struct client *c, const char *name)
 {
 	struct object *o;
@@ -557,10 +575,7 @@ static struct object *find_port(struct client *c, const char *name)
 		    strcmp(o->port.alias1, name) == 0 ||
 		    strcmp(o->port.alias2, name) == 0)
 			return o;
-		if (c->metadata &&
-		    (o->port.node_id == c->metadata->default_audio_source ||
-		     o->port.node_id == c->metadata->default_audio_sink) &&
-		    strcmp(o->port.system, name) == 0)
+		if (is_port_default(c, o) && strcmp(o->port.system, name) == 0)
 			return o;
 	}
 	return NULL;
@@ -2037,6 +2052,29 @@ static jack_uuid_t client_make_uuid(uint32_t id)
 	return uuid;
 }
 
+static int json_object_find(const char *obj, const char *key, char *value, size_t len)
+{
+	struct spa_json it[2];
+	const char *v;
+	char k[128];
+
+	spa_json_init(&it[0], obj, strlen(obj));
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+		return -EINVAL;
+
+	while (spa_json_get_string(&it[1], k, sizeof(k)-1) > 0) {
+		if (strcmp(k, key) == 0) {
+			if (spa_json_get_string(&it[1], value, len) <= 0)
+				continue;
+			return 0;
+		} else {
+			if (spa_json_next(&it[1], &v) <= 0)
+				break;
+		}
+	}
+	return -ENOENT;
+}
+
 static int metadata_property(void *object, uint32_t id,
 		const char *key, const char *type, const char *value)
 {
@@ -2047,11 +2085,26 @@ static int metadata_property(void *object, uint32_t id,
 	pw_log_info("set id:%u key:'%s' value:'%s' type:'%s'", id, key, value, type);
 
 	if (id == PW_ID_CORE) {
-		uint32_t val = (key && value) ? (uint32_t)atoi(value) : SPA_ID_INVALID;
-		if (key == NULL || strcmp(key, "default.audio.sink") == 0)
-			c->metadata->default_audio_sink = val;
-		if (key == NULL || strcmp(key, "default.audio.source") == 0)
-			c->metadata->default_audio_source = val;
+		if (key == NULL || strcmp(key, "default.audio.sink") == 0) {
+			if (value != NULL) {
+				if (json_object_find(value, "name",
+						c->metadata->default_audio_sink,
+						sizeof(c->metadata->default_audio_sink)) < 0)
+					value = NULL;
+			}
+			if (value == NULL)
+				c->metadata->default_audio_sink[0] = '\0';
+		}
+		if (key == NULL || strcmp(key, "default.audio.source") == 0) {
+			if (value != NULL) {
+				if (json_object_find(value, "name",
+						c->metadata->default_audio_source,
+						sizeof(c->metadata->default_audio_source)) < 0)
+					value = NULL;
+			}
+			if (value == NULL)
+				c->metadata->default_audio_source[0] = '\0';
+		}
 	} else {
 		pthread_mutex_lock(&c->context.lock);
 		o = pw_map_lookup(&c->context.globals, id);
@@ -2122,6 +2175,8 @@ static void registry_event_global(void *data, uint32_t id,
 			if (node_name != NULL)
 				snprintf(c->name, sizeof(c->name), "%s", node_name);
 		}
+		snprintf(o->node.node_name, sizeof(o->node.node_name),
+				"%s", node_name);
 
 		app = spa_dict_lookup(props, PW_KEY_APP_NAME);
 
@@ -2245,6 +2300,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 			o->port.port_id = SPA_ID_INVALID;
 			o->port.priority = ot->node.priority;
+			o->port.node = ot;
 		}
 
 		if ((str = spa_dict_lookup(props, PW_KEY_OBJECT_PATH)) != NULL)
@@ -2303,8 +2359,8 @@ static void registry_event_global(void *data, uint32_t id,
 
 		c->metadata = pw_proxy_get_user_data(proxy);
 		c->metadata->proxy = (struct pw_metadata*)proxy;
-		c->metadata->default_audio_sink = SPA_ID_INVALID;
-		c->metadata->default_audio_source = SPA_ID_INVALID;
+		c->metadata->default_audio_sink[0] = '\0';
+		c->metadata->default_audio_source[0] = '\0';
 
 		pw_metadata_add_listener(proxy,
 				&c->metadata->listener,
@@ -2359,13 +2415,6 @@ static void registry_event_global_remove(void *object, uint32_t id)
 
 	pw_log_debug(NAME" %p: removed: %u", c, id);
 
-	if (c->metadata) {
-		if (id == c->metadata->default_audio_sink)
-			c->metadata->default_audio_sink = SPA_ID_INVALID;
-		if (id == c->metadata->default_audio_source)
-			c->metadata->default_audio_source = SPA_ID_INVALID;
-	}
-
 	pthread_mutex_lock(&c->context.lock);
 	o = pw_map_lookup(&c->context.globals, id);
 	pthread_mutex_unlock(&c->context.lock);
@@ -2376,6 +2425,12 @@ static void registry_event_global_remove(void *object, uint32_t id)
 
 	switch (o->type) {
 	case INTERFACE_Node:
+		if (c->metadata) {
+			if (strcmp(o->node.node_name, c->metadata->default_audio_sink) == 0)
+				c->metadata->default_audio_sink[0] = '\0';
+			if (strcmp(o->node.node_name, c->metadata->default_audio_source) == 0)
+				c->metadata->default_audio_source[0] = '\0';
+		}
 		if (c->registration_callback)
 			c->registration_callback(o->node.name, 0, c->registration_arg);
 		break;
@@ -4255,15 +4310,24 @@ static int port_compare_func(const void *v1, const void *v2)
 		!(*o2)->port.is_monitor;
 
 	if (c->metadata) {
+		struct object *ot1, *ot2;
+
+		ot1 = (*o1)->port.node;
+
 		if (is_cap1)
-			is_def1 = (*o1)->port.node_id == c->metadata->default_audio_source;
+			is_def1 = ot1 != NULL && strcmp(ot1->node.node_name,
+					c->metadata->default_audio_source) == 0;
 		else if (!is_cap1)
-			is_def1 = (*o1)->port.node_id == c->metadata->default_audio_sink;
+			is_def1 = ot1 != NULL && strcmp(ot1->node.node_name,
+					c->metadata->default_audio_sink) == 0;
+		ot2 = (*o2)->port.node;
 
 		if (is_cap2)
-			is_def2 = (*o2)->port.node_id == c->metadata->default_audio_source;
+			is_def2 = ot2 != NULL && strcmp(ot2->node.node_name,
+					c->metadata->default_audio_source) == 0;
 		else if (!is_cap2)
-			is_def2 = (*o2)->port.node_id == c->metadata->default_audio_sink;
+			is_def2 = ot2 != NULL && strcmp(ot2->node.node_name,
+					c->metadata->default_audio_sink) == 0;
 	}
 	if ((*o1)->port.type_id != (*o2)->port.type_id)
 		res = (*o1)->port.type_id - (*o2)->port.type_id;

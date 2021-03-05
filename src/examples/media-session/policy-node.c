@@ -35,6 +35,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/pod.h>
+#include <spa/utils/json.h>
 
 #include "pipewire/pipewire.h"
 #include "extensions/metadata.h"
@@ -60,8 +61,8 @@
 struct default_node {
 	char *key;
 	char *key_config;
-	uint32_t value;
-	uint32_t config;
+	char *value;
+	char *config;
 };
 
 struct impl {
@@ -362,11 +363,56 @@ static void destroy_node(struct impl *impl, struct node *node)
 	sm_object_remove_data((struct sm_object*)node->obj, SESSION_KEY);
 }
 
-static struct node *find_node_by_id(struct impl *impl, uint32_t id)
+static inline int strzcmp(const char *s1, const char *s2)
+{
+	if (s1 == s2)
+		return 0;
+	if (s1 == NULL || s2 == NULL)
+		return 1;
+	return strcmp(s1, s2);
+}
+
+static int json_object_find(const char *obj, const char *key, char *value, size_t len)
+{
+	struct spa_json it[2];
+	const char *v;
+	char k[128];
+
+	spa_json_init(&it[0], obj, strlen(obj));
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+		return -EINVAL;
+
+	while (spa_json_get_string(&it[1], k, sizeof(k)-1) > 0) {
+		if (strcmp(k, key) == 0) {
+			if (spa_json_get_string(&it[1], value, len) <= 0)
+				continue;
+			return 0;
+		} else {
+			if (spa_json_next(&it[1], &v) <= 0)
+				break;
+		}
+	}
+	return -ENOENT;
+}
+
+static bool check_node_name(struct node *node, const char *name)
+{
+	const char *str;
+	if ((str = pw_properties_get(node->obj->obj.props, PW_KEY_NODE_NAME)) != NULL &&
+	    name != NULL && strcmp(str, name) == 0)
+		return true;
+	return false;
+}
+
+static struct node *find_node_by_id_name(struct impl *impl, uint32_t id, const char *name)
 {
 	struct node *node;
+	uint32_t name_id = name ? atoi(name) : SPA_ID_INVALID;
+
 	spa_list_for_each(node, &impl->node_list, link) {
-		if (node->id == id)
+		if (node->id == id || node->id == name_id)
+			return node;
+		if (check_node_name(node, name))
 			return node;
 	}
 	return NULL;
@@ -417,7 +463,6 @@ static void session_create(void *data, struct sm_object *object)
 
 static void session_remove(void *data, struct sm_object *object)
 {
-	struct default_node *def;
 	struct impl *impl = data;
 	pw_log_debug(NAME " %p: remove global '%d'", impl, object->id);
 
@@ -431,12 +476,7 @@ static void session_remove(void *data, struct sm_object *object)
 			if (n->peer == node)
 				n->peer = NULL;
 		}
-
-		for (def = impl->defaults; def->key != NULL; ++def)
-			if (def->config == object->id)
-				def->config = SPA_ID_INVALID;
 	}
-
 	sm_media_session_schedule_rescan(impl->session);
 }
 
@@ -491,14 +531,18 @@ static int find_node(void *data, struct node *node)
 
 	if (node->media) {
 		bool is_default = false;
+
 		if (strcmp(node->media, "Audio") == 0) {
 			if (node->direction == PW_DIRECTION_INPUT)
-				is_default = impl->defaults[DEFAULT_AUDIO_SINK].config == node->id;
+				is_default = check_node_name(node,
+						impl->defaults[DEFAULT_AUDIO_SINK].config);
 			else if (node->direction == PW_DIRECTION_OUTPUT)
-				is_default = impl->defaults[DEFAULT_AUDIO_SOURCE].config == node->id;
+				is_default = check_node_name(node,
+						impl->defaults[DEFAULT_AUDIO_SOURCE].config);
 		} else if (strcmp(node->media, "Video") == 0) {
 			if (node->direction == PW_DIRECTION_OUTPUT)
-				is_default = impl->defaults[DEFAULT_VIDEO_SOURCE].config == node->id;
+				is_default = check_node_name(node,
+						impl->defaults[DEFAULT_VIDEO_SOURCE].config);
 		}
 		if (is_default)
 			priority += 10000;
@@ -813,19 +857,30 @@ static void refresh_auto_default_nodes(struct impl *impl)
 	if (impl->session->metadata == NULL)
 		return;
 
+	pw_log_debug(NAME" %p: refresh", impl);
+
 	/* Auto set default nodes */
 	for (def = impl->defaults; def->key != NULL; ++def) {
 		struct node *node;
 		node = find_auto_default_node(impl, def);
-		if (node == NULL && def->value != SPA_ID_INVALID) {
-			def->value = SPA_ID_INVALID;
-			pw_metadata_set_property(impl->session->metadata, PW_ID_CORE, def->key, NULL, NULL);
-		} else if (node != NULL && def->value != node->id) {
-			char buf[64];
-			def->value = node->id;
-			snprintf(buf, sizeof(buf), "%d", node->id);
-			pw_metadata_set_property(impl->session->metadata, PW_ID_CORE, def->key,
-			                         SPA_TYPE_INFO_BASE"Id", buf);
+		if (node == NULL && def->value != NULL) {
+			def->value = NULL;
+			pw_metadata_set_property(impl->session->metadata,
+					PW_ID_CORE, def->key, NULL, NULL);
+		} else if (node != NULL) {
+			const char *name = pw_properties_get(node->obj->obj.props, PW_KEY_NODE_NAME);
+			char buf[1024];
+
+			if (strzcmp(name, def->value) == 0)
+				continue;
+
+			free(def->value);
+			def->value = strdup(name);
+
+			snprintf(buf, sizeof(buf), "{ \"name\": \"%s\" }", name);
+			pw_metadata_set_property(impl->session->metadata,
+					PW_ID_CORE, def->key,
+					"Spa:String:JSON", buf);
 		}
 	}
 }
@@ -905,21 +960,32 @@ static int metadata_property(void *object, uint32_t subject,
 		const char *key, const char *type, const char *value)
 {
 	struct impl *impl = object;
-	uint32_t val = (key && value) ? (uint32_t)atoi(value) : SPA_ID_INVALID;
 
 	if (subject == PW_ID_CORE) {
 		struct default_node *def;
 		bool changed = false;
+		char *val = NULL;
 
+		if (key != NULL && value != NULL) {
+			char name[1024];
+
+			pw_log_info("meta %s: %s", key, value);
+			if (json_object_find(value, "name", name, sizeof(name)) < 0)
+				return 0;
+			pw_log_info("meta name: %s", name);
+			val = name;
+		}
 		for (def = impl->defaults; def->key != NULL; ++def) {
 			if (key == NULL || strcmp(key, def->key_config) == 0) {
-				if (def->config != val)
+				if (strzcmp(def->config, val) != 0)
 					changed = true;
-				def->config = val;
+				free(def->config);
+				def->config = val ? strdup(val) : NULL;
 			}
 			if (key == NULL || strcmp(key, def->key) == 0) {
-				bool eff_changed = (def->value != val);
-				def->value = val;
+				bool eff_changed = strzcmp(def->value, val) != 0;
+				free(def->value);
+				def->value = val ? strdup(val) : NULL;
 
 				/* The effective value was changed. In case it was changed by
 				 * someone else than us, reset the value to avoid confusion. */
@@ -927,23 +993,21 @@ static int metadata_property(void *object, uint32_t subject,
 					refresh_auto_default_nodes(impl);
 			}
 		}
-
 		if (changed)
 			sm_media_session_schedule_rescan(impl->session);
-	} else {
-		if (val != SPA_ID_INVALID && strcmp(key, "target.node") == 0) {
+	} else if (key != NULL && strcmp(key, "target.node") == 0) {
+		if (value != NULL) {
 			struct node *src_node, *dst_node;
 
-			dst_node = find_node_by_id(impl, val);
-			src_node = dst_node ? find_node_by_id(impl, subject) : NULL;
+			dst_node = find_node_by_id_name(impl, SPA_ID_INVALID, value);
+			src_node = dst_node ? find_node_by_id_name(impl, subject, NULL) : NULL;
 
 			if (dst_node && src_node)
 				handle_move(impl, src_node, dst_node);
-		} else if (val == SPA_ID_INVALID && key != NULL &&
-				strcmp(key, "target.node") == 0) {
+		} else {
 			/* Unset target node. Schedule rescan to re-link, if needed. */
 			struct node *src_node;
-			src_node = find_node_by_id(impl, subject);
+			src_node = find_node_by_id_name(impl, subject, NULL);
 			if (src_node) {
 				free(src_node->obj->target_node);
 				src_node->obj->target_node = NULL;
@@ -974,15 +1038,15 @@ int sm_policy_node_start(struct sm_media_session *session)
 	impl->sample_rate = 48000;
 
 	impl->defaults[DEFAULT_AUDIO_SINK] = (struct default_node){
-		DEFAULT_AUDIO_SINK_KEY, DEFAULT_CONFIG_AUDIO_SINK_KEY, SPA_ID_INVALID, SPA_ID_INVALID
+		DEFAULT_AUDIO_SINK_KEY, DEFAULT_CONFIG_AUDIO_SINK_KEY, NULL, NULL
 	};
 	impl->defaults[DEFAULT_AUDIO_SOURCE] = (struct default_node){
-		DEFAULT_AUDIO_SOURCE_KEY, DEFAULT_CONFIG_AUDIO_SOURCE_KEY, SPA_ID_INVALID, SPA_ID_INVALID
+		DEFAULT_AUDIO_SOURCE_KEY, DEFAULT_CONFIG_AUDIO_SOURCE_KEY, NULL, NULL
 	};
 	impl->defaults[DEFAULT_VIDEO_SOURCE] = (struct default_node){
-		DEFAULT_VIDEO_SOURCE_KEY, DEFAULT_CONFIG_VIDEO_SOURCE_KEY, SPA_ID_INVALID, SPA_ID_INVALID
+		DEFAULT_VIDEO_SOURCE_KEY, DEFAULT_CONFIG_VIDEO_SOURCE_KEY, NULL, NULL
 	};
-	impl->defaults[3] = (struct default_node){ NULL, NULL, SPA_ID_INVALID, SPA_ID_INVALID };
+	impl->defaults[3] = (struct default_node){ NULL, NULL, NULL, NULL };
 
 	flag = pw_properties_get(session->props, NAME ".streams-follow-default");
 	impl->streams_follow_default = (flag != NULL && pw_properties_parse_bool(flag));

@@ -42,6 +42,7 @@
 #include <spa/param/audio/type-info.h>
 #include <spa/param/props.h>
 #include <spa/utils/result.h>
+#include <spa/utils/json.h>
 #include <spa/debug/types.h>
 
 #include <pipewire/pipewire.h>
@@ -105,8 +106,8 @@ struct data {
 	struct spa_hook registry_listener;
 	struct pw_metadata *metadata;
 	struct spa_hook metadata_listener;
-	uint32_t default_sink;
-	uint32_t default_source;
+	char default_sink[1024];
+	char default_source[1024];
 
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
@@ -647,17 +648,47 @@ static const struct pw_core_events core_events = {
 	.error = on_core_error,
 };
 
+static int json_object_find(const char *obj, const char *key, char *value, size_t len)
+{
+	struct spa_json it[2];
+	const char *v;
+	char k[128];
+
+	spa_json_init(&it[0], obj, strlen(obj));
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+		return -EINVAL;
+
+	while (spa_json_get_string(&it[1], k, sizeof(k)-1) > 0) {
+		if (strcmp(k, key) == 0) {
+			if (spa_json_get_string(&it[1], value, len) <= 0)
+				continue;
+			return 0;
+		} else {
+			if (spa_json_next(&it[1], &v) <= 0)
+				break;
+		}
+	}
+	return -ENOENT;
+}
+
 static int metadata_property(void *object,
 		uint32_t subject, const char *key, const char *type, const char *value)
 {
 	struct data *data = object;
 
 	if (subject == PW_ID_CORE) {
-		uint32_t val = (key && value) ? (uint32_t)atoi(value) : SPA_ID_INVALID;
-		if (key == NULL || strcmp(key, "default.audio.sink") == 0)
-			data->default_sink = val;
-		if (key == NULL || strcmp(key, "default.audio.source") == 0)
-			data->default_source = val;
+		if (key == NULL || strcmp(key, "default.audio.sink") == 0) {
+			if (value == NULL ||
+			    json_object_find(value, "name",
+					data->default_sink, sizeof(data->default_sink)) < 0)
+				data->default_sink[0] = '\0';
+		}
+		if (key == NULL || strcmp(key, "default.audio.source") == 0) {
+			if (value == NULL ||
+			    json_object_find(value, "name",
+					data->default_source, sizeof(data->default_source)) < 0)
+				data->default_source[0] = '\0';
+		}
 	}
 	return 0;
 }
@@ -1326,7 +1357,6 @@ int main(int argc, char *argv[])
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	const char *prog;
 	int exit_code = EXIT_FAILURE, c, ret;
-	struct target *target, *target_default;
 	enum pw_stream_flags flags = 0;
 
 	pw_init(&argc, &argv);
@@ -1338,9 +1368,6 @@ int main(int argc, char *argv[])
 		prog++;
 	else
 		prog = argv[0];
-
-	data.default_source = SPA_ID_INVALID;
-	data.default_sink = SPA_ID_INVALID;
 
 	/* prime the mode from the program name */
 	if (!strcmp(prog, "pw-play"))
@@ -1676,9 +1703,10 @@ int main(int argc, char *argv[])
 			exit_code = EXIT_SUCCESS;
 	} else {
 		if (data.targets_listed) {
-			uint32_t default_id;
+			struct target *target, *target_default;
+			char *default_name;
 
-			default_id = (data.mode == mode_record) ?
+			default_name = (data.mode == mode_record) ?
 				data.default_source : data.default_sink;
 
 			exit_code = EXIT_SUCCESS;
@@ -1687,12 +1715,12 @@ int main(int argc, char *argv[])
 			target_default = NULL;
 			spa_list_for_each(target, &data.targets, link) {
 				if (target_default == NULL ||
-				    default_id == target->id ||
-				    (default_id == SPA_ID_INVALID &&
+				    strcmp(default_name, target->name) == 0 ||
+				    (default_name[0] == '\0' &&
 				     target->prio > target_default->prio))
 					target_default = target;
 			}
-			printf("Available targets (\"*\" denotes default): %d\n", default_id);
+			printf("Available targets (\"*\" denotes default): %s\n", default_name);
 			spa_list_for_each(target, &data.targets, link) {
 				printf("%s\t%"PRIu32": description=\"%s\" prio=%d\n",
 				       target == target_default ? "*" : "",
@@ -1703,6 +1731,7 @@ int main(int argc, char *argv[])
 
 	/* destroy targets */
 	while (!spa_list_is_empty(&data.targets)) {
+		struct target *target;
 		target = spa_list_last(&data.targets, struct target, link);
 		spa_list_remove(&target->link);
 		target_destroy(target);

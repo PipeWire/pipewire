@@ -155,6 +155,8 @@ static const struct channelmix_info *find_channelmix_info(uint32_t src_chan, uin
 
 #define _MASK(ch)	(1ULL << SPA_AUDIO_CHANNEL_ ## ch)
 #define STEREO	(_MASK(FL)|_MASK(FR))
+#define DUAL_STEREO (_MASK(RL)|_MASK(RR))
+#define QUAD_STEREO (_MASK(SL)|_MASK(SR))
 
 static int make_matrix(struct channelmix *mix)
 {
@@ -217,6 +219,18 @@ static int make_matrix(struct channelmix *mix)
 			spa_log_warn(mix->log, "can't assign FC");
 		}
 	}
+
+    if (mix->src_chan <= 3 && (src_mask & STEREO) == STEREO && (dst_mask & DUAL_STEREO) == DUAL_STEREO) {
+        spa_log_debug(mix->log, "copy STEREO to REAR");
+        if ((src_mask & _MASK(RL)) == 0) matrix[RL][FL] = 1.0f;
+        if ((src_mask & _MASK(RR)) == 0) matrix[RR][FR] = 1.0f;
+
+        if ((dst_mask & QUAD_STEREO) == QUAD_STEREO)  {
+            spa_log_debug(mix->log, "copy STEREO to SIDES");
+            if ((src_mask & _MASK(SL)) == 0) matrix[SL][FL] = 1.0f;
+            if ((src_mask & _MASK(SR)) == 0) matrix[SR][FR] = 1.0f;
+        }
+    }
 
 	if (unassigned & STEREO){
 		if (dst_mask & _MASK(FC)) {

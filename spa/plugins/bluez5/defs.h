@@ -459,8 +459,6 @@ struct spa_bt_transport {
 	void *configuration;
 	int configuration_len;
 
-	unsigned int enabled:1;  /**< Transport ready for use in sink/source */
-
 	uint32_t n_channels;
 	uint32_t channels[64];
 

@@ -147,7 +147,6 @@ static struct spa_bt_transport *_transport_create(struct rfcomm *rfcomm)
 	t->backend = backend;
 	t->n_channels = 1;
 	t->channels[0] = SPA_AUDIO_CHANNEL_MONO;
-	t->enabled = true;
 
 	spa_bt_transport_add_listener(t, &rfcomm->transport_listener, &transport_events, rfcomm);
 

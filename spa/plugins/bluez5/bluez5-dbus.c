@@ -188,6 +188,10 @@ static const struct a2dp_codec *a2dp_endpoint_to_codec(const char *endpoint)
 
 static bool is_a2dp_codec_enabled(struct spa_bt_monitor *monitor, const struct a2dp_codec *codec)
 {
+	if (!monitor->enable_sbc_xq && codec->feature_flag != NULL &&
+	    strcmp(codec->feature_flag, "sbc-xq") == 0)
+		return false;
+
 	return spa_dict_lookup(&monitor->enabled_codecs, codec->name) != NULL;
 }
 
@@ -783,27 +787,11 @@ static int device_update_props(struct spa_bt_device *device,
 	return 0;
 }
 
-static bool device_can_accept_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec *codec)
-{
-	struct spa_bt_monitor *monitor = device->monitor;
-
-	/* Device capability checks in addition to A2DP Capabilities. */
-
-	if (!is_a2dp_codec_enabled(device->monitor, codec))
-		return false;
-
-	if (codec->feature_flag != NULL && strcmp(codec->feature_flag, "sbc-xq") == 0)
-		return monitor->enable_sbc_xq;
-
-	/* The rest is determined by A2DP caps */
-	return true;
-}
-
 bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec *codec)
 {
 	struct spa_bt_remote_endpoint *ep;
 
-	if (!device_can_accept_a2dp_codec(device, codec))
+	if (!is_a2dp_codec_enabled(device->monitor, codec))
 		return false;
 
 	if (!device->adapter->application_registered) {
@@ -1806,7 +1794,7 @@ int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a
 	 */
 	if (spa_list_is_empty(&device->codec_switch_list) && preferred_codec != NULL) {
 		spa_list_for_each(t, &device->transport_list, device_link) {
-			if (t->a2dp_codec != preferred_codec || !t->enabled)
+			if (t->a2dp_codec != preferred_codec)
 				continue;
 
 			if ((device->connected_profiles & t->profile) != t->profile)
@@ -1841,7 +1829,7 @@ int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a
 	}
 
 	for (i = 0, j = 0; i < num_codecs; ++i) {
-		if (device_can_accept_a2dp_codec(device, codecs[i])) {
+		if (is_a2dp_codec_enabled(device->monitor, codecs[i])) {
 			sw->codecs[j] = codecs[i];
 			++j;
 		}
@@ -1951,16 +1939,6 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	}
 	spa_log_info(monitor->log, "%p: %s validate conf channels:%d",
 			monitor, path, transport->n_channels);
-
-	/*
-	 * Per-device determination of which codecs are allowed needs to be done also
-	 * here. The A2DP codec switching process does this filtering, but before that
-	 * BlueZ may autoconnect to any endpoint with compatible caps.  In case it got it
-	 * wrong, mark the transport disabled, and we'll switch to a better one later when
-	 * needed. (We don't want to fail the connection, because we want to keep the
-	 * profile connected.)
-	 */
-	transport->enabled = device_can_accept_a2dp_codec(transport->device, codec);
 
 	spa_bt_device_connect_profile(transport->device, transport->profile);
 
@@ -3148,8 +3126,6 @@ impl_init(const struct spa_handle_factory *factory,
 	if ((res = parse_codec_array(this, info)) < 0)
 		return res;
 
-	register_media_application(this);
-
 	if (info) {
 		const char *str;
 
@@ -3157,6 +3133,8 @@ impl_init(const struct spa_handle_factory *factory,
 		    (strcmp(str, "true") == 0 || atoi(str)))
 			this->enable_sbc_xq = true;
 	}
+
+	register_media_application(this);
 
 	this->backend_native = backend_native_new(this, this->conn, info, support, n_support);
 	this->backend_ofono = backend_ofono_new(this, this->conn, info, support, n_support);

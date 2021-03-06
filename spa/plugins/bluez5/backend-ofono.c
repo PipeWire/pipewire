@@ -128,7 +128,6 @@ static struct spa_bt_transport *_transport_create(struct spa_bt_backend *backend
 	t->codec = codec;
 	t->n_channels = 1;
 	t->channels[0] = SPA_AUDIO_CHANNEL_MONO;
-	t->enabled = true;
 
 finish:
 	return t;

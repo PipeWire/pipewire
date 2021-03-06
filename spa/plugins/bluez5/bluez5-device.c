@@ -181,8 +181,7 @@ static struct spa_bt_transport *find_transport(struct impl *this, int profile, c
 
 	for (i = 0; i < num_codecs; ++i) {
 		spa_list_for_each(t, &device->transport_list, device_link) {
-			if (t->enabled &&
-			    (t->profile & device->connected_profiles) &&
+			if ((t->profile & device->connected_profiles) &&
 			    (t->profile & profile) == t->profile &&
 			    (codecs[i] == NULL || t->a2dp_codec == codecs[i]))
 				return t;

@@ -1121,7 +1121,6 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct spa_bt_backend
 	t->n_channels = 1;
 	t->channels[0] = SPA_AUDIO_CHANNEL_MONO;
 
-	t->enabled = true;
 	spa_bt_device_connect_profile(t->device, t->profile);
 
 	spa_log_debug(backend->log, NAME": Transport %s available for hsphfpd", endpoint->path);

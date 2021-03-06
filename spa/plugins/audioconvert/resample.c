@@ -750,6 +750,7 @@ static int impl_node_process(void *object)
 	bool flush_out = false;
 	bool flush_in = false;
 	bool draining = false;
+	bool passthrough;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -838,7 +839,17 @@ static int impl_node_process(void *object)
 	pout_len = out_len;
 #endif
 
-	resample_process(&this->resample, src_datas, &in_len, dst_datas, &out_len);
+	passthrough = this->resample.i_rate == this->resample.o_rate &&
+		(this->io_rate_match == NULL ||
+		 !SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE));
+
+	if (passthrough) {
+		for (i = 0; i < sb->n_datas; i++)
+			memcpy(dst_datas[i], src_datas[i], in_len * sizeof(float));
+		out_len = in_len;
+	} else {
+		resample_process(&this->resample, src_datas, &in_len, dst_datas, &out_len);
+	}
 
 #ifndef FASTPATH
 	spa_log_trace_fp(this->log, NAME " %p: in %d/%d %zd %d out %d/%d %zd %d max:%d",
@@ -883,14 +894,19 @@ static int impl_node_process(void *object)
 	if (this->io_rate_match) {
 		uint32_t match_size;
 
-		if (SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
-			resample_update_rate(&this->resample, this->io_rate_match->rate);
-		else
-			resample_update_rate(&this->resample, 1.0);
+		if (passthrough) {
+			if (SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
+				resample_update_rate(&this->resample, this->io_rate_match->rate);
+			else
+				resample_update_rate(&this->resample, 1.0);
 
-		this->io_rate_match->delay = resample_delay(&this->resample);
+			this->io_rate_match->delay = resample_delay(&this->resample);
 
-		match_size = resample_in_len(&this->resample, max - outport->offset / sizeof(float));
+			match_size = resample_in_len(&this->resample, max - outport->offset / sizeof(float));
+		} else {
+			this->io_rate_match->delay = 0;
+			match_size = max - outport->offset / sizeof(float);
+		}
 		match_size -= SPA_MIN(match_size, size - inport->offset / sizeof(float));
 		this->io_rate_match->size = match_size;
 		spa_log_trace_fp(this->log, NAME " %p: next match %u", this, match_size);

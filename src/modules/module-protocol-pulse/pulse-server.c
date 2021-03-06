@@ -4847,13 +4847,20 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 	pw_log_info(NAME" %p: [%s] %s tag:%u name:%s", impl, client->name,
 			commands[command].name, tag, name);
 
-	if ((o = find_device(client, SPA_ID_INVALID, name, sink)) == NULL)
-		return -ENOENT;
-
-	if ((res = pw_manager_set_metadata(manager, client->metadata_default,
-			PW_ID_CORE,
-			sink ? METADATA_CONFIG_DEFAULT_SINK : METADATA_CONFIG_DEFAULT_SOURCE,
-			"Spa:String:JSON", "{ \"name\": \"%s\" }", name)) < 0)
+	if (name != NULL) {
+		if ((o = find_device(client, SPA_ID_INVALID, name, sink)) == NULL)
+			return -ENOENT;
+		res = pw_manager_set_metadata(manager, client->metadata_default,
+				PW_ID_CORE,
+				sink ? METADATA_CONFIG_DEFAULT_SINK : METADATA_CONFIG_DEFAULT_SOURCE,
+				"Spa:String:JSON", "{ \"name\": \"%s\" }", name);
+	} else {
+		res = pw_manager_set_metadata(manager, client->metadata_default,
+				PW_ID_CORE,
+				sink ? METADATA_CONFIG_DEFAULT_SINK : METADATA_CONFIG_DEFAULT_SOURCE,
+				NULL, NULL);
+	}
+	if (res < 0)
 		return res;
 
 	return reply_simple_ack(client, tag);

@@ -659,7 +659,6 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	struct spa_pod_frame f[2];
 	enum spa_direction direction;
 	const char *name_prefix, *description, *port_type;
-	enum spa_param_availability available;
 	enum spa_bt_form_factor ff;
 	const struct a2dp_codec *codec;
 	char name[128];
@@ -735,9 +734,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		return NULL;
 	}
 
-	available = profile_direction_mask(this, this->profile) & (1 << direction) ?
-			SPA_PARAM_AVAILABILITY_yes : SPA_PARAM_AVAILABILITY_no;
-	if (dev != SPA_ID_INVALID && available == SPA_PARAM_AVAILABILITY_no)
+	if (dev != SPA_ID_INVALID && !(profile_direction_mask(this, this->profile) & (1 << direction)))
 		return NULL;
 
 	mask = 0;
@@ -753,7 +750,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		SPA_PARAM_ROUTE_name,  SPA_POD_String(name),
 		SPA_PARAM_ROUTE_description,  SPA_POD_String(description),
 		SPA_PARAM_ROUTE_priority,  SPA_POD_Int(0),
-		SPA_PARAM_ROUTE_available,  SPA_POD_Id(available),
+		SPA_PARAM_ROUTE_available,  SPA_POD_Id(SPA_PARAM_AVAILABILITY_yes),
 		0);
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_info, 0);
 	spa_pod_builder_push_struct(b, &f[1]);

@@ -1250,6 +1250,12 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, "channelmix.mix-lfe")) != NULL &&
 		    (strcmp(str, "true") == 0 || atoi(str) != 0))
 			this->mix.options |= CHANNELMIX_OPTION_MIX_LFE;
+		if ((str = spa_dict_lookup(info, "channelmix.upmix")) != NULL &&
+		    (strcmp(str, "true") == 0 || atoi(str) != 0))
+			this->mix.options |= CHANNELMIX_OPTION_UPMIX;
+		if ((str = spa_dict_lookup(info, "channelmix.filter-lfe")) != NULL &&
+		    (strcmp(str, "true") == 0 || atoi(str) != 0))
+			this->mix.options |= CHANNELMIX_OPTION_FILTER_LFE;
 		if ((str = spa_dict_lookup(info, SPA_KEY_AUDIO_POSITION)) != NULL) {
 			size_t len;
 			const char *p = str;

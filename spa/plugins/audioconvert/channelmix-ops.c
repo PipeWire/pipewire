@@ -220,22 +220,6 @@ static int make_matrix(struct channelmix *mix)
 		}
 	}
 
-	if (mix->src_chan <= 3 && (src_mask & STEREO) == STEREO && (dst_mask & REAR) == REAR) {
-		spa_log_debug(mix->log, "copy STEREO to REAR");
-		if ((src_mask & _MASK(RL)) == 0)
-			matrix[RL][FL] = 1.0f;
-		if ((src_mask & _MASK(RR)) == 0)
-			matrix[RR][FR] = 1.0f;
-
-	        if ((dst_mask & SIDE) == SIDE)  {
-			spa_log_debug(mix->log, "copy STEREO to SIDES");
-			if ((src_mask & _MASK(SL)) == 0)
-				matrix[SL][FL] = 1.0f;
-			if ((src_mask & _MASK(SR)) == 0)
-				matrix[SR][FR] = 1.0f;
-		}
-	}
-
 	if (unassigned & STEREO){
 		if (dst_mask & _MASK(FC)) {
 			spa_log_debug(mix->log, "assign STEREO to FC");
@@ -384,6 +368,58 @@ static int make_matrix(struct channelmix *mix)
 			spa_log_warn(mix->log, "can't assign LFE");
 		}
 	}
+
+	if (!SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_UPMIX))
+		goto done;
+
+	unassigned = dst_mask & ~src_mask;
+
+	spa_log_debug(mix->log, "unassigned upmix %08" PRIx64, unassigned);
+
+	if (unassigned & _MASK(FC)) {
+		if ((src_mask & STEREO) == STEREO) {
+			spa_log_debug(mix->log, "produce FC from STEREO");
+			matrix[FC][FL] += clev;
+			matrix[FC][FR] += clev;
+		} else {
+			spa_log_warn(mix->log, "can't produce FC");
+		}
+	}
+	if (unassigned & _MASK(LFE) &&
+	    SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_FILTER_LFE)) {
+		if ((src_mask & STEREO) == STEREO) {
+			spa_log_debug(mix->log, "produce LFE from STEREO");
+			matrix[LFE][FL] += llev;
+			matrix[LFE][FR] += llev;
+		} else {
+			spa_log_warn(mix->log, "can't produce LFE");
+		}
+	}
+	if (unassigned & SIDE) {
+		if ((src_mask & REAR) == REAR) {
+			spa_log_debug(mix->log, "produce SIDE from REAR");
+			matrix[SL][RL] += 1.0f;
+			matrix[SR][RR] += 1.0f;
+
+		} else if ((src_mask & STEREO) == STEREO) {
+			spa_log_debug(mix->log, "produce SIDE from STEREO");
+			matrix[SL][FL] += 1.0f;
+			matrix[SR][FR] += 1.0f;
+		}
+	}
+	if (unassigned & REAR) {
+		if ((src_mask & SIDE) == SIDE) {
+			spa_log_debug(mix->log, "produce REAR from SIDE");
+			matrix[RL][SL] += 1.0f;
+			matrix[RR][SR] += 1.0f;
+
+		} else if ((src_mask & STEREO) == STEREO) {
+			spa_log_debug(mix->log, "produce REAR from STEREO");
+			matrix[RL][FL] += 1.0f;
+			matrix[RR][FR] += 1.0f;
+		}
+	}
+
 done:
 	for (jc = 0, ic = 0, i = 0; i < NUM_CHAN; i++) {
 		float sum = 0.0f;

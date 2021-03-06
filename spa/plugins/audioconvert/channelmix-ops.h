@@ -48,6 +48,8 @@ struct channelmix {
 	uint32_t cpu_flags;
 #define CHANNELMIX_OPTION_MIX_LFE	(1<<0)		/**< mix LFE */
 #define CHANNELMIX_OPTION_NORMALIZE	(1<<1)		/**< normalize volumes */
+#define CHANNELMIX_OPTION_UPMIX		(1<<2)		/**< do simple upmixing */
+#define CHANNELMIX_OPTION_FILTER_LFE	(1<<3)		/**< generate and filter LFE */
 	uint32_t options;
 
 	struct spa_log *log;

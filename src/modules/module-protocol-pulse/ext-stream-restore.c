@@ -238,7 +238,9 @@ static int do_extension_stream_restore_write(struct client *client, uint32_t com
 				fprintf(f, "%s\"%s\"", (i == 0 ? " ":", "), channel_id2name(map.map[i]));
 			fprintf(f, " ]");
 		}
-		if (device_name != NULL && device_name[0])
+		if (device_name != NULL && device_name[0] &&
+		    strcmp(device_name, client->default_source) != 0 &&
+		    strcmp(device_name, client->default_sink) != 0)
 			fprintf(f, ", \"target-node\": \"%s\"", device_name);
 		fprintf(f, " }");
 		fclose(f);

@@ -2502,7 +2502,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	if (client == NULL)
 		goto disabled;
 
-	pw_log_debug(NAME" %p: open '%s' options:%d", client, client_name, options);
+	pw_log_info(NAME" %p: open '%s' options:%d", client, client_name, options);
 
 	va_start(ap, status);
 	varargs_parse(client, options, ap);
@@ -3341,7 +3341,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	spa_return_val_if_fail(port_name != NULL, NULL);
 	spa_return_val_if_fail(port_type != NULL, NULL);
 
-	pw_log_debug(NAME" %p: port register \"%s\" \"%s\" %08lx %ld",
+	pw_log_info(NAME" %p: port register \"%s\" \"%s\" %08lx %ld",
 			c, port_name, port_type, flags, buffer_frames);
 
 	if (flags & JackPortIsInput)
@@ -3461,7 +3461,7 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 		pw_log_error(NAME" %p: invalid port %p", client, port);
 		return -EINVAL;
 	}
-	pw_log_debug(NAME" %p: port unregister %p", client, port);
+	pw_log_info(NAME" %p: port unregister %p", client, port);
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -4042,7 +4042,7 @@ int jack_connect (jack_client_t *client,
 	spa_return_val_if_fail(source_port != NULL, EINVAL);
 	spa_return_val_if_fail(destination_port != NULL, EINVAL);
 
-	pw_log_debug(NAME" %p: connect %s %s", client, source_port, destination_port);
+	pw_log_info(NAME" %p: connect %s %s", client, source_port, destination_port);
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -4373,7 +4373,6 @@ const char ** jack_get_ports (jack_client_t *client,
 		regcomp(&port_regex, port_name_pattern, REG_EXTENDED | REG_NOSUB);
 	if (type_name_pattern && type_name_pattern[0])
 		regcomp(&type_regex, type_name_pattern, REG_EXTENDED | REG_NOSUB);
-
 
 	pw_log_debug(NAME" %p: ports id:%d name:%s type:%s flags:%08lx", c, id,
 			port_name_pattern, type_name_pattern, flags);

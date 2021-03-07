@@ -2082,7 +2082,7 @@ static int metadata_property(void *object, uint32_t id,
 	struct object *o;
 	jack_uuid_t uuid;
 
-	pw_log_info("set id:%u key:'%s' value:'%s' type:'%s'", id, key, value, type);
+	pw_log_debug("set id:%u key:'%s' value:'%s' type:'%s'", id, key, value, type);
 
 	if (id == PW_ID_CORE) {
 		if (key == NULL || strcmp(key, "default.audio.sink") == 0) {
@@ -2707,7 +2707,7 @@ int jack_client_close (jack_client_t *client)
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 
-	pw_log_debug(NAME" %p: close", client);
+	pw_log_info(NAME" %p: close", client);
 
 	c->destroyed = true;
 
@@ -2822,7 +2822,7 @@ static int do_activate(struct client *c)
 
 	pw_thread_loop_lock(c->context.loop);
 
-	pw_log_debug(NAME" %p: activate", c);
+	pw_log_info(NAME" %p: activate", c);
 	pw_client_node_set_active(c->node, true);
 
 	res = do_sync(c);
@@ -2867,7 +2867,7 @@ int jack_deactivate (jack_client_t *client)
 		return 0;
 
 	pw_thread_loop_lock(c->context.loop);
-	pw_log_debug(NAME" %p: deactivate", c);
+	pw_log_info(NAME" %p: deactivate", c);
 	pw_data_loop_stop(c->loop);
 
 	pw_client_node_set_active(c->node, false);
@@ -3240,6 +3240,7 @@ int jack_set_buffer_size (jack_client_t *client, jack_nframes_t nframes)
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 
 	snprintf(latency, sizeof(latency), "%d/%d", nframes, jack_get_sample_rate(client));
+	pw_log_info(NAME" %p: buffer-size %s", client, latency);
 
 	ni = SPA_NODE_INFO_INIT();
 	ni.max_input_ports = MAX_PORTS;

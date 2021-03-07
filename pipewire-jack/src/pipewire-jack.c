@@ -4392,7 +4392,11 @@ const char ** jack_get_ports (jack_client_t *client,
 			continue;
 
 		if (port_name_pattern && port_name_pattern[0]) {
-			if (regexec(&port_regex, o->port.name, 0, NULL, 0) == REG_NOMATCH)
+			bool match;
+			match = regexec(&port_regex, o->port.name, 0, NULL, 0) == 0;
+			if (!match && is_port_default(c, o))
+				match = regexec(&port_regex, o->port.system, 0, NULL, 0) == 0;
+			if (!match)
 				continue;
 		}
 		if (type_name_pattern && type_name_pattern[0]) {

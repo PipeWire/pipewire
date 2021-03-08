@@ -907,7 +907,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		state->clock->nsec = nsec;
 		state->clock->position += state->duration;
 		state->clock->duration = state->duration;
-		state->clock->delay = delay;
+		state->clock->delay = delay + state->delay;
 		state->clock->rate_diff = corr;
 		state->clock->next_nsec = state->next_time;
 	}

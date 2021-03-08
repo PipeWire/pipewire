@@ -417,6 +417,9 @@ static int restore_route_params(struct device *dev, const char *val, struct rout
 
 	pw_device_set_param((struct pw_node*)dev->obj->obj.proxy,
 			SPA_PARAM_Route, 0, param);
+
+	sm_media_session_schedule_rescan(dev->impl->session);
+
 	return 0;
 }
 

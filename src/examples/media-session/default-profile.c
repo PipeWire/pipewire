@@ -245,6 +245,8 @@ static int set_profile(struct device *dev, struct profile *pr)
 
 	dev->active_profile = pr->index;
 
+	sm_media_session_schedule_rescan(dev->impl->session);
+
 	return 0;
 }
 

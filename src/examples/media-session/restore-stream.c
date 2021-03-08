@@ -363,6 +363,9 @@ static int restore_stream(struct stream *str, const char *val)
 
 	pw_node_set_param((struct pw_node*)str->obj->obj.proxy,
 			SPA_PARAM_Props, 0, param);
+
+	sm_media_session_schedule_rescan(str->impl->session);
+
 	return 0;
 }
 

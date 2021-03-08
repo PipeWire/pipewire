@@ -1774,7 +1774,8 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index, uint32_t fl
 		mixer_volume_init(impl, d);
 
 		sync_mixer(d, p);
-		res = pa_alsa_ucm_set_port(d->ucm_context, p, true);
+		res = pa_alsa_ucm_set_port(d->ucm_context, p,
+					dev->direction == ACP_DIRECTION_PLAYBACK);
 	} else {
 		pa_alsa_port_data *data;
 

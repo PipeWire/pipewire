@@ -324,6 +324,7 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 	struct spa_bt_backend *backend = rfcomm->backend;
 	unsigned int features;
 	unsigned int gain;
+	unsigned int len, k, v;
 	unsigned int selected_codec;
 
 	if (sscanf(buf, "AT+BRSF=%u", &features) == 1) {
@@ -459,6 +460,30 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 			spa_log_debug(backend->log, NAME": RFCOMM receive unsupported VGS gain: %s", buf);
 			rfcomm_send_reply(source, "ERROR");
 		}
+	} else if (strncmp(buf, "AT+XAPL=", 8) == 0) {
+		// We expect battery status only (bitmask 10)
+        	rfcomm_send_reply(source, "+XAPL: iPhone,2");
+		rfcomm_send_reply(source, "OK");
+	} else if (sscanf(buf, "AT+IPHONEACCEV=%d", &len) == 1) {
+		if (len < 1) {
+			return false;
+		}
+
+		for (unsigned int i = 1; i <= len; i++) {
+			buf = strchr(buf, ',') + 1;
+			if (sscanf(buf, "%d", &k) != 1) return false;
+			buf = strchr(buf, ',') + 1;
+			if (sscanf(buf, "%d", &v) != 1) return false;
+
+			if (k == SPA_BT_HFP_HF_IPHONEACCEV_KEY_BATTERY) {
+				// Battery level is reported in range of 0-9, convert to 0-100%
+				rfcomm->transport->battery = (v + 1) * 10;
+				spa_log_debug(backend->log, NAME": battery level: %d%%", rfcomm->transport->battery);
+			}
+		}
+	} else if (strncmp(buf, "AT+APLSIRI?", 11) == 0) {
+		// This command is sent when we activate Apple extensions
+        	rfcomm_send_reply(source, "OK");
 	} else {
 		return false;
 	}
@@ -1417,7 +1442,7 @@ static int parse_headset_roles(struct spa_bt_backend *backend, const struct spa_
 	spa_json_init(&it, str, strlen(str));
 
 	if (spa_json_enter_array(&it, &it_array) <= 0) {
-		spa_log_error(backend->log, 
+		spa_log_error(backend->log,
 					  NAME": property "PROP_KEY_HEADSET_ROLES" '%s' is not an array", str);
 		goto fallback;
 	}

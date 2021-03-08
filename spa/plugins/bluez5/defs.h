@@ -446,6 +446,9 @@ struct spa_bt_transport_implementation {
 	int (*destroy) (void *data);
 };
 
+// Key for getting battery state
+#define SPA_BT_HFP_HF_IPHONEACCEV_KEY_BATTERY	1
+
 struct spa_bt_transport {
 	struct spa_list link;
 	struct spa_bt_monitor *monitor;
@@ -457,6 +460,7 @@ struct spa_bt_transport {
 	enum spa_bt_transport_state state;
 	const struct a2dp_codec *a2dp_codec;
 	unsigned int codec;
+	uint8_t battery;
 	void *configuration;
 	int configuration_len;
 

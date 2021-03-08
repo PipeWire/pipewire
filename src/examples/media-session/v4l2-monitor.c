@@ -255,6 +255,7 @@ static void v4l2_device_object_info(void *data, uint32_t id,
 	} else {
 		v4l2_update_node(dev, node, info);
 	}
+	sm_media_session_schedule_rescan(dev->impl->session);
 }
 
 static const struct spa_device_events v4l2_device_events = {

@@ -960,6 +960,7 @@ static void alsa_udev_object_info(void *data, uint32_t id,
 	} else {
 		alsa_update_device(impl, device, info);
 	}
+	sm_media_session_schedule_rescan(impl->session);
 }
 
 static const struct spa_device_events alsa_udev_events =

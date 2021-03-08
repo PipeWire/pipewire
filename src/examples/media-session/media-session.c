@@ -470,6 +470,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 		}
 	}
 	sm_object_sync_update(&device->obj);
+	sm_media_session_schedule_rescan(&impl->this);
 }
 
 static void device_event_param(void *object, int seq,
@@ -570,6 +571,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 		}
 	}
 	sm_object_sync_update(&node->obj);
+	sm_media_session_schedule_rescan(&impl->this);
 }
 
 static void node_event_param(void *object, int seq,
@@ -1263,6 +1265,7 @@ registry_global(void *data, uint32_t id,
 				impl, id, obj->type, type);
 		update_object(impl, info, obj, id, permissions, type, version, props);
 	}
+	sm_media_session_schedule_rescan(&impl->this);
 }
 
 int sm_object_add_listener(struct sm_object *obj, struct spa_hook *listener,
@@ -1410,6 +1413,7 @@ static void monitor_sync(struct impl *impl)
 	pw_core_set_paused(impl->policy_core, true);
 	impl->monitor_seq = pw_core_sync(impl->monitor_core, 0, impl->monitor_seq);
 	pw_log_debug(NAME " %p: monitor sync start %d", impl, impl->monitor_seq);
+	sm_media_session_schedule_rescan(&impl->this);
 }
 
 struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,

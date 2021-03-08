@@ -74,8 +74,6 @@ struct device {
 
 	struct spa_hook listener;
 
-	unsigned int restored:1;
-
 	uint32_t saved_profile;
 	uint32_t active_profile;
 };
@@ -250,67 +248,95 @@ static int set_profile(struct device *dev, struct profile *pr)
 	return 0;
 }
 
-static int handle_profile(struct device *dev)
+static int handle_active_profile(struct device *dev)
 {
 	struct impl *impl = dev->impl;
 	struct profile pr;
 	int res;
 
-	if (!dev->restored) {
-		/* first try to restore our saved profile */
-		res = find_saved_profile(dev, &pr);
-		if (res < 0 || pr.available == SPA_PARAM_AVAILABILITY_no) {
-			/* no saved profile found or it is not available */
-			if (res < 0)
-				pw_log_info("device '%s': no saved profile: %s",
-					dev->name, spa_strerror(res));
-			else
-				pw_log_info("device '%s': saved profile '%s' unavailable",
-					dev->name, pr.name);
+	/* check if current profile changed */
+	if ((res = find_current_profile(dev, &pr)) < 0)
+		return res;
 
-			/* try to find the next best profile */
-			res = find_best_profile(dev, &pr);
-			if (res < 0)
-				pw_log_info("device '%s': can't find best profile: %s",
-						dev->name, spa_strerror(res));
-			else
-				pw_log_info("device '%s': found best profile '%s'",
-						dev->name, pr.name);
+	if (dev->active_profile == pr.index) {
+		/* no change, we're done */
+		pw_log_info("device '%s': active profile '%s'", dev->name, pr.name);
+		return 0;
+	}
+
+	/* we get here when we had configured a profile but something
+	 * else changed it, in that case, save it when asked. */
+	pw_log_info("device '%s': active profile changed to '%s'", dev->name, pr.name);
+	dev->active_profile = pr.index;
+
+	if (!pr.save)
+		return 0;
+
+	dev->saved_profile = pr.index;
+	if (pw_properties_setf(impl->properties, dev->key, "{ \"name\": \"%s\" }", pr.name)) {
+		pw_log_info("device '%s': active profile saved as '%s'", dev->name, pr.name);
+		add_idle_timeout(impl);
+	}
+	return 0;
+}
+
+static int handle_profile_switch(struct device *dev)
+{
+	struct profile pr;
+	int res;
+
+	/* try to restore our saved profile */
+	res = find_saved_profile(dev, &pr);
+	if (res >= 0) {
+		/* we found a saved profile */
+		if (pr.available == SPA_PARAM_AVAILABILITY_no) {
+			pw_log_info("device '%s': saved profile '%s' unavailable",
+				dev->name, pr.name);
+			res = -ENOENT;
 		} else {
 			pw_log_info("device '%s': found saved profile '%s'",
 						dev->name, pr.name);
-			dev->saved_profile = pr.index;
 			/* make sure we save again */
 			pr.save = true;
 		}
-		if (res >= 0) {
-			pw_log_info("device '%s': restore profile '%s' index %d",
-					dev->name, pr.name, pr.index);
-			if (set_profile(dev, &pr) >= 0)
-				dev->restored = true;
+	} else {
+		pw_log_info("device '%s': no saved profile: %s",
+			dev->name, spa_strerror(res));
+	}
+	if (res < 0) {
+		/* try to find the next best profile */
+		res = find_best_profile(dev, &pr);
+		if (res < 0)
+			pw_log_info("device '%s': can't find best profile: %s",
+					dev->name, spa_strerror(res));
+		else
+			pw_log_info("device '%s': found best profile '%s'",
+					dev->name, pr.name);
+	}
+	if (res >= 0) {
+		if (dev->active_profile == pr.index) {
+			pw_log_info("device '%s': best profile '%s' is already active",
+					dev->name, pr.name);
 		} else {
-			pw_log_warn("device '%s': can't restore profile", dev->name);
+			pw_log_info("device '%s': restore best profile '%s' index %d",
+					dev->name, pr.name, pr.index);
+			set_profile(dev, &pr);
 		}
 	} else {
-		if ((res = find_current_profile(dev, &pr)) < 0)
-			return res;
-
-		if (dev->active_profile == pr.index)
-			return 0;
-
-		/* we get here when we had configured a profile but something
-		 * else changed it, in that case, save it when asked. */
-		dev->active_profile = pr.index;
-
-		if (!pr.save)
-			return 0;
-
-		dev->saved_profile = pr.index;
-		if (pw_properties_setf(impl->properties, dev->key, "{ \"name\": \"%s\" }", pr.name)) {
-			pw_log_info("device '%s': active profile changed to '%s'", dev->name, pr.name);
-			add_idle_timeout(impl);
-		}
+		pw_log_warn("device '%s': can't restore profile: %s", dev->name,
+				spa_strerror(res));
 	}
+	return 0;
+}
+
+static int handle_profile(struct device *dev)
+{
+	/* check if current profile changed */
+	handle_active_profile(dev);
+
+	/* check if we need to switch profile */
+	handle_profile_switch(dev);
+
 	return 0;
 }
 

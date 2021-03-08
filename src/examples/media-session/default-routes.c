@@ -454,49 +454,6 @@ static int find_current_profile(struct device *dev, struct profile *pr)
 	return -ENOENT;
 }
 
-static int find_best_profile(struct device *dev, struct profile *pr)
-{
-	struct sm_param *p;
-	struct profile best, best_avail, best_unk, off;
-
-	spa_zero(best);
-	spa_zero(best_avail);
-	spa_zero(best_unk);
-	spa_zero(off);
-
-	spa_list_for_each(p, &dev->obj->param_list, link) {
-		struct profile t;
-
-		if (p->id != SPA_PARAM_EnumProfile ||
-		    parse_profile(p, &t) < 0)
-			continue;
-
-		if (t.name && strcmp(t.name, "pro-audio") == 0)
-			continue;
-
-		if (t.name && strcmp(t.name, "off") == 0) {
-			off = t;
-		}
-		else if (t.available == SPA_PARAM_AVAILABILITY_yes) {
-			if (best_avail.name == NULL || t.prio > best_avail.prio)
-				best_avail = t;
-		}
-		else if (t.available != SPA_PARAM_AVAILABILITY_no) {
-			if (best_unk.name == NULL || t.prio > best_unk.prio)
-				best_unk = t;
-		}
-	}
-	best = best_avail;
-	if (best.name == NULL)
-		best = best_unk;
-	if (best.name == NULL)
-		best = off;
-	if (best.name == NULL)
-		return -ENOENT;
-	*pr = best;
-	return 0;
-}
-
 static int restore_route(struct device *dev, struct route *r)
 {
 	struct impl *impl = dev->impl;
@@ -768,26 +725,6 @@ static void prune_route_info(struct device *dev)
 	}
 }
 
-static int set_profile(struct device *dev, struct profile *pr)
-{
-	char buf[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-
-	if (dev->active_profile == pr->index)
-		return 0;
-
-	pw_device_set_param((struct pw_device*)dev->obj->obj.proxy,
-			SPA_PARAM_Profile, 0,
-			spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(pr->index),
-				SPA_PARAM_PROFILE_save, SPA_POD_Bool(false)));
-
-	dev->active_profile = pr->index;
-
-	return 0;
-}
-
 static int handle_route(struct device *dev, struct route *r)
 {
 	struct route_info *ri;
@@ -814,10 +751,8 @@ static int handle_route(struct device *dev, struct route *r)
 static int handle_routes(struct device *dev)
 {
 	struct sm_param *p;
-	bool changed = false;
-	int res;
 
-	/* first look at all routes and see if something changed */
+	/* first look at all routes */
 	spa_list_for_each(p, &dev->obj->param_list, link) {
 		struct route r;
 		struct route_info *ri;
@@ -832,7 +767,6 @@ static int handle_routes(struct device *dev)
 		if (ri->available != r.available) {
 			pw_log_info("device %d: route %s available changed %d -> %d",
 					dev->id, r.name, ri->available, r.available);
-			changed = true;
 		}
 		ri->generation = dev->generation;
 		ri->prev_active = ri->active;
@@ -845,28 +779,6 @@ static int handle_routes(struct device *dev)
 		    parse_route(p, &r) < 0)
 			continue;
 		handle_route(dev, &r);
-	}
-	if (changed) {
-		struct profile best;
-
-		pw_log_info("device %d: find best profile", dev->id);
-		/* port availability changed, find new best profile and switch
-		 * to it when needed. */
-		if ((res = find_best_profile(dev, &best)) < 0) {
-			pw_log_info("device %d: can't find best profile", dev->id);
-			return res;
-		}
-		if (dev->active_profile != best.index) {
-			pw_log_info("device %d: activating best profile %s",
-					dev->id, best.name);
-			/* we need to switch profiles */
-			set_profile(dev, &best);
-			return 0;
-		} else {
-			pw_log_info("device %d: best profile %s already active",
-					dev->id, best.name);
-			reconfigure_profile(dev, &best);
-		}
 	}
 	prune_route_info(dev);
 

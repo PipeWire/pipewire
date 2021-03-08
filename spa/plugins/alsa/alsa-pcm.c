@@ -856,29 +856,31 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		snd_pcm_sframes_t target, bool follower)
 {
 	double err, corr;
+	int32_t diff;
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK)
 		err = delay - target;
 	else
 		err = target - delay;
 
-	err = SPA_CLAMP(err, -state->max_error, state->max_error);
-
 	if (SPA_UNLIKELY(state->dll.bw == 0.0)) {
 		spa_dll_set_bw(&state->dll, SPA_DLL_BW_MAX, state->threshold, state->rate);
 		state->next_time = nsec;
 		state->base_time = nsec;
 	}
-	corr = spa_dll_update(&state->dll, err);
+	diff = (int32_t) (state->last_threshold - state->threshold);
 
-	if (SPA_UNLIKELY(state->last_threshold != state->threshold)) {
-		int32_t diff = (int32_t) (state->last_threshold - state->threshold);
-		spa_log_trace(state->log, NAME" %p: follower:%d quantum change %d -> %d (%d)",
-				state, follower, state->last_threshold, state->threshold, diff);
-		if (diff < 0)
-			state->next_time += diff / corr * 1e9 / state->rate;
+	if (SPA_UNLIKELY(diff != 0)) {
+		err -= diff;
+		spa_log_trace(state->log, NAME" %p: follower:%d quantum change %d -> %d (%d) %f",
+				state, follower, state->last_threshold, state->threshold, diff, err);
 		state->last_threshold = state->threshold;
 	}
+	err = SPA_CLAMP(err, -state->max_error, state->max_error);
+	corr = spa_dll_update(&state->dll, err);
+
+	if (diff < 0)
+		state->next_time += diff / corr * 1e9 / state->rate;
 
 	if (SPA_UNLIKELY((state->next_time - state->base_time) > BW_PERIOD)) {
 		state->base_time = state->next_time;

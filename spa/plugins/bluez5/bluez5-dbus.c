@@ -1184,6 +1184,28 @@ int spa_bt_transport_release(struct spa_bt_transport *transport)
 	return res;
 }
 
+static int spa_bt_transport_release_now(struct spa_bt_transport *transport)
+{
+	int res;
+
+	if (transport->acquire_refcount == 0)
+		return 0;
+
+	spa_bt_transport_stop_release_timer(transport);
+	res = spa_bt_transport_impl(transport, release, 0);
+	if (res >= 0)
+		transport->acquire_refcount = 0;
+
+	return res;
+}
+
+int spa_bt_device_release_transports(struct spa_bt_device *device)
+{
+	struct spa_bt_transport *t;
+	spa_list_for_each(t, &device->transport_list, device_link)
+		spa_bt_transport_release_now(t);
+}
+
 static void spa_bt_transport_release_timer_event(struct spa_source *source)
 {
 	struct spa_bt_transport *transport = source->data;

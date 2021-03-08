@@ -404,6 +404,7 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force);
 int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec **codecs);
 bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec *codec);
 const struct a2dp_codec **spa_bt_device_get_supported_a2dp_codecs(struct spa_bt_device *device, size_t *count);
+int spa_bt_device_release_transports(struct spa_bt_device *device);
 
 #define spa_bt_device_emit(d,m,v,...)			spa_hook_list_call(&(d)->listener_list, \
 								struct spa_bt_device_events,	\

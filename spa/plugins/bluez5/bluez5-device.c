@@ -270,6 +270,8 @@ static int set_profile(struct impl *this, uint32_t profile, const struct a2dp_co
 
 	emit_remove_nodes(this);
 
+	spa_bt_device_release_transports(this->bt_dev);
+
 	this->profile = profile;
 	this->selected_a2dp_codec = a2dp_codec;
 

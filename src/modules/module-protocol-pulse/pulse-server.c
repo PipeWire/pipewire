@@ -120,7 +120,6 @@ struct client;
 struct operation {
 	struct spa_list link;
 	struct client *client;
-	int seq;
 	uint32_t tag;
 };
 
@@ -140,7 +139,6 @@ struct client {
 	struct pw_properties *props;
 
 	struct pw_core *core;
-	struct spa_hook core_listener;
 	struct pw_manager *manager;
 	struct spa_hook manager_listener;
 
@@ -498,8 +496,9 @@ static int operation_new(struct client *client, uint32_t tag)
 
 	o->client = client;
 	o->tag = tag;
-	o->seq = pw_core_sync(client->core, PW_ID_CORE, 0);
 	spa_list_append(&client->operations, &o->link);
+	pw_manager_sync(client->manager);
+	pw_log_debug(NAME" %p: operation tag:%u", client, tag);
 	return 0;
 }
 
@@ -725,6 +724,7 @@ static int reply_set_client_name(struct client *client, uint32_t tag)
 static void manager_sync(void *data)
 {
 	struct client *client = data;
+	struct operation *o;
 
 	pw_log_debug(NAME" %p: manager sync", client);
 
@@ -732,6 +732,8 @@ static void manager_sync(void *data)
 		reply_set_client_name(client, client->connect_tag);
 		client->connect_tag = SPA_ID_INVALID;
 	}
+	spa_list_consume(o, &client->operations, link)
+		operation_complete(o);
 }
 
 static struct stream *find_stream(struct client *client, uint32_t id)
@@ -1018,22 +1020,6 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 	}
 }
 
-static void client_core_done(void *data, uint32_t id, int seq)
-{
-	struct client *client = data;
-	struct operation *o, *t;
-
-	spa_list_for_each_safe(o, t, &client->operations, link) {
-		if (o->seq == seq)
-			operation_complete(o);
-	}
-}
-
-static const struct pw_core_events client_core_events = {
-	PW_VERSION_CORE_EVENTS,
-	.done = client_core_done,
-};
-
 static const struct pw_manager_events manager_events = {
 	PW_VERSION_MANAGER_EVENTS,
 	.sync = manager_sync,
@@ -1082,8 +1068,6 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 			goto error;
 		}
 		client->connect_tag = tag;
-		pw_core_add_listener(client->core, &client->core_listener,
-				&client_core_events, client);
 		pw_manager_add_listener(client->manager, &client->manager_listener,
 				&manager_events, client);
 	} else {

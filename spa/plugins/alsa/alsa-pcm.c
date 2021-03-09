@@ -803,7 +803,7 @@ recover:
 	state->alsa_started = false;
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK)
-		spa_alsa_silence(state, state->threshold + state->headroom);
+		spa_alsa_silence(state, state->last_threshold + state->headroom);
 
 	return do_start(state);
 }

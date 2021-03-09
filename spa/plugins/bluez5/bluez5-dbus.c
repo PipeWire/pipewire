@@ -1204,6 +1204,7 @@ int spa_bt_device_release_transports(struct spa_bt_device *device)
 	struct spa_bt_transport *t;
 	spa_list_for_each(t, &device->transport_list, device_link)
 		spa_bt_transport_release_now(t);
+	return 0;
 }
 
 static void spa_bt_transport_release_timer_event(struct spa_source *source)

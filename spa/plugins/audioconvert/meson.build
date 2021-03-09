@@ -89,6 +89,8 @@ endif
 
 audioconvert = static_library('audioconvert',
 	['fmt-ops.c',
+	 'biquad.c',
+         'crossover.c',
 	 'channelmix-ops.c',
 	 'channelmix-ops-c.c',
 	 'resample-native.c',

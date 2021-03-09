@@ -429,6 +429,8 @@ done:
 				continue;
 			mix->matrix_orig[ic][jc++] = matrix[i][j];
 			sum += fabs(matrix[i][j]);
+			if (i == LFE)
+				lr4_set(&mix->lr4[ic], BQ_LOWPASS, mix->lfe_cutoff / mix->freq);
 		}
 		maxsum = SPA_MAX(maxsum, sum);
 		ic++;

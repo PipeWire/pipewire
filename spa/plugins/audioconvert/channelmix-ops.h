@@ -28,6 +28,8 @@
 #include <spa/utils/defs.h>
 #include <spa/param/audio/raw.h>
 
+#include "crossover.h"
+
 #define VOLUME_MIN 0.0f
 #define VOLUME_NORM 1.0f
 
@@ -63,6 +65,7 @@ struct channelmix {
 
 	float freq;					/* sample frequency */
 	float lfe_cutoff;				/* in Hz, 0 is disabled */
+	struct lr4 lr4[SPA_AUDIO_MAX_CHANNELS];
 
 	void (*process) (struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
 			uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples);

@@ -252,6 +252,8 @@ channelmix_f32_2_3p1_c(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRI
 			d[2][n] = c * v2;
 			d[3][n] = c * v3;
 		}
+		if (v3 > 0.0f)
+			lr4_process(&mix->lr4[3], d[3], n_samples);
 	}
 	else {
 		for (n = 0; n < n_samples; n++) {
@@ -261,6 +263,8 @@ channelmix_f32_2_3p1_c(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRI
 			d[2][n] = c * v2;
 			d[3][n] = c * v3;
 		}
+		if (v3 > 0.0f)
+			lr4_process(&mix->lr4[3], d[3], n_samples);
 	}
 }
 
@@ -291,6 +295,8 @@ channelmix_f32_2_5p1_c(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRI
 			d[2][n] = c * v2;
 			d[3][n] = c * v3;
 		}
+		if (v3 > 0.0f)
+			lr4_process(&mix->lr4[3], d[3], n_samples);
 	}
 	else {
 		for (n = 0; n < n_samples; n++) {
@@ -302,6 +308,8 @@ channelmix_f32_2_5p1_c(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRI
 			d[4][n] = s[0][n] * v4;
 			d[5][n] = s[1][n] * v5;
 		}
+		if (v3 > 0.0f)
+			lr4_process(&mix->lr4[3], d[3], n_samples);
 	}
 }
 

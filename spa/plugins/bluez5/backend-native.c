@@ -56,7 +56,6 @@
 #define BLUEZ_INTERFACE_BATTERY_PROVIDER_MANAGER "org.bluez.BatteryProviderManager1"
 
 #define PIPEWIRE_BATTERY_PROVIDER "/org/freedesktop/pipewire/battery"
-#define BATTERY_PROVIDER_UNAVAILABLE 255
 
 struct spa_bt_backend {
 	struct spa_bt_monitor *monitor;

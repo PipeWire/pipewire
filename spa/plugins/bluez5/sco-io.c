@@ -186,7 +186,7 @@ int spa_bt_sco_io_write(struct spa_bt_sco_io *io, uint8_t *buf, int size)
 	uint16_t packet_size;
 	uint8_t *buf_start = buf;
 
-	packet_size = (io->read_size > 0) ? SPA_MIN(io->write_mtu, io->read_size) : io->write_mtu;
+	packet_size = (io->read_size > 0) ? SPA_MIN(io->write_mtu, io->read_size) : (io->write_mtu / 2) * 2;
 	spa_assert(packet_size > 0);
 
 	if (size < packet_size) {

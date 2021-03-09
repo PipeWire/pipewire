@@ -53,46 +53,6 @@
 
 #define NAME "bluez5-monitor"
 
-struct spa_bt_monitor {
-	struct spa_handle handle;
-	struct spa_device device;
-
-	struct spa_log *log;
-	struct spa_loop *main_loop;
-	struct spa_system *main_system;
-	struct spa_dbus *dbus;
-	struct spa_dbus_connection *dbus_connection;
-	DBusConnection *conn;
-
-	struct spa_hook_list hooks;
-
-	uint32_t count;
-	uint32_t id;
-
-	/*
-	 * Lists of BlueZ objects, kept up-to-date by following DBus events
-	 * initiated by BlueZ. Object lifetime is also determined by that.
-	 */
-	struct spa_list adapter_list;
-	struct spa_list device_list;
-	struct spa_list remote_endpoint_list;
-	struct spa_list transport_list;
-
-	unsigned int filters_added:1;
-	unsigned int objects_listed:1;
-
-	struct spa_bt_backend *backend_native;
-	struct spa_bt_backend *backend_ofono;
-	struct spa_bt_backend *backend_hsphfpd;
-
-	struct spa_dict enabled_codecs;
-
-	unsigned int enable_sbc_xq:1;
-	unsigned int backend_native_registered:1;
-	unsigned int backend_ofono_registered:1;
-	unsigned int backend_hsphfpd_registered:1;
-};
-
 /* Stream endpoints owned by BlueZ for each device */
 struct spa_bt_remote_endpoint {
 	struct spa_list link;

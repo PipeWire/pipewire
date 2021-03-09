@@ -965,10 +965,9 @@ static int metadata_property(void *object, uint32_t subject,
 		struct default_node *def;
 		bool changed = false;
 		char *val = NULL;
+		char name[1024];
 
 		if (key != NULL && value != NULL) {
-			char name[1024];
-
 			pw_log_info("meta %s: %s", key, value);
 			if (json_object_find(value, "name", name, sizeof(name)) < 0)
 				return 0;

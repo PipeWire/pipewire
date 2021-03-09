@@ -895,6 +895,9 @@ static int impl_node_process(void *object)
 		uint32_t match_size;
 
 		if (passthrough) {
+			this->io_rate_match->delay = 0;
+			match_size = max - outport->offset / sizeof(float);
+		} else {
 			if (SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
 				resample_update_rate(&this->resample, this->io_rate_match->rate);
 			else
@@ -903,9 +906,6 @@ static int impl_node_process(void *object)
 			this->io_rate_match->delay = resample_delay(&this->resample);
 
 			match_size = resample_in_len(&this->resample, max - outport->offset / sizeof(float));
-		} else {
-			this->io_rate_match->delay = 0;
-			match_size = max - outport->offset / sizeof(float);
 		}
 		match_size -= SPA_MIN(match_size, size - inport->offset / sizeof(float));
 		this->io_rate_match->size = match_size;

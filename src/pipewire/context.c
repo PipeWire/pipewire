@@ -65,7 +65,8 @@
 struct impl {
 	struct pw_context this;
 	struct spa_handle *dbus_handle;
-	unsigned int recalc;
+	unsigned int recalc:1;
+	unsigned int recalc_pending:1;
 };
 
 
@@ -918,9 +919,12 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 
 	pw_log_info(NAME" %p: busy:%d reason:%s", context, impl->recalc, reason);
 
-	if (impl->recalc)
+	if (impl->recalc) {
+		impl->recalc_pending = true;
 		return -EBUSY;
+	}
 
+again:
 	impl->recalc = true;
 
 	/* start from all drivers and group all nodes that are linked
@@ -1041,6 +1045,11 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 		ensure_state(n, running);
 	}
 	impl->recalc = false;
+	if (impl->recalc_pending) {
+		impl->recalc_pending = false;
+		goto again;
+	}
+
 	return 0;
 }
 

@@ -433,6 +433,8 @@ struct spa_bt_device {
 	struct spa_list remote_endpoint_list;
 	struct spa_list transport_list;
 	struct spa_list codec_switch_list;
+	uint8_t battery;
+	int has_battery;
 
 	struct spa_hook_list listener_list;
 	bool added;
@@ -503,7 +505,6 @@ struct spa_bt_transport {
 	enum spa_bt_transport_state state;
 	const struct a2dp_codec *a2dp_codec;
 	unsigned int codec;
-	uint8_t battery;
 	void *configuration;
 	int configuration_len;
 

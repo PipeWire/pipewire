@@ -1340,7 +1340,7 @@ static void alsa_on_timeout_event(struct spa_source *source)
 	if (SPA_UNLIKELY(state->started && spa_system_timerfd_read(state->data_system, state->timerfd, &expire) < 0))
 		spa_log_warn(state->log, NAME" %p: error reading timerfd: %m", state);
 
-	if (SPA_LIKELY(state->position)) {
+	if (SPA_UNLIKELY(state->position && state->duration != state->position->clock.duration)) {
 		state->duration = state->position->clock.duration;
 		state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
 	}

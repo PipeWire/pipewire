@@ -75,10 +75,11 @@ struct object {
 	struct spa_list data_list;
 };
 
-static void core_sync(struct manager *m)
+static int core_sync(struct manager *m)
 {
 	m->sync_seq = pw_core_sync(m->this.core, PW_ID_CORE, m->sync_seq);
 	pw_log_debug("sync start %u", m->sync_seq);
+	return m->sync_seq;
 }
 
 static uint32_t clear_params(struct spa_list *param_list, uint32_t id)
@@ -793,4 +794,10 @@ void *pw_manager_object_add_data(struct pw_manager_object *obj, const char *id, 
 
 done:
 	return SPA_MEMBER(d, sizeof(struct object_data), void);
+}
+
+int pw_manager_sync(struct pw_manager *manager)
+{
+	struct manager *m = SPA_CONTAINER_OF(manager, struct manager, this);
+	return core_sync(m);
 }

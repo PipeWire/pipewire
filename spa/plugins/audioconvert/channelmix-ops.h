@@ -48,6 +48,9 @@ extern struct spa_log_topic *log_topic;
 
 #define BUFFER_SIZE 4096
 
+#define BUFFER_SIZE 4096
+#define MAX_TAPS 255
+
 struct channelmix {
 	uint32_t src_chan;
 	uint32_t dst_chan;
@@ -73,11 +76,14 @@ struct channelmix {
 	float lfe_cutoff;				/* in Hz, 0 is disabled */
 	float rear_delay;				/* in ms, 0 is disabled */
 	float widen;					/* stereo widen. 0 is disabled */
+	uint32_t hilbert_taps;				/* to phase shift, 0 disabled */
 	struct lr4 lr4[SPA_AUDIO_MAX_CHANNELS];
 
 	float buffer[2][BUFFER_SIZE];
 	uint32_t pos[2];
 	uint32_t delay;
+	float taps[MAX_TAPS];
+	uint32_t n_taps;
 
 	void (*process) (struct channelmix *mix, void * SPA_RESTRICT dst[],
 			const void * SPA_RESTRICT src[], uint32_t n_samples);

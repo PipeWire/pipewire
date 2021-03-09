@@ -302,10 +302,10 @@ channelmix_f32_2_5p1_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 		lr4_process(&mix->lr4[2], d[2], d[3], v2, n_samples);
 		lr4_process(&mix->lr4[3], d[3], d[3], v3, n_samples);
 
-		delay_run(mix->buffer[0], &mix->pos[0], BUFFER_SIZE, mix->delay,
-				d[4], d[5], v4, n_samples);
-		delay_run(mix->buffer[1], &mix->pos[1], BUFFER_SIZE, mix->delay,
-				d[5], d[5], v5, n_samples);
+		delay_convolve_run(mix->buffer[0], &mix->pos[0], BUFFER_SIZE, mix->delay,
+				mix->taps, mix->n_taps, d[4], d[5], v4, n_samples);
+		delay_convolve_run(mix->buffer[1], &mix->pos[1], BUFFER_SIZE, mix->delay,
+				mix->taps, mix->n_taps, d[5], d[5], -v5, n_samples);
 	}
 	else {
 		for (n = 0; n < n_samples; n++) {
@@ -320,10 +320,10 @@ channelmix_f32_2_5p1_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 		lr4_process(&mix->lr4[2], d[2], d[3], v2, n_samples);
 		lr4_process(&mix->lr4[3], d[3], d[3], v3, n_samples);
 
-		delay_run(mix->buffer[0], &mix->pos[0], BUFFER_SIZE, mix->delay,
-				d[4], d[5], v4, n_samples);
-		delay_run(mix->buffer[1], &mix->pos[1], BUFFER_SIZE, mix->delay,
-				d[5], d[5], v5, n_samples);
+		delay_convolve_run(mix->buffer[0], &mix->pos[0], BUFFER_SIZE, mix->delay,
+				mix->taps, mix->n_taps, d[4], d[5], v4, n_samples);
+		delay_convolve_run(mix->buffer[1], &mix->pos[1], BUFFER_SIZE, mix->delay,
+				mix->taps, mix->n_taps, d[5], d[5], -v5, n_samples);
 	}
 }
 
@@ -362,10 +362,10 @@ channelmix_f32_2_7p1_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 		lr4_process(&mix->lr4[2], d[2], d[3], v2, n_samples);
 		lr4_process(&mix->lr4[3], d[3], d[3], v3, n_samples);
 
-		delay_run(mix->buffer[0], &mix->pos[0], BUFFER_SIZE, mix->delay,
-				d[6], d[7], v6, n_samples);
-		delay_run(mix->buffer[1], &mix->pos[1], BUFFER_SIZE, mix->delay,
-				d[7], d[7], v7, n_samples);
+		delay_convolve_run(mix->buffer[0], &mix->pos[0], BUFFER_SIZE, mix->delay,
+				mix->taps, mix->n_taps, d[6], d[7], v6, n_samples);
+		delay_convolve_run(mix->buffer[1], &mix->pos[1], BUFFER_SIZE, mix->delay,
+				mix->taps, mix->n_taps, d[7], d[7], -v7, n_samples);
 	}
 	else {
 		for (n = 0; n < n_samples; n++) {
@@ -382,10 +382,10 @@ channelmix_f32_2_7p1_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 		lr4_process(&mix->lr4[2], d[2], d[3], v2, n_samples);
 		lr4_process(&mix->lr4[3], d[3], d[3], v3, n_samples);
 
-		delay_run(mix->buffer[0], &mix->pos[0], BUFFER_SIZE, mix->delay,
-				d[6], d[7], v6, n_samples);
-		delay_run(mix->buffer[1], &mix->pos[1], BUFFER_SIZE, mix->delay,
-				d[7], d[7], v7, n_samples);
+		delay_convolve_run(mix->buffer[0], &mix->pos[0], BUFFER_SIZE, mix->delay,
+				mix->taps, mix->n_taps, d[6], d[7], v6, n_samples);
+		delay_convolve_run(mix->buffer[1], &mix->pos[1], BUFFER_SIZE, mix->delay,
+				mix->taps, mix->n_taps, d[7], d[7], -v7, n_samples);
 	}
 }
 

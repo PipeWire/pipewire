@@ -35,6 +35,7 @@
 #define VOLUME_NORM 1.0f
 
 #include "channelmix-ops.h"
+#include "hilbert.h"
 
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT log_topic
@@ -469,6 +470,7 @@ done:
 			for (j = 0; j < jc; j++)
 		                mix->matrix_orig[i][j] /= maxsum;
 	}
+
 	return 0;
 }
 
@@ -550,7 +552,16 @@ int channelmix_init(struct channelmix *mix)
 	mix->cpu_flags = info->cpu_flags;
 	mix->delay = mix->rear_delay * mix->freq / 1000.0f;
 
-	spa_log_debug(mix->log, "selected %s delay:%d", info->name, mix->delay);
+	spa_log_debug(mix->log, "selected %s delay:%d options:%08x", info->name, mix->delay,
+			mix->options);
 
+	if (mix->hilbert_taps > 0) {
+		mix->n_taps = SPA_CLAMP(mix->hilbert_taps, 15, 255) | 1;
+		blackman_window(mix->taps, mix->n_taps);
+		hilbert_generate(mix->taps, mix->n_taps);
+	} else {
+		mix->n_taps = 1;
+		mix->taps[0] = 1.0f;
+	}
 	return make_matrix(mix);
 }

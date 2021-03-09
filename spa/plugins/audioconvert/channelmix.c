@@ -527,6 +527,15 @@ static int impl_node_enum_params(void *object, int seq,
 					this->mix.widen, 0.0, 1.0),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
+		case 15:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.hilbert-taps"),
+				SPA_PROP_INFO_description, SPA_POD_String("Taps for phase shift of rear"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(
+					this->mix.hilbert_taps, 0, MAX_TAPS),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
 		default:
 			return 0;
 		}
@@ -582,6 +591,8 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_float(&b, this->mix.rear_delay);
 			spa_pod_builder_string(&b, "channelmix.stereo-widen");
 			spa_pod_builder_float(&b, this->mix.widen);
+			spa_pod_builder_string(&b, "channelmix.hilbert-taps");
+			spa_pod_builder_int(&b, this->mix.hilbert_taps);
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
@@ -621,6 +632,8 @@ static int channelmix_set_param(struct impl *this, const char *k, const char *s)
 		spa_atof(s, &this->mix.rear_delay);
 	else if (spa_streq(k, "channelmix.stereo-widen"))
 		spa_atof(s, &this->mix.widen);
+	else if (spa_streq(k, "channelmix.hilbert-taps"))
+		spa_atou32(s, &this->mix.hilbert_taps, 0);
 	else
 		return 0;
 	return 1;

@@ -187,7 +187,7 @@ loop_invoke(void *object,
 	item->func = func;
 	item->seq = seq;
 	item->size = size;
-	item->block = block;
+	item->block = block && !in_thread;
 	item->user_data = user_data;
 
 	spa_log_trace(impl->log, NAME " %p: add item %p filled:%d", impl, item, filled);
@@ -213,7 +213,7 @@ loop_invoke(void *object,
 		loop_signal_event(impl, impl->wakeup);
 	}
 
-	if (block) {
+	if (block && !in_thread) {
 		uint64_t count = 1;
 
 		spa_loop_control_hook_before(&impl->hooks_list);

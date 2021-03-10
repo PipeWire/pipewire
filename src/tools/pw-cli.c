@@ -2039,7 +2039,7 @@ static const char *name_to_dump_type(const char *name)
 		return NULL;
 
 	for (i = 0; i < SPA_N_ELEMENTS(dump_types); i++) {
-		if (!strcmp(name, pw_interface_short(dump_types[i])))
+		if (!strcasecmp(name, pw_interface_short(dump_types[i])))
 			return dump_types[i];
 	}
 

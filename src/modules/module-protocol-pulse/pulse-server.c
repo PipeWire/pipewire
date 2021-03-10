@@ -92,6 +92,8 @@ struct stats {
 #define DEFAULT_DEFAULT_TLENGTH	"96000/48000"
 #define DEFAULT_MIN_QUANTUM	"256/48000"
 
+#define MAX_FORMATS	32
+
 struct defs {
 	struct spa_fraction min_req;
 	struct spa_fraction default_req;
@@ -1916,7 +1918,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	uint8_t n_formats = 0;
 	struct stream *stream = NULL;
 	uint32_t n_params = 0, n_valid_formats = 0, flags;
-	const struct spa_pod *params[32];
+	const struct spa_pod *params[MAX_FORMATS];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
@@ -2001,17 +2003,6 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			goto error_protocol;
 	}
 
-	if (sample_spec_valid(&ss)) {
-		if ((params[n_params] = format_build_param(&b,
-				SPA_PARAM_EnumFormat, &ss, &map)) != NULL) {
-			n_params++;
-			n_valid_formats++;
-		} else {
-			pw_log_warn(NAME" %p: unsupported format:%s rate:%d channels:%u",
-					impl, format_id2name(ss.format), ss.rate,
-					ss.channels);
-		}
-	}
 	if (client->version >= 21) {
 		if ((res = message_get(m,
 				TAG_U8, &n_formats,
@@ -2028,7 +2019,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 						TAG_INVALID)) < 0)
 					goto error_protocol;
 
-				if ((params[n_params] = format_info_build_param(&b,
+				if (n_params < MAX_FORMATS &&
+				    (params[n_params] = format_info_build_param(&b,
 						SPA_PARAM_EnumFormat, &format)) != NULL) {
 					n_params++;
 					n_valid_formats++;
@@ -2039,6 +2031,19 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			}
 		}
 	}
+	if (sample_spec_valid(&ss)) {
+		if (n_params < MAX_FORMATS &&
+		    (params[n_params] = format_build_param(&b,
+				SPA_PARAM_EnumFormat, &ss, &map)) != NULL) {
+			n_params++;
+			n_valid_formats++;
+		} else {
+			pw_log_warn(NAME" %p: unsupported format:%s rate:%d channels:%u",
+					impl, format_id2name(ss.format), ss.rate,
+					ss.channels);
+		}
+	}
+
 	if (m->offset != m->length)
 		goto error_protocol;
 
@@ -2160,7 +2165,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	uint8_t n_formats = 0;
 	struct stream *stream = NULL;
 	uint32_t n_params = 0, n_valid_formats = 0, flags, id;
-	const struct spa_pod *params[32];
+	const struct spa_pod *params[MAX_FORMATS];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
@@ -2227,17 +2232,6 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 				TAG_INVALID)) < 0)
 			goto error_protocol;
 	}
-	if (sample_spec_valid(&ss)) {
-		if ((params[n_params] = format_build_param(&b,
-				SPA_PARAM_EnumFormat, &ss, &map)) != NULL) {
-			n_params++;
-			n_valid_formats++;
-		} else {
-			pw_log_warn(NAME" %p: unsupported format:%s rate:%d channels:%u",
-					impl, format_id2name(ss.format), ss.rate,
-					ss.channels);
-		}
-	}
 	if (client->version >= 22) {
 		if ((res = message_get(m,
 				TAG_U8, &n_formats,
@@ -2254,7 +2248,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 						TAG_INVALID)) < 0)
 					goto error_protocol;
 
-				if ((params[n_params] = format_info_build_param(&b,
+				if (n_params < MAX_FORMATS &&
+				    (params[n_params] = format_info_build_param(&b,
 						SPA_PARAM_EnumFormat, &format)) != NULL) {
 					n_params++;
 					n_valid_formats++;
@@ -2273,6 +2268,18 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 				TAG_BOOLEAN, &passthrough,
 				TAG_INVALID)) < 0)
 			goto error_protocol;
+	}
+	if (sample_spec_valid(&ss)) {
+		if (n_params < MAX_FORMATS &&
+		    (params[n_params] = format_build_param(&b,
+				SPA_PARAM_EnumFormat, &ss, &map)) != NULL) {
+			n_params++;
+			n_valid_formats++;
+		} else {
+			pw_log_warn(NAME" %p: unsupported format:%s rate:%d channels:%u",
+					impl, format_id2name(ss.format), ss.rate,
+					ss.channels);
+		}
 	}
 	if (m->offset != m->length)
 		goto error_protocol;

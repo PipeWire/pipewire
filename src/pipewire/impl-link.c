@@ -519,7 +519,10 @@ do_activate_link(struct spa_loop *loop,
 		spa_list_append(&impl->onode->rt.target_list, &this->rt.target.link);
 
 		state = &this->rt.target.activation->state[0];
-		state->required++;
+		if (!this->rt.target.active && impl->onode->rt.driver_target.node != NULL) {
+			state->required++;
+			this->rt.target.active = true;
+		}
 
 		pw_log_trace(NAME" %p: node:%p state:%p pending:%d/%d", this, impl->inode,
 				state, state->pending, state->required);
@@ -693,7 +696,10 @@ do_deactivate_link(struct spa_loop *loop,
 
 		spa_list_remove(&this->rt.target.link);
 		state = &this->rt.target.activation->state[0];
-		state->required--;
+		if (this->rt.target.active) {
+			state->required--;
+			this->rt.target.active = false;
+		}
 
 		pw_log_trace(NAME" %p: node:%p state:%p pending:%d/%d", this, impl->inode,
 				state, state->pending, state->required);

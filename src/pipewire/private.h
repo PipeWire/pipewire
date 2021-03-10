@@ -513,6 +513,7 @@ struct pw_node_target {
 	struct pw_node_activation *activation;
 	int (*signal) (void *data);
 	void *data;
+	unsigned int active:1;
 };
 
 struct pw_node_activation {

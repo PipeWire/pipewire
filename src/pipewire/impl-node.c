@@ -101,6 +101,7 @@ static void node_deactivate(struct pw_impl_node *this)
 static void add_node(struct pw_impl_node *this, struct pw_impl_node *driver)
 {
 	struct pw_node_activation_state *dstate, *nstate;
+	struct pw_node_target *t;
 
 	if (this->exported)
 		return;
@@ -114,21 +115,29 @@ static void add_node(struct pw_impl_node *this, struct pw_impl_node *driver)
 	this->rt.driver_target.data = driver;
 	spa_list_append(&this->rt.target_list, &this->rt.driver_target.link);
 
-	dstate = &this->rt.driver_target.activation->state[0];
-	dstate->required++;
-
 	spa_list_append(&driver->rt.target_list, &this->rt.target.link);
 	nstate = &this->rt.activation->state[0];
-	nstate->required++;
+	if (!this->rt.target.active) {
+		nstate->required++;
+		this->rt.target.active = true;
+	}
 
-	pw_log_trace(NAME" %p: driver state:%p pending:%d/%d, node state:%p pending:%d/%d",
-			this, dstate, dstate->pending, dstate->required,
-			nstate, nstate->pending, nstate->required);
+	spa_list_for_each(t, &this->rt.target_list, link) {
+		dstate = &t->activation->state[0];
+		if (!t->active) {
+			dstate->required++;
+			t->active = true;
+		}
+		pw_log_trace(NAME" %p: driver state:%p pending:%d/%d, node state:%p pending:%d/%d",
+				this, dstate, dstate->pending, dstate->required,
+				nstate, nstate->pending, nstate->required);
+	}
 }
 
 static void remove_node(struct pw_impl_node *this)
 {
 	struct pw_node_activation_state *dstate, *nstate;
+	struct pw_node_target *t;
 
 	if (this->exported)
 		return;
@@ -137,17 +146,27 @@ static void remove_node(struct pw_impl_node *this)
 			this, this->rt.driver_target.data,
 			this->rt.driver_target.activation, this->rt.activation);
 
-	spa_list_remove(&this->rt.driver_target.link);
-	dstate = &this->rt.driver_target.activation->state[0];
-	dstate->required--;
-
 	spa_list_remove(&this->rt.target.link);
-	nstate = &this->rt.activation->state[0];
-	nstate->required--;
 
-	pw_log_trace(NAME" %p: driver state:%p pending:%d/%d, node state:%p pending:%d/%d",
-			this, dstate, dstate->pending, dstate->required,
-			nstate, nstate->pending, nstate->required);
+	nstate = &this->rt.activation->state[0];
+	if (this->rt.target.active) {
+		nstate->required--;
+		this->rt.target.active = false;
+	}
+
+	spa_list_for_each(t, &this->rt.target_list, link) {
+		dstate = &t->activation->state[0];
+		if (t->active) {
+			dstate->required--;
+			t->active = false;
+		}
+		pw_log_trace(NAME" %p: driver state:%p pending:%d/%d, node state:%p pending:%d/%d",
+				this, dstate, dstate->pending, dstate->required,
+				nstate, nstate->pending, nstate->required);
+	}
+	spa_list_remove(&this->rt.driver_target.link);
+
+	this->rt.driver_target.node = NULL;
 }
 
 static int

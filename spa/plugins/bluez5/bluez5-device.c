@@ -532,7 +532,12 @@ static void set_initial_profile(struct impl *this)
 		t = find_transport(this, i, NULL);
 		if (t) {
 			this->profile = 1;
-			this->selected_a2dp_codec = t->a2dp_codec;
+
+			/* Source devices don't have codec selection */
+			if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE)
+				this->selected_a2dp_codec = NULL;
+			else
+				this->selected_a2dp_codec = t->a2dp_codec;
 			return;
 		}
 	}

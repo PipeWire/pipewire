@@ -125,6 +125,16 @@ static inline enum sample_format format_id2pa(uint32_t id)
 	return SAMPLE_INVALID;
 }
 
+static inline const char *format_id2paname(uint32_t id)
+{
+	size_t i;
+	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
+		if (id == audio_formats[i].id)
+			return audio_formats[i].name;
+	}
+	return "invalid";
+}
+
 struct sample_spec {
 	uint32_t format;
 	uint32_t rate;
@@ -357,6 +367,15 @@ static inline enum channel_position channel_id2pa(uint32_t id, uint32_t *aux)
 	return CHANNEL_POSITION_AUX0 + (*aux)++;
 }
 
+static inline const char *channel_id2paname(uint32_t id, uint32_t *aux)
+{
+	size_t i;
+	for (i = 0; i < SPA_N_ELEMENTS(audio_channels); i++) {
+		if (id == audio_channels[i].channel)
+			return audio_channels[i].name;
+	}
+	return audio_channels[CHANNEL_POSITION_AUX0 + (*aux)++].name;
+}
 
 static inline uint32_t channel_paname2id(const char *name, size_t size)
 {
@@ -548,6 +567,32 @@ static const struct spa_pod *format_build_param(struct spa_pod_builder *b,
 		channel_map_to_positions(map, info.position);
 
 	return spa_format_audio_raw_build(b, id, &info);
+}
+
+static int format_info_from_spec(struct format_info *info,
+		struct sample_spec *ss, struct channel_map *map)
+{
+	spa_zero(*info);
+	info->encoding = ENCODING_PCM;
+	if ((info->props = pw_properties_new(NULL, NULL)) == NULL)
+		return -errno;
+
+	pw_properties_setf(info->props, "format.sample_format", "\"%s\"",
+			format_id2paname(ss->format));
+	pw_properties_setf(info->props, "format.rate", "%d", ss->rate);
+	pw_properties_setf(info->props, "format.channels", "%d", ss->channels);
+	if (map && map->channels == ss->channels) {
+		char chmap[1024] = "";
+		int i, o;
+		uint32_t aux = 0;
+
+		for (i = 0, o = 0; i < map->channels; i++) {
+			o += snprintf(chmap+o, sizeof(chmap)-o, "%s%s", i == 0 ? "" : ",",
+					channel_id2paname(map->map[i], &aux));
+		}
+		pw_properties_setf(info->props, "format.channel_map", "\"%s\"", chmap);
+	}
+	return 0;
 }
 
 static const struct spa_pod *format_info_build_param(struct spa_pod_builder *b,

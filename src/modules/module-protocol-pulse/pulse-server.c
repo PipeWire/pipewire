@@ -4322,11 +4322,11 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 			TAG_INVALID);
 	if (client->version >= 21) {
 		struct format_info fi;
-		spa_zero(fi);
-		fi.encoding = ENCODING_PCM;
+		format_info_from_spec(&fi, &dev_info.ss, &dev_info.map);
 		message_put(m,
 			TAG_FORMAT_INFO, &fi,
 			TAG_INVALID);
+		format_info_clear(&fi);
 	}
 	return 0;
 }
@@ -4389,8 +4389,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 			TAG_INVALID);
 	if (client->version >= 22) {
 		struct format_info fi;
-		spa_zero(fi);
-		fi.encoding = ENCODING_PCM;
+		format_info_from_spec(&fi, &dev_info.ss, &dev_info.map);
 		message_put(m,
 			TAG_CVOLUME, &dev_info.volume_info.volume,
 			TAG_BOOLEAN, dev_info.volume_info.mute,	/* muted */
@@ -4398,6 +4397,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 			TAG_BOOLEAN, true,		/* volume writable */
 			TAG_FORMAT_INFO, &fi,
 			TAG_INVALID);
+		format_info_clear(&fi);
 	}
 	return 0;
 }

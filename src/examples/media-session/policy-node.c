@@ -702,7 +702,8 @@ static int rescan_node(struct impl *impl, struct node *n)
 	                   n->type == NODE_TYPE_STREAM &&
 	                   reconnect &&
 	                   n->obj->target_node == NULL &&
-	                   spa_dict_lookup(props, PW_KEY_NODE_TARGET) == NULL);
+	                   ((str = spa_dict_lookup(props, PW_KEY_NODE_TARGET)) == NULL ||
+			    (uint32_t)atoi(str) == SPA_ID_INVALID));
 
 	if (n->peer != NULL && !follows_default) {
 		pw_log_debug(NAME " %p: node %d is already linked", impl, n->id);

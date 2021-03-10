@@ -22,7 +22,7 @@ configure_file(input : 'pipewire-pulse.service.in',
                configuration : systemd_config,
                install_dir : systemd_user_services_dir)
 
-if get_option('media-session')
+if not get_option('media-session').disabled()
   configure_file(input : 'pipewire-media-session.service.in',
                output : 'pipewire-media-session.service',
                configuration : systemd_config,

@@ -11,7 +11,7 @@ task:
   build_script:
     - mkdir build
     - cd build
-    - meson setup -Dalsa=false -Dpipewire-alsa=false -Dbluez5=false -Djack=false -Dpipewire-jack=false -Dpipewire-pulseaudio=false -Dv4l2=false -Dsystemd=false ..
+    - meson setup -Dalsa=disabled -Dpipewire-alsa=disabled -Dbluez5=disabled -Djack=disabled -Dpipewire-jack=disabled -Dpipewire-pulseaudio=disabled -Dv4l2=disabled -Dsystemd=disabled ..
     - ninja
   test_script:
     - cd build

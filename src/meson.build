@@ -4,13 +4,11 @@ subdir('extensions')
 subdir('daemon')
 subdir('tools')
 subdir('modules')
-if get_option('examples')
+if not get_option('examples').disabled()
   subdir('examples')
 endif
-if get_option('tests')
+if not get_option('tests').disabled()
   subdir('tests')
 endif
 
-if get_option('gstreamer')
-  subdir('gst')
-endif
+subdir('gst')

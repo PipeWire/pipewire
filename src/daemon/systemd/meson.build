@@ -1,6 +1,6 @@
-if get_option('systemd-system-service')
+if not get_option('systemd-system-service').disabled()
   subdir('system')
 endif
-if get_option('systemd-user-service')
+if not get_option('systemd-user-service').disabled()
   subdir('user')
 endif

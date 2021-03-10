@@ -19,7 +19,7 @@ manpages = [
   [ 'pw-mon', '1' ]
 ]
 
-if get_option('pipewire-jack')
+if not get_option('pipewire-jack').disabled()
   manpages += [[ 'pw-jack', '1' ]]
 endif
 

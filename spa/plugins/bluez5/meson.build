@@ -1,3 +1,24 @@
+bluez5_deps = [ dbus_dep, sbc_dep, bluez_dep ]
+foreach dep: bluez5_deps
+  if not dep.found()
+    subdir_done()
+  endif
+endforeach
+
+if not get_option('bluez5-backend-hsp-native').disabled()
+  cdata.set('HAVE_BLUEZ_5_BACKEND_HSP_NATIVE', 1)
+  cdata.set('HAVE_BLUEZ_5_BACKEND_NATIVE', 1)
+endif
+if not get_option('bluez5-backend-hfp-native').disabled()
+  cdata.set('HAVE_BLUEZ_5_BACKEND_HFP_NATIVE', 1)
+  cdata.set('HAVE_BLUEZ_5_BACKEND_NATIVE', 1)
+endif
+if not get_option('bluez5-backend-ofono').disabled()
+  cdata.set('HAVE_BLUEZ_5_BACKEND_OFONO', 1)
+endif
+if not get_option('bluez5-backend-hsphfpd').disabled()
+  cdata.set('HAVE_BLUEZ_5_BACKEND_HSPHFPD', 1)
+endif
 
 bluez5_sources = ['plugin.c',
 		  'a2dp-codecs.c',
@@ -11,7 +32,6 @@ bluez5_sources = ['plugin.c',
 		  'bluez5-dbus.c']
 
 bluez5_args = [ '-D_GNU_SOURCE' ]
-bluez5_deps = [ dbus_dep, sbc_dep, bluez_dep ]
 
 if ldac_dep.found()
   bluez5_sources += [ 'a2dp-codec-ldac.c' ]
@@ -33,15 +53,15 @@ if fdk_aac_dep.found()
   bluez5_deps += fdk_aac_dep
 endif
 
-if get_option('bluez5-backend-hsp-native') or get_option('bluez5-backend-hfp-native')
+if not get_option('bluez5-backend-hsp-native').disabled() or not get_option('bluez5-backend-hfp-native').disabled()
   bluez5_sources += ['backend-native.c']
 endif
 
-if get_option('bluez5-backend-ofono')
+if not get_option('bluez5-backend-ofono').disabled()
   bluez5_sources += ['backend-ofono.c']
 endif
 
-if get_option('bluez5-backend-hsphfpd')
+if not get_option('bluez5-backend-hsphfpd').disabled()
   bluez5_sources += ['backend-hsphfpd.c']
 endif
 

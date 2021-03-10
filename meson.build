@@ -171,7 +171,7 @@ elif cc.links(
   dependencies : libatomic,
   name : '8-byte __atomic_store_n with libatomic')
   atomic_dep = libatomic
-elif get_option('pipewire-jack')
+elif get_option('pipewire-jack').enabled()
   # Currently only required for the JACK backend
   error('8-byte atomic operations are required for pipewire-jack')
 endif
@@ -277,42 +277,11 @@ if cc.has_function('getrandom', prefix : '#include <sys/random.h>')
   cdata.set('HAVE_GETRANDOM', 1)
 endif
 
-if get_option('systemd')
-  systemd = dependency('systemd', required: false)
-  systemd_dep = dependency('libsystemd', required: false)
-  if systemd.found() and systemd_dep.found()
-    cdata.set('HAVE_SYSTEMD', 1)
-  else
-    warning('systemd integration was enabled, but systemd is not available')
-  endif
+systemd = dependency('systemd', required: get_option('systemd'))
+systemd_dep = dependency('libsystemd',required: get_option('systemd'))
+if systemd.found() and systemd_dep.found()
+  cdata.set('HAVE_SYSTEMD', 1)
 endif
-
-if get_option('bluez5')
-  if get_option('bluez5-backend-hsp-native')
-    cdata.set('HAVE_BLUEZ_5_BACKEND_HSP_NATIVE', 1)
-    cdata.set('HAVE_BLUEZ_5_BACKEND_NATIVE', 1)
-  endif
-  if get_option('bluez5-backend-hfp-native')
-    cdata.set('HAVE_BLUEZ_5_BACKEND_HFP_NATIVE', 1)
-    cdata.set('HAVE_BLUEZ_5_BACKEND_NATIVE', 1)
-  endif
-  if get_option('bluez5-backend-ofono')
-    cdata.set('HAVE_BLUEZ_5_BACKEND_OFONO', 1)
-  endif
-  if get_option('bluez5-backend-hsphfpd')
-    cdata.set('HAVE_BLUEZ_5_BACKEND_HSPHFPD', 1)
-  endif
-endif
-
-if get_option('gstreamer')
-  if get_option('gstreamer-device-provider')
-    cdata.set('HAVE_GSTREAMER_DEVICE_PROVIDER', 1)
-  endif
-endif
-
-configure_file(input : 'config.h.meson',
-  output : 'config.h',
-  configuration : cdata)
 
 configinc = include_directories('.')
 pipewire_inc = include_directories('src')
@@ -341,19 +310,35 @@ sdl_dep = dependency('sdl2', required : get_option('sdl2'))
 ncurses_dep = dependency('ncurses', required : false)
 sndfile_dep = dependency('sndfile', version : '>= 1.0.20', required : get_option('sndfile'))
 
-if get_option('gstreamer')
-  glib_dep = dependency('glib-2.0', version : '>=2.32.0')
-endif
+gst_option = get_option('gstreamer')
+gst_deps_def = {
+  'glib-2.0': {'version': '>=2.32.0'},
+  'gobject-2.0': {},
+  'gmodule-2.0': {},
+  'gio-2.0': {},
+  'gio-unix-2.0': {},
+  'gstreamer-1.0': {'version': '>= 1.10.0'},
+  'gstreamer-plugins-base-1.0': {},
+  'gstreamer-video-1.0': {},
+  'gstreamer-audio-1.0': {},
+  'gstreamer-allocators-1.0': {},
+}
 
-if get_option('gstreamer')
-  gobject_dep = dependency('gobject-2.0')
-  gmodule_dep = dependency('gmodule-2.0')
-  gio_dep = [dependency('gio-2.0'), dependency('gio-unix-2.0')]
-  gst_dep = [dependency('gstreamer-1.0', version : '>= 1.10.0'),
-             dependency('gstreamer-plugins-base-1.0'),
-             dependency('gstreamer-video-1.0'),
-             dependency('gstreamer-audio-1.0'),
-             dependency('gstreamer-allocators-1.0'),]
+gst_dep = []
+foreach depname, kwargs: gst_deps_def
+  dep = dependency(depname, required: gst_option, kwargs: kwargs)
+  if not dep.found()
+    gst_dep = []
+    if get_option('gstreamer-device-provider').enabled()
+      error('`gstreamer-device-provider` is enabled but `@0@` was not found.'.format(depname))
+    endif
+    break
+  endif
+  gst_dep += [dep]
+endforeach
+
+if not get_option('gstreamer-device-provider').disabled()
+  cdata.set('HAVE_GSTREAMER_DEVICE_PROVIDER', 1)
 endif
 
 # On FreeBSD, epoll-shim library is required for eventfd() and timerfd()
@@ -365,44 +350,38 @@ libinotify_dep = (build_machine.system() == 'freebsd'
     ? dependency('libinotify', required: true)
     : dependency('', required: false))
 
-alsa_dep = (get_option('pipewire-alsa')
-    ? dependency('alsa', version : '>=1.1.7')
-    : dependency('', required: false))
+alsa_dep = dependency('alsa', version : '>=1.1.7', required: get_option('pipewire-alsa'))
 
 installed_tests_metadir = join_paths(pipewire_datadir, 'installed-tests', pipewire_name)
 installed_tests_execdir = join_paths(pipewire_libexecdir, 'installed-tests', pipewire_name)
-installed_tests_enabled = get_option('installed_tests')
+installed_tests_enabled = not get_option('installed_tests').disabled()
 installed_tests_template = files('template.test.in')
 
 subdir('po')
 subdir('spa')
 subdir('src')
 
-if get_option('pipewire-jack')
+configure_file(input : 'config.h.meson',
+  output : 'config.h',
+  configuration : cdata)
+
+if not get_option('pipewire-jack').disabled()
   subdir('pipewire-jack')
 endif
 
-if get_option('pipewire-alsa')
+if not get_option('pipewire-alsa').disabled()
   subdir('pipewire-alsa/alsa-plugins')
   subdir('pipewire-alsa/conf')
 endif
 
-if get_option('docs')
-  doxygen = find_program('doxygen', required : false)
-  if doxygen.found()
-    subdir('doc')
-  else
-    warning('Documentation was enabled, but doxygen is not available')
-  endif
+doxygen = find_program('doxygen', required : get_option('docs'))
+if doxygen.found()
+  subdir('doc')
 endif
 
-if get_option('man')
-  xmltoman = find_program('xmltoman', required : false)
-  if xmltoman.found()
-    subdir('man')
-  else
-    warning('Man page generation was enabled, but xmltoman is not available')
-  endif
+xmltoman = find_program('xmltoman', required : get_option('man'))
+if xmltoman.found()
+  subdir('man')
 endif
 
 setenv = find_program('pw-uninstalled.sh')

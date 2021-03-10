@@ -15,10 +15,10 @@ spa_support_lib = shared_library('spa-support',
 		        install_dir : join_paths(spa_plugindir, 'support'))
 
 
-if get_option('evl')
+if not get_option('evl').disabled()
   evl_inc = include_directories('/usr/evl/include')
   evl_lib = cc.find_library('evl',
-		dirs: ['/usr/evl/lib/'])
+		dirs: ['/usr/evl/lib/'], required: get_option('evl'))
 
   spa_evl_sources = ['evl-system.c',
 		   'evl-plugin.c']
@@ -42,7 +42,7 @@ spa_dbus_lib = shared_library('spa-dbus',
 		        install_dir : join_paths(spa_plugindir, 'support'))
 
 
-if get_option('systemd') and systemd_dep.found()
+if systemd_dep.found()
   spa_journal_sources = ['journal.c']
 
   spa_journal_lib = shared_library('spa-journal',

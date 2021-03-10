@@ -9,7 +9,7 @@ spa_inc = include_directories('include')
 
 subdir('include')
 
-if get_option('spa-plugins')
+if not get_option('spa-plugins').disabled()
   udevrulesdir = get_option('udevrulesdir')
   if udevrulesdir == ''
     # absolute path, otherwise meson prepends the prefix
@@ -17,42 +17,28 @@ if get_option('spa-plugins')
   endif
 
   # common dependencies
-  if get_option('alsa') or get_option('v4l2')
-    libudev_dep = dependency('libudev')
-  endif
+  libudev_dep = dependency('libudev', required: get_option('alsa').enabled() or get_option('v4l2').enabled() or get_option('udev').enabled())
 
   # plugin-specific dependencies
-  if get_option('alsa')
-    alsa_dep = dependency('alsa')
-  endif
-  if get_option('bluez5')
-    bluez_dep = dependency('bluez', version : '>= 4.101')
-    sbc_dep = dependency('sbc')
-    ldac_dep = dependency('ldacBT-enc', required : false)
-    ldac_abr_dep = dependency('ldacBT-abr', required : false)
-    aptx_dep = dependency('libopenaptx', required : false)
-    fdk_aac_dep = dependency('fdk-aac', required : false)
-  endif
-  if get_option('ffmpeg')
-    avcodec_dep = dependency('libavcodec')
-    avformat_dep = dependency('libavformat')
-  endif
-  if get_option('jack')
-    jack_dep = dependency('jack', version : '>= 1.9.10')
-  endif
-  if get_option('vulkan')
-    vulkan_dep = dependency('vulkan', version : '>= 1.1.69')
-  endif
-  if get_option('libcamera')
-    libcamera_dep = dependency('camera')
-  endif
+  alsa_dep = dependency('alsa', required: get_option('alsa'))
+  bluez_dep = dependency('bluez', version : '>= 4.101', required: get_option('bluez5'))
+  sbc_dep = dependency('sbc', required: get_option('bluez5'))
+  ldac_dep = dependency('ldacBT-enc', required : false)
+  ldac_abr_dep = dependency('ldacBT-abr', required : false)
+  aptx_dep = dependency('libopenaptx', required : false)
+  fdk_aac_dep = dependency('fdk-aac', required : false)
+  avcodec_dep = dependency('libavcodec', required: get_option('ffmpeg'))
+  avformat_dep = dependency('libavformat', required: get_option('ffmpeg'))
+  jack_dep = dependency('jack', version : '>= 1.9.10', required: get_option('jack'))
+  vulkan_dep = dependency('vulkan', version : '>= 1.1.69', required: get_option('vulkan'))
+  libcamera_dep = dependency('camera', required: get_option('libcamera'))
 
   subdir('plugins')
 endif
 
 subdir('tools')
 subdir('tests')
-if get_option('examples')
+if not get_option('examples').disabled()
   subdir('examples')
 endif
 

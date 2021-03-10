@@ -6,7 +6,7 @@ if sdl_dep.found()
              install : installed_tests_enabled,
              install_dir : join_paths(installed_tests_execdir, 'examples', 'spa'))
 
-  if get_option('libcamera') and libcamera_dep.found()
+  if libcamera_dep.found()
     executable('local-libcamera', 'local-libcamera.c',
                include_directories : [configinc, spa_inc],
                c_args : ['-D_GNU_SOURCE'],

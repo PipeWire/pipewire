@@ -53,6 +53,46 @@
 
 #define NAME "bluez5-monitor"
 
+struct spa_bt_monitor {
+	struct spa_handle handle;
+	struct spa_device device;
+
+	struct spa_log *log;
+	struct spa_loop *main_loop;
+	struct spa_system *main_system;
+	struct spa_dbus *dbus;
+	struct spa_dbus_connection *dbus_connection;
+	DBusConnection *conn;
+
+	struct spa_hook_list hooks;
+
+	uint32_t count;
+	uint32_t id;
+
+	/*
+	 * Lists of BlueZ objects, kept up-to-date by following DBus events
+	 * initiated by BlueZ. Object lifetime is also determined by that.
+	 */
+	struct spa_list adapter_list;
+	struct spa_list device_list;
+	struct spa_list remote_endpoint_list;
+	struct spa_list transport_list;
+
+	unsigned int filters_added:1;
+	unsigned int objects_listed:1;
+
+	struct spa_bt_backend *backend_native;
+	struct spa_bt_backend *backend_ofono;
+	struct spa_bt_backend *backend_hsphfpd;
+
+	struct spa_dict enabled_codecs;
+
+	unsigned int enable_sbc_xq:1;
+	unsigned int backend_native_registered:1;
+	unsigned int backend_ofono_registered:1;
+	unsigned int backend_hsphfpd_registered:1;
+};
+
 /* Stream endpoints owned by BlueZ for each device */
 struct spa_bt_remote_endpoint {
 	struct spa_list link;
@@ -109,6 +149,211 @@ struct spa_bt_a2dp_codec_switch {
 static int spa_bt_transport_stop_release_timer(struct spa_bt_transport *transport);
 static int spa_bt_transport_start_release_timer(struct spa_bt_transport *transport);
 
+// Working with BlueZ Battery Provider.
+// Developed using https://github.com/dgreid/adhd/commit/655b58f as an example of DBus calls.
+
+// Name of battery, formatted as /org/freedesktop/pipewire/battery/org/bluez/hciX/dev_XX_XX_XX_XX_XX_XX
+static char *battery_get_name(struct spa_bt_device *device)
+{
+	char *path = malloc(strlen(PIPEWIRE_BATTERY_PROVIDER) + strlen(device->path) + 1);
+	sprintf(path, PIPEWIRE_BATTERY_PROVIDER "%s", device->path);
+
+	return path;
+}
+
+// Unregister virtual battery of device
+static void battery_remove(struct spa_bt_device *device) {
+	if (!device->adapter->has_battery_provider) return;
+
+	spa_log_debug(device->monitor->log, NAME": Removing virtual battery: %s", battery_get_name(device));
+
+	DBusMessage *m = dbus_message_new_signal(PIPEWIRE_BATTERY_PROVIDER,
+				      DBUS_INTERFACE_OBJECT_MANAGER,
+				      DBUS_SIGNAL_INTERFACES_REMOVED);
+
+	DBusMessageIter i, entry;
+
+	dbus_message_iter_init_append(m, &i);
+	const char *bat_name = battery_get_name(device);
+	dbus_message_iter_append_basic(&i, DBUS_TYPE_OBJECT_PATH,
+				       &bat_name);
+	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY,
+					 DBUS_TYPE_STRING_AS_STRING, &entry);
+	const char *interface = BLUEZ_INTERFACE_BATTERY_PROVIDER;
+	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING,
+				       &interface);
+	dbus_message_iter_close_container(&i, &entry);
+
+	if (!dbus_connection_send(device->monitor->conn, m, NULL)) {
+		spa_log_error(device->monitor->log, NAME": sending " DBUS_SIGNAL_INTERFACES_REMOVED " failed");
+	}
+
+	dbus_message_unref(m);
+
+	device->has_battery = false;
+}
+
+// Create properties for Battery Provider request
+static void battery_write_properties(DBusMessageIter *iter, struct spa_bt_device *device)
+{
+	DBusMessageIter dict, entry, variant;
+
+	dbus_message_iter_open_container(iter, DBUS_TYPE_ARRAY, "{sv}", &dict);
+
+	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL,
+					 &entry);
+	const char *prop_percentage = "Percentage";
+	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &prop_percentage);
+	dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
+					 DBUS_TYPE_BYTE_AS_STRING, &variant);
+	dbus_message_iter_append_basic(&variant, DBUS_TYPE_BYTE, &device->battery);
+	dbus_message_iter_close_container(&entry, &variant);
+	dbus_message_iter_close_container(&dict, &entry);
+
+	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+	const char *prop_device = "Device";
+	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &prop_device);
+	dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
+					 DBUS_TYPE_OBJECT_PATH_AS_STRING,
+					 &variant);
+	dbus_message_iter_append_basic(&variant, DBUS_TYPE_OBJECT_PATH, &device->path);
+	dbus_message_iter_close_container(&entry, &variant);
+	dbus_message_iter_close_container(&dict, &entry);
+
+	dbus_message_iter_close_container(iter, &dict);
+}
+
+// Send current percentage to BlueZ
+static void battery_update(struct spa_bt_device *device)
+{
+	const char *name = battery_get_name(device);
+	spa_log_debug(device->monitor->log, NAME": updating battery: %s", name);
+
+	DBusMessage *msg;
+	DBusMessageIter iter;
+
+	msg = dbus_message_new_signal(name,
+				      DBUS_INTERFACE_PROPERTIES,
+				      DBUS_SIGNAL_PROPERTIES_CHANGED);
+
+	dbus_message_iter_init_append(msg, &iter);
+	const char *interface = BLUEZ_INTERFACE_BATTERY_PROVIDER;
+	dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING,
+				       &interface);
+
+	battery_write_properties(&iter, device);
+
+	if (!dbus_connection_send(device->monitor->conn, msg, NULL))
+		spa_log_error(device->monitor->log, NAME": Error updating battery");
+
+	dbus_message_unref(msg);
+}
+
+// Create ney virtual battery with value stored in current device object
+static void battery_create(struct spa_bt_device *device) {
+	DBusMessage *msg;
+	DBusMessageIter iter, entry, dict;
+	msg = dbus_message_new_signal(PIPEWIRE_BATTERY_PROVIDER,
+				      DBUS_INTERFACE_OBJECT_MANAGER,
+				      DBUS_SIGNAL_INTERFACES_ADDED);
+
+	dbus_message_iter_init_append(msg, &iter);
+	const char *bat_name = battery_get_name(device);
+	dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH,
+				       &bat_name);
+	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sa{sv}}", &dict);
+	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+	const char *interface = BLUEZ_INTERFACE_BATTERY_PROVIDER;
+	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING,
+				       &interface);
+
+	battery_write_properties(&entry, device);
+
+	dbus_message_iter_close_container(&dict, &entry);
+	dbus_message_iter_close_container(&iter, &dict);
+
+	if (!dbus_connection_send(device->monitor->conn, msg, NULL)) {
+		spa_log_error(device->monitor->log, NAME": Failed to create virtual battery for %s", device->address);
+		return;
+	}
+
+	dbus_message_unref(msg);
+
+	spa_log_debug(device->monitor->log, NAME": Created virtual battery for %s", device->address);
+	device->has_battery = true;
+}
+
+static void on_battery_provider_registered(DBusPendingCall *pending_call,
+				       void *data)
+{
+	DBusMessage *reply;
+	struct spa_bt_device *device = data;
+
+	reply = dbus_pending_call_steal_reply(pending_call);
+	dbus_pending_call_unref(pending_call);
+
+	if (dbus_message_get_type(reply) == DBUS_MESSAGE_TYPE_ERROR) {
+		spa_log_error(device->monitor->log, NAME": Failed to register battery provider. Error: %s", dbus_message_get_error_name(reply));
+		spa_log_error(device->monitor->log, NAME": BlueZ Battery Provider is not available, won't retry to register it. Make sure you are running BlueZ 5.56+ with experimental features to use Battery Provider.");
+		device->adapter->battery_provider_unavailable = true;
+		dbus_message_unref(reply);
+		return;
+	}
+
+	spa_log_debug(device->monitor->log, NAME": Registered Battery Provider");
+
+	device->adapter->has_battery_provider = true;
+
+	if (!device->has_battery)
+		battery_create(device);
+
+	dbus_message_unref(reply);
+}
+
+// Register Battery Provider for adapter and then create virtual battery for device
+static void register_battery_provider(struct spa_bt_device *device)
+{
+	DBusMessage *method_call;
+	DBusMessageIter message_iter;
+	DBusPendingCall *pending_call;
+
+	method_call = dbus_message_new_method_call(
+		BLUEZ_SERVICE, device->adapter_path,
+		BLUEZ_INTERFACE_BATTERY_PROVIDER_MANAGER,
+		"RegisterBatteryProvider");
+
+	if (!method_call) {
+		spa_log_error(device->monitor->log, NAME": Failed to register battery provider");
+		return;
+	}
+
+	dbus_message_iter_init_append(method_call, &message_iter);
+	const char *object_path = PIPEWIRE_BATTERY_PROVIDER;
+	dbus_message_iter_append_basic(&message_iter, DBUS_TYPE_OBJECT_PATH,
+				       &object_path);
+
+	if (!dbus_connection_send_with_reply(device->monitor->conn, method_call, &pending_call,
+					     DBUS_TIMEOUT_USE_DEFAULT)) {
+		dbus_message_unref(method_call);
+		spa_log_error(device->monitor->log, NAME": Failed to register battery provider");
+		return;
+	}
+
+	dbus_message_unref(method_call);
+
+	if (!pending_call) {
+		spa_log_error(device->monitor->log, NAME": Failed to register battery provider");
+		return;
+	}
+
+	if (!dbus_pending_call_set_notify(
+		    pending_call, on_battery_provider_registered,
+		    device, NULL)) {
+		spa_log_error(device->monitor->log, "Failed to register battery provider");
+		dbus_pending_call_cancel(pending_call);
+		dbus_pending_call_unref(pending_call);
+	}
+}
 
 static inline void add_dict(struct spa_pod_builder *builder, const char *key, const char *val)
 {
@@ -406,6 +651,7 @@ static void device_free(struct spa_bt_device *device)
 	struct spa_bt_monitor *monitor = device->monitor;
 
 	spa_log_debug(monitor->log, "%p", device);
+	battery_remove(device);
 	device_stop_timer(device);
 	device_remove(monitor, device);
 
@@ -3160,3 +3406,28 @@ const struct spa_handle_factory spa_bluez5_dbus_factory = {
 	impl_init,
 	impl_enum_interface_info,
 };
+
+// Report battery percentage to BlueZ using experimental (BlueZ 5.56) Battery Provider API. No-op if no changes occured.
+int spa_bt_device_report_battery_level(struct spa_bt_device *device, uint8_t percentage)
+{
+	// BlueZ likely is running without battery provider support, don't try to report battery
+	if (device->adapter->battery_provider_unavailable) return 0;
+
+	// If everything is initialized and battery level has not changed we don't need to send anything to BlueZ
+	if (device->adapter->has_battery_provider && device->has_battery && device->battery == percentage) return 1;
+
+	device->battery = percentage;
+
+	if (!device->adapter->has_battery_provider) {
+		// No provider: register it, create battery when registered
+		register_battery_provider(device);
+	} else if (!device->has_battery) {
+		// Have provider but no battery: create battery with correct percentage
+		battery_create(device);
+	} else {
+		// Just update existing battery percentage
+		battery_update(device);
+	}
+
+	return 1;
+}

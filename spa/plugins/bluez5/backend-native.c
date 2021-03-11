@@ -47,16 +47,6 @@
 
 #define PROP_KEY_HEADSET_ROLES "bluez5.headset-roles"
 
-#define DBUS_INTERFACE_OBJECT_MANAGER "org.freedesktop.DBus.ObjectManager"
-#define DBUS_SIGNAL_INTERFACES_ADDED "InterfacesAdded"
-#define DBUS_SIGNAL_INTERFACES_REMOVED "InterfacesRemoved"
-#define DBUS_SIGNAL_PROPERTIES_CHANGED "PropertiesChanged"
-
-#define BLUEZ_INTERFACE_BATTERY_PROVIDER "org.bluez.BatteryProvider1"
-#define BLUEZ_INTERFACE_BATTERY_PROVIDER_MANAGER "org.bluez.BatteryProviderManager1"
-
-#define PIPEWIRE_BATTERY_PROVIDER "/org/freedesktop/pipewire/battery"
-
 struct spa_bt_backend {
 	struct spa_bt_monitor *monitor;
 
@@ -72,8 +62,6 @@ struct spa_bt_backend {
 
 	struct spa_list rfcomm_list;
 	unsigned int msbc_support_enabled_in_config:1;
-	unsigned int has_battery_provider;
-	unsigned int battery_provider_unavailable;
 };
 
 struct transport_data {
@@ -164,205 +152,6 @@ static struct spa_bt_transport *_transport_create(struct rfcomm *rfcomm)
 
 finish:
 	return t;
-}
-
-// Working with BlueZ Battery Provider. Developed using https://github.com/dgreid/adhd/commit/655b58f as example of DBus calls.
-static char *battery_name(struct spa_bt_device *d)
-{
-	char *path = malloc(strlen(PIPEWIRE_BATTERY_PROVIDER) + strlen(d->path) + 1);
-	sprintf(path, PIPEWIRE_BATTERY_PROVIDER"%s", d->path);
-
-	// /org/freedesktop/pipewire/battery/org/bluez/hci0/dev_XX_XX_XX_XX_XX_XX
-	return path;
-}
-
-static void write_battery(DBusMessageIter *iter, struct spa_bt_device *device)
-{
-	DBusMessageIter dict, entry, variant;
-
-	dbus_message_iter_open_container(iter, DBUS_TYPE_ARRAY, "{sv}", &dict);
-
-	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL,
-					 &entry);
-	const char *prop_percentage = "Percentage";
-	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &prop_percentage);
-	dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
-					 DBUS_TYPE_BYTE_AS_STRING, &variant);
-	dbus_message_iter_append_basic(&variant, DBUS_TYPE_BYTE, &device->battery);
-	dbus_message_iter_close_container(&entry, &variant);
-	dbus_message_iter_close_container(&dict, &entry);
-
-	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
-	const char *prop_device = "Device";
-	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &prop_device);
-	dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT,
-					 DBUS_TYPE_OBJECT_PATH_AS_STRING,
-					 &variant);
-	dbus_message_iter_append_basic(&variant, DBUS_TYPE_OBJECT_PATH, &device->path);
-	dbus_message_iter_close_container(&entry, &variant);
-	dbus_message_iter_close_container(&dict, &entry);
-
-	dbus_message_iter_close_container(iter, &dict);
-}
-
-static void update_battery(struct spa_bt_device *device)
-{
-	const char *name = battery_name(device);
-	spa_log_debug(device->monitor->log, NAME": updating battery: %s", name);
-
-	DBusMessage *msg;
-	DBusMessageIter iter;
-
-	msg = dbus_message_new_signal(name,
-				      DBUS_INTERFACE_PROPERTIES,
-				      DBUS_SIGNAL_PROPERTIES_CHANGED);
-
-	dbus_message_iter_init_append(msg, &iter);
-	const char *interface = BLUEZ_INTERFACE_BATTERY_PROVIDER;
-	dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING,
-				       &interface);
-
-	write_battery(&iter, device);
-
-	if (!dbus_connection_send(device->monitor->conn, msg, NULL))
-		spa_log_error(device->monitor->log, NAME": Error updating battery");
-
-	dbus_message_unref(msg);
-}
-
-static void create_battery(struct spa_bt_device *device) {
-	DBusMessage *msg;
-	DBusMessageIter iter, entry, dict;
-	msg = dbus_message_new_signal(PIPEWIRE_BATTERY_PROVIDER,
-				      DBUS_INTERFACE_OBJECT_MANAGER,
-				      DBUS_SIGNAL_INTERFACES_ADDED);
-
-	dbus_message_iter_init_append(msg, &iter);
-	const char *bat_name = battery_name(device);
-	dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH,
-				       &bat_name);
-	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sa{sv}}", &dict);
-	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
-	const char *interface = BLUEZ_INTERFACE_BATTERY_PROVIDER;
-	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING,
-				       &interface);
-
-	write_battery(&entry, device);
-
-	dbus_message_iter_close_container(&dict, &entry);
-	dbus_message_iter_close_container(&iter, &dict);
-
-	if (!dbus_connection_send(device->monitor->conn, msg, NULL)) {
-		spa_log_error(device->monitor->backend_native->log, NAME": Failed to create virtual battery for %s", device->address);
-		return;
-	}
-
-	dbus_message_unref(msg);
-
-	spa_log_debug(device->monitor->backend_native->log, NAME": Created virtual battery for %s", device->address);
-	device->has_battery = true;
-}
-
-static void remove_battery(struct spa_bt_device *d) {
-	if (!d->monitor->backend_native->has_battery_provider) return;
-
-	spa_log_debug(d->monitor->backend_native->log, NAME": Removing battery provider: %s", battery_name(d));
-
-	DBusMessage *m = dbus_message_new_signal(PIPEWIRE_BATTERY_PROVIDER,
-				      DBUS_INTERFACE_OBJECT_MANAGER,
-				      DBUS_SIGNAL_INTERFACES_REMOVED);
-
-	DBusMessageIter i, entry;
-
-	dbus_message_iter_init_append(m, &i);
-	const char *bat_name = battery_name(d);
-	dbus_message_iter_append_basic(&i, DBUS_TYPE_OBJECT_PATH,
-				       &bat_name);
-	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY,
-					 DBUS_TYPE_STRING_AS_STRING, &entry);
-	const char *interface = BLUEZ_INTERFACE_BATTERY_PROVIDER;
-	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING,
-				       &interface);
-	dbus_message_iter_close_container(&i, &entry);
-
-	if (!dbus_connection_send(d->monitor->conn, m, NULL)) {
-		spa_log_error(d->monitor->backend_native->log, NAME": sending " DBUS_SIGNAL_INTERFACES_REMOVED " failed");
-	}
-
-	dbus_message_unref(m);
-
-	d->has_battery = false;
-}
-
-static void on_battery_provider_registered(DBusPendingCall *pending_call,
-				       void *data)
-{
-	DBusMessage *reply;
-	struct spa_bt_device *device = data;
-
-	reply = dbus_pending_call_steal_reply(pending_call);
-	dbus_pending_call_unref(pending_call);
-
-	if (dbus_message_get_type(reply) == DBUS_MESSAGE_TYPE_ERROR) {
-		spa_log_error(device->monitor->log, NAME": Failed to register battery provider. Error: %s", dbus_message_get_error_name(reply));
-		spa_log_error(device->monitor->log, NAME": BlueZ battery provider is not available, won't retry to register it");
-		device->monitor->backend_native->battery_provider_unavailable = true;
-		dbus_message_unref(reply);
-		return;
-	}
-
-	spa_log_debug(device->monitor->log, NAME": Registered battery provider");
-
-	device->monitor->backend_native->has_battery_provider = true;
-
-	if (!device->has_battery)
-		create_battery(device);
-
-	dbus_message_unref(reply);
-}
-
-static void register_battery_provider(DBusConnection *conn, struct spa_bt_device *device)
-{
-	DBusMessage *method_call;
-	DBusMessageIter message_iter;
-	DBusPendingCall *pending_call;
-
-	method_call = dbus_message_new_method_call(
-		BLUEZ_SERVICE, device->adapter_path,
-		BLUEZ_INTERFACE_BATTERY_PROVIDER_MANAGER,
-		"RegisterBatteryProvider");
-
-	if (!method_call) {
-		spa_log_error(device->monitor->log, NAME": Failed to register battery provider");
-		return;
-	}
-
-	dbus_message_iter_init_append(method_call, &message_iter);
-	const char *object_path = PIPEWIRE_BATTERY_PROVIDER;
-	dbus_message_iter_append_basic(&message_iter, DBUS_TYPE_OBJECT_PATH,
-				       &object_path);
-
-	if (!dbus_connection_send_with_reply(conn, method_call, &pending_call,
-					     DBUS_TIMEOUT_USE_DEFAULT)) {
-		dbus_message_unref(method_call);
-		spa_log_error(device->monitor->log, NAME": Failed to register battery provider");
-		return;
-	}
-
-	dbus_message_unref(method_call);
-
-	if (!pending_call) {
-		spa_log_error(device->monitor->log, NAME": Failed to register battery provider");
-		return;
-	}
-
-	if (!dbus_pending_call_set_notify(
-		    pending_call, on_battery_provider_registered,
-		    device, NULL)) {
-		spa_log_error(device->monitor->log, "Failed to register battery provider");
-		dbus_pending_call_cancel(pending_call);
-		dbus_pending_call_unref(pending_call);
-	}
 }
 
 static void rfcomm_free(struct rfcomm *rfcomm)
@@ -692,25 +481,7 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 				spa_log_debug(backend->log, NAME": battery level: %d%%", level);
 
 				// TODO: report without Battery Provider (using props)
-
-				// BlueZ likely is running without battery provider support, don't try to report battery
-				if (backend->battery_provider_unavailable) return true;
-
-				// If everything is initialized and battery level has not changed we don't need to send anything to BlueZ
-				if (backend->has_battery_provider && rfcomm->device->has_battery && rfcomm->device->battery == level) return true;
-
-				rfcomm->device->battery = level;
-
-				if (!backend->has_battery_provider) {
-					// No provider: register it, create battery in hook
-					register_battery_provider(backend->conn, rfcomm->device);
-				} else if (!rfcomm->device->has_battery) {
-					// Have provider but no battery: create battery, it will already contain percentage
-					create_battery(rfcomm->device);
-				} else {
-					// Just update existing battery percentage
-					update_battery(rfcomm->device);
-				}
+				spa_bt_device_report_battery_level(rfcomm->device, level);
 			}
 		}
 	} else if (strncmp(buf, "AT+APLSIRI?", 11) == 0) {
@@ -1372,8 +1143,6 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 		spa_log_warn(backend->log, NAME": unknown device for path %s", path);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
-
-	remove_battery(d);
 
 	spa_list_for_each_safe(rfcomm, rfcomm_tmp, &backend->rfcomm_list, link) {
 		if (rfcomm->device == d && rfcomm->profile == profile) {

@@ -940,9 +940,9 @@ int spa_alsa_write(struct state *state)
 			return res;
 
 		if (SPA_UNLIKELY(!state->alsa_recovering && delay > target + state->threshold)) {
-			spa_log_warn(state->log, NAME" %s: follower delay:%ld resync %f %f %f",
-					state->props.device, delay, state->dll.z1,
-					state->dll.z2, state->dll.z3);
+			spa_log_warn(state->log, NAME" %s: follower delay:%ld target:%ld resync %f %f %f",
+					state->props.device, delay, target + state->threshold,
+					state->dll.z1, state->dll.z2, state->dll.z3);
 			spa_dll_init(&state->dll);
 			state->alsa_sync = true;
 		}

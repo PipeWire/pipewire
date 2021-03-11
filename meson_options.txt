@@ -38,7 +38,7 @@ option('systemd',
 option('systemd-system-service',
        description: 'Install systemd system service file',
        type: 'feature',
-       value: 'auto')
+       value: 'disabled')
 option('systemd-user-service',
        description: 'Install systemd user service file',
        type: 'feature',
@@ -124,8 +124,8 @@ option('v4l2',
        value: 'auto')
 option('libcamera',
        description: 'Enable libcamera spa plugin integration',
-       type: 'boolean',
-       value: false)
+       type: 'feature',
+       value: 'auto')
 option('videoconvert',
        description: 'Enable videoconvert spa plugin integration',
        type: 'feature',

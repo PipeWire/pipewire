@@ -11,4 +11,6 @@ if not get_option('tests').disabled()
   subdir('tests')
 endif
 
-subdir('gst')
+if gst_dep.length() != 0
+  subdir('gst')
+endif

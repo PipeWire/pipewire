@@ -65,7 +65,7 @@ executable('export-spa-device',
   dependencies : [pipewire_dep, mathlib],
 )
 
-if alsa_dep.found()
+if not get_option('media-session').disabled() and alsa_dep.found()
   executable('pipewire-media-session',
     'media-session/access-flatpak.c',
     'media-session/access-portal.c',
@@ -94,8 +94,6 @@ if alsa_dep.found()
     install: true,
     dependencies : [dbus_dep, pipewire_dep, alsa_dep, mathlib],
 )
-elif get_option('media-session').enabled() and not alsa_dep.found()
-  error('`media-session` is enabled but required dependency `alsa` not found.')
 endif
 
 executable('pw-reserve',

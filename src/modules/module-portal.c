@@ -234,6 +234,8 @@ static int init_dbus_connection(struct impl *impl)
 	DBusError error;
 
 	impl->bus = spa_dbus_connection_get(impl->conn);
+	if (impl->bus == NULL)
+		return -EIO;
 
 	dbus_error_init(&error);
 
@@ -247,7 +249,7 @@ static int init_dbus_connection(struct impl *impl)
 		pw_log_error("Failed to add name owner changed listener: %s",
 			     error.message);
 		dbus_error_free(&error);
-		return -1;
+		return -EIO;
 	}
 
 	dbus_connection_add_filter(impl->bus, name_owner_changed_handler,
@@ -266,6 +268,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct spa_dbus *dbus;
 	const struct spa_support *support;
 	uint32_t n_support;
+	int res;
 
 	support = pw_context_get_support(context, &n_support);
 
@@ -283,10 +286,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->properties = args ? pw_properties_new_string(args) : NULL;
 
 	impl->conn = spa_dbus_get_connection(dbus, SPA_DBUS_TYPE_SESSION);
-	if (impl->conn == NULL)
+	if (impl->conn == NULL) {
+		res = -errno;
 		goto error;
+	}
 
-	if (init_dbus_connection(impl) != 0)
+	if ((res = init_dbus_connection(impl)) < 0)
 		goto error;
 
 	pw_context_add_listener(context, &impl->context_listener, &context_events, impl);
@@ -296,6 +301,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
       error:
 	free(impl);
-	pw_log_error("Failed to connect to system bus");
-	return -ENOMEM;
+	pw_log_error("Failed to connect to system bus: %s", spa_strerror(res));
+	return res;
 }

@@ -411,6 +411,8 @@ struct spa_bt_device {
 
 	struct spa_hook_list listener_list;
 	bool added;
+
+	DBusPendingCall *battery_pending_call;
 };
 
 struct a2dp_codec;

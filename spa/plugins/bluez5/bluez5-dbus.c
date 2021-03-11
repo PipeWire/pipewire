@@ -292,6 +292,8 @@ static void on_battery_provider_registered(DBusPendingCall *pending_call,
 	reply = dbus_pending_call_steal_reply(pending_call);
 	dbus_pending_call_unref(pending_call);
 
+	device->battery_pending_call = NULL;
+
 	if (dbus_message_get_type(reply) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(device->monitor->log, NAME": Failed to register battery provider. Error: %s", dbus_message_get_error_name(reply));
 		spa_log_error(device->monitor->log, NAME": BlueZ Battery Provider is not available, won't retry to register it. Make sure you are running BlueZ 5.56+ with experimental features to use Battery Provider.");
@@ -315,7 +317,6 @@ static void register_battery_provider(struct spa_bt_device *device)
 {
 	DBusMessage *method_call;
 	DBusMessageIter message_iter;
-	DBusPendingCall *pending_call;
 
 	method_call = dbus_message_new_method_call(
 		BLUEZ_SERVICE, device->adapter_path,
@@ -332,7 +333,7 @@ static void register_battery_provider(struct spa_bt_device *device)
 	dbus_message_iter_append_basic(&message_iter, DBUS_TYPE_OBJECT_PATH,
 				       &object_path);
 
-	if (!dbus_connection_send_with_reply(device->monitor->conn, method_call, &pending_call,
+	if (!dbus_connection_send_with_reply(device->monitor->conn, method_call, &device->battery_pending_call,
 					     DBUS_TIMEOUT_USE_DEFAULT)) {
 		dbus_message_unref(method_call);
 		spa_log_error(device->monitor->log, NAME": Failed to register battery provider");
@@ -341,17 +342,17 @@ static void register_battery_provider(struct spa_bt_device *device)
 
 	dbus_message_unref(method_call);
 
-	if (!pending_call) {
+	if (!device->battery_pending_call) {
 		spa_log_error(device->monitor->log, NAME": Failed to register battery provider");
 		return;
 	}
 
 	if (!dbus_pending_call_set_notify(
-		    pending_call, on_battery_provider_registered,
+		    device->battery_pending_call, on_battery_provider_registered,
 		    device, NULL)) {
 		spa_log_error(device->monitor->log, "Failed to register battery provider");
-		dbus_pending_call_cancel(pending_call);
-		dbus_pending_call_unref(pending_call);
+		dbus_pending_call_cancel(device->battery_pending_call);
+		dbus_pending_call_unref(device->battery_pending_call);
 	}
 }
 
@@ -651,6 +652,14 @@ static void device_free(struct spa_bt_device *device)
 	struct spa_bt_monitor *monitor = device->monitor;
 
 	spa_log_debug(monitor->log, "%p", device);
+
+	if (device->battery_pending_call) {
+		spa_log_debug(monitor->log, "Cancelling and freeing pending battery provider register call");
+		dbus_pending_call_cancel(device->battery_pending_call);
+		dbus_pending_call_unref(device->battery_pending_call);
+		device->battery_pending_call = NULL;
+	}
+
 	battery_remove(device);
 	device_stop_timer(device);
 	device_remove(monitor, device);

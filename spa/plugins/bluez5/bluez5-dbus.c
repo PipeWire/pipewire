@@ -738,6 +738,8 @@ static int device_remove(struct spa_bt_monitor *monitor, struct spa_bt_device *d
 	if (!device->added)
 		return 0;
 
+	battery_remove(device);
+
 	device->added = false;
 	spa_device_emit_object_info(&monitor->hooks, device->id, NULL);
 

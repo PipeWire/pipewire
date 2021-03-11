@@ -559,9 +559,6 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		}
 	}
 
-	/* disable ALSA wakeups, we use a timer */
-	if (snd_pcm_hw_params_can_disable_period_wakeup(params))
-		CHECK(snd_pcm_hw_params_set_period_wakeup(hndl, params, 0), "set_period_wakeup");
 
 	/* set the sample format */
 	spa_log_debug(state->log, NAME" %p: Stream parameters are %iHz fmt:%s access:%s-%s channels:%i",
@@ -616,6 +613,10 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		period_size /= 2;
 		spa_log_info(state->log, NAME" %s: batch mode, period_size:%ld",
 			state->props.device, period_size);
+	} else {
+		/* disable ALSA wakeups, we use a timer */
+		if (snd_pcm_hw_params_can_disable_period_wakeup(params))
+			CHECK(snd_pcm_hw_params_set_period_wakeup(hndl, params, 0), "set_period_wakeup");
 	}
 
 	CHECK(snd_pcm_hw_params_set_period_size_near(hndl, params, &period_size, &dir), "set_period_size_near");

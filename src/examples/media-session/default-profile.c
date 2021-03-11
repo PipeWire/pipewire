@@ -307,9 +307,11 @@ static int handle_profile_switch(struct device *dev)
 	res = find_saved_profile(dev, &saved);
 	if (res >= 0) {
 		/* we found a saved profile */
-		if (saved.available == SPA_PARAM_AVAILABILITY_no && changed) {
+		if (saved.available == SPA_PARAM_AVAILABILITY_no) {
 			pw_log_info("device '%s': saved profile '%s' unavailable",
 				dev->name, saved.name);
+			if (!changed)
+				best.index = SPA_ID_INVALID;
 		} else {
 			pw_log_info("device '%s': found saved profile '%s'",
 						dev->name, saved.name);
@@ -330,9 +332,11 @@ static int handle_profile_switch(struct device *dev)
 					dev->name, best.name, best.index);
 			set_profile(dev, &best);
 		}
-	} else {
+	} else if (res < 0) {
 		pw_log_warn("device '%s': can't restore profile: %s", dev->name,
 				spa_strerror(res));
+	} else {
+		pw_log_info("device '%s': no profile switch needed", dev->name);
 	}
 	return 0;
 }

@@ -237,8 +237,10 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	}
 	this->conf = conf;
 
-	if ((str = pw_properties_get(conf, "context.properties")) != NULL)
+	if ((str = pw_properties_get(conf, "context.properties")) != NULL) {
 		pw_properties_update_string(properties, str, strlen(str));
+		pw_log_info(NAME" %p: parsed context.properties section", this);
+	}
 
 	if (getenv("PIPEWIRE_DEBUG") == NULL &&
 	    (str = pw_properties_get(properties, "log.level")) != NULL)
@@ -342,10 +344,14 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	this->sc_pagesize = sysconf(_SC_PAGESIZE);
 
-	pw_context_parse_conf_section(this, conf, "context.spa-libs");
-	pw_context_parse_conf_section(this, conf, "context.modules");
-	pw_context_parse_conf_section(this, conf, "context.objects");
-	pw_context_parse_conf_section(this, conf, "context.exec");
+	if ((res = pw_context_parse_conf_section(this, conf, "context.spa-libs")) >= 0)
+		pw_log_info(NAME" %p: parsed context.spa-libs section", this);
+	if ((res = pw_context_parse_conf_section(this, conf, "context.modules")) >= 0)
+		pw_log_info(NAME" %p: parsed context.modules section", this);
+	if ((res = pw_context_parse_conf_section(this, conf, "context.objects")) >= 0)
+		pw_log_info(NAME" %p: parsed context.objects section", this);
+	if ((res = pw_context_parse_conf_section(this, conf, "context.exec")) >= 0)
+		pw_log_info(NAME" %p: parsed context.exec section", this);
 
 	pw_log_debug(NAME" %p: created", this);
 

@@ -4897,13 +4897,6 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 	if (name != NULL && (o = find_device(client, SPA_ID_INVALID, name, sink)) == NULL)
 		return -ENOENT;
 
-	if (sink) {
-		free(client->default_sink);
-		client->default_sink = name ? strdup(name) : NULL;
-	} else {
-		free(client->default_source);
-		client->default_source = name ? strdup(name) : NULL;
-	}
 	if (name != NULL) {
 		res = pw_manager_set_metadata(manager, client->metadata_default,
 				PW_ID_CORE,
@@ -4918,7 +4911,7 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 	if (res < 0)
 		return res;
 
-	return reply_simple_ack(client, tag);
+	return operation_new(client, tag);
 }
 
 static int do_suspend(struct client *client, uint32_t command, uint32_t tag, struct message *m)

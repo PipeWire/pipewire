@@ -75,6 +75,7 @@ struct device {
 	struct spa_hook listener;
 
 	uint32_t saved_profile;
+	uint32_t best_profile;
 	uint32_t active_profile;
 };
 
@@ -284,45 +285,50 @@ static int handle_active_profile(struct device *dev)
 
 static int handle_profile_switch(struct device *dev)
 {
-	struct profile pr;
+	struct profile saved, best;
 	int res;
+	bool changed = false;
+
+	/* try to find the next best profile */
+	res = find_best_profile(dev, &best);
+	if (res < 0) {
+		pw_log_info("device '%s': can't find best profile: %s",
+				dev->name, spa_strerror(res));
+		best.index = SPA_ID_INVALID;
+	} else {
+		if (dev->best_profile != best.index)
+			changed = true;
+		dev->best_profile = best.index;
+		pw_log_info("device '%s': found best profile '%s' changed:%d",
+				dev->name, best.name, changed);
+	}
 
 	/* try to restore our saved profile */
-	res = find_saved_profile(dev, &pr);
+	res = find_saved_profile(dev, &saved);
 	if (res >= 0) {
 		/* we found a saved profile */
-		if (pr.available == SPA_PARAM_AVAILABILITY_no) {
+		if (saved.available == SPA_PARAM_AVAILABILITY_no && changed) {
 			pw_log_info("device '%s': saved profile '%s' unavailable",
-				dev->name, pr.name);
-			res = -ENOENT;
+				dev->name, saved.name);
 		} else {
 			pw_log_info("device '%s': found saved profile '%s'",
-						dev->name, pr.name);
+						dev->name, saved.name);
 			/* make sure we save again */
-			pr.save = true;
+			saved.save = true;
+			best = saved;
 		}
 	} else {
 		pw_log_info("device '%s': no saved profile: %s",
 			dev->name, spa_strerror(res));
 	}
-	if (res < 0) {
-		/* try to find the next best profile */
-		res = find_best_profile(dev, &pr);
-		if (res < 0)
-			pw_log_info("device '%s': can't find best profile: %s",
-					dev->name, spa_strerror(res));
-		else
-			pw_log_info("device '%s': found best profile '%s'",
-					dev->name, pr.name);
-	}
-	if (res >= 0) {
-		if (dev->active_profile == pr.index) {
+	if (best.index != SPA_ID_INVALID) {
+		if (dev->active_profile == best.index) {
 			pw_log_info("device '%s': best profile '%s' is already active",
-					dev->name, pr.name);
+					dev->name, best.name);
 		} else {
 			pw_log_info("device '%s': restore best profile '%s' index %d",
-					dev->name, pr.name, pr.index);
-			set_profile(dev, &pr);
+					dev->name, best.name, best.index);
+			set_profile(dev, &best);
 		}
 	} else {
 		pw_log_warn("device '%s': can't restore profile: %s", dev->name,
@@ -386,6 +392,7 @@ static void session_create(void *data, struct sm_object *object)
 	dev->key = spa_aprintf(PREFIX"%s", name);
 	dev->active_profile = SPA_ID_INVALID;
 	dev->saved_profile = SPA_ID_INVALID;
+	dev->best_profile = SPA_ID_INVALID;
 
 	dev->obj->obj.mask |= SM_DEVICE_CHANGE_MASK_PARAMS;
 	sm_object_add_listener(&dev->obj->obj, &dev->listener, &object_events, dev);

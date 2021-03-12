@@ -18,9 +18,9 @@ context.spa-libs = {
     support.* = support/libspa-support
 }
 
-context.modules = {
-    #<module-name> = {
-    #    [ args  = { <key> = <value> ... } ]
+context.modules = [
+    #{   name = <module-name>
+    #    [ args = { <key> = <value> ... } ]
     #    [ flags = [ [ ifexists ] [ nofail ] ]
     #}
     #
@@ -30,7 +30,7 @@ context.modules = {
     #
     #
     # Uses RTKit to boost the data thread priority.
-    libpipewire-module-rtkit = {
+    {   name = libpipewire-module-rtkit
         args = {
             #nice.level   = -11
             #rt.prio      = 88
@@ -41,17 +41,17 @@ context.modules = {
     }
 
     # The native communication protocol.
-    libpipewire-module-protocol-native = null
+    {   name = libpipewire-module-protocol-native }
 
     # Allows creating nodes that run in the context of the
     # client. Is used by all clients that want to provide
     # data to PipeWire.
-    libpipewire-module-client-node = null
+    {   name = libpipewire-module-client-node }
 
     # Allows applications to create metadata objects. It creates
     # a factory for Metadata objects.
-    libpipewire-module-metadata = null
-}
+    {   name = libpipewire-module-metadata }
+]
 
 jack.properties = {
      #node.latency = 1024/48000

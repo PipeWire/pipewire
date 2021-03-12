@@ -12,8 +12,8 @@ context.spa-libs = {
     support.*       = support/libspa-support
 }
 
-context.modules = {
-    libpipewire-module-rtkit = {
+context.modules = [
+    {   name = libpipewire-module-rtkit
         args = {
             #nice.level   = -11
             #rt.prio      = 88
@@ -22,12 +22,12 @@ context.modules = {
         }
         flags = [ ifexists nofail ]
     }
-    libpipewire-module-protocol-native = null
-    libpipewire-module-client-node     = null
-    libpipewire-module-adapter         = null
-    libpipewire-module-metadata        = null
+    {   name = libpipewire-module-protocol-native }
+    {   name = libpipewire-module-client-node }
+    {   name = libpipewire-module-adapter }
+    {   name = libpipewire-module-metadata }
 
-    libpipewire-module-protocol-pulse = {
+    {   name = libpipewire-module-protocol-pulse
         args = {
 	    # the addresses this server listens on
             server.address = [
@@ -42,7 +42,7 @@ context.modules = {
 	    #pulse.min.quantum = 256/48000          # 5ms
         }
     }
-}
+]
 
 stream.properties = {
     #node.latency = 1024/48000

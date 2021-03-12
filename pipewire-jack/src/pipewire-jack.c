@@ -320,6 +320,7 @@ struct client {
 	struct spa_io_position *position;
 	uint32_t sample_rate;
 	uint32_t buffer_frames;
+	struct spa_fraction latency;
 
 	struct spa_list free_mix;
 
@@ -2574,6 +2575,7 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	client->buffer_frames = (uint32_t)-1;
 	client->sample_rate = (uint32_t)-1;
+	client->latency = SPA_FRACTION(-1, -1);
 
         spa_list_init(&client->free_mix);
 
@@ -2602,6 +2604,14 @@ jack_client_t * jack_client_open (const char *client_name,
 			&client->registry_listener,
 			&registry_events, client);
 
+	if ((str = getenv("PIPEWIRE_LATENCY")) != NULL)
+		pw_properties_set(client->props, PW_KEY_NODE_LATENCY, str);
+	if ((str = pw_properties_get(client->props, PW_KEY_NODE_LATENCY)) != NULL) {
+		uint32_t num, denom;
+		if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
+			client->latency = SPA_FRACTION(num, denom);
+		}
+	}
 	if (pw_properties_get(client->props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_set(client->props, PW_KEY_NODE_NAME, client_name);
 	if (pw_properties_get(client->props, PW_KEY_NODE_DESCRIPTION) == NULL)
@@ -2612,8 +2622,6 @@ jack_client_t * jack_client_open (const char *client_name,
 		pw_properties_set(client->props, PW_KEY_MEDIA_CATEGORY, "Duplex");
 	if (pw_properties_get(client->props, PW_KEY_MEDIA_ROLE) == NULL)
 		pw_properties_set(client->props, PW_KEY_MEDIA_ROLE, "DSP");
-	if ((str = getenv("PIPEWIRE_LATENCY")) != NULL)
-		pw_properties_set(client->props, PW_KEY_NODE_LATENCY, str);
 	if (pw_properties_get(client->props, PW_KEY_NODE_ALWAYS_PROCESS) == NULL)
 		pw_properties_set(client->props, PW_KEY_NODE_ALWAYS_PROCESS, "true");
 
@@ -3260,28 +3268,46 @@ SPA_EXPORT
 jack_nframes_t jack_get_sample_rate (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
+	jack_nframes_t res = -1;
+
 	spa_return_val_if_fail(c != NULL, 0);
-	if (c->sample_rate == (uint32_t)-1) {
-		if (c->rt.position)
-			return c->rt.position->clock.rate.denom;
-		if (c->position)
-			return c->position->clock.rate.denom;
+
+	if (!c->active)
+		res = c->latency.denom;
+	if (c->active || res == (uint32_t)-1) {
+		res = c->sample_rate;
+		if (res == (uint32_t)-1) {
+			if (c->rt.position)
+				res = c->rt.position->clock.rate.denom;
+			else if (c->position)
+				res = c->position->clock.rate.denom;
+		}
 	}
-	return c->sample_rate;
+	pw_log_info("sample_rate: %u", res);
+	return res;
 }
 
 SPA_EXPORT
 jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
+	jack_nframes_t res = -1;
+
 	spa_return_val_if_fail(c != NULL, 0);
-	if (c->buffer_frames == (uint32_t)-1) {
-		if (c->rt.position)
-			return c->rt.position->clock.duration;
-		if (c->position)
-			return c->position->clock.duration;
+
+	if (!c->active)
+		res = c->latency.num;
+	if (c->active || res == (uint32_t)-1) {
+		res = c->buffer_frames;
+		if (res == (uint32_t)-1) {
+			if (c->rt.position)
+				res = c->rt.position->clock.duration;
+			else if (c->position)
+				res = c->position->clock.duration;
+		}
 	}
-	return c->buffer_frames;
+	pw_log_info("buffer_frames: %u", res);
+	return res;
 }
 
 SPA_EXPORT

@@ -83,6 +83,8 @@ struct impl {
 #define IDX_EnumPortConfig	4
 #define IDX_PortConfig		5
 	struct spa_param_info params[6];
+	uint32_t convert_params_flags[6];
+	uint32_t follower_params_flags[6];
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
@@ -597,7 +599,7 @@ static void convert_node_info(void *data, const struct spa_node_info *info)
 	}
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
-			uint32_t idx = SPA_ID_INVALID;
+			uint32_t idx;
 
 			switch (info->params[i].id) {
 			case SPA_PARAM_PropInfo:
@@ -606,14 +608,21 @@ static void convert_node_info(void *data, const struct spa_node_info *info)
 			case SPA_PARAM_Props:
 				idx = IDX_Props;
 				break;
+			default:
+				continue;
 			}
-			if (idx != SPA_ID_INVALID) {
-				this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
-				this->params[idx].flags =
-					(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
-					(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
+			if (!this->add_listener &&
+			    this->convert_params_flags[idx] == info->params[i].flags)
+				continue;
+
+			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+			this->convert_params_flags[idx] = info->params[i].flags;
+			this->params[idx].flags =
+				(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
+				(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
+
+			if (!this->add_listener)
 				this->params[idx].user++;
-			}
 		}
 	}
 	emit_node_info(this, false);
@@ -677,20 +686,27 @@ static void follower_info(void *data, const struct spa_node_info *info)
 	}
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
-			uint32_t idx = SPA_ID_INVALID;
+			uint32_t idx;
 
 			switch (info->params[i].id) {
 			case SPA_PARAM_Props:
 				idx = IDX_Props;
 				break;
+			default:
+				continue;
 			}
-			if (idx != SPA_ID_INVALID) {
-				this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
-				this->params[idx].flags =
-					(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
-					(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
+			if (!this->add_listener &&
+			    this->follower_params_flags[idx] == info->params[i].flags)
+				continue;
+
+			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+			this->follower_params_flags[idx] = info->params[i].flags;
+			this->params[idx].flags =
+				(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
+				(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
+
+			if (!this->add_listener)
 				this->params[idx].user++;
-			}
 		}
 	}
 	emit_node_info(this, false);
@@ -705,24 +721,30 @@ static void follower_port_info(void *data,
 
 	if (info->change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
-			uint32_t idx = SPA_ID_INVALID;
+			uint32_t idx;
 
 			switch (info->params[i].id) {
 			case SPA_PARAM_Format:
 				idx = IDX_Format;
 				break;
+			default:
+				continue;
 			}
-			if (idx != SPA_ID_INVALID) {
-				this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
-				this->params[idx].flags =
-					(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
-					(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
+			if (!this->add_listener &&
+			    this->follower_params_flags[idx] == info->params[i].flags)
+				continue;
+
+			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+			this->follower_params_flags[idx] = info->params[i].flags;
+			this->params[idx].flags =
+				(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
+				(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
+
+			if (!this->add_listener)
 				this->params[idx].user++;
-			}
 		}
 	}
-	if (!this->add_listener)
-		emit_node_info(this, false);
+	emit_node_info(this, false);
 }
 
 static const struct spa_node_events follower_node_events = {
@@ -785,9 +807,9 @@ static int impl_node_add_listener(void *object,
 	spa_log_trace(this->log, NAME" %p: add listener %p", this, listener);
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
-	this->add_listener = true;
 
 	if (events->info || events->port_info) {
+		this->add_listener = true;
 
 		spa_zero(l);
 		spa_node_add_listener(this->follower, &l, &follower_node_events, this);
@@ -797,12 +819,11 @@ static int impl_node_add_listener(void *object,
 			spa_zero(l);
 			spa_node_add_listener(this->convert, &l, &convert_node_events, this);
 			spa_hook_remove(&l);
-		} else {
-			emit_node_info(this, false);
 		}
-	}
-	this->add_listener = false;
+		this->add_listener = false;
 
+		emit_node_info(this, true);
+	}
 	spa_hook_list_join(&this->hooks, &save);
 
 	return 0;

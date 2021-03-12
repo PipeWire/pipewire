@@ -86,6 +86,7 @@ struct impl {
 #define IDX_PropInfo		2
 #define IDX_Props		3
 	struct spa_param_info params[4];
+	uint32_t param_flags[4];
 
 	int n_links;
 	struct link links[8];
@@ -615,8 +616,11 @@ static void on_channelmix_info(void *data, const struct spa_node_info *info)
 	struct impl *this = data;
 	uint32_t i;
 
+	if ((info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS) == 0)
+		return;
+
 	for (i = 0; i < info->n_params; i++) {
-		uint32_t idx = SPA_ID_INVALID;
+		uint32_t idx;
 
 		switch (info->params[i].id) {
 		case SPA_PARAM_PropInfo:
@@ -625,14 +629,21 @@ static void on_channelmix_info(void *data, const struct spa_node_info *info)
 		case SPA_PARAM_Props:
 			idx = IDX_Props;
 			break;
+		default:
+			continue;
 		}
-		if (idx != SPA_ID_INVALID) {
-			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
-			this->params[idx].flags =
-				(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
-				(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
+		if (!this->add_listener &&
+		    this->param_flags[idx] == info->params[i].flags)
+			continue;
+
+		this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+		this->param_flags[idx] = info->params[i].flags;
+		this->params[idx].flags =
+			(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
+			(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
+
+		if (!this->add_listener)
 			this->params[idx].user++;
-		}
 	}
 	emit_node_info(this, false);
 }

@@ -1,13 +1,13 @@
 # POD
 
-POD (plan old data) is a sort of data container. It is comparable to
+POD (plain old data) is a sort of data container. It is comparable to
 DBus Variant or LV2 Atom.
 
 A POD can express nested structures of Objects (with properties), Vectors,
 Arrays, sequences and various primitives types. All information in the POD
 is laid out sequentially in memory and can be written directly to
 storage or exchanged between processes or threads without additional
-marshalling..
+marshalling.
 
 Each POD is made of a 32 bits size followed by a 32 bits type field,
 followed by the pod contents. This makes it possible to skip over unknown
@@ -86,7 +86,7 @@ spa_pod_builder_int(&b, 5);
 spa_pod_builder_float(&b, 3.1415f);
 ```
 
-The we close the container by popping the frame again:
+Then we close the container by popping the frame again:
 
 ```c
 struct spa_pod *pod;

@@ -83,7 +83,7 @@ ships with 2 types of mainloop implementations. We will use the
 `struct pw_main_loop` implementation, we will see later how we can
 use the `struct pw_thread_loop` implementation as well.
 
-The mainloop is an abstraction of a big poll loop, wiating for events
+The mainloop is an abstraction of a big poll loop, waiting for events
 to occur and things to do. Most of the PipeWire work will actually
 be performed in the context of this loop and so we need to make one
 first.

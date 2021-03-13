@@ -426,7 +426,8 @@ void pw_init(int *argc, char **argv[])
 
 	if (pw_log_is_default()) {
 		n_items = 0;
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, "true");
+		if (getenv("NO_COLOR") == NULL)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, "true");
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_TIMESTAMP, "true");
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LINE, "true");
 		snprintf(level, sizeof(level), "%d", pw_log_level);

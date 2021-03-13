@@ -1378,7 +1378,8 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	data.out = stdout;
-	colors = true;
+	if (getenv("NO_COLOR") == NULL)
+		colors = true;
 
 	while ((c = getopt_long(argc, argv, "hVr:mN", long_options, NULL)) != -1) {
 		switch (c) {

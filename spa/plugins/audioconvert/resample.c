@@ -46,6 +46,7 @@
 #define DEFAULT_CHANNELS	2
 
 #define MAX_SAMPLES	8192
+#define MAX_ALIGN	16
 #define MAX_BUFFERS	32
 
 struct impl;
@@ -121,6 +122,8 @@ struct impl {
 	unsigned int drained:1;
 
 	struct resample resample;
+
+	float empty[MAX_SAMPLES + MAX_ALIGN];
 };
 
 #define CHECK_PORT(this,d,id)		(id == 0)
@@ -815,30 +818,30 @@ static int impl_node_process(void *object)
 		flush_out = true;
 		break;
 	}
+	src_datas = alloca(sizeof(void*) * this->resample.channels);
+	dst_datas = alloca(sizeof(void*) * this->resample.channels);
+
 	if (size == 0) {
 		size = sb->datas[0].maxsize;
 		for (i = 0; i < sb->n_datas; i++)
-			memset(sb->datas[i].data, 0, size);
+			src_datas[i] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
 		inport->offset = 0;
 		flush_in = draining = true;
+	} else {
+		for (i = 0; i < sb->n_datas; i++)
+			src_datas[i] = SPA_MEMBER(sb->datas[i].data, inport->offset, void);
 	}
+	for (i = 0; i < db->n_datas; i++)
+		dst_datas[i] = SPA_MEMBER(db->datas[i].data, outport->offset, void);
 
 	in_len = (size - inport->offset) / sizeof(float);
 	out_len = (maxsize - outport->offset) / sizeof(float);
 
-	src_datas = alloca(sizeof(void*) * this->resample.channels);
-	dst_datas = alloca(sizeof(void*) * this->resample.channels);
-
-	for (i = 0; i < sb->n_datas; i++)
-		src_datas[i] = SPA_MEMBER(sb->datas[i].data, inport->offset, void);
-	for (i = 0; i < db->n_datas; i++)
-		dst_datas[i] = SPA_MEMBER(db->datas[i].data, outport->offset, void);
 
 #ifndef FASTPATH
 	pin_len = in_len;
 	pout_len = out_len;
 #endif
-
 	passthrough = this->resample.i_rate == this->resample.o_rate &&
 		(this->io_rate_match == NULL ||
 		 !SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE));

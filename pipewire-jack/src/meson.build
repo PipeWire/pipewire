@@ -5,6 +5,11 @@ pipewire_jack_sources = [
   'uuid.c',
 ]
 
+pipewire_jackserver_sources = pipewire_jack_sources
+pipewire_jackserver_sources += [
+  'control.c',
+]
+
 pipewire_dummy_sources = [
   'dummy.c',
 ]
@@ -43,12 +48,12 @@ pipewire_jack = shared_library('jack',
 )
 
 pipewire_jackserver = shared_library('jackserver',
-    pipewire_dummy_sources,
+    pipewire_jackserver_sources,
     soversion : soversion,
     version : libversion,
     c_args : pipewire_jack_c_args,
     include_directories : [configinc, jack_inc],
-    dependencies : [pipewire_dep, mathlib],
+    dependencies : [pipewire_dep, atomic_dep, mathlib],
     install : true,
     install_dir : libjack_path,
 )

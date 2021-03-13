@@ -114,8 +114,7 @@ impl_log_logv(void *object,
 	size += snprintf(p + size, len - size, " ");
 	size += vsnprintf(p + size, len - size, fmt, args);
 
-	if (impl->colors)
-		size += snprintf(p + size, len - size, "%s\n", suffix);
+	size += snprintf(p + size, len - size, "%s\n", impl->colors ? suffix : "");
 
 	if (SPA_UNLIKELY(do_trace)) {
 		uint32_t index;

@@ -261,7 +261,7 @@ if cc.has_type('ptrdiff_t', prefix : '#include <stddef.h>')
   cdata.set('HAVE_PTRDIFF_T', 1)
 endif
 
-if cc.has_function('strndupa', prefix : '#include <string.h>', args : [ '-D_GNU_SOURCE' ])
+if cc.has_header_symbol('string.h', 'strndupa', args : [ '-D_GNU_SOURCE' ])
   cdata.set('HAVE_STRNDUPA', 1)
 endif
 

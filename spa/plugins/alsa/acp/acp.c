@@ -295,7 +295,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 	ap->input_name = pa_xstrdup("pro-input");
 	ap->priority = 1;
 
-	asprintf(&device, "hw:%d", index);
+	pa_assert_se(asprintf(&device, "hw:%d", index) >= 0);
 
 	if ((err = snd_ctl_open(&ctl_hndl, device, 0)) < 0) {
 		pa_log_error("can't open control for card %s: %s",
@@ -331,7 +331,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 				pa_log_error("error pcm info: %s", snd_strerror(err));
 		}
 		if (err >= 0) {
-			asprintf(&name, "Mapping pro-output-%d", dev);
+			pa_assert_se(asprintf(&name, "Mapping pro-output-%d", dev) >= 0);
 			m = pa_alsa_mapping_get(ps, name);
 			m->description = pa_xstrdup(desc);
 			m->device_strings = pa_split_spaces_strv(devstr);
@@ -361,7 +361,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 				pa_log_error("error pcm info: %s", snd_strerror(err));
 		}
 		if (err >= 0) {
-			asprintf(&name, "Mapping pro-input-%d", dev);
+			pa_assert_se(asprintf(&name, "Mapping pro-input-%d", dev) >= 0);
 			m = pa_alsa_mapping_get(ps, name);
 			m->description = pa_xstrdup(desc);
 			m->device_strings = pa_split_spaces_strv(devstr);

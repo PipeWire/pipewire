@@ -6010,7 +6010,7 @@ error:
 static int create_pid_file(void) {
 	int res;
 	char pid_file[PATH_MAX];
-	char pid_str[32];
+	FILE *f;
 
 	if ((res = get_runtime_dir(pid_file, sizeof(pid_file), "pulse")) < 0) {
 		return res;
@@ -6021,16 +6021,14 @@ static int create_pid_file(void) {
 	}
 	strcat(pid_file, "/pid");
 
-	snprintf(pid_str, sizeof(pid_str), "%lu\n", (unsigned long)getpid());
-
-	int fd = open(pid_file, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
-	if (fd < 0) {
+	if ((f = fopen(pid_file, "w")) == NULL) {
 		res = -errno;
 		pw_log_error(NAME" failed to open pid file");
 		return res;
 	}
-	write(fd, pid_str, strlen(pid_str) + 1);
-	close(fd);
+
+	fprintf(f, "%lu\n", (unsigned long)getpid());
+	fclose(f);
 	return 0;
 }
 

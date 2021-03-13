@@ -6007,6 +6007,29 @@ error:
 	return res;
 }
 
+static int create_pid_file(void) {
+	int res;
+	char pid_file[PATH_MAX];
+	char pid_str[32];
+
+	if ((res = get_runtime_dir(pid_file, sizeof(pid_file), "pulse")) < 0) {
+		return res;
+	}
+	strcat(pid_file, "/pid");
+
+	snprintf(pid_str, sizeof(pid_str), "%lu\n", (unsigned long)getpid());
+
+	int fd = open(pid_file, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
+	if (fd < 0) {
+		res = -errno;
+		pw_log_error(NAME" failed to open pid file");
+		return res;
+	}
+	write(fd, pid_str, strlen(pid_str) + 1);
+	close(fd);
+	return 0;
+}
+
 static int make_inet_socket(struct server *server, char *name)
 {
 	struct sockaddr_in addr;
@@ -6095,6 +6118,9 @@ static struct server *create_server(struct impl *impl, char *address)
 	if (server->source == NULL) {
 		res = -errno;
 		pw_log_error(NAME" %p: can't create server source: %m", impl);
+		goto error_close;
+	}
+	if ((res = create_pid_file()) < 0) {
 		goto error_close;
 	}
 	return server;

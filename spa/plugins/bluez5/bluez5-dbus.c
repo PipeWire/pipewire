@@ -2917,6 +2917,11 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 				spa_log_debug(monitor->log, "Bluetooth daemon disappeared");
 				monitor->objects_listed = false;
 
+				if (monitor->backend_native_registered) {
+					backend_native_unregister_profiles(monitor->backend_native);
+					monitor->backend_native_registered = false;
+				}
+
 				spa_list_consume(t, &monitor->transport_list, link)
 					spa_bt_transport_free(t);
 				spa_list_consume(ep, &monitor->remote_endpoint_list, link)

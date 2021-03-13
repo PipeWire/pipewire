@@ -1387,7 +1387,7 @@ void backend_native_register_profiles(struct spa_bt_backend *backend)
 		sco_listen(backend);
 }
 
-void backend_native_unregister_profiles(struct spa_bt_backend *backend)
+void sco_close(struct spa_bt_backend *backend)
 {
 	if (backend->sco.fd >= 0) {
 		if (backend->sco.loop)
@@ -1396,6 +1396,11 @@ void backend_native_unregister_profiles(struct spa_bt_backend *backend)
 		close (backend->sco.fd);
 		backend->sco.fd = -1;
 	}
+}
+
+void backend_native_unregister_profiles(struct spa_bt_backend *backend)
+{
+	sco_close(backend);
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	if (backend->enabled_profiles & SPA_BT_PROFILE_HSP_AG)
@@ -1415,6 +1420,8 @@ void backend_native_unregister_profiles(struct spa_bt_backend *backend)
 void backend_native_free(struct spa_bt_backend *backend)
 {
 	struct rfcomm *rfcomm;
+
+	sco_close(backend);
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_AG);

@@ -822,7 +822,7 @@ static int impl_node_process(void *object)
 	dst_datas = alloca(sizeof(void*) * this->resample.channels);
 
 	if (size == 0) {
-		size = sb->datas[0].maxsize;
+		size = MAX_SAMPLES * sizeof(float);
 		for (i = 0; i < sb->n_datas; i++)
 			src_datas[i] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
 		inport->offset = 0;

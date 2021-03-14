@@ -450,7 +450,7 @@ void jack_error(const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	pw_log_logv(SPA_LOG_LEVEL_ERROR, __FILE__, __LINE__, __func__, format, args);
+	pw_log_logv(SPA_LOG_LEVEL_ERROR, "", 0, "", format, args);
 	va_end(args);
 }
 
@@ -459,7 +459,7 @@ void jack_info(const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	pw_log_logv(SPA_LOG_LEVEL_INFO, __FILE__, __LINE__, __func__, format, args);
+	pw_log_logv(SPA_LOG_LEVEL_INFO, "", 0, "", format, args);
 	va_end(args);
 }
 
@@ -468,6 +468,6 @@ void jack_log(const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	pw_log_logv(SPA_LOG_LEVEL_DEBUG, __FILE__, __LINE__, __func__, format, args);
+	pw_log_logv(SPA_LOG_LEVEL_DEBUG, "", 0, "", format, args);
 	va_end(args);
 }

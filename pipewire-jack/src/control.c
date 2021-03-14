@@ -31,6 +31,7 @@
 #include <signal.h>
 
 #include <jack/control.h>
+#include <jack/jslist.h>
 
 #include <pipewire/pipewire.h>
 
@@ -69,6 +70,13 @@ jackctl_server_t * jackctl_server_create(
 struct jackctl_server
 {
 	// stub
+	JSList * empty;
+	JSList * drivers;
+};
+
+struct jackctl_driver
+{
+	// stub
 };
 
 SPA_EXPORT
@@ -79,8 +87,25 @@ jackctl_server_t * jackctl_server_create2(
 {
 	// stub
 	pw_log_warn("not implemented %p %p %p", on_device_acquire, on_device_release, on_device_reservation_loop);
-	struct jackctl_server * server_ptr = (struct jackctl_server *)malloc(sizeof(struct jackctl_server));
-	return server_ptr;
+
+	// setup server
+	jackctl_server_t * server;
+	server = (jackctl_server_t *)malloc(sizeof(jackctl_server_t));
+	if (server == NULL) {
+		return NULL;
+	}
+	server->empty = NULL;
+	server->drivers = NULL;
+
+	// setup dummy (default) driver
+	jackctl_driver_t * dummy;
+	dummy = (jackctl_driver_t *)malloc(sizeof(jackctl_driver_t));
+	if (dummy == NULL) {
+		return NULL;
+	}
+	server->drivers = jack_slist_append (server->drivers, dummy);
+
+	return server;
 }
 
 SPA_EXPORT
@@ -90,6 +115,11 @@ void jackctl_server_destroy(jackctl_server_t * server)
 	pw_log_warn("%p: not implemented", server);
 
 	if (server) {
+		if (server->drivers) {
+			free(server->drivers->data);
+		}
+		jack_slist_free(server->empty);
+		jack_slist_free(server->drivers);
 		free(server);
 	}
 }
@@ -131,7 +161,11 @@ const JSList * jackctl_server_get_drivers_list(jackctl_server_t * server)
 {
 	// stub
 	pw_log_warn("%p: not implemented", server);
-	return NULL;
+	if (server == NULL) {
+		pw_log_warn("server == NULL");
+		return NULL;
+	}
+	return server->drivers;
 }
 
 SPA_EXPORT
@@ -139,7 +173,10 @@ const JSList * jackctl_server_get_parameters(jackctl_server_t * server)
 {
 	// stub
 	pw_log_warn("%p: not implemented", server);
-	return NULL;
+	if (server == NULL) {
+		return NULL;
+	}
+	return server->empty;
 }
 
 SPA_EXPORT
@@ -147,7 +184,10 @@ const JSList * jackctl_server_get_internals_list(jackctl_server_t * server)
 {
 	// stub
 	pw_log_warn("%p: not implemented", server);
-	return NULL;
+	if (server == NULL) {
+		return NULL;
+	}
+	return server->empty;
 }
 
 SPA_EXPORT
@@ -155,7 +195,7 @@ bool jackctl_server_load_internal(jackctl_server_t * server, jackctl_internal_t 
 {
 	// stub
 	pw_log_warn("%p: not implemented %p", server, internal);
-	return false;
+	return true;
 }
 
 SPA_EXPORT
@@ -163,7 +203,7 @@ bool jackctl_server_unload_internal(jackctl_server_t * server, jackctl_internal_
 {
 	// stub
 	pw_log_warn("%p: not implemented %p", server, internal);
-	return false;
+	return true;
 }
 
 SPA_EXPORT
@@ -204,7 +244,7 @@ const char * jackctl_driver_get_name(jackctl_driver_t * driver)
 {
 	// stub
 	pw_log_warn("%p: not implemented", driver);
-	return "";
+	return "dummy";
 }
 
 SPA_EXPORT
@@ -228,7 +268,7 @@ int jackctl_driver_params_parse(jackctl_driver_t * driver, int argc, char* argv[
 {
 	// stub
 	pw_log_warn("%p: not implemented %d %p", driver, argc, argv);
-	return 0;
+	return 1;
 }
 
 SPA_EXPORT
@@ -236,7 +276,7 @@ const char * jackctl_internal_get_name(jackctl_internal_t * internal)
 {
 	// stub
 	pw_log_warn("not implemented %p", internal);
-	return "";
+	return "pipewire-jack-stub";
 }
 
 SPA_EXPORT
@@ -252,7 +292,7 @@ const char * jackctl_parameter_get_name(jackctl_parameter_t * parameter)
 {
 	// stub
 	pw_log_warn("%p: not implemented", parameter);
-	return "";
+	return "pipewire-jack-stub";
 }
 
 SPA_EXPORT
@@ -260,7 +300,7 @@ const char * jackctl_parameter_get_short_description(jackctl_parameter_t * param
 {
 	// stub
 	pw_log_warn("%p: not implemented", parameter);
-	return "";
+	return "pipewire-jack-stub";
 }
 
 SPA_EXPORT
@@ -268,7 +308,7 @@ const char * jackctl_parameter_get_long_description(jackctl_parameter_t * parame
 {
 	// stub
 	pw_log_warn("%p: not implemented", parameter);
-	return "";
+	return "pipewire-jack-stub";
 }
 
 SPA_EXPORT
@@ -376,7 +416,7 @@ const char * jackctl_parameter_get_enum_constraint_description(
 {
 	// stub
 	pw_log_warn("%p: not implemented %d", parameter, index);
-	return "";
+	return "pipewire-jack-stub";
 }
 
 SPA_EXPORT

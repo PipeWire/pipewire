@@ -832,12 +832,6 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 	if (state->resample && state->rate_match) {
 		state->delay = state->rate_match->delay;
 		state->read_size = state->rate_match->size;
-		/* We try to compensate for the latency introduced by rate matching
-		 * by moving a little closer to the device read/write pointers. */
-		if (*target <= state->delay)
-			*target -= SPA_MAX(0, (int)(*target - state->delay));
-		else
-			*target -= state->delay;
 	} else {
 		state->delay = 0;
 		state->read_size = state->threshold;
@@ -845,8 +839,7 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		*delay = state->buffer_frames - avail;
-	}
-	else {
+	} else {
 		*delay = avail;
 		*target = SPA_MAX(*target, state->read_size);
 	}

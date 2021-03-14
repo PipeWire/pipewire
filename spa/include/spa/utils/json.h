@@ -77,7 +77,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 			goto again;
 		case __STRUCT:
 			switch (cur) {
-			case '\t': case ' ': case '\r': case '\n': case ':': case '=': case ',':
+			case '\0': case '\t': case ' ': case '\r': case '\n': case ':': case '=': case ',':
 				continue;
 			case '#':
 				iter->state = __COMMENT;

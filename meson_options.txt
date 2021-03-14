@@ -91,11 +91,11 @@ option('bluez5-backend-hsphfpd',
        type: 'feature',
        value: 'auto')
 option('bluez5-codec-aptx',
-        description: 'Enable AptX Qualcomm proprietary codec implementation',
+        description: 'Enable AptX Qualcomm open source codec implementation',
         type: 'feature',
         value: 'auto')
 option('bluez5-codec-ldac',
-        description: 'Enable LDAC Sony proprietary codec implementation',
+        description: 'Enable LDAC Sony open source codec implementation',
         type: 'feature',
         value: 'auto')
 option('bluez5-codec-aac',

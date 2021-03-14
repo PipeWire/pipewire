@@ -17,7 +17,7 @@ run: all
 	PIPEWIRE_CONFIG_DIR=@BUILD_ROOT@/src/daemon/ \
 	ACP_PATHS_DIR=@SOURCE_ROOT@/spa/plugins/alsa/mixer/paths \
 	ACP_PROFILES_DIR=@SOURCE_ROOT@/spa/plugins/alsa/mixer/profile-sets \
-	$(DBG) @BUILD_ROOT@/src/daemon/pipewire -c pipewire-uninstalled.conf
+	$(DBG) @BUILD_ROOT@/src/daemon/pipewire-uninstalled
 
 run-pulse: all
 	SPA_PLUGIN_DIR=@BUILD_ROOT@/spa/plugins \
@@ -25,7 +25,7 @@ run-pulse: all
 	PIPEWIRE_CONFIG_DIR=@BUILD_ROOT@/src/daemon/ \
 	ACP_PATHS_DIR=@SOURCE_ROOT@/spa/plugins/alsa/mixer/paths \
 	ACP_PROFILES_DIR=@SOURCE_ROOT@/spa/plugins/alsa/mixer/profile-sets \
-	$(DBG) @BUILD_ROOT@/src/daemon/pipewire-pulse -c pipewire-pulse.conf
+	$(DBG) @BUILD_ROOT@/src/daemon/pipewire-pulse
 
 gdb:
 	$(MAKE) run DBG=gdb

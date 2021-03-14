@@ -45,7 +45,7 @@ configure_file(input : 'pipewire.conf.in',
                output : 'pipewire-uninstalled.conf',
                configuration : conf_config_uninstalled)
 
-executable('pipewire',
+pipewire_exec = executable('pipewire',
   pipewire_daemon_sources,
   install: true,
   c_args : pipewire_c_args,
@@ -59,6 +59,16 @@ executable('pipewire-pulse',
   c_args : pipewire_c_args,
   include_directories : [configinc, spa_inc],
   dependencies : [pipewire_dep, ],
+)
+
+ln = find_program('ln')
+
+custom_target('pipewire-uninstalled',
+  build_by_default: true,
+  install: false,
+  input: pipewire_exec,
+  output: 'pipewire-uninstalled',
+  command: [ln, '-fsr', '@INPUT@', '@OUTPUT@'],
 )
 
 #desktop_file = i18n.merge_file(

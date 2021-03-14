@@ -277,7 +277,7 @@ int pw_conf_load_state(const char *prefix, const char *name, struct pw_propertie
  *  <factory-name regex> = <library-name>
  * }
  */
-static int parse_spa_libs(struct pw_context *context, const char *str)
+static int parse_spa_libs(struct pw_context *context, char *str)
 {
 	struct spa_json it[2];
 	char key[512], value[512];
@@ -325,7 +325,7 @@ static int load_module(struct pw_context *context, const char *key, const char *
  *   }
  * ]
  */
-static int parse_modules(struct pw_context *context, const char *str)
+static int parse_modules(struct pw_context *context, char *str)
 {
 	struct spa_json it[3];
 	char key[512];
@@ -346,29 +346,23 @@ static int parse_modules(struct pw_context *context, const char *str)
 				break;
 
 			if (strcmp(key, "name") == 0) {
-				name = malloc(len + 1);
+				name = (char*)val;
 				spa_json_parse_string(val, len, name);
-			}
-			else if (strcmp(key, "args") == 0) {
+			} else if (strcmp(key, "args") == 0) {
 				if (spa_json_is_container(val, len))
 					len = spa_json_container_len(&it[2], val, len);
 
-				args = malloc(len + 1);
+				args = (char*)val;
 				spa_json_parse_string(val, len, args);
 			} else if (strcmp(key, "flags") == 0) {
 				if (spa_json_is_container(val, len))
 					len = spa_json_container_len(&it[2], val, len);
-
-				flags = malloc(len + 1);
+				flags = (char*)val;
 				spa_json_parse_string(val, len, flags);
 			}
 		}
 		if (name != NULL)
 			res = load_module(context, name, args, flags);
-
-		free(name);
-		free(args);
-		free(flags);
 
 		if (res < 0)
 			break;
@@ -411,7 +405,7 @@ static int create_object(struct pw_context *context, const char *key, const char
  *   }
  * ]
  */
-static int parse_objects(struct pw_context *context, const char *str)
+static int parse_objects(struct pw_context *context, char *str)
 {
 	struct spa_json it[3];
 	char key[512];
@@ -432,24 +426,24 @@ static int parse_objects(struct pw_context *context, const char *str)
 				break;
 
 			if (strcmp(key, "factory") == 0) {
-				factory = malloc(len + 1);
+				factory = (char*)val;
 				spa_json_parse_string(val, len, factory);
 			} else if (strcmp(key, "args") == 0) {
 				if (spa_json_is_container(val, len))
 					len = spa_json_container_len(&it[2], val, len);
 
-				args = malloc(len + 1);
+				args = (char*)val;
 				spa_json_parse_string(val, len, args);
 			} else if (strcmp(key, "flags") == 0) {
-				flags = strndup(val, len);
+				if (spa_json_is_container(val, len))
+					len = spa_json_container_len(&it[2], val, len);
+
+				flags = (char*)val;
+				spa_json_parse_string(val, len, flags);
 			}
 		}
 		if (factory != NULL)
 			res = create_object(context, factory, args, flags);
-
-		free(factory);
-		free(args);
-		free(flags);
 
 		if (res < 0)
 			break;
@@ -495,7 +489,7 @@ static int do_exec(struct pw_context *context, const char *key, const char *args
  *   }
  * ]
  */
-static int parse_exec(struct pw_context *context, const char *str)
+static int parse_exec(struct pw_context *context, char *str)
 {
 	struct spa_json it[3];
 	char key[512];
@@ -516,18 +510,15 @@ static int parse_exec(struct pw_context *context, const char *str)
 				break;
 
 			if (strcmp(key, "path") == 0) {
-				path = malloc(len + 1);
+				path = (char*)val;
 				spa_json_parse_string(val, len, path);
 			} else if (strcmp(key, "args") == 0) {
-				args = malloc(len + 1);
+				args = (char*)val;
 				spa_json_parse_string(val, len, args);
 			}
 		}
-		if (path)
+		if (path != NULL)
 			res = do_exec(context, path, args);
-
-		free(path);
-		free(args);
 
 		if (res < 0)
 			break;
@@ -540,21 +531,26 @@ int pw_context_parse_conf_section(struct pw_context *context,
 		struct pw_properties *conf, const char *section)
 {
 	const char *str;
+	char *s;
 	int res;
 
 	if ((str = pw_properties_get(conf, section)) == NULL)
 		return -ENOENT;
 
+	s = strdup(str);
+
 	if (strcmp(section, "context.spa-libs") == 0)
-		res = parse_spa_libs(context, str);
+		res = parse_spa_libs(context, s);
 	else if (strcmp(section, "context.modules") == 0)
-		res = parse_modules(context, str);
+		res = parse_modules(context, s);
 	else if (strcmp(section, "context.objects") == 0)
-		res = parse_objects(context, str);
+		res = parse_objects(context, s);
 	else if (strcmp(section, "context.exec") == 0)
-		res = parse_exec(context, str);
+		res = parse_exec(context, s);
 	else
 		res = -EINVAL;
+
+	free(s);
 
 	return res;
 }

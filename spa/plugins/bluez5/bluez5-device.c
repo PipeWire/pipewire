@@ -106,6 +106,10 @@ struct impl {
 	const struct a2dp_codec **supported_codecs;
 	size_t supported_codec_count;
 
+#define MAX_SETTINGS 32
+	struct spa_dict_item setting_items[MAX_SETTINGS];
+	struct spa_dict setting_dict;
+
 	struct node nodes[2];
 };
 
@@ -1200,10 +1204,20 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *this = (struct impl *) handle;
+	const struct spa_dict_item *it;
 
 	free(this->supported_codecs);
-	if (this->bt_dev)
+	if (this->bt_dev) {
+		this->bt_dev->settings = NULL;
 		spa_hook_remove(&this->bt_dev_listener);
+	}
+
+	spa_dict_for_each(it, &this->setting_dict) {
+		if(it->key)
+			free((void *)it->key);
+		if(it->value)
+			free((void *)it->value);
+	}
 
 	return 0;
 }
@@ -1213,6 +1227,24 @@ impl_get_size(const struct spa_handle_factory *factory,
 	      const struct spa_dict *params)
 {
 	return sizeof(struct impl);
+}
+
+static const struct spa_dict*
+filter_bluez_device_setting(struct impl *this, const struct spa_dict *dict)
+{
+	uint32_t n_items = 0;
+	for (uint32_t i = 0
+		; i < dict->n_items && n_items < SPA_N_ELEMENTS(this->setting_items)
+		; i++)
+	{
+		const struct spa_dict_item *it = &dict->items[i];
+		if (it->key != NULL && strncmp(it->key, "bluez", 5) == 0 && it->value != NULL) {
+			this->setting_items[n_items++] =
+				SPA_DICT_ITEM_INIT(strdup(it->key), strdup(it->value));
+		}
+	}
+	this->setting_dict = SPA_DICT_INIT(this->setting_items, n_items);
+	return &this->setting_dict;
 }
 
 static int
@@ -1242,6 +1274,9 @@ impl_init(const struct spa_handle_factory *factory,
 		spa_log_error(this->log, "a device is needed");
 		return -EINVAL;
 	}
+
+	this->bt_dev->settings = filter_bluez_device_setting(this, info);
+
 	this->device.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Device,
 			SPA_VERSION_DEVICE,

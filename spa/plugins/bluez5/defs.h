@@ -415,6 +415,8 @@ struct spa_bt_device {
 	struct spa_hook_list listener_list;
 	bool added;
 
+	const struct spa_dict *settings;
+
 	DBusPendingCall *battery_pending_call;
 };
 

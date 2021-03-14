@@ -432,6 +432,11 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 
 	codec = a2dp_endpoint_to_codec(path);
 	if (codec != NULL)
+		/* FIXME: We can't determine which device the SelectConfiguration()
+		 * call is associated with, therefore device settings are not passed.
+		 * This causes inconsistency with SelectConfiguration() triggered
+		 * by codec switching.
+		  */
 		res = codec->select_config(codec, 0, cap, size, NULL, config);
 	else
 		res = -ENOTSUP;
@@ -1856,7 +1861,7 @@ static bool a2dp_codec_switch_process_current(struct spa_bt_a2dp_codec_switch *s
 		goto next;
 	}
 
-	res = codec->select_config(codec, 0, ep->capabilities, ep->capabilities_len, NULL, config);
+	res = codec->select_config(codec, 0, ep->capabilities, ep->capabilities_len, sw->device->settings, config);
 	if (res < 0) {
 		spa_log_debug(sw->device->monitor->log, NAME": a2dp codec switch %p: incompatible capabilities (%d), try next",
 		              sw, res);

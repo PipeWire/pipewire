@@ -569,7 +569,8 @@ static int transport_start(struct impl *this)
 	this->codec_data = this->codec->init(this->codec, 0,
 			this->transport->configuration,
 			this->transport->configuration_len,
-			&port->current_format, NULL,
+			&port->current_format,
+			this->transport->device->settings,
 			this->transport->read_mtu);
 	if (this->codec_data == NULL)
 		return -EIO;

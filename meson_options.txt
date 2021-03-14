@@ -90,6 +90,18 @@ option('bluez5-backend-hsphfpd',
        description: 'Enable hsphfpd backend in bluez5 spa plugin',
        type: 'feature',
        value: 'auto')
+option('bluez5-codec-aptx',
+        description: 'Enable AptX Qualcomm proprietary codec implementation',
+        type: 'feature',
+        value: 'auto')
+option('bluez5-codec-ldac',
+        description: 'Enable LDAC Sony proprietary codec implementation',
+        type: 'feature',
+        value: 'auto')
+option('bluez5-codec-aac',
+        description: 'Enable Fraunhofer FDK AAC open source codec implementation',
+        type: 'feature',
+        value: 'auto')
 option('control',
        description: 'Enable control spa plugin integration',
        type: 'feature',

@@ -241,13 +241,28 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	return 0;
 }
 
-static void update_rate_match(struct impl *this)
+static void update_rate_match(struct impl *this, bool passthrough, uint32_t out_size, uint32_t in_queued)
 {
 	if (this->io_rate_match) {
-		this->io_rate_match->delay = resample_delay(&this->resample);
-		if (SPA_LIKELY(this->io_position))
-			this->io_rate_match->size = resample_in_len(&this->resample,
-					this->io_position->clock.duration);
+		uint32_t match_size;
+
+		if (passthrough) {
+			this->io_rate_match->delay = 0;
+			match_size = out_size;
+		} else {
+			if (SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
+				resample_update_rate(&this->resample, this->io_rate_match->rate);
+			else
+				resample_update_rate(&this->resample, 1.0);
+
+			this->io_rate_match->delay = resample_delay(&this->resample);
+			match_size = resample_in_len(&this->resample, out_size);
+		}
+		match_size -= SPA_MIN(match_size, in_queued);
+		this->io_rate_match->size = match_size;
+		spa_log_trace_fp(this->log, NAME " %p: next match %u", this, match_size);
+	} else {
+		resample_update_rate(&this->resample, this->props.rate);
 	}
 }
 
@@ -271,10 +286,15 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
+	{
+		bool passthrough = this->resample.i_rate == this->resample.o_rate &&
+			(this->io_rate_match == NULL ||
+			 !SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE));
+		uint32_t out_size = this->io_position ? this->io_position->clock.duration : 1024;
 		this->started = true;
-		resample_update_rate(&this->resample, 1.0);
-		update_rate_match(this);
+		update_rate_match(this, passthrough, out_size, 0);
 		break;
+	}
 	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Flush:
 		reset_node(this);
@@ -895,26 +915,8 @@ static int impl_node_process(void *object)
 		spa_log_trace_fp(this->log, NAME " %p: no output buffer", this);
 	}
 
-	if (this->io_rate_match) {
-		uint32_t match_size;
-
-		if (passthrough) {
-			this->io_rate_match->delay = 0;
-			match_size = max - outport->offset / sizeof(float);
-		} else {
-			if (SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
-				resample_update_rate(&this->resample, this->io_rate_match->rate);
-			else
-				resample_update_rate(&this->resample, 1.0);
-
-			this->io_rate_match->delay = resample_delay(&this->resample);
-
-			match_size = resample_in_len(&this->resample, max - outport->offset / sizeof(float));
-		}
-		match_size -= SPA_MIN(match_size, size - inport->offset / sizeof(float));
-		this->io_rate_match->size = match_size;
-		spa_log_trace_fp(this->log, NAME " %p: next match %u", this, match_size);
-	}
+	update_rate_match(this, passthrough, max - outport->offset / sizeof(float),
+			size - inport->offset / sizeof(float));
 	return res;
 }
 

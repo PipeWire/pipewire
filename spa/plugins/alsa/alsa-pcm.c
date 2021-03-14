@@ -830,7 +830,7 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 	*target = state->threshold + state->headroom;
 
 	if (state->resample && state->rate_match) {
-		state->delay = state->rate_match->delay * 2;
+		state->delay = state->rate_match->delay;
 		state->read_size = state->rate_match->size;
 		/* We try to compensate for the latency introduced by rate matching
 		 * by moving a little closer to the device read/write pointers. */

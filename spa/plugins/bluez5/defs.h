@@ -375,6 +375,9 @@ struct spa_bt_device_events {
 #define SPA_VERSION_BT_DEVICE_EVENTS	0
 	uint32_t version;
 
+	/** Device connection status */
+	void (*connected) (void *data, bool connected);
+
 	/** Codec switching completed */
 	void (*codec_switched) (void *data, int status);
 
@@ -430,6 +433,7 @@ int spa_bt_device_report_battery_level(struct spa_bt_device *device, uint8_t per
 #define spa_bt_device_emit(d,m,v,...)			spa_hook_list_call(&(d)->listener_list, \
 								struct spa_bt_device_events,	\
 								m, v, ##__VA_ARGS__)
+#define spa_bt_device_emit_connected(d,...)	        spa_bt_device_emit(d, connected, 0, __VA_ARGS__)
 #define spa_bt_device_emit_codec_switched(d,...)	spa_bt_device_emit(d, codec_switched, 0, __VA_ARGS__)
 #define spa_bt_device_emit_profiles_changed(d,...)	spa_bt_device_emit(d, profiles_changed, 0, __VA_ARGS__)
 #define spa_bt_device_add_listener(d,listener,events,data)           \

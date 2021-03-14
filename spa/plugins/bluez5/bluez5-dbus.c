@@ -136,6 +136,10 @@ struct spa_bt_a2dp_codec_switch {
 	size_t num_paths;
 };
 
+#define BT_DEVICE_DISCONNECTED	0
+#define BT_DEVICE_CONNECTED	1
+#define BT_DEVICE_INIT		-1
+
 /*
  * SCO socket connect may fail with ECONNABORTED if it is done too soon after
  * previous close. To avoid this in cases where nodes are toggled between
@@ -640,8 +644,6 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 
 static int device_stop_timer(struct spa_bt_device *device);
 
-static int device_remove(struct spa_bt_monitor *monitor, struct spa_bt_device *device);
-
 static void a2dp_codec_switch_free(struct spa_bt_a2dp_codec_switch *sw);
 
 static void device_free(struct spa_bt_device *device)
@@ -662,7 +664,10 @@ static void device_free(struct spa_bt_device *device)
 
 	battery_remove(device);
 	device_stop_timer(device);
-	device_remove(monitor, device);
+
+	if (device->added) {
+		spa_device_emit_object_info(&monitor->hooks, device->id, NULL);
+	}
 
 	spa_list_for_each_safe(ep, tep, &device->remote_endpoint_list, device_link) {
 		if (ep->device == device) {
@@ -691,15 +696,38 @@ static void device_free(struct spa_bt_device *device)
 	free(device);
 }
 
-static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *device)
+static int device_connected(struct spa_bt_monitor *monitor, struct spa_bt_device *device, int status)
 {
 	struct spa_device_object_info info;
 	char dev[32], name[128], class[16];
 	struct spa_dict_item items[20];
 	uint32_t n_items = 0;
+	bool connection_changed, init = status == BT_DEVICE_INIT;
 
-	if (device->connected_profiles == 0 || device->added)
+	status = init ? false : status;
+	connection_changed = status ^ device->connected;
+	device->connected = status;
+
+	if (init) {
+		device->added = true;
+	} else if (!device->added || !connection_changed) {
 		return 0;
+	}
+
+	if ((device->connected_profiles != 0) ^ device->connected) {
+		spa_log_error(monitor->log,
+			"unexpected call, connected_profiles:%08x connected:%d",
+			device->connected_profiles, device->connected);
+		return -EINVAL;
+	}
+
+	if (!init) {
+		spa_bt_device_emit_connected(device, device->connected);
+		if (!device->connected) {
+			battery_remove(device);
+			spa_bt_device_release_transports(device);
+		}
+	}
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Device;
@@ -724,28 +752,19 @@ static int device_add(struct spa_bt_monitor *monitor, struct spa_bt_device *devi
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_DEVICE, dev);
 	snprintf(class, sizeof(class), "0x%06x", device->bluetooth_class);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_CLASS, class);
+	items[n_items++] = SPA_DICT_ITEM_INIT(
+				SPA_KEY_API_BLUEZ5_CONNECTION,
+				device->connected ? "connected": "disconnected");
 
 	info.props = &SPA_DICT_INIT(items, n_items);
-
-	device->added = true;
 	spa_device_emit_object_info(&monitor->hooks, device->id, &info);
 
-	return 0;
-}
-
-static int device_remove(struct spa_bt_monitor *monitor, struct spa_bt_device *device)
-{
-	if (!device->added)
-		return 0;
-
-	battery_remove(device);
-
-	device->added = false;
-	spa_device_emit_object_info(&monitor->hooks, device->id, NULL);
+	if(!init && !device->connected) {
+		spa_device_emit_object_info(&monitor->hooks, device->id, NULL);
+	}
 
 	return 0;
 }
-
 
 #define DEVICE_PROFILE_TIMEOUT_SEC 3
 
@@ -761,7 +780,7 @@ static void device_timer_event(struct spa_source *source)
 	spa_log_debug(monitor->log, "device %p: timeout %08x %08x",
 			device, device->profiles, device->connected_profiles);
 
-	device_add(device->monitor, device);
+	device_connected(device->monitor, device, BT_DEVICE_CONNECTED);
 }
 
 static int device_start_timer(struct spa_bt_device *device)
@@ -821,13 +840,11 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 			device, device->profiles, connected_profiles, device->added);
 
 	if (connected_profiles == 0 && spa_list_is_empty(&device->codec_switch_list)) {
-		if (device->added) {
-			device_stop_timer(device);
-			device_remove(monitor, device);
-		}
+		device_stop_timer(device);
+		device_connected(monitor, device, BT_DEVICE_DISCONNECTED);
 	} else if (force || (device->profiles & connected_profiles) == device->profiles) {
 		device_stop_timer(device);
-		device_add(monitor, device);
+		device_connected(monitor, device, BT_DEVICE_CONNECTED);
 	} else {
 		device_start_timer(device);
 	}
@@ -841,14 +858,11 @@ static void device_set_connected(struct spa_bt_device *device, int connected)
 	if (device->connected && !connected)
 		device->connected_profiles = 0;
 
-	device->connected = connected;
-
 	if (connected)
 		spa_bt_device_check_profiles(device, false);
 	else {
 		device_stop_timer(device);
-		if (device->added)
-			device_remove(monitor, device);
+		device_connected(monitor, device, connected);
 	}
 }
 
@@ -1158,6 +1172,8 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 			else if (strcmp(key, "Device") == 0) {
 				struct spa_bt_device *device;
 				device = spa_bt_device_find(monitor, value);
+				if (device == NULL)
+					goto next;
 				spa_log_debug(monitor->log, "remote_endpoint %p: device -> %p", remote_endpoint, device);
 
 				if (remote_endpoint->device != device) {
@@ -2737,16 +2753,25 @@ static void interface_added(struct spa_bt_monitor *monitor,
 	else if (strcmp(interface_name, BLUEZ_DEVICE_INTERFACE) == 0) {
 		struct spa_bt_device *d;
 
-		d = spa_bt_device_find(monitor, object_path);
+		spa_assert(spa_bt_device_find(monitor, object_path) == NULL);
+
+		d = device_create(monitor, object_path);
 		if (d == NULL) {
-			d = device_create(monitor, object_path);
-			if (d == NULL) {
-				spa_log_warn(monitor->log, "can't create Bluetooth device %s: %m",
-						object_path);
-				return;
-			}
+			spa_log_warn(monitor->log, "can't create Bluetooth device %s: %m",
+					object_path);
+			return;
 		}
+
 		device_update_props(d, props_iter, NULL);
+		/* We only care about audio devices. */
+		if (d->profiles == 0) {
+			device_free(d);
+			return;
+		}
+
+		/* Trigger bluez device creation before bluez profile negotiation started so that
+		 * profile connection handlers can receive per-device settings during profile negotiation. */
+		device_connected(monitor, d, BT_DEVICE_INIT);
 	}
 	else if (strcmp(interface_name, BLUEZ_MEDIA_ENDPOINT_INTERFACE) == 0) {
 		struct spa_bt_remote_endpoint *ep;

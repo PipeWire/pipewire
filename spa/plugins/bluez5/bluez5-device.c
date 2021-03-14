@@ -410,8 +410,20 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 	emit_info(this, false);
 }
 
+static void set_initial_profile(struct impl *this);
+
+static void device_connected(void *userdata, bool connected) {
+	struct impl *this = userdata;
+
+	spa_log_debug(this->log, "connected: %d", connected);
+
+	if (connected ^ (this->profile != 0))
+		set_initial_profile(this);
+}
+
 static const struct spa_bt_device_events bt_dev_events = {
 	SPA_VERSION_BT_DEVICE_EVENTS,
+	.connected = device_connected,
 	.codec_switched = codec_switched,
 	.profiles_changed = profiles_changed,
 };
@@ -539,6 +551,11 @@ static void set_initial_profile(struct impl *this)
 {
 	struct spa_bt_transport *t;
 	int i;
+
+	if (this->supported_codecs)
+		free(this->supported_codecs);
+	this->supported_codecs = spa_bt_device_get_supported_a2dp_codecs(
+					this->bt_dev, &this->supported_codec_count);
 
 	/* Prefer A2DP, then HFP, then null */
 
@@ -1247,8 +1264,6 @@ impl_init(const struct spa_handle_factory *factory,
 	this->params[IDX_Route] = SPA_PARAM_INFO(SPA_PARAM_Route, SPA_PARAM_INFO_READWRITE);
 	this->info.params = this->params;
 	this->info.n_params = 4;
-
-	this->supported_codecs = spa_bt_device_get_supported_a2dp_codecs(this->bt_dev, &this->supported_codec_count);
 
 	spa_bt_device_add_listener(this->bt_dev, &this->bt_dev_listener, &bt_dev_events, this);
 

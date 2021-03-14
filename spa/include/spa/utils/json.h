@@ -112,7 +112,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 				iter->state = __STRUCT;
 				if (iter->depth > 0)
 					goto again;
-				return iter->cur - *value;
+				return iter->cur++ - *value;
 			}
 			continue;
 		case __STRING:
@@ -124,8 +124,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 				iter->state = __STRUCT;
 				if (iter->depth > 0)
 					continue;
-				iter->cur++;
-				return iter->cur - *value;
+				return ++iter->cur - *value;
 			case 240 ... 247:
 				utf8_remain++;
 				SPA_FALLTHROUGH;
@@ -308,7 +307,8 @@ static inline int spa_json_parse_string(const char *val, int len, char *result)
 {
 	const char *p;
 	if (!spa_json_is_string(val, len)) {
-		strncpy(result, val, len);
+		if (result != val)
+			strncpy(result, val, len);
 		result += len;
 	} else {
 		for (p = val+1; p < val + len; p++) {

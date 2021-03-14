@@ -710,7 +710,7 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 
 	if (state->dll.bw == 0.0) {
 		spa_dll_set_bw(&state->dll, SPA_DLL_BW_MAX, state->threshold,
-				state->rate.num / state->rate.denom);
+				state->rate.denom);
 		state->next_time = nsec;
 		state->base_time = nsec;
 	}
@@ -718,10 +718,6 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 
 	if ((state->next_time - state->base_time) > BW_PERIOD) {
 		state->base_time = state->next_time;
-		if (state->dll.bw > SPA_DLL_BW_MIN)
-			spa_dll_set_bw(&state->dll, state->dll.bw / 2.0,
-					state->threshold, state->rate.num / state->rate.denom);
-
 		spa_log_debug(state->log, NAME" %p: follower:%d rate:%f bw:%f err:%f (%f %f %f)",
 				state, follower, corr, state->dll.bw, err,
 				state->dll.z1, state->dll.z2, state->dll.z3);
@@ -738,8 +734,8 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 		state->clock->next_nsec = state->next_time;
 	}
 
-	spa_log_trace_fp(state->log, "now:%"PRIu64" queue:%"PRIu64" err:%f next:%"PRIu64" thr:%d",
-			nsec, queue_real, err, state->next_time, state->threshold);
+	spa_log_trace_fp(state->log, "now:%"PRIu64" queue:%"PRIu64" err:%f corr:%f next:%"PRIu64" thr:%d",
+			nsec, queue_real, err, corr, state->next_time, state->threshold);
 
 	return 0;
 }
@@ -852,8 +848,11 @@ int spa_alsa_seq_start(struct seq_state *state)
 		struct spa_io_clock *clock = &state->position->clock;
 		state->rate = clock->rate;
 		state->duration = clock->duration;
-		state->threshold = state->duration;
+	} else {
+		state->rate = SPA_FRACTION(1, 48000);
+		state->duration = 1024;
 	}
+	state->threshold = state->duration;
 
 	state->started = true;
 

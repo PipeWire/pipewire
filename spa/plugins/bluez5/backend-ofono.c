@@ -531,7 +531,7 @@ int backend_ofono_register(struct spa_bt_backend *backend)
 	dbus_message_unref(m);
 
 	if (r == NULL) {
-		spa_log_error(backend->log, NAME": Registering Profile %s failed", path);
+		spa_log_warn(backend->log, NAME": Registering Profile %s failed", path);
 		dbus_error_free(&err);
 		return -EIO;
 	}

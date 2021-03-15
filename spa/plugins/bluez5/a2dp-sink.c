@@ -374,10 +374,10 @@ static int get_transport_unused_size(struct impl *this)
 	int res, value;
 	res = ioctl(this->flush_source.fd, TIOCOUTQ, &value);
 	if (res < 0) {
-		spa_log_debug(this->log, NAME " %p: ioctl fail: %m", this);
+		spa_log_error(this->log, NAME " %p: ioctl fail: %m", this);
 		return -errno;
 	}
-	spa_log_debug(this->log, NAME " %p: fd unused buffer size:%d/%d", this, value, this->fd_buffer_size);
+	spa_log_trace(this->log, NAME " %p: fd unused buffer size:%d/%d", this, value, this->fd_buffer_size);
 	return value;
 }
 
@@ -667,7 +667,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 		this->clock->delay = (delay_nsec * this->clock->rate.denom) / SPA_NSEC_PER_SEC;
 	}
 
-	spa_log_debug(this->log, NAME" %p: timeout %"PRIu64" %"PRIu64"", this,
+	spa_log_trace(this->log, NAME" %p: timeout %"PRIu64" %"PRIu64"", this,
 			now_time, now_time - prev_time);
 
 	spa_log_trace(this->log, NAME " %p: %d", this, io->status);

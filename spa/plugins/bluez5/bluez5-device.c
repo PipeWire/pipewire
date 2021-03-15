@@ -387,6 +387,12 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 		this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;
 	}
 
+	if (connected_change & SPA_BT_PROFILE_A2DP_SINK) {
+		free(this->supported_codecs);
+		this->supported_codecs = spa_bt_device_get_supported_a2dp_codecs(
+			this->bt_dev, &this->supported_codec_count);
+	}
+
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	this->params[IDX_Profile].flags ^= SPA_PARAM_INFO_SERIAL;
 	this->params[IDX_EnumProfile].flags ^= SPA_PARAM_INFO_SERIAL;

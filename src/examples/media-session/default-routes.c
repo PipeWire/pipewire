@@ -74,7 +74,6 @@ struct device {
 	struct spa_hook listener;
 
 	uint32_t active_profile;
-	char profile_name[128];
 
 	uint32_t generation;
 	struct pw_array route_info;
@@ -138,6 +137,7 @@ struct route_info {
 	uint32_t index;
 	uint32_t generation;
 	uint32_t available;
+	uint32_t prev_available;
 	enum spa_direction direction;
 	char name[64];
 	unsigned int save:1;
@@ -181,6 +181,7 @@ static struct route_info *find_route_info(struct device *dev, struct route *r)
 	i->direction = r->direction;
 	i->generation = dev->generation;
 	i->available = r->available;
+	i->prev_available = r->available;
 
 	return i;
 }
@@ -480,7 +481,6 @@ static int restore_route(struct device *dev, struct route *r)
 	ri->prev_active = true;
 	ri->active = true;
 	ri->generation = dev->generation;
-	ri->available = r->available;
 	ri->save = r->save;
 
 	return 0;
@@ -527,7 +527,7 @@ static char *serialize_routes(struct device *dev)
 	return ptr;
 }
 
-static int save_profile(struct device *dev)
+static int save_profile(struct device *dev, struct profile *pr)
 {
 	struct impl *impl = dev->impl;
 	char key[1024], *val;
@@ -535,7 +535,7 @@ static int save_profile(struct device *dev)
 	if (pw_array_get_len(&dev->route_info, struct route_info) == 0)
 		return 0;
 
-	snprintf(key, sizeof(key), PREFIX"%s:profile:%s", dev->name, dev->profile_name);
+	snprintf(key, sizeof(key), PREFIX"%s:profile:%s", dev->name, pr->name);
 
 	val = serialize_routes(dev);
 	if (pw_properties_set(impl->to_restore, key, val)) {
@@ -657,7 +657,11 @@ static int reconfigure_profile(struct device *dev, struct profile *pr)
 	char key[1024];
 	const char *json;
 
-	snprintf(key, sizeof(key), PREFIX"%s:profile:%s", dev->name, dev->profile_name);
+	pw_log_info("device %s: restore routes for profile '%s'",
+			dev->name, pr->name);
+	dev->active_profile = pr->index;
+
+	snprintf(key, sizeof(key), PREFIX"%s:profile:%s", dev->name, pr->name);
 	json = pw_properties_get(impl->to_restore, key);
 
 	if (pr->classes != NULL) {
@@ -696,24 +700,6 @@ static int reconfigure_profile(struct device *dev, struct profile *pr)
 	return 0;
 }
 
-static int handle_profile(struct device *dev)
-{
-	struct profile pr;
-	int res;
-
-	if ((res = find_current_profile(dev, &pr)) < 0)
-		return res;
-	if (dev->active_profile == pr.index)
-		return 0;
-
-	pw_log_info("device %s: restore routes for profile '%s'",
-			dev->name, pr.name);
-	dev->active_profile = pr.index;
-	snprintf(dev->profile_name, sizeof(dev->profile_name), "%s", pr.name);
-
-	return reconfigure_profile(dev, &pr);
-}
-
 static void prune_route_info(struct device *dev)
 {
 	struct route_info *i;
@@ -747,13 +733,17 @@ static int handle_route(struct device *dev, struct route *r)
 		/* just save port properties */
 		save_route(dev, r);
 	}
-	ri->available = r->available;
 	return 0;
 }
 
-static int handle_routes(struct device *dev)
+static int handle_device(struct device *dev)
 {
+	struct profile pr;
 	struct sm_param *p;
+	int res;
+	bool route_changed = false;
+
+	dev->generation++;
 
 	/* first look at all routes */
 	spa_list_for_each(p, &dev->obj->param_list, link) {
@@ -767,9 +757,12 @@ static int handle_routes(struct device *dev)
 		if ((ri = find_route_info(dev, &r)) == NULL)
 			continue;
 
+		ri->prev_available = ri->available;
 		if (ri->available != r.available) {
 			pw_log_info("device %d: route %s available changed %d -> %d",
 					dev->id, r.name, ri->available, r.available);
+			ri->available = r.available;
+			route_changed = true;
 		}
 		ri->generation = dev->generation;
 		ri->prev_active = ri->active;
@@ -783,23 +776,15 @@ static int handle_routes(struct device *dev)
 			continue;
 		handle_route(dev, &r);
 	}
+
 	prune_route_info(dev);
 
-	save_profile(dev);
+	if ((res = find_current_profile(dev, &pr)) >= 0) {
+		if (dev->active_profile != pr.index || route_changed)
+			reconfigure_profile(dev, &pr);
 
-	return 0;
-}
-
-static int handle_device(struct device *dev)
-{
-	int res;
-
-	dev->generation++;
-
-	if ((res = handle_profile(dev)) < 0)
-		return res;
-	if ((res = handle_routes(dev)) < 0)
-		return res;
+		save_profile(dev, &pr);
+	}
 	return 0;
 }
 

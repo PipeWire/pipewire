@@ -156,6 +156,17 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 
 	spa_device_emit_object_info(&this->hooks, id, &info);
 
+	if (this->nodes[id].n_channels > 0) {
+		size_t i;
+
+		/*
+		 * Spread mono volume to all channels, if we had switched HFP -> A2DP.
+		 * XXX: we should also use different route for hfp and a2dp
+		 */
+		for (i = this->nodes[id].n_channels; i < t->n_channels; ++i)
+			this->nodes[id].volumes[i] = this->nodes[id].volumes[i % this->nodes[id].n_channels];
+	}
+
 	this->nodes[id].active = true;
 	this->nodes[id].n_channels = t->n_channels;
 	memcpy(this->nodes[id].channels, t->channels,

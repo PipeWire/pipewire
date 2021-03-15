@@ -74,6 +74,7 @@ struct device {
 
 	struct spa_hook listener;
 
+	unsigned int restored:1;
 	uint32_t saved_profile;
 	uint32_t best_profile;
 	uint32_t active_profile;
@@ -244,8 +245,6 @@ static int set_profile(struct device *dev, struct profile *pr)
 				SPA_PARAM_PROFILE_index, SPA_POD_Int(pr->index),
 				SPA_PARAM_PROFILE_save, SPA_POD_Bool(pr->save)));
 
-	dev->active_profile = pr->index;
-
 	sm_media_session_schedule_rescan(dev->impl->session);
 
 	return 0;
@@ -296,34 +295,35 @@ static int handle_profile_switch(struct device *dev)
 				dev->name, spa_strerror(res));
 		best.index = SPA_ID_INVALID;
 	} else {
-		if (dev->best_profile != best.index)
-			changed = true;
+		changed = dev->best_profile != best.index;
 		dev->best_profile = best.index;
 		pw_log_info("device '%s': found best profile '%s' changed:%d",
 				dev->name, best.name, changed);
 	}
-
-	/* try to restore our saved profile */
-	res = find_saved_profile(dev, &saved);
-	if (res >= 0) {
-		/* we found a saved profile */
-		if (saved.available == SPA_PARAM_AVAILABILITY_no) {
-			pw_log_info("device '%s': saved profile '%s' unavailable",
-				dev->name, saved.name);
-			if (!changed)
-				best.index = SPA_ID_INVALID;
+	if (!dev->restored) {
+		/* try to restore our saved profile */
+		res = find_saved_profile(dev, &saved);
+		if (res >= 0) {
+			/* we found a saved profile */
+			if (saved.available == SPA_PARAM_AVAILABILITY_no) {
+				pw_log_info("device '%s': saved profile '%s' unavailable",
+					dev->name, saved.name);
+			} else {
+				pw_log_info("device '%s': found saved profile '%s'",
+							dev->name, saved.name);
+				/* make sure we save again */
+				saved.save = true;
+				best = saved;
+				changed = true;
+			}
 		} else {
-			pw_log_info("device '%s': found saved profile '%s'",
-						dev->name, saved.name);
-			/* make sure we save again */
-			saved.save = true;
-			best = saved;
+			pw_log_info("device '%s': no saved profile: %s",
+				dev->name, spa_strerror(res));
 		}
-	} else {
-		pw_log_info("device '%s': no saved profile: %s",
-			dev->name, spa_strerror(res));
+		dev->restored = true;
 	}
-	if (best.index != SPA_ID_INVALID) {
+
+	if (best.index != SPA_ID_INVALID && changed) {
 		if (dev->active_profile == best.index) {
 			pw_log_info("device '%s': best profile '%s' is already active",
 					dev->name, best.name);

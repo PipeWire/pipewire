@@ -1018,8 +1018,6 @@ again:
 				if (s->max_quantum_size < max_quantum)
 					max_quantum = s->max_quantum_size;
 			}
-			if (s == n)
-				continue;
 			if (s->active)
 				running = !n->passive;
 		}

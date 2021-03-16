@@ -2184,18 +2184,38 @@ static void session_shutdown(struct impl *impl)
 {
 	struct sm_object *obj;
 	struct registry_event *re;
+	struct spa_list free_list;
 
 	pw_log_info(NAME" %p", impl);
 	sm_media_session_emit_shutdown(impl);
 
-	spa_list_consume(obj, &impl->object_list, link)
-		sm_object_destroy(obj);
+	/*
+	 * Monitors may still hold references to objects, which they
+	 * drop in session destroy event, so don't free undiscarded
+	 * objects yet. Destroy event handlers may remove any objects
+	 * in the list, so iterate carefully.
+	 */
+	spa_list_init(&free_list);
+	spa_list_consume(obj, &impl->object_list, link) {
+		if (obj->destroyed) {
+			spa_list_remove(&obj->link);
+			spa_list_append(&free_list, &obj->link);
+		} else {
+			sm_object_destroy_maybe_free(obj);
+		}
+	}
+
 	spa_list_consume(re, &impl->registry_event_list, link)
 		registry_event_free(re);
 
 	impl->this.metadata = NULL;
 
 	sm_media_session_emit_destroy(impl);
+
+	spa_list_consume(obj, &free_list, link)
+		sm_object_destroy(obj);
+	spa_list_consume(obj, &impl->object_list, link)
+		sm_object_destroy(obj);  /* in case emit_destroy created new objects */
 
 	if (impl->registry) {
 		spa_hook_remove(&impl->registry_listener);

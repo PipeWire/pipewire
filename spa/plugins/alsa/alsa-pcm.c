@@ -631,7 +631,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	periods = state->buffer_frames / state->period_frames;
 
 	spa_log_info(state->log, NAME" %s (%s): format:%s access:%s-%s rate:%d channels:%d "
-			"buffer frames %lu, period frames %lu, periods %u, frame_size %zd"
+			"buffer frames %lu, period frames %lu, periods %u, frame_size %zd "
 			"headroom %u",
 			state->props.device,
 			state->stream == SND_PCM_STREAM_CAPTURE ? "capture" : "playback",
@@ -708,7 +708,8 @@ int spa_alsa_silence(struct state *state, snd_pcm_uframes_t silence)
 		}
 		silence = SPA_MIN(silence, frames);
 
-		spa_log_trace_fp(state->log, NAME" %p: silence %ld", state, silence);
+		spa_log_trace_fp(state->log, NAME" %p: frames:%ld offset:%ld silence %ld",
+				state, frames, offset, silence);
 		snd_pcm_areas_silence(my_areas, offset, state->channels, silence, state->format);
 
 		if (SPA_UNLIKELY((res = snd_pcm_mmap_commit(hndl, offset, silence)) < 0)) {
@@ -804,7 +805,7 @@ recover:
 	state->alsa_started = false;
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK)
-		spa_alsa_silence(state, state->last_threshold + state->headroom);
+		spa_alsa_silence(state, state->last_threshold * 2 + state->headroom);
 
 	return do_start(state);
 }
@@ -1259,7 +1260,7 @@ static int handle_play(struct state *state, uint64_t nsec,
 {
 	int res;
 
-	if (SPA_UNLIKELY(delay > target + state->threshold)) {
+	if (SPA_UNLIKELY(delay > target + state->max_error)) {
 		spa_log_trace(state->log, NAME" %p: early wakeup %ld %ld", state, delay, target);
 		state->next_time = nsec + (delay - target) * SPA_NSEC_PER_SEC / state->rate;
 		return -EAGAIN;
@@ -1474,7 +1475,7 @@ int spa_alsa_start(struct state *state)
 	state->alsa_started = false;
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK)
-		spa_alsa_silence(state, state->threshold + state->headroom);
+		spa_alsa_silence(state, state->threshold * 2 + state->headroom);
 
 	if ((err = do_start(state)) < 0)
 		return err;

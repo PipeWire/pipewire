@@ -351,6 +351,8 @@ static void device_destroy(void *data)
 
 	pw_log_debug("device %p destroy", device);
 
+	spa_hook_remove(&device->listener);
+
 	if (device->appeared) {
 		device->appeared = false;
 		spa_hook_remove(&device->device_listener);
@@ -492,9 +494,8 @@ static void bluez5_update_device(struct impl *impl, struct device *device,
 	}
 }
 
-static void bluez5_device_free(struct impl *impl, struct device *device)
+static void bluez5_device_free(struct device *device)
 {
-	bluez5_remove_device(impl, device);
 	spa_list_remove(&device->link);
 	pw_unload_spa_handle(device->handle);
 	pw_properties_free(device->props);
@@ -532,7 +533,7 @@ static void session_destroy(void *data)
 	struct impl *impl = data;
 	struct device *device;
 	spa_list_consume(device, &impl->device_list, link)
-		bluez5_device_free(impl, device);
+		bluez5_device_free(device);
 
 	spa_hook_remove(&impl->session_listener);
 	spa_hook_remove(&impl->listener);

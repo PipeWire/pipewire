@@ -58,6 +58,7 @@ struct defaults {
 	uint32_t link_max_buffers;
 	unsigned int mem_warn_mlock:1;
 	unsigned int mem_allow_mlock:1;
+	unsigned int clock_power_of_two_quantum:1;
 };
 
 struct ratelimit {

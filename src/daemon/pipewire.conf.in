@@ -9,6 +9,7 @@ context.properties = {
     #mem.warn-mlock                        = false
     #mem.allow-mlock                       = true
     #mem.mlock-all                         = false
+    #clock.power-of-two-quantum            = true
     #log.level                             = 2
 
     core.daemon                            = true                     # listening for socket connections

@@ -876,7 +876,9 @@ static void check_properties(struct pw_impl_node *node)
 			uint32_t quantum_size;
 
 			node->latency = SPA_FRACTION(num, denom);
-			quantum_size = flp2((num * context->defaults.clock_rate / denom));
+			quantum_size = (num * context->defaults.clock_rate / denom);
+			if (context->defaults.clock_power_of_two_quantum)
+				quantum_size = flp2(quantum_size);
 
 			if (quantum_size != node->quantum_size) {
 				pw_log_debug(NAME" %p: latency '%s' quantum %u/%u",
@@ -895,7 +897,9 @@ static void check_properties(struct pw_impl_node *node)
 			uint32_t max_quantum_size;
 
 			node->max_latency = SPA_FRACTION(num, denom);
-			max_quantum_size = flp2((num * context->defaults.clock_rate / denom));
+			max_quantum_size = (num * context->defaults.clock_rate / denom);
+			if (context->defaults.clock_power_of_two_quantum)
+				max_quantum_size = flp2(max_quantum_size);
 
 			if (max_quantum_size != node->max_quantum_size) {
 				pw_log_debug(NAME" %p: max latency '%s' quantum %u/%u",

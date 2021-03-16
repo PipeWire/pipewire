@@ -46,20 +46,21 @@
 
 #define NAME "context"
 
-#define CLOCK_MIN_QUANTUM		4u
-#define CLOCK_MAX_QUANTUM		8192u
+#define CLOCK_MIN_QUANTUM			4u
+#define CLOCK_MAX_QUANTUM			8192u
 
-#define DEFAULT_CLOCK_RATE		48000u
-#define DEFAULT_CLOCK_QUANTUM		1024u
-#define DEFAULT_CLOCK_MIN_QUANTUM	32u
-#define DEFAULT_CLOCK_MAX_QUANTUM	8192u
-#define DEFAULT_VIDEO_WIDTH		640
-#define DEFAULT_VIDEO_HEIGHT		480
-#define DEFAULT_VIDEO_RATE_NUM		25u
-#define DEFAULT_VIDEO_RATE_DENOM	1u
-#define DEFAULT_LINK_MAX_BUFFERS	64u
-#define DEFAULT_MEM_WARN_MLOCK		false
-#define DEFAULT_MEM_ALLOW_MLOCK		true
+#define DEFAULT_CLOCK_RATE			48000u
+#define DEFAULT_CLOCK_QUANTUM			1024u
+#define DEFAULT_CLOCK_MIN_QUANTUM		32u
+#define DEFAULT_CLOCK_MAX_QUANTUM		8192u
+#define DEFAULT_CLOCK_POWER_OF_TWO_QUANTUM	true
+#define DEFAULT_VIDEO_WIDTH			640
+#define DEFAULT_VIDEO_HEIGHT			480
+#define DEFAULT_VIDEO_RATE_NUM			25u
+#define DEFAULT_VIDEO_RATE_DENOM		1u
+#define DEFAULT_LINK_MAX_BUFFERS		64u
+#define DEFAULT_MEM_WARN_MLOCK			false
+#define DEFAULT_MEM_ALLOW_MLOCK			true
 
 /** \cond */
 struct impl {
@@ -138,6 +139,8 @@ static bool get_default_bool(struct pw_properties *properties, const char *name,
 static void fill_defaults(struct pw_context *this)
 {
 	struct pw_properties *p = this->properties;
+	this->defaults.clock_power_of_two_quantum = get_default_bool(p, "clock.power-of-two-quantum",
+			DEFAULT_CLOCK_POWER_OF_TWO_QUANTUM);
 	this->defaults.clock_rate = get_default_int(p, "default.clock.rate", DEFAULT_CLOCK_RATE);
 	this->defaults.clock_quantum = get_default_int(p, "default.clock.quantum", DEFAULT_CLOCK_QUANTUM);
 	this->defaults.clock_min_quantum = get_default_int(p, "default.clock.min-quantum", DEFAULT_CLOCK_MIN_QUANTUM);

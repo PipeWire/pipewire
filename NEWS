@@ -541,7 +541,7 @@ with previous 0.3.x releases.
 - Highlights
   - Fix screensharing for old 0.2 clients
   - Many pulse-server improvements. There is now a
-    pipewire-pulse binary that is the prefered solution for
+    pipewire-pulse binary that is the preferred solution for
     PulseAudio compatibility. The replacement libpulse
     libraries are now deprecated. This also makes audio in
     Flatpak work.

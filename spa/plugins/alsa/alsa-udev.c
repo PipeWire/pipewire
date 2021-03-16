@@ -55,7 +55,7 @@ struct device {
 	struct udev_device *dev;
 	unsigned int accessible:1;
 	unsigned int ignored:1;
-	unsigned int emited:1;
+	unsigned int emitted:1;
 };
 
 struct impl {
@@ -365,7 +365,7 @@ static int emit_object_info(struct impl *this, struct device *device)
 	info.props = &SPA_DICT_INIT(items, n_items);
 
 	spa_device_emit_object_info(&this->hooks, id, &info);
-	device->emited = true;
+	device->emitted = true;
 	free(cn);
 	free(cln);
 
@@ -387,7 +387,7 @@ static void process_device(struct impl *this, uint32_t action, struct udev_devic
 {
 	uint32_t id;
 	struct device *device;
-	bool emited;
+	bool emitted;
 
 	if ((id = get_card_id(this, dev)) == SPA_ID_INVALID)
 		return;
@@ -410,9 +410,9 @@ static void process_device(struct impl *this, uint32_t action, struct udev_devic
 	case ACTION_REMOVE:
 		if (device == NULL)
 			return;
-		emited = device->emited;
+		emitted = device->emitted;
 		remove_device(this, device);
-		if (emited)
+		if (emitted)
 			spa_device_emit_object_info(&this->hooks, id, NULL);
 		break;
 	}
@@ -463,7 +463,7 @@ static void impl_on_notify_events(struct spa_source *source)
 					continue;
 				if ((device = find_device(this, id)) == NULL)
 					continue;
-				if (!device->emited)
+				if (!device->emitted)
 					process_device(this, ACTION_ADD, device->dev);
 			}
 			/* /dev/snd/ might have been removed */

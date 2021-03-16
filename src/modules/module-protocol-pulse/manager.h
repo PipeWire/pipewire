@@ -98,7 +98,7 @@ int pw_manager_sync(struct pw_manager *manager);
 void pw_manager_destroy(struct pw_manager *manager);
 
 int pw_manager_set_metadata(struct pw_manager *manager,
-		struct pw_manager_object *metdata,
+		struct pw_manager_object *metadata,
 		uint32_t subject, const char *key, const char *type,
 		const char *format, ...) SPA_PRINTF_FUNC(6,7);
 

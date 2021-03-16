@@ -298,13 +298,13 @@ static bool device_supports_required_mSBC_transport_modes(
 	hci_close_dev(sock);
 
 	if (!(features[2] & LMP_TRSP_SCO)) {
-		/* When adapater support, then the LMP_TRSP_SCO bit in features[2] is set*/
+		/* When adapter support, then the LMP_TRSP_SCO bit in features[2] is set*/
 		spa_log_info(backend->log,
 			NAME": bluetooth host adapter not capable of Transparent SCO LMP_TRSP_SCO" );
 		return false;
 
 	} else if (!(features[3] & LMP_ESCO)) {
-	  /* When adapater support, then the LMP_ESCO bit in features[3] is set*/
+	  /* When adapter support, then the LMP_ESCO bit in features[3] is set*/
 		spa_log_info(backend->log,
 			NAME": bluetooth host adapter not capable of eSCO link mode (LMP_ESCO)" );
 		return false;
@@ -372,9 +372,9 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 		/* response has the form AT+BAC=<codecID1>,<codecID2>,<codecIDx>
 		   strategy: split the string into tokens */
 		char* token;
-		char seperators[] = "=,";
+		char separators[] = "=,";
 		int cntr = 0;
-		token = strtok (buf, seperators);
+		token = strtok (buf, separators);
 		while (token != NULL)
 		{
 			/* skip token 0 i.e. the "AT+BAC=" part */
@@ -388,7 +388,7 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 				}
 			}
 			/* get next token */
-			token = strtok (NULL, seperators);
+			token = strtok (NULL, separators);
 			cntr++;
 		}
 
@@ -424,7 +424,7 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 	} else if (sscanf(buf, "AT+BCS=%u", &selected_codec) == 1) {
 		/* parse BCS(=Bluetooth Codec Selection) reply */
 		if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC) {
-			spa_log_warn(backend->log, NAME": unsupported codec negociation: %d", selected_codec);
+			spa_log_warn(backend->log, NAME": unsupported codec negotiation: %d", selected_codec);
 			rfcomm_send_reply(source, "ERROR");
 			return true;
 		}

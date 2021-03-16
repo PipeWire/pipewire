@@ -580,7 +580,7 @@ static int do_start(struct impl *this)
 	bool do_accept;
 	int res;
 
-	/* Dont do anything if the node has already started */
+	/* Don't do anything if the node has already started */
 	if (this->started)
 		return 0;
 

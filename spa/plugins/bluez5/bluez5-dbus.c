@@ -87,6 +87,7 @@ struct spa_bt_monitor {
 
 	struct spa_dict enabled_codecs;
 
+	unsigned int connection_info_supported:1;
 	unsigned int enable_sbc_xq:1;
 	unsigned int backend_native_registered:1;
 	unsigned int backend_ofono_registered:1;
@@ -701,15 +702,83 @@ static void device_free(struct spa_bt_device *device)
 	free(device);
 }
 
+static int device_connected_old(struct spa_bt_monitor *monitor, struct spa_bt_device *device, int status)
+{
+	struct spa_device_object_info info;
+	char dev[32], name[128], class[16];
+	struct spa_dict_item items[20];
+	uint32_t n_items = 0;
+	bool connection_changed;
+
+	if (status == BT_DEVICE_INIT)
+		return 0;
+
+	connection_changed = status ^ device->connected;
+	device->connected = status;
+
+	if (device->connected) {
+		device->added = true;
+	} else if (!device->added || !connection_changed) {
+		return 0;
+	}
+
+	if ((device->connected_profiles != 0) ^ device->connected) {
+		spa_log_error(monitor->log,
+			"unexpected call, connected_profiles:%08x connected:%d",
+			device->connected_profiles, device->connected);
+		return -EINVAL;
+	}
+
+	if (device->connected) {
+		info = SPA_DEVICE_OBJECT_INFO_INIT();
+		info.type = SPA_TYPE_INTERFACE_Device;
+		info.factory_name = SPA_NAME_API_BLUEZ5_DEVICE;
+		info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_FLAGS |
+			SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
+		info.flags = 0;
+
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "bluez5");
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Device");
+		snprintf(name, sizeof(name), "bluez_card.%s", device->address);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, name);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_DESCRIPTION, device->name);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ALIAS, device->alias);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ICON_NAME, device->icon);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_FORM_FACTOR,
+				spa_bt_form_factor_name(
+					spa_bt_form_factor_from_class(device->bluetooth_class)));
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PATH, device->path);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ADDRESS, device->address);
+		snprintf(dev, sizeof(dev), "pointer:%p", device);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_DEVICE, dev);
+		snprintf(class, sizeof(class), "0x%06x", device->bluetooth_class);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_CLASS, class);
+
+		info.props = &SPA_DICT_INIT(items, n_items);
+		spa_device_emit_object_info(&monitor->hooks, device->id, &info);
+	} else {
+		battery_remove(device);
+		spa_bt_device_release_transports(device);
+		spa_device_emit_object_info(&monitor->hooks, device->id, NULL);
+	}
+
+	return 0;
+}
+
 static int device_connected(struct spa_bt_monitor *monitor, struct spa_bt_device *device, int status)
 {
 	struct spa_device_object_info info;
 	char dev[32], name[128], class[16];
 	struct spa_dict_item items[20];
 	uint32_t n_items = 0;
-	bool connection_changed, init = status == BT_DEVICE_INIT;
+	bool connection_changed, init;
 
-	status = init ? false : status;
+	if (!monitor->connection_info_supported) {
+		return device_connected_old(monitor, device, status);
+	}
+
+	init = status == BT_DEVICE_INIT;
+	status = init ? 0 : status;
 	connection_changed = status ^ device->connected;
 	device->connected = status;
 
@@ -3403,6 +3472,10 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (info) {
 		const char *str;
+
+		if ((str = spa_dict_lookup(info, "api.bluez5.connection-info")) != NULL &&
+		    (strcmp(str, "true") == 0 || atoi(str)))
+			this->connection_info_supported = true;
 
 		if ((str = spa_dict_lookup(info, "bluez5.sbc-xq-support")) != NULL &&
 		    (strcmp(str, "true") == 0 || atoi(str)))

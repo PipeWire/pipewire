@@ -577,6 +577,8 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 	if ((str = pw_properties_get(impl->conf, "properties")) != NULL)
 		pw_properties_update_string(impl->props, str, strlen(str));
 
+	pw_properties_set(impl->props, "api.bluez5.connection-info", "true");
+
 	impl->handle = pw_context_load_spa_handle(context, SPA_NAME_API_BLUEZ5_ENUM_DBUS, &impl->props->dict);
 	if (impl->handle == NULL) {
 		res = -errno;

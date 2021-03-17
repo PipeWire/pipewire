@@ -5357,7 +5357,6 @@ static void client_disconnect(struct client *client)
 	spa_list_append(&impl->cleanup_clients, &client->link);
 
 	pw_map_for_each(&client->streams, client_free_stream, client);
-	pw_map_clear(&client->streams);
 
 	if (client->source)
 		pw_loop_destroy_source(impl->loop, client->source);
@@ -5391,6 +5390,7 @@ static void client_free(struct client *client)
 		client->disconnecting = true;
 		pw_core_disconnect(client->core);
 	}
+	pw_map_clear(&client->streams);
 	free(client->default_sink);
 	free(client->default_source);
 	if (client->props)

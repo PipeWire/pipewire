@@ -68,7 +68,7 @@ custom_target('pipewire-uninstalled',
   install: false,
   input: pipewire_exec,
   output: 'pipewire-uninstalled',
-  command: [ln, '-fsr', '@INPUT@', '@OUTPUT@'],
+  command: [ln, '-fs', meson.build_root() + '/@INPUT@', '@OUTPUT@'],
 )
 
 #desktop_file = i18n.merge_file(

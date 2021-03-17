@@ -77,6 +77,16 @@ struct node {
 	float volumes[SPA_AUDIO_MAX_CHANNELS];
 };
 
+struct impl;
+struct dynamic_node
+{
+	struct impl *impl;
+	struct spa_bt_transport *transport;
+	struct spa_hook transport_listener;
+	uint32_t id;
+	const char *factory_name;
+};
+
 struct impl {
 	struct spa_handle handle;
 	struct spa_device device;
@@ -105,6 +115,8 @@ struct impl {
 
 	const struct a2dp_codec **supported_codecs;
 	size_t supported_codec_count;
+
+	struct dynamic_node dyn_a2dp_source;
 
 #define MAX_SETTINGS 32
 	struct spa_dict_item setting_items[MAX_SETTINGS];
@@ -206,6 +218,74 @@ static struct spa_bt_transport *find_transport(struct impl *this, int profile, c
 	return NULL;
 }
 
+static void dynamic_node_transport_destroy(void *data)
+{
+	struct dynamic_node *this = data;
+	spa_log_debug(this->impl->log, "transport %p destroy", this->transport);
+}
+
+static void dynamic_node_transport_state_changed(void *data,
+	enum spa_bt_transport_state old,
+	enum spa_bt_transport_state state)
+{
+	struct dynamic_node *this = data;
+	struct impl *impl = this->impl;
+	struct spa_bt_transport *t = this->transport;
+
+	spa_log_debug(impl->log, "transport %p state %d->%d", t, old, state);
+
+	if (state >= SPA_BT_TRANSPORT_STATE_PENDING && old < SPA_BT_TRANSPORT_STATE_PENDING) {
+		if (!impl->nodes[this->id].active) {
+			emit_node(impl, t, this->id, this->factory_name);
+		}
+	} else if (state < SPA_BT_TRANSPORT_STATE_PENDING && old >= SPA_BT_TRANSPORT_STATE_PENDING) {
+		if (impl->nodes[this->id].active) {
+			spa_device_emit_object_info(&impl->hooks, this->id, NULL);
+			impl->nodes[this->id].active = false;
+		}
+	}
+}
+
+static const struct spa_bt_transport_events dynamic_node_transport_events = {
+	SPA_VERSION_BT_TRANSPORT_EVENTS,
+	.destroy = dynamic_node_transport_destroy,
+	.state_changed = dynamic_node_transport_state_changed,
+};
+
+static void emit_dynamic_node(struct dynamic_node *this, struct impl *impl,
+	struct spa_bt_transport *t, uint32_t id, const char *factory_name)
+{
+	if (this->transport != NULL)
+		return;
+
+	this->impl = impl;
+	this->transport = t;
+	this->id = id;
+	this->factory_name = factory_name;
+
+	spa_bt_transport_add_listener(this->transport,
+		&this->transport_listener, &dynamic_node_transport_events, this);
+
+	/* emits the node if the state is already pending */
+	dynamic_node_transport_state_changed (this, SPA_BT_TRANSPORT_STATE_IDLE, t->state);
+}
+
+static void remove_dynamic_node(struct dynamic_node *this)
+{
+	if (this->transport == NULL)
+		return;
+
+	/* destroy the node, if it exists */
+	dynamic_node_transport_state_changed (this, this->transport->state,
+		SPA_BT_TRANSPORT_STATE_IDLE);
+
+	spa_hook_remove(&this->transport_listener);
+	this->impl = NULL;
+	this->transport = NULL;
+	this->id = 0;
+	this->factory_name = NULL;
+}
+
 static int emit_nodes(struct impl *this)
 {
 	struct spa_bt_transport *t;
@@ -217,7 +297,8 @@ static int emit_nodes(struct impl *this)
 		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE) {
 			t = find_transport(this, SPA_BT_PROFILE_A2DP_SOURCE, this->selected_a2dp_codec);
 			if (t)
-				emit_node(this, t, DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_A2DP_SOURCE);
+				emit_dynamic_node(&this->dyn_a2dp_source, this, t,
+					DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_A2DP_SOURCE);
 		}
 
 		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SINK) {
@@ -269,6 +350,8 @@ static void emit_info(struct impl *this, bool full)
 static void emit_remove_nodes(struct impl *this)
 {
 	uint32_t i;
+
+	remove_dynamic_node (&this->dyn_a2dp_source);
 
 	for (i = 0; i < 2; i++) {
 		if (this->nodes[i].active) {

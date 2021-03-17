@@ -107,7 +107,6 @@ struct impl {
 	struct props props;
 
 	struct spa_bt_transport *transport;
-	struct spa_hook transport_listener;
 
 	struct port port;
 
@@ -1165,45 +1164,6 @@ static const struct spa_node_methods impl_node = {
 	.process = impl_node_process,
 };
 
-static int do_transport_destroy(struct spa_loop *loop,
-				bool async,
-				uint32_t seq,
-				const void *data,
-				size_t size,
-				void *user_data)
-{
-	struct impl *this = user_data;
-	this->transport = NULL;
-	this->transport_acquired = false;
-	return 0;
-}
-
-static void transport_destroy(void *data)
-{
-	struct impl *this = data;
-	spa_log_debug(this->log, "transport %p destroy", this->transport);
-	spa_loop_invoke(this->data_loop, do_transport_destroy, 0, NULL, 0, true, this);
-}
-
-static void transport_state_changed(void *data, enum spa_bt_transport_state old,
-		enum spa_bt_transport_state state)
-{
-	struct impl *this = data;
-	spa_log_debug(this->log, "transport %p state %d->%d started:%d",
-			this->transport, old, state, this->started);
-
-	if (state >= SPA_BT_TRANSPORT_STATE_PENDING && old < SPA_BT_TRANSPORT_STATE_PENDING)
-		transport_start(this);
-	else if (state < SPA_BT_TRANSPORT_STATE_PENDING && old >= SPA_BT_TRANSPORT_STATE_PENDING)
-		transport_stop(this);
-}
-
-static const struct spa_bt_transport_events transport_events = {
-	SPA_VERSION_BT_TRANSPORT_EVENTS,
-        .destroy = transport_destroy,
-        .state_changed = transport_state_changed,
-};
-
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
 	struct impl *this;
@@ -1226,8 +1186,6 @@ static int impl_clear(struct spa_handle *handle)
 	struct impl *this = (struct impl *) handle;
 	if (this->codec_data)
 		this->codec->deinit(this->codec_data);
-	if (this->transport)
-		spa_hook_remove(&this->transport_listener);
 	return 0;
 }
 
@@ -1324,9 +1282,6 @@ impl_init(const struct spa_handle_factory *factory,
 		return -EINVAL;
 	}
 	this->codec = this->transport->a2dp_codec;
-
-	spa_bt_transport_add_listener(this->transport,
-			&this->transport_listener, &transport_events, this);
 
 	return 0;
 }

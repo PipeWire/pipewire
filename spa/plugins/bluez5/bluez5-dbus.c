@@ -757,6 +757,7 @@ static int device_connected_old(struct spa_bt_monitor *monitor, struct spa_bt_de
 		info.props = &SPA_DICT_INIT(items, n_items);
 		spa_device_emit_object_info(&monitor->hooks, device->id, &info);
 	} else {
+		device->added = false;
 		battery_remove(device);
 		spa_bt_device_release_transports(device);
 		spa_device_emit_object_info(&monitor->hooks, device->id, NULL);
@@ -832,10 +833,6 @@ static int device_connected(struct spa_bt_monitor *monitor, struct spa_bt_device
 
 	info.props = &SPA_DICT_INIT(items, n_items);
 	spa_device_emit_object_info(&monitor->hooks, device->id, &info);
-
-	if(!init && !device->connected) {
-		spa_device_emit_object_info(&monitor->hooks, device->id, NULL);
-	}
 
 	return 0;
 }

@@ -452,15 +452,23 @@ exit:
 	return NULL;
 }
 
-static void bluez5_remove_device(struct impl *impl, struct device *device)
+static void bluez5_device_free(struct device *device)
 {
-
-	pw_log_debug("remove device %u", device->id);
-
 	if (device->sdevice) {
 		sm_object_destroy(&device->sdevice->obj);
 		device->sdevice = NULL;
 	}
+	spa_list_remove(&device->link);
+	pw_unload_spa_handle(device->handle);
+	pw_properties_free(device->props);
+	free(device);
+}
+
+static void bluez5_remove_device(struct impl *impl, struct device *device)
+{
+
+	pw_log_debug("remove device %u", device->id);
+	bluez5_device_free(device);
 }
 
 static void bluez5_update_device(struct impl *impl, struct device *device,
@@ -484,22 +492,17 @@ static void bluez5_update_device(struct impl *impl, struct device *device,
 		device->sdevice = sm_media_session_export_device(impl->session,
 					&device->props->dict, device->device);
 		if (device->sdevice == NULL) {
-			bluez5_remove_device(impl, device);
+			bluez5_device_free(device);
 			return;
 		}
 
 		sm_object_add_listener(&device->sdevice->obj,
 				&device->listener,
 				&device_events, device);
+	} else if (device->sdevice != NULL && !connected) {
+		sm_object_destroy(&device->sdevice->obj);
+		device->sdevice = NULL;
 	}
-}
-
-static void bluez5_device_free(struct device *device)
-{
-	spa_list_remove(&device->link);
-	pw_unload_spa_handle(device->handle);
-	pw_properties_free(device->props);
-	free(device);
 }
 
 static void bluez5_enum_object_info(void *data, uint32_t id,

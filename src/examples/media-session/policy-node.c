@@ -78,6 +78,7 @@ struct impl {
 	uint32_t sample_rate;
 
 	struct spa_list node_list;
+	unsigned int node_list_changed:1;
 	int seq;
 
 	struct default_node defaults[4];
@@ -893,8 +894,13 @@ static void session_rescan(void *data, int seq)
 
 	pw_log_debug(NAME" %p: rescan", impl);
 
-	spa_list_for_each(node, &impl->node_list, link)
+again:
+	impl->node_list_changed = false;
+	spa_list_for_each(node, &impl->node_list, link) {
 		rescan_node(impl, node);
+		if (impl->node_list_changed)
+			goto again;
+	}
 
 	refresh_auto_default_nodes(impl);
 }

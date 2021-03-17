@@ -2737,6 +2737,12 @@ static struct pw_manager_object *find_device(struct client *client,
 			sink = true;
 		}
 	}
+	if (id != SPA_ID_INVALID && !sink) {
+		if (id & MONITOR_FLAG) {
+			sink = true;
+			id &= ~MONITOR_FLAG;
+		}
+	}
 
 	spa_zero(sel);
 	sel.id = id;

@@ -49,7 +49,6 @@ struct channelmix {
 #define CHANNELMIX_OPTION_MIX_LFE	(1<<0)		/**< mix LFE */
 #define CHANNELMIX_OPTION_NORMALIZE	(1<<1)		/**< normalize volumes */
 #define CHANNELMIX_OPTION_UPMIX		(1<<2)		/**< do simple upmixing */
-#define CHANNELMIX_OPTION_FILTER_LFE	(1<<3)		/**< generate and filter LFE */
 	uint32_t options;
 
 	struct spa_log *log;
@@ -61,6 +60,9 @@ struct channelmix {
 	uint32_t flags;
 	float matrix_orig[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS];
 	float matrix[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS];
+
+	float freq;					/* sample frequency */
+	float lfe_cutoff;				/* in Hz, 0 is disabled */
 
 	void (*process) (struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
 			uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples);

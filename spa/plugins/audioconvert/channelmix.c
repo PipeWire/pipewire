@@ -303,6 +303,7 @@ static int setup_convert(struct impl *this,
 	this->mix.dst_mask = dst_mask;
 	this->mix.cpu_flags = this->cpu_flags;
 	this->mix.log = this->log;
+	this->mix.freq = src_info->info.raw.rate;
 
 	if ((res = channelmix_init(&this->mix)) < 0)
 		return res;
@@ -1273,9 +1274,8 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, "channelmix.upmix")) != NULL &&
 		    (strcmp(str, "true") == 0 || atoi(str) != 0))
 			this->mix.options |= CHANNELMIX_OPTION_UPMIX;
-		if ((str = spa_dict_lookup(info, "channelmix.filter-lfe")) != NULL &&
-		    (strcmp(str, "true") == 0 || atoi(str) != 0))
-			this->mix.options |= CHANNELMIX_OPTION_FILTER_LFE;
+		if ((str = spa_dict_lookup(info, "channelmix.lfe-cutoff")) != NULL)
+			this->mix.lfe_cutoff = atoi(str);
 		if ((str = spa_dict_lookup(info, SPA_KEY_AUDIO_POSITION)) != NULL) {
 			size_t len;
 			const char *p = str;

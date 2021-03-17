@@ -62,6 +62,6 @@ stream.properties = {
     #resample.quality = 4
     #channelmix.normalize = false
     #channelmix.mix-lfe = false
-    channelmix.upmix = true
-    #channelmix.filter-lfe = false
+    #channelmix.upmix = false
+    #channelmix.lfe-cutoff = 0
 }

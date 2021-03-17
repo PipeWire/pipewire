@@ -385,8 +385,7 @@ static int make_matrix(struct channelmix *mix)
 			spa_log_warn(mix->log, "can't produce FC");
 		}
 	}
-	if (unassigned & _MASK(LFE) &&
-	    SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_FILTER_LFE)) {
+	if (unassigned & _MASK(LFE) && mix->lfe_cutoff > 0.0f) {
 		if ((src_mask & STEREO) == STEREO) {
 			spa_log_debug(mix->log, "produce LFE from STEREO");
 			matrix[LFE][FL] += llev;

@@ -35,7 +35,7 @@ endif
 if not get_option('volume').disabled()
   subdir('volume')
 endif
-if vulkan_dep.found()
+if vulkan_headers
   subdir('vulkan')
 endif
 if libudev_dep.found() and not get_option('v4l2').disabled()

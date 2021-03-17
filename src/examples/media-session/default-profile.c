@@ -260,6 +260,11 @@ static int handle_active_profile(struct device *dev)
 	if ((res = find_current_profile(dev, &pr)) < 0)
 		return res;
 
+	/* when the active profile is off, always try to restored the saved
+	 * profile again */
+	if (strcmp(pr.name, "off") == 0)
+		dev->restored = false;
+
 	if (dev->active_profile == pr.index) {
 		/* no change, we're done */
 		pw_log_info("device '%s': active profile '%s'", dev->name, pr.name);

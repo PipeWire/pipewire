@@ -264,6 +264,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 	node->client_id = client_id;
 	node->type = NODE_TYPE_UNKNOWN;
 	spa_list_append(&impl->node_list, &node->link);
+	impl->node_list_changed = true;
 
 	if (role && !strcmp(role, "DSP"))
 		node->active = node->configured = true;
@@ -356,6 +357,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 static void destroy_node(struct impl *impl, struct node *node)
 {
 	spa_list_remove(&node->link);
+	impl->node_list_changed = true;
 	if (node->enabled)
 		spa_hook_remove(&node->listener);
 	free(node->media);

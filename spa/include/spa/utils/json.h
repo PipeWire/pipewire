@@ -351,7 +351,7 @@ static inline int spa_json_get_string(struct spa_json *iter, char *res, int maxl
 {
 	const char *value;
 	int len;
-	if ((len = spa_json_next(iter, &value)) <= 0 || maxlen < len)
+	if ((len = spa_json_next(iter, &value)) <= 0 || maxlen <= len)
 		return -1;
 	return spa_json_parse_string(value, len, res);
 }

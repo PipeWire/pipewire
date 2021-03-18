@@ -194,11 +194,28 @@ static void test_arrays(void)
 	test_array("[ FL FR ]", (char *[]){ "FL", "FR", NULL });
 }
 
+static void test_overflow(void)
+{
+	struct spa_json it[2];
+	char val[3];
+	const char *str = "[ F, FR, FRC ]";
+
+	spa_json_init(&it[0], str, strlen(str));
+	spa_assert(spa_json_enter_array(&it[0], &it[1]) > 0);
+
+	spa_assert(spa_json_get_string(&it[1], val, sizeof(val)) > 0);
+	spa_assert(strcmp(val, "F") == 0);
+	spa_assert(spa_json_get_string(&it[1], val, sizeof(val)) > 0);
+	spa_assert(strcmp(val, "FR") == 0);
+	spa_assert(spa_json_get_string(&it[1], val, sizeof(val)) < 0);
+}
+
 int main(int argc, char *argv[])
 {
 	test_abi();
 	test_parse();
 	test_encode();
 	test_arrays();
+	test_overflow();
 	return 0;
 }

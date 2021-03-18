@@ -38,6 +38,7 @@ extern "C" {
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
 #include <spa/utils/list.h>
+#include <spa/utils/json.h>
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
@@ -214,6 +215,23 @@ static inline uint32_t spa_alsa_channel_from_name(const char *name, size_t len)
 			return spa_type_audio_channel[i].type;
 	}
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
+}
+
+static inline void spa_alsa_parse_position(struct channel_map *map, const char *val, size_t len)
+{
+	struct spa_json it[2];
+	char v[256];
+	int l;
+
+	spa_json_init(&it[0], val, len);
+        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+                spa_json_init(&it[1], val, len);
+
+	map->channels = 0;
+	while ((l = spa_json_get_string(&it[1], v, sizeof(v))) > 0 &&
+	    map->channels < SPA_AUDIO_MAX_CHANNELS) {
+		map->pos[map->channels++] = spa_alsa_channel_from_name(v, l);
+	}
 }
 
 #ifdef __cplusplus

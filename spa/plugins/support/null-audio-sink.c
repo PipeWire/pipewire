@@ -34,6 +34,7 @@
 #include <spa/support/loop.h>
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/json.h>
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/node/io.h>
@@ -733,6 +734,23 @@ static uint32_t channel_from_name(const char *name, size_t len)
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
 }
 
+static inline void parse_position(struct impl *this, const char *val, size_t len)
+{
+	struct spa_json it[2];
+	char v[256];
+	int l;
+
+	spa_json_init(&it[0], val, len);
+        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+                spa_json_init(&it[1], val, len);
+
+	this->props.n_pos = 0;
+	while ((l = spa_json_get_string(&it[1], v, sizeof(v))) > 0 &&
+	    this->props.n_pos < SPA_AUDIO_MAX_CHANNELS) {
+		this->props.pos[this->props.n_pos++] = channel_from_name(v, l);
+	}
+}
+
 static int
 impl_init(const struct spa_handle_factory *factory,
 	  struct spa_handle *handle,
@@ -809,19 +827,14 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_loop_add_source(this->data_loop, &this->timer_source);
 
 	for (i = 0; info && i < info->n_items; i++) {
-		if (!strcmp(info->items[i].key, SPA_KEY_AUDIO_CHANNELS)) {
-			this->props.channels = atoi(info->items[i].value);
-		} else if (!strcmp(info->items[i].key, SPA_KEY_AUDIO_RATE)) {
-			this->props.rate = atoi(info->items[i].value);
-		} else if (!strcmp(info->items[i].key, SPA_KEY_AUDIO_POSITION)) {
-			size_t len;
-			const char *p = info->items[i].value;
-			while (*p && this->props.n_pos < SPA_AUDIO_MAX_CHANNELS) {
-				if ((len = strcspn(p, ",")) == 0)
-					break;
-				this->props.pos[this->props.n_pos++] = channel_from_name(p, len);
-				p += len + strspn(p+len, ",");
-			}
+		const char *k = info->items[i].key;
+		const char *s = info->items[i].value;
+		if (!strcmp(k, SPA_KEY_AUDIO_CHANNELS)) {
+			this->props.channels = atoi(s);
+		} else if (!strcmp(k, SPA_KEY_AUDIO_RATE)) {
+			this->props.rate = atoi(s);
+		} else if (!strcmp(k, SPA_KEY_AUDIO_POSITION)) {
+			parse_position(this, s, strlen(s));
 		}
 	}
 	if (this->props.n_pos > 0)

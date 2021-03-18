@@ -31,6 +31,7 @@
 #include <spa/support/cpu.h>
 #include <spa/utils/list.h>
 #include <spa/utils/names.h>
+#include <spa/utils/json.h>
 #include <spa/node/keys.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
@@ -1235,6 +1236,24 @@ static uint32_t channel_from_name(const char *name, size_t len)
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
 }
 
+static inline uint32_t parse_position(uint32_t *pos, const char *val, size_t len)
+{
+	struct spa_json it[2];
+	char v[256];
+	int l;
+	uint32_t i = 0;
+
+	spa_json_init(&it[0], val, len);
+        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+                spa_json_init(&it[1], val, len);
+
+	while ((l = spa_json_get_string(&it[1], v, sizeof(v))) > 0 &&
+	    i < SPA_AUDIO_MAX_CHANNELS) {
+		pos[i++] = channel_from_name(v, l);
+	}
+	return i;
+}
+
 static int
 impl_init(const struct spa_handle_factory *factory,
 	  struct spa_handle *handle,
@@ -1244,7 +1263,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	struct port *port;
-	const char *str;
+	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -1264,29 +1283,22 @@ impl_init(const struct spa_handle_factory *factory,
 
 	props_reset(&this->props);
 
-	if (info != NULL) {
-		if ((str = spa_dict_lookup(info, "channelmix.normalize")) != NULL &&
-		    (strcmp(str, "true") == 0 || atoi(str) != 0))
+	for (i = 0; info && i < info->n_items; i++) {
+		const char *k = info->items[i].key;
+		const char *s = info->items[i].value;
+		if (strcmp(k, "channelmix.normalize") == 0 &&
+		    (strcmp(s, "true") == 0 || atoi(s) != 0))
 			this->mix.options |= CHANNELMIX_OPTION_NORMALIZE;
-		if ((str = spa_dict_lookup(info, "channelmix.mix-lfe")) != NULL &&
-		    (strcmp(str, "true") == 0 || atoi(str) != 0))
+		if (strcmp(k, "channelmix.mix-lfe") == 0 &&
+		    (strcmp(s, "true") == 0 || atoi(s) != 0))
 			this->mix.options |= CHANNELMIX_OPTION_MIX_LFE;
-		if ((str = spa_dict_lookup(info, "channelmix.upmix")) != NULL &&
-		    (strcmp(str, "true") == 0 || atoi(str) != 0))
+		if (strcmp(k, "channelmix.upmix") == 0 &&
+		    (strcmp(s, "true") == 0 || atoi(s) != 0))
 			this->mix.options |= CHANNELMIX_OPTION_UPMIX;
-		if ((str = spa_dict_lookup(info, "channelmix.lfe-cutoff")) != NULL)
-			this->mix.lfe_cutoff = atoi(str);
-		if ((str = spa_dict_lookup(info, SPA_KEY_AUDIO_POSITION)) != NULL) {
-			size_t len;
-			const char *p = str;
-			while (*p && this->props.n_channels < SPA_AUDIO_MAX_CHANNELS) {
-				if ((len = strcspn(p, ",")) == 0)
-					break;
-				this->props.channel_map[this->props.n_channels++] =
-					channel_from_name(p, len);
-				p += len + strspn(p+len, ",");
-			}
-		}
+		if (strcmp(k, "channelmix.lfe-cutoff") == 0)
+			this->mix.lfe_cutoff = atoi(s);
+		if (strcmp(k, SPA_KEY_AUDIO_POSITION) == 0)
+			this->props.n_channels = parse_position(this->props.channel_map, s, strlen(s));
 	}
 	this->props.n_channel_volumes = this->props.n_channels;
 

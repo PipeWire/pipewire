@@ -169,10 +169,35 @@ static void test_encode(void)
 	spa_assert(strcmp(result, "\x04\x05\x1f\x20\x01\x7f\x90") == 0);
 }
 
+static void test_array(char *str, char **vals)
+{
+	struct spa_json it[2];
+	char val[256];
+	int i, len;
+
+	spa_json_init(&it[0], str, strlen(str));
+	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+		spa_json_init(&it[1], str, strlen(str));
+	for (i = 0; vals[i]; i++) {
+		spa_assert((len = spa_json_get_string(&it[1], val, sizeof(val))) > 0);
+		spa_assert(strcmp(val, vals[i]) == 0);
+	}
+}
+
+static void test_arrays(void)
+{
+	test_array("FL,FR", (char *[]){ "FL", "FR", NULL });
+	test_array(" FL , FR ", (char *[]){ "FL", "FR", NULL });
+	test_array("[ FL , FR ]", (char *[]){ "FL", "FR", NULL });
+	test_array("[FL FR]", (char *[]){ "FL", "FR", NULL });
+	test_array("FL FR", (char *[]){ "FL", "FR", NULL });
+}
+
 int main(int argc, char *argv[])
 {
 	test_abi();
 	test_parse();
 	test_encode();
+	test_arrays();
 	return 0;
 }

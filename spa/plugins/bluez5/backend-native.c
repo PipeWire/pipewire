@@ -739,7 +739,7 @@ static int sco_acquire_cb(void *data, bool optional)
 
 	spa_log_debug(backend->log, NAME": transport %p: enter sco_acquire_cb", t);
 
-	if (optional)
+	if (optional || t->fd > 0)
 		sock = t->fd;
 	else
 		sock = sco_do_connect(t);
@@ -787,10 +787,12 @@ static int sco_release_cb(void *data)
 		t->sco_io = NULL;
 	}
 
-	/* Shutdown and close the socket */
-	shutdown(t->fd, SHUT_RDWR);
-	close(t->fd);
-	t->fd = -1;
+	if (t->fd > 0) {
+		/* Shutdown and close the socket */
+		shutdown(t->fd, SHUT_RDWR);
+		close(t->fd);
+		t->fd = -1;
+	}
 
 	return 0;
 }
@@ -808,6 +810,7 @@ static void sco_event(struct spa_source *source)
 			shutdown(t->fd, SHUT_RDWR);
 			close (t->fd);
 			t->fd = -1;
+			spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_IDLE);
 		}
 	}
 }
@@ -914,13 +917,7 @@ static void sco_listen_event(struct spa_source *source)
 
 	spa_log_debug(backend->log, NAME": transport %p: audio connected", t);
 
-#if 0
-	if (t->state != PA_BLUETOOTH_TRANSPORT_STATE_PLAYING) {
-		spa_log_info(monitor->log, NAME": SCO incoming connection: changing state to PLAYING");
-		pa_bluetooth_transport_set_state (t, PA_BLUETOOTH_TRANSPORT_STATE_PLAYING);
-	}
-#endif
-
+	spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_PENDING);
 	return;
 
 fail:

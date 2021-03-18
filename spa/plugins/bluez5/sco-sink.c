@@ -676,15 +676,16 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	return 0;
 }
 
-static const struct spa_dict_item node_info_items[] = {
-	{ SPA_KEY_DEVICE_API, "bluez5" },
-	{ SPA_KEY_MEDIA_CLASS, "Audio/Sink" },
-	{ SPA_KEY_NODE_DRIVER, "true" },
-	{ SPA_KEY_NODE_PAUSE_ON_IDLE, "false" },
-};
-
 static void emit_node_info(struct impl *this, bool full)
 {
+	bool is_ag = (this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
+	struct spa_dict_item node_info_items[] = {
+		{ SPA_KEY_DEVICE_API, "bluez5" },
+		{ SPA_KEY_MEDIA_CLASS, is_ag ? "Stream/Input/Audio" : "Audio/Sink" },
+		{ SPA_KEY_NODE_DRIVER, "true" },
+		{ SPA_KEY_NODE_PAUSE_ON_IDLE, "false" },
+	};
+
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {

@@ -449,7 +449,7 @@ static void preprocess_and_decode_msbc_data(void *userdata, uint8_t *read_data, 
 					&this->msbc, this->msbc_buffer + 2, MSBC_ENCODED_SIZE - 3,
 					(uint8_t *)datas[0].data + port->ready_offset, MSBC_DECODED_SIZE,
 					&written);
-					
+
 				if (processed < 0) {
 					spa_log_warn(this->log, "sbc_decode failed: %d", processed);
 					/* TODO: manage errors */
@@ -685,15 +685,16 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	return 0;
 }
 
-static const struct spa_dict_item node_info_items[] = {
-	{ SPA_KEY_DEVICE_API, "bluez5" },
-	{ SPA_KEY_MEDIA_CLASS, "Audio/Source" },
-	{ SPA_KEY_NODE_DRIVER, "true" },
-	{ SPA_KEY_NODE_PAUSE_ON_IDLE, "false" },
-};
-
 static void emit_node_info(struct impl *this, bool full)
 {
+	bool is_ag = (this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
+	struct spa_dict_item node_info_items[] = {
+		{ SPA_KEY_DEVICE_API, "bluez5" },
+		{ SPA_KEY_MEDIA_CLASS, is_ag ? "Stream/Output/Audio" : "Audio/Source" },
+		{ SPA_KEY_NODE_DRIVER, "true" },
+		{ SPA_KEY_NODE_PAUSE_ON_IDLE, "false" },
+	};
+
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {

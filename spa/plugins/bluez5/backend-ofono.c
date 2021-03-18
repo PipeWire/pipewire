@@ -54,6 +54,10 @@ struct spa_bt_backend {
 	unsigned int msbc_supported:1;
 };
 
+struct transport_data {
+	struct spa_source sco;
+};
+
 #define OFONO_HF_AUDIO_MANAGER_INTERFACE OFONO_SERVICE ".HandsfreeAudioManager"
 #define OFONO_HF_AUDIO_CARD_INTERFACE OFONO_SERVICE ".HandsfreeAudioCard"
 #define OFONO_HF_AUDIO_AGENT_INTERFACE OFONO_SERVICE ".HandsfreeAudioAgent"
@@ -80,6 +84,7 @@ struct spa_bt_backend {
 	"</node>"
 
 #define OFONO_ERROR_INVALID_ARGUMENTS "org.ofono.Error.InvalidArguments"
+#define OFONO_ERROR_NOT_IMPLEMENTED "org.ofono.Error.NotImplemented"
 #define OFONO_ERROR_IN_USE "org.ofono.Error.InUse"
 
 static void ofono_transport_get_mtu(struct spa_bt_backend *backend, struct spa_bt_transport *t)
@@ -113,7 +118,7 @@ static struct spa_bt_transport *_transport_create(struct spa_bt_backend *backend
 	struct spa_bt_transport *t = NULL;
 	char *t_path = strdup(path);
 
-	t = spa_bt_transport_create(backend->monitor, t_path, 0);
+	t = spa_bt_transport_create(backend->monitor, t_path, sizeof(struct transport_data));
 	if (t == NULL) {
 		spa_log_warn(backend->log, NAME": can't create transport: %m");
 		free(t_path);
@@ -185,6 +190,9 @@ static int ofono_audio_acquire(void *data, bool optional)
 	struct spa_bt_backend *backend = transport->backend;
 	uint8_t codec;
 	int ret = 0;
+
+	if (transport->fd)
+		goto finish;
 
 	ret = _audio_acquire(backend, transport->path, &codec);
 	if (ret < 0)
@@ -283,8 +291,7 @@ static DBusHandlerResult ofono_audio_card_found(struct spa_bt_backend *backend, 
 	struct spa_bt_device *d;
 	struct spa_bt_transport *t;
 	enum spa_bt_profile profile = SPA_BT_PROFILE_HFP_AG;
-	int fd;
-	uint8_t codec;
+	uint8_t codec = HFP_AUDIO_CODEC_CVSD;
 
 	spa_assert(backend);
 	spa_assert(path);
@@ -324,14 +331,23 @@ static DBusHandlerResult ofono_audio_card_found(struct spa_bt_backend *backend, 
 		dbus_message_iter_next(props_i);
 	}
 
-	fd = _audio_acquire(backend, path, &codec);
-	if (fd < 0) {
-		spa_log_error(backend->log, NAME": Failed to retrieve codec for %s", path);
-		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+	/*
+	 * Acquire and close immediately to figure out the codec.
+	 * This is necessary if we are in HF mode, because we need to emit
+	 * nodes and the advertised sample rate of the node depends on the codec.
+	 * For AG mode, we delay the emission of the nodes, so it is not necessary
+	 * to know the codec in advance
+	 */
+	if (profile == SPA_BT_PROFILE_HFP_HF) {
+		int fd = _audio_acquire(backend, path, &codec);
+		if (fd < 0) {
+			spa_log_error(backend->log, NAME": Failed to retrieve codec for %s", path);
+			return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+		}
+		/* shutdown to make sure connection is dropped immediately */
+		shutdown(fd, SHUT_RDWR);
+		close(fd);
 	}
-	/* shutdown to make sure connection is dropped immediately */
-	shutdown(fd, SHUT_RDWR);
-	close(fd);
 
 	d = spa_bt_device_find_by_address(backend->monitor, remote_address, local_address);
 	if (!d) {
@@ -366,6 +382,24 @@ static DBusHandlerResult ofono_release(DBusConnection *conn, DBusMessage *m, voi
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+static void sco_event(struct spa_source *source)
+{
+	struct spa_bt_transport *t = source->data;
+	struct spa_bt_backend *backend = t->backend;
+
+	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
+		spa_log_debug(backend->log, NAME": transport %p: error on SCO socket: %s", t, strerror(errno));
+		if (t->fd >= 0) {
+			if (source->loop)
+				spa_loop_remove_source(source->loop, source);
+			shutdown(t->fd, SHUT_RDWR);
+			close (t->fd);
+			t->fd = -1;
+			spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_IDLE);
+		}
+	}
+}
+
 static DBusHandlerResult ofono_new_audio_connection(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
 	struct spa_bt_backend *backend = userdata;
@@ -373,6 +407,7 @@ static DBusHandlerResult ofono_new_audio_connection(DBusConnection *conn, DBusMe
 	int fd;
 	uint8_t codec;
 	struct spa_bt_transport *t;
+	struct transport_data *td;
 	DBusMessage *r = NULL;
 
 	if (dbus_message_get_args(m, NULL,
@@ -385,34 +420,30 @@ static DBusHandlerResult ofono_new_audio_connection(DBusConnection *conn, DBusMe
 	}
 
 	t = spa_bt_transport_find(backend->monitor, path);
+	if (t && (t->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)) {
+		t->fd = fd;
+		t->codec = codec;
 
-	if (!t || t->codec != codec || t->fd >= 0) {
-			spa_log_warn(backend->log, NAME": New audio connection invalid "
-					"arguments (path=%s fd=%d, codec=%d)", path, fd, codec);
-			r = dbus_message_new_error(m, "org.ofono.Error.InvalidArguments", "Invalid arguments in method call");
-			shutdown(fd, SHUT_RDWR);
-			close(fd);
+		spa_log_debug(backend->log, NAME": transport %p: NewConnection %s, fd %d codec %d",
+						t, t->path, t->fd, t->codec);
 
-			if (t->codec != codec) {
-				struct spa_bt_transport *transport = NULL;
+		td = t->user_data;
+		td->sco.func = sco_event;
+		td->sco.data = t;
+		td->sco.fd = fd;
+		td->sco.mask = SPA_IO_HUP | SPA_IO_ERR;
+		td->sco.rmask = 0;
+		spa_loop_add_source(backend->main_loop, &td->sco);
 
-				spa_log_warn(backend->log, NAME": Acquired codec (%d) differs from transport one (%d)",
-				             codec, t->codec);
-
-				/* Create a new transport which differs only for codec */
-				transport = _transport_create(backend, t->path, t->device, t->profile, codec, &t->impl);
-				spa_bt_transport_free(t);
-				spa_bt_device_connect_profile(transport->device, transport->profile);
-			}
-			goto fail;
+		ofono_transport_get_mtu(backend, t);
+		spa_bt_transport_set_state (t, SPA_BT_TRANSPORT_STATE_PENDING);
 	}
-
-	t->fd = fd;
-	ofono_transport_get_mtu(backend, t);
-
-	spa_log_debug(backend->log, NAME": transport %p: NewConnection %s, fd %d codec %d", t, t->path, t->fd, t->codec);
-
-	/* TODO: pass fd to SCO nodes */
+	else if (fd) {
+		spa_log_debug(backend->log, NAME": ignoring NewConnection");
+		r = dbus_message_new_error(m, OFONO_ERROR_NOT_IMPLEMENTED, "Method not implemented");
+		shutdown(fd, SHUT_RDWR);
+		close(fd);
+	}
 
 fail:
 	if (r) {

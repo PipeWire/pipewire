@@ -4904,6 +4904,9 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 		return -ENOENT;
 
 	if (name != NULL) {
+		if (pw_endswith(name, ".monitor"))
+			name = strndupa(name, strlen(name)-8);
+
 		res = pw_manager_set_metadata(manager, client->metadata_default,
 				PW_ID_CORE,
 				sink ? METADATA_CONFIG_DEFAULT_SINK : METADATA_CONFIG_DEFAULT_SOURCE,

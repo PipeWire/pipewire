@@ -430,6 +430,8 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force);
 int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec **codecs);
 bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec *codec);
 const struct a2dp_codec **spa_bt_device_get_supported_a2dp_codecs(struct spa_bt_device *device, size_t *count);
+int spa_bt_device_ensure_hfp_codec(struct spa_bt_device *device, unsigned int codec);
+int spa_bt_device_supports_hfp_codec(struct spa_bt_device *device, unsigned int codec);
 int spa_bt_device_release_transports(struct spa_bt_device *device);
 int spa_bt_device_report_battery_level(struct spa_bt_device *device, uint8_t percentage);
 
@@ -562,6 +564,8 @@ struct spa_bt_backend_implementation {
 	int (*unregister_profiles) (void *data);
 	int (*unregistered) (void *data);
 	int (*add_filters) (void *data);
+	int (*ensure_codec) (void *data, struct spa_bt_device *device, unsigned int codec);
+	int (*supports_codec) (void *data, struct spa_bt_device *device, unsigned int codec);
 };
 
 struct spa_bt_backend {
@@ -586,6 +590,8 @@ struct spa_bt_backend {
 #define spa_bt_backend_unregister_profiles(b)	spa_bt_backend_impl(b, unregister_profiles, 0)
 #define spa_bt_backend_unregistered(b)		spa_bt_backend_impl(b, unregistered, 0)
 #define spa_bt_backend_add_filters(b)		spa_bt_backend_impl(b, add_filters, 0)
+#define spa_bt_backend_ensure_codec(b,...)	spa_bt_backend_impl(b, ensure_codec, 0, __VA_ARGS__)
+#define spa_bt_backend_supports_codec(b,...)	spa_bt_backend_impl(b, supports_codec, 0, __VA_ARGS__)
 
 static inline struct spa_bt_backend *dummy_backend_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,

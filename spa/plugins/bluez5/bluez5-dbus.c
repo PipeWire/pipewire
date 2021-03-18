@@ -2206,6 +2206,26 @@ int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a
 	return 0;
 }
 
+int spa_bt_device_ensure_hfp_codec(struct spa_bt_device *device, unsigned int codec)
+{
+	struct spa_bt_monitor *monitor = device->monitor;
+	if (monitor->backend_hsphfpd_registered)
+		return spa_bt_backend_ensure_codec(monitor->backend_hsphfpd, device, codec);
+	if (monitor->backend_ofono_registered)
+		return spa_bt_backend_ensure_codec(monitor->backend_ofono, device, codec);
+	return spa_bt_backend_ensure_codec(monitor->backend_native, device, codec);
+}
+
+int spa_bt_device_supports_hfp_codec(struct spa_bt_device *device, unsigned int codec)
+{
+	struct spa_bt_monitor *monitor = device->monitor;
+	if (monitor->backend_hsphfpd_registered)
+		return spa_bt_backend_supports_codec(monitor->backend_hsphfpd, device, codec);
+	if (monitor->backend_ofono_registered)
+		return spa_bt_backend_supports_codec(monitor->backend_ofono, device, codec);
+	return spa_bt_backend_supports_codec(monitor->backend_native, device, codec);
+}
+
 static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		const char *path, DBusMessage *m, void *userdata)
 {

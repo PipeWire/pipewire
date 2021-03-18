@@ -749,6 +749,7 @@ static int device_connected_old(struct spa_bt_monitor *monitor, struct spa_bt_de
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_FORM_FACTOR,
 				spa_bt_form_factor_name(
 					spa_bt_form_factor_from_class(device->bluetooth_class)));
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_STRING, device->address);
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PATH, device->path);
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ADDRESS, device->address);
 		snprintf(dev, sizeof(dev), "pointer:%p", device);
@@ -823,6 +824,7 @@ static int device_connected(struct spa_bt_monitor *monitor, struct spa_bt_device
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_FORM_FACTOR,
 			spa_bt_form_factor_name(
 				spa_bt_form_factor_from_class(device->bluetooth_class)));
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_STRING, device->address);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PATH, device->path);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ADDRESS, device->address);
 	snprintf(dev, sizeof(dev), "pointer:%p", device);

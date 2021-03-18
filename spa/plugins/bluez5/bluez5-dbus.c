@@ -1391,7 +1391,8 @@ struct spa_bt_transport *spa_bt_transport_create(struct spa_bt_monitor *monitor,
 
 	return t;
 }
-static void transport_set_state(struct spa_bt_transport *transport, enum spa_bt_transport_state state)
+
+void spa_bt_transport_set_state(struct spa_bt_transport *transport, enum spa_bt_transport_state state)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
 	enum spa_bt_transport_state old = transport->state;
@@ -1412,7 +1413,7 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 
 	spa_log_debug(monitor->log, "transport %p: free %s", transport, transport->path);
 
-	transport_set_state(transport, SPA_BT_TRANSPORT_STATE_IDLE);
+	spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_IDLE);
 
 	spa_bt_transport_emit_destroy(transport);
 
@@ -1656,7 +1657,7 @@ static int transport_update_props(struct spa_bt_transport *transport,
 				}
 			}
 			else if (strcmp(key, "State") == 0) {
-				transport_set_state(transport, spa_bt_transport_state_from_string(value));
+				spa_bt_transport_set_state(transport, spa_bt_transport_state_from_string(value));
 			}
 			else if (strcmp(key, "Device") == 0) {
 				transport->device = spa_bt_device_find(monitor, value);

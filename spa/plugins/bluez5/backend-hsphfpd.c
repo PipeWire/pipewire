@@ -40,7 +40,9 @@
 
 #define NAME "hsphfpd"
 
-struct spa_bt_backend {
+struct impl {
+	struct spa_bt_backend this;
+
 	struct spa_bt_monitor *monitor;
 
 	struct spa_log *log;
@@ -169,7 +171,7 @@ struct hsphfpd_endpoint {
 #define HSPHFPD_ERROR_REJECTED            HSPHFPD_SERVICE ".Error.Rejected"
 #define HSPHFPD_ERROR_CANCELED            HSPHFPD_SERVICE ".Error.Canceled"
 
-static struct hsphfpd_endpoint *endpoint_find(struct spa_bt_backend *backend, const char *path)
+static struct hsphfpd_endpoint *endpoint_find(struct impl *backend, const char *path)
 {
 	struct hsphfpd_endpoint *d;
 	spa_list_for_each(d, &backend->endpoint_list, link)
@@ -197,7 +199,7 @@ static bool hsphfpd_cmp_transport_path(struct spa_bt_transport *t, const void *d
 	return false;
 }
 
-static int set_dbus_property(struct spa_bt_backend *backend,
+static int set_dbus_property(struct impl *backend,
                              const char *service,
                              const char *path,
                              const char *interface,
@@ -239,7 +241,7 @@ static int set_dbus_property(struct spa_bt_backend *backend,
 
 static inline void set_rx_volume_gain_property(const struct spa_bt_transport *transport, uint16_t gain)
 {
-	struct spa_bt_backend *backend = transport->backend;
+	struct impl *backend = SPA_CONTAINER_OF(transport->backend, struct impl, this);
 	struct hsphfpd_transport_data *transport_data = transport->user_data;
 
 	if (transport->fd < 0 || transport_data->rx_volume_control <= HSPHFPD_VOLUME_CONTROL_NONE)
@@ -253,7 +255,7 @@ static inline void set_rx_volume_gain_property(const struct spa_bt_transport *tr
 
 static inline void set_tx_volume_gain_property(const struct spa_bt_transport *transport, uint16_t gain)
 {
-	struct spa_bt_backend *backend = transport->backend;
+	struct impl *backend = SPA_CONTAINER_OF(transport->backend, struct impl, this);
 	struct hsphfpd_transport_data *transport_data = transport->user_data;
 
 	if (transport->fd < 0 || transport_data->tx_volume_control <= HSPHFPD_VOLUME_CONTROL_NONE)
@@ -265,7 +267,7 @@ static inline void set_tx_volume_gain_property(const struct spa_bt_transport *tr
 		              (unsigned)gain, transport_data->transport_path);
 }
 
-static void parse_transport_properties_values(struct spa_bt_backend *backend,
+static void parse_transport_properties_values(struct impl *backend,
                                               const char *transport_path,
                                               DBusMessageIter *i,
                                               const char **endpoint_path,
@@ -352,7 +354,7 @@ static void parse_transport_properties_values(struct spa_bt_backend *backend,
 	}
 }
 
-static void hsphfpd_parse_transport_properties(struct spa_bt_backend *backend, struct spa_bt_transport *transport, DBusMessageIter *i)
+static void hsphfpd_parse_transport_properties(struct impl *backend, struct spa_bt_transport *transport, DBusMessageIter *i)
 {
 	struct hsphfpd_transport_data *transport_data = transport->user_data;
 	const char *endpoint_path = NULL;
@@ -552,7 +554,7 @@ fail:
 
 static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBusMessage *m, const char *path, void *userdata)
 {
-	struct spa_bt_backend *backend = userdata;
+	struct impl *backend = userdata;
 	DBusMessageIter arg_i;
 	const char *transport_path;
 	int fd;
@@ -731,7 +733,7 @@ fail:
 
 static DBusHandlerResult audio_agent_endpoint_handler(DBusConnection *c, DBusMessage *m, void *userdata)
 {
-	struct spa_bt_backend *backend = userdata;
+	struct impl *backend = userdata;
 	const char *path, *interface, *member;
 	DBusMessage *r;
 	DBusHandlerResult res;
@@ -797,7 +799,7 @@ static void append_audio_agent_object(DBusMessageIter *iter, const char *endpoin
 
 static DBusHandlerResult application_object_manager_handler(DBusConnection *c, DBusMessage *m, void *userdata)
 {
-	struct spa_bt_backend *backend = userdata;
+	struct impl *backend = userdata;
 	const char *path, *interface, *member;
 	DBusMessage *r;
 
@@ -840,7 +842,7 @@ static DBusHandlerResult application_object_manager_handler(DBusConnection *c, D
 
 static void hsphfpd_audio_acquire_reply(DBusPendingCall *pending, void *user_data)
 {
-	struct spa_bt_backend *backend = user_data;
+	struct impl *backend = user_data;
 	DBusMessage *r;
 	const char *transport_path;
 	const char *service_id;
@@ -895,7 +897,7 @@ finish:
 static int hsphfpd_audio_acquire(void *data, bool optional)
 {
 	struct spa_bt_transport *transport = data;
-	struct spa_bt_backend *backend = transport->backend;
+	struct impl *backend = SPA_CONTAINER_OF(transport->backend, struct impl, this);
 	DBusMessage *m;
 	const char *air_codec = HSPHFP_AIR_CODEC_CVSD;
 	const char *agent_codec = HSPHFP_AGENT_CODEC_PCM;
@@ -940,7 +942,7 @@ static int hsphfpd_audio_acquire(void *data, bool optional)
 static int hsphfpd_audio_release(void *data)
 {
 	struct spa_bt_transport *transport = data;
-	struct spa_bt_backend *backend = transport->backend;
+	struct impl *backend = SPA_CONTAINER_OF(transport->backend, struct impl, this);
 	struct hsphfpd_transport_data *transport_data = transport->user_data;
 
 	spa_log_debug(backend->log, NAME": transport %p: Release %s",
@@ -983,7 +985,7 @@ static const struct spa_bt_transport_implementation hsphfpd_transport_impl = {
 	.destroy = hsphfpd_audio_destroy,
 };
 
-static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct spa_bt_backend *backend, struct hsphfpd_endpoint *endpoint, DBusMessageIter *i)
+static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend, struct hsphfpd_endpoint *endpoint, DBusMessageIter *i)
 {
 	DBusMessageIter element_i;
 	struct spa_bt_device *d;
@@ -1100,7 +1102,7 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct spa_bt_backend
 
 	t->device = d;
 	spa_list_append(&t->device->transport_list, &t->device_link);
-	t->backend = backend;
+	t->backend = &backend->this;
 	t->profile = SPA_BT_PROFILE_NULL;
 	if (endpoint->profile == HSPHFPD_PROFILE_HEADSET) {
 		if (endpoint->role == HSPHFPD_ROLE_CLIENT)
@@ -1128,7 +1130,7 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct spa_bt_backend
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult hsphfpd_parse_interfaces(struct spa_bt_backend *backend, DBusMessageIter *dict_i)
+static DBusHandlerResult hsphfpd_parse_interfaces(struct impl *backend, DBusMessageIter *dict_i)
 {
 	DBusMessageIter element_i;
 	const char *path;
@@ -1170,7 +1172,7 @@ static DBusHandlerResult hsphfpd_parse_interfaces(struct spa_bt_backend *backend
 
 static void hsphfpd_get_endpoints_reply(DBusPendingCall *pending, void *user_data)
 {
-	struct spa_bt_backend *backend = user_data;
+	struct impl *backend = user_data;
 	DBusMessage *r;
 	DBusMessageIter i, array_i;
 
@@ -1210,8 +1212,9 @@ finish:
 	dbus_pending_call_unref(pending);
 }
 
-int backend_hsphfpd_register(struct spa_bt_backend *backend)
+static int backend_hsphfpd_register(void *data)
 {
+	struct impl *backend = data;
 	DBusMessage *m, *r;
 	const char *path = APPLICATION_OBJECT_MANAGER_PATH;
 	DBusPendingCall *call;
@@ -1264,8 +1267,9 @@ finish:
 	return -EIO;
 }
 
-void backend_hsphfpd_unregistered(struct spa_bt_backend *backend)
+static int backend_hsphfpd_unregistered(void *data)
 {
+	struct impl *backend = data;
 	struct hsphfpd_endpoint *endpoint;
 
 	if (backend->hsphfpd_service_id) {
@@ -1275,12 +1279,14 @@ void backend_hsphfpd_unregistered(struct spa_bt_backend *backend)
 	backend->endpoints_listed = false;
 	spa_list_consume(endpoint, &backend->endpoint_list, link)
 		endpoint_free(endpoint);
+
+	return 0;
 }
 
 static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, void *user_data)
 {
 	const char *sender;
-	struct spa_bt_backend *backend = user_data;
+	struct impl *backend = user_data;
 	DBusError err;
 
 	dbus_error_init(&err);
@@ -1382,12 +1388,13 @@ finish:
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
-void backend_hsphfpd_add_filters(struct spa_bt_backend *backend)
+static int backend_hsphfpd_add_filters(void *data)
 {
+	struct impl *backend = data;
 	DBusError err;
 
 	if (backend->filters_added)
-		return;
+		return 0;
 
 	dbus_error_init(&err);
 
@@ -1413,14 +1420,16 @@ void backend_hsphfpd_add_filters(struct spa_bt_backend *backend)
 
 	backend->filters_added = true;
 
-	return;
+	return 0;
 
 fail:
 	dbus_error_free(&err);
+	return -EIO;
 }
 
-void backend_hsphfpd_free(struct spa_bt_backend *backend)
+static int backend_hsphfpd_free(void *data)
 {
+	struct impl *backend = data;
 	struct hsphfpd_endpoint *endpoint;
 
 	if (backend->msbc_supported)
@@ -1432,7 +1441,17 @@ void backend_hsphfpd_free(struct spa_bt_backend *backend)
 		endpoint_free(endpoint);
 
 	free(backend);
+
+	return 0;
 }
+
+static const struct spa_bt_backend_implementation backend_impl = {
+	SPA_VERSION_BT_BACKEND_IMPLEMENTATION,
+	.free = backend_hsphfpd_free,
+	.register_profiles = backend_hsphfpd_register,
+	.unregistered = backend_hsphfpd_unregistered,
+	.add_filters = backend_hsphfpd_add_filters,
+};
 
 struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
@@ -1440,7 +1459,7 @@ struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 		const struct spa_support *support,
 	  uint32_t n_support)
 {
-	struct spa_bt_backend *backend;
+	struct impl *backend;
 	const char *str;
 	static const DBusObjectPathVTable vtable_application_object_manager = {
 		.message_function = application_object_manager_handler,
@@ -1449,9 +1468,11 @@ struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 		.message_function = audio_agent_endpoint_handler,
 	};
 
-	backend = calloc(1, sizeof(struct spa_bt_backend));
+	backend = calloc(1, sizeof(struct impl));
 	if (backend == NULL)
 		return NULL;
+
+	spa_bt_backend_set_implementation(&backend->this, &backend_impl, backend);
 
 	backend->monitor = monitor;
 	backend->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
@@ -1489,5 +1510,5 @@ struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 		return NULL;
 	}
 
-	return backend;
+	return &backend->this;
 }

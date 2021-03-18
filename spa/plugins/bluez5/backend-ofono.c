@@ -42,7 +42,9 @@
 
 #define NAME "oFono"
 
-struct spa_bt_backend {
+struct impl {
+	struct spa_bt_backend this;
+
 	struct spa_bt_monitor *monitor;
 
 	struct spa_log *log;
@@ -87,7 +89,7 @@ struct transport_data {
 #define OFONO_ERROR_NOT_IMPLEMENTED "org.ofono.Error.NotImplemented"
 #define OFONO_ERROR_IN_USE "org.ofono.Error.InUse"
 
-static void ofono_transport_get_mtu(struct spa_bt_backend *backend, struct spa_bt_transport *t)
+static void ofono_transport_get_mtu(struct impl *backend, struct spa_bt_transport *t)
 {
 	struct sco_options sco_opt;
 	socklen_t len;
@@ -108,7 +110,7 @@ static void ofono_transport_get_mtu(struct spa_bt_backend *backend, struct spa_b
 	}
 }
 
-static struct spa_bt_transport *_transport_create(struct spa_bt_backend *backend,
+static struct spa_bt_transport *_transport_create(struct impl *backend,
                                                   const char *path,
                                                   struct spa_bt_device *device,
                                                   enum spa_bt_profile profile,
@@ -128,7 +130,7 @@ static struct spa_bt_transport *_transport_create(struct spa_bt_backend *backend
 
 	t->device = device;
 	spa_list_append(&t->device->transport_list, &t->device_link);
-	t->backend = backend;
+	t->backend = &backend->this;
 	t->profile = profile;
 	t->codec = codec;
 	t->n_channels = 1;
@@ -138,7 +140,7 @@ finish:
 	return t;
 }
 
-static int _audio_acquire(struct spa_bt_backend *backend, const char *path, uint8_t *codec)
+static int _audio_acquire(struct impl *backend, const char *path, uint8_t *codec)
 {
 	DBusMessage *m, *r;
 	DBusError err;
@@ -187,7 +189,7 @@ finish:
 static int ofono_audio_acquire(void *data, bool optional)
 {
 	struct spa_bt_transport *transport = data;
-	struct spa_bt_backend *backend = transport->backend;
+	struct impl *backend = SPA_CONTAINER_OF(transport->backend, struct impl, this);
 	uint8_t codec;
 	int ret = 0;
 
@@ -235,7 +237,7 @@ finish:
 static int ofono_audio_release(void *data)
 {
 	struct spa_bt_transport *transport = data;
-	struct spa_bt_backend *backend = transport->backend;
+	struct impl *backend = SPA_CONTAINER_OF(transport->backend, struct impl, this);
 
 	spa_log_debug(backend->log, NAME": transport %p: Release %s",
 			transport, transport->path);
@@ -253,7 +255,7 @@ static int ofono_audio_release(void *data)
 	return 0;
 }
 
-static DBusHandlerResult ofono_audio_card_removed(struct spa_bt_backend *backend, const char *path)
+static DBusHandlerResult ofono_audio_card_removed(struct impl *backend, const char *path)
 {
 	struct spa_bt_transport *transport;
 
@@ -284,7 +286,7 @@ static const struct spa_bt_transport_implementation ofono_transport_impl = {
 	.release = ofono_audio_release,
 };
 
-static DBusHandlerResult ofono_audio_card_found(struct spa_bt_backend *backend, char *path, DBusMessageIter *props_i)
+static DBusHandlerResult ofono_audio_card_found(struct impl *backend, char *path, DBusMessageIter *props_i)
 {
 	const char *remote_address = NULL;
 	const char *local_address = NULL;
@@ -366,7 +368,7 @@ static DBusHandlerResult ofono_audio_card_found(struct spa_bt_backend *backend, 
 
 static DBusHandlerResult ofono_release(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
-	struct spa_bt_backend *backend = userdata;
+	struct impl *backend = userdata;
 	DBusMessage *r;
 
 	spa_log_warn(backend->log, NAME": release");
@@ -385,7 +387,7 @@ static DBusHandlerResult ofono_release(DBusConnection *conn, DBusMessage *m, voi
 static void sco_event(struct spa_source *source)
 {
 	struct spa_bt_transport *t = source->data;
-	struct spa_bt_backend *backend = t->backend;
+	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
 
 	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
 		spa_log_debug(backend->log, NAME": transport %p: error on SCO socket: %s", t, strerror(errno));
@@ -402,7 +404,7 @@ static void sco_event(struct spa_source *source)
 
 static DBusHandlerResult ofono_new_audio_connection(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
-	struct spa_bt_backend *backend = userdata;
+	struct impl *backend = userdata;
 	const char *path;
 	int fd;
 	uint8_t codec;
@@ -456,7 +458,7 @@ fail:
 
 static DBusHandlerResult ofono_handler(DBusConnection *c, DBusMessage *m, void *userdata)
 {
-	struct spa_bt_backend *backend = userdata;
+	struct impl *backend = userdata;
 	const char *path, *interface, *member;
 	DBusMessage *r;
 	DBusHandlerResult res;
@@ -492,7 +494,7 @@ static DBusHandlerResult ofono_handler(DBusConnection *c, DBusMessage *m, void *
 
 static void ofono_getcards_reply(DBusPendingCall *pending, void *user_data)
 {
-	struct spa_bt_backend *backend = user_data;
+	struct impl *backend = user_data;
 	DBusMessage *r;
 	DBusMessageIter i, array_i, struct_i, props_i;
 
@@ -531,8 +533,10 @@ finish:
 	dbus_pending_call_unref(pending);
 }
 
-int backend_ofono_register(struct spa_bt_backend *backend)
+static int backend_ofono_register(void *data)
 {
+	struct impl *backend = data;
+
 	DBusMessage *m, *r;
 	const char *path = OFONO_AUDIO_CLIENT;
 	uint8_t codecs[2];
@@ -610,7 +614,7 @@ finish:
 
 static DBusHandlerResult ofono_filter_cb(DBusConnection *bus, DBusMessage *m, void *user_data)
 {
-	struct spa_bt_backend *backend = user_data;
+	struct impl *backend = user_data;
 	DBusError err;
 
 	dbus_error_init(&err);
@@ -647,12 +651,14 @@ fail:
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
-void backend_ofono_add_filters(struct spa_bt_backend *backend)
+static int backend_ofono_add_filters(void *data)
 {
+	struct impl *backend = data;
+
 	DBusError err;
 
 	if (backend->filters_added)
-		return;
+		return 0;
 
 	dbus_error_init(&err);
 
@@ -670,18 +676,30 @@ void backend_ofono_add_filters(struct spa_bt_backend *backend)
 
 	backend->filters_added = true;
 
-	return;
+	return 0;
 
 fail:
 	dbus_error_free(&err);
+	return -EIO;
 }
 
-void backend_ofono_free(struct spa_bt_backend *backend)
+static int backend_ofono_free(void *data)
 {
+	struct impl *backend = data;
+
 	dbus_connection_unregister_object_path(backend->conn, OFONO_AUDIO_CLIENT);
 
 	free(backend);
+
+	return 0;
 }
+
+static const struct spa_bt_backend_implementation backend_impl = {
+	SPA_VERSION_BT_BACKEND_IMPLEMENTATION,
+	.free = backend_ofono_free,
+	.register_profiles = backend_ofono_register,
+	.add_filters = backend_ofono_add_filters,
+};
 
 struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
@@ -689,15 +707,17 @@ struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 		const struct spa_support *support,
 		uint32_t n_support)
 {
-	struct spa_bt_backend *backend;
+	struct impl *backend;
 	const char *str;
 	static const DBusObjectPathVTable vtable_profile = {
 		.message_function = ofono_handler,
 	};
 
-	backend = calloc(1, sizeof(struct spa_bt_backend));
+	backend = calloc(1, sizeof(struct impl));
 	if (backend == NULL)
 		return NULL;
+
+	spa_bt_backend_set_implementation(&backend->this, &backend_impl, backend);
 
 	backend->monitor = monitor;
 	backend->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
@@ -716,5 +736,5 @@ struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 		return NULL;
 	}
 
-	return backend;
+	return &backend->this;
 }

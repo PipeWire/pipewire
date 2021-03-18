@@ -2823,7 +2823,7 @@ static void interface_added(struct spa_bt_monitor *monitor,
 	}
 	else if (strcmp(interface_name, BLUEZ_PROFILE_MANAGER_INTERFACE) == 0) {
 		if (!monitor->backend_ofono_registered && !monitor->backend_hsphfpd_registered) {
-			backend_native_register_profiles(monitor->backend_native);
+			spa_bt_backend_register_profiles(monitor->backend_native);
 			monitor->backend_native_registered = true;
 		}
 	}
@@ -3026,7 +3026,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 				monitor->objects_listed = false;
 
 				if (monitor->backend_native_registered) {
-					backend_native_unregister_profiles(monitor->backend_native);
+					spa_bt_backend_unregister_profiles(monitor->backend_native);
 					monitor->backend_native_registered = false;
 				}
 
@@ -3048,42 +3048,42 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 			if (old_owner && *old_owner) {
 				spa_log_debug(monitor->log, "oFono daemon disappeared");
 				monitor->backend_ofono_registered = false;
-				backend_native_register_profiles(monitor->backend_native);
+				spa_bt_backend_register_profiles(monitor->backend_native);
 				monitor->backend_native_registered = true;
 			}
 
 			if (new_owner && *new_owner) {
 				spa_log_debug(monitor->log, "oFono daemon appeared");
 				if (monitor->backend_native_registered) {
-					backend_native_unregister_profiles(monitor->backend_native);
+					spa_bt_backend_unregister_profiles(monitor->backend_native);
 					monitor->backend_native_registered = false;
 				}
-				if (backend_ofono_register(monitor->backend_ofono) == 0)
+				if (spa_bt_backend_register_profiles(monitor->backend_ofono) == 0)
 					monitor->backend_ofono_registered = true;
 				else {
-					backend_native_register_profiles(monitor->backend_native);
+					spa_bt_backend_register_profiles(monitor->backend_native);
 					monitor->backend_native_registered = true;
 				}
 			}
 		} else if (strcmp(name, HSPHFPD_SERVICE) == 0 && monitor->backend_hsphfpd) {
 			if (old_owner && *old_owner) {
 				spa_log_debug(monitor->log, "hsphfpd daemon disappeared");
-				backend_hsphfpd_unregistered(monitor->backend_hsphfpd);
+				spa_bt_backend_unregistered(monitor->backend_hsphfpd);
 				monitor->backend_hsphfpd_registered = false;
-				backend_native_register_profiles(monitor->backend_native);
+				spa_bt_backend_register_profiles(monitor->backend_native);
 				monitor->backend_native_registered = true;
 			}
 
 			if (new_owner && *new_owner) {
 				spa_log_debug(monitor->log, "hsphfpd daemon appeared");
 				if (monitor->backend_native_registered) {
-					backend_native_unregister_profiles(monitor->backend_native);
+					spa_bt_backend_unregister_profiles(monitor->backend_native);
 					monitor->backend_native_registered = false;
 				}
-				if (backend_hsphfpd_register(monitor->backend_hsphfpd) == 0)
+				if (spa_bt_backend_register_profiles(monitor->backend_hsphfpd) == 0)
 					monitor->backend_hsphfpd_registered = true;
 				else {
-					backend_native_register_profiles(monitor->backend_native);
+					spa_bt_backend_register_profiles(monitor->backend_native);
 					monitor->backend_native_registered = true;
 				}
 			}
@@ -3272,10 +3272,10 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 	get_managed_objects(this);
 
 	if (this->backend_ofono)
-		backend_ofono_add_filters(this->backend_ofono);
+		spa_bt_backend_add_filters(this->backend_ofono);
 
 	if (this->backend_hsphfpd)
-		backend_hsphfpd_add_filters(this->backend_hsphfpd);
+		spa_bt_backend_add_filters(this->backend_hsphfpd);
 
         spa_hook_list_join(&this->hooks, &save);
 
@@ -3326,17 +3326,17 @@ static int impl_clear(struct spa_handle *handle)
 		adapter_free(a);
 
 	if (monitor->backend_native) {
-		backend_native_free(monitor->backend_native);
+		spa_bt_backend_free(monitor->backend_native);
 		monitor->backend_native = NULL;
 	}
 
 	if (monitor->backend_ofono) {
-		backend_ofono_free(monitor->backend_ofono);
+		spa_bt_backend_free(monitor->backend_ofono);
 		monitor->backend_ofono = NULL;
 	}
 
 	if (monitor->backend_hsphfpd) {
-		backend_hsphfpd_free(monitor->backend_hsphfpd);
+		spa_bt_backend_free(monitor->backend_hsphfpd);
 		monitor->backend_hsphfpd = NULL;
 	}
 
@@ -3497,9 +3497,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this->backend_ofono = backend_ofono_new(this, this->conn, info, support, n_support);
 	this->backend_hsphfpd = backend_hsphfpd_new(this, this->conn, info, support, n_support);
 
-	if (this->backend_ofono && backend_ofono_register(this->backend_ofono) == 0)
+	if (this->backend_ofono && spa_bt_backend_register_profiles(this->backend_ofono) == 0)
 		this->backend_ofono_registered = true;
-	else if (this->backend_hsphfpd && backend_hsphfpd_register(this->backend_hsphfpd) == 0)
+	else if (this->backend_hsphfpd && spa_bt_backend_register_profiles(this->backend_hsphfpd) == 0)
 		this->backend_hsphfpd_registered = true;
 
 	return 0;

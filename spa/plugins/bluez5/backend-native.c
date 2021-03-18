@@ -47,7 +47,9 @@
 
 #define PROP_KEY_HEADSET_ROLES "bluez5.headset-roles"
 
-struct spa_bt_backend {
+struct impl {
+	struct spa_bt_backend this;
+
 	struct spa_bt_monitor *monitor;
 
 	struct spa_log *log;
@@ -81,7 +83,7 @@ enum hfp_hf_state {
 struct rfcomm {
 	struct spa_list link;
 	struct spa_source source;
-	struct spa_bt_backend *backend;
+	struct impl *backend;
 	struct spa_bt_device *device;
 	struct spa_bt_transport *transport;
 	struct spa_hook transport_listener;
@@ -115,7 +117,7 @@ static DBusHandlerResult profile_release(DBusConnection *conn, DBusMessage *m, v
 static void transport_destroy(void *data)
 {
 	struct rfcomm *rfcomm = data;
-	struct spa_bt_backend *backend = rfcomm->backend;
+	struct impl *backend = rfcomm->backend;
 
 	spa_log_debug(backend->log, "transport %p destroy", rfcomm->transport);
 	rfcomm->transport = NULL;
@@ -130,7 +132,7 @@ static const struct spa_bt_transport_implementation sco_transport_impl;
 
 static struct spa_bt_transport *_transport_create(struct rfcomm *rfcomm)
 {
-	struct spa_bt_backend *backend = rfcomm->backend;
+	struct impl *backend = rfcomm->backend;
 	struct spa_bt_transport *t = NULL;
 	char* pathfd;
 
@@ -145,7 +147,7 @@ static struct spa_bt_transport *_transport_create(struct rfcomm *rfcomm)
 	t->device = rfcomm->device;
 	spa_list_append(&t->device->transport_list, &t->device_link);
 	t->profile = rfcomm->profile;
-	t->backend = backend;
+	t->backend = &backend->this;
 	t->n_channels = 1;
 	t->channels[0] = SPA_AUDIO_CHANNEL_MONO;
 
@@ -170,7 +172,7 @@ static void rfcomm_free(struct rfcomm *rfcomm)
 static void rfcomm_send_cmd(struct spa_source *source, char *data)
 {
 	struct rfcomm *rfcomm = source->data;
-	struct spa_bt_backend *backend = rfcomm->backend;
+	struct impl *backend = rfcomm->backend;
 	char message[256];
 	ssize_t len;
 
@@ -186,7 +188,7 @@ static void rfcomm_send_cmd(struct spa_source *source, char *data)
 static void rfcomm_send_reply(struct spa_source *source, char *data)
 {
 	struct rfcomm *rfcomm = source->data;
-	struct spa_bt_backend *backend = rfcomm->backend;
+	struct impl *backend = rfcomm->backend;
 	char message[256];
 	ssize_t len;
 
@@ -203,7 +205,7 @@ static void rfcomm_send_reply(struct spa_source *source, char *data)
 static bool rfcomm_hsp_ag(struct spa_source *source, char* buf)
 {
 	struct rfcomm *rfcomm = source->data;
-	struct spa_bt_backend *backend = rfcomm->backend;
+	struct impl *backend = rfcomm->backend;
 	unsigned int gain, dummy;
 
 	/* There are only three HSP AT commands:
@@ -238,7 +240,7 @@ static bool rfcomm_hsp_ag(struct spa_source *source, char* buf)
 static bool rfcomm_hsp_hs(struct spa_source *source, char* buf)
 {
 	struct rfcomm *rfcomm = source->data;
-	struct spa_bt_backend *backend = rfcomm->backend;
+	struct impl *backend = rfcomm->backend;
 	unsigned int gain;
 
 	/* There are only three HSP AT result codes:
@@ -268,7 +270,7 @@ static bool rfcomm_hsp_hs(struct spa_source *source, char* buf)
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 static bool device_supports_required_mSBC_transport_modes(
-		struct spa_bt_backend *backend, struct spa_bt_device *device) {
+		struct impl *backend, struct spa_bt_device *device) {
 	bdaddr_t src;
 	uint8_t features[8], max_page = 0;
 	int device_id;
@@ -322,7 +324,7 @@ static bool device_supports_required_mSBC_transport_modes(
 static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 {
 	struct rfcomm *rfcomm = source->data;
-	struct spa_bt_backend *backend = rfcomm->backend;
+	struct impl *backend = rfcomm->backend;
 	unsigned int features;
 	unsigned int gain;
 	unsigned int len, k, v;
@@ -498,7 +500,7 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 {
 	struct rfcomm *rfcomm = source->data;
-	struct spa_bt_backend *backend = rfcomm->backend;
+	struct impl *backend = rfcomm->backend;
 	unsigned int features;
 	unsigned int gain;
 	unsigned int selected_codec;
@@ -621,7 +623,7 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 static void rfcomm_event(struct spa_source *source)
 {
 	struct rfcomm *rfcomm = source->data;
-	struct spa_bt_backend *backend = rfcomm->backend;
+	struct impl *backend = rfcomm->backend;
 
 	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
 		spa_log_info(backend->log, NAME": lost RFCOMM connection.");
@@ -667,7 +669,7 @@ static void rfcomm_event(struct spa_source *source)
 
 static int sco_do_connect(struct spa_bt_transport *t)
 {
-	struct spa_bt_backend *backend = t->backend;
+	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
 	struct spa_bt_device *d = t->device;
 	struct sockaddr_sco addr;
 	socklen_t len;
@@ -733,7 +735,7 @@ fail_close:
 static int sco_acquire_cb(void *data, bool optional)
 {
 	struct spa_bt_transport *t = data;
-	struct spa_bt_backend *backend = t->backend;
+	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
 	int sock;
 	socklen_t len;
 
@@ -778,7 +780,7 @@ fail:
 static int sco_release_cb(void *data)
 {
 	struct spa_bt_transport *t = data;
-	struct spa_bt_backend *backend = t->backend;
+	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
 
 	spa_log_info(backend->log, NAME": Transport %s released", t->path);
 
@@ -800,7 +802,7 @@ static int sco_release_cb(void *data)
 static void sco_event(struct spa_source *source)
 {
 	struct spa_bt_transport *t = source->data;
-	struct spa_bt_backend *backend = t->backend;
+	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
 
 	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
 		spa_log_debug(backend->log, NAME": transport %p: error on SCO socket: %s", t, strerror(errno));
@@ -817,7 +819,7 @@ static void sco_event(struct spa_source *source)
 
 static void sco_listen_event(struct spa_source *source)
 {
-	struct spa_bt_backend *backend = source->data;
+	struct impl *backend = source->data;
 	struct sockaddr_sco addr;
 	socklen_t optlen;
 	int sock = -1;
@@ -926,7 +928,7 @@ fail:
 	return;
 }
 
-static int sco_listen(struct spa_bt_backend *backend)
+static int sco_listen(struct impl *backend)
 {
 	struct sockaddr_sco addr;
 	int sock;
@@ -983,7 +985,7 @@ static const struct spa_bt_transport_implementation sco_transport_impl = {
 
 static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
-	struct spa_bt_backend *backend = userdata;
+	struct impl *backend = userdata;
 	DBusMessage *r;
 	DBusMessageIter it[5];
 	const char *handler, *path, *str;
@@ -1107,7 +1109,7 @@ fail_need_memory:
 
 static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
-	struct spa_bt_backend *backend = userdata;
+	struct impl *backend = userdata;
 	DBusMessage *r;
 	const char *handler, *path;
 	struct spa_bt_device *d;
@@ -1171,7 +1173,7 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 
 static DBusHandlerResult profile_handler(DBusConnection *c, DBusMessage *m, void *userdata)
 {
-	struct spa_bt_backend *backend = userdata;
+	struct impl *backend = userdata;
 	const char *path, *interface, *member;
 	DBusMessage *r;
 	DBusHandlerResult res;
@@ -1209,7 +1211,7 @@ static DBusHandlerResult profile_handler(DBusConnection *c, DBusMessage *m, void
 
 static void register_profile_reply(DBusPendingCall *pending, void *user_data)
 {
-	struct spa_bt_backend *backend = user_data;
+	struct impl *backend = user_data;
 	DBusMessage *r;
 
 	r = dbus_pending_call_steal_reply(pending);
@@ -1235,7 +1237,7 @@ static void register_profile_reply(DBusPendingCall *pending, void *user_data)
         dbus_pending_call_unref(pending);
 }
 
-static int register_profile(struct spa_bt_backend *backend, const char *profile, const char *uuid)
+static int register_profile(struct impl *backend, const char *profile, const char *uuid)
 {
 	DBusMessage *m;
 	DBusMessageIter it[4];
@@ -1341,7 +1343,7 @@ static int register_profile(struct spa_bt_backend *backend, const char *profile,
 	return 0;
 }
 
-void unregister_profile(struct spa_bt_backend *backend, const char *profile)
+static void unregister_profile(struct impl *backend, const char *profile)
 {
 	DBusMessage *m, *r;
 	DBusError err;
@@ -1375,8 +1377,10 @@ void unregister_profile(struct spa_bt_backend *backend, const char *profile)
 	dbus_message_unref(r);
 }
 
-void backend_native_register_profiles(struct spa_bt_backend *backend)
+static int backend_native_register_profiles(void *data)
 {
+	struct impl *backend = data;
+
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	register_profile(backend, PROFILE_HSP_AG, SPA_BT_UUID_HSP_AG);
 	register_profile(backend, PROFILE_HSP_HS, SPA_BT_UUID_HSP_HS);
@@ -1389,9 +1393,11 @@ void backend_native_register_profiles(struct spa_bt_backend *backend)
 
 	if (backend->enabled_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT)
 		sco_listen(backend);
+
+	return 0;
 }
 
-void sco_close(struct spa_bt_backend *backend)
+static void sco_close(struct impl *backend)
 {
 	if (backend->sco.fd >= 0) {
 		if (backend->sco.loop)
@@ -1402,8 +1408,10 @@ void sco_close(struct spa_bt_backend *backend)
 	}
 }
 
-void backend_native_unregister_profiles(struct spa_bt_backend *backend)
+static int backend_native_unregister_profiles(void *data)
 {
+	struct impl *backend = data;
+
 	sco_close(backend);
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
@@ -1419,10 +1427,14 @@ void backend_native_unregister_profiles(struct spa_bt_backend *backend)
 	if (backend->enabled_profiles & SPA_BT_PROFILE_HFP_HF)
 		unregister_profile(backend, PROFILE_HFP_HF);
 #endif
+
+	return 0;
 }
 
-void backend_native_free(struct spa_bt_backend *backend)
+static int backend_native_free(void *data)
 {
+	struct impl *backend = data;
+
 	struct rfcomm *rfcomm;
 
 	sco_close(backend);
@@ -1441,9 +1453,11 @@ void backend_native_free(struct spa_bt_backend *backend)
 		rfcomm_free(rfcomm);
 
 	free(backend);
+
+	return 0;
 }
 
-static int parse_headset_roles(struct spa_bt_backend *backend, const struct spa_dict *info)
+static int parse_headset_roles(struct impl *backend, const struct spa_dict *info)
 {
 	const char *str;
 	struct spa_json it, it_array;
@@ -1483,21 +1497,30 @@ fallback:
 	return 0;
 }
 
+static const struct spa_bt_backend_implementation backend_impl = {
+	SPA_VERSION_BT_BACKEND_IMPLEMENTATION,
+	.free = backend_native_free,
+	.register_profiles = backend_native_register_profiles,
+	.unregister_profiles = backend_native_unregister_profiles,
+};
+
 struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
 		const struct spa_dict *info,
 		const struct spa_support *support,
 	  uint32_t n_support)
 {
-	struct spa_bt_backend *backend;
+	struct impl *backend;
 
 	static const DBusObjectPathVTable vtable_profile = {
 		.message_function = profile_handler,
 	};
 
-	backend = calloc(1, sizeof(struct spa_bt_backend));
+	backend = calloc(1, sizeof(struct impl));
 	if (backend == NULL)
 		return NULL;
+
+	spa_bt_backend_set_implementation(&backend->this, &backend_impl, backend);
 
 	backend->monitor = monitor;
 	backend->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
@@ -1539,7 +1562,7 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 	}
 #endif
 
-	return backend;
+	return &backend->this;
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 fail3:

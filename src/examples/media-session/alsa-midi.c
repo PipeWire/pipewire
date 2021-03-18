@@ -43,6 +43,8 @@
 #define SEQ_NAME "seq"
 #define SND_SEQ_PATH SND_PATH"/"SEQ_NAME
 
+#define DEFAULT_NAME	"Midi-Bridge"
+
 struct impl {
 	struct sm_media_session *session;
 	struct spa_hook listener;
@@ -168,15 +170,19 @@ int sm_alsa_midi_start(struct sm_media_session *session)
 {
 	struct impl *impl;
 	int res;
+	const char *name;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
 		return -errno;
 
+	if ((name = pw_properties_get(session->props, "alsa.seq.name")) == NULL)
+		name = DEFAULT_NAME;
+
 	impl->session = session;
 	impl->props = pw_properties_new(
 			SPA_KEY_FACTORY_NAME, SPA_NAME_API_ALSA_SEQ_BRIDGE,
-			SPA_KEY_NODE_NAME, "Midi-Bridge",
+			SPA_KEY_NODE_NAME, name,
 			NULL);
 	if (impl->props == NULL) {
 		res = -errno;

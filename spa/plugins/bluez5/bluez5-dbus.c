@@ -3004,13 +3004,19 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 		}
 
 		if (strcmp(name, BLUEZ_SERVICE) == 0) {
-			if (old_owner && *old_owner) {
+			bool has_old_owner = old_owner && *old_owner;
+			bool has_new_owner = new_owner && *new_owner;
+
+			if (has_old_owner) {
+				spa_log_debug(monitor->log, "Bluetooth daemon disappeared");
+			}
+
+			if (has_old_owner || has_new_owner) {
 				struct spa_bt_adapter *a;
 				struct spa_bt_device *d;
 				struct spa_bt_remote_endpoint *ep;
 				struct spa_bt_transport *t;
 
-				spa_log_debug(monitor->log, "Bluetooth daemon disappeared");
 				monitor->objects_listed = false;
 
 				if (monitor->backend_native_registered) {
@@ -3028,7 +3034,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 					adapter_free(a);
 			}
 
-			if (new_owner && *new_owner) {
+			if (has_new_owner) {
 				spa_log_debug(monitor->log, "Bluetooth daemon appeared");
 				get_managed_objects(monitor);
 			}

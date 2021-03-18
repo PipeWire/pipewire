@@ -158,33 +158,35 @@ static int spa_bt_transport_start_release_timer(struct spa_bt_transport *transpo
 // Developed using https://github.com/dgreid/adhd/commit/655b58f as an example of DBus calls.
 
 // Name of battery, formatted as /org/freedesktop/pipewire/battery/org/bluez/hciX/dev_XX_XX_XX_XX_XX_XX
-static char *battery_get_name(struct spa_bt_device *device)
+static char *battery_get_name(const char *device_path)
 {
-	char *path = malloc(strlen(PIPEWIRE_BATTERY_PROVIDER) + strlen(device->path) + 1);
-	sprintf(path, PIPEWIRE_BATTERY_PROVIDER "%s", device->path);
-
+	char *path = malloc(strlen(PIPEWIRE_BATTERY_PROVIDER) + strlen(device_path) + 1);
+	sprintf(path, PIPEWIRE_BATTERY_PROVIDER "%s", device_path);
 	return path;
 }
 
 // Unregister virtual battery of device
 static void battery_remove(struct spa_bt_device *device) {
-	if (!device->adapter->has_battery_provider) return;
+	DBusMessageIter i, entry;
+	DBusMessage *m;
+	const char *interface;
 
-	spa_log_debug(device->monitor->log, NAME": Removing virtual battery: %s", battery_get_name(device));
+	if (!device->adapter->has_battery_provider || !device->has_battery)
+		return;
 
-	DBusMessage *m = dbus_message_new_signal(PIPEWIRE_BATTERY_PROVIDER,
+	spa_log_debug(device->monitor->log, NAME": Removing virtual battery: %s", device->battery_path);
+
+	m = dbus_message_new_signal(PIPEWIRE_BATTERY_PROVIDER,
 				      DBUS_INTERFACE_OBJECT_MANAGER,
 				      DBUS_SIGNAL_INTERFACES_REMOVED);
 
-	DBusMessageIter i, entry;
 
 	dbus_message_iter_init_append(m, &i);
-	const char *bat_name = battery_get_name(device);
 	dbus_message_iter_append_basic(&i, DBUS_TYPE_OBJECT_PATH,
-				       &bat_name);
+				       &device->battery_path);
 	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY,
 					 DBUS_TYPE_STRING_AS_STRING, &entry);
-	const char *interface = BLUEZ_INTERFACE_BATTERY_PROVIDER;
+	interface = BLUEZ_INTERFACE_BATTERY_PROVIDER;
 	dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING,
 				       &interface);
 	dbus_message_iter_close_container(&i, &entry);
@@ -231,13 +233,12 @@ static void battery_write_properties(DBusMessageIter *iter, struct spa_bt_device
 // Send current percentage to BlueZ
 static void battery_update(struct spa_bt_device *device)
 {
-	const char *name = battery_get_name(device);
-	spa_log_debug(device->monitor->log, NAME": updating battery: %s", name);
+	spa_log_debug(device->monitor->log, NAME": updating battery: %s", device->battery_path);
 
 	DBusMessage *msg;
 	DBusMessageIter iter;
 
-	msg = dbus_message_new_signal(name,
+	msg = dbus_message_new_signal(device->battery_path,
 				      DBUS_INTERFACE_PROPERTIES,
 				      DBUS_SIGNAL_PROPERTIES_CHANGED);
 
@@ -263,9 +264,8 @@ static void battery_create(struct spa_bt_device *device) {
 				      DBUS_SIGNAL_INTERFACES_ADDED);
 
 	dbus_message_iter_init_append(msg, &iter);
-	const char *bat_name = battery_get_name(device);
 	dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH,
-				       &bat_name);
+				       &device->battery_path);
 	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sa{sv}}", &dict);
 	dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
 	const char *interface = BLUEZ_INTERFACE_BATTERY_PROVIDER;
@@ -637,6 +637,7 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 	d->id = monitor->id++;
 	d->monitor = monitor;
 	d->path = strdup(path);
+	d->battery_path = battery_get_name(d->path);
 	spa_list_init(&d->remote_endpoint_list);
 	spa_list_init(&d->transport_list);
 	spa_list_init(&d->codec_switch_list);
@@ -697,6 +698,7 @@ static void device_free(struct spa_bt_device *device)
 	free(device->alias);
 	free(device->address);
 	free(device->adapter_path);
+	free(device->battery_path);
 	free(device->name);
 	free(device->icon);
 	free(device);

@@ -394,6 +394,7 @@ struct spa_bt_device {
 	char *alias;
 	char *address;
 	char *adapter_path;
+	char *battery_path;
 	char *name;
 	char *icon;
 	uint32_t bluetooth_class;

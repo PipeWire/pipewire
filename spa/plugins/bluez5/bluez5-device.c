@@ -117,6 +117,8 @@ struct impl {
 	size_t supported_codec_count;
 
 	struct dynamic_node dyn_a2dp_source;
+	struct dynamic_node dyn_sco_source;
+	struct dynamic_node dyn_sco_sink;
 
 #define MAX_SETTINGS 32
 	struct spa_dict_item setting_items[MAX_SETTINGS];
@@ -308,19 +310,25 @@ static int emit_nodes(struct impl *this)
 		}
 		break;
 	case 2:
-		if (this->bt_dev->connected_profiles &
-		    (SPA_BT_PROFILE_HEADSET_HEAD_UNIT | SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY) ) {
-			int i;
-
-			for (i = SPA_BT_PROFILE_HSP_HS ; i <= SPA_BT_PROFILE_HFP_AG ; i <<= 1) {
-				t = find_transport(this, i, NULL);
-				if (t)
-					break;
+		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY) {
+			t = find_transport(this, SPA_BT_PROFILE_HFP_AG, NULL);
+			if (!t)
+				t = find_transport(this, SPA_BT_PROFILE_HSP_AG, NULL);
+			if (t) {
+				emit_dynamic_node(&this->dyn_sco_source, this, t,
+						DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_SCO_SOURCE);
+				emit_dynamic_node(&this->dyn_sco_sink, this, t,
+						DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_SCO_SINK);
 			}
-			if (t == NULL)
-				break;
-			emit_node(this, t, DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_SCO_SOURCE);
-			emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_SCO_SINK);
+		}
+		else if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT) {
+			t = find_transport(this, SPA_BT_PROFILE_HFP_HF, NULL);
+			if (!t)
+				t = find_transport(this, SPA_BT_PROFILE_HSP_HS, NULL);
+			if (t) {
+				emit_node(this, t, DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_SCO_SOURCE);
+				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_SCO_SINK);
+			}
 		}
 		break;
 	default:
@@ -352,6 +360,8 @@ static void emit_remove_nodes(struct impl *this)
 	uint32_t i;
 
 	remove_dynamic_node (&this->dyn_a2dp_source);
+	remove_dynamic_node (&this->dyn_sco_source);
+	remove_dynamic_node (&this->dyn_sco_sink);
 
 	for (i = 0; i < 2; i++) {
 		if (this->nodes[i].active) {

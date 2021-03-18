@@ -1,3 +1,93 @@
+PipeWire 0.3.24
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Highlights
+  - Many JACK midi improvements and device support.
+  - Fixes in gnome-control-center default sink/source handling.
+  - Many small performance improvements in alsa device handling
+    and latency. There should also be less cracks/pops and xruns
+    now.
+  - Fixes for gnome-control-center default sink/source handling.
+  - More bluetooth compatibility improvements.
+
+
+- PipeWire improvements
+  - Implement simple upmixing
+  - Disable the resampler when not used. This improves latency
+    and CPU usage.
+  - Handle max-quantum on devices and try to not make the quantum
+    larger than the device buffer size.
+  - improvements to how nodes and links are activated. It should
+    now result in less xruns and cracks/pops.
+  - meson uses the feature options everywhere now
+  - Handle volume remap in the channelmixer. This fixes the channels
+    on multichannel devices.
+  - Try to escape invalid JSON string characters
+  - Keep better track of changed parameters in audioconvert.
+  - Improve config files, make arrays where needed.
+  - Respect NO_COLOR where possible
+  - Support in-place config file parsing to avoid allocations and
+    improve startup performance.
+  - There is no a config option to enable non-power-of-two quantums.
+  - Preliminary support for upmixing and generating LFE channels.
+
+- Session-manager
+  - default nodes are not stored as JSON in the metadata. This
+    is more readable and introspectable.
+  - More default-nodes and default-routes improvements. port
+    switching should work better now.
+  - Wait until all devices are scanned before linking clients.
+  - Fixes some crashes
+  - Sinks (monitors) can now be set as default sources.
+
+- Device support
+  - Fix startup timers for alsa devices.
+  - Improve timers in alsa when quantum changes. It should cause
+    less xruns and cracks.
+  - Fix UCM setup of capture devices.
+  - Only disable IRQ in alsa when not batch. For batch devices the
+    hw pointers are updated each IRQ so we need to keep them enabled.
+    This massively improves latency on USB batch devices to the same
+    level as JACK (with small enough period size).
+
+- Bluetooth
+  - Improvements to profile switches.
+  - Improvements to volume handling.
+  - Fixes for A2DP sources
+  - Add support for battery status when available.
+  - Many other small improvements.
+
+- PulseAudio server
+  - handle NULL in set_default_sink/source to clear the default
+  - Implement a workaround for gnome-control-center when setting
+    the default sink/source. It also sets the target in
+    stream-restore to the new default. This fixes moving streams
+    in gnome-control-center.
+  - Fix some races by replying to some requests after the operation
+    completed.
+  - Prefer formats of the extended format API.
+  - Create a pid file on startup to improve compatibility with apps
+    that look for it.
+  - Capture streams can now be moved to monitors with pavucontrol
+  - Fixes for crashes
+
+- JACK
+  - jack clients can now connect to the 'default' server
+  - Move midi ports back to the midi client
+  - Only mark midi hardware ports as terminal/physical
+  - Use the same midi names as a2jmidid
+  - match system ports in get_ports.
+  - Improve compatibility with some apps that require a
+    fixed latency.
+  - Beginnings of the libjackserver implementation.
+
+
+
+Older versions:
+
+
 PipeWire 0.3.23
 
 This is a bugfix release that is API and ABI compatible
@@ -100,9 +190,6 @@ with previous 0.3.x releases.
   - We now include our own jack header files so we can build
     without depending on another jack-devel package. We don't
     yet install the headers or provide pkgconfig files.
-
-
-Older versions:
 
 
 PipeWire 0.3.22

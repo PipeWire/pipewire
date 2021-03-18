@@ -724,11 +724,11 @@ impl_get_size(const struct spa_handle_factory *factory,
 	return sizeof(struct impl);
 }
 
-static uint32_t channel_from_name(const char *name, size_t len)
+static uint32_t channel_from_name(const char *name)
 {
 	int i;
 	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (strncmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name), len) == 0)
+		if (strcmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)) == 0)
 			return spa_type_audio_channel[i].type;
 	}
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
@@ -738,16 +738,15 @@ static inline void parse_position(struct impl *this, const char *val, size_t len
 {
 	struct spa_json it[2];
 	char v[256];
-	int l;
 
 	spa_json_init(&it[0], val, len);
         if (spa_json_enter_array(&it[0], &it[1]) <= 0)
                 spa_json_init(&it[1], val, len);
 
 	this->props.n_pos = 0;
-	while ((l = spa_json_get_string(&it[1], v, sizeof(v))) > 0 &&
+	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
 	    this->props.n_pos < SPA_AUDIO_MAX_CHANNELS) {
-		this->props.pos[this->props.n_pos++] = channel_from_name(v, l);
+		this->props.pos[this->props.n_pos++] = channel_from_name(v);
 	}
 }
 

@@ -207,11 +207,11 @@ static inline uint32_t spa_alsa_format_from_name(const char *name, size_t len)
 	return SPA_AUDIO_FORMAT_UNKNOWN;
 }
 
-static inline uint32_t spa_alsa_channel_from_name(const char *name, size_t len)
+static inline uint32_t spa_alsa_channel_from_name(const char *name)
 {
 	int i;
 	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (strncmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name), len) == 0)
+		if (strcmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)) == 0)
 			return spa_type_audio_channel[i].type;
 	}
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
@@ -221,16 +221,15 @@ static inline void spa_alsa_parse_position(struct channel_map *map, const char *
 {
 	struct spa_json it[2];
 	char v[256];
-	int l;
 
 	spa_json_init(&it[0], val, len);
         if (spa_json_enter_array(&it[0], &it[1]) <= 0)
                 spa_json_init(&it[1], val, len);
 
 	map->channels = 0;
-	while ((l = spa_json_get_string(&it[1], v, sizeof(v))) > 0 &&
+	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
 	    map->channels < SPA_AUDIO_MAX_CHANNELS) {
-		map->pos[map->channels++] = spa_alsa_channel_from_name(v, l);
+		map->pos[map->channels++] = spa_alsa_channel_from_name(v);
 	}
 }
 

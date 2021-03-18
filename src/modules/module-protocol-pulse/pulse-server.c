@@ -3869,7 +3869,7 @@ static int fill_card_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
 	struct pw_device_info *info = o->info;
-	const char *str;
+	const char *str, *drv_name;
 	uint32_t module_id = SPA_ID_INVALID, n_profiles, n;
 	struct card_info card_info = CARD_INFO_INIT;
 	struct profile_info *profile_info;
@@ -3880,11 +3880,15 @@ static int fill_card_info(struct client *client, struct message *m,
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = (uint32_t)atoi(str);
 
+	drv_name = spa_dict_lookup(info->props, PW_KEY_DEVICE_API);
+	if (drv_name && !strcmp("bluez5", drv_name))
+		drv_name = "module-bluez5-device.c"; /* blueman needs this */
+
 	message_put(m,
 		TAG_U32, o->id,				/* card index */
 		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_DEVICE_NAME),
 		TAG_U32, module_id,
-		TAG_STRING, spa_dict_lookup(info->props, PW_KEY_DEVICE_API),
+		TAG_STRING, drv_name,
 		TAG_INVALID);
 
 	collect_card_info(o, &card_info);

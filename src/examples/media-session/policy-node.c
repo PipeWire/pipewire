@@ -503,6 +503,7 @@ static int find_node(void *data, struct node *node)
 	int priority = 0;
 	uint64_t plugged = 0;
 	struct sm_device *device = node->obj->device;
+	bool is_default = false;
 
 	if (node->obj->info == NULL) {
 		pw_log_debug(NAME " %p: skipping node '%d' with no node info", impl, node->id);
@@ -520,11 +521,6 @@ static int find_node(void *data, struct node *node)
 		return 0;
 	}
 
-	if ((find->capture_sink && node->direction != PW_DIRECTION_INPUT) ||
-	    (!find->capture_sink && node->direction == find->direction)) {
-		pw_log_debug(".. same direction");
-		return 0;
-	}
 	if (strcmp(node->media, find->media) != 0) {
 		pw_log_debug(".. incompatible media %s <-> %s", node->media, find->media);
 		return 0;
@@ -533,24 +529,33 @@ static int find_node(void *data, struct node *node)
 	priority = node->priority;
 
 	if (node->media) {
-		bool is_default = false;
-
 		if (strcmp(node->media, "Audio") == 0) {
-			if (node->direction == PW_DIRECTION_INPUT)
-				is_default = check_node_name(node,
+			if (node->direction == PW_DIRECTION_INPUT) {
+				if (find->direction == PW_DIRECTION_OUTPUT)
+					is_default |= check_node_name(node,
 						impl->defaults[DEFAULT_AUDIO_SINK].config);
-			else if (node->direction == PW_DIRECTION_OUTPUT)
-				is_default = check_node_name(node,
+				else if (find->direction == PW_DIRECTION_INPUT)
+					is_default |= check_node_name(node,
+						impl->defaults[DEFAULT_AUDIO_SOURCE].config);
+			} else if (node->direction == PW_DIRECTION_OUTPUT &&
+			    find->direction == PW_DIRECTION_INPUT)
+				is_default |= check_node_name(node,
 						impl->defaults[DEFAULT_AUDIO_SOURCE].config);
 		} else if (strcmp(node->media, "Video") == 0) {
-			if (node->direction == PW_DIRECTION_OUTPUT)
-				is_default = check_node_name(node,
+			if (node->direction == PW_DIRECTION_OUTPUT &&
+			    find->direction == PW_DIRECTION_INPUT)
+				is_default |= check_node_name(node,
 						impl->defaults[DEFAULT_VIDEO_SOURCE].config);
 		}
 		if (is_default)
 			priority += 10000;
 	}
 
+	if ((find->capture_sink && node->direction != PW_DIRECTION_INPUT) ||
+	    (!find->capture_sink && !is_default && node->direction == find->direction)) {
+		pw_log_debug(".. same direction");
+		return 0;
+	}
 	if ((find->exclusive && node->obj->info->state == PW_NODE_STATE_RUNNING) ||
 	    (node->peer && node->peer->exclusive)) {
 		pw_log_debug(NAME " %p: node '%d' in use", impl, node->id);

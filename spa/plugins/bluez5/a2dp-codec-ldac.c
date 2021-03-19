@@ -55,8 +55,9 @@ struct impl {
 	HANDLE_LDAC_BT ldac;
 #ifdef ENABLE_LDAC_ABR
 	HANDLE_LDAC_ABR ldac_abr;
-	bool enable_abr;
 #endif
+	bool enable_abr;
+
 	struct rtp_header *header;
 	struct rtp_payload *payload;
 
@@ -274,11 +275,11 @@ static int update_frame_info(struct impl *this)
 static int codec_reduce_bitpool(void *data)
 {
 #ifdef ENABLE_LDAC_ABR
-	return -EINVAL;
+	return -ENOTSUP;
 #else
 	struct impl *this = data;
 	int res;
-	if (this->eqmid == LDACBT_EQMID_BITRATE_330000)
+	if (this->eqmid == LDACBT_EQMID_BITRATE_330000 || !this->enable_abr)
 		return this->eqmid;
 	res = ldacBT_alter_eqmid_priority(this->ldac, LDACBT_EQMID_INC_CONNECTION);
 	update_frame_info(this);
@@ -289,10 +290,12 @@ static int codec_reduce_bitpool(void *data)
 static int codec_increase_bitpool(void *data)
 {
 #ifdef ENABLE_LDAC_ABR
-	return -EINVAL;
+	return -ENOTSUP;
 #else
 	struct impl *this = data;
 	int res;
+	if (!this->enable_abr)
+		return this->eqmid;
 	res = ldacBT_alter_eqmid_priority(this->ldac, LDACBT_EQMID_INC_QUALITY);
 	update_frame_info(this);
 	return res;
@@ -311,6 +314,20 @@ static int codec_get_block_size(void *data)
 	return this->codesize;
 }
 
+static int string_to_eqmid(const char * eqmid)
+{
+	if (!strcmp("auto", eqmid))
+		return LDACBT_EQMID_ABR;
+	else if (!strcmp("hq", eqmid))
+		return LDACBT_EQMID_HQ;
+	else if (!strcmp("sq", eqmid))
+		return LDACBT_EQMID_SQ;
+	else if (!strcmp("mq", eqmid))
+		return LDACBT_EQMID_MQ;
+	else
+		return LDACBT_EQMID_ABR;
+}
+
 static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info,
 		const struct spa_dict *settings, size_t mtu)
@@ -318,6 +335,7 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	struct impl *this;
 	a2dp_ldac_t *conf = config;
 	int res;
+	const char *str;
 
 	this = calloc(1, sizeof(struct impl));
 	if (this == NULL)
@@ -333,7 +351,14 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 		goto error_errno;
 #endif
 
-	this->eqmid = LDACBT_EQMID_SQ;
+	if ((str = spa_dict_lookup(settings, "bluez5.a2dp.ldac.quality")) == NULL)
+		str = "auto";
+
+	if ((this->eqmid = string_to_eqmid(str)) == LDACBT_EQMID_ABR) {
+		this->eqmid = LDACBT_EQMID_SQ;
+		this->enable_abr = true;
+	}
+
 	this->mtu = mtu;
 	this->frequency = info->info.raw.rate;
 	this->codesize = info->info.raw.channels;
@@ -397,8 +422,6 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 		LDAC_ABR_THRESHOLD_SAFETY_FOR_HQSQ);
 	if (res < 0)
 		goto error;
-
-	this->enable_abr = true;
 #endif
 
 	update_frame_info(this);
@@ -441,7 +464,7 @@ static int codec_abr_process(void *data, size_t unsent)
 	update_frame_info(this);
 	return res;
 #else
-	return -EINVAL;
+	return -ENOTSUP;
 #endif
 }
 

@@ -688,17 +688,24 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 static void emit_node_info(struct impl *this, bool full)
 {
 	bool is_ag = (this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
-	struct spa_dict_item node_info_items[] = {
+	struct spa_dict_item ag_node_info_items[] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
-		{ SPA_KEY_MEDIA_CLASS, is_ag ? "Stream/Output/Audio" : "Audio/Source" },
+		{ SPA_KEY_MEDIA_CLASS, "Stream/Output/Audio" },
+		{ "media.name", ((this->transport && this->transport->device->name) ?
+		                 this->transport->device->name : "HSP/HFP") },
+	};
+	struct spa_dict_item hu_node_info_items[] = {
+		{ SPA_KEY_DEVICE_API, "bluez5" },
+		{ SPA_KEY_MEDIA_CLASS, "Audio/Source" },
 		{ SPA_KEY_NODE_DRIVER, "true" },
-		{ SPA_KEY_NODE_PAUSE_ON_IDLE, "false" },
 	};
 
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
-		this->info.props = &SPA_DICT_INIT_ARRAY(node_info_items);
+		this->info.props = is_ag ?
+			&SPA_DICT_INIT_ARRAY(ag_node_info_items) :
+			&SPA_DICT_INIT_ARRAY(hu_node_info_items);
 		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = 0;
 	}

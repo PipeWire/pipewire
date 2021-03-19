@@ -25,6 +25,7 @@
 #include <limits.h>
 #include <signal.h>
 #include <getopt.h>
+#include <libgen.h>
 
 #include <spa/utils/result.h>
 #include <pipewire/pipewire.h>

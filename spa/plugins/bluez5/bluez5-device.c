@@ -743,7 +743,7 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		break;
 	}
 	default:
-		errno = -EINVAL;
+		errno = EINVAL;
 		return NULL;
 	}
 
@@ -858,7 +858,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		snprintf(name, sizeof(name), "%s-output", name_prefix);
 		break;
 	default:
-		errno = -EINVAL;
+		errno = EINVAL;
 		return NULL;
 	}
 

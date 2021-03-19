@@ -355,7 +355,7 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		desc = "On";
 		break;
 	default:
-		errno = -EINVAL;
+		errno = EINVAL;
 		return NULL;
 	}
 

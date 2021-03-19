@@ -176,7 +176,7 @@ static struct module *create_module(struct client *client, const char *name, con
 
 	info = find_module_info(name);
 	if (info == NULL) {
-		errno = -ENOENT;
+		errno = ENOENT;
 		return NULL;
 	}
 	module = info->create(impl, args);

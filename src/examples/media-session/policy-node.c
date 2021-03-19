@@ -123,6 +123,8 @@ struct node {
 	unsigned int virtual:1;
 };
 
+static int check_new_target(struct impl *impl, struct node *target);
+
 static bool find_format(struct node *node)
 {
 	struct impl *impl = node->impl;
@@ -209,6 +211,9 @@ static int configure_node(struct node *node, struct spa_audio_info *info, bool f
 			SPA_PARAM_PortConfig, 0, param);
 
 	node->configured = true;
+
+	if (node->type == NODE_TYPE_DEVICE)
+		check_new_target(impl, node);
 
 	return 0;
 }
@@ -968,6 +973,23 @@ static int handle_move(struct impl *impl, struct node *src_node, struct node *ds
 	src_node->obj->target_node = str ? strdup(str) : NULL;
 
 	return do_move_node(src_node, src_node->peer, dst_node);
+}
+
+static int check_new_target(struct impl *impl, struct node *target)
+{
+	struct node *node;
+	const char *str = get_device_name(target);
+
+	spa_list_for_each(node, &impl->node_list, link) {
+		pw_log_debug(NAME" %p: node %d target '%s' find:%s", impl,
+				node->id, node->obj->target_node, str);
+
+		if (node->obj->target_node != NULL &&
+		    strcmp(node->obj->target_node , str) == 0) {
+			handle_move(impl, node, target);
+		}
+	}
+	return 0;
 }
 
 static int metadata_property(void *object, uint32_t subject,

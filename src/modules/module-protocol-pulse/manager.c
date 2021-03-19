@@ -176,6 +176,8 @@ static void object_destroy(struct object *o)
 		pw_proxy_destroy(o->this.proxy);
 	if (o->this.props)
 		pw_properties_free(o->this.props);
+	if (o->this.message_object_path)
+		free(o->this.message_object_path);
 	clear_params(&o->this.param_list, SPA_ID_INVALID);
 	clear_params(&o->pending_list, SPA_ID_INVALID);
 	spa_list_consume(d, &o->data_list, link) {

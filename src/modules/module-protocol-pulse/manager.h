@@ -79,6 +79,9 @@ struct pw_manager_object {
 	uint32_t version;
 	struct pw_properties *props;
 	struct pw_proxy *proxy;
+	char *message_object_path;
+	int (*message_handler)(struct pw_manager *m, struct pw_manager_object *o,
+	                       const char *message, const char *params, char **response);
 
 	int changed;
 	void *info;

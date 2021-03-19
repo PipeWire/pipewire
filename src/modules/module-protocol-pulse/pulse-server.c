@@ -41,6 +41,7 @@
 #include <sys/time.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <regex.h>
 #if HAVE_SYS_VFS_H
 #include <sys/vfs.h>
 #endif
@@ -282,6 +283,7 @@ struct impl {
 
 #include "collect.c"
 #include "module.c"
+#include "message-handler.c"
 
 
 static void sample_free(struct sample *sample)
@@ -900,6 +902,8 @@ static void manager_added(void *data, struct pw_manager_object *o)
 	uint32_t event, id;
 	const char *str;
 
+	register_object_message_handlers(o);
+	
 	if (strcmp(o->type, PW_TYPE_INTERFACE_Metadata) == 0) {
 		if (o->props != NULL &&
 		    (str = pw_properties_get(o->props, PW_KEY_METADATA_NAME)) != NULL)
@@ -5196,6 +5200,65 @@ static int do_unload_module(struct client *client, uint32_t command, uint32_t ta
 	return reply_simple_ack(client, tag);
 }
 
+static int do_send_object_message(struct client *client, uint32_t command, uint32_t tag, struct message *m)
+{
+	struct impl *impl = client->impl;
+	struct pw_manager *manager = client->manager;
+	const char *object_path = NULL;
+	const char *message = NULL;
+	const char *params = NULL;
+	char *response = NULL;
+	char *path = NULL;
+	struct message *reply;
+	struct pw_manager_object *o;
+	int len = 0;
+	int res;
+
+	if ((res = message_get(m,
+			TAG_STRING, &object_path,
+			TAG_STRING, &message,
+			TAG_STRING, &params,
+			TAG_INVALID)) < 0)
+		return -EPROTO;
+
+	pw_log_info(NAME" %p: [%s] %s tag:%u object_path:'%s' message:'%s' params:'%s'", impl,
+			client->name, commands[command].name, tag, object_path,
+			message, params ? params : "<null>");
+
+	if (object_path == NULL || message == NULL)
+		return -EINVAL;
+
+	len = strlen(object_path);
+	if (len > 0 && object_path[len - 1] == '/')
+		--len;
+	path = strndup(object_path, len);
+	if (path == NULL)
+		return -ENOMEM;
+
+	res = -ENOENT;
+
+	spa_list_for_each(o, &manager->object_list, link) {
+		if (o->message_object_path && strcmp(o->message_object_path, path) == 0) {
+			if (o->message_handler)
+				res = o->message_handler(manager, o, message, params, &response);
+			else
+				res = -ENOSYS;
+			break;
+		}
+	}
+
+	free(path);
+	if (res < 0)
+		return res;
+
+	pw_log_debug(NAME" %p: object message response:'%s'", impl, response ? response : "<null>");
+
+	reply = reply_new(client, tag);
+	message_put(reply, TAG_STRING, response, TAG_INVALID);
+	free(response);
+	return send_message(client, reply);
+}
+
 static int do_error_access(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	return -EACCES;
@@ -5364,6 +5427,9 @@ static const struct command commands[COMMAND_MAX] =
 	/* Supported since protocol v31 (9.0)
 	 * BOTH DIRECTIONS */
 	[COMMAND_REGISTER_MEMFD_SHMID] = { "REGISTER_MEMFD_SHMID", do_error_access, },
+
+	/* Supported since protocol v35 (15.0) */
+	[COMMAND_SEND_OBJECT_MESSAGE] = { "SEND_OBJECT_MESSAGE", do_send_object_message, },
 };
 
 static int client_free_stream(void *item, void *data)

@@ -39,7 +39,7 @@
 
 #define PROTOCOL_FLAG_MASK	0xffff0000u
 #define PROTOCOL_VERSION_MASK	0x0000ffffu
-#define PROTOCOL_VERSION	34
+#define PROTOCOL_VERSION	35
 
 #define NATIVE_COOKIE_LENGTH 256
 #define MAX_TAG_SIZE (64*1024)
@@ -286,6 +286,9 @@ enum {
 	/* Supported since protocol v31 (9.0)
 	 * BOTH DIRECTIONS */
 	COMMAND_REGISTER_MEMFD_SHMID,
+
+	/* Supported since protocol v35 (15.0) */
+	COMMAND_SEND_OBJECT_MESSAGE,
 
 	COMMAND_MAX
 };

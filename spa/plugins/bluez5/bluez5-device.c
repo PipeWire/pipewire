@@ -146,7 +146,7 @@ static void init_node(struct impl *this, struct node *node, uint32_t id)
 		node->volumes[i] = 1.0;
 }
 
-static const char *get_hfp_codec_name(unsigned int codec)
+static const char *get_hfp_codec_description(unsigned int codec)
 {
 	switch (codec) {
 	case HFP_AUDIO_CODEC_MSBC:
@@ -157,7 +157,7 @@ static const char *get_hfp_codec_name(unsigned int codec)
 	return "unknown";
 }
 
-static const char *get_hfp_codec_key(unsigned int codec)
+static const char *get_hfp_codec_name(unsigned int codec)
 {
 	switch (codec) {
 	case HFP_AUDIO_CODEC_MSBC:
@@ -172,13 +172,7 @@ static const char *get_codec_name(struct spa_bt_transport *t)
 {
 	if (t->a2dp_codec != NULL)
 		return t->a2dp_codec->name;
-	switch (t->codec) {
-	case HFP_AUDIO_CODEC_MSBC:
-		return "mSBC";
-	case HFP_AUDIO_CODEC_CVSD:
-		return "CVSD";
-	}
-	return "unknown";
+	return get_hfp_codec_name(t->codec);
 }
 
 static void emit_node(struct impl *this, struct spa_bt_transport *t,
@@ -864,8 +858,8 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 				errno = -EINVAL;
 				return NULL;
 			}
-			name_and_codec = spa_aprintf("%s-%s", name, get_hfp_codec_key(hfp_codec));
-			desc_and_codec = spa_aprintf(desc, ", codec ", get_hfp_codec_name(hfp_codec));
+			name_and_codec = spa_aprintf("%s-%s", name, get_hfp_codec_name(hfp_codec));
+			desc_and_codec = spa_aprintf(desc, ", codec ", get_hfp_codec_description(hfp_codec));
 			name = name_and_codec;
 			desc = desc_and_codec;
 		} else {

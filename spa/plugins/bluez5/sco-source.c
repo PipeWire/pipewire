@@ -500,7 +500,7 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
 
 	/* handle data read from socket */
-	spa_log_debug(this->log, "read socket data %d", size_read);
+	spa_log_trace(this->log, "read socket data %d", size_read);
 
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
 		preprocess_and_decode_msbc_data(userdata, read_data, size_read);

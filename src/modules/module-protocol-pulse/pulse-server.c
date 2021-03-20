@@ -3968,10 +3968,18 @@ static int fill_card_info(struct client *client, struct message *m,
 				TAG_INVALID);
 
 			for (i = 0; i < pi_n_profiles; i++) {
-				uint32_t idx = pi->profiles[i];
+				uint32_t j;
+				const char *name = "off";
+
+				for (j = 0; j < n_profiles; ++j) {
+					if (profile_info[j].id == pi->profiles[i]) {
+						name = profile_info[j].name;
+						break;
+					}
+				}
+
 				message_put(m,
-					TAG_STRING, idx < n_profiles ?
-						profile_info[idx].name : "off",	/* profile name */
+					TAG_STRING, name,	/* profile name */
 					TAG_INVALID);
 			}
 			if (client->version >= 27) {

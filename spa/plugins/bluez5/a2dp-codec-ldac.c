@@ -27,6 +27,8 @@
 #include <errno.h>
 #include <arpa/inet.h>
 
+#include <spa/pod/parser.h>
+#include <spa/param/props.h>
 #include <spa/param/audio/format.h>
 
 #include <ldacBT.h>
@@ -75,6 +77,8 @@ struct impl {
 	int frame_length;
 	int frame_count;
 	int frame_count_factor;
+
+	const struct props *props;
 };
 
 enum {
@@ -354,6 +358,65 @@ static void codec_clear_props(void *props)
 	free(props);
 }
 
+static int codec_enum_props(void *props, const struct spa_dict *settings, uint32_t id, uint32_t idx,
+			struct spa_pod_builder *b, struct spa_pod **param)
+{
+	struct props *p = props;
+	switch (id) {
+	case SPA_PARAM_PropInfo:
+	{
+		switch (idx) {
+		case 0:
+			*param = spa_pod_builder_add_object(b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_quality),
+				SPA_PROP_INFO_name, SPA_POD_String("LDAC quality"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_ENUM_Int(5,
+							p->eqmid,
+							LDACBT_EQMID_AUTO,
+							LDACBT_EQMID_HQ,
+							LDACBT_EQMID_SQ,
+							LDACBT_EQMID_MQ));
+			break;
+		default:
+			return 0;
+		}
+		break;
+	}
+	case SPA_PARAM_Props:
+	{
+		switch (idx) {
+		case 0:
+			*param = spa_pod_builder_add_object(b,
+				SPA_TYPE_OBJECT_Props, id,
+				SPA_PROP_quality, SPA_POD_Int(p->eqmid));
+			break;
+		default:
+			return 0;
+		}
+		break;
+	}
+	default:
+		return -ENOENT;
+	}
+	return 1;
+}
+
+static int codec_set_props(void *props, const struct spa_pod *param)
+{
+	struct props *p = props;
+	const int prev_eqmid = p->eqmid;
+	if (param == NULL) {
+		p->eqmid = LDACBT_EQMID_AUTO;
+	} else {
+		spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_Props, NULL,
+				SPA_PROP_quality, SPA_POD_OPT_Int(&p->eqmid));
+	}
+
+	return prev_eqmid != p->eqmid;
+}
+
 static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info,
 		void *props, size_t mtu)
@@ -480,6 +543,32 @@ static void codec_deinit(void *data)
 	free(this);
 }
 
+static int codec_update_props(void *data, void *props)
+{
+	struct impl *this = data;
+	struct props *p = props;
+	int res;
+
+	if (p == NULL)
+		return 0;
+
+	if (p->eqmid == LDACBT_EQMID_AUTO) {
+		this->eqmid = LDACBT_EQMID_SQ;
+		this->enable_abr = true;
+	} else {
+		this->eqmid = p->eqmid;
+		this->enable_abr = false;
+	}
+
+	if ((res = ldacBT_set_eqmid(this->ldac, this->eqmid)) < 0)
+		goto error;
+	if ((res = update_frame_info(this)) < 0)
+		goto error;
+	return 0;
+error:
+	return res;
+}
+
 static int codec_abr_process(void *data, size_t unsent)
 {
 #ifdef ENABLE_LDAC_ABR
@@ -547,9 +636,12 @@ const struct a2dp_codec a2dp_codec_ldac = {
 	.select_config = codec_select_config,
 	.enum_config = codec_enum_config,
 	.init_props = codec_init_props,
+	.enum_props = codec_enum_props,
+	.set_props = codec_set_props,
 	.clear_props = codec_clear_props,
 	.init = codec_init,
 	.deinit = codec_deinit,
+	.update_props = codec_update_props,
 	.get_block_size = codec_get_block_size,
 	.get_num_blocks = codec_get_num_blocks,
 	.abr_process = codec_abr_process,

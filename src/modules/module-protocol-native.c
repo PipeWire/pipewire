@@ -33,6 +33,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/file.h>
+#include <ctype.h>
 #if HAVE_PWD_H
 #include <pwd.h>
 #endif
@@ -390,6 +391,17 @@ static const struct pw_protocol_native_connection_events server_conn_events = {
 	.need_flush = on_server_need_flush,
 };
 
+static bool check_print(const char *buffer, int len)
+{
+	int i;
+	while (len > 1 && buffer[len-1] == 0)
+		len--;
+	for (i = 0; i < len; i++)
+		if (!isprint(buffer[i]))
+			return false;
+	return true;
+}
+
 static struct client_data *client_new(struct server *s, int fd)
 {
 	struct client_data *this;
@@ -404,7 +416,7 @@ static struct client_data *client_new(struct server *s, int fd)
 	struct pw_properties *props;
 	char buffer[1024];
 	struct protocol_data *d = pw_protocol_get_user_data(protocol);
-	int res;
+	int i, res;
 
 	props = pw_properties_new(PW_KEY_PROTOCOL, "protocol-native", NULL);
 	if (props == NULL)
@@ -427,9 +439,22 @@ static struct client_data *client_new(struct server *s, int fd)
 		else
 			pw_log_warn("server %p: security label error: %m", s);
 	} else {
-		/* buffer is not null terminated, must use length explicitly */
-		pw_properties_setf(props, PW_KEY_SEC_LABEL, "%.*s",
-				(int)len, buffer);
+		if (!check_print(buffer, len)) {
+			char *hex, *p;
+			static const char *ch = "0123456789abcdef";
+
+			p = hex = alloca(len * 2 + 10);
+			p += snprintf(p, 5, "hex:");
+			for(i = 0; i < (int)len; i++)
+				p += snprintf(p, 3, "%c%c",
+						ch[buffer[i] >> 4], ch[buffer[i] & 0xf]);
+			pw_properties_set(props, PW_KEY_SEC_LABEL, hex);
+
+		} else {
+			/* buffer is not null terminated, must use length explicitly */
+			pw_properties_setf(props, PW_KEY_SEC_LABEL, "%.*s",
+					(int)len, buffer);
+		}
 	}
 #elif defined(__FreeBSD__)
 	len = sizeof(xucred);

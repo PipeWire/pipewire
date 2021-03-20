@@ -39,6 +39,8 @@
 #include "rtp.h"
 #include "a2dp-codecs.h"
 
+#define LDACBT_EQMID_AUTO -1
+
 #define LDAC_ABR_MAX_PACKET_NBYTES 1280
 
 #define LDAC_ABR_INTERVAL_MS 5 /* 2 frames * 128 lsu / 48000 */
@@ -50,6 +52,10 @@
 
 #define LDAC_ABR_SOCK_BUFFER_SIZE (LDAC_ABR_THRESHOLD_CRITICAL * LDAC_ABR_MAX_PACKET_NBYTES)
 
+
+struct props {
+	int eqmid;
+};
 
 struct impl {
 	HANDLE_LDAC_BT ldac;
@@ -317,7 +323,7 @@ static int codec_get_block_size(void *data)
 static int string_to_eqmid(const char * eqmid)
 {
 	if (!strcmp("auto", eqmid))
-		return LDACBT_EQMID_ABR;
+		return LDACBT_EQMID_AUTO;
 	else if (!strcmp("hq", eqmid))
 		return LDACBT_EQMID_HQ;
 	else if (!strcmp("sq", eqmid))
@@ -325,17 +331,37 @@ static int string_to_eqmid(const char * eqmid)
 	else if (!strcmp("mq", eqmid))
 		return LDACBT_EQMID_MQ;
 	else
-		return LDACBT_EQMID_ABR;
+		return LDACBT_EQMID_AUTO;
+}
+
+static void *codec_init_props(const struct a2dp_codec *codec, const struct spa_dict *settings)
+{
+	struct props *p = calloc(1, sizeof(struct props));
+	const char *str;
+
+	if (p == NULL)
+		return NULL;
+
+	if (settings == NULL || (str = spa_dict_lookup(settings, "bluez5.a2dp.ldac.quality")) == NULL)
+		str = "auto";
+
+	p->eqmid = string_to_eqmid(str);
+	return p;
+}
+
+static void codec_clear_props(void *props)
+{
+	free(props);
 }
 
 static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info,
-		const struct spa_dict *settings, size_t mtu)
+		void *props, size_t mtu)
 {
 	struct impl *this;
 	a2dp_ldac_t *conf = config;
 	int res;
-	const char *str;
+	struct props *p = props;
 
 	this = calloc(1, sizeof(struct impl));
 	if (this == NULL)
@@ -351,12 +377,12 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 		goto error_errno;
 #endif
 
-	if ((str = spa_dict_lookup(settings, "bluez5.a2dp.ldac.quality")) == NULL)
-		str = "auto";
-
-	if ((this->eqmid = string_to_eqmid(str)) == LDACBT_EQMID_ABR) {
+	if (p == NULL || p->eqmid == LDACBT_EQMID_AUTO) {
 		this->eqmid = LDACBT_EQMID_SQ;
 		this->enable_abr = true;
+	} else {
+		this->eqmid = p->eqmid;
+		this->enable_abr = false;
 	}
 
 	this->mtu = mtu;
@@ -520,6 +546,8 @@ const struct a2dp_codec a2dp_codec_ldac = {
 	.fill_caps = codec_fill_caps,
 	.select_config = codec_select_config,
 	.enum_config = codec_enum_config,
+	.init_props = codec_init_props,
+	.clear_props = codec_clear_props,
 	.init = codec_init,
 	.deinit = codec_deinit,
 	.get_block_size = codec_get_block_size,

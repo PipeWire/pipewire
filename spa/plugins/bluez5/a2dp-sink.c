@@ -128,6 +128,8 @@ struct impl {
 	uint64_t last_error;
 
 	const struct a2dp_codec *codec;
+	bool codec_props_changed;
+	void *codec_props;
 	void *codec_data;
 	struct spa_audio_info codec_format;
 
@@ -167,7 +169,8 @@ static int impl_node_enum_params(void *object, int seq,
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
 	struct spa_result_node_params result;
-	uint32_t count = 0;
+	uint32_t count = 0, index_offset = 0;
+	bool enum_codec = false;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
@@ -207,7 +210,8 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(0, INT64_MIN, INT64_MAX));
 			break;
 		default:
-			return 0;
+			enum_codec = true;
+			index_offset = 3;
 		}
 		break;
 	}
@@ -224,12 +228,23 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_latencyOffsetNsec, SPA_POD_Long(p->latency_offset));
 			break;
 		default:
-			return 0;
+			enum_codec = true;
+			index_offset = 1;
 		}
 		break;
 	}
 	default:
 		return -ENOENT;
+	}
+
+	if (enum_codec) {
+		int res;
+		if (this->codec->enum_props == NULL || this->codec_props == NULL)
+			return 0;
+		else if ((res = this->codec->enum_props(this->codec_props,
+					this->transport->device->settings,
+					id, result.index - index_offset, &b, &param)) != 1)
+			return res;
 	}
 
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
@@ -340,7 +355,14 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	switch (id) {
 	case SPA_PARAM_Props:
 	{
-		if (apply_props(this, param) > 0) {
+		int res, codec_res = 0;
+		res = apply_props(this, param);
+		if (this->codec_props && this->codec->set_props) {
+			codec_res = this->codec->set_props(this->codec_props, param);
+			if (codec_res > 0)
+				this->codec_props_changed = true;
+		}
+		if (res > 0 || codec_res > 0) {
 			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 			this->params[1].flags ^= SPA_PARAM_INFO_SERIAL;
 			emit_node_info(this, false);
@@ -361,6 +383,11 @@ static void update_num_blocks(struct impl *this)
 
 static int reset_buffer(struct impl *this)
 {
+	if (this->codec_props_changed && this->codec_props
+			&& this->codec->update_props) {
+		this->codec->update_props(this->codec_data, this->codec_props);
+		this->codec_props_changed = false;
+	}
 	this->frame_count = 0;
 	this->buffer_used = this->codec->start_encode(this->codec_data,
 			this->buffer, sizeof(this->buffer),
@@ -708,7 +735,7 @@ static int do_start(struct impl *this)
 			this->transport->configuration,
 			this->transport->configuration_len,
 			&port->current_format,
-			this->transport->device->settings,
+			this->codec_props,
 			this->transport->write_mtu);
 	if (this->codec_data == NULL)
 		return -EIO;
@@ -1317,6 +1344,8 @@ static int impl_clear(struct spa_handle *handle)
 
 	if (this->codec_data)
 		this->codec->deinit(this->codec_data);
+	if (this->codec_props && this->codec->clear_props)
+		this->codec->clear_props(this->codec_props);
 	if (this->transport)
 		spa_hook_remove(&this->transport_listener);
 	spa_system_close(this->data_system, this->timerfd);
@@ -1408,6 +1437,9 @@ impl_init(const struct spa_handle_factory *factory,
 		return -EINVAL;
 	}
 	this->codec = this->transport->a2dp_codec;
+	if (this->codec->init_props != NULL)
+		this->codec_props = this->codec->init_props(this->codec,
+					this->transport->device->settings);
 
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);

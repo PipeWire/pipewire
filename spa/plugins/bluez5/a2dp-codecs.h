@@ -356,11 +356,17 @@ struct a2dp_codec {
 	int (*caps_preference_cmp) (const struct a2dp_codec *codec, const void *caps1, size_t caps1_size,
 			const void *caps2, size_t caps2_size);
 
+	void *(*init_props) (const struct a2dp_codec *codec, const struct spa_dict *settings);
+	void (*clear_props) (void *);
+	int (*enum_props) (void *props, const struct spa_dict *settings, uint32_t id, uint32_t idx,
+			struct spa_pod_builder *builder, struct spa_pod **param);
+	int (*set_props) (void *props, const struct spa_pod *param);
+
 	void *(*init) (const struct a2dp_codec *codec, uint32_t flags, void *config, size_t config_size,
-			const struct spa_audio_info *info, const struct spa_dict *settings, size_t mtu);
+			const struct spa_audio_info *info, void *props, size_t mtu);
 	void (*deinit) (void *data);
 
-	int (*update_settings) (void *data, const struct spa_dict *settings);
+	int (*update_props) (void *data, void *props);
 
 	int (*get_block_size) (void *data);
 	int (*get_num_blocks) (void *data);

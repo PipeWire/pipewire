@@ -427,7 +427,7 @@ static int codec_get_block_size(void *data)
 
 static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info,
-		const struct spa_dict *settings, size_t mtu)
+		void *props, size_t mtu)
 {
 	struct impl *this;
 	a2dp_sbc_t *conf = config;

@@ -568,9 +568,6 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 	if (nodes_changed) {
 		emit_remove_nodes(this);
 		emit_nodes(this);
-
-		this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
-		this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;
 	}
 
 	if (connected_change & SPA_BT_PROFILE_A2DP_SINK) {
@@ -582,6 +579,8 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	this->params[IDX_Profile].flags ^= SPA_PARAM_INFO_SERIAL;
 	this->params[IDX_EnumProfile].flags ^= SPA_PARAM_INFO_SERIAL;
+	this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;  /* Profile changes may affect routes */
+	this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(this, false);
 }
 
@@ -1024,9 +1023,22 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	spa_pod_builder_pop(b, &f[1]);
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_profiles, 0);
 	spa_pod_builder_push_array(b, &f[1]);
-	for (i = 1; (j = get_profile_from_index(this, i, &next, &codec, &hfp_codec)) != SPA_ID_INVALID; i = next)
-		if (profile_direction_mask(this, j) & (1 << direction))
-			spa_pod_builder_int(b, i);
+	for (i = 1; (j = get_profile_from_index(this, i, &next, &codec, &hfp_codec)) != SPA_ID_INVALID; i = next) {
+		struct spa_pod_builder b2 = { 0 };
+		uint8_t buffer[1024];
+		struct spa_pod *param;
+
+		if (!(profile_direction_mask(this, j) & (1 << direction)))
+			continue;
+
+		/* Check the profile actually exists */
+		spa_pod_builder_init(&b2, buffer, sizeof(buffer));
+		param = build_profile(this, &b2, 0, i, j, codec, hfp_codec);
+		if (param == NULL)
+			continue;
+
+		spa_pod_builder_int(b, i);
+	}
 	spa_pod_builder_pop(b, &f[1]);
 
 	if (dev != SPA_ID_INVALID) {

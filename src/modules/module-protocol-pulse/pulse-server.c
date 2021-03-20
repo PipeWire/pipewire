@@ -3937,7 +3937,7 @@ static int fill_card_info(struct client *client, struct message *m,
 		for (n = 0; n < n_ports; n++) {
 			struct spa_dict_item *items;
 			struct spa_dict *pdict = NULL, dict;
-			uint32_t i;
+			uint32_t i, pi_n_profiles;
 
 			pi = &port_info[n];
 
@@ -3956,11 +3956,18 @@ static int fill_card_info(struct client *client, struct message *m,
 				TAG_PROPLIST, pdict,			/* port proplist */
 				TAG_INVALID);
 
+			pi_n_profiles = SPA_MIN(pi->n_profiles, n_profiles);
+			if (pi->n_profiles != pi_n_profiles) {
+				/* libpulse assumes port profile array size <= n_profiles */
+				pw_log_error(NAME" %p: card %d port %d profiles inconsistent (%d < %d)",
+						client->impl, o->id, n, n_profiles, pi->n_profiles);
+			}
+
 			message_put(m,
-				TAG_U32, pi->n_profiles,		/* n_profiles */
+				TAG_U32, pi_n_profiles,		/* n_profiles */
 				TAG_INVALID);
 
-			for (i = 0; i < pi->n_profiles; i++) {
+			for (i = 0; i < pi_n_profiles; i++) {
 				uint32_t idx = pi->profiles[i];
 				message_put(m,
 					TAG_STRING, idx < n_profiles ?

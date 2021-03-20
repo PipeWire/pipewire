@@ -332,7 +332,7 @@ static void flush_data(struct impl *this)
 	uint32_t min_in_size;
 	uint8_t *packet;
 
-	if (this->transport == NULL)
+	if (this->transport == NULL || this->transport->sco_io == NULL)
 		return;
 
 	/* get buffer */
@@ -560,7 +560,8 @@ static int do_start(struct impl *this)
 	spa_return_val_if_fail(this->transport->write_mtu <= sizeof(this->port.write_buffer), -EINVAL);
 
 	/* start socket i/o */
-	spa_bt_transport_ensure_sco_io(this->transport, this->data_loop);
+	if ((res = spa_bt_transport_ensure_sco_io(this->transport, this->data_loop)) < 0)
+		goto fail;
 
 	/* Add the timeout callback */
 	this->source.data = this;
@@ -577,6 +578,12 @@ static int do_start(struct impl *this)
 	this->started = true;
 
 	return 0;
+
+fail:
+	free(this->buffer);
+	this->buffer = NULL;
+	spa_bt_transport_release(this->transport);
+	return res;
 }
 
 /* Drop any buffered data remaining in the port */

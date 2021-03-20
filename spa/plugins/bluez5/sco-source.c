@@ -608,13 +608,18 @@ static int do_start(struct impl *this)
 	}
 
 	/* Start socket i/o */
-	spa_bt_transport_ensure_sco_io(this->transport, this->data_loop);
+	if ((res = spa_bt_transport_ensure_sco_io(this->transport, this->data_loop)) < 0)
+		goto fail;
 	spa_loop_invoke(this->data_loop, do_add_source, 0, NULL, 0, true, this);
 
 	/* Set the started flag */
 	this->started = true;
 
 	return 0;
+
+fail:
+	spa_bt_transport_release(this->transport);
+	return res;
 }
 
 static int do_remove_source(struct spa_loop *loop,
@@ -626,7 +631,7 @@ static int do_remove_source(struct spa_loop *loop,
 {
 	struct impl *this = user_data;
 
-	if (this->transport)
+	if (this->transport && this->transport->sco_io)
 		spa_bt_sco_io_set_source_cb(this->transport->sco_io, NULL, NULL);
 
 	return 0;

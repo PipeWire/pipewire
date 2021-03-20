@@ -1575,14 +1575,17 @@ static int spa_bt_transport_stop_release_timer(struct spa_bt_transport *transpor
 	return 0;
 }
 
-void spa_bt_transport_ensure_sco_io(struct spa_bt_transport *t, struct spa_loop *data_loop)
+int spa_bt_transport_ensure_sco_io(struct spa_bt_transport *t, struct spa_loop *data_loop)
 {
 	if (t->sco_io == NULL) {
 		t->sco_io = spa_bt_sco_io_create(data_loop,
 						 t->fd,
 						 t->read_mtu,
 						 t->write_mtu);
+		if (t->sco_io == NULL)
+			return -ENOMEM;
 	}
+	return 0;
 }
 
 int64_t spa_bt_transport_get_delay_nsec(struct spa_bt_transport *t)

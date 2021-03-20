@@ -193,7 +193,7 @@ static int ofono_audio_acquire(void *data, bool optional)
 	uint8_t codec;
 	int ret = 0;
 
-	if (transport->fd)
+	if (transport->fd >= 0)
 		goto finish;
 
 	ret = _audio_acquire(backend, transport->path, &codec);

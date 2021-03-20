@@ -1438,11 +1438,12 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 		transport->device->connected_profiles &= ~transport->profile;
 		spa_list_remove(&transport->device_link);
 	}
-	free(transport->path);
-	free(transport);
 
 	if (device && device->connected_profiles != prev_connected)
 		spa_bt_device_emit_profiles_changed(device, device->profiles, prev_connected);
+
+	free(transport->path);
+	free(transport);
 }
 
 int spa_bt_transport_acquire(struct spa_bt_transport *transport, bool optional)

@@ -553,3 +553,104 @@ static struct spa_dict *collect_props(struct spa_pod *info, struct spa_dict *dic
 	dict->n_items = n;
 	return dict;
 }
+
+struct transport_codec_info {
+	enum spa_bluetooth_audio_codec id;
+	const char *description;
+};
+
+static uint32_t collect_transport_codec_info(struct pw_manager_object *card,
+		struct transport_codec_info *codecs, uint32_t max_codecs, uint32_t *active)
+{
+	struct pw_manager_param *p;
+	uint32_t n_codecs = 0;
+
+	*active = SPA_ID_INVALID;
+
+	if (card == NULL)
+		return 0;
+
+	spa_list_for_each(p, &card->param_list, link) {
+		uint32_t iid;
+		const struct spa_pod_choice *type;
+		const struct spa_pod_struct *labels;
+		struct spa_pod_parser prs;
+		struct spa_pod_frame f;
+		int32_t *id;
+		bool first;
+
+		if (p->id != SPA_PARAM_PropInfo)
+			continue;
+
+		if (spa_pod_parse_object(p->param,
+						SPA_TYPE_OBJECT_PropInfo, NULL,
+						SPA_PROP_INFO_id, SPA_POD_Id(&iid),
+						SPA_PROP_INFO_type, SPA_POD_PodChoice(&type),
+						SPA_PROP_INFO_labels, SPA_POD_PodStruct(&labels)) < 0)
+			continue;
+
+		if (iid != SPA_PROP_bluetoothAudioCodec)
+			continue;
+
+		if (SPA_POD_CHOICE_TYPE(type) != SPA_CHOICE_Enum ||
+				SPA_POD_TYPE(SPA_POD_CHOICE_CHILD(type)) != SPA_TYPE_Int)
+			continue;
+
+		/*
+		 * XXX: PropInfo currently uses Int, not Id, in type and labels.
+		 */
+
+		/* Codec name list */
+		first = true;
+		SPA_POD_CHOICE_FOREACH(type, id) {
+			if (first) {
+				/* Skip default */
+				first = false;
+				continue;
+			}
+			if (n_codecs >= max_codecs)
+				break;
+			codecs[n_codecs++].id = *id;
+		}
+
+		/* Codec description list */
+		spa_pod_parser_pod(&prs, (struct spa_pod *)labels);
+		spa_pod_parser_push_struct(&prs, &f);
+
+		while (1) {
+			int32_t id;
+			const char *desc;
+			uint32_t j;
+
+			if (spa_pod_parser_get_int(&prs, &id) < 0 ||
+					spa_pod_parser_get_string(&prs, &desc) < 0)
+				break;
+
+			for (j = 0; j < n_codecs; ++j) {
+				if (codecs[j].id == (uint32_t)id)
+					codecs[j].description = desc;
+			}
+		}
+	}
+
+	/* Active codec */
+	spa_list_for_each(p, &card->param_list, link) {
+		uint32_t j;
+		uint32_t id;
+
+		if (p->id != SPA_PARAM_Props)
+			continue;
+
+		if (spa_pod_parse_object(p->param,
+						SPA_TYPE_OBJECT_Props, NULL,
+						SPA_PROP_bluetoothAudioCodec, SPA_POD_Id(&id)) < 0)
+			continue;
+
+		for (j = 0; j < n_codecs; ++j) {
+			if (codecs[j].id == id)
+				*active = j;
+		}
+	}
+
+	return n_codecs;
+}

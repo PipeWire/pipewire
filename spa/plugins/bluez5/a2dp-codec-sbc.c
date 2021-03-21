@@ -86,36 +86,37 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 static uint8_t default_bitpool(uint8_t freq, uint8_t mode, bool xq)
 {
 	/* A2DP spec v1.2 states that all SNK implementation shall handle bitrates
-	   of up to 512 kbps (~ bitpool = 76 stereo, or 2x38 dual channel). */
+	 * of up to 512 kbps (~ bitpool = 86 stereo, or 2x43 dual channel at 44.1KHz 
+	 * or ~ bitpool = 78 stereo, or 2x39 dual channel at 48KHz). */
 	switch (freq) {
 	case SBC_SAMPLING_FREQ_16000:
         case SBC_SAMPLING_FREQ_32000:
-		return 53;
+		return 64;
 
 	case SBC_SAMPLING_FREQ_44100:
 		switch (mode) {
 		case SBC_CHANNEL_MODE_MONO:
 		case SBC_CHANNEL_MODE_DUAL_CHANNEL:
-			return xq ? 38 : 31;
+			return xq ? 43 : 32;
 
 		case SBC_CHANNEL_MODE_STEREO:
 		case SBC_CHANNEL_MODE_JOINT_STEREO:
-			return xq ? 64 : 53;
+			return xq ? 86 : 64;
 		}
-		return 53;
+		return xq ? 86 : 64;
 	case SBC_SAMPLING_FREQ_48000:
 		switch (mode) {
 		case SBC_CHANNEL_MODE_MONO:
 		case SBC_CHANNEL_MODE_DUAL_CHANNEL:
-			return xq ? 35 : 29;
+			return xq ? 39 : 29;
 
 		case SBC_CHANNEL_MODE_STEREO:
 		case SBC_CHANNEL_MODE_JOINT_STEREO:
-			return xq ? 62 : 51;
+			return xq ? 78 : 58;
 		}
-		return 51;
+		return xq ? 78 : 58;
 	}
-	return 53;
+	return xq ? 86 : 64;
 }
 
 static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
@@ -133,7 +134,15 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 
 	memcpy(&conf, caps, sizeof(conf));
 
-	if (conf.frequency & SBC_SAMPLING_FREQ_48000)
+	if (xq) {
+		if (conf.frequency & SBC_SAMPLING_FREQ_44100)
+			conf.frequency = SBC_SAMPLING_FREQ_44100;
+		else if (conf.frequency & SBC_SAMPLING_FREQ_48000)
+			conf.frequency = SBC_SAMPLING_FREQ_48000;
+		else
+			return -ENOTSUP;
+	}
+	else if (conf.frequency & SBC_SAMPLING_FREQ_48000)
 		conf.frequency = SBC_SAMPLING_FREQ_48000;
 	else if (conf.frequency & SBC_SAMPLING_FREQ_44100)
 		conf.frequency = SBC_SAMPLING_FREQ_44100;
@@ -147,8 +156,14 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	if (xq) {
 		if (conf.channel_mode & SBC_CHANNEL_MODE_DUAL_CHANNEL)
 			conf.channel_mode = SBC_CHANNEL_MODE_DUAL_CHANNEL;
+		else if (conf.channel_mode & SBC_CHANNEL_MODE_JOINT_STEREO)
+			conf.channel_mode = SBC_CHANNEL_MODE_JOINT_STEREO;
+		else if (conf.channel_mode & SBC_CHANNEL_MODE_STEREO)
+			conf.channel_mode = SBC_CHANNEL_MODE_STEREO;
+		else
+			return -ENOTSUP;
 	}
-	if (conf.channel_mode & SBC_CHANNEL_MODE_JOINT_STEREO)
+	else if (conf.channel_mode & SBC_CHANNEL_MODE_JOINT_STEREO)
 		conf.channel_mode = SBC_CHANNEL_MODE_JOINT_STEREO;
 	else if (conf.channel_mode & SBC_CHANNEL_MODE_STEREO)
 		conf.channel_mode = SBC_CHANNEL_MODE_STEREO;

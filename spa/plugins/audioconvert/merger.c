@@ -1344,7 +1344,7 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->cpu)
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 
-	this->monitor_channel_volumes = true;
+	this->monitor_channel_volumes = false;
 	if (info) {
 		if ((str = spa_dict_lookup(info, "monitor.channel-volumes")) != NULL)
 			this->monitor_channel_volumes = strcmp(str, "true") == 0 || atoi(str) == 1;

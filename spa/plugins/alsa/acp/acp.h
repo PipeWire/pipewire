@@ -177,10 +177,6 @@ struct acp_card_events {
 
 	void (*volume_changed) (void *data, struct acp_device *dev);
 	void (*mute_changed) (void *data, struct acp_device *dev);
-
-	void (*set_soft_volume) (void *data, struct acp_device *dev,
-			const float *volume, uint32_t n_volume);
-	void (*set_soft_mute) (void *data, struct acp_device *dev, bool mute);
 };
 
 struct acp_port {
@@ -282,6 +278,7 @@ uint32_t acp_device_find_best_port_index(struct acp_device *dev, const char *nam
 int acp_device_set_port(struct acp_device *dev, uint32_t port_index, uint32_t flags);
 
 int acp_device_set_volume(struct acp_device *dev, const float *volume, uint32_t n_volume);
+int acp_device_get_soft_volume(struct acp_device *dev, float *volume, uint32_t n_volume);
 int acp_device_get_volume(struct acp_device *dev, float *volume, uint32_t n_volume);
 int acp_device_set_mute(struct acp_device *dev, bool mute);
 int acp_device_get_mute(struct acp_device *dev, bool *mute);

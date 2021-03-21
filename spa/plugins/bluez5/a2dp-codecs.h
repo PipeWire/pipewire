@@ -29,6 +29,7 @@
 #include <stddef.h>
 
 #include <spa/param/audio/format.h>
+#include <spa/param/bluetooth/audio.h>
 #include <spa/pod/pod.h>
 #include <spa/pod/builder.h>
 
@@ -325,6 +326,7 @@ static inline int a2dp_sbc_get_frequency(a2dp_sbc_t *config)
 struct a2dp_codec_handle;
 
 struct a2dp_codec {
+	enum spa_bluetooth_audio_codec id;
 	uint8_t codec_id;
 	a2dp_vendor_codec_t vendor;
 

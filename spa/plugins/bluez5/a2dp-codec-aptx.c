@@ -340,6 +340,7 @@ static int codec_decode(void *data,
 }
 
 const struct a2dp_codec a2dp_codec_aptx = {
+	.id = SPA_BLUETOOTH_AUDIO_CODEC_APTX,
 	.codec_id = A2DP_CODEC_VENDOR,
 	.vendor = { .vendor_id = APTX_VENDOR_ID,
 		.codec_id = APTX_CODEC_ID },
@@ -363,6 +364,7 @@ const struct a2dp_codec a2dp_codec_aptx = {
 
 
 const struct a2dp_codec a2dp_codec_aptx_hd = {
+	.id = SPA_BLUETOOTH_AUDIO_CODEC_APTX_HD,
 	.codec_id = A2DP_CODEC_VENDOR,
 	.vendor = { .vendor_id = APTX_HD_VENDOR_ID,
 		.codec_id = APTX_HD_CODEC_ID },

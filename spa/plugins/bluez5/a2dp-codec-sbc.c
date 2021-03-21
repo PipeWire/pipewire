@@ -624,6 +624,7 @@ static int codec_decode(void *data,
 }
 
 const struct a2dp_codec a2dp_codec_sbc = {
+	.id = SPA_BLUETOOTH_AUDIO_CODEC_SBC,
 	.codec_id = A2DP_CODEC_SBC,
 	.name = "sbc",
 	.description = "SBC",
@@ -646,6 +647,7 @@ const struct a2dp_codec a2dp_codec_sbc = {
 };
 
 const struct a2dp_codec a2dp_codec_sbc_xq = {
+	.id = SPA_BLUETOOTH_AUDIO_CODEC_SBC_XQ,
 	.codec_id = A2DP_CODEC_SBC,
 	.name = "sbc_xq",
 	.description = "SBC-XQ",

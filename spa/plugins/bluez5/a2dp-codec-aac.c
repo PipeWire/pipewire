@@ -439,6 +439,7 @@ static int codec_increase_bitpool(void *data)
 }
 
 const struct a2dp_codec a2dp_codec_aac = {
+	.id = SPA_BLUETOOTH_AUDIO_CODEC_AAC,
 	.codec_id = A2DP_CODEC_MPEG24,
 	.name = "aac",
 	.description = "AAC",

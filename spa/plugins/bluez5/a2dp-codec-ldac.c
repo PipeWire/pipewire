@@ -624,6 +624,7 @@ static int codec_encode(void *data,
 }
 
 const struct a2dp_codec a2dp_codec_ldac = {
+	.id = SPA_BLUETOOTH_AUDIO_CODEC_LDAC,
 	.codec_id = A2DP_CODEC_VENDOR,
 	.vendor = { .vendor_id = LDAC_VENDOR_ID,
 		.codec_id = LDAC_CODEC_ID },

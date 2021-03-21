@@ -391,7 +391,7 @@ static const struct pw_protocol_native_connection_events server_conn_events = {
 	.need_flush = on_server_need_flush,
 };
 
-static bool check_print(const char *buffer, int len)
+static bool check_print(const uint8_t *buffer, int len)
 {
 	int i;
 	while (len > 1 && buffer[len-1] == 0)
@@ -414,7 +414,7 @@ static struct client_data *client_new(struct server *s, int fd)
 #endif
 	struct pw_context *context = protocol->context;
 	struct pw_properties *props;
-	char buffer[1024];
+	uint8_t buffer[1024];
 	struct protocol_data *d = pw_protocol_get_user_data(protocol);
 	int i, res;
 

@@ -144,7 +144,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	struct spa_dict_item *items;
 	const struct acp_dict_item *it;
 	uint32_t n_items, i;
-	char device_name[128], path[180], channels[16], ch[12];
+	char device_name[128], path[180], channels[16], ch[12], routes[16];
 	char card_id[16], *p;
 	char positions[SPA_AUDIO_MAX_CHANNELS * 12];
 	struct spa_device_object_info info;
@@ -164,7 +164,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 
-	n_items = dev->props.n_items + 6;
+	n_items = dev->props.n_items + 7;
 	items = alloca(n_items * sizeof(*items));
 
 	snprintf(card_id, sizeof(card), "%d", card->index);
@@ -192,9 +192,11 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 		p += snprintf(p, 12, "%s%s", i == 0 ? "" : ",",
 				acp_channel_str(ch, sizeof(ch), dev->format.map[i]));
 	}
-
 	items[5] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_POSITION, positions);
-	n_items = 6;
+
+	snprintf(routes, sizeof(routes), "%d", dev->n_ports);
+	items[6] = SPA_DICT_ITEM_INIT("device.routes", routes);
+	n_items = 7;
 	acp_dict_for_each(it, &dev->props)
 		items[n_items++] = SPA_DICT_ITEM_INIT(it->key, it->value);
 

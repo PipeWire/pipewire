@@ -3752,6 +3752,8 @@ static int do_drain_stream(struct client *client, uint32_t command, uint32_t tag
 
 	stream->drain_tag = tag;
 	stream->draining = true;
+	pw_stream_set_active(stream->stream, true);
+
 	return 0;
 }
 

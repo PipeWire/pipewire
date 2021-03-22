@@ -699,6 +699,7 @@ static int sco_do_connect(struct spa_bt_transport *t)
 	int sock;
 	bdaddr_t src;
 	bdaddr_t dst;
+	int retry = 2;
 
 	spa_log_debug(backend->log, NAME": transport %p: enter sco_do_connect", t);
 
@@ -708,6 +709,7 @@ static int sco_do_connect(struct spa_bt_transport *t)
 	str2ba(d->adapter->address, &src);
 	str2ba(d->address, &dst);
 
+again:
 	sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_SCO);
 	if (sock < 0) {
 		spa_log_error(backend->log, NAME": socket(SEQPACKET, SCO) %s", strerror(errno));
@@ -742,7 +744,12 @@ static int sco_do_connect(struct spa_bt_transport *t)
 
 	spa_log_debug(backend->log, NAME": transport %p: doing connect", t);
 	err = connect(sock, (struct sockaddr *) &addr, len);
-	if (err < 0 && !(errno == EAGAIN || errno == EINPROGRESS)) {
+	if (err < 0 && errno == ECONNABORTED && retry-- > 0) {
+		spa_log_warn(backend->log, NAME": connect(): %s. Remaining retry:%d",
+				strerror(errno), retry);
+		close(sock);
+		goto again;
+	} else if (err < 0 && !(errno == EAGAIN || errno == EINPROGRESS)) {
 		spa_log_error(backend->log, NAME": connect(): %s", strerror(errno));
 		goto fail_close;
 	}

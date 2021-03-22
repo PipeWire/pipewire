@@ -1115,6 +1115,9 @@ static void stream_free(struct stream *stream)
 
 	pw_log_debug(NAME" %p: stream %p channel:%d", impl, stream, stream->channel);
 
+	if (stream->drain_tag)
+		reply_error(client, -1, stream->drain_tag, -ENOENT);
+
 	/* force processing of all pending messages before we destroy
 	 * the stream */
 	pw_loop_invoke(impl->loop, NULL, 0, NULL, 0, false, client);

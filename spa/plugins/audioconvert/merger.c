@@ -507,11 +507,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		this->have_profile = true;
 		this->port_count = info.info.raw.channels;
 		this->monitor_count = this->monitor ? this->port_count : 0;
-		for (i = 0; i < this->port_count; i++) {
+		for (i = 0; i < this->port_count; i++)
 			this->props.channel_map[i] = info.info.raw.position[i];
-			this->props.channel_volumes[i] = this->props.volume;
-			this->props.monitor_volumes[i] = this->props.volume;
-		}
 		this->props.n_channel_volumes = this->port_count;
 		this->props.n_monitor_volumes = this->port_count;
 		this->props.n_channels = this->port_count;

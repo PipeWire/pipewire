@@ -208,6 +208,11 @@ static char *serialize_props(struct stream *str, const struct spa_pod *param)
 
 	fprintf(f, " }");
         fclose(f);
+
+	if (strlen(ptr) < 5) {
+		free(ptr);
+		ptr = NULL;
+	}
 	return ptr;
 }
 
@@ -257,30 +262,41 @@ static int handle_props(struct stream *str, struct sm_param *p)
 	const char *key;
 	int changed = 0;
 
-	key = str->key;
-	if (key == NULL)
+	if ((key = str->key) == NULL)
 		return -EBUSY;
 
 	if (p->param) {
 		char *val = serialize_props(str, p->param);
-		pw_log_debug("stream %d: current props %s %s", str->id, key, val);
-		changed += pw_properties_set(impl->props, key, val);
-		free(val);
-		add_idle_timeout(impl);
+		if (val) {
+			pw_log_info("stream %d: save props %s %s", str->id, key, val);
+			changed += pw_properties_set(impl->props, key, val);
+			free(val);
+			add_idle_timeout(impl);
+		}
 	}
 	if (changed)
 		sync_metadata(impl);
 	return 0;
 }
 
-static int restore_stream(struct stream *str, const char *val)
+static int restore_stream(struct stream *str)
 {
+	struct impl *impl = str->impl;
 	struct spa_json it[3];
-	const char *value;
+	const char *val, *value;
 	char buf[1024], key[128];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 	struct spa_pod_frame f[2];
 	struct spa_pod *param;
+
+	if (str->key == NULL)
+		return -EBUSY;
+
+	val = pw_properties_get(impl->props, str->key);
+	if (val == NULL)
+		return -ENOENT;
+
+	pw_log_info("stream %d: restore '%s' to %s", str->id, str->key, val);
 
 	spa_json_init(&it[0], val, strlen(val));
 
@@ -369,19 +385,37 @@ static int restore_stream(struct stream *str, const char *val)
 	return 0;
 }
 
-static void update_key(struct stream *str)
+static int save_stream(struct stream *str)
+{
+	struct sm_param *p;
+	spa_list_for_each(p, &str->obj->param_list, link) {
+		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+			spa_debug_pod(2, NULL, p->param);
+
+		switch (p->id) {
+		case SPA_PARAM_Props:
+			handle_props(str, p);
+			break;
+		default:
+			break;
+		}
+	}
+	return 0;
+}
+
+static void update_stream(struct stream *str)
 {
 	struct impl *impl = str->impl;
 	uint32_t i;
-	const char *p, *val;
+	const char *p;
 	char *key;
 	struct sm_object *obj = &str->obj->obj;
-	bool changed;
 	const char *keys[] = {
 		PW_KEY_MEDIA_ROLE,
 		PW_KEY_APP_ID,
 		PW_KEY_APP_NAME,
 		PW_KEY_MEDIA_NAME,
+		PW_KEY_NODE_NAME,
 	};
 
 	key = NULL;
@@ -395,17 +429,14 @@ static void update_key(struct stream *str)
 		return;
 
 	pw_log_debug(NAME " %p: stream %p key '%s'", impl, str, key);
-	changed = str->key == NULL || strcmp(str->key, key) != 0;
 	free(str->key);
 	str->key = key;
-	if (!changed || str->restored)
-		return;
 
-	val = pw_properties_get(impl->props, key);
-	if (val != NULL) {
-		pw_log_info("stream %d: restore '%s' to %s", str->id, key, val);
-		restore_stream(str, val);
+	if (!str->restored) {
+		restore_stream(str);
 		str->restored = true;
+	} else {
+		save_stream(str);
 	}
 }
 
@@ -413,33 +444,12 @@ static void object_update(void *data)
 {
 	struct stream *str = data;
 	struct impl *impl = str->impl;
-	bool rescan = false;
 
-	pw_log_debug(NAME" %p: stream %p %08x/%08x", impl, str,
+	pw_log_info(NAME" %p: stream %p %08x/%08x", impl, str,
 			str->obj->obj.changed, str->obj->obj.avail);
 
-	if (str->obj->obj.changed & SM_OBJECT_CHANGE_MASK_PROPERTIES) {
-		if (str->key == NULL)
-			update_key(str);
-	}
 	if (str->obj->obj.changed & SM_NODE_CHANGE_MASK_PARAMS)
-		rescan = true;
-
-	if (rescan) {
-		struct sm_param *p;
-		spa_list_for_each(p, &str->obj->param_list, link) {
-			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-				spa_debug_pod(2, NULL, p->param);
-
-			switch (p->id) {
-			case SPA_PARAM_Props:
-				handle_props(str, p);
-				break;
-			default:
-				break;
-			}
-		}
-	}
+		update_stream(str);
 }
 
 static const struct sm_object_events object_events = {
@@ -451,24 +461,29 @@ static void session_create(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
 	struct stream *str;
-	const char *media_class;
+	const char *media_class, *routes;
 
 	if (strcmp(object->type, PW_TYPE_INTERFACE_Node) != 0 ||
 	    object->props == NULL ||
-	    (media_class = pw_properties_get(object->props, PW_KEY_MEDIA_CLASS)) == NULL ||
-	    strstr(media_class, "Stream/") != media_class)
+	    (media_class = pw_properties_get(object->props, PW_KEY_MEDIA_CLASS)) == NULL)
 		return;
 
-	media_class += strlen("Stream/");
-
-	pw_log_debug(NAME " %p: add stream '%d' %s", impl, object->id, media_class);
+	if (strstr(media_class, "Stream/") == media_class) {
+		media_class += strlen("Stream/");
+		pw_log_debug(NAME " %p: add stream '%d' %s", impl, object->id, media_class);
+	} else if (strstr(media_class, "Audio/") == media_class &&
+	    ((routes = pw_properties_get(object->props, "device.routes")) == NULL ||
+	    atoi(routes) == 0)) {
+		pw_log_debug(NAME " %p: add node '%d' %s", impl, object->id, media_class);
+	} else {
+		return;
+	}
 
 	str = sm_object_add_data(object, SESSION_KEY, sizeof(struct stream));
 	str->obj = (struct sm_node*)object;
 	str->id = object->id;
 	str->impl = impl;
 	str->media_class = strdup(media_class);
-	update_key(str);
 
 	str->obj->obj.mask |= SM_OBJECT_CHANGE_MASK_PROPERTIES | SM_NODE_CHANGE_MASK_PARAMS;
 	sm_object_add_listener(&str->obj->obj, &str->listener, &object_events, str);

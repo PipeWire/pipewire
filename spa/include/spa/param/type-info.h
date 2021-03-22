@@ -66,6 +66,7 @@ static const struct spa_type_info spa_type_param[] = {
 
 #include <spa/param/audio/type-info.h>
 #include <spa/param/video/type-info.h>
+#include <spa/param/bluetooth/type-info.h>
 
 static const struct spa_type_info spa_type_prop_channel_volume[] = {
 	{ SPA_PROP_START, SPA_TYPE_Float, SPA_TYPE_INFO_BASE "channelVolumes", NULL, },
@@ -98,6 +99,7 @@ static const struct spa_type_info spa_type_props[] = {
 	{ SPA_PROP_live, SPA_TYPE_Bool, SPA_TYPE_INFO_PROPS_BASE "live", NULL },
 	{ SPA_PROP_rate, SPA_TYPE_Double, SPA_TYPE_INFO_PROPS_BASE "rate", NULL },
 	{ SPA_PROP_quality, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "quality", NULL },
+	{ SPA_PROP_bluetoothAudioCodec, SPA_TYPE_Id, SPA_TYPE_INFO_PROPS_BASE "bluetoothAudioCodec", spa_type_bluetooth_audio_codec },
 
 	{ SPA_PROP_waveType, SPA_TYPE_Id, SPA_TYPE_INFO_PROPS_BASE "waveType", NULL },
 	{ SPA_PROP_frequency, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "frequency", NULL },

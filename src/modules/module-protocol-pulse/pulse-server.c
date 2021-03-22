@@ -241,6 +241,7 @@ struct stream {
 	unsigned int is_underrun:1;
 	unsigned int in_prebuf:1;
 	unsigned int done:1;
+	unsigned int killed:1;
 };
 
 struct server {
@@ -1118,6 +1119,9 @@ static void stream_free(struct stream *stream)
 	if (stream->drain_tag)
 		reply_error(client, -1, stream->drain_tag, -ENOENT);
 
+	if (stream->killed)
+		send_stream_killed(stream);
+
 	/* force processing of all pending messages before we destroy
 	 * the stream */
 	pw_loop_invoke(impl->loop, NULL, 0, NULL, 0, false, client);
@@ -1541,7 +1545,7 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:
 		if (!client->disconnecting)
-			send_stream_killed(stream);
+			stream->killed = true;
 		stream->done = true;
 		break;
 	case PW_STREAM_STATE_CONNECTING:

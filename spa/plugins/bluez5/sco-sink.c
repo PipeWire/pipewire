@@ -488,13 +488,6 @@ static void sco_on_timeout(struct spa_source *source)
 	if (this->started && spa_system_timerfd_read(this->data_system, this->timerfd, &exp) < 0)
 		spa_log_warn(this->log, "error reading timerfd: %s", strerror(errno));
 
-	/* Reset if start time is 0 */
-	if (this->start_time == 0) {
-		this->total_samples = 0;
-		port->ready_offset = 0;
-		port->write_buffer_size = 0;
-	}
-
 	/* delay if no buffers available */
 	if (spa_list_is_empty(&port->ready)) {
 		set_timeout(this, this->transport->write_mtu / port->frame_size * SPA_NSEC_PER_SEC / port->current_format.info.raw.rate);
@@ -593,6 +586,7 @@ static void drop_port_output(struct impl *this)
 
 	port->write_buffer_size = 0;
 	port->current_buffer = NULL;
+	port->ready_offset = 0;
 
 	while (!spa_list_is_empty(&port->ready)) {
 		struct buffer *b;
@@ -615,6 +609,7 @@ static int do_remove_source(struct spa_loop *loop,
 	struct impl *this = user_data;
 
 	this->start_time = 0;
+	this->total_samples = 0;
 	set_timeout(this, 0);
 	if (this->source.loop)
 		spa_loop_remove_source(this->data_loop, &this->source);

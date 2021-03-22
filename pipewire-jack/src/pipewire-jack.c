@@ -2734,6 +2734,7 @@ int jack_client_close (jack_client_t *client)
 	pw_thread_loop_destroy(c->context.loop);
 
 	pw_log_debug(NAME" %p: free", client);
+	pw_map_clear(&c->context.globals);
 	pthread_mutex_destroy(&c->context.lock);
 	pw_properties_free(c->props);
 	free(c);

@@ -112,7 +112,7 @@ static inline int spa_json_next(struct spa_json * iter, const char **value)
 				iter->state = __STRUCT;
 				if (iter->depth > 0)
 					goto again;
-				return iter->cur++ - *value;
+				return iter->cur - *value;
 			}
 			continue;
 		case __STRING:

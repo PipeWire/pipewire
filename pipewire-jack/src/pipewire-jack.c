@@ -79,6 +79,12 @@
 #define TYPE_ID_VIDEO	2
 #define TYPE_ID_OTHER	3
 
+#define SELF_CONNECT_ALLOW	0
+#define SELF_CONNECT_FAIL_EXT	-1
+#define SELF_CONNECT_IGNORE_EXT	1
+#define SELF_CONNECT_FAIL_ALL	-2
+#define SELF_CONNECT_IGNORE_ALL	2
+
 struct client;
 struct port;
 
@@ -358,6 +364,7 @@ struct client {
 	unsigned int merge_monitor:1;
 	unsigned int short_name:1;
 	unsigned int filter_name:1;
+	int self_connect_mode;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -2551,6 +2558,18 @@ jack_client_t * jack_client_open (const char *client_name,
 	if ((str = pw_properties_get(client->props, "jack.filter-name")) != NULL)
 		client->filter_name = pw_properties_parse_bool(str);
 
+	client->self_connect_mode = SELF_CONNECT_ALLOW;
+	if ((str = pw_properties_get(client->props, "jack.self-connect-mode")) != NULL) {
+		if (strcmp(str, "fail-external") == 0)
+			client->self_connect_mode = SELF_CONNECT_FAIL_EXT;
+		else if (strcmp(str, "ignore-external") == 0)
+			client->self_connect_mode = SELF_CONNECT_IGNORE_EXT;
+		else if (strcmp(str, "fail-all") == 0)
+			client->self_connect_mode = SELF_CONNECT_FAIL_ALL;
+		else if (strcmp(str, "ignore-all") == 0)
+			client->self_connect_mode = SELF_CONNECT_IGNORE_ALL;
+	}
+
 	spa_list_init(&client->context.free_objects);
 	pthread_mutex_init(&client->context.lock, NULL);
 	spa_list_init(&client->context.nodes);
@@ -4050,6 +4069,33 @@ static const struct pw_proxy_events link_proxy_events = {
 	.error = link_proxy_error,
 };
 
+static int check_connect(struct client *c, struct object *src, struct object *dst)
+{
+	int src_self, dst_self, sum;
+
+	if (c->self_connect_mode == SELF_CONNECT_ALLOW)
+		return 1;
+
+	src_self = src->port.node_id == c->node_id ? 1 : 0;
+	dst_self = dst->port.node_id == c->node_id ? 1 : 0;
+	sum = src_self + dst_self;
+	/* check for no self connection first */
+	if (sum == 0)
+		return 1;
+
+	/* internal connection */
+	if (sum == 2 &&
+	    (c->self_connect_mode == SELF_CONNECT_FAIL_EXT ||
+	     c->self_connect_mode == SELF_CONNECT_IGNORE_EXT))
+		return 1;
+
+	/* failure -> -1 */
+	if (c->self_connect_mode < 0)
+		return -1;
+
+	/* ignore -> 0 */
+	return 0;
+}
 
 SPA_EXPORT
 int jack_connect (jack_client_t *client,
@@ -4084,6 +4130,8 @@ int jack_connect (jack_client_t *client,
 		res = -EINVAL;
 		goto exit;
 	}
+	if ((res = check_connect(c, src, dst)) != 1)
+		goto exit;
 
 	snprintf(val[0], sizeof(val[0]), "%d", src->port.node_id);
 	snprintf(val[1], sizeof(val[1]), "%d", src->id);
@@ -4157,6 +4205,9 @@ int jack_disconnect (jack_client_t *client,
 		res = -EINVAL;
 		goto exit;
 	}
+
+	if ((res = check_connect(c, src, dst)) != 1)
+		goto exit;
 
 	if ((l = find_link(c, src->id, dst->id)) == NULL) {
 		res = -ENOENT;

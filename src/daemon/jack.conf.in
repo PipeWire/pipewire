@@ -58,4 +58,11 @@ jack.properties = {
      #jack.merge-monitor  = false
      #jack.short-name     = false
      #jack.filter-name    = false
+     #
+     # allow:           Don't restrict self connect requests
+     # fail-external:   Fail self connect requests to external ports only
+     # ignore-external: Ignore self connect requests to external ports only
+     # fail-all:        Fail all self connect requests
+     # ignore-all:      Ignore all self connect requests
+     #jack.self-connect-mode  = allow
 }

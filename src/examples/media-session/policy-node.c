@@ -615,6 +615,7 @@ static int link_nodes(struct node *node, struct node *peer)
 	struct impl *impl = node->impl;
 	struct pw_properties *props;
 	struct node *output, *input;
+	int res;
 
 	pw_log_debug(NAME " %p: link nodes %d %d remix:%d", impl,
 			node->id, peer->id, !node->dont_remix);
@@ -637,13 +638,14 @@ static int link_nodes(struct node *node, struct node *peer)
 	pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", input->id);
 	pw_log_info("linking node %d to node %d", output->id, input->id);
 
-	if (sm_media_session_create_links(impl->session, &props->dict) > 0) {
+	res = sm_media_session_create_links(impl->session, &props->dict);
+	if (res > 0) {
 		node->peer = peer;
 		node->connect_count++;
 	}
 	pw_properties_free(props);
 
-	return 0;
+	return res;
 }
 
 static int unlink_nodes(struct node *node, struct node *peer)

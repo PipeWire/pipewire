@@ -368,7 +368,7 @@ static int suspend_node(struct pw_impl_node *this)
 	pw_log_debug(NAME" %p: suspend node state:%s", this,
 			pw_node_state_as_string(this->info.state));
 
-	if (this->info.state <= PW_NODE_STATE_SUSPENDED)
+	if (this->info.state > 0 && this->info.state <= PW_NODE_STATE_SUSPENDED)
 		return 0;
 
 	pause_node(this);

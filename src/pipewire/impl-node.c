@@ -317,6 +317,23 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	enum pw_node_state old = node->info.state;
 
+	switch (state) {
+	case PW_NODE_STATE_RUNNING:
+		if (node->driving && node->driver) {
+			res = spa_node_send_command(node->node,
+				&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start));
+			if (res < 0) {
+				state = PW_NODE_STATE_ERROR;
+				error = spa_aprintf("Start error: %s", spa_strerror(res));
+			}
+		}
+		if (res >= 0)
+			pw_loop_invoke(node->data_loop, do_node_add, 1, NULL, 0, true, node);
+		break;
+	default:
+		break;
+	}
+
 	free((char*)node->info.error);
 	node->info.error = error;
 	node->info.state = state;
@@ -335,19 +352,6 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 		pw_log_info("(%s-%u) %s -> %s", node->name, node->info.id,
 		     pw_node_state_as_string(old), pw_node_state_as_string(state));
 	}
-
-	switch (state) {
-	case PW_NODE_STATE_RUNNING:
-		if (node->driving && node->driver)
-			spa_node_send_command(node->node,
-				&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start));
-
-		pw_loop_invoke(node->data_loop, do_node_add, 1, NULL, 0, true, node);
-		break;
-	default:
-		break;
-	}
-
 	pw_impl_node_emit_state_changed(node, old, state, error);
 
 	node->info.change_mask |= PW_NODE_CHANGE_MASK_STATE;

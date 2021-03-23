@@ -98,6 +98,7 @@ struct node {
 	struct spa_hook listener;
 
 	struct node *peer;
+	struct node *failed_peer;
 
 	uint32_t client_id;
 	int32_t priority;
@@ -483,6 +484,8 @@ static void session_remove(void *data, struct sm_object *object)
 		spa_list_for_each(n, &impl->node_list, link) {
 			if (n->peer == node)
 				n->peer = NULL;
+			if (n->failed_peer == node)
+				n->failed_peer = NULL;
 		}
 	}
 	sm_media_session_schedule_rescan(impl->session);
@@ -641,7 +644,10 @@ static int link_nodes(struct node *node, struct node *peer)
 	res = sm_media_session_create_links(impl->session, &props->dict);
 	if (res > 0) {
 		node->peer = peer;
+		node->failed_peer = NULL;
 		node->connect_count++;
+	} else {
+		node->failed_peer = peer;
 	}
 	pw_properties_free(props);
 
@@ -848,8 +854,14 @@ static int rescan_node(struct impl *impl, struct node *n)
 	pw_log_debug(NAME" %p: linking to node '%d'", impl, peer->id);
 
 do_link:
+	if (peer == n->failed_peer) {
+		/* Break rescan -> failed link -> rescan loop. */
+		pw_log_debug(NAME" %p: tried to link '%d' on last rescan, not retrying",
+				impl, peer->id);
+		return 0;
+	}
 	link_nodes(n, peer);
-        return 1;
+	return 1;
 }
 
 static void session_info(void *data, const struct pw_core_info *info)

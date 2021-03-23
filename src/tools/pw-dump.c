@@ -436,9 +436,16 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 		info = ti ? ti->values : info;
 
 		SPA_POD_OBJECT_BODY_FOREACH(b, size, p) {
+			char fallback[32];
+			const char *name;
+
 			ii = spa_debug_type_find(info, p->key);
-			put_pod_value(d,
-					ii ? spa_debug_type_short_name(ii->name) : "unknown",
+			name = ii ? spa_debug_type_short_name(ii->name) : NULL;
+			if (name == NULL) {
+				snprintf(fallback, sizeof(fallback), "id-%08x", p->key);
+				name = fallback;
+			}
+			put_pod_value(d, name,
 					ii ? ii->values : NULL,
 					p->value.type,
 					SPA_POD_CONTENTS(struct spa_pod_prop, p),

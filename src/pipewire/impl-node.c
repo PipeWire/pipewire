@@ -338,10 +338,11 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 
 	switch (state) {
 	case PW_NODE_STATE_RUNNING:
-		pw_loop_invoke(node->data_loop, do_node_add, 1, NULL, 0, true, node);
 		if (node->driving && node->driver)
 			spa_node_send_command(node->node,
 				&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start));
+
+		pw_loop_invoke(node->data_loop, do_node_add, 1, NULL, 0, true, node);
 		break;
 	default:
 		break;

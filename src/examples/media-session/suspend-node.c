@@ -146,6 +146,7 @@ static void object_update(void *data)
 
 		if (info->change_mask & PW_NODE_CHANGE_MASK_STATE) {
 			switch (info->state) {
+			case PW_NODE_STATE_ERROR:
 			case PW_NODE_STATE_IDLE:
 				on_node_idle(impl, node);
 				break;
@@ -183,6 +184,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 	node = sm_object_add_data(object, SESSION_KEY, sizeof(struct node));
 	node->obj = (struct sm_node*)object;
 	node->impl = impl;
+	node->id = object->id;
 	spa_list_append(&impl->node_list, &node->link);
 
 	node->obj->obj.mask |= SM_NODE_CHANGE_MASK_INFO;

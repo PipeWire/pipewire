@@ -58,6 +58,8 @@
 #define DEFAULT_AUDIO_SOURCE		1
 #define DEFAULT_VIDEO_SOURCE		2
 
+#define MAX_LINK_RETRY			5
+
 struct default_node {
 	char *key;
 	char *key_config;
@@ -112,6 +114,7 @@ struct node {
 	struct spa_audio_info format;
 
 	int connect_count;
+	int failed_count;
 	uint64_t plugged;
 	unsigned int active:1;
 	unsigned int exclusive:1;
@@ -646,8 +649,12 @@ static int link_nodes(struct node *node, struct node *peer)
 		node->peer = peer;
 		node->failed_peer = NULL;
 		node->connect_count++;
+		node->failed_count = 0;
 	} else {
+		if (node->failed_peer != peer)
+			node->failed_count = 0;
 		node->failed_peer = peer;
+		node->failed_count++;
 	}
 	pw_properties_free(props);
 
@@ -854,7 +861,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 	pw_log_debug(NAME" %p: linking to node '%d'", impl, peer->id);
 
 do_link:
-	if (peer == n->failed_peer) {
+	if (peer == n->failed_peer && n->failed_count > MAX_LINK_RETRY) {
 		/* Break rescan -> failed link -> rescan loop. */
 		pw_log_debug(NAME" %p: tried to link '%d' on last rescan, not retrying",
 				impl, peer->id);

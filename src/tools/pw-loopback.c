@@ -68,19 +68,19 @@ static void capture_process(void *d)
 	struct data *data = d;
 	struct pw_buffer *in, *out;
 
-	if ((in = pw_stream_dequeue_buffer(data->capture)) == NULL) {
+	if ((in = pw_stream_dequeue_buffer(data->capture)) == NULL)
 		pw_log_warn("out of capture buffers: %m");
-		return;
-	}
-	if ((out = pw_stream_dequeue_buffer(data->playback)) == NULL) {
+
+	if ((out = pw_stream_dequeue_buffer(data->playback)) == NULL)
 		pw_log_warn("out of playback buffers: %m");
-		return;
-	}
 
-	*out->buffer = *in->buffer;
+	if (in != NULL && out != NULL)
+		*out->buffer = *in->buffer;
 
-	pw_stream_queue_buffer(data->capture, in);
-	pw_stream_queue_buffer(data->playback, out);
+	if (in != NULL)
+		pw_stream_queue_buffer(data->capture, in);
+	if (out != NULL)
+		pw_stream_queue_buffer(data->playback, out);
 }
 
 static const struct pw_stream_events in_stream_events = {

@@ -595,7 +595,6 @@ const char *pw_get_client_name(void)
 	else {
 		if (snprintf(cname, sizeof(cname), "pipewire-pid-%zd", (size_t) getpid()) < 0)
 			return NULL;
-		cname[255] = 0;
 		return cname;
 	}
 }

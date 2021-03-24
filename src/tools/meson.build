@@ -45,6 +45,13 @@ executable('pw-metadata',
 	dependencies : [pipewire_dep],
 )
 
+executable('pw-loopback',
+	[ 'pw-loopback.c'],
+	c_args : [ '-D_GNU_SOURCE' ],
+	install: true,
+	dependencies : [pipewire_dep],
+)
+
 if ncurses_dep.found()
   executable('pw-top',
 	'pw-top.c',

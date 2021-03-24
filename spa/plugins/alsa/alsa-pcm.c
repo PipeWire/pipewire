@@ -1147,6 +1147,9 @@ push_frames(struct state *state,
 				snd_pcm_readi(state->hndl, bufs[0], total_frames);
 			}
 		}
+		spa_log_trace_fp(state->log, NAME" %p: wrote %ld frames into buffer %d",
+				state, total_frames, b->id);
+
 		spa_list_append(&state->ready, &b->link);
 	}
 	return total_frames;
@@ -1307,7 +1310,8 @@ static int handle_capture(struct state *state, uint64_t nsec,
 		return 0;
 
 	io = state->io;
-	if (io != NULL && io->status != SPA_STATUS_HAVE_DATA) {
+	if (io != NULL &&
+	    (io->status != SPA_STATUS_HAVE_DATA || state->rate_match != NULL)) {
 		struct buffer *b;
 
 		if (io->buffer_id < state->n_buffers)

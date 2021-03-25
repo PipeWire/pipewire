@@ -668,6 +668,7 @@ static int do_add_port(struct spa_loop *loop,
 {
         struct pw_impl_port *this = user_data;
 
+	pw_log_trace(NAME" %p: add port", this);
 	if (this->direction == PW_DIRECTION_INPUT)
 		spa_list_append(&this->node->rt.input_mix, &this->rt.node_link);
 	else
@@ -986,8 +987,9 @@ void pw_impl_port_unlink(struct pw_impl_port *port)
 static int do_remove_port(struct spa_loop *loop,
 			  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
-        struct pw_impl_port *this = user_data;
+	struct pw_impl_port *this = user_data;
 
+	pw_log_trace(NAME" %p: remove port", this);
 	spa_list_remove(&this->rt.node_link);
 
 	return 0;

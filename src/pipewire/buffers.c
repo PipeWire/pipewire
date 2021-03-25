@@ -143,7 +143,8 @@ static int alloc_buffers(struct pw_mempool *pool,
 		data = NULL;
 	}
 
-	pw_log_debug(NAME" %p: layout buffers skel:%p data:%p", allocation, skel, data);
+	pw_log_debug(NAME" %p: layout buffers skel:%p data:%p buffers:%p",
+			allocation, skel, data, buffers);
 	spa_buffer_alloc_layout_array(&info, n_buffers, buffers, skel, data);
 
 	allocation->mem = m;

@@ -129,7 +129,8 @@ static inline const char *format_id2paname(uint32_t id)
 {
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
-		if (id == audio_formats[i].id)
+		if (id == audio_formats[i].id &&
+		    audio_formats[i].name != NULL)
 			return audio_formats[i].name;
 	}
 	return "invalid";
@@ -371,7 +372,8 @@ static inline const char *channel_id2paname(uint32_t id, uint32_t *aux)
 {
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(audio_channels); i++) {
-		if (id == audio_channels[i].channel)
+		if (id == audio_channels[i].channel &&
+		    audio_channels[i].name != NULL)
 			return audio_channels[i].name;
 	}
 	return audio_channels[CHANNEL_POSITION_AUX0 + (*aux)++].name;
@@ -512,7 +514,8 @@ static const char *encoding_names[] = {
 
 static inline const char *format_encoding2name(enum encoding enc)
 {
-	if (enc >= 0 && enc < (int)SPA_N_ELEMENTS(encoding_names))
+	if (enc >= 0 && enc < (int)SPA_N_ELEMENTS(encoding_names) &&
+	    encoding_names[enc] != NULL)
 		return encoding_names[enc];
 	return "INVALID";
 }

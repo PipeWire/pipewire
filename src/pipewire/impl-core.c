@@ -45,6 +45,7 @@
 #   define GETRANDOM_FALLBACK	1
 #  endif
 # else
+#  include <fcntl.h>
 #  define GETRANDOM_FALLBACK	1
 # endif
 #endif

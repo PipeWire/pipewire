@@ -101,6 +101,7 @@ jackctl_server_t * jackctl_server_create2(
 	jackctl_driver_t * dummy;
 	dummy = (jackctl_driver_t *)malloc(sizeof(jackctl_driver_t));
 	if (dummy == NULL) {
+		free(server);
 		return NULL;
 	}
 	server->drivers = jack_slist_append (server->drivers, dummy);

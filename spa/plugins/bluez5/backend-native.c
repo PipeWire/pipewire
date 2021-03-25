@@ -1623,7 +1623,8 @@ static int parse_headset_roles(struct impl *backend, const struct spa_dict *info
 	char role_name[256];
 	enum spa_bt_profile profiles = SPA_BT_PROFILE_NULL;
 
-	if ((str = spa_dict_lookup(info, PROP_KEY_HEADSET_ROLES)) == NULL)
+	if (info == NULL ||
+	    (str = spa_dict_lookup(info, PROP_KEY_HEADSET_ROLES)) == NULL)
 		goto fallback;
 
 	spa_json_init(&it, str, strlen(str));

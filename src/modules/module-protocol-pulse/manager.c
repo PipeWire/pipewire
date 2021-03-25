@@ -713,6 +713,8 @@ int pw_manager_set_metadata(struct pw_manager *manager,
 		return -ENOTSUP;
 	if (!SPA_FLAG_IS_SET(metadata->permissions, PW_PERM_W|PW_PERM_X))
 		return -EACCES;
+	if (metadata->proxy == NULL)
+		return -ENOENT;
 
 	if (type != NULL) {
 		va_start(args, format);

@@ -3045,6 +3045,8 @@ static int set_node_volume_mute(struct pw_manager_object *o,
 
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
 		return -EACCES;
+	if (o->proxy == NULL)
+		return -ENOENT;
 
 	spa_pod_builder_push_object(&b, &f[0],
 			SPA_TYPE_OBJECT_Props,  SPA_PARAM_Props);
@@ -3074,6 +3076,9 @@ static int set_card_volume_mute_delay(struct pw_manager_object *o, uint32_t id,
 
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
 		return -EACCES;
+
+	if (o->proxy == NULL)
+		return -ENOENT;
 
 	spa_pod_builder_push_object(&b, &f[0],
 			SPA_TYPE_OBJECT_ParamRoute, SPA_PARAM_Route);
@@ -3114,6 +3119,9 @@ static int set_card_port(struct pw_manager_object *o, uint32_t device_id,
 
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
 		return -EACCES;
+
+	if (o->proxy == NULL)
+		return -ENOENT;
 
 	pw_device_set_param((struct pw_device*)o->proxy,
 			SPA_PARAM_Route, 0,
@@ -4905,6 +4913,9 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
 		return -EACCES;
 
+	if (o->proxy == NULL)
+		return -ENOENT;
+
         pw_device_set_param((struct pw_device*)o->proxy,
                         SPA_PARAM_Profile, 0,
                         spa_pod_builder_add_object(&b,
@@ -4975,6 +4986,9 @@ static int do_suspend(struct client *client, uint32_t command, uint32_t tag, str
 			commands[command].name, tag, id, name);
 
 	if ((o = find_device(client, id, name, sink)) == NULL)
+		return -ENOENT;
+
+	if (o->proxy == NULL)
 		return -ENOENT;
 
 	if (suspend) {

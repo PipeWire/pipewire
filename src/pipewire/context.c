@@ -281,7 +281,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	this->data_system = this->data_loop->system;
 	this->main_loop = main_loop;
 
-	n_support = pw_get_support(this->support, SPA_N_ELEMENTS(this->support));
+	n_support = pw_get_support(this->support, SPA_N_ELEMENTS(this->support) - 6);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, this->main_loop->system);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Loop, this->main_loop->loop);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, this->main_loop->utils);

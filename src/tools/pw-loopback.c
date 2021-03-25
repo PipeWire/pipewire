@@ -101,7 +101,8 @@ static int setup_streams(struct data *data)
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
 	data->capture = pw_stream_new(data->core,
-			"loopback capture", pw_properties_copy(data->capture_props));
+			"loopback capture", data->capture_props);
+	data->capture_props = NULL;
 	if (data->capture == NULL)
 		return -errno;
 
@@ -110,7 +111,8 @@ static int setup_streams(struct data *data)
 			&in_stream_events, data);
 
 	data->playback = pw_stream_new(data->core,
-			"loopback playback", pw_properties_copy(data->playback_props));
+			"loopback playback", data->playback_props);
+	data->playback_props = NULL;
 	if (data->playback == NULL)
 		return -errno;
 
@@ -208,7 +210,7 @@ int main(int argc, char *argv[])
 		{ "playback-props",	required_argument,	NULL, 'o' },
 		{ NULL, 0, NULL, 0}
 	};
-	int c;
+	int c, res = -1;
 
 	pw_init(&argc, &argv);
 
@@ -222,7 +224,7 @@ int main(int argc, char *argv[])
 	data.playback_props = pw_properties_new(NULL, NULL);
 	if (data.capture_props == NULL || data.playback_props == NULL) {
 		fprintf(stderr, "can't create properties: %m\n");
-		return -1;
+		goto exit;
 	}
 
 	while ((c = getopt_long(argc, argv, "hVr:g:c:m:l:C:P:i:o:", long_options, NULL)) != -1) {
@@ -274,7 +276,7 @@ int main(int argc, char *argv[])
 	data.loop = pw_main_loop_new(NULL);
 	if (data.loop == NULL) {
 		fprintf(stderr, "can't create main loop: %m\n");
-		return -1;
+		goto exit;
 	}
 
 	l = pw_main_loop_get_loop(data.loop);
@@ -284,7 +286,7 @@ int main(int argc, char *argv[])
 	data.context = pw_context_new(l, NULL, 0);
 	if (data.context == NULL) {
 		fprintf(stderr, "can't create context: %m\n");
-		return -1;
+		goto exit;
 	}
 
 	if (data.opt_group_name != NULL) {
@@ -305,7 +307,7 @@ int main(int argc, char *argv[])
 			0);
 	if (data.core == NULL) {
 		fprintf(stderr, "can't connect: %m\n");
-		return -1;
+		goto exit;
 	}
 
 	pw_core_add_listener(data.core,
@@ -316,9 +318,19 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
-	pw_context_destroy(data.context);
-	pw_main_loop_destroy(data.loop);
+	res = 0;
+exit:
+	if (data.core)
+		pw_core_disconnect(data.core);
+	if (data.context)
+		pw_context_destroy(data.context);
+	if (data.loop)
+		pw_main_loop_destroy(data.loop);
+	if (data.capture_props)
+		pw_properties_free(data.capture_props);
+	if (data.playback_props)
+		pw_properties_free(data.playback_props);
 	pw_deinit();
 
-	return 0;
+	return res;
 }

@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <getopt.h>
+#include <locale.h>
 #include <ncurses.h>
 
 #include <spa/utils/result.h>
@@ -495,6 +496,7 @@ int main(int argc, char *argv[])
 	struct timespec value, interval;
 	struct node *n;
 
+	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
 	spa_list_init(&data.node_list);

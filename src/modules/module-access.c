@@ -144,9 +144,9 @@ static int check_flatpak(struct pw_impl_client *client, int pid)
         }
 	if (fstat (info_fd, &stat_buf) != 0 || !S_ISREG (stat_buf.st_mode)) {
 		/* Some weird fd => failure, assume sandboxed */
-		close(info_fd);
 		pw_log_error("error fstat .flatpak-info: %m");
 	}
+	close(info_fd);
 	return 1;
 }
 

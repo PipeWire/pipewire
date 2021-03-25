@@ -828,12 +828,15 @@ static int message_dump(enum spa_log_level level, struct message *m)
 		{
 			struct pw_properties *props = pw_properties_new(NULL, NULL);
 			const struct spa_dict_item *it;
-			if ((res = read_props(m, props, false)) < 0)
-				return res;
-			pw_log(level, "%u: props: n_items:%u", o, props->dict.n_items);
-			spa_dict_for_each(it, &props->dict)
-				pw_log(level, "     '%s': '%s'", it->key, it->value);
+			res = read_props(m, props, false);
+			if (res >= 0) {
+				pw_log(level, "%u: props: n_items:%u", o, props->dict.n_items);
+				spa_dict_for_each(it, &props->dict)
+					pw_log(level, "     '%s': '%s'", it->key, it->value);
+			}
 			pw_properties_free(props);
+			if (res < 0)
+				return res;
 			break;
 		}
 		case TAG_VOLUME:

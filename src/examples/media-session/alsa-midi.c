@@ -111,7 +111,7 @@ static void on_notify_events(void *data, int fd, uint32_t mask)
 			event = (const struct inotify_event *) p;
 
 			if ((event->mask & IN_ATTRIB)) {
-				if (strcmp(event->name, SEQ_NAME) != 0)
+				if (strncmp(event->name, SEQ_NAME, event->len) != 0)
 					continue;
 				if (impl->proxy == NULL &&
 				    check_access(impl) &&

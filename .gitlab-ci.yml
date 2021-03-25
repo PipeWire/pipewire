@@ -1,6 +1,8 @@
 stages:
   - container
+  - container_coverity
   - build
+  - analysis
   - pages
 
 variables:
@@ -45,6 +47,29 @@ include:
       xmltoman
       libsndfile-devel
 
+.coverity:
+  variables:
+    FDO_REPO_SUFFIX: 'coverity'
+    FDO_BASE_IMAGE: registry.freedesktop.org/$FDO_UPSTREAM_REPO/fedora/$FDO_DISTRIBUTION_VERSION:$FDO_DISTRIBUTION_TAG
+    FDO_DISTRIBUTION_PACKAGES: >-
+      curl
+    FDO_DISTRIBUTION_EXEC: >-
+      mkdir -p /opt
+      cd /opt
+      curl -o /tmp/cov-analysis-linux64.tgz https://scan.coverity.com/download/linux64 \
+        --form project=$COVERITY_SCAN_PROJECT_NAME --form token=$COVERITY_SCAN_TOKEN
+      tar xf /tmp/cov-analysis-linux64.tgz
+      mv cov-analysis-linux64-* coverity
+      rm /tmp/cov-analysis-linux64.tgz
+  only:
+    variables:
+      - $COVERITY
+
+.not_coverity:
+  except:
+    variables:
+      - $COVERITY
+
 .build:
   before_script:
     # setup the environment
@@ -69,12 +94,6 @@ include:
     - ninja -C "$BUILD_DIR" test
     - ninja -C "$BUILD_DIR" install
     - ./check_missing_headers.sh
-  artifacts:
-    name: pipewire-$CI_COMMIT_SHA
-    when: always
-    paths:
-      - build-*/meson-logs
-      - prefix-*
 
 container_fedora:
   extends:
@@ -84,14 +103,64 @@ container_fedora:
   variables:
     GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
 
+container_coverity:
+  extends:
+    - .fedora
+    - .coverity
+    - .fdo.container-build@fedora
+  stage: container_coverity
+  variables:
+    GIT_STRATEGY: none
+
 build_on_fedora:
   extends:
     - .fedora
+    - .not_coverity
     - .fdo.distribution-image@fedora
     - .build
   stage: build
+  artifacts:
+    name: pipewire-$CI_COMMIT_SHA
+    when: always
+    paths:
+      - build-*/meson-logs
+      - prefix-*
+
+build_with_coverity:
+  extends:
+    - .fedora
+    - .coverity
+    - .fdo.suffixed-image@fedora
+    - .build
+  stage: analysis
+  script:
+    - export PATH=/opt/coverity/bin:$PATH
+    - meson "$BUILD_DIR" . --prefix="$PREFIX"
+        -Ddocs=disabled
+        -Dbluez5-backend-hsphfpd=enabled
+        -Daudiotestsrc=enabled
+        -Dtest=enabled
+        -Dvideotestsrc=enabled
+        -Dvolume=enabled
+        -Dvulkan=enabled
+        -Dsdl2=enabled
+        -Dsndfile=enabled
+    - cov-build --dir cov-int ninja -C "$BUILD_DIR"
+    - tar czf cov-int.tar.gz cov-int
+    - curl https://scan.coverity.com/builds?project=$COVERITY_SCAN_PROJECT_NAME
+        --form token=$COVERITY_SCAN_TOKEN --form email=$GITLAB_USER_EMAIL
+        --form file=@cov-int.tar.gz --form version="`git describe --tags`"
+        --form description="`git describe --tags` / $CI_COMMIT_TITLE / $CI_COMMIT_REF_NAME:$CI_PIPELINE_ID "
+  artifacts:
+    name: pipewire-coverity-$CI_COMMIT_SHA
+    when: always
+    paths:
+      - build-*/meson-logs
+      - cov-int/build-log.txt
 
 pages:
+  extends:
+    - .not_coverity
   stage: pages
   dependencies:
     - build_on_fedora

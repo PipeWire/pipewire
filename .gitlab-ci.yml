@@ -54,12 +54,12 @@ include:
     FDO_DISTRIBUTION_PACKAGES: >-
       curl
     FDO_DISTRIBUTION_EXEC: >-
-      mkdir -p /opt
-      cd /opt
-      curl -o /tmp/cov-analysis-linux64.tgz https://scan.coverity.com/download/linux64 \
-        --form project=$COVERITY_SCAN_PROJECT_NAME --form token=$COVERITY_SCAN_TOKEN
-      tar xf /tmp/cov-analysis-linux64.tgz
-      mv cov-analysis-linux64-* coverity
+      mkdir -p /opt ;
+      cd /opt ;
+      curl -o /tmp/cov-analysis-linux64.tgz https://scan.coverity.com/download/linux64
+      --form project=$COVERITY_SCAN_PROJECT_NAME --form token=$COVERITY_SCAN_TOKEN ;
+      tar xf /tmp/cov-analysis-linux64.tgz ;
+      mv cov-analysis-linux64-* coverity ;
       rm /tmp/cov-analysis-linux64.tgz
   only:
     variables:

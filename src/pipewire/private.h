@@ -786,9 +786,10 @@ struct pw_impl_port {
 		struct spa_list mix_list;
 		struct spa_list node_link;
 	} rt;					/**< data only accessed from the data thread */
+	unsigned int added:1;
 
-        void *owner_data;		/**< extra owner data */
-        void *user_data;                /**< extra user data */
+	void *owner_data;		/**< extra owner data */
+	void *user_data;                /**< extra user data */
 };
 
 struct pw_control_link {

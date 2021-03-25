@@ -464,6 +464,7 @@ struct pw_impl_core *pw_context_create_core(struct pw_context *context,
 error_exit:
 	if (properties)
 		pw_properties_free(properties);
+	free(this);
 	errno = -res;
 	return NULL;
 }

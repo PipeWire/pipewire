@@ -2707,6 +2707,7 @@ server_failed:
 exit_unlock:
 	pw_thread_loop_unlock(client->context.loop);
 exit:
+	free(client);
 	return NULL;
 disabled:
 	if (status)

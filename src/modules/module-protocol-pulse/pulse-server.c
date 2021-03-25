@@ -4182,7 +4182,7 @@ static int fill_source_info(struct client *client, struct message *m,
 		snprintf(monitor_name, size, "%s.monitor", name);
 	}
 	if ((desc = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION)) != NULL) {
-		size_t size = strlen(name) + 20;
+		size_t size = strlen(desc) + 20;
 		monitor_desc = alloca(size);
 		snprintf(monitor_desc, size, "Monitor of %s", desc);
 	} else {

@@ -38,6 +38,10 @@
 #define DEFAULT_AAC_BITRATE	320000
 #define MIN_AAC_BITRATE		64000
 
+struct props {
+	int bitratemode;
+};
+
 struct impl {
 	HANDLE_AACENCODER aacenc;
 
@@ -233,12 +237,34 @@ static int codec_enum_config(const struct a2dp_codec *codec,
 	return *param == NULL ? -EIO : 1;
 }
 
+static void *codec_init_props(const struct a2dp_codec *codec, const struct spa_dict *settings)
+{
+	struct props *p = calloc(1, sizeof(struct props));
+	const char *str;
+
+	if (p == NULL)
+		return NULL;
+
+	if (settings == NULL || (str = spa_dict_lookup(settings, "bluez5.a2dp.aac.bitratemode")) == NULL)
+		str = "0";
+
+	p->bitratemode = SPA_CLAMP(atoi(str), 0, 5);
+	return p;
+}
+
+static void codec_clear_props(void *props)
+{
+	free(props);
+}
+
 static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info,
 		void *props, size_t mtu)
 {
 	struct impl *this;
 	a2dp_aac_t *conf = config;
+	struct props *p = props;
+	UINT bitratemode;
 	int res;
 
 	this = calloc(1, sizeof(struct impl));
@@ -257,6 +283,8 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 		goto error;
 	}
 	this->samplesize = 2;
+
+	bitratemode = p ? p->bitratemode : 0;
 
 	res = aacEncOpen(&this->aacenc, 0, this->channels);
 	if (res != AACENC_OK)
@@ -279,6 +307,21 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	if (res != AACENC_OK)
 		goto error;
 
+	if (conf->vbr) {
+		res = aacEncoder_SetParam(this->aacenc, AACENC_BITRATEMODE,
+				bitratemode);
+		if (res != AACENC_OK)
+			goto error;
+	}
+
+	res = aacEncoder_SetParam(this->aacenc, AACENC_AUDIOMUXVER, 2);
+	if (res != AACENC_OK)
+		goto error;
+
+	res = aacEncoder_SetParam(this->aacenc, AACENC_SIGNALING_MODE, 1);
+	if (res != AACENC_OK)
+		goto error;
+
 	// Fragmentation is not implemented yet,
 	// so make sure every encoded AAC frame fits in (mtu - header)
 	this->max_bitrate = ((this->mtu - sizeof(struct rtp_header)) * 8 * this->rate) / 1024;
@@ -294,6 +337,10 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 		goto error;
 
 	res = aacEncoder_SetParam(this->aacenc, AACENC_TRANSMUX, TT_MP4_LATM_MCP1);
+	if (res != AACENC_OK)
+		goto error;
+
+	res = aacEncoder_SetParam(this->aacenc, AACENC_HEADER_PERIOD, 1);
 	if (res != AACENC_OK)
 		goto error;
 
@@ -446,6 +493,8 @@ const struct a2dp_codec a2dp_codec_aac = {
 	.fill_caps = codec_fill_caps,
 	.select_config = codec_select_config,
 	.enum_config = codec_enum_config,
+	.init_props = codec_init_props,
+	.clear_props = codec_clear_props,
 	.init = codec_init,
 	.deinit = codec_deinit,
 	.get_block_size = codec_get_block_size,

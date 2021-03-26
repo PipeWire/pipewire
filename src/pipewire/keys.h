@@ -98,7 +98,7 @@ extern "C" {
 #define PW_KEY_APP_NAME			"application.name"	/**< application name. Ex: "Totem Music Player" */
 #define PW_KEY_APP_ID			"application.id"	/**< a textual id for identifying an
 								  *  application logically. Ex: "org.gnome.Totem" */
-#define PW_KEY_APP_VERSION		"application.version"
+#define PW_KEY_APP_VERSION		"application.version"   /**< application version. Ex: "1.2.0" */
 #define PW_KEY_APP_ICON			"application.icon"	/**< aa base64 blob with PNG image data */
 #define PW_KEY_APP_ICON_NAME		"application.icon-name"	/**< an XDG icon name for the application.
 								  *  Ex: "totem" */

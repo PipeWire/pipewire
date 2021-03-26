@@ -265,6 +265,7 @@ struct impl {
 	struct spa_hook context_listener;
 
 	struct pw_properties *props;
+	void *dbus_name;
 
 	struct ratelimit rate_limit;
 
@@ -6272,6 +6273,13 @@ static void impl_free(struct impl *impl)
 {
 	struct server *s;
 	struct client *c;
+	struct message *msg;
+
+	if (impl->dbus_name)
+		dbus_release_name(impl->dbus_name);
+
+	spa_list_consume(msg, &impl->free_messages, link)
+		message_free(impl, msg, true, true);
 
 	if (impl->context != NULL)
 		spa_hook_remove(&impl->context_listener);
@@ -6279,10 +6287,12 @@ static void impl_free(struct impl *impl)
 		client_free(c);
 	spa_list_consume(s, &impl->servers, link)
 		server_free(s);
+
 	pw_map_for_each(&impl->samples, impl_free_sample, impl);
 	pw_map_clear(&impl->samples);
 	pw_map_for_each(&impl->modules, impl_free_module, impl);
 	pw_map_clear(&impl->modules);
+
 	if (impl->cleanup != NULL)
 		pw_loop_destroy_source(impl->loop, impl->cleanup);
 	pw_properties_free(impl->props);
@@ -6399,7 +6409,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 		}
 	}
 
-	dbus_request_name(context, "org.pulseaudio.Server");
+	impl->dbus_name = dbus_request_name(context, "org.pulseaudio.Server");
 
 	return (struct pw_protocol_pulse*)impl;
 
@@ -6419,8 +6429,5 @@ void *pw_protocol_pulse_get_user_data(struct pw_protocol_pulse *pulse)
 void pw_protocol_pulse_destroy(struct pw_protocol_pulse *pulse)
 {
 	struct impl *impl = (struct impl*)pulse;
-	struct message *msg;
-	spa_list_consume(msg, &impl->free_messages, link)
-		message_free(impl, msg, true, true);
 	impl_free(impl);
 }

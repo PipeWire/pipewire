@@ -25,7 +25,7 @@
 #include <dbus/dbus.h>
 #include <spa/support/dbus.h>
 
-static int dbus_request_name(struct pw_context *context, const char *name)
+static void *dbus_request_name(struct pw_context *context, const char *name)
 {
 	struct spa_dbus *dbus;
 	struct spa_dbus_connection *conn;
@@ -37,12 +37,14 @@ static int dbus_request_name(struct pw_context *context, const char *name)
 	support = pw_context_get_support(context, &n_support);
 
 	dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
-	if (dbus == NULL)
-		return -ENOTSUP;
+	if (dbus == NULL) {
+		errno = ENOTSUP;
+		return NULL;
+	}
 
         conn = spa_dbus_get_connection(dbus, SPA_DBUS_TYPE_SESSION);
         if (conn == NULL)
-		return -errno;
+		return NULL;
 
 	bus = spa_dbus_connection_get(conn);
 
@@ -51,7 +53,7 @@ static int dbus_request_name(struct pw_context *context, const char *name)
 	if (dbus_bus_request_name(bus, name,
 			DBUS_NAME_FLAG_DO_NOT_QUEUE,
 			&error) == DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
-		return 0;
+		return conn;
 
 	if (dbus_error_is_set(&error))
 		pw_log_error("Failed to acquire %s: %s: %s", name, error.name, error.message);
@@ -60,5 +62,12 @@ static int dbus_request_name(struct pw_context *context, const char *name)
 
 	dbus_error_free(&error);
 
-	return -EEXIST;
+	errno = EEXIST;
+	return NULL;
+}
+
+static void dbus_release_name(void *data)
+{
+	struct spa_dbus_connection *conn = data;
+	spa_dbus_connection_destroy(conn);
 }

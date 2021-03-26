@@ -885,17 +885,16 @@ static void send_default_change_subscribe_event(struct client *client, bool sink
 		                     -1);
 }
 
-static void handle_metadata(struct client *client, struct pw_manager_object *o,
-		const char *name)
+static void handle_metadata(struct client *client, struct pw_manager_object *old,
+		struct pw_manager_object *new, const char *name)
 {
 	if (strcmp(name, "default") == 0) {
-		if (client->metadata_default == NULL)
-			client->metadata_default = o;
+		if (client->metadata_default == old)
+			client->metadata_default = new;
 	}
 	else if (strcmp(name, "route-settings") == 0) {
-		if (client->metadata_routes == NULL) {
-			client->metadata_routes = o;
-		}
+		if (client->metadata_routes == old)
+			client->metadata_routes = new;
 	}
 }
 
@@ -910,7 +909,7 @@ static void manager_added(void *data, struct pw_manager_object *o)
 	if (strcmp(o->type, PW_TYPE_INTERFACE_Metadata) == 0) {
 		if (o->props != NULL &&
 		    (str = pw_properties_get(o->props, PW_KEY_METADATA_NAME)) != NULL)
-			handle_metadata(client, o, str);
+			handle_metadata(client, NULL, o, str);
 	}
 	if ((event = get_event_and_id(client, o, &id)) != SPA_ID_INVALID)
 		send_subscribe_event(client,
@@ -951,7 +950,7 @@ static void manager_removed(void *data, struct pw_manager_object *o)
 	if (strcmp(o->type, PW_TYPE_INTERFACE_Metadata) == 0) {
 		if (o->props != NULL &&
 		    (str = pw_properties_get(o->props, PW_KEY_METADATA_NAME)) != NULL)
-			handle_metadata(client, NULL, str);
+			handle_metadata(client, o, NULL, str);
 	}
 }
 

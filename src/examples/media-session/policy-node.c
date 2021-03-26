@@ -81,6 +81,7 @@ struct impl {
 
 	struct spa_list node_list;
 	unsigned int node_list_changed:1;
+	unsigned int linking_node_removed:1;
 	int seq;
 
 	struct default_node defaults[4];
@@ -125,6 +126,7 @@ struct node {
 	unsigned int moving:1;
 	unsigned int capture_sink:1;
 	unsigned int virtual:1;
+	unsigned int linking:1;
 };
 
 static int check_new_target(struct impl *impl, struct node *target);
@@ -366,6 +368,8 @@ handle_node(struct impl *impl, struct sm_object *object)
 static void destroy_node(struct impl *impl, struct node *node)
 {
 	spa_list_remove(&node->link);
+	if (node->linking)
+		impl->linking_node_removed = true;
 	impl->node_list_changed = true;
 	if (node->enabled)
 		spa_hook_remove(&node->listener);
@@ -644,7 +648,16 @@ static int link_nodes(struct node *node, struct node *peer)
 	pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", input->id);
 	pw_log_info("linking node %d to node %d", output->id, input->id);
 
+	node->linking = true;
 	res = sm_media_session_create_links(impl->session, &props->dict);
+	pw_properties_free(props);
+
+	if (impl->linking_node_removed) {
+		impl->linking_node_removed = false;
+		return -ENOENT;
+	}
+	node->linking = false;
+
 	if (res > 0) {
 		node->peer = peer;
 		node->failed_peer = NULL;
@@ -656,8 +669,6 @@ static int link_nodes(struct node *node, struct node *peer)
 		node->failed_peer = peer;
 		node->failed_count++;
 	}
-	pw_properties_free(props);
-
 	return res;
 }
 

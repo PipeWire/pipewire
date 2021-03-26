@@ -1504,7 +1504,15 @@ impl_init(const struct spa_handle_factory *factory,
 		return -EINVAL;
 	}
 
-	this->bt_dev->settings = filter_bluez_device_setting(this, info);
+	if (info) {
+		int profiles;
+		this->bt_dev->settings = filter_bluez_device_setting(this, info);
+		if ((str = spa_dict_lookup(info, "bluez5.reconnect-profiles")) != NULL)
+			profiles = spa_bt_profiles_from_json_array(str);
+		if (str == NULL || profiles < 0)
+			profiles = SPA_BT_PROFILE_NULL;
+		this->bt_dev->reconnect_profiles = profiles;
+	}
 
 	this->device.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Device,

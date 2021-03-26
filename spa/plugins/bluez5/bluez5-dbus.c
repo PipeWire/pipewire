@@ -769,20 +769,27 @@ static int device_connected_old(struct spa_bt_monitor *monitor, struct spa_bt_de
 	return 0;
 }
 
+enum {
+	BT_DEVICE_RECONNECT_INIT = 0,
+	BT_DEVICE_RECONNECT_PROFILE,
+	BT_DEVICE_RECONNECT_STOP
+};
+
 static int device_connected(struct spa_bt_monitor *monitor, struct spa_bt_device *device, int status)
 {
 	struct spa_device_object_info info;
 	char dev[32], name[128], class[16];
 	struct spa_dict_item items[20];
 	uint32_t n_items = 0;
-	bool connection_changed, init;
+	bool connection_changed, init = status == BT_DEVICE_INIT;
+	status = init ? 0 : status;
+
+	device->reconnect_state = status ? BT_DEVICE_RECONNECT_STOP : BT_DEVICE_RECONNECT_PROFILE;
 
 	if (!monitor->connection_info_supported) {
 		return device_connected_old(monitor, device, status);
 	}
 
-	init = status == BT_DEVICE_INIT;
-	status = init ? 0 : status;
 	connection_changed = status ^ device->connected;
 	device->connected = status;
 
@@ -841,7 +848,77 @@ static int device_connected(struct spa_bt_monitor *monitor, struct spa_bt_device
 	return 0;
 }
 
+static int device_try_connect_profile(struct spa_bt_device *device,
+                                      const char *profile_uuid)
+{
+	struct spa_bt_monitor *monitor = device->monitor;
+	DBusMessage *m;
+
+	spa_log_info(monitor->log, "device %p %s: profile %s not connected; try ConnectProfile()",
+	             device, device->path, profile_uuid);
+
+	/* Call org.bluez.Device1.ConnectProfile() on device, ignoring result */
+
+	m = dbus_message_new_method_call(BLUEZ_SERVICE,
+	                                 device->path,
+	                                 BLUEZ_DEVICE_INTERFACE,
+	                                 "ConnectProfile");
+	if (m == NULL)
+		return -ENOMEM;
+	dbus_message_append_args(m, DBUS_TYPE_STRING, &profile_uuid, DBUS_TYPE_INVALID);
+	if (!dbus_connection_send(monitor->conn, m, NULL)) {
+		dbus_message_unref(m);
+		return -EIO;
+	}
+	dbus_message_unref(m);
+
+	return 0;
+}
+
+static int reconnect_device_profiles(struct spa_bt_device *device)
+{
+	uint32_t reconnect = device->profiles
+			& device->reconnect_profiles
+			& (device->connected_profiles ^ device->profiles);
+
+	if (!(device->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT)) {
+		if (reconnect & SPA_BT_PROFILE_HFP_HF) {
+			SPA_FLAG_CLEAR(reconnect, SPA_BT_PROFILE_HSP_HS);
+		} else if (reconnect & SPA_BT_PROFILE_HSP_HS) {
+			SPA_FLAG_CLEAR(reconnect, SPA_BT_PROFILE_HFP_HF);
+		}
+	} else
+		SPA_FLAG_CLEAR(reconnect, SPA_BT_PROFILE_HEADSET_HEAD_UNIT);
+
+	if (!(device->connected_profiles & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)) {
+		if (reconnect & SPA_BT_PROFILE_HFP_AG)
+			SPA_FLAG_CLEAR(reconnect, SPA_BT_PROFILE_HSP_AG);
+		else if (reconnect & SPA_BT_PROFILE_HSP_AG)
+			SPA_FLAG_CLEAR(reconnect, SPA_BT_PROFILE_HFP_AG);
+	} else
+		SPA_FLAG_CLEAR(reconnect, SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
+
+	if (reconnect & SPA_BT_PROFILE_HFP_HF)
+		device_try_connect_profile(device, SPA_BT_UUID_HFP_HF);
+	if (reconnect & SPA_BT_PROFILE_HSP_HS)
+		device_try_connect_profile(device, SPA_BT_UUID_HSP_HS);
+	if (reconnect & SPA_BT_PROFILE_HFP_AG)
+		device_try_connect_profile(device, SPA_BT_UUID_HFP_AG);
+	if (reconnect & SPA_BT_PROFILE_HSP_AG)
+		device_try_connect_profile(device, SPA_BT_UUID_HSP_AG);
+	if (reconnect & SPA_BT_PROFILE_A2DP_SINK)
+		device_try_connect_profile(device, SPA_BT_UUID_A2DP_SINK);
+	if (reconnect & SPA_BT_PROFILE_A2DP_SOURCE)
+		device_try_connect_profile(device, SPA_BT_UUID_A2DP_SOURCE);
+
+	return reconnect;
+}
+
+#define DEVICE_RECONNECT_TIMEOUT_SEC 2
 #define DEVICE_PROFILE_TIMEOUT_SEC 3
+
+static int device_start_timer(struct spa_bt_device *device);
+static int device_stop_timer(struct spa_bt_device *device);
 
 static void device_timer_event(struct spa_source *source)
 {
@@ -854,8 +931,21 @@ static void device_timer_event(struct spa_source *source)
 
 	spa_log_debug(monitor->log, "device %p: timeout %08x %08x",
 			device, device->profiles, device->connected_profiles);
-
-	device_connected(device->monitor, device, BT_DEVICE_CONNECTED);
+	device_stop_timer(device);
+	if (BT_DEVICE_RECONNECT_STOP != device->reconnect_state) {
+		device->reconnect_state = BT_DEVICE_RECONNECT_STOP;
+		if (device->paired
+			&& device->trusted
+			&& !device->blocked
+			&& device->reconnect_profiles != 0
+			&& reconnect_device_profiles(device))
+		{
+			device_start_timer(device);
+			return;
+		}
+	}
+	if (device->connected_profiles)
+		device_connected(device->monitor, device, BT_DEVICE_CONNECTED);
 }
 
 static int device_start_timer(struct spa_bt_device *device)
@@ -873,7 +963,9 @@ static int device_start_timer(struct spa_bt_device *device)
 		device->timer.rmask = 0;
 		spa_loop_add_source(monitor->main_loop, &device->timer);
 	}
-	ts.it_value.tv_sec = DEVICE_PROFILE_TIMEOUT_SEC;
+	ts.it_value.tv_sec = device->reconnect_state == BT_DEVICE_RECONNECT_STOP
+				? DEVICE_PROFILE_TIMEOUT_SEC
+				: DEVICE_RECONNECT_TIMEOUT_SEC;
 	ts.it_value.tv_nsec = 0;
 	ts.it_interval.tv_sec = 0;
 	ts.it_interval.tv_nsec = 0;
@@ -921,6 +1013,10 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 		device_stop_timer(device);
 		device_connected(monitor, device, BT_DEVICE_CONNECTED);
 	} else {
+		/* The initial reconnect event has not been triggred,
+		 * the connecting is triggred by bluez. */
+		if (device->reconnect_state == BT_DEVICE_RECONNECT_INIT)
+			device->reconnect_state = BT_DEVICE_RECONNECT_PROFILE;
 		device_start_timer(device);
 	}
 	return 0;
@@ -936,8 +1032,9 @@ static void device_set_connected(struct spa_bt_device *device, int connected)
 	if (connected)
 		spa_bt_device_check_profiles(device, false);
 	else {
-		device_stop_timer(device);
-		device_connected(monitor, device, connected);
+		if (device->reconnect_state != BT_DEVICE_RECONNECT_INIT)
+			device_stop_timer(device);
+		device_connected(monitor, device, BT_DEVICE_DISCONNECTED);
 	}
 }
 
@@ -1148,53 +1245,6 @@ const struct a2dp_codec **spa_bt_device_get_supported_a2dp_codecs(struct spa_bt_
 	*count = j;
 
 	return supported_codecs;
-}
-
-static int device_try_connect_profile(struct spa_bt_device *device,
-                                      enum spa_bt_profile profile,
-                                      const char *profile_uuid)
-{
-	struct spa_bt_monitor *monitor = device->monitor;
-	DBusMessage *m;
-
-	if (!(device->profiles & profile) || (device->connected_profiles & profile))
-		return 0;
-
-	spa_log_info(monitor->log, "device %p %s: A2DP profile %s not connected; try ConnectProfile()",
-	             device, device->path, profile_uuid);
-
-	/* Call org.bluez.Device1.ConnectProfile() on device, ignoring result */
-
-	m = dbus_message_new_method_call(BLUEZ_SERVICE,
-	                                 device->path,
-	                                 BLUEZ_DEVICE_INTERFACE,
-	                                 "ConnectProfile");
-	if (m == NULL)
-		return -ENOMEM;
-	dbus_message_append_args(m, DBUS_TYPE_STRING, &profile_uuid, DBUS_TYPE_INVALID);
-	if (!dbus_connection_send(monitor->conn, m, NULL)) {
-		dbus_message_unref(m);
-		return -EIO;
-	}
-	dbus_message_unref(m);
-
-	return 0;
-}
-
-static void reconnect_device_profiles(struct spa_bt_monitor *monitor)
-{
-	struct spa_bt_device *device;
-
-	/* Call org.bluez.Device1.ConnectProfile() on connected devices, it they have A2DP but the
-	 * profile is not yet connected.
-	 */
-
-	spa_list_for_each(device, &monitor->device_list, link) {
-		if (device->connected) {
-			device_try_connect_profile(device, SPA_BT_PROFILE_A2DP_SINK, SPA_BT_UUID_A2DP_SINK);
-			device_try_connect_profile(device, SPA_BT_PROFILE_A2DP_SOURCE, SPA_BT_UUID_A2DP_SOURCE);
-		}
-	}
 }
 
 static struct spa_bt_remote_endpoint *device_remote_endpoint_find(struct spa_bt_device *device, const char *path)
@@ -2696,9 +2746,6 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 		if (!dbus_connection_send(monitor->conn, r, NULL))
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 		res = DBUS_HANDLER_RESULT_HANDLED;
-
-		/* Reconnect A2DP profiles for existing connected devices */
-		reconnect_device_profiles(monitor);
 	}
 	else
 		res = DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -2872,6 +2919,8 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		/* Trigger bluez device creation before bluez profile negotiation started so that
 		 * profile connection handlers can receive per-device settings during profile negotiation. */
 		device_connected(monitor, d, BT_DEVICE_INIT);
+		d->reconnect_state = BT_DEVICE_RECONNECT_INIT;
+		device_start_timer(d);
 	}
 	else if (strcmp(interface_name, BLUEZ_MEDIA_ENDPOINT_INTERFACE) == 0) {
 		struct spa_bt_remote_endpoint *ep;
@@ -3374,6 +3423,36 @@ impl_get_size(const struct spa_handle_factory *factory,
 	      const struct spa_dict *params)
 {
 	return sizeof(struct spa_bt_monitor);
+}
+
+int spa_bt_profiles_from_json_array(const char *str)
+{
+	struct spa_json it, it_array;
+	char role_name[256];
+	enum spa_bt_profile profiles = SPA_BT_PROFILE_NULL;
+
+	spa_json_init(&it, str, strlen(str));
+
+	if (spa_json_enter_array(&it, &it_array) <= 0)
+		return -EINVAL;
+
+	while (spa_json_get_string(&it_array, role_name, sizeof(role_name)) > 0) {
+		if (strcmp(role_name, "hsp_hs") == 0) {
+			profiles |= SPA_BT_PROFILE_HSP_HS;
+		} else if (strcmp(role_name, "hsp_ag") == 0) {
+			profiles |= SPA_BT_PROFILE_HSP_AG;
+		} else if (strcmp(role_name, "hfp_hf") == 0) {
+			profiles |= SPA_BT_PROFILE_HFP_HF;
+		} else if (strcmp(role_name, "hfp_ag") == 0) {
+			profiles |= SPA_BT_PROFILE_HFP_AG;
+		} else if (strcmp(role_name, "a2dp_sink") == 0) {
+			profiles |= SPA_BT_PROFILE_A2DP_SINK;
+		} else if (strcmp(role_name, "a2dp_source") == 0) {
+			profiles |= SPA_BT_PROFILE_A2DP_SOURCE;
+		}
+	}
+
+	return profiles;
 }
 
 static int parse_codec_array(struct spa_bt_monitor *this, const struct spa_dict *info)

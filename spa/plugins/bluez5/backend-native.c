@@ -1619,38 +1619,17 @@ static int backend_native_free(void *data)
 static int parse_headset_roles(struct impl *backend, const struct spa_dict *info)
 {
 	const char *str;
-	struct spa_json it, it_array;
-	char role_name[256];
-	enum spa_bt_profile profiles = SPA_BT_PROFILE_NULL;
+	int profiles = SPA_BT_PROFILE_NULL;
 
 	if (info == NULL ||
 	    (str = spa_dict_lookup(info, PROP_KEY_HEADSET_ROLES)) == NULL)
 		goto fallback;
 
-	spa_json_init(&it, str, strlen(str));
-
-	if (spa_json_enter_array(&it, &it_array) <= 0) {
-		spa_log_error(backend->log,
-					  NAME": property "PROP_KEY_HEADSET_ROLES" '%s' is not an array", str);
+	profiles = spa_bt_profiles_from_json_array(str);
+	if (profiles < 0)
 		goto fallback;
-	}
 
-	while (spa_json_get_string(&it_array, role_name, sizeof(role_name)) > 0) {
-		if (strcmp(role_name, "hsp_hs") == 0) {
-			profiles |= SPA_BT_PROFILE_HSP_HS;
-		} else if (strcmp(role_name, "hsp_ag") == 0) {
-			profiles |= SPA_BT_PROFILE_HSP_AG;
-		} else if (strcmp(role_name, "hfp_hf") == 0) {
-			profiles |= SPA_BT_PROFILE_HFP_HF;
-		} else if (strcmp(role_name, "hfp_ag") == 0) {
-			profiles |= SPA_BT_PROFILE_HFP_AG;
-		} else {
-			spa_log_warn(backend->log,
-				         NAME": unknown role name '%s' in "PROP_KEY_HEADSET_ROLES, role_name);
-		}
-	}
-
-	backend->enabled_profiles = profiles;
+	backend->enabled_profiles = profiles & SPA_BT_PROFILE_HEADSET_AUDIO;
 	return 0;
 fallback:
 	backend->enabled_profiles = DEFAULT_ENABLED_PROFILES;

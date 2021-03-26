@@ -200,6 +200,7 @@ static inline enum spa_bt_profile spa_bt_profile_from_uuid(const char *uuid)
 	else
 		return 0;
 }
+int spa_bt_profiles_from_json_array(const char *str);
 
 enum spa_bt_hfp_ag_feature {
 	SPA_BT_HFP_AG_FEATURE_NONE =			(0),
@@ -406,6 +407,8 @@ struct spa_bt_device {
 	int blocked;
 	uint32_t profiles;
 	uint32_t connected_profiles;
+	uint32_t reconnect_profiles;
+	int reconnect_state;
 	struct spa_source timer;
 	struct spa_list remote_endpoint_list;
 	struct spa_list transport_list;

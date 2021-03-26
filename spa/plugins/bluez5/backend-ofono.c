@@ -541,7 +541,7 @@ static int backend_ofono_register(void *data)
 	const char *path = OFONO_AUDIO_CLIENT;
 	uint8_t codecs[2];
 	const uint8_t *pcodecs = codecs;
-	int ncodecs = 0;
+	int ncodecs = 0, res;
 	DBusPendingCall *call;
 	DBusError err;
 
@@ -566,9 +566,17 @@ static int backend_ofono_register(void *data)
 	dbus_message_unref(m);
 
 	if (r == NULL) {
-		spa_log_warn(backend->log, NAME": Registering Profile %s failed", path);
+		if (dbus_error_has_name(&err, "org.freedesktop.DBus.Error.ServiceUnknown")) {
+			spa_log_info(backend->log, NAME": oFono not available: %s",
+					err.message);
+			res = -ENOTSUP;
+		} else {
+			spa_log_warn(backend->log, NAME": Registering Profile %s failed: %s (%s)",
+					path, err.message, err.name);
+			res = -EIO;
+		}
 		dbus_error_free(&err);
-		return -EIO;
+		return res;
 	}
 
 	if (dbus_message_is_error(r, OFONO_ERROR_INVALID_ARGUMENTS)) {

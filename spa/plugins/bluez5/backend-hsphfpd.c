@@ -1219,6 +1219,7 @@ static int backend_hsphfpd_register(void *data)
 	const char *path = APPLICATION_OBJECT_MANAGER_PATH;
 	DBusPendingCall *call;
 	DBusError err;
+	int res;
 
 	spa_log_debug(backend->log, NAME": Registering to hsphfpd");
 
@@ -1235,9 +1236,17 @@ static int backend_hsphfpd_register(void *data)
 	dbus_message_unref(m);
 
 	if (r == NULL) {
-		spa_log_warn(backend->log, NAME": Registering application %s failed", path);
+		if (dbus_error_has_name(&err, "org.freedesktop.DBus.Error.ServiceUnknown")) {
+			spa_log_info(backend->log, NAME": hsphfpd not available: %s",
+					err.message);
+			res = -ENOTSUP;
+		} else {
+			spa_log_warn(backend->log, NAME": Registering application %s failed: %s (%s)",
+					path, err.message, err.name);
+			res = -EIO;
+		}
 		dbus_error_free(&err);
-		return -EIO;
+		return res;
 	}
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {

@@ -2924,6 +2924,7 @@ static void interface_added(struct spa_bt_monitor *monitor,
 	}
 	else if (strcmp(interface_name, BLUEZ_MEDIA_ENDPOINT_INTERFACE) == 0) {
 		struct spa_bt_remote_endpoint *ep;
+		struct spa_bt_device *d;
 
 		ep = remote_endpoint_find(monitor, object_path);
 		if (ep == NULL) {
@@ -2935,6 +2936,10 @@ static void interface_added(struct spa_bt_monitor *monitor,
 			}
 		}
 		remote_endpoint_update_props(ep, props_iter, NULL);
+
+		d = ep->device;
+		if (d)
+			spa_bt_device_emit_profiles_changed(d, d->profiles, d->connected_profiles);
 	}
 }
 
@@ -2992,8 +2997,12 @@ static void interfaces_removed(struct spa_bt_monitor *monitor, DBusMessageIter *
 		} else if (strcmp(interface_name, BLUEZ_MEDIA_ENDPOINT_INTERFACE) == 0) {
 			struct spa_bt_remote_endpoint *ep;
 			ep = remote_endpoint_find(monitor, object_path);
-			if (ep != NULL)
+			if (ep != NULL) {
+				struct spa_bt_device *d = ep->device;
 				remote_endpoint_free(ep);
+				if (d)
+					spa_bt_device_emit_profiles_changed(d, d->profiles, d->connected_profiles);
+			}
 		}
 
 		dbus_message_iter_next(&it);
@@ -3234,6 +3243,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 		}
 		else if (strcmp(iface, BLUEZ_MEDIA_ENDPOINT_INTERFACE) == 0) {
 			struct spa_bt_remote_endpoint *ep;
+			struct spa_bt_device *d;
 
 			ep = remote_endpoint_find(monitor, path);
 			if (ep == NULL) {
@@ -3244,6 +3254,10 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 			spa_log_debug(monitor->log, "Properties changed in remote endpoint %s", path);
 
 			remote_endpoint_update_props(ep, &it[1], NULL);
+
+			d = ep->device;
+			if (d)
+				spa_bt_device_emit_profiles_changed(d, d->profiles, d->connected_profiles);
 		}
 		else if (strcmp(iface, BLUEZ_MEDIA_TRANSPORT_INTERFACE) == 0) {
 			struct spa_bt_transport *transport;

@@ -157,6 +157,16 @@ static const struct a2dp_codec *get_a2dp_codec(enum spa_bluetooth_audio_codec id
 	return NULL;
 }
 
+static const struct a2dp_codec *get_supported_a2dp_codec(struct impl *this, enum spa_bluetooth_audio_codec id)
+{
+	const struct a2dp_codec *a2dp_codec = NULL;
+	size_t i;
+	for (i = 0; i < this->supported_codec_count; ++i)
+		if (this->supported_codecs[i]->id == id)
+			a2dp_codec = this->supported_codecs[i];
+	return a2dp_codec;
+}
+
 static unsigned int get_hfp_codec(enum spa_bluetooth_audio_codec id)
 {
 	switch (id) {
@@ -572,6 +582,12 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 	if (this->switching_codec)
 		return;
 
+	if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SINK) {
+		free(this->supported_codecs);
+		this->supported_codecs = spa_bt_device_get_supported_a2dp_codecs(
+			this->bt_dev, &this->supported_codec_count);
+	}
+
 	switch (this->profile) {
 	case DEVICE_PROFILE_OFF:
 		/* Noop */
@@ -584,12 +600,16 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 			      nodes_changed);
 		break;
 	case DEVICE_PROFILE_A2DP:
+		if (get_supported_a2dp_codec(this, this->props.codec) == NULL)
+			this->props.codec = 0;
 		nodes_changed = (connected_change & (SPA_BT_PROFILE_A2DP_SINK |
 						     SPA_BT_PROFILE_A2DP_SOURCE));
 		spa_log_debug(this->log, NAME": profiles changed: A2DP nodes changed: %d",
 			      nodes_changed);
 		break;
 	case DEVICE_PROFILE_HSP_HFP:
+		if (spa_bt_device_supports_hfp_codec(this->bt_dev, get_hfp_codec(this->props.codec)) == 0)
+			this->props.codec = 0;
 		nodes_changed = (connected_change & SPA_BT_PROFILE_HEADSET_HEAD_UNIT);
 		spa_log_debug(this->log, NAME": profiles changed: HSP/HFP nodes changed: %d",
 			      nodes_changed);
@@ -599,12 +619,6 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 	if (nodes_changed) {
 		emit_remove_nodes(this);
 		emit_nodes(this);
-	}
-
-	if (connected_change & SPA_BT_PROFILE_A2DP_SINK) {
-		free(this->supported_codecs);
-		this->supported_codecs = spa_bt_device_get_supported_a2dp_codecs(
-			this->bt_dev, &this->supported_codec_count);
 	}
 
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
@@ -834,11 +848,7 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		name = spa_bt_profile_name(profile);
 		n_sink++;
 		if (codec) {
-			uint32_t i;
-			const struct a2dp_codec *a2dp_codec = NULL;
-			for (i = 0; i < this->supported_codec_count; ++i)
-				if (codec == this->supported_codecs[i]->id)
-					a2dp_codec = this->supported_codecs[i];
+			const struct a2dp_codec *a2dp_codec = get_supported_a2dp_codec(this, codec);
 			if (a2dp_codec == NULL) {
 				errno = -EINVAL;
 				return NULL;

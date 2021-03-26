@@ -89,8 +89,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (impl == NULL)
 		return -errno;
 
-	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
-
 	pw_log_debug("module %p: new %s", impl, args);
 
 	if (args)
@@ -103,6 +101,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		res = -errno;
 		goto error;
 	}
+
+	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 

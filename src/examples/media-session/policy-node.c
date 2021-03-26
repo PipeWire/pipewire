@@ -952,6 +952,11 @@ again:
 static void session_destroy(void *data)
 {
 	struct impl *impl = data;
+	struct default_node *def;
+	for (def = impl->defaults; def->key != NULL; ++def) {
+		free(def->config);
+		free(def->value);
+	}
 	spa_hook_remove(&impl->listener);
 	if (impl->session->metadata)
 		spa_hook_remove(&impl->meta_listener);

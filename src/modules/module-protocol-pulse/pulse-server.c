@@ -885,7 +885,7 @@ static void send_default_change_subscribe_event(struct client *client, bool sink
 		                     -1);
 }
 
-static void handle_metadata_added(struct client *client, struct pw_manager_object *o,
+static void handle_metadata(struct client *client, struct pw_manager_object *o,
 		const char *name)
 {
 	if (strcmp(name, "default") == 0) {
@@ -906,11 +906,11 @@ static void manager_added(void *data, struct pw_manager_object *o)
 	const char *str;
 
 	register_object_message_handlers(o);
-	
+
 	if (strcmp(o->type, PW_TYPE_INTERFACE_Metadata) == 0) {
 		if (o->props != NULL &&
 		    (str = pw_properties_get(o->props, PW_KEY_METADATA_NAME)) != NULL)
-			handle_metadata_added(client, o, str);
+			handle_metadata(client, o, str);
 	}
 	if ((event = get_event_and_id(client, o, &id)) != SPA_ID_INVALID)
 		send_subscribe_event(client,
@@ -939,6 +939,7 @@ static void manager_removed(void *data, struct pw_manager_object *o)
 {
 	struct client *client = data;
 	uint32_t event, id;
+	const char *str;
 
 	if ((event = get_event_and_id(client, o, &id)) != SPA_ID_INVALID)
 		send_subscribe_event(client,
@@ -946,6 +947,12 @@ static void manager_removed(void *data, struct pw_manager_object *o)
 				id);
 
 	send_default_change_subscribe_event(client, object_is_sink(o), object_is_source_or_monitor(o));
+
+	if (strcmp(o->type, PW_TYPE_INTERFACE_Metadata) == 0) {
+		if (o->props != NULL &&
+		    (str = pw_properties_get(o->props, PW_KEY_METADATA_NAME)) != NULL)
+			handle_metadata(client, NULL, str);
+	}
 }
 
 static int json_object_find(const char *obj, const char *key, char *value, size_t len)

@@ -540,7 +540,7 @@ struct pw_global *pw_context_find_global(struct pw_context *context, uint32_t id
 	struct pw_global *global;
 
 	global = pw_map_lookup(&context->globals, id);
-	if (global == NULL || global->destroyed) {
+	if (global == NULL || !global->registered) {
 		errno = ENOENT;
 		return NULL;
 	}

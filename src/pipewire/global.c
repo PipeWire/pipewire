@@ -169,7 +169,6 @@ static int global_unregister(struct pw_global *global)
 	}
 
 	spa_list_remove(&global->link);
-	pw_map_remove(&context->globals, global->id);
 	global->registered = false;
 
 	pw_log_debug(NAME" %p: unregistered %u", global, global->id);
@@ -373,6 +372,7 @@ SPA_EXPORT
 void pw_global_destroy(struct pw_global *global)
 {
 	struct pw_resource *resource;
+	struct pw_context *context = global->context;
 
 	global->destroyed = true;
 
@@ -387,6 +387,7 @@ void pw_global_destroy(struct pw_global *global)
 	pw_log_debug(NAME" %p: free", global);
 	pw_global_emit_free(global);
 
+	pw_map_remove(&context->globals, global->id);
 	spa_hook_list_clean(&global->listener_list);
 
 	pw_properties_free(global->properties);

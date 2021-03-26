@@ -396,6 +396,7 @@ static int do_replace(struct pw_properties *properties, const char *key, char *v
 		if (value == NULL)
 			return 0;
 		add_func(properties, strdup(key), copy ? strdup(value) : value);
+		SPA_FLAG_CLEAR(properties->dict.flags, SPA_DICT_FLAG_SORTED);
 	} else {
 		struct spa_dict_item *item =
 		    pw_array_get_unchecked(&impl->items, index, struct spa_dict_item);
@@ -412,6 +413,7 @@ static int do_replace(struct pw_properties *properties, const char *key, char *v
 			item->value = last->value;
 			impl->items.size -= sizeof(struct spa_dict_item);
 			properties->dict.n_items--;
+			SPA_FLAG_CLEAR(properties->dict.flags, SPA_DICT_FLAG_SORTED);
 		} else {
 			free((char *) item->value);
 			item->value = copy ? strdup(value) : value;

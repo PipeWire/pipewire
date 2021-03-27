@@ -806,9 +806,9 @@ static void test_varargs(void)
 			spa_assert(SPA_POD_CHOICE_VALUE_TYPE(&prop->value) == SPA_TYPE_Id);
 			spa_assert(SPA_POD_CHOICE_VALUE_SIZE(&prop->value) == sizeof(uint32_t));
 			spa_assert((aI = SPA_POD_CHOICE_VALUES(&prop->value)) != NULL);
-			spa_assert(aI[0] = SPA_VIDEO_FORMAT_I420);
-			spa_assert(aI[1] = SPA_VIDEO_FORMAT_I420);
-			spa_assert(aI[1] = SPA_VIDEO_FORMAT_YUY2);
+			spa_assert(aI[0] == SPA_VIDEO_FORMAT_I420);
+			spa_assert(aI[1] == SPA_VIDEO_FORMAT_I420);
+			spa_assert(aI[2] == SPA_VIDEO_FORMAT_YUY2);
 			break;
 		case 3:
 			spa_assert(prop->key == SPA_FORMAT_VIDEO_size);
@@ -857,9 +857,9 @@ static void test_varargs(void)
 	spa_assert(SPA_POD_CHOICE_VALUE_TYPE(Vformat) == SPA_TYPE_Id);
 	spa_assert(SPA_POD_CHOICE_VALUE_SIZE(Vformat) == sizeof(uint32_t));
 	spa_assert((aI = SPA_POD_CHOICE_VALUES(Vformat)) != NULL);
-	spa_assert(aI[0] = SPA_VIDEO_FORMAT_I420);
-	spa_assert(aI[1] = SPA_VIDEO_FORMAT_I420);
-	spa_assert(aI[1] = SPA_VIDEO_FORMAT_YUY2);
+	spa_assert(aI[0] == SPA_VIDEO_FORMAT_I420);
+	spa_assert(aI[1] == SPA_VIDEO_FORMAT_I420);
+	spa_assert(aI[2] == SPA_VIDEO_FORMAT_YUY2);
 
 	spa_assert(spa_pod_is_choice(Vsize));
 	spa_assert(SPA_POD_CHOICE_TYPE(Vsize) == SPA_CHOICE_Range);

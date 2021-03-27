@@ -1379,7 +1379,7 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index, uint32_t fla
 		PA_IDXSET_FOREACH(am, np->input_mappings, idx) {
 			if (impl->use_ucm)
 				/* Update ports priorities */
-				pa_alsa_ucm_add_ports_combination(am->output.ports, &am->ucm_context,
+				pa_alsa_ucm_add_ports_combination(am->input.ports, &am->ucm_context,
 					false, impl->ports, np, NULL);
 			device_enable(impl, am, &am->input);
 		}

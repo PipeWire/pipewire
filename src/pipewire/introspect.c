@@ -56,10 +56,8 @@ const char *pw_direction_as_string(enum pw_direction direction)
 		return "input";
 	case PW_DIRECTION_OUTPUT:
 		return "output";
-	default:
-		return "invalid";
 	}
-	return "invalid-direction";
+	return "invalid";
 }
 
 SPA_EXPORT

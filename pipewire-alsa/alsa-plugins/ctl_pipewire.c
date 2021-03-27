@@ -799,12 +799,14 @@ static void parse_props(struct global *g, const struct spa_pod *param, bool devi
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_volume:
-			spa_pod_get_float(&prop->value, &g->node.volume);
+			if (spa_pod_get_float(&prop->value, &g->node.volume) < 0)
+				continue;
 			pw_log_debug("update node %d volume", g->id);
 			SPA_FLAG_UPDATE(g->node.flags, NODE_FLAG_DEVICE_VOLUME, device);
 			break;
 		case SPA_PROP_mute:
-			spa_pod_get_bool(&prop->value, &g->node.mute);
+			if (spa_pod_get_bool(&prop->value, &g->node.mute) < 0)
+				continue;
 			SPA_FLAG_UPDATE(g->node.flags, NODE_FLAG_DEVICE_MUTE, device);
 			pw_log_debug("update node %d mute", g->id);
 			break;

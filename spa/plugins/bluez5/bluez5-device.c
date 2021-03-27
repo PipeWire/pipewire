@@ -1521,7 +1521,7 @@ static int impl_set_param(void *object,
 	}
 	case SPA_PARAM_Props:
 	{
-		const uint32_t codec_id = SPA_ID_INVALID;
+		uint32_t codec_id = SPA_ID_INVALID;
 
 		if (param == NULL)
 			return 0;

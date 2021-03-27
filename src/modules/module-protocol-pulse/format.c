@@ -537,7 +537,8 @@ static int format_parse_param(const struct spa_pod *param, struct sample_spec *s
 	struct spa_audio_info info = { 0 };
 	uint32_t i;
 
-        spa_format_parse(param, &info.media_type, &info.media_subtype);
+	if (spa_format_parse(param, &info.media_type, &info.media_subtype) < 0)
+		return -ENOTSUP;
 
 	if (info.media_type != SPA_MEDIA_TYPE_audio ||
 	    info.media_subtype != SPA_MEDIA_SUBTYPE_raw ||

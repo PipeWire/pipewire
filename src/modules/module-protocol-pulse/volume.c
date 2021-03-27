@@ -91,13 +91,15 @@ static int volume_parse_param(const struct spa_pod *param, struct volume_info *i
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_volume:
-			spa_pod_get_float(&prop->value, &info->level);
+			if (spa_pod_get_float(&prop->value, &info->level) < 0)
+				continue;
 			SPA_FLAG_UPDATE(info->flags, VOLUME_HW_VOLUME,
                                         prop->flags & SPA_POD_PROP_FLAG_HARDWARE);
 
 			break;
 		case SPA_PROP_mute:
-			spa_pod_get_bool(&prop->value, &info->mute);
+			if (spa_pod_get_bool(&prop->value, &info->mute) < 0)
+				continue;
 			SPA_FLAG_UPDATE(info->flags, VOLUME_HW_MUTE,
                                         prop->flags & SPA_POD_PROP_FLAG_HARDWARE);
 			break;
@@ -108,7 +110,8 @@ static int volume_parse_param(const struct spa_pod *param, struct volume_info *i
                                         prop->flags & SPA_POD_PROP_FLAG_HARDWARE);
 			break;
 		case SPA_PROP_volumeBase:
-			spa_pod_get_float(&prop->value, &info->base);
+			if (spa_pod_get_float(&prop->value, &info->base) < 0)
+				continue;
 			break;
 		case SPA_PROP_volumeStep:
 		{

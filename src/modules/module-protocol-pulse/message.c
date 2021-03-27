@@ -326,7 +326,7 @@ static int read_format_info(struct message *m, struct format_info *info)
 static int message_get(struct message *m, ...)
 {
 	va_list va;
-	int res;
+	int res = 0;
 
 	va_start(va, m);
 
@@ -342,102 +342,109 @@ static int message_get(struct message *m, ...)
 		switch (dtag) {
 		case TAG_STRING:
 			if (tag != TAG_STRING)
-				return -EINVAL;
+				goto invalid;
 			if ((res = read_string(m, va_arg(va, char**))) < 0)
-				return res;
+				goto done;
 			break;
 		case TAG_STRING_NULL:
 			if (tag != TAG_STRING)
-				return -EINVAL;
+				goto invalid;
 			*va_arg(va, char**) = NULL;
 			break;
 		case TAG_U8:
 			if (dtag != tag)
-				return -EINVAL;
+				goto invalid;
 			if ((res = read_u8(m, va_arg(va, uint8_t*))) < 0)
-				return res;
+				goto done;
 			break;
 		case TAG_U32:
 			if (dtag != tag)
-				return -EINVAL;
+				goto invalid;
 			if ((res = read_u32(m, va_arg(va, uint32_t*))) < 0)
-				return res;
+				goto done;
 			break;
 		case TAG_S64:
 		case TAG_U64:
 		case TAG_USEC:
 			if (dtag != tag)
-				return -EINVAL;
+				goto invalid;
 			if ((res = read_u64(m, va_arg(va, uint64_t*))) < 0)
-				return res;
+				goto done;
 			break;
 		case TAG_SAMPLE_SPEC:
 			if (dtag != tag)
-				return -EINVAL;
+				goto invalid;
 			if ((res = read_sample_spec(m, va_arg(va, struct sample_spec*))) < 0)
-				return res;
+				goto done;
 			break;
 		case TAG_ARBITRARY:
 		{
 			const void **val = va_arg(va, const void**);
 			size_t *len = va_arg(va, size_t*);
 			if (dtag != tag)
-				return -EINVAL;
+				goto invalid;
 			if ((res = read_arbitrary(m, val, len)) < 0)
-				return res;
+				goto done;
 			break;
 		}
 		case TAG_BOOLEAN_TRUE:
 			if (tag != TAG_BOOLEAN)
-				return -EINVAL;
+				goto invalid;
 			*va_arg(va, bool*) = true;
 			break;
 		case TAG_BOOLEAN_FALSE:
 			if (tag != TAG_BOOLEAN)
-				return -EINVAL;
+				goto invalid;
 			*va_arg(va, bool*) = false;
 			break;
 		case TAG_TIMEVAL:
 			if (dtag != tag)
-				return -EINVAL;
+				goto invalid;
 			if ((res = read_timeval(m, va_arg(va, struct timeval*))) < 0)
-				return res;
+				goto done;
 			break;
 		case TAG_CHANNEL_MAP:
 			if (dtag != tag)
-				return -EINVAL;
+				goto invalid;
 			if ((res = read_channel_map(m, va_arg(va, struct channel_map*))) < 0)
-				return res;
+				goto done;
 			break;
 		case TAG_CVOLUME:
 			if (dtag != tag)
-				return -EINVAL;
+				goto invalid;
 			if ((res = read_cvolume(m, va_arg(va, struct volume*))) < 0)
-				return res;
+				goto done;
 			break;
 		case TAG_PROPLIST:
 			if (dtag != tag)
-				return -EINVAL;
+				goto invalid;
 			if ((res = read_props(m, va_arg(va, struct pw_properties*), true)) < 0)
-				return res;
+				goto done;
 			break;
 		case TAG_VOLUME:
 			if (dtag != tag)
-				return -EINVAL;
+				goto invalid;
 			if ((res = read_volume(m, va_arg(va, float*))) < 0)
-				return res;
+				goto done;
 			break;
 		case TAG_FORMAT_INFO:
 			if (dtag != tag)
-				return -EINVAL;
+				goto invalid;
 			if ((res = read_format_info(m, va_arg(va, struct format_info*))) < 0)
-				return res;
+				goto done;
 			break;
 		}
 	}
+	res = 0;
+	goto done;
+
+invalid:
+	res = -EINVAL;
+
+done:
 	va_end(va);
 
-	return 0;
+	return res;
 }
 
 static int ensure_size(struct message *m, uint32_t size)

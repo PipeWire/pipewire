@@ -158,11 +158,13 @@ static char *serialize_props(struct stream *str, const struct spa_pod *param)
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_volume:
-			spa_pod_get_float(&prop->value, &val);
+			if (spa_pod_get_float(&prop->value, &val) < 0)
+				continue;
 			fprintf(f, "%s\"volume\": %f", (comma ? ", " : ""), val);
 			break;
 		case SPA_PROP_mute:
-			spa_pod_get_bool(&prop->value, &b);
+			if (spa_pod_get_bool(&prop->value, &b) < 0)
+				continue;
 			fprintf(f, "%s\"mute\": %s", (comma ? ", " : ""), b ? "true" : "false");
 			break;
 		case SPA_PROP_channelVolumes:

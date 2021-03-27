@@ -212,13 +212,14 @@ static int do_extension_stream_restore_write(struct client *client, uint32_t com
 		spa_zero(map);
 		spa_zero(vol);
 
-		message_get(m,
-			TAG_STRING, &name,
-			TAG_CHANNEL_MAP, &map,
-			TAG_CVOLUME, &vol,
-			TAG_STRING, &device_name,
-			TAG_BOOLEAN, &mute,
-			TAG_INVALID);
+		if (message_get(m,
+				TAG_STRING, &name,
+				TAG_CHANNEL_MAP, &map,
+				TAG_CVOLUME, &vol,
+				TAG_STRING, &device_name,
+				TAG_BOOLEAN, &mute,
+				TAG_INVALID) < 0)
+			return -EPROTO;
 
 		if (name == NULL || name[0] == '\0')
 			return -EPROTO;
@@ -247,9 +248,10 @@ static int do_extension_stream_restore_write(struct client *client, uint32_t com
 
 		if (key_from_name(name, key, sizeof(key)) >= 0) {
 			pw_log_debug("%s -> %s: %s", name, key, ptr);
-			pw_manager_set_metadata(client->manager,
-					client->metadata_routes,
-					PW_ID_CORE, key, "Spa:String:JSON", "%s", ptr);
+			if (pw_manager_set_metadata(client->manager,
+							client->metadata_routes,
+							PW_ID_CORE, key, "Spa:String:JSON", "%s", ptr) < 0)
+				pw_log_warn(NAME ": failed to set metadata %s = %s", key, ptr);
 		}
 		free(ptr);
 	}

@@ -1914,7 +1914,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	struct channel_map map;
 	uint32_t sink_index, syncid;
 	const char *sink_name;
-	struct buffer_attr attr;
+	struct buffer_attr attr = { 0 };
 	bool corked = false,
 		no_remap = false,
 		no_remix = false,
@@ -2178,8 +2178,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		fail_on_suspend = false,
 		relative_volume = false,
 		passthrough = false;
-	uint32_t direct_on_input_idx;
-	struct volume volume;
+	uint32_t direct_on_input_idx = SPA_ID_INVALID;
+	struct volume volume = VOLUME_INIT;
 	struct pw_properties *props = NULL;
 	uint8_t n_formats = 0;
 	struct stream *stream = NULL;
@@ -2287,6 +2287,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 				TAG_BOOLEAN, &passthrough,
 				TAG_INVALID)) < 0)
 			goto error_protocol;
+	} else {
+		volume_set = false;
 	}
 	if (sample_spec_valid(&ss)) {
 		if (n_params < MAX_FORMATS &&
@@ -4576,7 +4578,10 @@ error:
 static uint64_t bytes_to_usec(uint64_t length, const struct sample_spec *ss)
 {
 	uint64_t u;
-	u = length / sample_spec_frame_size(ss);
+	uint64_t frame_size = sample_spec_frame_size(ss);
+	if (frame_size == 0)
+		return 0;
+	u = length / frame_size;
 	u *= SPA_USEC_PER_SEC;
 	u /= ss->rate;
 	return u;

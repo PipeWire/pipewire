@@ -615,7 +615,8 @@ static uint32_t collect_transport_codec_info(struct pw_manager_object *card,
 
 		/* Codec description list */
 		spa_pod_parser_pod(&prs, (struct spa_pod *)labels);
-		spa_pod_parser_push_struct(&prs, &f);
+		if (spa_pod_parser_push_struct(&prs, &f) < 0)
+			continue;
 
 		while (1) {
 			int32_t id;

@@ -908,6 +908,7 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 	if (impl->conn &&
 	    (card = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_CARD)) != NULL) {
 		const char *reserve;
+		const char *path = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_PATH);
 
 		device->priority -= atol(card) * 64;
 
@@ -920,9 +921,10 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 
 		if (device->reserve == NULL) {
 			pw_log_warn("can't create device reserve for %s: %m", reserve);
+		} else if (path) {
+			rd_device_set_application_device_name(device->reserve, path);
 		} else {
-			rd_device_set_application_device_name(device->reserve,
-				spa_dict_lookup(info->props, SPA_KEY_API_ALSA_PATH));
+			pw_log_warn("empty reserve device path for %s", reserve);
 		}
 	}
 	if (device->reserve != NULL)

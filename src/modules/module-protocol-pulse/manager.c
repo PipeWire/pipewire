@@ -522,11 +522,13 @@ destroy_proxy(void *data)
 {
 	struct object *o = data;
 
+	spa_assert(o->info);
+
 	if (o->info->events)
 		spa_hook_remove(&o->object_listener);
 	spa_hook_remove(&o->proxy_listener);
 
-	if (o->info && o->info->destroy)
+	if (o->info->destroy)
                 o->info->destroy(o);
 
         o->this.proxy = NULL;

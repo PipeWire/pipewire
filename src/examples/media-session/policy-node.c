@@ -536,7 +536,7 @@ static int find_node(void *data, struct node *node)
 		return 0;
 	}
 
-	if (strcmp(node->media, find->media) != 0) {
+	if (node->media && strcmp(node->media, find->media) != 0) {
 		pw_log_debug(".. incompatible media %s <-> %s", node->media, find->media);
 		return 0;
 	}

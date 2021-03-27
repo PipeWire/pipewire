@@ -337,7 +337,7 @@ static int message_get(struct message *m, ...)
 			break;
 
 		if ((res = read_u8(m, &dtag)) < 0)
-			return res;
+			goto done;
 
 		switch (dtag) {
 		case TAG_STRING:

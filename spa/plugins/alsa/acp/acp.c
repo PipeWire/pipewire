@@ -574,7 +574,7 @@ static void profile_set_available(pa_card *impl, uint32_t index,
 
 	p->available = status;
 
-	if (emit && impl && impl->events && impl->events->profile_available)
+	if (emit && impl->events && impl->events->profile_available)
 		impl->events->profile_available(impl->user_data, index,
 				old, status);
 }

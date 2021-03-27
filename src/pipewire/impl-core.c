@@ -26,6 +26,7 @@
 
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #ifndef ENODATA
 #define ENODATA 9919
 #endif
@@ -37,7 +38,6 @@
 #ifndef HAVE_GETRANDOM
 # ifdef __FreeBSD__
 #  include <sys/param.h>
-#  include <fcntl.h>
 // FreeBSD versions < 12 do not have getrandom() syscall
 // Give a poor-man implementation here
 // Can be removed after September 30, 2021

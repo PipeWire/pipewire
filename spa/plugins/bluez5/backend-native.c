@@ -336,7 +336,7 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 	struct impl *backend = rfcomm->backend;
 	unsigned int features;
 	unsigned int gain;
-	unsigned int len, k, v;
+	unsigned int len;
 	unsigned int selected_codec;
 
 	if (sscanf(buf, "AT+BRSF=%u", &features) == 1) {
@@ -423,9 +423,10 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 			if (rfcomm->transport == NULL) {
 				spa_log_warn(backend->log, NAME": can't create transport: %m");
 				// TODO: We should manage the missing transport
+			} else {
+				rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
+				spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 			}
-			rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
-			spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 		}
 
 	} else if (!rfcomm->slc_configured) {
@@ -489,21 +490,32 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 		// We expect battery status only (bitmask 10)
         	rfcomm_send_reply(source, "+XAPL: iPhone,2");
 		rfcomm_send_reply(source, "OK");
-	} else if (sscanf(buf, "AT+IPHONEACCEV=%d", &len) == 1) {
-		if (len < 1) {
-			return false;
-		}
+	} else if (sscanf(buf, "AT+IPHONEACCEV=%u", &len) == 1) {
+		unsigned int i;
+		int k, v;
 
-		for (unsigned int i = 1; i <= len; i++) {
-			buf = strchr(buf, ',') + 1;
-			if (sscanf(buf, "%d", &k) != 1) return false;
-			buf = strchr(buf, ',') + 1;
-			if (sscanf(buf, "%d", &v) != 1) return false;
+		if (len < 1 || len > 100)
+			return false;
+
+		for (i = 1; i <= len; i++) {
+			buf = strchr(buf, ',');
+			if (buf == NULL)
+				return false;
+			++buf;
+			if (sscanf(buf, "%d", &k) != 1)
+				return false;
+
+			buf = strchr(buf, ',');
+			if (buf == NULL)
+				return false;
+			++buf;
+			if (sscanf(buf, "%d", &v) != 1)
+				return false;
 
 			if (k == SPA_BT_HFP_HF_IPHONEACCEV_KEY_BATTERY) {
 				// Battery level is reported in range of 0-9, convert to 0-100%
-				uint8_t level = (v + 1) * 10;
-				spa_log_debug(backend->log, NAME": battery level: %d%%", level);
+				uint8_t level = (SPA_CLAMP(v, 0, 9) + 1) * 10;
+				spa_log_debug(backend->log, NAME": battery level: %d%%", (int)level);
 
 				// TODO: report without Battery Provider (using props)
 				spa_bt_device_report_battery_level(rfcomm->device, level);
@@ -625,9 +637,10 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 						if (rfcomm->transport == NULL) {
 							spa_log_warn(backend->log, NAME": can't create transport: %m");
 							// TODO: We should manage the missing transport
+						} else {
+							rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
+							spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 						}
-						rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
-						spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
 					}
 					break;
 				default:

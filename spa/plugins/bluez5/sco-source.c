@@ -692,7 +692,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 static void emit_node_info(struct impl *this, bool full)
 {
-	bool is_ag = (this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
+	bool is_ag = this->transport && (this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
 	struct spa_dict_item ag_node_info_items[] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
 		{ SPA_KEY_MEDIA_CLASS, "Stream/Output/Audio" },

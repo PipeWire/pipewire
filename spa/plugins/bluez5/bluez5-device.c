@@ -1474,6 +1474,9 @@ static int impl_set_param(void *object,
 		uint32_t profile;
 		enum spa_bluetooth_audio_codec codec;
 
+		if (param == NULL)
+			return -EINVAL;
+
 		if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
 				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id))) < 0) {
@@ -1495,6 +1498,9 @@ static int impl_set_param(void *object,
 		uint32_t id, device;
 		struct spa_pod *props = NULL;
 		struct node *node;
+
+		if (param == NULL)
+			return -EINVAL;
 
 		if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,

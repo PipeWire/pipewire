@@ -724,8 +724,11 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 
 fail:
 	if (r) {
-			dbus_connection_send(backend->conn, r, NULL);
-			dbus_message_unref(r);
+		DBusHandlerResult res = DBUS_HANDLER_RESULT_HANDLED;
+		if (!dbus_connection_send(backend->conn, r, NULL))
+			res = DBUS_HANDLER_RESULT_NEED_MEMORY;
+		dbus_message_unref(r);
+		return res;
 	}
 
 	return DBUS_HANDLER_RESULT_HANDLED;
@@ -1068,6 +1071,11 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 
 	if (!endpoint->valid && endpoint->local_address && endpoint->remote_address && endpoint->profile && endpoint->role)
 		endpoint->valid = true;
+
+	if (!endpoint->remote_address || !endpoint->local_address) {
+		spa_log_debug(backend->log, NAME": Missing addresses for %s", endpoint->path);
+		return DBUS_HANDLER_RESULT_HANDLED;
+	}
 
 	d = spa_bt_device_find_by_address(backend->monitor, endpoint->remote_address, endpoint->local_address);
 	if (!d) {

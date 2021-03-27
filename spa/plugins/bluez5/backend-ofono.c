@@ -351,6 +351,11 @@ static DBusHandlerResult ofono_audio_card_found(struct impl *backend, char *path
 		close(fd);
 	}
 
+	if (!remote_address || !local_address) {
+		spa_log_error(backend->log, NAME": Missing addresses for %s", path);
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+	}
+
 	d = spa_bt_device_find_by_address(backend->monitor, remote_address, local_address);
 	if (!d) {
 		spa_log_error(backend->log, NAME": Device doesn’t exist for %s", path);
@@ -449,8 +454,11 @@ static DBusHandlerResult ofono_new_audio_connection(DBusConnection *conn, DBusMe
 
 fail:
 	if (r) {
-			dbus_connection_send(backend->conn, r, NULL);
-			dbus_message_unref(r);
+		DBusHandlerResult res = DBUS_HANDLER_RESULT_HANDLED;
+		if (!dbus_connection_send(backend->conn, r, NULL))
+			res = DBUS_HANDLER_RESULT_NEED_MEMORY;
+		dbus_message_unref(r);
+		return res;
 	}
 
 	return DBUS_HANDLER_RESULT_HANDLED;

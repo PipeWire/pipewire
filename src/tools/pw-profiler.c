@@ -88,17 +88,16 @@ struct point {
 
 static int process_info(struct data *d, const struct spa_pod *pod, struct point *point)
 {
-	spa_pod_parse_struct(pod,
+	return spa_pod_parse_struct(pod,
 			SPA_POD_Long(&point->count),
 			SPA_POD_Float(&point->cpu_load[0]),
 			SPA_POD_Float(&point->cpu_load[1]),
 			SPA_POD_Float(&point->cpu_load[2]));
-	return 0;
 }
 
 static int process_clock(struct data *d, const struct spa_pod *pod, struct point *point)
 {
-	spa_pod_parse_struct(pod,
+	return spa_pod_parse_struct(pod,
 			SPA_POD_Int(&point->clock.flags),
 			SPA_POD_Int(&point->clock.id),
 			SPA_POD_Stringn(point->clock.name, sizeof(point->clock.name)),
@@ -109,7 +108,6 @@ static int process_clock(struct data *d, const struct spa_pod *pod, struct point
 			SPA_POD_Long(&point->clock.delay),
 			SPA_POD_Double(&point->clock.rate_diff),
 			SPA_POD_Long(&point->clock.next_nsec));
-	return 0;
 }
 
 static int process_driver_block(struct data *d, const struct spa_pod *pod, struct point *point)
@@ -117,16 +115,18 @@ static int process_driver_block(struct data *d, const struct spa_pod *pod, struc
 	char *name = NULL;
 	uint32_t driver_id = 0;
 	struct measurement driver;
+	int res;
 
 	spa_zero(driver);
-	spa_pod_parse_struct(pod,
+	if ((res = spa_pod_parse_struct(pod,
 			SPA_POD_Int(&driver_id),
 			SPA_POD_String(&name),
 			SPA_POD_Long(&driver.prev_signal),
 			SPA_POD_Long(&driver.signal),
 			SPA_POD_Long(&driver.awake),
 			SPA_POD_Long(&driver.finish),
-			SPA_POD_Int(&driver.status));
+			SPA_POD_Int(&driver.status))) < 0)
+		return res;
 
 	if (d->driver_id == 0) {
 		d->driver_id = driver_id;
@@ -171,17 +171,18 @@ static int process_follower_block(struct data *d, const struct spa_pod *pod, str
 	uint32_t id = 0;
 	const char *name =  NULL;
 	struct measurement m;
-	int idx;
+	int res, idx;
 
 	spa_zero(m);
-	spa_pod_parse_struct(pod,
+	if ((res = spa_pod_parse_struct(pod,
 			SPA_POD_Int(&id),
 			SPA_POD_String(&name),
 			SPA_POD_Long(&m.prev_signal),
 			SPA_POD_Long(&m.signal),
 			SPA_POD_Long(&m.awake),
 			SPA_POD_Long(&m.finish),
-			SPA_POD_Int(&m.status));
+			SPA_POD_Int(&m.status))) < 0)
+		return res;
 
 	if ((idx = find_follower(d, id, name)) < 0) {
 		if ((idx = add_follower(d, id, name)) < 0) {

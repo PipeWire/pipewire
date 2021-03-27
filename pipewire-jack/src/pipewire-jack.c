@@ -1627,7 +1627,8 @@ static int port_set_format(struct client *c, struct port *p,
 	}
 	else {
 		struct spa_audio_info info = { 0 };
-		spa_format_parse(param, &info.media_type, &info.media_subtype);
+		if (spa_format_parse(param, &info.media_type, &info.media_subtype) < 0)
+			return -EINVAL;
 
 		switch (info.media_type) {
 		case SPA_MEDIA_TYPE_audio:
@@ -4285,10 +4286,10 @@ SPA_EXPORT
 void jack_port_set_latency (jack_port_t *port, jack_nframes_t frames)
 {
 	struct object *o = (struct object *) port;
+	jack_latency_range_t range = { frames, frames };
 
 	spa_return_if_fail(o != NULL);
 
-	jack_latency_range_t range = { frames, frames };
 	if (o->port.flags & JackPortIsOutput) {
 		jack_port_set_latency_range(port, JackCaptureLatency, &range);
         }
@@ -4349,7 +4350,7 @@ SPA_EXPORT
 jack_nframes_t jack_port_get_latency (jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
-	jack_latency_range_t range;
+	jack_latency_range_t range = { 0, 0 };
 
 	spa_return_val_if_fail(o != NULL, 0);
 

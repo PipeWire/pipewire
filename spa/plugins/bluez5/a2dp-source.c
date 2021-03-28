@@ -745,10 +745,11 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 static void emit_node_info(struct impl *this, bool full)
 {
+	char latency[64] = SPA_STRINGIFY(MIN_LATENCY)"/48000";
 	struct spa_dict_item node_info_items[] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
 		{ SPA_KEY_MEDIA_CLASS, "Stream/Output/Audio" },
-		{ SPA_KEY_NODE_LATENCY, SPA_STRINGIFY(MIN_LATENCY)"/48000" },
+		{ SPA_KEY_NODE_LATENCY, latency },
 		{ "media.name", ((this->transport && this->transport->device->name) ?
 		                 this->transport->device->name : "A2DP") },
 	};
@@ -756,6 +757,9 @@ static void emit_node_info(struct impl *this, bool full)
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
+		if (this->transport && this->port.have_format)
+			snprintf(latency, sizeof(latency), "%d/%d", (int)this->props.min_latency,
+					(int)this->port.current_format.info.raw.rate);
 		this->info.props = &SPA_DICT_INIT_ARRAY(node_info_items);
 		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = 0;

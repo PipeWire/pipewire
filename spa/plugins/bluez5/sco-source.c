@@ -110,6 +110,7 @@ struct impl {
 	struct port port;
 
 	unsigned int started:1;
+	unsigned int following:1;
 
 	struct spa_io_clock *clock;
 	struct spa_io_position *position;
@@ -216,9 +217,15 @@ static int impl_node_enum_params(void *object, int seq,
 	return 0;
 }
 
+static inline bool is_following(struct impl *this)
+{
+	return this->position && this->clock && this->position->clock.id != this->clock->id;
+}
+
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	struct impl *this = object;
+	bool following;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -231,6 +238,12 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 		break;
 	default:
 		return -ENOENT;
+	}
+
+	following = is_following(this);
+	if (this->started && following != this->following) {
+		spa_log_debug(this->log, NAME" %p: reassign follower %d->%d", this, this->following, following);
+		this->following = following;
 	}
 
 	return 0;
@@ -471,7 +484,7 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 	struct port *port = &this->port;
 	struct spa_io_buffers *io = port->io;
 	struct spa_data *datas;
-	uint32_t max_out_size;
+	uint32_t min_data;
 
 	if (this->transport == NULL) {
 		spa_log_debug(this->log, "no transport, stop reading");
@@ -490,12 +503,6 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 	}
 	datas = port->current_buffer->buf->datas;
 
-	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
-		max_out_size = MSBC_DECODED_SIZE;
-	} else {
-		max_out_size = this->transport->read_mtu;
-	}
-
 	/* update the current pts */
 	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
 
@@ -513,7 +520,8 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 	}
 
 	/* send buffer if full */
-	if ((max_out_size + port->ready_offset) > (this->props.max_latency * port->frame_size)) {
+	min_data = SPA_MIN(this->props.min_latency * port->frame_size, datas[0].maxsize / 2);
+	if (port->ready_offset >= min_data) {
 		uint64_t sample_count;
 
 		datas[0].chunk->offset = 0;
@@ -524,7 +532,7 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 		spa_list_append(&port->ready, &port->current_buffer->link);
 		port->current_buffer = NULL;
 
-		if (this->clock) {
+		if (!this->following && this->clock) {
 			this->clock->nsec = SPA_TIMESPEC_TO_NSEC(&this->now);
 			this->clock->duration = sample_count * this->clock->rate.denom / port->current_format.info.raw.rate;
 			this->clock->position += this->clock->duration;
@@ -536,6 +544,9 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 
 	/* done if there are no buffers ready */
 	if (spa_list_is_empty(&port->ready))
+		return 0;
+
+	if (this->following)
 		return 0;
 
 	/* process the buffer if IO does not have any */
@@ -583,6 +594,11 @@ static int do_start(struct impl *this)
 	/* Don't do anything if the node has already started */
 	if (this->started)
 		return 0;
+
+	this->following = is_following(this);
+
+	spa_log_debug(this->log, NAME" %p: start following:%d",
+			this, this->following);
 
 	/* Make sure the transport is valid */
 	spa_return_val_if_fail (this->transport != NULL, -EIO);
@@ -693,9 +709,11 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 static void emit_node_info(struct impl *this, bool full)
 {
 	bool is_ag = this->transport && (this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
+	char latency[64] = "128/8000";
 	struct spa_dict_item ag_node_info_items[] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
 		{ SPA_KEY_MEDIA_CLASS, "Stream/Output/Audio" },
+		{ SPA_KEY_NODE_LATENCY, latency },
 		{ "media.name", ((this->transport && this->transport->device->name) ?
 		                 this->transport->device->name : "HSP/HFP") },
 	};
@@ -708,6 +726,9 @@ static void emit_node_info(struct impl *this, bool full)
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
+		if (this->transport && this->port.have_format)
+			snprintf(latency, sizeof(latency), "%d/%d", (int)this->props.min_latency,
+					(int)this->port.current_format.info.raw.rate);
 		this->info.props = is_ag ?
 			&SPA_DICT_INIT_ARRAY(ag_node_info_items) :
 			&SPA_DICT_INIT_ARRAY(hu_node_info_items);
@@ -853,7 +874,7 @@ impl_node_port_enum_params(void *object, int seq,
 
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 8, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
 							this->props.max_latency * port->frame_size,

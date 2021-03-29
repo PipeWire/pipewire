@@ -59,6 +59,7 @@ filter.properties = {
 
 stream.properties = {
     #node.latency = 1024/48000
+    #node.autoconnect = true
     #resample.quality = 4
     #channelmix.normalize = false
     #channelmix.mix-lfe = false

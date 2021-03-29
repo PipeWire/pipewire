@@ -129,6 +129,8 @@ struct impl {
 	struct timespec now;
 	uint64_t sample_count;
 	uint64_t skip_count;
+
+	bool is_input;
 };
 
 #define NAME "a2dp-source"
@@ -746,12 +748,14 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 static void emit_node_info(struct impl *this, bool full)
 {
 	char latency[64] = SPA_STRINGIFY(MIN_LATENCY)"/48000";
+
 	struct spa_dict_item node_info_items[] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
-		{ SPA_KEY_MEDIA_CLASS, "Stream/Output/Audio" },
+		{ SPA_KEY_MEDIA_CLASS, this->is_input ? "Audio/Source" : "Stream/Output/Audio" },
 		{ SPA_KEY_NODE_LATENCY, latency },
 		{ "media.name", ((this->transport && this->transport->device->name) ?
 		                 this->transport->device->name : "A2DP") },
+                { SPA_KEY_NODE_DRIVER, this->is_input ? "true" : "false" },
 	};
 
 	if (full)
@@ -1320,6 +1324,13 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->codec->init_props != NULL)
 		this->codec_props = this->codec->init_props(this->codec,
 					this->transport->device->settings);
+
+
+	const char *a2dp_source_role = spa_dict_lookup(info, "bluez5.a2dp-source-role");
+	if (a2dp_source_role != NULL && !strcmp("input", a2dp_source_role))
+		this->is_input = true;
+	else
+		this->is_input = false;
 
 	return 0;
 }

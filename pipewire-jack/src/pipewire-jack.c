@@ -3636,7 +3636,9 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 
 	spa_return_val_if_fail(o != NULL, NULL);
 
-	p = o->port.port;
+	if ((p = o->port.port) == NULL)
+		return NULL;
+
 	ptr = p->get_buffer(p, frames);
 	pw_log_trace_fp(NAME" %p: port %p buffer %p empty:%u", p->client, p, ptr, p->empty_out);
 	return ptr;
@@ -5124,7 +5126,8 @@ SPA_EXPORT
 uint32_t jack_midi_get_event_count(void* port_buffer)
 {
 	struct midi_buffer *mb = port_buffer;
-	spa_return_val_if_fail(mb != NULL, 0);
+	if (mb == NULL)
+		return 0;
 	return mb->event_count;
 }
 

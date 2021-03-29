@@ -92,7 +92,7 @@ static bool find_match(struct spa_json *arr, struct pw_properties *props)
 int sm_media_session_match_rules(const char *rules, size_t size, struct pw_properties *props)
 {
 	const char *val;
-	struct spa_json it[4], actions;;
+	struct spa_json it[4], actions;
 
 	spa_json_init(&it[0], rules, size);
 	if (spa_json_enter_array(&it[0], &it[1]) < 0)

@@ -627,6 +627,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	if (is_batch)
 		state->headroom += period_size;
 
+	state->headroom = SPA_MIN(state->headroom, state->buffer_frames);
+
 	state->period_frames = period_size;
 	periods = state->buffer_frames / state->period_frames;
 

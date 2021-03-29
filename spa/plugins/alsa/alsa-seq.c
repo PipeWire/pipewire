@@ -47,8 +47,6 @@
 static int seq_open(struct seq_state *state, struct seq_conn *conn, bool with_queue)
 {
 	struct props *props = &state->props;
-	struct pollfd pfd;
-        snd_seq_port_info_t *pinfo;
 	int res;
 
 	spa_log_debug(state->log, "%p: ALSA seq open '%s' duplex", state, props->device);
@@ -57,9 +55,16 @@ static int seq_open(struct seq_state *state, struct seq_conn *conn, bool with_qu
 			   props->device,
 			   SND_SEQ_OPEN_DUPLEX,
 			   0)) < 0) {
-		spa_log_error(state->log, "open failed: %s", snd_strerror(res));
 		return res;
 	}
+	return 0;
+}
+
+static int seq_init(struct seq_state *state, struct seq_conn *conn, bool with_queue)
+{
+	struct pollfd pfd;
+	snd_seq_port_info_t *pinfo;
+	int res;
 
 	/* client id */
 	if ((res = snd_seq_client_id(conn->hndl)) < 0) {
@@ -249,10 +254,11 @@ static void alsa_seq_on_sys(struct spa_source *source)
 
 int spa_alsa_seq_open(struct seq_state *state)
 {
-	int res;
+	int n, i, res;
 	snd_seq_port_subscribe_t *sub;
 	snd_seq_addr_t addr;
 	snd_seq_queue_timer_t *timer;
+	struct seq_conn reserve[16];
 
 	if (state->opened)
 		return 0;
@@ -260,13 +266,32 @@ int spa_alsa_seq_open(struct seq_state *state)
 	init_stream(state, SPA_DIRECTION_INPUT);
 	init_stream(state, SPA_DIRECTION_OUTPUT);
 
-	if ((res = seq_open(state, &state->sys, false)) < 0)
+	for (i = 0; i < 16; i++) {
+		spa_log_debug(state->log, "close %d", i);
+		if ((res = seq_open(state, &reserve[i], false)) < 0)
+			break;
+	}
+	if (i >= 2) {
+		state->event = reserve[--i];
+		state->sys = reserve[--i];
+		res = 0;
+	}
+	for (n = --i; n >= 0; n--) {
+		spa_log_debug(state->log, "close %d", n);
+		seq_close(state, &reserve[n]);
+	}
+	if (res < 0) {
+		spa_log_error(state->log, "open failed: %s", snd_strerror(res));
 		return res;
+	}
+
+	if ((res = seq_init(state, &state->sys, false)) < 0)
+		goto error_close;
 
 	snd_seq_set_client_name(state->sys.hndl, "PipeWire-System");
 
-	if ((res = seq_open(state, &state->event, true)) < 0)
-		goto error_close_sys;
+	if ((res = seq_init(state, &state->event, true)) < 0)
+		goto error_close;
 
 	snd_seq_set_client_name(state->event.hndl, "PipeWire-RT-Event");
 
@@ -305,7 +330,7 @@ int spa_alsa_seq_open(struct seq_state *state)
 
 	if ((res = spa_system_timerfd_create(state->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
-		goto error_close_event;
+		goto error_close;
 
 	state->timerfd = res;
 
@@ -313,9 +338,8 @@ int spa_alsa_seq_open(struct seq_state *state)
 
 	return 0;
 
-error_close_event:
+error_close:
 	seq_close(state, &state->event);
-error_close_sys:
 	seq_close(state, &state->sys);
 	return res;
 }

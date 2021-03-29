@@ -2104,7 +2104,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	if (sink_name != NULL)
 		pw_properties_set(props,
 				PW_KEY_NODE_TARGET, sink_name);
-	else if (sink_index != SPA_ID_INVALID)
+	else if (sink_index != SPA_ID_INVALID && sink_index != 0)
 		pw_properties_setf(props,
 				PW_KEY_NODE_TARGET, "%u", sink_index);
 
@@ -2346,7 +2346,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		if ((id = atoi(source_name)) != 0)
 			source_index = id;
 	}
-	if (source_index != SPA_ID_INVALID) {
+	if (source_index != SPA_ID_INVALID && source_index != 0) {
 		if (source_index & MONITOR_FLAG)
 			source_index &= INDEX_MASK;
 		pw_properties_setf(props,
@@ -2749,6 +2749,9 @@ static struct pw_manager_object *find_device(struct client *client,
 	struct selector sel;
 	const char *def;
 
+	if (id == 0)
+		id = SPA_ID_INVALID;
+
 	if (name != NULL && !sink) {
 		if (pw_endswith(name, ".monitor")) {
 			name = strndupa(name, strlen(name)-8);
@@ -2778,7 +2781,8 @@ static struct pw_manager_object *find_device(struct client *client,
 		def = DEFAULT_SOURCE;
 	}
 	if (id == SPA_ID_INVALID &&
-	    (sel.value == NULL || strcmp(sel.value, def) == 0))
+	    (sel.value == NULL || strcmp(sel.value, def) == 0 ||
+	    strcmp(sel.value, "0") == 0))
 		sel.value = get_default(client, sink);
 
 	return select_object(client->manager, &sel);
@@ -4536,7 +4540,7 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 
 	if (command == COMMAND_GET_SINK_INFO || command == COMMAND_GET_SOURCE_INFO) {
 		if ((sel.value == NULL && sel.id == SPA_ID_INVALID) ||
-		    (sel.value != NULL && strcmp(sel.value, def) == 0))
+		    (sel.value != NULL && (strcmp(sel.value, def) == 0 || strcmp(sel.value, "0")) == 0))
 			sel.value = get_default(client, command == COMMAND_GET_SINK_INFO);
 	} else {
 		if (sel.value == NULL && sel.id == SPA_ID_INVALID)

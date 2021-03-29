@@ -736,7 +736,7 @@ static int handle_route(struct device *dev, struct route *r)
 		 * save this as a prefered port */
 		pw_log_info("device %d: new active port found '%s'", dev->id, r->name);
 		restore_route(dev, r);
-	} else if (r->props) {
+	} else if (r->props && r->save) {
 		/* just save port properties */
 		save_route(dev, r);
 	}

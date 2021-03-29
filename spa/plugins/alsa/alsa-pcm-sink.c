@@ -801,6 +801,8 @@ impl_init(const struct spa_handle_factory *factory,
 			this->default_period_size = atoi(s);
 		} else if (!strcmp(k, "api.alsa.headroom")) {
 			this->default_headroom = atoi(s);
+		} else if (!strcmp(k, "api.alsa.start-delay")) {
+			this->default_start_delay = atoi(s);
 		} else if (!strcmp(k, "api.alsa.disable-mmap")) {
 			this->disable_mmap = (strcmp(s, "true") == 0 || atoi(s) == 1);
 		} else if (!strcmp(k, "api.alsa.disable-batch")) {

@@ -113,6 +113,7 @@ struct state {
 
 	uint32_t default_period_size;
 	uint32_t default_headroom;
+	uint32_t default_start_delay;
 	uint32_t default_format;
 	unsigned int default_channels;
 	unsigned int default_rate;
@@ -153,6 +154,7 @@ struct state {
 	uint32_t threshold;
 	uint32_t last_threshold;
 	uint32_t headroom;
+	uint32_t start_delay;
 
 	uint32_t duration;
 	uint32_t last_duration;

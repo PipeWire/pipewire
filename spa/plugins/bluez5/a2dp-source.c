@@ -1309,8 +1309,12 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&port->ready);
 	spa_list_init(&port->free);
 
-	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_TRANSPORT)))
-		sscanf(str, "pointer:%p", &this->transport);
+	if (info != NULL) {
+		if ((str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_TRANSPORT)) != NULL)
+			sscanf(str, "pointer:%p", &this->transport);
+		if ((str = spa_dict_lookup(info, "bluez5.a2dp-source-role")) != NULL)
+			this->is_input = strcmp(str, "input") == 0;
+	}
 
 	if (this->transport == NULL) {
 		spa_log_error(this->log, "a transport is needed");
@@ -1324,13 +1328,6 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->codec->init_props != NULL)
 		this->codec_props = this->codec->init_props(this->codec,
 					this->transport->device->settings);
-
-
-	const char *a2dp_source_role = spa_dict_lookup(info, "bluez5.a2dp-source-role");
-	if (a2dp_source_role != NULL && !strcmp("input", a2dp_source_role))
-		this->is_input = true;
-	else
-		this->is_input = false;
 
 	return 0;
 }

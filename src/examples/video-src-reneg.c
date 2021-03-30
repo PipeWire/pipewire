@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <errno.h>
 #include <signal.h>
@@ -241,7 +243,7 @@ static void on_stream_add_buffer(void *_data, struct pw_buffer *buffer)
 	/* create the memfd on the buffer, set the type and flags */
 	d[0].type = SPA_DATA_MemFd;
 	d[0].flags = SPA_DATA_FLAG_READWRITE;
-#ifndef __FreeBSD__
+#ifdef HAVE_MEMFD_CREATE
 	d[0].fd = memfd_create("video-src-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
 #else
 	d[0].fd = -1;
@@ -258,7 +260,7 @@ static void on_stream_add_buffer(void *_data, struct pw_buffer *buffer)
 		pw_log_error("can't truncate to %d: %m", d[0].maxsize);
 		return;
 	}
-#ifndef __FreeBSD__
+#ifdef HAVE_MEMFD_CREATE
 	/* not enforced yet but server might require SEAL_SHRINK later */
 	seals = F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL;
 	if (fcntl(d[0].fd, F_ADD_SEALS, seals) == -1) {

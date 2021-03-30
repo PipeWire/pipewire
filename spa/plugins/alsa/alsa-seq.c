@@ -266,6 +266,7 @@ int spa_alsa_seq_open(struct seq_state *state)
 	init_stream(state, SPA_DIRECTION_INPUT);
 	init_stream(state, SPA_DIRECTION_OUTPUT);
 
+	spa_zero(reserve);
 	for (i = 0; i < 16; i++) {
 		spa_log_debug(state->log, "close %d", i);
 		if ((res = seq_open(state, &reserve[i], false)) < 0)

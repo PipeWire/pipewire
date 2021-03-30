@@ -79,6 +79,7 @@ struct node {
 	uint32_t id;
 	unsigned int active:1;
 	unsigned int mute:1;
+	unsigned int save:1;
 	uint32_t n_channels;
 	int64_t latency_offset;
 	uint32_t channels[SPA_AUDIO_MAX_CHANNELS];
@@ -1087,6 +1088,9 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		}
 
 		spa_pod_builder_pop(b, &f[1]);
+
+		spa_pod_builder_prop(b, SPA_PARAM_ROUTE_save, 0);
+		spa_pod_builder_bool(b, node->save);
 	}
 
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_devices, 0);
@@ -1498,6 +1502,7 @@ static int impl_set_param(void *object,
 		uint32_t id, device;
 		struct spa_pod *props = NULL;
 		struct node *node;
+		bool save = false;
 
 		if (param == NULL)
 			return -EINVAL;
@@ -1506,7 +1511,8 @@ static int impl_set_param(void *object,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
 				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
 				SPA_PARAM_ROUTE_device, SPA_POD_Int(&device),
-				SPA_PARAM_ROUTE_props, SPA_POD_OPT_Pod(&props))) < 0) {
+				SPA_PARAM_ROUTE_props, SPA_POD_OPT_Pod(&props),
+				SPA_PARAM_ROUTE_save, SPA_POD_OPT_Bool(&save))) < 0) {
 			spa_log_warn(this->log, "can't parse route");
 			spa_debug_pod(0, NULL, param);
 			return res;
@@ -1515,6 +1521,7 @@ static int impl_set_param(void *object,
 			return -EINVAL;
 
 		node = &this->nodes[device];
+		node->save = save;
 		if (props) {
 			int changed = apply_device_props(this, node, props);
 			if (changed > 0) {

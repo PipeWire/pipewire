@@ -1743,16 +1743,15 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index, uint32_t fl
 		return -EINVAL;
 
 	p = (pa_device_port*)impl->card.ports[port_index];
-	if (p == old)
-		return 0;
-
 	if (!pa_hashmap_get(d->ports, p->name))
 		return -EINVAL;
 
+	p->port.flags = ACP_PORT_ACTIVE | flags;
+	if (p == old)
+		return 0;
 	if (old)
 		old->port.flags &= ~(ACP_PORT_ACTIVE | ACP_PORT_SAVE);
 	d->active_port = p;
-	p->port.flags |= ACP_PORT_ACTIVE | flags;
 
 	if (impl->use_ucm) {
 		pa_alsa_ucm_port_data *data;

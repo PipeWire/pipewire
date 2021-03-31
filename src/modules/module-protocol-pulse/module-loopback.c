@@ -1,0 +1,354 @@
+/* PipeWire
+ *
+ * Copyright © 2021 Wim Taymans <wim.taymans@gmail.com>
+ * Copyright © 2021 Arun Raghavan <arun@asymptotic.io>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+#define ERROR_RETURN(str) 		\
+	{ 				\
+		pw_log_error(str); 	\
+		res = -EINVAL; 		\
+		goto out; 		\
+	}
+
+struct module_loopback_data {
+	struct module *module;
+	struct pw_core *core;
+
+	struct pw_stream *capture;
+	struct pw_stream *playback;
+
+	struct spa_hook core_listener;
+	struct spa_hook capture_listener;
+	struct spa_hook playback_listener;
+
+	struct pw_properties *capture_props;
+	struct pw_properties *playback_props;
+
+	struct spa_audio_info_raw info;
+};
+
+static void capture_process(void *d)
+{
+	struct module_loopback_data *data = d;
+	struct pw_buffer *in, *out;
+
+	if ((in = pw_stream_dequeue_buffer(data->capture)) == NULL)
+		pw_log_warn("out of capture buffers: %m");
+
+	if ((out = pw_stream_dequeue_buffer(data->playback)) == NULL)
+		pw_log_warn("out of playback buffers: %m");
+
+	if (in != NULL && out != NULL)
+		*out->buffer = *in->buffer;
+
+	if (in != NULL)
+		pw_stream_queue_buffer(data->capture, in);
+	if (out != NULL)
+		pw_stream_queue_buffer(data->playback, out);
+}
+
+static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
+{
+	struct module_loopback_data *d = data;
+	struct module *module = d->module;
+
+	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
+			id, seq, res, spa_strerror(res), message);
+
+	if (id == PW_ID_CORE && res == -EPIPE)
+		pw_loop_signal_event(module->impl->loop, module->unload);
+}
+
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
+	.error = on_core_error,
+};
+
+static void on_stream_state_changed(void *data, enum pw_stream_state old,
+		enum pw_stream_state state, const char *error)
+{
+	struct module_loopback_data *d = data;
+	struct module *module = d->module;
+
+	if (state == PW_STREAM_STATE_UNCONNECTED) {
+		pw_log_info("stream disconnected, unloading");
+		pw_loop_signal_event(module->impl->loop, module->unload);
+	}
+}
+
+static const struct pw_stream_events in_stream_events = {
+	PW_VERSION_STREAM_EVENTS,
+	.state_changed = on_stream_state_changed,
+	.process = capture_process
+};
+
+static const struct pw_stream_events out_stream_events = {
+	PW_VERSION_STREAM_EVENTS,
+	.state_changed = on_stream_state_changed,
+};
+
+static int module_loopback_load(struct client *client, struct module *module)
+{
+	struct module_loopback_data *data = module->user_data;
+	int res;
+	uint32_t n_params;
+	const struct spa_pod *params[1];
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+
+	data->core = pw_context_connect(module->impl->context,
+			pw_properties_copy(client->props),
+			0);
+	if (data->core == NULL)
+		return -errno;
+
+	pw_core_add_listener(data->core,
+			&data->core_listener,
+			&core_events, data);
+
+
+	data->capture = pw_stream_new(data->core,
+			"loopback capture", data->capture_props);
+	data->capture_props = NULL;
+	if (data->capture == NULL)
+		return -errno;
+
+	pw_stream_add_listener(data->capture,
+			&data->capture_listener,
+			&in_stream_events, data);
+
+	data->playback = pw_stream_new(data->core,
+			"loopback playback", data->playback_props);
+	data->playback_props = NULL;
+	if (data->playback == NULL)
+		return -errno;
+
+	pw_stream_add_listener(data->playback,
+			&data->playback_listener,
+			&out_stream_events, data);
+
+	n_params = 0;
+	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
+			&data->info);
+
+	if ((res = pw_stream_connect(data->capture,
+			PW_DIRECTION_INPUT,
+			PW_ID_ANY,
+			PW_STREAM_FLAG_AUTOCONNECT |
+			PW_STREAM_FLAG_MAP_BUFFERS |
+			PW_STREAM_FLAG_RT_PROCESS,
+			params, n_params)) < 0)
+		return res;
+
+	if ((res = pw_stream_connect(data->playback,
+			PW_DIRECTION_OUTPUT,
+			PW_ID_ANY,
+			PW_STREAM_FLAG_AUTOCONNECT |
+			PW_STREAM_FLAG_MAP_BUFFERS |
+			PW_STREAM_FLAG_RT_PROCESS,
+			params, n_params)) < 0)
+		return res;
+
+	pw_log_info("loaded module %p id:%u name:%s", module, module->idx, module->name);
+	module_emit_loaded(module, 0);
+
+	return 0;
+}
+
+static int module_loopback_unload(struct client *client, struct module *module)
+{
+	struct module_loopback_data *d = module->user_data;
+
+	pw_log_info("unload module %p id:%u name:%s", module, module->idx, module->name);
+
+	if (d->capture_props != NULL)
+		pw_properties_free(d->capture_props);
+	if (d->playback_props != NULL)
+		pw_properties_free(d->playback_props);
+	if (d->capture != NULL)
+		pw_stream_destroy(d->capture);
+	if (d->playback != NULL)
+		pw_stream_destroy(d->playback);
+	if (d->core != NULL)
+		pw_core_disconnect(d->core);
+
+	return 0;
+}
+
+static const struct module_methods module_loopback_methods = {
+	VERSION_MODULE_METHODS,
+	.load = module_loopback_load,
+	.unload = module_loopback_unload,
+};
+
+static struct module *create_module_loopback(struct impl *impl, const char *argument)
+{
+	struct module *module;
+	struct module_loopback_data *d;
+	struct pw_properties *props = NULL, *playback_props = NULL, *capture_props = NULL;
+	const char *str;
+	struct spa_audio_info_raw info = { 0 };
+	int res;
+
+	if (argument == NULL) {
+		res = -EINVAL;
+		goto out;
+	}
+
+	props = pw_properties_new(NULL, NULL);
+	capture_props = pw_properties_new(NULL, NULL);
+	playback_props = pw_properties_new(NULL, NULL);
+	if (!props || !capture_props || !playback_props) {
+		res = -EINVAL;
+		goto out;
+	}
+	add_props(props, argument);
+
+	/* The following modargs are not implemented:
+	 * adjust_time, max_latency_msec, fast_adjust_threshold_msec: these are just not relevant
+	 */
+
+	if ((str = pw_properties_get(props, "source")) != NULL) {
+		pw_properties_set(capture_props, PW_KEY_NODE_GROUP, str);
+		pw_properties_set(props, "source", NULL);
+	} else {
+		ERROR_RETURN("The 'source' property must be specified");
+	}
+
+	if ((str = pw_properties_get(props, "sink")) != NULL) {
+		pw_properties_set(playback_props, PW_KEY_NODE_GROUP, str);
+		pw_properties_set(props, "sink", NULL);
+	} else {
+		ERROR_RETURN("The 'sink' property must be specified");
+	}
+
+	if ((str = pw_properties_get(props, "format")) != NULL) {
+		info.format = format_paname2id(str, strlen(str));
+		if (info.format == SPA_AUDIO_FORMAT_UNKNOWN)
+			ERROR_RETURN("Unknown format specified");
+	} else {
+		info.format = SPA_AUDIO_FORMAT_F32P;
+	}
+
+	if ((str = pw_properties_get(props, "rate")) != NULL) {
+		info.rate = pw_properties_parse_int(str);
+		pw_properties_set(props, "rate", NULL);
+	} else {
+		info.rate = 48000;
+	}
+
+	if ((str = pw_properties_get(props, "channels")) != NULL) {
+		info.channels = pw_properties_parse_int(str);
+		pw_properties_set(props, "channels", NULL);
+
+	} else {
+		info.channels = 2;
+	}
+
+	if ((str = pw_properties_get(props, "channel_map")) != NULL) {
+		struct channel_map map;
+
+		channel_map_parse(str, &map);
+		if (info.channels != map.channels)
+			ERROR_RETURN("Mismatched channel map");
+		channel_map_to_positions(&map, info.position);
+
+		pw_properties_set(props, "channel_map", NULL);
+	} else {
+		if (info.channels > 2)
+			ERROR_RETURN("Mismatched channel map");
+
+		if (info.channels == 1) {
+			info.position[0] = SPA_AUDIO_CHANNEL_MONO;
+		} else {
+			info.position[0] = SPA_AUDIO_CHANNEL_FL;
+			info.position[1] = SPA_AUDIO_CHANNEL_FR;
+		}
+
+		/* TODO: pull in all of pa_channel_map_init_auto() */
+	}
+
+	if ((str = pw_properties_get(props, "source_dont_move")) != NULL) {
+		pw_properties_set(capture_props, PW_KEY_NODE_DONT_RECONNECT, str);
+		pw_properties_set(props, "source_dont_move", NULL);
+	}
+
+	if ((str = pw_properties_get(props, "sink_dont_move")) != NULL) {
+		pw_properties_set(playback_props, PW_KEY_NODE_DONT_RECONNECT, str);
+		pw_properties_set(props, "sink_dont_move", NULL);
+	}
+
+	if ((str = pw_properties_get(props, "remix")) != NULL) {
+		/* Note that the boolean is inverted */
+		pw_properties_set(playback_props, PW_KEY_STREAM_DONT_REMIX,
+				pw_properties_parse_bool(str) ? "false" : "true");
+	}
+
+	if ((str = pw_properties_get(props, "latency_msec")) != NULL) {
+		/* Half the latency on each of the playback and capture streams */
+		pw_properties_setf(capture_props, PW_KEY_NODE_LATENCY, "%s/2000", str);
+		pw_properties_setf(playback_props, PW_KEY_NODE_LATENCY, "%s/2000", str);
+		pw_properties_set(props, "latency_msec", NULL);
+	} else {
+		pw_properties_set(capture_props, PW_KEY_NODE_LATENCY, "100/1000");
+		pw_properties_set(playback_props, PW_KEY_NODE_LATENCY, "100/1000");
+	}
+
+	if ((str = pw_properties_get(props, "sink_input_properties")) != NULL) {
+		add_props(playback_props, str);
+		pw_properties_set(props, "sink_input_properties", NULL);
+	}
+
+	if ((str = pw_properties_get(props, "source_output_properties")) != NULL) {
+		add_props(capture_props, str);
+		pw_properties_set(props, "source_output_properties", NULL);
+	}
+
+	pw_properties_set(props, PW_KEY_FACTORY_NAME, "support.loopback");
+	pw_properties_set(props, PW_KEY_OBJECT_LINGER, "true");
+
+	module = module_new(impl, &module_loopback_methods, sizeof(*d));
+	if (module == NULL) {
+		res = -errno;
+		goto out;
+	}
+
+	module->props = props;
+	d = module->user_data;
+	d->module = module;
+	d->capture_props = capture_props;
+	d->playback_props = playback_props;
+	d->info = info;
+
+	return module;
+out:
+	if (props)
+		pw_properties_free(props);
+	if (playback_props)
+		pw_properties_free(playback_props);
+	if (capture_props)
+		pw_properties_free(capture_props);
+	errno = -res;
+
+	return NULL;
+}

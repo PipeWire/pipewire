@@ -56,8 +56,18 @@ struct module {
 	struct impl *impl;
 	const struct module_methods *methods;
 	struct spa_hook_list hooks;
+	struct spa_source *unload;
 	void *user_data;
 };
+
+static int module_unload(struct client *client, struct module *module);
+
+static void on_module_unload(void *data, uint64_t count)
+{
+	struct module *module = data;
+
+	module_unload(NULL, module);
+}
 
 static struct module *module_new(struct impl *impl, const struct module_methods *methods, size_t user_data)
 {
@@ -70,6 +80,7 @@ static struct module *module_new(struct impl *impl, const struct module_methods 
 	module->impl = impl;
 	module->methods = methods;
 	spa_hook_list_init(&module->hooks);
+	module->unload = pw_loop_add_event(impl->loop, on_module_unload, module);
 	module->user_data = SPA_MEMBER(module, sizeof(struct module), void);
 
 	return module;
@@ -87,6 +98,8 @@ static int module_load(struct client *client, struct module *module)
 	pw_log_info("load module id:%u name:%s", module->idx, module->name);
 	if (module->methods->load == NULL)
 		return -ENOTSUP;
+	/* subscription event is sent when the module does a
+	 * module_emit_loaded() */
 	return module->methods->load(client, module);
 }
 
@@ -100,12 +113,19 @@ static void module_free(struct module *module)
 	free((char*)module->args);
 	if (module->props)
 		pw_properties_free(module->props);
+	pw_loop_destroy_source(impl->loop, module->unload);
+
 	free(module);
 }
 
 static int module_unload(struct client *client, struct module *module)
 {
+	struct impl *impl = module->impl;
+	uint32_t module_idx = module->idx;
 	int res = 0;
+
+	/* Note that client can be NULL (when the module is being unloaded
+	 * internally and not by a client request */
 
 	pw_log_info("unload module id:%u name:%s", module->idx, module->name);
 
@@ -113,6 +133,12 @@ static int module_unload(struct client *client, struct module *module)
 		res = module->methods->unload(client, module);
 
 	module_free(module);
+
+	broadcast_subscribe_event(impl,
+			SUBSCRIPTION_MASK_MODULE,
+			SUBSCRIPTION_EVENT_REMOVE | SUBSCRIPTION_EVENT_MODULE,
+			module_idx);
+
 	return res;
 }
 
@@ -152,9 +178,11 @@ static void add_props(struct pw_properties *props, const char *str)
 }
 
 #include "module-null-sink.c"
+#include "module-loopback.c"
 
 static const struct module_info module_list[] = {
 	{ "module-null-sink", create_module_null_sink, },
+	{ "module-loopback", create_module_loopback, },
 	{ NULL, }
 };
 

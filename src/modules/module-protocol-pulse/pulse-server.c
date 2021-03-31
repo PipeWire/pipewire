@@ -283,6 +283,9 @@ struct impl {
 	struct stats stat;
 };
 
+/* Functions that modules can use */
+static void broadcast_subscribe_event(struct impl *impl, uint32_t mask, uint32_t event, uint32_t id);
+
 #include "collect.c"
 #include "module.c"
 #include "message-handler.c"
@@ -5231,11 +5234,6 @@ static int do_unload_module(struct client *client, uint32_t command, uint32_t ta
 		return -ENOENT;
 
 	module_unload(client, module);
-
-	broadcast_subscribe_event(impl,
-			SUBSCRIPTION_MASK_MODULE,
-			SUBSCRIPTION_EVENT_REMOVE | SUBSCRIPTION_EVENT_MODULE,
-			module_idx);
 
 	return reply_simple_ack(client, tag);
 }

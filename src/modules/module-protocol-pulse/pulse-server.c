@@ -4543,7 +4543,7 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 
 	if (command == COMMAND_GET_SINK_INFO || command == COMMAND_GET_SOURCE_INFO) {
 		if ((sel.value == NULL && (sel.id == SPA_ID_INVALID || sel.id == 0)) ||
-		    (sel.value != NULL && (strcmp(sel.value, def) == 0 || strcmp(sel.value, "0")) == 0))
+		    (sel.value != NULL && (strcmp(sel.value, def) == 0 || strcmp(sel.value, "0") == 0)))
 			sel.value = get_default(client, command == COMMAND_GET_SINK_INFO);
 	} else {
 		if (sel.value == NULL && sel.id == SPA_ID_INVALID)

@@ -133,10 +133,11 @@ struct impl {
 	void *codec_data;
 	struct spa_audio_info codec_format;
 
+	int need_flush;
 	uint32_t block_size;
-	uint32_t num_blocks;
 	uint8_t buffer[4096];
 	uint32_t buffer_used;
+	uint32_t header_size;
 	uint32_t frame_count;
 	uint16_t seqnum;
 	uint32_t timestamp;
@@ -376,11 +377,6 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	return 0;
 }
 
-static void update_num_blocks(struct impl *this)
-{
-	this->num_blocks = this->codec->get_num_blocks(this->codec_data);
-}
-
 static int reset_buffer(struct impl *this)
 {
 	if (this->codec_props_changed && this->codec_props
@@ -388,10 +384,12 @@ static int reset_buffer(struct impl *this)
 		this->codec->update_props(this->codec_data, this->codec_props);
 		this->codec_props_changed = false;
 	}
+	this->need_flush = 0;
 	this->frame_count = 0;
 	this->buffer_used = this->codec->start_encode(this->codec_data,
 			this->buffer, sizeof(this->buffer),
 			this->seqnum++, this->timestamp);
+	this->header_size = this->buffer_used;
 	this->timestamp = this->sample_count;
 	return 0;
 }
@@ -415,7 +413,6 @@ static int send_buffer(struct impl *this)
 	if (unsent >= 0) {
 		unsent = this->fd_buffer_size - unsent;
 		this->codec->abr_process(this->codec_data, unsent);
-		update_num_blocks(this);
 	}
 
 	spa_log_trace(this->log, NAME " %p: send %d %u %u %u %u",
@@ -441,11 +438,6 @@ static bool want_flush(struct impl *this)
 	return (this->frame_count * this->block_size / this->port.frame_size >= MIN_LATENCY);
 }
 
-static bool need_flush(struct impl *this)
-{
-	return (this->frame_count >= this->num_blocks);
-}
-
 static int encode_buffer(struct impl *this, const void *data, uint32_t size)
 {
 	int processed;
@@ -458,7 +450,7 @@ static int encode_buffer(struct impl *this, const void *data, uint32_t size)
 			this, size, this->buffer_used, port->frame_size, this->block_size,
 			this->frame_count);
 
-	if (need_flush(this))
+	if (this->need_flush)
 		return 0;
 
 	if (this->buffer_used >= sizeof(this->buffer))
@@ -479,7 +471,7 @@ static int encode_buffer(struct impl *this, const void *data, uint32_t size)
 				from_data, from_size,
 				this->buffer + this->buffer_used,
 				sizeof(this->buffer) - this->buffer_used,
-				&out_encoded);
+				&out_encoded, &this->need_flush);
 	if (processed < 0)
 		return processed;
 
@@ -499,10 +491,10 @@ static int encode_buffer(struct impl *this, const void *data, uint32_t size)
 
 static int flush_buffer(struct impl *this)
 {
-	spa_log_trace(this->log, NAME" %p: used:%d num_blocks:%d block_size:%d", this,
-			this->buffer_used, this->num_blocks, this->block_size);
+	spa_log_trace(this->log, NAME" %p: used:%d block_size:%d", this,
+			this->buffer_used, this->block_size);
 
-	if (want_flush(this) || need_flush(this))
+	if (this->need_flush || want_flush(this))
 		return send_buffer(this);
 
 	return 0;
@@ -536,12 +528,11 @@ static void enable_flush(struct impl *this, bool enabled)
 static int flush_data(struct impl *this, uint64_t now_time)
 {
 	int written;
-	uint32_t total_frames, iter_buffer_used;
+	uint32_t total_frames;
 	struct port *port = &this->port;
 
 	total_frames = 0;
 again:
-	iter_buffer_used = this->buffer_used;
 	while (!spa_list_is_empty(&port->ready)) {
 		uint8_t *src;
 		uint32_t n_bytes, n_frames;
@@ -599,8 +590,7 @@ again:
 		spa_log_trace(this->log, NAME " %p: written %u frames", this, total_frames);
 	}
 
-	iter_buffer_used = this->buffer_used - iter_buffer_used;
-	if (written > 0 && iter_buffer_used == 0) {
+	if (written > 0 && this->buffer_used == this->header_size) {
 		enable_flush(this, false);
 		return 0;
 	}
@@ -610,7 +600,6 @@ again:
 		spa_log_trace(this->log, NAME" %p: delay flush", this);
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC / 2) {
 			this->codec->reduce_bitpool(this->codec_data);
-			update_num_blocks(this);
 			this->last_error = now_time;
 		}
 		enable_flush(this, true);
@@ -623,7 +612,6 @@ again:
 	else if (written > 0) {
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC) {
 			this->codec->increase_bitpool(this->codec_data);
-			update_num_blocks(this);
 			this->last_error = now_time;
 		}
 		if (!spa_list_is_empty(&port->ready))
@@ -746,15 +734,14 @@ static int do_start(struct impl *this)
 	this->seqnum = 0;
 
 	this->block_size = this->codec->get_block_size(this->codec_data);
-	update_num_blocks(this);
 	if (this->block_size > sizeof(this->tmp_buffer)) {
 		spa_log_error(this->log, "block-size %d > %zu",
 				this->block_size, sizeof(this->tmp_buffer));
 		return -EIO;
 	}
 
-        spa_log_debug(this->log, NAME " %p: block_size %d num_blocks:%d", this,
-			this->block_size, this->num_blocks);
+        spa_log_debug(this->log, NAME " %p: block_size %d", this,
+			this->block_size);
 
 	val = this->codec->send_buf_size > 0
 			/* The kernel doubles the SO_SNDBUF option value set by setsockopt(). */

@@ -377,11 +377,6 @@ static void codec_deinit(void *data)
 	free(this);
 }
 
-static int codec_get_num_blocks(void *data)
-{
-	return 1;
-}
-
 static int codec_get_block_size(void *data)
 {
 	struct impl *this = data;
@@ -407,7 +402,7 @@ static int codec_start_encode (void *data,
 static int codec_encode(void *data,
 		const void *src, size_t src_size,
 		void *dst, size_t dst_size,
-		size_t *dst_out)
+		size_t *dst_out, int *need_flush)
 {
 	struct impl *this = data;
 	int res;
@@ -445,6 +440,7 @@ static int codec_encode(void *data,
 		return -EINVAL;
 
 	*dst_out = out_args.numOutBytes;
+	*need_flush = 1;
 
 	return out_args.numInSamples * this->samplesize;
 }
@@ -498,7 +494,6 @@ const struct a2dp_codec a2dp_codec_aac = {
 	.init = codec_init,
 	.deinit = codec_deinit,
 	.get_block_size = codec_get_block_size,
-	.get_num_blocks = codec_get_num_blocks,
 	.start_encode = codec_start_encode,
 	.encode = codec_encode,
 	.abr_process = codec_abr_process,

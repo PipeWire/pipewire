@@ -45,7 +45,7 @@ struct impl {
 
 	size_t mtu;
 	int codesize;
-	int frame_length;
+	int max_frames;
 
 	int min_bitpool;
 	int max_bitpool;
@@ -86,7 +86,7 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 static uint8_t default_bitpool(uint8_t freq, uint8_t mode, bool xq)
 {
 	/* A2DP spec v1.2 states that all SNK implementation shall handle bitrates
-	 * of up to 512 kbps (~ bitpool = 86 stereo, or 2x43 dual channel at 44.1KHz 
+	 * of up to 512 kbps (~ bitpool = 86 stereo, or 2x43 dual channel at 44.1KHz
 	 * or ~ bitpool = 78 stereo, or 2x39 dual channel at 48KHz). */
 	switch (freq) {
 	case SBC_SAMPLING_FREQ_16000:
@@ -325,9 +325,13 @@ static int codec_validate_config(const struct a2dp_codec *codec, uint32_t flags,
 
 static int codec_set_bitpool(struct impl *this, int bitpool)
 {
+	size_t rtp_size = sizeof(struct rtp_header) + sizeof(struct rtp_payload);
+
 	this->sbc.bitpool = SPA_CLAMP(bitpool, this->min_bitpool, this->max_bitpool);
 	this->codesize = sbc_get_codesize(&this->sbc);
-	this->frame_length = sbc_get_frame_length(&this->sbc);
+	this->max_frames = (this->mtu - rtp_size) / sbc_get_frame_length(&this->sbc);
+	if (this->max_frames > 15)
+		this->max_frames = 15;
 	return this->sbc.bitpool;
 }
 
@@ -420,18 +424,6 @@ static int codec_increase_bitpool(void *data)
 {
 	struct impl *this = data;
 	return codec_set_bitpool(this, this->sbc.bitpool + 1);
-}
-
-static int codec_get_num_blocks(void *data)
-{
-	struct impl *this = data;
-	size_t rtp_size = sizeof(struct rtp_header) + sizeof(struct rtp_payload);
-	size_t frame_count = (this->mtu - rtp_size) / this->frame_length;
-
-	/* frame_count is only 4 bit number */
-	if (frame_count > 15)
-		frame_count = 15;
-	return frame_count;
 }
 
 static int codec_get_block_size(void *data)
@@ -580,17 +572,19 @@ static int codec_start_encode (void *data,
 static int codec_encode(void *data,
 		const void *src, size_t src_size,
 		void *dst, size_t dst_size,
-		size_t *dst_out)
+		size_t *dst_out, int *need_flush)
 {
 	struct impl *this = data;
 	int res;
 
 	res = sbc_encode(&this->sbc, src, src_size,
 			dst, dst_size, (ssize_t*)dst_out);
+	if (SPA_UNLIKELY(res < 0))
+		return -EINVAL;
+	spa_assert(res == this->codesize);
 
-	if (res >= this->codesize)
-		this->payload->frame_count += res / this->codesize;
-
+	this->payload->frame_count += res / this->codesize;
+	*need_flush = this->payload->frame_count >= this->max_frames;
 	return res;
 }
 
@@ -636,7 +630,6 @@ const struct a2dp_codec a2dp_codec_sbc = {
 	.init = codec_init,
 	.deinit = codec_deinit,
 	.get_block_size = codec_get_block_size,
-	.get_num_blocks = codec_get_num_blocks,
 	.abr_process = codec_abr_process,
 	.start_encode = codec_start_encode,
 	.encode = codec_encode,
@@ -659,7 +652,6 @@ const struct a2dp_codec a2dp_codec_sbc_xq = {
 	.init = codec_init,
 	.deinit = codec_deinit,
 	.get_block_size = codec_get_block_size,
-	.get_num_blocks = codec_get_num_blocks,
 	.abr_process = codec_abr_process,
 	.start_encode = codec_start_encode,
 	.encode = codec_encode,

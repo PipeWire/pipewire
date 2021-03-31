@@ -371,7 +371,6 @@ struct a2dp_codec {
 	int (*update_props) (void *data, void *props);
 
 	int (*get_block_size) (void *data);
-	int (*get_num_blocks) (void *data);
 
 	int (*abr_process) (void *data, size_t unsent);
 
@@ -380,7 +379,7 @@ struct a2dp_codec {
 	int (*encode) (void *data,
 		const void *src, size_t src_size,
 		void *dst, size_t dst_size,
-		size_t *dst_out);
+		size_t *dst_out, int *need_flush);
 
 	int (*start_decode) (void *data,
 		const void *src, size_t src_size, uint16_t *seqnum, uint32_t *timestamp);

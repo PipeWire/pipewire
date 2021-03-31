@@ -293,21 +293,42 @@ static int codec_enum_props(void *props, const struct spa_dict *settings, uint32
 			struct spa_pod_builder *b, struct spa_pod **param)
 {
 	struct props *p = props;
+	struct spa_pod_frame f[2];
 	switch (id) {
 	case SPA_PARAM_PropInfo:
 	{
 		switch (idx) {
 		case 0:
-			*param = spa_pod_builder_add_object(b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_quality),
-				SPA_PROP_INFO_name, SPA_POD_String("LDAC quality"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_ENUM_Int(5,
-							p->eqmid,
-							LDACBT_EQMID_AUTO,
-							LDACBT_EQMID_HQ,
-							LDACBT_EQMID_SQ,
-							LDACBT_EQMID_MQ));
+			return 0;
+			spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
+			spa_pod_builder_prop(b, SPA_PROP_INFO_id, 0);
+			spa_pod_builder_id(b, SPA_PROP_quality);
+			spa_pod_builder_prop(b, SPA_PROP_INFO_name, 0);
+			spa_pod_builder_string(b, "LDAC quality");
+
+			spa_pod_builder_prop(b, SPA_PROP_INFO_type, 0);
+			spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Enum, 0);
+			spa_pod_builder_frame(b, &f[1]);
+			spa_pod_builder_int(b, p->eqmid);
+			spa_pod_builder_int(b, LDACBT_EQMID_AUTO);
+			spa_pod_builder_int(b, LDACBT_EQMID_HQ);
+			spa_pod_builder_int(b, LDACBT_EQMID_SQ);
+			spa_pod_builder_int(b, LDACBT_EQMID_MQ);
+			spa_pod_builder_pop(b, &f[1]);
+
+			spa_pod_builder_prop(b, SPA_PROP_INFO_labels, 0);
+			spa_pod_builder_push_struct(b, &f[1]);
+			spa_pod_builder_int(b, LDACBT_EQMID_AUTO);
+			spa_pod_builder_string(b, "auto");
+			spa_pod_builder_int(b, LDACBT_EQMID_HQ);
+			spa_pod_builder_string(b, "hq");
+			spa_pod_builder_int(b, LDACBT_EQMID_SQ);
+			spa_pod_builder_string(b, "sq");
+			spa_pod_builder_int(b, LDACBT_EQMID_MQ);
+			spa_pod_builder_string(b, "mq");
+			spa_pod_builder_pop(b, &f[1]);
+
+			*param = spa_pod_builder_pop(b, &f[0]);
 			break;
 		default:
 			return 0;
@@ -343,6 +364,9 @@ static int codec_set_props(void *props, const struct spa_pod *param)
 		spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_Props, NULL,
 				SPA_PROP_quality, SPA_POD_OPT_Int(&p->eqmid));
+		if (p->eqmid != LDACBT_EQMID_AUTO &&
+			(p->eqmid < LDACBT_EQMID_HQ || p->eqmid > LDACBT_EQMID_MQ))
+			p->eqmid = prev_eqmid;
 	}
 
 	return prev_eqmid != p->eqmid;

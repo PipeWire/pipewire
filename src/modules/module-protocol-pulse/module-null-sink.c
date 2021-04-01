@@ -112,16 +112,13 @@ static struct module *create_module_null_sink(struct impl *impl, const char *arg
 	const char *str;
 	int res;
 
-	if (argument == NULL) {
-		res = -EINVAL;
-		goto out;
-	}
 	props = pw_properties_new(NULL, NULL);
 	if (props == NULL) {
 		res = -EINVAL;
 		goto out;
 	}
-	add_props(props, argument);
+	if (argument)
+		add_props(props, argument);
 
 	if ((str = pw_properties_get(props, "sink_name")) != NULL) {
 		pw_properties_set(props, PW_KEY_NODE_NAME, str);

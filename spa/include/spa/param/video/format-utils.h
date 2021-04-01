@@ -76,10 +76,16 @@ spa_format_video_raw_build(struct spa_pod_builder *builder, uint32_t id,
 	spa_pod_builder_add(builder,
 			SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_video),
 			SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_VIDEO_format,	SPA_POD_Id(info->format),
-			SPA_FORMAT_VIDEO_size,		SPA_POD_Rectangle(&info->size),
-			SPA_FORMAT_VIDEO_framerate,	SPA_POD_Fraction(&info->framerate),
 			0);
+	if (info->format != SPA_VIDEO_FORMAT_UNKNOWN)
+		spa_pod_builder_add(builder,
+			SPA_FORMAT_VIDEO_format,	SPA_POD_Id(info->format), 0);
+	if (info->size.width != 0 && info->size.height != 0)
+		spa_pod_builder_add(builder,
+			SPA_FORMAT_VIDEO_size,		SPA_POD_Rectangle(&info->size), 0);
+	if (info->framerate.denom != 0)
+		spa_pod_builder_add(builder,
+			SPA_FORMAT_VIDEO_framerate,	SPA_POD_Fraction(&info->framerate), 0);
 	if (info->modifier != 0)
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_modifier,	SPA_POD_Long(info->modifier), 0);
@@ -128,8 +134,10 @@ spa_format_video_dsp_build(struct spa_pod_builder *builder, uint32_t id,
 	spa_pod_builder_add(builder,
 			SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_video),
 			SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
-			SPA_FORMAT_VIDEO_format,	SPA_POD_Id(info->format),
 			0);
+	if (info->format != SPA_VIDEO_FORMAT_UNKNOWN)
+		spa_pod_builder_add(builder,
+			SPA_FORMAT_VIDEO_format,	SPA_POD_Id(info->format), 0);
 	if (info->modifier)
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_modifier,	SPA_POD_Long(info->modifier), 0);

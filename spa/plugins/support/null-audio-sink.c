@@ -390,7 +390,7 @@ port_enum_formats(struct impl *this,
 				0);
 		} else {
 			spa_pod_builder_add(builder,
-				SPA_FORMAT_AUDIO_rate, SPA_POD_CHOICE_RANGE_Int(DEFAULT_CHANNELS, 1, INT32_MAX),
+				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(DEFAULT_CHANNELS, 1, INT32_MAX),
 				0);
 		}
 		if (this->props.n_pos != 0) {

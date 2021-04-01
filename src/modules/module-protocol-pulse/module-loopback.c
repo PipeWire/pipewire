@@ -126,6 +126,8 @@ static int module_loopback_load(struct client *client, struct module *module)
 			&data->core_listener,
 			&core_events, data);
 
+	pw_properties_setf(data->capture_props, PW_KEY_NODE_GROUP, "loopback-%u", module->idx);
+	pw_properties_setf(data->playback_props, PW_KEY_NODE_GROUP, "loopback-%u", module->idx);
 
 	data->capture = pw_stream_new(data->core,
 			"loopback capture", data->capture_props);
@@ -225,23 +227,20 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 	 */
 
 	if ((str = pw_properties_get(props, "source")) != NULL) {
-		pw_properties_set(capture_props, PW_KEY_NODE_GROUP, str);
+		pw_properties_set(capture_props, PW_KEY_NODE_TARGET, str);
 		pw_properties_set(props, "source", NULL);
-	} else {
-		ERROR_RETURN("The 'source' property must be specified");
 	}
 
 	if ((str = pw_properties_get(props, "sink")) != NULL) {
-		pw_properties_set(playback_props, PW_KEY_NODE_GROUP, str);
+		pw_properties_set(playback_props, PW_KEY_NODE_TARGET, str);
 		pw_properties_set(props, "sink", NULL);
-	} else {
-		ERROR_RETURN("The 'sink' property must be specified");
 	}
 
 	if ((str = pw_properties_get(props, "format")) != NULL) {
 		info.format = format_paname2id(str, strlen(str));
 		if (info.format == SPA_AUDIO_FORMAT_UNKNOWN)
 			ERROR_RETURN("Unknown format specified");
+		pw_properties_set(props, "format", NULL);
 	} else {
 		info.format = SPA_AUDIO_FORMAT_F32P;
 	}
@@ -256,7 +255,6 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 	if ((str = pw_properties_get(props, "channels")) != NULL) {
 		info.channels = pw_properties_parse_int(str);
 		pw_properties_set(props, "channels", NULL);
-
 	} else {
 		info.channels = 2;
 	}
@@ -268,7 +266,6 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 		if (info.channels != map.channels)
 			ERROR_RETURN("Mismatched channel map");
 		channel_map_to_positions(&map, info.position);
-
 		pw_properties_set(props, "channel_map", NULL);
 	} else {
 		if (info.channels > 2)
@@ -298,6 +295,7 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 		/* Note that the boolean is inverted */
 		pw_properties_set(playback_props, PW_KEY_STREAM_DONT_REMIX,
 				pw_properties_parse_bool(str) ? "false" : "true");
+		pw_properties_set(props, "remix", NULL);
 	}
 
 	if ((str = pw_properties_get(props, "latency_msec")) != NULL) {
@@ -319,9 +317,6 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 		add_props(capture_props, str);
 		pw_properties_set(props, "source_output_properties", NULL);
 	}
-
-	pw_properties_set(props, PW_KEY_FACTORY_NAME, "support.loopback");
-	pw_properties_set(props, PW_KEY_OBJECT_LINGER, "true");
 
 	module = module_new(impl, &module_loopback_methods, sizeof(*d));
 	if (module == NULL) {

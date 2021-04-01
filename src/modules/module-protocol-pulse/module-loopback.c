@@ -210,11 +210,6 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 	struct spa_audio_info_raw info = { 0 };
 	int res;
 
-	if (argument == NULL) {
-		res = -EINVAL;
-		goto out;
-	}
-
 	props = pw_properties_new(NULL, NULL);
 	capture_props = pw_properties_new(NULL, NULL);
 	playback_props = pw_properties_new(NULL, NULL);
@@ -222,7 +217,8 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 		res = -EINVAL;
 		goto out;
 	}
-	add_props(props, argument);
+	if (argument)
+		add_props(props, argument);
 
 	/* The following modargs are not implemented:
 	 * adjust_time, max_latency_msec, fast_adjust_threshold_msec: these are just not relevant

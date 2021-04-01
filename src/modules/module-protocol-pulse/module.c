@@ -217,7 +217,7 @@ static struct module *create_module(struct client *client, const char *name, con
 		return NULL;
 	}
 	module->name = strdup(name);
-	module->args = strdup(args);
+	module->args = args ? strdup(args) : NULL;
 	module->idx |= MODULE_FLAG;
 	return module;
 }

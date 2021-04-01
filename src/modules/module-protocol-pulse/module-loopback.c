@@ -150,14 +150,8 @@ static int module_loopback_load(struct client *client, struct module *module)
 			&out_stream_events, data);
 
 	n_params = 0;
-	params[n_params++] = spa_pod_builder_add_object(&b,
-                        SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-                        SPA_FORMAT_mediaType,           SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-                        SPA_FORMAT_mediaSubtype,        SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-                        SPA_FORMAT_AUDIO_format,        SPA_POD_Id(data->info.format),
-                        SPA_FORMAT_AUDIO_channels,      SPA_POD_Int(data->info.channels),
-                        SPA_FORMAT_AUDIO_position,      SPA_POD_Array(sizeof(uint32_t),
-				SPA_TYPE_Id, data->info.channels, data->info.position));
+	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
+			&data->info);
 
 	if ((res = pw_stream_connect(data->capture,
 			PW_DIRECTION_INPUT,
@@ -215,6 +209,7 @@ static const struct spa_dict_item module_loopback_info[] = {
 	{ PW_KEY_MODULE_USAGE, "source=<source to connect to> "
 				"sink=<sink to connect to> "
 				"latency_msec=<latency in ms> "
+				"rate=<sample rate> "
 				"channels=<number of channels> "
 				"channel_map=<channel map> "
 				"sink_input_properties=<proplist> "
@@ -266,6 +261,12 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 	} else {
 		info.channels = 2;
 	}
+	if ((str = pw_properties_get(props, "rate")) != NULL) {
+		info.rate = pw_properties_parse_int(str);
+		pw_properties_set(props, "rate", NULL);
+	} else {
+		info.rate = 0;
+	}
 
 	if ((str = pw_properties_get(props, "channel_map")) != NULL) {
 		struct channel_map map;
@@ -285,7 +286,6 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 			info.position[0] = SPA_AUDIO_CHANNEL_FL;
 			info.position[1] = SPA_AUDIO_CHANNEL_FR;
 		}
-
 		/* TODO: pull in all of pa_channel_map_init_auto() */
 	}
 

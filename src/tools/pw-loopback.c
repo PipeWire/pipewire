@@ -32,7 +32,7 @@
 
 #include <spa/utils/result.h>
 #include <spa/pod/builder.h>
-#include <spa/param/format.h>
+#include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw.h>
 
 #include <pipewire/pipewire.h>
@@ -121,12 +121,11 @@ static int setup_streams(struct data *data)
 			&out_stream_events, data);
 
 	n_params = 0;
-	params[n_params++] = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-			SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-			SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_AUDIO_format,	SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
-			SPA_FORMAT_AUDIO_channels,	SPA_POD_Int(data->channels));
+	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
+			&SPA_AUDIO_INFO_RAW_INIT(
+				.flags = SPA_AUDIO_FLAG_UNPOSITIONED,
+				.format = SPA_AUDIO_FORMAT_F32P,
+				.channels = data->channels));
 
 	if ((res = pw_stream_connect(data->capture,
 			PW_DIRECTION_INPUT,

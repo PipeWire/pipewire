@@ -254,9 +254,8 @@ static void emit_port_info(struct seq_state *this, struct seq_port *port, bool f
 		snd_seq_get_any_client_info(this->sys.hndl,
 				port->addr.client, client_info);
 
-		snprintf(name, sizeof(name), "%s [%d] (%s): [%d] %s",
+		snprintf(name, sizeof(name), "%s:(%s_%d) %s",
 				snd_seq_client_info_get_name(client_info),
-				port->addr.client,
 				port->direction == SPA_DIRECTION_OUTPUT ? "capture" : "playback",
 				port->addr.port,
 				snd_seq_port_info_get_name(info));

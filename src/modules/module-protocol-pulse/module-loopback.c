@@ -209,6 +209,22 @@ static const struct module_methods module_loopback_methods = {
 	.unload = module_loopback_unload,
 };
 
+static const struct spa_dict_item module_loopback_info[] = {
+	{ PW_KEY_MODULE_AUTHOR, "Arun Raghavan <arun@asymptotic.io>" },
+	{ PW_KEY_MODULE_DESCRIPTION, "Loopback from source to sink" },
+	{ PW_KEY_MODULE_USAGE, "source=<source to connect to> "
+				"sink=<sink to connect to> "
+				"latency_msec=<latency in ms> "
+				"channels=<number of channels> "
+				"channel_map=<channel map> "
+				"sink_input_properties=<proplist> "
+				"source_output_properties=<proplist> "
+				"source_dont_move=<boolean> "
+				"sink_dont_move=<boolean> "
+				"remix=<remix channels?> " },
+	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
+};
+
 static struct module *create_module_loopback(struct impl *impl, const char *argument)
 {
 	struct module *module;
@@ -218,7 +234,7 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 	struct spa_audio_info_raw info = { 0 };
 	int res;
 
-	props = pw_properties_new(NULL, NULL);
+	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_loopback_info));
 	capture_props = pw_properties_new(NULL, NULL);
 	playback_props = pw_properties_new(NULL, NULL);
 	if (!props || !capture_props || !playback_props) {

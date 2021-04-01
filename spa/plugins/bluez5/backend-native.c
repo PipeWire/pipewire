@@ -626,7 +626,7 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 					rfcomm->hf_state = hfp_hf_cind2;
 					break;
 				case hfp_hf_cind2:
-					rfcomm_send_cmd(source, "AT+CMER");
+					rfcomm_send_cmd(source, "AT+CMER=3,0,0,0");
 					rfcomm->hf_state = hfp_hf_cmer;
 					break;
 				case hfp_hf_cmer:

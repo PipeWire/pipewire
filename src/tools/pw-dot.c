@@ -54,6 +54,7 @@ struct data {
 	struct spa_list globals;
 	char *dot_str;
 	const char *dot_rankdir;
+	bool dot_orthoedges;
 
 	bool show_all;
 	bool show_smart;
@@ -464,6 +465,11 @@ static int draw_graph(struct data *d, const char *path)
 		dot_str_add(&d->dot_str, "rankdir = \"%s\";\n", d->dot_rankdir);
 	}
 
+	if (d->dot_orthoedges) {
+		/* enable orthogonal edges */
+		dot_str_add(&d->dot_str, "splines = ortho;\n");
+	}
+
 	/* iterate the globals */
 	spa_list_for_each(g, &d->globals, link) {
 		/* skip null and non-info globals */
@@ -764,7 +770,8 @@ static void show_help(const char *name)
 		"  -d, --detail                          Show all object properties\n"
 		"  -r, --remote                          Remote daemon name\n"
 		"  -o, --output                          Output file (Default %s)\n"
-		"  -L, --lr                              Use left-right rank direction\n",
+		"  -L, --lr                              Use left-right rank direction\n"
+		"  -9, --90                              Use orthogonal edges\n",
 		name,
 		DEFAULT_DOT_PATH);
 }
@@ -784,13 +791,14 @@ int main(int argc, char *argv[])
 		{ "remote",	required_argument,	NULL, 'r' },
 		{ "output",	required_argument,	NULL, 'o' },
 		{ "lr",		no_argument,		NULL, 'L' },
+		{ "90",		no_argument,		NULL, '9' },
 		{ NULL, 0, NULL, 0}
 	};
 	int c;
 
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hVasdr:o:L", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVasdr:o:L9", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h' :
 			show_help(argv[0]);
@@ -826,6 +834,10 @@ int main(int argc, char *argv[])
 		case 'L' :
 			data.dot_rankdir = "LR";
 			fprintf(stderr, "set rank direction to LR\n");
+			break;
+		case '9' :
+			data.dot_orthoedges = true;
+			fprintf(stderr, "orthogonal edges enabled\n");
 			break;
 		default:
 			show_help(argv[0]);

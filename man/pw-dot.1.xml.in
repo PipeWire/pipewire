@@ -63,6 +63,11 @@ This file is part of PipeWire.
       <optdesc><p>Lay the graph from left to right, instead of dot's default top to bottom.</p></optdesc>
     </option>
 
+    <option>
+      <p><opt>-9 | --90</opt></p>
+      <optdesc><p>Lay the graph using 90-degree angles in edges.</p></optdesc>
+    </option>
+
   </options>
 
   <section name="Authors">

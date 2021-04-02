@@ -4951,7 +4951,7 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 	struct impl *impl = client->impl;
 	struct pw_manager *manager = client->manager;
 	struct pw_manager_object *o;
-	const char *name;
+	const char *name, *str;
 	int res;
 	bool sink = command == COMMAND_SET_DEFAULT_SINK;
 
@@ -4967,7 +4967,9 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 		return -ENOENT;
 
 	if (name != NULL) {
-		if (pw_endswith(name, ".monitor"))
+		if (o->props && (str = pw_properties_get(o->props, PW_KEY_NODE_NAME)) != NULL)
+			name = str;
+		else if (pw_endswith(name, ".monitor"))
 			name = strndupa(name, strlen(name)-8);
 
 		res = pw_manager_set_metadata(manager, client->metadata_default,

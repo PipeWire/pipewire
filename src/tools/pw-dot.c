@@ -792,23 +792,23 @@ int main(int argc, char *argv[])
 			return 0;
 		case 'a' :
 			data.show_all = true;
-			fprintf(stdout, "all option enabled\n");
+			fprintf(stderr, "all option enabled\n");
 			break;
 		case 's' :
 			data.show_smart = true;
-			fprintf(stdout, "smart option enabled\n");
+			fprintf(stderr, "smart option enabled\n");
 			break;
 		case 'd' :
 			data.show_detail = true;
-			fprintf(stdout, "detail option enabled\n");
+			fprintf(stderr, "detail option enabled\n");
 			break;
 		case 'r' :
 			opt_remote = optarg;
-			fprintf(stdout, "set remote to %s\n", opt_remote);
+			fprintf(stderr, "set remote to %s\n", opt_remote);
 			break;
 		case 'o' :
 			dot_path = optarg;
-			fprintf(stdout, "set output file %s\n", dot_path);
+			fprintf(stderr, "set output file %s\n", dot_path);
 			break;
 		default:
 			show_help(argv[0]);

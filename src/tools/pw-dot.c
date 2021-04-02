@@ -53,6 +53,7 @@ struct data {
 
 	struct spa_list globals;
 	char *dot_str;
+	const char *dot_rankdir;
 
 	bool show_all;
 	bool show_smart;
@@ -458,6 +459,11 @@ static int draw_graph(struct data *d, const char *path)
 	/* draw the header */
 	dot_str_add(&d->dot_str, "digraph pipewire {\n");
 
+	if (d->dot_rankdir) {
+		/* set rank direction, if provided */
+		dot_str_add(&d->dot_str, "rankdir = \"%s\";\n", d->dot_rankdir);
+	}
+
 	/* iterate the globals */
 	spa_list_for_each(g, &d->globals, link) {
 		/* skip null and non-info globals */
@@ -757,7 +763,8 @@ static void show_help(const char *name)
 		"  -s, --smart                           Show linked objects only\n"
 		"  -d, --detail                          Show all object properties\n"
 		"  -r, --remote                          Remote daemon name\n"
-		"  -o, --output                          Output file (Default %s)\n",
+		"  -o, --output                          Output file (Default %s)\n"
+		"  -L, --lr                              Use left-right rank direction\n",
 		name,
 		DEFAULT_DOT_PATH);
 }
@@ -776,13 +783,14 @@ int main(int argc, char *argv[])
 		{ "detail",	no_argument,		NULL, 'd' },
 		{ "remote",	required_argument,	NULL, 'r' },
 		{ "output",	required_argument,	NULL, 'o' },
+		{ "lr",		no_argument,		NULL, 'L' },
 		{ NULL, 0, NULL, 0}
 	};
 	int c;
 
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hVasdr:o:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVasdr:o:L", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h' :
 			show_help(argv[0]);
@@ -814,6 +822,10 @@ int main(int argc, char *argv[])
 		case 'o' :
 			dot_path = optarg;
 			fprintf(stderr, "set output file %s\n", dot_path);
+			break;
+		case 'L' :
+			data.dot_rankdir = "LR";
+			fprintf(stderr, "set rank direction to LR\n");
 			break;
 		default:
 			show_help(argv[0]);

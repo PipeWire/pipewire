@@ -58,6 +58,11 @@ This file is part of PipeWire.
       <optdesc><p>Output file name (Default pw.dot). Use - for stdout.</p></optdesc>
     </option>
 
+    <option>
+      <p><opt>-L | --lr</opt></p>
+      <optdesc><p>Lay the graph from left to right, instead of dot's default top to bottom.</p></optdesc>
+    </option>
+
   </options>
 
   <section name="Authors">

@@ -493,16 +493,21 @@ static int draw_graph(struct data *d, const char *path)
 	/* draw the footer */
 	dot_str_add(&d->dot_str, "}\n");
 
-	/* open the file */
-	fp = fopen(path, "w");
-	if (fp == NULL) {
-		printf("open error: could not open %s for writing\n", path);
-		return -1;
-	}
+	if (strcmp(path, "-") == 0) {
+		/* wire the dot graph into to stdout */
+		fputs(d->dot_str, stdout);
+	} else {
+		/* open the file */
+		fp = fopen(path, "w");
+		if (fp == NULL) {
+			printf("open error: could not open %s for writing\n", path);
+			return -1;
+		}
 
-	/* wire the dot graph into the file */
-	fputs(d->dot_str, fp);
-	fclose(fp);
+		/* wire the dot graph into the file */
+		fputs(d->dot_str, fp);
+		fclose(fp);
+	}
 	return 0;
 }
 

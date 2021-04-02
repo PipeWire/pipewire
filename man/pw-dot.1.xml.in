@@ -55,7 +55,7 @@ This file is part of PipeWire.
 
     <option>
       <p><opt>-o FILE | --output</opt><arg>=FILE</arg></p>
-      <optdesc><p>Output file name (Default pw.dot).</p></optdesc>
+      <optdesc><p>Output file name (Default pw.dot). Use - for stdout.</p></optdesc>
     </option>
 
   </options>

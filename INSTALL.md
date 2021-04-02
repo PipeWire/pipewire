@@ -169,7 +169,7 @@ These libraries are found here:
 
 ```
 
-The provides pw-jack script uses LD_LIBRARY_PATH to set the library
+The provided pw-jack script uses LD_LIBRARY_PATH to set the library
 search path to these replacement libraries. This allows you to run
 jack apps on both the real JACK server or on PipeWire with the script.
 

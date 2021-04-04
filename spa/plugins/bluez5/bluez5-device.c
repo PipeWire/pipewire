@@ -763,6 +763,25 @@ static uint32_t get_index_from_profile(struct impl *this, uint32_t profile, enum
 	return SPA_ID_INVALID;
 }
 
+static bool find_hsp_hfp_profile(struct impl *this) {
+	struct spa_bt_transport *t;
+	int i;
+
+	for (i = SPA_BT_PROFILE_HSP_HS; i <= SPA_BT_PROFILE_HFP_AG; i <<= 1) {
+		if (!(this->bt_dev->connected_profiles & i))
+			continue;
+
+		t = find_transport(this, i, 0);
+		if (t) {
+			this->profile = (i & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY) ?
+				DEVICE_PROFILE_AG : DEVICE_PROFILE_HSP_HFP;
+			this->props.codec = get_hfp_codec_id(t->codec);
+			return true;
+		}
+	}
+	return false;
+}
+
 static void set_initial_profile(struct impl *this)
 {
 	struct spa_bt_transport *t;
@@ -775,6 +794,14 @@ static void set_initial_profile(struct impl *this)
 
 	/* Prefer A2DP, then HFP, then null, but select AG if the device
 	   appears not to have A2DP_SINK or any HEAD_UNIT profile */
+
+	// If default profile is set to HSP/HFP, first try those and exit if found
+	const char *str;
+	if (this->bt_dev->settings != NULL) {
+		str = spa_dict_lookup(this->bt_dev->settings, "device.profile");
+		if (str != NULL && strcmp(str, "headset-head-unit") == 0 && find_hsp_hfp_profile(this))
+			return;
+	}
 
 	for (i = SPA_BT_PROFILE_A2DP_SINK; i <= SPA_BT_PROFILE_A2DP_SOURCE; i <<= 1) {
 		if (!(this->bt_dev->connected_profiles & i))
@@ -789,18 +816,7 @@ static void set_initial_profile(struct impl *this)
 		}
 	}
 
-	for (i = SPA_BT_PROFILE_HSP_HS; i <= SPA_BT_PROFILE_HFP_AG; i <<= 1) {
-		if (!(this->bt_dev->connected_profiles & i))
-			continue;
-
-		t = find_transport(this, i, 0);
-		if (t) {
-			this->profile = (i & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY) ?
-				DEVICE_PROFILE_AG : DEVICE_PROFILE_HSP_HFP;
-			this->props.codec = get_hfp_codec_id(t->codec);
-			return;
-		}
-	}
+	if (find_hsp_hfp_profile(this)) return;
 
 	this->profile = DEVICE_PROFILE_OFF;
 	this->props.codec = 0;

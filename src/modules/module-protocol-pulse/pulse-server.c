@@ -6129,7 +6129,9 @@ static int make_local_socket(struct server *server, char *name)
 		goto error_close;
 	}
 	pw_log_info(NAME" listening on unix:%s", server->addr.sun_path);
+#ifdef HAVE_SYSTEMD
 done:
+#endif
 	server->activated = activated;
 	server->type = SERVER_TYPE_UNIX;
 

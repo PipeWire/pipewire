@@ -230,7 +230,9 @@ static void on_stream_add_buffer(void *_data, struct pw_buffer *buffer)
 	struct data *data = _data;
 	struct spa_buffer *buf = buffer->buffer;
 	struct spa_data *d;
+#ifdef HAVE_MEMFD_CREATE
 	unsigned int seals;
+#endif
 
 	pw_log_info("add buffer %p", buffer);
 	d = buf->datas;

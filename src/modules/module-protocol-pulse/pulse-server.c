@@ -4050,20 +4050,23 @@ static int fill_sink_info(struct client *client, struct message *m,
 	uint32_t flags;
 	struct card_info card_info = CARD_INFO_INIT;
 	struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_OUTPUT);
+	size_t size;
 
 	if (!object_is_sink(o) || info == NULL || info->props == NULL)
 		return -ENOENT;
 
-	if ((name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) != NULL) {
-		size_t size = strlen(name) + 10;
-		monitor_name = alloca(size);
-		if (object_is_source(o))
-			snprintf(monitor_name, size, "%s", name);
-		else
-			snprintf(monitor_name, size, "%s.monitor", name);
-	}
+	name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
 	if ((desc = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION)) == NULL)
-		desc = name;
+		desc = name ? name : "Unknown";
+	if (name == NULL)
+		name = "unknown";
+
+	size = strlen(name) + 10;
+	monitor_name = alloca(size);
+	if (object_is_source(o))
+		snprintf(monitor_name, size, "%s", name);
+	else
+		snprintf(monitor_name, size, "%s.monitor", name);
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = (uint32_t)atoi(str);
@@ -4188,24 +4191,25 @@ static int fill_source_info(struct client *client, struct message *m,
 	uint32_t flags;
 	struct card_info card_info = CARD_INFO_INIT;
 	struct device_info dev_info = DEVICE_INFO_INIT(PW_DIRECTION_INPUT);
+	size_t size;
 
 	is_monitor = object_is_monitor(o);
 	if ((!object_is_source(o) && !is_monitor) || info == NULL || info->props == NULL)
 		return -ENOENT;
 
-	if ((name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME)) != NULL) {
-		size_t size = strlen(name) + 10;
-		monitor_name = alloca(size);
-		snprintf(monitor_name, size, "%s.monitor", name);
-	}
-	if ((desc = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION)) != NULL) {
-		size_t size = strlen(desc) + 20;
-		monitor_desc = alloca(size);
-		snprintf(monitor_desc, size, "Monitor of %s", desc);
-	} else {
-		desc = name;
-		monitor_desc = monitor_name;
-	}
+	name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
+	if ((desc = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION)) == NULL)
+		desc = name ? name : "Unknown";
+	if (name == NULL)
+		name = "unknown";
+
+	size = strlen(name) + 10;
+	monitor_name = alloca(size);
+	snprintf(monitor_name, size, "%s.monitor", name);
+
+	size = strlen(desc) + 20;
+	monitor_desc = alloca(size);
+	snprintf(monitor_desc, size, "Monitor of %s", desc);
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = (uint32_t)atoi(str);

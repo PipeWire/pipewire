@@ -71,7 +71,7 @@ enum
 GType
 gst_pipewire_sink_mode_get_type (void)
 {
-  static volatile gsize mode_type = 0;
+  static gsize mode_type = 0;
   static const GEnumValue mode[] = {
     {GST_PIPEWIRE_SINK_MODE_DEFAULT, "GST_PIPEWIRE_SINK_MODE_DEFAULT", "default"},
     {GST_PIPEWIRE_SINK_MODE_RENDER, "GST_PIPEWIRE_SINK_MODE_RENDER", "render"},

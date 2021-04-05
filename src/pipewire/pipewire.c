@@ -441,9 +441,12 @@ void pw_init(int *argc, char **argv[])
 			pw_log_set(log);
 
 #ifdef HAVE_SYSTEMD
-		log = load_journal_logger(support);
-		if (log)
-			pw_log_set(log);
+		if ((str = getenv("PIPEWIRE_LOG_SYSTEMD")) == NULL ||
+				strcmp(str, "true") == 0 || atoi(str) != 0) {
+			log = load_journal_logger(support);
+			if (log)
+				pw_log_set(log);
+		}
 #endif
 	} else {
 		support->support[support->n_support++] =

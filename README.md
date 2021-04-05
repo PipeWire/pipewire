@@ -40,6 +40,7 @@ applications:
 
 * `PIPEWIRE_DEBUG=<level>`         to increase the debug level
 * `PIPEWIRE_LOG=<filename>`        to redirect log to filename
+* `PIPEWIRE_LOG_SYSTEMD=false`     to disable logging to systemd journal
 * `PIPEWIRE_LATENCY=<num/denom>`   to configure latency as a fraction. 10/1000
                                    configures a 10ms latency. Usually this is
 				   expressed as a fraction of the samplerate,

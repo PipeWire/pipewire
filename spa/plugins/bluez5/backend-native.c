@@ -174,6 +174,8 @@ static void rfcomm_free(struct rfcomm *rfcomm)
 		spa_hook_remove(&rfcomm->transport_listener);
 		spa_bt_transport_free(rfcomm->transport);
 	}
+	if (rfcomm->device)
+		spa_bt_device_report_battery_level(rfcomm->device, SPA_BT_NO_BATTERY);
 	free(rfcomm);
 }
 

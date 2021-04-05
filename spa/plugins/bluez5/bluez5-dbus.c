@@ -171,6 +171,13 @@ static void battery_remove(struct spa_bt_device *device) {
 	DBusMessage *m;
 	const char *interface;
 
+	if (device->battery_pending_call) {
+		spa_log_debug(device->monitor->log, "Cancelling and freeing pending battery provider register call");
+		dbus_pending_call_cancel(device->battery_pending_call);
+		dbus_pending_call_unref(device->battery_pending_call);
+		device->battery_pending_call = NULL;
+	}
+
 	if (!device->adapter->has_battery_provider || !device->has_battery)
 		return;
 
@@ -323,6 +330,11 @@ static void register_battery_provider(struct spa_bt_device *device)
 	DBusMessage *method_call;
 	DBusMessageIter message_iter;
 
+	if (device->battery_pending_call) {
+		spa_log_debug(device->monitor->log, NAME": Already registering battery provider");
+		return;
+	}
+
 	method_call = dbus_message_new_method_call(
 		BLUEZ_SERVICE, device->adapter_path,
 		BLUEZ_INTERFACE_BATTERY_PROVIDER_MANAGER,
@@ -358,6 +370,7 @@ static void register_battery_provider(struct spa_bt_device *device)
 		spa_log_error(device->monitor->log, "Failed to register battery provider");
 		dbus_pending_call_cancel(device->battery_pending_call);
 		dbus_pending_call_unref(device->battery_pending_call);
+		device->battery_pending_call = NULL;
 	}
 }
 
@@ -661,13 +674,6 @@ static void device_free(struct spa_bt_device *device)
 	struct spa_bt_monitor *monitor = device->monitor;
 
 	spa_log_debug(monitor->log, "%p", device);
-
-	if (device->battery_pending_call) {
-		spa_log_debug(monitor->log, "Cancelling and freeing pending battery provider register call");
-		dbus_pending_call_cancel(device->battery_pending_call);
-		dbus_pending_call_unref(device->battery_pending_call);
-		device->battery_pending_call = NULL;
-	}
 
 	battery_remove(device);
 	device_stop_timer(device);
@@ -3654,6 +3660,11 @@ const struct spa_handle_factory spa_bluez5_dbus_factory = {
 // Report battery percentage to BlueZ using experimental (BlueZ 5.56) Battery Provider API. No-op if no changes occured.
 int spa_bt_device_report_battery_level(struct spa_bt_device *device, uint8_t percentage)
 {
+	if (percentage == SPA_BT_NO_BATTERY) {
+		battery_remove(device);
+		return 0;
+	}
+
 	// BlueZ likely is running without battery provider support, don't try to report battery
 	if (device->adapter->battery_provider_unavailable) return 0;
 

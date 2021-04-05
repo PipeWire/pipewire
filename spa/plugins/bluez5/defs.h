@@ -161,6 +161,8 @@ extern "C" {
 
 #define SPA_BT_UNKNOWN_DELAY			0
 
+#define SPA_BT_NO_BATTERY			((uint8_t)255)
+
 /* HFP uses SBC encoding with precisely defined parameters. Hence, the size
  * of the input (number of PCM samples) and output is known up front. */
 #define MSBC_DECODED_SIZE       240

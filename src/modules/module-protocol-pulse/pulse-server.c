@@ -5823,7 +5823,7 @@ static int check_flatpak(struct client *client, int pid)
 	struct stat stat_buf;
 
 	sprintf(root_path, "/proc/%u/root", pid);
-	root_fd = openat (AT_FDCWD, root_path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
+	root_fd = openat(AT_FDCWD, root_path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
 	if (root_fd == -1) {
 		res = -errno;
 		if (res == -EACCES) {
@@ -5842,8 +5842,8 @@ static int check_flatpak(struct client *client, int pid)
 		pw_log_info("failed to open \"%s\": %s", root_path, spa_strerror(res));
 		return res;
 	}
-	info_fd = openat (root_fd, ".flatpak-info", O_RDONLY | O_CLOEXEC | O_NOCTTY);
-	close (root_fd);
+	info_fd = openat(root_fd, ".flatpak-info", O_RDONLY | O_CLOEXEC | O_NOCTTY);
+	close(root_fd);
 	if (info_fd == -1) {
 		if (errno == ENOENT) {
 			pw_log_debug("no .flatpak-info, client on the host");
@@ -5854,11 +5854,11 @@ static int check_flatpak(struct client *client, int pid)
 		pw_log_error("error opening .flatpak-info: %m");
 		return res;
         }
-	if (fstat (info_fd, &stat_buf) != 0 || !S_ISREG (stat_buf.st_mode)) {
+	if (fstat(info_fd, &stat_buf) != 0 || !S_ISREG(stat_buf.st_mode)) {
 		/* Some weird fd => failure, assume sandboxed */
-		close(info_fd);
 		pw_log_error("error fstat .flatpak-info: %m");
 	}
+	close(info_fd);
 	return 1;
 }
 

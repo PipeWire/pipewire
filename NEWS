@@ -1,3 +1,103 @@
+PipeWire 0.3.25
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Highlights
+  - Many stability improvements.
+  - Plug fd leak in flatpak detection
+  - add pw-loopback tool and support module-loopback
+  - volume restore for virtual sinks/sources or other sink/sources
+    without hardware volume.
+  - Fix cracks and pops in audio capture.
+  - Many bluetooth improvements and compatibity fixes.
+
+
+- PipeWire improvements
+  - Hex encode invalid SEC_LABEL properties to avoid generating
+    invalid json.
+  - Small fixes to how nodes are started to avoid crashes.
+  - Make sure ports are only scheduled after being fully
+    negotiated to avoid crashes.
+  - Implement coverity into CI, fix some bugs detected by
+    coverity.
+  - Plug leak in flatpak detection.
+  - Fix crash when removing globals in some cases.
+  - Fix crash because the mixer info was not removed from a
+    port in all cases.
+  - Add PIPEWIRE_AUTOCONNECT environment variable to disable
+    stream autoconnect. Also add a config option to disable
+    autoconnect.
+  - Improve wildcard in format helpers.
+  - Add env variable to disable journald logging.
+
+- Tools
+  - Add a new pw-loopback tool to loop a capture device to a
+    playback device.
+  - Display localized strings correctly in pw-top
+  - Add some more options to pw-dot
+
+- Session-manager
+  - When a new node is configured and some stream have this
+    as the default target, move them to it.
+  - Fix some crashes.
+  - Implement volume restore on nodes without routes. This makes
+    it possible to restore volume on purely software nodes like
+    null-sinks.
+  - Also try to suspend errored nodes so that they may leave the
+    error state and be reused again.
+  - Break endless link loops when something went wrong.
+
+- Device support
+  - Fix monitor volumes, they are now separate from the hardware
+    volume.
+  - Fix cracks and pops in alsa capture caused by mismatch between
+    resampler and capture source.
+  - Add start-delay config option to alsa sink.
+  - Ensure the PipeWire midi ports start from a higher number so
+    that the lower port numbers are available to apps as before.
+
+- Bluetooth
+  - source devices are now removed when idle
+  - Support using pipewire as Audio Gateway.
+  - LDAC encoding quality can be configured now
+  - Implement codec switching for HFP
+  - Implement codec switching with new device property.
+  - Improved stability and compatibility
+  - Autoconnect device profiles at startup
+  - Add AAC bitrate mode configuration
+  - Make it possible to use an A2DP source as an input device. You
+    can then use your phone as an A2DP microphone, for example.
+  - Remove battery reporting when RFCOMM connections is closed.
+
+- PulseAudio server
+  - Add some workarounds for Blueman
+  - Set correct errno values, fixes a hang in load-module of a
+    non-existing module
+  - Try to not send inconsistent information to clients.
+  - Fix some crashes.
+  - Add support for the new send-message API, use this to
+    switch bluetooth codecs.
+  - Fix draining by making sure we are started.
+  - Handle 0 sink and source as the default sink/source.
+  - Implement module-loopback
+
+- JACK
+  - Fix some memory leaks when closing a client
+  - Add self-connect config option to limit where clients
+    can connect themselves.
+  - Don't crash when apps call _port_get_buffer() on a
+    port that is not their own but simply return NULL.
+    This fixes a crash in Ardour6.
+  - Improve client added/removed callbacks. Sometimes it would
+    emit a client remove when there were still ports for the
+    client.
+  - make sure midi port names are stable across reboots.
+
+
+Older versions:
+
+
 PipeWire 0.3.24
 
 This is a bugfix release that is API and ABI compatible
@@ -82,10 +182,6 @@ with previous 0.3.x releases.
   - Improve compatibility with some apps that require a
     fixed latency.
   - Beginnings of the libjackserver implementation.
-
-
-
-Older versions:
 
 
 PipeWire 0.3.23

@@ -15,6 +15,8 @@ Description=PipeWire PulseAudio
 # socket-service relationship, see systemd.socket(5).
 Requires=pipewire-pulse.socket
 ConditionUser=!root
+Wants=pipewire.service
+After=pipewire.service
 
 [Service]
 LockPersonality=yes

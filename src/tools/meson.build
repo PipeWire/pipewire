@@ -7,6 +7,7 @@ tools_sources = [
   [ 'pw-mididump', [ 'pw-mididump.c', 'midifile.c' ] ],
   [ 'pw-metadata', [ 'pw-metadata.c' ] ],
   [ 'pw-loopback', [ 'pw-loopback.c' ] ],
+  [ 'pw-link', [ 'pw-link.c' ] ],
 ]
 
 foreach t : tools_sources

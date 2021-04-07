@@ -42,12 +42,19 @@ static inline SPA_PRINTF_FUNC(6, 0) void spa_log_impl_logv(void *object,
 				     const char *fmt,
 				     va_list args)
 {
+	static const char * const levels[] = { "-", "E", "W", "I", "D", "T" };
+
+	const char *basename = strrchr(file, '/');
         char text[512], location[1024];
-        static const char *levels[] = { "-", "E", "W", "I", "D", "T" };
+
+	if (basename)
+		basename += 1; /* skip '/' */
+	else
+		basename = file; /* use whole string if no '/' is found */
 
         vsnprintf(text, sizeof(text), fmt, args);
         snprintf(location, sizeof(location), "[%s][%s:%i %s()] %s\n",
-                levels[level], strrchr(file, '/') + 1, line, func, text);
+                levels[level], basename, line, func, text);
         fputs(location, stderr);
 }
 static inline SPA_PRINTF_FUNC(6,7) void spa_log_impl_log(void *object,

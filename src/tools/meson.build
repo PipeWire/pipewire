@@ -1,56 +1,22 @@
-executable('pw-mon',
-	'pw-mon.c',
-	c_args : [ '-D_GNU_SOURCE' ],
-	install: true,
-	dependencies : [pipewire_dep],
-)
-executable('pw-cli',
-	'pw-cli.c',
-	c_args : [ '-D_GNU_SOURCE' ],
-	install: true,
-	dependencies : [pipewire_dep],
-)
-executable('pw-dot',
-	'pw-dot.c',
-	c_args : [ '-D_GNU_SOURCE' ],
-	install: true,
-	dependencies : [pipewire_dep],
-)
+tools_sources = [
+  [ 'pw-mon', [ 'pw-mon.c' ] ],
+  [ 'pw-cli', [ 'pw-cli.c' ] ],
+  [ 'pw-dot', [ 'pw-dot.c' ] ],
+  [ 'pw-dump', [ 'pw-dump.c' ] ],
+  [ 'pw-profiler', [ 'pw-profiler.c' ] ],
+  [ 'pw-mididump', [ 'pw-mididump.c', 'midifile.c' ] ],
+  [ 'pw-metadata', [ 'pw-metadata.c' ] ],
+  [ 'pw-loopback', [ 'pw-loopback.c' ] ],
+]
 
-executable('pw-dump',
-	'pw-dump.c',
-	c_args : [ '-D_GNU_SOURCE' ],
-	install: true,
-	dependencies : [pipewire_dep],
-)
-
-executable('pw-profiler',
-	'pw-profiler.c',
-	c_args : [ '-D_GNU_SOURCE' ],
-	install: true,
-	dependencies : [pipewire_dep],
-)
-
-executable('pw-mididump',
-	[ 'pw-mididump.c', 'midifile.c'],
+foreach t : tools_sources
+  executable(t.get(0),
+	t.get(1),
 	c_args : [ '-D_GNU_SOURCE' ],
 	install: true,
 	dependencies : [pipewire_dep, mathlib],
-)
-
-executable('pw-metadata',
-	[ 'pw-metadata.c'],
-	c_args : [ '-D_GNU_SOURCE' ],
-	install: true,
-	dependencies : [pipewire_dep],
-)
-
-executable('pw-loopback',
-	[ 'pw-loopback.c'],
-	c_args : [ '-D_GNU_SOURCE' ],
-	install: true,
-	dependencies : [pipewire_dep],
-)
+  )
+endforeach
 
 if ncurses_dep.found()
   executable('pw-top',

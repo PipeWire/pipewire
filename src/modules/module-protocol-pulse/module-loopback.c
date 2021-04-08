@@ -244,7 +244,12 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 	 */
 
 	if ((str = pw_properties_get(props, "source")) != NULL) {
-		pw_properties_set(capture_props, PW_KEY_NODE_TARGET, str);
+		if (pw_endswith(str, ".monitor")) {
+			pw_properties_setf(capture_props, PW_KEY_NODE_TARGET,
+					"%.*s", (int)strlen(str)-8, str);
+		} else {
+			pw_properties_set(capture_props, PW_KEY_NODE_TARGET, str);
+		}
 		pw_properties_set(props, "source", NULL);
 	}
 

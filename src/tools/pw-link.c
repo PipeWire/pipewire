@@ -38,9 +38,10 @@ struct object {
 	struct spa_list link;
 
 	uint32_t id;
-#define OBJECT_NODE	0
-#define OBJECT_PORT	1
-#define OBJECT_LINK	2
+#define OBJECT_ANY	0
+#define OBJECT_NODE	1
+#define OBJECT_PORT	2
+#define OBJECT_LINK	3
 	uint32_t type;
 	struct pw_properties *props;
 	uint32_t extra[2];
@@ -75,6 +76,12 @@ struct data {
 
 	int sync;
 	int link_res;
+	bool monitoring;
+	bool list_inputs;
+	bool list_outputs;
+
+	regex_t out_port_regex, *out_regex;
+	regex_t in_port_regex, *in_regex;
 };
 
 static void link_proxy_error(void *data, int seq, int res, const char *message)
@@ -123,7 +130,7 @@ static struct object *find_object(struct data *data, uint32_t type, uint32_t id)
 {
 	struct object *o;
 	spa_list_for_each(o, &data->objects, link)
-		if (o->type == type && o->id == id)
+		if ((type == OBJECT_ANY || o->type == type) && o->id == id)
 			return o;
 	return NULL;
 }
@@ -189,8 +196,10 @@ static void do_list_port_links(struct data *data, struct object *node, struct ob
 {
 	struct object *o;
 	bool first = false;
+
 	if ((data->opt_mode & MODE_LIST_PORTS) == 0)
 		first = true;
+
 	spa_list_for_each(o, &data->objects, link) {
 		uint32_t peer;
 		const char *prefix;
@@ -205,7 +214,7 @@ static void do_list_port_links(struct data *data, struct object *node, struct ob
 		else if (port->extra[0] == PW_DIRECTION_INPUT &&
 		    o->extra[1] == port->id) {
 			peer = o->extra[0];
-			prefix = "  <-| ";
+			prefix = "  |<- ";
 		}
 		else
 			continue;
@@ -263,38 +272,15 @@ static void do_list_ports(struct data *data, struct object *node,
 static void do_list(struct data *data)
 {
 	struct object *n;
-	regex_t out_port_regex, *out_regex = NULL;
-	regex_t in_port_regex, *in_regex = NULL;
-	bool list_inputs = false, list_outputs = false;
-
-	if ((data->opt_mode & (MODE_LIST_PORTS|MODE_LIST_LINKS)) == MODE_LIST_LINKS)
-		list_inputs = list_outputs = true;
-	if ((data->opt_mode & MODE_LIST_INPUT) == MODE_LIST_INPUT)
-		list_inputs = true;
-	if ((data->opt_mode & MODE_LIST_OUTPUT) == MODE_LIST_OUTPUT)
-		list_outputs = true;
-
-	if (data->opt_output) {
-		if (regcomp(&out_port_regex, data->opt_output, REG_EXTENDED | REG_NOSUB) == 0)
-			out_regex = &out_port_regex;
-	}
-	if (data->opt_input) {
-		if (regcomp(&in_port_regex, data->opt_input, REG_EXTENDED | REG_NOSUB) == 0)
-			in_regex = &in_port_regex;
-	}
 
 	spa_list_for_each(n, &data->objects, link) {
 		if (n->type != OBJECT_NODE)
 			continue;
-		if (list_outputs)
-			do_list_ports(data, n, PW_DIRECTION_OUTPUT, out_regex);
-		if (list_inputs)
-			do_list_ports(data, n, PW_DIRECTION_INPUT, in_regex);
+		if (data->list_outputs)
+			do_list_ports(data, n, PW_DIRECTION_OUTPUT, data->out_regex);
+		if (data->list_inputs)
+			do_list_ports(data, n, PW_DIRECTION_INPUT, data->in_regex);
 	}
-	if (out_regex)
-		regfree(out_regex);
-	if (in_regex)
-		regfree(in_regex);
 }
 
 static int do_link_ports(struct data *data)
@@ -366,6 +352,61 @@ static int do_unlink_ports(struct data *data)
 	return 0;
 }
 
+static int do_monitor_port(struct data *data, struct object *port, bool added)
+{
+	regex_t *regex = NULL;
+	bool do_print = false;
+	struct object *node;
+
+	if (port->extra[0] == PW_DIRECTION_OUTPUT && data->list_outputs) {
+		regex = data->out_regex;
+		do_print = true;
+	}
+	if (port->extra[0] == PW_DIRECTION_INPUT && data->list_inputs) {
+		regex = data->in_regex;
+		do_print = true;
+	}
+	if (!do_print)
+		return 0;
+
+	if ((node = find_object(data, OBJECT_NODE, port->extra[1])) == NULL)
+		return -ENOENT;
+
+	if (regex && !port_regex(data, node, port, regex))
+		return 0;
+
+	print_port(data, added ? "+ " : "- ", node, port, data->opt_verbose);
+	return 0;
+}
+
+static int do_monitor_link(struct data *data, struct object *link, bool added)
+{
+	char buffer1[1024], buffer2[1024];
+	struct object *n1, *n2, *p1, *p2;
+
+	if (!(data->opt_mode & MODE_LIST_LINKS))
+		return 0;
+
+	if ((p1 = find_object(data, OBJECT_PORT, link->extra[0])) == NULL)
+		return -ENOENT;
+	if ((n1 = find_object(data, OBJECT_NODE, p1->extra[1])) == NULL)
+		return -ENOENT;
+	if (data->out_regex && !port_regex(data, n1, p1, data->out_regex))
+		return 0;
+
+	if ((p2 = find_object(data, OBJECT_PORT, link->extra[1])) == NULL)
+		return -ENOENT;
+	if ((n2 = find_object(data, OBJECT_NODE, p2->extra[1])) == NULL)
+		return -ENOENT;
+	if (data->in_regex && !port_regex(data, n2, p2, data->in_regex))
+		return 0;
+
+	fprintf(stdout, "%s%s -> %s\n", added ? "+ " : "- ",
+			port_name(buffer1, sizeof(buffer1), n1, p1),
+			port_name(buffer2, sizeof(buffer2), n2, p2));
+	return 0;
+}
+
 static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 				  const char *type, uint32_t version,
 				  const struct spa_dict *props)
@@ -411,11 +452,47 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 	obj->props = pw_properties_new_dict(props);
 	memcpy(obj->extra, extra, sizeof(extra));
 	spa_list_append(&d->objects, &obj->link);
+
+	if (d->monitoring) {
+		switch (obj->type) {
+		case OBJECT_PORT:
+			do_monitor_port(d, obj, true);
+			break;
+		case OBJECT_LINK:
+			do_monitor_link(d, obj, true);
+			break;
+		}
+	}
+}
+
+static void registry_event_global_remove(void *object, uint32_t id)
+{
+	struct data *d = object;
+	struct object *obj;
+
+	if ((obj = find_object(d, OBJECT_ANY, id)) == NULL)
+		return;
+
+	if (d->monitoring) {
+		switch (obj->type) {
+		case OBJECT_PORT:
+			do_monitor_port(d, obj, false);
+			break;
+		case OBJECT_LINK:
+			do_monitor_link(d, obj, false);
+			break;
+		}
+	}
+
+	spa_list_remove(&obj->link);
+	pw_properties_free(obj->props);
+	free(obj);
 }
 
 static const struct pw_registry_events registry_events = {
 	PW_VERSION_REGISTRY_EVENTS,
 	.global = registry_event_global,
+	.global_remove = registry_event_global_remove,
 };
 
 static void on_core_done(void *data, uint32_t id, int seq)
@@ -474,6 +551,8 @@ int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
 	int res = 0, c;
+	regex_t out_port_regex;
+	regex_t in_port_regex;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
@@ -593,8 +672,23 @@ int main(int argc, char *argv[])
 			&registry_events, &data);
 
 	core_sync(&data);
-
 	pw_main_loop_run(data.loop);
+
+	if ((data.opt_mode & (MODE_LIST_PORTS|MODE_LIST_LINKS)) == MODE_LIST_LINKS)
+		data.list_inputs = data.list_outputs = true;
+	if ((data.opt_mode & MODE_LIST_INPUT) == MODE_LIST_INPUT)
+		data.list_inputs = true;
+	if ((data.opt_mode & MODE_LIST_OUTPUT) == MODE_LIST_OUTPUT)
+		data.list_outputs = true;
+
+	if (data.opt_output) {
+		if (regcomp(&out_port_regex, data.opt_output, REG_EXTENDED | REG_NOSUB) == 0)
+			data.out_regex = &out_port_regex;
+	}
+	if (data.opt_input) {
+		if (regcomp(&in_port_regex, data.opt_input, REG_EXTENDED | REG_NOSUB) == 0)
+			data.in_regex = &in_port_regex;
+	}
 
 	if (data.opt_mode & (MODE_LIST)) {
 		do_list(&data);
@@ -606,6 +700,7 @@ int main(int argc, char *argv[])
 		}
 		if ((res = do_unlink_ports(&data)) < 0) {
 			fprintf(stderr, "failed to unlink ports: %s\n", spa_strerror(res));
+			return -1;
 		}
 	} else {
 		if (data.opt_output == NULL ||
@@ -615,12 +710,20 @@ int main(int argc, char *argv[])
 		}
 		if ((res = do_link_ports(&data)) < 0) {
 			fprintf(stderr, "failed to link ports: %s\n", spa_strerror(res));
+			return -1;
 		}
 	}
 
-	if (data.opt_mode & MODE_MONITOR)
+	if (data.opt_mode & MODE_MONITOR) {
+		data.monitoring = true;
 		pw_main_loop_run(data.loop);
+		data.monitoring = false;
+	}
 
+	if (data.out_regex)
+		regfree(data.out_regex);
+	if (data.in_regex)
+		regfree(data.in_regex);
 	pw_proxy_destroy((struct pw_proxy*)data.registry);
 	pw_core_disconnect(data.core);
 	pw_context_destroy(data.context);

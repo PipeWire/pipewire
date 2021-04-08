@@ -173,6 +173,148 @@ static struct pw_impl_port *get_port(struct pw_impl_node *node, enum spa_directi
 	return p;
 }
 
+struct find_port {
+	uint32_t id;
+	const char *name;
+	enum spa_direction direction;
+	struct pw_impl_node *node;
+	struct pw_impl_port *port;
+};
+
+static int find_port_func(void *data, struct pw_global *global)
+{
+	struct find_port *find = data;
+	const char *str;
+	const struct pw_properties *props;
+
+	if (!pw_global_is_type(global, PW_TYPE_INTERFACE_Port))
+		return 0;
+	if (pw_global_get_id(global) == find->id)
+		goto found;
+
+	props = pw_global_get_properties(global);
+	if ((str = pw_properties_get(props, PW_KEY_OBJECT_PATH)) != NULL &&
+	    strcmp(str, find->name) == 0)
+		goto found;
+	return 0;
+found:
+	find->port = pw_global_get_object(global);
+	return 1;
+}
+
+static int find_node_port_func(void *data, struct pw_impl_port *port)
+{
+	struct find_port *find = data;
+	const char *str;
+	const struct pw_properties *props;
+
+	if (pw_impl_port_get_id(port) == find->id)
+		goto found;
+
+	props = pw_impl_port_get_properties(port);
+	if ((str = pw_properties_get(props, PW_KEY_PORT_NAME)) != NULL &&
+	    strcmp(str, find->name) == 0)
+		goto found;
+	if ((str = pw_properties_get(props, PW_KEY_PORT_ALIAS)) != NULL &&
+	    strcmp(str, find->name) == 0)
+		goto found;
+	if ((str = pw_properties_get(props, PW_KEY_OBJECT_PATH)) != NULL &&
+	    strcmp(str, find->name) == 0)
+		goto found;
+	return 0;
+found:
+	find->port = port;
+	return 1;
+}
+
+static struct pw_impl_port *find_port(struct pw_context *context,
+		struct pw_impl_node *node, enum spa_direction direction, const char *name)
+{
+	struct find_port find = {
+		.id = atoi(name),
+		.name = name,
+		.direction = direction,
+		.node = node
+	};
+
+	if (find.id != 0) {
+		struct pw_global *global = pw_context_find_global(context, find.id);
+		/* find port by global id */
+		if (global != NULL && pw_global_is_type(global, PW_TYPE_INTERFACE_Port))
+			return pw_global_get_object(global);
+	}
+	if (node != NULL) {
+		/* find port by local id */
+		if (find.id != 0) {
+			find.port = pw_impl_node_find_port(node, find.direction, find.id);
+			if (find.port != NULL)
+				return find.port;
+		}
+		/* find port by local name */
+		if (pw_impl_node_for_each_port(find.node, find.direction,
+					find_node_port_func, &find) == 1)
+			return find.port;
+
+	} else {
+		/* find port by name */
+		if (pw_context_for_each_global(context, find_port_func, &find) == 1)
+			return find.port;
+	}
+	return NULL;
+}
+
+struct find_node {
+	uint32_t id;
+	const char *name;
+	struct pw_impl_node *node;
+};
+
+static int find_node_func(void *data, struct pw_global *global)
+{
+	struct find_node *find = data;
+	const char *str;
+	const struct pw_properties *props;
+
+	if (!pw_global_is_type(global, PW_TYPE_INTERFACE_Node))
+		return 0;
+	if (pw_global_get_id(global) == find->id)
+		goto found;
+
+	props = pw_global_get_properties(global);
+	if ((str = pw_properties_get(props, PW_KEY_NODE_NAME)) != NULL &&
+	    strcmp(str, find->name) == 0)
+		goto found;
+	if ((str = pw_properties_get(props, PW_KEY_NODE_NICK)) != NULL &&
+	    strcmp(str, find->name) == 0)
+		goto found;
+	if ((str = pw_properties_get(props, PW_KEY_NODE_DESCRIPTION)) != NULL &&
+	    strcmp(str, find->name) == 0)
+		goto found;
+	if ((str = pw_properties_get(props, PW_KEY_OBJECT_PATH)) != NULL &&
+	    strcmp(str, find->name) == 0)
+		goto found;
+	return 0;
+found:
+	find->node = pw_global_get_object(global);
+	return 1;
+}
+
+static struct pw_impl_node *find_node(struct pw_context *context, const char *name)
+{
+	struct find_node find = {
+		.id = atoi(name),
+		.name = name,
+	};
+
+	if (find.id != 0) {
+		struct pw_global *global = pw_context_find_global(context, find.id);
+		if (global != NULL && pw_global_is_type(global, PW_TYPE_INTERFACE_Node))
+			return pw_global_get_object(global);
+	}
+	if (pw_context_for_each_global(context, find_node_func, &find) == 1)
+		return find.node;
+	return NULL;
+}
 
 static void *create_object(void *_data,
 			   struct pw_resource *resource,
@@ -184,12 +326,11 @@ static void *create_object(void *_data,
 	struct factory_data *d = _data;
 	struct pw_impl_client *client = NULL;
 	struct pw_impl_node *output_node, *input_node;
-	struct pw_impl_port *outport, *inport;
+	struct pw_impl_port *outport = NULL, *inport = NULL;
 	struct pw_context *context;
-	struct pw_global *global;
 	struct pw_impl_link *link;
-	uint32_t output_node_id, input_node_id;
-	uint32_t output_port_id, input_port_id;
+	const char *output_node_str, *input_node_str;
+	const char *output_port_str, *input_port_str;
 	struct link_data *ld;
 	const char *str;
 	int res;
@@ -201,56 +342,27 @@ static void *create_object(void *_data,
 	if (properties == NULL)
 		goto error_properties;
 
-	if ((str = pw_properties_get(properties, PW_KEY_LINK_OUTPUT_NODE)) == NULL)
-		goto error_properties;
+	if ((output_node_str = pw_properties_get(properties, PW_KEY_LINK_OUTPUT_NODE)) != NULL)
+		output_node = find_node(context, output_node_str);
+	else
+		output_node = NULL;
 
-	output_node_id = pw_properties_parse_int(str);
-
-	if ((str = pw_properties_get(properties, PW_KEY_LINK_INPUT_NODE)) == NULL)
-		goto error_properties;
-
-	input_node_id = pw_properties_parse_int(str);
-
-	str = pw_properties_get(properties, PW_KEY_LINK_OUTPUT_PORT);
-	output_port_id = str ? pw_properties_parse_int(str) : -1;
-
-	str = pw_properties_get(properties, PW_KEY_LINK_INPUT_PORT);
-	input_port_id = str ? pw_properties_parse_int(str) : -1;
-
-	global = pw_context_find_global(context, output_node_id);
-	if (global == NULL || !pw_global_is_type(global, PW_TYPE_INTERFACE_Node))
-		goto error_output;
-
-	output_node = pw_global_get_object(global);
-
-	global = pw_context_find_global(context, input_node_id);
-	if (global == NULL || !pw_global_is_type(global, PW_TYPE_INTERFACE_Node))
-		goto error_input;
-
-	input_node = pw_global_get_object(global);
-
-	if (output_port_id == PW_ID_ANY) {
+	if ((output_port_str = pw_properties_get(properties, PW_KEY_LINK_OUTPUT_PORT)) != NULL)
+		outport = find_port(context, output_node, SPA_DIRECTION_OUTPUT, output_port_str);
+	else if (output_node != NULL)
 		outport = get_port(output_node, SPA_DIRECTION_OUTPUT);
-	}
-	else {
-		global = pw_context_find_global(context, output_port_id);
-		if (global == NULL || !pw_global_is_type(global, PW_TYPE_INTERFACE_Port))
-			goto error_output_port;
-
-		outport = pw_global_get_object(global);
-	}
 	if (outport == NULL)
 		goto error_output_port;
 
-	if (input_port_id == PW_ID_ANY)
-		inport = get_port(input_node, SPA_DIRECTION_INPUT);
-	else {
-		global = pw_context_find_global(context, input_port_id);
-		if (global == NULL || !pw_global_is_type(global, PW_TYPE_INTERFACE_Port))
-			goto error_input_port;
+	if ((input_node_str = pw_properties_get(properties, PW_KEY_LINK_INPUT_NODE)) != NULL)
+		input_node = find_node(context, input_node_str);
+	else
+		input_node = NULL;
 
-		inport = pw_global_get_object(global);
-	}
+	if ((input_port_str = pw_properties_get(properties, PW_KEY_LINK_INPUT_PORT)) != NULL)
+		inport = find_port(context, input_node, SPA_DIRECTION_INPUT, input_port_str);
+	else if (input_node != NULL)
+		inport = get_port(input_node, SPA_DIRECTION_INPUT);
 	if (inport == NULL)
 		goto error_input_port;
 
@@ -289,21 +401,13 @@ error_properties:
 	res = -EINVAL;
 	pw_resource_errorf_id(resource, new_id, res, NAME": no properties. usage:"FACTORY_USAGE);
 	goto error_exit;
-error_output:
-	res = -EINVAL;
-	pw_resource_errorf_id(resource, new_id, res, NAME": unknown output node %u", output_node_id);
-	goto error_exit;
-error_input:
-	res = -EINVAL;
-	pw_resource_errorf_id(resource, new_id, res, NAME": unknown input node %u", input_node_id);
-	goto error_exit;
 error_output_port:
 	res = -EINVAL;
-	pw_resource_errorf_id(resource, new_id, res, NAME": unknown output port %u", output_port_id);
+	pw_resource_errorf_id(resource, new_id, res, NAME": unknown output port %s", output_port_str);
 	goto error_exit;
 error_input_port:
 	res = -EINVAL;
-	pw_resource_errorf_id(resource, new_id, res, NAME": unknown input port %u", input_port_id);
+	pw_resource_errorf_id(resource, new_id, res, NAME": unknown input port %s", input_port_str);
 	goto error_exit;
 error_create_link:
 	pw_resource_errorf_id(resource, new_id, res, NAME": can't link ports %d and %d: %s",

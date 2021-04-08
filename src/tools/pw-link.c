@@ -59,6 +59,7 @@ struct data {
 #define MODE_MONITOR		(1<<3)
 #define MODE_DISCONNECT		(1<<4)
 	uint32_t opt_mode;
+	bool opt_id;
 	bool opt_verbose;
 	const char *opt_output;
 	const char *opt_input;
@@ -79,6 +80,7 @@ struct data {
 	bool monitoring;
 	bool list_inputs;
 	bool list_outputs;
+	const char *prefix;
 
 	regex_t out_port_regex, *out_regex;
 	regex_t in_port_regex, *in_regex;
@@ -170,15 +172,21 @@ static char *port_alias(char *buffer, int size, struct object *n, struct object 
 static void print_port(struct data *data, const char *prefix, struct object *n,
 		struct object *p, bool verbose)
 {
-	char buffer[1024];
-	fprintf(stdout, "%s%s\n", prefix, port_name(buffer, sizeof(buffer), n, p));
+	char buffer[1024], id[64] = "", *prefix2 = "";
+	if (data->opt_id) {
+		snprintf(id, sizeof(id), "%4d ", p->id);
+		prefix2 = "     ";
+	}
+
+	fprintf(stdout, "%s%s%s%s\n", data->prefix, prefix,
+			id, port_name(buffer, sizeof(buffer), n, p));
 	if (verbose) {
 		port_path(buffer, sizeof(buffer), n, p);
 		if (buffer[0] != '\0')
-			fprintf(stdout, "  %s%s\n", prefix, buffer);
+			fprintf(stdout, "%s  %s%s%s\n", data->prefix, prefix2, prefix, buffer);
 		port_alias(buffer, sizeof(buffer), n, p);
 		if (buffer[0] != '\0')
-			fprintf(stdout, "  %s%s\n", prefix, buffer);
+			fprintf(stdout, "%s  %s%s%s\n", data->prefix, prefix2, prefix, buffer);
 	}
 }
 
@@ -202,19 +210,23 @@ static void do_list_port_links(struct data *data, struct object *node, struct ob
 
 	spa_list_for_each(o, &data->objects, link) {
 		uint32_t peer;
-		const char *prefix;
+		char prefix[64], id[16] = "";
+
+		if (data->opt_id)
+			snprintf(id, sizeof(id), "%4d ", o->id);
 
 		if (o->type != OBJECT_LINK)
 			continue;
+
 		if (port->extra[0] == PW_DIRECTION_OUTPUT &&
 		    o->extra[0] == port->id) {
 			peer = o->extra[1];
-			prefix = "  |-> ";
+			snprintf(prefix, sizeof(prefix), "%s  |-> ", id);
 		}
 		else if (port->extra[0] == PW_DIRECTION_INPUT &&
 		    o->extra[1] == port->id) {
 			peer = o->extra[0];
-			prefix = "  |<- ";
+			snprintf(prefix, sizeof(prefix), "%s  |<- ", id);
 		}
 		else
 			continue;
@@ -352,7 +364,7 @@ static int do_unlink_ports(struct data *data)
 	return 0;
 }
 
-static int do_monitor_port(struct data *data, struct object *port, bool added)
+static int do_monitor_port(struct data *data, struct object *port)
 {
 	regex_t *regex = NULL;
 	bool do_print = false;
@@ -375,13 +387,13 @@ static int do_monitor_port(struct data *data, struct object *port, bool added)
 	if (regex && !port_regex(data, node, port, regex))
 		return 0;
 
-	print_port(data, added ? "+ " : "- ", node, port, data->opt_verbose);
+	print_port(data, "", node, port, data->opt_verbose);
 	return 0;
 }
 
-static int do_monitor_link(struct data *data, struct object *link, bool added)
+static int do_monitor_link(struct data *data, struct object *link)
 {
-	char buffer1[1024], buffer2[1024];
+	char buffer1[1024], buffer2[1024], id[64] = "";
 	struct object *n1, *n2, *p1, *p2;
 
 	if (!(data->opt_mode & MODE_LIST_LINKS))
@@ -401,7 +413,10 @@ static int do_monitor_link(struct data *data, struct object *link, bool added)
 	if (data->in_regex && !port_regex(data, n2, p2, data->in_regex))
 		return 0;
 
-	fprintf(stdout, "%s%s -> %s\n", added ? "+ " : "- ",
+	if (data->opt_id)
+		snprintf(id, sizeof(id), "%4d ", link->id);
+
+	fprintf(stdout, "%s%s%s -> %s\n", data->prefix, id,
 			port_name(buffer1, sizeof(buffer1), n1, p1),
 			port_name(buffer2, sizeof(buffer2), n2, p2));
 	return 0;
@@ -454,12 +469,13 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 	spa_list_append(&d->objects, &obj->link);
 
 	if (d->monitoring) {
+		d->prefix = "+ ";
 		switch (obj->type) {
 		case OBJECT_PORT:
-			do_monitor_port(d, obj, true);
+			do_monitor_port(d, obj);
 			break;
 		case OBJECT_LINK:
-			do_monitor_link(d, obj, true);
+			do_monitor_link(d, obj);
 			break;
 		}
 	}
@@ -474,12 +490,13 @@ static void registry_event_global_remove(void *object, uint32_t id)
 		return;
 
 	if (d->monitoring) {
+		d->prefix = "- ";
 		switch (obj->type) {
 		case OBJECT_PORT:
-			do_monitor_port(d, obj, false);
+			do_monitor_port(d, obj);
 			break;
 		case OBJECT_LINK:
-			do_monitor_link(d, obj, false);
+			do_monitor_link(d, obj);
 			break;
 		}
 	}
@@ -537,6 +554,7 @@ static void show_help(struct data *data, const char *name)
 		"  -i, --input                           List input ports\n"
 		"  -l, --links                           List links\n"
 		"  -m, --monitor                         Monitor links\n"
+		"  -I, --id                              List IDs\n"
 		"  -v, --verbose                         Verbose port properties\n"
 		"Connect: %1$s [options] output input\n"
 		"  -L, --linger                          Linger (for use with -m)\n"
@@ -561,6 +579,7 @@ int main(int argc, char *argv[])
 		{ "input",	no_argument,		NULL, 'i' },
 		{ "links",	no_argument,		NULL, 'l' },
 		{ "monitor",	no_argument,		NULL, 'm' },
+		{ "id",		no_argument,		NULL, 'I' },
 		{ "verbose",	no_argument,		NULL, 'v' },
 		{ "linger",	no_argument,		NULL, 'L' },
 		{ "passive",	no_argument,		NULL, 'P' },
@@ -578,7 +597,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	while ((c = getopt_long(argc, argv, "hVr:oilmvLPp:d", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:oilmIvLPp:d", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(&data, argv[0]);
@@ -605,6 +624,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'm':
 			data.opt_mode |= MODE_MONITOR;
+			break;
+		case 'I':
+			data.opt_id = true;
 			break;
 		case 'v':
 			data.opt_verbose = true;
@@ -670,6 +692,8 @@ int main(int argc, char *argv[])
 	pw_registry_add_listener(data.registry,
 			&data.registry_listener,
 			&registry_events, &data);
+
+	data.prefix = (data.opt_mode & MODE_MONITOR) ? "= " : "";
 
 	core_sync(&data);
 	pw_main_loop_run(data.loop);

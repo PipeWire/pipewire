@@ -2219,7 +2219,7 @@ static void registry_event_global(void *data, uint32_t id,
 			snprintf(o->node.name, sizeof(o->node.name), "%s", tmp);
 		}
 
-		if ((str = spa_dict_lookup(props, PW_KEY_PRIORITY_DRIVER)) != NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_PRIORITY_SESSION)) != NULL)
 			o->node.priority = pw_properties_parse_int(str);
 
 		pw_log_debug(NAME" %p: add node %d", c, id);

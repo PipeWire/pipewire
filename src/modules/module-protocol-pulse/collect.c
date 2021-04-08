@@ -119,7 +119,7 @@ static void select_best(struct selector *s, struct pw_manager_object *o)
 	int32_t prio = 0;
 
 	if (o->props &&
-	    (str = pw_properties_get(o->props, PW_KEY_PRIORITY_DRIVER)) != NULL) {
+	    (str = pw_properties_get(o->props, PW_KEY_PRIORITY_SESSION)) != NULL) {
 		prio = pw_properties_parse_int(str);
 		if (s->best == NULL || prio > s->score) {
 			s->best = o;

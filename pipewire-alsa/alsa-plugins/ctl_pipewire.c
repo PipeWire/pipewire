@@ -922,7 +922,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 		else
 			g->node.device_id = SPA_ID_INVALID;
 
-		if ((str = spa_dict_lookup(info->props, PW_KEY_PRIORITY_DRIVER)))
+		if ((str = spa_dict_lookup(info->props, PW_KEY_PRIORITY_SESSION)))
 			g->node.priority = atoi(str);
 		if ((str = spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS))) {
 			if (strcmp(str, "Audio/Sink") == 0)

@@ -242,6 +242,9 @@ static void do_list_port_links(struct data *data, struct object *node, struct ob
 static int port_matches(struct data *data, struct object *n, struct object *p, const char *name)
 {
 	char buffer[1024];
+	uint32_t id = atoi(name);
+	if (p->id == id)
+		return 1;
 	if (strcmp(port_name(buffer, sizeof(buffer), n, p), name) == 0)
 		return 1;
 	if (strcmp(port_path(buffer, sizeof(buffer), n, p), name) == 0)
@@ -336,6 +339,10 @@ static int do_unlink_ports(struct data *data)
 		if (l->type != OBJECT_LINK)
 			continue;
 
+		if (data->opt_input == NULL &&
+		    l->id == (uint32_t)atoi(data->opt_output))
+			goto found;
+
 		if ((p = find_object(data, OBJECT_PORT, l->extra[0])) == NULL)
 			continue;
 		if ((n = find_object(data, OBJECT_NODE, p->extra[1])) == NULL)
@@ -350,6 +357,7 @@ static int do_unlink_ports(struct data *data)
 		if (!port_matches(data, n, p, data->opt_input))
 			continue;
 
+found:
 		link_id = l->id;
 		break;
 	}
@@ -561,6 +569,7 @@ static void show_help(struct data *data, const char *name)
 		"  -P, --passive                         Passive link\n"
 		"  -p, --props=PROPS                     Properties as JSON object\n"
 		"Disconnect: %1$s -d [options] output input\n"
+		"            %1$s -d [options] link-id\n"
 		"  -d, --disconnect                      Disconnect ports\n",
 		name);
 }
@@ -717,9 +726,8 @@ int main(int argc, char *argv[])
 	if (data.opt_mode & (MODE_LIST)) {
 		do_list(&data);
 	} else if (data.opt_mode & MODE_DISCONNECT) {
-		if (data.opt_output == NULL ||
-		    data.opt_input == NULL) {
-			fprintf(stderr, "missing output and input port names\n");
+		if (data.opt_output == NULL) {
+			fprintf(stderr, "missing link-id or output and input port names\n");
 			return -1;
 		}
 		if ((res = do_unlink_ports(&data)) < 0) {

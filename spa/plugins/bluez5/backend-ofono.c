@@ -24,6 +24,7 @@
 
 #include <errno.h>
 #include <unistd.h>
+#include <poll.h>
 #include <sys/socket.h>
 
 #include <bluetooth/bluetooth.h>
@@ -88,6 +89,7 @@ struct transport_data {
 #define OFONO_ERROR_INVALID_ARGUMENTS "org.ofono.Error.InvalidArguments"
 #define OFONO_ERROR_NOT_IMPLEMENTED "org.ofono.Error.NotImplemented"
 #define OFONO_ERROR_IN_USE "org.ofono.Error.InUse"
+#define OFONO_ERROR_FAILED "org.ofono.Error.Failed"
 
 static void ofono_transport_get_mtu(struct impl *backend, struct spa_bt_transport *t)
 {
@@ -407,6 +409,35 @@ static void sco_event(struct spa_source *source)
 	}
 }
 
+static int enable_sco_socket(int sock)
+{
+	char c;
+	struct pollfd pfd;
+
+	if (sock < 0)
+		return ENOTCONN;
+
+	memset(&pfd, 0, sizeof(pfd));
+	pfd.fd = sock;
+	pfd.events = POLLOUT;
+
+	if (poll(&pfd, 1, 0) < 0)
+		return errno;
+
+	/*
+	 * If socket already writable then it is not in defer setup state,
+	 * otherwise it needs to be read to authorize the connection.
+	 */
+	if ((pfd.revents & POLLOUT))
+		return 0;
+
+	/* Enable socket by reading 1 byte */
+	if (read(sock, &c, 1) < 0)
+		return errno;
+
+	return 0;
+}
+
 static DBusHandlerResult ofono_new_audio_connection(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
 	struct impl *backend = userdata;
@@ -428,6 +459,17 @@ static DBusHandlerResult ofono_new_audio_connection(DBusConnection *conn, DBusMe
 
 	t = spa_bt_transport_find(backend->monitor, path);
 	if (t && (t->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)) {
+		int err;
+
+		err = enable_sco_socket(fd);
+		if (err) {
+			spa_log_error(backend->log, NAME": transport %p: Couldn't authorize SCO connection: %s", t, strerror(err));
+			r = dbus_message_new_error(m, OFONO_ERROR_FAILED, "SCO authorization failed");
+			shutdown(fd, SHUT_RDWR);
+			close(fd);
+			goto fail;
+		}
+
 		t->fd = fd;
 		t->codec = codec;
 

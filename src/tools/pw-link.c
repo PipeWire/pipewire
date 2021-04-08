@@ -339,25 +339,26 @@ static int do_unlink_ports(struct data *data)
 		if (l->type != OBJECT_LINK)
 			continue;
 
-		if (data->opt_input == NULL &&
-		    l->id == (uint32_t)atoi(data->opt_output))
-			goto found;
+		if (data->opt_input == NULL) {
+			/* 1 arg, check link id */
+			if (l->id != (uint32_t)atoi(data->opt_output))
+				continue;
+		} else {
+			/* 2 args, check port names */
+			if ((p = find_object(data, OBJECT_PORT, l->extra[0])) == NULL)
+				continue;
+			if ((n = find_object(data, OBJECT_NODE, p->extra[1])) == NULL)
+				continue;
+			if (!port_matches(data, n, p, data->opt_output))
+				continue;
 
-		if ((p = find_object(data, OBJECT_PORT, l->extra[0])) == NULL)
-			continue;
-		if ((n = find_object(data, OBJECT_NODE, p->extra[1])) == NULL)
-			continue;
-		if (!port_matches(data, n, p, data->opt_output))
-			continue;
-
-		if ((p = find_object(data, OBJECT_PORT, l->extra[1])) == NULL)
-			continue;
-		if ((n = find_object(data, OBJECT_NODE, p->extra[1])) == NULL)
-			continue;
-		if (!port_matches(data, n, p, data->opt_input))
-			continue;
-
-found:
+			if ((p = find_object(data, OBJECT_PORT, l->extra[1])) == NULL)
+				continue;
+			if ((n = find_object(data, OBJECT_NODE, p->extra[1])) == NULL)
+				continue;
+			if (!port_matches(data, n, p, data->opt_input))
+				continue;
+		}
 		link_id = l->id;
 		break;
 	}

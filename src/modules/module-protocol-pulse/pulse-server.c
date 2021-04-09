@@ -97,7 +97,7 @@ struct stats {
 #else
 #define DEFAULT_FORMAT		"F32LE"
 #endif
-#define DEFAULT_CHANNEL_MAP	"[ FL FR ]"
+#define DEFAULT_POSITION	"[ FL FR ]"
 
 #define MAX_FORMATS	32
 
@@ -6362,7 +6362,7 @@ static int parse_frac(struct pw_properties *props, const char *key, const char *
 	return 0;
 }
 
-static int parse_channel_map(struct pw_properties *props, const char *key, const char *def,
+static int parse_position(struct pw_properties *props, const char *key, const char *def,
 		struct channel_map *res)
 {
 	const char *str;
@@ -6408,7 +6408,7 @@ static void load_defaults(struct defs *def, struct pw_properties *props)
 	parse_frac(props, "pulse.default.tlength", DEFAULT_DEFAULT_TLENGTH, &def->default_tlength);
 	parse_frac(props, "pulse.min.quantum", DEFAULT_MIN_QUANTUM, &def->min_quantum);
 	parse_format(props, "pulse.default.format", DEFAULT_FORMAT, &def->sample_spec);
-	parse_channel_map(props, "pulse.default.channel_map", DEFAULT_CHANNEL_MAP, &def->channel_map);
+	parse_position(props, "pulse.default.position", DEFAULT_POSITION, &def->channel_map);
 	def->sample_spec.channels = def->channel_map.channels;
 }
 

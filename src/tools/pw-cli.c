@@ -1533,7 +1533,7 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 	int l, res;
 	const char *v;
 
-	if (spa_json_is_object(value, len)) {
+	if (spa_json_is_object(value, len) && info != NULL) {
 		if ((ti = spa_debug_type_find(NULL, info->parent)) == NULL)
 			return -EINVAL;
 
@@ -1552,7 +1552,7 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 		}
 		spa_pod_builder_pop(b, &f[0]);
 	}
-	else if (spa_json_is_array(value, len)) {
+	else if (spa_json_is_array(value, len) && info != NULL) {
 		spa_pod_builder_push_array(b, &f[0]);
 		spa_json_enter(iter, &it[0]);
 		while ((l = spa_json_next(&it[0], &v)) > 0)
@@ -1560,7 +1560,7 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 				return res;
 		spa_pod_builder_pop(b, &f[0]);
 	}
-	else if (spa_json_is_float(value, len)) {
+	else if (spa_json_is_float(value, len) && info != NULL) {
 		float val = 0.0f;
 		spa_json_parse_float(value, len, &val);
 		switch (info->parent) {
@@ -1595,7 +1595,7 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 	else if (spa_json_is_null(value, len)) {
 		spa_pod_builder_none(b);
 	}
-	else {
+	else if (info) {
 		char *val = alloca(len+1);
 		spa_json_parse_string(value, len, val);
 		switch (info->parent) {

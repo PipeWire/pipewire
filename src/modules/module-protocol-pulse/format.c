@@ -378,7 +378,7 @@ static inline enum channel_position channel_id2pa(uint32_t id, uint32_t *aux)
 		if (id == audio_channels[i].channel)
 			return i;
 	}
-	return CHANNEL_POSITION_AUX0 + (*aux)++;
+	return CHANNEL_POSITION_AUX0 + ((*aux)++ & 31);
 }
 
 static inline const char *channel_id2paname(uint32_t id, uint32_t *aux)
@@ -389,7 +389,7 @@ static inline const char *channel_id2paname(uint32_t id, uint32_t *aux)
 		    audio_channels[i].name != NULL)
 			return audio_channels[i].name;
 	}
-	return audio_channels[CHANNEL_POSITION_AUX0 + (*aux)++].name;
+	return audio_channels[CHANNEL_POSITION_AUX0 + ((*aux)++ & 31)].name;
 }
 
 static inline uint32_t channel_paname2id(const char *name, size_t size)

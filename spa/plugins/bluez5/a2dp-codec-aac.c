@@ -442,6 +442,10 @@ static int codec_encode(void *data,
 	*dst_out = out_args.numOutBytes;
 	*need_flush = 1;
 
+	/* RFC6416: It is set to 1 to indicate that the RTP packet contains a complete
+   	 * audioMuxElement or the last fragment of an audioMuxElement */
+	this->header->m = 1;
+
 	return out_args.numInSamples * this->samplesize;
 }
 

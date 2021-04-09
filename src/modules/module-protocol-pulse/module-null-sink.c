@@ -122,6 +122,7 @@ static struct module *create_module_null_sink(struct impl *impl, const char *arg
 	struct module_null_sink_data *d;
 	struct pw_properties *props = NULL;
 	const char *str;
+	struct channel_map map = CHANNEL_MAP_INIT;
 	int res;
 
 	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_null_sink_info));
@@ -145,27 +146,30 @@ static struct module *create_module_null_sink(struct impl *impl, const char *arg
 	if ((str = pw_properties_get(props, "channels")) != NULL) {
 		pw_properties_set(props, SPA_KEY_AUDIO_CHANNELS, str);
 		pw_properties_set(props, "channels", NULL);
+	} else {
+		pw_properties_setf(props, SPA_KEY_AUDIO_CHANNELS, "%u",
+				impl->defs.sample_spec.channels);
 	}
 	if ((str = pw_properties_get(props, "rate")) != NULL) {
 		pw_properties_set(props, SPA_KEY_AUDIO_RATE, str);
 		pw_properties_set(props, "rate", NULL);
 	}
 	if ((str = pw_properties_get(props, "channel_map")) != NULL) {
-		struct channel_map map = CHANNEL_MAP_INIT;
+		channel_map_parse(str, &map);
+		pw_properties_set(props, "channel_map", NULL);
+	} else {
+		map = impl->defs.channel_map;
+	}
+	if (map.channels > 0) {
 		uint32_t i;
 		char *s, *p;
-
-		channel_map_parse(str, &map);
 		p = s = alloca(map.channels * 6);
-
 		for (i = 0; i < map.channels; i++)
 			p += snprintf(p, 6, "%s%s", i == 0 ? "" : ",",
 					channel_id2name(map.map[i]));
 		pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
-		pw_properties_set(props, "channel_map", NULL);
-	} else if (pw_properties_get(props, SPA_KEY_AUDIO_POSITION) == NULL) {
-		pw_properties_set(props, SPA_KEY_AUDIO_POSITION, "FL,FR");
 	}
+
 	if ((str = pw_properties_get(props, PW_KEY_MEDIA_CLASS)) == NULL)
 		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 

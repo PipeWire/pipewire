@@ -264,7 +264,7 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 		info.channels = pw_properties_parse_int(str);
 		pw_properties_set(props, "channels", NULL);
 	} else {
-		info.channels = 2;
+		info.channels = impl->defs.sample_spec.channels;
 	}
 	if ((str = pw_properties_get(props, "rate")) != NULL) {
 		info.rate = pw_properties_parse_int(str);
@@ -282,14 +282,15 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 		channel_map_to_positions(&map, info.position);
 		pw_properties_set(props, "channel_map", NULL);
 	} else {
-		if (info.channels > 2)
-			ERROR_RETURN("Mismatched channel map");
-
-		if (info.channels == 1) {
+		if (info.channels == impl->defs.channel_map.channels) {
+			channel_map_to_positions(&impl->defs.channel_map, info.position);
+		} else if (info.channels == 1) {
 			info.position[0] = SPA_AUDIO_CHANNEL_MONO;
-		} else {
+		} else if (info.channels == 2) {
 			info.position[0] = SPA_AUDIO_CHANNEL_FL;
 			info.position[1] = SPA_AUDIO_CHANNEL_FR;
+		} else {
+			ERROR_RETURN("Mismatched channel map");
 		}
 		/* TODO: pull in all of pa_channel_map_init_auto() */
 	}

@@ -92,8 +92,16 @@ struct stats {
 #define DEFAULT_DEFAULT_FRAG	"96000/48000"
 #define DEFAULT_DEFAULT_TLENGTH	"96000/48000"
 #define DEFAULT_MIN_QUANTUM	"256/48000"
+#define DEFAULT_FORMAT		"float32le"
+#define DEFAULT_CHANNEL_MAP	"front-left,front-right"
 
 #define MAX_FORMATS	32
+
+#include "format.c"
+#include "volume.c"
+#include "message.c"
+#include "manager.h"
+#include "dbus-name.c"
 
 struct defs {
 	struct spa_fraction min_req;
@@ -102,13 +110,9 @@ struct defs {
 	struct spa_fraction default_frag;
 	struct spa_fraction default_tlength;
 	struct spa_fraction min_quantum;
+	struct sample_spec sample_spec;
+	struct channel_map channel_map;
 };
-
-#include "format.c"
-#include "volume.c"
-#include "message.c"
-#include "manager.h"
-#include "dbus-name.c"
 
 #define NAME	"pulse-server"
 
@@ -3669,19 +3673,15 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 	char name[256];
 	const char *str;
 	struct message *reply;
-	struct sample_spec ss;
-	struct channel_map map;
 	uint32_t cookie;
 
 	pw_log_info(NAME" %p: [%s] GET_SERVER_INFO tag:%u", impl, client->name, tag);
 
-	ss = SAMPLE_SPEC_DEFAULT;
-	map = CHANNEL_MAP_DEFAULT;
 
 	if (info != NULL) {
 		if (info->props &&
 		    (str = spa_dict_lookup(info->props, "default.clock.rate")) != NULL)
-			ss.rate = atoi(str);
+			impl->defs.sample_spec.rate = atoi(str);
 		cookie = info->cookie;
 	} else {
 		cookie = 0;
@@ -3695,7 +3695,7 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 		TAG_STRING, "14.0.0",
 		TAG_STRING, pw_get_user_name(),
 		TAG_STRING, pw_get_host_name(),
-		TAG_SAMPLE_SPEC, &ss,
+		TAG_SAMPLE_SPEC, &impl->defs.sample_spec,
 		TAG_STRING, get_default(client, true),		/* default sink name */
 		TAG_STRING, get_default(client, false),		/* default source name */
 		TAG_U32, cookie,				/* cookie */
@@ -3703,7 +3703,7 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 
 	if (client->version >= 15) {
 		message_put(reply,
-			TAG_CHANNEL_MAP, &map,
+			TAG_CHANNEL_MAP, &impl->defs.channel_map,
 			TAG_INVALID);
 	}
 	return send_message(client, reply);
@@ -6357,6 +6357,30 @@ static int parse_frac(struct pw_properties *props, const char *key, const char *
 	pw_log_info(NAME": defaults: %s = %u/%u", key, res->num, res->denom);
 	return 0;
 }
+static int parse_channel_map(struct pw_properties *props, const char *key, const char *def,
+		struct channel_map *res)
+{
+	const char *str;
+	if (props == NULL ||
+	    (str = pw_properties_get(props, key)) == NULL)
+		str = def;
+	channel_map_parse(str, res);
+	pw_log_info(NAME": defaults: %s = %s", key, str);
+	return 0;
+}
+static int parse_format(struct pw_properties *props, const char *key, const char *def,
+		struct sample_spec *res)
+{
+	const char *str;
+	if (props == NULL ||
+	    (str = pw_properties_get(props, key)) == NULL)
+		str = def;
+	res->format = format_paname2id(str, strlen(str));
+	if (res->format == SPA_AUDIO_FORMAT_UNKNOWN)
+		res->format = SPA_AUDIO_FORMAT_F32;
+	pw_log_info(NAME": defaults: %s = %s", key, str);
+	return 0;
+}
 
 static void load_defaults(struct defs *def, struct pw_properties *props)
 {
@@ -6366,6 +6390,9 @@ static void load_defaults(struct defs *def, struct pw_properties *props)
 	parse_frac(props, "pulse.default.frag", DEFAULT_DEFAULT_FRAG, &def->default_frag);
 	parse_frac(props, "pulse.default.tlength", DEFAULT_DEFAULT_TLENGTH, &def->default_tlength);
 	parse_frac(props, "pulse.min.quantum", DEFAULT_MIN_QUANTUM, &def->min_quantum);
+	parse_format(props, "pulse.default.format", DEFAULT_FORMAT, &def->sample_spec);
+	parse_channel_map(props, "pulse.default.channel_map", DEFAULT_CHANNEL_MAP, &def->channel_map);
+	def->sample_spec.channels = def->channel_map.channels;
 }
 
 struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,

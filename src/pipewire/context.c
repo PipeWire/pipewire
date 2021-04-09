@@ -1117,9 +1117,9 @@ struct spa_handle *pw_context_load_spa_handle(struct pw_context *context,
 	if (lib == NULL && info != NULL)
 		lib = spa_dict_lookup(info, SPA_KEY_LIBRARY_NAME);
 	if (lib == NULL) {
+		errno = ENOENT;
 		pw_log_warn(NAME" %p: no library for %s: %m",
 				context, factory_name);
-		errno = ENOENT;
 		return NULL;
 	}
 

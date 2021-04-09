@@ -421,7 +421,6 @@ static int send_buffer(struct impl *this)
 
 	written = send(this->flush_source.fd, this->buffer,
 			this->buffer_used, MSG_DONTWAIT | MSG_NOSIGNAL);
-	reset_buffer(this);
 
 	spa_log_trace(this->log, NAME " %p: send %d", this, written);
 
@@ -533,7 +532,8 @@ static int flush_data(struct impl *this, uint64_t now_time)
 
 	total_frames = 0;
 again:
-	while (!spa_list_is_empty(&port->ready)) {
+	written = 0;
+	while (!spa_list_is_empty(&port->ready) && !this->need_flush) {
 		uint8_t *src;
 		uint32_t n_bytes, n_frames;
 		struct buffer *b;
@@ -602,14 +602,17 @@ again:
 			this->codec->reduce_bitpool(this->codec_data);
 			this->last_error = now_time;
 		}
+		this->need_flush = true;
 		enable_flush(this, true);
 	}
 	else if (written < 0) {
 		spa_log_trace(this->log, NAME" %p: error flushing %s", this,
 				spa_strerror(written));
+		reset_buffer(this);
 		return written;
 	}
 	else if (written > 0) {
+		reset_buffer(this);
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC) {
 			this->codec->increase_bitpool(this->codec_data);
 			this->last_error = now_time;
@@ -1259,8 +1262,11 @@ static int impl_node_process(void *object)
 		io->buffer_id = SPA_ID_INVALID;
 		io->status = SPA_STATUS_OK;
 	}
-	if (!spa_list_is_empty(&port->ready))
+	if (!spa_list_is_empty(&port->ready)) {
+		if (this->need_flush)
+			reset_buffer(this);
 		flush_data(this, this->current_time);
+	}
 
 	return SPA_STATUS_HAVE_DATA;
 }

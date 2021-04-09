@@ -1456,12 +1456,27 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 	return false;
 }
 
+static const struct spa_type_info *find_type_info(const struct spa_type_info *info, const char *name)
+{
+	while (info && info->name) {
+                if (strcmp(info->name, name) == 0)
+                        return info;
+                if (strcmp(spa_debug_type_short_name(info->name), name) == 0)
+                        return info;
+                if (info->type != 0 && info->type == (uint32_t)atoi(name))
+                        return info;
+                info++;
+        }
+        return NULL;
+}
+
 static bool do_enum_params(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	char *a[2];
-        int n;
+	int n;
 	uint32_t id, param_id;
+	const struct spa_type_info *ti;
 	struct global *global;
 
 	n = pw_split_ip(args, WHITESPACE, 2, a);
@@ -1471,7 +1486,12 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 	}
 
 	id = atoi(a[0]);
-	param_id = atoi(a[1]);
+	ti = find_type_info(spa_type_param, a[1]);
+	if (ti == NULL) {
+		*error = spa_aprintf("%s: unknown param type: %s", cmd, a[1]);
+		return false;
+	}
+	param_id = ti->type;
 
 	global = pw_map_lookup(&rd->globals, id);
 	if (global == NULL) {
@@ -1501,20 +1521,6 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 	return true;
-}
-
-static const struct spa_type_info *find_type_info(const struct spa_type_info *info, const char *name)
-{
-	while (info && info->name) {
-                if (strcmp(info->name, name) == 0)
-                        return info;
-                if (strcmp(spa_debug_type_short_name(info->name), name) == 0)
-                        return info;
-                if (info->type != 0 && info->type == (uint32_t)atoi(name))
-                        return info;
-                info++;
-        }
-        return NULL;
 }
 
 static int json_to_pod(struct spa_pod_builder *b, uint32_t id,

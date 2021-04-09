@@ -172,7 +172,7 @@ static void do_quit(void *data, int signal_number)
 
 static void show_help(struct data *data, const char *name)
 {
-        fprintf(stdout, "%s [options] [<id>]\n"
+        fprintf(stdout, "%s [options]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n"

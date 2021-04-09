@@ -294,6 +294,9 @@ struct impl {
 /* Functions that modules can use */
 static void broadcast_subscribe_event(struct impl *impl, uint32_t mask, uint32_t event, uint32_t id);
 
+static struct server *create_server(struct impl *impl, char *address);
+static void server_free(struct server *server);
+
 #include "collect.c"
 #include "module.c"
 #include "message-handler.c"
@@ -5919,6 +5922,10 @@ on_connect(void *data, int fd, uint32_t mask)
 			NULL);
 	if (client->props == NULL)
 		goto error;
+
+	pw_properties_setf(client->props,
+			"pulse.server.type", "%s",
+			server->type == SERVER_TYPE_INET ? "tcp" : "unix");
 
 	client->routes = pw_properties_new(NULL, NULL);
 	if (client->routes == NULL)

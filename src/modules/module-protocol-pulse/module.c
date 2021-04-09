@@ -177,12 +177,14 @@ static void add_props(struct pw_properties *props, const char *str)
 	free(s);
 }
 
-#include "module-null-sink.c"
 #include "module-loopback.c"
+#include "module-null-sink.c"
+#include "module-native-protocol-tcp.c"
 
 static const struct module_info module_list[] = {
-	{ "module-null-sink", create_module_null_sink, },
 	{ "module-loopback", create_module_loopback, },
+	{ "module-null-sink", create_module_null_sink, },
+	{ "module-native-protocol-tcp", create_module_native_protocol_tcp, },
 	{ NULL, }
 };
 

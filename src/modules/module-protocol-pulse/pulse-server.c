@@ -92,8 +92,12 @@ struct stats {
 #define DEFAULT_DEFAULT_FRAG	"96000/48000"
 #define DEFAULT_DEFAULT_TLENGTH	"96000/48000"
 #define DEFAULT_MIN_QUANTUM	"256/48000"
-#define DEFAULT_FORMAT		"float32le"
-#define DEFAULT_CHANNEL_MAP	"front-left,front-right"
+#if __BYTE_ORDER == __BIG_ENDIAN
+#define DEFAULT_FORMAT		"F32BE"
+#else
+#define DEFAULT_FORMAT		"F32LE"
+#endif
+#define DEFAULT_CHANNEL_MAP	"[ FL FR ]"
 
 #define MAX_FORMATS	32
 
@@ -6357,14 +6361,27 @@ static int parse_frac(struct pw_properties *props, const char *key, const char *
 	pw_log_info(NAME": defaults: %s = %u/%u", key, res->num, res->denom);
 	return 0;
 }
+
 static int parse_channel_map(struct pw_properties *props, const char *key, const char *def,
 		struct channel_map *res)
 {
 	const char *str;
+	struct spa_json it[2];
+	char v[256];
+
 	if (props == NULL ||
 	    (str = pw_properties_get(props, key)) == NULL)
 		str = def;
-	channel_map_parse(str, res);
+
+	spa_json_init(&it[0], str, strlen(str));
+        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+                spa_json_init(&it[1], str, strlen(str));
+
+	res->channels = 0;
+	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+	    res->channels < SPA_AUDIO_MAX_CHANNELS) {
+		res->map[res->channels++] = channel_name2id(v);
+	}
 	pw_log_info(NAME": defaults: %s = %s", key, str);
 	return 0;
 }
@@ -6375,7 +6392,7 @@ static int parse_format(struct pw_properties *props, const char *key, const char
 	if (props == NULL ||
 	    (str = pw_properties_get(props, key)) == NULL)
 		str = def;
-	res->format = format_paname2id(str, strlen(str));
+	res->format = format_name2id(str);
 	if (res->format == SPA_AUDIO_FORMAT_UNKNOWN)
 		res->format = SPA_AUDIO_FORMAT_F32;
 	pw_log_info(NAME": defaults: %s = %s", key, str);

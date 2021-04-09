@@ -117,6 +117,15 @@ static inline const char *format_id2name(uint32_t format)
 	}
 	return "UNKNOWN";
 }
+static inline uint32_t format_name2id(const char *name)
+{
+	int i;
+	for (i = 0; spa_type_audio_format[i].name; i++) {
+		if (strcmp(name, spa_debug_type_short_name(spa_type_audio_format[i].name)) == 0)
+			return spa_type_audio_format[i].type;
+	}
+	return SPA_AUDIO_CHANNEL_UNKNOWN;
+}
 
 static inline uint32_t format_paname2id(const char *name, size_t size)
 {

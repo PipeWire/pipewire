@@ -132,30 +132,6 @@ static int pw_split_ip(char *str, const char *delimiter, int max_tokens, char *t
         return n;
 }
 
-static struct pw_properties *parse_props(char *str)
-{
-	const char *state = NULL;
-	char *s, *p[3];
-	size_t len, n;
-	struct pw_properties *props = NULL;
-
-	while (true) {
-		s = (char *)pw_split_walk(str, WHITESPACE, &len, &state);
-		if (s == NULL)
-			break;
-
-		s[len] = '\0';
-		n = pw_split_ip(s, "=", 2, p);
-		if (n == 2) {
-			if (props == NULL)
-				props = pw_properties_new(p[0], p[1], NULL);
-			else
-				pw_properties_set(props, p[0], p[1]);
-		}
-	}
-	return props;
-}
-
 static void print_properties(struct spa_dict *props, char mark, bool header)
 {
 	const struct spa_dict_item *item;
@@ -1309,7 +1285,7 @@ static bool do_create_device(struct data *data, const char *cmd, char *args, cha
 		return false;
 	}
 	if (n == 2)
-		props = parse_props(a[1]);
+		props = pw_properties_new_string(a[1]);
 
 	proxy = pw_core_create_object(rd->core, a[0],
 					    PW_TYPE_INTERFACE_Device,
@@ -1346,7 +1322,7 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 	if (n == 2)
-		props = parse_props(a[1]);
+		props = pw_properties_new_string(a[1]);
 
 	proxy = pw_core_create_object(rd->core, a[0],
 					    PW_TYPE_INTERFACE_Node,
@@ -1407,7 +1383,7 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 	if (n == 5)
-		props = parse_props(a[4]);
+		props = pw_properties_new_string(a[4]);
 	else
 		props = pw_properties_new(NULL, NULL);
 

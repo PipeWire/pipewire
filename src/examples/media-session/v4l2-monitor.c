@@ -550,6 +550,7 @@ int sm_v4l2_monitor_start(struct sm_media_session *sess)
 	impl->handle = pw_context_load_spa_handle(context, SPA_NAME_API_V4L2_ENUM_UDEV, NULL);
 	if (impl->handle == NULL) {
 		res = -errno;
+		pw_log_info("can't load %s: %m", SPA_NAME_API_V4L2_ENUM_UDEV);
 		goto out_free;
 	}
 

@@ -1449,6 +1449,11 @@ static int backend_hsphfpd_free(void *data)
 	struct impl *backend = data;
 	struct hsphfpd_endpoint *endpoint;
 
+	if (backend->filters_added) {
+		dbus_connection_remove_filter(backend->conn, hsphfpd_filter_cb, backend);
+		backend->filters_added = false;
+	}
+
 	if (backend->msbc_supported)
 		dbus_connection_unregister_object_path(backend->conn, HSPHFP_AUDIO_CLIENT_MSBC);
 	dbus_connection_unregister_object_path(backend->conn, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ);

@@ -745,6 +745,11 @@ static int backend_ofono_free(void *data)
 {
 	struct impl *backend = data;
 
+	if (backend->filters_added) {
+		dbus_connection_remove_filter(backend->conn, ofono_filter_cb, backend);
+		backend->filters_added = false;
+	}
+
 	dbus_connection_unregister_object_path(backend->conn, OFONO_AUDIO_CLIENT);
 
 	free(backend);

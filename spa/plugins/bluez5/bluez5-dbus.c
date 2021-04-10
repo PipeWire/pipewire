@@ -66,7 +66,6 @@ struct spa_bt_monitor {
 
 	struct spa_hook_list hooks;
 
-	uint32_t count;
 	uint32_t id;
 
 	/*
@@ -2824,7 +2823,6 @@ static void unregister_media_application(struct spa_bt_monitor * monitor)
 {
 	int ret;
 	char *object_path = NULL;
-	dbus_connection_unregister_object_path(monitor->conn, A2DP_OBJECT_MANAGER_PATH);
 
 	for (int i = 0; a2dp_codecs[i]; i++) {
 		const struct a2dp_codec *codec = a2dp_codecs[i];
@@ -2844,6 +2842,8 @@ static void unregister_media_application(struct spa_bt_monitor * monitor)
 			free(object_path);
 		}
 	}
+
+	dbus_connection_unregister_object_path(monitor->conn, A2DP_OBJECT_MANAGER_PATH);
 }
 
 static int adapter_register_application(struct spa_bt_adapter *a) {
@@ -3408,7 +3408,18 @@ static int impl_clear(struct spa_handle *handle)
 
 	monitor = (struct spa_bt_monitor *) handle;
 
+	/*
+	 * We don't call BlueZ API unregister methods here, since BlueZ generally does the
+	 * unregistration when the DBus connection is closed below.  We'll unregister DBus
+	 * object managers and filter callbacks though.
+	 */
+
 	unregister_media_application(monitor);
+
+	if (monitor->filters_added) {
+		dbus_connection_remove_filter(monitor->conn, filter_cb, monitor);
+		monitor->filters_added = false;
+	}
 
 	spa_list_consume(t, &monitor->transport_list, link)
 		spa_bt_transport_free(t);
@@ -3436,6 +3447,18 @@ static int impl_clear(struct spa_handle *handle)
 
 	free((void*)monitor->enabled_codecs.items);
 	spa_zero(monitor->enabled_codecs);
+
+	spa_dbus_connection_destroy(monitor->dbus_connection);
+	monitor->dbus_connection = NULL;
+	monitor->conn = NULL;
+
+	monitor->objects_listed = false;
+
+	monitor->connection_info_supported = false;
+	monitor->enable_sbc_xq = false;
+	monitor->backend_native_registered = false;
+	monitor->backend_ofono_registered = false;
+	monitor->backend_hsphfpd_registered = false;
 
 	return 0;
 }

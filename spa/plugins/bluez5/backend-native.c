@@ -1629,6 +1629,8 @@ static int backend_native_free(void *data)
 
 	sco_close(backend);
 
+	backend_native_unregister_profiles(backend);
+
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_AG);
 	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_HS);

@@ -531,31 +531,88 @@ static const struct spa_device_events bluez5_enum_callbacks =
 	.object_info = bluez5_enum_object_info,
 };
 
-static void session_destroy(void *data)
+static void unload_bluez_handle(struct impl *impl)
 {
-	struct impl *impl = data;
 	struct device *device;
+
+	if (impl->handle == NULL)
+		return;
+
 	spa_list_consume(device, &impl->device_list, link)
 		bluez5_device_free(device);
 
-	spa_hook_remove(&impl->session_listener);
 	spa_hook_remove(&impl->listener);
+
 	pw_unload_spa_handle(impl->handle);
+	impl->handle = NULL;
+}
+
+static int load_bluez_handle(struct impl *impl)
+{
+	struct pw_context *context = impl->session->context;
+	void *iface;
+	int res;
+
+	if (impl->handle != NULL)
+		return 0;
+
+	impl->handle = pw_context_load_spa_handle(context, SPA_NAME_API_BLUEZ5_ENUM_DBUS, &impl->props->dict);
+	if (impl->handle == NULL) {
+		res = -errno;
+		pw_log_info("can't load %s: %m", SPA_NAME_API_BLUEZ5_ENUM_DBUS);
+		goto fail;
+	}
+	if ((res = spa_handle_get_interface(impl->handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0) {
+		pw_log_error("can't get Device interface: %s", spa_strerror(res));
+		goto fail;
+	}
+	impl->monitor = iface;
+
+	spa_device_add_listener(impl->monitor, &impl->listener,
+			&bluez5_enum_callbacks, impl);
+
+	return 0;
+
+fail:
+	if (impl->handle)
+		pw_unload_spa_handle(impl->handle);
+	impl->handle = NULL;
+	return res;
+}
+
+static void session_destroy(void *data)
+{
+	struct impl *impl = data;
+
+	unload_bluez_handle(impl);
+
+	spa_hook_remove(&impl->session_listener);
 	pw_properties_free(impl->props);
 	pw_properties_free(impl->conf);
 	free(impl);
 }
 
+static void seat_active(void *data, bool active)
+{
+	struct impl *impl = data;
+	if (active) {
+		pw_log_info(NAME ": seat active, starting bluetooth");
+		load_bluez_handle(impl);
+	} else {
+		pw_log_info(NAME ": seat not active, stopping bluetooth");
+		unload_bluez_handle(impl);
+	}
+}
+
 static const struct sm_media_session_events session_events = {
 	SM_VERSION_MEDIA_SESSION_EVENTS,
 	.destroy = session_destroy,
+	.seat_active = seat_active,
 };
 
 int sm_bluez5_monitor_start(struct sm_media_session *session)
 {
-	struct pw_context *context = session->context;
 	int res;
-	void *iface;
 	struct impl *impl;
 	const char *str;
 
@@ -565,6 +622,8 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 		goto out;
 	}
 	impl->session = session;
+
+	spa_list_init(&impl->device_list);
 
 	if ((impl->conf = pw_properties_new(NULL, NULL)) == NULL) {
 		res = -errno;
@@ -583,21 +642,8 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 
 	pw_properties_set(impl->props, "api.bluez5.connection-info", "true");
 
-	impl->handle = pw_context_load_spa_handle(context, SPA_NAME_API_BLUEZ5_ENUM_DBUS, &impl->props->dict);
-	if (impl->handle == NULL) {
-		res = -errno;
-		pw_log_info("can't load %s: %m", SPA_NAME_API_BLUEZ5_ENUM_DBUS);
+	if ((res = load_bluez_handle(impl)) < 0)
 		goto out_free;
-	}
-	if ((res = spa_handle_get_interface(impl->handle, SPA_TYPE_INTERFACE_Device, &iface)) < 0) {
-		pw_log_error("can't get Device interface: %s", spa_strerror(res));
-		goto out_free;
-	}
-	impl->monitor = iface;
-	spa_list_init(&impl->device_list);
-
-	spa_device_add_listener(impl->monitor, &impl->listener,
-			&bluez5_enum_callbacks, impl);
 
 	sm_media_session_add_listener(session, &impl->session_listener,
 			&session_events, impl);
@@ -605,8 +651,7 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 	return 0;
 
 out_free:
-	if (impl->handle)
-		pw_unload_spa_handle(impl->handle);
+	unload_bluez_handle(impl);
 	if (impl->conf)
 		pw_properties_free(impl->conf);
 	if (impl->props)

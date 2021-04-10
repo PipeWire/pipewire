@@ -38,18 +38,16 @@ static int module_native_protocol_tcp_load(struct client *client, struct module 
 {
 	struct module_native_protocol_tcp_data *data = module->user_data;
 	struct impl *impl = client->impl;
-	char *address;
+	const char *address;
 
-	address = strdup(pw_properties_get(module->props, "pulse.tcp"));
-	data->server = create_server(impl, address);
-	free(address);
+	if ((address = pw_properties_get(module->props, "pulse.tcp")) == NULL)
+		return -EIO;
 
-	if (data->server == NULL)
+	if ((data->server = create_server(impl, address)) == NULL)
 		return -errno;
 
 	pw_log_info("loaded module %p id:%u name:%s", module, module->idx, module->name);
 	module_emit_loaded(module, 0);
-
 	return 0;
 }
 

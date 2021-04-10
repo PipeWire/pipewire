@@ -294,7 +294,7 @@ struct impl {
 /* Functions that modules can use */
 static void broadcast_subscribe_event(struct impl *impl, uint32_t mask, uint32_t event, uint32_t id);
 
-static struct server *create_server(struct impl *impl, char *address);
+static struct server *create_server(struct impl *impl, const char *address);
 static void server_free(struct server *server);
 
 #include "collect.c"
@@ -6068,7 +6068,7 @@ static bool is_stale_socket(struct server *server, int fd)
 	return false;
 }
 
-static int make_local_socket(struct server *server, char *name)
+static int make_local_socket(struct server *server, const char *name)
 {
 	char runtime_dir[PATH_MAX];
 	socklen_t size;
@@ -6183,7 +6183,7 @@ static int create_pid_file(void) {
 	return 0;
 }
 
-static int make_inet_socket(struct server *server, char *name)
+static int make_inet_socket(struct server *server, const char *name)
 {
 	struct sockaddr_in addr;
 	int res, fd, on;
@@ -6194,9 +6194,10 @@ static int make_inet_socket(struct server *server, char *name)
 	col = strchr(name, ':');
 	if (col) {
 		struct in_addr ipv4;
+		char *n;
 		port = atoi(col+1);
-		*col = '\0';
-		if (inet_pton(AF_INET, name, &ipv4) > 0)
+		n = strndupa(name, col - name);
+		if (inet_pton(AF_INET, n, &ipv4) > 0)
 			address = ntohl(ipv4.s_addr);
 		else
 			address = INADDR_ANY;
@@ -6243,7 +6244,7 @@ error:
 	return res;
 }
 
-static struct server *create_server(struct impl *impl, char *address)
+static struct server *create_server(struct impl *impl, const char *address)
 {
 	int fd, res;
 	struct server *server;

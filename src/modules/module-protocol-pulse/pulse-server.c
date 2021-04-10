@@ -6273,9 +6273,6 @@ static struct server *create_server(struct impl *impl, char *address)
 		pw_log_error(NAME" %p: can't create server source: %m", impl);
 		goto error_close;
 	}
-	if ((res = create_pid_file()) < 0) {
-		goto error_close;
-	}
 	return server;
 
 error_close:
@@ -6426,6 +6423,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	const char *str;
 	struct spa_json it[2];
 	char value[512];
+	int res;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -6480,7 +6478,10 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 			}
 		}
 	}
-
+	if ((res = create_pid_file()) < 0) {
+		pw_log_warn(NAME" %p: can't create pid file: %s",
+				impl, spa_strerror(res));
+	}
 	impl->dbus_name = dbus_request_name(context, "org.pulseaudio.Server");
 
 	return (struct pw_protocol_pulse*)impl;

@@ -386,6 +386,9 @@ struct spa_bt_device_events {
 
 	/** Profile configuration changed */
 	void (*profiles_changed) (void *data, uint32_t prev_profiles, uint32_t prev_connected);
+
+	/** Device freed */
+	void (*destroy) (void *data);
 };
 
 struct spa_bt_device {
@@ -446,6 +449,7 @@ int spa_bt_device_report_battery_level(struct spa_bt_device *device, uint8_t per
 #define spa_bt_device_emit_connected(d,...)	        spa_bt_device_emit(d, connected, 0, __VA_ARGS__)
 #define spa_bt_device_emit_codec_switched(d,...)	spa_bt_device_emit(d, codec_switched, 0, __VA_ARGS__)
 #define spa_bt_device_emit_profiles_changed(d,...)	spa_bt_device_emit(d, profiles_changed, 0, __VA_ARGS__)
+#define spa_bt_device_emit_destroy(d)			spa_bt_device_emit(d, destroy, 0)
 #define spa_bt_device_add_listener(d,listener,events,data)           \
 	spa_hook_list_append(&(d)->listener_list, listener, events, data)
 

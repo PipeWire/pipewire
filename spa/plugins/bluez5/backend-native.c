@@ -88,6 +88,7 @@ struct rfcomm {
 	struct spa_source source;
 	struct impl *backend;
 	struct spa_bt_device *device;
+	struct spa_hook device_listener;
 	struct spa_bt_transport *transport;
 	struct spa_hook transport_listener;
 	enum spa_bt_profile profile;
@@ -174,8 +175,18 @@ static void rfcomm_free(struct rfcomm *rfcomm)
 		spa_hook_remove(&rfcomm->transport_listener);
 		spa_bt_transport_free(rfcomm->transport);
 	}
-	if (rfcomm->device)
+	if (rfcomm->device) {
 		spa_bt_device_report_battery_level(rfcomm->device, SPA_BT_NO_BATTERY);
+		spa_hook_remove(&rfcomm->device_listener);
+		rfcomm->device = NULL;
+	}
+	if (rfcomm->source.fd >= 0) {
+		if (rfcomm->source.loop)
+			spa_loop_remove_source(rfcomm->source.loop, &rfcomm->source);
+		shutdown(rfcomm->source.fd, SHUT_RDWR);
+		close (rfcomm->source.fd);
+		rfcomm->source.fd = -1;
+	}
 	free(rfcomm);
 }
 
@@ -664,8 +675,6 @@ static void rfcomm_event(struct spa_source *source)
 
 	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
 		spa_log_info(backend->log, NAME": lost RFCOMM connection.");
-		if (source->loop)
-			spa_loop_remove_source(source->loop, source);
 		rfcomm_free(rfcomm);
 		return;
 	}
@@ -1157,6 +1166,17 @@ static int backend_native_ensure_codec(void *data, struct spa_bt_device *device,
 #endif
 }
 
+static void device_destroy(void *data)
+{
+	struct rfcomm *rfcomm = data;
+	rfcomm_free(rfcomm);
+}
+
+static const struct spa_bt_device_events device_events = {
+	SPA_VERSION_BT_DEVICE_EVENTS,
+	.destroy = device_destroy,
+};
+
 static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
 	struct impl *backend = userdata;
@@ -1221,6 +1241,10 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	rfcomm->source.mask = SPA_IO_IN;
 	rfcomm->source.rmask = 0;
 
+	spa_bt_device_add_listener(d, &rfcomm->device_listener, &device_events, rfcomm);
+	spa_loop_add_source(backend->main_loop, &rfcomm->source);
+	spa_list_append(&backend->rfcomm_list, &rfcomm->link);
+
 	if (d->settings && (str = spa_dict_lookup(d->settings, "bluez5.msbc-support")))
 		rfcomm->msbc_support_enabled_in_config = strcmp(str, "true") == 0 || atoi(str) == 1;
 	else
@@ -1269,9 +1293,6 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	if (!dbus_connection_send(conn, r, NULL))
 		goto fail_need_memory;
 	dbus_message_unref(r);
-
-	spa_loop_add_source(backend->main_loop, &rfcomm->source);
-	spa_list_append(&backend->rfcomm_list, &rfcomm->link);
 
 	return DBUS_HANDLER_RESULT_HANDLED;
 
@@ -1326,11 +1347,6 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 
 	spa_list_for_each_safe(rfcomm, rfcomm_tmp, &backend->rfcomm_list, link) {
 		if (rfcomm->device == d && rfcomm->profile == profile) {
-			if (rfcomm->source.loop)
-				spa_loop_remove_source(rfcomm->source.loop, &rfcomm->source);
-			shutdown(rfcomm->source.fd, SHUT_RDWR);
-			close (rfcomm->source.fd);
-			rfcomm->source.fd = -1;
 			rfcomm_free(rfcomm);
 		}
 	}

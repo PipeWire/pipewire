@@ -675,6 +675,8 @@ static void device_free(struct spa_bt_device *device)
 
 	spa_log_debug(monitor->log, "%p", device);
 
+	spa_bt_device_emit_destroy(device);
+
 	battery_remove(device);
 	device_stop_timer(device);
 

@@ -52,8 +52,8 @@ void
 pw_loop_destroy(struct pw_loop *loop);
 
 #define pw_loop_add_source(l,...)	spa_loop_add_source((l)->loop,__VA_ARGS__)
-#define pw_loop_update_source(l,...)	spa_loop_update_source(__VA_ARGS__)
-#define pw_loop_remove_source(l,...)	spa_loop_remove_source(__VA_ARGS__)
+#define pw_loop_update_source(l,...)	spa_loop_update_source((l)->loop,__VA_ARGS__)
+#define pw_loop_remove_source(l,...)	spa_loop_remove_source((l)->loop,__VA_ARGS__)
 #define pw_loop_invoke(l,...)		spa_loop_invoke((l)->loop,__VA_ARGS__)
 
 #define pw_loop_get_fd(l)		spa_loop_control_get_fd((l)->control)

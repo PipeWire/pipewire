@@ -66,6 +66,12 @@ executable('export-spa-device',
 )
 
 if not get_option('media-session').disabled() and alsa_dep.found()
+  sm_logind_src = []
+  sm_logind_dep = []
+  if systemd.found() and systemd_dep.found()
+    sm_logind_src = ['media-session/logind.c']
+    sm_logind_dep = [systemd_dep]
+  endif
   executable('pipewire-media-session',
     'media-session/access-flatpak.c',
     'media-session/access-portal.c',
@@ -90,9 +96,10 @@ if not get_option('media-session').disabled() and alsa_dep.found()
     'media-session/v4l2-endpoint.c',
     'media-session/libcamera-monitor.c',
     'media-session/suspend-node.c',
+    sm_logind_src,
     c_args : [ '-D_GNU_SOURCE' ],
     install: true,
-    dependencies : [dbus_dep, pipewire_dep, alsa_dep, mathlib],
+    dependencies : [dbus_dep, pipewire_dep, alsa_dep, mathlib, sm_logind_dep],
 )
 endif
 

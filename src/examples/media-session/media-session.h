@@ -236,6 +236,8 @@ struct sm_media_session_events {
 	void (*rescan) (void *data, int seq);
 	void (*shutdown) (void *data);
 	void (*destroy) (void *data);
+
+	void (*seat_active) (void *data, bool active);
 };
 
 struct sm_media_session {
@@ -310,6 +312,8 @@ char *sm_media_session_sanitize_name(char *name, int size, char sub,
 		const char *fmt, ...) SPA_PRINTF_FUNC(4, 5);
 char *sm_media_session_sanitize_description(char *name, int size, char sub,
 		const char *fmt, ...) SPA_PRINTF_FUNC(4, 5);
+
+int sm_media_session_seat_active_changed(struct sm_media_session *sess, bool active);
 
 #ifdef __cplusplus
 }

@@ -79,6 +79,7 @@
 #define sm_media_session_emit_rescan(s,seq)		sm_media_session_emit(s, rescan, 0, seq)
 #define sm_media_session_emit_shutdown(s)		sm_media_session_emit(s, shutdown, 0)
 #define sm_media_session_emit_destroy(s)		sm_media_session_emit(s, destroy, 0)
+#define sm_media_session_emit_seat_active(s,...)	sm_media_session_emit(s, seat_active, 0, __VA_ARGS__)
 
 int sm_access_flatpak_start(struct sm_media_session *sess);
 int sm_access_portal_start(struct sm_media_session *sess);
@@ -93,6 +94,9 @@ int sm_libcamera_monitor_start(struct sm_media_session *sess);
 int sm_bluez5_monitor_start(struct sm_media_session *sess);
 int sm_alsa_monitor_start(struct sm_media_session *sess);
 int sm_suspend_node_start(struct sm_media_session *sess);
+#ifdef HAVE_SYSTEMD
+int sm_logind_start(struct sm_media_session *sess);
+#endif
 
 int sm_policy_node_start(struct sm_media_session *sess);
 
@@ -157,6 +161,7 @@ struct impl {
 
 	unsigned int scanning:1;
 	unsigned int rescan_pending:1;
+	unsigned int seat_active:1;
 };
 
 struct endpoint_link {
@@ -2034,6 +2039,16 @@ char *sm_media_session_sanitize_description(char *name, int size, char sub, cons
 	return name;
 }
 
+int sm_media_session_seat_active_changed(struct sm_media_session *sess, bool active)
+{
+	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
+	if (active != impl->seat_active) {
+		impl->seat_active = active;
+		sm_media_session_emit_seat_active(impl, active);
+	}
+	return 0;
+}
+
 static void monitor_core_done(void *data, uint32_t id, int seq)
 {
 	struct impl *impl = data;
@@ -2335,6 +2350,9 @@ static const struct {
 	{ "suspend-node", "suspend inactive nodes", sm_suspend_node_start, NULL },
 	{ "policy-node", "configure and link nodes", sm_policy_node_start, NULL },
 	{ "pulse-bridge", "accept pulseaudio clients", sm_pulse_bridge_start, NULL },
+#ifdef HAVE_SYSTEMD
+	{ "logind", "systemd-logind seat support", sm_logind_start, NULL },
+#endif
 };
 
 static bool is_module_enabled(struct impl *impl, const char *val)
@@ -2363,7 +2381,7 @@ static void show_help(const char *name, struct impl *impl, const char *config_na
 
 int main(int argc, char *argv[])
 {
-	struct impl impl = { 0, };
+	struct impl impl = { .seat_active = true };
 	const struct spa_support *support;
 	const char *str, *config_name = SESSION_CONF;
 	bool do_show_help = false;

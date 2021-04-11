@@ -47,7 +47,14 @@
 
 #define PROP_KEY_HEADSET_ROLES "bluez5.headset-roles"
 
+#define HFP_CODEC_SWITCH_INITIAL_TIMEOUT_MSEC 2000
 #define HFP_CODEC_SWITCH_TIMEOUT_MSEC 5000
+
+enum {
+	HFP_AG_INITIAL_CODEC_SETUP_NONE = 0,
+	HFP_AG_INITIAL_CODEC_SETUP_SEND,
+	HFP_AG_INITIAL_CODEC_SETUP_WAIT
+};
 
 struct impl {
 	struct spa_bt_backend this;
@@ -100,6 +107,7 @@ struct rfcomm {
 	unsigned int msbc_support_enabled_in_config:1;
 	unsigned int msbc_supported_by_hfp:1;
 	unsigned int hfp_ag_switching_codec:1;
+	unsigned int hfp_ag_initial_codec_setup:2;
 	enum hfp_hf_state hf_state;
 	unsigned int codec;
 #endif
@@ -343,6 +351,8 @@ static bool device_supports_required_mSBC_transport_modes(
 	return false;
 }
 
+static int codec_switch_start_timer(struct rfcomm *rfcomm, int timeout_msec);
+
 static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 {
 	struct rfcomm *rfcomm = source->data;
@@ -429,8 +439,10 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 
 		/* switch codec to mSBC by sending unsolicited +BCS message */
 		if (rfcomm->codec_negotiation_supported && rfcomm->msbc_supported_by_hfp) {
-			spa_log_debug(backend->log, NAME": RFCOMM switching codec to mSBC");
-			rfcomm_send_reply(source, "+BCS: 2");
+			spa_log_debug(backend->log, NAME": RFCOMM initial codec setup");
+			rfcomm->hfp_ag_initial_codec_setup = HFP_AG_INITIAL_CODEC_SETUP_SEND;
+			rfcomm_send_reply(&rfcomm->source, "+BCS: 2");
+			codec_switch_start_timer(rfcomm, HFP_CODEC_SWITCH_INITIAL_TIMEOUT_MSEC);
 		} else {
 			rfcomm->transport = _transport_create(rfcomm);
 			if (rfcomm->transport == NULL) {
@@ -450,6 +462,7 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 		/* parse BCS(=Bluetooth Codec Selection) reply */
 		bool was_switching_codec = rfcomm->hfp_ag_switching_codec && (rfcomm->device != NULL);
 		rfcomm->hfp_ag_switching_codec = false;
+		rfcomm->hfp_ag_initial_codec_setup = HFP_AG_INITIAL_CODEC_SETUP_NONE;
 		codec_switch_stop_timer(rfcomm);
 
 		if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC) {
@@ -1101,6 +1114,31 @@ static void codec_switch_timer_event(struct spa_source *source)
 	codec_switch_stop_timer(rfcomm);
 
 	spa_log_debug(backend->log, "rfcomm %p: codec switch timeout", rfcomm);
+
+	switch (rfcomm->hfp_ag_initial_codec_setup) {
+	case HFP_AG_INITIAL_CODEC_SETUP_SEND:
+		/* Retry codec selection */
+		rfcomm->hfp_ag_initial_codec_setup = HFP_AG_INITIAL_CODEC_SETUP_WAIT;
+		rfcomm_send_reply(&rfcomm->source, "+BCS: 2");
+		codec_switch_start_timer(rfcomm, HFP_CODEC_SWITCH_TIMEOUT_MSEC);
+		return;
+	case HFP_AG_INITIAL_CODEC_SETUP_WAIT:
+		/* Failure, try falling back to CVSD. */
+		rfcomm->hfp_ag_initial_codec_setup = HFP_AG_INITIAL_CODEC_SETUP_NONE;
+		if (rfcomm->transport == NULL) {
+			rfcomm->transport = _transport_create(rfcomm);
+			if (rfcomm->transport == NULL) {
+				spa_log_warn(backend->log, NAME": can't create transport: %m");
+			} else {
+				rfcomm->transport->codec = HFP_AUDIO_CODEC_CVSD;
+				spa_bt_device_connect_profile(rfcomm->device, rfcomm->profile);
+			}
+		}
+		rfcomm_send_reply(&rfcomm->source, "+BCS: 1");
+		return;
+	default:
+		break;
+	}
 
 	if (rfcomm->hfp_ag_switching_codec) {
 		rfcomm->hfp_ag_switching_codec = false;

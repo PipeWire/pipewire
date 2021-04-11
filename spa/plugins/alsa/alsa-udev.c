@@ -49,6 +49,7 @@
 
 #define ACTION_ADD	0
 #define ACTION_REMOVE	1
+#define ACTION_DISABLE	2
 
 struct device {
 	uint32_t id;
@@ -415,6 +416,15 @@ static void process_device(struct impl *this, uint32_t action, struct udev_devic
 		if (emitted)
 			spa_device_emit_object_info(&this->hooks, id, NULL);
 		break;
+
+	case ACTION_DISABLE:
+		if (device == NULL)
+			return;
+		if (device->emitted) {
+			device->emitted = false;
+			spa_device_emit_object_info(&this->hooks, id, NULL);
+		}
+		break;
 	}
 }
 
@@ -459,12 +469,16 @@ static void impl_on_notify_events(struct spa_source *source)
 			event = (const struct inotify_event *) p;
 
 			if ((event->mask & IN_ATTRIB)) {
+				bool access;
 				if (sscanf(event->name, "controlC%u", &id) != 1)
 					continue;
 				if ((device = find_device(this, id)) == NULL)
 					continue;
-				if (!device->emitted)
+				access = check_access(this, device);
+				if (access && !device->emitted)
 					process_device(this, ACTION_ADD, device->dev);
+				else if (!access && device->emitted)
+					process_device(this, ACTION_DISABLE, device->dev);
 			}
 			/* /dev/snd/ might have been removed */
 			if ((event->mask & (IN_DELETE_SELF | IN_MOVE_SELF)))

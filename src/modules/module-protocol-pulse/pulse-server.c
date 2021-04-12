@@ -565,10 +565,13 @@ static int send_underflow(struct stream *stream, int64_t offset, uint32_t underr
 	return send_message(client, reply);
 }
 
-static int send_subscribe_event(struct client *client, uint32_t event, uint32_t id)
+static int send_subscribe_event(struct client *client, uint32_t mask, uint32_t event, uint32_t id)
 {
 	struct impl *impl = client->impl;
 	struct message *reply, *m, *t;
+
+	if (!(client->subscribed & mask))
+		return 0;
 
 	pw_log_debug(NAME" %p: SUBSCRIBE event:%08x id:%u", client, event, id);
 
@@ -616,10 +619,8 @@ static void broadcast_subscribe_event(struct impl *impl, uint32_t mask, uint32_t
 	struct server *s;
 	spa_list_for_each(s, &impl->servers, link) {
 		struct client *c;
-		spa_list_for_each(c, &s->clients, link) {
-			if (c->subscribed & mask)
-				send_subscribe_event(c, event, id);
-		}
+		spa_list_for_each(c, &s->clients, link)
+			send_subscribe_event(c, mask, event, id);
 	}
 }
 
@@ -769,44 +770,51 @@ static struct stream *find_stream(struct client *client, uint32_t id)
 	return NULL;
 }
 
-static uint32_t get_event_and_id(struct client *client, struct pw_manager_object *o, uint32_t *id)
+static int send_object_event(struct client *client, struct pw_manager_object *o,
+		uint32_t facility)
 {
-	uint32_t event = 0, res_id = o->id;
+	uint32_t event = 0, mask = 0, res_id = o->id;
 
-	if (client->subscribed & SUBSCRIPTION_MASK_SINK &&
-	    object_is_sink(o)) {
-		event = SUBSCRIPTION_EVENT_SINK;
+	if (object_is_sink(o)) {
+		send_subscribe_event(client,
+				SUBSCRIPTION_MASK_SINK,
+				SUBSCRIPTION_EVENT_SINK | facility,
+				res_id);
 	}
-	else if (client->subscribed & SUBSCRIPTION_MASK_SOURCE &&
-	    object_is_source_or_monitor(o)) {
+	if (object_is_source_or_monitor(o)) {
 		if (!object_is_source(o))
 			res_id |= MONITOR_FLAG;
+		mask = SUBSCRIPTION_MASK_SOURCE;
 		event = SUBSCRIPTION_EVENT_SOURCE;
 	}
-	else if (client->subscribed & SUBSCRIPTION_MASK_SINK_INPUT &&
-	    object_is_sink_input(o)) {
+	else if (object_is_sink_input(o)) {
+		mask = SUBSCRIPTION_MASK_SINK_INPUT;
 		event = SUBSCRIPTION_EVENT_SINK_INPUT;
 	}
-	else if (client->subscribed & SUBSCRIPTION_MASK_SOURCE_OUTPUT &&
-	    object_is_source_output(o)) {
+	else if (object_is_source_output(o)) {
+		mask = SUBSCRIPTION_MASK_SOURCE_OUTPUT;
 		event = SUBSCRIPTION_EVENT_SOURCE_OUTPUT;
 	}
-	else if (client->subscribed & SUBSCRIPTION_MASK_MODULE &&
-	    object_is_module(o)) {
+	else if (object_is_module(o)) {
+		mask = SUBSCRIPTION_MASK_MODULE;
 		event = SUBSCRIPTION_EVENT_MODULE;
 	}
-	else if (client->subscribed & SUBSCRIPTION_MASK_CLIENT &&
-	    object_is_client(o)) {
+	else if (object_is_client(o)) {
+		mask = SUBSCRIPTION_MASK_CLIENT;
 		event = SUBSCRIPTION_EVENT_CLIENT;
 	}
-	else if (client->subscribed & SUBSCRIPTION_MASK_CARD &&
-	    object_is_card(o)) {
+	else if (object_is_card(o)) {
+		mask = SUBSCRIPTION_MASK_CARD;
 		event = SUBSCRIPTION_EVENT_CARD;
 	} else
 		event = SPA_ID_INVALID;
-	if (id)
-		*id = res_id;
-	return event;
+
+	if (event != SPA_ID_INVALID)
+		send_subscribe_event(client,
+				mask,
+				event | facility,
+				res_id);
+	return 0;
 }
 
 static struct pw_manager_object *find_device(struct client *client,
@@ -843,7 +851,6 @@ static void send_latency_offset_subscribe_event(struct client *client, struct pw
 	/*
 	 * Pulseaudio sends card change events on latency offset change.
 	 */
-
 	if ((info = o->info) == NULL || info->props == NULL)
 		return;
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
@@ -863,18 +870,15 @@ static void send_latency_offset_subscribe_event(struct client *client, struct pw
 
 	if (changed)
 		send_subscribe_event(client,
-		                     SUBSCRIPTION_EVENT_CARD | SUBSCRIPTION_EVENT_CHANGE,
-		                     card_id);
+				SUBSCRIPTION_MASK_CARD,
+				SUBSCRIPTION_EVENT_CARD | SUBSCRIPTION_EVENT_CHANGE,
+				card_id);
 }
 
 static void send_default_change_subscribe_event(struct client *client, bool sink, bool source)
 {
 	struct pw_manager_object *def;
 	bool changed = false;
-
-	/* Send the subscribe event only if actually needed */
-	if (!(client->subscribed & SUBSCRIPTION_MASK_SERVER))
-		return;
 
 	if (sink) {
 		def = find_device(client, SPA_ID_INVALID, NULL, true);
@@ -894,9 +898,10 @@ static void send_default_change_subscribe_event(struct client *client, bool sink
 
 	if (changed)
 		send_subscribe_event(client,
-		                     SUBSCRIPTION_EVENT_CHANGE |
-		                     SUBSCRIPTION_EVENT_SERVER,
-		                     -1);
+				SUBSCRIPTION_MASK_SERVER,
+				SUBSCRIPTION_EVENT_CHANGE |
+				SUBSCRIPTION_EVENT_SERVER,
+				-1);
 }
 
 static void handle_metadata(struct client *client, struct pw_manager_object *old,
@@ -915,7 +920,6 @@ static void handle_metadata(struct client *client, struct pw_manager_object *old
 static void manager_added(void *data, struct pw_manager_object *o)
 {
 	struct client *client = data;
-	uint32_t event, id;
 	const char *str;
 
 	register_object_message_handlers(o);
@@ -925,10 +929,8 @@ static void manager_added(void *data, struct pw_manager_object *o)
 		    (str = pw_properties_get(o->props, PW_KEY_METADATA_NAME)) != NULL)
 			handle_metadata(client, NULL, o, str);
 	}
-	if ((event = get_event_and_id(client, o, &id)) != SPA_ID_INVALID)
-		send_subscribe_event(client,
-				event | SUBSCRIPTION_EVENT_NEW,
-				id);
+
+	send_object_event(client, o, SUBSCRIPTION_EVENT_NEW);
 
 	/* Adding sinks etc. may also change defaults */
 	send_default_change_subscribe_event(client, object_is_sink(o), object_is_source_or_monitor(o));
@@ -937,12 +939,8 @@ static void manager_added(void *data, struct pw_manager_object *o)
 static void manager_updated(void *data, struct pw_manager_object *o)
 {
 	struct client *client = data;
-	uint32_t event, id;
 
-	if ((event = get_event_and_id(client, o, &id)) != SPA_ID_INVALID)
-		send_subscribe_event(client,
-				event | SUBSCRIPTION_EVENT_CHANGE,
-				id);
+	send_object_event(client, o, SUBSCRIPTION_EVENT_CHANGE);
 
 	send_latency_offset_subscribe_event(client, o);
 	send_default_change_subscribe_event(client, object_is_sink(o), object_is_source_or_monitor(o));
@@ -951,13 +949,9 @@ static void manager_updated(void *data, struct pw_manager_object *o)
 static void manager_removed(void *data, struct pw_manager_object *o)
 {
 	struct client *client = data;
-	uint32_t event, id;
 	const char *str;
 
-	if ((event = get_event_and_id(client, o, &id)) != SPA_ID_INVALID)
-		send_subscribe_event(client,
-				event | SUBSCRIPTION_EVENT_REMOVE,
-				id);
+	send_object_event(client, o, SUBSCRIPTION_EVENT_REMOVE);
 
 	send_default_change_subscribe_event(client, object_is_sink(o), object_is_source_or_monitor(o));
 

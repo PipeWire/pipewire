@@ -23,4 +23,4 @@ Actual Results:
 Expected Results:
 
 
-Additional Info Eg. Additional Kernel Patches, pw-dump > file (As Attachment Please):
+Additional Info Eg. Additional Kernel Patches, `pw-dump -N > file` (As Attachment Please):

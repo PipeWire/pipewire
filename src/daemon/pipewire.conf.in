@@ -1,4 +1,5 @@
 # Daemon config file for PipeWire version @VERSION@ #
+
 context.properties = {
     ## Configure properties in the system.
     #library.name.system                   = support/libspa-support

@@ -1,4 +1,5 @@
 # PulseAudio config file for PipeWire version @VERSION@ #
+
 context.properties = {
     ## Configure properties in the system.
     #mem.warn-mlock  = false

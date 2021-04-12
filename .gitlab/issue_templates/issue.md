@@ -22,4 +22,4 @@ Actual Results:
 Expected Results:
 
 
-Additional Info Eg. `pw-dump > file` (As Attachment Please):
+Additional Info Eg. `pw-dump -N > file` (As Attachment Please):

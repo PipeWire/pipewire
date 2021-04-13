@@ -161,6 +161,25 @@ static void fill_defaults(struct pw_context *this)
 			this->defaults.clock_min_quantum, this->defaults.clock_max_quantum);
 }
 
+static int try_load_conf(struct pw_context *this, const char *conf_prefix,
+		const char *conf_name, struct pw_properties *conf)
+{
+	int res;
+
+	if (conf_name == NULL)
+		return -EINVAL;
+	if (strcmp(conf_name, "null") == 0)
+		return 0;
+	if ((res = pw_conf_load_conf(conf_prefix, conf_name, conf)) < 0) {
+		pw_log_warn(NAME" %p: can't load config %s%s%s: %s",
+				this,
+				conf_prefix ? conf_prefix : "",
+				conf_prefix ? "/" : "",
+				conf_name, spa_strerror(res));
+	}
+	return res;
+}
+
 /** Create a new context object
  *
  * \param main_loop the main loop to use
@@ -203,39 +222,26 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		goto error_free;
 	}
 
-	conf_prefix = getenv("PIPEWIRE_CONFIG_PREFIX");
-	if (conf_prefix == NULL)
-		conf_prefix = pw_properties_get(properties, PW_KEY_CONFIG_PREFIX);
-
-	conf_name = getenv("PIPEWIRE_CONFIG_NAME");
-	if (conf_name == NULL)
-		conf_name = pw_properties_get(properties, PW_KEY_CONFIG_NAME);
-	if (conf_name == NULL)
-		conf_name = "client.conf";
-
 	conf = pw_properties_new(NULL, NULL);
 	if (conf == NULL) {
 		res = -errno;
 		goto error_free;
 	}
-	if (strcmp(conf_name, "null") != 0 &&
-	    (res = pw_conf_load_conf(conf_prefix, conf_name, conf)) < 0) {
-		if (conf_prefix == NULL && strcmp(conf_name, "client.conf") == 0) {
-			pw_log_error(NAME" %p: can't load config %s: %s",
+
+	conf_prefix = getenv("PIPEWIRE_CONFIG_PREFIX");
+	if (conf_prefix == NULL)
+		conf_prefix = pw_properties_get(properties, PW_KEY_CONFIG_PREFIX);
+
+	conf_name = getenv("PIPEWIRE_CONFIG_NAME");
+	if (try_load_conf(this, conf_prefix, conf_name, conf) < 0) {
+		conf_name = pw_properties_get(properties, PW_KEY_CONFIG_NAME);
+		if (try_load_conf(this, conf_prefix, conf_name, conf) < 0) {
+			conf_name = "client.conf";
+			if (try_load_conf(this, conf_prefix, conf_name, conf) < 0) {
+				pw_log_error(NAME" %p: can't load config %s: %s",
 					this, conf_name, spa_strerror(res));
-			goto error_free;
-		} else {
-			pw_log_warn(NAME" %p: can't load config %s%s%s: %s. Using client.conf fallback",
-					this,
-					conf_prefix ? conf_prefix : "",
-					conf_prefix ? "/" : "",
-					conf_name, spa_strerror(res));
-		}
-		conf_prefix = NULL;
-		if ((res = pw_conf_load_conf(NULL, "client.conf", conf)) < 0) {
-			pw_log_error(NAME" %p: can't load client.conf config: %s",
-					this, spa_strerror(res));
-			goto error_free;
+				goto error_free;
+			}
 		}
 	}
 	this->conf = conf;

@@ -776,6 +776,7 @@ gst_pipewire_sink_change_state (GstElement * element, GstStateChange transition)
       pw_thread_loop_lock (this->core->loop);
       pw_stream_set_active(this->stream, true);
       pw_thread_loop_unlock (this->core->loop);
+      gst_buffer_pool_set_flushing(GST_BUFFER_POOL_CAST(this->pool), FALSE);
       break;
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       /* stop play ASAP by corking */

@@ -1068,7 +1068,10 @@ static void metadata_dump(struct object *o)
 		put_int(d, "subject", e->subject);
 		put_value(d, "key", e->key);
 		put_value(d, "type", e->type);
-		put_value(d, "value", e->value);
+		if (e->type != NULL && strcmp(e->type, "Spa:String:JSON") == 0)
+			put_literal(d, "value", e->value);
+		else
+			put_value(d, "value", e->value);
 		put_end(d, "}", STATE_SIMPLE);
 		e->changed = 0;
 	}

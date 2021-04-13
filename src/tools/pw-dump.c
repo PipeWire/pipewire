@@ -245,12 +245,16 @@ static void put_end(struct data *d, const char *type, uint32_t flags)
 	d->state = (d->state & STATE_MASK) + STATE_COMMA - (flags & STATE_SIMPLE);
 }
 
+static void put_encoded_string(struct data *d, const char *key, const char *val)
+{
+	put_fmt(d, key, "%s%s%s", STRING, val, NORMAL);
+}
 static void put_string(struct data *d, const char *key, const char *val)
 {
 	int size = (strlen(val) + 1) * 4;
 	char *str = alloca(size);
 	spa_json_encode_string(str, size, val);
-	put_fmt(d, key, "%s%s%s", STRING, str, NORMAL);
+	put_encoded_string(d, key, str);
 }
 
 static void put_literal(struct data *d, const char *key, const char *val)
@@ -1044,6 +1048,43 @@ static const struct class link_class = {
 	.dump = link_dump,
 };
 
+static void json_dump_val(struct data *d, const char *key, struct spa_json *it, const char *value, int len)
+{
+	struct spa_json sub;
+	if (spa_json_is_array(value, len)) {
+		put_begin(d, key, "[", STATE_SIMPLE);
+		spa_json_enter(it, &sub);
+		while ((len = spa_json_next(&sub, &value)) > 0) {
+			json_dump_val(d, NULL, &sub, value, len);
+		}
+		put_end(d, "]", STATE_SIMPLE);
+	} else if (spa_json_is_object(value, len)) {
+		char val[1024];
+		put_begin(d, key, "{", STATE_SIMPLE);
+		spa_json_enter(it, &sub);
+		while (spa_json_get_string(&sub, val, sizeof(val)) > 0) {
+			if ((len = spa_json_next(&sub, &value)) <= 0)
+				break;
+			json_dump_val(d, val, &sub, value, len);
+		}
+		put_end(d, "}", STATE_SIMPLE);
+	} else if (spa_json_is_string(value, len)) {
+		put_encoded_string(d, key, strndupa(value, len));
+	} else {
+		put_value(d, key, strndupa(value, len));
+	}
+}
+
+static void json_dump(struct data *d, const char *key, const char *value)
+{
+	struct spa_json it[1];
+	int len;
+	const char *val;
+	spa_json_init(&it[0], value, strlen(value));
+	if ((len = spa_json_next(&it[0], &val)) >= 0)
+		json_dump_val(d, key, &it[0], val, len);
+}
+
 /* metadata */
 
 struct metadata_entry {
@@ -1069,7 +1110,7 @@ static void metadata_dump(struct object *o)
 		put_value(d, "key", e->key);
 		put_value(d, "type", e->type);
 		if (e->type != NULL && strcmp(e->type, "Spa:String:JSON") == 0)
-			put_literal(d, "value", e->value);
+			json_dump(d, "value", e->value);
 		else
 			put_value(d, "value", e->value);
 		put_end(d, "}", STATE_SIMPLE);

@@ -370,7 +370,7 @@ if not get_option('pipewire-jack').disabled()
   subdir('pipewire-jack')
 endif
 
-if not get_option('pipewire-alsa').disabled()
+if alsa_dep.found()
   subdir('pipewire-alsa/alsa-plugins')
   subdir('pipewire-alsa/conf')
 endif

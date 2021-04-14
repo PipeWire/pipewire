@@ -78,18 +78,8 @@ include:
     - export BUILD_DIR="$PWD/build-$BUILD_ID"
     - export XDG_RUNTIME_DIR="$(mktemp -p $PWD -d xdg-runtime-XXXXXX)"
   script:
-    - meson "$BUILD_DIR" . --prefix="$PREFIX"
-        -Ddocs=enabled
-        -Dinstalled_tests=enabled
-        -Dsystemd-system-service=enabled
-        -Dbluez5-backend-hsphfpd=enabled
-        -Daudiotestsrc=enabled
-        -Dtest=enabled
-        -Dvideotestsrc=enabled
-        -Dvolume=enabled
-        -Dvulkan=enabled
-        -Dsdl2=enabled
-        -Dsndfile=enabled
+    - echo "Building with $MESON_OPTIONS"
+    - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
     - ninja -C "$BUILD_DIR"
     - ninja -C "$BUILD_DIR" test
     - ninja -C "$BUILD_DIR" install
@@ -125,6 +115,19 @@ build_on_fedora:
     paths:
       - build-*/meson-logs
       - prefix-*
+  variables:
+    MESON_OPTIONS: >-
+        -Ddocs=enabled
+        -Dinstalled_tests=enabled
+        -Dsystemd-system-service=enabled
+        -Dbluez5-backend-hsphfpd=enabled
+        -Daudiotestsrc=enabled
+        -Dtest=enabled
+        -Dvideotestsrc=enabled
+        -Dvolume=enabled
+        -Dvulkan=enabled
+        -Dsdl2=enabled
+        -Dsndfile=enabled
 
 build_with_coverity:
   extends:

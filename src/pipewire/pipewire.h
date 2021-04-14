@@ -141,6 +141,9 @@ bool pw_in_valgrind(void);
 enum pw_direction
 pw_direction_reverse(enum pw_direction direction);
 
+int pw_set_domain(const char *domain);
+const char *pw_get_domain(void);
+
 uint32_t pw_get_support(struct spa_support *support, uint32_t max_support);
 
 struct spa_handle *pw_load_spa_handle(const char *lib,

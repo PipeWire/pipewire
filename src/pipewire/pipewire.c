@@ -75,7 +75,7 @@ struct support {
 	const char *plugin_dir;
 	const char *support_lib;
 	struct registry *registry;
-	const char *i18n_domain;
+	char *i18n_domain;
 	struct spa_interface i18n_iface;
 	struct spa_support support[MAX_SUPPORT];
 	uint32_t n_support;
@@ -343,6 +343,24 @@ static void *add_interface(struct support *support,
 			SPA_SUPPORT_INIT(type, iface);
 	}
 	return iface;
+}
+
+SPA_EXPORT
+int pw_set_domain(const char *domain)
+{
+	struct support *support = &global_support;
+	free(support->i18n_domain);
+	if (domain == NULL)
+		support->i18n_domain = NULL;
+	else if ((support->i18n_domain = strdup(domain)) == NULL)
+		return -errno;
+	return 0;
+}
+SPA_EXPORT
+const char *pw_get_domain(void)
+{
+	struct support *support = &global_support;
+	return support->i18n_domain;
 }
 
 static const char *i18n_text(void *object, const char *msgid)

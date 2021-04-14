@@ -26,6 +26,8 @@
 #define VOLUME_NORM ((uint32_t) 0x10000U)
 #define VOLUME_MAX ((uint32_t) UINT32_MAX/2)
 
+#define PA_CHANNELS_MAX	(32u)
+
 static inline uint32_t volume_from_linear(float vol)
 {
 	uint32_t v;
@@ -512,9 +514,10 @@ static void write_64(struct message *m, uint8_t tag, uint64_t val)
 
 static void write_sample_spec(struct message *m, struct sample_spec *ss)
 {
+	uint32_t channels = SPA_MIN(ss->channels, PA_CHANNELS_MAX);
 	write_8(m, TAG_SAMPLE_SPEC);
 	write_8(m, format_id2pa(ss->format));
-	write_8(m, ss->channels);
+	write_8(m, channels);
 	write_32(m, ss->rate);
 }
 
@@ -542,10 +545,10 @@ static void write_timeval(struct message *m, struct timeval *tv)
 static void write_channel_map(struct message *m, struct channel_map *map)
 {
 	uint8_t i;
-	uint32_t aux = 0;
+	uint32_t aux = 0, channels = SPA_MIN(map->channels, PA_CHANNELS_MAX);
 	write_8(m, TAG_CHANNEL_MAP);
-	write_8(m, map->channels);
-	for (i = 0; i < map->channels; i ++)
+	write_8(m, channels);
+	for (i = 0; i < channels; i ++)
 		write_8(m, channel_id2pa(map->map[i], &aux));
 }
 
@@ -558,9 +561,10 @@ static void write_volume(struct message *m, float vol)
 static void write_cvolume(struct message *m, struct volume *vol)
 {
 	uint8_t i;
+	uint32_t channels = SPA_MIN(vol->channels, PA_CHANNELS_MAX);
 	write_8(m, TAG_CVOLUME);
-	write_8(m, vol->channels);
-	for (i = 0; i < vol->channels; i ++)
+	write_8(m, channels);
+	for (i = 0; i < channels; i ++)
 		write_32(m, volume_from_linear(vol->values[i]));
 }
 

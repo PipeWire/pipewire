@@ -586,8 +586,16 @@ static inline char *pa_readlink(const char *p) {
 #endif
 }
 
-#define _(...)	(__VA_ARGS__)
-#define N_(...)	(__VA_ARGS__)
+#include <spa/support/i18n.h>
+
+extern struct spa_i18n *acp_i18n;
+
+#define _(String)  spa_i18n_gettext(acp_i18n, String)
+#ifdef gettext_noop
+#define N_(String) gettext_noop(String)
+#else
+#define N_(String) (String)
+#endif
 
 #include "channelmap.h"
 #include "volume.h"

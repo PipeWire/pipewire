@@ -38,6 +38,7 @@
 #include <spa/utils/names.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
+#include <spa/support/i18n.h>
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
 #include <spa/monitor/event.h>
@@ -47,6 +48,8 @@
 #include <spa/debug/pod.h>
 
 #include "acp/acp.h"
+
+extern struct spa_i18n *acp_i18n;
 
 #define NAME  "alsa-device"
 
@@ -927,6 +930,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	this->loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
+	acp_i18n = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_I18N);
 	if (this->loop == NULL) {
 		spa_log_error(this->log, "a Loop interface is needed");
 		return -EINVAL;

@@ -30,6 +30,8 @@ int _acp_log_level = 1;
 acp_log_func _acp_log_func;
 void *_acp_log_data;
 
+struct spa_i18n *acp_i18n;
+
 #define VOLUME_ACCURACY (PA_VOLUME_NORM/100)  /* don't require volume adjustments to be perfectly correct. don't necessarily extend granularity in software unless the differences get greater than this level */
 
 static const uint32_t channel_table[PA_CHANNEL_POSITION_MAX] = {

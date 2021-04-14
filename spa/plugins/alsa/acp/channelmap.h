@@ -463,7 +463,7 @@ static inline char* pa_channel_map_snprint(char *s, size_t l, const pa_channel_m
     bool first = true;
     char *e;
     if (!pa_channel_map_valid(map)) {
-        pa_snprintf(s, l, _("(invalid)"));
+        pa_snprintf(s, l, "%s", _("(invalid)"));
         return s;
     }
     *(e = s) = 0;

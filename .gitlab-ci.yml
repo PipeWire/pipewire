@@ -73,7 +73,7 @@ include:
 .build:
   before_script:
     # setup the environment
-    - export BUILD_ID="$CI_JOB_NAME"
+    - export BUILD_ID="$CI_JOB_ID"
     - export PREFIX="$PWD/prefix-$BUILD_ID"
     - export BUILD_DIR="$PWD/build-$BUILD_ID"
     - export XDG_RUNTIME_DIR="$(mktemp -p $PWD -d xdg-runtime-XXXXXX)"
@@ -128,6 +128,28 @@ build_on_fedora:
         -Dvulkan=enabled
         -Dsdl2=enabled
         -Dsndfile=enabled
+
+# build with all options on auto() or their default values
+build_with_no_commandline_options:
+  extends:
+    - build_on_fedora
+  variables:
+    MESON_OPTIONS: ""
+
+# build with a set of options enabled or disabled
+build_with_custom_options:
+  extends:
+    - build_on_fedora
+  parallel:
+    matrix:
+      - MESON_OPTION: [docs, installed_tests, systemd-system-service, bluez5-backend-hsphfpd,
+                       audiotestsrc, test, videotestsrc, volume, vulkan, sdl2, sndfile]
+        MESON_OPTION_VALUE: [enabled, disabled]
+  script:
+    - echo "Building with -D$MESON_OPTION=$MESON_OPTION_VALUE"
+    - meson "$BUILD_DIR" . --prefix="$PREFIX" "-D$MESON_OPTION=$MESON_OPTION_VALUE"
+    - ninja -C "$BUILD_DIR"
+    - ninja -C "$BUILD_DIR" test
 
 build_with_coverity:
   extends:

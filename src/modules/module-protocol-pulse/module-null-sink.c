@@ -123,6 +123,7 @@ static struct module *create_module_null_sink(struct impl *impl, const char *arg
 	struct pw_properties *props = NULL;
 	const char *str;
 	struct channel_map map = CHANNEL_MAP_INIT;
+	uint32_t i, channels;
 	int res;
 
 	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_null_sink_info));
@@ -144,11 +145,12 @@ static struct module *create_module_null_sink(struct impl *impl, const char *arg
 		pw_properties_set(props, "sink_properties", NULL);
 	}
 	if ((str = pw_properties_get(props, "channels")) != NULL) {
+		channels = atoi(str);
 		pw_properties_set(props, SPA_KEY_AUDIO_CHANNELS, str);
 		pw_properties_set(props, "channels", NULL);
 	} else {
-		pw_properties_setf(props, SPA_KEY_AUDIO_CHANNELS, "%u",
-				impl->defs.sample_spec.channels);
+		channels = impl->defs.sample_spec.channels;
+		pw_properties_setf(props, SPA_KEY_AUDIO_CHANNELS, "%u", channels);
 	}
 	if ((str = pw_properties_get(props, "rate")) != NULL) {
 		pw_properties_set(props, SPA_KEY_AUDIO_RATE, str);
@@ -158,10 +160,21 @@ static struct module *create_module_null_sink(struct impl *impl, const char *arg
 		channel_map_parse(str, &map);
 		pw_properties_set(props, "channel_map", NULL);
 	} else {
-		map = impl->defs.channel_map;
+		if (channels == impl->defs.channel_map.channels) {
+			map = impl->defs.channel_map;
+		} else {
+			for (i = 0; i < channels; i++)
+				map.map[i] = SPA_AUDIO_CHANNEL_UNKNOWN;
+			map.channels = channels;
+		}
 	}
+	if (map.channels != channels) {
+		pw_log_error("channel map does not match channels");
+		res = -EINVAL;
+		goto out;
+	}
+
 	if (map.channels > 0) {
-		uint32_t i;
 		char *s, *p;
 		p = s = alloca(map.channels * 6);
 		for (i = 0; i < map.channels; i++)

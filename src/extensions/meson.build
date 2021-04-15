@@ -15,7 +15,7 @@ pipewire_ext_headers = [
 ]
 
 install_headers(pipewire_ext_sm_headers,
-  subdir : join_paths(pipewire_headers_dir, 'extensions', 'session-manager'))
+  subdir : pipewire_headers_dir / 'extensions' / 'session-manager')
 
 install_headers(pipewire_ext_headers,
-  subdir : join_paths(pipewire_headers_dir, 'extensions'))
+  subdir : pipewire_headers_dir / 'extensions')

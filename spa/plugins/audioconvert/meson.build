@@ -111,7 +111,7 @@ audioconvertlib = shared_library('spa-audioconvert',
                           dependencies : [ mathlib ],
 			  link_with : audioconvert,
                           install : true,
-                          install_dir : join_paths(spa_plugindir, 'audioconvert'))
+                          install_dir : spa_plugindir / 'audioconvert')
 
 test_lib = static_library('test_lib',
 	['test-source.c' ],
@@ -134,10 +134,10 @@ foreach a : test_apps
 		dependencies : [dl_lib, pthread_lib, mathlib ],
 		include_directories : [ configinc, spa_inc ],
 		link_with : [ audioconvert, test_lib, audioconvertlib ],
-		install_rpath : join_paths(spa_plugindir, 'audioconvert'),
+		install_rpath : spa_plugindir / 'audioconvert',
 		c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
 		install : installed_tests_enabled,
-		install_dir : join_paths(installed_tests_execdir, 'audioconvert')),
+		install_dir : installed_tests_execdir / 'audioconvert'),
 	env : [
 		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),
 	])
@@ -145,11 +145,11 @@ foreach a : test_apps
   if installed_tests_enabled
     test_conf = configuration_data()
     test_conf.set('exec',
-                  join_paths(installed_tests_execdir, 'audioconvert', a))
+                  installed_tests_execdir / 'audioconvert' / a)
     configure_file(
       input: installed_tests_template,
       output: a + '.test',
-      install_dir: join_paths(installed_tests_metadir, 'audioconvert'),
+      install_dir: installed_tests_metadir / 'audioconvert',
       configuration: test_conf
     )
   endif
@@ -167,9 +167,9 @@ foreach a : benchmark_apps
 		include_directories : [ configinc, spa_inc ],
 		c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
 		link_with : [ audioconvert, audioconvertlib ],
-		install_rpath : join_paths(spa_plugindir, 'audioconvert'),
+		install_rpath : spa_plugindir / 'audioconvert',
 		install : installed_tests_enabled,
-		install_dir : join_paths(installed_tests_execdir, 'audioconvert')),
+		install_dir : installed_tests_execdir / 'audioconvert'),
 	env : [
 		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),
 	])
@@ -177,11 +177,11 @@ foreach a : benchmark_apps
   if installed_tests_enabled
     test_conf = configuration_data()
     test_conf.set('exec',
-                  join_paths(installed_tests_execdir, 'audioconvert', a))
+                  installed_tests_execdir / 'audioconvert' / a)
     configure_file(
       input: installed_tests_template,
       output: a + '.test',
-      install_dir: join_paths(installed_tests_metadir, 'audioconvert'),
+      install_dir: installed_tests_metadir / 'audioconvert',
       configuration: test_conf
     )
   endif

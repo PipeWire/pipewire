@@ -4,4 +4,4 @@ volumelib = shared_library('spa-volume',
                            volume_sources,
                            include_directories : [spa_inc],
                            install : true,
-		           install_dir : join_paths(spa_plugindir, 'volume'))
+		           install_dir : spa_plugindir / 'volume')

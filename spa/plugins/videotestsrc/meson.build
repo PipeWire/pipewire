@@ -5,4 +5,4 @@ videotestsrclib = shared_library('spa-videotestsrc',
                                  include_directories : [ spa_inc],
                                  dependencies : [pthread_lib, ],
                                  install : true,
-		                 install_dir : join_paths(spa_plugindir, 'videotestsrc'))
+		                 install_dir : spa_plugindir / 'videotestsrc')

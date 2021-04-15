@@ -10,19 +10,19 @@ pipewire_c_args = [
 
 conf_config = configuration_data()
 conf_config.set('VERSION', '"@0@"'.format(pipewire_version))
-conf_config.set('media_session_path', join_paths(pipewire_bindir, 'pipewire-media-session'))
-conf_config.set('pipewire_path', join_paths(pipewire_bindir, 'pipewire'))
-conf_config.set('pipewire_pulse_path', join_paths(pipewire_bindir, 'pipewire-pulse'))
+conf_config.set('media_session_path', pipewire_bindir / 'pipewire-media-session')
+conf_config.set('pipewire_path', pipewire_bindir / 'pipewire')
+conf_config.set('pipewire_pulse_path', pipewire_bindir / 'pipewire-pulse')
 conf_config.set('comment', '#')
-conf_install_dir = join_paths(get_option('sysconfdir'), 'pipewire')
+conf_install_dir = get_option('sysconfdir') / 'pipewire'
 
 conf_config_uninstalled = conf_config
 conf_config_uninstalled.set('media_session_path',
-  join_paths(meson.build_root(), 'src', 'examples', 'pipewire-media-session'))
+  meson.build_root() / 'src' / 'examples' / 'pipewire-media-session')
 conf_config_uninstalled.set('pipewire_path',
-  join_paths(meson.build_root(), 'src', 'daemon', 'pipewire'))
+  meson.build_root() / 'src' / 'daemon' / 'pipewire')
 conf_config_uninstalled.set('pipewire_pulse_path',
-  join_paths(meson.build_root(), 'src', 'daemon', 'pipewire-pulse'))
+  meson.build_root() / 'src' / 'daemon' / 'pipewire-pulse')
 conf_config_uninstalled.set('comment', '')
 
 
@@ -77,7 +77,7 @@ custom_target('pipewire-uninstalled',
 #  po_dir : po_dir,
 #  type : 'desktop',
 #  install : true,
-#  install_dir : join_paths(pipewire_sysconfdir, 'xdg', 'autostart')
+#  install_dir : pipewire_sysconfdir / 'xdg' / 'autostart'
 #)
 #
 #desktop_utils = find_program('desktop-file-validate', required: false)

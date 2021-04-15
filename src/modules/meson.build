@@ -165,7 +165,7 @@ test('pw-test-protocol-native',
 
 if installed_tests_enabled
   test_conf = configuration_data()
-  test_conf.set('exec', join_paths(installed_tests_execdir, 'pw-test-protocol-native'))
+  test_conf.set('exec', installed_tests_execdir / 'pw-test-protocol-native')
   configure_file(
     input: installed_tests_template,
     output: 'pw-test-protocol-native.test',

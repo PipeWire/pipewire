@@ -11,11 +11,11 @@ foreach c : conf_files
   configure_file(input : c.get(0),
                  output : c.get(1),
                  configuration : conf_config,
-                 install_dir : join_paths(conf_install_dir, 'media-session.d'))
+                 install_dir : conf_install_dir / 'media-session.d')
 endforeach
 
 install_data(
   sources : [
     'with-jack',
     'with-pulseaudio' ],
-  install_dir : join_paths(conf_install_dir, 'media-session.d'))
+  install_dir : conf_install_dir / 'media-session.d')

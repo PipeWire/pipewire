@@ -5,4 +5,4 @@ testlib = shared_library('spa-test',
                           include_directories : [ spa_inc],
                           dependencies : [pthread_lib, ],
                           install : true,
-		          install_dir : join_paths(spa_plugindir, 'test'))
+		          install_dir : spa_plugindir / 'test')

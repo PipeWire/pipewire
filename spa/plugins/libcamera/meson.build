@@ -12,5 +12,5 @@ libcameralib = shared_library('spa-libcamera',
                           include_directories : [ spa_inc ],
                           dependencies : [ libudev_dep, libcamera_dep, pthread_lib, libdrm_dep  ],
                           install : true,
-		          install_dir : join_paths(spa_plugindir, 'libcamera'))
+		          install_dir : spa_plugindir / 'libcamera')
 endif

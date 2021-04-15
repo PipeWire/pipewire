@@ -6,4 +6,4 @@ controllib = shared_library('spa-control',
                           include_directories : [spa_inc],
                           dependencies : [ mathlib ],
                           install : true,
-		          install_dir : join_paths(spa_plugindir, 'control'))
+		          install_dir : spa_plugindir / 'control')

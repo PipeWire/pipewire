@@ -4,8 +4,8 @@ install_data(sources : 'pipewire.socket',
              install_dir : systemd_system_services_dir)
 
 systemd_config = configuration_data()
-systemd_config.set('PW_BINARY', join_paths(pipewire_bindir, 'pipewire'))
-systemd_config.set('PW_MEDIA_SESSION_BINARY', join_paths(pipewire_bindir, 'pipewire-media-session'))
+systemd_config.set('PW_BINARY', pipewire_bindir / 'pipewire')
+systemd_config.set('PW_MEDIA_SESSION_BINARY', pipewire_bindir / 'pipewire-media-session')
 
 configure_file(input : 'pipewire.service.in',
                output : 'pipewire.service',

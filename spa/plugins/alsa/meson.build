@@ -19,7 +19,7 @@ spa_alsa = shared_library(
   dependencies : [ alsa_dep, libudev_dep, mathlib ],
   link_with : [ acp_lib ],
   install : true,
-  install_dir : join_paths(spa_plugindir, 'alsa')
+  install_dir : spa_plugindir / 'alsa'
 )
 
 alsa_udevrules = [

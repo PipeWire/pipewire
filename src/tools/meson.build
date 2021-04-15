@@ -50,7 +50,7 @@ if not get_option('pw-cat').disabled() and sndfile_dep.found()
   )
 
   foreach alias : pwcat_aliases
-    dst = join_paths(pipewire_bindir, alias)
+    dst = pipewire_bindir / alias
     cmd = 'ln -fs @0@ $DESTDIR@1@'.format('pw-cat', dst)
     meson.add_install_script('sh', '-c', cmd)
   endforeach

@@ -25,7 +25,7 @@ foreach a : test_apps
 
   if installed_tests_enabled
     test_conf = configuration_data()
-    test_conf.set('exec', join_paths(installed_tests_execdir, 'pw-' + a))
+    test_conf.set('exec', installed_tests_execdir / 'pw-' + a)
     configure_file(
       input: installed_tests_template,
       output: 'pw-' + a + '.test',
@@ -45,7 +45,7 @@ test('pw-test-cpp', test_cpp)
 
 if installed_tests_enabled
   test_conf = configuration_data()
-  test_conf.set('exec', join_paths(installed_tests_execdir, 'pw-test-cpp'))
+  test_conf.set('exec', installed_tests_execdir / 'pw-test-cpp')
   configure_file(
     input: installed_tests_template,
     output: 'pw-test-cpp.test',

@@ -20,7 +20,7 @@ foreach a : test_apps
 
   if installed_tests_enabled
     test_conf = configuration_data()
-    test_conf.set('exec', join_paths(installed_tests_execdir, 'spa-' + a))
+    test_conf.set('exec', installed_tests_execdir / 'spa-' + a)
     configure_file(
       input: installed_tests_template,
       output: 'spa-' + a + '.test',
@@ -39,7 +39,7 @@ test_cpp = executable('spa-test-cpp', 'test-cpp.cpp',
 test('spa-test-cpp', test_cpp)
 if installed_tests_enabled
   test_conf = configuration_data()
-  test_conf.set('exec', join_paths(installed_tests_execdir, 'spa-test-cpp'))
+  test_conf.set('exec', installed_tests_execdir / 'spa-test-cpp')
   configure_file(
     input: installed_tests_template,
     output: 'spa-test-cpp.test',
@@ -69,7 +69,7 @@ foreach a : benchmark_apps
 
   if installed_tests_enabled
     test_conf = configuration_data()
-    test_conf.set('exec', join_paths(installed_tests_execdir, 'spa-' + a))
+    test_conf.set('exec', installed_tests_execdir / 'spa-' + a)
     configure_file(
       input: installed_tests_template,
       output: 'spa-' + a + '.test',

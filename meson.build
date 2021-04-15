@@ -29,15 +29,15 @@ pipewire_name = 'pipewire-@0@'.format(apiversion)
 spa_name = 'spa-@0@'.format(spaversion)
 
 prefix = get_option('prefix')
-pipewire_bindir = join_paths(prefix, get_option('bindir'))
-pipewire_datadir = join_paths(prefix, get_option('datadir'))
-pipewire_libdir = join_paths(prefix, get_option('libdir'))
-pipewire_libexecdir = join_paths(prefix, get_option('libexecdir'))
-pipewire_localedir = join_paths(prefix, get_option('localedir'))
-pipewire_sysconfdir = join_paths(prefix, get_option('sysconfdir'))
+pipewire_bindir = prefix / get_option('bindir')
+pipewire_datadir = prefix / get_option('datadir')
+pipewire_libdir = prefix / get_option('libdir')
+pipewire_libexecdir = prefix / get_option('libexecdir')
+pipewire_localedir = prefix / get_option('localedir')
+pipewire_sysconfdir = prefix / get_option('sysconfdir')
 
-pipewire_configdir = join_paths(pipewire_sysconfdir, 'pipewire')
-modules_install_dir = join_paths(pipewire_libdir, pipewire_name)
+pipewire_configdir = pipewire_sysconfdir / 'pipewire'
+modules_install_dir = pipewire_libdir / pipewire_name
 
 if host_machine.system() == 'linux'
   # glibc ld.so interprets ${LIB} in a library loading path with an
@@ -48,16 +48,16 @@ if host_machine.system() == 'linux'
   # like LD_LIBRARY_PATH='/usr/${LIB}/pipewire-0.3/jack'.
   # Note that ${LIB} is a special token expanded by the runtime linker,
   # not an environment variable, and must be passed through literally.
-  modules_install_dir_dlopen = join_paths(prefix, '${LIB}', pipewire_name)
+  modules_install_dir_dlopen = prefix / '${LIB}' / pipewire_name
 else
   modules_install_dir_dlopen = modules_install_dir
 endif
 
-spa_plugindir = join_paths(pipewire_libdir, spa_name)
+spa_plugindir = pipewire_libdir / spa_name
 
-alsadatadir = join_paths(pipewire_datadir, 'alsa-card-profile', 'mixer')
+alsadatadir = pipewire_datadir / 'alsa-card-profile' / 'mixer'
 
-pipewire_headers_dir = join_paths(pipewire_name, 'pipewire')
+pipewire_headers_dir = pipewire_name / 'pipewire'
 
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')
@@ -202,8 +202,8 @@ cdata.set('VERSION', '"@0@"'.format(pipewire_version))
 cdata.set('PLUGINDIR', '"@0@"'.format(spa_plugindir))
 # FIXME: --with-memory-alignment],[8,N,malloc,pagesize (default is 32)]) option
 cdata.set('MEMORY_ALIGNMENT_MALLOC', 1)
-cdata.set_quoted('PA_ALSA_PATHS_DIR', join_paths(alsadatadir, 'paths'))
-cdata.set_quoted('PA_ALSA_PROFILE_SETS_DIR', join_paths(alsadatadir, 'profile-sets'))
+cdata.set_quoted('PA_ALSA_PATHS_DIR', alsadatadir / 'paths')
+cdata.set_quoted('PA_ALSA_PROFILE_SETS_DIR', alsadatadir / 'profile-sets')
 
 
 check_headers = [['dlfcn.h','HAVE_DLFCN_H'],
@@ -353,8 +353,8 @@ libinotify_dep = (build_machine.system() == 'freebsd'
 
 alsa_dep = dependency('alsa', version : '>=1.1.7', required: get_option('pipewire-alsa'))
 
-installed_tests_metadir = join_paths(pipewire_datadir, 'installed-tests', pipewire_name)
-installed_tests_execdir = join_paths(pipewire_libexecdir, 'installed-tests', pipewire_name)
+installed_tests_metadir = pipewire_datadir / 'installed-tests' / pipewire_name
+installed_tests_execdir = pipewire_libexecdir / 'installed-tests' / pipewire_name
 installed_tests_enabled = not get_option('installed_tests').disabled()
 installed_tests_template = files('template.test.in')
 

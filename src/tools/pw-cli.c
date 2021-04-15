@@ -2929,11 +2929,11 @@ static void do_quit(void *data, int signal_number)
 
 static void show_help(struct data *data, const char *name)
 {
-        fprintf(stdout, "%s [options] [command]\n"
+        fprintf(stdout, _("%s [options] [command]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -d, --daemon                          Start as daemon (Default false)\n"
-		"  -r, --remote                          Remote daemon name\n\n",
+		"  -r, --remote                          Remote daemon name\n\n"),
 		name);
 
 	do_help(data, "help", "", NULL);

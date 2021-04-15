@@ -987,16 +987,15 @@ static void show_usage(const char *name, bool is_error)
 
 	fp = is_error ? stderr : stdout;
 
-        fprintf(fp, "%s [options] <file>\n", name);
-
-	fprintf(fp,
+        fprintf(fp,
+	   _("%s [options] <file>\n"
              "  -h, --help                            Show this help\n"
              "      --version                         Show version\n"
              "  -v, --verbose                         Enable verbose operations\n"
-	     "\n");
+	     "\n"), name);
 
 	fprintf(fp,
-             "  -R, --remote                          Remote daemon name\n"
+           _("  -R, --remote                          Remote daemon name\n"
              "      --media-type                      Set media type (default %s)\n"
              "      --media-category                  Set media category (default %s)\n"
              "      --media-role                      Set media role (default %s)\n"
@@ -1007,14 +1006,14 @@ static void show_usage(const char *name, bool is_error)
 	     "                                          or direct samples (256)\n"
 	     "                                          the rate is the one of the source file\n"
 	     "      --list-targets                    List available targets for --target\n"
-	     "\n",
+	     "\n"),
 	     DEFAULT_MEDIA_TYPE,
 	     DEFAULT_MEDIA_CATEGORY_PLAYBACK,
 	     DEFAULT_MEDIA_ROLE,
 	     DEFAULT_TARGET, DEFAULT_LATENCY_PLAY);
 
 	fprintf(fp,
-             "      --rate                            Sample rate (req. for rec) (default %u)\n"
+           _("      --rate                            Sample rate (req. for rec) (default %u)\n"
              "      --channels                        Number of channels (req. for rec) (default %u)\n"
              "      --channel-map                     Channel map\n"
 	     "                                            one of: \"stereo\", \"surround-51\",... or\n"
@@ -1022,7 +1021,7 @@ static void show_usage(const char *name, bool is_error)
              "      --format                          Sample format %s (req. for rec) (default %s)\n"
 	     "      --volume                          Stream volume 0-1.0 (default %.3f)\n"
 	     "  -q  --quality                         Resampler quality (0 - 15) (default %d)\n"
-	     "\n",
+	     "\n"),
 	     DEFAULT_RATE,
 	     DEFAULT_CHANNELS,
 	     STR_FMTS, DEFAULT_FORMAT,
@@ -1030,11 +1029,11 @@ static void show_usage(const char *name, bool is_error)
 	     DEFAULT_QUALITY);
 
 	if (!strcmp(name, "pw-cat")) {
-		fprintf(fp,
-		     "  -p, --playback                        Playback mode\n"
+		fputs(
+		   _("  -p, --playback                        Playback mode\n"
 		     "  -r, --record                          Recording mode\n"
 		     "  -m, --midi                            Midi mode\n"
-		     "\n");
+		     "\n"), fp);
 	}
 }
 

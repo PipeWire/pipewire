@@ -37,6 +37,7 @@
 #include <spa/node/node.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
+#include <spa/support/i18n.h>
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
 #include <spa/monitor/event.h>
@@ -58,6 +59,11 @@
 #define DEVICE_ID_SOURCE	0
 #define DEVICE_ID_SINK		1
 #define DYNAMIC_NODE_ID_FLAG	0x1000
+
+static struct spa_i18n *_i18n;
+
+#define _(_str)	 spa_i18n_text(_i18n,(_str))
+#define N_(_str) (_str)
 
 enum {
 	DEVICE_PROFILE_OFF = 0,
@@ -836,7 +842,7 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 	switch (profile_index) {
 	case DEVICE_PROFILE_OFF:
 		name = "off";
-		desc = "Off";
+		desc = _("Off");
 		break;
 	case DEVICE_PROFILE_AG:
 	{
@@ -846,7 +852,7 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 			return NULL;
 		} else {
 			name = "audio-gateway";
-			desc = "Audio Gateway (A2DP Source & HSP/HFP AG)";
+			desc = _("Audio Gateway (A2DP Source & HSP/HFP AG)");
 		}
 		break;
 	}
@@ -858,9 +864,9 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		if (!(profile & SPA_BT_PROFILE_A2DP_SINK)) {
 			return NULL;
 		} else if (profile == SPA_BT_PROFILE_A2DP_SINK) {
-			desc = "High Fidelity Playback (A2DP Sink%s%s)";
+			desc = _("High Fidelity Playback (A2DP Sink%s%s)");
 		} else {
-			desc = "High Fidelity Duplex (A2DP Source/Sink%s%s)";
+			desc = _("High Fidelity Duplex (A2DP Source/Sink%s%s)");
 		}
 		name = spa_bt_profile_name(profile);
 		n_sink++;
@@ -888,7 +894,7 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		if (profile == 0) {
 			return NULL;
 		} else {
-			desc = "Headset Head Unit (HSP/HFP%s%s)";
+			desc = _("Headset Head Unit (HSP/HFP%s%s)");
 		}
 		name = spa_bt_profile_name(profile);
 		n_source++;
@@ -967,53 +973,53 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	switch (ff) {
 	case SPA_BT_FORM_FACTOR_HEADSET:
 		name_prefix = "headset";
-		description = "Headset";
+		description = _("Headset");
 		port_type = "headset";
 		break;
 	case SPA_BT_FORM_FACTOR_HANDSFREE:
 		name_prefix = "handsfree";
-		description = "Handsfree";
+		description = _("Handsfree");
 		port_type = "handsfree";
 		break;
 	case SPA_BT_FORM_FACTOR_MICROPHONE:
 		name_prefix = "microphone";
-		description = "Microphone";
+		description = _("Microphone");
 		port_type = "mic";
 		break;
 	case SPA_BT_FORM_FACTOR_SPEAKER:
 		name_prefix = "speaker";
-		description = "Speaker";
+		description = _("Speaker");
 		port_type = "speaker";
 		break;
 	case SPA_BT_FORM_FACTOR_HEADPHONE:
 		name_prefix = "headphone";
-		description = "Headphone";
+		description = _("Headphone");
 		port_type = "headphones";
 		break;
 	case SPA_BT_FORM_FACTOR_PORTABLE:
 		name_prefix = "portable";
-		description = "Portable";
+		description = _("Portable");
 		port_type = "portable";
 		break;
 	case SPA_BT_FORM_FACTOR_CAR:
 		name_prefix = "car";
-		description = "Car";
+		description = _("Car");
 		port_type = "car";
 		break;
 	case SPA_BT_FORM_FACTOR_HIFI:
 		name_prefix = "hifi";
-		description = "HiFi";
+		description = _("HiFi");
 		port_type = "hifi";
 		break;
 	case SPA_BT_FORM_FACTOR_PHONE:
 		name_prefix = "phone";
-		description = "Phone";
+		description = _("Phone");
 		port_type = "phone";
 		break;
 	case SPA_BT_FORM_FACTOR_UNKNOWN:
 	default:
 		name_prefix = "bluetooth";
-		description = "Bluetooth";
+		description = _("Bluetooth");
 		port_type = "bluetooth";
 		break;
 	}
@@ -1683,6 +1689,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	_i18n = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_I18N);
 
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_DEVICE)))
 		sscanf(str, "pointer:%p", &this->bt_dev);

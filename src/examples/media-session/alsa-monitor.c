@@ -523,11 +523,11 @@ static int update_device_props(struct device *device)
 
 		if ((s = pw_properties_get(p, PW_KEY_DEVICE_FORM_FACTOR)))
 			if (strcmp(s, "internal") == 0)
-				d = "Built-in Audio";
+				d = _("Built-in Audio");
 		if (!d)
 			if ((s = pw_properties_get(p, PW_KEY_DEVICE_CLASS)))
 				if (strcmp(s, "modem") == 0)
-					d = "Modem";
+					d = _("Modem");
 		if (!d)
 			d = pw_properties_get(p, PW_KEY_DEVICE_PRODUCT_NAME);
 
@@ -536,7 +536,7 @@ static int update_device_props(struct device *device)
 		if (!d)
 			d = pw_properties_get(p, "alsa.card_name");
 		if (!d)
-			d = "Unknown device";
+			d = _("Unknown device");
 
 		pw_properties_set(p, PW_KEY_DEVICE_DESCRIPTION, d);
 	}

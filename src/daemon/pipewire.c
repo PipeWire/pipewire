@@ -40,10 +40,10 @@ static void do_quit(void *data, int signal_number)
 
 static void show_help(const char *name, const char *config_name)
 {
-	fprintf(stdout, "%s [options]\n"
+	fprintf(stdout, _("%s [options]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
-		"  -c, --config                          Load config (Default %s)\n",
+		"  -c, --config                          Load config (Default %s)\n"),
 		name,
 		config_name);
 }

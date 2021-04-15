@@ -1,25 +1,35 @@
-# Czech translation of pipewire.
-# Copyright (C) 2008, 2009 the author(s) of pipewire.
+# Swedish translation for pipewire.
+# Copyright © 2008-2017 Free Software Foundation, Inc.
 # This file is distributed under the same license as the pipewire package.
-# Petr Kovar <pknbe@volny.cz>, 2008, 2009, 2012.
-# Daniel Rusek <mail@asciiwolf.com>, 2018.
-# Marek Černocký <marek@manet.cz>, 2018.
+# Daniel Nylander <po@danielnylander.se>, 2008, 2012.
+# Josef Andersson <josef.andersson@fripost.org>, 2014, 2017.
 #
+#
+# Termer:
+# input/output: ingång/utgång (det handlar om ljud)
+# latency: latens
+# delay: fördröjning
+# boost: öka
+# gain: förstärkning
+# channel map: kanalmappning
+# passthrough: genomströmning
+# och en hel del termer som inte översätts inom ljuddomänen, ex. surround.
 msgid ""
 msgstr ""
-"Project-Id-Version: pipewire.master-tx\n"
+"Project-Id-Version: pipewire\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
 "POT-Creation-Date: 2021-04-15 15:21+0200\n"
-"PO-Revision-Date: 2018-09-30 17:34+0200\n"
-"Last-Translator: Marek Černocký <marek@manet.cz>\n"
-"Language-Team: čeština <gnome-cs-list@gnome.org>\n"
-"Language: cs\n"
+"PO-Revision-Date: 2021-02-12 14:40+0000\n"
+"Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
+"Language-Team: Swedish <https://translate.fedoraproject.org/projects/"
+"pipewire/pipewire/sv/>\n"
+"Language: sv\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
-"X-Generator: Gtranslator 2.91.7\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.4.2\n"
 
 #: src/daemon/pipewire.c:43
 #, c-format
@@ -32,16 +42,16 @@ msgstr ""
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr "Multimediální systém PipeWire"
+msgstr ""
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr "Spustit multimediální systém PipeWire"
+msgstr ""
 
 #: src/examples/media-session/alsa-monitor.c:526
 #: spa/plugins/alsa/acp/compat.c:187
 msgid "Built-in Audio"
-msgstr "Vnitřní zvukový systém"
+msgstr "Inbyggt ljud"
 
 #: src/examples/media-session/alsa-monitor.c:530
 #: spa/plugins/alsa/acp/compat.c:192
@@ -126,32 +136,32 @@ msgstr ""
 #: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4698
 #: spa/plugins/bluez5/bluez5-device.c:845
 msgid "Off"
-msgstr "Vypnuto"
+msgstr "Av"
 
 #: spa/plugins/alsa/acp/channelmap.h:466
 msgid "(invalid)"
-msgstr "(neplatné)"
+msgstr "(ogiltig)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2709
 msgid "Input"
-msgstr "Vstup"
+msgstr "Ingång"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2710
 msgid "Docking Station Input"
-msgstr "Vstup dokovací stanice"
+msgstr "Ingång för dockningsstation"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2711
 msgid "Docking Station Microphone"
-msgstr "Mikrofon dokovací stanice"
+msgstr "Mikrofon för dockningsstation"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2712
 msgid "Docking Station Line In"
-msgstr "Linkový vstup dokovací stanice"
+msgstr "Linje in för dockningsstation"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2713
 #: spa/plugins/alsa/acp/alsa-mixer.c:2804
 msgid "Line In"
-msgstr "Linkový vstup"
+msgstr "Linje in"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2714
 #: spa/plugins/alsa/acp/alsa-mixer.c:2798
@@ -162,163 +172,158 @@ msgstr "Mikrofon"
 #: spa/plugins/alsa/acp/alsa-mixer.c:2715
 #: spa/plugins/alsa/acp/alsa-mixer.c:2799
 msgid "Front Microphone"
-msgstr "Přední mikrofon"
+msgstr "Frontmikrofon"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2716
 #: spa/plugins/alsa/acp/alsa-mixer.c:2800
 msgid "Rear Microphone"
-msgstr "Zadní mikrofon"
+msgstr "Bakre mikrofon"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2717
 msgid "External Microphone"
-msgstr "Externí mikrofon"
+msgstr "Extern mikrofon"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2718
 #: spa/plugins/alsa/acp/alsa-mixer.c:2802
 msgid "Internal Microphone"
-msgstr "Interní mikrofon"
+msgstr "Intern mikrofon"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2719
 #: spa/plugins/alsa/acp/alsa-mixer.c:2805
 msgid "Radio"
-msgstr "Rádio"
+msgstr "Radio"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2720
 #: spa/plugins/alsa/acp/alsa-mixer.c:2806
 msgid "Video"
-msgstr "Obraz"
+msgstr "Video"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2721
 msgid "Automatic Gain Control"
-msgstr "Automatické řízení zesílení"
+msgstr "Automatisk förstärkningskontroll"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2722
 msgid "No Automatic Gain Control"
-msgstr "Bez automatického řízení zesílení"
+msgstr "Ingen automatisk förstärkningskontroll"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2723
 msgid "Boost"
-msgstr "Zdůraznění"
+msgstr "Ökning"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2724
 msgid "No Boost"
-msgstr "Bez zdůraznění"
+msgstr "Ingen ökning"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2725
 msgid "Amplifier"
-msgstr "Zesilovač"
+msgstr "Förstärkare"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2726
 msgid "No Amplifier"
-msgstr "Bez zesilovače"
+msgstr "Ingen förstärkare"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2727
 msgid "Bass Boost"
-msgstr "Zdůraznění basů"
+msgstr "Basökning"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2728
 msgid "No Bass Boost"
-msgstr "Bez zdůraznění basů"
+msgstr "Ingen basökning"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2729
 #: spa/plugins/bluez5/bluez5-device.c:991
 msgid "Speaker"
-msgstr "Reproduktor"
+msgstr "Högtalare"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2730
 #: spa/plugins/alsa/acp/alsa-mixer.c:2808
 msgid "Headphones"
-msgstr "Sluchátka"
+msgstr "Hörlurar"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2797
 msgid "Analog Input"
-msgstr "Analogový vstup"
+msgstr "Analog ingång"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2801
 msgid "Dock Microphone"
-msgstr "Dokovací mikrofon"
+msgstr "Dockmikrofon"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2803
 msgid "Headset Microphone"
-msgstr "Mikrofon náhlavní soupravy"
+msgstr "Headset-mikrofon"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2807
 msgid "Analog Output"
-msgstr "Analogový výstup"
+msgstr "Analog utgång"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2809
-#, fuzzy
 msgid "Headphones 2"
-msgstr "Sluchátka"
+msgstr "Hörlurar 2"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2810
 msgid "Headphones Mono Output"
-msgstr "Sluchátkový výstup mono"
+msgstr "Monoutgång för hörlurar"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2811
 msgid "Line Out"
-msgstr "Linkový výstup"
+msgstr "Linje ut"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2812
 msgid "Analog Mono Output"
-msgstr "Analogový výstup mono"
+msgstr "Analog monoutgång"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2813
 msgid "Speakers"
-msgstr "Reproduktory"
+msgstr "Högtalare"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2814
 msgid "HDMI / DisplayPort"
-msgstr "HDMI / DisplayPort"
+msgstr "HDMI / DisplayPort"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2815
 msgid "Digital Output (S/PDIF)"
-msgstr "Digitální výstup (S/PDIF)"
+msgstr "Digital utgång (S/PDIF)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2816
 msgid "Digital Input (S/PDIF)"
-msgstr "Digitální vstup (S/PDIF)"
+msgstr "Digital ingång (S/PDIF)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2817
 msgid "Multichannel Input"
-msgstr "Vícekanálový vstup"
+msgstr "Multikanalingång"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2818
 msgid "Multichannel Output"
-msgstr "Vícekanálový výstup"
+msgstr "Multikanalutgång"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2819
 msgid "Game Output"
-msgstr "Herní výstup"
+msgstr "Spelutgång"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2820
 #: spa/plugins/alsa/acp/alsa-mixer.c:2821
 msgid "Chat Output"
-msgstr "Komunikační výstup"
+msgstr "Chatt-utgång"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2822
-#, fuzzy
 msgid "Chat Input"
-msgstr "Komunikační výstup"
+msgstr "Chatt-ingång"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2823
-#, fuzzy
 msgid "Virtual Surround 7.1"
-msgstr "Virtuální cíl surround"
+msgstr "Virtual surround 7.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4521
 msgid "Analog Mono"
-msgstr "Analogové mono"
+msgstr "Analog mono"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4522
-#, fuzzy
 msgid "Analog Mono (Left)"
-msgstr "Analogové mono"
+msgstr "Analog mono (vänster)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4523
-#, fuzzy
 msgid "Analog Mono (Right)"
-msgstr "Analogové mono"
+msgstr "Analog mono (höger)"
 
 #. Note: Not translated to "Analog Stereo Input", because the source
 #. * name gets "Input" appended to it automatically, so adding "Input"
@@ -329,7 +334,7 @@ msgstr "Analogové mono"
 #: spa/plugins/alsa/acp/alsa-mixer.c:4532
 #: spa/plugins/alsa/acp/alsa-mixer.c:4533
 msgid "Analog Stereo"
-msgstr "Analogové stereo"
+msgstr "Analog stereo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4525
 msgid "Mono"
@@ -343,131 +348,130 @@ msgstr "Stereo"
 #: spa/plugins/alsa/acp/alsa-mixer.c:4692
 #: spa/plugins/bluez5/bluez5-device.c:976
 msgid "Headset"
-msgstr "Náhlavní souprava"
+msgstr "Headset"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4535
 #: spa/plugins/alsa/acp/alsa-mixer.c:4693
-#, fuzzy
 msgid "Speakerphone"
-msgstr "Reproduktor"
+msgstr "Högtalartelefon"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4536
 #: spa/plugins/alsa/acp/alsa-mixer.c:4537
 msgid "Multichannel"
-msgstr "Více kanálů"
+msgstr "Multikanal"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4538
 msgid "Analog Surround 2.1"
-msgstr "Analogový Surround 2.1"
+msgstr "Analog surround 2.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4539
 msgid "Analog Surround 3.0"
-msgstr "Analogový Surround 3.0"
+msgstr "Analog surround 3.0"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4540
 msgid "Analog Surround 3.1"
-msgstr "Analogový Surround 3.1"
+msgstr "Analog surround 3.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4541
 msgid "Analog Surround 4.0"
-msgstr "Analogový Surround 4.0"
+msgstr "Analog surround 4.0"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4542
 msgid "Analog Surround 4.1"
-msgstr "Analogový Surround 4.1"
+msgstr "Analog surround 4.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4543
 msgid "Analog Surround 5.0"
-msgstr "Analogový Surround 5.0"
+msgstr "Analog surround 5.0"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4544
 msgid "Analog Surround 5.1"
-msgstr "Analogový Surround 5.1"
+msgstr "Analog surround 5.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4545
 msgid "Analog Surround 6.0"
-msgstr "Analogový Surround 6.0"
+msgstr "Analog surround 6.0"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4546
 msgid "Analog Surround 6.1"
-msgstr "Analogový Surround 6.1"
+msgstr "Analog surround 6.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4547
 msgid "Analog Surround 7.0"
-msgstr "Analogový Surround 7.0"
+msgstr "Analog surround 7.0"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4548
 msgid "Analog Surround 7.1"
-msgstr "Analogový Surround 7.1"
+msgstr "Analog surround 7.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4549
 msgid "Digital Stereo (IEC958)"
-msgstr "Digitální stereo (IEC958)"
+msgstr "Digital stereo (IEC958)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4550
 msgid "Digital Surround 4.0 (IEC958/AC3)"
-msgstr "Digitální Surround 4.0 (IEC958/AC3)"
+msgstr "Digital surround 4.0 (IEC958/AC3)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4551
 msgid "Digital Surround 5.1 (IEC958/AC3)"
-msgstr "Digitální Surround 5.1 (IEC958/AC3)"
+msgstr "Digital surround 5.1 (IEC958/AC3)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4552
 msgid "Digital Surround 5.1 (IEC958/DTS)"
-msgstr "Digitální Surround 5.1 (IEC958/DTS)"
+msgstr "Digital surround 5.1 (IEC958/DTS)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4553
 msgid "Digital Stereo (HDMI)"
-msgstr "Digitální stereo (HDMI)"
+msgstr "Digital stereo (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4554
 msgid "Digital Surround 5.1 (HDMI)"
-msgstr "Digitální Surround 5.1 (HDMI)"
+msgstr "Digital surround 5.1 (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4555
 msgid "Chat"
-msgstr ""
+msgstr "Chatt"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4556
 msgid "Game"
-msgstr ""
+msgstr "Spel"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4690
 msgid "Analog Mono Duplex"
-msgstr "Analogové duplexní mono"
+msgstr "Analog mono duplex"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4691
 msgid "Analog Stereo Duplex"
-msgstr "Analogové duplexní stereo"
+msgstr "Analog stereo duplex"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4694
 msgid "Digital Stereo Duplex (IEC958)"
-msgstr "Digitální duplexní stereo (IEC958)"
+msgstr "Digital stereo duplex (IEC958)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4695
 msgid "Multichannel Duplex"
-msgstr "Vícekanálový duplex"
+msgstr "Multikanalduplex"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4696
 msgid "Stereo Duplex"
-msgstr "Duplexní stereo"
+msgstr "Stereo duplex"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4697
 msgid "Mono Chat + 7.1 Surround"
-msgstr ""
+msgstr "Mono Chatt + 7.1 Surround"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4800
 #, c-format
 msgid "%s Output"
-msgstr "Výstup %s"
+msgstr "%s utgång"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4807
 #, c-format
 msgid "%s Input"
-msgstr "Vstup %s"
+msgstr "%s ingång"
 
 #: spa/plugins/alsa/acp/alsa-util.c:1175 spa/plugins/alsa/acp/alsa-util.c:1269
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu "
 "ms).\n"
@@ -479,23 +483,18 @@ msgid_plural ""
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgstr[0] ""
-"Volání snd_pcm_avail() vrátilo hodnotu, která je nezvykle vysoká: %lu bajtů "
+"snd_pcm_avail() returnerade ett värde som är exceptionellt stort: %lu byte "
 "(%lu ms).\n"
-"S největší pravděpodobností se jedná o chybu v ovladači ALSA „%s“. Nahlaste "
-"prosím tento problém vývojářům ALSA."
+"Förmodligen är detta ett fel i ALSA-drivrutinen ”%s”. Vänligen rapportera "
+"problemet till ALSA-utvecklarna."
 msgstr[1] ""
-"Volání snd_pcm_avail() vrátilo hodnotu, která je nezvykle vysoká: %lu bajtů "
+"snd_pcm_avail() returnerade ett värde som är exceptionellt stort: %lu byte "
 "(%lu ms).\n"
-"S největší pravděpodobností se jedná o chybu v ovladači ALSA „%s“. Nahlaste "
-"prosím tento problém vývojářům ALSA."
-msgstr[2] ""
-"Volání snd_pcm_avail() vrátilo hodnotu, která je nezvykle vysoká: %lu bajtů "
-"(%lu ms).\n"
-"S největší pravděpodobností se jedná o chybu v ovladači ALSA „%s“. Nahlaste "
-"prosím tento problém vývojářům ALSA."
+"Förmodligen är detta ett fel i ALSA-drivrutinen ”%s”. Vänligen rapportera "
+"problemet till ALSA-utvecklarna."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1241
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s"
 "%lu ms).\n"
@@ -507,20 +506,15 @@ msgid_plural ""
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgstr[0] ""
-"Volání snd_pcm_delay() vrátilo hodnotu, která je nezvykle vysoká: %li bajtů "
+"snd_pcm_delay() returnerade ett värde som är exceptionellt stort: %li byte "
 "(%s%lu ms).\n"
-"S největší pravděpodobností se jedná o chybu v ovladači ALSA „%s“. Nahlaste "
-"prosím tento problém vývojářům ALSA."
+"Förmodligen är detta ett fel i ALSA-drivrutinen ”%s”. Vänligen rapportera "
+"problemet till ALSA-utvecklarna."
 msgstr[1] ""
-"Volání snd_pcm_delay() vrátilo hodnotu, která je nezvykle vysoká: %li bajtů "
+"snd_pcm_delay() returnerade ett värde som är exceptionellt stort: %li byte "
 "(%s%lu ms).\n"
-"S největší pravděpodobností se jedná o chybu v ovladači ALSA „%s“. Nahlaste "
-"prosím tento problém vývojářům ALSA."
-msgstr[2] ""
-"Volání snd_pcm_delay() vrátilo hodnotu, která je nezvykle vysoká: %li bajtů "
-"(%s%lu ms).\n"
-"S největší pravděpodobností se jedná o chybu v ovladači ALSA „%s“. Nahlaste "
-"prosím tento problém vývojářům ALSA."
+"Förmodligen är detta ett fel i ALSA-drivrutinen ”%s”. Vänligen rapportera "
+"problemet till ALSA-utvecklarna."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1288
 #, c-format
@@ -530,13 +524,13 @@ msgid ""
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgstr ""
-"Volání snd_pcm_delay() vrátilo hodnotu, která je podivná: zpoždění %lu je "
-"menší možné %lu.\n"
-"S největší pravděpodobností se jedná o chybu v ovladači ALSA „%s“. Nahlaste "
-"prosím tento problém vývojářům ALSA."
+"snd_pcm_avail_delay() returnerade konstiga värden: fördröjningen %lu är "
+"mindre än tillgängliga %lu.\n"
+"Förmodligen är detta ett fel i ALSA-drivrutinen ”%s”. Vänligen rapportera "
+"problemet till ALSA-utvecklarna."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1331
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte "
 "(%lu ms).\n"
@@ -548,20 +542,15 @@ msgid_plural ""
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgstr[0] ""
-"Volání snd_pcm_mmap_begin() vrátilo hodnotu, která je nezvykle vysoká: %lu "
-"bajtů (%lu ms).\n"
-"S největší pravděpodobností se jedná o chybu v ovladači ALSA „%s“. Nahlaste "
-"prosím tento problém vývojářům ALSA."
+"snd_pcm_mmap_begin() returnerade ett värde som är exceptionellt stort: %lu "
+"byte (%lu ms).\n"
+"Förmodligen är detta ett fel i ALSA-drivrutinen ”%s”. Vänligen rapportera "
+"problemet till ALSA-utvecklarna."
 msgstr[1] ""
-"Volání snd_pcm_mmap_begin() vrátilo hodnotu, která je nezvykle vysoká: %lu "
-"bajtů (%lu ms).\n"
-"S největší pravděpodobností se jedná o chybu v ovladači ALSA „%s“. Nahlaste "
-"prosím tento problém vývojářům ALSA."
-msgstr[2] ""
-"Volání snd_pcm_mmap_begin() vrátilo hodnotu, která je nezvykle vysoká: %lu "
-"bajtů (%lu ms).\n"
-"S největší pravděpodobností se jedná o chybu v ovladači ALSA „%s“. Nahlaste "
-"prosím tento problém vývojářům ALSA."
+"snd_pcm_mmap_begin() returnerade ett värde som är exceptionellt stort: %lu "
+"byte (%lu ms).\n"
+"Förmodligen är detta ett fel i ALSA-drivrutinen ”%s”. Vänligen rapportera "
+"problemet till ALSA-utvecklarna."
 
 #: spa/plugins/bluez5/bluez5-device.c:855
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
@@ -588,15 +577,15 @@ msgstr "Handsfree"
 
 #: spa/plugins/bluez5/bluez5-device.c:996
 msgid "Headphone"
-msgstr "Sluchátko"
+msgstr "Hörlurar"
 
 #: spa/plugins/bluez5/bluez5-device.c:1001
 msgid "Portable"
-msgstr "Přenosné zařízení"
+msgstr "Bärbar"
 
 #: spa/plugins/bluez5/bluez5-device.c:1006
 msgid "Car"
-msgstr "Auto"
+msgstr "Bil"
 
 #: spa/plugins/bluez5/bluez5-device.c:1011
 msgid "HiFi"
@@ -607,6 +596,5 @@ msgid "Phone"
 msgstr "Telefon"
 
 #: spa/plugins/bluez5/bluez5-device.c:1022
-#, fuzzy
 msgid "Bluetooth"
-msgstr "Vstup přes Bluetooth"
+msgstr "Blåtand"

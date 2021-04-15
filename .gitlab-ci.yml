@@ -190,9 +190,8 @@ pages:
   dependencies:
     - build_on_fedora
   script:
-    - export PREFIX="$PWD/prefix-build_on_fedora"
     - mkdir public
-    - cp -R $PREFIX/share/doc/pipewire/html/* public/
+    - cp -R prefix-*/share/doc/pipewire/html/* public/
   artifacts:
     paths:
       - public

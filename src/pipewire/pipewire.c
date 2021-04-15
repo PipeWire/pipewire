@@ -49,6 +49,8 @@
 
 #define SUPPORTLIB	"support/libspa-support"
 
+static struct spa_i18n *_pipewire_i18n = NULL;
+
 struct plugin {
 	struct spa_list link;
 	char *filename;
@@ -376,6 +378,18 @@ static const char *i18n_ntext(void *object, const char *msgid, const char *msgid
 	return dngettext(support->i18n_domain, msgid, msgid_plural, n);
 }
 
+static void init_i18n(struct support *support)
+{
+	/* Load locale from the environment. */
+	setlocale(LC_ALL, "");
+	/* Set LC_NUMERIC to C so that floating point strings are consistently
+	 * formatted and parsed across locales. */
+	setlocale(LC_NUMERIC, "C");
+	bindtextdomain(GETTEXT_PACKAGE, LOCALEDIR);
+	bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
+	pw_set_domain(GETTEXT_PACKAGE);
+}
+
 static void *add_i18n(struct support *support)
 {
 	static struct spa_i18n_methods i18n_methods = {
@@ -387,9 +401,23 @@ static void *add_i18n(struct support *support)
 			SPA_TYPE_INTERFACE_I18N,
 			SPA_VERSION_I18N,
 			&i18n_methods, support);
+	_pipewire_i18n = (struct spa_i18n*) &support->i18n_iface;
+
 	support->support[support->n_support++] =
-		SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_I18N, &support->i18n_iface);
+		SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_I18N, _pipewire_i18n);
+
 	return 0;
+}
+
+SPA_EXPORT
+const char *pw_gettext(const char *msgid)
+{
+	return spa_i18n_text(_pipewire_i18n, msgid);
+}
+SPA_EXPORT
+const char *pw_bgettext(const char *msgid, const char *msgid_plural, unsigned long int n)
+{
+	return spa_i18n_ntext(_pipewire_i18n, msgid, msgid_plural, n);
 }
 
 #ifdef HAVE_SYSTEMD
@@ -464,6 +492,8 @@ void pw_init(int *argc, char **argv[])
 
 	if ((str = getenv("PIPEWIRE_DEBUG")))
 		configure_debug(support, str);
+
+	init_i18n(support);
 
 	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
 		str = PLUGINDIR;

@@ -84,6 +84,11 @@ include:
     - ninja -C "$BUILD_DIR" test
     - ninja -C "$BUILD_DIR" install
     - ./check_missing_headers.sh
+  artifacts:
+    name: pipewire-$CI_COMMIT_SHA
+    when: always
+    paths:
+      - build-*/meson-logs
 
 container_fedora:
   extends:
@@ -102,19 +107,17 @@ container_coverity:
   variables:
     GIT_STRATEGY: none
 
-build_on_fedora:
+.build_on_fedora:
   extends:
     - .fedora
     - .not_coverity
     - .fdo.distribution-image@fedora
     - .build
   stage: build
-  artifacts:
-    name: pipewire-$CI_COMMIT_SHA
-    when: always
-    paths:
-      - build-*/meson-logs
-      - prefix-*
+
+build_on_fedora:
+  extends:
+    - .build_on_fedora
   variables:
     MESON_OPTIONS: >-
         -Ddocs=enabled
@@ -128,18 +131,24 @@ build_on_fedora:
         -Dvulkan=enabled
         -Dsdl2=enabled
         -Dsndfile=enabled
+  artifacts:
+    name: pipewire-$CI_COMMIT_SHA
+    when: always
+    paths:
+      - build-*/meson-logs
+      - prefix-*
 
 # build with all options on auto() or their default values
 build_with_no_commandline_options:
   extends:
-    - build_on_fedora
+    - .build_on_fedora
   variables:
     MESON_OPTIONS: ""
 
 # build with a set of options enabled or disabled
 build_with_custom_options:
   extends:
-    - build_on_fedora
+    - .build_on_fedora
   parallel:
     matrix:
       - MESON_OPTION: [docs, installed_tests, systemd-system-service, bluez5-backend-hsphfpd,

@@ -590,7 +590,7 @@ static inline char *pa_readlink(const char *p) {
 
 extern struct spa_i18n *acp_i18n;
 
-#define _(String)  spa_i18n_gettext(acp_i18n, String)
+#define _(String)  spa_i18n_text(acp_i18n, String)
 #ifdef gettext_noop
 #define N_(String) gettext_noop(String)
 #else

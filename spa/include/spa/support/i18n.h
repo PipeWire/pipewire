@@ -64,7 +64,7 @@ struct spa_i18n_methods {
 };
 
 static inline const char *
-spa_i18n_gettext(struct spa_i18n *i18n, const char *msgid)
+spa_i18n_text(struct spa_i18n *i18n, const char *msgid)
 {
 	const char *res = msgid;
 	if (SPA_LIKELY(i18n != NULL))
@@ -75,7 +75,7 @@ spa_i18n_gettext(struct spa_i18n *i18n, const char *msgid)
 }
 
 static inline const char *
-spa_i18n_ngettext(struct spa_i18n *i18n, const char *msgid,
+spa_i18n_ntext(struct spa_i18n *i18n, const char *msgid,
 		const char *msgid_plural, unsigned long int n)
 {
 	const char *res = n == 1 ? msgid : msgid_plural;

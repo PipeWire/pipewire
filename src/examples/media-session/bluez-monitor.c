@@ -395,7 +395,7 @@ static struct device *bluez5_create_device(struct impl *impl, uint32_t id,
 	struct spa_handle *handle;
 	int res;
 	void *iface;
-	const char *rules;
+	const char *rules, *str;
 
 	pw_log_debug("new device %u", id);
 
@@ -420,6 +420,12 @@ static struct device *bluez5_create_device(struct impl *impl, uint32_t id,
 
 	if ((rules = pw_properties_get(impl->conf, "rules")) != NULL)
 		sm_media_session_match_rules(rules, strlen(rules), device->props);
+
+	/* Propagate the msbc-support global property if it exists and is not
+	 * overloaded by a device specific one */
+	if ((str = pw_properties_get(impl->props, "bluez5.msbc-support")) != NULL &&
+	    pw_properties_get(device->props, "bluez5.msbc-support") == NULL)
+		pw_properties_set(device->props, "bluez5.msbc-support", str);
 
 	handle = pw_context_load_spa_handle(context,
 		info->factory_name,

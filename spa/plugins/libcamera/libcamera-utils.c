@@ -675,7 +675,14 @@ static int spa_libcamera_use_buffers(struct impl *this, struct spa_buffer **buff
 	if (n_buffers > 0) {
 		d = buffers[0]->datas;
 
-		port->memtype = SPA_DATA_DmaBuf;
+		if (d[0].type == SPA_DATA_MemPtr && d[0].data != NULL) {
+			port->memtype = SPA_DATA_MemPtr;
+		} else if (d[0].type == SPA_DATA_DmaBuf) {
+			port->memtype = SPA_DATA_DmaBuf;
+		} else {
+			spa_log_error(this->log, "v4l2: can't use buffers of type %d", d[0].type);
+			return -EINVAL;
+		}
 	}
 
 	for (i = 0; i < n_buffers; i++) {

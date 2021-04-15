@@ -24,11 +24,14 @@ doxyfile = configure_file(input: 'Doxyfile.in',
                           output: 'Doxyfile',
                           configuration: doxyfile_conf)
 
-docdir = pipewire_datadir / 'doc'
+docdir = get_option('docdir')
+if docdir == ''
+  docdir = pipewire_datadir / 'doc' / meson.project_name()
+endif
 
 html_target = custom_target('pipewire-docs',
                             input: [ doxyfile ],
                             output: [ 'html' ],
                             command: [ doxygen, doxyfile ],
                             install: true,
-                            install_dir: docdir / 'pipewire')
+                            install_dir: docdir)

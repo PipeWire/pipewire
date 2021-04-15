@@ -1,3 +1,6 @@
+option('docdir',
+       type : 'string',
+       description : 'Directory for installing documentation to (defaults to pipewire_datadir/doc/meson.project_name() )')
 option('docs',
        description: 'Build documentation',
        type: 'feature',

@@ -1457,7 +1457,9 @@ mmap_init(struct impl *this,
 
 		spa_log_debug(this->log, "v4l2: data types %08x", d[0].type);
 
-		if (port->have_expbuf && (d[0].type & (1u << SPA_DATA_DmaBuf))) {
+		if (port->have_expbuf &&
+		    d[0].type != SPA_ID_INVALID &&
+		    (d[0].type & (1u << SPA_DATA_DmaBuf))) {
 			struct v4l2_exportbuffer expbuf;
 
 			spa_zero(expbuf);

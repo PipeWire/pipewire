@@ -87,6 +87,7 @@ install_headers(spa_pod_headers,
 spa_support_headers = [
   'support/cpu.h',
   'support/dbus.h',
+  'support/i18n.h',
   'support/log.h',
   'support/log-impl.h',
   'support/loop.h',

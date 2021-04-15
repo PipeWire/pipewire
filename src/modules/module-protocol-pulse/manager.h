@@ -111,6 +111,18 @@ int pw_manager_for_each_object(struct pw_manager *manager,
 
 void *pw_manager_object_add_data(struct pw_manager_object *o, const char *id, size_t size);
 
+bool pw_manager_object_is_client(struct pw_manager_object *o);
+bool pw_manager_object_is_module(struct pw_manager_object *o);
+bool pw_manager_object_is_card(struct pw_manager_object *o);
+bool pw_manager_object_is_sink(struct pw_manager_object *o);
+bool pw_manager_object_is_source(struct pw_manager_object *o);
+bool pw_manager_object_is_monitor(struct pw_manager_object *o);
+bool pw_manager_object_is_source_or_monitor(struct pw_manager_object *o);
+bool pw_manager_object_is_sink_input(struct pw_manager_object *o);
+bool pw_manager_object_is_source_output(struct pw_manager_object *o);
+bool pw_manager_object_is_recordable(struct pw_manager_object *o);
+bool pw_manager_object_is_link(struct pw_manager_object *o);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

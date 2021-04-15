@@ -110,7 +110,7 @@ static void register_object_message_handlers(struct pw_manager_object *o)
 		return;
 	}
 
-	if (object_is_card(o) && o->props != NULL &&
+	if (pw_manager_object_is_card(o) && o->props != NULL &&
 	    (str = pw_properties_get(o->props, PW_KEY_DEVICE_API)) != NULL &&
 	    strcmp(str, "bluez5") == 0) {
 		str = pw_properties_get(o->props, PW_KEY_DEVICE_NAME);

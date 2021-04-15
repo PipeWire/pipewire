@@ -23,6 +23,11 @@
  */
 
 #include <pipewire/impl.h>
+#include <pipewire/pipewire.h>
+
+#include "../defs.h"
+#include "../module.h"
+#include "registry.h"
 
 struct module_simple_protocol_tcp_data {
 	struct module *module;
@@ -104,7 +109,7 @@ static const struct spa_dict_item module_simple_protocol_tcp_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-static struct module *create_module_simple_protocol_tcp(struct impl *impl, const char *argument)
+struct module *create_module_simple_protocol_tcp(struct impl *impl, const char *argument)
 {
 	struct module *module;
 	struct module_simple_protocol_tcp_data *d;
@@ -118,7 +123,7 @@ static struct module *create_module_simple_protocol_tcp(struct impl *impl, const
 		goto out;
 	}
 	if (argument)
-		add_props(props, argument);
+		module_args_add_props(props, argument);
 
 	module_props = pw_properties_new(NULL, NULL);
 	if (module_props == NULL) {

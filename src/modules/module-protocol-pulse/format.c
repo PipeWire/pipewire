@@ -22,47 +22,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#define RATE_MAX	(48000u*8u)
-#define CHANNELS_MAX	(64u)
-
-enum sample_format {
-	SAMPLE_U8,
-	SAMPLE_ALAW,
-	SAMPLE_ULAW,
-	SAMPLE_S16LE,
-	SAMPLE_S16BE,
-	SAMPLE_FLOAT32LE,
-	SAMPLE_FLOAT32BE,
-	SAMPLE_S32LE,
-	SAMPLE_S32BE,
-	SAMPLE_S24LE,
-	SAMPLE_S24BE,
-	SAMPLE_S24_32LE,
-	SAMPLE_S24_32BE,
-	SAMPLE_MAX,
-	SAMPLE_INVALID = -1
-};
-
-#if __BYTE_ORDER == __BIG_ENDIAN
-#define SAMPLE_S16NE		SAMPLE_S16BE
-#define SAMPLE_FLOAT32NE	SAMPLE_FLOAT32BE
-#define SAMPLE_S32NE		SAMPLE_S32BE
-#define	SAMPLE_S24NE		SAMPLE_S24BE
-#define SAMPLE_S24_32NE		SAMPLE_S24_32BE
-#elif __BYTE_ORDER == __LITTLE_ENDIAN
-#define SAMPLE_S16NE		SAMPLE_S16LE
-#define SAMPLE_FLOAT32NE	SAMPLE_FLOAT32LE
-#define SAMPLE_S32NE		SAMPLE_S32LE
-#define	SAMPLE_S24NE		SAMPLE_S24LE
-#define SAMPLE_S24_32NE		SAMPLE_S24_32LE
-#endif
-
-struct format {
-	uint32_t pa;
-	uint32_t id;
-	const char *name;
-	uint32_t size;
-};
+#include "format.h"
 
 static const struct format audio_formats[] = {
 	[SAMPLE_U8] = { SAMPLE_U8, SPA_AUDIO_FORMAT_U8, "u8", 1 },
@@ -101,14 +61,14 @@ static const struct format audio_formats[] = {
 	{ SAMPLE_FLOAT32NE, SPA_AUDIO_FORMAT_F32P, "float32ne", 4 },
 };
 
-static inline uint32_t format_pa2id(enum sample_format format)
+uint32_t format_pa2id(enum sample_format format)
 {
 	if (format < 0 || format >= SAMPLE_MAX)
 		return SPA_AUDIO_FORMAT_UNKNOWN;
 	return audio_formats[format].id;
 }
 
-static inline const char *format_id2name(uint32_t format)
+const char *format_id2name(uint32_t format)
 {
 	int i;
 	for (i = 0; spa_type_audio_format[i].name; i++) {
@@ -117,7 +77,7 @@ static inline const char *format_id2name(uint32_t format)
 	}
 	return "UNKNOWN";
 }
-static inline uint32_t format_name2id(const char *name)
+uint32_t format_name2id(const char *name)
 {
 	int i;
 	for (i = 0; spa_type_audio_format[i].name; i++) {
@@ -127,7 +87,7 @@ static inline uint32_t format_name2id(const char *name)
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
 }
 
-static inline uint32_t format_paname2id(const char *name, size_t size)
+uint32_t format_paname2id(const char *name, size_t size)
 {
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
@@ -138,7 +98,7 @@ static inline uint32_t format_paname2id(const char *name, size_t size)
 	return SPA_AUDIO_FORMAT_UNKNOWN;
 }
 
-static inline enum sample_format format_id2pa(uint32_t id)
+enum sample_format format_id2pa(uint32_t id)
 {
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
@@ -148,7 +108,7 @@ static inline enum sample_format format_id2pa(uint32_t id)
 	return SAMPLE_INVALID;
 }
 
-static inline const char *format_id2paname(uint32_t id)
+const char *format_id2paname(uint32_t id)
 {
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
@@ -159,18 +119,7 @@ static inline const char *format_id2paname(uint32_t id)
 	return "invalid";
 }
 
-struct sample_spec {
-	uint32_t format;
-	uint32_t rate;
-	uint8_t channels;
-};
-#define SAMPLE_SPEC_INIT	(struct sample_spec) {				\
-					.format = SPA_AUDIO_FORMAT_UNKNOWN,	\
-					.rate = 0,				\
-					.channels = 0,				\
-				}
-
-static inline uint32_t sample_spec_frame_size(const struct sample_spec *ss)
+uint32_t sample_spec_frame_size(const struct sample_spec *ss)
 {
 	switch (ss->format) {
 	case SPA_AUDIO_FORMAT_U8:
@@ -198,80 +147,12 @@ static inline uint32_t sample_spec_frame_size(const struct sample_spec *ss)
 	}
 }
 
-static inline bool sample_spec_valid(const struct sample_spec *ss)
+bool sample_spec_valid(const struct sample_spec *ss)
 {
 	return (sample_spec_frame_size(ss) > 0 &&
 	    ss->rate > 0 && ss->rate <= RATE_MAX &&
 	    ss->channels > 0 && ss->channels <= CHANNELS_MAX);
 }
-
-enum channel_position {
-	CHANNEL_POSITION_INVALID = -1,
-	CHANNEL_POSITION_MONO = 0,
-	CHANNEL_POSITION_FRONT_LEFT,
-	CHANNEL_POSITION_FRONT_RIGHT,
-	CHANNEL_POSITION_FRONT_CENTER,
-
-	CHANNEL_POSITION_REAR_CENTER,
-	CHANNEL_POSITION_REAR_LEFT,
-	CHANNEL_POSITION_REAR_RIGHT,
-
-	CHANNEL_POSITION_LFE,
-	CHANNEL_POSITION_FRONT_LEFT_OF_CENTER,
-	CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER,
-
-	CHANNEL_POSITION_SIDE_LEFT,
-	CHANNEL_POSITION_SIDE_RIGHT,
-	CHANNEL_POSITION_AUX0,
-	CHANNEL_POSITION_AUX1,
-	CHANNEL_POSITION_AUX2,
-	CHANNEL_POSITION_AUX3,
-	CHANNEL_POSITION_AUX4,
-	CHANNEL_POSITION_AUX5,
-	CHANNEL_POSITION_AUX6,
-	CHANNEL_POSITION_AUX7,
-	CHANNEL_POSITION_AUX8,
-	CHANNEL_POSITION_AUX9,
-	CHANNEL_POSITION_AUX10,
-	CHANNEL_POSITION_AUX11,
-	CHANNEL_POSITION_AUX12,
-	CHANNEL_POSITION_AUX13,
-	CHANNEL_POSITION_AUX14,
-	CHANNEL_POSITION_AUX15,
-	CHANNEL_POSITION_AUX16,
-	CHANNEL_POSITION_AUX17,
-	CHANNEL_POSITION_AUX18,
-	CHANNEL_POSITION_AUX19,
-	CHANNEL_POSITION_AUX20,
-	CHANNEL_POSITION_AUX21,
-	CHANNEL_POSITION_AUX22,
-	CHANNEL_POSITION_AUX23,
-	CHANNEL_POSITION_AUX24,
-	CHANNEL_POSITION_AUX25,
-	CHANNEL_POSITION_AUX26,
-	CHANNEL_POSITION_AUX27,
-	CHANNEL_POSITION_AUX28,
-	CHANNEL_POSITION_AUX29,
-	CHANNEL_POSITION_AUX30,
-	CHANNEL_POSITION_AUX31,
-
-	CHANNEL_POSITION_TOP_CENTER,
-
-	CHANNEL_POSITION_TOP_FRONT_LEFT,
-	CHANNEL_POSITION_TOP_FRONT_RIGHT,
-	CHANNEL_POSITION_TOP_FRONT_CENTER,
-
-	CHANNEL_POSITION_TOP_REAR_LEFT,
-	CHANNEL_POSITION_TOP_REAR_RIGHT,
-	CHANNEL_POSITION_TOP_REAR_CENTER,
-
-	CHANNEL_POSITION_MAX
-};
-
-struct channel {
-	uint32_t channel;
-	const char *name;
-};
 
 static const struct channel audio_channels[] = {
 	[CHANNEL_POSITION_MONO] = { SPA_AUDIO_CHANNEL_MONO, "mono", },
@@ -335,23 +216,14 @@ static const struct channel audio_channels[] = {
 	[CHANNEL_POSITION_TOP_REAR_CENTER] = { SPA_AUDIO_CHANNEL_TRC, "top-rear-center", },
 };
 
-struct channel_map {
-	uint8_t channels;
-	uint32_t map[CHANNELS_MAX];
-};
-
-#define CHANNEL_MAP_INIT	(struct channel_map) {				\
-					.channels = 0,				\
-				}
-
-static inline uint32_t channel_pa2id(enum channel_position channel)
+uint32_t channel_pa2id(enum channel_position channel)
 {
         if (channel < 0 || (size_t)channel >= SPA_N_ELEMENTS(audio_channels))
                 return SPA_AUDIO_CHANNEL_UNKNOWN;
         return audio_channels[channel].channel;
 }
 
-static inline const char *channel_id2name(uint32_t channel)
+const char *channel_id2name(uint32_t channel)
 {
 	int i;
 	for (i = 0; spa_type_audio_channel[i].name; i++) {
@@ -361,7 +233,7 @@ static inline const char *channel_id2name(uint32_t channel)
 	return "UNK";
 }
 
-static inline uint32_t channel_name2id(const char *name)
+uint32_t channel_name2id(const char *name)
 {
 	int i;
 	for (i = 0; spa_type_audio_channel[i].name; i++) {
@@ -371,7 +243,7 @@ static inline uint32_t channel_name2id(const char *name)
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
 }
 
-static inline enum channel_position channel_id2pa(uint32_t id, uint32_t *aux)
+enum channel_position channel_id2pa(uint32_t id, uint32_t *aux)
 {
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(audio_channels); i++) {
@@ -381,7 +253,7 @@ static inline enum channel_position channel_id2pa(uint32_t id, uint32_t *aux)
 	return CHANNEL_POSITION_AUX0 + ((*aux)++ & 31);
 }
 
-static inline const char *channel_id2paname(uint32_t id, uint32_t *aux)
+const char *channel_id2paname(uint32_t id, uint32_t *aux)
 {
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(audio_channels); i++) {
@@ -392,7 +264,7 @@ static inline const char *channel_id2paname(uint32_t id, uint32_t *aux)
 	return audio_channels[CHANNEL_POSITION_AUX0 + ((*aux)++ & 31)].name;
 }
 
-static inline uint32_t channel_paname2id(const char *name, size_t size)
+uint32_t channel_paname2id(const char *name, size_t size)
 {
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(audio_channels); i++) {
@@ -403,14 +275,14 @@ static inline uint32_t channel_paname2id(const char *name, size_t size)
 }
 
 
-static inline void channel_map_to_positions(const struct channel_map *map, uint32_t *pos)
+void channel_map_to_positions(const struct channel_map *map, uint32_t *pos)
 {
 	int i;
 	for (i = 0; i < map->channels; i++)
 		pos[i] = map->map[i];
 }
 
-static inline void channel_map_parse(const char *str, struct channel_map *map)
+void channel_map_parse(const char *str, struct channel_map *map)
 {
 	const char *p = str;
 	size_t len;
@@ -487,7 +359,7 @@ static inline void channel_map_parse(const char *str, struct channel_map *map)
 	}
 }
 
-static inline bool channel_map_valid(const struct channel_map *map)
+bool channel_map_valid(const struct channel_map *map)
 {
 	uint8_t i;
 	if (map->channels == 0 || map->channels > CHANNELS_MAX)
@@ -498,20 +370,6 @@ static inline bool channel_map_valid(const struct channel_map *map)
 	return true;
 }
 
-
-enum encoding {
-	ENCODING_ANY,
-	ENCODING_PCM,
-	ENCODING_AC3_IEC61937,
-	ENCODING_EAC3_IEC61937,
-	ENCODING_MPEG_IEC61937,
-	ENCODING_DTS_IEC61937,
-	ENCODING_MPEG2_AAC_IEC61937,
-	ENCODING_TRUEHD_IEC61937,
-	ENCODING_DTSHD_IEC61937,
-	ENCODING_MAX,
-	ENCODING_INVALID = -1,
-};
 
 static const char *encoding_names[] = {
 	[ENCODING_ANY] = "ANY",
@@ -525,7 +383,7 @@ static const char *encoding_names[] = {
 	[ENCODING_DTSHD_IEC61937] = "DTSHD-IEC61937",
 };
 
-static inline const char *format_encoding2name(enum encoding enc)
+const char *format_encoding2name(enum encoding enc)
 {
 	if (enc >= 0 && enc < (int)SPA_N_ELEMENTS(encoding_names) &&
 	    encoding_names[enc] != NULL)

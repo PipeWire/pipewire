@@ -22,6 +22,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <pipewire/pipewire.h>
+
+#include "../manager.h"
+#include "../module.h"
+#include "registry.h"
+
 struct module_null_sink_data {
 	struct pw_proxy *proxy;
 	struct spa_hook listener;
@@ -116,7 +122,7 @@ static const struct spa_dict_item module_null_sink_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-static struct module *create_module_null_sink(struct impl *impl, const char *argument)
+struct module *create_module_null_sink(struct impl *impl, const char *argument)
 {
 	struct module *module;
 	struct module_null_sink_data *d;
@@ -132,7 +138,7 @@ static struct module *create_module_null_sink(struct impl *impl, const char *arg
 		goto out;
 	}
 	if (argument)
-		add_props(props, argument);
+		module_args_add_props(props, argument);
 
 	if ((str = pw_properties_get(props, "sink_name")) != NULL) {
 		pw_properties_set(props, PW_KEY_NODE_NAME, str);
@@ -141,7 +147,7 @@ static struct module *create_module_null_sink(struct impl *impl, const char *arg
 		pw_properties_set(props, PW_KEY_NODE_NAME, "null");
 	}
 	if ((str = pw_properties_get(props, "sink_properties")) != NULL) {
-		add_props(props, str);
+		module_args_add_props(props, str);
 		pw_properties_set(props, "sink_properties", NULL);
 	}
 	if ((str = pw_properties_get(props, "channels")) != NULL) {

@@ -23,6 +23,15 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <spa/param/audio/format-utils.h>
+#include <spa/utils/hook.h>
+#include <pipewire/pipewire.h>
+#include <pipewire/private.h>
+
+#include "../defs.h"
+#include "../module.h"
+#include "registry.h"
+
 #define ERROR_RETURN(str) 		\
 	{ 				\
 		pw_log_error(str); 	\
@@ -220,7 +229,7 @@ static const struct spa_dict_item module_loopback_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-static struct module *create_module_loopback(struct impl *impl, const char *argument)
+struct module *create_module_loopback(struct impl *impl, const char *argument)
 {
 	struct module *module;
 	struct module_loopback_data *d;
@@ -237,7 +246,7 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 		goto out;
 	}
 	if (argument)
-		add_props(props, argument);
+		module_args_add_props(props, argument);
 
 	/* The following modargs are not implemented:
 	 * adjust_time, max_latency_msec, fast_adjust_threshold_msec: these are just not relevant
@@ -258,7 +267,7 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 		pw_properties_set(props, "sink", NULL);
 	}
 
-	if (args_to_audioinfo(impl, props, &info) < 0) {
+	if (module_args_to_audioinfo(impl, props, &info) < 0) {
 		res = -EINVAL;
 		goto out;
 	}
@@ -291,12 +300,12 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 	}
 
 	if ((str = pw_properties_get(props, "sink_input_properties")) != NULL) {
-		add_props(playback_props, str);
+		module_args_add_props(playback_props, str);
 		pw_properties_set(props, "sink_input_properties", NULL);
 	}
 
 	if ((str = pw_properties_get(props, "source_output_properties")) != NULL) {
-		add_props(capture_props, str);
+		module_args_add_props(capture_props, str);
 		pw_properties_set(props, "source_output_properties", NULL);
 	}
 

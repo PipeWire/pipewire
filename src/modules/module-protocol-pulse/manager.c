@@ -807,3 +807,84 @@ int pw_manager_sync(struct pw_manager *manager)
 	struct manager *m = SPA_CONTAINER_OF(manager, struct manager, this);
 	return core_sync(m);
 }
+
+bool pw_manager_object_is_client(struct pw_manager_object *o)
+{
+	return strcmp(o->type, PW_TYPE_INTERFACE_Client) == 0;
+}
+
+bool pw_manager_object_is_module(struct pw_manager_object *o)
+{
+	return strcmp(o->type, PW_TYPE_INTERFACE_Module) == 0;
+}
+
+bool pw_manager_object_is_card(struct pw_manager_object *o)
+{
+	const char *str;
+	return strcmp(o->type, PW_TYPE_INTERFACE_Device) == 0 &&
+		o->props != NULL &&
+		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
+		strcmp(str, "Audio/Device") == 0;
+}
+
+bool pw_manager_object_is_sink(struct pw_manager_object *o)
+{
+	const char *str;
+	return strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
+		o->props != NULL &&
+		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
+		(strcmp(str, "Audio/Sink") == 0 || strcmp(str, "Audio/Duplex") == 0);
+}
+
+bool pw_manager_object_is_source(struct pw_manager_object *o)
+{
+	const char *str;
+	return strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
+		o->props != NULL &&
+		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
+		(strcmp(str, "Audio/Source") == 0 ||
+		 strcmp(str, "Audio/Duplex") == 0 ||
+		 strcmp(str, "Audio/Source/Virtual") == 0);
+}
+
+bool pw_manager_object_is_monitor(struct pw_manager_object *o)
+{
+	const char *str;
+	return strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
+		o->props != NULL &&
+		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
+		(strcmp(str, "Audio/Sink") == 0);
+}
+
+bool pw_manager_object_is_source_or_monitor(struct pw_manager_object *o)
+{
+	return pw_manager_object_is_source(o) || pw_manager_object_is_monitor(o);
+}
+
+bool pw_manager_object_is_sink_input(struct pw_manager_object *o)
+{
+	const char *str;
+	return strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
+		o->props != NULL &&
+		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
+		strcmp(str, "Stream/Output/Audio") == 0;
+}
+
+bool pw_manager_object_is_source_output(struct pw_manager_object *o)
+{
+	const char *str;
+	return strcmp(o->type, PW_TYPE_INTERFACE_Node) == 0 &&
+		o->props != NULL &&
+		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
+		strcmp(str, "Stream/Input/Audio") == 0;
+}
+
+bool pw_manager_object_is_recordable(struct pw_manager_object *o)
+{
+	return pw_manager_object_is_source(o) || pw_manager_object_is_sink(o) || pw_manager_object_is_sink_input(o);
+}
+
+bool pw_manager_object_is_link(struct pw_manager_object *o)
+{
+	return strcmp(o->type, PW_TYPE_INTERFACE_Link) == 0;
+}

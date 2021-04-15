@@ -410,7 +410,7 @@ static const char *port_types[] = {
 	"analog",
 };
 
-static uint32_t port_type_value(const char *port_type)
+static inline uint32_t port_type_value(const char *port_type)
 {
 	uint32_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(port_types); i++) {

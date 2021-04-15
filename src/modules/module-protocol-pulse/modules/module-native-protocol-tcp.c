@@ -22,6 +22,11 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <pipewire/pipewire.h>
+
+#include "../module.h"
+#include "registry.h"
+
 #define ERROR_RETURN(str) 		\
 	{ 				\
 		pw_log_error(str); 	\
@@ -77,7 +82,7 @@ static const struct spa_dict_item module_native_protocol_tcp_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-static struct module *create_module_native_protocol_tcp(struct impl *impl, const char *argument)
+struct module *create_module_native_protocol_tcp(struct impl *impl, const char *argument)
 {
 	struct module *module;
 	struct module_native_protocol_tcp_data *d;
@@ -91,7 +96,7 @@ static struct module *create_module_native_protocol_tcp(struct impl *impl, const
 		goto out;
 	}
 	if (argument)
-		add_props(props, argument);
+		module_args_add_props(props, argument);
 
 	if ((port = pw_properties_get(props, "port")) == NULL)
 		port = "4713";

@@ -23,42 +23,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-struct module;
-
-struct module_info {
-	const char *name;
-	struct module *(*create) (struct impl *impl, const char *args);
-};
-
-struct module_events {
-#define VERSION_MODULE_EVENTS	0
-	uint32_t version;
-
-	void (*loaded) (void *data, int res);
-};
-
-#define module_emit_loaded(m,r) spa_hook_list_call(&m->hooks, struct module_events, loaded, 0, r)
-
-struct module_methods {
-#define VERSION_MODULE_METHODS	0
-	uint32_t version;
-
-	int (*load) (struct client *client, struct module *module);
-	int (*unload) (struct client *client, struct module *module);
-};
-
-struct module {
-	uint32_t idx;
-	const char *name;
-	const char *args;
-	struct pw_properties *props;
-	struct spa_list link;           /**< link in client modules */
-	struct impl *impl;
-	const struct module_methods *methods;
-	struct spa_hook_list hooks;
-	struct spa_source *unload;
-	void *user_data;
-};
+#include "module.h"
 
 static int module_unload(struct client *client, struct module *module);
 
@@ -69,7 +34,7 @@ static void on_module_unload(void *data, uint64_t count)
 	module_unload(NULL, module);
 }
 
-static struct module *module_new(struct impl *impl, const struct module_methods *methods, size_t user_data)
+struct module *module_new(struct impl *impl, const struct module_methods *methods, size_t user_data)
 {
 	struct module *module;
 
@@ -143,7 +108,7 @@ static int module_unload(struct client *client, struct module *module)
 }
 
 /** utils */
-static void add_props(struct pw_properties *props, const char *str)
+void module_args_add_props(struct pw_properties *props, const char *str)
 {
 	char *s = strdup(str), *p = s, *e, f;
 	const char *k, *v;
@@ -177,7 +142,7 @@ static void add_props(struct pw_properties *props, const char *str)
 	free(s);
 }
 
-static int args_to_audioinfo(struct impl *impl, struct pw_properties *props, struct spa_audio_info_raw *info)
+int module_args_to_audioinfo(struct impl *impl, struct pw_properties *props, struct spa_audio_info_raw *info)
 {
 	const char *str;
 
@@ -225,10 +190,7 @@ static int args_to_audioinfo(struct impl *impl, struct pw_properties *props, str
 	return 0;
 }
 
-#include "module-loopback.c"
-#include "module-null-sink.c"
-#include "module-native-protocol-tcp.c"
-#include "module-simple-protocol-tcp.c"
+#include "modules/registry.h"
 
 static const struct module_info module_list[] = {
 	{ "module-loopback", create_module_loopback, },

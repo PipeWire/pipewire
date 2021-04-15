@@ -22,15 +22,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-struct volume {
-	uint8_t channels;
-	float values[CHANNELS_MAX];
-};
-
-#define VOLUME_INIT	(struct volume) {		\
-				.channels = 0,		\
-			}
-
 static inline bool volume_valid(const struct volume *vol)
 {
 	if (vol->channels == 0 || vol->channels > CHANNELS_MAX)

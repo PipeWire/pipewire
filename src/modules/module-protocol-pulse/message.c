@@ -88,14 +88,6 @@ static inline const struct str_map *str_map_find(const struct str_map *map, cons
 	return NULL;
 }
 
-struct descriptor {
-	uint32_t length;
-	uint32_t channel;
-	uint32_t offset_hi;
-	uint32_t offset_lo;
-	uint32_t flags;
-};
-
 enum {
 	TAG_INVALID = 0,
 	TAG_STRING = 't',

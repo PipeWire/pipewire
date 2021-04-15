@@ -50,7 +50,7 @@ msgstr "Modem"
 
 #: src/examples/media-session/alsa-monitor.c:539
 msgid "Unknown device"
-msgstr ""
+msgstr "Onbekend apparaat"
 
 #: src/tools/pw-cat.c:991
 #, c-format
@@ -161,15 +161,13 @@ msgstr "Microfoon"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2715
 #: spa/plugins/alsa/acp/alsa-mixer.c:2799
-#, fuzzy
 msgid "Front Microphone"
-msgstr "Docking station-microfoon"
+msgstr "Microfoon vooraan"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2716
 #: spa/plugins/alsa/acp/alsa-mixer.c:2800
-#, fuzzy
 msgid "Rear Microphone"
-msgstr "Microfoon"
+msgstr "Microfoon achteraan"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2717
 msgid "External Microphone"
@@ -347,9 +345,8 @@ msgstr ""
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4535
 #: spa/plugins/alsa/acp/alsa-mixer.c:4693
-#, fuzzy
 msgid "Speakerphone"
-msgstr "Analoog stereo"
+msgstr "Luidspreker"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4536
 #: spa/plugins/alsa/acp/alsa-mixer.c:4537
@@ -430,7 +427,7 @@ msgstr ""
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4556
 msgid "Game"
-msgstr ""
+msgstr "Spel"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4690
 msgid "Analog Mono Duplex"
@@ -446,7 +443,7 @@ msgstr "Digitaal stereo duplex (IEC958)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4695
 msgid "Multichannel Duplex"
-msgstr ""
+msgstr "Multikanaal-duplex"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4696
 msgid "Stereo Duplex"
@@ -567,7 +564,7 @@ msgstr ""
 
 #: spa/plugins/bluez5/bluez5-device.c:981
 msgid "Handsfree"
-msgstr ""
+msgstr "Handenvrij"
 
 #: spa/plugins/bluez5/bluez5-device.c:996
 msgid "Headphone"
@@ -575,20 +572,20 @@ msgstr "Koptelefoon"
 
 #: spa/plugins/bluez5/bluez5-device.c:1001
 msgid "Portable"
-msgstr ""
+msgstr "Draagbaar"
 
 #: spa/plugins/bluez5/bluez5-device.c:1006
 msgid "Car"
-msgstr ""
+msgstr "Auto"
 
 #: spa/plugins/bluez5/bluez5-device.c:1011
 msgid "HiFi"
-msgstr ""
+msgstr "HiFi"
 
 #: spa/plugins/bluez5/bluez5-device.c:1016
 msgid "Phone"
-msgstr ""
+msgstr "Telefoon"
 
 #: spa/plugins/bluez5/bluez5-device.c:1022
 msgid "Bluetooth"
-msgstr ""
+msgstr "Bluetooth"

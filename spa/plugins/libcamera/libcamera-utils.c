@@ -756,7 +756,19 @@ mmap_init(struct impl *this,
 
 	spa_log_info(this->log, "libcamera: In mmap_init()");
 
-	port->memtype = SPA_DATA_DmaBuf;
+	if (n_buffers > 0) {
+		d = buffers[0]->datas;
+
+		if (d[0].type != SPA_ID_INVALID &&
+		    d[0].type & (1u << SPA_DATA_DmaBuf)) {
+			port->memtype = SPA_DATA_DmaBuf;
+		} else if (d[0].type & (1u << SPA_DATA_MemPtr)) {
+			port->memtype = SPA_DATA_MemPtr;
+		} else {
+			spa_log_error(this->log, "v4l2: can't use buffers of type %d", d[0].type);
+			return -EINVAL;
+		}
+	}
 
 	/* get n_buffers from libcamera */
 	uint32_t libcamera_nbuffers = libcamera_get_nbuffers(port->dev.camera);
@@ -778,7 +790,7 @@ mmap_init(struct impl *this,
 
 		d = buffers[i]->datas;
 		for(j = 0; j < buffers[i]->n_datas; ++j) {
-			d[j].type = SPA_DATA_DmaBuf;
+			d[j].type = port->memtype;
 			d[j].flags = SPA_DATA_FLAG_READABLE;
 			d[j].mapoffset = 0;
 			d[j].maxsize = libcamera_get_max_size(port->dev.camera);
@@ -786,8 +798,6 @@ mmap_init(struct impl *this,
 			d[j].chunk->size = 0;
 			d[j].chunk->stride = port->fmt.bytesperline; /* FIXME:: This needs to be appropriately filled */
 			d[j].chunk->flags = 0;
-
-			d[j].flags = SPA_DATA_FLAG_READABLE;
 
 			if(port->memtype == SPA_DATA_DmaBuf) {
 				d[j].fd = libcamera_get_fd(port->dev.camera, i, j);

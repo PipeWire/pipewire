@@ -1,4 +1,4 @@
-bluez5_deps = [ dbus_dep, sbc_dep, bluez_dep ]
+bluez5_deps = [ mathlib, dbus_dep, sbc_dep, bluez_dep ]
 foreach dep: bluez5_deps
   if not dep.found()
     subdir_done()

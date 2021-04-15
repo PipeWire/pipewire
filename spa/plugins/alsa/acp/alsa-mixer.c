@@ -2839,7 +2839,7 @@ static int path_verify(pa_alsa_path *p) {
         if (p->device_port_type == PA_DEVICE_PORT_TYPE_UNKNOWN)
             p->device_port_type = map->type;
         if (!p->description)
-            p->description = pa_xstrdup(map->description);
+            p->description = pa_xstrdup(_(map->description));
     }
 
     if (!p->description) {
@@ -2945,6 +2945,12 @@ pa_alsa_path* pa_alsa_path_new(const char *paths_dir, const char *fname, pa_alsa
 
     if (path_verify(p) < 0)
         goto fail;
+
+    if (p->description) {
+	    char *tmp = p->description;
+	    p->description = pa_xstrdup(_(tmp));
+	    free(tmp);
+    }
 
     return p;
 
@@ -4130,10 +4136,10 @@ static int mapping_parse_description(pa_config_parser_state *state) {
 
     if ((m = pa_alsa_mapping_get(ps, state->section))) {
         pa_xfree(m->description);
-        m->description = pa_xstrdup(state->rvalue);
+        m->description = pa_xstrdup(_(state->rvalue));
     } else if ((p = profile_get(ps, state->section))) {
         pa_xfree(p->description);
-        p->description = pa_xstrdup(state->rvalue);
+        p->description = pa_xstrdup(_(state->rvalue));
     } else {
         pa_log("[%s:%u] Section name %s invalid.", state->filename, state->lineno, state->section);
         return -1;

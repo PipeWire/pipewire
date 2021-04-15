@@ -258,41 +258,9 @@ static struct module *create_module_loopback(struct impl *impl, const char *argu
 		pw_properties_set(props, "sink", NULL);
 	}
 
-	info.format = SPA_AUDIO_FORMAT_F32P;
-
-	if ((str = pw_properties_get(props, "channels")) != NULL) {
-		info.channels = pw_properties_parse_int(str);
-		pw_properties_set(props, "channels", NULL);
-	} else {
-		info.channels = impl->defs.sample_spec.channels;
-	}
-	if ((str = pw_properties_get(props, "rate")) != NULL) {
-		info.rate = pw_properties_parse_int(str);
-		pw_properties_set(props, "rate", NULL);
-	} else {
-		info.rate = 0;
-	}
-
-	if ((str = pw_properties_get(props, "channel_map")) != NULL) {
-		struct channel_map map;
-
-		channel_map_parse(str, &map);
-		if (info.channels != map.channels)
-			ERROR_RETURN("Mismatched channel map");
-		channel_map_to_positions(&map, info.position);
-		pw_properties_set(props, "channel_map", NULL);
-	} else {
-		if (info.channels == impl->defs.channel_map.channels) {
-			channel_map_to_positions(&impl->defs.channel_map, info.position);
-		} else if (info.channels == 1) {
-			info.position[0] = SPA_AUDIO_CHANNEL_MONO;
-		} else if (info.channels == 2) {
-			info.position[0] = SPA_AUDIO_CHANNEL_FL;
-			info.position[1] = SPA_AUDIO_CHANNEL_FR;
-		} else {
-			ERROR_RETURN("Mismatched channel map");
-		}
-		/* TODO: pull in all of pa_channel_map_init_auto() */
+	if (args_to_audioinfo(impl, props, &info) < 0) {
+		res = -EINVAL;
+		goto out;
 	}
 
 	if ((str = pw_properties_get(props, "source_dont_move")) != NULL) {

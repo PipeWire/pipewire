@@ -6,22 +6,26 @@ again generates build files for a lower level build tool called *Ninja*,
 working in about the same level of abstraction as more familiar GNU Make
 does.
 
+Meson uses a user-specified build directory and all files produced by Meson
+are in that build directory. This build directory will be called `builddir`
+in this document.
+
 Generate the build files for Ninja:
 
 ```
-$ meson setup build
+$ meson setup builddir
 ```
 
 Once this is done, the next step is to review the build options:
 
 ```
-$ meson configure build
+$ meson configure builddir
 ```
 
 Define the installation prefix:
 
 ```
-$ meson configure -Dprefix=/usr # Default: /usr/local
+$ meson configure builddir -Dprefix=/usr # Default: /usr/local
 ```
 
 Pipewire specific build options are listed in the "Project options"
@@ -30,7 +34,7 @@ section. They are defined in `meson_options.txt`.
 Finally, invoke the build:
 
 ```
-$ ninja -C build
+$ ninja -C builddir
 ```
 
 Just to avoid any confusion: `autogen.sh` is a script invoked by *Jhbuild*,
@@ -54,6 +58,7 @@ If you want to run pipewire from the build directory, you can do this
 by doing:
 
 ```
+cd builddir/
 make run
 ```
 
@@ -65,6 +70,7 @@ You can also enable more debugging with the PIPEWIRE_DEBUG environment
 variable like so:
 
 ```
+cd builddir/
 PIPEWIRE_DEBUG=4 make run
 ```
 
@@ -82,7 +88,7 @@ systemctl --user stop pipewire.service \
 ## Installing
 
 PipeWire comes with quite a bit of libraries and tools, run
-inside `build`:
+inside `builddir`:
 
 ```
 sudo meson install

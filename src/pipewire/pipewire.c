@@ -538,6 +538,8 @@ void pw_init(int *argc, char **argv[])
 	n_items = 0;
 	if ((str = getenv("PIPEWIRE_CPU")))
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_CPU_FORCE, str);
+	if ((str = getenv("PIPEWIRE_VM")))
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_CPU_VM_TYPE, str);
 	info = SPA_DICT_INIT(items, n_items);
 
 	add_interface(support, SPA_NAME_SUPPORT_CPU, SPA_TYPE_INTERFACE_CPU, &info);

@@ -140,6 +140,7 @@ struct spa_cpu_methods {
 
 /** keys can be given when initializing the cpu handle */
 #define SPA_KEY_CPU_FORCE		"cpu.force"		/**< force cpu flags */
+#define SPA_KEY_CPU_VM_TYPE		"cpu.vm.type"		/**< force a VM type */
 
 #ifdef __cplusplus
 }  /* extern "C" */

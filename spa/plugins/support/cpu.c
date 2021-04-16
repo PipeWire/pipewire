@@ -259,6 +259,8 @@ impl_init(const struct spa_handle_factory *factory,
 	if (info) {
 		if ((str = spa_dict_lookup(info, SPA_KEY_CPU_FORCE)) != NULL)
 			this->flags = atoi(str);
+		if ((str = spa_dict_lookup(info, SPA_KEY_CPU_VM_TYPE)) != NULL)
+			this->vm_type = atoi(str);
 	}
 
 	spa_log_debug(this->log, NAME " %p: count:%d align:%d flags:%08x",

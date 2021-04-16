@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <sched.h>
+#include <fcntl.h>
 
 #ifdef __FreeBSD__
 #include <sys/sysctl.h>
@@ -52,7 +53,24 @@ struct impl {
 	uint32_t force;
 	uint32_t count;
 	uint32_t max_align;
+	uint32_t vm_type;
 };
+
+static char *read_file(const char *name, char *buffer, size_t len)
+{
+	int n, fd;
+
+	if ((fd = open(name, O_RDONLY | O_CLOEXEC, 0)) < 0)
+		return NULL;
+
+	if ((n = read(fd, buffer, len)) < 0) {
+		close(fd);
+		return NULL;
+	}
+	buffer[n] = 0;
+	close(fd);
+	return buffer;
+}
 
 # if defined (__i386__) || defined (__x86_64__)
 #include "cpu-x86.c"
@@ -116,12 +134,66 @@ impl_cpu_get_max_align(void *object)
 	return impl->max_align;
 }
 
+static uint32_t
+impl_cpu_get_vm_type(void *object)
+{
+	struct impl *impl = object;
+
+	if (impl->vm_type != 0)
+		return impl->vm_type;
+
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
+	static const char *const dmi_vendors[] = {
+		"/sys/class/dmi/id/product_name", /* Test this before sys_vendor to detect KVM over QEMU */
+		"/sys/class/dmi/id/sys_vendor",
+		"/sys/class/dmi/id/board_vendor",
+		"/sys/class/dmi/id/bios_vendor"
+	};
+	static const struct {
+		const char *vendor;
+		int id;
+	} dmi_vendor_table[] = {
+		{ "KVM",		SPA_CPU_VM_KVM },
+		{ "QEMU",		SPA_CPU_VM_QEMU },
+		{ "VMware",		SPA_CPU_VM_VMWARE }, /* https://kb.vmware.com/s/article/1009458 */
+		{ "VMW",                SPA_CPU_VM_VMWARE },
+		{ "innotek GmbH",	SPA_CPU_VM_ORACLE },
+		{ "Oracle Corporation",	SPA_CPU_VM_ORACLE },
+		{ "Xen",		SPA_CPU_VM_XEN },
+		{ "Bochs",		SPA_CPU_VM_BOCHS },
+		{ "Parallels",		SPA_CPU_VM_PARALLELS },
+		/* https://wiki.freebsd.org/bhyve */
+		{ "BHYVE",		SPA_CPU_VM_BHYVE },
+        };
+	uint32_t i, j;
+
+	for (i = 0; i < SPA_N_ELEMENTS(dmi_vendors); i++) {
+		char buffer[256], *s;
+
+		if ((s = read_file(dmi_vendors[i], buffer, sizeof(buffer))) == NULL)
+			continue;
+
+		for (j = 0; j < SPA_N_ELEMENTS(dmi_vendor_table); j++) {
+			if (strstr(s, dmi_vendor_table[j].vendor) == s) {
+				spa_log_debug(impl->log, "Virtualization %s found in DMI (%s)",
+						s, dmi_vendors[i]);
+				impl->vm_type = dmi_vendor_table[j].id;
+				goto done;
+                        }
+		}
+	}
+done:
+#endif
+	return impl->vm_type;
+}
+
 static const struct spa_cpu_methods impl_cpu = {
 	SPA_VERSION_CPU_METHODS,
 	.get_flags = impl_cpu_get_flags,
 	.force_flags = impl_cpu_force_flags,
 	.get_count = impl_cpu_get_count,
 	.get_max_align = impl_cpu_get_max_align,
+	.get_vm_type = impl_cpu_get_vm_type,
 };
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)

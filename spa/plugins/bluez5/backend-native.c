@@ -268,9 +268,18 @@ static int rfcomm_send_reply(struct spa_source *source, const char *data)
 	return len;
 }
 
+static bool rfcomm_volume_enabled(struct rfcomm *rfcomm)
+{
+	return rfcomm->device != NULL
+		&& (rfcomm->device->hw_volume_profiles & rfcomm->profile);
+}
+
 static void rfcomm_emit_volume_changed(struct rfcomm *rfcomm, int id, int hw_volume)
 {
 	struct spa_bt_transport_volume *t_volume;
+
+	if (!rfcomm_volume_enabled(rfcomm))
+		return;
 
 	if ((id == SPA_BT_VOLUME_ID_RX || id == SPA_BT_VOLUME_ID_TX) && hw_volume >= 0) {
 		rfcomm->volumes[id].active = true;
@@ -334,6 +343,9 @@ static bool rfcomm_send_volume_cmd(struct spa_source *source, int id)
 	struct spa_bt_transport_volume *t_volume;
 	char *cmd;
 	int hw_volume;
+
+	if (!rfcomm_volume_enabled(rfcomm))
+		return false;
 
 	t_volume = rfcomm->transport ? &rfcomm->transport->volumes[id] : NULL;
 
@@ -1185,10 +1197,9 @@ static int sco_set_volume_cb(void *data, int id, float volume)
 	char *msg;
 	int value;
 
-	if (!(rfcomm->profile & SPA_BT_PROFILE_HEADSET_HEAD_UNIT))
-		return -ENOTSUP;
-
-	if (!(rfcomm->has_volume && rfcomm->volumes[id].active))
+	if (!rfcomm_volume_enabled(rfcomm)
+	    || !(rfcomm->profile & SPA_BT_PROFILE_HEADSET_HEAD_UNIT)
+	    || !(rfcomm->has_volume && rfcomm->volumes[id].active))
 		return -ENOTSUP;
 
 	value = spa_bt_volume_linear_to_hw(volume, t_volume->hw_volume_max);
@@ -1473,7 +1484,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 		rfcomm->transport = t;
 
 		if (profile == SPA_BT_PROFILE_HSP_AG) {
-			rfcomm->has_volume = true;
+			rfcomm->has_volume = rfcomm_volume_enabled(rfcomm);
 			rfcomm->hs_state = hsp_hs_init1;
 		}
 
@@ -1500,8 +1511,10 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 			rfcomm->codec_negotiation_supported = false;
 		}
 
-		rfcomm->has_volume = true;
-		hf_features |= SPA_BT_HFP_HF_FEATURE_REMOTE_VOLUME_CONTROL;
+		if (rfcomm_volume_enabled(rfcomm)) {
+			rfcomm->has_volume = true;
+			hf_features |= SPA_BT_HFP_HF_FEATURE_REMOTE_VOLUME_CONTROL;
+		}
 
 		/* send command to AG with the features supported by Hands-Free */
 		cmd = spa_aprintf("AT+BRSF=%u", hf_features);

@@ -423,6 +423,8 @@ struct spa_bt_device {
 	uint8_t battery;
 	int has_battery;
 
+	uint32_t hw_volume_profiles;
+
 	struct spa_hook_list listener_list;
 	bool added;
 
@@ -551,7 +553,8 @@ struct spa_bt_transport *spa_bt_transport_find(struct spa_bt_monitor *monitor, c
 struct spa_bt_transport *spa_bt_transport_find_full(struct spa_bt_monitor *monitor,
                                                     bool (*callback) (struct spa_bt_transport *t, const void *data),
                                                     const void *data);
-int64_t spa_bt_transport_get_delay_nsec(struct spa_bt_transport *t);
+int64_t spa_bt_transport_get_delay_nsec(struct spa_bt_transport *transport);
+bool spa_bt_transport_volume_enabled(struct spa_bt_transport *transport);
 
 int spa_bt_transport_acquire(struct spa_bt_transport *t, bool optional);
 int spa_bt_transport_release(struct spa_bt_transport *t);

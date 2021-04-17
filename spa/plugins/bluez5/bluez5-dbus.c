@@ -136,6 +136,9 @@ struct spa_bt_a2dp_codec_switch {
 	size_t num_paths;
 };
 
+#define DEFAULT_RECONNECT_PROFILES SPA_BT_PROFILE_NULL
+#define DEFAULT_HW_VOLUME_PROFILES (SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY | SPA_BT_PROFILE_A2DP_SOURCE)
+
 #define BT_DEVICE_DISCONNECTED	0
 #define BT_DEVICE_CONNECTED	1
 #define BT_DEVICE_INIT		-1
@@ -665,6 +668,9 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 	d->monitor = monitor;
 	d->path = strdup(path);
 	d->battery_path = battery_get_name(d->path);
+	d->reconnect_profiles = DEFAULT_RECONNECT_PROFILES;
+	d->hw_volume_profiles = DEFAULT_HW_VOLUME_PROFILES;
+
 	spa_list_init(&d->remote_endpoint_list);
 	spa_list_init(&d->transport_list);
 	spa_list_init(&d->codec_switch_list);
@@ -1464,8 +1470,17 @@ struct spa_bt_transport *spa_bt_transport_create(struct spa_bt_monitor *monitor,
 	return t;
 }
 
+bool spa_bt_transport_volume_enabled(struct spa_bt_transport *transport)
+{
+	return transport->device != NULL
+		&& (transport->device->hw_volume_profiles & transport->profile);
+}
+
 static void transport_sync_volume(struct spa_bt_transport *transport)
 {
+	if (!spa_bt_transport_volume_enabled(transport))
+		return;
+
 	for (int i = 0; i < SPA_BT_VOLUME_ID_TERM; ++i)
 		spa_bt_transport_set_volume(transport, i, transport->volumes[i].volume);
 	spa_bt_transport_emit_volume_changed(transport);
@@ -1687,7 +1702,8 @@ static void spa_bt_transport_volume_changed(struct spa_bt_transport *transport)
 					t_volume->hw_volume_max);
 		spa_log_debug(monitor->log, "transport %p: volume changed %d(%f) ",
 			transport, t_volume->new_hw_volume, t_volume->volume);
-		spa_bt_transport_emit_volume_changed(transport);
+		if (spa_bt_transport_volume_enabled(transport))
+			spa_bt_transport_emit_volume_changed(transport);
 	}
 }
 
@@ -1942,7 +1958,7 @@ static int transport_set_volume(void *data, int id, float volume)
 	struct spa_bt_transport_volume *t_volume = &transport->volumes[id];
 	uint16_t value;
 
-	if (!t_volume->active)
+	if (!t_volume->active || !spa_bt_transport_volume_enabled(transport))
 		return -ENOTSUP;
 
 	value = spa_bt_volume_linear_to_hw(volume, 127);

@@ -288,7 +288,7 @@ static void volume_changed(void *userdata)
 	struct spa_bt_transport_volume *t_volume;
 	float prev_hw_volume;
 
-	if (!node->transport)
+	if (!node->transport || !spa_bt_transport_volume_enabled(node->transport))
 		return;
 
 	/* PW is the controller for remote device. */
@@ -445,7 +445,8 @@ static void dynamic_node_volume_changed(void *data)
 	int id = SPA_FLAG_CLEAR(node->id, DYNAMIC_NODE_ID_FLAG), volume_id;
 
 	/* Remote device is the controller */
-	if (!node->transport || impl->profile != DEVICE_PROFILE_AG)
+	if (!node->transport || impl->profile != DEVICE_PROFILE_AG
+	    || !spa_bt_transport_volume_enabled(node->transport))
 		return;
 
 	if (id == 0 || id == 2)
@@ -1514,7 +1515,8 @@ static int node_set_volume(struct impl *this, struct node *node, float volumes[]
 
 	t_volume = node->transport ? &node->transport->volumes[node->id]: NULL;
 
-	if (t_volume && t_volume->active) {
+	if (t_volume && t_volume->active
+	    && spa_bt_transport_volume_enabled(node->transport)) {
 		float hw_volume = node_get_hw_volume(node);
 		spa_log_debug(this->log, "node %p hardware volume %f", node, hw_volume);
 
@@ -1866,11 +1868,16 @@ impl_init(const struct spa_handle_factory *factory,
 	if (info) {
 		int profiles;
 		this->bt_dev->settings = filter_bluez_device_setting(this, info);
-		if ((str = spa_dict_lookup(info, "bluez5.reconnect-profiles")) != NULL)
-			profiles = spa_bt_profiles_from_json_array(str);
-		if (str == NULL || profiles < 0)
-			profiles = SPA_BT_PROFILE_NULL;
-		this->bt_dev->reconnect_profiles = profiles;
+
+		if ((str = spa_dict_lookup(info, "bluez5.reconnect-profiles")) != NULL) {
+			if ((profiles = spa_bt_profiles_from_json_array(str)) >= 0)
+				this->bt_dev->reconnect_profiles = profiles;
+		}
+
+		if ((str = spa_dict_lookup(info, "bluez5.hw-volume")) != NULL) {
+			if ((profiles = spa_bt_profiles_from_json_array(str)) >= 0)
+				this->bt_dev->hw_volume_profiles = profiles;
+		}
 	}
 
 	this->device.iface = SPA_INTERFACE_INIT(

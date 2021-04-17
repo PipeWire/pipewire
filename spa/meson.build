@@ -16,9 +16,6 @@ if not get_option('spa-plugins').disabled()
     udevrulesdir = '/lib/udev/rules.d'
   endif
 
-  # common dependencies
-  libudev_dep = dependency('libudev', required: get_option('alsa').enabled() or get_option('v4l2').enabled() or get_option('udev').enabled())
-
   # plugin-specific dependencies
   alsa_dep = dependency('alsa', required: get_option('alsa'))
   bluez_dep = dependency('bluez', version : '>= 4.101', required: get_option('bluez5'))
@@ -33,6 +30,11 @@ if not get_option('spa-plugins').disabled()
   vulkan_dep = dependency('vulkan', disabler : true, version : '>= 1.1.69', required: get_option('vulkan'))
   vulkan_headers = cc.has_header('vulkan/vulkan.h', dependencies : vulkan_dep)
   libcamera_dep = dependency('camera', required: get_option('libcamera'))
+
+  # common dependencies
+  libudev_dep = dependency('libudev', required: alsa_dep.found())
+  libudev_dep = dependency('libudev', required: get_option('udev'))
+  libudev_dep = dependency('libudev', required: get_option('v4l2'))
 
   subdir('plugins')
 endif

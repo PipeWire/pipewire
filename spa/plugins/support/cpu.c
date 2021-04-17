@@ -63,11 +63,11 @@ static char *read_file(const char *name, char *buffer, size_t len)
 	if ((fd = open(name, O_RDONLY | O_CLOEXEC, 0)) < 0)
 		return NULL;
 
-	if ((n = read(fd, buffer, len)) < 0) {
+	if ((n = read(fd, buffer, len-1)) < 0) {
 		close(fd);
 		return NULL;
 	}
-	buffer[n] = 0;
+	buffer[n] = '\0';
 	close(fd);
 	return buffer;
 }

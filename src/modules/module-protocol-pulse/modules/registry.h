@@ -36,5 +36,6 @@ struct module *create_module_null_sink(struct impl *impl, const char *argument);
 struct module *create_module_remap_sink(struct impl *impl, const char *argument);
 struct module *create_module_remap_source(struct impl *impl, const char *argument);
 struct module *create_module_simple_protocol_tcp(struct impl *impl, const char *argument);
+struct module *create_module_pipe_sink(struct impl *impl, const char *argument);
 
 #endif

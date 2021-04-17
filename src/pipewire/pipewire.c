@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <dlfcn.h>
 
+#include <locale.h>
 #include <libintl.h>
 
 #include <spa/utils/names.h>

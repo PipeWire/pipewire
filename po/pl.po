@@ -1,7 +1,7 @@
 # Polish translation for pipewire.
-# Copyright © 2008-2019 the pipewire authors.
+# Copyright © 2008-2021 the pipewire authors.
 # This file is distributed under the same license as the pipewire package.
-# Piotr Drąg <piotrdrag@gmail.com>, 2008, 2012-2019.
+# Piotr Drąg <piotrdrag@gmail.com>, 2008, 2012-2021.
 #
 msgid ""
 msgstr ""
@@ -9,17 +9,15 @@ msgstr ""
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
 "POT-Creation-Date: 2021-04-15 15:21+0200\n"
-"PO-Revision-Date: 2021-01-30 12:56+0000\n"
+"PO-Revision-Date: 2021-04-17 14:10+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
-"Language-Team: Polish <https://translate.fedoraproject.org/projects/"
-"pipewire/pipewire/pl/>\n"
+"Language-Team: Polish <community-poland@mozilla.org>\n"
 "Language: pl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
 "|| n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 4.4.2\n"
 
 #: src/daemon/pipewire.c:43
 #, c-format
@@ -29,14 +27,19 @@ msgid ""
 "      --version                         Show version\n"
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
+"%s [opcje]\n"
+"  -h, --help                            Wyświetla tę pomoc\n"
+"      --version                         Wyświetla wersję\n"
+"  -c, --config                          Wczytuje konfigurację (domyślnie "
+"%s)\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr ""
+msgstr "System multimediów PipeWire"
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr ""
+msgstr "Uruchomienie systemu multimediów PipeWire"
 
 #: src/examples/media-session/alsa-monitor.c:526
 #: spa/plugins/alsa/acp/compat.c:187
@@ -50,7 +53,7 @@ msgstr "Modem"
 
 #: src/examples/media-session/alsa-monitor.c:539
 msgid "Unknown device"
-msgstr ""
+msgstr "Nieznane urządzenie"
 
 #: src/tools/pw-cat.c:991
 #, c-format
@@ -61,6 +64,11 @@ msgid ""
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
+"%s [opcje] <plik>\n"
+"  -h, --help                            Wyświetla tę pomoc\n"
+"      --version                         Wyświetla wersję\n"
+"  -v, --verbose                         Wyświetla więcej komunikatów\n"
+"\n"
 
 #: src/tools/pw-cat.c:998
 #, c-format
@@ -79,6 +87,26 @@ msgid ""
 "      --list-targets                    List available targets for --target\n"
 "\n"
 msgstr ""
+"  -R, --remote                          Nazwa zdalnej usługi\n"
+"      --media-type                      Ustawia typ multimediów (domyślnie "
+"%s)\n"
+"      --media-category                  Ustawia kategorię multimediów "
+"(domyślnie %s)\n"
+"      --media-role                      Ustawia rolę multimediów (domyślnie "
+"%s)\n"
+"      --target                          Ustawia węzeł docelowy (domyślnie "
+"%s)\n"
+"                                          0 oznacza brak wiązania\n"
+"      --latency                         Ustawia opóźnienie węzła (domyślnie "
+"%s)\n"
+"                                          Xjednostka (jednostka = s, ms, us, "
+"ns)\n"
+"                                          lub bezpośrednie próbki (256)\n"
+"                                          częstotliwość jest z pliku "
+"źródłowego\n"
+"      --list-targets                    Wyświetla listę dostępnych elementów "
+"docelowych dla --target\n"
+"\n"
 
 #: src/tools/pw-cat.c:1016
 #, c-format
@@ -99,6 +127,22 @@ msgid ""
 "%d)\n"
 "\n"
 msgstr ""
+"      --rate                            Częstotliwość próbki (wymagane do "
+"nagrywania) (domyślnie %u)\n"
+"      --channels                        Liczba kanałów (wymagane do "
+"nagrywania) (domyślnie %u)\n"
+"      --channel-map                     Mapa kanałów\n"
+"                                            jedna z: „stereo”, "
+"„surround-51”… lub\n"
+"                                            lista nazw kanałów rozdzielonych "
+"przecinkami: np. „FL,FR”\n"
+"      --format                          Format próbki %s (wymagane do "
+"nagrywania) (domyślnie %s)\n"
+"      --volume                          Głośność potoku w zakresie 0-1,0 "
+"(domyślnie %.3f)\n"
+"  -q  --quality                         Jakość resamplera od 0 do 15 "
+"(domyślnie %d)\n"
+"\n"
 
 #: src/tools/pw-cat.c:1033
 msgid ""
@@ -107,6 +151,10 @@ msgid ""
 "  -m, --midi                            Midi mode\n"
 "\n"
 msgstr ""
+"  -p, --playback                        Tryb odtwarzania\n"
+"  -r, --record                          Tryb nagrywania\n"
+"  -m, --midi                            Tryb MIDI\n"
+"\n"
 
 #: src/tools/pw-cli.c:2932
 #, c-format
@@ -118,10 +166,17 @@ msgid ""
 "  -r, --remote                          Remote daemon name\n"
 "\n"
 msgstr ""
+"%s [opcje] [polecenie]\n"
+"  -h, --help                            Wyświetla tę pomoc\n"
+"      --version                         Wyświetla wersję\n"
+"  -d, --daemon                          Uruchamia jako usługę (domyślnie "
+"tego nie robi)\n"
+"  -r, --remote                          Nazwa zdalnej usługi\n"
+"\n"
 
 #: spa/plugins/alsa/acp/acp.c:290
 msgid "Pro Audio"
-msgstr ""
+msgstr "Dźwięk w zastosowaniach profesjonalnych"
 
 #: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4698
 #: spa/plugins/bluez5/bluez5-device.c:845
@@ -550,22 +605,22 @@ msgstr[2] ""
 
 #: spa/plugins/bluez5/bluez5-device.c:855
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
-msgstr ""
+msgstr "Bramka dźwięku (źródło A2DP i AG HSP/HFP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:867
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink%s%s)"
-msgstr ""
+msgstr "Odtwarzanie o wysokiej dokładności (odpływ A2DP%s%s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:869
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink%s%s)"
-msgstr ""
+msgstr "Dupleks o wysokiej dokładności (źródło/odpływ A2DP%s%s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:897
 #, c-format
 msgid "Headset Head Unit (HSP/HFP%s%s)"
-msgstr ""
+msgstr "Jednostka główna słuchawek z mikrofonem (HSP/HFP%s%s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:981
 msgid "Handsfree"

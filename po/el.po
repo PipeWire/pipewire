@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: el\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
-"POT-Creation-Date: 2021-04-15 15:21+0200\n"
+"POT-Creation-Date: 2021-04-18 16:54+0800\n"
 "PO-Revision-Date: 2014-05-08 09:53+0300\n"
 "Last-Translator: Dimitris Spingos (Δημήτρης Σπίγγος) <dmtrs32@gmail.com>\n"
 "Language-Team: team@lists.gnome.gr\n"
@@ -121,8 +121,8 @@ msgstr ""
 msgid "Pro Audio"
 msgstr ""
 
-#: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4698
-#: spa/plugins/bluez5/bluez5-device.c:845
+#: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4704
+#: spa/plugins/bluez5/bluez5-device.c:1000
 msgid "Off"
 msgstr "Ανενεργό"
 
@@ -153,7 +153,7 @@ msgstr "Γραμμή εισόδου"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2714
 #: spa/plugins/alsa/acp/alsa-mixer.c:2798
-#: spa/plugins/bluez5/bluez5-device.c:986
+#: spa/plugins/bluez5/bluez5-device.c:1145
 msgid "Microphone"
 msgstr "Μικρόφωνο"
 
@@ -219,7 +219,7 @@ msgid "No Bass Boost"
 msgstr "Χωρίς ενίσχυση μπάσων"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2729
-#: spa/plugins/bluez5/bluez5-device.c:991
+#: spa/plugins/bluez5/bluez5-device.c:1150
 msgid "Speaker"
 msgstr "Ηχείο"
 
@@ -309,16 +309,16 @@ msgstr "Είσοδος %s"
 msgid "Virtual Surround 7.1"
 msgstr "Εικονικός περιφερειακός ήχος δέκτη"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4521
+#: spa/plugins/alsa/acp/alsa-mixer.c:4527
 msgid "Analog Mono"
 msgstr "Αναλογικό μονοφωνικό"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4522
+#: spa/plugins/alsa/acp/alsa-mixer.c:4528
 #, fuzzy
 msgid "Analog Mono (Left)"
 msgstr "Αναλογικό μονοφωνικό"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4523
+#: spa/plugins/alsa/acp/alsa-mixer.c:4529
 #, fuzzy
 msgid "Analog Mono (Right)"
 msgstr "Αναλογικό μονοφωνικό"
@@ -328,144 +328,144 @@ msgstr "Αναλογικό μονοφωνικό"
 #. * here would lead to the source name to become "Analog Stereo Input
 #. * Input". The same logic applies to analog-stereo-output,
 #. * multichannel-input and multichannel-output.
-#: spa/plugins/alsa/acp/alsa-mixer.c:4524
-#: spa/plugins/alsa/acp/alsa-mixer.c:4532
-#: spa/plugins/alsa/acp/alsa-mixer.c:4533
+#: spa/plugins/alsa/acp/alsa-mixer.c:4530
+#: spa/plugins/alsa/acp/alsa-mixer.c:4538
+#: spa/plugins/alsa/acp/alsa-mixer.c:4539
 msgid "Analog Stereo"
 msgstr "Αναλογικό στερεοφωνικό"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4525
+#: spa/plugins/alsa/acp/alsa-mixer.c:4531
 msgid "Mono"
 msgstr "Μονοφωνικό"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4526
+#: spa/plugins/alsa/acp/alsa-mixer.c:4532
 msgid "Stereo"
 msgstr "Στερεοφωνικό"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4534
-#: spa/plugins/alsa/acp/alsa-mixer.c:4692
-#: spa/plugins/bluez5/bluez5-device.c:976
+#: spa/plugins/alsa/acp/alsa-mixer.c:4540
+#: spa/plugins/alsa/acp/alsa-mixer.c:4698
+#: spa/plugins/bluez5/bluez5-device.c:1135
 msgid "Headset"
 msgstr "Ακουστικά"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4535
-#: spa/plugins/alsa/acp/alsa-mixer.c:4693
+#: spa/plugins/alsa/acp/alsa-mixer.c:4541
+#: spa/plugins/alsa/acp/alsa-mixer.c:4699
 #, fuzzy
 msgid "Speakerphone"
 msgstr "Ηχείο"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4536
-#: spa/plugins/alsa/acp/alsa-mixer.c:4537
+#: spa/plugins/alsa/acp/alsa-mixer.c:4542
+#: spa/plugins/alsa/acp/alsa-mixer.c:4543
 msgid "Multichannel"
 msgstr ""
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4538
+#: spa/plugins/alsa/acp/alsa-mixer.c:4544
 msgid "Analog Surround 2.1"
 msgstr "Αναλογικός περιφερειακός ήχος 2.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4539
+#: spa/plugins/alsa/acp/alsa-mixer.c:4545
 msgid "Analog Surround 3.0"
 msgstr "Αναλογικός περιφερειακός ήχος 3.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4540
+#: spa/plugins/alsa/acp/alsa-mixer.c:4546
 msgid "Analog Surround 3.1"
 msgstr "Αναλογικός περιφερειακός ήχος 3.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4541
+#: spa/plugins/alsa/acp/alsa-mixer.c:4547
 msgid "Analog Surround 4.0"
 msgstr "Αναλογικός περιφερειακός ήχος 4.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4542
+#: spa/plugins/alsa/acp/alsa-mixer.c:4548
 msgid "Analog Surround 4.1"
 msgstr "Αναλογικός περιφερειακός ήχος 4.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4543
+#: spa/plugins/alsa/acp/alsa-mixer.c:4549
 msgid "Analog Surround 5.0"
 msgstr "Αναλογικός περιφερειακός ήχος 5.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4544
+#: spa/plugins/alsa/acp/alsa-mixer.c:4550
 msgid "Analog Surround 5.1"
 msgstr "Αναλογικός περιφερειακός ήχος 5.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4545
+#: spa/plugins/alsa/acp/alsa-mixer.c:4551
 msgid "Analog Surround 6.0"
 msgstr "Αναλογικός περιφερειακός ήχος 6.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4546
+#: spa/plugins/alsa/acp/alsa-mixer.c:4552
 msgid "Analog Surround 6.1"
 msgstr "Αναλογικός περιφερειακός ήχος 6.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4547
+#: spa/plugins/alsa/acp/alsa-mixer.c:4553
 msgid "Analog Surround 7.0"
 msgstr "Αναλογικός περιφερειακός ήχος 7.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4548
+#: spa/plugins/alsa/acp/alsa-mixer.c:4554
 msgid "Analog Surround 7.1"
 msgstr "Αναλογικός περιφερειακός ήχος 7.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4549
+#: spa/plugins/alsa/acp/alsa-mixer.c:4555
 msgid "Digital Stereo (IEC958)"
 msgstr "Ψηφιακό στερεοφωνικό (IEC958)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4550
+#: spa/plugins/alsa/acp/alsa-mixer.c:4556
 msgid "Digital Surround 4.0 (IEC958/AC3)"
 msgstr "Ψηφιακός περιφερειακός ήχος 4.0 (IEC958/AC3)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4551
+#: spa/plugins/alsa/acp/alsa-mixer.c:4557
 msgid "Digital Surround 5.1 (IEC958/AC3)"
 msgstr "Ψηφιακός περιφερειακός ήχος 5.1 (IEC958/AC3)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4552
+#: spa/plugins/alsa/acp/alsa-mixer.c:4558
 msgid "Digital Surround 5.1 (IEC958/DTS)"
 msgstr "Ψηφιακός περιφερειακός ήχος 5.1 (IEC958/DTS)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4553
+#: spa/plugins/alsa/acp/alsa-mixer.c:4559
 msgid "Digital Stereo (HDMI)"
 msgstr "Ψηφιακός στερεοφωνικός (HDMI)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4554
+#: spa/plugins/alsa/acp/alsa-mixer.c:4560
 msgid "Digital Surround 5.1 (HDMI)"
 msgstr "Ψηφιακός περιφερειακός ήχος 5.1 (HDMI)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4555
+#: spa/plugins/alsa/acp/alsa-mixer.c:4561
 msgid "Chat"
 msgstr ""
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4556
+#: spa/plugins/alsa/acp/alsa-mixer.c:4562
 msgid "Game"
 msgstr ""
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4690
+#: spa/plugins/alsa/acp/alsa-mixer.c:4696
 msgid "Analog Mono Duplex"
 msgstr "Αναλογικός μονοφωνικός αμφίδρομος"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4691
+#: spa/plugins/alsa/acp/alsa-mixer.c:4697
 msgid "Analog Stereo Duplex"
 msgstr "Αναλογικός στερεοφωνικός αμφίδρομος"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4694
+#: spa/plugins/alsa/acp/alsa-mixer.c:4700
 msgid "Digital Stereo Duplex (IEC958)"
 msgstr "Ψηφιακός στερεοφωνικός αμφίδρομος (IEC958)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4695
+#: spa/plugins/alsa/acp/alsa-mixer.c:4701
 msgid "Multichannel Duplex"
 msgstr ""
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4696
+#: spa/plugins/alsa/acp/alsa-mixer.c:4702
 #, fuzzy
 msgid "Stereo Duplex"
 msgstr "Αναλογικός στερεοφωνικός αμφίδρομος"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4697
+#: spa/plugins/alsa/acp/alsa-mixer.c:4703
 msgid "Mono Chat + 7.1 Surround"
 msgstr ""
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4800
+#: spa/plugins/alsa/acp/alsa-mixer.c:4806
 #, c-format
 msgid "%s Output"
 msgstr "Έξοδος %s"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4807
+#: spa/plugins/alsa/acp/alsa-mixer.c:4813
 #, c-format
 msgid "%s Input"
 msgstr "Είσοδος %s"
@@ -552,50 +552,62 @@ msgstr[1] ""
 "Το πιθανότερο αυτό είναι ένα σφάλμα στον οδηγό ALSA '%s'. Παρακαλούμε, "
 "αναφέρτε αυτό το θέμα στους προγραμματιστές ALSA."
 
-#: spa/plugins/bluez5/bluez5-device.c:855
+#: spa/plugins/bluez5/bluez5-device.c:1010
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:867
+#: spa/plugins/bluez5/bluez5-device.c:1033
 #, c-format
-msgid "High Fidelity Playback (A2DP Sink%s%s)"
+msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:869
+#: spa/plugins/bluez5/bluez5-device.c:1035
 #, c-format
-msgid "High Fidelity Duplex (A2DP Source/Sink%s%s)"
+msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:897
-#, c-format
-msgid "Headset Head Unit (HSP/HFP%s%s)"
+#: spa/plugins/bluez5/bluez5-device.c:1041
+msgid "High Fidelity Playback (A2DP Sink)"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:981
+#: spa/plugins/bluez5/bluez5-device.c:1043
+msgid "High Fidelity Duplex (A2DP Source/Sink)"
+msgstr ""
+
+#: spa/plugins/bluez5/bluez5-device.c:1070
+#, c-format
+msgid "Headset Head Unit (HSP/HFP, codec %s)"
+msgstr ""
+
+#: spa/plugins/bluez5/bluez5-device.c:1074
+msgid "Headset Head Unit (HSP/HFP)"
+msgstr ""
+
+#: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"
 msgstr "Ανοιχτής ακρόασης"
 
-#: spa/plugins/bluez5/bluez5-device.c:996
+#: spa/plugins/bluez5/bluez5-device.c:1155
 msgid "Headphone"
 msgstr "Ακουστικό"
 
-#: spa/plugins/bluez5/bluez5-device.c:1001
+#: spa/plugins/bluez5/bluez5-device.c:1160
 msgid "Portable"
 msgstr "Φορητό"
 
-#: spa/plugins/bluez5/bluez5-device.c:1006
+#: spa/plugins/bluez5/bluez5-device.c:1165
 msgid "Car"
 msgstr "Αυτοκίνητο"
 
-#: spa/plugins/bluez5/bluez5-device.c:1011
+#: spa/plugins/bluez5/bluez5-device.c:1170
 msgid "HiFi"
 msgstr "Υψηλή πιστότητα"
 
-#: spa/plugins/bluez5/bluez5-device.c:1016
+#: spa/plugins/bluez5/bluez5-device.c:1175
 msgid "Phone"
 msgstr "Τηλέφωνο"
 
-#: spa/plugins/bluez5/bluez5-device.c:1022
+#: spa/plugins/bluez5/bluez5-device.c:1181
 #, fuzzy
 msgid "Bluetooth"
 msgstr "Είσοδος μπλουτούθ"

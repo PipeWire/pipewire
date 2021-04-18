@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
-"POT-Creation-Date: 2021-04-15 15:21+0200\n"
+"POT-Creation-Date: 2021-04-18 16:54+0800\n"
 "PO-Revision-Date: 2019-09-01 16:15+0300\n"
 "Last-Translator: Moo\n"
 "Language-Team: \n"
@@ -122,8 +122,8 @@ msgstr ""
 msgid "Pro Audio"
 msgstr ""
 
-#: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4698
-#: spa/plugins/bluez5/bluez5-device.c:845
+#: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4704
+#: spa/plugins/bluez5/bluez5-device.c:1000
 msgid "Off"
 msgstr "Išjungta"
 
@@ -154,7 +154,7 @@ msgstr "Įvadinė linija"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2714
 #: spa/plugins/alsa/acp/alsa-mixer.c:2798
-#: spa/plugins/bluez5/bluez5-device.c:986
+#: spa/plugins/bluez5/bluez5-device.c:1145
 msgid "Microphone"
 msgstr "Mikrofonas"
 
@@ -220,7 +220,7 @@ msgid "No Bass Boost"
 msgstr "Be žemų tonų pastiprinimo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2729
-#: spa/plugins/bluez5/bluez5-device.c:991
+#: spa/plugins/bluez5/bluez5-device.c:1150
 msgid "Speaker"
 msgstr "Garsiakalbis"
 
@@ -305,16 +305,16 @@ msgstr "Pokalbio išvestis"
 msgid "Virtual Surround 7.1"
 msgstr "Virtualus erdvinis rinktuvas"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4521
+#: spa/plugins/alsa/acp/alsa-mixer.c:4527
 msgid "Analog Mono"
 msgstr "Analoginė mono"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4522
+#: spa/plugins/alsa/acp/alsa-mixer.c:4528
 #, fuzzy
 msgid "Analog Mono (Left)"
 msgstr "Analoginė mono"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4523
+#: spa/plugins/alsa/acp/alsa-mixer.c:4529
 #, fuzzy
 msgid "Analog Mono (Right)"
 msgstr "Analoginė mono"
@@ -324,143 +324,143 @@ msgstr "Analoginė mono"
 #. * here would lead to the source name to become "Analog Stereo Input
 #. * Input". The same logic applies to analog-stereo-output,
 #. * multichannel-input and multichannel-output.
-#: spa/plugins/alsa/acp/alsa-mixer.c:4524
-#: spa/plugins/alsa/acp/alsa-mixer.c:4532
-#: spa/plugins/alsa/acp/alsa-mixer.c:4533
+#: spa/plugins/alsa/acp/alsa-mixer.c:4530
+#: spa/plugins/alsa/acp/alsa-mixer.c:4538
+#: spa/plugins/alsa/acp/alsa-mixer.c:4539
 msgid "Analog Stereo"
 msgstr "Analoginė stereo"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4525
+#: spa/plugins/alsa/acp/alsa-mixer.c:4531
 msgid "Mono"
 msgstr "Mono"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4526
+#: spa/plugins/alsa/acp/alsa-mixer.c:4532
 msgid "Stereo"
 msgstr "Stereo"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4534
-#: spa/plugins/alsa/acp/alsa-mixer.c:4692
-#: spa/plugins/bluez5/bluez5-device.c:976
+#: spa/plugins/alsa/acp/alsa-mixer.c:4540
+#: spa/plugins/alsa/acp/alsa-mixer.c:4698
+#: spa/plugins/bluez5/bluez5-device.c:1135
 msgid "Headset"
 msgstr "Ausinės su mikrofonu"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4535
-#: spa/plugins/alsa/acp/alsa-mixer.c:4693
+#: spa/plugins/alsa/acp/alsa-mixer.c:4541
+#: spa/plugins/alsa/acp/alsa-mixer.c:4699
 #, fuzzy
 msgid "Speakerphone"
 msgstr "Garsiakalbis"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4536
-#: spa/plugins/alsa/acp/alsa-mixer.c:4537
+#: spa/plugins/alsa/acp/alsa-mixer.c:4542
+#: spa/plugins/alsa/acp/alsa-mixer.c:4543
 msgid "Multichannel"
 msgstr "Daugiakanalė"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4538
+#: spa/plugins/alsa/acp/alsa-mixer.c:4544
 msgid "Analog Surround 2.1"
 msgstr "Analoginė erdvinė 2.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4539
+#: spa/plugins/alsa/acp/alsa-mixer.c:4545
 msgid "Analog Surround 3.0"
 msgstr "Analoginė erdvinė 3.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4540
+#: spa/plugins/alsa/acp/alsa-mixer.c:4546
 msgid "Analog Surround 3.1"
 msgstr "Analoginė erdvinė 3.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4541
+#: spa/plugins/alsa/acp/alsa-mixer.c:4547
 msgid "Analog Surround 4.0"
 msgstr "Analoginė erdvinė 4.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4542
+#: spa/plugins/alsa/acp/alsa-mixer.c:4548
 msgid "Analog Surround 4.1"
 msgstr "Analoginė erdvinė 4.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4543
+#: spa/plugins/alsa/acp/alsa-mixer.c:4549
 msgid "Analog Surround 5.0"
 msgstr "Analoginė erdvinė 5.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4544
+#: spa/plugins/alsa/acp/alsa-mixer.c:4550
 msgid "Analog Surround 5.1"
 msgstr "Analoginė erdvinė 5.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4545
+#: spa/plugins/alsa/acp/alsa-mixer.c:4551
 msgid "Analog Surround 6.0"
 msgstr "Analoginė erdvinė 6.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4546
+#: spa/plugins/alsa/acp/alsa-mixer.c:4552
 msgid "Analog Surround 6.1"
 msgstr "Analoginė erdvinė 6.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4547
+#: spa/plugins/alsa/acp/alsa-mixer.c:4553
 msgid "Analog Surround 7.0"
 msgstr "Analoginė erdvinė 7.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4548
+#: spa/plugins/alsa/acp/alsa-mixer.c:4554
 msgid "Analog Surround 7.1"
 msgstr "Analoginė erdvinė 7.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4549
+#: spa/plugins/alsa/acp/alsa-mixer.c:4555
 msgid "Digital Stereo (IEC958)"
 msgstr "Skaitmeninė stereo (IEC958)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4550
+#: spa/plugins/alsa/acp/alsa-mixer.c:4556
 msgid "Digital Surround 4.0 (IEC958/AC3)"
 msgstr "Skaitmeninė erdvinė 4.0 (IEC958/AC3)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4551
+#: spa/plugins/alsa/acp/alsa-mixer.c:4557
 msgid "Digital Surround 5.1 (IEC958/AC3)"
 msgstr "Skaitmeninė erdvinė 5.1 (IEC958/AC3)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4552
+#: spa/plugins/alsa/acp/alsa-mixer.c:4558
 msgid "Digital Surround 5.1 (IEC958/DTS)"
 msgstr "Skaitmeninė erdvinė 5.1 (IEC958/DTS)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4553
+#: spa/plugins/alsa/acp/alsa-mixer.c:4559
 msgid "Digital Stereo (HDMI)"
 msgstr "Skaitmeninė stereo (HDMI)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4554
+#: spa/plugins/alsa/acp/alsa-mixer.c:4560
 msgid "Digital Surround 5.1 (HDMI)"
 msgstr "Skaitmeninė erdvinė 5.1 (HDMI)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4555
+#: spa/plugins/alsa/acp/alsa-mixer.c:4561
 msgid "Chat"
 msgstr ""
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4556
+#: spa/plugins/alsa/acp/alsa-mixer.c:4562
 msgid "Game"
 msgstr ""
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4690
+#: spa/plugins/alsa/acp/alsa-mixer.c:4696
 msgid "Analog Mono Duplex"
 msgstr "Analoginė dvipusė mono"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4691
+#: spa/plugins/alsa/acp/alsa-mixer.c:4697
 msgid "Analog Stereo Duplex"
 msgstr "Analoginė dvipusė stereo"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4694
+#: spa/plugins/alsa/acp/alsa-mixer.c:4700
 msgid "Digital Stereo Duplex (IEC958)"
 msgstr "Skaitmeninė dvipusė stereo (IEC958)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4695
+#: spa/plugins/alsa/acp/alsa-mixer.c:4701
 msgid "Multichannel Duplex"
 msgstr "Daugiakanalė dvipusė"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4696
+#: spa/plugins/alsa/acp/alsa-mixer.c:4702
 msgid "Stereo Duplex"
 msgstr "Dvipusė stereo"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4697
+#: spa/plugins/alsa/acp/alsa-mixer.c:4703
 msgid "Mono Chat + 7.1 Surround"
 msgstr ""
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4800
+#: spa/plugins/alsa/acp/alsa-mixer.c:4806
 #, c-format
 msgid "%s Output"
 msgstr "%s išvestis"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4807
+#: spa/plugins/alsa/acp/alsa-mixer.c:4813
 #, c-format
 msgid "%s Input"
 msgstr "%s įvestis"
@@ -562,50 +562,62 @@ msgstr[2] ""
 "Greičiausiai, tai yra klaida ALSA \"%s\" tvarkyklėje. Prašome apie šią "
 "klaidą pranešti ALSA kūrėjams."
 
-#: spa/plugins/bluez5/bluez5-device.c:855
+#: spa/plugins/bluez5/bluez5-device.c:1010
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:867
+#: spa/plugins/bluez5/bluez5-device.c:1033
 #, c-format
-msgid "High Fidelity Playback (A2DP Sink%s%s)"
+msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:869
+#: spa/plugins/bluez5/bluez5-device.c:1035
 #, c-format
-msgid "High Fidelity Duplex (A2DP Source/Sink%s%s)"
+msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:897
-#, c-format
-msgid "Headset Head Unit (HSP/HFP%s%s)"
+#: spa/plugins/bluez5/bluez5-device.c:1041
+msgid "High Fidelity Playback (A2DP Sink)"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:981
+#: spa/plugins/bluez5/bluez5-device.c:1043
+msgid "High Fidelity Duplex (A2DP Source/Sink)"
+msgstr ""
+
+#: spa/plugins/bluez5/bluez5-device.c:1070
+#, c-format
+msgid "Headset Head Unit (HSP/HFP, codec %s)"
+msgstr ""
+
+#: spa/plugins/bluez5/bluez5-device.c:1074
+msgid "Headset Head Unit (HSP/HFP)"
+msgstr ""
+
+#: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"
 msgstr "Laisvų rankų įranga"
 
-#: spa/plugins/bluez5/bluez5-device.c:996
+#: spa/plugins/bluez5/bluez5-device.c:1155
 msgid "Headphone"
 msgstr "Ausinė"
 
-#: spa/plugins/bluez5/bluez5-device.c:1001
+#: spa/plugins/bluez5/bluez5-device.c:1160
 msgid "Portable"
 msgstr "Portatyvi sistema"
 
-#: spa/plugins/bluez5/bluez5-device.c:1006
+#: spa/plugins/bluez5/bluez5-device.c:1165
 msgid "Car"
 msgstr "Automobilis"
 
-#: spa/plugins/bluez5/bluez5-device.c:1011
+#: spa/plugins/bluez5/bluez5-device.c:1170
 msgid "HiFi"
 msgstr "HiFi"
 
-#: spa/plugins/bluez5/bluez5-device.c:1016
+#: spa/plugins/bluez5/bluez5-device.c:1175
 msgid "Phone"
 msgstr "Telefonas"
 
-#: spa/plugins/bluez5/bluez5-device.c:1022
+#: spa/plugins/bluez5/bluez5-device.c:1181
 #, fuzzy
 msgid "Bluetooth"
 msgstr "Bluetooth įvestis"

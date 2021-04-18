@@ -5,16 +5,19 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire\n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/issues\n"
-"POT-Creation-Date: 2021-04-17 14:29+0000\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
+"issues/new\n"
+"POT-Creation-Date: 2021-04-18 16:54+0800\n"
 "PO-Revision-Date: 2021-04-17 21:44+0300\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
-"Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/pipewire/pipewire/uk/>\n"
+"Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
+"pipewire/pipewire/uk/>\n"
 "Language: uk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
+"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
 "X-Generator: Lokalize 20.12.0\n"
 
 #: src/daemon/pipewire.c:43
@@ -28,17 +31,16 @@ msgstr ""
 "%s [параметри]\n"
 "  -h, --help                            вивести цю довідку\n"
 "      --version                         вивести дані щодо версії\n"
-"  -c, --config                          завантажити налаштування (типово, %s)\n"
+"  -c, --config                          завантажити налаштування (типово, "
+"%s)\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr ""
-"Мультимедійна система PipeWire"
+msgstr "Мультимедійна система PipeWire"
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr ""
-"Запустити мультимедійну систему PipeWire"
+msgstr "Запустити мультимедійну систему PipeWire"
 
 #: src/examples/media-session/alsa-monitor.c:526
 #: spa/plugins/alsa/acp/compat.c:187
@@ -52,8 +54,7 @@ msgstr "Модем"
 
 #: src/examples/media-session/alsa-monitor.c:539
 msgid "Unknown device"
-msgstr ""
-"Невідомий пристрій"
+msgstr "Невідомий пристрій"
 
 #: src/tools/pw-cat.c:991
 #, c-format
@@ -88,16 +89,22 @@ msgid ""
 "\n"
 msgstr ""
 "  -R, --remote                          назва віддаленої фонової служби\n"
-"      --media-type                      встановити тип мультимедіа (типово, %s)\n"
-"      --media-category                  встановити категорію мультимедіа (типово, %s)\n"
-"      --media-role                      встановити роль мультимедіа (типово, %s)\n"
+"      --media-type                      встановити тип мультимедіа (типово, "
+"%s)\n"
+"      --media-category                  встановити категорію мультимедіа "
+"(типово, %s)\n"
+"      --media-role                      встановити роль мультимедіа (типово, "
+"%s)\n"
 "      --target                          встановити ціль вузла (типово, %s)\n"
 "                                          0 — не пов'язувати\n"
-"      --latency                         встановити латентність вузла (типово, %s)\n"
-"                                          Xодиниця (одиниця = s, ms, us, ns)\n"
+"      --latency                         встановити латентність вузла "
+"(типово, %s)\n"
+"                                          Xодиниця (одиниця = s, ms, us, "
+"ns)\n"
 "                                          або безпосередні семпли (256)\n"
 "                                          частота — частота з файла джерела\n"
-"      --list-targets                    вивести список доступних цілей для --target\n"
+"      --list-targets                    вивести список доступних цілей для --"
+"target\n"
 "\n"
 
 #: src/tools/pw-cat.c:1016
@@ -119,14 +126,21 @@ msgid ""
 "%d)\n"
 "\n"
 msgstr ""
-"      --rate                            частота дискретизації (потрібна для запису) (типово, %u)\n"
-"      --channels                        кількість каналів (потрібна для запису) (типово, %u)\n"
+"      --rate                            частота дискретизації (потрібна для "
+"запису) (типово, %u)\n"
+"      --channels                        кількість каналів (потрібна для "
+"запису) (типово, %u)\n"
 "      --channel-map                     карта каналів\n"
-"                                            одне з таких значень: \"stereo\", \"surround-51\",... або\n"
-"                                            список каналів, відокремлених комами; приклад: \"FL,FR\"\n"
-"      --format                          формат семплу %s (потрібен для запису) (типово, %s)\n"
-"      --volume                          гучність потоку 0-1.0 (типово, %.3f)\n"
-"  -q  --quality                         якість зміни дискретизації (0 - 15) (типово, %d)\n"
+"                                            одне з таких значень: \"stereo"
+"\", \"surround-51\",... або\n"
+"                                            список каналів, відокремлених "
+"комами; приклад: \"FL,FR\"\n"
+"      --format                          формат семплу %s (потрібен для "
+"запису) (типово, %s)\n"
+"      --volume                          гучність потоку 0-1.0 (типово, "
+"%.3f)\n"
+"  -q  --quality                         якість зміни дискретизації (0 - 15) "
+"(типово, %d)\n"
 "\n"
 
 #: src/tools/pw-cat.c:1033
@@ -154,14 +168,14 @@ msgstr ""
 "%s [параметри] [команда]\n"
 "  -h, --help                            вивести цю довідку\n"
 "      --version                         вивести дані щодо версії\n"
-"  -d, --daemon                          запустити як фонову службу (типово, false)\n"
+"  -d, --daemon                          запустити як фонову службу (типово, "
+"false)\n"
 "  -r, --remote                          назва віддаленої фонової служби\n"
 "\n"
 
 #: spa/plugins/alsa/acp/acp.c:290
 msgid "Pro Audio"
-msgstr ""
-"Професійний звук"
+msgstr "Професійний звук"
 
 #: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4704
 #: spa/plugins/bluez5/bluez5-device.c:1000
@@ -195,7 +209,7 @@ msgstr "Лінійний вхід"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2714
 #: spa/plugins/alsa/acp/alsa-mixer.c:2798
-#: spa/plugins/bluez5/bluez5-device.c:1141
+#: spa/plugins/bluez5/bluez5-device.c:1145
 msgid "Microphone"
 msgstr "Мікрофон"
 
@@ -261,7 +275,7 @@ msgid "No Bass Boost"
 msgstr "Без підсилення"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2729
-#: spa/plugins/bluez5/bluez5-device.c:1146
+#: spa/plugins/bluez5/bluez5-device.c:1150
 msgid "Speaker"
 msgstr "Гучномовець"
 
@@ -376,7 +390,7 @@ msgstr "Стерео"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4540
 #: spa/plugins/alsa/acp/alsa-mixer.c:4698
-#: spa/plugins/bluez5/bluez5-device.c:1131
+#: spa/plugins/bluez5/bluez5-device.c:1135
 msgid "Headset"
 msgstr "Гарнітура"
 
@@ -599,51 +613,62 @@ msgstr[2] ""
 
 #: spa/plugins/bluez5/bluez5-device.c:1010
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
-msgstr ""
-"Звуковий шлюз (джерело A2DP і HSP/HFP AG)"
+msgstr "Звуковий шлюз (джерело A2DP і HSP/HFP AG)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1022
-#, c-format
-msgid "High Fidelity Playback (A2DP Sink%s%s)"
-msgstr ""
-"Високоточне відтворення (приймач A2DP%s%s)"
+#: spa/plugins/bluez5/bluez5-device.c:1033
+#, fuzzy, c-format
+msgid "High Fidelity Playback (A2DP Sink, codec %s)"
+msgstr "Високоточне відтворення (приймач A2DP%s%s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1024
-#, c-format
-msgid "High Fidelity Duplex (A2DP Source/Sink%s%s)"
-msgstr ""
-"Двобічний високоточний обмін (джерело/приймач A2DP%s%s)"
+#: spa/plugins/bluez5/bluez5-device.c:1035
+#, fuzzy, c-format
+msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
+msgstr "Двобічний високоточний обмін (джерело/приймач A2DP%s%s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1052
-#, c-format
-msgid "Headset Head Unit (HSP/HFP%s%s)"
-msgstr ""
-"Головний модуль гарнітури (HSP/HFP%s%s)"
+#: spa/plugins/bluez5/bluez5-device.c:1041
+#, fuzzy
+msgid "High Fidelity Playback (A2DP Sink)"
+msgstr "Високоточне відтворення (приймач A2DP%s%s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1136
+#: spa/plugins/bluez5/bluez5-device.c:1043
+#, fuzzy
+msgid "High Fidelity Duplex (A2DP Source/Sink)"
+msgstr "Двобічний високоточний обмін (джерело/приймач A2DP%s%s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1070
+#, fuzzy, c-format
+msgid "Headset Head Unit (HSP/HFP, codec %s)"
+msgstr "Головний модуль гарнітури (HSP/HFP%s%s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1074
+#, fuzzy
+msgid "Headset Head Unit (HSP/HFP)"
+msgstr "Головний модуль гарнітури (HSP/HFP%s%s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"
 msgstr "Пристрій гучного зв’язку"
 
-#: spa/plugins/bluez5/bluez5-device.c:1151
+#: spa/plugins/bluez5/bluez5-device.c:1155
 msgid "Headphone"
 msgstr "Навушники"
 
-#: spa/plugins/bluez5/bluez5-device.c:1156
+#: spa/plugins/bluez5/bluez5-device.c:1160
 msgid "Portable"
 msgstr "Портативна система"
 
-#: spa/plugins/bluez5/bluez5-device.c:1161
+#: spa/plugins/bluez5/bluez5-device.c:1165
 msgid "Car"
 msgstr "Автомобільна система"
 
-#: spa/plugins/bluez5/bluez5-device.c:1166
+#: spa/plugins/bluez5/bluez5-device.c:1170
 msgid "HiFi"
 msgstr "HiFi"
 
-#: spa/plugins/bluez5/bluez5-device.c:1171
+#: spa/plugins/bluez5/bluez5-device.c:1175
 msgid "Phone"
 msgstr "Телефон"
 
-#: spa/plugins/bluez5/bluez5-device.c:1177
+#: spa/plugins/bluez5/bluez5-device.c:1181
 msgid "Bluetooth"
 msgstr "Bluetooth"

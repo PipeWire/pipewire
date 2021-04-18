@@ -8,7 +8,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
 "POT-Creation-Date: 2021-04-18 16:54+0800\n"
-"PO-Revision-Date: 2021-04-17 21:44+0300\n"
+"PO-Revision-Date: 2021-04-18 08:30+0300\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
 "pipewire/pipewire/uk/>\n"
@@ -29,7 +29,7 @@ msgid ""
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
 "%s [параметри]\n"
-"  -h, --help                            вивести цю довідку\n"
+"  -h, --help                            вивести довідку\n"
 "      --version                         вивести дані щодо версії\n"
 "  -c, --config                          завантажити налаштування (типово, "
 "%s)\n"
@@ -65,10 +65,10 @@ msgid ""
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
-"%s [параметри] <file>\n"
-"  -h, --help                            вивести цю довідку\n"
+"%s [параметри] <файл>\n"
+"  -h, --help                            вивести довідку\n"
 "      --version                         вивести дані щодо версії\n"
-"  -v, --verbose                         докладне сповіщення про дії\n"
+"  -v, --verbose                         ввімкнути відображення докладної інформації\n"
 "\n"
 
 #: src/tools/pw-cat.c:998
@@ -97,13 +97,13 @@ msgstr ""
 "%s)\n"
 "      --target                          встановити ціль вузла (типово, %s)\n"
 "                                          0 — не пов'язувати\n"
-"      --latency                         встановити латентність вузла "
+"      --latency                         встановити затримку вузла "
 "(типово, %s)\n"
 "                                          Xодиниця (одиниця = s, ms, us, "
 "ns)\n"
 "                                          або безпосередні семпли (256)\n"
 "                                          частота — частота з файла джерела\n"
-"      --list-targets                    вивести список доступних цілей для --"
+"      --list-targets                    перерахувати доступні цілі для --"
 "target\n"
 "\n"
 
@@ -166,7 +166,7 @@ msgid ""
 "\n"
 msgstr ""
 "%s [параметри] [команда]\n"
-"  -h, --help                            вивести цю довідку\n"
+"  -h, --help                            вивести довідку\n"
 "      --version                         вивести дані щодо версії\n"
 "  -d, --daemon                          запустити як фонову службу (типово, "
 "false)\n"
@@ -277,7 +277,7 @@ msgstr "Без підсилення"
 #: spa/plugins/alsa/acp/alsa-mixer.c:2729
 #: spa/plugins/bluez5/bluez5-device.c:1150
 msgid "Speaker"
-msgstr "Гучномовець"
+msgstr "Динамик"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2730
 #: spa/plugins/alsa/acp/alsa-mixer.c:2808
@@ -290,7 +290,7 @@ msgstr "Аналогових вхід"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2801
 msgid "Dock Microphone"
-msgstr "Мікрофон стикувальної станції"
+msgstr "Мікрофон док-станції"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2803
 msgid "Headset Microphone"
@@ -318,7 +318,7 @@ msgstr "Аналоговий моно-вихід"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2813
 msgid "Speakers"
-msgstr "Гучномовці"
+msgstr "Акустичні колонки"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2814
 msgid "HDMI / DisplayPort"
@@ -347,11 +347,11 @@ msgstr "Ігровий вихід"
 #: spa/plugins/alsa/acp/alsa-mixer.c:2820
 #: spa/plugins/alsa/acp/alsa-mixer.c:2821
 msgid "Chat Output"
-msgstr "Вихід спілкування"
+msgstr "Розмовний вихід"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2822
 msgid "Chat Input"
-msgstr "Вхід спілкування"
+msgstr "Розмовний вхід"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2823
 msgid "Virtual Surround 7.1"
@@ -474,7 +474,7 @@ msgstr "Цифровий об’ємний 5.1 (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4561
 msgid "Chat"
-msgstr "Спілкування"
+msgstr "Чат"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4562
 msgid "Game"
@@ -502,17 +502,17 @@ msgstr "Двобічне стерео"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4703
 msgid "Mono Chat + 7.1 Surround"
-msgstr "Моно, спілкування + об'ємний 7.1"
+msgstr "Моно чат + об'ємний 7.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4806
 #, c-format
 msgid "%s Output"
-msgstr "вихід %s"
+msgstr "%s вихід"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4813
 #, c-format
 msgid "%s Input"
-msgstr "вхід %s"
+msgstr "%s вхід"
 
 #: spa/plugins/alsa/acp/alsa-util.c:1175 spa/plugins/alsa/acp/alsa-util.c:1269
 #, c-format
@@ -529,18 +529,18 @@ msgid_plural ""
 msgstr[0] ""
 "Функція snd_pcm_avail() повернула винятково велике значення: %lu байт (%lu "
 "мс).\n"
-"Ймовірно, ви натрапили на ваду у драйвері ALSA «%s». Будь ласка, повідомте "
-"про цю ваду розробникам ALSA."
+"Ймовірно, ви натрапили на помилку у драйвері ALSA «%s». Будь ласка, повідомте "
+"про цю помилку розробникам ALSA."
 msgstr[1] ""
 "Функція snd_pcm_avail() повернула винятково велике значення: %lu байти (%lu "
 "мс).\n"
-"Ймовірно, ви натрапили на ваду у драйвері ALSA «%s». Будь ласка, повідомте "
-"про цю ваду розробникам ALSA."
+"Ймовірно, ви натрапили на помилку у драйвері ALSA «%s». Будь ласка, повідомте "
+"про цю помилку розробникам ALSA."
 msgstr[2] ""
 "Функція snd_pcm_avail() повернула винятково велике значення: %lu байтів (%lu "
 "мс).\n"
-"Ймовірно, ви натрапили на ваду у драйвері ALSA «%s». Будь ласка, повідомте "
-"про цю ваду розробникам ALSA."
+"Ймовірно, ви натрапили на помилку у драйвері ALSA «%s». Будь ласка, повідомте "
+"про цю помилку розробникам ALSA."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1241
 #, c-format
@@ -557,18 +557,18 @@ msgid_plural ""
 msgstr[0] ""
 "Функція snd_pcm_delay() повернула винятково велике значення: %li байт (%s%lu "
 "мс).\n"
-"Ймовірно, ви натрапили на ваду у драйвері ALSA «%s». Будь ласка, повідомте "
-"про цю ваду розробникам ALSA."
+"Ймовірно, ви натрапили на помилку у драйвері ALSA «%s». Будь ласка, повідомте "
+"про цю помилку розробникам ALSA."
 msgstr[1] ""
 "Функція snd_pcm_delay() повернула винятково велике значення: %li байти (%s"
 "%lu мс).\n"
-"Ймовірно, ви натрапили на ваду у драйвері ALSA «%s». Будь ласка, повідомте "
-"про цю ваду розробникам ALSA."
+"Ймовірно, ви натрапили на помилку у драйвері ALSA «%s». Будь ласка, повідомте "
+"про цю помилку розробникам ALSA."
 msgstr[2] ""
 "Функція snd_pcm_delay() повернула винятково велике значення: %li байтів (%s"
 "%lu мс).\n"
-"Ймовірно, ви натрапили на ваду у драйвері ALSA «%s». Будь ласка, повідомте "
-"про цю ваду розробникам ALSA."
+"Ймовірно, ви натрапили на помилку у драйвері ALSA «%s». Будь ласка, повідомте "
+"про цю помилку розробникам ALSA."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1288
 #, c-format
@@ -580,8 +580,8 @@ msgid ""
 msgstr ""
 "snd_pcm_avail_delay() повернуто дивні значення: затримка %lu є меншою за "
 "доступну, %lu.\n"
-"Ймовірно, це пов’язано з вадою у драйвері ALSA «%s». Будь ласка, повідомте "
-"про цю ваду розробникам ALSA."
+"Ймовірно, це пов’язано з помилкою у драйвері ALSA «%s». Будь ласка, повідомте "
+"про цю помилку розробникам ALSA."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1331
 #, c-format
@@ -598,18 +598,18 @@ msgid_plural ""
 msgstr[0] ""
 "Функція snd_pcm_mmap_begin() повернула винятково велике значення: %lu байт "
 "(%lu мс).\n"
-"Ймовірно, ви натрапили на ваду у драйвері ALSA «%s». Будь ласка, повідомте "
-"про цю ваду розробникам ALSA."
+"Ймовірно, ви натрапили на помилку у драйвері ALSA «%s». Будь ласка, повідомте "
+"про цю помилку розробникам ALSA."
 msgstr[1] ""
 "Функція snd_pcm_mmap_begin() повернула винятково велике значення: %lu байти "
 "(%lu мс).\n"
-"Ймовірно, ви натрапили на ваду у драйвері ALSA «%s». Будь ласка, повідомте "
-"про цю ваду розробникам ALSA."
+"Ймовірно, ви натрапили на помилку у драйвері ALSA «%s». Будь ласка, повідомте "
+"про цю помилку розробникам ALSA."
 msgstr[2] ""
 "Функція snd_pcm_mmap_begin() повернула винятково велике значення: %lu байтів "
 "(%lu мс).\n"
-"Ймовірно, ви натрапили на ваду у драйвері ALSA «%s». Будь ласка, повідомте "
-"про цю ваду розробникам ALSA."
+"Ймовірно, ви натрапили на помилку у драйвері ALSA «%s». Будь ласка, повідомте "
+"про цю помилку розробникам ALSA."
 
 #: spa/plugins/bluez5/bluez5-device.c:1010
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
@@ -618,36 +618,36 @@ msgstr "Звуковий шлюз (джерело A2DP і HSP/HFP AG)"
 #: spa/plugins/bluez5/bluez5-device.c:1033
 #, fuzzy, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
-msgstr "Високоточне відтворення (приймач A2DP%s%s)"
+msgstr "Високоточне відтворення (приймач A2DP, кодек %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1035
 #, fuzzy, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
-msgstr "Двобічний високоточний обмін (джерело/приймач A2DP%s%s)"
+msgstr "Двобічний високоточний обмін (джерело/приймач A2DP, кодек %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1041
 #, fuzzy
 msgid "High Fidelity Playback (A2DP Sink)"
-msgstr "Високоточне відтворення (приймач A2DP%s%s)"
+msgstr "Високоточне відтворення (приймач A2DP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1043
 #, fuzzy
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
-msgstr "Двобічний високоточний обмін (джерело/приймач A2DP%s%s)"
+msgstr "Двобічний високоточний обмін (джерело/приймач A2DP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1070
 #, fuzzy, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr "Головний модуль гарнітури (HSP/HFP%s%s)"
+msgstr "Головний модуль гарнітури (HSP/HFP%, кодек %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1074
 #, fuzzy
 msgid "Headset Head Unit (HSP/HFP)"
-msgstr "Головний модуль гарнітури (HSP/HFP%s%s)"
+msgstr "Головний модуль гарнітури (HSP/HFP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"
-msgstr "Пристрій гучного зв’язку"
+msgstr "Hands-Free пристрій"
 
 #: spa/plugins/bluez5/bluez5-device.c:1155
 msgid "Headphone"
@@ -655,15 +655,15 @@ msgstr "Навушники"
 
 #: spa/plugins/bluez5/bluez5-device.c:1160
 msgid "Portable"
-msgstr "Портативна система"
+msgstr "Портативна акустика"
 
 #: spa/plugins/bluez5/bluez5-device.c:1165
 msgid "Car"
-msgstr "Автомобільна система"
+msgstr "Автомобільна акустика"
 
 #: spa/plugins/bluez5/bluez5-device.c:1170
 msgid "HiFi"
-msgstr "HiFi"
+msgstr "Hi-Fi"
 
 #: spa/plugins/bluez5/bluez5-device.c:1175
 msgid "Phone"

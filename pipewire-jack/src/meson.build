@@ -47,6 +47,15 @@ pipewire_jack = shared_library('jack',
     install_dir : libjack_path,
 )
 
+if get_option('jack-devel').enabled()
+  pkgconfig.generate(filebase : 'jack',
+  libraries : pipewire_jack,
+  name : 'jack',
+  description : 'PipeWire JACK API',
+  version : '1.9.17',
+  extra_cflags : '-D_REENTRANT')
+endif
+
 pipewire_jackserver = shared_library('jackserver',
     pipewire_jackserver_sources,
     soversion : soversion,

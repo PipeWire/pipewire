@@ -9,8 +9,8 @@ msgstr ""
 "Project-Id-Version: git trunk\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
-"POT-Creation-Date: 2021-04-18 16:54+0800\n"
-"PO-Revision-Date: 2021-03-07 17:01+0000\n"
+"POT-Creation-Date: 2021-04-18 16:31+0300\n"
+"PO-Revision-Date: 2021-04-18 16:38+0300\n"
 "Last-Translator: Ricky Tigg <ricky.tigg@gmail.com>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/"
 "pipewire/pipewire/fi/>\n"
@@ -29,14 +29,18 @@ msgid ""
 "      --version                         Show version\n"
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
+"%s [valinnat]\n"
+"  -h, --help                            Näytä tämä ohje\n"
+"      --version                         Näytä versio\n"
+"  -c, --config                          Lataa asetukset (oletus %s)\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr ""
+msgstr "PipeWire-mediajärjestelmä"
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr ""
+msgstr "Käynnistä PipeWire-mediajärjestelmä"
 
 #: src/examples/media-session/alsa-monitor.c:526
 #: spa/plugins/alsa/acp/compat.c:187
@@ -50,7 +54,7 @@ msgstr "Modeemi"
 
 #: src/examples/media-session/alsa-monitor.c:539
 msgid "Unknown device"
-msgstr ""
+msgstr "Tuntematon laite"
 
 #: src/tools/pw-cat.c:991
 #, c-format
@@ -61,6 +65,11 @@ msgid ""
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
+"%s [valinnat] <tiedosto>\n"
+"  -h, --help                            Näytä tämä ohje\n"
+"      --version                         Näytä versio\n"
+"  -v, --verbose                         Näytä lisää tietoja\n"
+"\n"
 
 #: src/tools/pw-cat.c:998
 #, c-format
@@ -79,6 +88,20 @@ msgid ""
 "      --list-targets                    List available targets for --target\n"
 "\n"
 msgstr ""
+"  -R, --remote                          Vastapään taustaprosessin nimi\n"
+"      --media-type                      Aseta mediatyyppi (oletus %s)\n"
+"      --media-category                  Aseta medialuokka (oletus %s)\n"
+"      --media-role                      Aseta mediarooli (oletus %s)\n"
+"      --target                          Aseta kohdesolmu (oletus %s)\n"
+"                                          0 tarkoittaa: ei linkkiä\n"
+"      --latency                         Aseta solmun viive (oletus %s)\n"
+"                                          Xyksikkö (yksikkö = s, ms, us, "
+"ns)\n"
+"                                          tai näytteiden lukumäärä (256)\n"
+"                                          näytetaajuus on lähteen mukaan\n"
+"      --list-targets                    Näytä --target:n mahdolliset "
+"kohteet\n"
+"\n"
 
 #: src/tools/pw-cat.c:1016
 #, c-format
@@ -99,6 +122,22 @@ msgid ""
 "%d)\n"
 "\n"
 msgstr ""
+"      --rate                            Näytetaajuus (pakoll. nauhoit.) "
+"(oletus %u)\n"
+"      --channels                        Kanavien määrä (pakoll. nauhoit.) "
+"(oletus %u)\n"
+"      --channel-map                     Kanavakartta\n"
+"                                            vaihtoehdot: \"stereo\", "
+"\"surround-51\",... tai\n"
+"                                            pilkulla erotetut kanavien "
+"nimet: esim. \"FL,FR\"\n"
+"      --format                          Näytemuoto %s (pakoll. nauhoit.) "
+"(oletus %s)\n"
+"      --volume                          Vuon äänenvoimakkuus 0-1.0 (oletus "
+"%.3f)\n"
+"  -q  --quality                         Resamplerin laatu (0 - 15) (oletus "
+"%d)\n"
+"\n"
 
 #: src/tools/pw-cat.c:1033
 msgid ""
@@ -107,6 +146,10 @@ msgid ""
 "  -m, --midi                            Midi mode\n"
 "\n"
 msgstr ""
+"  -p, --playback                        Toisto\n"
+"  -r, --record                          Nauhoitus\n"
+"  -m, --midi                            MIDI-tila\n"
+"\n"
 
 #: src/tools/pw-cli.c:2932
 #, c-format
@@ -118,10 +161,17 @@ msgid ""
 "  -r, --remote                          Remote daemon name\n"
 "\n"
 msgstr ""
+"%s [valinnat] [komento]\n"
+"  -h, --help                            Näytä tämä ohje\n"
+"      --version                         Näytä versio\n"
+"  -d, --daemon                          Käynnistä taustaprosessina (oletus: "
+"ei)\n"
+"  -r, --remote                          Taustaprosessin nimi\n"
+"\n"
 
 #: spa/plugins/alsa/acp/acp.c:290
 msgid "Pro Audio"
-msgstr ""
+msgstr "Pro-audio"
 
 #: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4704
 #: spa/plugins/bluez5/bluez5-device.c:1000
@@ -146,7 +196,7 @@ msgstr "Telakan mikrofoni"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2712
 msgid "Docking Station Line In"
-msgstr "Telakan sisääntulo"
+msgstr "Telakan linjasisääntulo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2713
 #: spa/plugins/alsa/acp/alsa-mixer.c:2804
@@ -167,7 +217,7 @@ msgstr "Etumikrofoni"
 #: spa/plugins/alsa/acp/alsa-mixer.c:2716
 #: spa/plugins/alsa/acp/alsa-mixer.c:2800
 msgid "Rear Microphone"
-msgstr "takamikrofoni"
+msgstr "Takamikrofoni"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2717
 msgid "External Microphone"
@@ -228,7 +278,7 @@ msgstr "Kaiutin"
 #: spa/plugins/alsa/acp/alsa-mixer.c:2730
 #: spa/plugins/alsa/acp/alsa-mixer.c:2808
 msgid "Headphones"
-msgstr "Analoginen kuulokeliitäntä"
+msgstr "Kuulokkeet"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2797
 msgid "Analog Input"
@@ -288,16 +338,16 @@ msgstr "Monikanavainen ulostulo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2819
 msgid "Game Output"
-msgstr "Peli ulostulo"
+msgstr "Peli-ulostulo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2820
 #: spa/plugins/alsa/acp/alsa-mixer.c:2821
 msgid "Chat Output"
-msgstr "Chatti ulostulo"
+msgstr "Puhe-ulostulo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2822
 msgid "Chat Input"
-msgstr "Chatti sisääntulo"
+msgstr "Puhe-sisääntulo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2823
 msgid "Virtual Surround 7.1"
@@ -420,7 +470,7 @@ msgstr "Digitaalinen tilaääni 5.1 (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4561
 msgid "Chat"
-msgstr "Juttelu"
+msgstr "Puhe"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4562
 msgid "Game"
@@ -428,37 +478,37 @@ msgstr "Peli"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4696
 msgid "Analog Mono Duplex"
-msgstr "Analoginen mono, molemmat suunnat"
+msgstr "Analoginen mono, molempisuuntainen"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4697
 msgid "Analog Stereo Duplex"
-msgstr "Analoginen stereo, molemmat suunnat"
+msgstr "Analoginen stereo, molempisuuntainen"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4700
 msgid "Digital Stereo Duplex (IEC958)"
-msgstr "Digitaalinen stereo, molemmat suunnat (IEC958)"
+msgstr "Digitaalinen stereo, molempisuuntainen (IEC958)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4701
 msgid "Multichannel Duplex"
-msgstr "Monikanavainen Duplex"
+msgstr "Monikanavainen, molempisuuntainen"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4702
 msgid "Stereo Duplex"
-msgstr "Stereo, molemmat suunnat"
+msgstr "Stereo, molempisuuntainen"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4703
 msgid "Mono Chat + 7.1 Surround"
-msgstr "Mono Chat + 7.1 Surround"
+msgstr "Mono-puhe + 7.1 tilaääni"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4806
 #, c-format
 msgid "%s Output"
-msgstr "%s Ulostulo"
+msgstr "%s, ulostulo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4813
 #, c-format
 msgid "%s Input"
-msgstr "%s Sisääntulo"
+msgstr "%s, sisääntulo"
 
 #: spa/plugins/alsa/acp/alsa-util.c:1175 spa/plugins/alsa/acp/alsa-util.c:1269
 #, c-format
@@ -542,42 +592,42 @@ msgstr[1] ""
 
 #: spa/plugins/bluez5/bluez5-device.c:1010
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
-msgstr ""
+msgstr "Ääniyhdyskäytävä (A2DP-lähde & HSP/HFP AG)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1033
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
-msgstr ""
+msgstr "Korkealaatuinen toisto (A2DP-kohde, %s-koodekki)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1035
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
-msgstr ""
+msgstr "Korkealaatuinen molempisuuntainen (A2DP-lähde/kohde, %s-koodekki)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1041
 msgid "High Fidelity Playback (A2DP Sink)"
-msgstr ""
+msgstr "Korkealaatuinen toisto (A2DP-kohde)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1043
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
-msgstr ""
+msgstr "Korkealaatuinen molempisuuntainen (A2DP-lähde/kohde)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1070
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr ""
+msgstr "Kuulokemikrofoni (HSP/HFP, %s-koodekki)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1074
 msgid "Headset Head Unit (HSP/HFP)"
-msgstr ""
+msgstr "Kuulokemikrofoni (HSP/HFP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"
-msgstr "Kädet vapaana"
+msgstr "Kuulokemikrofoni"
 
 #: spa/plugins/bluez5/bluez5-device.c:1155
 msgid "Headphone"
-msgstr "Kuuloke"
+msgstr "Kuulokkeet"
 
 #: spa/plugins/bluez5/bluez5-device.c:1160
 msgid "Portable"

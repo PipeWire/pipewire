@@ -10,7 +10,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
 "POT-Creation-Date: 2021-04-18 16:54+0800\n"
-"PO-Revision-Date: 2019-03-09 23:25+0300\n"
+"PO-Revision-Date: 2021-04-18 05:49+0300\n"
 "Last-Translator: Alexander Potashev <aspotashev@gmail.com>\n"
 "Language-Team: Russian <kde-russian@lists.kde.ru>\n"
 "Language: ru\n"
@@ -29,14 +29,18 @@ msgid ""
 "      --version                         Show version\n"
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
+"%s [опции]\n"
+"  -h, --help                            Показать справку\n"
+"      --version                         Информация о версии\n"
+"  -c, --config                          Указать файл конфигурации (По умолчанию %s)\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr ""
+msgstr "Мультимедийная система PipeWire"
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr ""
+msgstr "Запустить PipeWire"
 
 #: src/examples/media-session/alsa-monitor.c:526
 #: spa/plugins/alsa/acp/compat.c:187
@@ -50,7 +54,7 @@ msgstr "Модем"
 
 #: src/examples/media-session/alsa-monitor.c:539
 msgid "Unknown device"
-msgstr ""
+msgstr "Неизвестное устройство"
 
 #: src/tools/pw-cat.c:991
 #, c-format
@@ -61,6 +65,11 @@ msgid ""
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
+"%s [опции] <файл>\n"
+"  -h, --help                            Показать справку\n"
+"      --version                         Информация о версии\n"
+"  -v, --verbose                         Включить показ подробной информации\n"
+"\n"
 
 #: src/tools/pw-cat.c:998
 #, c-format
@@ -79,6 +88,19 @@ msgid ""
 "      --list-targets                    List available targets for --target\n"
 "\n"
 msgstr ""
+"  -R, --remote                          Имя удаленного фоновой службы\n"
+"      --media-type                      Задать тип мультимедиа (по умолчанию %s)\n"
+"      --media-category                  Задать категорию мультимедиа (по умолчанию %s)\n"
+"      --media-role                      Задать роль мультимедиа (по умолчанию %s)\n"
+"      --target                          Задать цель узла (по умолчанию %s)\n"
+"                                          0 значит не связывать\n"
+"      --latency                         Задать задежку узла (по умолчанию %s)\n"
+"                                          Xединица (единица = s, ms, us, ns)\n"
+"                                          or direct samples (256)\n"
+"                                          частота такая же как у источника "
+"file\n"
+"      --list-targets                    Перечислить доступные цели для --target\n"
+"\n"
 
 #: src/tools/pw-cat.c:1016
 #, c-format
@@ -99,6 +121,21 @@ msgid ""
 "%d)\n"
 "\n"
 msgstr ""
+"      --rate                            Частота дискретизации (необходимо для записи) (По умолчанию "
+"%u)\n"
+"      --channels                        Количество каналов (необходимо для записи) "
+"(default %u)\n"
+"      --channel-map                     Карта каналов\n"
+"                                            одно из: \"stereo\", "
+"\"surround-51\",... or\n"
+"                                            список каналов через запятую "
+"names: eg. \"FL,FR\"\n"
+"      --format                          Формат %s (необходимо для записи) "
+"(default %s)\n"
+"      --volume                          Громкость 0-1.0 (по умолчанию %.3f)\n"
+"  -q  --quality                         Качество ресэмплера (0 - 15) (по умолчанию "
+"%d)\n"
+"\n"
 
 #: src/tools/pw-cat.c:1033
 msgid ""
@@ -107,6 +144,10 @@ msgid ""
 "  -m, --midi                            Midi mode\n"
 "\n"
 msgstr ""
+"  -p, --playback                        Режим проигрывания\n"
+"  -r, --record                          Режим записи\n"
+"  -m, --midi                            Режим MIDI\n"
+"\n"
 
 #: src/tools/pw-cli.c:2932
 #, c-format
@@ -118,6 +159,12 @@ msgid ""
 "  -r, --remote                          Remote daemon name\n"
 "\n"
 msgstr ""
+"%s [опции] [команда]\n"
+"  -h, --help                            Показать справку\n"
+"      --version                         Информация о версии\n"
+"  -d, --daemon                          Запустить в режиме фоновой службы (По умолчанию false)\n"
+"  -r, --remote                          Имя удаленного фоновой службы\n"
+"\n"
 
 #: spa/plugins/alsa/acp/acp.c:290
 msgid "Pro Audio"
@@ -178,13 +225,11 @@ msgstr "Внешний микрофон"
 msgid "Internal Microphone"
 msgstr "Встроенный микрофон"
 
-# BUGME: please clarify, is this FM Radio or some digital radio frequency channel? --aspotashev
 #: spa/plugins/alsa/acp/alsa-mixer.c:2719
 #: spa/plugins/alsa/acp/alsa-mixer.c:2805
 msgid "Radio"
 msgstr "Радио"
 
-# BUGME: please clarify? --aspotashev
 #: spa/plugins/alsa/acp/alsa-mixer.c:2720
 #: spa/plugins/alsa/acp/alsa-mixer.c:2806
 msgid "Video"
@@ -251,11 +296,11 @@ msgstr "Аналоговый выход"
 #: spa/plugins/alsa/acp/alsa-mixer.c:2809
 #, fuzzy
 msgid "Headphones 2"
-msgstr "Наушники"
+msgstr "Наушники 2"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2810
 msgid "Headphones Mono Output"
-msgstr "Выход на наушники моно"
+msgstr "Моно-выход наушников"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2811
 msgid "Line Out"
@@ -263,7 +308,7 @@ msgstr "Линейный выход"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2812
 msgid "Analog Mono Output"
-msgstr "Аналоговый выход моно"
+msgstr "Аналоговый моно-выход"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2813
 msgid "Speakers"
@@ -315,12 +360,12 @@ msgstr "Аналоговый моно"
 #: spa/plugins/alsa/acp/alsa-mixer.c:4528
 #, fuzzy
 msgid "Analog Mono (Left)"
-msgstr "Аналоговый моно"
+msgstr "Аналоговый моно (левый)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4529
 #, fuzzy
 msgid "Analog Mono (Right)"
-msgstr "Аналоговый моно"
+msgstr "Аналоговый моно (правый)"
 
 #. Note: Not translated to "Analog Stereo Input", because the source
 #. * name gets "Input" appended to it automatically, so adding "Input"
@@ -428,11 +473,11 @@ msgstr "Цифровой объёмный 5.1 (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4561
 msgid "Chat"
-msgstr ""
+msgstr "Чат"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4562
 msgid "Game"
-msgstr ""
+msgstr "Игра"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4696
 msgid "Analog Mono Duplex"
@@ -598,25 +643,24 @@ msgstr ""
 
 #: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"
-msgstr "Хендс-фри"
+msgstr "Hands-Free устройство"
 
 #: spa/plugins/bluez5/bluez5-device.c:1155
 msgid "Headphone"
-msgstr "Наушник"
+msgstr "Наушники"
 
 #: spa/plugins/bluez5/bluez5-device.c:1160
 msgid "Portable"
-msgstr "Портативный динамик"
+msgstr "Портативное устройство"
 
 #: spa/plugins/bluez5/bluez5-device.c:1165
 msgid "Car"
-msgstr "Автомобильный динамик"
+msgstr "Автомобильное устройство"
 
 #: spa/plugins/bluez5/bluez5-device.c:1170
 msgid "HiFi"
 msgstr "Hi-Fi"
 
-# BUGME: please clarify, does this mean a cell phone? --aspotashev
 #: spa/plugins/bluez5/bluez5-device.c:1175
 msgid "Phone"
 msgstr "Телефон"
@@ -624,4 +668,4 @@ msgstr "Телефон"
 #: spa/plugins/bluez5/bluez5-device.c:1181
 #, fuzzy
 msgid "Bluetooth"
-msgstr "Вход Bluetooth"
+msgstr "Bluetooth"

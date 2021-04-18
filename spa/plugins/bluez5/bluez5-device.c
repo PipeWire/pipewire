@@ -1018,10 +1018,6 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		      (SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_A2DP_SOURCE);
 		if (!(profile & SPA_BT_PROFILE_A2DP_SINK)) {
 			return NULL;
-		} else if (profile == SPA_BT_PROFILE_A2DP_SINK) {
-			desc = _("High Fidelity Playback (A2DP Sink%s%s)");
-		} else {
-			desc = _("High Fidelity Duplex (A2DP Source/Sink%s%s)");
 		}
 		name = spa_bt_profile_name(profile);
 		n_sink++;
@@ -1032,12 +1028,20 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 				return NULL;
 			}
 			name_and_codec = spa_aprintf("%s-%s", name, a2dp_codec->name);
-			desc_and_codec = spa_aprintf(desc, ", codec ", a2dp_codec->description);
 			name = name_and_codec;
+			if (profile == SPA_BT_PROFILE_A2DP_SINK) {
+				desc = _("High Fidelity Playback (A2DP Sink, codec %s)");
+			} else {
+				desc = _("High Fidelity Duplex (A2DP Source/Sink, codec %s)");
+			}
+			desc_and_codec = spa_aprintf(desc, a2dp_codec->description);
 			desc = desc_and_codec;
 		} else {
-			desc_and_codec = spa_aprintf(desc, "", "");
-			desc = desc_and_codec;
+			if (profile == SPA_BT_PROFILE_A2DP_SINK) {
+				desc = _("High Fidelity Playback (A2DP Sink)");
+			} else {
+				desc = _("High Fidelity Duplex (A2DP Source/Sink)");
+			}
 		}
 		break;
 	}
@@ -1048,8 +1052,6 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		      SPA_BT_PROFILE_HEADSET_HEAD_UNIT;
 		if (profile == 0) {
 			return NULL;
-		} else {
-			desc = _("Headset Head Unit (HSP/HFP%s%s)");
 		}
 		name = spa_bt_profile_name(profile);
 		n_source++;
@@ -1064,12 +1066,12 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 				return NULL;
 			}
 			name_and_codec = spa_aprintf("%s-%s", name, get_hfp_codec_name(hfp_codec));
-			desc_and_codec = spa_aprintf(desc, ", codec ", get_hfp_codec_description(hfp_codec));
 			name = name_and_codec;
+			desc_and_codec = spa_aprintf(_("Headset Head Unit (HSP/HFP, codec %s)"),
+						get_hfp_codec_description(hfp_codec));
 			desc = desc_and_codec;
 		} else {
-			desc_and_codec = spa_aprintf(desc, "", "");
-			desc = desc_and_codec;
+			desc = _("Headset Head Unit (HSP/HFP)");
 		}
 		break;
 	}
@@ -1105,8 +1107,10 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		spa_pod_builder_pop(b, &f[1]);
 	}
 
-	free(name_and_codec);
-	free(desc_and_codec);
+	if (name_and_codec)
+		free(name_and_codec);
+	if (desc_and_codec)
+		free(desc_and_codec);
 
 	return spa_pod_builder_pop(b, &f[0]);
 }

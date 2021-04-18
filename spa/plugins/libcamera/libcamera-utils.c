@@ -753,6 +753,7 @@ mmap_init(struct impl *this,
 {
 	struct port *port = &this->out_ports[0];
 	unsigned int i, j;
+	struct spa_data *d;
 
 	spa_log_info(this->log, "libcamera: In mmap_init()");
 
@@ -775,7 +776,6 @@ mmap_init(struct impl *this,
 
 	for (i = 0; i < libcamera_nbuffers; i++) {
 		struct buffer *b;
-		struct spa_data *d;
 
 		if (buffers[i]->n_datas < 1) {
 			spa_log_error(this->log, "libcamera: invalid buffer data");

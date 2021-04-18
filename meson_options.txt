@@ -54,6 +54,10 @@ option('pipewire-jack',
        description: 'Enable pipewire-jack integration',
        type: 'feature',
        value: 'auto')
+option('jack-devel',
+       description: 'Install jack development files',
+       type: 'feature',
+       value: 'disabled')
 option('libjack-path',
        description: 'Where to install the libjack.so library',
        type: 'string')

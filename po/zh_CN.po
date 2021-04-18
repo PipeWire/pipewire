@@ -12,16 +12,17 @@ msgstr ""
 "Project-Id-Version: pipewire.master-tx\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
-"POT-Creation-Date: 2021-04-18 16:54+0800\n"
-"PO-Revision-Date: 2016-03-26 13:00+0800\n"
-"Last-Translator: Luo Lei <luolei@ubuntukylin.com>\n"
-"Language-Team: Chinese (Simplified, GNOME) <i18n-zh@googlegroups.com>\n"
+"POT-Creation-Date: 2021-04-18 10:47+0800\n"
+"PO-Revision-Date: 2021-04-18 10:56+0800\n"
+"Last-Translator: Huang-Huang Bao <i@eh5.me>\n"
+"Language-Team: Huang-Huang Bao <i@eh5.me>\n"
 "Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "X-Launchpad-Export-Date: 2016-03-22 13:23+0000\n"
-"X-Generator: Poedit 1.7.6\n"
+"X-Generator: Poedit 2.4.1\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 
 #: src/daemon/pipewire.c:43
 #, c-format
@@ -31,14 +32,18 @@ msgid ""
 "      --version                         Show version\n"
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
+"%s [选项]\n"
+"  -h, --help                            显示此帮助信息\n"
+"      --version                         显示版本\n"
+"  -c, --config                          加载配置文件 (默认 %s)\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr ""
+msgstr "PipeWire多媒体系统"
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr ""
+msgstr "启动PipeWire多媒体系统"
 
 #: src/examples/media-session/alsa-monitor.c:526
 #: spa/plugins/alsa/acp/compat.c:187
@@ -52,7 +57,7 @@ msgstr "调制解调器"
 
 #: src/examples/media-session/alsa-monitor.c:539
 msgid "Unknown device"
-msgstr ""
+msgstr "未知设备"
 
 #: src/tools/pw-cat.c:991
 #, c-format
@@ -63,6 +68,11 @@ msgid ""
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
+"%s [选项] <文件>\n"
+"  -h, --help                            显示此帮助信息\n"
+"      --version                         显示版本\n"
+"  -v, --verbose                         输出详细操作\n"
+"\n"
 
 #: src/tools/pw-cat.c:998
 #, c-format
@@ -81,6 +91,19 @@ msgid ""
 "      --list-targets                    List available targets for --target\n"
 "\n"
 msgstr ""
+"  -R, --remote                          远程守护程序名\n"
+"      --media-type                      设置媒体类型 (默认 %s)\n"
+"      --media-category                  设置媒体类别 (默认 %s)\n"
+"      --media-role                      设置媒体角色 (默认 %s)\n"
+"      --target                          设置目标节点 (默认 %s)\n"
+"                                          设为0则不链接节点\n"
+"      --latency                         设置节点延迟 (默认 %s)\n"
+"                                          时间 (单位可为 s, ms, us, ns)\n"
+"                                          或样本数 (如256)\n"
+"                                          对应的采样率则是媒体源文件采样率的"
+"其一\n"
+"      --list-targets                    列出可用的 --target 目标\n"
+"\n"
 
 #: src/tools/pw-cat.c:1016
 #, c-format
@@ -101,6 +124,18 @@ msgid ""
 "%d)\n"
 "\n"
 msgstr ""
+"      --rate                            采样率 (录制模式需要) (默认 %u)\n"
+"      --channels                        通道数 (录制模式需要) (默认 %u)\n"
+"      --channel-map                     通道映射\n"
+"                                            \"stereo\", \"surround-51\",... "
+"中的其一或\n"
+"                                            以\",\"分隔的通道名列表: 如 \"FL,"
+"FR\"\n"
+"      --format                          采样格式 %s (录制模式需要) (默认 "
+"%s)\n"
+"      --volume                          媒体流音量 0-1.0 (默认 %.3f)\n"
+"  -q  --quality                         重采样质量 (0 - 15) (默认 %d)\n"
+"\n"
 
 #: src/tools/pw-cat.c:1033
 msgid ""
@@ -109,6 +144,10 @@ msgid ""
 "  -m, --midi                            Midi mode\n"
 "\n"
 msgstr ""
+"  -p, --playback                        回放模式\n"
+"  -r, --record                          录制模式\n"
+"  -m, --midi                            Midi模式\n"
+"\n"
 
 #: src/tools/pw-cli.c:2932
 #, c-format
@@ -120,10 +159,16 @@ msgid ""
 "  -r, --remote                          Remote daemon name\n"
 "\n"
 msgstr ""
+"%s [选项] [命令]\n"
+"  -h, --help                            显示此帮助信息\n"
+"      --version                         显示版本\n"
+"  -d, --daemon                          以守护程序方式启动 (默认关闭)\n"
+"  -r, --remote                          远程守护程序名\n"
+"\n"
 
 #: spa/plugins/alsa/acp/acp.c:290
 msgid "Pro Audio"
-msgstr ""
+msgstr "专业音频"
 
 #: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4704
 #: spa/plugins/bluez5/bluez5-device.c:1000
@@ -249,12 +294,10 @@ msgid "Analog Output"
 msgstr "模拟输出"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2809
-#, fuzzy
 msgid "Headphones 2"
-msgstr "模拟耳机"
+msgstr "模拟耳机 2"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2810
-#, fuzzy
 msgid "Headphones Mono Output"
 msgstr "模拟单声道输出"
 
@@ -291,39 +334,33 @@ msgid "Multichannel Output"
 msgstr "多声道输出"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2819
-#, fuzzy
 msgid "Game Output"
-msgstr "%s 输出"
+msgstr "游戏输出"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2820
 #: spa/plugins/alsa/acp/alsa-mixer.c:2821
-#, fuzzy
 msgid "Chat Output"
-msgstr "%s 输出"
+msgstr "语音输出"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2822
-#, fuzzy
 msgid "Chat Input"
-msgstr "%s 输入"
+msgstr "语音输入"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2823
-#, fuzzy
 msgid "Virtual Surround 7.1"
-msgstr "虚拟环绕声信宿"
+msgstr "虚拟环绕 7.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4527
 msgid "Analog Mono"
 msgstr "模拟单声道"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4528
-#, fuzzy
 msgid "Analog Mono (Left)"
-msgstr "模拟单声道"
+msgstr "模拟单声道 (左声道)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4529
-#, fuzzy
 msgid "Analog Mono (Right)"
-msgstr "模拟单声道"
+msgstr "模拟单声道 (右声道)"
 
 #. Note: Not translated to "Analog Stereo Input", because the source
 #. * name gets "Input" appended to it automatically, so adding "Input"
@@ -352,9 +389,8 @@ msgstr "耳机"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4541
 #: spa/plugins/alsa/acp/alsa-mixer.c:4699
-#, fuzzy
 msgid "Speakerphone"
-msgstr "扬声器"
+msgstr "扬声麦克风"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4542
 #: spa/plugins/alsa/acp/alsa-mixer.c:4543
@@ -431,11 +467,11 @@ msgstr "数字环绕 5.1（HDMI）"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4561
 msgid "Chat"
-msgstr ""
+msgstr "语音"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4562
 msgid "Game"
-msgstr ""
+msgstr "游戏"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4696
 msgid "Analog Mono Duplex"
@@ -454,13 +490,12 @@ msgid "Multichannel Duplex"
 msgstr "多声道双工"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4702
-#, fuzzy
 msgid "Stereo Duplex"
 msgstr "模拟立体声双工"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4703
 msgid "Mono Chat + 7.1 Surround"
-msgstr ""
+msgstr "单声道语音 + 7.1 环绕声"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4806
 #, c-format
@@ -473,7 +508,7 @@ msgid "%s Input"
 msgstr "%s 输入"
 
 #: spa/plugins/alsa/acp/alsa-util.c:1175 spa/plugins/alsa/acp/alsa-util.c:1269
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu "
 "ms).\n"
@@ -487,12 +522,9 @@ msgid_plural ""
 msgstr[0] ""
 "snd_pcm_avail() 返回的值非常大：%lu 字节(%lu 毫秒)。\n"
 "这很可能是由 ALSA 驱动程序 %s 的缺陷导致的。请向 ALSA 开发者报告这个问题。"
-msgstr[1] ""
-"snd_pcm_avail() 返回的值非常大：%lu 字节(%lu 毫秒)。\n"
-"这很可能是由 ALSA 驱动程序 %s 的缺陷导致的。请向 ALSA 开发者报告这个问题。"
 
 #: spa/plugins/alsa/acp/alsa-util.c:1241
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s"
 "%lu ms).\n"
@@ -506,9 +538,6 @@ msgid_plural ""
 msgstr[0] ""
 "snd_pcm_delay() 返回的值非常大：%li 字节(%s%lu 毫秒)。\n"
 "这很可能是由 ALSA 驱动程序 %s 的缺陷导致的。请向 ALSA 开发者报告这个问题。"
-msgstr[1] ""
-"snd_pcm_delay() 返回的值非常大：%li 字节(%s%lu 毫秒)。\n"
-"这很可能是由 ALSA 驱动程序 %s 的缺陷导致的。请向 ALSA 开发者报告这个问题。"
 
 #: spa/plugins/alsa/acp/alsa-util.c:1288
 #, c-format
@@ -519,10 +548,10 @@ msgid ""
 "to the ALSA developers."
 msgstr ""
 "snd_pcm_avail_delay() 返回的值非常很奇怪：延迟 %lu 小于可用 (avail) %lu。\n"
-"很可能是 ALSA 驱动程序 '%s' 中的 bug。请向 ALSA 开发者举报这个问题。"
+"这很可能是由 ALSA 驱动程序 %s 的缺陷导致的。请向 ALSA 开发者报告这个问题。"
 
 #: spa/plugins/alsa/acp/alsa-util.c:1331
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte "
 "(%lu ms).\n"
@@ -535,41 +564,38 @@ msgid_plural ""
 "to the ALSA developers."
 msgstr[0] ""
 "snd_pcm_mmap_begin() 返回的值非常大：%lu 字节(%lu ms)。\n"
-"这很可能是由 ALSA 驱动程序 %s 中的 bug。请向 ALSA 开发者举报这个问题。"
-msgstr[1] ""
-"snd_pcm_mmap_begin() 返回的值非常大：%lu 字节(%lu ms)。\n"
-"这很可能是由 ALSA 驱动程序 %s 中的 bug。请向 ALSA 开发者举报这个问题。"
+"这很可能是由 ALSA 驱动程序 %s 的缺陷导致的。请向 ALSA 开发者报告这个问题。"
 
 #: spa/plugins/bluez5/bluez5-device.c:1010
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
-msgstr ""
+msgstr "音频网关 (A2DP 信源 或 HSP/HFP 网关)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1033
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
-msgstr ""
+msgstr "高保真回放 (A2DP 信宿, 编码 %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1035
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
-msgstr ""
+msgstr "高保真双工 (A2DP 信源/信宿, 编码 %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1041
 msgid "High Fidelity Playback (A2DP Sink)"
-msgstr ""
+msgstr "高保真回放 (A2DP 信宿)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1043
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
-msgstr ""
+msgstr "高保真双工 (A2DP 信源/信宿)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1070
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr ""
+msgstr "头戴式耳机单元 (HSP/HFP, 编码 %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1074
 msgid "Headset Head Unit (HSP/HFP)"
-msgstr ""
+msgstr "头戴式耳机单元 (HSP/HFP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"
@@ -596,6 +622,5 @@ msgid "Phone"
 msgstr "电话"
 
 #: spa/plugins/bluez5/bluez5-device.c:1181
-#, fuzzy
 msgid "Bluetooth"
-msgstr "蓝牙输入"
+msgstr "蓝牙"

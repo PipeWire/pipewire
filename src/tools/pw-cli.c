@@ -1293,6 +1293,9 @@ static bool do_create_device(struct data *data, const char *cmd, char *args, cha
 					    props ? &props->dict : NULL,
 					    sizeof(struct proxy_data));
 
+	if (props)
+		pw_properties_free(props);
+
 	pd = pw_proxy_get_user_data(proxy);
 	pd->rd = rd;
 	pd->proxy = proxy;
@@ -1329,6 +1332,9 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 					    PW_VERSION_NODE,
 					    props ? &props->dict : NULL,
 					    sizeof(struct proxy_data));
+
+	if (props)
+		pw_properties_free(props);
 
 	pd = pw_proxy_get_user_data(proxy);
 	pd->rd = rd;
@@ -1398,6 +1404,9 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 					  PW_VERSION_LINK,
 					  props ? &props->dict : NULL,
 					  sizeof(struct proxy_data));
+
+	if (props)
+		pw_properties_free(props);
 
 	pd = pw_proxy_get_user_data(proxy);
 	pd->rd = rd;

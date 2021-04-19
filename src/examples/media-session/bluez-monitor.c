@@ -114,6 +114,61 @@ static struct node *bluez5_find_node(struct device *device, uint32_t id)
 	return NULL;
 }
 
+static void update_icon_name(struct pw_properties *p, bool is_sink)
+{
+	const char *s, *d = NULL, *bus;
+
+	if ((s = pw_properties_get(p, PW_KEY_DEVICE_FORM_FACTOR))) {
+		if (strcmp(s, "microphone") == 0)
+			d = "audio-input-microphone";
+		else if (strcmp(s, "webcam") == 0)
+			d = "camera-web";
+		else if (strcmp(s, "computer") == 0)
+			d = "computer";
+		else if (strcmp(s, "handset") == 0)
+			d = "phone";
+		else if (strcmp(s, "portable") == 0)
+			d = "multimedia-player";
+		else if (strcmp(s, "tv") == 0)
+			d = "video-display";
+		else if (strcmp(s, "headset") == 0)
+			d = "audio-headset";
+		else if (strcmp(s, "headphone") == 0)
+			d = "audio-headphones";
+		else if (strcmp(s, "speaker") == 0)
+			d = "audio-speakers";
+		else if (strcmp(s, "hands-free") == 0)
+			d = "audio-handsfree";
+	}
+	if (!d)
+		if ((s = pw_properties_get(p, PW_KEY_DEVICE_CLASS)))
+			if (strcmp(s, "modem") == 0)
+				d = "modem";
+
+	if (!d) {
+		if (is_sink)
+			d = "audio-card";
+		else
+			d = "audio-input-microphone";
+	}
+
+	if ((s = pw_properties_get(p, "device.profile.name")) != NULL) {
+		if (strstr(s, "analog"))
+			s = "-analog";
+		else if (strstr(s, "iec958"))
+			s = "-iec958";
+		else if (strstr(s, "hdmi"))
+			s = "-hdmi";
+		else
+			s = NULL;
+	}
+
+	bus = pw_properties_get(p, PW_KEY_DEVICE_BUS);
+
+	pw_properties_setf(p, PW_KEY_DEVICE_ICON_NAME,
+			"%s%s%s%s", d, s ? s : "", bus ? "-" : "", bus ? bus : "");
+}
+
 static void bluez5_update_node(struct device *device, struct node *node,
 		const struct spa_device_object_info *info)
 {
@@ -134,6 +189,7 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 	const char *prefix, *str, *profile, *rules;
 	int priority;
 	char tmp[1024];
+	bool is_sink;
 
 	pw_log_debug("new node %u", id);
 
@@ -148,6 +204,13 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 	}
 
 	node->props = pw_properties_new_dict(info->props);
+
+	if (pw_properties_get(node->props, PW_KEY_DEVICE_FORM_FACTOR) == NULL)
+		pw_properties_set(node->props, PW_KEY_DEVICE_FORM_FACTOR,
+				pw_properties_get(device->props, PW_KEY_DEVICE_FORM_FACTOR));
+	if (pw_properties_get(node->props, PW_KEY_DEVICE_BUS) == NULL)
+		pw_properties_set(node->props, PW_KEY_DEVICE_BUS,
+				pw_properties_get(device->props, PW_KEY_DEVICE_BUS));
 
 	str = pw_properties_get(device->props, SPA_KEY_DEVICE_DESCRIPTION);
 	if (str == NULL)
@@ -172,7 +235,8 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 	if (str == NULL)
 		str = pw_properties_get(device->props, SPA_KEY_DEVICE_NAME);
 
-	if (strstr(info->factory_name, "sink") != NULL)
+	is_sink = strstr(info->factory_name, "sink") != NULL;
+	if (is_sink)
 		prefix = "bluez_output";
 	else if (strstr(info->factory_name, "source") != NULL)
 		prefix = "bluez_input";
@@ -194,6 +258,8 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 		pw_properties_setf(node->props, PW_KEY_PRIORITY_DRIVER, "%d", priority);
 		pw_properties_setf(node->props, PW_KEY_PRIORITY_SESSION, "%d", priority);
 	}
+	if (pw_properties_get(node->props, PW_KEY_DEVICE_ICON_NAME) == NULL)
+		update_icon_name(node->props, is_sink);
 
 	node->impl = impl;
 	node->device = device;
@@ -341,6 +407,10 @@ static int update_device_props(struct device *device)
 	pw_properties_set(p, PW_KEY_DEVICE_NAME,
 			sm_media_session_sanitize_name(tmp, sizeof(tmp),
 					'_', "bluez_card.%s", s));
+
+	if (pw_properties_get(p, SPA_KEY_DEVICE_ICON_NAME) == NULL)
+		update_icon_name(p, true);
+
 	return 0;
 }
 

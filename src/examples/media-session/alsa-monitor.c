@@ -203,7 +203,7 @@ static const struct sm_object_methods node_methods = {
 	.release = node_release,
 };
 
-static void update_icon_name(struct pw_properties *p, struct pw_properties *props, bool is_sink)
+static void update_icon_name(struct pw_properties *p, bool is_sink)
 {
 	const char *s, *d = NULL, *bus;
 
@@ -254,7 +254,7 @@ static void update_icon_name(struct pw_properties *p, struct pw_properties *prop
 
 	bus = pw_properties_get(p, PW_KEY_DEVICE_BUS);
 
-	pw_properties_setf(props, PW_KEY_DEVICE_ICON_NAME,
+	pw_properties_setf(p, PW_KEY_DEVICE_ICON_NAME,
 			"%s%s%s%s", d, s ? s : "", bus ? "-" : "", bus ? bus : "");
 }
 
@@ -409,7 +409,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 		}
 	}
 	if (pw_properties_get(node->props, PW_KEY_DEVICE_ICON_NAME) == NULL)
-		update_icon_name(node->props, node->props, node->direction == PW_DIRECTION_INPUT);
+		update_icon_name(node->props, node->direction == PW_DIRECTION_INPUT);
 
 	node->impl = impl;
 	node->device = device;
@@ -607,7 +607,7 @@ static int update_device_props(struct device *device)
 	}
 
 	if (pw_properties_get(p, PW_KEY_DEVICE_ICON_NAME) == NULL)
-		update_icon_name(device->props, device->props, true);
+		update_icon_name(device->props, true);
 
 	return 1;
 }

@@ -1,14 +1,14 @@
 # Danish translation for PipeWire.
 # Copyright (C) 2019 PipeWire's COPYRIGHT HOLDER
 # This file is distributed under the same license as the PipeWire package.
-# scootergrisen, 2019.
+# scootergrisen, 2019, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: PipeWire master\n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
-"issues/new\n"
+"Report-Msgid-Bugs-To: "
+"https://gitlab.freedesktop.org/pipewire/pipewire/issues/new\n"
 "POT-Creation-Date: 2021-04-18 16:54+0800\n"
-"PO-Revision-Date: 2019-03-25 17:38+0200\n"
+"PO-Revision-Date: 2021-04-19 20:26+0200\n"
 "Last-Translator: scootergrisen\n"
 "Language-Team: Danish\n"
 "Language: da\n"
@@ -25,14 +25,18 @@ msgid ""
 "      --version                         Show version\n"
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
+"%s [tilvalg]\n"
+"  -h, --help                            Vis denne hjælp\n"
+"      --version                         Vis version\n"
+"  -c, --config                          Indlæs konfiguration (standard %s)\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr ""
+msgstr "PipeWire-mediesystem"
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr ""
+msgstr "Start PipeWire-mediesystemet"
 
 #: src/examples/media-session/alsa-monitor.c:526
 #: spa/plugins/alsa/acp/compat.c:187
@@ -46,7 +50,7 @@ msgstr "Modem"
 
 #: src/examples/media-session/alsa-monitor.c:539
 msgid "Unknown device"
-msgstr ""
+msgstr "Ukendt enhed"
 
 #: src/tools/pw-cat.c:991
 #, c-format
@@ -57,6 +61,11 @@ msgid ""
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
+"%s [tilvalg] <fil>\n"
+"  -h, --help                            Vis denne hjælp\n"
+"      --version                         Vis version\n"
+"  -v, --verbose                         Aktivér uddybende handlinger\n"
+"\n"
 
 #: src/tools/pw-cat.c:998
 #, c-format
@@ -75,6 +84,20 @@ msgid ""
 "      --list-targets                    List available targets for --target\n"
 "\n"
 msgstr ""
+"  -R, --remote                          Navn for fjerndæmon\n"
+"      --media-type                      Indstil medietype (standard %s)\n"
+"      --media-category                  Indstil mediekategori (standard %s)\n"
+"      --media-role                      Indstil medierolle (default %s)\n"
+"      --target                          Indstil mål for knudepunkt (standard "
+"%s)\n"
+"                                          0 betyder ingen henvisning\n"
+"      --latency                         Indstil latens for knudepunkt "
+"(standard %s)\n"
+"                                          Xenhed (enhed = s, ms, us, ns)\n"
+"                                          eller direkte datapunkter (256)\n"
+"                                          hastigheden stammer fra kildefilen\n"
+"      --list-targets                    Vis tilgængelige mål for --target\n"
+"\n"
 
 #: src/tools/pw-cat.c:1016
 #, c-format
@@ -95,6 +118,22 @@ msgid ""
 "%d)\n"
 "\n"
 msgstr ""
+"      --rate                            Målefrekvens (kræves ved optagelse) "
+"(standard %u)\n"
+"      --channels                        Antal kanaler (kræves ved optagelse) "
+"(standard %u)\n"
+"      --channel-map                     Kanalkort\n"
+"                                            en af: \"stereo\", \"surround-51\", "
+"... eller\n"
+"                                            kommasepareret liste over "
+"kanalnavne: f.eks. \"FL,FR\"\n"
+"      --format                          Måleformat %s (kræves ved optagelse) "
+"(standard %s)\n"
+"      --volume                          Lydstyrke for stream 0-1.0 (standard "
+"%.3f)\n"
+"  -q  --quality                         Kvalitet for resampler (0-15) "
+"(standard %d)\n"
+"\n"
 
 #: src/tools/pw-cat.c:1033
 msgid ""
@@ -103,6 +142,10 @@ msgid ""
 "  -m, --midi                            Midi mode\n"
 "\n"
 msgstr ""
+"  -p, --playback                        Afspilningstilstand\n"
+"  -r, --record                          Optagelsestilstand\n"
+"  -m, --midi                            Midi-tilstand\n"
+"\n"
 
 #: src/tools/pw-cli.c:2932
 #, c-format
@@ -114,10 +157,16 @@ msgid ""
 "  -r, --remote                          Remote daemon name\n"
 "\n"
 msgstr ""
+"%s [tilvalg] [kommando]\n"
+"  -h, --help                            Vis denne hjælp\n"
+"      --version                         Vis version\n"
+"  -d, --daemon                          Start som dæmon (standard false)\n"
+"  -r, --remote                          Navn for fjerndæmon\n"
+"\n"
 
 #: spa/plugins/alsa/acp/acp.c:290
 msgid "Pro Audio"
-msgstr ""
+msgstr "Pro Audio"
 
 #: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4704
 #: spa/plugins/bluez5/bluez5-device.c:1000
@@ -134,7 +183,7 @@ msgstr "Input"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2710
 msgid "Docking Station Input"
-msgstr "Input til dokingstation"
+msgstr "Input for dokingstation"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2711
 msgid "Docking Station Microphone"
@@ -243,13 +292,12 @@ msgid "Analog Output"
 msgstr "Analog output"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2809
-#, fuzzy
 msgid "Headphones 2"
-msgstr "Hovedtelefoner"
+msgstr "Hovedtelefoner 2"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2810
 msgid "Headphones Mono Output"
-msgstr "Mono output for hovedtelefoner"
+msgstr "Monooutput for hovedtelefoner"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2811
 msgid "Line Out"
@@ -257,7 +305,7 @@ msgstr "Line out"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2812
 msgid "Analog Mono Output"
-msgstr "Analog mono output"
+msgstr "Analog monooutput"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2813
 msgid "Speakers"
@@ -293,28 +341,24 @@ msgid "Chat Output"
 msgstr "Chatoutput"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2822
-#, fuzzy
 msgid "Chat Input"
-msgstr "Chatoutput"
+msgstr "Chatinput"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2823
-#, fuzzy
 msgid "Virtual Surround 7.1"
-msgstr "Virtuel surround-sink"
+msgstr "Virtuel surround 7.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4527
 msgid "Analog Mono"
 msgstr "Analog mono"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4528
-#, fuzzy
 msgid "Analog Mono (Left)"
-msgstr "Analog mono"
+msgstr "Analog mono (venstre)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4529
-#, fuzzy
 msgid "Analog Mono (Right)"
-msgstr "Analog mono"
+msgstr "Analog mono (højre)"
 
 #. Note: Not translated to "Analog Stereo Input", because the source
 #. * name gets "Input" appended to it automatically, so adding "Input"
@@ -343,9 +387,8 @@ msgstr "Headset"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4541
 #: spa/plugins/alsa/acp/alsa-mixer.c:4699
-#, fuzzy
 msgid "Speakerphone"
-msgstr "Højttaler"
+msgstr "Højttalertelefon"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4542
 #: spa/plugins/alsa/acp/alsa-mixer.c:4543
@@ -422,11 +465,11 @@ msgstr "Digital surround 5.1 (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4561
 msgid "Chat"
-msgstr ""
+msgstr "Chat"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4562
 msgid "Game"
-msgstr ""
+msgstr "Spil"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4696
 msgid "Analog Mono Duplex"
@@ -450,7 +493,7 @@ msgstr "Stereo dupleks"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4703
 msgid "Mono Chat + 7.1 Surround"
-msgstr ""
+msgstr "Monochat + 7.1 surround"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4806
 #, c-format
@@ -546,34 +589,34 @@ msgstr[1] ""
 
 #: spa/plugins/bluez5/bluez5-device.c:1010
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
-msgstr ""
+msgstr "Lydgateway (A2DP-kilde og HSP/HFP AG)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1033
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
-msgstr ""
+msgstr "High fidelity afspilning (A2DP-sink, codec %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1035
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
-msgstr ""
+msgstr "High fidelity dupleks (A2DP-kilde/-sink, codec %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1041
 msgid "High Fidelity Playback (A2DP Sink)"
-msgstr ""
+msgstr "High fidelity afspilning (A2DP-sink)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1043
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
-msgstr ""
+msgstr "High fidelity dupleks (A2DP-kilde/-sink)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1070
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr ""
+msgstr "Hovedenhed for headset (HSP/HFP, codec %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1074
 msgid "Headset Head Unit (HSP/HFP)"
-msgstr ""
+msgstr "Hovedenhed for headset (HSP/HFP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"
@@ -600,6 +643,5 @@ msgid "Phone"
 msgstr "Telefon"
 
 #: spa/plugins/bluez5/bluez5-device.c:1181
-#, fuzzy
 msgid "Bluetooth"
-msgstr "Bluetooth-input"
+msgstr "Bluetooth"

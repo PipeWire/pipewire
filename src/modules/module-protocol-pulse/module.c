@@ -145,27 +145,30 @@ void module_args_add_props(struct pw_properties *props, const char *str)
 int module_args_to_audioinfo(struct impl *impl, struct pw_properties *props, struct spa_audio_info_raw *info)
 {
 	const char *str;
+	uint32_t i;
 
 	/* We don't use any incoming format setting and use our native format */
+	spa_zero(*info);
 	info->format = SPA_AUDIO_FORMAT_F32P;
 
 	if ((str = pw_properties_get(props, "channels")) != NULL) {
 		info->channels = pw_properties_parse_int(str);
+		if (info->channels == 0 || info->channels > SPA_AUDIO_MAX_CHANNELS) {
+			pw_log_error("invalid channels '%s'", str);
+			return -EINVAL;
+		}
 		pw_properties_set(props, "channels", NULL);
-	} else {
-		info->channels = impl->defs.sample_spec.channels;
 	}
-	if ((str = pw_properties_get(props, "rate")) != NULL) {
-		info->rate = pw_properties_parse_int(str);
-		pw_properties_set(props, "rate", NULL);
-	} else {
-		info->rate = 0;
-	}
-
 	if ((str = pw_properties_get(props, "channel_map")) != NULL) {
 		struct channel_map map;
 
 		channel_map_parse(str, &map);
+		if (map.channels == 0 || map.channels > SPA_AUDIO_MAX_CHANNELS) {
+			pw_log_error("invalid channel_map '%s'", str);
+			return -EINVAL;
+		}
+		if (info->channels == 0)
+			info->channels = map.channels;
 		if (info->channels != map.channels) {
 			pw_log_error("Mismatched channel map");
 			return -EINVAL;
@@ -173,6 +176,9 @@ int module_args_to_audioinfo(struct impl *impl, struct pw_properties *props, str
 		channel_map_to_positions(&map, info->position);
 		pw_properties_set(props, "channel_map", NULL);
 	} else {
+		if (info->channels == 0)
+			info->channels = impl->defs.sample_spec.channels;
+
 		if (info->channels == impl->defs.channel_map.channels) {
 			channel_map_to_positions(&impl->defs.channel_map, info->position);
 		} else if (info->channels == 1) {
@@ -181,12 +187,18 @@ int module_args_to_audioinfo(struct impl *impl, struct pw_properties *props, str
 			info->position[0] = SPA_AUDIO_CHANNEL_FL;
 			info->position[1] = SPA_AUDIO_CHANNEL_FR;
 		} else {
-			pw_log_error("Mismatched channel map");
-			return -EINVAL;
+			/* FIXME add more mappings */
+			for (i = 0; i < info->channels; i++)
+				info->position[i] = SPA_AUDIO_CHANNEL_UNKNOWN;
 		}
-		/* TODO: pull in all of pa_channel_map_init_auto() */
 	}
 
+	if ((str = pw_properties_get(props, "rate")) != NULL) {
+		info->rate = pw_properties_parse_int(str);
+		pw_properties_set(props, "rate", NULL);
+	} else {
+		info->rate = 0;
+	}
 	return 0;
 }
 

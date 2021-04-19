@@ -416,7 +416,7 @@ const char *pw_gettext(const char *msgid)
 	return spa_i18n_text(_pipewire_i18n, msgid);
 }
 SPA_EXPORT
-const char *pw_bgettext(const char *msgid, const char *msgid_plural, unsigned long int n)
+const char *pw_ngettext(const char *msgid, const char *msgid_plural, unsigned long int n)
 {
 	return spa_i18n_ntext(_pipewire_i18n, msgid, msgid_plural, n);
 }

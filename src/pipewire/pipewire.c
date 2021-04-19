@@ -567,6 +567,7 @@ void pw_deinit(void)
 	}
 	if (support->categories)
 		pw_free_strv(support->categories);
+	free(support->i18n_domain);
 	spa_zero(global_support);
 	spa_zero(global_registry);
 

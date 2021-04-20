@@ -1,13 +1,14 @@
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # Karl Ove Hufthammer <karl@huftis.org>, 2017.
+# Nicolai Syvertsen <saivert@saivert.com> 2021.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
-"POT-Creation-Date: 2021-04-18 16:54+0800\n"
+"POT-Creation-Date: 2021-04-20 16:34+0200\n"
 "PO-Revision-Date: 2021-02-07 15:40+0000\n"
 "Last-Translator: Karl Ove Hufthammer <karl@huftis.org>\n"
 "Language-Team: Norwegian Nynorsk <https://translate.fedoraproject.org/"
@@ -30,25 +31,25 @@ msgstr ""
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr ""
+msgstr "PipeWire mediasystem"
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr ""
+msgstr "Start opp PipeWire mediasystem"
 
-#: src/examples/media-session/alsa-monitor.c:526
+#: src/examples/media-session/alsa-monitor.c:585
 #: spa/plugins/alsa/acp/compat.c:187
 msgid "Built-in Audio"
 msgstr "Innebygd lyd"
 
-#: src/examples/media-session/alsa-monitor.c:530
+#: src/examples/media-session/alsa-monitor.c:589
 #: spa/plugins/alsa/acp/compat.c:192
 msgid "Modem"
 msgstr "Modem"
 
-#: src/examples/media-session/alsa-monitor.c:539
+#: src/examples/media-session/alsa-monitor.c:598
 msgid "Unknown device"
-msgstr ""
+msgstr "Ukjend einhet"
 
 #: src/tools/pw-cat.c:991
 #, c-format
@@ -59,6 +60,11 @@ msgid ""
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
+"%s [val] <fil>\n"
+"  -h, --help                            Vis denne hjelpen\n"
+"      --version                         Vis versjon\n"
+"  -v, --verbose                         Slå på utdypene handling\n"
+"\n"
 
 #: src/tools/pw-cat.c:998
 #, c-format
@@ -77,6 +83,19 @@ msgid ""
 "      --list-targets                    List available targets for --target\n"
 "\n"
 msgstr ""
+"  -R, --remote                          Navn på fjerntjenar\n"
+"      --media-type                      Set medietype (standard %s)\n"
+"      --media-category                  Set mediekategori (standard %s)\n"
+"      --media-role                      Set medierolle (standard %s)\n"
+"      --target                          Set nodemål (standard %s)\n"
+"                                          0 betyr ikke tilknytt\n"
+"      --latency                         Set nodelatens (standard %s)\n"
+"                                          Xunit (unit = s, ms, us, ns)\n"
+"                                          eller direkte i datapunkter (256)\n"
+"                                          hastigheiten kjem frå kildefilen "
+"file\n"
+"      --list-targets                    Vis tilgjengeleg mål for --target\n"
+"\n"
 
 #: src/tools/pw-cat.c:1016
 #, c-format
@@ -97,6 +116,21 @@ msgid ""
 "%d)\n"
 "\n"
 msgstr ""
+"      --rate                            Målehastigheit (krevjast for opptak) (default "
+"%u)\n"
+"      --channels                        Antall kanalar (krevjast for opptak) "
+"(default %u)\n"
+"      --channel-map                     Kanaloppsett\n"
+"                                            ein av: \"stereo\", "
+"\"surround-51\",... or\n"
+"                                            kommaskild liste av kanalnavn "
+": t.d. \"FL,FR\"\n"
+"      --format                          Format for målingar %s (krevjast for opptak) "
+"(default %s)\n"
+"      --volume                          Lydnivå for straum 0-1.0 (standard %.3f)\n"
+"  -q  --quality                         Kvaltet for gjenutvalg (0 - 15) (standard "
+"%d)\n"
+"\n"
 
 #: src/tools/pw-cat.c:1033
 msgid ""
@@ -105,8 +139,12 @@ msgid ""
 "  -m, --midi                            Midi mode\n"
 "\n"
 msgstr ""
+"  -p, --playback                        Avspillingsmodus\n"
+"  -r, --record                          Opptaksmodus\n"
+"  -m, --midi                            Midi-modus\n"
+"\n"
 
-#: src/tools/pw-cli.c:2932
+#: src/tools/pw-cli.c:2941
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -116,10 +154,16 @@ msgid ""
 "  -r, --remote                          Remote daemon name\n"
 "\n"
 msgstr ""
+"%s [val] [kommando]\n"
+"  -h, --help                            Vis denne hjelp\n"
+"      --version                         Vis versjon\n"
+"  -d, --daemon                          Start som tjenar (standard er false)\n"
+"  -r, --remote                          Navn på fjerntjenar\n"
+"\n"
 
 #: spa/plugins/alsa/acp/acp.c:290
 msgid "Pro Audio"
-msgstr ""
+msgstr "Profflyd"
 
 #: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4704
 #: spa/plugins/bluez5/bluez5-device.c:1000
@@ -536,34 +580,34 @@ msgstr[1] ""
 
 #: spa/plugins/bluez5/bluez5-device.c:1010
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
-msgstr ""
+msgstr "Inngangsport for lyd (A2DP-kilde & HSP/HFP AG)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1033
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
-msgstr ""
+msgstr "Avspilling med naturtru lydattgjeving (A2DP Sink, codec %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1035
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
-msgstr ""
+msgstr "Toveis lyd med naturtru attgjeving (A2DP Source/Sink, codec %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1041
 msgid "High Fidelity Playback (A2DP Sink)"
-msgstr ""
+msgstr "Avspilling med naturtru lydattgjeving (A2DP Sink)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1043
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
-msgstr ""
+msgstr "Toveis lyd med naturtru attgjeving (A2DP Source/Sink)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1070
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr ""
+msgstr "Hodesett (HSP/HFP, codec %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1074
 msgid "Headset Head Unit (HSP/HFP)"
-msgstr ""
+msgstr "Hodesett (HSP/HFP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"

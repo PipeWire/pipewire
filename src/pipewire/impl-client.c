@@ -690,8 +690,10 @@ int pw_impl_client_update_permissions(struct pw_impl_client *client,
 			p = ensure_permissions(client, permissions[i].id);
 			if (p == NULL) {
 				pw_log_warn(NAME" %p: can't ensure permission: %m", client);
-				continue;
+				return -errno;
 			}
+			if ((def = find_permission(client, PW_ID_ANY)) == NULL)
+				return -EIO;
 			old_perm = p->permissions == PW_PERM_INVALID ? def->permissions : p->permissions;
 			new_perm = permissions[i].permissions;
 

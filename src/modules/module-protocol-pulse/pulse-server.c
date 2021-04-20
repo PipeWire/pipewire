@@ -4166,7 +4166,8 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = (uint32_t)atoi(str);
-	if ((str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
+	if (!pw_manager_object_is_virtual(o) &&
+	    (str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
 		client_id = (uint32_t)atoi(str);
 
 	collect_device_info(o, NULL, &dev_info);
@@ -4236,7 +4237,8 @@ static int fill_source_output_info(struct client *client, struct message *m,
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = (uint32_t)atoi(str);
-	if ((str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
+	if (!pw_manager_object_is_virtual(o) &&
+	    (str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
 		client_id = (uint32_t)atoi(str);
 
 	collect_device_info(o, NULL, &dev_info);

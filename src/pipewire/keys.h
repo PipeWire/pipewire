@@ -152,6 +152,8 @@ extern "C" {
 #define PW_KEY_NODE_DRIVER		"node.driver"		/**< node can drive the graph */
 #define PW_KEY_NODE_STREAM		"node.stream"		/**< node is a stream, the server side should
 								  *  add a converter */
+#define PW_KEY_NODE_VIRTUAL		"node.virtual"		/**< the node is some sort of virtual
+								  *  object */
 /** Port keys */
 #define PW_KEY_PORT_ID			"port.id"		/**< port id */
 #define PW_KEY_PORT_NAME		"port.name"		/**< port name */

@@ -170,7 +170,7 @@ struct module *create_module_null_sink(struct impl *impl, const char *argument)
 		pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
 	}
 
-	if ((str = pw_properties_get(props, PW_KEY_MEDIA_CLASS)) == NULL)
+	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 
 	if ((str = pw_properties_get(props, "device.description")) != NULL) {
@@ -187,7 +187,12 @@ struct module *create_module_null_sink(struct impl *impl, const char *argument)
 						class ? class : "", (class && class[0] != '\0') ? " " : "");
 	}
 	pw_properties_set(props, PW_KEY_FACTORY_NAME, "support.null-audio-sink");
-	pw_properties_set(props, PW_KEY_OBJECT_LINGER, "true");
+
+	if (pw_properties_get(props, PW_KEY_OBJECT_LINGER) == NULL)
+		pw_properties_set(props, PW_KEY_OBJECT_LINGER, "true");
+
+	if (pw_properties_get(props, "monitor.channel-volumes") == NULL)
+		pw_properties_set(props, "monitor.channel-volumes", "true");
 
 	module = module_new(impl, &module_null_sink_methods, sizeof(*d));
 	if (module == NULL) {

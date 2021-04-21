@@ -1210,9 +1210,15 @@ static int sco_set_volume_cb(void *data, int id, float volume)
 	rfcomm->volumes[id].hw_volume = value;
 
 	if (id == SPA_BT_VOLUME_ID_RX)
-		msg = spa_aprintf("+VGM: %d", value);
+		if (rfcomm->profile & SPA_BT_PROFILE_HFP_HF)
+			msg = spa_aprintf("+VGM: %d", value);
+		else
+			msg = spa_aprintf("+VGM=%d", value);
 	else if (id == SPA_BT_VOLUME_ID_TX)
-		msg = spa_aprintf("+VGS: %d", value);
+		if (rfcomm->profile & SPA_BT_PROFILE_HFP_HF)
+			msg = spa_aprintf("+VGS: %d", value);
+		else
+			msg = spa_aprintf("+VGS=%d", value);
 	else
 		spa_assert_not_reached();
 

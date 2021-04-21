@@ -1488,9 +1488,9 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 			goto fail_need_memory;
 		}
 		rfcomm->transport = t;
+		rfcomm->has_volume = rfcomm_volume_enabled(rfcomm);
 
 		if (profile == SPA_BT_PROFILE_HSP_AG) {
-			rfcomm->has_volume = rfcomm_volume_enabled(rfcomm);
 			rfcomm->hs_state = hsp_hs_init1;
 		}
 

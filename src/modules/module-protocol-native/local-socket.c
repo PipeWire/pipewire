@@ -124,8 +124,12 @@ static int try_connect(struct pw_protocol_client *client,
 		pw_log_debug("connect to '%s' failed: %m", name);
 		if (errno == ENOENT)
 			errno = EHOSTDOWN;
-		res = -errno;
-		goto error_close;
+		if (errno == EAGAIN) {
+			pw_log_info("client %p: connect pending, fd %d", client, fd);
+		} else {
+			res = -errno;
+			goto error_close;
+		}
 	}
 
 	res = pw_protocol_client_connect_fd(client, fd, true);

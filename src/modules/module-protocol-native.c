@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <sys/un.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -106,6 +107,7 @@ struct client {
 
 	int ref;
 
+	unsigned int connected:1;
 	unsigned int disconnecting:1;
 	unsigned int need_flush:1;
 	unsigned int paused:1;
@@ -826,6 +828,21 @@ on_remote_data(void *data, int fd, uint32_t mask)
 			goto error;
 	}
 	if (mask & SPA_IO_OUT || impl->need_flush) {
+		if (!impl->connected) {
+			socklen_t len = sizeof res;
+
+			if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &res, &len) < 0) {
+				res = -errno;
+				pw_log_error(NAME" getsockopt: %m");
+				goto error;
+			}
+			if (res != 0) {
+				res = -res;
+				goto error;
+			}
+			impl->connected = true;
+			pw_log_debug(NAME" %p: connected, fd %d", impl, fd);
+		}
 		impl->need_flush = false;
 		res = pw_protocol_native_connection_flush(conn);
 		if (res >= 0) {
@@ -881,6 +898,7 @@ static int impl_connect_fd(struct pw_protocol_client *client, int fd, bool do_cl
 	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
 	int res;
 
+	impl->connected = false;
 	impl->disconnecting = false;
 
 	pw_protocol_native_connection_set_fd(impl->connection, fd);

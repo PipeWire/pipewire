@@ -32,9 +32,7 @@ if not get_option('spa-plugins').disabled()
   libcamera_dep = dependency('camera', required: get_option('libcamera'))
 
   # common dependencies
-  libudev_dep = dependency('libudev', required: alsa_dep.found())
-  libudev_dep = dependency('libudev', required: get_option('udev'))
-  libudev_dep = dependency('libudev', required: get_option('v4l2'))
+  libudev_dep = dependency('libudev', required: alsa_dep.found() or get_option('udev').enabled() or get_option('v4l2').enabled())
 
   subdir('plugins')
 endif

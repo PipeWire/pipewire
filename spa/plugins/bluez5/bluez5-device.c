@@ -532,7 +532,10 @@ static int emit_nodes(struct impl *this)
 			if (!t)
 				t = find_transport(this, SPA_BT_PROFILE_HSP_AG, 0);
 			if (t) {
-				this->props.codec = get_hfp_codec_id(t->codec);
+				if (t->profile == SPA_BT_PROFILE_HSP_AG)
+					this->props.codec = 0;
+				else
+					this->props.codec = get_hfp_codec_id(t->codec);
 				emit_dynamic_node(&this->dyn_sco_source, this, t,
 						0, SPA_NAME_API_BLUEZ5_SCO_SOURCE);
 				emit_dynamic_node(&this->dyn_sco_sink, this, t,
@@ -572,7 +575,10 @@ static int emit_nodes(struct impl *this)
 			if (!t)
 				t = find_transport(this, SPA_BT_PROFILE_HSP_HS, 0);
 			if (t) {
-				this->props.codec = get_hfp_codec_id(t->codec);
+				if (t->profile == SPA_BT_PROFILE_HSP_HS)
+					this->props.codec = 0;
+				else
+					this->props.codec = get_hfp_codec_id(t->codec);
 				emit_node(this, t, DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_SCO_SOURCE);
 				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_SCO_SINK);
 			}
@@ -770,7 +776,7 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 			      nodes_changed);
 		break;
 	case DEVICE_PROFILE_HSP_HFP:
-		if (spa_bt_device_supports_hfp_codec(this->bt_dev, get_hfp_codec(this->props.codec)) == 0)
+		if (spa_bt_device_supports_hfp_codec(this->bt_dev, get_hfp_codec(this->props.codec)) != 1)
 			this->props.codec = 0;
 		nodes_changed = (connected_change & SPA_BT_PROFILE_HEADSET_HEAD_UNIT);
 		spa_log_debug(this->log, NAME": profiles changed: HSP/HFP nodes changed: %d",
@@ -1024,7 +1030,7 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		if (codec) {
 			const struct a2dp_codec *a2dp_codec = get_supported_a2dp_codec(this, codec);
 			if (a2dp_codec == NULL) {
-				errno = -EINVAL;
+				errno = EINVAL;
 				return NULL;
 			}
 			name_and_codec = spa_aprintf("%s-%s", name, a2dp_codec->name);
@@ -1059,10 +1065,10 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		if (codec) {
 			bool codec_ok = !(profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
 			unsigned int hfp_codec = get_hfp_codec(codec);
-			if (spa_bt_device_supports_hfp_codec(this->bt_dev, hfp_codec) == 0)
+			if (spa_bt_device_supports_hfp_codec(this->bt_dev, hfp_codec) != 1)
 				codec_ok = false;
 			if (!codec_ok) {
-				errno = -EINVAL;
+				errno = EINVAL;
 				return NULL;
 			}
 			name_and_codec = spa_aprintf("%s-%s", name, get_hfp_codec_name(hfp_codec));

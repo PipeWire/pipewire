@@ -970,6 +970,8 @@ static void stream_free(struct stream *stream)
 		spa_hook_remove(&stream->stream_listener);
 		pw_stream_destroy(stream->stream);
 	}
+	pw_work_queue_cancel(impl->work_queue, stream, SPA_ID_INVALID);
+
 	if (stream->buffer)
 		free(stream->buffer);
 	if (stream->props)
@@ -2640,8 +2642,11 @@ struct pending_sample {
 
 static void pending_sample_free(struct pending_sample *ps)
 {
+	struct client *client = ps->client;
+	struct impl *impl = client->impl;
 	spa_list_remove(&ps->link);
 	spa_hook_remove(&ps->listener);
+	pw_work_queue_cancel(impl->work_queue, ps, SPA_ID_INVALID);
 	ps->client->ref--;
 	sample_play_destroy(ps->play);
 }

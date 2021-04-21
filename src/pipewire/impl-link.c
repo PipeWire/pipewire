@@ -461,7 +461,7 @@ static int do_allocation(struct pw_impl_link *this)
 						output->buffers.n_buffers)) < 0) {
 			error = spa_aprintf("error use output buffers: %d (%s)", res,
 					spa_strerror(res));
-			goto error;
+			goto error_clear;
 		}
 		if (SPA_RESULT_IS_ASYNC(res)) {
 			res = spa_node_sync(output->node->node, res),
@@ -494,8 +494,9 @@ static int do_allocation(struct pw_impl_link *this)
 	}
 	return 0;
 
-error:
+error_clear:
 	pw_buffers_clear(&output->buffers);
+error:
 	link_update_state(this, PW_LINK_STATE_ERROR, res, error);
 	return res;
 }

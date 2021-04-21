@@ -79,7 +79,6 @@ struct client {
 	const char *name;
 
 	struct spa_source *source;
-	struct spa_source *cleanup;
 
 	uint32_t version;
 
@@ -220,7 +219,7 @@ struct impl {
 	struct spa_source *source;
 	struct spa_list servers;
 
-	struct spa_source *cleanup;
+	struct pw_work_queue *work_queue;
 	struct spa_list cleanup_clients;
 
 	struct pw_map samples;

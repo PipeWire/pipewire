@@ -170,7 +170,7 @@ can be used to find out the properties and parameters of the objects
 in the PipeWire daemon.
 
 There is a more complicated tool to inspect the state of the server
-with `pw-cli`. This tools can be used interactively or it can execute
+with `pw-cli`. This tool can be used interactively or it can execute
 single commands like this to get the server information:
 
 ```

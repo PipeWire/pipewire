@@ -34,6 +34,11 @@ static void on_module_unload(void *data, uint64_t count)
 	module_unload(NULL, module);
 }
 
+void module_schedule_unload(struct module *module)
+{
+	pw_loop_signal_event(module->impl->loop, module->unload);
+}
+
 struct module *module_new(struct impl *impl, const struct module_methods *methods, size_t user_data)
 {
 	struct module *module;

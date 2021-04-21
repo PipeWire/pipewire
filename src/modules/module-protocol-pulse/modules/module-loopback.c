@@ -85,7 +85,7 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE && res == -EPIPE)
-		pw_loop_signal_event(module->impl->loop, module->unload);
+		module_schedule_unload(module);
 }
 
 static const struct pw_core_events core_events = {
@@ -101,7 +101,7 @@ static void on_stream_state_changed(void *data, enum pw_stream_state old,
 
 	if (state == PW_STREAM_STATE_UNCONNECTED) {
 		pw_log_info("stream disconnected, unloading");
-		pw_loop_signal_event(module->impl->loop, module->unload);
+		module_schedule_unload(module);
 	}
 }
 

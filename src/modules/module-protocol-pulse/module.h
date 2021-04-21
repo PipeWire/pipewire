@@ -68,6 +68,7 @@ struct module {
 };
 
 struct module *module_new(struct impl *impl, const struct module_methods *methods, size_t user_data);
+void module_schedule_unload(struct module *module);
 
 void module_args_add_props(struct pw_properties *props, const char *str);
 int module_args_to_audioinfo(struct impl *impl, struct pw_properties *props, struct spa_audio_info_raw *info);

@@ -1690,13 +1690,16 @@ static void spa_bt_transport_volume_changed(struct spa_bt_transport *transport)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
 	struct spa_bt_transport_volume * t_volume;
+	int volume_id;
 
 	if (transport->profile & SPA_BT_PROFILE_A2DP_SINK)
-		t_volume = &transport->volumes[SPA_BT_VOLUME_ID_TX];
+		volume_id = SPA_BT_VOLUME_ID_TX;
 	else if (transport->profile & SPA_BT_PROFILE_A2DP_SOURCE)
-		t_volume = &transport->volumes[SPA_BT_VOLUME_ID_RX];
+		volume_id = SPA_BT_VOLUME_ID_RX;
 	else
 		return;
+
+	t_volume = &transport->volumes[volume_id];
 
 	if (t_volume->hw_volume != t_volume->new_hw_volume) {
 		t_volume->hw_volume = t_volume->new_hw_volume;
@@ -1704,8 +1707,10 @@ static void spa_bt_transport_volume_changed(struct spa_bt_transport *transport)
 					t_volume->hw_volume_max);
 		spa_log_debug(monitor->log, "transport %p: volume changed %d(%f) ",
 			transport, t_volume->new_hw_volume, t_volume->volume);
-		if (spa_bt_transport_volume_enabled(transport))
+		if (spa_bt_transport_volume_enabled(transport)) {
+			transport->device->a2dp_volume_active[volume_id] = true;
 			spa_bt_transport_emit_volume_changed(transport);
+		}
 	}
 }
 
@@ -2537,10 +2542,6 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		}
 	}
 
-	/* PW is the rendering device so it's responsible for reporting hardware volume. */
-	if (profile & SPA_BT_PROFILE_A2DP_SOURCE) {
-		transport->volumes[SPA_BT_VOLUME_ID_RX].active = true;
-	}
 	for (int i = 0; i < SPA_BT_VOLUME_ID_TERM; ++i) {
 		transport->volumes[i].hw_volume = SPA_BT_VOLUME_INVALID;
 		transport->volumes[i].hw_volume_max = SPA_BT_VOLUME_A2DP_MAX;
@@ -2555,6 +2556,14 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	}
 	if (is_new)
 		spa_list_append(&transport->device->transport_list, &transport->device_link);
+
+	if (profile & SPA_BT_PROFILE_A2DP_SOURCE) {
+		/* PW is the rendering device so it's responsible for reporting hardware volume. */
+		transport->volumes[SPA_BT_VOLUME_ID_RX].active = true;
+	} else if (profile & SPA_BT_PROFILE_A2DP_SINK) {
+		transport->volumes[SPA_BT_VOLUME_ID_TX].active
+			|= transport->device->a2dp_volume_active[SPA_BT_VOLUME_ID_TX];
+	}
 
 	if (codec->validate_config) {
 		struct spa_audio_info info;

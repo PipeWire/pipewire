@@ -84,7 +84,7 @@ struct impl {
 	struct spa_hook module_listener;
 	struct spa_list server_list;
 
-	struct spa_source *cleanup;
+	struct pw_work_queue *work_queue;
 
 	bool capture;
 	bool playback;
@@ -114,7 +114,6 @@ struct client {
 
 	unsigned int disconnect:1;
 	unsigned int disconnecting:1;
-	unsigned int done:1;
 };
 
 struct server {
@@ -166,11 +165,17 @@ static void client_free(struct client *client)
 	free(client);
 }
 
+
+static void on_client_cleanup(void *obj, void *data, int res, uint32_t id)
+{
+	struct client *c = obj;
+	client_free(c);
+}
+
 static void client_cleanup(struct client *client)
 {
 	struct impl *impl = client->impl;
-	client->done = true;
-	pw_loop_signal_event(impl->loop, impl->cleanup);
+	pw_work_queue_add(impl->work_queue, client, 0, on_client_cleanup, impl);
 }
 
 static void
@@ -640,19 +645,6 @@ error:
 	return NULL;
 }
 
-static void on_server_cleanup(void *data, uint64_t count)
-{
-	struct impl *impl = data;
-	struct client *c, *t;
-	struct server *s;
-	spa_list_for_each(s, &impl->server_list, link) {
-		spa_list_for_each_safe(c, t, &s->client_list, link) {
-			if (c->done)
-				client_free(c);
-		}
-	}
-}
-
 static void impl_free(struct impl *impl)
 {
 	struct server *s;
@@ -660,8 +652,6 @@ static void impl_free(struct impl *impl)
 	spa_hook_remove(&impl->module_listener);
 	spa_list_consume(s, &impl->server_list, link)
 		server_free(s);
-	if (impl->cleanup != NULL)
-		pw_loop_destroy_source(impl->loop, impl->cleanup);
 	if (impl->props)
 		pw_properties_free(impl->props);
 	free(impl);
@@ -822,8 +812,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
-	impl->cleanup = pw_loop_add_event(impl->loop, on_server_cleanup, impl);
-	if (impl->cleanup == NULL) {
+	impl->work_queue = pw_context_get_work_queue(context);
+	if (impl->work_queue == NULL) {
 		res = -errno;
 		goto error_free;
 	}

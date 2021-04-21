@@ -60,6 +60,7 @@
 
 #define spa_debug pw_log_debug
 
+#include <spa/support/cpu.h>
 #include <spa/utils/result.h>
 #include <spa/debug/dict.h>
 #include <spa/debug/mem.h>
@@ -6225,27 +6226,29 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	const char *str;
 	struct spa_json it[2];
 	char value[512];
+	const struct spa_support *support;
+	struct spa_cpu *cpu;
+	uint32_t n_support;
 	int res;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
 		goto error_exit;
 
+
 	if (props == NULL)
 		props = pw_properties_new(NULL, NULL);
 	if (props == NULL)
 		goto error_free;
 
-	str = pw_properties_get(props, "server.address");
-	if (str == NULL) {
-		pw_properties_setf(props, "server.address",
-				"[ \"%s-%s\" ]",
-				PW_PROTOCOL_PULSE_DEFAULT_SERVER,
-				get_server_name(context));
-		str = pw_properties_get(props, "server.address");
+	support = pw_context_get_support(context, &n_support);
+	cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
+
+	if ((str = pw_properties_get(props, "vm.overrides")) != NULL) {
+		if (cpu != NULL && spa_cpu_get_vm_type(cpu) != SPA_CPU_VM_NONE)
+			pw_properties_update_string(props, str, strlen(str));
+		pw_properties_set(props, "vm.overrides", NULL);
 	}
-	if (str == NULL)
-		goto error_free;
 
 	load_defaults(&impl->defs, props);
 
@@ -6269,6 +6272,17 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 
 	pw_context_add_listener(context, &impl->context_listener,
 			&context_events, impl);
+
+	str = pw_properties_get(props, "server.address");
+	if (str == NULL) {
+		pw_properties_setf(props, "server.address",
+				"[ \"%s-%s\" ]",
+				PW_PROTOCOL_PULSE_DEFAULT_SERVER,
+				get_server_name(context));
+		str = pw_properties_get(props, "server.address");
+	}
+	if (str == NULL)
+		goto error_free;
 
 	spa_json_init(&it[0], str, strlen(str));
 	if (spa_json_enter_array(&it[0], &it[1]) > 0) {

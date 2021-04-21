@@ -246,10 +246,22 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	}
 	this->conf = conf;
 
+	n_support = pw_get_support(this->support, SPA_N_ELEMENTS(this->support) - 6);
+	cpu = spa_support_find(this->support, n_support, SPA_TYPE_INTERFACE_CPU);
+
 	if ((str = pw_properties_get(conf, "context.properties")) != NULL) {
 		pw_properties_update_string(properties, str, strlen(str));
 		pw_log_info(NAME" %p: parsed context.properties section", this);
 	}
+
+	if ((str = pw_properties_get(properties, "vm.overrides")) != NULL) {
+		if (cpu != NULL && spa_cpu_get_vm_type(cpu) != SPA_CPU_VM_NONE)
+			pw_properties_update_string(properties, str, strlen(str));
+		pw_properties_set(properties, "vm.overrides", NULL);
+	}
+	if (pw_properties_get(properties, PW_KEY_CPU_MAX_ALIGN) == NULL && cpu != NULL)
+		pw_properties_setf(properties, PW_KEY_CPU_MAX_ALIGN,
+				"%u", spa_cpu_get_max_align(cpu));
 
 	if (getenv("PIPEWIRE_DEBUG") == NULL &&
 	    (str = pw_properties_get(properties, "log.level")) != NULL)
@@ -287,15 +299,11 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	this->data_system = this->data_loop->system;
 	this->main_loop = main_loop;
 
-	n_support = pw_get_support(this->support, SPA_N_ELEMENTS(this->support) - 6);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, this->main_loop->system);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Loop, this->main_loop->loop);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, this->main_loop->utils);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataSystem, this->data_system);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, this->data_loop->loop);
-
-	if ((cpu = spa_support_find(this->support, n_support, SPA_TYPE_INTERFACE_CPU)) != NULL)
-		pw_properties_setf(properties, PW_KEY_CPU_MAX_ALIGN, "%u", spa_cpu_get_max_align(cpu));
 
 	if ((str = pw_properties_get(properties, "support.dbus")) == NULL ||
 	    pw_properties_parse_bool(str)) {

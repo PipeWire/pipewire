@@ -55,6 +55,8 @@ struct factory_data {
 	struct spa_list link_list;
 
 	struct spa_hook module_listener;
+
+	struct pw_work_queue *work;
 };
 
 struct link_data {
@@ -91,6 +93,8 @@ static const struct pw_resource_events resource_events = {
 static void global_destroy(void *data)
 {
 	struct link_data *ld = data;
+	struct factory_data *d = ld->data;
+	pw_work_queue_cancel(d->work, ld, SPA_ID_INVALID);
 	spa_hook_remove(&ld->global_listener);
 	ld->global = NULL;
 }
@@ -139,10 +143,34 @@ error_bind:
 			"can't bind link: %s", spa_strerror(res));
 }
 
+static void destroy_link(void *obj, void *data, int res, uint32_t id)
+{
+	struct link_data *ld = data;
+	if (ld->global)
+		pw_global_destroy(ld->global);
+}
+
+static void link_state_changed(void *data, enum pw_link_state old,
+		enum pw_link_state state, const char *error)
+{
+	struct link_data *ld = data;
+	struct factory_data *d = ld->data;
+
+	switch (state) {
+	case PW_LINK_STATE_ERROR:
+		if (ld->linger)
+			pw_work_queue_add(d->work, ld, 0, destroy_link, ld);
+		break;
+	default:
+		break;
+	}
+}
+
 static const struct pw_impl_link_events link_events = {
 	PW_VERSION_IMPL_LINK_EVENTS,
 	.destroy = link_destroy,
-	.initialized = link_initialized
+	.initialized = link_initialized,
+	.state_changed = link_state_changed
 };
 
 static struct pw_impl_port *get_port(struct pw_impl_node *node, enum spa_direction direction)
@@ -487,6 +515,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	data = pw_impl_factory_get_user_data(factory);
 	data->this = factory;
 	data->module = module;
+	data->work = pw_context_get_work_queue(context);
 	spa_list_init(&data->link_list);
 
 	pw_log_debug("module %p: new", module);

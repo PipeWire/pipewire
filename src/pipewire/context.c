@@ -433,6 +433,9 @@ void pw_context_destroy(struct pw_context *context)
 
 	pw_data_loop_destroy(context->data_loop_impl);
 
+	if (context->work_queue)
+		pw_work_queue_destroy(context->work_queue);
+
 	pw_properties_free(context->properties);
 	pw_properties_free(context->conf);
 
@@ -481,6 +484,14 @@ SPA_EXPORT
 struct pw_loop *pw_context_get_main_loop(struct pw_context *context)
 {
 	return context->main_loop;
+}
+
+SPA_EXPORT
+struct pw_work_queue *pw_context_get_work_queue(struct pw_context *context)
+{
+	if (context->work_queue == NULL)
+		context->work_queue = pw_work_queue_new(context->main_loop);
+	return context->work_queue;
 }
 
 SPA_EXPORT

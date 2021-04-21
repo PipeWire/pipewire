@@ -401,10 +401,11 @@ struct pw_context {
 	struct spa_hook_list driver_listener_list;
 	struct spa_hook_list listener_list;
 
-	struct pw_loop *main_loop;	/**< main loop for control */
-	struct pw_loop *data_loop;	/**< data loop for data passing */
-        struct pw_data_loop *data_loop_impl;
-	struct spa_system *data_system;	/**< data system for data passing */
+	struct pw_loop *main_loop;		/**< main loop for control */
+	struct pw_loop *data_loop;		/**< data loop for data passing */
+	struct pw_data_loop *data_loop_impl;
+	struct spa_system *data_system;		/**< data system for data passing */
+	struct pw_work_queue *work_queue;	/**< work queue */
 
 	struct spa_support support[16];	/**< support for spa plugins */
 	uint32_t n_support;		/**< number of support items */

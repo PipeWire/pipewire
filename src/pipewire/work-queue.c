@@ -160,6 +160,7 @@ void pw_work_queue_destroy(struct pw_work_queue *queue)
  *
  * \memberof pw_work_queue
  */
+SPA_EXPORT
 uint32_t
 pw_work_queue_add(struct pw_work_queue *queue, void *obj, int res, pw_work_func_t func, void *data)
 {
@@ -215,6 +216,7 @@ pw_work_queue_add(struct pw_work_queue *queue, void *obj, int res, pw_work_func_
  *
  * \memberof pw_work_queue
  */
+SPA_EXPORT
 int pw_work_queue_cancel(struct pw_work_queue *queue, void *obj, uint32_t id)
 {
 	bool have_work = false;
@@ -246,6 +248,7 @@ int pw_work_queue_cancel(struct pw_work_queue *queue, void *obj, uint32_t id)
  *
  * \memberof pw_work_queue
  */
+SPA_EXPORT
 int pw_work_queue_complete(struct pw_work_queue *queue, void *obj, uint32_t seq, int res)
 {
 	struct work_item *item;

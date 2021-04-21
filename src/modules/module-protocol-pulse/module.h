@@ -63,7 +63,6 @@ struct module {
 	struct impl *impl;
 	const struct module_methods *methods;
 	struct spa_hook_list hooks;
-	struct spa_source *unload;
 	void *user_data;
 };
 

@@ -27,16 +27,16 @@
 
 static int module_unload(struct client *client, struct module *module);
 
-static void on_module_unload(void *data, uint64_t count)
+static void on_module_unload(void *obj, void *data, int res, uint32_t id)
 {
-	struct module *module = data;
-
+	struct module *module = obj;
 	module_unload(NULL, module);
 }
 
 void module_schedule_unload(struct module *module)
 {
-	pw_loop_signal_event(module->impl->loop, module->unload);
+	struct impl *impl = module->impl;
+	pw_work_queue_add(impl->work_queue, module, 0, on_module_unload, impl);
 }
 
 struct module *module_new(struct impl *impl, const struct module_methods *methods, size_t user_data)
@@ -50,7 +50,6 @@ struct module *module_new(struct impl *impl, const struct module_methods *method
 	module->impl = impl;
 	module->methods = methods;
 	spa_hook_list_init(&module->hooks);
-	module->unload = pw_loop_add_event(impl->loop, on_module_unload, module);
 	module->user_data = SPA_MEMBER(module, sizeof(struct module), void);
 
 	return module;
@@ -79,12 +78,11 @@ static void module_free(struct module *module)
 	if (module->idx != SPA_ID_INVALID)
 		pw_map_remove(&impl->modules, module->idx & INDEX_MASK);
 
+	pw_work_queue_cancel(impl->work_queue, module, SPA_ID_INVALID);
 	free((char*)module->name);
 	free((char*)module->args);
 	if (module->props)
 		pw_properties_free(module->props);
-	pw_loop_destroy_source(impl->loop, module->unload);
-
 	free(module);
 }
 

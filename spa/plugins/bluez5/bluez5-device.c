@@ -442,7 +442,9 @@ static void dynamic_node_volume_changed(void *data)
 	struct spa_pod_builder b = { 0 };
 	struct spa_pod_frame f[1];
 	struct spa_bt_transport_volume *t_volume;
-	int id = SPA_FLAG_CLEAR(node->id, DYNAMIC_NODE_ID_FLAG), volume_id;
+	int id = node->id, volume_id;
+
+	SPA_FLAG_CLEAR(id, DYNAMIC_NODE_ID_FLAG);
 
 	/* Remote device is the controller */
 	if (!node->transport || impl->profile != DEVICE_PROFILE_AG

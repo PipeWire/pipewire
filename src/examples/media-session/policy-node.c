@@ -139,6 +139,8 @@ static bool find_format(struct node *node)
 
 	spa_list_for_each(p, &node->obj->param_list, link) {
 		struct spa_audio_info info = { 0, };
+		struct spa_pod *position = NULL;
+		uint32_t n_position = 0;
 
 		if (p->id != SPA_PARAM_EnumFormat)
 			continue;
@@ -161,7 +163,18 @@ static bool find_format(struct node *node)
 		info.info.raw.position[0] = SPA_AUDIO_CHANNEL_FL;
 		info.info.raw.position[1] = SPA_AUDIO_CHANNEL_FR;
 
-		spa_format_audio_raw_parse(p->param, &info.info.raw);
+		spa_pod_parse_object(p->param,
+			SPA_TYPE_OBJECT_Format, NULL,
+			SPA_FORMAT_AUDIO_format,	SPA_POD_Id(&info.info.raw.format),
+			SPA_FORMAT_AUDIO_rate,		SPA_POD_OPT_Int(&info.info.raw.rate),
+			SPA_FORMAT_AUDIO_channels,	SPA_POD_Int(&info.info.raw.channels),
+			SPA_FORMAT_AUDIO_position,	SPA_POD_OPT_Pod(&position));
+
+		if (position != NULL)
+			n_position = spa_pod_copy_array(position, SPA_TYPE_Id,
+					info.info.raw.position, SPA_AUDIO_MAX_CHANNELS);
+		if (n_position == 0 || n_position != info.info.raw.channels)
+			SPA_FLAG_SET(info.info.raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED);
 
 		if (node->format.info.raw.channels < info.info.raw.channels)
 			node->format = info;

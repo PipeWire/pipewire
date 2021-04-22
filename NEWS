@@ -1,3 +1,79 @@
+PipeWire 0.3.26
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Highlights
+  - I18n support, with translations merged from PulseAudio.
+  - New pw-link tool.
+  - Many Bluetooth improvements, support for hardware volumes.
+  - Support for 64 channel devices.
+  - Stability fixes and improvements.
+
+
+- PipeWire improvements
+  - The link factory can now also make links between nodes and
+    ports by name so that it can be used in scripts.
+  - Add module-protocol-simple that can stream raw audio on a
+    socket.
+  - Added i18n support. Merge PulseAudio translations for the ACP
+    library so that we don't cause regressions.
+  - Support more than 19 channels in the channel mixer.
+    This makes all channels usable on 32 and 64 channel cards.
+  - Detect if we're running in a VM and allow for tweaking some
+    settings such as the max-quantum to make things work better in
+    VMs.
+  - Fix a potential crash when connecting a client and updating
+    permissions.
+  - Fix a potential crash when trying to link incompatible ports.
+  - Lingering links in error will now be destroyed automatically.
+
+- Tools
+  - Added new pw-link tool to list and monitor ports and to
+    list, monitor, create and destroy links between them.
+  - pw-cli can now also list params by name.
+  - pw-dump now outputs Spa:String:JSON types in metadata as properly
+    parsed and formatted JSON so that tools can parse the
+    metadata values using a JSON parser.
+
+- Session-manager
+  - Add logind support. The bluetooth monitor can only be started
+    for one user at the time, so use logind detect active seats.
+  - ALSA icon names were improved to match what PulseAudio does.
+  - Improve the bluetooth icon name. Also use the device alias
+    as the device description, like PulseAudio.
+
+- Device support
+  - When devices become inaccessible, they are now removed from
+    the PipeWire graph.
+  - Fix datatype selection for buffers in v4l2 and libcamera.
+
+- Bluetooth
+  - Various memory leaks and crashes are fixed.
+  - Added support for AVRCP hardware volume.
+  - Added support for HSP/HFP hardware volume.
+
+- PulseAudio server
+  - Fix module-loopback connections to monitor ports.
+  - Implement module-native-protocol-tcp.
+  - Handle nodes and streams with > 32 channels. The PulseAudio
+    API only supports up to 32 channels so only make those 32
+    first channels available with the PA API.
+  - Implement module-simple-protocol-tcp.
+  - Improve events emitted by the server.
+  - Improvements to channels and channel_map properties on
+    modules. one can imply the other and they should match when
+    both given.
+  - null-sink will now have their volume work correctly by
+    default.
+
+- JACK
+  - JACK developement files can now optionally be installed.
+
+
+Older versions:
+
+
 PipeWire 0.3.25
 
 This is a bugfix release that is API and ABI compatible
@@ -93,10 +169,6 @@ with previous 0.3.x releases.
     emit a client remove when there were still ports for the
     client.
   - make sure midi port names are stable across reboots.
-
-
-Older versions:
-
 
 PipeWire 0.3.24
 

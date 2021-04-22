@@ -14,6 +14,16 @@ pipewire_module_access = shared_library('pipewire-module-access', [ 'module-acce
   dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
+pipewire_module_profiler = shared_library('pipewire-module-loopback',
+  [ 'module-loopback.c' ],
+  c_args : pipewire_module_c_args,
+  include_directories : [configinc, spa_inc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, pipewire_dep],
+)
+
 pipewire_module_profiler = shared_library('pipewire-module-profiler',
   [ 'module-profiler.c',
     'module-profiler/protocol-native.c', ],

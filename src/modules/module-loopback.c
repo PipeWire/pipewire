@@ -263,12 +263,14 @@ static void impl_destroy(struct impl *impl)
 		pw_properties_free(impl->capture_props);
 	if (impl->playback_props)
 		pw_properties_free(impl->playback_props);
+	pw_work_queue_cancel(impl->work, impl, SPA_ID_INVALID);
 	free(impl);
 }
 
 static void module_destroy(void *data)
 {
 	struct impl *impl = data;
+	impl->unloading = true;
 	spa_hook_remove(&impl->module_listener);
 	impl_destroy(impl);
 }

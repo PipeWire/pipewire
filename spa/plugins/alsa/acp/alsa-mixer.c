@@ -5142,6 +5142,7 @@ void pa_alsa_profile_set_probe(
     pa_alsa_profile **pp, **probe_order;
     pa_alsa_mapping *m;
     pa_hashmap *broken_inputs, *broken_outputs, *used_paths;
+    pa_alsa_mapping *selected_fallback_input = NULL, *selected_fallback_output = NULL;
 
     pa_assert(ps);
     pa_assert(dev_id);
@@ -5164,13 +5165,16 @@ void pa_alsa_profile_set_probe(
         uint32_t idx;
         p = *pp;
 
-        pa_log_debug("Check Profile %s.", p->name);
-
-        /* Skip if fallback and already found something */
+        /* Skip if fallback and already found something, but still probe already selected fallbacks.
+         * If UCM is used then both fallback_input and fallback_output flags are false.
+         * If UCM is not used then there will be only a single entry in mappings.
+         */
         if (found_input && p->fallback_input)
-            continue;
+            if (selected_fallback_input == NULL || pa_idxset_get_by_index(p->input_mappings, 0) != selected_fallback_input)
+                continue;
         if (found_output && p->fallback_output)
-            continue;
+            if (selected_fallback_output == NULL || pa_idxset_get_by_index(p->output_mappings, 0) != selected_fallback_output)
+                continue;
 
         /* Skip if this is already marked that it is supported (i.e. from the config file) */
         if (!p->supported) {
@@ -5261,14 +5265,20 @@ void pa_alsa_profile_set_probe(
         if (p->output_mappings)
             PA_IDXSET_FOREACH(m, p->output_mappings, idx)
                 if (m->output_pcm) {
-                    found_output |= !p->fallback_output;
+                    found_output = true;
+                    if (p->fallback_output && selected_fallback_output == NULL) {
+                        selected_fallback_output = m;
+                    }
                     mapping_paths_probe(m, p, PA_ALSA_DIRECTION_OUTPUT, used_paths, mixers);
                 }
 
         if (p->input_mappings)
             PA_IDXSET_FOREACH(m, p->input_mappings, idx)
                 if (m->input_pcm) {
-                    found_input |= !p->fallback_input;
+                    found_input = true;
+                    if (p->fallback_input && selected_fallback_input == NULL) {
+                        selected_fallback_input = m;
+                    }
                     mapping_paths_probe(m, p, PA_ALSA_DIRECTION_INPUT, used_paths, mixers);
                 }
     }

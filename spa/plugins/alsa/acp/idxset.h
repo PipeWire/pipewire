@@ -181,6 +181,14 @@ static inline void* pa_idxset_get_by_data(pa_idxset*s, const void *p, uint32_t *
 	return item->ptr;
 }
 
+static inline void* pa_idxset_get_by_index(pa_idxset*s, uint32_t idx)
+{
+        pa_idxset_item *item;
+	if (!pa_array_check_index(&s->array, idx, pa_idxset_item))
+		return NULL;
+	item = pa_array_get_unchecked(&s->array, idx, pa_idxset_item);
+	return item->ptr;
+}
 
 #define PA_IDXSET_FOREACH(e, s, idx) \
 	for ((e) = pa_idxset_first((s), &(idx)); (e); (e) = pa_idxset_next((s), &(idx)))

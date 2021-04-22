@@ -25,6 +25,7 @@
 
 #include <spa/param/audio/format-utils.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/json.h>
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
 
@@ -41,14 +42,9 @@
 
 struct module_loopback_data {
 	struct module *module;
-	struct pw_core *core;
 
-	struct pw_stream *capture;
-	struct pw_stream *playback;
-
-	struct spa_hook core_listener;
-	struct spa_hook capture_listener;
-	struct spa_hook playback_listener;
+	struct pw_impl_module *mod;
+	struct spa_hook mod_listener;
 
 	struct pw_properties *capture_props;
 	struct pw_properties *playback_props;
@@ -56,129 +52,74 @@ struct module_loopback_data {
 	struct spa_audio_info_raw info;
 };
 
-static void capture_process(void *d)
-{
-	struct module_loopback_data *data = d;
-	struct pw_buffer *in, *out;
-
-	if ((in = pw_stream_dequeue_buffer(data->capture)) == NULL)
-		pw_log_warn("out of capture buffers: %m");
-
-	if ((out = pw_stream_dequeue_buffer(data->playback)) == NULL)
-		pw_log_warn("out of playback buffers: %m");
-
-	if (in != NULL && out != NULL)
-		*out->buffer = *in->buffer;
-
-	if (in != NULL)
-		pw_stream_queue_buffer(data->capture, in);
-	if (out != NULL)
-		pw_stream_queue_buffer(data->playback, out);
-}
-
-static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
+static void module_destroy(void *data)
 {
 	struct module_loopback_data *d = data;
-	struct module *module = d->module;
-
-	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
-			id, seq, res, spa_strerror(res), message);
-
-	if (id == PW_ID_CORE && res == -EPIPE)
-		module_schedule_unload(module);
+	spa_hook_remove(&d->mod_listener);
+	d->mod = NULL;
+	module_schedule_unload(d->module);
 }
 
-static const struct pw_core_events core_events = {
-	PW_VERSION_CORE_EVENTS,
-	.error = on_core_error,
+static const struct pw_impl_module_events module_events = {
+	PW_VERSION_IMPL_MODULE_EVENTS,
+	.destroy = module_destroy
 };
 
-static void on_stream_state_changed(void *data, enum pw_stream_state old,
-		enum pw_stream_state state, const char *error)
+static void serialize_dict(FILE *f, const struct spa_dict *dict)
 {
-	struct module_loopback_data *d = data;
-	struct module *module = d->module;
-
-	if (state == PW_STREAM_STATE_UNCONNECTED) {
-		pw_log_info("stream disconnected, unloading");
-		module_schedule_unload(module);
+	const struct spa_dict_item *it;
+	fprintf(f, "{");
+	spa_dict_for_each(it, dict) {
+		size_t len = it->value ? strlen(it->value) : 0;
+		fprintf(f, " \"%s\" = ", it->key);
+		if (it->value == NULL) {
+			fprintf(f, "null");
+		} else if ( spa_json_is_null(it->value, len) ||
+		    spa_json_is_float(it->value, len) ||
+		    spa_json_is_object(it->value, len)) {
+			fprintf(f, "%s", it->value);
+		} else {
+			size_t size = (len+1) * 4;
+			char str[size];
+				spa_json_encode_string(str, size, it->value);
+			fprintf(f, "%s", str);
+		}
 	}
+	fprintf(f, " }");
 }
-
-static const struct pw_stream_events in_stream_events = {
-	PW_VERSION_STREAM_EVENTS,
-	.state_changed = on_stream_state_changed,
-	.process = capture_process
-};
-
-static const struct pw_stream_events out_stream_events = {
-	PW_VERSION_STREAM_EVENTS,
-	.state_changed = on_stream_state_changed,
-};
 
 static int module_loopback_load(struct client *client, struct module *module)
 {
 	struct module_loopback_data *data = module->user_data;
-	int res;
-	uint32_t n_params;
-	const struct spa_pod *params[1];
-	uint8_t buffer[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-
-	data->core = pw_context_connect(module->impl->context,
-			pw_properties_copy(client->props),
-			0);
-	if (data->core == NULL)
-		return -errno;
-
-	pw_core_add_listener(data->core,
-			&data->core_listener,
-			&core_events, data);
+	FILE *f;
+	char *args;
+	size_t size;
 
 	pw_properties_setf(data->capture_props, PW_KEY_NODE_GROUP, "loopback-%u", module->idx);
 	pw_properties_setf(data->playback_props, PW_KEY_NODE_GROUP, "loopback-%u", module->idx);
 
-	data->capture = pw_stream_new(data->core,
-			"loopback capture", data->capture_props);
-	data->capture_props = NULL;
-	if (data->capture == NULL)
+	f = open_memstream(&args, &size);
+	fprintf(f, "{");
+	if (data->info.channels != 0)
+		fprintf(f, " audio.channels = %u", data->info.channels);
+	fprintf(f, " capture.props = ");
+	serialize_dict(f, &data->capture_props->dict);
+	fprintf(f, " playback.props = ");
+	serialize_dict(f, &data->playback_props->dict);
+	fprintf(f, " }");
+	fclose(f);
+
+	data->mod = pw_context_load_module(module->impl->context,
+			"libpipewire-module-loopback",
+			args, NULL);
+	free(args);
+
+	if (data->mod == NULL)
 		return -errno;
 
-	pw_stream_add_listener(data->capture,
-			&data->capture_listener,
-			&in_stream_events, data);
-
-	data->playback = pw_stream_new(data->core,
-			"loopback playback", data->playback_props);
-	data->playback_props = NULL;
-	if (data->playback == NULL)
-		return -errno;
-
-	pw_stream_add_listener(data->playback,
-			&data->playback_listener,
-			&out_stream_events, data);
-
-	n_params = 0;
-	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&data->info);
-
-	if ((res = pw_stream_connect(data->capture,
-			PW_DIRECTION_INPUT,
-			PW_ID_ANY,
-			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS,
-			params, n_params)) < 0)
-		return res;
-
-	if ((res = pw_stream_connect(data->playback,
-			PW_DIRECTION_OUTPUT,
-			PW_ID_ANY,
-			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS,
-			params, n_params)) < 0)
-		return res;
+	pw_impl_module_add_listener(data->mod,
+			&data->mod_listener,
+			&module_events, data);
 
 	pw_log_info("loaded module %p id:%u name:%s", module, module->idx, module->name);
 	module_emit_loaded(module, 0);
@@ -192,17 +133,11 @@ static int module_loopback_unload(struct client *client, struct module *module)
 
 	pw_log_info("unload module %p id:%u name:%s", module, module->idx, module->name);
 
-	if (d->capture_props != NULL)
-		pw_properties_free(d->capture_props);
-	if (d->playback_props != NULL)
-		pw_properties_free(d->playback_props);
-	if (d->capture != NULL)
-		pw_stream_destroy(d->capture);
-	if (d->playback != NULL)
-		pw_stream_destroy(d->playback);
-	if (d->core != NULL)
-		pw_core_disconnect(d->core);
-
+	if (d->mod) {
+		spa_hook_remove(&d->mod_listener);
+		pw_impl_module_destroy(d->mod);
+		d->mod = NULL;
+	}
 	return 0;
 }
 

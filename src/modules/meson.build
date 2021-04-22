@@ -111,6 +111,8 @@ pipewire_module_protocol_pulse = shared_library('pipewire-module-protocol-pulse'
     'module-protocol-pulse/modules/module-loopback.c',
     'module-protocol-pulse/modules/module-native-protocol-tcp.c',
     'module-protocol-pulse/modules/module-null-sink.c',
+    'module-protocol-pulse/modules/module-remap-sink.c',
+    'module-protocol-pulse/modules/module-remap-source.c',
     'module-protocol-pulse/modules/module-simple-protocol-tcp.c',
   ],
   c_args : pipewire_module_c_args,

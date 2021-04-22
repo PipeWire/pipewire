@@ -83,15 +83,15 @@ struct impl {
 	struct spa_hook core_proxy_listener;
 	struct spa_hook core_listener;
 
-	struct spa_audio_info_raw info;
-
 	struct pw_properties *capture_props;
 	struct pw_stream *capture;
 	struct spa_hook capture_listener;
+	struct spa_audio_info_raw capture_info;
 
 	struct pw_properties *playback_props;
 	struct pw_stream *playback;
 	struct spa_hook playback_listener;
+	struct spa_audio_info_raw playback_info;
 
 	unsigned int do_disconnect:1;
 	unsigned int unloading:1;
@@ -130,19 +130,29 @@ static void capture_process(void *d)
 		pw_log_warn("out of playback buffers: %m");
 
 	if (in != NULL && out != NULL) {
-		for (i = 0; i < in->buffer->n_datas; i++) {
+		uint32_t size = 0;
+		int32_t stride = 0;
+
+		for (i = 0; i < out->buffer->n_datas; i++) {
 			struct spa_data *ds, *dd;
 
-			ds = &in->buffer->datas[i];
 			dd = &out->buffer->datas[i];
 
-			memcpy(dd->data,
-				SPA_MEMBER(ds->data, ds->chunk->offset, void),
-				ds->chunk->size);
+			if (i < in->buffer->n_datas) {
+				ds = &in->buffer->datas[i];
 
+				memcpy(dd->data,
+					SPA_MEMBER(ds->data, ds->chunk->offset, void),
+					ds->chunk->size);
+
+				size = SPA_MAX(size, ds->chunk->size);
+				stride = SPA_MAX(stride, ds->chunk->stride);
+			} else {
+				memset(dd->data, 0, size);
+			}
 			dd->chunk->offset = 0;
-			dd->chunk->size = ds->chunk->size;
-			dd->chunk->stride = ds->chunk->stride;
+			dd->chunk->size = size;
+			dd->chunk->stride = stride;
 		}
 	}
 
@@ -176,7 +186,7 @@ static int setup_streams(struct impl *impl)
 	uint32_t n_params;
 	const struct spa_pod *params[1];
 	uint8_t buffer[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct spa_pod_builder b;
 
 	impl->capture = pw_stream_new(impl->core,
 			"loopback capture", impl->capture_props);
@@ -199,8 +209,9 @@ static int setup_streams(struct impl *impl)
 			&out_stream_events, impl);
 
 	n_params = 0;
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&impl->info);
+			&impl->capture_info);
 
 	if ((res = pw_stream_connect(impl->capture,
 			PW_DIRECTION_INPUT,
@@ -210,6 +221,11 @@ static int setup_streams(struct impl *impl)
 			PW_STREAM_FLAG_RT_PROCESS,
 			params, n_params)) < 0)
 		return res;
+
+	n_params = 0;
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
+			&impl->playback_info);
 
 	if ((res = pw_stream_connect(impl->playback,
 			PW_DIRECTION_OUTPUT,
@@ -290,7 +306,7 @@ static uint32_t channel_from_name(const char *name)
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
 }
 
-static inline void parse_position(struct impl *impl, const char *val, size_t len)
+static void parse_position(struct spa_audio_info_raw *info, const char *val, size_t len)
 {
 	struct spa_json it[2];
 	char v[256];
@@ -299,10 +315,35 @@ static inline void parse_position(struct impl *impl, const char *val, size_t len
         if (spa_json_enter_array(&it[0], &it[1]) <= 0)
                 spa_json_init(&it[1], val, len);
 
-	impl->info.channels = 0;
+	info->channels = 0;
 	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
-	    impl->info.channels < SPA_AUDIO_MAX_CHANNELS) {
-		impl->info.position[impl->info.channels++] = channel_from_name(v);
+	    info->channels < SPA_AUDIO_MAX_CHANNELS) {
+		info->position[info->channels++] = channel_from_name(v);
+	}
+}
+
+static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_raw *info)
+{
+	const char *str;
+
+	*info = SPA_AUDIO_INFO_RAW_INIT(
+			.format = SPA_AUDIO_FORMAT_F32P);
+	if ((str = pw_properties_get(props, PW_KEY_AUDIO_RATE)) != NULL)
+		info->rate = atoi(str);
+	if ((str = pw_properties_get(props, PW_KEY_AUDIO_CHANNELS)) != NULL)
+		info->channels = atoi(str);
+	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL)
+		parse_position(info, str, strlen(str));
+}
+
+static void copy_props(struct impl *impl, struct pw_properties *props, const char *key)
+{
+	const char *str;
+	if ((str = pw_properties_get(props, key)) != NULL) {
+		if (pw_properties_get(impl->capture_props, key) == NULL)
+			pw_properties_set(impl->capture_props, key, str);
+		if (pw_properties_get(impl->playback_props, key) == NULL)
+			pw_properties_set(impl->playback_props, key, str);
 	}
 }
 
@@ -322,8 +363,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	pw_log_debug("module %p: new %s", impl, args);
 
-	impl->info = SPA_AUDIO_INFO_RAW_INIT(
-				.format = SPA_AUDIO_FORMAT_F32P);
 	if (args)
 		props = pw_properties_new_string(args);
 	else
@@ -346,32 +385,25 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->context = context;
 	impl->work = pw_context_get_work_queue(context);
 
-	if ((str = pw_properties_get(props, PW_KEY_AUDIO_RATE)) != NULL)
-		impl->info.rate = atoi(str);
-	if ((str = pw_properties_get(props, PW_KEY_AUDIO_CHANNELS)) != NULL)
-		impl->info.channels = atoi(str);
-	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL)
-		parse_position(impl, str, strlen(str));
+	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
+		pw_properties_setf(props, PW_KEY_NODE_GROUP, "loopback-%u", id);
+	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
+		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 
 	if ((str = pw_properties_get(props, "capture.props")) != NULL)
 		pw_properties_update_string(impl->capture_props, str, strlen(str));
 	if ((str = pw_properties_get(props, "playback.props")) != NULL)
 		pw_properties_update_string(impl->playback_props, str, strlen(str));
 
-	if (pw_properties_get(impl->capture_props, PW_KEY_NODE_GROUP) == NULL)
-		pw_properties_setf(impl->capture_props, PW_KEY_NODE_GROUP, "loopback-%u", id);
-	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_GROUP) == NULL)
-		pw_properties_setf(impl->playback_props, PW_KEY_NODE_GROUP, "loopback-%u", id);
+	copy_props(impl, props, PW_KEY_AUDIO_RATE);
+	copy_props(impl, props, PW_KEY_AUDIO_CHANNELS);
+	copy_props(impl, props, SPA_KEY_AUDIO_POSITION);
+	copy_props(impl, props, PW_KEY_NODE_GROUP);
+	copy_props(impl, props, PW_KEY_NODE_LATENCY);
+	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 
-	if (pw_properties_get(impl->capture_props, PW_KEY_NODE_VIRTUAL) == NULL)
-		pw_properties_set(impl->capture_props, PW_KEY_NODE_VIRTUAL, "true");
-	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_VIRTUAL) == NULL)
-		pw_properties_set(impl->playback_props, PW_KEY_NODE_VIRTUAL, "true");
-
-	if ((str = pw_properties_get(props, PW_KEY_NODE_LATENCY)) != NULL) {
-		pw_properties_set(impl->capture_props, PW_KEY_NODE_LATENCY, str);
-		pw_properties_set(impl->playback_props, PW_KEY_NODE_LATENCY, str);
-	}
+	parse_audio_info(impl->capture_props, &impl->capture_info);
+	parse_audio_info(impl->playback_props, &impl->playback_info);
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

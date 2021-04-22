@@ -366,6 +366,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(impl->playback_props, PW_KEY_NODE_VIRTUAL, "true");
 
+	if ((str = pw_properties_get(props, PW_KEY_NODE_LATENCY)) != NULL) {
+		pw_properties_set(impl->capture_props, PW_KEY_NODE_LATENCY, str);
+		pw_properties_set(impl->playback_props, PW_KEY_NODE_LATENCY, str);
+	}
+
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {
 		str = pw_properties_get(props, PW_KEY_REMOTE_NAME);

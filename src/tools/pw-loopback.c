@@ -34,8 +34,10 @@
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw.h>
+#include <spa/utils/json.h>
 
 #include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
@@ -45,8 +47,8 @@ struct data {
 	struct pw_main_loop *loop;
 	struct pw_context *context;
 
-	struct pw_core *core;
-	struct spa_hook core_listener;
+	struct pw_impl_module *module;
+	struct spa_hook module_listener;
 
 	const char *opt_group_name;
 	const char *opt_channel_map;
@@ -55,119 +57,50 @@ struct data {
 	uint32_t latency;
 
 	struct pw_properties *capture_props;
-	struct pw_stream *capture;
-	struct spa_hook capture_listener;
-
 	struct pw_properties *playback_props;
-	struct pw_stream *playback;
-	struct spa_hook playback_listener;
-};
-
-static void capture_process(void *d)
-{
-	struct data *data = d;
-	struct pw_buffer *in, *out;
-
-	if ((in = pw_stream_dequeue_buffer(data->capture)) == NULL)
-		pw_log_warn("out of capture buffers: %m");
-
-	if ((out = pw_stream_dequeue_buffer(data->playback)) == NULL)
-		pw_log_warn("out of playback buffers: %m");
-
-	if (in != NULL && out != NULL)
-		*out->buffer = *in->buffer;
-
-	if (in != NULL)
-		pw_stream_queue_buffer(data->capture, in);
-	if (out != NULL)
-		pw_stream_queue_buffer(data->playback, out);
-}
-
-static const struct pw_stream_events in_stream_events = {
-	PW_VERSION_STREAM_EVENTS,
-	.process = capture_process
-};
-
-static const struct pw_stream_events out_stream_events = {
-	PW_VERSION_STREAM_EVENTS,
-};
-
-static int setup_streams(struct data *data)
-{
-	int res;
-	uint32_t n_params;
-	const struct spa_pod *params[1];
-	uint8_t buffer[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-
-	data->capture = pw_stream_new(data->core,
-			"loopback capture", data->capture_props);
-	data->capture_props = NULL;
-	if (data->capture == NULL)
-		return -errno;
-
-	pw_stream_add_listener(data->capture,
-			&data->capture_listener,
-			&in_stream_events, data);
-
-	data->playback = pw_stream_new(data->core,
-			"loopback playback", data->playback_props);
-	data->playback_props = NULL;
-	if (data->playback == NULL)
-		return -errno;
-
-	pw_stream_add_listener(data->playback,
-			&data->playback_listener,
-			&out_stream_events, data);
-
-	n_params = 0;
-	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&SPA_AUDIO_INFO_RAW_INIT(
-				.flags = SPA_AUDIO_FLAG_UNPOSITIONED,
-				.format = SPA_AUDIO_FORMAT_F32P,
-				.channels = data->channels));
-
-	if ((res = pw_stream_connect(data->capture,
-			PW_DIRECTION_INPUT,
-			PW_ID_ANY,
-			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS,
-			params, n_params)) < 0)
-		return res;
-
-	if ((res = pw_stream_connect(data->playback,
-			PW_DIRECTION_OUTPUT,
-			PW_ID_ANY,
-			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS,
-			params, n_params)) < 0)
-		return res;
-
-	return 0;
-}
-
-static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
-{
-	struct data *d = data;
-
-	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
-			id, seq, res, spa_strerror(res), message);
-
-	if (id == PW_ID_CORE && res == -EPIPE)
-		pw_main_loop_quit(d->loop);
-}
-
-static const struct pw_core_events core_events = {
-	PW_VERSION_CORE_EVENTS,
-	.error = on_core_error,
 };
 
 static void do_quit(void *data, int signal_number)
 {
 	struct data *d = data;
 	pw_main_loop_quit(d->loop);
+}
+
+static void module_destroy(void *data)
+{
+	struct data *d = data;
+	spa_hook_remove(&d->module_listener);
+	d->module = NULL;
+	pw_main_loop_quit(d->loop);
+}
+
+static const struct pw_impl_module_events module_events = {
+	PW_VERSION_IMPL_MODULE_EVENTS,
+	.destroy = module_destroy
+};
+
+
+static void serialize_dict(FILE *f, const struct spa_dict *dict)
+{
+	const struct spa_dict_item *it;
+	fprintf(f, "{");
+        spa_dict_for_each(it, dict) {
+		size_t len = it->value ? strlen(it->value) : 0;
+		fprintf(f, " \"%s\" = ", it->key);
+		if (it->value == NULL) {
+			fprintf(f, "null");
+		} else if ( spa_json_is_null(it->value, len) ||
+		    spa_json_is_float(it->value, len) ||
+		    spa_json_is_object(it->value, len)) {
+			fprintf(f, "%s", it->value);
+		} else {
+			size_t size = (len+1) * 4;
+			char str[size];
+			spa_json_encode_string(str, size, it->value);
+			fprintf(f, "%s", str);
+		}
+	}
+	fprintf(f, " }");
 }
 
 static void show_help(struct data *data, const char *name)
@@ -196,6 +129,9 @@ int main(int argc, char *argv[])
 	struct pw_loop *l;
 	const char *opt_remote = NULL;
 	char cname[256];
+	char *args;
+	size_t size;
+	FILE *f;
 	static const struct option long_options[] = {
 		{ "help",		no_argument,		NULL, 'h' },
 		{ "version",		no_argument,		NULL, 'V' },
@@ -288,39 +224,52 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
+
+        f = open_memstream(&args, &size);
+	fprintf(f, "{");
+
+	if (opt_remote != NULL)
+		fprintf(f, " remote.name = \"%s\"", opt_remote);
+	if (data.latency != 0)
+		fprintf(f, " node.latency = %u/%u", data.latency, DEFAULT_RATE);
+	if (data.channels != 0)
+		fprintf(f, " audio.channels = %u", data.channels);
+	if (data.opt_channel_map != NULL)
+		fprintf(f, " audio.position = %s", data.opt_channel_map);
+
 	if (data.opt_group_name != NULL) {
 		pw_properties_set(data.capture_props, PW_KEY_NODE_GROUP, data.opt_group_name);
 		pw_properties_set(data.playback_props, PW_KEY_NODE_GROUP, data.opt_group_name);
 	}
-	if (data.latency != 0) {
-		pw_properties_setf(data.capture_props, PW_KEY_NODE_LATENCY, "%u/%u",
-				data.latency, DEFAULT_RATE);
-		pw_properties_setf(data.playback_props, PW_KEY_NODE_LATENCY, "%u/%u",
-				data.latency, DEFAULT_RATE);
-	}
 
-	data.core = pw_context_connect(data.context,
-			pw_properties_new(
-				PW_KEY_REMOTE_NAME, opt_remote,
-				NULL),
-			0);
-	if (data.core == NULL) {
-		fprintf(stderr, "can't connect: %m\n");
+	fprintf(f, " capture.props = ");
+	serialize_dict(f, &data.capture_props->dict);
+	fprintf(f, " playback.props = ");
+	serialize_dict(f, &data.playback_props->dict);
+	fprintf(f, " }");
+	fclose(f);
+
+	pw_log_info("loading module with %s", args);
+
+	data.module = pw_context_load_module(data.context,
+			"libpipewire-module-loopback", args,
+			NULL);
+	free(args);
+
+	if (data.module == NULL) {
+		fprintf(stderr, "can't load module: %m\n");
 		goto exit;
 	}
 
-	pw_core_add_listener(data.core,
-			&data.core_listener,
-			&core_events, &data);
-
-	setup_streams(&data);
+	pw_impl_module_add_listener(data.module,
+			&data.module_listener, &module_events, &data);
 
 	pw_main_loop_run(data.loop);
 
 	res = 0;
 exit:
-	if (data.core)
-		pw_core_disconnect(data.core);
+	if (data.module)
+		pw_impl_module_destroy(data.module);
 	if (data.context)
 		pw_context_destroy(data.context);
 	if (data.loop)

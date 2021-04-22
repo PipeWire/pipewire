@@ -74,6 +74,9 @@ static const struct spa_dict_item module_props[] = {
 struct impl {
 	struct pw_context *context;
 
+	struct pw_impl_module *module;
+	struct pw_work_queue *work;
+
 	struct spa_hook module_listener;
 
 	struct pw_core *core;
@@ -89,7 +92,23 @@ struct impl {
 	struct pw_properties *playback_props;
 	struct pw_stream *playback;
 	struct spa_hook playback_listener;
+
+	unsigned int do_disconnect:1;
+	unsigned int unloading:1;
 };
+
+static void do_unload_module(void *obj, void *data, int res, uint32_t id)
+{
+	struct impl *impl = data;
+	pw_impl_module_destroy(impl->module);
+}
+static void unload_module(struct impl *impl)
+{
+	if (!impl->unloading) {
+		impl->unloading = true;
+		pw_work_queue_add(impl->work, impl, 0, do_unload_module, impl);
+	}
+}
 
 static void capture_destroy(void *d)
 {
@@ -206,8 +225,13 @@ static int setup_streams(struct impl *impl)
 
 static void core_error(void *data, uint32_t id, int seq, int res, const char *message)
 {
+	struct impl *impl = data;
+
 	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
 			id, seq, res, spa_strerror(res), message);
+
+	if (id == PW_ID_CORE && res == -EPIPE)
+		unload_module(impl);
 }
 
 static const struct pw_core_events core_events = {
@@ -220,29 +244,33 @@ static void core_destroy(void *d)
 	struct impl *impl = d;
 	spa_hook_remove(&impl->core_listener);
 	impl->core = NULL;
+	unload_module(impl);
 }
 
 static const struct pw_proxy_events core_proxy_events = {
 	.destroy = core_destroy,
 };
 
-static void module_destroy(void *data)
+static void impl_destroy(struct impl *impl)
 {
-	struct impl *impl = data;
-
-	spa_hook_remove(&impl->module_listener);
-
 	if (impl->capture)
 		pw_stream_destroy(impl->capture);
 	if (impl->playback)
 		pw_stream_destroy(impl->playback);
-	if (impl->core)
+	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
 	if (impl->capture_props)
 		pw_properties_free(impl->capture_props);
 	if (impl->playback_props)
 		pw_properties_free(impl->playback_props);
 	free(impl);
+}
+
+static void module_destroy(void *data)
+{
+	struct impl *impl = data;
+	spa_hook_remove(&impl->module_listener);
+	impl_destroy(impl);
 }
 
 static const struct pw_impl_module_events module_events = {
@@ -284,6 +312,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct impl *impl;
 	uint32_t id = pw_global_get_id(pw_impl_module_get_global(module));
 	const char *str;
+	int res;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -297,15 +326,23 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		props = pw_properties_new_string(args);
 	else
 		props = pw_properties_new(NULL, NULL);
+	if (props == NULL) {
+		res = -errno;
+		pw_log_error( "can't create properties: %m");
+		goto error;
+	}
 
 	impl->capture_props = pw_properties_new(NULL, NULL);
 	impl->playback_props = pw_properties_new(NULL, NULL);
 	if (impl->capture_props == NULL || impl->playback_props == NULL) {
+		res = -errno;
 		pw_log_error( "can't create properties: %m");
-		return -errno;
+		goto error;
 	}
 
+	impl->module = module;
 	impl->context = context;
+	impl->work = pw_context_get_work_queue(context);
 
 	if ((str = pw_properties_get(props, PW_KEY_AUDIO_RATE)) != NULL)
 		impl->info.rate = atoi(str);
@@ -324,16 +361,28 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_setf(impl->playback_props, PW_KEY_NODE_GROUP, "loopback-%u", id);
 
-	str = pw_properties_get(props, PW_KEY_REMOTE_NAME);
-	impl->core = pw_context_connect(impl->context,
-			pw_properties_new(
-				PW_KEY_REMOTE_NAME, str,
-				NULL),
-			0);
+	if (pw_properties_get(impl->capture_props, PW_KEY_NODE_VIRTUAL) == NULL)
+		pw_properties_set(impl->capture_props, PW_KEY_NODE_VIRTUAL, "true");
+	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_VIRTUAL) == NULL)
+		pw_properties_set(impl->playback_props, PW_KEY_NODE_VIRTUAL, "true");
+
+	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {
-		pw_log_error("can't connect: %m");
-		return -errno;
+		str = pw_properties_get(props, PW_KEY_REMOTE_NAME);
+		impl->core = pw_context_connect(impl->context,
+				pw_properties_new(
+					PW_KEY_REMOTE_NAME, str,
+					NULL),
+				0);
+		impl->do_disconnect = true;
 	}
+	if (impl->core == NULL) {
+		res = -errno;
+		pw_log_error("can't connect: %m");
+		goto error;
+	}
+
+	pw_properties_free(props);
 
 	pw_proxy_add_listener((struct pw_proxy*)impl->core,
 			&impl->core_proxy_listener,
@@ -349,4 +398,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
+
+error:
+	if (props)
+		pw_properties_free(props);
+	impl_destroy(impl);
+	return res;
 }

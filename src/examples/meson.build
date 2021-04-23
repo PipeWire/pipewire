@@ -99,7 +99,7 @@ if not get_option('media-session').disabled() and alsa_dep.found()
     sm_logind_src,
     c_args : [ '-D_GNU_SOURCE' ],
     install: true,
-    dependencies : [dbus_dep, pipewire_dep, alsa_dep, mathlib, sm_logind_dep],
+    dependencies : [dbus_dep, pipewire_dep, alsa_dep, mathlib, sm_logind_dep, libinotify_dep],
 )
 endif
 

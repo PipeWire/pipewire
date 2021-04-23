@@ -351,6 +351,9 @@ libinotify_dep = (build_machine.system() == 'freebsd'
     ? dependency('libinotify', required: true)
     : dependency('', required: false))
 
+# On FreeBSD, libintl library is required for gettext
+libintl_dep = cc.find_library('intl', required: false)
+
 alsa_dep = dependency('alsa', version : '>=1.1.7', required: get_option('pipewire-alsa'))
 
 installed_tests_metadir = pipewire_datadir / 'installed-tests' / pipewire_name

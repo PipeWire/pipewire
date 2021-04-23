@@ -16,7 +16,7 @@ spa_alsa = shared_library(
   [ spa_alsa_sources ],
   c_args : acp_c_args,
   include_directories : [spa_inc, configinc],
-  dependencies : [ alsa_dep, libudev_dep, mathlib ],
+  dependencies : [ alsa_dep, libudev_dep, mathlib, epoll_shim_dep, libinotify_dep ],
   link_with : [ acp_lib ],
   install : true,
   install_dir : spa_plugindir / 'alsa'
@@ -38,7 +38,7 @@ executable('spa-acp-tool',
 
 executable('test-timer',
   [ 'test-timer.c' ],
-  dependencies : [ alsa_dep, mathlib ],
+  dependencies : [ alsa_dep, mathlib, epoll_shim_dep ],
   install : false,
 )
 

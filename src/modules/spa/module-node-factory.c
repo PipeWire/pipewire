@@ -117,18 +117,17 @@ static void *create_object(void *_data,
 	if (factory_name == NULL)
 		goto error_properties;
 
-	client = resource ? pw_resource_get_client(resource) : NULL;
-
 	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
 			pw_global_get_id(pw_impl_factory_get_global(data->this)));
 
-	if (client) {
-		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
-			pw_global_get_id(pw_impl_client_get_global(client)));
-	}
 	str = pw_properties_get(properties, PW_KEY_OBJECT_LINGER);
 	linger = str ? pw_properties_parse_bool(str) : false;
 
+	client = resource ? pw_resource_get_client(resource) : NULL;
+	if (client && !linger) {
+		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
+			pw_global_get_id(pw_impl_client_get_global(client)));
+	}
 	node = pw_spa_node_load(context,
 				factory_name,
 				PW_SPA_NODE_FLAG_ACTIVATE,

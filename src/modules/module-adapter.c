@@ -165,9 +165,11 @@ static void *create_object(void *_data,
 	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
 			pw_impl_factory_get_info(d->this)->id);
 
-	client = resource ? pw_resource_get_client(resource): NULL;
+	str = pw_properties_get(properties, PW_KEY_OBJECT_LINGER);
+	linger = str ? pw_properties_parse_bool(str) : false;
 
-	if (client) {
+	client = resource ? pw_resource_get_client(resource): NULL;
+	if (client && !linger) {
 		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
 				pw_impl_client_get_info(client)->id);
 	}
@@ -180,9 +182,6 @@ static void *create_object(void *_data,
 
 		pw_properties_setf(properties, "audio.adapt.follower", "pointer:%p", follower);
 	}
-	str = pw_properties_get(properties, PW_KEY_OBJECT_LINGER);
-	linger = str ? pw_properties_parse_bool(str) : false;
-
 	if (follower == NULL) {
 		factory_name = pw_properties_get(properties, SPA_KEY_FACTORY_NAME);
 		if (factory_name == NULL)

@@ -48,11 +48,13 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_DESCRIPTION, "Create loopback streams" },
 	{ PW_KEY_MODULE_USAGE, " [ remote.name=<remote> ] "
 				"[ node.latency=<latency as fraction> ] "
-                                "[ audio.rate=<sample rate> ] "
-                                "[ audio.channels=<number of channels> ] "
-                                "[ audio.position=<channel map> ] "
-                                "[ capture.props=<properties> ] "
-                                "[ playback.props=<properties> ] " },
+				"[ node.name=<name of the nodes> ] "
+				"[ node.description=<description of the nodes> ] "
+				"[ audio.rate=<sample rate> ] "
+				"[ audio.channels=<number of channels> ] "
+				"[ audio.position=<channel map> ] "
+				"[ capture.props=<properties> ] "
+				"[ playback.props=<properties> ] " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -398,6 +400,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_AUDIO_RATE);
 	copy_props(impl, props, PW_KEY_AUDIO_CHANNELS);
 	copy_props(impl, props, SPA_KEY_AUDIO_POSITION);
+	copy_props(impl, props, PW_KEY_NODE_NAME);
+	copy_props(impl, props, PW_KEY_NODE_DESCRIPTION);
 	copy_props(impl, props, PW_KEY_NODE_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_LATENCY);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);

@@ -154,6 +154,10 @@ extern "C" {
 								  *  add a converter */
 #define PW_KEY_NODE_VIRTUAL		"node.virtual"		/**< the node is some sort of virtual
 								  *  object */
+#define PW_KEY_NODE_PASSIVE		"node.passive"		/**< indicate that a node wants passive links
+								  *  on output/input/all ports when the value is
+								  *  "out"/"in"/"true" respectively */
+
 /** Port keys */
 #define PW_KEY_PORT_ID			"port.id"		/**< port id */
 #define PW_KEY_PORT_NAME		"port.name"		/**< port name */

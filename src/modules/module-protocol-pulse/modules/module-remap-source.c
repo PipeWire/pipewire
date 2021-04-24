@@ -236,6 +236,9 @@ struct module *create_module_remap_source(struct impl *impl, const char *argumen
 		pw_properties_set(props, "remix", NULL);
 	}
 
+	if (pw_properties_get(capture_props, PW_KEY_NODE_PASSIVE) == NULL)
+		pw_properties_set(capture_props, PW_KEY_NODE_PASSIVE, "true");
+
 	module = module_new(impl, &module_remap_source_methods, sizeof(*d));
 	if (module == NULL) {
 		res = -errno;

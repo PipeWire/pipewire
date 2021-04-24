@@ -6,7 +6,7 @@
 This file is part of PipeWire.
 -->
 
-<manpage name="pw-cat" section="1" desc="Play an Record media with PipeWire">
+<manpage name="pw-cat" section="1" desc="Play and record media with PipeWire">
 
   <synopsis>
 	  <cmd>pw-cat [<arg>options</arg>] [<arg>FILE</arg>]</cmd>

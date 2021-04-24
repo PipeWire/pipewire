@@ -1802,12 +1802,20 @@ static int link_nodes(struct impl *impl, struct endpoint_link *link,
 	struct pw_properties *props;
 	struct sm_port *outport, *inport;
 	int count = 0;
+	bool passive = false;
+	const char *str;
 
 	pw_log_debug(NAME" %p: linking %d -> %d", impl, outnode->obj.id, innode->obj.id);
+
+	if ((str = spa_dict_lookup(outnode->info->props, PW_KEY_NODE_PASSIVE)) != NULL)
+		passive |= (pw_properties_parse_bool(str) || strcmp(str, "out") == 0);
+	if ((str = spa_dict_lookup(innode->info->props, PW_KEY_NODE_PASSIVE)) != NULL)
+		passive |= (pw_properties_parse_bool(str) || strcmp(str, "in") == 0);
 
 	props = pw_properties_new(NULL, NULL);
 	pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", outnode->obj.id);
 	pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", innode->obj.id);
+	pw_properties_setf(props, PW_KEY_LINK_PASSIVE, "%s", passive ? "true" : "false");
 
 	spa_list_for_each(inport, &innode->port_list, link)
 		inport->visited = false;

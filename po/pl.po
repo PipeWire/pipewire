@@ -9,7 +9,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
 "POT-Creation-Date: 2021-04-18 16:54+0800\n"
-"PO-Revision-Date: 2021-04-17 14:10+0200\n"
+"PO-Revision-Date: 2021-04-25 13:12+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <community-poland@mozilla.org>\n"
 "Language: pl\n"
@@ -608,34 +608,31 @@ msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "Bramka dźwięku (źródło A2DP i AG HSP/HFP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1033
-#, fuzzy, c-format
+#, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
-msgstr "Odtwarzanie o wysokiej dokładności (odpływ A2DP%s%s)"
+msgstr "Odtwarzanie o wysokiej dokładności (odpływ A2DP, kodek %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1035
-#, fuzzy, c-format
+#, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
-msgstr "Dupleks o wysokiej dokładności (źródło/odpływ A2DP%s%s)"
+msgstr "Dupleks o wysokiej dokładności (źródło/odpływ A2DP, kodek %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1041
-#, fuzzy
 msgid "High Fidelity Playback (A2DP Sink)"
-msgstr "Odtwarzanie o wysokiej dokładności (odpływ A2DP%s%s)"
+msgstr "Odtwarzanie o wysokiej dokładności (odpływ A2DP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1043
-#, fuzzy
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
-msgstr "Dupleks o wysokiej dokładności (źródło/odpływ A2DP%s%s)"
+msgstr "Dupleks o wysokiej dokładności (źródło/odpływ A2DP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1070
-#, fuzzy, c-format
+#, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr "Jednostka główna słuchawek z mikrofonem (HSP/HFP%s%s)"
+msgstr "Jednostka główna słuchawek z mikrofonem (HSP/HFP, kodek %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1074
-#, fuzzy
 msgid "Headset Head Unit (HSP/HFP)"
-msgstr "Jednostka główna słuchawek z mikrofonem (HSP/HFP%s%s)"
+msgstr "Jednostka główna słuchawek z mikrofonem (HSP/HFP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"

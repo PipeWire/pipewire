@@ -26,7 +26,10 @@
 
 #include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
+#include <spa/utils/result.h>
 #include <extensions/metadata.h>
+
+#define MAX_PARAMS 32
 
 #define manager_emit_sync(m) spa_hook_list_call(&m->hooks, struct pw_manager_events, sync, 0)
 #define manager_emit_added(m,o) spa_hook_list_call(&m->hooks, struct pw_manager_events, added, 0, o)
@@ -72,6 +75,8 @@ struct object {
 	struct spa_hook proxy_listener;
 	struct spa_hook object_listener;
 
+	int param_seq[MAX_PARAMS];
+
 	struct spa_list data_list;
 };
 
@@ -97,7 +102,8 @@ static uint32_t clear_params(struct spa_list *param_list, uint32_t id)
 	return count;
 }
 
-static struct pw_manager_param *add_param(struct spa_list *params, uint32_t id, const struct spa_pod *param)
+static struct pw_manager_param *add_param(struct spa_list *params,
+		int seq, int *param_seq, uint32_t id, const struct spa_pod *param)
 {
 	struct pw_manager_param *p;
 
@@ -107,6 +113,19 @@ static struct pw_manager_param *add_param(struct spa_list *params, uint32_t id, 
 			return NULL;
 		}
 		id = SPA_POD_OBJECT_ID(param);
+	}
+
+	if (id >= MAX_PARAMS) {
+		pw_log_error("too big param id %d", id);
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (seq != param_seq[id]) {
+		pw_log_debug("ignoring param %d, seq:%d != current_seq:%d",
+				id, seq, param_seq[id]);
+		errno = EBUSY;
+		return NULL;
 	}
 
 	p = malloc(sizeof(*p) + (param != NULL ? SPA_POD_SIZE(param) : 0));
@@ -287,10 +306,16 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
 			uint32_t id = info->params[i].id;
+			int res;
 
 			if (info->params[i].user == 0)
 				continue;
 			info->params[i].user = 0;
+
+			if (id >= MAX_PARAMS) {
+				pw_log_error("too big param id %d", id);
+				continue;
+			}
 
 			switch (id) {
 			case SPA_PARAM_EnumProfile:
@@ -301,12 +326,14 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 			case SPA_PARAM_Route:
 				break;
 			}
-			add_param(&o->pending_list, id, NULL);
+			add_param(&o->pending_list, o->param_seq[id], o->param_seq, id, NULL);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 
-			pw_device_enum_params((struct pw_device*)o->this.proxy,
-					0, id, 0, -1, NULL);
+			res = pw_device_enum_params((struct pw_device*)o->this.proxy,
+					++o->param_seq[id], id, 0, -1, NULL);
+			if (SPA_RESULT_IS_ASYNC(res))
+				o->param_seq[id] = res;
 		}
 	}
 	if (changed) {
@@ -343,7 +370,9 @@ static void device_event_param(void *object, int seq,
 	struct manager *m = o->manager;
 	struct pw_manager_param *p;
 
-	p = add_param(&o->pending_list, id, param);
+	p = add_param(&o->pending_list, seq, o->param_seq, id, param);
+	if (p == NULL)
+		return;
 
 	if (id == SPA_PARAM_Route && !has_param(&o->this.param_list, p)) {
 		uint32_t id, device;
@@ -400,18 +429,26 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
 			uint32_t id = info->params[i].id;
+			int res;
 
 			if (info->params[i].user == 0)
 				continue;
 			info->params[i].user = 0;
 
+			if (id >= MAX_PARAMS) {
+				pw_log_error("too big param id %d", id);
+				continue;
+			}
+
 			changed++;
-			add_param(&o->pending_list, id, NULL);
+			add_param(&o->pending_list, o->param_seq[id], o->param_seq, id, NULL);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 
-			pw_node_enum_params((struct pw_node*)o->this.proxy,
-					0, id, 0, -1, NULL);
+			res = pw_node_enum_params((struct pw_node*)o->this.proxy,
+					++o->param_seq[id], id, 0, -1, NULL);
+			if (SPA_RESULT_IS_ASYNC(res))
+				o->param_seq[id] = res;
 		}
 	}
 	if (changed) {
@@ -425,7 +462,7 @@ static void node_event_param(void *object, int seq,
 		const struct spa_pod *param)
 {
 	struct object *o = object;
-	add_param(&o->pending_list, id, param);
+	add_param(&o->pending_list, seq, o->param_seq, id, param);
 }
 
 static const struct pw_node_events node_events = {

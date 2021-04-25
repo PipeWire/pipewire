@@ -72,7 +72,8 @@ static bool find_match(struct spa_json *arr, struct pw_properties *props)
 							success = true;
 						regfree(&preg);
 					}
-				} else if (strncmp(str, value, len) == 0) {
+				} else if (strncmp(str, value, len) == 0 &&
+				    strlen(str) == (size_t)len) {
 					success = true;
 				}
 			}

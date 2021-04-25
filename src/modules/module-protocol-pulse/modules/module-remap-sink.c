@@ -65,7 +65,6 @@ static const struct pw_impl_module_events module_events = {
 static void serialize_dict(FILE *f, const struct spa_dict *dict)
 {
 	const struct spa_dict_item *it;
-	fprintf(f, "{");
 	spa_dict_for_each(it, dict) {
 		size_t len = it->value ? strlen(it->value) : 0;
 		fprintf(f, " \"%s\" = ", it->key);
@@ -82,7 +81,6 @@ static void serialize_dict(FILE *f, const struct spa_dict *dict)
 			fprintf(f, "%s", str);
 		}
 	}
-	fprintf(f, " }");
 }
 
 static int module_remap_sink_load(struct client *client, struct module *module)
@@ -97,11 +95,12 @@ static int module_remap_sink_load(struct client *client, struct module *module)
 
 	f = open_memstream(&args, &size);
 	fprintf(f, "{");
-	fprintf(f, " capture.props = ");
+	serialize_dict(f, &module->props->dict);
+	fprintf(f, " capture.props = {");
 	serialize_dict(f, &data->capture_props->dict);
-	fprintf(f, " playback.props = ");
+	fprintf(f, " } playback.props = {");
 	serialize_dict(f, &data->playback_props->dict);
-	fprintf(f, " }");
+	fprintf(f, " } }");
 	fclose(f);
 
 	data->mod = pw_context_load_module(module->impl->context,
@@ -192,7 +191,7 @@ struct module *create_module_remap_sink(struct impl *impl, const char *argument)
 		module_args_add_props(props, argument);
 
 	if ((str = pw_properties_get(props, "sink_name")) != NULL) {
-		pw_properties_set(capture_props, PW_KEY_NODE_NAME, str);
+		pw_properties_set(props, PW_KEY_NODE_NAME, str);
 		pw_properties_set(props, "sink_name", NULL);
 	} else {
 		pw_properties_set(props, PW_KEY_NODE_NAME, "null");

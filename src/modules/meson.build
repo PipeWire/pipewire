@@ -14,7 +14,7 @@ pipewire_module_access = shared_library('pipewire-module-access', [ 'module-acce
   dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
-pipewire_module_profiler = shared_library('pipewire-module-loopback',
+pipewire_module_loopback = shared_library('pipewire-module-loopback',
   [ 'module-loopback.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],

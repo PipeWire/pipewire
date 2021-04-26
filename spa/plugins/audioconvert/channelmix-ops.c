@@ -423,10 +423,15 @@ done:
 				continue;
 			mix->matrix_orig[ic][jc++] = matrix[i][j];
 			sum += fabs(matrix[i][j]);
-			if (i == _CH(LFE))
-				lr4_set(&mix->lr4[ic], BQ_LOWPASS, mix->lfe_cutoff / mix->freq);
 		}
 		maxsum = SPA_MAX(maxsum, sum);
+		if (i == _CH(LFE)) {
+			spa_log_debug(mix->log, "channel %d is LFE", ic);
+			lr4_set(&mix->lr4[ic], BQ_LOWPASS, mix->lfe_cutoff / mix->freq);
+			mix->lr4_info[ic] = 1;
+		} else {
+			mix->lr4_info[ic] = 0;
+		}
 		ic++;
 	}
 	if (SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_NORMALIZE) &&

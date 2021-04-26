@@ -78,6 +78,10 @@ channelmix_f32_n_m_c(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT
 				d[i][n] = sum;
 			}
 		}
+		for (i = 0; i < n_dst; i++) {
+			if (mix->lr4_info[i] > 0)
+				lr4_process(&mix->lr4[i], d[i], n_samples);
+		}
 	}
 }
 

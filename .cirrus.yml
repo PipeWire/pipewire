@@ -3,9 +3,16 @@ task:
     matrix:
       - image_family: freebsd-11-4-snap
       - image_family: freebsd-13-0-snap
+  env:
+    # /usr/ports/Mk/Uses/localbase.mk localbase:ldflags
+    LOCALBASE: /usr/local
+    CFLAGS: -isystem $LOCALBASE/include
+    CPPFLAGS: $CFLAGS
+    CXXFLAGS: $CFLAGS
+    LDFLAGS: -L$LOCALBASE/lib
   deps_script:
     - sed -i.bak -e 's/quarterly/latest/' /etc/pkg/FreeBSD.conf
-    - pkg install -y meson pkgconf dbus glib libepoll-shim libudev-devd vulkan-loader vulkan-headers gstreamer1 gstreamer1-plugins libinotify
+    - pkg install -y meson pkgconf dbus glib libepoll-shim libudev-devd vulkan-loader vulkan-headers gstreamer1 gstreamer1-plugins libinotify gettext
     - sysrc dbus_enable=YES
     - service dbus restart
   build_script:

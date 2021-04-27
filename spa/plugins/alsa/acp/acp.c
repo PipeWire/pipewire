@@ -199,8 +199,8 @@ static void device_free(void *data)
 	pa_hashmap_free(dev->ports);
 }
 
-static void init_device(pa_card *impl, pa_alsa_profile *ap, pa_alsa_device *dev,
-		pa_alsa_direction_t direction, pa_alsa_mapping *m, uint32_t index)
+static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t direction,
+		pa_alsa_mapping *m, uint32_t index)
 {
 	uint32_t i;
 
@@ -231,8 +231,8 @@ static void init_device(pa_card *impl, pa_alsa_profile *ap, pa_alsa_device *dev,
 		dev->device.direction = ACP_DIRECTION_CAPTURE;
 		pa_proplist_update(dev->proplist, PA_UPDATE_REPLACE, m->input_proplist);
 	}
-	pa_proplist_sets(dev->proplist, PA_PROP_DEVICE_PROFILE_NAME, ap->name);
-	pa_proplist_sets(dev->proplist, PA_PROP_DEVICE_PROFILE_DESCRIPTION, ap->description);
+	pa_proplist_sets(dev->proplist, PA_PROP_DEVICE_PROFILE_NAME, m->name);
+	pa_proplist_sets(dev->proplist, PA_PROP_DEVICE_PROFILE_DESCRIPTION, m->description);
 	pa_proplist_setf(dev->proplist, "card.profile.device", "%u", index);
 	pa_proplist_as_dict(dev->proplist, &dev->device.props);
 
@@ -430,7 +430,7 @@ static void add_profiles(pa_card *impl)
 			PA_IDXSET_FOREACH(m, ap->output_mappings, idx) {
 				dev = &m->output;
 				if (dev->mapping == NULL) {
-					init_device(impl, ap, dev, PA_ALSA_DIRECTION_OUTPUT, m, n_devices++);
+					init_device(impl, dev, PA_ALSA_DIRECTION_OUTPUT, m, n_devices++);
 					pa_dynarray_append(&impl->out.devices, dev);
 				}
 				if (impl->use_ucm) {
@@ -451,7 +451,7 @@ static void add_profiles(pa_card *impl)
 			PA_IDXSET_FOREACH(m, ap->input_mappings, idx) {
 				dev = &m->input;
 				if (dev->mapping == NULL) {
-					init_device(impl, ap, dev, PA_ALSA_DIRECTION_INPUT, m, n_devices++);
+					init_device(impl, dev, PA_ALSA_DIRECTION_INPUT, m, n_devices++);
 					pa_dynarray_append(&impl->out.devices, dev);
 				}
 

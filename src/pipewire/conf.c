@@ -193,7 +193,7 @@ int pw_conf_save_state(const char *prefix, const char *name, struct pw_propertie
 
 	tmp_name = alloca(strlen(name)+5);
 	sprintf(tmp_name, "%s.tmp", name);
-	if ((fd = openat(sfd, tmp_name,  O_CLOEXEC | O_CREAT | O_WRONLY | O_TRUNC, 0700)) < 0) {
+	if ((fd = openat(sfd, tmp_name,  O_CLOEXEC | O_CREAT | O_WRONLY | O_TRUNC, 0600)) < 0) {
 		pw_log_error("can't open file '%s': %m", tmp_name);
 		res = -errno;
 		goto error;

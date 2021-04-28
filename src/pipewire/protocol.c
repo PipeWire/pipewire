@@ -85,7 +85,7 @@ void *pw_protocol_get_user_data(struct pw_protocol *protocol)
 }
 
 SPA_EXPORT
-const struct pw_protocol_implementaton *
+const struct pw_protocol_implementation *
 pw_protocol_get_implementation(struct pw_protocol *protocol)
 {
 	return protocol->implementation;

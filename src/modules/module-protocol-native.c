@@ -1196,7 +1196,7 @@ error:
 	return NULL;
 }
 
-static const struct pw_protocol_implementaton protocol_impl = {
+static const struct pw_protocol_implementation protocol_impl = {
 	PW_VERSION_PROTOCOL_IMPLEMENTATION,
 	.new_client = impl_new_client,
 	.add_server = impl_add_server,

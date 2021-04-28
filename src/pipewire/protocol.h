@@ -90,7 +90,7 @@ struct pw_protocol_marshal {
 	const void *client_demarshal;
 };
 
-struct pw_protocol_implementaton {
+struct pw_protocol_implementation {
 #define PW_VERSION_PROTOCOL_IMPLEMENTATION	0
 	uint32_t version;
 
@@ -121,7 +121,7 @@ struct pw_context *pw_protocol_get_context(struct pw_protocol *protocol);
 
 void *pw_protocol_get_user_data(struct pw_protocol *protocol);
 
-const struct pw_protocol_implementaton *
+const struct pw_protocol_implementation *
 pw_protocol_get_implementation(struct pw_protocol *protocol);
 
 const void *

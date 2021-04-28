@@ -174,7 +174,7 @@ struct pw_protocol {
 	struct spa_list server_list;            /**< list of current servers */
 	struct spa_hook_list listener_list;	/**< event listeners */
 
-	const struct pw_protocol_implementaton *implementation; /**< implementation of the protocol */
+	const struct pw_protocol_implementation *implementation; /**< implementation of the protocol */
 
 	const void *extension;  /**< extension API */
 

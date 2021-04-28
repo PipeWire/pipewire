@@ -156,6 +156,7 @@ static void clean_transport(struct node_data *data)
 
 static void mix_init(struct mix *mix, struct pw_impl_port *port, uint32_t mix_id)
 {
+	pw_log_debug("port %p: mix init %d.%d", port, port->port_id, mix_id);
 	mix->port = port;
 	mix->mix_id = mix_id;
 	pw_impl_port_init_mix(port, &mix->mix);
@@ -214,8 +215,11 @@ static struct mix *find_mix(struct node_data *data,
 
 	spa_list_for_each(mix, &data->mix[direction], link) {
 		if (mix->port->port_id == port_id &&
-		    mix->mix_id == mix_id)
+		    mix->mix_id == mix_id) {
+			pw_log_debug("port %p: found mix %d:%d.%d", mix->port,
+					direction, port_id, mix_id);
 			return mix;
+		}
 	}
 	return NULL;
 }
@@ -962,6 +966,8 @@ static void do_node_init(struct node_data *data)
 
 static void clear_mix(struct node_data *data, struct mix *mix)
 {
+	pw_log_debug("port %p: mix clear %d.%d", mix->port, mix->port->port_id, mix->mix_id);
+
 	deactivate_mix(data, mix);
 
 	spa_list_remove(&mix->link);

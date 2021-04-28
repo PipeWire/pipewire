@@ -658,6 +658,9 @@ static void a2dp_on_timeout(struct spa_source *source)
 	prev_time = this->current_time;
 	now_time = this->current_time = this->next_time;
 
+	spa_log_debug(this->log, NAME" %p: timeout %"PRIu64" %"PRIu64"", this,
+			now_time, now_time - prev_time);
+
 	if (SPA_LIKELY(this->position)) {
 		duration = this->position->clock.duration;
 		rate = this->position->clock.rate.denom;
@@ -685,8 +688,6 @@ static void a2dp_on_timeout(struct spa_source *source)
 		this->clock->delay = (delay_nsec * this->clock->rate.denom) / SPA_NSEC_PER_SEC;
 	}
 
-	spa_log_trace(this->log, NAME" %p: timeout %"PRIu64" %"PRIu64"", this,
-			now_time, now_time - prev_time);
 
 	spa_log_trace(this->log, NAME " %p: %d", this, io->status);
 	io->status = SPA_STATUS_NEED_DATA;

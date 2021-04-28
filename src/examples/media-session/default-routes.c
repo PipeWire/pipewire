@@ -733,7 +733,7 @@ static int handle_route(struct device *dev, struct route *r)
 
 	if (!ri->prev_active) {
 		/* a new port has been found, restore the volume and make sure we
-		 * save this as a prefered port */
+		 * save this as a preferred port */
 		pw_log_info("device %d: new active port found '%s'", dev->id, r->name);
 		restore_route(dev, r);
 	} else if (r->props && r->save) {

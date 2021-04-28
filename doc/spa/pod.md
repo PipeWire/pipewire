@@ -468,7 +468,7 @@ default:
 
 Given 2 pod objects of the same type (Object, Struct, ..) one can
 run a filter and generate a new pod that only contains values that
-are compatibe with both input pods.
+are compatible with both input pods.
 
 This is, for example, used to find a compatible format between two ports.
 

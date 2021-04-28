@@ -68,7 +68,7 @@ with previous 0.3.x releases.
     default.
 
 - JACK
-  - JACK developement files can now optionally be installed.
+  - JACK development files can now optionally be installed.
 
 
 Older versions:
@@ -86,7 +86,7 @@ with previous 0.3.x releases.
   - volume restore for virtual sinks/sources or other sink/sources
     without hardware volume.
   - Fix cracks and pops in audio capture.
-  - Many bluetooth improvements and compatibity fixes.
+  - Many bluetooth improvements and compatibility fixes.
 
 
 - PipeWire improvements
@@ -871,7 +871,7 @@ with previous 0.3.x releases.
   - Don't ever block the server, use non-blocking IO everywhere.
   - Fill description of profiles with the name if not otherwise set,
     this fixes a crash in pavucontrol.
-  - the connection debug catergory will now also debug pulse
+  - the connection debug category will now also debug pulse
     messages.
   - Respect the no_remix flag to make the control panel channel
     check work.
@@ -1159,7 +1159,7 @@ with previous 0.3.x releases.
   * improve default source and sink handling. It was not updated
     correctly in all cases.
   * add samplerate and period to the pw-jack wrapper to easily
-    configure the desired samplerate and perdiod for the app.
+    configure the desired samplerate and period for the app.
 
 - ALSA plugin improvements
   * Add a mixer entry in the alsa config file.
@@ -1750,7 +1750,7 @@ PipeWire 0.2.6
 - Permissions of objects are now combined with parent permissions
 - Remove libv4l2 dependency, it is not used
 - Improve format negotiation in autolink #146
-- Try to avoid list corruption with event emmission #143
+- Try to avoid list corruption with event emission #143
 - Fix destroy of client-node memory corruption
 - Various small improvements
 
@@ -1769,7 +1769,7 @@ PipeWire 0.2.4
 - Install man pages in right directory
 - Add systemd socket activation
 - Various memory leak and corruption fixes in properties, dbus and
-  buffer mmaped memory.
+  buffer mmapped memory.
 - Fix v4l2 crash on unplug
 - improve stream cleanup
 

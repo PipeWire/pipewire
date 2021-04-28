@@ -156,7 +156,7 @@ typedef struct _jack_session_event jack_session_event_t;
  * whenever a session notification is sent via jack_session_notify().
  *
  * Ownership of the memory of @a event is passed to the application.
- * It must be freed using jack_session_event_free when its not used anymore.
+ * It must be freed using jack_session_event_free when it's not used anymore.
  *
  * The client must promptly call jack_session_reply for this event.
  *

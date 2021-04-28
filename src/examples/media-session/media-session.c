@@ -2520,7 +2520,7 @@ int main(int argc, char *argv[])
 		else
 			pw_log_debug("got dbus connection %p", impl.this.dbus_connection);
 	} else {
-		pw_log_info("dbus diabled");
+		pw_log_info("dbus disabled");
 	}
 
 	if ((res = start_session(&impl)) < 0)

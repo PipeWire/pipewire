@@ -52,7 +52,7 @@ static const struct format audio_formats[] = {
 	{ SAMPLE_S24LE, SPA_AUDIO_FORMAT_S24_LE, "s24ne", 3 },
 	{ SAMPLE_S24_32LE, SPA_AUDIO_FORMAT_S24_32_LE, "s24-32ne", 4 },
 #endif
-	/* planar formats, we just report them as inteleaved */
+	/* planar formats, we just report them as interleaved */
 	{ SAMPLE_U8, SPA_AUDIO_FORMAT_U8P, "u8ne", 1 },
 	{ SAMPLE_S16NE, SPA_AUDIO_FORMAT_S16P, "s16ne", 2 },
 	{ SAMPLE_S24_32NE, SPA_AUDIO_FORMAT_S24_32P, "s24-32ne", 4 },

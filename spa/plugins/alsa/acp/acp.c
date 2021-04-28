@@ -549,7 +549,7 @@ static pa_available_t calc_port_state(pa_device_port *p, pa_card *impl)
 				break;
 			}
 
-			/* If the current availablility is unknown go the more precise no,
+			/* If the current availability is unknown go the more precise no,
 			* but otherwise don't change state */
 			if (pa == PA_AVAILABLE_UNKNOWN)
 				pa = cpa;

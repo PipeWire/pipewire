@@ -72,7 +72,7 @@ struct pa_device_port {
 
 	unsigned priority;
 	pa_available_t available;         /* PA_AVAILABLE_UNKNOWN, PA_AVAILABLE_NO or PA_AVAILABLE_YES */
-	char *availability_group;         /* a string identifier which determine the group of devices handling the available state simulteneously */
+	char *availability_group;         /* a string identifier which determine the group of devices handling the available state simultaneously */
 
 	pa_direction_t direction;
 	int64_t latency_offset;

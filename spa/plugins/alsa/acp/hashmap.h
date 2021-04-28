@@ -206,7 +206,7 @@ static inline void pa_hashmap_sort(pa_hashmap *h,
 	for ((state) = NULL, (e) = pa_hashmap_iterate((h), &(state), NULL);	\
 	    (e); (e) = pa_hashmap_iterate((h), &(state), NULL))
 
-/* A macro to ease itration through all key, value pairs */
+/* A macro to ease iteration through all key, value pairs */
 #define PA_HASHMAP_FOREACH_KV(k, e, h, state) \
 	for ((state) = NULL, (e) = pa_hashmap_iterate((h), &(state), (const void **) &(k));	\
 	    (e); (e) = pa_hashmap_iterate((h), &(state), (const void **) &(k)))

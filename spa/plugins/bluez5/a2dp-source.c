@@ -373,7 +373,7 @@ again:
 		if (errno == EINTR)
 			goto again;
 
-		/* return socked has no data */
+		/* return socket has no data */
 		if (errno == EAGAIN || errno == EWOULDBLOCK)
 		    return 0;
 

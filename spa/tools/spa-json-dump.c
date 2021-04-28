@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
                 goto error_close;
 	}
         if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
-                fprintf(stderr, "error mmaping file '%s': %m\n", argv[1]);
+                fprintf(stderr, "error mmapping file '%s': %m\n", argv[1]);
                 goto error_close;
 	}
 

@@ -268,7 +268,7 @@ static void battery_update(struct spa_bt_device *device)
 	dbus_message_unref(msg);
 }
 
-// Create ney virtual battery with value stored in current device object
+// Create new virtual battery with value stored in current device object
 static void battery_create(struct spa_bt_device *device) {
 	DBusMessage *msg;
 	DBusMessageIter iter, entry, dict;
@@ -1043,8 +1043,8 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 		device_stop_timer(device);
 		device_connected(monitor, device, BT_DEVICE_CONNECTED);
 	} else {
-		/* The initial reconnect event has not been triggred,
-		 * the connecting is triggred by bluez. */
+		/* The initial reconnect event has not been triggered,
+		 * the connecting is triggered by bluez. */
 		if (device->reconnect_state == BT_DEVICE_RECONNECT_INIT)
 			device->reconnect_state = BT_DEVICE_RECONNECT_PROFILE;
 		device_start_timer(device);
@@ -2390,7 +2390,7 @@ int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a
 
 	/* Check if we already have an enabled transport for the most preferred codec.
 	 * However, if there already was a codec switch running, these transports may
-	 * disapper soon. In that case, we have to do the full thing.
+	 * disappear soon. In that case, we have to do the full thing.
 	 */
 	if (spa_list_is_empty(&device->codec_switch_list) && preferred_codec != NULL) {
 		spa_list_for_each(t, &device->transport_list, device_link) {
@@ -3916,7 +3916,7 @@ const struct spa_handle_factory spa_bluez5_dbus_factory = {
 	impl_enum_interface_info,
 };
 
-// Report battery percentage to BlueZ using experimental (BlueZ 5.56) Battery Provider API. No-op if no changes occured.
+// Report battery percentage to BlueZ using experimental (BlueZ 5.56) Battery Provider API. No-op if no changes occurred.
 int spa_bt_device_report_battery_level(struct spa_bt_device *device, uint8_t percentage)
 {
 	if (percentage == SPA_BT_NO_BATTERY) {

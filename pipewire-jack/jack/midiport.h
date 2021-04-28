@@ -61,11 +61,11 @@ jack_midi_get_event_count(void* port_buffer) JACK_OPTIONAL_WEAK_EXPORT;
  *
  * Jack MIDI is normalised, the MIDI event returned by this function is
  * guaranteed to be a complete MIDI event (the status byte will always be
- * present, and no realtime events will interspered with the event).
+ * present, and no realtime events will interspersed with the event).
  *
  * This rule does not apply to System Exclusive MIDI messages
  * since they can be of arbitrary length.
- * To maintain smooth realtime operation such events CAN be deliverd
+ * To maintain smooth realtime operation such events CAN be delivered
  * as multiple, non-normalised events.
  * The maximum size of one event "chunk" depends on the MIDI backend in use.
  * For example the midiseq driver will create chunks of 256 bytes.

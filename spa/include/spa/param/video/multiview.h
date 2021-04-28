@@ -84,7 +84,7 @@ enum spa_video_multiview_mode {
 	/* Padding for new frame packing modes */
 
 	SPA_VIDEO_MULTIVIEW_MODE_FRAME_BY_FRAME = 32,
-	/* Multivew mode(s) */
+	/* Multiview mode(s) */
 	SPA_VIDEO_MULTIVIEW_MODE_MULTIVIEW_FRAME_BY_FRAME,
 	SPA_VIDEO_MULTIVIEW_MODE_SEPARATED
 	    /* future expansion for annotated modes */

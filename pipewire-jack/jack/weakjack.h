@@ -63,7 +63,7 @@
  *    which means that their absence doesn't cause an error during program
  *    startup. Instead, Jill can test whether or not the symbol jack_set_latency_callback
  *    is null or not. If its null, it means that the JACK installed on this machine
- *    is too old to support this function. If its not null, then Jill can use it
+ *    is too old to support this function. If it's not null, then Jill can use it
  *    just like any other function in the API. For example:
  *
  * \code

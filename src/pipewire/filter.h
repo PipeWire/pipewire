@@ -49,7 +49,7 @@ struct pw_filter;
 
 /** \enum pw_filter_state The state of a filter \memberof pw_filter */
 enum pw_filter_state {
-	PW_FILTER_STATE_ERROR = -1,		/**< the strean is in error */
+	PW_FILTER_STATE_ERROR = -1,		/**< the stream is in error */
 	PW_FILTER_STATE_UNCONNECTED = 0,	/**< unconnected */
 	PW_FILTER_STATE_CONNECTING = 1,		/**< connection is in progress */
 	PW_FILTER_STATE_PAUSED = 2,		/**< filter is connected and paused */

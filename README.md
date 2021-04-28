@@ -74,7 +74,7 @@ $ pw-jack <appname>
 If you replaced JACK with PipeWire completely, `pw-jack` does not have any
 effect and can be omitted.
 
-JACK applications will automatically use the buffer-size choosen by the
+JACK applications will automatically use the buffer-size chosen by the
 server. You can force a maximum buffer size (latency) by setting the
 `PIPEWIRE_LATENCY` environment variable like so:
 

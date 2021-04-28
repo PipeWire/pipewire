@@ -137,7 +137,7 @@ struct spa_io_clock {
 	int64_t delay;			/**< delay between position and hardware,
 					  *  positive for capture, negative for playback */
 	double rate_diff;		/**< rate difference between clock and monotonic time */
-	uint64_t next_nsec;		/**< extimated next wakeup time in nanoseconds */
+	uint64_t next_nsec;		/**< estimated next wakeup time in nanoseconds */
 	uint32_t padding[8];
 };
 
@@ -231,7 +231,7 @@ struct spa_io_segment {
 						  *  segment extends to the next segment. If the
 						  *  segment becomes invalid and the looping flag is
 						  *  set, the segment repeats. */
-	double rate;				/**< overal rate of the segment, can be negative for
+	double rate;				/**< overall rate of the segment, can be negative for
 						  *  backwards time reporting. */
 	uint64_t position;			/**< The position when the running time == start.
 						  *  can be invalid when the owner of the extra segment

@@ -155,7 +155,7 @@ static int make_matrix(struct channelmix *mix)
 	spa_log_debug(mix->log, "src-mask:%08"PRIx64" dst-mask:%08"PRIx64,
 			src_mask, dst_mask);
 
-	/* move the MONO mask to FC so that the lower bits can be shifed
+	/* move the MONO mask to FC so that the lower bits can be shifted
 	 * away. */
 	if ((src_mask & (1Ull << SPA_AUDIO_CHANNEL_MONO)) != 0)
 		src_mask |= (1ULL << SPA_AUDIO_CHANNEL_FC);
@@ -179,7 +179,7 @@ static int make_matrix(struct channelmix *mix)
 				matrix[0][i]= 1.0f / mix->src_chan;
 		} else {
 			/* just pair channels */
-			spa_log_debug(mix->log, "paring channels");
+			spa_log_debug(mix->log, "pairing channels");
 			for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
 				matrix[i][i]= 1.0f;
 		}

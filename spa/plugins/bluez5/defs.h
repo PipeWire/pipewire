@@ -424,7 +424,7 @@ struct spa_bt_device {
 	int has_battery;
 
 	uint32_t hw_volume_profiles;
-	/* Even tought A2DP volume is exposed on transport interface, the
+	/* Even though A2DP volume is exposed on transport interface, the
 	 * volume activation info would not be variate between transports
 	 * under same device. So it's safe to cache activation info here. */
 	bool a2dp_volume_active[2];

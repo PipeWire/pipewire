@@ -111,7 +111,7 @@ struct pw_impl_client_events {
 /** Create a new client. This is mainly used by protocols. */
 struct pw_impl_client *
 pw_context_create_client(struct pw_impl_core *core,		/**< the core object */
-			struct pw_protocol *prototol,		/**< the client protocol */
+			struct pw_protocol *protocol,		/**< the client protocol */
 			struct pw_properties *properties,	/**< client properties */
 			size_t user_data_size			/**< extra user data size */);
 

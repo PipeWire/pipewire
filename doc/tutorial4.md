@@ -226,7 +226,7 @@ Now we're ready to connect the stream and run the main loop:
 ```
 
 To connect we specify that we have a `PW_DIRECTION_OUTPUT` stream. `PW_ID_ANY`
-means that we are ok with conneting to any consumer. Next we set some flags:
+means that we are ok with connecting to any consumer. Next we set some flags:
 
 * `PW_STREAM_FLAG_AUTOCONNECT`  automatically connect this stream. This instructs
                                 the session manager to link us to some consumer.

@@ -705,7 +705,7 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 			selected_codec = atoi(token);
 
 			if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC) {
-				spa_log_warn(backend->log, NAME": unsupported codec negociation: %d", selected_codec);
+				spa_log_warn(backend->log, NAME": unsupported codec negotiation: %d", selected_codec);
 			} else {
 				spa_log_debug(backend->log, NAME": RFCOMM selected_codec = %i", selected_codec);
 

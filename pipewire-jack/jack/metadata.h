@@ -305,7 +305,7 @@ extern const char* JACK_METADATA_PORT_GROUP;
  *
  * This property allows audio ports to be tagged with a "meaning".  The value
  * is a simple string.  Currently, the only type is "CV", for "control voltage"
- * ports.  Hosts SHOULD be take care to not treat CV ports as audibile and send
+ * ports.  Hosts SHOULD be take care to not treat CV ports as audible and send
  * their output directly to speakers.  In particular, CV ports are not
  * necessarily periodic at all and may have very high DC.
  */

@@ -29,12 +29,12 @@
 extern "C" {
 #endif
 
-/** Various Chroma sitings.
+/** Various Chroma settings.
  * @SPA_VIDEO_CHROMA_SITE_UNKNOWN: unknown cositing
  * @SPA_VIDEO_CHROMA_SITE_NONE: no cositing
  * @SPA_VIDEO_CHROMA_SITE_H_COSITED: chroma is horizontally cosited
  * @SPA_VIDEO_CHROMA_SITE_V_COSITED: chroma is vertically cosited
- * @SPA_VIDEO_CHROMA_SITE_ALT_LINE: choma samples are sited on alternate lines
+ * @SPA_VIDEO_CHROMA_SITE_ALT_LINE: chroma samples are sited on alternate lines
  * @SPA_VIDEO_CHROMA_SITE_COSITED: chroma samples cosited with luma samples
  * @SPA_VIDEO_CHROMA_SITE_JPEG: jpeg style cositing, also for mpeg1 and mjpeg
  * @SPA_VIDEO_CHROMA_SITE_MPEG2: mpeg2 style cositing

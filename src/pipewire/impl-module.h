@@ -69,7 +69,7 @@ struct pw_impl_module_events {
 	void (*initialized) (void *data);
 
 	/** The module is registered. This is a good time to register
-	 * objectes created from the module. */
+	 * objects created from the module. */
 	void (*registered) (void *data);
 };
 

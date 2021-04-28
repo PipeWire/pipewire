@@ -316,8 +316,8 @@ static void volume_changed(void *userdata)
 	impl->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(impl, false);
 
-	/* It sometimes flips volume to over 100% in pavucontrol silder
-	 * if volume is emited before route info emitting while node
+	/* It sometimes flips volume to over 100% in pavucontrol slider
+	 * if volume is emitted before route info emitting while node
 	 * volumes are not identical to route volumes. Not sure why. */
 	emit_volume(impl, node);
 }

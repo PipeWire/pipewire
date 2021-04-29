@@ -253,6 +253,8 @@ static void emit_volume(struct impl *this, struct node *node)
 	spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
 			SPA_PROP_channelVolumes, SPA_POD_Array(sizeof(float),
+				SPA_TYPE_Float, node->n_channels, node->volumes),
+			SPA_PROP_softVolumes, SPA_POD_Array(sizeof(float),
 				SPA_TYPE_Float, node->n_channels, node->soft_volumes),
 			SPA_PROP_channelMap, SPA_POD_Array(sizeof(uint32_t),
 				SPA_TYPE_Id, node->n_channels, node->channels));

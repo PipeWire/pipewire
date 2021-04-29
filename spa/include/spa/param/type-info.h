@@ -68,18 +68,13 @@ static const struct spa_type_info spa_type_param[] = {
 #include <spa/param/video/type-info.h>
 #include <spa/param/bluetooth/type-info.h>
 
-static const struct spa_type_info spa_type_prop_channel_volume[] = {
-	{ SPA_PROP_START, SPA_TYPE_Float, SPA_TYPE_INFO_BASE "channelVolumes", NULL, },
+static const struct spa_type_info spa_type_prop_float_array[] = {
+	{ SPA_PROP_START, SPA_TYPE_Float, SPA_TYPE_INFO_BASE "floatArray", NULL, },
 	{ 0, 0, NULL, NULL },
 };
 
 static const struct spa_type_info spa_type_prop_channel_map[] = {
 	{ SPA_PROP_START, SPA_TYPE_Id, SPA_TYPE_INFO_BASE "channelMap", spa_type_audio_channel, },
-	{ 0, 0, NULL, NULL },
-};
-
-static const struct spa_type_info spa_type_prop_monitor_volume[] = {
-	{ SPA_PROP_START, SPA_TYPE_Float, SPA_TYPE_INFO_BASE "monitorVolumes", NULL, },
 	{ 0, 0, NULL, NULL },
 };
 
@@ -108,13 +103,15 @@ static const struct spa_type_info spa_type_props[] = {
 	{ SPA_PROP_patternType, SPA_TYPE_Id, SPA_TYPE_INFO_PROPS_BASE "patternType", NULL },
 	{ SPA_PROP_ditherType, SPA_TYPE_Id, SPA_TYPE_INFO_PROPS_BASE "ditherType", NULL },
 	{ SPA_PROP_truncate, SPA_TYPE_Bool, SPA_TYPE_INFO_PROPS_BASE "truncate", NULL },
-	{ SPA_PROP_channelVolumes, SPA_TYPE_Array, SPA_TYPE_INFO_PROPS_BASE "channelVolumes", spa_type_prop_channel_volume },
+	{ SPA_PROP_channelVolumes, SPA_TYPE_Array, SPA_TYPE_INFO_PROPS_BASE "channelVolumes", spa_type_prop_float_array },
 	{ SPA_PROP_volumeBase, SPA_TYPE_Float, SPA_TYPE_INFO_PROPS_BASE "volumeBase", NULL },
 	{ SPA_PROP_volumeStep, SPA_TYPE_Float, SPA_TYPE_INFO_PROPS_BASE "volumeStep", NULL },
 	{ SPA_PROP_channelMap, SPA_TYPE_Array, SPA_TYPE_INFO_PROPS_BASE "channelMap", spa_type_prop_channel_map },
 	{ SPA_PROP_monitorMute, SPA_TYPE_Bool, SPA_TYPE_INFO_PROPS_BASE "monitorMute", NULL },
-	{ SPA_PROP_monitorVolumes, SPA_TYPE_Array, SPA_TYPE_INFO_PROPS_BASE "monitorVolumes", spa_type_prop_monitor_volume },
+	{ SPA_PROP_monitorVolumes, SPA_TYPE_Array, SPA_TYPE_INFO_PROPS_BASE "monitorVolumes", spa_type_prop_float_array },
 	{ SPA_PROP_latencyOffsetNsec, SPA_TYPE_Long, SPA_TYPE_INFO_PROPS_BASE "latencyOffsetNsec", NULL },
+	{ SPA_PROP_softMute, SPA_TYPE_Bool, SPA_TYPE_INFO_PROPS_BASE "softMute", NULL },
+	{ SPA_PROP_softVolumes, SPA_TYPE_Array, SPA_TYPE_INFO_PROPS_BASE "softVolumes", spa_type_prop_float_array },
 
 	{ SPA_PROP_brightness, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "brightness", NULL },
 	{ SPA_PROP_contrast, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "contrast", NULL },

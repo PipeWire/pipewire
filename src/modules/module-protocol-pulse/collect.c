@@ -253,11 +253,11 @@ struct device_info {
 			}
 
 static void collect_device_info(struct pw_manager_object *device,
-		struct pw_manager_object *card, struct device_info *dev_info)
+		struct pw_manager_object *card, struct device_info *dev_info, bool monitor)
 {
 	struct pw_manager_param *p;
 
-	if (card) {
+	if (card && !monitor) {
 		spa_list_for_each(p, &card->param_list, link) {
 			uint32_t id, device;
 			struct spa_pod *props;
@@ -275,7 +275,7 @@ static void collect_device_info(struct pw_manager_object *device,
 				continue;
 			dev_info->active_port = id;
 			if (props) {
-				volume_parse_param(props, &dev_info->volume_info);
+				volume_parse_param(props, &dev_info->volume_info, monitor);
 				dev_info->have_volume = true;
 			}
 		}
@@ -297,7 +297,7 @@ static void collect_device_info(struct pw_manager_object *device,
 
 		case SPA_PARAM_Props:
 			if (!dev_info->have_volume) {
-				volume_parse_param(p->param, &dev_info->volume_info);
+				volume_parse_param(p->param, &dev_info->volume_info, monitor);
 				dev_info->have_volume = true;
 			}
 			break;

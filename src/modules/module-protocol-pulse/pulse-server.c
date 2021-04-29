@@ -641,7 +641,7 @@ static int send_object_event(struct client *client, struct pw_manager_object *o,
 }
 
 static struct pw_manager_object *find_device(struct client *client,
-		uint32_t id, const char *name, bool sink);
+		uint32_t id, const char *name, bool sink, bool *is_monitor);
 
 static int64_t get_node_latency_offset(struct pw_manager_object *o)
 {
@@ -704,7 +704,7 @@ static void send_default_change_subscribe_event(struct client *client, bool sink
 	bool changed = false;
 
 	if (sink) {
-		def = find_device(client, SPA_ID_INVALID, NULL, true);
+		def = find_device(client, SPA_ID_INVALID, NULL, true, NULL);
 		if (client->prev_default_sink != def) {
 			client->prev_default_sink = def;
 			changed = true;
@@ -712,7 +712,7 @@ static void send_default_change_subscribe_event(struct client *client, bool sink
 	}
 
 	if (source) {
-		def = find_device(client, SPA_ID_INVALID, NULL, false);
+		def = find_device(client, SPA_ID_INVALID, NULL, false, NULL);
 		if (client->prev_default_source != def) {
 			client->prev_default_source = def;
 			changed = true;
@@ -2588,10 +2588,11 @@ static const char *get_default(struct client *client, bool sink)
 }
 
 static struct pw_manager_object *find_device(struct client *client,
-		uint32_t id, const char *name, bool sink)
+		uint32_t id, const char *name, bool sink, bool *is_monitor)
 {
 	struct selector sel;
 	const char *def;
+	bool monitor = false;
 
 	if (id == 0)
 		id = SPA_ID_INVALID;
@@ -2599,18 +2600,22 @@ static struct pw_manager_object *find_device(struct client *client,
 	if (name != NULL && !sink) {
 		if (pw_endswith(name, ".monitor")) {
 			name = strndupa(name, strlen(name)-8);
-			sink = true;
+			monitor = true;
 		} else if (strcmp(name, DEFAULT_MONITOR) == 0) {
 			name = NULL;
-			sink = true;
+			monitor = true;
 		}
 	}
 	if (id != SPA_ID_INVALID && !sink) {
 		if (id & MONITOR_FLAG) {
-			sink = true;
+			monitor = true;
 			id &= ~MONITOR_FLAG;
 		}
 	}
+	if (monitor)
+		sink = true;
+	if (is_monitor)
+		*is_monitor = monitor;
 
 	spa_zero(sel);
 	sel.id = id;
@@ -2741,7 +2746,7 @@ static int do_play_sample(struct client *client, uint32_t command, uint32_t tag,
 	if (sink_index != SPA_ID_INVALID && sink_name != NULL)
 		goto error_inval;
 
-	o = find_device(client, sink_index, sink_name, PW_DIRECTION_OUTPUT);
+	o = find_device(client, sink_index, sink_name, PW_DIRECTION_OUTPUT, NULL);
 	if (o == NULL)
 		goto error_noent;
 
@@ -2907,29 +2912,38 @@ static int do_flush_trigger_prebuf_stream(struct client *client, uint32_t comman
 }
 
 static int set_node_volume_mute(struct pw_manager_object *o,
-		struct volume *vol, bool *mute)
+		struct volume *vol, bool *mute, bool is_monitor)
 {
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 	struct spa_pod_frame f[1];
 	struct spa_pod *param;
+	uint32_t volprop, muteprop;
 
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
 		return -EACCES;
 	if (o->proxy == NULL)
 		return -ENOENT;
 
+	if (is_monitor) {
+		volprop = SPA_PROP_monitorVolumes;
+		muteprop = SPA_PROP_monitorMute;
+	} else {
+		volprop = SPA_PROP_channelVolumes;
+		muteprop = SPA_PROP_mute;
+	}
+
 	spa_pod_builder_push_object(&b, &f[0],
 			SPA_TYPE_OBJECT_Props,  SPA_PARAM_Props);
 	if (vol)
 		spa_pod_builder_add(&b,
-				SPA_PROP_channelVolumes, SPA_POD_Array(sizeof(float),
+				volprop, SPA_POD_Array(sizeof(float),
 							SPA_TYPE_Float,
 							vol->channels,
 							vol->values), 0);
 	if (mute)
 		spa_pod_builder_add(&b,
-				SPA_PROP_mute, SPA_POD_Bool(*mute), 0);
+				muteprop, SPA_POD_Bool(*mute), 0);
 	param = spa_pod_builder_pop(&b, &f[0]);
 
 	pw_node_set_param((struct pw_node*)o->proxy,
@@ -3047,7 +3061,7 @@ static int do_set_stream_volume(struct client *client, uint32_t command, uint32_
 		if (o == NULL)
 			return -ENOENT;
 
-		if ((res = set_node_volume_mute(o, &volume, NULL)) < 0)
+		if ((res = set_node_volume_mute(o, &volume, NULL, false)) < 0)
 			return res;
 	}
 done:
@@ -3098,7 +3112,7 @@ static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t 
 		if (o == NULL)
 			return -ENOENT;
 
-		if ((res = set_node_volume_mute(o, NULL, &mute)) < 0)
+		if ((res = set_node_volume_mute(o, NULL, &mute, false)) < 0)
 			return res;
 	}
 done:
@@ -3117,6 +3131,7 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 	int res;
 	struct device_info dev_info;
 	enum pw_direction direction;
+	bool is_monitor;
 
 	if ((res = message_get(m,
 			TAG_U32, &id,
@@ -3137,7 +3152,7 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 	else
 		direction = PW_DIRECTION_INPUT;
 
-	o = find_device(client, id, name, direction == PW_DIRECTION_OUTPUT);
+	o = find_device(client, id, name, direction == PW_DIRECTION_OUTPUT, &is_monitor);
 	if (o == NULL || (info = o->info) == NULL || info->props == NULL)
 		return -ENOENT;
 
@@ -3151,17 +3166,17 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 		struct selector sel = { .id = card_id, .type = pw_manager_object_is_card, };
 		card = select_object(manager, &sel);
 	}
-	collect_device_info(o, card, &dev_info);
+	collect_device_info(o, card, &dev_info, is_monitor);
 
 	if (dev_info.have_volume &&
 	    volume_compare(&dev_info.volume_info.volume, &volume) == 0)
 		goto done;
 
-	if (card != NULL && dev_info.active_port != SPA_ID_INVALID)
+	if (card != NULL && !is_monitor && dev_info.active_port != SPA_ID_INVALID)
 		res = set_card_volume_mute_delay(card, dev_info.active_port,
 				dev_info.device, &volume, NULL, NULL);
 	else
-		res = set_node_volume_mute(o, &volume, NULL);
+		res = set_node_volume_mute(o, &volume, NULL, is_monitor);
 
 	if (res < 0)
 		return res;
@@ -3182,6 +3197,7 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 	int res;
 	struct device_info dev_info;
 	enum pw_direction direction;
+	bool is_monitor;
 
 	if ((res = message_get(m,
 			TAG_U32, &id,
@@ -3202,7 +3218,7 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 	else
 		direction = PW_DIRECTION_INPUT;
 
-	o = find_device(client, id, name, direction == PW_DIRECTION_OUTPUT);
+	o = find_device(client, id, name, direction == PW_DIRECTION_OUTPUT, &is_monitor);
 	if (o == NULL || (info = o->info) == NULL || info->props == NULL)
 		return -ENOENT;
 
@@ -3216,17 +3232,17 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 		struct selector sel = { .id = card_id, .type = pw_manager_object_is_card, };
 		card = select_object(manager, &sel);
 	}
-	collect_device_info(o, card, &dev_info);
+	collect_device_info(o, card, &dev_info, is_monitor);
 
 	if (dev_info.have_volume &&
 	    dev_info.volume_info.mute == mute)
 		goto done;
 
-	if (card != NULL && dev_info.active_port != SPA_ID_INVALID)
+	if (card != NULL && !is_monitor && dev_info.active_port != SPA_ID_INVALID)
 		res = set_card_volume_mute_delay(card, dev_info.active_port,
 				dev_info.device, NULL, &mute, NULL);
 	else
-		res = set_node_volume_mute(o, NULL, &mute);
+		res = set_node_volume_mute(o, NULL, &mute, is_monitor);
 
 	if (res < 0)
 		return res;
@@ -3265,7 +3281,7 @@ static int do_set_port(struct client *client, uint32_t command, uint32_t tag, st
 	else
 		direction = PW_DIRECTION_INPUT;
 
-	o = find_device(client, id, name, direction == PW_DIRECTION_OUTPUT);
+	o = find_device(client, id, name, direction == PW_DIRECTION_OUTPUT, NULL);
 	if (o == NULL || (info = o->info) == NULL || info->props == NULL)
 		return -ENOENT;
 
@@ -3595,10 +3611,8 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 
 	pw_log_info(NAME" %p: [%s] LOOKUP tag:%u name:'%s'", impl, client->name, tag, name);
 
-	if ((o = find_device(client, SPA_ID_INVALID, name, is_sink)) == NULL)
+	if ((o = find_device(client, SPA_ID_INVALID, name, is_sink, &is_monitor)) == NULL)
 		return -ENOENT;
-
-	is_monitor = !is_sink && pw_manager_object_is_monitor(o);
 
 	reply = reply_new(client, tag);
 	message_put(reply,
@@ -3931,7 +3945,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 	if (card)
 		collect_card_info(card, &card_info);
 
-	collect_device_info(o, card, &dev_info);
+	collect_device_info(o, card, &dev_info, false);
 
 	if (!sample_spec_valid(&dev_info.ss) ||
 	    !channel_map_valid(&dev_info.map) ||
@@ -4075,7 +4089,7 @@ static int fill_source_info(struct client *client, struct message *m,
 	if (card)
 		collect_card_info(card, &card_info);
 
-	collect_device_info(o, card, &dev_info);
+	collect_device_info(o, card, &dev_info, is_monitor);
 
 	if (!sample_spec_valid(&dev_info.ss) ||
 	    !channel_map_valid(&dev_info.map) ||
@@ -4198,7 +4212,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 	    (str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
 		client_id = (uint32_t)atoi(str);
 
-	collect_device_info(o, NULL, &dev_info);
+	collect_device_info(o, NULL, &dev_info, false);
 
 	if (!sample_spec_valid(&dev_info.ss) ||
 	    !channel_map_valid(&dev_info.map) ||
@@ -4269,7 +4283,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 	    (str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
 		client_id = (uint32_t)atoi(str);
 
-	collect_device_info(o, NULL, &dev_info);
+	collect_device_info(o, NULL, &dev_info, false);
 
 	if (!sample_spec_valid(&dev_info.ss) ||
 	    !channel_map_valid(&dev_info.map) ||
@@ -4819,7 +4833,7 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 	pw_log_info(NAME" %p: [%s] %s tag:%u name:%s", impl, client->name,
 			commands[command].name, tag, name);
 
-	if (name != NULL && (o = find_device(client, SPA_ID_INVALID, name, sink)) == NULL)
+	if (name != NULL && (o = find_device(client, SPA_ID_INVALID, name, sink, NULL)) == NULL)
 		return -ENOENT;
 
 	if (name != NULL) {
@@ -4863,7 +4877,7 @@ static int do_suspend(struct client *client, uint32_t command, uint32_t tag, str
 	pw_log_info(NAME" %p: [%s] %s tag:%u id:%u name:%s", impl, client->name,
 			commands[command].name, tag, id, name);
 
-	if ((o = find_device(client, id, name, sink)) == NULL)
+	if ((o = find_device(client, id, name, sink, NULL)) == NULL)
 		return -ENOENT;
 
 	if (o->proxy == NULL)
@@ -4909,7 +4923,7 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	if (o == NULL)
 		return -ENOENT;
 
-	if ((dev = find_device(client, id_device, name_device, sink)) == NULL)
+	if ((dev = find_device(client, id_device, name_device, sink, NULL)) == NULL)
 		return -ENOENT;
 
 	if ((res = pw_manager_set_metadata(manager, client->metadata_default,
@@ -4918,7 +4932,7 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 			SPA_TYPE_INFO_BASE"Id", "%d", dev->id)) < 0)
 		return res;
 
-	dev_default = find_device(client, SPA_ID_INVALID, NULL, sink);
+	dev_default = find_device(client, SPA_ID_INVALID, NULL, sink, NULL);
 	if (dev == dev_default) {
 		/*
 		 * When moving streams to a node that is equal to the default,

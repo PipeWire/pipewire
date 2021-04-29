@@ -46,7 +46,7 @@ static inline int volume_compare(struct volume *vol, struct volume *other)
 	}
 	for (i = 0; i < vol->channels; i++) {
 		if (vol->values[i] != other->values[i]) {
-			pw_log_info("val %f<>%f", vol->values[i], other->values[i]);
+			pw_log_info("%d: val %f<>%f", i, vol->values[i], other->values[i]);
 			return -1;
 		}
 	}
@@ -74,7 +74,7 @@ struct volume_info {
 				}
 
 
-static int volume_parse_param(const struct spa_pod *param, struct volume_info *info)
+static int volume_parse_param(const struct spa_pod *param, struct volume_info *info, bool monitor)
 {
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
 	struct spa_pod_prop *prop;
@@ -89,16 +89,34 @@ static int volume_parse_param(const struct spa_pod *param, struct volume_info *i
 
 			break;
 		case SPA_PROP_mute:
+			if (monitor)
+				continue;
 			if (spa_pod_get_bool(&prop->value, &info->mute) < 0)
 				continue;
 			SPA_FLAG_UPDATE(info->flags, VOLUME_HW_MUTE,
                                         prop->flags & SPA_POD_PROP_FLAG_HARDWARE);
 			break;
 		case SPA_PROP_channelVolumes:
+			if (monitor)
+				continue;
 			info->volume.channels = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					info->volume.values, SPA_AUDIO_MAX_CHANNELS);
 			SPA_FLAG_UPDATE(info->flags, VOLUME_HW_VOLUME,
                                         prop->flags & SPA_POD_PROP_FLAG_HARDWARE);
+			break;
+		case SPA_PROP_monitorMute:
+			if (!monitor)
+				continue;
+			if (spa_pod_get_bool(&prop->value, &info->mute) < 0)
+				continue;
+			SPA_FLAG_CLEAR(info->flags, VOLUME_HW_MUTE);
+			break;
+		case SPA_PROP_monitorVolumes:
+			if (!monitor)
+				continue;
+			info->volume.channels = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+					info->volume.values, SPA_AUDIO_MAX_CHANNELS);
+			SPA_FLAG_CLEAR(info->flags, VOLUME_HW_VOLUME);
 			break;
 		case SPA_PROP_volumeBase:
 			if (spa_pod_get_float(&prop->value, &info->base) < 0)

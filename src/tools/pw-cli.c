@@ -1563,10 +1563,15 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 		spa_pod_builder_pop(b, &f[0]);
 	}
 	else if (spa_json_is_array(value, len) && info != NULL) {
-		spa_pod_builder_push_array(b, &f[0]);
+		if (info->parent == SPA_TYPE_Struct) {
+			spa_pod_builder_push_struct(b, &f[0]);
+		} else {
+			spa_pod_builder_push_array(b, &f[0]);
+			info = info->values;
+		}
 		spa_json_enter(iter, &it[0]);
 		while ((l = spa_json_next(&it[0], &v)) > 0)
-			if ((res = json_to_pod(b, id, info->values, &it[0], v, l)) < 0)
+			if ((res = json_to_pod(b, id, info, &it[0], v, l)) < 0)
 				return res;
 		spa_pod_builder_pop(b, &f[0]);
 	}
@@ -1585,6 +1590,12 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 			break;
 		case SPA_TYPE_Long:
 			spa_pod_builder_long(b, val);
+			break;
+		case SPA_TYPE_Struct:
+			if (spa_json_is_int(value, len))
+				spa_pod_builder_int(b, val);
+			else
+				spa_pod_builder_float(b, val);
 			break;
 		case SPA_TYPE_Float:
 			spa_pod_builder_float(b, val);
@@ -1614,6 +1625,7 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 				return -EINVAL;
 			spa_pod_builder_id(b, ti->type);
 			break;
+		case SPA_TYPE_Struct:
 		case SPA_TYPE_String:
 			spa_pod_builder_string(b, val);
 			break;

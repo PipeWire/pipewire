@@ -145,7 +145,10 @@ static dbus_bool_t add_watch(DBusWatch *watch, void *userdata)
 static void remove_watch(DBusWatch *watch, void *userdata)
 {
 	struct connection *conn = userdata;
+	struct impl *impl = conn->impl;
 	struct spa_source *source;
+
+	spa_log_debug(impl->log, "remove watch %p", watch);
 
 	if ((source = dbus_watch_get_data(watch)))
 		spa_loop_utils_destroy_source(conn->impl->utils, source);
@@ -156,6 +159,8 @@ static void toggle_watch(DBusWatch *watch, void *userdata)
 	struct connection *conn = userdata;
 	struct impl *impl = conn->impl;
 	struct spa_source *source;
+
+	spa_log_debug(impl->log, "toggle watch %p", watch);
 
 	source = dbus_watch_get_data(watch);
 
@@ -176,6 +181,8 @@ handle_timer_event(void *userdata, uint64_t expirations)
 	struct timeout_data *data = dbus_timeout_get_data(timeout);
 	struct connection *conn = data->conn;
 	struct impl *impl = conn->impl;
+
+	spa_log_debug(impl->log, "timeout %p conn:%p impl:%p", timeout, conn, impl);
 
 	if (dbus_timeout_get_enabled(timeout)) {
 		t = dbus_timeout_get_interval(timeout) * SPA_NSEC_PER_MSEC;
@@ -198,6 +205,8 @@ static dbus_bool_t add_timeout(DBusTimeout *timeout, void *userdata)
 	if (!dbus_timeout_get_enabled(timeout))
 		return FALSE;
 
+	spa_log_debug(impl->log, "add timeout %p conn:%p impl:%p", timeout, conn, impl);
+
 	data = calloc(1, sizeof(struct timeout_data));
 	data->conn = conn;
 	data->source = spa_loop_utils_add_timer(impl->utils, handle_timer_event, timeout);
@@ -217,6 +226,8 @@ static void remove_timeout(DBusTimeout *timeout, void *userdata)
 	struct impl *impl = conn->impl;
 	struct timeout_data *data;
 
+	spa_log_debug(impl->log, "remove timeout %p conn:%p impl:%p", timeout, conn, impl);
+
 	if ((data = dbus_timeout_get_data(timeout))) {
 		spa_loop_utils_destroy_source(impl->utils, data->source);
 		free(data);
@@ -231,6 +242,8 @@ static void toggle_timeout(DBusTimeout *timeout, void *userdata)
 	struct timespec ts, *tsp;
 
 	data = dbus_timeout_get_data(timeout);
+
+	spa_log_debug(impl->log, "toggle timeout %p conn:%p impl:%p", timeout, conn, impl);
 
 	if (dbus_timeout_get_enabled(timeout)) {
 		uint64_t t = dbus_timeout_get_interval(timeout) * SPA_NSEC_PER_MSEC;
@@ -263,6 +276,8 @@ impl_connection_destroy(struct spa_dbus_connection *conn)
 {
 	struct connection *this = SPA_CONTAINER_OF(conn, struct connection, this);
 	struct impl *impl = this->impl;
+
+	spa_log_debug(impl->log, "destroy conn %p", this);
 
 	dbus_connection_close(this->conn);
 	dbus_connection_unref(this->conn);
@@ -312,6 +327,8 @@ impl_get_connection(void *object,
 	dbus_connection_set_wakeup_main_function(conn->conn, wakeup_main, conn, NULL);
 
 	spa_list_append(&impl->connection_list, &conn->link);
+
+	spa_log_debug(impl->log, "new conn %p", conn);
 
 	return &conn->this;
 

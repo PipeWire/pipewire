@@ -120,7 +120,7 @@ struct impl {
 	unsigned long control[MAX_PORTS];
 	unsigned long notify[MAX_PORTS];
 	const LADSPA_Descriptor *desc;
-	LADSPA_Handle hndl;
+	LADSPA_Handle hndl[MAX_PORTS];
 	LADSPA_Data control_data[MAX_PORTS];
 	LADSPA_Data notify_data[MAX_PORTS];
 };
@@ -165,20 +165,20 @@ static void capture_process(void *d)
 
 	for (i = 0; i < in->buffer->n_datas; i++) {
 		struct spa_data *ds = &in->buffer->datas[i];
-		desc->connect_port(impl->hndl, impl->input[i],
+		desc->connect_port(impl->hndl[0], impl->input[i],
 					SPA_MEMBER(ds->data, ds->chunk->offset, void));
 		size = SPA_MAX(size, ds->chunk->size);
 		stride = SPA_MAX(stride, ds->chunk->stride);
 	}
 	for (i = 0; i < out->buffer->n_datas; i++) {
 		struct spa_data *dd = &out->buffer->datas[i];
-		desc->connect_port(impl->hndl, impl->output[i], dd->data);
+		desc->connect_port(impl->hndl[0], impl->output[i], dd->data);
 		dd->chunk->offset = 0;
 		dd->chunk->size = size;
 		dd->chunk->stride = stride;
 	}
 
-	desc->run(impl->hndl, size / sizeof(float));
+	desc->run(impl->hndl[0], size / sizeof(float));
 
 done:
 	if (in != NULL)
@@ -187,10 +187,30 @@ done:
 		pw_stream_queue_buffer(impl->playback, out);
 }
 
+static void set_control_value(struct impl *impl, const char *name, float value)
+{
+	uint32_t i;
+	for (i = 0; i < impl->n_control; i++) {
+		uint32_t p = impl->control[i];
+		if (strcmp(impl->desc->PortNames[p], name) == 0) {
+			impl->control_data[i] = value;
+			return;
+		}
+	}
+}
+
+static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
+{
+	struct impl *impl = data;
+	pw_log_info("%p: %d changed", impl, id);
+	spa_debug_pod(0, NULL, param);
+}
+
 static const struct pw_stream_events in_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = capture_destroy,
-	.process = capture_process
+	.process = capture_process,
+	.param_changed = param_changed
 };
 
 static void playback_destroy(void *d)
@@ -202,7 +222,8 @@ static void playback_destroy(void *d)
 
 static const struct pw_stream_events out_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
-	.destroy = playback_destroy
+	.destroy = playback_destroy,
+	.param_changed = param_changed
 };
 
 static int setup_streams(struct impl *impl)
@@ -316,7 +337,7 @@ static float get_default(struct impl *impl, uint32_t p)
 		def = 440;
 		break;
 	default:
-		def = 0;
+		def = 0.5 * upper;
 		break;
 	}
 	if (LADSPA_IS_HINT_INTEGER(hint))
@@ -345,7 +366,7 @@ static int load_ladspa(struct impl *impl, struct pw_properties *props)
 	const char *e, *p, *label;
 	LADSPA_Descriptor_Function desc_func;
 	const LADSPA_Descriptor *d;
-	uint32_t i;
+	uint32_t i, j;
 	int res;
 
 	if ((e = getenv("LADSPA_PATH")) == NULL)
@@ -385,9 +406,6 @@ static int load_ladspa(struct impl *impl, struct pw_properties *props)
 	pw_properties_setf(props, "ladspa.maker", "%s", d->Maker);
 	pw_properties_setf(props, "ladspa.copyright", "%s", d->Copyright);
 
-	if ((impl->hndl = d->instantiate(d, impl->rate)) == NULL)
-		return -ENOMEM;
-
 	impl->desc = d;
 
 	for (i = 0; i < d->PortCount; i++) {
@@ -397,21 +415,39 @@ static int load_ladspa(struct impl *impl, struct pw_properties *props)
 			else if (LADSPA_IS_PORT_OUTPUT(d->PortDescriptors[i]))
 				impl->output[impl->n_output++] = i;
 		} else if (LADSPA_IS_PORT_CONTROL(d->PortDescriptors[i])) {
-			if (LADSPA_IS_PORT_INPUT(d->PortDescriptors[i])) {
-				impl->control[impl->n_control] = i;
-				impl->control_data[impl->n_control] = get_default(impl, i);
-				d->connect_port(impl->hndl, i, &impl->control_data[impl->n_control]);
-				impl->n_control++;
-			}
-			else if (LADSPA_IS_PORT_OUTPUT(d->PortDescriptors[i])) {
+			if (LADSPA_IS_PORT_INPUT(d->PortDescriptors[i]))
+				impl->control[impl->n_control++] = i;
+			else if (LADSPA_IS_PORT_OUTPUT(d->PortDescriptors[i]))
 				impl->notify[impl->n_notify++] = i;
-				d->connect_port(impl->hndl, i, &impl->notify_data[i]);
-			}
 		}
+	}
+	if (impl->n_input == 0 || impl->n_output == 0) {
+		pw_log_error("plugin has 0 input or 0 output ports");
+		res = -ENOTSUP;
+		goto exit;
+	}
+
+
+
+
+	if ((impl->hndl[0] = d->instantiate(d, impl->rate)) == NULL) {
+		pw_log_error("cannot create plugin instance");
+		res = -ENOMEM;
+		goto exit;
+	}
+	for (i = 0; i < impl->n_control; i++) {
+		j = impl->control[i];
+		impl->control_data[i] = get_default(impl, j);
+		pw_log_info("control (%s) %d set to %f", d->PortNames[j], i, impl->control_data[i]);
+		d->connect_port(impl->hndl[0], j, &impl->control_data[i]);
+	}
+	for (i = 0; i < impl->n_notify; i++) {
+		j = impl->notify[i];
+		d->connect_port(impl->hndl[0], j, &impl->notify_data[i]);
 	}
 
 	if (d->activate)
-		d->activate(impl->hndl);
+		d->activate(impl->hndl[0]);
 
 
 	return 0;

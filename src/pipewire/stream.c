@@ -407,6 +407,18 @@ static int impl_set_io(void *object, uint32_t id, void *data, size_t size)
 	return 0;
 }
 
+static int impl_set_param(void *object, uint32_t id, uint32_t flags, const struct spa_pod *param)
+{
+	struct stream *impl = object;
+	struct pw_stream *stream = &impl->this;
+
+	if (id != SPA_PARAM_Props)
+		return -ENOTSUP;
+
+	pw_stream_emit_param_changed(stream, id, param);
+	return 0;
+}
+
 static int impl_send_command(void *object, const struct spa_command *command)
 {
 	struct stream *impl = object;
@@ -880,6 +892,7 @@ static const struct spa_node_methods impl_node = {
 	SPA_VERSION_NODE_METHODS,
 	.add_listener = impl_add_listener,
 	.set_callbacks = impl_set_callbacks,
+	.set_param = impl_set_param,
 	.set_io = impl_set_io,
 	.send_command = impl_send_command,
 	.port_set_io = impl_port_set_io,

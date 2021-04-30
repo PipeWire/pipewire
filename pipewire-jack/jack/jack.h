@@ -321,7 +321,7 @@ int jack_set_thread_init_callback (jack_client_t *client,
  *
  * Register a function (and argument) to be called if and when the
  * JACK server shuts down the client thread.  The function must
- * be written as if it were an asynchonrous POSIX signal
+ * be written as if it were an asynchronous POSIX signal
  * handler --- use only async-safe functions, and remember that it
  * is executed from another thread.  A typical function might
  * set a flag or write to a pipe so that the rest of the
@@ -352,7 +352,7 @@ void jack_on_shutdown (jack_client_t *client,
  *
  * Register a function (and argument) to be called if and when the
  * JACK server shuts down the client thread.  The function must
- * be written as if it were an asynchonrous POSIX signal
+ * be written as if it were an asynchronous POSIX signal
  * handler --- use only async-safe functions, and remember that it
  * is executed from another thread.  A typical function might
  * set a flag or write to a pipe so that the rest of the

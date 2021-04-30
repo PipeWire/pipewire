@@ -96,7 +96,7 @@ pod = spa_pod_builder_pop(&b, &f);
 `spa_pod_builder_pop()` returns a reference to the object we completed
 on the stack.
 
-## Using varags builder.
+## Using varargs builder.
 
 We can also use the following construct to make POD objects:
 

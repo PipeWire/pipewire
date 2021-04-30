@@ -116,7 +116,7 @@ extern "C" {
  *
  * \subsection ssec_consume Consume data
  *
- * The process event is emitted for each new buffer that can can be
+ * The process event is emitted for each new buffer that can be
  * consumed.
  *
  * \ref pw_stream_dequeue_buffer() should be used to get the data and

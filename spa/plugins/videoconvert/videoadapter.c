@@ -894,7 +894,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 #if 0
 	this->hnd_convert = SPA_MEMBER(this, sizeof(struct impl), struct spa_handle);
-	spa_handle_factory_init(&spa_videooconvert_factory,
+	spa_handle_factory_init(&spa_videoconvert_factory,
 				this->hnd_convert,
 				info, support, n_support);
 

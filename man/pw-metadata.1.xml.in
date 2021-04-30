@@ -15,7 +15,7 @@ This file is part of PipeWire.
   <description>
     <p>Monitor, set and delete metadata on PipeWire objects.</p>
 
-    <p>Metadata are key/type/value tripplets attached to objects identified
+    <p>Metadata are key/type/value triplets attached to objects identified
     by <arg>id</arg>. The metadata is shared between all applications
     binding to the same metadata object. When an object is destroyed, all its
     metadata is automatically removed.</p>

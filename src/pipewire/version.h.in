@@ -65,4 +65,4 @@ const char* pw_get_library_version(void);
 }
 #endif
 
-#endif /* PIPEWIRE_VERION_H */
+#endif /* PIPEWIRE_VERSION_H */

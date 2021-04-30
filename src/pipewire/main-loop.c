@@ -78,7 +78,7 @@ error_cleanup:
 	return NULL;
 }
 
-/** Create a new new main loop
+/** Create a new main loop
  * \return a newly allocated \ref pw_main_loop
  *
  * \memberof pw_main_loop

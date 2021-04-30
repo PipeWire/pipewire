@@ -33,7 +33,6 @@ extern "C" {
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <unistd.h>
 
 typedef struct pa_core pa_core;

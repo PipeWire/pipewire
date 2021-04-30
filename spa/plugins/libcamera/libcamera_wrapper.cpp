@@ -35,7 +35,6 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
-#include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
 

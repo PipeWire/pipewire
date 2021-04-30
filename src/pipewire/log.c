@@ -26,7 +26,6 @@
 
 #include <spa/pod/pod.h>
 #include <spa/debug/types.h>
-#include <spa/pod/pod.h>
 #include <spa/pod/iter.h>
 
 #include <pipewire/log.h>

@@ -112,9 +112,6 @@ struct impl {
 #include <config.h>
 #endif
 
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
 #include <sys/syscall.h>
 
 #define RTKIT_SERVICE_NAME "org.freedesktop.RealtimeKit1"

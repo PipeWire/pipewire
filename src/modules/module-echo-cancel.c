@@ -60,15 +60,12 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-#include <unistd.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <getopt.h>
 #include <limits.h>
 #include <math.h>
 
-#include <spa/utils/result.h>
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw.h>

@@ -36,7 +36,6 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
 #include <spa/utils/names.h>
-#include <spa/utils/result.h>
 #include <spa/utils/keys.h>
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>

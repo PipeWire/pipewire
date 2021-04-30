@@ -50,7 +50,7 @@
 #include <spa/support/dbus.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/main-loop.h>
+#include <pipewire/i18n.h>
 #include <extensions/session-manager.h>
 
 #include "media-session.h"

@@ -30,7 +30,6 @@ extern "C" {
 #endif
 
 #include <spa/support/plugin.h>
-#include <spa/support/i18n.h>
 
 #include <pipewire/array.h>
 #include <pipewire/client.h>
@@ -154,12 +153,6 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 		const struct spa_support support[]);
 
 int pw_unload_spa_handle(struct spa_handle *handle);
-
-const char *pw_gettext(const char *msgid);
-const char *pw_ngettext(const char *msgid, const char *msgid_plural, unsigned long int n);
-
-#define _(String)	(pw_gettext(String))
-#define N_(String)	(String)
 
 #ifdef __cplusplus
 }

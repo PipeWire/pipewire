@@ -42,6 +42,7 @@
 #include <spa/pod/builder.h>
 
 #include <pipewire/impl.h>
+#include <pipewire/i18n.h>
 
 #include <extensions/session-manager.h>
 

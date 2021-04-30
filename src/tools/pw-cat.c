@@ -46,7 +46,7 @@
 #include <spa/debug/types.h>
 
 #include <pipewire/pipewire.h>
-#include <pipewire/global.h>
+#include <pipewire/i18n.h>
 #include <extensions/metadata.h>
 
 #include "midifile.h"

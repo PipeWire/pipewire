@@ -24,6 +24,16 @@ pipewire_module_loopback = shared_library('pipewire-module-loopback',
   dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
+pipewire_module_ladspa_filter = shared_library('pipewire-module-ladspa-filter',
+  [ 'module-ladspa-filter.c' ],
+  c_args : pipewire_module_c_args,
+  include_directories : [configinc, spa_inc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, pipewire_dep],
+)
+
 pipewire_module_echo_cancel = shared_library('pipewire-module-echo-cancel',
   [ 'module-echo-cancel.c',
     'module-echo-cancel/aec-null.c',

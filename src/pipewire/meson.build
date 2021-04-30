@@ -17,6 +17,7 @@ pipewire_headers = [
   'global.h',
   'keys.h',
   'impl.h',
+  'i18n.h',
   'impl-link.h',
   'link.h',
   'log.h',

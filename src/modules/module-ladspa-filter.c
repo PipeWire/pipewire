@@ -193,6 +193,7 @@ static void set_control_value(struct impl *impl, const char *name, float value)
 	for (i = 0; i < impl->n_control; i++) {
 		uint32_t p = impl->control[i];
 		if (strcmp(impl->desc->PortNames[p], name) == 0) {
+			pw_log_info("set '%s' to %f", name, value);
 			impl->control_data[i] = value;
 			return;
 		}
@@ -202,8 +203,32 @@ static void set_control_value(struct impl *impl, const char *name, float value)
 static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 {
 	struct impl *impl = data;
-	pw_log_info("%p: %d changed", impl, id);
-	spa_debug_pod(0, NULL, param);
+	const struct spa_pod_prop *prop;
+	struct spa_pod_parser prs;
+	struct spa_pod_frame f;
+
+	if (id != SPA_PARAM_Props)
+		return;
+
+	if ((prop = spa_pod_find_prop(param, NULL, SPA_PROP_paramStruct)) == NULL ||
+	    !spa_pod_is_struct(&prop->value))
+		return;
+
+	spa_pod_parser_pod(&prs, &prop->value);
+	if (spa_pod_parser_push_struct(&prs, &f) < 0)
+		return;
+
+	while (true) {
+		const char *name;
+		float value;
+
+		if (spa_pod_parser_get_string(&prs, &name) < 0)
+			break;
+		if (spa_pod_parser_get_float(&prs, &value) < 0)
+			break;
+
+		set_control_value(impl, name, value);
+	}
 }
 
 static const struct pw_stream_events in_stream_events = {

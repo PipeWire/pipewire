@@ -58,9 +58,9 @@ static const struct spa_dict_item module_props[] = {
 				"[ audio.position=<channel map> ] "
 				"ladspa.plugin=<plugin name> "
 				"ladspa.label=<label name> "
-				"ladspa.control = [ { name="" value=0.0 } ,... ] "
-				"ladspa.inputs = [ <name>... ] "
-				"ladspa.outputs = [ <name>... ] "
+				"ladspa.control = [ <name> = <value> ... ] "
+				"ladspa.inputs = [ <name> ... ] "
+				"ladspa.outputs = [ <name> ... ] "
 				"[ capture.props=<properties> ] "
 				"[ playback.props=<properties> ] " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
@@ -124,6 +124,7 @@ struct impl {
 	LADSPA_Handle hndl[MAX_PORTS];
 	LADSPA_Data control_data[MAX_PORTS];
 	LADSPA_Data notify_data[MAX_PORTS];
+	LADSPA_Data default_control[MAX_PORTS];
 };
 
 static void do_unload_module(void *obj, void *data, int res, uint32_t id)
@@ -179,7 +180,6 @@ static void capture_process(void *d)
 		dd->chunk->size = size;
 		dd->chunk->stride = stride;
 	}
-
 	for (i = 0; i < n_hndl; i++)
 		desc->run(impl->hndl[i], size / sizeof(float));
 
@@ -190,14 +190,14 @@ done:
 		pw_stream_queue_buffer(impl->playback, out);
 }
 
-static void set_control_value(struct impl *impl, const char *name, float value)
+static void set_control_value(struct impl *impl, const char *name, float *value)
 {
 	uint32_t i;
 	for (i = 0; i < impl->n_control; i++) {
 		uint32_t p = impl->control[i];
 		if (strcmp(impl->desc->PortNames[p], name) == 0) {
-			pw_log_info("set '%s' to %f", name, value);
-			impl->control_data[i] = value;
+			impl->control_data[i] = value ? *value : impl->default_control[i];
+			pw_log_info("control %d ('%s') to %f", i, name, impl->control_data[i]);
 			return;
 		}
 	}
@@ -223,14 +223,14 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 
 	while (true) {
 		const char *name;
-		float value;
+		float value, *val = NULL;
 
 		if (spa_pod_parser_get_string(&prs, &name) < 0)
 			break;
-		if (spa_pod_parser_get_float(&prs, &value) < 0)
-			break;
+		if (spa_pod_parser_get_float(&prs, &value) >= 0)
+			val = &value;
 
-		set_control_value(impl, name, value);
+		set_control_value(impl, name, val);
 	}
 }
 
@@ -388,10 +388,65 @@ static const LADSPA_Descriptor *find_descriptor(LADSPA_Descriptor_Function desc_
 	return NULL;
 }
 
+static uint32_t find_port(struct impl *impl, const char *name, int mask)
+{
+	uint32_t p;
+	const LADSPA_Descriptor *d = impl->desc;
+	for (p = 0; p < d->PortCount; p++) {
+		if ((d->PortDescriptors[p] & mask) != mask)
+			continue;
+		if (strcmp(impl->desc->PortNames[p], name) == 0)
+			return p;
+	}
+	return SPA_ID_INVALID;
+}
+
+static uint32_t collect_ports(struct impl *impl, const char *str, unsigned long ports[], int mask)
+{
+	struct spa_json it[2];
+	char v[256];
+	uint32_t p, n_ports;
+	const char *dir = mask & LADSPA_PORT_INPUT ? "input" : "output";
+
+	spa_json_init(&it[0], str, strlen(str));
+        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+                spa_json_init(&it[1], str, strlen(str));
+
+	n_ports = 0;
+	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+	    n_ports < MAX_PORTS) {
+		if ((p = find_port(impl, v, mask)) == SPA_ID_INVALID) {
+			pw_log_error("unknown %s port '%s'", dir, v);
+			return p;
+		}
+		pw_log_info("using port %d ('%s') as %s %d", p, v, dir, n_ports);
+		ports[n_ports++] = p;
+	}
+	return n_ports;
+}
+
+static int parse_control(struct impl *impl, const char *control)
+{
+	struct spa_json it[2];
+	char v[256];
+
+	spa_json_init(&it[0], control, strlen(control));
+        if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+                spa_json_init(&it[1], control, strlen(control));
+
+	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0) {
+		float fl;
+		if (spa_json_get_float(&it[1], &fl) <= 0)
+			break;
+		set_control_value(impl, v, &fl);
+	}
+	return 0;
+}
+
 static int load_ladspa(struct impl *impl, struct pw_properties *props)
 {
 	char path[PATH_MAX];
-	const char *e, *plugin, *label;
+	const char *e, *plugin, *label, *inputs, *outputs, *control;
 	LADSPA_Descriptor_Function desc_func;
 	const LADSPA_Descriptor *d;
 	uint32_t i, j, p;
@@ -435,28 +490,55 @@ static int load_ladspa(struct impl *impl, struct pw_properties *props)
 	pw_properties_setf(props, "ladspa.maker", "%s", impl->desc->Maker);
 	pw_properties_setf(props, "ladspa.copyright", "%s", impl->desc->Copyright);
 
+	if ((inputs = pw_properties_get(props, "ladspa.inputs")) != NULL) {
+		if ((impl->n_input = collect_ports(impl, inputs, impl->input,
+						LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO)) == SPA_ID_INVALID) {
+			res = -EINVAL;
+			goto exit;
+		}
+	}
+	if ((outputs = pw_properties_get(props, "ladspa.outputs")) != NULL) {
+		if ((impl->n_output = collect_ports(impl, outputs, impl->output,
+						LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO)) == SPA_ID_INVALID) {
+			res = -EINVAL;
+			goto exit;
+		}
+	}
 	for (p = 0; p < d->PortCount; p++) {
 		if (LADSPA_IS_PORT_AUDIO(d->PortDescriptors[p])) {
-			if (LADSPA_IS_PORT_INPUT(d->PortDescriptors[p]))
+			if (inputs == NULL && LADSPA_IS_PORT_INPUT(d->PortDescriptors[p])) {
+				pw_log_info("using port %d ('%s') as input %d", p,
+						d->PortNames[p], impl->n_input);
 				impl->input[impl->n_input++] = p;
-			else if (LADSPA_IS_PORT_OUTPUT(d->PortDescriptors[p]))
+			}
+			else if (outputs == NULL && LADSPA_IS_PORT_OUTPUT(d->PortDescriptors[p])) {
+				pw_log_info("using port %d ('%s') as output %d", p,
+						d->PortNames[p], impl->n_output);
 				impl->output[impl->n_output++] = p;
+			}
 		} else if (LADSPA_IS_PORT_CONTROL(d->PortDescriptors[p])) {
-			if (LADSPA_IS_PORT_INPUT(d->PortDescriptors[p]))
+			if (LADSPA_IS_PORT_INPUT(d->PortDescriptors[p])) {
+				pw_log_info("using port %d ('%s') as control %d", p,
+						d->PortNames[p], impl->n_control);
 				impl->control[impl->n_control++] = p;
-			else if (LADSPA_IS_PORT_OUTPUT(d->PortDescriptors[p]))
+			}
+			else if (LADSPA_IS_PORT_OUTPUT(d->PortDescriptors[p])) {
+				pw_log_info("using port %d ('%s') as notify %d", p,
+						d->PortNames[p], impl->n_notify);
 				impl->notify[impl->n_notify++] = p;
+			}
 		}
 	}
 	if (impl->n_input == 0 || impl->n_output == 0) {
-		pw_log_error("plugin has 0 input or 0 output ports");
+		pw_log_error("plugin has no input or no output ports");
 		res = -ENOTSUP;
 		goto exit;
 	}
 	for (j = 0; j < impl->n_control; j++) {
 		p = impl->control[j];
-		impl->control_data[j] = get_default(impl, p);
-		pw_log_info("control (%s) %d set to %f", d->PortNames[p], p, impl->control_data[j]);
+		impl->default_control[j] = get_default(impl, p);
+		impl->control_data[j] = impl->default_control[j];
+		pw_log_info("control %d ('%s') set to %f", j, d->PortNames[p], impl->control_data[j]);
 	}
 
 	if (impl->capture_info.channels == 0)
@@ -471,6 +553,9 @@ static int load_ladspa(struct impl *impl, struct pw_properties *props)
 		goto exit;
 	}
 	pw_log_info("using %d instances", impl->n_hndl);
+
+	if ((control = pw_properties_get(props, "ladspa.control")) != NULL)
+		parse_control(impl, control);
 
 	for (i = 0; i < impl->n_hndl;i++) {
 		if ((impl->hndl[i] = d->instantiate(d, impl->rate)) == NULL) {

@@ -120,6 +120,7 @@ struct impl {
 	unsigned long control[MAX_PORTS];
 	unsigned long notify[MAX_PORTS];
 	const LADSPA_Descriptor *desc;
+	uint32_t n_hndl;
 	LADSPA_Handle hndl[MAX_PORTS];
 	LADSPA_Data control_data[MAX_PORTS];
 	LADSPA_Data notify_data[MAX_PORTS];
@@ -149,8 +150,7 @@ static void capture_process(void *d)
 {
 	struct impl *impl = d;
 	struct pw_buffer *in, *out;
-	uint32_t i;
-	uint32_t size = 0;
+	uint32_t i, size = 0, n_hndl = impl->n_hndl;
 	int32_t stride = 0;
 	const LADSPA_Descriptor *desc = impl->desc;
 
@@ -165,20 +165,23 @@ static void capture_process(void *d)
 
 	for (i = 0; i < in->buffer->n_datas; i++) {
 		struct spa_data *ds = &in->buffer->datas[i];
-		desc->connect_port(impl->hndl[0], impl->input[i],
-					SPA_MEMBER(ds->data, ds->chunk->offset, void));
+		desc->connect_port(impl->hndl[i % n_hndl],
+				impl->input[i % impl->n_input],
+				SPA_MEMBER(ds->data, ds->chunk->offset, void));
 		size = SPA_MAX(size, ds->chunk->size);
 		stride = SPA_MAX(stride, ds->chunk->stride);
 	}
 	for (i = 0; i < out->buffer->n_datas; i++) {
 		struct spa_data *dd = &out->buffer->datas[i];
-		desc->connect_port(impl->hndl[0], impl->output[i], dd->data);
+		desc->connect_port(impl->hndl[i % n_hndl],
+				impl->output[i % impl->n_output], dd->data);
 		dd->chunk->offset = 0;
 		dd->chunk->size = size;
 		dd->chunk->stride = stride;
 	}
 
-	desc->run(impl->hndl[0], size / sizeof(float));
+	for (i = 0; i < n_hndl; i++)
+		desc->run(impl->hndl[i], size / sizeof(float));
 
 done:
 	if (in != NULL)
@@ -260,7 +263,7 @@ static int setup_streams(struct impl *impl)
 	struct spa_pod_builder b;
 
 	impl->capture = pw_stream_new(impl->core,
-			"loopback capture", impl->capture_props);
+			"ladspa capture", impl->capture_props);
 	impl->capture_props = NULL;
 	if (impl->capture == NULL)
 		return -errno;
@@ -270,7 +273,7 @@ static int setup_streams(struct impl *impl)
 			&in_stream_events, impl);
 
 	impl->playback = pw_stream_new(impl->core,
-			"loopback playback", impl->playback_props);
+			"ladspa playback", impl->playback_props);
 	impl->playback_props = NULL;
 	if (impl->playback == NULL)
 		return -errno;
@@ -388,21 +391,21 @@ static const LADSPA_Descriptor *find_descriptor(LADSPA_Descriptor_Function desc_
 static int load_ladspa(struct impl *impl, struct pw_properties *props)
 {
 	char path[PATH_MAX];
-	const char *e, *p, *label;
+	const char *e, *plugin, *label;
 	LADSPA_Descriptor_Function desc_func;
 	const LADSPA_Descriptor *d;
-	uint32_t i, j;
+	uint32_t i, j, p;
 	int res;
 
 	if ((e = getenv("LADSPA_PATH")) == NULL)
 		e = "/usr/lib64/ladspa";
 
-	if ((p = pw_properties_get(props, "ladspa.plugin")) == NULL)
+	if ((plugin = pw_properties_get(props, "ladspa.plugin")) == NULL)
 		return -EINVAL;
 	if ((label = pw_properties_get(props, "ladspa.label")) == NULL)
 		return -EINVAL;
 
-	snprintf(path, sizeof(path), "%s/%s.so", e, p);
+	snprintf(path, sizeof(path), "%s/%s.so", e, plugin);
 
 	impl->handle = dlopen(path, RTLD_NOW);
 	if (impl->handle == NULL) {
@@ -425,25 +428,24 @@ static int load_ladspa(struct impl *impl, struct pw_properties *props)
 		res = -ENOENT;
 		goto exit;
 	}
-
-	pw_properties_setf(props, "ladspa.unique-id", "%lu", d->UniqueID);
-	pw_properties_setf(props, "ladspa.name", "%s", d->Name);
-	pw_properties_setf(props, "ladspa.maker", "%s", d->Maker);
-	pw_properties_setf(props, "ladspa.copyright", "%s", d->Copyright);
-
 	impl->desc = d;
 
-	for (i = 0; i < d->PortCount; i++) {
-		if (LADSPA_IS_PORT_AUDIO(d->PortDescriptors[i])) {
-			if (LADSPA_IS_PORT_INPUT(d->PortDescriptors[i]))
-				impl->input[impl->n_input++] = i;
-			else if (LADSPA_IS_PORT_OUTPUT(d->PortDescriptors[i]))
-				impl->output[impl->n_output++] = i;
-		} else if (LADSPA_IS_PORT_CONTROL(d->PortDescriptors[i])) {
-			if (LADSPA_IS_PORT_INPUT(d->PortDescriptors[i]))
-				impl->control[impl->n_control++] = i;
-			else if (LADSPA_IS_PORT_OUTPUT(d->PortDescriptors[i]))
-				impl->notify[impl->n_notify++] = i;
+	pw_properties_setf(props, "ladspa.unique-id", "%lu", impl->desc->UniqueID);
+	pw_properties_setf(props, "ladspa.name", "%s", impl->desc->Name);
+	pw_properties_setf(props, "ladspa.maker", "%s", impl->desc->Maker);
+	pw_properties_setf(props, "ladspa.copyright", "%s", impl->desc->Copyright);
+
+	for (p = 0; p < d->PortCount; p++) {
+		if (LADSPA_IS_PORT_AUDIO(d->PortDescriptors[p])) {
+			if (LADSPA_IS_PORT_INPUT(d->PortDescriptors[p]))
+				impl->input[impl->n_input++] = p;
+			else if (LADSPA_IS_PORT_OUTPUT(d->PortDescriptors[p]))
+				impl->output[impl->n_output++] = p;
+		} else if (LADSPA_IS_PORT_CONTROL(d->PortDescriptors[p])) {
+			if (LADSPA_IS_PORT_INPUT(d->PortDescriptors[p]))
+				impl->control[impl->n_control++] = p;
+			else if (LADSPA_IS_PORT_OUTPUT(d->PortDescriptors[p]))
+				impl->notify[impl->n_notify++] = p;
 		}
 	}
 	if (impl->n_input == 0 || impl->n_output == 0) {
@@ -451,30 +453,43 @@ static int load_ladspa(struct impl *impl, struct pw_properties *props)
 		res = -ENOTSUP;
 		goto exit;
 	}
+	for (j = 0; j < impl->n_control; j++) {
+		p = impl->control[j];
+		impl->control_data[j] = get_default(impl, p);
+		pw_log_info("control (%s) %d set to %f", d->PortNames[p], p, impl->control_data[j]);
+	}
 
+	if (impl->capture_info.channels == 0)
+		impl->capture_info.channels = impl->n_input;
+	if (impl->playback_info.channels == 0)
+		impl->playback_info.channels = impl->n_output;
 
-
-
-	if ((impl->hndl[0] = d->instantiate(d, impl->rate)) == NULL) {
-		pw_log_error("cannot create plugin instance");
-		res = -ENOMEM;
+	impl->n_hndl = impl->capture_info.channels / impl->n_input;
+	if (impl->n_hndl != impl->playback_info.channels / impl->n_output) {
+		pw_log_error("invalid channels");
+		res = -EINVAL;
 		goto exit;
 	}
-	for (i = 0; i < impl->n_control; i++) {
-		j = impl->control[i];
-		impl->control_data[i] = get_default(impl, j);
-		pw_log_info("control (%s) %d set to %f", d->PortNames[j], i, impl->control_data[i]);
-		d->connect_port(impl->hndl[0], j, &impl->control_data[i]);
+	pw_log_info("using %d instances", impl->n_hndl);
+
+	for (i = 0; i < impl->n_hndl;i++) {
+		if ((impl->hndl[i] = d->instantiate(d, impl->rate)) == NULL) {
+			pw_log_error("cannot create plugin instance");
+			res = -ENOMEM;
+			goto exit;
+		}
+
+		for (j = 0; j < impl->n_control; j++) {
+			p = impl->control[j];
+			d->connect_port(impl->hndl[i], p, &impl->control_data[j]);
+		}
+		for (j = 0; j < impl->n_notify; j++) {
+			p = impl->notify[j];
+			d->connect_port(impl->hndl[i], p, &impl->notify_data[j]);
+		}
+		if (d->activate)
+			d->activate(impl->hndl[i]);
 	}
-	for (i = 0; i < impl->n_notify; i++) {
-		j = impl->notify[i];
-		d->connect_port(impl->hndl[0], j, &impl->notify_data[i]);
-	}
-
-	if (d->activate)
-		d->activate(impl->hndl[0]);
-
-
 	return 0;
 
 exit:
@@ -658,6 +673,17 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_log_error("can't load ladspa: %s", spa_strerror(res));
 		goto error;
 	}
+	copy_props(impl, props, "ladspa.unique-id");
+	copy_props(impl, props, "ladspa.name");
+	copy_props(impl, props, "ladspa.maker");
+	copy_props(impl, props, "ladspa.copyright");
+
+	if (pw_properties_get(impl->capture_props, PW_KEY_MEDIA_NAME) == NULL)
+		pw_properties_setf(impl->capture_props, PW_KEY_MEDIA_NAME, "%s input",
+				impl->desc->Name);
+	if (pw_properties_get(impl->playback_props, PW_KEY_MEDIA_NAME) == NULL)
+		pw_properties_setf(impl->playback_props, PW_KEY_MEDIA_NAME, "%s output",
+				impl->desc->Name);
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

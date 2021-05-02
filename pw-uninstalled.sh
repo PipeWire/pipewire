@@ -14,11 +14,11 @@ while getopts ":b:v:" opt; do
 			;;
 		\?)
 			echo "Invalid option: -${OPTARG}"
-			exit -1
+			exit 1
 			;;
 		:)
 			echo "Option -${OPTARG} requires an argument"
-			exit -1
+			exit 1
 			;;
 	esac
 done
@@ -28,9 +28,9 @@ if [ -z "${BUILDDIR}" ]; then
 	echo "Using default build directory: ${BUILDDIR}"
 fi
 
-if [ ! -d ${BUILDDIR} ]; then
+if [ ! -d "${BUILDDIR}" ]; then
 	echo "Invalid build directory: ${BUILDDIR}"
-	exit -1
+	exit 1
 fi
 
 # the config file read by the daemon

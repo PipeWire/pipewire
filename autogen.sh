@@ -2,10 +2,10 @@
 
 # Only there to make jhbuild happy
 
-if [ -z $MESON ]; then
-	MESON=`which meson`
+if [ -z "$MESON" ]; then
+    MESON=$(which meson)
 fi
-if [ -z $MESON ]; then
+if [ -z "$MESON" ]; then
 	echo "error: Meson not found."
 	echo "Install meson to configure and build Pipewire. If meson" \
 	     "is already installed, set the environment variable MESON" \

@@ -190,17 +190,37 @@ done:
 		pw_stream_queue_buffer(impl->playback, out);
 }
 
-static void set_control_value(struct impl *impl, const char *name, float *value)
+static struct spa_pod *get_props_param(struct impl *impl, struct spa_pod_builder *b)
+{
+	struct spa_pod_frame f[2];
+	uint32_t i;
+
+	spa_pod_builder_push_object(b, &f[0],
+			SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
+	spa_pod_builder_prop(b, SPA_PROP_paramStruct, 0);
+	spa_pod_builder_push_struct(b, &f[1]);
+	for (i = 0; i < impl->n_control; i++) {
+		uint32_t p = impl->control[i];
+		spa_pod_builder_string(b, impl->desc->PortNames[p]);
+		spa_pod_builder_float(b, impl->control_data[i]);
+	}
+	spa_pod_builder_pop(b, &f[1]);
+	return spa_pod_builder_pop(b, &f[0]);
+}
+
+static int set_control_value(struct impl *impl, const char *name, float *value)
 {
 	uint32_t i;
 	for (i = 0; i < impl->n_control; i++) {
 		uint32_t p = impl->control[i];
 		if (strcmp(impl->desc->PortNames[p], name) == 0) {
+			float old = impl->control_data[i];
 			impl->control_data[i] = value ? *value : impl->default_control[i];
 			pw_log_info("control %d ('%s') to %f", i, name, impl->control_data[i]);
-			return;
+			return old == impl->control_data[i] ? 0 : 1;
 		}
 	}
+	return 0;
 }
 
 static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
@@ -209,6 +229,7 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 	const struct spa_pod_prop *prop;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f;
+	int changed = 0;
 
 	if (id != SPA_PARAM_Props)
 		return;
@@ -230,7 +251,17 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 		if (spa_pod_parser_get_float(&prs, &value) >= 0)
 			val = &value;
 
-		set_control_value(impl, name, val);
+		changed += set_control_value(impl, name, val);
+	}
+	if (changed > 0) {
+		uint8_t buffer[1024];
+		struct spa_pod_builder b;
+		const struct spa_pod *params[1];
+
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		params[0] = get_props_param(impl, &b);
+
+		pw_stream_update_params(impl->playback, params, 1);
 	}
 }
 
@@ -258,7 +289,7 @@ static int setup_streams(struct impl *impl)
 {
 	int res;
 	uint32_t n_params;
-	const struct spa_pod *params[1];
+	const struct spa_pod *params[2];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 
@@ -284,8 +315,10 @@ static int setup_streams(struct impl *impl)
 
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&impl->capture_info);
+	params[n_params++] = spa_format_audio_raw_build(&b,
+			SPA_PARAM_EnumFormat, &impl->capture_info);
+
+	params[n_params++] = get_props_param(impl, &b);
 
 	if ((res = pw_stream_connect(impl->capture,
 			PW_DIRECTION_INPUT,
@@ -298,8 +331,8 @@ static int setup_streams(struct impl *impl)
 
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&impl->playback_info);
+	params[n_params++] = spa_format_audio_raw_build(&b,
+			SPA_PARAM_EnumFormat, &impl->playback_info);
 
 	if ((res = pw_stream_connect(impl->playback,
 			PW_DIRECTION_OUTPUT,

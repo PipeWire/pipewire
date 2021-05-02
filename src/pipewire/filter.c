@@ -137,7 +137,7 @@ struct filter {
 	uint32_t change_mask_all;
 	struct spa_node_info info;
 	struct spa_list param_list;
-	struct spa_param_info params[5];
+	struct spa_param_info params[1];
 
 	struct data data;
 	uintptr_t seq;
@@ -1264,11 +1264,7 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->info.max_output_ports = MAX_PORTS;
 	impl->info.flags = impl->process_rt ? SPA_NODE_FLAG_RT : 0;
 	impl->info.props = &filter->properties->dict;
-	impl->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
-	impl->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);
-	impl->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
-	impl->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	impl->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	impl->params[0] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_WRITE);
 	impl->info.params = impl->params;
 	impl->info.n_params = SPA_N_ELEMENTS(impl->params);
 	impl->info.change_mask = impl->change_mask_all;

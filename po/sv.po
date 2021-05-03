@@ -1,9 +1,9 @@
 # Swedish translation for pipewire.
-# Copyright © 2008-2017 Free Software Foundation, Inc.
+# Copyright © 2008-2021 Free Software Foundation, Inc.
 # This file is distributed under the same license as the pipewire package.
 # Daniel Nylander <po@danielnylander.se>, 2008, 2012.
 # Josef Andersson <josef.andersson@fripost.org>, 2014, 2017.
-#
+# Anders Jonsson <anders.jonsson@norsjovallen.se>, 2021.
 #
 # Termer:
 # input/output: ingång/utgång (det handlar om ljud)
@@ -17,19 +17,18 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire\n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
-"issues/new\n"
-"POT-Creation-Date: 2021-04-18 16:54+0800\n"
-"PO-Revision-Date: 2021-02-12 14:40+0000\n"
-"Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
-"Language-Team: Swedish <https://translate.fedoraproject.org/projects/"
-"pipewire/pipewire/sv/>\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
+"issues\n"
+"POT-Creation-Date: 2021-04-18 15:31+0000\n"
+"PO-Revision-Date: 2021-05-03 20:34+0200\n"
+"Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
+"Language-Team: Swedish <tp-sv@listor.tp-sv.se>\n"
 "Language: sv\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.4.2\n"
+"X-Generator: Poedit 2.4.2\n"
 
 #: src/daemon/pipewire.c:43
 #, c-format
@@ -39,14 +38,18 @@ msgid ""
 "      --version                         Show version\n"
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
+"%s [options]\n"
+"  -h, --help                            Visa denna hjälp\n"
+"      --version                         Visa version\n"
+"  -c, --config                          Läs in konfig (Standard %s)\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr ""
+msgstr "PipeWire mediasystem"
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr ""
+msgstr "Starta mediasystemet PipeWire"
 
 #: src/examples/media-session/alsa-monitor.c:526
 #: spa/plugins/alsa/acp/compat.c:187
@@ -60,7 +63,7 @@ msgstr "Modem"
 
 #: src/examples/media-session/alsa-monitor.c:539
 msgid "Unknown device"
-msgstr ""
+msgstr "Okänd enhet"
 
 #: src/tools/pw-cat.c:991
 #, c-format
@@ -71,6 +74,11 @@ msgid ""
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
+"%s [options] <file>\n"
+"  -h, --help                            Visa denna hjälp\n"
+"      --version                         Visa version\n"
+"  -v, --verbose                         Aktivera utförliga operationer\n"
+"\n"
 
 #: src/tools/pw-cat.c:998
 #, c-format
@@ -89,6 +97,18 @@ msgid ""
 "      --list-targets                    List available targets for --target\n"
 "\n"
 msgstr ""
+"  -R, --remote                          Fjärrdemonnamn\n"
+"      --media-type                      Sätt mediatyp (standard %s)\n"
+"      --media-category                  Sätt mediakategori (standard %s)\n"
+"      --media-role                      Sätt mediaroll (standard %s)\n"
+"      --target                          Sätt nodmål (standard %s)\n"
+"                                          0 betyder länka inte\n"
+"      --latency                         Sätt nodlatens (standard %s)\n"
+"                                          Xenhet (enhet = s, ms, us, ns)\n"
+"                                          eller direkta samplar (256)\n"
+"                                          hastigheten är källfilens\n"
+"      --list-targets                    Lista tillgängliga mål för --target\n"
+"\n"
 
 #: src/tools/pw-cat.c:1016
 #, c-format
@@ -109,6 +129,21 @@ msgid ""
 "%d)\n"
 "\n"
 msgstr ""
+"      --rate                            Samplingsfrekvens (krävs för insp.) "
+"(standard %u)\n"
+"      --channels                        Antal kanaler (krävs för insp.) "
+"(standard %u)\n"
+"      --channel-map                     Kanalmappning\n"
+"                                            en av: \"stereo\", "
+"\"surround-51\",... eller\n"
+"                                            kommaseparerad lista av "
+"kanalnamn: t.ex. \"FL,FR\"\n"
+"      --format                          Samplingsformat %s (krävs för insp.) "
+"(standard %s)\n"
+"      --volume                          Strömvolym 0-1.0 (standard %.3f)\n"
+"  -q  --quality                         Omsamplarkvalitet (0 - 15) (standard "
+"%d)\n"
+"\n"
 
 #: src/tools/pw-cat.c:1033
 msgid ""
@@ -117,6 +152,10 @@ msgid ""
 "  -m, --midi                            Midi mode\n"
 "\n"
 msgstr ""
+"  -p, --playback                        Uppspelningsläge\n"
+"  -r, --record                          Inspelningsläge\n"
+"  -m, --midi                            Midiläge\n"
+"\n"
 
 #: src/tools/pw-cli.c:2932
 #, c-format
@@ -128,10 +167,16 @@ msgid ""
 "  -r, --remote                          Remote daemon name\n"
 "\n"
 msgstr ""
+"%s [flaggor] [kommando]\n"
+"  -h, --help                            Visa denna hjälp\n"
+"      --version                         Show version\n"
+"  -d, --daemon                          Starta som demon (Standard false)\n"
+"  -r, --remote                          Fjärrdemonnamn\n"
+"\n"
 
 #: spa/plugins/alsa/acp/acp.c:290
 msgid "Pro Audio"
-msgstr ""
+msgstr "Professionellt ljud"
 
 #: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4704
 #: spa/plugins/bluez5/bluez5-device.c:1000
@@ -463,12 +508,12 @@ msgstr "Mono Chatt + 7.1 Surround"
 #: spa/plugins/alsa/acp/alsa-mixer.c:4806
 #, c-format
 msgid "%s Output"
-msgstr "%s utgång"
+msgstr "%s-utgång"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4813
 #, c-format
 msgid "%s Input"
-msgstr "%s ingång"
+msgstr "%s-ingång"
 
 #: spa/plugins/alsa/acp/alsa-util.c:1175 spa/plugins/alsa/acp/alsa-util.c:1269
 #, c-format
@@ -554,34 +599,34 @@ msgstr[1] ""
 
 #: spa/plugins/bluez5/bluez5-device.c:1010
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
-msgstr ""
+msgstr "Audio gateway (A2DP-källa & HSP/HFP AG)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1033
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
-msgstr ""
+msgstr "High fidelity-uppspelning (A2DP-utgång, kodek %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1035
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
-msgstr ""
+msgstr "High fidelity duplex (A2DP-källa/utgång, kodek %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1041
 msgid "High Fidelity Playback (A2DP Sink)"
-msgstr ""
+msgstr "High fidelity-uppspelning (A2DP-utgång)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1043
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
-msgstr ""
+msgstr "High fidelity duplex (A2DP-källa/utgång)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1070
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr ""
+msgstr "Headset-huvudenhet (HSP/HFP, kodek %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1074
 msgid "Headset Head Unit (HSP/HFP)"
-msgstr ""
+msgstr "Headset-huvudenhet (HSP/HFP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"
@@ -609,4 +654,4 @@ msgstr "Telefon"
 
 #: spa/plugins/bluez5/bluez5-device.c:1181
 msgid "Bluetooth"
-msgstr "Blåtand"
+msgstr "Bluetooth"

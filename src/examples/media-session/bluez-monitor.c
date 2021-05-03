@@ -91,6 +91,9 @@ struct impl {
 	struct sm_media_session *session;
 	struct spa_hook session_listener;
 
+	bool have_info;
+	bool seat_active;
+
 	struct pw_properties *conf;
 	struct pw_properties *props;
 
@@ -628,7 +631,7 @@ static int load_bluez_handle(struct impl *impl)
 	void *iface;
 	int res;
 
-	if (impl->handle != NULL)
+	if (impl->handle != NULL || !impl->seat_active || !impl->have_info)
 		return 0;
 
 	impl->handle = pw_context_load_spa_handle(context, SPA_NAME_API_BLUEZ5_ENUM_DBUS, &impl->props->dict);
@@ -655,13 +658,31 @@ fail:
 	return res;
 }
 
+static void session_info(void *data, const struct pw_core_info *info)
+{
+	struct impl *impl = data;
+
+	if (info && (info->change_mask & PW_CORE_CHANGE_MASK_PROPS)) {
+		const char *str;
+
+		if ((str = spa_dict_lookup(info->props, "default.clock.rate")) != NULL &&
+		    pw_properties_get(impl->props, "bluez5.default.rate") == NULL) {
+			pw_properties_set(impl->props, "bluez5.default.rate", str);
+		}
+
+		impl->have_info = true;
+		load_bluez_handle(impl);
+	}
+}
+
 static void session_destroy(void *data)
 {
 	struct impl *impl = data;
 
+	spa_hook_remove(&impl->session_listener);
+
 	unload_bluez_handle(impl);
 
-	spa_hook_remove(&impl->session_listener);
 	pw_properties_free(impl->props);
 	pw_properties_free(impl->conf);
 	free(impl);
@@ -670,7 +691,10 @@ static void session_destroy(void *data)
 static void seat_active(void *data, bool active)
 {
 	struct impl *impl = data;
-	if (active) {
+
+	impl->seat_active = active;
+
+	if (impl->seat_active) {
 		pw_log_info(NAME ": seat active, starting bluetooth");
 		load_bluez_handle(impl);
 	} else {
@@ -681,6 +705,7 @@ static void seat_active(void *data, bool active)
 
 static const struct sm_media_session_events session_events = {
 	SM_VERSION_MEDIA_SESSION_EVENTS,
+	.info = session_info,
 	.destroy = session_destroy,
 	.seat_active = seat_active,
 };
@@ -697,6 +722,7 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 		goto out;
 	}
 	impl->session = session;
+	impl->seat_active = true;
 
 	spa_list_init(&impl->device_list);
 
@@ -717,16 +743,12 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 
 	pw_properties_set(impl->props, "api.bluez5.connection-info", "true");
 
-	if ((res = load_bluez_handle(impl)) < 0)
-		goto out_free;
-
 	sm_media_session_add_listener(session, &impl->session_listener,
 			&session_events, impl);
 
 	return 0;
 
 out_free:
-	unload_bluez_handle(impl);
 	if (impl->conf)
 		pw_properties_free(impl->conf);
 	if (impl->props)

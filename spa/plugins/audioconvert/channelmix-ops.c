@@ -150,6 +150,7 @@ static int make_matrix(struct channelmix *mix)
 	float slev = SQRT1_2;
 	float llev = 0.5f;
 	float maxsum = 0.0f;
+	bool do_upmix = SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_UPMIX);
 #define _MATRIX(s,d)	matrix[_CH(s)][_CH(d)]
 
 	spa_log_debug(mix->log, "src-mask:%08"PRIx64" dst-mask:%08"PRIx64,
@@ -363,7 +364,7 @@ static int make_matrix(struct channelmix *mix)
 		}
 	}
 
-	if (!SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_UPMIX))
+	if (!do_upmix)
 		goto done;
 
 	unassigned = dst_mask & ~src_mask;
@@ -425,7 +426,7 @@ done:
 			sum += fabs(matrix[i][j]);
 		}
 		maxsum = SPA_MAX(maxsum, sum);
-		if (i == _CH(LFE)) {
+		if (i == _CH(LFE) && do_upmix && mix->lfe_cutoff > 0.0f) {
 			spa_log_debug(mix->log, "channel %d is LFE", ic);
 			lr4_set(&mix->lr4[ic], BQ_LOWPASS, mix->lfe_cutoff / mix->freq);
 			mix->lr4_info[ic] = 1;

@@ -81,7 +81,89 @@ static const struct spa_dict_item module_props[] = {
 
 #include <pipewire/pipewire.h>
 
+#define MAX_NODES 1
+#define MAX_LINKS 0
 #define MAX_PORTS 64
+#define MAX_CONTROLS 256
+#define MAX_SAMPLES 8192
+
+struct ladspa_handle {
+	struct spa_list link;
+	int ref;
+	char path[PATH_MAX];
+	void *handle;
+	LADSPA_Descriptor_Function desc_func;
+	struct spa_list descriptor_list;
+};
+
+struct ladspa_descriptor {
+	struct spa_list link;
+	int ref;
+	struct ladspa_handle *handle;
+	char label[256];
+	const LADSPA_Descriptor *desc;
+	struct spa_list node_list;
+
+	uint32_t n_input;
+	uint32_t n_output;
+	uint32_t n_control;
+	uint32_t n_notify;
+	unsigned long input[MAX_PORTS];
+	unsigned long output[MAX_PORTS];
+	unsigned long control[MAX_PORTS];
+	unsigned long notify[MAX_PORTS];
+	LADSPA_Data default_control[MAX_PORTS];
+};
+
+struct node {
+	struct spa_list link;
+	struct ladspa_descriptor *desc;
+
+	uint32_t pending;
+	uint32_t required;
+
+	char name[256];
+	LADSPA_Data control_data[MAX_PORTS];
+	LADSPA_Data notify_data[MAX_PORTS];
+
+	uint32_t n_hndl;
+	LADSPA_Handle hndl[MAX_PORTS];
+};
+
+struct link {
+	struct spa_list link;
+	uint32_t output_node;
+	uint32_t output_port;
+	uint32_t input_node;
+	uint32_t input_port;
+	LADSPA_Data control_data;
+	LADSPA_Data audio_data[MAX_SAMPLES];
+};
+
+struct graph {
+	struct impl *impl;
+
+	struct spa_list node_list;
+	struct spa_list link_list;
+
+	uint32_t n_input;
+	const LADSPA_Descriptor *in_desc[MAX_PORTS];
+	LADSPA_Handle *in_hndl[MAX_PORTS];
+	uint32_t in_port[MAX_PORTS];
+
+	uint32_t n_output;
+	const LADSPA_Descriptor *out_desc[MAX_PORTS];
+	LADSPA_Handle *out_hndl[MAX_PORTS];
+	uint32_t out_port[MAX_PORTS];
+
+	uint32_t n_hndl;
+	const LADSPA_Descriptor *desc[MAX_PORTS];
+	LADSPA_Handle *hndl[MAX_PORTS];
+
+	uint32_t n_control;
+	struct node *control_node[MAX_CONTROLS];
+	uint32_t control_index[MAX_CONTROLS];
+};
 
 struct impl {
 	struct pw_context *context;
@@ -94,6 +176,8 @@ struct impl {
 	struct pw_core *core;
 	struct spa_hook core_proxy_listener;
 	struct spa_hook core_listener;
+
+	struct spa_list ladspa_handle_list;
 
 	struct pw_properties *capture_props;
 	struct pw_stream *capture;
@@ -110,21 +194,7 @@ struct impl {
 
 	uint32_t rate;
 
-	void *handle;
-	uint32_t n_input;
-	uint32_t n_output;
-	uint32_t n_control;
-	uint32_t n_notify;
-	unsigned long input[MAX_PORTS];
-	unsigned long output[MAX_PORTS];
-	unsigned long control[MAX_PORTS];
-	unsigned long notify[MAX_PORTS];
-	const LADSPA_Descriptor *desc;
-	uint32_t n_hndl;
-	LADSPA_Handle hndl[MAX_PORTS];
-	LADSPA_Data control_data[MAX_PORTS];
-	LADSPA_Data notify_data[MAX_PORTS];
-	LADSPA_Data default_control[MAX_PORTS];
+	struct graph graph;
 };
 
 static void do_unload_module(void *obj, void *data, int res, uint32_t id)
@@ -151,9 +221,9 @@ static void capture_process(void *d)
 {
 	struct impl *impl = d;
 	struct pw_buffer *in, *out;
-	uint32_t i, size = 0, n_hndl = impl->n_hndl;
+	struct graph *graph = &impl->graph;
+	uint32_t i, size = 0, n_hndl = graph->n_hndl;
 	int32_t stride = 0;
-	const LADSPA_Descriptor *desc = impl->desc;
 
 	if ((in = pw_stream_dequeue_buffer(impl->capture)) == NULL)
 		pw_log_warn("out of capture buffers: %m");
@@ -166,22 +236,22 @@ static void capture_process(void *d)
 
 	for (i = 0; i < in->buffer->n_datas; i++) {
 		struct spa_data *ds = &in->buffer->datas[i];
-		desc->connect_port(impl->hndl[i % n_hndl],
-				impl->input[i % impl->n_input],
+		graph->in_desc[i]->connect_port(graph->in_hndl[i],
+				graph->in_port[i],
 				SPA_MEMBER(ds->data, ds->chunk->offset, void));
 		size = SPA_MAX(size, ds->chunk->size);
 		stride = SPA_MAX(stride, ds->chunk->stride);
 	}
 	for (i = 0; i < out->buffer->n_datas; i++) {
 		struct spa_data *dd = &out->buffer->datas[i];
-		desc->connect_port(impl->hndl[i % n_hndl],
-				impl->output[i % impl->n_output], dd->data);
+		graph->out_desc[i]->connect_port(graph->out_hndl[i],
+				graph->out_port[i], dd->data);
 		dd->chunk->offset = 0;
 		dd->chunk->size = size;
 		dd->chunk->stride = stride;
 	}
 	for (i = 0; i < n_hndl; i++)
-		desc->run(impl->hndl[i], size / sizeof(float));
+		graph->desc[i]->run(graph->hndl[i], size / sizeof(float));
 
 done:
 	if (in != NULL)
@@ -190,9 +260,9 @@ done:
 		pw_stream_queue_buffer(impl->playback, out);
 }
 
-static float get_default(struct impl *impl, uint32_t p)
+static float get_default(struct impl *impl, struct ladspa_descriptor *desc, uint32_t p)
 {
-	const LADSPA_Descriptor *d = impl->desc;
+	const LADSPA_Descriptor *d = desc->desc;
 	LADSPA_PortRangeHintDescriptor hint = d->PortRangeHints[p].HintDescriptor;
 	LADSPA_Data lower, upper, def;
 
@@ -253,15 +323,19 @@ static float get_default(struct impl *impl, uint32_t p)
 	return def;
 }
 
-static struct spa_pod *get_prop_info(struct impl *impl, struct spa_pod_builder *b, uint32_t idx)
+static struct spa_pod *get_prop_info(struct graph *graph, struct spa_pod_builder *b, uint32_t idx)
 {
 	struct spa_pod_frame f[2];
-	const LADSPA_Descriptor *d = impl->desc;
-	uint32_t p = impl->control[idx];
+	struct impl *impl = graph->impl;
+	struct node *node = graph->control_node[idx];
+	struct ladspa_descriptor *desc = node->desc;
+	uint32_t i = graph->control_index[idx];
+	uint32_t p = desc->control[i];
+	const LADSPA_Descriptor *d = desc->desc;
 	LADSPA_PortRangeHintDescriptor hint = d->PortRangeHints[p].HintDescriptor;
 	float def, upper, lower;
 
-	def = get_default(impl, p);
+	def = get_default(impl, desc, p);
 	lower = d->PortRangeHints[p].LowerBound;
 	upper = d->PortRangeHints[p].UpperBound;
 
@@ -289,30 +363,34 @@ static struct spa_pod *get_prop_info(struct impl *impl, struct spa_pod_builder *
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
-static struct spa_pod *get_props_param(struct impl *impl, struct spa_pod_builder *b)
+static struct spa_pod *get_props_param(struct graph *graph, struct spa_pod_builder *b)
 {
 	struct spa_pod_frame f[2];
 	uint32_t i;
 
 	spa_pod_builder_push_object(b, &f[0],
 			SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
-	for (i = 0; i < impl->n_control; i++) {
+	for (i = 0; i < graph->n_control; i++) {
+		struct node *node = graph->control_node[i];
+		uint32_t idx = graph->control_index[i];
 		spa_pod_builder_prop(b, SPA_PROP_START_CUSTOM + i, 0);
-		spa_pod_builder_float(b, impl->control_data[i]);
+		spa_pod_builder_float(b, node->control_data[idx]);
 	}
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
-static int set_control_value(struct impl *impl, const char *name, float *value)
+static int set_control_value(struct node *node, const char *name, float *value)
 {
 	uint32_t i;
-	for (i = 0; i < impl->n_control; i++) {
-		uint32_t p = impl->control[i];
-		if (strcmp(impl->desc->PortNames[p], name) == 0) {
-			float old = impl->control_data[i];
-			impl->control_data[i] = value ? *value : impl->default_control[i];
-			pw_log_info("control %d ('%s') to %f", i, name, impl->control_data[i]);
-			return old == impl->control_data[i] ? 0 : 1;
+	struct ladspa_descriptor *desc = node->desc;
+
+	for (i = 0; i < desc->n_control; i++) {
+		uint32_t p = desc->control[i];
+		if (strcmp(desc->desc->PortNames[p], name) == 0) {
+			float old = node->control_data[i];
+			node->control_data[i] = value ? *value : desc->default_control[i];
+			pw_log_info("control %d ('%s') to %f", i, name, node->control_data[i]);
+			return old == node->control_data[i] ? 0 : 1;
 		}
 	}
 	return 0;
@@ -323,6 +401,7 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 	struct impl *impl = data;
 	const struct spa_pod_prop *prop;
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
+	struct graph *graph = &impl->graph;
 	int changed = 0;
 
 	if (id != SPA_PARAM_Props)
@@ -331,20 +410,24 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		uint32_t idx;
 		float value;
+		struct node *node;
 
 		if (prop->key < SPA_PROP_START_CUSTOM)
 			continue;
 		idx = prop->key - SPA_PROP_START_CUSTOM;
-		if (idx >= impl->n_control)
+		if (idx >= graph->n_control)
 			continue;
 
 		if (spa_pod_get_float(&prop->value, &value) < 0)
 			continue;
 
-		if (impl->control_data[idx] != value) {
-			impl->control_data[idx] = value;
+		node = graph->control_node[idx];
+		idx = graph->control_index[idx];
+
+		if (node->control_data[idx] != value) {
+			node->control_data[idx] = value;
 			changed++;
-			pw_log_info("control %d to %f", idx, impl->control_data[idx]);
+			pw_log_info("control %d to %f", idx, node->control_data[idx]);
 		}
 	}
 	if (changed > 0) {
@@ -353,7 +436,7 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 		const struct spa_pod *params[1];
 
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		params[0] = get_props_param(impl, &b);
+		params[0] = get_props_param(graph, &b);
 
 		pw_stream_update_params(impl->playback, params, 1);
 	}
@@ -399,6 +482,7 @@ static int setup_streams(struct impl *impl)
 	uint32_t i, n_params;
 	const struct spa_pod *params[256];
 	struct spa_pod_builder b;
+	struct graph *graph = &impl->graph;
 
 	impl->capture = pw_stream_new(impl->core,
 			"ladspa capture", impl->capture_props);
@@ -427,10 +511,10 @@ static int setup_streams(struct impl *impl)
 	params[n_params++] = spa_format_audio_raw_build(&b,
 			SPA_PARAM_EnumFormat, &impl->capture_info);
 
-	for (i = 0; i < impl->n_control; i++)
-		params[n_params++] = get_prop_info(impl, &b, i);
+	for (i = 0; i < graph->n_control; i++)
+		params[n_params++] = get_prop_info(graph, &b, i);
 
-	params[n_params++] = get_props_param(impl, &b);
+	params[n_params++] = get_props_param(graph, &b);
 
 	res = pw_stream_connect(impl->capture,
 			PW_DIRECTION_INPUT,
@@ -480,6 +564,7 @@ static const LADSPA_Descriptor *find_descriptor(LADSPA_Descriptor_Function desc_
 	return NULL;
 }
 
+#if 0
 static uint32_t find_port(struct impl *impl, const char *name, int mask)
 {
 	uint32_t p;
@@ -516,164 +601,375 @@ static uint32_t collect_ports(struct impl *impl, const char *str, unsigned long 
 	}
 	return n_ports;
 }
+#endif
 
-static int parse_control(struct impl *impl, const char *control)
+static void ladspa_handle_unref(struct ladspa_handle *hndl)
 {
-	struct spa_json it[2];
-	char v[256];
+	if (--hndl->ref > 0)
+		return;
 
-	spa_json_init(&it[0], control, strlen(control));
-        if (spa_json_enter_object(&it[0], &it[1]) <= 0)
-                spa_json_init(&it[1], control, strlen(control));
-
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0) {
-		float fl;
-		if (spa_json_get_float(&it[1], &fl) <= 0)
-			break;
-		set_control_value(impl, v, &fl);
-	}
-	return 0;
+	dlclose(hndl->handle);
+	free(hndl);
 }
 
-static int load_ladspa(struct impl *impl, struct pw_properties *props)
+static struct ladspa_handle *ladspa_handle_load(struct impl *impl, const char *plugin)
 {
+	struct ladspa_handle *hndl;
 	char path[PATH_MAX];
-	const char *e, *plugin, *label, *inputs, *outputs, *control;
-	LADSPA_Descriptor_Function desc_func;
-	const LADSPA_Descriptor *d;
-	uint32_t i, j, p;
+	const char *e;
 	int res;
 
 	if ((e = getenv("LADSPA_PATH")) == NULL)
 		e = "/usr/lib64/ladspa";
 
-	if ((plugin = pw_properties_get(props, "ladspa.plugin")) == NULL)
-		return -EINVAL;
-	if ((label = pw_properties_get(props, "ladspa.label")) == NULL)
-		return -EINVAL;
-
 	snprintf(path, sizeof(path), "%s/%s.so", e, plugin);
 
-	impl->handle = dlopen(path, RTLD_NOW);
-	if (impl->handle == NULL) {
+	spa_list_for_each(hndl, &impl->ladspa_handle_list, link) {
+		if (strcmp(hndl->path, path) == 0) {
+			hndl->ref++;
+			return hndl;
+		}
+	}
+
+	hndl = calloc(1, sizeof(*hndl));
+	hndl->ref = 1;
+	snprintf(hndl->path, sizeof(hndl->path), "%s", path);
+
+	hndl->handle = dlopen(path, RTLD_NOW);
+	if (hndl->handle == NULL) {
 		pw_log_error("plugin dlopen failed %s: %s", path, dlerror());
 		res = -ENOENT;
 		goto exit;
 	}
 
-	desc_func = (LADSPA_Descriptor_Function)dlsym(impl->handle,
+	hndl->desc_func = (LADSPA_Descriptor_Function)dlsym(hndl->handle,
                                                       "ladspa_descriptor");
 
-	if (desc_func == NULL) {
+	if (hndl->desc_func == NULL) {
 		pw_log_error("cannot find descriptor function from %s: %s",
                        path, dlerror());
 		res = -ENOSYS;
 		goto exit;
 	}
-	if ((d = find_descriptor(desc_func, label)) == NULL) {
+	spa_list_init(&hndl->descriptor_list);
+
+	return hndl;
+
+exit:
+	if (hndl->handle != NULL)
+		dlclose(hndl->handle);
+	free(hndl);
+	errno = -res;
+	return NULL;
+}
+
+static void ladspa_descriptor_unref(struct impl *impl, struct ladspa_descriptor *desc)
+{
+	if (--desc->ref > 0)
+		return;
+
+	spa_list_remove(&desc->link);
+	ladspa_handle_unref(desc->handle);
+	free(desc);
+}
+
+static struct ladspa_descriptor *ladspa_descriptor_load(struct impl *impl,
+		const char *plugin, const char *label)
+{
+	struct ladspa_handle *hndl;
+	struct ladspa_descriptor *desc;
+	const LADSPA_Descriptor *d;
+	uint32_t i;
+	unsigned long p;
+	int res;
+
+	if ((hndl = ladspa_handle_load(impl, plugin)) == NULL)
+		return NULL;
+
+	spa_list_for_each(desc, &hndl->descriptor_list, link) {
+		if (strcmp(desc->label, label) == 0) {
+			desc->ref++;
+			return desc;
+		}
+	}
+
+	desc = calloc(1, sizeof(*desc));
+	desc->ref = 1;
+	desc->handle = hndl;
+
+	if ((d = find_descriptor(hndl->desc_func, label)) == NULL) {
 		pw_log_error("cannot find label %s", label);
 		res = -ENOENT;
 		goto exit;
 	}
-	impl->desc = d;
+	desc->desc = d;
+	snprintf(desc->label, sizeof(desc->label), "%s", label);
+	spa_list_init(&desc->node_list);
 
-	pw_properties_setf(props, "ladspa.unique-id", "%lu", impl->desc->UniqueID);
-	pw_properties_setf(props, "ladspa.name", "%s", impl->desc->Name);
-	pw_properties_setf(props, "ladspa.maker", "%s", impl->desc->Maker);
-	pw_properties_setf(props, "ladspa.copyright", "%s", impl->desc->Copyright);
-
-	if ((inputs = pw_properties_get(props, "ladspa.inputs")) != NULL) {
-		if ((impl->n_input = collect_ports(impl, inputs, impl->input,
-						LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO)) == SPA_ID_INVALID) {
-			res = -EINVAL;
-			goto exit;
-		}
-	}
-	if ((outputs = pw_properties_get(props, "ladspa.outputs")) != NULL) {
-		if ((impl->n_output = collect_ports(impl, outputs, impl->output,
-						LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO)) == SPA_ID_INVALID) {
-			res = -EINVAL;
-			goto exit;
-		}
-	}
 	for (p = 0; p < d->PortCount; p++) {
 		if (LADSPA_IS_PORT_AUDIO(d->PortDescriptors[p])) {
-			if (inputs == NULL && LADSPA_IS_PORT_INPUT(d->PortDescriptors[p])) {
-				pw_log_info("using port %d ('%s') as input %d", p,
-						d->PortNames[p], impl->n_input);
-				impl->input[impl->n_input++] = p;
+			if (LADSPA_IS_PORT_INPUT(d->PortDescriptors[p])) {
+				pw_log_info("using port %lu ('%s') as input %d", p,
+						d->PortNames[p], desc->n_input);
+				desc->input[desc->n_input++] = p;
 			}
-			else if (outputs == NULL && LADSPA_IS_PORT_OUTPUT(d->PortDescriptors[p])) {
-				pw_log_info("using port %d ('%s') as output %d", p,
-						d->PortNames[p], impl->n_output);
-				impl->output[impl->n_output++] = p;
+			else if (LADSPA_IS_PORT_OUTPUT(d->PortDescriptors[p])) {
+				pw_log_info("using port %lu ('%s') as output %d", p,
+						d->PortNames[p], desc->n_output);
+				desc->output[desc->n_output++] = p;
 			}
 		} else if (LADSPA_IS_PORT_CONTROL(d->PortDescriptors[p])) {
 			if (LADSPA_IS_PORT_INPUT(d->PortDescriptors[p])) {
-				pw_log_info("using port %d ('%s') as control %d", p,
-						d->PortNames[p], impl->n_control);
-				impl->control[impl->n_control++] = p;
+				pw_log_info("using port %lu ('%s') as control %d", p,
+						d->PortNames[p], desc->n_control);
+				desc->control[desc->n_control++] = p;
 			}
 			else if (LADSPA_IS_PORT_OUTPUT(d->PortDescriptors[p])) {
-				pw_log_info("using port %d ('%s') as notify %d", p,
-						d->PortNames[p], impl->n_notify);
-				impl->notify[impl->n_notify++] = p;
+				pw_log_info("using port %lu ('%s') as notify %d", p,
+						d->PortNames[p], desc->n_notify);
+				desc->notify[desc->n_notify++] = p;
 			}
 		}
 	}
-	if (impl->n_input == 0 || impl->n_output == 0) {
+	if (desc->n_input == 0 || desc->n_output == 0) {
 		pw_log_error("plugin has no input or no output ports");
 		res = -ENOTSUP;
 		goto exit;
 	}
-	for (j = 0; j < impl->n_control; j++) {
-		p = impl->control[j];
-		impl->default_control[j] = get_default(impl, p);
-		impl->control_data[j] = impl->default_control[j];
-		pw_log_info("control %d ('%s') set to %f", j, d->PortNames[p], impl->control_data[j]);
+	for (i = 0; i < desc->n_control; i++) {
+		p = desc->control[i];
+		desc->default_control[i] = get_default(impl, desc, p);
+		pw_log_info("control %d ('%s') default to %f", i,
+				d->PortNames[p], desc->default_control[i]);
+	}
+	spa_list_append(&hndl->descriptor_list, &desc->link);
+
+	return desc;
+
+exit:
+	if (hndl != NULL)
+		ladspa_handle_unref(hndl);
+	free(desc);
+	errno = -res;
+	return NULL;
+}
+
+/**
+ * {
+ *   "Reverb tail" = 2.0
+ *   ...
+ * }
+ */
+static int parse_control(struct node *node, struct spa_json *control)
+{
+	struct spa_json it[1];
+	char key[256];
+
+        if (spa_json_enter_object(control, &it[0]) <= 0)
+		return -EINVAL;
+
+	while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
+		float fl;
+		if (spa_json_get_float(&it[0], &fl) <= 0)
+			break;
+		set_control_value(node, key, &fl);
+	}
+	return 0;
+}
+
+/**
+ * name = rev
+ * plugin = g2reverb
+ * label = G2reverb
+ * control = [
+ *     ...
+ * ]
+ */
+static int load_node(struct graph *graph, struct spa_json *json)
+{
+	struct spa_json it[1];
+	struct ladspa_descriptor *desc;
+	struct node *node;
+	const char *val;
+	char key[256];
+	char name[256] = "";
+	char plugin[256] = "";
+	char label[256] = "";
+	bool have_control = false;
+	uint32_t i;
+
+	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
+		if (strcmp("name", key) == 0) {
+			if (spa_json_get_string(json, name, sizeof(name)) <= 0)
+				return -EINVAL;
+		} else if (strcmp("plugin", key) == 0) {
+			if (spa_json_get_string(json, plugin, sizeof(plugin)) <= 0)
+				return -EINVAL;
+		} else if (strcmp("label", key) == 0) {
+			if (spa_json_get_string(json, label, sizeof(label)) <= 0)
+				return -EINVAL;
+		} else if (strcmp("control", key) == 0) {
+			if (spa_json_enter_array(json, &it[0]) <= 0)
+				return -EINVAL;
+			have_control = true;
+		} else if (spa_json_next(json, &val) < 0)
+			break;
+	}
+
+	pw_log_info("loading %s %s", plugin, label);
+
+	if ((desc = ladspa_descriptor_load(graph->impl, plugin, label)) == NULL)
+		return -errno;
+
+	node = calloc(1, sizeof(*node));
+	if (node == NULL)
+		return -errno;
+
+	node->desc = desc;
+	snprintf(node->name, sizeof(node->name), "%s", name);
+
+	for (i = 0; i < desc->n_control; i++)
+		node->control_data[i] = desc->default_control[i];
+
+	if (have_control)
+		parse_control(node, &it[0]);
+
+	spa_list_append(&graph->node_list, &node->link);
+
+	return 0;
+}
+
+static int setup_graph(struct graph *graph)
+{
+	struct impl *impl = graph->impl;
+	struct node *node;
+	uint32_t i, j, n_input, n_output, n_hndl;
+	int res;
+	unsigned long p;
+
+	graph->n_input = n_input = 0;
+	graph->n_output = n_output = 0;
+	graph->n_control = 0;
+
+	spa_list_for_each(node, &graph->node_list, link) {
+		struct ladspa_descriptor *desc = node->desc;
+		n_input += desc->n_input;
+		n_output += desc->n_output;
 	}
 
 	if (impl->capture_info.channels == 0)
-		impl->capture_info.channels = impl->n_input;
+		impl->capture_info.channels = n_input;
 	if (impl->playback_info.channels == 0)
-		impl->playback_info.channels = impl->n_output;
+		impl->playback_info.channels = n_output;
 
-	impl->n_hndl = impl->capture_info.channels / impl->n_input;
-	if (impl->n_hndl != impl->playback_info.channels / impl->n_output) {
+	n_hndl = impl->capture_info.channels / n_input;
+	if (n_hndl != impl->playback_info.channels / n_output) {
 		pw_log_error("invalid channels");
 		res = -EINVAL;
 		goto exit;
 	}
-	pw_log_info("using %d instances", impl->n_hndl);
+	pw_log_info("using %d instances", n_hndl);
 
-	if ((control = pw_properties_get(props, "ladspa.control")) != NULL)
-		parse_control(impl, control);
+	spa_list_for_each(node, &graph->node_list, link) {
+		struct ladspa_descriptor *desc = node->desc;
+		const LADSPA_Descriptor *d = desc->desc;
+		for (i = 0; i < n_hndl; i++) {
+			if ((node->hndl[i] = d->instantiate(d, impl->rate)) == NULL) {
+				pw_log_error("cannot create plugin instance");
+				res = -ENOMEM;
+				goto exit;
+			}
+			node->n_hndl = i;
 
-	for (i = 0; i < impl->n_hndl;i++) {
-		if ((impl->hndl[i] = d->instantiate(d, impl->rate)) == NULL) {
-			pw_log_error("cannot create plugin instance");
-			res = -ENOMEM;
-			goto exit;
-		}
+			for (j = 0; j < desc->n_input; j++) {
+				p = desc->input[j];
+				graph->in_desc[graph->n_input] = d;
+				graph->in_hndl[graph->n_input] = node->hndl[i];
+				graph->in_port[graph->n_input] = p;
+				graph->n_input++;
+			}
+			for (j = 0; j < desc->n_output; j++) {
+				p = desc->output[j];
+				graph->out_desc[graph->n_output] = d;
+				graph->out_hndl[graph->n_output] = node->hndl[i];
+				graph->out_port[graph->n_output] = p;
+				graph->n_output++;
+			}
 
-		for (j = 0; j < impl->n_control; j++) {
-			p = impl->control[j];
-			d->connect_port(impl->hndl[i], p, &impl->control_data[j]);
+			graph->hndl[graph->n_hndl] = node->hndl[i];
+			graph->desc[graph->n_hndl] = d;
+			graph->n_hndl++;
+
+			for (j = 0; j < desc->n_control; j++) {
+				p = desc->control[j];
+				d->connect_port(node->hndl[i], p, &node->control_data[j]);
+			}
+			for (j = 0; j < desc->n_notify; j++) {
+				p = desc->notify[j];
+				d->connect_port(node->hndl[i], p, &node->notify_data[j]);
+			}
+			if (d->activate)
+				d->activate(node->hndl[i]);
 		}
-		for (j = 0; j < impl->n_notify; j++) {
-			p = impl->notify[j];
-			d->connect_port(impl->hndl[i], p, &impl->notify_data[j]);
-		}
-		if (d->activate)
-			d->activate(impl->hndl[i]);
 	}
 	return 0;
-
 exit:
-	if (impl->handle != NULL)
-		dlclose(impl->handle);
-	impl->handle = NULL;
+	for (i = 0; i < n_hndl; i++) {
+		if (node->hndl[i] != NULL)
+			node->desc->desc->cleanup(node->hndl[i]);
+		node->hndl[i] = NULL;
+	}
 	return res;
+}
+
+/**
+ * ladspa.graph = {
+ *     nodes = [
+ *         { ... } ...
+ *     ]
+ *     links = [
+ *         { ... } ...
+ *     ]
+ * }
+ */
+static int load_graph(struct graph *graph, struct pw_properties *props)
+{
+	struct spa_json it[4];
+	const char *json, *val;
+	char key[256];
+	int res;
+
+	spa_list_init(&graph->node_list);
+	spa_list_init(&graph->link_list);
+
+	if ((json = pw_properties_get(props, "ladspa.graph")) == NULL)
+		return -EINVAL;
+
+	spa_json_init(&it[0], json, strlen(json));
+        if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+		spa_json_init(&it[1], json, strlen(json));
+
+	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+		if (strcmp("nodes", key) == 0) {
+			if (spa_json_enter_array(&it[1], &it[2]) <= 0)
+				return -EINVAL;
+
+			while (spa_json_enter_object(&it[2], &it[3]) > 0) {
+				if ((res = load_node(graph, &it[3])) < 0)
+					return res;
+			}
+		}
+		else if (strcmp("links", key) == 0) {
+			if (spa_json_enter_array(&it[1], &it[2]) <= 0)
+				return -EINVAL;
+
+			while (spa_json_enter_object(&it[2], &it[3]) > 0) {
+				return -ENOTSUP;
+			}
+		} else if (spa_json_next(&it[1], &val) < 0)
+			break;
+	}
+	return setup_graph(graph);;
 }
 
 static void core_error(void *data, uint32_t id, int seq, int res, const char *message)
@@ -823,6 +1119,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->context = context;
 	impl->work = pw_context_get_work_queue(context);
 	impl->rate = 48000;
+	impl->graph.impl = impl;
+	spa_list_init(&impl->ladspa_handle_list);
+
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_GROUP, "ladspa-filter-%u", id);
@@ -846,8 +1145,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	parse_audio_info(impl->capture_props, &impl->capture_info);
 	parse_audio_info(impl->playback_props, &impl->playback_info);
 
-	if ((res = load_ladspa(impl, props)) < 0) {
-		pw_log_error("can't load ladspa: %s", spa_strerror(res));
+	if ((res = load_graph(&impl->graph, props)) < 0) {
+		pw_log_error("can't load graph: %s", spa_strerror(res));
 		goto error;
 	}
 	copy_props(impl, props, "ladspa.unique-id");
@@ -856,11 +1155,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, "ladspa.copyright");
 
 	if (pw_properties_get(impl->capture_props, PW_KEY_MEDIA_NAME) == NULL)
-		pw_properties_setf(impl->capture_props, PW_KEY_MEDIA_NAME, "%s input",
-				impl->desc->Name);
+		pw_properties_setf(impl->capture_props, PW_KEY_MEDIA_NAME, "ladspa input %u",
+				id);
 	if (pw_properties_get(impl->playback_props, PW_KEY_MEDIA_NAME) == NULL)
-		pw_properties_setf(impl->playback_props, PW_KEY_MEDIA_NAME, "%s output",
-				impl->desc->Name);
+		pw_properties_setf(impl->playback_props, PW_KEY_MEDIA_NAME, "ladspa output %u",
+				id);
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

@@ -911,6 +911,11 @@ static int setup_graph(struct graph *graph)
 			if (d->activate)
 				d->activate(node->hndl[i]);
 		}
+		for (j = 0; j < desc->n_control; j++) {
+			graph->control_node[graph->n_control] = node;
+			graph->control_index[graph->n_control] = j;
+			graph->n_control++;
+		}
 	}
 	return 0;
 exit:

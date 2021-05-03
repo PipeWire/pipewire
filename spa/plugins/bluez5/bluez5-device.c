@@ -1566,7 +1566,8 @@ static int node_set_mute(struct impl *this, struct node *node, bool mute)
 
 	spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
-			SPA_PROP_mute, SPA_POD_Bool(mute));
+			SPA_PROP_mute, SPA_POD_Bool(mute),
+			SPA_PROP_softMute, SPA_POD_Bool(mute));
 	event = spa_pod_builder_pop(&b, &f[0]);
 
 	spa_device_emit_event(&this->hooks, event);

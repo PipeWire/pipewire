@@ -214,6 +214,7 @@ int module_args_to_audioinfo(struct impl *impl, struct pw_properties *props, str
 #include "modules/registry.h"
 
 static const struct module_info module_list[] = {
+	{ "module-combine-sink", create_module_combine_sink, },
 	{ "module-ladspa-sink", create_module_ladspa_sink, },
 	{ "module-ladspa-source", create_module_ladspa_source, },
 	{ "module-loopback", create_module_loopback, },

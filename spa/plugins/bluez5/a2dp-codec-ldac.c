@@ -95,11 +95,28 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags, uint8
 	return sizeof(a2dp_ldac);
 }
 
+static struct a2dp_codec_config
+ldac_frequencies[] = {
+	{ LDACBT_SAMPLING_FREQ_044100, 44100, 3 },
+	{ LDACBT_SAMPLING_FREQ_048000, 48000, 2 },
+	{ LDACBT_SAMPLING_FREQ_088200, 88200, 1 },
+	{ LDACBT_SAMPLING_FREQ_096000, 96000, 0 },
+};
+
+static struct a2dp_codec_config
+ldac_channel_modes[] = {
+	{ LDACBT_CHANNEL_MODE_STEREO,       2, 2 },
+	{ LDACBT_CHANNEL_MODE_DUAL_CHANNEL, 2, 1 },
+	{ LDACBT_CHANNEL_MODE_MONO,         1, 0 },
+};
+
 static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
+		const struct a2dp_codec_audio_info *info,
 		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_ldac_t conf;
+	int i;
 
         if (caps_size < sizeof(conf))
                 return -EINVAL;
@@ -110,25 +127,21 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	    codec->vendor.codec_id != conf.info.codec_id)
 		return -ENOTSUP;
 
-	if (conf.frequency & LDACBT_SAMPLING_FREQ_044100)
-		conf.frequency = LDACBT_SAMPLING_FREQ_044100;
-	else if (conf.frequency & LDACBT_SAMPLING_FREQ_048000)
-		conf.frequency = LDACBT_SAMPLING_FREQ_048000;
-	else if (conf.frequency & LDACBT_SAMPLING_FREQ_088200)
-		conf.frequency = LDACBT_SAMPLING_FREQ_088200;
-	else if (conf.frequency & LDACBT_SAMPLING_FREQ_096000)
-		conf.frequency = LDACBT_SAMPLING_FREQ_096000;
-	else
+	if ((i = a2dp_codec_select_config(ldac_frequencies,
+					  SPA_N_ELEMENTS(ldac_frequencies),
+					  conf.frequency,
+				    	  info ? info->rate : A2DP_CODEC_DEFAULT_RATE
+					  )) < 0)
 		return -ENOTSUP;
+	conf.frequency = ldac_frequencies[i].config;
 
-	if (conf.channel_mode & LDACBT_CHANNEL_MODE_STEREO)
-		conf.channel_mode = LDACBT_CHANNEL_MODE_STEREO;
-        else if (conf.channel_mode & LDACBT_CHANNEL_MODE_DUAL_CHANNEL)
-		conf.channel_mode = LDACBT_CHANNEL_MODE_DUAL_CHANNEL;
-        else if (conf.channel_mode & LDACBT_CHANNEL_MODE_MONO)
-		conf.channel_mode = LDACBT_CHANNEL_MODE_MONO;
-	else
+	if ((i = a2dp_codec_select_config(ldac_channel_modes,
+					  SPA_N_ELEMENTS(ldac_channel_modes),
+				    	  conf.channel_mode,
+				    	  info ? info->channels : A2DP_CODEC_DEFAULT_CHANNELS
+				    	  )) < 0)
 		return -ENOTSUP;
+	conf.channel_mode = ldac_channel_modes[i].config;
 
 	memcpy(config, &conf, sizeof(conf));
 

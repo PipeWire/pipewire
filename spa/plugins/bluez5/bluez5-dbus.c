@@ -91,6 +91,9 @@ struct spa_bt_monitor {
 	unsigned int backend_native_registered:1;
 	unsigned int backend_ofono_registered:1;
 	unsigned int backend_hsphfpd_registered:1;
+
+	/* A reference audio info for A2DP codec configuration. */
+	struct a2dp_codec_audio_info default_audio_info;
 };
 
 /* Stream endpoints owned by BlueZ for each device */
@@ -468,7 +471,7 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 		 * This causes inconsistency with SelectConfiguration() triggered
 		 * by codec switching.
 		  */
-		res = codec->select_config(codec, 0, cap, size, NULL, config);
+		res = codec->select_config(codec, 0, cap, size, &monitor->default_audio_info, NULL, config);
 	else
 		res = -ENOTSUP;
 
@@ -1233,7 +1236,8 @@ bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struc
 	}
 
 	spa_list_for_each(ep, &device->remote_endpoint_list, device_link) {
-		if (a2dp_codec_check_caps(codec, ep->codec, ep->capabilities, ep->capabilities_len))
+		if (a2dp_codec_check_caps(codec, ep->codec, ep->capabilities, ep->capabilities_len,
+					  &ep->monitor->default_audio_info))
 			return true;
 	}
 
@@ -2200,7 +2204,9 @@ static bool a2dp_codec_switch_process_current(struct spa_bt_a2dp_codec_switch *s
 		goto next;
 	}
 
-	res = codec->select_config(codec, 0, ep->capabilities, ep->capabilities_len, sw->device->settings, config);
+	res = codec->select_config(codec, 0, ep->capabilities, ep->capabilities_len,
+				   &sw->device->monitor->default_audio_info,
+				   sw->device->settings, config);
 	if (res < 0) {
 		spa_log_debug(sw->device->monitor->log, NAME": a2dp codec switch %p: incompatible capabilities (%d), try next",
 		              sw, res);
@@ -2364,7 +2370,7 @@ static int a2dp_codec_switch_cmp(const void *a, const void *b)
 		return -1;
 
 	return codec->caps_preference_cmp(codec, ep1->capabilities, ep1->capabilities_len,
-			ep2->capabilities, ep2->capabilities_len);
+			ep2->capabilities, ep2->capabilities_len, &sw->device->monitor->default_audio_info);
 }
 
 /* Ensure there's a transport for at least one of the listed codecs */
@@ -3860,12 +3866,24 @@ impl_init(const struct spa_handle_factory *factory,
 	if ((res = parse_codec_array(this, info)) < 0)
 		return res;
 
+	this->default_audio_info.rate = A2DP_CODEC_DEFAULT_RATE;
+	this->default_audio_info.channels = A2DP_CODEC_DEFAULT_CHANNELS;
+
 	if (info) {
 		const char *str;
+		uint32_t tmp;
 
 		if ((str = spa_dict_lookup(info, "api.bluez5.connection-info")) != NULL &&
 		    (strcmp(str, "true") == 0 || atoi(str)))
 			this->connection_info_supported = true;
+
+		if ((str = spa_dict_lookup(info, "bluez5.default.rate")) != NULL &&
+		    (tmp =  atoi(str)) > 0)
+			this->default_audio_info.rate = tmp;
+
+		if ((str = spa_dict_lookup(info, "bluez5.default.channels")) != NULL &&
+		    ((tmp =  atoi(str)) > 0))
+			this->default_audio_info.channels = tmp;
 
 		if ((str = spa_dict_lookup(info, "bluez5.sbc-xq-support")) != NULL &&
 		    (strcmp(str, "true") == 0 || atoi(str)))

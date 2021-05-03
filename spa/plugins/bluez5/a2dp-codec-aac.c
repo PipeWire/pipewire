@@ -90,22 +90,26 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 	return sizeof(a2dp_aac);
 }
 
-static struct {
-	int config;
-	int freq;
-} aac_frequencies[] = {
-	{ AAC_SAMPLING_FREQ_48000, 48000 },
-	{ AAC_SAMPLING_FREQ_44100, 44100 },
-	{ AAC_SAMPLING_FREQ_96000, 96000 },
-	{ AAC_SAMPLING_FREQ_88200, 88200 },
-	{ AAC_SAMPLING_FREQ_64000, 64000 },
-	{ AAC_SAMPLING_FREQ_32000, 32000 },
-	{ AAC_SAMPLING_FREQ_24000, 24000 },
-	{ AAC_SAMPLING_FREQ_22050, 22050 },
-	{ AAC_SAMPLING_FREQ_16000, 16000 },
-	{ AAC_SAMPLING_FREQ_12000, 12000 },
-	{ AAC_SAMPLING_FREQ_11025, 11025 },
-	{ AAC_SAMPLING_FREQ_8000,  8000 },
+static struct a2dp_codec_config
+aac_frequencies[] = {
+	{ AAC_SAMPLING_FREQ_48000, 48000, 11 },
+	{ AAC_SAMPLING_FREQ_44100, 44100, 10 },
+	{ AAC_SAMPLING_FREQ_96000, 96000, 9 },
+	{ AAC_SAMPLING_FREQ_88200, 88200, 8 },
+	{ AAC_SAMPLING_FREQ_64000, 64000, 7 },
+	{ AAC_SAMPLING_FREQ_32000, 32000, 6 },
+	{ AAC_SAMPLING_FREQ_24000, 24000, 5 },
+	{ AAC_SAMPLING_FREQ_22050, 22050, 4 },
+	{ AAC_SAMPLING_FREQ_16000, 16000, 3 },
+	{ AAC_SAMPLING_FREQ_12000, 12000, 2 },
+	{ AAC_SAMPLING_FREQ_11025, 11025, 1 },
+	{ AAC_SAMPLING_FREQ_8000,  8000,  0 },
+};
+
+static struct a2dp_codec_config
+aac_channel_modes[] = {
+	{ AAC_CHANNELS_2, 2, 1 },
+	{ AAC_CHANNELS_1, 1, 0 },
 };
 
 static int get_valid_aac_bitrate(a2dp_aac_t *conf)
@@ -120,11 +124,11 @@ static int get_valid_aac_bitrate(a2dp_aac_t *conf)
 
 static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
+		const struct a2dp_codec_audio_info *info,
 		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_aac_t conf;
-	int freq;
-	bool freq_found;
+	int i;
 
 	if (caps_size < sizeof(conf))
 		return -EINVAL;
@@ -142,24 +146,21 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	else
 		return -ENOTSUP;
 
-	freq = AAC_GET_FREQUENCY(conf);
-	freq_found = false;
-	for (size_t i = 0; i < SPA_N_ELEMENTS(aac_frequencies); i++) {
-		if (freq & aac_frequencies[i].config) {
-			AAC_SET_FREQUENCY(conf, aac_frequencies[i].config);
-			freq_found = true;
-			break;
-		}
-	}
-	if (!freq_found)
+	if ((i = a2dp_codec_select_config(aac_frequencies,
+					  SPA_N_ELEMENTS(aac_frequencies),
+					  AAC_GET_FREQUENCY(conf),
+				    	  info ? info->rate : A2DP_CODEC_DEFAULT_RATE
+				    	  )) < 0)
 		return -ENOTSUP;
+	AAC_SET_FREQUENCY(conf, aac_frequencies[i].config);
 
-	if (conf.channels & AAC_CHANNELS_2)
-		conf.channels = AAC_CHANNELS_2;
-	else if (conf.channels & AAC_CHANNELS_1)
-		conf.channels = AAC_CHANNELS_1;
-	else
+	if ((i = a2dp_codec_select_config(aac_channel_modes,
+					  SPA_N_ELEMENTS(aac_channel_modes),
+					  conf.channels,
+				    	  info ? info->channels : A2DP_CODEC_DEFAULT_CHANNELS
+				    	  )) < 0)
 		return -ENOTSUP;
+	conf.channels = aac_channel_modes[i].config;
 
 	AAC_SET_BITRATE(conf, get_valid_aac_bitrate(&conf));
 
@@ -200,8 +201,8 @@ static int codec_enum_config(const struct a2dp_codec *codec,
 	for (size_t j = 0; j < SPA_N_ELEMENTS(aac_frequencies); j++) {
 		if (AAC_GET_FREQUENCY(conf) & aac_frequencies[j].config) {
 			if (i++ == 0)
-				spa_pod_builder_int(b, aac_frequencies[j].freq);
-			spa_pod_builder_int(b, aac_frequencies[j].freq);
+				spa_pod_builder_int(b, aac_frequencies[j].value);
+			spa_pod_builder_int(b, aac_frequencies[j].value);
 		}
 	}
 	if (i == 0)

@@ -293,35 +293,13 @@ typedef struct {
 #error "Unknown byte order"
 #endif
 
-static inline int a2dp_sbc_get_channels(a2dp_sbc_t *config)
-{
-	switch (config->channel_mode) {
-	case SBC_CHANNEL_MODE_MONO:
-                return 1;
-	case SBC_CHANNEL_MODE_DUAL_CHANNEL:
-	case SBC_CHANNEL_MODE_STEREO:
-	case SBC_CHANNEL_MODE_JOINT_STEREO:
-                return 2;
-	default:
-                return -1;
-        }
-}
+#define A2DP_CODEC_DEFAULT_RATE		48000
+#define A2DP_CODEC_DEFAULT_CHANNELS	2
 
-static inline int a2dp_sbc_get_frequency(a2dp_sbc_t *config)
-{
-	switch (config->frequency) {
-	case SBC_SAMPLING_FREQ_16000:
-                return 16000;
-	case SBC_SAMPLING_FREQ_32000:
-                return 32000;
-	case SBC_SAMPLING_FREQ_44100:
-                return 44100;
-	case SBC_SAMPLING_FREQ_48000:
-                return 48000;
-	default:
-                return -1;
-        }
-}
+struct a2dp_codec_audio_info {
+	uint32_t rate;
+	uint32_t channels;
+};
 
 struct a2dp_codec_handle;
 
@@ -342,6 +320,7 @@ struct a2dp_codec {
 			uint8_t caps[A2DP_MAX_CAPS_SIZE]);
 	int (*select_config) (const struct a2dp_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
+			const struct a2dp_codec_audio_info *info,
 			const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE]);
 	int (*enum_config) (const struct a2dp_codec *codec,
 			const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
@@ -356,7 +335,7 @@ struct a2dp_codec {
 	 * otherwise not checked beforehand.
 	 */
 	int (*caps_preference_cmp) (const struct a2dp_codec *codec, const void *caps1, size_t caps1_size,
-			const void *caps2, size_t caps2_size);
+			const void *caps2, size_t caps2_size, const struct a2dp_codec_audio_info *info);
 
 	void *(*init_props) (const struct a2dp_codec *codec, const struct spa_dict *settings);
 	void (*clear_props) (void *);
@@ -394,6 +373,16 @@ struct a2dp_codec {
 
 extern const struct a2dp_codec **a2dp_codecs;
 
-bool a2dp_codec_check_caps(const struct a2dp_codec *codec, unsigned int codec_id, const void *caps, size_t caps_size);
+struct a2dp_codec_config {
+	uint32_t config;
+	int value;
+	unsigned int priority;
+};
+
+int a2dp_codec_select_config(const struct a2dp_codec_config configs[], size_t n,
+	uint32_t cap, int preferred_value);
+
+bool a2dp_codec_check_caps(const struct a2dp_codec *codec, unsigned int codec_id,
+	const void *caps, size_t caps_size, const struct a2dp_codec_audio_info *info);
 
 #endif

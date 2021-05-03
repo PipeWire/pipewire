@@ -119,13 +119,47 @@ static uint8_t default_bitpool(uint8_t freq, uint8_t mode, bool xq)
 	return xq ? 86 : 64;
 }
 
+
+static struct a2dp_codec_config
+sbc_frequencies[] = {
+	{ SBC_SAMPLING_FREQ_48000, 48000, 3 },
+	{ SBC_SAMPLING_FREQ_44100, 44100, 2 },
+	{ SBC_SAMPLING_FREQ_32000, 32000, 1 },
+	{ SBC_SAMPLING_FREQ_16000, 16000, 0 },
+};
+
+static struct a2dp_codec_config
+sbc_xq_frequencies[] = {
+	{ SBC_SAMPLING_FREQ_44100, 44100, 1 },
+	{ SBC_SAMPLING_FREQ_48000, 48000, 0 },
+};
+
+static struct a2dp_codec_config
+sbc_channel_modes[] = {
+	{ SBC_CHANNEL_MODE_JOINT_STEREO, 2, 3 },
+	{ SBC_CHANNEL_MODE_STEREO,       2, 2 },
+	{ SBC_CHANNEL_MODE_DUAL_CHANNEL, 2, 1 },
+	{ SBC_CHANNEL_MODE_MONO,         1, 0 },
+};
+
+static struct a2dp_codec_config
+sbc_xq_channel_modes[] = {
+	{ SBC_CHANNEL_MODE_DUAL_CHANNEL, 2, 2 },
+	{ SBC_CHANNEL_MODE_JOINT_STEREO, 2, 1 },
+	{ SBC_CHANNEL_MODE_STEREO,       2, 0 },
+};
+
 static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
+		const struct a2dp_codec_audio_info *info,
 		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_sbc_t conf;
-	int bitpool;
+	int bitpool, i;
+	size_t n;
+	struct a2dp_codec_config * configs;
 	bool xq = false;
+
 
 	if (caps_size < sizeof(conf))
 		return -EINVAL;
@@ -135,44 +169,30 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	memcpy(&conf, caps, sizeof(conf));
 
 	if (xq) {
-		if (conf.frequency & SBC_SAMPLING_FREQ_44100)
-			conf.frequency = SBC_SAMPLING_FREQ_44100;
-		else if (conf.frequency & SBC_SAMPLING_FREQ_48000)
-			conf.frequency = SBC_SAMPLING_FREQ_48000;
-		else
-			return -ENOTSUP;
+		configs = sbc_xq_frequencies;
+		n = SPA_N_ELEMENTS(sbc_xq_frequencies);
+	} else {
+		configs = sbc_frequencies;
+		n = SPA_N_ELEMENTS(sbc_frequencies);
 	}
-	else if (conf.frequency & SBC_SAMPLING_FREQ_48000)
-		conf.frequency = SBC_SAMPLING_FREQ_48000;
-	else if (conf.frequency & SBC_SAMPLING_FREQ_44100)
-		conf.frequency = SBC_SAMPLING_FREQ_44100;
-	else if (conf.frequency & SBC_SAMPLING_FREQ_32000)
-		conf.frequency = SBC_SAMPLING_FREQ_32000;
-	else if (conf.frequency & SBC_SAMPLING_FREQ_16000)
-		conf.frequency = SBC_SAMPLING_FREQ_16000;
-	else
+	if ((i = a2dp_codec_select_config(configs, n, conf.frequency,
+					  info ? info->rate : A2DP_CODEC_DEFAULT_RATE
+					  )) < 0)
 		return -ENOTSUP;
+	conf.frequency = configs[i].config;
 
 	if (xq) {
-		if (conf.channel_mode & SBC_CHANNEL_MODE_DUAL_CHANNEL)
-			conf.channel_mode = SBC_CHANNEL_MODE_DUAL_CHANNEL;
-		else if (conf.channel_mode & SBC_CHANNEL_MODE_JOINT_STEREO)
-			conf.channel_mode = SBC_CHANNEL_MODE_JOINT_STEREO;
-		else if (conf.channel_mode & SBC_CHANNEL_MODE_STEREO)
-			conf.channel_mode = SBC_CHANNEL_MODE_STEREO;
-		else
-			return -ENOTSUP;
+		configs = sbc_xq_channel_modes;
+		n = SPA_N_ELEMENTS(sbc_xq_channel_modes);
+	} else {
+		configs = sbc_channel_modes;
+		n = SPA_N_ELEMENTS(sbc_channel_modes);
 	}
-	else if (conf.channel_mode & SBC_CHANNEL_MODE_JOINT_STEREO)
-		conf.channel_mode = SBC_CHANNEL_MODE_JOINT_STEREO;
-	else if (conf.channel_mode & SBC_CHANNEL_MODE_STEREO)
-		conf.channel_mode = SBC_CHANNEL_MODE_STEREO;
-	else if (conf.channel_mode & SBC_CHANNEL_MODE_DUAL_CHANNEL)
-		conf.channel_mode = SBC_CHANNEL_MODE_DUAL_CHANNEL;
-	else if (conf.channel_mode & SBC_CHANNEL_MODE_MONO)
-		conf.channel_mode = SBC_CHANNEL_MODE_MONO;
-	else
+	if ((i = a2dp_codec_select_config(configs, n, conf.channel_mode,
+					  info ? info->channels : A2DP_CODEC_DEFAULT_CHANNELS
+					  )) < 0)
 		return -ENOTSUP;
+	conf.channel_mode = configs[i].config;
 
 	if (conf.block_length & SBC_BLOCK_LENGTH_16)
 		conf.block_length = SBC_BLOCK_LENGTH_16;
@@ -209,7 +229,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 }
 
 static int codec_caps_preference_cmp(const struct a2dp_codec *codec, const void *caps1, size_t caps1_size,
-		const void *caps2, size_t caps2_size)
+		const void *caps2, size_t caps2_size, const struct a2dp_codec_audio_info *info)
 {
 	a2dp_sbc_t conf1, conf2;
 	a2dp_sbc_t *conf;
@@ -218,8 +238,8 @@ static int codec_caps_preference_cmp(const struct a2dp_codec *codec, const void 
 	bool xq = (strcmp(codec->name, "sbc_xq") == 0);
 
 	/* Order selected configurations by preference */
-	res1 = codec->select_config(codec, 0, caps1, caps1_size, NULL, (uint8_t *)&conf1);
-	res2 = codec->select_config(codec, 0, caps2, caps2_size, NULL, (uint8_t *)&conf2);
+	res1 = codec->select_config(codec, 0, caps1, caps1_size, info, NULL, (uint8_t *)&conf1);
+	res2 = codec->select_config(codec, 0, caps2, caps2_size, info , NULL, (uint8_t *)&conf2);
 
 #define PREFER_EXPR(expr)			\
 		do {				\

@@ -10,7 +10,57 @@
 
 #include "a2dp-codecs.h"
 
-bool a2dp_codec_check_caps(const struct a2dp_codec *codec, unsigned int codec_id, const void *caps, size_t caps_size)
+int a2dp_codec_select_config(const struct a2dp_codec_config configs[], size_t n,
+			     uint32_t cap, int preferred_value)
+{
+	size_t i;
+	int *scores, res;
+	unsigned int max_priority;
+
+	if (n == 0)
+		return -EINVAL;
+
+	scores = calloc(n, sizeof(int));
+	if (scores == NULL)
+		return -errno;
+
+	max_priority = configs[0].priority;
+	for (i = 1; i < n; ++i) {
+		if (configs[i].priority > max_priority)
+			max_priority = configs[i].priority;
+	}
+
+	for (i = 0; i < n; ++i) {
+		if (!(configs[i].config & cap)) {
+			scores[i] = -1;
+			continue;
+		}
+		if (configs[i].value == preferred_value)
+			scores[i] = 100 * (max_priority + 1);
+		else if (configs[i].value > preferred_value)
+			scores[i] = 10 * (max_priority + 1);
+		else
+			scores[i] = 1;
+
+		scores[i] *= configs[i].priority + 1;
+	}
+
+	res = 0;
+	for (i = 1; i < n; ++i) {
+		if (scores[i] > scores[res])
+			res = i;
+	}
+
+	if (scores[res] < 0)
+		res = -EINVAL;
+
+	free(scores);
+	return res;
+}
+
+bool a2dp_codec_check_caps(const struct a2dp_codec *codec, unsigned int codec_id,
+			   const void *caps, size_t caps_size,
+			   const struct a2dp_codec_audio_info *info)
 {
 	uint8_t config[A2DP_MAX_CAPS_SIZE];
 	int res;
@@ -21,7 +71,7 @@ bool a2dp_codec_check_caps(const struct a2dp_codec *codec, unsigned int codec_id
 	if (caps == NULL)
 		return false;
 
-	res = codec->select_config(codec, 0, caps, caps_size, NULL, config);
+	res = codec->select_config(codec, 0, caps, caps_size, info, NULL, config);
 	if (res < 0)
 		return false;
 

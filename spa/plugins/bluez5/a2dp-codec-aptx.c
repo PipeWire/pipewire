@@ -76,11 +76,21 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 	return actual_conf_size;
 }
 
+static struct a2dp_codec_config
+aptx_frequencies[] = {
+	{ APTX_SAMPLING_FREQ_48000, 48000, 3 },
+	{ APTX_SAMPLING_FREQ_44100, 44100, 2 },
+	{ APTX_SAMPLING_FREQ_32000, 32000, 1 },
+	{ APTX_SAMPLING_FREQ_16000, 16000, 0 },
+};
+
 static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
+		const struct a2dp_codec_audio_info *info,
 		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_aptx_t conf;
+	int i;
 	size_t actual_conf_size = codec_get_caps_size(codec);
 
 	if (caps_size < sizeof(conf) || actual_conf_size < sizeof(conf))
@@ -92,16 +102,13 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	    codec->vendor.codec_id != conf.info.codec_id)
 		return -ENOTSUP;
 
-	if (conf.frequency & APTX_SAMPLING_FREQ_48000)
-		conf.frequency = APTX_SAMPLING_FREQ_48000;
-	else if (conf.frequency & APTX_SAMPLING_FREQ_44100)
-		conf.frequency = APTX_SAMPLING_FREQ_44100;
-	else if (conf.frequency & APTX_SAMPLING_FREQ_32000)
-		conf.frequency = APTX_SAMPLING_FREQ_32000;
-	else if (conf.frequency & APTX_SAMPLING_FREQ_16000)
-		conf.frequency = APTX_SAMPLING_FREQ_16000;
-	else
+	if ((i = a2dp_codec_select_config(aptx_frequencies,
+					  SPA_N_ELEMENTS(aptx_frequencies),
+					  conf.frequency,
+				    	  info ? info->rate : A2DP_CODEC_DEFAULT_RATE
+				    	  )) < 0)
 		return -ENOTSUP;
+	conf.frequency = aptx_frequencies[i].config;
 
 	if (conf.channel_mode & APTX_CHANNEL_MODE_STEREO)
 		conf.channel_mode = APTX_CHANNEL_MODE_STEREO;

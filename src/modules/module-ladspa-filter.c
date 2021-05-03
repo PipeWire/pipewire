@@ -190,162 +190,6 @@ done:
 		pw_stream_queue_buffer(impl->playback, out);
 }
 
-static struct spa_pod *get_props_param(struct impl *impl, struct spa_pod_builder *b)
-{
-	struct spa_pod_frame f[2];
-	uint32_t i;
-
-	spa_pod_builder_push_object(b, &f[0],
-			SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
-	spa_pod_builder_prop(b, SPA_PROP_paramStruct, 0);
-	spa_pod_builder_push_struct(b, &f[1]);
-	for (i = 0; i < impl->n_control; i++) {
-		uint32_t p = impl->control[i];
-		spa_pod_builder_string(b, impl->desc->PortNames[p]);
-		spa_pod_builder_float(b, impl->control_data[i]);
-	}
-	spa_pod_builder_pop(b, &f[1]);
-	return spa_pod_builder_pop(b, &f[0]);
-}
-
-static int set_control_value(struct impl *impl, const char *name, float *value)
-{
-	uint32_t i;
-	for (i = 0; i < impl->n_control; i++) {
-		uint32_t p = impl->control[i];
-		if (strcmp(impl->desc->PortNames[p], name) == 0) {
-			float old = impl->control_data[i];
-			impl->control_data[i] = value ? *value : impl->default_control[i];
-			pw_log_info("control %d ('%s') to %f", i, name, impl->control_data[i]);
-			return old == impl->control_data[i] ? 0 : 1;
-		}
-	}
-	return 0;
-}
-
-static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
-{
-	struct impl *impl = data;
-	const struct spa_pod_prop *prop;
-	struct spa_pod_parser prs;
-	struct spa_pod_frame f;
-	int changed = 0;
-
-	if (id != SPA_PARAM_Props)
-		return;
-
-	if ((prop = spa_pod_find_prop(param, NULL, SPA_PROP_paramStruct)) == NULL ||
-	    !spa_pod_is_struct(&prop->value))
-		return;
-
-	spa_pod_parser_pod(&prs, &prop->value);
-	if (spa_pod_parser_push_struct(&prs, &f) < 0)
-		return;
-
-	while (true) {
-		const char *name;
-		float value, *val = NULL;
-
-		if (spa_pod_parser_get_string(&prs, &name) < 0)
-			break;
-		if (spa_pod_parser_get_float(&prs, &value) >= 0)
-			val = &value;
-
-		changed += set_control_value(impl, name, val);
-	}
-	if (changed > 0) {
-		uint8_t buffer[1024];
-		struct spa_pod_builder b;
-		const struct spa_pod *params[1];
-
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		params[0] = get_props_param(impl, &b);
-
-		pw_stream_update_params(impl->playback, params, 1);
-	}
-}
-
-static const struct pw_stream_events in_stream_events = {
-	PW_VERSION_STREAM_EVENTS,
-	.destroy = capture_destroy,
-	.process = capture_process,
-	.param_changed = param_changed
-};
-
-static void playback_destroy(void *d)
-{
-	struct impl *impl = d;
-	spa_hook_remove(&impl->playback_listener);
-	impl->playback = NULL;
-}
-
-static const struct pw_stream_events out_stream_events = {
-	PW_VERSION_STREAM_EVENTS,
-	.destroy = playback_destroy,
-	.param_changed = param_changed
-};
-
-static int setup_streams(struct impl *impl)
-{
-	int res;
-	uint32_t n_params;
-	const struct spa_pod *params[2];
-	uint8_t buffer[1024];
-	struct spa_pod_builder b;
-
-	impl->capture = pw_stream_new(impl->core,
-			"ladspa capture", impl->capture_props);
-	impl->capture_props = NULL;
-	if (impl->capture == NULL)
-		return -errno;
-
-	pw_stream_add_listener(impl->capture,
-			&impl->capture_listener,
-			&in_stream_events, impl);
-
-	impl->playback = pw_stream_new(impl->core,
-			"ladspa playback", impl->playback_props);
-	impl->playback_props = NULL;
-	if (impl->playback == NULL)
-		return -errno;
-
-	pw_stream_add_listener(impl->playback,
-			&impl->playback_listener,
-			&out_stream_events, impl);
-
-	n_params = 0;
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	params[n_params++] = spa_format_audio_raw_build(&b,
-			SPA_PARAM_EnumFormat, &impl->capture_info);
-
-	params[n_params++] = get_props_param(impl, &b);
-
-	if ((res = pw_stream_connect(impl->capture,
-			PW_DIRECTION_INPUT,
-			PW_ID_ANY,
-			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS,
-			params, n_params)) < 0)
-		return res;
-
-	n_params = 0;
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	params[n_params++] = spa_format_audio_raw_build(&b,
-			SPA_PARAM_EnumFormat, &impl->playback_info);
-
-	if ((res = pw_stream_connect(impl->playback,
-			PW_DIRECTION_OUTPUT,
-			PW_ID_ANY,
-			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS,
-			params, n_params)) < 0)
-		return res;
-
-	return 0;
-}
-
 static float get_default(struct impl *impl, uint32_t p)
 {
 	const LADSPA_Descriptor *d = impl->desc;
@@ -362,7 +206,7 @@ static float get_default(struct impl *impl, uint32_t p)
 
 	switch (hint & LADSPA_HINT_DEFAULT_MASK) {
 	case LADSPA_HINT_DEFAULT_MINIMUM:
-		def =  lower;
+		def = lower;
 		break;
 	case LADSPA_HINT_DEFAULT_MAXIMUM:
 		def = upper;
@@ -398,12 +242,227 @@ static float get_default(struct impl *impl, uint32_t p)
 		def = 440;
 		break;
 	default:
-		def = 0.5 * upper;
+		if (upper == lower)
+			def = upper;
+		else
+			def = SPA_CLAMP(0.5 * upper, lower, upper);
 		break;
 	}
 	if (LADSPA_IS_HINT_INTEGER(hint))
 		def = roundf(def);
 	return def;
+}
+
+static struct spa_pod *get_prop_info(struct impl *impl, struct spa_pod_builder *b, uint32_t idx)
+{
+	struct spa_pod_frame f[2];
+	const LADSPA_Descriptor *d = impl->desc;
+	uint32_t p = impl->control[idx];
+	LADSPA_PortRangeHintDescriptor hint = d->PortRangeHints[p].HintDescriptor;
+	float def, upper, lower;
+
+	def = get_default(impl, p);
+	lower = d->PortRangeHints[p].LowerBound;
+	upper = d->PortRangeHints[p].UpperBound;
+
+	if (LADSPA_IS_HINT_SAMPLE_RATE(hint)) {
+		lower *= (LADSPA_Data) impl->rate;
+		upper *= (LADSPA_Data) impl->rate;
+	}
+
+	spa_pod_builder_push_object(b, &f[0],
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
+	spa_pod_builder_add (b,
+			SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_START_CUSTOM + idx),
+			SPA_PROP_INFO_name, SPA_POD_String(d->PortNames[p]),
+			0);
+	spa_pod_builder_prop(b, SPA_PROP_INFO_type, 0);
+	if (lower == upper) {
+		spa_pod_builder_float(b, def);
+	} else {
+		spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Range, 0);
+		spa_pod_builder_float(b, def);
+		spa_pod_builder_float(b, lower);
+		spa_pod_builder_float(b, upper);
+		spa_pod_builder_pop(b, &f[1]);
+	}
+	return spa_pod_builder_pop(b, &f[0]);
+}
+
+static struct spa_pod *get_props_param(struct impl *impl, struct spa_pod_builder *b)
+{
+	struct spa_pod_frame f[2];
+	uint32_t i;
+
+	spa_pod_builder_push_object(b, &f[0],
+			SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
+	for (i = 0; i < impl->n_control; i++) {
+		spa_pod_builder_prop(b, SPA_PROP_START_CUSTOM + i, 0);
+		spa_pod_builder_float(b, impl->control_data[i]);
+	}
+	return spa_pod_builder_pop(b, &f[0]);
+}
+
+static int set_control_value(struct impl *impl, const char *name, float *value)
+{
+	uint32_t i;
+	for (i = 0; i < impl->n_control; i++) {
+		uint32_t p = impl->control[i];
+		if (strcmp(impl->desc->PortNames[p], name) == 0) {
+			float old = impl->control_data[i];
+			impl->control_data[i] = value ? *value : impl->default_control[i];
+			pw_log_info("control %d ('%s') to %f", i, name, impl->control_data[i]);
+			return old == impl->control_data[i] ? 0 : 1;
+		}
+	}
+	return 0;
+}
+
+static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
+{
+	struct impl *impl = data;
+	const struct spa_pod_prop *prop;
+	struct spa_pod_object *obj = (struct spa_pod_object *) param;
+	int changed = 0;
+
+	if (id != SPA_PARAM_Props)
+		return;
+
+	SPA_POD_OBJECT_FOREACH(obj, prop) {
+		uint32_t idx;
+		float value;
+
+		if (prop->key < SPA_PROP_START_CUSTOM)
+			continue;
+		idx = prop->key - SPA_PROP_START_CUSTOM;
+		if (idx >= impl->n_control)
+			continue;
+
+		if (spa_pod_get_float(&prop->value, &value) < 0)
+			continue;
+
+		if (impl->control_data[idx] != value) {
+			impl->control_data[idx] = value;
+			changed++;
+			pw_log_info("control %d to %f", idx, impl->control_data[idx]);
+		}
+	}
+	if (changed > 0) {
+		uint8_t buffer[1024];
+		struct spa_pod_builder b;
+		const struct spa_pod *params[1];
+
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		params[0] = get_props_param(impl, &b);
+
+		pw_stream_update_params(impl->playback, params, 1);
+	}
+}
+
+static const struct pw_stream_events in_stream_events = {
+	PW_VERSION_STREAM_EVENTS,
+	.destroy = capture_destroy,
+	.process = capture_process,
+	.param_changed = param_changed
+};
+
+static void playback_destroy(void *d)
+{
+	struct impl *impl = d;
+	spa_hook_remove(&impl->playback_listener);
+	impl->playback = NULL;
+}
+
+static const struct pw_stream_events out_stream_events = {
+	PW_VERSION_STREAM_EVENTS,
+	.destroy = playback_destroy,
+	.param_changed = param_changed
+};
+
+static int builder_overflow(void *data, uint32_t size)
+{
+	struct spa_pod_builder *b = data;
+	b->size = SPA_ROUND_UP_N(size, 4096);
+	if ((b->data = realloc(b->data, b->size)) == NULL)
+		return -errno;
+        return 0;
+}
+
+static const struct spa_pod_builder_callbacks builder_callbacks = {
+	SPA_VERSION_POD_BUILDER_CALLBACKS,
+	.overflow = builder_overflow
+};
+
+static int setup_streams(struct impl *impl)
+{
+	int res;
+	uint32_t i, n_params;
+	const struct spa_pod *params[256];
+	struct spa_pod_builder b;
+
+	impl->capture = pw_stream_new(impl->core,
+			"ladspa capture", impl->capture_props);
+	impl->capture_props = NULL;
+	if (impl->capture == NULL)
+		return -errno;
+
+	pw_stream_add_listener(impl->capture,
+			&impl->capture_listener,
+			&in_stream_events, impl);
+
+	impl->playback = pw_stream_new(impl->core,
+			"ladspa playback", impl->playback_props);
+	impl->playback_props = NULL;
+	if (impl->playback == NULL)
+		return -errno;
+
+	pw_stream_add_listener(impl->playback,
+			&impl->playback_listener,
+			&out_stream_events, impl);
+
+	n_params = 0;
+	spa_pod_builder_init(&b, NULL, 0);
+	spa_pod_builder_set_callbacks(&b, &builder_callbacks, &b);
+
+	params[n_params++] = spa_format_audio_raw_build(&b,
+			SPA_PARAM_EnumFormat, &impl->capture_info);
+
+	for (i = 0; i < impl->n_control; i++)
+		params[n_params++] = get_prop_info(impl, &b, i);
+
+	params[n_params++] = get_props_param(impl, &b);
+
+	res = pw_stream_connect(impl->capture,
+			PW_DIRECTION_INPUT,
+			PW_ID_ANY,
+			PW_STREAM_FLAG_AUTOCONNECT |
+			PW_STREAM_FLAG_MAP_BUFFERS |
+			PW_STREAM_FLAG_RT_PROCESS,
+			params, n_params);
+	free(b.data);
+	if (res < 0)
+		return res;
+
+	n_params = 0;
+	spa_pod_builder_init(&b, NULL, 0);
+	spa_pod_builder_set_callbacks(&b, &builder_callbacks, &b);
+	params[n_params++] = spa_format_audio_raw_build(&b,
+			SPA_PARAM_EnumFormat, &impl->playback_info);
+
+	res = pw_stream_connect(impl->playback,
+			PW_DIRECTION_OUTPUT,
+			PW_ID_ANY,
+			PW_STREAM_FLAG_AUTOCONNECT |
+			PW_STREAM_FLAG_MAP_BUFFERS |
+			PW_STREAM_FLAG_RT_PROCESS,
+			params, n_params);
+	free(b.data);
+
+	if (res < 0)
+		return res;
+
+
+	return 0;
 }
 
 static const LADSPA_Descriptor *find_descriptor(LADSPA_Descriptor_Function desc_func,

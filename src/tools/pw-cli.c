@@ -1542,6 +1542,7 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 	struct spa_json it[1];
 	int l, res;
 	const char *v;
+	uint32_t type;
 
 	if (spa_json_is_object(value, len) && info != NULL) {
 		if ((ti = spa_debug_type_find(NULL, info->parent)) == NULL)
@@ -1554,16 +1555,18 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 			const struct spa_type_info *pi;
 			if ((l = spa_json_next(&it[0], &v)) <= 0)
 				break;
-			if ((pi = find_type_info(ti->values, key)) == NULL)
+			if ((pi = find_type_info(ti->values, key)) != NULL)
+				type = pi->type;
+			else if ((type = atoi(key)) == 0)
 				continue;
-			spa_pod_builder_prop(b, pi->type, 0);
+			spa_pod_builder_prop(b, type, 0);
 			if ((res = json_to_pod(b, id, pi, &it[0], v, l)) < 0)
 				return res;
 		}
 		spa_pod_builder_pop(b, &f[0]);
 	}
-	else if (spa_json_is_array(value, len) && info != NULL) {
-		if (info->parent == SPA_TYPE_Struct) {
+	else if (spa_json_is_array(value, len)) {
+		if (info == NULL || info->parent == SPA_TYPE_Struct) {
 			spa_pod_builder_push_struct(b, &f[0]);
 		} else {
 			spa_pod_builder_push_array(b, &f[0]);
@@ -1575,10 +1578,10 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 				return res;
 		spa_pod_builder_pop(b, &f[0]);
 	}
-	else if (spa_json_is_float(value, len) && info != NULL) {
+	else if (spa_json_is_float(value, len)) {
 		float val = 0.0f;
 		spa_json_parse_float(value, len, &val);
-		switch (info->parent) {
+		switch (info ? info->parent : SPA_TYPE_Struct) {
 		case SPA_TYPE_Bool:
 			spa_pod_builder_bool(b, val >= 0.5f);
 			break;
@@ -1616,14 +1619,16 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 	else if (spa_json_is_null(value, len)) {
 		spa_pod_builder_none(b);
 	}
-	else if (info) {
+	else {
 		char *val = alloca(len+1);
 		spa_json_parse_string(value, len, val);
-		switch (info->parent) {
+		switch (info ? info->parent : SPA_TYPE_Struct) {
 		case SPA_TYPE_Id:
-			if ((ti = find_type_info(info->values, val)) == NULL)
+			if ((ti = find_type_info(info->values, val)) != NULL)
+				type = ti->type;
+			else if ((type = atoi(val)) == 0)
 				return -EINVAL;
-			spa_pod_builder_id(b, ti->type);
+			spa_pod_builder_id(b, type);
 			break;
 		case SPA_TYPE_Struct:
 		case SPA_TYPE_String:

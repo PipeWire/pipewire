@@ -509,8 +509,8 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
 	struct props *p = &this->props;
 	int changed = 0;
-
-	p->have_soft_volume = false;
+	bool have_channel_volume = false;
+	bool have_soft_volume = false;
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
@@ -519,13 +519,17 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 				changed++;
 			break;
 		case SPA_PROP_mute:
-			if (spa_pod_get_bool(&prop->value, &p->channel.mute) == 0)
+			if (spa_pod_get_bool(&prop->value, &p->channel.mute) == 0) {
 				changed++;
+				have_channel_volume = true;
+			}
 			break;
 		case SPA_PROP_channelVolumes:
 			if ((p->channel.n_volumes = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					p->channel.volumes, SPA_AUDIO_MAX_CHANNELS)) > 0)
+					p->channel.volumes, SPA_AUDIO_MAX_CHANNELS)) > 0) {
 				changed++;
+				have_channel_volume = true;
+			}
 			break;
 		case SPA_PROP_channelMap:
 			if ((p->n_channels = spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
@@ -533,14 +537,16 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 				changed++;
 			break;
 		case SPA_PROP_softMute:
-			if (spa_pod_get_bool(&prop->value, &p->soft.mute) == 0)
+			if (spa_pod_get_bool(&prop->value, &p->soft.mute) == 0) {
 				changed++;
+				have_soft_volume = true;
+			}
 			break;
 		case SPA_PROP_softVolumes:
 			if ((p->soft.n_volumes = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					p->soft.volumes, SPA_AUDIO_MAX_CHANNELS)) > 0) {
 				changed++;
-				p->have_soft_volume = true;
+				have_soft_volume = true;
 			}
 			break;
 		case SPA_PROP_monitorMute:
@@ -557,6 +563,11 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 		}
 	}
 	if (changed) {
+		if (have_soft_volume)
+			p->have_soft_volume = true;
+		else if (have_channel_volume)
+			p->have_soft_volume = false;
+
 		remap_volumes(this, &GET_IN_PORT(this, 0)->format);
 		set_volume(this);
 	}

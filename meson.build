@@ -274,7 +274,7 @@ if cc.has_function('memfd_create', prefix : '#include <sys/mman.h>', args : [ '-
   cdata.set('HAVE_MEMFD_CREATE', 1)
 endif
 
-if cc.has_function('getrandom', prefix : '#include <sys/random.h>')
+if cc.has_function('getrandom', prefix : '#include <sys/random.h>', args : [ '-D_GNU_SOURCE' ])
   cdata.set('HAVE_GETRANDOM', 1)
 endif
 

@@ -3148,13 +3148,14 @@ static void interface_added(struct spa_bt_monitor *monitor,
 	else if (strcmp(interface_name, BLUEZ_DEVICE_INTERFACE) == 0) {
 		struct spa_bt_device *d;
 
-		spa_assert(spa_bt_device_find(monitor, object_path) == NULL);
-
-		d = device_create(monitor, object_path);
+		d = spa_bt_device_find(monitor, object_path);
 		if (d == NULL) {
-			spa_log_warn(monitor->log, "can't create Bluetooth device %s: %m",
-					object_path);
-			return;
+			d = device_create(monitor, object_path);
+			if (d == NULL) {
+				spa_log_warn(monitor->log, "can't create Bluetooth device %s: %m",
+						object_path);
+				return;
+			}
 		}
 
 		device_update_props(d, props_iter, NULL);

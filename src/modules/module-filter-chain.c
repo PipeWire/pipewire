@@ -577,44 +577,38 @@ static const LADSPA_Descriptor *find_descriptor(LADSPA_Descriptor_Function desc_
 	return NULL;
 }
 
-#if 0
-static uint32_t find_port(struct impl *impl, const char *name, int mask)
+static struct node *find_node(struct graph *graph, const char *name)
+{
+	struct node *node;
+	spa_list_for_each(node, &graph->node_list, link) {
+		if (strcmp(node->name, name) == 0)
+			return node;
+	}
+	return NULL;
+}
+
+static uint32_t find_port(struct node *node, const char *name, int mask)
 {
 	uint32_t p;
-	const LADSPA_Descriptor *d = impl->desc;
+	const LADSPA_Descriptor *d = node->desc->desc;
 	for (p = 0; p < d->PortCount; p++) {
 		if ((d->PortDescriptors[p] & mask) != mask)
 			continue;
-		if (strcmp(impl->desc->PortNames[p], name) == 0)
+		if (strcmp(d->PortNames[p], name) == 0)
 			return p;
 	}
 	return SPA_ID_INVALID;
 }
 
-static uint32_t collect_ports(struct impl *impl, const char *str, unsigned long ports[], int mask)
+static uint32_t count_array(struct spa_json *json)
 {
-	struct spa_json it[2];
+	struct spa_json it = *json;
 	char v[256];
-	uint32_t p, n_ports;
-	const char *dir = mask & LADSPA_PORT_INPUT ? "input" : "output";
-
-	spa_json_init(&it[0], str, strlen(str));
-        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-                spa_json_init(&it[1], str, strlen(str));
-
-	n_ports = 0;
-	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
-	    n_ports < MAX_PORTS) {
-		if ((p = find_port(impl, v, mask)) == SPA_ID_INVALID) {
-			pw_log_error("unknown %s port '%s'", dir, v);
-			return p;
-		}
-		pw_log_info("using port %d ('%s') as %s %d", p, v, dir, n_ports);
-		ports[n_ports++] = p;
-	}
-	return n_ports;
+	uint32_t count = 0;
+	while (spa_json_get_string(&it, v, sizeof(v)) > 0)
+		count++;
+	return count;
 }
-#endif
 
 static void ladspa_handle_unref(struct ladspa_handle *hndl)
 {
@@ -859,22 +853,33 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	return 0;
 }
 
-static int setup_graph(struct graph *graph)
+static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_json *outputs)
 {
 	struct impl *impl = graph->impl;
-	struct node *node;
+	struct node *node, *first, *last;
 	uint32_t i, j, n_input, n_output, n_hndl;
 	int res;
 	unsigned long p;
+	struct ladspa_descriptor *desc;
+	const LADSPA_Descriptor *d;
+	char v[256], *col, *node_name, *port_name;
 
-	graph->n_input = n_input = 0;
-	graph->n_output = n_output = 0;
+	graph->n_input = 0;
+	graph->n_output = 0;
 	graph->n_control = 0;
 
-	spa_list_for_each(node, &graph->node_list, link) {
-		struct ladspa_descriptor *desc = node->desc;
-		n_input += desc->n_input;
-		n_output += desc->n_output;
+	first = spa_list_first(&graph->node_list, struct node, link);
+	last = spa_list_last(&graph->node_list, struct node, link);
+
+	if (inputs != NULL) {
+		n_input = count_array(inputs);
+	} else {
+		n_input = first->desc->n_input;
+	}
+	if (outputs != NULL) {
+		n_output = count_array(outputs);
+	} else {
+		n_output = last->desc->n_output;
 	}
 
 	if (impl->capture_info.channels == 0)
@@ -886,35 +891,20 @@ static int setup_graph(struct graph *graph)
 	if (n_hndl != impl->playback_info.channels / n_output) {
 		pw_log_error("invalid channels");
 		res = -EINVAL;
-		goto exit;
+		goto error;
 	}
-	pw_log_info("using %d instances", n_hndl);
+	pw_log_info("using %d instances %d %d", n_hndl, n_input, n_output);
 
 	spa_list_for_each(node, &graph->node_list, link) {
-		struct ladspa_descriptor *desc = node->desc;
-		const LADSPA_Descriptor *d = desc->desc;
+		desc = node->desc;
+		d = desc->desc;
 		for (i = 0; i < n_hndl; i++) {
 			if ((node->hndl[i] = d->instantiate(d, impl->rate)) == NULL) {
 				pw_log_error("cannot create plugin instance");
 				res = -ENOMEM;
-				goto exit;
+				goto error;
 			}
 			node->n_hndl = i;
-
-			for (j = 0; j < desc->n_input; j++) {
-				p = desc->input[j];
-				graph->in_desc[graph->n_input] = d;
-				graph->in_hndl[graph->n_input] = node->hndl[i];
-				graph->in_port[graph->n_input] = p;
-				graph->n_input++;
-			}
-			for (j = 0; j < desc->n_output; j++) {
-				p = desc->output[j];
-				graph->out_desc[graph->n_output] = d;
-				graph->out_hndl[graph->n_output] = node->hndl[i];
-				graph->out_port[graph->n_output] = p;
-				graph->n_output++;
-			}
 
 			graph->hndl[graph->n_hndl] = node->hndl[i];
 			graph->desc[graph->n_hndl] = d;
@@ -937,12 +927,106 @@ static int setup_graph(struct graph *graph)
 			graph->n_control++;
 		}
 	}
-	return 0;
-exit:
 	for (i = 0; i < n_hndl; i++) {
-		if (node->hndl[i] != NULL)
-			node->desc->desc->cleanup(node->hndl[i]);
-		node->hndl[i] = NULL;
+		if (inputs == NULL) {
+			desc = first->desc;
+			d = desc->desc;
+			for (j = 0; j < desc->n_input; j++) {
+				p = desc->input[j];
+				graph->in_desc[graph->n_input] = d;
+				graph->in_hndl[graph->n_input] = first->hndl[i];
+				graph->in_port[graph->n_input] = p;
+				graph->n_input++;
+			}
+		} else {
+			struct spa_json it = *inputs;
+			while (spa_json_get_string(&it, v, sizeof(v)) > 0) {
+				col = strchr(v, ':');
+				if (col != NULL) {
+					node_name = v;
+					port_name = col + 1;
+					*col = '\0';
+					node = find_node(graph, node_name);
+				} else {
+					node = first;
+					node_name = first->name;
+					port_name = v;
+				}
+				if (node == NULL) {
+					pw_log_error("input node %s not found", node_name);
+					res = -EINVAL;
+					goto error;
+				}
+				p = find_port(node, port_name, LADSPA_PORT_INPUT);
+				if (p == SPA_ID_INVALID) {
+					pw_log_error("input port %s:%s not found", node_name, port_name);
+					res = -EINVAL;
+					goto error;
+				}
+				desc = node->desc;
+				d = desc->desc;
+
+				graph->in_desc[graph->n_input] = d;
+				graph->in_hndl[graph->n_input] = node->hndl[i];
+				graph->in_port[graph->n_input] = p;
+				graph->n_input++;
+			}
+		}
+		if (outputs == NULL) {
+			desc = first->desc;
+			d = desc->desc;
+			for (j = 0; j < desc->n_output; j++) {
+				p = desc->output[j];
+				graph->out_desc[graph->n_output] = d;
+				graph->out_hndl[graph->n_output] = last->hndl[i];
+				graph->out_port[graph->n_output] = p;
+				graph->n_output++;
+			}
+		} else {
+			struct spa_json it = *outputs;
+			while (spa_json_get_string(&it, v, sizeof(v)) > 0) {
+				col = strchr(v, ':');
+				if (col != NULL) {
+					node_name = v;
+					port_name = col + 1;
+					*col = '\0';
+					node = find_node(graph, node_name);
+				} else {
+					node = first;
+					node_name = first->name;
+					port_name = v;
+				}
+				if (node == NULL) {
+					pw_log_error("output node %s not found", node_name);
+					res = -EINVAL;
+					goto error;
+				}
+				p = find_port(node, port_name, LADSPA_PORT_OUTPUT);
+				if (p == SPA_ID_INVALID) {
+					pw_log_error("output port %s:%s not found", node_name, port_name);
+					res = -EINVAL;
+					goto error;
+				}
+				desc = node->desc;
+				d = desc->desc;
+
+				graph->out_desc[graph->n_output] = d;
+				graph->out_hndl[graph->n_output] = node->hndl[i];
+				graph->out_port[graph->n_output] = p;
+				graph->n_output++;
+			}
+		}
+	}
+
+	return 0;
+
+error:
+	spa_list_for_each(node, &graph->node_list, link) {
+		for (i = 0; i < n_hndl; i++) {
+			if (node->hndl[i] != NULL)
+				node->desc->desc->cleanup(node->hndl[i]);
+			node->hndl[i] = NULL;
+		}
 	}
 	return res;
 }
@@ -962,7 +1046,7 @@ exit:
 static int load_graph(struct graph *graph, struct pw_properties *props)
 {
 	struct spa_json it[4];
-	struct spa_json inputs, outputs;
+	struct spa_json inputs, outputs, *pinputs = NULL, *poutputs = NULL;
 	const char *json, *val;
 	char key[256];
 	int res;
@@ -998,14 +1082,16 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 		else if (strcmp("inputs", key) == 0) {
 			if (spa_json_enter_array(&it[1], &inputs) <= 0)
 				return -EINVAL;
+			pinputs = &inputs;
 		}
 		else if (strcmp("outputs", key) == 0) {
 			if (spa_json_enter_array(&it[1], &outputs) <= 0)
 				return -EINVAL;
+			poutputs = &outputs;
 		} else if (spa_json_next(&it[1], &val) < 0)
 			break;
 	}
-	return setup_graph(graph);;
+	return setup_graph(graph, pinputs, poutputs);
 }
 
 static void core_error(void *data, uint32_t id, int seq, int res, const char *message)

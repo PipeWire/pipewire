@@ -24,8 +24,8 @@ pipewire_module_loopback = shared_library('pipewire-module-loopback',
   dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
-pipewire_module_ladspa_filter = shared_library('pipewire-module-ladspa-filter',
-  [ 'module-ladspa-filter.c' ],
+pipewire_module_filter_chain = shared_library('pipewire-module-filter-chain',
+  [ 'module-filter-chain.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],
   install : true,

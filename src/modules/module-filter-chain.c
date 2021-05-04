@@ -44,11 +44,11 @@
 #include <pipewire/impl.h>
 #include <extensions/profiler.h>
 
-#define NAME "ladspa-filter"
+#define NAME "filter-chain"
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
-	{ PW_KEY_MODULE_DESCRIPTION, "Create ladspa filter streams" },
+	{ PW_KEY_MODULE_DESCRIPTION, "Create filter chain streams" },
 	{ PW_KEY_MODULE_USAGE, " [ remote.name=<remote> ] "
 				"[ node.latency=<latency as fraction> ] "
 				"[ node.name=<name of the nodes> ] "
@@ -56,11 +56,24 @@ static const struct spa_dict_item module_props[] = {
 				"[ audio.rate=<sample rate> ] "
 				"[ audio.channels=<number of channels> ] "
 				"[ audio.position=<channel map> ] "
-				"ladspa.plugin=<plugin name> "
-				"ladspa.label=<label name> "
-				"ladspa.control = [ <name> = <value> ... ] "
-				"ladspa.inputs = [ <name> ... ] "
-				"ladspa.outputs = [ <name> ... ] "
+				"filter.graph = [ "
+				"    nodes = [ "
+				"        { "
+				"          type = ladspa "
+				"          name = <name> "
+				"          plugin = <plugin> "
+				"          label = <label> "
+				"          control = { "
+				"             <controlname> = <value> ... "
+				"          } "
+				"        } "
+				"    ] "
+				"    links = [ "
+				"        { output = <portname> input = <portname> } ... "
+				"    ] "
+				"    inputs = [ <portname> ... ] "
+				"    outputs = [ <portname> ... ] "
+				"] "
 				"[ capture.props=<properties> ] "
 				"[ playback.props=<properties> ] " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
@@ -485,7 +498,7 @@ static int setup_streams(struct impl *impl)
 	struct graph *graph = &impl->graph;
 
 	impl->capture = pw_stream_new(impl->core,
-			"ladspa capture", impl->capture_props);
+			"filter capture", impl->capture_props);
 	impl->capture_props = NULL;
 	if (impl->capture == NULL)
 		return -errno;
@@ -495,7 +508,7 @@ static int setup_streams(struct impl *impl)
 			&in_stream_events, impl);
 
 	impl->playback = pw_stream_new(impl->core,
-			"ladspa playback", impl->playback_props);
+			"filter playback", impl->playback_props);
 	impl->playback_props = NULL;
 	if (impl->playback == NULL)
 		return -errno;
@@ -778,6 +791,7 @@ static int parse_control(struct node *node, struct spa_json *control)
 }
 
 /**
+ * type = ladspa
  * name = rev
  * plugin = g2reverb
  * label = G2reverb
@@ -792,6 +806,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	struct node *node;
 	const char *val;
 	char key[256];
+	char type[256] = "";
 	char name[256] = "";
 	char plugin[256] = "";
 	char label[256] = "";
@@ -799,7 +814,12 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	uint32_t i;
 
 	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
-		if (strcmp("name", key) == 0) {
+		if (strcmp("type", key) == 0) {
+			if (spa_json_get_string(json, type, sizeof(type)) <= 0)
+				return -EINVAL;
+			if (strcmp(type, "ladspa") != 0)
+				return -ENOTSUP;
+		} else if (strcmp("name", key) == 0) {
 			if (spa_json_get_string(json, name, sizeof(name)) <= 0)
 				return -EINVAL;
 		} else if (strcmp("plugin", key) == 0) {
@@ -928,18 +948,21 @@ exit:
 }
 
 /**
- * ladspa.graph = {
+ * filter.graph = {
  *     nodes = [
  *         { ... } ...
  *     ]
  *     links = [
  *         { ... } ...
  *     ]
+ *     inputs = [ ]
+ *     outputs = [ ]
  * }
  */
 static int load_graph(struct graph *graph, struct pw_properties *props)
 {
 	struct spa_json it[4];
+	struct spa_json inputs, outputs;
 	const char *json, *val;
 	char key[256];
 	int res;
@@ -947,7 +970,7 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 	spa_list_init(&graph->node_list);
 	spa_list_init(&graph->link_list);
 
-	if ((json = pw_properties_get(props, "ladspa.graph")) == NULL)
+	if ((json = pw_properties_get(props, "filter.graph")) == NULL)
 		return -EINVAL;
 
 	spa_json_init(&it[0], json, strlen(json));
@@ -971,6 +994,14 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 			while (spa_json_enter_object(&it[2], &it[3]) > 0) {
 				return -ENOTSUP;
 			}
+		}
+		else if (strcmp("inputs", key) == 0) {
+			if (spa_json_enter_array(&it[1], &inputs) <= 0)
+				return -EINVAL;
+		}
+		else if (strcmp("outputs", key) == 0) {
+			if (spa_json_enter_array(&it[1], &outputs) <= 0)
+				return -EINVAL;
 		} else if (spa_json_next(&it[1], &val) < 0)
 			break;
 	}
@@ -1129,7 +1160,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_GROUP, "ladspa-filter-%u", id);
+		pw_properties_setf(props, PW_KEY_NODE_GROUP, "filter-chain-%u", id);
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 
@@ -1154,16 +1185,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_log_error("can't load graph: %s", spa_strerror(res));
 		goto error;
 	}
-	copy_props(impl, props, "ladspa.unique-id");
-	copy_props(impl, props, "ladspa.name");
-	copy_props(impl, props, "ladspa.maker");
-	copy_props(impl, props, "ladspa.copyright");
 
 	if (pw_properties_get(impl->capture_props, PW_KEY_MEDIA_NAME) == NULL)
-		pw_properties_setf(impl->capture_props, PW_KEY_MEDIA_NAME, "ladspa input %u",
+		pw_properties_setf(impl->capture_props, PW_KEY_MEDIA_NAME, "filter input %u",
 				id);
 	if (pw_properties_get(impl->playback_props, PW_KEY_MEDIA_NAME) == NULL)
-		pw_properties_setf(impl->playback_props, PW_KEY_MEDIA_NAME, "ladspa output %u",
+		pw_properties_setf(impl->playback_props, PW_KEY_MEDIA_NAME, "filter output %u",
 				id);
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);

@@ -1075,13 +1075,16 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		desc = node->desc;
 		d = desc->desc;
 		spa_list_for_each(link, &node->output_link_list, output_link) {
+			struct node *peer = link->input;
+			const LADSPA_Descriptor *pd = peer->desc->desc;
+
 			for (i = 0; i < n_hndl; i++) {
 				pw_log_info("link %d  %s:%d %s:%d %p", i,
 						node->name, link->output_port,
 						link->input->name, link->input_port,
 						link->audio_data);
 				d->connect_port(node->hndl[i], link->output_port, link->audio_data);
-				d->connect_port(link->input->hndl[i], link->input_port, link->audio_data);
+				pd->connect_port(peer->hndl[i], link->input_port, link->audio_data);
 			}
 		}
 	}

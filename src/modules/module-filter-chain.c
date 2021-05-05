@@ -181,6 +181,9 @@ struct graph {
 	uint32_t n_control;
 	struct node *control_node[MAX_CONTROLS];
 	uint32_t control_index[MAX_CONTROLS];
+
+	LADSPA_Data silence_data[MAX_SAMPLES];
+	LADSPA_Data discard_data[MAX_SAMPLES];
 };
 
 struct impl {
@@ -605,6 +608,36 @@ static uint32_t find_port(struct node *node, const char *name, int mask)
 	return SPA_ID_INVALID;
 }
 
+struct node_port {
+	struct node *node;
+	uint32_t port;
+};
+
+static int find_node_port(struct graph *graph, char *name, int mask, struct node_port *result)
+{
+	char *col, *node_name, *port_name;
+
+	col = strchr(name, ':');
+	if (col != NULL) {
+		node_name = name;
+		port_name = col + 1;
+		*col = '\0';
+		result->node = find_node(graph, node_name);
+	} else {
+		result->node = (mask & LADSPA_PORT_INPUT) ?
+			spa_list_first(&graph->node_list, struct node, link) :
+			spa_list_last(&graph->node_list, struct node, link);
+		node_name = result->node->name;
+		port_name = name;
+	}
+	if (result->node == NULL)
+		return -ENOENT;
+	result->port = find_port(result->node, port_name, mask);
+	if (result->port == SPA_ID_INVALID)
+		return -ENOENT;
+	return 0;
+}
+
 static uint32_t count_array(struct spa_json *json)
 {
 	struct spa_json it = *json;
@@ -790,6 +823,64 @@ static int parse_control(struct node *node, struct spa_json *control)
 }
 
 /**
+ * output = [name:][portname]
+ * input = [name:][portname]
+ * ...
+ */
+static int parse_link(struct graph *graph, struct spa_json *json)
+{
+	int res;
+	char key[256];
+	char output[256] = "";
+	char input[256] = "";
+	const char *val;
+	struct node_port np_in, np_out;
+	struct link *link;
+
+	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
+		if (strcmp(key, "output") == 0) {
+			if (spa_json_get_string(json, output, sizeof(output)) <= 0) {
+				pw_log_error("output expects a string");
+				return -EINVAL;
+			}
+		}
+		else if (strcmp(key, "input") == 0) {
+			if (spa_json_get_string(json, input, sizeof(input)) <= 0) {
+				pw_log_error("input expects a string");
+				return -EINVAL;
+			}
+		}
+		else if (spa_json_next(json, &val) < 0)
+			break;
+	}
+	if ((res = find_node_port(graph, output, LADSPA_PORT_OUTPUT, &np_out)) < 0)
+		return res;
+	if ((res = find_node_port(graph, input, LADSPA_PORT_INPUT, &np_in)) < 0)
+		return res;
+
+	if ((link = calloc(1, sizeof(*link))) == NULL)
+		return -errno;
+
+	link->output = np_out.node;
+	link->output_port = np_out.port;
+	link->input = np_in.node;
+	link->input_port = np_in.port;
+
+	pw_log_info("linking %s:%s -> %s:%s",
+			link->output->name,
+			link->output->desc->desc->PortNames[link->output_port],
+			link->input->name,
+			link->input->desc->desc->PortNames[link->input_port]);
+
+	spa_list_append(&link->output->output_link_list, &link->output_link);
+	link->input->n_input_links++;
+
+	spa_list_append(&graph->link_list, &link->link);
+
+	return 0;
+}
+
+/**
  * type = ladspa
  * name = rev
  * plugin = g2reverb
@@ -887,7 +978,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 	unsigned long p;
 	struct ladspa_descriptor *desc;
 	const LADSPA_Descriptor *d;
-	char v[256], *col, *node_name, *port_name;
+	char v[256];
 
 	graph->n_input = 0;
 	graph->n_output = 0;
@@ -937,8 +1028,18 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 				res = -ENOMEM;
 				goto error;
 			}
-			node->n_hndl = i;
+			node->n_hndl = i + 1;
 
+			for (j = 0; j < desc->n_input; j++) {
+				p = desc->input[j];
+				d->connect_port(node->hndl[i], p, graph->silence_data);
+			}
+			for (j = 0; j < desc->n_output; j++) {
+				p = desc->output[j];
+				pw_log_info("out %d %lu %s %p %p %p", i, p,
+						node->name, node->hndl[i], d, *d->connect_port);
+				d->connect_port(node->hndl[i], p, graph->discard_data);
+			}
 			for (j = 0; j < desc->n_control; j++) {
 				p = desc->control[j];
 				d->connect_port(node->hndl[i], p, &node->control_data[j]);
@@ -949,12 +1050,29 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 			}
 			if (d->activate)
 				d->activate(node->hndl[i]);
+
 		}
 		/* collect all control ports on the graph */
 		for (j = 0; j < desc->n_control; j++) {
 			graph->control_node[graph->n_control] = node;
 			graph->control_index[graph->n_control] = j;
 			graph->n_control++;
+		}
+	}
+	/* set data on all ports */
+	spa_list_for_each(node, &graph->node_list, link) {
+		struct link *link;
+		desc = node->desc;
+		d = desc->desc;
+		spa_list_for_each(link, &node->output_link_list, output_link) {
+			for (i = 0; i < n_hndl; i++) {
+				pw_log_info("link %d  %s:%d %s:%d %p", i,
+						node->name, link->output_port,
+						link->input->name, link->input_port,
+						link->audio_data);
+				d->connect_port(node->hndl[i], link->output_port, link->audio_data);
+				d->connect_port(link->input->hndl[i], link->input_port, link->audio_data);
+			}
 		}
 	}
 	/* now collect all input and output ports for all the handles. */
@@ -972,39 +1090,22 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		} else {
 			struct spa_json it = *inputs;
 			while (spa_json_get_string(&it, v, sizeof(v)) > 0) {
-				col = strchr(v, ':');
-				if (col != NULL) {
-					node_name = v;
-					port_name = col + 1;
-					*col = '\0';
-					node = find_node(graph, node_name);
-				} else {
-					node = first;
-					node_name = first->name;
-					port_name = v;
-				}
-				if (node == NULL) {
-					pw_log_error("input node %s not found", node_name);
-					res = -EINVAL;
+				struct node_port np;
+				if ((res = find_node_port(graph, v, LADSPA_PORT_INPUT, &np)) < 0) {
+					pw_log_error("input port %s not found", v);
 					goto error;
 				}
-				p = find_port(node, port_name, LADSPA_PORT_INPUT);
-				if (p == SPA_ID_INVALID) {
-					pw_log_error("input port %s:%s not found", node_name, port_name);
-					res = -EINVAL;
-					goto error;
-				}
-				desc = node->desc;
+				desc = np.node->desc;
 				d = desc->desc;
 
 				graph->in_desc[graph->n_input] = d;
-				graph->in_hndl[graph->n_input] = node->hndl[i];
-				graph->in_port[graph->n_input] = p;
+				graph->in_hndl[graph->n_input] = np.node->hndl[i];
+				graph->in_port[graph->n_input] = np.port;
 				graph->n_input++;
 			}
 		}
 		if (outputs == NULL) {
-			desc = first->desc;
+			desc = last->desc;
 			d = desc->desc;
 			for (j = 0; j < desc->n_output; j++) {
 				p = desc->output[j];
@@ -1016,35 +1117,19 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		} else {
 			struct spa_json it = *outputs;
 			while (spa_json_get_string(&it, v, sizeof(v)) > 0) {
-				col = strchr(v, ':');
-				if (col != NULL) {
-					node_name = v;
-					port_name = col + 1;
-					*col = '\0';
-					node = find_node(graph, node_name);
-				} else {
-					node = first;
-					node_name = first->name;
-					port_name = v;
-				}
-				if (node == NULL) {
-					pw_log_error("output node %s not found", node_name);
-					res = -EINVAL;
+				struct node_port np;
+				if ((res = find_node_port(graph, v, LADSPA_PORT_OUTPUT, &np)) < 0) {
+					pw_log_error("output port %s not found", v);
 					goto error;
 				}
-				p = find_port(node, port_name, LADSPA_PORT_OUTPUT);
-				if (p == SPA_ID_INVALID) {
-					pw_log_error("output port %s:%s not found", node_name, port_name);
-					res = -EINVAL;
-					goto error;
-				}
-				desc = node->desc;
+				desc = np.node->desc;
 				d = desc->desc;
 
 				graph->out_desc[graph->n_output] = d;
-				graph->out_hndl[graph->n_output] = node->hndl[i];
-				graph->out_port[graph->n_output] = p;
+				graph->out_hndl[graph->n_output] = np.node->hndl[i];
+				graph->out_port[graph->n_output] = np.port;
 				graph->n_output++;
+
 			}
 		}
 	}
@@ -1115,7 +1200,7 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 		if (strcmp("nodes", key) == 0) {
 			if (spa_json_enter_array(&it[1], &it[2]) <= 0) {
-				pw_log_error("nodes expect and array");
+				pw_log_error("nodes expect an array");
 				return -EINVAL;
 			}
 
@@ -1129,7 +1214,8 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 				return -EINVAL;
 
 			while (spa_json_enter_object(&it[2], &it[3]) > 0) {
-				return -ENOTSUP;
+				if ((res = parse_link(graph, &it[3])) < 0)
+					return res;
 			}
 		}
 		else if (strcmp("inputs", key) == 0) {

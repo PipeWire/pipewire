@@ -132,8 +132,9 @@ struct node {
 	struct spa_list link;
 	struct ladspa_descriptor *desc;
 
-	uint32_t pending;
-	uint32_t required;
+	struct spa_list output_link_list;
+	uint32_t n_input_links;
+	unsigned int visited:1;
 
 	char name[256];
 	LADSPA_Data control_data[MAX_PORTS];
@@ -145,10 +146,14 @@ struct node {
 
 struct link {
 	struct spa_list link;
-	uint32_t output_node;
+
+	struct spa_list output_link;
+
+	struct node *output;
 	uint32_t output_port;
-	uint32_t input_node;
+	struct node *input;
 	uint32_t input_port;
+
 	LADSPA_Data control_data;
 	LADSPA_Data audio_data[MAX_SAMPLES];
 };
@@ -847,6 +852,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		return -errno;
 
 	node->desc = desc;
+	spa_list_init(&node->output_link_list);
 	snprintf(node->name, sizeof(node->name), "%s", name);
 
 	for (i = 0; i < desc->n_control; i++)
@@ -858,6 +864,18 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	spa_list_append(&graph->node_list, &node->link);
 
 	return 0;
+}
+
+static struct node *find_next_node(struct graph *graph)
+{
+	struct node *node;
+	spa_list_for_each(node, &graph->node_list, link) {
+		if (node->n_input_links == 0 && !node->visited) {
+			node->visited = true;
+			return node;
+		}
+	}
+	return NULL;
 }
 
 static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_json *outputs)
@@ -873,11 +891,14 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 
 	graph->n_input = 0;
 	graph->n_output = 0;
-	graph->n_control = 0;
 
 	first = spa_list_first(&graph->node_list, struct node, link);
 	last = spa_list_last(&graph->node_list, struct node, link);
 
+	/* calculate the number of inputs and outputs into the graph.
+	 * If we have a list of inputs/outputs, just count them. Otherwise
+	 * we count all input ports of the first node and all output
+	 * ports of the last node */
 	if (inputs != NULL) {
 		n_input = count_array(inputs);
 	} else {
@@ -894,6 +915,8 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 	if (impl->playback_info.channels == 0)
 		impl->playback_info.channels = n_output;
 
+	/* compare to the requested number of channels and duplicate the
+	 * graph m_hndl times when needed. */
 	n_hndl = impl->capture_info.channels / n_input;
 	if (n_hndl != impl->playback_info.channels / n_output) {
 		pw_log_error("invalid channels");
@@ -902,6 +925,9 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 	}
 	pw_log_info("using %d instances %d %d", n_hndl, n_input, n_output);
 
+	/* now go over all nodes and create instances. We can also link
+	 * the control and notify ports already */
+	graph->n_control = 0;
 	spa_list_for_each(node, &graph->node_list, link) {
 		desc = node->desc;
 		d = desc->desc;
@@ -912,10 +938,6 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 				goto error;
 			}
 			node->n_hndl = i;
-
-			graph->hndl[graph->n_hndl] = node->hndl[i];
-			graph->desc[graph->n_hndl] = d;
-			graph->n_hndl++;
 
 			for (j = 0; j < desc->n_control; j++) {
 				p = desc->control[j];
@@ -928,12 +950,14 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 			if (d->activate)
 				d->activate(node->hndl[i]);
 		}
+		/* collect all control ports on the graph */
 		for (j = 0; j < desc->n_control; j++) {
 			graph->control_node[graph->n_control] = node;
 			graph->control_index[graph->n_control] = j;
 			graph->n_control++;
 		}
 	}
+	/* now collect all input and output ports for all the handles. */
 	for (i = 0; i < n_hndl; i++) {
 		if (inputs == NULL) {
 			desc = first->desc;
@@ -1025,6 +1049,24 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		}
 	}
 
+	/* order all nodes based on dependencies */
+	graph->n_hndl = 0;
+	while (true) {
+		struct link *link;
+
+		if ((node = find_next_node(graph)) == NULL)
+			break;
+
+		desc = node->desc;
+		d = desc->desc;
+		for (i = 0; i < n_hndl; i++) {
+			graph->hndl[graph->n_hndl] = node->hndl[i];
+			graph->desc[graph->n_hndl] = d;
+			graph->n_hndl++;
+		}
+		spa_list_for_each(link, &node->output_link_list, output_link)
+			link->input->n_input_links--;
+	}
 	return 0;
 
 error:

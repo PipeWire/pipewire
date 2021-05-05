@@ -433,7 +433,7 @@ static int port_enum_formats(void *object,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-				SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(14,
+				SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(16,
 							SPA_AUDIO_FORMAT_F32P,
 							SPA_AUDIO_FORMAT_F32P,
 							SPA_AUDIO_FORMAT_F32,
@@ -446,6 +446,8 @@ static int port_enum_formats(void *object,
 							SPA_AUDIO_FORMAT_S24_OE,
 							SPA_AUDIO_FORMAT_S16P,
 							SPA_AUDIO_FORMAT_S16,
+							SPA_AUDIO_FORMAT_S8P,
+							SPA_AUDIO_FORMAT_S8,
 							SPA_AUDIO_FORMAT_U8P,
 							SPA_AUDIO_FORMAT_U8),
 				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
@@ -638,6 +640,8 @@ static int calc_width(struct spa_audio_info *info)
 	switch (info->info.raw.format) {
 	case SPA_AUDIO_FORMAT_U8:
 	case SPA_AUDIO_FORMAT_U8P:
+	case SPA_AUDIO_FORMAT_S8:
+	case SPA_AUDIO_FORMAT_S8P:
 		return 1;
 	case SPA_AUDIO_FORMAT_S16P:
 	case SPA_AUDIO_FORMAT_S16:

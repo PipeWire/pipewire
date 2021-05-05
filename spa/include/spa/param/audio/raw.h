@@ -83,6 +83,7 @@ enum spa_audio_format {
 	SPA_AUDIO_FORMAT_S24P,
 	SPA_AUDIO_FORMAT_F32P,
 	SPA_AUDIO_FORMAT_F64P,
+	SPA_AUDIO_FORMAT_S8P,
 
 	/* other formats start here */
 	SPA_AUDIO_FORMAT_START_Other		= 0x400,

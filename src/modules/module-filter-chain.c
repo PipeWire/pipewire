@@ -809,19 +809,27 @@ static int load_node(struct graph *graph, struct spa_json *json)
 
 	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
 		if (strcmp("type", key) == 0) {
-			if (spa_json_get_string(json, type, sizeof(type)) <= 0)
+			if (spa_json_get_string(json, type, sizeof(type)) <= 0) {
+				pw_log_error("type expects a string");
 				return -EINVAL;
+			}
 			if (strcmp(type, "ladspa") != 0)
 				return -ENOTSUP;
 		} else if (strcmp("name", key) == 0) {
-			if (spa_json_get_string(json, name, sizeof(name)) <= 0)
+			if (spa_json_get_string(json, name, sizeof(name)) <= 0) {
+				pw_log_error("name expects a string");
 				return -EINVAL;
+			}
 		} else if (strcmp("plugin", key) == 0) {
-			if (spa_json_get_string(json, plugin, sizeof(plugin)) <= 0)
+			if (spa_json_get_string(json, plugin, sizeof(plugin)) <= 0) {
+				pw_log_error("plugin expects a string");
 				return -EINVAL;
+			}
 		} else if (strcmp("label", key) == 0) {
-			if (spa_json_get_string(json, label, sizeof(label)) <= 0)
+			if (spa_json_get_string(json, label, sizeof(label)) <= 0) {
+				pw_log_error("label expects a string");
 				return -EINVAL;
+			}
 		} else if (strcmp("control", key) == 0) {
 			if (spa_json_enter_array(json, &it[0]) <= 0)
 				return -EINVAL;
@@ -1054,8 +1062,10 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 	spa_list_init(&graph->node_list);
 	spa_list_init(&graph->link_list);
 
-	if ((json = pw_properties_get(props, "filter.graph")) == NULL)
+	if ((json = pw_properties_get(props, "filter.graph")) == NULL) {
+		pw_log_error("missing filter.graph property");
 		return -EINVAL;
+	}
 
 	spa_json_init(&it[0], json, strlen(json));
         if (spa_json_enter_object(&it[0], &it[1]) <= 0)
@@ -1063,8 +1073,10 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 		if (strcmp("nodes", key) == 0) {
-			if (spa_json_enter_array(&it[1], &it[2]) <= 0)
+			if (spa_json_enter_array(&it[1], &it[2]) <= 0) {
+				pw_log_error("nodes expect and array");
 				return -EINVAL;
+			}
 
 			while (spa_json_enter_object(&it[2], &it[3]) > 0) {
 				if ((res = load_node(graph, &it[3])) < 0)

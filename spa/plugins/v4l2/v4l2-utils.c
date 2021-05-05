@@ -1488,9 +1488,9 @@ mmap_init(struct impl *this,
 			use_expbuf = true;
 		} else {
 fallback:
-			d[0].type = SPA_DATA_MemFd;
+			d[0].type = SPA_DATA_MemPtr;
 			d[0].flags = SPA_DATA_FLAG_READABLE;
-			d[0].fd = dev->fd;
+			d[0].fd = -1;
 			d[0].mapoffset = b->v4l2_buffer.m.offset;
 			d[0].data = mmap(NULL,
 					b->v4l2_buffer.length,

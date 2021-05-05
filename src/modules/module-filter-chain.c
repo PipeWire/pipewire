@@ -94,8 +94,6 @@ static const struct spa_dict_item module_props[] = {
 
 #include <pipewire/pipewire.h>
 
-#define MAX_NODES 1
-#define MAX_LINKS 0
 #define MAX_PORTS 64
 #define MAX_CONTROLS 256
 #define MAX_SAMPLES 8192
@@ -166,17 +164,17 @@ struct graph {
 
 	uint32_t n_input;
 	const LADSPA_Descriptor *in_desc[MAX_PORTS];
-	LADSPA_Handle *in_hndl[MAX_PORTS];
+	LADSPA_Handle in_hndl[MAX_PORTS];
 	uint32_t in_port[MAX_PORTS];
 
 	uint32_t n_output;
 	const LADSPA_Descriptor *out_desc[MAX_PORTS];
-	LADSPA_Handle *out_hndl[MAX_PORTS];
+	LADSPA_Handle out_hndl[MAX_PORTS];
 	uint32_t out_port[MAX_PORTS];
 
 	uint32_t n_hndl;
 	const LADSPA_Descriptor *desc[MAX_PORTS];
-	LADSPA_Handle *hndl[MAX_PORTS];
+	LADSPA_Handle hndl[MAX_PORTS];
 
 	uint32_t n_control;
 	struct node *control_node[MAX_CONTROLS];
@@ -853,10 +851,14 @@ static int parse_link(struct graph *graph, struct spa_json *json)
 		else if (spa_json_next(json, &val) < 0)
 			break;
 	}
-	if ((res = find_node_port(graph, output, LADSPA_PORT_OUTPUT, &np_out)) < 0)
+	if ((res = find_node_port(graph, output, LADSPA_PORT_OUTPUT, &np_out)) < 0) {
+		pw_log_error("unknown output port %s", output);
 		return res;
-	if ((res = find_node_port(graph, input, LADSPA_PORT_INPUT, &np_in)) < 0)
+	}
+	if ((res = find_node_port(graph, input, LADSPA_PORT_INPUT, &np_in)) < 0) {
+		pw_log_error("unknown input port %s", input);
 		return res;
+	}
 
 	if ((link = calloc(1, sizeof(*link))) == NULL)
 		return -errno;
@@ -973,7 +975,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 {
 	struct impl *impl = graph->impl;
 	struct node *node, *first, *last;
-	uint32_t i, j, n_input, n_output, n_hndl;
+	uint32_t i, j, n_input, n_output, n_hndl = 0;
 	int res;
 	unsigned long p;
 	struct ladspa_descriptor *desc;
@@ -999,6 +1001,16 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		n_output = count_array(outputs);
 	} else {
 		n_output = last->desc->n_output;
+	}
+	if (n_input == 0) {
+		pw_log_error("no inputs");
+		res = -EINVAL;
+		goto error;
+	}
+	if (n_output == 0) {
+		pw_log_error("no outputs");
+		res = -EINVAL;
+		goto error;
 	}
 
 	if (impl->capture_info.channels == 0)
@@ -1036,8 +1048,6 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 			}
 			for (j = 0; j < desc->n_output; j++) {
 				p = desc->output[j];
-				pw_log_info("out %d %lu %s %p %p %p", i, p,
-						node->name, node->hndl[i], d, *d->connect_port);
 				d->connect_port(node->hndl[i], p, graph->discard_data);
 			}
 			for (j = 0; j < desc->n_control; j++) {
@@ -1194,8 +1204,10 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 	}
 
 	spa_json_init(&it[0], json, strlen(json));
-        if (spa_json_enter_object(&it[0], &it[1]) <= 0)
-		spa_json_init(&it[1], json, strlen(json));
+        if (spa_json_enter_object(&it[0], &it[1]) <= 0) {
+		pw_log_error("filter.graph must be an object");
+		return -EINVAL;
+	}
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 		if (strcmp("nodes", key) == 0) {

@@ -831,8 +831,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 				return -EINVAL;
 			}
 		} else if (strcmp("control", key) == 0) {
-			if (spa_json_enter_array(json, &it[0]) <= 0)
-				return -EINVAL;
+			it[0] = *json;
 			have_control = true;
 		} else if (spa_json_next(json, &val) < 0)
 			break;

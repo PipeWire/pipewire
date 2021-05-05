@@ -1374,8 +1374,11 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 		else if (port->memtype == V4L2_MEMORY_DMABUF) {
 			b->v4l2_buffer.m.fd = d[0].fd;
 		}
-		else
+		else {
+			spa_log_error(this->log, "v4l2: invalid port memory %d",
+					port->memtype);
 			return -EIO;
+		}
 
 		spa_v4l2_buffer_recycle(this, i);
 	}
@@ -1542,8 +1545,11 @@ spa_v4l2_alloc_buffers(struct impl *this,
 	} else if (dev->cap.capabilities & V4L2_CAP_READWRITE) {
 		if ((res = read_init(this)) < 0)
 			return res;
-	} else
+	} else {
+		spa_log_error(this->log, "v4l2: invalid capabilities %08x",
+					dev->cap.capabilities);
 		return -EIO;
+	}
 
 	return 0;
 }

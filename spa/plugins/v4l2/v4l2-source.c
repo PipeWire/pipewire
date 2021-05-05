@@ -298,10 +298,14 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	{
 		struct port *port = GET_OUT_PORT(this, 0);
 
-		if (!port->have_format)
+		if (!port->have_format) {
+			spa_log_error(this->log, "no format");
 			return -EIO;
-		if (port->n_buffers == 0)
+		}
+		if (port->n_buffers == 0) {
+			spa_log_error(this->log, "no buffers");
 			return -EIO;
+		}
 
 		if ((res = spa_v4l2_stream_on(this)) < 0)
 			return res;
@@ -621,8 +625,8 @@ static int port_set_format(void *object,
 		port->have_format = false;
 	}
 
-	if (spa_v4l2_set_format(this, &info, flags) < 0)
-		return -EINVAL;
+	if ((res = spa_v4l2_set_format(this, &info, flags)) < 0)
+		return res;
 
 	if (!SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
 		port->current_format = info;

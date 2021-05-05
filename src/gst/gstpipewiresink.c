@@ -255,6 +255,10 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
 	      SPA_MAX(MIN_BUFFERS, min_buffers),
 	      max_buffers ? max_buffers : INT32_MAX),
       SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16),
+      SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(
+						(1<<SPA_DATA_DmaBuf) |
+						(1<<SPA_DATA_MemFd) |
+						(1<<SPA_DATA_MemPtr)),
       0);
   port_params[0] = spa_pod_builder_pop (&b, &f);
 

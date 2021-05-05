@@ -787,7 +787,11 @@ on_param_changed (void *data, uint32_t id,
         SPA_PARAM_BUFFERS_blocks,  SPA_POD_CHOICE_RANGE_Int(0, 1, INT32_MAX),
         SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
         SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
-        SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+        SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16),
+        SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(
+						(1<<SPA_DATA_DmaBuf) |
+						(1<<SPA_DATA_MemFd) |
+						(1<<SPA_DATA_MemPtr)));
 
     params[1] = spa_pod_builder_add_object (&b,
         SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,

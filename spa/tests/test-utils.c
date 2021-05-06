@@ -102,17 +102,17 @@ static void test_abi(void)
 	spa_assert(SPA_TYPE_Fd == 18);
 	spa_assert(SPA_TYPE_Choice == 19);
 	spa_assert(SPA_TYPE_Pod == 20);
-	spa_assert(SPA_TYPE_LAST == 21);
+	spa_assert(_SPA_TYPE_LAST == 21);
 
 	spa_assert(SPA_TYPE_EVENT_START == 0x20000);
 	spa_assert(SPA_TYPE_EVENT_Device == 0x20001);
 	spa_assert(SPA_TYPE_EVENT_Node == 0x20002);
-	spa_assert(SPA_TYPE_EVENT_LAST == 0x20003);
+	spa_assert(_SPA_TYPE_EVENT_LAST == 0x20003);
 
 	spa_assert(SPA_TYPE_COMMAND_START == 0x30000);
 	spa_assert(SPA_TYPE_COMMAND_Device == 0x30001);
 	spa_assert(SPA_TYPE_COMMAND_Node == 0x30002);
-	spa_assert(SPA_TYPE_COMMAND_LAST == 0x30003);
+	spa_assert(_SPA_TYPE_COMMAND_LAST == 0x30003);
 
 	spa_assert(SPA_TYPE_OBJECT_START == 0x40000);
 	spa_assert(SPA_TYPE_OBJECT_PropInfo == 0x40001);
@@ -125,7 +125,7 @@ static void test_abi(void)
 	spa_assert(SPA_TYPE_OBJECT_ParamPortConfig == 0x40008);
 	spa_assert(SPA_TYPE_OBJECT_ParamRoute == 0x40009);
 	spa_assert(SPA_TYPE_OBJECT_Profiler == 0x4000a);
-	spa_assert(SPA_TYPE_OBJECT_LAST == 0x4000b);
+	spa_assert(_SPA_TYPE_OBJECT_LAST == 0x4000b);
 
 	spa_assert(SPA_TYPE_VENDOR_PipeWire == 0x02000000);
 	spa_assert(SPA_TYPE_VENDOR_Other == 0x7f000000);

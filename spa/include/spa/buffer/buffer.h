@@ -45,7 +45,7 @@ enum spa_data_type {
 	SPA_DATA_DmaBuf,		/**< fd to dmabuf memory */
 	SPA_DATA_MemId,			/**< memory is identified with an id */
 
-	SPA_DATA_LAST,			/**< not part of ABI */
+	_SPA_DATA_LAST,			/**< not part of ABI */
 };
 
 /** Chunk of memory, can change for each buffer */

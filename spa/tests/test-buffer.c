@@ -34,7 +34,7 @@ static void test_abi(void)
 	spa_assert(SPA_DATA_MemFd == 2);
 	spa_assert(SPA_DATA_DmaBuf == 3);
 	spa_assert(SPA_DATA_MemId == 4);
-	spa_assert(SPA_DATA_LAST == 5);
+	spa_assert(_SPA_DATA_LAST == 5);
 
 #if defined(__x86_64__) && defined(__LP64__)
 	spa_assert(sizeof(struct spa_chunk) == 16);
@@ -55,7 +55,7 @@ static void test_abi(void)
 	spa_assert(SPA_META_Cursor == 5);
 	spa_assert(SPA_META_Control == 6);
 	spa_assert(SPA_META_Busy == 7);
-	spa_assert(SPA_META_LAST == 8);
+	spa_assert(_SPA_META_LAST == 8);
 
 #if defined(__x86_64__) && defined(__LP64__)
 	spa_assert(sizeof(struct spa_meta) == 16);

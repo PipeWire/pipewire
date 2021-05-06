@@ -149,7 +149,7 @@ static inline int spa_debug_format(int indent,
 		size = val->size;
 		vals = SPA_POD_BODY(val);
 
-		if (type < SPA_TYPE_None || type >= SPA_TYPE_LAST)
+		if (type < SPA_TYPE_None || type >= _SPA_TYPE_LAST)
 			continue;
 
 		ti = spa_debug_type_find(info, prop->key);

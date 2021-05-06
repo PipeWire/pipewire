@@ -54,26 +54,26 @@ enum {
 	SPA_TYPE_Fd,
 	SPA_TYPE_Choice,
 	SPA_TYPE_Pod,
-	SPA_TYPE_LAST,				/**< not part of ABI */
+	_SPA_TYPE_LAST,				/**< not part of ABI */
 
 	/* Pointers */
 	SPA_TYPE_POINTER_START = 0x10000,
 	SPA_TYPE_POINTER_Buffer,
 	SPA_TYPE_POINTER_Meta,
 	SPA_TYPE_POINTER_Dict,
-	SPA_TYPE_POINTER_LAST,			/**< not part of ABI */
+	_SPA_TYPE_POINTER_LAST,			/**< not part of ABI */
 
 	/* Events */
 	SPA_TYPE_EVENT_START = 0x20000,
 	SPA_TYPE_EVENT_Device,
 	SPA_TYPE_EVENT_Node,
-	SPA_TYPE_EVENT_LAST,			/**< not part of ABI */
+	_SPA_TYPE_EVENT_LAST,			/**< not part of ABI */
 
 	/* Commands */
 	SPA_TYPE_COMMAND_START = 0x30000,
 	SPA_TYPE_COMMAND_Device,
 	SPA_TYPE_COMMAND_Node,
-	SPA_TYPE_COMMAND_LAST,			/**< not part of ABI */
+	_SPA_TYPE_COMMAND_LAST,			/**< not part of ABI */
 
 	/* Objects */
 	SPA_TYPE_OBJECT_START = 0x40000,
@@ -87,7 +87,7 @@ enum {
 	SPA_TYPE_OBJECT_ParamPortConfig,
 	SPA_TYPE_OBJECT_ParamRoute,
 	SPA_TYPE_OBJECT_Profiler,
-	SPA_TYPE_OBJECT_LAST,			/**< not part of ABI */
+	_SPA_TYPE_OBJECT_LAST,			/**< not part of ABI */
 
 	/* vendor extensions */
 	SPA_TYPE_VENDOR_PipeWire	= 0x02000000,

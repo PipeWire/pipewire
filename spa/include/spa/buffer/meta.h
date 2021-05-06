@@ -47,7 +47,7 @@ enum spa_meta_type {
 				  *  associated with the data */
 	SPA_META_Busy,		/**< don't write to buffer when count > 0 */
 
-	SPA_META_LAST,		/**< not part of ABI/API */
+	_SPA_META_LAST,		/**< not part of ABI/API */
 };
 
 /**

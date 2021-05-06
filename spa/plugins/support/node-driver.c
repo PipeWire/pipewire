@@ -134,6 +134,8 @@ static void on_timeout(struct spa_source *source)
 	this->next_time = nsec + duration * SPA_NSEC_PER_SEC / rate;
 
 	if (SPA_LIKELY(this->clock)) {
+		SPA_FLAG_UPDATE(this->clock->flags,
+				SPA_IO_CLOCK_FLAG_FREEWHEEL, this->props.freewheel);
 		this->clock->nsec = nsec;
 		this->clock->position += duration;
 		this->clock->duration = duration;
@@ -302,6 +304,7 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct impl *this;
+	const char *str;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -353,6 +356,11 @@ impl_init(const struct spa_handle_factory *factory,
 	this->timerspec.it_interval.tv_nsec = 0;
 
 	reset_props(&this->props);
+
+	if (info) {
+		if ((str = spa_dict_lookup(info, "node.freewheel")) != NULL)
+			this->props.freewheel = (strcmp(str, "true") == 0 || atoi(str) == 1);
+	}
 
 	spa_loop_add_source(this->data_loop, &this->timer_source);
 

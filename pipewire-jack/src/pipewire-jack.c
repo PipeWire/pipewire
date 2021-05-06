@@ -3274,8 +3274,24 @@ int jack_set_latency_callback (jack_client_t *client,
 SPA_EXPORT
 int jack_set_freewheel(jack_client_t* client, int onoff)
 {
-	pw_log_warn(NAME" %p: not implemented %d", client, onoff);
-	return -ENOTSUP;
+	struct client *c = (struct client *) client;
+	struct spa_node_info ni;
+	struct spa_dict_item items[1];
+
+	pw_log_info(NAME" %p: freewheel %d", client, onoff);
+
+	ni = SPA_NODE_INFO_INIT();
+	ni.max_input_ports = MAX_PORTS;
+	ni.max_output_ports = MAX_PORTS;
+	ni.change_mask = SPA_NODE_CHANGE_MASK_PROPS;
+	items[0] = SPA_DICT_ITEM_INIT("node.group", onoff ? "pipewire.freewheel" : "");
+	ni.props = &SPA_DICT_INIT_ARRAY(items);
+
+	pw_client_node_update(c->node,
+                                    PW_CLIENT_NODE_UPDATE_INFO,
+				    0, NULL, &ni);
+
+	return 0;
 }
 
 SPA_EXPORT

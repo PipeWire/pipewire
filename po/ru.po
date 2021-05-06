@@ -4,22 +4,23 @@
 #
 # Leonid Kurbatov <llenchikk@rambler.ru>, 2010, 2012.
 # Alexander Potashev <aspotashev@gmail.com>, 2014, 2019.
+# Victor Ryzhykh <victorr2007@yandex.ru>, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire\n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
-"issues/new\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/issues/"
+"new\n"
 "POT-Creation-Date: 2021-04-18 16:54+0800\n"
-"PO-Revision-Date: 2021-04-18 05:49+0300\n"
-"Last-Translator: Alexander Potashev <aspotashev@gmail.com>\n"
-"Language-Team: Russian <kde-russian@lists.kde.ru>\n"
+"PO-Revision-Date: 2021-05-06 06:53+0300\n"
+"Last-Translator: Victor Ryzhykh <victorr2007@yandex.ru>\n"
+"Language-Team: ru\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
-"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
-"X-Generator: Lokalize 18.12.2\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<"
+"=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"X-Generator: Lokalize 21.04.0\n"
 
 #: src/daemon/pipewire.c:43
 #, c-format
@@ -32,7 +33,8 @@ msgstr ""
 "%s [опции]\n"
 "  -h, --help                            Показать справку\n"
 "      --version                         Информация о версии\n"
-"  -c, --config                          Указать файл конфигурации (По умолчанию %s)\n"
+"  -c, --config                          Указать файл конфигурации (По"
+" умолчанию %s)\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
@@ -89,17 +91,22 @@ msgid ""
 "\n"
 msgstr ""
 "  -R, --remote                          Имя удаленного фоновой службы\n"
-"      --media-type                      Задать тип мультимедиа (по умолчанию %s)\n"
-"      --media-category                  Задать категорию мультимедиа (по умолчанию %s)\n"
-"      --media-role                      Задать роль мультимедиа (по умолчанию %s)\n"
+"      --media-type                      Задать тип мультимедиа (по умолчанию "
+"%s)\n"
+"      --media-category                  Задать категорию мультимедиа (по"
+" умолчанию %s)\n"
+"      --media-role                      Задать роль мультимедиа (по умолчанию"
+" %s)\n"
 "      --target                          Задать цель узла (по умолчанию %s)\n"
 "                                          0 значит не связывать\n"
-"      --latency                         Задать задежку узла (по умолчанию %s)\n"
+"      --latency                         Задать задежку узла (по умолчанию "
+"%s)\n"
 "                                          Xединица (единица = s, ms, us, ns)\n"
 "                                          or direct samples (256)\n"
 "                                          частота такая же как у источника "
 "file\n"
-"      --list-targets                    Перечислить доступные цели для --target\n"
+"      --list-targets                    Перечислить доступные цели для"
+" --target\n"
 "\n"
 
 #: src/tools/pw-cat.c:1016
@@ -121,9 +128,11 @@ msgid ""
 "%d)\n"
 "\n"
 msgstr ""
-"      --rate                            Частота дискретизации (необходимо для записи) (По умолчанию "
+"      --rate                            Частота дискретизации (необходимо для"
+" записи) (По умолчанию "
 "%u)\n"
-"      --channels                        Количество каналов (необходимо для записи) "
+"      --channels                        Количество каналов (необходимо для"
+" записи) "
 "(default %u)\n"
 "      --channel-map                     Карта каналов\n"
 "                                            одно из: \"stereo\", "
@@ -133,7 +142,8 @@ msgstr ""
 "      --format                          Формат %s (необходимо для записи) "
 "(default %s)\n"
 "      --volume                          Громкость 0-1.0 (по умолчанию %.3f)\n"
-"  -q  --quality                         Качество ресэмплера (0 - 15) (по умолчанию "
+"  -q  --quality                         Качество ресэмплера (0 - 15) (по"
+" умолчанию "
 "%d)\n"
 "\n"
 
@@ -162,7 +172,8 @@ msgstr ""
 "%s [опции] [команда]\n"
 "  -h, --help                            Показать справку\n"
 "      --version                         Информация о версии\n"
-"  -d, --daemon                          Запустить в режиме фоновой службы (По умолчанию false)\n"
+"  -d, --daemon                          Запустить в режиме фоновой службы (По"
+" умолчанию false)\n"
 "  -r, --remote                          Имя удаленного фоновой службы\n"
 "\n"
 
@@ -294,7 +305,6 @@ msgid "Analog Output"
 msgstr "Аналоговый выход"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2809
-#, fuzzy
 msgid "Headphones 2"
 msgstr "Наушники 2"
 
@@ -349,21 +359,18 @@ msgid "Chat Input"
 msgstr "Разговорный выход"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2823
-#, fuzzy
 msgid "Virtual Surround 7.1"
-msgstr "Виртуальный аудиоприёмник объёмного звука"
+msgstr "Виртуальный объёмный звук 7.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4527
 msgid "Analog Mono"
 msgstr "Аналоговый моно"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4528
-#, fuzzy
 msgid "Analog Mono (Left)"
 msgstr "Аналоговый моно (левый)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4529
-#, fuzzy
 msgid "Analog Mono (Right)"
 msgstr "Аналоговый моно (правый)"
 
@@ -394,9 +401,8 @@ msgstr "Гарнитура"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4541
 #: spa/plugins/alsa/acp/alsa-mixer.c:4699
-#, fuzzy
 msgid "Speakerphone"
-msgstr "Динамик"
+msgstr "Спикерфон"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4542
 #: spa/plugins/alsa/acp/alsa-mixer.c:4543
@@ -612,34 +618,34 @@ msgstr[2] ""
 
 #: spa/plugins/bluez5/bluez5-device.c:1010
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
-msgstr ""
+msgstr "Адаптер аудиогарнитуры (приёмник A2DP и HSP/HFP AG)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1033
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
-msgstr ""
+msgstr "Воспроизведение высокого качества (приёмник A2DP, кодек %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1035
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
-msgstr ""
+msgstr "Дуплекс высокого качества (источник / приёмник A2DP,  кодек %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1041
 msgid "High Fidelity Playback (A2DP Sink)"
-msgstr ""
+msgstr "Воспроизведение высокого качества (приёмник A2DP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1043
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
-msgstr ""
+msgstr "Дуплекс высокого качества (источник / приёмник A2DP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1070
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr ""
+msgstr "Гарнитура (HSP/HFP, кодек %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1074
 msgid "Headset Head Unit (HSP/HFP)"
-msgstr ""
+msgstr "Гарнитура (HSP/HFP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"
@@ -666,6 +672,5 @@ msgid "Phone"
 msgstr "Телефон"
 
 #: spa/plugins/bluez5/bluez5-device.c:1181
-#, fuzzy
 msgid "Bluetooth"
 msgstr "Bluetooth"

@@ -455,7 +455,7 @@ struct pw_impl_core *pw_context_create_core(struct pw_context *context,
 	spa_hook_list_init(&this->listener_list);
 
 	if (user_data_size > 0)
-		this->user_data = SPA_MEMBER(this, sizeof(*this), void);
+		this->user_data = SPA_PTROFF(this, sizeof(*this), void);
 
 	pw_log_debug(NAME" %p: new %s", this, name);
 

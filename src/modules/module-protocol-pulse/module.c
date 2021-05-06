@@ -50,7 +50,7 @@ struct module *module_new(struct impl *impl, const struct module_methods *method
 	module->impl = impl;
 	module->methods = methods;
 	spa_hook_list_init(&module->hooks);
-	module->user_data = SPA_MEMBER(module, sizeof(struct module), void);
+	module->user_data = SPA_PTROFF(module, sizeof(struct module), void);
 
 	return module;
 }

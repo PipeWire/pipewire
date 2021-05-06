@@ -1468,7 +1468,7 @@ struct spa_bt_transport *spa_bt_transport_create(struct spa_bt_monitor *monitor,
 	t->fd = -1;
 	t->sco_io = NULL;
 	t->delay = SPA_BT_UNKNOWN_DELAY;
-	t->user_data = SPA_MEMBER(t, sizeof(struct spa_bt_transport), void);
+	t->user_data = SPA_PTROFF(t, sizeof(struct spa_bt_transport), void);
 	spa_hook_list_init(&t->listener_list);
 
 	spa_list_append(&monitor->transport_list, &t->link);

@@ -577,7 +577,7 @@ convert_1 (ConvertData *d)
 
   spa_pod_builder_pop (&d->b, &f);
 
-  return SPA_MEMBER (d->b.data, 0, struct spa_pod);
+  return SPA_PTROFF (d->b.data, 0, struct spa_pod);
 }
 
 struct spa_pod *

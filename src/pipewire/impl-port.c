@@ -449,7 +449,7 @@ struct pw_impl_port *pw_context_create_port(
 	this->rt.io = SPA_IO_BUFFERS_INIT;
 
         if (user_data_size > 0)
-		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
+		this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
 	this->info.direction = direction;
 	this->info.params = this->params;

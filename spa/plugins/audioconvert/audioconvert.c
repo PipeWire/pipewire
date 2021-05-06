@@ -1288,37 +1288,37 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.params = this->params;
 	this->info.n_params = 4;
 
-	this->hnd_merger = SPA_MEMBER(this, sizeof(struct impl), struct spa_handle);
+	this->hnd_merger = SPA_PTROFF(this, sizeof(struct impl), struct spa_handle);
 	spa_handle_factory_init(&spa_merger_factory,
 				this->hnd_merger,
 				info, support, n_support);
 	size = spa_handle_factory_get_size(&spa_merger_factory, info);
 
-	this->hnd_convert_in = SPA_MEMBER(this->hnd_merger, size, struct spa_handle);
+	this->hnd_convert_in = SPA_PTROFF(this->hnd_merger, size, struct spa_handle);
 	spa_handle_factory_init(&spa_fmtconvert_factory,
 				this->hnd_convert_in,
 				info, support, n_support);
 	size = spa_handle_factory_get_size(&spa_fmtconvert_factory, info);
 
-	this->hnd_channelmix = SPA_MEMBER(this->hnd_convert_in, size, struct spa_handle);
+	this->hnd_channelmix = SPA_PTROFF(this->hnd_convert_in, size, struct spa_handle);
 	spa_handle_factory_init(&spa_channelmix_factory,
 				this->hnd_channelmix,
 				info, support, n_support);
 	size = spa_handle_factory_get_size(&spa_channelmix_factory, info);
 
-	this->hnd_resample = SPA_MEMBER(this->hnd_channelmix, size, struct spa_handle);
+	this->hnd_resample = SPA_PTROFF(this->hnd_channelmix, size, struct spa_handle);
 	spa_handle_factory_init(&spa_resample_factory,
 				this->hnd_resample,
 				info, support, n_support);
 	size = spa_handle_factory_get_size(&spa_resample_factory, info);
 
-	this->hnd_convert_out = SPA_MEMBER(this->hnd_resample, size, struct spa_handle);
+	this->hnd_convert_out = SPA_PTROFF(this->hnd_resample, size, struct spa_handle);
 	spa_handle_factory_init(&spa_fmtconvert_factory,
 				this->hnd_convert_out,
 				info, support, n_support);
 	size = spa_handle_factory_get_size(&spa_fmtconvert_factory, info);
 
-	this->hnd_splitter = SPA_MEMBER(this->hnd_convert_out, size, struct spa_handle);
+	this->hnd_splitter = SPA_PTROFF(this->hnd_convert_out, size, struct spa_handle);
 	spa_handle_factory_init(&spa_splitter_factory,
 				this->hnd_splitter,
 				info, support, n_support);

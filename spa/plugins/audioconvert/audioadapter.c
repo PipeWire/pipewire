@@ -1196,7 +1196,7 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_VERSION_NODE,
 			&impl_node, this);
 
-	this->hnd_convert = SPA_MEMBER(this, sizeof(struct impl), struct spa_handle);
+	this->hnd_convert = SPA_PTROFF(this, sizeof(struct impl), struct spa_handle);
 	spa_handle_factory_init(&spa_audioconvert_factory,
 				this->hnd_convert,
 				info, support, n_support);

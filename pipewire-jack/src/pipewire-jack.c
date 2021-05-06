@@ -1799,7 +1799,7 @@ static int client_node_port_use_buffers(void *object,
 
 			memcpy(d, &buf->datas[j], sizeof(struct spa_data));
 			d->chunk =
-			    SPA_MEMBER(mm->ptr, offset + sizeof(struct spa_chunk) * j,
+			    SPA_PTROFF(mm->ptr, offset + sizeof(struct spa_chunk) * j,
 				       struct spa_chunk);
 
 			if (d->type == SPA_DATA_MemId) {
@@ -1833,7 +1833,7 @@ static int client_node_port_use_buffers(void *object,
 						c, j, bm->id, bm->fd, d->maxsize);
 			} else if (d->type == SPA_DATA_MemPtr) {
 				int offs = SPA_PTR_TO_INT(d->data);
-				d->data = SPA_MEMBER(mm->ptr, offs, void);
+				d->data = SPA_PTROFF(mm->ptr, offs, void);
 				d->fd = -1;
 				pw_log_debug(NAME" %p: data %d %u -> mem %p %d",
 						c, j, b->id, d->data, d->maxsize);
@@ -5128,7 +5128,7 @@ static inline uint8_t * midi_event_data (void* port_buffer,
         if (SPA_LIKELY(event->size <= MIDI_INLINE_MAX))
                 return (uint8_t *)event->inline_data;
         else
-                return SPA_MEMBER(port_buffer, event->byte_offset, uint8_t);
+                return SPA_PTROFF(port_buffer, event->byte_offset, uint8_t);
 }
 
 SPA_EXPORT
@@ -5146,7 +5146,7 @@ int jack_midi_event_get(jack_midi_event_t *event,
 			uint32_t    event_index)
 {
 	struct midi_buffer *mb = port_buffer;
-	struct midi_event *ev = SPA_MEMBER(mb, sizeof(*mb), struct midi_event);
+	struct midi_event *ev = SPA_PTROFF(mb, sizeof(*mb), struct midi_event);
 	spa_return_val_if_fail(mb != NULL, -EINVAL);
 	spa_return_val_if_fail(ev != NULL, -EINVAL);
 	if (event_index >= mb->event_count)
@@ -5206,7 +5206,7 @@ jack_midi_data_t* jack_midi_event_reserve(void *port_buffer,
                         size_t data_size)
 {
 	struct midi_buffer *mb = port_buffer;
-	struct midi_event *events = SPA_MEMBER(mb, sizeof(*mb), struct midi_event);
+	struct midi_event *events = SPA_PTROFF(mb, sizeof(*mb), struct midi_event);
 	size_t buffer_size;
 
 	spa_return_val_if_fail(mb != NULL, NULL);
@@ -5241,7 +5241,7 @@ jack_midi_data_t* jack_midi_event_reserve(void *port_buffer,
 		} else {
 			mb->write_pos += data_size;
 			ev->byte_offset = buffer_size - 1 - mb->write_pos;
-			res = SPA_MEMBER(mb, ev->byte_offset, uint8_t);
+			res = SPA_PTROFF(mb, ev->byte_offset, uint8_t);
 		}
 		mb->event_count += 1;
 		return res;

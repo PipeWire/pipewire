@@ -86,7 +86,7 @@ struct pw_resource *pw_resource_new(struct pw_impl_client *client,
 
 
 	if (user_data_size > 0)
-		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
+		this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
 	pw_log_debug(NAME" %p: new %u type %s/%d client:%p marshal:%p",
 			this, id, type, version, client, this->marshal);

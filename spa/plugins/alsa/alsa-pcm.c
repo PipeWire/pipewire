@@ -1004,7 +1004,7 @@ again:
 
 		if (SPA_LIKELY(state->use_mmap)) {
 			for (i = 0; i < b->buf->n_datas; i++) {
-				dst = SPA_MEMBER(my_areas[i].addr, off * state->frame_size, uint8_t);
+				dst = SPA_PTROFF(my_areas[i].addr, off * state->frame_size, uint8_t);
 				src = d[i].data;
 
 				spa_memcpy(dst, src + offs, l0);
@@ -1016,7 +1016,7 @@ again:
 				void *bufs[b->buf->n_datas];
 
 				for (i = 0; i < b->buf->n_datas; i++)
-					bufs[i] = SPA_MEMBER(d[i].data, offs, void);
+					bufs[i] = SPA_PTROFF(d[i].data, offs, void);
 				snd_pcm_writen(hndl, bufs, l0 / state->frame_size);
 				if (SPA_UNLIKELY(l1 > 0)) {
 					for (i = 0; i < b->buf->n_datas; i++)
@@ -1127,10 +1127,10 @@ push_frames(struct state *state,
 			l1 = n_bytes - l0;
 
 			for (i = 0; i < b->buf->n_datas; i++) {
-				src = SPA_MEMBER(my_areas[i].addr, offset * state->frame_size, uint8_t);
+				src = SPA_PTROFF(my_areas[i].addr, offset * state->frame_size, uint8_t);
 				spa_memcpy(d[i].data, src, l0);
 				if (l1 > 0)
-					spa_memcpy(SPA_MEMBER(d[i].data, l0, void), my_areas[i].addr, l1);
+					spa_memcpy(SPA_PTROFF(d[i].data, l0, void), my_areas[i].addr, l1);
 				d[i].chunk->offset = 0;
 				d[i].chunk->size = n_bytes;
 				d[i].chunk->stride = state->frame_size;

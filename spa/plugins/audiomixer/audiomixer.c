@@ -658,10 +658,10 @@ add_port_data(struct impl *this, void *out, size_t outsize, struct port *port, i
 	n_src = 0;
 	if (layer > 0) {
 		s0[n_src] = out;
-		s1[n_src] = SPA_MEMBER(out, len1, void);
+		s1[n_src] = SPA_PTROFF(out, len1, void);
 		n_src++;
 	}
-	s0[n_src] = SPA_MEMBER(data, offset, void);
+	s0[n_src] = SPA_PTROFF(data, offset, void);
 	s1[n_src] = data;
 	n_src++;
 
@@ -671,7 +671,7 @@ add_port_data(struct impl *this, void *out, size_t outsize, struct port *port, i
 	else {
 		mix_ops_process(&this->ops, out, s0, n_src, len1);
 		if (len2 > 0)
-			mix_ops_process(&this->ops, SPA_MEMBER(out, len1, void), s1, n_src, len2);
+			mix_ops_process(&this->ops, SPA_PTROFF(out, len1, void), s1, n_src, len2);
 	}
 	port->queued_bytes -= outsize;
 
@@ -733,7 +733,7 @@ static int mix_output(struct impl *this, size_t n_bytes)
 			continue;
 		}
 
-		add_port_data(this, SPA_MEMBER(od[0].data, offset, void), len1, in_port, layer);
+		add_port_data(this, SPA_PTROFF(od[0].data, offset, void), len1, in_port, layer);
 		if (len2 > 0)
 			add_port_data(this, od[0].data, len2, in_port, layer);
 		layer++;

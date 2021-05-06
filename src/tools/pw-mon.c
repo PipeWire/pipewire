@@ -146,7 +146,7 @@ static void event_param(void *object, int seq, uint32_t id,
 
 	p->id = id;
 	p->seq = seq;
-	p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
+	p->param = SPA_PTROFF(p, sizeof(struct param), struct spa_pod);
 	p->changed = true;
 	memcpy(p->param, param, SPA_POD_SIZE(param));
 	spa_list_append(&data->param_list, &p->link);

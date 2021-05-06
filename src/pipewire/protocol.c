@@ -63,7 +63,7 @@ struct pw_protocol *pw_protocol_new(struct pw_context *context,
 	spa_hook_list_init(&protocol->listener_list);
 
 	if (user_data_size > 0)
-		protocol->user_data = SPA_MEMBER(protocol, sizeof(struct impl), void);
+		protocol->user_data = SPA_PTROFF(protocol, sizeof(struct impl), void);
 
 	spa_list_append(&context->protocol_list, &protocol->link);
 

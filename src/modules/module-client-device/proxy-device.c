@@ -72,7 +72,7 @@ struct pw_proxy *pw_core_spa_device_export(struct pw_core *core,
 		return NULL;
 
 	data = pw_proxy_get_user_data(proxy);
-	data = SPA_MEMBER(data, user_data_size, struct device_data);
+	data = SPA_PTROFF(data, user_data_size, struct device_data);
 	data->device = device;
 	data->proxy = proxy;
 

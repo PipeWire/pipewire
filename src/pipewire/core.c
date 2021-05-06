@@ -335,7 +335,7 @@ static struct pw_core *core_new(struct pw_context *context,
 	p->pool = pw_mempool_new(NULL);
 	p->core = p;
 	if (user_data_size > 0)
-		p->user_data = SPA_MEMBER(p, sizeof(struct pw_core), void);
+		p->user_data = SPA_PTROFF(p, sizeof(struct pw_core), void);
 	p->proxy.user_data = p->user_data;
 
 	pw_map_init(&p->objects, 64, 32);

@@ -141,7 +141,7 @@ static void capture_process(void *d)
 				ds = &in->buffer->datas[i];
 
 				memcpy(dd->data,
-					SPA_MEMBER(ds->data, ds->chunk->offset, void),
+					SPA_PTROFF(ds->data, ds->chunk->offset, void),
 					ds->chunk->size);
 
 				size = SPA_MAX(size, ds->chunk->size);

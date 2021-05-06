@@ -64,8 +64,8 @@ struct spa_meta {
 };
 
 #define spa_meta_first(m)	((m)->data)
-#define spa_meta_end(m)		SPA_MEMBER((m)->data,(m)->size,void)
-#define spa_meta_check(p,m)	(SPA_MEMBER(p,sizeof(*p),void) <= spa_meta_end(m))
+#define spa_meta_end(m)		SPA_PTROFF((m)->data,(m)->size,void)
+#define spa_meta_check(p,m)	(SPA_PTROFF(p,sizeof(*p),void) <= spa_meta_end(m))
 
 /**
  * Describes essential buffer header metadata such as flags and

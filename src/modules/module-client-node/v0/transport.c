@@ -70,25 +70,25 @@ static void transport_setup_area(void *p, struct pw_client_node0_transport *tran
 	struct pw_client_node0_area *a;
 
 	trans->area = a = p;
-	p = SPA_MEMBER(p, sizeof(struct pw_client_node0_area), struct spa_io_buffers);
+	p = SPA_PTROFF(p, sizeof(struct pw_client_node0_area), struct spa_io_buffers);
 
 	trans->inputs = p;
-	p = SPA_MEMBER(p, a->max_input_ports * sizeof(struct spa_io_buffers), void);
+	p = SPA_PTROFF(p, a->max_input_ports * sizeof(struct spa_io_buffers), void);
 
 	trans->outputs = p;
-	p = SPA_MEMBER(p, a->max_output_ports * sizeof(struct spa_io_buffers), void);
+	p = SPA_PTROFF(p, a->max_output_ports * sizeof(struct spa_io_buffers), void);
 
 	trans->input_buffer = p;
-	p = SPA_MEMBER(p, sizeof(struct spa_ringbuffer), void);
+	p = SPA_PTROFF(p, sizeof(struct spa_ringbuffer), void);
 
 	trans->input_data = p;
-	p = SPA_MEMBER(p, INPUT_BUFFER_SIZE, void);
+	p = SPA_PTROFF(p, INPUT_BUFFER_SIZE, void);
 
 	trans->output_buffer = p;
-	p = SPA_MEMBER(p, sizeof(struct spa_ringbuffer), void);
+	p = SPA_PTROFF(p, sizeof(struct spa_ringbuffer), void);
 
 	trans->output_data = p;
-	p = SPA_MEMBER(p, OUTPUT_BUFFER_SIZE, void);
+	p = SPA_PTROFF(p, OUTPUT_BUFFER_SIZE, void);
 }
 
 static void transport_reset_area(struct pw_client_node0_transport *trans)

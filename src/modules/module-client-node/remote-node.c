@@ -672,8 +672,8 @@ client_node_port_use_buffers(void *object,
 		}
 		memcpy(b, buffers[i].buffer, sizeof(struct spa_buffer));
 
-		b->metas = SPA_MEMBER(b, sizeof(struct spa_buffer), struct spa_meta);
-		b->datas = SPA_MEMBER(b->metas, sizeof(struct spa_meta) * b->n_metas,
+		b->metas = SPA_PTROFF(b, sizeof(struct spa_buffer), struct spa_meta);
+		b->datas = SPA_PTROFF(b->metas, sizeof(struct spa_meta) * b->n_metas,
 				       struct spa_data);
 
 		pw_log_debug("add buffer mem:%d id:%d offset:%u size:%u %p", mm->block->id,
@@ -683,7 +683,7 @@ client_node_port_use_buffers(void *object,
 		for (j = 0; j < b->n_metas; j++) {
 			struct spa_meta *m = &b->metas[j];
 			memcpy(m, &buffers[i].buffer->metas[j], sizeof(struct spa_meta));
-			m->data = SPA_MEMBER(mm->ptr, offset, void);
+			m->data = SPA_PTROFF(mm->ptr, offset, void);
 			offset += SPA_ROUND_UP_N(m->size, 8);
 		}
 
@@ -692,7 +692,7 @@ client_node_port_use_buffers(void *object,
 
 			memcpy(d, &buffers[i].buffer->datas[j], sizeof(struct spa_data));
 			d->chunk =
-			    SPA_MEMBER(mm->ptr, offset + sizeof(struct spa_chunk) * j,
+			    SPA_PTROFF(mm->ptr, offset + sizeof(struct spa_chunk) * j,
 				       struct spa_chunk);
 
 			if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC)
@@ -717,7 +717,7 @@ client_node_port_use_buffers(void *object,
 						j, bm->id, bm->fd, d->maxsize);
 			} else if (d->type == SPA_DATA_MemPtr) {
 				int offs = SPA_PTR_TO_INT(d->data);
-				d->data = SPA_MEMBER(mm->ptr, offs, void);
+				d->data = SPA_PTROFF(mm->ptr, offs, void);
 				d->fd = -1;
 				pw_log_debug(" data %d id:%u -> mem:%p offs:%d maxsize:%d",
 						j, bid->id, d->data, offs, d->maxsize);
@@ -1213,7 +1213,7 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 		goto error;
 
 	data = pw_proxy_get_user_data(client_node);
-	data = SPA_MEMBER(data, user_data_size, struct node_data);
+	data = SPA_PTROFF(data, user_data_size, struct node_data);
 	data->pool = pw_core_get_mempool(core);
 	data->node = node;
 	data->do_free = do_free;

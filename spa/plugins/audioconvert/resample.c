@@ -849,10 +849,10 @@ static int impl_node_process(void *object)
 		flush_in = draining = true;
 	} else {
 		for (i = 0; i < sb->n_datas; i++)
-			src_datas[i] = SPA_MEMBER(sb->datas[i].data, inport->offset, void);
+			src_datas[i] = SPA_PTROFF(sb->datas[i].data, inport->offset, void);
 	}
 	for (i = 0; i < db->n_datas; i++)
-		dst_datas[i] = SPA_MEMBER(db->datas[i].data, outport->offset, void);
+		dst_datas[i] = SPA_PTROFF(db->datas[i].data, outport->offset, void);
 
 	in_len = (size - inport->offset) / sizeof(float);
 	out_len = (maxsize - outport->offset) / sizeof(float);

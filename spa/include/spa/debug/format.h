@@ -183,7 +183,7 @@ static inline int spa_debug_format(int indent,
 			fprintf(stderr, "%s", ssep);
 
 			for (i = 1; i < n_vals; i++) {
-				vals = SPA_MEMBER(vals, size, void);
+				vals = SPA_PTROFF(vals, size, void);
 				if (i > 1)
 					fprintf(stderr, "%s", sep);
 				spa_debug_format_value(ti ? ti->values : NULL, type, vals, size);

@@ -48,7 +48,7 @@ static inline void spa_result_func_node_params(void *data,
 	uint32_t offset = d->builder->state.offset;
 	spa_pod_builder_raw_padded(d->builder, r->param, SPA_POD_SIZE(r->param));
 	d->data.next = r->next;
-	d->data.param = SPA_MEMBER(d->builder->data, offset, struct spa_pod);
+	d->data.param = SPA_PTROFF(d->builder->data, offset, struct spa_pod);
 }
 
 static inline int spa_node_enum_params_sync(struct spa_node *node,

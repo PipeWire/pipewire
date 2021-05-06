@@ -125,7 +125,7 @@ static inline struct pw_param *pw_param_add(struct spa_list *params,
 
 	p->id = id;
 	if (param != NULL) {
-		p->param = SPA_MEMBER(p, sizeof(*p), struct spa_pod);
+		p->param = SPA_PTROFF(p, sizeof(*p), struct spa_pod);
 		memcpy(p->param, param, SPA_POD_SIZE(param));
 	} else {
 		pw_param_clear(params, id);

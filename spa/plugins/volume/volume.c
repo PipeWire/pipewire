@@ -648,8 +648,8 @@ static void do_volume(struct impl *this, struct spa_buffer *dbuf, struct spa_buf
 		uint32_t soffset = sindex % sd[0].maxsize;
 		uint32_t doffset = dindex % dd[0].maxsize;
 
-		src = SPA_MEMBER(sd[0].data, soffset, int16_t);
-		dst = SPA_MEMBER(dd[0].data, doffset, int16_t);
+		src = SPA_PTROFF(sd[0].data, soffset, int16_t);
+		dst = SPA_PTROFF(dd[0].data, doffset, int16_t);
 
 		n_bytes = SPA_MIN(towrite, sd[0].maxsize - soffset);
 		n_bytes = SPA_MIN(n_bytes, dd[0].maxsize - doffset);

@@ -231,7 +231,7 @@ static struct param *add_param(struct stream *impl,
 
 	p->id = id;
 	p->flags = flags;
-	p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
+	p->param = SPA_PTROFF(p, sizeof(struct param), struct spa_pod);
 	memcpy(p->param, param, SPA_POD_SIZE(param));
 	SPA_POD_OBJECT_ID(p->param) = id;
 
@@ -626,7 +626,7 @@ static int map_data(struct stream *impl, struct spa_data *data, int prot)
 		return -errno;
 	}
 
-	data->data = SPA_MEMBER(ptr, range.start, void);
+	data->data = SPA_PTROFF(ptr, range.start, void);
 	pw_log_debug(NAME" %p: fd %"PRIi64" mapped %d %d %p", impl, data->fd,
 			range.offset, range.size, data->data);
 
@@ -650,7 +650,7 @@ static int unmap_data(struct stream *impl, struct spa_data *data)
 
 	pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->context->sc_pagesize);
 
-	if (munmap(SPA_MEMBER(data->data, -range.start, void), range.size) < 0)
+	if (munmap(SPA_PTROFF(data->data, -range.start, void), range.size) < 0)
 		pw_log_warn(NAME" %p: failed to unmap: %m", impl);
 
 	pw_log_debug(NAME" %p: fd %"PRIi64" unmapped", impl, data->fd);
@@ -999,7 +999,7 @@ static int node_event_param(void *object, int seq,
 			return 0;
 
 		c = calloc(1, sizeof(*c) + SPA_POD_SIZE(param));
-		c->info = SPA_MEMBER(c, sizeof(*c), struct spa_pod);
+		c->info = SPA_PTROFF(c, sizeof(*c), struct spa_pod);
 		memcpy(c->info, param, SPA_POD_SIZE(param));
 		c->control.n_values = 0;
 		c->control.max_values = 0;

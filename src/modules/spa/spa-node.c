@@ -124,7 +124,7 @@ pw_spa_node_new(struct pw_context *context,
 	impl->flags = flags;
 
 	if (user_data_size > 0)
-                impl->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
+                impl->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
 	pw_impl_node_add_listener(this, &impl->node_listener, &node_events, impl);
 	if ((res = pw_impl_node_set_implementation(this, impl->node)) < 0)

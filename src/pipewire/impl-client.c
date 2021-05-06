@@ -430,7 +430,7 @@ struct pw_impl_client *pw_context_create_client(struct pw_impl_core *core,
 	this->permission_data = impl;
 
 	if (user_data_size > 0)
-		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
+		this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
 	spa_hook_list_init(&this->listener_list);
 

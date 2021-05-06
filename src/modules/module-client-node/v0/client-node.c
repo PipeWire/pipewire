@@ -770,7 +770,7 @@ impl_node_port_use_buffers(void *object,
 
 		mb[i].buffer = &b->buffer;
 		mb[i].mem_id = b->memid;
-		mb[i].offset = SPA_PTRDIFF(baseptr, SPA_MEMBER(mem->map->ptr, mem->map->offset, void));
+		mb[i].offset = SPA_PTRDIFF(baseptr, SPA_PTROFF(mem->map->ptr, mem->map->offset, void));
 		mb[i].size = data_size;
 
 		for (j = 0; j < buffers[i]->n_metas; j++)

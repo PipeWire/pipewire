@@ -76,7 +76,7 @@ pw_control_new(struct pw_context *context,
 	spa_list_init(&this->links);
 
         if (user_data_size > 0)
-		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
+		this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
 	spa_hook_list_init(&this->listener_list);
 

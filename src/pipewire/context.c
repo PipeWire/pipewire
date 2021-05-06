@@ -213,7 +213,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	pw_log_debug(NAME" %p: new", this);
 
 	if (user_data_size > 0)
-		this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
+		this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);

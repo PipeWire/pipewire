@@ -292,7 +292,7 @@ struct pw_impl_node *pw_adapter_new(struct pw_context *context,
 	spa_list_init(&n->ports);
 
 	if (user_data_size > 0)
-		n->user_data = SPA_MEMBER(n, sizeof(struct node), void);
+		n->user_data = SPA_PTROFF(n, sizeof(struct node), void);
 
 	pw_impl_node_add_listener(node, &n->node_listener, &node_events, n);
 

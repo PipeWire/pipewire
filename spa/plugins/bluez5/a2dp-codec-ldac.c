@@ -534,7 +534,7 @@ static int codec_start_encode (void *data,
 	struct impl *this = data;
 
 	this->header = (struct rtp_header *)dst;
-	this->payload = SPA_MEMBER(dst, sizeof(struct rtp_header), struct rtp_payload);
+	this->payload = SPA_PTROFF(dst, sizeof(struct rtp_header), struct rtp_payload);
 	memset(this->header, 0, sizeof(struct rtp_header)+sizeof(struct rtp_payload));
 
 	this->payload->frame_count = 0;

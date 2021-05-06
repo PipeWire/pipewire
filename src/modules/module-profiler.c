@@ -143,7 +143,7 @@ static void flush_timeout(void *data, uint64_t expirations)
 
 	spa_ringbuffer_read_data(&impl->buffer, impl->data, MAX_BUFFER,
 			idx % MAX_BUFFER,
-			SPA_MEMBER(p, sizeof(struct spa_pod_struct), void), avail);
+			SPA_PTROFF(p, sizeof(struct spa_pod_struct), void), avail);
 	spa_ringbuffer_read_update(&impl->buffer, idx + avail);
 
 	spa_list_for_each(resource, &impl->global->resource_list, link)

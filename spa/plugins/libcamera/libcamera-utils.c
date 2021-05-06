@@ -120,7 +120,7 @@ static int spa_libcamera_clear_buffers(struct impl *this)
 			spa_libcamera_buffer_recycle(this, i);
 		}
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
-			munmap(SPA_MEMBER(b->ptr, -d[0].mapoffset, void),
+			munmap(SPA_PTROFF(b->ptr, -d[0].mapoffset, void),
 					d[0].maxsize - d[0].mapoffset);
 		}
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_ALLOCATED)) {

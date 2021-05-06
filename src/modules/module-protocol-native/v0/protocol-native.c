@@ -401,15 +401,15 @@ struct spa_pod_prop_body0 {
 
 /* v2 iterates object as containing spa_pod */
 #define SPA_POD_OBJECT_BODY_FOREACH0(body, size, iter)                                           \
-        for ((iter) = SPA_MEMBER((body), sizeof(struct spa_pod_object_body), struct spa_pod);   \
+        for ((iter) = SPA_PTROFF((body), sizeof(struct spa_pod_object_body), struct spa_pod);   \
              spa_pod_is_inside(body, size, iter);                                               \
              (iter) = spa_pod_next(iter))
 
 #define SPA_POD_PROP_ALTERNATIVE_FOREACH0(body, _size, iter)                                     \
-        for ((iter) = SPA_MEMBER((body), (body)->value.size +                                   \
+        for ((iter) = SPA_PTROFF((body), (body)->value.size +                                   \
                                 sizeof(struct spa_pod_prop_body0), __typeof__(*iter));           \
-             (iter) <= SPA_MEMBER((body), (_size)-(body)->value.size, __typeof__(*iter));       \
-             (iter) = SPA_MEMBER((iter), (body)->value.size, __typeof__(*iter)))
+             (iter) <= SPA_PTROFF((body), (_size)-(body)->value.size, __typeof__(*iter));       \
+             (iter) = SPA_PTROFF((iter), (body)->value.size, __typeof__(*iter)))
 
 #define SPA0_POD_PROP_N_VALUES(b,size)     ((size - sizeof(struct spa_pod_prop_body0)) / (b)->value.size)
 

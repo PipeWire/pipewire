@@ -259,7 +259,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b,
 			d[0].chunk->size = want * pw->stride;
 			d[0].chunk->offset = 0;
 		}
-		ptr = SPA_MEMBER(d[0].data, d[0].chunk->offset, void);
+		ptr = SPA_PTROFF(d[0].data, d[0].chunk->offset, void);
 		for (channel = 0; channel < io->channels; channel++) {
 			pwareas[channel].addr = ptr;
 			pwareas[channel].first = channel * pw->sample_bits;
@@ -271,7 +271,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b,
 				d[channel].chunk->size = want * pw->stride;
 				d[channel].chunk->offset = 0;
 			}
-			ptr = SPA_MEMBER(d[channel].data, d[channel].chunk->offset, void);
+			ptr = SPA_PTROFF(d[channel].data, d[channel].chunk->offset, void);
 			pwareas[channel].addr = ptr;
 			pwareas[channel].first = 0;
 			pwareas[channel].step = pw->sample_bits;

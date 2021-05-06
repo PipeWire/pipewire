@@ -95,7 +95,7 @@ spa_pod_builder_deref(struct spa_pod_builder *builder, uint32_t offset)
 {
 	uint32_t size = builder->size;
 	if (offset + 8 <= size) {
-		struct spa_pod *pod = SPA_MEMBER(builder->data, offset, struct spa_pod);
+		struct spa_pod *pod = SPA_PTROFF(builder->data, offset, struct spa_pod);
 		if (offset + SPA_POD_SIZE(pod) <= size)
 			return pod;
 	}
@@ -106,7 +106,7 @@ static inline struct spa_pod *
 spa_pod_builder_frame(struct spa_pod_builder *builder, struct spa_pod_frame *frame)
 {
 	if (frame->offset + SPA_POD_SIZE(&frame->pod) <= builder->size)
-		return SPA_MEMBER(builder->data, frame->offset, struct spa_pod);
+		return SPA_PTROFF(builder->data, frame->offset, struct spa_pod);
 	return NULL;
 }
 
@@ -138,7 +138,7 @@ static inline int spa_pod_builder_raw(struct spa_pod_builder *builder, const voi
 				overflow, 0, offset + size);
 	}
 	if (res == 0 && data)
-		memcpy(SPA_MEMBER(builder->data, offset, void), data, size);
+		memcpy(SPA_PTROFF(builder->data, offset, void), data, size);
 
 	builder->state.offset += size;
 

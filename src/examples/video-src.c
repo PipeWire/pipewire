@@ -143,14 +143,14 @@ static void on_timeout(void *userdata, uint64_t expirations)
 		mcs->hotspot.y = 0;
 		mcs->bitmap_offset = sizeof(struct spa_meta_cursor);
 
-		mb = SPA_MEMBER(mcs, mcs->bitmap_offset, struct spa_meta_bitmap);
+		mb = SPA_PTROFF(mcs, mcs->bitmap_offset, struct spa_meta_bitmap);
 		mb->format = SPA_VIDEO_FORMAT_ARGB;
 		mb->size.width = CURSOR_WIDTH;
 		mb->size.height = CURSOR_HEIGHT;
 		mb->stride = CURSOR_WIDTH * CURSOR_BPP;
 		mb->offset = sizeof(struct spa_meta_bitmap);
 
-		bitmap = SPA_MEMBER(mb, mb->offset, uint32_t);
+		bitmap = SPA_PTROFF(mb, mb->offset, uint32_t);
 		color = (cos(data->accumulator) + 1.0) * (1 << 23);
 		color |= 0xff000000;
 

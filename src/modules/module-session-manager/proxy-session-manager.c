@@ -62,7 +62,7 @@ struct pw_proxy *pw_core_endpoint_export(struct pw_core *core,
 		return NULL;
 
 	data = pw_proxy_get_user_data(proxy);
-	data = SPA_MEMBER(data, user_data_size, struct object_data);
+	data = SPA_PTROFF(data, user_data_size, struct object_data);
 
 	remote_iface = (struct spa_interface*)proxy;
 	local_iface = (struct spa_interface*)endpoint;
@@ -98,7 +98,7 @@ struct pw_proxy *pw_core_endpoint_stream_export(struct pw_core *core,
 		return NULL;
 
 	data = pw_proxy_get_user_data(proxy);
-	data = SPA_MEMBER(data, user_data_size, struct object_data);
+	data = SPA_PTROFF(data, user_data_size, struct object_data);
 
 	remote_iface = (struct spa_interface*)proxy;
 	local_iface = (struct spa_interface*)endpoint_stream;
@@ -134,7 +134,7 @@ struct pw_proxy *pw_core_endpoint_link_export(struct pw_core *core,
 		return NULL;
 
 	data = pw_proxy_get_user_data(proxy);
-	data = SPA_MEMBER(data, user_data_size, struct object_data);
+	data = SPA_PTROFF(data, user_data_size, struct object_data);
 
 	remote_iface = (struct spa_interface*)proxy;
 	local_iface = (struct spa_interface*)endpoint_link;
@@ -170,7 +170,7 @@ struct pw_proxy *pw_core_session_export(struct pw_core *core,
 		return NULL;
 
 	data = pw_proxy_get_user_data(proxy);
-	data = SPA_MEMBER(data, user_data_size, struct object_data);
+	data = SPA_PTROFF(data, user_data_size, struct object_data);
 
 	remote_iface = (struct spa_interface*)proxy;
 	local_iface = (struct spa_interface*)session;

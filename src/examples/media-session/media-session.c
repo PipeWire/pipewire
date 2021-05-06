@@ -271,7 +271,7 @@ void *sm_object_add_data(struct sm_object *obj, const char *id, size_t size)
 
 	spa_list_append(&obj->data, &d->link);
 done:
-	return SPA_MEMBER(d, sizeof(struct data), void);
+	return SPA_PTROFF(d, sizeof(struct data), void);
 }
 
 void *sm_object_get_data(struct sm_object *obj, const char *id)
@@ -280,7 +280,7 @@ void *sm_object_get_data(struct sm_object *obj, const char *id)
 	d = object_find_data(obj, id);
 	if (d == NULL)
 		return NULL;
-	return SPA_MEMBER(d, sizeof(struct data), void);
+	return SPA_PTROFF(d, sizeof(struct data), void);
 }
 
 int sm_object_remove_data(struct sm_object *obj, const char *id)
@@ -390,7 +390,7 @@ static struct param *add_param(struct spa_list *param_list,
 		return NULL;
 
 	p->this.id = id;
-	p->this.param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
+	p->this.param = SPA_PTROFF(p, sizeof(struct param), struct spa_pod);
 	memcpy(p->this.param, param, SPA_POD_SIZE(param));
 
 	spa_list_append(param_list, &p->this.link);

@@ -155,7 +155,7 @@ static struct param *add_param(struct spa_list *params, uint32_t id, const struc
 
 	p->id = id;
 	if (param != NULL) {
-		p->param = SPA_MEMBER(p, sizeof(*p), struct spa_pod);
+		p->param = SPA_PTROFF(p, sizeof(*p), struct spa_pod);
 		memcpy(p->param, param, SPA_POD_SIZE(param));
 	} else {
 		clear_params(params, id);
@@ -1152,12 +1152,12 @@ static int metadata_property(void *object,
 		if (e == NULL)
 			return -errno;
 
-		e->key = SPA_MEMBER(e, sizeof(*e), void);
+		e->key = SPA_PTROFF(e, sizeof(*e), void);
 		strcpy(e->key, key);
-		e->value = SPA_MEMBER(e->key, strlen(e->key) + 1, void);
+		e->value = SPA_PTROFF(e->key, strlen(e->key) + 1, void);
 		strcpy(e->value, value);
 		if (type) {
-			e->type = SPA_MEMBER(e->value, strlen(e->value) + 1, void);
+			e->type = SPA_PTROFF(e->value, strlen(e->value) + 1, void);
 			strcpy(e->type, type);
 		} else {
 			e->type = NULL;

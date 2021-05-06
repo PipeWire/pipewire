@@ -65,7 +65,7 @@ struct pw_impl_factory *pw_context_create_factory(struct pw_context *context,
 	spa_hook_list_init(&this->listener_list);
 
 	if (user_data_size > 0)
-		this->user_data = SPA_MEMBER(this, sizeof(*this), void);
+		this->user_data = SPA_PTROFF(this, sizeof(*this), void);
 
 	pw_log_debug(NAME" %p: new %s", this, name);
 

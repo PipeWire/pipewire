@@ -271,7 +271,7 @@ static int do_render(struct spa_loop *loop, bool async, uint32_t seq,
 	    buf->datas[0].type == SPA_DATA_DmaBuf) {
 		map = mmap(NULL, buf->datas[0].maxsize + buf->datas[0].mapoffset, PROT_READ,
 			   MAP_PRIVATE, buf->datas[0].fd, 0);
-		sdata = SPA_MEMBER(map, buf->datas[0].mapoffset, uint8_t);
+		sdata = SPA_PTROFF(map, buf->datas[0].mapoffset, uint8_t);
 	} else if (buf->datas[0].type == SPA_DATA_MemPtr) {
 		map = NULL;
 		sdata = buf->datas[0].data;

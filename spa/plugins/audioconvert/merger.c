@@ -1267,7 +1267,7 @@ static int impl_node_process(void *object)
 
 		sd = &sbuf->buf->datas[0];
 
-		src_datas[i] = SPA_MEMBER(sd->data, sd->chunk->offset, void);
+		src_datas[i] = SPA_PTROFF(sd->data, sd->chunk->offset, void);
 
 		n_samples = SPA_MIN(n_samples, sd->chunk->size / inport->stride);
 

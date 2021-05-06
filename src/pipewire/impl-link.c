@@ -1076,7 +1076,7 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	pw_log_debug(NAME" %p: new out-port:%p -> in-port:%p", this, output, input);
 
 	if (user_data_size > 0)
-                this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
+                this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
 	impl->work = pw_work_queue_new(context->main_loop);
 

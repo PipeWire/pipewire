@@ -213,7 +213,7 @@ static struct param *add_param(struct filter *impl, struct port *port,
 
 	p->id = id;
 	p->flags = flags;
-	p->param = SPA_MEMBER(p, sizeof(struct param), struct spa_pod);
+	p->param = SPA_PTROFF(p, sizeof(struct param), struct spa_pod);
 	memcpy(p->param, param, SPA_POD_SIZE(param));
 	SPA_POD_OBJECT_ID(p->param) = id;
 
@@ -576,7 +576,7 @@ static int map_data(struct filter *impl, struct spa_data *data, int prot)
 		pw_log_error(NAME" %p: failed to mmap buffer mem: %m", impl);
 		return -errno;
 	}
-	data->data = SPA_MEMBER(ptr, range.start, void);
+	data->data = SPA_PTROFF(ptr, range.start, void);
 	pw_log_debug(NAME" %p: fd %"PRIi64" mapped %d %d %p", impl, data->fd,
 			range.offset, range.size, data->data);
 
@@ -600,7 +600,7 @@ static int unmap_data(struct filter *impl, struct spa_data *data)
 
 	pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->context->sc_pagesize);
 
-	if (munmap(SPA_MEMBER(data->data, -range.start, void), range.size) < 0)
+	if (munmap(SPA_PTROFF(data->data, -range.start, void), range.size) < 0)
 		pw_log_warn(NAME" %p: failed to unmap: %m", impl);
 
 	pw_log_debug(NAME" %p: fd %"PRIi64" unmapped", impl, data->fd);

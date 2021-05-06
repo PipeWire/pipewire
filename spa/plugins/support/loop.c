@@ -134,7 +134,7 @@ static void flush_items(struct impl *impl)
 		struct invoke_item *item;
 		bool block;
 
-		item = SPA_MEMBER(impl->buffer_data, index & (DATAS_SIZE - 1), struct invoke_item);
+		item = SPA_PTROFF(impl->buffer_data, index & (DATAS_SIZE - 1), struct invoke_item);
 		block = item->block;
 
 		spa_log_trace(impl->log, NAME " %p: flush item %p", impl, item);
@@ -183,7 +183,7 @@ loop_invoke(void *object,
 
 	l0 = DATAS_SIZE - offset;
 
-	item = SPA_MEMBER(impl->buffer_data, offset, struct invoke_item);
+	item = SPA_PTROFF(impl->buffer_data, offset, struct invoke_item);
 	item->func = func;
 	item->seq = seq;
 	item->size = size;
@@ -193,7 +193,7 @@ loop_invoke(void *object,
 	spa_log_trace(impl->log, NAME " %p: add item %p filled:%d", impl, item, filled);
 
 	if (l0 > sizeof(struct invoke_item) + size) {
-		item->data = SPA_MEMBER(item, sizeof(struct invoke_item), void);
+		item->data = SPA_PTROFF(item, sizeof(struct invoke_item), void);
 		item->item_size = SPA_ROUND_UP_N(sizeof(struct invoke_item) + size, 8);
 		if (l0 < sizeof(struct invoke_item) + item->item_size)
 			item->item_size = l0;

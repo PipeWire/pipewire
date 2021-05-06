@@ -202,11 +202,11 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 	struct spa_chunk *cp;
 
 	b->n_metas = info->n_metas;
-	b->metas = SPA_MEMBER(b, sizeof(struct spa_buffer), struct spa_meta);
+	b->metas = SPA_PTROFF(b, sizeof(struct spa_buffer), struct spa_meta);
 	b->n_datas = info->n_datas;
-	b->datas = SPA_MEMBER(b->metas, info->n_metas * sizeof(struct spa_meta), struct spa_data);
+	b->datas = SPA_PTROFF(b->metas, info->n_metas * sizeof(struct spa_meta), struct spa_data);
 
-	skel = SPA_MEMBER(b->datas, info->n_datas * sizeof(struct spa_data), void);
+	skel = SPA_PTROFF(b->datas, info->n_datas * sizeof(struct spa_data), void);
 	data = data_mem;
 
 	if (SPA_FLAG_IS_SET(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_META))
@@ -218,17 +218,17 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 		struct spa_meta *m = &b->metas[i];
 		*m = info->metas[i];
 		m->data = *dp;
-		*dp = SPA_MEMBER(*dp, SPA_ROUND_UP_N(m->size, 8), void);
+		*dp = SPA_PTROFF(*dp, SPA_ROUND_UP_N(m->size, 8), void);
 	}
 
 	size = info->n_datas * sizeof(struct spa_chunk);
 	if (SPA_FLAG_IS_SET(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_CHUNK)) {
 		cp = (struct spa_chunk*)skel;
-		skel = SPA_MEMBER(skel, size, void);
+		skel = SPA_PTROFF(skel, size, void);
 	}
 	else {
 		cp = (struct spa_chunk*)data;
-		data = SPA_MEMBER(data, size, void);
+		data = SPA_PTROFF(data, size, void);
 	}
 
 	if (SPA_FLAG_IS_SET(info->flags, SPA_BUFFER_ALLOC_FLAG_INLINE_DATA))
@@ -244,7 +244,7 @@ spa_buffer_alloc_layout(struct spa_buffer_alloc_info *info,
 		if (!SPA_FLAG_IS_SET(info->flags, SPA_BUFFER_ALLOC_FLAG_NO_DATA)) {
 			*dp = SPA_PTR_ALIGN(*dp, info->data_aligns[i], void);
 			d->data = *dp;
-			*dp = SPA_MEMBER(*dp, d->maxsize, void);
+			*dp = SPA_PTROFF(*dp, d->maxsize, void);
 		}
 	}
 	return b;
@@ -277,8 +277,8 @@ spa_buffer_alloc_layout_array(struct spa_buffer_alloc_info *info,
 	uint32_t i;
 	for (i = 0; i < n_buffers; i++) {
 		buffers[i] = spa_buffer_alloc_layout(info, skel_mem, data_mem);
-		skel_mem = SPA_MEMBER(skel_mem, info->skel_size, void);
-		data_mem = SPA_MEMBER(data_mem, info->mem_size, void);
+		skel_mem = SPA_PTROFF(skel_mem, info->skel_size, void);
+		data_mem = SPA_PTROFF(data_mem, info->mem_size, void);
         }
 	return 0;
 }
@@ -322,7 +322,7 @@ spa_buffer_alloc_array(uint32_t n_buffers, uint32_t flags,
 	if (buffers == NULL)
 		return NULL;
 
-	skel = SPA_MEMBER(buffers, sizeof(struct spa_buffer *) * n_buffers, void);
+	skel = SPA_PTROFF(buffers, sizeof(struct spa_buffer *) * n_buffers, void);
 	skel = SPA_PTR_ALIGN(skel, info.max_align, void);
 
 	spa_buffer_alloc_layout_array(&info, n_buffers, buffers, skel, NULL);

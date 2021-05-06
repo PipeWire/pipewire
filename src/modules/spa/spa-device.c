@@ -91,7 +91,7 @@ pw_spa_device_new(struct pw_context *context,
 	impl->flags = flags;
 
 	if (user_data_size > 0)
-                impl->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
+                impl->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
 	pw_impl_device_add_listener(this, &impl->device_listener, &device_events, impl);
 	pw_impl_device_set_implementation(this, impl->device);

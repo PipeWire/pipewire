@@ -330,7 +330,7 @@ static int impl_port_use_buffers(void *object,
 				return -errno;
 
 			}
-			b->ptr = SPA_MEMBER(b->ptr, datas[0].mapoffset, void);
+			b->ptr = SPA_PTROFF(b->ptr, datas[0].mapoffset, void);
 			b->mapped = true;
 		}
 		else {
@@ -435,9 +435,9 @@ static int impl_node_process(void *object)
 		avail = maxsize - offset;
 
 	if (d->format.format == SPA_AUDIO_FORMAT_S16)
-		fill_s16(d, SPA_MEMBER(b->ptr, offset, void), avail);
+		fill_s16(d, SPA_PTROFF(b->ptr, offset, void), avail);
 	else if (d->format.format == SPA_AUDIO_FORMAT_F32)
-		fill_f32(d, SPA_MEMBER(b->ptr, offset, void), avail);
+		fill_f32(d, SPA_PTROFF(b->ptr, offset, void), avail);
 
 	od[0].chunk->offset = 0;
 	od[0].chunk->size = avail;

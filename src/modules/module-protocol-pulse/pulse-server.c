@@ -226,7 +226,7 @@ static int flush_messages(struct client *client)
 			desc.offset_lo = 0;
 			desc.flags = 0;
 
-			data = SPA_MEMBER(&desc, client->out_index, void);
+			data = SPA_PTROFF(&desc, client->out_index, void);
 			size = sizeof(desc) - client->out_index;
 		} else if (client->out_index < m->length + sizeof(desc)) {
 			uint32_t idx = client->out_index - sizeof(desc);
@@ -1705,7 +1705,7 @@ static void stream_process(void *data)
 		spa_ringbuffer_write_data(&stream->ring,
 				stream->buffer, stream->attr.maxlength,
 				pd.write_index % stream->attr.maxlength,
-				SPA_MEMBER(p, buf->datas[0].chunk->offset, void),
+				SPA_PTROFF(p, buf->datas[0].chunk->offset, void),
 				SPA_MIN(size, stream->attr.maxlength));
 
 		pd.write_index += size;
@@ -5532,7 +5532,7 @@ static int do_read(struct client *client)
 	int res = 0;
 
 	if (client->in_index < sizeof(client->desc)) {
-		data = SPA_MEMBER(&client->desc, client->in_index, void);
+		data = SPA_PTROFF(&client->desc, client->in_index, void);
 		size = sizeof(client->desc) - client->in_index;
 	} else {
 		uint32_t idx = client->in_index - sizeof(client->desc);
@@ -5541,7 +5541,7 @@ static int do_read(struct client *client)
 			res = -EIO;
 			goto exit;
 		}
-		data = SPA_MEMBER(client->message->data, idx, void);
+		data = SPA_PTROFF(client->message->data, idx, void);
 		size = client->message->length - idx;
 	}
 	while (true) {
@@ -6325,7 +6325,7 @@ error_exit:
 
 void *pw_protocol_pulse_get_user_data(struct pw_protocol_pulse *pulse)
 {
-	return SPA_MEMBER(pulse, sizeof(struct impl), void);
+	return SPA_PTROFF(pulse, sizeof(struct impl), void);
 }
 
 void pw_protocol_pulse_destroy(struct pw_protocol_pulse *pulse)

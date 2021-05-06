@@ -107,7 +107,7 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 		goto error_init;
 
 	if (user_data_size > 0)
-		this->user_data = SPA_MEMBER(impl, sizeof(struct proxy), void);
+		this->user_data = SPA_PTROFF(impl, sizeof(struct proxy), void);
 
 	pw_log_debug(NAME" %p: new %u type %s/%d core-proxy:%p, marshal:%p",
 			this, this->id, type, version, this->core, this->marshal);

@@ -891,7 +891,7 @@ static int impl_node_process(void *object)
 		struct spa_data *sd = &inb->datas[src_remap];
 		offs = SPA_MIN(sd->chunk->offset, sd->maxsize);
 		size = SPA_MIN(size, SPA_MIN(sd->maxsize - offs, sd->chunk->size));
-		src_datas[i] = SPA_MEMBER(sd->data, offs, void);
+		src_datas[i] = SPA_PTROFF(sd->data, offs, void);
 	}
 	n_samples = size / inport->stride;
 

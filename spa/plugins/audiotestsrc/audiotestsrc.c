@@ -401,7 +401,7 @@ static int make_buffer(struct impl *this)
 	l0 = SPA_MIN(n_bytes, maxsize - offset) / port->bpf;
 	l1 = n_samples - l0;
 
-	port->render_func(this, SPA_MEMBER(data, offset, void), l0);
+	port->render_func(this, SPA_PTROFF(data, offset, void), l0);
 	if (l1 > 0)
 		port->render_func(this, data, l1);
 

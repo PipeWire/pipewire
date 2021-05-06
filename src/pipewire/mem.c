@@ -238,7 +238,7 @@ int pw_memblock_map_old(struct pw_memblock *mem)
 				return -ENOMEM;
 			}
 
-			wrap = SPA_MEMBER(mem->ptr, mem->size, void);
+			wrap = SPA_PTROFF(mem->ptr, mem->size, void);
 
 			ptr =
 			    mmap(wrap, mem->size, prot, MAP_FIXED | MAP_SHARED,
@@ -391,7 +391,7 @@ struct pw_memmap * pw_memblock_map(struct pw_memblock *block,
 	mm->this.flags = flags;
 	mm->this.offset = offset;
 	mm->this.size = size;
-	mm->this.ptr = SPA_MEMBER(m->ptr, range.start, void);
+	mm->this.ptr = SPA_PTROFF(m->ptr, range.start, void);
 
         pw_log_debug(NAME" %p: map:%p block:%p fd:%d ptr:%p (%d %d) mapping:%p ref:%d", p,
 			&mm->this, b, b->this.fd, mm->this.ptr, offset, size, m, m->ref);
@@ -737,7 +737,7 @@ struct pw_memblock * pw_mempool_find_ptr(struct pw_mempool *pool, const void *pt
 
 	spa_list_for_each(b, &impl->blocks, link) {
 		spa_list_for_each(m, &b->mappings, link) {
-			if (ptr >= m->ptr && ptr < SPA_MEMBER(m->ptr, m->size, void)) {
+			if (ptr >= m->ptr && ptr < SPA_PTROFF(m->ptr, m->size, void)) {
 				pw_log_debug(NAME" %p: block:%p id:%d for %p", pool,
 						b, b->this.id, ptr);
 				return &b->this;

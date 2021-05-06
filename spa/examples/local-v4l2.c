@@ -202,7 +202,7 @@ static int on_source_ready(void *_data, int status)
 				   MAP_PRIVATE, datas[0].fd, 0);
 			if (map == MAP_FAILED)
 				return -errno;
-			sdata = SPA_MEMBER(map, datas[0].mapoffset, uint8_t);
+			sdata = SPA_PTROFF(map, datas[0].mapoffset, uint8_t);
 		} else if (datas[0].type == SPA_DATA_MemPtr) {
 			map = NULL;
 			sdata = datas[0].data;

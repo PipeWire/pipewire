@@ -129,8 +129,8 @@ static void remove_property(jack_description_t *desc, jack_property_t *prop)
 {
 	clear_property(prop);
 	desc->property_cnt--;
-        memmove(desc->properties, SPA_MEMBER(prop, sizeof(*prop), void),
-                SPA_PTRDIFF(SPA_MEMBER(desc->properties, sizeof(*prop) * desc->property_cnt, void),
+        memmove(desc->properties, SPA_PTROFF(prop, sizeof(*prop), void),
+                SPA_PTRDIFF(SPA_PTROFF(desc->properties, sizeof(*prop) * desc->property_cnt, void),
 			prop));
 
 	if (desc->property_cnt == 0)

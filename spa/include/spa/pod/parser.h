@@ -78,7 +78,7 @@ static inline struct spa_pod *
 spa_pod_parser_deref(struct spa_pod_parser *parser, uint32_t offset, uint32_t size)
 {
 	if (offset + 8 <= size) {
-		struct spa_pod *pod = SPA_MEMBER(parser->data, offset, struct spa_pod);
+		struct spa_pod *pod = SPA_PTROFF(parser->data, offset, struct spa_pod);
 		if (offset + SPA_POD_SIZE(pod) <= size)
 			return pod;
 	}
@@ -87,7 +87,7 @@ spa_pod_parser_deref(struct spa_pod_parser *parser, uint32_t offset, uint32_t si
 
 static inline struct spa_pod *spa_pod_parser_frame(struct spa_pod_parser *parser, struct spa_pod_frame *frame)
 {
-	return SPA_MEMBER(parser->data, frame->offset, struct spa_pod);
+	return SPA_PTROFF(parser->data, frame->offset, struct spa_pod);
 }
 
 static inline void spa_pod_parser_push(struct spa_pod_parser *parser,

@@ -151,7 +151,7 @@ static void process(struct impl *impl)
 	for (i = 0; i < impl->info.channels; i++) {
 		/* captured samples, with echo from sink */
 		ds = &cin->buffer->datas[i];
-		rec[i] = SPA_MEMBER(ds->data, ds->chunk->offset, void);
+		rec[i] = SPA_PTROFF(ds->data, ds->chunk->offset, void);
 
 		size = ds->chunk->size;
 		stride = ds->chunk->stride;
@@ -165,7 +165,7 @@ static void process(struct impl *impl)
 
 		/* echo from sink */
 		ds = &pin->buffer->datas[i];
-		play[i] = SPA_MEMBER(ds->data, ds->chunk->offset, void);
+		play[i] = SPA_PTROFF(ds->data, ds->chunk->offset, void);
 
 		/* output to sink, just copy */
 		dd = &pout->buffer->datas[i];

@@ -134,7 +134,7 @@ static struct pw_manager_param *add_param(struct spa_list *params,
 
 	p->id = id;
 	if (param != NULL) {
-		p->param = SPA_MEMBER(p, sizeof(*p), struct spa_pod);
+		p->param = SPA_PTROFF(p, sizeof(*p), struct spa_pod);
 		memcpy(p->param, param, SPA_POD_SIZE(param));
 	} else {
 		clear_params(params, id);
@@ -836,7 +836,7 @@ void *pw_manager_object_add_data(struct pw_manager_object *obj, const char *id, 
 	spa_list_append(&o->data_list, &d->link);
 
 done:
-	return SPA_MEMBER(d, sizeof(struct object_data), void);
+	return SPA_PTROFF(d, sizeof(struct object_data), void);
 }
 
 int pw_manager_sync(struct pw_manager *manager)

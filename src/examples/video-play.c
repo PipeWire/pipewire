@@ -146,7 +146,7 @@ on_process(void *_data)
 		data->cursor_rect.x = mcs->position.x;
 		data->cursor_rect.y = mcs->position.y;
 
-		mb = SPA_MEMBER(mcs, mcs->bitmap_offset, struct spa_meta_bitmap);
+		mb = SPA_PTROFF(mcs, mcs->bitmap_offset, struct spa_meta_bitmap);
 		data->cursor_rect.w = mb->size.width;
 		data->cursor_rect.h = mb->size.height;
 
@@ -165,7 +165,7 @@ on_process(void *_data)
 		}
 
 		/* copy the cursor bitmap into the texture */
-		src = SPA_MEMBER(mb, mb->offset, uint8_t);
+		src = SPA_PTROFF(mb, mb->offset, uint8_t);
 		dst = cdata;
 		ostride = SPA_MIN(cstride, mb->stride);
 
@@ -186,9 +186,9 @@ on_process(void *_data)
 				NULL,
 				sdata,
 				sstride,
-				SPA_MEMBER(sdata, sstride * data->size.height, void),
+				SPA_PTROFF(sdata, sstride * data->size.height, void),
 				sstride / 2,
-				SPA_MEMBER(sdata, 5 * (sstride * data->size.height) / 4, void),
+				SPA_PTROFF(sdata, 5 * (sstride * data->size.height) / 4, void),
 				sstride / 2);
 	}
 	else {

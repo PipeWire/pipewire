@@ -104,10 +104,10 @@ static void on_notify_events(void *data, int fd, uint32_t mask)
 		if (len <= 0)
 			break;
 
-		e = SPA_MEMBER(&buf, len, void);
+		e = SPA_PTROFF(&buf, len, void);
 
 		for (p = &buf; p < e;
-		p = SPA_MEMBER(p, sizeof(struct inotify_event) + event->len, void)) {
+		p = SPA_PTROFF(p, sizeof(struct inotify_event) + event->len, void)) {
 			event = (const struct inotify_event *) p;
 
 			if ((event->mask & IN_ATTRIB)) {

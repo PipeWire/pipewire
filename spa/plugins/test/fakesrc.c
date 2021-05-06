@@ -440,7 +440,7 @@ static int port_get_format(struct impl *this, struct port *port,
 	if (index > 0)
 		return 0;
 
-	*param = SPA_MEMBER(port->format_buffer, 0, struct spa_pod);
+	*param = SPA_PTROFF(port->format_buffer, 0, struct spa_pod);
 
 	return 1;
 }

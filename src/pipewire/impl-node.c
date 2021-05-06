@@ -1149,7 +1149,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	this->group_id = SPA_ID_INVALID;
 
 	if (user_data_size > 0)
-                this->user_data = SPA_MEMBER(impl, sizeof(struct impl), void);
+                this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);

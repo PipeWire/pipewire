@@ -178,7 +178,7 @@ static struct sample_play *sample_play_new(struct pw_core *core,
 	p->context = pw_core_get_context(core);
 	p->main_loop = pw_context_get_main_loop(p->context);
 	spa_hook_list_init(&p->hooks);
-	p->user_data = SPA_MEMBER(p, sizeof(struct sample_play), void);
+	p->user_data = SPA_PTROFF(p, sizeof(struct sample_play), void);
 
 	pw_properties_update(props, &sample->props->dict);
 

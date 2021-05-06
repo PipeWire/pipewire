@@ -556,7 +556,7 @@ static inline void *begin_write(struct pw_protocol_native_connection *conn, uint
 	if ((p = connection_ensure_size(conn, buf, impl->hdr_size + size)) == NULL)
 		return NULL;
 
-	return SPA_MEMBER(p, impl->hdr_size, void);
+	return SPA_PTROFF(p, impl->hdr_size, void);
 }
 
 static int builder_overflow(void *data, uint32_t size)
@@ -629,7 +629,7 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 	if (debug_messages) {
 		pw_log_debug(">>>>>>>>> out: id:%d op:%d size:%d seq:%d",
 				buf->msg.id, buf->msg.opcode, size, buf->msg.seq);
-	        spa_debug_pod(0, NULL, SPA_MEMBER(p, impl->hdr_size, struct spa_pod));
+	        spa_debug_pod(0, NULL, SPA_PTROFF(p, impl->hdr_size, struct spa_pod));
 	}
 
 	buf->seq = (buf->seq + 1) & SPA_ASYNC_SEQ_MASK;
@@ -717,7 +717,7 @@ int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *co
 			     outfds);
 
 		size -= sent;
-		data = SPA_MEMBER(data, sent, void);
+		data = SPA_PTROFF(data, sent, void);
 		n_fds -= outfds;
 		fds += outfds;
 		to_close += outfds;

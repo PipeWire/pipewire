@@ -798,14 +798,14 @@ do_port_use_buffers(struct impl *impl,
 		if ((mem = pw_mempool_find_ptr(impl->context->pool, baseptr)) == NULL)
 			return -EINVAL;
 
-		endptr = SPA_MEMBER(baseptr, buffers[i]->n_datas * sizeof(struct spa_chunk), void);
+		endptr = SPA_PTROFF(baseptr, buffers[i]->n_datas * sizeof(struct spa_chunk), void);
 		for (j = 0; j < buffers[i]->n_metas; j++) {
-			endptr = SPA_MEMBER(endptr, SPA_ROUND_UP_N(buffers[i]->metas[j].size, 8), void);
+			endptr = SPA_PTROFF(endptr, SPA_ROUND_UP_N(buffers[i]->metas[j].size, 8), void);
 		}
 		for (j = 0; j < buffers[i]->n_datas; j++) {
 			struct spa_data *d = buffers[i]->datas;
 			if (d->type == SPA_DATA_MemPtr)
-				endptr = SPA_MEMBER(d->data, d->maxsize, void);
+				endptr = SPA_PTROFF(d->data, d->maxsize, void);
 		}
 
 		m = pw_mempool_import_block(this->client->pool, mem);
@@ -1375,7 +1375,7 @@ static int port_init_mix(void *data, struct pw_impl_port_mix *mix)
 	if (mix->id == SPA_ID_INVALID)
 		return -errno;
 
-	mix->io = SPA_MEMBER(impl->io_areas->map->ptr,
+	mix->io = SPA_PTROFF(impl->io_areas->map->ptr,
 			mix->id * sizeof(struct spa_io_buffers), void);
 	*mix->io = SPA_IO_BUFFERS_INIT;
 

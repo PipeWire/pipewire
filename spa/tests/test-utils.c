@@ -133,6 +133,8 @@ static void test_abi(void)
 
 static void test_macros(void)
 {
+	uint8_t ptr[64];
+
 	spa_assert(SPA_MIN(1, 2) == 1);
 	spa_assert(SPA_MIN(1, -2) == -2);
 	spa_assert(SPA_MAX(1, 2) == 2);
@@ -140,6 +142,14 @@ static void test_macros(void)
 	spa_assert(SPA_CLAMP(23, 1, 16) == 16);
 	spa_assert(SPA_CLAMP(-1, 1, 16) == 1);
 	spa_assert(SPA_CLAMP(8, 1, 16) == 8);
+
+	/* SPA_MEMBER exists for backwards compatibility but should no
+	 * longer be used, let's make sure it does what we expect it to */
+	spa_assert(SPA_MEMBER(ptr, 4, void) == SPA_PTROFF(ptr, 4, void));
+	spa_assert(SPA_MEMBER(ptr, 32, void) == SPA_PTROFF(ptr, 32, void));
+	spa_assert(SPA_MEMBER(ptr, 0, void) == SPA_PTROFF(ptr, 0, void));
+	spa_assert(SPA_MEMBER_ALIGN(ptr, 0, 4, void) == SPA_PTROFF_ALIGN(ptr, 0, 4, void));
+	spa_assert(SPA_MEMBER_ALIGN(ptr, 4, 32, void) == SPA_PTROFF_ALIGN(ptr, 4, 32, void));
 }
 
 static void test_result(void)

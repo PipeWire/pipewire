@@ -121,7 +121,7 @@ static int alloc_buffers(struct pw_mempool *pool,
 	if (buffers == NULL)
 		return -errno;
 
-	skel = SPA_MEMBER(buffers, n_buffers * sizeof(struct spa_buffer *), void);
+	skel = SPA_PTROFF(buffers, n_buffers * sizeof(struct spa_buffer *), void);
 	skel = SPA_PTR_ALIGN(skel, info.max_align, void);
 
 	if (SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_SHARED)) {
@@ -271,7 +271,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 
 	params = alloca(n_params * sizeof(struct spa_pod *));
 	for (i = 0, offset = 0; i < n_params; i++) {
-		params[i] = SPA_MEMBER(buffer, offset, struct spa_pod);
+		params[i] = SPA_PTROFF(buffer, offset, struct spa_pod);
 		spa_pod_fixate(params[i]);
 		pw_log_debug(NAME" %p: fixated param %d:", result, i);
 		pw_log_pod(SPA_LOG_LEVEL_DEBUG, params[i]);

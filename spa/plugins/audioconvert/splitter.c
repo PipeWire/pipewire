@@ -920,7 +920,7 @@ static int impl_node_process(void *object)
 
 	maxsize = INT_MAX;
 	for (i = 0; i < n_src_datas; i++) {
-		src_datas[i] = SPA_MEMBER(sd[i].data,
+		src_datas[i] = SPA_PTROFF(sd[i].data,
 				sd[i].chunk->offset, void);
 		maxsize = SPA_MIN(sd[i].chunk->size, maxsize);
 	}

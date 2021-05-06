@@ -175,7 +175,7 @@ struct pw_impl_device *pw_context_create_device(struct pw_context *context,
 	spa_list_init(&this->object_list);
 
 	if (user_data_size > 0)
-		this->user_data = SPA_MEMBER(this, sizeof(struct impl), void);
+		this->user_data = SPA_PTROFF(this, sizeof(struct impl), void);
 
 	check_properties(this);
 

@@ -10,15 +10,15 @@ else
   doxyfile_conf.set('HAVE_DOT', 'NO')
 endif
 
-inputs = ''
+inputs = []
 foreach h : pipewire_headers
-  inputs += ' ' + meson.source_root() / 'src' / 'pipewire' / h
+  inputs += meson.source_root() / 'src' / 'pipewire' / h
 endforeach
 foreach h : pipewire_sources
-  inputs += ' ' + meson.source_root() / 'src' / 'pipewire' / h
+  inputs += meson.source_root() / 'src' / 'pipewire' / h
 endforeach
 
-doxyfile_conf.set('inputs', inputs)
+doxyfile_conf.set('inputs', ' '.join(inputs))
 
 doxyfile = configure_file(input: 'Doxyfile.in',
                           output: 'Doxyfile',
@@ -30,7 +30,7 @@ if docdir == ''
 endif
 
 html_target = custom_target('pipewire-docs',
-                            input: [ doxyfile ],
+                            input: [ doxyfile ] + inputs,
                             output: [ 'html' ],
                             command: [ doxygen, doxyfile ],
                             install: true,

@@ -125,6 +125,7 @@ struct spa_io_range {
  * since the provider was last started.
  */
 struct spa_io_clock {
+#define SPA_IO_CLOCK_FLAG_FREEWHEEL (1u<<0)
 	uint32_t flags;			/**< clock flags */
 	uint32_t id;			/**< unique clock id, set by application */
 	char name[64];			/**< clock name prefixed with API, set by node. The clock name

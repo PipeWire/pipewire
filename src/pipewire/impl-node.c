@@ -864,6 +864,7 @@ static void check_properties(struct pw_impl_node *node)
 	if (strcmp(str, node->group) != 0) {
 		pw_log_info(NAME" %p: group '%s'->'%s'", node, node->group, str);
 		snprintf(node->group, sizeof(node->group), "%s", str);
+		node->freewheel = strcmp(node->group, "pipewire.freewheel") == 0;
 		recalc_reason = "group changed";
 	}
 

@@ -666,6 +666,12 @@ static int impl_node_process(void *object)
 		spa_alsa_recycle_buffer(this, io->buffer_id);
 		io->buffer_id = SPA_ID_INVALID;
 	}
+	if (this->position && this->position->clock.flags & SPA_IO_CLOCK_FLAG_FREEWHEEL) {
+		spa_log_info(this->log, NAME " %p:freewheel", this);
+		io->status = SPA_STATUS_HAVE_DATA;
+		io->buffer_id = 0;
+		return SPA_STATUS_HAVE_DATA;
+	}
 
 	if (spa_list_is_empty(&this->ready) && this->following)
 		spa_alsa_read(this, 0);

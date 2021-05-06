@@ -364,6 +364,7 @@ struct client {
 	unsigned int merge_monitor:1;
 	unsigned int short_name:1;
 	unsigned int filter_name:1;
+	unsigned int freewheeling:1;
 	int self_connect_mode;
 
 	jack_position_t jack_position;
@@ -1393,7 +1394,16 @@ do_update_driver_activation(struct spa_loop *loop,
 static int update_driver_activation(struct client *c)
 {
 	struct link *link;
+	bool freewheeling;
+
 	pw_log_debug(NAME" %p: driver %d", c, c->driver_id);
+
+	freewheeling = SPA_FLAG_IS_SET(c->position->clock.flags, SPA_IO_CLOCK_FLAG_FREEWHEEL);
+	if (c->freewheeling != freewheeling) {
+		c->freewheeling = freewheeling;
+		if (c->freewheel_callback)
+			c->freewheel_callback(freewheeling, c->freewheel_arg);
+	}
 
 	link = find_activation(&c->links, c->driver_id);
 	c->driver_activation = link ? link->activation : NULL;

@@ -640,8 +640,9 @@ static int impl_node_process(void *object)
 	spa_log_trace_fp(this->log, NAME " %p: process %d %d/%d", this, input->status,
 			input->buffer_id,
 			this->n_buffers);
-
-	if (input->status == SPA_STATUS_HAVE_DATA &&
+	if (this->position && this->position->clock.flags & SPA_IO_CLOCK_FLAG_FREEWHEEL) {
+		input->status = SPA_STATUS_NEED_DATA;
+	} else if (input->status == SPA_STATUS_HAVE_DATA &&
 	    input->buffer_id < this->n_buffers) {
 		struct buffer *b = &this->buffers[input->buffer_id];
 

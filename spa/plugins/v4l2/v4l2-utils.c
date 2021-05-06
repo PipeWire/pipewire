@@ -1486,7 +1486,7 @@ mmap_init(struct impl *this,
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_ALLOCATED);
 			spa_log_debug(this->log, "v4l2: EXPBUF fd:%d", expbuf.fd);
 			use_expbuf = true;
-		} else {
+		} else if (d[0].type & (1u << SPA_DATA_MemPtr)) {
 fallback:
 			d[0].type = SPA_DATA_MemPtr;
 			d[0].flags = SPA_DATA_FLAG_READABLE;
@@ -1505,6 +1505,9 @@ fallback:
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
 			spa_log_debug(this->log, "v4l2: mmap offset:%u data:%p", d[0].mapoffset, b->ptr);
 			use_expbuf = false;
+		} else {
+			spa_log_error(this->log, "v4l2: unsupported data type:%08x", d[0].type);
+			return -ENOTSUP;
 		}
 		spa_v4l2_buffer_recycle(this, i);
 	}

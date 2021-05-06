@@ -11,7 +11,7 @@ environment.
 Let get started with the simplest application.
 
 ```c
-#include <pipewire/pipewire.h>                                                  
+#include <pipewire/pipewire.h>
 
 int main(int argc, char *argv[])
 {

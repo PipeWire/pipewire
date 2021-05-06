@@ -59,5 +59,5 @@ The reason why is this set up like this is that the metadata memory, the data an
 	 *    +>| data                         | memory for n_datas data, aligned
 	 *      | ... <n_datas> blocks         | according to alignments
 	 *      +==============================+
-	 
+
 Taken from [here](https://gitlab.freedesktop.org/pipewire/pipewire/-/blob/11f95fe11e07192cec19fddb4fafc708e023e49c/spa/include/spa/buffer/alloc.h).

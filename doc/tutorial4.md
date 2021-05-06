@@ -184,7 +184,7 @@ static const struct pw_stream_events stream_events = {
 ```
 
 We are for the moment only interested now in the `process` event. This event
-is called whenever we need to produce more data. We'll see how that function 
+is called whenever we need to produce more data. We'll see how that function
 is implemented but first we need to setup the format of the stream:
 
 ```c

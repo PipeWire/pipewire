@@ -14,7 +14,7 @@ followed by the pod contents. This makes it possible to skip over unknown
 POD types. The POD start is always aligned to 8 bytes.
 
 PODs can be efficiently constructed and parsed in real-time threads without
-requiring memory allocations. 
+requiring memory allocations.
 
 PODs use the SPA type system for the basic types and containers. See
 the SPA types for more info.
@@ -30,23 +30,23 @@ PODs can contain a number of basic SPA types:
  		various numeral types, 32 and 64 bits.
  * `SPA_TYPE_String`: a string
  * `SPA_TYPE_Bytes`: a byte array
- * `SPA_TYPE_Rectangle`: a rectangle with width and height                                            
+ * `SPA_TYPE_Rectangle`: a rectangle with width and height
  * `SPA_TYPE_Fraction`: a fraction with numerator and denominator
- * `SPA_TYPE_Bitmap`: an array of bits                                                        
+ * `SPA_TYPE_Bitmap`: an array of bits
 
 PODs can be grouped together in these container types:
 
- * `SPA_TYPE_Array`: an array of equal sized objects                                                         
+ * `SPA_TYPE_Array`: an array of equal sized objects
  * `SPA_TYPE_Struct`: a collection of types and objects
  * `SPA_TYPE_Object`: an object with properties
- * `SPA_TYPE_Sequence`: a timed sequence of PODs                                                      
+ * `SPA_TYPE_Sequence`: a timed sequence of PODs
 
 PODs can also contain some extra types:
 
- * `SPA_TYPE_Pointer`: a typed pointer in memory                                                       
+ * `SPA_TYPE_Pointer`: a typed pointer in memory
  * `SPA_TYPE_Fd`: a file descriptor
- * `SPA_TYPE_Choice`: a choice of values                                                        
- * `SPA_TYPE_Pod`: a generic type for the POD itself         
+ * `SPA_TYPE_Choice`: a choice of values
+ * `SPA_TYPE_Pod`: a generic type for the POD itself
 
 # Constructing a POD
 
@@ -65,7 +65,7 @@ the stack allocated buffer.
 ```c
 uint8_t buffer[4096];
 struct spa_pod_builder b;
-spa_pod_builder_init(&b, buffer, sizeof(buffer));                       
+spa_pod_builder_init(&b, buffer, sizeof(buffer));
 ```
 
 Next we need to write some object into the builder. Let's write
@@ -176,7 +176,7 @@ interpreted in different ways:
  * `SPA_CHOICE_None`:   no choice, first value is current
  * `SPA_CHOICE_Range`:  range: default, min, max
  * `SPA_CHOICE_Step`:   range with step: default, min, max, step
- * `SPA_CHOICE_Enum`:   enum: default, alternative,... 
+ * `SPA_CHOICE_Enum`:   enum: default, alternative,...
  * `SPA_CHOICE_Flags`:  bitmask of flags
 
 Let's illustrate this with a Props object that specifies a range of
@@ -233,7 +233,7 @@ pod = spa_pod_builder_add_object(&b,
 
 ## Fixate
 
-We can remove all choice values from the object with the 
+We can remove all choice values from the object with the
 `spa_pod_object_fixate()` method. This modifies the pod in-place and sets all
 choice properties to `SPA_CHOICE_None`, forcing the default value as the
 only available value in the choice.
@@ -345,7 +345,7 @@ spa_pod_parser_push_struct(&p, &f);
 ```
 
 You need to store the context in a `struct spa_pod_frame` to be able
-to exit the container again later. 
+to exit the container again later.
 
 You can then parse each field. The parser takes care of moving to the
 next field.
@@ -415,7 +415,7 @@ Use the iterator for this.
 
 The parser will handle Choice values as long as they are of type
 None. It will then parse the single value from the choice. When
-dealing with other choice values, it's possible to parse the 
+dealing with other choice values, it's possible to parse the
 property values into a `struct spa_pod` and then inspect the Choice
 manually, if needed.
 

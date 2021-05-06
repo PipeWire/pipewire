@@ -241,7 +241,7 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_log_trace(this->log, "process %d", this->props.freewheel);
 
-	if (this->props.freewheel) {
+	if (false && this->props.freewheel) {
 		clock_gettime(CLOCK_MONOTONIC, &now);
 		this->next_time = SPA_TIMESPEC_TO_NSEC(&now);
 		set_timer(this, this->next_time);

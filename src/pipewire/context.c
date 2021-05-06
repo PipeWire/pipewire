@@ -935,14 +935,15 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *driver
 		}
 		/* now go through all the followers of this driver and add the
 		 * nodes that have the same group and that are not yet visited */
-		if (n->group_id == SPA_ID_INVALID)
+		if (n->group[0] == '\0')
 			continue;
 
 		spa_list_for_each(t, &context->node_list, link) {
 			if (t->exported || t == n || !t->active || t->visited)
 				continue;
-			if (t->group_id != n->group_id)
+			if (strcmp(t->group, n->group) != 0)
 				continue;
+			pw_log_debug("%p join group %s: '%s'", t, t->group, n->group);
 			t->visited = true;
 			spa_list_append(&queue, &t->sort_link);
 		}

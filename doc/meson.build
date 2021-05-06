@@ -18,6 +18,29 @@ foreach h : pipewire_sources
   inputs += meson.source_root() / 'src' / 'pipewire' / h
 endforeach
 
+extra_docs = [
+  'overview.md',
+  'design.txt',
+  'architecture.md',
+  'objects_design.md',
+  'tutorial-index.md',
+  'tutorial1.md',
+  'tutorial2.md',
+  'tutorial3.md',
+  'tutorial4.md',
+  'tutorial5.md',
+  'tutorial6.md',
+  'spa/index.md',
+  'spa/design.md',
+  'spa/pod.md',
+  'spa/buffer.md',
+  'pulseaudio.md',
+]
+
+foreach extra : extra_docs
+  inputs += meson.source_root() / 'doc' / extra
+endforeach
+
 doxyfile_conf.set('inputs', ' '.join(inputs))
 
 doxyfile = configure_file(input: 'Doxyfile.in',

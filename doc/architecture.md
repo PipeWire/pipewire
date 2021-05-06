@@ -1,9 +1,9 @@
-# Architecture
+# PipeWire Architecture
 
 There are 2 main components that make up the PipeWire library:
 
- 1) An implementation of a graph based media processing engine.
- 2) An asynchronous IPC mechanism to manipulate and introspect
+1. An implementation of a graph based media processing engine.
+2. An asynchronous IPC mechanism to manipulate and introspect
     a graph in another process.
 
 There is usually a daemon that implements the global graph and

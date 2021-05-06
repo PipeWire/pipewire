@@ -1,6 +1,6 @@
-[[previous]](tutorial2.md) [[index]](tutorial-index.md) [[next]](tutorial4.md)
+# Tutorial - Part 3: Forcing a roundtrip (Tutorial 3)
 
-# Forcing a roundtrip (Tutorial 3)
+[[previous]](tutorial2.md) [[index]](tutorial-index.md) [[next]](tutorial4.md)
 
 In this tutorial we show how to force a roundtrip to the server
 to make sure an action completed.

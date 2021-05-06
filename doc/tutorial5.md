@@ -1,6 +1,6 @@
-[[previous]](tutorial4.md) [[index]](tutorial-index.md) [[next]](tutorial6.md)
+# Tutorial - Part 5: Capturing video frames
 
-# Capturing video frames (Tutorial 5)
+[[previous]](tutorial4.md) [[index]](tutorial-index.md) [[next]](tutorial6.md)
 
 In this tutorial we show how to use a stream to capture a
 stream of video frames.

@@ -1,4 +1,4 @@
-# Objects Design
+# PipeWire Objects Design
 
 This document is a design reference on the various objects that exist
 in the PipeWire media and session management graphs, explaining what these

@@ -1,4 +1,4 @@
-# ALSA
+# Internals - Mapping between ALSA and streams
 
 This explains the mapping between alsa cards and streams and session manager
 objects.

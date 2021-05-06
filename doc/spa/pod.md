@@ -1,4 +1,4 @@
-# POD
+# SPA POD
 
 POD (plain old data) is a sort of data container. It is comparable to
 DBus Variant or LV2 Atom.

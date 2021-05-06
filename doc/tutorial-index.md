@@ -1,4 +1,4 @@
-# PipeWire Tutorial
+# Tutorial - The PipeWire API
 
 Welcome to the PipeWire tutorial. The goal is to learn
 PipeWire API step-by-step with simple short examples.

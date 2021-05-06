@@ -1,8 +1,9 @@
+# Tutorial - Part 2: Enumerating objects
+
 [[previous]](tutorial1.md) [[index]](tutorial-index.md) [[next]](tutorial3.md)
 
-# Enumerating objects (Tutorial 2)
 
-In this tutorial we show how to connect to a PipeWire daemon and 
+In this tutorial we show how to connect to a PipeWire daemon and
 enumerate the objects that it has.
 
 Let take a look at the following application to start.

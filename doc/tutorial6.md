@@ -1,6 +1,6 @@
-[[previous]](tutorial5.md) [[index]](tutorial-index.md) [[next]](tutorial7.md)
+# Tutorial - Part 6: Binding objects
 
-# Binding objects (Tutorial 6)
+[[previous]](tutorial5.md) [[index]](tutorial-index.md) [[next]](tutorial7.md)
 
 In this tutorial we show how to bind to an object so that we can
 receive events and call methods on the object.

@@ -1,6 +1,6 @@
-[[previous]](tutorial3.md) [[index]](tutorial-index.md) [[next]](tutorial5.md)
+# Tutorial - Part 4: Playing a tone
 
-# Playing a tone (Tutorial 4)
+[[previous]](tutorial3.md) [[index]](tutorial-index.md) [[next]](tutorial5.md)
 
 In this tutorial we show how to use a stream to play a tone.
 

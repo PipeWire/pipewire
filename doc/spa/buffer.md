@@ -1,3 +1,5 @@
+# SPA Buffers
+
 > What is the array of `spa_data` in `spa_buffer`?
 
 A buffer contains metadata and data. There can be many metadata items (headers, color info, cursor position, etc) in the buffer. The metadata items are stored in the metas array. In the same way, the buffer can contain multiple data blocks in the datas array. Each data block is, for example, a video plane or an audio channel. There are `n_datas` of those blocks.

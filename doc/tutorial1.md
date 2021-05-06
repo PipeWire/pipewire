@@ -1,6 +1,6 @@
-[[index]](tutorial-index.md) [[next]](tutorial2.md)
+# Tutorial - Part 1: Getting started
 
-# Getting started (Tutorial 1)
+[[index]](tutorial-index.md) [[next]](tutorial2.md)
 
 In this tutorial we show the basics of a simple PipeWire application.
 Use this tutorial to get started and help you set up your development

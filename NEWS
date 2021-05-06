@@ -1,3 +1,76 @@
+PipeWire 0.3.27
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+- Highlights
+  - Fix bug that caused bluetooth devices to stop working.
+  - Fix session-manager crash when switching users caused by
+    the DBus plugin cleanup errors.
+  - Improve volume handling of monitor ports.
+  - Fix GStreamer v4l2 support.
+  - Implement module-remap-sink and module-remap-source in
+    pipewire-pulse.
+  - More fixes and improvements.
+
+
+- PipeWire
+  - Move the loopback code into a module. Use this in pw-loopback
+    and pipewire-pulse. Fix some cleanup crashes.
+  - A dummy echo-cancel module was added. Later versions will
+    include the webrtc echo-canceler.
+  - State files don't have the X permission anymore.
+  - Move i18n core into a private header file.
+  - Stream can now advertize properties and receive property
+    updates.
+  - Fix an issue where the wrong index was used to address a port.
+    It caused Bluetooth devices to stop working.
+
+- SPA plugins
+  - Only do LFE filtering on channels we created.
+  - Improve name and description of devices.
+  - Improve cleanup in DBus connections and sources to avoid crash
+    when destroying.
+  - Improved volume handling. Hardware, Software and Monitor
+    volumes are now properly separated and handled.
+  - Support for S8 and S8P formats was added.
+
+- Tools
+  - pw-cli can now also create Struct from JSON arrays.
+
+- Session-manager
+  - The session manager can now also create passive links. This
+    makes is possible to suspend effect chains together with the
+    sinks when not in use.
+  - Match rules now check the complete property value instead of
+    only the start.
+  - Handle multiple pending param enumerations, take only last
+    result. This fixes some volume update issues.
+
+- GStreamer plugins
+  - GStreamer plugins now advertize handling DMABUF explicitly. This
+    is currently the only way to avoid a memcpy for v4l2 devices.
+
+- Device support
+  - sync ACP with pulseaudio, merge upstream patch instead of our
+    hack to workaround missing duplex devices.
+  - V4l2 devices don't expose their fd anymore. Previously the fd
+    and mmap offsets were passed to the client to access the buffer
+    memory but that could create security issues.
+
+- Bluetooth
+  - Don't unregister the profiles on shutdown because this can cause
+    delay, just close the dbus connection.
+  - Bluetooth devices now try to use the global samplerate from the
+    graph.
+
+- PulseAudio server
+  - Implement remap-sink and remap-source modules using the
+    new loopback module.
+
+Older versions:
+
+
 PipeWire 0.3.26
 
 This is a bugfix release that is API and ABI compatible
@@ -69,10 +142,6 @@ with previous 0.3.x releases.
 
 - JACK
   - JACK development files can now optionally be installed.
-
-
-Older versions:
-
 
 PipeWire 0.3.25
 

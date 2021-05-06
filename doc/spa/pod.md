@@ -11,7 +11,7 @@ marshalling.
 
 Each POD is made of a 32 bits size followed by a 32 bits type field,
 followed by the pod contents. This makes it possible to skip over unknown
-POD type. The POD start is always aligned to 8 bytes.
+POD types. The POD start is always aligned to 8 bytes.
 
 PODs can be efficiently constructed and parsed in real-time threads without
 requiring memory allocations. 

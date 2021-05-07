@@ -163,11 +163,11 @@ clean_this:
 
 /** Create a new \ref pw_thread_loop
  *
- * \param loop the loop to wrap
  * \param name the name of the thread or NULL
+ * \param props a dict of properties for the thread loop
  * \return a newly allocated \ref  pw_thread_loop
  *
- * Make a new \ref pw_thread_loop that will run \a loop in
+ * Make a new \ref pw_thread_loop that will run in
  * a thread with \a name.
  *
  * After this function you should probably call pw_thread_loop_start() to
@@ -182,6 +182,21 @@ struct pw_thread_loop *pw_thread_loop_new(const char *name,
 	return loop_new(NULL, name, props);
 }
 
+/** Create a new \ref pw_thread_loop
+ *
+ * \param loop the loop to wrap
+ * \param name the name of the thread or NULL
+ * \param props a dict of properties for the thread loop
+ * \return a newly allocated \ref  pw_thread_loop
+ *
+ * Make a new \ref pw_thread_loop that will run \a loop in
+ * a thread with \a name.
+ *
+ * After this function you should probably call pw_thread_loop_start() to
+ * actually start the thread
+ *
+ * \memberof pw_thread_loop
+ */
 SPA_EXPORT
 struct pw_thread_loop *pw_thread_loop_new_full(struct pw_loop *loop,
 		const char *name, const struct spa_dict *props)

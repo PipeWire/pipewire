@@ -183,10 +183,10 @@ int pw_properties_update_string(struct pw_properties *props, const char *str, si
 
 /** Make a new properties object from the given str
  *
- * \a str should be a whitespace separated list of key=value
+ * \a object should be a whitespace separated list of key=value
  * strings or a json object.
  *
- * \param args a property description
+ * \param object a property description
  * \return a new properties object
  *
  * \memberof pw_properties
@@ -227,8 +227,8 @@ struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
 
 /** Copy multiple keys from one property to another
  *
- * \param src properties to copy from
- * \param dst properties to copy to
+ * \param props properties to copy to
+ * \param dict properties to copy from
  * \param keys a NULL terminated list of keys to copy
  * \return the number of keys changed in \a dest
  *

@@ -55,7 +55,7 @@ uint32_t pw_global_get_permissions(struct pw_global *global, struct pw_impl_clie
  * \param type the type of the global
  * \param version the version of the type
  * \param properties extra properties
- * \param bind a function to bind to this global
+ * \param func a function to bind to this global
  * \param object the associated object
  * \return a result global
  *

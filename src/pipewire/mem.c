@@ -685,7 +685,7 @@ int pw_mempool_remove_id(struct pw_mempool *pool, uint32_t id)
 }
 
 /** Free a memblock
- * \param mem a memblock
+ * \param block a memblock
  * \memberof pw_memblock
  */
 SPA_EXPORT

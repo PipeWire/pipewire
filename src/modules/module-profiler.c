@@ -80,6 +80,8 @@ struct impl {
 
 	struct spa_ringbuffer buffer;
 	uint8_t data[MAX_BUFFER];
+
+	uint8_t flush[MAX_BUFFER + sizeof(struct spa_pod_struct)];
 };
 
 struct resource_data {
@@ -121,7 +123,7 @@ static void stop_flush(struct impl *impl)
 static void flush_timeout(void *data, uint64_t expirations)
 {
 	struct impl *impl = data;
-	int32_t avail, size;
+	int32_t avail;
 	uint32_t idx;
 	struct spa_pod_struct *p;
 	struct pw_resource *resource;
@@ -137,8 +139,7 @@ static void flush_timeout(void *data, uint64_t expirations)
 	}
 	impl->empty = 0;
 
-	size = avail + sizeof(struct spa_pod_struct);
-	p = alloca(size);
+	p = (struct spa_pod_struct *)impl->flush;
 	*p = SPA_POD_INIT_Struct(avail);
 
 	spa_ringbuffer_read_data(&impl->buffer, impl->data, MAX_BUFFER,

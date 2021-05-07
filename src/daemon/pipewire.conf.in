@@ -164,16 +164,16 @@ context.objects = [
         args = {
             factory.name    = support.node.driver
             node.name       = Dummy-Driver
-            priority.driver = 8000
+            priority.driver = 20000
         }
     }
     {   factory = spa-node-factory
         args = {
             factory.name    = support.node.driver
             node.name       = Freewheel-Driver
-            priority.driver = 6000
+            priority.driver = 19000
             node.group      = pipewire.freewheel
-	    node.freewheel  = true
+            node.freewheel  = true
         }
     }
     # This creates a new Source node. It will have input ports

@@ -163,6 +163,9 @@ static void context_do_profile(void *data, struct pw_impl_node *node)
 	int32_t filled;
 	uint32_t idx, avail;
 
+	if (SPA_FLAG_IS_SET(pos->clock.flags, SPA_IO_CLOCK_FLAG_FREEWHEEL))
+		return;
+
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_pod_builder_push_object(&b, &f[0],
 			SPA_TYPE_OBJECT_Profiler, 0);
@@ -187,6 +190,7 @@ static void context_do_profile(void *data, struct pw_impl_node *node)
 			SPA_POD_Long(pos->clock.delay),
 			SPA_POD_Double(pos->clock.rate_diff),
 			SPA_POD_Long(pos->clock.next_nsec));
+
 
 	spa_pod_builder_prop(&b, SPA_PROFILER_driverBlock, 0);
 	spa_pod_builder_add_struct(&b,

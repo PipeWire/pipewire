@@ -94,6 +94,7 @@ static const struct spa_dict_item module_props[] = {
 
 #include <pipewire/pipewire.h>
 
+#define MAX_HNDL 64
 #define MAX_PORTS 64
 #define MAX_CONTROLS 256
 #define MAX_SAMPLES 8192
@@ -126,34 +127,44 @@ struct ladspa_descriptor {
 	LADSPA_Data default_control[MAX_PORTS];
 };
 
+struct port {
+	struct node *node;
+	uint32_t idx;
+	unsigned long p;
+
+	struct spa_list link_list;
+	uint32_t n_links;
+
+	LADSPA_Data control_data;
+	LADSPA_Data *audio_data[MAX_HNDL];
+};
+
 struct node {
 	struct spa_list link;
 	struct ladspa_descriptor *desc;
 
-	struct spa_list output_link_list;
-	uint32_t n_input_links;
-	unsigned int visited:1;
-
 	char name[256];
-	LADSPA_Data control_data[MAX_PORTS];
-	LADSPA_Data notify_data[MAX_PORTS];
+
+	struct port input_port[MAX_PORTS];
+	struct port output_port[MAX_PORTS];
+	struct port control_port[MAX_PORTS];
+	struct port notify_port[MAX_PORTS];
 
 	uint32_t n_hndl;
-	LADSPA_Handle hndl[MAX_PORTS];
+	LADSPA_Handle hndl[MAX_HNDL];
+
+	unsigned int n_deps;
+	unsigned int visited:1;
 };
 
 struct link {
 	struct spa_list link;
 
+	struct spa_list input_link;
 	struct spa_list output_link;
 
-	struct node *output;
-	uint32_t output_port;
-	struct node *input;
-	uint32_t input_port;
-
-	LADSPA_Data control_data;
-	LADSPA_Data audio_data[MAX_SAMPLES];
+	struct port *output;
+	struct port *input;
 };
 
 struct graph {
@@ -177,8 +188,7 @@ struct graph {
 	LADSPA_Handle hndl[MAX_PORTS];
 
 	uint32_t n_control;
-	struct node *control_node[MAX_CONTROLS];
-	uint32_t control_index[MAX_CONTROLS];
+	struct port *control_port[MAX_CONTROLS];
 
 	LADSPA_Data silence_data[MAX_SAMPLES];
 	LADSPA_Data discard_data[MAX_SAMPLES];
@@ -346,10 +356,10 @@ static struct spa_pod *get_prop_info(struct graph *graph, struct spa_pod_builder
 {
 	struct spa_pod_frame f[2];
 	struct impl *impl = graph->impl;
-	struct node *node = graph->control_node[idx];
+	struct port *port = graph->control_port[idx];
+	struct node *node = port->node;
 	struct ladspa_descriptor *desc = node->desc;
-	uint32_t i = graph->control_index[idx];
-	uint32_t p = desc->control[i];
+	uint32_t p = port->p;
 	const LADSPA_Descriptor *d = desc->desc;
 	LADSPA_PortRangeHintDescriptor hint = d->PortRangeHints[p].HintDescriptor;
 	float def, upper, lower;
@@ -390,10 +400,9 @@ static struct spa_pod *get_props_param(struct graph *graph, struct spa_pod_build
 	spa_pod_builder_push_object(b, &f[0],
 			SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 	for (i = 0; i < graph->n_control; i++) {
-		struct node *node = graph->control_node[i];
-		uint32_t idx = graph->control_index[i];
+		struct port *port = graph->control_port[i];
 		spa_pod_builder_prop(b, SPA_PROP_START_CUSTOM + i, 0);
-		spa_pod_builder_float(b, node->control_data[idx]);
+		spa_pod_builder_float(b, port->control_data);
 	}
 	return spa_pod_builder_pop(b, &f[0]);
 }
@@ -406,10 +415,11 @@ static int set_control_value(struct node *node, const char *name, float *value)
 	for (i = 0; i < desc->n_control; i++) {
 		uint32_t p = desc->control[i];
 		if (strcmp(desc->desc->PortNames[p], name) == 0) {
-			float old = node->control_data[i];
-			node->control_data[i] = value ? *value : desc->default_control[i];
-			pw_log_info("control %d ('%s') to %f", i, name, node->control_data[i]);
-			return old == node->control_data[i] ? 0 : 1;
+			struct port *port = &node->control_port[i];
+			float old = port->control_data;
+			port->control_data = value ? *value : desc->default_control[i];
+			pw_log_info("control %d ('%s') to %f", i, name, port->control_data);
+			return old == port->control_data ? 0 : 1;
 		}
 	}
 	return 0;
@@ -429,7 +439,7 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		uint32_t idx;
 		float value;
-		struct node *node;
+		struct port *port;
 
 		if (prop->key < SPA_PROP_START_CUSTOM)
 			continue;
@@ -440,13 +450,12 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 		if (spa_pod_get_float(&prop->value, &value) < 0)
 			continue;
 
-		node = graph->control_node[idx];
-		idx = graph->control_index[idx];
+		port = graph->control_port[idx];
 
-		if (node->control_data[idx] != value) {
-			node->control_data[idx] = value;
+		if (port->control_data != value) {
+			port->control_data = value;
 			changed++;
-			pw_log_info("control %d to %f", idx, node->control_data[idx]);
+			pw_log_info("control %d to %f", idx, port->control_data);
 		}
 	}
 	if (changed > 0) {
@@ -593,47 +602,51 @@ static struct node *find_node(struct graph *graph, const char *name)
 	return NULL;
 }
 
-static uint32_t find_port(struct node *node, const char *name, int mask)
+static struct port *find_port(struct node *node, const char *name, struct port ports[], uint32_t n_ports)
 {
-	uint32_t p;
 	const LADSPA_Descriptor *d = node->desc->desc;
-	for (p = 0; p < d->PortCount; p++) {
-		if ((d->PortDescriptors[p] & mask) != mask)
-			continue;
-		if (strcmp(d->PortNames[p], name) == 0)
-			return p;
+	uint32_t i;
+
+	for (i = 0; i < n_ports; i++) {
+		struct port *port = &ports[i];
+		pw_log_info("%s %s", d->PortNames[port->p], name);
+		if (strcmp(d->PortNames[port->p], name) == 0)
+			return port;
 	}
-	return SPA_ID_INVALID;
+	return NULL;
 }
 
-struct node_port {
-	struct node *node;
-	uint32_t port;
-};
-
-static int find_node_port(struct graph *graph, char *name, int mask, struct node_port *result)
+static struct port *find_node_port(struct graph *graph, char *name, int mask)
 {
+	struct node *node;
 	char *col, *node_name, *port_name;
+	struct port *ports;
+	uint32_t n_ports;
 
 	col = strchr(name, ':');
 	if (col != NULL) {
 		node_name = name;
 		port_name = col + 1;
 		*col = '\0';
-		result->node = find_node(graph, node_name);
+		node = find_node(graph, node_name);
 	} else {
-		result->node = (mask & LADSPA_PORT_INPUT) ?
+		node = (mask & LADSPA_PORT_INPUT) ?
 			spa_list_first(&graph->node_list, struct node, link) :
 			spa_list_last(&graph->node_list, struct node, link);
-		node_name = result->node->name;
+		node_name = node->name;
 		port_name = name;
 	}
-	if (result->node == NULL)
-		return -ENOENT;
-	result->port = find_port(result->node, port_name, mask);
-	if (result->port == SPA_ID_INVALID)
-		return -ENOENT;
-	return 0;
+	if (node == NULL)
+		return NULL;
+
+	if (mask & LADSPA_PORT_INPUT) {
+		ports = node->input_port;
+		n_ports = node->desc->n_input;
+	} else {
+		ports = node->output_port;
+		n_ports = node->desc->n_output;
+	}
+	return find_port(node, port_name, ports, n_ports);
 }
 
 static uint32_t count_array(struct spa_json *json)
@@ -827,12 +840,11 @@ static int parse_control(struct node *node, struct spa_json *control)
  */
 static int parse_link(struct graph *graph, struct spa_json *json)
 {
-	int res;
 	char key[256];
 	char output[256] = "";
 	char input[256] = "";
 	const char *val;
-	struct node_port np_in, np_out;
+	struct port *in_port, *out_port;
 	struct link *link;
 
 	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
@@ -851,31 +863,33 @@ static int parse_link(struct graph *graph, struct spa_json *json)
 		else if (spa_json_next(json, &val) < 0)
 			break;
 	}
-	if ((res = find_node_port(graph, output, LADSPA_PORT_OUTPUT, &np_out)) < 0) {
+	if ((out_port = find_node_port(graph, output, LADSPA_PORT_OUTPUT)) == NULL) {
 		pw_log_error("unknown output port %s", output);
-		return res;
+		return -ENOENT;
 	}
-	if ((res = find_node_port(graph, input, LADSPA_PORT_INPUT, &np_in)) < 0) {
+	if ((in_port = find_node_port(graph, input, LADSPA_PORT_INPUT)) == NULL) {
 		pw_log_error("unknown input port %s", input);
-		return res;
+		return -ENOENT;
 	}
 
 	if ((link = calloc(1, sizeof(*link))) == NULL)
 		return -errno;
 
-	link->output = np_out.node;
-	link->output_port = np_out.port;
-	link->input = np_in.node;
-	link->input_port = np_in.port;
+	link->output = out_port;
+	link->input = in_port;
 
 	pw_log_info("linking %s:%s -> %s:%s",
-			link->output->name,
-			link->output->desc->desc->PortNames[link->output_port],
-			link->input->name,
-			link->input->desc->desc->PortNames[link->input_port]);
+			out_port->node->name,
+			out_port->node->desc->desc->PortNames[out_port->p],
+			in_port->node->name,
+			in_port->node->desc->desc->PortNames[in_port->p]);
 
-	spa_list_append(&link->output->output_link_list, &link->output_link);
-	link->input->n_input_links++;
+	spa_list_append(&out_port->link_list, &link->output_link);
+	out_port->n_links++;
+	spa_list_append(&in_port->link_list, &link->input_link);
+	in_port->n_links++;
+
+	in_port->node->n_deps++;
 
 	spa_list_append(&graph->link_list, &link->link);
 
@@ -945,12 +959,37 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		return -errno;
 
 	node->desc = desc;
-	spa_list_init(&node->output_link_list);
 	snprintf(node->name, sizeof(node->name), "%s", name);
 
-	for (i = 0; i < desc->n_control; i++)
-		node->control_data[i] = desc->default_control[i];
-
+	for (i = 0; i < desc->n_input; i++) {
+		struct port *port = &node->input_port[i];
+		port->node = node;
+		port->idx = i;
+		port->p = desc->input[i];
+		spa_list_init(&port->link_list);
+	}
+	for (i = 0; i < desc->n_output; i++) {
+		struct port *port = &node->output_port[i];
+		port->node = node;
+		port->idx = i;
+		port->p = desc->output[i];
+		spa_list_init(&port->link_list);
+	}
+	for (i = 0; i < desc->n_control; i++) {
+		struct port *port = &node->control_port[i];
+		port->node = node;
+		port->idx = i;
+		port->p = desc->control[i];
+		spa_list_init(&port->link_list);
+		port->control_data = desc->default_control[i];
+	}
+	for (i = 0; i < desc->n_notify; i++) {
+		struct port *port = &node->notify_port[i];
+		port->idx = i;
+		port->node = node;
+		port->p = desc->control[i];
+		spa_list_init(&port->link_list);
+	}
 	if (have_control)
 		parse_control(node, &it[0]);
 
@@ -963,7 +1002,7 @@ static struct node *find_next_node(struct graph *graph)
 {
 	struct node *node;
 	spa_list_for_each(node, &graph->node_list, link) {
-		if (node->n_input_links == 0 && !node->visited) {
+		if (node->n_deps == 0 && !node->visited) {
 			node->visited = true;
 			return node;
 		}
@@ -971,10 +1010,56 @@ static struct node *find_next_node(struct graph *graph)
 	return NULL;
 }
 
+static int setup_input_port(struct graph *graph, struct port *port)
+{
+	struct ladspa_descriptor *desc = port->node->desc;
+	const LADSPA_Descriptor *d = desc->desc;
+	struct link *link;
+	uint32_t i, n_hndl = port->node->n_hndl;
+
+	spa_list_for_each(link, &port->link_list, input_link) {
+		struct port *peer = link->output;
+		for (i = 0; i < n_hndl; i++) {
+			pw_log_info("connect input port %s[%d]:%s %p",
+					port->node->name, i, d->PortNames[port->p],
+					peer->audio_data[i]);
+			d->connect_port(port->node->hndl[i], port->p, peer->audio_data[i]);
+		}
+	}
+	return 0;
+}
+
+static int setup_output_port(struct graph *graph, struct port *port)
+{
+	struct ladspa_descriptor *desc = port->node->desc;
+	const LADSPA_Descriptor *d = desc->desc;
+	struct link *link;
+	uint32_t i, n_hndl = port->node->n_hndl;;
+
+	spa_list_for_each(link, &port->link_list, output_link) {
+		for (i = 0; i < n_hndl; i++) {
+			float *data;
+			if ((data = port->audio_data[i]) == NULL) {
+				data = calloc(1, MAX_SAMPLES * sizeof(float));
+				if (data == NULL)
+					return -errno;
+			}
+			port->audio_data[i] = data;
+			pw_log_info("connect output port %s[%d]:%s %p",
+					port->node->name, i, d->PortNames[port->p],
+					port->audio_data[i]);
+			d->connect_port(port->node->hndl[i], port->p, data);
+		}
+		link->input->node->n_deps--;
+	}
+	return 0;
+}
+
 static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_json *outputs)
 {
 	struct impl *impl = graph->impl;
 	struct node *node, *first, *last;
+	struct port *port;
 	uint32_t i, j, n_input, n_output, n_hndl = 0;
 	int res;
 	unsigned long p;
@@ -1051,12 +1136,14 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 				d->connect_port(node->hndl[i], p, graph->discard_data);
 			}
 			for (j = 0; j < desc->n_control; j++) {
+				port = &node->control_port[j];
 				p = desc->control[j];
-				d->connect_port(node->hndl[i], p, &node->control_data[j]);
+				d->connect_port(node->hndl[i], p, &port->control_data);
 			}
 			for (j = 0; j < desc->n_notify; j++) {
+				port = &node->control_port[j];
 				p = desc->notify[j];
-				d->connect_port(node->hndl[i], p, &node->notify_data[j]);
+				d->connect_port(node->hndl[i], p, &port->control_data);
 			}
 			if (d->activate)
 				d->activate(node->hndl[i]);
@@ -1064,28 +1151,8 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		}
 		/* collect all control ports on the graph */
 		for (j = 0; j < desc->n_control; j++) {
-			graph->control_node[graph->n_control] = node;
-			graph->control_index[graph->n_control] = j;
+			graph->control_port[graph->n_control] = &node->control_port[j];;
 			graph->n_control++;
-		}
-	}
-	/* set data on all ports */
-	spa_list_for_each(node, &graph->node_list, link) {
-		struct link *link;
-		desc = node->desc;
-		d = desc->desc;
-		spa_list_for_each(link, &node->output_link_list, output_link) {
-			struct node *peer = link->input;
-			const LADSPA_Descriptor *pd = peer->desc->desc;
-
-			for (i = 0; i < n_hndl; i++) {
-				pw_log_info("link %d  %s:%d %s:%d %p", i,
-						node->name, link->output_port,
-						link->input->name, link->input_port,
-						link->audio_data);
-				d->connect_port(node->hndl[i], link->output_port, link->audio_data);
-				pd->connect_port(peer->hndl[i], link->input_port, link->audio_data);
-			}
 		}
 	}
 	/* now collect all input and output ports for all the handles. */
@@ -1094,26 +1161,24 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 			desc = first->desc;
 			d = desc->desc;
 			for (j = 0; j < desc->n_input; j++) {
-				p = desc->input[j];
 				graph->in_desc[graph->n_input] = d;
 				graph->in_hndl[graph->n_input] = first->hndl[i];
-				graph->in_port[graph->n_input] = p;
+				graph->in_port[graph->n_input] = desc->input[j];
 				graph->n_input++;
 			}
 		} else {
 			struct spa_json it = *inputs;
 			while (spa_json_get_string(&it, v, sizeof(v)) > 0) {
-				struct node_port np;
-				if ((res = find_node_port(graph, v, LADSPA_PORT_INPUT, &np)) < 0) {
+				if ((port = find_node_port(graph, v, LADSPA_PORT_INPUT)) == NULL) {
+					res = -ENOENT;
 					pw_log_error("input port %s not found", v);
 					goto error;
 				}
-				desc = np.node->desc;
+				desc = port->node->desc;
 				d = desc->desc;
-
 				graph->in_desc[graph->n_input] = d;
-				graph->in_hndl[graph->n_input] = np.node->hndl[i];
-				graph->in_port[graph->n_input] = np.port;
+				graph->in_hndl[graph->n_input] = port->node->hndl[i];
+				graph->in_port[graph->n_input] = desc->input[port->idx];
 				graph->n_input++;
 			}
 		}
@@ -1121,26 +1186,25 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 			desc = last->desc;
 			d = desc->desc;
 			for (j = 0; j < desc->n_output; j++) {
-				p = desc->output[j];
 				graph->out_desc[graph->n_output] = d;
 				graph->out_hndl[graph->n_output] = last->hndl[i];
-				graph->out_port[graph->n_output] = p;
+				graph->out_port[graph->n_output] = desc->output[j];
 				graph->n_output++;
 			}
 		} else {
 			struct spa_json it = *outputs;
 			while (spa_json_get_string(&it, v, sizeof(v)) > 0) {
-				struct node_port np;
-				if ((res = find_node_port(graph, v, LADSPA_PORT_OUTPUT, &np)) < 0) {
+				if ((port = find_node_port(graph, v, LADSPA_PORT_OUTPUT)) == NULL) {
+					res = -ENOENT;
 					pw_log_error("output port %s not found", v);
 					goto error;
 				}
-				desc = np.node->desc;
+				desc = port->node->desc;
 				d = desc->desc;
 
 				graph->out_desc[graph->n_output] = d;
-				graph->out_hndl[graph->n_output] = np.node->hndl[i];
-				graph->out_port[graph->n_output] = np.port;
+				graph->out_hndl[graph->n_output] = port->node->hndl[i];
+				graph->out_port[graph->n_output] = desc->output[port->idx];
 				graph->n_output++;
 
 			}
@@ -1150,20 +1214,23 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 	/* order all nodes based on dependencies */
 	graph->n_hndl = 0;
 	while (true) {
-		struct link *link;
-
 		if ((node = find_next_node(graph)) == NULL)
 			break;
 
 		desc = node->desc;
 		d = desc->desc;
+
+		for (i = 0; i < desc->n_input; i++)
+			setup_input_port(graph, &node->input_port[i]);
+
 		for (i = 0; i < n_hndl; i++) {
 			graph->hndl[graph->n_hndl] = node->hndl[i];
 			graph->desc[graph->n_hndl] = d;
 			graph->n_hndl++;
 		}
-		spa_list_for_each(link, &node->output_link_list, output_link)
-			link->input->n_input_links--;
+
+		for (i = 0; i < desc->n_output; i++)
+			setup_output_port(graph, &node->output_port[i]);
 	}
 	return 0;
 

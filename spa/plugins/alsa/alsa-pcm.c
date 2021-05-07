@@ -1158,7 +1158,7 @@ push_frames(struct state *state,
 }
 
 
-int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
+int spa_alsa_read(struct state *state)
 {
 	snd_pcm_t *hndl = state->hndl;
 	snd_pcm_uframes_t total_read = 0, to_read;
@@ -1260,6 +1260,40 @@ int spa_alsa_read(struct state *state, snd_pcm_uframes_t silence)
 	return 0;
 }
 
+int spa_alsa_skip(struct state *state)
+{
+	struct buffer *b;
+	struct spa_data *d;
+	uint32_t i, avail, total_frames, n_bytes, frames;
+
+	if (spa_list_is_empty(&state->free)) {
+		spa_log_warn(state->log, NAME" %s: no more buffers", state->props.device);
+		return -EPIPE;
+	}
+
+	frames = state->read_size;
+
+	b = spa_list_first(&state->free, struct buffer, link);
+	spa_list_remove(&b->link);
+
+	d = b->buf->datas;
+
+	avail = d[0].maxsize / state->frame_size;
+	total_frames = SPA_MIN(avail, frames);
+	n_bytes = total_frames * state->frame_size;
+
+	for (i = 0; i < b->buf->n_datas; i++) {
+		memset(d[i].data, 0, n_bytes);
+		d[i].chunk->offset = 0;
+		d[i].chunk->size = n_bytes;
+		d[i].chunk->stride = state->frame_size;
+	}
+	spa_list_append(&state->ready, &b->link);
+
+	return 0;
+}
+
+
 static int handle_play(struct state *state, uint64_t nsec,
 		snd_pcm_uframes_t delay, snd_pcm_uframes_t target)
 {
@@ -1305,7 +1339,7 @@ static int handle_capture(struct state *state, uint64_t nsec,
 	if (SPA_UNLIKELY(res = update_time(state, nsec, delay, target, false)) < 0)
 		return res;
 
-	if ((res = spa_alsa_read(state, target)) < 0)
+	if ((res = spa_alsa_read(state)) < 0)
 		return res;
 
 	if (spa_list_is_empty(&state->ready))
@@ -1508,7 +1542,7 @@ static int do_reassign_follower(struct spa_loop *loop,
 
 int spa_alsa_reassign_follower(struct state *state)
 {
-	bool following;
+	bool following, freewheel;
 
 	if (!state->started)
 		return 0;
@@ -1520,6 +1554,17 @@ int spa_alsa_reassign_follower(struct state *state)
 		spa_loop_invoke(state->data_loop, do_reassign_follower, 0, NULL, 0, true, state);
 	}
 	setup_matching(state);
+
+	freewheel = state->position &&
+		SPA_FLAG_IS_SET(state->position->clock.flags, SPA_IO_CLOCK_FLAG_FREEWHEEL);
+
+	if (state->freewheel != freewheel) {
+		state->freewheel = freewheel;
+		if (freewheel)
+			snd_pcm_pause(state->hndl, 1);
+		else
+			snd_pcm_pause(state->hndl, 0);
+	}
 	return 0;
 }
 

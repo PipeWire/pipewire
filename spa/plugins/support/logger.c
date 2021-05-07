@@ -280,6 +280,8 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	if (this->file == NULL)
 		this->file = stderr;
+	if (!isatty(fileno(this->file)))
+		this->colors = false;
 
 	spa_ringbuffer_init(&this->trace_rb);
 

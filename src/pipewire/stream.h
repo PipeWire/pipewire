@@ -193,7 +193,7 @@ struct pw_time {
 					  *  currently queued */
 };
 
-#include <pipewire/pipewire.h>
+#include <pipewire/port.h>
 
 /** Events for a stream. These events are always called from the mainloop
  * unless explicitly documented otherwise. */

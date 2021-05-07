@@ -87,6 +87,7 @@ custom_target('pipewire-uninstalled',
 #  )
 #endif
 
+subdir('filter-chain')
 if not get_option('media-session').disabled()
   subdir('media-session.d')
 endif

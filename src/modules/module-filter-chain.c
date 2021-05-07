@@ -1019,6 +1019,13 @@ static int setup_input_port(struct graph *graph, struct port *port)
 	struct link *link;
 	uint32_t i, n_hndl = port->node->n_hndl;
 
+	if (port->n_links > 1) {
+		pw_log_warn("mixing not implemented yet");
+		 /* FIXME, add a mixer node here, connect all linked peer
+		  * data to the input, make output data, connect to the input
+		  * port */
+	}
+
 	spa_list_for_each(link, &port->link_list, input_link) {
 		struct port *peer = link->output;
 		for (i = 0; i < n_hndl; i++) {

@@ -121,6 +121,8 @@ static const struct spa_type_info spa_type_props[] = {
 	{ SPA_PROP_exposure, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "exposure", NULL },
 	{ SPA_PROP_gain, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "gain", NULL },
 	{ SPA_PROP_sharpness, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "sharpness", NULL },
+
+	{ SPA_PROP_params, SPA_TYPE_Struct, SPA_TYPE_INFO_PROPS_BASE "params", NULL },
 	{ 0, 0, NULL, NULL },
 };
 
@@ -135,6 +137,7 @@ static const struct spa_type_info spa_type_prop_info[] = {
 	{ SPA_PROP_INFO_type, SPA_TYPE_Pod, SPA_TYPE_INFO_PROP_INFO_BASE "type", NULL },
 	{ SPA_PROP_INFO_labels, SPA_TYPE_Struct, SPA_TYPE_INFO_PROP_INFO_BASE "labels", NULL },
 	{ SPA_PROP_INFO_container, SPA_TYPE_Id, SPA_TYPE_INFO_PROP_INFO_BASE "container", NULL },
+	{ SPA_PROP_INFO_params, SPA_TYPE_Bool, SPA_TYPE_INFO_PROP_INFO_BASE "params", NULL },
 	{ 0, 0, NULL, NULL },
 };
 

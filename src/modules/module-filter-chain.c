@@ -446,7 +446,10 @@ static struct spa_pod *get_prop_info(struct graph *graph, struct spa_pod_builder
 		upper *= (LADSPA_Data) impl->rate;
 	}
 
-	snprintf(name, sizeof(name), "%s:%s", node->name, d->PortNames[p]);
+	if (node->name[0] != '\0')
+		snprintf(name, sizeof(name), "%s:%s", node->name, d->PortNames[p]);
+	else
+		snprintf(name, sizeof(name), "%s", d->PortNames[p]);
 
 	spa_pod_builder_push_object(b, &f[0],
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
@@ -464,6 +467,8 @@ static struct spa_pod *get_prop_info(struct graph *graph, struct spa_pod_builder
 		spa_pod_builder_float(b, upper);
 		spa_pod_builder_pop(b, &f[1]);
 	}
+	spa_pod_builder_prop(b, SPA_PROP_INFO_params, 0);
+	spa_pod_builder_bool(b, true);
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
@@ -471,20 +476,34 @@ static struct spa_pod *get_props_param(struct graph *graph, struct spa_pod_build
 {
 	struct spa_pod_frame f[2];
 	uint32_t i;
+	char name[512];
 
 	spa_pod_builder_push_object(b, &f[0],
 			SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
+	spa_pod_builder_prop(b, SPA_PROP_params, 0);
+	spa_pod_builder_push_struct(b, &f[1]);
+
 	for (i = 0; i < graph->n_control; i++) {
 		struct port *port = graph->control_port[i];
-		spa_pod_builder_prop(b, SPA_PROP_START_CUSTOM + i, 0);
+		struct node *node = port->node;
+		struct ladspa_descriptor *desc = node->desc;
+		const LADSPA_Descriptor *d = desc->desc;
+
+		if (node->name[0] != '\0')
+			snprintf(name, sizeof(name), "%s:%s", node->name, d->PortNames[port->p]);
+		else
+			snprintf(name, sizeof(name), "%s", d->PortNames[port->p]);
+
+		spa_pod_builder_string(b, name);
 		spa_pod_builder_float(b, port->control_data);
 	}
+	spa_pod_builder_pop(b, &f[1]);
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
 static int set_control_value(struct node *node, const char *name, float *value)
 {
-	struct ladspa_descriptor *desc = node->desc;
+	struct ladspa_descriptor *desc;
 	struct port *port;
 	float old;
 
@@ -492,10 +511,40 @@ static int set_control_value(struct node *node, const char *name, float *value)
 	if (port == NULL)
 		return 0;
 
+	node = port->node;
+	desc = node->desc;
+
 	old = port->control_data;
 	port->control_data = value ? *value : desc->default_control[port->idx];
-	pw_log_info("control %d ('%s') to %f", port->idx, name, port->control_data);
+	pw_log_info("control %d ('%s') from %f to %f", port->idx, name, old, port->control_data);
 	return old == port->control_data ? 0 : 1;
+}
+
+static int parse_params(struct graph *graph, const struct spa_pod *pod)
+{
+	struct spa_pod_parser prs;
+	struct spa_pod_frame f;
+	int changed = 0;
+	struct node *def_node;
+
+	def_node = spa_list_first(&graph->node_list, struct node, link);
+
+	spa_pod_parser_pod(&prs, pod);
+	if (spa_pod_parser_push_struct(&prs, &f) < 0)
+		return 0;
+
+	while (true) {
+		const char *name;
+		float value, *val = NULL;
+
+		if (spa_pod_parser_get_string(&prs, &name) < 0)
+			break;
+		if (spa_pod_parser_get_float(&prs, &value) >= 0)
+			val = &value;
+
+		changed += set_control_value(def_node, name, val);
+	}
+	return changed;
 }
 
 static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
@@ -514,6 +563,10 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 		float value;
 		struct port *port;
 
+		if (prop->key == SPA_PROP_params) {
+			changed += parse_params(graph, &prop->value);
+			continue;
+		}
 		if (prop->key < SPA_PROP_START_CUSTOM)
 			continue;
 		idx = prop->key - SPA_PROP_START_CUSTOM;
@@ -1351,7 +1404,6 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 				pw_log_error("nodes expect an array");
 				return -EINVAL;
 			}
-
 			while (spa_json_enter_object(&it[2], &it[3]) > 0) {
 				if ((res = load_node(graph, &it[3])) < 0)
 					return res;

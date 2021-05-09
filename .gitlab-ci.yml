@@ -34,6 +34,7 @@ include:
       gstreamer1-devel
       gstreamer1-plugins-base-devel
       jack-audio-connection-kit-devel
+      libsndfile-devel
       libv4l-devel
       libva-devel
       libX11-devel
@@ -45,7 +46,6 @@ include:
       vulkan-loader-devel
       which
       xmltoman
-      libsndfile-devel
 
 .coverity:
   variables:

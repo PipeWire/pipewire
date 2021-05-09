@@ -4,13 +4,10 @@ set -e
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-while getopts ":b:v:" opt; do
+while getopts ":b:" opt; do
 	case ${opt} in
 		b)
 			BUILDDIR=${OPTARG}
-			;;
-		v)
-			VERSION=${OPTARG}
 			;;
 		\?)
 			echo "Invalid option: -${OPTARG}"

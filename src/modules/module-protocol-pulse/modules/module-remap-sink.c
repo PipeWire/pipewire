@@ -235,8 +235,8 @@ struct module *create_module_remap_sink(struct impl *impl, const char *argument)
 		pw_properties_set(props, "remix", NULL);
 	}
 
-	if (pw_properties_get(capture_props, PW_KEY_NODE_PASSIVE) == NULL)
-		pw_properties_set(capture_props, PW_KEY_NODE_PASSIVE, "true");
+	if (pw_properties_get(playback_props, PW_KEY_NODE_PASSIVE) == NULL)
+		pw_properties_set(playback_props, PW_KEY_NODE_PASSIVE, "true");
 
 	module = module_new(impl, &module_remap_sink_methods, sizeof(*d));
 	if (module == NULL) {

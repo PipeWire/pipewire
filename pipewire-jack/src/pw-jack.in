@@ -55,7 +55,7 @@ while getopts 'hr:vs:p:' param ; do
 			echo "	-h                  show brief help"
 			echo "	-r <remote>         remote daemon name"
 			echo "	-v                  verbose debug info"
-			echo "	-s                  samplerate (default "$SAMPLERATE")"
+			echo "	-s                  samplerate (default \"$SAMPLERATE\")"
 			echo "	-p                  period in samples"
 			exit 0
 			;;

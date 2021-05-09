@@ -688,13 +688,16 @@ static struct ladspa_handle *ladspa_handle_load(struct impl *impl, const char *p
 {
 	struct ladspa_handle *hndl;
 	char path[PATH_MAX];
-	const char *e;
 	int res;
 
-	if ((e = getenv("LADSPA_PATH")) == NULL)
-		e = "/usr/lib64/ladspa";
-
-	snprintf(path, sizeof(path), "%s/%s.so", e, plugin);
+	if (plugin[0] != '/') {
+		const char *e;
+		if ((e = getenv("LADSPA_PATH")) == NULL)
+			e = "/usr/lib64/ladspa";
+		snprintf(path, sizeof(path), "%s/%s.so", e, plugin);
+	} else {
+		snprintf(path, sizeof(path), "%s", plugin);
+	}
 
 	spa_list_for_each(hndl, &impl->ladspa_handle_list, link) {
 		if (strcmp(hndl->path, path) == 0) {

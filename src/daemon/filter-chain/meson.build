@@ -1,5 +1,6 @@
 conf_files = [
   [ 'demonic.conf', 'demonic.conf' ],
+  [ 'source-rnnoise.conf', 'source-rnnoise.conf' ],
 ]
 
 foreach c : conf_files

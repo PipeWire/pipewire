@@ -592,7 +592,7 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		params[0] = get_props_param(graph, &b);
 
-		pw_stream_update_params(impl->playback, params, 1);
+		pw_stream_update_params(impl->capture, params, 1);
 	}
 }
 

@@ -1355,7 +1355,7 @@ static int handle_registry_event(struct impl *impl, struct registry_event *re)
 		 * removed. In that case, we create a zombie object here, but its remove
 		 * event is already queued and arrives soon.
 		 */
-		obj = bind_object(impl, info, re);
+		bind_object(impl, info, re);
 	} else if (obj != NULL && obj->monitor_global == re->monitor) {
 		/* Each core handles their own object updates */
 		update_object(impl, info, obj, re);

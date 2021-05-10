@@ -497,7 +497,7 @@ static void idle_func(struct spa_source *source)
 	pw_log_debug("rt.prio:%d rt.time.soft:%"PRIi64" rt.time.hard:%"PRIi64,
 			rtprio, (int64_t)rl.rlim_cur, (int64_t)rl.rlim_max);
 
-	if ((r = setrlimit(RLIMIT_RTTIME, &rl)) < 0)
+	if (setrlimit(RLIMIT_RTTIME, &rl) < 0)
 		pw_log_debug("setrlimit() failed: %s", strerror(errno));
 
 	if ((r = pw_rtkit_make_realtime(impl->system_bus, 0, rtprio)) < 0) {

@@ -631,8 +631,18 @@ static void emit_remove_nodes(struct impl *this)
 	}
 }
 
+static bool validate_profile(struct impl *this, uint32_t profile,
+		enum spa_bluetooth_audio_codec codec);
+
 static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_audio_codec codec)
 {
+	if (!validate_profile(this, profile, codec)) {
+		spa_log_warn(this->log, NAME ": trying to set invalid profile %d, codec %d, %08x %08x",
+			    profile, codec,
+			    this->bt_dev->profiles, this->bt_dev->connected_profiles);
+		return -EINVAL;
+	}
+
 	if (this->profile == profile &&
 	    (this->profile != DEVICE_PROFILE_A2DP || codec == this->props.codec) &&
 	    (this->profile != DEVICE_PROFILE_HSP_HFP || codec == this->props.codec))
@@ -1125,6 +1135,16 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
+static bool validate_profile(struct impl *this, uint32_t profile,
+		enum spa_bluetooth_audio_codec codec)
+{
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	return (build_profile(this, &b, 0, 0, profile, codec) != NULL);
+}
+
 static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		uint32_t id, uint32_t port, uint32_t dev, uint32_t profile)
 {
@@ -1236,17 +1256,12 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_profiles, 0);
 	spa_pod_builder_push_array(b, &f[1]);
 	for (i = 1; (j = get_profile_from_index(this, i, &next, &codec)) != SPA_ID_INVALID; i = next) {
-		struct spa_pod_builder b2 = { 0 };
-		uint8_t buffer[1024];
-		struct spa_pod *param;
 
 		if (!(profile_direction_mask(this, j) & (1 << direction)))
 			continue;
 
 		/* Check the profile actually exists */
-		spa_pod_builder_init(&b2, buffer, sizeof(buffer));
-		param = build_profile(this, &b2, 0, i, j, codec);
-		if (param == NULL)
+		if (!validate_profile(this, j, codec))
 			continue;
 
 		spa_pod_builder_int(b, i);
@@ -1693,8 +1708,7 @@ static int impl_set_param(void *object,
 			return -EINVAL;
 
 		spa_log_debug(this->log, NAME": setting profile %d codec:%d", profile, codec);
-		set_profile(this, profile, codec);
-		break;
+		return set_profile(this, profile, codec);
 	}
 	case SPA_PARAM_Route:
 	{
@@ -1755,19 +1769,16 @@ static int impl_set_param(void *object,
 			size_t j;
 			for (j = 0; j < this->supported_codec_count; ++j) {
 				if (this->supported_codecs[j]->id == codec_id) {
-					set_profile(this, this->profile, codec_id);
-					return 0;
+					return set_profile(this, this->profile, codec_id);
 				}
 			}
 		} else if (this->profile == DEVICE_PROFILE_HSP_HFP) {
 			if (codec_id == SPA_BLUETOOTH_AUDIO_CODEC_CVSD &&
 					spa_bt_device_supports_hfp_codec(this->bt_dev, HFP_AUDIO_CODEC_CVSD) == 1) {
-				set_profile(this, this->profile, codec_id);
-				return 0;
+				return set_profile(this, this->profile, codec_id);
 			} else if (codec_id == SPA_BLUETOOTH_AUDIO_CODEC_MSBC &&
 					spa_bt_device_supports_hfp_codec(this->bt_dev, HFP_AUDIO_CODEC_MSBC) == 1) {
-				set_profile(this, this->profile, codec_id);
-				return 0;
+				return set_profile(this, this->profile, codec_id);
 			}
 		}
 		return -EINVAL;

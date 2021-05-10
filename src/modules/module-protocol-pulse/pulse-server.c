@@ -1807,7 +1807,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 		goto error_invalid;
 
 	if (client->version >= 12) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_BOOLEAN, &no_remap,
 				TAG_BOOLEAN, &no_remix,
 				TAG_BOOLEAN, &fix_format,
@@ -1815,49 +1815,49 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 				TAG_BOOLEAN, &fix_channels,
 				TAG_BOOLEAN, &no_move,
 				TAG_BOOLEAN, &variable_rate,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
 	if (client->version >= 13) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_BOOLEAN, &muted,
 				TAG_BOOLEAN, &adjust_latency,
 				TAG_PROPLIST, props,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
 	if (client->version >= 14) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_BOOLEAN, &volume_set,
 				TAG_BOOLEAN, &early_requests,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
 	if (client->version >= 15) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_BOOLEAN, &muted_set,
 				TAG_BOOLEAN, &dont_inhibit_auto_suspend,
 				TAG_BOOLEAN, &fail_on_suspend,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
 	if (client->version >= 17) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_BOOLEAN, &relative_volume,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
 	if (client->version >= 18) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_BOOLEAN, &passthrough,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
 
 	if (client->version >= 21) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_U8, &n_formats,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 
 		if (n_formats) {
@@ -1865,9 +1865,9 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			for (i = 0; i < n_formats; i++) {
 				struct format_info format;
 
-				if ((res = message_get(m,
+				if (message_get(m,
 						TAG_FORMAT_INFO, &format,
-						TAG_INVALID)) < 0)
+						TAG_INVALID) < 0)
 					goto error_protocol;
 
 				if (n_params < MAX_FORMATS &&
@@ -2025,14 +2025,14 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		goto error_errno;
 
 	if (client->version < 13) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_STRING, &name,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 		if (name == NULL)
 			goto error_protocol;
 	}
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_SAMPLE_SPEC, &ss,
 			TAG_CHANNEL_MAP, &map,
 			TAG_U32, &source_index,
@@ -2040,7 +2040,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 			TAG_U32, &attr.maxlength,
 			TAG_BOOLEAN, &corked,
 			TAG_U32, &attr.fragsize,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		goto error_protocol;
 
 	pw_log_info(NAME" %p: [%s] CREATE_RECORD_STREAM tag:%u corked:%u source-name:%s source-index:%u",
@@ -2050,7 +2050,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		goto error_invalid;
 
 	if (client->version >= 12) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_BOOLEAN, &no_remap,
 				TAG_BOOLEAN, &no_remix,
 				TAG_BOOLEAN, &fix_format,
@@ -2058,35 +2058,35 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 				TAG_BOOLEAN, &fix_channels,
 				TAG_BOOLEAN, &no_move,
 				TAG_BOOLEAN, &variable_rate,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
 	if (client->version >= 13) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_BOOLEAN, &peak_detect,
 				TAG_BOOLEAN, &adjust_latency,
 				TAG_PROPLIST, props,
 				TAG_U32, &direct_on_input_idx,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
 	if (client->version >= 14) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_BOOLEAN, &early_requests,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
 	if (client->version >= 15) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_BOOLEAN, &dont_inhibit_auto_suspend,
 				TAG_BOOLEAN, &fail_on_suspend,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
 	if (client->version >= 22) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_U8, &n_formats,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 
 		if (n_formats) {
@@ -2094,9 +2094,9 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 			for (i = 0; i < n_formats; i++) {
 				struct format_info format;
 
-				if ((res = message_get(m,
+				if (message_get(m,
 						TAG_FORMAT_INFO, &format,
-						TAG_INVALID)) < 0)
+						TAG_INVALID) < 0)
 					goto error_protocol;
 
 				if (n_params < MAX_FORMATS &&
@@ -2110,14 +2110,14 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 				format_info_clear(&format);
 			}
 		}
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_CVOLUME, &volume,
 				TAG_BOOLEAN, &muted,
 				TAG_BOOLEAN, &volume_set,
 				TAG_BOOLEAN, &muted_set,
 				TAG_BOOLEAN, &relative_volume,
 				TAG_BOOLEAN, &passthrough,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 	} else {
 		volume_set = false;
@@ -2462,9 +2462,9 @@ static int do_finish_upload_stream(struct client *client, uint32_t command, uint
 	const char *name;
 	int res;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_U32, &channel,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		return -EPROTO;
 
 	stream = pw_map_lookup(&client->streams, channel);
@@ -3410,9 +3410,9 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 		return -errno;
 
 	if (command != COMMAND_UPDATE_CLIENT_PROPLIST) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_U32, &channel,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 	} else {
 		channel = SPA_ID_INVALID;
@@ -3421,10 +3421,10 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 	pw_log_info(NAME" %p: [%s] %s tag:%u channel:%d", impl,
 			client->name, commands[command].name, tag, channel);
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_U32, &mode,
 			TAG_PROPLIST, props,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		goto error_protocol;
 
 	if (command != COMMAND_UPDATE_CLIENT_PROPLIST) {
@@ -3465,9 +3465,9 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 		return -errno;
 
 	if (command != COMMAND_REMOVE_CLIENT_PROPLIST) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_U32, &channel,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 	} else {
 		channel = SPA_ID_INVALID;
@@ -3479,9 +3479,9 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 	while (true) {
 		const char *key;
 
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_STRING, &key,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 		if (key == NULL)
 			break;
@@ -3588,13 +3588,12 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 	struct message *reply;
 	struct pw_manager_object *o;
 	const char *name;
-	int res;
 	bool is_sink = command == COMMAND_LOOKUP_SINK;
 	bool is_monitor;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_STRING, &name,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		return -EPROTO;
 
 	pw_log_info(NAME" %p: [%s] LOOKUP tag:%u name:'%s'", impl, client->name, tag, name);
@@ -3615,11 +3614,10 @@ static int do_drain_stream(struct client *client, uint32_t command, uint32_t tag
 	struct impl *impl = client->impl;
 	uint32_t channel;
 	struct stream *stream;
-	int res;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_U32, &channel,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		return -EPROTO;
 
 	pw_log_info(NAME" %p: [%s] DRAIN tag:%u channel:%d", impl, client->name, tag, channel);
@@ -4336,9 +4334,9 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 
 	spa_zero(sel);
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_U32, &sel.id,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		goto error_protocol;
 
 	reply = reply_new(client, tag);
@@ -4388,9 +4386,9 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 		break;
 	}
 	if (sel.key) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_STRING, &sel.value,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
 	if (fill_func == NULL)
@@ -4488,10 +4486,10 @@ static int do_get_sample_info(struct client *client, uint32_t command, uint32_t 
 	struct sample *sample;
 	int res;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_U32, &id,
 			TAG_STRING, &name,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		return -EPROTO;
 
 	if ((id == SPA_ID_INVALID && name == NULL) ||
@@ -4611,12 +4609,11 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 	struct stream *stream;
 	struct message *reply;
 	struct buffer_attr attr;
-	int res;
 	bool adjust_latency = false, early_requests = false;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_U32, &channel,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		return -EPROTO;
 
 	pw_log_info(NAME" %p: [%s] %s tag:%u channel:%u", impl, client->name,
@@ -4630,33 +4627,33 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 		if (stream->type != STREAM_TYPE_PLAYBACK)
 			return -ENOENT;
 
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_U32, &attr.maxlength,
 				TAG_U32, &attr.tlength,
 				TAG_U32, &attr.prebuf,
 				TAG_U32, &attr.minreq,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			return -EPROTO;
 	} else {
 		if (stream->type != STREAM_TYPE_RECORD)
 			return -ENOENT;
 
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_U32, &attr.maxlength,
 				TAG_U32, &attr.fragsize,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			return -EPROTO;
 	}
 	if (client->version >= 13) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_BOOLEAN, &adjust_latency,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			return -EPROTO;
 	}
 	if (client->version >= 14) {
-		if ((res = message_get(m,
+		if (message_get(m,
 				TAG_BOOLEAN, &early_requests,
-				TAG_INVALID)) < 0)
+				TAG_INVALID) < 0)
 			return -EPROTO;
 	}
 
@@ -4693,13 +4690,12 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 	struct impl *impl = client->impl;
 	uint32_t channel, rate;
 	struct stream *stream;
-	int res;
 	bool match;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_U32, &channel,
 			TAG_U32, &rate,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		return -EPROTO;
 
 	pw_log_warn(NAME" %p: [%s] %s tag:%u channel:%u rate:%u", impl, client->name,
@@ -4728,12 +4724,11 @@ static int do_extension(struct client *client, uint32_t command, uint32_t tag, s
 	uint32_t idx;
 	const char *name;
 	struct extension *ext;
-	int res;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_U32, &idx,
 			TAG_STRING, &name,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		return -EPROTO;
 
 	pw_log_info(NAME" %p: [%s] %s tag:%u id:%u name:%s", impl, client->name,
@@ -4757,7 +4752,6 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 	struct pw_manager_object *o;
 	const char *profile_name;
 	uint32_t profile_id = SPA_ID_INVALID;
-	int res;
 	struct selector sel;
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
@@ -4766,11 +4760,11 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 	sel.key = PW_KEY_DEVICE_NAME;
 	sel.type = pw_manager_object_is_card;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_U32, &sel.id,
 			TAG_STRING, &sel.value,
 			TAG_STRING, &profile_name,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		return -EPROTO;
 
 	pw_log_info(NAME" %p: [%s] %s tag:%u id:%u name:%s profile:%s", impl, client->name,
@@ -4813,9 +4807,9 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 	int res;
 	bool sink = command == COMMAND_SET_DEFAULT_SINK;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_STRING, &name,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		return -EPROTO;
 
 	pw_log_info(NAME" %p: [%s] %s tag:%u name:%s", impl, client->name,
@@ -4851,15 +4845,14 @@ static int do_suspend(struct client *client, uint32_t command, uint32_t tag, str
 	struct impl *impl = client->impl;
 	struct pw_manager_object *o;
 	const char *name;
-	int res;
 	uint32_t id, cmd;
 	bool sink = command == COMMAND_SUSPEND_SINK, suspend;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_U32, &id,
 			TAG_STRING, &name,
 			TAG_BOOLEAN, &suspend,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		return -EPROTO;
 
 	pw_log_info(NAME" %p: [%s] %s tag:%u id:%u name:%s", impl, client->name,
@@ -4889,11 +4882,11 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	int res;
 	bool sink = command == COMMAND_MOVE_SINK_INPUT;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_U32, &id,
 			TAG_U32, &id_device,
 			TAG_STRING, &name_device,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		return -EPROTO;
 
 	if ((id_device == SPA_ID_INVALID && name_device == NULL) ||
@@ -4948,11 +4941,10 @@ static int do_kill(struct client *client, uint32_t command, uint32_t tag, struct
 	struct pw_manager_object *o;
 	uint32_t id;
 	struct selector sel;
-	int res;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_U32, &id,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		return -EPROTO;
 
 	pw_log_info(NAME" %p: [%s] %s tag:%u id:%u", impl, client->name,
@@ -5043,16 +5035,15 @@ static int do_load_module(struct client *client, uint32_t command, uint32_t tag,
 	struct impl *impl = client->impl;
 	struct load_module_data *d;
 	const char *name, *argument;
-	int res;
 	static struct module_events listener = {
 		VERSION_MODULE_EVENTS,
 		.loaded = on_module_loaded,
 	};
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_STRING, &name,
 			TAG_STRING, &argument,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		return -EPROTO;
 
 	pw_log_info(NAME" %p: [%s] %s name:%s argument:%s", impl,
@@ -5074,11 +5065,10 @@ static int do_unload_module(struct client *client, uint32_t command, uint32_t ta
 	struct impl *impl = client->impl;
 	struct module *module;
 	uint32_t module_idx;
-	int res;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_U32, &module_idx,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		return -EPROTO;
 
 	pw_log_info(NAME" %p: [%s] %s tag:%u id:%u", impl, client->name,
@@ -5112,11 +5102,11 @@ static int do_send_object_message(struct client *client, uint32_t command, uint3
 	int len = 0;
 	int res;
 
-	if ((res = message_get(m,
+	if (message_get(m,
 			TAG_STRING, &object_path,
 			TAG_STRING, &message,
 			TAG_STRING, &params,
-			TAG_INVALID)) < 0)
+			TAG_INVALID) < 0)
 		return -EPROTO;
 
 	pw_log_info(NAME" %p: [%s] %s tag:%u object_path:'%s' message:'%s' params:'%s'", impl,

@@ -215,6 +215,7 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 	dev->device.format.rate_mask = m->sample_spec.rate;
 	dev->device.format.channels = m->channel_map.channels;
 	pa_cvolume_reset(&dev->real_volume, m->channel_map.channels);
+	pa_cvolume_reset(&dev->soft_volume, m->channel_map.channels);
 	for (i = 0; i < m->channel_map.channels; i++)
 		dev->device.format.map[i]= channel_pa2acp(m->channel_map.map[i]);
 	dev->direction = direction;
@@ -1033,9 +1034,14 @@ static int read_volume(pa_alsa_device *dev)
 		return 0;
 
 	dev->real_volume = r;
-	pa_log_info("New hardware volume:");
+
+	pa_log_info("New hardware volume: min:%d max:%d",
+			pa_cvolume_min(&r), pa_cvolume_max(&r));
+
 	for (i = 0; i < r.channels; i++)
 		pa_log_debug("  %d: %d", i, r.values[i]);
+
+	pa_cvolume_reset(&dev->soft_volume, r.channels);
 
 	if (impl->events && impl->events->volume_changed)
 		impl->events->volume_changed(impl->user_data, &dev->device);
@@ -1803,7 +1809,10 @@ int acp_device_set_volume(struct acp_device *dev, const float *volume, uint32_t 
 	for (i = 0; i < v.channels; i++)
 		v.values[i] = pa_sw_volume_from_linear(volume[i % n_volume]);;
 
-	pa_log_info("Set %s volume: %d", d->set_volume ? "hardware" : "software", pa_cvolume_max(&v));
+	pa_log_info("Set %s volume: min:%d max:%d",
+			d->set_volume ? "hardware" : "software",
+			pa_cvolume_min(&v), pa_cvolume_max(&v));
+
 	for (i = 0; i < v.channels; i++)
 		pa_log_debug("  %d: %d", i, v.values[i]);
 

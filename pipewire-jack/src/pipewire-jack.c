@@ -1432,7 +1432,6 @@ static int client_node_set_io(void *object,
 
 	if (mem_id == SPA_ID_INVALID) {
 		mm = ptr = NULL;
-		size = 0;
 	} else {
 		mm = pw_mempool_map_id(c->pool, mem_id,
 				PW_MEMMAP_FLAG_READWRITE, offset, size, tag);
@@ -1906,7 +1905,6 @@ static int client_node_port_set_io(void *object,
 
         if (mem_id == SPA_ID_INVALID) {
                 mm = ptr = NULL;
-                size = 0;
         }
         else {
 		mm = pw_mempool_map_id(c->pool, mem_id,

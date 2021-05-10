@@ -188,7 +188,7 @@ static int update_property(struct client *c,
 		} else if (prop == NULL) {
 			if (desc == NULL)
 				desc = add_description(subject);
-			prop = add_property(desc, key, value, type);
+			add_property(desc, key, value, type);
 			change = PropertyCreated;
 			changed++;
 		} else {

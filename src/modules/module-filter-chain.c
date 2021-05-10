@@ -33,7 +33,7 @@
 
 #include "config.h"
 
-#include <ladspa.h>
+#include "module-filter-chain/ladspa.h"
 
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>

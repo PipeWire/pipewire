@@ -488,7 +488,7 @@ skip_channels:
 
 	fmt = spa_pod_builder_pop(&b, &f[0]);
 
-	if ((res = spa_pod_filter(&b, &result.param, fmt, filter)) < 0)
+	if (spa_pod_filter(&b, &result.param, fmt, filter) < 0)
 		goto next;
 
 	spa_node_emit_result(&state->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);

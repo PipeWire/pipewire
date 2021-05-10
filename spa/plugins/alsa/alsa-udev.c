@@ -141,7 +141,7 @@ static uint32_t get_card_id(struct impl *this, struct udev_device *dev)
 	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && spa_streq(str, "modem"))
 		return SPA_ID_INVALID;
 
-	if ((str = udev_device_get_property_value(dev, "SOUND_INITIALIZED")) == NULL)
+	if (udev_device_get_property_value(dev, "SOUND_INITIALIZED") == NULL)
 		return SPA_ID_INVALID;
 
 	if ((str = udev_device_get_property_value(dev, "DEVPATH")) == NULL)

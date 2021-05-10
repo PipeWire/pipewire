@@ -568,7 +568,7 @@ static int apply_device_props(struct impl *this, struct acp_device *dev, struct 
 	int changed = 0;
 	float volumes[ACP_MAX_CHANNELS];
 	uint32_t channels[ACP_MAX_CHANNELS];
-	uint32_t n_volumes = 0, n_channels = 0;
+	uint32_t n_volumes = 0;
 
 	if (!spa_pod_is_object_type(props, SPA_TYPE_OBJECT_Props))
 		return -EINVAL;
@@ -594,8 +594,8 @@ static int apply_device_props(struct impl *this, struct acp_device *dev, struct 
 			}
 			break;
 		case SPA_PROP_channelMap:
-			if ((n_channels = spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
-					channels, ACP_MAX_CHANNELS)) > 0) {
+			if (spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
+					channels, ACP_MAX_CHANNELS) > 0) {
 				changed++;
 			}
 			break;
@@ -634,7 +634,7 @@ static int impl_set_param(void *object,
 			return res;
 		}
 
-		res = acp_card_set_profile(this->card, id, save ? ACP_PROFILE_SAVE : 0);
+		acp_card_set_profile(this->card, id, save ? ACP_PROFILE_SAVE : 0);
 		emit_info(this, false);
 		break;
 	}
@@ -662,7 +662,7 @@ static int impl_set_param(void *object,
 			return -EINVAL;
 
 		dev = this->card->devices[device];
-		res = acp_device_set_port(dev, id, save ? ACP_PORT_SAVE : 0);
+		acp_device_set_port(dev, id, save ? ACP_PORT_SAVE : 0);
 		if (props)
 			apply_device_props(this, dev, props);
 		emit_info(this, false);

@@ -2093,7 +2093,6 @@ dump_properties(struct data *data, struct global *global,
 				ind, item->key, item->value);
 
 		extra = NULL;
-		id = -1;
 		if (spa_streq(global->type, PW_TYPE_INTERFACE_Port) && spa_streq(item->key, PW_KEY_NODE_ID)) {
 			id = atoi(item->value);
 			if (id >= 0)

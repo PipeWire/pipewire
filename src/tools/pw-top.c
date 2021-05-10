@@ -362,7 +362,6 @@ static void registry_event_global(void *data, uint32_t id,
 	struct pw_proxy *proxy;
 
 	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
-		struct node *n;
 		const char *str;
 
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_NAME)) == NULL &&
@@ -370,7 +369,7 @@ static void registry_event_global(void *data, uint32_t id,
 				str = spa_dict_lookup(props, PW_KEY_APP_NAME);
 		}
 
-		if ((n = add_node(d, id, str)) == NULL) {
+		if (add_node(d, id, str) == NULL) {
 			pw_log_warn("can add node %u: %m", id);
 		}
 	} else if (spa_streq(type, PW_TYPE_INTERFACE_Profiler)) {

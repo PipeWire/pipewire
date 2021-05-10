@@ -1,5 +1,6 @@
 conf_files = [
   [ 'demonic.conf', 'demonic.conf' ],
+  [ 'sink-eq6.conf', 'sink-eq6.conf' ],
   [ 'source-rnnoise.conf', 'source-rnnoise.conf' ],
 ]
 

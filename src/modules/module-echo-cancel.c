@@ -534,7 +534,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 	copy_props(impl, props, PW_KEY_NODE_LATENCY);
 
-	if ((str = pw_properties_get(props, "aec,method")) == NULL)
+	if ((str = pw_properties_get(props, "aec.method")) == NULL)
 		str = "null";
 	if (strcmp(str, "webrtc") == 0)
 		impl->aec_info = echo_cancel_webrtc;

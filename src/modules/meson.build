@@ -25,7 +25,8 @@ pipewire_module_loopback = shared_library('pipewire-module-loopback',
 )
 
 pipewire_module_filter_chain = shared_library('pipewire-module-filter-chain',
-  [ 'module-filter-chain.c' ],
+  [ 'module-filter-chain.c',
+    'module-filter-chain/biquad.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],
   install : true,

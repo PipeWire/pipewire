@@ -315,11 +315,10 @@ static inline int push_queue(struct stream *stream, struct queue *queue, struct 
 
 static inline struct buffer *pop_queue(struct stream *stream, struct queue *queue)
 {
-	int32_t avail;
 	uint32_t index, id;
 	struct buffer *buffer;
 
-	if ((avail = spa_ringbuffer_get_read_index(&queue->ring, &index)) < 1) {
+	if (spa_ringbuffer_get_read_index(&queue->ring, &index) < 1) {
 		errno = EPIPE;
 		return NULL;
 	}
@@ -1492,10 +1491,10 @@ static int find_format(struct stream *impl, enum pw_direction direction,
 	struct spa_pod *format;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	if ((res = spa_node_port_enum_params_sync(&impl->impl_node,
+	if (spa_node_port_enum_params_sync(&impl->impl_node,
 				impl->direction, 0,
 				SPA_PARAM_EnumFormat, &state,
-				NULL, &format, &b)) != 1) {
+				NULL, &format, &b) != 1) {
 		pw_log_warn(NAME" %p: no format given", impl);
 		return 0;
 	}

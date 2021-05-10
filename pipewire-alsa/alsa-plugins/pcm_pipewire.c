@@ -1017,7 +1017,10 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	pw->main_loop = pw_thread_loop_new("alsa-pipewire", NULL);
 	loop = pw_thread_loop_get_loop(pw->main_loop);
 	pw->system = loop->system;
-	pw->context = pw_context_new(loop, NULL, 0);
+	if ((pw->context = pw_context_new(loop, NULL, 0)) == NULL) {
+		err = -errno;
+		goto error;
+	}
 
 	props = pw_properties_new(NULL, NULL);
 

@@ -612,8 +612,7 @@ const char *pw_get_prgname(void)
 	spa_memzero(prgname, sizeof(prgname));
 #if defined(__linux__) || defined(__FreeBSD_kernel__)
 	{
-		ssize_t len;
-		if ((len = readlink("/proc/self/exe", prgname, sizeof(prgname)-1)) > 0)
+		if (readlink("/proc/self/exe", prgname, sizeof(prgname)-1) > 0)
 			return strrchr(prgname, '/') + 1;
 	}
 #endif

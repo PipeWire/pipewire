@@ -282,7 +282,7 @@ static struct port *alloc_port(struct filter *filter,
 	int i;
 
 	for (i = 0; i < MAX_PORTS; i++) {
-		if ((p = filter->ports[direction][i]) == NULL)
+		if ((filter->ports[direction][i]) == NULL)
 			break;
 	}
 	if (i == MAX_PORTS)
@@ -327,11 +327,10 @@ static inline int push_queue(struct port *port, struct queue *queue, struct buff
 
 static inline struct buffer *pop_queue(struct port *port, struct queue *queue)
 {
-	int32_t avail;
 	uint32_t index, id;
 	struct buffer *buffer;
 
-	if ((avail = spa_ringbuffer_get_read_index(&queue->ring, &index)) < 1) {
+	if (spa_ringbuffer_get_read_index(&queue->ring, &index) < 1) {
 		errno = EPIPE;
 		return NULL;
 	}
@@ -1436,7 +1435,6 @@ void *pw_filter_add_port(struct pw_filter *filter,
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
 	struct port *p;
 	const char *str;
-	int res;
 
 	if (props == NULL)
 		props = pw_properties_new(NULL, NULL);
@@ -1461,7 +1459,7 @@ void *pw_filter_add_port(struct pw_filter *filter,
 			add_control_dsp_port_params(impl, p);
 	}
 	/* then override with user provided if any */
-	if ((res = update_params(impl, p, SPA_ID_INVALID, params, n_params)) < 0)
+	if (update_params(impl, p, SPA_ID_INVALID, params, n_params) < 0)
 		goto error_free;
 
 	p->change_mask_all = SPA_PORT_CHANGE_MASK_FLAGS |

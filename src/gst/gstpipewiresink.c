@@ -616,7 +616,7 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
       goto done;
 
     gst_buffer_map (b, &info, GST_MAP_WRITE);
-    gst_buffer_extract (buffer, 0, info.data, info.size);
+    gst_buffer_extract (buffer, 0, info.data, info.maxsize);
     gst_buffer_unmap (b, &info);
     gst_buffer_resize (b, 0, gst_buffer_get_size (buffer));
     buffer = b;

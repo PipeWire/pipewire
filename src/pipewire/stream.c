@@ -1987,7 +1987,10 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 	if ((res = push_queue(impl, &impl->queued, b)) < 0)
 		return res;
 
-	return call_trigger(impl);
+	if (impl->direction == SPA_DIRECTION_OUTPUT)
+		res = call_trigger(impl);
+
+	return res;
 }
 
 static int

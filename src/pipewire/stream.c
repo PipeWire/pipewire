@@ -1932,7 +1932,7 @@ do_process(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct stream *impl = user_data;
-	int res = impl_node_process_output(impl);
+	int res = impl->node_methods.process(impl);
 	return spa_node_call_ready(&impl->callbacks, res);
 }
 

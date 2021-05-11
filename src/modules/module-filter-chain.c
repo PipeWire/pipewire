@@ -40,6 +40,7 @@
 #include <spa/param/profiler.h>
 #include <spa/debug/pod.h>
 
+#include <pipewire/utils.h>
 #include <pipewire/private.h>
 #include <pipewire/impl.h>
 #include <extensions/profiler.h>

@@ -66,6 +66,16 @@ pw_strip(char *str, const char *whitespace);
 	})
 #endif
 
+#if !defined(strdupa)
+# define strdupa(s)								      \
+	({									      \
+		const char *__old = (s);					      \
+		size_t __len = strlen(__old) + 1;				      \
+		char *__new = (char *) alloca(__len);				      \
+		(char *) memcpy(__new, __old, __len);				      \
+	})
+#endif
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

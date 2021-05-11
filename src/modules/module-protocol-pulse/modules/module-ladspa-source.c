@@ -88,8 +88,13 @@ static int module_ladspa_source_load(struct client *client, struct module *modul
 	struct module_ladspa_source_data *data = module->user_data;
 	FILE *f;
 	char *args;
-	const char *str;
+	const char *str, *plugin, *label;
 	size_t size;
+
+	if ((plugin = pw_properties_get(module->props, "plugin")) == NULL)
+		return -EINVAL;
+	if ((label = pw_properties_get(module->props, "label")) == NULL)
+		return -EINVAL;
 
 	pw_properties_setf(data->capture_props, PW_KEY_NODE_GROUP, "ladspa-source-%u", module->idx);
 	pw_properties_setf(data->playback_props, PW_KEY_NODE_GROUP, "ladspa-source-%u", module->idx);
@@ -100,12 +105,8 @@ static int module_ladspa_source_load(struct client *client, struct module *modul
 	fprintf(f, " filter.graph = {");
 	fprintf(f, " nodes = [ { ");
 	fprintf(f, " type = ladspa ");
-	if ((str = pw_properties_get(module->props, "plugin")) == NULL)
-		return -EINVAL;
-	fprintf(f, " plugin = \"%s\" ", str);
-	if ((str = pw_properties_get(module->props, "label")) == NULL)
-		return -EINVAL;
-	fprintf(f, " label = \"%s\" ", str);
+	fprintf(f, " plugin = \"%s\" ", plugin);
+	fprintf(f, " label = \"%s\" ", label);
 	if ((str = pw_properties_get(module->props, "inputs")) != NULL)
 		fprintf(f, " inputs = [ %s ] ", str);
 	if ((str = pw_properties_get(module->props, "outputs")) != NULL)

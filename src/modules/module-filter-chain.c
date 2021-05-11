@@ -949,16 +949,16 @@ static int parse_link(struct graph *graph, struct spa_json *json)
 		return -ENOENT;
 	}
 
+	if (in_port->n_links > 0) {
+		pw_log_info("Can't have more than 1 link to %s, use a mixer", input);
+		return -ENOTSUP;
+	}
+
 	if ((link = calloc(1, sizeof(*link))) == NULL)
 		return -errno;
 
 	link->output = out_port;
 	link->input = in_port;
-
-	if (in_port->n_links > 0) {
-		pw_log_info("Can't have more than 1 link to %s, use a mixer", input);
-		return -ENOTSUP;
-	}
 
 	pw_log_info("linking %s:%s -> %s:%s",
 			out_port->node->name,

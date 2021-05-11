@@ -164,6 +164,7 @@ context.objects = [
         args = {
             factory.name    = support.node.driver
             node.name       = Dummy-Driver
+            node.group      = pipewire.dummy
             priority.driver = 20000
         }
     }

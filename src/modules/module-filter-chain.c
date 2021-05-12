@@ -136,6 +136,7 @@ struct port {
 
 	struct spa_list link_list;
 	uint32_t n_links;
+	uint32_t external;
 
 	LADSPA_Data control_data;
 	LADSPA_Data *audio_data[MAX_HNDL];
@@ -278,7 +279,8 @@ static void capture_process(void *d)
 	for (i = 0; i < in->buffer->n_datas; i++) {
 		struct spa_data *ds = &in->buffer->datas[i];
 		struct graph_port *port = &graph->input[i];
-		port->desc->connect_port(port->hndl, port->port,
+		if (port->desc)
+			port->desc->connect_port(port->hndl, port->port,
 				SPA_MEMBER(ds->data, ds->chunk->offset, void));
 		size = SPA_MAX(size, ds->chunk->size);
 		stride = SPA_MAX(stride, ds->chunk->stride);
@@ -286,7 +288,10 @@ static void capture_process(void *d)
 	for (i = 0; i < out->buffer->n_datas; i++) {
 		struct spa_data *dd = &out->buffer->datas[i];
 		struct graph_port *port = &graph->output[i];
-		port->desc->connect_port(port->hndl, port->port, dd->data);
+		if (port->desc)
+			port->desc->connect_port(port->hndl, port->port, dd->data);
+		else
+			memset(dd->data, 0, size);
 		dd->chunk->offset = 0;
 		dd->chunk->size = size;
 		dd->chunk->stride = stride;
@@ -862,8 +867,8 @@ static struct ladspa_descriptor *ladspa_descriptor_load(struct impl *impl,
 			}
 		}
 	}
-	if (desc->n_input == 0 || desc->n_output == 0) {
-		pw_log_error("plugin has no input or no output ports");
+	if (desc->n_input == 0 && desc->n_output == 0) {
+		pw_log_error("plugin has no input and no output ports");
 		res = -ENOTSUP;
 		goto exit;
 	}
@@ -949,7 +954,16 @@ static int parse_link(struct graph *graph, struct spa_json *json)
 		pw_log_error("unknown input port %s", input);
 		return -ENOENT;
 	}
-
+	if (in_port->external != SPA_ID_INVALID) {
+		pw_log_info("%s already used as graph input %d, use mixer",
+				input, in_port->external);
+		return -EINVAL;
+	}
+	if (out_port->external != SPA_ID_INVALID) {
+		pw_log_info("%s already used as graph output %d, use copy",
+				output, out_port->external);
+		return -EINVAL;
+	}
 	if (in_port->n_links > 0) {
 		pw_log_info("Can't have more than 1 link to %s, use a mixer", input);
 		return -ENOTSUP;
@@ -1062,6 +1076,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		struct port *port = &node->input_port[i];
 		port->node = node;
 		port->idx = i;
+		port->external = SPA_ID_INVALID;
 		port->p = desc->input[i];
 		spa_list_init(&port->link_list);
 	}
@@ -1069,6 +1084,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		struct port *port = &node->output_port[i];
 		port->node = node;
 		port->idx = i;
+		port->external = SPA_ID_INVALID;
 		port->p = desc->output[i];
 		spa_list_init(&port->link_list);
 	}
@@ -1076,6 +1092,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		struct port *port = &node->control_port[i];
 		port->node = node;
 		port->idx = i;
+		port->external = SPA_ID_INVALID;
 		port->p = desc->control[i];
 		spa_list_init(&port->link_list);
 		port->control_data = desc->default_control[i];
@@ -1084,6 +1101,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		struct port *port = &node->notify_port[i];
 		port->node = node;
 		port->idx = i;
+		port->external = SPA_ID_INVALID;
 		port->p = desc->notify[i];
 		spa_list_init(&port->link_list);
 	}
@@ -1104,8 +1122,10 @@ static void node_free(struct node *node)
 	for (i = 0; i < node->n_hndl; i++) {
 		for (j = 0; j < node->desc->n_output; j++)
 			free(node->output_port[j].audio_data[i]);
-		if (d->activate)
-			d->activate(node->hndl[i]);
+		if (node->hndl[i] == NULL)
+			continue;
+		if (d->deactivate)
+			d->deactivate(node->hndl[i]);
 		d->cleanup(node->hndl[i]);
 	}
 	ladspa_descriptor_unref(node->desc);
@@ -1285,19 +1305,36 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		} else {
 			struct spa_json it = *inputs;
 			while (spa_json_get_string(&it, v, sizeof(v)) > 0) {
-				if ((port = find_port(first, v, LADSPA_PORT_INPUT)) == NULL) {
+				gp = &graph->input[graph->n_input];
+				if (strcmp(v, "null") == 0) {
+					gp->desc = NULL;
+					pw_log_info("ignore input port %d", graph->n_input);
+				} else if ((port = find_port(first, v, LADSPA_PORT_INPUT)) == NULL) {
 					res = -ENOENT;
 					pw_log_error("input port %s not found", v);
 					goto error;
+				} else {
+					desc = port->node->desc;
+					d = desc->desc;
+					if (port->external != SPA_ID_INVALID) {
+						pw_log_error("input port %s[%d]:%s already used as input %d, use mixer",
+							port->node->name, i, d->PortNames[port->p],
+							graph->n_input);
+						goto error;
+					}
+					if (port->n_links > 0) {
+						pw_log_error("input port %s[%d]:%s already used by link, use mixer",
+							port->node->name, i, d->PortNames[port->p]);
+						goto error;
+					}
+					pw_log_info("input port %s[%d]:%s",
+							port->node->name, i, d->PortNames[port->p]);
+					port->external = graph->n_input;
+					gp->desc = d;
+					gp->hndl = port->node->hndl[i];
+					gp->port = port->p;
 				}
-				gp = &graph->input[graph->n_input++];
-				desc = port->node->desc;
-				d = desc->desc;
-				pw_log_info("input port %s[%d]:%s",
-						port->node->name, i, d->PortNames[port->p]);
-				gp->desc = d;
-				gp->hndl = port->node->hndl[i];
-				gp->port = port->p;
+				graph->n_input++;
 			}
 		}
 		if (outputs == NULL) {
@@ -1314,19 +1351,36 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		} else {
 			struct spa_json it = *outputs;
 			while (spa_json_get_string(&it, v, sizeof(v)) > 0) {
-				if ((port = find_port(last, v, LADSPA_PORT_OUTPUT)) == NULL) {
+				gp = &graph->output[graph->n_output];
+				if (strcmp(v, "null") == 0) {
+					gp->desc = NULL;
+					pw_log_info("silence output port %d", graph->n_output);
+				} else if ((port = find_port(last, v, LADSPA_PORT_OUTPUT)) == NULL) {
 					res = -ENOENT;
 					pw_log_error("output port %s not found", v);
 					goto error;
+				} else {
+					desc = port->node->desc;
+					d = desc->desc;
+					if (port->external != SPA_ID_INVALID) {
+						pw_log_error("output port %s[%d]:%s already used as output %d, use copy",
+							port->node->name, i, d->PortNames[port->p],
+							graph->n_output);
+						goto error;
+					}
+					if (port->n_links > 0) {
+						pw_log_error("output port %s[%d]:%s already used by link, use copy",
+							port->node->name, i, d->PortNames[port->p]);
+						goto error;
+					}
+					pw_log_info("output port %s[%d]:%s",
+							port->node->name, i, d->PortNames[port->p]);
+					port->external = graph->n_output;
+					gp->desc = d;
+					gp->hndl = port->node->hndl[i];
+					gp->port = port->p;
 				}
-				gp = &graph->output[graph->n_output++];
-				desc = port->node->desc;
-				d = desc->desc;
-				pw_log_info("output port %s[%d]:%s",
-						port->node->name, i, d->PortNames[port->p]);
-				gp->desc = d;
-				gp->hndl = port->node->hndl[i];
-				gp->port = port->p;
+				graph->n_output++;
 			}
 		}
 	}
@@ -1356,11 +1410,12 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 
 error:
 	spa_list_for_each(node, &graph->node_list, link) {
-		for (i = 0; i < n_hndl; i++) {
+		for (i = 0; i < node->n_hndl; i++) {
 			if (node->hndl[i] != NULL)
 				node->desc->desc->cleanup(node->hndl[i]);
 			node->hndl[i] = NULL;
 		}
+		node->n_hndl = 0;
 	}
 	return res;
 }

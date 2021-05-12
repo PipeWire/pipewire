@@ -61,6 +61,42 @@ static void builtin_cleanup(LADSPA_Handle Instance)
 	free(impl);
 }
 
+/** copy */
+static void copy_run(LADSPA_Handle Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	float *in = impl->port[1], *out = impl->port[0];
+	memcpy(out, in, SampleCount * sizeof(float));
+}
+
+static const LADSPA_PortDescriptor copy_port_desc[] = {
+	LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO,
+	LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
+};
+
+static const char * const copy_port_names[] = {
+	"Out", "In"
+};
+
+static const LADSPA_PortRangeHint copy_range_hints[] = {
+	{ 0, }, { 0, },
+};
+
+static const LADSPA_Descriptor copy_desc = {
+	.Label = "copy",
+	.Name = "Copy input to output",
+	.Maker = "PipeWire",
+	.Copyright = "MIT",
+	.PortCount = 2,
+	.PortDescriptors = copy_port_desc,
+	.PortNames = copy_port_names,
+	.PortRangeHints = copy_range_hints,
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = copy_run,
+	.cleanup = builtin_cleanup,
+};
+
 /** mixer */
 static void mixer_run(LADSPA_Handle Instance, unsigned long SampleCount)
 {
@@ -377,6 +413,8 @@ static const LADSPA_Descriptor * builtin_ladspa_descriptor(unsigned long Index)
 		return &bq_notch_desc;
 	case 8:
 		return &bq_allpass_desc;
+	case 9:
+		return &copy_desc;
 	}
 	return NULL;
 }

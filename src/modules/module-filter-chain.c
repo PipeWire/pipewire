@@ -553,6 +553,19 @@ static int parse_params(struct graph *graph, const struct spa_pod *pod)
 	return changed;
 }
 
+static void graph_reset(struct graph *graph)
+{
+	uint32_t i;
+	for (i = 0; i < graph->n_hndl; i++) {
+		struct graph_hndl *hndl = &graph->hndl[i];
+		const LADSPA_Descriptor *d = hndl->desc;
+		if (d->deactivate)
+			d->deactivate(hndl->hndl);
+		if (d->activate)
+			d->activate(hndl->hndl);
+	}
+}
+
 static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 {
 	struct impl *impl = data;
@@ -561,6 +574,10 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 	struct graph *graph = &impl->graph;
 	int changed = 0;
 
+	if (id == SPA_PARAM_Format && param == NULL) {
+		graph_reset(graph);
+		return;
+	}
 	if (id != SPA_PARAM_Props)
 		return;
 

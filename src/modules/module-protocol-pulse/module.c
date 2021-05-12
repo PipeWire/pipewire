@@ -127,15 +127,19 @@ void module_args_add_props(struct pw_properties *props, const char *str)
 		if (*p == '\"') {
 			p++;
 			f = '\"';
+		} else if (*p == '\'') {
+			p++;
+			f = '\'';
 		} else {
 			f = ' ';
 		}
 		v = p;
-		e = strchr(p, f);
-		if (e == NULL)
-			e = strchr(p, '\0');
-		if (e == NULL)
-			break;
+		for (e = p; *e ; e++) {
+			if (*e == f)
+				break;
+			if (*e == '\\')
+				e++;
+		}
 		p = e;
 		if (*e != '\0')
 			p++;

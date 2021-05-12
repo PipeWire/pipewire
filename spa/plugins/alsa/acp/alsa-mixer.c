@@ -2553,6 +2553,7 @@ static int element_parse_override_map(pa_config_parser_state *state) {
 
         if (i >= (unsigned)channel_count) {
             pa_log("[%s:%u] Invalid override map size (>%d) in '%s'", state->filename, state->lineno, channel_count, state->section);
+            pa_xfree(n);
             return -1;
         }
         channel_position = alsa_channel_positions[i];

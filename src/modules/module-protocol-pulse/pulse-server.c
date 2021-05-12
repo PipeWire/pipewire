@@ -86,11 +86,7 @@
 #define DEFAULT_DEFAULT_FRAG	"96000/48000"
 #define DEFAULT_DEFAULT_TLENGTH	"96000/48000"
 #define DEFAULT_MIN_QUANTUM	"256/48000"
-#if __BYTE_ORDER == __BIG_ENDIAN
-#define DEFAULT_FORMAT		"F32BE"
-#else
-#define DEFAULT_FORMAT		"F32LE"
-#endif
+#define DEFAULT_FORMAT		"F32"
 #define DEFAULT_POSITION	"[ FL FR ]"
 
 #define MAX_FORMATS	32
@@ -6214,8 +6210,10 @@ static int parse_format(struct pw_properties *props, const char *key, const char
 	    (str = pw_properties_get(props, key)) == NULL)
 		str = def;
 	res->format = format_name2id(str);
-	if (res->format == SPA_AUDIO_FORMAT_UNKNOWN)
-		res->format = SPA_AUDIO_FORMAT_F32;
+	if (res->format == SPA_AUDIO_FORMAT_UNKNOWN) {
+		pw_log_warn(NAME": unknown format %s, default to %s", str, def);
+		res->format = format_name2id(def);
+	}
 	pw_log_info(NAME": defaults: %s = %s", key, str);
 	return 0;
 }

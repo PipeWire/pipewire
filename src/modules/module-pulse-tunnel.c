@@ -45,6 +45,7 @@
 #include <spa/param/audio/raw.h>
 
 #include <pipewire/impl.h>
+#include <pipewire/i18n.h>
 
 #include <pulse/pulseaudio.h>
 
@@ -54,6 +55,7 @@
 			"[ node.latency=<latency as fraction> ] "		\
 			"[ node.name=<name of the nodes> ] "			\
 			"[ node.description=<description of the nodes> ] "	\
+			"[ node.target=<remote node target name> ] "		\
 			"[ audio.rate=<sample rate> ] "				\
 			"[ audio.channels=<number of channels> ] "		\
 			"[ audio.position=<channel map> ] "			\
@@ -450,9 +452,10 @@ static pa_proplist* tunnel_new_proplist(struct impl *impl)
 static int create_pulse_stream(struct impl *impl)
 {
 	pa_sample_spec ss;
-	const char *server_address;
+	const char *server_address, *remote_node_target;
 	pa_proplist *props = NULL;
 	pa_mainloop_api *api;
+	char stream_name[1024];
 	int res = -EIO;
 
 	if ((impl->pa_mainloop = pa_threaded_mainloop_new()) == NULL)
@@ -500,7 +503,10 @@ static int create_pulse_stream(struct impl *impl)
 	ss.channels = 2;
 	ss.rate = 48000;
 
-	if (!(impl->pa_stream = pa_stream_new(impl->pa_context, "PipeWire", &ss, NULL))) {
+	snprintf(stream_name, sizeof(stream_name), _("Tunnel for %s@%s"),
+			pw_get_user_name(), pw_get_host_name());
+
+	if (!(impl->pa_stream = pa_stream_new(impl->pa_context, stream_name, &ss, NULL))) {
 		res = pa_context_errno(impl->pa_context);
 		goto error_unlock;
 	}
@@ -510,15 +516,17 @@ static int create_pulse_stream(struct impl *impl)
 	pa_stream_set_write_callback(impl->pa_stream, stream_write_request_cb, impl);
 	pa_stream_set_latency_update_callback(impl->pa_stream, stream_latency_update_cb, impl);
 
+	remote_node_target = pw_properties_get(impl->props, PW_KEY_NODE_TARGET);
+
 	if (impl->mode == MODE_CAPTURE) {
 		res = pa_stream_connect_record(impl->pa_stream,
-				NULL, NULL,
+				remote_node_target, NULL,
 				PA_STREAM_INTERPOLATE_TIMING |
 				PA_STREAM_ADJUST_LATENCY |
 				PA_STREAM_AUTO_TIMING_UPDATE);
 	} else {
 		res = pa_stream_connect_playback(impl->pa_stream,
-				NULL, NULL,
+				remote_node_target, NULL,
 				PA_STREAM_INTERPOLATE_TIMING |
 				PA_STREAM_ADJUST_LATENCY |
 				PA_STREAM_AUTO_TIMING_UPDATE,

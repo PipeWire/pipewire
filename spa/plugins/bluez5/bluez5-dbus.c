@@ -2534,9 +2534,13 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	is_new = transport == NULL;
 
 	if (is_new) {
-		transport = spa_bt_transport_create(monitor, strdup(transport_path), 0);
-		if (transport == NULL)
+		char *path = strdup(transport_path);
+
+		transport = spa_bt_transport_create(monitor, path, 0);
+		if (transport == NULL) {
+			free(path);
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+		}
 
 		spa_bt_transport_set_implementation(transport, &transport_impl, transport);
 

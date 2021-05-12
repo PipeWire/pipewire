@@ -149,6 +149,18 @@ pipewire_module_protocol_pulse = shared_library('pipewire-module-protocol-pulse'
   dependencies : pipewire_module_protocol_pulse_deps,
 )
 
+if pulseaudio_dep.found()
+  pipewire_module_pulse_tunnel = shared_library('pipewire-module-pulse-tunnel',
+  [ 'module-pulse-tunnel.c' ],
+  c_args : pipewire_module_c_args,
+  include_directories : [configinc, spa_inc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, pipewire_dep, pulseaudio_dep],
+)
+endif
+
 pipewire_module_protocol_simple = shared_library('pipewire-module-protocol-simple',
   [ 'module-protocol-simple.c' ],
   c_args : pipewire_module_c_args,

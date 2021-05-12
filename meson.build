@@ -310,6 +310,7 @@ dbus_dep = dependency('dbus-1')
 sdl_dep = dependency('sdl2', required : get_option('sdl2'))
 ncurses_dep = dependency('ncursesw', required : false)
 sndfile_dep = dependency('sndfile', version : '>= 1.0.20', required : get_option('sndfile'))
+pulseaudio_dep = dependency('libpulse', required : get_option('libpulse'))
 
 gst_option = get_option('gstreamer')
 gst_deps_def = {

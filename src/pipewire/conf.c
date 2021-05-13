@@ -281,6 +281,7 @@ static int parse_spa_libs(struct pw_context *context, char *str)
 {
 	struct spa_json it[2];
 	char key[512], value[512];
+	int count = 0;
 
 	spa_json_init(&it[0], str, strlen(str));
 	if (spa_json_enter_object(&it[0], &it[1]) < 0)
@@ -294,16 +295,17 @@ static int parse_spa_libs(struct pw_context *context, char *str)
 		}
 		else if (spa_json_get_string(&it[1], value, sizeof(value)-1) > 0) {
 			pw_context_add_spa_lib(context, key, value);
+			count++;
 		}
 	}
-	return 0;
+	return count;
 }
 
 static int load_module(struct pw_context *context, const char *key, const char *args, const char *flags)
 {
 	if (pw_context_load_module(context, key, args, NULL) == NULL) {
 		if (errno == ENOENT && flags && strstr(flags, "ifexists") != NULL) {
-			pw_log_debug(NAME" %p: skipping unavailable module %s",
+			pw_log_info(NAME" %p: skipping unavailable module %s",
 					context, key);
 		} else if (flags == NULL || strstr(flags, "nofail") == NULL) {
 			pw_log_error(NAME" %p: could not load mandatory module \"%s\": %m",
@@ -313,6 +315,8 @@ static int load_module(struct pw_context *context, const char *key, const char *
 			pw_log_info(NAME" %p: could not load optional module \"%s\": %m",
 					context, key);
 		}
+	} else {
+		pw_log_info(NAME" %p: loaded module %s", context, key);
 	}
 	return 0;
 }
@@ -329,7 +333,7 @@ static int parse_modules(struct pw_context *context, char *str)
 {
 	struct spa_json it[3];
 	char key[512];
-	int res = 0;
+	int res = 0, count = 0;
 
 	spa_json_init(&it[0], str, strlen(str));
 	if (spa_json_enter_array(&it[0], &it[1]) < 0)
@@ -366,6 +370,8 @@ static int parse_modules(struct pw_context *context, char *str)
 
 		if (res < 0)
 			break;
+
+		res = ++count;
 	}
 	return res;
 }
@@ -409,7 +415,7 @@ static int parse_objects(struct pw_context *context, char *str)
 {
 	struct spa_json it[3];
 	char key[512];
-	int res = 0;
+	int res = 0, count = 0;
 
 	spa_json_init(&it[0], str, strlen(str));
 	if (spa_json_enter_array(&it[0], &it[1]) < 0)
@@ -447,6 +453,7 @@ static int parse_objects(struct pw_context *context, char *str)
 
 		if (res < 0)
 			break;
+		res = ++count;
 	}
 	return res;
 }
@@ -493,7 +500,7 @@ static int parse_exec(struct pw_context *context, char *str)
 {
 	struct spa_json it[3];
 	char key[512];
-	int res = 0;
+	int res = 0, count = 0;
 
 	spa_json_init(&it[0], str, strlen(str));
 	if (spa_json_enter_array(&it[0], &it[1]) < 0)
@@ -522,6 +529,8 @@ static int parse_exec(struct pw_context *context, char *str)
 
 		if (res < 0)
 			break;
+
+		res = ++count;
 	}
 	return res;
 }
@@ -535,7 +544,7 @@ int pw_context_parse_conf_section(struct pw_context *context,
 	int res;
 
 	if ((str = pw_properties_get(conf, section)) == NULL)
-		return -ENOENT;
+		return 0;
 
 	s = strdup(str);
 

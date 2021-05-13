@@ -361,14 +361,18 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	this->sc_pagesize = sysconf(_SC_PAGESIZE);
 
-	if ((res = pw_context_parse_conf_section(this, conf, "context.spa-libs")) >= 0)
-		pw_log_info(NAME" %p: parsed context.spa-libs section", this);
-	if ((res = pw_context_parse_conf_section(this, conf, "context.modules")) >= 0)
-		pw_log_info(NAME" %p: parsed context.modules section", this);
-	if ((res = pw_context_parse_conf_section(this, conf, "context.objects")) >= 0)
-		pw_log_info(NAME" %p: parsed context.objects section", this);
-	if ((res = pw_context_parse_conf_section(this, conf, "context.exec")) >= 0)
-		pw_log_info(NAME" %p: parsed context.exec section", this);
+	if ((res = pw_context_parse_conf_section(this, conf, "context.spa-libs")) < 0)
+		goto error_free_loop;
+	pw_log_info(NAME" %p: parsed %d context.spa-libs items", this, res);
+	if ((res = pw_context_parse_conf_section(this, conf, "context.modules")) < 0)
+		goto error_free_loop;
+	pw_log_info(NAME" %p: parsed %d context.modules items", this, res);
+	if ((res = pw_context_parse_conf_section(this, conf, "context.objects")) < 0)
+		goto error_free_loop;
+	pw_log_info(NAME" %p: parsed %d context.objects items", this, res);
+	if ((res = pw_context_parse_conf_section(this, conf, "context.exec")) < 0)
+		goto error_free_loop;
+	pw_log_info(NAME" %p: parsed %d context.exec items", this, res);
 
 	pw_log_debug(NAME" %p: created", this);
 

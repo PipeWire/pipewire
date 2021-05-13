@@ -375,7 +375,7 @@ static void stream_read_request_cb(pa_stream *s, size_t length, void *userdata)
 		const void *p;
 		size_t nbytes = 0;
 
-		if (PA_UNLIKELY(pa_stream_peek(impl->pa_stream, &p, &nbytes) != 0)) {
+		if (SPA_UNLIKELY(pa_stream_peek(impl->pa_stream, &p, &nbytes) != 0)) {
 			pw_log_error("pa_stream_peek() failed: %s",
 					pa_strerror(pa_context_errno(impl->pa_context)));
 			return;

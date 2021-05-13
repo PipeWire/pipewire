@@ -265,3 +265,16 @@ pipewire_module_session_manager = shared_library('pipewire-module-session-manage
   install_rpath: modules_install_dir,
   dependencies : [mathlib, dl_lib, pipewire_dep],
 )
+
+if avahi_dep.found()
+pipewire_module_zeroconf_discover = shared_library('pipewire-module-zeroconf-discover',
+  [ 'module-zeroconf-discover.c',
+    'module-zeroconf-discover/avahi-poll.c' ],
+  c_args : pipewire_module_c_args,
+  include_directories : [configinc, spa_inc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep],
+)
+endif

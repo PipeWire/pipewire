@@ -187,3 +187,7 @@ option('libpulse',
        description: 'Enable code that depends on libpulse',
        type: 'feature',
        value: 'auto')
+option('avahi',
+       description: 'Enable code that depends on avahi',
+       type: 'feature',
+       value: 'auto')

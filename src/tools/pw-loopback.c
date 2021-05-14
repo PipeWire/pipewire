@@ -80,29 +80,6 @@ static const struct pw_impl_module_events module_events = {
 };
 
 
-static void serialize_dict(FILE *f, const struct spa_dict *dict)
-{
-	const struct spa_dict_item *it;
-	fprintf(f, "{");
-        spa_dict_for_each(it, dict) {
-		size_t len = it->value ? strlen(it->value) : 0;
-		fprintf(f, " \"%s\" = ", it->key);
-		if (it->value == NULL) {
-			fprintf(f, "null");
-		} else if ( spa_json_is_null(it->value, len) ||
-		    spa_json_is_float(it->value, len) ||
-		    spa_json_is_object(it->value, len)) {
-			fprintf(f, "%s", it->value);
-		} else {
-			size_t size = (len+1) * 4;
-			char str[size];
-			spa_json_encode_string(str, size, it->value);
-			fprintf(f, "%s", str);
-		}
-	}
-	fprintf(f, " }");
-}
-
 static void show_help(struct data *data, const char *name)
 {
         fprintf(stdout, "%s [options]\n"
@@ -242,11 +219,11 @@ int main(int argc, char *argv[])
 		pw_properties_set(data.playback_props, PW_KEY_NODE_GROUP, data.opt_group_name);
 	}
 
-	fprintf(f, " capture.props = ");
-	serialize_dict(f, &data.capture_props->dict);
-	fprintf(f, " playback.props = ");
-	serialize_dict(f, &data.playback_props->dict);
-	fprintf(f, " }");
+	fprintf(f, " capture.props = {");
+	pw_properties_serialize_dict(f, &data.capture_props->dict, 0);
+	fprintf(f, " } playback.props = {");
+	pw_properties_serialize_dict(f, &data.playback_props->dict, 0);
+	fprintf(f, " } }");
 	fclose(f);
 
 	pw_log_info("loading module with %s", args);

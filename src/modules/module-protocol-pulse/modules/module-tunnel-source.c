@@ -63,27 +63,6 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy
 };
 
-static void serialize_dict(FILE *f, const struct spa_dict *dict)
-{
-	const struct spa_dict_item *it;
-	spa_dict_for_each(it, dict) {
-		size_t len = it->value ? strlen(it->value) : 0;
-		fprintf(f, " \"%s\" = ", it->key);
-		if (it->value == NULL) {
-			fprintf(f, "null");
-		} else if ( spa_json_is_null(it->value, len) ||
-		    spa_json_is_float(it->value, len) ||
-		    spa_json_is_object(it->value, len)) {
-			fprintf(f, "%s", it->value);
-		} else {
-			size_t size = (len+1) * 4;
-			char str[size];
-				spa_json_encode_string(str, size, it->value);
-			fprintf(f, "%s", str);
-		}
-	}
-}
-
 static int module_tunnel_source_load(struct client *client, struct module *module)
 {
 	struct module_tunnel_source_data *data = module->user_data;
@@ -96,11 +75,11 @@ static int module_tunnel_source_load(struct client *client, struct module *modul
 
 	f = open_memstream(&args, &size);
 	fprintf(f, "{");
-	serialize_dict(f, &module->props->dict);
+	pw_properties_serialize_dict(f, &module->props->dict, 0);
 	fprintf(f, " pulse.server.address = \"%s\" ", server);
 	fprintf(f, " tunnel.mode = capture ");
 	fprintf(f, " stream.props = {");
-	serialize_dict(f, &data->stream_props->dict);
+	pw_properties_serialize_dict(f, &data->stream_props->dict, 0);
 	fprintf(f, " } }");
 	fclose(f);
 

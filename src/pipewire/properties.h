@@ -94,6 +94,8 @@ pw_properties_get(const struct pw_properties *properties, const char *key);
 const char *
 pw_properties_iterate(const struct pw_properties *properties, void **state);
 
+int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t flags);
+
 static inline bool pw_properties_parse_bool(const char *value) {
 	return (strcmp(value, "true") == 0 || atoi(value) == 1);
 }

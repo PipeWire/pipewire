@@ -235,7 +235,7 @@ static void capture_stream_process(void *d)
 		memset(bd->data, 0, size);
 	} else {
 		size = SPA_MIN(bd->maxsize, (uint32_t)avail);
-		size = SPA_MIN(bd->maxsize, req);
+		size = SPA_MIN(size, req);
 
 		spa_ringbuffer_read_data(&impl->ring,
 				impl->buffer, RINGBUFFER_SIZE,
@@ -385,13 +385,19 @@ static void stream_read_request_cb(pa_stream *s, size_t length, void *userdata)
 		if (length < nbytes)
 			break;
 
-		spa_ringbuffer_write_data(&impl->ring,
-				impl->buffer, RINGBUFFER_SIZE,
-				write_index & RINGBUFFER_MASK,
-				p, nbytes);
+		while (nbytes > 0) {
+			uint32_t to_write = SPA_MIN(nbytes, sizeof(impl->empty));
 
-		length -= nbytes;
-		write_index += nbytes;
+			spa_ringbuffer_write_data(&impl->ring,
+					impl->buffer, RINGBUFFER_SIZE,
+					write_index & RINGBUFFER_MASK,
+					p ? p : impl->empty, to_write);
+
+			write_index += to_write;
+			p = p ? SPA_PTROFF(p, to_write, void) : NULL;
+			nbytes -= to_write;
+			length -= to_write;
+		}
 		pa_stream_drop(impl->pa_stream);
 	}
 	spa_ringbuffer_write_update(&impl->ring, write_index);

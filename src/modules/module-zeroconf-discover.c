@@ -112,23 +112,6 @@ static void unload_module(struct impl *impl)
 	}
 }
 
-static void module_destroy(void *data)
-{
-	struct impl *impl = data;
-
-	spa_hook_remove(&impl->module_listener);
-
-	if (impl->properties)
-		pw_properties_free(impl->properties);
-
-	free(impl);
-}
-
-static const struct pw_impl_module_events module_events = {
-	PW_VERSION_IMPL_MODULE_EVENTS,
-	.destroy = module_destroy,
-};
-
 static struct tunnel *make_tunnel(struct impl *impl, const struct tunnel_info *info)
 {
 	struct tunnel *t;
@@ -172,6 +155,38 @@ static void free_tunnel(struct tunnel *t)
 	free(t);
 }
 
+static void impl_free(struct impl *impl)
+{
+	struct tunnel *t;
+
+	spa_list_consume(t, &impl->tunnel_list, link)
+		free_tunnel(t);
+
+	if (impl->sink_browser)
+		avahi_service_browser_free(impl->sink_browser);
+	if (impl->source_browser)
+		avahi_service_browser_free(impl->source_browser);
+	if (impl->client)
+		avahi_client_free(impl->client);
+	if (impl->avahi_poll)
+		pw_avahi_poll_free(impl->avahi_poll);
+	if (impl->properties)
+		pw_properties_free(impl->properties);
+	pw_work_queue_cancel(impl->work, impl, SPA_ID_INVALID);
+	free(impl);
+}
+
+static void module_destroy(void *data)
+{
+	struct impl *impl = data;
+	spa_hook_remove(&impl->module_listener);
+	impl_free(impl);
+}
+
+static const struct pw_impl_module_events module_events = {
+	PW_VERSION_IMPL_MODULE_EVENTS,
+	.destroy = module_destroy,
+};
 
 static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiProtocol protocol,
 	AvahiResolverEvent event, const char *name, const char *type, const char *domain,
@@ -181,7 +196,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	struct impl *impl = userdata;
 	struct tunnel *t;
 	struct tunnel_info tinfo;
-	const char *str, *device;
+	const char *str, *device, *desc, *fqdn, *user;
 	char if_suffix[16] = "";
 	char at[AVAHI_ADDRESS_STR_MAX];
 	AvahiStringList *l;
@@ -194,20 +209,19 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	if (event != AVAHI_RESOLVER_FOUND) {
 		pw_log_error("Resolving of '%s' failed: %s", name,
 				avahi_strerror(avahi_client_errno(impl->client)));
-		return;
+		goto done;
 	}
-
-	props = pw_properties_new(NULL, NULL);
-	if (props == NULL) {
-		pw_log_error("Can't allocate properties: %m");
-		return;
-	}
-
 	tinfo = TUNNEL_INFO(.interface = interface,
 			.protocol = protocol,
 			.name = name,
 			.type = type,
 			.domain = domain);
+
+	props = pw_properties_new(NULL, NULL);
+	if (props == NULL) {
+		pw_log_error("Can't allocate properties: %m");
+		goto done;
+	}
 
 	for (l = txt; l; l = l->next) {
 		char *key, *value;
@@ -216,33 +230,44 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 			break;
 
 		if (strcmp(key, "device") == 0) {
-			pw_properties_set(props, "node.target", value);
+			pw_properties_set(props, PW_KEY_NODE_TARGET, value);
 		}
 		else if (strcmp(key, "rate") == 0) {
-			pw_properties_setf(props, "audio.rate", "%u", atoi(value));
+			pw_properties_setf(props, PW_KEY_AUDIO_RATE, "%u", atoi(value));
 		}
 		else if (strcmp(key, "channels") == 0) {
-			pw_properties_setf(props, "audio.channels", "%u", atoi(value));
+			pw_properties_setf(props, PW_KEY_AUDIO_CHANNELS, "%u", atoi(value));
 		}
 		else if (strcmp(key, "format") == 0) {
-			pw_properties_set(props, "audio.format", value);
+			pw_properties_set(props, PW_KEY_AUDIO_FORMAT, value);
 		}
 		else if (strcmp(key, "icon-name") == 0) {
-			pw_properties_set(props, "device.icon-name", value);
+			pw_properties_set(props, PW_KEY_DEVICE_ICON_NAME, value);
 		}
 		else if (strcmp(key, "channel_map") == 0) {
+		}
+		else if (strcmp(key, "product-name") == 0) {
+			pw_properties_set(props, PW_KEY_DEVICE_PRODUCT_NAME, value);
+		}
+		else if (strcmp(key, "description") == 0) {
+			pw_properties_set(props, "tunnel.remote.description", value);
+		}
+		else if (strcmp(key, "fqdn") == 0) {
+			pw_properties_set(props, "tunnel.remote.fqdn", value);
+		}
+		else if (strcmp(key, "user-name") == 0) {
+			pw_properties_set(props, "tunnel.remote.user", value);
 		}
 		avahi_free(key);
 		avahi_free(value);
 	}
 
-	if ((device = pw_properties_get(props, "node.target")) != NULL)
-		pw_properties_setf(props, "node.name",
+	if ((device = pw_properties_get(props, PW_KEY_NODE_TARGET)) != NULL)
+		pw_properties_setf(props, PW_KEY_NODE_NAME,
 				"tunnel.%s.%s", host_name, device);
 	else
-		pw_properties_setf(props, "node.name",
+		pw_properties_setf(props, PW_KEY_NODE_NAME,
 				"tunnel.%s", host_name);
-
 
 	str = strstr(type, "sink") ? "playback" : "capture";
 	pw_properties_set(props, "tunnel.mode", str);
@@ -252,13 +277,34 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	    (a->data.ipv6.address[1] & 0xc0) == 0x80)
 		snprintf(if_suffix, sizeof(if_suffix), "%%%d", interface);
 
-	pw_properties_setf(props, "pulse.server.address", "[%s%s]:%u",
+	pw_properties_setf(props, "pulse.server.address", " [%s%s]:%u",
 			avahi_address_snprint(at, sizeof(at), a),
 			if_suffix, port);
 
-	if ((str = pw_properties_get(props, "pulse.server.address")) != NULL)
-		pw_properties_setf(props, "node.description",
-				_("Tunnel to %s/%s"), str, device);
+	desc = pw_properties_get(props, "tunnel.remote.description");
+	if (desc == NULL)
+		desc = pw_properties_get(props, PW_KEY_DEVICE_PRODUCT_NAME);
+	if (desc == NULL)
+		desc = pw_properties_get(props, PW_KEY_NODE_TARGET);
+	if (desc == NULL)
+		desc = _("Unknown device");
+
+	fqdn = pw_properties_get(props, "tunnel.remote.fqdn");
+	if (fqdn == NULL)
+		fqdn = pw_properties_get(props, "pulse.server.address");
+	if (fqdn == NULL)
+		fqdn = host_name;
+
+	user = pw_properties_get(props, "tunnel.remote.user");
+
+	if (desc != NULL && user != NULL && fqdn != NULL) {
+		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
+				_("%s on %s@%s"), desc, user, fqdn);
+	}
+	else if (desc != NULL && fqdn != NULL) {
+		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
+				_("%s on %s"), desc, fqdn);
+	}
 
 	f = open_memstream(&args, &size);
 	fprintf(f, "{");
@@ -278,14 +324,19 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 
 	if (mod == NULL) {
 		pw_log_error("Can't load module: %m");
-                return;
+                goto done;
 	}
 
 	t = make_tunnel(impl, &tinfo);
-	if (t == NULL)
-		return;
-
+	if (t == NULL) {
+		pw_log_error("Can't make tunnel: %m");
+		pw_impl_module_destroy(mod);
+		goto done;
+	}
 	t->module = mod;
+
+done:
+	avahi_service_resolver_free(r);
 }
 
 

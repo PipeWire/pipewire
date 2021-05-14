@@ -284,7 +284,6 @@ static int create_stream(struct impl *impl)
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 
-
 	impl->stream = pw_stream_new(impl->core, "pulse", impl->stream_props);
 	impl->stream_props = NULL;
 

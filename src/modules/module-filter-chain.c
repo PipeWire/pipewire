@@ -1337,11 +1337,13 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 						pw_log_error("input port %s[%d]:%s already used as input %d, use mixer",
 							port->node->name, i, d->PortNames[port->p],
 							graph->n_input);
+						res = -EBUSY;
 						goto error;
 					}
 					if (port->n_links > 0) {
 						pw_log_error("input port %s[%d]:%s already used by link, use mixer",
 							port->node->name, i, d->PortNames[port->p]);
+						res = -EBUSY;
 						goto error;
 					}
 					pw_log_info("input port %s[%d]:%s",
@@ -1383,11 +1385,13 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 						pw_log_error("output port %s[%d]:%s already used as output %d, use copy",
 							port->node->name, i, d->PortNames[port->p],
 							graph->n_output);
+						res = -EBUSY;
 						goto error;
 					}
 					if (port->n_links > 0) {
 						pw_log_error("output port %s[%d]:%s already used by link, use copy",
 							port->node->name, i, d->PortNames[port->p]);
+						res = -EBUSY;
 						goto error;
 					}
 					pw_log_info("output port %s[%d]:%s",

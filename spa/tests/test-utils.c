@@ -28,6 +28,7 @@
 #include <spa/utils/list.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/ringbuffer.h>
+#include <spa/utils/string.h>
 #include <spa/utils/type.h>
 
 static void test_abi(void)
@@ -429,6 +430,53 @@ static void test_ringbuffer(void)
     spa_assert(!memcmp(buffer, " !!!o pipewire rocks", 20));
 }
 
+static void test_strtol(void)
+{
+	int32_t v;
+
+	spa_assert(spa_atoi32("0", &v, 0) && v == 0);
+	spa_assert(spa_atoi32("0", &v, 16) && v == 0);
+	spa_assert(spa_atoi32("0", &v, 32) && v == 0);
+	spa_assert(spa_atoi32("-1", &v, 0) && v == -1);
+	spa_assert(spa_atoi32("-1234", &v, 0) && v == -1234);
+	spa_assert(spa_atoi32("-2147483648", &v, 0) && v == -2147483648);
+	spa_assert(spa_atoi32("+1", &v, 0) && v == 1);
+	spa_assert(spa_atoi32("+1234", &v, 0) && v == 1234);
+	spa_assert(spa_atoi32("+2147483647", &v, 0) && v == 2147483647);
+	spa_assert(spa_atoi32("65535", &v, 0) && v == 0xffff);
+	spa_assert(spa_atoi32("65535", &v, 10) && v == 0xffff);
+	spa_assert(spa_atoi32("65535", &v, 16) && v == 0x65535);
+	spa_assert(spa_atoi32("0xff", &v, 0) && v == 0xff);
+	spa_assert(spa_atoi32("0xff", &v, 16) && v == 0xff);
+
+	v = 0xabcd;
+	spa_assert(!spa_atoi32("0xff", &v, 10) && v == 0xabcd);
+	spa_assert(!spa_atoi32("fabc", &v, 10) && v == 0xabcd);
+	spa_assert(!spa_atoi32("fabc", &v, 0) && v == 0xabcd);
+
+	spa_assert(!spa_atoi32("124bogus", &v, 0) && v == 0xabcd);
+	spa_assert(!spa_atoi32("124bogus", &v, 10) && v == 0xabcd);
+	spa_assert(!spa_atoi32("124bogus", &v, 16) && v == 0xabcd);
+	spa_assert(!spa_atoi32("0xbogus", &v, 0) && v == 0xabcd);
+	spa_assert(!spa_atoi32("bogus", &v, 10) && v == 0xabcd);
+	spa_assert(!spa_atoi32("bogus", &v, 16) && v == 0xabcd);
+	spa_assert(!spa_atoi32("", &v, 0) && v == 0xabcd);
+	spa_assert(!spa_atoi32("", &v, 10) && v == 0xabcd);
+	spa_assert(!spa_atoi32("", &v, 16) && v == 0xabcd);
+	spa_assert(!spa_atoi32("  ", &v, 0) && v == 0xabcd);
+	spa_assert(!spa_atoi32(" ", &v, 0) && v == 0xabcd);
+
+	spa_assert(!spa_atoi32("-2147483649", &v, 0) && v == 0xabcd);
+	spa_assert(!spa_atoi32("2147483648", &v, 0) && v == 0xabcd);
+	spa_assert(!spa_atoi32("9223372036854775807", &v, 0) && v == 0xabcd);
+	spa_assert(!spa_atoi32("-9223372036854775808", &v, 0) && v == 0xabcd);
+	spa_assert(!spa_atoi32("9223372036854775808999", &v, 0) && v == 0xabcd);
+
+	spa_assert(!spa_atoi32(NULL, &v, 0) && v == 0xabcd);
+	spa_assert(!spa_atoi32(NULL, &v, 10) && v == 0xabcd);
+	spa_assert(!spa_atoi32(NULL, &v, 16) && v == 0xabcd);
+}
+
 int main(int argc, char *argv[])
 {
     test_abi();
@@ -438,5 +486,6 @@ int main(int argc, char *argv[])
     test_list();
     test_hook();
     test_ringbuffer();
+    test_strtol();
     return 0;
 }

@@ -3,6 +3,7 @@
 # Rui Gouveia <rui.gouveia@globaltek.pt>, 2012, 2015.
 # Pedro Albuquerque <palbuquerque73@openmailbox.com>, 2015.
 # Juliano de Souza Camargo <julianosc@pm.me>, 2020.
+# Hugo Carvalho <hugokarvalho@hotmail.com>, 2021.
 #
 msgid ""
 msgstr ""
@@ -10,7 +11,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
 "POT-Creation-Date: 2021-04-18 16:54+0800\n"
-"PO-Revision-Date: 2021-04-17 17:02+0100\n"
+"PO-Revision-Date: 2021-05-14 14:03+0100\n"
 "Last-Translator: Hugo Carvalho <hugokarvalho@hotmail.com>\n"
 "Language-Team: Portuguese <https://l10n.gnome.org/teams/pt/>\n"
 "Language: pt\n"
@@ -18,7 +19,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 2.4.2\n"
+"X-Generator: Poedit 2.4.3\n"
 
 #: src/daemon/pipewire.c:43
 #, c-format
@@ -29,9 +30,9 @@ msgid ""
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
 "%s [options]\n"
-"  -h, --help                            Show this help\n"
-"      --version                         Show version\n"
-"  -c, --config                          Load config (Default %s)\n"
+"  -h, --help                            Mostra esta ajuda\n"
+"      --version                         Mostra versão\n"
+"  -c, --config                          Carrega config (Padrão %s)\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
@@ -65,9 +66,9 @@ msgid ""
 "\n"
 msgstr ""
 "%s [options] <file>\n"
-"  -h, --help                            Show this help\n"
-"      --version                         Show version\n"
-"  -v, --verbose                         Enable verbose operations\n"
+"  -h, --help                            Mostra esta ajuda\n"
+"      --version                         Mostra versão\n"
+"  -v, --verbose                         Ativa operações descritivas\n"
 "\n"
 
 #: src/tools/pw-cat.c:998
@@ -143,9 +144,9 @@ msgid ""
 "  -m, --midi                            Midi mode\n"
 "\n"
 msgstr ""
-"  -p, --playback                        Playback mode\n"
-"  -r, --record                          Recording mode\n"
-"  -m, --midi                            Midi mode\n"
+"  -p, --playback                        Modo reprodução\n"
+"  -r, --record                          Modo gravação\n"
+"  -m, --midi                            Modo midi\n"
 "\n"
 
 #: src/tools/pw-cli.c:2932
@@ -159,10 +160,11 @@ msgid ""
 "\n"
 msgstr ""
 "%s [options] [command]\n"
-"  -h, --help                            Show this help\n"
-"      --version                         Show version\n"
-"  -d, --daemon                          Start as daemon (Default false)\n"
-"  -r, --remote                          Remote daemon name\n"
+"  -h, --help                            Mostra esta ajuda\n"
+"      --version                         Mostra versão\n"
+"  -d, --daemon                          Inicia como daemon (Falso por "
+"padrão)\n"
+"  -r, --remote                          Nome do daemon remoto\n"
 "\n"
 
 #: spa/plugins/alsa/acp/acp.c:290
@@ -593,34 +595,31 @@ msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "Porta de áudio (A2DP Fonte & HSP/HFP AG)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1033
-#, fuzzy, c-format
+#, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
-msgstr "Reprodução de Alta Fidelidade (A2DP Sink%s%s)"
+msgstr "Reprodução de Alta Fidelidade (A2DP Sink, codec %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1035
-#, fuzzy, c-format
+#, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
-msgstr "Duplex de Alta Fidelidade (A2DP Fonte/Sink%s%s)"
+msgstr "Duplex de Alta Fidelidade (A2DP Fonte/Sink, codec %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1041
-#, fuzzy
 msgid "High Fidelity Playback (A2DP Sink)"
-msgstr "Reprodução de Alta Fidelidade (A2DP Sink%s%s)"
+msgstr "Reprodução de Alta Fidelidade (A2DP Sink)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1043
-#, fuzzy
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
-msgstr "Duplex de Alta Fidelidade (A2DP Fonte/Sink%s%s)"
+msgstr "Duplex de Alta Fidelidade (A2DP Fonte/Sink)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1070
-#, fuzzy, c-format
+#, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr "Unidade de Auscultadores (HSP/HFP%s%s)"
+msgstr "Unidade de Auscultadores (HSP/HFP, codec %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1074
-#, fuzzy
 msgid "Headset Head Unit (HSP/HFP)"
-msgstr "Unidade de Auscultadores (HSP/HFP%s%s)"
+msgstr "Unidade de Auscultadores (HSP/HFP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"

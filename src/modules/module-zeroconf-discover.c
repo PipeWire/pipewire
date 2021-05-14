@@ -479,7 +479,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	pw_log_debug("module %p: new %s", impl, args);
 
-	if (args)
+	if (args == NULL)
 		args = "";
 
 	props = pw_properties_new_string(args);

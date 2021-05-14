@@ -223,6 +223,7 @@ static const struct module_info module_list[] = {
 	{ "module-simple-protocol-tcp", create_module_simple_protocol_tcp, },
 	{ "module-tunnel-sink", create_module_tunnel_sink, },
 	{ "module-tunnel-source", create_module_tunnel_source, },
+	{ "module-zeroconf-discover", create_module_zeroconf_discover, },
 	{ NULL, }
 };
 

@@ -142,6 +142,7 @@ pipewire_module_protocol_pulse = shared_library('pipewire-module-protocol-pulse'
     'module-protocol-pulse/modules/module-simple-protocol-tcp.c',
     'module-protocol-pulse/modules/module-tunnel-sink.c',
     'module-protocol-pulse/modules/module-tunnel-source.c',
+    'module-protocol-pulse/modules/module-zeroconf-discover.c',
   ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],

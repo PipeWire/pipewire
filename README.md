@@ -188,8 +188,9 @@ The Wiki can be found [here](https://gitlab.freedesktop.org/pipewire/pipewire/-/
 
 ## Contributing
 
-PipeWire is Free Software and is developed in the open. It is licensed under
-the [MIT license](COPYING).
+PipeWire is Free Software and is developed in the open. It is mostly
+licensed under the [MIT license](COPYING). Check [LICENSE](LICENSE) for
+more details about the exceptions.
 
 Contributors are encouraged to submit merge requests or file bugs on
 [gitlab](https://gitlab.freedesktop.org/pipewire).

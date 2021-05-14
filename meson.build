@@ -1,6 +1,6 @@
 project('pipewire', ['c' ],
   version : '0.3.27',
-  license : 'MIT',
+  license : [ 'MIT', 'LGPL-2.1-or-later', 'GPL-2.0-only' ],
   meson_version : '>= 0.49.0',
   default_options : [ 'warning_level=3',
                       'c_std=gnu99',

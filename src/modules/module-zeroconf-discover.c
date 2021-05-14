@@ -172,27 +172,6 @@ static void free_tunnel(struct tunnel *t)
 	free(t);
 }
 
-static void serialize_dict(FILE *f, const struct spa_dict *dict)
-{
-	const struct spa_dict_item *it;
-	spa_dict_for_each(it, dict) {
-		size_t len = it->value ? strlen(it->value) : 0;
-		fprintf(f, " \"%s\" = ", it->key);
-		if (it->value == NULL) {
-			fprintf(f, "null");
-		} else if (spa_json_is_null(it->value, len) ||
-		    spa_json_is_float(it->value, len) ||
-		    spa_json_is_bool(it->value, len) ||
-		    spa_json_is_container(it->value, len)) {
-			fprintf(f, "%s", it->value);
-		} else {
-			size_t size = (len+1) * 4;
-			char str[size];
-			spa_json_encode_string(str, size, it->value);
-			fprintf(f, "%s", str);
-		}
-	}
-}
 
 static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiProtocol protocol,
 	AvahiResolverEvent event, const char *name, const char *type, const char *domain,
@@ -283,7 +262,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 
 	f = open_memstream(&args, &size);
 	fprintf(f, "{");
-	serialize_dict(f, &props->dict);
+	pw_properties_serialize_dict(f, &props->dict, 0);
 	fprintf(f, " stream.props = {");
 	fprintf(f, " }");
 	fprintf(f, "}");
@@ -291,6 +270,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 
 	pw_properties_free(props);
 
+	pw_log_info("loading module args:'%s'", args);
 	mod = pw_context_load_module(impl->context,
 			"libpipewire-module-pulse-tunnel",
 			args, NULL);

@@ -81,11 +81,55 @@ ffmpeg_enum_interface_info(const struct spa_handle_factory *factory,
 	return 1;
 }
 
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58, 10, 100)
+static const AVCodec *find_codec_by_index(uint32_t index)
+{
+	static void *av_iter_data;
+	static uint32_t next_index;
+
+	const AVCodec *c = NULL;
+
+	if (index == 0) {
+		av_iter_data = NULL;
+		next_index = 0;
+	}
+
+	while (next_index <= index) {
+		c = av_codec_iterate(&av_iter_data);
+		next_index += 1;
+
+		if (!c)
+			break;
+	}
+
+	return c;
+}
+#else
+static const AVCodec *find_codec_by_index(uint32_t index)
+{
+	static const AVCodec *last_codec;
+	static uint32_t next_index;
+
+	if (index == 0) {
+		last_codec = NULL;
+		next_index = 0;
+	}
+
+	while (next_index <= index) {
+		last_codec = av_codec_next(last_codec);
+		next_index += 1;
+
+		if (!last_codec)
+			break;
+	}
+
+	return last_codec;
+}
+#endif
+
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
 {
-	static const AVCodec *c = NULL;
-	static uint32_t ci = 0;
 	static struct spa_handle_factory f;
 	static char name[128];
 
@@ -93,14 +137,8 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 	avcodec_register_all();
 #endif
 
-	if (*index == 0) {
-		c = av_codec_next(NULL);
-		ci = 0;
-	}
-	while (*index > ci && c) {
-		c = av_codec_next(c);
-		ci++;
-	}
+	const AVCodec *c = find_codec_by_index(*index);
+
 	if (c == NULL)
 		return 0;
 
@@ -111,6 +149,7 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 		snprintf(name, sizeof(name), "decoder.%s", c->name);
 		f.init = ffmpeg_dec_init;
 	}
+
 	f.name = name;
 	f.info = NULL;
 	f.enum_interface_info = ffmpeg_enum_interface_info;

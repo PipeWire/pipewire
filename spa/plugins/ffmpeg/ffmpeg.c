@@ -1,4 +1,4 @@
-/* Spa V4l2 support
+/* Spa FFmpeg support
  *
  * Copyright © 2018 Wim Taymans
  *

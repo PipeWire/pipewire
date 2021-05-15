@@ -1,4 +1,4 @@
-/* Spa FFMpeg Decoder
+/* Spa FFmpeg decoder
  *
  * Copyright © 2018 Wim Taymans
  *

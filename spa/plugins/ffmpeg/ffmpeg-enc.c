@@ -1,4 +1,4 @@
-/* Spa FFMpeg Encoder
+/* Spa FFmpeg encoder
  *
  * Copyright © 2018 Wim Taymans
  *

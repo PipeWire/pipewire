@@ -29,7 +29,6 @@
 #include <spa/node/node.h>
 
 #include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
 
 int spa_ffmpeg_dec_init(struct spa_handle *handle, const struct spa_dict *info,
 			const struct spa_support *support, uint32_t n_support);
@@ -90,9 +89,9 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 	static struct spa_handle_factory f;
 	static char name[128];
 
-  #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
-	av_register_all();
-  #endif
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 10, 100)
+	avcodec_register_all();
+#endif
 
 	if (*index == 0) {
 		c = av_codec_next(NULL);

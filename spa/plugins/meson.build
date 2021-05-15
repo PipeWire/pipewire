@@ -14,7 +14,7 @@ if not get_option('audiotestsrc').disabled()
   subdir('audiotestsrc')
 endif
 subdir('bluez5')
-if avcodec_dep.found() and avformat_dep.found()
+if avcodec_dep.found()
   subdir('ffmpeg')
 endif
 if jack_dep.found()

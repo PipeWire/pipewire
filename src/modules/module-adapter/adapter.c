@@ -115,16 +115,16 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 
 	if (is_duplex)
 		prefix = direction == PW_DIRECTION_INPUT ?
-			"playback" : "capture";
+			"playback" : is_monitor ? "monitor" : "capture";
 	else if (is_virtual)
 		prefix = direction == PW_DIRECTION_INPUT ?
-			"input" : "capture";
+			"input" : is_monitor ? "monitor" : "capture";
 	else if (is_device)
 		prefix = direction == PW_DIRECTION_INPUT ?
 			"playback" : is_monitor ? "monitor" : "capture";
 	else
 		prefix = direction == PW_DIRECTION_INPUT ?
-			"input" : "output";
+			"input" : is_monitor ? "monitor" : "capture" ;
 
 	if ((str = pw_properties_get(old, PW_KEY_AUDIO_CHANNEL)) == NULL ||
 	    strcmp(str, "UNK") == 0) {

@@ -8,8 +8,8 @@ msgstr ""
 "Project-Id-Version: pipewire\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
-"POT-Creation-Date: 2021-04-18 16:54+0800\n"
-"PO-Revision-Date: 2021-04-25 13:12+0200\n"
+"POT-Creation-Date: 2021-05-16 13:13+0000\n"
+"PO-Revision-Date: 2021-05-16 15:15+0200\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <community-poland@mozilla.org>\n"
 "Language: pl\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
 "|| n%100>=20) ? 1 : 2;\n"
 
-#: src/daemon/pipewire.c:43
+#: src/daemon/pipewire.c:45
 #, c-format
 msgid ""
 "%s [options]\n"
@@ -41,19 +41,41 @@ msgstr "System multimediów PipeWire"
 msgid "Start the PipeWire Media System"
 msgstr "Uruchomienie systemu multimediów PipeWire"
 
-#: src/examples/media-session/alsa-monitor.c:526
+#: src/examples/media-session/alsa-monitor.c:585
 #: spa/plugins/alsa/acp/compat.c:187
 msgid "Built-in Audio"
 msgstr "Wbudowany dźwięk"
 
-#: src/examples/media-session/alsa-monitor.c:530
+#: src/examples/media-session/alsa-monitor.c:589
 #: spa/plugins/alsa/acp/compat.c:192
 msgid "Modem"
 msgstr "Modem"
 
-#: src/examples/media-session/alsa-monitor.c:539
+#: src/examples/media-session/alsa-monitor.c:598
+#: src/modules/module-zeroconf-discover.c:290
 msgid "Unknown device"
 msgstr "Nieznane urządzenie"
+
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:182
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:182
+#, c-format
+msgid "Tunnel to %s/%s"
+msgstr "Tunel do %s/%s"
+
+#: src/modules/module-pulse-tunnel.c:511
+#, c-format
+msgid "Tunnel for %s@%s"
+msgstr "Tunel dla %s@%s"
+
+#: src/modules/module-zeroconf-discover.c:302
+#, c-format
+msgid "%s on %s@%s"
+msgstr "%s na %s@%s"
+
+#: src/modules/module-zeroconf-discover.c:306
+#, c-format
+msgid "%s on %s"
+msgstr "%s na %s"
 
 #: src/tools/pw-cat.c:991
 #, c-format
@@ -156,7 +178,7 @@ msgstr ""
 "  -m, --midi                            Tryb MIDI\n"
 "\n"
 
-#: src/tools/pw-cli.c:2932
+#: src/tools/pw-cli.c:2959
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -174,18 +196,14 @@ msgstr ""
 "  -r, --remote                          Nazwa zdalnej usługi\n"
 "\n"
 
-#: spa/plugins/alsa/acp/acp.c:290
+#: spa/plugins/alsa/acp/acp.c:291
 msgid "Pro Audio"
 msgstr "Dźwięk w zastosowaniach profesjonalnych"
 
-#: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4704
-#: spa/plugins/bluez5/bluez5-device.c:1000
+#: spa/plugins/alsa/acp/acp.c:412 spa/plugins/alsa/acp/alsa-mixer.c:4704
+#: spa/plugins/bluez5/bluez5-device.c:1020
 msgid "Off"
 msgstr "Wyłączone"
-
-#: spa/plugins/alsa/acp/channelmap.h:466
-msgid "(invalid)"
-msgstr "(nieprawidłowe)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2709
 msgid "Input"
@@ -210,7 +228,7 @@ msgstr "Wejście liniowe"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2714
 #: spa/plugins/alsa/acp/alsa-mixer.c:2798
-#: spa/plugins/bluez5/bluez5-device.c:1145
+#: spa/plugins/bluez5/bluez5-device.c:1175
 msgid "Microphone"
 msgstr "Mikrofon"
 
@@ -276,7 +294,7 @@ msgid "No Bass Boost"
 msgstr "Brak podbicia basów"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2729
-#: spa/plugins/bluez5/bluez5-device.c:1150
+#: spa/plugins/bluez5/bluez5-device.c:1180
 msgid "Speaker"
 msgstr "Głośnik"
 
@@ -391,7 +409,7 @@ msgstr "Stereo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4540
 #: spa/plugins/alsa/acp/alsa-mixer.c:4698
-#: spa/plugins/bluez5/bluez5-device.c:1135
+#: spa/plugins/bluez5/bluez5-device.c:1165
 msgid "Headset"
 msgstr "Słuchawki z mikrofonem"
 
@@ -603,61 +621,65 @@ msgstr[2] ""
 "Prawdopodobnie jest to błąd sterownika ALSA „%s”. Proszę zgłosić ten problem "
 "programistom usługi ALSA."
 
-#: spa/plugins/bluez5/bluez5-device.c:1010
+#: spa/plugins/alsa/acp/channelmap.h:466
+msgid "(invalid)"
+msgstr "(nieprawidłowe)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1030
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "Bramka dźwięku (źródło A2DP i AG HSP/HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1033
+#: spa/plugins/bluez5/bluez5-device.c:1053
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr "Odtwarzanie o wysokiej dokładności (odpływ A2DP, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1035
+#: spa/plugins/bluez5/bluez5-device.c:1055
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr "Dupleks o wysokiej dokładności (źródło/odpływ A2DP, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1041
+#: spa/plugins/bluez5/bluez5-device.c:1061
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr "Odtwarzanie o wysokiej dokładności (odpływ A2DP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1043
+#: spa/plugins/bluez5/bluez5-device.c:1063
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr "Dupleks o wysokiej dokładności (źródło/odpływ A2DP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1070
+#: spa/plugins/bluez5/bluez5-device.c:1090
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
 msgstr "Jednostka główna słuchawek z mikrofonem (HSP/HFP, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1074
+#: spa/plugins/bluez5/bluez5-device.c:1094
 msgid "Headset Head Unit (HSP/HFP)"
 msgstr "Jednostka główna słuchawek z mikrofonem (HSP/HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1140
+#: spa/plugins/bluez5/bluez5-device.c:1170
 msgid "Handsfree"
 msgstr "Zestaw głośnomówiący"
 
-#: spa/plugins/bluez5/bluez5-device.c:1155
+#: spa/plugins/bluez5/bluez5-device.c:1185
 msgid "Headphone"
 msgstr "Słuchawki"
 
-#: spa/plugins/bluez5/bluez5-device.c:1160
+#: spa/plugins/bluez5/bluez5-device.c:1190
 msgid "Portable"
 msgstr "Przenośne"
 
-#: spa/plugins/bluez5/bluez5-device.c:1165
+#: spa/plugins/bluez5/bluez5-device.c:1195
 msgid "Car"
 msgstr "Samochód"
 
-#: spa/plugins/bluez5/bluez5-device.c:1170
+#: spa/plugins/bluez5/bluez5-device.c:1200
 msgid "HiFi"
 msgstr "HiFi"
 
-#: spa/plugins/bluez5/bluez5-device.c:1175
+#: spa/plugins/bluez5/bluez5-device.c:1205
 msgid "Phone"
 msgstr "Telefon"
 
-#: spa/plugins/bluez5/bluez5-device.c:1181
+#: spa/plugins/bluez5/bluez5-device.c:1211
 msgid "Bluetooth"
 msgstr "Bluetooth"

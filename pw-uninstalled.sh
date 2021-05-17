@@ -11,6 +11,7 @@ while getopts ":b:v:" opt; do
 			;;
 		v)
 			VERSION=${OPTARG}
+			echo "Version: ${VERSION}"
 			;;
 		\?)
 			echo "Invalid option: -${OPTARG}"

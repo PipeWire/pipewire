@@ -242,6 +242,8 @@ struct sm_media_session_events {
 	void (*destroy) (void *data);
 
 	void (*seat_active) (void *data, bool active);
+
+	void (*dbus_disconnected) (void *data);
 };
 
 struct sm_media_session {

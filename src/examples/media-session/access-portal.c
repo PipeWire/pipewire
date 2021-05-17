@@ -58,7 +58,6 @@ struct impl {
 	DBusConnection *bus;
 };
 
-
 struct client {
 	struct impl *impl;
 
@@ -75,6 +74,8 @@ struct client {
 	enum media_role media_roles;
 	enum media_role allowed_media_roles;
 };
+
+static DBusConnection *get_dbus_connection(struct impl *impl);
 
 static void client_info_changed(struct client *client, const struct pw_client_info *info);
 
@@ -284,11 +285,19 @@ static void session_destroy(void *data)
 	free(impl);
 }
 
+static void session_dbus_disconnected(void *data)
+{
+	struct impl *impl = data;
+	dbus_connection_unref(impl->bus);
+	impl->bus = NULL;
+}
+
 static const struct sm_media_session_events session_events = {
 	SM_VERSION_MEDIA_SESSION_EVENTS,
 	.create = session_create,
 	.remove = session_remove,
 	.destroy = session_destroy,
+	.dbus_disconnected = session_dbus_disconnected,
 };
 
 static bool
@@ -321,6 +330,7 @@ static void do_permission_store_check(struct client *client)
 	const char *id;
 	DBusMessageIter r_iter;
 	DBusMessageIter permissions_iter;
+	DBusConnection *bus;
 
 	if (client->app_id == NULL) {
 		pw_log_debug("Ignoring portal check for broken portal managed client %p",
@@ -346,8 +356,9 @@ static void do_permission_store_check(struct client *client)
 					client);
 		return;
 	}
-	if (impl->bus == NULL) {
-		pw_log_debug("Ignoring portal check for client %p: dbus disabled",
+	bus = get_dbus_connection(impl);
+	if (bus == NULL) {
+		pw_log_debug("Ignoring portal check for client %p: no dbus",
 			     client);
 		client->allowed_media_roles = MEDIA_ROLE_ALL;
 		sm_media_session_for_each_object(impl->session,
@@ -371,7 +382,7 @@ static void do_permission_store_check(struct client *client)
 	id = "camera";
 	dbus_message_iter_append_basic(&msg_iter, DBUS_TYPE_STRING, &id);
 
-	if (!(r = dbus_connection_send_with_reply_and_block(impl->bus, m, -1, &error))) {
+	if (!(r = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
 		pw_log_error("Failed to call permission store: %s", error.message);
 		dbus_error_free(&error);
 		goto err_not_allowed;
@@ -558,12 +569,21 @@ static DBusHandlerResult permission_store_changed_handler(DBusConnection *connec
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static int init_dbus_connection(struct impl *impl)
+static DBusConnection *get_dbus_connection(struct impl *impl)
 {
+	struct sm_media_session *session = impl->session;
 	DBusError error;
 
-	if (impl->bus == NULL)
-		return 0;
+	if (impl->bus)
+		return impl->bus;
+
+	if (session->dbus_connection)
+		impl->bus = spa_dbus_connection_get(session->dbus_connection);
+	if (impl->bus == NULL) {
+		pw_log_warn("no dbus connection, portal access disabled");
+		return NULL;
+	}
+	pw_log_debug("got dbus connection %p", impl->bus);
 
 	dbus_error_init(&error);
 
@@ -577,19 +597,18 @@ static int init_dbus_connection(struct impl *impl)
 		pw_log_error("Failed to add permission store changed listener: %s",
 			     error.message);
 		dbus_error_free(&error);
-		return -1;
+		impl->bus = NULL;
+		return NULL;
 	}
-
+	dbus_connection_ref(impl->bus);
 	dbus_connection_add_filter(impl->bus, permission_store_changed_handler,
 				   impl, NULL);
-
-	return 0;
+	return impl->bus;
 }
 
 int sm_access_portal_start(struct sm_media_session *session)
 {
 	struct impl *impl;
-	int res;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -599,22 +618,10 @@ int sm_access_portal_start(struct sm_media_session *session)
 
 	impl->session = session;
 
-	if (session->dbus_connection)
-		impl->bus = spa_dbus_connection_get(session->dbus_connection);
-	if (impl->bus == NULL)
-		pw_log_warn("no dbus connection, portal access disabled");
-	else
-		pw_log_debug("got dbus connection %p", impl->bus);
-
-	if ((res = init_dbus_connection(impl)) < 0)
-		goto error_free;
+	get_dbus_connection(impl);
 
 	sm_media_session_add_listener(impl->session,
 			&impl->listener,
 			&session_events, impl);
 	return 0;
-
-error_free:
-	free(impl);
-	return res;
 }

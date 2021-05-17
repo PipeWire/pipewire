@@ -117,8 +117,6 @@ struct impl {
 	struct pw_properties *conf;
 	struct pw_properties *props;
 
-	DBusConnection *conn;
-
 	struct spa_handle *handle;
 
 	struct spa_device *monitor;
@@ -128,13 +126,14 @@ struct impl {
 
 	struct spa_source *jack_timeout;
 	struct pw_proxy *jack_device;
+	unsigned int reserve:1;
 };
 
 #undef NAME
 #define NAME "alsa-monitor"
 
 static int probe_device(struct device *device);
-static void reserve_acquired(void *data, struct rd_device *d);
+static int do_device_acquire(struct device *device);
 
 static struct node *alsa_find_node(struct device *device, uint32_t id, const char *name)
 {
@@ -163,23 +162,6 @@ static void alsa_update_node(struct device *device, struct node *node,
 	pw_properties_update(node->props, info->props);
 }
 
-static int do_device_acquire(struct device *device)
-{
-	int res;
-	if (device->reserve == NULL)
-		return 0;
-
-	res = rd_device_acquire(device->reserve);
-	if (res < 0 && res != -EBUSY) {
-		pw_log_warn("device reserve failed, disabling: %s", spa_strerror(res));
-		reserve_acquired(device, device->reserve);
-		rd_device_destroy(device->reserve);
-		device->reserve = NULL;
-		res = 0;
-	}
-	return res;
-}
-
 static int node_acquire(void *data)
 {
 	struct node *node = data;
@@ -192,7 +174,7 @@ static int node_acquire(void *data)
 
 	node->acquired = true;
 
-	if (device && device->n_acquired++ == 0 && device->reserve)
+	if (device && device->n_acquired++ == 0)
 		return do_device_acquire(device);
 	else
 		return 0;
@@ -695,17 +677,20 @@ static void add_jack_timeout(struct impl *impl)
 	pw_loop_update_timer(main_loop, impl->jack_timeout, &value, NULL, false);
 }
 
-static void reserve_acquired(void *data, struct rd_device *d)
+static void do_reserve_acquired(struct device *device)
 {
-	struct device *device = data;
-
-	pw_log_info("%p: reserve acquired %d", device, device->n_acquired);
-
 	if (!device->probed)
 		probe_device(device);
 
-	if (device->n_acquired == 0)
+	if (device->n_acquired == 0 && device->reserve)
 		rd_device_release(device->reserve);
+}
+
+static void reserve_acquired(void *data, struct rd_device *d)
+{
+	struct device *device = data;
+	pw_log_info("%p: reserve acquired %d", device, device->n_acquired);
+	do_reserve_acquired(device);
 }
 
 static void complete_release(struct device *device)
@@ -801,6 +786,61 @@ static const struct rd_device_callbacks reserve_callbacks = {
 	.busy = reserve_busy,
 	.available = reserve_available,
 };
+
+static int do_device_acquire(struct device *device)
+{
+	struct impl *impl = device->impl;
+	struct sm_media_session *session = impl->session;
+	int res;
+
+	if (!impl->reserve)
+		goto done;
+
+	if (device->reserve == NULL) {
+		const char *reserve;
+		const char *path = pw_properties_get(device->props, SPA_KEY_API_ALSA_PATH);
+		DBusConnection *conn = NULL;
+
+		if (session->dbus_connection)
+			conn = spa_dbus_connection_get(session->dbus_connection);
+		if (conn == NULL) {
+			pw_log_warn("no dbus connection, device reservation disabled");
+			goto done;
+		}
+		pw_log_debug("got dbus connection %p", conn);
+
+		reserve = pw_properties_get(device->props, "api.dbus.ReserveDevice1");
+		if (reserve == NULL)
+			goto done;
+
+		device->reserve = rd_device_new(conn, reserve,
+				"PipeWire", -10,
+				&reserve_callbacks, device);
+
+		if (device->reserve == NULL) {
+			pw_log_warn("can't create device reserve for %s: %m", reserve);
+			goto done;
+		} else if (path) {
+			rd_device_set_application_device_name(device->reserve, path);
+		} else {
+			pw_log_warn("empty reserve device path for %s", reserve);
+		}
+	}
+	res = rd_device_acquire(device->reserve);
+	if (res < 0 && res != -EBUSY) {
+		pw_log_warn("device reserve failed, disabling: %s", spa_strerror(res));
+		goto done;
+	}
+	return res;
+
+done:
+	do_reserve_acquired(device);
+	if (device->reserve != NULL) {
+		rd_device_destroy(device->reserve);
+		device->reserve = NULL;
+	}
+	return 0;
+}
 
 static void device_destroy(void *data)
 {
@@ -949,27 +989,9 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 	else
 		device->factory_name = strdup(info->factory_name);
 
-	if (impl->conn &&
-	    (card = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_CARD)) != NULL) {
-		const char *reserve;
-		const char *path = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_PATH);
-
+	if ((card = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_CARD)) != NULL) {
 		device->priority -= atol(card) * 64;
-
 		pw_properties_setf(device->props, "api.dbus.ReserveDevice1", "Audio%s", card);
-		reserve = pw_properties_get(device->props, "api.dbus.ReserveDevice1");
-
-		device->reserve = rd_device_new(impl->conn, reserve,
-				"PipeWire", -10,
-				&reserve_callbacks, device);
-
-		if (device->reserve == NULL) {
-			pw_log_warn("can't create device reserve for %s: %m", reserve);
-		} else if (path) {
-			rd_device_set_application_device_name(device->reserve, path);
-		} else {
-			pw_log_warn("empty reserve device path for %s", reserve);
-		}
 	}
 	do_device_acquire(device);
 
@@ -1054,9 +1076,22 @@ static void session_destroy(void *data)
 	free(impl);
 }
 
+static void session_dbus_disconnected(void *data)
+{
+	struct device *d;
+	struct impl *impl = data;
+
+	spa_list_for_each(d, &impl->device_list, link) {
+		if (d->reserve != NULL)
+			rd_device_destroy(d->reserve);
+		d->reserve = NULL;
+	}
+}
+
 static const struct sm_media_session_events session_events = {
 	SM_VERSION_MEDIA_SESSION_EVENTS,
 	.destroy = session_destroy,
+	.dbus_disconnected = session_dbus_disconnected,
 };
 
 int sm_alsa_monitor_start(struct sm_media_session *session)
@@ -1090,14 +1125,8 @@ int sm_alsa_monitor_start(struct sm_media_session *session)
 		pw_properties_update_string(impl->props, str, strlen(str));
 
 	if ((str = pw_properties_get(impl->props, "alsa.reserve")) == NULL ||
-	    pw_properties_parse_bool(str)) {
-		if (session->dbus_connection)
-			impl->conn = spa_dbus_connection_get(session->dbus_connection);
-		if (impl->conn == NULL)
-			pw_log_warn("no dbus connection, device reservation disabled");
-		else
-			pw_log_debug("got dbus connection %p", impl->conn);
-	}
+	    pw_properties_parse_bool(str))
+		impl->reserve = true;
 
 	impl->handle = pw_context_load_spa_handle(context, SPA_NAME_API_ALSA_ENUM_UDEV, NULL);
 	if (impl->handle == NULL) {

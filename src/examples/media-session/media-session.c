@@ -80,6 +80,7 @@
 #define sm_media_session_emit_shutdown(s)		sm_media_session_emit(s, shutdown, 0)
 #define sm_media_session_emit_destroy(s)		sm_media_session_emit(s, destroy, 0)
 #define sm_media_session_emit_seat_active(s,...)	sm_media_session_emit(s, seat_active, 0, __VA_ARGS__)
+#define sm_media_session_emit_dbus_disconnected(s)	sm_media_session_emit(s, dbus_disconnected, 0)
 
 int sm_access_flatpak_start(struct sm_media_session *sess);
 int sm_access_portal_start(struct sm_media_session *sess);
@@ -128,6 +129,7 @@ struct impl {
 
 	struct pw_main_loop *loop;
 	struct spa_dbus *dbus;
+	struct spa_hook dbus_connection_listener;
 
 	struct pw_core *monitor_core;
 	struct spa_hook monitor_listener;
@@ -2307,6 +2309,18 @@ static int sm_pulse_bridge_start(struct sm_media_session *sess)
 	return 0;
 }
 
+static void dbus_connection_disconnected(void *data)
+{
+	struct impl *impl = data;
+	pw_log_info("DBus disconnected");
+	sm_media_session_emit_dbus_disconnected(impl);
+}
+
+static const struct spa_dbus_connection_events dbus_connection_events = {
+	SPA_VERSION_DBUS_CONNECTION_EVENTS,
+	.disconnected = dbus_connection_disconnected
+};
+
 static void do_quit(void *data, int signal_number)
 {
 	struct impl *impl = data;
@@ -2517,8 +2531,12 @@ int main(int argc, char *argv[])
 		impl.this.dbus_connection = spa_dbus_get_connection(impl.dbus, SPA_DBUS_TYPE_SESSION);
 		if (impl.this.dbus_connection == NULL)
 			pw_log_warn("no dbus connection");
-		else
+		else {
 			pw_log_debug("got dbus connection %p", impl.this.dbus_connection);
+			spa_dbus_connection_add_listener(impl.this.dbus_connection,
+					&impl.dbus_connection_listener,
+					&dbus_connection_events, &impl);
+		}
 	} else {
 		pw_log_info("dbus disabled");
 	}

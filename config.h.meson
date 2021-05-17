@@ -395,6 +395,9 @@
 
 /* directory where config files are located */
 #mesondefine PIPEWIRE_CONFIG_DIR
+#
+/* directory where data files are located */
+#mesondefine PIPEWIRE_CONFDATADIR
 
 /* directory where plugins are located */
 #mesondefine PLUGINDIR

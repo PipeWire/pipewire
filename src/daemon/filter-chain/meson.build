@@ -10,5 +10,5 @@ foreach c : conf_files
   configure_file(input : c.get(0),
                  output : c.get(1),
                  configuration : conf_config,
-                 install_dir : conf_install_dir / 'filter-chain')
+                 install_dir : pipewire_confdatadir / 'filter-chain')
 endforeach

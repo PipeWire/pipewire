@@ -104,6 +104,13 @@ static int get_read_path(char *path, size_t size, const char *prefix, const char
 		    access(path, R_OK) == 0)
 			return 1;
 	}
+	dir = PIPEWIRE_CONFDATADIR;
+	if (dir != NULL) {
+		const char *paths[] = { dir, prefix, name, NULL };
+		if (make_path(path, size, paths) == 0 &&
+		    access(path, R_OK) == 0)
+			return 1;
+	}
 	return 0;
 }
 

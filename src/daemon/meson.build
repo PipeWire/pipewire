@@ -14,7 +14,6 @@ conf_config.set('media_session_path', pipewire_bindir / 'pipewire-media-session'
 conf_config.set('pipewire_path', pipewire_bindir / 'pipewire')
 conf_config.set('pipewire_pulse_path', pipewire_bindir / 'pipewire-pulse')
 conf_config.set('comment', '#')
-conf_install_dir = get_option('sysconfdir') / 'pipewire'
 
 conf_config_uninstalled = conf_config
 conf_config_uninstalled.set('media_session_path',
@@ -38,7 +37,7 @@ foreach c : conf_files
   configure_file(input : c.get(0),
                  output : c.get(1),
                  configuration : conf_config,
-                 install_dir : conf_install_dir)
+                 install_dir : pipewire_confdatadir)
 endforeach
 
 configure_file(input : 'pipewire.conf.in',

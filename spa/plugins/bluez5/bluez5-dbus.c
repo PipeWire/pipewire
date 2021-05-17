@@ -3853,6 +3853,7 @@ static int impl_clear(struct spa_handle *handle)
 	free((void*)monitor->enabled_codecs.items);
 	spa_zero(monitor->enabled_codecs);
 
+	dbus_connection_unref(monitor->conn);
 	spa_dbus_connection_destroy(monitor->dbus_connection);
 	monitor->dbus_connection = NULL;
 	monitor->conn = NULL;
@@ -4023,6 +4024,17 @@ impl_init(const struct spa_handle_factory *factory,
 		return -EIO;
 	}
 	this->conn = spa_dbus_connection_get(this->dbus_connection);
+	if (this->conn == NULL) {
+		spa_log_error(this->log, "failed to get dbus connection");
+		spa_dbus_connection_destroy(this->dbus_connection);
+		this->dbus_connection = NULL;
+		return -EIO;
+	}
+
+	/* XXX: We should handle spa_dbus reconnecting, but we don't, so ref
+	 * XXX: the handle so that we can keep it if spa_dbus unrefs it.
+	 */
+	dbus_connection_ref(this->conn);
 
 	spa_hook_list_init(&this->hooks);
 

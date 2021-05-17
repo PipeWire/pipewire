@@ -280,6 +280,8 @@ static void wakeup_main(void *userdata)
 	spa_loop_utils_enable_idle(impl->utils, this->dispatch_event, true);
 }
 
+static void connection_close(struct connection *this);
+
 static DBusHandlerResult filter_message (DBusConnection *connection,
 		DBusMessage *message, void *user_data)
 {
@@ -288,9 +290,7 @@ static DBusHandlerResult filter_message (DBusConnection *connection,
 
 	if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
 		spa_log_debug(impl->log, "dbus connection %p disconnected", this);
-		if (this->conn)
-			dbus_connection_unref(this->conn);
-		this->conn = NULL;
+		connection_close(this);
 		connection_emit_disconnected(this);
 	}
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -348,6 +348,26 @@ error_filter:
 	return NULL;
 }
 
+
+static void connection_close(struct connection *this)
+{
+	if (this->conn) {
+		dbus_connection_remove_filter(this->conn, filter_message, this);
+		dbus_connection_close(this->conn);
+
+		/* Someone may still hold a ref to the handle from get(), so the
+		 * unref below may not be the final one. For that case, reset
+		 * all callbacks we defined to be sure they are not called. */
+		dbus_connection_set_dispatch_status_function(this->conn, NULL, NULL, NULL);
+		dbus_connection_set_watch_functions(this->conn, NULL, NULL, NULL, NULL, NULL);
+		dbus_connection_set_timeout_functions(this->conn, NULL, NULL, NULL, NULL, NULL);
+		dbus_connection_set_wakeup_main_function(this->conn, NULL, NULL, NULL);
+
+		dbus_connection_unref(this->conn);
+	}
+	this->conn = NULL;
+}
+
 static void connection_free(struct connection *conn)
 {
 	struct impl *impl = conn->impl;
@@ -355,11 +375,7 @@ static void connection_free(struct connection *conn)
 
 	spa_list_remove(&conn->link);
 
-	if (conn->conn) {
-		dbus_connection_remove_filter(conn->conn, filter_message, conn);
-		dbus_connection_close(conn->conn);
-		dbus_connection_unref(conn->conn);
-	}
+	connection_close(conn);
 
 	spa_list_consume(data, &conn->source_list, link)
 		source_data_free(data);

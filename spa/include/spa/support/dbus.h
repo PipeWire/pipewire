@@ -68,6 +68,11 @@ struct spa_dbus_connection {
 	/**
 	 * Get the DBusConnection from a wrapper
 	 *
+	 * Note that the returned handle is closed and unref'd by spa_dbus
+	 * immediately before emitting the asynchronous "disconnected" event.
+	 * The caller must either deal with the invalidation, or keep an extra
+	 * ref on the handle returned.
+	 *
 	 * \param conn the spa_dbus_connection wrapper
 	 * \return a pointer of type DBusConnection
 	 */

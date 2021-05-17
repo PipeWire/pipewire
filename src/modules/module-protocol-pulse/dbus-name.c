@@ -55,8 +55,10 @@ void *dbus_request_name(struct pw_context *context, const char *name)
 		return NULL;
 
 	bus = spa_dbus_connection_get(conn);
-	if (bus == NULL)
+	if (bus == NULL) {
+		spa_dbus_connection_destroy(conn);
 		return NULL;
+	}
 
 	dbus_error_init(&error);
 
@@ -71,6 +73,8 @@ void *dbus_request_name(struct pw_context *context, const char *name)
 		pw_log_error("D-Bus name %s already taken.", name);
 
 	dbus_error_free(&error);
+
+	spa_dbus_connection_destroy(conn);
 
 	errno = EEXIST;
 	return NULL;

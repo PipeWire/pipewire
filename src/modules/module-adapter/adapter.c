@@ -124,7 +124,7 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 			"playback" : is_monitor ? "monitor" : "capture";
 	else
 		prefix = direction == PW_DIRECTION_INPUT ?
-			"input" : "output";
+			"input" : is_monitor ? "monitor" : "output";
 
 	if ((str = pw_properties_get(old, PW_KEY_AUDIO_CHANNEL)) == NULL ||
 	    strcmp(str, "UNK") == 0) {

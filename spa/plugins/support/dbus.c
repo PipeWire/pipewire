@@ -66,6 +66,7 @@ struct connection {
 
 	struct spa_dbus_connection this;
 	struct impl *impl;
+	enum spa_dbus_type type;
 	DBusConnection *conn;
 	struct spa_source *dispatch_event;
 	struct spa_list source_list;
@@ -286,6 +287,8 @@ static DBusHandlerResult filter_message (DBusConnection *connection,
 
 	if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
 		spa_log_debug(impl->log, "dbus connection %p disconnected", this);
+		dbus_connection_unref(this->conn);
+		this->conn = NULL;
 		connection_emit_disconnected(this);
 	}
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -295,7 +298,43 @@ static void *
 impl_connection_get(struct spa_dbus_connection *conn)
 {
 	struct connection *this = SPA_CONTAINER_OF(conn, struct connection, this);
+	struct impl *impl = this->impl;
+	DBusError error;
+
+	if (this->conn != NULL)
+		return this->conn;
+
+	dbus_error_init(&error);
+
+	this->conn = dbus_bus_get_private((DBusBusType)this->type, &error);
+	if (this->conn == NULL)
+		goto error;
+
+	dbus_connection_set_exit_on_disconnect(this->conn, false);
+	if (!dbus_connection_add_filter(this->conn, filter_message, this, NULL))
+		goto error_filter;
+
+	dbus_connection_set_dispatch_status_function(this->conn, dispatch_status, this, NULL);
+	dbus_connection_set_watch_functions(this->conn, add_watch, remove_watch, toggle_watch, this,
+					    NULL);
+	dbus_connection_set_timeout_functions(this->conn, add_timeout, remove_timeout,
+					      toggle_timeout, this, NULL);
+	dbus_connection_set_wakeup_main_function(this->conn, wakeup_main, this, NULL);
+
 	return this->conn;
+
+error:
+	spa_log_error(impl->log, "Failed to connect to system bus: %s", error.message);
+	dbus_error_free(&error);
+	errno = ECONNREFUSED;
+	return NULL;
+error_filter:
+	spa_log_error(impl->log, "Failed to create filter");
+	dbus_connection_close(this->conn);
+	dbus_connection_unref(this->conn);
+	this->conn = NULL;
+	errno = ENOMEM;
+	return NULL;
 }
 
 static void connection_free(struct connection *conn)
@@ -305,10 +344,11 @@ static void connection_free(struct connection *conn)
 
 	spa_list_remove(&conn->link);
 
-	dbus_connection_remove_filter(conn->conn, filter_message, conn);
-
-	dbus_connection_close(conn->conn);
-	dbus_connection_unref(conn->conn);
+	if (conn->conn) {
+		dbus_connection_remove_filter(conn->conn, filter_message, conn);
+		dbus_connection_close(conn->conn);
+		dbus_connection_unref(conn->conn);
+	}
 
 	spa_list_consume(data, &conn->source_list, link)
 		source_data_free(data);
@@ -355,18 +395,12 @@ impl_get_connection(void *object,
 {
         struct impl *impl = object;
 	struct connection *conn;
-        DBusError error;
 	int res;
-
-	dbus_error_init(&error);
 
 	conn = calloc(1, sizeof(struct connection));
 	conn->this = impl_connection;
 	conn->impl = impl;
-	conn->conn = dbus_bus_get_private((DBusBusType)type, &error);
-	if (conn->conn == NULL)
-		goto error;
-
+	conn->type = type;
 	conn->dispatch_event = spa_loop_utils_add_idle(impl->utils,
 						false, dispatch_cb, conn);
 	if (conn->dispatch_event == NULL)
@@ -375,41 +409,15 @@ impl_get_connection(void *object,
 	spa_list_init(&conn->source_list);
 	spa_hook_list_init(&conn->listener_list);
 
-	dbus_connection_set_exit_on_disconnect(conn->conn, false);
-	if (!dbus_connection_add_filter(conn->conn, filter_message, conn, NULL))
-		goto error_filter;
-
-	dbus_connection_set_dispatch_status_function(conn->conn, dispatch_status, conn, NULL);
-	dbus_connection_set_watch_functions(conn->conn, add_watch, remove_watch, toggle_watch, conn,
-					    NULL);
-	dbus_connection_set_timeout_functions(conn->conn, add_timeout, remove_timeout,
-					      toggle_timeout, conn, NULL);
-	dbus_connection_set_wakeup_main_function(conn->conn, wakeup_main, conn, NULL);
-
 	spa_list_append(&impl->connection_list, &conn->link);
 
 	spa_log_debug(impl->log, "new conn %p", conn);
 
 	return &conn->this;
 
-error:
-	spa_log_error(impl->log, "Failed to connect to system bus: %s", error.message);
-	dbus_error_free(&error);
-	res = -ECONNREFUSED;
-	goto out_free;
 no_event:
 	res = -errno;
 	spa_log_error(impl->log, "Failed to create idle event: %m");
-	goto out_unref_dbus;
-error_filter:
-	res = -ENOMEM;
-	spa_log_error(impl->log, "Failed to create filter: %s", spa_strerror(res));
-	goto out_unref_dbus;
-
-out_unref_dbus:
-	dbus_connection_close(conn->conn);
-	dbus_connection_unref(conn->conn);
-out_free:
 	free(conn);
 	errno = -res;
 	return NULL;

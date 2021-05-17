@@ -2337,7 +2337,7 @@ static int collect_modules(struct impl *impl, const char *str)
 	int count = 0;
 
 	if ((dir = getenv("PIPEWIRE_CONFIG_DIR")) == NULL)
-		dir = PIPEWIRE_CONFIG_DIR;
+		dir = PIPEWIRE_CONFDATADIR;
 	if (dir == NULL)
 		return -ENOENT;
 

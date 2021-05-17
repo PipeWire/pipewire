@@ -11,14 +11,8 @@ task:
     CXXFLAGS: $CFLAGS
     LDFLAGS: -L$LOCALBASE/lib
   deps_script:
-    # alsa-lib >=1.1.7 is not in the FreeBSD ports tree yet (see FreeBSD PR/245321)
-    - fetch 'https://codeberg.org/ei/misc/raw/branch/main/alsa-lib-122-standalone-on-bb7b892.tar.xz'
-    - sha256 -c '9855f082e17d95c44785e8576e7460601a1746538f05253432bc271cd4deded6' alsa-lib-122-standalone-on-bb7b892.tar.xz
-    - tar -C / -xf alsa-lib-122-standalone-on-bb7b892.tar.xz
-    - cd /usr/ports/audio/alsa-lib
-    - make BATCH=yes install
     - sed -i.bak -e 's/quarterly/latest/' /etc/pkg/FreeBSD.conf
-    - pkg install -y meson pkgconf dbus glib libepoll-shim libudev-devd vulkan-loader vulkan-headers gstreamer1 gstreamer1-plugins libinotify gettext libsndfile sdl2
+    - pkg install -y meson pkgconf dbus glib libepoll-shim libudev-devd vulkan-loader vulkan-headers gstreamer1 gstreamer1-plugins libinotify gettext libsndfile sdl2 alsa-lib
     - sysrc dbus_enable=YES
     - service dbus restart
   build_script:

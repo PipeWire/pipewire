@@ -32,6 +32,7 @@
 
 #include <dbus/dbus.h>
 
+#include <spa/utils/result.h>
 #include <spa/utils/type.h>
 #include <spa/utils/names.h>
 #include <spa/support/log.h>
@@ -271,6 +272,18 @@ static void wakeup_main(void *userdata)
 	spa_loop_utils_enable_idle(impl->utils, this->dispatch_event, true);
 }
 
+static DBusHandlerResult filter_message (DBusConnection *connection,
+		DBusMessage *message, void *user_data)
+{
+	struct connection *this = user_data;
+	struct impl *impl = this->impl;
+
+	if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
+		spa_log_warn(impl->log, "dbus connection %p disconnected", this);
+	}
+	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+}
+
 static void *
 impl_connection_get(struct spa_dbus_connection *conn)
 {
@@ -284,6 +297,8 @@ static void connection_free(struct connection *conn)
 	struct source_data *data;
 
 	spa_list_remove(&conn->link);
+
+	dbus_connection_remove_filter(conn->conn, filter_message, conn);
 
 	dbus_connection_close(conn->conn);
 	dbus_connection_unref(conn->conn);
@@ -338,6 +353,9 @@ impl_get_connection(void *object,
 	spa_list_init(&conn->source_list);
 
 	dbus_connection_set_exit_on_disconnect(conn->conn, false);
+	if (!dbus_connection_add_filter(conn->conn, filter_message, conn, NULL))
+		goto error_filter;
+
 	dbus_connection_set_dispatch_status_function(conn->conn, dispatch_status, conn, NULL);
 	dbus_connection_set_watch_functions(conn->conn, add_watch, remove_watch, toggle_watch, conn,
 					    NULL);
@@ -351,20 +369,24 @@ impl_get_connection(void *object,
 
 	return &conn->this;
 
-      error:
+error:
 	spa_log_error(impl->log, "Failed to connect to system bus: %s", error.message);
 	dbus_error_free(&error);
 	res = -ECONNREFUSED;
 	goto out_free;
-      no_event:
+no_event:
 	res = -errno;
 	spa_log_error(impl->log, "Failed to create idle event: %m");
 	goto out_unref_dbus;
+error_filter:
+	res = -ENOMEM;
+	spa_log_error(impl->log, "Failed to create filter: %s", spa_strerror(res));
+	goto out_unref_dbus;
 
-      out_unref_dbus:
+out_unref_dbus:
 	dbus_connection_close(conn->conn);
 	dbus_connection_unref(conn->conn);
-      out_free:
+out_free:
 	free(conn);
 	errno = -res;
 	return NULL;

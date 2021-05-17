@@ -189,7 +189,6 @@ static DBusHandlerResult object_handler(DBusConnection *c, DBusMessage *m, void 
 
 			return DBUS_HANDLER_RESULT_HANDLED;
 		}
-
 	} else if (dbus_message_is_method_call(
 			   m,
 			   "org.freedesktop.DBus.Introspectable",
@@ -244,7 +243,6 @@ static const struct DBusObjectPathVTable vtable ={
 
 static DBusHandlerResult filter_handler(DBusConnection *c, DBusMessage *m, void *userdata)
 {
-
 	struct rd_device *d = userdata;
 	DBusError error;
 	const char *name;
@@ -401,13 +399,22 @@ int rd_device_acquire(struct rd_device *d)
 					d->service_name,
 					(d->priority < INT32_MAX ? DBUS_NAME_FLAG_ALLOW_REPLACEMENT : 0),
 					&error)) < 0) {
+			pw_log_warn(NAME"%p: reserve failed: %s", d, error.message);
 			dbus_error_free(&error);
+			return -EIO;
 	}
 
-	if (res != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
+	pw_log_debug(NAME"%p: reserve result: %d", d, res);
+
+	if (res == DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER ||
+	    res == DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER)
+		return 0;
+
+	if (res == DBUS_REQUEST_NAME_REPLY_EXISTS ||
+	    res == DBUS_REQUEST_NAME_REPLY_IN_QUEUE)
 		return -EBUSY;
 
-	return 0;
+	return -EIO;
 }
 
 int rd_device_request_release(struct rd_device *d)
@@ -430,7 +437,7 @@ int rd_device_request_release(struct rd_device *d)
 		return -ENOMEM;
         }
 	if (!dbus_connection_send(d->connection, m, NULL)) {
-		return -ENOMEM;
+		return -EIO;
 	}
 	return 0;
 }
@@ -452,7 +459,7 @@ int rd_device_complete_release(struct rd_device *d, int res)
 	}
 
 	if (!dbus_connection_send(d->connection, d->reply, NULL)) {
-		res = -ENOMEM;
+		res = -EIO;
 		goto exit;
 	}
 	res = 0;

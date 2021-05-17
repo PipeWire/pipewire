@@ -57,6 +57,10 @@ struct source_data {
 	struct connection *conn;
 };
 
+#define connection_emit(c,m,v,...) spa_hook_list_call(&c->listener_list, struct spa_dbus_connection_events, m, v, ##__VA_ARGS__)
+#define connection_emit_destroy(c)	connection_emit(c, destroy, 0)
+#define connection_emit_disconnected(c)	connection_emit(c, disconnected, 0)
+
 struct connection {
 	struct spa_list link;
 
@@ -65,6 +69,8 @@ struct connection {
 	DBusConnection *conn;
 	struct spa_source *dispatch_event;
 	struct spa_list source_list;
+
+	struct spa_hook_list listener_list;
 };
 
 static void source_data_free(void *data)
@@ -279,7 +285,8 @@ static DBusHandlerResult filter_message (DBusConnection *connection,
 	struct impl *impl = this->impl;
 
 	if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
-		spa_log_warn(impl->log, "dbus connection %p disconnected", this);
+		spa_log_debug(impl->log, "dbus connection %p disconnected", this);
+		connection_emit_disconnected(this);
 	}
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
@@ -308,6 +315,8 @@ static void connection_free(struct connection *conn)
 
 	spa_loop_utils_destroy_source(impl->utils, conn->dispatch_event);
 
+	spa_hook_list_clean(&conn->listener_list);
+
 	free(conn);
 }
 
@@ -317,14 +326,27 @@ impl_connection_destroy(struct spa_dbus_connection *conn)
 	struct connection *this = SPA_CONTAINER_OF(conn, struct connection, this);
 	struct impl *impl = this->impl;
 
+	connection_emit_destroy(this);
+
 	spa_log_debug(impl->log, "destroy conn %p", this);
 	connection_free(this);
+}
+
+static void
+impl_connection_add_listener(struct spa_dbus_connection *conn,
+			struct spa_hook *listener,
+			const struct spa_dbus_connection_events *events,
+			void *data)
+{
+	struct connection *this = SPA_CONTAINER_OF(conn, struct connection, this);
+	spa_hook_list_append(&this->listener_list, listener, events, data);
 }
 
 static const struct spa_dbus_connection impl_connection = {
 	SPA_VERSION_DBUS_CONNECTION,
 	impl_connection_get,
 	impl_connection_destroy,
+	impl_connection_add_listener,
 };
 
 static struct spa_dbus_connection *
@@ -351,6 +373,7 @@ impl_get_connection(void *object,
 		goto no_event;
 
 	spa_list_init(&conn->source_list);
+	spa_hook_list_init(&conn->listener_list);
 
 	dbus_connection_set_exit_on_disconnect(conn->conn, false);
 	if (!dbus_connection_add_filter(conn->conn, filter_message, conn, NULL))

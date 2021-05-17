@@ -134,6 +134,7 @@ struct impl {
 #define NAME "alsa-monitor"
 
 static int probe_device(struct device *device);
+static void reserve_acquired(void *data, struct rd_device *d);
 
 static struct node *alsa_find_node(struct device *device, uint32_t id, const char *name)
 {
@@ -162,6 +163,23 @@ static void alsa_update_node(struct device *device, struct node *node,
 	pw_properties_update(node->props, info->props);
 }
 
+static int do_device_acquire(struct device *device)
+{
+	int res;
+	if (device->reserve == NULL)
+		return 0;
+
+	res = rd_device_acquire(device->reserve);
+	if (res < 0 && res != -EBUSY) {
+		pw_log_warn("device reserve failed, disabling: %s", spa_strerror(res));
+		reserve_acquired(device, device->reserve);
+		rd_device_destroy(device->reserve);
+		device->reserve = NULL;
+		res = 0;
+	}
+	return res;
+}
+
 static int node_acquire(void *data)
 {
 	struct node *node = data;
@@ -175,7 +193,7 @@ static int node_acquire(void *data)
 	node->acquired = true;
 
 	if (device && device->n_acquired++ == 0 && device->reserve)
-		return rd_device_acquire(device->reserve);
+		return do_device_acquire(device);
 	else
 		return 0;
 }
@@ -775,7 +793,6 @@ static void reserve_available(void *data, struct rd_device *d, const char *name)
 	if (strcmp(name, "jack") == 0) {
 		set_jack_profile(impl, 0);
 	}
-
 }
 
 static const struct rd_device_callbacks reserve_callbacks = {
@@ -849,6 +866,9 @@ static int probe_device(struct device *device)
 	struct spa_handle *handle;
 	void *iface;
 	int res;
+
+	if (device->probed)
+		return 0;
 
 	handle = pw_context_load_spa_handle(context,
 			device->factory_name, &device->props->dict);
@@ -951,10 +971,7 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 			pw_log_warn("empty reserve device path for %s", reserve);
 		}
 	}
-	if (device->reserve != NULL)
-		rd_device_acquire(device->reserve);
-	else
-		probe_device(device);
+	do_device_acquire(device);
 
 	return device;
 exit:

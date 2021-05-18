@@ -32,6 +32,7 @@
 #include "config.h"
 
 #include <spa/utils/json.h>
+#include <spa/utils/string.h>
 
 #include <pipewire/pipewire.h>
 #include "media-session.h"
@@ -104,13 +105,13 @@ int sm_media_session_match_rules(const char *rules, size_t size, struct pw_prope
 		bool have_match = false, have_actions = false;
 
 		while (spa_json_get_string(&it[2], key, sizeof(key)-1) > 0) {
-			if (strcmp(key, "matches") == 0) {
+			if (spa_streq(key, "matches")) {
 				if (spa_json_enter_array(&it[2], &it[3]) < 0)
 					break;
 
 				have_match = find_match(&it[3], props);
 			}
-			else if (strcmp(key, "actions") == 0) {
+			else if (spa_streq(key, "actions")) {
 				if (spa_json_enter_object(&it[2], &actions) > 0)
 					have_actions = true;
 			}
@@ -123,7 +124,7 @@ int sm_media_session_match_rules(const char *rules, size_t size, struct pw_prope
 		while (spa_json_get_string(&actions, key, sizeof(key)-1) > 0) {
 			int len;
 			pw_log_debug("action %s", key);
-			if (strcmp(key, "update-props") == 0) {
+			if (spa_streq(key, "update-props")) {
 				if ((len = spa_json_next(&actions, &val)) <= 0)
 					continue;
 				if (!spa_json_is_object(val, len))

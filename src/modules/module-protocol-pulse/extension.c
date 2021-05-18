@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <spa/utils/string.h>
+
 struct extension_sub {
 	const char *name;
 	uint32_t command;
@@ -57,7 +59,7 @@ static struct extension *find_extension(uint32_t idx, const char *name)
 	uint32_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(extensions); i++) {
 		if (idx == extensions[i].idx ||
-		    (name && strcmp(name, extensions[i].name) == 0))
+		    (name && spa_streq(name, extensions[i].name)))
 			return &extensions[i];
 	}
 	return 0;

@@ -138,7 +138,7 @@ static uint32_t get_card_id(struct impl *this, struct udev_device *dev)
 	if (udev_device_get_property_value(dev, "ACP_IGNORE"))
 		return SPA_ID_INVALID;
 
-	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && strcmp(str, "modem") == 0)
+	if ((str = udev_device_get_property_value(dev, "SOUND_CLASS")) && spa_streq(str, "modem"))
 		return SPA_ID_INVALID;
 
 	if ((str = udev_device_get_property_value(dev, "SOUND_INITIALIZED")) == NULL)
@@ -553,9 +553,9 @@ static void impl_on_fd_events(struct spa_source *source)
 
 	start_inotify(this);
 
-	if (strcmp(action, "change") == 0) {
+	if (spa_streq(action, "change")) {
 		process_device(this, ACTION_ADD, dev);
-	} else if (strcmp(action, "remove") == 0) {
+	} else if (spa_streq(action, "remove")) {
 		process_device(this, ACTION_REMOVE, dev);
 	}
 	udev_device_unref(dev);
@@ -705,7 +705,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	this = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_Device) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Device))
 		*interface = &this->device;
 	else
 		return -ENOENT;
@@ -768,7 +768,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (info) {
 		if ((str = spa_dict_lookup(info, "alsa.use-acp")) != NULL)
-			this->use_acp = strcmp(str, "true") == 0 || atoi(str) != 0;
+			this->use_acp = spa_streq(str, "true") || atoi(str) != 0;
 	}
 
 	return 0;

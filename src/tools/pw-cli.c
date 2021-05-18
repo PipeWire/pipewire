@@ -36,6 +36,7 @@
 #define spa_debug(...) fprintf(stdout,__VA_ARGS__);fputc('\n', stdout)
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/debug/pod.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/json.h>
@@ -1129,57 +1130,57 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 	struct proxy_data *pd;
 	struct pw_proxy *proxy;
 
-	if (strcmp(global->type, PW_TYPE_INTERFACE_Core) == 0) {
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Core)) {
 		events = &core_events;
 		client_version = PW_VERSION_CORE;
 		destroy = (pw_destroy_t) pw_core_info_free;
 		info_func = info_core;
-	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Module) == 0) {
+	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Module)) {
 		events = &module_events;
 		client_version = PW_VERSION_MODULE;
 		destroy = (pw_destroy_t) pw_module_info_free;
 		info_func = info_module;
-	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Device) == 0) {
+	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Device)) {
 		events = &device_events;
 		client_version = PW_VERSION_DEVICE;
 		destroy = (pw_destroy_t) pw_device_info_free;
 		info_func = info_device;
-	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Node) == 0) {
+	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Node)) {
 		events = &node_events;
 		client_version = PW_VERSION_NODE;
 		destroy = (pw_destroy_t) pw_node_info_free;
 		info_func = info_node;
-	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Port) == 0) {
+	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Port)) {
 		events = &port_events;
 		client_version = PW_VERSION_PORT;
 		destroy = (pw_destroy_t) pw_port_info_free;
 		info_func = info_port;
-	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Factory) == 0) {
+	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Factory)) {
 		events = &factory_events;
 		client_version = PW_VERSION_FACTORY;
 		destroy = (pw_destroy_t) pw_factory_info_free;
 		info_func = info_factory;
-	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Client) == 0) {
+	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Client)) {
 		events = &client_events;
 		client_version = PW_VERSION_CLIENT;
 		destroy = (pw_destroy_t) pw_client_info_free;
 		info_func = info_client;
-	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Link) == 0) {
+	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Link)) {
 		events = &link_events;
 		client_version = PW_VERSION_LINK;
 		destroy = (pw_destroy_t) pw_link_info_free;
 		info_func = info_link;
-	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Session) == 0) {
+	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Session)) {
 		events = &session_events;
 		client_version = PW_VERSION_SESSION;
 		destroy = (pw_destroy_t) session_info_free;
 		info_func = info_session;
-	} else if (strcmp(global->type, PW_TYPE_INTERFACE_Endpoint) == 0) {
+	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Endpoint)) {
 		events = &endpoint_events;
 		client_version = PW_VERSION_ENDPOINT;
 		destroy = (pw_destroy_t) endpoint_info_free;
 		info_func = info_endpoint;
-	} else if (strcmp(global->type, PW_TYPE_INTERFACE_EndpointStream) == 0) {
+	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_EndpointStream)) {
 		events = &endpoint_stream_events;
 		client_version = PW_VERSION_ENDPOINT_STREAM;
 		destroy = (pw_destroy_t) endpoint_stream_info_free;
@@ -1255,7 +1256,7 @@ static bool do_info(struct data *data, const char *cmd, char *args, char **error
 		*error = spa_aprintf("%s <object-id>|all", cmd);
 		return false;
 	}
-	if (strcmp(a[0], "all") == 0) {
+	if (spa_streq(a[0], "all")) {
 		pw_map_for_each(&rd->globals, do_global_info_all, NULL);
 	}
 	else {
@@ -1469,9 +1470,9 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 static const struct spa_type_info *find_type_info(const struct spa_type_info *info, const char *name)
 {
 	while (info && info->name) {
-                if (strcmp(info->name, name) == 0)
+                if (spa_streq(info->name, name))
                         return info;
-                if (strcmp(spa_debug_type_short_name(info->name), name) == 0)
+                if (spa_streq(spa_debug_type_short_name(info->name), name))
                         return info;
                 if (info->type != 0 && info->type == (uint32_t)atoi(name))
                         return info;
@@ -1513,16 +1514,16 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 			return false;
 	}
 
-	if (strcmp(global->type, PW_TYPE_INTERFACE_Node) == 0)
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Node))
 		pw_node_enum_params((struct pw_node*)global->proxy, 0,
 			param_id, 0, 0, NULL);
-	else if (strcmp(global->type, PW_TYPE_INTERFACE_Port) == 0)
+	else if (spa_streq(global->type, PW_TYPE_INTERFACE_Port))
 		pw_port_enum_params((struct pw_port*)global->proxy, 0,
 			param_id, 0, 0, NULL);
-	else if (strcmp(global->type, PW_TYPE_INTERFACE_Device) == 0)
+	else if (spa_streq(global->type, PW_TYPE_INTERFACE_Device))
 		pw_device_enum_params((struct pw_device*)global->proxy, 0,
 			param_id, 0, 0, NULL);
-	else if (strcmp(global->type, PW_TYPE_INTERFACE_Endpoint) == 0)
+	else if (spa_streq(global->type, PW_TYPE_INTERFACE_Endpoint))
 		pw_endpoint_enum_params((struct pw_endpoint*)global->proxy, 0,
 			param_id, 0, 0, NULL);
 	else {
@@ -1696,13 +1697,13 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 	}
 	spa_debug_pod(0, NULL, pod);
 
-	if (strcmp(global->type, PW_TYPE_INTERFACE_Node) == 0)
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Node))
 		pw_node_set_param((struct pw_node*)global->proxy,
 				param_id, 0, pod);
-	else if (strcmp(global->type, PW_TYPE_INTERFACE_Device) == 0)
+	else if (spa_streq(global->type, PW_TYPE_INTERFACE_Device))
 		pw_device_set_param((struct pw_device*)global->proxy,
 				param_id, 0, pod);
-	else if (strcmp(global->type, PW_TYPE_INTERFACE_Endpoint) == 0)
+	else if (spa_streq(global->type, PW_TYPE_INTERFACE_Endpoint))
 		pw_endpoint_set_param((struct pw_endpoint*)global->proxy,
 				param_id, 0, pod);
 	else {

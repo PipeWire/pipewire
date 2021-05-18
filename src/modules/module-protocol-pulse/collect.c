@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <spa/utils/string.h>
+
 struct selector {
 	bool (*type) (struct pw_manager_object *o);
 	uint32_t id;
@@ -64,7 +66,7 @@ static struct pw_manager_object *select_object(struct pw_manager *m,
 			s->accumulate(s, o);
 		if (o->props && s->key != NULL && s->value != NULL &&
 		    (str = pw_properties_get(o->props, s->key)) != NULL &&
-		    strcmp(str, s->value) == 0)
+		    spa_streq(str, s->value))
 			return o;
 		if (s->value != NULL && (uint32_t)atoi(s->value) == o->id)
 			return o;
@@ -192,9 +194,9 @@ static uint32_t collect_profile_info(struct pw_manager_object *card, struct card
 						SPA_POD_Int(&count)) < 0)
 					continue;
 
-				if (strcmp(class, "Audio/Sink") == 0)
+				if (spa_streq(class, "Audio/Sink"))
 					pi->n_sinks += count;
-				else if (strcmp(class, "Audio/Source") == 0)
+				else if (spa_streq(class, "Audio/Source"))
 					pi->n_sources += count;
 			}
 		}
@@ -223,7 +225,7 @@ static uint32_t find_profile_id(struct pw_manager_object *card, const char *name
 				SPA_PARAM_PROFILE_name,  SPA_POD_String(&test_name)) < 0)
 			continue;
 
-		if (strcmp(test_name, name) == 0)
+		if (spa_streq(test_name, name))
 			return id;
 
 	}
@@ -409,9 +411,9 @@ static uint32_t collect_port_info(struct pw_manager_object *card, struct card_in
 						SPA_POD_String(&value),
 						NULL) < 0)
 					break;
-				if (strcmp(key, "port.availability-group") == 0)
+				if (spa_streq(key, "port.availability-group"))
 					pi->availability_group = value;
-				else if (strcmp(key, "port.type") == 0)
+				else if (spa_streq(key, "port.type"))
 					pi->type = port_type_value(value);
 			}
 			spa_pod_parser_pop(&prs, &f[0]);
@@ -443,7 +445,7 @@ static uint32_t find_port_id(struct pw_manager_object *card, uint32_t direction,
 			continue;
 		if (dir != direction)
 			continue;
-		if (strcmp(name, port_name) == 0)
+		if (spa_streq(name, port_name))
 			return id;
 
 	}

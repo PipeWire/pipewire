@@ -36,6 +36,7 @@
 #include <spa/node/node.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
+#include <spa/utils/string.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
 #include <spa/support/i18n.h>
@@ -880,7 +881,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	this = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_Device) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Device))
 		*interface = &this->device;
 	else
 		return -ENOENT;
@@ -958,9 +959,9 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, SPA_KEY_API_ALSA_PATH)) != NULL)
 			snprintf(this->props.device, sizeof(this->props.device), "%s", str);
 		if ((str = spa_dict_lookup(info, "api.acp.auto-port")) != NULL)
-			this->props.auto_port = strcmp(str, "true") == 0 || atoi(str) != 0;
+			this->props.auto_port = spa_streq(str, "true") || atoi(str) != 0;
 		if ((str = spa_dict_lookup(info, "api.acp.auto-profile")) != NULL)
-			this->props.auto_profile = strcmp(str, "true") == 0 || atoi(str) != 0;
+			this->props.auto_profile = spa_streq(str, "true") || atoi(str) != 0;
 
 		items = alloca((info->n_items) * sizeof(*items));
 		spa_dict_for_each(it, info)

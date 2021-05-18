@@ -28,6 +28,8 @@
 
 #include "reserve.h"
 
+#include <spa/utils/string.h>
+
 #define SERVICE_PREFIX "org.freedesktop.ReserveDevice1."
 #define OBJECT_PREFIX "/org/freedesktop/ReserveDevice1/"
 
@@ -147,10 +149,10 @@ static DBusHandlerResult object_handler(DBusConnection *c, DBusMessage *m, void 
 					DBUS_TYPE_INVALID))
 			goto invalid;
 
-		if (strcmp(interface, "org.freedesktop.ReserveDevice1") == 0) {
+		if (spa_streq(interface, "org.freedesktop.ReserveDevice1")) {
 			const char *empty = "";
 
-			if (strcmp(property, "ApplicationName") == 0 && d->application_name) {
+			if (spa_streq(property, "ApplicationName") && d->application_name) {
 				if (!(reply = dbus_message_new_method_return(m)))
 					goto oom;
 
@@ -159,7 +161,7 @@ static DBusHandlerResult object_handler(DBusConnection *c, DBusMessage *m, void 
 					    d->application_name ? (const char**) &d->application_name : &empty))
 					goto oom;
 
-			} else if (strcmp(property, "ApplicationDeviceName") == 0) {
+			} else if (spa_streq(property, "ApplicationDeviceName")) {
 				if (!(reply = dbus_message_new_method_return(m)))
 					goto oom;
 
@@ -168,7 +170,7 @@ static DBusHandlerResult object_handler(DBusConnection *c, DBusMessage *m, void 
 					    d->application_device_name ? (const char**) &d->application_device_name : &empty))
 					goto oom;
 
-			} else if (strcmp(property, "Priority") == 0) {
+			} else if (spa_streq(property, "Priority")) {
 				if (!(reply = dbus_message_new_method_return(m)))
 					goto oom;
 

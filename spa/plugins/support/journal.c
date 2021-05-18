@@ -35,6 +35,7 @@
 #include <spa/support/plugin.h>
 #include <spa/utils/type.h>
 #include <spa/utils/names.h>
+#include <spa/utils/string.h>
 
 #include <systemd/sd-journal.h>
 
@@ -135,7 +136,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	this = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_Log) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Log))
 		*interface = &this->log;
 	else
 		return -ENOENT;

@@ -25,6 +25,8 @@
 #include <errno.h>
 #include <string.h>
 
+#include <spa/utils/string.h>
+
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
 
@@ -137,7 +139,7 @@ static bool has_key(const char *keys[], const char *key)
 {
 	int i;
 	for (i = 0; keys[i]; i++) {
-		if (strcmp(keys[i], key) == 0)
+		if (spa_streq(keys[i], key))
 			return true;
 	}
 	return false;

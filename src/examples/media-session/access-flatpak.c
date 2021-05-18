@@ -30,6 +30,8 @@
 
 #include "config.h"
 
+#include <spa/utils/string.h>
+
 #include "pipewire/pipewire.h"
 
 #include "media-session.h"
@@ -75,7 +77,7 @@ static void object_update(void *data)
 			return;
 
 		if ((str = spa_dict_lookup(client->obj->info->props, PW_KEY_MEDIA_CATEGORY)) != NULL &&
-		    (strcmp(str, "Manager") == 0)) {
+		    (spa_streq(str, "Manager"))) {
 			/* FIXME, use permission store to check if this app is allowed to
 			 * be a manager app */
 			perms = PW_PERM_ALL;
@@ -131,7 +133,7 @@ static void session_create(void *data, struct sm_object *object)
 
 	pw_log_debug(NAME " %p: create global '%d'", impl, object->id);
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Client) == 0)
+	if (spa_streq(object->type, PW_TYPE_INTERFACE_Client))
 		res = handle_client(impl, object);
 	else
 		res = 0;
@@ -145,7 +147,7 @@ static void session_remove(void *data, struct sm_object *object)
 	struct impl *impl = data;
 	pw_log_debug(NAME " %p: remove global '%d'", impl, object->id);
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Client) == 0) {
+	if (spa_streq(object->type, PW_TYPE_INTERFACE_Client)) {
 		struct client *client;
 
 		if ((client = sm_object_get_data(object, SESSION_KEY)) != NULL)

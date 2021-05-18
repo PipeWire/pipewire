@@ -25,6 +25,7 @@
 #include <errno.h>
 
 #include <spa/debug/types.h>
+#include <spa/utils/string.h>
 
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
@@ -290,7 +291,7 @@ struct pw_impl_factory *pw_context_find_factory(struct pw_context *context,
 	struct pw_impl_factory *factory;
 
 	spa_list_for_each(factory, &context->factory_list, link) {
-		if (strcmp(factory->info.name, name) == 0)
+		if (spa_streq(factory->info.name, name))
 			return factory;
 	}
 	return NULL;

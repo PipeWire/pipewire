@@ -26,6 +26,7 @@
 #include <alsa/control_external.h>
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/param/props.h>
 #include <spa/param/audio/format-utils.h>
@@ -163,11 +164,11 @@ static struct global *find_global(snd_ctl_pipewire_t *ctl, uint32_t id,
 
 	spa_list_for_each(g, &ctl->globals, link) {
 		if ((g->id == id || g->id == name_id) &&
-		    (type == NULL || strcmp(g->ginfo->type, type) == 0))
+		    (type == NULL || spa_streq(g->ginfo->type, type)))
 			return g;
 		if (name != NULL && name[0] != '\0' &&
 		    (str = pw_properties_get(g->props, PW_KEY_NODE_NAME)) != NULL &&
-		    strcmp(name, str) == 0)
+		    spa_streq(name, str))
 			return g;
 	}
 	return NULL;
@@ -177,7 +178,7 @@ static struct global *find_best_node(snd_ctl_pipewire_t *ctl, uint32_t flags)
 {
 	struct global *g, *best = NULL;
 	spa_list_for_each(g, &ctl->globals, link) {
-		if ((strcmp(g->ginfo->type, PW_TYPE_INTERFACE_Node) == 0) &&
+		if ((spa_streq(g->ginfo->type, PW_TYPE_INTERFACE_Node)) &&
 		    (flags == 0 || (g->node.flags & flags) == flags) &&
 		    (best == NULL || best->node.priority < g->node.priority))
 			best = g;
@@ -344,13 +345,13 @@ static snd_ctl_ext_key_t pipewire_find_elem(snd_ctl_ext_t * ext,
 
 	name = snd_ctl_elem_id_get_name(id);
 
-	if (strcmp(name, SOURCE_VOL_NAME) == 0)
+	if (spa_streq(name, SOURCE_VOL_NAME))
 		return 0;
-	if (strcmp(name, SOURCE_MUTE_NAME) == 0)
+	if (spa_streq(name, SOURCE_MUTE_NAME))
 		return 1;
-	if (strcmp(name, SINK_VOL_NAME) == 0)
+	if (spa_streq(name, SINK_VOL_NAME))
 		return 2;
-	if (strcmp(name, SINK_MUTE_NAME) == 0)
+	if (spa_streq(name, SINK_MUTE_NAME))
 		return 3;
 
 	return SND_CTL_EXT_KEY_NOT_FOUND;
@@ -836,7 +837,7 @@ static struct global *find_node_for_route(snd_ctl_pipewire_t *ctl, uint32_t card
 {
 	struct global *n;
 	spa_list_for_each(n, &ctl->globals, link) {
-		if (strcmp(n->ginfo->type, PW_TYPE_INTERFACE_Node) == 0 &&
+		if (spa_streq(n->ginfo->type, PW_TYPE_INTERFACE_Node) &&
 		    (n->node.device_id == card) &&
 		    (n->node.profile_device_id == device))
 			return n;
@@ -925,9 +926,9 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 		if ((str = spa_dict_lookup(info->props, PW_KEY_PRIORITY_SESSION)))
 			g->node.priority = atoi(str);
 		if ((str = spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS))) {
-			if (strcmp(str, "Audio/Sink") == 0)
+			if (spa_streq(str, "Audio/Sink"))
 				g->node.flags |= NODE_FLAG_SINK;
-			else if (strcmp(str, "Audio/Source") == 0)
+			else if (spa_streq(str, "Audio/Source"))
 				g->node.flags |= NODE_FLAG_SOURCE;
 		}
 	}
@@ -991,7 +992,7 @@ static int json_object_find(const char *obj, const char *key, char *value, size_
 		return -EINVAL;
 
 	while (spa_json_get_string(&it[1], k, sizeof(k)-1) > 0) {
-		if (strcmp(k, key) == 0) {
+		if (spa_streq(k, key)) {
 			if (spa_json_get_string(&it[1], value, len) <= 0)
 				continue;
 			return 0;
@@ -1013,14 +1014,14 @@ static int metadata_property(void *object,
 	snd_ctl_pipewire_t *ctl = g->ctl;
 
 	if (subject == PW_ID_CORE) {
-		if (key == NULL || strcmp(key, "default.audio.sink") == 0) {
+		if (key == NULL || spa_streq(key, "default.audio.sink")) {
 			if (value == NULL ||
 			    json_object_find(value, "name",
 					ctl->default_sink, sizeof(ctl->default_sink)) < 0)
 				ctl->default_sink[0] = '\0';
 			pw_log_debug("found default sink: %s", ctl->default_sink);
 		}
-		if (key == NULL || strcmp(key, "default.audio.source") == 0) {
+		if (key == NULL || spa_streq(key, "default.audio.source")) {
 			if (value == NULL ||
 			    json_object_find(value, "name",
 					ctl->default_source, sizeof(ctl->default_source)) < 0)
@@ -1081,7 +1082,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 	pw_log_debug("got %d %s", id, type);
 
-	if (strcmp(type, PW_TYPE_INTERFACE_Device) == 0) {
+	if (spa_streq(type, PW_TYPE_INTERFACE_Device)) {
 		if (props == NULL ||
 		    ((str = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS)) == NULL) ||
 		    (strcmp(str, "Audio/Device") != 0))
@@ -1089,7 +1090,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 		pw_log_debug("found device %d", id);
 		info = &device_info;
-	} else if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
+	} else if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
 		if (props == NULL ||
 		    ((str = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS)) == NULL) ||
 		    ((strcmp(str, "Audio/Sink") != 0) &&
@@ -1098,7 +1099,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 		pw_log_debug("found node %d type:%s", id, str);
 		info = &node_info;
-	} else if (strcmp(type, PW_TYPE_INTERFACE_Metadata) == 0) {
+	} else if (spa_streq(type, PW_TYPE_INTERFACE_Metadata)) {
 		if (ctl->metadata != NULL)
 			return;
 		info = &metadata_info;
@@ -1146,9 +1147,9 @@ static void registry_event_global_remove(void *data, uint32_t id)
 	if ((name = pw_properties_get(g->props, PW_KEY_NODE_NAME)) == NULL)
 		return;
 
-	if (strcmp(name, ctl->default_sink) == 0)
+	if (spa_streq(name, ctl->default_sink))
 		ctl->default_sink[0] = '\0';
-	if (strcmp(name, ctl->default_source) == 0)
+	if (spa_streq(name, ctl->default_source))
 		ctl->default_source[0] = '\0';
 }
 
@@ -1218,10 +1219,10 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 		const char *id;
 		if (snd_config_get_id(n, &id) < 0)
 			continue;
-		if (strcmp(id, "comment") == 0 || strcmp(id, "type") == 0
-		    || strcmp(id, "hint") == 0)
+		if (spa_streq(id, "comment") || spa_streq(id, "type")
+		    || spa_streq(id, "hint"))
 			continue;
-		if (strcmp(id, "server") == 0) {
+		if (spa_streq(id, "server")) {
 			if (snd_config_get_string(n, &server) < 0) {
 				SNDERR("Invalid type for %s", id);
 				return -EINVAL;
@@ -1230,7 +1231,7 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 			}
 			continue;
 		}
-		if (strcmp(id, "device") == 0) {
+		if (spa_streq(id, "device")) {
 			if (snd_config_get_string(n, &device) < 0) {
 				SNDERR("Invalid type for %s", id);
 				return -EINVAL;
@@ -1239,7 +1240,7 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 			}
 			continue;
 		}
-		if (strcmp(id, "source") == 0) {
+		if (spa_streq(id, "source")) {
 			if (snd_config_get_string(n, &source) < 0) {
 				SNDERR("Invalid type for %s", id);
 				return -EINVAL;
@@ -1248,7 +1249,7 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 			}
 			continue;
 		}
-		if (strcmp(id, "sink") == 0) {
+		if (spa_streq(id, "sink")) {
 			if (snd_config_get_string(n, &sink) < 0) {
 				SNDERR("Invalid type for %s", id);
 				return -EINVAL;
@@ -1257,7 +1258,7 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 			}
 			continue;
 		}
-		if (strcmp(id, "fallback") == 0) {
+		if (spa_streq(id, "fallback")) {
 			if (snd_config_get_string(n, &fallback_name) < 0) {
 				SNDERR("Invalid value for %s", id);
 				return -EINVAL;

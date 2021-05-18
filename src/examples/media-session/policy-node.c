@@ -32,6 +32,7 @@
 
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/string.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/pod.h>
@@ -341,12 +342,12 @@ handle_node(struct impl *impl, struct sm_object *object)
 		else
 			return 0;
 
-		if (strcmp(media_class, "Sink") == 0 ||
-		    strcmp(media_class, "Duplex") == 0)
+		if (spa_streq(media_class, "Sink") ||
+		    spa_streq(media_class, "Duplex"))
 			direction = PW_DIRECTION_INPUT;
-		else if (strcmp(media_class, "Source") == 0)
+		else if (spa_streq(media_class, "Source"))
 			direction = PW_DIRECTION_OUTPUT;
-		else if (strcmp(media_class, "Source/Virtual") == 0) {
+		else if (spa_streq(media_class, "Source/Virtual")) {
 			virtual = true;
 			direction = PW_DIRECTION_OUTPUT;
 		} else
@@ -412,7 +413,7 @@ static int json_object_find(const char *obj, const char *key, char *value, size_
 		return -EINVAL;
 
 	while (spa_json_get_string(&it[1], k, sizeof(k)-1) > 0) {
-		if (strcmp(k, key) == 0) {
+		if (spa_streq(k, key)) {
 			if (spa_json_get_string(&it[1], value, len) <= 0)
 				continue;
 			return 0;
@@ -428,7 +429,7 @@ static bool check_node_name(struct node *node, const char *name)
 {
 	const char *str;
 	if ((str = pw_properties_get(node->obj->obj.props, PW_KEY_NODE_NAME)) != NULL &&
-	    name != NULL && strcmp(str, name) == 0)
+	    name != NULL && spa_streq(str, name))
 		return true;
 	return false;
 }
@@ -466,7 +467,7 @@ static uint32_t find_device_for_name(struct impl *impl, const char *name)
 			return id;
 		if ((str = get_device_name(node)) == NULL)
 			continue;
-		if (strcmp(str, name) == 0)
+		if (spa_streq(str, name))
 			return node->obj->obj.id;
 	}
 	return SPA_ID_INVALID;
@@ -479,7 +480,7 @@ static void session_create(void *data, struct sm_object *object)
 
 	clock_gettime(CLOCK_MONOTONIC, &impl->now);
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Node) == 0)
+	if (spa_streq(object->type, PW_TYPE_INTERFACE_Node))
 		res = handle_node(impl, object);
 	else
 		res = 0;
@@ -495,7 +496,7 @@ static void session_remove(void *data, struct sm_object *object)
 	struct impl *impl = data;
 	pw_log_debug(NAME " %p: remove global '%d'", impl, object->id);
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Node) == 0) {
+	if (spa_streq(object->type, PW_TYPE_INTERFACE_Node)) {
 		struct node *n, *node;
 
 		if ((node = sm_object_get_data(object, SESSION_KEY)) != NULL)
@@ -557,7 +558,7 @@ static int find_node(void *data, struct node *node)
 	priority = node->priority;
 
 	if (node->media) {
-		if (strcmp(node->media, "Audio") == 0) {
+		if (spa_streq(node->media, "Audio")) {
 			if (node->direction == PW_DIRECTION_INPUT) {
 				if (find->direction == PW_DIRECTION_OUTPUT)
 					is_default |= check_node_name(node,
@@ -569,7 +570,7 @@ static int find_node(void *data, struct node *node)
 			    find->direction == PW_DIRECTION_INPUT)
 				is_default |= check_node_name(node,
 						impl->defaults[DEFAULT_AUDIO_SOURCE].config);
-		} else if (strcmp(node->media, "Video") == 0) {
+		} else if (spa_streq(node->media, "Video")) {
 			if (node->direction == PW_DIRECTION_OUTPUT &&
 			    find->direction == PW_DIRECTION_INPUT)
 				is_default |= check_node_name(node,
@@ -614,13 +615,13 @@ static struct node *find_auto_default_node(struct impl *impl, const struct defau
 	find.capture_sink = false;
 	find.exclusive = false;
 
-	if (strcmp(def->key, DEFAULT_AUDIO_SINK_KEY) == 0) {
+	if (spa_streq(def->key, DEFAULT_AUDIO_SINK_KEY)) {
 		find.media = "Audio";
 		find.direction = PW_DIRECTION_OUTPUT;
-	} else if (strcmp(def->key, DEFAULT_AUDIO_SOURCE_KEY) == 0) {
+	} else if (spa_streq(def->key, DEFAULT_AUDIO_SOURCE_KEY)) {
 		find.media = "Audio";
 		find.direction = PW_DIRECTION_INPUT;
-	} else if (strcmp(def->key, DEFAULT_VIDEO_SOURCE_KEY) == 0) {
+	} else if (spa_streq(def->key, DEFAULT_VIDEO_SOURCE_KEY)) {
 		find.media = "Video";
 		find.direction = PW_DIRECTION_INPUT;
 	} else {
@@ -777,7 +778,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 		autoconnect = pw_properties_parse_bool(str);
 
 	if ((str = spa_dict_lookup(props, PW_KEY_DEVICE_API)) != NULL &&
-	    strcmp(str, "bluez5") == 0)
+	    spa_streq(str, "bluez5"))
 		autoconnect = true;
 
 	if (!autoconnect) {
@@ -836,7 +837,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 		if ((obj = sm_media_session_find_object(impl->session, path_id)) != NULL) {
 			pw_log_debug(NAME " %p: found target:%d type:%s", impl,
 					path_id, obj->type);
-			if (strcmp(obj->type, PW_TYPE_INTERFACE_Node) == 0) {
+			if (spa_streq(obj->type, PW_TYPE_INTERFACE_Node)) {
 				peer = sm_object_get_data(obj, SESSION_KEY);
 				if (peer == NULL)
 					return -ENOENT;
@@ -868,7 +869,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 		pw_log_debug(NAME " %p: client_id:%d object:%p type:%s", impl,
 				n->client_id, obj, obj ? obj->type : "None");
 
-		if (obj && strcmp(obj->type, PW_TYPE_INTERFACE_Client) == 0) {
+		if (obj && spa_streq(obj->type, PW_TYPE_INTERFACE_Client)) {
 			pw_client_error((struct pw_client*)obj->proxy,
 				n->id, -ENOENT, "no node available");
 		}
@@ -1035,7 +1036,7 @@ static int check_new_target(struct impl *impl, struct node *target)
 				node->id, node->obj->target_node, str);
 
 		if (node->obj->target_node != NULL &&
-		    strcmp(node->obj->target_node , str) == 0) {
+		    spa_streq(node->obj->target_node , str)) {
 			handle_move(impl, node, target);
 		}
 	}
@@ -1061,13 +1062,13 @@ static int metadata_property(void *object, uint32_t subject,
 			val = name;
 		}
 		for (def = impl->defaults; def->key != NULL; ++def) {
-			if (key == NULL || strcmp(key, def->key_config) == 0) {
+			if (key == NULL || spa_streq(key, def->key_config)) {
 				if (strzcmp(def->config, val) != 0)
 					changed = true;
 				free(def->config);
 				def->config = val ? strdup(val) : NULL;
 			}
-			if (key == NULL || strcmp(key, def->key) == 0) {
+			if (key == NULL || spa_streq(key, def->key)) {
 				bool eff_changed = strzcmp(def->value, val) != 0;
 				free(def->value);
 				def->value = val ? strdup(val) : NULL;
@@ -1080,7 +1081,7 @@ static int metadata_property(void *object, uint32_t subject,
 		}
 		if (changed)
 			sm_media_session_schedule_rescan(impl->session);
-	} else if (key != NULL && strcmp(key, "target.node") == 0) {
+	} else if (key != NULL && spa_streq(key, "target.node")) {
 		if (value != NULL) {
 			struct node *src_node, *dst_node;
 

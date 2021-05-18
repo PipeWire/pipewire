@@ -36,6 +36,7 @@
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/type.h>
 #include <spa/utils/names.h>
+#include <spa/utils/string.h>
 
 #ifdef __FreeBSD__
 #define CLOCK_MONOTONIC_RAW CLOCK_MONOTONIC
@@ -190,7 +191,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	this = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_Log) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Log))
 		*interface = &this->log;
 	else
 		return -ENOENT;
@@ -265,11 +266,11 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	if (info) {
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_TIMESTAMP)) != NULL)
-			this->timestamp = (strcmp(str, "true") == 0 || atoi(str) == 1);
+			this->timestamp = (spa_streq(str, "true") || atoi(str) == 1);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_LINE)) != NULL)
-			this->line = (strcmp(str, "true") == 0 || atoi(str) == 1);
+			this->line = (spa_streq(str, "true") || atoi(str) == 1);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_COLORS)) != NULL)
-			this->colors = (strcmp(str, "true") == 0 || atoi(str) == 1);
+			this->colors = (spa_streq(str, "true") || atoi(str) == 1);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_LEVEL)) != NULL)
 			this->log.level = atoi(str);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_FILE)) != NULL) {

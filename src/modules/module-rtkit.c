@@ -41,6 +41,7 @@
 
 #include <spa/support/dbus.h>
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 
 #include <pipewire/impl.h>
 
@@ -181,13 +182,13 @@ static int translate_error(const char *name)
 {
 	pw_log_warn("RTKit error: %s", name);
 
-	if (0 == strcmp(name, DBUS_ERROR_NO_MEMORY))
+	if (spa_streq(name, DBUS_ERROR_NO_MEMORY))
 		return -ENOMEM;
-	if (0 == strcmp(name, DBUS_ERROR_SERVICE_UNKNOWN) ||
-	    0 == strcmp(name, DBUS_ERROR_NAME_HAS_NO_OWNER))
+	if (spa_streq(name, DBUS_ERROR_SERVICE_UNKNOWN) ||
+	    spa_streq(name, DBUS_ERROR_NAME_HAS_NO_OWNER))
 		return -ENOENT;
-	if (0 == strcmp(name, DBUS_ERROR_ACCESS_DENIED) ||
-	    0 == strcmp(name, DBUS_ERROR_AUTH_FAILED))
+	if (spa_streq(name, DBUS_ERROR_ACCESS_DENIED) ||
+	    spa_streq(name, DBUS_ERROR_AUTH_FAILED))
 		return -EACCES;
 
 	return -EIO;

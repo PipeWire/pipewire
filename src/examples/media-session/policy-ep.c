@@ -32,6 +32,7 @@
 
 #include <spa/node/node.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/string.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/pod.h>
@@ -161,9 +162,9 @@ handle_endpoint(struct impl *impl, struct sm_object *object)
 		else
 			return 0;
 
-		if (strcmp(media_class, "Sink") == 0)
+		if (spa_streq(media_class, "Sink"))
 			direction = PW_DIRECTION_INPUT;
-		else if (strcmp(media_class, "Source") == 0)
+		else if (spa_streq(media_class, "Source"))
 			direction = PW_DIRECTION_OUTPUT;
 		else
 			return 0;
@@ -218,9 +219,9 @@ static void session_create(void *data, struct sm_object *object)
 	struct impl *impl = data;
 	int res;
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Endpoint) == 0)
+	if (spa_streq(object->type, PW_TYPE_INTERFACE_Endpoint))
 		res = handle_endpoint(impl, object);
-	else if (strcmp(object->type, PW_TYPE_INTERFACE_EndpointStream) == 0)
+	else if (spa_streq(object->type, PW_TYPE_INTERFACE_EndpointStream))
 		res = handle_stream(impl, object);
 	else
 		res = 0;
@@ -237,12 +238,12 @@ static void session_remove(void *data, struct sm_object *object)
 	struct impl *impl = data;
 	pw_log_debug(NAME " %p: remove global '%d'", impl, object->id);
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Endpoint) == 0) {
+	if (spa_streq(object->type, PW_TYPE_INTERFACE_Endpoint)) {
 		struct endpoint *ep;
 		if ((ep = sm_object_get_data(object, SESSION_KEY)) != NULL)
 			destroy_endpoint(impl, ep);
 	}
-	else if (strcmp(object->type, PW_TYPE_INTERFACE_EndpointStream) == 0) {
+	else if (spa_streq(object->type, PW_TYPE_INTERFACE_EndpointStream)) {
 		struct stream *s;
 		if ((s = sm_object_get_data(object, SESSION_KEY)) != NULL)
 			destroy_stream(impl, s);
@@ -429,11 +430,11 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 		pw_log_debug(NAME " %p: target:%d", impl, path_id);
 
 		if ((obj = sm_media_session_find_object(impl->session, path_id)) != NULL) {
-			if (strcmp(obj->type, PW_TYPE_INTERFACE_Endpoint) == 0) {
+			if (spa_streq(obj->type, PW_TYPE_INTERFACE_Endpoint)) {
 				if ((peer = sm_object_get_data(obj, SESSION_KEY)) != NULL)
 					goto do_link;
 			}
-			else if (strcmp(obj->type, PW_TYPE_INTERFACE_Node) == 0) {
+			else if (spa_streq(obj->type, PW_TYPE_INTERFACE_Node)) {
 				node = (struct sm_node*)obj;
 				goto do_link_node;
 			}
@@ -454,7 +455,7 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 		}
 
 		obj = sm_media_session_find_object(impl->session, ep->client_id);
-		if (obj && strcmp(obj->type, PW_TYPE_INTERFACE_Client) == 0) {
+		if (obj && spa_streq(obj->type, PW_TYPE_INTERFACE_Client)) {
 			pw_client_error((struct pw_client*)obj->proxy,
 				ep->id, -ENOENT, "no endpoint available");
 		}

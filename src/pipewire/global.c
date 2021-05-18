@@ -31,6 +31,7 @@
 #include <pipewire/private.h>
 
 #include <spa/debug/types.h>
+#include <spa/utils/string.h>
 
 #define NAME "global"
 
@@ -192,7 +193,7 @@ const char * pw_global_get_type(struct pw_global *global)
 SPA_EXPORT
 bool pw_global_is_type(struct pw_global *global, const char *type)
 {
-	return strcmp(global->type, type) == 0;
+	return spa_streq(global->type, type);
 }
 
 SPA_EXPORT

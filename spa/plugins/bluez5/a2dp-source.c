@@ -39,6 +39,7 @@
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/monitor/device.h>
 
 #include <spa/node/node.h>
@@ -1236,7 +1237,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	this = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_Node) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Node))
 		*interface = &this->node;
 	else
 		return -ENOENT;
@@ -1341,7 +1342,7 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_TRANSPORT)) != NULL)
 			sscanf(str, "pointer:%p", &this->transport);
 		if ((str = spa_dict_lookup(info, "bluez5.a2dp-source-role")) != NULL)
-			this->is_input = strcmp(str, "input") == 0;
+			this->is_input = spa_streq(str, "input");
 	}
 
 	if (this->transport == NULL) {

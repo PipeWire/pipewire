@@ -32,6 +32,7 @@
 #include <spa/support/log-impl.h>
 #include <spa/support/loop.h>
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/pod/parser.h>
@@ -250,7 +251,7 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 			continue;
 		}
 
-		if (strcmp(info->type, SPA_TYPE_INTERFACE_Node) == 0)
+		if (spa_streq(info->type, SPA_TYPE_INTERFACE_Node))
 			inspect_node(data, interface);
 		else
 			printf("skipping unknown interface\n");

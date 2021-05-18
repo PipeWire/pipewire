@@ -31,6 +31,7 @@
 #include <spa/node/keys.h>
 #include <spa/utils/result.h>
 #include <spa/utils/names.h>
+#include <spa/utils/string.h>
 #include <spa/buffer/alloc.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/filter.h>
@@ -336,7 +337,7 @@ static void follower_info(void *data, const struct spa_node_info *info)
 
 	if (info->props) {
 		if ((str = spa_dict_lookup(info->props, SPA_KEY_NODE_DRIVER)) != NULL)
-			this->driver = strcmp(str, "true") == 0 || atoi(str) == 1;
+			this->driver = spa_streq(str, "true") || atoi(str) == 1;
 	}
 }
 
@@ -810,7 +811,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	this = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_Node) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Node))
 		*interface = &this->node;
 	else
 		return -ENOENT;

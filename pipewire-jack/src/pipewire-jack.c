@@ -45,6 +45,7 @@
 #include <spa/debug/types.h>
 #include <spa/debug/pod.h>
 #include <spa/utils/json.h>
+#include <spa/utils/string.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
@@ -568,8 +569,8 @@ static bool is_port_default(struct client *c, struct object *o)
 		return false;
 
 	if ((ot = o->port.node) != NULL &&
-	    (strcmp(ot->node.node_name, c->metadata->default_audio_source) == 0 ||
-	     strcmp(ot->node.node_name, c->metadata->default_audio_sink) == 0))
+	    (spa_streq(ot->node.node_name, c->metadata->default_audio_source) ||
+	     spa_streq(ot->node.node_name, c->metadata->default_audio_sink)))
 		return true;
 
 	return false;
@@ -580,11 +581,11 @@ static struct object *find_port(struct client *c, const char *name)
 	struct object *o;
 
 	spa_list_for_each(o, &c->context.ports, link) {
-		if (strcmp(o->port.name, name) == 0 ||
-		    strcmp(o->port.alias1, name) == 0 ||
-		    strcmp(o->port.alias2, name) == 0)
+		if (spa_streq(o->port.name, name) ||
+		    spa_streq(o->port.alias1, name) ||
+		    spa_streq(o->port.alias2, name))
 			return o;
-		if (is_port_default(c, o) && strcmp(o->port.system, name) == 0)
+		if (is_port_default(c, o) && spa_streq(o->port.system, name))
 			return o;
 	}
 	return NULL;
@@ -2082,7 +2083,7 @@ static int json_object_find(const char *obj, const char *key, char *value, size_
 		return -EINVAL;
 
 	while (spa_json_get_string(&it[1], k, sizeof(k)-1) > 0) {
-		if (strcmp(k, key) == 0) {
+		if (spa_streq(k, key)) {
 			if (spa_json_get_string(&it[1], value, len) <= 0)
 				continue;
 			return 0;
@@ -2104,7 +2105,7 @@ static int metadata_property(void *object, uint32_t id,
 	pw_log_debug("set id:%u key:'%s' value:'%s' type:'%s'", id, key, value, type);
 
 	if (id == PW_ID_CORE) {
-		if (key == NULL || strcmp(key, "default.audio.sink") == 0) {
+		if (key == NULL || spa_streq(key, "default.audio.sink")) {
 			if (value != NULL) {
 				if (json_object_find(value, "name",
 						c->metadata->default_audio_sink,
@@ -2114,7 +2115,7 @@ static int metadata_property(void *object, uint32_t id,
 			if (value == NULL)
 				c->metadata->default_audio_sink[0] = '\0';
 		}
-		if (key == NULL || strcmp(key, "default.audio.source") == 0) {
+		if (key == NULL || spa_streq(key, "default.audio.source")) {
 			if (value != NULL) {
 				if (json_object_find(value, "name",
 						c->metadata->default_audio_source,
@@ -2177,7 +2178,7 @@ static void registry_event_global(void *data, uint32_t id,
 	if (props == NULL)
 		return;
 
-	if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
+	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
 		const char *app, *node_name;
 		char tmp[JACK_CLIENT_NAME_SIZE+1];
 
@@ -2238,7 +2239,7 @@ static void registry_event_global(void *data, uint32_t id,
 		spa_list_append(&c->context.nodes, &o->link);
 		pthread_mutex_unlock(&c->context.lock);
 	}
-	else if (strcmp(type, PW_TYPE_INTERFACE_Port) == 0) {
+	else if (spa_streq(type, PW_TYPE_INTERFACE_Port)) {
 		const struct spa_dict_item *item;
 		unsigned long flags = 0;
 		jack_port_type_id_t type_id;
@@ -2265,9 +2266,9 @@ static void registry_event_global(void *data, uint32_t id,
 
 		spa_dict_for_each(item, props) {
 	                if (!strcmp(item->key, PW_KEY_PORT_DIRECTION)) {
-				if (strcmp(item->value, "in") == 0)
+				if (spa_streq(item->value, "in"))
 					flags |= JackPortIsInput;
-				else if (strcmp(item->value, "out") == 0)
+				else if (spa_streq(item->value, "out"))
 					flags |= JackPortIsOutput;
 			}
 			else if (!strcmp(item->key, PW_KEY_PORT_PHYSICAL)) {
@@ -2348,7 +2349,7 @@ static void registry_event_global(void *data, uint32_t id,
 		pw_log_debug(NAME" %p: add port %d name:%s %d", c, id,
 				o->port.name, type_id);
 	}
-	else if (strcmp(type, PW_TYPE_INTERFACE_Link) == 0) {
+	else if (spa_streq(type, PW_TYPE_INTERFACE_Link)) {
 		o = alloc_object(c, INTERFACE_Link);
 
 		pthread_mutex_lock(&c->context.lock);
@@ -2366,7 +2367,7 @@ static void registry_event_global(void *data, uint32_t id,
 		pw_log_debug(NAME" %p: add link %d %d->%d", c, id,
 				o->port_link.src, o->port_link.dst);
 	}
-	else if (strcmp(type, PW_TYPE_INTERFACE_Metadata) == 0) {
+	else if (spa_streq(type, PW_TYPE_INTERFACE_Metadata)) {
 		struct pw_proxy *proxy;
 
 		if (c->metadata)
@@ -2454,9 +2455,9 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	switch (o->type) {
 	case INTERFACE_Node:
 		if (c->metadata) {
-			if (strcmp(o->node.node_name, c->metadata->default_audio_sink) == 0)
+			if (spa_streq(o->node.node_name, c->metadata->default_audio_sink))
 				c->metadata->default_audio_sink[0] = '\0';
-			if (strcmp(o->node.node_name, c->metadata->default_audio_source) == 0)
+			if (spa_streq(o->node.node_name, c->metadata->default_audio_source))
 				c->metadata->default_audio_source[0] = '\0';
 		}
 		if (c->registration_callback && is_last)
@@ -2537,7 +2538,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	va_end(ap);
 
 	if (client->server_name != NULL &&
-	    strcmp(client->server_name, "default") == 0)
+	    spa_streq(client->server_name, "default"))
 		client->server_name = NULL;
 
 	client->props = pw_properties_new(
@@ -2580,13 +2581,13 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	client->self_connect_mode = SELF_CONNECT_ALLOW;
 	if ((str = pw_properties_get(client->props, "jack.self-connect-mode")) != NULL) {
-		if (strcmp(str, "fail-external") == 0)
+		if (spa_streq(str, "fail-external"))
 			client->self_connect_mode = SELF_CONNECT_FAIL_EXT;
-		else if (strcmp(str, "ignore-external") == 0)
+		else if (spa_streq(str, "ignore-external"))
 			client->self_connect_mode = SELF_CONNECT_IGNORE_EXT;
-		else if (strcmp(str, "fail-all") == 0)
+		else if (spa_streq(str, "fail-all"))
 			client->self_connect_mode = SELF_CONNECT_FAIL_ALL;
-		else if (strcmp(str, "ignore-all") == 0)
+		else if (spa_streq(str, "ignore-all"))
 			client->self_connect_mode = SELF_CONNECT_IGNORE_ALL;
 	}
 
@@ -2811,7 +2812,7 @@ char *jack_get_uuid_for_client_name (jack_client_t *client,
 	pthread_mutex_lock(&c->context.lock);
 
 	spa_list_for_each(o, &c->context.nodes, link) {
-		if (strcmp(o->node.name, client_name) == 0) {
+		if (spa_streq(o->node.name, client_name)) {
 			uuid = spa_aprintf( "%" PRIu64, client_make_uuid(o->id));
 			pw_log_debug(NAME" %p: name %s -> %s",
 					client, client_name, uuid);
@@ -3976,9 +3977,9 @@ int jack_port_unset_alias (jack_port_t *port, const char *alias)
 
 	pw_thread_loop_lock(c->context.loop);
 
-	if (strcmp(o->port.alias1, alias) == 0)
+	if (spa_streq(o->port.alias1, alias))
 		key = PW_KEY_OBJECT_PATH;
-	else if (strcmp(o->port.alias2, alias) == 0)
+	else if (spa_streq(o->port.alias2, alias))
 		key = PW_KEY_PORT_ALIAS;
 	else
 		goto error;
@@ -4433,19 +4434,19 @@ static int port_compare_func(const void *v1, const void *v2)
 		ot1 = (*o1)->port.node;
 
 		if (is_cap1)
-			is_def1 = ot1 != NULL && strcmp(ot1->node.node_name,
-					c->metadata->default_audio_source) == 0;
+			is_def1 = ot1 != NULL && spa_streq(ot1->node.node_name,
+					c->metadata->default_audio_source);
 		else if (!is_cap1)
-			is_def1 = ot1 != NULL && strcmp(ot1->node.node_name,
-					c->metadata->default_audio_sink) == 0;
+			is_def1 = ot1 != NULL && spa_streq(ot1->node.node_name,
+					c->metadata->default_audio_sink);
 		ot2 = (*o2)->port.node;
 
 		if (is_cap2)
-			is_def2 = ot2 != NULL && strcmp(ot2->node.node_name,
-					c->metadata->default_audio_source) == 0;
+			is_def2 = ot2 != NULL && spa_streq(ot2->node.node_name,
+					c->metadata->default_audio_source);
 		else if (!is_cap2)
-			is_def2 = ot2 != NULL && strcmp(ot2->node.node_name,
-					c->metadata->default_audio_sink) == 0;
+			is_def2 = ot2 != NULL && spa_streq(ot2->node.node_name,
+					c->metadata->default_audio_sink);
 	}
 	if ((*o1)->port.type_id != (*o2)->port.type_id)
 		res = (*o1)->port.type_id - (*o2)->port.type_id;

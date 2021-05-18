@@ -29,6 +29,7 @@
 #include <regex.h>
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/utils/defs.h>
 
 #include <pipewire/pipewire.h>
@@ -245,11 +246,11 @@ static int port_matches(struct data *data, struct object *n, struct object *p, c
 	uint32_t id = atoi(name);
 	if (p->id == id)
 		return 1;
-	if (strcmp(port_name(buffer, sizeof(buffer), n, p), name) == 0)
+	if (spa_streq(port_name(buffer, sizeof(buffer), n, p), name))
 		return 1;
-	if (strcmp(port_path(buffer, sizeof(buffer), n, p), name) == 0)
+	if (spa_streq(port_path(buffer, sizeof(buffer), n, p), name))
 		return 1;
-	if (strcmp(port_alias(buffer, sizeof(buffer), n, p), name) == 0)
+	if (spa_streq(port_alias(buffer, sizeof(buffer), n, p), name))
 		return 1;
 	return 0;
 }
@@ -444,22 +445,22 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		return;
 
 	spa_zero(extra);
-	if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
+	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
 		t = OBJECT_NODE;
-	} else if (strcmp(type, PW_TYPE_INTERFACE_Port) == 0) {
+	} else if (spa_streq(type, PW_TYPE_INTERFACE_Port)) {
 		t = OBJECT_PORT;
 		if ((str = spa_dict_lookup(props, PW_KEY_PORT_DIRECTION)) == NULL)
 			return;
-		if (strcmp(str, "in") == 0)
+		if (spa_streq(str, "in"))
 			extra[0] = PW_DIRECTION_INPUT;
-		else if (strcmp(str, "out") == 0)
+		else if (spa_streq(str, "out"))
 			extra[0] = PW_DIRECTION_OUTPUT;
 		else
 			return;
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_ID)) == NULL)
 			return;
 		extra[1] = atoi(str);
-	} else if (strcmp(type, PW_TYPE_INTERFACE_Link) == 0) {
+	} else if (spa_streq(type, PW_TYPE_INTERFACE_Link)) {
 		t = OBJECT_LINK;
 		if ((str = spa_dict_lookup(props, PW_KEY_LINK_OUTPUT_PORT)) == NULL)
 			return;

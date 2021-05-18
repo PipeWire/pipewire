@@ -36,6 +36,7 @@
 #include "module-filter-chain/ladspa.h"
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/param/profiler.h>
 #include <spa/debug/pod.h>
@@ -375,7 +376,7 @@ static struct node *find_node(struct graph *graph, const char *name)
 {
 	struct node *node;
 	spa_list_for_each(node, &graph->node_list, link) {
-		if (strcmp(node->name, name) == 0)
+		if (spa_streq(node->name, name))
 			return node;
 	}
 	return NULL;
@@ -424,7 +425,7 @@ static struct port *find_port(struct node *node, const char *name, int descripto
 	d = node->desc->desc;
 	for (i = 0; i < n_ports; i++) {
 		struct port *port = &ports[i];
-		if (strcmp(d->PortNames[port->p], port_name) == 0)
+		if (spa_streq(d->PortNames[port->p], port_name))
 			return port;
 	}
 	return NULL;
@@ -735,7 +736,7 @@ static const LADSPA_Descriptor *find_descriptor(LADSPA_Descriptor_Function desc_
 		const LADSPA_Descriptor *desc = desc_func(i);
 		if (desc == NULL)
 			break;
-		if (strcmp(desc->Label, label) == 0)
+		if (spa_streq(desc->Label, label))
 			return desc;
 	}
 	return NULL;
@@ -776,7 +777,7 @@ static struct ladspa_handle *ladspa_handle_load(struct impl *impl, const char *p
 	}
 
 	spa_list_for_each(hndl, &impl->ladspa_handle_list, link) {
-		if (strcmp(hndl->path, path) == 0) {
+		if (spa_streq(hndl->path, path)) {
 			hndl->ref++;
 			return hndl;
 		}
@@ -786,7 +787,7 @@ static struct ladspa_handle *ladspa_handle_load(struct impl *impl, const char *p
 	hndl->ref = 1;
 	snprintf(hndl->path, sizeof(hndl->path), "%s", path);
 
-	if (strcmp(plugin, "builtin") == 0) {
+	if (spa_streq(plugin, "builtin")) {
 		hndl->desc_func = builtin_ladspa_descriptor;
 	} else {
 		hndl->handle = dlopen(path, RTLD_NOW);
@@ -841,7 +842,7 @@ static struct ladspa_descriptor *ladspa_descriptor_load(struct impl *impl,
 		return NULL;
 
 	spa_list_for_each(desc, &hndl->descriptor_list, link) {
-		if (strcmp(desc->label, label) == 0) {
+		if (spa_streq(desc->label, label)) {
 			desc->ref++;
 			return desc;
 		}
@@ -946,13 +947,13 @@ static int parse_link(struct graph *graph, struct spa_json *json)
 	struct link *link;
 
 	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
-		if (strcmp(key, "output") == 0) {
+		if (spa_streq(key, "output")) {
 			if (spa_json_get_string(json, output, sizeof(output)) <= 0) {
 				pw_log_error("output expects a string");
 				return -EINVAL;
 			}
 		}
-		else if (strcmp(key, "input") == 0) {
+		else if (spa_streq(key, "input")) {
 			if (spa_json_get_string(json, input, sizeof(input)) <= 0) {
 				pw_log_error("input expects a string");
 				return -EINVAL;
@@ -1045,34 +1046,34 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	uint32_t i;
 
 	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
-		if (strcmp("type", key) == 0) {
+		if (spa_streq("type", key)) {
 			if (spa_json_get_string(json, type, sizeof(type)) <= 0) {
 				pw_log_error("type expects a string");
 				return -EINVAL;
 			}
-		} else if (strcmp("name", key) == 0) {
+		} else if (spa_streq("name", key)) {
 			if (spa_json_get_string(json, name, sizeof(name)) <= 0) {
 				pw_log_error("name expects a string");
 				return -EINVAL;
 			}
-		} else if (strcmp("plugin", key) == 0) {
+		} else if (spa_streq("plugin", key)) {
 			if (spa_json_get_string(json, plugin, sizeof(plugin)) <= 0) {
 				pw_log_error("plugin expects a string");
 				return -EINVAL;
 			}
-		} else if (strcmp("label", key) == 0) {
+		} else if (spa_streq("label", key)) {
 			if (spa_json_get_string(json, label, sizeof(label)) <= 0) {
 				pw_log_error("label expects a string");
 				return -EINVAL;
 			}
-		} else if (strcmp("control", key) == 0) {
+		} else if (spa_streq("control", key)) {
 			it[0] = *json;
 			have_control = true;
 		} else if (spa_json_next(json, &val) < 0)
 			break;
 	}
 
-	if (strcmp(type, "builtin") == 0) {
+	if (spa_streq(type, "builtin")) {
 		snprintf(plugin, sizeof(plugin), "%s", "builtin");
 	} else if (strcmp(type, "ladspa") != 0)
 		return -ENOTSUP;
@@ -1323,7 +1324,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 			struct spa_json it = *inputs;
 			while (spa_json_get_string(&it, v, sizeof(v)) > 0) {
 				gp = &graph->input[graph->n_input];
-				if (strcmp(v, "null") == 0) {
+				if (spa_streq(v, "null")) {
 					gp->desc = NULL;
 					pw_log_info("ignore input port %d", graph->n_input);
 				} else if ((port = find_port(first, v, LADSPA_PORT_INPUT)) == NULL) {
@@ -1371,7 +1372,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 			struct spa_json it = *outputs;
 			while (spa_json_get_string(&it, v, sizeof(v)) > 0) {
 				gp = &graph->output[graph->n_output];
-				if (strcmp(v, "null") == 0) {
+				if (spa_streq(v, "null")) {
 					gp->desc = NULL;
 					pw_log_info("silence output port %d", graph->n_output);
 				} else if ((port = find_port(last, v, LADSPA_PORT_OUTPUT)) == NULL) {
@@ -1476,7 +1477,7 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 	}
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-		if (strcmp("nodes", key) == 0) {
+		if (spa_streq("nodes", key)) {
 			if (spa_json_enter_array(&it[1], &it[2]) <= 0) {
 				pw_log_error("nodes expect an array");
 				return -EINVAL;
@@ -1486,7 +1487,7 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 					return res;
 			}
 		}
-		else if (strcmp("links", key) == 0) {
+		else if (spa_streq("links", key)) {
 			if (spa_json_enter_array(&it[1], &it[2]) <= 0)
 				return -EINVAL;
 
@@ -1495,12 +1496,12 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 					return res;
 			}
 		}
-		else if (strcmp("inputs", key) == 0) {
+		else if (spa_streq("inputs", key)) {
 			if (spa_json_enter_array(&it[1], &inputs) <= 0)
 				return -EINVAL;
 			pinputs = &inputs;
 		}
-		else if (strcmp("outputs", key) == 0) {
+		else if (spa_streq("outputs", key)) {
 			if (spa_json_enter_array(&it[1], &outputs) <= 0)
 				return -EINVAL;
 			poutputs = &outputs;
@@ -1582,7 +1583,7 @@ static uint32_t channel_from_name(const char *name)
 {
 	int i;
 	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (strcmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)) == 0)
+		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)))
 			return spa_type_audio_channel[i].type;
 	}
 	return SPA_AUDIO_CHANNEL_UNKNOWN;

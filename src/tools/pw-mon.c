@@ -27,6 +27,7 @@
 #include <getopt.h>
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
@@ -576,34 +577,34 @@ static void registry_event_global(void *data, uint32_t id,
 	pw_destroy_t destroy;
 	print_func_t print_func = NULL;
 
-	if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
+	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
 		events = &node_events;
 		client_version = PW_VERSION_NODE;
 		destroy = (pw_destroy_t) pw_node_info_free;
 		print_func = print_node;
-	} else if (strcmp(type, PW_TYPE_INTERFACE_Port) == 0) {
+	} else if (spa_streq(type, PW_TYPE_INTERFACE_Port)) {
 		events = &port_events;
 		client_version = PW_VERSION_PORT;
 		destroy = (pw_destroy_t) pw_port_info_free;
 		print_func = print_port;
-	} else if (strcmp(type, PW_TYPE_INTERFACE_Module) == 0) {
+	} else if (spa_streq(type, PW_TYPE_INTERFACE_Module)) {
 		events = &module_events;
 		client_version = PW_VERSION_MODULE;
 		destroy = (pw_destroy_t) pw_module_info_free;
-	} else if (strcmp(type, PW_TYPE_INTERFACE_Device) == 0) {
+	} else if (spa_streq(type, PW_TYPE_INTERFACE_Device)) {
 		events = &device_events;
 		client_version = PW_VERSION_DEVICE;
 		destroy = (pw_destroy_t) pw_device_info_free;
 		print_func = print_device;
-	} else if (strcmp(type, PW_TYPE_INTERFACE_Factory) == 0) {
+	} else if (spa_streq(type, PW_TYPE_INTERFACE_Factory)) {
 		events = &factory_events;
 		client_version = PW_VERSION_FACTORY;
 		destroy = (pw_destroy_t) pw_factory_info_free;
-	} else if (strcmp(type, PW_TYPE_INTERFACE_Client) == 0) {
+	} else if (spa_streq(type, PW_TYPE_INTERFACE_Client)) {
 		events = &client_events;
 		client_version = PW_VERSION_CLIENT;
 		destroy = (pw_destroy_t) pw_client_info_free;
-	} else if (strcmp(type, PW_TYPE_INTERFACE_Link) == 0) {
+	} else if (spa_streq(type, PW_TYPE_INTERFACE_Link)) {
 		events = &link_events;
 		client_version = PW_VERSION_LINK;
 		destroy = (pw_destroy_t) pw_link_info_free;

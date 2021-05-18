@@ -500,10 +500,10 @@ static void impl_on_fd_events(struct spa_source *source)
 
 	start_inotify(this);
 
-	if (strcmp(action, "add") == 0 ||
-	    strcmp(action, "change") == 0) {
+	if (spa_streq(action, "add") ||
+	    spa_streq(action, "change")) {
 		process_device(this, ACTION_ADD, dev);
-	} else if (strcmp(action, "remove") == 0) {
+	} else if (spa_streq(action, "remove")) {
 		process_device(this, ACTION_REMOVE, dev);
 	}
 	udev_device_unref(dev);
@@ -653,7 +653,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	this = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_Device) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Device))
 		*interface = &this->device;
 	else
 		return -ENOENT;

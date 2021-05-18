@@ -35,6 +35,7 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>
+#include <spa/utils/string.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/builder.h>
 #include <spa/debug/pod.h>
@@ -166,10 +167,10 @@ static int find_best_profile(struct device *dev, struct profile *pr)
 		    parse_profile(p, &t) < 0)
 			continue;
 
-		if (t.name && strcmp(t.name, "pro-audio") == 0)
+		if (t.name && spa_streq(t.name, "pro-audio"))
 			continue;
 
-		if (t.name && strcmp(t.name, "off") == 0) {
+		if (t.name && spa_streq(t.name, "off")) {
 			off = t;
 		}
 		else if (t.available == SPA_PARAM_AVAILABILITY_yes) {
@@ -209,7 +210,7 @@ static int find_saved_profile(struct device *dev, struct profile *pr)
                 return -EINVAL;
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)-1) > 0) {
-		if (strcmp(key, "name") == 0) {
+		if (spa_streq(key, "name")) {
 			if (spa_json_get_string(&it[1], name, sizeof(name)) <= 0)
                                 continue;
 		} else {
@@ -224,7 +225,7 @@ static int find_saved_profile(struct device *dev, struct profile *pr)
 		    parse_profile(p, pr) < 0)
 			continue;
 
-		if (strcmp(pr->name, name) == 0)
+		if (spa_streq(pr->name, name))
 			return 0;
 	}
 	return -ENOENT;
@@ -262,7 +263,7 @@ static int handle_active_profile(struct device *dev)
 
 	/* when the active profile is off, always try to restored the saved
 	 * profile again */
-	if (strcmp(pr.name, "off") == 0)
+	if (spa_streq(pr.name, "off"))
 		dev->restored = false;
 
 	if (dev->active_profile == pr.index) {
@@ -368,7 +369,7 @@ static void object_update(void *data)
 
 	if (dev->obj->info && dev->obj->info->props &&
 	    (str = spa_dict_lookup(dev->obj->info->props, PW_KEY_DEVICE_BUS)) != NULL &&
-	    strcmp(str, "bluetooth") == 0)
+	    spa_streq(str, "bluetooth"))
 		return;
 
 	if (dev->obj->obj.changed & SM_DEVICE_CHANGE_MASK_PARAMS)

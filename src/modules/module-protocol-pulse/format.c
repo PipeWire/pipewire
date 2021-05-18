@@ -24,6 +24,8 @@
 
 #include "format.h"
 
+#include <spa/utils/string.h>
+
 static const struct format audio_formats[] = {
 	[SAMPLE_U8] = { SAMPLE_U8, SPA_AUDIO_FORMAT_U8, "u8", 1 },
 	[SAMPLE_ALAW] = { SAMPLE_ALAW, SPA_AUDIO_FORMAT_UNKNOWN, "aLaw", 1 },
@@ -81,7 +83,7 @@ uint32_t format_name2id(const char *name)
 {
 	int i;
 	for (i = 0; spa_type_audio_format[i].name; i++) {
-		if (strcmp(name, spa_debug_type_short_name(spa_type_audio_format[i].name)) == 0)
+		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_format[i].name)))
 			return spa_type_audio_format[i].type;
 	}
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
@@ -287,20 +289,20 @@ void channel_map_parse(const char *str, struct channel_map *map)
 	const char *p = str;
 	size_t len;
 
-	if (strcmp(p, "stereo") == 0) {
+	if (spa_streq(p, "stereo")) {
 		*map = (struct channel_map) {
 			.channels = 2,
 			.map[0] = SPA_AUDIO_CHANNEL_FL,
 			.map[1] = SPA_AUDIO_CHANNEL_FR,
 		};
-	} else if (strcmp(p, "surround-21") == 0) {
+	} else if (spa_streq(p, "surround-21")) {
 		*map = (struct channel_map) {
 			.channels = 3,
 			.map[0] = SPA_AUDIO_CHANNEL_FL,
 			.map[1] = SPA_AUDIO_CHANNEL_FR,
 			.map[2] = SPA_AUDIO_CHANNEL_LFE,
 		};
-	} else if (strcmp(p, "surround-40") == 0) {
+	} else if (spa_streq(p, "surround-40")) {
 		*map = (struct channel_map) {
 			.channels = 4,
 			.map[0] = SPA_AUDIO_CHANNEL_FL,
@@ -308,7 +310,7 @@ void channel_map_parse(const char *str, struct channel_map *map)
 			.map[2] = SPA_AUDIO_CHANNEL_RL,
 			.map[3] = SPA_AUDIO_CHANNEL_RR,
 		};
-	} else if (strcmp(p, "surround-41") == 0) {
+	} else if (spa_streq(p, "surround-41")) {
 		*map = (struct channel_map) {
 			.channels = 5,
 			.map[0] = SPA_AUDIO_CHANNEL_FL,
@@ -317,7 +319,7 @@ void channel_map_parse(const char *str, struct channel_map *map)
 			.map[3] = SPA_AUDIO_CHANNEL_RR,
 			.map[4] = SPA_AUDIO_CHANNEL_LFE,
 		};
-	} else if (strcmp(p, "surround-50") == 0) {
+	} else if (spa_streq(p, "surround-50")) {
 		*map = (struct channel_map) {
 			.channels = 5,
 			.map[0] = SPA_AUDIO_CHANNEL_FL,
@@ -326,7 +328,7 @@ void channel_map_parse(const char *str, struct channel_map *map)
 			.map[3] = SPA_AUDIO_CHANNEL_RR,
 			.map[4] = SPA_AUDIO_CHANNEL_FC,
 		};
-	} else if (strcmp(p, "surround-51") == 0) {
+	} else if (spa_streq(p, "surround-51")) {
 		*map = (struct channel_map) {
 			.channels = 6,
 			.map[0] = SPA_AUDIO_CHANNEL_FL,
@@ -336,7 +338,7 @@ void channel_map_parse(const char *str, struct channel_map *map)
 			.map[4] = SPA_AUDIO_CHANNEL_FC,
 			.map[5] = SPA_AUDIO_CHANNEL_LFE,
 		};
-	} else if (strcmp(p, "surround-71") == 0) {
+	} else if (spa_streq(p, "surround-71")) {
 		*map = (struct channel_map) {
 			.channels = 8,
 			.map[0] = SPA_AUDIO_CHANNEL_FL,

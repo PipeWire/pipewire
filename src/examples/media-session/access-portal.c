@@ -32,6 +32,7 @@
 
 #include <dbus/dbus.h>
 
+#include <spa/utils/string.h>
 #include <spa/support/dbus.h>
 #include <spa/debug/dict.h>
 
@@ -81,7 +82,7 @@ static void client_info_changed(struct client *client, const struct pw_client_in
 
 static enum media_role media_role_from_string(const char *media_role_str)
 {
-	if (strcmp(media_role_str, "Camera") == 0)
+	if (spa_streq(media_role_str, "Camera"))
 		return MEDIA_ROLE_CAMERA;
 	else
 		return MEDIA_ROLE_INVALID;
@@ -171,7 +172,7 @@ handle_client(struct impl *impl, struct sm_object *object)
 
 	if (((str = pw_properties_get(client->obj->obj.props, PW_KEY_ACCESS)) != NULL ||
 	    (str = pw_properties_get(client->obj->obj.props, PW_KEY_CLIENT_ACCESS)) != NULL) &&
-	    strcmp(str, "portal") == 0) {
+	    spa_streq(str, "portal")) {
 		client->portal_managed = true;
 		pw_log_info(NAME " %p: portal managed client %d added",
 			     impl, client->id);
@@ -195,9 +196,9 @@ set_global_permissions(void *data, struct sm_object *object)
 
 	pw_log_debug(NAME" %p: object %d type:%s", impl, object->id, object->type);
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Client) == 0) {
+	if (spa_streq(object->type, PW_TYPE_INTERFACE_Client)) {
 		set_permission = allowed = object->id == client->id;
-	} else if (strcmp(object->type, PW_TYPE_INTERFACE_Node) == 0) {
+	} else if (spa_streq(object->type, PW_TYPE_INTERFACE_Node)) {
 		enum media_role media_role;
 
 		media_role = media_role_from_properties(props);
@@ -239,7 +240,7 @@ static void session_create(void *data, struct sm_object *object)
 
 	pw_log_debug(NAME " %p: create global '%d'", impl, object->id);
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Client) == 0) {
+	if (spa_streq(object->type, PW_TYPE_INTERFACE_Client)) {
 		handle_client(impl, object);
 	} else {
 		struct client *client;
@@ -265,7 +266,7 @@ static void session_remove(void *data, struct sm_object *object)
 	struct impl *impl = data;
 	pw_log_debug(NAME " %p: remove global '%d'", impl, object->id);
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Client) == 0) {
+	if (spa_streq(object->type, PW_TYPE_INTERFACE_Client)) {
 		struct client *client;
 
 		if ((client = sm_object_get_data(object, SESSION_KEY)) != NULL)
@@ -310,7 +311,7 @@ check_permission_allowed(DBusMessageIter *iter)
 
 		dbus_message_iter_get_basic(iter, &permission_value);
 
-		if (strcmp(permission_value, "yes") == 0) {
+		if (spa_streq(permission_value, "yes")) {
 			allowed = true;
 			break;
 		}
@@ -347,7 +348,7 @@ static void do_permission_store_check(struct client *client)
 		return;
 	}
 
-	if (strcmp(client->app_id, "") == 0) {
+	if (spa_streq(client->app_id, "")) {
 		pw_log_debug("Ignoring portal check for non-sandboxed portal client %p",
 			     client);
 		client->allowed_media_roles = MEDIA_ROLE_ALL;
@@ -453,7 +454,7 @@ static void client_info_changed(struct client *client, const struct pw_client_in
 
 	is_portal = spa_dict_lookup(props, "pipewire.access.portal.is_portal");
 	if (is_portal != NULL &&
-	    (strcmp(is_portal, "yes") == 0 || pw_properties_parse_bool(is_portal))) {
+	    (spa_streq(is_portal, "yes") || pw_properties_parse_bool(is_portal))) {
 		pw_log_info(NAME " %p: client %d is the portal itself",
 			     impl, client->id);
 		client->is_portal = true;

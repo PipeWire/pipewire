@@ -35,6 +35,7 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>
+#include <spa/utils/string.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/builder.h>
 #include <spa/debug/pod.h>
@@ -126,7 +127,7 @@ static uint32_t channel_from_name(const char *name)
 {
 	int i;
 	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (strcmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)) == 0)
+		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)))
 			return spa_type_audio_channel[i].type;
 	}
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
@@ -309,21 +310,21 @@ static int restore_stream(struct stream *str)
 			SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)-1) > 0) {
-		if (strcmp(key, "volume") == 0) {
+		if (spa_streq(key, "volume")) {
 			float vol;
 			if (spa_json_get_float(&it[1], &vol) <= 0)
                                 continue;
 			spa_pod_builder_prop(&b, SPA_PROP_volume, 0);
 			spa_pod_builder_float(&b, vol);
 		}
-		else if (strcmp(key, "mute") == 0) {
+		else if (spa_streq(key, "mute")) {
 			bool mute;
 			if (spa_json_get_bool(&it[1], &mute) <= 0)
                                 continue;
 			spa_pod_builder_prop(&b, SPA_PROP_mute, 0);
 			spa_pod_builder_bool(&b, mute);
 		}
-		else if (strcmp(key, "volumes") == 0) {
+		else if (spa_streq(key, "volumes")) {
 			uint32_t n_vols;
 			float vols[SPA_AUDIO_MAX_CHANNELS];
 
@@ -341,7 +342,7 @@ static int restore_stream(struct stream *str)
 			spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
 					n_vols, vols);
 		}
-		else if (strcmp(key, "channels") == 0) {
+		else if (spa_streq(key, "channels")) {
 			uint32_t n_ch;
 			uint32_t map[SPA_AUDIO_MAX_CHANNELS];
 
@@ -361,7 +362,7 @@ static int restore_stream(struct stream *str)
 			spa_pod_builder_array(&b, sizeof(uint32_t), SPA_TYPE_Id,
 					n_ch, map);
 		}
-		else if (strcmp(key, "target-node") == 0) {
+		else if (spa_streq(key, "target-node")) {
 			char name[1024];
 
 			if (spa_json_get_string(&it[1], name, sizeof(name)) <= 0)

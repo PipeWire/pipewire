@@ -29,6 +29,7 @@
 #include <string.h>
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 
 #include <gst/gst.h>
 
@@ -455,7 +456,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
   struct node_data *nd;
   const char *str;
 
-  if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
+  if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
     struct pw_node *node;
 
     node = pw_registry_bind(rd->registry,
@@ -482,7 +483,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     pw_proxy_add_listener((struct pw_proxy*)node, &nd->proxy_listener, &proxy_node_events, nd);
     resync(self);
   }
-  else if (strcmp(type, PW_TYPE_INTERFACE_Port) == 0) {
+  else if (spa_streq(type, PW_TYPE_INTERFACE_Port)) {
     struct pw_port *port;
     struct port_data *pd;
 

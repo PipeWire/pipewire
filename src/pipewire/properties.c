@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <spa/utils/json.h>
+#include <spa/utils/string.h>
 
 #include "pipewire/array.h"
 #include "pipewire/utils.h"
@@ -252,7 +253,7 @@ static bool has_key(const char *keys[], const char *key)
 {
 	int i;
 	for (i = 0; keys[i]; i++) {
-		if (strcmp(keys[i], key) == 0)
+		if (spa_streq(keys[i], key))
 			return true;
 	}
 	return false;
@@ -401,7 +402,7 @@ static int do_replace(struct pw_properties *properties, const char *key, char *v
 		struct spa_dict_item *item =
 		    pw_array_get_unchecked(&impl->items, index, struct spa_dict_item);
 
-		if (value && strcmp(item->value, value) == 0)
+		if (value && spa_streq(item->value, value))
 			goto exit_noupdate;
 
 		if (value == NULL) {

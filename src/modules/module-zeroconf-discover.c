@@ -33,6 +33,7 @@
 #include "config.h"
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/utils/json.h>
 
 #include <pipewire/impl.h>
@@ -136,9 +137,9 @@ static struct tunnel *find_tunnel(struct impl *impl, const struct tunnel_info *i
 	spa_list_for_each(t, &impl->tunnel_list, link) {
 		if (t->info.interface == info->interface &&
 		    t->info.protocol == info->protocol &&
-		    strcmp(t->info.name, info->name) == 0 &&
-		    strcmp(t->info.type, info->type) == 0 &&
-		    strcmp(t->info.domain, info->domain) == 0)
+		    spa_streq(t->info.name, info->name) &&
+		    spa_streq(t->info.type, info->type) &&
+		    spa_streq(t->info.domain, info->domain))
 			return t;
 	}
 	return NULL;
@@ -229,33 +230,33 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		if (avahi_string_list_get_pair(l, &key, &value, NULL) != 0)
 			break;
 
-		if (strcmp(key, "device") == 0) {
+		if (spa_streq(key, "device")) {
 			pw_properties_set(props, PW_KEY_NODE_TARGET, value);
 		}
-		else if (strcmp(key, "rate") == 0) {
+		else if (spa_streq(key, "rate")) {
 			pw_properties_setf(props, PW_KEY_AUDIO_RATE, "%u", atoi(value));
 		}
-		else if (strcmp(key, "channels") == 0) {
+		else if (spa_streq(key, "channels")) {
 			pw_properties_setf(props, PW_KEY_AUDIO_CHANNELS, "%u", atoi(value));
 		}
-		else if (strcmp(key, "format") == 0) {
+		else if (spa_streq(key, "format")) {
 			pw_properties_set(props, PW_KEY_AUDIO_FORMAT, value);
 		}
-		else if (strcmp(key, "icon-name") == 0) {
+		else if (spa_streq(key, "icon-name")) {
 			pw_properties_set(props, PW_KEY_DEVICE_ICON_NAME, value);
 		}
-		else if (strcmp(key, "channel_map") == 0) {
+		else if (spa_streq(key, "channel_map")) {
 		}
-		else if (strcmp(key, "product-name") == 0) {
+		else if (spa_streq(key, "product-name")) {
 			pw_properties_set(props, PW_KEY_DEVICE_PRODUCT_NAME, value);
 		}
-		else if (strcmp(key, "description") == 0) {
+		else if (spa_streq(key, "description")) {
 			pw_properties_set(props, "tunnel.remote.description", value);
 		}
-		else if (strcmp(key, "fqdn") == 0) {
+		else if (spa_streq(key, "fqdn")) {
 			pw_properties_set(props, "tunnel.remote.fqdn", value);
 		}
-		else if (strcmp(key, "user-name") == 0) {
+		else if (spa_streq(key, "user-name")) {
 			pw_properties_set(props, "tunnel.remote.user", value);
 		}
 		avahi_free(key);

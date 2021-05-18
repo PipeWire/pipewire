@@ -33,6 +33,7 @@
 #include <spa/support/loop.h>
 #include <spa/support/dbus.h>
 #include <spa/support/plugin.h>
+#include <spa/utils/string.h>
 #include <spa/utils/type.h>
 #include <spa/param/audio/raw.h>
 
@@ -175,7 +176,7 @@ static struct hsphfpd_endpoint *endpoint_find(struct impl *backend, const char *
 {
 	struct hsphfpd_endpoint *d;
 	spa_list_for_each(d, &backend->endpoint_list, link)
-		if (strcmp(d->path, path) == 0)
+		if (spa_streq(d->path, path))
 			return d;
 	return NULL;
 }
@@ -193,7 +194,7 @@ static void endpoint_free(struct hsphfpd_endpoint *endpoint)
 static bool hsphfpd_cmp_transport_path(struct spa_bt_transport *t, const void *data)
 {
 	struct hsphfpd_transport_data *td = t->user_data;
-	if (strcmp(td->transport_path, data) == 0)
+	if (spa_streq(td->transport_path, data))
 		return true;
 
 	return false;
@@ -201,7 +202,7 @@ static bool hsphfpd_cmp_transport_path(struct spa_bt_transport *t, const void *d
 
 static inline bool check_signature(DBusMessage *m, const char sig[])
 {
-	return strcmp(dbus_message_get_signature(m), sig) == 0;
+	return spa_streq(dbus_message_get_signature(m), sig);
 }
 
 static int set_dbus_property(struct impl *backend,
@@ -316,41 +317,41 @@ static void parse_transport_properties_values(struct impl *backend,
 
 		switch (dbus_message_iter_get_arg_type(&variant_i)) {
 			case DBUS_TYPE_STRING:
-				if (strcmp(key, "RxVolumeControl") == 0 || strcmp(key, "TxVolumeControl") == 0) {
+				if (spa_streq(key, "RxVolumeControl") || spa_streq(key, "TxVolumeControl")) {
 					const char *value;
 					enum hsphfpd_volume_control volume_control;
 
 					dbus_message_iter_get_basic(&variant_i, &value);
-					if (strcmp(value, "none") == 0)
+					if (spa_streq(value, "none"))
 						volume_control = HSPHFPD_VOLUME_CONTROL_NONE;
-					else if (strcmp(value, "local") == 0)
+					else if (spa_streq(value, "local"))
 						volume_control = HSPHFPD_VOLUME_CONTROL_LOCAL;
-					else if (strcmp(value, "remote") == 0)
+					else if (spa_streq(value, "remote"))
 						volume_control = HSPHFPD_VOLUME_CONTROL_REMOTE;
 					else
 						volume_control = 0;
 
 					if (!volume_control)
 						spa_log_warn(backend->log, NAME": Transport %s received invalid '%s' property value '%s', ignoring", transport_path, key, value);
-					else if (strcmp(key, "RxVolumeControl") == 0)
+					else if (spa_streq(key, "RxVolumeControl"))
 						*rx_volume_control = volume_control;
-					else if (strcmp(key, "TxVolumeControl") == 0)
+					else if (spa_streq(key, "TxVolumeControl"))
 						*tx_volume_control = volume_control;
-				} else if (strcmp(key, "AirCodec") == 0)
+				} else if (spa_streq(key, "AirCodec"))
 					dbus_message_iter_get_basic(&variant_i, air_codec);
 				break;
 
 			case DBUS_TYPE_UINT16:
-				if (strcmp(key, "MTU") == 0)
+				if (spa_streq(key, "MTU"))
 					dbus_message_iter_get_basic(&variant_i, mtu);
-				else if (strcmp(key, "RxVolumeGain") == 0)
+				else if (spa_streq(key, "RxVolumeGain"))
 					dbus_message_iter_get_basic(&variant_i, rx_volume_gain);
-				else if (strcmp(key, "TxVolumeGain") == 0)
+				else if (spa_streq(key, "TxVolumeGain"))
 					dbus_message_iter_get_basic(&variant_i, tx_volume_gain);
 				break;
 
 			case DBUS_TYPE_OBJECT_PATH:
-				if (strcmp(key, "Endpoint") == 0)
+				if (spa_streq(key, "Endpoint"))
 					dbus_message_iter_get_basic(&variant_i, endpoint_path);
 				break;
 		}
@@ -484,9 +485,9 @@ static DBusHandlerResult audio_agent_get_property(DBusConnection *conn, DBusMess
 		goto fail;
 	}
 
-	if (strcmp(path, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ) == 0)
+	if (spa_streq(path, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ))
 		agent_codec = HSPHFP_AGENT_CODEC_PCM;
-	else if (strcmp(path, HSPHFP_AUDIO_CLIENT_MSBC) == 0)
+	else if (spa_streq(path, HSPHFP_AUDIO_CLIENT_MSBC))
 		agent_codec = HSPHFP_AGENT_CODEC_MSBC;
 	else {
 		r = dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS, "Invalid path in method call");
@@ -526,9 +527,9 @@ static DBusHandlerResult audio_agent_getall_properties(DBusConnection *conn, DBu
 		goto fail;
 	}
 
-	if (strcmp(path, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ) == 0)
+	if (spa_streq(path, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ))
 		agent_codec = HSPHFP_AGENT_CODEC_PCM;
-	else if (strcmp(path, HSPHFP_AUDIO_CLIENT_MSBC) == 0)
+	else if (spa_streq(path, HSPHFP_AUDIO_CLIENT_MSBC))
 		agent_codec = HSPHFP_AGENT_CODEC_MSBC;
 	else {
 		r = dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS, "Invalid path in method call");
@@ -599,9 +600,9 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 		goto fail;
 	}
 
-	if (strcmp(path, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ) == 0)
+	if (spa_streq(path, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ))
 		codec = HFP_AUDIO_CODEC_CVSD;
-	else if (strcmp(path, HSPHFP_AUDIO_CLIENT_MSBC) == 0)
+	else if (spa_streq(path, HSPHFP_AUDIO_CLIENT_MSBC))
 		codec = HFP_AUDIO_CODEC_MSBC;
 	else {
 		r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "Invalid path");
@@ -1013,25 +1014,25 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 				{
 					const char *value;
 					dbus_message_iter_get_basic(&value_i, &value);
-					if (strcmp(key, "RemoteAddress") == 0)
+					if (spa_streq(key, "RemoteAddress"))
 						endpoint->remote_address = strdup(value);
-					else if (strcmp(key, "LocalAddress") == 0)
+					else if (spa_streq(key, "LocalAddress"))
 						endpoint->local_address = strdup(value);
-					else if (strcmp(key, "Profile") == 0) {
+					else if (spa_streq(key, "Profile")) {
 						if (endpoint->profile)
 							spa_log_warn(backend->log, NAME": Endpoint %s received a duplicate '%s' property, ignoring", endpoint->path, key);
-						else if (strcmp(value, "headset") == 0)
+						else if (spa_streq(value, "headset"))
 							endpoint->profile = HSPHFPD_PROFILE_HEADSET;
-						else if (strcmp(value, "handsfree") == 0)
+						else if (spa_streq(value, "handsfree"))
 							endpoint->profile = HSPHFPD_PROFILE_HANDSFREE;
 						else
 							spa_log_warn(backend->log, NAME": Endpoint %s received invalid '%s' property value '%s', ignoring", endpoint->path, key, value);
-					} else if (strcmp(key, "Role") == 0) {
+					} else if (spa_streq(key, "Role")) {
 						if (endpoint->role)
 							spa_log_warn(backend->log, NAME": Endpoint %s received a duplicate '%s' property, ignoring", endpoint->path, key);
-						else if (strcmp(value, "client") == 0)
+						else if (spa_streq(value, "client"))
 							endpoint->role = HSPHFPD_ROLE_CLIENT;
-						else if (strcmp(value, "gateway") == 0)
+						else if (spa_streq(value, "gateway"))
 							endpoint->role = HSPHFPD_ROLE_GATEWAY;
 						else
 							spa_log_warn(backend->log, NAME": Endpoint %s received invalid '%s' property value '%s', ignoring", endpoint->path, key, value);
@@ -1044,7 +1045,7 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 				{
 					bool value;
 					dbus_message_iter_get_basic(&value_i, &value);
-					if (strcmp(key, "Connected") == 0)
+					if (spa_streq(key, "Connected"))
 						endpoint->connected = value;
 					spa_log_trace(backend->log, NAME":   %s: %d", key, value);
 				}
@@ -1052,7 +1053,7 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 
 			case DBUS_TYPE_ARRAY:
 				{
-					if (strcmp(key, "AudioCodecs") == 0) {
+					if (spa_streq(key, "AudioCodecs")) {
 						DBusMessageIter array_i;
 						const char *value;
 
@@ -1060,9 +1061,9 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 						dbus_message_iter_recurse(&value_i, &array_i);
 						while (dbus_message_iter_get_arg_type(&array_i) != DBUS_TYPE_INVALID) {
 							dbus_message_iter_get_basic(&array_i, &value);
-							if (strcmp(value, HSPHFP_AIR_CODEC_CVSD) == 0)
+							if (spa_streq(value, HSPHFP_AIR_CODEC_CVSD))
 								endpoint->air_codecs |= HFP_AUDIO_CODEC_CVSD;
-							if (strcmp(value, HSPHFP_AIR_CODEC_MSBC) == 0)
+							if (spa_streq(value, HSPHFP_AIR_CODEC_MSBC))
 								endpoint->air_codecs |= HFP_AUDIO_CODEC_MSBC;
 							dbus_message_iter_next(&array_i);
 						}
@@ -1163,7 +1164,7 @@ static DBusHandlerResult hsphfpd_parse_interfaces(struct impl *backend, DBusMess
 		dbus_message_iter_get_basic(&iface_i, &interface);
 		dbus_message_iter_next(&iface_i);
 
-		if (strcmp(interface, HSPHFPD_ENDPOINT_INTERFACE) == 0) {
+		if (spa_streq(interface, HSPHFPD_ENDPOINT_INTERFACE)) {
 			struct hsphfpd_endpoint *endpoint;
 
 			endpoint = endpoint_find(backend, path);
@@ -1315,7 +1316,7 @@ static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, 
 
 	sender = dbus_message_get_sender(m);
 
-	if (backend->hsphfpd_service_id && strcmp(sender, backend->hsphfpd_service_id) == 0) {
+	if (backend->hsphfpd_service_id && spa_streq(sender, backend->hsphfpd_service_id)) {
 		if (dbus_message_is_signal(m, DBUS_INTERFACE_OBJECTMANAGER, "InterfacesAdded")) {
 			DBusMessageIter arg_i;
 
@@ -1351,7 +1352,7 @@ static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, 
 
 					dbus_message_iter_get_basic(&element_i, &iface);
 
-					if (strcmp(iface, HSPHFPD_ENDPOINT_INTERFACE) == 0) {
+					if (spa_streq(iface, HSPHFPD_ENDPOINT_INTERFACE)) {
 							struct hsphfpd_endpoint *endpoint;
 							struct spa_bt_transport *transport = spa_bt_transport_find(backend->monitor, path);
 
@@ -1384,7 +1385,7 @@ static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, 
 
 			path = dbus_message_get_path(m);
 
-			if (strcmp(iface, HSPHFPD_ENDPOINT_INTERFACE) == 0) {
+			if (spa_streq(iface, HSPHFPD_ENDPOINT_INTERFACE)) {
 				struct hsphfpd_endpoint *endpoint = endpoint_find(backend, path);
 				if (!endpoint) {
 					spa_log_warn(backend->log, NAME": Properties changed on unknown endpoint %s", path);
@@ -1392,7 +1393,7 @@ static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, 
 				}
 				spa_log_debug(backend->log, NAME": Properties changed on endpoint %s", path);
 				hsphfpd_parse_endpoint_properties(backend, endpoint, &arg_i);
-			} else if (strcmp(iface, HSPHFPD_AUDIO_TRANSPORT_INTERFACE) == 0) {
+			} else if (spa_streq(iface, HSPHFPD_AUDIO_TRANSPORT_INTERFACE)) {
 				struct spa_bt_transport *transport = spa_bt_transport_find_full(backend->monitor,
 				                                                                hsphfpd_cmp_transport_path,
 				                                                                (const void *)path);
@@ -1507,7 +1508,7 @@ struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 	backend->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	backend->conn = dbus_connection;
 	if (info && (str = spa_dict_lookup(info, "bluez5.msbc-support")))
-		backend->msbc_supported = strcmp(str, "true") == 0 || atoi(str) == 1;
+		backend->msbc_supported = spa_streq(str, "true") || atoi(str) == 1;
 	else
 		backend->msbc_supported = false;
 

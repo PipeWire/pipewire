@@ -39,6 +39,7 @@
 #include <spa/support/plugin.h>
 #include <spa/utils/type.h>
 #include <spa/utils/names.h>
+#include <spa/utils/string.h>
 
 #define NAME "system"
 
@@ -301,7 +302,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	impl = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_System) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_System))
 		*interface = &impl->system;
 	else
 		return -ENOENT;

@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <poll.h>
 
+#include <spa/utils/string.h>
 #include <spa/support/log-impl.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
@@ -201,7 +202,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 
-			if (strcmp(info->type, SPA_TYPE_INTERFACE_Device) == 0) {
+			if (spa_streq(info->type, SPA_TYPE_INTERFACE_Device)) {
 				struct spa_handle *handle;
 				void *interface;
 

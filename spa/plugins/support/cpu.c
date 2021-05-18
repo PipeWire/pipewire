@@ -40,6 +40,7 @@
 #include <spa/utils/type.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/names.h>
+#include <spa/utils/string.h>
 
 #define NAME "cpu"
 
@@ -205,7 +206,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	this = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_CPU) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_CPU))
 		*interface = &this->cpu;
 	else
 		return -ENOENT;

@@ -31,6 +31,7 @@
 #include <assert.h>
 
 #include <spa/utils/dict.h>
+#include <spa/utils/string.h>
 
 #define MAX_COUNT 100000
 #define MAX_ITEMS 1000
@@ -74,7 +75,7 @@ static void test_query(const struct spa_dict *dict)
 	for (i = 0; i < MAX_COUNT; i++) {
 		idx = random() % dict->n_items;
 		str = spa_dict_lookup(dict, dict->items[idx].key);
-		assert(strcmp(str, dict->items[idx].value) == 0);
+		assert(spa_streq(str, dict->items[idx].value));
 	}
 }
 

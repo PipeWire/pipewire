@@ -39,6 +39,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/type.h>
 #include <spa/utils/ringbuffer.h>
+#include <spa/utils/string.h>
 
 #define NAME "loop"
 
@@ -706,11 +707,11 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	impl = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_Loop) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Loop))
 		*interface = &impl->loop;
-	else if (strcmp(type, SPA_TYPE_INTERFACE_LoopControl) == 0)
+	else if (spa_streq(type, SPA_TYPE_INTERFACE_LoopControl))
 		*interface = &impl->control;
-	else if (strcmp(type, SPA_TYPE_INTERFACE_LoopUtils) == 0)
+	else if (spa_streq(type, SPA_TYPE_INTERFACE_LoopUtils))
 		*interface = &impl->utils;
 	else
 		return -ENOENT;

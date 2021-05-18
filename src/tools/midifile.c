@@ -29,6 +29,8 @@
 #include <fcntl.h>
 #include <math.h>
 
+#include <spa/utils/string.h>
+
 #include "midifile.h"
 
 #define DEFAULT_TEMPO	500000	/* 500ms per quarter note (120 BPM) is the default */
@@ -263,10 +265,10 @@ midi_file_open(const char *filename, const char *mode, struct midi_file_info *in
 	if (mf == NULL)
 		return NULL;
 
-	if (strcmp(mode, "r") == 0) {
+	if (spa_streq(mode, "r")) {
 		if ((res = open_read(mf, filename, info)) < 0)
 			goto exit_free;
-	} else if (strcmp(mode, "w") == 0) {
+	} else if (spa_streq(mode, "w")) {
 		if ((res = open_write(mf, filename, info)) < 0)
 			goto exit_free;
 	} else {

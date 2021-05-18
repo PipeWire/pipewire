@@ -40,6 +40,7 @@
 #include <libintl.h>
 
 #include <spa/utils/names.h>
+#include <spa/utils/string.h>
 #include <spa/support/cpu.h>
 #include <spa/support/i18n.h>
 
@@ -186,7 +187,7 @@ static const struct spa_handle_factory *find_factory(struct plugin *plugin, cons
 					factory->version);
 			continue;
 		}
-                if (strcmp(factory->name, factory_name) == 0)
+                if (spa_streq(factory->name, factory_name))
                         return factory;
 	}
 	res = -ENOENT;
@@ -451,7 +452,7 @@ static struct spa_log *load_journal_logger(struct support *support)
 		/* look for an existing logger, and
 		 * replace it with the journal logger */
 		for (i = 0; i < support->n_support; i++) {
-			if (strcmp(support->support[i].type, SPA_TYPE_INTERFACE_Log) == 0) {
+			if (spa_streq(support->support[i].type, SPA_TYPE_INTERFACE_Log)) {
 				support->support[i].data = iface;
 				break;
 			}
@@ -525,7 +526,7 @@ void pw_init(int *argc, char **argv[])
 
 #ifdef HAVE_SYSTEMD
 		if ((str = getenv("PIPEWIRE_LOG_SYSTEMD")) == NULL ||
-				strcmp(str, "true") == 0 || atoi(str) != 0) {
+				spa_streq(str, "true") || atoi(str) != 0) {
 			log = load_journal_logger(support);
 			if (log)
 				pw_log_set(log);
@@ -592,7 +593,7 @@ bool pw_debug_is_category_enabled(const char *name)
 		return false;
 
 	for (i = 0; global_support.categories[i]; i++) {
-		if (strcmp(global_support.categories[i], name) == 0)
+		if (spa_streq(global_support.categories[i], name))
 			return true;
 	}
 	return false;

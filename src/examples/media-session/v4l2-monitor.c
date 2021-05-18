@@ -35,6 +35,7 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/param/props.h>
 #include <spa/debug/dict.h>
 #include <spa/pod/builder.h>
@@ -104,7 +105,7 @@ static struct node *v4l2_find_node(struct device *dev, uint32_t id, const char *
 			return node;
 		if (name != NULL &&
 		    (str = pw_properties_get(node->props, PW_KEY_NODE_NAME)) != NULL &&
-		    strcmp(name, str) == 0)
+		    spa_streq(name, str))
 			return node;
 	}
 	return NULL;
@@ -274,7 +275,7 @@ static struct device *v4l2_find_device(struct impl *impl, uint32_t id, const cha
 			return dev;
 		if (name != NULL &&
 		    (str = pw_properties_get(dev->props, PW_KEY_DEVICE_NAME)) != NULL &&
-		    strcmp(str, name) == 0)
+		    spa_streq(str, name))
 			return dev;
 	}
 	return NULL;

@@ -30,6 +30,7 @@
 #include "config.h"
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 
 #include <pipewire/impl.h>
 
@@ -222,7 +223,7 @@ static int find_port_func(void *data, struct pw_global *global)
 
 	props = pw_global_get_properties(global);
 	if ((str = pw_properties_get(props, PW_KEY_OBJECT_PATH)) != NULL &&
-	    strcmp(str, find->name) == 0)
+	    spa_streq(str, find->name))
 		goto found;
 	return 0;
 found:
@@ -241,13 +242,13 @@ static int find_node_port_func(void *data, struct pw_impl_port *port)
 
 	props = pw_impl_port_get_properties(port);
 	if ((str = pw_properties_get(props, PW_KEY_PORT_NAME)) != NULL &&
-	    strcmp(str, find->name) == 0)
+	    spa_streq(str, find->name))
 		goto found;
 	if ((str = pw_properties_get(props, PW_KEY_PORT_ALIAS)) != NULL &&
-	    strcmp(str, find->name) == 0)
+	    spa_streq(str, find->name))
 		goto found;
 	if ((str = pw_properties_get(props, PW_KEY_OBJECT_PATH)) != NULL &&
-	    strcmp(str, find->name) == 0)
+	    spa_streq(str, find->name))
 		goto found;
 	return 0;
 found:
@@ -310,16 +311,16 @@ static int find_node_func(void *data, struct pw_global *global)
 
 	props = pw_global_get_properties(global);
 	if ((str = pw_properties_get(props, PW_KEY_NODE_NAME)) != NULL &&
-	    strcmp(str, find->name) == 0)
+	    spa_streq(str, find->name))
 		goto found;
 	if ((str = pw_properties_get(props, PW_KEY_NODE_NICK)) != NULL &&
-	    strcmp(str, find->name) == 0)
+	    spa_streq(str, find->name))
 		goto found;
 	if ((str = pw_properties_get(props, PW_KEY_NODE_DESCRIPTION)) != NULL &&
-	    strcmp(str, find->name) == 0)
+	    spa_streq(str, find->name))
 		goto found;
 	if ((str = pw_properties_get(props, PW_KEY_OBJECT_PATH)) != NULL &&
-	    strcmp(str, find->name) == 0)
+	    spa_streq(str, find->name))
 		goto found;
 	return 0;
 found:

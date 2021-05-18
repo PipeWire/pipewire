@@ -41,6 +41,7 @@
 #endif
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/utils/json.h>
 
 #include <pipewire/impl.h>
@@ -356,16 +357,16 @@ static int parse_modules(struct pw_context *context, char *str)
 			if ((len = spa_json_next(&it[2], &val)) <= 0)
 				break;
 
-			if (strcmp(key, "name") == 0) {
+			if (spa_streq(key, "name")) {
 				name = (char*)val;
 				spa_json_parse_string(val, len, name);
-			} else if (strcmp(key, "args") == 0) {
+			} else if (spa_streq(key, "args")) {
 				if (spa_json_is_container(val, len))
 					len = spa_json_container_len(&it[2], val, len);
 
 				args = (char*)val;
 				spa_json_parse_string(val, len, args);
-			} else if (strcmp(key, "flags") == 0) {
+			} else if (spa_streq(key, "flags")) {
 				if (spa_json_is_container(val, len))
 					len = spa_json_container_len(&it[2], val, len);
 				flags = (char*)val;
@@ -438,16 +439,16 @@ static int parse_objects(struct pw_context *context, char *str)
 			if ((len = spa_json_next(&it[2], &val)) <= 0)
 				break;
 
-			if (strcmp(key, "factory") == 0) {
+			if (spa_streq(key, "factory")) {
 				factory = (char*)val;
 				spa_json_parse_string(val, len, factory);
-			} else if (strcmp(key, "args") == 0) {
+			} else if (spa_streq(key, "args")) {
 				if (spa_json_is_container(val, len))
 					len = spa_json_container_len(&it[2], val, len);
 
 				args = (char*)val;
 				spa_json_parse_string(val, len, args);
-			} else if (strcmp(key, "flags") == 0) {
+			} else if (spa_streq(key, "flags")) {
 				if (spa_json_is_container(val, len))
 					len = spa_json_container_len(&it[2], val, len);
 
@@ -523,10 +524,10 @@ static int parse_exec(struct pw_context *context, char *str)
 			if ((len = spa_json_next(&it[2], &val)) <= 0)
 				break;
 
-			if (strcmp(key, "path") == 0) {
+			if (spa_streq(key, "path")) {
 				path = (char*)val;
 				spa_json_parse_string(val, len, path);
-			} else if (strcmp(key, "args") == 0) {
+			} else if (spa_streq(key, "args")) {
 				args = (char*)val;
 				spa_json_parse_string(val, len, args);
 			}
@@ -555,13 +556,13 @@ int pw_context_parse_conf_section(struct pw_context *context,
 
 	s = strdup(str);
 
-	if (strcmp(section, "context.spa-libs") == 0)
+	if (spa_streq(section, "context.spa-libs"))
 		res = parse_spa_libs(context, s);
-	else if (strcmp(section, "context.modules") == 0)
+	else if (spa_streq(section, "context.modules"))
 		res = parse_modules(context, s);
-	else if (strcmp(section, "context.objects") == 0)
+	else if (spa_streq(section, "context.objects"))
 		res = parse_objects(context, s);
-	else if (strcmp(section, "context.exec") == 0)
+	else if (spa_streq(section, "context.exec"))
 		res = parse_exec(context, s);
 	else
 		res = -EINVAL;

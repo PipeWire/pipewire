@@ -26,6 +26,8 @@
 #include "alsa-mixer.h"
 #include "alsa-ucm.h"
 
+#include <spa/utils/string.h>
+
 int _acp_log_level = 1;
 acp_log_func _acp_log_func;
 void *_acp_log_data;
@@ -938,7 +940,7 @@ uint32_t acp_card_find_best_profile_index(struct acp_card *card, const char *nam
 		struct acp_card_profile *p = profiles[i];
 
 		if (name) {
-			if (strcmp(name, p->name) == 0)
+			if (spa_streq(name, p->name))
 				best = i;
 		} else if (p->flags & ACP_PROFILE_OFF) {
 			off = i;
@@ -1442,7 +1444,7 @@ static const char *acp_dict_lookup(const struct acp_dict *dict, const char *key)
 {
 	const struct acp_dict_item *it;
 	acp_dict_for_each(it, dict) {
-		if (strcmp(key, it->key) == 0)
+		if (spa_streq(key, it->key))
 			return it->value;
 	}
 	return NULL;
@@ -1478,19 +1480,19 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 
 	if (props) {
 		if ((s = acp_dict_lookup(props, "api.alsa.use-ucm")) != NULL)
-			impl->use_ucm = (strcmp(s, "true") == 0 || atoi(s) == 1);
+			impl->use_ucm = (spa_streq(s, "true") || atoi(s) == 1);
 		if ((s = acp_dict_lookup(props, "api.alsa.soft-mixer")) != NULL)
-			impl->soft_mixer = (strcmp(s, "true") == 0 || atoi(s) == 1);
+			impl->soft_mixer = (spa_streq(s, "true") || atoi(s) == 1);
 		if ((s = acp_dict_lookup(props, "api.alsa.ignore-dB")) != NULL)
-			ignore_dB = (strcmp(s, "true") == 0 || atoi(s) == 1);
+			ignore_dB = (spa_streq(s, "true") || atoi(s) == 1);
 		if ((s = acp_dict_lookup(props, "device.profile-set")) != NULL)
 			profile_set = s;
 		if ((s = acp_dict_lookup(props, "device.profile")) != NULL)
 			profile = s;
 		if ((s = acp_dict_lookup(props, "api.acp.auto-profile")) != NULL)
-			impl->auto_profile = (strcmp(s, "true") == 0 || atoi(s) == 1);
+			impl->auto_profile = (spa_streq(s, "true") || atoi(s) == 1);
 		if ((s = acp_dict_lookup(props, "api.acp.auto-port")) != NULL)
-			impl->auto_port = (strcmp(s, "true") == 0 || atoi(s) == 1);
+			impl->auto_port = (spa_streq(s, "true") || atoi(s) == 1);
 	}
 
 	impl->ucm.default_sample_spec.format = PA_SAMPLE_S16NE;
@@ -1715,7 +1717,7 @@ uint32_t acp_device_find_best_port_index(struct acp_device *dev, const char *nam
 		struct acp_port *p = ports[i];
 
 		if (name) {
-			if (strcmp(name, p->name) == 0)
+			if (spa_streq(name, p->name))
 				best = i;
 		} else if (p->available == ACP_AVAILABLE_YES) {
 			if (best == ACP_INVALID_INDEX || p->priority > ports[best]->priority)

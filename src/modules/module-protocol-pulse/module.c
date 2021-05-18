@@ -25,6 +25,8 @@
 
 #include "module.h"
 
+#include <spa/utils/string.h>
+
 static int module_unload(struct client *client, struct module *module);
 
 static void on_module_unload(void *obj, void *data, int res, uint32_t id)
@@ -231,7 +233,7 @@ static const struct module_info *find_module_info(const char *name)
 {
 	int i;
 	for (i = 0; module_list[i].name != NULL; i++) {
-		if (strcmp(module_list[i].name, name) == 0)
+		if (spa_streq(module_list[i].name, name))
 			return &module_list[i];
 	}
 	return NULL;

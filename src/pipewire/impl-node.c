@@ -34,6 +34,7 @@
 #include <spa/pod/filter.h>
 #include <spa/node/utils.h>
 #include <spa/debug/types.h>
+#include <spa/utils/string.h>
 
 #include "pipewire/impl-node.h"
 #include "pipewire/private.h"
@@ -864,7 +865,7 @@ static void check_properties(struct pw_impl_node *node)
 	if (strcmp(str, node->group) != 0) {
 		pw_log_info(NAME" %p: group '%s'->'%s'", node, node->group, str);
 		snprintf(node->group, sizeof(node->group), "%s", str);
-		node->freewheel = strcmp(node->group, "pipewire.freewheel") == 0;
+		node->freewheel = spa_streq(node->group, "pipewire.freewheel");
 		recalc_reason = "group changed";
 	}
 

@@ -35,6 +35,7 @@
 #include <spa/support/dbus.h>
 #include <spa/node/utils.h>
 #include <spa/utils/names.h>
+#include <spa/utils/string.h>
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
 
@@ -168,7 +169,7 @@ static int try_load_conf(struct pw_context *this, const char *conf_prefix,
 
 	if (conf_name == NULL)
 		return -EINVAL;
-	if (strcmp(conf_name, "null") == 0)
+	if (spa_streq(conf_name, "null"))
 		return 0;
 	if ((res = pw_conf_load_conf(conf_prefix, conf_name, conf)) < 0) {
 		pw_log_warn(NAME" %p: can't load config %s%s%s: %s",
@@ -1178,7 +1179,7 @@ const struct pw_export_type *pw_context_find_export_type(struct pw_context *cont
 {
 	const struct pw_export_type *t;
 	spa_list_for_each(t, &context->export_list, link) {
-		if (strcmp(t->type, type) == 0)
+		if (spa_streq(t->type, type))
 			return t;
 	}
 	return NULL;
@@ -1193,7 +1194,7 @@ static struct object_entry *find_object(struct pw_context *context, const char *
 {
 	struct object_entry *entry;
 	pw_array_for_each(entry, &context->objects) {
-		if (strcmp(entry->type, type) == 0)
+		if (spa_streq(entry->type, type))
 			return entry;
 	}
 	return NULL;

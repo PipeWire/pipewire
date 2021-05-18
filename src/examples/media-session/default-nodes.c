@@ -35,6 +35,7 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>
+#include <spa/utils/string.h>
 #include <spa/debug/pod.h>
 
 #include "pipewire/pipewire.h"
@@ -80,7 +81,7 @@ static struct default_node *find_default(struct impl *impl, const char *key)
 	struct default_node *def;
 	/* Check that the item key is a valid default key */
 	for (def = impl->defaults; def->key != NULL; ++def)
-		if (strcmp(key, def->key) == 0)
+		if (spa_streq(key, def->key))
 			return def;
 	return NULL;
 }
@@ -96,10 +97,10 @@ static int find_name(void *data, struct sm_object *object)
 	struct find_data *d = data;
 	const char *str;
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Node) == 0 &&
+	if (spa_streq(object->type, PW_TYPE_INTERFACE_Node) &&
 	    object->props &&
 	    (str = pw_properties_get(object->props, PW_KEY_NODE_NAME)) != NULL &&
-	    strcmp(str, d->name) == 0) {
+	    spa_streq(str, d->name)) {
 		d->id = object->id;
 		return 1;
 	}
@@ -124,7 +125,7 @@ static int json_object_find(const char *obj, const char *key, char *value, size_
 		return -EINVAL;
 
 	while (spa_json_get_string(&it[1], k, sizeof(k)-1) > 0) {
-		if (strcmp(k, key) == 0) {
+		if (spa_streq(k, key)) {
 			if (spa_json_get_string(&it[1], value, len) <= 0)
 				continue;
 			return 0;

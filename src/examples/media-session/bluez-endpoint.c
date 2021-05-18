@@ -35,6 +35,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/names.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/string.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/dict.h>
@@ -644,7 +645,7 @@ static void session_create(void *data, struct sm_object *object)
 	struct impl *impl = data;
 	int res;
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Device) == 0)
+	if (spa_streq(object->type, PW_TYPE_INTERFACE_Device))
 		res = handle_device(impl, object);
 	else
 		res = 0;
@@ -659,7 +660,7 @@ static void session_remove(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Device) == 0) {
+	if (spa_streq(object->type, PW_TYPE_INTERFACE_Device)) {
 		struct device *device;
 		if ((device = sm_object_get_data(object, SESSION_KEY)) != NULL)
 			destroy_device(impl, device);

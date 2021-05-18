@@ -1,3 +1,5 @@
+#include <spa/utils/string.h>
+
 static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_manager_object *o, const char *message, const char *params, char **response)
 {
 	struct transport_codec_info codecs[64];
@@ -10,7 +12,7 @@ static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_man
 	if (n_codecs == 0)
 		return -EINVAL;
 
-	if (strcmp(message, "switch-codec") == 0) {
+	if (spa_streq(message, "switch-codec")) {
 		regex_t re;
 		regmatch_t matches[2];
 		char *codec;
@@ -47,7 +49,7 @@ static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_man
 		pw_device_set_param((struct pw_device *)o->proxy,
 				SPA_PARAM_Props, 0, param);
 		return 0;
-	} else if (strcmp(message, "list-codecs") == 0) {
+	} else if (spa_streq(message, "list-codecs")) {
 		uint32_t i;
 		FILE *r;
 		size_t size;
@@ -64,7 +66,7 @@ static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_man
 		fputc('}', r);
 
 		return fclose(r) ? -errno : 0;
-	} else if (strcmp(message, "get-codec") == 0) {
+	} else if (spa_streq(message, "get-codec")) {
 		if (active == SPA_ID_INVALID)
 			*response = strdup("{none}");
 		else
@@ -79,7 +81,7 @@ static int core_object_message_handler(struct pw_manager *m, struct pw_manager_o
 {
 	pw_log_debug(NAME "core %p object message:'%s' params:'%s'", o, message, params);
 
-	if (strcmp(message, "list-handlers") == 0) {
+	if (spa_streq(message, "list-handlers")) {
 		FILE *r;
 		size_t size;
 
@@ -112,7 +114,7 @@ static void register_object_message_handlers(struct pw_manager_object *o)
 
 	if (pw_manager_object_is_card(o) && o->props != NULL &&
 	    (str = pw_properties_get(o->props, PW_KEY_DEVICE_API)) != NULL &&
-	    strcmp(str, "bluez5") == 0) {
+	    spa_streq(str, "bluez5")) {
 		str = pw_properties_get(o->props, PW_KEY_DEVICE_NAME);
 		if (str) {
 			free(o->message_object_path);

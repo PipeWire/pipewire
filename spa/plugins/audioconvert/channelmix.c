@@ -32,6 +32,7 @@
 #include <spa/utils/list.h>
 #include <spa/utils/names.h>
 #include <spa/utils/json.h>
+#include <spa/utils/string.h>
 #include <spa/node/keys.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
@@ -1312,7 +1313,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	this = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_Node) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Node))
 		*interface = &this->node;
 	else
 		return -ENOENT;
@@ -1336,7 +1337,7 @@ static uint32_t channel_from_name(const char *name)
 {
 	int i;
 	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (strcmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)) == 0)
+		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)))
 			return spa_type_audio_channel[i].type;
 	}
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
@@ -1391,18 +1392,18 @@ impl_init(const struct spa_handle_factory *factory,
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
-		if (strcmp(k, "channelmix.normalize") == 0 &&
-		    (strcmp(s, "true") == 0 || atoi(s) != 0))
+		if (spa_streq(k, "channelmix.normalize") &&
+		    (spa_streq(s, "true") || atoi(s) != 0))
 			this->mix.options |= CHANNELMIX_OPTION_NORMALIZE;
-		if (strcmp(k, "channelmix.mix-lfe") == 0 &&
-		    (strcmp(s, "true") == 0 || atoi(s) != 0))
+		if (spa_streq(k, "channelmix.mix-lfe") &&
+		    (spa_streq(s, "true") || atoi(s) != 0))
 			this->mix.options |= CHANNELMIX_OPTION_MIX_LFE;
-		if (strcmp(k, "channelmix.upmix") == 0 &&
-		    (strcmp(s, "true") == 0 || atoi(s) != 0))
+		if (spa_streq(k, "channelmix.upmix") &&
+		    (spa_streq(s, "true") || atoi(s) != 0))
 			this->mix.options |= CHANNELMIX_OPTION_UPMIX;
-		if (strcmp(k, "channelmix.lfe-cutoff") == 0)
+		if (spa_streq(k, "channelmix.lfe-cutoff"))
 			this->mix.lfe_cutoff = atoi(s);
-		if (strcmp(k, SPA_KEY_AUDIO_POSITION) == 0)
+		if (spa_streq(k, SPA_KEY_AUDIO_POSITION))
 			this->props.n_channels = parse_position(this->props.channel_map, s, strlen(s));
 	}
 	this->props.channel.n_volumes = this->props.n_channels;

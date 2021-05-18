@@ -37,6 +37,7 @@
 #include <spa/support/loop.h>
 #include <spa/support/dbus.h>
 #include <spa/support/plugin.h>
+#include <spa/utils/string.h>
 #include <spa/utils/type.h>
 #include <spa/utils/json.h>
 #include <spa/param/audio/raw.h>
@@ -1056,8 +1057,8 @@ static void sco_listen_event(struct spa_source *source)
 
 	/* Find transport for local and remote address */
 	spa_list_for_each_safe(rfcomm, rfcomm_tmp, &backend->rfcomm_list, link) {
-		if (rfcomm->transport && strcmp(rfcomm->transport->device->address, remote_address) == 0 &&
-		    strcmp(rfcomm->transport->device->adapter->address, local_address) == 0) {
+		if (rfcomm->transport && spa_streq(rfcomm->transport->device->address, remote_address) &&
+		    spa_streq(rfcomm->transport->device->adapter->address, local_address)) {
 					t = rfcomm->transport;
 					break;
 		}
@@ -1421,15 +1422,15 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 
 	handler = dbus_message_get_path(m);
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
-	if (strcmp(handler, PROFILE_HSP_AG) == 0)
+	if (spa_streq(handler, PROFILE_HSP_AG))
 		profile = SPA_BT_PROFILE_HSP_HS;
-	else if (strcmp(handler, PROFILE_HSP_HS) == 0)
+	else if (spa_streq(handler, PROFILE_HSP_HS))
 		profile = SPA_BT_PROFILE_HSP_AG;
 #endif
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
-	if (strcmp(handler, PROFILE_HFP_AG) == 0)
+	if (spa_streq(handler, PROFILE_HFP_AG))
 		profile = SPA_BT_PROFILE_HFP_HF;
-	else if (strcmp(handler, PROFILE_HFP_HF) == 0)
+	else if (spa_streq(handler, PROFILE_HFP_HF))
 		profile = SPA_BT_PROFILE_HFP_AG;
 #endif
 
@@ -1477,7 +1478,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	spa_list_append(&backend->rfcomm_list, &rfcomm->link);
 
 	if (d->settings && (str = spa_dict_lookup(d->settings, "bluez5.msbc-support")))
-		rfcomm->msbc_support_enabled_in_config = strcmp(str, "true") == 0 || atoi(str) == 1;
+		rfcomm->msbc_support_enabled_in_config = spa_streq(str, "true") || atoi(str) == 1;
 	else
 		rfcomm->msbc_support_enabled_in_config = false;
 
@@ -1560,15 +1561,15 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 
 	handler = dbus_message_get_path(m);
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
-	if (strcmp(handler, PROFILE_HSP_AG) == 0)
+	if (spa_streq(handler, PROFILE_HSP_AG))
 		profile = SPA_BT_PROFILE_HSP_HS;
-	else if (strcmp(handler, PROFILE_HSP_HS) == 0)
+	else if (spa_streq(handler, PROFILE_HSP_HS))
 		profile = SPA_BT_PROFILE_HSP_AG;
 #endif
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
-	if (strcmp(handler, PROFILE_HFP_AG) == 0)
+	if (spa_streq(handler, PROFILE_HFP_AG))
 		profile = SPA_BT_PROFILE_HFP_HF;
-	else if (strcmp(handler, PROFILE_HFP_HF) == 0)
+	else if (spa_streq(handler, PROFILE_HFP_HF))
 		profile = SPA_BT_PROFILE_HFP_AG;
 #endif
 
@@ -1692,8 +1693,8 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 	dbus_message_iter_append_basic(&it[0], DBUS_TYPE_STRING, &uuid);
 	dbus_message_iter_open_container(&it[0], DBUS_TYPE_ARRAY, "{sv}", &it[1]);
 
-	if (strcmp(uuid, SPA_BT_UUID_HSP_HS) == 0 ||
-	    strcmp(uuid, SPA_BT_UUID_HSP_HS_ALT) == 0) {
+	if (spa_streq(uuid, SPA_BT_UUID_HSP_HS) ||
+	    spa_streq(uuid, SPA_BT_UUID_HSP_HS_ALT)) {
 
 		/* In the headset role, the connection will only be initiated from the remote side */
 		str = "AutoConnect";
@@ -1723,7 +1724,7 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 		dbus_message_iter_append_basic(&it[3], DBUS_TYPE_UINT16, &version);
 		dbus_message_iter_close_container(&it[2], &it[3]);
 		dbus_message_iter_close_container(&it[1], &it[2]);
-	} else if (strcmp(uuid, SPA_BT_UUID_HFP_AG) == 0) {
+	} else if (spa_streq(uuid, SPA_BT_UUID_HFP_AG)) {
 		str = "Features";
 
 		/* We announce wideband speech support anyway */
@@ -1744,7 +1745,7 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 		dbus_message_iter_append_basic(&it[3], DBUS_TYPE_UINT16, &version);
 		dbus_message_iter_close_container(&it[2], &it[3]);
 		dbus_message_iter_close_container(&it[1], &it[2]);
-	} else if (strcmp(uuid, SPA_BT_UUID_HFP_HF) == 0) {
+	} else if (spa_streq(uuid, SPA_BT_UUID_HFP_HF)) {
 		str = "Features";
 
 		/* We announce wideband speech support anyway */

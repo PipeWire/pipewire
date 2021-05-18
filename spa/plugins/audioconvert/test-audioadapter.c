@@ -30,6 +30,7 @@
 #include <time.h>
 
 #include <spa/utils/names.h>
+#include <spa/utils/string.h>
 #include <spa/support/plugin.h>
 #include <spa/param/param.h>
 #include <spa/param/audio/format.h>
@@ -56,7 +57,7 @@ static const struct spa_handle_factory *find_factory(const char *name)
 	const struct spa_handle_factory *factory;
 
 	while (spa_handle_factory_enum(&factory, &index) == 1) {
-		if (strcmp(factory->name, name) == 0)
+		if (spa_streq(factory->name, name))
 			return factory;
 	}
 	return NULL;

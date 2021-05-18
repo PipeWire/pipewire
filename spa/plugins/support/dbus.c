@@ -35,6 +35,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/type.h>
 #include <spa/utils/names.h>
+#include <spa/utils/string.h>
 #include <spa/support/log.h>
 #include <spa/support/plugin.h>
 #include <spa/support/dbus.h>
@@ -437,7 +438,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	this = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_DBus) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_DBus))
 		*interface = &this->dbus;
 	else
 		return -ENOENT;

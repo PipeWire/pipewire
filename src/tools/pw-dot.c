@@ -27,6 +27,7 @@
 #include <getopt.h>
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
@@ -505,7 +506,7 @@ static int draw_graph(struct data *d, const char *path)
 	/* draw the footer */
 	dot_str_add(&d->dot_str, "}\n");
 
-	if (strcmp(path, "-") == 0) {
+	if (spa_streq(path, "-")) {
 		/* wire the dot graph into to stdout */
 		fputs(d->dot_str, stdout);
 	} else {
@@ -634,7 +635,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
         draw_t draw;
         struct global *g;
 
-	if (strcmp(type, PW_TYPE_INTERFACE_Port) == 0) {
+	if (spa_streq(type, PW_TYPE_INTERFACE_Port)) {
 		events = &port_events;
 		info_destroy = (pw_destroy_t)pw_port_info_free;
 		info_update = (info_update_t)pw_port_info_update;
@@ -642,7 +643,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		client_version = PW_VERSION_PORT;
 		object_type = INTERFACE_Port;
 	}
-	else if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
+	else if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
 		events = &node_events;
 		info_destroy = (pw_destroy_t)pw_node_info_free;
 		info_update = (info_update_t)pw_node_info_update;
@@ -650,7 +651,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		client_version = PW_VERSION_NODE;
 		object_type = INTERFACE_Node;
 	}
-	else if (strcmp(type, PW_TYPE_INTERFACE_Link) == 0) {
+	else if (spa_streq(type, PW_TYPE_INTERFACE_Link)) {
 		events = &link_events;
 		info_destroy = (pw_destroy_t)pw_link_info_free;
 		info_update = (info_update_t)pw_link_info_update;
@@ -658,7 +659,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		client_version = PW_VERSION_LINK;
 		object_type = INTERFACE_Link;
 	}
-	else if (strcmp(type, PW_TYPE_INTERFACE_Client) == 0) {
+	else if (spa_streq(type, PW_TYPE_INTERFACE_Client)) {
 		events = &client_events;
 		info_destroy = (pw_destroy_t)pw_client_info_free;
 		info_update = (info_update_t)pw_client_info_update;
@@ -666,7 +667,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		client_version = PW_VERSION_CLIENT;
 		object_type = INTERFACE_Client;
 	}
-	else if (strcmp(type, PW_TYPE_INTERFACE_Device) == 0) {
+	else if (spa_streq(type, PW_TYPE_INTERFACE_Device)) {
 		events = &device_events;
 		info_destroy = (pw_destroy_t)pw_device_info_free;
 		info_update = (info_update_t)pw_device_info_update;
@@ -674,7 +675,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		client_version = PW_VERSION_DEVICE;
 		object_type = INTERFACE_Device;
 	}
-	else if (strcmp(type, PW_TYPE_INTERFACE_Factory) == 0) {
+	else if (spa_streq(type, PW_TYPE_INTERFACE_Factory)) {
 		events = &factory_events;
 		info_destroy = (pw_destroy_t)pw_factory_info_free;
 		info_update = (info_update_t)pw_factory_info_update;
@@ -682,7 +683,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		client_version = PW_VERSION_FACTORY;
 		object_type = INTERFACE_Factory;
 	}
-	else if (strcmp(type, PW_TYPE_INTERFACE_Module) == 0) {
+	else if (spa_streq(type, PW_TYPE_INTERFACE_Module)) {
 		events = &module_events;
 		info_destroy = (pw_destroy_t)pw_module_info_free;
 		info_update = (info_update_t)pw_module_info_update;
@@ -690,7 +691,7 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		client_version = PW_VERSION_MODULE;
 		object_type = INTERFACE_Module;
 	}
-	else if (strcmp(type, PW_TYPE_INTERFACE_Core) == 0) {
+	else if (spa_streq(type, PW_TYPE_INTERFACE_Core)) {
 		/* sync to notify we are done with globals */
 		pw_core_sync(d->core, 0, 0);
 		return;

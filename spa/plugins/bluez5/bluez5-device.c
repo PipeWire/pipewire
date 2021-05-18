@@ -34,6 +34,7 @@
 #include <spa/utils/type.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
+#include <spa/utils/string.h>
 #include <spa/node/node.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
@@ -980,7 +981,7 @@ static void set_initial_profile(struct impl *this)
 	const char *str;
 	if (this->bt_dev->settings != NULL) {
 		str = spa_dict_lookup(this->bt_dev->settings, "device.profile");
-		if (str != NULL && strcmp(str, "headset-head-unit") == 0 && find_hsp_hfp_profile(this))
+		if (str != NULL && spa_streq(str, "headset-head-unit") && find_hsp_hfp_profile(this))
 			return;
 	}
 
@@ -1806,7 +1807,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	this = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_Device) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Device))
 		*interface = &this->device;
 	else
 		return -ENOENT;

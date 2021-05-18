@@ -28,6 +28,7 @@
 #include <getopt.h>
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/utils/defs.h>
 
 #include <pipewire/pipewire.h>
@@ -67,7 +68,7 @@ static int metadata_property(void *data, uint32_t id,
 	struct data *d = data;
 
 	if ((d->opt_id == SPA_ID_INVALID || d->opt_id == id) &&
-	    (d->opt_key == NULL || strcmp(d->opt_key, key) == 0)) {
+	    (d->opt_key == NULL || spa_streq(d->opt_key, key))) {
 		if (key == NULL) {
 			fprintf(stdout, "remove: id:%u all keys\n", id);
 		} else if (value == NULL) {

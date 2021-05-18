@@ -35,6 +35,7 @@
 #include <systemd/sd-login.h>
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include "pipewire/pipewire.h"
 
 #include "media-session.h"
@@ -58,7 +59,7 @@ static void update_seat_active(struct impl *impl)
 	if (sd_uid_get_state(getuid(), &state) < 0)
 		return;
 
-	active = strcmp(state, "active") == 0;
+	active = spa_streq(state, "active");
 	free(state);
 
 	sm_media_session_seat_active_changed(impl->session, active);

@@ -34,6 +34,7 @@
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/node/node.h>
 #include <spa/support/loop.h>
 #include <spa/support/plugin.h>
@@ -168,7 +169,7 @@ static int emit_info(struct impl *this, bool full)
 	dinfo.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
 	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API,  "jack");
 	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NICK, "jack");
-	if (strcmp(this->props.server, "default") == 0)
+	if (spa_streq(this->props.server, "default"))
 		snprintf(name, sizeof(name), "JACK Client");
 	else
 		snprintf(name, sizeof(name), "JACK Client (%s)", this->props.server);
@@ -365,7 +366,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	this = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_Device) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Device))
 		*interface = &this->device;
 	else
 		return -ENOENT;

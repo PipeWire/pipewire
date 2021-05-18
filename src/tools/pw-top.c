@@ -29,6 +29,7 @@
 #include <ncurses.h>
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/pod/parser.h>
 #include <spa/debug/pod.h>
 
@@ -360,7 +361,7 @@ static void registry_event_global(void *data, uint32_t id,
 	struct data *d = data;
 	struct pw_proxy *proxy;
 
-	if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
+	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
 		struct node *n;
 		const char *str;
 
@@ -372,7 +373,7 @@ static void registry_event_global(void *data, uint32_t id,
 		if ((n = add_node(d, id, str)) == NULL) {
 			pw_log_warn("can add node %u: %m", id);
 		}
-	} else if (strcmp(type, PW_TYPE_INTERFACE_Profiler) == 0) {
+	} else if (spa_streq(type, PW_TYPE_INTERFACE_Profiler)) {
 		if (d->profiler != NULL) {
 			fprintf(stderr, "Ignoring profiler %d: already attached\n", id);
 			return;

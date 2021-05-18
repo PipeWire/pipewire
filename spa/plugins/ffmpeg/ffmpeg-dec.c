@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include <spa/utils/string.h>
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>
 #include <spa/node/node.h>
@@ -445,7 +446,7 @@ impl_get_interface(struct spa_handle *handle, const char *type, void **interface
 
 	this = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_Node) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Node))
 		*interface = &this->node;
 	else
 		return -ENOENT;

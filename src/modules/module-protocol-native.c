@@ -44,6 +44,7 @@
 
 #include <spa/pod/iter.h>
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 
 #ifdef HAVE_SYSTEMD
 #include <systemd/sd-daemon.h>
@@ -1043,7 +1044,7 @@ impl_new_client(struct pw_protocol *protocol,
 		str = spa_dict_lookup(props, PW_KEY_REMOTE_INTENTION);
 		if (str == NULL &&
 		   (str = spa_dict_lookup(props, PW_KEY_REMOTE_NAME)) != NULL &&
-		    strcmp(str, "internal") == 0)
+		    spa_streq(str, "internal"))
 			str = "internal";
 	}
 	if (str == NULL)

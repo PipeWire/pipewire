@@ -32,6 +32,7 @@
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
 #include <spa/utils/names.h>
+#include <spa/utils/string.h>
 #include <spa/node/node.h>
 #include <spa/node/keys.h>
 #include <spa/node/io.h>
@@ -267,7 +268,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	this = (struct impl *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_Node) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Node))
 		*interface = &this->node;
 	else
 		return -ENOENT;
@@ -359,7 +360,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (info) {
 		if ((str = spa_dict_lookup(info, "node.freewheel")) != NULL)
-			this->props.freewheel = (strcmp(str, "true") == 0 || atoi(str) == 1);
+			this->props.freewheel = (spa_streq(str, "true") || atoi(str) == 1);
 	}
 
 	spa_loop_add_source(this->data_loop, &this->timer_source);

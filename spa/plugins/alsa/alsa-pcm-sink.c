@@ -32,6 +32,7 @@
 #include <spa/monitor/device.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
+#include <spa/utils/string.h>
 #include <spa/param/audio/format.h>
 #include <spa/pod/filter.h>
 #include <spa/debug/pod.h>
@@ -694,7 +695,7 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 	this = (struct state *) handle;
 
-	if (strcmp(type, SPA_TYPE_INTERFACE_Node) == 0)
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Node))
 		*interface = &this->node;
 	else
 		return -ENOENT;
@@ -807,11 +808,11 @@ impl_init(const struct spa_handle_factory *factory,
 		} else if (!strcmp(k, "api.alsa.start-delay")) {
 			this->default_start_delay = atoi(s);
 		} else if (!strcmp(k, "api.alsa.disable-mmap")) {
-			this->disable_mmap = (strcmp(s, "true") == 0 || atoi(s) == 1);
+			this->disable_mmap = (spa_streq(s, "true") || atoi(s) == 1);
 		} else if (!strcmp(k, "api.alsa.disable-batch")) {
-			this->disable_batch = (strcmp(s, "true") == 0 || atoi(s) == 1);
+			this->disable_batch = (spa_streq(s, "true") || atoi(s) == 1);
 		} else if (!strcmp(k, "api.alsa.use-chmap")) {
-			this->props.use_chmap = (strcmp(s, "true") == 0 || atoi(s) == 1);
+			this->props.use_chmap = (spa_streq(s, "true") || atoi(s) == 1);
 		}
 	}
 	return 0;

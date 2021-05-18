@@ -24,6 +24,8 @@
 
 #define EXT_STREAM_RESTORE_VERSION	1
 
+#include <spa/utils/string.h>
+
 static const struct extension_sub ext_stream_restore[];
 
 static int do_extension_stream_restore_test(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -139,15 +141,15 @@ static int do_extension_stream_restore_read(struct client *client, uint32_t comm
 			continue;
 
 		while (spa_json_get_string(&it[1], key, sizeof(key)-1) > 0) {
-			if (strcmp(key, "volume") == 0) {
+			if (spa_streq(key, "volume")) {
 				if (spa_json_get_float(&it[1], &volume) <= 0)
 					continue;
 			}
-			else if (strcmp(key, "mute") == 0) {
+			else if (spa_streq(key, "mute")) {
 				if (spa_json_get_bool(&it[1], &mute) <= 0)
 					continue;
 			}
-			else if (strcmp(key, "volumes") == 0) {
+			else if (spa_streq(key, "volumes")) {
 				vol = VOLUME_INIT;
 				if (spa_json_enter_array(&it[1], &it[2]) <= 0)
 					continue;
@@ -157,7 +159,7 @@ static int do_extension_stream_restore_read(struct client *client, uint32_t comm
 						break;
 				}
 			}
-			else if (strcmp(key, "channels") == 0) {
+			else if (spa_streq(key, "channels")) {
 				if (spa_json_enter_array(&it[1], &it[2]) <= 0)
 					continue;
 
@@ -168,7 +170,7 @@ static int do_extension_stream_restore_read(struct client *client, uint32_t comm
 					map.map[map.channels] = channel_name2id(chname);
 				}
 			}
-			else if (strcmp(key, "target-node") == 0) {
+			else if (spa_streq(key, "target-node")) {
 				if (spa_json_get_string(&it[1], device_name, sizeof(device_name)) <= 0)
 					continue;
 			}

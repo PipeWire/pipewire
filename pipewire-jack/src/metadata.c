@@ -30,6 +30,8 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
+#include <spa/utils/string.h>
+
 #include <jack/metadata.h>
 #include <jack/uuid.h>
 
@@ -98,7 +100,7 @@ static jack_property_t *find_property(jack_description_t *desc, const char *key)
 	uint32_t i;
 	for (i = 0; i < desc->property_cnt; i++) {
 		jack_property_t *prop = &desc->properties[i];
-		if (strcmp(prop->key, key) == 0)
+		if (spa_streq(prop->key, key))
 			return prop;
 	}
 	return NULL;

@@ -33,6 +33,8 @@
 #include <sys/stat.h>
 #include <errno.h>
 
+#include <spa/utils/string.h>
+
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
 
@@ -82,7 +84,7 @@ static char *find_module(const char *path, const char *name)
 	while ((entry = readdir(dir))) {
 		char *newpath;
 
-		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+		if (spa_streq(entry->d_name, ".") || spa_streq(entry->d_name, ".."))
 			continue;
 
 		newpath = spa_aprintf("%s/%s", path, entry->d_name);

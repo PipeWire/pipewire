@@ -37,6 +37,7 @@
 #include "config.h"
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/debug/pod.h>
@@ -645,7 +646,7 @@ static uint32_t channel_from_name(const char *name)
 {
 	int i;
 	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (strcmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)) == 0)
+		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)))
 			return spa_type_audio_channel[i].type;
 	}
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
@@ -731,9 +732,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->buffer = calloc(1, RINGBUFFER_SIZE);
 
 	if ((str = pw_properties_get(props, "tunnel.mode")) != NULL) {
-		if (strcmp(str, "capture") == 0) {
+		if (spa_streq(str, "capture")) {
 			impl->mode = MODE_CAPTURE;
-		} else if (strcmp(str, "playback") == 0) {
+		} else if (spa_streq(str, "playback")) {
 			impl->mode = MODE_PLAYBACK;
 		} else {
 			pw_log_error("invalid tunnel.mode '%s'", str);

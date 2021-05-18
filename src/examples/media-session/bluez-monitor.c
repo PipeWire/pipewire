@@ -37,6 +37,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/names.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/string.h>
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
 #include <spa/param/props.h>
@@ -121,30 +122,30 @@ static void update_icon_name(struct pw_properties *p, bool is_sink)
 	const char *s, *d = NULL, *bus;
 
 	if ((s = pw_properties_get(p, PW_KEY_DEVICE_FORM_FACTOR))) {
-		if (strcmp(s, "microphone") == 0)
+		if (spa_streq(s, "microphone"))
 			d = "audio-input-microphone";
-		else if (strcmp(s, "webcam") == 0)
+		else if (spa_streq(s, "webcam"))
 			d = "camera-web";
-		else if (strcmp(s, "computer") == 0)
+		else if (spa_streq(s, "computer"))
 			d = "computer";
-		else if (strcmp(s, "handset") == 0)
+		else if (spa_streq(s, "handset"))
 			d = "phone";
-		else if (strcmp(s, "portable") == 0)
+		else if (spa_streq(s, "portable"))
 			d = "multimedia-player";
-		else if (strcmp(s, "tv") == 0)
+		else if (spa_streq(s, "tv"))
 			d = "video-display";
-		else if (strcmp(s, "headset") == 0)
+		else if (spa_streq(s, "headset"))
 			d = "audio-headset";
-		else if (strcmp(s, "headphone") == 0)
+		else if (spa_streq(s, "headphone"))
 			d = "audio-headphones";
-		else if (strcmp(s, "speaker") == 0)
+		else if (spa_streq(s, "speaker"))
 			d = "audio-speakers";
-		else if (strcmp(s, "hands-free") == 0)
+		else if (spa_streq(s, "hands-free"))
 			d = "audio-handsfree";
 	}
 	if (!d)
 		if ((s = pw_properties_get(p, PW_KEY_DEVICE_CLASS)))
-			if (strcmp(s, "modem") == 0)
+			if (spa_streq(s, "modem"))
 				d = "modem";
 
 	if (!d) {
@@ -563,7 +564,7 @@ static void bluez5_update_device(struct impl *impl, struct device *device,
 	update_device_props(device);
 
 	str = spa_dict_lookup(info->props, SPA_KEY_API_BLUEZ5_CONNECTION);
-	connected = str != NULL && strcmp(str, "connected") == 0;
+	connected = str != NULL && spa_streq(str, "connected");
 
 	/* Export device after bluez profiles get connected */
 	if (device->sdevice == NULL && connected) {

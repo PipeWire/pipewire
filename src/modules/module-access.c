@@ -40,6 +40,7 @@
 #endif
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/utils/json.h>
 
 #include <pipewire/impl.h>
@@ -92,7 +93,7 @@ static int check_cmdline(struct pw_impl_client *client, int pid, const char *str
 		goto exit_close;
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-		if (strcmp(path, key) == 0) {
+		if (spa_streq(path, key)) {
 			res = 1;
 			goto exit_close;
 		}

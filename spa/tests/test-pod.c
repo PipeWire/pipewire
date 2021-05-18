@@ -31,6 +31,7 @@
 #include <spa/debug/pod.h>
 #include <spa/param/format.h>
 #include <spa/param/video/raw.h>
+#include <spa/utils/string.h>
 
 static void test_abi(void)
 {
@@ -288,7 +289,7 @@ static void test_init(void)
 		spa_assert(SPA_POD_BODY_SIZE(&pod) == 9);
 		spa_assert(spa_pod_is_string(&pod.pod.pod));
 		spa_assert(spa_pod_copy_string(&pod.pod.pod, sizeof(val), val) == 0);
-		spa_assert(strcmp(pod.str, val) == 0);
+		spa_assert(spa_streq(pod.str, val));
 
 		pod.pod	= SPA_POD_INIT_String(6);
 		memcpy(pod.str, "test123456789", 9);
@@ -508,7 +509,7 @@ static void test_build(void)
 	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
 	spa_assert(spa_pod_is_string(pod));
 	spa_assert(spa_pod_get_string(pod, &val.s) == 0);
-	spa_assert(strcmp(val.s, "test") == 0);
+	spa_assert(spa_streq(val.s, "test"));
 	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
 	spa_assert(spa_pod_is_bytes(pod));
 	spa_assert(spa_pod_get_bytes(pod, &val.y, &yl) == 0);
@@ -627,7 +628,7 @@ static void test_build(void)
 			spa_assert(prop->key == 3);
 			spa_assert(SPA_POD_PROP_SIZE(prop) == 24);
 			spa_assert(spa_pod_get_string(&prop->value, &val.s) == 0 &&
-					strcmp(val.s, "test123") == 0);
+					spa_streq(val.s, "test123"));
 			break;
 		default:
 			spa_assert_not_reached();
@@ -637,7 +638,7 @@ static void test_build(void)
 	spa_assert((prop = spa_pod_find_prop(pod, NULL, 3)) != NULL);
 	spa_assert(prop->key == 3);
 	spa_assert(spa_pod_get_string(&prop->value, &val.s) == 0 &&
-				strcmp(val.s, "test123") == 0);
+				spa_streq(val.s, "test123"));
 	spa_assert((prop = spa_pod_find_prop(pod, prop, 1)) != NULL);
 	spa_assert(prop->key == 1);
 	spa_assert(spa_pod_get_int(&prop->value, &val.i) == 0 && val.i == 21);
@@ -649,7 +650,7 @@ static void test_build(void)
 	spa_assert((prop = spa_pod_find_prop(pod, NULL, 3)) != NULL);
 	spa_assert(prop->key == 3);
 	spa_assert(spa_pod_get_string(&prop->value, &val.s) == 0 &&
-				strcmp(val.s, "test123") == 0);
+				spa_streq(val.s, "test123"));
 
 	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
 	spa_assert(spa_pod_is_sequence(pod));
@@ -998,7 +999,7 @@ static void test_varargs2(void)
 			spa_assert(prop->key == 7);
 			spa_assert(SPA_POD_PROP_SIZE(prop) == 21);
 			spa_assert(spa_pod_get_string(&prop->value, &val.s) == 0);
-			spa_assert(strcmp(val.s, "test") == 0);
+			spa_assert(spa_streq(val.s, "test"));
 			break;
 		case 7:
 			spa_assert(prop->key == 8);
@@ -1084,7 +1085,7 @@ static void test_varargs2(void)
 	spa_assert(val.l == 4);
 	spa_assert(val.f == 0.453f);
 	spa_assert(val.d == 0.871);
-	spa_assert(strcmp(val.s, "test") == 0);
+	spa_assert(spa_streq(val.s, "test"));
 	spa_assert(val.yl == sizeof(bytes));
 	spa_assert(memcmp(val.y, bytes, sizeof(bytes)) == 0);
 	spa_assert(memcmp(&val.R, &SPA_RECTANGLE(3, 4), sizeof(struct spa_rectangle)) == 0);
@@ -1251,7 +1252,7 @@ static void test_parser(void)
 	spa_assert(val.l == 4);
 	spa_assert(val.f == 0.453f);
 	spa_assert(val.d == 0.871);
-	spa_assert(strcmp(val.s, "test") == 0);
+	spa_assert(spa_streq(val.s, "test"));
 	spa_assert(val.yl == sizeof(bytes));
 	spa_assert(memcmp(val.y, bytes, sizeof(bytes)) == 0);
 	spa_assert(memcmp(&val.R, &SPA_RECTANGLE(3, 4), sizeof(struct spa_rectangle)) == 0);
@@ -1370,7 +1371,7 @@ static void test_parser2(void)
 	spa_assert(p.state.offset == 88);
 	spa_assert(spa_pod_parser_get_double(&p, &val.d) == 0 && val.d == 0.871);
 	spa_assert(p.state.offset == 104);
-	spa_assert(spa_pod_parser_get_string(&p, &val.s) == 0 && strcmp(val.s, "test") == 0);
+	spa_assert(spa_pod_parser_get_string(&p, &val.s) == 0 && spa_streq(val.s, "test"));
 	spa_assert(p.state.offset == 120);
 	spa_assert(spa_pod_parser_get_bytes(&p, &val.y, &val.yl) == 0);
 	spa_assert(val.yl == sizeof(bytes));

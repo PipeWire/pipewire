@@ -42,6 +42,7 @@
 #include <spa/param/audio/type-info.h>
 #include <spa/param/props.h>
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/debug/types.h>
 
@@ -495,7 +496,7 @@ static unsigned int find_channel(const char *name)
 	int i;
 
 	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (strcmp(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)) == 0)
+		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)))
 			return spa_type_audio_channel[i].type;
 	}
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
@@ -507,7 +508,7 @@ static int parse_channelmap(const char *channel_map, struct channelmap *map)
 	char **ch;
 
 	for (i = 0; i < (int) SPA_N_ELEMENTS(maps); i++) {
-		if (strcmp(maps[i].name, channel_map) == 0) {
+		if (spa_streq(maps[i].name, channel_map)) {
 			map->n_channels = maps[i].channels;
 			spa_memcpy(map->channels, &maps[i].values,
 					map->n_channels * sizeof(unsigned int));
@@ -659,7 +660,7 @@ static int json_object_find(const char *obj, const char *key, char *value, size_
 		return -EINVAL;
 
 	while (spa_json_get_string(&it[1], k, sizeof(k)-1) > 0) {
-		if (strcmp(k, key) == 0) {
+		if (spa_streq(k, key)) {
 			if (spa_json_get_string(&it[1], value, len) <= 0)
 				continue;
 			return 0;
@@ -677,13 +678,13 @@ static int metadata_property(void *object,
 	struct data *data = object;
 
 	if (subject == PW_ID_CORE) {
-		if (key == NULL || strcmp(key, "default.audio.sink") == 0) {
+		if (key == NULL || spa_streq(key, "default.audio.sink")) {
 			if (value == NULL ||
 			    json_object_find(value, "name",
 					data->default_sink, sizeof(data->default_sink)) < 0)
 				data->default_sink[0] = '\0';
 		}
-		if (key == NULL || strcmp(key, "default.audio.source") == 0) {
+		if (key == NULL || spa_streq(key, "default.audio.source")) {
 			if (value == NULL ||
 			    json_object_find(value, "name",
 					data->default_source, sizeof(data->default_source)) < 0)
@@ -717,7 +718,7 @@ static void registry_event_global(void *userdata, uint32_t id,
 	if (!data->list_targets)
 		return;
 
-	if (strcmp(type, PW_TYPE_INTERFACE_Metadata) == 0) {
+	if (spa_streq(type, PW_TYPE_INTERFACE_Metadata)) {
 		if (data->metadata != NULL)
 			return;
 
@@ -729,7 +730,7 @@ static void registry_event_global(void *userdata, uint32_t id,
 
 		data->sync = pw_core_sync(data->core, 0, data->sync);
 
-	} else if (strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
+	} else if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
 		name = spa_dict_lookup(props, PW_KEY_NODE_NAME);
 		desc = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION);
 		media_class = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS);
@@ -1714,7 +1715,7 @@ int main(int argc, char *argv[])
 			target_default = NULL;
 			spa_list_for_each(target, &data.targets, link) {
 				if (target_default == NULL ||
-				    strcmp(default_name, target->name) == 0 ||
+				    spa_streq(default_name, target->name) ||
 				    (default_name[0] == '\0' &&
 				     target->prio > target_default->prio))
 					target_default = target;

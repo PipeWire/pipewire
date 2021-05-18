@@ -393,15 +393,6 @@ static void destroy_node(struct impl *impl, struct node *node)
 	sm_object_remove_data((struct sm_object*)node->obj, SESSION_KEY);
 }
 
-static inline int strzcmp(const char *s1, const char *s2)
-{
-	if (s1 == s2)
-		return 0;
-	if (s1 == NULL || s2 == NULL)
-		return 1;
-	return strcmp(s1, s2);
-}
-
 static int json_object_find(const char *obj, const char *key, char *value, size_t len)
 {
 	struct spa_json it[2];
@@ -931,7 +922,7 @@ static void refresh_auto_default_nodes(struct impl *impl)
 			const char *name = pw_properties_get(node->obj->obj.props, PW_KEY_NODE_NAME);
 			char buf[1024];
 
-			if (name == NULL || strzcmp(name, def->value) == 0)
+			if (name == NULL || spa_streq(name, def->value))
 				continue;
 
 			free(def->value);
@@ -1063,13 +1054,13 @@ static int metadata_property(void *object, uint32_t subject,
 		}
 		for (def = impl->defaults; def->key != NULL; ++def) {
 			if (key == NULL || spa_streq(key, def->key_config)) {
-				if (strzcmp(def->config, val) != 0)
+				if (!spa_streq(def->config, val))
 					changed = true;
 				free(def->config);
 				def->config = val ? strdup(val) : NULL;
 			}
 			if (key == NULL || spa_streq(key, def->key)) {
-				bool eff_changed = strzcmp(def->value, val) != 0;
+				bool eff_changed = !spa_streq(def->value, val);
 				free(def->value);
 				def->value = val ? strdup(val) : NULL;
 

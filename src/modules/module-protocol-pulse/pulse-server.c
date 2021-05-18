@@ -805,15 +805,6 @@ static int json_object_find(const char *obj, const char *key, char *value, size_
 	return -ENOENT;
 }
 
-static inline int strzcmp(const char *s1, const char *s2)
-{
-	if (s1 == s2)
-		return 0;
-	if (s1 == NULL || s2 == NULL)
-		return 1;
-	return strcmp(s1, s2);
-}
-
 static void manager_metadata(void *data, struct pw_manager_object *o,
 		uint32_t subject, const char *key, const char *type, const char *value)
 {
@@ -834,7 +825,7 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 				else
 					value = name;
 			}
-			if ((changed = strzcmp(client->default_sink, value))) {
+			if ((changed = !spa_streq(client->default_sink, value))) {
 				free(client->default_sink);
 				client->default_sink = value ? strdup(value) : NULL;
 			}
@@ -847,7 +838,7 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 				else
 					value = name;
 			}
-			if ((changed = strzcmp(client->default_source, value))) {
+			if ((changed = !spa_streq(client->default_source, value))) {
 				free(client->default_source);
 				client->default_source = value ? strdup(value) : NULL;
 			}

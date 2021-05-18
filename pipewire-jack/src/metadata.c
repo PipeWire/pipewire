@@ -139,24 +139,15 @@ static void remove_property(jack_description_t *desc, jack_property_t *prop)
 		remove_description(desc);
 }
 
-static inline int strzcmp(const char *s1, const char *s2)
-{
-	if (s1 == s2)
-		return 0;
-	if (s1 == NULL || s2 == NULL)
-		return 1;
-	return strcmp(s1, s2);
-}
-
 static int change_property(jack_property_t *prop, const char *value, const char *type)
 {
 	int changed = 0;
-	if (strzcmp(prop->data, value) != 0) {
+	if (!spa_streq(prop->data, value)) {
 		free((char*)prop->data);
 		prop->data = strdup(value);
 		changed++;
 	}
-	if (strzcmp(prop->type, type) != 0) {
+	if (!spa_streq(prop->type, type)) {
 		free((char*)prop->type);
 		prop->type = strdup(type);
 		changed++;

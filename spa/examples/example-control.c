@@ -45,6 +45,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 
 #define M_PI_M2 ( M_PI + M_PI )
 
@@ -171,7 +172,7 @@ static int make_node(struct data *data, struct spa_node **node, const char *lib,
 		}
 		if (factory->version < 1)
 			continue;
-		if (strcmp(factory->name, name))
+		if (!spa_streq(factory->name, name))
 			continue;
 
 		handle = calloc(1, spa_handle_factory_get_size(factory, NULL));
@@ -456,7 +457,7 @@ static int load_handle(struct data *data, struct spa_handle **handle, const char
 		}
 		if (factory->version < 1)
 			continue;
-		if (strcmp(factory->name, name))
+		if (!spa_streq(factory->name, name))
 			continue;
 
 		*handle = calloc(1, spa_handle_factory_get_size(factory, NULL));

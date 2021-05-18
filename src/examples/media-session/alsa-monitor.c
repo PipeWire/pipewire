@@ -395,11 +395,11 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 			pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION,
 				sm_media_session_sanitize_description(tmp, sizeof(tmp),
 					' ', "%s %s", desc, profile_desc));
-		} else if (strcmp(subdev, "0")) {
+		} else if (!spa_streq(subdev, "0")) {
 			pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION,
 				sm_media_session_sanitize_description(tmp, sizeof(tmp),
 					' ', "%s (%s %s)", desc, name, subdev));
-		} else if (strcmp(dev, "0")) {
+		} else if (!spa_streq(dev, "0")) {
 			pw_properties_set(node->props, PW_KEY_NODE_DESCRIPTION,
 				sm_media_session_sanitize_description(tmp, sizeof(tmp),
 					' ', "%s (%s)", desc, name));

@@ -514,11 +514,11 @@ static struct spa_bt_adapter *adapter_find(struct spa_bt_monitor *monitor, const
 static bool check_iter_signature(DBusMessageIter *it, const char *sig)
 {
 	char *v;
-	int res;
+	bool res;
 	v = dbus_message_iter_get_signature(it);
-	res = strcmp(v, sig);
+	res = spa_streq(v, sig);
 	dbus_free(v);
-	return res == 0;
+	return res;
 }
 
 static int adapter_update_props(struct spa_bt_adapter *adapter,

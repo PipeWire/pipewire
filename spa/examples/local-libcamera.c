@@ -42,6 +42,7 @@
 #include <spa/support/plugin.h>
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/support/log-impl.h>
 #include <spa/support/loop.h>
 #include <spa/node/node.h>
@@ -129,7 +130,7 @@ static int load_handle(struct data *data, struct spa_handle **handle, const char
 				printf("can't enumerate factories: %s\n", spa_strerror(res));
 			break;
 		}
-		if (strcmp(factory->name, name))
+		if (!spa_streq(factory->name, name))
 			continue;
 
 		*handle = calloc(1, spa_handle_factory_get_size(factory, NULL));

@@ -1968,7 +1968,7 @@ children_of(struct remote_data *rd, uint32_t parent_id,
 
 			global = item->data;
 
-			if (strcmp(global->type, child_type))
+			if (!spa_streq(global->type, child_type))
 				continue;
 
 			pd = pw_proxy_get_user_data(global->proxy);
@@ -1983,7 +1983,7 @@ children_of(struct remote_data *rd, uint32_t parent_id,
 			}
 
 			/* match? */
-			if (strcmp(parent_value, child_value))
+			if (!spa_streq(parent_value, child_value))
 				continue;
 
 			if (*children)

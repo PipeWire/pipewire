@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <arpa/inet.h>
 
+#include <spa/utils/string.h>
 #include <spa/pod/parser.h>
 #include <spa/param/props.h>
 #include <spa/param/audio/format.h>
@@ -270,13 +271,13 @@ static int codec_get_block_size(void *data)
 
 static int string_to_eqmid(const char * eqmid)
 {
-	if (!strcmp("auto", eqmid))
+	if (spa_streq("auto", eqmid))
 		return LDACBT_EQMID_AUTO;
-	else if (!strcmp("hq", eqmid))
+	else if (spa_streq("hq", eqmid))
 		return LDACBT_EQMID_HQ;
-	else if (!strcmp("sq", eqmid))
+	else if (spa_streq("sq", eqmid))
 		return LDACBT_EQMID_SQ;
-	else if (!strcmp("mq", eqmid))
+	else if (spa_streq("mq", eqmid))
 		return LDACBT_EQMID_MQ;
 	else
 		return LDACBT_EQMID_AUTO;

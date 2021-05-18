@@ -22,6 +22,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <spa/utils/string.h>
 #include <spa/support/dbus.h>
 #include <spa/support/cpu.h>
 
@@ -181,8 +182,8 @@ static void test_properties(void)
 
 	props = pw_context_get_properties(context);
 	spa_assert(props != NULL);
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
-	spa_assert(!strcmp(pw_properties_get(props, "biz"), "fuzz"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(props, "biz"), "fuzz"));
 	spa_assert(pw_properties_get(props, "buzz") == NULL);
 
 	/* remove foo */
@@ -195,8 +196,8 @@ static void test_properties(void)
 
 	spa_assert(props == pw_context_get_properties(context));
 	spa_assert(pw_properties_get(props, "foo") == NULL);
-	spa_assert(!strcmp(pw_properties_get(props, "biz"), "buzz"));
-	spa_assert(!strcmp(pw_properties_get(props, "buzz"), "frizz"));
+	spa_assert(spa_streq(pw_properties_get(props, "biz"), "buzz"));
+	spa_assert(spa_streq(pw_properties_get(props, "buzz"), "frizz"));
 
 	spa_hook_remove(&listener);
 	pw_context_destroy(context);

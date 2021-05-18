@@ -3780,7 +3780,7 @@ static int fill_card_info(struct client *client, struct message *m,
 		module_id = (uint32_t)atoi(str);
 
 	drv_name = spa_dict_lookup(info->props, PW_KEY_DEVICE_API);
-	if (drv_name && !strcmp("bluez5", drv_name))
+	if (drv_name && spa_streq("bluez5", drv_name))
 		drv_name = "module-bluez5-device.c"; /* blueman needs this */
 
 	message_put(m,

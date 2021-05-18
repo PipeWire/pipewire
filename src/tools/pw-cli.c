@@ -1835,27 +1835,27 @@ global_props(struct global *global)
 	if (!pd || !pd->info)
 		return NULL;
 
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Core))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Core))
 		return ((struct pw_core_info *)pd->info)->props;
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Module))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Module))
 		return ((struct pw_module_info *)pd->info)->props;
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Device))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Device))
 		return ((struct pw_device_info *)pd->info)->props;
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Node))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Node))
 		return ((struct pw_node_info *)pd->info)->props;
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Port))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Port))
 		return ((struct pw_port_info *)pd->info)->props;
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Factory))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Factory))
 		return ((struct pw_factory_info *)pd->info)->props;
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Client))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Client))
 		return ((struct pw_client_info *)pd->info)->props;
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Link))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Link))
 		return ((struct pw_link_info *)pd->info)->props;
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Session))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Session))
 		return ((struct pw_session_info *)pd->info)->props;
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Endpoint))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Endpoint))
 		return ((struct pw_endpoint_info *)pd->info)->props;
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointStream))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_EndpointStream))
 		return ((struct pw_endpoint_stream_info *)pd->info)->props;
 
 	return NULL;
@@ -1922,20 +1922,20 @@ children_of(struct remote_data *rd, uint32_t parent_id,
 		return -1;
 
 	/* supported combinations */
-	if (!strcmp(parent_type, PW_TYPE_INTERFACE_Device) &&
-	    !strcmp(child_type, PW_TYPE_INTERFACE_Node)) {
+	if (spa_streq(parent_type, PW_TYPE_INTERFACE_Device) &&
+	    spa_streq(child_type, PW_TYPE_INTERFACE_Node)) {
 		parent_key = PW_KEY_OBJECT_ID;
 		child_key = PW_KEY_DEVICE_ID;
-	} else if (!strcmp(parent_type, PW_TYPE_INTERFACE_Node) &&
-		   !strcmp(child_type, PW_TYPE_INTERFACE_Port)) {
+	} else if (spa_streq(parent_type, PW_TYPE_INTERFACE_Node) &&
+		   spa_streq(child_type, PW_TYPE_INTERFACE_Port)) {
 		parent_key = PW_KEY_OBJECT_ID;
 		child_key = PW_KEY_NODE_ID;
-	} else if (!strcmp(parent_type, PW_TYPE_INTERFACE_Module) &&
-		   !strcmp(child_type, PW_TYPE_INTERFACE_Factory)) {
+	} else if (spa_streq(parent_type, PW_TYPE_INTERFACE_Module) &&
+		   spa_streq(child_type, PW_TYPE_INTERFACE_Factory)) {
 		parent_key = PW_KEY_OBJECT_ID;
 		child_key = PW_KEY_MODULE_ID;
-	} else if (!strcmp(parent_type, PW_TYPE_INTERFACE_Factory) &&
-		   !strcmp(child_type, PW_TYPE_INTERFACE_Device)) {
+	} else if (spa_streq(parent_type, PW_TYPE_INTERFACE_Factory) &&
+		   spa_streq(child_type, PW_TYPE_INTERFACE_Device)) {
 		parent_key = PW_KEY_OBJECT_ID;
 		child_key = PW_KEY_FACTORY_ID;
 	} else
@@ -2029,7 +2029,7 @@ int dump_type_index(const char *type)
 		return -1;
 
 	for (i = 0; i < SPA_N_ELEMENTS(dump_types); i++) {
-		if (!strcmp(dump_types[i], type))
+		if (spa_streq(dump_types[i], type))
 			return (int)i;
 	}
 
@@ -2094,19 +2094,19 @@ dump_properties(struct data *data, struct global *global,
 
 		extra = NULL;
 		id = -1;
-		if (!strcmp(global->type, PW_TYPE_INTERFACE_Port) && !strcmp(item->key, PW_KEY_NODE_ID)) {
+		if (spa_streq(global->type, PW_TYPE_INTERFACE_Port) && spa_streq(item->key, PW_KEY_NODE_ID)) {
 			id = atoi(item->value);
 			if (id >= 0)
 				extra = obj_lookup(rd, id, PW_KEY_NODE_NAME);
-		} else if (!strcmp(global->type, PW_TYPE_INTERFACE_Factory) && !strcmp(item->key, PW_KEY_MODULE_ID)) {
+		} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Factory) && spa_streq(item->key, PW_KEY_MODULE_ID)) {
 			id = atoi(item->value);
 			if (id >= 0)
 				extra = obj_lookup(rd, id, PW_KEY_MODULE_NAME);
-		} else if (!strcmp(global->type, PW_TYPE_INTERFACE_Device) && !strcmp(item->key, PW_KEY_FACTORY_ID)) {
+		} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Device) && spa_streq(item->key, PW_KEY_FACTORY_ID)) {
 			id = atoi(item->value);
 			if (id >= 0)
 				extra = obj_lookup(rd, id, PW_KEY_FACTORY_NAME);
-		} else if (!strcmp(global->type, PW_TYPE_INTERFACE_Device) && !strcmp(item->key, PW_KEY_CLIENT_ID)) {
+		} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Device) && spa_streq(item->key, PW_KEY_CLIENT_ID)) {
 			id = atoi(item->value);
 			if (id >= 0)
 				extra = obj_lookup(rd, id, PW_KEY_CLIENT_NAME);
@@ -2303,8 +2303,8 @@ dump_device(struct data *data, struct global *global,
 				api ? api : "",
 				api ? "\"" : "");
 
-		if (media_class && !strcmp(media_class, "Audio/Device") &&
-		    api && !strcmp(api, "alsa:pcm")) {
+		if (media_class && spa_streq(media_class, "Audio/Device") &&
+		    api && spa_streq(api, "alsa:pcm")) {
 
 			alsa_path = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_PATH);
 			alsa_card_id = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_CARD_ID);
@@ -2731,37 +2731,37 @@ dump(struct data *data, struct global *global,
 	if (!global)
 		return;
 
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Core))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Core))
 		dump_core(data, global, flags, level);
 
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Module))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Module))
 		dump_module(data, global, flags, level);
 
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Device))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Device))
 		dump_device(data, global, flags, level);
 
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Node))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Node))
 		dump_node(data, global, flags, level);
 
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Port))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Port))
 		dump_port(data, global, flags, level);
 
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Factory))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Factory))
 		dump_factory(data, global, flags, level);
 
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Client))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Client))
 		dump_client(data, global, flags, level);
 
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Link))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Link))
 		dump_link(data, global, flags, level);
 
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Session))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Session))
 		dump_session(data, global, flags, level);
 
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_Endpoint))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Endpoint))
 		dump_endpoint(data, global, flags, level);
 
-	if (!strcmp(global->type, PW_TYPE_INTERFACE_EndpointStream))
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_EndpointStream))
 		dump_endpoint_stream(data, global, flags, level);
 }
 
@@ -2783,17 +2783,17 @@ static bool do_dump(struct data *data, const char *cmd, char *args, char **error
 
 	a = aa;
 	while (n > 0 &&
-		(!strcmp(a[0], "short") ||
-		 !strcmp(a[0], "deep") ||
-		 !strcmp(a[0], "resolve") ||
-		 !strcmp(a[0], "notype"))) {
-		if (!strcmp(a[0], "short"))
+		(spa_streq(a[0], "short") ||
+		 spa_streq(a[0], "deep") ||
+		 spa_streq(a[0], "resolve") ||
+		 spa_streq(a[0], "notype"))) {
+		if (spa_streq(a[0], "short"))
 			flags |= is_short;
-		else if (!strcmp(a[0], "deep"))
+		else if (spa_streq(a[0], "deep"))
 			flags |= is_deep;
-		else if (!strcmp(a[0], "resolve"))
+		else if (spa_streq(a[0], "resolve"))
 			flags |= is_resolve;
-		else if (!strcmp(a[0], "notype"))
+		else if (spa_streq(a[0], "notype"))
 			flags |= is_notype;
 		n--;
 		a++;
@@ -2816,7 +2816,7 @@ static bool do_dump(struct data *data, const char *cmd, char *args, char **error
 		a++;
 	}
 
-	if (n == 0 || !strcmp(a[0], "all")) {
+	if (n == 0 || spa_streq(a[0], "all")) {
 		type_mask = (1U << dump_type_count()) - 1;
 		flags &= ~is_notype;
 	} else {
@@ -2900,8 +2900,8 @@ static bool parse(struct data *data, char *buf, size_t size, char **error)
 	args = n > 1 ? a[1] : "";
 
 	for (i = 0; i < SPA_N_ELEMENTS(command_list); i++) {
-		if (!strcmp(command_list[i].name, cmd) ||
-		    !strcmp(command_list[i].alias, cmd)) {
+		if (spa_streq(command_list[i].name, cmd) ||
+		    spa_streq(command_list[i].alias, cmd)) {
 			return command_list[i].func(data, cmd, args, error);
 		}
 	}

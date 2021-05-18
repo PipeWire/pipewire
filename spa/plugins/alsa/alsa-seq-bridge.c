@@ -878,7 +878,7 @@ impl_init(const struct spa_handle_factory *factory,
 	reset_props(&this->props);
 
 	for (i = 0; info && i < info->n_items; i++) {
-		if (!strcmp(info->items[i].key, SPA_KEY_API_ALSA_PATH)) {
+		if (spa_streq(info->items[i].key, SPA_KEY_API_ALSA_PATH)) {
 			snprintf(this->props.device, 63, "%s", info->items[i].value);
 		}
 	}

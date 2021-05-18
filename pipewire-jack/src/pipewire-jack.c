@@ -555,7 +555,7 @@ static struct object *find_node(struct client *c, const char *name)
 	struct object *o;
 
 	spa_list_for_each(o, &c->context.nodes, link) {
-		if (!strcmp(o->node.name, name))
+		if (spa_streq(o->node.name, name))
 			return o;
 	}
 	return NULL;
@@ -2036,13 +2036,13 @@ static const struct pw_client_node_events client_node_events = {
 
 static jack_port_type_id_t string_to_type(const char *port_type)
 {
-	if (!strcmp(JACK_DEFAULT_AUDIO_TYPE, port_type))
+	if (spa_streq(JACK_DEFAULT_AUDIO_TYPE, port_type))
 		return TYPE_ID_AUDIO;
-	else if (!strcmp(JACK_DEFAULT_MIDI_TYPE, port_type))
+	else if (spa_streq(JACK_DEFAULT_MIDI_TYPE, port_type))
 		return TYPE_ID_MIDI;
-	else if (!strcmp(JACK_DEFAULT_VIDEO_TYPE, port_type))
+	else if (spa_streq(JACK_DEFAULT_VIDEO_TYPE, port_type))
 		return TYPE_ID_VIDEO;
-	else if (!strcmp("other", port_type))
+	else if (spa_streq("other", port_type))
 		return TYPE_ID_OTHER;
 	else
 		return SPA_ID_INVALID;
@@ -2265,25 +2265,25 @@ static void registry_event_global(void *data, uint32_t id,
 			goto exit;
 
 		spa_dict_for_each(item, props) {
-	                if (!strcmp(item->key, PW_KEY_PORT_DIRECTION)) {
+	                if (spa_streq(item->key, PW_KEY_PORT_DIRECTION)) {
 				if (spa_streq(item->value, "in"))
 					flags |= JackPortIsInput;
 				else if (spa_streq(item->value, "out"))
 					flags |= JackPortIsOutput;
 			}
-			else if (!strcmp(item->key, PW_KEY_PORT_PHYSICAL)) {
+			else if (spa_streq(item->key, PW_KEY_PORT_PHYSICAL)) {
 				if (pw_properties_parse_bool(item->value))
 					flags |= JackPortIsPhysical;
 			}
-			else if (!strcmp(item->key, PW_KEY_PORT_TERMINAL)) {
+			else if (spa_streq(item->key, PW_KEY_PORT_TERMINAL)) {
 				if (pw_properties_parse_bool(item->value))
 					flags |= JackPortIsTerminal;
 			}
-			else if (!strcmp(item->key, PW_KEY_PORT_CONTROL)) {
+			else if (spa_streq(item->key, PW_KEY_PORT_CONTROL)) {
 				if (pw_properties_parse_bool(item->value))
 					type_id = TYPE_ID_MIDI;
 			}
-			else if (!strcmp(item->key, PW_KEY_PORT_MONITOR)) {
+			else if (spa_streq(item->key, PW_KEY_PORT_MONITOR)) {
 				is_monitor = pw_properties_parse_bool(item->value);
 			}
 		}
@@ -4310,11 +4310,11 @@ size_t jack_port_type_get_buffer_size (jack_client_t *client, const char *port_t
 	spa_return_val_if_fail(client != NULL, 0);
 	spa_return_val_if_fail(port_type != NULL, 0);
 
-	if (!strcmp(JACK_DEFAULT_AUDIO_TYPE, port_type))
+	if (spa_streq(JACK_DEFAULT_AUDIO_TYPE, port_type))
 		return jack_get_buffer_size(client) * sizeof(float);
-	else if (!strcmp(JACK_DEFAULT_MIDI_TYPE, port_type))
+	else if (spa_streq(JACK_DEFAULT_MIDI_TYPE, port_type))
 		return MAX_BUFFER_FRAMES * sizeof(float);
-	else if (!strcmp(JACK_DEFAULT_VIDEO_TYPE, port_type))
+	else if (spa_streq(JACK_DEFAULT_VIDEO_TYPE, port_type))
 		return 320 * 240 * 4 * sizeof(float);
 	else
 		return 0;

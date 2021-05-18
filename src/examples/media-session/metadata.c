@@ -25,6 +25,8 @@
 #include "pipewire/pipewire.h"
 #include "pipewire/array.h"
 
+#include <spa/utils/string.h>
+
 #include <extensions/metadata.h>
 
 #include "media-session.h"
@@ -139,7 +141,7 @@ static struct item *find_item(struct metadata *this, uint32_t subject, const cha
 	struct item *item;
 
 	pw_array_for_each(item, &this->metadata) {
-		if (item->subject == subject && (key == NULL || !strcmp(item->key, key)))
+		if (item->subject == subject && (key == NULL || spa_streq(item->key, key)))
 			return item;
 	}
 	return NULL;

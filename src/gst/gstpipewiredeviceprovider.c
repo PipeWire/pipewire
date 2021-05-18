@@ -69,10 +69,10 @@ gst_pipewire_device_reconfigure_element (GstDevice * device, GstElement * elemen
   GstPipeWireDevice *pipewire_dev = GST_PIPEWIRE_DEVICE (device);
   gchar *str;
 
-  if (!strcmp (pipewire_dev->element, "pipewiresrc")) {
+  if (spa_streq(pipewire_dev->element, "pipewiresrc")) {
     if (!GST_IS_PIPEWIRE_SRC (element))
       return FALSE;
-  } else if (!strcmp (pipewire_dev->element, "pipewiresink")) {
+  } else if (spa_streq(pipewire_dev->element, "pipewiresink")) {
     if (!GST_IS_PIPEWIRE_SINK (element))
       return FALSE;
   } else {

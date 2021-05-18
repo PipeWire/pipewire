@@ -51,7 +51,7 @@ uint32_t pw_protocol_native0_find_type(struct pw_impl_client *client, const char
 {
 	uint32_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(type_map); i++) {
-		if (!strcmp(type_map[i].type, type))
+		if (spa_streq(type_map[i].type, type))
 			return i;
 	}
 	return SPA_ID_INVALID;
@@ -361,7 +361,7 @@ uint32_t pw_protocol_native0_name_to_v2(struct pw_impl_client *client, const cha
 	uint32_t i;
 	/* match name to type table and return index */
 	for (i = 0; i < SPA_N_ELEMENTS(type_map); i++) {
-		if (type_map[i].name != NULL && !strcmp(type_map[i].name, name))
+		if (type_map[i].name != NULL && spa_streq(type_map[i].name, name))
 			return i;
 	}
 	return SPA_ID_INVALID;

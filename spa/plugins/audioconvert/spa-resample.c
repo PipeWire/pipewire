@@ -32,6 +32,7 @@
 
 #include <spa/support/log-impl.h>
 #include <spa/debug/mem.h>
+#include <spa/utils/string.h>
 
 #include <sndfile.h>
 
@@ -96,17 +97,17 @@ sf_str_to_fmt(const char *str)
 {
 	if (!str)
 		return -1;
-	if (!strcmp(str, "s8"))
+	if (spa_streq(str, "s8"))
 		return SF_FORMAT_PCM_S8;
-	if (!strcmp(str, "s16"))
+	if (spa_streq(str, "s16"))
 		return SF_FORMAT_PCM_16;
-	if (!strcmp(str, "s24"))
+	if (spa_streq(str, "s24"))
 		return SF_FORMAT_PCM_24;
-	if (!strcmp(str, "s32"))
+	if (spa_streq(str, "s32"))
 		return SF_FORMAT_PCM_32;
-	if (!strcmp(str, "f32"))
+	if (spa_streq(str, "f32"))
 		return SF_FORMAT_FLOAT;
-	if (!strcmp(str, "f64"))
+	if (spa_streq(str, "f64"))
 		return SF_FORMAT_DOUBLE;
 	return -1;
 }

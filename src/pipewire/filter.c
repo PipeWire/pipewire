@@ -33,6 +33,7 @@
 #include <spa/node/io.h>
 #include <spa/node/utils.h>
 #include <spa/utils/ringbuffer.h>
+#include <spa/utils/string.h>
 #include <spa/pod/filter.h>
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
@@ -1433,12 +1434,12 @@ void *pw_filter_add_port(struct pw_filter *filter,
 	/* first configure default params */
 	add_port_params(impl, p);
 	if ((str = pw_properties_get(props, PW_KEY_FORMAT_DSP)) != NULL) {
-		if (!strcmp(str, "32 bit float mono audio"))
+		if (spa_streq(str, "32 bit float mono audio"))
 			add_audio_dsp_port_params(impl, p);
-		else if (!strcmp(str, "32 bit float RGBA video"))
+		else if (spa_streq(str, "32 bit float RGBA video"))
 			add_video_dsp_port_params(impl, p);
-		else if (!strcmp(str, "8 bit raw midi") ||
-		    !strcmp(str, "8 bit raw control"))
+		else if (spa_streq(str, "8 bit raw midi") ||
+		    spa_streq(str, "8 bit raw control"))
 			add_control_dsp_port_params(impl, p);
 	}
 	/* then override with user provided if any */

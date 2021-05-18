@@ -26,6 +26,8 @@
 #include <pipewire/main-loop.h>
 #include <pipewire/stream.h>
 
+#include <spa/utils/string.h>
+
 #define TEST_FUNC(a,b,func)	\
 do {				\
 	a.func = b.func;	\
@@ -159,7 +161,7 @@ static void test_create(void)
 	spa_assert(pw_stream_get_state(stream, &error) == PW_STREAM_STATE_UNCONNECTED);
 	spa_assert(error == NULL);
 	/* check name */
-	spa_assert(!strcmp(pw_stream_get_name(stream), "test"));
+	spa_assert(spa_streq(pw_stream_get_name(stream), "test"));
 
 	/* check id, only when connected */
 	spa_assert(pw_stream_get_node_id(stream) == SPA_ID_INVALID);
@@ -209,8 +211,8 @@ static void test_properties(void)
 
 	props = pw_stream_get_properties(stream);
 	spa_assert(props != NULL);
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
-	spa_assert(!strcmp(pw_properties_get(props, "biz"), "fuzz"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(props, "biz"), "fuzz"));
 	spa_assert(pw_properties_get(props, "buzz") == NULL);
 
 	/* remove foo */
@@ -223,8 +225,8 @@ static void test_properties(void)
 
 	spa_assert(props == pw_stream_get_properties(stream));
 	spa_assert(pw_properties_get(props, "foo") == NULL);
-	spa_assert(!strcmp(pw_properties_get(props, "biz"), "buzz"));
-	spa_assert(!strcmp(pw_properties_get(props, "buzz"), "frizz"));
+	spa_assert(spa_streq(pw_properties_get(props, "biz"), "buzz"));
+	spa_assert(spa_streq(pw_properties_get(props, "buzz"), "frizz"));
 
 	/* check destroy */
 	destroy_count = 0;

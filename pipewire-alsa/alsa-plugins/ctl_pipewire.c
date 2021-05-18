@@ -1273,7 +1273,7 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 	if (str != NULL && str[0] != '\0')
 		server = str;
 
-	if (fallback_name && name && !strcmp(name, fallback_name))
+	if (fallback_name && name && spa_streq(name, fallback_name))
 		fallback_name = NULL; /* no fallback for the same name */
 
 	ctl = calloc(1, sizeof(*ctl));

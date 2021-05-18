@@ -184,11 +184,11 @@ static void test_dict(void)
     int i = 0;
 
     spa_assert(dict.n_items == 5);
-    spa_assert(!strcmp(spa_dict_lookup(&dict, "pipe"), "wire"));
-    spa_assert(!strcmp(spa_dict_lookup(&dict, "123"), ""));
-    spa_assert(!strcmp(spa_dict_lookup(&dict, "key"), "value"));
-    spa_assert(!strcmp(spa_dict_lookup(&dict, "SPA"), "Simple Plugin API"));
-    spa_assert(!strcmp(spa_dict_lookup(&dict, "test"), "Works!"));
+    spa_assert(spa_streq(spa_dict_lookup(&dict, "pipe"), "wire"));
+    spa_assert(spa_streq(spa_dict_lookup(&dict, "123"), ""));
+    spa_assert(spa_streq(spa_dict_lookup(&dict, "key"), "value"));
+    spa_assert(spa_streq(spa_dict_lookup(&dict, "SPA"), "Simple Plugin API"));
+    spa_assert(spa_streq(spa_dict_lookup(&dict, "test"), "Works!"));
     spa_assert(spa_dict_lookup(&dict, "nonexistent") == NULL);
 
     spa_assert(spa_dict_lookup_item(&dict, "123") == &items[3]);
@@ -238,13 +238,13 @@ static void test_list(void)
     spa_list_for_each(e, head, node) {
         switch (i++) {
         case 0:
-            spa_assert(!strcmp(e->string, "First element"));
+            spa_assert(spa_streq(e->string, "First element"));
             break;
         case 1:
-            spa_assert(!strcmp(e->string, "test"));
+            spa_assert(spa_streq(e->string, "test"));
             break;
         case 2:
-            spa_assert(!strcmp(e->string, "pipewire!"));
+            spa_assert(spa_streq(e->string, "pipewire!"));
             break;
         default:
             spa_assert_not_reached();

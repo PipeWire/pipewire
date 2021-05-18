@@ -304,7 +304,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 		profile = "unknown";
 	profile_desc = pw_properties_get(node->props, "device.profile.description");
 
-	if (!strcmp(stream, "capture"))
+	if (spa_streq(stream, "capture"))
 		node->direction = PW_DIRECTION_OUTPUT;
 	else
 		node->direction = PW_DIRECTION_INPUT;

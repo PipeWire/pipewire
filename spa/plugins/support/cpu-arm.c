@@ -26,6 +26,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include <spa/utils/string.h>
+
 #define MAX_BUFFER 4096
 
 static char *get_cpuinfo_line(char *cpuinfo, const char *tag)
@@ -98,16 +100,16 @@ arm_init(struct impl *impl)
 
 		do {
 #if defined (__aarch64__)
-			if (!strcmp(current, "asimd"))
+			if (spa_streq(current, "asimd"))
 				flags |= SPA_CPU_FLAG_NEON;
-			else if (!strcmp(current, "fp"))
+			else if (spa_streq(current, "fp"))
 				flags |= SPA_CPU_FLAG_VFPV3 | SPA_CPU_FLAG_VFP;
 #else
-			if (!strcmp(current, "vfp"))
+			if (spa_streq(current, "vfp"))
 				flags |= SPA_CPU_FLAG_VFP;
-			else if (!strcmp(current, "neon"))
+			else if (spa_streq(current, "neon"))
 				flags |= SPA_CPU_FLAG_NEON;
-			else if (!strcmp(current, "vfpv3"))
+			else if (spa_streq(current, "vfpv3"))
 				flags |= SPA_CPU_FLAG_VFPV3;
 #endif
 		} while ((current = strtok_r(NULL, " ", &state)));

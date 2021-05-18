@@ -829,11 +829,11 @@ impl_init(const struct spa_handle_factory *factory,
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
-		if (!strcmp(k, SPA_KEY_AUDIO_CHANNELS)) {
+		if (spa_streq(k, SPA_KEY_AUDIO_CHANNELS)) {
 			this->props.channels = atoi(s);
-		} else if (!strcmp(k, SPA_KEY_AUDIO_RATE)) {
+		} else if (spa_streq(k, SPA_KEY_AUDIO_RATE)) {
 			this->props.rate = atoi(s);
-		} else if (!strcmp(k, SPA_KEY_AUDIO_POSITION)) {
+		} else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
 			parse_position(this, s, strlen(s));
 		}
 	}

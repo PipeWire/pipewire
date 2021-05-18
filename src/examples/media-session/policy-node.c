@@ -291,7 +291,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 	spa_list_append(&impl->node_list, &node->link);
 	impl->node_list_changed = true;
 
-	if (role && !strcmp(role, "DSP"))
+	if (role && spa_streq(role, "DSP"))
 		node->active = node->configured = true;
 
 	if (strstr(media_class, "Stream/") == media_class) {

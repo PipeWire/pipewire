@@ -31,6 +31,8 @@
 #include <stdbool.h>
 #include <getopt.h>
 
+#include <spa/utils/string.h>
+
 #include <acp/acp.h>
 
 #define WHITESPACE	"\n\r\t "
@@ -277,7 +279,7 @@ static int cmd_list(struct data *data, const struct command *cmd, int argc, char
 	uint32_t i;
 	int level = 0;
 
-	if (!strcmp(cmd->name, "list-verbose"))
+	if (spa_streq(cmd->name, "list-verbose"))
 		level = 2;
 
 	print_card(data, card, 0, level);
@@ -530,8 +532,8 @@ static const struct command *find_command(struct data *data, const char *cmd)
 {
 	size_t i;
 	for (i = 0; i < N_COMMANDS; i++) {
-		if (!strcmp(command_list[i].name, cmd) ||
-		    !strcmp(command_list[i].alias, cmd))
+		if (spa_streq(command_list[i].name, cmd) ||
+		    spa_streq(command_list[i].alias, cmd))
 			return &command_list[i];
 	}
 	return NULL;

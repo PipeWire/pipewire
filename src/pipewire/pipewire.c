@@ -94,7 +94,7 @@ find_plugin(struct registry *registry, const char *filename)
 {
 	struct plugin *p;
 	spa_list_for_each(p, &registry->plugins, link) {
-		if (!strcmp(p->filename, filename))
+		if (spa_streq(p->filename, filename))
 			return p;
 	}
 	return NULL;

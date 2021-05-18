@@ -1052,9 +1052,9 @@ impl_new_client(struct pw_protocol *protocol,
 
 	pw_log_debug(NAME" %p: connect %s", protocol, str);
 
-	if (!strcmp(str, "screencast"))
+	if (spa_streq(str, "screencast"))
 		this->connect = pw_protocol_native_connect_portal_screencast;
-	else if (!strcmp(str, "internal"))
+	else if (spa_streq(str, "internal"))
 		this->connect = pw_protocol_native_connect_internal;
 	else
 		this->connect = pw_protocol_native_connect_local_socket;

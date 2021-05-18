@@ -24,6 +24,8 @@
 
 #include <pipewire/properties.h>
 
+#include <spa/utils/string.h>
+
 static void test_abi(void)
 {
 #if defined(__x86_64__) && defined(__LP64__)
@@ -79,19 +81,19 @@ static void test_set(void)
 
 	spa_assert(pw_properties_set(props, "foo", "bar") == 1);
 	spa_assert(props->dict.n_items == 1);
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
 	spa_assert(pw_properties_set(props, "foo", "bar") == 0);
 	spa_assert(props->dict.n_items == 1);
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
 	spa_assert(pw_properties_set(props, "foo", "fuz") == 1);
 	spa_assert(props->dict.n_items == 1);
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "fuz"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "fuz"));
 	spa_assert(pw_properties_set(props, "bar", "foo") == 1);
 	spa_assert(props->dict.n_items == 2);
-	spa_assert(!strcmp(pw_properties_get(props, "bar"), "foo"));
+	spa_assert(spa_streq(pw_properties_get(props, "bar"), "foo"));
 	spa_assert(pw_properties_set(props, "him", "too") == 1);
 	spa_assert(props->dict.n_items == 3);
-	spa_assert(!strcmp(pw_properties_get(props, "him"), "too"));
+	spa_assert(spa_streq(pw_properties_get(props, "him"), "too"));
 	spa_assert(pw_properties_set(props, "him", NULL) == 1);
 	spa_assert(props->dict.n_items == 2);
 	spa_assert(pw_properties_get(props, "him") == NULL);
@@ -103,9 +105,9 @@ static void test_set(void)
 	spa_assert(pw_properties_set(props, NULL, "invalid") == 0);
 
 	str = pw_properties_iterate(props, &state);
-	spa_assert(str != NULL && (!strcmp(str, "foo") || !strcmp(str, "bar")));
+	spa_assert(str != NULL && (spa_streq(str, "foo") || spa_streq(str, "bar")));
 	str = pw_properties_iterate(props, &state);
-	spa_assert(str != NULL && (!strcmp(str, "foo") || !strcmp(str, "bar")));
+	spa_assert(str != NULL && (spa_streq(str, "foo") || spa_streq(str, "bar")));
 	str = pw_properties_iterate(props, &state);
 	spa_assert(str == NULL);
 
@@ -119,9 +121,9 @@ static void test_set(void)
 	spa_assert(pw_properties_set(props, "him", "too") == 1);
 	spa_assert(props->dict.n_items == 3);
 
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
-	spa_assert(!strcmp(pw_properties_get(props, "bar"), "foo"));
-	spa_assert(!strcmp(pw_properties_get(props, "him"), "too"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(props, "bar"), "foo"));
+	spa_assert(spa_streq(pw_properties_get(props, "him"), "too"));
 
 	pw_properties_clear(props);
 	spa_assert(props->dict.n_items == 0);
@@ -134,19 +136,19 @@ static void test_set(void)
 	copy = pw_properties_copy(props);
 	spa_assert(copy != NULL);
 	spa_assert(copy->dict.n_items == 3);
-	spa_assert(!strcmp(pw_properties_get(copy, "foo"), "bar"));
-	spa_assert(!strcmp(pw_properties_get(copy, "bar"), "foo"));
-	spa_assert(!strcmp(pw_properties_get(copy, "him"), "too"));
+	spa_assert(spa_streq(pw_properties_get(copy, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(copy, "bar"), "foo"));
+	spa_assert(spa_streq(pw_properties_get(copy, "him"), "too"));
 
 	spa_assert(pw_properties_set(copy, "bar", NULL) == 1);
 	spa_assert(pw_properties_set(copy, "foo", NULL) == 1);
 	spa_assert(copy->dict.n_items == 1);
-	spa_assert(!strcmp(pw_properties_get(copy, "him"), "too"));
+	spa_assert(spa_streq(pw_properties_get(copy, "him"), "too"));
 
 	spa_assert(props->dict.n_items == 3);
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
-	spa_assert(!strcmp(pw_properties_get(props, "bar"), "foo"));
-	spa_assert(!strcmp(pw_properties_get(props, "him"), "too"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(props, "bar"), "foo"));
+	spa_assert(spa_streq(pw_properties_get(props, "him"), "too"));
 
 	pw_properties_free(props);
 	pw_properties_free(copy);
@@ -159,7 +161,7 @@ static void test_setf(void)
 	props = pw_properties_new(NULL, NULL);
 	spa_assert(pw_properties_setf(props, "foo", "%d.%08x", 657, 0x89342) == 1);
 	spa_assert(props->dict.n_items == 1);
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "657.00089342"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "657.00089342"));
 
 	spa_assert(pw_properties_setf(props, "", "%f", 189.45f) == 0);
 	spa_assert(pw_properties_setf(props, NULL, "%f", 189.45f) == 0);
@@ -177,9 +179,9 @@ static void test_new(void)
 	spa_assert(props->flags == 0);
 	spa_assert(props->dict.n_items == 3);
 
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
-	spa_assert(!strcmp(pw_properties_get(props, "bar"), "baz"));
-	spa_assert(!strcmp(pw_properties_get(props, "him"), "too"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(props, "bar"), "baz"));
+	spa_assert(spa_streq(pw_properties_get(props, "him"), "too"));
 
 	pw_properties_free(props);
 }
@@ -200,9 +202,9 @@ static void test_new_dict(void)
 	spa_assert(props->flags == 0);
 	spa_assert(props->dict.n_items == 3);
 
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
-	spa_assert(!strcmp(pw_properties_get(props, "bar"), "baz"));
-	spa_assert(!strcmp(pw_properties_get(props, "him"), "too"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(props, "bar"), "baz"));
+	spa_assert(spa_streq(pw_properties_get(props, "him"), "too"));
 
 	pw_properties_free(props);
 }
@@ -216,10 +218,10 @@ static void test_new_string(void)
 	spa_assert(props->flags == 0);
 	spa_assert(props->dict.n_items == 4);
 
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
-	spa_assert(!strcmp(pw_properties_get(props, "bar"), "baz"));
-	spa_assert(!strcmp(pw_properties_get(props, "him"), "too"));
-	spa_assert(!strcmp(pw_properties_get(props, "empty"), ""));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(props, "bar"), "baz"));
+	spa_assert(spa_streq(pw_properties_get(props, "him"), "too"));
+	spa_assert(spa_streq(pw_properties_get(props, "empty"), ""));
 
 	pw_properties_free(props);
 
@@ -228,8 +230,8 @@ static void test_new_string(void)
 	spa_assert(props->flags == 0);
 	spa_assert(props->dict.n_items == 2);
 
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
-	spa_assert(!strcmp(pw_properties_get(props, "bar"), "baz"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(props, "bar"), "baz"));
 
 	pw_properties_free(props);
 
@@ -238,8 +240,8 @@ static void test_new_string(void)
 	spa_assert(props->flags == 0);
 	spa_assert(props->dict.n_items == 2);
 
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
-	spa_assert(!strcmp(pw_properties_get(props, "bar"), "baz"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(props, "bar"), "baz"));
 
 	pw_properties_free(props);
 }
@@ -262,32 +264,32 @@ static void test_update(void)
 	spa_assert(pw_properties_update(props, &SPA_DICT_INIT_ARRAY(items)) == 3);
 	spa_assert(props->dict.n_items == 3);
 
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
-	spa_assert(!strcmp(pw_properties_get(props, "bar"), "baz"));
-	spa_assert(!strcmp(pw_properties_get(props, "him"), "too"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(props, "bar"), "baz"));
+	spa_assert(spa_streq(pw_properties_get(props, "him"), "too"));
 
 	items[0] = SPA_DICT_ITEM_INIT("foo", "bar");
 	items[1] = SPA_DICT_ITEM_INIT("bar", "baz");
 	spa_assert(pw_properties_update(props, &SPA_DICT_INIT(items, 2)) == 0);
 	spa_assert(props->dict.n_items == 3);
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
-	spa_assert(!strcmp(pw_properties_get(props, "bar"), "baz"));
-	spa_assert(!strcmp(pw_properties_get(props, "him"), "too"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(props, "bar"), "baz"));
+	spa_assert(spa_streq(pw_properties_get(props, "him"), "too"));
 
 	items[0] = SPA_DICT_ITEM_INIT("bar", "bear");
 	items[1] = SPA_DICT_ITEM_INIT("him", "too");
 	spa_assert(pw_properties_update(props, &SPA_DICT_INIT(items, 2)) == 1);
 	spa_assert(props->dict.n_items == 3);
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
-	spa_assert(!strcmp(pw_properties_get(props, "bar"), "bear"));
-	spa_assert(!strcmp(pw_properties_get(props, "him"), "too"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(props, "bar"), "bear"));
+	spa_assert(spa_streq(pw_properties_get(props, "him"), "too"));
 
 	items[0] = SPA_DICT_ITEM_INIT("bar", "bear");
 	items[1] = SPA_DICT_ITEM_INIT("him", NULL);
 	spa_assert(pw_properties_update(props, &SPA_DICT_INIT(items, 2)) == 1);
 	spa_assert(props->dict.n_items == 2);
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar"));
-	spa_assert(!strcmp(pw_properties_get(props, "bar"), "bear"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
+	spa_assert(spa_streq(pw_properties_get(props, "bar"), "bear"));
 	spa_assert(pw_properties_get(props, "him") == NULL);
 
 	items[0] = SPA_DICT_ITEM_INIT("foo", NULL);
@@ -296,8 +298,8 @@ static void test_update(void)
 	spa_assert(pw_properties_update(props, &SPA_DICT_INIT(items, 3)) == 3);
 	spa_assert(props->dict.n_items == 2);
 	spa_assert(pw_properties_get(props, "foo") == NULL);
-	spa_assert(!strcmp(pw_properties_get(props, "bar"), "beer"));
-	spa_assert(!strcmp(pw_properties_get(props, "him"), "her"));
+	spa_assert(spa_streq(pw_properties_get(props, "bar"), "beer"));
+	spa_assert(spa_streq(pw_properties_get(props, "him"), "her"));
 
 	pw_properties_free(props);
 }
@@ -339,10 +341,10 @@ static void test_new_json(void)
 	spa_assert(props->flags == 0);
 	spa_assert(props->dict.n_items == 3);
 
-	spa_assert(!strcmp(pw_properties_get(props, "foo"), "bar\n\t"));
-	spa_assert(!strcmp(pw_properties_get(props, "bar"), "1.8"));
+	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar\n\t"));
+	spa_assert(spa_streq(pw_properties_get(props, "bar"), "1.8"));
 	fprintf(stderr, "'%s'\n", pw_properties_get(props, "empty"));
-	spa_assert(!strcmp(pw_properties_get(props, "empty"), "[ \"foo\", \"bar\" ]"));
+	spa_assert(spa_streq(pw_properties_get(props, "empty"), "[ \"foo\", \"bar\" ]"));
 
 	pw_properties_free(props);
 }

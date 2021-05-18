@@ -26,6 +26,8 @@
 
 #include <pipewire/utils.h>
 
+#include <spa/utils/string.h>
+
 static void test_destroy(void *object)
 {
 	spa_assert_not_reached();
@@ -59,17 +61,17 @@ static void test_split(void)
 	res = pw_split_strv(test1, del, INT_MAX, &n_tokens);
 	spa_assert(res != NULL);
 	spa_assert(n_tokens == 3);
-	spa_assert(!strcmp(res[0], "a"));
-	spa_assert(!strcmp(res[1], "test"));
-	spa_assert(!strcmp(res[2], "string"));
+	spa_assert(spa_streq(res[0], "a"));
+	spa_assert(spa_streq(res[1], "test"));
+	spa_assert(spa_streq(res[2], "string"));
 	spa_assert(res[3] == NULL);
 	pw_free_strv(res);
 
 	res = pw_split_strv(test1, del, 2, &n_tokens);
 	spa_assert(res != NULL);
 	spa_assert(n_tokens == 2);
-	spa_assert(!strcmp(res[0], "a"));
-	spa_assert(!strcmp(res[1], "test string  \n \r "));
+	spa_assert(spa_streq(res[0], "a"));
+	spa_assert(spa_streq(res[1], "test string  \n \r "));
 	spa_assert(res[2] == NULL);
 	pw_free_strv(res);
 }
@@ -79,9 +81,9 @@ static void test_strip(void)
 	char test1[] = " \n\r \n a test string  \n \r ";
 	char test2[] = " \n\r \n   \n \r ";
 	char test3[] = "a test string";
-	spa_assert(!strcmp(pw_strip(test1, "\n\r "), "a test string"));
-	spa_assert(!strcmp(pw_strip(test2, "\n\r "), ""));
-	spa_assert(!strcmp(pw_strip(test3, "\n\r "), "a test string"));
+	spa_assert(spa_streq(pw_strip(test1, "\n\r "), "a test string"));
+	spa_assert(spa_streq(pw_strip(test2, "\n\r "), ""));
+	spa_assert(spa_streq(pw_strip(test3, "\n\r "), "a test string"));
 }
 
 int main(int argc, char *argv[])

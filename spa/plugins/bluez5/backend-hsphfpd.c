@@ -199,6 +199,11 @@ static bool hsphfpd_cmp_transport_path(struct spa_bt_transport *t, const void *d
 	return false;
 }
 
+static inline bool check_signature(DBusMessage *m, const char sig[])
+{
+	return strcmp(dbus_message_get_signature(m), sig) == 0;
+}
+
 static int set_dbus_property(struct impl *backend,
                              const char *service,
                              const char *path,
@@ -458,7 +463,7 @@ static DBusHandlerResult audio_agent_get_property(DBusConnection *conn, DBusMess
 	const char *agent_codec;
 	DBusMessage *r = NULL;
 
-	if (strcmp(dbus_message_get_signature(m), "ss") != 0) {
+	if (!check_signature(m, "ss")) {
 		r = dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS, "Invalid signature in method call");
 		goto fail;
 	}
@@ -509,7 +514,7 @@ static DBusHandlerResult audio_agent_getall_properties(DBusConnection *conn, DBu
 	const char *agent_codec;
 	DBusMessage *r = NULL;
 
-	if (strcmp(dbus_message_get_signature(m), "s") != 0) {
+	if (!check_signature(m, "s")) {
 		r = dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS, "Invalid signature in method call");
 		goto fail;
 	}
@@ -572,7 +577,7 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	struct hsphfpd_transport_data *transport_data;
 	DBusMessage *r = NULL;
 
-	if (strcmp(dbus_message_get_signature(m), "oha{sv}") != 0) {
+	if (!check_signature(m, "oha{sv}")) {
 		r = dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS, "Invalid signature in method call");
 		goto fail;
 	}
@@ -871,7 +876,7 @@ static void hsphfpd_audio_acquire_reply(DBusPendingCall *pending, void *user_dat
 		goto finish;
 	}
 
-	if (strcmp(dbus_message_get_signature(r), "oso") != 0) {
+	if (!check_signature(r, "oso")) {
 		spa_log_error(backend->log, NAME": Invalid reply signature for " HSPHFPD_ENDPOINT_INTERFACE ".ConnectAudio()");
 		goto finish;
 	}
@@ -1199,7 +1204,7 @@ static void hsphfpd_get_endpoints_reply(DBusPendingCall *pending, void *user_dat
 		goto finish;
 	}
 
-	if (!dbus_message_iter_init(r, &i) || strcmp(dbus_message_get_signature(r), "a{oa{sa{sv}}}") != 0) {
+	if (!dbus_message_iter_init(r, &i) || !check_signature(r, "a{oa{sa{sv}}}")) {
 		spa_log_error(backend->log, NAME": Invalid arguments in GetManagedObjects() reply");
 		goto finish;
 	}
@@ -1319,7 +1324,7 @@ static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, 
 			if (!backend->endpoints_listed)
 				goto finish;
 
-			if (!dbus_message_iter_init(m, &arg_i) || strcmp(dbus_message_get_signature(m), "oa{sa{sv}}") != 0) {
+			if (!dbus_message_iter_init(m, &arg_i) || !check_signature(m, "oa{sa{sv}}")) {
 					spa_log_error(backend->log, NAME": Invalid signature found in InterfacesAdded");
 					goto finish;
 			}
@@ -1332,7 +1337,7 @@ static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, 
 			if (!backend->endpoints_listed)
 				goto finish;
 
-			if (!dbus_message_iter_init(m, &arg_i) || strcmp(dbus_message_get_signature(m), "oas") != 0) {
+			if (!dbus_message_iter_init(m, &arg_i) || !check_signature(m, "oas")) {
 					spa_log_error(backend->log, NAME": Invalid signature found in InterfacesRemoved");
 					goto finish;
 			}
@@ -1369,7 +1374,7 @@ static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, 
 			if (!backend->endpoints_listed)
 				goto finish;
 
-			if (!dbus_message_iter_init(m, &arg_i) || strcmp(dbus_message_get_signature(m), "sa{sv}as") != 0) {
+			if (!dbus_message_iter_init(m, &arg_i) || !check_signature(m, "sa{sv}as")) {
 					spa_log_error(backend->log, NAME": Invalid signature found in PropertiesChanged");
 					goto finish;
 			}

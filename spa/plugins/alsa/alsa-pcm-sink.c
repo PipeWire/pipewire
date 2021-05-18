@@ -808,11 +808,11 @@ impl_init(const struct spa_handle_factory *factory,
 		} else if (spa_streq(k, "api.alsa.start-delay")) {
 			this->default_start_delay = atoi(s);
 		} else if (spa_streq(k, "api.alsa.disable-mmap")) {
-			this->disable_mmap = (spa_streq(s, "true") || atoi(s) == 1);
+			this->disable_mmap = spa_atob(s);
 		} else if (spa_streq(k, "api.alsa.disable-batch")) {
-			this->disable_batch = (spa_streq(s, "true") || atoi(s) == 1);
+			this->disable_batch = spa_atob(s);
 		} else if (spa_streq(k, "api.alsa.use-chmap")) {
-			this->props.use_chmap = (spa_streq(s, "true") || atoi(s) == 1);
+			this->props.use_chmap = spa_atob(s);
 		}
 	}
 	return 0;

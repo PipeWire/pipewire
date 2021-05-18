@@ -3876,7 +3876,7 @@ impl_init(const struct spa_handle_factory *factory,
 		uint32_t tmp;
 
 		if ((str = spa_dict_lookup(info, "api.bluez5.connection-info")) != NULL &&
-		    (spa_streq(str, "true") || atoi(str)))
+		    spa_atob(str))
 			this->connection_info_supported = true;
 
 		if ((str = spa_dict_lookup(info, "bluez5.default.rate")) != NULL &&
@@ -3888,7 +3888,7 @@ impl_init(const struct spa_handle_factory *factory,
 			this->default_audio_info.channels = tmp;
 
 		if ((str = spa_dict_lookup(info, "bluez5.sbc-xq-support")) != NULL &&
-		    (spa_streq(str, "true") || atoi(str)))
+		    spa_atob(str))
 			this->enable_sbc_xq = true;
 	}
 

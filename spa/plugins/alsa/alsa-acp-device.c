@@ -959,9 +959,9 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, SPA_KEY_API_ALSA_PATH)) != NULL)
 			snprintf(this->props.device, sizeof(this->props.device), "%s", str);
 		if ((str = spa_dict_lookup(info, "api.acp.auto-port")) != NULL)
-			this->props.auto_port = spa_streq(str, "true") || atoi(str) != 0;
+			this->props.auto_port = spa_atob(str);
 		if ((str = spa_dict_lookup(info, "api.acp.auto-profile")) != NULL)
-			this->props.auto_profile = spa_streq(str, "true") || atoi(str) != 0;
+			this->props.auto_profile = spa_atob(str);
 
 		items = alloca((info->n_items) * sizeof(*items));
 		spa_dict_for_each(it, info)

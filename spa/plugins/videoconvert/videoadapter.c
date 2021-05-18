@@ -337,7 +337,7 @@ static void follower_info(void *data, const struct spa_node_info *info)
 
 	if (info->props) {
 		if ((str = spa_dict_lookup(info->props, SPA_KEY_NODE_DRIVER)) != NULL)
-			this->driver = spa_streq(str, "true") || atoi(str) == 1;
+			this->driver = spa_atob(str);
 	}
 }
 

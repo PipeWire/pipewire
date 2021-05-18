@@ -1480,19 +1480,19 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 
 	if (props) {
 		if ((s = acp_dict_lookup(props, "api.alsa.use-ucm")) != NULL)
-			impl->use_ucm = (spa_streq(s, "true") || atoi(s) == 1);
+			impl->use_ucm = spa_atob(s);
 		if ((s = acp_dict_lookup(props, "api.alsa.soft-mixer")) != NULL)
-			impl->soft_mixer = (spa_streq(s, "true") || atoi(s) == 1);
+			impl->soft_mixer = spa_atob(s);
 		if ((s = acp_dict_lookup(props, "api.alsa.ignore-dB")) != NULL)
-			ignore_dB = (spa_streq(s, "true") || atoi(s) == 1);
+			ignore_dB = spa_atob(s);
 		if ((s = acp_dict_lookup(props, "device.profile-set")) != NULL)
 			profile_set = s;
 		if ((s = acp_dict_lookup(props, "device.profile")) != NULL)
 			profile = s;
 		if ((s = acp_dict_lookup(props, "api.acp.auto-profile")) != NULL)
-			impl->auto_profile = (spa_streq(s, "true") || atoi(s) == 1);
+			impl->auto_profile = spa_atob(s);
 		if ((s = acp_dict_lookup(props, "api.acp.auto-port")) != NULL)
-			impl->auto_port = (spa_streq(s, "true") || atoi(s) == 1);
+			impl->auto_port = spa_atob(s);
 	}
 
 	impl->ucm.default_sample_spec.format = PA_SAMPLE_S16NE;

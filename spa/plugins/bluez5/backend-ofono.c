@@ -789,7 +789,7 @@ struct spa_bt_backend *backend_ofono_new(struct spa_bt_monitor *monitor,
 	backend->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	backend->conn = dbus_connection;
 	if (info && (str = spa_dict_lookup(info, "bluez5.msbc-support")))
-		backend->msbc_supported = spa_streq(str, "true") || atoi(str) == 1;
+		backend->msbc_supported = spa_atob(str);
 	else
 		backend->msbc_supported = false;
 

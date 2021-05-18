@@ -360,7 +360,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (info) {
 		if ((str = spa_dict_lookup(info, "node.freewheel")) != NULL)
-			this->props.freewheel = (spa_streq(str, "true") || atoi(str) == 1);
+			this->props.freewheel = spa_atob(str);
 	}
 
 	spa_loop_add_source(this->data_loop, &this->timer_source);

@@ -1007,7 +1007,7 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, "resample.quality")) != NULL)
 			this->props.quality = atoi(str);
 		if ((str = spa_dict_lookup(info, "resample.peaks")) != NULL)
-			this->peaks = spa_streq(str, "true") || atoi(str) == 1;
+			this->peaks = spa_atob(str);
 		if ((str = spa_dict_lookup(info, "factory.mode")) != NULL) {
 			if (spa_streq(str, "split"))
 				this->mode = MODE_SPLIT;

@@ -768,7 +768,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (info) {
 		if ((str = spa_dict_lookup(info, "alsa.use-acp")) != NULL)
-			this->use_acp = spa_streq(str, "true") || atoi(str) != 0;
+			this->use_acp = spa_atob(str);
 	}
 
 	return 0;

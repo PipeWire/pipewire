@@ -82,6 +82,17 @@ static inline bool spa_atoi32(const char *str, int32_t *val, int base)
 	return true;
 }
 
+/**
+ * Convert \a str to a boolean. Allowed boolean values are "true" and a
+ * literal "1", anything else is false.
+ *
+ * \return true on success, false otherwise
+ */
+static inline bool spa_atob(const char *str)
+{
+	return spa_streq(str, "true") || spa_streq(str, "1");
+}
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

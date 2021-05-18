@@ -1385,7 +1385,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->monitor_channel_volumes = false;
 	if (info) {
 		if ((str = spa_dict_lookup(info, "monitor.channel-volumes")) != NULL)
-			this->monitor_channel_volumes = spa_streq(str, "true") || atoi(str) == 1;
+			this->monitor_channel_volumes = spa_atob(str);
 	}
 
 	this->node.iface = SPA_INTERFACE_INIT(

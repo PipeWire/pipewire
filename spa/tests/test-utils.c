@@ -493,6 +493,22 @@ static void test_streq(void)
 	spa_assert(!spa_strneq(NULL, "abc", 7));
 }
 
+static void test_atob(void)
+{
+	spa_assert(spa_atob("true"));
+	spa_assert(spa_atob("1"));
+	spa_assert(!spa_atob("0"));
+	spa_assert(!spa_atob("-1"));
+	spa_assert(!spa_atob("10"));
+	spa_assert(!spa_atob("11"));
+	spa_assert(!spa_atob("t"));
+	spa_assert(!spa_atob("yes"));
+	spa_assert(!spa_atob("no"));
+	spa_assert(!spa_atob(NULL));
+	spa_assert(!spa_atob("True")); /* lower-case required */
+	spa_assert(!spa_atob("TRUE"));
+}
+
 int main(int argc, char *argv[])
 {
     test_abi();
@@ -504,5 +520,6 @@ int main(int argc, char *argv[])
     test_ringbuffer();
     test_strtol();
     test_streq();
+    test_atob();
     return 0;
 }

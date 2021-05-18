@@ -525,8 +525,7 @@ void pw_init(int *argc, char **argv[])
 			pw_log_set(log);
 
 #ifdef HAVE_SYSTEMD
-		if ((str = getenv("PIPEWIRE_LOG_SYSTEMD")) == NULL ||
-				spa_streq(str, "true") || atoi(str) != 0) {
+		if ((str = getenv("PIPEWIRE_LOG_SYSTEMD")) == NULL || spa_atob(str)) {
 			log = load_journal_logger(support);
 			if (log)
 				pw_log_set(log);

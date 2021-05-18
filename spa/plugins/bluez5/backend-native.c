@@ -1478,7 +1478,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	spa_list_append(&backend->rfcomm_list, &rfcomm->link);
 
 	if (d->settings && (str = spa_dict_lookup(d->settings, "bluez5.msbc-support")))
-		rfcomm->msbc_support_enabled_in_config = spa_streq(str, "true") || atoi(str) == 1;
+		rfcomm->msbc_support_enabled_in_config = spa_atob(str);
 	else
 		rfcomm->msbc_support_enabled_in_config = false;
 

@@ -1392,14 +1392,11 @@ impl_init(const struct spa_handle_factory *factory,
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
-		if (spa_streq(k, "channelmix.normalize") &&
-		    (spa_streq(s, "true") || atoi(s) != 0))
+		if (spa_streq(k, "channelmix.normalize") && spa_atob(s))
 			this->mix.options |= CHANNELMIX_OPTION_NORMALIZE;
-		if (spa_streq(k, "channelmix.mix-lfe") &&
-		    (spa_streq(s, "true") || atoi(s) != 0))
+		if (spa_streq(k, "channelmix.mix-lfe") && spa_atob(s))
 			this->mix.options |= CHANNELMIX_OPTION_MIX_LFE;
-		if (spa_streq(k, "channelmix.upmix") &&
-		    (spa_streq(s, "true") || atoi(s) != 0))
+		if (spa_streq(k, "channelmix.upmix") && spa_atob(s))
 			this->mix.options |= CHANNELMIX_OPTION_UPMIX;
 		if (spa_streq(k, "channelmix.lfe-cutoff"))
 			this->mix.lfe_cutoff = atoi(s);

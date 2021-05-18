@@ -266,11 +266,11 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	if (info) {
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_TIMESTAMP)) != NULL)
-			this->timestamp = (spa_streq(str, "true") || atoi(str) == 1);
+			this->timestamp = spa_atob(str);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_LINE)) != NULL)
-			this->line = (spa_streq(str, "true") || atoi(str) == 1);
+			this->line = spa_atob(str);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_COLORS)) != NULL)
-			this->colors = (spa_streq(str, "true") || atoi(str) == 1);
+			this->colors = spa_atob(str);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_LEVEL)) != NULL)
 			this->log.level = atoi(str);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_FILE)) != NULL) {

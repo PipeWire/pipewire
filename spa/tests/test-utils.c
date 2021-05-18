@@ -477,6 +477,22 @@ static void test_strtol(void)
 	spa_assert(!spa_atoi32(NULL, &v, 16) && v == 0xabcd);
 }
 
+static void test_streq(void)
+{
+	spa_assert(spa_streq(NULL, NULL));
+	spa_assert(spa_streq("", ""));
+	spa_assert(spa_streq("a", "a"));
+	spa_assert(spa_streq("abc", "abc"));
+	spa_assert(!spa_streq(NULL, "abc"));
+	spa_assert(!spa_streq("abc", NULL));
+
+	spa_assert(spa_strneq("abc", "aaa", 1));
+	spa_assert(spa_strneq("abc", "abc", 7));
+	spa_assert(!spa_strneq("abc", "aaa", 2));
+	spa_assert(!spa_strneq("abc", NULL, 7));
+	spa_assert(!spa_strneq(NULL, "abc", 7));
+}
+
 int main(int argc, char *argv[])
 {
     test_abi();
@@ -487,5 +503,6 @@ int main(int argc, char *argv[])
     test_hook();
     test_ringbuffer();
     test_strtol();
+    test_streq();
     return 0;
 }

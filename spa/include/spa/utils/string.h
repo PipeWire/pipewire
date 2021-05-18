@@ -32,6 +32,28 @@ extern "C" {
 #include <stdbool.h>
 #include <errno.h>
 
+#include <spa/utils/defs.h>
+
+/**
+ * \return true if the two strings are equal, false otherwise
+ *
+ * If both \a a and \a b are NULL, the two are considered equal.
+ */
+static inline bool spa_streq(const char *s1, const char *s2)
+{
+	return SPA_LIKELY(s1 && s2) ? strcmp(s1, s2) == 0 : s1 == s2;
+}
+
+/**
+ * \return true if the two strings are equal, false otherwise
+ *
+ * If both \a a and \a b are NULL, the two are considered equal.
+ */
+static inline bool spa_strneq(const char *s1, const char *s2, size_t len)
+{
+	return SPA_LIKELY(s1 && s2) ? strncmp(s1, s2, len) == 0 : s1 == s2;
+}
+
 /**
  * Convert \a str to an int32_t with the given \a base and store the
  * result in \a val.

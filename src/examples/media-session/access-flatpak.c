@@ -73,7 +73,7 @@ static void object_update(void *data)
 
 		if (client->obj->info == NULL || client->obj->info->props == NULL ||
 		    (str = spa_dict_lookup(client->obj->info->props, PW_KEY_ACCESS)) == NULL ||
-		    strcmp(str, "flatpak") != 0)
+		    !spa_streq(str, "flatpak"))
 			return;
 
 		if ((str = spa_dict_lookup(client->obj->info->props, PW_KEY_MEDIA_CATEGORY)) != NULL &&

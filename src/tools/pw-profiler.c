@@ -475,7 +475,7 @@ static void registry_event_global(void *data, uint32_t id,
 	struct data *d = data;
 	struct pw_proxy *proxy;
 
-	if (strcmp(type, PW_TYPE_INTERFACE_Profiler) != 0)
+	if (!spa_streq(type, PW_TYPE_INTERFACE_Profiler))
 		return;
 
 	if (d->profiler != NULL) {

@@ -387,7 +387,7 @@ static void session_create(void *data, struct sm_object *object)
 	struct device *dev;
 	const char *name;
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Device) != 0 ||
+	if (!spa_streq(object->type, PW_TYPE_INTERFACE_Device) ||
 	    object->props == NULL ||
 	    (name = pw_properties_get(object->props, PW_KEY_DEVICE_NAME)) == NULL)
 		return;
@@ -421,7 +421,7 @@ static void session_remove(void *data, struct sm_object *object)
 	struct impl *impl = data;
 	struct device *dev;
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Device) != 0)
+	if (!spa_streq(object->type, PW_TYPE_INTERFACE_Device))
 		return;
 
 	pw_log_debug(NAME " %p: remove device '%d'", impl, object->id);

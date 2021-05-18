@@ -350,7 +350,7 @@ static struct object *find_device(struct manager *m, uint32_t card_id, uint32_t 
 		struct pw_node_info *info;
 		const char *str;
 
-		if (strcmp(o->this.type, PW_TYPE_INTERFACE_Node) != 0)
+		if (!spa_streq(o->this.type, PW_TYPE_INTERFACE_Node))
 			continue;
 
 		if ((info = o->this.info) != NULL &&

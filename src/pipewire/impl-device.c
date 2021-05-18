@@ -130,7 +130,7 @@ static void check_properties(struct pw_impl_device *device)
 	const char *str;
 
 	if ((str = pw_properties_get(device->properties, PW_KEY_DEVICE_NAME)) &&
-	    (device->name == NULL || strcmp(str, device->name) != 0)) {
+	    (device->name == NULL || !spa_streq(str, device->name))) {
 		free(device->name);
 		device->name = strdup(str);
 		pw_log_debug(NAME" %p: name '%s'", device, device->name);

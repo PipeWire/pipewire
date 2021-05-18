@@ -30,6 +30,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/node/utils.h>
 #include <spa/utils/names.h>
+#include <spa/utils/string.h>
 #include <spa/debug/types.h>
 #include <spa/pod/filter.h>
 
@@ -923,7 +924,7 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 
 	if ((str = pw_properties_get(port->properties, PW_KEY_PORT_NAME)) == NULL) {
 		if ((str = pw_properties_get(port->properties, PW_KEY_AUDIO_CHANNEL)) != NULL &&
-		    strcmp(str, "UNK") != 0) {
+		    !spa_streq(str, "UNK")) {
 			pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s_%s", dir, str);
 		}
 		else {

@@ -1735,7 +1735,7 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 		*error = spa_aprintf("%s: unknown global %d", cmd, id);
 		return false;
 	}
-	if (strcmp(global->type, PW_TYPE_INTERFACE_Client) != 0) {
+	if (!spa_streq(global->type, PW_TYPE_INTERFACE_Client)) {
 		*error = spa_aprintf("object %d is not a client", atoi(a[0]));
 		return false;
 	}
@@ -1775,7 +1775,7 @@ static bool do_get_permissions(struct data *data, const char *cmd, char *args, c
 		*error = spa_aprintf("%s: unknown global %d", cmd, id);
 		return false;
 	}
-	if (strcmp(global->type, PW_TYPE_INTERFACE_Client) != 0) {
+	if (!spa_streq(global->type, PW_TYPE_INTERFACE_Client)) {
 		*error = spa_aprintf("object %d is not a client", atoi(a[0]));
 		return false;
 	}

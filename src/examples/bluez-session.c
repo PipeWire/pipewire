@@ -35,6 +35,7 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/dict.h>
@@ -116,7 +117,7 @@ static struct node *create_node(struct object *obj, uint32_t id,
 
 	pw_log_debug("new node %u", id);
 
-	if (strcmp(info->type, SPA_TYPE_INTERFACE_Node) != 0)
+	if (!spa_streq(info->type, SPA_TYPE_INTERFACE_Node))
 		return NULL;
 
 	handle = pw_context_load_spa_handle(context,
@@ -225,7 +226,7 @@ static struct object *create_object(struct impl *impl, uint32_t id,
 
 	pw_log_debug("new object %u", id);
 
-	if (strcmp(info->type, SPA_TYPE_INTERFACE_Device) != 0)
+	if (!spa_streq(info->type, SPA_TYPE_INTERFACE_Device))
 		return NULL;
 
 	handle = pw_context_load_spa_handle(context,

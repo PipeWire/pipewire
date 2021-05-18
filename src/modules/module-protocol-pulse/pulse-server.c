@@ -3355,7 +3355,7 @@ static int do_set_port_latency_offset(struct client *client, uint32_t command, u
 		struct port_info *pi = &port_info[i];
 		size_t j;
 
-		if (strcmp(pi->name, port_name) != 0)
+		if (!spa_streq(pi->name, port_name))
 			continue;
 
 		res = 0;

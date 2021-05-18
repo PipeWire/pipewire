@@ -242,8 +242,8 @@ static int do_extension_stream_restore_write(struct client *client, uint32_t com
 			fprintf(f, " ]");
 		}
 		if (device_name != NULL && device_name[0] &&
-		    (client->default_source == NULL || strcmp(device_name, client->default_source) != 0) &&
-		    (client->default_sink == NULL || strcmp(device_name, client->default_sink) != 0))
+		    (client->default_source == NULL || !spa_streq(device_name, client->default_source)) &&
+		    (client->default_sink == NULL || !spa_streq(device_name, client->default_sink)))
 			fprintf(f, ", \"target-node\": \"%s\"", device_name);
 		fprintf(f, " }");
 		fclose(f);

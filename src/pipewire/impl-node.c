@@ -825,7 +825,7 @@ static void check_properties(struct pw_impl_node *node)
 	}
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_NAME)) &&
-	    (node->name == NULL || strcmp(node->name, str) != 0)) {
+	    (node->name == NULL || !spa_streq(node->name, str))) {
 		free(node->name);
 		node->name = strdup(str);
 		pw_log_debug(NAME" %p: name '%s'", node, node->name);
@@ -862,7 +862,7 @@ static void check_properties(struct pw_impl_node *node)
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_GROUP)) == NULL)
 		str = "";
 
-	if (strcmp(str, node->group) != 0) {
+	if (!spa_streq(str, node->group)) {
 		pw_log_info(NAME" %p: group '%s'->'%s'", node, node->group, str);
 		snprintf(node->group, sizeof(node->group), "%s", str);
 		node->freewheel = spa_streq(node->group, "pipewire.freewheel");

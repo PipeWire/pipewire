@@ -196,7 +196,7 @@ static struct node *bluez5_create_node(struct device *device, uint32_t id,
 
 	pw_log_debug("new node %u", id);
 
-	if (strcmp(info->type, SPA_TYPE_INTERFACE_Node) != 0) {
+	if (!spa_streq(info->type, SPA_TYPE_INTERFACE_Node)) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -472,7 +472,7 @@ static struct device *bluez5_create_device(struct impl *impl, uint32_t id,
 
 	pw_log_debug("new device %u", id);
 
-	if (strcmp(info->type, SPA_TYPE_INTERFACE_Device) != 0) {
+	if (!spa_streq(info->type, SPA_TYPE_INTERFACE_Device)) {
 		errno = EINVAL;
 		return NULL;
 	}

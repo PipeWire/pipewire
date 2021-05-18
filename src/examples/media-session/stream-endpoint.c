@@ -209,7 +209,7 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 			goto exit;
 		}
 		obj = sm_media_session_find_object(impl->session, atoi(str));
-		if (obj == NULL || strcmp(obj->type, PW_TYPE_INTERFACE_Endpoint) != 0) {
+		if (obj == NULL || !spa_streq(obj->type, PW_TYPE_INTERFACE_Endpoint)) {
 			pw_log_warn(NAME" %p: could not find endpoint %s (%p)", impl, str, obj);
 			res = -EINVAL;
 			goto exit;

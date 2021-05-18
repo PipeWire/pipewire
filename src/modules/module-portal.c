@@ -213,7 +213,7 @@ static DBusHandlerResult name_owner_changed_handler(DBusConnection *connection,
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
-	if (strcmp(name, "org.freedesktop.portal.Desktop") != 0)
+	if (!spa_streq(name, "org.freedesktop.portal.Desktop"))
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
 	if (spa_streq(new_owner, "")) {

@@ -133,7 +133,7 @@ static struct node *v4l2_create_node(struct device *dev, uint32_t id,
 
 	pw_log_debug("new node %u", id);
 
-	if (strcmp(info->type, SPA_TYPE_INTERFACE_Node) != 0) {
+	if (!spa_streq(info->type, SPA_TYPE_INTERFACE_Node)) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -417,7 +417,7 @@ static struct device *v4l2_create_device(struct impl *impl, uint32_t id,
 
 	pw_log_debug("new device %u", id);
 
-	if (strcmp(info->type, SPA_TYPE_INTERFACE_Device) != 0) {
+	if (!spa_streq(info->type, SPA_TYPE_INTERFACE_Device)) {
 		errno = EINVAL;
 		return NULL;
 	}

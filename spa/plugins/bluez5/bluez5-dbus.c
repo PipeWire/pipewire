@@ -3281,7 +3281,7 @@ static void get_managed_objects_reply(DBusPendingCall *pending, void *user_data)
 	}
 
 	if (!dbus_message_iter_init(r, &it[0]) ||
-	    strcmp(dbus_message_get_signature(r), "a{oa{sa{sv}}}") != 0) {
+	    !spa_streq(dbus_message_get_signature(r), "a{oa{sa{sv}}}")) {
 		spa_log_error(monitor->log, "Invalid reply signature for GetManagedObjects()");
 		goto finish;
 	}
@@ -3427,7 +3427,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 		if (!monitor->objects_listed)
 			goto finish;
 
-		if (!dbus_message_iter_init(m, &it) || strcmp(dbus_message_get_signature(m), "oa{sa{sv}}") != 0) {
+		if (!dbus_message_iter_init(m, &it) || !spa_streq(dbus_message_get_signature(m), "oa{sa{sv}}")) {
 			spa_log_error(monitor->log, NAME": Invalid signature found in InterfacesAdded");
 			goto finish;
 		}
@@ -3441,7 +3441,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 		if (!monitor->objects_listed)
 			goto finish;
 
-		if (!dbus_message_iter_init(m, &it) || strcmp(dbus_message_get_signature(m), "oas") != 0) {
+		if (!dbus_message_iter_init(m, &it) || !spa_streq(dbus_message_get_signature(m), "oas")) {
 			spa_log_error(monitor->log, NAME": Invalid signature found in InterfacesRemoved");
 			goto finish;
 		}
@@ -3455,7 +3455,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 			goto finish;
 
 		if (!dbus_message_iter_init(m, &it[0]) ||
-		    strcmp(dbus_message_get_signature(m), "sa{sv}as") != 0) {
+		    !spa_streq(dbus_message_get_signature(m), "sa{sv}as")) {
 			spa_log_error(monitor->log, "Invalid signature found in PropertiesChanged");
 			goto finish;
 		}
@@ -3779,7 +3779,7 @@ static int parse_codec_array(struct spa_bt_monitor *this, const struct spa_dict 
 		for (i = 0; a2dp_codecs[i]; ++i) {
 			const struct a2dp_codec *codec = a2dp_codecs[i];
 
-			if (strcmp(codec->name, codec_name) != 0)
+			if (!spa_streq(codec->name, codec_name))
 				continue;
 
 			if (spa_dict_lookup_item(&this->enabled_codecs, codec->name) != NULL)

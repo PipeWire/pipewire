@@ -278,7 +278,7 @@ static int find_endpoint(void *data, struct endpoint *endpoint)
 		pw_log_debug(".. same direction");
 		return 0;
 	}
-	if (strcmp(endpoint->media, find->ep->media) != 0) {
+	if (!spa_streq(endpoint->media, find->ep->media)) {
 		pw_log_debug(".. incompatible media %s <-> %s", endpoint->media, find->ep->media);
 		return 0;
 	}

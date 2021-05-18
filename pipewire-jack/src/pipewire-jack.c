@@ -2213,7 +2213,7 @@ static void registry_event_global(void *data, uint32_t id,
 		if (str == NULL)
 			str = "node";
 
-		if (app && strcmp(app, str) != 0)
+		if (app && !spa_streq(app, str))
 			snprintf(tmp, sizeof(tmp), "%s/%s", app, str);
 		else
 			snprintf(tmp, sizeof(tmp), "%s", str);
@@ -2702,7 +2702,7 @@ jack_client_t * jack_client_open (const char *client_name,
 			break;
 	}
 
-	if (strcmp(client->name, client_name) != 0) {
+	if (!spa_streq(client->name, client_name)) {
 		if (status)
 			*status |= JackNameNotUnique;
 		if (options & JackUseExactName)

@@ -35,6 +35,7 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/param/props.h>
 #include <spa/debug/dict.h>
 #include <spa/pod/builder.h>
@@ -122,7 +123,7 @@ static struct node *libcamera_create_node(struct device *dev, uint32_t id,
 
 	pw_log_debug("new node %u", id);
 
-	if (strcmp(info->type, SPA_TYPE_INTERFACE_Node) != 0) {
+	if (!spa_streq(info->type, SPA_TYPE_INTERFACE_Node)) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -353,7 +354,7 @@ static struct device *libcamera_create_device(struct impl *impl, uint32_t id,
 
 	pw_log_debug("new device %u", id);
 
-	if (strcmp(info->type, SPA_TYPE_INTERFACE_Device) != 0) {
+	if (!spa_streq(info->type, SPA_TYPE_INTERFACE_Device)) {
 		errno = EINVAL;
 		return NULL;
 	}

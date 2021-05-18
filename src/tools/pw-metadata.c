@@ -93,11 +93,11 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 	struct data *d = data;
 	const char *str;
 
-	if (strcmp(type, PW_TYPE_INTERFACE_Metadata) != 0)
+	if (!spa_streq(type, PW_TYPE_INTERFACE_Metadata))
 		return;
 
 	if ((str = spa_dict_lookup(props, PW_KEY_METADATA_NAME)) != NULL &&
-	    strcmp(str, d->opt_name) != 0)
+	    !spa_streq(str, d->opt_name))
 		return;
 
 	if (d->metadata != NULL) {

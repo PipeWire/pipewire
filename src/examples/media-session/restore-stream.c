@@ -466,7 +466,7 @@ static void session_create(void *data, struct sm_object *object)
 	struct stream *str;
 	const char *media_class, *routes;
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Node) != 0 ||
+	if (!spa_streq(object->type, PW_TYPE_INTERFACE_Node) ||
 	    object->props == NULL ||
 	    (media_class = pw_properties_get(object->props, PW_KEY_MEDIA_CLASS)) == NULL)
 		return;
@@ -506,7 +506,7 @@ static void session_remove(void *data, struct sm_object *object)
 	struct impl *impl = data;
 	struct stream *str;
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Node) != 0)
+	if (!spa_streq(object->type, PW_TYPE_INTERFACE_Node))
 		return;
 
 	pw_log_debug(NAME " %p: remove node '%d'", impl, object->id);

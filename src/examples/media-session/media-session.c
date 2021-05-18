@@ -242,7 +242,7 @@ static void *find_object(struct impl *impl, uint32_t id, const char *type)
 	struct sm_object *obj;
 	if ((obj = pw_map_lookup(&impl->globals, id)) == NULL)
 		return NULL;
-	if (type != NULL && strcmp(obj->type, type) != 0)
+	if (type != NULL && !spa_streq(obj->type, type))
 		return NULL;
 	return obj;
 }

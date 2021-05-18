@@ -197,7 +197,7 @@ static int configure_node(struct node *node, struct spa_audio_info *info, bool f
 	if (node->configured && !force)
 		return 0;
 
-	if (strcmp(node->media, "Audio") != 0)
+	if (!spa_streq(node->media, "Audio"))
 		return 0;
 
 	format = node->format;
@@ -550,7 +550,7 @@ static int find_node(void *data, struct node *node)
 		return 0;
 	}
 
-	if (node->media && strcmp(node->media, find->media) != 0) {
+	if (node->media && !spa_streq(node->media, find->media)) {
 		pw_log_debug(".. incompatible media %s <-> %s", node->media, find->media);
 		return 0;
 	}

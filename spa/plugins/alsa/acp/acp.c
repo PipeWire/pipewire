@@ -869,7 +869,7 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 		changed |= old_monitor_name != NULL;
 		pa_proplist_unset(p->proplist, PA_PROP_DEVICE_PRODUCT_NAME);
 	} else {
-		changed |= (old_monitor_name == NULL) || (strcmp(old_monitor_name, eld.monitor_name) != 0);
+		changed |= (old_monitor_name == NULL) || (!spa_streq(old_monitor_name, eld.monitor_name));
 		pa_proplist_sets(p->proplist, PA_PROP_DEVICE_PRODUCT_NAME, eld.monitor_name);
 	}
 	pa_proplist_as_dict(p->proplist, &p->port.props);

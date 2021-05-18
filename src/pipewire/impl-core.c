@@ -61,6 +61,7 @@ ssize_t getrandom(void *buf, size_t buflen, unsigned int flags) {
 }
 #endif
 
+#include <spa/utils/string.h>
 #include <spa/debug/types.h>
 
 #include "pipewire/impl.h"
@@ -93,7 +94,7 @@ static void * registry_bind(void *object, uint32_t id,
 	if (!PW_PERM_IS_R(permissions))
 		goto error_no_id;
 
-	if (strcmp(global->type, type) != 0)
+	if (!spa_streq(global->type, type))
 		goto error_wrong_interface;
 
 	pw_log_debug("global %p: bind global id %d, iface %s/%d to %d", global, id,
@@ -339,7 +340,7 @@ core_create_object(void *object,
 	if (!PW_PERM_IS_R(pw_global_get_permissions(factory->global, client)))
 		goto error_no_factory;
 
-	if (strcmp(factory->info.type, type) != 0)
+	if (!spa_streq(factory->info.type, type))
 		goto error_type;
 
 	if (factory->info.version < version)

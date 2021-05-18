@@ -559,7 +559,7 @@ static void ofono_getcards_reply(DBusPendingCall *pending, void *user_data)
 		goto finish;
 	}
 
-	if (!dbus_message_iter_init(r, &i) || strcmp(dbus_message_get_signature(r), "a(oa{sv})") != 0) {
+	if (!dbus_message_iter_init(r, &i) || !spa_streq(dbus_message_get_signature(r), "a(oa{sv})")) {
 		spa_log_error(backend->log, NAME": Invalid arguments in GetCards() reply");
 		goto finish;
 	}
@@ -682,7 +682,7 @@ static DBusHandlerResult ofono_filter_cb(DBusConnection *bus, DBusMessage *m, vo
 			char *p;
 			DBusMessageIter arg_i, props_i;
 
-			if (!dbus_message_iter_init(m, &arg_i) || strcmp(dbus_message_get_signature(m), "oa{sv}") != 0) {
+			if (!dbus_message_iter_init(m, &arg_i) || !spa_streq(dbus_message_get_signature(m), "oa{sv}")) {
 					spa_log_error(backend->log, NAME": Failed to parse org.ofono.HandsfreeAudioManager.CardAdded");
 					goto fail;
 			}

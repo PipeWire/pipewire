@@ -477,10 +477,10 @@ static DBusHandlerResult audio_agent_get_property(DBusConnection *conn, DBusMess
 		goto fail;
 	}
 
-	if (strcmp(interface, HSPHFPD_AUDIO_AGENT_INTERFACE) != 0)
+	if (!spa_streq(interface, HSPHFPD_AUDIO_AGENT_INTERFACE))
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
-	if (strcmp(property, "AgentCodec") != 0) {
+	if (!spa_streq(property, "AgentCodec")) {
 		r = dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS, "Invalid property in method call");
 		goto fail;
 	}
@@ -536,7 +536,7 @@ static DBusHandlerResult audio_agent_getall_properties(DBusConnection *conn, DBu
 		goto fail;
 	}
 
-	if (strcmp(interface, HSPHFPD_AUDIO_AGENT_INTERFACE) != 0)
+	if (!spa_streq(interface, HSPHFPD_AUDIO_AGENT_INTERFACE))
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
@@ -593,7 +593,7 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	spa_log_debug(backend->log, NAME": NewConnection %s, fd %d", transport_path, fd);
 
 	sender = dbus_message_get_sender(m);
-	if (strcmp(sender, backend->hsphfpd_service_id) != 0) {
+	if (!spa_streq(sender, backend->hsphfpd_service_id)) {
 		close(fd);
 		spa_log_error(backend->log, NAME": Sender '%s' is not authorized", sender);
 		r = dbus_message_new_error_printf(m, HSPHFPD_ERROR_REJECTED, "Sender '%s' is not authorized", sender);
@@ -872,7 +872,7 @@ static void hsphfpd_audio_acquire_reply(DBusPendingCall *pending, void *user_dat
 		goto finish;
 	}
 
-	if (strcmp(dbus_message_get_sender(r), backend->hsphfpd_service_id) != 0) {
+	if (!spa_streq(dbus_message_get_sender(r), backend->hsphfpd_service_id)) {
 		spa_log_error(backend->log, NAME": Reply for " HSPHFPD_ENDPOINT_INTERFACE ".ConnectAudio() from invalid sender");
 		goto finish;
 	}
@@ -891,7 +891,7 @@ static void hsphfpd_audio_acquire_reply(DBusPendingCall *pending, void *user_dat
 		goto finish;
 	}
 
-	if (strcmp(service_id, dbus_bus_get_unique_name(backend->conn)) != 0) {
+	if (!spa_streq(service_id, dbus_bus_get_unique_name(backend->conn))) {
 		spa_log_warn(backend->log, HSPHFPD_ENDPOINT_INTERFACE ".ConnectAudio() failed: Other audio application took audio socket");
 		goto finish;
 	}
@@ -1200,7 +1200,7 @@ static void hsphfpd_get_endpoints_reply(DBusPendingCall *pending, void *user_dat
 		goto finish;
 	}
 
-	if (strcmp(dbus_message_get_sender(r), backend->hsphfpd_service_id) != 0) {
+	if (!spa_streq(dbus_message_get_sender(r), backend->hsphfpd_service_id)) {
 		spa_log_error(backend->log, NAME": Reply for GetManagedObjects() from invalid sender");
 		goto finish;
 	}

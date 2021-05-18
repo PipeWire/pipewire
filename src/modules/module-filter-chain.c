@@ -1075,7 +1075,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 
 	if (spa_streq(type, "builtin")) {
 		snprintf(plugin, sizeof(plugin), "%s", "builtin");
-	} else if (strcmp(type, "ladspa") != 0)
+	} else if (!spa_streq(type, "ladspa"))
 		return -ENOTSUP;
 
 	pw_log_info("loading %s %s", plugin, label);

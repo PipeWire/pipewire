@@ -946,7 +946,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *driver
 		spa_list_for_each(t, &context->node_list, link) {
 			if (t->exported || t == n || !t->active || t->visited)
 				continue;
-			if (strcmp(t->group, n->group) != 0)
+			if (!spa_streq(t->group, n->group))
 				continue;
 			pw_log_debug("%p join group %s: '%s'", t, t->group, n->group);
 			t->visited = true;

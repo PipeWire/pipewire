@@ -131,7 +131,7 @@ static enum media_role media_role_from_properties(const struct pw_properties *pr
 	if (media_role_str == NULL)
 		return MEDIA_ROLE_INVALID;
 
-	if (strcmp(media_class_str, "Video/Source") != 0)
+	if (!spa_streq(media_class_str, "Video/Source"))
 		return MEDIA_ROLE_INVALID;
 
 	return media_role_from_string(media_role_str);
@@ -405,7 +405,7 @@ static void do_permission_store_check(struct client *client)
 		dbus_message_iter_get_basic(&permissions_entry_iter, &app_id);
 
 		pw_log_info("permissions %s", app_id);
-		if (strcmp(app_id, client->app_id) != 0) {
+		if (!spa_streq(app_id, client->app_id)) {
 			dbus_message_iter_next(&permissions_iter);
 			continue;
 		}
@@ -514,7 +514,7 @@ static DBusHandlerResult permission_store_changed_handler(DBusConnection *connec
 	dbus_message_iter_next(&iter);
 	dbus_message_iter_get_basic(&iter, &id);
 
-	if (strcmp(table, "devices") != 0 || strcmp(id, "camera") != 0)
+	if (!spa_streq(table, "devices") || !spa_streq(id, "camera"))
 		return DBUS_HANDLER_RESULT_HANDLED;
 
 	dbus_message_iter_next(&iter);
@@ -550,7 +550,7 @@ static DBusHandlerResult permission_store_changed_handler(DBusConnection *connec
 				continue;
 
 			if (client->app_id == NULL ||
-			    strcmp(client->app_id, app_id) != 0)
+			    !spa_streq(client->app_id, app_id))
 				continue;
 
 			if (!(client->media_roles & MEDIA_ROLE_CAMERA))

@@ -344,7 +344,7 @@ test_endpoint_global(void *object, uint32_t id,
 	struct test_endpoint_data *d = object;
 	const char *val;
 
-	if (strcmp(type, PW_TYPE_INTERFACE_Endpoint) != 0)
+	if (!spa_streq(type, PW_TYPE_INTERFACE_Endpoint))
 		return;
 
 	d->bound_proxy = pw_registry_bind(d->registry, id, type,

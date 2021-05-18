@@ -257,7 +257,7 @@ static DBusHandlerResult filter_handler(DBusConnection *c, DBusMessage *m, void 
 			    DBUS_TYPE_INVALID))
 			goto invalid;
 
-		if (strcmp(name, d->service_name) != 0)
+		if (!spa_streq(name, d->service_name))
 			goto invalid;
 
 		pw_log_debug(NAME" %p: acquired %s, %s", d, name, d->service_name);
@@ -271,7 +271,7 @@ static DBusHandlerResult filter_handler(DBusConnection *c, DBusMessage *m, void 
 							d)))
 				goto invalid;
 
-			if (strcmp(name, d->service_name) != 0)
+			if (!spa_streq(name, d->service_name))
 				goto invalid;
 
 			d->registered = true;
@@ -285,7 +285,7 @@ static DBusHandlerResult filter_handler(DBusConnection *c, DBusMessage *m, void 
 			    DBUS_TYPE_INVALID))
 			goto invalid;
 
-		if (strcmp(name, d->service_name) != 0)
+		if (!spa_streq(name, d->service_name))
 			goto invalid;
 
 		pw_log_debug(NAME" %p: lost %s", d, name);
@@ -307,7 +307,7 @@ static DBusHandlerResult filter_handler(DBusConnection *c, DBusMessage *m, void 
 			    DBUS_TYPE_INVALID))
 			goto invalid;
 
-		if (strcmp(name, d->service_name) != 0 || d->owning)
+		if (!spa_streq(name, d->service_name) || d->owning)
 			goto invalid;
 
 		pw_log_debug(NAME" %p: changed %s: %s -> %s", d, name, old, new);

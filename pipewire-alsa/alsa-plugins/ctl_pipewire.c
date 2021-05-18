@@ -1085,7 +1085,7 @@ static void registry_event_global(void *data, uint32_t id,
 	if (spa_streq(type, PW_TYPE_INTERFACE_Device)) {
 		if (props == NULL ||
 		    ((str = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS)) == NULL) ||
-		    (strcmp(str, "Audio/Device") != 0))
+		    (!spa_streq(str, "Audio/Device")))
 			return;
 
 		pw_log_debug("found device %d", id);
@@ -1093,8 +1093,8 @@ static void registry_event_global(void *data, uint32_t id,
 	} else if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
 		if (props == NULL ||
 		    ((str = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS)) == NULL) ||
-		    ((strcmp(str, "Audio/Sink") != 0) &&
-		     (strcmp(str, "Audio/Source") != 0)))
+		    ((!spa_streq(str, "Audio/Sink")) &&
+		     (!spa_streq(str, "Audio/Source"))))
 			return;
 
 		pw_log_debug("found node %d type:%s", id, str);

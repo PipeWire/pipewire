@@ -223,7 +223,7 @@ static void session_create(void *data, struct sm_object *object)
 	struct impl *impl = data;
 	const struct spa_dict_item *item;
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Node) != 0)
+	if (!spa_streq(object->type, PW_TYPE_INTERFACE_Node))
 		return;
 
 	spa_dict_for_each(item, &impl->properties->dict) {
@@ -253,7 +253,7 @@ static void session_remove(void *data, struct sm_object *object)
 	struct impl *impl = data;
 	struct default_node *def;
 
-	if (strcmp(object->type, PW_TYPE_INTERFACE_Node) != 0)
+	if (!spa_streq(object->type, PW_TYPE_INTERFACE_Node))
 		return;
 
 	for (def = impl->defaults; def->key != NULL; ++def) {

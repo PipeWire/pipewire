@@ -201,6 +201,7 @@ struct spa_pod_prop {
 							 *	  Int : n_items,
 							 *	  (String : key,
 							 *	   String : value)*)) */
+#define SPA_POD_PROP_FLAG_MANDATORY	(1u<<3)		/**< is mandatory */
 	uint32_t flags;			/**< flags for property */
 	struct spa_pod value;
 	/* value follows */

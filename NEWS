@@ -1,3 +1,66 @@
+# PipeWire 0.3.28
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+## Highlights
+  - Freewheeling was implemented. This makes it possible to
+    export projects in ardour.
+  - A new powerful filter-chain module was added that can
+    be used to created all kinds of filter-chains from ladspa
+    and builtin plugins.
+  - Many more pulseaudio modules are now implemented:
+    module-ladspa-sink, module-ladspa-source, module-pipe-sink,
+    module-tunnel-sink, module-tunnel-source,
+    module-zeroconf-discover
+  - Fix a bug where devices would not appear after logout/login.
+  - Fix a bug where the volume was reset to 0 and devices would
+    have no audio.
+  - Config files are now installed in the data dir, system
+    overrides in /etc/pipewire and $HOME are checked first.
+
+
+## PipeWire
+  - Implement freewheeling for JACK clients
+  - Add filter-chain module that can be used to construct
+    arbitrary graphs from ladspa and builtin plugins.
+  - Add new property to easily set algorithm params
+  - Add module-pulse-tunnel to tunnel audio to and from
+    a PulseAudio compatible server.
+  - Add a avahi zeroconf discover module, create pulse-tunnel
+    when PulseAudio devices are announced.
+  - Config files are now installed in the data dir, system
+    overrides in /etc/pipewire and $HOME are checked first.
+  - Applications now have their monitor ports named with the
+    "monitor" prefix to avoid confusion with the output ports.
+  - LICENSE clarifications.
+
+## GStreamer
+  - fixes to the pipewiresink plugin.
+
+## SPA plugins
+  - Fix a bug where the volume was reset to 0
+  - Add events to dbus plugin. This can be used to detect dbus
+    disconnects.
+
+## Media-session
+  - Handle dbus disconnect.
+  - Handle device reservation errors.
+
+## PulseAudio server
+  - Implement module-ladspa-sink and a new PipeWire-only
+    module-ladspa-source
+  - Implement module-pipe-sink
+  - Implement module-tunnel-sink and module-tunnel-source
+  - Fix a bug with module argument parsing
+  - Implement module-zeroconf-discover
+
+## ALSA plugin
+  - improve error handling
+
+
+Older versions:
+
 PipeWire 0.3.27
 
 This is a bugfix release that is API and ABI compatible
@@ -67,9 +130,6 @@ with previous 0.3.x releases.
 - PulseAudio server
   - Implement remap-sink and remap-source modules using the
     new loopback module.
-
-Older versions:
-
 
 PipeWire 0.3.26
 

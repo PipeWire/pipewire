@@ -6,6 +6,6 @@ With the exception of:
   libspa-alsa.so in spa/plugins/alsa, which contains LGPL code from
                   Pulseaudio and is thus licensed as LGPL.
 
-  libjackserver.so with links against the GPL2 jack/control.h, which
+  libjackserver.so which links against the GPL2 jack/control.h, which
                   makes it GPL2
 

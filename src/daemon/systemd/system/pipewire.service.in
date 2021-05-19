@@ -22,6 +22,7 @@ RestrictNamespaces=yes
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 Type=simple
+AmbientCapabilities=CAP_SYS_NICE
 ExecStart=@PW_BINARY@
 Restart=on-failure
 RuntimeDirectory=pipewire

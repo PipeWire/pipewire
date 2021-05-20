@@ -972,16 +972,6 @@ static int parse_link(struct graph *graph, struct spa_json *json)
 		pw_log_error("unknown input port %s", input);
 		return -ENOENT;
 	}
-	if (in_port->external != SPA_ID_INVALID) {
-		pw_log_info("%s already used as graph input %d, use mixer",
-				input, in_port->external);
-		return -EINVAL;
-	}
-	if (out_port->external != SPA_ID_INVALID) {
-		pw_log_info("%s already used as graph output %d, use copy",
-				output, out_port->external);
-		return -EINVAL;
-	}
 	if (in_port->n_links > 0) {
 		pw_log_info("Can't have more than 1 link to %s, use a mixer", input);
 		return -ENOTSUP;
@@ -1334,10 +1324,10 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 				} else {
 					desc = port->node->desc;
 					d = desc->desc;
-					if (port->external != SPA_ID_INVALID) {
+					if (i == 0 && port->external != SPA_ID_INVALID) {
 						pw_log_error("input port %s[%d]:%s already used as input %d, use mixer",
 							port->node->name, i, d->PortNames[port->p],
-							graph->n_input);
+							port->external);
 						res = -EBUSY;
 						goto error;
 					}
@@ -1382,10 +1372,10 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 				} else {
 					desc = port->node->desc;
 					d = desc->desc;
-					if (port->external != SPA_ID_INVALID) {
+					if (i == 0 && port->external != SPA_ID_INVALID) {
 						pw_log_error("output port %s[%d]:%s already used as output %d, use copy",
 							port->node->name, i, d->PortNames[port->p],
-							graph->n_output);
+							port->external);
 						res = -EBUSY;
 						goto error;
 					}

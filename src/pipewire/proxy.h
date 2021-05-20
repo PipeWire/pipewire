@@ -43,7 +43,7 @@ extern "C" {
  * \section sec_page_proxy_core Core proxy
  *
  * A proxy for a remote core object can be obtained by making
- * a remote connection with \ref pw_core_connect.
+ * a remote connection with \ref pw_context_connect.
  * See \ref pw_page_remote_api
  *
  * Some methods on proxy object allow creation of more proxy objects or

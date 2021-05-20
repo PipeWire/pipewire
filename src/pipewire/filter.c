@@ -132,7 +132,7 @@ struct filter {
 		struct spa_io_position *position;
 	} rt;
 
-	struct spa_list port_list;;
+	struct spa_list port_list;
 	struct port *ports[2][MAX_PORTS];
 
 	uint32_t change_mask_all;

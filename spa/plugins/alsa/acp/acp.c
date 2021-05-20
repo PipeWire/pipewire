@@ -1172,7 +1172,7 @@ static void mixer_volume_init(pa_card *impl, pa_alsa_device *dev)
 		pa_log_info("Using hardware volume control. Hardware dB scale %s.",
 				dev->mixer_path->has_dB ? "supported" : "not supported");
 	}
-	dev->device.base_volume = pa_sw_volume_to_linear(dev->base_volume);;
+	dev->device.base_volume = pa_sw_volume_to_linear(dev->base_volume);
 	dev->device.volume_step = 1.0f / dev->n_volume_steps;
 
 	if (impl->soft_mixer || !dev->mixer_path || !dev->mixer_path->has_mute) {
@@ -1809,7 +1809,7 @@ int acp_device_set_volume(struct acp_device *dev, const float *volume, uint32_t 
 
 	v.channels = d->mapping->channel_map.channels;
 	for (i = 0; i < v.channels; i++)
-		v.values[i] = pa_sw_volume_from_linear(volume[i % n_volume]);;
+		v.values[i] = pa_sw_volume_from_linear(volume[i % n_volume]);
 
 	pa_log_info("Set %s volume: min:%d max:%d",
 			d->set_volume ? "hardware" : "software",

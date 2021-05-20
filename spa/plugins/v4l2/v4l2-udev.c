@@ -526,7 +526,7 @@ static int start_monitor(struct impl *this)
 
 	this->source.func = impl_on_fd_events;
 	this->source.data = this;
-	this->source.fd = udev_monitor_get_fd(this->umonitor);;
+	this->source.fd = udev_monitor_get_fd(this->umonitor);
 	this->source.mask = SPA_IO_IN | SPA_IO_ERR;
 
 	spa_log_debug(this->log, "monitor %p", this->umonitor);

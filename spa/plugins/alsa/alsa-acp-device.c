@@ -153,7 +153,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	char positions[SPA_AUDIO_MAX_CHANNELS * 12];
 	struct spa_device_object_info info;
 	struct acp_card *card = this->card;
-	const char *stream, *devstr;;
+	const char *stream, *devstr;
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Node;

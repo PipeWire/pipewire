@@ -116,7 +116,7 @@ void
 conv_u8_to_f32_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_samples)
 {
-	uint32_t i, n_channels = conv->n_channels;;
+	uint32_t i, n_channels = conv->n_channels;
 	const uint8_t *s = src[0];
 	float *d = dst[0];
 

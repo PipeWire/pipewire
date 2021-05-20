@@ -4852,7 +4852,7 @@ static int do_suspend(struct client *client, uint32_t command, uint32_t tag, str
 	struct pw_manager_object *o;
 	const char *name;
 	int res;
-	uint32_t id, cmd;;
+	uint32_t id, cmd;
 	bool sink = command == COMMAND_SUSPEND_SINK, suspend;
 
 	if ((res = message_get(m,

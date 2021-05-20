@@ -1186,7 +1186,7 @@ static int setup_output_port(struct graph *graph, struct port *port)
 	struct ladspa_descriptor *desc = port->node->desc;
 	const LADSPA_Descriptor *d = desc->desc;
 	struct link *link;
-	uint32_t i, n_hndl = port->node->n_hndl;;
+	uint32_t i, n_hndl = port->node->n_hndl;
 
 	spa_list_for_each(link, &port->link_list, output_link) {
 		for (i = 0; i < n_hndl; i++) {
@@ -1303,7 +1303,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		}
 		/* collect all control ports on the graph */
 		for (j = 0; j < desc->n_control; j++) {
-			graph->control_port[graph->n_control] = &node->control_port[j];;
+			graph->control_port[graph->n_control] = &node->control_port[j];
 			graph->n_control++;
 		}
 	}

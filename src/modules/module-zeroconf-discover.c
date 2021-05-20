@@ -463,7 +463,7 @@ static int start_avahi(struct impl *impl)
 	loop = pw_context_get_main_loop(impl->context);
 	impl->avahi_poll = pw_avahi_poll_new(loop);
 
-	return start_client(impl);;
+	return start_client(impl);
 }
 
 SPA_EXPORT

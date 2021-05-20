@@ -200,7 +200,7 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 		info->props = pw_spa_dict_copy(update->props);
 	}
 	if (update->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
-		uint32_t i, user, n_params = update->n_params;;
+		uint32_t i, user, n_params = update->n_params;
 
 		info->params = realloc(info->params, n_params * sizeof(struct spa_param_info));
 		if (info->params == NULL)
@@ -257,7 +257,7 @@ struct pw_port_info *pw_port_info_update(struct pw_port_info *info,
 		info->props = pw_spa_dict_copy(update->props);
 	}
 	if (update->change_mask & PW_PORT_CHANGE_MASK_PARAMS) {
-		uint32_t i, user, n_params = update->n_params;;
+		uint32_t i, user, n_params = update->n_params;
 
 		info->params = realloc(info->params, n_params * sizeof(struct spa_param_info));
 		if (info->params == NULL)
@@ -386,7 +386,7 @@ struct pw_device_info *pw_device_info_update(struct pw_device_info *info,
 		info->props = pw_spa_dict_copy(update->props);
 	}
 	if (update->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
-		uint32_t i, user, n_params = update->n_params;;
+		uint32_t i, user, n_params = update->n_params;
 
 		info->params = realloc(info->params, n_params * sizeof(struct spa_param_info));
 		if (info->params == NULL)

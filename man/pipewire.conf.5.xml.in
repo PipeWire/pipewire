@@ -26,51 +26,42 @@ This file is part of PipeWire.
     directory, subdirectory and file respectively.</p>
   </description>
 
-  <section name="General Commands">
-
-    <option>
-      <p><opt>help</opt></p>
-      <optdesc><p>Show a quick help on the commands available.</p></optdesc>
-    </option>
+  <section name="Configuration File Format">
+    <p>The configuration file format is grouped into sections. A section
+    is either a dictionary, {}, or an array, []. Dictionary and array
+    entries are separated by whitespace and may be simple value
+    assignment, an array or a dictionary. For example:
+    </p>
+    <p>name = value # simple assignment </p>
+    <p>name = { key1 = value1 key2 = value2 } # a dictionary with two
+      entries</p>
+    <p>name = [ value1 value2 ] # an array with two entries</p>
+    <p>name = [ { k = v1 } { k = v2 } ] # an array of dictionaries </p>
   </section>
 
-  <section name="Properties">
-    <option>
-      <p><opt>set-prop</opt> <arg>key</arg> <arg>value</arg></p>
-      <optdesc><p>Sets a property with the given key to value.</p></optdesc>
-    </option>
+  <section name="Configuration File Sections">
+    <p><opt>context.properties</opt> (dictionary): These properties
+      configure the pipewire instance.
+    </p>
+    <p><opt>context.spa-libs</opt> (dictionary): Maps plugin features with
+      globs to a spa library.
+    </p>
+    <p><opt>context.modules</opt> (array): Each entry in the array is a
+    dictionary with the <opt>name</opt> of the module to load, including
+    optional <opt>args</opt> and <opt>flags</opt>. Most modules support
+    being loaded multiple times.
+    </p>
+    <p><opt>context.objects</opt> (array): Each entry in the array is a
+    dictionary containing the <opt>factory</opt> to create an object from
+    and optional extra arguments specific to that factory.
+    </p>
+    <p><opt>context.exec</opt> (array): Each entry in the array is
+    dictionary containing the <opt>path</opt> of a program to execute on
+    startup and optional <opt>args</opt>. This array usually contains an
+    entry to start the session manager.
+    </p>
   </section>
 
-  <section name="Plugin mapping">
-    <option>
-      <p><opt>add-spa-lib</opt> <arg>pattern</arg> <arg>library</arg></p>
-      <optdesc><p>Maps the plugin features that match <opt>pattern</opt>
-	to <opt>library</opt>.</p> When the system needs a plugin feature</optdesc>
-    </option>
-  </section>
-
-  <section name="Module Management">
-    <option>
-    <p><opt>load-module</opt> [<arg>options</arg>] <arg>name</arg> [<arg>arguments...</arg>]</p>
-      <optdesc><p>Load a module specified by its name and arguments. For most
-      modules it is OK to be loaded more than once.</p></optdesc>
-    </option>
-  </section>
-
-  <section name="Object Create">
-    <option>
-    <p><opt>create-object</opt> [<arg>options</arg>] <arg>factory</arg> [<arg>arguments...</arg>]</p>
-      <optdesc><p>Create an object from the specified factory with arguments.
-      </p></optdesc>
-    </option>
-  </section>
-
-  <section name="Exec">
-    <option>
-    <p><opt>exec</opt> <arg>program</arg></p>
-      <optdesc><p>Execute program. This is usually the session manager.</p></optdesc>
-    </option>
-  </section>
   <section name="Authors">
     <p>The PipeWire Developers &lt;@PACKAGE_BUGREPORT@&gt;; PipeWire is available from <url href="@PACKAGE_URL@"/></p>
   </section>

@@ -9,7 +9,9 @@ This file is part of PipeWire.
 <manpage name="pipewire.conf" section="5" desc="The PipeWire server configuration file">
 
   <synopsis>
+    <p><file>$XDG_CONFIG_HOME/pipewire/pipewire.conf</file></p>
     <p><file>@PIPEWIRE_CONFIG_DIR@/pipewire.conf</file></p>
+    <p><file>@PIPEWIRE_CONFDATADIR@/pipewire.conf</file></p>
   </synopsis>
 
   <description>
@@ -20,8 +22,8 @@ This file is part of PipeWire.
     itself. It executes a series of commands listed in the config
     file.</p>
 
-    <p>The config file in the default location is used but the
-    environment variables PIPEWIRE_CONFIG_DIR, PIPEWIRE_CONFIG_PREFIX
+    <p>The config files are loaded in the order listed in the SYNOPSIS.
+    The environment variables PIPEWIRE_CONFIG_DIR, PIPEWIRE_CONFIG_PREFIX
     and PIPEWIRE_CONFIG_NAME can be used to specify an alternative config
     directory, subdirectory and file respectively.</p>
   </description>

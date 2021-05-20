@@ -53,9 +53,8 @@ extern "C" {
  * \section sec_create Create
  *
  * Make a new stream with \ref pw_stream_new(). You will need to specify
- * a name for the stream and extra properties. You can use \ref
- * pw_fill_stream_properties() to get a basic set of properties for the
- * stream.
+ * a name for the stream and extra properties. The basic set of properties
+ * each stream must provide is filled in automatically.
  *
  * Once the stream is created, the state_changed event should be used to
  * track the state of the stream.

@@ -77,6 +77,14 @@ static int get_read_path(char *path, size_t size, const char *prefix, const char
 		return -ENOENT;
 	}
 
+	dir = getenv("PIPEWIRE_CONFIG_DIR");
+	if (dir != NULL) {
+		const char *paths[] = { dir, prefix, name, NULL };
+		if (make_path(path, size, paths) == 0 &&
+		    access(path, R_OK) == 0)
+			return 1;
+	}
+
 	dir = getenv("XDG_CONFIG_HOME");
 	if (dir != NULL) {
 		const char *paths[] = { dir, "pipewire", prefix, name, NULL };
@@ -96,9 +104,8 @@ static int get_read_path(char *path, size_t size, const char *prefix, const char
 		    access(path, R_OK) == 0)
 			return 1;
 	}
-	dir = getenv("PIPEWIRE_CONFIG_DIR");
-	if (dir == NULL)
-		dir = PIPEWIRE_CONFIG_DIR;
+
+	dir = PIPEWIRE_CONFIG_DIR;
 	if (dir != NULL) {
 		const char *paths[] = { dir, prefix, name, NULL };
 		if (make_path(path, size, paths) == 0 &&

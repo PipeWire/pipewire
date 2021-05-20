@@ -76,6 +76,7 @@ struct factory_entry {
 	regex_t regex;
 	char *lib;
 };
+/** \endcond */
 
 static void fill_properties(struct pw_context *context)
 {

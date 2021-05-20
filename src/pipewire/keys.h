@@ -70,7 +70,7 @@ extern "C" {
 
 /* core */
 #define PW_KEY_CORE_NAME		"core.name"		/**< The name of the core. Default is
-								  *  pipewire-<user-name>-<pid>, overwritten
+								  *  `pipewire-<username>-<pid>`, overwritten
 								  *  by env(PIPEWIRE_CORE) */
 #define PW_KEY_CORE_VERSION		"core.version"		/**< The version of the core. */
 #define PW_KEY_CORE_DAEMON		"core.daemon"		/**< If the core is listening for connections. */

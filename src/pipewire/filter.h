@@ -36,7 +36,7 @@ extern "C" {
  * The filter object provides a convenient way to implement
  * processing filters.
  *
- * See also \ref page_filters and \ref page_core_api
+ * See also \ref page_core_api
  */
 struct pw_filter;
 

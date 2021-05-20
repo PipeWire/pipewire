@@ -374,7 +374,6 @@ static const struct pw_context_events context_events = {
 /** Make a new client object
  *
  * \param core a \ref pw_context object to register the client with
- * \param ucred a ucred structure or NULL when unknown
  * \param properties optional client properties, ownership is taken
  * \return a newly allocated client object
  *

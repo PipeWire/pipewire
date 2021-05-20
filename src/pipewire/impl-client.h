@@ -63,13 +63,13 @@ struct pw_impl_client;
  *
  * The client object will have its credentials filled in by the protocol.
  * This information is used to check if a resource or action is available
- * for this client. See also \ref page_access
+ * for this client.
  *
  * \section sec_page_client_types Types
  *
  * The client and server maintain a mapping between the client and server
  * types. All type ids that are in messages exchanged between the client
- * and server will automatically be remapped. See also \ref page_types.
+ * and server will automatically be remapped.
  *
  * \section sec_page_client_resources Resources
  *

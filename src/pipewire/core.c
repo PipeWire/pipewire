@@ -39,9 +39,6 @@
 
 #define NAME "core"
 
-/** \cond */
-
-/** \endcond */
 static void core_event_ping(void *data, uint32_t id, int seq)
 {
 	struct pw_core *this = data;

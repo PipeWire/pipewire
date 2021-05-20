@@ -626,7 +626,7 @@ const struct pw_client_info *pw_impl_client_get_info(struct pw_impl_client *clie
 /** Update client properties
  *
  * \param client the client
- * \param dict a \struct spa_dict with properties
+ * \param dict a struct spa_dict with properties
  *
  * Add all properties in \a dict to the client properties. Existing
  * properties are overwritten. Items can be removed by setting the value

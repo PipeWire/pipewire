@@ -34,7 +34,7 @@ extern "C" {
  * \section sec_overview Overview
  *
  * Media streams are used to exchange data with the PipeWire server. A
- * stream is a wrapper around a proxy for a \ref pw_client_node with
+ * stream is a wrapper around a proxy for a pw_client_node with
  * an adapter. This means the stream will automatically do conversion
  * to the type required by the server.
  *

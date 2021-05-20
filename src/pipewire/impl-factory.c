@@ -282,7 +282,7 @@ void *pw_impl_factory_create_object(struct pw_impl_factory *factory,
  * Find in the list of factories registered in \a context for one with
  * the given \a name.
  *
- * \memberof pw_context
+ * \ingroup pw_context
  */
 SPA_EXPORT
 struct pw_impl_factory *pw_context_find_factory(struct pw_context *context,

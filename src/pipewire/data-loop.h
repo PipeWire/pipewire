@@ -31,10 +31,15 @@ extern "C" {
 
 #include <spa/utils/hook.h>
 
-/** \class pw_data_loop
+/** \defgroup pw_data_loop PipeWire rt-loop object
  *
- * PipeWire rt-loop object. This loop starts a new real-time thread that
+ * This loop starts a new real-time thread that
  * is designed to run the processing graph.
+ */
+
+/**
+ * \addtogroup pw_data_loop
+ * \{
  */
 struct pw_data_loop;
 
@@ -87,6 +92,10 @@ bool pw_data_loop_in_thread(struct pw_data_loop *loop);
 int pw_data_loop_invoke(struct pw_data_loop *loop,
 		spa_invoke_func_t func, uint32_t seq, const void *data, size_t size,
 		bool block, void *user_data);
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }

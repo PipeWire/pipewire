@@ -94,7 +94,6 @@ static void process_work_queue(void *data, uint64_t count)
  * \param loop the loop to use
  * \return a newly allocated work queue
  *
- * \memberof pw_work_queue
  */
 struct pw_work_queue *pw_work_queue_new(struct pw_loop *loop)
 {
@@ -129,7 +128,6 @@ error_free:
 /** Destroy a work queue
  * \param queue the work queue to destroy
  *
- * \memberof pw_work_queue
  */
 void pw_work_queue_destroy(struct pw_work_queue *queue)
 {
@@ -158,7 +156,6 @@ void pw_work_queue_destroy(struct pw_work_queue *queue)
  * \param func a work function
  * \param data passed to \a func
  *
- * \memberof pw_work_queue
  */
 SPA_EXPORT
 uint32_t
@@ -214,7 +211,6 @@ pw_work_queue_add(struct pw_work_queue *queue, void *obj, int res, pw_work_func_
  * \param obj the owner object
  * \param id the wotk id to cancel
  *
- * \memberof pw_work_queue
  */
 SPA_EXPORT
 int pw_work_queue_cancel(struct pw_work_queue *queue, void *obj, uint32_t id)
@@ -246,7 +242,6 @@ int pw_work_queue_cancel(struct pw_work_queue *queue, void *obj, uint32_t id)
  * \param seq the sequence number that completed
  * \param res 0 if the item was found, < 0 on error
  *
- * \memberof pw_work_queue
  */
 SPA_EXPORT
 int pw_work_queue_complete(struct pw_work_queue *queue, void *obj, uint32_t seq, int res)

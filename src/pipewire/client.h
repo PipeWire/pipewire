@@ -35,6 +35,14 @@ extern "C" {
 #include <pipewire/proxy.h>
 #include <pipewire/permission.h>
 
+/** \defgroup pw_client Pipewire Client
+ *
+ */
+
+/**
+ * \addtogroup pw_client
+ * \{
+ */
 #define PW_TYPE_INTERFACE_Client	PW_TYPE_INFO_INTERFACE_BASE "Client"
 
 #define PW_VERSION_CLIENT		3
@@ -43,7 +51,7 @@ struct pw_client;
 /* default ID of the current client after connect */
 #define PW_ID_CLIENT			1
 
-/** The client information. Extra information can be added in later versions \memberof pw_introspect */
+/** The client information. Extra information can be added in later versions */
 struct pw_client_info {
 	uint32_t id;			/**< id of the global */
 #define PW_CLIENT_CHANGE_MASK_PROPS	(1 << 0)
@@ -52,12 +60,12 @@ struct pw_client_info {
 	struct spa_dict *props;		/**< extra properties */
 };
 
-/** Update and existing \ref pw_client_info with \a update \memberof pw_introspect */
+/** Update and existing \ref pw_client_info with \a update */
 struct pw_client_info *
 pw_client_info_update(struct pw_client_info *info,
 		      const struct pw_client_info *update);
 
-/** Free a \ref pw_client_info \memberof pw_introspect */
+/** Free a \ref pw_client_info */
 void pw_client_info_free(struct pw_client_info *info);
 
 
@@ -163,6 +171,10 @@ struct pw_client_methods {
 #define pw_client_update_properties(c,...)	pw_client_method(c,update_properties,0,__VA_ARGS__)
 #define pw_client_get_permissions(c,...)	pw_client_method(c,get_permissions,0,__VA_ARGS__)
 #define pw_client_update_permissions(c,...)	pw_client_method(c,update_permissions,0,__VA_ARGS__)
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

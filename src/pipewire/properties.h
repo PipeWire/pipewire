@@ -33,14 +33,17 @@ extern "C" {
 
 #include <spa/utils/dict.h>
 
-/** \class pw_properties
- *
- * \brief A collection of key/value pairs
+/** \defgroup pw_properties Key-Value pairs
  *
  * Properties are used to pass around arbitrary key/value pairs.
  * Both keys and values are strings which keeps things simple.
  * Encoding of arbitrary values should be done by using a string
  * serialization such as base64 for binary blobs.
+ */
+
+/**
+ * \addtogroup pw_properties
+ * \{
  */
 struct pw_properties {
 	struct spa_dict dict;	/**< dictionary of key/values */
@@ -119,6 +122,10 @@ static inline float pw_properties_parse_float(const char *value) {
 static inline double pw_properties_parse_double(const char *value) {
 	return strtod(value, NULL);
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }

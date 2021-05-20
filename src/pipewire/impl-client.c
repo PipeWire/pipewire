@@ -377,7 +377,6 @@ static const struct pw_context_events context_events = {
  * \param properties optional client properties, ownership is taken
  * \return a newly allocated client object
  *
- * \memberof pw_impl_client
  */
 SPA_EXPORT
 struct pw_impl_client *pw_context_create_client(struct pw_impl_core *core,
@@ -570,7 +569,6 @@ static int destroy_resource(void *object, void *data)
  *
  * \param client the client to destroy
  *
- * \memberof pw_impl_client
  */
 SPA_EXPORT
 void pw_impl_client_destroy(struct pw_impl_client *client)
@@ -632,7 +630,6 @@ const struct pw_client_info *pw_impl_client_get_info(struct pw_impl_client *clie
  * properties are overwritten. Items can be removed by setting the value
  * to NULL.
  *
- * \memberof pw_impl_client
  */
 SPA_EXPORT
 int pw_impl_client_update_properties(struct pw_impl_client *client, const struct spa_dict *dict)

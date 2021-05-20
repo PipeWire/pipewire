@@ -29,7 +29,12 @@
 extern "C" {
 #endif
 
-/** \page page_global Global
+/** \defgroup pw_global Global Object
+ *
+ * \brief A global object visible to remote clients
+ *
+ * A global object is visible to remote clients and represents a resource
+ * that can be used or inspected.
  *
  * Global objects represent resources that are available on the PipeWire
  * context and are accessible to remote clients.
@@ -37,19 +42,17 @@ extern "C" {
  * clients.
  *
  * Remote clients receives a list of globals when it binds to the registry
- * object. See \ref page_registry.
+ * object. See \ref pw_registry.
  *
  * A client can bind to a global to send methods or receive events from
  * the global.
+ *
+ * See \ref page_proxy
  */
-/** \class pw_global
- *
- * \brief A global object visible to remote clients
- *
- * A global object is visible to remote clients and represents a resource
- * that can be used or inspected.
- *
- * See \ref page_remote_api
+
+/**
+ * \addtogroup pw_global
+ * \{
  */
 struct pw_global;
 
@@ -147,6 +150,10 @@ int pw_global_update_permissions(struct pw_global *global, struct pw_impl_client
 
 /** Destroy a global */
 void pw_global_destroy(struct pw_global *global);
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }

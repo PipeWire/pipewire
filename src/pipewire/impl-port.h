@@ -31,15 +31,14 @@ extern "C" {
 
 #include <spa/utils/hook.h>
 
-/** \page page_port Port
+/** \defgroup pw_impl_port Port Object
  *
- * \section page_node_overview Overview
- *
- * A port can be used to link two nodes.
+ * \brief A port can be used to link two nodes.
  */
-/** \class pw_impl_port
- *
- * The port object
+
+/**
+ * \addtogroup pw_impl_port
+ * \{
  */
 struct pw_impl_port;
 struct pw_impl_link;
@@ -92,7 +91,7 @@ struct pw_impl_port_events {
 	void (*param_changed) (void *data, uint32_t id);
 };
 
-/** Create a new port \memberof pw_impl_port
+/** Create a new port
  * \return a newly allocated port */
 struct pw_impl_port *
 pw_context_create_port(struct pw_context *context,
@@ -122,7 +121,7 @@ struct pw_impl_node *pw_impl_port_get_node(struct pw_impl_port *port);
 /** check is a port has links, return 0 if not, 1 if it is linked */
 int pw_impl_port_is_linked(struct pw_impl_port *port);
 
-/** Add a port to a node \memberof pw_impl_port */
+/** Add a port to a node */
 int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node);
 
 /** Add an event listener on the port */
@@ -130,6 +129,10 @@ void pw_impl_port_add_listener(struct pw_impl_port *port,
 			  struct spa_hook *listener,
 			  const struct pw_impl_port_events *events,
 			  void *data);
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }

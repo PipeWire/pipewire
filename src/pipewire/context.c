@@ -187,8 +187,6 @@ static int try_load_conf(struct pw_context *this, const char *conf_prefix,
  * \param main_loop the main loop to use
  * \param properties extra properties for the context, ownership it taken
  * \return a newly allocated context object
- *
- * \memberof pw_context
  */
 SPA_EXPORT
 struct pw_context *pw_context_new(struct pw_loop *main_loop,
@@ -396,8 +394,6 @@ error_cleanup:
 /** Destroy a context object
  *
  * \param context a context to destroy
- *
- * \memberof pw_context
  */
 SPA_EXPORT
 void pw_context_destroy(struct pw_context *context)
@@ -526,8 +522,6 @@ const char *pw_context_get_conf_section(struct pw_context *context, const char *
  * \param dict properties to update
  *
  * Update the context object with the given properties
- *
- * \memberof pw_context
  */
 SPA_EXPORT
 int pw_context_update_properties(struct pw_context *context, const struct spa_dict *dict)
@@ -593,8 +587,6 @@ struct pw_global *pw_context_find_global(struct pw_context *context, uint32_t id
  * \param format_filters array of format filters
  * \param[out] error an error when something is wrong
  * \return a port that can be used to link to \a otherport or NULL on error
- *
- * \memberof pw_context
  */
 struct pw_impl_port *pw_context_find_port(struct pw_context *context,
 				  struct pw_impl_port *other_port,
@@ -731,8 +723,6 @@ SPA_PRINTF_FUNC(7, 8) int pw_context_debug_port_params(struct pw_context *this,
  *
  * Find a common format between the given ports. The format will
  * be restricted to a subset given with the format filters.
- *
- * \memberof pw_context
  */
 int pw_context_find_format(struct pw_context *context,
 			struct pw_impl_port *output,

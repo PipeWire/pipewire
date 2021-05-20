@@ -37,9 +37,14 @@ extern "C" {
 #define PIPEWIRE_SYMBOL_MODULE_INIT "pipewire__module_init"
 #define PIPEWIRE_MODULE_PREFIX "libpipewire-"
 
-/** \class pw_impl_module
+/** \defgroup pw_impl_module Dynamically loadable Module
  *
  * A dynamically loadable module
+ */
+
+/**
+ * \addtogropu pw_impl_module
+ * \{
  */
 struct pw_impl_module;
 
@@ -51,8 +56,6 @@ struct pw_impl_module;
  *
  * A module should provide an init function with this signature. This function
  * will be called when a module is loaded.
- *
- * \memberof pw_impl_module
  */
 typedef int (*pw_impl_module_init_func_t) (struct pw_impl_module *module, const char *args);
 
@@ -102,6 +105,10 @@ void pw_impl_module_add_listener(struct pw_impl_module *module,
 
 /** Destroy a module */
 void pw_impl_module_destroy(struct pw_impl_module *module);
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }

@@ -39,7 +39,7 @@ extern "C" {
 #define PW_VERSION_MODULE		3
 struct pw_module;
 
-/** The module information. Extra information can be added in later versions \memberof pw_introspect */
+/** The module information. Extra information can be added in later versions */
 struct pw_module_info {
 	uint32_t id;		/**< id of the global */
 	const char *name;	/**< name of the module */
@@ -51,12 +51,12 @@ struct pw_module_info {
 	struct spa_dict *props;	/**< extra properties */
 };
 
-/** Update and existing \ref pw_module_info with \a update \memberof pw_introspect */
+/** Update and existing \ref pw_module_info with \a update */
 struct pw_module_info *
 pw_module_info_update(struct pw_module_info *info,
 		      const struct pw_module_info *update);
 
-/** Free a \ref pw_module_info \memberof pw_introspect */
+/** Free a \ref pw_module_info */
 void pw_module_info_free(struct pw_module_info *info);
 
 #define PW_MODULE_EVENT_INFO		0

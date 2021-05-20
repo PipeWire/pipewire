@@ -31,15 +31,19 @@
 extern "C" {
 #endif
 
-/** \class pw_log
+/** \defgroup pw_log Logging
  *
- * Logging functions of PipeWire
+ * \brief Logging functions of PipeWire
  *
  * Logging is performed to stdout and stderr. Trace logging is performed
  * in a lockfree ringbuffer and written out from the main thread as to not
  * block the realtime threads.
  */
 
+/**
+ * \addtogroup pw_array
+ * \{
+ */
 /** The global log level */
 extern enum spa_log_level pw_log_level;
 
@@ -70,7 +74,7 @@ pw_log_logv(enum spa_log_level level,
 	    const char *fmt, va_list args) SPA_PRINTF_FUNC(5, 0);
 
 
-/** Check if a loglevel is enabled \memberof pw_log */
+/** Check if a loglevel is enabled */
 #define pw_log_level_enabled(lev) (pw_log_level >= (lev))
 
 #define pw_log(lev,...)							\
@@ -90,6 +94,10 @@ pw_log_logv(enum spa_log_level level,
 #else
 #define pw_log_trace_fp(...)
 #endif
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }

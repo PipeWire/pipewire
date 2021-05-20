@@ -137,21 +137,26 @@ extern "C" {
  *
  * Use \ref pw_stream_disconnect() to disconnect a stream after use.
  */
-/** \class pw_stream
+/** \defgroup pw_stream Stream Object
  *
- * \brief PipeWire stream object class
+ * \brief PipeWire stream objects
  *
  * The stream object provides a convenient way to send and
  * receive data streams from/to PipeWire.
  *
- * See also \ref page_streams and \ref page_context_api
+ * See also \ref page_streams and \ref page_core_api
+ */
+
+/**
+ * \addtogroup pw_stream
+ * \{
  */
 struct pw_stream;
 
 #include <spa/buffer/buffer.h>
 #include <spa/param/param.h>
 
-/** \enum pw_stream_state The state of a stream \memberof pw_stream */
+/** \enum pw_stream_state The state of a stream */
 enum pw_stream_state {
 	PW_STREAM_STATE_ERROR = -1,		/**< the stream is in error */
 	PW_STREAM_STATE_UNCONNECTED = 0,	/**< unconnected */
@@ -178,7 +183,7 @@ struct pw_stream_control {
 	uint32_t max_values;		/**< max values that can be set on this control */
 };
 
-/** A time structure \memberof pw_stream */
+/** A time structure */
 struct pw_time {
 	int64_t now;			/**< the monotonic time in nanoseconds */
 	struct spa_fraction rate;	/**< the rate of \a ticks and delay */
@@ -229,10 +234,10 @@ struct pw_stream_events {
 
 };
 
-/** Convert a stream state to a readable string \memberof pw_stream */
+/** Convert a stream state to a readable string */
 const char * pw_stream_state_as_string(enum pw_stream_state state);
 
-/** \enum pw_stream_flags Extra flags that can be used in \ref pw_stream_connect() \memberof pw_stream */
+/** \enum pw_stream_flags Extra flags that can be used in \ref pw_stream_connect() */
 enum pw_stream_flags {
 	PW_STREAM_FLAG_NONE = 0,			/**< no flags */
 	PW_STREAM_FLAG_AUTOCONNECT	= (1 << 0),	/**< try to automatically connect
@@ -255,7 +260,7 @@ enum pw_stream_flags {
 							  *  data of the buffer should be set */
 };
 
-/** Create a new unconneced \ref pw_stream \memberof pw_stream
+/** Create a new unconneced \ref pw_stream
  * \return a newly allocated \ref pw_stream */
 struct pw_stream *
 pw_stream_new(struct pw_core *core,		/**< a \ref pw_core */
@@ -269,7 +274,7 @@ pw_stream_new_simple(struct pw_loop *loop,	/**< a \ref pw_loop to use */
 		     const struct pw_stream_events *events,	/**< stream events */
 		     void *data					/**< data passed to events */);
 
-/** Destroy a stream \memberof pw_stream */
+/** Destroy a stream */
 void pw_stream_destroy(struct pw_stream *stream);
 
 void pw_stream_add_listener(struct pw_stream *stream,
@@ -287,7 +292,7 @@ const struct pw_properties *pw_stream_get_properties(struct pw_stream *stream);
 
 int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict *dict);
 
-/** Connect a stream for input or output on \a port_path. \memberof pw_stream
+/** Connect a stream for input or output on \a port_path.
  * \return 0 on success < 0 on error.
  *
  * You should connect to the process event and use pw_stream_dequeue_buffer()
@@ -304,12 +309,12 @@ pw_stream_connect(struct pw_stream *stream,		/**< a \ref pw_stream */
 							  *  formats. */
 		  uint32_t n_params			/**< number of items in \a params */);
 
-/** Get the node ID of the stream. \memberof pw_stream
+/** Get the node ID of the stream.
  * \return node ID. */
 uint32_t
 pw_stream_get_node_id(struct pw_stream *stream);
 
-/** Disconnect \a stream \memberof pw_stream */
+/** Disconnect \a stream  */
 int pw_stream_disconnect(struct pw_stream *stream);
 
 /** Set the stream in error state */
@@ -318,7 +323,7 @@ int pw_stream_set_error(struct pw_stream *stream,	/**< a \ref pw_stream */
 			const char *error,		/**< an error message */
 			...) SPA_PRINTF_FUNC(3, 4);
 
-/** Complete the negotiation process with result code \a res \memberof pw_stream
+/** Complete the negotiation process with result code \a res
  *
  * This function should be called after notification of the format.
 
@@ -334,7 +339,7 @@ pw_stream_update_params(struct pw_stream *stream,	/**< a \ref pw_stream */
 /** Set control values */
 int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_values, float *values, ...);
 
-/** Query the time on the stream \memberof pw_stream */
+/** Query the time on the stream  */
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time);
 
 /** Get a buffer that can be filled for playback streams or consumed
@@ -344,12 +349,16 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream);
 /** Submit a buffer for playback or recycle a buffer for capture. */
 int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer);
 
-/** Activate or deactivate the stream \memberof pw_stream */
+/** Activate or deactivate the stream */
 int pw_stream_set_active(struct pw_stream *stream, bool active);
 
 /** Flush a stream. When \a drain is true, the drained callback will
  * be called when all data is played or recorded */
 int pw_stream_flush(struct pw_stream *stream, bool drain);
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }

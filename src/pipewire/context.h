@@ -32,12 +32,25 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 
-/** \class pw_context
+/** \page page_core_api Core API
  *
- * \brief the PipeWire context
+ * The Core API serves to access a PipeWire instance. It consists of the
+ * following object-specific APIs:
  *
- * The context object manages all locally available resources. It
- * is used by both clients and servers.
+ * - \ref pw_context
+ * - \ref pw_global
+ * - \ref pw_client
+ * - \ref pw_resource
+ * - \ref pw_node
+ * - \ref pw_port
+ * - \ref pw_link
+ *
+ */
+
+/** \defgroup pw_context Pipewire Context
+ *
+ * \brief The PipeWire context object manages all locally available
+ * resources. It is used by both clients and servers.
  *
  * The context is used to:
  *
@@ -51,10 +64,15 @@ extern "C" {
  *    clients.
  *
  *  - Connect to another PipeWire instance (the main daemon, for
- *    example) and interact with it (See \subpage page_core_api).
+ *    example) and interact with it (See \ref page_core_api).
  *
  *  - Export a local implementation of an object to another
  *    instance.
+ */
+
+/**
+ * \addtogroup pw_context
+ * @{
  */
 struct pw_context;
 
@@ -64,33 +82,6 @@ struct pw_impl_client;
 #include <pipewire/core.h>
 #include <pipewire/loop.h>
 #include <pipewire/properties.h>
-
-/** \page page_context_api Core API
- *
- * \section page_context_overview Overview
- *
- * \subpage page_context
- *
- * \subpage page_global
- *
- * \subpage page_client
- *
- * \subpage page_resource
- *
- * \subpage page_node
- *
- * \subpage page_port
- *
- * \subpage page_link
- */
-
-/** \page page_context Context
- *
- * \section page_context_overview Overview
- *
- * The context object is an object that manages the state and
- * resources of a PipeWire instance.
- */
 
 /** context events emitted by the context object added with \ref pw_context_add_listener */
 struct pw_context_events {
@@ -187,6 +178,9 @@ int pw_context_set_object(struct pw_context *context, const char *type, void *va
 /** get an object from the context */
 void *pw_context_get_object(struct pw_context *context, const char *type);
 
+/**
+ * \}
+ */
 #ifdef __cplusplus
 }
 #endif

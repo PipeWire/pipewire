@@ -152,7 +152,6 @@ static const struct pw_global_events global_events = {
  * \param properties extra global properties
  * \return A \ref pw_impl_module if the module could be loaded, or NULL on failure.
  *
- * \memberof pw_impl_module
  */
 SPA_EXPORT
 struct pw_impl_module *
@@ -300,7 +299,6 @@ error_cleanup:
 
 /** Destroy a module
  * \param module the module to destroy
- * \memberof pw_impl_module
  */
 SPA_EXPORT
 void pw_impl_module_destroy(struct pw_impl_module *module)

@@ -44,7 +44,7 @@ extern "C" {
  *
  * A proxy for a remote core object can be obtained by making
  * a remote connection with \ref pw_context_connect.
- * See \ref pw_page_remote_api
+ * See \ref pw_proxy
  *
  * Some methods on proxy object allow creation of more proxy objects or
  * create a binding between a local proxy and global resource.
@@ -87,7 +87,7 @@ extern "C" {
  * associated to the proxy.
  */
 
-/** \class pw_proxy
+/** \defgroup pw_proxy Proxy Object
  *
  * \brief Represents an object on the client side.
  *
@@ -97,6 +97,11 @@ extern "C" {
  * set in listener.
  *
  * See \ref page_proxy
+ */
+
+/**
+ * \addtogroup pw_proxy
+ * \{
  */
 struct pw_proxy;
 
@@ -199,6 +204,10 @@ int pw_proxy_install_marshal(struct pw_proxy *proxy, bool implementor);
 			type, _res, method, version, ##__VA_ARGS__);	\
 	_res;								\
 })
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }

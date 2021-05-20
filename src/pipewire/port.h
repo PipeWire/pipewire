@@ -38,6 +38,15 @@ extern "C" {
 
 #include <pipewire/proxy.h>
 
+/** \defgroup pw_port Pipewire Port
+ *
+ */
+
+/**
+ * \addtogroup pw_port
+ * \{
+ */
+
 #define PW_TYPE_INTERFACE_Port	PW_TYPE_INFO_INTERFACE_BASE "Port"
 
 #define PW_VERSION_PORT		3
@@ -48,15 +57,8 @@ struct pw_port;
 #define PW_DIRECTION_INPUT SPA_DIRECTION_INPUT
 #define PW_DIRECTION_OUTPUT SPA_DIRECTION_OUTPUT
 
-/** Convert a \ref pw_direction to a readable string \memberof pw_introspect */
+/** Convert a \ref pw_direction to a readable string */
 const char * pw_direction_as_string(enum pw_direction direction);
-
-
-/** \class pw_introspect
- *
- * The introspection methods and structures are used to get information
- * about the object in the PipeWire server
- */
 
 struct pw_port_info {
 	uint32_t id;				/**< id of the global */
@@ -161,6 +163,10 @@ struct pw_port_methods {
 #define pw_port_add_listener(c,...)	pw_port_method(c,add_listener,0,__VA_ARGS__)
 #define pw_port_subscribe_params(c,...)	pw_port_method(c,subscribe_params,0,__VA_ARGS__)
 #define pw_port_enum_params(c,...)	pw_port_method(c,enum_params,0,__VA_ARGS__)
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -109,9 +109,13 @@ extern "C" {
  *   + `connection`: to log connection messages
  */
 
-/** \class pw_pipewire
- *
- * \brief PipeWire initialization and infrastructure functions
+/** \defgroup pw_pipewire PipeWire initialization and infrastructure functions
+ */
+
+
+/**
+ * \addtogroup pw_pipewire
+ * \{
  */
 void
 pw_init(int *argc, char **argv[]);
@@ -153,6 +157,10 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 		const struct spa_support support[]);
 
 int pw_unload_spa_handle(struct spa_handle *handle);
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }

@@ -34,9 +34,14 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/pod/pod.h>
 
-/** \class pw_utils
+/** \defgroup pw_utils Pipewire Utility Functions
  *
  * Various utility functions
+ */
+
+/**
+ * \addtogroup pw_utils
+ * \{
  */
 
 /** a function to destroy an item \memberof pw_utils */
@@ -75,6 +80,10 @@ pw_strip(char *str, const char *whitespace);
 		(char *) memcpy(__new, __old, __len);				      \
 	})
 #endif
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 } /* extern "C" */

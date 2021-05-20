@@ -42,7 +42,6 @@ static struct spa_log *global_log = &default_log.log;
 
 /** Set the global log interface
  * \param log the global log to set
- * \memberof pw_log
  */
 SPA_EXPORT
 void pw_log_set(struct spa_log *log)
@@ -58,7 +57,6 @@ bool pw_log_is_default(void)
 
 /** Get the global log interface
  * \return the global log
- * \memberof pw_log
  */
 SPA_EXPORT
 struct spa_log *pw_log_get(void)
@@ -68,7 +66,6 @@ struct spa_log *pw_log_get(void)
 
 /** Set the global log level
  * \param level the new log level
- * \memberof pw_log
  */
 SPA_EXPORT
 void pw_log_set_level(enum spa_log_level level)
@@ -85,7 +82,6 @@ void pw_log_set_level(enum spa_log_level level)
  * \param fmt the printf style format
  * \param ... printf style arguments to log
  *
- * \memberof pw_log
  */
 SPA_EXPORT
 void
@@ -113,7 +109,6 @@ pw_log_log(enum spa_log_level level,
  * \param fmt the printf style format
  * \param args a va_list of arguments
  *
- * \memberof pw_log
  */
 SPA_EXPORT
 void
@@ -135,32 +130,27 @@ pw_log_logv(enum spa_log_level level,
  * Log an error message
  * \param format a printf style format
  * \param ... printf style arguments
- * \memberof pw_log
  */
 /** \fn void pw_log_warn (const char *format, ...)
  * Log a warning message
  * \param format a printf style format
  * \param ... printf style arguments
- * \memberof pw_log
  */
 /** \fn void pw_log_info (const char *format, ...)
  * Log an info message
  * \param format a printf style format
  * \param ... printf style arguments
- * \memberof pw_log
  */
 /** \fn void pw_log_debug (const char *format, ...)
  * Log a debug message
  * \param format a printf style format
  * \param ... printf style arguments
- * \memberof pw_log
  */
 /** \fn void pw_log_trace (const char *format, ...)
  * Log a trace message. Trace messages may be generated from
  * \param format a printf style format
  * \param ... printf style arguments
  * realtime threads
- * \memberof pw_log
  */
 
 struct log_ctx {

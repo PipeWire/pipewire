@@ -81,7 +81,6 @@ error_cleanup:
 /** Create a new main loop
  * \return a newly allocated \ref pw_main_loop
  *
- * \memberof pw_main_loop
  */
 SPA_EXPORT
 struct pw_main_loop *pw_main_loop_new(const struct spa_dict *props)
@@ -92,7 +91,6 @@ struct pw_main_loop *pw_main_loop_new(const struct spa_dict *props)
 /** Destroy a main loop
  * \param loop the main loop to destroy
  *
- * \memberof pw_main_loop
  */
 SPA_EXPORT
 void pw_main_loop_destroy(struct pw_main_loop *loop)
@@ -128,7 +126,6 @@ struct pw_loop * pw_main_loop_get_loop(struct pw_main_loop *loop)
  *
  * The call to \ref pw_main_loop_run() will return
  *
- * \memberof pw_main_loop
  */
 SPA_EXPORT
 int pw_main_loop_quit(struct pw_main_loop *loop)
@@ -143,7 +140,6 @@ int pw_main_loop_quit(struct pw_main_loop *loop)
  * Start running \a loop. This function blocks until \ref pw_main_loop_quit()
  * has been called
  *
- * \memberof pw_main_loop
  */
 SPA_EXPORT
 int pw_main_loop_run(struct pw_main_loop *loop)

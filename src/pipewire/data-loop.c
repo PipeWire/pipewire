@@ -147,7 +147,6 @@ error_cleanup:
 /** Create a new \ref pw_data_loop.
  * \return a newly allocated data loop
  *
- * \memberof pw_data_loop
  */
 SPA_EXPORT
 struct pw_data_loop *pw_data_loop_new(const struct spa_dict *props)
@@ -158,7 +157,6 @@ struct pw_data_loop *pw_data_loop_new(const struct spa_dict *props)
 
 /** Destroy a data loop
  * \param loop the data loop to destroy
- * \memberof pw_data_loop
  */
 SPA_EXPORT
 void pw_data_loop_destroy(struct pw_data_loop *loop)
@@ -200,7 +198,6 @@ pw_data_loop_get_loop(struct pw_data_loop *loop)
  *
  * This will start the realtime thread that manages the loop.
  *
- * \memberof pw_data_loop
  */
 SPA_EXPORT
 int pw_data_loop_start(struct pw_data_loop *loop)
@@ -224,7 +221,6 @@ int pw_data_loop_start(struct pw_data_loop *loop)
  *
  * This will stop and join the realtime thread that manages the loop.
  *
- * \memberof pw_data_loop
  */
 SPA_EXPORT
 int pw_data_loop_stop(struct pw_data_loop *loop)
@@ -250,7 +246,6 @@ int pw_data_loop_stop(struct pw_data_loop *loop)
  * \param loop the data loop to check
  * \return true is the current thread is the data loop thread
  *
- * \memberof pw_data_loop
  */
 SPA_EXPORT
 bool pw_data_loop_in_thread(struct pw_data_loop * loop)

@@ -39,7 +39,7 @@ extern "C" {
 #define PW_VERSION_DEVICE		3
 struct pw_device;
 
-/** The device information. Extra information can be added in later versions \memberof pw_introspect */
+/** The device information. Extra information can be added in later versions */
 struct pw_device_info {
 	uint32_t id;			/**< id of the global */
 #define PW_DEVICE_CHANGE_MASK_PROPS	(1 << 0)
@@ -51,12 +51,12 @@ struct pw_device_info {
 	uint32_t n_params;		/**< number of items in \a params */
 };
 
-/** Update and existing \ref pw_device_info with \a update \memberof pw_introspect */
+/** Update and existing \ref pw_device_info with \a update */
 struct pw_device_info *
 pw_device_info_update(struct pw_device_info *info,
 		      const struct pw_device_info *update);
 
-/** Free a \ref pw_device_info \memberof pw_introspect */
+/** Free a \ref pw_device_info */
 void pw_device_info_free(struct pw_device_info *info);
 
 #define PW_DEVICE_EVENT_INFO	0

@@ -473,7 +473,6 @@ static struct spa_log *load_journal_logger(struct support *support)
  *
  * The environment variable \a PIPEWIRE_DEBUG
  *
- * \memberof pw_pipewire
  */
 SPA_EXPORT
 void pw_init(int *argc, char **argv[])
@@ -581,7 +580,6 @@ void pw_deinit(void)
  * Debugging categories can be enabled by using the PIPEWIRE_DEBUG
  * environment variable
  *
- * \memberof pw_pipewire
  */
 SPA_EXPORT
 bool pw_debug_is_category_enabled(const char *name)
@@ -598,7 +596,7 @@ bool pw_debug_is_category_enabled(const char *name)
 	return false;
 }
 
-/** Get the application name \memberof pw_pipewire */
+/** Get the application name */
 SPA_EXPORT
 const char *pw_get_application_name(void)
 {
@@ -606,7 +604,7 @@ const char *pw_get_application_name(void)
 	return NULL;
 }
 
-/** Get the program name \memberof pw_pipewire */
+/** Get the program name */
 SPA_EXPORT
 const char *pw_get_prgname(void)
 {
@@ -637,7 +635,7 @@ const char *pw_get_prgname(void)
 	return prgname;
 }
 
-/** Get the user name \memberof pw_pipewire */
+/** Get the user name */
 SPA_EXPORT
 const char *pw_get_user_name(void)
 {
@@ -649,7 +647,7 @@ const char *pw_get_user_name(void)
 	return NULL;
 }
 
-/** Get the host name \memberof pw_pipewire */
+/** Get the host name */
 SPA_EXPORT
 const char *pw_get_host_name(void)
 {
@@ -672,7 +670,6 @@ bool pw_in_valgrind(void)
  *
  * Make a new PipeWire client name that can be used to construct a remote.
  *
- * \memberof pw_pipewire
  */
 SPA_EXPORT
 const char *pw_get_client_name(void)
@@ -691,7 +688,7 @@ const char *pw_get_client_name(void)
 	}
 }
 
-/** Reverse the direction \memberof pw_pipewire */
+/** Reverse the direction */
 SPA_EXPORT
 enum pw_direction pw_direction_reverse(enum pw_direction direction)
 {

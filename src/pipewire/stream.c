@@ -121,13 +121,21 @@ struct stream {
 	uint32_t port_change_mask_all;
 	struct spa_port_info port_info;
 	struct pw_properties *port_props;
-	struct spa_param_info port_params[5];
+#define IDX_EnumFormat	0
+#define IDX_Meta	1
+#define IDX_IO		2
+#define IDX_Format	3
+#define IDX_Buffers	4
+#define N_PORT_PARAMS	5
+	struct spa_param_info port_params[N_PORT_PARAMS];
 
 	struct spa_list param_list;
 
 	uint32_t change_mask_all;
 	struct spa_node_info info;
-	struct spa_param_info params[1];
+#define IDX_Props	0
+#define N_NODE_PARAMS	1
+	struct spa_param_info params[N_NODE_PARAMS];
 
 	uint32_t media_type;
 	uint32_t media_subtype;
@@ -157,7 +165,7 @@ static int get_param_index(uint32_t id)
 {
 	switch (id) {
 	case SPA_PARAM_Props:
-		return 0;
+		return IDX_Props;
 	default:
 		return -1;
 	}
@@ -167,15 +175,15 @@ static int get_port_param_index(uint32_t id)
 {
 	switch (id) {
 	case SPA_PARAM_EnumFormat:
-		return 0;
+		return IDX_EnumFormat;
 	case SPA_PARAM_Meta:
-		return 1;
+		return IDX_Meta;
 	case SPA_PARAM_IO:
-		return 2;
+		return IDX_IO;
 	case SPA_PARAM_Format:
-		return 3;
+		return IDX_Format;
 	case SPA_PARAM_Buffers:
-		return 4;
+		return IDX_Buffers;
 	default:
 		return -1;
 	}
@@ -1581,9 +1589,9 @@ pw_stream_connect(struct pw_stream *stream,
 	if (!impl->process_rt)
 		impl->info.flags |= SPA_NODE_FLAG_ASYNC;
 	impl->info.props = &stream->properties->dict;
-	impl->params[0] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_WRITE);
+	impl->params[IDX_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_WRITE);
 	impl->info.params = impl->params;
-	impl->info.n_params = 1;
+	impl->info.n_params = N_NODE_PARAMS;
 	impl->info.change_mask = impl->change_mask_all;
 
 	impl->port_change_mask_all =
@@ -1596,14 +1604,14 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->port_info.flags = 0;
 	if (SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_ALLOC_BUFFERS))
 		impl->port_info.flags |= SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
-	impl->port_params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
-	impl->port_params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);
-	impl->port_params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
-	impl->port_params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	impl->port_params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	impl->port_params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
+	impl->port_params[IDX_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);
+	impl->port_params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
+	impl->port_params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	impl->port_params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	impl->port_info.props = &impl->port_props->dict;
 	impl->port_info.params = impl->port_params;
-	impl->port_info.n_params = 5;
+	impl->port_info.n_params = N_PORT_PARAMS;
 
 	clear_params(impl, SPA_ID_INVALID);
 	for (i = 0; i < n_params; i++)

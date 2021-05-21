@@ -142,8 +142,14 @@ struct object {
 			struct port *port;
 			bool is_monitor;
 			struct object *node;
+			float latency_quantum[2];
+			uint32_t latency_min[2];
+			uint32_t latency_max[2];
 		} port;
 	};
+	struct pw_proxy *proxy;
+	struct spa_hook proxy_listener;
+	struct spa_hook object_listener;
 };
 
 struct midi_buffer {
@@ -2153,6 +2159,63 @@ static const struct pw_metadata_events metadata_events = {
 	.property = metadata_property
 };
 
+static void proxy_removed(void *data)
+{
+	struct object *o = data;
+	pw_proxy_destroy(o->proxy);
+}
+
+static void proxy_destroy(void *data)
+{
+	struct object *o = data;
+	spa_hook_remove(&o->proxy_listener);
+	spa_hook_remove(&o->object_listener);
+	o->proxy = NULL;
+}
+
+static const struct pw_proxy_events proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.removed = proxy_removed,
+	.destroy = proxy_destroy,
+};
+
+static void port_param(void *object, int seq,
+			uint32_t id, uint32_t index, uint32_t next,
+			const struct spa_pod *param)
+{
+	struct object *o = object;
+
+	switch (id) {
+	case SPA_PARAM_Latency:
+	{
+		uint32_t direction;
+		float latency_quantum;
+		uint32_t latency_min, latency_max;
+
+		if (spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_ParamLatency, NULL,
+				SPA_PARAM_LATENCY_direction,SPA_POD_Id(&direction),
+				SPA_PARAM_LATENCY_quantum,SPA_POD_Float(&latency_quantum),
+				SPA_PARAM_LATENCY_min,  SPA_POD_Int(&latency_min),
+				SPA_PARAM_LATENCY_max,  SPA_POD_Int(&latency_max)) < 0)
+			return;
+
+		direction &= 1;
+		o->port.latency_quantum[direction] = latency_quantum;
+		o->port.latency_min[direction] = latency_min;
+		o->port.latency_max[direction] = latency_max;
+		break;
+	}
+	default:
+		break;
+	}
+}
+
+static const struct pw_port_events port_events = {
+	PW_VERSION_PORT,
+	.param = port_param,
+};
+
 #define FILTER_NAME	" ()[].:*$"
 #define FILTER_PORT	" ()[].*$"
 
@@ -2321,6 +2384,20 @@ static void registry_event_global(void *data, uint32_t id,
 			o->port.port_id = SPA_ID_INVALID;
 			o->port.priority = ot->node.priority;
 			o->port.node = ot;
+
+			o->proxy = pw_registry_bind(c->registry,
+				id, type, PW_VERSION_PORT, 0);
+			if (o->proxy) {
+				uint32_t ids[1] = { SPA_PARAM_Latency };
+
+				pw_proxy_add_listener(o->proxy,
+						&o->proxy_listener, &proxy_events, o);
+				pw_proxy_add_object_listener(o->proxy,
+						&o->object_listener, &port_events, o);
+
+				pw_port_subscribe_params((struct pw_port*)o->proxy,
+						ids, 1);
+			}
 		}
 
 		if ((str = spa_dict_lookup(props, PW_KEY_OBJECT_PATH)) != NULL)
@@ -2446,6 +2523,10 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	 * they are unregistered. We keep the memory around for that
 	 * reason but reuse it when we can. */
 	spa_list_append(&c->context.free_objects, &o->link);
+	if (o->proxy) {
+		pw_proxy_destroy(o->proxy);
+		o->proxy = NULL;
+	}
 
 	if (o->type == INTERFACE_Node)
 		is_last = find_node(c, o->node.name) == NULL;
@@ -4341,26 +4422,21 @@ void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_
 {
 	struct object *o = (struct object *) port;
 	struct client *c;
+	jack_nframes_t nframes;
+	int direction;
 
 	spa_return_if_fail(o != NULL);
 	c = o->client;
 
-	if (o->port.flags & JackPortIsTerminal) {
-		jack_nframes_t nframes = jack_get_buffer_size((jack_client_t*)c);
-		if (o->port.flags & JackPortIsOutput) {
-			o->port.capture_latency.min = nframes;
-			o->port.capture_latency.max = nframes;
-		} else {
-			o->port.playback_latency.min = nframes;
-			o->port.playback_latency.max = nframes;
-		}
-	}
+	if (mode == JackCaptureLatency)
+		direction = SPA_DIRECTION_OUTPUT;
+	else
+		direction = SPA_DIRECTION_INPUT;
 
-	if (mode == JackCaptureLatency) {
-		*range = o->port.capture_latency;
-	} else {
-		*range = o->port.playback_latency;
-	}
+	nframes = jack_get_buffer_size((jack_client_t*)c);
+	nframes *= o->port.latency_quantum[direction];
+	range->min = nframes + o->port.latency_min[direction];
+	range->max = nframes + o->port.latency_max[direction];
 }
 
 SPA_EXPORT
@@ -4384,8 +4460,7 @@ int jack_recompute_total_latencies (jack_client_t *client)
 	return 0;
 }
 
-SPA_EXPORT
-jack_nframes_t jack_port_get_latency (jack_port_t *port)
+static jack_nframes_t port_get_latency (jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
 	jack_latency_range_t range = { 0, 0 };
@@ -4402,11 +4477,16 @@ jack_nframes_t jack_port_get_latency (jack_port_t *port)
 }
 
 SPA_EXPORT
+jack_nframes_t jack_port_get_latency (jack_port_t *port)
+{
+	return port_get_latency(port);
+}
+
+SPA_EXPORT
 jack_nframes_t jack_port_get_total_latency (jack_client_t *client,
 					    jack_port_t *port)
 {
-	pw_log_warn(NAME" %p: not implemented %p", client, port);
-	return 0;
+	return port_get_latency(port);
 }
 
 SPA_EXPORT

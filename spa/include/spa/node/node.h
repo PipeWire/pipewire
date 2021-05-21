@@ -286,7 +286,7 @@ struct spa_node_methods {
 	 *
 	 * \param node a #spa_node
 	 * \param listener a listener
-	 * \param events a #struct spa_node_events
+	 * \param events a struct \ref spa_node_events
 	 * \param data data passed as first argument in functions of \a events
 	 * \return 0 on success
 	 *	   < 0 errno on error
@@ -435,7 +435,7 @@ struct spa_node_methods {
 	 * This function must be called from the main thread.
 	 *
 	 * \param node a  spa_node
-	 * \param direction a #enum spa_direction
+	 * \param direction a enum \ref spa_direction
 	 * \param port_id an unused port id
 	 * \param props extra properties
 	 * \return 0 on success
@@ -449,7 +449,7 @@ struct spa_node_methods {
 	 * Remove a port with \a port_id.
 	 *
 	 * \param node a  spa_node
-	 * \param direction a #enum spa_direction
+	 * \param direction a enum \ref spa_direction
 	 * \param port_id a port id
 	 * \return 0 on success
 	 *         -EINVAL when node is NULL or when port_id is unknown or
@@ -499,12 +499,12 @@ struct spa_node_methods {
 	 *
 	 * This function must be called from the main thread.
 	 *
-	 * \param node a #struct spa_node
-	 * \param direction a #enum spa_direction
+	 * \param node a struct \ref spa_node
+	 * \param direction a enum \ref spa_direction
 	 * \param port_id the port to configure
 	 * \param id the parameter id to set
 	 * \param flags optional flags
-	 * \param param a #struct spa_pod with the parameter to set
+	 * \param param a struct \ref spa_pod with the parameter to set
 	 * \return 0 on success
 	 *         1 on success, the value of \a param might have been
 	 *                changed depending on \a flags and the final value can be found by

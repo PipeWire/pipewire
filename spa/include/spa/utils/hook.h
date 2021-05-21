@@ -51,7 +51,7 @@ struct spa_callbacks {
 	void *data;
 };
 
-/** Check if a callback \c has method \m of version \v */
+/** Check if a callback \a c has method \a m of version \a v */
 #define SPA_CALLBACK_CHECK(c,m,v) ((c) && ((v) == 0 || (c)->version > (v)-1) && (c)->m)
 
 #define SPA_CALLBACKS_INIT(_funcs,_data) (struct spa_callbacks){ _funcs, _data, }

@@ -152,9 +152,9 @@ struct spa_device_methods {
 	 * object_info event for each managed object on the new
 	 * listener.
 	 *
-	 * \param device a #spa_device
+	 * \param object a \ref spa_device
 	 * \param listener a listener
-	 * \param events a #struct spa_device_events
+	 * \param events a struct \ref spa_device_events
 	 * \param data data passed as first argument in functions of \a events
 	 * \return 0 on success
 	 *	   < 0 errno on error
@@ -188,7 +188,7 @@ struct spa_device_methods {
 	 *
 	 * Parameters can be filtered by passing a non-NULL \a filter.
 	 *
-	 * The result callback will be called at most \max times with a
+	 * The result callback will be called at most \a max times with a
 	 * struct spa_result_device_params as the result.
 	 *
 	 * This function must be called from the main thread.
@@ -220,7 +220,7 @@ struct spa_device_methods {
 	 *
 	 * This function must be called from the main thread.
 	 *
-	 * \param device a \ref spa_device
+	 * \param object \ref spa_device
 	 * \param id the parameter id to configure
 	 * \param flags additional flags
 	 * \param param the parameter to configure

@@ -1040,11 +1040,15 @@ impl_node_port_set_param(void *object,
 	spa_log_debug(this->log, NAME " %p: set param %u on port %d:%d %p",
 				this, id, direction, port_id, param);
 
-	is_monitor = IS_MONITOR_PORT(this, direction, port_id);
-	if (is_monitor)
-		target = this->fmt[SPA_DIRECTION_INPUT];
-	else
-		target = this->fmt[direction];
+	switch (id) {
+	default:
+		is_monitor = IS_MONITOR_PORT(this, direction, port_id);
+		if (is_monitor)
+			target = this->fmt[SPA_DIRECTION_INPUT];
+		else
+			target = this->fmt[direction];
+		break;
+	}
 
 	if ((res = spa_node_port_set_param(target,
 					direction, port_id, id, flags, param)) < 0)

@@ -83,9 +83,10 @@ struct impl {
 #define IDX_Format		3
 #define IDX_EnumPortConfig	4
 #define IDX_PortConfig		5
-	struct spa_param_info params[6];
-	uint32_t convert_params_flags[6];
-	uint32_t follower_params_flags[6];
+#define N_NODE_PARAMS		6
+	struct spa_param_info params[N_NODE_PARAMS];
+	uint32_t convert_params_flags[N_NODE_PARAMS];
+	uint32_t follower_params_flags[N_NODE_PARAMS];
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
@@ -221,7 +222,7 @@ static void emit_node_info(struct impl *this, bool full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
 		if (this->info.change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
-			for (i = 0; i < SPA_N_ELEMENTS(this->params); i++) {
+			for (i = 0; i < this->info.n_params; i++) {
 				if (this->params[i].user > 0) {
 					this->params[i].flags ^= SPA_PARAM_INFO_SERIAL;
 					this->params[i].user = 0;
@@ -735,12 +736,12 @@ static void follower_port_info(void *data,
 			    this->follower_params_flags[idx] == info->params[i].flags)
 				continue;
 
-			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 			this->follower_params_flags[idx] = info->params[i].flags;
 			this->params[idx].flags =
 				(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
 				(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
 
+			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 			if (!this->add_listener)
 				this->params[idx].user++;
 		}
@@ -1220,7 +1221,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->params[IDX_EnumPortConfig] = SPA_PARAM_INFO(SPA_PARAM_EnumPortConfig, SPA_PARAM_INFO_READ);
 	this->params[IDX_PortConfig] = SPA_PARAM_INFO(SPA_PARAM_PortConfig, SPA_PARAM_INFO_READWRITE);
 	this->info.params = this->params;
-	this->info.n_params = 6;
+	this->info.n_params = N_NODE_PARAMS;
 
 	spa_node_add_listener(this->follower,
 			&this->follower_listener, &follower_node_events, this);

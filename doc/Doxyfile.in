@@ -30,3 +30,4 @@ MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = YES
 PREDEFINED             = PA_C_DECL_BEGIN= \
                          PA_C_DECL_END=
+HTML_EXTRA_STYLESHEET  = @cssfiles@

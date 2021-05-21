@@ -41,7 +41,13 @@ foreach extra : extra_docs
   inputs += meson.source_root() / 'doc' / extra
 endforeach
 
+cssfiles = [
+  meson.source_root() / 'doc' / 'doxygen-awesome.css',
+  meson.source_root() / 'doc' / 'custom.css'
+]
+
 doxyfile_conf.set('inputs', ' '.join(inputs))
+doxyfile_conf.set('cssfiles', ' '.join(cssfiles))
 
 doxyfile = configure_file(input: 'Doxyfile.in',
                           output: 'Doxyfile',
@@ -53,7 +59,7 @@ if docdir == ''
 endif
 
 html_target = custom_target('pipewire-docs',
-                            input: [ doxyfile ] + inputs,
+                            input: [ doxyfile ] + inputs + cssfiles,
                             output: [ 'html' ],
                             command: [ doxygen, doxyfile ],
                             install: true,

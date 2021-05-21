@@ -267,6 +267,7 @@ void pw_global_add_listener(struct pw_global *global,
  *
  * \param global the global to bind to
  * \param client the client that binds
+ * \param permissions the \ref pw_permission
  * \param version the version
  * \param id the id of the resource
  *

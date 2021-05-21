@@ -75,9 +75,9 @@ struct pw_impl_module_events {
 
 struct pw_impl_module *
 pw_context_load_module(struct pw_context *context,
-	       const char *name,		/**< name of the module */
-	       const char *args			/**< arguments of the module */,
-	       struct pw_properties *properties	/**< extra global properties */);
+	       const char *name,
+	       const char *args,
+	       struct pw_properties *properties);
 
 /** Get the context of a module */
 struct pw_context * pw_impl_module_get_context(struct pw_impl_module *module);

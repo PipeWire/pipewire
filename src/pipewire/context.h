@@ -148,7 +148,7 @@ struct pw_work_queue *pw_context_get_work_queue(struct pw_context *context);
  * 0 to fetch the next item, any other value stops the iteration and returns
  * the value. When all callbacks return 0, this function returns 0 when all
  * globals are iterated. */
-int pw_context_for_each_global(struct pw_context *context,	/**< the context */
+int pw_context_for_each_global(struct pw_context *context,
 			    int (*callback) (void *data, struct pw_global *global),
 			    void *data);
 

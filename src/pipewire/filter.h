@@ -170,7 +170,7 @@ pw_filter_get_node_id(struct pw_filter *filter);
 int pw_filter_disconnect(struct pw_filter *filter);
 
 /** add a port to the filter, returns user data of port_data_size. */
-void *pw_filter_add_port(struct pw_filter *filter,
+void *pw_filter_add_port(struct pw_filter *filter,	/**< a \ref pw_filter */
 		enum pw_direction direction,		/**< port direction */
 		enum pw_filter_port_flags flags,	/**< port flags */
 		size_t port_data_size,			/**< allocated and given to the user as port_data */
@@ -193,7 +193,9 @@ int pw_filter_update_properties(struct pw_filter *filter,
 /** Set the filter in error state */
 int pw_filter_set_error(struct pw_filter *filter,	/**< a \ref pw_filter */
 			int res,			/**< a result code */
-			const char *error, ...		/**< an error message */) SPA_PRINTF_FUNC(3, 4);
+			const char *error,		/**< an error message */
+			...
+			) SPA_PRINTF_FUNC(3, 4);
 
 /** Update params, use NULL port_data for global filter params */
 int

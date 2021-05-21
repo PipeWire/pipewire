@@ -315,7 +315,8 @@ int pw_stream_disconnect(struct pw_stream *stream);
 /** Set the stream in error state */
 int pw_stream_set_error(struct pw_stream *stream,	/**< a \ref pw_stream */
 			int res,			/**< a result code */
-			const char *error, ...		/**< an error message */) SPA_PRINTF_FUNC(3, 4);
+			const char *error,		/**< an error message */
+			...) SPA_PRINTF_FUNC(3, 4);
 
 /** Complete the negotiation process with result code \a res \memberof pw_stream
  *

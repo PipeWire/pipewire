@@ -55,7 +55,7 @@ struct pw_global;
 
 #include <pipewire/impl.h>
 
-typedef int (*pw_global_bind_func_t) (void *object,
+typedef int (*pw_global_bind_func_t) (void *object,	/**< global object, see \ref pw_global_new */
 		      struct pw_impl_client *client,	/**< client that binds */
 		      uint32_t permissions,	/**< permissions for the bind */
 		      uint32_t version,		/**< client interface version */

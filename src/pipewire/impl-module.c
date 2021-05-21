@@ -149,6 +149,7 @@ static const struct pw_global_events global_events = {
  * \param context a \ref pw_context
  * \param name name of the module to load
  * \param args A string with arguments for the module
+ * \param properties extra global properties
  * \return A \ref pw_impl_module if the module could be loaded, or NULL on failure.
  *
  * \memberof pw_impl_module

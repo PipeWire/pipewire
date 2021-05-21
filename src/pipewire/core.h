@@ -515,15 +515,18 @@ pw_context_connect(struct pw_context *context,		/**< a \ref pw_context */
 	      size_t user_data_size		/**< extra user data size */);
 
 /** Connect to a PipeWire instance on the given socket \memberof pw_core
+ * \param context a \ref pw_context
  * \param fd the connected socket to use, the socket will be closed
  *	automatically on disconnect or error.
- * \return a pw_core on success or NULL with errno set on error */
+ * \param properties optional properties, ownership of the properties is
+ *	taken.
+ * \param user_data_size extra user data size
+ * \return a \ref pw_core on success or NULL with errno set on error */
 struct pw_core *
-pw_context_connect_fd(struct pw_context *context,	/**< a \ref pw_context */
-	      int fd,				/**< an fd */
-	      struct pw_properties *properties,	/**< optional properties, ownership of
-						  *  the properties is taken.*/
-	      size_t user_data_size		/**< extra user data size */);
+pw_context_connect_fd(struct pw_context *context,
+	      int fd,
+	      struct pw_properties *properties,
+	      size_t user_data_size);
 
 /** Connect to a given PipeWire instance \memberof pw_core
  * \return a pw_core on success or NULL with errno set on error */

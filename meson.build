@@ -157,7 +157,7 @@ test_8_byte_atomic = '''
 int main(void)
 {
   int64_t eight;
-  __atomic_store_n(&eight, 123, __ATOMIC_SEQ_CST);
+  __atomic_fetch_add(&eight, 123, __ATOMIC_SEQ_CST);
   return 0;
 }
 '''
@@ -166,16 +166,15 @@ int main(void)
 # operations on any reasonable architecture.
 if cc.links(
   test_8_byte_atomic,
-  name : '8-byte __atomic_store_n without libatomic')
+  name : '8-byte __atomic_fetch_add without libatomic')
   atomic_dep = dependency('', required: false)
 elif cc.links(
   test_8_byte_atomic,
   dependencies : libatomic,
-  name : '8-byte __atomic_store_n with libatomic')
+  name : '8-byte __atomic_fetch_add with libatomic')
   atomic_dep = libatomic
-elif get_option('pipewire-jack').enabled()
-  # Currently only required for the JACK backend
-  error('8-byte atomic operations are required for pipewire-jack')
+else
+  error('8-byte atomic operations are required')
 endif
 
 cdata = configuration_data()

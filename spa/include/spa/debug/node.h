@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_debug
+ * \{
+ */
+
 #include <spa/node/node.h>
 #include <spa/debug/dict.h>
 
@@ -48,6 +53,10 @@ static inline int spa_debug_port_info(int indent, const struct spa_port_info *in
                 spa_debug("%*s" "  none", indent, "");
         return 0;
 }
+
+/**
+ * \}
+ */
 
 
 #ifdef __cplusplus

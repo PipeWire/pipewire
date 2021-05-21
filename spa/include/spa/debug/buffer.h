@@ -29,6 +29,15 @@
 extern "C" {
 #endif
 
+/** \defgroup spa_debug SPA Debug
+ *
+ */
+
+/**
+ * \addtogroup spa_debug
+ * \{
+ */
+
 #include <spa/debug/mem.h>
 #include <spa/debug/types.h>
 #include <spa/buffer/type-info.h>
@@ -111,6 +120,10 @@ static inline int spa_debug_buffer(int indent, const struct spa_buffer *buffer)
 	}
 	return 0;
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

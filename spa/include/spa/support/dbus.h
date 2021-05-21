@@ -31,6 +31,11 @@ extern "C" {
 
 #include <spa/support/loop.h>
 
+/**
+ * \addtogroup spa_support
+ * \{
+ */
+
 #define SPA_TYPE_INTERFACE_DBus		SPA_TYPE_INFO_INTERFACE_BASE "DBus"
 
 #define SPA_VERSION_DBUS		0
@@ -132,6 +137,10 @@ spa_dbus_get_connection(struct spa_dbus *dbus, enum spa_dbus_type type)
 			get_connection, 0, type);
 	return res;
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

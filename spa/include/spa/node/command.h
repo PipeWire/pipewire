@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_node
+ * \{
+ */
+
 #include <spa/pod/command.h>
 
 /* object id of SPA_TYPE_COMMAND_Node */
@@ -54,6 +59,10 @@ enum spa_node_command {
 #define SPA_NODE_COMMAND_ID(cmd)	SPA_COMMAND_ID(cmd, SPA_TYPE_COMMAND_Node)
 #define SPA_NODE_COMMAND_INIT(id)	SPA_COMMAND_INIT(SPA_TYPE_COMMAND_Node, id)
 
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

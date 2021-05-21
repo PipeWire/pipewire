@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_param
+ * \{
+ */
+
 #include <spa/param/audio/raw.h>
 
 #define SPA_TYPE_INFO_AudioFormat		SPA_TYPE_INFO_ENUM_BASE "AudioFormat"
@@ -192,6 +197,10 @@ static const struct spa_type_info spa_type_audio_channel[] = {
 	{ SPA_AUDIO_CHANNEL_BRC, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_CHANNEL_BASE "BRC", NULL },
 	{ 0, 0, NULL, NULL },
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -35,9 +35,16 @@ extern "C" {
 #include <spa/utils/defs.h>
 
 /**
+ * \addtogroup spa_utils
+ * \{
+ */
+
+/**
  * \return true if the two strings are equal, false otherwise
  *
  * If both \a a and \a b are NULL, the two are considered equal.
+ *
+ * \ingroup spa
  */
 static inline bool spa_streq(const char *s1, const char *s2)
 {
@@ -92,6 +99,10 @@ static inline bool spa_atob(const char *str)
 {
 	return spa_streq(str, "true") || spa_streq(str, "1");
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

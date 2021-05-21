@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_node
+ * \{
+ */
+
 #include <spa/pod/builder.h>
 
 #include <spa/node/node.h>
@@ -136,6 +141,10 @@ static inline int spa_node_port_enum_params_sync(struct spa_node *node,
 #define spa_node_call_ready(hook,...)		spa_node_call(hook, ready, 0, __VA_ARGS__)
 #define spa_node_call_reuse_buffer(hook,...)	spa_node_call(hook, reuse_buffer, 0, __VA_ARGS__)
 #define spa_node_call_xrun(hook,...)		spa_node_call(hook, xrun, 0, __VA_ARGS__)
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

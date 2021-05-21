@@ -29,6 +29,14 @@
 extern "C" {
 #endif
 
+/** \defgroup spa_keys  SPA Key Names
+ */
+
+/**
+ * \addtogroup spa_keys
+ * \{
+ */
+
 /** for objects */
 #define SPA_KEY_OBJECT_PATH		"object.path"			/**< a unique path to
 									  *  identity the object */
@@ -120,6 +128,10 @@ extern "C" {
 #define SPA_KEY_API_JACK		"api.jack"			/**< key for the JACK api */
 #define SPA_KEY_API_JACK_SERVER		"api.jack.server"		/**< a jack server name */
 #define SPA_KEY_API_JACK_CLIENT		"api.jack.client"		/**< an internal jack client */
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

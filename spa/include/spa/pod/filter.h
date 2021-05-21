@@ -33,6 +33,11 @@
 #include <spa/pod/builder.h>
 #include <spa/pod/compare.h>
 
+/**
+ * \addtogroup spa_pod
+ * \{
+ */
+
 static inline int spa_pod_choice_fix_default(struct spa_pod_choice *choice)
 {
 	void *val, *alt;
@@ -398,3 +403,7 @@ spa_pod_filter(struct spa_pod_builder *b,
 	}
 	return res;
 }
+
+/**
+ * \}
+ */

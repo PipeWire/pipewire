@@ -35,12 +35,17 @@ extern "C" {
 #include <spa/pod/event.h>
 
 /**
- * spa_device:
+ * \defgroup spa_device SPA Device
  *
  * The device interface can be used to monitor all kinds of devices
  * and create objects as a result. Objects a typically other
  * Devices or Nodes.
  *
+ */
+
+/**
+ * \addtogroup spa_device
+ * \{
  */
 #define SPA_TYPE_INTERFACE_Device	SPA_TYPE_INFO_INTERFACE_BASE "Device"
 
@@ -291,6 +296,9 @@ struct spa_device_methods {
 #define SPA_KEY_DEVICE_STRING		"device.string"		/**< device string in the underlying
 								  *  layer's format. E.g. "surround51:0" */
 
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

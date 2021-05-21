@@ -30,6 +30,11 @@ extern "C" {
 #endif
 
 /**
+ * \addtogroup spa_param
+ * \{
+ */
+
+/**
  * All possible stereoscopic 3D and multiview representations.
  * In conjunction with \ref spa_video_multiview_flags, describes how
  * multiview content is being transported in the stream.
@@ -117,6 +122,10 @@ enum spa_video_multiview_flags {
 								 *   buffer flag. */
 };
 
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 } /* extern "C" */

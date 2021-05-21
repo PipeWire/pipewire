@@ -25,6 +25,11 @@
 #ifndef SPA_BUFFER_TYPES_H
 #define SPA_BUFFER_TYPES_H
 
+/**
+ * \addtogroup spa_buffer
+ * \{
+ */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -76,6 +81,10 @@ static const struct spa_type_info spa_type_meta_type[] = {
 	{ SPA_META_Busy, SPA_TYPE_Pointer, SPA_TYPE_INFO_META_BASE "Busy", NULL },
 	{ 0, 0, NULL, NULL },
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

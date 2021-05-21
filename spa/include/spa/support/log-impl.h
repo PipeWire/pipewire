@@ -34,6 +34,11 @@ extern "C" {
 #include <spa/utils/type.h>
 #include <spa/support/log.h>
 
+/**
+ * \addtogroup spa_log
+ * \{
+ */
+
 static inline SPA_PRINTF_FUNC(6, 0) void spa_log_impl_logv(void *object,
 				     enum spa_log_level level,
 				     const char *file,
@@ -86,6 +91,10 @@ struct {					\
 
 #define SPA_LOG_IMPL(name)			\
         SPA_LOG_IMPL_DEFINE(name) = SPA_LOG_IMPL_INIT(name)
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

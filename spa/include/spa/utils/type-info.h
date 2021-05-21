@@ -31,6 +31,11 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
+/**
+ * \addtogroup spa_types
+ * \{
+ */
+
 #ifndef SPA_TYPE_ROOT
 #define SPA_TYPE_ROOT	spa_types
 #endif
@@ -121,6 +126,10 @@ static const struct spa_type_info spa_types[] = {
 
 	{ 0, 0, NULL, NULL }
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

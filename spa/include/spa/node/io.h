@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_node
+ * \{
+ */
+
 #include <spa/utils/defs.h>
 #include <spa/pod/pod.h>
 
@@ -287,6 +292,10 @@ struct spa_io_rate_match {
 	uint32_t flags;			/**< extra flags */
 	uint32_t padding[7];
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -31,10 +31,15 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/buffer/meta.h>
 
-/** \page page_buffer Buffers
+/** \defgroup spa_buffer SPA Buffers
  *
  * Buffers describe the data and metadata that is exchanged between
  * ports of a node.
+ */
+
+/**
+ * \addtogroup spa_buffer
+ * \{
  */
 
 enum spa_data_type {
@@ -111,6 +116,10 @@ static inline void *spa_buffer_find_meta_data(const struct spa_buffer *b, uint32
 		return m->data;
 	return NULL;
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

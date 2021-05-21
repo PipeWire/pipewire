@@ -29,6 +29,14 @@
 extern "C" {
 #endif
 
+/** \defgroup spa_param SPA Parameters
+ */
+
+/**
+ * \addtogroup spa_param
+ * \{
+ */
+
 #include <spa/utils/defs.h>
 
 /** different parameter types that can be queried */
@@ -163,6 +171,10 @@ enum spa_param_route {
 	SPA_PARAM_ROUTE_save,			/**< If route should be saved (Bool) */
 };
 
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

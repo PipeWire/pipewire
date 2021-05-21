@@ -29,6 +29,10 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_param
+ * \{
+ */
 #include <spa/param/video/raw.h>
 
 #define SPA_TYPE_INFO_VideoFormat		SPA_TYPE_INFO_ENUM_BASE "VideoFormat"
@@ -116,6 +120,10 @@ static const struct spa_type_info spa_type_video_format[] = {
 	{ SPA_VIDEO_FORMAT_RGBA_F32,	SPA_TYPE_Int, SPA_TYPE_INFO_VIDEO_FORMAT_BASE "RGBA_F32", NULL },
 	{ 0, 0, NULL, NULL },
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

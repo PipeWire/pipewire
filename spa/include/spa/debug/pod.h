@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_debug
+ * \{
+ */
+
 #include <spa/debug/mem.h>
 #include <spa/debug/types.h>
 #include <spa/pod/pod.h>
@@ -200,6 +205,11 @@ static inline int spa_debug_pod(int indent,
 			SPA_POD_BODY(pod),
 			SPA_POD_BODY_SIZE(pod));
 }
+
+/**
+ * \}
+ */
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

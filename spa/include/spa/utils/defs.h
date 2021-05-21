@@ -36,6 +36,14 @@ extern "C" {
 #include <stddef.h>
 #include <stdio.h>
 
+/** \defgroup spa_utils SPA Utils
+ */
+
+/**
+ * \addtogroup spa_utils
+ * \{
+ */
+
 /**
  * SPA_FALLTHROUGH is an annotation to suppress compiler warnings about switch
  * cases that fall through without a break or return statement. SPA_FALLTHROUGH
@@ -292,6 +300,10 @@ struct spa_fraction {
 		_strp = NULL;						\
 	_strp;								\
 })
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 } /* extern "C" */

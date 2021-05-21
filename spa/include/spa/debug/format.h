@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_debug
+ * \{
+ */
+
 #include <spa/pod/parser.h>
 #include <spa/debug/types.h>
 #include <spa/param/type-info.h>
@@ -194,6 +199,10 @@ static inline int spa_debug_format(int indent,
 	}
 	return 0;
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_param
+ * \{
+ */
+
 #include <spa/param/param.h>
 
 /** properties for SPA_TYPE_OBJECT_Profiler */
@@ -80,6 +85,10 @@ enum spa_profiler {
 
 	SPA_PROFILER_START_CUSTOM	= 0x1000000,
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

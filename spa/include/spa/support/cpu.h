@@ -34,6 +34,15 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 
+/** \defgroup spa_support SPA Support Features
+ *
+ */
+
+/**
+ * \addtogroup spa_support
+ * \{
+ */
+
 /**
  * The CPU features interface
  */
@@ -141,6 +150,10 @@ struct spa_cpu_methods {
 /** keys can be given when initializing the cpu handle */
 #define SPA_KEY_CPU_FORCE		"cpu.force"		/**< force cpu flags */
 #define SPA_KEY_CPU_VM_TYPE		"cpu.vm.type"		/**< force a VM type */
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

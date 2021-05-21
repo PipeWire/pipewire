@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_param
+ * \{
+ */
+
 #include <spa/utils/defs.h>
 #include <spa/param/video/chroma.h>
 #include <spa/param/video/color.h>
@@ -188,6 +193,10 @@ struct spa_video_info_dsp {
 };
 
 #define SPA_VIDEO_INFO_DSP_INIT(...)	(struct spa_video_info_dsp) { __VA_ARGS__ }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 } /* extern "C" */

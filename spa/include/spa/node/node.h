@@ -29,6 +29,15 @@
 extern "C" {
 #endif
 
+/** \defgroup spa_node SPA Nodes
+ * A spa_node is a component that can consume and produce buffers.
+ */
+
+/**
+ * \addtogroup spa_node
+ * \{
+ */
+
 #include <spa/utils/defs.h>
 #include <spa/utils/type.h>
 #include <spa/utils/hook.h>
@@ -37,9 +46,6 @@ extern "C" {
 #include <spa/node/command.h>
 
 
-/**
- * A spa_node is a component that can consume and produce buffers.
- */
 #define SPA_TYPE_INTERFACE_Node		SPA_TYPE_INFO_INTERFACE_BASE "Node"
 
 #define SPA_VERSION_NODE		0
@@ -654,6 +660,10 @@ struct spa_node_methods {
 
 #define spa_node_port_reuse_buffer(n,...)	spa_node_method(n, port_reuse_buffer, 0, __VA_ARGS__)
 #define spa_node_process(n)			spa_node_method(n, process, 0)
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

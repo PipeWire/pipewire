@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_debug
+ * \{
+ */
+
 #include <spa/utils/dict.h>
 
 #ifndef spa_debug
@@ -52,6 +57,10 @@ static inline int spa_debug_mem(int indent, const void *data, size_t size)
 	}
 	return 0;
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

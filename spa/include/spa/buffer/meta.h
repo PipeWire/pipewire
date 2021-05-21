@@ -32,10 +32,11 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/pod/pod.h>
 
-/** \page page_meta Metadata
- *
- * Metadata contains extra information on a buffer.
+/**
+ * \addtogroup spa_buffer
+ * \{
  */
+
 enum spa_meta_type {
 	SPA_META_Invalid,
 	SPA_META_Header,	/**< struct spa_meta_header */
@@ -150,6 +151,10 @@ struct spa_meta_busy {
 	uint32_t flags;
 	uint32_t count;			/**< number of users busy with the buffer */
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

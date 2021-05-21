@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_utils
+ * \{
+ */
+
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 
@@ -50,6 +55,10 @@ extern "C" {
 		_err = EINPROGRESS;	\
 	strerror(_err);			\
 })
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 } /* extern "C" */

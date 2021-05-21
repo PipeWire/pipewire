@@ -29,6 +29,14 @@
 extern "C" {
 #endif
 
+/** \defgroup spa_pod SPA POD
+ */
+
+/**
+ * \addtogroup spa_pod
+ * \{
+ */
+
 #include <stdarg.h>
 
 #include <spa/utils/hook.h>
@@ -675,6 +683,10 @@ spa_pod_copy(const struct spa_pod *pod)
 		return NULL;
 	return (struct spa_pod *) memcpy(c, pod, size);
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

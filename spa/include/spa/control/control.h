@@ -32,8 +32,13 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/pod/pod.h>
 
-/** Controls
+/** \defgroup spa_control SPA Controls
  *
+ */
+
+/**
+ * \addtogroup spa_control
+ * \{
  */
 
 /** Different Control types */
@@ -45,6 +50,10 @@ enum spa_control_type {
 
 	_SPA_CONTROL_LAST,		/**< not part of ABI */
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

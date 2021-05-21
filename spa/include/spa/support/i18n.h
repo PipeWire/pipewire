@@ -32,6 +32,11 @@ extern "C" {
 #include <spa/utils/hook.h>
 #include <spa/utils/defs.h>
 
+/**
+ * \addtogroup spa_support
+ * \{
+ */
+
 #define SPA_TYPE_INTERFACE_I18N		SPA_TYPE_INFO_INTERFACE_BASE "I18N"
 
 #define SPA_VERSION_I18N		0
@@ -85,6 +90,10 @@ spa_i18n_ntext(struct spa_i18n *i18n, const char *msgid,
 				ntext, 0, msgid, msgid_plural, n);
 	return res;
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

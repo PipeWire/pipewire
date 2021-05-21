@@ -29,6 +29,10 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_param
+ * \{
+ */
 enum spa_bluetooth_audio_codec {
 	SPA_BLUETOOTH_AUDIO_CODEC_START,
 
@@ -45,6 +49,10 @@ enum spa_bluetooth_audio_codec {
 	SPA_BLUETOOTH_AUDIO_CODEC_CVSD = 0x100,
 	SPA_BLUETOOTH_AUDIO_CODEC_MSBC,
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

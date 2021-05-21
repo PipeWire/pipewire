@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_node
+ * \{
+ */
+
 #include <spa/utils/type-info.h>
 
 #include <spa/node/command.h>
@@ -88,6 +93,10 @@ static const struct spa_type_info spa_type_node_command[] = {
 	{ 0, SPA_TYPE_Id, SPA_TYPE_INFO_NODE_COMMAND_BASE, spa_type_node_command_id },
 	{ 0, 0, NULL, NULL },
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

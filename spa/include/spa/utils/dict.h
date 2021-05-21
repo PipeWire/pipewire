@@ -33,6 +33,11 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
+/**
+ * \addtogroup spa_utils
+ * \{
+ */
+
 struct spa_dict_item {
 	const char *key;
 	const char *value;
@@ -96,6 +101,10 @@ static inline const char *spa_dict_lookup(const struct spa_dict *dict, const cha
 	const struct spa_dict_item *item = spa_dict_lookup_item(dict, key);
 	return item ? item->value : NULL;
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

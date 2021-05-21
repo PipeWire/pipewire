@@ -34,6 +34,11 @@ extern "C" {
 
 #include <spa/pod/pod.h>
 
+/**
+ * \addtogroup spa_pod
+ * \{
+ */
+
 struct spa_pod_frame {
 	struct spa_pod pod;
 	struct spa_pod_frame *parent;
@@ -439,6 +444,10 @@ static inline int spa_pod_fixate(struct spa_pod *pod)
 		return -EINVAL;
 	return spa_pod_object_fixate((struct spa_pod_object *)pod);
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

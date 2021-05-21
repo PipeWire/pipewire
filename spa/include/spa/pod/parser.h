@@ -35,6 +35,11 @@ extern "C" {
 #include <spa/pod/iter.h>
 #include <spa/pod/vararg.h>
 
+/**
+ * \addtogroup spa_pod
+ * \{
+ */
+
 struct spa_pod_parser_state {
 	uint32_t offset;
 	uint32_t flags;
@@ -565,6 +570,10 @@ static inline int spa_pod_parser_get(struct spa_pod_parser *parser, ...)
 	spa_pod_parser_pod(&_p, pod);				\
 	spa_pod_parser_get_struct(&_p,##__VA_ARGS__);		\
 })
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

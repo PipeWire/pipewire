@@ -33,6 +33,10 @@ extern "C" {
 #include <endian.h>
 #endif
 
+/**
+ * \addtogroup spa_param
+ * \{
+ */
 #include <spa/param/audio/raw.h>
 
 struct spa_audio_layout_info {
@@ -176,6 +180,10 @@ struct spa_audio_layout_info {
 					     SPA_AUDIO_CHANNEL_FC, SPA_AUDIO_CHANNEL_LFE, \
 					     SPA_AUDIO_CHANNEL_RL, SPA_AUDIO_CHANNEL_RR, \
 					     SPA_AUDIO_CHANNEL_FLC, SPA_AUDIO_CHANNEL_FRC, }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

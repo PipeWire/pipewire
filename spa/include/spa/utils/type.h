@@ -31,6 +31,14 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
+/** \defgroup spa_types SPA Types
+ */
+
+/**
+ * \addtogroup spa_types
+ * \{
+ */
+
 enum {
 	/* Basic types */
 	SPA_TYPE_START = 0x00000,
@@ -130,6 +138,10 @@ struct spa_type_info {
 	const char *name;
 	const struct spa_type_info *values;
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

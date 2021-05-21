@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_debug
+ * \{
+ */
+
 #include <spa/utils/type-info.h>
 
 #include <string.h>
@@ -90,6 +95,10 @@ static inline uint32_t spa_debug_type_find_type(const struct spa_type_info *info
 	}
 	return SPA_ID_INVALID;
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

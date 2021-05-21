@@ -29,6 +29,14 @@
 extern "C" {
 #endif
 
+/** \defgroup spa_names SPA Factory Names
+ */
+
+/**
+ * \addtogroup spa_names
+ * \{
+ */
+
 /** for factory names */
 #define SPA_NAME_SUPPORT_CPU		"support.cpu"			/**< A CPU interface */
 #define SPA_NAME_SUPPORT_DBUS		"support.dbus"			/**< A DBUS interface */
@@ -129,6 +137,10 @@ extern "C" {
 /** keys for vulkan factory names */
 #define SPA_NAME_API_VULKAN_COMPUTE_SOURCE	\
 					"api.vulkan.compute.source"	/**< a vulkan compute source. */
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_param
+ * \{
+ */
+
 #include <spa/param/param.h>
 
 /** media type for SPA_TYPE_OBJECT_Format */
@@ -139,6 +144,10 @@ enum spa_format {
 
 #define SPA_KEY_FORMAT_DSP		"format.dsp"		/**< a predefined DSP format,
 								  *  Ex. "32 bit float mono audio" */
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

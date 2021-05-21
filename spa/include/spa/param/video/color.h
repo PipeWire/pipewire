@@ -30,6 +30,11 @@ extern "C" {
 #endif
 
 /**
+ * \addtogroup spa_param
+ * \{
+ */
+
+/**
  * Possible color range values. These constants are defined for 8 bit color
  * values and can be scaled for other bit depths.
  */
@@ -108,6 +113,10 @@ struct spa_video_colorimetry {
 	enum spa_video_color_primaries primaries; /**< Color primaries. Used to convert between R'G'B'
 						   *   and CIE XYZ */
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 } /* extern "C" */

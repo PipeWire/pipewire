@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_utils
+ * \{
+ */
+
 struct spa_list {
 	struct spa_list *next;
 	struct spa_list *prev;
@@ -139,6 +144,10 @@ static inline void spa_list_remove(struct spa_list *elem)
 
 #define spa_list_cursor_end(cursor, member)                             \
         spa_list_remove(&(cursor).member)
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_param
+ * \{
+ */
+
 /** Various Chroma settings.
  */
 enum spa_video_chroma_site {
@@ -47,6 +52,10 @@ enum spa_video_chroma_site {
 	/**< DV style cositing */
 	SPA_VIDEO_CHROMA_SITE_DV = (SPA_VIDEO_CHROMA_SITE_COSITED | SPA_VIDEO_CHROMA_SITE_ALT_LINE),
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 } /* extern "C" */

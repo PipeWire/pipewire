@@ -32,6 +32,11 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/type.h>
 
+/**
+ * \addtogroup spa_pod
+ * \{
+ */
+
 #define SPA_POD_BODY_SIZE(pod)			(((struct spa_pod*)(pod))->size)
 #define SPA_POD_TYPE(pod)			(((struct spa_pod*)(pod))->type)
 #define SPA_POD_SIZE(pod)			(sizeof(struct spa_pod) + SPA_POD_BODY_SIZE(pod))
@@ -229,6 +234,9 @@ struct spa_pod_sequence {
 	struct spa_pod_sequence_body body;
 };
 
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

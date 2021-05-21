@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_param
+ * \{
+ */
+
 #include <spa/utils/defs.h>
 #include <spa/param/props.h>
 #include <spa/param/format.h>
@@ -378,6 +383,10 @@ static const struct spa_type_info spa_type_profiler[] = {
 	{ 0, 0, NULL, NULL },
 };
 
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

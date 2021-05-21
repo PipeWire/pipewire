@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_param
+ * \{
+ */
+
 #include <spa/param/format.h>
 #include <spa/param/audio/raw.h>
 
@@ -40,6 +45,10 @@ struct spa_audio_info {
 		struct spa_audio_info_dsp dsp;
 	} info;
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

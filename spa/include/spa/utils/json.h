@@ -37,6 +37,14 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
+/** \defgroup spa_json SPA JSON Parser
+ */
+
+/**
+ * \addtogroup spa_json
+ * \{
+ */
+
 /* a simple JSON compatible tokenizer */
 struct spa_json {
 	const char *cur;
@@ -400,6 +408,10 @@ static inline int spa_json_encode_string(char *str, int size, const char *val)
 #undef __PUT
 	return len-1;
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 } /* extern "C" */

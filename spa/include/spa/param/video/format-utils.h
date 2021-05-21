@@ -29,6 +29,10 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_param
+ * \{
+ */
 #include <spa/pod/parser.h>
 #include <spa/pod/builder.h>
 #include <spa/param/video/format.h>
@@ -167,6 +171,10 @@ spa_format_video_mjpg_parse(const struct spa_pod *format,
 			SPA_FORMAT_VIDEO_framerate,	SPA_POD_OPT_Fraction(&info->framerate),
 			SPA_FORMAT_VIDEO_maxFramerate,	SPA_POD_OPT_Fraction(&info->max_framerate));
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 } /* extern "C" */

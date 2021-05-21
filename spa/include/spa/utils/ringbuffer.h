@@ -29,6 +29,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_utils
+ * \{
+ */
+
 struct spa_ringbuffer;
 
 #include <string.h>
@@ -49,7 +54,6 @@ struct spa_ringbuffer {
  * Initialize a spa_ringbuffer with \a size.
  *
  * \param rbuf a spa_ringbuffer
- * \param size the number of elements in the ringbuffer
  */
 static inline void spa_ringbuffer_init(struct spa_ringbuffer *rbuf)
 {
@@ -60,6 +64,7 @@ static inline void spa_ringbuffer_init(struct spa_ringbuffer *rbuf)
  * Sets the pointers so that the ringbuffer contains \a size bytes.
  *
  * \param rbuf a spa_ringbuffer
+ * \param size the target size of \a rbuf
  */
 static inline void spa_ringbuffer_set_avail(struct spa_ringbuffer *rbuf, uint32_t size)
 {
@@ -87,7 +92,7 @@ static inline int32_t spa_ringbuffer_get_read_index(struct spa_ringbuffer *rbuf,
  * Read \a len bytes from \a rbuf starting \a offset. \a offset must be taken
  * modulo \a size and len should be smaller than \a size.
  *
- * \param rbuf a #struct spa_ringbuffer
+ * \param rbuf a struct \ref spa_ringbuffer
  * \param buffer memory to read from
  * \param size the size of \a buffer
  * \param offset offset in \a buffer to read from
@@ -165,6 +170,10 @@ static inline void spa_ringbuffer_write_update(struct spa_ringbuffer *rbuf, int3
 {
 	__atomic_store_n(&rbuf->writeindex, index, __ATOMIC_RELEASE);
 }
+
+/**
+ * \}
+ */
 
 
 #ifdef __cplusplus

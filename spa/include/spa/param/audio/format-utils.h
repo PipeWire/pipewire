@@ -29,6 +29,10 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_param
+ * \{
+ */
 
 #include <spa/pod/parser.h>
 #include <spa/pod/builder.h>
@@ -105,6 +109,10 @@ spa_format_audio_dsp_build(struct spa_pod_builder *builder, uint32_t id, struct 
 			SPA_FORMAT_AUDIO_format,	SPA_POD_Id(info->format), 0);
 	return (struct spa_pod*)spa_pod_builder_pop(builder, &f);
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -116,10 +116,12 @@ ATTRS{idVendor}=="03f0", ATTRS{idProduct}=="0567", ENV{ACP_PROFILE_SET}="hp-tbt-
 
 # ID 1038:12ad is for the 2018 refresh of the Arctis 7.
 # ID 1038:1294 is for Arctis Pro Wireless (which works with the Arctis 7 configuration).
+# ID 1038:12c4 is for Arctis 9 Wireless
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1260", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="12ad", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1294", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1730", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
+ATTRS{idVendor}=="1038", ATTRS{idProduct}=="12c4", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 # Lucidsound LS31
 ATTRS{idVendor}=="2f12", ATTRS{idProduct}=="0109", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 # ID 9886:002c is for the Astro A50 Gen4

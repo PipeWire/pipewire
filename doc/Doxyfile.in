@@ -14,6 +14,7 @@ QUIET                  = YES
 WARN_NO_PARAMDOC       = YES
 INPUT                  = @inputs@
 FILE_PATTERNS          = "*.h" "*.c"
+RECURSIVE              = YES
 EXAMPLE_PATH           = "@top_srcdir@/src/tools" \
                          "@top_srcdir@/src/examples"
 

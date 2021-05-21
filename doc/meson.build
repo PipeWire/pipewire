@@ -18,6 +18,31 @@ foreach h : pipewire_sources
   inputs += meson.source_root() / 'src' / 'pipewire' / h
 endforeach
 
+# SPA headers use static inline functions. Doxygen doesn't extract those
+# unless we have EXTRACT_STATIC set - but we don't want it to extract
+# everything in the rest of the tree.
+# The shell script here basically does a:
+#   cp spa/* builddir/spa/ && sed -i 's/^static//' buildir/spa/**.h
+# The copied files are passed to doxygen as input and they are parsed as
+# normal functions.
+# Because this uses globbing, this target won't rebuild if the headers
+# change but meh.
+spa_header_dirs = []
+sed = find_program('sed', required: false)
+if sed.found()
+  spa_srcdir = meson.source_root() / 'spa' / 'include' / 'spa'
+  spa_dstdir = meson.current_build_dir() / 'spa'
+  spa_strip_static = custom_target(
+    'spa-strip-static',
+    command: [ find_program('strip-static.sh'), spa_srcdir, spa_dstdir ],
+    build_by_default: true,
+    output: 'spa',
+  )
+  spa_header_dirs += spa_dstdir
+else
+  spa_strip_static = []
+endif
+
 extra_docs = [
   'overview.md',
   'design.txt',
@@ -46,7 +71,7 @@ cssfiles = [
   meson.source_root() / 'doc' / 'custom.css'
 ]
 
-doxyfile_conf.set('inputs', ' '.join(inputs))
+doxyfile_conf.set('inputs', ' '.join(inputs + [spa_dstdir]))
 doxyfile_conf.set('cssfiles', ' '.join(cssfiles))
 
 doxyfile = configure_file(input: 'Doxyfile.in',
@@ -62,5 +87,6 @@ html_target = custom_target('pipewire-docs',
                             input: [ doxyfile ] + inputs + cssfiles,
                             output: [ 'html' ],
                             command: [ doxygen, doxyfile ],
+                            depends: spa_strip_static,
                             install: true,
                             install_dir: docdir)

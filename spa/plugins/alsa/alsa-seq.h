@@ -71,7 +71,13 @@ struct seq_port {
 
 	uint64_t info_all;
 	struct spa_port_info info;
-	struct spa_param_info params[8];
+#define IDX_EnumFormat	0
+#define IDX_Meta	1
+#define IDX_IO		2
+#define IDX_Format	3
+#define IDX_Buffers	4
+#define N_PORT_PARAMS	5
+	struct spa_param_info params[N_PORT_PARAMS];
 
 	struct spa_io_buffers *io;
 
@@ -128,7 +134,11 @@ struct seq_state {
 
 	uint64_t info_all;
 	struct spa_node_info info;
-	struct spa_param_info params[8];
+#define IDX_PropInfo	0
+#define IDX_Props	1
+#define IDX_NODE_IO	2
+#define N_NODE_PARAMS	3
+	struct spa_param_info params[N_NODE_PARAMS];
 	struct props props;
 
 	struct spa_io_clock *clock;

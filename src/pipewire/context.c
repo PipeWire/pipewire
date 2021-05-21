@@ -724,6 +724,8 @@ SPA_PRINTF_FUNC(7, 8) int pw_context_debug_port_params(struct pw_context *this,
  * \param props extra properties
  * \param n_format_filters number of format filters
  * \param format_filters array of format filters
+ * \param[out] format the common format between the ports
+ * \param builder builder to use for processing
  * \param[out] error an error when something is wrong
  * \return a common format of NULL on error
  *

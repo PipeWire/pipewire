@@ -59,6 +59,7 @@ static const struct spa_type_info spa_type_param[] = {
 	{ SPA_PARAM_EnumRoute, SPA_TYPE_OBJECT_ParamRoute, SPA_TYPE_INFO_PARAM_ID_BASE "EnumRoute", NULL },
 	{ SPA_PARAM_Route, SPA_TYPE_OBJECT_ParamRoute, SPA_TYPE_INFO_PARAM_ID_BASE "Route", NULL },
 	{ SPA_PARAM_Control, SPA_TYPE_Sequence, SPA_TYPE_INFO_PARAM_ID_BASE "Control", NULL },
+	{ SPA_PARAM_Latency, SPA_TYPE_OBJECT_ParamLatency, SPA_TYPE_INFO_PARAM_ID_BASE "Latency", NULL },
 	{ 0, 0, NULL, NULL },
 };
 
@@ -383,6 +384,17 @@ static const struct spa_type_info spa_type_profiler[] = {
 	{ 0, 0, NULL, NULL },
 };
 
+#define SPA_TYPE_INFO_PARAM_Latency		SPA_TYPE_INFO_PARAM_BASE "Latency"
+#define SPA_TYPE_INFO_PARAM_LATENCY_BASE		SPA_TYPE_INFO_PARAM_Latency ":"
+
+static const struct spa_type_info spa_type_param_latency[] = {
+	{ SPA_PARAM_LATENCY_START, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_LATENCY_BASE, spa_type_param, },
+	{ SPA_PARAM_LATENCY_direction, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_LATENCY_BASE "direction", spa_type_direction, },
+	{ SPA_PARAM_LATENCY_quantum, SPA_TYPE_Float, SPA_TYPE_INFO_PARAM_LATENCY_BASE "quantum", NULL, },
+	{ SPA_PARAM_LATENCY_min, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_LATENCY_BASE "min", NULL, },
+	{ SPA_PARAM_LATENCY_max, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_LATENCY_BASE "max", NULL, },
+	{ 0, 0, NULL, NULL },
+};
 
 /**
  * \}

@@ -56,6 +56,7 @@ enum spa_param_type {
 	SPA_PARAM_EnumRoute,		/**< routing enumeration as SPA_TYPE_OBJECT_ParamRoute */
 	SPA_PARAM_Route,		/**< routing configuration as SPA_TYPE_OBJECT_ParamRoute */
 	SPA_PARAM_Control,		/**< Control parameter, a SPA_TYPE_Sequence */
+	SPA_PARAM_Latency,		/**< latency reporting, a SPA_TYPE_OBJECT_ParamLatency */
 };
 
 /** information about a parameter */
@@ -171,6 +172,15 @@ enum spa_param_route {
 	SPA_PARAM_ROUTE_save,			/**< If route should be saved (Bool) */
 };
 
+
+/** properties for SPA_TYPE_OBJECT_ParamLatency */
+enum spa_param_latency {
+	SPA_PARAM_LATENCY_START,
+	SPA_PARAM_LATENCY_direction,		/**< direction, input/output (Id enum spa_direction) */
+	SPA_PARAM_LATENCY_quantum,		/**< latency relative to quantum (Float) */
+	SPA_PARAM_LATENCY_min,			/**< min latency (Int) relative to rate */
+	SPA_PARAM_LATENCY_max,			/**< max latency (Int) relative to rate */
+};
 
 /**
  * \}

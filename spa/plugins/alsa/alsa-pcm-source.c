@@ -454,6 +454,21 @@ impl_node_port_enum_params(void *object, int seq,
 		}
 		break;
 
+	case SPA_PARAM_Latency:
+		switch (result.index) {
+		case 0:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamLatency, id,
+				SPA_PARAM_LATENCY_direction, SPA_POD_Id(direction),
+				SPA_PARAM_LATENCY_quantum, SPA_POD_Float(this->latency_quantum),
+				SPA_PARAM_LATENCY_min, SPA_POD_Int(this->latency),
+				SPA_PARAM_LATENCY_max, SPA_POD_Int(this->latency));
+			break;
+		default:
+			return 0;
+		}
+		break;
+
 	default:
 		return -ENOENT;
 	}
@@ -523,6 +538,7 @@ static int port_set_format(void *object,
 	if (this->have_format) {
 		this->port_params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
 		this->port_params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+		this->port_params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
 	} else {
 		this->port_params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 		this->port_params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
@@ -779,6 +795,8 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_hook_list_init(&this->hooks);
 	this->stream = SND_PCM_STREAM_CAPTURE;
 
+	this->latency_quantum = 1.0f;
+
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |
 			SPA_NODE_CHANGE_MASK_PROPS |
 			SPA_NODE_CHANGE_MASK_PARAMS;
@@ -802,6 +820,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->port_params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
 	this->port_params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	this->port_params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	this->port_params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READWRITE);
 	this->port_info.params = this->port_params;
 	this->port_info.n_params = N_PORT_PARAMS;
 

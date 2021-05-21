@@ -1042,6 +1042,9 @@ impl_node_port_set_param(void *object,
 				this, id, direction, port_id, param);
 
 	switch (id) {
+	case SPA_PARAM_Latency:
+		target = this->fmt[SPA_DIRECTION_REVERSE(direction)];
+		break;
 	default:
 		is_monitor = IS_MONITOR_PORT(this, direction, port_id);
 		if (is_monitor)

@@ -83,7 +83,8 @@ struct impl {
 #define IDX_Format		3
 #define IDX_EnumPortConfig	4
 #define IDX_PortConfig		5
-#define N_NODE_PARAMS		6
+#define IDX_Latency		6
+#define N_NODE_PARAMS		7
 	struct spa_param_info params[N_NODE_PARAMS];
 	uint32_t convert_params_flags[N_NODE_PARAMS];
 	uint32_t follower_params_flags[N_NODE_PARAMS];
@@ -715,12 +716,36 @@ static void follower_info(void *data, const struct spa_node_info *info)
 	emit_node_info(this, false);
 }
 
+static int recalc_latency(struct impl *this, enum spa_direction direction, uint32_t port_id)
+{
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+	struct spa_pod *param;
+	uint32_t index = 0;
+	int res;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	if ((res = spa_node_port_enum_params_sync(this->follower,
+					direction, port_id, SPA_PARAM_Latency,
+					&index, NULL, &param, &b)) != 1)
+		return res;
+
+	if ((res = spa_node_port_set_param(this->target,
+					SPA_DIRECTION_REVERSE(direction), 0,
+					SPA_PARAM_Latency, 0, param)) < 0)
+		return res;
+
+	return 0;
+}
+
 static void follower_port_info(void *data,
 		enum spa_direction direction, uint32_t port_id,
 		const struct spa_port_info *info)
 {
 	struct impl *this = data;
 	uint32_t i;
+	int res;
 
 	if (info->change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
@@ -729,6 +754,9 @@ static void follower_port_info(void *data,
 			switch (info->params[i].id) {
 			case SPA_PARAM_Format:
 				idx = IDX_Format;
+				break;
+			case SPA_PARAM_Latency:
+				idx = IDX_Latency;
 				break;
 			default:
 				continue;
@@ -741,6 +769,13 @@ static void follower_port_info(void *data,
 			this->params[idx].flags =
 				(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
 				(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
+
+			if (idx == IDX_Latency) {
+				res = recalc_latency(this, direction, port_id);
+				if (res != 0)
+					spa_log_error(this->log, "latency: %d", res);
+				continue;
+			}
 
 			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 			if (!this->add_listener)

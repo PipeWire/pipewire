@@ -78,7 +78,8 @@ struct port {
 #define IDX_IO		2
 #define IDX_Format	3
 #define IDX_Buffers	4
-#define N_PORT_PARAMS	5
+#define IDX_Latency	5
+#define N_PORT_PARAMS	6
 	struct spa_param_info params[N_PORT_PARAMS];
 
 	struct spa_dict info_props;
@@ -124,6 +125,10 @@ struct impl {
 	struct convert conv;
 	unsigned int is_passthrough:1;
 	unsigned int started:1;
+
+	float latency_quantum[2];
+	uint32_t latency_min[2];
+	uint32_t latency_max[2];
 
 	uint32_t src_remap[SPA_AUDIO_MAX_CHANNELS];
 	uint32_t dst_remap[SPA_AUDIO_MAX_CHANNELS];
@@ -193,6 +198,7 @@ static int init_port(struct impl *this, enum spa_direction direction,
 	port->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
 	port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	port->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READWRITE);
 	port->info.params = port->params;
 	port->info.n_params = N_PORT_PARAMS;
 
@@ -563,6 +569,20 @@ impl_node_port_enum_params(void *object, int seq,
 			return 0;
 		}
 		break;
+	case SPA_PARAM_Latency:
+		switch (result.index) {
+		case 0:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamLatency, id,
+				SPA_PARAM_LATENCY_direction,   SPA_POD_Id(direction),
+				SPA_PARAM_LATENCY_quantum,   SPA_POD_Float(this->latency_quantum[direction]),
+				SPA_PARAM_LATENCY_min,   SPA_POD_Int(this->latency_min[direction]),
+				SPA_PARAM_LATENCY_max,   SPA_POD_Int(this->latency_max[direction]));
+			break;
+		default:
+			return 0;
+		}
+		break;
 	default:
 		return -ENOENT;
 	}
@@ -667,6 +687,46 @@ static int calc_width(struct spa_audio_info *info)
 	}
 }
 
+static int port_set_latency(void *object,
+			   enum spa_direction direction,
+			   uint32_t port_id,
+			   uint32_t flags,
+			   const struct spa_pod *latency)
+{
+	struct impl *this = object;
+	struct port *port;
+	enum spa_direction other = SPA_DIRECTION_REVERSE(direction);
+	uint32_t i;
+
+	spa_log_debug(this->log, NAME " %p: set latency", this);
+	if (latency == NULL) {
+		this->latency_quantum[other] = 0;
+		this->latency_min[other] = 0;
+		this->latency_max[other] = 0;
+	} else {
+		if (spa_pod_parse_object(latency,
+				SPA_TYPE_OBJECT_ParamLatency, NULL,
+				SPA_PARAM_LATENCY_quantum,SPA_POD_Float(&this->latency_quantum[other]),
+				SPA_PARAM_LATENCY_min,	SPA_POD_Int(&this->latency_min[other]),
+				SPA_PARAM_LATENCY_max,	SPA_POD_Int(&this->latency_max[other])) < 0)
+			return -EINVAL;
+	}
+	if (direction == SPA_DIRECTION_INPUT) {
+		for (i = 0; i < this->port_count; i++) {
+			port = GET_OUT_PORT(this, i);
+			port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+			port->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
+			emit_port_info(this, port, false);
+		}
+	} else {
+		port = GET_IN_PORT(this, 0);
+		port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+		port->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
+		emit_port_info(this, port, false);
+	}
+	return 0;
+}
+
 static int port_set_format(void *object,
 			   enum spa_direction direction,
 			   uint32_t port_id,
@@ -739,6 +799,7 @@ static int port_set_format(void *object,
 	if (port->have_format) {
 		port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
 		port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+		port->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
 	} else {
 		port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 		port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
@@ -761,6 +822,8 @@ impl_node_port_set_param(void *object,
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
 	switch (id) {
+	case SPA_PARAM_Latency:
+		return port_set_latency(this, direction, port_id, flags, param);
 	case SPA_PARAM_Format:
 		return port_set_format(this, direction, port_id, flags, param);
 	default:
@@ -1102,6 +1165,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
 	port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	port->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READWRITE);
 	port->info.params = port->params;
 	port->info.n_params = N_PORT_PARAMS;
 

@@ -143,7 +143,8 @@ struct state {
 #define IDX_IO		2
 #define IDX_Format	3
 #define IDX_Buffers	4
-#define N_PORT_PARAMS	5
+#define IDX_Latency	5
+#define N_PORT_PARAMS	6
 	struct spa_param_info port_params[N_PORT_PARAMS];
 	struct spa_io_buffers *io;
 	struct spa_io_clock *clock;
@@ -190,6 +191,9 @@ struct state {
 
 	struct spa_dll dll;
 	double max_error;
+
+	float latency_quantum;
+	uint32_t latency;
 };
 
 int

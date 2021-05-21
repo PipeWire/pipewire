@@ -43,7 +43,7 @@ extern "C" {
 #define PW_VERSION_PORT		3
 struct pw_port;
 
-/** \enum pw_direction The direction of a port \memberof pw_introspect */
+/** The direction of a port */
 #define pw_direction spa_direction
 #define PW_DIRECTION_INPUT SPA_DIRECTION_INPUT
 #define PW_DIRECTION_OUTPUT SPA_DIRECTION_OUTPUT

@@ -1,6 +1,7 @@
 [Unit]
 Description=PipeWire PulseAudio
 ConditionUser=!root
+Conflicts=pulseaudio.socket
 
 [Socket]
 Priority=6

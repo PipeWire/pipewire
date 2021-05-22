@@ -17,6 +17,7 @@ Requires=pipewire-pulse.socket
 ConditionUser=!root
 Wants=pipewire.service
 After=pipewire.service
+Conflicts=pulseaudio.service
 
 [Service]
 LockPersonality=yes

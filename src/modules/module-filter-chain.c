@@ -844,6 +844,15 @@ static struct ladspa_descriptor *ladspa_descriptor_load(struct impl *impl,
 	spa_list_for_each(desc, &hndl->descriptor_list, link) {
 		if (spa_streq(desc->label, label)) {
 			desc->ref++;
+
+			/*
+			 * since ladspa_handle_load() increments the reference count of the handle,
+			 * if the descriptor is found, then the handle's reference count
+			 * has already been incremented to account for the descriptor,
+			 * so we need to unref handle here since we're merely reusing
+			 * thedescriptor, not creating a new one
+			 */
+			ladspa_handle_unref(hndl);
 			return desc;
 		}
 	}

@@ -764,20 +764,10 @@ static void ladspa_handle_unref(struct ladspa_handle *hndl)
 	free(hndl);
 }
 
-static struct ladspa_handle *ladspa_handle_load(struct impl *impl, const char *plugin)
+static struct ladspa_handle *ladspa_handle_load_by_path(struct impl *impl, const char *path)
 {
 	struct ladspa_handle *hndl;
-	char path[PATH_MAX];
 	int res;
-
-	if (plugin[0] != '/') {
-		const char *e;
-		if ((e = getenv("LADSPA_PATH")) == NULL)
-			e = "/usr/lib64/ladspa";
-		snprintf(path, sizeof(path), "%s/%s.so", e, plugin);
-	} else {
-		snprintf(path, sizeof(path), "%s", plugin);
-	}
 
 	spa_list_for_each(hndl, &impl->ladspa_handle_list, link) {
 		if (spa_streq(hndl->path, path)) {
@@ -787,27 +777,31 @@ static struct ladspa_handle *ladspa_handle_load(struct impl *impl, const char *p
 	}
 
 	hndl = calloc(1, sizeof(*hndl));
+	if (!hndl)
+		return NULL;
+
 	hndl->ref = 1;
 	snprintf(hndl->path, sizeof(hndl->path), "%s", path);
 
-	if (spa_streq(plugin, "builtin")) {
-		hndl->desc_func = builtin_ladspa_descriptor;
-	} else {
+	if (!spa_streq(path, "builtin")) {
 		hndl->handle = dlopen(path, RTLD_NOW);
-		if (hndl->handle == NULL) {
-			pw_log_error("plugin dlopen failed %s: %s", path, dlerror());
+		if (!hndl->handle) {
+			pw_log_debug("failed to open '%s': %s", path, dlerror());
 			res = -ENOENT;
 			goto exit;
 		}
 
-		hndl->desc_func = (LADSPA_Descriptor_Function)dlsym(hndl->handle,
-							"ladspa_descriptor");
+		pw_log_info("successfully opened '%s'", path);
+
+		hndl->desc_func = (LADSPA_Descriptor_Function) dlsym(hndl->handle, "ladspa_descriptor");
+		if (!hndl->desc_func) {
+			pw_log_warn("cannot find descriptor function in '%s': %s", path, dlerror());
+			res = -ENOSYS;
+			goto exit;
+		}
 	}
-	if (hndl->desc_func == NULL) {
-		pw_log_error("cannot find descriptor function from %s: %s",
-                       path, dlerror());
-		res = -ENOSYS;
-		goto exit;
+	else {
+		hndl->desc_func = builtin_ladspa_descriptor;
 	}
 
 	spa_list_init(&hndl->descriptor_list);
@@ -816,11 +810,58 @@ static struct ladspa_handle *ladspa_handle_load(struct impl *impl, const char *p
 	return hndl;
 
 exit:
-	if (hndl->handle != NULL)
+	if (hndl->handle)
 		dlclose(hndl->handle);
+
 	free(hndl);
 	errno = -res;
+
 	return NULL;
+}
+
+static struct ladspa_handle *ladspa_handle_load(struct impl *impl, const char *plugin)
+{
+	struct ladspa_handle *hndl = NULL;
+
+	if (!spa_streq(plugin, "builtin") && plugin[0] != '/') {
+		const char *search_dirs, *p;
+		char path[PATH_MAX];
+		size_t len;
+
+		search_dirs = getenv("LADSPA_PATH");
+		if (!search_dirs)
+			search_dirs = "/usr/lib64/ladspa";
+
+		/*
+		 * set the errno for the case when `ladspa_handle_load_by_path()`
+		 * is never called, which can only happen if the supplied
+		 * LADSPA_PATH contains too long paths
+		 */
+		errno = ENAMETOOLONG;
+
+		while ((p = pw_split_walk(NULL, ":", &len, &search_dirs))) {
+			int pathlen;
+
+			if (len >= sizeof(path))
+				continue;
+
+			pathlen = snprintf(path, sizeof(path), "%.*s/%s.so", (int) len, p, plugin);
+			if (pathlen < 0 || (size_t) pathlen >= sizeof(path))
+				continue;
+
+			hndl = ladspa_handle_load_by_path(impl, path);
+			if (hndl)
+				break;
+		}
+	}
+	else {
+		hndl = ladspa_handle_load_by_path(impl, plugin);
+	}
+
+	if (!hndl)
+		pw_log_error("failed to load plugin '%s': %s", plugin, strerror(errno));
+
+	return hndl;
 }
 
 static void ladspa_descriptor_unref(struct ladspa_descriptor *desc)

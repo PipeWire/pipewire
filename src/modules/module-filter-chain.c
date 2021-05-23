@@ -756,8 +756,11 @@ static void ladspa_handle_unref(struct ladspa_handle *hndl)
 {
 	if (--hndl->ref > 0)
 		return;
+
 	if (hndl->handle)
 		dlclose(hndl->handle);
+
+	spa_list_remove(&hndl->link);
 	free(hndl);
 }
 
@@ -806,7 +809,9 @@ static struct ladspa_handle *ladspa_handle_load(struct impl *impl, const char *p
 		res = -ENOSYS;
 		goto exit;
 	}
+
 	spa_list_init(&hndl->descriptor_list);
+	spa_list_append(&impl->ladspa_handle_list, &hndl->link);
 
 	return hndl;
 

@@ -411,6 +411,7 @@ static void init_port(struct seq_state *state, struct seq_port *port, const snd_
 	port->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
 	port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	port->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READWRITE);
 
 	port->info.params = port->params;
 	port->info.n_params = N_PORT_PARAMS;
@@ -568,6 +569,21 @@ impl_node_port_enum_params(void *object, int seq,
 				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
+			break;
+		default:
+			return 0;
+		}
+		break;
+
+	case SPA_PARAM_Latency:
+		switch (result.index) {
+		case 0:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamLatency, id,
+				SPA_PARAM_LATENCY_direction, SPA_POD_Id(direction),
+				SPA_PARAM_LATENCY_quantum, SPA_POD_Float(1.0f),
+				SPA_PARAM_LATENCY_min, SPA_POD_Int(0),
+				SPA_PARAM_LATENCY_max, SPA_POD_Int(0));
 			break;
 		default:
 			return 0;

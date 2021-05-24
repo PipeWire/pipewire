@@ -76,7 +76,8 @@ struct seq_port {
 #define IDX_IO		2
 #define IDX_Format	3
 #define IDX_Buffers	4
-#define N_PORT_PARAMS	5
+#define IDX_Latency	5
+#define N_PORT_PARAMS	6
 	struct spa_param_info params[N_PORT_PARAMS];
 
 	struct spa_io_buffers *io;

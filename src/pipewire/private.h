@@ -686,6 +686,12 @@ struct pw_impl_node {
         void *user_data;                /**< extra user data */
 };
 
+struct pw_port_latency {
+	float quantum;		/** quantum multiplier */
+	uint32_t min;		/** min of all peers */
+	uint32_t max;		/** max of all peers */
+};
+
 struct pw_impl_port_mix {
 	struct spa_list link;
 	struct spa_list rt_link;
@@ -789,6 +795,8 @@ struct pw_impl_port {
 		struct spa_list node_link;
 	} rt;					/**< data only accessed from the data thread */
 	unsigned int added:1;
+
+	struct pw_port_latency latency[2];	/**< latencies */
 
 	void *owner_data;		/**< extra owner data */
 	void *user_data;                /**< extra user data */
@@ -1151,6 +1159,8 @@ int pw_impl_port_set_param(struct pw_impl_port *port,
 /** Use buffers on a port \memberof pw_impl_port */
 int pw_impl_port_use_buffers(struct pw_impl_port *port, struct pw_impl_port_mix *mix, uint32_t flags,
 		struct spa_buffer **buffers, uint32_t n_buffers);
+
+int pw_impl_port_recalc_latency(struct pw_impl_port *port);
 
 /** Change the state of the node */
 int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state);

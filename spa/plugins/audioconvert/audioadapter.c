@@ -958,6 +958,12 @@ impl_node_port_set_param(void *object,
 			flags, param)) < 0)
 		return res;
 
+	if (id == SPA_PARAM_Latency && direction == this->direction) {
+		if ((res = spa_node_port_set_param(this->follower, direction, 0, id,
+				flags, param)) < 0)
+			return res;
+	}
+
 	return res;
 }
 

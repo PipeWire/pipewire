@@ -683,6 +683,8 @@ impl_node_port_set_param(void *object,
 				this, id, direction, port_id, param);
 
 	switch (id) {
+	case SPA_PARAM_Latency:
+		return 0;
 	case SPA_PARAM_Format:
 		return port_set_format(object, direction, port_id, flags, param);
 	default:

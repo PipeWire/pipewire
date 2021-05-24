@@ -351,6 +351,31 @@ static void emit_params(struct pw_impl_port *port, uint32_t *changed_ids, uint32
 	}
 }
 
+static int process_latency_param(void *data, int seq,
+		uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
+{
+	struct pw_impl_port *this = data;
+	uint32_t direction;
+	struct pw_port_latency latency;
+
+	if (id != SPA_PARAM_Latency)
+		return -EINVAL;
+
+	if (spa_pod_parse_object(param,
+			SPA_TYPE_OBJECT_ParamLatency, NULL,
+			SPA_PARAM_LATENCY_direction,SPA_POD_Id(&direction),
+			SPA_PARAM_LATENCY_quantum,SPA_POD_Float(&latency.quantum),
+			SPA_PARAM_LATENCY_min,  SPA_POD_Int(&latency.min),
+			SPA_PARAM_LATENCY_max,  SPA_POD_Int(&latency.max)) < 0)
+		return 0;
+	if (direction != this->direction)
+		return 0;
+	pw_log_info("got latency %f %d %d", latency.quantum, latency.min, latency.max);
+
+	this->latency[direction] = latency;
+	return 0;
+}
+
 static void update_info(struct pw_impl_port *port, const struct spa_port_info *info)
 {
 	uint32_t changed_ids[MAX_PARAMS], n_changed_ids = 0;
@@ -391,6 +416,17 @@ static void update_info(struct pw_impl_port *port, const struct spa_port_info *i
 
 			if (info->params[i].flags & SPA_PARAM_INFO_READ)
 				changed_ids[n_changed_ids++] = id;
+
+			switch (id) {
+			case SPA_PARAM_Latency:
+				if (port->node != NULL)
+					pw_impl_port_for_each_param(port, 0, id, 0, UINT32_MAX,
+							NULL, process_latency_param, port);
+				break;
+			default:
+				break;
+			}
+
 		}
 	}
 
@@ -911,6 +947,7 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 	pw_impl_node_emit_port_init(node, port);
 
 	pw_impl_port_for_each_param(port, 0, SPA_PARAM_IO, 0, 0, NULL, check_param_io, port);
+	pw_impl_port_for_each_param(port, 0, SPA_PARAM_Latency, 0, 0, NULL, process_latency_param, port);
 
 	control = PW_IMPL_PORT_IS_CONTROL(port);
 	if (control) {
@@ -1249,6 +1286,60 @@ int pw_impl_port_for_each_link(struct pw_impl_port *port,
 				break;
 	}
 	return res;
+}
+
+static void port_set_latency(struct pw_impl_port *port, struct pw_port_latency *latency)
+{
+	struct pw_port_latency *current = &port->latency[port->direction];
+	struct spa_pod *param;
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+
+	if (current->quantum == latency->quantum &&
+	    current->min == latency->min &&
+	    current->max == latency->max)
+		return;
+
+	*current = *latency;
+	pw_log_info("port set latency %d %d %f", latency->min, latency->max, latency->quantum);
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	param = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_ParamLatency, SPA_PARAM_Latency,
+			SPA_PARAM_LATENCY_direction, SPA_POD_Id(port->direction),
+			SPA_PARAM_LATENCY_quantum, SPA_POD_Float(latency->quantum),
+			SPA_PARAM_LATENCY_min, SPA_POD_Int(latency->min),
+			SPA_PARAM_LATENCY_max, SPA_POD_Int(latency->max));
+
+	pw_impl_port_set_param(port, SPA_PARAM_Latency, 0, param);
+}
+
+int pw_impl_port_recalc_latency(struct pw_impl_port *port)
+{
+	struct pw_impl_link *l;
+	struct pw_port_latency latency = { .quantum = 0.0f, .min = UINT32_MAX, .max = 0 };
+	struct pw_impl_port *other;
+
+	if (port->direction == PW_DIRECTION_OUTPUT) {
+		spa_list_for_each(l, &port->links, output_link) {
+			other = l->input;
+			latency.quantum = SPA_MAX(latency.quantum, other->latency[other->direction].quantum);
+			latency.min = SPA_MIN(latency.min, other->latency[other->direction].min);
+			latency.max = SPA_MAX(latency.max, other->latency[other->direction].max);
+		}
+	} else {
+		spa_list_for_each(l, &port->links, input_link) {
+			other = l->input;
+			latency.quantum = SPA_MAX(latency.quantum, other->latency[other->direction].quantum);
+			latency.min = SPA_MIN(latency.min, other->latency[other->direction].min);
+			latency.max = SPA_MAX(latency.max, other->latency[other->direction].max);
+		}
+	}
+	if (latency.min == UINT32_MAX)
+		latency.min = 0;
+
+	port_set_latency(port, &latency);
+	return 0;
 }
 
 SPA_EXPORT

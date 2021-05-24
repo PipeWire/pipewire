@@ -799,9 +799,8 @@ static void port_param_changed(struct pw_impl_link *this, uint32_t id,
 	case SPA_PARAM_EnumFormat:
 		target = PW_IMPL_PORT_STATE_CONFIGURE;
 		break;
-//	case SPA_PARAM_Buffers:
-//		target = PW_IMPL_PORT_STATE_READY;
-//		break;
+	case SPA_PARAM_Latency:
+		return;
 	default:
 		return;
 	}
@@ -931,6 +930,17 @@ static bool pw_impl_node_can_reach(struct pw_impl_node *output, struct pw_impl_n
 		}
 	}
 	return false;
+}
+
+static void recalculate_latencies(struct impl *impl)
+{
+	struct pw_impl_link *this = &impl->this;
+	/* from output port we get capture latency and propagate this
+	 * on the input port */
+	pw_impl_port_recalc_latency(this->output);
+	/* from input port we get playback latency and propagate that
+	 * on the output port */
+	pw_impl_port_recalc_latency(this->input);
 }
 
 static void try_link_controls(struct impl *impl, struct pw_impl_port *output, struct pw_impl_port *input)
@@ -1145,6 +1155,8 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 	pw_impl_port_emit_link_added(output, this);
 	pw_impl_port_emit_link_added(input, this);
+
+	recalculate_latencies(impl);
 
 	try_link_controls(impl, output, input);
 

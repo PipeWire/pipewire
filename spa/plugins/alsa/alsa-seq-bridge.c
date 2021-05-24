@@ -36,6 +36,7 @@
 #include <spa/utils/list.h>
 #include <spa/monitor/device.h>
 #include <spa/param/audio/format.h>
+#include <spa/param/latency-utils.h>
 #include <spa/pod/filter.h>
 
 #define NAME "alsa-bridge"
@@ -578,13 +579,13 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_Latency:
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamLatency, id,
-				SPA_PARAM_LATENCY_direction, SPA_POD_Id(direction),
-				SPA_PARAM_LATENCY_quantum, SPA_POD_Float(1.0f),
-				SPA_PARAM_LATENCY_min, SPA_POD_Int(0),
-				SPA_PARAM_LATENCY_max, SPA_POD_Int(0));
+		{
+			struct spa_latency_info info = {
+				.direction = direction,
+				.min_quantum = 1.0f, .max_quantum = 1.0f };
+			param = spa_latency_build(&b, id, &info);
 			break;
+		}
 		default:
 			return 0;
 		}

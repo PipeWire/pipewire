@@ -40,6 +40,7 @@
 #include <spa/node/keys.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>
+#include <spa/param/latency-utils.h>
 #include <spa/pod/filter.h>
 #include <spa/debug/types.h>
 #include <spa/debug/pod.h>
@@ -176,9 +177,7 @@ struct impl {
 	uint32_t src_remap[SPA_AUDIO_MAX_CHANNELS];
 	uint32_t dst_remap[SPA_AUDIO_MAX_CHANNELS];
 
-	float latency_quantum[2];
-	uint32_t latency_min[2];
-	uint32_t latency_max[2];
+	struct spa_latency_info latency[2];
 
 	float empty[MAX_SAMPLES + MAX_ALIGN];
 };
@@ -814,12 +813,7 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_Latency:
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamLatency, id,
-				SPA_PARAM_LATENCY_direction,   SPA_POD_Id(direction),
-				SPA_PARAM_LATENCY_quantum,   SPA_POD_Float(this->latency_quantum[direction]),
-				SPA_PARAM_LATENCY_min,   SPA_POD_Int(this->latency_min[direction]),
-				SPA_PARAM_LATENCY_max,   SPA_POD_Int(this->latency_max[direction]));
+			param = spa_latency_build(&b, id, &this->latency[direction]);
 			break;
 		default:
 			return 0;
@@ -936,18 +930,16 @@ static int port_set_latency(void *object,
 	enum spa_direction other = SPA_DIRECTION_REVERSE(direction);
 	uint32_t i;
 
-	spa_log_debug(this->log, NAME " %p: set latency", this);
+	spa_log_info(this->log, NAME " %p: set latency", this);
+
 	if (latency == NULL) {
-		this->latency_quantum[other] = 0;
-		this->latency_min[other] = 0;
-		this->latency_max[other] = 0;
+		this->latency[other] = SPA_LATENCY_INFO(other);
 	} else {
-		if (spa_pod_parse_object(latency,
-				SPA_TYPE_OBJECT_ParamLatency, NULL,
-				SPA_PARAM_LATENCY_quantum,SPA_POD_Float(&this->latency_quantum[other]),
-				SPA_PARAM_LATENCY_min,	SPA_POD_Int(&this->latency_min[other]),
-				SPA_PARAM_LATENCY_max,	SPA_POD_Int(&this->latency_max[other])) < 0)
+		struct spa_latency_info info;
+		if (spa_latency_parse(latency, &info) < 0 ||
+		    info.direction != other)
 			return -EINVAL;
+		this->latency[other] = info;
 	}
 	if (direction == SPA_DIRECTION_OUTPUT) {
 		for (i = 0; i < this->port_count; i++) {

@@ -142,9 +142,7 @@ struct object {
 			struct port *port;
 			bool is_monitor;
 			struct object *node;
-			float latency_quantum[2];
-			uint32_t latency_min[2];
-			uint32_t latency_max[2];
+			struct spa_latency_info latency[2];
 		} port;
 	};
 	struct pw_proxy *proxy;
@@ -2188,22 +2186,10 @@ static void port_param(void *object, int seq,
 	switch (id) {
 	case SPA_PARAM_Latency:
 	{
-		uint32_t direction;
-		float latency_quantum;
-		uint32_t latency_min, latency_max;
-
-		if (spa_pod_parse_object(param,
-				SPA_TYPE_OBJECT_ParamLatency, NULL,
-				SPA_PARAM_LATENCY_direction,SPA_POD_Id(&direction),
-				SPA_PARAM_LATENCY_quantum,SPA_POD_Float(&latency_quantum),
-				SPA_PARAM_LATENCY_min,  SPA_POD_Int(&latency_min),
-				SPA_PARAM_LATENCY_max,  SPA_POD_Int(&latency_max)) < 0)
+		struct spa_latency_info info;
+		if (spa_latency_parse(param, &info) < 0)
 			return;
-
-		direction &= 1;
-		o->port.latency_quantum[direction] = latency_quantum;
-		o->port.latency_min[direction] = latency_min;
-		o->port.latency_max[direction] = latency_max;
+		o->port.latency[info.direction] = info;
 		break;
 	}
 	default:
@@ -4422,8 +4408,9 @@ void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_
 {
 	struct object *o = (struct object *) port;
 	struct client *c;
-	jack_nframes_t nframes;
+	jack_nframes_t nframes, rate;
 	int direction;
+	struct spa_latency_info *info;
 
 	spa_return_if_fail(o != NULL);
 	c = o->client;
@@ -4434,9 +4421,13 @@ void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_
 		direction = SPA_DIRECTION_INPUT;
 
 	nframes = jack_get_buffer_size((jack_client_t*)c);
-	nframes *= o->port.latency_quantum[direction];
-	range->min = nframes + o->port.latency_min[direction];
-	range->max = nframes + o->port.latency_max[direction];
+	rate = jack_get_sample_rate((jack_client_t*)c);
+	info = &o->port.latency[direction];
+
+	range->min = (info->min_quantum * nframes) +
+		info->min_rate + (info->min_ns * rate) / SPA_NSEC_PER_SEC;
+	range->max = (info->max_quantum * nframes) +
+		info->max_rate + (info->max_ns * rate) / SPA_NSEC_PER_SEC;
 }
 
 SPA_EXPORT

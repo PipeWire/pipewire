@@ -390,9 +390,12 @@ static const struct spa_type_info spa_type_profiler[] = {
 static const struct spa_type_info spa_type_param_latency[] = {
 	{ SPA_PARAM_LATENCY_START, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_LATENCY_BASE, spa_type_param, },
 	{ SPA_PARAM_LATENCY_direction, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_LATENCY_BASE "direction", spa_type_direction, },
-	{ SPA_PARAM_LATENCY_quantum, SPA_TYPE_Float, SPA_TYPE_INFO_PARAM_LATENCY_BASE "quantum", NULL, },
-	{ SPA_PARAM_LATENCY_min, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_LATENCY_BASE "min", NULL, },
-	{ SPA_PARAM_LATENCY_max, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_LATENCY_BASE "max", NULL, },
+	{ SPA_PARAM_LATENCY_minQuantum, SPA_TYPE_Float, SPA_TYPE_INFO_PARAM_LATENCY_BASE "minQuantum", NULL, },
+	{ SPA_PARAM_LATENCY_maxQuantum, SPA_TYPE_Float, SPA_TYPE_INFO_PARAM_LATENCY_BASE "maxQuantum", NULL, },
+	{ SPA_PARAM_LATENCY_minRate, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_LATENCY_BASE "minRate", NULL, },
+	{ SPA_PARAM_LATENCY_maxRate, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_LATENCY_BASE "maxRate", NULL, },
+	{ SPA_PARAM_LATENCY_minNs, SPA_TYPE_Long, SPA_TYPE_INFO_PARAM_LATENCY_BASE "minNs", NULL, },
+	{ SPA_PARAM_LATENCY_maxNs, SPA_TYPE_Long, SPA_TYPE_INFO_PARAM_LATENCY_BASE "maxNs", NULL, },
 	{ 0, 0, NULL, NULL },
 };
 

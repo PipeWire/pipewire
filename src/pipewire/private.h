@@ -36,6 +36,7 @@ extern "C" {
 
 #include <spa/support/plugin.h>
 #include <spa/pod/builder.h>
+#include <spa/param/latency-utils.h>
 #include <spa/utils/result.h>
 #include <spa/utils/type-info.h>
 
@@ -686,12 +687,6 @@ struct pw_impl_node {
         void *user_data;                /**< extra user data */
 };
 
-struct pw_port_latency {
-	float quantum;		/** quantum multiplier */
-	uint32_t min;		/** min of all peers */
-	uint32_t max;		/** max of all peers */
-};
-
 struct pw_impl_port_mix {
 	struct spa_list link;
 	struct spa_list rt_link;
@@ -796,7 +791,7 @@ struct pw_impl_port {
 	} rt;					/**< data only accessed from the data thread */
 	unsigned int added:1;
 
-	struct pw_port_latency latency[2];	/**< latencies */
+	struct spa_latency_info latency[2];	/**< latencies */
 
 	void *owner_data;		/**< extra owner data */
 	void *user_data;                /**< extra user data */

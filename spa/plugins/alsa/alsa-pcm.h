@@ -45,6 +45,7 @@ extern "C" {
 #include <spa/node/io.h>
 #include <spa/debug/types.h>
 #include <spa/param/param.h>
+#include <spa/param/latency-utils.h>
 #include <spa/param/audio/format-utils.h>
 
 #include "dll.h"
@@ -192,8 +193,7 @@ struct state {
 	struct spa_dll dll;
 	double max_error;
 
-	float latency_quantum;
-	uint32_t latency;
+	struct spa_latency_info latency;
 };
 
 int

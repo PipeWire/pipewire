@@ -637,6 +637,8 @@ static void input_remove(struct pw_impl_link *this, struct pw_impl_port *port)
 	spa_list_remove(&this->input_link);
 	pw_impl_port_emit_link_removed(this->input, this);
 
+	pw_impl_port_recalc_latency(this->input);
+
 	if ((res = pw_impl_port_use_buffers(port, mix, 0, NULL, 0)) < 0) {
 		pw_log_warn(NAME" %p: port %p clear error %s", this, port, spa_strerror(res));
 	}
@@ -656,6 +658,8 @@ static void output_remove(struct pw_impl_link *this, struct pw_impl_port *port)
 
 	spa_list_remove(&this->output_link);
 	pw_impl_port_emit_link_removed(this->output, this);
+
+	pw_impl_port_recalc_latency(this->output);
 
 	/* we don't clear output buffers when the link goes away. They will get
 	 * cleared when the node goes to suspend */
@@ -932,17 +936,6 @@ static bool pw_impl_node_can_reach(struct pw_impl_node *output, struct pw_impl_n
 	return false;
 }
 
-static void recalculate_latencies(struct impl *impl)
-{
-	struct pw_impl_link *this = &impl->this;
-	/* from output port we get capture latency and propagate this
-	 * on the input port */
-	pw_impl_port_recalc_latency(this->output);
-	/* from input port we get playback latency and propagate that
-	 * on the output port */
-	pw_impl_port_recalc_latency(this->input);
-}
-
 static void try_link_controls(struct impl *impl, struct pw_impl_port *output, struct pw_impl_port *input)
 {
 	struct pw_control *cin, *cout;
@@ -1156,9 +1149,10 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	pw_impl_port_emit_link_added(output, this);
 	pw_impl_port_emit_link_added(input, this);
 
-	recalculate_latencies(impl);
-
 	try_link_controls(impl, output, input);
+
+	pw_impl_port_recalc_latency(this->output);
+	pw_impl_port_recalc_latency(this->input);
 
 	pw_impl_node_emit_peer_added(impl->onode, impl->inode);
 

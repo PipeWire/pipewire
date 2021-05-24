@@ -177,9 +177,12 @@ enum spa_param_route {
 enum spa_param_latency {
 	SPA_PARAM_LATENCY_START,
 	SPA_PARAM_LATENCY_direction,		/**< direction, input/output (Id enum spa_direction) */
-	SPA_PARAM_LATENCY_quantum,		/**< latency relative to quantum (Float) */
-	SPA_PARAM_LATENCY_min,			/**< min latency (Int) relative to rate */
-	SPA_PARAM_LATENCY_max,			/**< max latency (Int) relative to rate */
+	SPA_PARAM_LATENCY_minQuantum,		/**< min latency relative to quantum (Float) */
+	SPA_PARAM_LATENCY_maxQuantum,		/**< max latency relative to quantum (Float) */
+	SPA_PARAM_LATENCY_minRate,		/**< min latency (Int) relative to rate */
+	SPA_PARAM_LATENCY_maxRate,		/**< max latency (Int) relative to rate */
+	SPA_PARAM_LATENCY_minNs,		/**< min latency (Long) in nanoseconds */
+	SPA_PARAM_LATENCY_maxNs,		/**< max latency (Long) in nanoseconds */
 };
 
 /**

@@ -459,12 +459,7 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_Latency:
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamLatency, id,
-				SPA_PARAM_LATENCY_direction, SPA_POD_Id(direction),
-				SPA_PARAM_LATENCY_quantum, SPA_POD_Float(this->latency_quantum),
-				SPA_PARAM_LATENCY_min, SPA_POD_Int(this->latency),
-				SPA_PARAM_LATENCY_max, SPA_POD_Int(this->latency));
+			param = spa_latency_build(&b, id, &this->latency);
 			break;
 		default:
 			return 0;
@@ -775,7 +770,9 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_hook_list_init(&this->hooks);
 
 	this->stream = SND_PCM_STREAM_PLAYBACK;
-	this->latency_quantum = 1.0f;
+	this->latency = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
+	this->latency.min_quantum = 1.0f;
+	this->latency.max_quantum = 1.0f;
 
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |
 			SPA_NODE_CHANGE_MASK_PROPS |

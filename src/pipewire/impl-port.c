@@ -25,6 +25,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <float.h>
 
 #include <spa/pod/parser.h>
 #include <spa/param/audio/format-utils.h>
@@ -355,24 +356,23 @@ static int process_latency_param(void *data, int seq,
 		uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
 {
 	struct pw_impl_port *this = data;
-	uint32_t direction;
-	struct pw_port_latency latency;
+	struct spa_latency_info latency;
 
 	if (id != SPA_PARAM_Latency)
 		return -EINVAL;
 
-	if (spa_pod_parse_object(param,
-			SPA_TYPE_OBJECT_ParamLatency, NULL,
-			SPA_PARAM_LATENCY_direction,SPA_POD_Id(&direction),
-			SPA_PARAM_LATENCY_quantum,SPA_POD_Float(&latency.quantum),
-			SPA_PARAM_LATENCY_min,  SPA_POD_Int(&latency.min),
-			SPA_PARAM_LATENCY_max,  SPA_POD_Int(&latency.max)) < 0)
+	if (spa_latency_parse(param, &latency) < 0)
 		return 0;
-	if (direction != this->direction)
+	if (latency.direction != this->direction)
 		return 0;
-	pw_log_info("got latency %f %d %d", latency.quantum, latency.min, latency.max);
 
-	this->latency[direction] = latency;
+	pw_log_info("port %p: got %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, this,
+			pw_direction_as_string(this->direction),
+			latency.min_quantum, latency.max_quantum,
+			latency.min_rate, latency.max_rate,
+			latency.min_ns, latency.max_ns);
+
+	this->latency[this->direction] = latency;
 	return 0;
 }
 
@@ -514,6 +514,9 @@ struct pw_impl_port *pw_context_create_port(
 	pw_impl_port_set_mix(this, NULL, 0);
 
 	pw_map_init(&this->mix_port_map, 64, 64);
+
+	this->latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
+	this->latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
 	if (info)
 		update_info(this, info);
@@ -1288,55 +1291,66 @@ int pw_impl_port_for_each_link(struct pw_impl_port *port,
 	return res;
 }
 
-static void port_set_latency(struct pw_impl_port *port, struct pw_port_latency *latency)
+static void port_set_latency(struct pw_impl_port *port, struct spa_latency_info *latency)
 {
-	struct pw_port_latency *current = &port->latency[port->direction];
+	struct spa_latency_info *current = &port->latency[latency->direction];
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
 
-	if (current->quantum == latency->quantum &&
-	    current->min == latency->min &&
-	    current->max == latency->max)
+	if (spa_latency_info_compare(current, latency) == 0)
 		return;
 
 	*current = *latency;
-	pw_log_info("port set latency %d %d %f", latency->min, latency->max, latency->quantum);
+	pw_log_info("port %p: set %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, port,
+			pw_direction_as_string(latency->direction),
+			latency->min_quantum, latency->max_quantum,
+			latency->min_rate, latency->max_rate,
+			latency->min_ns, latency->max_ns);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_ParamLatency, SPA_PARAM_Latency,
-			SPA_PARAM_LATENCY_direction, SPA_POD_Id(port->direction),
-			SPA_PARAM_LATENCY_quantum, SPA_POD_Float(latency->quantum),
-			SPA_PARAM_LATENCY_min, SPA_POD_Int(latency->min),
-			SPA_PARAM_LATENCY_max, SPA_POD_Int(latency->max));
-
+	param = spa_latency_build(&b, SPA_PARAM_Latency, latency);
 	pw_impl_port_set_param(port, SPA_PARAM_Latency, 0, param);
 }
 
 int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 {
 	struct pw_impl_link *l;
-	struct pw_port_latency latency = { .quantum = 0.0f, .min = UINT32_MAX, .max = 0 };
+	struct spa_latency_info latency;
 	struct pw_impl_port *other;
+
+	latency = SPA_LATENCY_INFO(SPA_DIRECTION_REVERSE(port->direction));
+	latency.min_quantum = FLT_MAX;
+	latency.min_rate = INT32_MAX;
+	latency.min_ns = INT64_MAX;
 
 	if (port->direction == PW_DIRECTION_OUTPUT) {
 		spa_list_for_each(l, &port->links, output_link) {
 			other = l->input;
-			latency.quantum = SPA_MAX(latency.quantum, other->latency[other->direction].quantum);
-			latency.min = SPA_MIN(latency.min, other->latency[other->direction].min);
-			latency.max = SPA_MAX(latency.max, other->latency[other->direction].max);
+			spa_latency_info_combine(&latency, &other->latency[other->direction]);
+			pw_log_info("port %p: peer %p: latency %f-%f %d-%d %"PRIu64"-%"PRIu64,
+					port, other,
+					latency.min_quantum, latency.max_quantum,
+					latency.min_rate, latency.max_rate,
+					latency.min_ns, latency.max_ns);
 		}
 	} else {
 		spa_list_for_each(l, &port->links, input_link) {
-			other = l->input;
-			latency.quantum = SPA_MAX(latency.quantum, other->latency[other->direction].quantum);
-			latency.min = SPA_MIN(latency.min, other->latency[other->direction].min);
-			latency.max = SPA_MAX(latency.max, other->latency[other->direction].max);
+			other = l->output;
+			spa_latency_info_combine(&latency, &other->latency[other->direction]);
+			pw_log_info("port %p: peer %p: latency %f-%f %d-%d %"PRIu64"-%"PRIu64,
+					port, other,
+					latency.min_quantum, latency.max_quantum,
+					latency.min_rate, latency.max_rate,
+					latency.min_ns, latency.max_ns);
 		}
 	}
-	if (latency.min == UINT32_MAX)
-		latency.min = 0;
+	if (latency.min_quantum == FLT_MAX)
+		latency.min_quantum = 0.0f;
+	if (latency.min_rate == INT32_MAX)
+		latency.min_rate = 0U;
+	if (latency.min_ns == INT64_MAX)
+		latency.min_ns = 0UL;
 
 	port_set_latency(port, &latency);
 	return 0;

@@ -45,6 +45,7 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/debug/types.h>
+#include <spa/debug/pod.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/i18n.h>
@@ -835,13 +836,15 @@ on_io_changed(void *userdata, uint32_t id, void *data, uint32_t size)
 }
 
 static void
-on_param_changed(void *userdata, uint32_t id, const struct spa_pod *format)
+on_param_changed(void *userdata, uint32_t id, const struct spa_pod *param)
 {
 	struct data *data = userdata;
 
-	if (data->verbose)
-		printf("stream param change: id=%"PRIu32"\n",
-				id);
+	if (data->verbose) {
+		printf("stream param change: id=%"PRIu32"\n", id);
+		if (param != NULL)
+			spa_debug_pod(0, NULL, param);
+	}
 }
 
 static void on_process(void *userdata)

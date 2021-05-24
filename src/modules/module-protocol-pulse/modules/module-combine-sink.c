@@ -429,12 +429,12 @@ struct module *create_module_combine_sink(struct impl *impl, const char *argumen
 
 	if ((str = pw_properties_get(props, "adjust_time")) != NULL) {
 		pw_log_info("The `adjust_time` modarg is ignored");
-		pw_properties_set(props, "slaves", NULL);
+		pw_properties_set(props, "adjust_time", NULL);
 	}
 
 	if ((str = pw_properties_get(props, "resample_method")) != NULL) {
 		pw_log_info("The `resample_method` modarg is ignored");
-		pw_properties_set(props, "slaves", NULL);
+		pw_properties_set(props, "resample_method", NULL);
 	}
 
 	if (module_args_to_audioinfo(impl, props, &info) < 0) {

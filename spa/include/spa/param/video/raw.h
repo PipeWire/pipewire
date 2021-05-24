@@ -126,83 +126,58 @@ enum spa_video_format {
 };
 
 /**
- * spa_video_flags:
- * @SPA_VIDEO_FLAG_NONE: no flags
- * @SPA_VIDEO_FLAG_VARIABLE_FPS: a variable fps is selected, fps_n and fps_d
- *     denote the maximum fps of the video
- * @SPA_VIDEO_FLAG_PREMULTIPLIED_ALPHA: Each color has been scaled by the alpha
- *     value.
- *
  * Extra video flags
  */
 enum spa_video_flags {
-	SPA_VIDEO_FLAG_NONE = 0,
-	SPA_VIDEO_FLAG_VARIABLE_FPS = (1 << 0),
-	SPA_VIDEO_FLAG_PREMULTIPLIED_ALPHA = (1 << 1)
+	SPA_VIDEO_FLAG_NONE = 0,			/**< no flags */
+	SPA_VIDEO_FLAG_VARIABLE_FPS = (1 << 0),		/**< a variable fps is selected, fps_n and fps_d
+							 *   denote the maximum fps of the video */
+	SPA_VIDEO_FLAG_PREMULTIPLIED_ALPHA = (1 << 1),  /**< Each color has been scaled by the alpha value. */
 };
 
 /**
- * spa_video_interlace_mode:
- * @SPA_VIDEO_INTERLACE_MODE_PROGRESSIVE: all frames are progressive
- * @SPA_VIDEO_INTERLACE_MODE_INTERLEAVED: 2 fields are interleaved in one video
- *     frame. Extra buffer flags describe the field order.
- * @SPA_VIDEO_INTERLACE_MODE_MIXED: frames contains both interlaced and
- *     progressive video, the buffer flags describe the frame and fields.
- * @SPA_VIDEO_INTERLACE_MODE_FIELDS: 2 fields are stored in one buffer, use the
- *     frame ID to get access to the required field. For multiview (the
- *     'views' property > 1) the fields of view N can be found at frame ID
- *     (N * 2) and (N * 2) + 1.
- *     Each field has only half the amount of lines as noted in the
- *     height property. This mode requires multiple spa_data
- *     to describe the fields.
- *
  * The possible values of the #spa_video_interlace_mode describing the interlace
  * mode of the stream.
  */
 enum spa_video_interlace_mode {
-	SPA_VIDEO_INTERLACE_MODE_PROGRESSIVE = 0,
-	SPA_VIDEO_INTERLACE_MODE_INTERLEAVED,
-	SPA_VIDEO_INTERLACE_MODE_MIXED,
-	SPA_VIDEO_INTERLACE_MODE_FIELDS
+	SPA_VIDEO_INTERLACE_MODE_PROGRESSIVE = 0,	/**< all frames are progressive */
+	SPA_VIDEO_INTERLACE_MODE_INTERLEAVED,		/**< 2 fields are interleaved in one video frame.
+							 * Extra buffer flags describe the field order. */
+	SPA_VIDEO_INTERLACE_MODE_MIXED,			/**< frames contains both interlaced and progressive
+							 *   video, the buffer flags describe the frame and
+							 *   fields. */
+	SPA_VIDEO_INTERLACE_MODE_FIELDS,		/**< 2 fields are stored in one buffer, use the
+							 *   frame ID to get access to the required
+							 *   field. For multiview (the 'views'
+							 *   property > 1) the fields of view N can
+							 *   be found at frame ID (N * 2) and (N *
+							 *   2) + 1. Each field has only half the
+							 *   amount of lines as noted in the height
+							 *   property. This mode requires multiple
+							 *   spa_data to describe the fields. */
 };
 
 /**
- * spa_video_info_raw:
- * @format: the format
- * @modifier: format modifier
- * @size: the frame size of the video
- * @framerate: the framerate of the video 0/1 means variable rate
- * @max_framerate: the maximum framerate of the video. This is only valid when
- *             @framerate is 0/1
- * @views: the number of views in this video
- * @interlace_mode: the interlace mode
- * @pixel_aspect_ratio: The pixel aspect ratio
- * @multiview_mode: multiview mode
- * @multiview_flags: multiview flags
- * @chroma_site: the chroma siting
- * @color_range: the color range. This is the valid range for the samples.
- *         It is used to convert the samples to Y'PbPr values.
- * @color_matrix: the color matrix. Used to convert between Y'PbPr and
- *         non-linear RGB (R'G'B')
- * @transfer_function: the transfer function. used to convert between R'G'B' and RGB
- * @color_primaries: color primaries. used to convert between R'G'B' and CIE XYZ
  */
 struct spa_video_info_raw {
-	enum spa_video_format format;
-	int64_t modifier;
-	struct spa_rectangle size;
-	struct spa_fraction framerate;
-	struct spa_fraction max_framerate;
-	uint32_t views;
-	enum spa_video_interlace_mode interlace_mode;
-	struct spa_fraction pixel_aspect_ratio;
-	enum spa_video_multiview_mode multiview_mode;
-	enum spa_video_multiview_flags multiview_flags;
-	enum spa_video_chroma_site chroma_site;
-	enum spa_video_color_range color_range;
-	enum spa_video_color_matrix color_matrix;
-	enum spa_video_transfer_function transfer_function;
-	enum spa_video_color_primaries color_primaries;
+	enum spa_video_format format;				/**< the format */
+	int64_t modifier;					/**< format modifier */
+	struct spa_rectangle size;				/**< the frame size of the video */
+	struct spa_fraction framerate;				/**< the framerate of the video, 0/1 means variable rate */
+	struct spa_fraction max_framerate;			/**< the maximum framerate of the video. This is only valid when
+								     \ref framerate is 0/1 */
+	uint32_t views;						/**< the number of views in this video */
+	enum spa_video_interlace_mode interlace_mode;		/**< the interlace mode */
+	struct spa_fraction pixel_aspect_ratio;			/**< the pixel aspect ratio */
+	enum spa_video_multiview_mode multiview_mode;		/**< multiview mode */
+	enum spa_video_multiview_flags multiview_flags;		/**< multiview flags */
+	enum spa_video_chroma_site chroma_site;			/**< the chroma siting */
+	enum spa_video_color_range color_range;			/**< the color range. This is the valid range for the samples.
+								 *   It is used to convert the samples to Y'PbPr values. */
+	enum spa_video_color_matrix color_matrix;		/**< the color matrix. Used to convert between Y'PbPr and
+								 *   non-linear RGB (R'G'B') */
+	enum spa_video_transfer_function transfer_function;	/**< the transfer function. used to convert between R'G'B' and RGB */
+	enum spa_video_color_primaries color_primaries;		/**< color primaries. used to convert between R'G'B' and CIE XYZ */
 };
 
 #define SPA_VIDEO_INFO_RAW_INIT(...)	(struct spa_video_info_raw) { __VA_ARGS__ }

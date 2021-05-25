@@ -1013,14 +1013,16 @@ static inline jack_transport_state_t position_to_jack(struct pw_node_activation 
 	d->usecs = s->clock.nsec / SPA_NSEC_PER_USEC;
 	d->frame_rate = s->clock.rate.denom;
 
-	running = s->clock.position - s->offset;
-
-	if (running >= seg->start &&
-	    (seg->duration == 0 || running < seg->start + seg->duration))
-		d->frame = (running - seg->start) * seg->rate + seg->position;
-	else
+	if ((int64_t)s->clock.position < s->offset) {
 		d->frame = seg->position;
-
+	} else {
+		running = s->clock.position - s->offset;
+		if (running >= seg->start &&
+		    (seg->duration == 0 || running < seg->start + seg->duration))
+			d->frame = (running - seg->start) * seg->rate + seg->position;
+		else
+			d->frame = seg->position;
+	}
 	d->valid = 0;
 	if (a->segment_owner[0] && SPA_FLAG_IS_SET(seg->bar.flags, SPA_IO_SEGMENT_BAR_FLAG_VALID)) {
 		double abs_beat;

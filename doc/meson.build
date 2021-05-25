@@ -44,10 +44,10 @@ else
 endif
 
 extra_docs = [
-  'overview.md',
-  'design.md',
-  'architecture.md',
-  'objects_design.md',
+  'pipewire-overview.md',
+  'pipewire-design.md',
+  'pipewire-architecture.md',
+  'pipewire-objects-design.md',
   'tutorial-index.md',
   'tutorial1.md',
   'tutorial2.md',

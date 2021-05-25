@@ -99,7 +99,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->pulse = pw_protocol_pulse_new(context, props, 0);
 	if (impl->pulse == NULL) {
 		res = -errno;
-		goto error;
+		free(impl);
+		return res;
 	}
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
@@ -107,7 +108,4 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
-error:
-	impl_free(impl);
-	return res;
 }

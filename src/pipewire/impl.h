@@ -32,7 +32,7 @@ extern "C" {
 /** \page page_implementation_api Implementation API
  *
  * The implementation API provides the tools to build new objects and
-+ * modules. It consists of the following object-specific APIs:
+ * modules. It consists of the following object-specific APIs:
  *
  * - \ref pw_impl_core
  * - \ref pw_impl_client

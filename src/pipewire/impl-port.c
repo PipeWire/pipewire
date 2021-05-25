@@ -365,6 +365,8 @@ static int process_latency_param(void *data, int seq,
 		return 0;
 	if (latency.direction != this->direction)
 		return 0;
+	if (spa_latency_info_compare(&this->latency[this->direction], &latency) == 0)
+		return 0;
 
 	pw_log_info("port %p: got %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, this,
 			pw_direction_as_string(this->direction),
@@ -373,6 +375,7 @@ static int process_latency_param(void *data, int seq,
 			latency.min_ns, latency.max_ns);
 
 	this->latency[this->direction] = latency;
+	pw_impl_port_emit_latency_changed(this);
 	return 0;
 }
 
@@ -380,8 +383,8 @@ static void update_info(struct pw_impl_port *port, const struct spa_port_info *i
 {
 	uint32_t changed_ids[MAX_PARAMS], n_changed_ids = 0;
 
-	pw_log_debug(NAME" %p: flags:%08"PRIx64" change_mask:%08"PRIx64,
-			port, info->flags, info->change_mask);
+	pw_log_debug(NAME" %p: %p flags:%08"PRIx64" change_mask:%08"PRIx64,
+			port, info, info->flags, info->change_mask);
 
 	if (info->change_mask & SPA_PORT_CHANGE_MASK_FLAGS) {
 		port->spa_flags = info->flags;
@@ -426,7 +429,6 @@ static void update_info(struct pw_impl_port *port, const struct spa_port_info *i
 			default:
 				break;
 			}
-
 		}
 	}
 

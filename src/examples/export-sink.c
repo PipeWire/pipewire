@@ -141,13 +141,15 @@ static int impl_add_listener(void *object,
 {
 	struct data *d = object;
 	struct spa_hook_list save;
+	uint64_t old;
 
 	spa_hook_list_isolate(&d->hooks, &save, listener, events, data);
 
+	old = d->info.change_mask;
 	d->info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS |
 				SPA_PORT_CHANGE_MASK_PARAMS;
 	spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_INPUT, 0, &d->info);
-	d->info.change_mask = 0;
+	d->info.change_mask = old;
 
 	spa_hook_list_join(&d->hooks, &save);
 
@@ -526,7 +528,7 @@ int main(int argc, char *argv[])
 	data.info = SPA_PORT_INFO_INIT();
 	data.info.change_mask = SPA_PORT_CHANGE_MASK_FLAGS;
 	data.info.flags = 0;
-	data.info.change_mask = SPA_PORT_CHANGE_MASK_PARAMS;
+	data.info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	data.params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	data.params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	data.params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);

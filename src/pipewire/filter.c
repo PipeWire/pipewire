@@ -434,20 +434,22 @@ static int impl_send_command(void *object, const struct spa_command *command)
 
 static void emit_node_info(struct filter *d, bool full)
 {
+	uint64_t old = full ? d->info.change_mask : 0;
 	if (full)
 		d->info.change_mask = d->change_mask_all;
 	if (d->info.change_mask != 0)
 		spa_node_emit_info(&d->hooks, &d->info);
-	d->info.change_mask = 0;
+	d->info.change_mask = old;
 }
 
 static void emit_port_info(struct filter *d, struct port *p, bool full)
 {
+	uint64_t old = full ? p->info.change_mask : 0;
 	if (full)
 		p->info.change_mask = p->change_mask_all;
 	if (p->info.change_mask != 0)
 		spa_node_emit_port_info(&d->hooks, p->direction, p->id, &p->info);
-	p->info.change_mask = 0;
+	p->info.change_mask = old;
 }
 
 static int impl_add_listener(void *object,
@@ -1465,7 +1467,6 @@ void *pw_filter_add_port(struct pw_filter *filter,
 	p->change_mask_all = SPA_PORT_CHANGE_MASK_FLAGS |
 		SPA_PORT_CHANGE_MASK_PROPS;
 	p->info = SPA_PORT_INFO_INIT();
-	p->info.change_mask = 0;
 	p->info.flags = 0;
 	if (SPA_FLAG_IS_SET(flags, PW_FILTER_PORT_FLAG_ALLOC_BUFFERS))
 		p->info.flags |= SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;

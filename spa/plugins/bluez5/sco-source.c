@@ -723,6 +723,7 @@ static void emit_node_info(struct impl *this, bool full)
 		{ SPA_KEY_MEDIA_CLASS, "Audio/Source" },
 		{ SPA_KEY_NODE_DRIVER, "true" },
 	};
+	uint64_t old = full ? this->info.change_mask : 0;
 
 	if (full)
 		this->info.change_mask = this->info_all;
@@ -734,18 +735,19 @@ static void emit_node_info(struct impl *this, bool full)
 			&SPA_DICT_INIT_ARRAY(ag_node_info_items) :
 			&SPA_DICT_INIT_ARRAY(hu_node_info_items);
 		spa_node_emit_info(&this->hooks, &this->info);
-		this->info.change_mask = 0;
+		this->info.change_mask = old;
 	}
 }
 
 static void emit_port_info(struct impl *this, struct port *port, bool full)
 {
+	uint64_t old = full ? port->info.change_mask : 0;
 	if (full)
 		port->info.change_mask = port->info_all;
 	if (port->info.change_mask) {
 		spa_node_emit_port_info(&this->hooks,
 				SPA_DIRECTION_OUTPUT, 0, &port->info);
-		port->info.change_mask = 0;
+		port->info.change_mask = old;
 	}
 }
 

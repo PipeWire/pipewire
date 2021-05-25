@@ -274,6 +274,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 static void emit_node_info(struct state *this, bool full)
 {
+	uint64_t old = full ? this->info.change_mask : 0;
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
@@ -291,18 +292,19 @@ static void emit_node_info(struct state *this, bool full)
 		this->info.props = &SPA_DICT_INIT(items, n_items);
 
 		spa_node_emit_info(&this->hooks, &this->info);
-		this->info.change_mask = 0;
+		this->info.change_mask = old;
 	}
 }
 
 static void emit_port_info(struct state *this, bool full)
 {
+	uint64_t old = full ? this->port_info.change_mask : 0;
 	if (full)
 		this->port_info.change_mask = this->port_info_all;
 	if (this->port_info.change_mask) {
 		spa_node_emit_port_info(&this->hooks,
 				SPA_DIRECTION_OUTPUT, 0, &this->port_info);
-		this->port_info.change_mask = 0;
+		this->port_info.change_mask = old;
 	}
 }
 

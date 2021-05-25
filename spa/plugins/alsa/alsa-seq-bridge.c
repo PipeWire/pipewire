@@ -214,12 +214,13 @@ static const struct spa_dict_item node_info_items[] = {
 
 static void emit_node_info(struct seq_state *this, bool full)
 {
+	uint64_t old = full ? this->info.change_mask : 0;
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
 		this->info.props = &SPA_DICT_INIT_ARRAY(node_info_items);
 		spa_node_emit_info(&this->hooks, &this->info);
-		this->info.change_mask = 0;
+		this->info.change_mask = old;
 	}
 }
 
@@ -234,6 +235,7 @@ static inline void clean_name(char *name)
 
 static void emit_port_info(struct seq_state *this, struct seq_port *port, bool full)
 {
+	uint64_t old = full ? port->info.change_mask : 0;
 	if (full)
 		port->info.change_mask = port->info_all;
 	if (port->info.change_mask) {
@@ -286,7 +288,7 @@ static void emit_port_info(struct seq_state *this, struct seq_port *port, bool f
 
 		spa_node_emit_port_info(&this->hooks,
 				port->direction, port->id, &port->info);
-		port->info.change_mask = 0;
+		port->info.change_mask = old;
 	}
 }
 

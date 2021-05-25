@@ -219,6 +219,7 @@ static int emit_info(struct impl *this, bool full)
 	const struct acp_dict_item *it;
 	struct acp_card *card = this->card;
 	char path[128];
+	uint64_t old = full ? this->info.change_mask : 0;
 
 	if (full)
 		this->info.change_mask = this->info_all;
@@ -247,7 +248,7 @@ static int emit_info(struct impl *this, bool full)
 			}
 		}
 		spa_device_emit_info(&this->hooks, &this->info);
-		this->info.change_mask = 0;
+		this->info.change_mask = old;
 	}
 	return err;
 }

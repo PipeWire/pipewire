@@ -546,20 +546,22 @@ static int impl_send_command(void *object, const struct spa_command *command)
 
 static void emit_node_info(struct stream *d, bool full)
 {
+	uint64_t old = full ? d->info.change_mask : 0;
 	if (full)
 		d->info.change_mask = d->change_mask_all;
 	if (d->info.change_mask != 0)
 		spa_node_emit_info(&d->hooks, &d->info);
-	d->info.change_mask = 0;
+	d->info.change_mask = old;
 }
 
 static void emit_port_info(struct stream *d, bool full)
 {
+	uint64_t old = full ? d->port_info.change_mask : 0;
 	if (full)
 		d->port_info.change_mask = d->port_change_mask_all;
 	if (d->port_info.change_mask != 0)
 		spa_node_emit_port_info(&d->hooks, d->direction, 0, &d->port_info);
-	d->port_info.change_mask = 0;
+	d->port_info.change_mask = old;
 }
 
 static int impl_add_listener(void *object,

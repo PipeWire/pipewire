@@ -115,12 +115,14 @@ static int impl_add_listener(void *object,
 {
 	struct data *d = object;
 	struct spa_hook_list save;
+	uint64_t old;
 
 	spa_hook_list_isolate(&d->hooks, &save, listener, events, data);
 
+	old = d->info.change_mask;
 	d->info.change_mask = d->info_all;
 	spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_OUTPUT, 0, &d->info);
-	d->info.change_mask = 0;
+	d->info.change_mask = old;
 
 	spa_hook_list_join(&d->hooks, &save);
 	return 0;

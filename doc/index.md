@@ -8,7 +8,7 @@ found here.
 Start the tutorial about how to use the PipeWire API
 [here](tutorial-index.md).
 
-Notes about the design of the low-level [SPA](spa/design.md)
+Notes about the design of the low-level [SPA](spa-design.md)
 layer.
 
 Some Resources:

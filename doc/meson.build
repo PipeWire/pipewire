@@ -55,10 +55,10 @@ extra_docs = [
   'tutorial4.md',
   'tutorial5.md',
   'tutorial6.md',
-  'spa/index.md',
-  'spa/design.md',
-  'spa/pod.md',
-  'spa/buffer.md',
+  'spa-index.md',
+  'spa-design.md',
+  'spa-pod.md',
+  'spa-buffer.md',
   'pulseaudio.md',
 ]
 

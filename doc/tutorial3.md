@@ -85,7 +85,7 @@ This triggers the `sync` method on the core object with id
 Because this is a method on a proxy object, it will be executed
 asynchronously and the returns value will reflect this. PipeWire
 uses the return values of the underlying SPA (Simple Plugin API)
-helper objects (See also [error codes](spa/design.md#error-codes)).
+helper objects (See also [error codes](spa-design.md#error-codes)).
 
 Because all messages on the PipeWire server are handled sequentially,
 the sync method will be executed after all previous methods are

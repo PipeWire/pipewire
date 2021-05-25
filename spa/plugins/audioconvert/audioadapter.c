@@ -38,6 +38,7 @@
 #include <spa/pod/filter.h>
 #include <spa/param/param.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/latency-utils.h>
 #include <spa/debug/format.h>
 #include <spa/debug/pod.h>
 
@@ -722,15 +723,23 @@ static int recalc_latency(struct impl *this, enum spa_direction direction, uint3
 	uint8_t buffer[1024];
 	struct spa_pod *param;
 	uint32_t index = 0;
+	struct spa_latency_info latency;
 	int res;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_log_debug(this->log, NAME" %p: ", this);
 
-	if ((res = spa_node_port_enum_params_sync(this->follower,
-					direction, port_id, SPA_PARAM_Latency,
-					&index, NULL, &param, &b)) != 1)
-		return res;
 
+	while (true) {
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		if ((res = spa_node_port_enum_params_sync(this->follower,
+						direction, port_id, SPA_PARAM_Latency,
+						&index, NULL, &param, &b)) != 1)
+			return res;
+		if ((res = spa_latency_parse(param, &latency)) < 0)
+			return res;
+		if (latency.direction == direction)
+			break;
+	}
 	if ((res = spa_node_port_set_param(this->target,
 					SPA_DIRECTION_REVERSE(direction), 0,
 					SPA_PARAM_Latency, 0, param)) < 0)
@@ -746,6 +755,10 @@ static void follower_port_info(void *data,
 	struct impl *this = data;
 	uint32_t i;
 	int res;
+
+	spa_log_debug(this->log, NAME" %p: follower port info %s %p %08"PRIx64, this,
+			this->direction == SPA_DIRECTION_INPUT ?
+				"Input" : "Output", info, info->change_mask);
 
 	if (info->change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
@@ -772,8 +785,7 @@ static void follower_port_info(void *data,
 
 			if (idx == IDX_Latency) {
 				res = recalc_latency(this, direction, port_id);
-				if (res != 0)
-					spa_log_error(this->log, "latency: %d", res);
+				spa_log_debug(this->log, "latency: %d", res);
 				continue;
 			}
 

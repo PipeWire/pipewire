@@ -45,7 +45,7 @@ endif
 
 extra_docs = [
   'overview.md',
-  'design.txt',
+  'design.md',
   'architecture.md',
   'objects_design.md',
   'tutorial-index.md',

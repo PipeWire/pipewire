@@ -136,8 +136,6 @@ struct object {
 			uint32_t node_id;
 			uint32_t port_id;
 			uint32_t monitor_requests;
-			jack_latency_range_t capture_latency;
-			jack_latency_range_t playback_latency;
 			int32_t priority;
 			struct port *port;
 			bool is_monitor;
@@ -207,6 +205,15 @@ struct port {
 	enum spa_direction direction;
 	uint32_t id;
 	struct object *object;
+	struct pw_properties *props;
+	struct spa_port_info info;
+#define IDX_EnumFormat	0
+#define IDX_Buffers	1
+#define IDX_IO		2
+#define IDX_Format	3
+#define IDX_Latency	4
+#define N_PORT_PARAMS	5
+	struct spa_param_info params[N_PORT_PARAMS];
 
 	struct spa_io_buffers io;
 	struct spa_list mix;
@@ -214,6 +221,8 @@ struct port {
 
 	unsigned int empty_out:1;
 	unsigned int zeroed:1;
+
+	struct spa_latency_info latency[2];
 
 	float *emptyptr;
 	float empty[MAX_BUFFER_FRAMES + MAX_ALIGN];
@@ -278,6 +287,8 @@ struct client {
 	int last_sync;
 	int last_res;
 	bool error;
+
+	struct spa_node_info info;
 
 	struct pw_registry *registry;
 	struct spa_hook registry_listener;
@@ -528,6 +539,11 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 	p->client = c;
 	p->object = o;
 	spa_list_init(&p->mix);
+	p->props = pw_properties_new(NULL, NULL);
+	p->latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
+	p->latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
+	o->port.latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
+	o->port.latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
 	spa_list_append(&c->ports[direction], &p->link);
 
@@ -551,6 +567,7 @@ static void free_port(struct client *c, struct port *p)
 	spa_list_remove(&p->link);
 	p->valid = false;
 	free_object(c, p->object);
+	pw_properties_free(p->props);
 	spa_list_append(&c->free_ports[p->direction], &p->link);
 }
 
@@ -1630,6 +1647,13 @@ static int param_io(struct client *c, struct port *p,
 	return 1;
 }
 
+static int param_latency(struct client *c, struct port *p,
+		struct spa_pod **param, struct spa_pod_builder *b)
+{
+	*param = spa_latency_build(b, SPA_PARAM_Latency, &p->latency[p->direction]);
+	return 1;
+}
+
 static int port_set_format(struct client *c, struct port *p,
 		uint32_t flags, const struct spa_pod *param)
 {
@@ -1681,6 +1705,40 @@ static int port_set_format(struct client *c, struct port *p,
 	return 0;
 }
 
+static int port_set_latency(struct client *c, struct port *p,
+		uint32_t flags, const struct spa_pod *param)
+{
+	struct spa_latency_info info;
+	jack_latency_callback_mode_t mode;
+	int res;
+
+	if (param == NULL)
+		return 0;
+
+	if ((res = spa_latency_parse(param, &info)) < 0)
+		return res;
+
+	p->latency[info.direction] = info;
+	if (p->object)
+		p->object->port.latency[info.direction] = info;
+
+	pw_log_info("port %p: set %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, p,
+			info.direction == SPA_DIRECTION_INPUT ? "playback" : "capture",
+			info.min_quantum, info.max_quantum,
+			info.min_rate, info.max_rate,
+			info.min_ns, info.max_ns);
+
+	if (info.direction == SPA_DIRECTION_INPUT)
+		mode = JackPlaybackLatency;
+	else
+		mode = JackCaptureLatency;
+
+	if (c->latency_callback)
+		c->latency_callback(mode, c->latency_arg);
+
+	return 0;
+}
+
 static int client_node_port_set_param(void *object,
                                 enum spa_direction direction,
                                 uint32_t port_id,
@@ -1689,26 +1747,34 @@ static int client_node_port_set_param(void *object,
 {
 	struct client *c = (struct client *) object;
 	struct port *p = GET_PORT(c, direction, port_id);
-	struct spa_pod *params[4];
+	struct spa_pod *params[5];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
 	pw_log_debug("port %p: %d.%d id:%d %p", p, direction, port_id, id, param);
 
-        if (id == SPA_PARAM_Format) {
+	switch (id) {
+	case SPA_PARAM_Format:
 		port_set_format(c, p, flags, param);
+		break;
+	case SPA_PARAM_Latency:
+		port_set_latency(c, p, flags, param);
+		break;
+	default:
+		break;
 	}
 
 	param_enum_format(c, p, &params[0], &b);
 	param_format(c, p, &params[1], &b);
 	param_buffers(c, p, &params[2], &b);
 	param_io(c, p, &params[3], &b);
+	param_latency(c, p, &params[4], &b);
 
 	return pw_client_node_port_update(c->node,
 					 direction,
 					 port_id,
 					 PW_CLIENT_NODE_PORT_UPDATE_PARAMS,
-					 4,
+					 5,
 					 (const struct spa_pod **) params,
 					 NULL);
 }
@@ -2370,6 +2436,8 @@ static void registry_event_global(void *data, uint32_t id,
 			o->port.port_id = SPA_ID_INVALID;
 			o->port.priority = ot->node.priority;
 			o->port.node = ot;
+			o->port.latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
+			o->port.latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
 			o->proxy = pw_registry_bind(c->registry,
 				id, type, PW_VERSION_PORT, 0);
@@ -2584,7 +2652,6 @@ jack_client_t * jack_client_open (const char *client_name,
 	uint32_t n_support;
 	const char *str;
 	struct spa_cpu *cpu_iface;
-	struct spa_node_info ni;
 	va_list ap;
 
         if (getenv("PIPEWIRE_NOJACK") != NULL ||
@@ -2746,15 +2813,17 @@ jack_client_t * jack_client_open (const char *client_name,
         pw_proxy_add_listener((struct pw_proxy*)client->node,
 			&client->proxy_listener, &node_proxy_events, client);
 
-	ni = SPA_NODE_INFO_INIT();
-	ni.max_input_ports = MAX_PORTS;
-	ni.max_output_ports = MAX_PORTS;
-	ni.change_mask = SPA_NODE_CHANGE_MASK_FLAGS;
-	ni.flags = SPA_NODE_FLAG_RT;
+	client->info = SPA_NODE_INFO_INIT();
+	client->info.max_input_ports = MAX_PORTS;
+	client->info.max_output_ports = MAX_PORTS;
+	client->info.change_mask = SPA_NODE_CHANGE_MASK_FLAGS |
+		SPA_NODE_CHANGE_MASK_PROPS;
+	client->info.flags = SPA_NODE_FLAG_RT;
+	client->info.props = &client->props->dict;
 
 	pw_client_node_update(client->node,
-                                    PW_CLIENT_NODE_UPDATE_INFO,
-				    0, NULL, &ni);
+			PW_CLIENT_NODE_UPDATE_INFO,
+			0, NULL, &client->info);
 
 	if (status)
 		*status = 0;
@@ -3343,21 +3412,19 @@ SPA_EXPORT
 int jack_set_freewheel(jack_client_t* client, int onoff)
 {
 	struct client *c = (struct client *) client;
-	struct spa_node_info ni;
-	struct spa_dict_item items[1];
 
 	pw_log_info(NAME" %p: freewheel %d", client, onoff);
 
-	ni = SPA_NODE_INFO_INIT();
-	ni.max_input_ports = MAX_PORTS;
-	ni.max_output_ports = MAX_PORTS;
-	ni.change_mask = SPA_NODE_CHANGE_MASK_PROPS;
-	items[0] = SPA_DICT_ITEM_INIT("node.group", onoff ? "pipewire.freewheel" : "");
-	ni.props = &SPA_DICT_INIT_ARRAY(items);
+	pw_properties_set(c->props, "node.group",
+			onoff ? "pipewire.freewheel" : NULL);
+
+	c->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
+	c->info.props = &c->props->dict;
 
 	pw_client_node_update(c->node,
                                     PW_CLIENT_NODE_UPDATE_INFO,
-				    0, NULL, &ni);
+				    0, NULL, &c->info);
+	c->info.change_mask = 0;
 
 	return 0;
 }
@@ -3366,8 +3433,6 @@ SPA_EXPORT
 int jack_set_buffer_size (jack_client_t *client, jack_nframes_t nframes)
 {
 	struct client *c = (struct client *) client;
-	struct spa_node_info ni;
-	struct spa_dict_item items[1];
 	char latency[128];
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
@@ -3375,16 +3440,15 @@ int jack_set_buffer_size (jack_client_t *client, jack_nframes_t nframes)
 	snprintf(latency, sizeof(latency), "%d/%d", nframes, jack_get_sample_rate(client));
 	pw_log_info(NAME" %p: buffer-size %s", client, latency);
 
-	ni = SPA_NODE_INFO_INIT();
-	ni.max_input_ports = MAX_PORTS;
-	ni.max_output_ports = MAX_PORTS;
-	ni.change_mask = SPA_NODE_CHANGE_MASK_PROPS;
-	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
-	ni.props = &SPA_DICT_INIT_ARRAY(items);
+	pw_properties_set(c->props, PW_KEY_NODE_LATENCY, latency);
+
+	c->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
+	c->info.props = &c->props->dict;
 
 	pw_client_node_update(c->node,
                                     PW_CLIENT_NODE_UPDATE_INFO,
-				    0, NULL, &ni);
+				    0, NULL, &c->info);
+	c->info.change_mask = 0;
 
 	return 0;
 }
@@ -3475,16 +3539,11 @@ jack_port_t * jack_port_register (jack_client_t *client,
 {
 	struct client *c = (struct client *) client;
 	enum spa_direction direction;
-	struct spa_port_info port_info;
-	struct spa_param_info port_params[5];
-	struct spa_dict dict;
-	struct spa_dict_item items[10];
 	struct object *o;
 	jack_port_type_id_t type_id;
 	uint8_t buffer[1024];
-	char port_flags[64];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	struct spa_pod *params[4];
+	struct spa_pod *params[5];
 	uint32_t n_params = 0;
 	struct port *p;
 	int res;
@@ -3548,33 +3607,35 @@ jack_port_t * jack_port_register (jack_client_t *client,
 
 	spa_list_init(&p->mix);
 
-	port_info = SPA_PORT_INFO_INIT();
-	port_info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
-	port_info.flags = SPA_PORT_FLAG_NO_REF;
-	port_info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
-	dict = SPA_DICT_INIT(items, 0);
-	items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_FORMAT_DSP, port_type);
-	items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_PORT_NAME, port_name);
+	pw_properties_set(p->props, PW_KEY_FORMAT_DSP, port_type);
+	pw_properties_set(p->props, PW_KEY_PORT_NAME, port_name);
 	if (flags > 0x1f) {
-		snprintf(port_flags, sizeof(port_flags), "jack:flags:%lu", flags & ~0x1f);
-		items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_PORT_EXTRA, port_flags);
+		pw_properties_setf(p->props, PW_KEY_PORT_EXTRA,
+				"jack:flags:%lu", flags & ~0x1f);
 	}
 	if (flags & JackPortIsPhysical)
-		items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_PORT_PHYSICAL, "true");
+		pw_properties_set(p->props, PW_KEY_PORT_PHYSICAL, "true");
 	if (flags & JackPortIsTerminal)
-		items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_PORT_TERMINAL, "true");
-	port_info.props = &dict;
-	port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-	port_params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-	port_params[1] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
-	port_params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
-	port_params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	port_info.params = port_params;
-	port_info.n_params = 4;
+		pw_properties_set(p->props, PW_KEY_PORT_TERMINAL, "true");
+
+	p->info = SPA_PORT_INFO_INIT();
+	p->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
+	p->info.flags = SPA_PORT_FLAG_NO_REF;
+	p->info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
+	p->info.props = &p->props->dict;
+	p->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	p->params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	p->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	p->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+	p->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	p->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READWRITE);
+	p->info.params = p->params;
+	p->info.n_params = N_PORT_PARAMS;
 
 	param_enum_format(c, p, &params[n_params++], &b);
 	param_buffers(c, p, &params[n_params++], &b);
 	param_io(c, p, &params[n_params++], &b);
+	param_latency(c, p, &params[n_params++], &b);
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -3585,7 +3646,9 @@ jack_port_t * jack_port_register (jack_client_t *client,
 					 PW_CLIENT_NODE_PORT_UPDATE_INFO,
 					 n_params,
 					 (const struct spa_pod **) params,
-					 &port_info);
+					 &p->info);
+
+	p->info.change_mask = 0;
 
 	res = do_sync(c);
 
@@ -3945,9 +4008,6 @@ int jack_port_rename (jack_client_t* client, jack_port_t *port, const char *port
 	struct client *c = (struct client *) client;
 	struct object *o = (struct object *) port;
 	struct port *p;
-	struct spa_port_info port_info;
-	struct spa_dict dict;
-	struct spa_dict_item items[1];
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 	spa_return_val_if_fail(o != NULL, -EINVAL);
@@ -3957,18 +4017,19 @@ int jack_port_rename (jack_client_t* client, jack_port_t *port, const char *port
 
 	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
 
-	port_info = SPA_PORT_INFO_INIT();
-	port_info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
-	dict = SPA_DICT_INIT(items, 0);
-	items[dict.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_PORT_NAME, port_name);
-	port_info.props = &dict;
+	pw_properties_set(p->props, PW_KEY_PORT_NAME, port_name);
+
+	p->info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
+	p->info.props = &p->props->dict;
 
 	pw_client_node_port_update(c->node,
 					 p->direction,
 					 p->id,
 					 PW_CLIENT_NODE_PORT_UPDATE_INFO,
 					 0, NULL,
-					 &port_info);
+					 &p->info);
+	p->info.change_mask = 0;
+
 	pw_thread_loop_unlock(c->context.loop);
 
 	return 0;
@@ -3980,9 +4041,6 @@ int jack_port_set_alias (jack_port_t *port, const char *alias)
 	struct object *o = (struct object *) port;
 	struct client *c;
 	struct port *p;
-	struct spa_port_info port_info;
-	struct spa_dict dict;
-	struct spa_dict_item items[1];
 	const char *key;
 
 	spa_return_val_if_fail(o != NULL, -EINVAL);
@@ -4005,18 +4063,19 @@ int jack_port_set_alias (jack_port_t *port, const char *alias)
 
 	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
 
-	port_info = SPA_PORT_INFO_INIT();
-	port_info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
-	dict = SPA_DICT_INIT(items, 0);
-	items[dict.n_items++] = SPA_DICT_ITEM_INIT(key, alias);
-	port_info.props = &dict;
+	pw_properties_set(p->props, key, alias);
+
+	p->info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
+	p->info.props = &p->props->dict;
 
 	pw_client_node_port_update(c->node,
 					 p->direction,
 					 p->id,
 					 PW_CLIENT_NODE_PORT_UPDATE_INFO,
 					 0, NULL,
-					 &port_info);
+					 &p->info);
+	p->info.change_mask = 0;
+
 	pw_thread_loop_unlock(c->context.loop);
 
 	return 0;
@@ -4032,9 +4091,6 @@ int jack_port_unset_alias (jack_port_t *port, const char *alias)
 	struct object *o = (struct object *) port;
 	struct client *c;
 	struct port *p;
-	struct spa_port_info port_info;
-	struct spa_dict dict;
-	struct spa_dict_item items[1];
 	const char *key;
 
 	spa_return_val_if_fail(o != NULL, -EINVAL);
@@ -4053,18 +4109,20 @@ int jack_port_unset_alias (jack_port_t *port, const char *alias)
 
 	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
 
-	port_info = SPA_PORT_INFO_INIT();
-	port_info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
-	dict = SPA_DICT_INIT(items, 0);
-	items[dict.n_items++] = SPA_DICT_ITEM_INIT(key, NULL);
-	port_info.props = &dict;
+
+	pw_properties_set(p->props, key, NULL);
+
+	p->info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
+	p->info.props = &p->props->dict;
 
 	pw_client_node_port_update(c->node,
 					 p->direction,
 					 p->id,
 					 PW_CLIENT_NODE_PORT_UPDATE_INFO,
 					 0, NULL,
-					 &port_info);
+					 &p->info);
+	p->info.change_mask = 0;
+
 	pw_thread_loop_unlock(c->context.loop);
 
 	return 0;
@@ -4428,20 +4486,60 @@ void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_
 		info->min_rate + (info->min_ns * rate) / SPA_NSEC_PER_SEC;
 	range->max = (info->max_quantum * nframes) +
 		info->max_rate + (info->max_ns * rate) / SPA_NSEC_PER_SEC;
+
+	pw_log_debug(NAME" %p: get %d latency range %d %d", o, mode, range->min, range->max);
 }
 
 SPA_EXPORT
 void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_t mode, jack_latency_range_t *range)
 {
 	struct object *o = (struct object *) port;
+	enum spa_direction direction;
+	struct spa_latency_info *info;
+	struct port *p;
+	struct client *c;
+	struct spa_pod *params[5];
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
 	spa_return_if_fail(o != NULL);
 
-	if (mode == JackCaptureLatency) {
-		o->port.capture_latency = *range;
-	} else {
-		o->port.playback_latency = *range;
-	}
+	if (mode == JackCaptureLatency)
+		direction = SPA_DIRECTION_OUTPUT;
+	else
+		direction = SPA_DIRECTION_INPUT;
+
+	pw_log_debug(NAME" %p: set %d latency range %d %d", o, mode, range->min, range->max);
+	info = &o->port.latency[direction];
+	info->direction = direction;
+	info->min_rate = range->min;
+	info->max_rate = range->max;
+
+	if ((p = o->port.port) == NULL)
+		return;
+	if (p->direction != direction)
+		return;
+	c = p->client;
+
+	p->latency[direction] = o->port.latency[direction];
+
+	param_enum_format(c, p, &params[0], &b);
+	param_format(c, p, &params[1], &b);
+	param_buffers(c, p, &params[2], &b);
+	param_io(c, p, &params[3], &b);
+	param_latency(c, p, &params[4], &b);
+
+	p->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	p->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
+
+	pw_client_node_port_update(c->node,
+					 p->direction,
+					 p->id,
+					 PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
+					 PW_CLIENT_NODE_PORT_UPDATE_INFO,
+					 5,
+					 (const struct spa_pod **) params,
+					 &p->info);
 }
 
 SPA_EXPORT

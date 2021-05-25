@@ -567,20 +567,12 @@ static void graph_reset(struct graph *graph)
 	}
 }
 
-static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
+static void param_props_changed(struct impl *impl, const struct spa_pod *param)
 {
-	struct impl *impl = data;
-	const struct spa_pod_prop *prop;
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
+	const struct spa_pod_prop *prop;
 	struct graph *graph = &impl->graph;
 	int changed = 0;
-
-	if (id == SPA_PARAM_Format && param == NULL) {
-		graph_reset(graph);
-		return;
-	}
-	if (id != SPA_PARAM_Props)
-		return;
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		uint32_t idx;
@@ -617,6 +609,45 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 		params[0] = get_props_param(graph, &b);
 
 		pw_stream_update_params(impl->capture, params, 1);
+	}
+}
+
+static void param_latency_changed(struct impl *impl, const struct spa_pod *param)
+{
+	struct spa_latency_info latency;
+	uint8_t buffer[1024];
+	struct spa_pod_builder b;
+	const struct spa_pod *params[1];
+
+	if (spa_latency_parse(param, &latency) < 0)
+		return;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	params[0] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
+
+	if (latency.direction == SPA_DIRECTION_INPUT)
+		pw_stream_update_params(impl->capture, params, 1);
+	else
+		pw_stream_update_params(impl->playback, params, 1);
+}
+
+static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
+{
+	struct impl *impl = data;
+	struct graph *graph = &impl->graph;
+
+	switch (id) {
+	case SPA_PARAM_Format:
+		if (param == NULL)
+			graph_reset(graph);
+		break;
+	case SPA_PARAM_Props:
+		if (param != NULL)
+			param_props_changed(impl, param);
+		break;
+	case SPA_PARAM_Latency:
+		param_latency_changed(impl, param);
+		break;
 	}
 }
 

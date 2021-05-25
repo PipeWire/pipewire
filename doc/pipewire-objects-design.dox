@@ -1,4 +1,4 @@
-# PipeWire Objects Design
+/** \page page_objects_design PipeWire Objects Design
 
 This document is a design reference on the various objects that exist
 in the PipeWire media and session management graphs, explaining what these
@@ -329,3 +329,5 @@ JACK server as a client is out of scope here.
 
 JACK clients do not create endpoints. A session manager should be JACK aware
 in order to anticipate direct node linking
+
+*/

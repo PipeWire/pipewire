@@ -43,11 +43,18 @@ else
   spa_strip_static = []
 endif
 
+# Note: order here is how doxygen will expose the pages in the sidebar
 extra_docs = [
-  'pipewire-overview.md',
-  'pipewire-design.md',
-  'pipewire-architecture.md',
-  'pipewire-objects-design.md',
+  'index.dox',
+  'pipewire.dox',
+  'pipewire-overview.dox',
+  'pipewire-design.dox',
+  'pipewire-daemon.dox',
+  'pipewire-library.dox',
+  'pipewire-tools.dox',
+  'pipewire-session-manager.dox',
+  'pipewire-objects-design.dox',
+  'api.dox',
   'tutorial.dox',
   'tutorial1.dox',
   'tutorial2.dox',
@@ -59,7 +66,7 @@ extra_docs = [
   'spa-design.dox',
   'spa-pod.dox',
   'spa-buffer.dox',
-  'pulseaudio.md',
+  'pulseaudio.dox',
 ]
 
 foreach extra : extra_docs

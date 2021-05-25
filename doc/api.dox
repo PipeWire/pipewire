@@ -1,0 +1,8 @@
+/** \page page_api API Documentation
+
+The API consists of two parts:
+
+- The \subpage page_core_api to access a PipeWire instance.
+- The \subpage page_implementation_api and tools to build new objects and modules
+
+*/

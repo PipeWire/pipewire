@@ -1,4 +1,4 @@
-# PipeWire Architecture
+/** \page page_library PipeWire Library
 
 There are 2 main components that make up the PipeWire library:
 
@@ -34,7 +34,7 @@ described in an external protocol file but implemented directly in
 a protocol plugin. Protocol plugins can be added to add new
 objects or even protocols when required.
 
-Messages are encoded with [SPA PODs](spa-pod.md), which make it
+Messages are encoded with \ref page_spa_pod, which make it
 possible to encode complex objects with right types.
 
 Events from the server can be a reply to a method or can be emitted
@@ -219,3 +219,6 @@ data unless they can see the objects and connect to them.
 
 PipeWire also exposes an API to implement the server side objects in
 a graph.
+
+*/
+

@@ -1,5 +1,4 @@
-PipeWire
---------
+/** \page page_design PipeWire Design
 
 PipeWire is a media server that can run graphs of multimedia nodes.
 Nodes can run inside the server or in separate processes.
@@ -69,3 +68,5 @@ Some of the extensions that can be written
  - a module to automatically create or link or relink nodes
 
  - a module to suspend idle nodes
+
+*/

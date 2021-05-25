@@ -1,0 +1,25 @@
+/** \page page_pipewire PipeWire
+
+## Internals
+
+- \subpage page_overview
+- \subpage page_design
+- \subpage page_streams
+- \subpage page_client
+- \subpage page_proxy
+- \subpage page_thread_loop
+- \subpage page_objects_design
+
+## Components
+
+- \subpage page_daemon
+- \subpage page_library
+- \subpage page_tools
+- \subpage page_session_manager
+- \ref page_spa
+
+## Backends
+
+- \subpage page_pulseaudio
+
+*/

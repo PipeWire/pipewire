@@ -1,3 +1,5 @@
+/** \page page_pulseaudio  PulseAudio compatibility
+
 # Internals - Mapping between ALSA and streams
 
 This explains the mapping between alsa cards and streams and session manager
@@ -66,3 +68,5 @@ the endpoint. This clashes with the notion that multiple streams can be
 active at the same time but is a pulseaudio limitation.
 
 Each Endpoint destination becomes a port on the sink/source.
+
+*/

@@ -839,12 +839,8 @@ static void
 on_param_changed(void *userdata, uint32_t id, const struct spa_pod *param)
 {
 	struct data *data = userdata;
-
-	if (data->verbose) {
+	if (data->verbose)
 		printf("stream param change: id=%"PRIu32"\n", id);
-		if (param != NULL)
-			spa_debug_pod(0, NULL, param);
-	}
 }
 
 static void on_process(void *userdata)

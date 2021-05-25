@@ -105,6 +105,7 @@ ATTRS{idVendor}=="17cc", ATTRS{idProduct}=="041d", ENV{ACP_PROFILE_SET}="native-
 ATTRS{idVendor}=="17cc", ATTRS{idProduct}=="1010", ENV{ACP_PROFILE_SET}="native-instruments-traktor-audio6.conf"
 ATTRS{idVendor}=="17cc", ATTRS{idProduct}=="1011", ENV{ACP_PROFILE_SET}="native-instruments-traktor-audio6.conf"
 
+ATTRS{idVendor}=="17cc", ATTRS{idProduct}=="1001", ENV{ACP_PROFILE_SET}="native-instruments-komplete-audio6.conf"
 ATTRS{idVendor}=="17cc", ATTRS{idProduct}=="1021", ENV{ACP_PROFILE_SET}="native-instruments-traktor-audio10.conf"
 ATTRS{idVendor}=="0763", ATTRS{idProduct}=="2012", ENV{ACP_PROFILE_SET}="maudio-fasttrack-pro.conf"
 ATTRS{idVendor}=="045e", ATTRS{idProduct}=="02bb", ENV{ACP_PROFILE_SET}="kinect-audio.conf"

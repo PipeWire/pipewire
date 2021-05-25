@@ -1,4 +1,4 @@
-# SPA Design
+/** \page page_spa_design SPA Design
 
 SPA (Simple Plugin API) is an extensible API to implement all kinds of plugins.
 It is inspired by many other plugin APIs, mostly LV2 and GStreamer.
@@ -8,20 +8,20 @@ can be introspected and used at runtime in any application.
 
 SPA provides the following functionality:
 
- * enumeration of object factories and the interfaces provided by the objects
- * creation of objects (AKA a handle)
- * retrieve interfaces to perform actions on the objects
+ - enumeration of object factories and the interfaces provided by the objects
+ - creation of objects (AKA a handle)
+ - retrieve interfaces to perform actions on the objects
 
 SPA was designed with the following goals in mind:
 
- * No dependencies, SPA is shipped as a set of header files that have no dependencies
+ - No dependencies, SPA is shipped as a set of header files that have no dependencies
    except for the standard c library.
- * Very efficient both in space and in time.
- * Very configurable and usable in many different environments. All aspects of
+ - Very efficient both in space and in time.
+ - Very configurable and usable in many different environments. All aspects of
    the plugin environment can be configured and changed, like logging, poll loops,
    system calls etc.
- * Consistent API
- * Extensible, new API can be added with minimal effort, existing API can be
+ - Consistent API
+ - Extensible, new API can be added with minimal effort, existing API can be
    updated and versioned.
 
 The original user of SPA is PipeWire, which uses SPA to implement the low-level
@@ -38,8 +38,8 @@ the API and then talks about implementing new Plugins.
 
 Types are generally divided into two categories:
 
-* String types: They identify interfaces and highlevel object types.
-* integer types: These are enumerations used in the parts where high
+- String types: They identify interfaces and highlevel object types.
+- integer types: These are enumerations used in the parts where high
                  performance/ease of use/low space overhead is needed.
 
 The SPA type is system is statis and very simple but still allows you
@@ -85,10 +85,10 @@ later, instead of hardcoding the plugin name.
 
 To dlopen a plugin we then need to prefix the plugin path like this:
 
-```c
+\code{.c}
 #define SPA_PLUGIN_PATH	/usr/lib64/spa-0.2/"
 void *hnd = dlopen(SPA_PLUGIN_PATH"/support/libspa-support.so", RTLD_NOW);
-```
+\endcode
 
 The environment variable `SPA_PLUGIN_PATH` is usually used to find the
 location of the plugins. You will have to do some more work to construct the
@@ -99,10 +99,10 @@ The plugin has (should have) exactly one public symbol, called
 `SPA_HANDLE_FACTORY_ENUM_FUNC_NAME` to get some compile time checks and avoid
 typos in the symbol name. We can get the symbol like so:
 
-```c
+\code{.c}
 spa_handle_factory_enum_func_t enum_func;
 enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME));
-```
+\endcode
 
 If this symbol is not available, this is not a valid SPA plugin.
 
@@ -110,16 +110,16 @@ If this symbol is not available, this is not a valid SPA plugin.
 
 With the `enum_func` we can now enumerate all the factories in the plugin:
 
-```c
+\code{.c}
 uint32_t i;
 const struct spa_handle_factory *factory = NULL;
 for (i = 0;;) {
 	if (enum_func(&factory, &i) <= 0)
 		break;
-	/* check name and version, introspect interfaces,
-	 * do something with the factory. */
+	// check name and version, introspect interfaces,
+	// do something with the factory.
 }
-```
+\endcode
 
 A factory has a version, a name, some properties and a couple of functions
 that we can check and use. The main use of a factory is to create an
@@ -134,11 +134,11 @@ The name of the factory is a well-known name that describes the functionality
 of the objects created from the factory. `<spa/utils/names.h>` contains
 definitions for common functionality, for example:
 
-```c
-#define SPA_NAME_SUPPORT_CPU            "support.cpu"                   /**< A CPU interface */
-#define SPA_NAME_SUPPORT_LOG            "support.log"                   /**< A Log interface */
-#define SPA_NAME_SUPPORT_DBUS           "support.dbus"                  /**< A DBUS interface */
-```
+\code{.c}
+#define SPA_NAME_SUPPORT_CPU            "support.cpu"                   // A CPU interface
+#define SPA_NAME_SUPPORT_LOG            "support.log"                   // A Log interface
+#define SPA_NAME_SUPPORT_DBUS           "support.dbus"                  // A DBUS interface
+\endcode
 
 Usually the name will be mapped to a specific plugin. This way an
 alternative compatible implementation can be made in a different library.
@@ -151,21 +151,23 @@ the application and the stack for storage.
 
 First get the size of the required memory:
 
-```c
-size_t size = spa_handle_factory_get_size(factory, NULL /* extra params */);
-```
+\code{.c}
+struct spa_dict *extra_params = NULL;
+size_t size = spa_handle_factory_get_size(factory, extra_params);
+\endcode
 
 Sometimes the memory can depend on the extra parameters given in
 `_get_size()`. Next we need to allocate the memory and initialize the object
 in it:
 
-```c
+\code{.c}
 handle = calloc(1, size);
 spa_handle_factory_init(factory, handle,
-			NULL, /* info */
-			NULL, /* support */
-			0     /* n_support */);
-```
+			NULL, // info
+			NULL, // support
+			0     // n_support
+			);
+\endcode
 
 The info parameter should contain the same extra properties given in
 `spa_handle_factory_get_size()`.
@@ -180,18 +182,18 @@ certain support libraries to function.
 When a SPA handle is made, you can retrieve any of the interfaces that
 it provides:
 
-```c
+\code{.c}
 void *iface;
 spa_handle_get_interface(handle, SPA_NAME_SUPPORT_LOG, &iface);
-```
+\endcode
 
 If this method succeeds, you can cast the `iface` variable to
 `struct spa_log *` and start using the log interface methods.
 
-```c
+\code{.c}
 struct spa_log *log = iface;
 spa_log_warn(log, "Hello World!\n");
-```
+\endcode
 
 
 ## Clearing an object
@@ -230,7 +232,7 @@ listeners about this.
 For example, the `struct spa_node` interface has a method to register such
 an event handler like this:
 
-```c
+\code{.c}
 static void node_info(void *data, const struct spa_node_info *info)
 {
 	printf("got node info!\n");
@@ -244,7 +246,7 @@ static struct spa_node_events node_events = {
 struct spa_hook listener;
 spa_zero(listener);
 spa_node_add_listener(node, &listener, &node_event, my_data);
-```
+\endcode
 
 You make a structure with pointers to the events you are interested in
 and then use `spa_node_add_listener()` to register a listener. The
@@ -263,9 +265,9 @@ will be checked and the new signal will be ignored for older versions.
 
 You can remove your listener with:
 
-```c
+\code{.c}
 spa_hook_remove(&listener);
-```
+\endcode
 
 ## API results
 
@@ -284,7 +286,7 @@ Here is an example of enumerating parameters on a node interface.
 
 First install a listener for the result:
 
-```c
+\code{.c}
 static void node_result(void *data, int seq, int res,
 		uint32_t type, const void *result)
 {
@@ -301,20 +303,20 @@ static const struct spa_node_events node_events = {
 };
 
 spa_node_add_listener(node, &listener, &node_events, node);
-```
+\endcode
 
 Then perform the `enum_param` method:
 
-```c
+\code{.c}
 int res = spa_node_enum_params(node, 0, SPA_PARAM_EnumFormat, 0, MAXINT, NULL);
-```
+\endcode
 
 This triggers the result event handler with a 0 sequence number for each
 supported format. After this completes, remove the listener again:
 
-```c
+\code{.c}
 spa_hook_remove(&listener);
-```
+\endcode
 
 
 ### Asynchronous results
@@ -323,20 +325,24 @@ Asynchronous results are pushed to the application in the same way as
 synchronous results, they are just pushed later. You can check that
 a result is asynchronous by the return value of the enum function:
 
-```c
+\code{.c}
 int res = spa_node_enum_params(node, 0, SPA_PARAM_EnumFormat, 0, MAXINT, NULL);
 
 if (SPA_RESULT_IS_ASYNC(res)) {
-	/* result will be received later */
+	// result will be received later
 	...
 }
-```
+\endcode
 
 In the case of async results, the result callback will be called with the
 sequence number of the async result code, which can be obtained with:
 
-```c
+\code{.c}
 expected_seq = SPA_RESULT_ASYNC_SEQ(res);
-```
+\endcode
 
 # Implementing a new plugin
+
+FIXME
+
+*/

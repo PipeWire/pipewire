@@ -206,7 +206,7 @@ which means that it enumerates the possible formats for this stream. We have
 only one, a Signed 16 bit stereo format at 44.1KHz.
 
 We use `spa_format_audio_raw_build()` which is a helper function to make the param
-with the builder. See [SPA POD](spa-pod.md) for more information about how to
+with the builder. See \ref page_spa_pod for more information about how to
 make these POD objects.
 
 Now we're ready to connect the stream and run the main loop:
@@ -289,7 +289,7 @@ static void on_process(void *userdata)
 }
 \endcode
 
-Check out the docs for [buffers](spa-buffer.md) for more information
+Check out the docs for \ref page_spa_buffer for more information
 about how to work with buffers.
 
 Try to change the number of channels, samplerate or format; the stream

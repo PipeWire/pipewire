@@ -243,7 +243,7 @@ We have something similar for the framerate.
 Note that there are other video parameters that we don't specify here. This
 means that we don't have any restrictions for their values.
 
-See [SPA POD](spa-pod.md) for more information about how to make these
+See \ref page_spa_pod for more information about how to make these
 POD objects.
 
 Now we're ready to connect the stream and run the main loop:

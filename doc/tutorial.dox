@@ -1,0 +1,13 @@
+/** \page page_tutorial Tutorial - The PipeWire API
+
+Welcome to the PipeWire tutorial. The goal is to learn
+PipeWire API step-by-step with simple short examples.
+
+- \subpage page_tutorial1
+- \subpage page_tutorial2
+- \subpage page_tutorial3
+- \subpage page_tutorial4
+- \subpage page_tutorial5
+- \subpage page_tutorial6
+
+*/

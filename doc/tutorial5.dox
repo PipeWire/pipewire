@@ -1,17 +1,17 @@
-# Tutorial - Part 5: Capturing video frames
+/** \page page_tutorial5 Tutorial - Part 5: Capturing video frames
 
-[[previous]](tutorial4.md) [[index]](tutorial-index.md) [[next]](tutorial6.md)
+\ref page_tutorial4 | \ref page_tutorial "Index" | \ref page_tutorial6
 
 In this tutorial we show how to use a stream to capture a
 stream of video frames.
 
 Even though we are now working with a different media type and
 we are capturing instead of playback, you will see that this
-example is very similar to the previous [tutorial 4](tutorial4.md).
+example is very similar to \ref page_tutorial4.
 
 Let's take a look at the code before we break it down:
 
-```c
+\code{.c}
 #include <spa/param/video/format-utils.h>
 #include <spa/debug/types.h>
 #include <spa/param/video/type-info.h>
@@ -140,21 +140,18 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
-```
+\endcode
 
 Save as tutorial5.c and compile with:
 
-```
-gcc -Wall tutorial5.c -o tutorial5 -lm $(pkg-config --cflags --libs libpipewire-0.3)
-```
+    gcc -Wall tutorial5.c -o tutorial5 -lm $(pkg-config --cflags --libs libpipewire-0.3)
 
-Most of the application is structured like the previous
-[tutorial 4](tutorial4.md).
+Most of the application is structured like \ref page_tutorial4.
 
 We create a stream object with different properties to make it a Camera
 Video Capture stream.
 
-```c
+\code{.c}
 	data.stream = pw_stream_new_simple(
 			pw_main_loop_get_loop(data.loop),
 			"video-capture",
@@ -165,24 +162,24 @@ Video Capture stream.
 				NULL),
 			&stream_events,
 			&data);
-```
+\endcode
 
 In addition to the `process` event, we are also going to listen to a new event,
 `param_changed`:
 
-```c
+\code{.c}
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.param_changed = on_param_changed,
 	.process = on_process,
 };
-```
+\endcode
 
 Because we capture a stream of a wide range of different
 video formats and resolutions, we have to describe our accepted formats in
 a different way:
 
-```c
+\code{.c}
 	const struct spa_pod *params[1];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -207,7 +204,7 @@ a different way:
 						&SPA_FRACTION(25, 1),
 						&SPA_FRACTION(0, 1),
 						&SPA_FRACTION(1000, 1)));
-```
+\endcode
 
 This is using a `struct spa_pod_builder` to make a `struct spa_pod *` object
 in the buffer array on the stack. The parameter is of type `SPA_PARAM_EnumFormat`
@@ -220,7 +217,7 @@ We have an enumeration of formats, we need to first give the amount of enumerati
 that follow, then the default (preferred) value, followed by alternatives in order
 of preference:
 
-```c
+\code{.c}
 	SPA_FORMAT_VIDEO_format,    SPA_POD_CHOICE_ENUM_Id(7,
 					SPA_VIDEO_FORMAT_RGB,	/* default */
 					SPA_VIDEO_FORMAT_RGB,	/* alternative 1 */
@@ -229,17 +226,17 @@ of preference:
 					SPA_VIDEO_FORMAT_BGRx,
 					SPA_VIDEO_FORMAT_YUY2,
 					SPA_VIDEO_FORMAT_I420),
-```
+\endcode
 
 We also have a `RANGE` of values for the size. We need to give a default (preferred)
 size and then a min and max value:
 
-```c
+\code{.c}
 	SPA_FORMAT_VIDEO_size,      SPA_POD_CHOICE_RANGE_Rectangle(
 					&SPA_RECTANGLE(320, 240),	/* default */
 					&SPA_RECTANGLE(1, 1),		/* min */
 					&SPA_RECTANGLE(4096, 4096)),	/* max */
-```
+\endcode
 
 We have something similar for the framerate.
 
@@ -251,7 +248,7 @@ POD objects.
 
 Now we're ready to connect the stream and run the main loop:
 
-```c
+\code{.c}
 	pw_stream_connect(data.stream,
 			  PW_DIRECTION_INPUT,
 			  argc > 1 ? (uint32_t)atoi(argv[1]) : PW_ID_ANY,
@@ -260,7 +257,7 @@ Now we're ready to connect the stream and run the main loop:
 			  params, 1);
 
 	pw_main_loop_run(data.loop);
-```
+\endcode
 
 To connect we specify that we have a `PW_DIRECTION_INPUT` stream. `PW_ID_ANY`
 means that we are ok with connecting to any producer. We also allow the user
@@ -283,14 +280,14 @@ connected.
 Let's take a look at how we can parse the format in the `param_changed`
 event:
 
-```c
+\code{.c}
 static void on_param_changed(void *userdata, uint32_t id, const struct spa_pod *param)
 {
 	struct data *data = userdata;
 
 	if (param == NULL || id != SPA_PARAM_Format)
 		return;
-```
+\endcode
 
 First check if there is a param. A NULL param means that it is cleared. The id
 of the param tells you what param it is. We are only interested in Format
@@ -301,7 +298,7 @@ of the right type. In our example this will always be true but when your
 EnumFormat contains different media types or subtypes, this is how you can
 parse them:
 
-```c
+\code{.c}
 	if (spa_format_parse(param,
 			&data->format.media_type,
 			&data->format.media_subtype) < 0)
@@ -310,13 +307,13 @@ parse them:
 	if (data->format.media_type != SPA_MEDIA_TYPE_video ||
 	    data->format.media_subtype != SPA_MEDIA_SUBTYPE_raw)
 		return;
-```
+\endcode
 
 For the `video/raw` media type/subtype there is a utility function to
 parse out the values into a `struct spa_video_info`. This makes it easier
 to deal with.
 
-```c
+\code{.c}
 	if (spa_format_video_raw_parse(param, &data->format.info.raw) < 0)
 		return;
 
@@ -331,16 +328,16 @@ to deal with.
 
 	/** prepare to render video of this size */
 }
-```
+\endcode
 
 In this example we dump the video size and parameters but in a real playback
 or capture application you might want to set up the screen or encoder to
 deal with the format.
 
 After negotiation, the process function is called for each new frame. Check out
-[tutorial 4](tutorial4.md) for another example.
+\ref page_tutorial4 for another example.
 
-```c
+\code{.c}
 static void on_process(void *userdata)
 {
 	struct data *data = userdata;
@@ -361,9 +358,11 @@ static void on_process(void *userdata)
 
 	pw_stream_queue_buffer(data->stream, b);
 }
-```
+\endcode
 
 In a real playback application, one would do something with the data, like
 copy it to the screen or encode it into a file.
 
-[[previous]](tutorial4.md) [[index]](tutorial-index.md) [[next]](tutorial6.md)
+\ref page_tutorial4 | \ref page_tutorial "Index" | \ref page_tutorial6
+
+*/

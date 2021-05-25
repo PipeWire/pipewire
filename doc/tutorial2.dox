@@ -1,14 +1,13 @@
-# Tutorial - Part 2: Enumerating objects
+/** \page page_tutorial2 Tutorial - Part 2: Enumerating objects
 
-[[previous]](tutorial1.md) [[index]](tutorial-index.md) [[next]](tutorial3.md)
-
+\ref page_tutorial1 | \ref page_tutorial "Index" | \ref page_tutorial3
 
 In this tutorial we show how to connect to a PipeWire daemon and
 enumerate the objects that it has.
 
 Let take a look at the following application to start.
 
-```c
+\code{.c}
 #include <pipewire/pipewire.h>
 
 static void registry_event_global(void *data, uint32_t id,
@@ -58,14 +57,12 @@ int main(int argc, char *argv[])
 
         return 0;
 }
-```
+\endcode
 
 To compile the simple test application, copy it into a tutorial2.c file and
 use:
 
-```
-gcc -Wall tutorial2.c -o tutorial2 $(pkg-config --cflags --libs libpipewire-0.3)
-```
+    gcc -Wall tutorial2.c -o tutorial2 $(pkg-config --cflags --libs libpipewire-0.3)
 
 Let's break this down:
 
@@ -73,11 +70,11 @@ First we need to initialize the PipeWire library with `pw_init()` as we
 saw in the previous tutorial. This will load and configure the right
 modules and setup logging and other tasks.
 
-```c
+\code{.c}
 	...
         pw_init(&argc, &argv);
 	...
-```
+\endcode
 
 Next we need to create one of the `struct pw_loop` wrappers. PipeWire
 ships with 2 types of mainloop implementations. We will use the
@@ -93,7 +90,7 @@ We then need to make a new context object with the loop. This context
 object will manage the resources for us and will make it possible for
 us to connect to a PipeWire daemon:
 
-```c
+\code{.c}
         struct pw_main_loop *loop;
         struct pw_context *context;
 
@@ -101,7 +98,7 @@ us to connect to a PipeWire daemon:
         context = pw_context_new(pw_main_loop_get_loop(loop),
                         NULL /* properties */,
                         0 /* user_data size */);
-```
+\endcode
 
 It is possible to give extra properties when making the mainloop or
 context to tweak its features and functionality. It is also possible
@@ -115,12 +112,12 @@ the code easier to read.
 
 With the context we can now connect to the PipeWire daemon:
 
-```c
+\code{.c}
         struct pw_core *core;
         core = pw_context_connect(context,
                         NULL /* properties */,
                         0 /* user_data size */);
-```
+\endcode
 
 This creates a socket between the client and the server and makes
 a proxy object (with ID 0) for the core. Don't forget to check the
@@ -131,7 +128,7 @@ For now we're not going to handle events on this core proxy but
 we're going to handle them on the registry object.
 
 
-```c
+\code{.c}
         struct pw_registry *registry;
         struct spa_hook registry_listener;
 
@@ -141,7 +138,7 @@ we're going to handle them on the registry object.
         spa_zero(registry_listener);
         pw_registry_add_listener(registry, &registry_listener,
                                        &registry_events, NULL);
-```
+\endcode
 
 From the core we get the registry proxy object and when we use
 `pw_registry_add_listener()` to listen for events. We need a
@@ -152,7 +149,7 @@ events we want to listen to.
 This is how we define the event handler and the function to
 handle the events:
 
-```c
+\code{.c}
 static const struct pw_registry_events registry_events = {
 	PW_VERSION_REGISTRY_EVENTS,
 	.global = registry_event_global,
@@ -164,18 +161,18 @@ static void registry_event_global(void *data, uint32_t id,
 {
 	printf("object: id:%u type:%s/%d\n", id, type, version);
 }
-```
+\endcode
 
 Now that everything is set up we can start the mainloop and let
 the communication between client and server continue:
 
-```c
+\code{.c}
         pw_main_loop_run(loop);
-```
+\endcode
 
 Since we don't call `pw_main_loop_quit()` anywhere, this loop will
 continue forever. In the next tutorial we'll see how we can nicely
 exit our application after we received all server objects.
 
-
-[[previous]](tutorial1.md) [[index]](tutorial-index.md) [[next]](tutorial3.md)
+\ref page_tutorial1 | \ref page_tutorial "Index" | \ref page_tutorial3
+*/

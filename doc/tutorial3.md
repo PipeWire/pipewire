@@ -1,4 +1,4 @@
-# Tutorial - Part 3: Forcing a roundtrip (Tutorial 3)
+# Tutorial - Part 3: Forcing a roundtrip
 
 [[previous]](tutorial2.md) [[index]](tutorial-index.md) [[next]](tutorial4.md)
 

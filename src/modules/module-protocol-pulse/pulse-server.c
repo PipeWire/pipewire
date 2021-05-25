@@ -6234,6 +6234,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	struct spa_cpu *cpu;
 	uint32_t n_support;
 	int res;
+	size_t ncreated = 0;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL)
@@ -6291,12 +6292,17 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	spa_json_init(&it[0], str, strlen(str));
 	if (spa_json_enter_array(&it[0], &it[1]) > 0) {
 		while (spa_json_get_string(&it[1], value, sizeof(value)-1) > 0) {
-			if (create_server(impl, value) == NULL) {
+			if (create_server(impl, value)) {
+				ncreated++;
+			} else {
 				pw_log_warn(NAME" %p: can't create server for %s: %m",
 						impl, value);
 			}
 		}
 	}
+	if (ncreated == 0)
+		goto error_free;
+
 	if ((res = create_pid_file()) < 0) {
 		pw_log_warn(NAME" %p: can't create pid file: %s",
 				impl, spa_strerror(res));

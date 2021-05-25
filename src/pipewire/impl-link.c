@@ -846,16 +846,32 @@ static void output_port_state_changed(void *data, enum pw_impl_port_state old,
 	port_state_changed(this, this->output, this->input, state, error);
 }
 
+static void input_port_latency_changed(void *data)
+{
+	struct impl *impl = data;
+	struct pw_impl_link *this = &impl->this;
+	pw_impl_port_recalc_latency(this->output);
+}
+
+static void output_port_latency_changed(void *data)
+{
+	struct impl *impl = data;
+	struct pw_impl_link *this = &impl->this;
+	pw_impl_port_recalc_latency(this->input);
+}
+
 static const struct pw_impl_port_events input_port_events = {
 	PW_VERSION_IMPL_PORT_EVENTS,
 	.param_changed = input_port_param_changed,
 	.state_changed = input_port_state_changed,
+	.latency_changed = input_port_latency_changed,
 };
 
 static const struct pw_impl_port_events output_port_events = {
 	PW_VERSION_IMPL_PORT_EVENTS,
 	.param_changed = output_port_param_changed,
 	.state_changed = output_port_state_changed,
+	.latency_changed = output_port_latency_changed,
 };
 
 static void node_result(struct impl *impl, struct pw_impl_port *port,

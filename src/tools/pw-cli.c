@@ -3027,6 +3027,10 @@ int main(int argc, char *argv[])
 				PW_KEY_CORE_DAEMON, daemon ? "true" : NULL,
 				NULL),
 			0);
+	if (data.context == NULL) {
+		fprintf(stderr, "Can't create context: %m\n");
+		return -1;
+	}
 
 	pw_context_load_module(data.context, "libpipewire-module-link-factory", NULL, NULL);
 

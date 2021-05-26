@@ -289,7 +289,8 @@ static void session_destroy(void *data)
 static void session_dbus_disconnected(void *data)
 {
 	struct impl *impl = data;
-	dbus_connection_unref(impl->bus);
+	if (impl->bus)
+		dbus_connection_unref(impl->bus);
 	impl->bus = NULL;
 }
 

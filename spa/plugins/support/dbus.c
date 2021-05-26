@@ -288,7 +288,8 @@ static DBusHandlerResult filter_message (DBusConnection *connection,
 
 	if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
 		spa_log_debug(impl->log, "dbus connection %p disconnected", this);
-		dbus_connection_unref(this->conn);
+		if (this->conn)
+			dbus_connection_unref(this->conn);
 		this->conn = NULL;
 		connection_emit_disconnected(this);
 	}

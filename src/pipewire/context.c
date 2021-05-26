@@ -366,7 +366,10 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	pw_log_info(NAME" %p: parsed %d context.spa-libs items", this, res);
 	if ((res = pw_context_parse_conf_section(this, conf, "context.modules")) < 0)
 		goto error_free_loop;
-	pw_log_info(NAME" %p: parsed %d context.modules items", this, res);
+	if (res > 0)
+		pw_log_info(NAME" %p: parsed %d context.modules items", this, res);
+	else
+		pw_log_warn(NAME "%p: no modules loaded from context.modules", this);
 	if ((res = pw_context_parse_conf_section(this, conf, "context.objects")) < 0)
 		goto error_free_loop;
 	pw_log_info(NAME" %p: parsed %d context.objects items", this, res);

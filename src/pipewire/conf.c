@@ -299,8 +299,10 @@ static int parse_spa_libs(struct pw_context *context, char *str)
 	int count = 0;
 
 	spa_json_init(&it[0], str, strlen(str));
-	if (spa_json_enter_object(&it[0], &it[1]) < 0)
+	if (spa_json_enter_object(&it[0], &it[1]) < 0) {
+		pw_log_error("config file error: context.spa-libs is not an object");
 		return -EINVAL;
+	}
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)-1) > 0) {
 		const char *val;
@@ -351,8 +353,10 @@ static int parse_modules(struct pw_context *context, char *str)
 	int res = 0, count = 0;
 
 	spa_json_init(&it[0], str, strlen(str));
-	if (spa_json_enter_array(&it[0], &it[1]) < 0)
+	if (spa_json_enter_array(&it[0], &it[1]) < 0) {
+		pw_log_error("config file error: context.modules is not an array");
 		return -EINVAL;
+	}
 
 	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
 		char *name = NULL, *args = NULL, *flags = NULL;
@@ -433,8 +437,10 @@ static int parse_objects(struct pw_context *context, char *str)
 	int res = 0, count = 0;
 
 	spa_json_init(&it[0], str, strlen(str));
-	if (spa_json_enter_array(&it[0], &it[1]) < 0)
+	if (spa_json_enter_array(&it[0], &it[1]) < 0) {
+		pw_log_error("config file error: context.objects is not an array");
 		return -EINVAL;
+	}
 
 	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
 		char *factory = NULL, *args = NULL, *flags = NULL;
@@ -518,8 +524,10 @@ static int parse_exec(struct pw_context *context, char *str)
 	int res = 0, count = 0;
 
 	spa_json_init(&it[0], str, strlen(str));
-	if (spa_json_enter_array(&it[0], &it[1]) < 0)
+	if (spa_json_enter_array(&it[0], &it[1]) < 0) {
+		pw_log_error("config file error: context.exec is not an array");
 		return -EINVAL;
+	}
 
 	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
 		char *path = NULL, *args = NULL;

@@ -34,12 +34,6 @@ This file is part of PipeWire.
       <optdesc><p>Show version information.</p></optdesc>
     </option>
 
-    <option>
-      <p><opt>-n | --name</opt><arg>=NAME</arg></p>
-
-      <optdesc><p>Set the daemon name (Default pipewire-0).</p></optdesc>
-    </option>
-
   </options>
 
   <section name="Authors">

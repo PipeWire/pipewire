@@ -47,6 +47,8 @@ static void *dbus_request_name(struct pw_context *context, const char *name)
 		return NULL;
 
 	bus = spa_dbus_connection_get(conn);
+        if (bus == NULL)
+		return NULL;
 
 	dbus_error_init(&error);
 

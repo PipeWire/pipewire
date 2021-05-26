@@ -70,7 +70,23 @@ int pw_properties_update_ignore(struct pw_properties *props,
 
 int pw_properties_update(struct pw_properties *oldprops,
 		     const struct spa_dict *dict);
+/**
+ * Update the properties from the given string updating \a props to
+ * - all key/value pairs from \a str
+ * - all key/value pairs from \a props that were not given in \a str
+ *
+ * \return The number of properties added or updated
+ */
 int pw_properties_update_string(struct pw_properties *props,
+		const char *str, size_t size);
+/**
+ * Update the properties from the given string updating \a props to
+ * - all key/value pairs from \a props
+ * - all key/value pairs from \a str that were not given in \a str
+ *
+ * \return The number of properties added
+ */
+int pw_properties_add_string(struct pw_properties *props,
 		const char *str, size_t size);
 
 int pw_properties_add(struct pw_properties *oldprops,

@@ -146,8 +146,7 @@ struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
 	return &impl->this;
 }
 
-SPA_EXPORT
-int pw_properties_update_string(struct pw_properties *props, const char *str, size_t size)
+static int update_from_string(struct pw_properties *props, const char *str, size_t size, bool overwrite)
 {
 	struct properties *impl = SPA_CONTAINER_OF(props, struct properties, this);
 	struct spa_json it[2];
@@ -176,10 +175,40 @@ int pw_properties_update_string(struct pw_properties *props, const char *str, si
 			if ((val = malloc(len+1)) != NULL)
 				spa_json_parse_string(value, len, val);
 		}
-		count += pw_properties_set(&impl->this, key, val);
+		if (overwrite || pw_properties_get(&impl->this, key) == NULL)
+			count += pw_properties_set(&impl->this, key, val);
 		free(val);
 	}
 	return count;
+}
+
+/**
+ * Update the properties from the given string, adding any new
+ * keys from \a str but leaving existing keys in \a props unmodified.
+ *
+ * \a str should be a whitespace separated list of key=value
+ * strings or a json object, see pw_properties_new_string().
+ *
+ * \return The number of properties added
+ */
+SPA_EXPORT
+int pw_properties_add_string(struct pw_properties *props, const char *str, size_t size)
+{
+	return update_from_string(props, str, size, false);
+}
+
+/** Update the properties from the given string, overwriting any
+ * existing keys with the new values from \a str.
+ *
+ * \a str should be a whitespace separated list of key=value
+ * strings or a json object, see pw_properties_new_string().
+ *
+ * \return The number of properties added or updated
+ */
+SPA_EXPORT
+int pw_properties_update_string(struct pw_properties *props, const char *str, size_t size)
+{
+	return update_from_string(props, str, size, true);
 }
 
 /** Make a new properties object from the given str

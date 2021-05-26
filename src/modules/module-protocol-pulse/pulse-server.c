@@ -90,6 +90,8 @@
 #define DEFAULT_FORMAT		"F32"
 #define DEFAULT_POSITION	"[ FL FR ]"
 
+#define LISTEN_BACKLOG 32
+
 #define MAX_FORMATS	32
 
 #include "format.c"
@@ -5711,7 +5713,7 @@ on_connect(void *data, int fd, uint32_t mask)
 {
 	struct server *server = data;
 	struct impl *impl = server->impl;
-	struct sockaddr_un name;
+	struct sockaddr_storage name;
 	socklen_t length;
 	int client_fd, val, pid;
 	struct client *client;
@@ -5738,7 +5740,7 @@ on_connect(void *data, int fd, uint32_t mask)
 
 	pw_properties_setf(client->props,
 			"pulse.server.type", "%s",
-			server->type == SERVER_TYPE_INET ? "tcp" : "unix");
+			server->addr.ss_family == AF_UNIX ? "unix" : "tcp");
 
 	client->routes = pw_properties_new(NULL, NULL);
 	if (client->routes == NULL)
@@ -5751,26 +5753,26 @@ on_connect(void *data, int fd, uint32_t mask)
 
 	pw_log_debug(NAME": client %p fd:%d", client, client_fd);
 
-	if (server->type == SERVER_TYPE_UNIX) {
-		val = 6;
+	if (server->addr.ss_family == AF_UNIX) {
 #ifdef SO_PRIORITY
-		if (setsockopt(client_fd, SOL_SOCKET, SO_PRIORITY,
-					(const void *) &val, sizeof(val)) < 0)
-			pw_log_warn("SO_PRIORITY failed: %m");
+		val = 6;
+		if (setsockopt(client_fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
+			pw_log_warn("setsockopt(SO_PRIORITY) failed: %m");
 #endif
 		pid = get_client_pid(client, client_fd);
 		if (pid != 0 && check_flatpak(client, pid) == 1)
 			pw_properties_set(client->props, PW_KEY_CLIENT_ACCESS, "flatpak");
-	} else if (server->type == SERVER_TYPE_INET) {
+	}
+	else if (server->addr.ss_family == AF_INET || server->addr.ss_family == AF_INET6) {
 		val = 1;
-		if (setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY,
-					(const void *) &val, sizeof(val)) < 0)
-	            pw_log_warn("TCP_NODELAY failed: %m");
+		if (setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) < 0)
+			pw_log_warn("setsockopt(TCP_NODELAY) failed: %m");
 
-		val = IPTOS_LOWDELAY;
-		if (setsockopt(client_fd, IPPROTO_IP, IP_TOS,
-					(const void *) &val, sizeof(val)) < 0)
-	            pw_log_warn("IP_TOS failed: %m");
+		if (server->addr.ss_family == AF_INET) {
+			val = IPTOS_LOWDELAY;
+			if (setsockopt(client_fd, IPPROTO_IP, IP_TOS, &val, sizeof(val)) < 0)
+				pw_log_warn("setsockopt(IP_TOS) failed: %m");
+		}
 
 		pw_properties_set(client->props, PW_KEY_CLIENT_ACCESS, "restricted");
 	}
@@ -5844,8 +5846,8 @@ void server_free(struct server *server)
 		client_free(c);
 	if (server->source)
 		pw_loop_destroy_source(impl->loop, server->source);
-	if (server->type == SERVER_TYPE_UNIX && !server->activated)
-		unlink(server->addr.sun_path);
+	if (server->addr.ss_family == AF_UNIX && !server->activated)
+		unlink(((const struct sockaddr_un *) &server->addr)->sun_path);
 	free(server);
 }
 
@@ -5864,99 +5866,143 @@ get_server_name(struct pw_context *context)
 	return name;
 }
 
-static bool is_stale_socket(struct server *server, int fd)
+static int parse_unix_address(const char *address, struct pw_array *addrs)
 {
-	socklen_t size;
+	struct sockaddr_un addr = {0}, *s;
+	char runtime_dir[PATH_MAX];
+	int res;
 
-	size = offsetof(struct sockaddr_un, sun_path) + strlen(server->addr.sun_path);
-	if (connect(fd, (struct sockaddr *)&server->addr, size) < 0) {
+	if ((res = get_runtime_dir(runtime_dir, sizeof(runtime_dir), "pulse")) < 0)
+		return res;
+
+	res = snprintf(addr.sun_path, sizeof(addr.sun_path),
+		       "%s/%s", runtime_dir, address);
+
+	if (res < 0)
+		return -EINVAL;
+
+	if ((size_t) res >= sizeof(addr.sun_path)) {
+		pw_log_error(NAME": '%s/%s' too long",
+			     runtime_dir, address);
+		return -ENAMETOOLONG;
+	}
+
+	s = pw_array_add(addrs, sizeof(struct sockaddr_storage));
+	if (s == NULL)
+		return -ENOMEM;
+
+	addr.sun_family = AF_UNIX;
+
+	*s = addr;
+
+	return 0;
+}
+
+#ifndef SUN_LEN
+#define SUN_LEN(addr_un) \
+	(offsetof(struct sockaddr_un, sun_path) + strlen((addr_un)->sun_path))
+#endif
+
+static bool is_stale_socket(int fd, const struct sockaddr_un *addr_un)
+{
+	if (connect(fd, (const struct sockaddr *) addr_un, SUN_LEN(addr_un)) < 0) {
 		if (errno == ECONNREFUSED)
 			return true;
 	}
+
 	return false;
 }
 
-static int make_local_socket(struct server *server, const char *name)
-{
-	char runtime_dir[PATH_MAX];
-	socklen_t size;
-	int name_size, fd, res;
-	struct stat socket_stat;
-	bool activated = false;
-
-	if ((res = get_runtime_dir(runtime_dir, sizeof(runtime_dir), "pulse")) < 0)
-		goto error;
-
-	server->addr.sun_family = AF_LOCAL;
-	name_size = snprintf(server->addr.sun_path, sizeof(server->addr.sun_path),
-                             "%s/%s", runtime_dir, name) + 1;
-
-	if (name_size > (int) sizeof(server->addr.sun_path)) {
-		pw_log_error(NAME" %p: %s/%s too long",
-					server, runtime_dir, name);
-		res = -ENAMETOOLONG;
-		goto error;
-	}
-	size = offsetof(struct sockaddr_un, sun_path) + strlen(server->addr.sun_path);
-
 #ifdef HAVE_SYSTEMD
-	{
-		int i, n = sd_listen_fds(0);
-		for (i = 0; i < n; ++i) {
-			if (sd_is_socket_unix(SD_LISTEN_FDS_START + i, SOCK_STREAM,
-						1, server->addr.sun_path, 0) > 0) {
-				fd = SD_LISTEN_FDS_START + i;
-				activated = true;
-				pw_log_info("server %p: Found socket activation socket for '%s'",
-						server, server->addr.sun_path);
-				goto done;
-			}
-		}
+static int check_systemd_activation(const char *path)
+{
+	const int n = sd_listen_fds(0);
+
+	for (int i = 0; i < n; i++) {
+		const int fd = SD_LISTEN_FDS_START + i;
+
+		if (sd_is_socket_unix(fd, SOCK_STREAM, 1, path, 0) > 0)
+			return fd;
 	}
+
+	return -1;
+}
+#else
+static inline int check_systemd_activation(SPA_UNUSED const char *path)
+{
+	return -1;
+}
 #endif
 
-	if ((fd = socket(PF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
+static int start_unix_server(struct server *server, const struct sockaddr_storage *addr)
+{
+	const struct sockaddr_un * const addr_un = (const struct sockaddr_un *) addr;
+	struct stat socket_stat;
+	int fd, res;
+
+	spa_assert(addr_un->sun_family == AF_UNIX);
+
+	fd = check_systemd_activation(addr_un->sun_path);
+	if (fd >= 0) {
+		server->activated = true;
+		pw_log_info(NAME" %p: found systemd socket activation socket for '%s'",
+			    server, addr_un->sun_path);
+		goto done;
+	}
+	else {
+		server->activated = false;
+	}
+
+	fd = socket(addr_un->sun_family, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+	if (fd < 0) {
 		res = -errno;
 		pw_log_info(NAME" %p: socket() failed: %m", server);
 		goto error;
 	}
-	if (stat(server->addr.sun_path, &socket_stat) < 0) {
+
+	if (stat(addr_un->sun_path, &socket_stat) < 0) {
 		if (errno != ENOENT) {
 			res = -errno;
-			pw_log_error(NAME" %p: stat() %s failed: %m",
-					server, server->addr.sun_path);
+			pw_log_warn(NAME" %p: stat('%s') failed: %m",
+				    server, addr_un->sun_path);
 			goto error_close;
 		}
-	} else if (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP) {
+	}
+	else if (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP) {
 		/* socket is there, check if it's stale */
-		if (!is_stale_socket(server, fd)) {
-			res = -EBUSY;
-			pw_log_info(NAME" %p: socket %s is in use", server,
-				server->addr.sun_path);
+		if (!is_stale_socket(fd, addr_un)) {
+			res = -EADDRINUSE;
+			pw_log_warn(NAME" %p: socket '%s' is in use",
+				    server, addr_un->sun_path);
 			goto error_close;
 		}
-		pw_log_warn(NAME" %p: unlink stale socket %s", server,
-				server->addr.sun_path);
-			unlink(server->addr.sun_path);
+
+		pw_log_warn(NAME" %p: unlinking stale socket '%s'",
+			    server, addr_un->sun_path);
+
+		if (unlink(addr_un->sun_path) < 0)
+			pw_log_warn(NAME" %p: unlink('%s') failed: %m",
+				    server, addr_un->sun_path);
 	}
-	if (bind(fd, (struct sockaddr *) &server->addr, size) < 0) {
+
+	if (bind(fd, (const struct sockaddr *) addr_un, SUN_LEN(addr_un)) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: bind() to %s failed: %m", server,
-				server->addr.sun_path);
+		pw_log_warn(NAME" %p: bind() to '%s' failed: %m",
+			    server, addr_un->sun_path);
 		goto error_close;
 	}
-	if (listen(fd, 128) < 0) {
+
+	if (listen(fd, LISTEN_BACKLOG) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: listen() on %s failed: %m", server,
-				server->addr.sun_path);
+		pw_log_warn(NAME" %p: listen() on '%s' failed: %m",
+			    server, addr_un->sun_path);
 		goto error_close;
 	}
-	pw_log_info(NAME" listening on unix:%s", server->addr.sun_path);
-#ifdef HAVE_SYSTEMD
+
+	pw_log_info(NAME" %p: listening on unix:%s", server, addr_un->sun_path);
+
 done:
-#endif
-	server->activated = activated;
-	server->type = SERVER_TYPE_UNIX;
+	server->addr = *addr;
 
 	return fd;
 
@@ -5966,83 +6012,234 @@ error:
 	return res;
 }
 
-static int create_pid_file(void) {
+static int parse_port(const char *port)
+{
+	const char *end;
+	long p;
+
+	if (port[0] == ':')
+		port += 1;
+
+	errno = 0;
+	p = strtol(port, (char **) &end, 0);
+
+	if (errno != 0)
+		return -errno;
+
+	if (end == port || *end != '\0')
+		return -EINVAL;
+
+	if (!(1 <= p && p <= 65535))
+		return -EINVAL;
+
+	return p;
+}
+
+static int parse_ipv6_address(const char *address, struct sockaddr_in6 *out)
+{
+	char addr_str[INET6_ADDRSTRLEN];
+	struct sockaddr_in6 addr = {0};
+	const char *end;
+	size_t len;
 	int res;
-	char pid_file[PATH_MAX];
-	FILE *f;
 
-	if ((res = get_runtime_dir(pid_file, sizeof(pid_file), "pulse")) < 0) {
-		return res;
-	}
-	if (strlen(pid_file) > PATH_MAX - 5) {
-		pw_log_error(NAME" %s/pid too long", pid_file);
+	if (address[0] != '[')
+		return -EINVAL;
+
+	address += 1;
+
+	end = strchr(address, ']');
+	if (end == NULL)
+		return -EINVAL;
+
+	len = end - address;
+	if (len >= sizeof(addr_str))
 		return -ENAMETOOLONG;
-	}
-	strcat(pid_file, "/pid");
 
-	if ((f = fopen(pid_file, "w")) == NULL) {
-		res = -errno;
-		pw_log_error(NAME" failed to open pid file");
+	memcpy(addr_str, address, len);
+	addr_str[len] = '\0';
+
+	res = inet_pton(AF_INET6, addr_str, &addr.sin6_addr.s6_addr);
+	if (res < 0)
+		return -errno;
+	if (res == 0)
+		return -EINVAL;
+
+	res = parse_port(end + 1);
+	if (res < 0)
 		return res;
-	}
 
-	fprintf(f, "%lu\n", (unsigned long)getpid());
-	fclose(f);
+	addr.sin6_port = htons(res);
+	addr.sin6_family = AF_INET6;
+
+	*out = addr;
+
 	return 0;
 }
 
-static int make_inet_socket(struct server *server, const char *name)
+static int parse_ipv4_address(const char *address, struct sockaddr_in *out)
 {
-	struct sockaddr_in addr;
-	int res, fd, on;
-	uint32_t address = INADDR_ANY;
-	uint16_t port;
-	char *col;
+	char addr_str[INET_ADDRSTRLEN];
+	struct sockaddr_in addr = {0};
+	size_t len;
+	int res;
 
-	col = strchr(name, ':');
-	if (col) {
-		struct in_addr ipv4;
-		char *n;
-		port = atoi(col+1);
-		n = strndupa(name, col - name);
-		if (inet_pton(AF_INET, n, &ipv4) > 0)
-			address = ntohl(ipv4.s_addr);
-		else
-			address = INADDR_ANY;
-	} else {
-		address = INADDR_ANY;
-		port = atoi(name);
+	len = strspn(address, "0123456789.");
+	if (len == 0)
+		return -EINVAL;
+	if (len >= sizeof(addr_str))
+		return -ENAMETOOLONG;
+
+	memcpy(addr_str, address, len);
+	addr_str[len] = '\0';
+
+	res = inet_pton(AF_INET, addr_str, &addr.sin_addr.s_addr);
+	if (res < 0)
+		return -errno;
+	if (res == 0)
+		return -EINVAL;
+
+	res = parse_port(address + len);
+	if (res < 0)
+		return res;
+
+	addr.sin_port = htons(res);
+	addr.sin_family = AF_INET;
+
+	*out = addr;
+
+	return 0;
+}
+
+#define FORMATTED_IP_ADDR_STRLEN (INET6_ADDRSTRLEN + 2 + 1 + 5)
+
+static int format_ip_address(const struct sockaddr_storage *addr, char *buffer, size_t buflen)
+{
+	char ip[INET6_ADDRSTRLEN];
+	const void *src;
+	const char *fmt;
+	int port;
+
+	switch (addr->ss_family) {
+	case AF_INET:
+		fmt = "%s:%d";
+		src = &((struct sockaddr_in *) addr)->sin_addr.s_addr;
+		port = ntohs(((struct sockaddr_in *) addr)->sin_port);
+		break;
+	case AF_INET6:
+		fmt = "[%s]:%d";
+		src = &((struct sockaddr_in6 *) addr)->sin6_addr.s6_addr;
+		port = ntohs(((struct sockaddr_in6 *) addr)->sin6_port);
+		break;
+	default:
+		return -EAFNOSUPPORT;
 	}
-	if (port == 0)
-		port = PW_PROTOCOL_PULSE_DEFAULT_PORT;
 
-	if ((fd = socket(PF_INET, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
+	if (inet_ntop(addr->ss_family, src, ip, sizeof(ip)) == NULL)
+		return -errno;
+
+	return snprintf(buffer, buflen, fmt, ip, port);
+}
+
+static int get_ip_address_length(const struct sockaddr_storage *addr)
+{
+	switch (addr->ss_family) {
+	case AF_INET:
+		return sizeof(struct sockaddr_in);
+	case AF_INET6:
+		return sizeof(struct sockaddr_in6);
+	default:
+		return -EAFNOSUPPORT;
+	}
+}
+
+static int parse_ip_address(const char *address, struct pw_array *addrs)
+{
+	char ip[FORMATTED_IP_ADDR_STRLEN];
+	struct sockaddr_storage addr, *s;
+	int res;
+
+	res = parse_ipv6_address(address, (struct sockaddr_in6 *) &addr);
+	if (res == 0) {
+		s = pw_array_add(addrs, sizeof(*s));
+		if (s == NULL)
+			return -ENOMEM;
+
+		*s = addr;
+		return 0;
+	}
+
+	res = parse_ipv4_address(address, (struct sockaddr_in *) &addr);
+	if (res == 0) {
+		s = pw_array_add(addrs, sizeof(*s));
+		if (s == NULL)
+			return -ENOMEM;
+
+		*s = addr;
+		return 0;
+	}
+
+	res = parse_port(address);
+	if (res < 0)
+		return res;
+
+	s = pw_array_add(addrs, sizeof(*s) * 2);
+	if (s == NULL)
+		return -ENOMEM;
+
+	snprintf(ip, sizeof(ip), "[::]:%d", res);
+	spa_assert_se(parse_ipv6_address(ip, (struct sockaddr_in6 *) &addr) == 0);
+	*s++ = addr;
+
+	snprintf(ip, sizeof(ip), "0.0.0.0:%d", res);
+	spa_assert_se(parse_ipv4_address(ip, (struct sockaddr_in *) &addr) == 0);
+	*s++ = addr;
+
+	return 0;
+}
+
+static int start_ip_server(struct server *server, const struct sockaddr_storage *addr)
+{
+	char ip[FORMATTED_IP_ADDR_STRLEN];
+	int fd, res;
+
+	spa_assert(addr->ss_family == AF_INET || addr->ss_family == AF_INET6);
+
+	fd = socket(addr->ss_family, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_TCP);
+	if (fd < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: socket() failed: %m", server);
+		pw_log_warn(NAME" %p: socket() failed: %m", server);
 		goto error;
 	}
 
-	on = 1;
-	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const void *) &on, sizeof(on)) < 0)
-		pw_log_warn(NAME" %p: setsockopt(): %m", server);
+	{
+		int on = 1;
+		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
+			pw_log_warn(NAME" %p: setsockopt(SO_REUSEADDR) failed: %m", server);
+	}
 
-	spa_zero(addr);
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(port);
-	addr.sin_addr.s_addr = htonl(address);
+	if (addr->ss_family == AF_INET6) {
+		int on = 1;
+		if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)) < 0)
+			pw_log_warn(NAME" %p: setsockopt(IPV6_V6ONLY) failed: %m", server);
+	}
 
-	if (bind(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+	if (bind(fd, (const struct sockaddr *) addr, get_ip_address_length(addr)) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: bind() failed: %m", server);
+		pw_log_warn(NAME" %p: bind() failed: %m", server);
 		goto error_close;
 	}
-	if (listen(fd, 5) < 0) {
+
+	if (listen(fd, LISTEN_BACKLOG) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: listen() failed: %m", server);
+		pw_log_warn(NAME" %p: listen() failed: %m", server);
 		goto error_close;
 	}
-	server->type = SERVER_TYPE_INET;
-	pw_log_info(NAME" listening on tcp:%08x:%u", address, port);
+
+	spa_assert_se(format_ip_address(addr, ip, sizeof(ip)) >= 0);
+	pw_log_info(NAME" %p: listening on tcp:%s", server, ip);
+
+	server->addr = *addr;
 
 	return fd;
 
@@ -6052,45 +6249,178 @@ error:
 	return res;
 }
 
-struct server *create_server(struct impl *impl, const char *address)
+static struct server *server_new(struct impl *impl)
 {
-	int fd, res;
-	struct server *server;
-
-	server = calloc(1, sizeof(struct server));
+	struct server * const server = calloc(1, sizeof(*server));
 	if (server == NULL)
 		return NULL;
 
 	server->impl = impl;
+	server->addr.ss_family = AF_UNSPEC;
 	spa_list_init(&server->clients);
 	spa_list_append(&impl->servers, &server->link);
 
-	if (strstr(address, "unix:") == address) {
-		fd = make_local_socket(server, address+5);
-	} else if (strstr(address, "tcp:") == address) {
-		fd = make_inet_socket(server, address+4);
-	} else {
-		fd = -EINVAL;
+	return server;
+}
+
+static int server_start(struct server *server, const struct sockaddr_storage *addr)
+{
+	const struct impl * const impl = server->impl;
+	int res = 0, fd;
+
+	switch (addr->ss_family) {
+	case AF_INET:
+	case AF_INET6:
+		fd = start_ip_server(server, addr);
+		break;
+	case AF_UNIX:
+		fd = start_unix_server(server, addr);
+		break;
+	default:
+		/* shouldn't happen */
+		fd = -EAFNOSUPPORT;
+		break;
 	}
-	if (fd < 0) {
-		res = fd;
-		goto error;
-	}
+
+	if (fd < 0)
+		return fd;
+
 	server->source = pw_loop_add_io(impl->loop, fd, SPA_IO_IN, true, on_connect, server);
 	if (server->source == NULL) {
 		res = -errno;
 		pw_log_error(NAME" %p: can't create server source: %m", impl);
-		goto error_close;
 	}
-	return server;
 
-error_close:
-	close(fd);
-error:
-	server_free(server);
-	errno = -res;
-	return NULL;
+	return res;
+}
 
+static int parse_address(const char *address, struct pw_array *addrs)
+{
+	if (strncmp(address, "tcp:", strlen("tcp:")) == 0)
+		return parse_ip_address(address + strlen("tcp:"), addrs);
+
+	if (strncmp(address, "unix:", strlen("unix:")) == 0)
+		return parse_unix_address(address + strlen("unix:"), addrs);
+
+	return -EAFNOSUPPORT;
+}
+
+#define SUN_PATH_SIZE (sizeof(((struct sockaddr_un *) NULL)->sun_path))
+#define FORMATTED_UNIX_ADDR_STRLEN (SUN_PATH_SIZE + 5)
+#define FORMATTED_TCP_ADDR_STRLEN (FORMATTED_IP_ADDR_STRLEN + 4)
+#define FORMATTED_SOCKET_ADDR_STRLEN \
+	(FORMATTED_UNIX_ADDR_STRLEN > FORMATTED_TCP_ADDR_STRLEN ? \
+		FORMATTED_UNIX_ADDR_STRLEN : \
+		FORMATTED_TCP_ADDR_STRLEN)
+
+static int format_socket_address(const struct sockaddr_storage *addr, char *buffer, size_t buflen)
+{
+	if (addr->ss_family == AF_INET || addr->ss_family == AF_INET6) {
+		char ip[FORMATTED_IP_ADDR_STRLEN];
+
+		spa_assert_se(format_ip_address(addr, ip, sizeof(ip)) >= 0);
+
+		return snprintf(buffer, buflen, "tcp:%s", ip);
+	}
+	else if (addr->ss_family == AF_UNIX) {
+		const struct sockaddr_un *addr_un = (const struct sockaddr_un *) addr;
+
+		return snprintf(buffer, buflen, "unix:%s", addr_un->sun_path);
+	}
+
+	return -EAFNOSUPPORT;
+}
+
+int create_and_start_servers(struct impl *impl, const char *addresses, struct pw_array *servers)
+{
+	struct pw_array addrs = PW_ARRAY_INIT(sizeof(struct sockaddr_storage));
+	const struct sockaddr_storage *addr;
+	char addr_str[FORMATTED_SOCKET_ADDR_STRLEN];
+	int res, count = 0, err = 0; /* store the first error to return when no servers could be created */
+	struct spa_json it[2];
+
+	/* update `err` if it hasn't been set to an errno */
+#define UPDATE_ERR(e) do { if (err == 0) err = (e); } while (false)
+
+	/* collect addresses into an array of `struct sockaddr_storage` */
+	spa_json_init(&it[0], addresses, strlen(addresses));
+
+	if (spa_json_enter_array(&it[0], &it[1]) < 0)
+		return -EINVAL;
+
+	while (spa_json_get_string(&it[1], addr_str, sizeof(addr_str) - 1) > 0) {
+		res = parse_address(addr_str, &addrs);
+		if (res < 0) {
+			pw_log_warn(NAME" %p: failed to parse address '%s': %s",
+				    impl, addr_str, spa_strerror(res));
+
+			UPDATE_ERR(res);
+		}
+	}
+
+	/* try to create sockets for each address in the list */
+	pw_array_for_each (addr, &addrs) {
+		struct server * const server = server_new(impl);
+		if (server == NULL) {
+			UPDATE_ERR(-errno);
+			continue;
+		}
+
+		res = server_start(server, addr);
+		if (res < 0) {
+			spa_assert_se(format_socket_address(addr, addr_str, sizeof(addr_str)) >= 0);
+			pw_log_warn(NAME" %p: failed to start server on '%s': %s",
+				    impl, addr_str, spa_strerror(res));
+
+			UPDATE_ERR(res);
+			server_free(server);
+
+			continue;
+		}
+
+		if (servers != NULL)
+			pw_array_add_ptr(servers, server);
+
+		count += 1;
+	}
+
+	pw_array_clear(&addrs);
+
+	if (count == 0) {
+		UPDATE_ERR(-EINVAL);
+		return err;
+	}
+
+	return count;
+
+#undef UPDATE_ERR
+}
+
+static int create_pid_file(void) {
+	char pid_file[PATH_MAX];
+	FILE *f;
+	int res;
+
+	if ((res = get_runtime_dir(pid_file, sizeof(pid_file), "pulse")) < 0)
+		return res;
+
+	if (strlen(pid_file) > PATH_MAX - 5) {
+		pw_log_error(NAME": path too long: %s/pid", pid_file);
+		return -ENAMETOOLONG;
+	}
+
+	strcat(pid_file, "/pid");
+
+	if ((f = fopen(pid_file, "w")) == NULL) {
+		res = -errno;
+		pw_log_error(NAME": failed to open pid file: %m");
+		return res;
+	}
+
+	fprintf(f, "%lu\n", (unsigned long) getpid());
+	fclose(f);
+
+	return 0;
 }
 
 static int impl_free_sample(void *item, void *data)
@@ -6218,20 +6548,16 @@ static void load_defaults(struct defs *def, struct pw_properties *props)
 struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 		struct pw_properties *props, size_t user_data_size)
 {
-	struct impl *impl;
-	const char *str;
-	struct spa_json it[2];
-	char value[512];
 	const struct spa_support *support;
 	struct spa_cpu *cpu;
 	uint32_t n_support;
-	int res;
-	size_t ncreated = 0;
+	struct impl *impl;
+	const char *str;
+	int res = 0;
 
-	impl = calloc(1, sizeof(struct impl) + user_data_size);
+	impl = calloc(1, sizeof(*impl) + user_data_size);
 	if (impl == NULL)
 		goto error_exit;
-
 
 	if (props == NULL)
 		props = pw_properties_new(NULL, NULL);
@@ -6278,36 +6604,35 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 				get_server_name(context));
 		str = pw_properties_get(props, "server.address");
 	}
+
 	if (str == NULL)
 		goto error_free;
 
-	spa_json_init(&it[0], str, strlen(str));
-	if (spa_json_enter_array(&it[0], &it[1]) > 0) {
-		while (spa_json_get_string(&it[1], value, sizeof(value)-1) > 0) {
-			if (create_server(impl, value)) {
-				ncreated++;
-			} else {
-				pw_log_warn(NAME" %p: can't create server for %s: %m",
-						impl, value);
-			}
-		}
-	}
-	if (ncreated == 0)
+	if ((res = create_and_start_servers(impl, str, NULL)) < 0) {
+		pw_log_error(NAME" %p: no servers could be started: %s",
+			     impl, spa_strerror(res));
 		goto error_free;
+	}
 
 	if ((res = create_pid_file()) < 0) {
 		pw_log_warn(NAME" %p: can't create pid file: %s",
-				impl, spa_strerror(res));
+			    impl, spa_strerror(res));
 	}
+
 	impl->dbus_name = dbus_request_name(context, "org.pulseaudio.Server");
 
-	return (struct pw_protocol_pulse*)impl;
+	return (struct pw_protocol_pulse *) impl;
 
 error_free:
 	free(impl);
+
 error_exit:
 	if (props != NULL)
 		pw_properties_free(props);
+
+	if (res < 0)
+		errno = -res;
+
 	return NULL;
 }
 

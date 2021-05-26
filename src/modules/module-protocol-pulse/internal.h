@@ -28,7 +28,6 @@
 #include "config.h"
 
 #include <sys/socket.h>
-#include <sys/un.h>
 
 #include <spa/utils/defs.h>
 #include <spa/utils/ringbuffer.h>
@@ -195,11 +194,7 @@ struct server {
 	struct spa_list link;
 	struct impl *impl;
 
-#define SERVER_TYPE_INVALID	0
-#define SERVER_TYPE_UNIX	1
-#define SERVER_TYPE_INET	2
-	uint32_t type;
-	struct sockaddr_un addr;
+	struct sockaddr_storage addr;
 
 	struct spa_source *source;
 	struct spa_list clients;
@@ -230,7 +225,7 @@ struct impl {
 	struct stats stat;
 };
 
-struct server *create_server(struct impl *impl, const char *address);
+int create_and_start_servers(struct impl *impl, const char *addresses, struct pw_array *servers);
 void server_free(struct server *server);
 
 #endif

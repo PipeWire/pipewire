@@ -65,6 +65,7 @@ int main(int argc, char *argv[])
 	int c;
 	char path[PATH_MAX];
 	const char *config_name;
+	const char *core_name;
 
 	if (setenv("PIPEWIRE_INTERNAL", "1", 1) < 0)
 		fprintf(stderr, "can't set PIPEWIRE_INTERNAL env: %m");
@@ -98,6 +99,11 @@ int main(int argc, char *argv[])
 	properties = pw_properties_new(
 				PW_KEY_CONFIG_NAME, config_name,
 				NULL);
+
+	if ((core_name = getenv("PIPEWIRE_CORE"))) {
+		pw_log_info("using core.name from environment: %s", core_name);
+		pw_properties_set(properties, PW_KEY_CORE_NAME, core_name);
+	}
 
 	loop = pw_main_loop_new(&properties->dict);
 	if (loop == NULL) {

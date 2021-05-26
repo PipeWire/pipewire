@@ -1322,9 +1322,6 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 	struct pw_impl_port *other;
 
 	latency = SPA_LATENCY_INFO(SPA_DIRECTION_REVERSE(port->direction));
-	latency.min_quantum = FLT_MAX;
-	latency.min_rate = INT32_MAX;
-	latency.min_ns = INT64_MAX;
 
 	if (port->direction == PW_DIRECTION_OUTPUT) {
 		spa_list_for_each(l, &port->links, output_link) {
@@ -1347,13 +1344,6 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 					latency.min_ns, latency.max_ns);
 		}
 	}
-	if (latency.min_quantum == FLT_MAX)
-		latency.min_quantum = 0.0f;
-	if (latency.min_rate == INT32_MAX)
-		latency.min_rate = 0U;
-	if (latency.min_ns == INT64_MAX)
-		latency.min_ns = 0UL;
-
 	port_set_latency(port, &latency);
 	return 0;
 }

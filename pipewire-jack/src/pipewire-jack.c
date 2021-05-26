@@ -222,8 +222,6 @@ struct port {
 	unsigned int empty_out:1;
 	unsigned int zeroed:1;
 
-	struct spa_latency_info latency[2];
-
 	float *emptyptr;
 	float empty[MAX_BUFFER_FRAMES + MAX_ALIGN];
 
@@ -533,6 +531,8 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 	o->port.node_id = c->node_id;
 	o->port.port_id = p->id;
 	o->port.port = p;
+	o->port.latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
+	o->port.latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
 	p->valid = true;
 	p->zeroed = false;
@@ -540,10 +540,6 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 	p->object = o;
 	spa_list_init(&p->mix);
 	p->props = pw_properties_new(NULL, NULL);
-	p->latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
-	p->latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
-	o->port.latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
-	o->port.latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
 	spa_list_append(&c->ports[direction], &p->link);
 
@@ -1650,7 +1646,7 @@ static int param_io(struct client *c, struct port *p,
 static int param_latency(struct client *c, struct port *p,
 		struct spa_pod **param, struct spa_pod_builder *b)
 {
-	*param = spa_latency_build(b, SPA_PARAM_Latency, &p->latency[p->direction]);
+	*param = spa_latency_build(b, SPA_PARAM_Latency, &p->object->port.latency[p->direction]);
 	return 1;
 }
 
@@ -1705,6 +1701,63 @@ static int port_set_format(struct client *c, struct port *p,
 	return 0;
 }
 
+static void port_update_latency(struct port *p)
+{
+	struct client *c = p->client;
+	struct spa_pod *params[5];
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+
+	param_enum_format(c, p, &params[0], &b);
+	param_format(c, p, &params[1], &b);
+	param_buffers(c, p, &params[2], &b);
+	param_io(c, p, &params[3], &b);
+	param_latency(c, p, &params[4], &b);
+
+	p->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	p->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
+
+	pw_client_node_port_update(c->node,
+					 p->direction,
+					 p->id,
+					 PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
+					 PW_CLIENT_NODE_PORT_UPDATE_INFO,
+					 5,
+					 (const struct spa_pod **) params,
+					 &p->info);
+}
+
+static void default_latency_callback(jack_latency_callback_mode_t mode, struct client *c)
+{
+	struct port *p;
+	struct spa_latency_info latency;
+	enum spa_direction direction, other;
+
+	if (mode == JackPlaybackLatency)
+		direction = SPA_DIRECTION_INPUT;
+	else
+		direction = SPA_DIRECTION_OUTPUT;
+
+	latency = SPA_LATENCY_INFO(direction);
+	other = SPA_DIRECTION_REVERSE(direction);
+
+	spa_list_for_each(p, &c->ports[other], link)
+		spa_latency_info_combine(&latency, &p->object->port.latency[latency.direction]);
+
+	pw_log_info("port %p: update %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, p,
+			latency.direction == SPA_DIRECTION_INPUT ? "playback" : "capture",
+			latency.min_quantum, latency.max_quantum,
+			latency.min_rate, latency.max_rate,
+			latency.min_ns, latency.max_ns);
+
+	spa_list_for_each(p, &c->ports[direction], link) {
+		if (spa_latency_info_compare(&p->object->port.latency[direction], &latency) != 0) {
+			p->object->port.latency[direction] = latency;
+			port_update_latency(p);
+		}
+	}
+}
+
 static int port_set_latency(struct client *c, struct port *p,
 		uint32_t flags, const struct spa_pod *param)
 {
@@ -1718,9 +1771,7 @@ static int port_set_latency(struct client *c, struct port *p,
 	if ((res = spa_latency_parse(param, &info)) < 0)
 		return res;
 
-	p->latency[info.direction] = info;
-	if (p->object)
-		p->object->port.latency[info.direction] = info;
+	p->object->port.latency[info.direction] = info;
 
 	pw_log_info("port %p: set %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, p,
 			info.direction == SPA_DIRECTION_INPUT ? "playback" : "capture",
@@ -1735,6 +1786,8 @@ static int port_set_latency(struct client *c, struct port *p,
 
 	if (c->latency_callback)
 		c->latency_callback(mode, c->latency_arg);
+	else
+		default_latency_callback(mode, c);
 
 	return 0;
 }
@@ -4497,10 +4550,6 @@ void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_
 	enum spa_direction direction;
 	struct spa_latency_info *info;
 	struct port *p;
-	struct client *c;
-	struct spa_pod *params[5];
-	uint8_t buffer[4096];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
 	spa_return_if_fail(o != NULL);
 
@@ -4519,27 +4568,8 @@ void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_
 		return;
 	if (p->direction != direction)
 		return;
-	c = p->client;
 
-	p->latency[direction] = o->port.latency[direction];
-
-	param_enum_format(c, p, &params[0], &b);
-	param_format(c, p, &params[1], &b);
-	param_buffers(c, p, &params[2], &b);
-	param_io(c, p, &params[3], &b);
-	param_latency(c, p, &params[4], &b);
-
-	p->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-	p->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
-
-	pw_client_node_port_update(c->node,
-					 p->direction,
-					 p->id,
-					 PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
-					 PW_CLIENT_NODE_PORT_UPDATE_INFO,
-					 5,
-					 (const struct spa_pod **) params,
-					 &p->info);
+	port_update_latency(p);
 }
 
 SPA_EXPORT

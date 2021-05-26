@@ -25,6 +25,7 @@
 #include <pipewire/pipewire.h>
 
 #include "../module.h"
+#include "../pulse-server.h"
 #include "registry.h"
 
 #define ERROR_RETURN(str) 		\
@@ -99,7 +100,8 @@ struct module *create_module_native_protocol_tcp(struct impl *impl, const char *
 		module_args_add_props(props, argument);
 
 	if ((port = pw_properties_get(props, "port")) == NULL)
-		port = "4713";
+		port = SPA_STRINGIFY(PW_PROTOCOL_PULSE_DEFAULT_PORT);
+
 	listen = pw_properties_get(props, "listen");
 
 	pw_properties_setf(props, "pulse.tcp", "tcp:%s%s%s",

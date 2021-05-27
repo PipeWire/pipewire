@@ -135,6 +135,7 @@ static const struct channelmix_info *find_channelmix_info(uint32_t src_chan, uin
 
 #define _CH(ch)		((SPA_AUDIO_CHANNEL_ ## ch)-3)
 #define _MASK(ch)	(1ULL << _CH(ch))
+#define FRONT		(_MASK(FC))
 #define STEREO		(_MASK(FL)|_MASK(FR))
 #define REAR		(_MASK(RL)|_MASK(RR))
 #define SIDE		(_MASK(SL)|_MASK(SR))
@@ -156,7 +157,7 @@ static int make_matrix(struct channelmix *mix)
 	spa_log_debug(mix->log, "src-mask:%08"PRIx64" dst-mask:%08"PRIx64,
 			src_mask, dst_mask);
 
-	/* move the MONO mask to FC so that the lower bits can be shifted
+	/* move the MONO mask to FRONT so that the lower bits can be shifted
 	 * away. */
 	if ((src_mask & (1Ull << SPA_AUDIO_CHANNEL_MONO)) != 0)
 		src_mask |= (1ULL << SPA_AUDIO_CHANNEL_FC);
@@ -168,12 +169,12 @@ static int make_matrix(struct channelmix *mix)
 	dst_mask >>= 3;
 
 	if (src_mask == 0 || dst_mask == 0) {
-		if (src_mask == _MASK(FC) && mix->src_chan == 1) {
+		if (src_mask == FRONT && mix->src_chan == 1) {
 			/* one FC/MONO src goes everywhere */
 			spa_log_debug(mix->log, "distribute FC/MONO");
 			for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
 				matrix[i][0]= 1.0f;
-		} else if (dst_mask == _MASK(FC) && mix->dst_chan == 1) {
+		} else if (dst_mask == FRONT && mix->dst_chan == 1) {
 			/* one FC/MONO dst get average of everything */
 			spa_log_debug(mix->log, "average FC/MONO");
 			for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
@@ -200,7 +201,7 @@ static int make_matrix(struct channelmix *mix)
 
 	spa_log_debug(mix->log, "unassigned downmix %08" PRIx64, unassigned);
 
-	if (unassigned & _MASK(FC)){
+	if (unassigned & FRONT){
 		if ((dst_mask & STEREO) == STEREO){
 			spa_log_debug(mix->log, "assign FC to STEREO");
 			if(src_mask & STEREO) {
@@ -216,11 +217,11 @@ static int make_matrix(struct channelmix *mix)
 	}
 
 	if (unassigned & STEREO){
-		if (dst_mask & _MASK(FC)) {
+		if (dst_mask & FRONT) {
 			spa_log_debug(mix->log, "assign STEREO to FC");
 			_MATRIX(FC,FL) += SQRT1_2;
 			_MATRIX(FC,FR) += SQRT1_2;
-			if (src_mask & _MASK(FC))
+			if (src_mask & FRONT)
 				_MATRIX(FC,FC) = clev * SQRT2;
 		} else {
 			spa_log_warn(mix->log, "can't assign STEREO");
@@ -251,7 +252,7 @@ static int make_matrix(struct channelmix *mix)
 				_MATRIX(FL,RC) += slev * SQRT1_2;
 				_MATRIX(FR,RC) += slev * SQRT1_2;
 			}
-		} else if (dst_mask & _MASK(FC)) {
+		} else if (dst_mask & FRONT) {
 			spa_log_debug(mix->log, "assign RC to FC");
 			_MATRIX(FC,RC) += slev * SQRT1_2;
 		} else {
@@ -289,7 +290,7 @@ static int make_matrix(struct channelmix *mix)
 				_MATRIX(FL,RL) += slev;
 				_MATRIX(FR,RR) += slev;
 			}
-		} else if (dst_mask & _MASK(FC)) {
+		} else if (dst_mask & FRONT) {
 			spa_log_debug(mix->log, "assign RL+RR to FC");
 			_MATRIX(FC,RL)+= slev * SQRT1_2;
 			_MATRIX(FC,RR)+= slev * SQRT1_2;
@@ -328,7 +329,7 @@ static int make_matrix(struct channelmix *mix)
 				_MATRIX(FL,SL) += slev;
 				_MATRIX(FR,SR) += slev;
 			}
-		} else if (dst_mask & _MASK(FC)) {
+		} else if (dst_mask & FRONT) {
 			spa_log_debug(mix->log, "assign SL+SR to FC");
 			_MATRIX(FC,SL) += slev * SQRT1_2;
 			_MATRIX(FC,SR) += slev * SQRT1_2;
@@ -342,7 +343,7 @@ static int make_matrix(struct channelmix *mix)
 			spa_log_debug(mix->log, "assign FLC+FRC to FL+FR");
 			_MATRIX(FL,FLC)+= 1.0f;
 			_MATRIX(FR,FRC)+= 1.0f;
-		} else if(dst_mask & _MASK(FC)) {
+		} else if(dst_mask & FRONT) {
 			spa_log_debug(mix->log, "assign FLC+FRC to FC");
 			_MATRIX(FC,FLC)+= SQRT1_2;
 			_MATRIX(FC,FRC)+= SQRT1_2;
@@ -352,7 +353,7 @@ static int make_matrix(struct channelmix *mix)
 	}
 	if (unassigned & _MASK(LFE) &&
 	    SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_MIX_LFE)) {
-		if (dst_mask & _MASK(FC)) {
+		if (dst_mask & FRONT) {
 			spa_log_debug(mix->log, "assign LFE to FC");
 			_MATRIX(FC,LFE) += llev;
 		} else if (dst_mask & STEREO) {
@@ -371,7 +372,7 @@ static int make_matrix(struct channelmix *mix)
 
 	spa_log_debug(mix->log, "unassigned upmix %08" PRIx64, unassigned);
 
-	if (unassigned & _MASK(FC)) {
+	if (unassigned & FRONT) {
 		if ((src_mask & STEREO) == STEREO) {
 			spa_log_debug(mix->log, "produce FC from STEREO");
 			_MATRIX(FC,FL) += clev;
@@ -385,6 +386,9 @@ static int make_matrix(struct channelmix *mix)
 			spa_log_debug(mix->log, "produce LFE from STEREO");
 			_MATRIX(LFE,FL) += llev;
 			_MATRIX(LFE,FR) += llev;
+		} else if ((src_mask & FRONT) == FRONT) {
+			spa_log_debug(mix->log, "produce LFE from FC");
+			_MATRIX(LFE,FC) += llev;
 		} else {
 			spa_log_warn(mix->log, "can't produce LFE");
 		}
@@ -394,11 +398,14 @@ static int make_matrix(struct channelmix *mix)
 			spa_log_debug(mix->log, "produce SIDE from REAR");
 			_MATRIX(SL,RL) += 1.0f;
 			_MATRIX(SR,RR) += 1.0f;
-
 		} else if ((src_mask & STEREO) == STEREO) {
 			spa_log_debug(mix->log, "produce SIDE from STEREO");
 			_MATRIX(SL,FL) += 1.0f;
 			_MATRIX(SR,FR) += 1.0f;
+		} else if ((src_mask & FRONT) == FRONT) {
+			spa_log_debug(mix->log, "produce SIDE from FC");
+			_MATRIX(SL,FC) += clev;
+			_MATRIX(SR,FC) += clev;
 		}
 	}
 	if (unassigned & REAR) {
@@ -406,11 +413,14 @@ static int make_matrix(struct channelmix *mix)
 			spa_log_debug(mix->log, "produce REAR from SIDE");
 			_MATRIX(RL,SL) += 1.0f;
 			_MATRIX(RR,SR) += 1.0f;
-
 		} else if ((src_mask & STEREO) == STEREO) {
 			spa_log_debug(mix->log, "produce REAR from STEREO");
 			_MATRIX(RL,FL) += 1.0f;
 			_MATRIX(RR,FR) += 1.0f;
+		} else if ((src_mask & FRONT) == FRONT) {
+			spa_log_debug(mix->log, "produce REAR from FC");
+			_MATRIX(RL,FC) += clev;
+			_MATRIX(RR,FC) += clev;
 		}
 	}
 

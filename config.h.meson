@@ -485,3 +485,5 @@
 #mesondefine HAVE_GSTREAMER_DEVICE_PROVIDER
 
 #mesondefine HAVE_WEBRTC
+
+#mesondefine HAVE_GSTACK

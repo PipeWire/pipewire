@@ -372,9 +372,18 @@ installed_tests_execdir = pipewire_libexecdir / 'installed-tests' / pipewire_nam
 installed_tests_enabled = not get_option('installed_tests').disabled()
 installed_tests_template = files('template.test.in')
 
+if not get_option('tests').disabled()
+  gstack = find_program('gstack', required : false)
+  cdata.set10('HAVE_GSTACK', gstack.found())
+endif
+
 subdir('po')
 subdir('spa')
 subdir('src')
+
+if not get_option('tests').disabled()
+  subdir('test')
+endif
 
 configure_file(input : 'config.h.meson',
   output : 'config.h',

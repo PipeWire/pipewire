@@ -200,6 +200,7 @@ struct spa_fraction {
 #define SPA_EXPORT __attribute__((visibility("default")))
 #define SPA_SENTINEL __attribute__((__sentinel__))
 #define SPA_UNUSED __attribute__ ((unused))
+#define SPA_NORETURN __attribute__ ((noreturn))
 #else
 #define SPA_PRINTF_FUNC(fmt, arg1)
 #define SPA_ALIGNED(align)
@@ -207,6 +208,7 @@ struct spa_fraction {
 #define SPA_EXPORT
 #define SPA_SENTINEL
 #define SPA_UNUSED
+#define SPA_NORETURN
 #endif
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L

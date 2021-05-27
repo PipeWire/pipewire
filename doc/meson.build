@@ -17,6 +17,7 @@ endforeach
 foreach h : pipewire_sources
   inputs += meson.source_root() / 'src' / 'pipewire' / h
 endforeach
+inputs += meson.source_root() / 'test' / 'pwtest.h'
 
 # SPA headers use static inline functions. Doxygen doesn't extract those
 # unless we have EXTRACT_STATIC set - but we don't want it to extract

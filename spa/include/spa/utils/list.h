@@ -39,7 +39,7 @@ struct spa_list {
 	struct spa_list *prev;
 };
 
-#define SPA_LIST_INIT(list) (struct spa_list){ list, list };
+#define SPA_LIST_INIT(list) (struct spa_list){ list, list }
 
 static inline void spa_list_init(struct spa_list *list)
 {

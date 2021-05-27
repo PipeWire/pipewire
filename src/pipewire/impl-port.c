@@ -363,19 +363,18 @@ static int process_latency_param(void *data, int seq,
 
 	if (spa_latency_parse(param, &latency) < 0)
 		return 0;
-	if (latency.direction != this->direction)
-		return 0;
-	if (spa_latency_info_compare(&this->latency[this->direction], &latency) == 0)
+	if (spa_latency_info_compare(&this->latency[latency.direction], &latency) == 0)
 		return 0;
 
-	pw_log_info("port %p: got %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, this,
-			pw_direction_as_string(this->direction),
+	pw_log_debug("port %p: got %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, this,
+			pw_direction_as_string(latency.direction),
 			latency.min_quantum, latency.max_quantum,
 			latency.min_rate, latency.max_rate,
 			latency.min_ns, latency.max_ns);
 
-	this->latency[this->direction] = latency;
-	pw_impl_port_emit_latency_changed(this);
+	this->latency[latency.direction] = latency;
+	if (latency.direction == this->direction)
+		pw_impl_port_emit_latency_changed(this);
 	return 0;
 }
 
@@ -1295,16 +1294,19 @@ int pw_impl_port_for_each_link(struct pw_impl_port *port,
 
 static void port_set_latency(struct pw_impl_port *port, struct spa_latency_info *latency)
 {
-	struct spa_latency_info *current = &port->latency[latency->direction];
+	struct spa_latency_info *current;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
+
+	current = &port->latency[latency->direction];
 
 	if (spa_latency_info_compare(current, latency) == 0)
 		return;
 
 	*current = *latency;
-	pw_log_info("port %p: set %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, port,
+
+	pw_log_debug("port %p: set %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, port,
 			pw_direction_as_string(latency->direction),
 			latency->min_quantum, latency->max_quantum,
 			latency->min_rate, latency->max_rate,
@@ -1327,7 +1329,7 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 		spa_list_for_each(l, &port->links, output_link) {
 			other = l->input;
 			spa_latency_info_combine(&latency, &other->latency[other->direction]);
-			pw_log_info("port %p: peer %p: latency %f-%f %d-%d %"PRIu64"-%"PRIu64,
+			pw_log_debug("port %p: peer %p: latency %f-%f %d-%d %"PRIu64"-%"PRIu64,
 					port, other,
 					latency.min_quantum, latency.max_quantum,
 					latency.min_rate, latency.max_rate,
@@ -1337,7 +1339,7 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 		spa_list_for_each(l, &port->links, input_link) {
 			other = l->output;
 			spa_latency_info_combine(&latency, &other->latency[other->direction]);
-			pw_log_info("port %p: peer %p: latency %f-%f %d-%d %"PRIu64"-%"PRIu64,
+			pw_log_debug("port %p: peer %p: latency %f-%f %d-%d %"PRIu64"-%"PRIu64,
 					port, other,
 					latency.min_quantum, latency.max_quantum,
 					latency.min_rate, latency.max_rate,

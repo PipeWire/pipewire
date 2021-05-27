@@ -162,10 +162,41 @@ static void capture_process(void *d)
 		pw_stream_queue_buffer(impl->playback, out);
 }
 
+static void param_latency_changed(struct impl *impl, const struct spa_pod *param)
+{
+	struct spa_latency_info latency;
+	uint8_t buffer[1024];
+	struct spa_pod_builder b;
+	const struct spa_pod *params[1];
+
+	if (spa_latency_parse(param, &latency) < 0)
+		return;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	params[0] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
+
+	if (latency.direction == SPA_DIRECTION_INPUT)
+		pw_stream_update_params(impl->capture, params, 1);
+	else
+		pw_stream_update_params(impl->playback, params, 1);
+}
+
+static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
+{
+	struct impl *impl = data;
+
+	switch (id) {
+	case SPA_PARAM_Latency:
+		param_latency_changed(impl, param);
+		break;
+	}
+}
+
 static const struct pw_stream_events in_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = capture_destroy,
-	.process = capture_process
+	.process = capture_process,
+	.param_changed = param_changed,
 };
 
 static void playback_destroy(void *d)
@@ -177,7 +208,8 @@ static void playback_destroy(void *d)
 
 static const struct pw_stream_events out_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
-	.destroy = playback_destroy
+	.destroy = playback_destroy,
+	.param_changed = param_changed,
 };
 
 static int setup_streams(struct impl *impl)

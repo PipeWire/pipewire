@@ -488,6 +488,7 @@ struct spa_bt_transport_events {
 	uint32_t version;
 
 	void (*destroy) (void *data);
+	void (*delay_changed) (void *data);
 	void (*state_changed) (void *data, enum spa_bt_transport_state old,
 			enum spa_bt_transport_state state);
 	void (*volume_changed) (void *data);
@@ -568,6 +569,7 @@ int spa_bt_transport_ensure_sco_io(struct spa_bt_transport *t, struct spa_loop *
 								struct spa_bt_transport_events,	\
 								m, v, ##__VA_ARGS__)
 #define spa_bt_transport_emit_destroy(t)		spa_bt_transport_emit(t, destroy, 0)
+#define spa_bt_transport_emit_delay_changed(t)		spa_bt_transport_emit(t, delay_changed, 0)
 #define spa_bt_transport_emit_state_changed(t,...)	spa_bt_transport_emit(t, state_changed, 0, __VA_ARGS__)
 #define spa_bt_transport_emit_volume_changed(t)		spa_bt_transport_emit(t, volume_changed, 0)
 

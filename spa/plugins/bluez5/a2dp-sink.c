@@ -44,6 +44,7 @@
 #include <spa/node/io.h>
 #include <spa/node/keys.h>
 #include <spa/param/param.h>
+#include <spa/param/latency-utils.h>
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/pod/filter.h>
@@ -82,12 +83,14 @@ struct port {
 	uint64_t info_all;
 	struct spa_port_info info;
 	struct spa_io_buffers *io;
+	struct spa_latency_info latency;
 #define IDX_EnumFormat	0
 #define IDX_Meta	1
 #define IDX_IO		2
 #define IDX_Format	3
 #define IDX_Buffers	4
-#define N_PORT_PARAMS	5
+#define IDX_Latency	5
+#define N_PORT_PARAMS	6
 	struct spa_param_info params[N_PORT_PARAMS];
 
 	struct buffer buffers[MAX_BUFFERS];
@@ -336,6 +339,27 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 static void emit_node_info(struct impl *this, bool full);
 
+static void emit_port_info(struct impl *this, struct port *port, bool full);
+
+static void set_latency(struct impl *this, bool emit_latency)
+{
+	struct port *port = &this->port;
+	int64_t delay;
+
+	if (this->transport == NULL)
+		return;
+
+	delay = spa_bt_transport_get_delay_nsec(this->transport);
+	delay += SPA_CLAMP(this->props.latency_offset, -delay, INT64_MAX / 2);
+	port->latency.min_ns = port->latency.max_ns = delay;
+
+	if (emit_latency) {
+		port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+		port->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
+		emit_port_info(this, port, false);
+	}
+}
+
 static int apply_props(struct impl *this, const struct spa_pod *param)
 {
 	struct props new_props = this->props;
@@ -353,6 +377,10 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 
 	changed = (memcmp(&new_props, &this->props, sizeof(struct props)) != 0);
 	this->props = new_props;
+
+	if (changed)
+		set_latency(this, true);
+
 	return changed;
 }
 
@@ -1065,6 +1093,16 @@ impl_node_port_enum_params(void *object, int seq,
 		}
 		break;
 
+	case SPA_PARAM_Latency:
+		switch (result.index) {
+		case 0:
+			param = spa_latency_build(&b, id, &port->latency);
+			break;
+		default:
+			return 0;
+		}
+		break;
+
 	default:
 		return -ENOENT;
 	}
@@ -1142,6 +1180,7 @@ static int port_set_format(struct impl *this, struct port *port,
 		port->info.rate = SPA_FRACTION(1, port->current_format.info.raw.rate);
 		port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
 		port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+		port->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
 	} else {
 		port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 		port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
@@ -1303,6 +1342,13 @@ static const struct spa_node_methods impl_node = {
 	.process = impl_node_process,
 };
 
+static void transport_delay_changed(void *data)
+{
+	struct impl *this = data;
+	spa_log_debug(this->log, "transport %p delay changed", this->transport);
+	set_latency(this, true);
+}
+
 static int do_transport_destroy(struct spa_loop *loop,
 				bool async,
 				uint32_t seq,
@@ -1324,7 +1370,8 @@ static void transport_destroy(void *data)
 
 static const struct spa_bt_transport_events transport_events = {
 	SPA_VERSION_BT_TRANSPORT_EVENTS,
-        .destroy = transport_destroy,
+	.delay_changed = transport_delay_changed,
+	.destroy = transport_destroy,
 };
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
@@ -1427,8 +1474,15 @@ impl_init(const struct spa_handle_factory *factory,
 	port->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
 	port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	port->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READWRITE);
 	port->info.params = port->params;
 	port->info.n_params = N_PORT_PARAMS;
+
+	port->latency = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
+	port->latency.min_quantum = 1.0f;
+	port->latency.max_quantum = 1.0f;
+	set_latency(this, false);
+
 	spa_list_init(&port->ready);
 
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_TRANSPORT)))

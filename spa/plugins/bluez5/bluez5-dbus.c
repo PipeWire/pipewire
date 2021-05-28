@@ -1909,6 +1909,7 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			spa_log_debug(monitor->log, "transport %p: %s=%02x", transport, key, value);
 
 			transport->delay = value;
+			spa_bt_transport_emit_delay_changed(transport);
 		}
 	      next:
 		dbus_message_iter_next(props_iter);

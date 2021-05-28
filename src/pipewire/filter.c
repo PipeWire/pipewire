@@ -154,6 +154,8 @@ struct filter {
 	uint64_t base_pos;
 	uint32_t clock_id;
 
+	struct spa_callbacks rt_callbacks;
+
 	unsigned int disconnecting:1;
 	unsigned int disconnect_core:1;
 	unsigned int subscribe:1;
@@ -1182,13 +1184,27 @@ void pw_filter_destroy(struct pw_filter *filter)
 	free(impl);
 }
 
+static void hook_removed(struct spa_hook *hook)
+{
+	struct filter *impl = hook->priv;
+	spa_zero(impl->rt_callbacks);
+	hook->priv = NULL;
+	hook->removed = NULL;
+}
+
 SPA_EXPORT
 void pw_filter_add_listener(struct pw_filter *filter,
 			    struct spa_hook *listener,
 			    const struct pw_filter_events *events,
 			    void *data)
 {
+	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
 	spa_hook_list_append(&filter->listener_list, listener, events, data);
+	if (events->process && impl->rt_callbacks.funcs == NULL) {
+		impl->rt_callbacks = SPA_CALLBACKS_INIT(events, data);
+		listener->removed = hook_removed;
+		listener->priv = impl;
+	}
 }
 
 SPA_EXPORT

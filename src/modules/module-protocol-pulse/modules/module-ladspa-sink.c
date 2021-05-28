@@ -193,8 +193,6 @@ struct module *create_module_ladspa_sink(struct impl *impl, const char *argument
 	if ((str = pw_properties_get(props, "sink_name")) != NULL) {
 		pw_properties_set(props, PW_KEY_NODE_NAME, str);
 		pw_properties_set(props, "sink_name", NULL);
-	} else {
-		pw_properties_set(props, PW_KEY_NODE_NAME, "null");
 	}
 	if ((str = pw_properties_get(props, "sink_properties")) != NULL) {
 		module_args_add_props(capture_props, str);

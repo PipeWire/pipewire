@@ -37,7 +37,6 @@
 #include "registry.h"
 
 #define DEFAULT_FILE_NAME "/tmp/music.output"
-#define DEFAULT_SINK_NAME "fifo_output"
 
 struct module_pipesink_data {
 	struct module *module;
@@ -259,9 +258,6 @@ struct module *create_module_pipe_sink(struct impl *impl, const char *argument)
 
 	if ((str = pw_properties_get(props, "sink_name")) != NULL) {
 		pw_properties_set(capture_props, PW_KEY_NODE_NAME, str);
-		pw_properties_set(props, "sink_name", NULL);
-	} else {
-		pw_properties_set(capture_props, PW_KEY_NODE_NAME, DEFAULT_SINK_NAME);
 		pw_properties_set(props, "sink_name", NULL);
 	}
 

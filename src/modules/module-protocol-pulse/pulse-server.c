@@ -194,8 +194,10 @@ static struct message *message_alloc(struct impl *impl, uint32_t channel, uint32
 		msg->stat->n_allocated++;
 		msg->stat->n_accumulated++;
 	}
-	if (ensure_size(msg, size) < 0)
+	if (ensure_size(msg, size) < 0) {
+		message_free(impl, msg, false, true);
 		return NULL;
+	}
 	spa_zero(msg->extra);
 	msg->channel = channel;
 	msg->offset = 0;

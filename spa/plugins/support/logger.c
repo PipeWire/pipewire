@@ -74,8 +74,10 @@ impl_log_logv(void *object,
 	      const char *fmt,
 	      va_list args)
 {
+#define RESERVED_LENGTH 24
+
 	struct impl *impl = object;
-	char location[1024], *p, *s;
+	char location[1000 + RESERVED_LENGTH], *p, *s;
 	static const char *levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
 	const char *prefix = "", *suffix = "";
 	int size, len;
@@ -96,7 +98,7 @@ impl_log_logv(void *object,
 	}
 
 	p = location;
-	len = sizeof(location);
+	len = sizeof(location) - RESERVED_LENGTH;
 
 	size = snprintf(p, len, "%s[%s]", prefix, levels[level]);
 
@@ -113,9 +115,32 @@ impl_log_logv(void *object,
 			s ? s + 1 : file, line, func);
 	}
 	size += snprintf(p + size, len - size, " ");
+	/*
+	 * it is assumed that at this point `size` <= `len`,
+	 * which is reasonable as long as file names and function names
+	 * don't become very long
+	 */
+
 	size += vsnprintf(p + size, len - size, fmt, args);
 
-	size += snprintf(p + size, len - size, "%s\n", impl->colors ? suffix : "");
+	/*
+	 * `RESERVED_LENGTH` bytes are reserved for printing the suffix
+	 * (at the moment it's "... (truncated)\x1B[0m\n" at its longest - 21 bytes),
+	 * its length must be less than `RESERVED_LENGTH` (including the null byte),
+	 * otherwise a stack buffer overrun could ensue
+	 */
+
+	/* if the message could not fit entirely... */
+	if (size >= len) {
+		size = len - 1; /* index of the null byte */
+		len = sizeof(location);
+		size += snprintf(p + size, len - size, "... (truncated)");
+	}
+	else {
+		len = sizeof(location);
+	}
+
+	size += snprintf(p + size, len - size, "%s\n", suffix);
 
 	if (SPA_UNLIKELY(do_trace)) {
 		uint32_t index;
@@ -129,7 +154,10 @@ impl_log_logv(void *object,
 			fprintf(impl->file, "error signaling eventfd: %s\n", strerror(errno));
 	} else
 		fputs(location, impl->file);
+
 	fflush(impl->file);
+
+#undef RESERVED_LENGTH
 }
 
 

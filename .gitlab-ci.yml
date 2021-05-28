@@ -19,7 +19,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2021-05-10.0'
+    FDO_DISTRIBUTION_TAG: '2021-06-02.0'
     FDO_DISTRIBUTION_VERSION: '33'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
@@ -45,6 +45,7 @@ include:
       SDL2-devel
       systemd-devel
       vulkan-loader-devel
+      webrtc-audio-processing-devel
       which
       xmltoman
 

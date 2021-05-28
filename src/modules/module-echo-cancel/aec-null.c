@@ -28,11 +28,11 @@ struct impl {
 	uint32_t channels;
 };
 
-static void *null_create(struct spa_dict *info, uint32_t channels)
+static void *null_create(const struct pw_properties *args, const struct spa_audio_info_raw *info)
 {
 	struct impl *impl;
 	impl = calloc(1, sizeof(struct impl));
-	impl->channels = channels;
+	impl->channels = info->channels;
 	return impl;
 }
 
@@ -53,6 +53,7 @@ static int null_run(void *ec, const float *rec[], const float *play[], float *ou
 static const struct echo_cancel_info echo_cancel_null_impl = {
 	.name = "null",
 	.info = SPA_DICT_INIT(NULL, 0),
+	.latency = NULL,
 
 	.create = null_create,
 	.destroy = null_destroy,

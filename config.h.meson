@@ -486,3 +486,5 @@
 #mesondefine PA_ALSA_PROFILE_SETS_DIR
 
 #mesondefine HAVE_GSTREAMER_DEVICE_PROVIDER
+
+#mesondefine HAVE_WEBRTC

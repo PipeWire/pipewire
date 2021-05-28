@@ -22,14 +22,19 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "config.h"
+
 #include <spa/utils/dict.h>
 #include <spa/param/audio/raw.h>
+
+#include <pipewire/properties.h>
 
 struct echo_cancel_info {
 	const char *name;
 	const struct spa_dict info;
+	const char *latency;
 
-	void *(*create) (struct spa_dict *info, uint32_t channels);
+	void *(*create) (const struct pw_properties *args, const struct spa_audio_info_raw *info);
 	void (*destroy) (void *ec);
 
 	int (*run) (void *ec, const float *rec[], const float *play[], float *out[], uint32_t n_samples);
@@ -39,5 +44,7 @@ struct echo_cancel_info {
 #define echo_cancel_destroy(i,...)	(i)->destroy(__VA_ARGS__)
 #define echo_cancel_run(i,...)		(i)->run(__VA_ARGS__)
 
+#ifdef HAVE_WEBRTC
 extern const struct echo_cancel_info *echo_cancel_webrtc;
+#endif
 extern const struct echo_cancel_info *echo_cancel_null;

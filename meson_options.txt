@@ -191,3 +191,7 @@ option('avahi',
        description: 'Enable code that depends on avahi',
        type: 'feature',
        value: 'auto')
+option('echo-cancel-webrtc',
+       description : 'Enable WebRTC-based echo canceller',
+       type : 'feature',
+       value : 'auto')

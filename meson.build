@@ -344,6 +344,14 @@ if not get_option('gstreamer-device-provider').disabled()
   cdata.set('HAVE_GSTREAMER_DEVICE_PROVIDER', 1)
 endif
 
+webrtc_dep = dependency('webrtc-audio-processing',
+  version : ['>= 0.2', '< 1.0'],
+  required : get_option('echo-cancel-webrtc'))
+
+if webrtc_dep.found()
+  cdata.set('HAVE_WEBRTC', 1)
+endif
+
 # On FreeBSD, epoll-shim library is required for eventfd() and timerfd()
 epoll_shim_dep = (build_machine.system() == 'freebsd'
     ? dependency('epoll-shim', required: true)

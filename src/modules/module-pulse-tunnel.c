@@ -43,6 +43,7 @@
 #include <spa/debug/pod.h>
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/latency-utils.h>
 #include <spa/param/audio/raw.h>
 
 #include <pipewire/impl.h>
@@ -74,6 +75,8 @@ static const struct spa_dict_item module_props[] = {
 
 #define RINGBUFFER_SIZE		(1u << 22)
 #define RINGBUFFER_MASK		(RINGBUFFER_SIZE-1)
+
+#define DEFAULT_LATENCY_USEC (20 * PA_USEC_PER_MSEC)
 
 struct impl {
 	struct pw_context *context;
@@ -281,9 +284,10 @@ static int create_stream(struct impl *impl)
 {
 	int res;
 	uint32_t n_params;
-	const struct spa_pod *params[1];
+	const struct spa_pod *params[2];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
+	struct spa_latency_info latency;
 
 	impl->stream = pw_stream_new(impl->core, "pulse", impl->stream_props);
 	impl->stream_props = NULL;
@@ -312,6 +316,13 @@ static int create_stream(struct impl *impl)
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	params[n_params++] = spa_format_audio_raw_build(&b,
 			SPA_PARAM_EnumFormat, &impl->info);
+
+	spa_zero(latency);
+	latency.direction = impl->mode == MODE_CAPTURE ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
+	latency.min_ns = latency.max_ns = DEFAULT_LATENCY_USEC * 1000;
+
+	params[n_params++] = spa_latency_build(&b,
+			SPA_PARAM_Latency, &latency);
 
 	if ((res = pw_stream_connect(impl->stream,
 			impl->mode == MODE_CAPTURE ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT,
@@ -443,6 +454,12 @@ static void stream_write_request_cb(pa_stream *s, size_t length, void *userdata)
 static void stream_latency_update_cb(pa_stream *s, void *userdata)
 {
 	struct impl *impl = userdata;
+	pa_usec_t usec;
+	int negative;
+
+	pa_stream_get_latency(s, &usec, &negative);
+
+	pw_log_debug("latency %ld negative %d", usec, negative);
 	pa_threaded_mainloop_signal(impl->pa_mainloop, 0);
 }
 
@@ -462,6 +479,7 @@ static int create_pulse_stream(struct impl *impl)
 	pa_proplist *props = NULL;
 	pa_mainloop_api *api;
 	char stream_name[1024];
+	pa_buffer_attr bufferattr;
 	int res = -EIO;
 
 	if ((impl->pa_mainloop = pa_threaded_mainloop_new()) == NULL)
@@ -524,15 +542,24 @@ static int create_pulse_stream(struct impl *impl)
 
 	remote_node_target = pw_properties_get(impl->props, PW_KEY_NODE_TARGET);
 
+	bufferattr.fragsize = (uint32_t) -1;
+	bufferattr.minreq = (uint32_t) -1;
+	bufferattr.maxlength = (uint32_t) -1;
+	bufferattr.prebuf = (uint32_t) -1;
+
 	if (impl->mode == MODE_CAPTURE) {
+		bufferattr.tlength = pa_usec_to_bytes(DEFAULT_LATENCY_USEC, &ss);
+
 		res = pa_stream_connect_record(impl->pa_stream,
-				remote_node_target, NULL,
+				remote_node_target, &bufferattr,
 				PA_STREAM_INTERPOLATE_TIMING |
 				PA_STREAM_ADJUST_LATENCY |
 				PA_STREAM_AUTO_TIMING_UPDATE);
 	} else {
+		bufferattr.fragsize = pa_usec_to_bytes(DEFAULT_LATENCY_USEC, &ss);
+
 		res = pa_stream_connect_playback(impl->pa_stream,
-				remote_node_target, NULL,
+				remote_node_target, &bufferattr,
 				PA_STREAM_INTERPOLATE_TIMING |
 				PA_STREAM_ADJUST_LATENCY |
 				PA_STREAM_AUTO_TIMING_UPDATE,

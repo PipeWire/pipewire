@@ -812,10 +812,10 @@ do_call_process(struct spa_loop *loop,
 
 static void call_process(struct filter *impl)
 {
-	struct pw_filter *filter = &impl->this;
 	pw_log_trace(NAME" %p: call process", impl);
 	if (SPA_FLAG_IS_SET(impl->flags, PW_FILTER_FLAG_RT_PROCESS)) {
-		pw_filter_emit_process(filter, impl->rt.position);
+		spa_callbacks_call(&impl->rt_callbacks, struct pw_filter_events,
+				process, 0, impl->rt.position);
 	}
 	else {
 		pw_loop_invoke(impl->context->main_loop,

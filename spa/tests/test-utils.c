@@ -23,6 +23,8 @@
  */
 
 #include <locale.h>
+#include <unistd.h>
+#include <sys/wait.h>
 
 #include <spa/utils/defs.h>
 #include <spa/utils/result.h>
@@ -752,6 +754,65 @@ static void test_ansi(void)
 	       SPA_ANSI_ITALIC, SPA_ANSI_BOLD_YELLOW, SPA_ANSI_RESET);
 }
 
+static void test_snprintf(void)
+{
+	char dest[8];
+	pid_t pid;
+	int len;
+
+	/* Basic printf */
+	spa_assert(spa_scnprintf(dest, sizeof(dest), "foo%d%s", 10, "2") == 6);
+	spa_assert(spa_streq(dest, "foo102"));
+	/* Print a few strings, make sure dest is truncated and return value
+	 * is the length of the returned string */
+	spa_assert(spa_scnprintf(dest, sizeof(dest), "1234567") == 7);
+	spa_assert(spa_streq(dest, "1234567"));
+	spa_assert(spa_scnprintf(dest, sizeof(dest), "12345678") == 7);
+	spa_assert(spa_streq(dest, "1234567"));
+	spa_assert(spa_scnprintf(dest, sizeof(dest), "123456789") == 7);
+	spa_assert(spa_streq(dest, "1234567"));
+	/* Same as above, but with printf %s expansion */
+	spa_assert(spa_scnprintf(dest, sizeof(dest), "%s", "1234567") == 7);
+	spa_assert(spa_streq(dest, "1234567"));
+	spa_assert(spa_scnprintf(dest, sizeof(dest), "%s", "12345678") == 7);
+	spa_assert(spa_streq(dest, "1234567"));
+	spa_assert(spa_scnprintf(dest, sizeof(dest), "%s", "123456789") == 7);
+	spa_assert(spa_streq(dest, "1234567"));
+
+	spa_assert(spa_scnprintf(dest, 2, "1234567") == 1);
+	spa_assert(spa_streq(dest, "1"));
+	spa_assert(spa_scnprintf(dest, 1, "1234567") == 0);
+	spa_assert(spa_streq(dest, ""));
+
+	/* Check for abort on negative/zero size */
+	for (int i = -2; i <= 0; i++) {
+		pid = fork();
+		if (pid == 0) {
+			close(STDOUT_FILENO);
+			close(STDERR_FILENO);
+			spa_assert(spa_scnprintf(dest, (size_t)i, "1234"));
+			exit(0);
+		} else {
+			int r;
+			int status;
+
+			r = waitpid(pid, &status, 0);
+			spa_assert(r == pid);
+			spa_assert(WIFSIGNALED(status));
+			spa_assert(WTERMSIG(status) == SIGABRT);
+		}
+	}
+
+	/* The "append until buffer is full" use-case */
+	len = 0;
+	while ((size_t)len < sizeof(dest) - 1)
+		len += spa_scnprintf(dest + len, sizeof(dest) - len, "123");
+	/* and once more for good measure, this should print 0 characters */
+	len = spa_scnprintf(dest + len, sizeof(dest) - len, "abc");
+	spa_assert(len == 0);
+	spa_assert(spa_streq(dest, "1231231"));
+}
+
 int main(int argc, char *argv[])
 {
     setlocale(LC_NUMERIC, "C"); /* For decimal number parsing */
@@ -768,6 +829,7 @@ int main(int argc, char *argv[])
     test_strtof();
     test_strtod();
     test_streq();
+    test_snprintf();
     test_atob();
     test_ansi();
     return 0;

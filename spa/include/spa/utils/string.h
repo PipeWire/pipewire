@@ -29,6 +29,7 @@
 extern "C" {
 #endif
 
+#include <stdarg.h>
 #include <stdbool.h>
 #include <errno.h>
 
@@ -176,6 +177,50 @@ static inline bool spa_atou64(const char *str, uint64_t *val, int base)
 static inline bool spa_atob(const char *str)
 {
 	return spa_streq(str, "true") || spa_streq(str, "1");
+}
+
+/**
+ * "Safe" version of vsnprintf. Exactly the same as vsnprintf but the
+ * returned value is clipped to `size - 1` and a negative or zero size
+ * will abort() the program.
+ *
+ * \return The number of bytes printed, capped to `size-1`, or a negative
+ * number on error.
+ */
+SPA_PRINTF_FUNC(3, 0)
+static inline int spa_vscnprintf(char *buffer, size_t size, const char *format, va_list args)
+{
+	int r;
+
+	spa_assert((ssize_t)size > 0);
+
+	r = vsnprintf(buffer, size, format, args);
+	if (SPA_UNLIKELY(r < 0))
+		buffer[0] = '\0';
+	if (SPA_LIKELY(r < (ssize_t)size))
+		return r;
+	return size - 1;
+}
+
+/**
+ * "Safe" version of snprintf. Exactly the same as snprintf but the
+ * returned value is clipped to `size - 1` and a negative or zero size
+ * will abort() the program.
+ *
+ * \return The number of bytes printed, capped to `size-1`, or a negative
+ * number on error.
+ */
+SPA_PRINTF_FUNC(3, 4)
+static inline int spa_scnprintf(char *buffer, size_t size, const char *format, ...)
+{
+	int r;
+	va_list args;
+
+	va_start(args, format);
+	r = spa_vscnprintf(buffer, size, format, args);
+	va_end(args);
+
+	return r;
 }
 
 /**

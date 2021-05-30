@@ -58,6 +58,7 @@ pipewire_module_profiler = shared_library('pipewire-module-profiler',
   dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
+if build_machine.system() == 'linux'
 pipewire_module_rt = shared_library('pipewire-module-rt', [ 'module-rt.c' ],
   c_args : pipewire_module_c_args,
   include_directories : [configinc, spa_inc],
@@ -66,6 +67,7 @@ pipewire_module_rt = shared_library('pipewire-module-rt', [ 'module-rt.c' ],
   install_rpath: modules_install_dir,
   dependencies : [dl_lib, pipewire_dep],
 )
+endif
 
 if dbus_dep.found()
 pipewire_module_rtkit = shared_library('pipewire-module-rtkit', [ 'module-rtkit.c' ],

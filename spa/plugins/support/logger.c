@@ -101,28 +101,28 @@ impl_log_logv(void *object,
 	p = location;
 	len = sizeof(location) - RESERVED_LENGTH;
 
-	size = snprintf(p, len, "%s[%s]", prefix, levels[level]);
+	size = spa_scnprintf(p, len, "%s[%s]", prefix, levels[level]);
 
 	if (impl->timestamp) {
 		struct timespec now;
 		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
-		size += snprintf(p + size, len - size, "[%09lu.%06lu]",
+		size += spa_scnprintf(p + size, len - size, "[%09lu.%06lu]",
 			now.tv_sec & 0x1FFFFFFF, now.tv_nsec / 1000);
 
 	}
 	if (impl->line && line != 0) {
 		s = strrchr(file, '/');
-		size += snprintf(p + size, len - size, "[%s:%i %s()]",
+		size += spa_scnprintf(p + size, len - size, "[%s:%i %s()]",
 			s ? s + 1 : file, line, func);
 	}
-	size += snprintf(p + size, len - size, " ");
+	size += spa_scnprintf(p + size, len - size, " ");
 	/*
 	 * it is assumed that at this point `size` <= `len`,
 	 * which is reasonable as long as file names and function names
 	 * don't become very long
 	 */
 
-	size += vsnprintf(p + size, len - size, fmt, args);
+	size += spa_vscnprintf(p + size, len - size, fmt, args);
 
 	/*
 	 * `RESERVED_LENGTH` bytes are reserved for printing the suffix
@@ -132,16 +132,16 @@ impl_log_logv(void *object,
 	 */
 
 	/* if the message could not fit entirely... */
-	if (size >= len) {
+	if (size >= len - 1) {
 		size = len - 1; /* index of the null byte */
 		len = sizeof(location);
-		size += snprintf(p + size, len - size, "... (truncated)");
+		size += spa_scnprintf(p + size, len - size, "... (truncated)");
 	}
 	else {
 		len = sizeof(location);
 	}
 
-	size += snprintf(p + size, len - size, "%s\n", suffix);
+	size += spa_scnprintf(p + size, len - size, "%s\n", suffix);
 
 	if (SPA_UNLIKELY(do_trace)) {
 		uint32_t index;

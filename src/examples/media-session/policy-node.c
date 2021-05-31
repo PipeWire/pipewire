@@ -447,7 +447,7 @@ static const char *get_device_name(struct node *node)
 	return pw_properties_get(node->obj->obj.props, PW_KEY_NODE_NAME);
 }
 
-static uint32_t find_device_for_name(struct impl *impl, const char *name)
+static uint32_t find_device_for_name(struct impl *impl, const char *name, enum spa_direction direction)
 {
 	struct node *node;
 	const char *str;
@@ -457,6 +457,8 @@ static uint32_t find_device_for_name(struct impl *impl, const char *name)
 		if (id == node->obj->obj.id)
 			return id;
 		if ((str = get_device_name(node)) == NULL)
+			continue;
+		if (node->direction == direction)
 			continue;
 		if (spa_streq(str, name))
 			return node->obj->obj.id;
@@ -798,9 +800,9 @@ static int rescan_node(struct impl *impl, struct node *n)
 	/* we always honour the target node asked for by the client */
 	path_id = SPA_ID_INVALID;
 	if ((str = spa_dict_lookup(props, PW_KEY_NODE_TARGET)) != NULL)
-		path_id = find_device_for_name(impl, str);
+		path_id = find_device_for_name(impl, str, n->direction);
 	if (path_id == SPA_ID_INVALID && n->obj->target_node != NULL)
-		path_id = find_device_for_name(impl, n->obj->target_node);
+		path_id = find_device_for_name(impl, n->obj->target_node, n->direction);
 
 	pw_log_info("trying to link node %d exclusive:%d reconnect:%d target:%d follows-default:%d", n->id,
 	            exclusive, reconnect, path_id, follows_default);

@@ -1861,7 +1861,7 @@ static int link_nodes(struct impl *impl, struct endpoint_link *link,
 
 		inport = find_input_port(impl, outnode, outport, innode);
 		if (inport == NULL) {
-			pw_log_debug(NAME" %p: port %d:%d can't be linked", impl,
+			pw_log_debug(NAME" %p: port %d:%d can't be linked, no input port", impl,
 				outport->direction, outport->obj.id);
 			continue;
 		}

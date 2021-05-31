@@ -427,9 +427,6 @@
 /* the target CPU */
 #mesondefine TARGET_CPU
 
-/* Define if we should poison deallocated memory */
-#mesondefine USE_POISONING
-
 /* Version number of package */
 #mesondefine VERSION
 

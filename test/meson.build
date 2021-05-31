@@ -37,3 +37,10 @@ executable('test-example',
   'test-example.c',
   include_directories: pwtest_inc,
   link_with: pwtest_lib)
+
+test('test properties',
+    executable('test-properties',
+               'test-properties.c',
+               include_directories: pwtest_inc,
+               link_with: pwtest_lib)
+)

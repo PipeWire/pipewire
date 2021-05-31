@@ -5871,21 +5871,28 @@ get_server_name(struct pw_context *context)
 static int parse_unix_address(const char *address, struct pw_array *addrs)
 {
 	struct sockaddr_un addr = {0}, *s;
-	char runtime_dir[PATH_MAX];
 	int res;
 
-	if ((res = get_runtime_dir(runtime_dir, sizeof(runtime_dir), "pulse")) < 0)
-		return res;
+	if (address[0] != '/') {
+		char runtime_dir[PATH_MAX];
 
-	res = snprintf(addr.sun_path, sizeof(addr.sun_path),
-		       "%s/%s", runtime_dir, address);
+		if ((res = get_runtime_dir(runtime_dir, sizeof(runtime_dir), "pulse")) < 0)
+			return res;
+
+		res = snprintf(addr.sun_path, sizeof(addr.sun_path),
+			       "%s/%s", runtime_dir, address);
+	}
+	else {
+		res = snprintf(addr.sun_path, sizeof(addr.sun_path),
+			       "%s", address);
+	}
 
 	if (res < 0)
 		return -EINVAL;
 
 	if ((size_t) res >= sizeof(addr.sun_path)) {
-		pw_log_error(NAME": '%s/%s' too long",
-			     runtime_dir, address);
+		pw_log_warn(NAME": '%s...' too long",
+			    addr.sun_path);
 		return -ENAMETOOLONG;
 	}
 

@@ -33,6 +33,7 @@ context.modules = [
 	    # the addresses this server listens on
             server.address = [
                 "unix:native"
+                # "unix:/tmp/something" # absolute paths may be used
                 # "tcp:4713" # IPv4 and IPv6 on all addresses
                 # "tcp:[::]:9999" # IPv6 on all addresses
                 # "tcp:127.0.0.1:8888" # IPv4 on a single address

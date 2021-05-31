@@ -5971,6 +5971,13 @@ static int start_unix_server(struct server *server, const struct sockaddr_storag
 		}
 	}
 	else if (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP) {
+		if (!S_ISSOCK(socket_stat.st_mode)) {
+			res = -EEXIST;
+			pw_log_warn(NAME" %p: '%s' exists and is not a socket",
+				    server, addr_un->sun_path);
+			goto error_close;
+		}
+
 		/* socket is there, check if it's stale */
 		if (!is_stale_socket(fd, addr_un)) {
 			res = -EADDRINUSE;

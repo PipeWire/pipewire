@@ -270,9 +270,9 @@ static void output_param_latency_changed(struct impl *impl, const struct spa_pod
 	params[0] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
 
 	if (latency.direction == SPA_DIRECTION_INPUT)
-		pw_stream_update_params(impl->source, params, 1);
+		pw_stream_update_params(impl->sink, params, 1);
 	else
-		pw_stream_update_params(impl->capture, params, 1);
+		pw_stream_update_params(impl->playback, params, 1);
 }
 
 static void output_param_changed(void *data, uint32_t id, const struct spa_pod *param)

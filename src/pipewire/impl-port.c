@@ -376,7 +376,6 @@ static int process_latency_param(void *data, int seq,
 	if (latency.direction == this->direction)
 		pw_impl_port_emit_latency_changed(this);
 
-	this->have_latency_param = true;
 	return 0;
 }
 
@@ -423,6 +422,8 @@ static void update_info(struct pw_impl_port *port, const struct spa_port_info *i
 
 			switch (id) {
 			case SPA_PARAM_Latency:
+				port->have_latency_param =
+					SPA_FLAG_IS_SET(info->params[i].flags, SPA_PARAM_INFO_WRITE);
 				if (port->node != NULL)
 					pw_impl_port_for_each_param(port, 0, id, 0, UINT32_MAX,
 							NULL, process_latency_param, port);

@@ -111,17 +111,18 @@ ATTRS{idVendor}=="0763", ATTRS{idProduct}=="2012", ENV{ACP_PROFILE_SET}="maudio-
 ATTRS{idVendor}=="045e", ATTRS{idProduct}=="02bb", ENV{ACP_PROFILE_SET}="kinect-audio.conf"
 ATTRS{idVendor}=="041e", ATTRS{idProduct}=="322c", ENV{ACP_PROFILE_SET}="sb-omni-surround-5.1.conf"
 ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="4014", ENV{ACP_PROFILE_SET}="dell-dock-tb16-usb-audio.conf"
+ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="402e", ENV{ACP_PROFILE_SET}="dell-dock-tb16-usb-audio.conf"
 ATTRS{idVendor}=="08bb", ATTRS{idProduct}=="2902", ENV{ACP_PROFILE_SET}="behringer-umc22.conf"
 ATTRS{idVendor}=="03f0", ATTRS{idProduct}=="0269", ENV{ACP_PROFILE_SET}="hp-tbt-dock-120w-g2.conf"
 ATTRS{idVendor}=="03f0", ATTRS{idProduct}=="0567", ENV{ACP_PROFILE_SET}="hp-tbt-dock-audio-module.conf"
 
 # ID 1038:12ad is for the 2018 refresh of the Arctis 7.
 # ID 1038:1294 is for Arctis Pro Wireless (which works with the Arctis 7 configuration).
-# ID 1038:12c4 is for Arctis 9 Wireless
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1260", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="12ad", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1294", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1730", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
+# ID 1038:12c4 is for Arctis 9 Wireless
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="12c4", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 # Lucidsound LS31
 ATTRS{idVendor}=="2f12", ATTRS{idProduct}=="0109", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
@@ -174,13 +175,15 @@ GOTO="pipewire_end"
 
 LABEL="pipewire_firewire_quirk"
 
-# Focusrite Saffire Pro 10/26 i/o has a quirk to disappear from IEEE 1394 bus when losing connections.
-# https://bugzilla.kernel.org/show_bug.cgi?id=199365
-ENV{ID_VENDOR_ID}=="0x00130e", ENV{ID_MODEL_ID}=="0x000003", ENV{ACP_IGNORE}="1"
-# Both of Saffire Pro 10 i/o and Liquid Saffire 56 have the same ID_MODEL_ID
-# (0x000006), but Liquid Saffire 56 doesn't suffer from the problem, so we
-# can't use ID_MODEL_ID to identify the problematic card. ID_MODEL works
-# better here.
-ENV{ID_VENDOR_ID}=="0x00130e", ENV{ID_MODEL}=="Pro10IO" ENV{ACP_IGNORE}="1"
+# Focusrite Saffire Pro 10 i/o and Pro 26 i/o have a quirk to disappear from
+# IEEE 1394 bus when breaking connections. This brings an issue for PulseAudio
+# to continue the routine for ever that:
+# - detecting sound card
+# - starting PCM substream
+# - stopping the PCM substream
+# - the card disappears
+# - the card appears
+# In detail, see: https://bugzilla.kernel.org/show_bug.cgi?id=199365
+ATTRS{vendor}=="0x00130e", ATTRS{model}=="0x00000[36]", ATTRS{units}=="0x00a02d:0x010001", ENV{ACP_IGNORE}="1"
 
 LABEL="pipewire_end"

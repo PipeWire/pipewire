@@ -5523,7 +5523,7 @@ static int do_read(struct client *client)
 		uint32_t idx = client->in_index - sizeof(client->desc);
 
 		if (client->message == NULL) {
-			res = -EIO;
+			res = -EPROTO;
 			goto exit;
 		}
 		data = SPA_PTROFF(client->message->data, idx, void);
@@ -5551,7 +5551,7 @@ static int do_read(struct client *client)
 
 		flags = ntohl(client->desc.flags);
 		if ((flags & FLAG_SHMMASK) != 0) {
-			res = -ENOTSUP;
+			res = -EPROTO;
 			goto exit;
 		}
 

@@ -90,6 +90,84 @@ static inline bool spa_atoi32(const char *str, int32_t *val, int base)
 }
 
 /**
+ * Convert \a str to an uint32_t with the given \a base and store the
+ * result in \a val.
+ *
+ * On failure, the value of \a val is unmodified.
+ *
+ * \return true on success, false otherwise
+ */
+static inline bool spa_atou32(const char *str, uint32_t *val, int base)
+{
+	char *endptr;
+	long v;
+
+	if (!str || *str =='\0')
+		return false;
+
+	errno = 0;
+	v = strtoul(str, &endptr, base);
+	if (errno != 0 || *endptr != '\0')
+		return false;
+
+	if (v != (uint32_t)v)
+		return false;
+
+	*val = v;
+	return true;
+}
+
+/**
+ * Convert \a str to an int64_t with the given \a base and store the
+ * result in \a val.
+ *
+ * On failure, the value of \a val is unmodified.
+ *
+ * \return true on success, false otherwise
+ */
+static inline bool spa_atoi64(const char *str, int64_t *val, int base)
+{
+	char *endptr;
+	long long v;
+
+	if (!str || *str =='\0')
+		return false;
+
+	errno = 0;
+	v = strtoll(str, &endptr, base);
+	if (errno != 0 || *endptr != '\0')
+		return false;
+
+	*val = v;
+	return true;
+}
+
+/**
+ * Convert \a str to an uint64_t with the given \a base and store the
+ * result in \a val.
+ *
+ * On failure, the value of \a val is unmodified.
+ *
+ * \return true on success, false otherwise
+ */
+static inline bool spa_atou64(const char *str, uint64_t *val, int base)
+{
+	char *endptr;
+	unsigned long long v;
+
+	if (!str || *str =='\0')
+		return false;
+
+	errno = 0;
+	v = strtoull(str, &endptr, base);
+	if (errno != 0 || *endptr != '\0')
+		return false;
+
+	*val = v;
+	return true;
+}
+
+/**
  * Convert \a str to a boolean. Allowed boolean values are "true" and a
  * literal "1", anything else is false.
  *
@@ -98,6 +176,54 @@ static inline bool spa_atoi32(const char *str, int32_t *val, int base)
 static inline bool spa_atob(const char *str)
 {
 	return spa_streq(str, "true") || spa_streq(str, "1");
+}
+
+/**
+ * Convert \a str to a float and store the result in \a val.
+ *
+ * On failure, the value of \a val is unmodified.
+ *
+ * \return true on success, false otherwise
+ */
+static inline bool spa_atof(const char *str, float *val)
+{
+	char *endptr;
+	float v;
+
+	if (!str || *str =='\0')
+		return false;
+
+	errno = 0;
+	v = strtof(str, &endptr);
+	if (errno != 0 || *endptr != '\0')
+		return false;
+
+	*val = v;
+	return true;
+}
+
+/**
+ * Convert \a str to a double and store the result in \a val.
+ *
+ * On failure, the value of \a val is unmodified.
+ *
+ * \return true on success, false otherwise
+ */
+static inline bool spa_atod(const char *str, double *val)
+{
+	char *endptr;
+	double v;
+
+	if (!str || *str =='\0')
+		return false;
+
+	errno = 0;
+	v = strtod(str, &endptr);
+	if (errno != 0 || *endptr != '\0')
+		return false;
+
+	*val = v;
+	return true;
 }
 
 /**

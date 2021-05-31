@@ -5630,15 +5630,19 @@ on_client_data(void *data, int fd, uint32_t mask)
 	return;
 
 error:
-        if (res == -EPIPE)
-                pw_log_info(NAME" %p: client:%p [%s] disconnected", impl, client, client->name);
-        else if (res != -EPROTO) {
-                pw_log_error(NAME" %p: client:%p [%s] error %d (%s)", impl,
-                                client, client->name, res, spa_strerror(res));
-		return;
+	switch (res) {
+	case -EPIPE:
+		pw_log_info(NAME" %p: client:%p [%s] disconnected", impl, client, client->name);
+		SPA_FALLTHROUGH;
+	case -EPROTO:
+		client_disconnect(client);
+		client_unref(client);
+		break;
+	default:
+		pw_log_error(NAME" %p: client:%p [%s] error %d (%s)", impl,
+			     client, client->name, res, spa_strerror(res));
+		break;
 	}
-	client_disconnect(client);
-	client_unref(client);
 }
 
 static int check_flatpak(struct client *client, int pid)

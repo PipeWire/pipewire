@@ -375,6 +375,8 @@ static int process_latency_param(void *data, int seq,
 	this->latency[latency.direction] = latency;
 	if (latency.direction == this->direction)
 		pw_impl_port_emit_latency_changed(this);
+
+	this->have_latency_param = true;
 	return 0;
 }
 
@@ -1292,7 +1294,7 @@ int pw_impl_port_for_each_link(struct pw_impl_port *port,
 	return res;
 }
 
-static void port_set_latency(struct pw_impl_port *port, struct spa_latency_info *latency)
+static int port_set_latency(struct pw_impl_port *port, struct spa_latency_info *latency)
 {
 	struct spa_latency_info *current;
 	struct spa_pod *param;
@@ -1302,7 +1304,7 @@ static void port_set_latency(struct pw_impl_port *port, struct spa_latency_info 
 	current = &port->latency[latency->direction];
 
 	if (spa_latency_info_compare(current, latency) == 0)
-		return;
+		return 0;
 
 	*current = *latency;
 
@@ -1312,9 +1314,12 @@ static void port_set_latency(struct pw_impl_port *port, struct spa_latency_info 
 			latency->min_rate, latency->max_rate,
 			latency->min_ns, latency->max_ns);
 
+	if (!port->have_latency_param)
+		return 0;
+
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	param = spa_latency_build(&b, SPA_PARAM_Latency, latency);
-	pw_impl_port_set_param(port, SPA_PARAM_Latency, 0, param);
+	return pw_impl_port_set_param(port, SPA_PARAM_Latency, 0, param);
 }
 
 int pw_impl_port_recalc_latency(struct pw_impl_port *port)

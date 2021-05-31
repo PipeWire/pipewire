@@ -1657,7 +1657,7 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->port_params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
 	impl->port_params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	impl->port_params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
-	impl->port_params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, 0);
+	impl->port_params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_WRITE);
 	impl->port_info.props = &impl->port_props->dict;
 	impl->port_info.params = impl->port_params;
 	impl->port_info.n_params = N_PORT_PARAMS;

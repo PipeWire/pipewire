@@ -105,7 +105,8 @@ struct port {
 #define IDX_IO		2
 #define IDX_Format	3
 #define IDX_Buffers	4
-#define N_PORT_PARAMS	5
+#define IDX_Latency	5
+#define N_PORT_PARAMS	6
 	struct spa_param_info params[N_PORT_PARAMS];
 
 	struct spa_io_buffers *io;
@@ -188,6 +189,8 @@ static int get_port_param_index(uint32_t id)
 		return IDX_Format;
 	case SPA_PARAM_Buffers:
 		return IDX_Buffers;
+	case SPA_PARAM_Latency:
+		return IDX_Latency;
 	default:
 		return -1;
 	}
@@ -1493,6 +1496,7 @@ void *pw_filter_add_port(struct pw_filter *filter,
 	p->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
 	p->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	p->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	p->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_WRITE);
 	p->info.params = p->params;
 	p->info.n_params = N_PORT_PARAMS;
 

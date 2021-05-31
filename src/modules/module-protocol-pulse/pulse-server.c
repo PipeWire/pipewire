@@ -244,11 +244,12 @@ static int flush_messages(struct client *client)
 		while (true) {
 			res = send(client->source->fd, data, size, MSG_NOSIGNAL | MSG_DONTWAIT);
 			if (res < 0) {
-				if (errno == EINTR)
+				res = -errno;
+				if (res == -EINTR)
 					continue;
-				if (errno != EAGAIN && errno != EWOULDBLOCK)
-					pw_log_warn("send channel:%d %zu, res %d: %m", m->channel, size, res);
-				return -errno;
+				if (res != -EAGAIN && res != -EWOULDBLOCK)
+					pw_log_warn("send channel:%d %zu, error %d: %m", m->channel, size, res);
+				return res;
 			}
 			client->out_index += res;
 			break;
@@ -5609,7 +5610,7 @@ on_client_data(void *data, int fd, uint32_t mask)
 		while (true) {
 			res = do_read(client);
 			if (res < 0) {
-				if (res != -EAGAIN)
+				if (res != -EAGAIN && res != EWOULDBLOCK)
 					goto error;
 				break;
 			}
@@ -5623,7 +5624,7 @@ on_client_data(void *data, int fd, uint32_t mask)
 			int mask = client->source->mask;
 			SPA_FLAG_CLEAR(mask, SPA_IO_OUT);
 			pw_loop_update_io(impl->loop, client->source, mask);
-		} else if (res != -EAGAIN)
+		} else if (res != -EAGAIN && res != -EWOULDBLOCK)
 			goto error;
 	}
 	return;

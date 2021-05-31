@@ -147,7 +147,7 @@ static void process(struct impl *impl)
 		pw_log_warn("out of playback buffers: %m");
 
 	if (cin == NULL || cout == NULL || pin == NULL || pout == NULL)
-		return;
+		goto done;
 
 	for (i = 0; i < impl->info.channels; i++) {
 		/* captured samples, with echo from sink */
@@ -178,10 +178,15 @@ static void process(struct impl *impl)
 	}
 	echo_cancel_run(impl->aec_info, impl->aec, rec, play, out, size / sizeof(float));
 
-	pw_stream_queue_buffer(impl->capture, cin);
-	pw_stream_queue_buffer(impl->source, cout);
-	pw_stream_queue_buffer(impl->sink, pin);
-	pw_stream_queue_buffer(impl->playback, pout);
+done:
+	if (cin != NULL)
+		pw_stream_queue_buffer(impl->capture, cin);
+	if (cout != NULL)
+		pw_stream_queue_buffer(impl->source, cout);
+	if (pin != NULL)
+		pw_stream_queue_buffer(impl->sink, pin);
+	if (pout != NULL)
+		pw_stream_queue_buffer(impl->playback, pout);
 
 	impl->sink_ready = false;
 	impl->capture_ready = false;

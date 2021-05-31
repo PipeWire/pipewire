@@ -32,6 +32,7 @@ extern "C" {
 #include <stdarg.h>
 
 #include <spa/utils/dict.h>
+#include <spa/utils/string.h>
 
 /** \defgroup pw_properties Key-Value pairs
  *
@@ -100,27 +101,32 @@ pw_properties_iterate(const struct pw_properties *properties, void **state);
 int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t flags);
 
 static inline bool pw_properties_parse_bool(const char *value) {
-	return (strcmp(value, "true") == 0 || atoi(value) == 1);
+	return spa_atob(value);
 }
 
 static inline int pw_properties_parse_int(const char *value) {
-	return strtol(value, NULL, 0);
+	int v;
+	return spa_atoi32(value, &v, 0) ? v: 0;
 }
 
 static inline int64_t pw_properties_parse_int64(const char *value) {
-	return strtoll(value, NULL, 0);
+	int64_t v;
+	return spa_atoi64(value, &v, 0) ? v : 0;
 }
 
 static inline uint64_t pw_properties_parse_uint64(const char *value) {
-	return strtoull(value, NULL, 0);
+	uint64_t v;
+	return spa_atou64(value, &v, 0) ? v : 0;
 }
 
 static inline float pw_properties_parse_float(const char *value) {
-	return strtof(value, NULL);
+	float v;
+	return spa_atof(value, &v) ? v : 0.0f;
 }
 
 static inline double pw_properties_parse_double(const char *value) {
-	return strtod(value, NULL);
+	double v;
+	return spa_atod(value, &v) ? v : 0.0;
 }
 
 /**

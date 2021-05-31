@@ -33,7 +33,7 @@ while getopts 'hr:vs:p:' param ; do
 			export PIPEWIRE_REMOTE
 			;;
 		v)
-			if [ x"$PIPEWIRE_DEBUG" = x ]; then
+			if [ -z "$PIPEWIRE_DEBUG" ]; then
 				PIPEWIRE_DEBUG=3
 			else
 				PIPEWIRE_DEBUG=$(( PIPEWIRE_DEBUG + 1 ))
@@ -64,7 +64,7 @@ done
 
 shift $(( OPTIND - 1 ))
 
-if [ x"$PERIOD" != x ]; then
+if [ -n "$PERIOD" ]; then
 	PIPEWIRE_LATENCY="$PERIOD/$SAMPLERATE"
 	export PIPEWIRE_LATENCY
 fi

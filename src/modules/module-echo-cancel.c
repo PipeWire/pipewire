@@ -593,6 +593,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(impl->sink_props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(impl->sink_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 
+	copy_props(impl, props, PW_KEY_NODE_NAME);
+	copy_props(impl, props, PW_KEY_NODE_DESCRIPTION);
 	copy_props(impl, props, PW_KEY_NODE_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 	copy_props(impl, props, PW_KEY_NODE_LATENCY);

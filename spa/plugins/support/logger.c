@@ -37,6 +37,7 @@
 #include <spa/utils/type.h>
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
+#include <spa/utils/ansi.h>
 
 #ifdef __FreeBSD__
 #define CLOCK_MONOTONIC_RAW CLOCK_MONOTONIC
@@ -88,13 +89,13 @@ impl_log_logv(void *object,
 
 	if (impl->colors) {
 		if (level <= SPA_LOG_LEVEL_ERROR)
-			prefix = "\x1B[1;31m";
+			prefix = SPA_ANSI_BOLD_RED;
 		else if (level <= SPA_LOG_LEVEL_WARN)
-			prefix = "\x1B[1;33m";
+			prefix = SPA_ANSI_BOLD_YELLOW;
 		else if (level <= SPA_LOG_LEVEL_INFO)
-			prefix = "\x1B[1;32m";
+			prefix = SPA_ANSI_BOLD_GREEN;
 		if (prefix[0])
-			suffix = "\x1B[0m";
+			suffix = SPA_ANSI_RESET;
 	}
 
 	p = location;

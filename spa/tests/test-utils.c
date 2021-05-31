@@ -30,6 +30,7 @@
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/string.h>
 #include <spa/utils/type.h>
+#include <spa/utils/ansi.h>
 
 static void test_abi(void)
 {
@@ -510,6 +511,85 @@ static void test_atob(void)
 	spa_assert(!spa_atob("TRUE"));
 }
 
+static void test_ansi(void)
+{
+	/* Visual test only */
+	printf("%sBOLD%s\n", SPA_ANSI_BOLD, SPA_ANSI_RESET);
+	printf("%sUNDERLINE%s\n", SPA_ANSI_UNDERLINE, SPA_ANSI_RESET);
+	printf("%sITALIC%s\n", SPA_ANSI_ITALIC, SPA_ANSI_RESET);
+
+	printf("%sBLACK%s\n", SPA_ANSI_BLACK, SPA_ANSI_RESET);
+	printf("%sBRIGHT_BLACK%s\n", SPA_ANSI_BRIGHT_BLACK, SPA_ANSI_RESET);
+	printf("%sDARK_BLACK%s\n", SPA_ANSI_DARK_BLACK, SPA_ANSI_RESET);
+	printf("%sBOLD_BLACK%s\n", SPA_ANSI_BOLD_BLACK, SPA_ANSI_RESET);
+
+	printf("%sRED%s\n", SPA_ANSI_RED, SPA_ANSI_RESET);
+	printf("%sBRIGHT_RED%s\n", SPA_ANSI_BRIGHT_RED, SPA_ANSI_RESET);
+	printf("%sDARK_RED%s\n", SPA_ANSI_DARK_RED, SPA_ANSI_RESET);
+	printf("%sBOLD_RED%s\n", SPA_ANSI_BOLD_RED, SPA_ANSI_RESET);
+
+	printf("%sGREEN%s\n", SPA_ANSI_GREEN, SPA_ANSI_RESET);
+	printf("%sBRIGHT_GREEN%s\n", SPA_ANSI_BRIGHT_GREEN, SPA_ANSI_RESET);
+	printf("%sDARK_GREEN%s\n", SPA_ANSI_DARK_GREEN, SPA_ANSI_RESET);
+	printf("%sBOLD_GREEN%s\n", SPA_ANSI_BOLD_GREEN, SPA_ANSI_RESET);
+
+	printf("%sYELLOW%s\n", SPA_ANSI_YELLOW, SPA_ANSI_RESET);
+	printf("%sBRIGHT_YELLOW%s\n", SPA_ANSI_BRIGHT_YELLOW, SPA_ANSI_RESET);
+	printf("%sDARK_YELLOW%s\n", SPA_ANSI_DARK_YELLOW, SPA_ANSI_RESET);
+	printf("%sBOLD_YELLOW%s\n", SPA_ANSI_BOLD_YELLOW, SPA_ANSI_RESET);
+
+	printf("%sBLUE%s\n", SPA_ANSI_BLUE, SPA_ANSI_RESET);
+	printf("%sBRIGHT_BLUE%s\n", SPA_ANSI_BRIGHT_BLUE, SPA_ANSI_RESET);
+	printf("%sDARK_BLUE%s\n", SPA_ANSI_DARK_BLUE, SPA_ANSI_RESET);
+	printf("%sBOLD_BLUE%s\n", SPA_ANSI_BOLD_BLUE, SPA_ANSI_RESET);
+
+	printf("%sMAGENTA%s\n", SPA_ANSI_MAGENTA, SPA_ANSI_RESET);
+	printf("%sBRIGHT_MAGENTA%s\n", SPA_ANSI_BRIGHT_MAGENTA, SPA_ANSI_RESET);
+	printf("%sDARK_MAGENTA%s\n", SPA_ANSI_DARK_MAGENTA, SPA_ANSI_RESET);
+	printf("%sBOLD_MAGENTA%s\n", SPA_ANSI_BOLD_MAGENTA, SPA_ANSI_RESET);
+
+	printf("%sCYAN%s\n", SPA_ANSI_CYAN, SPA_ANSI_RESET);
+	printf("%sBRIGHT_CYAN%s\n", SPA_ANSI_BRIGHT_CYAN, SPA_ANSI_RESET);
+	printf("%sDARK_CYAN%s\n", SPA_ANSI_DARK_CYAN, SPA_ANSI_RESET);
+	printf("%sBOLD_CYAN%s\n", SPA_ANSI_BOLD_CYAN, SPA_ANSI_RESET);
+
+	printf("%sWHITE%s\n", SPA_ANSI_WHITE, SPA_ANSI_RESET);
+	printf("%sBRIGHT_WHITE%s\n", SPA_ANSI_BRIGHT_WHITE, SPA_ANSI_RESET);
+	printf("%sDARK_WHITE%s\n", SPA_ANSI_DARK_WHITE, SPA_ANSI_RESET);
+	printf("%sBOLD_WHITE%s\n", SPA_ANSI_BOLD_WHITE, SPA_ANSI_RESET);
+
+
+	/* Background colors */
+
+	printf("%sBG_BLACK%s\n", SPA_ANSI_BG_BLACK, SPA_ANSI_RESET);
+	printf("%sBG_BRIGHT_BLACK%s\n", SPA_ANSI_BG_BRIGHT_BLACK, SPA_ANSI_RESET);
+
+	printf("%sBG_RED%s\n", SPA_ANSI_BG_RED, SPA_ANSI_RESET);
+	printf("%sBG_BRIGHT_RED%s\n", SPA_ANSI_BG_BRIGHT_RED, SPA_ANSI_RESET);
+
+	printf("%sBG_GREEN%s\n", SPA_ANSI_BG_GREEN, SPA_ANSI_RESET);
+	printf("%sBG_BRIGHT_GREEN%s\n", SPA_ANSI_BG_BRIGHT_GREEN, SPA_ANSI_RESET);
+
+	printf("%sBG_YELLOW%s\n", SPA_ANSI_BG_YELLOW, SPA_ANSI_RESET);
+	printf("%sBG_BRIGHT_YELLOW%s\n", SPA_ANSI_BG_BRIGHT_YELLOW, SPA_ANSI_RESET);
+
+	printf("%sBG_BLUE%s\n", SPA_ANSI_BG_BLUE, SPA_ANSI_RESET);
+	printf("%sBG_BRIGHT_BLUE%s\n", SPA_ANSI_BG_BRIGHT_BLUE, SPA_ANSI_RESET);
+
+	printf("%sBG_MAGENTA%s\n", SPA_ANSI_BG_MAGENTA, SPA_ANSI_RESET);
+	printf("%sBG_BRIGHT_MAGENTA%s\n", SPA_ANSI_BG_BRIGHT_MAGENTA, SPA_ANSI_RESET);
+
+	printf("%sBG_CYAN%s\n", SPA_ANSI_BG_CYAN, SPA_ANSI_RESET);
+	printf("%sBG_BRIGHT_CYAN%s\n", SPA_ANSI_BG_BRIGHT_CYAN, SPA_ANSI_RESET);
+
+	printf("%sBG_WHITE%s\n", SPA_ANSI_BG_WHITE, SPA_ANSI_RESET);
+	printf("%sBG_BRIGHT_WHITE%s\n", SPA_ANSI_BG_BRIGHT_WHITE, SPA_ANSI_RESET);
+
+	/* A combo */
+	printf("normal%s%s%sBG_BLUE,ITALIC,BOLD_YELLOW%snormal\n", SPA_ANSI_BG_BLUE,
+	       SPA_ANSI_ITALIC, SPA_ANSI_BOLD_YELLOW, SPA_ANSI_RESET);
+}
+
 int main(int argc, char *argv[])
 {
     test_abi();
@@ -522,5 +602,6 @@ int main(int argc, char *argv[])
     test_strtol();
     test_streq();
     test_atob();
+    test_ansi();
     return 0;
 }

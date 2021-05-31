@@ -35,6 +35,7 @@
 #include <spa/pod/iter.h>
 #include <spa/debug/types.h>
 #include <spa/utils/json.h>
+#include <spa/utils/ansi.h>
 
 #include <pipewire/pipewire.h>
 #include <extensions/metadata.h>
@@ -43,11 +44,11 @@
 
 static bool colors = false;
 
-#define NORMAL	(colors ? "\x1B[0m":"")
-#define LITERAL	(colors ? "\x1B[95m":"")
-#define NUMBER	(colors ? "\x1B[96m":"")
-#define STRING	(colors ? "\x1B[92m":"")
-#define KEY	(colors ? "\x1B[94m":"")
+#define NORMAL	(colors ? SPA_ANSI_RESET : "")
+#define LITERAL	(colors ? SPA_ANSI_BRIGHT_MAGENTA : "")
+#define NUMBER	(colors ? SPA_ANSI_BRIGHT_CYAN : "")
+#define STRING	(colors ? SPA_ANSI_BRIGHT_GREEN : "")
+#define KEY	(colors ? SPA_ANSI_BRIGHT_BLUE : "")
 
 struct data {
 	struct pw_main_loop *loop;

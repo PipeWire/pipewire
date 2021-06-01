@@ -542,6 +542,44 @@ const char *pw_properties_iterate(const struct pw_properties *properties, void *
 	return pw_array_get_unchecked(&impl->items, index, struct spa_dict_item)->key;
 }
 
+static int encode_string(FILE *f, const char *val)
+{
+	int len = 0;
+	len += fprintf(f, "\"");
+	while (*val) {
+		switch (*val) {
+		case '\n':
+			len += fprintf(f, "\\n");
+			break;
+		case '\r':
+			len += fprintf(f, "\\r");
+			break;
+		case '\b':
+			len += fprintf(f, "\\b");
+			break;
+		case '\t':
+			len += fprintf(f, "\\t");
+			break;
+		case '\f':
+			len += fprintf(f, "\\f");
+			break;
+		case '\\':
+		case '"':
+			len += fprintf(f, "\\%c", *val);
+		break;
+		default:
+			if (*val > 0 && *val < 0x20)
+				len += fprintf(f, "\\u%04x", *val);
+			else
+				len += fprintf(f, "%c", *val);
+			break;
+		}
+		val++;
+	}
+	len += fprintf(f, "\"");
+	return len-1;
+}
+
 SPA_EXPORT
 int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t flags)
 {
@@ -558,10 +596,7 @@ int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t 
 		    spa_json_is_container(it->value, len)) {
 			fprintf(f, "%s", it->value);
 		} else {
-			size_t size = (len+1) * 4;
-			char str[size];
-			spa_json_encode_string(str, size, it->value);
-			fprintf(f, "%s", str);
+			encode_string(f, it->value);
 		}
 		count++;
 	}

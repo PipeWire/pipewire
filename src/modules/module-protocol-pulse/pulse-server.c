@@ -5336,6 +5336,24 @@ static int client_free_stream(void *item, void *data)
 	return 0;
 }
 
+/*
+ * tries to detach the client from the server,
+ * but it does not drop the server's reference
+ */
+static bool client_detach(struct client *client)
+{
+	if (client->server == NULL)
+		return false;
+
+	pw_log_info(NAME" %p: client %p detaching", client->server, client);
+
+	/* remove from the `server->clients` list */
+	spa_list_remove(&client->link);
+	client->server = NULL;
+
+	return true;
+}
+
 static void client_disconnect(struct client *client)
 {
 	struct impl *impl = client->impl;
@@ -5343,8 +5361,10 @@ static void client_disconnect(struct client *client)
 	if (client->disconnect)
 		return;
 
+	/* the client must be detached from the server to disconnect */
+	spa_assert(client->server == NULL);
+
 	client->disconnect = true;
-	spa_list_remove(&client->link);
 	spa_list_append(&impl->cleanup_clients, &client->link);
 
 	pw_map_for_each(&client->streams, client_free_stream, client);
@@ -5353,6 +5373,7 @@ static void client_disconnect(struct client *client)
 		pw_loop_destroy_source(impl->loop, client->source);
 	if (client->manager)
 		pw_manager_destroy(client->manager);
+
 }
 
 static void client_free(struct client *client)
@@ -5364,8 +5385,10 @@ static void client_free(struct client *client)
 
 	pw_log_info(NAME" %p: client %p free", impl, client);
 
+	client_detach(client);
 	client_disconnect(client);
 
+	/* remove from the `impl->cleanup_clients` list */
 	spa_list_remove(&client->link);
 
 	spa_list_consume(p, &client->pending_samples, link)
@@ -5632,6 +5655,7 @@ on_client_data(void *data, int fd, uint32_t mask)
 			goto error;
 	}
 done:
+	/* drop the reference that was acquired at the beginning of the function */
 	client_unref(client);
 	return;
 
@@ -5641,8 +5665,18 @@ error:
 		pw_log_info(NAME" %p: client:%p [%s] disconnected", impl, client, client->name);
 		SPA_FALLTHROUGH;
 	case -EPROTO:
+		/*
+		 * drop the server's reference to the client
+		 * (if it hasn't been dropped already),
+		 * it is guaranteed that this will not call `client_free()`
+		 * since at the beginning of this function an extra reference
+		 * has been acquired which will keep the client alive
+		 */
+		if (client_detach(client))
+			client_unref(client);
+
+		/* then disconnect the client */
 		client_disconnect(client);
-		client_unref(client);
 		break;
 	default:
 		pw_log_error(NAME" %p: client:%p [%s] error %d (%s)", impl,
@@ -5856,8 +5890,12 @@ void server_free(struct server *server)
 	pw_log_debug(NAME" %p: free server %p", impl, server);
 
 	spa_list_remove(&server->link);
-	spa_list_for_each_safe(c, t, &server->clients, link)
+
+	spa_list_for_each_safe(c, t, &server->clients, link) {
+		spa_assert_se(client_detach(c));
 		client_unref(c);
+	}
+
 	if (server->source)
 		pw_loop_destroy_source(impl->loop, server->source);
 	if (server->addr.ss_family == AF_UNIX && !server->activated)

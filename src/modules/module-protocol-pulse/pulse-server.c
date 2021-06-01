@@ -5599,6 +5599,8 @@ on_client_data(void *data, int fd, uint32_t mask)
 	struct impl *impl = client->impl;
 	int res;
 
+	client->ref++;
+
 	if (mask & SPA_IO_HUP) {
 		res = -EPIPE;
 		goto error;
@@ -5629,6 +5631,8 @@ on_client_data(void *data, int fd, uint32_t mask)
 		} else if (res != -EAGAIN && res != -EWOULDBLOCK)
 			goto error;
 	}
+done:
+	client_unref(client);
 	return;
 
 error:
@@ -5645,6 +5649,7 @@ error:
 			     client, client->name, res, spa_strerror(res));
 		break;
 	}
+	goto done;
 }
 
 static int check_flatpak(struct client *client, int pid)
@@ -5846,13 +5851,13 @@ get_runtime_dir(char *buf, size_t buflen, const char *dir)
 void server_free(struct server *server)
 {
 	struct impl *impl = server->impl;
-	struct client *c;
+	struct client *c, *t;
 
 	pw_log_debug(NAME" %p: free server %p", impl, server);
 
 	spa_list_remove(&server->link);
-	spa_list_consume(c, &server->clients, link)
-		client_free(c);
+	spa_list_for_each_safe(c, t, &server->clients, link)
+		client_unref(c);
 	if (server->source)
 		pw_loop_destroy_source(impl->loop, server->source);
 	if (server->addr.ss_family == AF_UNIX && !server->activated)

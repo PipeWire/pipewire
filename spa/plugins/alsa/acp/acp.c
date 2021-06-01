@@ -216,8 +216,8 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 	dev->device.format.format_mask = m->sample_spec.format;
 	dev->device.format.rate_mask = m->sample_spec.rate;
 	dev->device.format.channels = m->channel_map.channels;
-	pa_cvolume_reset(&dev->real_volume, m->channel_map.channels);
-	pa_cvolume_reset(&dev->soft_volume, m->channel_map.channels);
+	pa_cvolume_reset(&dev->real_volume, dev->device.format.channels);
+	pa_cvolume_reset(&dev->soft_volume, dev->device.format.channels);
 	for (i = 0; i < m->channel_map.channels; i++)
 		dev->device.format.map[i]= channel_pa2acp(m->channel_map.map[i]);
 	dev->direction = direction;
@@ -1321,8 +1321,15 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 
 	if (dev->read_volume)
 		dev->read_volume(dev);
+	else {
+		pa_cvolume_reset(&dev->real_volume, dev->device.format.channels);
+		pa_cvolume_reset(&dev->soft_volume, dev->device.format.channels);
+	}
 	if (dev->read_mute)
 		dev->read_mute(dev);
+	else
+		dev->muted = false;
+
 	return 0;
 }
 

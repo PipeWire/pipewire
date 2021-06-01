@@ -2856,7 +2856,9 @@ static void stream_flush(struct stream *stream)
 	if (stream->type == STREAM_TYPE_PLAYBACK) {
 		stream->write_index = stream->read_index =
 			stream->ring.writeindex = stream->ring.readindex;
-		stream->missing = stream->attr.tlength;
+
+		stream->missing = stream->attr.tlength -
+			SPA_MIN(stream->requested, stream->attr.tlength);
 
 		if (stream->attr.prebuf > 0)
 			stream->in_prebuf = true;

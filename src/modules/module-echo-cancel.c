@@ -22,24 +22,35 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <string.h>
-#include <stdio.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-
 #include "config.h"
 
-#include <spa/utils/result.h>
-#include <spa/utils/string.h>
-#include <spa/utils/json.h>
-#include <spa/param/profiler.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <getopt.h>
+#include <limits.h>
+#include <math.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include <spa/debug/pod.h>
+#include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/raw.h>
+#include <spa/param/profiler.h>
+#include <spa/pod/builder.h>
+#include <spa/utils/json.h>
+#include <spa/utils/result.h>
+#include <spa/utils/ringbuffer.h>
+#include <spa/utils/string.h>
 
 #include <pipewire/private.h>
 #include <pipewire/impl.h>
+#include <pipewire/pipewire.h>
+
 #include <extensions/profiler.h>
 
 #include "module-echo-cancel/echo-cancel.h"
@@ -60,18 +71,6 @@ static const struct spa_dict_item module_props[] = {
 				"[ sink.props=<properties> ] " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
-
-#include <stdlib.h>
-#include <signal.h>
-#include <getopt.h>
-#include <limits.h>
-#include <math.h>
-
-#include <spa/pod/builder.h>
-#include <spa/param/audio/format-utils.h>
-#include <spa/param/audio/raw.h>
-
-#include <pipewire/pipewire.h>
 
 struct impl {
 	struct pw_context *context;

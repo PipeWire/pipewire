@@ -365,6 +365,5 @@ void endpoint_clear(struct endpoint *this)
 	free(this->info.media_class);
 	free(this->info.params);
 
-	if (this->props)
-		pw_properties_free(this->props);
+	pw_properties_free(this->props);
 }

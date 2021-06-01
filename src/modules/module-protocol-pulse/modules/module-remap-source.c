@@ -229,12 +229,9 @@ struct module *create_module_remap_source(struct impl *impl, const char *argumen
 
 	return module;
 out:
-	if (props)
-		pw_properties_free(props);
-	if (playback_props)
-		pw_properties_free(playback_props);
-	if (capture_props)
-		pw_properties_free(capture_props);
+	pw_properties_free(props);
+	pw_properties_free(playback_props);
+	pw_properties_free(capture_props);
 	errno = -res;
 	return NULL;
 }

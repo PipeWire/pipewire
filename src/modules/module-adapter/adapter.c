@@ -300,8 +300,7 @@ struct pw_impl_node *pw_adapter_new(struct pw_context *context,
 	return node;
 
 error:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	errno = -res;
 	return NULL;
 }

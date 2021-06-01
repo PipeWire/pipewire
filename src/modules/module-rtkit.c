@@ -613,8 +613,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	return 0;
 
 error:
-	if (impl->props)
-		pw_properties_free(impl->props);
+	pw_properties_free(impl->props);
 	if (impl->system_bus)
 		pw_rtkit_bus_free(impl->system_bus);
 	free(impl);

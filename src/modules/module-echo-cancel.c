@@ -462,10 +462,8 @@ static void impl_destroy(struct impl *impl)
 		pw_core_disconnect(impl->core);
 	if (impl->aec)
 		echo_cancel_destroy(impl->aec_info, impl->aec);
-	if (impl->source_props)
-		pw_properties_free(impl->source_props);
-	if (impl->sink_props)
-		pw_properties_free(impl->sink_props);
+	pw_properties_free(impl->source_props);
+	pw_properties_free(impl->sink_props);
 	pw_work_queue_cancel(impl->work, impl, SPA_ID_INVALID);
 	free(impl);
 }
@@ -647,8 +645,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	return 0;
 
 error:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	impl_destroy(impl);
 	return res;
 }

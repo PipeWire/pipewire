@@ -447,8 +447,7 @@ error_clear_array:
 error_free:
 	free(impl);
 error_cleanup:
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }
@@ -510,8 +509,7 @@ int pw_impl_client_register(struct pw_impl_client *client,
 	return 0;
 
 error_existed:
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 	return -EEXIST;
 }
 

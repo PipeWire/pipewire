@@ -83,8 +83,7 @@ static void module_free(struct module *module)
 	pw_work_queue_cancel(impl->work_queue, module, SPA_ID_INVALID);
 	free((char*)module->name);
 	free((char*)module->args);
-	if (module->props)
-		pw_properties_free(module->props);
+	pw_properties_free(module->props);
 	free(module);
 }
 

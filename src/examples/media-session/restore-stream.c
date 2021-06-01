@@ -557,8 +557,7 @@ int sm_restore_stream_start(struct sm_media_session *session)
 
 exit_errno:
 	res = -errno;
-	if (impl->props)
-		pw_properties_free(impl->props);
+	pw_properties_free(impl->props);
 	free(impl);
 	return res;
 }

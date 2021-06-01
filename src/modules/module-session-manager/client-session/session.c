@@ -325,6 +325,5 @@ void session_clear(struct session *this)
 
 	free(this->info.params);
 
-	if (this->props)
-		pw_properties_free(this->props);
+	pw_properties_free(this->props);
 }

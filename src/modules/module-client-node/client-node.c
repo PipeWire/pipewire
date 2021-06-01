@@ -497,8 +497,7 @@ do_update_port(struct node *this,
 	}
 
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO) {
-		if (port->properties)
-			pw_properties_free(port->properties);
+		pw_properties_free(port->properties);
 		port->properties = NULL;
 		port->info.props = NULL;
 		port->info.n_params = 0;
@@ -1764,8 +1763,7 @@ error_exit_free:
 error_exit_cleanup:
 	if (resource)
 		pw_resource_destroy(resource);
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }

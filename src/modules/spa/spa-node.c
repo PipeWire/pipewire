@@ -281,8 +281,7 @@ struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 error_exit_unload:
 	pw_unload_spa_handle(handle);
 error_exit:
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }

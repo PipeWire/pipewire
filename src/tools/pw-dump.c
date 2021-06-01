@@ -198,8 +198,7 @@ static void object_destroy(struct object *o)
 	spa_list_remove(&o->link);
 	if (o->proxy)
 		pw_proxy_destroy(o->proxy);
-	if (o->props)
-		pw_properties_free(o->props);
+	pw_properties_free(o->props);
 	clear_params(&o->param_list, SPA_ID_INVALID);
 	clear_params(&o->pending_list, SPA_ID_INVALID);
 	free(o->type);
@@ -1290,8 +1289,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 bind_failed:
 	pw_log_error("can't bind object for %u %s/%d: %m", id, type, version);
-	if (o->props)
-		pw_properties_free(o->props);
+	pw_properties_free(o->props);
 	free(o);
 	return;
 }

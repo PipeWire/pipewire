@@ -203,8 +203,7 @@ struct module *create_module_null_sink(struct impl *impl, const char *argument)
 
 	return module;
 out:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	errno = -res;
 	return NULL;
 }

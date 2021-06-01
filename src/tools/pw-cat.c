@@ -1753,8 +1753,7 @@ error_no_context:
 error_no_props:
 error_no_main_loop:
 error_bad_file:
-	if (data.props)
-		pw_properties_free(data.props);
+	pw_properties_free(data.props);
 	if (data.file)
 		sf_close(data.file);
 	if (data.midi.file)

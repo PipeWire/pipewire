@@ -461,8 +461,7 @@ struct module *create_module_combine_sink(struct impl *impl, const char *argumen
 
 	return module;
 out:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	if (sink_names)
 		pw_free_strv(sink_names);
 	errno = -res;

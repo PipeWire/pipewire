@@ -185,8 +185,7 @@ struct pw_impl_device *pw_context_create_device(struct pw_context *context,
 error_free:
 	free(impl);
 error_cleanup:
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }
@@ -602,8 +601,7 @@ int pw_impl_device_register(struct pw_impl_device *device,
 	return 0;
 
 error_existed:
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 	return -EEXIST;
 }
 

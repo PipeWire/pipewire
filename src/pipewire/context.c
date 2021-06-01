@@ -386,10 +386,8 @@ error_free_loop:
 error_free:
 	free(this);
 error_cleanup:
-	if (conf)
-		pw_properties_free(conf);
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(conf);
+	pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }

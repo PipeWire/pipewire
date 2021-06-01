@@ -214,10 +214,8 @@ struct module *create_module_tunnel_source(struct impl *impl, const char *argume
 
 	return module;
 out:
-	if (props)
-		pw_properties_free(props);
-	if (stream_props)
-		pw_properties_free(stream_props);
+	pw_properties_free(props);
+	pw_properties_free(stream_props);
 	errno = -res;
 	return NULL;
 }

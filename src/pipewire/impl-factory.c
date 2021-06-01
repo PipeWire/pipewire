@@ -73,8 +73,7 @@ struct pw_impl_factory *pw_context_create_factory(struct pw_context *context,
 	return this;
 
 error_exit:
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }
@@ -218,8 +217,7 @@ int pw_impl_factory_register(struct pw_impl_factory *factory,
 	return 0;
 
 error_existed:
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 	return -EEXIST;
 }
 

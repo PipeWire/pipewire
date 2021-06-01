@@ -243,8 +243,7 @@ error_usage:
 		pw_resource_errorf_id(resource, new_id, res, "usage: "ADAPTER_USAGE);
 	goto error_cleanup;
 error_cleanup:
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }

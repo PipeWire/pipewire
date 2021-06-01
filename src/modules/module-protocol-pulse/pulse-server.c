@@ -134,8 +134,7 @@ static void sample_free(struct sample *sample)
 
 	if (sample->index != SPA_ID_INVALID)
 		pw_map_remove(&impl->samples, sample->index);
-	if (sample->props)
-		pw_properties_free(sample->props);
+	pw_properties_free(sample->props);
 	free(sample->buffer);
 	free(sample);
 }
@@ -968,8 +967,7 @@ static void stream_free(struct stream *stream)
 
 	if (stream->buffer)
 		free(stream->buffer);
-	if (stream->props)
-		pw_properties_free(stream->props);
+	pw_properties_free(stream->props);
 	free(stream);
 }
 
@@ -1982,8 +1980,7 @@ error_invalid:
 	res = -EINVAL;
 	goto error;
 error:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	if (stream)
 		stream_free(stream);
 	return res;
@@ -2234,8 +2231,7 @@ error_invalid:
 	res = -EINVAL;
 	goto error;
 error:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	if (stream)
 		stream_free(stream);
 	return res;
@@ -2453,8 +2449,7 @@ error_toolarge:
 	res = -EOVERFLOW;
 	goto error;
 error:
-	if (props != NULL)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	if (stream)
 		stream_free(stream);
 	return res;
@@ -2500,8 +2495,7 @@ static int do_finish_upload_stream(struct client *client, uint32_t command, uint
 
 		event = SUBSCRIPTION_EVENT_NEW;
 	} else {
-		if (sample->props)
-			pw_properties_free(sample->props);
+		pw_properties_free(sample->props);
 		free(sample->buffer);
 		event = SUBSCRIPTION_EVENT_CHANGE;
 	}
@@ -2779,8 +2773,7 @@ error_noent:
 	res = -ENOENT;
 	goto error;
 error:
-	if (props != NULL)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	return res;
 }
 
@@ -3447,8 +3440,7 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 	}
 	res = reply_simple_ack(client, tag);
 exit:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	return res;
 
 error_protocol:
@@ -3515,8 +3507,7 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 	}
 	res = reply_simple_ack(client, tag);
 exit:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	return res;
 
 error_protocol:
@@ -6693,8 +6684,7 @@ error_free:
 	free(impl);
 
 error_exit:
-	if (props != NULL)
-		pw_properties_free(props);
+	pw_properties_free(props);
 
 	if (res < 0)
 		errno = -res;

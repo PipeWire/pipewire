@@ -750,10 +750,8 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 	return 0;
 
 out_free:
-	if (impl->conf)
-		pw_properties_free(impl->conf);
-	if (impl->props)
-		pw_properties_free(impl->props);
+	pw_properties_free(impl->conf);
+	pw_properties_free(impl->props);
 	free(impl);
 out:
 	return res;

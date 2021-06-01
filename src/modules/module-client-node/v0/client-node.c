@@ -482,8 +482,7 @@ do_update_port(struct node *this,
 	}
 
 	if (change_mask & PW_CLIENT_NODE0_PORT_UPDATE_INFO) {
-		if (port->properties)
-			pw_properties_free(port->properties);
+		pw_properties_free(port->properties);
 		port->properties = NULL;
 		port->info.props = NULL;
 		port->info.n_params = 0;

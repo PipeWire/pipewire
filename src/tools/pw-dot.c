@@ -609,8 +609,7 @@ static void removed_proxy(void *user_data)
 static void destroy_proxy(void *user_data)
 {
 	struct global *g = user_data;
-	if (g->props)
-		pw_properties_free(g->props);
+	pw_properties_free(g->props);
 	if (g->info)
 		g->info_destroy(g->info);
 }

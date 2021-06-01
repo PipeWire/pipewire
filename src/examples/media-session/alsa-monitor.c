@@ -1157,10 +1157,8 @@ int sm_alsa_monitor_start(struct sm_media_session *session)
 out_free:
 	if (impl->handle)
 		pw_unload_spa_handle(impl->handle);
-	if (impl->conf)
-		pw_properties_free(impl->conf);
-	if (impl->props)
-		pw_properties_free(impl->props);
+	pw_properties_free(impl->conf);
+	pw_properties_free(impl->props);
 	free(impl);
 	return res;
 }

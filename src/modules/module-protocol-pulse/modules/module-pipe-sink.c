@@ -189,8 +189,7 @@ static int module_pipesink_unload(struct client *client, struct module *module)
 
 	pw_log_info("unload module %p id:%u name:%s", module, module->idx, module->name);
 
-	if (d->capture_props != NULL)
-		pw_properties_free(d->capture_props);
+	pw_properties_free(d->capture_props);
 	if (d->capture != NULL)
 		pw_stream_destroy(d->capture);
 	if (d->core != NULL)
@@ -321,10 +320,8 @@ struct module *create_module_pipe_sink(struct impl *impl, const char *argument)
 
 	return module;
 out:
-	if (props)
-		pw_properties_free(props);
-	if (capture_props)
-		pw_properties_free(capture_props);
+	pw_properties_free(props);
+	pw_properties_free(capture_props);
 	if (filename) {
 		if (do_unlink_fifo)
 			unlink(filename);

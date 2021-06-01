@@ -1304,12 +1304,10 @@ stream_new(struct pw_context *context, const char *name,
 	return impl;
 
 error_properties:
-	if (impl->port_props)
-		pw_properties_free(impl->port_props);
+	pw_properties_free(impl->port_props);
 	free(impl);
 error_cleanup:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	errno = -res;
 	return NULL;
 }
@@ -1375,8 +1373,7 @@ pw_stream_new_simple(struct pw_loop *loop,
 error_cleanup:
 	if (context)
 		pw_context_destroy(context);
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	errno = -res;
 	return NULL;
 }
@@ -1794,8 +1791,7 @@ error_proxy:
 	goto exit_cleanup;
 
 exit_cleanup:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	return res;
 }
 

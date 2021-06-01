@@ -215,8 +215,7 @@ static struct sample_play *sample_play_new(struct pw_core *core,
 error_cleanup:
 	pw_stream_destroy(p->stream);
 error_free:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	free(p);
 	errno = -res;
 	return NULL;

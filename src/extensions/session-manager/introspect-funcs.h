@@ -89,8 +89,7 @@ pw_session_info_free (struct pw_session_info *info)
 		struct pw_session_info info;
 	} *ext = SPA_CONTAINER_OF(info, struct extended_info, info);
 
-	if (ext->props_storage)
-		pw_properties_free(ext->props_storage);
+	pw_properties_free(ext->props_storage);
 	free((void *) info->params);
 	free(ext);
 }
@@ -160,8 +159,7 @@ pw_endpoint_info_free (struct pw_endpoint_info *info)
 		struct pw_endpoint_info info;
 	} *ext = SPA_CONTAINER_OF(info, struct extended_info, info);
 
-	if (ext->props_storage)
-		pw_properties_free(ext->props_storage);
+	pw_properties_free(ext->props_storage);
 	free(info->name);
 	free(info->media_class);
 	free((void *) info->params);
@@ -230,8 +228,7 @@ pw_endpoint_stream_info_free (struct pw_endpoint_stream_info *info)
 		struct pw_endpoint_stream_info info;
 	} *ext = SPA_CONTAINER_OF(info, struct extended_info, info);
 
-	if (ext->props_storage)
-		pw_properties_free(ext->props_storage);
+	pw_properties_free(ext->props_storage);
 	free(info->name);
 	free(info->link_params);
 	free((void *) info->params);
@@ -304,8 +301,7 @@ pw_endpoint_link_info_free (struct pw_endpoint_link_info *info)
 		struct pw_endpoint_link_info info;
 	} *ext = SPA_CONTAINER_OF(info, struct extended_info, info);
 
-	if (ext->props_storage)
-		pw_properties_free(ext->props_storage);
+	pw_properties_free(ext->props_storage);
 	free(info->error);
 	free((void *) info->params);
 	free(ext);

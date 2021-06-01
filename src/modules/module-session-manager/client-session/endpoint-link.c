@@ -350,6 +350,5 @@ void endpoint_link_clear(struct endpoint_link *this)
 	free(this->info.error);
 	free(this->info.params);
 
-	if (this->props)
-		pw_properties_free(this->props);
+	pw_properties_free(this->props);
 }

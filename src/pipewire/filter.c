@@ -1056,8 +1056,7 @@ filter_new(struct pw_context *context, const char *name,
 error_properties:
 	free(impl);
 error_cleanup:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	errno = -res;
 	return NULL;
 }
@@ -1124,8 +1123,7 @@ pw_filter_new_simple(struct pw_loop *loop,
 error_cleanup:
 	if (context)
 		pw_context_destroy(context);
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	errno = -res;
 	return NULL;
 }
@@ -1509,8 +1507,7 @@ error_free:
 	clear_params(impl, p, SPA_ID_INVALID);
 	free(p);
 error_cleanup:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	return NULL;
 }
 

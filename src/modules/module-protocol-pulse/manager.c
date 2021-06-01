@@ -194,8 +194,7 @@ static void object_destroy(struct object *o)
 	m->this.n_objects--;
 	if (o->this.proxy)
 		pw_proxy_destroy(o->this.proxy);
-	if (o->this.props)
-		pw_properties_free(o->this.props);
+	pw_properties_free(o->this.props);
 	if (o->this.message_object_path)
 		free(o->this.message_object_path);
 	clear_params(&o->this.param_list, SPA_ID_INVALID);

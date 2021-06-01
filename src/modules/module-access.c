@@ -274,8 +274,7 @@ static void module_destroy(void *data)
 	spa_hook_remove(&impl->context_listener);
 	spa_hook_remove(&impl->module_listener);
 
-	if (impl->properties)
-		pw_properties_free(impl->properties);
+	pw_properties_free(impl->properties);
 
 	free(impl);
 }

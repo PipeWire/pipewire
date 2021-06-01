@@ -187,10 +187,8 @@ struct module *create_module_simple_protocol_tcp(struct impl *impl, const char *
 
 	return module;
 out:
-	if (module_props)
-		pw_properties_free(module_props);
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(module_props);
+	pw_properties_free(props);
 	errno = -res;
 	return NULL;
 }

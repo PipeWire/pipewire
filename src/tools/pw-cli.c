@@ -356,8 +356,7 @@ static int destroy_global(void *obj, void *data)
 		return 0;
 
 	pw_map_remove(&global->rd->globals, global->id);
-	if (global->properties)
-		pw_properties_free(global->properties);
+	pw_properties_free(global->properties);
 	free(global->type);
 	free(global);
 	return 0;
@@ -931,8 +930,7 @@ static const struct pw_device_events device_events = {
 static void session_info_free(struct pw_session_info *info)
 {
 	free(info->params);
-	if (info->props)
-		pw_properties_free ((struct pw_properties *)info->props);
+	pw_properties_free ((struct pw_properties *)info->props);
 	free(info);
 }
 
@@ -955,8 +953,7 @@ static void session_event_info(void *object,
 			info->n_params * sizeof(struct spa_param_info));
 	}
 	if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) {
-		if (info->props)
-			pw_properties_free ((struct pw_properties *)info->props);
+		pw_properties_free ((struct pw_properties *)info->props);
 		info->props =
 			(struct spa_dict *) pw_properties_new_dict (update->props);
 	}
@@ -980,8 +977,7 @@ static void endpoint_info_free(struct pw_endpoint_info *info)
 	free(info->name);
 	free(info->media_class);
 	free(info->params);
-	if (info->props)
-		pw_properties_free ((struct pw_properties *)info->props);
+	pw_properties_free ((struct pw_properties *)info->props);
 	free(info);
 }
 
@@ -1012,8 +1008,7 @@ static void endpoint_event_info(void *object,
 			info->n_params * sizeof(struct spa_param_info));
 	}
 	if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) {
-		if (info->props)
-			pw_properties_free ((struct pw_properties *)info->props);
+		pw_properties_free ((struct pw_properties *)info->props);
 		info->props =
 			(struct spa_dict *) pw_properties_new_dict (update->props);
 	}
@@ -1036,8 +1031,7 @@ static void endpoint_stream_info_free(struct pw_endpoint_stream_info *info)
 {
 	free(info->name);
 	free(info->params);
-	if (info->props)
-		pw_properties_free ((struct pw_properties *)info->props);
+	pw_properties_free ((struct pw_properties *)info->props);
 	free(info);
 }
 
@@ -1062,8 +1056,7 @@ static void endpoint_stream_event_info(void *object,
 			info->n_params * sizeof(struct spa_param_info));
 	}
 	if (update->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS) {
-		if (info->props)
-			pw_properties_free ((struct pw_properties *)info->props);
+		pw_properties_free ((struct pw_properties *)info->props);
 		info->props =
 			(struct spa_dict *) pw_properties_new_dict (update->props);
 	}
@@ -1295,8 +1288,7 @@ static bool do_create_device(struct data *data, const char *cmd, char *args, cha
 					    props ? &props->dict : NULL,
 					    sizeof(struct proxy_data));
 
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 
 	pd = pw_proxy_get_user_data(proxy);
 	pd->rd = rd;
@@ -1335,8 +1327,7 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 					    props ? &props->dict : NULL,
 					    sizeof(struct proxy_data));
 
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 
 	pd = pw_proxy_get_user_data(proxy);
 	pd->rd = rd;
@@ -1407,8 +1398,7 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 					  props ? &props->dict : NULL,
 					  sizeof(struct proxy_data));
 
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 
 	pd = pw_proxy_get_user_data(proxy);
 	pd->rd = rd;

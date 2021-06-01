@@ -307,10 +307,8 @@ static void impl_destroy(struct impl *impl)
 		pw_stream_destroy(impl->playback);
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
-	if (impl->capture_props)
-		pw_properties_free(impl->capture_props);
-	if (impl->playback_props)
-		pw_properties_free(impl->playback_props);
+	pw_properties_free(impl->capture_props);
+	pw_properties_free(impl->playback_props);
 	pw_work_queue_cancel(impl->work, impl, SPA_ID_INVALID);
 	free(impl);
 }
@@ -473,8 +471,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	return 0;
 
 error:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	impl_destroy(impl);
 	return res;
 }

@@ -1078,8 +1078,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	return 0;
 
 error:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	snd_pcm_pipewire_free(pw);
 	return err;
 }

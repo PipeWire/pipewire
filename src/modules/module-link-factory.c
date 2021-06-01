@@ -447,8 +447,7 @@ error_link_register:
 	pw_resource_errorf_id(resource, new_id, res, NAME": can't register link: %s", spa_strerror(res));
 	goto error_exit;
 error_exit:
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }

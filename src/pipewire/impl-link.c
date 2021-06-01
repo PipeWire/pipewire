@@ -1200,8 +1200,7 @@ error_no_io:
 error_free:
 	free(impl);
 error_exit:
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }
@@ -1278,8 +1277,7 @@ int pw_impl_link_register(struct pw_impl_link *link,
 	return 0;
 
 error_existed:
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 	return -EEXIST;
 }
 

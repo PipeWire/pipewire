@@ -525,8 +525,7 @@ on_connect(void *data, int fd, uint32_t mask)
 	return;
 error:
 	pw_log_error(NAME" %p: failed to create client: %m", impl);
-	if (props != NULL)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	if (client != NULL)
 		client_free(client);
 	return;
@@ -653,8 +652,7 @@ static void impl_free(struct impl *impl)
 	spa_hook_remove(&impl->module_listener);
 	spa_list_consume(s, &impl->server_list, link)
 		server_free(s);
-	if (impl->props)
-		pw_properties_free(impl->props);
+	pw_properties_free(impl->props);
 	free(impl);
 }
 

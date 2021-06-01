@@ -110,8 +110,7 @@ static void module_destroy(void *data)
 
 	spa_dbus_connection_destroy(impl->conn);
 
-	if (impl->properties)
-		pw_properties_free(impl->properties);
+	pw_properties_free(impl->properties);
 
 	free(impl);
 }

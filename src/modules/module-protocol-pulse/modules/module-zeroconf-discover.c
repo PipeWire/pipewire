@@ -131,8 +131,7 @@ struct module *create_module_zeroconf_discover(struct impl *impl, const char *ar
 
 	return module;
 out:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	errno = -res;
 	return NULL;
 }

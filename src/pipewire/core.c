@@ -391,8 +391,7 @@ error_proxy:
 exit_free:
 	free(p);
 exit_cleanup:
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }

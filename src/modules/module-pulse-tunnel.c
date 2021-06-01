@@ -646,10 +646,8 @@ static void impl_destroy(struct impl *impl)
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
 
-	if (impl->stream_props)
-		pw_properties_free(impl->stream_props);
-	if (impl->props)
-		pw_properties_free(impl->props);
+	pw_properties_free(impl->stream_props);
+	pw_properties_free(impl->props);
 
 	pw_work_queue_cancel(impl->work, impl, SPA_ID_INVALID);
 	free(impl->buffer);

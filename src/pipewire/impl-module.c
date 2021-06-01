@@ -291,8 +291,7 @@ error_free_filename:
 	if (filename)
 		free(filename);
 error_cleanup:
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }

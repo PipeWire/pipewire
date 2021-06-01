@@ -251,10 +251,8 @@ exit:
 		pw_context_destroy(data.context);
 	if (data.loop)
 		pw_main_loop_destroy(data.loop);
-	if (data.capture_props)
-		pw_properties_free(data.capture_props);
-	if (data.playback_props)
-		pw_properties_free(data.playback_props);
+	pw_properties_free(data.capture_props);
+	pw_properties_free(data.playback_props);
 	pw_deinit();
 
 	return res;

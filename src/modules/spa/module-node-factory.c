@@ -179,8 +179,7 @@ error_bind:
 	goto error_exit;
 
 error_exit_cleanup:
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 error_exit:
 	errno = -res;
 	return NULL;

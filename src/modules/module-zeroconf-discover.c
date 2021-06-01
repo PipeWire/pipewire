@@ -171,8 +171,7 @@ static void impl_free(struct impl *impl)
 		avahi_client_free(impl->client);
 	if (impl->avahi_poll)
 		pw_avahi_poll_free(impl->avahi_poll);
-	if (impl->properties)
-		pw_properties_free(impl->properties);
+	pw_properties_free(impl->properties);
 	pw_work_queue_cancel(impl->work, impl, SPA_ID_INVALID);
 	free(impl);
 }

@@ -120,8 +120,7 @@ static int client_endpoint_stream_update(void *object,
 		: 0;
 
        no_mem:
-	if (props)
-		pw_properties_free(props);
+	pw_properties_free(props);
 	free(stream);
 	pw_log_error(NAME" %p: cannot update stream: no memory", this);
 	pw_resource_errorf(this->resource, -ENOMEM,
@@ -204,8 +203,7 @@ static void *create_object(void *data,
 	return this;
 
       no_mem:
-	if (properties)
-		pw_properties_free(properties);
+	pw_properties_free(properties);
 	if (this && this->resource)
 		pw_resource_destroy(this->resource);
 	free(this);

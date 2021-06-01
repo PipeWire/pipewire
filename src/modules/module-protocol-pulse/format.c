@@ -400,8 +400,7 @@ struct format_info {
 
 static void format_info_clear(struct format_info *info)
 {
-	if (info->props)
-		pw_properties_free(info->props);
+	pw_properties_free(info->props);
 	spa_zero(*info);
 }
 

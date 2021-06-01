@@ -3532,6 +3532,7 @@ finish:
                      * object. */
                     e->db_fix = pa_xnewdup(pa_alsa_decibel_fix, db_fix, 1);
                     e->db_fix->profile_set = NULL;
+                    e->db_fix->key = pa_xstrdup(db_fix->key);
                     e->db_fix->name = pa_xstrdup(db_fix->name);
                     e->db_fix->db_values = pa_xmemdup(db_fix->db_values, (db_fix->max_step - db_fix->min_step + 1) * sizeof(long));
                 }

@@ -44,3 +44,9 @@ test('test properties',
                include_directories: pwtest_inc,
                link_with: pwtest_lib)
 )
+test('test lib',
+    executable('test-lib',
+               'test-lib.c',
+               include_directories: pwtest_inc,
+               link_with: pwtest_lib)
+)

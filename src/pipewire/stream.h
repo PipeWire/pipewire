@@ -98,7 +98,8 @@ extern "C" {
  *
  * With the add_buffer event, a stream will be notified of a new buffer
  * that can be used for data transport. You can attach user_data to these
- * buffers.
+ * buffers. The buffers can only be used with the stream that emitted
+ * the add_buffer event.
  *
  * After the buffers are negotiated, the stream will transition to the
  * \ref PW_STREAM_STATE_PAUSED state.
@@ -121,12 +122,18 @@ extern "C" {
  * \ref pw_stream_dequeue_buffer() should be used to get the data and
  * metadata of the buffer.
  *
- * When the buffer is no longer in use, call \ref pw_stream_queue_buffer()
+ * The buffer is owned by the stream and stays alive until the
+ * remove_buffer event is emitted or the stream is destroyed.
+ *
+ * When the buffer has been processed, call \ref pw_stream_queue_buffer()
  * to let PipeWire reuse the buffer.
  *
  * \subsection ssec_produce Produce data
  *
  * \ref pw_stream_dequeue_buffer() gives an empty buffer that can be filled.
+ *
+ * The buffer is owned by the stream and stays alive until the
+ * remove_buffer event is emitted or the stream is destroyed.
  *
  * Filled buffers should be queued with \ref pw_stream_queue_buffer().
  *
@@ -343,7 +350,7 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time);
 
 /** Get a buffer that can be filled for playback streams or consumed
- * for capture streams.  */
+ * for capture streams. */
 struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream);
 
 /** Submit a buffer for playback or recycle a buffer for capture. */

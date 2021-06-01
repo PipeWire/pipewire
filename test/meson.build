@@ -38,9 +38,10 @@ executable('test-example',
   include_directories: pwtest_inc,
   link_with: pwtest_lib)
 
-test('test properties',
-    executable('test-properties',
+test('test pipewire utils',
+    executable('test-pw-utils',
                'test-properties.c',
+               'test-array.c',
                include_directories: pwtest_inc,
                link_with: pwtest_lib)
 )

@@ -1,5 +1,4 @@
 test_apps = [
-	'test-array',
 	'test-client',
 	'test-context',
 	'test-endpoint',

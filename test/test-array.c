@@ -22,19 +22,27 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <pipewire/array.h>
 
-static void test_abi(void)
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include "pwtest.h"
+#include "pipewire/array.h"
+
+PWTEST(array_test_abi)
 {
 	/* array */
 #if defined(__x86_64__) && defined(__LP64__)
-	spa_assert(sizeof(struct pw_array) == 32);
+	pwtest_int_eq(sizeof(struct pw_array), 32U);
+	return PWTEST_PASS;
 #else
-	fprintf(stderr, "%zd\n", sizeof(struct pw_array));
+	fprintf(stderr, "Unknown arch: pw_array is size %zd\n", sizeof(struct pw_array));
+	return PWTEST_SKIP;
 #endif
 }
 
-static void test_array(void)
+PWTEST(array_test)
 {
 	struct pw_array arr;
 	uint32_t *ptr;
@@ -42,68 +50,70 @@ static void test_array(void)
 	size_t i;
 
 	pw_array_init(&arr, 64);
-	spa_assert(SPA_N_ELEMENTS(vals) == 4);
+	pwtest_int_eq(SPA_N_ELEMENTS(vals), 4U);
 
-	spa_assert(pw_array_get_len(&arr, uint32_t) == 0);
-	spa_assert(pw_array_check_index(&arr, 0, uint32_t) == false);
-	spa_assert(pw_array_first(&arr) == pw_array_end(&arr));
+	pwtest_int_eq(pw_array_get_len(&arr, uint32_t), 0U);
+	pwtest_bool_false(pw_array_check_index(&arr, 0, uint32_t));
+	pwtest_ptr_eq(pw_array_first(&arr), pw_array_end(&arr));
 	pw_array_for_each(ptr, &arr)
-		spa_assert_not_reached();
+		pwtest_fail_if_reached();
 
 	for (i = 0; i < 4; i++) {
 		ptr = (uint32_t*)pw_array_add(&arr, sizeof(uint32_t));
 		*ptr = vals[i];
 	}
 
-	spa_assert(pw_array_get_len(&arr, uint32_t) == 4);
-	spa_assert(pw_array_check_index(&arr, 2, uint32_t) == true);
-	spa_assert(pw_array_check_index(&arr, 3, uint32_t) == true);
-	spa_assert(pw_array_check_index(&arr, 4, uint32_t) == false);
+	pwtest_int_eq(pw_array_get_len(&arr, uint32_t), 4U);
+	pwtest_bool_true(pw_array_check_index(&arr, 2, uint32_t));
+	pwtest_bool_true(pw_array_check_index(&arr, 3, uint32_t));
+	pwtest_bool_false(pw_array_check_index(&arr, 4, uint32_t));
 
 	i = 0;
 	pw_array_for_each(ptr, &arr) {
-		spa_assert(*ptr == vals[i++]);
+		pwtest_int_eq(*ptr, vals[i++]);
 	}
 
 	/* remove second */
 	ptr = pw_array_get_unchecked(&arr, 2, uint32_t);
-	spa_assert(ptr != NULL);
+	pwtest_ptr_notnull(ptr);
 	pw_array_remove(&arr, ptr);
-	spa_assert(pw_array_get_len(&arr, uint32_t) == 3);
-	spa_assert(pw_array_check_index(&arr, 3, uint32_t) == false);
+	pwtest_int_eq(pw_array_get_len(&arr, uint32_t), 3U);
+	pwtest_bool_false(pw_array_check_index(&arr, 3, uint32_t));
 	ptr = pw_array_get_unchecked(&arr, 2, uint32_t);
-	spa_assert(ptr != NULL);
-	spa_assert(*ptr == vals[3]);
+	pwtest_ptr_notnull(ptr);
+	pwtest_int_eq(*ptr, vals[3]);
 
 	/* remove first */
 	ptr = pw_array_get_unchecked(&arr, 0, uint32_t);
-	spa_assert(ptr != NULL);
+	pwtest_ptr_notnull(ptr);
 	pw_array_remove(&arr, ptr);
-	spa_assert(pw_array_get_len(&arr, uint32_t) == 2);
+	pwtest_int_eq(pw_array_get_len(&arr, uint32_t), 2U);
 	ptr = pw_array_get_unchecked(&arr, 0, uint32_t);
-	spa_assert(ptr != NULL);
-	spa_assert(*ptr == vals[1]);
+	pwtest_ptr_notnull(ptr);
+	pwtest_int_eq(*ptr, vals[1]);
 
 	/* iterate */
 	ptr = (uint32_t*)pw_array_first(&arr);
-	spa_assert(pw_array_check(&arr, ptr));
-	spa_assert(*ptr == vals[1]);
+	pwtest_bool_true(pw_array_check(&arr, ptr));
+	pwtest_int_eq(*ptr, vals[1]);
 	ptr++;
-	spa_assert(pw_array_check(&arr, ptr));
-	spa_assert(*ptr == vals[3]);
+	pwtest_bool_true(pw_array_check(&arr, ptr));
+	pwtest_int_eq(*ptr, vals[3]);
 	ptr++;
-	spa_assert(pw_array_check(&arr, ptr) == false);
+	pwtest_bool_false(pw_array_check(&arr, ptr));
 
 	pw_array_reset(&arr);
-	spa_assert(pw_array_get_len(&arr, uint32_t) == 0);
+	pwtest_int_eq(pw_array_get_len(&arr, uint32_t), 0U);
 
 	pw_array_clear(&arr);
+
+	return PWTEST_PASS;
 }
 
-int main(int argc, char *argv[])
+PWTEST_SUITE(pw_array)
 {
-	test_abi();
-	test_array();
+	pwtest_add(array_test_abi, PWTEST_NOARG);
+	pwtest_add(array_test, PWTEST_NOARG);
 
-	return 0;
+	return PWTEST_PASS;
 }

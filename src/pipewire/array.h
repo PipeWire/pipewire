@@ -117,6 +117,7 @@ static inline int pw_array_ensure_size(struct pw_array *arr, size_t size)
 	if (SPA_UNLIKELY(alloc < need)) {
 		void *data;
 		alloc = SPA_MAX(alloc, arr->extend);
+		spa_assert(alloc != 0); /* forgot pw_array_init */
 		while (alloc < need)
 			alloc *= 2;
 		if (SPA_UNLIKELY((data = realloc(arr->data, alloc)) == NULL))

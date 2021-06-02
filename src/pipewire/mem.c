@@ -424,10 +424,18 @@ struct pw_memmap * pw_mempool_map_id(struct pw_mempool *pool,
 SPA_EXPORT
 int pw_memmap_free(struct pw_memmap *map)
 {
-	struct memmap *mm = SPA_CONTAINER_OF(map, struct memmap, this);
-	struct mapping *m = mm->mapping;
-	struct memblock *b = m->block;
-	struct mempool *p = SPA_CONTAINER_OF(b->this.pool, struct mempool, this);
+	struct memmap *mm;
+	struct mapping *m;
+	struct memblock *b;
+	struct mempool *p;
+
+	if (map == NULL)
+		return 0;
+
+	mm = SPA_CONTAINER_OF(map, struct memmap, this);
+	m = mm->mapping;
+	b = m->block;
+	p = SPA_CONTAINER_OF(b->this.pool, struct mempool, this);
 
         pw_log_debug(NAME" %p: map:%p block:%p fd:%d ptr:%p mapping:%p ref:%d", p,
 			&mm->this, b, b->this.fd, mm->this.ptr, m, m->ref);

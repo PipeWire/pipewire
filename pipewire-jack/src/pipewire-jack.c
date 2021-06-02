@@ -1472,8 +1472,7 @@ static int client_node_set_io(void *object,
 	default:
 		break;
 	}
-	if (old != NULL)
-		pw_memmap_free(old);
+	pw_memmap_free(old);
 
 	return 0;
 }
@@ -2085,8 +2084,7 @@ static int client_node_port_set_io(void *object,
 		break;
 	}
 exit_free:
-	if (old != NULL)
-		pw_memmap_free(old);
+	pw_memmap_free(old);
 exit:
 	if (res < 0)
 		pw_proxy_error((struct pw_proxy*)c->node, res, spa_strerror(res));

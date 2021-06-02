@@ -457,8 +457,7 @@ client_node_set_io(void *object,
 
 	res =  spa_node_set_io(data->node->node, id, ptr, size);
 
-	if (old != NULL)
-		pw_memmap_free(old);
+	pw_memmap_free(old);
 exit:
 	if (res < 0) {
 		pw_log_error("node %p: set_io: %s", proxy, spa_strerror(res));
@@ -809,8 +808,7 @@ client_node_port_set_io(void *object,
 			activate_mix(data, mix);
 	}
 exit_free:
-	if (old != NULL)
-		pw_memmap_free(old);
+	pw_memmap_free(old);
 exit:
 	if (res < 0) {
 		pw_log_error("port %p: set_io: %s", mix, spa_strerror(res));

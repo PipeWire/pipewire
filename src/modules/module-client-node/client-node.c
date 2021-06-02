@@ -386,8 +386,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 		memid = SPA_ID_INVALID;
 		mem_offset = mem_size = 0;
 	}
-	if (old != NULL)
-		pw_memmap_free(old);
+	pw_memmap_free(old);
 
 	if (this->resource == NULL)
 		return data == NULL ? 0 : -EIO;
@@ -706,8 +705,7 @@ static int do_port_set_io(struct impl *impl,
 		memid = SPA_ID_INVALID;
 		mem_offset = mem_size = 0;
 	}
-	if (old != NULL)
-		pw_memmap_free(old);
+	pw_memmap_free(old);
 
 	if (this->resource == NULL)
 		return data == NULL ? 0 : -EIO;

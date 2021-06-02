@@ -313,14 +313,11 @@ static void volume_changed(void *userdata)
 
 	node_update_soft_volumes(node, t_volume->volume);
 
+	emit_volume(impl, node);
+
 	impl->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	impl->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
 	emit_info(impl, false);
-
-	/* It sometimes flips volume to over 100% in pavucontrol slider
-	 * if volume is emitted before route info emitting while node
-	 * volumes are not identical to route volumes. Not sure why. */
-	emit_volume(impl, node);
 }
 
 static const struct spa_bt_transport_events transport_events = {
@@ -1535,7 +1532,7 @@ static int node_set_volume(struct impl *this, struct node *node, float volumes[]
 	if (n_volumes == 0)
 		return -EINVAL;
 
-	spa_log_debug(this->log, "node %p volume %f", node, volumes[0]);
+	spa_log_info(this->log, "node %p volume %f", node, volumes[0]);
 
 	for (i = 0; i < node->n_channels; i++) {
 		if (node->volumes[i] == volumes[i % n_volumes])
@@ -1557,6 +1554,8 @@ static int node_set_volume(struct impl *this, struct node *node, float volumes[]
 		for (uint32_t i = 0; i < node->n_channels; ++i)
 			node->soft_volumes[i] = node->volumes[i];
 	}
+
+	emit_volume(this, node);
 
 	return changed;
 }
@@ -1744,8 +1743,6 @@ static int impl_set_param(void *object,
 				this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
 			}
 			emit_info(this, false);
-			/* See volume_changed(void *) */
-			emit_volume(this, node);
 		}
 		break;
 	}

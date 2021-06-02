@@ -49,7 +49,7 @@ will use the PipeWire emulation libraries automatically
 in this environment. You can get into this environment with:
 
 ```
-$ ./pw-uninstalled.sh
+$ ./pw-uninstalled.sh -b builddir
 ```
 
 In most cases you would want to run the default pipewire daemon. Look

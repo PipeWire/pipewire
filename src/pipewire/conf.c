@@ -76,6 +76,8 @@ static int get_read_path(char *path, size_t size, const char *prefix, const char
 			return 1;
 		return -ENOENT;
 	}
+	if (pw_check_option("no-config", "true"))
+		goto no_config;
 
 	dir = getenv("PIPEWIRE_CONFIG_DIR");
 	if (dir != NULL) {
@@ -112,6 +114,7 @@ static int get_read_path(char *path, size_t size, const char *prefix, const char
 		    access(path, R_OK) == 0)
 			return 1;
 	}
+no_config:
 	dir = PIPEWIRE_CONFDATADIR;
 	if (dir != NULL) {
 		const char *paths[] = { dir, prefix, name, NULL };

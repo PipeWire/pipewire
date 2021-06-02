@@ -84,6 +84,8 @@ struct support {
 	struct spa_support support[MAX_SUPPORT];
 	uint32_t n_support;
 	unsigned int in_valgrind:1;
+	unsigned int no_color:1;
+	unsigned int no_config:1;
 };
 
 static struct registry global_registry;
@@ -487,10 +489,16 @@ void pw_init(int *argc, char **argv[])
 	if (support->registry != NULL)
 		return;
 
-	if ((str = getenv("VALGRIND")))
+	if ((str = getenv("VALGRIND")) != NULL)
 		support->in_valgrind = pw_properties_parse_bool(str);
 
-	if ((str = getenv("PIPEWIRE_DEBUG")))
+	if ((str = getenv("NO_COLOR")) != NULL)
+		support->no_color = true;
+
+	if ((str = getenv("PIPEWIRE_NO_CONFIG")) != NULL)
+		support->no_config = pw_properties_parse_bool(str);
+
+	if ((str = getenv("PIPEWIRE_DEBUG")) != NULL)
 		configure_debug(support, str);
 
 	init_i18n(support);
@@ -508,7 +516,7 @@ void pw_init(int *argc, char **argv[])
 
 	if (pw_log_is_default()) {
 		n_items = 0;
-		if (getenv("NO_COLOR") == NULL)
+		if (!support->no_color)
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, "true");
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_TIMESTAMP, "true");
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LINE, "true");
@@ -661,6 +669,19 @@ SPA_EXPORT
 bool pw_in_valgrind(void)
 {
 	return global_support.in_valgrind;
+}
+
+SPA_EXPORT
+bool pw_check_option(const char *option, const char *value)
+{
+	if (spa_streq(option, "in-valgrind"))
+		return global_support.in_valgrind == spa_atob(value);
+	else if (spa_streq(option, "no-color"))
+		return global_support.no_color == spa_atob(value);
+	else if (spa_streq(option, "no-config"))
+		return global_support.no_config == spa_atob(value);
+	else
+		return false;
 }
 
 /** Get the client name

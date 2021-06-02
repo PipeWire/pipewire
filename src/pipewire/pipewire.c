@@ -221,8 +221,7 @@ static void configure_debug(struct support *support, const char *str)
 	if (n_tokens > 1)
 		support->categories = pw_split_strv(level[1], ",", INT_MAX, &n_tokens);
 
-	if (level)
-		pw_free_strv(level);
+	pw_free_strv(level);
 }
 
 SPA_EXPORT
@@ -564,8 +563,7 @@ void pw_deinit(void)
 			unref_handle(h);
 		unref_plugin(p);
 	}
-	if (support->categories)
-		pw_free_strv(support->categories);
+	pw_free_strv(support->categories);
 	free(support->i18n_domain);
 	spa_zero(global_support);
 	spa_zero(global_registry);

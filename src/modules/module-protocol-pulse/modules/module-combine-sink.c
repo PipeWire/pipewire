@@ -384,8 +384,7 @@ static int module_combine_sink_unload(struct client *client, struct module *modu
 		pw_manager_destroy(d->manager);
 	if (d->core != NULL)
 		pw_core_disconnect(d->core);
-	if (d->sink_names)
-		pw_free_strv(d->sink_names);
+	pw_free_strv(d->sink_names);
 	free(d->sink_name);
 
 	return 0;
@@ -462,8 +461,7 @@ struct module *create_module_combine_sink(struct impl *impl, const char *argumen
 	return module;
 out:
 	pw_properties_free(props);
-	if (sink_names)
-		pw_free_strv(sink_names);
+	pw_free_strv(sink_names);
 	errno = -res;
 
 	return NULL;

@@ -99,6 +99,10 @@ SPA_EXPORT
 void pw_free_strv(char **str)
 {
 	int i;
+
+	if (str == NULL)
+		return;
+
 	for (i = 0; str[i]; i++)
 		free(str[i]);
 	free(str);

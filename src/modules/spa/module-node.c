@@ -119,7 +119,6 @@ error_arguments:
 	pw_log_error("usage: module-spa-node " MODULE_USAGE);
 	goto error_exit_cleanup;
 error_exit_cleanup:
-	if (argv)
-		pw_free_strv(argv);
+	pw_free_strv(argv);
 	return res;
 }

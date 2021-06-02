@@ -42,7 +42,7 @@ pipewire_module_echo_cancel_sources = [
 
 if webrtc_dep.found()
   pipewire_module_echo_cancel_sources += [
-    'module-echo-cancel/aec-webrtc.cc'
+    'module-echo-cancel/aec-webrtc.cpp'
   ]
 endif
 

@@ -237,7 +237,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		conf_name = pw_properties_get(properties, PW_KEY_CONFIG_NAME);
 		if (try_load_conf(this, conf_prefix, conf_name, conf) < 0) {
 			conf_name = "client.conf";
-			if (try_load_conf(this, conf_prefix, conf_name, conf) < 0) {
+			if ((res = try_load_conf(this, conf_prefix, conf_name, conf)) < 0) {
 				pw_log_error(NAME" %p: can't load config %s: %s",
 					this, conf_name, spa_strerror(res));
 				goto error_free;

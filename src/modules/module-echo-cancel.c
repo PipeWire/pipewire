@@ -247,10 +247,18 @@ static void capture_process(void *data)
 
 	avail = spa_ringbuffer_get_write_index(&impl->rec_ring, &index);
 	size = buf->buffer->datas[0].chunk->size;
-	if (avail + size >= impl->rec_ringsize) {
-		pw_log_warn("capture ringbuffer xrun %d + %u > %u",
-				avail, size, impl->rec_ringsize);
-		/* FIXME: drop what we overwrite */
+	if (avail + size > impl->rec_ringsize) {
+		uint32_t rindex, drop;
+
+		/* Drop enough so we have size bytes left */
+		drop = avail + size - impl->rec_ringsize;
+		pw_log_debug("capture ringbuffer xrun %d + %u > %u, dropping %u",
+				avail, size, impl->rec_ringsize, drop);
+
+		spa_ringbuffer_get_read_index(&impl->rec_ring, &rindex);
+		spa_ringbuffer_read_update(&impl->rec_ring, rindex + drop);
+
+		avail += drop;
 	}
 
 	/* If we don't know what size to push yet, keep the block size the same
@@ -393,10 +401,18 @@ static void sink_process(void *data)
 
 	avail = spa_ringbuffer_get_write_index(&impl->play_ring, &index);
 	size = buf->buffer->datas[0].chunk->size;
-	if (avail + size >= impl->play_ringsize) {
-		pw_log_warn("sink ringbuffer xrun %d + %u > %u",
-				avail, size, impl->play_ringsize);
-		/* FIXME: drop what we overwrite */
+	if (avail + size > impl->play_ringsize) {
+		uint32_t rindex, drop;
+
+		/* Drop enough so we have size bytes left */
+		drop = avail + size - impl->play_ringsize;
+		pw_log_debug("sink ringbuffer xrun %d + %u > %u, dropping %u",
+				avail, size, impl->play_ringsize, drop);
+
+		spa_ringbuffer_get_read_index(&impl->play_ring, &rindex);
+		spa_ringbuffer_read_update(&impl->play_ring, rindex + drop);
+
+		avail += drop;
 	}
 
 	/* If we don't know what size to push yet, keep the block size the same

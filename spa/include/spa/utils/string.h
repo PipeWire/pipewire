@@ -65,7 +65,7 @@ static inline bool spa_strneq(const char *s1, const char *s2, size_t len)
  * Convert \a str to an int32_t with the given \a base and store the
  * result in \a val.
  *
- * On failure, the value of \a val is undefined.
+ * On failure, the value of \a val is unmodified.
  *
  * \return true on success, false otherwise
  */

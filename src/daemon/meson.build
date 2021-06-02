@@ -10,6 +10,7 @@ pipewire_c_args = [
 
 conf_config = configuration_data()
 conf_config.set('VERSION', '"@0@"'.format(pipewire_version))
+conf_config.set('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
 conf_config.set('media_session_path', pipewire_bindir / 'pipewire-media-session')
 conf_config.set('pipewire_path', pipewire_bindir / 'pipewire')
 conf_config.set('pipewire_pulse_path', pipewire_bindir / 'pipewire-pulse')

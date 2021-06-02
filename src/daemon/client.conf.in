@@ -1,4 +1,7 @@
 # Client config file for PipeWire version @VERSION@ #
+#
+# Copy and edit this file in @PIPEWIRE_CONFIG_DIR@ for systemwide changes
+# or in ~/.config/pipewire for local changes.
 
 context.properties = {
     ## Configure properties in the system.

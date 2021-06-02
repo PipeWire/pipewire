@@ -33,6 +33,7 @@ extern "C" {
 #include <math.h>
 
 #include <alsa/asoundlib.h>
+#include <alsa/use-case.h>
 
 #include <spa/support/plugin.h>
 #include <spa/support/loop.h>
@@ -194,6 +195,8 @@ struct state {
 	double max_error;
 
 	struct spa_latency_info latency;
+
+	snd_use_case_mgr_t *ucm;
 };
 
 int
@@ -202,6 +205,9 @@ spa_alsa_enum_format(struct state *state, int seq,
 		     const struct spa_pod *filter);
 
 int spa_alsa_set_format(struct state *state, struct spa_audio_info *info, uint32_t flags);
+
+int spa_alsa_init(struct state *state);
+int spa_alsa_clear(struct state *state);
 
 int spa_alsa_open(struct state *state);
 int spa_alsa_start(struct state *state);

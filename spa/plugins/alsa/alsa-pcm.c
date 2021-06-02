@@ -15,6 +15,29 @@
 
 #include "alsa-pcm.h"
 
+int spa_alsa_init(struct state *state)
+{
+	int err;
+
+	snd_config_update_free_global();
+
+	if (strncmp(state->props.device, "_ucm", 4) == 0 &&
+	    strlen(state->props.device) >= 12 &&
+	    state->props.device[8] == '.') {
+		if ((err = snd_use_case_mgr_open(&state->ucm, &state->props.device[9])) < 0)
+			return err;
+	}
+	return 0;
+}
+
+int spa_alsa_clear(struct state *state)
+{
+	if (state->ucm)
+		snd_use_case_mgr_close(state->ucm);
+	state->ucm = NULL;
+	return 0;
+}
+
 #define CHECK(s,msg,...) if ((err = (s)) < 0) { spa_log_error(state->log, msg ": %s", ##__VA_ARGS__, snd_strerror(err)); return err; }
 
 int spa_alsa_open(struct state *state)

@@ -724,6 +724,7 @@ static int impl_clear(struct spa_handle *handle)
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 	this = (struct state *) handle;
 	spa_alsa_close(this);
+	spa_alsa_clear(this);
 	return 0;
 }
 
@@ -805,8 +806,6 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_list_init(&this->ready);
 
-	snd_config_update_free_global();
-
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
@@ -834,7 +833,8 @@ impl_init(const struct spa_handle_factory *factory,
 			this->props.use_chmap = spa_atob(s);
 		}
 	}
-	return 0;
+
+	return spa_alsa_init(this);
 }
 
 static const struct spa_interface_info impl_interfaces[] = {

@@ -276,20 +276,16 @@ static void put_double(struct data *d, const char *key, double val)
 
 static void put_value(struct data *d, const char *key, const char *val)
 {
-	char *end;
-	long int li;
+	int64_t li;
 	double dv;
 
 	if (val == NULL)
 		put_literal(d, key, "null");
-	else if (spa_streq(val, "true") ||
-	    spa_streq(val, "false"))
+	else if (spa_streq(val, "true") || spa_streq(val, "false"))
 		put_literal(d, key, val);
-	else if ((li = strtol(val, &end, 10)) != LONG_MIN &&
-	    errno != -ERANGE && *end == '\0')
+	else if (spa_atoi64(val, &li, 10))
 		put_int(d, key, li);
-	else if ((dv = strtod(val, &end)) != HUGE_VAL &&
-	    errno != -ERANGE && *end == '\0')
+	else if (spa_atod(val, &dv))
 		put_double(d, key, dv);
 	else
 		put_string(d, key, val);
@@ -1461,10 +1457,11 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 	}
-	if (optind < argc)
-		data.id = atoi(argv[optind++]);
-	else
-		data.id = SPA_ID_INVALID;
+
+	data.id = SPA_ID_INVALID;
+	if (optind < argc) {
+		spa_atou32(argv[optind++], &data.id, 0);
+	}
 
 	data.loop = pw_main_loop_new(NULL);
 	if (data.loop == NULL) {

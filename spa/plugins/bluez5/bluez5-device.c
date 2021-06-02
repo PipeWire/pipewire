@@ -238,7 +238,7 @@ static void transport_destroy(void *userdata)
 	node->transport = NULL;
 }
 
-static void emit_volume(struct impl *this, struct node *node)
+static void emit_node_props(struct impl *this, struct node *node, bool full)
 {
 	struct spa_event *event;
 	uint8_t buffer[4096];
@@ -259,9 +259,21 @@ static void emit_volume(struct impl *this, struct node *node)
 				SPA_TYPE_Float, node->n_channels, node->soft_volumes),
 			SPA_PROP_channelMap, SPA_POD_Array(sizeof(uint32_t),
 				SPA_TYPE_Id, node->n_channels, node->channels));
+	if (full) {
+		spa_pod_builder_add(&b,
+			SPA_PROP_mute, SPA_POD_Bool(node->mute),
+			SPA_PROP_softMute, SPA_POD_Bool(node->mute),
+			SPA_PROP_latencyOffsetNsec, SPA_POD_Long(node->latency_offset),
+			0);
+	}
 	event = spa_pod_builder_pop(&b, &f[0]);
 
 	spa_device_emit_event(&this->hooks, event);
+}
+
+static void emit_volume(struct impl *this, struct node *node)
+{
+	emit_node_props(this, node, false);
 }
 
 static void emit_info(struct impl *this, bool full);
@@ -379,6 +391,8 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 			spa_hook_remove(&this->nodes[id].transport_listener);
 		this->nodes[id].transport = t;
 		spa_bt_transport_add_listener(t, &this->nodes[id].transport_listener, &transport_events, &this->nodes[id]);
+
+		emit_node_props(this, &this->nodes[id], true);
 	}
 }
 

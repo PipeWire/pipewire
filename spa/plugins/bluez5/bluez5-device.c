@@ -155,8 +155,10 @@ static void init_node(struct impl *this, struct node *node, uint32_t id)
 
 	spa_zero(*node);
 	node->id = id;
-	for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
-		node->volumes[i] = 1.0;
+	for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++) {
+		node->volumes[i] = 1.0f;
+		node->soft_volumes[i] = 1.0f;
+	}
 }
 
 static const struct a2dp_codec *get_a2dp_codec(enum spa_bluetooth_audio_codec id)

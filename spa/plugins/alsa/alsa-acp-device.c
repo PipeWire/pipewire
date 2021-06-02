@@ -149,7 +149,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	const struct acp_dict_item *it;
 	uint32_t n_items, i;
 	char device_name[128], path[180], channels[16], ch[12], routes[16];
-	char card_id[16], *p;
+	char card_index[16], *p;
 	char positions[SPA_AUDIO_MAX_CHANNELS * 12];
 	struct spa_device_object_info info;
 	struct acp_card *card = this->card;
@@ -168,10 +168,10 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 
-	n_items = dev->props.n_items + 7;
-	items = alloca(n_items * sizeof(*items));
+	items = alloca((dev->props.n_items + 8) * sizeof(*items));
+	n_items = 0;
 
-	snprintf(card_id, sizeof(card), "%d", card->index);
+	snprintf(card_index, sizeof(card_index), "%d", card->index);
 
 	devstr = dev->device_strings[0];
 	p = strstr(devstr, "%f");
@@ -182,25 +182,27 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	} else {
 		snprintf(device_name, sizeof(device_name), "%s", devstr);
 	}
-	snprintf(path, sizeof(path), "alsa:pcm:%s:%s:%s", card_id, device_name, stream);
-	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_OBJECT_PATH,	       path);
-	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH,           device_name);
-	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_CARD,       card_id);
-	items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_STREAM,     stream);
+	snprintf(path, sizeof(path), "alsa:pcm:%s:%s:%s", card_index, device_name, stream);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_OBJECT_PATH, path);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PATH, device_name);
+	if (dev->flags & ACP_DEVICE_UCM_DEVICE)
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_OPEN_UCM, "true");
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_CARD, card_index);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_STREAM, stream);
 
 	snprintf(channels, sizeof(channels), "%d", dev->format.channels);
-	items[4] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_CHANNELS, channels);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_CHANNELS, channels);
 
 	p = positions;
 	for (i = 0; i < dev->format.channels; i++) {
 		p += snprintf(p, 12, "%s%s", i == 0 ? "" : ",",
 				acp_channel_str(ch, sizeof(ch), dev->format.map[i]));
 	}
-	items[5] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_POSITION, positions);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_POSITION, positions);
 
 	snprintf(routes, sizeof(routes), "%d", dev->n_ports);
-	items[6] = SPA_DICT_ITEM_INIT("device.routes", routes);
-	n_items = 7;
+	items[n_items++] = SPA_DICT_ITEM_INIT("device.routes", routes);
+
 	acp_dict_for_each(it, &dev->props)
 		items[n_items++] = SPA_DICT_ITEM_INIT(it->key, it->value);
 

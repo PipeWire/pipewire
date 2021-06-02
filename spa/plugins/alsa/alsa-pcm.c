@@ -21,11 +21,28 @@ int spa_alsa_init(struct state *state)
 
 	snd_config_update_free_global();
 
-	if (strncmp(state->props.device, "_ucm", 4) == 0 &&
-	    strlen(state->props.device) >= 12 &&
-	    state->props.device[8] == '.') {
-		if ((err = snd_use_case_mgr_open(&state->ucm, &state->props.device[9])) < 0)
+	if (state->open_ucm) {
+		char card_name[64];
+
+		snprintf(card_name, sizeof(card_name), "hw:%i", state->card_index);
+		err = snd_use_case_mgr_open(&state->ucm, card_name);
+		if (err < 0) {
+			char *name;
+			err = snd_card_get_name(state->card_index, &name);
+			if (err < 0) {
+				spa_log_error(state->log,
+						"can't get card name from index %d",
+						state->card_index);
+				return err;
+			}
+			snprintf(card_name, sizeof(card_name), "%s", name);
+			free(name);
+		}
+		err = snd_use_case_mgr_open(&state->ucm, card_name);
+		if (err < 0) {
+			spa_log_error(state->log, "UCM not available for card %s", card_name);
 			return err;
+		}
 	}
 	return 0;
 }

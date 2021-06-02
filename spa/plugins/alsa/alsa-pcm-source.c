@@ -829,6 +829,10 @@ impl_init(const struct spa_handle_factory *factory,
 		const char *s = info->items[i].value;
 		if (spa_streq(k, SPA_KEY_API_ALSA_PATH)) {
 			snprintf(this->props.device, 63, "%s", s);
+		} else if (spa_streq(k, SPA_KEY_API_ALSA_PCM_CARD)) {
+			this->card_index = atoi(s);
+		} else if (spa_streq(k, SPA_KEY_API_ALSA_OPEN_UCM)) {
+			this->open_ucm = spa_atob(s);
 		} else if (spa_streq(k, SPA_KEY_AUDIO_CHANNELS)) {
 			this->default_channels = atoi(s);
 		} else if (spa_streq(k, SPA_KEY_AUDIO_RATE)) {

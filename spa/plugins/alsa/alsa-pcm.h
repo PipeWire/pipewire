@@ -95,6 +95,7 @@ struct state {
 	struct spa_system *data_system;
 	struct spa_loop *data_loop;
 
+	int card_index;
 	snd_pcm_stream_t stream;
 	snd_output_t *output;
 
@@ -181,6 +182,7 @@ struct state {
 	unsigned int use_mmap:1;
 	unsigned int planar:1;
 	unsigned int freewheel:1;
+	unsigned int open_ucm:1;
 
 	int64_t sample_count;
 

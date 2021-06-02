@@ -204,6 +204,7 @@ struct acp_device {
 #define ACP_DEVICE_ACTIVE	(1<<0)
 #define ACP_DEVICE_HW_VOLUME	(1<<1)
 #define ACP_DEVICE_HW_MUTE	(1<<2)
+#define ACP_DEVICE_UCM_DEVICE	(1<<3)
 	uint32_t flags;
 
 	const char *name;

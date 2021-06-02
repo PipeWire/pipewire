@@ -241,8 +241,20 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 
 	dev->ports = pa_hashmap_new(pa_idxset_string_hash_func,
 			pa_idxset_string_compare_func);
-	if (m->ucm_context.ucm)
+	if (m->ucm_context.ucm) {
+		const char *alibpref;
 		dev->ucm_context = &m->ucm_context;
+		if ((snd_use_case_get(impl->ucm.ucm_mgr, "_alibpref", &alibpref) == 0)) {
+			char **d;
+			for (d = m->device_strings; *d; d++) {
+				if (pa_startswith(*d, alibpref)) {
+					dev->device.flags |= ACP_DEVICE_UCM_DEVICE;
+					break;
+				}
+			}
+			free((void*)alibpref);
+		}
+	}
 	pa_dynarray_init(&dev->port_array, NULL);
 }
 

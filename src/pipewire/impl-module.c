@@ -51,7 +51,7 @@ struct impl {
 
 /** \endcond */
 
-static char *find_module(const char *path, const char *name)
+static char *find_module(const char *path, const char *name, int level)
 {
 	char *filename;
 	struct dirent *entry;
@@ -72,6 +72,8 @@ static char *find_module(const char *path, const char *name)
 	filename = NULL;
 
 	/* now recurse down in subdirectories and look for it there */
+	if (level <= 0)
+		return NULL;
 
 	dir = opendir(path);
 	if (dir == NULL) {
@@ -91,9 +93,9 @@ static char *find_module(const char *path, const char *name)
 		if (newpath == NULL)
 			break;
 
-		if (stat(newpath, &s) == 0 && S_ISDIR(s.st_mode)) {
-			filename = find_module(newpath, name);
-		}
+		if (stat(newpath, &s) == 0 && S_ISDIR(s.st_mode))
+			filename = find_module(newpath, name, level - 1);
+
 		free(newpath);
 
 		if (filename != NULL)
@@ -176,7 +178,7 @@ pw_context_load_module(struct pw_context *context,
 		pw_log_debug("PIPEWIRE_MODULE_DIR set to: %s", module_dir);
 	}
 
-	filename = find_module(module_dir, name);
+	filename = find_module(module_dir, name, 8);
 	if (filename == NULL)
 		goto error_not_found;
 

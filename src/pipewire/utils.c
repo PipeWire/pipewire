@@ -44,13 +44,12 @@ const char *pw_split_walk(const char *str, const char *delimiter, size_t * len, 
 {
 	const char *s = *state ? *state : str;
 
+	s += strspn(s, delimiter);
 	if (*s == '\0')
 		return NULL;
 
 	*len = strcspn(s, delimiter);
-
 	*state = s + *len;
-	*state += strspn(*state, delimiter);
 
 	return s;
 }

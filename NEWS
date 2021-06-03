@@ -1,3 +1,67 @@
+# PipeWire 0.3.29
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+## Highlights
+  - Latency reporting is now implemented.
+  - Many documentation updates and cleanups.
+  - module-combine-sink was added to PulseAudio server.
+  - Better handling of multichannel input profiles.
+  - Fix 100% volume issue when monitor suspends or profile
+    changes in some cases.
+  - Bugfixes and crashes
+
+
+## PipeWire
+  - A new module-rt was added to acquire real-time scheduling
+    priviledges without using RTKit.
+  - Documentation fixes and updates. Docs are now using a
+    custom theme.
+  - There is now a MANDATORY flag on properties that influence
+    how properties are filtered.
+  - Filter-chain now parses the LADSPA_PATH correctly when it
+    contains a colon separated list.
+  - Move `#pipewire` IRC channel to oftc.net.
+  - Fix an error where param changes were not emited in all
+    cases.
+  - Implement Latency reporting. Latency values are propagated
+    through the graph so that each node knows the latency to
+    the output/input device. Synchronization in pw-stream has
+    been updated to use this.
+  - Some more upmix cases are added so that LFE, SIDE and REAR
+    can be generated from a mono channel as well.
+  - pw-stream and pw-filter will now emit the process event from
+    the real-time thread in a safe way, potentially avoiding some
+    of the harder to debug crashes.
+  - Fix potential stack overflow with serialize_dict.
+  - Add PIPEWIRE_NO_CONFIG to run without custom config files.
+  - The WebRTC echo canceler was added. Next versions will
+    integrate this better.
+
+## PulseAudio server
+  - module-combine-sink was implemented.
+  - Fix some segfaults when DBus connections fail.
+  - Support for listening on IPv6 was added.
+  - Fix a bug where many flushes could result in requests for too
+    much data from the client, causing sync, latency and garbled
+    sound problems after many seeks.
+
+## ALSA
+  - Also probe input paths for multichannel mappings. This makes
+    multichannel input ports show up in more cases.
+  - Fix headphones/front volume issue on some cards.
+  - Fix max volume issue when profile changes.
+  - Fix issue with UCM local config that was not available when the
+    device was opened in the server but the UCM was opened by the
+    session manager. Fixes alsa 1.2.5 compatibility.
+
+## JACK
+  - Implement latency reporting with the new Latency params.
+
+
+Older versions:
+
 # PipeWire 0.3.28
 
 This is a bugfix release that is API and ABI compatible
@@ -57,9 +121,6 @@ with previous 0.3.x releases.
 
 ## ALSA plugin
   - improve error handling
-
-
-Older versions:
 
 PipeWire 0.3.27
 

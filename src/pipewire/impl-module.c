@@ -168,25 +168,15 @@ pw_context_load_module(struct pw_context *context,
 	pw_impl_module_init_func_t init_func;
 
 	module_dir = getenv("PIPEWIRE_MODULE_DIR");
-	if (module_dir != NULL) {
-		char **l;
-		int i, n_paths;
-
+	if (module_dir == NULL) {
+		module_dir = MODULEDIR;
+		pw_log_debug("moduledir set to: %s", module_dir);
+	}
+	else {
 		pw_log_debug("PIPEWIRE_MODULE_DIR set to: %s", module_dir);
-
-		l = pw_split_strv(module_dir, "/", 0, &n_paths);
-		for (i = 0; l[i] != NULL; i++) {
-			filename = find_module(l[i], name);
-			if (filename != NULL)
-				break;
-		}
-		pw_free_strv(l);
-	} else {
-		pw_log_debug("moduledir set to: %s", MODULEDIR);
-
-		filename = find_module(MODULEDIR, name);
 	}
 
+	filename = find_module(module_dir, name);
 	if (filename == NULL)
 		goto error_not_found;
 

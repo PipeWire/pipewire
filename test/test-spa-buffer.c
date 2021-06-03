@@ -22,57 +22,64 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "pwtest.h"
+
 #include <spa/buffer/alloc.h>
 #include <spa/buffer/buffer.h>
 #include <spa/buffer/meta.h>
 
-static void test_abi(void)
+PWTEST(buffer_abi_types)
 {
 	/* buffer */
-	spa_assert(SPA_DATA_Invalid == 0);
-	spa_assert(SPA_DATA_MemPtr == 1);
-	spa_assert(SPA_DATA_MemFd == 2);
-	spa_assert(SPA_DATA_DmaBuf == 3);
-	spa_assert(SPA_DATA_MemId == 4);
-	spa_assert(_SPA_DATA_LAST == 5);
+	pwtest_int_eq(SPA_DATA_Invalid, 0);
+	pwtest_int_eq(SPA_DATA_MemPtr, 1);
+	pwtest_int_eq(SPA_DATA_MemFd, 2);
+	pwtest_int_eq(SPA_DATA_DmaBuf, 3);
+	pwtest_int_eq(SPA_DATA_MemId, 4);
+	pwtest_int_eq(_SPA_DATA_LAST, 5);
 
+	/* meta */
+	pwtest_int_eq(SPA_META_Invalid, 0);
+	pwtest_int_eq(SPA_META_Header, 1);
+	pwtest_int_eq(SPA_META_VideoCrop, 2);
+	pwtest_int_eq(SPA_META_VideoDamage, 3);
+	pwtest_int_eq(SPA_META_Bitmap, 4);
+	pwtest_int_eq(SPA_META_Cursor, 5);
+	pwtest_int_eq(SPA_META_Control, 6);
+	pwtest_int_eq(SPA_META_Busy, 7);
+	pwtest_int_eq(_SPA_META_LAST, 8);
+
+	return PWTEST_PASS;
+}
+
+PWTEST(buffer_abi_sizes)
+{
 #if defined(__x86_64__) && defined(__LP64__)
-	spa_assert(sizeof(struct spa_chunk) == 16);
-	spa_assert(sizeof(struct spa_data) == 40);
-	spa_assert(sizeof(struct spa_buffer) == 24);
+	pwtest_int_eq(sizeof(struct spa_chunk), 16U);
+	pwtest_int_eq(sizeof(struct spa_data), 40U);
+	pwtest_int_eq(sizeof(struct spa_buffer), 24U);
+
+	pwtest_int_eq(sizeof(struct spa_meta), 16U);
+	pwtest_int_eq(sizeof(struct spa_meta_header), 32U);
+	pwtest_int_eq(sizeof(struct spa_meta_region), 16U);
+	pwtest_int_eq(sizeof(struct spa_meta_bitmap), 20U);
+	pwtest_int_eq(sizeof(struct spa_meta_cursor), 28U);
+
+	return PWTEST_PASS;
 #else
 	fprintf(stderr, "%zd\n", sizeof(struct spa_chunk));
 	fprintf(stderr, "%zd\n", sizeof(struct spa_data));
 	fprintf(stderr, "%zd\n", sizeof(struct spa_buffer));
-#endif
-
-	/* meta */
-	spa_assert(SPA_META_Invalid == 0);
-	spa_assert(SPA_META_Header == 1);
-	spa_assert(SPA_META_VideoCrop == 2);
-	spa_assert(SPA_META_VideoDamage == 3);
-	spa_assert(SPA_META_Bitmap == 4);
-	spa_assert(SPA_META_Cursor == 5);
-	spa_assert(SPA_META_Control == 6);
-	spa_assert(SPA_META_Busy == 7);
-	spa_assert(_SPA_META_LAST == 8);
-
-#if defined(__x86_64__) && defined(__LP64__)
-	spa_assert(sizeof(struct spa_meta) == 16);
-	spa_assert(sizeof(struct spa_meta_header) == 32);
-	spa_assert(sizeof(struct spa_meta_region) == 16);
-	spa_assert(sizeof(struct spa_meta_bitmap) == 20);
-	spa_assert(sizeof(struct spa_meta_cursor) == 28);
-#else
 	fprintf(stderr, "%zd\n", sizeof(struct spa_meta));
 	fprintf(stderr, "%zd\n", sizeof(struct spa_meta_header));
 	fprintf(stderr, "%zd\n", sizeof(struct spa_meta_region));
 	fprintf(stderr, "%zd\n", sizeof(struct spa_meta_bitmap));
 	fprintf(stderr, "%zd\n", sizeof(struct spa_meta_cursor));
+	return PWTEST_SKIP;
 #endif
 }
 
-static void test_alloc(void)
+PWTEST(buffer_alloc)
 {
 	struct spa_buffer **buffers;
 	struct spa_meta metas[4];
@@ -107,29 +114,34 @@ static void test_alloc(void)
 		struct spa_buffer *b = buffers[i];
 		fprintf(stderr, "buffer %d %p\n", i, b);
 
-		spa_assert(b->n_metas == SPA_N_ELEMENTS(metas));
-		spa_assert(b->n_datas == SPA_N_ELEMENTS(datas));
+		pwtest_int_eq(b->n_metas, SPA_N_ELEMENTS(metas));
+		pwtest_int_eq(b->n_datas, SPA_N_ELEMENTS(datas));
 
 		for (j = 0; j < SPA_N_ELEMENTS(metas); j++) {
-			spa_assert(b->metas[j].type == metas[j].type);
-			spa_assert(b->metas[j].size == metas[j].size);
+			pwtest_int_eq(b->metas[j].type, metas[j].type);
+			pwtest_int_eq(b->metas[j].size, metas[j].size);
 			fprintf(stderr, " meta %d %p\n", j, b->metas[j].data);
-			spa_assert(SPA_IS_ALIGNED(b->metas[j].data, 8));
+			pwtest_bool_true(SPA_IS_ALIGNED(b->metas[j].data, 8));
 		}
 
 		for (j = 0; j < SPA_N_ELEMENTS(datas); j++) {
-			spa_assert(b->datas[j].maxsize == datas[j].maxsize);
+			pwtest_int_eq(b->datas[j].maxsize, datas[j].maxsize);
 			fprintf(stderr, " data %d %p %p\n", j, b->datas[j].chunk, b->datas[j].data);
-			spa_assert(SPA_IS_ALIGNED(b->datas[j].chunk, 8));
-			spa_assert(SPA_IS_ALIGNED(b->datas[j].data, aligns[j]));
+			pwtest_bool_true(SPA_IS_ALIGNED(b->datas[j].chunk, 8));
+			pwtest_bool_true(SPA_IS_ALIGNED(b->datas[j].data, aligns[j]));
 		}
 	}
 	free(buffers);
+
+	return PWTEST_PASS;
 }
 
-int main(int argc, char *argv[])
+PWTEST_SUITE(spa_buffer)
 {
-	test_abi();
-	test_alloc();
-	return 0;
+	pwtest_add(buffer_abi_types, PWTEST_NOARG);
+	pwtest_add(buffer_abi_sizes, PWTEST_NOARG);
+	pwtest_add(buffer_alloc, PWTEST_NOARG);
+
+	return PWTEST_PASS;
 }
+

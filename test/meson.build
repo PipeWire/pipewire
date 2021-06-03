@@ -51,3 +51,11 @@ test('test lib',
                include_directories: pwtest_inc,
                link_with: pwtest_lib)
 )
+
+test('test spa',
+    executable('test-spa',
+               'test-spa-buffer.c',
+               'test-spa-json.c',
+               include_directories: pwtest_inc,
+               link_with: pwtest_lib)
+)

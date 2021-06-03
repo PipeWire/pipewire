@@ -100,13 +100,13 @@ static inline bool spa_atoi32(const char *str, int32_t *val, int base)
 static inline bool spa_atou32(const char *str, uint32_t *val, int base)
 {
 	char *endptr;
-	unsigned long v;
+	unsigned long long v;
 
 	if (!str || *str =='\0')
 		return false;
 
 	errno = 0;
-	v = strtoul(str, &endptr, base);
+	v = strtoull(str, &endptr, base);
 	if (errno != 0 || *endptr != '\0')
 		return false;
 

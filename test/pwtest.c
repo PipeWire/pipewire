@@ -145,7 +145,10 @@ static void replace_env(struct pwtest_test *t, const char *prop, const char *val
 	const char *oldval = getenv(prop);
 
 	pw_properties_set(t->env, prop, oldval ? oldval : "pwtest-null");
-	setenv(prop, value, 1);
+	if (value)
+		setenv(prop, value, 1);
+	else
+		unsetenv(prop);
 }
 
 static void restore_env(struct pwtest_test *t)
@@ -780,6 +783,8 @@ static void run_test(struct pwtest_context *ctx, struct pwtest_suite *c, struct 
 			errno = -pw_daemon;
 			goto error;
 		}
+	} else {
+		replace_env(t, "PIPEWIRE_REMOTE", "test-has-no-daemon");
 	}
 
 	if (ctx->no_fork) {

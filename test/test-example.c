@@ -185,6 +185,8 @@ PWTEST(default_env_test)
 {
 	/* This one is set automatically */
 	pwtest_str_eq(getenv("PWTEST"), "1");
+	/* Default value */
+	pwtest_str_eq(getenv("PIPEWIRE_REMOTE"), "test-has-no-daemon");
 
 	return PWTEST_PASS;
 }

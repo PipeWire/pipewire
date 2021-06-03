@@ -243,7 +243,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	return 0;
 
 error:
+	pw_properties_free(props);
 	free(impl);
-
 	return res;
 }

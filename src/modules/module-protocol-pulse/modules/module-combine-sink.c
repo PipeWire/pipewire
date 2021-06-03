@@ -402,7 +402,7 @@ struct module *create_module_combine_sink(struct impl *impl, const char *argumen
 	struct module_combine_sink_data *d;
 	struct pw_properties *props = NULL;
 	const char *str;
-	char *sink_name, **sink_names = NULL;
+	char *sink_name = NULL, **sink_names = NULL;
 	struct spa_audio_info_raw info = { 0 };
 	int i, n, res;
 
@@ -461,8 +461,8 @@ struct module *create_module_combine_sink(struct impl *impl, const char *argumen
 	return module;
 out:
 	pw_properties_free(props);
+	free(sink_name);
 	pw_free_strv(sink_names);
 	errno = -res;
-
 	return NULL;
 }

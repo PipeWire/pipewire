@@ -2301,7 +2301,7 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 	reply = reply_new(client, tag);
 	message_put(reply,
 		TAG_USEC, stream->delay,	/* sink latency + queued samples */
-		TAG_USEC, 0,			/* always 0 */
+		TAG_USEC, 0LL,			/* always 0 */
 		TAG_BOOLEAN, stream->playing_for > 0 &&
 				!stream->corked,	/* playing state */
 		TAG_TIMEVAL, &tv,
@@ -2342,7 +2342,7 @@ static int do_get_record_latency(struct client *client, uint32_t command, uint32
 	gettimeofday(&now, NULL);
 	reply = reply_new(client, tag);
 	message_put(reply,
-		TAG_USEC, 0,			/* monitor latency */
+		TAG_USEC, 0LL,			/* monitor latency */
 		TAG_USEC, stream->delay,	/* source latency + queued */
 		TAG_BOOLEAN, !stream->corked,	/* playing state */
 		TAG_TIMEVAL, &tv,
@@ -4668,7 +4668,7 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 			TAG_INVALID);
 		if (client->version >= 13) {
 			message_put(reply,
-				TAG_USEC, 0,		/* configured_sink_latency */
+				TAG_USEC, 0LL,		/* configured_sink_latency */
 				TAG_INVALID);
 		}
 	} else {
@@ -4678,7 +4678,7 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 			TAG_INVALID);
 		if (client->version >= 13) {
 			message_put(reply,
-				TAG_USEC, 0,		/* configured_source_latency */
+				TAG_USEC, 0LL,		/* configured_source_latency */
 				TAG_INVALID);
 		}
 	}

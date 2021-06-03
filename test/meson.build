@@ -59,3 +59,16 @@ test('test spa',
                include_directories: pwtest_inc,
                link_with: pwtest_lib)
 )
+
+valgrind = find_program('valgrind', required: false)
+if valgrind.found()
+  valgrind_env = environment()
+  add_test_setup('valgrind',
+                 exe_wrapper : [ valgrind,
+                   '--leak-check=full',
+                   '--gen-suppressions=all',
+                   '--error-exitcode=3',
+                   ],
+                 env :  valgrind_env,
+                 timeout_multiplier : 100)
+endif

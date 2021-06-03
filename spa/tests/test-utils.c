@@ -139,6 +139,10 @@ static void test_abi(void)
 static void test_macros(void)
 {
 	uint8_t ptr[64];
+	uint16_t i16[14];
+	uint32_t i32[10];
+	uint64_t i64[12];
+	unsigned char c[16];
 
 	spa_assert(SPA_MIN(1, 2) == 1);
 	spa_assert(SPA_MIN(1, -2) == -2);
@@ -155,6 +159,27 @@ static void test_macros(void)
 	spa_assert(SPA_MEMBER(ptr, 0, void) == SPA_PTROFF(ptr, 0, void));
 	spa_assert(SPA_MEMBER_ALIGN(ptr, 0, 4, void) == SPA_PTROFF_ALIGN(ptr, 0, 4, void));
 	spa_assert(SPA_MEMBER_ALIGN(ptr, 4, 32, void) == SPA_PTROFF_ALIGN(ptr, 4, 32, void));
+
+	spa_assert(SPA_N_ELEMENTS(ptr) == 64);
+	spa_assert(SPA_N_ELEMENTS(i32) == 10);
+	spa_assert(SPA_N_ELEMENTS(i64) == 12);
+	spa_assert(SPA_N_ELEMENTS(i16) == 14);
+	spa_assert(SPA_N_ELEMENTS(c) == 16);
+
+#define check_traversal(array_) \
+	{ \
+		__typeof__(array_[0]) *it; \
+		int count = 0; \
+		SPA_FOR_EACH_ELEMENT(array_, it) \
+			*it = count++; \
+		for (size_t i = 0; i < SPA_N_ELEMENTS(array_); i++) \
+			spa_assert(array_[i] == i); \
+	}
+	check_traversal(ptr);
+	check_traversal(i64);
+	check_traversal(i32);
+	check_traversal(i16);
+	check_traversal(c);
 }
 
 static void test_result(void)

@@ -106,6 +106,18 @@ struct spa_fraction {
 };
 
 #define SPA_N_ELEMENTS(arr)  (sizeof(arr) / sizeof((arr)[0]))
+/**
+ * Array iterator macro. Usage:
+ * ```c
+ * struct foo *array[16];
+ * struct foo *f;
+ * SPA_FOR_EACH_ELEMENT(array, f) {
+ *	f->bar = baz;
+ * }
+ * ```
+ */
+#define SPA_FOR_EACH_ELEMENT(arr, ptr) \
+	for (ptr = arr; (void*)ptr < SPA_PTROFF(arr, sizeof(arr), void); ptr++)
 
 #define SPA_MIN(a,b)		\
 ({				\

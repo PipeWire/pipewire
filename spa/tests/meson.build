@@ -31,22 +31,11 @@ foreach a : test_apps
 endforeach
 
 if have_cpp
-test_cpp = executable('spa-test-cpp', 'test-cpp.cpp',
-                        include_directories : [spa_inc ],
-                        dependencies : [],
-                        install : installed_tests_enabled,
-                        install_dir : installed_tests_execdir)
-test('spa-test-cpp', test_cpp)
-if installed_tests_enabled
-  test_conf = configuration_data()
-  test_conf.set('exec', installed_tests_execdir / 'spa-test-cpp')
-  configure_file(
-    input: installed_tests_template,
-    output: 'spa-test-cpp.test',
-    install_dir: installed_tests_metadir,
-    configuration: test_conf
-  )
-endif
+  # compilation test only
+  executable('spa-test-cpp', 'test-cpp.cpp',
+             include_directories : [spa_inc ],
+             dependencies : [],
+             install : false)
 endif
 
 benchmark_apps = [

@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
+#include <ftw.h>
 #include <getopt.h>
 #include <limits.h>
 #include <stdarg.h>
@@ -39,8 +40,10 @@
 #include <syscall.h>
 #include <sys/epoll.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include <sys/timerfd.h>
 #include <sys/wait.h>
+#include <time.h>
 
 #include <valgrind/valgrind.h>
 
@@ -119,6 +122,7 @@ struct pwtest_context {
 	bool no_fork;
 
 	const char *test_filter;
+	char *xdg_dir;
 };
 
 struct pwtest_context *pwtest_get_context(struct pwtest_test *t)
@@ -379,6 +383,48 @@ static void add_tests(struct pwtest_context *ctx)
 	}
 }
 
+static int remove_file(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+{
+	char *tmpdir = getenv("TMPDIR");
+	int r;
+
+	/* Safety check: bail out if somehow we left TMPDIR */
+	if (!tmpdir)
+		tmpdir = "/tmp";
+	spa_assert(spa_strneq(fpath, tmpdir, strlen(tmpdir)));
+
+	r = remove(fpath);
+	if (r)
+		fprintf(stderr, "Failed to remove %s: %m", fpath);
+
+	return r;
+}
+
+static void remove_xdg_runtime_dir(const char *xdg_dir)
+{
+	char *tmpdir = getenv("TMPDIR");
+	char path[PATH_MAX];
+	int r;
+
+	if (xdg_dir == NULL)
+		return;
+
+	/* Safety checks, we really don't want to recursively remove a
+	 * random directory due to a bug */
+	if (!tmpdir)
+		tmpdir = "/tmp";
+
+	spa_assert(spa_strneq(xdg_dir, tmpdir, strlen(tmpdir)));
+	r = spa_scnprintf(path, sizeof(path), "%s/pwtest.dir", xdg_dir);
+	spa_assert((size_t)r == strlen(xdg_dir) + 11);
+	if (access(path, F_OK) != 0) {
+		fprintf(stderr, "XDG_RUNTIME_DIR changed, cannot clean up\n");
+		return;
+	}
+
+	nftw(xdg_dir, remove_file, 16, FTW_DEPTH | FTW_PHYS);
+}
+
 static void cleanup(struct pwtest_context *ctx)
 {
 	struct pwtest_suite *c, *tmp;
@@ -386,6 +432,9 @@ static void cleanup(struct pwtest_context *ctx)
 	spa_list_for_each_safe(c, tmp, &ctx->suites, link) {
 		free_suite(c);
 	}
+
+	remove_xdg_runtime_dir(ctx->xdg_dir);
+	free(ctx->xdg_dir);
 }
 
 static void sighandler(int signal)
@@ -490,8 +539,28 @@ static pid_t start_pwdaemon(struct pwtest_test *t, int stderr_fd, int log_fd)
 	return pid;
 }
 
+static void make_xdg_runtime_test_dir(char dir[PATH_MAX], const char *prefix)
+{
+	static size_t counter;
+	int r;
+
+	r = spa_scnprintf(dir, PATH_MAX, "%s/%zd", prefix, counter++);
+	spa_assert(r >= (int)(strlen(prefix) + 2));
+	r = mkdir(dir, 0777);
+	if (r == -1) {
+		fprintf(stderr, "Failed to make XDG_RUNTIME_DIR %s (%m)\n", dir);
+		spa_assert(r != -1);
+	}
+}
+
 static void set_test_env(struct pwtest_context *ctx, struct pwtest_test *t)
 {
+	char xdg_runtime_dir[PATH_MAX];
+
+	make_xdg_runtime_test_dir(xdg_runtime_dir, ctx->xdg_dir);
+	replace_env(t, "XDG_RUNTIME_DIR", xdg_runtime_dir);
+	replace_env(t, "TMPDIR", xdg_runtime_dir);
+
 	replace_env(t, "SPA_PLUGIN_DIR", BUILD_ROOT "/spa/plugins");
 	replace_env(t, "PIPEWIRE_CONFIG_DIR", BUILD_ROOT "/src/daemon");
 	replace_env(t, "PIPEWIRE_MODULE_DIR", BUILD_ROOT "/src/modules");
@@ -701,6 +770,7 @@ static void run_test(struct pwtest_context *ctx, struct pwtest_suite *c, struct 
 	}
 
 	set_test_env(ctx, t);
+	chdir(getenv("TMPDIR"));
 
 	t->result = PWTEST_SYSTEM_ERROR;
 
@@ -830,6 +900,33 @@ static void log_test_result(struct pwtest_test *t)
 		fprintf(stderr, "    daemon: |\n");
 		print_lines(stderr, t->logs[FD_DAEMON].data, "      ");
 	}
+}
+
+static char* make_xdg_runtime_dir(void)
+{
+	time_t t = time(NULL);
+	struct tm *tm = localtime(&t);
+	char *dir;
+	char *tmpdir = getenv("TMPDIR");
+	char path[PATH_MAX];
+	FILE *fp;
+
+	if (!tmpdir)
+		tmpdir = "/tmp";
+
+	int r = asprintf(&dir, "%s/pwtest-%02d:%02d-XXXXXX", tmpdir, tm->tm_hour, tm->tm_min);
+	spa_assert((size_t)r == strlen(tmpdir) + 20); /* rough estimate */
+	spa_assert(mkdtemp(dir) != NULL);
+
+	/* Marker file to avoid removing a random directory during cleanup */
+	r = spa_scnprintf(path, sizeof(path), "%s/pwtest.dir", dir);
+	spa_assert((size_t)r == strlen(dir) + 11);
+	fp = fopen(path, "w");
+	spa_assert(fp);
+	fprintf(fp, "pwtest\n");
+	fclose(fp);
+
+	return dir;
 }
 
 static int run_tests(struct pwtest_context *ctx)
@@ -979,6 +1076,8 @@ int main(int argc, char **argv)
 
 	find_suites(ctx, suite_filter);
 	add_tests(ctx);
+
+	ctx->xdg_dir = make_xdg_runtime_dir();
 
 	switch (mode) {
 	case MODE_LIST:

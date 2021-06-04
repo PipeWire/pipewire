@@ -553,16 +553,24 @@ impl_node_port_set_param(void *object,
 			 const struct spa_pod *param)
 {
 	struct state *this = object;
+	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	if (id == SPA_PARAM_Format) {
-		return port_set_format(this, direction, port_id, flags, param);
+	switch (id) {
+	case SPA_PARAM_Format:
+		res = port_set_format(this, direction, port_id, flags, param);
+		break;
+	case SPA_PARAM_Latency:
+		res = 0;
+		break;
+	default:
+		res = -ENOENT;
+		break;
 	}
-	else
-		return -ENOENT;
+	return res;
 }
 
 static int

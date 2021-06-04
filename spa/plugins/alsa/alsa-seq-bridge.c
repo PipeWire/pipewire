@@ -677,7 +677,9 @@ impl_node_port_set_param(void *object,
 	case SPA_PARAM_Format:
 		res = port_set_format(this, port, flags, param);
 		break;
-
+	case SPA_PARAM_Latency:
+		res = 0;
+		break;
 	default:
 		res = -ENOENT;
 		break;

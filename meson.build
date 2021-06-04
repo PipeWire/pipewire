@@ -401,3 +401,27 @@ endif
 setenv = find_program('pw-uninstalled.sh')
 run_target('pw-uninstalled', command : [setenv,
     '-b@0@'.format(meson.build_root()), '-v@0@'.format(pipewire_version)])
+
+if meson.version().version_compare('>=0.58.0')
+  devenv = environment()
+
+  builddir = meson.current_build_dir()
+  srcdir = meson.current_source_dir()
+
+  devenv.set('PIPEWIRE_CONFIG_DIR', builddir / 'src' / 'daemon')
+  devenv.set('PIPEWIRE_MODULE_DIR', builddir / 'src' / 'modules')
+
+  devenv.set('SPA_PLUGIN_DIR', builddir / 'spa' / 'plugins')
+
+  devenv.set('GST_PLUGIN_PATH', builddir / 'src'/ 'gst')
+
+  devenv.set('ALSA_PLUGIN_DIR', builddir / 'pipewire-alsa' / 'alsa-plugins')
+  devenv.set('ACP_PATHS_DIR', srcdir / 'spa' / 'plugins' / 'alsa' / 'mixer' / 'paths')
+  devenv.set('ACP_PROFILES_DIR', srcdir / 'spa' / 'plugins' / 'alsa' / 'mixer' / 'profile-sets')
+
+  devenv.set('LD_LIBRARY_PATH', builddir / 'pipewire-jack' / 'src')
+
+  devenv.set('PW_UNINSTALLED', '1')
+
+  meson.add_devenv(devenv)
+endif

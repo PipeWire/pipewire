@@ -22,6 +22,13 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#ifndef SPA_POD_FILTER_H
+#define SPA_POD_FILTER_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <errno.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -407,3 +414,9 @@ spa_pod_filter(struct spa_pod_builder *b,
 /**
  * \}
  */
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
+
+#endif /* SPA_POD_FILTER_H */

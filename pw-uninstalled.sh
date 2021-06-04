@@ -47,6 +47,7 @@ export GST_PLUGIN_PATH="${BUILDDIR}/src/gst/${GST_PLUGIN_PATH+":${GST_PLUGIN_PAT
 export ACP_PATHS_DIR="${SCRIPT_DIR}/spa/plugins/alsa/mixer/paths"
 export ACP_PROFILES_DIR="${SCRIPT_DIR}/spa/plugins/alsa/mixer/profile-sets"
 export PW_UNINSTALLED=1
+export PKG_CONFIG_PATH="${BUILDDIR}/meson-uninstalled/:${PKG_CONFIG_PATH}"
 
 # FIXME: find a nice, shell-neutral way to specify a prompt
 ${SHELL}

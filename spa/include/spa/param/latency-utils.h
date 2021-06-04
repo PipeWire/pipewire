@@ -92,7 +92,7 @@ spa_latency_parse(const struct spa_pod *latency, struct spa_latency_info *info)
 			SPA_PARAM_LATENCY_minNs, SPA_POD_OPT_Long(&info->min_ns),
 			SPA_PARAM_LATENCY_maxNs, SPA_POD_OPT_Long(&info->max_ns))) < 0)
 		return res;
-	info->direction &= 1;
+	info->direction = (enum spa_direction)(info->direction & 1);
 	return 0;
 }
 

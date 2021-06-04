@@ -78,6 +78,8 @@ impl_log_logv(void *object,
 #define RESERVED_LENGTH 24
 
 	struct impl *impl = object;
+	char timestamp[19] = {0};
+	char filename[64] = {0};
 	char location[1000 + RESERVED_LENGTH], *p, *s;
 	static const char *levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
 	const char *prefix = "", *suffix = "";
@@ -101,21 +103,21 @@ impl_log_logv(void *object,
 	p = location;
 	len = sizeof(location) - RESERVED_LENGTH;
 
-	size = spa_scnprintf(p, len, "%s[%s]", prefix, levels[level]);
-
 	if (impl->timestamp) {
 		struct timespec now;
 		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
-		size += spa_scnprintf(p + size, len - size, "[%09lu.%06lu]",
+		spa_scnprintf(timestamp, sizeof(timestamp), "[%09lu.%06lu]",
 			now.tv_sec & 0x1FFFFFFF, now.tv_nsec / 1000);
 
 	}
 	if (impl->line && line != 0) {
 		s = strrchr(file, '/');
-		size += spa_scnprintf(p + size, len - size, "[%s:%i %s()]",
+		spa_scnprintf(filename, sizeof(filename), "[%s:%i %s()]",
 			s ? s + 1 : file, line, func);
 	}
-	size += spa_scnprintf(p + size, len - size, " ");
+
+	size = spa_scnprintf(p, len, "%s[%s]%s%s", prefix, levels[level],
+			     timestamp, filename);
 	/*
 	 * it is assumed that at this point `size` <= `len`,
 	 * which is reasonable as long as file names and function names

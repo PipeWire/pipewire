@@ -214,6 +214,29 @@ PWTEST(daemon_test)
 	return PWTEST_PASS;
 }
 
+/* If not started with a daemon, we can't connect to a daemon (test will fail)  */
+PWTEST(daemon_test_without_daemon)
+{
+	struct pw_context *ctx;
+        struct pw_core *core;
+	struct pw_loop *loop;
+
+	pw_init(0, NULL);
+	loop = pw_loop_new(NULL);
+	ctx = pw_context_new(loop, NULL, 0);
+	pwtest_ptr_notnull(ctx);
+        core = pw_context_connect(ctx, NULL, 0);
+
+	pwtest_ptr_notnull(core); /* Expect this to fail because we don't have a daemon */
+
+	pw_loop_iterate(loop, -1);
+	pw_core_disconnect(core);
+        pw_context_destroy(ctx);
+	pw_loop_destroy(loop);
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(example_tests)
 {
 	pwtest_add(successful_test, PWTEST_NOARG);
@@ -235,6 +258,7 @@ PWTEST_SUITE(example_tests)
 	pwtest_add(env_reset_test, PWTEST_NOARG);
 	pwtest_add(default_env_test, PWTEST_NOARG);
 	pwtest_add(daemon_test, PWTEST_ARG_DAEMON);
+	pwtest_add(daemon_test_without_daemon, PWTEST_NOARG);
 
 	/* Run this one last so it doesn't matter if we forget --timeout */
 	pwtest_add(timeout_test, PWTEST_NOARG);

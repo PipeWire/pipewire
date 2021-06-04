@@ -284,8 +284,11 @@ static const struct pw_manager_events manager_events = {
 	.added = manager_added,
 };
 
-static void cleanup_stream(struct combine_stream *s) {
+static void cleanup_stream(struct combine_stream *s)
+{
+	spa_hook_remove(&s->stream_listener);
 	pw_stream_destroy(s->stream);
+
 	s->stream = NULL;
 	s->data = NULL;
 	s->cleanup = false;
@@ -370,20 +373,31 @@ static int module_combine_sink_unload(struct client *client, struct module *modu
 
 	pw_log_info("unload module %p id:%u name:%s", module, module->idx, module->name);
 
+	if (d->cleanup != NULL)
+		pw_loop_destroy_source(module->impl->loop, d->cleanup);
+
 	/* Note that we explicitly disconnect the hooks to avoid having the
 	 * cleanup triggered again in those callbacks */
 	if (d->sink != NULL) {
 		spa_hook_remove(&d->sink_listener);
 		pw_stream_destroy(d->sink);
 	}
+
 	for (i = 0; i < MAX_SINKS; i++) {
 		if (d->streams[i].stream)
 			cleanup_stream(&d->streams[i]);
 	}
-	if (d->manager != NULL)
+
+	if (d->manager != NULL) {
+		spa_hook_remove(&d->manager_listener);
 		pw_manager_destroy(d->manager);
-	if (d->core != NULL)
+	}
+
+	if (d->core != NULL) {
+		spa_hook_remove(&d->core_listener);
 		pw_core_disconnect(d->core);
+	}
+
 	pw_free_strv(d->sink_names);
 	free(d->sink_name);
 

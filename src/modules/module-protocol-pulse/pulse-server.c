@@ -5518,7 +5518,7 @@ static int handle_memblock(struct client *client, struct message *msg)
 			SPA_MIN(msg->length, stream->attr.maxlength));
 	stream->write_index = index + msg->length;
 	spa_ringbuffer_write_update(&stream->ring, stream->write_index);
-	stream->requested -= msg->length;
+	stream->requested -= SPA_MIN(msg->length, stream->requested);
 finish:
 	message_free(impl, msg, false, false);
 	return res;

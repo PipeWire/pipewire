@@ -31,8 +31,13 @@ foreach a : test_apps
 endforeach
 
 if have_cpp
+  gen_cpp_test = find_program('gen-cpp-test.py')
+  src_test_cpp = custom_target('gen-cpp-test',
+                               command: [gen_cpp_test, meson.source_root() / 'spa' / 'include' / 'spa'],
+                               output: 'test-cpp.cpp',
+                               capture: true)
   # compilation test only
-  executable('spa-test-cpp', 'test-cpp.cpp',
+  executable('spa-test-cpp', src_test_cpp,
              include_directories : [spa_inc ],
              dependencies : [],
              install : false)

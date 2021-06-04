@@ -1,6 +1,5 @@
 test_apps = [
 	'test-client',
-	'test-context',
 	'test-endpoint',
 	'test-interfaces',
 	'test-properties',

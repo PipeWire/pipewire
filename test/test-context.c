@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "pwtest.h"
+
 #include <spa/utils/string.h>
 #include <spa/support/dbus.h>
 #include <spa/support/cpu.h>
@@ -32,10 +34,10 @@
 #define TEST_FUNC(a,b,func)	\
 do {				\
 	a.func = b.func;	\
-	spa_assert(SPA_PTRDIFF(&a.func, &a) == SPA_PTRDIFF(&b.func, &b)); \
+	pwtest_ptr_eq(SPA_PTRDIFF(&a.func, &a), SPA_PTRDIFF(&b.func, &b)); \
 } while(0)
 
-static void test_abi(void)
+PWTEST(context_abi)
 {
 	struct pw_context_events ev;
 	struct {
@@ -47,35 +49,39 @@ static void test_abi(void)
 		void (*global_removed) (void *data, struct pw_global *global);
 	} test = { PW_VERSION_CONTEXT_EVENTS, NULL };
 
+	pw_init(0, NULL);
+
 	TEST_FUNC(ev, test, destroy);
 	TEST_FUNC(ev, test, free);
 	TEST_FUNC(ev, test, check_access);
 	TEST_FUNC(ev, test, global_added);
 	TEST_FUNC(ev, test, global_removed);
 
-	spa_assert(PW_VERSION_CONTEXT_EVENTS == 0);
-	spa_assert(sizeof(ev) == sizeof(test));
+	pwtest_int_eq(PW_VERSION_CONTEXT_EVENTS, 0);
+	pwtest_int_eq(sizeof(ev), sizeof(test));
+
+	return PWTEST_PASS;
 }
 
 static void context_destroy_error(void *data)
 {
-	spa_assert_not_reached();
+	pwtest_fail_if_reached();
 }
 static void context_free_error(void *data)
 {
-	spa_assert_not_reached();
+	pwtest_fail_if_reached();
 }
 static void context_check_access_error(void *data, struct pw_impl_client *client)
 {
-	spa_assert_not_reached();
+	pwtest_fail_if_reached();
 }
 static void context_global_added_error(void *data, struct pw_global *global)
 {
-	spa_assert_not_reached();
+	pwtest_fail_if_reached();
 }
 static void context_global_removed_error(void *data, struct pw_global *global)
 {
-	spa_assert_not_reached();
+	pwtest_fail_if_reached();
 }
 
 static const struct pw_context_events context_events_error =
@@ -114,7 +120,7 @@ static int context_foreach_error(void *data, struct pw_global *global)
 	context_foreach_count++;
 	return -1;
 }
-static void test_create(void)
+PWTEST(context_create)
 {
 	struct pw_main_loop *loop;
 	struct pw_context *context;
@@ -122,46 +128,50 @@ static void test_create(void)
 	struct pw_context_events context_events = context_events_error;
 	int res;
 
+	pw_init(0, NULL);
+
 	loop = pw_main_loop_new(NULL);
-	spa_assert(loop != NULL);
+	pwtest_ptr_notnull(loop);
 
 	context = pw_context_new(pw_main_loop_get_loop(loop),
 			pw_properties_new(
 				PW_KEY_CONFIG_NAME, "null",
 				NULL), 12);
-	spa_assert(context != NULL);
+	pwtest_ptr_notnull(context);
 	pw_context_add_listener(context, &listener, &context_events, context);
 
 	/* check main loop */
-	spa_assert(pw_context_get_main_loop(context) == pw_main_loop_get_loop(loop));
+	pwtest_ptr_eq(pw_context_get_main_loop(context), pw_main_loop_get_loop(loop));
 	/* check user data */
-	spa_assert(pw_context_get_user_data(context) != NULL);
+	pwtest_ptr_notnull(pw_context_get_user_data(context));
 
 	/* iterate globals */
-	spa_assert(context_foreach_count == 0);
+	pwtest_int_eq(context_foreach_count, 0);
 	res = pw_context_for_each_global(context, context_foreach, context);
-	spa_assert(res == 0);
-	spa_assert(context_foreach_count == 1);
+	pwtest_int_eq(res, 0);
+	pwtest_int_eq(context_foreach_count, 1);
 	res = pw_context_for_each_global(context, context_foreach_error, context);
-	spa_assert(res == -1);
-	spa_assert(context_foreach_count == 2);
+	pwtest_int_eq(res, -1);
+	pwtest_int_eq(context_foreach_count, 2);
 
 	/* check destroy */
 	context_events.destroy = context_destroy_count;
 	context_events.free = context_free_count;
 	context_events.global_removed = context_global_removed_count;
 
-	spa_assert(destroy_count == 0);
-	spa_assert(free_count == 0);
-	spa_assert(global_removed_count == 0);
+	pwtest_int_eq(destroy_count, 0);
+	pwtest_int_eq(free_count, 0);
+	pwtest_int_eq(global_removed_count, 0);
 	pw_context_destroy(context);
-	spa_assert(destroy_count == 1);
-	spa_assert(free_count == 1);
-	spa_assert(global_removed_count == 1);
+	pwtest_int_eq(destroy_count, 1);
+	pwtest_int_eq(free_count, 1);
+	pwtest_int_eq(global_removed_count, 1);
 	pw_main_loop_destroy(loop);
+
+	return PWTEST_PASS;
 }
 
-static void test_properties(void)
+PWTEST(context_properties)
 {
 	struct pw_main_loop *loop;
 	struct pw_context *context;
@@ -170,21 +180,23 @@ static void test_properties(void)
 	struct pw_context_events context_events = context_events_error;
 	struct spa_dict_item items[3];
 
+	pw_init(0, NULL);
+
 	loop = pw_main_loop_new(NULL);
 	context = pw_context_new(pw_main_loop_get_loop(loop),
 			pw_properties_new("foo", "bar",
 					  "biz", "fuzz",
 					  NULL),
 			0);
-	spa_assert(context != NULL);
-	spa_assert(pw_context_get_user_data(context) == NULL);
+	pwtest_ptr_notnull(context);
+	pwtest_ptr_null(pw_context_get_user_data(context));
 	pw_context_add_listener(context, &listener, &context_events, context);
 
 	props = pw_context_get_properties(context);
-	spa_assert(props != NULL);
-	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
-	spa_assert(spa_streq(pw_properties_get(props, "biz"), "fuzz"));
-	spa_assert(pw_properties_get(props, "buzz") == NULL);
+	pwtest_ptr_notnull(props);
+	pwtest_str_eq(pw_properties_get(props, "foo"), "bar");
+	pwtest_str_eq(pw_properties_get(props, "biz"), "fuzz");
+	pwtest_str_eq(pw_properties_get(props, "buzz"), NULL);
 
 	/* remove foo */
 	items[0] = SPA_DICT_ITEM_INIT("foo", NULL);
@@ -194,17 +206,19 @@ static void test_properties(void)
 	items[2] = SPA_DICT_ITEM_INIT("buzz", "frizz");
 	pw_context_update_properties(context, &SPA_DICT_INIT(items, 3));
 
-	spa_assert(props == pw_context_get_properties(context));
-	spa_assert(pw_properties_get(props, "foo") == NULL);
-	spa_assert(spa_streq(pw_properties_get(props, "biz"), "buzz"));
-	spa_assert(spa_streq(pw_properties_get(props, "buzz"), "frizz"));
+	pwtest_ptr_eq(props, pw_context_get_properties(context));
+	pwtest_str_eq(pw_properties_get(props, "foo"), NULL);
+	pwtest_str_eq(pw_properties_get(props, "biz"), "buzz");
+	pwtest_str_eq(pw_properties_get(props, "buzz"), "frizz");
 
 	spa_hook_remove(&listener);
 	pw_context_destroy(context);
 	pw_main_loop_destroy(loop);
+
+	return PWTEST_PASS;
 }
 
-static void test_support(void)
+PWTEST(context_support)
 {
 	struct pw_main_loop *loop;
 	struct pw_context *context;
@@ -222,29 +236,33 @@ static void test_support(void)
 	};
 	size_t i;
 
+	pw_init(0, NULL);
+
 	loop = pw_main_loop_new(NULL);
 	context = pw_context_new(pw_main_loop_get_loop(loop), NULL, 0);
 
 	support = pw_context_get_support(context, &n_support);
-	spa_assert(support != NULL);
-	spa_assert(n_support > 0);
+	pwtest_ptr_notnull(support);
+	pwtest_int_gt(n_support, 0U);
 
 	for (i = 0; i < SPA_N_ELEMENTS(types); i++) {
-		spa_assert(spa_support_find(support, n_support, types[i]) != NULL);
+		pwtest_ptr_notnull(spa_support_find(support, n_support, types[i]));
 	}
 
 	pw_context_destroy(context);
 	pw_main_loop_destroy(loop);
+
+	return PWTEST_PASS;
 }
 
-int main(int argc, char *argv[])
+PWTEST_SUITE(context)
 {
-	pw_init(&argc, &argv);
+	pwtest_add(context_support, PWTEST_NOARG);
 
-	test_abi();
-	test_create();
-	test_properties();
-	test_support();
+	pwtest_add(context_abi, PWTEST_NOARG);
+	pwtest_add(context_create, PWTEST_NOARG);
+	pwtest_add(context_properties, PWTEST_NOARG);
+	pwtest_add(context_support, PWTEST_NOARG);
 
-	return 0;
+	return PWTEST_PASS;
 }

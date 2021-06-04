@@ -51,7 +51,12 @@ test('test lib',
                include_directories: pwtest_inc,
                link_with: pwtest_lib)
 )
-
+test('test context',
+    executable('test-context',
+               'test-context.c',
+               include_directories: pwtest_inc,
+               link_with: pwtest_lib)
+)
 test('test spa',
     executable('test-spa',
                'test-spa-buffer.c',

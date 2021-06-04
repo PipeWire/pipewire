@@ -54,6 +54,36 @@ _pwtest_fail_comparison_bool(const char *file, int line, const char *func,
 			     const char *operator, bool a, bool b,
 			     const char *astr, const char *bstr);
 
+void
+_pwtest_fail_errno(const char *file, int line, const char *func,
+		   int expected, int err_no);
+
+#define pwtest_errno_check(r_, errno_) \
+	do { \
+		int _r = r_; \
+		int _e = errno_; \
+		if (_e == 0) { \
+			if (_r == -1) \
+				_pwtest_fail_errno(__FILE__, __LINE__, __func__, _e, errno); \
+		} else { \
+			if (_r != -1 || errno != _e) \
+				_pwtest_fail_errno(__FILE__, __LINE__, __func__, _e, errno); \
+		} \
+	} while(0)
+
+#define pwtest_neg_errno_check(r_, errno_) \
+	do { \
+		int _r = r_; \
+		int _e = errno_; \
+		if (_e == 0) { \
+			if (_r < 0) \
+				_pwtest_fail_errno(__FILE__, __LINE__, __func__, _e, -_r); \
+		} else { \
+			if (_r >= 0 || _r != _e) \
+				_pwtest_fail_errno(__FILE__, __LINE__, __func__, -_e, _r >= 0 ? 0 : -_r); \
+		} \
+	} while(0)
+
 #define pwtest_comparison_bool_(a_, op_, b_) \
 	do { \
 		bool _a = !!(a_); \

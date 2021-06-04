@@ -226,6 +226,17 @@ void _pwtest_fail_comparison_bool(const char *file, int line, const char *func,
 	exit(PWTEST_FAIL);
 }
 
+SPA_NORETURN
+void _pwtest_fail_errno(const char *file, int line, const char *func,
+			int expected, int err_no)
+{
+	pwtest_log("FAILED ERRNO CHECK: expected %d (%s), got %d (%s)\n",
+		   expected, strerror(expected), err_no, strerror(err_no));
+	pwtest_log("in %s() (%s:%d)\n", func, file, line);
+	pwtest_backtrace(0);
+	exit(PWTEST_FAIL);
+}
+
 
 SPA_NORETURN
 void _pwtest_fail_comparison_int(const char *file, int line, const char *func,

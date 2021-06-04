@@ -202,6 +202,22 @@ struct pwtest_context *pwtest_get_context(struct pwtest_test *t);
 	_pwtest_fail_condition(PWTEST_SYSTEM_ERROR, __FILE__, __LINE__, __func__, \
 			       "error", __VA_ARGS__)
 
+/** Assert r is not -1 and if it is, print the errno */
+#define pwtest_errno_ok(r_) \
+	pwtest_errno_check(r_, 0);
+
+/** Assert r is -1 and the errno is the given one */
+#define pwtest_errno(r_, errno_) \
+	pwtest_errno_check(r_, errno_);
+
+/** Assert r is not < 0 and if it is assume it's a negative errno */
+#define pwtest_neg_errno_ok(r_) \
+	pwtest_neg_errno_check(r_, 0);
+
+/** Assert r is < 0 and the given negative errno */
+#define pwtest_neg_errno(r_, errno_) \
+	pwtest_neg_errno_check(r_, errno_);
+
 /** Assert boolean (a == b) */
 #define pwtest_bool_eq(a_, b_) \
 	pwtest_comparison_bool_(a_, ==, b_)

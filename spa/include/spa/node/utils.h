@@ -63,7 +63,7 @@ static inline int spa_node_enum_params_sync(struct spa_node *node,
 			struct spa_pod_builder *builder)
 {
 	struct spa_result_node_params_data data = { builder, };
-	struct spa_hook listener = { 0 };
+	struct spa_hook listener = {{0}};
 	static const struct spa_node_events node_events = {
 		SPA_VERSION_NODE_EVENTS,
 		.result = spa_result_func_node_params,
@@ -95,7 +95,7 @@ static inline int spa_node_port_enum_params_sync(struct spa_node *node,
 			struct spa_pod_builder *builder)
 {
 	struct spa_result_node_params_data data = { builder, };
-	struct spa_hook listener = { 0 };
+	struct spa_hook listener = {{0}};
 	static const struct spa_node_events node_events = {
 		SPA_VERSION_NODE_EVENTS,
 		.result = spa_result_func_node_params,

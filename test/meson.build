@@ -57,6 +57,13 @@ test('test context',
                include_directories: pwtest_inc,
                link_with: pwtest_lib)
 )
+test('test support',
+    executable('test-support',
+               'test-support.c',
+               'test-logger.c',
+               include_directories: pwtest_inc,
+               link_with: pwtest_lib)
+)
 test('test spa',
     executable('test-spa',
                'test-spa-buffer.c',

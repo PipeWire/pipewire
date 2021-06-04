@@ -99,7 +99,7 @@ spa_latency_parse(const struct spa_pod *latency, struct spa_latency_info *info)
 static inline struct spa_pod *
 spa_latency_build(struct spa_pod_builder *builder, uint32_t id, const struct spa_latency_info *info)
 {
-	return spa_pod_builder_add_object(builder,
+	return (struct spa_pod *)spa_pod_builder_add_object(builder,
 			SPA_TYPE_OBJECT_ParamLatency, id,
 			SPA_PARAM_LATENCY_direction, SPA_POD_Id(info->direction),
 			SPA_PARAM_LATENCY_minQuantum, SPA_POD_Float(info->min_quantum),

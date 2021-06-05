@@ -1716,6 +1716,7 @@ static void port_update_latency(struct port *p)
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
+	pw_thread_loop_lock(c->context.loop);
 	param_enum_format(c, p, &params[0], &b);
 	param_format(c, p, &params[1], &b);
 	param_buffers(c, p, &params[2], &b);
@@ -1737,6 +1738,7 @@ static void port_update_latency(struct port *p)
 					 (const struct spa_pod **) params,
 					 &p->info);
 	c->info.change_mask = 0;
+	pw_thread_loop_unlock(c->context.loop);
 }
 
 static void default_latency(struct client *c, enum spa_direction direction,
@@ -3500,6 +3502,7 @@ int jack_set_freewheel(jack_client_t* client, int onoff)
 
 	pw_log_info(NAME" %p: freewheel %d", client, onoff);
 
+	pw_thread_loop_lock(c->context.loop);
 	pw_properties_set(c->props, "node.group",
 			onoff ? "pipewire.freewheel" : NULL);
 
@@ -3510,6 +3513,7 @@ int jack_set_freewheel(jack_client_t* client, int onoff)
                                     PW_CLIENT_NODE_UPDATE_INFO,
 				    0, NULL, &c->info);
 	c->info.change_mask = 0;
+	pw_thread_loop_unlock(c->context.loop);
 
 	return 0;
 }
@@ -3525,6 +3529,7 @@ int jack_set_buffer_size (jack_client_t *client, jack_nframes_t nframes)
 	snprintf(latency, sizeof(latency), "%d/%d", nframes, jack_get_sample_rate(client));
 	pw_log_info(NAME" %p: buffer-size %s", client, latency);
 
+	pw_thread_loop_lock(c->context.loop);
 	pw_properties_set(c->props, PW_KEY_NODE_LATENCY, latency);
 
 	c->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
@@ -3534,6 +3539,7 @@ int jack_set_buffer_size (jack_client_t *client, jack_nframes_t nframes)
                                     PW_CLIENT_NODE_UPDATE_INFO,
 				    0, NULL, &c->info);
 	c->info.change_mask = 0;
+	pw_thread_loop_unlock(c->context.loop);
 
 	return 0;
 }

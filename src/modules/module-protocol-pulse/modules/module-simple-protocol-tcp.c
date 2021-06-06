@@ -83,6 +83,8 @@ static int module_simple_protocol_tcp_unload(struct client *client, struct modul
 
 	pw_impl_module_destroy(d->mod);
 
+	pw_properties_free(d->module_props);
+
 	return 0;
 }
 

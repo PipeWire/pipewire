@@ -124,6 +124,10 @@ static int module_ladspa_sink_unload(struct client *client, struct module *modul
 		pw_impl_module_destroy(d->mod);
 		d->mod = NULL;
 	}
+
+	pw_properties_free(d->capture_props);
+	pw_properties_free(d->playback_props);
+
 	return 0;
 }
 

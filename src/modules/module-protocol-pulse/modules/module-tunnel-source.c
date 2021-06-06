@@ -109,6 +109,9 @@ static int module_tunnel_source_unload(struct client *client, struct module *mod
 		pw_impl_module_destroy(d->mod);
 		d->mod = NULL;
 	}
+
+	pw_properties_free(d->stream_props);
+
 	return 0;
 }
 

@@ -67,6 +67,7 @@ struct node_data {
 	struct pw_impl_node *follower;
 	struct spa_hook adapter_listener;
 	struct pw_resource *resource;
+	struct pw_resource *bound_resource;
 	struct spa_hook resource_listener;
 	uint32_t new_id;
 	unsigned int linger;
@@ -98,8 +99,14 @@ static void node_destroy(void *data)
 static void node_free(void *data)
 {
 	struct node_data *nd = data;
+
 	pw_log_debug(NAME" %p: free %p", nd, nd->follower);
+
+	if (nd->bound_resource != NULL)
+		spa_hook_remove(&nd->resource_listener);
+
 	spa_hook_remove(&nd->adapter_listener);
+
 	pw_impl_node_destroy(nd->follower);
 }
 
@@ -127,6 +134,7 @@ static void node_initialized(void *data)
 		goto error_bind;
 	}
 
+	nd->bound_resource = bound_resource;
 	pw_resource_add_listener(bound_resource, &nd->resource_listener, &resource_events, nd);
 	return;
 

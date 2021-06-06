@@ -63,6 +63,7 @@ struct module {
 	const struct module_methods *methods;
 	struct spa_hook_list listener_list;
 	void *user_data;
+	unsigned int loaded:1;
 };
 
 struct module *module_new(struct impl *impl, const struct module_methods *methods, size_t user_data);

@@ -53,6 +53,7 @@ struct module *module_new(struct impl *impl, const struct module_methods *method
 	module->methods = methods;
 	spa_hook_list_init(&module->listener_list);
 	module->user_data = SPA_PTROFF(module, sizeof(struct module), void);
+	module->loaded = false;
 
 	return module;
 }
@@ -94,7 +95,6 @@ static void module_free(struct module *module)
 static int module_unload(struct client *client, struct module *module)
 {
 	struct impl *impl = module->impl;
-	uint32_t module_idx = module->idx;
 	int res = 0;
 
 	/* Note that client can be NULL (when the module is being unloaded
@@ -105,12 +105,13 @@ static int module_unload(struct client *client, struct module *module)
 	if (module->methods->unload)
 		res = module->methods->unload(client, module);
 
-	module_free(module);
-
-	broadcast_subscribe_event(impl,
+	if (module->loaded)
+		broadcast_subscribe_event(impl,
 			SUBSCRIPTION_MASK_MODULE,
 			SUBSCRIPTION_EVENT_REMOVE | SUBSCRIPTION_EVENT_MODULE,
-			module_idx);
+			module->idx);
+
+	module_free(module);
 
 	return res;
 }

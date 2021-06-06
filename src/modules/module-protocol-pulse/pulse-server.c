@@ -5017,6 +5017,8 @@ static void on_module_loaded(void *data, int error)
 
 	pw_log_info(NAME" %p: [%s] module %d loaded", client->impl, client->name, module->idx);
 
+	module->loaded = true;
+
 	broadcast_subscribe_event(impl,
 			SUBSCRIPTION_MASK_MODULE,
 			SUBSCRIPTION_EVENT_NEW | SUBSCRIPTION_EVENT_MODULE,

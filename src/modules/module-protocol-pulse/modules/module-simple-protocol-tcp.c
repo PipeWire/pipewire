@@ -34,6 +34,22 @@ struct module_simple_protocol_tcp_data {
 	struct server *server;
 	struct pw_properties *module_props;
 	struct pw_impl_module *mod;
+	struct spa_hook mod_listener;
+};
+
+static void module_destroy(void *data)
+{
+	struct module_simple_protocol_tcp_data *d = data;
+
+	spa_hook_remove(&d->mod_listener);
+	d->mod = NULL;
+
+	module_schedule_unload(d->module);
+}
+
+static const struct pw_impl_module_events module_events = {
+	PW_VERSION_IMPL_MODULE_EVENTS,
+	.destroy = module_destroy
 };
 
 static int module_simple_protocol_tcp_load(struct client *client, struct module *module)
@@ -72,6 +88,8 @@ static int module_simple_protocol_tcp_load(struct client *client, struct module 
 	if (data->mod == NULL)
 		return -errno;
 
+	pw_impl_module_add_listener(data->mod, &data->mod_listener, &module_events, data);
+
 	module_emit_loaded(module, 0);
 
 	return 0;
@@ -81,7 +99,10 @@ static int module_simple_protocol_tcp_unload(struct client *client, struct modul
 {
 	struct module_simple_protocol_tcp_data *d = module->user_data;
 
-	pw_impl_module_destroy(d->mod);
+	if (d->mod != NULL) {
+		spa_hook_remove(&d->mod_listener);
+		pw_impl_module_destroy(d->mod);
+	}
 
 	pw_properties_free(d->module_props);
 

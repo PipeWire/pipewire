@@ -3504,7 +3504,7 @@ int jack_set_freewheel(jack_client_t* client, int onoff)
 
 	pw_thread_loop_lock(c->context.loop);
 	pw_properties_set(c->props, "node.group",
-			onoff ? "pipewire.freewheel" : NULL);
+			onoff ? "pipewire.freewheel" : "");
 
 	c->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
 	c->info.props = &c->props->dict;

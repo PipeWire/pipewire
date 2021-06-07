@@ -4582,6 +4582,15 @@ void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_
 	pw_log_debug(NAME" %p: get %d latency range %d %d", o, mode, range->min, range->max);
 }
 
+static int
+do_port_update_latency(struct spa_loop *loop,
+		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct port *p = user_data;
+	port_update_latency(p);
+	return 0;
+}
+
 SPA_EXPORT
 void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_t mode, jack_latency_range_t *range)
 {
@@ -4620,7 +4629,9 @@ void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_
 		return;
 
 	*current = latency;
-	port_update_latency(p);
+
+	pw_loop_invoke(c->context.l, do_port_update_latency, 0,
+			NULL, 0, false, p);
 }
 
 SPA_EXPORT

@@ -231,7 +231,6 @@ check_headers = [['dlfcn.h','HAVE_DLFCN_H'],
   ['pwd.h', 'HAVE_PWD_H'],
   ['ucontext.h', 'HAVE_UCONTEXT_H'],
   ['unistd.h', 'HAVE_UNISTD_H'],
-  ['valgrind/valgrind.h', 'HAVE_VALGRIND_VALGRIND_H'],
 ]
 
 foreach h : check_headers
@@ -285,6 +284,7 @@ if systemd.found() and systemd_dep.found()
 endif
 
 configinc = include_directories('.')
+includes_inc = include_directories('include')
 pipewire_inc = include_directories('src')
 
 makedata = configuration_data()

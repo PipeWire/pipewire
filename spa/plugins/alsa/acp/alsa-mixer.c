@@ -26,9 +26,7 @@
 #include <alsa/asoundlib.h>
 #include <math.h>
 
-#ifdef HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>
-#endif
 
 #include "conf-parser.h"
 #include "alsa-mixer.h"

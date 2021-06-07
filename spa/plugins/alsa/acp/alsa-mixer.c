@@ -32,58 +32,6 @@
 #include "alsa-mixer.h"
 #include "alsa-util.h"
 
-#ifdef HAVE_VALGRIND_MEMCHECK_H
-/* These macros are workarounds for a bug in valgrind, which is not handling the
- * ALSA TLV syscalls correctly. See
- * http://valgrind.10908.n7.nabble.com/Missing-ioctl-for-SNDRV-CTL-IOCTL-TLV-READ-td42711.html */
-
-static inline int vgfix_get_capture_dB(snd_mixer_elem_t *a, snd_mixer_selem_channel_id_t b, long *c) {
-    int r = snd_mixer_selem_get_capture_dB(a, b, c);
-    VALGRIND_MAKE_MEM_DEFINED(c, sizeof(*c));
-    return r;
-}
-
-static inline int vgfix_get_playback_dB(snd_mixer_elem_t *a, snd_mixer_selem_channel_id_t b, long *c) {
-    int r = snd_mixer_selem_get_playback_dB(a, b, c);
-    VALGRIND_MAKE_MEM_DEFINED(c, sizeof(*c));
-    return r;
-}
-
-static inline int vgfix_ask_capture_vol_dB(snd_mixer_elem_t *a, long b, long *c) {
-    int r = snd_mixer_selem_ask_capture_vol_dB(a, b, c);
-    VALGRIND_MAKE_MEM_DEFINED(c, sizeof(*c));
-    return r;
-}
-
-static inline int vgfix_ask_playback_vol_dB(snd_mixer_elem_t *a, long b, long *c) {
-    int r = snd_mixer_selem_ask_playback_vol_dB(a, b, c);
-    VALGRIND_MAKE_MEM_DEFINED(c, sizeof(*c));
-    return r;
-}
-
-static inline int vgfix_get_capture_dB_range(snd_mixer_elem_t *a, long *b, long *c) {
-    int r = snd_mixer_selem_get_capture_dB_range(a, b, c);
-    VALGRIND_MAKE_MEM_DEFINED(b, sizeof(*b));
-    VALGRIND_MAKE_MEM_DEFINED(c, sizeof(*c));
-    return r;
-}
-
-static inline int vgfix_get_playback_dB_range(snd_mixer_elem_t *a, long *b, long *c) {
-    int r = snd_mixer_selem_get_playback_dB_range(a, b, c);
-    VALGRIND_MAKE_MEM_DEFINED(b, sizeof(*b));
-    VALGRIND_MAKE_MEM_DEFINED(c, sizeof(*c));
-    return r;
-}
-
-#define snd_mixer_selem_get_capture_dB(a, b, c) vgfix_get_capture_dB(a, b, c)
-#define snd_mixer_selem_get_playback_dB(a, b, c) vgfix_get_playback_dB(a, b, c)
-#define snd_mixer_selem_ask_capture_vol_dB(a, b, c) vgfix_ask_capture_vol_dB(a, b, c)
-#define snd_mixer_selem_ask_playback_vol_dB(a, b, c) vgfix_ask_playback_vol_dB(a, b, c)
-#define snd_mixer_selem_get_capture_dB_range(a, b, c) vgfix_get_capture_dB_range(a, b, c)
-#define snd_mixer_selem_get_playback_dB_range(a, b, c) vgfix_get_playback_dB_range(a, b, c)
-
-#endif
-
 static int setting_select(pa_alsa_setting *s, snd_mixer_t *m);
 
 struct description_map {
@@ -916,9 +864,7 @@ static int element_get_volume(pa_alsa_element *e, snd_mixer_t *m, const pa_chann
             if (r < 0)
                 continue;
 
-#ifdef HAVE_VALGRIND_MEMCHECK_H
-                VALGRIND_MAKE_MEM_DEFINED(&value, sizeof(value));
-#endif
+	    VALGRIND_MAKE_MEM_DEFINED(&value, sizeof(value));
 
             f = from_alsa_dB(value);
 

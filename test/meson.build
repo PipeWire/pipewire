@@ -7,6 +7,7 @@ pwtest_sources = [
 pwtest_deps = [
   pipewire_dep,
   mathlib,
+  dl_lib,
 ]
 
 pwtest_c_args = [

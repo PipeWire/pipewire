@@ -27,6 +27,7 @@
 #endif
 
 #include <assert.h>
+#include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
@@ -51,6 +52,7 @@
 #include "spa/utils/string.h"
 #include "spa/utils/defs.h"
 #include "spa/utils/list.h"
+#include "spa/support/plugin.h"
 
 #include "pipewire/array.h"
 #include "pipewire/utils.h"
@@ -280,6 +282,103 @@ void _pwtest_fail_comparison_str(const char *file, int line, const char *func,
 	pwtest_log("in %s() (%s:%d)\n", func, file, line);
 	pwtest_backtrace(0);
 	exit(PWTEST_FAIL);
+}
+
+struct pwtest_spa_plugin *
+pwtest_spa_plugin_new(void)
+{
+	return calloc(1, sizeof(struct pwtest_spa_plugin));
+}
+
+void
+pwtest_spa_plugin_destroy(struct pwtest_spa_plugin *plugin)
+{
+	void **dll;
+	struct spa_handle **hnd;
+
+	SPA_FOR_EACH_ELEMENT(plugin->handles, hnd) {
+		if (*hnd)
+			free(*hnd);
+	}
+	SPA_FOR_EACH_ELEMENT(plugin->dlls, dll) {
+		if (*dll)
+			dlclose(dll);
+	}
+	free(plugin);
+}
+
+int
+pwtest_spa_plugin_try_load_interface(struct pwtest_spa_plugin *plugin,
+				     void **iface_return,
+				     const char *libname,
+				     const char *factory_name,
+				     const char *interface_name,
+				     const struct spa_dict *info)
+{
+	char *libdir = getenv("SPA_PLUGIN_DIR");
+	char path[PATH_MAX];
+	void *hnd, *iface;
+	spa_handle_factory_enum_func_t enum_func;
+	const struct spa_handle_factory *factory;
+	uint32_t index = 0;
+	int r;
+	bool found = false;
+	struct spa_handle *handle;
+
+	spa_assert(libdir != NULL);
+	spa_scnprintf(path, sizeof(path), "%s/%s.so", libdir, libname);
+
+        hnd = dlopen(path, RTLD_NOW);
+	if (hnd == NULL)
+		return -ENOENT;
+
+	enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME);
+	pwtest_ptr_notnull(enum_func);
+
+	while ((r = enum_func(&factory, &index)) > 0) {
+		pwtest_int_ge(factory->version, 1U);
+		if (spa_streq(factory->name, factory_name)) {
+			found = true;
+			break;
+		}
+	}
+	pwtest_neg_errno_ok(r);
+	if (!found) {
+		dlclose(hnd);
+		return -EINVAL;
+	}
+
+	handle = calloc(1, spa_handle_factory_get_size(factory, info));
+	pwtest_ptr_notnull(handle);
+
+	r = spa_handle_factory_init(factory, handle, info, plugin->support, plugin->nsupport);
+	pwtest_neg_errno_ok(r);
+	if ((r = spa_handle_get_interface(handle, interface_name, &iface)) != 0) {
+		dlclose(hnd);
+		free(handle);
+		return -ENOSYS;
+	}
+
+	plugin->handles[plugin->ndlls++] = hnd;
+	plugin->handles[plugin->nhandles++] = handle;
+	plugin->support[plugin->nsupport++] = SPA_SUPPORT_INIT(interface_name, iface);
+
+	*iface_return = iface;
+	return 0;
+}
+
+void *
+pwtest_spa_plugin_load_interface(struct pwtest_spa_plugin *plugin,
+				 const char *libname,
+				 const char *factory_name,
+				 const char *interface_name,
+				 const struct spa_dict *info)
+{
+	void *iface;
+	int r = pwtest_spa_plugin_try_load_interface(plugin, &iface, libname,
+						     factory_name, interface_name, info);
+	pwtest_neg_errno_ok(r);
+	return iface;
 }
 
 void _pwtest_add(struct pwtest_context *ctx, struct pwtest_suite *suite,

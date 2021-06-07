@@ -38,6 +38,8 @@ extern "C" {
 #include <math.h>
 
 #include <spa/utils/string.h>
+#include <spa/utils/dict.h>
+#include "spa/support/plugin.h"
 
 /**
  * \defgroup pwtest The pwtest PipeWire Test Suite
@@ -486,6 +488,52 @@ enum pwtest_arg {
 	   .setup = cname##__setup, \
 	}; \
 	static enum pwtest_result (cname##__setup)(struct pwtest_context *ctx, struct pwtest_suite *suite)
+
+struct pwtest_spa_plugin {
+#define PWTEST_PLUGIN_MAX 32
+	size_t nsupport;
+	struct spa_support support[PWTEST_PLUGIN_MAX];
+
+	size_t ndlls;
+	void *dlls[PWTEST_PLUGIN_MAX];
+
+	size_t nhandles;
+	struct spa_handle *handles[PWTEST_PLUGIN_MAX];
+};
+
+struct pwtest_spa_plugin* pwtest_spa_plugin_new(void);
+void pwtest_spa_plugin_destroy(struct pwtest_spa_plugin *plugin);
+
+/**
+ * Identical to pwtest_spa_plugin_try_load_interface() but returns the
+ * interface and fails if the interface is NULL.
+ */
+void*
+pwtest_spa_plugin_load_interface(struct pwtest_spa_plugin *plugin,
+				 const char *libname,
+				 const char *factory_name,
+				 const char *interface_name,
+				 const struct spa_dict *info);
+
+/**
+ * Load \a interface_name from the factory in \a libname.
+ * If successful, the interface is returned and added to \a plugin's
+ * support items, i.e. subsequent loads of an interface will be able to
+ * make use of previously loaded ones.
+ *
+ * \return 0 on success or a negative errno on error
+ * \retval -ENOENT \a libname does not exist
+ * \retval -EINVAL \a factory_name does not exist in \a libname
+ * \retval -ENOSYS \a interface_name does not exist in \a factory_name
+ */
+int
+pwtest_spa_plugin_try_load_interface(struct pwtest_spa_plugin *plugin,
+				     void **iface_return,
+				     const char *libname,
+				     const char *factory_name,
+				     const char *interface_name,
+				     const struct spa_dict *info);
+
 
 /**
  * \}

@@ -78,7 +78,7 @@ impl_log_logv(void *object,
 #define RESERVED_LENGTH 24
 
 	struct impl *impl = object;
-	char timestamp[19] = {0};
+	char timestamp[14] = {0};
 	char filename[64] = {0};
 	char location[1000 + RESERVED_LENGTH], *p, *s;
 	static const char *levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
@@ -106,9 +106,8 @@ impl_log_logv(void *object,
 	if (impl->timestamp) {
 		struct timespec now;
 		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
-		spa_scnprintf(timestamp, sizeof(timestamp), "[%09lu.%06lu]",
-			now.tv_sec & 0x1FFFFFFF, now.tv_nsec / 1000);
-
+		spa_scnprintf(timestamp, sizeof(timestamp), "[%05lu.%06lu]",
+			(now.tv_sec & 0x1FFFFFFF) % 100000, now.tv_nsec / 1000);
 	}
 	if (impl->line && line != 0) {
 		s = strrchr(file, '/');

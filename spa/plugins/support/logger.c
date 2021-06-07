@@ -157,8 +157,6 @@ impl_log_logv(void *object,
 	} else
 		fputs(location, impl->file);
 
-	fflush(impl->file);
-
 #undef RESERVED_LENGTH
 }
 
@@ -202,7 +200,6 @@ static void on_trace_event(struct spa_source *source)
 			fwrite(impl->trace_data, avail - first, 1, impl->file);
 		}
 		spa_ringbuffer_read_update(&impl->trace_rb, index + avail);
-		fflush(impl->file);
         }
 }
 
@@ -317,6 +314,8 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_ringbuffer_init(&this->trace_rb);
 
 	spa_log_debug(&this->log, NAME " %p: initialized", this);
+
+	setlinebuf(this->file);
 
 	return 0;
 }

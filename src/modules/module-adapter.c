@@ -79,6 +79,7 @@ static void resource_destroy(void *data)
 
 	pw_log_debug(NAME" %p: destroy %p", nd, nd->adapter);
 	spa_hook_remove(&nd->resource_listener);
+	nd->bound_resource = NULL;
 	if (nd->adapter && !nd->linger)
 		pw_impl_node_destroy(nd->adapter);
 }

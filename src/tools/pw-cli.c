@@ -118,20 +118,21 @@ struct command {
 static int pw_split_ip(char *str, const char *delimiter, int max_tokens, char *tokens[])
 {
 	const char *state = NULL;
-	char *s;
-	size_t len;
+	char *s, *t;
+	size_t len, l2;
 	int n = 0;
 
-        s = (char *)pw_split_walk(str, delimiter, &len, &state);
-        while (s && n + 1 < max_tokens) {
+	s = (char *)pw_split_walk(str, delimiter, &len, &state);
+	while (s && n + 1 < max_tokens) {
+		t = (char*)pw_split_walk(str, delimiter, &l2, &state);
 		s[len] = '\0';
 		tokens[n++] = s;
-                s = (char*)pw_split_walk(str, delimiter, &len, &state);
-        }
-        if (s) {
+		s = t;
+		len = l2;
+	}
+	if (s)
 		tokens[n++] = s;
-        }
-        return n;
+	return n;
 }
 
 static void print_properties(struct spa_dict *props, char mark, bool header)

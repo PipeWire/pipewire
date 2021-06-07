@@ -43,6 +43,31 @@ if have_cpp
              install : false)
 endif
 
+# Generate a compilation test for each SPA header, excluding the type-info.h
+# ones which have circular dependencies and take some effort to fix.
+find = find_program('find', required: false)
+if find.found()
+  spa_headers = run_command(find_program('find'),
+                            meson.source_root() / 'spa' / 'include',
+                            '-name', '*.h',
+                            '-not', '-name', 'type-info.h',
+                            '-type', 'f',
+                            '-printf', '%P\n')
+  foreach spa_header : spa_headers.stdout().split('\n')
+    if spa_header.endswith('.h')  # skip empty lines
+      c = configuration_data()
+      c.set('INCLUDE', spa_header)
+      src = configure_file(input: 'spa-include-test-template.c',
+                          output: 'spa-include-test-@0@.c'.format(spa_header.underscorify()),
+                          configuration: c)
+      executable('spa-include-test-@0@'.format(spa_header.underscorify()),
+                 src,
+                 include_directories: [spa_inc],
+                 install: false)
+    endif
+  endforeach
+endif
+
 benchmark_apps = [
 	'stress-ringbuffer',
 	'benchmark-pod',

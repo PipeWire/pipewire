@@ -31,6 +31,7 @@ extern "C" {
 #include <stdbool.h>
 #endif
 #include <inttypes.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>

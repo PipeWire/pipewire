@@ -38,6 +38,7 @@ extern "C" {
  * \{
  */
 
+#include <errno.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/type.h>
 #include <spa/utils/hook.h>

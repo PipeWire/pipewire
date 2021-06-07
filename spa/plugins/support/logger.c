@@ -78,7 +78,7 @@ impl_log_logv(void *object,
 #define RESERVED_LENGTH 24
 
 	struct impl *impl = object;
-	char timestamp[14] = {0};
+	char timestamp[15] = {0};
 	char filename[64] = {0};
 	char location[1000 + RESERVED_LENGTH], *p, *s;
 	static const char *levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
@@ -115,7 +115,7 @@ impl_log_logv(void *object,
 			s ? s + 1 : file, line, func);
 	}
 
-	size = spa_scnprintf(p, len, "%s[%s]%s%s", prefix, levels[level],
+	size = spa_scnprintf(p, len, "%s[%s]%s%s ", prefix, levels[level],
 			     timestamp, filename);
 	/*
 	 * it is assumed that at this point `size` <= `len`,

@@ -30,7 +30,9 @@ extern "C" {
 #endif
 
 
+#include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
+#include <spa/param/param.h>
 
 struct spa_latency_info {
 	enum spa_direction direction;

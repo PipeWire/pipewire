@@ -100,7 +100,7 @@ libpipewire = shared_library(pipewire_name, pipewire_sources,
   version : libversion,
   soversion : soversion,
   c_args : libpipewire_c_args,
-  include_directories : [pipewire_inc, configinc, spa_inc],
+  include_directories : [pipewire_inc, configinc, spa_inc, includes_inc],
   install : true,
   dependencies : [dl_lib, mathlib, pthread_lib, libintl_dep, atomic_dep, ],
 )

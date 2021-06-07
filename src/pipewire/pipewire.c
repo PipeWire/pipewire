@@ -39,6 +39,8 @@
 #include <locale.h>
 #include <libintl.h>
 
+#include <valgrind/valgrind.h>
+
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
 #include <spa/support/cpu.h>
@@ -489,8 +491,7 @@ void pw_init(int *argc, char **argv[])
 	if (support->registry != NULL)
 		return;
 
-	if ((str = getenv("VALGRIND")) != NULL)
-		support->in_valgrind = pw_properties_parse_bool(str);
+	support->in_valgrind = RUNNING_ON_VALGRIND;
 
 	if ((str = getenv("NO_COLOR")) != NULL)
 		support->no_color = true;

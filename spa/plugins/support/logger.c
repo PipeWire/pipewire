@@ -112,7 +112,7 @@ impl_log_logv(void *object,
 	}
 	if (impl->line && line != 0) {
 		s = strrchr(file, '/');
-		spa_scnprintf(filename, sizeof(filename), "[%s:%i %s()]",
+		spa_scnprintf(filename, sizeof(filename), "[%16.16s:%5i %s()]",
 			s ? s + 1 : file, line, func);
 	}
 

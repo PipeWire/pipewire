@@ -238,6 +238,40 @@ PWTEST(properties_update_string)
 	return PWTEST_PASS;
 }
 
+PWTEST(properties_serialize_dict_stack_overflow)
+{
+	char *long_value = NULL;
+	struct spa_dict_item items[2];
+	struct spa_dict dict;
+	const int sz = 8 * 1024 * 1024;
+	char tmpfile[PATH_MAX];
+	FILE *fp;
+	int r;
+
+	/* Alloc a property value long enough to trigger a stack overflow
+	 * in any variadic arrays (see * e994949d576e93f8c22)
+	 */
+	long_value = calloc(1, sz);
+	if (long_value == 0)
+		return PWTEST_SKIP;
+
+	memset(long_value, 'a', sz - 1);
+	items[0] = SPA_DICT_ITEM_INIT("longval", long_value);
+	items[1] = SPA_DICT_ITEM_INIT(long_value, "longval");
+	dict = SPA_DICT_INIT(items, 2);
+
+	pwtest_mkstemp(tmpfile);
+	fp = fopen(tmpfile, "w");
+	pwtest_ptr_notnull(fp);
+	r = pw_properties_serialize_dict(fp, &dict, 0);
+	pwtest_int_eq(r, 2);
+
+	fclose(fp);
+	free(long_value);
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(properties)
 {
 	pwtest_add(properties_new, PWTEST_NOARG);
@@ -248,6 +282,7 @@ PWTEST_SUITE(properties)
 	pwtest_add(properties_parse_int, PWTEST_NOARG);
 	pwtest_add(properties_copy, PWTEST_NOARG);
 	pwtest_add(properties_update_string, PWTEST_NOARG);
+	pwtest_add(properties_serialize_dict_stack_overflow, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

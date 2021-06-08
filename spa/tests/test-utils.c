@@ -26,6 +26,8 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+#include <valgrind/valgrind.h>
+
 #include <spa/utils/defs.h>
 #include <spa/utils/result.h>
 #include <spa/utils/dict.h>
@@ -784,6 +786,19 @@ static void test_snprintf(void)
 	spa_assert(spa_scnprintf(dest, 1, "1234567") == 0);
 	spa_assert(spa_streq(dest, ""));
 
+	/* The "append until buffer is full" use-case */
+	len = 0;
+	while ((size_t)len < sizeof(dest) - 1)
+		len += spa_scnprintf(dest + len, sizeof(dest) - len, "123");
+	/* and once more for good measure, this should print 0 characters */
+	len = spa_scnprintf(dest + len, sizeof(dest) - len, "abc");
+	spa_assert(len == 0);
+	spa_assert(spa_streq(dest, "1231231"));
+
+
+	if (RUNNING_ON_VALGRIND)
+		return;
+
 	/* Check for abort on negative/zero size */
 	for (int i = -2; i <= 0; i++) {
 		pid = fork();
@@ -802,15 +817,6 @@ static void test_snprintf(void)
 			spa_assert(WTERMSIG(status) == SIGABRT);
 		}
 	}
-
-	/* The "append until buffer is full" use-case */
-	len = 0;
-	while ((size_t)len < sizeof(dest) - 1)
-		len += spa_scnprintf(dest + len, sizeof(dest) - len, "123");
-	/* and once more for good measure, this should print 0 characters */
-	len = spa_scnprintf(dest + len, sizeof(dest) - len, "abc");
-	spa_assert(len == 0);
-	spa_assert(spa_streq(dest, "1231231"));
 }
 
 int main(int argc, char *argv[])

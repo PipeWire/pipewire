@@ -10,7 +10,7 @@ foreach a : test_apps
   test('spa-' + a,
 	executable('spa-' + a, a + '.c',
 		dependencies : [dl_lib, pthread_lib, mathlib ],
-		include_directories : [spa_inc ],
+		include_directories : [spa_inc, includes_inc ],
 		c_args : [ '-D_GNU_SOURCE' ],
 		install : installed_tests_enabled,
 		install_dir : installed_tests_execdir),

@@ -4758,13 +4758,13 @@ const char ** jack_get_ports (jack_client_t *client,
 	if (type_name_pattern && type_name_pattern[0])
 		regcomp(&type_regex, type_name_pattern, REG_EXTENDED | REG_NOSUB);
 
-	pw_log_debug(NAME" %p: ports id:%d name:%s type:%s flags:%08lx", c, id,
+	pw_log_debug(NAME" %p: ports id:%d name:\"%s\" type:\"%s\" flags:%08lx", c, id,
 			port_name_pattern, type_name_pattern, flags);
 
 	pthread_mutex_lock(&c->context.lock);
 	count = 0;
 	spa_list_for_each(o, &c->context.ports, link) {
-		pw_log_debug(NAME" %p: check port type:%d flags:%08lx name:%s", c,
+		pw_log_debug(NAME" %p: check port type:%d flags:%08lx name:\"%s\"", c,
 				o->port.type_id, o->port.flags, o->port.name);
 		if (count == JACK_PORT_MAX)
 			break;
@@ -4789,7 +4789,7 @@ const char ** jack_get_ports (jack_client_t *client,
 				continue;
 		}
 
-		pw_log_debug(NAME" %p: port %s prio:%d matches (%d)",
+		pw_log_debug(NAME" %p: port \"%s\" prio:%d matches (%d)",
 				c, o->port.name, o->port.priority, count);
 		tmp[count++] = o;
 	}

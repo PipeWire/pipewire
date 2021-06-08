@@ -600,8 +600,8 @@ static bool collect_child(struct pwtest_test *t, pid_t pid)
 	int r;
 	int status;
 
-	r = waitpid(pid, &status, 0);
-	if (r < 0)
+	r = waitpid(pid, &status, WNOHANG);
+	if (r <= 0)
 		return false;
 
 	if (WIFEXITED(status)) {
@@ -813,8 +813,19 @@ static int monitor_test_forked(struct pwtest_test *t, pid_t pid, int read_fds[_F
 	int r;
 
 	pidfd = syscall(SYS_pidfd_open, pid, 0);
-	if (pidfd < 0)
-		goto error;
+	/* If we don't have pidfd, we use a timerfd to ping us every 20ms */
+	if (pidfd < 0 && errno == ENOSYS) {
+		pidfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+		if (pidfd == -1)
+			goto error;
+		r = timerfd_settime(pidfd, 0,
+				    &((struct itimerspec ){
+				      .it_interval.tv_nsec = 20 * 1000 * 1000,
+				      .it_value.tv_nsec = 20 * 1000 * 1000,
+				      }), NULL);
+		if (r < 0)
+			goto error;
+	}
 
 	/* Each test has an epollfd with:
 	 *   - a timerfd so we can kill() it if it hangs
@@ -856,6 +867,8 @@ static int monitor_test_forked(struct pwtest_test *t, pid_t pid, int read_fds[_F
 		}
 
 		if (e.data.fd == pidfd) {
+			uint64_t buf;
+			(void)read(pidfd, &buf, sizeof(buf)); /* for timerfd fallback */
 			if (collect_child(t, pid))
 				break;
 		} else if (e.data.fd == timerfd) {

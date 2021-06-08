@@ -1,32 +1,3 @@
-test_apps = [
-	'test-node',
-	'test-pod',
-	'test-utils',
-]
-
-foreach a : test_apps
-  test('spa-' + a,
-	executable('spa-' + a, a + '.c',
-		dependencies : [dl_lib, pthread_lib, mathlib ],
-		include_directories : [spa_inc, includes_inc ],
-		install : installed_tests_enabled,
-		install_dir : installed_tests_execdir),
-	env : [
-		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),
-	])
-
-  if installed_tests_enabled
-    test_conf = configuration_data()
-    test_conf.set('exec', installed_tests_execdir / 'spa-' + a)
-    configure_file(
-      input: installed_tests_template,
-      output: 'spa-' + a + '.test',
-      install_dir: installed_tests_metadir,
-      configuration: test_conf
-    )
-  endif
-endforeach
-
 # Generate a compilation test for each SPA header, excluding the type-info.h
 # ones which have circular dependencies and take some effort to fix.
 # Do it for C++ if possible (picks up C++-specific errors), otherwise for C.

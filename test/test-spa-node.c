@@ -28,30 +28,31 @@
 #include <spa/node/command.h>
 #include <spa/node/event.h>
 
-static void test_io_abi(void)
-{
-	/* io */
-	spa_assert(SPA_IO_Invalid == 0);
-	spa_assert(SPA_IO_Buffers == 1);
-	spa_assert(SPA_IO_Range == 2);
-	spa_assert(SPA_IO_Clock == 3);
-	spa_assert(SPA_IO_Latency == 4);
-	spa_assert(SPA_IO_Control == 5);
-	spa_assert(SPA_IO_Notify == 6);
-	spa_assert(SPA_IO_Position == 7);
-	spa_assert(SPA_IO_RateMatch == 8);
-	spa_assert(SPA_IO_Memory == 9);
+#include "pwtest.h"
 
+PWTEST(node_io_abi_sizes)
+{
 #if defined(__x86_64__) && defined(__LP64__)
-	spa_assert(sizeof(struct spa_io_buffers) == 8);
-	spa_assert(sizeof(struct spa_io_memory) == 16);
-	spa_assert(sizeof(struct spa_io_range) == 16);
-	spa_assert(sizeof(struct spa_io_clock) == 160);
-	spa_assert(sizeof(struct spa_io_latency) == 24);
-	spa_assert(sizeof(struct spa_io_sequence) == 16);
-	spa_assert(sizeof(struct spa_io_segment_bar) == 64);
-	spa_assert(sizeof(struct spa_io_segment_video) == 80);
-	spa_assert(sizeof(struct spa_io_segment) == 184);
+	pwtest_int_eq(sizeof(struct spa_io_buffers), 8U);
+	pwtest_int_eq(sizeof(struct spa_io_memory), 16U);
+	pwtest_int_eq(sizeof(struct spa_io_range), 16U);
+	pwtest_int_eq(sizeof(struct spa_io_clock), 160U);
+	pwtest_int_eq(sizeof(struct spa_io_latency), 24U);
+	pwtest_int_eq(sizeof(struct spa_io_sequence), 16U);
+	pwtest_int_eq(sizeof(struct spa_io_segment_bar), 64U);
+	pwtest_int_eq(sizeof(struct spa_io_segment_video), 80U);
+	pwtest_int_eq(sizeof(struct spa_io_segment), 184U);
+
+	pwtest_int_eq(sizeof(struct spa_io_position), 1688U);
+	pwtest_int_eq(sizeof(struct spa_io_rate_match), 48U);
+
+	spa_assert(sizeof(struct spa_node_info) == 48);
+	spa_assert(sizeof(struct spa_port_info) == 48);
+
+	spa_assert(sizeof(struct spa_result_node_error) == 8);
+	spa_assert(sizeof(struct spa_result_node_params) == 24);
+
+	return PWTEST_PASS;
 #else
 	fprintf(stderr, "%zd\n", sizeof(struct spa_io_buffers));
 	fprintf(stderr, "%zd\n", sizeof(struct spa_io_memory));
@@ -62,50 +63,75 @@ static void test_io_abi(void)
 	fprintf(stderr, "%zd\n", sizeof(struct spa_io_segment_bar));
 	fprintf(stderr, "%zd\n", sizeof(struct spa_io_segment_video));
 	fprintf(stderr, "%zd\n", sizeof(struct spa_io_segment));
-#endif
 
-	/* position state */
-	spa_assert(SPA_IO_POSITION_STATE_STOPPED == 0);
-	spa_assert(SPA_IO_POSITION_STATE_STARTING == 1);
-	spa_assert(SPA_IO_POSITION_STATE_RUNNING == 2);
-
-#if defined(__x86_64__) && defined(__LP64__)
-	spa_assert(sizeof(struct spa_io_position) == 1688);
-	spa_assert(sizeof(struct spa_io_rate_match) == 48);
-#else
 	fprintf(stderr, "%zd\n", sizeof(struct spa_io_position));
 	fprintf(stderr, "%zd\n", sizeof(struct spa_io_rate_match));
+
+	fprintf(stderr, "%zd\n", sizeof(struct spa_node_info));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_port_info));
+
+	fprintf(stderr, "%zd\n", sizeof(struct spa_result_node_error));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_result_node_params));
+
+	return PWTEST_SKIP;
 #endif
+
 }
 
-static void test_command_abi(void)
+PWTEST(node_io_abi)
 {
-	spa_assert(SPA_NODE_COMMAND_Suspend == 0);
-	spa_assert(SPA_NODE_COMMAND_Pause == 1);
-	spa_assert(SPA_NODE_COMMAND_Start == 2);
-	spa_assert(SPA_NODE_COMMAND_Enable == 3);
-	spa_assert(SPA_NODE_COMMAND_Disable == 4);
-	spa_assert(SPA_NODE_COMMAND_Flush == 5);
-	spa_assert(SPA_NODE_COMMAND_Drain == 6);
-	spa_assert(SPA_NODE_COMMAND_Marker == 7);
+	/* io */
+	pwtest_int_eq(SPA_IO_Invalid, 0);
+	pwtest_int_eq(SPA_IO_Buffers, 1);
+	pwtest_int_eq(SPA_IO_Range, 2);
+	pwtest_int_eq(SPA_IO_Clock, 3);
+	pwtest_int_eq(SPA_IO_Latency, 4);
+	pwtest_int_eq(SPA_IO_Control, 5);
+	pwtest_int_eq(SPA_IO_Notify, 6);
+	pwtest_int_eq(SPA_IO_Position, 7);
+	pwtest_int_eq(SPA_IO_RateMatch, 8);
+	pwtest_int_eq(SPA_IO_Memory, 9);
+
+	/* position state */
+	pwtest_int_eq(SPA_IO_POSITION_STATE_STOPPED, 0);
+	pwtest_int_eq(SPA_IO_POSITION_STATE_STARTING, 1);
+	pwtest_int_eq(SPA_IO_POSITION_STATE_RUNNING, 2);
+
+	return PWTEST_PASS;
 }
 
-static void test_event_abi(void)
+PWTEST(node_command_abi)
 {
-	spa_assert(SPA_NODE_EVENT_Error == 0);
-	spa_assert(SPA_NODE_EVENT_Buffering == 1);
-	spa_assert(SPA_NODE_EVENT_RequestRefresh == 2);
+	pwtest_int_eq(SPA_NODE_COMMAND_Suspend, 0);
+	pwtest_int_eq(SPA_NODE_COMMAND_Pause, 1);
+	pwtest_int_eq(SPA_NODE_COMMAND_Start, 2);
+	pwtest_int_eq(SPA_NODE_COMMAND_Enable, 3);
+	pwtest_int_eq(SPA_NODE_COMMAND_Disable, 4);
+	pwtest_int_eq(SPA_NODE_COMMAND_Flush, 5);
+	pwtest_int_eq(SPA_NODE_COMMAND_Drain, 6);
+	pwtest_int_eq(SPA_NODE_COMMAND_Marker, 7);
+
+	return PWTEST_PASS;
+}
+
+PWTEST(node_event_abi)
+{
+	pwtest_int_eq(SPA_NODE_EVENT_Error, 0);
+	pwtest_int_eq(SPA_NODE_EVENT_Buffering, 1);
+	pwtest_int_eq(SPA_NODE_EVENT_RequestRefresh, 2);
+
+	return PWTEST_PASS;
 }
 
 #define TEST_FUNC(a,b,func, id)							\
 do {										\
 	off_t diff = SPA_PTRDIFF(&a.func, &a);					\
 	a.func = b.func;							\
-	spa_assert(diff == SPA_PTRDIFF(&b.func, &b));				\
-	spa_assert(diff == 0 || (diff-1)/sizeof(void*) == id);			\
+	pwtest_ptr_eq(diff, SPA_PTRDIFF(&b.func, &b));				\
+	pwtest_bool_true(diff == 0 || (diff-1)/sizeof(void*) == id);		\
 } while(0)
 
-static void test_node_abi(void)
+PWTEST(node_node_abi)
 {
 	struct spa_node_events e;
 	struct spa_node_callbacks c;
@@ -182,15 +208,15 @@ static void test_node_abi(void)
 	TEST_FUNC(e, events, port_info, SPA_NODE_EVENT_PORT_INFO);
 	TEST_FUNC(e, events, result, SPA_NODE_EVENT_RESULT);
 	TEST_FUNC(e, events, event, SPA_NODE_EVENT_EVENT);
-	spa_assert(SPA_NODE_EVENT_NUM == 4);
-	spa_assert(sizeof(e) == sizeof(events));
+	pwtest_int_eq(SPA_NODE_EVENT_NUM, 4);
+	pwtest_int_eq(sizeof(e), sizeof(events));
 
 	TEST_FUNC(c, callbacks, version, 0);
 	TEST_FUNC(c, callbacks, ready, SPA_NODE_CALLBACK_READY);
 	TEST_FUNC(c, callbacks, reuse_buffer, SPA_NODE_CALLBACK_REUSE_BUFFER);
 	TEST_FUNC(c, callbacks, xrun, SPA_NODE_CALLBACK_XRUN);
-	spa_assert(SPA_NODE_CALLBACK_NUM == 3);
-	spa_assert(sizeof(c) == sizeof(callbacks));
+	pwtest_int_eq(SPA_NODE_CALLBACK_NUM, 3);
+	pwtest_int_eq(sizeof(c), sizeof(callbacks));
 
 	TEST_FUNC(m, methods, version, 0);
 	TEST_FUNC(m, methods, add_listener, SPA_NODE_METHOD_ADD_LISTENER);
@@ -207,30 +233,19 @@ static void test_node_abi(void)
 	TEST_FUNC(m, methods, port_set_io, SPA_NODE_METHOD_PORT_SET_IO);
 	TEST_FUNC(m, methods, port_reuse_buffer, SPA_NODE_METHOD_PORT_REUSE_BUFFER);
 	TEST_FUNC(m, methods, process, SPA_NODE_METHOD_PROCESS);
-	spa_assert(SPA_NODE_METHOD_NUM == 15);
-	spa_assert(sizeof(m) == sizeof(methods));
+	pwtest_int_eq(SPA_NODE_METHOD_NUM, 15);
+	pwtest_int_eq(sizeof(m), sizeof(methods));
 
-#if defined(__x86_64__) && defined(__LP64__)
-	spa_assert(sizeof(struct spa_node_info) == 48);
-	spa_assert(sizeof(struct spa_port_info) == 48);
-
-	spa_assert(sizeof(struct spa_result_node_error) == 8);
-	spa_assert(sizeof(struct spa_result_node_params) == 24);
-#else
-	fprintf(stderr, "%zd\n", sizeof(struct spa_node_info));
-	fprintf(stderr, "%zd\n", sizeof(struct spa_port_info));
-
-	fprintf(stderr, "%zd\n", sizeof(struct spa_result_node_error));
-	fprintf(stderr, "%zd\n", sizeof(struct spa_result_node_params));
-#endif
-
+	return PWTEST_PASS;
 }
 
-int main(int argc, char *argv[])
+PWTEST_SUITE(spa_node)
 {
-	test_io_abi();
-	test_command_abi();
-	test_event_abi();
-	test_node_abi();
-	return 0;
+	pwtest_add(node_io_abi_sizes, PWTEST_NOARG);
+	pwtest_add(node_io_abi, PWTEST_NOARG);
+	pwtest_add(node_command_abi, PWTEST_NOARG);
+	pwtest_add(node_event_abi, PWTEST_NOARG);
+	pwtest_add(node_node_abi, PWTEST_NOARG);
+
+	return PWTEST_PASS;
 }

@@ -68,6 +68,9 @@ test('test spa',
     executable('test-spa',
                'test-spa-buffer.c',
                'test-spa-json.c',
+               'test-spa-utils.c',
+               'test-spa-node.c',
+               'test-spa-pod.c',
                include_directories: pwtest_inc,
                link_with: pwtest_lib)
 )

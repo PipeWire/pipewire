@@ -91,7 +91,6 @@ libpipewire_c_args = [
 
 if build_machine.system() != 'freebsd'
   libpipewire_c_args += [
-    '-D_GNU_SOURCE',
     '-D_POSIX_C_SOURCE'
   ]
 endif

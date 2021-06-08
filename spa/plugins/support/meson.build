@@ -8,7 +8,6 @@ spa_support_sources = ['cpu.c',
 
 spa_support_lib = shared_library('spa-support',
 			spa_support_sources,
-			c_args : [ '-D_GNU_SOURCE' ],
 			include_directories : [ spa_inc ],
 			dependencies : [ pthread_lib, epoll_shim_dep ],
 			install : true,
@@ -25,7 +24,6 @@ if not get_option('evl').disabled()
 
   spa_evl_lib = shared_library('spa-evl',
 			spa_evl_sources,
-			c_args : [ '-D_GNU_SOURCE' ],
 			include_directories : [ spa_inc, evl_inc],
 			dependencies : [ pthread_lib, evl_lib],
 			install : true,

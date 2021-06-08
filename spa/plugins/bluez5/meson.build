@@ -31,7 +31,7 @@ bluez5_sources = ['plugin.c',
 		  'bluez5-device.c',
 		  'bluez5-dbus.c']
 
-bluez5_args = [ '-D_GNU_SOURCE' ]
+bluez5_args = [ ]
 
 if ldac_dep.found()
   bluez5_sources += [ 'a2dp-codec-ldac.c' ]

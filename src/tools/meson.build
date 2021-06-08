@@ -13,7 +13,6 @@ tools_sources = [
 foreach t : tools_sources
   executable(t.get(0),
 	t.get(1),
-	c_args : [ '-D_GNU_SOURCE' ],
 	install: true,
 	dependencies : [pipewire_dep, mathlib],
   )
@@ -22,7 +21,6 @@ endforeach
 if ncurses_dep.found()
   executable('pw-top',
 	'pw-top.c',
-	c_args : [ '-D_GNU_SOURCE' ],
 	install: true,
 	dependencies : [pipewire_dep, ncurses_dep],
   )
@@ -44,7 +42,6 @@ if not get_option('pw-cat').disabled() and sndfile_dep.found()
 
   executable('pw-cat',
     pwcat_sources,
-    c_args : [ '-D_GNU_SOURCE' ],
     install: true,
     dependencies : [sndfile_dep, pipewire_dep, mathlib],
   )

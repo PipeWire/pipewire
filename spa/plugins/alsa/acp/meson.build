@@ -8,7 +8,6 @@ acp_sources = [
 ]
 
 acp_c_args = [
-  '-D_GNU_SOURCE',
   '-DHAVE_ALSA_UCM',
   '-DHAVE_CONFIG_H',
   '-DHAVE_READLINK',

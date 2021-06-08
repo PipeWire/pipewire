@@ -14,7 +14,6 @@ foreach a : test_apps
   test('pw-' + a,
 	executable('pw-' + a, a + '.c',
 		dependencies : [pipewire_dep],
-		c_args : [ '-D_GNU_SOURCE' ],
 		install : installed_tests_enabled,
 		install_dir : installed_tests_execdir),
 	env : [

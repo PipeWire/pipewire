@@ -23,7 +23,6 @@
  */
 
 #define __USE_GNU
-#define _GNU_SOURCE
 
 #include <limits.h>
 #ifndef __FreeBSD__

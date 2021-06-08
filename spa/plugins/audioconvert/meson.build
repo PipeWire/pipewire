@@ -135,7 +135,7 @@ foreach a : test_apps
 		include_directories : [ configinc, spa_inc ],
 		link_with : [ audioconvert, test_lib, audioconvertlib ],
 		install_rpath : spa_plugindir / 'audioconvert',
-		c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
+		c_args : [ simd_cargs ],
 		install : installed_tests_enabled,
 		install_dir : installed_tests_execdir / 'audioconvert'),
 	env : [
@@ -165,7 +165,7 @@ foreach a : benchmark_apps
 	executable(a, a + '.c',
 		dependencies : [dl_lib, pthread_lib, mathlib, ],
 		include_directories : [ configinc, spa_inc ],
-		c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
+		c_args : [ simd_cargs ],
 		link_with : [ audioconvert, audioconvertlib ],
 		install_rpath : spa_plugindir / 'audioconvert',
 		install : installed_tests_enabled,
@@ -193,7 +193,7 @@ if sndfile_dep.found()
   ]
   executable('spa-resample',
     sparesample_sources,
-    c_args : [ simd_cargs, '-D_GNU_SOURCE' ],
+    c_args : [ simd_cargs ],
     include_directories : [spa_inc ],
     link_with : [ audioconvert, test_lib ],
     dependencies : [sndfile_dep, mathlib],

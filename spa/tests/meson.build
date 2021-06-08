@@ -11,7 +11,6 @@ foreach a : test_apps
 	executable('spa-' + a, a + '.c',
 		dependencies : [dl_lib, pthread_lib, mathlib ],
 		include_directories : [spa_inc, includes_inc ],
-		c_args : [ '-D_GNU_SOURCE' ],
 		install : installed_tests_enabled,
 		install_dir : installed_tests_execdir),
 	env : [
@@ -68,7 +67,6 @@ foreach a : benchmark_apps
 	executable('spa-' + a, a + '.c',
 		dependencies : [dl_lib, pthread_lib, mathlib ],
 		include_directories : [spa_inc ],
-		c_args : [ '-D_GNU_SOURCE' ],
 		install : installed_tests_enabled,
 		install_dir : installed_tests_execdir),
 	env : [

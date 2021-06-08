@@ -4,7 +4,6 @@ pipewire_daemon_sources = [
 
 pipewire_c_args = [
   '-DHAVE_CONFIG_H',
-  '-D_GNU_SOURCE',
   '-DG_LOG_DOMAIN=g_log_domain_pipewire',
 ]
 

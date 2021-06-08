@@ -40,6 +40,7 @@
 #include <signal.h>
 #include <syscall.h>
 #include <sys/epoll.h>
+#include <sys/ptrace.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/timerfd.h>
@@ -1115,6 +1116,34 @@ static void list_tests(struct pwtest_context *ctx)
 	}
 }
 
+static bool is_debugger_attached(void)
+{
+	int status;
+	bool rc;
+	int pid = fork();
+
+	if (pid == -1)
+		return 0;
+
+	if (pid == 0) {
+		int ppid = getppid();
+		if (ptrace(PTRACE_ATTACH, ppid, NULL, 0) == 0) {
+			waitpid(ppid, NULL, 0);
+			ptrace(PTRACE_CONT, ppid, NULL, 0);
+			ptrace(PTRACE_DETACH, ppid, NULL, 0);
+			rc = false;
+		} else {
+			rc = true;
+		}
+		_exit(rc);
+	} else {
+		waitpid(pid, &status, 0);
+		rc = WEXITSTATUS(status);
+	}
+
+	return !!rc;
+}
+
 static void usage(FILE *fp, const char *progname)
 {
 	fprintf(fp, "Usage: %s [OPTIONS]\n"
@@ -1201,7 +1230,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (RUNNING_ON_VALGRIND)
+	if (RUNNING_ON_VALGRIND || is_debugger_attached())
 		ctx->no_fork = true;
 
 	find_suites(ctx, suite_filter);

@@ -198,7 +198,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	const char *lib, *str, *conf_prefix, *conf_name;
 	void *dbus_iface = NULL;
 	uint32_t n_support;
-	struct pw_properties *pr, *conf = NULL;
+	struct pw_properties *pr, *conf;
 	struct spa_cpu *cpu;
 	int res = 0;
 
@@ -215,18 +215,44 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	if (user_data_size > 0)
 		this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
+	pw_array_init(&this->factory_lib, 32);
+	pw_array_init(&this->objects, 32);
+	pw_map_init(&this->globals, 128, 32);
+
+	spa_list_init(&this->core_impl_list);
+	spa_list_init(&this->protocol_list);
+	spa_list_init(&this->core_list);
+	spa_list_init(&this->registry_resource_list);
+	spa_list_init(&this->global_list);
+	spa_list_init(&this->module_list);
+	spa_list_init(&this->device_list);
+	spa_list_init(&this->client_list);
+	spa_list_init(&this->node_list);
+	spa_list_init(&this->factory_list);
+	spa_list_init(&this->link_list);
+	spa_list_init(&this->control_list[0]);
+	spa_list_init(&this->control_list[1]);
+	spa_list_init(&this->export_list);
+	spa_list_init(&this->driver_list);
+	spa_hook_list_init(&this->listener_list);
+	spa_hook_list_init(&this->driver_listener_list);
+
+	this->sc_pagesize = sysconf(_SC_PAGESIZE);
+
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
 	if (properties == NULL) {
 		res = -errno;
 		goto error_free;
 	}
+	this->properties = properties;
 
 	conf = pw_properties_new(NULL, NULL);
 	if (conf == NULL) {
 		res = -errno;
 		goto error_free;
 	}
+	this->conf = conf;
 
 	conf_prefix = getenv("PIPEWIRE_CONFIG_PREFIX");
 	if (conf_prefix == NULL)
@@ -244,7 +270,6 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 			}
 		}
 	}
-	this->conf = conf;
 
 	n_support = pw_get_support(this->support, SPA_N_ELEMENTS(this->support) - 6);
 	cpu = spa_support_find(this->support, n_support, SPA_TYPE_INTERFACE_CPU);
@@ -279,7 +304,6 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		else
 			pw_log_info(NAME" %p: mlockall succeeded", impl);
 	}
-	this->properties = properties;
 
 	fill_defaults(this);
 
@@ -297,7 +321,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	this->pool = pw_mempool_new(NULL);
 	if (this->pool == NULL) {
 		res = -errno;
-		goto error_free_loop;
+		goto error_free;
 	}
 
 	this->data_loop = pw_data_loop_get_loop(this->data_loop_impl);
@@ -330,69 +354,41 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	}
 	this->n_support = n_support;
 
-	pw_array_init(&this->factory_lib, 32);
-	pw_array_init(&this->objects, 32);
-	pw_map_init(&this->globals, 128, 32);
-
-	spa_list_init(&this->core_impl_list);
-	spa_list_init(&this->protocol_list);
-	spa_list_init(&this->core_list);
-	spa_list_init(&this->registry_resource_list);
-	spa_list_init(&this->global_list);
-	spa_list_init(&this->module_list);
-	spa_list_init(&this->device_list);
-	spa_list_init(&this->client_list);
-	spa_list_init(&this->node_list);
-	spa_list_init(&this->factory_list);
-	spa_list_init(&this->link_list);
-	spa_list_init(&this->control_list[0]);
-	spa_list_init(&this->control_list[1]);
-	spa_list_init(&this->export_list);
-	spa_list_init(&this->driver_list);
-	spa_hook_list_init(&this->listener_list);
-	spa_hook_list_init(&this->driver_listener_list);
-
 	this->core = pw_context_create_core(this, pw_properties_copy(properties), 0);
 	if (this->core == NULL) {
 		res = -errno;
-		goto error_free_loop;
+		goto error_free;
 	}
 	pw_impl_core_register(this->core, NULL);
 
 	fill_properties(this);
 
 	if ((res = pw_data_loop_start(this->data_loop_impl)) < 0)
-		goto error_free_loop;
-
-	this->sc_pagesize = sysconf(_SC_PAGESIZE);
+		goto error_free;
 
 	if ((res = pw_context_parse_conf_section(this, conf, "context.spa-libs")) < 0)
-		goto error_free_loop;
+		goto error_free;
 	pw_log_info(NAME" %p: parsed %d context.spa-libs items", this, res);
 	if ((res = pw_context_parse_conf_section(this, conf, "context.modules")) < 0)
-		goto error_free_loop;
+		goto error_free;
 	if (res > 0)
 		pw_log_info(NAME" %p: parsed %d context.modules items", this, res);
 	else
 		pw_log_warn(NAME "%p: no modules loaded from context.modules", this);
 	if ((res = pw_context_parse_conf_section(this, conf, "context.objects")) < 0)
-		goto error_free_loop;
+		goto error_free;
 	pw_log_info(NAME" %p: parsed %d context.objects items", this, res);
 	if ((res = pw_context_parse_conf_section(this, conf, "context.exec")) < 0)
-		goto error_free_loop;
+		goto error_free;
 	pw_log_info(NAME" %p: parsed %d context.exec items", this, res);
 
 	pw_log_debug(NAME" %p: created", this);
 
 	return this;
 
-error_free_loop:
-	pw_data_loop_destroy(this->data_loop_impl);
 error_free:
-	free(this);
+	pw_context_destroy(this);
 error_cleanup:
-	pw_properties_free(conf);
-	pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }
@@ -445,9 +441,11 @@ void pw_context_destroy(struct pw_context *context)
 	pw_log_debug(NAME" %p: free", context);
 	pw_context_emit_free(context);
 
-	pw_mempool_destroy(context->pool);
+	if (context->pool)
+		pw_mempool_destroy(context->pool);
 
-	pw_data_loop_destroy(context->data_loop_impl);
+	if (context->data_loop_impl)
+		pw_data_loop_destroy(context->data_loop_impl);
 
 	if (context->work_queue)
 		pw_work_queue_destroy(context->work_queue);

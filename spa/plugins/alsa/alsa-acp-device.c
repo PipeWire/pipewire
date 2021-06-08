@@ -393,12 +393,24 @@ static struct spa_pod *build_route(struct spa_pod_builder *b, uint32_t id,
 		0);
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_info, SPA_POD_PROP_FLAG_HINT_DICT);
 	spa_pod_builder_push_struct(b, &f[1]);
-	spa_pod_builder_int(b, p->props.n_items);
+	spa_pod_builder_int(b, p->props.n_items + (dev ? 2 : 0));
 	acp_dict_for_each(item, &p->props) {
 		spa_pod_builder_add(b,
 				SPA_POD_String(item->key),
 				SPA_POD_String(item->value),
 				NULL);
+	}
+	if (dev != NULL) {
+		const char *str;
+		str = SPA_FLAG_IS_SET(dev->flags, ACP_DEVICE_HW_MUTE) ? "true" : "false";
+		spa_pod_builder_add(b,
+				SPA_POD_String("route.hw-mute"),
+				SPA_POD_String(str), NULL);
+
+		str = SPA_FLAG_IS_SET(dev->flags, ACP_DEVICE_HW_VOLUME) ? "true" : "false";
+		spa_pod_builder_add(b,
+				SPA_POD_String("route.hw-volume"),
+				SPA_POD_String(str), NULL);
 	}
 	spa_pod_builder_pop(b, &f[1]);
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_profiles, 0);

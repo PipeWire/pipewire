@@ -26,6 +26,7 @@
 
 #include <unistd.h>
 
+#include <spa/utils/ansi.h>
 #include <spa/utils/names.h>
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>
@@ -75,9 +76,56 @@ PWTEST(logger_truncate_long_lines)
 	return PWTEST_PASS;
 }
 
+PWTEST(logger_no_ansi)
+{
+	struct pwtest_spa_plugin *plugin;
+	void *iface;
+	char fname[PATH_MAX];
+	struct spa_dict_item items[2];
+	struct spa_dict info;
+	char buffer[1024];
+	FILE *fp;
+	bool mark_line_found = false;
+
+	pw_init(0, NULL);
+
+	pwtest_mkstemp(fname);
+	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_FILE, fname);
+	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, "true");
+	info = SPA_DICT_INIT(items, 2);
+	plugin = pwtest_spa_plugin_new();
+	iface = pwtest_spa_plugin_load_interface(plugin, "support/libspa-support",
+						 SPA_NAME_SUPPORT_LOG, SPA_TYPE_INTERFACE_Log,
+						 &info);
+	pwtest_ptr_notnull(iface);
+
+	/* Print a line usually containing a color sequence, but we're not a
+	 * tty so expect none despite colors being enabled */
+	spa_log_error(iface, "MARK\n");
+
+	fp = fopen(fname, "r");
+	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+		if (strstr(buffer, "MARK")) {
+			mark_line_found = true;
+			pwtest_ptr_null(strstr(buffer, SPA_ANSI_RESET));
+			pwtest_ptr_null(strstr(buffer, SPA_ANSI_RED));
+			pwtest_ptr_null(strstr(buffer, SPA_ANSI_BRIGHT_RED));
+			pwtest_ptr_null(strstr(buffer, SPA_ANSI_BOLD_RED));
+		}
+	}
+
+	fclose(fp);
+
+	pwtest_bool_true(mark_line_found);
+	pwtest_spa_plugin_destroy(plugin);
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(logger)
 {
 	pwtest_add(logger_truncate_long_lines, PWTEST_NOARG);
+	pwtest_add(logger_no_ansi, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

@@ -52,9 +52,9 @@ static void show_help(const char *name, const char *config_name)
 
 int main(int argc, char *argv[])
 {
-	struct pw_context *context;
-	struct pw_main_loop *loop;
-	struct pw_properties *properties;
+	struct pw_context *context = NULL;
+	struct pw_main_loop *loop = NULL;
+	struct pw_properties *properties = NULL;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 
 		{ NULL, 0, NULL, 0}
 	};
-	int c;
+	int c, res = 0;
 	char path[PATH_MAX];
 	const char *config_name;
 
@@ -91,7 +91,8 @@ int main(int argc, char *argv[])
 			config_name = optarg;
 			break;
 		default:
-			return -1;
+			res = -EINVAL;
+			goto done;
 		}
 	}
 
@@ -102,25 +103,33 @@ int main(int argc, char *argv[])
 	loop = pw_main_loop_new(&properties->dict);
 	if (loop == NULL) {
 		pw_log_error("failed to create main-loop: %m");
-		return -1;
+		res = -errno;
+		goto done;
 	}
 
 	pw_loop_add_signal(pw_main_loop_get_loop(loop), SIGINT, do_quit, loop);
 	pw_loop_add_signal(pw_main_loop_get_loop(loop), SIGTERM, do_quit, loop);
 
 	context = pw_context_new(pw_main_loop_get_loop(loop), properties, 0);
+	properties = NULL;
+
 	if (context == NULL) {
 		pw_log_error("failed to create context: %m");
-		return -1;
+		res = -errno;
+		goto done;
 	}
 
 	pw_log_info("start main loop");
 	pw_main_loop_run(loop);
 	pw_log_info("leave main loop");
 
-	pw_context_destroy(context);
-	pw_main_loop_destroy(loop);
+done:
+	pw_properties_free(properties);
+	if (context)
+		pw_context_destroy(context);
+	if (loop)
+		pw_main_loop_destroy(loop);
 	pw_deinit();
 
-	return 0;
+	return res;
 }

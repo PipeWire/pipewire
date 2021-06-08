@@ -250,8 +250,13 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	cpu = spa_support_find(this->support, n_support, SPA_TYPE_INTERFACE_CPU);
 
 	if ((str = pw_properties_get(conf, "context.properties")) != NULL) {
-		pw_properties_add_string(properties, str, strlen(str));
+		pw_properties_update_string(properties, str, strlen(str));
 		pw_log_info(NAME" %p: parsed context.properties section", this);
+	}
+
+	if ((str = getenv("PIPEWIRE_CORE"))) {
+		pw_log_info("using core.name from environment: %s", str);
+		pw_properties_set(properties, PW_KEY_CORE_NAME, str);
 	}
 
 	if ((str = pw_properties_get(properties, "vm.overrides")) != NULL) {

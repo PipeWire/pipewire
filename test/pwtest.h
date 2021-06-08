@@ -33,6 +33,7 @@
 extern "C" {
 #endif
 
+#include <limits.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include <math.h>
@@ -533,6 +534,17 @@ pwtest_spa_plugin_try_load_interface(struct pwtest_spa_plugin *plugin,
 				     const char *factory_name,
 				     const char *interface_name,
 				     const struct spa_dict *info);
+
+
+
+/**
+ * Create a temporary file and copy its full path to \a path. Fails the test
+ * with \ref PWTEST_SYSTEM_ERROR on error.
+ *
+ * This file does not need to be removed by the test, the pwtest framework
+ * will take care of it on exit.
+ */
+void pwtest_mkstemp(char path[PATH_MAX]);
 
 
 /**

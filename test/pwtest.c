@@ -381,6 +381,21 @@ pwtest_spa_plugin_load_interface(struct pwtest_spa_plugin *plugin,
 	return iface;
 }
 
+void
+pwtest_mkstemp(char path[PATH_MAX])
+{
+	const char *tmpdir = getenv("TMPDIR");
+	int r;
+
+	if (tmpdir == NULL)
+		pwtest_error_with_msg("tmpdir is unset");
+
+	spa_scnprintf(path, PATH_MAX, "%s/%s", tmpdir, "tmp.XXXXXX");
+	r = mkstemp(path);
+	if (r == -1)
+		pwtest_error_with_msg("Unable to create temporary file: %s", strerror(errno));
+}
+
 void _pwtest_add(struct pwtest_context *ctx, struct pwtest_suite *suite,
 		 const char *funcname, const void *func, ...)
 {

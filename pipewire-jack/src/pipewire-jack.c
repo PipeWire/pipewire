@@ -4107,9 +4107,13 @@ int jack_port_rename (jack_client_t* client, jack_port_t *port, const char *port
 
 	pw_thread_loop_lock(c->context.loop);
 
+	pw_log_info(NAME" %p: port rename %p %s -> %s:%s",
+			client, port, o->port.name, c->name, port_name);
+
 	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
 
 	pw_properties_set(p->props, PW_KEY_PORT_NAME, port_name);
+	snprintf(o->port.name, sizeof(o->port.name), "%s:%s", c->name, port_name);
 
 	p->info.change_mask |= SPA_PORT_CHANGE_MASK_PROPS;
 	p->info.props = &p->props->dict;

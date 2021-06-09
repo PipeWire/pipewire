@@ -2,6 +2,9 @@
 #
 # Copy and edit this file in @PIPEWIRE_CONFIG_DIR@ for systemwide changes
 # or in ~/.config/pipewire for local changes.
+#
+# You can remove the sections you don't want to modify, they are taken
+# from the global config.
 
 context.properties = {
     ## Configure properties in the system.

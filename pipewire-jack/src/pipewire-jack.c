@@ -2929,7 +2929,7 @@ jack_client_t * jack_client_open (const char *client_name,
 		if (status)
 			*status |= JackNameNotUnique;
 		if (options & JackUseExactName)
-			goto exit;
+			goto exit_unlock;
 	}
 	pw_thread_loop_unlock(client->context.loop);
 

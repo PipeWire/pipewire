@@ -6,7 +6,6 @@ pipewire_alsa_plugin_ctl_sources = [
 ]
 
 pipewire_alsa_plugin_c_args = [
-  '-DHAVE_CONFIG_H',
   '-DPIC',
 ]
 

@@ -86,7 +86,6 @@ configure_file(input : 'version.h.in',
 install_headers(pipewire_headers, subdir : pipewire_headers_dir)
 
 libpipewire_c_args = [
-  '-DHAVE_CONFIG_H',
 ]
 
 if build_machine.system() != 'freebsd'

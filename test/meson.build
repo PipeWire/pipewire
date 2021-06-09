@@ -11,7 +11,6 @@ pwtest_deps = [
 ]
 
 pwtest_c_args = [
-  '-DHAVE_CONFIG_H',
   '-DBUILD_ROOT="@0@"'.format(meson.build_root()),
   '-DSOURCE_ROOT="@0@"'.format(meson.source_root()),
 ]

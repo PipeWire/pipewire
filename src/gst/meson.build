@@ -22,13 +22,8 @@ pipewire_gst_headers = [
   'gstpipewiresrc.h',
 ]
 
-pipewire_gst_c_args = [
-  '-DHAVE_CONFIG_H',
-]
-
 pipewire_gst = shared_library('gstpipewire',
     pipewire_gst_sources,
-    c_args : pipewire_gst_c_args,
     include_directories : [configinc, spa_inc],
     dependencies : [gst_dep, pipewire_dep],
     install : true,

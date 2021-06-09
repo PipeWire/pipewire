@@ -26,9 +26,7 @@
 #ifndef __GST_PIPEWIRE_DEVICE_PROVIDER_H__
 #define __GST_PIPEWIRE_DEVICE_PROVIDER_H__
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif
 
 #include <pipewire/pipewire.h>
 

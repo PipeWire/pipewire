@@ -3,7 +3,6 @@ pipewire_daemon_sources = [
 ]
 
 pipewire_c_args = [
-  '-DHAVE_CONFIG_H',
   '-DG_LOG_DOMAIN=g_log_domain_pipewire',
 ]
 

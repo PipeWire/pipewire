@@ -109,9 +109,7 @@ struct impl {
 
 #include <dbus/dbus.h>
 
-#ifdef HAVE_CONFIG_H
 #include <config.h>
-#endif
 
 #include <sys/syscall.h>
 

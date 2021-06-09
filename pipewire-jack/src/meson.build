@@ -15,7 +15,6 @@ pipewire_dummy_sources = [
 ]
 
 pipewire_jack_c_args = [
-  '-DHAVE_CONFIG_H',
   '-DPIC',
 ]
 

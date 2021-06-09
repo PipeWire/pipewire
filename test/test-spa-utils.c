@@ -353,7 +353,7 @@ static void hook_removed_cb(struct spa_hook *h)
 
 PWTEST(utils_hook)
 {
-	const int VERSION = 2;
+	const int HOOK_VERSION = 2;
 	struct spa_hook_list hl;
 	struct my_hook callbacks[4] = {
 		{2, test_hook_callback_1},
@@ -377,7 +377,7 @@ PWTEST(utils_hook)
 	h->removed = hook_removed_cb;
 
 	/* iterate with the simple API */
-	spa_hook_list_call_simple(&hl, struct my_hook, invoke, VERSION);
+	spa_hook_list_call_simple(&hl, struct my_hook, invoke, HOOK_VERSION);
 	pwtest_bool_eq(data.cb1, false);
 	pwtest_bool_eq(data.cb2, true);
 	pwtest_bool_eq(data.cb3, true);
@@ -390,7 +390,7 @@ PWTEST(utils_hook)
 	h->removed = hook_removed_cb;
 
 	/* call only the first hook - this should be callback_1 */
-	count = spa_hook_list_call_once(&hl, struct my_hook, invoke, VERSION);
+	count = spa_hook_list_call_once(&hl, struct my_hook, invoke, HOOK_VERSION);
 	pwtest_int_eq(count, 1);
 	pwtest_bool_eq(data.cb1, true);
 	pwtest_bool_eq(data.cb2, false);
@@ -404,7 +404,7 @@ PWTEST(utils_hook)
 	spa_hook_list_append(&hl, h, &callbacks[3], &data);
 	h->removed = hook_removed_cb;
 
-	count = spa_hook_list_call(&hl, struct my_hook, invoke, VERSION);
+	count = spa_hook_list_call(&hl, struct my_hook, invoke, HOOK_VERSION);
 	pwtest_int_eq(count, 3);
 	pwtest_bool_eq(data.cb1, true);
 	pwtest_bool_eq(data.cb2, true);

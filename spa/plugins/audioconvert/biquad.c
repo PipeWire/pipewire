@@ -9,7 +9,7 @@
  */
 
 
-#include <config.h>
+#include "config.h"
 
 #include <spa/utils/defs.h>
 

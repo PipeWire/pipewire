@@ -3,7 +3,7 @@
  * found in the LICENSE file.
  */
 
-#include <config.h>
+#include "config.h"
 
 #include "crossover.h"
 

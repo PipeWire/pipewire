@@ -17,7 +17,7 @@
   along with PulseAudio; if not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <config.h>
+#include "config.h"
 
 #include <dirent.h>
 #include <string.h>

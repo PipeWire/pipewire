@@ -18,7 +18,7 @@
   along with PulseAudio; if not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <config.h>
+#include "config.h"
 
 #include <sys/types.h>
 #include <alsa/asoundlib.h>

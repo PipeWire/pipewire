@@ -85,5 +85,5 @@ if valgrind.found()
                    '--error-exitcode=3',
                    ],
                  env :  valgrind_env,
-                 timeout_multiplier : 100)
+                 timeout_multiplier : 3)
 endif

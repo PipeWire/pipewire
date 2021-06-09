@@ -264,7 +264,7 @@ PWTEST(properties_serialize_dict_stack_overflow)
 	fp = fopen(tmpfile, "w");
 	pwtest_ptr_notnull(fp);
 	r = pw_properties_serialize_dict(fp, &dict, 0);
-	pwtest_int_eq(r, 2);
+	pwtest_int_eq(r, 1);
 
 	fclose(fp);
 	free(long_value);

@@ -598,15 +598,26 @@ int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t 
 {
 	const struct spa_dict_item *it;
 	int count = 0;
+	char key[1024];
+
 	spa_dict_for_each(it, dict) {
 		size_t len = it->value ? strlen(it->value) : 0;
-		fprintf(f, " \"%s\" = ", it->key);
+
+		if (spa_json_encode_string(key, sizeof(key)-1, it->key) >= (int)sizeof(key)-1)
+			continue;
+
+		fprintf(f, "%s%s %s: ",
+				count == 0 ? "" : ",",
+				flags & PW_PROPERTIES_FLAG_NL ? "\n" : "",
+				key);
+
 		if (it->value == NULL) {
 			fprintf(f, "null");
 		} else if (spa_json_is_null(it->value, len) ||
 		    spa_json_is_float(it->value, len) ||
 		    spa_json_is_bool(it->value, len) ||
-		    spa_json_is_container(it->value, len)) {
+		    spa_json_is_container(it->value, len) ||
+		    spa_json_is_string(it->value, len)) {
 			fprintf(f, "%s", it->value);
 		} else {
 			encode_string(f, it->value);

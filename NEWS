@@ -1,3 +1,42 @@
+# PipeWire 0.3.30
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+This is a quick emergency release to fix some severe
+problems with the previous release.
+
+## Highlights
+  - Recording from a monitor port should work again.
+  - JACK applications should now be more stable again.
+  - Freewheeling should not lock up anymore.
+  - Fix lockups in many pulseaudio apps.
+  - module-echo-cancel was implemented in pipewire-pulse
+  - Many other stability fixes.
+
+## PipeWire
+  - Improve module path logic.
+  - Improve logger formatting
+
+## PulseAudio server
+  - Make sure to pass 64 bits values for time on ARM 32 bits to
+    avoid protocol errors.
+  - Avoid a crash when unloading module-combine-sink.
+  - Avoid overflow in requested bytes, resulting in stalled
+    audio.
+  - Implement module-echo-cancel.
+
+## Bluetooth
+  - Handle latency parameters instead of failing.
+
+## JACK
+  - Fix locking in many places to avoid deadlocks and crashes.
+  - Fix port rename.
+  - Stop freewheeling correctly instead of deadlocking.
+
+
+Older versions:
+
 # PipeWire 0.3.29
 
 This is a bugfix release that is API and ABI compatible
@@ -58,9 +97,6 @@ with previous 0.3.x releases.
 
 ## JACK
   - Implement latency reporting with the new Latency params.
-
-
-Older versions:
 
 # PipeWire 0.3.28
 

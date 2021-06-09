@@ -2,6 +2,7 @@ pwtest_sources = [
   'pwtest.h',
   'pwtest-implementation.h',
   'pwtest.c',
+  'pwtest-compat.c',
 ]
 
 pwtest_deps = [
@@ -28,6 +29,13 @@ pwtest_lib = static_library(
   c_args: pwtest_c_args,
   dependencies: pwtest_deps,
   include_directories: pwtest_inc,
+)
+
+test('test pwtest',
+    executable('test-pwtest',
+               'test-pwtest.c',
+               include_directories: pwtest_inc,
+               link_with: pwtest_lib)
 )
 
 # Compilation only, this is the example file for how pwtest works and most

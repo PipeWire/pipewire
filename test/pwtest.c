@@ -59,6 +59,8 @@
 
 #include "pwtest.h"
 
+#include "pwtest-compat.c"
+
 #define pwtest_log(...) dprintf(testlog_fd, __VA_ARGS__)
 #define pwtest_vlog(format_, args_) vdprintf(testlog_fd, format_, args_)
 

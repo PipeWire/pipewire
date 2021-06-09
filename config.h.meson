@@ -474,6 +474,7 @@
 #mesondefine HAVE_DECL_STRSIGNAL
 #mesondefine HAVE_MEMFD_CREATE
 #mesondefine HAVE_GETRANDOM
+#mesondefine HAVE_SIGABBREV_NP
 
 #mesondefine PIPEWIRE_VERSION_MAJOR
 #mesondefine PIPEWIRE_VERSION_MINOR

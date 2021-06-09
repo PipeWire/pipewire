@@ -278,6 +278,10 @@ if cc.has_function('getrandom', prefix : '#include <sys/random.h>', args : [ '-D
   cdata.set('HAVE_GETRANDOM', 1)
 endif
 
+if cc.has_function('sigabbrev_np', prefix : '#include <string.h>', args : [ '-D_GNU_SOURCE' ])
+  cdata.set('HAVE_SIGABBREV_NP', 1)
+endif
+
 systemd = dependency('systemd', required: get_option('systemd'))
 systemd_dep = dependency('libsystemd',required: get_option('systemd'))
 if systemd.found() and systemd_dep.found()

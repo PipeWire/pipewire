@@ -1494,7 +1494,7 @@ void *pw_filter_add_port(struct pw_filter *filter,
 	p->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
 	p->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	p->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
-	p->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_WRITE);
+	p->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_WRITE);
 	p->info.params = p->params;
 	p->info.n_params = N_PORT_PARAMS;
 

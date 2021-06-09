@@ -578,6 +578,7 @@ static int encode_string(FILE *f, const char *val)
 			break;
 		case '\\':
 		case '"':
+		case '/':
 			len += fprintf(f, "\\%c", *val);
 		break;
 		default:

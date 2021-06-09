@@ -100,7 +100,7 @@ audioconvert = static_library('audioconvert',
     'volume-ops-c.c' ],
   c_args : [ simd_cargs, '-O3'],
   link_with : simd_dependencies,
-  include_directories : [spa_inc],
+  include_directories : [configinc, spa_inc],
   install : false
   )
 

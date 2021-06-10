@@ -151,6 +151,7 @@ next:
 	}
 	case SPA_PARAM_EnumFormat:
 	case SPA_PARAM_Format:
+	case SPA_PARAM_Latency:
 		if ((res = spa_node_port_enum_params_sync(this->follower,
 				this->direction, 0,
 				id, &result.next, filter, &result.param, &b)) == 1)
@@ -1274,6 +1275,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	this->params[IDX_EnumPortConfig] = SPA_PARAM_INFO(SPA_PARAM_EnumPortConfig, SPA_PARAM_INFO_READ);
 	this->params[IDX_PortConfig] = SPA_PARAM_INFO(SPA_PARAM_PortConfig, SPA_PARAM_INFO_READWRITE);
+	this->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READ);
 	this->info.params = this->params;
 	this->info.n_params = N_NODE_PARAMS;
 

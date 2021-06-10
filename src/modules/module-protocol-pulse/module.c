@@ -232,6 +232,9 @@ static const struct module_info module_list[] = {
 	{ "module-tunnel-sink", create_module_tunnel_sink, },
 	{ "module-tunnel-source", create_module_tunnel_source, },
 	{ "module-zeroconf-discover", create_module_zeroconf_discover, },
+#ifdef HAVE_AVAHI
+	{ "module-zeroconf-publish", create_module_zeroconf_publish, },
+#endif
 	{ NULL, }
 };
 

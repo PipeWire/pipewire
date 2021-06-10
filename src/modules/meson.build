@@ -131,25 +131,37 @@ if dbus_dep.found()
   pipewire_module_protocol_pulse_deps += dbus_dep
 endif
 
+pipewire_module_protocol_pulse_sources = [
+  'module-protocol-pulse.c',
+  'module-protocol-pulse/manager.c',
+  'module-protocol-pulse/pulse-server.c',
+  'module-protocol-pulse/modules/module-combine-sink.c',
+  'module-protocol-pulse/modules/module-echo-cancel.c',
+  'module-protocol-pulse/modules/module-ladspa-sink.c',
+  'module-protocol-pulse/modules/module-ladspa-source.c',
+  'module-protocol-pulse/modules/module-loopback.c',
+  'module-protocol-pulse/modules/module-native-protocol-tcp.c',
+  'module-protocol-pulse/modules/module-null-sink.c',
+  'module-protocol-pulse/modules/module-pipe-sink.c',
+  'module-protocol-pulse/modules/module-remap-sink.c',
+  'module-protocol-pulse/modules/module-remap-source.c',
+  'module-protocol-pulse/modules/module-simple-protocol-tcp.c',
+  'module-protocol-pulse/modules/module-tunnel-sink.c',
+  'module-protocol-pulse/modules/module-tunnel-source.c',
+  'module-protocol-pulse/modules/module-zeroconf-discover.c',
+]
+
+if avahi_dep.found()
+  pipewire_module_protocol_pulse_sources += [
+    'module-protocol-pulse/modules/module-zeroconf-publish.c',
+    'module-zeroconf-discover/avahi-poll.c',
+  ]
+  pipewire_module_protocol_pulse_deps += avahi_dep
+  cdata.set('HAVE_AVAHI', 1)
+endif
+
 pipewire_module_protocol_pulse = shared_library('pipewire-module-protocol-pulse',
-  [ 'module-protocol-pulse.c',
-    'module-protocol-pulse/manager.c',
-    'module-protocol-pulse/pulse-server.c',
-    'module-protocol-pulse/modules/module-combine-sink.c',
-    'module-protocol-pulse/modules/module-echo-cancel.c',
-    'module-protocol-pulse/modules/module-ladspa-sink.c',
-    'module-protocol-pulse/modules/module-ladspa-source.c',
-    'module-protocol-pulse/modules/module-loopback.c',
-    'module-protocol-pulse/modules/module-native-protocol-tcp.c',
-    'module-protocol-pulse/modules/module-null-sink.c',
-    'module-protocol-pulse/modules/module-pipe-sink.c',
-    'module-protocol-pulse/modules/module-remap-sink.c',
-    'module-protocol-pulse/modules/module-remap-source.c',
-    'module-protocol-pulse/modules/module-simple-protocol-tcp.c',
-    'module-protocol-pulse/modules/module-tunnel-sink.c',
-    'module-protocol-pulse/modules/module-tunnel-source.c',
-    'module-protocol-pulse/modules/module-zeroconf-discover.c',
-  ],
+  pipewire_module_protocol_pulse_sources,
   include_directories : [configinc, spa_inc],
   install : true,
   install_dir : modules_install_dir,

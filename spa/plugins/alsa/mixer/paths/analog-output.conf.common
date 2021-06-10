@@ -184,3 +184,16 @@ priority = 9
 [Option Analog Output:FP Headphones]
 name = output-headphones
 priority = 8
+
+;;; 'Output Select'
+
+[Element Output Select]
+enumeration = select
+
+[Option Output Select:Speakers]
+name = output-speaker
+priority = 10
+
+[Option Output Select:Headphone]
+name = output-headphones
+priority = 9

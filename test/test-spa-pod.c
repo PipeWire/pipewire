@@ -547,7 +547,8 @@ PWTEST(pod_build)
 	spa_assert(SPA_POD_ARRAY_VALUE_TYPE(pod) == SPA_TYPE_Int);
 	spa_assert(SPA_POD_ARRAY_VALUE_SIZE(pod) == sizeof(int32_t));
 	spa_assert(SPA_POD_ARRAY_N_VALUES(pod) == 3);
-	spa_assert((ai = SPA_POD_ARRAY_VALUES(pod)) != NULL);
+	ai = SPA_POD_ARRAY_VALUES(pod);
+	spa_assert(ai != NULL);
 	spa_assert(SPA_POD_ARRAY_CHILD(pod)->type == SPA_TYPE_Int);
 	spa_assert(SPA_POD_ARRAY_CHILD(pod)->size == sizeof(int32_t));
 	spa_assert(ai[0] == 1);
@@ -564,7 +565,8 @@ PWTEST(pod_build)
 	spa_assert(SPA_POD_ARRAY_VALUE_TYPE(pod) == SPA_TYPE_Long);
 	spa_assert(SPA_POD_ARRAY_VALUE_SIZE(pod) == sizeof(int64_t));
 	spa_assert(SPA_POD_ARRAY_N_VALUES(pod) == SPA_N_ELEMENTS(longs));
-	spa_assert((al = SPA_POD_ARRAY_VALUES(pod)) != NULL);
+	al = SPA_POD_ARRAY_VALUES(pod);
+	spa_assert(al != NULL);
 	spa_assert(SPA_POD_ARRAY_CHILD(pod)->type == SPA_TYPE_Long);
 	spa_assert(SPA_POD_ARRAY_CHILD(pod)->size == sizeof(int64_t));
 	for (i = 0; i < SPA_N_ELEMENTS(longs); i++)
@@ -581,7 +583,8 @@ PWTEST(pod_build)
 	spa_assert(SPA_POD_CHOICE_VALUE_TYPE(pod) == SPA_TYPE_Long);
 	spa_assert(SPA_POD_CHOICE_VALUE_SIZE(pod) == sizeof(int64_t));
 	spa_assert(SPA_POD_CHOICE_N_VALUES(pod) == 3);
-	spa_assert((al = SPA_POD_CHOICE_VALUES(pod)) != NULL);
+	al = SPA_POD_CHOICE_VALUES(pod);
+	spa_assert(al != NULL);
 	spa_assert(SPA_POD_CHOICE_CHILD(pod)->type == SPA_TYPE_Long);
 	spa_assert(SPA_POD_CHOICE_CHILD(pod)->size == sizeof(int64_t));
 	spa_assert(al[0] == 1);
@@ -644,19 +647,24 @@ PWTEST(pod_build)
 			break;
 		}
 	}
-	spa_assert((prop = spa_pod_find_prop(pod, NULL, 3)) != NULL);
+	prop = spa_pod_find_prop(pod, NULL, 3);
+	spa_assert(prop != NULL);
 	spa_assert(prop->key == 3);
 	spa_assert(spa_pod_get_string(&prop->value, &val.s) == 0 &&
 				spa_streq(val.s, "test123"));
-	spa_assert((prop = spa_pod_find_prop(pod, prop, 1)) != NULL);
+	prop = spa_pod_find_prop(pod, prop, 1);
+	spa_assert(prop != NULL);
 	spa_assert(prop->key == 1);
 	spa_assert(spa_pod_get_int(&prop->value, &val.i) == 0 && val.i == 21);
-	spa_assert((prop = spa_pod_find_prop(pod, prop, 2)) != NULL);
+	prop = spa_pod_find_prop(pod, prop, 2);
+	spa_assert(prop != NULL);
 	spa_assert(prop->key == 2);
 	spa_assert(spa_pod_get_long(&prop->value, &val.l) == 0 && val.l == 42);
-	spa_assert((prop = spa_pod_find_prop(pod, prop, 5)) == NULL);
+	prop = spa_pod_find_prop(pod, prop, 5);
+	spa_assert(prop == NULL);
 
-	spa_assert((prop = spa_pod_find_prop(pod, NULL, 3)) != NULL);
+	prop = spa_pod_find_prop(pod, NULL, 3);
+	spa_assert(prop != NULL);
 	spa_assert(prop->key == 3);
 	spa_assert(spa_pod_get_string(&prop->value, &val.s) == 0 &&
 				spa_streq(val.s, "test123"));
@@ -697,57 +705,70 @@ PWTEST(pod_empty)
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_assert(spa_pod_builder_push_array(&b, &f) == 0);
 	spa_assert(spa_pod_builder_child(&b, sizeof(uint32_t), SPA_TYPE_Id) == 0);
-	spa_assert((array = spa_pod_builder_pop(&b, &f)) != NULL);
+	array = spa_pod_builder_pop(&b, &f);
+	spa_assert(array != NULL);
 	spa_debug_mem(0, array, 16);
 	spa_assert(spa_pod_is_array(array));
-	spa_assert((a2 = spa_pod_get_array(array, &n_vals)) != NULL);
+	a2 = spa_pod_get_array(array, &n_vals);
+	spa_assert(a2 != NULL);
 	spa_assert(n_vals == 0);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_assert(spa_pod_builder_push_array(&b, &f) == 0);
-	spa_assert((array = spa_pod_builder_pop(&b, &f)) != NULL);
+	array = spa_pod_builder_pop(&b, &f);
+	spa_assert(array != NULL);
 	spa_assert(spa_pod_is_array(array));
-	spa_assert((a2 = spa_pod_get_array(array, &n_vals)) != NULL);
+	a2 = spa_pod_get_array(array, &n_vals);
+	spa_assert(a2 != NULL);
 	spa_assert(n_vals == 0);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_assert(spa_pod_builder_push_array(&b, &f) == 0);
 	spa_assert(spa_pod_builder_none(&b) == 0);
-	spa_assert((array = spa_pod_builder_pop(&b, &f)) != NULL);
+	array = spa_pod_builder_pop(&b, &f);
+	spa_assert(array != NULL);
 	spa_assert(spa_pod_is_array(array));
-	spa_assert((a2 = spa_pod_get_array(array, &n_vals)) != NULL);
+	a2 = spa_pod_get_array(array, &n_vals);
+	spa_assert(a2 != NULL);
 	spa_assert(n_vals == 0);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_assert(spa_pod_builder_array(&b, 4, SPA_TYPE_Id, 0, NULL) == 0);
 	array = (struct spa_pod*)buffer;
 	spa_assert(spa_pod_is_array(array));
-	spa_assert((a2 = spa_pod_get_array(array, &n_vals)) != NULL);
+	a2 = spa_pod_get_array(array, &n_vals);
+	spa_assert(a2 != NULL);
 	spa_assert(n_vals == 0);
 
 	/* create empty choice */
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_assert(spa_pod_builder_push_choice(&b, &f, 0, 0) == 0);
 	spa_assert(spa_pod_builder_child(&b, sizeof(uint32_t), SPA_TYPE_Id) == 0);
-	spa_assert((choice = spa_pod_builder_pop(&b, &f)) != NULL);
+	choice = spa_pod_builder_pop(&b, &f);
+	spa_assert(choice != NULL);
 	spa_debug_mem(0, choice, 32);
 	spa_assert(spa_pod_is_choice(choice));
-	spa_assert((ch2 = spa_pod_get_values(choice, &n_vals, &ch)) != NULL);
+	ch2 = spa_pod_get_values(choice, &n_vals, &ch);
+	spa_assert(ch2 != NULL);
 	spa_assert(n_vals == 0);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_assert(spa_pod_builder_push_choice(&b, &f, 0, 0) == 0);
-	spa_assert((choice = spa_pod_builder_pop(&b, &f)) != NULL);
+	choice = spa_pod_builder_pop(&b, &f);
+	spa_assert(choice != NULL);
 	spa_assert(spa_pod_is_choice(choice));
-	spa_assert((ch2 = spa_pod_get_values(choice, &n_vals, &ch)) != NULL);
+	ch2 = spa_pod_get_values(choice, &n_vals, &ch);
+	spa_assert(ch2 != NULL);
 	spa_assert(n_vals == 0);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_assert(spa_pod_builder_push_choice(&b, &f, 0, 0) == 0);
 	spa_assert(spa_pod_builder_none(&b) == 0);
-	spa_assert((choice = spa_pod_builder_pop(&b, &f)) != NULL);
+	choice = spa_pod_builder_pop(&b, &f);
+	spa_assert(choice != NULL);
 	spa_assert(spa_pod_is_choice(choice));
-	spa_assert((ch2 = spa_pod_get_values(choice, &n_vals, &ch)) != NULL);
+	ch2 = spa_pod_get_values(choice, &n_vals, &ch);
+	spa_assert(ch2 != NULL);
 	spa_assert(n_vals == 0);
 	return PWTEST_PASS;
 }
@@ -817,7 +838,8 @@ PWTEST(pod_varargs)
 			spa_assert(SPA_POD_CHOICE_N_VALUES(&prop->value) == 3);
 			spa_assert(SPA_POD_CHOICE_VALUE_TYPE(&prop->value) == SPA_TYPE_Id);
 			spa_assert(SPA_POD_CHOICE_VALUE_SIZE(&prop->value) == sizeof(uint32_t));
-			spa_assert((aI = SPA_POD_CHOICE_VALUES(&prop->value)) != NULL);
+			aI = SPA_POD_CHOICE_VALUES(&prop->value);
+			spa_assert(aI != NULL);
 			spa_assert(aI[0] == SPA_VIDEO_FORMAT_I420);
 			spa_assert(aI[1] == SPA_VIDEO_FORMAT_I420);
 			spa_assert(aI[2] == SPA_VIDEO_FORMAT_YUY2);
@@ -829,7 +851,8 @@ PWTEST(pod_varargs)
 			spa_assert(SPA_POD_CHOICE_N_VALUES(&prop->value) == 3);
 			spa_assert(SPA_POD_CHOICE_VALUE_TYPE(&prop->value) == SPA_TYPE_Rectangle);
 			spa_assert(SPA_POD_CHOICE_VALUE_SIZE(&prop->value) == sizeof(struct spa_rectangle));
-			spa_assert((aR = SPA_POD_CHOICE_VALUES(&prop->value)) != NULL);
+			aR = SPA_POD_CHOICE_VALUES(&prop->value);
+			spa_assert(aR != NULL);
 			spa_assert(memcmp(&aR[0], &SPA_RECTANGLE(320,242), sizeof(struct spa_rectangle)) == 0);
 			spa_assert(memcmp(&aR[1], &SPA_RECTANGLE(1,1), sizeof(struct spa_rectangle)) == 0);
 			spa_assert(memcmp(&aR[2], &SPA_RECTANGLE(INT32_MAX,INT32_MAX), sizeof(struct spa_rectangle)) == 0);
@@ -841,7 +864,8 @@ PWTEST(pod_varargs)
 			spa_assert(SPA_POD_CHOICE_N_VALUES(&prop->value) == 3);
 			spa_assert(SPA_POD_CHOICE_VALUE_TYPE(&prop->value) == SPA_TYPE_Fraction);
 			spa_assert(SPA_POD_CHOICE_VALUE_SIZE(&prop->value) == sizeof(struct spa_fraction));
-			spa_assert((aF = SPA_POD_CHOICE_VALUES(&prop->value)) != NULL);
+			aF = SPA_POD_CHOICE_VALUES(&prop->value);
+			spa_assert(aF != NULL);
 			spa_assert(memcmp(&aF[0], &SPA_FRACTION(25,1), sizeof(struct spa_fraction)) == 0);
 			spa_assert(memcmp(&aF[1], &SPA_FRACTION(0,1), sizeof(struct spa_fraction)) == 0);
 			spa_assert(memcmp(&aF[2], &SPA_FRACTION(INT32_MAX,1), sizeof(struct spa_fraction)) == 0);
@@ -868,7 +892,8 @@ PWTEST(pod_varargs)
 	spa_assert(SPA_POD_CHOICE_N_VALUES(Vformat) == 3);
 	spa_assert(SPA_POD_CHOICE_VALUE_TYPE(Vformat) == SPA_TYPE_Id);
 	spa_assert(SPA_POD_CHOICE_VALUE_SIZE(Vformat) == sizeof(uint32_t));
-	spa_assert((aI = SPA_POD_CHOICE_VALUES(Vformat)) != NULL);
+	aI = SPA_POD_CHOICE_VALUES(Vformat);
+	spa_assert(aI != NULL);
 	spa_assert(aI[0] == SPA_VIDEO_FORMAT_I420);
 	spa_assert(aI[1] == SPA_VIDEO_FORMAT_I420);
 	spa_assert(aI[2] == SPA_VIDEO_FORMAT_YUY2);
@@ -878,7 +903,8 @@ PWTEST(pod_varargs)
 	spa_assert(SPA_POD_CHOICE_N_VALUES(Vsize) == 3);
 	spa_assert(SPA_POD_CHOICE_VALUE_TYPE(Vsize) == SPA_TYPE_Rectangle);
 	spa_assert(SPA_POD_CHOICE_VALUE_SIZE(Vsize) == sizeof(struct spa_rectangle));
-	spa_assert((aR = SPA_POD_CHOICE_VALUES(Vsize)) != NULL);
+	aR = SPA_POD_CHOICE_VALUES(Vsize);
+	spa_assert(aR != NULL);
 	spa_assert(memcmp(&aR[0], &SPA_RECTANGLE(320,242), sizeof(struct spa_rectangle)) == 0);
 	spa_assert(memcmp(&aR[1], &SPA_RECTANGLE(1,1), sizeof(struct spa_rectangle)) == 0);
 	spa_assert(memcmp(&aR[2], &SPA_RECTANGLE(INT32_MAX,INT32_MAX), sizeof(struct spa_rectangle)) == 0);
@@ -1039,7 +1065,8 @@ PWTEST(pod_varargs2)
 			spa_assert(SPA_POD_ARRAY_VALUE_TYPE(&prop->value) == SPA_TYPE_Long);
 			spa_assert(SPA_POD_ARRAY_VALUE_SIZE(&prop->value) == sizeof(int64_t));
 			spa_assert(SPA_POD_ARRAY_N_VALUES(&prop->value) == SPA_N_ELEMENTS(longs));
-			spa_assert((al = SPA_POD_ARRAY_VALUES(&prop->value)) != NULL);
+			al = SPA_POD_ARRAY_VALUES(&prop->value);
+			spa_assert(al != NULL);
 			spa_assert(SPA_POD_ARRAY_CHILD(&prop->value)->type == SPA_TYPE_Long);
 			spa_assert(SPA_POD_ARRAY_CHILD(&prop->value)->size == sizeof(int64_t));
 			for (j = 0; j < SPA_N_ELEMENTS(longs); j++)
@@ -1397,7 +1424,8 @@ PWTEST(pod_parser2)
 	spa_assert(spa_pod_parser_get_fraction(&p, &val.F) == 0);
 	spa_assert(memcmp(&val.F, &SPA_FRACTION(24,1), sizeof(struct spa_fraction)) == 0);
 	spa_assert(p.state.offset == 168);
-	spa_assert((val.P = spa_pod_parser_next(&p)) != NULL);
+	val.P = spa_pod_parser_next(&p);
+	spa_assert(val.P != NULL);
 	spa_assert(spa_pod_is_array(val.P));
 	spa_assert(p.state.offset == 216);
 	spa_assert(SPA_POD_ARRAY_VALUE_TYPE(val.P) == SPA_TYPE_Long);

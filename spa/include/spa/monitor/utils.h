@@ -59,7 +59,8 @@ static inline int spa_device_enum_params_sync(struct spa_device *device,
 	struct spa_result_device_params_data data = { builder, };
 	struct spa_hook listener = {{0}};
 	static const struct spa_device_events device_events = {
-		SPA_VERSION_DEVICE_EVENTS,
+		.version = SPA_VERSION_DEVICE_EVENTS,
+		.info = NULL,
 		.result = spa_result_func_device_params,
 	};
 	int res;

@@ -51,7 +51,7 @@ struct module *module_new(struct impl *impl, const struct module_methods *method
 
 	module->impl = impl;
 	module->methods = methods;
-	spa_hook_list_init(&module->hooks);
+	spa_hook_list_init(&module->listener_list);
 	module->user_data = SPA_PTROFF(module, sizeof(struct module), void);
 
 	return module;
@@ -61,7 +61,7 @@ static void module_add_listener(struct module *module,
 		struct spa_hook *listener,
 		const struct module_events *events, void *data)
 {
-	spa_hook_list_append(&module->hooks, listener, events, data);
+	spa_hook_list_append(&module->listener_list, listener, events, data);
 }
 
 static int module_load(struct client *client, struct module *module)
@@ -77,13 +77,17 @@ static int module_load(struct client *client, struct module *module)
 static void module_free(struct module *module)
 {
 	struct impl *impl = module->impl;
+
 	if (module->idx != SPA_ID_INVALID)
 		pw_map_remove(&impl->modules, module->idx & INDEX_MASK);
 
+	spa_hook_list_clean(&module->listener_list);
 	pw_work_queue_cancel(impl->work_queue, module, SPA_ID_INVALID);
+	pw_properties_free(module->props);
+
 	free((char*)module->name);
 	free((char*)module->args);
-	pw_properties_free(module->props);
+
 	free(module);
 }
 

@@ -44,7 +44,7 @@ struct module_events {
 	void (*loaded) (void *data, int res);
 };
 
-#define module_emit_loaded(m,r) spa_hook_list_call(&m->hooks, struct module_events, loaded, 0, r)
+#define module_emit_loaded(m,r) spa_hook_list_call(&m->listener_list, struct module_events, loaded, 0, r)
 
 struct module_methods {
 #define VERSION_MODULE_METHODS	0
@@ -61,7 +61,7 @@ struct module {
 	struct pw_properties *props;
 	struct impl *impl;
 	const struct module_methods *methods;
-	struct spa_hook_list hooks;
+	struct spa_hook_list listener_list;
 	void *user_data;
 };
 

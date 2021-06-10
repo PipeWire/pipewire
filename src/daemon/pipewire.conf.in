@@ -168,7 +168,7 @@ context.objects = [
     #{ factory = spa-node-factory args = { factory.name = videotestsrc node.name = videotestsrc Spa:Pod:Object:Param:Props:patternType = 1 } }
     #{ factory = spa-device-factory args = { factory.name = api.jack.device foo=bar } flags = [ nofail ] }
     #{ factory = spa-device-factory args = { factory.name = api.alsa.enum.udev } }
-    #{ factory = spa-device-factory args = { factory.name = api.alsa.seq.bridge node.name = Internal-MIDI-Bridge } }
+    #{ factory = spa-node-factory   args = { factory.name = api.alsa.seq.bridge node.name = Internal-MIDI-Bridge } }
     #{ factory = adapter            args = { factory.name = audiotestsrc node.name = my-test } }
     #{ factory = spa-node-factory   args = { factory.name = api.vulkan.compute.source node.name = my-compute-source } }
 

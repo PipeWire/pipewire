@@ -59,7 +59,6 @@ struct module {
 	const char *name;
 	const char *args;
 	struct pw_properties *props;
-	struct spa_list link;           /**< link in client modules */
 	struct impl *impl;
 	const struct module_methods *methods;
 	struct spa_hook_list hooks;

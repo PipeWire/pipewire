@@ -106,7 +106,6 @@ struct client {
 	struct spa_list out_messages;
 
 	struct spa_list operations;
-	struct spa_list loading_modules;
 
 	struct spa_list pending_samples;
 

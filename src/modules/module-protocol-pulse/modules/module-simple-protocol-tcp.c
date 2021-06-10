@@ -31,7 +31,6 @@
 
 struct module_simple_protocol_tcp_data {
 	struct module *module;
-	struct server *server;
 	struct pw_properties *module_props;
 	struct pw_impl_module *mod;
 	struct spa_hook mod_listener;

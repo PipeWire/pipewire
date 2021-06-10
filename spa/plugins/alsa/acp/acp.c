@@ -252,6 +252,9 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 			char **d;
 			for (d = m->device_strings; *d; d++) {
 				if (pa_startswith(*d, alibpref)) {
+					size_t plen = strlen(alibpref);
+					size_t len = strlen(*d);
+					memmove(*d, (*d) + plen, len - plen + 1);
 					dev->device.flags |= ACP_DEVICE_UCM_DEVICE;
 					break;
 				}

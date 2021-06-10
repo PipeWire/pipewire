@@ -9,6 +9,7 @@
 #include <limits.h>
 
 #include <spa/pod/filter.h>
+#include <spa/utils/string.h>
 #include <spa/support/system.h>
 
 #define NAME "alsa-pcm"
@@ -49,9 +50,10 @@ int spa_alsa_init(struct state *state)
 		if ((snd_use_case_get(state->ucm, "_alibpref", &alibpref) != 0))
 			alibpref = NULL;
 		if (alibpref != NULL) {
-			size_t len = strlen(alibpref);
-			if (len > 4 && strncmp(state->props.device, alibpref, 4) == 0)
-				memcpy(state->props.device, alibpref, len);
+			char name[sizeof(state->props.device)];
+			spa_scnprintf(name, sizeof(name), "%s%s", alibpref,
+					state->props.device);
+			strcpy(state->props.device, name);
 		}
 	}
 	return 0;

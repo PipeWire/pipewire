@@ -206,6 +206,9 @@ cdata.set('MEMORY_ALIGNMENT_MALLOC', 1)
 cdata.set_quoted('PA_ALSA_PATHS_DIR', alsadatadir / 'paths')
 cdata.set_quoted('PA_ALSA_PROFILE_SETS_DIR', alsadatadir / 'profile-sets')
 
+if host_machine.endian() == 'big'
+  cdata.set('WORDS_BIGENDIAN', 1)
+endif
 
 check_headers = [['dlfcn.h','HAVE_DLFCN_H'],
   ['inttypes.h', 'HAVE_INTTYPES_H'],

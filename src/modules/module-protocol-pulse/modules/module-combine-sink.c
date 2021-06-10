@@ -327,6 +327,7 @@ static int module_combine_sink_load(struct client *client, struct module *module
 
 	props = pw_properties_new(NULL, NULL);
 	pw_properties_set(props, PW_KEY_NODE_NAME, data->sink_name);
+	pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, data->sink_name);
 	pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 	pw_properties_setf(props, PW_KEY_NODE_GROUP, "combine_sink-%u", data->module->idx);
 	pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");

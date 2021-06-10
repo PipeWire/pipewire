@@ -247,7 +247,7 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 		if ((snd_use_case_get(impl->ucm.ucm_mgr, "_alibpref", &alibpref) != 0))
 			alibpref = NULL;
 		if (alibpref == NULL)
-			alibpref = spa_aprintf("_ucm%04X.", impl->card.index);
+			alibpref = strdup("_ucm");
 		if (alibpref != NULL) {
 			char **d;
 			for (d = m->device_strings; *d; d++) {

@@ -812,7 +812,11 @@ static int monitor_test_forked(struct pwtest_test *t, pid_t pid, int read_fds[_F
 	size_t nevents = 0;
 	int r;
 
+#if HAVE_PIDFD_OPEN
 	pidfd = syscall(SYS_pidfd_open, pid, 0);
+#else
+	errno = ENOSYS;
+#endif
 	/* If we don't have pidfd, we use a timerfd to ping us every 20ms */
 	if (pidfd < 0 && errno == ENOSYS) {
 		pidfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);

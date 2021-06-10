@@ -89,8 +89,6 @@ static int module_simple_protocol_tcp_load(struct client *client, struct module 
 
 	pw_impl_module_add_listener(data->mod, &data->mod_listener, &module_events, data);
 
-	module_emit_loaded(module, 0);
-
 	return 0;
 }
 

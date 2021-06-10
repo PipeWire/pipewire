@@ -41,7 +41,7 @@ struct module_events {
 #define VERSION_MODULE_EVENTS	0
 	uint32_t version;
 
-	void (*loaded) (void *data, int res);
+	void (*loaded) (void *data, int result);
 };
 
 #define module_emit_loaded(m,r) spa_hook_list_call(&m->listener_list, struct module_events, loaded, 0, r)

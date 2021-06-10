@@ -91,7 +91,7 @@ static int module_null_sink_load(struct client *client, struct module *module)
 
 	pw_proxy_add_listener(d->proxy, &d->listener, &proxy_events, module);
 
-	return 0;
+	return SPA_RESULT_RETURN_ASYNC(0);
 }
 
 static int module_null_sink_unload(struct client *client, struct module *module)

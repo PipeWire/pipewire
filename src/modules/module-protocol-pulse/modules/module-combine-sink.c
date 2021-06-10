@@ -361,8 +361,6 @@ static int module_combine_sink_load(struct client *client, struct module *module
 
 	data->cleanup = pw_loop_add_event(module->impl->loop, on_cleanup, data);
 
-	module_emit_loaded(module, 0);
-
 	return 0;
 }
 

@@ -71,8 +71,6 @@ static int module_zeroconf_discover_load(struct client *client, struct module *m
 			&data->mod_listener,
 			&module_events, data);
 
-	module_emit_loaded(module, 0);
-
 	return 0;
 }
 

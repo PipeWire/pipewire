@@ -56,8 +56,6 @@ static int module_native_protocol_tcp_load(struct client *client, struct module 
 	if (res < 0)
 		return res;
 
-	module_emit_loaded(module, 0);
-
 	return 0;
 }
 

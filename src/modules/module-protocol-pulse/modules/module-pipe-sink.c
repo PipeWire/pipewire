@@ -177,8 +177,6 @@ static int module_pipesink_load(struct client *client, struct module *module)
 			params, n_params)) < 0)
 		return res;
 
-	module_emit_loaded(module, 0);
-
 	return 0;
 }
 

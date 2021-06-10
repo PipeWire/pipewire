@@ -98,8 +98,6 @@ static int module_loopback_load(struct client *client, struct module *module)
 			&data->mod_listener,
 			&module_events, data);
 
-	module_emit_loaded(module, 0);
-
 	return 0;
 }
 

@@ -123,6 +123,7 @@ static void broadcast_subscribe_event(struct impl *impl, uint32_t mask, uint32_t
 #include "message-handler.c"
 
 static void client_free(struct client *client);
+static void client_unref(struct client *client);
 
 static void sample_free(struct sample *sample)
 {
@@ -4975,72 +4976,68 @@ static int do_kill(struct client *client, uint32_t command, uint32_t tag, struct
 }
 
 struct load_module_data {
-	struct spa_list link;
 	struct client *client;
 	struct module *module;
 	struct spa_hook listener;
 	uint32_t tag;
 };
 
-static struct load_module_data *load_module_data_new(struct client *client, uint32_t tag)
-{
-	struct load_module_data *data = calloc(1, sizeof(struct load_module_data));
-	data->client = client;
-	data->tag = tag;
-	return data;
-}
-
-static void load_module_data_free(struct load_module_data *d)
-{
-	spa_hook_remove(&d->listener);
-	free(d);
-}
-
-static void on_module_loaded(void *data, int error)
+static void on_module_loaded(void *data, int result)
 {
 	struct load_module_data *d = data;
 	struct module *module = d->module;
+	struct client *client = d->client;
 	struct impl *impl = module->impl;
-	struct message *reply;
-	struct client *client;
-	uint32_t tag;
+	uint32_t tag = d->tag;
 
-	client = d->client;
-	tag = d->tag;
-	load_module_data_free(d);
+	spa_hook_remove(&d->listener);
+	free(d);
 
-	if (error < 0) {
-		pw_log_warn(NAME" %p: [%s] error loading module", client->impl, client->name);
-		reply_error(client, COMMAND_LOAD_MODULE, tag, error);
-		return;
-	}
+	if (SPA_RESULT_IS_OK(result)) {
+		struct message *reply;
 
-	pw_log_info(NAME" %p: [%s] module %d loaded", client->impl, client->name, module->idx);
+		pw_log_info(NAME" %p: [%s] loaded module id:%u name:%s",
+			    impl, client->name,
+			    module->idx, module->name);
 
-	module->loaded = true;
+		module->loaded = true;
 
-	broadcast_subscribe_event(impl,
+		broadcast_subscribe_event(impl,
 			SUBSCRIPTION_MASK_MODULE,
 			SUBSCRIPTION_EVENT_NEW | SUBSCRIPTION_EVENT_MODULE,
 			module->idx);
 
-	reply = reply_new(client, tag);
-	message_put(reply,
-		TAG_U32, module->idx,
-		TAG_INVALID);
-	send_message(client, reply);
+		reply = reply_new(client, tag);
+		message_put(reply,
+			TAG_U32, module->idx,
+			TAG_INVALID);
+		send_message(client, reply);
+	}
+	else {
+		pw_log_warn(NAME" %p: [%s] failed to load module id:%u name:%s result:%d (%s)",
+			    impl, client->name,
+			    module->idx, module->name,
+			    result, spa_strerror(result));
+
+		reply_error(client, COMMAND_LOAD_MODULE, tag, result);
+		module_schedule_unload(module);
+	}
+
+	client_unref(client);
 }
 
 static int do_load_module(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct module *module;
-	struct impl *impl = client->impl;
-	struct load_module_data *d;
-	const char *name, *argument;
-	static struct module_events listener = {
+	static const struct module_events listener = {
 		VERSION_MODULE_EVENTS,
 		.loaded = on_module_loaded,
 	};
+
+	struct impl *impl = client->impl;
+	const char *name, *argument;
+	struct load_module_data *d;
+	struct module *module;
+	int r;
 
 	if (message_get(m,
 			TAG_STRING, &name,
@@ -5055,11 +5052,27 @@ static int do_load_module(struct client *client, uint32_t command, uint32_t tag,
 	if (module == NULL)
 		return -errno;
 
-	d = load_module_data_new(client, tag);
+	d = calloc(1, sizeof(*d));
+	if (d == NULL)
+		return -errno;
+
+	d->tag = tag;
+	d->client = client;
 	d->module = module;
 	module_add_listener(module, &d->listener, &listener, d);
 
-	return module_load(client, module);
+	client->ref += 1;
+
+	r = module_load(client, module);
+	if (!SPA_RESULT_IS_ASYNC(r))
+		module_emit_loaded(module, r);
+	/* in the async case the module itself must emit the "loaded" event */
+
+	/*
+	 * return 0 to prevent `handle_packet()` from sending a reply
+	 * because we want `on_module_loaded()` to send the reply
+	 */
+	return 0;
 }
 
 static int do_unload_module(struct client *client, uint32_t command, uint32_t tag, struct message *m)

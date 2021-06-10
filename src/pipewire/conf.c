@@ -64,78 +64,63 @@ static int make_path(char *path, int size, const char *paths[])
 	return 0;
 }
 
-static int get_read_path(char *path, size_t size, const char *prefix, const char *name,
-		bool useronly, uint32_t *state)
+static int get_read_path(char *path, size_t size, const char *prefix, const char *name)
 {
 	const char *dir;
 	char buffer[4096];
 
-	while (true) {
-		switch ((*state)++) {
-		case 0:
-			if (prefix[0] == '/') {
-				const char *paths[] = { prefix, name, NULL };
-				if (make_path(path, size, paths) == 0 &&
-				    access(path, R_OK) == 0)
-					return 1;
-				return -ENOENT;
-			}
-			break;
-		case 1:
-			if (useronly)
-				break;
-			dir = getenv("PIPEWIRE_CONFIG_DIR");
-			if (dir != NULL) {
-				const char *paths[] = { dir, prefix, name, NULL };
-				if (make_path(path, size, paths) == 0 &&
-				    access(path, R_OK) == 0)
-					return 1;
-			}
-			dir = PIPEWIRE_CONFDATADIR;
-			if (dir != NULL) {
-				const char *paths[] = { dir, prefix, name, NULL };
-				if (make_path(path, size, paths) == 0 &&
-				    access(path, R_OK) == 0)
-					return 1;
-			}
-			break;
-		case 2:
-			if (pw_check_option("no-config", "true"))
-				return 0;
-			if (useronly)
-				break;
-			dir = PIPEWIRE_CONFIG_DIR;
-			if (dir != NULL) {
-				const char *paths[] = { dir, prefix, name, NULL };
-				if (make_path(path, size, paths) == 0 &&
-				    access(path, R_OK) == 0)
-					return 1;
-			}
-			break;
-		case 3:
-			dir = getenv("XDG_CONFIG_HOME");
-			if (dir != NULL) {
-				const char *paths[] = { dir, "pipewire", prefix, name, NULL };
-				if (make_path(path, size, paths) == 0 &&
-				    access(path, R_OK) == 0)
-					return 1;
-			}
-			dir = getenv("HOME");
-			if (dir == NULL) {
-				struct passwd pwd, *result = NULL;
-				if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
-					dir = result ? result->pw_dir : NULL;
-			}
-			if (dir != NULL) {
-				const char *paths[] = { dir, ".config", "pipewire", prefix, name, NULL };
-				if (make_path(path, size, paths) == 0 &&
-				    access(path, R_OK) == 0)
-					return 1;
-			}
-			break;
-		default:
-			return 0;
-		}
+	if (prefix[0] == '/') {
+		const char *paths[] = { prefix, name, NULL };
+		if (make_path(path, size, paths) == 0 &&
+		    access(path, R_OK) == 0)
+			return 1;
+		return -ENOENT;
+	}
+	if (pw_check_option("no-config", "true"))
+		goto no_config;
+
+	dir = getenv("PIPEWIRE_CONFIG_DIR");
+	if (dir != NULL) {
+		const char *paths[] = { dir, prefix, name, NULL };
+		if (make_path(path, size, paths) == 0 &&
+		    access(path, R_OK) == 0)
+			return 1;
+	}
+
+	dir = getenv("XDG_CONFIG_HOME");
+	if (dir != NULL) {
+		const char *paths[] = { dir, "pipewire", prefix, name, NULL };
+		if (make_path(path, size, paths) == 0 &&
+		    access(path, R_OK) == 0)
+			return 1;
+	}
+	dir = getenv("HOME");
+	if (dir == NULL) {
+		struct passwd pwd, *result = NULL;
+		if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
+			dir = result ? result->pw_dir : NULL;
+	}
+	if (dir != NULL) {
+		const char *paths[] = { dir, ".config", "pipewire", prefix, name, NULL };
+		if (make_path(path, size, paths) == 0 &&
+		    access(path, R_OK) == 0)
+			return 1;
+	}
+
+	dir = PIPEWIRE_CONFIG_DIR;
+	if (dir != NULL) {
+		const char *paths[] = { dir, prefix, name, NULL };
+		if (make_path(path, size, paths) == 0 &&
+		    access(path, R_OK) == 0)
+			return 1;
+	}
+no_config:
+	dir = PIPEWIRE_CONFDATADIR;
+	if (dir != NULL) {
+		const char *paths[] = { dir, prefix, name, NULL };
+		if (make_path(path, size, paths) == 0 &&
+		    access(path, R_OK) == 0)
+			return 1;
 	}
 	return 0;
 }
@@ -249,58 +234,53 @@ error:
 	return res;
 }
 
-static int conf_load(const char *prefix, const char *name, bool useronly, struct pw_properties *conf)
+static int conf_load(const char *prefix, const char *name, struct pw_properties *conf)
 {
 	char path[PATH_MAX], *data;
 	struct stat sbuf;
-	int fd, count = 0;
-	uint32_t state = 0;
+	int fd;
 
 	if (prefix == NULL) {
 		prefix = name;
 		name = NULL;
 	}
 
-	while (true) {
-		if (get_read_path(path, sizeof(path), prefix, name, useronly, &state) <= 0)
-			break;
-
-		pw_log_info(NAME" %p: loading config '%s'", conf, path);
-		if ((fd = open(path,  O_CLOEXEC | O_RDONLY)) < 0)  {
-			pw_log_warn(NAME" %p: error opening '%s': %m", conf, path);
-			continue;
-		}
-
-		data = NULL;
-		if (fstat(fd, &sbuf) < 0) {
-			pw_log_warn(NAME" %p: error stat '%s': %m", conf, path);
-		} else if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
-			pw_log_warn(NAME" %p: error mmap '%s': %m", conf, path);
-			data = NULL;
-		}
-		close(fd);
-
-		if (data != NULL) {
-			count += pw_properties_update_string(conf, data, sbuf.st_size);
-			munmap(data, sbuf.st_size);
-		}
-	}
-	if (count == 0)
+	if (get_read_path(path, sizeof(path), prefix, name) == 0) {
+		pw_log_debug(NAME" %p: can't load config '%s': %m", conf, path);
 		return -ENOENT;
+	}
+	if ((fd = open(path,  O_CLOEXEC | O_RDONLY)) < 0)  {
+		pw_log_warn(NAME" %p: error loading config '%s': %m", conf, path);
+		return -errno;
+	}
+
+	pw_log_info(NAME" %p: loading config '%s'", conf, path);
+	if (fstat(fd, &sbuf) < 0)
+		goto error_close;
+	if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
+		goto error_close;
+	close(fd);
+
+	pw_properties_update_string(conf, data, sbuf.st_size);
+	munmap(data, sbuf.st_size);
 
 	return 0;
+
+error_close:
+	close(fd);
+	return -errno;
 }
 
 SPA_EXPORT
 int pw_conf_load_conf(const char *prefix, const char *name, struct pw_properties *conf)
 {
-	return conf_load(prefix, name, false, conf);
+	return conf_load(prefix, name, conf);
 }
 
 SPA_EXPORT
 int pw_conf_load_state(const char *prefix, const char *name, struct pw_properties *conf)
 {
-	return conf_load(prefix, name, true, conf);
+	return conf_load(prefix, name, conf);
 }
 
 /* context.spa-libs = {

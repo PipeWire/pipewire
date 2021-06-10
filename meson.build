@@ -394,9 +394,8 @@ if not get_option('tests').disabled()
   subdir('test')
 endif
 
-configure_file(input : 'config.h.meson',
-  output : 'config.h',
-  configuration : cdata)
+configure_file(output : 'config.h',
+               configuration : cdata)
 
 if not get_option('pipewire-jack').disabled()
   subdir('pipewire-jack')

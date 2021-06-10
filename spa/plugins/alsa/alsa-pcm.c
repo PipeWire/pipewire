@@ -23,6 +23,7 @@ int spa_alsa_init(struct state *state)
 
 	if (state->open_ucm) {
 		char card_name[64];
+		const char *alibpref = NULL;
 
 		snprintf(card_name, sizeof(card_name), "hw:%i", state->card_index);
 		err = snd_use_case_mgr_open(&state->ucm, card_name);
@@ -43,6 +44,14 @@ int spa_alsa_init(struct state *state)
 				spa_log_error(state->log, "UCM not available for card %s", card_name);
 				return err;
 			}
+		}
+
+		if ((snd_use_case_get(state->ucm, "_alibpref", &alibpref) != 0))
+			alibpref = NULL;
+		if (alibpref != NULL) {
+			size_t len = strlen(alibpref);
+			if (len > 4 && strncmp(state->props.device, alibpref, 4) == 0)
+				memcpy(state->props.device, alibpref, len);
 		}
 	}
 	return 0;

@@ -196,7 +196,6 @@ cdata.set('PACKAGE_URL', '"http://pipewire.org"')
 cdata.set_quoted('PACKAGE_VERSION', pipewire_version)
 cdata.set_quoted('MODULEDIR', modules_install_dir)
 cdata.set_quoted('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
-cdata.set_quoted('VERSION', pipewire_version)
 cdata.set_quoted('PLUGINDIR', spa_plugindir)
 # FIXME: --with-memory-alignment],[8,N,malloc,pagesize (default is 32)]) option
 cdata.set('MEMORY_ALIGNMENT_MALLOC', 1)

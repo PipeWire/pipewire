@@ -483,7 +483,7 @@ PWTEST(utils_ringbuffer)
 
 PWTEST(utils_strtol)
 {
-	int32_t v;
+	int32_t v = 0xabcd;
 
 	pwtest_bool_true(spa_atoi32("0", &v, 0));		pwtest_int_eq(v, 0);
 	pwtest_bool_true(spa_atoi32("0", &v, 16));		pwtest_int_eq(v, 0);
@@ -532,7 +532,7 @@ PWTEST(utils_strtol)
 
 PWTEST(utils_strtoul)
 {
-	uint32_t v;
+	uint32_t v = 0xabcd;
 
 	pwtest_bool_true(spa_atou32("0", &v, 0));		pwtest_int_eq(v, 0U);
 	pwtest_bool_true(spa_atou32("0", &v, 16));		pwtest_int_eq(v, 0U);
@@ -582,7 +582,7 @@ PWTEST(utils_strtoul)
 
 PWTEST(utils_strtoll)
 {
-	int64_t v;
+	int64_t v = 0xabcd;
 
 	pwtest_bool_true(spa_atoi64("0", &v, 0));		pwtest_int_eq(v, 0);
 	pwtest_bool_true(spa_atoi64("0", &v, 16));		pwtest_int_eq(v, 0);
@@ -629,7 +629,7 @@ PWTEST(utils_strtoll)
 
 PWTEST(utils_strtof)
 {
-	float v;
+	float v = 0xabcd;
 
 	setlocale(LC_NUMERIC, "C"); /* For decimal number parsing */
 
@@ -654,7 +654,7 @@ PWTEST(utils_strtof)
 
 PWTEST(utils_strtod)
 {
-	double v;
+	double v = 0xabcd;
 
 	pwtest_bool_true(spa_atod("0", &v));		pwtest_double_eq(v, 0.0);
 	pwtest_bool_true(spa_atod("0.00", &v));		pwtest_double_eq(v, 0.0);

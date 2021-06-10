@@ -37,6 +37,9 @@
 #include <unistd.h>
 #include <signal.h>
 #include <syscall.h>
+#if HAVE_LIBCAP
+#include <sys/capability.h>
+#endif
 #include <sys/epoll.h>
 #include <sys/ptrace.h>
 #include <sys/resource.h>
@@ -1135,8 +1138,9 @@ static void list_tests(struct pwtest_context *ctx)
 
 static bool is_debugger_attached(void)
 {
+	bool rc = false;
+#if HAVE_LIBCAP
 	int status;
-	bool rc;
 	int pid = fork();
 
 	if (pid == -1)
@@ -1144,6 +1148,13 @@ static bool is_debugger_attached(void)
 
 	if (pid == 0) {
 		int ppid = getppid();
+		cap_t caps = cap_get_pid(ppid);
+		cap_flag_value_t cap_val;
+
+		if (cap_get_flag(caps, CAP_SYS_PTRACE, CAP_EFFECTIVE, &cap_val) == -1 ||
+		    cap_val != CAP_SET)
+			_exit(false);
+
 		if (ptrace(PTRACE_ATTACH, ppid, NULL, 0) == 0) {
 			waitpid(ppid, NULL, 0);
 			ptrace(PTRACE_CONT, ppid, NULL, 0);
@@ -1158,6 +1169,7 @@ static bool is_debugger_attached(void)
 		rc = WEXITSTATUS(status);
 	}
 
+#endif
 	return !!rc;
 }
 

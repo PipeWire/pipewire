@@ -2343,9 +2343,7 @@ again:
 	while (spa_json_get_string(&it[1], key, sizeof(key)-1) > 0) {
 		bool add = false;
 
-		if (key[0] == '#') {
-			add = false;
-		} else if (pw_properties_get(impl->modules, key) != NULL) {
+		if (pw_properties_get(impl->modules, key) != NULL) {
 			add = true;
 		} else {
 			snprintf(check_path, sizeof(check_path),
@@ -2357,8 +2355,6 @@ again:
 				continue;
 
 			while (spa_json_get_string(&it[2], value, sizeof(value)-1) > 0) {
-				if (value[0] == '#')
-					continue;
 				pw_properties_set(impl->modules, value, "true");
 			}
 		}

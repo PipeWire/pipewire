@@ -53,9 +53,6 @@ static bool find_match(struct spa_json *arr, struct pw_properties *props)
 			if ((len = spa_json_next(&it[0], &value)) <= 0)
 				break;
 
-			if (key[0] == '#')
-				continue;
-
 			str = pw_properties_get(props, key);
 
 			if (spa_json_is_null(value, len)) {

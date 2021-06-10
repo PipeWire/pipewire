@@ -216,10 +216,11 @@ static void test_new_string(void)
 	props = pw_properties_new_string("foo=bar bar=baz \"#ignore\"=ignore him=too empty=\"\" =gg");
 	spa_assert(props != NULL);
 	spa_assert(props->flags == 0);
-	spa_assert(props->dict.n_items == 4);
+	spa_assert(props->dict.n_items == 5);
 
 	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
 	spa_assert(spa_streq(pw_properties_get(props, "bar"), "baz"));
+	spa_assert(spa_streq(pw_properties_get(props, "#ignore"), "ignore"));
 	spa_assert(spa_streq(pw_properties_get(props, "him"), "too"));
 	spa_assert(spa_streq(pw_properties_get(props, "empty"), ""));
 

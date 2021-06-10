@@ -173,8 +173,6 @@ int pw_properties_update_string(struct pw_properties *props, const char *str, si
 		if ((len = spa_json_next(&it[1], &value)) <= 0)
 			break;
 
-		if (key[0] == '#')
-			continue;
 		if (spa_json_is_null(value, len))
 			val = NULL;
 		else {

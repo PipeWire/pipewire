@@ -300,12 +300,7 @@ static int parse_spa_libs(struct pw_context *context, char *str)
 	}
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)-1) > 0) {
-		const char *val;
-		if (key[0] == '#') {
-			if (spa_json_next(&it[1], &val) <= 0)
-				break;
-		}
-		else if (spa_json_get_string(&it[1], value, sizeof(value)-1) > 0) {
+		if (spa_json_get_string(&it[1], value, sizeof(value)-1) > 0) {
 			pw_context_add_spa_lib(context, key, value);
 			count++;
 		}

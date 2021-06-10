@@ -37,11 +37,12 @@ int spa_alsa_init(struct state *state)
 			}
 			snprintf(card_name, sizeof(card_name), "%s", name);
 			free(name);
-		}
-		err = snd_use_case_mgr_open(&state->ucm, card_name);
-		if (err < 0) {
-			spa_log_error(state->log, "UCM not available for card %s", card_name);
-			return err;
+
+			err = snd_use_case_mgr_open(&state->ucm, card_name);
+			if (err < 0) {
+				spa_log_error(state->log, "UCM not available for card %s", card_name);
+				return err;
+			}
 		}
 	}
 	return 0;

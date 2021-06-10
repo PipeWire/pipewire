@@ -74,6 +74,7 @@ static int module_null_sink_load(struct client *client, struct module *module)
 {
 	struct module_null_sink_data *d = module->user_data;
 	static const struct pw_proxy_events proxy_events = {
+		PW_VERSION_PROXY_EVENTS,
 		.removed = module_null_sink_proxy_removed,
 		.bound = module_null_sink_proxy_bound,
 		.error = module_null_sink_proxy_error,

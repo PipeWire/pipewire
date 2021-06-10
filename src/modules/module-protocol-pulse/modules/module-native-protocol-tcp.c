@@ -56,7 +56,6 @@ static int module_native_protocol_tcp_load(struct client *client, struct module 
 	if (res < 0)
 		return res;
 
-	pw_log_info("loaded module %p id:%u name:%s", module, module->idx, module->name);
 	module_emit_loaded(module, 0);
 
 	return 0;
@@ -66,8 +65,6 @@ static int module_native_protocol_tcp_unload(struct client *client, struct modul
 {
 	struct module_native_protocol_tcp_data *d = module->user_data;
 	struct server **s;
-
-	pw_log_info("unload module %p id:%u name:%s", module, module->idx, module->name);
 
 	pw_array_for_each (s, &d->servers)
 		server_free(*s);

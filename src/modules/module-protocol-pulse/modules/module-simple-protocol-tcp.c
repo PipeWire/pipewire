@@ -72,16 +72,14 @@ static int module_simple_protocol_tcp_load(struct client *client, struct module 
 	if (data->mod == NULL)
 		return -errno;
 
-	pw_log_info("loaded module %p id:%u name:%s", module, module->idx, module->name);
 	module_emit_loaded(module, 0);
+
 	return 0;
 }
 
 static int module_simple_protocol_tcp_unload(struct client *client, struct module *module)
 {
 	struct module_simple_protocol_tcp_data *d = module->user_data;
-
-	pw_log_info("unload module %p id:%u name:%s", module, module->idx, module->name);
 
 	pw_impl_module_destroy(d->mod);
 

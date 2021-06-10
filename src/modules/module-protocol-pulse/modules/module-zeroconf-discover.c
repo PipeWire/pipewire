@@ -71,7 +71,6 @@ static int module_zeroconf_discover_load(struct client *client, struct module *m
 			&data->mod_listener,
 			&module_events, data);
 
-	pw_log_info("loaded module %p id:%u name:%s", module, module->idx, module->name);
 	module_emit_loaded(module, 0);
 
 	return 0;
@@ -81,13 +80,12 @@ static int module_zeroconf_discover_unload(struct client *client, struct module 
 {
 	struct module_zeroconf_discover_data *d = module->user_data;
 
-	pw_log_info("unload module %p id:%u name:%s", module, module->idx, module->name);
-
 	if (d->mod) {
 		spa_hook_remove(&d->mod_listener);
 		pw_impl_module_destroy(d->mod);
 		d->mod = NULL;
 	}
+
 	return 0;
 }
 

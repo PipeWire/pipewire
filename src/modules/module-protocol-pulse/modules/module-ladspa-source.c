@@ -110,7 +110,6 @@ static int module_ladspa_source_load(struct client *client, struct module *modul
 			&data->mod_listener,
 			&module_events, data);
 
-	pw_log_info("loaded module %p id:%u name:%s", module, module->idx, module->name);
 	module_emit_loaded(module, 0);
 
 	return 0;
@@ -119,8 +118,6 @@ static int module_ladspa_source_load(struct client *client, struct module *modul
 static int module_ladspa_source_unload(struct client *client, struct module *module)
 {
 	struct module_ladspa_source_data *d = module->user_data;
-
-	pw_log_info("unload module %p id:%u name:%s", module, module->idx, module->name);
 
 	if (d->mod) {
 		spa_hook_remove(&d->mod_listener);

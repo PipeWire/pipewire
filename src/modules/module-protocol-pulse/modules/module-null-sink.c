@@ -88,19 +88,20 @@ static int module_null_sink_load(struct client *client, struct module *module)
 	if (d->proxy == NULL)
 		return -errno;
 
-	pw_log_info("loaded module %p id:%u name:%s %p", module, module->idx, module->name, d->proxy);
 	pw_proxy_add_listener(d->proxy, &d->listener, &proxy_events, module);
+
 	return 0;
 }
 
 static int module_null_sink_unload(struct client *client, struct module *module)
 {
 	struct module_null_sink_data *d = module->user_data;
-	pw_log_info("unload module %p id:%u name:%s %p", module, module->idx, module->name, d->proxy);
+
 	if (d->proxy != NULL)
 		pw_proxy_destroy(d->proxy);
 	if (d->global_id != SPA_ID_INVALID)
 		pw_registry_destroy(client->manager->registry, d->global_id);
+
 	return 0;
 }
 

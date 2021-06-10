@@ -361,7 +361,6 @@ static int module_combine_sink_load(struct client *client, struct module *module
 
 	data->cleanup = pw_loop_add_event(module->impl->loop, on_cleanup, data);
 
-	pw_log_info("loaded module %p id:%u name:%s", module, module->idx, module->name);
 	module_emit_loaded(module, 0);
 
 	return 0;
@@ -371,8 +370,6 @@ static int module_combine_sink_unload(struct client *client, struct module *modu
 {
 	struct module_combine_sink_data *d = module->user_data;
 	int i;
-
-	pw_log_info("unload module %p id:%u name:%s", module, module->idx, module->name);
 
 	if (d->cleanup != NULL)
 		pw_loop_destroy_source(module->impl->loop, d->cleanup);

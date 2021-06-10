@@ -177,7 +177,6 @@ static int module_pipesink_load(struct client *client, struct module *module)
 			params, n_params)) < 0)
 		return res;
 
-	pw_log_info("loaded module %p id:%u name:%s", module, module->idx, module->name);
 	module_emit_loaded(module, 0);
 
 	return 0;
@@ -186,8 +185,6 @@ static int module_pipesink_load(struct client *client, struct module *module)
 static int module_pipesink_unload(struct client *client, struct module *module)
 {
 	struct module_pipesink_data *d = module->user_data;
-
-	pw_log_info("unload module %p id:%u name:%s", module, module->idx, module->name);
 
 	pw_properties_free(d->capture_props);
 	if (d->capture != NULL)

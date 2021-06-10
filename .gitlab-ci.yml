@@ -15,6 +15,9 @@ include:
   - project: 'freedesktop/ci-templates'
     ref: *templates_sha
     file: '/templates/fedora.yml'
+  - project: 'freedesktop/ci-templates'
+    ref: *templates_sha
+    file: '/templates/ubuntu.yml'
 
 .fedora:
   variables:
@@ -47,6 +50,34 @@ include:
       vulkan-loader-devel
       webrtc-audio-processing-devel
       which
+      xmltoman
+
+.ubuntu:
+  variables:
+    # Update this tag when you want to trigger a rebuild
+    FDO_DISTRIBUTION_TAG: '2021-06-10.0'
+    FDO_DISTRIBUTION_VERSION: '20.04'
+    FDO_DISTRIBUTION_PACKAGES: >-
+      debhelper-compat
+      findutils
+      git
+      libasound2-dev
+      libavcodec-dev
+      libavfilter-dev
+      libavformat-dev
+      libdbus-1-dev
+      libglib2.0-dev
+      libgstreamer1.0-dev
+      libgstreamer-plugins-base1.0-dev
+      libsbc-dev
+      libsdl2-dev
+      libudev-dev
+      libva-dev
+      libv4l-dev
+      libx11-dev
+      meson
+      pkg-config
+      systemd
       xmltoman
 
 .coverity:
@@ -92,6 +123,14 @@ include:
     paths:
       - build-*/meson-logs
 
+container_ubuntu:
+  extends:
+    - .ubuntu
+    - .fdo.container-build@ubuntu
+  stage: container
+  variables:
+    GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
+
 container_fedora:
   extends:
     - .fedora
@@ -108,6 +147,14 @@ container_coverity:
   stage: container_coverity
   variables:
     GIT_STRATEGY: none
+
+build_on_ubuntu:
+  extends:
+    - .ubuntu
+    - .not_coverity
+    - .fdo.distribution-image@ubuntu
+    - .build
+  stage: build
 
 .build_on_fedora:
   extends:

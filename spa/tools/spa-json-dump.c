@@ -35,10 +35,47 @@
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>
 
+static void encode_string(FILE *f, const char *val, int len)
+{
+	int i;
+	fprintf(f, "\"");
+	for (i = 0; i < len; i++) {
+		char v = val[i];
+		switch (v) {
+		case '\n':
+			fprintf(f, "\\n");
+			break;
+		case '\r':
+			fprintf(f, "\\r");
+			break;
+		case '\b':
+			fprintf(f, "\\b");
+			break;
+		case '\t':
+			fprintf(f, "\\t");
+			break;
+		case '\f':
+			fprintf(f, "\\f");
+			break;
+		case '\\': case '"': case '/':
+			fprintf(f, "\\%c", v);
+			break;
+		default:
+			if (v > 0 && v < 0x20)
+				fprintf(f, "\\u%04x", v);
+			else
+				fprintf(f, "%c", v);
+			break;
+		}
+	}
+	fprintf(f, "\"");
+}
+
 static int dump(FILE *file, int indent, struct spa_json *it, const char *value, int len)
 {
 	struct spa_json sub;
 	int count = 0;
+	char key[1024];
 
 	if (spa_json_is_array(value, len)) {
 		fprintf(file, "[");
@@ -53,10 +90,12 @@ static int dump(FILE *file, int indent, struct spa_json *it, const char *value, 
 	} else if (spa_json_is_object(value, len)) {
 		fprintf(file, "{");
 		spa_json_enter(it, &sub);
-		while ((len = spa_json_next(&sub, &value)) > 0) {
-			char *q = spa_json_is_string(value, len) ? "" : "\"";
-			fprintf(file, "%s\n%*s%s%.*s%s: ", count++ > 0 ? "," : "",
-					indent+2, "", q, len, value, q);
+		while (spa_json_get_string(&sub, key, sizeof(key)-1) > 0) {
+			fprintf(file, "%s\n%*s",
+					count++ > 0 ? "," : "",
+					indent+2, "");
+			encode_string(file, key, strlen(key));
+			fprintf(file, ": ");
 			if ((len = spa_json_next(&sub, &value)) <= 0)
 				break;
 			dump(file, indent+2, &sub, value, len);
@@ -66,10 +105,11 @@ static int dump(FILE *file, int indent, struct spa_json *it, const char *value, 
 	} else if (spa_json_is_string(value, len) ||
 	    spa_json_is_null(value, len) ||
 	    spa_json_is_bool(value, len) ||
+	    spa_json_is_int(value, len) ||
 	    spa_json_is_float(value, len)) {
 		fprintf(file, "%.*s", len, value);
 	} else {
-		fprintf(file, "\"%.*s\"", len, value);
+		encode_string(file, value, len);
 	}
 	return 0;
 }

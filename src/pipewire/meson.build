@@ -80,7 +80,7 @@ pipewire_sources = [
 configure_file(input : 'version.h.in',
   output : 'version.h',
   install_dir : get_option('includedir') / pipewire_headers_dir,
-  configuration : cdata)
+  configuration : versiondata)
 
 
 install_headers(pipewire_headers, subdir : pipewire_headers_dir)

@@ -25,16 +25,16 @@ conf_config_uninstalled.set('comment', '')
 
 
 conf_files = [
-  [ 'pipewire.conf.in', 'pipewire.conf' ],
-  [ 'client.conf.in', 'client.conf' ],
-  [ 'client-rt.conf.in', 'client-rt.conf' ],
-  [ 'jack.conf.in', 'jack.conf' ],
-  [ 'pipewire-pulse.conf.in', 'pipewire-pulse.conf' ]
+ 'pipewire.conf',
+ 'client.conf',
+ 'client-rt.conf',
+ 'jack.conf',
+ 'pipewire-pulse.conf',
 ]
 
 foreach c : conf_files
-  configure_file(input : c.get(0),
-                 output : c.get(1),
+  configure_file(input : '@0@.in'.format(c),
+                 output : c,
                  configuration : conf_config,
                  install_dir : pipewire_confdatadir)
 endforeach

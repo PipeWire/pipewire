@@ -259,6 +259,7 @@ struct spa_fraction {
 
 /* spa_assert_se() is an assert which guarantees side effects of x,
  * i.e. is never optimized away, regardless of NDEBUG or FASTPATH. */
+#ifndef __COVERITY__
 #define spa_assert_se(expr)						\
 	do {								\
 		if (SPA_UNLIKELY(!(expr))) {				\
@@ -267,25 +268,36 @@ struct spa_fraction {
 			abort();					\
 		}							\
 	} while (false)
-
-#define spa_assert(expr)						\
+#else
+#define spa_assert_se(expr)						\
 	do {								\
-		if (SPA_UNLIKELY(!(expr))) {				\
-			fprintf(stderr, "'%s' failed at %s:%u %s()\n",	\
-				#expr , __FILE__, __LINE__, __func__);	\
+		int _unique_var = (expr);				\
+		if (!_unique_var)					\
 			abort();					\
-		}							\
-	} while (false)
+		} while (false)
+#endif
 
+/* Does exactly nothing */
+#define spa_nop() do {} while (false)
+
+#ifdef NDEBUG
+#define spa_assert(expr) spa_nop()
+#elif defined (FASTPATH)
+#define spa_assert(expr) spa_assert_se(expr)
+#else
+#define spa_assert(expr) spa_assert_se(expr)
+#endif
+
+#ifdef NDEBUG
+#define spa_assert_not_reached() abort()
+#else
 #define spa_assert_not_reached()						\
 	do {									\
 		fprintf(stderr, "Code should not be reached at %s:%u %s()\n",	\
 				__FILE__, __LINE__, __func__);			\
 		abort();							\
 	} while (false)
-
-/* Does exactly nothing */
-#define spa_nop() do {} while (false)
+#endif
 
 #define spa_memzero(x,l) (memset((x), 0, (l)))
 #define spa_zero(x) (spa_memzero(&(x), sizeof(x)))

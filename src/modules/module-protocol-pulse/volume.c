@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "volume.h"
+
 static inline bool volume_valid(const struct volume *vol)
 {
 	if (vol->channels == 0 || vol->channels > CHANNELS_MAX)
@@ -52,27 +54,6 @@ static inline int volume_compare(struct volume *vol, struct volume *other)
 	}
 	return 0;
 }
-
-struct volume_info {
-	struct volume volume;
-	struct channel_map map;
-	bool mute;
-	float level;
-	float base;
-	uint32_t steps;
-#define VOLUME_HW_VOLUME	(1<<0)
-#define VOLUME_HW_MUTE		(1<<1)
-	uint32_t flags;
-};
-
-#define VOLUME_INFO_INIT	(struct volume_info) {		\
-					.volume = VOLUME_INIT,	\
-					.mute = false,		\
-					.level = 1.0,		\
-					.base = 1.0,		\
-					.steps = 256,		\
-				}
-
 
 static int volume_parse_param(const struct spa_pod *param, struct volume_info *info, bool monitor)
 {

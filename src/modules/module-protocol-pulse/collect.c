@@ -23,16 +23,7 @@
  */
 
 #include <spa/utils/string.h>
-
-struct selector {
-	bool (*type) (struct pw_manager_object *o);
-	uint32_t id;
-	const char *key;
-	const char *value;
-	void (*accumulate) (struct selector *sel, struct pw_manager_object *o);
-	int32_t score;
-	struct pw_manager_object *best;
-};
+#include "collect.h"
 
 static void select_best(struct selector *s, struct pw_manager_object *o)
 {
@@ -49,7 +40,7 @@ static void select_best(struct selector *s, struct pw_manager_object *o)
 	}
 }
 
-static struct pw_manager_object *select_object(struct pw_manager *m,
+struct pw_manager_object *select_object(struct pw_manager *m,
 		struct selector *s)
 {
 	struct pw_manager_object *o;
@@ -105,19 +96,7 @@ static struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t obj_
 	return NULL;
 }
 
-struct card_info {
-	uint32_t n_profiles;
-	uint32_t active_profile;
-	const char *active_profile_name;
-
-	uint32_t n_ports;
-};
-
-#define CARD_INFO_INIT (struct card_info) {				\
-				.active_profile = SPA_ID_INVALID,	\
-}
-
-static void collect_card_info(struct pw_manager_object *card, struct card_info *info)
+void collect_card_info(struct pw_manager_object *card, struct card_info *info)
 {
 	struct pw_manager_param *p;
 
@@ -232,29 +211,7 @@ static uint32_t find_profile_id(struct pw_manager_object *card, const char *name
 	return SPA_ID_INVALID;
 }
 
-struct device_info {
-	uint32_t direction;
-
-	struct sample_spec ss;
-	struct channel_map map;
-	struct volume_info volume_info;
-	unsigned int have_volume:1;
-
-	uint32_t device;
-	uint32_t active_port;
-	const char *active_port_name;
-};
-
-#define DEVICE_INFO_INIT(_dir) (struct device_info) {			\
-				.direction = _dir,			\
-				.ss = SAMPLE_SPEC_INIT,			\
-				.map = CHANNEL_MAP_INIT,		\
-				.volume_info = VOLUME_INFO_INIT,	\
-				.device = SPA_ID_INVALID,		\
-				.active_port = SPA_ID_INVALID,		\
-			}
-
-static void collect_device_info(struct pw_manager_object *device,
+void collect_device_info(struct pw_manager_object *device,
 		struct pw_manager_object *card, struct device_info *dev_info, bool monitor)
 {
 	struct pw_manager_param *p;

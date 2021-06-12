@@ -142,6 +142,7 @@ pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse/modules/module-loopback.c',
   'module-protocol-pulse/modules/module-native-protocol-tcp.c',
   'module-protocol-pulse/modules/module-null-sink.c',
+  'module-protocol-pulse/modules/module-pipe-source.c',
   'module-protocol-pulse/modules/module-pipe-sink.c',
   'module-protocol-pulse/modules/module-remap-sink.c',
   'module-protocol-pulse/modules/module-remap-source.c',

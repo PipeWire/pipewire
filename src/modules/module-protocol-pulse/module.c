@@ -225,6 +225,7 @@ static const struct module_info module_list[] = {
 	{ "module-loopback", create_module_loopback, },
 	{ "module-null-sink", create_module_null_sink, },
 	{ "module-native-protocol-tcp", create_module_native_protocol_tcp, },
+	{ "module-pipe-source", create_module_pipe_source, },
 	{ "module-pipe-sink", create_module_pipe_sink, },
 	{ "module-remap-sink", create_module_remap_sink, },
 	{ "module-remap-source", create_module_remap_source, },

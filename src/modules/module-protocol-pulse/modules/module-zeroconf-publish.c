@@ -273,19 +273,18 @@ static void get_service_data(struct module_zeroconf_publish_data *d,
 			flags |= SOURCE_HARDWARE;
 	}
 
+	s->ss = dev_info.ss;
+	s->cm = dev_info.map;
+	s->name = strdup(name);
+	s->props = pw_properties_copy(o->props);
+
 	if (is_sink) {
 		s->is_sink = true;
 		s->service_type = SERVICE_TYPE_SINK;
-		s->ss = dev_info.ss;
-		s->cm = dev_info.map;
-		s->name = strdup(name);
-		s->props = pw_properties_copy(o->props);
 		s->subtype = flags & SINK_HARDWARE ? SUBTYPE_HARDWARE : SUBTYPE_VIRTUAL;
 	} else if (is_source) {
 		s->is_sink = false;
 		s->service_type = SERVICE_TYPE_SOURCE;
-		s->name = strdup(name);
-		s->props = pw_properties_copy(o->props);
 		s->subtype = flags & SOURCE_HARDWARE ? SUBTYPE_HARDWARE : SUBTYPE_VIRTUAL;
 	} else
 		spa_assert_not_reached();

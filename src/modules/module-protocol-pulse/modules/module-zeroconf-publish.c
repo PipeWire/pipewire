@@ -204,6 +204,7 @@ static char* channel_map_snprint(char *s, size_t l, const struct channel_map *ma
 	unsigned channel;
 	bool first = true;
 	char *e;
+	uint32_t aux = 0;
 
 	spa_assert(s);
 	spa_assert(l > 0);
@@ -219,7 +220,7 @@ static char* channel_map_snprint(char *s, size_t l, const struct channel_map *ma
 	for (channel = 0; channel < map->channels && l > 1; channel++) {
 		l -= snprintf(e, l, "%s%s",
 				first ? "" : ",",
-				channel_id2name(channel_pa2id(map->map[channel])));
+				channel_id2paname(map->map[channel], &aux));
 
 		e = strchr(e, 0);
 		first = false;
@@ -405,7 +406,7 @@ static void publish_service(struct service *s)
 	txt = avahi_string_list_add_pair(txt, "device", s->name);
 	txt = avahi_string_list_add_printf(txt, "rate=%u", s->ss.rate);
 	txt = avahi_string_list_add_printf(txt, "channels=%u", s->ss.channels);
-	txt = avahi_string_list_add_pair(txt, "format", format_id2name(s->ss.format));
+	txt = avahi_string_list_add_pair(txt, "format", format_id2paname(s->ss.format));
 	txt = avahi_string_list_add_pair(txt, "channel_map", channel_map_snprint(cm, sizeof(cm), &s->cm));
 	txt = avahi_string_list_add_pair(txt, "subtype", subtype_text[s->subtype]);
 

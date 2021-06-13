@@ -2615,8 +2615,6 @@ static void registry_event_global(void *data, uint32_t id,
 	pw_map_insert_at(&c->context.globals, id, o);
 	pthread_mutex_unlock(&c->context.lock);
 
-	pw_thread_loop_unlock(c->context.loop);
-
 	switch (o->type) {
 	case INTERFACE_Node:
 		if (c->registration_callback && is_first)
@@ -2633,7 +2631,6 @@ static void registry_event_global(void *data, uint32_t id,
 			c->connect_callback(o->port_link.src, o->port_link.dst, 1, c->connect_arg);
 		break;
 	}
-	pw_thread_loop_lock(c->context.loop);
 
       exit:
 	return;
@@ -2670,8 +2667,6 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	if (o->type == INTERFACE_Node)
 		is_last = find_node(c, o->node.name) == NULL;
 
-	pw_thread_loop_unlock(c->context.loop);
-
 	switch (o->type) {
 	case INTERFACE_Node:
 		if (c->metadata) {
@@ -2692,7 +2687,6 @@ static void registry_event_global_remove(void *object, uint32_t id)
 			c->connect_callback(o->port_link.src, o->port_link.dst, 0, c->connect_arg);
 		break;
 	}
-	pw_thread_loop_lock(c->context.loop);
 
 	/* we keep the object available with the id because jack clients
 	 * tend to access the objects with it later.

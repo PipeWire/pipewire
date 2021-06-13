@@ -524,6 +524,38 @@ static bool check_iter_signature(DBusMessageIter *it, const char *sig)
 	return res;
 }
 
+static int parse_modalias(const char *modalias, uint16_t *source, uint16_t *vendor,
+		uint16_t *product, uint16_t *version)
+{
+	char *pos;
+	unsigned int src, i, j, k;
+
+	if (strncmp(modalias, "bluetooth:", strlen("bluetooth:")) == 0)
+		src = SOURCE_ID_BLUETOOTH;
+	else if (strncmp(modalias, "usb:", strlen("usb:")) == 0)
+		src = SOURCE_ID_USB;
+	else
+		return -EINVAL;
+
+	pos = strchr(modalias, ':');
+	if (pos == NULL)
+		return -EINVAL;
+
+	if (sscanf(pos + 1, "v%04Xp%04Xd%04X", &i, &j, &k) != 3)
+		return -EINVAL;
+
+	/* Ignore BlueZ placeholder value */
+	if (src == SOURCE_ID_USB && i == 0x1d6b && j == 0x0246)
+		return -ENXIO;
+
+	*source = src;
+	*vendor = i;
+	*product = j;
+	*version = k;
+
+	return 0;
+}
+
 static int adapter_update_props(struct spa_bt_adapter *adapter,
 				DBusMessageIter *props_iter,
 				DBusMessageIter *invalidated_iter)
@@ -560,6 +592,14 @@ static int adapter_update_props(struct spa_bt_adapter *adapter,
 			else if (spa_streq(key, "Address")) {
 				free(adapter->address);
 				adapter->address = strdup(value);
+			}
+			else if (spa_streq(key, "Modalias")) {
+				int ret;
+				ret = parse_modalias(value, &adapter->source_id, &adapter->vendor_id,
+						&adapter->product_id, &adapter->version_id);
+				if (ret < 0)
+					spa_log_debug(monitor->log, "adapter %p: %s=%s ignored: %s",
+							adapter, key, value, spa_strerror(ret));
 			}
 		}
 		else if (type == DBUS_TYPE_UINT32) {
@@ -616,6 +656,63 @@ static int adapter_update_props(struct spa_bt_adapter *adapter,
 	return 0;
 }
 
+static int adapter_init_bus_type(struct spa_bt_monitor *monitor, struct spa_bt_adapter *d)
+{
+	char path[1024], buf[1024];
+	const char *str;
+	ssize_t res = -EINVAL;
+
+	d->bus_type = BUS_TYPE_OTHER;
+
+	str = strrchr(d->path, '/');  /* hciXX */
+	if (str == NULL)
+		return -ENOENT;
+
+	snprintf(path, sizeof(path), "/sys/class/bluetooth/%s/device/subsystem", str);
+	if ((res = readlink(path, buf, sizeof(buf)-1)) < 0)
+		return -errno;
+	buf[res] = '\0';
+
+	str = strrchr(buf, '/');
+	if (str && spa_streq(str, "/usb"))
+		d->bus_type = BUS_TYPE_USB;
+	return 0;
+}
+
+static int adapter_init_modalias(struct spa_bt_monitor *monitor, struct spa_bt_adapter *d)
+{
+	char path[1024];
+	FILE *f = NULL;
+	int vendor_id, product_id;
+	const char *str;
+	int res = -EINVAL;
+
+	/* Lookup vendor/product id for the device, if present */
+	str = strrchr(d->path, '/');  /* hciXX */
+	if (str == NULL)
+		goto fail;
+	snprintf(path, sizeof(path), "/sys/class/bluetooth/%s/device/modalias", str);
+	if ((f = fopen(path, "rb")) == NULL) {
+		res = -errno;
+		goto fail;
+	}
+	if (fscanf(f, "usb:v%04Xp%04X",  &vendor_id, &product_id) != 2)
+		goto fail;
+	d->source_id = SOURCE_ID_USB;
+	d->vendor_id = vendor_id;
+	d->product_id = product_id;
+	fclose(f);
+
+	spa_log_debug(monitor->log, "adapter %p: usb vendor:%04x product:%04x",
+			d, vendor_id, product_id);
+	return 0;
+
+fail:
+	if (f)
+		fclose(f);
+	return res;
+}
+
 static struct spa_bt_adapter *adapter_create(struct spa_bt_monitor *monitor, const char *path)
 {
 	struct spa_bt_adapter *d;
@@ -628,6 +725,9 @@ static struct spa_bt_adapter *adapter_create(struct spa_bt_monitor *monitor, con
 	d->path = strdup(path);
 
 	spa_list_prepend(&monitor->adapter_list, &d->link);
+
+	adapter_init_bus_type(monitor, d);
+	adapter_init_modalias(monitor, d);
 
 	return d;
 }
@@ -745,12 +845,33 @@ static void device_free(struct spa_bt_device *device)
 	free(device);
 }
 
+int spa_bt_format_vendor_product_id(uint16_t source_id, uint16_t vendor_id, uint16_t product_id,
+		char *vendor_str, int vendor_str_size, char *product_str, int product_str_size)
+{
+	char *source_str;
+
+	switch (source_id) {
+	case SOURCE_ID_USB:
+		source_str = "usb";
+		break;
+	case SOURCE_ID_BLUETOOTH:
+		source_str = "bluetooth";
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	spa_scnprintf(vendor_str, vendor_str_size, "%s:%04x", source_str, (unsigned int)vendor_id);
+	spa_scnprintf(product_str, product_str_size, "%04x", (unsigned int)product_id);
+	return 0;
+}
+
 static void emit_device_info(struct spa_bt_monitor *monitor,
 		struct spa_bt_device *device, bool with_connection)
 {
 	struct spa_device_object_info info;
-	char dev[32], name[128], class[16];
-	struct spa_dict_item items[20];
+	char dev[32], name[128], class[16], vendor_id[64], product_id[64], product_id_tot[67];
+	struct spa_dict_item items[23];
 	uint32_t n_items = 0;
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
@@ -767,6 +888,13 @@ static void emit_device_info(struct spa_bt_monitor *monitor,
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_NAME, name);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_DESCRIPTION, device->alias);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ALIAS, device->name);
+	if (spa_bt_format_vendor_product_id(
+				device->source_id, device->vendor_id, device->product_id,
+				vendor_id, sizeof(vendor_id), product_id, sizeof(product_id)) == 0) {
+		snprintf(product_id_tot, sizeof(product_id_tot), "0x%s", product_id);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_VENDOR_ID, vendor_id);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PRODUCT_ID, product_id_tot);
+	}
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_FORM_FACTOR,
 			spa_bt_form_factor_name(
 				spa_bt_form_factor_from_class(device->bluetooth_class)));
@@ -1134,6 +1262,14 @@ static int device_update_props(struct spa_bt_device *device,
 			else if (spa_streq(key, "Icon")) {
 				free(device->icon);
 				device->icon = strdup(value);
+			}
+			else if (spa_streq(key, "Modalias")) {
+				int ret;
+				ret = parse_modalias(value, &device->source_id, &device->vendor_id,
+						&device->product_id, &device->version_id);
+				if (ret < 0)
+					spa_log_debug(monitor->log, "device %p: %s=%s ignored: %s",
+							device, key, value, spa_strerror(ret));
 			}
 		}
 		else if (type == DBUS_TYPE_UINT32) {

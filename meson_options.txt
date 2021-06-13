@@ -191,6 +191,10 @@ option('echo-cancel-webrtc',
        description : 'Enable WebRTC-based echo canceller',
        type : 'feature',
        value : 'auto')
+option('libusb',
+       description: 'Enable code that depends on libusb',
+       type: 'feature',
+       value: 'auto')
 option('media-session',
        description: 'Build and install pipewire-media-session',
        type: 'feature',

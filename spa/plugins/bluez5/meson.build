@@ -55,6 +55,9 @@ if fdk_aac_dep.found()
 endif
 
 if not get_option('bluez5-backend-hsp-native').disabled() or not get_option('bluez5-backend-hfp-native').disabled()
+  if libusb_dep.found()
+    bluez5_deps += libusb_dep
+  endif
   bluez5_sources += ['backend-native.c']
 endif
 

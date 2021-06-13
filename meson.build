@@ -323,6 +323,11 @@ sndfile_dep = dependency('sndfile', version : '>= 1.0.20', required : get_option
 pulseaudio_dep = dependency('libpulse', required : get_option('libpulse'))
 avahi_dep = dependency('avahi-client', required : get_option('avahi'))
 
+libusb_dep = dependency('libusb-1.0', required : get_option('libusb'))
+if libusb_dep.found()
+  cdata.set('HAVE_LIBUSB', 1)
+endif
+
 cap_lib = dependency('libcap', required : false)
 if cap_lib.found()
   cdata.set('HAVE_LIBCAP', 1)

@@ -566,13 +566,29 @@ static int find_best_route(struct device *dev, uint32_t device_id, struct route 
 		    parse_enum_route(p, device_id, &t) < 0)
 			continue;
 
-		if (t.available == SPA_PARAM_AVAILABILITY_yes) {
-			if (best_avail.name == NULL || t.priority > best_avail.priority)
+		if (t.available == SPA_PARAM_AVAILABILITY_yes || t.available == SPA_PARAM_AVAILABILITY_unknown) {
+			struct route_info *ri;
+			if ((ri = find_route_info(dev, &t)) && ri->direction == SPA_DIRECTION_OUTPUT &&
+			    ri->available != ri->prev_available) {
+				/* If route availability changed, that means a user just
+				 * plugged in something like headphones, and they probably
+				 * expect to hear sound from it. Switch to it immediately.
+				 *
+				 * TODO: switch INPUT ports without source and the input
+				 * ports their source->active_port is part of a group of
+				 * ports (see module-switch-on-port-available.c in PulseAudio).
+				 */
 				best_avail = t;
-		}
-		else if (t.available != SPA_PARAM_AVAILABILITY_no) {
-			if (best_unk.name == NULL || t.priority > best_unk.priority)
-				best_unk = t;
+				ri->save = true;
+				break;
+			}
+			else if (t.available == SPA_PARAM_AVAILABILITY_yes) {
+				if (best_avail.name == NULL || t.priority > best_avail.priority)
+					best_avail = t;
+			} else { // SPA_PARAM_AVAILABILITY_unknown
+				if (best_unk.name == NULL || t.priority > best_unk.priority)
+					best_unk = t;
+			}
 		}
 	}
 	best = best_avail;

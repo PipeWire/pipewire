@@ -2796,8 +2796,8 @@ jack_client_t * jack_client_open (const char *client_name,
 	if (client->context.context == NULL)
 		goto no_props;
 
-	client->allow_mlock = client->context.context->defaults.mem_allow_mlock;
-	client->warn_mlock = client->context.context->defaults.mem_warn_mlock;
+	client->allow_mlock = client->context.context->settings.mem_allow_mlock;
+	client->warn_mlock = client->context.context->settings.mem_warn_mlock;
 
 	if ((str = pw_context_get_conf_section(client->context.context,
 					"jack.properties")) != NULL)

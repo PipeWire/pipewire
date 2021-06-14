@@ -1219,11 +1219,11 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	data->client_node = (struct pw_client_node *)client_node;
 	data->remote_id = SPA_ID_INVALID;
 
-	data->allow_mlock = data->context->defaults.mem_allow_mlock;
+	data->allow_mlock = data->context->settings.mem_allow_mlock;
 	if ((str = pw_properties_get(node->properties, "mem.allow-mlock")) != NULL)
 		data->allow_mlock = pw_properties_parse_bool(str);
 
-	data->warn_mlock = data->context->defaults.mem_warn_mlock;
+	data->warn_mlock = data->context->settings.mem_warn_mlock;
 	if ((str = pw_properties_get(node->properties, "mem.warn-mlock")) != NULL)
 		data->warn_mlock = pw_properties_parse_bool(str);
 

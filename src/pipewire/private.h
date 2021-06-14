@@ -49,7 +49,11 @@ struct ucred {
 #define spa_debug(...) pw_log_trace(__VA_ARGS__)
 #endif
 
-struct defaults {
+#define CLOCK_MIN_QUANTUM			4u
+#define CLOCK_MAX_QUANTUM			8192u
+
+struct settings {
+	uint32_t log_level;
 	uint32_t clock_rate;
 	uint32_t clock_quantum;
 	uint32_t clock_min_quantum;
@@ -60,6 +64,8 @@ struct defaults {
 	unsigned int mem_warn_mlock:1;
 	unsigned int mem_allow_mlock:1;
 	unsigned int clock_power_of_two_quantum:1;
+	uint32_t clock_force_rate;
+	uint32_t clock_force_quantum;
 };
 
 struct ratelimit {
@@ -378,7 +384,8 @@ struct pw_context {
 	struct pw_properties *conf;		/**< configuration of the context */
 	struct pw_properties *properties;	/**< properties of the context */
 
-	struct defaults defaults;		/**< default parameters */
+	struct settings defaults;		/**< default parameters */
+	struct settings settings;		/**< current parameters */
 
 	struct pw_mempool *pool;		/**< global memory pool */
 

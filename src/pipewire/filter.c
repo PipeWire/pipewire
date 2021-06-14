@@ -1048,8 +1048,8 @@ filter_new(struct pw_context *context, const char *name,
 	this->state = PW_FILTER_STATE_UNCONNECTED;
 
 	impl->context = context;
-	impl->allow_mlock = context->defaults.mem_allow_mlock;
-	impl->warn_mlock = context->defaults.mem_warn_mlock;
+	impl->allow_mlock = context->settings.mem_allow_mlock;
+	impl->warn_mlock = context->settings.mem_warn_mlock;
 
 	return impl;
 

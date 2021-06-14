@@ -47,9 +47,6 @@
 
 #define NAME "context"
 
-#define CLOCK_MIN_QUANTUM			4u
-#define CLOCK_MAX_QUANTUM			8192u
-
 #define DEFAULT_CLOCK_RATE			48000u
 #define DEFAULT_CLOCK_QUANTUM			1024u
 #define DEFAULT_CLOCK_MIN_QUANTUM		32u
@@ -141,26 +138,30 @@ static bool get_default_bool(struct pw_properties *properties, const char *name,
 static void fill_defaults(struct pw_context *this)
 {
 	struct pw_properties *p = this->properties;
-	this->defaults.clock_power_of_two_quantum = get_default_bool(p, "clock.power-of-two-quantum",
-			DEFAULT_CLOCK_POWER_OF_TWO_QUANTUM);
-	this->defaults.clock_rate = get_default_int(p, "default.clock.rate", DEFAULT_CLOCK_RATE);
-	this->defaults.clock_quantum = get_default_int(p, "default.clock.quantum", DEFAULT_CLOCK_QUANTUM);
-	this->defaults.clock_min_quantum = get_default_int(p, "default.clock.min-quantum", DEFAULT_CLOCK_MIN_QUANTUM);
-	this->defaults.clock_max_quantum = get_default_int(p, "default.clock.max-quantum", DEFAULT_CLOCK_MAX_QUANTUM);
-	this->defaults.video_size.width = get_default_int(p, "default.video.width", DEFAULT_VIDEO_WIDTH);
-	this->defaults.video_size.height = get_default_int(p, "default.video.height", DEFAULT_VIDEO_HEIGHT);
-	this->defaults.video_rate.num = get_default_int(p, "default.video.rate.num", DEFAULT_VIDEO_RATE_NUM);
-	this->defaults.video_rate.denom = get_default_int(p, "default.video.rate.denom", DEFAULT_VIDEO_RATE_DENOM);
-	this->defaults.link_max_buffers = get_default_int(p, "link.max-buffers", DEFAULT_LINK_MAX_BUFFERS);
-	this->defaults.mem_warn_mlock = get_default_bool(p, "mem.warn-mlock", DEFAULT_MEM_WARN_MLOCK);
-	this->defaults.mem_allow_mlock = get_default_bool(p, "mem.allow-mlock", DEFAULT_MEM_ALLOW_MLOCK);
+	struct settings *d = &this->defaults;
 
-	this->defaults.clock_max_quantum = SPA_CLAMP(this->defaults.clock_max_quantum,
+	d->clock_rate = get_default_int(p, "default.clock.rate", DEFAULT_CLOCK_RATE);
+	d->clock_quantum = get_default_int(p, "default.clock.quantum", DEFAULT_CLOCK_QUANTUM);
+	d->clock_min_quantum = get_default_int(p, "default.clock.min-quantum", DEFAULT_CLOCK_MIN_QUANTUM);
+	d->clock_max_quantum = get_default_int(p, "default.clock.max-quantum", DEFAULT_CLOCK_MAX_QUANTUM);
+	d->video_size.width = get_default_int(p, "default.video.width", DEFAULT_VIDEO_WIDTH);
+	d->video_size.height = get_default_int(p, "default.video.height", DEFAULT_VIDEO_HEIGHT);
+	d->video_rate.num = get_default_int(p, "default.video.rate.num", DEFAULT_VIDEO_RATE_NUM);
+	d->video_rate.denom = get_default_int(p, "default.video.rate.denom", DEFAULT_VIDEO_RATE_DENOM);
+
+	d->log_level = get_default_int(p, "log.level", pw_log_level);
+	d->clock_power_of_two_quantum = get_default_bool(p, "clock.power-of-two-quantum",
+			DEFAULT_CLOCK_POWER_OF_TWO_QUANTUM);
+	d->link_max_buffers = get_default_int(p, "link.max-buffers", DEFAULT_LINK_MAX_BUFFERS);
+	d->mem_warn_mlock = get_default_bool(p, "mem.warn-mlock", DEFAULT_MEM_WARN_MLOCK);
+	d->mem_allow_mlock = get_default_bool(p, "mem.allow-mlock", DEFAULT_MEM_ALLOW_MLOCK);
+
+	d->clock_max_quantum = SPA_CLAMP(d->clock_max_quantum,
 			CLOCK_MIN_QUANTUM, CLOCK_MAX_QUANTUM);
-	this->defaults.clock_min_quantum = SPA_CLAMP(this->defaults.clock_min_quantum,
-			CLOCK_MIN_QUANTUM, this->defaults.clock_max_quantum);
-	this->defaults.clock_quantum = SPA_CLAMP(this->defaults.clock_quantum,
-			this->defaults.clock_min_quantum, this->defaults.clock_max_quantum);
+	d->clock_min_quantum = SPA_CLAMP(d->clock_min_quantum,
+			CLOCK_MIN_QUANTUM, d->clock_max_quantum);
+	d->clock_quantum = SPA_CLAMP(d->clock_quantum,
+			d->clock_min_quantum, d->clock_max_quantum);
 }
 
 static int try_load_conf(struct pw_context *this, const char *conf_prefix,
@@ -306,6 +307,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	}
 
 	fill_defaults(this);
+	this->settings = this->defaults;
 
 	pr = pw_properties_copy(properties);
 	if ((str = pw_properties_get(pr, "context.data-loop." PW_KEY_LIBRARY_NAME_SYSTEM)))
@@ -953,10 +955,24 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *driver
 	return 0;
 }
 
+static inline void get_quantums(struct pw_context *context, uint32_t *def, uint32_t *min, uint32_t *max)
+{
+	struct settings *s = &context->settings;
+	*def = s->clock_force_quantum == 0 ? s->clock_quantum : s->clock_force_quantum;
+	*min = s->clock_force_quantum == 0 ? s->clock_min_quantum : s->clock_force_quantum;
+	*max = s->clock_force_quantum == 0 ? s->clock_max_quantum : s->clock_force_quantum;
+}
+static inline void get_rate(struct pw_context *context, uint32_t *def)
+{
+	struct settings *s = &context->settings;
+	*def = s->clock_force_rate == 0 ? s->clock_rate : s->clock_force_rate;
+}
+
 int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 {
 	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
 	struct pw_impl_node *n, *s, *target, *fallback;
+	uint32_t max_quantum, min_quantum, def_quantum, def_rate;
 
 	pw_log_info(NAME" %p: busy:%d reason:%s", context, impl->recalc, reason);
 
@@ -967,6 +983,9 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 
 again:
 	impl->recalc = true;
+
+	get_quantums(context, &def_quantum, &min_quantum, &max_quantum);
+	get_rate(context, &def_rate);
 
 	/* start from all drivers and group all nodes that are linked
 	 * to it. Some nodes are not (yet) linked to anything and they
@@ -1036,7 +1055,6 @@ again:
 	/* assign final quantum and set state for followers and drivers */
 	spa_list_for_each(n, &context->driver_list, driver_link) {
 		bool running = false;
-		uint32_t max_quantum = context->defaults.clock_max_quantum;
 		uint32_t quantum = 0;
 
 		if (!n->driving || n->exported)
@@ -1057,12 +1075,11 @@ again:
 				running = !n->passive;
 		}
 		if (quantum == 0)
-			quantum = context->defaults.clock_quantum;
+			quantum = def_quantum;
 
-		quantum = SPA_CLAMP(quantum,
-				context->defaults.clock_min_quantum,
-				max_quantum);
+		quantum = SPA_CLAMP(quantum, min_quantum, max_quantum);
 
+		n->rt.position->clock.rate = SPA_FRACTION(1, def_rate);
 		if (n->rt.position && quantum != n->rt.position->clock.duration) {
 			pw_log_info("(%s-%u) new quantum:%"PRIu64"->%u",
 					n->name, n->info.id,

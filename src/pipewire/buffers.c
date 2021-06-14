@@ -278,7 +278,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
 	}
 
-	max_buffers = context->defaults.link_max_buffers;
+	max_buffers = context->settings.link_max_buffers;
 
 	if ((str = pw_properties_get(context->properties, PW_KEY_CPU_MAX_ALIGN)) != NULL)
 		align = pw_properties_parse_int(str);

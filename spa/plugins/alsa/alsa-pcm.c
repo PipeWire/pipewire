@@ -970,6 +970,43 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 	return 0;
 }
 
+static inline bool is_following(struct state *state)
+{
+	return state->position && state->clock && state->position->clock.id != state->clock->id;
+}
+
+static int setup_matching(struct state *state)
+{
+	int card;
+
+	state->matching = state->following;
+
+	if (state->position == NULL)
+		return -ENOTSUP;
+
+	spa_log_debug(state->log, "clock:%s card:%d", state->position->clock.name, state->card);
+	if (sscanf(state->position->clock.name, "api.alsa.%d", &card) == 1 &&
+	    card == state->card) {
+		state->matching = false;
+	}
+	state->resample = ((uint32_t)state->rate != state->rate_denom) || state->matching;
+	return 0;
+}
+
+static inline void check_position_config(struct state *state)
+{
+	if (SPA_UNLIKELY(state->position  == NULL))
+		return;
+
+	if (SPA_UNLIKELY((state->duration != state->position->clock.duration) ||
+	    (state->rate_denom != state->position->clock.rate.denom))) {
+		state->duration = state->position->clock.duration;
+		state->rate_denom = state->position->clock.rate.denom;
+		state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
+		state->resample = ((uint32_t)state->rate != state->rate_denom) || state->matching;
+	}
+}
+
 int spa_alsa_write(struct state *state)
 {
 	snd_pcm_t *hndl = state->hndl;
@@ -978,10 +1015,7 @@ int spa_alsa_write(struct state *state)
 	snd_pcm_sframes_t commitres;
 	int res = 0;
 
-	if (SPA_LIKELY(state->position && state->duration != state->position->clock.duration)) {
-		state->duration = state->position->clock.duration;
-		state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
-	}
+	check_position_config(state);
 
 	if (state->following && state->alsa_started) {
 		uint64_t nsec;
@@ -1222,10 +1256,8 @@ int spa_alsa_read(struct state *state)
 	int res = 0;
 
 	if (state->position) {
-		if (state->duration != state->position->clock.duration) {
-			state->duration = state->position->clock.duration;
-			state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
-		}
+		check_position_config(state);
+
 		if (!state->following) {
 			uint64_t position;
 
@@ -1429,10 +1461,7 @@ static void alsa_on_timeout_event(struct spa_source *source)
 	if (SPA_UNLIKELY(state->started && spa_system_timerfd_read(state->data_system, state->timerfd, &expire) < 0))
 		spa_log_warn(state->log, NAME" %p: error reading timerfd: %m", state);
 
-	if (SPA_UNLIKELY(state->position && state->duration != state->position->clock.duration)) {
-		state->duration = state->position->clock.duration;
-		state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
-	}
+	check_position_config(state);
 
 	if (SPA_UNLIKELY((res = get_status(state, &delay, &target)) < 0))
 		return;
@@ -1489,29 +1518,6 @@ static int set_timers(struct state *state)
 	} else {
 		set_timeout(state, state->next_time);
 	}
-	return 0;
-}
-
-static inline bool is_following(struct state *state)
-{
-	return state->position && state->clock && state->position->clock.id != state->clock->id;
-}
-
-static int setup_matching(struct state *state)
-{
-	int card;
-
-	state->matching = state->following;
-
-	if (state->position == NULL)
-		return -ENOTSUP;
-
-	spa_log_debug(state->log, "clock:%s card:%d", state->position->clock.name, state->card);
-	if (sscanf(state->position->clock.name, "api.alsa.%d", &card) == 1 &&
-	    card == state->card) {
-		state->matching = false;
-	}
-	state->resample = (state->rate != state->rate_denom) || state->matching;
 	return 0;
 }
 

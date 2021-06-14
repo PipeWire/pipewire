@@ -348,6 +348,7 @@ static void service_entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupStat
 		break;
 
 	case AVAHI_ENTRY_GROUP_COLLISION:
+	{
 		char *t;
 
 		t = avahi_alternative_service_name(s->service_name);
@@ -357,7 +358,7 @@ static void service_entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupStat
 
 		publish_service(s);
 		break;
-
+	}
 	case AVAHI_ENTRY_GROUP_FAILURE:
 		pw_log_error("Failed to register service: %s",
 				avahi_strerror(avahi_client_errno(avahi_entry_group_get_client(g))));

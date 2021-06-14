@@ -557,6 +557,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	switch (id) {
 	case SPA_IO_Position:
 		res = spa_node_set_io(this->resample, id, data, size);
+		res = spa_node_set_io(this->channelmix, id, data, size);
 		res = spa_node_set_io(this->fmt[0], id, data, size);
 		res = spa_node_set_io(this->fmt[1], id, data, size);
 		break;

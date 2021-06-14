@@ -325,6 +325,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
 
+		info.info.raw.rate = 0;
+
 		if (this->have_profile && memcmp(&this->format, &info, sizeof(info)) == 0)
 			return 0;
 

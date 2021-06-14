@@ -1241,6 +1241,8 @@ void pw_log_log_object(enum spa_log_level level, const char *file, int line,
 
 bool pw_log_is_default(void);
 
+int pw_settings_init(struct pw_context *context);
+
 /** \endcond */
 
 #ifdef __cplusplus

@@ -73,6 +73,7 @@ pipewire_sources = [
   'protocol.c',
   'proxy.c',
   'resource.c',
+  'settings.c',
   'stream.c',
   'thread-loop.c',
   'utils.c',

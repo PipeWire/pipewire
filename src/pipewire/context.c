@@ -385,6 +385,8 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		goto error_free;
 	pw_log_info(NAME" %p: parsed %d context.exec items", this, res);
 
+	pw_settings_init(this);
+
 	pw_log_debug(NAME" %p: created", this);
 
 	return this;

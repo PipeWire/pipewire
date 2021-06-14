@@ -149,10 +149,10 @@ PWTEST(context_create)
 	pwtest_int_eq(context_foreach_count, 0);
 	res = pw_context_for_each_global(context, context_foreach, context);
 	pwtest_int_eq(res, 0);
-	pwtest_int_eq(context_foreach_count, 1);
+	pwtest_int_eq(context_foreach_count, 2);
 	res = pw_context_for_each_global(context, context_foreach_error, context);
 	pwtest_int_eq(res, -1);
-	pwtest_int_eq(context_foreach_count, 2);
+	pwtest_int_eq(context_foreach_count, 3);
 
 	/* check destroy */
 	context_events.destroy = context_destroy_count;
@@ -165,7 +165,7 @@ PWTEST(context_create)
 	pw_context_destroy(context);
 	pwtest_int_eq(destroy_count, 1);
 	pwtest_int_eq(free_count, 1);
-	pwtest_int_eq(global_removed_count, 1);
+	pwtest_int_eq(global_removed_count, 2);
 	pw_main_loop_destroy(loop);
 
 	return PWTEST_PASS;

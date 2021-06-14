@@ -429,6 +429,7 @@ static int port_enum_formats(void *object,
 			} else {
 				uint32_t rate = this->io_position ?
 					this->io_position->clock.rate.denom : DEFAULT_RATE;
+
 				spa_pod_builder_add(builder,
 					SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
 									rate, 1, INT32_MAX),

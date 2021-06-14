@@ -688,6 +688,9 @@ static int port_enum_formats(void *object,
 				SPA_PARAM_EnumFormat, &port->format.info.raw);
 		}
 		else {
+			uint32_t rate = this->io_position ?
+				this->io_position->clock.rate.denom : DEFAULT_RATE;
+
 			*param = spa_pod_builder_add_object(builder,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
@@ -710,7 +713,7 @@ static int port_enum_formats(void *object,
 							SPA_AUDIO_FORMAT_U8,
 							SPA_AUDIO_FORMAT_U8P),
 				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
-					DEFAULT_RATE, 1, INT32_MAX),
+					rate, 1, INT32_MAX),
 				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
 					DEFAULT_CHANNELS, 1, MAX_PORTS));
 		}

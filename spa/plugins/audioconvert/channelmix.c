@@ -744,18 +744,23 @@ static int port_enum_formats(void *object,
 				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 				SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
 				0);
+
 			if (other->have_format) {
 				spa_pod_builder_add(builder,
 					SPA_FORMAT_AUDIO_rate, SPA_POD_Int(other->format.info.raw.rate),
+					SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
+						other->format.info.raw.channels, 1, INT32_MAX),
 					0);
 			} else {
+				uint32_t rate = this->io_position ?
+					this->io_position->clock.rate.denom : DEFAULT_RATE;
+
 				spa_pod_builder_add(builder,
-					SPA_FORMAT_AUDIO_rate, SPA_POD_CHOICE_RANGE_Int(DEFAULT_RATE, 1, INT32_MAX),
+					SPA_FORMAT_AUDIO_rate, SPA_POD_CHOICE_RANGE_Int(rate, 0, INT32_MAX),
+					SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
+						DEFAULT_CHANNELS, 1, INT32_MAX),
 					0);
 			}
-			spa_pod_builder_add(builder,
-				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(DEFAULT_CHANNELS, 1, INT32_MAX),
-				0);
 			*param = spa_pod_builder_pop(builder, &f);
 		}
 		break;

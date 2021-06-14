@@ -506,8 +506,14 @@ static const struct spa_bt_transport_events dynamic_node_transport_events = {
 static void emit_dynamic_node(struct dynamic_node *this, struct impl *impl,
 	struct spa_bt_transport *t, uint32_t id, const char *factory_name)
 {
-	if (this->transport != NULL)
-		return;
+	spa_log_debug(impl->log, NAME": dynamic node, transport: %p->%p id: %08x->%08x",
+		this->transport, t, this->id, id);
+
+	if (this->transport) {
+		/* Session manager don't really handles transport ptr changing. */
+		spa_assert(this->transport == t);
+		spa_hook_remove(&this->transport_listener);
+	}
 
 	this->impl = impl;
 	this->transport = t;

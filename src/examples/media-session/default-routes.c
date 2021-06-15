@@ -137,8 +137,8 @@ static const char *channel_to_name(uint32_t channel)
 struct route_info {
 	uint32_t index;
 	uint32_t generation;
-	uint32_t available;
-	uint32_t prev_available;
+	enum spa_param_availability available;
+	enum spa_param_availability prev_available;
 	enum spa_direction direction;
 	char name[64];
 	unsigned int save:1;
@@ -153,7 +153,7 @@ struct route {
 	enum spa_direction direction;
 	const char *name;
 	uint32_t priority;
-	uint32_t available;
+	enum spa_param_availability available;
 	struct spa_pod *props;
 	bool save;
 };

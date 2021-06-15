@@ -5,10 +5,15 @@
 	--header-background: #729fcf;
 	--header-foreground: rgba(255, 255, 255, 0.7);
 	--font-family: 'Source Sans Pro', 'Source Sans', sans-serif;
-	--code-background: #f5f5f5;
-	--code-foreground: #333333;
-	--fragment-background: #f5f5f5;
-	--fragment-foreground: #333333;
-	--fragment-keyword: #c7254e;
-	--fragment-link: #729fcf;
+}
+
+@media (prefers-color-scheme: light) {
+	:root {
+		--code-background: #f5f5f5;
+		--code-foreground: #333333;
+		--fragment-background: #f5f5f5;
+		--fragment-foreground: #333333;
+		--fragment-keyword: #c7254e;
+		--fragment-link: #729fcf;
+	}
 }

@@ -30,13 +30,6 @@
 #include "../module.h"
 #include "registry.h"
 
-#define ERROR_RETURN(str)		\
-	{				\
-		pw_log_error(str);	\
-		res = -EINVAL;		\
-		goto out;		\
-	}
-
 struct module_zeroconf_discover_data {
 	struct module *module;
 

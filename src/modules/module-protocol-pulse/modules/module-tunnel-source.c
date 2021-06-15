@@ -34,13 +34,6 @@
 #include "../module.h"
 #include "registry.h"
 
-#define ERROR_RETURN(str)		\
-	{				\
-		pw_log_error(str);	\
-		res = -EINVAL;		\
-		goto out;		\
-	}
-
 struct module_tunnel_source_data {
 	struct module *module;
 

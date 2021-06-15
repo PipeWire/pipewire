@@ -32,13 +32,6 @@
 #include "../module.h"
 #include "registry.h"
 
-#define ERROR_RETURN(str) 		\
-	{ 				\
-		pw_log_error(str); 	\
-		res = -EINVAL; 		\
-		goto out; 		\
-	}
-
 struct module_remap_source_data {
 	struct module *module;
 

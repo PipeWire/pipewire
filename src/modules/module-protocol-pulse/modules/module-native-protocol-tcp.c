@@ -28,13 +28,6 @@
 #include "../pulse-server.h"
 #include "registry.h"
 
-#define ERROR_RETURN(str) 		\
-	{ 				\
-		pw_log_error(str); 	\
-		res = -EINVAL; 		\
-		goto out; 		\
-	}
-
 struct module_native_protocol_tcp_data {
 	struct module *module;
 	struct pw_array servers;

@@ -111,8 +111,8 @@ pipewire_dep = declare_dependency(link_with : libpipewire,
   dependencies : [pthread_lib, atomic_dep, ],
 )
 
-pkgconfig.generate(filebase : 'lib@0@'.format(pipewire_name),
-  libraries : [libpipewire],
+pkgconfig.generate(libpipewire,
+  filebase : 'lib@0@'.format(pipewire_name),
   requires : ['lib@0@'.format(spa_name)],
   name : 'libpipewire',
   subdirs : pipewire_name,

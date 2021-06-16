@@ -3,7 +3,7 @@
 # Do it for C++ if possible (picks up C++-specific errors), otherwise for C.
 find = find_program('find', required: false)
 if find.found()
-  spa_headers = run_command(find_program('find'),
+  spa_headers = run_command(find,
                             meson.source_root() / 'spa' / 'include',
                             '-name', '*.h',
                             '-not', '-name', 'type-info.h',
@@ -11,7 +11,7 @@ if find.found()
                             '-printf', '%P\n')
   foreach spa_header : spa_headers.stdout().split('\n')
     if spa_header.endswith('.h')  # skip empty lines
-      ext = have_cpp ? '.cpp' : '.c'
+      ext = have_cpp ? 'cpp' : 'c'
       c = configuration_data()
       c.set('INCLUDE', spa_header)
       src = configure_file(input: 'spa-include-test-template.c',

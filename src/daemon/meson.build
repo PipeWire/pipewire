@@ -9,13 +9,14 @@ pipewire_c_args = [
 conf_config = configuration_data()
 conf_config.set('VERSION', '"@0@"'.format(pipewire_version))
 conf_config.set('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
-conf_config.set('media_session_path', pipewire_bindir / 'pipewire-media-session')
+conf_config.set('session_manager_path', pipewire_bindir / 'pipewire-media-session')
+conf_config.set('session_manager_args', '')
 conf_config.set('pipewire_path', pipewire_bindir / 'pipewire')
 conf_config.set('pipewire_pulse_path', pipewire_bindir / 'pipewire-pulse')
 conf_config.set('comment', '#')
 
 conf_config_uninstalled = conf_config
-conf_config_uninstalled.set('media_session_path',
+conf_config_uninstalled.set('session_manager_path',
   meson.build_root() / 'src' / 'examples' / 'pipewire-media-session')
 conf_config_uninstalled.set('pipewire_path',
   meson.build_root() / 'src' / 'daemon' / 'pipewire')
@@ -23,6 +24,25 @@ conf_config_uninstalled.set('pipewire_pulse_path',
   meson.build_root() / 'src' / 'daemon' / 'pipewire-pulse')
 conf_config_uninstalled.set('comment', '')
 
+# Build WirePlumber if requested, and set it up in the config files
+build_wp = get_option('wireplumber')
+sm_choice = get_option('session-manager')
+
+if build_wp.disabled() and (sm_choice == 'wireplumber')
+  error('option to build wireplumber is disabled, ' +
+        'but the requested session-manager is wireplumber')
+elif build_wp.enabled() or (build_wp.auto() and (sm_choice == 'wireplumber'))
+  wp_proj = subproject('wireplumber', required : true)
+  wp_bindir = wp_proj.get_variable('wireplumber_bin_dir', pipewire_bindir)
+
+  conf_config.set('session_manager_path', wp_bindir / 'wireplumber')
+
+  # wp-uninstalled.sh -b path/to/wp/build/root wireplumber
+  conf_config_uninstalled.set('session_manager_path',
+    meson.source_root() / 'subprojects' / 'wireplumber' / 'wp-uninstalled.sh')
+  conf_config_uninstalled.set('session_manager_args',
+    '-b ' + meson.build_root() / 'subprojects' / 'wireplumber' + ' wireplumber')
+endif
 
 conf_files = [
  'pipewire.conf',

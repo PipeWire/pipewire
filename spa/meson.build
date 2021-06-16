@@ -44,9 +44,16 @@ if not get_option('examples').disabled()
   subdir('examples')
 endif
 
+spa_dep = declare_dependency(
+  include_directories : [spa_inc],
+  version : spaversion,
+)
+
 pkgconfig.generate(filebase : 'lib@0@'.format(spa_name),
   name : 'libspa',
   subdirs : spa_name,
   description : 'Simple Plugin API',
   version : spaversion,
   extra_cflags : '-D_REENTRANT')
+
+meson.override_dependency('lib@0@'.format(spa_name), spa_dep)

@@ -107,8 +107,8 @@ libpipewire = shared_library(pipewire_name, pipewire_sources,
 )
 
 pipewire_dep = declare_dependency(link_with : libpipewire,
-  include_directories : [pipewire_inc, configinc, spa_inc],
-  dependencies : [pthread_lib, atomic_dep, ],
+  include_directories : [pipewire_inc, configinc],
+  dependencies : [pthread_lib, atomic_dep, spa_dep],
 )
 
 pkgconfig.generate(libpipewire,
@@ -120,5 +120,7 @@ pkgconfig.generate(libpipewire,
   version : pipewire_version,
   extra_cflags : '-D_REENTRANT',
   variables : ['moduledir=${libdir}/@0@'.format(pipewire_name)])
+
+meson.override_dependency('lib@0@'.format(pipewire_name), pipewire_dep)
 
 subdir('extensions')

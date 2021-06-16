@@ -602,17 +602,12 @@ static int module_zeroconf_publish_load(struct client *client, struct module *mo
 	pw_manager_add_listener(data->manager, &data->manager_listener,
 			&manager_events, data);
 
-	pw_log_info("loaded module %p id:%u name:%s", module, module->idx, module->name);
-	module_emit_loaded(module, 0);
-
 	return 0;
 }
 
 static int module_zeroconf_publish_unload(struct client *client, struct module *module)
 {
 	struct module_zeroconf_publish_data *d = module->user_data;
-
-	pw_log_info("unload module %p id:%u name:%s", module, module->idx, module->name);
 
 	pw_manager_for_each_object(d->manager, service_free, d);
 

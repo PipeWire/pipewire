@@ -31,6 +31,8 @@
 #define NAME "metadata"
 
 struct impl {
+	struct spa_hook context_listener;
+
 	struct pw_global *global;
 	struct spa_hook global_listener;
 
@@ -222,9 +224,23 @@ static const struct pw_global_events global_events = {
 	.destroy = global_destroy,
 };
 
+
+static void context_global_removed(void *data, struct pw_global *global)
+{
+	struct impl *impl = data;
+	pw_metadata_set_property(impl->metadata,
+			pw_global_get_id(global), NULL, NULL, NULL);
+}
+
+static const struct pw_context_events context_events = {
+	PW_VERSION_CONTEXT_EVENTS,
+	.global_removed = context_global_removed,
+};
+
 static void global_resource_destroy(void *data)
 {
 	struct impl *impl = data;
+	spa_hook_remove(&impl->context_listener);
 	spa_hook_remove(&impl->resource_listener);
 	impl->resource = NULL;
 	impl->metadata = NULL;
@@ -272,11 +288,14 @@ pw_metadata_new(struct pw_context *context, struct pw_resource *resource,
 	impl->resource = resource;
 	impl->metadata = (struct pw_metadata*)resource;
 
+	pw_context_add_listener(context, &impl->context_listener,
+			&context_events, impl);
+
 	pw_global_add_listener(impl->global,
 			&impl->global_listener,
 			&global_events, impl);
 
-	pw_resource_set_bound_id(resource, pw_global_get_id (impl->global));
+	pw_resource_set_bound_id(resource, pw_global_get_id(impl->global));
 	pw_global_register(impl->global);
 
 	pw_resource_add_listener(resource,

@@ -92,7 +92,7 @@ static int metadata_set_property(void *object,
 	struct pw_impl_client *client = pw_resource_get_client(resource);
 	int res;
 
-	if ((res = pw_impl_client_check_permissions(client, subject, PW_PERM_R)) < 0)
+	if ((res = pw_impl_client_check_permissions(client, subject, PW_PERM_R | PW_PERM_M)) < 0)
 		goto error;
 
 	pw_metadata_set_property(impl->metadata, subject, key, type, value);

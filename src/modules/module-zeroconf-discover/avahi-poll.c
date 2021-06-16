@@ -187,5 +187,7 @@ AvahiPoll* pw_avahi_poll_new(struct pw_loop *loop)
 
 void pw_avahi_poll_free(AvahiPoll *p)
 {
-	free(p);
+	struct impl *impl = SPA_CONTAINER_OF(p, struct impl, api);
+
+	free(impl);
 }

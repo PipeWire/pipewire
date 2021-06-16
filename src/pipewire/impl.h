@@ -39,6 +39,7 @@ extern "C" {
  * - \ref pw_impl_device
  * - \ref pw_impl_factory
  * - \ref pw_impl_link
+ * - \ref pw_impl_metadata
  * - \ref pw_impl_module
  * - \ref pw_impl_node
  * - \ref pw_impl_port
@@ -66,6 +67,7 @@ struct pw_resource;
 #include <pipewire/impl-factory.h>
 #include <pipewire/global.h>
 #include <pipewire/impl-link.h>
+#include <pipewire/impl-metadata.h>
 #include <pipewire/impl-module.h>
 #include <pipewire/impl-node.h>
 #include <pipewire/impl-port.h>

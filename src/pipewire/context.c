@@ -230,6 +230,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	spa_list_init(&this->client_list);
 	spa_list_init(&this->node_list);
 	spa_list_init(&this->factory_list);
+	spa_list_init(&this->metadata_list);
 	spa_list_init(&this->link_list);
 	spa_list_init(&this->control_list[0]);
 	spa_list_init(&this->control_list[1]);
@@ -411,6 +412,7 @@ void pw_context_destroy(struct pw_context *context)
 	struct pw_resource *resource;
 	struct pw_impl_node *node;
 	struct factory_entry *entry;
+	struct pw_impl_metadata *metadata;
 	struct pw_impl_core *core_impl;
 
 	pw_log_debug(NAME" %p: destroy", context);
@@ -436,6 +438,9 @@ void pw_context_destroy(struct pw_context *context)
 
 	spa_list_consume(global, &context->global_list, link)
 		pw_global_destroy(global);
+
+	spa_list_consume(metadata, &context->metadata_list, link)
+		pw_impl_metadata_destroy(metadata);
 
 	spa_list_consume(core_impl, &context->core_impl_list, link)
 		pw_impl_core_destroy(core_impl);

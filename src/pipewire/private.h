@@ -241,6 +241,29 @@ struct pw_impl_core {
 	unsigned int registered:1;
 };
 
+#define pw_impl_metadata_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct pw_impl_metadata_events, m, v, ##__VA_ARGS__)
+
+#define pw_impl_metadata_emit_destroy(s)	pw_impl_metadata_emit(s, destroy, 0)
+#define pw_impl_metadata_emit_free(s)		pw_impl_metadata_emit(s, free, 0)
+#define pw_impl_metadata_emit_property(s, ...)	pw_impl_metadata_emit(s, property, 0, __VA_ARGS__)
+
+struct pw_impl_metadata {
+	struct pw_context *context;		/**< the context */
+	struct spa_list link;			/**< link in context metadata_list */
+	struct pw_global *global;		/**< global for this metadata */
+	struct spa_hook global_listener;
+
+	struct pw_properties *properties;	/**< properties of the metadata */
+
+	struct pw_metadata *metadata;
+	struct spa_hook metadata_listener;
+
+	struct spa_hook_list listener_list;	/**< event listeners */
+	void *user_data;
+
+	unsigned int registered:1;
+};
+
 struct pw_impl_client {
 	struct pw_impl_core *core;		/**< core object */
 	struct pw_context *context;		/**< context object */
@@ -401,6 +424,7 @@ struct pw_context {
 	struct spa_list client_list;		/**< list of clients */
 	struct spa_list node_list;		/**< list of nodes */
 	struct spa_list factory_list;		/**< list of factories */
+	struct spa_list metadata_list;		/**< list of metadata */
 	struct spa_list link_list;		/**< list of links */
 	struct spa_list control_list[2];	/**< list of controls, indexed by direction */
 	struct spa_list export_list;		/**< list of export types */

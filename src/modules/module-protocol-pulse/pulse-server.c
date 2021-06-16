@@ -6665,9 +6665,6 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	spa_list_init(&impl->cleanup_clients);
 	spa_list_init(&impl->free_messages);
 
-	pw_context_add_listener(context, &impl->context_listener,
-			&context_events, impl);
-
 	str = pw_properties_get(props, "server.address");
 	if (str == NULL) {
 		pw_properties_setf(props, "server.address",
@@ -6690,6 +6687,8 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 		pw_log_warn(NAME" %p: can't create pid file: %s",
 			    impl, spa_strerror(res));
 	}
+	pw_context_add_listener(context, &impl->context_listener,
+			&context_events, impl);
 
 	impl->dbus_name = dbus_request_name(context, "org.pulseaudio.Server");
 

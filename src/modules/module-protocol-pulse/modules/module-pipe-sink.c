@@ -265,7 +265,8 @@ struct module *create_module_pipe_sink(struct impl *impl, const char *argument)
 	do_unlink_fifo = false;
 	if (mkfifo(filename, 0666) < 0) {
 		if (errno != EEXIST) {
-			pw_log_error("mkfifo('%s'): %s", filename, spa_strerror(errno));
+			res = -errno;
+			pw_log_error("mkfifo('%s'): %s", filename, spa_strerror(res));
 			goto out;
 		}
 	} else {
@@ -275,16 +276,18 @@ struct module *create_module_pipe_sink(struct impl *impl, const char *argument)
 		 * requested permissions. Let's fix the permissions with chmod().
 		 */
 		if (chmod(filename, 0666) < 0)
-			pw_log_warn("chmod('%s'): %s", filename, spa_strerror(errno));
+			pw_log_warn("chmod('%s'): %s", filename, spa_strerror(-errno));
 	}
 
 	if ((fd = open(filename, O_RDWR | O_CLOEXEC | O_NONBLOCK, 0)) <= 0) {
-        	pw_log_error("open('%s'): %s", filename, spa_strerror(errno));
+		res = -errno;
+		pw_log_error("open('%s'): %s", filename, spa_strerror(res));
 		goto out;
 	}
 
 	if (fstat(fd, &st) < 0) {
-		pw_log_error("fstat('%s'): %s", filename, spa_strerror(errno));
+		res = -errno;
+		pw_log_error("fstat('%s'): %s", filename, spa_strerror(res));
 		goto out;
 	}
 

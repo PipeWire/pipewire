@@ -2586,7 +2586,10 @@ static void registry_event_global(void *data, uint32_t id,
 	else if (spa_streq(type, PW_TYPE_INTERFACE_Metadata)) {
 		struct pw_proxy *proxy;
 
-		if (c->metadata)
+		if (c->metadata != NULL)
+			goto exit;
+		if ((str = spa_dict_lookup(props, PW_KEY_METADATA_NAME)) != NULL &&
+		    !spa_streq(str, "default"))
 			goto exit;
 
 		proxy = pw_registry_bind(c->registry,

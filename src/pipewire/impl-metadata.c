@@ -570,3 +570,35 @@ int pw_impl_metadata_set_property(struct pw_impl_metadata *metadata,
 {
 	return impl_set_property(metadata->metadata, subject, key, type, value);
 }
+
+SPA_EXPORT
+int pw_impl_metadata_set_propertyf(struct pw_impl_metadata *metadata,
+			uint32_t subject, const char *key, const char *type,
+			const char *fmt, ...)
+{
+	va_list args;
+	int n = 0;
+	size_t size = 0;
+	char *p = NULL;
+
+	va_start(args, fmt);
+	n = vsnprintf(p, size, fmt, args);
+	va_end(args);
+	if (n < 0)
+		return -errno;
+
+	size = (size_t) n + 1;
+	p = malloc(size);
+	if (p == NULL)
+		return -errno;
+
+	va_start(args, fmt);
+	n = vsnprintf(p, size, fmt, args);
+	va_end(args);
+
+	if (n < 0) {
+		free(p);
+		return -errno;
+	}
+	return pw_impl_metadata_set_property(metadata, subject, key, type, p);
+}

@@ -99,6 +99,10 @@ int pw_impl_metadata_set_property(struct pw_impl_metadata *metadata,
 			uint32_t subject, const char *key, const char *type,
 			const char *value);
 
+int pw_impl_metadata_set_propertyf(struct pw_impl_metadata *metadata,
+			uint32_t subject, const char *key, const char *type,
+			const char *fmt, ...) SPA_PRINTF_FUNC(5,6);
+
 /**
  * \}
  */

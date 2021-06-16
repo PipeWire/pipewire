@@ -1023,7 +1023,7 @@ struct pw_filter {
 
 struct pw_impl_factory {
 	struct pw_context *context;		/**< the context */
-	struct spa_list link;		/**< link in context node_factory_list */
+	struct spa_list link;		/**< link in context factory_list */
 	struct pw_global *global;	/**< global for this factory */
 	struct spa_hook global_listener;
 

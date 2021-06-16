@@ -1149,6 +1149,7 @@ static int metadata_property(void *object,
 		if (e == NULL)
 			return -errno;
 
+		e->subject = subject;
 		e->key = SPA_PTROFF(e, sizeof(*e), void);
 		strcpy(e->key, key);
 		e->value = SPA_PTROFF(e->key, strlen(e->key) + 1, void);

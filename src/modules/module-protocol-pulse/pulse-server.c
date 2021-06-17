@@ -93,6 +93,7 @@
 #define LISTEN_BACKLOG 32
 
 #define MAX_FORMATS	32
+#define MAX_CLIENTS	64
 
 #include "format.c"
 #include "volume.c"
@@ -1675,6 +1676,7 @@ static void stream_process(void *data)
 			pd.missing = size;
 			pd.underrun = false;
 		}
+		pw_log_debug("produce %d", size);
 	        buf->datas[0].chunk->offset = 0;
 	        buf->datas[0].chunk->stride = stream->frame_size;
 	        buf->datas[0].chunk->size = size;
@@ -5355,6 +5357,7 @@ static bool client_detach(struct client *client)
 
 	/* remove from the `server->clients` list */
 	spa_list_remove(&client->link);
+	client->server->n_clients--;
 	client->server = NULL;
 
 	return true;
@@ -5770,7 +5773,18 @@ on_connect(void *data, int fd, uint32_t mask)
 	struct sockaddr_storage name;
 	socklen_t length;
 	int client_fd, val, pid;
-	struct client *client;
+	struct client *client = NULL;
+
+	length = sizeof(name);
+	client_fd = accept4(fd, (struct sockaddr *) &name, &length, SOCK_CLOEXEC);
+	if (client_fd < 0)
+		goto error;
+
+	if (server->n_clients >= MAX_CLIENTS) {
+		close(client_fd);
+		errno = ECONNREFUSED;
+		goto error;
+	}
 
 	client = calloc(1, sizeof(struct client));
 	if (client == NULL)
@@ -5778,13 +5792,23 @@ on_connect(void *data, int fd, uint32_t mask)
 
 	client->impl = impl;
 	client->ref = 1;
-	client->server = server;
 	client->connect_tag = SPA_ID_INVALID;
+	client->server = server;
 	spa_list_append(&server->clients, &client->link);
+	server->n_clients++;
 	pw_map_init(&client->streams, 16, 16);
 	spa_list_init(&client->out_messages);
 	spa_list_init(&client->operations);
 	spa_list_init(&client->pending_samples);
+
+	pw_log_debug(NAME": client %p fd:%d", client, client_fd);
+
+	client->source = pw_loop_add_io(impl->loop,
+					client_fd,
+					SPA_IO_ERR | SPA_IO_HUP | SPA_IO_IN,
+					true, on_client_data, client);
+	if (client->source == NULL)
+		goto error;
 
 	client->props = pw_properties_new(
 			PW_KEY_CLIENT_API, "pipewire-pulse",
@@ -5799,13 +5823,6 @@ on_connect(void *data, int fd, uint32_t mask)
 	client->routes = pw_properties_new(NULL, NULL);
 	if (client->routes == NULL)
 		goto error;
-
-	length = sizeof(name);
-	client_fd = accept4(fd, (struct sockaddr *) &name, &length, SOCK_CLOEXEC);
-	if (client_fd < 0)
-		goto error;
-
-	pw_log_debug(NAME": client %p fd:%d", client, client_fd);
 
 	if (server->addr.ss_family == AF_UNIX) {
 #ifdef SO_PRIORITY
@@ -5827,17 +5844,8 @@ on_connect(void *data, int fd, uint32_t mask)
 			if (setsockopt(client_fd, IPPROTO_IP, IP_TOS, &val, sizeof(val)) < 0)
 				pw_log_warn("setsockopt(IP_TOS) failed: %m");
 		}
-
 		pw_properties_set(client->props, PW_KEY_CLIENT_ACCESS, "restricted");
 	}
-
-	client->source = pw_loop_add_io(impl->loop,
-					client_fd,
-					SPA_IO_ERR | SPA_IO_HUP | SPA_IO_IN,
-					true, on_client_data, client);
-	if (client->source == NULL)
-		goto error;
-
 	return;
 error:
 	pw_log_error(NAME" %p: failed to create client: %m", impl);

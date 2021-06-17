@@ -4268,17 +4268,12 @@ SPA_EXPORT
 int jack_port_get_aliases (const jack_port_t *port, char* const aliases[2])
 {
 	struct object *o = (struct object *) port;
-	struct client *c;
 	int res = 0;
 
 	spa_return_val_if_fail(o != NULL, -EINVAL);
 	spa_return_val_if_fail(aliases != NULL, -EINVAL);
 	spa_return_val_if_fail(aliases[0] != NULL, -EINVAL);
 	spa_return_val_if_fail(aliases[1] != NULL, -EINVAL);
-
-	c = o->client;
-
-	pw_thread_loop_lock(c->context.loop);
 
 	if (o->port.alias1[0] != '\0') {
 		snprintf(aliases[0], REAL_JACK_PORT_NAME_SIZE+1, "%s", o->port.alias1);
@@ -4288,7 +4283,6 @@ int jack_port_get_aliases (const jack_port_t *port, char* const aliases[2])
 		snprintf(aliases[1], REAL_JACK_PORT_NAME_SIZE+1, "%s", o->port.alias2);
 		res++;
 	}
-	pw_thread_loop_unlock(c->context.loop);
 
 	return res;
 }

@@ -516,6 +516,7 @@ static int setup_streams(struct impl *impl)
 	struct pw_properties *props;
 
 	props = pw_properties_new(
+			PW_KEY_NODE_NAME, "echo-cancel-capture",
 			PW_KEY_NODE_VIRTUAL, "true",
 			NULL);
 	pw_properties_setf(props,
@@ -553,6 +554,7 @@ static int setup_streams(struct impl *impl)
 			&sink_events, impl);
 
 	props = pw_properties_new(
+			PW_KEY_NODE_NAME, "echo-cancel-playback",
 			PW_KEY_NODE_VIRTUAL, "true",
 			NULL);
 	pw_properties_setf(props,

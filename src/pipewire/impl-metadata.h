@@ -46,7 +46,7 @@ struct pw_impl_metadata;
 #include <pipewire/properties.h>
 #include <pipewire/resource.h>
 
-#include <extensions/metadata.h>
+#include "extensions/metadata.h"
 
 /** Metadata events, listen to them with \ref pw_impl_metadata_add_listener */
 struct pw_impl_metadata_events {

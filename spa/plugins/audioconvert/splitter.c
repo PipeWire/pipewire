@@ -1009,10 +1009,8 @@ static int impl_node_process(void *object)
 		spa_log_trace_fp(this->log, NAME " %p: %d %p %d %d %d", this, i,
 				outio, outio->status, outio->buffer_id, outport->stride);
 
-		if (SPA_UNLIKELY(outio->status == SPA_STATUS_HAVE_DATA)) {
-			res |= SPA_STATUS_HAVE_DATA;
+		if (SPA_UNLIKELY(outio->status == SPA_STATUS_HAVE_DATA))
 			goto empty;
-		}
 
 		if (SPA_LIKELY(outio->buffer_id < outport->n_buffers)) {
 			queue_buffer(this, outport, outio->buffer_id);
@@ -1042,7 +1040,6 @@ static int impl_node_process(void *object)
 
 		outio->status = SPA_STATUS_HAVE_DATA;
 		outio->buffer_id = dbuf->id;
-		res |= SPA_STATUS_HAVE_DATA;
 	}
 
 	spa_log_trace_fp(this->log, NAME " %p: n_src:%d n_dst:%d n_samples:%d max:%d stride:%d p:%d", this,
@@ -1054,6 +1051,7 @@ static int impl_node_process(void *object)
 
 	inio->status = SPA_STATUS_NEED_DATA;
 	res |= SPA_STATUS_NEED_DATA;
+	res |= SPA_STATUS_HAVE_DATA;
 
 	return res;
 }

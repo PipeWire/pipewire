@@ -60,6 +60,8 @@
 #define DEFAULT_POSITION "[ FL FR ]"
 #define DEFAULT_LATENCY "1024/48000"
 
+#define MAX_CLIENTS	10
+
 #define MODULE_USAGE	"[ capture=<bool> ] "						\
 			"[ playback=<bool> ] "						\
 			"[ capture.node=<source-target> ] "				\
@@ -129,6 +131,7 @@ struct server {
 	struct spa_source *source;
 
 	struct spa_list client_list;
+	uint32_t n_clients;
 };
 
 static void client_disconnect(struct client *client)
@@ -153,6 +156,7 @@ static void client_free(struct client *client)
 	client_disconnect(client);
 
 	spa_list_remove(&client->link);
+	client->server->n_clients--;
 
 	if (client->capture)
 		pw_stream_destroy(client->capture);
@@ -465,6 +469,12 @@ on_connect(void *data, int fd, uint32_t mask)
 	if (client_fd < 0)
 		goto error;
 
+	if (server->n_clients >= MAX_CLIENTS) {
+		close(client_fd);
+		errno = ECONNREFUSED;
+		goto error;
+	}
+
 	client = calloc(1, sizeof(struct client));
 	if (client == NULL)
 		goto error;
@@ -472,9 +482,17 @@ on_connect(void *data, int fd, uint32_t mask)
 	client->impl = impl;
 	client->server = server;
 	spa_list_append(&server->client_list, &client->link);
+	server->n_clients++;
 
 	if (inet_ntop(addr.sa_family, addr.sa_data, client->name, sizeof(client->name)) == NULL)
 		snprintf(client->name, sizeof(client->name), "client %d", client_fd);
+
+	client->source = pw_loop_add_io(impl->loop,
+					client_fd,
+					SPA_IO_ERR | SPA_IO_HUP,
+					true, on_client_data, client);
+	if (client->source == NULL)
+		goto error;
 
 	pw_log_info(NAME" %p: client:%p [%s] connected", impl, client, client->name);
 
@@ -503,13 +521,6 @@ on_connect(void *data, int fd, uint32_t mask)
 
 		pw_properties_set(props, PW_KEY_CLIENT_ACCESS, "restricted");
 	}
-
-	client->source = pw_loop_add_io(impl->loop,
-					client_fd,
-					SPA_IO_ERR | SPA_IO_HUP,
-					true, on_client_data, client);
-	if (client->source == NULL)
-		goto error;
 
 	client->core = pw_context_connect(impl->context, props, 0);
 	props = NULL;

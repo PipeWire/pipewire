@@ -1,5 +1,6 @@
 /* PipeWire
  *
+ * Copyright © 2019 Wim Taymans
  * Copyright © 2021 Red Hat, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -29,6 +30,143 @@
 
 #include "pipewire/properties.h"
 
+PWTEST(properties_abi)
+{
+#if defined(__x86_64__) && defined(__LP64__)
+	pwtest_int_eq(sizeof(struct pw_properties), 24U);
+	return PWTEST_PASS;
+#else
+	fprintf(stderr, "%zd\n", sizeof(struct pw_properties));
+	return PWTEST_SKIP;
+#endif
+}
+
+PWTEST(properties_empty)
+{
+	struct pw_properties *props, *copy;
+	void *state = NULL;
+
+	props = pw_properties_new(NULL, NULL);
+	pwtest_ptr_notnull(props);
+	pwtest_int_eq(props->flags, 0U);
+
+	pwtest_int_eq(props->dict.n_items, 0U);
+	pwtest_ptr_null(pw_properties_get(props, NULL));
+	pwtest_ptr_null(pw_properties_get(props, "unknown"));
+	pwtest_ptr_null(pw_properties_iterate(props, &state));
+
+	pw_properties_clear(props);
+	pwtest_int_eq(props->dict.n_items, 0U);
+	pwtest_ptr_null(pw_properties_get(props, NULL));
+	pwtest_ptr_null(pw_properties_get(props, ""));
+	pwtest_ptr_null(pw_properties_get(props, "unknown"));
+	pwtest_ptr_null(pw_properties_iterate(props, &state));
+
+	copy = pw_properties_copy(props);
+	pwtest_ptr_notnull(copy);
+	pw_properties_free(props);
+
+	pwtest_int_eq(copy->dict.n_items, 0U);
+	pwtest_ptr_null(pw_properties_get(copy, NULL));
+	pwtest_ptr_null(pw_properties_get(copy, ""));
+	pwtest_ptr_null(pw_properties_get(copy, "unknown"));
+	pwtest_ptr_null(pw_properties_iterate(copy, &state));
+
+	pw_properties_free(copy);
+
+	return PWTEST_PASS;
+}
+
+PWTEST(properties_set)
+{
+	struct pw_properties *props, *copy;
+	void *state = NULL;
+	const char *str;
+
+	props = pw_properties_new(NULL, NULL);
+	pwtest_ptr_notnull(props);
+	pwtest_int_eq(props->flags, 0U);
+
+	pwtest_int_eq(pw_properties_set(props, "foo", "bar"), 1);
+	pwtest_int_eq(props->dict.n_items, 1U);
+	pwtest_str_eq(pw_properties_get(props, "foo"), "bar");
+	pwtest_int_eq(pw_properties_set(props, "foo", "bar"), 0);
+	pwtest_int_eq(props->dict.n_items, 1U);
+	pwtest_str_eq(pw_properties_get(props, "foo"), "bar");
+	pwtest_int_eq(pw_properties_set(props, "foo", "fuz"), 1);
+	pwtest_int_eq(props->dict.n_items, 1U);
+	pwtest_str_eq(pw_properties_get(props, "foo"), "fuz");
+	pwtest_int_eq(pw_properties_set(props, "bar", "foo"), 1);
+	pwtest_int_eq(props->dict.n_items, 2U);
+	pwtest_str_eq(pw_properties_get(props, "bar"), "foo");
+	pwtest_int_eq(pw_properties_set(props, "him", "too"), 1);
+	pwtest_int_eq(props->dict.n_items, 3U);
+	pwtest_str_eq(pw_properties_get(props, "him"), "too");
+	pwtest_int_eq(pw_properties_set(props, "him", NULL), 1);
+	pwtest_int_eq(props->dict.n_items, 2U);
+	pwtest_ptr_null(pw_properties_get(props, "him"));
+	pwtest_int_eq(pw_properties_set(props, "him", NULL), 0);
+	pwtest_int_eq(props->dict.n_items, 2U);
+	pwtest_ptr_null(pw_properties_get(props, "him"));
+
+	pwtest_int_eq(pw_properties_set(props, "", "invalid"), 0);
+	pwtest_int_eq(pw_properties_set(props, NULL, "invalid"), 0);
+
+	str = pw_properties_iterate(props, &state);
+	pwtest_str_ne(str, NULL);
+	pwtest_bool_true((spa_streq(str, "foo") || spa_streq(str, "bar")));
+	str = pw_properties_iterate(props, &state);
+	pwtest_str_ne(str, NULL);
+	pwtest_bool_true((spa_streq(str, "foo") || spa_streq(str, "bar")));
+	str = pw_properties_iterate(props, &state);
+	pwtest_ptr_null(str);
+
+	pwtest_int_eq(pw_properties_set(props, "foo", NULL), 1);
+	pwtest_int_eq(props->dict.n_items, 1U);
+	pwtest_int_eq(pw_properties_set(props, "bar", NULL), 1);
+	pwtest_int_eq(props->dict.n_items, 0U);
+
+	pwtest_int_eq(pw_properties_set(props, "foo", "bar"), 1);
+	pwtest_int_eq(pw_properties_set(props, "bar", "foo"), 1);
+	pwtest_int_eq(pw_properties_set(props, "him", "too"), 1);
+	pwtest_int_eq(props->dict.n_items, 3U);
+
+	pwtest_str_eq(pw_properties_get(props, "foo"), "bar");
+	pwtest_str_eq(pw_properties_get(props, "bar"), "foo");
+	pwtest_str_eq(pw_properties_get(props, "him"), "too");
+
+	pw_properties_clear(props);
+	pwtest_int_eq(props->dict.n_items, 0U);
+
+	pwtest_int_eq(pw_properties_set(props, "foo", "bar"), 1);
+	pwtest_int_eq(pw_properties_set(props, "bar", "foo"), 1);
+	pwtest_int_eq(pw_properties_set(props, "him", "too"), 1);
+	pwtest_int_eq(props->dict.n_items, 3U);
+
+	copy = pw_properties_copy(props);
+	pwtest_ptr_notnull(copy);
+	pwtest_int_eq(copy->dict.n_items, 3U);
+	pwtest_str_eq(pw_properties_get(copy, "foo"), "bar");
+	pwtest_str_eq(pw_properties_get(copy, "bar"), "foo");
+	pwtest_str_eq(pw_properties_get(copy, "him"), "too");
+
+	pwtest_int_eq(pw_properties_set(copy, "bar", NULL), 1);
+	pwtest_int_eq(pw_properties_set(copy, "foo", NULL), 1);
+	pwtest_int_eq(copy->dict.n_items, 1U);
+	pwtest_str_eq(pw_properties_get(copy, "him"), "too");
+
+	pwtest_int_eq(props->dict.n_items, 3U);
+	pwtest_str_eq(pw_properties_get(props, "foo"), "bar");
+	pwtest_str_eq(pw_properties_get(props, "bar"), "foo");
+	pwtest_str_eq(pw_properties_get(props, "him"), "too");
+
+	pw_properties_free(props);
+	pw_properties_free(copy);
+
+	return PWTEST_PASS;
+
+}
+
 PWTEST(properties_new)
 {
 	struct pw_properties *p;
@@ -54,6 +192,52 @@ PWTEST(properties_new)
 	pwtest_str_eq(pw_properties_get(p, "k4"), "v4");
 	pw_properties_free(p);
 
+	p = pw_properties_new("foo", "bar", "bar", "baz", "", "invalid", "him", "too", NULL);
+	pwtest_ptr_notnull(p);
+	pwtest_int_eq(p->flags, 0U);
+	pwtest_int_eq(p->dict.n_items, 3U);
+	pw_properties_free(p);
+
+	return PWTEST_PASS;
+}
+
+PWTEST(properties_new_string)
+{
+	struct pw_properties *props;
+
+	props = pw_properties_new_string("foo=bar bar=baz \"#ignore\"=ignore him=too empty=\"\" =gg");
+	pwtest_ptr_notnull(props);
+	pwtest_int_eq(props->flags, 0U);
+	pwtest_int_eq(props->dict.n_items, 5U);
+
+	pwtest_str_eq(pw_properties_get(props, "foo"), "bar");
+	pwtest_str_eq(pw_properties_get(props, "bar"), "baz");
+	pwtest_str_eq(pw_properties_get(props, "#ignore"), "ignore");
+	pwtest_str_eq(pw_properties_get(props, "him"), "too");
+	pwtest_str_eq(pw_properties_get(props, "empty"), "");
+
+	pw_properties_free(props);
+
+	props = pw_properties_new_string("foo=bar bar=baz");
+	pwtest_ptr_notnull(props);
+	pwtest_int_eq(props->flags, 0U);
+	pwtest_int_eq(props->dict.n_items, 2U);
+
+	pwtest_str_eq(pw_properties_get(props, "foo"), "bar");
+	pwtest_str_eq(pw_properties_get(props, "bar"), "baz");
+
+	pw_properties_free(props);
+
+	props = pw_properties_new_string("foo=bar bar=\"baz");
+	pwtest_ptr_notnull(props);
+	pwtest_int_eq(props->flags, 0U);
+	pwtest_int_eq(props->dict.n_items, 2U);
+
+	pwtest_str_eq(pw_properties_get(props, "foo"), "bar");
+	pwtest_str_eq(pw_properties_get(props, "bar"), "baz");
+
+	pw_properties_free(props);
+
 	return PWTEST_PASS;
 }
 
@@ -70,7 +254,7 @@ PWTEST(properties_free)
 	return PWTEST_PASS;
 }
 
-PWTEST(properties_set)
+PWTEST(properties_set_with_alloc)
 {
 	struct pw_properties *p;
 	int nadded;
@@ -106,6 +290,16 @@ PWTEST(properties_set)
 PWTEST(properties_setf)
 {
 	struct pw_properties *p;
+
+	p = pw_properties_new(NULL, NULL);
+	pwtest_int_eq(pw_properties_setf(p, "foo", "%d.%08x", 657, 0x89342), 1);
+	pwtest_int_eq(p->dict.n_items, 1U);
+	pwtest_str_eq(pw_properties_get(p, "foo"), "657.00089342");
+
+	pwtest_int_eq(pw_properties_setf(p, "", "%f", 189.45f), 0);
+	pwtest_int_eq(pw_properties_setf(p, NULL, "%f", 189.45f), 0);
+	pwtest_int_eq(p->dict.n_items, 1U);
+	pw_properties_free(p);
 
 	/* Set a lot of properties to force reallocation */
 	p = pw_properties_new(NULL, NULL);
@@ -182,6 +376,37 @@ PWTEST(properties_parse_int)
 
 	return PWTEST_PASS;
 }
+
+PWTEST(properties_parse_float)
+{
+	struct test {
+		const char *value;
+		double expected;
+	} tests[] = {
+		{ "1.0", 1.0 },
+		{ "0.0", 0.0 },
+		{ "-1.0", -1.0 },
+		{ "1.234", 1.234 },
+		/* parsing errors */
+		{ "1,0", 0 },
+		{ "x", 0 },
+		{ "xk", 0 },
+		{ "1k", 0 },
+		{ "abc", 0 },
+		{ "foo", 0 },
+		{ NULL, 0 },
+		{ "", 0 },
+	};
+
+	for (size_t i = 0; i < SPA_N_ELEMENTS(tests); i++) {
+		struct test *t = &tests[i];
+		pwtest_double_eq(pw_properties_parse_float(t->value), (float)t->expected);
+		pwtest_double_eq(pw_properties_parse_double(t->value), t->expected);
+	}
+
+	return PWTEST_PASS;
+}
+
 
 PWTEST(properties_copy)
 {
@@ -270,17 +495,135 @@ PWTEST(properties_serialize_dict_stack_overflow)
 	return PWTEST_PASS;
 }
 
+PWTEST(properties_new_dict)
+{
+	struct pw_properties *props;
+	struct spa_dict_item items[5];
+
+	items[0] = SPA_DICT_ITEM_INIT("foo", "bar");
+	items[1] = SPA_DICT_ITEM_INIT("bar", "baz");
+	items[3] = SPA_DICT_ITEM_INIT("", "invalid");
+	items[4] = SPA_DICT_ITEM_INIT(NULL, "invalid");
+	items[2] = SPA_DICT_ITEM_INIT("him", "too");
+
+	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(items));
+	pwtest_ptr_notnull(props);
+	pwtest_int_eq(props->flags, 0U);
+	pwtest_int_eq(props->dict.n_items, 3U);
+
+	pwtest_str_eq(pw_properties_get(props, "foo"), "bar");
+	pwtest_str_eq(pw_properties_get(props, "bar"), "baz");
+	pwtest_str_eq(pw_properties_get(props, "him"), "too");
+
+	pw_properties_free(props);
+
+	return PWTEST_PASS;
+}
+
+
+PWTEST(properties_new_json)
+{
+	struct pw_properties *props;
+
+	props = pw_properties_new_string("{ \"foo\": \"bar\\n\\t\", \"bar\": 1.8, \"empty\": [ \"foo\", \"bar\" ], \"\": \"gg\"");
+	pwtest_ptr_notnull(props);
+	pwtest_int_eq(props->flags, 0U);
+	pwtest_int_eq(props->dict.n_items, 3U);
+
+	pwtest_str_eq(pw_properties_get(props, "foo"), "bar\n\t");
+	pwtest_str_eq(pw_properties_get(props, "bar"), "1.8");
+	pwtest_str_eq(pw_properties_get(props, "empty"),
+		      "[ \"foo\", \"bar\" ]");
+
+	pw_properties_free(props);
+
+	return PWTEST_PASS;
+}
+
+PWTEST(properties_update)
+{
+	struct pw_properties *props;
+	struct spa_dict_item items[5];
+
+	props = pw_properties_new(NULL, NULL);
+	pwtest_ptr_notnull(props);
+	pwtest_int_eq(props->flags, 0U);
+	pwtest_int_eq(props->dict.n_items, 0U);
+
+	items[0] = SPA_DICT_ITEM_INIT("foo", "bar");
+	items[1] = SPA_DICT_ITEM_INIT("bar", "baz");
+	items[3] = SPA_DICT_ITEM_INIT("", "invalid");
+	items[4] = SPA_DICT_ITEM_INIT(NULL, "invalid");
+	items[2] = SPA_DICT_ITEM_INIT("him", "too");
+	pwtest_int_eq(pw_properties_update(props, &SPA_DICT_INIT_ARRAY(items)),
+		      3);
+	pwtest_int_eq(props->dict.n_items, 3U);
+
+	pwtest_str_eq(pw_properties_get(props, "foo"), "bar");
+	pwtest_str_eq(pw_properties_get(props, "bar"), "baz");
+	pwtest_str_eq(pw_properties_get(props, "him"), "too");
+
+	items[0] = SPA_DICT_ITEM_INIT("foo", "bar");
+	items[1] = SPA_DICT_ITEM_INIT("bar", "baz");
+	pwtest_int_eq(pw_properties_update(props, &SPA_DICT_INIT(items, 2)),
+		      0);
+	pwtest_int_eq(props->dict.n_items, 3U);
+	pwtest_str_eq(pw_properties_get(props, "foo"), "bar");
+	pwtest_str_eq(pw_properties_get(props, "bar"), "baz");
+	pwtest_str_eq(pw_properties_get(props, "him"), "too");
+
+	items[0] = SPA_DICT_ITEM_INIT("bar", "bear");
+	items[1] = SPA_DICT_ITEM_INIT("him", "too");
+	pwtest_int_eq(pw_properties_update(props, &SPA_DICT_INIT(items, 2)),
+		      1);
+	pwtest_int_eq(props->dict.n_items, 3U);
+	pwtest_str_eq(pw_properties_get(props, "foo"), "bar");
+	pwtest_str_eq(pw_properties_get(props, "bar"), "bear");
+	pwtest_str_eq(pw_properties_get(props, "him"), "too");
+
+	items[0] = SPA_DICT_ITEM_INIT("bar", "bear");
+	items[1] = SPA_DICT_ITEM_INIT("him", NULL);
+	pwtest_int_eq(pw_properties_update(props, &SPA_DICT_INIT(items, 2)),
+		      1);
+	pwtest_int_eq(props->dict.n_items, 2U);
+	pwtest_str_eq(pw_properties_get(props, "foo"), "bar");
+	pwtest_str_eq(pw_properties_get(props, "bar"), "bear");
+	pwtest_ptr_null(pw_properties_get(props, "him"));
+
+	items[0] = SPA_DICT_ITEM_INIT("foo", NULL);
+	items[1] = SPA_DICT_ITEM_INIT("bar", "beer");
+	items[2] = SPA_DICT_ITEM_INIT("him", "her");
+	pwtest_int_eq(pw_properties_update(props, &SPA_DICT_INIT(items, 3)),
+		      3);
+	pwtest_int_eq(props->dict.n_items, 2U);
+	pwtest_ptr_null(pw_properties_get(props, "foo"));
+	pwtest_str_eq(pw_properties_get(props, "bar"), "beer");
+	pwtest_str_eq(pw_properties_get(props, "him"), "her");
+
+	pw_properties_free(props);
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(properties)
 {
+	pwtest_add(properties_abi, PWTEST_NOARG);
+	pwtest_add(properties_empty, PWTEST_NOARG);
 	pwtest_add(properties_new, PWTEST_NOARG);
+	pwtest_add(properties_new_string, PWTEST_NOARG);
 	pwtest_add(properties_free, PWTEST_NOARG);
 	pwtest_add(properties_set, PWTEST_NOARG);
+	pwtest_add(properties_set_with_alloc, PWTEST_NOARG);
 	pwtest_add(properties_setf, PWTEST_NOARG);
 	pwtest_add(properties_parse_bool, PWTEST_NOARG);
 	pwtest_add(properties_parse_int, PWTEST_NOARG);
+	pwtest_add(properties_parse_float, PWTEST_NOARG);
 	pwtest_add(properties_copy, PWTEST_NOARG);
 	pwtest_add(properties_update_string, PWTEST_NOARG);
 	pwtest_add(properties_serialize_dict_stack_overflow, PWTEST_NOARG);
+	pwtest_add(properties_new_dict, PWTEST_NOARG);
+	pwtest_add(properties_new_json, PWTEST_NOARG);
+	pwtest_add(properties_update, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

@@ -2,7 +2,6 @@ test_apps = [
 	'test-client',
 	'test-endpoint',
 	'test-interfaces',
-	'test-properties',
 	#	'test-remote',
 	'test-stream',
 	'test-utils'

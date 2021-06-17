@@ -45,7 +45,6 @@ extern "C" {
  * - \ref pw_impl_port
  * - \ref pw_control
  * - \ref pw_global
- * - \ref pw_global
  * - \ref pw_resource
  * - \ref pw_work_queue
  *

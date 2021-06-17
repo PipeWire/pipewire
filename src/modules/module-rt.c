@@ -49,6 +49,10 @@
 	"[rt.time.soft=<in usec: default " SPA_STRINGIFY(DEFAULT_RT_TIME_SOFT)"] " \
 	"[rt.time.hard=<in usec: default " SPA_STRINGIFY(DEFAULT_RT_TIME_HARD)"] "
 
+#ifndef RLIMIT_RTTIME
+#define RLIMIT_RTTIME 15
+#endif
+
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Jonas Holmberg <jonashg@axis.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Set thread priorities" },

@@ -252,9 +252,7 @@ struct context {
 
 #define GET_DIRECTION(f)	((f) & JackPortIsInput ? SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT)
 
-#define GET_IN_PORT(c,p)	(c->port_pool[SPA_DIRECTION_INPUT][p])
-#define GET_OUT_PORT(c,p)	(c->port_pool[SPA_DIRECTION_OUTPUT][p])
-#define GET_PORT(c,d,p)		(d == SPA_DIRECTION_INPUT ? GET_IN_PORT(c,p) : GET_OUT_PORT(c,p))
+#define GET_PORT(c,d,p)		((d >= 0 && d <=1 && p < c->n_port_pool[d]) ? c->port_pool[d][p] : NULL)
 
 struct metadata {
 	struct pw_metadata *proxy;
@@ -1836,6 +1834,9 @@ static int client_node_port_set_param(void *object,
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
+	if (p == NULL || !p->valid)
+		return -EINVAL;
+
 	pw_log_info("port %p: %d.%d id:%d %p", p, direction, port_id, id, param);
 
 	switch (id) {
@@ -1843,8 +1844,7 @@ static int client_node_port_set_param(void *object,
 		port_set_format(c, p, flags, param);
 		break;
 	case SPA_PARAM_Latency:
-		port_set_latency(c, p, flags, param);
-		return 0;
+		return port_set_latency(c, p, flags, param);
 	default:
 		break;
 	}
@@ -1902,7 +1902,7 @@ static int client_node_port_use_buffers(void *object,
 	int res;
 	struct mix *mix;
 
-	if (!p->valid) {
+	if (p == NULL || !p->valid) {
 		res = -EINVAL;
 		goto done;
 	}
@@ -2051,6 +2051,11 @@ static int client_node_port_set_io(void *object,
 	uint32_t tag[5] = { c->node_id, direction, port_id, mix_id, id };
         void *ptr;
 	int res = 0;
+
+	if (p == NULL || !p->valid) {
+		res = -EINVAL;
+		goto exit;
+	}
 
 	if ((mix = ensure_mix(c, p, mix_id)) == NULL) {
 		res = -ENOMEM;
@@ -3768,8 +3773,10 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 	pw_thread_loop_lock(c->context.loop);
 
 	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
-
-	free_port(c, p);
+	if (p == NULL || !p->valid) {
+		res = -EINVAL;
+		goto done;
+	}
 
 	pw_client_node_port_update(c->node,
 					 p->direction,
@@ -3778,6 +3785,9 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 
 	res = do_sync(c);
 
+	free_port(c, p);
+
+done:
 	pw_thread_loop_unlock(c->context.loop);
 
 	return res;
@@ -4095,6 +4105,7 @@ int jack_port_rename (jack_client_t* client, jack_port_t *port, const char *port
 	struct client *c = (struct client *) client;
 	struct object *o = (struct object *) port;
 	struct port *p;
+	int res = 0;
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 	spa_return_val_if_fail(o != NULL, -EINVAL);
@@ -4106,6 +4117,11 @@ int jack_port_rename (jack_client_t* client, jack_port_t *port, const char *port
 			client, port, o->port.name, c->name, port_name);
 
 	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
+	if (p == NULL || !p->valid) {
+		res = -EINVAL;
+		goto done;
+	}
+
 
 	pw_properties_set(p->props, PW_KEY_PORT_NAME, port_name);
 	snprintf(o->port.name, sizeof(o->port.name), "%s:%s", c->name, port_name);
@@ -4121,9 +4137,10 @@ int jack_port_rename (jack_client_t* client, jack_port_t *port, const char *port
 					 &p->info);
 	p->info.change_mask = 0;
 
+done:
 	pw_thread_loop_unlock(c->context.loop);
 
-	return 0;
+	return res;
 }
 
 SPA_EXPORT
@@ -4133,6 +4150,7 @@ int jack_port_set_alias (jack_port_t *port, const char *alias)
 	struct client *c;
 	struct port *p;
 	const char *key;
+	int res = 0;
 
 	spa_return_val_if_fail(o != NULL, -EINVAL);
 	spa_return_val_if_fail(alias != NULL, -EINVAL);
@@ -4149,10 +4167,16 @@ int jack_port_set_alias (jack_port_t *port, const char *alias)
 		key = PW_KEY_PORT_ALIAS;
 		snprintf(o->port.alias2, sizeof(o->port.alias2), "%s", alias);
 	}
-	else
-		goto error;
+	else {
+		res = -1;
+		goto done;
+	}
 
 	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
+	if (p == NULL || !p->valid) {
+		res = -EINVAL;
+		goto done;
+	}
 
 	pw_properties_set(p->props, key, alias);
 
@@ -4167,13 +4191,10 @@ int jack_port_set_alias (jack_port_t *port, const char *alias)
 					 &p->info);
 	p->info.change_mask = 0;
 
+done:
 	pw_thread_loop_unlock(c->context.loop);
 
-	return 0;
-
-error:
-	pw_thread_loop_unlock(c->context.loop);
-	return -1;
+	return res;
 }
 
 SPA_EXPORT
@@ -4183,6 +4204,7 @@ int jack_port_unset_alias (jack_port_t *port, const char *alias)
 	struct client *c;
 	struct port *p;
 	const char *key;
+	int res = 0;
 
 	spa_return_val_if_fail(o != NULL, -EINVAL);
 	spa_return_val_if_fail(alias != NULL, -EINVAL);
@@ -4195,11 +4217,16 @@ int jack_port_unset_alias (jack_port_t *port, const char *alias)
 		key = PW_KEY_OBJECT_PATH;
 	else if (spa_streq(o->port.alias2, alias))
 		key = PW_KEY_PORT_ALIAS;
-	else
-		goto error;
+	else {
+		res = -1;
+		goto done;
+	}
 
 	p = GET_PORT(c, GET_DIRECTION(o->port.flags), o->port.port_id);
-
+	if (p == NULL || !p->valid) {
+		res = -EINVAL;
+		goto done;
+	}
 
 	pw_properties_set(p->props, key, NULL);
 
@@ -4214,13 +4241,10 @@ int jack_port_unset_alias (jack_port_t *port, const char *alias)
 					 &p->info);
 	p->info.change_mask = 0;
 
+done:
 	pw_thread_loop_unlock(c->context.loop);
 
-	return 0;
-
-error:
-	pw_thread_loop_unlock(c->context.loop);
-	return -1;
+	return res;
 }
 
 SPA_EXPORT

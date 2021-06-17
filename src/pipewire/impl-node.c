@@ -1105,14 +1105,16 @@ static void reset_segment(struct spa_io_segment *seg)
 static void reset_position(struct pw_impl_node *this, struct spa_io_position *pos)
 {
 	uint32_t i;
-	struct settings *def = &this->context->settings;
+	struct settings *s = &this->context->settings;
+	uint32_t quantum = s->clock_force_quantum == 0 ? s->clock_quantum : s->clock_force_quantum;
+	uint32_t rate = s->clock_force_rate == 0 ? s->clock_rate : s->clock_force_rate;
 
-	pos->clock.rate = SPA_FRACTION(1, def->clock_rate);
-	pos->clock.duration = def->clock_quantum;
+	pos->clock.rate = SPA_FRACTION(1, rate);
+	pos->clock.duration = quantum;
 	pos->video.flags = SPA_IO_VIDEO_SIZE_VALID;
-	pos->video.size = def->video_size;
+	pos->video.size = s->video_size;
 	pos->video.stride = pos->video.size.width * 16;
-	pos->video.framerate = def->video_rate;
+	pos->video.framerate = s->video_rate;
 	pos->offset = INT64_MIN;
 
 	pos->n_segments = 1;

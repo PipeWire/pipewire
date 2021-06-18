@@ -22,6 +22,9 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#ifndef PULSE_SERVER_DEFS_H
+#define PULSE_SERVER_DEFS_H
+
 #define FLAG_SHMDATA			0x80000000LU
 #define FLAG_SHMDATA_MEMFD_BLOCK	0x20000000LU
 #define FLAG_SHMRELEASE			0x40000000LU
@@ -426,3 +429,5 @@ static inline uint32_t port_type_value(const char *port_type)
 #define METADATA_CONFIG_DEFAULT_SINK    "default.configured.audio.sink"
 #define METADATA_CONFIG_DEFAULT_SOURCE  "default.configured.audio.source"
 #define METADATA_TARGET_NODE            "target.node"
+
+#endif /* PULSE_SERVER_DEFS_H */

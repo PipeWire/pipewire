@@ -36,8 +36,6 @@
 
 #include "format.h"
 
-#define NAME	"pulse-server"
-
 struct defs {
 	struct spa_fraction min_req;
 	struct spa_fraction default_req;

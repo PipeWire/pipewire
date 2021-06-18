@@ -45,7 +45,9 @@ static void module_null_sink_proxy_destroy(void *data)
 {
 	struct module *module = data;
 	struct module_null_sink_data *d = module->user_data;
-	pw_log_info(NAME" %p: proxy %p destroy", module, d->proxy);
+
+	pw_log_info("proxy %p destroy", d->proxy);
+
 	spa_hook_remove(&d->listener);
 	d->proxy = NULL;
 }
@@ -55,7 +57,8 @@ static void module_null_sink_proxy_bound(void *data, uint32_t global_id)
 	struct module *module = data;
 	struct module_null_sink_data *d = module->user_data;
 
-	pw_log_info(NAME" module %p proxy %p bound", module, d->proxy);
+	pw_log_info("proxy %p bound", d->proxy);
+
 	d->global_id = global_id;
 	module_emit_loaded(module, 0);
 }
@@ -64,9 +67,9 @@ static void module_null_sink_proxy_error(void *data, int seq, int res, const cha
 {
 	struct module *module = data;
 	struct module_null_sink_data *d = module->user_data;
-	struct impl *impl = module->impl;
 
-	pw_log_info(NAME" %p module %p error %d", impl, module, res);
+	pw_log_info("proxy %p error %d", d->proxy, res);
+
 	pw_proxy_destroy(d->proxy);
 }
 

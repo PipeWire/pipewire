@@ -77,6 +77,7 @@
 #include "defs.h"
 #include "format.h"
 #include "internal.h"
+#include "message.h"
 #include "pending-sample.h"
 #include "sample.h"
 #include "sample-play.h"
@@ -97,7 +98,6 @@
 #define MAX_FORMATS	32
 #define MAX_CLIENTS	64
 
-#include "message.c"
 #include "manager.h"
 
 static bool debug_messages = false;
@@ -136,49 +136,6 @@ static struct sample *find_sample(struct impl *impl, uint32_t idx, const char *n
 			return s;
 	}
 	return NULL;
-}
-
-static void message_free(struct impl *impl, struct message *msg, bool dequeue, bool destroy)
-{
-	if (dequeue)
-		spa_list_remove(&msg->link);
-	if (destroy) {
-		pw_log_trace("destroy message %p", msg);
-		msg->stat->n_allocated--;
-		msg->stat->allocated -= msg->allocated;
-		free(msg->data);
-		free(msg);
-	} else {
-		pw_log_trace("recycle message %p", msg);
-		spa_list_append(&impl->free_messages, &msg->link);
-	}
-}
-
-static struct message *message_alloc(struct impl *impl, uint32_t channel, uint32_t size)
-{
-	struct message *msg;
-
-	if (!spa_list_is_empty(&impl->free_messages)) {
-		msg = spa_list_first(&impl->free_messages, struct message, link);
-		spa_list_remove(&msg->link);
-		pw_log_trace("using recycled message %p", msg);
-	} else {
-		if ((msg = calloc(1, sizeof(struct message))) == NULL)
-			return NULL;
-		pw_log_trace("new message %p", msg);
-		msg->stat = &impl->stat;
-		msg->stat->n_allocated++;
-		msg->stat->n_accumulated++;
-	}
-	if (ensure_size(msg, size) < 0) {
-		message_free(impl, msg, false, true);
-		return NULL;
-	}
-	spa_zero(msg->extra);
-	msg->channel = channel;
-	msg->offset = 0;
-	msg->length = size;
-	return msg;
 }
 
 static int flush_messages(struct client *client)

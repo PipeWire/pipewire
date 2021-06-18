@@ -26,6 +26,8 @@
 
 #include <spa/utils/string.h>
 
+#include "media-roles.h"
+
 static const struct extension_sub ext_stream_restore[];
 
 static int do_extension_stream_restore_test(struct client *client, uint32_t command, uint32_t tag, struct message *m)

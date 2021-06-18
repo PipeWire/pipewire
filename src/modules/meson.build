@@ -138,6 +138,7 @@ pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse/format.c',
   'module-protocol-pulse/manager.c',
   'module-protocol-pulse/media-roles.c',
+  'module-protocol-pulse/message.c',
   'module-protocol-pulse/pending-sample.c',
   'module-protocol-pulse/pulse-server.c',
   'module-protocol-pulse/sample.c',

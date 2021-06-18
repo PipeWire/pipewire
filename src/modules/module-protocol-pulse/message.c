@@ -22,9 +22,21 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <spa/utils/string.h>
+#include <arpa/inet.h>
+#include <math.h>
 
+#include <spa/debug/buffer.h>
+#include <spa/utils/defs.h>
+#include <spa/utils/string.h>
+#include <pipewire/keys.h>
+#include <pipewire/log.h>
+
+#include "defs.h"
+#include "format.h"
+#include "internal.h"
 #include "media-roles.h"
+#include "message.h"
+#include "volume.h"
 
 #define VOLUME_MUTED ((uint32_t) 0U)
 #define VOLUME_NORM ((uint32_t) 0x10000U)
@@ -49,7 +61,7 @@ static inline float volume_to_linear(uint32_t vol)
 	return v * v * v;
 }
 
-const struct str_map key_table[] = {
+static const struct str_map key_table[] = {
 	{ PW_KEY_DEVICE_BUS_PATH, "device.bus_path" },
 	{ PW_KEY_DEVICE_FORM_FACTOR, "device.form_factor" },
 	{ PW_KEY_DEVICE_ICON_NAME, "device.icon_name" },
@@ -62,41 +74,6 @@ const struct str_map key_table[] = {
 	{ PW_KEY_MEDIA_ROLE, "media.role", media_role_map },
 	{ NULL, NULL },
 };
-
-enum {
-	TAG_INVALID = 0,
-	TAG_STRING = 't',
-	TAG_STRING_NULL = 'N',
-	TAG_U32 = 'L',
-	TAG_U8 = 'B',
-	TAG_U64 = 'R',
-	TAG_S64 = 'r',
-	TAG_SAMPLE_SPEC = 'a',
-	TAG_ARBITRARY = 'x',
-	TAG_BOOLEAN_TRUE = '1',
-	TAG_BOOLEAN_FALSE = '0',
-	TAG_BOOLEAN = TAG_BOOLEAN_TRUE,
-	TAG_TIMEVAL = 'T',
-	TAG_USEC = 'U'  /* 64bit unsigned */,
-	TAG_CHANNEL_MAP = 'm',
-	TAG_CVOLUME = 'v',
-	TAG_PROPLIST = 'P',
-	TAG_VOLUME = 'V',
-	TAG_FORMAT_INFO = 'f',
-};
-
-struct message {
-	struct spa_list link;
-	struct stats *stat;
-	uint32_t extra[4];
-	uint32_t channel;
-	uint32_t allocated;
-	uint32_t length;
-	uint32_t offset;
-	uint8_t *data;
-};
-
-static int message_get(struct message *m, ...);
 
 static int read_u8(struct message *m, uint8_t *val)
 {
@@ -292,7 +269,7 @@ static int read_format_info(struct message *m, struct format_info *info)
 	return res;
 }
 
-static int message_get(struct message *m, ...)
+int message_get(struct message *m, ...)
 {
 	va_list va;
 	int res = 0;
@@ -614,7 +591,7 @@ static void write_format_info(struct message *m, struct format_info *info)
 	write_dict(m, info->props ? &info->props->dict : NULL, false);
 }
 
-static int message_put(struct message *m, ...)
+int message_put(struct message *m, ...)
 {
 	va_list va;
 
@@ -684,7 +661,7 @@ static int message_put(struct message *m, ...)
 	return 0;
 }
 
-static int message_dump(enum spa_log_level level, struct message *m)
+int message_dump(enum spa_log_level level, struct message *m)
 {
 	int res;
 	uint32_t i, offset = m->offset, o;
@@ -843,4 +820,52 @@ static int message_dump(enum spa_log_level level, struct message *m)
 	m->offset = offset;
 
 	return 0;
+}
+
+struct message *message_alloc(struct impl *impl, uint32_t channel, uint32_t size)
+{
+	struct message *msg;
+
+	if (!spa_list_is_empty(&impl->free_messages)) {
+		msg = spa_list_first(&impl->free_messages, struct message, link);
+		spa_list_remove(&msg->link);
+		pw_log_trace("using recycled message %p", msg);
+	} else {
+		if ((msg = calloc(1, sizeof(*msg))) == NULL)
+			return NULL;
+
+		pw_log_trace("new message %p", msg);
+		msg->stat = &impl->stat;
+		msg->stat->n_allocated++;
+		msg->stat->n_accumulated++;
+	}
+
+	if (ensure_size(msg, size) < 0) {
+		message_free(impl, msg, false, true);
+		return NULL;
+	}
+
+	spa_zero(msg->extra);
+	msg->channel = channel;
+	msg->offset = 0;
+	msg->length = size;
+
+	return msg;
+}
+
+void message_free(struct impl *impl, struct message *msg, bool dequeue, bool destroy)
+{
+	if (dequeue)
+		spa_list_remove(&msg->link);
+
+	if (destroy) {
+		pw_log_trace("destroy message %p", msg);
+		msg->stat->n_allocated--;
+		msg->stat->allocated -= msg->allocated;
+		free(msg->data);
+		free(msg);
+	} else {
+		pw_log_trace("recycle message %p", msg);
+		spa_list_append(&impl->free_messages, &msg->link);
+	}
 }

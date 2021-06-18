@@ -82,6 +82,7 @@
 #include "pulse-server.h"
 #include "collect.h"
 #include "commands.h"
+#include "dbus-name.h"
 #include "defs.h"
 #include "format.h"
 #include "internal.h"
@@ -103,7 +104,6 @@
 
 #include "message.c"
 #include "manager.h"
-#include "dbus-name.c"
 
 static bool debug_messages = false;
 

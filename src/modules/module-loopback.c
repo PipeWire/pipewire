@@ -309,7 +309,8 @@ static void impl_destroy(struct impl *impl)
 		pw_core_disconnect(impl->core);
 	pw_properties_free(impl->capture_props);
 	pw_properties_free(impl->playback_props);
-	pw_work_queue_cancel(impl->work, impl, SPA_ID_INVALID);
+	if (impl->work)
+		pw_work_queue_cancel(impl->work, impl, SPA_ID_INVALID);
 	free(impl);
 }
 
@@ -414,6 +415,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->context = context;
 	impl->work = pw_context_get_work_queue(context);
+	if (impl->work == NULL) {
+		res = -errno;
+		pw_log_error( "can't get work queue: %m");
+		goto error;
+	}
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_GROUP, "loopback-%u", id);

@@ -172,7 +172,8 @@ static void impl_free(struct impl *impl)
 	if (impl->avahi_poll)
 		pw_avahi_poll_free(impl->avahi_poll);
 	pw_properties_free(impl->properties);
-	pw_work_queue_cancel(impl->work, impl, SPA_ID_INVALID);
+	if (impl->work)
+		pw_work_queue_cancel(impl->work, impl, SPA_ID_INVALID);
 	free(impl);
 }
 
@@ -490,8 +491,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->module = module;
 	impl->context = context;
-	impl->work = pw_context_get_work_queue(context);
 	impl->properties = props;
+
+	impl->work = pw_context_get_work_queue(context);
+	if (impl->work == NULL)
+		goto error_errno;
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
@@ -503,6 +507,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 error_errno:
 	res = -errno;
-	free(impl);
+	impl_free(impl);
 	return res;
 }

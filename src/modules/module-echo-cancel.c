@@ -671,7 +671,8 @@ static void impl_destroy(struct impl *impl)
 	pw_properties_free(impl->source_props);
 	pw_properties_free(impl->sink_props);
 
-	pw_work_queue_cancel(impl->work, impl, SPA_ID_INVALID);
+	if (impl->work)
+		pw_work_queue_cancel(impl->work, impl, SPA_ID_INVALID);
 
 	for (i = 0; i < impl->info.channels; i++) {
 		if (impl->rec_buffer[i])
@@ -787,6 +788,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->context = context;
 	impl->work = pw_context_get_work_queue(context);
+	if (impl->work == NULL) {
+		res = -errno;
+		pw_log_error( "can't create work queue: %m");
+		goto error;
+	}
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_GROUP, "echo-cancel-%u", id);

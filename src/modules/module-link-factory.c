@@ -500,6 +500,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_impl_factory *factory;
 	struct factory_data *data;
+	int res;
 
 	factory = pw_context_create_factory(context,
 				 "link-factory",
@@ -516,6 +517,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	data->this = factory;
 	data->module = module;
 	data->work = pw_context_get_work_queue(context);
+	if (data->work == NULL) {
+		res = -errno;
+		pw_log_error( "can't get work queue: %m");
+		pw_impl_factory_destroy(factory);
+		return res;
+	}
+
 	spa_list_init(&data->link_list);
 
 	pw_log_debug("module %p: new", module);

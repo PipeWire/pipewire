@@ -1098,6 +1098,8 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
                 this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
 	impl->work = pw_work_queue_new(context->main_loop);
+	if (impl->work == NULL)
+		goto error_work_queue;
 
 	this->context = context;
 	this->properties = properties;
@@ -1194,6 +1196,10 @@ error_no_mem:
 	res = -errno;
 	pw_log_debug("alloc failed: %m");
 	goto error_exit;
+error_work_queue:
+	res = -errno;
+	pw_log_debug("work queue failed: %m");
+	goto error_free;
 error_no_io:
 	pw_log_debug(NAME" %p: can't set io %d (%s)", this, res, spa_strerror(res));
 	goto error_free;

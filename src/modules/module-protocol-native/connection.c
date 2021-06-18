@@ -186,6 +186,8 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 
 	while (true) {
 		len = recvmsg(conn->fd, &msg, msg.msg_flags);
+		if (msg.msg_flags & MSG_CTRUNC)
+			return -EPROTO;
 		if (len == 0 && avail != 0)
 			return -EPIPE;
 		else if (len < 0) {

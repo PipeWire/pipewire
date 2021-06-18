@@ -462,6 +462,8 @@ void pw_context_destroy(struct pw_context *context)
 	pw_properties_free(context->properties);
 	pw_properties_free(context->conf);
 
+	pw_settings_clean(context);
+
 	if (impl->dbus_handle)
 		pw_unload_spa_handle(impl->dbus_handle);
 

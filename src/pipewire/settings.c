@@ -114,18 +114,18 @@ static void init_defaults(struct impl *impl)
 			PW_ID_CORE, "clock.force-rate", "", "%d", s->clock_force_rate);
 }
 
-
 int pw_settings_init(struct pw_context *context)
 {
 	struct impl *impl;
-	int res;
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
-		goto error_errno;
+		return -errno;
 
 	impl->context = context;
 	impl->metadata = pw_context_create_metadata(context, "settings", NULL, 0);
+	if (impl->metadata == NULL)
+		goto error_free;
 
 	init_defaults(impl);
 
@@ -135,12 +135,24 @@ int pw_settings_init(struct pw_context *context)
 
 	pw_impl_metadata_register(impl->metadata, NULL);
 
+	context->settings_impl = impl;
+
 	return 0;
 
-error_errno:
-	res = -errno;
-	goto error_free;
 error_free:
 	free(impl);
-	return res;
+	return -errno;
+}
+
+void pw_settings_clean(struct pw_context *context)
+{
+	struct impl *impl = context->settings_impl;
+
+	if (impl == NULL)
+		return;
+
+	context->settings_impl = NULL;
+	if (impl->metadata != NULL)
+		pw_impl_metadata_destroy(impl->metadata);
+	free(impl);
 }

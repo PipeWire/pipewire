@@ -410,6 +410,8 @@ struct pw_context {
 	struct settings defaults;		/**< default parameters */
 	struct settings settings;		/**< current parameters */
 
+	void *settings_impl;		/**< settings metadata */
+
 	struct pw_mempool *pool;		/**< global memory pool */
 
 	struct pw_map globals;			/**< map of globals */
@@ -1242,6 +1244,7 @@ void pw_log_log_object(enum spa_log_level level, const char *file, int line,
 bool pw_log_is_default(void);
 
 int pw_settings_init(struct pw_context *context);
+void pw_settings_clean(struct pw_context *context);
 
 /** \endcond */
 

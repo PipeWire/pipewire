@@ -26,6 +26,7 @@
 
 #include "../module.h"
 #include "../pulse-server.h"
+#include "../server.h"
 #include "registry.h"
 
 struct module_native_protocol_tcp_data {
@@ -45,7 +46,7 @@ static int module_native_protocol_tcp_load(struct client *client, struct module 
 
 	pw_array_init(&data->servers, sizeof(struct server *));
 
-	res = create_and_start_servers(impl, address, &data->servers);
+	res = servers_create_and_start(impl, address, &data->servers);
 	if (res < 0)
 		return res;
 

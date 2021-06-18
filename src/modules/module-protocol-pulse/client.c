@@ -44,6 +44,7 @@
 #include "message.h"
 #include "operation.h"
 #include "pending-sample.h"
+#include "server.h"
 #include "stream.h"
 
 static int client_free_stream(void *item, void *data)

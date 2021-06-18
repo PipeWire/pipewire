@@ -22,65 +22,35 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef PULSE_SERVER_INTERNAL_H
-#define PULSE_SERVER_INTERNAL_H
+#ifndef PULSER_SERVER_SERVER_H
+#define PULSER_SERVER_SERVER_H
 
-#include "config.h"
-
-#include <stdbool.h>
 #include <stdint.h>
 
-#include <spa/utils/defs.h>
-#include <spa/utils/ringbuffer.h>
-#include <pipewire/pipewire.h>
-#include <pipewire/private.h>
+#include <sys/socket.h>
 
-#include "format.h"
-#include "volume.h"
+#include <spa/utils/list.h>
+#include <spa/utils/hook.h>
 
-struct defs {
-	struct spa_fraction min_req;
-	struct spa_fraction default_req;
-	struct spa_fraction min_frag;
-	struct spa_fraction default_frag;
-	struct spa_fraction default_tlength;
-	struct spa_fraction min_quantum;
-	struct sample_spec sample_spec;
-	struct channel_map channel_map;
-};
+struct impl;
+struct pw_array;
+struct spa_source;
 
-struct stats {
-	uint32_t n_allocated;
-	uint32_t allocated;
-	uint32_t n_accumulated;
-	uint32_t accumulated;
-	uint32_t sample_cache;
-};
+struct server {
+	struct spa_list link;
+	struct impl *impl;
 
-struct impl {
-	struct pw_loop *loop;
-	struct pw_context *context;
-	struct spa_hook context_listener;
-
-	struct pw_properties *props;
-	void *dbus_name;
-
-	struct ratelimit rate_limit;
+	struct sockaddr_storage addr;
 
 	struct spa_source *source;
-	struct spa_list servers;
+	struct spa_list clients;
 
-	struct pw_work_queue *work_queue;
-	struct spa_list cleanup_clients;
-
-	struct pw_map samples;
-	struct pw_map modules;
-
-	struct spa_list free_messages;
-	struct defs defs;
-	struct stats stat;
+	uint32_t n_clients;
+	uint32_t wait_clients;
+	unsigned int activated:1;
 };
 
-extern bool debug_messages;
+int servers_create_and_start(struct impl *impl, const char *addresses, struct pw_array *servers);
+void server_free(struct server *server);
 
-#endif
+#endif /* PULSER_SERVER_SERVER_H */

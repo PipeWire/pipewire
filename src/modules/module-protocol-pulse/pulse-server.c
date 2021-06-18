@@ -80,6 +80,7 @@
 #include "pipewire/extensions/metadata.h"
 
 #include "pulse-server.h"
+#include "collect.h"
 #include "commands.h"
 #include "defs.h"
 #include "format.h"
@@ -122,7 +123,6 @@ struct latency_offset_data {
 /* Functions that modules can use */
 static void broadcast_subscribe_event(struct impl *impl, uint32_t mask, uint32_t event, uint32_t id);
 
-#include "collect.c"
 #include "module.c"
 #include "message-handler.c"
 

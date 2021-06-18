@@ -26,11 +26,34 @@
 #ifndef PULSE_SERVER_COLLECT_H
 #define PULSE_SERVER_COLLECT_H
 
+#include <stdbool.h>
+#include <stdint.h>
+
+#include <spa/param/bluetooth/audio.h>
+#include <pipewire/pipewire.h>
+
 #include "format.h"
 #include "volume.h"
 
 struct pw_manager;
 struct pw_manager_object;
+
+/* ========================================================================== */
+
+struct selector {
+	bool (*type) (struct pw_manager_object *o);
+	uint32_t id;
+	const char *key;
+	const char *value;
+	void (*accumulate) (struct selector *sel, struct pw_manager_object *o);
+	int32_t score;
+	struct pw_manager_object *best;
+};
+
+struct pw_manager_object *select_object(struct pw_manager *m, struct selector *s);
+void select_best(struct selector *s, struct pw_manager_object *o);
+
+/* ========================================================================== */
 
 struct device_info {
 	uint32_t direction;
@@ -45,14 +68,20 @@ struct device_info {
 	const char *active_port_name;
 };
 
-#define DEVICE_INFO_INIT(_dir) (struct device_info) {			\
-				.direction = _dir,			\
-				.ss = SAMPLE_SPEC_INIT,			\
-				.map = CHANNEL_MAP_INIT,		\
-				.volume_info = VOLUME_INFO_INIT,	\
-				.device = SPA_ID_INVALID,		\
-				.active_port = SPA_ID_INVALID,		\
-			}
+#define DEVICE_INFO_INIT(_dir) \
+	(struct device_info) {				\
+		.direction = _dir,			\
+		.ss = SAMPLE_SPEC_INIT,			\
+		.map = CHANNEL_MAP_INIT,		\
+		.volume_info = VOLUME_INFO_INIT,	\
+		.device = SPA_ID_INVALID,		\
+		.active_port = SPA_ID_INVALID,		\
+	}
+
+void collect_device_info(struct pw_manager_object *device, struct pw_manager_object *card,
+			 struct device_info *dev_info, bool monitor);
+
+/* ========================================================================== */
 
 struct card_info {
 	uint32_t n_profiles;
@@ -62,22 +91,69 @@ struct card_info {
 	uint32_t n_ports;
 };
 
-#define CARD_INFO_INIT (struct card_info) {				\
-				.active_profile = SPA_ID_INVALID,	\
-}
+#define CARD_INFO_INIT \
+	(struct card_info) {				\
+		.active_profile = SPA_ID_INVALID,	\
+	}
 
-struct selector {
-	bool (*type) (struct pw_manager_object *o);
+void collect_card_info(struct pw_manager_object *card, struct card_info *info);
+
+/* ========================================================================== */
+
+struct profile_info {
 	uint32_t id;
-	const char *key;
-	const char *value;
-	void (*accumulate) (struct selector *sel, struct pw_manager_object *o);
-	int32_t score;
-	struct pw_manager_object *best;
+	const char *name;
+	const char *description;
+	uint32_t priority;
+	uint32_t available;
+	uint32_t n_sources;
+	uint32_t n_sinks;
 };
 
-struct pw_manager_object *select_object(struct pw_manager *m, struct selector *s);
-void collect_card_info(struct pw_manager_object *card, struct card_info *info);
-void collect_device_info(struct pw_manager_object *device, struct pw_manager_object *card, struct device_info *dev_info, bool monitor);
+uint32_t collect_profile_info(struct pw_manager_object *card, struct card_info *card_info,
+			      struct profile_info *profile_info);
+
+/* ========================================================================== */
+
+struct port_info {
+	uint32_t id;
+	uint32_t direction;
+	const char *name;
+	const char *description;
+	uint32_t priority;
+	uint32_t available;
+
+	const char *availability_group;
+	uint32_t type;
+
+	uint32_t n_devices;
+	uint32_t *devices;
+	uint32_t n_profiles;
+	uint32_t *profiles;
+
+	uint32_t n_props;
+	struct spa_pod *info;
+};
+
+uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *card_info,
+			   struct device_info *dev_info, struct port_info *port_info);
+
+/* ========================================================================== */
+
+struct transport_codec_info {
+	enum spa_bluetooth_audio_codec id;
+	const char *description;
+};
+
+uint32_t collect_transport_codec_info(struct pw_manager_object *card,
+				      struct transport_codec_info *codecs, uint32_t max_codecs,
+				      uint32_t *active);
+
+/* ========================================================================== */
+
+struct spa_dict *collect_props(struct spa_pod *info, struct spa_dict *dict);
+uint32_t find_profile_id(struct pw_manager_object *card, const char *name);
+uint32_t find_port_id(struct pw_manager_object *card, uint32_t direction, const char *port_name);
+struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t obj_id, enum pw_direction direction);
 
 #endif

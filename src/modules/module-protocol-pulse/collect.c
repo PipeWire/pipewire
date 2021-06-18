@@ -22,10 +22,17 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <spa/param/props.h>
+#include <spa/pod/builder.h>
+#include <spa/pod/parser.h>
 #include <spa/utils/string.h>
-#include "collect.h"
+#include <pipewire/pipewire.h>
 
-static void select_best(struct selector *s, struct pw_manager_object *o)
+#include "collect.h"
+#include "defs.h"
+#include "manager.h"
+
+void select_best(struct selector *s, struct pw_manager_object *o)
 {
 	const char *str;
 	int32_t prio = 0;
@@ -40,8 +47,7 @@ static void select_best(struct selector *s, struct pw_manager_object *o)
 	}
 }
 
-struct pw_manager_object *select_object(struct pw_manager *m,
-		struct selector *s)
+struct pw_manager_object *select_object(struct pw_manager *m, struct selector *s)
 {
 	struct pw_manager_object *o;
 	const char *str;
@@ -65,7 +71,7 @@ struct pw_manager_object *select_object(struct pw_manager *m,
 	return s->best;
 }
 
-static struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t obj_id, enum pw_direction direction)
+struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t obj_id, enum pw_direction direction)
 {
 	struct pw_manager_object *o, *p;
 	const char *str;
@@ -117,18 +123,8 @@ void collect_card_info(struct pw_manager_object *card, struct card_info *info)
 	}
 }
 
-struct profile_info {
-	uint32_t id;
-	const char *name;
-	const char *description;
-	uint32_t priority;
-	uint32_t available;
-	uint32_t n_sources;
-	uint32_t n_sinks;
-};
-
-static uint32_t collect_profile_info(struct pw_manager_object *card, struct card_info *card_info,
-		struct profile_info *profile_info)
+uint32_t collect_profile_info(struct pw_manager_object *card, struct card_info *card_info,
+			      struct profile_info *profile_info)
 {
 	struct pw_manager_param *p;
 	struct profile_info *pi;
@@ -187,7 +183,7 @@ static uint32_t collect_profile_info(struct pw_manager_object *card, struct card
 	return n;
 }
 
-static uint32_t find_profile_id(struct pw_manager_object *card, const char *name)
+uint32_t find_profile_id(struct pw_manager_object *card, const char *name)
 {
 	struct pw_manager_param *p;
 
@@ -211,8 +207,8 @@ static uint32_t find_profile_id(struct pw_manager_object *card, const char *name
 	return SPA_ID_INVALID;
 }
 
-void collect_device_info(struct pw_manager_object *device,
-		struct pw_manager_object *card, struct device_info *dev_info, bool monitor)
+void collect_device_info(struct pw_manager_object *device, struct pw_manager_object *card,
+			 struct device_info *dev_info, bool monitor)
 {
 	struct pw_manager_param *p;
 
@@ -268,7 +264,6 @@ void collect_device_info(struct pw_manager_object *device,
 		dev_info->volume_info.volume.channels = dev_info->map.channels;
 }
 
-
 static bool array_contains(uint32_t *vals, uint32_t n_vals, uint32_t val)
 {
 	uint32_t n;
@@ -280,28 +275,8 @@ static bool array_contains(uint32_t *vals, uint32_t n_vals, uint32_t val)
 	return false;
 }
 
-struct port_info {
-	uint32_t id;
-	uint32_t direction;
-	const char *name;
-	const char *description;
-	uint32_t priority;
-	uint32_t available;
-
-	const char *availability_group;
-	uint32_t type;
-
-	uint32_t n_devices;
-	uint32_t *devices;
-	uint32_t n_profiles;
-	uint32_t *profiles;
-
-	uint32_t n_props;
-	struct spa_pod *info;
-};
-
-static uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *card_info,
-		struct device_info *dev_info, struct port_info *port_info)
+uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *card_info,
+			   struct device_info *dev_info, struct port_info *port_info)
 {
 	struct pw_manager_param *p;
 	uint32_t n;
@@ -383,7 +358,7 @@ static uint32_t collect_port_info(struct pw_manager_object *card, struct card_in
 	return n;
 }
 
-static uint32_t find_port_id(struct pw_manager_object *card, uint32_t direction, const char *port_name)
+uint32_t find_port_id(struct pw_manager_object *card, uint32_t direction, const char *port_name)
 {
 	struct pw_manager_param *p;
 
@@ -409,7 +384,7 @@ static uint32_t find_port_id(struct pw_manager_object *card, uint32_t direction,
 	return SPA_ID_INVALID;
 }
 
-static struct spa_dict *collect_props(struct spa_pod *info, struct spa_dict *dict)
+struct spa_dict *collect_props(struct spa_pod *info, struct spa_dict *dict)
 {
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[1];
@@ -432,13 +407,9 @@ static struct spa_dict *collect_props(struct spa_pod *info, struct spa_dict *dic
 	return dict;
 }
 
-struct transport_codec_info {
-	enum spa_bluetooth_audio_codec id;
-	const char *description;
-};
-
-static uint32_t collect_transport_codec_info(struct pw_manager_object *card,
-		struct transport_codec_info *codecs, uint32_t max_codecs, uint32_t *active)
+uint32_t collect_transport_codec_info(struct pw_manager_object *card,
+				      struct transport_codec_info *codecs, uint32_t max_codecs,
+				      uint32_t *active)
 {
 	struct pw_manager_param *p;
 	uint32_t n_codecs = 0;

@@ -109,6 +109,10 @@ libpipewire = shared_library(pipewire_name, pipewire_sources,
 pipewire_dep = declare_dependency(link_with : libpipewire,
   include_directories : [pipewire_inc, configinc],
   dependencies : [pthread_lib, atomic_dep, spa_dep],
+  variables : {
+    'moduledir' : meson.current_build_dir() / '..' / 'modules',
+    'confdatadir' : meson.current_build_dir() / '..' / 'daemon',
+  }
 )
 
 pkgconfig.generate(libpipewire,
@@ -119,7 +123,12 @@ pkgconfig.generate(libpipewire,
   description : 'PipeWire Interface',
   version : pipewire_version,
   extra_cflags : '-D_REENTRANT',
-  variables : ['moduledir=${libdir}/@0@'.format(pipewire_name)])
+  variables : ['moduledir=${libdir}/@0@'.format(pipewire_name)],
+  uninstalled_variables : [
+    'moduledir=${prefix}/src/modules',
+    'confdatadir=${prefix}/src/daemon',
+  ],
+)
 
 meson.override_dependency('lib@0@'.format(pipewire_name), pipewire_dep)
 

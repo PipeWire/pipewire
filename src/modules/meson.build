@@ -136,6 +136,7 @@ pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse/client.c',
   'module-protocol-pulse/collect.c',
   'module-protocol-pulse/dbus-name.c',
+  'module-protocol-pulse/extension.c',
   'module-protocol-pulse/format.c',
   'module-protocol-pulse/manager.c',
   'module-protocol-pulse/media-roles.c',

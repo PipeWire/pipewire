@@ -22,36 +22,26 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <spa/utils/defs.h>
-#include <spa/utils/string.h>
+#ifndef PULSE_SERVER_EXTENSION_H
+#define PULSE_SERVER_EXTENSION_H
 
-#include "extension.h"
+#include <stdint.h>
 
-static int do_extension_device_restore(struct client *client, uint32_t tag, struct message *m)
-{
-	return -ENOTSUP;
-}
+struct client;
+struct message;
 
-static int do_extension_device_manager(struct client *client, uint32_t tag, struct message *m)
-{
-	return -ENOTSUP;
-}
-
-#include "extensions/ext-stream-restore.c"
-
-static const struct extension extensions[] = {
-	{ "module-stream-restore", 0 | EXTENSION_FLAG, do_extension_stream_restore, },
-	{ "module-device-restore", 1 | EXTENSION_FLAG, do_extension_device_restore, },
-	{ "module-device-manager", 2 | EXTENSION_FLAG, do_extension_device_manager, },
+struct extension_sub {
+	const char *name;
+	uint32_t command;
+	int (*process)(struct client *client, uint32_t command, uint32_t tag, struct message *m);
 };
 
-const struct extension *extension_find(uint32_t idx, const char *name)
-{
-	uint32_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(extensions); i++) {
-		if (idx == extensions[i].idx ||
-		    (name && spa_streq(name, extensions[i].name)))
-			return &extensions[i];
-	}
-	return 0;
-}
+struct extension {
+	const char *name;
+	uint32_t idx;
+	int (*process)(struct client *client, uint32_t tag, struct message *m);
+};
+
+const struct extension *extension_find(uint32_t idx, const char *name);
+
+#endif /* PULSE_SERVER_EXTENSION_H */

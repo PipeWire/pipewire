@@ -63,6 +63,7 @@
 #include "commands.h"
 #include "dbus-name.h"
 #include "defs.h"
+#include "extension.h"
 #include "format.h"
 #include "internal.h"
 #include "message.h"
@@ -120,8 +121,6 @@ static struct sample *find_sample(struct impl *impl, uint32_t idx, const char *n
 	}
 	return NULL;
 }
-
-#include "extension.c"
 
 static void broadcast_subscribe_event(struct impl *impl, uint32_t mask, uint32_t event, uint32_t id)
 {
@@ -4225,7 +4224,7 @@ static int do_extension(struct client *client, uint32_t command, uint32_t tag, s
 	struct impl *impl = client->impl;
 	uint32_t idx;
 	const char *name;
-	struct extension *ext;
+	const struct extension *ext;
 
 	if (message_get(m,
 			TAG_U32, &idx,
@@ -4240,7 +4239,7 @@ static int do_extension(struct client *client, uint32_t command, uint32_t tag, s
 	    (idx != SPA_ID_INVALID && name != NULL))
 		return -EINVAL;
 
-	ext = find_extension(idx, name);
+	ext = extension_find(idx, name);
 	if (ext == NULL)
 		return -ENOENT;
 

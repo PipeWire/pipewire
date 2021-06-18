@@ -24,11 +24,28 @@
 
 #define EXT_STREAM_RESTORE_VERSION	1
 
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <spa/utils/defs.h>
+#include <spa/utils/dict.h>
 #include <spa/utils/string.h>
+#include <spa/utils/json.h>
+#include <pipewire/log.h>
+#include <pipewire/properties.h>
 
-#include "media-roles.h"
-
-static const struct extension_sub ext_stream_restore[];
+#include "../client.h"
+#include "../defs.h"
+#include "../extension.h"
+#include "../format.h"
+#include "../manager.h"
+#include "../media-roles.h"
+#include "../message.h"
+#include "../reply.h"
+#include "../volume.h"
 
 static int do_extension_stream_restore_test(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
@@ -38,6 +55,7 @@ static int do_extension_stream_restore_test(struct client *client, uint32_t comm
 	message_put(reply,
 			TAG_U32, EXT_STREAM_RESTORE_VERSION,
 			TAG_INVALID);
+
 	return client_queue_message(client, reply);
 }
 
@@ -167,7 +185,7 @@ static int do_extension_stream_restore_read(struct client *client, uint32_t comm
 
 				for (map.channels = 0; map.channels < CHANNELS_MAX; map.channels++) {
 					char chname[16];
-	                                if (spa_json_get_string(&it[2], chname, sizeof(chname)) <= 0)
+					if (spa_json_get_string(&it[2], chname, sizeof(chname)) <= 0)
 						break;
 					map.map[map.channels] = channel_name2id(chname);
 				}
@@ -187,6 +205,7 @@ static int do_extension_stream_restore_read(struct client *client, uint32_t comm
 			TAG_BOOLEAN, mute,
 			TAG_INVALID);
 	}
+
 	return client_queue_message(client, reply);
 }
 
@@ -249,13 +268,12 @@ static int do_extension_stream_restore_write(struct client *client, uint32_t com
 			fprintf(f, ", \"target-node\": \"%s\"", device_name);
 		fprintf(f, " }");
 		fclose(f);
-
 		if (key_from_name(name, key, sizeof(key)) >= 0) {
 			pw_log_debug("%s -> %s: %s", name, key, ptr);
 			if (pw_manager_set_metadata(client->manager,
 							client->metadata_routes,
 							PW_ID_CORE, key, "Spa:String:JSON", "%s", ptr) < 0)
-				pw_log_warn(NAME ": failed to set metadata %s = %s", key, ptr);
+				pw_log_warn("failed to set metadata %s = %s", key, ptr);
 		}
 		free(ptr);
 	}
@@ -284,7 +302,6 @@ static const struct extension_sub ext_stream_restore[] = {
 
 static int do_extension_stream_restore(struct client *client, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	uint32_t command;
 	int res;
 
@@ -298,8 +315,8 @@ static int do_extension_stream_restore(struct client *client, uint32_t tag, stru
 	if (ext_stream_restore[command].process == NULL)
 		return -EPROTO;
 
-	pw_log_info(NAME" %p: [%s] EXT_STREAM_RESTORE_%s tag:%u", impl,
-			client->name, ext_stream_restore[command].name, tag);
+	pw_log_info("client %p [%s]: EXT_STREAM_RESTORE_%s tag:%u",
+		    client, client->name, ext_stream_restore[command].name, tag);
 
 	return ext_stream_restore[command].process(client, command, tag, m);
 }

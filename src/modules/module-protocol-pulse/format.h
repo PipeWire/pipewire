@@ -25,6 +25,12 @@
 #ifndef PULSE_SERVER_FORMAT_H
 #define PULSE_SERVER_FORMAT_H
 
+#include <spa/utils/defs.h>
+#include <pipewire/properties.h>
+
+struct spa_pod;
+struct spa_pod_builder;
+
 #define RATE_MAX	(48000u*8u)
 #define CHANNELS_MAX	(64u)
 
@@ -72,11 +78,12 @@ struct sample_spec {
 	uint32_t rate;
 	uint8_t channels;
 };
-#define SAMPLE_SPEC_INIT	(struct sample_spec) {				\
-					.format = SPA_AUDIO_FORMAT_UNKNOWN,	\
-					.rate = 0,				\
-					.channels = 0,				\
-				}
+#define SAMPLE_SPEC_INIT				\
+	(struct sample_spec) {				\
+		.format = SPA_AUDIO_FORMAT_UNKNOWN,	\
+		.rate = 0,				\
+		.channels = 0,				\
+	}
 
 enum channel_position {
 	CHANNEL_POSITION_INVALID = -1,
@@ -151,9 +158,10 @@ struct channel_map {
 	uint32_t map[CHANNELS_MAX];
 };
 
-#define CHANNEL_MAP_INIT	(struct channel_map) {				\
-					.channels = 0,				\
-				}
+#define CHANNEL_MAP_INIT 	\
+	(struct channel_map) {	\
+		.channels = 0,	\
+	}
 
 enum encoding {
 	ENCODING_ANY,
@@ -169,23 +177,49 @@ enum encoding {
 	ENCODING_INVALID = -1,
 };
 
+struct format_info {
+	enum encoding encoding;
+	struct pw_properties *props;
+};
+
 uint32_t format_pa2id(enum sample_format format);
 const char *format_id2name(uint32_t format);
 uint32_t format_name2id(const char *name);
 uint32_t format_paname2id(const char *name, size_t size);
 enum sample_format format_id2pa(uint32_t id);
 const char *format_id2paname(uint32_t id);
+const char *format_encoding2name(enum encoding enc);
+
 uint32_t sample_spec_frame_size(const struct sample_spec *ss);
 bool sample_spec_valid(const struct sample_spec *ss);
+
 uint32_t channel_pa2id(enum channel_position channel);
 const char *channel_id2name(uint32_t channel);
 uint32_t channel_name2id(const char *name);
 enum channel_position channel_id2pa(uint32_t id, uint32_t *aux);
 const char *channel_id2paname(uint32_t id, uint32_t *aux);
 uint32_t channel_paname2id(const char *name, size_t size);
+
 void channel_map_to_positions(const struct channel_map *map, uint32_t *pos);
 void channel_map_parse(const char *str, struct channel_map *map);
 bool channel_map_valid(const struct channel_map *map);
-const char *format_encoding2name(enum encoding enc);
+
+int format_parse_param(const struct spa_pod *param, struct sample_spec *ss,
+		       struct channel_map *map);
+
+const struct spa_pod *format_build_param(struct spa_pod_builder *b, uint32_t id,
+					 struct sample_spec *spec, struct channel_map *map);
+
+int format_info_from_spec(struct format_info *info, struct sample_spec *ss,
+			  struct channel_map *map);
+
+const struct spa_pod *format_info_build_param(struct spa_pod_builder *b, uint32_t id,
+					      struct format_info *info);
+
+static inline void format_info_clear(struct format_info *info)
+{
+	pw_properties_free(info->props);
+	spa_zero(*info);
+}
 
 #endif

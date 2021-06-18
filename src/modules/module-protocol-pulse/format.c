@@ -22,9 +22,14 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "format.h"
-
 #include <spa/utils/string.h>
+#include <spa/debug/types.h>
+#include <spa/param/audio/format.h>
+#include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/raw.h>
+#include <spa/utils/json.h>
+
+#include "format.h"
 
 static const struct format audio_formats[] = {
 	[SAMPLE_U8] = { SAMPLE_U8, SPA_AUDIO_FORMAT_U8, "u8", 1 },
@@ -63,6 +68,68 @@ static const struct format audio_formats[] = {
 	{ SAMPLE_FLOAT32NE, SPA_AUDIO_FORMAT_F32P, "float32ne", 4 },
 };
 
+static const struct channel audio_channels[] = {
+	[CHANNEL_POSITION_MONO] = { SPA_AUDIO_CHANNEL_MONO, "mono", },
+
+	[CHANNEL_POSITION_FRONT_LEFT] = { SPA_AUDIO_CHANNEL_FL, "front-left", },
+	[CHANNEL_POSITION_FRONT_RIGHT] = { SPA_AUDIO_CHANNEL_FR, "front-right", },
+	[CHANNEL_POSITION_FRONT_CENTER] = { SPA_AUDIO_CHANNEL_FC, "front-center", },
+
+	[CHANNEL_POSITION_REAR_CENTER] = { SPA_AUDIO_CHANNEL_RC, "rear-center", },
+	[CHANNEL_POSITION_REAR_LEFT] = { SPA_AUDIO_CHANNEL_RL, "rear-left", },
+	[CHANNEL_POSITION_REAR_RIGHT] = { SPA_AUDIO_CHANNEL_RR, "rear-right", },
+
+	[CHANNEL_POSITION_LFE] = { SPA_AUDIO_CHANNEL_LFE, "lfe", },
+	[CHANNEL_POSITION_FRONT_LEFT_OF_CENTER] = { SPA_AUDIO_CHANNEL_FLC, "front-left-of-center", },
+	[CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER] = { SPA_AUDIO_CHANNEL_FRC, "front-right-of-center", },
+
+	[CHANNEL_POSITION_SIDE_LEFT] = { SPA_AUDIO_CHANNEL_SL, "side-left", },
+	[CHANNEL_POSITION_SIDE_RIGHT] = { SPA_AUDIO_CHANNEL_SR, "side-right", },
+
+	[CHANNEL_POSITION_AUX0] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 1, "aux0", },
+	[CHANNEL_POSITION_AUX1] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 2, "aux1", },
+	[CHANNEL_POSITION_AUX2] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 3, "aux2", },
+	[CHANNEL_POSITION_AUX3] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 4, "aux3", },
+	[CHANNEL_POSITION_AUX4] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 5, "aux4", },
+	[CHANNEL_POSITION_AUX5] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 6, "aux5", },
+	[CHANNEL_POSITION_AUX6] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 7, "aux6", },
+	[CHANNEL_POSITION_AUX7] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 8, "aux7", },
+	[CHANNEL_POSITION_AUX8] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 9, "aux8", },
+	[CHANNEL_POSITION_AUX9] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 10, "aux9", },
+	[CHANNEL_POSITION_AUX10] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 11, "aux10", },
+	[CHANNEL_POSITION_AUX11] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 12, "aux11", },
+	[CHANNEL_POSITION_AUX12] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 13, "aux12", },
+	[CHANNEL_POSITION_AUX13] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 14, "aux13", },
+	[CHANNEL_POSITION_AUX14] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 15, "aux14", },
+	[CHANNEL_POSITION_AUX15] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 16, "aux15", },
+	[CHANNEL_POSITION_AUX16] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 17, "aux16", },
+	[CHANNEL_POSITION_AUX17] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 18, "aux17", },
+	[CHANNEL_POSITION_AUX18] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 19, "aux18", },
+	[CHANNEL_POSITION_AUX19] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 20, "aux19", },
+	[CHANNEL_POSITION_AUX20] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 21, "aux20", },
+	[CHANNEL_POSITION_AUX21] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 22, "aux21", },
+	[CHANNEL_POSITION_AUX22] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 23, "aux22", },
+	[CHANNEL_POSITION_AUX23] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 24, "aux23", },
+	[CHANNEL_POSITION_AUX24] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 25, "aux24", },
+	[CHANNEL_POSITION_AUX25] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 26, "aux25", },
+	[CHANNEL_POSITION_AUX26] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 27, "aux26", },
+	[CHANNEL_POSITION_AUX27] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 28, "aux27", },
+	[CHANNEL_POSITION_AUX28] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 29, "aux28", },
+	[CHANNEL_POSITION_AUX29] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 30, "aux29", },
+	[CHANNEL_POSITION_AUX30] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 31, "aux30", },
+	[CHANNEL_POSITION_AUX31] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 32, "aux31", },
+
+	[CHANNEL_POSITION_TOP_CENTER] = { SPA_AUDIO_CHANNEL_TC, "top-center", },
+
+	[CHANNEL_POSITION_TOP_FRONT_LEFT] = { SPA_AUDIO_CHANNEL_TFL, "top-front-left", },
+	[CHANNEL_POSITION_TOP_FRONT_RIGHT] = { SPA_AUDIO_CHANNEL_TFR, "top-front-right", },
+	[CHANNEL_POSITION_TOP_FRONT_CENTER] = { SPA_AUDIO_CHANNEL_TFC, "top-front-center", },
+
+	[CHANNEL_POSITION_TOP_REAR_LEFT] = { SPA_AUDIO_CHANNEL_TRL, "top-rear-left", },
+	[CHANNEL_POSITION_TOP_REAR_RIGHT] = { SPA_AUDIO_CHANNEL_TRR, "top-rear-right", },
+	[CHANNEL_POSITION_TOP_REAR_CENTER] = { SPA_AUDIO_CHANNEL_TRC, "top-rear-center", },
+};
+
 uint32_t format_pa2id(enum sample_format format)
 {
 	if (format < 0 || format >= SAMPLE_MAX)
@@ -79,6 +146,7 @@ const char *format_id2name(uint32_t format)
 	}
 	return "UNKNOWN";
 }
+
 uint32_t format_name2id(const char *name)
 {
 	int i;
@@ -156,73 +224,12 @@ bool sample_spec_valid(const struct sample_spec *ss)
 	    ss->channels > 0 && ss->channels <= CHANNELS_MAX);
 }
 
-static const struct channel audio_channels[] = {
-	[CHANNEL_POSITION_MONO] = { SPA_AUDIO_CHANNEL_MONO, "mono", },
-
-	[CHANNEL_POSITION_FRONT_LEFT] = { SPA_AUDIO_CHANNEL_FL, "front-left", },
-	[CHANNEL_POSITION_FRONT_RIGHT] = { SPA_AUDIO_CHANNEL_FR, "front-right", },
-	[CHANNEL_POSITION_FRONT_CENTER] = { SPA_AUDIO_CHANNEL_FC, "front-center", },
-
-	[CHANNEL_POSITION_REAR_CENTER] = { SPA_AUDIO_CHANNEL_RC, "rear-center", },
-	[CHANNEL_POSITION_REAR_LEFT] = { SPA_AUDIO_CHANNEL_RL, "rear-left", },
-	[CHANNEL_POSITION_REAR_RIGHT] = { SPA_AUDIO_CHANNEL_RR, "rear-right", },
-
-	[CHANNEL_POSITION_LFE] = { SPA_AUDIO_CHANNEL_LFE, "lfe", },
-	[CHANNEL_POSITION_FRONT_LEFT_OF_CENTER] = { SPA_AUDIO_CHANNEL_FLC, "front-left-of-center", },
-	[CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER] = { SPA_AUDIO_CHANNEL_FRC, "front-right-of-center", },
-
-	[CHANNEL_POSITION_SIDE_LEFT] = { SPA_AUDIO_CHANNEL_SL, "side-left", },
-	[CHANNEL_POSITION_SIDE_RIGHT] = { SPA_AUDIO_CHANNEL_SR, "side-right", },
-
-	[CHANNEL_POSITION_AUX0] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 1, "aux0", },
-	[CHANNEL_POSITION_AUX1] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 2, "aux1", },
-	[CHANNEL_POSITION_AUX2] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 3, "aux2", },
-	[CHANNEL_POSITION_AUX3] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 4, "aux3", },
-	[CHANNEL_POSITION_AUX4] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 5, "aux4", },
-	[CHANNEL_POSITION_AUX5] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 6, "aux5", },
-	[CHANNEL_POSITION_AUX6] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 7, "aux6", },
-	[CHANNEL_POSITION_AUX7] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 8, "aux7", },
-	[CHANNEL_POSITION_AUX8] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 9, "aux8", },
-	[CHANNEL_POSITION_AUX9] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 10, "aux9", },
-	[CHANNEL_POSITION_AUX10] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 11, "aux10", },
-	[CHANNEL_POSITION_AUX11] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 12, "aux11", },
-	[CHANNEL_POSITION_AUX12] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 13, "aux12", },
-	[CHANNEL_POSITION_AUX13] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 14, "aux13", },
-	[CHANNEL_POSITION_AUX14] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 15, "aux14", },
-	[CHANNEL_POSITION_AUX15] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 16, "aux15", },
-	[CHANNEL_POSITION_AUX16] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 17, "aux16", },
-	[CHANNEL_POSITION_AUX17] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 18, "aux17", },
-	[CHANNEL_POSITION_AUX18] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 19, "aux18", },
-	[CHANNEL_POSITION_AUX19] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 20, "aux19", },
-	[CHANNEL_POSITION_AUX20] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 21, "aux20", },
-	[CHANNEL_POSITION_AUX21] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 22, "aux21", },
-	[CHANNEL_POSITION_AUX22] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 23, "aux22", },
-	[CHANNEL_POSITION_AUX23] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 24, "aux23", },
-	[CHANNEL_POSITION_AUX24] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 25, "aux24", },
-	[CHANNEL_POSITION_AUX25] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 26, "aux25", },
-	[CHANNEL_POSITION_AUX26] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 27, "aux26", },
-	[CHANNEL_POSITION_AUX27] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 28, "aux27", },
-	[CHANNEL_POSITION_AUX28] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 29, "aux28", },
-	[CHANNEL_POSITION_AUX29] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 30, "aux29", },
-	[CHANNEL_POSITION_AUX30] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 31, "aux30", },
-	[CHANNEL_POSITION_AUX31] = { SPA_AUDIO_CHANNEL_CUSTOM_START + 32, "aux31", },
-
-	[CHANNEL_POSITION_TOP_CENTER] = { SPA_AUDIO_CHANNEL_TC, "top-center", },
-
-	[CHANNEL_POSITION_TOP_FRONT_LEFT] = { SPA_AUDIO_CHANNEL_TFL, "top-front-left", },
-	[CHANNEL_POSITION_TOP_FRONT_RIGHT] = { SPA_AUDIO_CHANNEL_TFR, "top-front-right", },
-	[CHANNEL_POSITION_TOP_FRONT_CENTER] = { SPA_AUDIO_CHANNEL_TFC, "top-front-center", },
-
-	[CHANNEL_POSITION_TOP_REAR_LEFT] = { SPA_AUDIO_CHANNEL_TRL, "top-rear-left", },
-	[CHANNEL_POSITION_TOP_REAR_RIGHT] = { SPA_AUDIO_CHANNEL_TRR, "top-rear-right", },
-	[CHANNEL_POSITION_TOP_REAR_CENTER] = { SPA_AUDIO_CHANNEL_TRC, "top-rear-center", },
-};
-
 uint32_t channel_pa2id(enum channel_position channel)
 {
-        if (channel < 0 || (size_t)channel >= SPA_N_ELEMENTS(audio_channels))
-                return SPA_AUDIO_CHANNEL_UNKNOWN;
-        return audio_channels[channel].channel;
+	if (channel < 0 || (size_t)channel >= SPA_N_ELEMENTS(audio_channels))
+		return SPA_AUDIO_CHANNEL_UNKNOWN;
+
+	return audio_channels[channel].channel;
 }
 
 const char *channel_id2name(uint32_t channel)
@@ -393,18 +400,7 @@ const char *format_encoding2name(enum encoding enc)
 	return "INVALID";
 }
 
-struct format_info {
-	enum encoding encoding;
-	struct pw_properties *props;
-};
-
-static void format_info_clear(struct format_info *info)
-{
-	pw_properties_free(info->props);
-	spa_zero(*info);
-}
-
-static int format_parse_param(const struct spa_pod *param, struct sample_spec *ss, struct channel_map *map)
+int format_parse_param(const struct spa_pod *param, struct sample_spec *ss, struct channel_map *map)
 {
 	struct spa_audio_info info = { 0 };
 	uint32_t i;
@@ -430,8 +426,8 @@ static int format_parse_param(const struct spa_pod *param, struct sample_spec *s
 	return 0;
 }
 
-static const struct spa_pod *format_build_param(struct spa_pod_builder *b,
-		uint32_t id, struct sample_spec *spec, struct channel_map *map)
+const struct spa_pod *format_build_param(struct spa_pod_builder *b, uint32_t id,
+					 struct sample_spec *spec, struct channel_map *map)
 {
 	struct spa_audio_info_raw info;
 
@@ -445,8 +441,8 @@ static const struct spa_pod *format_build_param(struct spa_pod_builder *b,
 	return spa_format_audio_raw_build(b, id, &info);
 }
 
-static int format_info_from_spec(struct format_info *info,
-		struct sample_spec *ss, struct channel_map *map)
+int format_info_from_spec(struct format_info *info, struct sample_spec *ss,
+			  struct channel_map *map)
 {
 	spa_zero(*info);
 	info->encoding = ENCODING_PCM;
@@ -471,8 +467,8 @@ static int format_info_from_spec(struct format_info *info,
 	return 0;
 }
 
-static const struct spa_pod *format_info_build_param(struct spa_pod_builder *b,
-		uint32_t id, struct format_info *info)
+const struct spa_pod *format_info_build_param(struct spa_pod_builder *b, uint32_t id,
+					      struct format_info *info)
 {
 	const char *str, *val;
 	struct sample_spec ss;

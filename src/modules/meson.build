@@ -133,6 +133,7 @@ endif
 
 pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse.c',
+  'module-protocol-pulse/format.c',
   'module-protocol-pulse/manager.c',
   'module-protocol-pulse/pulse-server.c',
   'module-protocol-pulse/modules/module-combine-sink.c',

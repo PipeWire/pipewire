@@ -82,6 +82,7 @@
 #include "pulse-server.h"
 #include "commands.h"
 #include "defs.h"
+#include "format.h"
 #include "internal.h"
 
 #define DEFAULT_MIN_REQ		"256/48000"
@@ -98,7 +99,6 @@
 #define MAX_FORMATS	32
 #define MAX_CLIENTS	64
 
-#include "format.c"
 #include "volume.c"
 #include "message.c"
 #include "manager.h"

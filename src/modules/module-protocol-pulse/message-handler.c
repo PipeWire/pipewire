@@ -1,11 +1,27 @@
+#define NAME "pulse-server"
+
+#include <stdint.h>
+
+#include <regex.h>
+
+#include <spa/param/props.h>
+#include <spa/pod/builder.h>
+#include <spa/pod/pod.h>
+#include <spa/utils/defs.h>
 #include <spa/utils/string.h>
+
+#include <pipewire/pipewire.h>
+
+#include "collect.h"
+#include "manager.h"
+#include "message-handler.h"
 
 static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_manager_object *o, const char *message, const char *params, char **response)
 {
 	struct transport_codec_info codecs[64];
 	uint32_t n_codecs, active;
 
-	pw_log_debug(NAME "bluez-card %p object message:'%s' params:'%s'", o, message, params);
+	pw_log_debug(NAME ": bluez-card %p object message:'%s' params:'%s'", o, message, params);
 
 	n_codecs = collect_transport_codec_info(o, codecs, SPA_N_ELEMENTS(codecs), &active);
 
@@ -79,7 +95,7 @@ static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_man
 
 static int core_object_message_handler(struct pw_manager *m, struct pw_manager_object *o, const char *message, const char *params, char **response)
 {
-	pw_log_debug(NAME "core %p object message:'%s' params:'%s'", o, message, params);
+	pw_log_debug(NAME ": core %p object message:'%s' params:'%s'", o, message, params);
 
 	if (spa_streq(message, "list-handlers")) {
 		FILE *r;
@@ -101,7 +117,7 @@ static int core_object_message_handler(struct pw_manager *m, struct pw_manager_o
 	return -ENOSYS;
 }
 
-static void register_object_message_handlers(struct pw_manager_object *o)
+void register_object_message_handlers(struct pw_manager_object *o)
 {
 	const char *str;
 

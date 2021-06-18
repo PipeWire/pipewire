@@ -34,7 +34,6 @@
 #include <time.h>
 #include <sys/time.h>
 #include <fcntl.h>
-#include <regex.h>
 
 #include <pipewire/log.h>
 
@@ -67,6 +66,7 @@
 #include "format.h"
 #include "internal.h"
 #include "message.h"
+#include "message-handler.h"
 #include "module.h"
 #include "operation.h"
 #include "pending-sample.h"
@@ -100,8 +100,6 @@ struct latency_offset_data {
 	int64_t prev_latency_offset;
 	unsigned int initialized:1;
 };
-
-#include "message-handler.c"
 
 static struct sample *find_sample(struct impl *impl, uint32_t idx, const char *name)
 {

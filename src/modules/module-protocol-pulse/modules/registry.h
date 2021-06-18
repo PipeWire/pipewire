@@ -26,7 +26,7 @@
 #ifndef PIPEWIRE_PULSE_MODULE_REGISTRY_H
 #define PIPEWIRE_PULSE_MODULE_REGISTRY_H
 
-#include "../internal.h"
+struct impl;
 
 struct module *create_module_combine_sink(struct impl *impl, const char *argument);
 struct module *create_module_echo_cancel(struct impl *impl, const char *argument);

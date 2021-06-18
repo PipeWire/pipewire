@@ -67,6 +67,7 @@
 #include "format.h"
 #include "internal.h"
 #include "message.h"
+#include "module.h"
 #include "operation.h"
 #include "pending-sample.h"
 #include "reply.h"
@@ -100,10 +101,6 @@ struct latency_offset_data {
 	unsigned int initialized:1;
 };
 
-/* Functions that modules can use */
-static void broadcast_subscribe_event(struct impl *impl, uint32_t mask, uint32_t event, uint32_t id);
-
-#include "module.c"
 #include "message-handler.c"
 
 static struct sample *find_sample(struct impl *impl, uint32_t idx, const char *name)
@@ -122,7 +119,7 @@ static struct sample *find_sample(struct impl *impl, uint32_t idx, const char *n
 	return NULL;
 }
 
-static void broadcast_subscribe_event(struct impl *impl, uint32_t mask, uint32_t event, uint32_t id)
+void broadcast_subscribe_event(struct impl *impl, uint32_t mask, uint32_t event, uint32_t id)
 {
 	struct server *s;
 	spa_list_for_each(s, &impl->servers, link) {
@@ -4548,7 +4545,7 @@ static int do_load_module(struct client *client, uint32_t command, uint32_t tag,
 	pw_log_info(NAME" %p: [%s] %s name:%s argument:%s", impl,
 			client->name, commands[command].name, name, argument);
 
-	module = create_module(client, name, argument);
+	module = module_create(client, name, argument);
 	if (module == NULL)
 		return -errno;
 

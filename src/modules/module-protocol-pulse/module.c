@@ -23,11 +23,23 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "module.h"
+#include <stdlib.h>
+#include <string.h>
 
+#include <spa/utils/defs.h>
+#include <spa/utils/list.h>
+#include <spa/utils/hook.h>
 #include <spa/utils/string.h>
+#include <pipewire/log.h>
+#include <pipewire/map.h>
+#include <pipewire/properties.h>
+#include <pipewire/work-queue.h>
 
-static int module_unload(struct client *client, struct module *module);
+#include "client.h"
+#include "defs.h"
+#include "format.h"
+#include "internal.h"
+#include "module.h"
 
 static void on_module_unload(void *obj, void *data, int res, uint32_t id)
 {
@@ -52,20 +64,20 @@ struct module *module_new(struct impl *impl, const struct module_methods *method
 	module->impl = impl;
 	module->methods = methods;
 	spa_hook_list_init(&module->listener_list);
-	module->user_data = SPA_PTROFF(module, sizeof(struct module), void);
+	module->user_data = SPA_PTROFF(module, sizeof(*module), void);
 	module->loaded = false;
 
 	return module;
 }
 
-static void module_add_listener(struct module *module,
-		struct spa_hook *listener,
-		const struct module_events *events, void *data)
+void module_add_listener(struct module *module,
+			 struct spa_hook *listener,
+			 const struct module_events *events, void *data)
 {
 	spa_hook_list_append(&module->listener_list, listener, events, data);
 }
 
-static int module_load(struct client *client, struct module *module)
+int module_load(struct client *client, struct module *module)
 {
 	pw_log_info("load module id:%u name:%s", module->idx, module->name);
 	if (module->methods->load == NULL)
@@ -75,7 +87,7 @@ static int module_load(struct client *client, struct module *module)
 	return module->methods->load(client, module);
 }
 
-static void module_free(struct module *module)
+void module_free(struct module *module)
 {
 	struct impl *impl = module->impl;
 
@@ -92,7 +104,7 @@ static void module_free(struct module *module)
 	free(module);
 }
 
-static int module_unload(struct client *client, struct module *module)
+int module_unload(struct client *client, struct module *module)
 {
 	struct impl *impl = module->impl;
 	int res = 0;
@@ -253,7 +265,7 @@ static const struct module_info *find_module_info(const char *name)
 	return NULL;
 }
 
-static struct module *create_module(struct client *client, const char *name, const char *args)
+struct module *module_create(struct client *client, const char *name, const char *args)
 {
 	struct impl *impl = client->impl;
 	const struct module_info *info;

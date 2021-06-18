@@ -27,11 +27,13 @@
 #define PIPEWIRE_PULSE_MODULE_H
 
 #include <spa/param/audio/raw.h>
+#include <spa/utils/hook.h>
 
 #include "client.h"
 #include "internal.h"
 
 struct module;
+struct pw_properties;
 
 struct module_info {
 	const char *name;
@@ -44,8 +46,6 @@ struct module_events {
 
 	void (*loaded) (void *data, int result);
 };
-
-#define module_emit_loaded(m,r) spa_hook_list_call(&m->listener_list, struct module_events, loaded, 0, r)
 
 struct module_methods {
 #define VERSION_MODULE_METHODS	0
@@ -67,8 +67,18 @@ struct module {
 	unsigned int loaded:1;
 };
 
+#define module_emit_loaded(m,r) spa_hook_list_call(&m->listener_list, struct module_events, loaded, 0, r)
+
+struct module *module_create(struct client *client, const char *name, const char *args);
+void module_free(struct module *module);
 struct module *module_new(struct impl *impl, const struct module_methods *methods, size_t user_data);
+int module_load(struct client *client, struct module *module);
+int module_unload(struct client *client, struct module *module);
 void module_schedule_unload(struct module *module);
+
+void module_add_listener(struct module *module,
+			 struct spa_hook *listener,
+			 const struct module_events *events, void *data);
 
 void module_args_add_props(struct pw_properties *props, const char *str);
 int module_args_to_audioinfo(struct impl *impl, struct pw_properties *props, struct spa_audio_info_raw *info);

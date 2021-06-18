@@ -38,7 +38,7 @@ static int do_extension_stream_restore_test(struct client *client, uint32_t comm
 	message_put(reply,
 			TAG_U32, EXT_STREAM_RESTORE_VERSION,
 			TAG_INVALID);
-	return send_message(client, reply);
+	return client_queue_message(client, reply);
 }
 
 static int key_from_name(const char *name, char *key, size_t maxlen)
@@ -187,7 +187,7 @@ static int do_extension_stream_restore_read(struct client *client, uint32_t comm
 			TAG_BOOLEAN, mute,
 			TAG_INVALID);
 	}
-	return send_message(client, reply);
+	return client_queue_message(client, reply);
 }
 
 static int do_extension_stream_restore_write(struct client *client, uint32_t command, uint32_t tag, struct message *m)

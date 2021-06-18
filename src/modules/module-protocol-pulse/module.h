@@ -28,6 +28,7 @@
 
 #include <spa/param/audio/raw.h>
 
+#include "client.h"
 #include "internal.h"
 
 struct module;

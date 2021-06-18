@@ -22,25 +22,46 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <stdlib.h>
+
 #include <spa/utils/list.h>
-#include <spa/utils/hook.h>
-#include <pipewire/work-queue.h>
+#include <pipewire/log.h>
 
 #include "client.h"
-#include "internal.h"
-#include "pending-sample.h"
-#include "sample-play.h"
+#include "manager.h"
+#include "operation.h"
+#include "reply.h"
 
-void pending_sample_free(struct pending_sample *ps)
+int operation_new(struct client *client, uint32_t tag)
 {
-	struct client * const client = ps->client;
-	struct impl * const impl = client->impl;
+	struct operation *o;
 
-	spa_list_remove(&ps->link);
-	spa_hook_remove(&ps->listener);
-	pw_work_queue_cancel(impl->work_queue, ps, SPA_ID_INVALID);
+	if ((o = calloc(1, sizeof(*o))) == NULL)
+		return -errno;
 
-	client->ref--;
+	o->client = client;
+	o->tag = tag;
 
-	sample_play_destroy(ps->play);
+	spa_list_append(&client->operations, &o->link);
+	pw_manager_sync(client->manager);
+
+	pw_log_debug("client %p [%s]: new operation tag:%u", client, client->name, tag);
+
+	return 0;
+}
+
+void operation_free(struct operation *o)
+{
+	spa_list_remove(&o->link);
+	free(o);
+}
+
+void operation_complete(struct operation *o)
+{
+	struct client *client = o->client;
+
+	pw_log_info("client %p [%s]: tag:%u complete", client, client->name, o->tag);
+
+	reply_simple_ack(client, o->tag);
+	operation_free(o);
 }

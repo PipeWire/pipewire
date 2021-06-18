@@ -22,25 +22,23 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#ifndef PULSER_SERVER_OPERATION_H
+#define PULSER_SERVER_OPERATION_H
+
+#include <stdint.h>
+
 #include <spa/utils/list.h>
-#include <spa/utils/hook.h>
-#include <pipewire/work-queue.h>
 
-#include "client.h"
-#include "internal.h"
-#include "pending-sample.h"
-#include "sample-play.h"
+struct client;
 
-void pending_sample_free(struct pending_sample *ps)
-{
-	struct client * const client = ps->client;
-	struct impl * const impl = client->impl;
+struct operation {
+	struct spa_list link;
+	struct client *client;
+	uint32_t tag;
+};
 
-	spa_list_remove(&ps->link);
-	spa_hook_remove(&ps->listener);
-	pw_work_queue_cancel(impl->work_queue, ps, SPA_ID_INVALID);
+int operation_new(struct client *client, uint32_t tag);
+void operation_free(struct operation *o);
+void operation_complete(struct operation *o);
 
-	client->ref--;
-
-	sample_play_destroy(ps->play);
-}
+#endif /* PULSER_SERVER_OPERATION_H */

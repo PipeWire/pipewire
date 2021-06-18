@@ -22,25 +22,21 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <spa/utils/list.h>
-#include <spa/utils/hook.h>
-#include <pipewire/work-queue.h>
+#ifndef PULSE_SERVER_REPLY_H
+#define PULSE_SERVER_REPLY_H
+
+#include <stdint.h>
 
 #include "client.h"
-#include "internal.h"
-#include "pending-sample.h"
-#include "sample-play.h"
 
-void pending_sample_free(struct pending_sample *ps)
+struct message;
+
+struct message *reply_new(const struct client *client, uint32_t tag);
+int reply_error(struct client *client, uint32_t command, uint32_t tag, int res);
+
+static inline int reply_simple_ack(struct client *client, uint32_t tag)
 {
-	struct client * const client = ps->client;
-	struct impl * const impl = client->impl;
-
-	spa_list_remove(&ps->link);
-	spa_hook_remove(&ps->listener);
-	pw_work_queue_cancel(impl->work_queue, ps, SPA_ID_INVALID);
-
-	client->ref--;
-
-	sample_play_destroy(ps->play);
+	return client_queue_message(client, reply_new(client, tag));
 }
+
+#endif /* PULSE_SERVER_REPLY_H */

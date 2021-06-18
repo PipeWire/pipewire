@@ -22,25 +22,52 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <spa/utils/list.h>
-#include <spa/utils/hook.h>
-#include <pipewire/work-queue.h>
+#include <stdint.h>
 
+#include <spa/utils/result.h>
+#include <pipewire/log.h>
+
+#include "defs.h"
 #include "client.h"
-#include "internal.h"
-#include "pending-sample.h"
-#include "sample-play.h"
+#include "commands.h"
+#include "message.h"
 
-void pending_sample_free(struct pending_sample *ps)
+struct message *reply_new(const struct client *client, uint32_t tag)
 {
-	struct client * const client = ps->client;
-	struct impl * const impl = client->impl;
+	struct message *reply = message_alloc(client->impl, -1, 0);
 
-	spa_list_remove(&ps->link);
-	spa_hook_remove(&ps->listener);
-	pw_work_queue_cancel(impl->work_queue, ps, SPA_ID_INVALID);
+	pw_log_debug("client %p: new reply tag:%u", client, tag);
 
-	client->ref--;
+	message_put(reply,
+		TAG_U32, COMMAND_REPLY,
+		TAG_U32, tag,
+		TAG_INVALID);
 
-	sample_play_destroy(ps->play);
+	return reply;
+}
+
+int reply_error(struct client *client, uint32_t command, uint32_t tag, int res)
+{
+	struct impl *impl = client->impl;
+	struct message *reply;
+	uint32_t error = res_to_err(res);
+	const char *name;
+
+	if (command < COMMAND_MAX)
+		name = commands[command].name;
+	else
+		name = "invalid";
+
+	pw_log(res == -ENOENT ? SPA_LOG_LEVEL_INFO : SPA_LOG_LEVEL_WARN,
+	       "client %p [%s]: ERROR command:%d (%s) tag:%u error:%u (%s)",
+	       client, client->name, command, name, tag, error, spa_strerror(res));
+
+	reply = message_alloc(impl, -1, 0);
+	message_put(reply,
+		TAG_U32, COMMAND_ERROR,
+		TAG_U32, tag,
+		TAG_U32, error,
+		TAG_INVALID);
+
+	return client_queue_message(client, reply);
 }

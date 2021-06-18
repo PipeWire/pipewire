@@ -35,7 +35,7 @@
 #include "pipewire/array.h"
 #include "pipewire/core.h"
 
-#include <extensions/metadata.h>
+#include <pipewire/extensions/metadata.h>
 
 #define NAME "settings"
 

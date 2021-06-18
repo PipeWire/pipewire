@@ -30,8 +30,8 @@
 
 #include <pipewire/pipewire.h>
 
-#include <extensions/protocol-native.h>
-#include <extensions/metadata.h>
+#include <pipewire/extensions/protocol-native.h>
+#include <pipewire/extensions/metadata.h>
 
 static int metadata_resource_marshal_add_listener(void *object,
 			struct spa_hook *listener,

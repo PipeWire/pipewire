@@ -33,7 +33,7 @@
 
 #include <pipewire/pipewire.h>
 #include <pipewire/filter.h>
-#include <extensions/metadata.h>
+#include <pipewire/extensions/metadata.h>
 
 struct data {
 	struct pw_main_loop *loop;

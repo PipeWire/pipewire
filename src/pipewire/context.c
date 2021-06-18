@@ -43,7 +43,7 @@
 #include <pipewire/private.h>
 #include <pipewire/conf.h>
 
-#include <extensions/protocol-native.h>
+#include <pipewire/extensions/protocol-native.h>
 
 #define NAME "context"
 

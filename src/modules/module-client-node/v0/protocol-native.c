@@ -30,7 +30,7 @@
 
 #include "pipewire/impl.h"
 
-#include "extensions/protocol-native.h"
+#include "pipewire/extensions/protocol-native.h"
 
 #include "ext-client-node.h"
 

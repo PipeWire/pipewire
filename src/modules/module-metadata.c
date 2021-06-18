@@ -32,7 +32,7 @@
 #include <spa/utils/result.h>
 
 #include <pipewire/impl.h>
-#include <extensions/metadata.h>
+#include <pipewire/extensions/metadata.h>
 
 #define NAME "metadata"
 

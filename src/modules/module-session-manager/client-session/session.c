@@ -27,7 +27,7 @@
 #include <string.h>
 
 #include <pipewire/impl.h>
-#include <extensions/session-manager.h>
+#include <pipewire/extensions/session-manager.h>
 
 #include <spa/pod/filter.h>
 

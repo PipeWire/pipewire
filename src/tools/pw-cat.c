@@ -49,7 +49,7 @@
 
 #include <pipewire/pipewire.h>
 #include <pipewire/i18n.h>
-#include <extensions/metadata.h>
+#include <pipewire/extensions/metadata.h>
 
 #include "midifile.h"
 

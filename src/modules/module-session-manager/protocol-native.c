@@ -29,8 +29,8 @@
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
 
-#include <extensions/session-manager.h>
-#include <extensions/protocol-native.h>
+#include <pipewire/extensions/session-manager.h>
+#include <pipewire/extensions/protocol-native.h>
 
 static void push_dict(struct spa_pod_builder *b, const struct spa_dict *dict)
 {

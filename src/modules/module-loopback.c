@@ -40,7 +40,7 @@
 
 #include <pipewire/private.h>
 #include <pipewire/impl.h>
-#include <extensions/profiler.h>
+#include <pipewire/extensions/profiler.h>
 
 #define NAME "loopback"
 

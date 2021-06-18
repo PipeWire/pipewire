@@ -28,7 +28,7 @@
 #include <spa/pod/parser.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
-#include <extensions/metadata.h>
+#include <pipewire/extensions/metadata.h>
 
 #define MAX_PARAMS 32
 

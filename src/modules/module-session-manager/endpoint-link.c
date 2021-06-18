@@ -24,8 +24,8 @@
  */
 
 #include <pipewire/impl.h>
-#include <extensions/session-manager.h>
-#include <extensions/session-manager/introspect-funcs.h>
+#include <pipewire/extensions/session-manager.h>
+#include <pipewire/extensions/session-manager/introspect-funcs.h>
 
 #include <spa/utils/result.h>
 #include <spa/pod/builder.h>

@@ -27,7 +27,7 @@
 
 #include <spa/utils/string.h>
 
-#include <extensions/metadata.h>
+#include <pipewire/extensions/metadata.h>
 
 #include "media-session.h"
 

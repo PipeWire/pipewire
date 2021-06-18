@@ -33,7 +33,7 @@
 #include "config.h"
 
 #include "pipewire/pipewire.h"
-#include "extensions/metadata.h"
+#include "pipewire/extensions/metadata.h"
 
 #include "media-session.h"
 

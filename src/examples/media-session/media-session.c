@@ -55,8 +55,8 @@
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
 #include "pipewire/conf.h"
-#include "extensions/session-manager.h"
-#include "extensions/client-node.h"
+#include "pipewire/extensions/session-manager.h"
+#include "pipewire/extensions/client-node.h"
 
 #include <dbus/dbus.h>
 

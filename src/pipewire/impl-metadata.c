@@ -30,7 +30,7 @@
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
 
-#include "extensions/metadata.h"
+#include "pipewire/extensions/metadata.h"
 
 #define NAME "metadata"
 

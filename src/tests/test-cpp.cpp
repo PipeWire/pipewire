@@ -24,8 +24,8 @@
 
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
-#include <extensions/client-node.h>
-#include <extensions/protocol-native.h>
+#include <pipewire/extensions/client-node.h>
+#include <pipewire/extensions/protocol-native.h>
 
 
 int main(int argc, char *argv[])

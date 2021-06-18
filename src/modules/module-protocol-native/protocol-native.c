@@ -30,7 +30,7 @@
 #include <spa/utils/result.h>
 
 #include <pipewire/impl.h>
-#include <extensions/protocol-native.h>
+#include <pipewire/extensions/protocol-native.h>
 
 #include "connection.h"
 

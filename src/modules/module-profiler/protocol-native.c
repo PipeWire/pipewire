@@ -30,8 +30,8 @@
 
 #include <pipewire/pipewire.h>
 
-#include <extensions/protocol-native.h>
-#include <extensions/profiler.h>
+#include <pipewire/extensions/protocol-native.h>
+#include <pipewire/extensions/profiler.h>
 
 static int profiler_proxy_marshal_add_listener(void *object,
 			struct spa_hook *listener,

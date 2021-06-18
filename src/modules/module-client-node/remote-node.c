@@ -38,8 +38,8 @@
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
 
-#include "extensions/protocol-native.h"
-#include "extensions/client-node.h"
+#include "pipewire/extensions/protocol-native.h"
+#include "pipewire/extensions/client-node.h"
 
 #define MAX_MIX	4096
 

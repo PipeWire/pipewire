@@ -34,7 +34,7 @@
 #include <jack/uuid.h>
 
 #include <pipewire/pipewire.h>
-#include <extensions/metadata.h>
+#include <pipewire/extensions/metadata.h>
 
 static jack_description_t *find_description(jack_uuid_t subject)
 {

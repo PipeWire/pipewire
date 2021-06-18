@@ -24,7 +24,7 @@
  */
 
 #include "pipewire/pipewire.h"
-#include "extensions/session-manager.h"
+#include "pipewire/extensions/session-manager.h"
 
 struct object_data {
 	struct spa_hook object_listener;

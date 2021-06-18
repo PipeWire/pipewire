@@ -75,7 +75,7 @@
 
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
-#include "extensions/metadata.h"
+#include "pipewire/extensions/metadata.h"
 
 #include "pulse-server.h"
 #include "defs.h"

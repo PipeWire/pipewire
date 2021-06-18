@@ -45,7 +45,7 @@
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
 
-#include <extensions/session-manager.h>
+#include <pipewire/extensions/session-manager.h>
 
 static const char WHITESPACE[] = " \t";
 

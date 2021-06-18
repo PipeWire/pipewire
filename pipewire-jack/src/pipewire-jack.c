@@ -49,8 +49,8 @@
 #include <pipewire/private.h>
 #include <pipewire/data-loop.h>
 
-#include "extensions/client-node.h"
-#include "extensions/metadata.h"
+#include "pipewire/extensions/client-node.h"
+#include "pipewire/extensions/metadata.h"
 #include "pipewire-jack-extensions.h"
 
 #define JACK_DEFAULT_VIDEO_TYPE	"32 bit float RGBA video"

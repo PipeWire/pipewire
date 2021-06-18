@@ -32,7 +32,7 @@
 #include <spa/param/audio/format-utils.h>
 
 #include <pipewire/pipewire.h>
-#include <extensions/metadata.h>
+#include <pipewire/extensions/metadata.h>
 
 #define NAME "alsa-plugin"
 

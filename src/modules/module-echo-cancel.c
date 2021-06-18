@@ -52,7 +52,7 @@
 #include <pipewire/impl.h>
 #include <pipewire/pipewire.h>
 
-#include <extensions/profiler.h>
+#include <pipewire/extensions/profiler.h>
 
 #include "module-echo-cancel/echo-cancel.h"
 

@@ -26,7 +26,7 @@
 #include <unistd.h>
 
 #include <pipewire/pipewire.h>
-#include <extensions/session-manager.h>
+#include <pipewire/extensions/session-manager.h>
 
 #include <spa/utils/string.h>
 #include <spa/pod/builder.h>

@@ -38,7 +38,7 @@
 #include <spa/utils/ansi.h>
 
 #include <pipewire/pipewire.h>
-#include <extensions/metadata.h>
+#include <pipewire/extensions/metadata.h>
 
 #define INDENT 2
 

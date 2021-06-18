@@ -29,7 +29,7 @@
 #include <spa/utils/result.h>
 
 #include <pipewire/impl.h>
-#include <extensions/session-manager.h>
+#include <pipewire/extensions/session-manager.h>
 
 #include "client-session.h"
 #include "session.h"

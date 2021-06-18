@@ -42,7 +42,7 @@
 #include <spa/debug/pod.h>
 
 #include "pipewire/pipewire.h"
-#include <extensions/session-manager.h>
+#include <pipewire/extensions/session-manager.h>
 
 #include "media-session.h"
 

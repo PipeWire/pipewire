@@ -30,7 +30,7 @@
 
 #include <pipewire/impl.h>
 
-#include <extensions/protocol-native.h>
+#include <pipewire/extensions/protocol-native.h>
 
 static inline void push_item(struct spa_pod_builder *b, const struct spa_dict_item *item)
 {

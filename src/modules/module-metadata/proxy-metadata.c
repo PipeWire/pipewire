@@ -29,7 +29,7 @@
 #include <spa/pod/parser.h>
 
 #include "pipewire/pipewire.h"
-#include "extensions/metadata.h"
+#include "pipewire/extensions/metadata.h"
 
 struct object_data {
 	struct pw_metadata *object;

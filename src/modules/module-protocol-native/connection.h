@@ -32,7 +32,7 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 
-#include <extensions/protocol-native.h>
+#include <pipewire/extensions/protocol-native.h>
 
 struct pw_protocol_native_connection_events {
 #define PW_VERSION_PROTOCOL_NATIVE_CONNECTION_EVENTS	0

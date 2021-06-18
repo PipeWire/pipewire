@@ -34,7 +34,7 @@
 #include <spa/debug/pod.h>
 
 #include <pipewire/impl.h>
-#include <extensions/profiler.h>
+#include <pipewire/extensions/profiler.h>
 
 #define MAX_NAME		128
 

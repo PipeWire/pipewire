@@ -577,7 +577,7 @@ int pw_impl_metadata_set_propertyf(struct pw_impl_metadata *metadata,
 			const char *fmt, ...)
 {
 	va_list args;
-	int n = 0;
+	int n = 0, res;
 	size_t size = 0;
 	char *p = NULL;
 
@@ -600,5 +600,8 @@ int pw_impl_metadata_set_propertyf(struct pw_impl_metadata *metadata,
 		free(p);
 		return -errno;
 	}
-	return pw_impl_metadata_set_property(metadata, subject, key, type, p);
+	res = pw_impl_metadata_set_property(metadata, subject, key, type, p);
+	free(p);
+
+	return res;
 }

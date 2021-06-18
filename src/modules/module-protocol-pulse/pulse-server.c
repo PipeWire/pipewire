@@ -80,6 +80,7 @@
 #include "pipewire/extensions/metadata.h"
 
 #include "pulse-server.h"
+#include "commands.h"
 #include "defs.h"
 #include "internal.h"
 
@@ -158,12 +159,6 @@ static struct sample *find_sample(struct impl *impl, uint32_t idx, const char *n
 	}
 	return NULL;
 }
-
-struct command {
-	const char *name;
-	int (*run) (struct client *client, uint32_t command, uint32_t tag, struct message *msg);
-};
-static const struct command commands[COMMAND_MAX];
 
 static void message_free(struct impl *impl, struct message *msg, bool dequeue, bool destroy)
 {
@@ -5182,7 +5177,7 @@ static SPA_UNUSED int do_error_not_implemented(struct client *client, uint32_t c
 	return -ENOSYS;
 }
 
-static const struct command commands[COMMAND_MAX] =
+const struct command commands[COMMAND_MAX] =
 {
 	[COMMAND_ERROR] = { "ERROR", },
 	[COMMAND_TIMEOUT] = { "TIMEOUT", }, /* pseudo command */

@@ -42,7 +42,7 @@
 #include "connection.h"
 
 #define MAX_BUFFER_SIZE (1024 * 32)
-#define MAX_FDS 1024
+#define MAX_FDS 1024u
 #define MAX_FDS_MSG 28
 
 #define HDR_SIZE_V0	8
@@ -209,6 +209,8 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 
 		n_fds =
 		    (cmsg->cmsg_len - ((char *) CMSG_DATA(cmsg) - (char *) cmsg)) / sizeof(int);
+		if (n_fds + buf->n_fds > MAX_FDS)
+			return -EPROTO;
 		memcpy(&buf->fds[buf->n_fds], CMSG_DATA(cmsg), n_fds * sizeof(int));
 		buf->n_fds += n_fds;
 	}
@@ -478,6 +480,9 @@ static int prepare_packet(struct pw_protocol_native_connection *conn, struct buf
 	data += impl->hdr_size;
 	size -= impl->hdr_size;
 	buf->msg.fds = &buf->fds[buf->fds_offset];
+
+	if (buf->msg.n_fds + buf->fds_offset > MAX_FDS)
+		return -EPROTO;
 
 	if (size < len)
 		return len;

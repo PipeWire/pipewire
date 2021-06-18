@@ -120,3 +120,5 @@ pkgconfig.generate(filebase : 'lib@0@'.format(pipewire_name),
   version : pipewire_version,
   extra_cflags : '-D_REENTRANT',
   variables : ['moduledir=${libdir}/@0@'.format(pipewire_name)])
+
+subdir('extensions')

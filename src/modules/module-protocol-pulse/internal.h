@@ -198,6 +198,7 @@ struct server {
 	struct spa_source *source;
 	struct spa_list clients;
 	uint32_t n_clients;
+	uint32_t wait_clients;
 	unsigned int activated:1;
 };
 

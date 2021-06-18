@@ -5350,14 +5350,22 @@ static int client_free_stream(void *item, void *data)
  */
 static bool client_detach(struct client *client)
 {
-	if (client->server == NULL)
+	struct impl *impl = client->impl;
+	struct server *server = client->server;
+
+	if (server == NULL)
 		return false;
 
-	pw_log_info(NAME" %p: client %p detaching", client->server, client);
+	pw_log_info(NAME" %p: client %p detaching", server, client);
 
 	/* remove from the `server->clients` list */
 	spa_list_remove(&client->link);
-	client->server->n_clients--;
+	server->n_clients--;
+	if (server->wait_clients > 0 && --server->wait_clients == 0) {
+		int mask = server->source->mask;
+		SPA_FLAG_SET(mask, SPA_IO_IN);
+		pw_loop_update_io(impl->loop, server->source, mask);
+	}
 	client->server = NULL;
 
 	return true;
@@ -5777,8 +5785,17 @@ on_connect(void *data, int fd, uint32_t mask)
 
 	length = sizeof(name);
 	client_fd = accept4(fd, (struct sockaddr *) &name, &length, SOCK_CLOEXEC);
-	if (client_fd < 0)
+	if (client_fd < 0) {
+		if (errno == EMFILE || errno == ENFILE) {
+			if (server->n_clients > 0) {
+				int mask = server->source->mask;
+				SPA_FLAG_CLEAR(mask, SPA_IO_IN);
+				pw_loop_update_io(impl->loop, server->source, mask);
+				server->wait_clients++;
+			}
+		}
 		goto error;
+	}
 
 	if (server->n_clients >= MAX_CLIENTS) {
 		close(client_fd);

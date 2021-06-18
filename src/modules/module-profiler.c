@@ -43,6 +43,7 @@
 
 #define NAME "profiler"
 
+#define TMP_BUFFER		(16 * 1024)
 #define MAX_BUFFER		(8 * 1024 * 1024)
 #define MIN_FLUSH		(16 * 1024)
 #define DEFAULT_IDLE		5
@@ -79,6 +80,7 @@ struct impl {
 	unsigned int listening:1;
 
 	struct spa_ringbuffer buffer;
+	uint8_t tmp[TMP_BUFFER];
 	uint8_t data[MAX_BUFFER];
 
 	uint8_t flush[MAX_BUFFER + sizeof(struct spa_pod_struct)];
@@ -154,7 +156,6 @@ static void flush_timeout(void *data, uint64_t expirations)
 static void context_do_profile(void *data, struct pw_impl_node *node)
 {
 	struct impl *impl = data;
-	char buffer[4096];
 	struct spa_pod_builder b;
 	struct spa_pod_frame f[2];
 	struct pw_node_activation *a = node->rt.activation;
@@ -166,7 +167,7 @@ static void context_do_profile(void *data, struct pw_impl_node *node)
 	if (SPA_FLAG_IS_SET(pos->clock.flags, SPA_IO_CLOCK_FLAG_FREEWHEEL))
 		return;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_init(&b, impl->tmp, sizeof(impl->tmp));
 	spa_pod_builder_push_object(&b, &f[0],
 			SPA_TYPE_OBJECT_Profiler, 0);
 
@@ -223,6 +224,9 @@ static void context_do_profile(void *data, struct pw_impl_node *node)
 			SPA_POD_Fraction(&n->latency));
 	}
 	spa_pod_builder_pop(&b, &f[0]);
+
+	if (b.state.offset > sizeof(impl->tmp))
+		goto done;
 
 	filled = spa_ringbuffer_get_write_index(&impl->buffer, &idx);
 	if (filled < 0 || filled > MAX_BUFFER) {

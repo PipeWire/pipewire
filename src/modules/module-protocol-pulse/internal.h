@@ -32,11 +32,15 @@
 
 #include <spa/utils/defs.h>
 #include <spa/utils/ringbuffer.h>
-#include <pipewire/pipewire.h>
+#include <pipewire/map.h>
 #include <pipewire/private.h>
 
 #include "format.h"
-#include "volume.h"
+
+struct pw_loop;
+struct pw_context;
+struct pw_work_queue;
+struct pw_properties;
 
 struct defs {
 	struct spa_fraction min_req;
@@ -67,7 +71,6 @@ struct impl {
 
 	struct ratelimit rate_limit;
 
-	struct spa_source *source;
 	struct spa_list servers;
 
 	struct pw_work_queue *work_queue;

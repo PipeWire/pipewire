@@ -86,6 +86,8 @@
 #include "defs.h"
 #include "format.h"
 #include "internal.h"
+#include "sample.h"
+#include "sample-play.h"
 #include "volume.h"
 
 #define DEFAULT_MIN_REQ		"256/48000"
@@ -107,8 +109,6 @@
 
 static bool debug_messages = false;
 
-#include "sample.c"
-
 struct operation {
 	struct spa_list link;
 	struct client *client;
@@ -128,21 +128,6 @@ static void broadcast_subscribe_event(struct impl *impl, uint32_t mask, uint32_t
 
 static void client_free(struct client *client);
 static void client_unref(struct client *client);
-
-static void sample_free(struct sample *sample)
-{
-	struct impl *impl = sample->impl;
-
-	pw_log_info("free sample id:%u name:%s", sample->index, sample->name);
-
-	impl->stat.sample_cache -= sample->length;
-
-	if (sample->index != SPA_ID_INVALID)
-		pw_map_remove(&impl->samples, sample->index);
-	pw_properties_free(sample->props);
-	free(sample->buffer);
-	free(sample);
-}
 
 static struct sample *find_sample(struct impl *impl, uint32_t idx, const char *name)
 {

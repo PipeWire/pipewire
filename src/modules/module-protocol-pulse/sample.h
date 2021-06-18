@@ -22,28 +22,28 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <stdlib.h>
+#ifndef PULSE_SERVER_SAMPLE_H
+#define PULSE_SERVER_SAMPLE_H
 
-#include <pipewire/log.h>
-#include <pipewire/map.h>
-#include <pipewire/properties.h>
+#include <stdint.h>
 
-#include "internal.h"
-#include "sample.h"
+#include "format.h"
 
-void sample_free(struct sample *sample)
-{
-	struct impl * const impl = sample->impl;
+struct impl;
+struct pw_properties;
 
-	pw_log_info("free sample id:%u name:%s", sample->index, sample->name);
+struct sample {
+	int ref;
+	uint32_t index;
+	struct impl *impl;
+	const char *name;
+	struct sample_spec ss;
+	struct channel_map map;
+	struct pw_properties *props;
+	uint32_t length;
+	uint8_t *buffer;
+};
 
-	impl->stat.sample_cache -= sample->length;
+void sample_free(struct sample *sample);
 
-	if (sample->index != SPA_ID_INVALID)
-		pw_map_remove(&impl->samples, sample->index);
-
-	pw_properties_free(sample->props);
-
-	free(sample->buffer);
-	free(sample);
-}
+#endif /* PULSE_SERVER_SAMPLE_H */

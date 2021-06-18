@@ -24,6 +24,8 @@
 
 #include <spa/utils/string.h>
 
+#include "media-roles.h"
+
 #define VOLUME_MUTED ((uint32_t) 0U)
 #define VOLUME_NORM ((uint32_t) 0x10000U)
 #define VOLUME_MAX ((uint32_t) UINT32_MAX/2)
@@ -47,25 +49,6 @@ static inline float volume_to_linear(uint32_t vol)
 	return v * v * v;
 }
 
-struct str_map {
-	const char *pw_str;
-	const char *pa_str;
-	const struct str_map *child;
-};
-
-const struct str_map media_role_map[] = {
-	{ "Movie", "video", },
-	{ "Music", "music", },
-	{ "Game", "game", },
-	{ "Notification", "event", },
-	{ "Communication", "phone", },
-	{ "Movie", "animation", },
-	{ "Production", "production", },
-	{ "Accessibility", "a11y", },
-	{ "Test", "test", },
-	{ NULL, NULL },
-};
-
 const struct str_map key_table[] = {
 	{ PW_KEY_DEVICE_BUS_PATH, "device.bus_path" },
 	{ PW_KEY_DEVICE_FORM_FACTOR, "device.form_factor" },
@@ -79,16 +62,6 @@ const struct str_map key_table[] = {
 	{ PW_KEY_MEDIA_ROLE, "media.role", media_role_map },
 	{ NULL, NULL },
 };
-
-static inline const struct str_map *str_map_find(const struct str_map *map, const char *pw, const char *pa)
-{
-	uint32_t i;
-	for (i = 0; map[i].pw_str; i++)
-		if ((pw && spa_streq(map[i].pw_str, pw)) ||
-		    (pa && spa_streq(map[i].pa_str, pa)))
-			return &map[i];
-	return NULL;
-}
 
 enum {
 	TAG_INVALID = 0,

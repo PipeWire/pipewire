@@ -86,6 +86,7 @@
 #include "defs.h"
 #include "format.h"
 #include "internal.h"
+#include "pending-sample.h"
 #include "sample.h"
 #include "sample-play.h"
 #include "volume.h"
@@ -2615,26 +2616,6 @@ static struct pw_manager_object *find_device(struct client *client,
 		sel.value = get_default(client, sink);
 
 	return select_object(client->manager, &sel);
-}
-
-struct pending_sample {
-	struct spa_list link;
-	struct client *client;
-	struct sample_play *play;
-	struct spa_hook listener;
-	uint32_t tag;
-	unsigned int done:1;
-};
-
-static void pending_sample_free(struct pending_sample *ps)
-{
-	struct client *client = ps->client;
-	struct impl *impl = client->impl;
-	spa_list_remove(&ps->link);
-	spa_hook_remove(&ps->listener);
-	pw_work_queue_cancel(impl->work_queue, ps, SPA_ID_INVALID);
-	ps->client->ref--;
-	sample_play_destroy(ps->play);
 }
 
 static void sample_play_ready(void *data, uint32_t index)

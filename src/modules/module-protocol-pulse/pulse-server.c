@@ -84,6 +84,7 @@
 #include "defs.h"
 #include "format.h"
 #include "internal.h"
+#include "volume.h"
 
 #define DEFAULT_MIN_REQ		"256/48000"
 #define DEFAULT_DEFAULT_REQ	"960/48000"
@@ -99,7 +100,6 @@
 #define MAX_FORMATS	32
 #define MAX_CLIENTS	64
 
-#include "volume.c"
 #include "message.c"
 #include "manager.h"
 #include "dbus-name.c"

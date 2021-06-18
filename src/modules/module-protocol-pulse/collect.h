@@ -29,6 +29,9 @@
 #include "format.h"
 #include "volume.h"
 
+struct pw_manager;
+struct pw_manager_object;
+
 struct device_info {
 	uint32_t direction;
 

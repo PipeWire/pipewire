@@ -136,6 +136,7 @@ pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse/format.c',
   'module-protocol-pulse/manager.c',
   'module-protocol-pulse/pulse-server.c',
+  'module-protocol-pulse/volume.c',
   'module-protocol-pulse/modules/module-combine-sink.c',
   'module-protocol-pulse/modules/module-echo-cancel.c',
   'module-protocol-pulse/modules/module-ladspa-sink.c',

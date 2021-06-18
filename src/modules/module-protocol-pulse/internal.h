@@ -35,6 +35,7 @@
 #include <pipewire/private.h>
 
 #include "format.h"
+#include "volume.h"
 
 struct defs {
 	struct spa_fraction min_req;
@@ -122,15 +123,6 @@ struct buffer_attr {
 	uint32_t minreq;
 	uint32_t fragsize;
 };
-
-struct volume {
-	uint8_t channels;
-	float values[CHANNELS_MAX];
-};
-
-#define VOLUME_INIT	(struct volume) {		\
-				.channels = 0,		\
-			}
 
 struct stream {
 	uint32_t create_tag;

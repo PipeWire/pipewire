@@ -568,7 +568,7 @@ int pw_impl_metadata_set_property(struct pw_impl_metadata *metadata,
 			uint32_t subject, const char *key, const char *type,
 			const char *value)
 {
-	return impl_set_property(metadata->metadata, subject, key, type, value);
+	return pw_metadata_set_property(metadata->metadata, subject, key, type, value);
 }
 
 SPA_EXPORT

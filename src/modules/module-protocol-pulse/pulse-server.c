@@ -27,8 +27,9 @@
 #include "config.h"
 
 #include <errno.h>
-#include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <sys/time.h>
 
@@ -49,9 +50,9 @@
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/json.h>
 
-#include "pipewire/pipewire.h"
-#include "pipewire/private.h"
-#include "pipewire/extensions/metadata.h"
+#include <pipewire/pipewire.h>
+#include <pipewire/private.h>
+#include <pipewire/extensions/metadata.h>
 
 #include "pulse-server.h"
 #include "client.h"
@@ -62,6 +63,7 @@
 #include "extension.h"
 #include "format.h"
 #include "internal.h"
+#include "manager.h"
 #include "message.h"
 #include "message-handler.h"
 #include "module.h"
@@ -88,8 +90,6 @@
 
 #define MAX_FORMATS	32
 #define MAX_CLIENTS	64
-
-#include "manager.h"
 
 bool debug_messages = false;
 

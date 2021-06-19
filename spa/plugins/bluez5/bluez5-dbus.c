@@ -144,7 +144,8 @@ struct spa_bt_a2dp_codec_switch {
 };
 
 #define DEFAULT_RECONNECT_PROFILES SPA_BT_PROFILE_NULL
-#define DEFAULT_HW_VOLUME_PROFILES (SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY | SPA_BT_PROFILE_A2DP_SOURCE)
+#define DEFAULT_HW_VOLUME_PROFILES (SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY | SPA_BT_PROFILE_HEADSET_HEAD_UNIT | \
+					SPA_BT_PROFILE_A2DP_SOURCE | SPA_BT_PROFILE_A2DP_SINK)
 
 #define BT_DEVICE_DISCONNECTED	0
 #define BT_DEVICE_CONNECTED	1
@@ -1215,6 +1216,22 @@ int spa_bt_device_connect_profile(struct spa_bt_device *device, enum spa_bt_prof
 	return 0;
 }
 
+static void device_update_hw_volume_profiles(struct spa_bt_device *device)
+{
+	struct spa_bt_monitor *monitor = device->monitor;
+	uint32_t bt_features = 0;
+
+	if (!monitor->quirks)
+		return;
+
+	if (spa_bt_quirks_get_features(monitor->quirks, device->adapter, device, &bt_features) != 0)
+		return;
+
+	if (!(bt_features & SPA_BT_FEATURE_HW_VOLUME))
+		device->hw_volume_profiles = 0;
+
+	spa_log_debug(monitor->log, NAME ": hw-volume-profiles:%08x", (int)device->hw_volume_profiles);
+}
 
 static int device_update_props(struct spa_bt_device *device,
 			       DBusMessageIter *props_iter,
@@ -3310,6 +3327,9 @@ static void interface_added(struct spa_bt_monitor *monitor,
 
 		device_update_props(d, props_iter, NULL);
 		d->reconnect_state = BT_DEVICE_RECONNECT_INIT;
+
+		device_update_hw_volume_profiles(d);
+
 		/* Trigger bluez device creation before bluez profile negotiation started so that
 		 * profile connection handlers can receive per-device settings during profile negotiation. */
 		spa_bt_device_add_profile(d, SPA_BT_PROFILE_NULL);

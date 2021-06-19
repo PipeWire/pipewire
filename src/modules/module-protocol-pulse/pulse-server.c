@@ -5654,7 +5654,7 @@ on_client_data(void *data, int fd, uint32_t mask)
 		while (true) {
 			res = do_read(client);
 			if (res < 0) {
-				if (res != -EAGAIN && res != EWOULDBLOCK)
+				if (res != -EAGAIN && res != -EWOULDBLOCK)
 					goto error;
 				break;
 			}

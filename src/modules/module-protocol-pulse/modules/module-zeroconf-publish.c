@@ -23,6 +23,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <sys/utsname.h>
+
 #include <pipewire/pipewire.h>
 
 #include "../collect.h"
@@ -31,9 +33,8 @@
 #include "../module.h"
 #include "../pulse-server.h"
 #include "registry.h"
-#include "sys/utsname.h"
-
 #include "../../module-zeroconf-discover/avahi-poll.h"
+
 #include <avahi-client/client.h>
 #include <avahi-client/publish.h>
 #include <avahi-common/alternative.h>

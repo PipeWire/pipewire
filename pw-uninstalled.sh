@@ -25,7 +25,7 @@ while getopts ":b:v:" opt; do
 done
 
 if [ -z "${BUILDDIR}" ]; then
-	BUILDDIR=${SCRIPT_DIR}/build
+	BUILDDIR=${SCRIPT_DIR}/builddir
 	echo "Using default build directory: ${BUILDDIR}"
 fi
 

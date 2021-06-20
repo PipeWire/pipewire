@@ -13,6 +13,6 @@ if [ -z "$MESON" ]; then
 	exit 1;
 fi
 
-mkdir -p build
-$MESON setup "$@" build # use 'autogen.sh --reconfigure' to update
-ln -sf build/Makefile Makefile
+mkdir -p builddir
+$MESON setup "$@" builddir # use 'autogen.sh --reconfigure' to update
+ln -sf builddir/Makefile Makefile

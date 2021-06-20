@@ -1374,6 +1374,9 @@ static int backend_native_ensure_codec(void *data, struct spa_bt_device *device,
 	if (rfcomm == NULL)
 		return -ENOTSUP;
 
+	if (!rfcomm->codec_negotiation_supported)
+		return -ENOTSUP;
+
 	if (rfcomm->codec == codec) {
 		spa_bt_device_emit_codec_switched(device, 0);
 		return 0;

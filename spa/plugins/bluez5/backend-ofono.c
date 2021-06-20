@@ -364,6 +364,7 @@ static DBusHandlerResult ofono_audio_card_found(struct impl *backend, char *path
 		spa_log_error(backend->log, NAME": Device doesn’t exist for %s", path);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
+	spa_bt_device_add_profile(d, profile);
 
 	t = _transport_create(backend, path, d, profile, codec, (struct spa_callbacks *)&ofono_transport_impl);
 

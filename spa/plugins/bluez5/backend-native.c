@@ -1450,6 +1450,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 		spa_log_warn(backend->log, NAME": unknown device for path %s", path);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
+	spa_bt_device_add_profile(d, profile);
 
 	dbus_message_iter_next(&it[0]);
 	dbus_message_iter_get_basic(&it[0], &fd);

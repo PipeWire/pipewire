@@ -882,6 +882,30 @@ static int device_connected(struct spa_bt_monitor *monitor, struct spa_bt_device
 	return 0;
 }
 
+/*
+ * Add profile to device based on bluez actions
+ * (update property UUIDs, trigger profile handlers),
+ * in case UUIDs is empty on signal InterfaceAdded for
+ * org.bluez.Device1. And emit device info if there is
+ * at least 1 profile on device. This should be called
+ * before any device setting accessing.
+ */
+int spa_bt_device_add_profile(struct spa_bt_device *device, enum spa_bt_profile profile)
+{
+	struct spa_bt_monitor *monitor = device->monitor;
+
+	if (profile && (device->profiles & profile) == 0) {
+		spa_log_info(monitor->log, "device %p: add new profile %08x", device, profile);
+		device->profiles |= profile;
+	}
+
+	if (!device->added && device->profiles)
+		return device_connected(monitor, device, BT_DEVICE_INIT);
+
+	return 0;
+}
+
+
 static int device_try_connect_profile(struct spa_bt_device *device,
                                       const char *profile_uuid)
 {
@@ -2559,6 +2583,7 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		transport->volumes[i].hw_volume_max = SPA_BT_VOLUME_A2DP_MAX;
 	}
 
+	transport->profile = profile;
 	transport->a2dp_codec = codec;
 	transport_update_props(transport, &it[1], NULL);
 
@@ -2566,6 +2591,8 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		spa_log_warn(monitor->log, "no device found for transport");
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
+	spa_bt_device_add_profile(transport->device, transport->profile);
+
 	if (is_new)
 		spa_list_append(&transport->device->transport_list, &transport->device_link);
 
@@ -3165,15 +3192,10 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		}
 
 		device_update_props(d, props_iter, NULL);
-		/* We only care about audio devices. */
-		if (d->profiles == 0) {
-			device_free(d);
-			return;
-		}
 
 		/* Trigger bluez device creation before bluez profile negotiation started so that
 		 * profile connection handlers can receive per-device settings during profile negotiation. */
-		device_connected(monitor, d, BT_DEVICE_INIT);
+		spa_bt_device_add_profile(d, SPA_BT_PROFILE_NULL);
 		d->reconnect_state = BT_DEVICE_RECONNECT_INIT;
 		device_start_timer(d);
 	}
@@ -3495,6 +3517,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 			spa_log_debug(monitor->log, "Properties changed in device %s", path);
 
 			device_update_props(d, &it[1], NULL);
+			spa_bt_device_add_profile(d, SPA_BT_PROFILE_NULL);
 		}
 		else if (spa_streq(iface, BLUEZ_MEDIA_ENDPOINT_INTERFACE)) {
 			struct spa_bt_remote_endpoint *ep;

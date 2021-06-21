@@ -521,8 +521,6 @@ static int remove_file(const char *fpath, const struct stat *sb, int typeflag, s
 	int r;
 
 	/* Safety check: bail out if somehow we left TMPDIR */
-	if (!tmpdir)
-		tmpdir = "/tmp";
 	spa_assert(spa_strneq(fpath, tmpdir, strlen(tmpdir)));
 
 	r = remove(fpath);
@@ -543,9 +541,6 @@ static void remove_xdg_runtime_dir(const char *xdg_dir)
 
 	/* Safety checks, we really don't want to recursively remove a
 	 * random directory due to a bug */
-	if (!tmpdir)
-		tmpdir = "/tmp";
-
 	spa_assert(spa_strneq(xdg_dir, tmpdir, strlen(tmpdir)));
 	r = spa_scnprintf(path, sizeof(path), "%s/pwtest.dir", xdg_dir);
 	spa_assert((size_t)r == strlen(xdg_dir) + 11);
@@ -1263,6 +1258,9 @@ int main(int argc, char **argv)
 
 	find_suites(ctx, suite_filter);
 	add_tests(ctx);
+
+	if (getenv("TMPDIR") == NULL)
+		setenv("TMPDIR", "/tmp", 1);
 
 	ctx->xdg_dir = make_xdg_runtime_dir();
 

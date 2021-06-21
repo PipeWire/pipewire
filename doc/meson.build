@@ -28,7 +28,6 @@ inputs += meson.source_root() / 'test' / 'pwtest.h'
 # normal functions.
 # Because this uses globbing, this target won't rebuild if the headers
 # change but meh.
-spa_header_dirs = []
 sed = find_program('sed', required: false)
 if sed.found()
   spa_srcdir = meson.source_root() / 'spa' / 'include' / 'spa'
@@ -39,7 +38,6 @@ if sed.found()
     build_by_default: true,
     output: 'spa',
   )
-  spa_header_dirs += spa_dstdir
 else
   spa_strip_static = []
 endif

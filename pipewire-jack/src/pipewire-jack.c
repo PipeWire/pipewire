@@ -2636,12 +2636,15 @@ static void registry_event_global(void *data, uint32_t id,
 
 	switch (o->type) {
 	case INTERFACE_Node:
-		if (is_first)
+		if (is_first) {
+			pw_log_info(NAME" %p: client added \"%s\"", c, o->node.name);
 			do_callback(c, registration_callback,
 					o->node.name, 1, c->registration_arg);
+		}
 		break;
 
 	case INTERFACE_Port:
+		pw_log_info(NAME" %p: port added %d \"%s\"", c, o->id, o->port.name);
 		do_callback(c, portregistration_callback,
 				o->id, 1, c->portregistration_arg);
 		break;
@@ -2663,7 +2666,6 @@ static void registry_event_global_remove(void *object, uint32_t id)
 {
 	struct client *c = (struct client *) object;
 	struct object *o;
-	bool is_last = false;
 
 	pw_log_debug(NAME" %p: removed: %u", c, id);
 
@@ -2684,9 +2686,6 @@ static void registry_event_global_remove(void *object, uint32_t id)
 		o->proxy = NULL;
 	}
 
-	if (o->type == INTERFACE_Node)
-		is_last = find_node(c, o->node.name) == NULL;
-
 	switch (o->type) {
 	case INTERFACE_Node:
 		if (c->metadata) {
@@ -2695,11 +2694,14 @@ static void registry_event_global_remove(void *object, uint32_t id)
 			if (spa_streq(o->node.node_name, c->metadata->default_audio_source))
 				c->metadata->default_audio_source[0] = '\0';
 		}
-		if (is_last)
+		if (find_node(c, o->node.name) == NULL) {
+			pw_log_info(NAME" %p: client removed \"%s\"", c, o->node.name);
 			do_callback(c, registration_callback,
 					o->node.name, 0, c->registration_arg);
+		}
 		break;
 	case INTERFACE_Port:
+		pw_log_info(NAME" %p: port removed \"%s\"", c, o->port.name);
 		do_callback(c, portregistration_callback,
 				o->id, 0, c->portregistration_arg);
 		break;
@@ -3785,7 +3787,7 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 		pw_log_error(NAME" %p: invalid port %p", client, port);
 		return -EINVAL;
 	}
-	pw_log_info(NAME" %p: port unregister %p", client, port);
+	pw_log_info(NAME" %p: port %p unregister \"%s\"", client, port, o->port.name);
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -4856,6 +4858,9 @@ jack_port_t * jack_port_by_name (jack_client_t *client, const char *port_name)
 	res = find_port(c, port_name);
 	pthread_mutex_unlock(&c->context.lock);
 
+	if (res == NULL)
+		pw_log_info(NAME" %p: port \"%s\" not found", c, port_name);
+
 	return (jack_port_t *)res;
 }
 
@@ -4880,6 +4885,9 @@ jack_port_t * jack_port_by_id (jack_client_t *client,
 
       exit:
 	pthread_mutex_unlock(&c->context.lock);
+
+	if (res == NULL)
+		pw_log_info(NAME" %p: port %d not found", c, port_id);
 
 	return (jack_port_t *)res;
 }

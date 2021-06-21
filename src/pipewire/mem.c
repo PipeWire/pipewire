@@ -204,7 +204,6 @@ void pw_mempool_add_listener(struct pw_mempool *pool,
 /** Map a memblock
  * \param mem a memblock
  * \return 0 on success, < 0 on error
- * \memberof pw_memblock
  */
 SPA_EXPORT
 int pw_memblock_map_old(struct pw_memblock *mem)
@@ -468,7 +467,6 @@ static inline enum pw_memmap_flags block_flags_to_mem(enum pw_memblock_flags fla
  * \param type the requested memory type one of enum spa_data_type
  * \param size size to allocate
  * \return a memblock structure or NULL with errno on error
- * \memberof pw_memblock
  */
 SPA_EXPORT
 struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_flags flags,
@@ -693,7 +691,6 @@ int pw_mempool_remove_id(struct pw_mempool *pool, uint32_t id)
 
 /** Free a memblock
  * \param block a memblock
- * \memberof pw_memblock
  */
 SPA_EXPORT
 void pw_memblock_free(struct pw_memblock *block)

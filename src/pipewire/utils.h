@@ -44,7 +44,7 @@ extern "C" {
  * \{
  */
 
-/** a function to destroy an item \memberof pw_utils */
+/** a function to destroy an item */
 typedef void (*pw_destroy_t) (void *object);
 
 const char *

@@ -93,8 +93,6 @@ static struct properties *properties_new(int prealloc)
  * \param key a first key
  * \param ... value and more keys NULL terminated
  * \return a newly allocated properties object
- *
- * \memberof pw_properties
  */
 SPA_EXPORT
 struct pw_properties *pw_properties_new(const char *key, ...)
@@ -123,8 +121,6 @@ struct pw_properties *pw_properties_new(const char *key, ...)
  *
  * \param dict a dictionary. keys and values are copied
  * \return a new properties object
- *
- * \memberof pw_properties
  */
 SPA_EXPORT
 struct pw_properties *pw_properties_new_dict(const struct spa_dict *dict)
@@ -195,8 +191,6 @@ int pw_properties_update_string(struct pw_properties *props, const char *str, si
  *
  * \param object a property description
  * \return a new properties object
- *
- * \memberof pw_properties
  */
 SPA_EXPORT
 struct pw_properties *
@@ -223,8 +217,6 @@ error:
  *
  * \param properties properties to copy
  * \return a new properties object
- *
- * \memberof pw_properties
  */
 SPA_EXPORT
 struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
@@ -238,8 +230,6 @@ struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
  * \param dict properties to copy from
  * \param keys a NULL terminated list of keys to copy
  * \return the number of keys changed in \a dest
- *
- * \memberof pw_properties
  */
 SPA_EXPORT
 int pw_properties_update_keys(struct pw_properties *props,
@@ -282,8 +272,6 @@ int pw_properties_update_ignore(struct pw_properties *props,
 /** Clear a properties object
  *
  * \param properties properties to clear
- *
- * \memberof pw_properties
  */
 SPA_EXPORT
 void pw_properties_clear(struct pw_properties *properties)
@@ -305,8 +293,6 @@ void pw_properties_clear(struct pw_properties *properties)
  *
  * The properties in \a props are updated with \a dict. Keys in \a dict
  * with NULL values are removed from \a props.
- *
- * \memberof pw_properties
  */
 SPA_EXPORT
 int pw_properties_update(struct pw_properties *props,
@@ -328,8 +314,6 @@ int pw_properties_update(struct pw_properties *props,
  * \return the number of added properties
  *
  * The properties from \a dict that are not yet in \a props are added.
- *
- * \memberof pw_properties
  */
 SPA_EXPORT
 int pw_properties_add(struct pw_properties *props,
@@ -354,8 +338,6 @@ int pw_properties_add(struct pw_properties *props,
  *
  * The properties with \a keys from \a dict that are not yet
  * in \a props are added.
- *
- * \memberof pw_properties
  */
 SPA_EXPORT
 int pw_properties_add_keys(struct pw_properties *props,
@@ -377,8 +359,6 @@ int pw_properties_add_keys(struct pw_properties *props,
 /** Free a properties object
  *
  * \param properties the properties to free
- *
- * \memberof pw_properties
  */
 SPA_EXPORT
 void pw_properties_free(struct pw_properties *properties)
@@ -450,8 +430,6 @@ exit_noupdate:
  * Set the property in \a properties with \a key to \a value. Any previous value
  * of \a key will be overwritten. When \a value is NULL, the key will be
  * removed.
- *
- * \memberof pw_properties
  */
 SPA_EXPORT
 int pw_properties_set(struct pw_properties *properties, const char *key, const char *value)
@@ -483,8 +461,6 @@ int pw_properties_setva(struct pw_properties *properties,
  *
  * Set the property in \a properties with \a key to the value in printf style \a format
  * Any previous value of \a key will be overwritten.
- *
- * \memberof pw_properties
  */
 SPA_EXPORT
 int pw_properties_setf(struct pw_properties *properties, const char *key, const char *format, ...)
@@ -506,8 +482,6 @@ int pw_properties_setf(struct pw_properties *properties, const char *key, const 
  * \return the property for \a key or NULL when the key was not found
  *
  * Get the property in \a properties with \a key.
- *
- * \memberof pw_properties
  */
 SPA_EXPORT
 const char *pw_properties_get(const struct pw_properties *properties, const char *key)
@@ -531,8 +505,6 @@ const char *pw_properties_get(const struct pw_properties *properties, const char
  * to a pointer holding NULL to get the first element and will be updated
  * after each iteration. When NULL is returned, all elements have been
  * iterated.
- *
- * \memberof pw_properties
  */
 SPA_EXPORT
 const char *pw_properties_iterate(const struct pw_properties *properties, void **state)

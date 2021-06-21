@@ -52,7 +52,7 @@ extern "C" {
 #define PW_VERSION_NODE		3
 struct pw_node;
 
-/** \enum pw_node_state The different node states \memberof pw_node */
+/** \enum pw_node_state The different node states */
 enum pw_node_state {
 	PW_NODE_STATE_ERROR = -1,	/**< error state */
 	PW_NODE_STATE_CREATING = 0,	/**< the node is being created */
@@ -66,7 +66,7 @@ enum pw_node_state {
 /** Convert a \ref pw_node_state to a readable string */
 const char * pw_node_state_as_string(enum pw_node_state state);
 
-/** The node information. Extra information can be added in later versions \memberof pw_introspect */
+/** The node information. Extra information can be added in later versions */
 struct pw_node_info {
 	uint32_t id;				/**< id of the global */
 	uint32_t max_input_ports;		/**< maximum number of inputs */

@@ -49,7 +49,6 @@ struct impl {
 
 /** Create a new loop
  * \returns a newly allocated loop
- * \memberof pw_loop
  */
 SPA_EXPORT
 struct pw_loop *pw_loop_new(const struct spa_dict *props)
@@ -152,7 +151,6 @@ error_cleanup:
 
 /** Destroy a loop
  * \param loop a loop to destroy
- * \memberof pw_loop
  */
 SPA_EXPORT
 void pw_loop_destroy(struct pw_loop *loop)

@@ -42,7 +42,7 @@ extern "C" {
 #define PW_VERSION_FACTORY		3
 struct pw_factory;
 
-/** The factory information. Extra information can be added in later versions \memberof pw_introspect */
+/** The factory information. Extra information can be added in later versions */
 struct pw_factory_info {
 	uint32_t id;			/**< id of the global */
 	const char *name;		/**< name the factory */

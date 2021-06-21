@@ -1144,10 +1144,10 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 
 void pw_impl_port_update_state(struct pw_impl_port *port, enum pw_impl_port_state state, int res, char *error);
 
-/** Unlink a port \memberof pw_impl_port */
+/** Unlink a port */
 void pw_impl_port_unlink(struct pw_impl_port *port);
 
-/** Destroy a port \memberof pw_impl_port */
+/** Destroy a port */
 void pw_impl_port_destroy(struct pw_impl_port *port);
 
 /** Iterate the params of the given port. The callback should return
@@ -1181,12 +1181,12 @@ int pw_impl_port_for_each_link(struct pw_impl_port *port,
 			   int (*callback) (void *data, struct pw_impl_link *link),
 			   void *data);
 
-/** Set a param on a port \memberof pw_impl_port, use SPA_ID_INVALID for mix_id to set
+/** Set a param on a port, use SPA_ID_INVALID for mix_id to set
  * the param on all mix ports */
 int pw_impl_port_set_param(struct pw_impl_port *port,
 		uint32_t id, uint32_t flags, const struct spa_pod *param);
 
-/** Use buffers on a port \memberof pw_impl_port */
+/** Use buffers on a port */
 int pw_impl_port_use_buffers(struct pw_impl_port *port, struct pw_impl_port_mix *mix, uint32_t flags,
 		struct spa_buffer **buffers, uint32_t n_buffers);
 
@@ -1202,13 +1202,13 @@ int pw_impl_node_update_ports(struct pw_impl_node *node);
 
 int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driver);
 
-/** Prepare a link \memberof pw_impl_link
+/** Prepare a link
   * Starts the negotiation of formats and buffers on \a link */
 int pw_impl_link_prepare(struct pw_impl_link *link);
 /** starts streaming on a link */
 int pw_impl_link_activate(struct pw_impl_link *link);
 
-/** Deactivate a link \memberof pw_impl_link */
+/** Deactivate a link */
 int pw_impl_link_deactivate(struct pw_impl_link *link);
 
 struct pw_control *

@@ -914,8 +914,11 @@ static void run_test(struct pwtest_context *ctx, struct pwtest_suite *c, struct 
 	}
 
 	set_test_env(ctx, t);
-	chdir(getenv("TMPDIR"));
-
+	r = chdir(getenv("TMPDIR"));
+	if (r < 0) {
+		t->sig_or_errno = -errno;
+		return;
+	}
 
 	if (t->args.pw_daemon) {
 		pw_daemon = start_pwdaemon(t, write_fds[FD_DAEMON], write_fds[FD_LOG]);

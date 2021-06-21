@@ -75,6 +75,7 @@ static enum spa_bt_feature parse_feature(const char *str)
 		{ "msbc-alt1", SPA_BT_FEATURE_MSBC_ALT1 },
 		{ "msbc-alt1-rtl", SPA_BT_FEATURE_MSBC_ALT1_RTL },
 		{ "hw-volume", SPA_BT_FEATURE_HW_VOLUME },
+		{ "hw-volume-mic", SPA_BT_FEATURE_HW_VOLUME_MIC },
 		{ "sbc-xq", SPA_BT_FEATURE_SBC_XQ },
 	};
 	size_t i;

@@ -671,7 +671,8 @@ enum spa_bt_feature {
 	SPA_BT_FEATURE_MSBC_ALT1	= (1 << 1),
 	SPA_BT_FEATURE_MSBC_ALT1_RTL	= (1 << 2),
 	SPA_BT_FEATURE_HW_VOLUME	= (1 << 3),
-	SPA_BT_FEATURE_SBC_XQ		= (1 << 4),
+	SPA_BT_FEATURE_HW_VOLUME_MIC	= (1 << 4),
+	SPA_BT_FEATURE_SBC_XQ		= (1 << 5),
 };
 
 struct spa_bt_quirks;

@@ -129,6 +129,7 @@ struct rfcomm {
 	char* path;
 	bool has_volume;
 	struct rfcomm_volume volumes[SPA_BT_VOLUME_ID_TERM];
+	unsigned int broken_mic_hw_volume:1;
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 	unsigned int slc_configured:1;
 	unsigned int codec_negotiation_supported:1;
@@ -331,7 +332,8 @@ static bool rfcomm_hsp_ag(struct spa_source *source, char* buf)
 		}
 	} else if (sscanf(buf, "AT+VGM=%d", &gain) == 1) {
 		if (gain <= SPA_BT_VOLUME_HS_MAX) {
-			rfcomm_emit_volume_changed(rfcomm, SPA_BT_VOLUME_ID_RX, gain);
+			if (!rfcomm->broken_mic_hw_volume)
+				rfcomm_emit_volume_changed(rfcomm, SPA_BT_VOLUME_ID_RX, gain);
 			rfcomm_send_reply(source, "OK");
 		} else {
 			rfcomm_send_reply(source, "ERROR");
@@ -619,7 +621,7 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 		/*
 		 * Determine device volume control. Some headsets only support control of
 		 * TX volume, but not RX, even if they have a microphone. Determine this
-		 * separately based on whether we also get AT+VGS/AT+VGM.
+		 * separately based on whether we also get AT+VGS/AT+VGM, and quirks.
 		 */
 		rfcomm->has_volume = (features & SPA_BT_HFP_HF_FEATURE_REMOTE_VOLUME_CONTROL);
 
@@ -753,7 +755,8 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 			spa_bt_device_emit_codec_switched(rfcomm->device, 0);
 	} else if (sscanf(buf, "AT+VGM=%u", &gain) == 1) {
 		if (gain <= SPA_BT_VOLUME_HS_MAX) {
-			rfcomm_emit_volume_changed(rfcomm, SPA_BT_VOLUME_ID_RX, gain);
+			if (!rfcomm->broken_mic_hw_volume)
+				rfcomm_emit_volume_changed(rfcomm, SPA_BT_VOLUME_ID_RX, gain);
 			rfcomm_send_reply(source, "OK");
 		} else {
 			spa_log_debug(backend->log, NAME": RFCOMM receive unsupported VGM gain: %s", buf);
@@ -1657,6 +1660,15 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 		rfcomm_send_cmd(&rfcomm->source, cmd);
 		free(cmd);
 		rfcomm->hf_state = hfp_hf_brsf;
+	}
+
+	if (rfcomm_volume_enabled(rfcomm) && (profile == SPA_BT_PROFILE_HFP_HF || profile == SPA_BT_PROFILE_HSP_HS)) {
+		uint32_t device_features;
+		if (spa_bt_quirks_get_features(backend->quirks, d->adapter, d, &device_features) == 0) {
+			rfcomm->broken_mic_hw_volume = !(device_features & SPA_BT_FEATURE_HW_VOLUME_MIC);
+			if (rfcomm->broken_mic_hw_volume)
+				spa_log_debug(backend->log, NAME": microphone HW volume disabled by quirk");
+		}
 	}
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)

@@ -10,6 +10,7 @@ pwtest_deps = [
   mathlib,
   dl_lib,
   cap_lib,
+  epoll_shim_dep
 ]
 
 pwtest_c_args = [

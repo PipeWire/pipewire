@@ -36,7 +36,9 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
-#include <syscall.h>
+#if HAVE_PIDFD_OPEN
+#include <sys/syscall.h>
+#endif
 #if HAVE_LIBCAP
 #include <sys/capability.h>
 #endif

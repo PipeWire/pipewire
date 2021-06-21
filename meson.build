@@ -283,7 +283,7 @@ if cc.has_function('sigabbrev_np', prefix : '#include <string.h>', args : [ '-D_
   cdata.set('HAVE_SIGABBREV_NP', 1)
 endif
 
-if cc.get_define('SYS_pidfd_open', prefix : '#include <syscall.h>') != ''
+if cc.get_define('SYS_pidfd_open', prefix : '#include <sys/syscall.h>') != ''
   cdata.set('HAVE_PIDFD_OPEN', 1)
 endif
 

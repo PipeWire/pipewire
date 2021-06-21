@@ -16,7 +16,7 @@ option('man',
 option('tests',
        description: 'Build tests',
        type: 'feature',
-       value: 'auto',
+       value: 'enabled',
        yield : true)
 option('installed_tests',
        description: 'Install manual and automated test executables',
@@ -39,9 +39,9 @@ option('systemd-system-service',
        type: 'feature',
        value: 'disabled')
 option('systemd-user-service',
-       description: 'Install systemd user service file',
+       description: 'Install systemd user service file (ignored without systemd)',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('pipewire-alsa',
        description: 'Enable pipewire-alsa integration',
        type: 'feature',
@@ -49,7 +49,7 @@ option('pipewire-alsa',
 option('pipewire-jack',
        description: 'Enable pipewire-jack integration',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('jack-devel',
        description: 'Install jack development files',
        type: 'feature',
@@ -60,7 +60,7 @@ option('libjack-path',
 option('spa-plugins',
        description: 'Enable spa plugins integration',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('alsa',
        description: 'Enable alsa spa plugin integration',
        type: 'feature',
@@ -68,11 +68,11 @@ option('alsa',
 option('audiomixer',
        description: 'Enable audiomixer spa plugin integration',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('audioconvert',
        description: 'Enable audioconvert spa plugin integration',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('bluez5',
        description: 'Enable bluez5 spa plugin integration',
        type: 'feature',
@@ -80,19 +80,19 @@ option('bluez5',
 option('bluez5-backend-hsp-native',
        description: 'Enable HSP in native backend in bluez5 spa plugin',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('bluez5-backend-hfp-native',
        description: 'Enable HFP in native backend in bluez5 spa plugin',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('bluez5-backend-ofono',
-       description: 'Enable oFono HFP backend in bluez5 spa plugin',
+       description: 'Enable oFono HFP backend in bluez5 spa plugin (no dependency on oFono)',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('bluez5-backend-hsphfpd',
-       description: 'Enable hsphfpd backend in bluez5 spa plugin',
+       description: 'Enable hsphfpd backend in bluez5 spa plugin (no dependency on hsphfpd)',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('bluez5-codec-aptx',
         description: 'Enable AptX Qualcomm open source codec implementation',
         type: 'feature',
@@ -108,11 +108,11 @@ option('bluez5-codec-aac',
 option('control',
        description: 'Enable control spa plugin integration',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('audiotestsrc',
        description: 'Enable audiotestsrc spa plugin integration',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('ffmpeg',
        description: 'Enable ffmpeg spa plugin integration',
        type: 'feature',
@@ -124,7 +124,7 @@ option('jack',
 option('support',
        description: 'Enable support spa plugin integration',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('evl',
        description: 'Enable EVL support spa plugin integration',
        type: 'feature',
@@ -144,15 +144,15 @@ option('libcamera',
 option('videoconvert',
        description: 'Enable videoconvert spa plugin integration',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('videotestsrc',
        description: 'Enable videotestsrc spa plugin integration',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('volume',
        description: 'Enable volume spa plugin integration',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('vulkan',
        description: 'Enable vulkan spa plugin integration',
        type: 'feature',
@@ -194,7 +194,7 @@ option('echo-cancel-webrtc',
 option('media-session',
        description: 'Build and install pipewire-media-session',
        type: 'feature',
-       value: 'auto')
+       value: 'enabled')
 option('wireplumber',
        description: 'Build and install wireplumber (subproject)',
        type: 'feature',

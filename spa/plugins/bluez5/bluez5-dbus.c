@@ -164,6 +164,9 @@ static int spa_bt_transport_start_volume_timer(struct spa_bt_transport *transpor
 static int spa_bt_transport_stop_release_timer(struct spa_bt_transport *transport);
 static int spa_bt_transport_start_release_timer(struct spa_bt_transport *transport);
 
+static int device_start_timer(struct spa_bt_device *device);
+static int device_stop_timer(struct spa_bt_device *device);
+
 // Working with BlueZ Battery Provider.
 // Developed using https://github.com/dgreid/adhd/commit/655b58f as an example of DBus calls.
 
@@ -822,8 +825,11 @@ static int device_connected(struct spa_bt_monitor *monitor,
 
 	connected = init ? 0 : status;
 
-	device->reconnect_state = connected ? BT_DEVICE_RECONNECT_STOP
-					    : BT_DEVICE_RECONNECT_PROFILE;
+	if (!init) {
+		device->reconnect_state =
+			connected ? BT_DEVICE_RECONNECT_STOP
+				  : BT_DEVICE_RECONNECT_PROFILE;
+	}
 
 	if ((device->connected_profiles != 0) ^ connected) {
 		spa_log_error(monitor->log,
@@ -871,8 +877,11 @@ int spa_bt_device_add_profile(struct spa_bt_device *device, enum spa_bt_profile 
 		device->profiles |= profile;
 	}
 
-	if (!device->added && device->profiles)
-		return device_connected(monitor, device, BT_DEVICE_INIT);
+	if (!device->added && device->profiles) {
+		device_connected(monitor, device, BT_DEVICE_INIT);
+		if (device->reconnect_state == BT_DEVICE_RECONNECT_INIT)
+			device_start_timer(device);
+	}
 
 	return 0;
 }
@@ -946,9 +955,6 @@ static int reconnect_device_profiles(struct spa_bt_device *device)
 
 #define DEVICE_RECONNECT_TIMEOUT_SEC 2
 #define DEVICE_PROFILE_TIMEOUT_SEC 3
-
-static int device_start_timer(struct spa_bt_device *device);
-static int device_stop_timer(struct spa_bt_device *device);
 
 static void device_timer_event(struct spa_source *source)
 {
@@ -3164,12 +3170,10 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		}
 
 		device_update_props(d, props_iter, NULL);
-
+		d->reconnect_state = BT_DEVICE_RECONNECT_INIT;
 		/* Trigger bluez device creation before bluez profile negotiation started so that
 		 * profile connection handlers can receive per-device settings during profile negotiation. */
 		spa_bt_device_add_profile(d, SPA_BT_PROFILE_NULL);
-		d->reconnect_state = BT_DEVICE_RECONNECT_INIT;
-		device_start_timer(d);
 	}
 	else if (spa_streq(interface_name, BLUEZ_MEDIA_ENDPOINT_INTERFACE)) {
 		struct spa_bt_remote_endpoint *ep;

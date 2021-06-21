@@ -478,7 +478,7 @@ static bool check_usb_altsetting_6(struct impl *backend, uint16_t vendor_id, uin
 
 					for (iep = 0; iep < idesc->bNumEndpoints; ++iep) {
 						const struct libusb_endpoint_descriptor *ep = &idesc->endpoint[iep];
-						if ((ep->bmAttributes & 0x3) == LIBUSB_ENDPOINT_TRANSFER_TYPE_ISOCHRONOUS) {
+						if ((ep->bmAttributes & 0x3) == 0x1 /* isochronous */) {
 							ok = true;
 							goto done;
 						}

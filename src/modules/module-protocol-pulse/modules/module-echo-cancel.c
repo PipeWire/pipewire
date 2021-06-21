@@ -190,7 +190,7 @@ struct module *create_module_echo_cancel(struct impl *impl, const char *argument
 	}
 
 	if ((str = pw_properties_get(props, "source_master")) != NULL) {
-		if (pw_endswith(str, ".monitor")) {
+		if (spa_strendswith(str, ".monitor")) {
 			pw_properties_setf(source_props, PW_KEY_NODE_TARGET,
 					"%.*s", (int)strlen(str)-8, str);
 		} else {

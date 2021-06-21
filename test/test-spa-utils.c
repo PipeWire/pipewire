@@ -694,6 +694,26 @@ PWTEST(utils_streq)
 	return PWTEST_PASS;
 }
 
+PWTEST(utils_strendswith)
+{
+	pwtest_bool_true(spa_strendswith("foo", "o"));
+	pwtest_bool_true(spa_strendswith("foobar", "bar"));
+
+	pwtest_bool_false(spa_strendswith(NULL, "bar"));
+	pwtest_bool_false(spa_strendswith("foo", "f"));
+	pwtest_bool_false(spa_strendswith("foo", "fo"));
+	pwtest_bool_false(spa_strendswith("foo", "foobar"));
+
+	return PWTEST_PASS;
+}
+
+PWTEST(utils_strendswith_null_suffix)
+{
+	spa_strendswith("foo", NULL);
+
+	return PWTEST_FAIL;
+}
+
 PWTEST(utils_atob)
 {
 	pwtest_bool_true(spa_atob("true"));
@@ -862,6 +882,9 @@ PWTEST_SUITE(spa_utils)
 	pwtest_add(utils_strtof, PWTEST_NOARG);
 	pwtest_add(utils_strtod, PWTEST_NOARG);
 	pwtest_add(utils_streq, PWTEST_NOARG);
+	pwtest_add(utils_strendswith, PWTEST_NOARG);
+	pwtest_add(utils_strendswith_null_suffix,
+		   PWTEST_ARG_SIGNAL, SIGABRT);
 	pwtest_add(utils_snprintf, PWTEST_NOARG);
 	pwtest_add(utils_snprintf_abort_neg_size,
 		   PWTEST_ARG_SIGNAL, SIGABRT,

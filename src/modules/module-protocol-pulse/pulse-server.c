@@ -1726,7 +1726,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		pw_properties_setf(props,
 				PW_KEY_NODE_TARGET, "%u", source_index);
 	} else if (source_name != NULL) {
-		if (pw_endswith(source_name, ".monitor")) {
+		if (spa_strendswith(source_name, ".monitor")) {
 			pw_properties_setf(props,
 					PW_KEY_NODE_TARGET,
 					"%.*s", (int)strlen(source_name)-8, source_name);
@@ -2125,7 +2125,7 @@ static struct pw_manager_object *find_device(struct client *client,
 		id = SPA_ID_INVALID;
 
 	if (name != NULL && !sink) {
-		if (pw_endswith(name, ".monitor")) {
+		if (spa_strendswith(name, ".monitor")) {
 			name = strndupa(name, strlen(name)-8);
 			monitor = true;
 		} else if (spa_streq(name, DEFAULT_MONITOR)) {
@@ -3903,7 +3903,7 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	}
 
 	if (command == COMMAND_GET_SOURCE_INFO &&
-	    sel.value != NULL && pw_endswith(sel.value, ".monitor")) {
+	    sel.value != NULL && spa_strendswith(sel.value, ".monitor")) {
 		sel.value = strndupa(sel.value, strlen(sel.value)-8);
 	}
 
@@ -4314,7 +4314,7 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 	if (name != NULL) {
 		if (o->props && (str = pw_properties_get(o->props, PW_KEY_NODE_NAME)) != NULL)
 			name = str;
-		else if (pw_endswith(name, ".monitor"))
+		else if (spa_strendswith(name, ".monitor"))
 			name = strndupa(name, strlen(name)-8);
 
 		res = pw_manager_set_metadata(manager, client->metadata_default,

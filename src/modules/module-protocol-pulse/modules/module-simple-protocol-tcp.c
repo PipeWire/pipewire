@@ -171,7 +171,7 @@ struct module *create_module_simple_protocol_tcp(struct impl *impl, const char *
 	}
 
 	if ((str = pw_properties_get(props, "source")) != NULL) {
-		if (pw_endswith(str, ".monitor")) {
+		if (spa_strendswith(str, ".monitor")) {
 			pw_properties_setf(module_props, "capture.node",
 					"%.*s", (int)strlen(str)-8, str);
 		} else {

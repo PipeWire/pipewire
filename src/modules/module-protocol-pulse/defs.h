@@ -197,14 +197,6 @@ static inline int node_state(enum pw_node_state state)
 	return STATE_INVALID;
 }
 
-static inline bool pw_endswith(const char *s, const char *sfx)
-{
-        size_t l1, l2;
-        l1 = strlen(s);
-        l2 = strlen(sfx);
-        return l1 >= l2 && strcmp(s + l1 - l2, sfx) == 0;
-}
-
 enum {
 	SINK_HW_VOLUME_CTRL = 0x0001U,
 	SINK_LATENCY = 0x0002U,

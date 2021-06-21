@@ -62,6 +62,26 @@ static inline bool spa_strneq(const char *s1, const char *s2, size_t len)
 	return SPA_LIKELY(s1 && s2) ? strncmp(s1, s2, len) == 0 : s1 == s2;
 }
 
+
+/**
+ * \return true if \a s ends with the \a suffix or false otherwise.
+ * A \a s is NULL, it never ends with the given \a suffix. A \a suffix of
+ * NULL is a bug in the caller.
+ */
+static inline bool spa_strendswith(const char *s, const char *suffix)
+{
+	size_t l1, l2;
+
+	if (SPA_UNLIKELY(s == NULL))
+	    return false;
+
+	spa_assert(suffix);
+
+	l1 = strlen(s);
+	l2 = strlen(suffix);
+	return l1 >= l2 && spa_streq(s + l1 - l2, suffix);
+}
+
 /**
  * Convert \a str to an int32_t with the given \a base and store the
  * result in \a val.

@@ -921,7 +921,6 @@ static void run_test(struct pwtest_context *ctx, struct pwtest_suite *c, struct 
 	set_test_env(ctx, t);
 	chdir(getenv("TMPDIR"));
 
-	t->result = PWTEST_SYSTEM_ERROR;
 
 	if (t->args.pw_daemon) {
 		pw_daemon = start_pwdaemon(t, write_fds[FD_DAEMON], write_fds[FD_LOG]);

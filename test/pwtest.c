@@ -870,7 +870,8 @@ static int monitor_test_forked(struct pwtest_test *t, pid_t pid, int read_fds[_F
 
 		if (e.data.fd == pidfd) {
 			uint64_t buf;
-			(void)read(pidfd, &buf, sizeof(buf)); /* for timerfd fallback */
+			int ignore SPA_UNUSED;
+			ignore = read(pidfd, &buf, sizeof(buf)); /* for timerfd fallback */
 			if (collect_child(t, pid))
 				break;
 		} else if (e.data.fd == timerfd) {

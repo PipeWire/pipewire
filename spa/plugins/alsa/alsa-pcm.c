@@ -1456,14 +1456,13 @@ static void alsa_on_timeout_event(struct spa_source *source)
 	struct state *state = source->data;
 	snd_pcm_uframes_t delay, target;
 	uint64_t expire;
-	int res;
 
 	if (SPA_UNLIKELY(state->started && spa_system_timerfd_read(state->data_system, state->timerfd, &expire) < 0))
 		spa_log_warn(state->log, NAME" %p: error reading timerfd: %m", state);
 
 	check_position_config(state);
 
-	if (SPA_UNLIKELY((res = get_status(state, &delay, &target)) < 0))
+	if (SPA_UNLIKELY(get_status(state, &delay, &target) < 0))
 		return;
 
 	state->current_time = state->next_time;

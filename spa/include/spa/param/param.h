@@ -57,6 +57,7 @@ enum spa_param_type {
 	SPA_PARAM_Route,		/**< routing configuration as SPA_TYPE_OBJECT_ParamRoute */
 	SPA_PARAM_Control,		/**< Control parameter, a SPA_TYPE_Sequence */
 	SPA_PARAM_Latency,		/**< latency reporting, a SPA_TYPE_OBJECT_ParamLatency */
+	SPA_PARAM_ProcessLatency,	/**< processing latency, a SPA_TYPE_OBJECT_ParamProcessLatency */
 };
 
 /** information about a parameter */
@@ -183,6 +184,14 @@ enum spa_param_latency {
 	SPA_PARAM_LATENCY_maxRate,		/**< max latency (Int) relative to rate */
 	SPA_PARAM_LATENCY_minNs,		/**< min latency (Long) in nanoseconds */
 	SPA_PARAM_LATENCY_maxNs,		/**< max latency (Long) in nanoseconds */
+};
+
+/** properties for SPA_TYPE_OBJECT_ParamProcessLatency */
+enum spa_param_process_latency {
+	SPA_PARAM_PROCESS_LATENCY_START,
+	SPA_PARAM_PROCESS_LATENCY_quantum,	/**< latency relative to quantum (Float) */
+	SPA_PARAM_PROCESS_LATENCY_rate,		/**< latency (Int) relative to rate */
+	SPA_PARAM_PROCESS_LATENCY_ns,		/**< latency (Long) in nanoseconds */
 };
 
 /**

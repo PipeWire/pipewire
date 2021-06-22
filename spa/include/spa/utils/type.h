@@ -96,6 +96,7 @@ enum {
 	SPA_TYPE_OBJECT_ParamRoute,
 	SPA_TYPE_OBJECT_Profiler,
 	SPA_TYPE_OBJECT_ParamLatency,
+	SPA_TYPE_OBJECT_ParamProcessLatency,
 	_SPA_TYPE_OBJECT_LAST,			/**< not part of ABI */
 
 	/* vendor extensions */

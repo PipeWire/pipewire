@@ -60,6 +60,7 @@ static const struct spa_type_info spa_type_param[] = {
 	{ SPA_PARAM_Route, SPA_TYPE_OBJECT_ParamRoute, SPA_TYPE_INFO_PARAM_ID_BASE "Route", NULL },
 	{ SPA_PARAM_Control, SPA_TYPE_Sequence, SPA_TYPE_INFO_PARAM_ID_BASE "Control", NULL },
 	{ SPA_PARAM_Latency, SPA_TYPE_OBJECT_ParamLatency, SPA_TYPE_INFO_PARAM_ID_BASE "Latency", NULL },
+	{ SPA_PARAM_ProcessLatency, SPA_TYPE_OBJECT_ParamProcessLatency, SPA_TYPE_INFO_PARAM_ID_BASE "ProcessLatency", NULL },
 	{ 0, 0, NULL, NULL },
 };
 
@@ -385,7 +386,7 @@ static const struct spa_type_info spa_type_profiler[] = {
 };
 
 #define SPA_TYPE_INFO_PARAM_Latency		SPA_TYPE_INFO_PARAM_BASE "Latency"
-#define SPA_TYPE_INFO_PARAM_LATENCY_BASE		SPA_TYPE_INFO_PARAM_Latency ":"
+#define SPA_TYPE_INFO_PARAM_LATENCY_BASE	SPA_TYPE_INFO_PARAM_Latency ":"
 
 static const struct spa_type_info spa_type_param_latency[] = {
 	{ SPA_PARAM_LATENCY_START, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_LATENCY_BASE, spa_type_param, },
@@ -396,6 +397,17 @@ static const struct spa_type_info spa_type_param_latency[] = {
 	{ SPA_PARAM_LATENCY_maxRate, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_LATENCY_BASE "maxRate", NULL, },
 	{ SPA_PARAM_LATENCY_minNs, SPA_TYPE_Long, SPA_TYPE_INFO_PARAM_LATENCY_BASE "minNs", NULL, },
 	{ SPA_PARAM_LATENCY_maxNs, SPA_TYPE_Long, SPA_TYPE_INFO_PARAM_LATENCY_BASE "maxNs", NULL, },
+	{ 0, 0, NULL, NULL },
+};
+
+#define SPA_TYPE_INFO_PARAM_ProcessLatency		SPA_TYPE_INFO_PARAM_BASE "ProcessLatency"
+#define SPA_TYPE_INFO_PARAM_PROCESS_LATENCY_BASE	SPA_TYPE_INFO_PARAM_ProcessLatency ":"
+
+static const struct spa_type_info spa_type_param_process_latency[] = {
+	{ SPA_PARAM_PROCESS_LATENCY_START, SPA_TYPE_Id, SPA_TYPE_INFO_PARAM_LATENCY_BASE, spa_type_param, },
+	{ SPA_PARAM_PROCESS_LATENCY_quantum, SPA_TYPE_Float, SPA_TYPE_INFO_PARAM_PROCESS_LATENCY_BASE "quantum", NULL, },
+	{ SPA_PARAM_PROCESS_LATENCY_rate, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_PROCESS_LATENCY_BASE "rate", NULL, },
+	{ SPA_PARAM_PROCESS_LATENCY_ns, SPA_TYPE_Long, SPA_TYPE_INFO_PARAM_PROCESS_LATENCY_BASE "ns", NULL, },
 	{ 0, 0, NULL, NULL },
 };
 

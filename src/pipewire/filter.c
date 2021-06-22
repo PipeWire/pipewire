@@ -147,9 +147,12 @@ struct filter {
 	uint32_t change_mask_all;
 	struct spa_node_info info;
 	struct spa_list param_list;
-#define IDX_Props	0
-#define N_NODE_PARAMS	1
+#define IDX_Props		0
+#define IDX_ProcessLatency	1
+#define N_NODE_PARAMS		2
 	struct spa_param_info params[N_NODE_PARAMS];
+
+	struct spa_process_latency_info process_latency;
 
 	struct data data;
 	uintptr_t seq;
@@ -173,6 +176,8 @@ static int get_param_index(uint32_t id)
 	switch (id) {
 	case SPA_PARAM_Props:
 		return IDX_Props;
+	case SPA_PARAM_ProcessLatency:
+		return IDX_ProcessLatency;
 	default:
 		return -1;
 	}
@@ -236,6 +241,8 @@ static struct param *add_param(struct filter *impl, struct port *port,
 			}
 		}
 	}
+	if (id == SPA_PARAM_ProcessLatency && port == NULL)
+		spa_process_latency_parse(param, &impl->process_latency);
 
 	p->id = id;
 	p->flags = flags;
@@ -732,6 +739,9 @@ static int default_latency(struct filter *impl, struct port *port, enum spa_dire
 			continue;
 		spa_latency_info_combine(&info, &p->latency[direction]);
 	}
+
+	spa_process_latency_info_add(&impl->process_latency, &info);
+
 	spa_list_for_each(p, &impl->port_list, link) {
 		uint8_t buffer[4096];
 		struct spa_pod_builder b;
@@ -1431,6 +1441,7 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->info.flags = impl->process_rt ? SPA_NODE_FLAG_RT : 0;
 	impl->info.props = &filter->properties->dict;
 	impl->params[IDX_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_WRITE);
+	impl->params[IDX_ProcessLatency] = SPA_PARAM_INFO(SPA_PARAM_ProcessLatency, SPA_PARAM_INFO_WRITE);
 	impl->info.params = impl->params;
 	impl->info.n_params = N_NODE_PARAMS;
 	impl->info.change_mask = impl->change_mask_all;

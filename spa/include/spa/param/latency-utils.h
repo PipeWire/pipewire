@@ -112,6 +112,52 @@ spa_latency_build(struct spa_pod_builder *builder, uint32_t id, const struct spa
 			SPA_PARAM_LATENCY_maxNs, SPA_POD_Long(info->max_ns));
 }
 
+struct spa_process_latency_info {
+	float quantum;
+	uint32_t rate;
+	uint64_t ns;
+};
+
+#define SPA_PROCESS_LATENCY_INFO_INIT(...)	(struct spa_process_latency_info) { __VA_ARGS__ }
+
+static inline int
+spa_process_latency_parse(const struct spa_pod *latency, struct spa_process_latency_info *info)
+{
+	int res;
+	spa_zero(*info);
+	if ((res = spa_pod_parse_object(latency,
+			SPA_TYPE_OBJECT_ParamProcessLatency, NULL,
+			SPA_PARAM_PROCESS_LATENCY_quantum, SPA_POD_OPT_Float(&info->quantum),
+			SPA_PARAM_PROCESS_LATENCY_rate, SPA_POD_OPT_Int(&info->rate),
+			SPA_PARAM_PROCESS_LATENCY_ns, SPA_POD_OPT_Long(&info->ns))) < 0)
+		return res;
+	return 0;
+}
+
+static inline struct spa_pod *
+spa_process_latency_build(struct spa_pod_builder *builder, uint32_t id,
+		const struct spa_process_latency_info *info)
+{
+	return (struct spa_pod *)spa_pod_builder_add_object(builder,
+			SPA_TYPE_OBJECT_ParamProcessLatency, id,
+			SPA_PARAM_PROCESS_LATENCY_quantum, SPA_POD_Float(info->quantum),
+			SPA_PARAM_PROCESS_LATENCY_rate, SPA_POD_Int(info->rate),
+			SPA_PARAM_PROCESS_LATENCY_ns, SPA_POD_Long(info->ns));
+}
+
+static inline int
+spa_process_latency_info_add(const struct spa_process_latency_info *process,
+		struct spa_latency_info *info)
+{
+	info->min_quantum += process->quantum;
+	info->max_quantum += process->quantum;
+	info->min_rate += process->rate;
+	info->max_rate += process->rate;
+	info->min_ns += process->ns;
+	info->max_ns += process->ns;
+	return 0;
+}
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

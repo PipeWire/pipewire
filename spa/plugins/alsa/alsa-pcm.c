@@ -1471,7 +1471,8 @@ static void alsa_on_timeout_event(struct spa_source *source)
 	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_TRACE))) {
 		struct timespec now;
 		uint64_t nsec;
-		spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now);
+		if (spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now) < 0)
+		    return;
 		nsec = SPA_TIMESPEC_TO_NSEC(&now);
 		spa_log_trace_fp(state->log, NAME" %p: timeout %lu %lu %"PRIu64" %"PRIu64" %"PRIi64
 				" %d %"PRIi64, state, delay, target, nsec, state->current_time,
@@ -1509,7 +1510,10 @@ static void reset_buffers(struct state *this)
 static int set_timers(struct state *state)
 {
 	struct timespec now;
-	spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now);
+	int res;
+
+	if ((res = spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now)) < 0)
+	    return res;
 	state->next_time = SPA_TIMESPEC_TO_NSEC(&now);
 
 	if (state->following) {

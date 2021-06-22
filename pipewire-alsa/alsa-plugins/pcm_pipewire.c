@@ -59,6 +59,7 @@ typedef struct {
 
 	char *node_name;
 	char *target;
+	char *role;
 
 	int fd;
 	int error;
@@ -509,6 +510,9 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 		pw_properties_set(props, PW_KEY_MEDIA_CATEGORY,
 				io->stream == SND_PCM_STREAM_PLAYBACK ?
 				"Playback" : "Capture");
+	if (pw->role != NULL &&
+		pw_properties_get(props, PW_KEY_MEDIA_ROLE) == NULL)
+		pw_properties_setf(props, PW_KEY_MEDIA_ROLE, "%s", pw->role);
 
 	pw->stream = pw_stream_new(pw->core, pw->node_name, props);
 	if (pw->stream == NULL)
@@ -958,6 +962,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 				const char *server_name,
 				const char *playback_node,
 				const char *capture_node,
+				const char *role,
 				snd_pcm_stream_t stream,
 				int mode,
 				uint32_t flags,
@@ -1012,6 +1017,8 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 		else
 			pw->target = capture_node ? strdup(capture_node) : NULL;
 	}
+
+	pw->role = (role && *role) ? strdup(role) : NULL;
 
 	pw->main_loop = pw_thread_loop_new("alsa-pipewire", NULL);
 	if (pw->main_loop == NULL) {
@@ -1091,6 +1098,7 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 	const char *server_name = NULL;
 	const char *playback_node = NULL;
 	const char *capture_node = NULL;
+	const char *role = NULL;
 	snd_pcm_format_t format = SND_PCM_FORMAT_UNKNOWN;
 	int rate = 0;
 	int channels = 0;
@@ -1123,6 +1131,10 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 		}
 		if (spa_streq(id, "capture_node")) {
 			snd_config_get_string(n, &capture_node);
+			continue;
+		}
+		if (spa_streq(id, "role")) {
+			snd_config_get_string(n, &role);
 			continue;
 		}
 		if (spa_streq(id, "exclusive")) {
@@ -1174,7 +1186,7 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 	}
 
 	err = snd_pcm_pipewire_open(pcmp, name, node_name, server_name, playback_node,
-			capture_node, stream, mode, flags, rate, format,
+			capture_node, role, stream, mode, flags, rate, format,
 			channels, period_bytes);
 
 	return err;

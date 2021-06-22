@@ -395,6 +395,69 @@ static bool filter_set_state(struct pw_filter *filter, enum pw_filter_state stat
 	return res;
 }
 
+static int enum_params(struct filter *d, struct spa_list *param_list, int seq,
+		uint32_t id, uint32_t start, uint32_t num, const struct spa_pod *filter)
+{
+	struct spa_result_node_params result;
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = { 0 };
+	uint32_t count = 0;
+	struct param *p;
+	bool found = false;
+
+	spa_return_val_if_fail(num != 0, -EINVAL);
+
+	result.id = id;
+	result.next = 0;
+
+	pw_log_debug(NAME" %p: %p param id %d (%s) start:%d num:%d", d, param_list, id,
+			spa_debug_type_find_name(spa_type_param, id),
+			start, num);
+
+	spa_list_for_each(p, param_list, link) {
+		struct spa_pod *param;
+
+		result.index = result.next++;
+		if (result.index < start)
+			continue;
+
+		param = p->param;
+		if (param == NULL || p->id != id)
+			continue;
+
+		found = true;
+
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		if (spa_pod_filter(&b, &result.param, param, filter) != 0)
+			continue;
+
+		spa_node_emit_result(&d->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+
+		if (++count == num)
+			break;
+	}
+	return found ? 0 : -ENOENT;
+}
+
+static int impl_enum_params(void *object, int seq, uint32_t id, uint32_t start, uint32_t num,
+				 const struct spa_pod *filter)
+{
+	struct filter *impl = object;
+	return enum_params(impl, &impl->param_list, seq, id, start, num, filter);
+}
+
+static int impl_set_param(void *object, uint32_t id, uint32_t flags, const struct spa_pod *param)
+{
+	struct filter *impl = object;
+	struct pw_filter *filter = &impl->this;
+
+	if (id != SPA_PARAM_Props)
+		return -ENOTSUP;
+
+	pw_filter_emit_param_changed(filter, NULL, id, param);
+	return 0;
+}
+
 static int
 do_set_position(struct spa_loop *loop,
 		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
@@ -558,48 +621,11 @@ static int impl_port_enum_params(void *object, int seq,
 {
 	struct filter *d = object;
 	struct port *port;
-	struct spa_result_node_params result;
-	uint8_t buffer[1024];
-	struct spa_pod_builder b = { 0 };
-	uint32_t count = 0;
-	struct param *p;
-	bool found = false;
-
-	spa_return_val_if_fail(num != 0, -EINVAL);
-
-	result.id = id;
-	result.next = 0;
 
 	if ((port = get_port(d, direction, port_id)) == NULL)
 		return -EINVAL;
 
-	pw_log_debug(NAME" %p: port %p param id %d (%s) start:%d num:%d", d, port, id,
-			spa_debug_type_find_name(spa_type_param, id),
-			start, num);
-
-	spa_list_for_each(p, &port->param_list, link) {
-		struct spa_pod *param;
-
-		result.index = result.next++;
-		if (result.index < start)
-			continue;
-
-		param = p->param;
-		if (param == NULL || p->id != id)
-			continue;
-
-		found = true;
-
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if (spa_pod_filter(&b, &result.param, param, filter) != 0)
-			continue;
-
-		spa_node_emit_result(&d->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
-
-		if (++count == num)
-			break;
-	}
-	return found ? 0 : -ENOENT;
+	return enum_params(d, &port->param_list, seq, id, start, num, filter);
 }
 
 static int update_params(struct filter *impl, struct port *port, uint32_t id,
@@ -1067,6 +1093,8 @@ static const struct spa_node_methods impl_node = {
 	SPA_VERSION_NODE_METHODS,
 	.add_listener = impl_add_listener,
 	.set_callbacks = impl_set_callbacks,
+	.enum_params = impl_enum_params,
+	.set_param = impl_set_param,
 	.set_io = impl_set_io,
 	.send_command = impl_send_command,
 	.port_set_io = impl_port_set_io,
@@ -1441,7 +1469,7 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->info.flags = impl->process_rt ? SPA_NODE_FLAG_RT : 0;
 	impl->info.props = &filter->properties->dict;
 	impl->params[IDX_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_WRITE);
-	impl->params[IDX_ProcessLatency] = SPA_PARAM_INFO(SPA_PARAM_ProcessLatency, SPA_PARAM_INFO_WRITE);
+	impl->params[IDX_ProcessLatency] = SPA_PARAM_INFO(SPA_PARAM_ProcessLatency, 0);
 	impl->info.params = impl->params;
 	impl->info.n_params = N_NODE_PARAMS;
 	impl->info.change_mask = impl->change_mask_all;

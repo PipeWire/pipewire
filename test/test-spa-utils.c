@@ -143,7 +143,8 @@ PWTEST(utils_abi)
 	pwtest_int_eq(SPA_TYPE_OBJECT_ParamRoute, 0x40009);
 	pwtest_int_eq(SPA_TYPE_OBJECT_Profiler, 0x4000a);
 	pwtest_int_eq(SPA_TYPE_OBJECT_ParamLatency, 0x4000b);
-	pwtest_int_eq(_SPA_TYPE_OBJECT_LAST, 0x4000c);
+	pwtest_int_eq(SPA_TYPE_OBJECT_ParamProcessLatency, 0x4000c);
+	pwtest_int_eq(_SPA_TYPE_OBJECT_LAST, 0x4000d);
 
 	pwtest_int_eq(SPA_TYPE_VENDOR_PipeWire, 0x02000000);
 	pwtest_int_eq(SPA_TYPE_VENDOR_Other, 0x7f000000);

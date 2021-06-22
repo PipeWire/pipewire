@@ -603,6 +603,13 @@ static struct object *find_port(struct client *c, const char *name)
 	}
 	return NULL;
 }
+static struct object *find_type(struct client *c, uint32_t id, uint32_t type)
+{
+	struct object *o = pw_map_lookup(&c->context.globals, id);
+	if (o != NULL && o->type == type)
+		return o;
+	return NULL;
+}
 
 static struct object *find_link(struct client *c, uint32_t src, uint32_t dst)
 {
@@ -2297,9 +2304,7 @@ static int metadata_property(void *object, uint32_t id,
 				c->metadata->default_audio_source[0] = '\0';
 		}
 	} else {
-		pthread_mutex_lock(&c->context.lock);
 		o = pw_map_lookup(&c->context.globals, id);
-		pthread_mutex_unlock(&c->context.lock);
 		if (o == NULL)
 			return -EINVAL;
 
@@ -2518,10 +2523,9 @@ static void registry_event_global(void *data, uint32_t id,
 
 			pthread_mutex_lock(&c->context.lock);
 			spa_list_append(&c->context.ports, &o->link);
-			ot = pw_map_lookup(&c->context.globals, node_id);
 			pthread_mutex_unlock(&c->context.lock);
 
-			if (ot == NULL || ot->type != INTERFACE_Node)
+			if ((ot = find_type(c, node_id, INTERFACE_Node)) == NULL)
 				goto exit_free;
 
 			if (is_monitor && !c->merge_monitor)
@@ -2592,9 +2596,15 @@ static void registry_event_global(void *data, uint32_t id,
 			goto exit_free;
 		o->port_link.src = pw_properties_parse_int(str);
 
+		if (find_type(c, o->port_link.src, INTERFACE_Port) == NULL)
+			goto exit_free;
+
 		if ((str = spa_dict_lookup(props, PW_KEY_LINK_INPUT_PORT)) == NULL)
 			goto exit_free;
 		o->port_link.dst = pw_properties_parse_int(str);
+
+		if (find_type(c, o->port_link.dst, INTERFACE_Port) == NULL)
+			goto exit_free;
 
 		pw_log_debug(NAME" %p: add link %d %d->%d", c, id,
 				o->port_link.src, o->port_link.dst);
@@ -2669,13 +2679,13 @@ static void registry_event_global_remove(void *object, uint32_t id)
 
 	pw_log_debug(NAME" %p: removed: %u", c, id);
 
-	pthread_mutex_lock(&c->context.lock);
 	o = pw_map_lookup(&c->context.globals, id);
-	if (o != NULL)
-	        spa_list_remove(&o->link);
-	pthread_mutex_unlock(&c->context.lock);
 	if (o == NULL)
 		return;
+
+	pthread_mutex_lock(&c->context.lock);
+	spa_list_remove(&o->link);
+	pthread_mutex_unlock(&c->context.lock);
 
 	/* JACK clients expect the objects to hang around after
 	 * they are unregistered. We keep the memory around for that
@@ -2706,8 +2716,13 @@ static void registry_event_global_remove(void *object, uint32_t id)
 				o->id, 0, c->portregistration_arg);
 		break;
 	case INTERFACE_Link:
-		do_callback(c, connect_callback,
-				o->port_link.src, o->port_link.dst, 0, c->connect_arg);
+		if (find_type(c, o->port_link.src, INTERFACE_Port) != NULL &&
+		    find_type(c, o->port_link.dst, INTERFACE_Port) != NULL) {
+			do_callback(c, connect_callback,
+					o->port_link.src, o->port_link.dst, 0, c->connect_arg);
+		} else
+			pw_log_warn("unlink between unknown ports %d and %d",
+					o->port_link.src, o->port_link.dst);
 		break;
 	}
 
@@ -4073,9 +4088,9 @@ const char ** jack_port_get_all_connections (const jack_client_t *client,
 	pthread_mutex_lock(&c->context.lock);
 	spa_list_for_each(l, &c->context.links, link) {
 		if (l->port_link.src == o->id)
-			p = pw_map_lookup(&c->context.globals, l->port_link.dst);
+			p = find_type(c, l->port_link.dst, INTERFACE_Port);
 		else if (l->port_link.dst == o->id)
-			p = pw_map_lookup(&c->context.globals, l->port_link.src);
+			p = find_type(c, l->port_link.src, INTERFACE_Port);
 		else
 			continue;
 
@@ -4869,21 +4884,15 @@ jack_port_t * jack_port_by_id (jack_client_t *client,
                                jack_port_id_t port_id)
 {
 	struct client *c = (struct client *) client;
-	struct object *res = NULL, *o;
+	struct object *res = NULL;
 
 	spa_return_val_if_fail(c != NULL, NULL);
 
 	pthread_mutex_lock(&c->context.lock);
 
-	o = pw_map_lookup(&c->context.globals, port_id);
-	pw_log_debug(NAME" %p: port %d -> %p", c, port_id, o);
+	res = find_type(c, port_id, INTERFACE_Port);
+	pw_log_debug(NAME" %p: port %d -> %p", c, port_id, res);
 
-	if (o == NULL || o->type != INTERFACE_Port)
-		goto exit;
-
-	res = o;
-
-      exit:
 	pthread_mutex_unlock(&c->context.lock);
 
 	if (res == NULL)

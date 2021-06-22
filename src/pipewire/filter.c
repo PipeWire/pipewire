@@ -241,13 +241,16 @@ static struct param *add_param(struct filter *impl, struct port *port,
 	memcpy(p->param, param, SPA_POD_SIZE(param));
 	SPA_POD_OBJECT_ID(p->param) = id;
 
+	pw_log_debug(NAME" %p: port %p param id %d (%s)", impl, p, id,
+			spa_debug_type_find_name(spa_type_param, id));
+
 	if (port) {
 		idx = get_port_param_index(id);
 		spa_list_append(&port->param_list, &p->link);
 		if (idx != -1) {
 			port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 			port->params[idx].flags |= SPA_PARAM_INFO_READ;
-			port->params[idx].flags ^= SPA_PARAM_INFO_SERIAL;
+			port->params[idx].user++;
 		}
 	} else {
 		idx = get_param_index(id);
@@ -255,7 +258,7 @@ static struct param *add_param(struct filter *impl, struct port *port,
 		if (idx != -1) {
 			impl->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 			impl->params[idx].flags |= SPA_PARAM_INFO_READ;
-			impl->params[idx].flags ^= SPA_PARAM_INFO_SERIAL;
+			impl->params[idx].user++;
 		}
 	}
 	return p;
@@ -442,21 +445,41 @@ static int impl_send_command(void *object, const struct spa_command *command)
 
 static void emit_node_info(struct filter *d, bool full)
 {
+	uint32_t i;
 	uint64_t old = full ? d->info.change_mask : 0;
 	if (full)
 		d->info.change_mask = d->change_mask_all;
-	if (d->info.change_mask != 0)
+	if (d->info.change_mask != 0) {
+		if (d->info.change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
+			for (i = 0; i < d->info.n_params; i++) {
+				if (d->params[i].user > 0) {
+					d->params[i].flags ^= SPA_PARAM_INFO_SERIAL;
+					d->params[i].user = 0;
+				}
+			}
+		}
 		spa_node_emit_info(&d->hooks, &d->info);
+	}
 	d->info.change_mask = old;
 }
 
 static void emit_port_info(struct filter *d, struct port *p, bool full)
 {
+	uint32_t i;
 	uint64_t old = full ? p->info.change_mask : 0;
 	if (full)
 		p->info.change_mask = p->change_mask_all;
-	if (p->info.change_mask != 0)
+	if (p->info.change_mask != 0) {
+		if (p->info.change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
+			for (i = 0; i < p->info.n_params; i++) {
+				if (p->params[i].user > 0) {
+					p->params[i].flags ^= SPA_PARAM_INFO_SERIAL;
+					p->params[i].user = 0;
+				}
+			}
+		}
 		spa_node_emit_port_info(&d->hooks, p->direction, p->id, &p->info);
+	}
 	p->info.change_mask = old;
 }
 

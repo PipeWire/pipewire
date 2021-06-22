@@ -117,6 +117,9 @@ enum pw_filter_flags {
 	PW_FILTER_FLAG_DRIVER		= (1 << 1),	/**< be a driver */
 	PW_FILTER_FLAG_RT_PROCESS	= (1 << 2),	/**< call process from the realtime
 							  *  thread */
+	PW_FILTER_FLAG_CUSTOM_LATENCY	= (1 << 3),	/**< don't call the default latency algorithm
+							  *  but emit the param_changed event for the
+							  *  ports when Latency params are received. */
 };
 
 enum pw_filter_port_flags {

@@ -41,7 +41,7 @@ extern "C" {
  */
 
 /**
- * \addtogroup pw_array
+ * \addtogroup pw_log
  * \{
  */
 /** The global log level */

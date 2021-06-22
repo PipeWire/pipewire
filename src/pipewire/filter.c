@@ -1492,6 +1492,23 @@ void *pw_filter_add_port(struct pw_filter *filter,
 	p->props = props;
 	p->flags = flags;
 
+	p->change_mask_all = SPA_PORT_CHANGE_MASK_FLAGS |
+		SPA_PORT_CHANGE_MASK_PROPS;
+	p->info = SPA_PORT_INFO_INIT();
+	p->info.flags = 0;
+	if (SPA_FLAG_IS_SET(flags, PW_FILTER_PORT_FLAG_ALLOC_BUFFERS))
+		p->info.flags |= SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
+	p->info.props = &p->props->dict;
+	p->change_mask_all |= SPA_PORT_CHANGE_MASK_PARAMS;
+	p->params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
+	p->params[IDX_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);
+	p->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
+	p->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	p->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	p->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_WRITE);
+	p->info.params = p->params;
+	p->info.n_params = N_PORT_PARAMS;
+
 	/* first configure default params */
 	add_port_params(impl, p);
 	if ((str = pw_properties_get(props, PW_KEY_FORMAT_DSP)) != NULL) {
@@ -1506,23 +1523,6 @@ void *pw_filter_add_port(struct pw_filter *filter,
 	/* then override with user provided if any */
 	if (update_params(impl, p, SPA_ID_INVALID, params, n_params) < 0)
 		goto error_free;
-
-	p->change_mask_all = SPA_PORT_CHANGE_MASK_FLAGS |
-		SPA_PORT_CHANGE_MASK_PROPS;
-	p->info = SPA_PORT_INFO_INIT();
-	p->info.flags = 0;
-	if (SPA_FLAG_IS_SET(flags, PW_FILTER_PORT_FLAG_ALLOC_BUFFERS))
-		p->info.flags |= SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
-	p->info.props = &p->props->dict;
-	p->change_mask_all |= SPA_PORT_CHANGE_MASK_PARAMS;
-	p->params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-	p->params[IDX_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);
-	p->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
-	p->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	p->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
-	p->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_WRITE);
-	p->info.params = p->params;
-	p->info.n_params = N_PORT_PARAMS;
 
 	emit_port_info(impl, p, true);
 

@@ -310,6 +310,9 @@ static struct port *alloc_port(struct filter *filter,
 
 static inline struct port *get_port(struct filter *filter, enum spa_direction direction, uint32_t port_id)
 {
+	if ((direction != SPA_DIRECTION_INPUT && direction != SPA_DIRECTION_OUTPUT) ||
+	    port_id >= MAX_PORTS)
+		return NULL;
 	return filter->ports[direction][port_id];
 }
 

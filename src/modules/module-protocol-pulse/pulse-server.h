@@ -39,6 +39,8 @@ extern "C" {
 
 #define PW_PROTOCOL_PULSE_USAGE	"[ server.address=(tcp:[<ip>:]<port>|unix:<path>)[,...] ] "		\
 
+struct pw_context;
+struct pw_properties;
 struct pw_protocol_pulse;
 struct pw_protocol_pulse_server;
 

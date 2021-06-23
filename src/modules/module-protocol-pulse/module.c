@@ -238,6 +238,7 @@ static const struct module_info module_list[] = {
 #endif
 #ifdef HAVE_ROC
 	{ "module-roc-sink", create_module_roc_sink, },
+	{ "module-roc-source", create_module_roc_source, },
 #endif
 	{ NULL, }
 };

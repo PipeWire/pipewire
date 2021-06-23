@@ -161,6 +161,15 @@ if avahi_dep.found()
   cdata.set('HAVE_AVAHI', 1)
 endif
 
+roc_lib = cc.find_library('roc', required: get_option('roc'))
+if roc_lib.found()
+  pipewire_module_protocol_pulse_sources += [
+    'module-protocol-pulse/modules/module-roc-sink.c',
+  ]
+  pipewire_module_protocol_pulse_deps += roc_lib
+  cdata.set('HAVE_ROC', 1)
+endif
+
 pipewire_module_protocol_pulse = shared_library('pipewire-module-protocol-pulse',
   pipewire_module_protocol_pulse_sources,
   include_directories : [configinc, spa_inc],

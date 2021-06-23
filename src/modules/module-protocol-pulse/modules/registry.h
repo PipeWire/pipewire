@@ -44,5 +44,6 @@ struct module *create_module_pipe_source(struct impl *impl, const char *argument
 struct module *create_module_pipe_sink(struct impl *impl, const char *argument);
 struct module *create_module_zeroconf_discover(struct impl *impl, const char *argument);
 struct module *create_module_zeroconf_publish(struct impl *impl, const char *argument);
+struct module *create_module_roc_sink(struct impl *impl, const char *argument);
 
 #endif

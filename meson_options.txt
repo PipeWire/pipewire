@@ -183,6 +183,10 @@ option('libpulse',
        description: 'Enable code that depends on libpulse',
        type: 'feature',
        value: 'auto')
+option('roc',
+       description: 'Enable code that depends on roc toolkit',
+       type: 'feature',
+       value: 'auto')
 option('avahi',
        description: 'Enable code that depends on avahi',
        type: 'feature',

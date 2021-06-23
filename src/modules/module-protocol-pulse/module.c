@@ -236,6 +236,9 @@ static const struct module_info module_list[] = {
 #ifdef HAVE_AVAHI
 	{ "module-zeroconf-publish", create_module_zeroconf_publish, },
 #endif
+#ifdef HAVE_ROC
+	{ "module-roc-sink", create_module_roc_sink, },
+#endif
 	{ NULL, }
 };
 

@@ -2587,7 +2587,8 @@ static void registry_event_global(void *data, uint32_t id,
 
 		if ((str = spa_dict_lookup(props, PW_KEY_PORT_ID)) != NULL)
 			snprintf(o->port.system, sizeof(o->port.system), "system:%s_%d",
-					flags & JackPortIsInput ? "playback" : "capture",
+					flags & JackPortIsInput ? "playback" :
+					is_monitor ? "monitor" : "capture",
 					atoi(str)+1);
 
 		o->port.flags = flags;

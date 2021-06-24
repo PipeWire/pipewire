@@ -381,6 +381,11 @@ int resample_native_init(struct resample *r)
 	build_filter(d->filter, d->filter_stride, n_taps, n_phases, scale);
 
 	d->info = find_resample_info(SPA_AUDIO_FORMAT_F32, r->cpu_flags);
+	if (SPA_UNLIKELY(!d->info))
+	{
+	    spa_log_error(r->log, "failed to find suitable resample format!");
+	    return -1;
+	}
 
 	spa_log_debug(r->log, "native %p: q:%d in:%d out:%d n_taps:%d n_phases:%d features:%08x:%08x",
 			r, r->quality, in_rate, out_rate, n_taps, n_phases,

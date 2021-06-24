@@ -107,9 +107,10 @@ struct object {
 
 	struct client *client;
 
-#define INTERFACE_Port	0
-#define INTERFACE_Node	1
-#define INTERFACE_Link	2
+#define INTERFACE_Invalid	0
+#define INTERFACE_Port		1
+#define INTERFACE_Node		2
+#define INTERFACE_Link		3
 	uint32_t type;
 	uint32_t id;
 
@@ -413,12 +414,23 @@ static struct object * alloc_object(struct client *c, int type)
 	return o;
 }
 
-static void free_object(struct client *c, struct object *o)
+static void unlink_object(struct client *c, struct object *o)
 {
 	pthread_mutex_lock(&c->context.lock);
-        spa_list_remove(&o->link);
+	spa_list_remove(&o->link);
 	pthread_mutex_unlock(&c->context.lock);
+}
+
+static void recycle_object(struct client *c, struct object *o)
+{
 	spa_list_append(&c->context.free_objects, &o->link);
+	o->type = INTERFACE_Invalid;
+}
+
+static void free_object(struct client *c, struct object *o)
+{
+	unlink_object(c, o);
+	recycle_object(c, o);
 }
 
 static void init_mix(struct mix *mix, uint32_t mix_id, struct port *port)
@@ -603,9 +615,18 @@ static struct object *find_port(struct client *c, const char *name)
 	}
 	return NULL;
 }
-static struct object *find_type(struct client *c, uint32_t id, uint32_t type)
+
+static struct object *find_id(struct client *c, uint32_t id)
 {
 	struct object *o = pw_map_lookup(&c->context.globals, id);
+	if (o != NULL && o->type == INTERFACE_Invalid)
+		return NULL;
+	return o;
+}
+
+static struct object *find_type(struct client *c, uint32_t id, uint32_t type)
+{
+	struct object *o = find_id(c, id);
 	if (o != NULL && o->type == type)
 		return o;
 	return NULL;
@@ -2304,8 +2325,7 @@ static int metadata_property(void *object, uint32_t id,
 				c->metadata->default_audio_source[0] = '\0';
 		}
 	} else {
-		o = pw_map_lookup(&c->context.globals, id);
-		if (o == NULL)
+		if ((o = find_id(c, id)) == NULL)
 			return -EINVAL;
 
 		switch (o->type) {
@@ -2679,18 +2699,9 @@ static void registry_event_global_remove(void *object, uint32_t id)
 
 	pw_log_debug(NAME" %p: removed: %u", c, id);
 
-	o = pw_map_lookup(&c->context.globals, id);
-	if (o == NULL)
+	if ((o = find_id(c, id)) == NULL)
 		return;
 
-	pthread_mutex_lock(&c->context.lock);
-	spa_list_remove(&o->link);
-	pthread_mutex_unlock(&c->context.lock);
-
-	/* JACK clients expect the objects to hang around after
-	 * they are unregistered. We keep the memory around for that
-	 * reason but reuse it when we can. */
-	spa_list_append(&c->context.free_objects, &o->link);
 	if (o->proxy) {
 		pw_proxy_destroy(o->proxy);
 		o->proxy = NULL;
@@ -2705,19 +2716,21 @@ static void registry_event_global_remove(void *object, uint32_t id)
 				c->metadata->default_audio_source[0] = '\0';
 		}
 		if (find_node(c, o->node.name) == NULL) {
-			pw_log_info(NAME" %p: client removed \"%s\"", c, o->node.name);
+			pw_log_info(NAME" %p: client %u removed \"%s\"", c, o->id, o->node.name);
 			do_callback(c, registration_callback,
 					o->node.name, 0, c->registration_arg);
 		}
 		break;
 	case INTERFACE_Port:
-		pw_log_info(NAME" %p: port removed \"%s\"", c, o->port.name);
+		pw_log_info(NAME" %p: port %u removed \"%s\"", c, o->id, o->port.name);
 		do_callback(c, portregistration_callback,
 				o->id, 0, c->portregistration_arg);
 		break;
 	case INTERFACE_Link:
 		if (find_type(c, o->port_link.src, INTERFACE_Port) != NULL &&
 		    find_type(c, o->port_link.dst, INTERFACE_Port) != NULL) {
+			pw_log_info(NAME" %p: link %u %d -> %d removed", c, o->id,
+					o->port_link.src, o->port_link.dst);
 			do_callback(c, connect_callback,
 					o->port_link.src, o->port_link.dst, 0, c->connect_arg);
 		} else
@@ -2726,6 +2739,11 @@ static void registry_event_global_remove(void *object, uint32_t id)
 		break;
 	}
 
+	/* JACK clients expect the objects to hang around after
+	 * they are unregistered. We keep the memory around for that
+	 * reason but reuse it when we can. */
+	unlink_object(c, o);
+	recycle_object(c, o);
 	/* we keep the object available with the id because jack clients
 	 * tend to access the objects with it later.
 	 *

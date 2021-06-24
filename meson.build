@@ -90,7 +90,7 @@ cc_flags = common_flags + [
 ]
 add_project_arguments(cc.get_supported_arguments(cc_flags), language: 'c')
 
-have_cpp = add_languages('cpp', required : false)
+have_cpp = add_languages('cpp', native: false, required : false)
 
 if have_cpp
   cxx = meson.get_compiler('cpp')

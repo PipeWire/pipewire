@@ -296,6 +296,15 @@ static DBusHandlerResult filter_message (DBusConnection *connection,
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
+static const char *type_to_string(enum spa_dbus_type type) {
+	switch (type) {
+		case SPA_DBUS_TYPE_SESSION: return "session";
+		case SPA_DBUS_TYPE_SYSTEM: return "system";
+		case SPA_DBUS_TYPE_STARTER: return "starter";
+		default: return "unknown";
+	}
+}
+
 static void *
 impl_connection_get(struct spa_dbus_connection *conn)
 {
@@ -326,7 +335,7 @@ impl_connection_get(struct spa_dbus_connection *conn)
 	return this->conn;
 
 error:
-	spa_log_error(impl->log, "Failed to connect to system bus: %s", error.message);
+	spa_log_error(impl->log, "Failed to connect to %s bus: %s", type_to_string(this->type), error.message);
 	dbus_error_free(&error);
 	errno = ECONNREFUSED;
 	return NULL;

@@ -301,6 +301,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
       error:
 	free(impl);
-	pw_log_error("Failed to connect to system bus: %s", spa_strerror(res));
+	pw_log_error("Failed to connect to session bus: %s", spa_strerror(res));
 	return res;
 }

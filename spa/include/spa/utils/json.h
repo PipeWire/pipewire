@@ -389,7 +389,6 @@ static inline int spa_json_encode_string(char *str, int size, const char *val)
 			break;
 		case '\\':
 		case '"':
-		case '/':
 			__PUT('\\'); __PUT(*val);
 			break;
 		default:

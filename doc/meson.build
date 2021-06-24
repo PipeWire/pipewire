@@ -64,6 +64,7 @@ extra_docs = [
   'tutorial5.dox',
   'tutorial6.dox',
   'spa-index.dox',
+  'spa-plugins.dox',
   'spa-design.dox',
   'spa-pod.dox',
   'spa-buffer.dox',

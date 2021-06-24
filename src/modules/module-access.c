@@ -47,6 +47,73 @@
 #include <pipewire/private.h>
 
 /** \page page_module_access PipeWire Module: Access
+ *
+ *
+ * The `access` module performs access checks on clients. The access check
+ * is only performed once per client, subsequent checks return the same
+ * resolution.
+ *
+ * This module sets the \ref PW_KEY_ACCESS property to one of
+ * - `allowed`: the client is explicitly allowed to access all resources
+ * - `rejected`: the client does not have access to any resources and a
+ *   resource error is generated
+ * - `restricted`: the client is restricted, see note below
+ * - `flatpak`: restricted, special case for clients running inside flatpak,
+ *   see note below
+ * - `unrestricted`: the client is allowed to access all resources. This is the
+ *   default for clients not listed in any of the `access.*` options
+ *   unless the client requested reduced permissions in \ref
+ *   PW_KEY_CLIENT_ACCESS.
+ *
+ * \note Clients with a resolution other than `allowed` or `rejected` rely
+ *       on an external actor to update that property once permission is
+ *       granted or rejected.
+ *
+ *
+ * ## Module Options
+ *
+ * Options specific to the behavior of this module
+ *
+ * - ``access.allowed = []``: an array of paths of allowed applications
+ * - ``access.rejected = []``: an array of paths of rejected applications
+ * - ``access.restricted = []``: an array of paths of restricted applications
+ * - ``access.force = <str>``: forces an external permissions check (e.g. a flatpak
+ *   portal)
+ *
+ * ## General options
+ *
+ * Options with well-known behavior:
+ *
+ * - \ref PW_KEY_ACCESS
+ * - \ref PW_KEY_CLIENT_ACCESS
+ *
+ * ## Example configuration
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ *  {   name = libpipewire-module-access
+ *      args = {
+ *          access.allowed = [
+ *              /usr/bin/pipewire-media-session
+ *              /usr/bin/important-thing
+ *          ]
+ *
+ *          access.rejected = [
+ *              /usr/bin/microphone-snooper
+ *          ]
+ *
+ *          #access.restricted = [ ]
+ *
+ *          # Anything not in the above lists gets assigned the
+ *          # access.force permission.
+ *          #access.force = flatpak
+ *      }
+ *  }
+ *]
+ *\endcode
+ *
+ * \see pw_resource_error
+ * \see pw_impl_client_update_permissions
  */
 
 #define NAME "access"

@@ -34,6 +34,9 @@
 #include <pipewire/impl.h>
 #include <pipewire/extensions/metadata.h>
 
+/** \page page_module_metadata PipeWire Module: Metadata
+ */
+
 #define NAME "metadata"
 
 static const struct spa_dict_item module_props[] = {

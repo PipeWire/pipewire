@@ -51,6 +51,9 @@
 
 #include <pulse/pulseaudio.h>
 
+/** \page page_module_pulse_tunnel PipeWire Module: Pulse Tunnel
+ */
+
 #define NAME "pulse-tunnel"
 
 #define MODULE_USAGE	"[ remote.name=<remote> ] "				\

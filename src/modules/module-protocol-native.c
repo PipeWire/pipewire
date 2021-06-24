@@ -64,6 +64,9 @@
 #include <spa/debug/pod.h>
 #include <spa/debug/types.h>
 
+/** \page page_module_protocol_native PipeWire Module: Protocol Native
+ */
+
 #define NAME "protocol-native"
 
 #ifndef UNIX_PATH_MAX

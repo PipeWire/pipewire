@@ -1,5 +1,29 @@
 subdir('spa')
 
+# The list of "main" source files for modules, the ones that have the
+# doxygen documentation
+module_sources = [
+  'module-access.c',
+  'module-adapter.c',
+  'module-client-device.c',
+  'module-client-node.c',
+  'module-echo-cancel.c',
+  'module-filter-chain.c',
+  'module-link-factory.c',
+  'module-loopback.c',
+  'module-metadata.c',
+  'module-portal.c',
+  'module-profiler.c',
+  'module-protocol-native.c',
+  'module-protocol-pulse.c',
+  'module-protocol-simple.c',
+  'module-pulse-tunnel.c',
+  'module-rt.c',
+  'module-rtkit.c',
+  'module-session-manager.c',
+  'module-zeroconf-discover.c',
+]
+
 pipewire_module_access = shared_library('pipewire-module-access', [ 'module-access.c' ],
   include_directories : [configinc, spa_inc],
   install : true,

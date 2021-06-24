@@ -27,6 +27,9 @@
 
 #include <pipewire/impl.h>
 
+/** \page page_module_session_manager PipeWire Module: Session Manager
+ */
+
 /* client-endpoint.c */
 int client_endpoint_factory_init(struct pw_impl_module *module);
 /* client-session.c */

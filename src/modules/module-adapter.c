@@ -38,6 +38,8 @@
 #include "modules/spa/spa-node.h"
 #include "module-adapter/adapter.h"
 
+/** \page page_module_adapter PipeWire Module: Adapter
+ */
 #define NAME "adapter"
 
 #define FACTORY_USAGE	SPA_KEY_FACTORY_NAME"=<factory-name> " \

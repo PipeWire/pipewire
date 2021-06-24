@@ -56,6 +56,9 @@
 
 #include "module-echo-cancel/echo-cancel.h"
 
+/** \page page_module_echo_cancel PipeWire Module: Echo Cancel
+ */
+
 #define NAME "echo-cancel"
 /* Hopefully this is enough for any combination of AEC engine and resampler
  * input requirement for rate matching */

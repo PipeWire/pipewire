@@ -36,6 +36,9 @@
 #include "module-client-node/v0/client-node.h"
 #include "module-client-node/client-node.h"
 
+/** \page page_module_client_node PipeWire Module: Client Node
+ */
+
 #define NAME "client-node"
 
 static const struct spa_dict_item module_props[] = {

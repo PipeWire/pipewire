@@ -38,6 +38,9 @@
 
 #include "module-protocol-pulse/pulse-server.h"
 
+/** \page page_module_protocol_pulse PipeWire Module: Protocol Pulse
+ */
+
 #define NAME "protocol-pulse"
 
 #define MODULE_USAGE	PW_PROTOCOL_PULSE_USAGE

@@ -38,6 +38,9 @@
 
 #include "config.h"
 
+/** \page page_module_rt PipeWire Module: RT
+ */
+
 #define DEFAULT_NICE_LEVEL -11
 #define DEFAULT_RT_PRIO 88
 #define DEFAULT_RT_TIME_SOFT 200000

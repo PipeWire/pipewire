@@ -34,6 +34,9 @@
 
 #include <pipewire/impl.h>
 
+/** \page page_module_link_factory PipeWire Module: Link Factory
+ */
+
 #define NAME "link-factory"
 
 #define FACTORY_USAGE	PW_KEY_LINK_OUTPUT_NODE"=<output-node> "	\

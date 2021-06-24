@@ -46,6 +46,9 @@
 
 #include "module-zeroconf-discover/avahi-poll.h"
 
+/** \page page_module_zeroconf_discover PipeWire Module: Zeroconf Discover
+ */
+
 #define NAME "zeroconf-discover"
 
 #define MODULE_USAGE	" "

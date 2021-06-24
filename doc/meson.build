@@ -17,7 +17,15 @@ endforeach
 foreach h : pipewire_sources
   inputs += meson.source_root() / 'src' / 'pipewire' / h
 endforeach
+foreach h : module_sources
+  inputs += meson.source_root() / 'src' / 'modules' / h
+endforeach
 inputs += meson.source_root() / 'test' / 'pwtest.h'
+
+find = find_program('find', required: false)
+if find.found()
+
+endif
 
 # SPA headers use static inline functions. Doxygen doesn't extract those
 # unless we have EXTRACT_STATIC set - but we don't want it to extract
@@ -50,6 +58,7 @@ extra_docs = [
   'pipewire-design.dox',
   'pipewire-daemon.dox',
   'pipewire-library.dox',
+  'pipewire-modules.dox',
   'pipewire-tools.dox',
   'pipewire-session-manager.dox',
   'pipewire-objects-design.dox',

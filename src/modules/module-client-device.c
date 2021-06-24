@@ -37,6 +37,9 @@
 
 #define NAME "client-device"
 
+/** \page page_module_client_device PipeWire Module: Client Device
+ */
+
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Allow clients to create and control remote devices" },

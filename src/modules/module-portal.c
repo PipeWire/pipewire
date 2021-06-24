@@ -45,6 +45,9 @@
 #include "pipewire/utils.h"
 #include "pipewire/private.h"
 
+/** \page page_module_portal PipeWire Module: Portal
+ */
+
 #define NAME "portal"
 
 struct impl {

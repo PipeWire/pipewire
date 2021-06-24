@@ -46,6 +46,9 @@
 #include <pipewire/impl.h>
 #include <pipewire/private.h>
 
+/** \page page_module_access PipeWire Module: Access
+ */
+
 #define NAME "access"
 
 #define MODULE_USAGE	"[ access.force=flatpak ] "		\

@@ -42,6 +42,9 @@
 #include <pipewire/impl.h>
 #include <pipewire/extensions/profiler.h>
 
+/** \page page_module_loopback PipeWire Module: Loopback
+ */
+
 #define NAME "loopback"
 
 static const struct spa_dict_item module_props[] = {

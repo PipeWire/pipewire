@@ -48,6 +48,10 @@
 
 #define NAME "filter-chain"
 
+/**
+ * \page page_module_filter_chain PipeWire Module: Filter-Chain
+ *
+ */
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Create filter chain streams" },

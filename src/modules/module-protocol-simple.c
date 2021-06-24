@@ -49,6 +49,9 @@
 
 #include <pipewire/impl.h>
 
+/** \page page_module_protocol_simple PipeWire Module: Protocol Simple
+ */
+
 #define NAME "protocol-simple"
 
 #define DEFAULT_PORT 4711

@@ -41,6 +41,9 @@
 #include <pipewire/impl.h>
 #include <pipewire/extensions/profiler.h>
 
+/** \page page_module_profiler PipeWire Module: Profiler
+ */
+
 #define NAME "profiler"
 
 #define TMP_BUFFER		(16 * 1024)

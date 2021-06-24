@@ -203,6 +203,32 @@ static int get_port_param_index(uint32_t id)
 	}
 }
 
+static void fix_datatype(const struct spa_pod *param)
+{
+	const struct spa_pod_prop *pod_param;
+	const struct spa_pod *vals;
+	uint32_t dataType, n_vals, choice;
+
+	pod_param = spa_pod_find_prop(param, NULL, SPA_PARAM_BUFFERS_dataType);
+	if (pod_param == NULL)
+		return;
+
+	vals = spa_pod_get_values(&pod_param->value, &n_vals, &choice);
+	if (n_vals == 0)
+		return;
+
+	if (spa_pod_get_int(&vals[0], (int32_t*)&dataType) < 0)
+		return;
+
+	pw_log_debug(NAME" dataType: %u", dataType);
+	if (dataType & (1u << SPA_DATA_MemPtr)) {
+		SPA_POD_VALUE(struct spa_pod_int, &vals[0]) =
+			dataType | mappable_dataTypes;
+		pw_log_debug(NAME" Change dataType: %u -> %u", dataType,
+				SPA_POD_VALUE(struct spa_pod_int, &vals[0]));
+	}
+}
+
 static struct param *add_param(struct filter *impl, struct port *port,
 		uint32_t id, uint32_t flags, const struct spa_pod *param)
 {
@@ -220,27 +246,11 @@ static struct param *add_param(struct filter *impl, struct port *port,
 	if (p == NULL)
 		return NULL;
 
-	if (id == SPA_PARAM_Buffers && SPA_FLAG_IS_SET(port->flags, PW_FILTER_PORT_FLAG_MAP_BUFFERS) &&
-		port->direction == SPA_DIRECTION_INPUT)
-	{
-		const struct spa_pod_prop *pod_param;
-		uint32_t dataType = 0;
+	if (id == SPA_PARAM_Buffers && port != NULL &&
+	    SPA_FLAG_IS_SET(port->flags, PW_FILTER_PORT_FLAG_MAP_BUFFERS) &&
+	    port->direction == SPA_DIRECTION_INPUT)
+		fix_datatype(param);
 
-		pod_param = spa_pod_find_prop(param, NULL, SPA_PARAM_BUFFERS_dataType);
-		if (pod_param != NULL)
-		{
-			spa_pod_get_int(&pod_param->value, (int32_t*)&dataType);
-			pw_log_debug(NAME" dataType: %d", dataType);
-			if ((dataType & (1<<SPA_DATA_MemPtr)) > 0)
-			{
-				pw_log_debug(NAME" Change dataType");
-				struct spa_pod_int *int_pod = (struct spa_pod_int*)&pod_param->value;
-				dataType = dataType | mappable_dataTypes;
-				pw_log_debug(NAME" dataType: %d", dataType);
-				int_pod->value = dataType;
-			}
-		}
-	}
 	if (id == SPA_PARAM_ProcessLatency && port == NULL)
 		spa_process_latency_parse(param, &impl->process_latency);
 

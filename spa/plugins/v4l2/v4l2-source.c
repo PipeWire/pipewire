@@ -158,7 +158,7 @@ struct impl {
 	struct spa_io_position *position;
 	struct spa_io_clock *clock;
 
-	struct spa_latency_info latency;
+	struct spa_latency_info latency[2];
 };
 
 #define CHECK_PORT(this,direction,port_id)  ((direction) == SPA_DIRECTION_OUTPUT && (port_id) == 0)
@@ -574,8 +574,8 @@ static int impl_node_port_enum_params(void *object, int seq,
 		break;
 	case SPA_PARAM_Latency:
 		switch (result.index) {
-		case 0:
-			param = spa_latency_build(&b, id, &this->latency);
+		case 0: case 1:
+			param = spa_latency_build(&b, id, &this->latency[result.index]);
 			break;
 		default:
 			return 0;
@@ -596,14 +596,11 @@ static int impl_node_port_enum_params(void *object, int seq,
 	return 0;
 }
 
-static int port_set_format(void *object,
-			   enum spa_direction direction, uint32_t port_id,
+static int port_set_format(struct impl *this, struct port *port,
 			   uint32_t flags,
 			   const struct spa_pod *format)
 {
-	struct impl *this = object;
 	struct spa_video_info info;
-	struct port *port = GET_PORT(this, direction, port_id);
 	int res;
 
 	if (port->have_format) {
@@ -678,15 +675,38 @@ static int impl_node_port_set_param(void *object,
 				    uint32_t id, uint32_t flags,
 				    const struct spa_pod *param)
 {
+	int res;
+	struct impl *this = object;
+	struct port *port;
+
 	spa_return_val_if_fail(object != NULL, -EINVAL);
 
 	spa_return_val_if_fail(CHECK_PORT(object, direction, port_id), -EINVAL);
 
-	if (id == SPA_PARAM_Format) {
-		return port_set_format(object, direction, port_id, flags, param);
+	port = GET_PORT(this, direction, port_id);
+
+	switch (id) {
+	case SPA_PARAM_Latency:
+	{
+		struct spa_latency_info info;
+		if ((res = spa_latency_parse(param, &info)) < 0)
+			return res;
+		if (direction == info.direction)
+			return -EINVAL;
+
+		this->latency[info.direction] = info;
+		port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+		port->params[PORT_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
+		emit_port_info(this, port, false);
+		break;
 	}
-	else
-		return -ENOENT;
+	case SPA_PARAM_Format:
+		res = port_set_format(object, port, flags, param);
+		break;
+	default:
+		res = -ENOENT;
+	}
+	return res;
 }
 
 static int impl_node_port_use_buffers(void *object,
@@ -963,7 +983,8 @@ impl_init(const struct spa_handle_factory *factory,
 			&impl_node, this);
 	spa_hook_list_init(&this->hooks);
 
-	this->latency = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
+	this->latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
+	this->latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |
 			SPA_NODE_CHANGE_MASK_PROPS |

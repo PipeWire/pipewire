@@ -30,6 +30,8 @@ extern "C" {
 #endif
 
 /**
+ * \defgroup pw_keys PipeWire Keys
+ *
  * A collection of keys that are used to add extra information on objects.
  *
  * Keys that start with "pipewire." are in general set-once and then
@@ -38,6 +40,9 @@ extern "C" {
  *
  * Properties from other objects can also appear. This usually suggests some
  * sort of parent/child or owner/owned relationship.
+ *
+ * \addtogroup pw_keys
+ * \{
  */
 #define PW_KEY_PROTOCOL			"pipewire.protocol"	/**< protocol used for connection */
 #define PW_KEY_ACCESS			"pipewire.access"	/**< how the client access is controlled */
@@ -298,6 +303,9 @@ extern "C" {
 #ifdef PW_ENABLE_DEPRECATED
 #define PW_KEY_PRIORITY_MASTER		"priority.master"	/**< deprecated */
 #endif /* PW_ENABLE_DEPRECATED */
+
+/** \}
+ */
 
 #ifdef __cplusplus
 }

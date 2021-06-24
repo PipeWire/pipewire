@@ -199,16 +199,13 @@ option('libusb',
        description: 'Enable code that depends on libusb',
        type: 'feature',
        value: 'auto')
-option('media-session',
-       description: 'Build and install pipewire-media-session',
-       type: 'feature',
-       value: 'enabled')
-option('wireplumber',
-       description: 'Build and install wireplumber (subproject)',
-       type: 'feature',
-       value: 'auto')
-option('session-manager',
-       description : 'Session manager to build and use in the uninstalled environment',
+option('session-managers',
+       description : 'Session managers to build (can be [] for none)',
+       type : 'array',
+       choices : ['media-session', 'wireplumber'],
+       value : ['media-session'])
+option('default-session-manager',
+       description : 'Default session manager (leave as-is if none are built)',
        type : 'combo',
        choices : ['media-session', 'wireplumber'],
        value : 'media-session')

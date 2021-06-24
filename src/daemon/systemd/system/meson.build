@@ -12,7 +12,7 @@ configure_file(input : 'pipewire.service.in',
                configuration : systemd_config,
                install_dir : systemd_system_services_dir)
 
-if not get_option('media-session').disabled()
+if get_option('session-managers').contains('media-session')
   configure_file(input : 'pipewire-media-session.service.in',
                output : 'pipewire-media-session.service',
                configuration : systemd_config,

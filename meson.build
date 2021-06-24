@@ -8,8 +8,6 @@ project('pipewire', ['c' ],
 		      #'b_sanitize=address,undefined',
                       'buildtype=debugoptimized' ])
 
-add_project_arguments('-D_GNU_SOURCE', language: 'c')
-
 pipewire_version = meson.project_version()
 version_arr = pipewire_version.split('.')
 pipewire_version_major = version_arr[0]
@@ -86,6 +84,7 @@ common_flags = [
 ]
 
 cc_flags = common_flags + [
+  '-D_GNU_SOURCE',
   '-DFASTPATH',
 # '-DSPA_DEBUG_MEMCPY',
 ]

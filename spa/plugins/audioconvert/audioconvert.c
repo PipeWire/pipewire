@@ -584,6 +584,8 @@ static void fmt_input_port_info(void *data,
 	if (this->fmt_removing[direction])
 		info = NULL;
 
+	spa_log_debug(this->log, "%p: %d.%d info", this, direction, port);
+
 	if (direction == SPA_DIRECTION_INPUT ||
 	    IS_MONITOR_PORT(this, direction, port))
 		spa_node_emit_port_info(&this->hooks, direction, port, info);
@@ -603,6 +605,8 @@ static void fmt_output_port_info(void *data,
 
 	if (this->fmt_removing[direction])
 		info = NULL;
+
+	spa_log_debug(this->log, "%p: %d.%d info", this, direction, port);
 
 	if (direction == SPA_DIRECTION_OUTPUT)
 		spa_node_emit_port_info(&this->hooks, direction, port, info);

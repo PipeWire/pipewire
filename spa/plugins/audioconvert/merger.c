@@ -935,7 +935,7 @@ static int port_set_latency(void *object,
 	enum spa_direction other = SPA_DIRECTION_REVERSE(direction);
 	uint32_t i;
 
-	spa_log_debug(this->log, NAME " %p: set latency", this);
+	spa_log_debug(this->log, NAME " %p: set latency direction:%d", this, direction);
 
 	if (latency == NULL) {
 		this->latency[other] = SPA_LATENCY_INFO(other);
@@ -1070,6 +1070,9 @@ impl_node_port_set_param(void *object,
 	struct impl *this = object;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
+
+	spa_log_debug(this->log, "%p: set param port %d.%d %u",
+			this, direction, port_id, id);
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 

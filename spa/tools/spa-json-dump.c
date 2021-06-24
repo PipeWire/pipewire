@@ -57,7 +57,7 @@ static void encode_string(FILE *f, const char *val, int len)
 		case '\f':
 			fprintf(f, "\\f");
 			break;
-		case '\\': case '"': case '/':
+		case '\\': case '"':
 			fprintf(f, "\\%c", v);
 			break;
 		default:

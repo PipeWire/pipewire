@@ -572,8 +572,8 @@ impl_node_port_enum_params(void *object, int seq,
 		break;
 	case SPA_PARAM_Latency:
 		switch (result.index) {
-		case 0:
-			param = spa_latency_build(&b, id, &this->latency[direction]);
+		case 0: case 1:
+			param = spa_latency_build(&b, id, &this->latency[result.index]);
 			break;
 		default:
 			return 0;
@@ -705,19 +705,16 @@ static int port_set_latency(void *object,
 			return -EINVAL;
 		this->latency[other] = info;
 	}
-	if (direction == SPA_DIRECTION_INPUT) {
-		for (i = 0; i < this->port_count; i++) {
-			port = GET_OUT_PORT(this, i);
-			port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-			port->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
-			emit_port_info(this, port, false);
-		}
-	} else {
-		port = GET_IN_PORT(this, 0);
+	for (i = 0; i < this->port_count; i++) {
+		port = GET_OUT_PORT(this, i);
 		port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 		port->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
 		emit_port_info(this, port, false);
 	}
+	port = GET_IN_PORT(this, 0);
+	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	port->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
+	emit_port_info(this, port, false);
 	return 0;
 }
 
@@ -793,7 +790,6 @@ static int port_set_format(void *object,
 	if (port->have_format) {
 		port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
 		port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
-		port->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
 	} else {
 		port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 		port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);

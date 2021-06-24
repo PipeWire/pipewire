@@ -682,7 +682,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	state->headroom = SPA_MIN(state->headroom, state->buffer_frames);
 	state->start_delay = state->default_start_delay;
 
-	state->latency.min_rate = state->latency.max_rate = state->headroom;
+	state->latency[state->port_direction].min_rate = state->headroom;
+	state->latency[state->port_direction].max_rate = state->headroom;
 
 	state->period_frames = period_size;
 	periods = state->buffer_frames / state->period_frames;

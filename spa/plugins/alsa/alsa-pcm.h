@@ -149,6 +149,7 @@ struct state {
 #define IDX_Latency	5
 #define N_PORT_PARAMS	6
 	struct spa_param_info port_params[N_PORT_PARAMS];
+	enum spa_direction port_direction;
 	struct spa_io_buffers *io;
 	struct spa_io_clock *clock;
 	struct spa_io_position *position;
@@ -196,7 +197,7 @@ struct state {
 	struct spa_dll dll;
 	double max_error;
 
-	struct spa_latency_info latency;
+	struct spa_latency_info latency[2];
 
 	snd_use_case_mgr_t *ucm;
 };

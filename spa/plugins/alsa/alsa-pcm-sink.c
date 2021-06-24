@@ -459,7 +459,10 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_Latency:
 		switch (result.index) {
 		case 0:
-			param = spa_latency_build(&b, id, &this->latency);
+			param = spa_latency_build(&b, id, &this->latency[SPA_DIRECTION_INPUT]);
+			break;
+		case 1:
+			param = spa_latency_build(&b, id, &this->latency[SPA_DIRECTION_OUTPUT]);
 			break;
 		default:
 			return 0;
@@ -564,8 +567,19 @@ impl_node_port_set_param(void *object,
 		res = port_set_format(this, direction, port_id, flags, param);
 		break;
 	case SPA_PARAM_Latency:
-		res = 0;
+	{
+		struct spa_latency_info info;
+		if ((res = spa_latency_parse(param, &info)) < 0)
+			return res;
+		if (direction == info.direction)
+			return -EINVAL;
+
+		this->latency[info.direction] = info;
+		this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+		this->port_params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
+		emit_port_info(this, false);
 		break;
+	}
 	default:
 		res = -ENOENT;
 		break;
@@ -779,9 +793,12 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_hook_list_init(&this->hooks);
 
 	this->stream = SND_PCM_STREAM_PLAYBACK;
-	this->latency = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
-	this->latency.min_quantum = 1.0f;
-	this->latency.max_quantum = 1.0f;
+	this->port_direction = SPA_DIRECTION_INPUT;
+	this->latency[this->port_direction] = SPA_LATENCY_INFO(
+			this->port_direction,
+			.min_quantum = 1.0f,
+			.max_quantum = 1.0f);
+	this->latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |
 			SPA_NODE_CHANGE_MASK_PROPS |

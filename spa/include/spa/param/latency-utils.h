@@ -44,7 +44,7 @@ struct spa_latency_info {
 	uint64_t max_ns;
 };
 
-#define SPA_LATENCY_INFO(dir) (struct spa_latency_info) { .direction = (dir) }
+#define SPA_LATENCY_INFO(dir,...) (struct spa_latency_info) { .direction = (dir), ## __VA_ARGS__ }
 
 static inline int
 spa_latency_info_compare(const struct spa_latency_info *a, struct spa_latency_info *b)

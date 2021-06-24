@@ -30,5 +30,6 @@ GENERATE_LATEX         = NO
 MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = YES
 PREDEFINED             = PA_C_DECL_BEGIN= \
-                         PA_C_DECL_END=
+                         PA_C_DECL_END= \
+			 __USE_ISOC11
 HTML_EXTRA_STYLESHEET  = @cssfiles@

@@ -399,6 +399,8 @@ static void free_port(struct seq_state *state, struct seq_stream *stream, struct
 static void init_port(struct seq_state *state, struct seq_port *port, const snd_seq_addr_t *addr,
 		unsigned int caps)
 {
+	enum spa_direction reverse = SPA_DIRECTION_REVERSE(port->direction);
+
 	port->addr = *addr;
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PROPS |
@@ -407,18 +409,23 @@ static void init_port(struct seq_state *state, struct seq_port *port, const snd_
 	port->info.flags = SPA_PORT_FLAG_LIVE;
 	if (caps & (SND_SEQ_PORT_TYPE_HARDWARE|SND_SEQ_PORT_TYPE_PORT|SND_SEQ_PORT_TYPE_SPECIFIC))
 		port->info.flags |= SPA_PORT_FLAG_PHYSICAL | SPA_PORT_FLAG_TERMINAL;
-	port->params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-	port->params[IDX_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
-	port->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
-	port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
-	port->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READWRITE);
-
+	port->params[PORT_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	port->params[PORT_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+	port->params[PORT_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+	port->params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	port->params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	port->params[PORT_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READWRITE);
 	port->info.params = port->params;
 	port->info.n_params = N_PORT_PARAMS;
 
 	spa_list_init(&port->free);
 	spa_list_init(&port->ready);
+
+	port->latency[port->direction] = SPA_LATENCY_INFO(
+			port->direction,
+			.min_quantum = 1.0f,
+			.max_quantum = 1.0f);
+	port->latency[reverse] = SPA_LATENCY_INFO(reverse);
 
 	spa_alsa_seq_activate_port(state, port, true);
 
@@ -578,14 +585,9 @@ impl_node_port_enum_params(void *object, int seq,
 
 	case SPA_PARAM_Latency:
 		switch (result.index) {
-		case 0:
-		{
-			struct spa_latency_info info = {
-				.direction = direction,
-				.min_quantum = 1.0f, .max_quantum = 1.0f };
-			param = spa_latency_build(&b, id, &info);
+		case 0: case 1:
+			param = spa_latency_build(&b, id, &port->latency[result.index]);
 			break;
-		}
 		default:
 			return 0;
 		}
@@ -646,11 +648,11 @@ static int port_set_format(void *object, struct seq_port *port,
 	port->info.rate = SPA_FRACTION(1, 1);
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	if (port->have_format) {
-		port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
-		port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+		port->params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
+		port->params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
 	} else {
-		port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-		port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+		port->params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+		port->params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	}
 	emit_port_info(this, port, false);
 
@@ -678,8 +680,19 @@ impl_node_port_set_param(void *object,
 		res = port_set_format(this, port, flags, param);
 		break;
 	case SPA_PARAM_Latency:
-		res = 0;
+	{
+		struct spa_latency_info info;
+		if ((res = spa_latency_parse(param, &info)) < 0)
+			return res;
+		if (direction == info.direction)
+			return -EINVAL;
+
+		port->latency[info.direction] = info;
+		port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+		port->params[PORT_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
+		emit_port_info(this, port, false);
 		break;
+	}
 	default:
 		res = -ENOENT;
 		break;
@@ -891,9 +904,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.max_input_ports = MAX_PORTS;
 	this->info.max_output_ports = MAX_PORTS;
 	this->info.flags = SPA_NODE_FLAG_RT;
-	this->params[IDX_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
-	this->params[IDX_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
-	this->params[IDX_NODE_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+	this->params[NODE_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
+	this->params[NODE_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
+	this->params[NODE_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
 	this->info.params = this->params;
 	this->info.n_params = N_NODE_PARAMS;
 	reset_props(&this->props);

@@ -44,6 +44,7 @@ extern "C" {
 #include <spa/node/io.h>
 #include <spa/param/param.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/latency-utils.h>
 
 #include "dll.h"
 
@@ -71,12 +72,12 @@ struct seq_port {
 
 	uint64_t info_all;
 	struct spa_port_info info;
-#define IDX_EnumFormat	0
-#define IDX_Meta	1
-#define IDX_IO		2
-#define IDX_Format	3
-#define IDX_Buffers	4
-#define IDX_Latency	5
+#define PORT_EnumFormat	0
+#define PORT_Meta	1
+#define PORT_IO		2
+#define PORT_Format	3
+#define PORT_Buffers	4
+#define PORT_Latency	5
 #define N_PORT_PARAMS	6
 	struct spa_param_info params[N_PORT_PARAMS];
 
@@ -96,6 +97,8 @@ struct seq_port {
 	unsigned int have_format:1;
 	unsigned int valid:1;
 	unsigned int active:1;
+
+	struct spa_latency_info latency[2];
 };
 
 struct seq_stream {
@@ -135,9 +138,9 @@ struct seq_state {
 
 	uint64_t info_all;
 	struct spa_node_info info;
-#define IDX_PropInfo	0
-#define IDX_Props	1
-#define IDX_NODE_IO	2
+#define NODE_PropInfo	0
+#define NODE_Props	1
+#define NODE_IO		2
 #define N_NODE_PARAMS	3
 	struct spa_param_info params[N_NODE_PARAMS];
 	struct props props;

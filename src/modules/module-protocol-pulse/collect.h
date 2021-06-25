@@ -155,5 +155,6 @@ struct spa_dict *collect_props(struct spa_pod *info, struct spa_dict *dict);
 uint32_t find_profile_id(struct pw_manager_object *card, const char *name);
 uint32_t find_port_id(struct pw_manager_object *card, uint32_t direction, const char *port_name);
 struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t obj_id, enum pw_direction direction);
+bool collect_is_linked(struct pw_manager *m, uint32_t obj_id, enum pw_direction direction);
 
 #endif

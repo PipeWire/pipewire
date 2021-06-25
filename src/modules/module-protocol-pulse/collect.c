@@ -71,6 +71,30 @@ struct pw_manager_object *select_object(struct pw_manager *m, struct selector *s
 	return s->best;
 }
 
+bool collect_is_linked(struct pw_manager *m, uint32_t obj_id, enum pw_direction direction)
+{
+	struct pw_manager_object *o;
+	const char *str;
+	uint32_t in_node, out_node;
+
+	spa_list_for_each(o, &m->object_list, link) {
+		if (o->props == NULL || !pw_manager_object_is_link(o))
+			continue;
+
+		if ((str = pw_properties_get(o->props, PW_KEY_LINK_OUTPUT_NODE)) == NULL)
+                        continue;
+		out_node = pw_properties_parse_int(str);
+                if ((str = pw_properties_get(o->props, PW_KEY_LINK_INPUT_NODE)) == NULL)
+                        continue;
+		in_node = pw_properties_parse_int(str);
+
+		if ((direction == PW_DIRECTION_OUTPUT && obj_id == out_node) ||
+		    (direction == PW_DIRECTION_INPUT && obj_id == in_node))
+			return true;
+	}
+	return false;
+}
+
 struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t obj_id, enum pw_direction direction)
 {
 	struct pw_manager_object *o, *p;

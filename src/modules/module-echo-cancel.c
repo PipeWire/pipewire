@@ -57,6 +57,55 @@
 #include "module-echo-cancel/echo-cancel.h"
 
 /** \page page_module_echo_cancel PipeWire Module: Echo Cancel
+ *
+ * The `echo-cancel` module performs echo cancellation. The module creates
+ * virtual `echo-cancel-capture` source and `echo-cancel-playback` sink
+ * nodes and the associated streams.
+ *
+ * ## Module Options
+ *
+ * Options specific to the behavior of this module
+ *
+ * - `source.props = {}`: properties to be passed to the source stream
+ * - `sink.props = {}`: properties to be passed to the sink stream
+ * - `aec.method = <str>`: the echo cancellation method. Currently supported:
+ * `webrtc`. Leave unset to use the default method (`webrtc`).
+ * - `aec.args = <str>`: arguments to pass to the echo cancellation method
+ *
+ * ## General options
+ *
+ * Options with well-known behavior:
+ *
+ * - \ref PW_KEY_AUDIO_RATE
+ * - \ref PW_KEY_AUDIO_CHANNELS
+ * - \ref PW_KEY_MEDIA_CLASS
+ * - \ref PW_KEY_NODE_LATENCY
+ * - \ref PW_KEY_NODE_NAME
+ * - \ref PW_KEY_NODE_DESCRIPTION
+ * - \ref PW_KEY_NODE_GROUP
+ * - \ref PW_KEY_NODE_VIRTUAL
+ * - \ref PW_KEY_NODE_LATENCY
+ * - \ref PW_KEY_REMOTE_NAME
+ * - \ref SPA_KEY_AUDIO_POSITION
+ *
+ * ## Example configuration
+ *\code{.unparsed}
+ * context.modules = [
+ *  {   name = libpipewire-echo-cancel
+ *      args = {
+ *          # aec.method = webrtc
+ *          # node.latency = 1024/48000
+ *          source.props = {
+ *             node.name = "Echo Cancellation Source"
+ *          }
+ *          sink.props = {
+ *             node.name = "Echo Cancellation Sink"
+ *          }
+ *      }
+ *  }
+ *]
+ *\endcode
+ *
  */
 
 #define NAME "echo-cancel"

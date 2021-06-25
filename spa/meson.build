@@ -38,7 +38,7 @@ if not get_option('spa-plugins').disabled()
   summary({'JACK2': jack_dep.found()}, bool_yn: true, section: 'Backend')
   vulkan_dep = dependency('vulkan', disabler : true, version : '>= 1.1.69', required: get_option('vulkan'))
   vulkan_headers = cc.has_header('vulkan/vulkan.h', dependencies : vulkan_dep)
-  summary({'Vulkan': vulkan_headers}, bool_yn: true, section: 'Misc dependencies')
+  #summary({'Vulkan': vulkan_headers}, bool_yn: true, section: 'Misc dependencies')
   libcamera_dep = dependency('camera', required: get_option('libcamera'))
   summary({'libcamera': libcamera_dep.found()}, bool_yn: true, section: 'Camera portal')
 

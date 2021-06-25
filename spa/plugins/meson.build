@@ -40,7 +40,12 @@ endif
 if vulkan_headers
   subdir('vulkan')
 endif
-if libudev_dep.found() and not get_option('v4l2').disabled()
+
+v4l2_header_found = cc.has_header('linux/videodev2.h', required: get_option('v4l2'))
+v4l2_supported = libudev_dep.found() and v4l2_header_found
+summary({'V4L2 kernel header': v4l2_header_found}, bool_yn: true, section: 'Backend')
+summary({'V4L2 enabled': v4l2_supported}, bool_yn: true, section: 'Backend')
+if v4l2_supported
   subdir('v4l2')
 endif
 if libcamera_dep.found()

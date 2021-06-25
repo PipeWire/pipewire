@@ -54,54 +54,65 @@ struct module_pipesrc_data {
 	bool do_unlink;
 	char *filename;
 	int fd;
-	int stride;
+
+	uint32_t stride;
+
+	uint32_t leftover_count;
+	uint8_t leftover[]; /* `stride` bytes for storing a partial sample */
 };
 
 static void playback_process(void *data)
 {
 	struct module_pipesrc_data *impl = data;
-	struct pw_buffer *b;
-	struct spa_buffer *buf;
-	int bytes_read;
-	uint8_t *dst;
+	struct spa_chunk *chunk;
+	struct pw_buffer *buffer;
+	struct spa_data *d;
+	uint32_t left, leftover;
+	ssize_t bytes_read;
 
-	if ((b = pw_stream_dequeue_buffer(impl->playback)) == NULL) {
+	if ((buffer = pw_stream_dequeue_buffer(impl->playback)) == NULL) {
 		pw_log_warn("Out of playback buffers: %m");
 		return;
 	}
 
-	buf = b->buffer;
-	if ((dst = buf->datas[0].data) == NULL)
+	d = &buffer->buffer->datas[0];
+	if (d->data == NULL)
 		return;
 
-	buf->datas[0].chunk->offset = 0;
-	buf->datas[0].chunk->stride = impl->stride;
-	buf->datas[0].chunk->size = 0;
+	left = d->maxsize;
+	spa_assert(left >= impl->leftover_count);
 
-	/*
-	 * Read from the pipe in a multiple of stride. If the number of bytes
-	 * read is not a multiple of stride, we end up with incomplete samples
-	 * in the buffer. This is especially noticeable when using S24LE.
-	 *
-	 * Trying to read (buf->datas[0].maxsize / stride) * stride does not
-	 * necessarily result in bytes_read being a multiple of stride
-	 * resulting in us being left with incomplete samples in the buffer
-	 * again.
-	 */
-	bytes_read = read(impl->fd, dst, impl->stride * 4096);
+	chunk = d->chunk;
+
+	chunk->offset = 0;
+	chunk->stride = impl->stride;
+	chunk->size = impl->leftover_count;
+
+	memcpy(d->data, impl->leftover, impl->leftover_count);
+
+	left -= impl->leftover_count;
+
+	bytes_read = read(impl->fd, SPA_PTROFF(d->data, chunk->size, void), left);
 	if (bytes_read < 0) {
-		if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
-			pw_log_debug("Error in reading from pipe source: %s",
-					spa_strerror(-errno));
-		} else {
-			pw_log_error("Failed to read from pipe source: %s",
-					spa_strerror(-errno));
-		}
-	} else {
-		buf->datas[0].chunk->size = bytes_read;
+		const bool important = !(errno == EINTR
+					 || errno == EAGAIN
+					 || errno == EWOULDBLOCK);
+
+		if (important)
+			pw_log_warn("failed to read from pipe (%s): %s",
+				    impl->filename, strerror(errno));
+	}
+	else {
+		chunk->size += bytes_read;
 	}
 
-	pw_stream_queue_buffer(impl->playback, b);
+	leftover = chunk->size % impl->stride;
+	chunk->size -= leftover;
+
+	memcpy(impl->leftover, SPA_PTROFF(d->data, chunk->size, void), leftover);
+	impl->leftover_count = leftover;
+
+	pw_stream_queue_buffer(impl->playback, buffer);
 }
 
 static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
@@ -345,7 +356,7 @@ struct module *create_module_pipe_source(struct impl *impl, const char *argument
 	if ((str = pw_properties_get(props, PW_KEY_MEDIA_CLASS)) == NULL)
 		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 
-	module = module_new(impl, &module_pipesource_methods, sizeof(*d));
+	module = module_new(impl, &module_pipesource_methods, sizeof(*d) + stride);
 	if (module == NULL) {
 		res = -errno;
 		goto out;

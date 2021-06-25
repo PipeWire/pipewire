@@ -331,7 +331,8 @@ static int create_stream(struct impl *impl)
 			impl->mode == MODE_CAPTURE ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT,
 			PW_ID_ANY,
 			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_MAP_BUFFERS,
+			PW_STREAM_FLAG_MAP_BUFFERS |
+			PW_STREAM_FLAG_RT_PROCESS,
 			params, n_params)) < 0)
 		return res;
 

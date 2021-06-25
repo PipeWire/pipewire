@@ -110,7 +110,7 @@ struct spa_fraction {
 /**
  * Array iterator macro. Usage:
  * ```c
- * struct foo *array[16];
+ * struct foo array[16];
  * struct foo *f;
  * SPA_FOR_EACH_ELEMENT(array, f) {
  *	f->bar = baz;

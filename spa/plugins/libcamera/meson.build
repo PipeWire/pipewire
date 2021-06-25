@@ -6,7 +6,7 @@ libcamera_sources = ['libcamera.c',
 
 libdrm_dep = dependency('libdrm', version : '>= 2.4.98',
                         required : get_option('libcamera'))
-summary({'libdrm': libdrm_dep.found()}, bool_yn: true, section: 'Camera portal')
+summary({'libdrm': libdrm_dep.found()}, bool_yn: true, section: 'Backend')
 if libdrm_dep.found()
 libcameralib = shared_library('spa-libcamera',
                           libcamera_sources,

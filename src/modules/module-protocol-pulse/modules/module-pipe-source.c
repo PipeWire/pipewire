@@ -51,6 +51,7 @@ struct module_pipesrc_data {
 
 	struct spa_audio_info_raw info;
 
+	bool do_unlink;
 	char *filename;
 	int fd;
 	int stride;
@@ -197,10 +198,9 @@ static int module_pipesource_unload(struct client *client, struct module *module
 		pw_stream_destroy(d->playback);
 	if (d->core != NULL)
 		pw_core_disconnect(d->core);
-	if (d->filename) {
+	if (d->do_unlink)
 		unlink(d->filename);
-		free(d->filename);
-	}
+	free(d->filename);
 	if (d->fd >= 0)
 		close(d->fd);
 
@@ -233,6 +233,7 @@ struct module *create_module_pipe_source(struct impl *impl, const char *argument
 	struct spa_audio_info_raw info = { 0 };
 	struct stat st;
 	const char *str;
+	bool do_unlink = false;
 	char *filename = NULL;
 	int stride, res = 0;
 	int fd = -1;
@@ -299,12 +300,19 @@ struct module *create_module_pipe_source(struct impl *impl, const char *argument
 		filename = strdup(DEFAULT_FILE_NAME);
 	}
 
+	if (filename == NULL) {
+		res = -ENOMEM;
+		goto out;
+	}
+
 	if (mkfifo(filename, 0666) < 0) {
 		if (errno != EEXIST) {
 			res = -errno;
 			pw_log_error("mkfifo('%s'): %s", filename, spa_strerror(res));
 			goto out;
 		}
+
+		do_unlink = false;
 	} else {
 		/*
 		 * Our umask is 077, so the pipe won't be created with the
@@ -312,6 +320,8 @@ struct module *create_module_pipe_source(struct impl *impl, const char *argument
 		 */
 		if (chmod(filename, 0666) < 0)
 			pw_log_warn("chmod('%s'): %s", filename, spa_strerror(-errno));
+
+		do_unlink = true;
 	}
 
 	if ((fd = open(filename, O_RDONLY | O_CLOEXEC | O_NONBLOCK, 0)) <= 0) {
@@ -347,6 +357,7 @@ struct module *create_module_pipe_source(struct impl *impl, const char *argument
 	d->info = info;
 	d->fd = fd;
 	d->filename = filename;
+	d->do_unlink = do_unlink;
 	d->stride = stride;
 
 	pw_log_info("Successfully loaded module-pipe-source");
@@ -355,10 +366,9 @@ struct module *create_module_pipe_source(struct impl *impl, const char *argument
 out:
 	pw_properties_free(props);
 	pw_properties_free(playback_props);
-	if (filename) {
+	if (do_unlink)
 		unlink(filename);
-		free(filename);
-	}
+	free(filename);
 	if (fd >= 0)
 		close(fd);
 	errno = -res;

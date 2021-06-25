@@ -315,18 +315,20 @@ static AvahiStringList* txt_record_server_data(struct pw_core_info *info, AvahiS
 {
 	const char *t;
 	struct utsname u;
-	char sysname[sizeof(u.sysname) + sizeof(u.machine) + sizeof(u.release)];
 
 	spa_assert(info);
-	spa_assert(uname(&u) >= 0);
 
 	l = avahi_string_list_add_pair(l, "server-version", PACKAGE_NAME" "PACKAGE_VERSION);
 
 	t = pw_get_user_name();
 	l = avahi_string_list_add_pair(l, "user-name", t);
 
-	snprintf(sysname, sizeof(sysname), "%s %s %s", u.sysname, u.machine, u.release);
-	l = avahi_string_list_add_pair(l, "uname", sysname);
+	if (uname(&u) >= 0) {
+		char sysname[sizeof(u.sysname) + sizeof(u.machine) + sizeof(u.release)];
+
+		snprintf(sysname, sizeof(sysname), "%s %s %s", u.sysname, u.machine, u.release);
+		l = avahi_string_list_add_pair(l, "uname", sysname);
+	}
 
 	t = pw_get_host_name();
 	l = avahi_string_list_add_pair(l, "fqdn", t);

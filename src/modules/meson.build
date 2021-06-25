@@ -8,6 +8,8 @@ module_sources = [
   'module-client-device.c',
   'module-client-node.c',
   'module-echo-cancel.c',
+  'module-example-sink.c',
+  'module-example-source.c',
   'module-filter-chain.c',
   'module-link-factory.c',
   'module-loopback.c',
@@ -241,6 +243,24 @@ pipewire_module_protocol_simple = shared_library('pipewire-module-protocol-simpl
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
   dependencies : pipewire_module_protocol_deps,
+)
+
+pipewire_module_example_sink = shared_library('pipewire-module-example-sink',
+  [ 'module-example-sink.c' ],
+  include_directories : [configinc, spa_inc],
+  install : false,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, pipewire_dep],
+)
+
+pipewire_module_example_sink = shared_library('pipewire-module-example-source',
+  [ 'module-example-source.c' ],
+  include_directories : [configinc, spa_inc],
+  install : false,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
 pipewire_module_client_node = shared_library('pipewire-module-client-node',

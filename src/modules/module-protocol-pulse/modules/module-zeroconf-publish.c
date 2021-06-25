@@ -315,7 +315,7 @@ static AvahiStringList* txt_record_server_data(struct pw_core_info *info, AvahiS
 {
 	const char *t;
 	struct utsname u;
-	static char sysname[256];
+	char sysname[sizeof(u.sysname) + sizeof(u.machine) + sizeof(u.release)];
 
 	spa_assert(info);
 	spa_assert(uname(&u) >= 0);

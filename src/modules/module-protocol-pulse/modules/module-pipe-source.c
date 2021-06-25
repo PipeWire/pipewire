@@ -337,7 +337,8 @@ struct module *create_module_pipe_source(struct impl *impl, const char *argument
 	}
 
 	if (!S_ISFIFO(st.st_mode)) {
-		pw_log_error("'%s' is not a FIFO.", filename);
+		res = -EEXIST;
+		pw_log_error("'%s' is not a FIFO", filename);
 		goto out;
 	}
 

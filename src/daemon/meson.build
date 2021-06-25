@@ -30,7 +30,7 @@ sm_choice = get_option('default-session-manager')
 
 if sm_choice == 'media-session'
   if get_option('session-managers') == []
-    warning(' to use pw-uninstalled.sh manually edit pipewire-uninstalled.conf')
+    summary({'No session manager': 'pw-uninstalled.sh will not work out of the box!'})
   elif not build_ms
     error('media-session is the chosen session manager but it won\'t be built')
   endif

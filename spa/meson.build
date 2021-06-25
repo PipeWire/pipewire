@@ -18,22 +18,33 @@ if not get_option('spa-plugins').disabled()
 
   # plugin-specific dependencies
   alsa_dep = dependency('alsa', required: get_option('alsa'))
+  summary({'ALSA': alsa_dep.found()}, bool_yn: true, section: 'Backend')
   bluez_dep = dependency('bluez', version : '>= 4.101', required: get_option('bluez5'))
+  summary({'Bluetooth audio': bluez_dep.found()}, bool_yn: true, section: 'Backend')
   if bluez_dep.found()
     sbc_dep = dependency('sbc', required: get_option('bluez5'))
+    summary({'SBC': sbc_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
     ldac_dep = dependency('ldacBT-enc', required : get_option('bluez5-codec-ldac'))
+    summary({'LDAC': ldac_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
     ldac_abr_dep = dependency('ldacBT-abr', required : get_option('bluez5-codec-ldac'))
+    summary({'LDAC ABR': ldac_abr_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
     aptx_dep = dependency('libopenaptx', version : '< 0.2.1', required : get_option('bluez5-codec-aptx'))
+    summary({'aptX': aptx_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
     fdk_aac_dep = dependency('fdk-aac', required : get_option('bluez5-codec-aac'))
+    summary({'AAC': fdk_aac_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
   endif
   avcodec_dep = dependency('libavcodec', required: get_option('ffmpeg'))
   jack_dep = dependency('jack', version : '>= 1.9.10', required: get_option('jack'))
+  summary({'JACK2': jack_dep.found()}, bool_yn: true, section: 'Backend')
   vulkan_dep = dependency('vulkan', disabler : true, version : '>= 1.1.69', required: get_option('vulkan'))
+  summary({'Vulkan': vulkan_dep.found()}, bool_yn: true, section: 'Misc dependencies')
   vulkan_headers = cc.has_header('vulkan/vulkan.h', dependencies : vulkan_dep)
   libcamera_dep = dependency('camera', required: get_option('libcamera'))
+  summary({'libcamera': libcamera_dep.found()}, bool_yn: true, section: 'Camera portal')
 
   # common dependencies
   libudev_dep = dependency('libudev', required: alsa_dep.found() or get_option('udev').enabled() or get_option('v4l2').enabled())
+  summary({'Udev': libudev_dep.found()}, bool_yn: true, section: 'Backend')
 
   subdir('plugins')
 endif

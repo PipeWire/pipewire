@@ -26,7 +26,9 @@ if ncurses_dep.found()
   )
 endif
 
+build_pw_cat = false
 if not get_option('pw-cat').disabled() and sndfile_dep.found()
+  build_pw_cat = true
 
   pwcat_sources = [
     'pw-cat.c',
@@ -54,3 +56,4 @@ if not get_option('pw-cat').disabled() and sndfile_dep.found()
 elif not sndfile_dep.found() and get_option('pw-cat').enabled()
 	error('pw-cat is enabled but required dependency `sndfile` was not found.')
 endif
+summary({'Build pw-cat tool': build_pw_cat}, bool_yn: true, section: 'pw-cat/pw-play/pw-dump tool')

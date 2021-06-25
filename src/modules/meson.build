@@ -180,6 +180,7 @@ if avahi_dep.found()
 endif
 
 roc_lib = cc.find_library('roc', required: get_option('roc'))
+summary({'ROC': roc_lib.found()}, bool_yn: true, section: 'Streaming between daemons')
 if roc_lib.found()
   pipewire_module_protocol_pulse_sources += [
     'module-protocol-pulse/modules/module-roc-sink.c',

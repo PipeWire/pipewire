@@ -30,6 +30,8 @@ extern "C" {
 #endif
 
 #include <string.h>
+#include <sys/un.h>
+#include <sys/mount.h>
 
 #include <spa/utils/defs.h>
 #include <spa/pod/pod.h>

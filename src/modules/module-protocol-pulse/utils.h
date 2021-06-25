@@ -26,8 +26,6 @@
 #define PULSE_SERVER_UTILS_H
 
 #include <stddef.h>
-#include <sys/un.h>
-#include <sys/mount.h>
 
 struct client;
 struct pw_context;

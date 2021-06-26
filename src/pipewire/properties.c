@@ -233,7 +233,7 @@ struct pw_properties *pw_properties_copy(const struct pw_properties *properties)
  */
 SPA_EXPORT
 int pw_properties_update_keys(struct pw_properties *props,
-		const struct spa_dict *dict, const char *keys[])
+		const struct spa_dict *dict, const char * const keys[])
 {
 	int i, changed = 0;
 	const char *str;
@@ -245,7 +245,7 @@ int pw_properties_update_keys(struct pw_properties *props,
 	return changed;
 }
 
-static bool has_key(const char *keys[], const char *key)
+static bool has_key(const char * const keys[], const char *key)
 {
 	int i;
 	for (i = 0; keys[i]; i++) {
@@ -257,7 +257,7 @@ static bool has_key(const char *keys[], const char *key)
 
 SPA_EXPORT
 int pw_properties_update_ignore(struct pw_properties *props,
-		const struct spa_dict *dict, const char *ignore[])
+		const struct spa_dict *dict, const char * const ignore[])
 {
 	const struct spa_dict_item *it;
 	int changed = 0;
@@ -341,7 +341,7 @@ int pw_properties_add(struct pw_properties *props,
  */
 SPA_EXPORT
 int pw_properties_add_keys(struct pw_properties *props,
-		const struct spa_dict *dict, const char *keys[])
+		const struct spa_dict *dict, const char * const keys[])
 {
 	uint32_t i;
 	int added = 0;

@@ -64,9 +64,9 @@ struct pw_properties *
 pw_properties_copy(const struct pw_properties *properties);
 
 int pw_properties_update_keys(struct pw_properties *props,
-		     const struct spa_dict *dict, const char *keys[]);
+		     const struct spa_dict *dict, const char * const keys[]);
 int pw_properties_update_ignore(struct pw_properties *props,
-		const struct spa_dict *dict, const char *ignore[]);
+		const struct spa_dict *dict, const char * const ignore[]);
 
 /* Update props with all key/value pairs from dict */
 int pw_properties_update(struct pw_properties *props,
@@ -78,7 +78,7 @@ int pw_properties_update_string(struct pw_properties *props,
 int pw_properties_add(struct pw_properties *oldprops,
 		     const struct spa_dict *dict);
 int pw_properties_add_keys(struct pw_properties *oldprops,
-		     const struct spa_dict *dict, const char *keys[]);
+		     const struct spa_dict *dict, const char * const keys[]);
 
 void pw_properties_clear(struct pw_properties *properties);
 

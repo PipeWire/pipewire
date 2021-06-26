@@ -24,6 +24,8 @@ module_sources = [
   'module-rtkit.c',
   'module-session-manager.c',
   'module-zeroconf-discover.c',
+  'module-roc-source.c',
+  'module-roc-sink.c',
 ]
 
 pipewire_module_access = shared_library('pipewire-module-access', [ 'module-access.c' ],
@@ -361,5 +363,25 @@ pipewire_module_zeroconf_discover = shared_library('pipewire-module-zeroconf-dis
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
   dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep],
+)
+endif
+
+if roc_lib.found()
+pipewire_module_roc_sink = shared_library('pipewire-module-roc-sink',
+  [ 'module-roc-sink.c' ],
+  include_directories : [configinc, spa_inc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, roc_lib],
+)
+
+pipewire_module_roc_source = shared_library('pipewire-module-roc-source',
+  [ 'module-roc-source.c' ],
+  include_directories : [configinc, spa_inc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, roc_lib],
 )
 endif

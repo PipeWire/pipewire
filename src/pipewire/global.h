@@ -118,7 +118,7 @@ const struct pw_properties *pw_global_get_properties(struct pw_global *global);
 
 /** Update the global properties, must be done when unregistered */
 int pw_global_update_keys(struct pw_global *global,
-		     const struct spa_dict *dict, const char *keys[]);
+		     const struct spa_dict *dict, const char * const keys[]);
 
 /** Get the object associated with the global. This depends on the type of the
   * global */

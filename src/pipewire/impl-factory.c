@@ -176,14 +176,15 @@ SPA_EXPORT
 int pw_impl_factory_register(struct pw_impl_factory *factory,
 			 struct pw_properties *properties)
 {
-	struct pw_context *context = factory->context;
-	const char *keys[] = {
+	static const char * const keys[] = {
 		PW_KEY_MODULE_ID,
 		PW_KEY_FACTORY_NAME,
 		PW_KEY_FACTORY_TYPE_NAME,
 		PW_KEY_FACTORY_TYPE_VERSION,
 		NULL
 	};
+
+	struct pw_context *context = factory->context;
 
 	if (factory->registered)
 		goto error_existed;

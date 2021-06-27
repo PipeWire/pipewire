@@ -650,9 +650,7 @@ SPA_EXPORT
 int pw_impl_node_register(struct pw_impl_node *this,
 		     struct pw_properties *properties)
 {
-	struct pw_context *context = this->context;
-	struct pw_impl_port *port;
-	const char *keys[] = {
+	static const char * const keys[] = {
 		PW_KEY_OBJECT_PATH,
 		PW_KEY_MODULE_ID,
 		PW_KEY_FACTORY_ID,
@@ -671,6 +669,9 @@ int pw_impl_node_register(struct pw_impl_node *this,
 		PW_KEY_MEDIA_ROLE,
 		NULL
 	};
+
+	struct pw_context *context = this->context;
+	struct pw_impl_port *port;
 
 	pw_log_debug(NAME" %p: register", this);
 
@@ -1273,8 +1274,7 @@ const struct pw_properties *pw_impl_node_get_properties(struct pw_impl_node *nod
 
 static int update_properties(struct pw_impl_node *node, const struct spa_dict *dict, bool filter)
 {
-	int changed;
-	const char *ignored[] = {
+	static const char * const ignored[] = {
 		PW_KEY_OBJECT_ID,
 		PW_KEY_MODULE_ID,
 		PW_KEY_FACTORY_ID,
@@ -1282,6 +1282,8 @@ static int update_properties(struct pw_impl_node *node, const struct spa_dict *d
 		PW_KEY_DEVICE_ID,
 		NULL
 	};
+
+	int changed;
 
 	changed = pw_properties_update_ignore(node->properties, dict, filter ? ignored : NULL);
 	node->info.props = &node->properties->dict;

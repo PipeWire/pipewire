@@ -371,7 +371,7 @@ struct a2dp_codec {
 	int (*increase_bitpool) (void *data);
 };
 
-extern const struct a2dp_codec **a2dp_codecs;
+extern const struct a2dp_codec * const * const a2dp_codecs;
 
 struct a2dp_codec_config {
 	uint32_t config;

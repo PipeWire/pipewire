@@ -220,7 +220,7 @@ enum {
 	SOURCE_FLAT_VOLUME = 0x0080U,
 };
 
-static const char *port_types[] = {
+static const char * const port_types[] = {
 	"unknown",
 	"aux",
 	"speaker",

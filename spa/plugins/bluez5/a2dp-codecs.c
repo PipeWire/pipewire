@@ -134,7 +134,7 @@ extern struct a2dp_codec a2dp_codec_aptx;
 extern struct a2dp_codec a2dp_codec_aptx_hd;
 #endif
 
-const struct a2dp_codec *a2dp_codec_list[] = {
+static const struct a2dp_codec * const a2dp_codec_list[] = {
 #if ENABLE_LDAC
 	&a2dp_codec_ldac,
 #endif
@@ -150,6 +150,7 @@ const struct a2dp_codec *a2dp_codec_list[] = {
 #endif
 	&a2dp_codec_sbc_xq,
 	&a2dp_codec_sbc,
-	NULL,
+	NULL
 };
-const struct a2dp_codec **a2dp_codecs = a2dp_codec_list;
+
+const struct a2dp_codec * const * const a2dp_codecs = a2dp_codec_list;

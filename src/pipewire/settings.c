@@ -92,7 +92,7 @@ static int metadata_property(void *data, uint32_t subject, const char *key,
 	return 0;
 }
 
-static struct pw_impl_metadata_events metadata_events = {
+static const struct pw_impl_metadata_events metadata_events = {
 	PW_VERSION_IMPL_METADATA_EVENTS,
 	.destroy = metadata_destroy,
 	.property = metadata_property,

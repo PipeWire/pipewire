@@ -124,8 +124,8 @@ static void run_test(const char *name,
 
 static void test_f32_u8(void)
 {
-	const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
-	uint8_t out[] = { 128, 255, 0, 191, 64, 255, 0, };
+	static const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
+	static const uint8_t out[] = { 128, 255, 0, 191, 64, 255, 0, };
 
 	run_test("test_f32_u8", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, true, conv_f32_to_u8_c);
@@ -139,8 +139,8 @@ static void test_f32_u8(void)
 
 static void test_u8_f32(void)
 {
-	uint8_t in[] = { 128, 255, 0, 192, 64, };
-	const float out[] = { 0.0f, 0.9921875f, -1.0f, 0.5f, -0.5f, };
+	static const uint8_t in[] = { 128, 255, 0, 192, 64, };
+	static const float out[] = { 0.0f, 0.9921875f, -1.0f, 0.5f, -0.5f, };
 
 	run_test("test_u8_f32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, true, conv_u8_to_f32_c);
@@ -154,8 +154,8 @@ static void test_u8_f32(void)
 
 static void test_f32_s16(void)
 {
-	const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
-	const int16_t out[] = { 0, 32767, -32767, 16383, -16383, 32767, -32767 };
+	static const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
+	static const int16_t out[] = { 0, 32767, -32767, 16383, -16383, 32767, -32767 };
 
 	run_test("test_f32_s16", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, true, conv_f32_to_s16_c);
@@ -175,8 +175,8 @@ static void test_f32_s16(void)
 
 static void test_s16_f32(void)
 {
-	const int16_t in[] = { 0, 32767, -32767, 16383, -16383, };
-	const float out[] = { 0.0f, 1.0f, -1.0f, 0.4999847412f, -0.4999847412f };
+	static const int16_t in[] = { 0, 32767, -32767, 16383, -16383, };
+	static const float out[] = { 0.0f, 1.0f, -1.0f, 0.4999847412f, -0.4999847412f };
 
 	run_test("test_s16_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, false, conv_s16_to_f32d_c);
@@ -196,8 +196,8 @@ static void test_s16_f32(void)
 
 static void test_f32_s32(void)
 {
-	const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
-	const int32_t out[] = { 0, 0x7fffff00, 0x80000100, 0x3fffff00, 0xc0000100,
+	static const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
+	static const int32_t out[] = { 0, 0x7fffff00, 0x80000100, 0x3fffff00, 0xc0000100,
 					0x7fffff00, 0x80000100 };
 
 	run_test("test_f32_s32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
@@ -218,8 +218,8 @@ static void test_f32_s32(void)
 
 static void test_s32_f32(void)
 {
-	const int32_t in[] = { 0, 0x7fffff00, 0x80000100, 0x3fffff00, 0xc0000100 };
-	const float out[] = { 0.0f, 1.0f, -1.0f, 0.4999999404f, -0.4999999404f, };
+	static const int32_t in[] = { 0, 0x7fffff00, 0x80000100, 0x3fffff00, 0xc0000100 };
+	static const float out[] = { 0.0f, 1.0f, -1.0f, 0.4999999404f, -0.4999999404f, };
 
 	run_test("test_s32_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, false, conv_s32_to_f32d_c);
@@ -239,12 +239,12 @@ static void test_s32_f32(void)
 
 static void test_f32_s24(void)
 {
-	const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
+	static const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-	const uint8_t out[] = { 0x00, 0x00, 0x00, 0xff, 0xff, 0x7f, 0x01, 0x00, 0x80,
+	static const uint8_t out[] = { 0x00, 0x00, 0x00, 0xff, 0xff, 0x7f, 0x01, 0x00, 0x80,
 		0xff, 0xff, 0x3f, 0x01, 0x00, 0xc0, 0xff, 0xff, 0x7f, 0x01, 0x00, 0x80 };
 #else
-	const uint8_t out[] = { 0x00, 0x00, 0x00, 0x7f, 0xff, 0xff, 0x80, 0x00, 0x01,
+	static const uint8_t out[] = { 0x00, 0x00, 0x00, 0x7f, 0xff, 0xff, 0x80, 0x00, 0x01,
 		0x3f, 0xff, 0xff, 0xc0, 0x00, 0x01, 0x7f, 0xff, 0xff, 0x80, 0x00, 0x01 };
 #endif
 
@@ -261,13 +261,13 @@ static void test_f32_s24(void)
 static void test_s24_f32(void)
 {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-	const uint8_t in[] = { 0x00, 0x00, 0x00, 0xff, 0xff, 0x7f, 0x01, 0x00, 0x80,
+	static const uint8_t in[] = { 0x00, 0x00, 0x00, 0xff, 0xff, 0x7f, 0x01, 0x00, 0x80,
 		0xff, 0xff, 0x3f, 0x01, 0x00, 0xc0,  };
 #else
-	const uint8_t in[] = { 0x00, 0x00, 0x00, 0x7f, 0xff, 0xff, 0x80, 0x00, 0x01,
+	static const uint8_t in[] = { 0x00, 0x00, 0x00, 0x7f, 0xff, 0xff, 0x80, 0x00, 0x01,
 		0x3f, 0xff, 0xff, 0xc0, 0x00, 0x01,  };
 #endif
-	const float out[] = { 0.0f, 1.0f, -1.0f, 0.4999999404f, -0.4999999404f, };
+	static const float out[] = { 0.0f, 1.0f, -1.0f, 0.4999999404f, -0.4999999404f, };
 
 	run_test("test_s24_f32d", in, 3, out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, false, conv_s24_to_f32d_c);
@@ -299,8 +299,8 @@ static void test_s24_f32(void)
 
 static void test_f32_s24_32(void)
 {
-	const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
-	const int32_t out[] = { 0, 0x7fffff, 0xff800001, 0x3fffff, 0xffc00001,
+	static const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
+	static const int32_t out[] = { 0, 0x7fffff, 0xff800001, 0x3fffff, 0xffc00001,
 					0x7fffff, 0xff800001 };
 
 	run_test("test_f32_s24_32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
@@ -315,8 +315,8 @@ static void test_f32_s24_32(void)
 
 static void test_s24_32_f32(void)
 {
-	const int32_t in[] = { 0, 0x7fffff, 0xff800001, 0x3fffff, 0xffc00001 };
-	const float out[] = { 0.0f, 1.0f, -1.0f, 0.4999999404f, -0.4999999404f, };
+	static const int32_t in[] = { 0, 0x7fffff, 0xff800001, 0x3fffff, 0xffc00001 };
+	static const float out[] = { 0.0f, 1.0f, -1.0f, 0.4999999404f, -0.4999999404f, };
 
 	run_test("test_s24_32_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, false, conv_s24_32_to_f32d_c);

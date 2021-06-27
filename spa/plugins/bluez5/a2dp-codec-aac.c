@@ -61,7 +61,7 @@ struct impl {
 static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 		uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
-	const a2dp_aac_t a2dp_aac = {
+	static const a2dp_aac_t a2dp_aac = {
 		.object_type =
 			/* NOTE: AAC Long Term Prediction and AAC Scalable are
 			 *       not supported by the FDK-AAC library. */
@@ -86,11 +86,12 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 		.vbr = 1,
 		AAC_INIT_BITRATE(DEFAULT_AAC_BITRATE)
 	};
+
 	memcpy(caps, &a2dp_aac, sizeof(a2dp_aac));
 	return sizeof(a2dp_aac);
 }
 
-static struct a2dp_codec_config
+static const struct a2dp_codec_config
 aac_frequencies[] = {
 	{ AAC_SAMPLING_FREQ_48000, 48000, 11 },
 	{ AAC_SAMPLING_FREQ_44100, 44100, 10 },
@@ -106,7 +107,7 @@ aac_frequencies[] = {
 	{ AAC_SAMPLING_FREQ_8000,  8000,  0 },
 };
 
-static struct a2dp_codec_config
+static const struct a2dp_codec_config
 aac_channel_modes[] = {
 	{ AAC_CHANNELS_2, 2, 1 },
 	{ AAC_CHANNELS_1, 1, 0 },

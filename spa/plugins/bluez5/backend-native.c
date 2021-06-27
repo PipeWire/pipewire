@@ -698,9 +698,11 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 		/* retrieve supported codecs */
 		/* response has the form AT+BAC=<codecID1>,<codecID2>,<codecIDx>
 		   strategy: split the string into tokens */
+		static const char separators[] = "=,";
+
 		char* token;
-		char separators[] = "=,";
 		int cntr = 0;
+
 		token = strtok (buf, separators);
 		while (token != NULL)
 		{
@@ -855,13 +857,14 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 
 static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 {
+	static const char separators[] = "\r\n:";
+
 	struct rfcomm *rfcomm = source->data;
 	struct impl *backend = rfcomm->backend;
 	unsigned int features;
 	unsigned int gain;
 	unsigned int selected_codec;
 	char* token;
-	char separators[] = "\r\n:";
 
 	token = strtok(buf, separators);
 	while (token != NULL)

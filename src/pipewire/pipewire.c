@@ -395,11 +395,12 @@ static void init_i18n(struct support *support)
 
 static void *add_i18n(struct support *support)
 {
-	static struct spa_i18n_methods i18n_methods = {
+	static const struct spa_i18n_methods i18n_methods = {
 		SPA_VERSION_I18N_METHODS,
 		.text = i18n_text,
 		.ntext = i18n_ntext,
 	};
+
 	support->i18n_iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_I18N,
 			SPA_VERSION_I18N,

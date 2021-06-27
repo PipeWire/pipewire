@@ -36,13 +36,12 @@ do {				\
 
 static void test_abi(void)
 {
-	struct pw_stream_events ev;
-	struct {
+	static const struct {
 		uint32_t version;
 		void (*destroy) (void *data);
 		void (*state_changed) (void *data, enum pw_stream_state old,
 			enum pw_stream_state state, const char *error);
-	        void (*control_info) (void *data, uint32_t id, const struct pw_stream_control *control);
+		void (*control_info) (void *data, uint32_t id, const struct pw_stream_control *control);
 		void (*io_changed) (void *data, uint32_t id, void *area, uint32_t size);
 		void (*param_changed) (void *data, uint32_t id, const struct spa_pod *param);
 		void (*add_buffer) (void *data, struct pw_buffer *buffer);
@@ -50,6 +49,8 @@ static void test_abi(void)
 		void (*process) (void *data);
 		void (*drained) (void *data);
 	} test = { PW_VERSION_STREAM_EVENTS, NULL };
+
+	struct pw_stream_events ev;
 
 	TEST_FUNC(ev, test, destroy);
 	TEST_FUNC(ev, test, state_changed);

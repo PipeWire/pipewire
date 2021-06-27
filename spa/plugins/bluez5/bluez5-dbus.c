@@ -2534,7 +2534,7 @@ static int a2dp_codec_switch_cmp(const void *a, const void *b)
 }
 
 /* Ensure there's a transport for at least one of the listed codecs */
-int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec **codecs)
+int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec * const *codecs)
 {
 	struct spa_bt_a2dp_codec_switch *sw;
 	struct spa_bt_remote_endpoint *ep;

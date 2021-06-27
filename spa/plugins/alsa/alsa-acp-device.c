@@ -876,7 +876,7 @@ static void on_mute_changed(void *data, struct acp_device *dev)
 	spa_device_emit_event(&this->hooks, event);
 }
 
-struct acp_card_events card_events = {
+static const struct acp_card_events card_events = {
 	ACP_VERSION_CARD_EVENTS,
 	.props_changed = card_props_changed,
 	.profile_changed = card_profile_changed,

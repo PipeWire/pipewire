@@ -220,11 +220,7 @@ PWTEST(context_properties)
 
 PWTEST(context_support)
 {
-	struct pw_main_loop *loop;
-	struct pw_context *context;
-	const struct spa_support *support;
-	uint32_t n_support;
-	const char * types[] = {
+	static const char * const types[] = {
 		SPA_TYPE_INTERFACE_DataSystem,
 		SPA_TYPE_INTERFACE_DataLoop,
 		SPA_TYPE_INTERFACE_System,
@@ -234,6 +230,11 @@ PWTEST(context_support)
 		SPA_TYPE_INTERFACE_DBus,
 		SPA_TYPE_INTERFACE_CPU
 	};
+
+	struct pw_main_loop *loop;
+	struct pw_context *context;
+	const struct spa_support *support;
+	uint32_t n_support;
 	size_t i;
 
 	pw_init(0, NULL);

@@ -98,7 +98,7 @@ struct global {
 
 	snd_ctl_pipewire_t *ctl;
 
-	struct global_info *ginfo;
+	const struct global_info *ginfo;
 
 	uint32_t id;
 	uint32_t permissions;
@@ -896,7 +896,7 @@ static const struct pw_device_events device_events = {
 	.param = device_event_param,
 };
 
-struct global_info device_info = {
+static const struct global_info device_info = {
 	.type = PW_TYPE_INTERFACE_Device,
 	.version = PW_VERSION_DEVICE,
 	.events = &device_events,
@@ -974,7 +974,7 @@ static const struct pw_node_events node_events = {
 	.param = node_event_param,
 };
 
-struct global_info node_info = {
+static const struct global_info node_info = {
 	.type = PW_TYPE_INTERFACE_Node,
 	.version = PW_VERSION_NODE,
 	.events = &node_events,
@@ -1044,7 +1044,7 @@ static const struct pw_metadata_events metadata_events = {
 	.property = metadata_property,
 };
 
-struct global_info metadata_info = {
+static const struct global_info metadata_info = {
 	.type = PW_TYPE_INTERFACE_Metadata,
 	.version = PW_VERSION_METADATA,
 	.events = &metadata_events,
@@ -1076,7 +1076,7 @@ static void registry_event_global(void *data, uint32_t id,
 		const struct spa_dict *props)
 {
 	snd_ctl_pipewire_t *ctl = data;
-	struct global_info *info = NULL;
+	const struct global_info *info = NULL;
 	struct pw_proxy *proxy;
 	const char *str;
 

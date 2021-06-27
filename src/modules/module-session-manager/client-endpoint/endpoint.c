@@ -304,7 +304,7 @@ int endpoint_init(struct endpoint *this,
 		struct pw_context *context,
 		struct pw_properties *properties)
 {
-	const char *keys[] = {
+	static const char * const keys[] = {
 		PW_KEY_FACTORY_ID,
 		PW_KEY_CLIENT_ID,
 		PW_KEY_DEVICE_ID,

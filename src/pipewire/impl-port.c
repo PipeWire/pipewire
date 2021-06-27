@@ -270,8 +270,7 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 
 static int update_properties(struct pw_impl_port *port, const struct spa_dict *dict, bool filter)
 {
-	int changed;
-	const char *ignored[] = {
+	static const char * const ignored[] = {
 		PW_KEY_OBJECT_ID,
 		PW_KEY_PORT_DIRECTION,
 		PW_KEY_PORT_CONTROL,
@@ -279,6 +278,8 @@ static int update_properties(struct pw_impl_port *port, const struct spa_dict *d
 		PW_KEY_PORT_ID,
 		NULL
 	};
+
+	int changed;
 
 	changed = pw_properties_update_ignore(port->properties, dict, filter ? ignored : NULL);
 	port->info.props = &port->properties->dict;
@@ -876,8 +877,7 @@ static const struct pw_global_events global_events = {
 int pw_impl_port_register(struct pw_impl_port *port,
 		     struct pw_properties *properties)
 {
-	struct pw_impl_node *node = port->node;
-	const char *keys[] = {
+	static const char * const keys[] = {
 		PW_KEY_OBJECT_PATH,
 		PW_KEY_FORMAT_DSP,
 		PW_KEY_NODE_ID,
@@ -893,6 +893,8 @@ int pw_impl_port_register(struct pw_impl_port *port,
 		PW_KEY_PORT_EXTRA,
 		NULL
 	};
+
+	struct pw_impl_node *node = port->node;
 
 	if (node == NULL || node->global == NULL)
 		return -EIO;

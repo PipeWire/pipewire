@@ -202,7 +202,7 @@ static bool do_dump(struct data *data, const char *cmd, char *args, char **error
 
 #define DUMP_NAMES "Core|Module|Device|Node|Port|Factory|Client|Link|Session|Endpoint|EndpointStream"
 
-static struct command command_list[] = {
+static const struct command command_list[] = {
 	{ "help", "h", "Show this help", do_help },
 	{ "load-module", "lm", "Load a module. <module-name> [<module-arguments>]", do_load_module },
 	{ "unload-module", "um", "Unload a module. <module-var>", do_not_implemented },
@@ -2002,7 +2002,7 @@ enum dump_flags {
 	is_notype = BIT(3)
 };
 
-static const char *dump_types[] = {
+static const char * const dump_types[] = {
 	PW_TYPE_INTERFACE_Core,
 	PW_TYPE_INTERFACE_Module,
 	PW_TYPE_INTERFACE_Device,

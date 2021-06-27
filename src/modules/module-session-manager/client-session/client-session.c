@@ -78,8 +78,7 @@ static int client_session_link_update(void *object,
 	struct pw_properties *props = NULL;
 
 	if (!link) {
-		struct pw_context *context = pw_global_get_context(session->global);
-		const char *keys[] = {
+		static const char * const keys[] = {
 			PW_KEY_FACTORY_ID,
 			PW_KEY_CLIENT_ID,
 			PW_KEY_SESSION_ID,
@@ -89,6 +88,8 @@ static int client_session_link_update(void *object,
 			PW_KEY_ENDPOINT_LINK_INPUT_STREAM,
 			NULL
 		};
+
+		struct pw_context *context = pw_global_get_context(session->global);
 
 		link = calloc(1, sizeof(struct endpoint_link));
 		if (!link)
@@ -127,7 +128,7 @@ static int client_session_link_update(void *object,
 	return -ENOMEM;
 }
 
-static struct pw_client_session_methods methods = {
+static const struct pw_client_session_methods methods = {
 	PW_VERSION_CLIENT_SESSION_METHODS,
 	.update = client_session_update,
 	.link_update = client_session_link_update,

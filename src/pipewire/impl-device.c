@@ -554,9 +554,7 @@ SPA_EXPORT
 int pw_impl_device_register(struct pw_impl_device *device,
 		       struct pw_properties *properties)
 {
-	struct pw_context *context = device->context;
-	struct object_data *od;
-	const char *keys[] = {
+	static const char * const keys[] = {
 		PW_KEY_OBJECT_PATH,
 		PW_KEY_MODULE_ID,
 		PW_KEY_FACTORY_ID,
@@ -568,6 +566,9 @@ int pw_impl_device_register(struct pw_impl_device *device,
 		PW_KEY_MEDIA_CLASS,
 		NULL
 	};
+
+	struct pw_context *context = device->context;
+	struct object_data *od;
 
 	if (device->registered)
 		goto error_existed;
@@ -644,14 +645,15 @@ static void emit_info_changed(struct pw_impl_device *device)
 
 static int update_properties(struct pw_impl_device *device, const struct spa_dict *dict, bool filter)
 {
-	int changed;
-	const char *ignored[] = {
+	static const char * const ignored[] = {
 		PW_KEY_OBJECT_ID,
 		PW_KEY_MODULE_ID,
 		PW_KEY_FACTORY_ID,
 		PW_KEY_CLIENT_ID,
 		NULL
 	};
+
+	int changed;
 
 	changed = pw_properties_update_ignore(device->properties, dict, filter ? ignored : NULL);
 	device->info.props = &device->properties->dict;

@@ -609,15 +609,16 @@ SPA_EXPORT
 int pw_impl_core_register(struct pw_impl_core *core,
 			 struct pw_properties *properties)
 {
-	struct pw_context *context = core->context;
-	int res;
-	const char *keys[] = {
+	static const char * const keys[] = {
 		PW_KEY_USER_NAME,
 		PW_KEY_HOST_NAME,
 		PW_KEY_CORE_NAME,
 		PW_KEY_CORE_VERSION,
 		NULL
 	};
+
+	struct pw_context *context = core->context;
+	int res;
 
 	if (core->registered)
 		goto error_existed;

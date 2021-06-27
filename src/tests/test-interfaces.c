@@ -32,9 +32,7 @@ do {				\
 
 static void test_core_abi(void)
 {
-	struct pw_core_methods m;
-	struct pw_core_events e;
-	struct {
+	static const struct {
 		uint32_t version;
 		int (*add_listener) (void *object,
 			struct spa_hook *listener,
@@ -54,7 +52,7 @@ static void test_core_abi(void)
 				       size_t user_data_size);
 		int (*destroy) (void *object, void *proxy);
 	} methods = { PW_VERSION_CORE_METHODS, };
-	struct {
+	static const struct {
 		uint32_t version;
 		void (*info) (void *object, const struct pw_core_info *info);
 		void (*done) (void *object, uint32_t id, int seq);
@@ -65,6 +63,9 @@ static void test_core_abi(void)
 		void (*add_mem) (void *object, uint32_t id, uint32_t type, int fd, uint32_t flags);
 		void (*remove_mem) (void *object, uint32_t id);
 	} events = { PW_VERSION_CORE_EVENTS, };
+
+	struct pw_core_events e;
+	struct pw_core_methods m;
 
 	TEST_FUNC(m, methods, version);
 	TEST_FUNC(m, methods, add_listener);

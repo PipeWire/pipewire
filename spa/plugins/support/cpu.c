@@ -112,7 +112,7 @@ static uint32_t get_count(struct impl *this)
 #else
 static uint32_t get_count(struct impl *this)
 {
-	int mib[] = {CTL_HW, HW_NCPU};
+	static const int mib[] = {CTL_HW, HW_NCPU};
 	int r;
 	size_t rSize = sizeof(r);
 	if(-1 == sysctl(mib, 2, &r, &rSize, 0, 0))

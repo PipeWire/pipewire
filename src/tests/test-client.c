@@ -33,8 +33,7 @@ do {				\
 
 static void test_abi(void)
 {
-	struct pw_impl_client_events ev;
-	struct {
+	static const struct {
 		uint32_t version;
 		void (*destroy) (void *data);
 		void (*free) (void *data);
@@ -44,6 +43,8 @@ static void test_abi(void)
 		void (*resource_removed) (void *data, struct pw_resource *resource);
 		void (*busy_changed) (void *data, bool busy);
 	} test = { PW_VERSION_IMPL_CLIENT_EVENTS, NULL };
+
+	struct pw_impl_client_events ev;
 
 	TEST_FUNC(ev, test, destroy);
 	TEST_FUNC(ev, test, free);

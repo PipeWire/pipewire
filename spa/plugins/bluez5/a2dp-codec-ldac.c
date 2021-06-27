@@ -81,7 +81,7 @@ struct impl {
 
 static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags, uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
-	const a2dp_ldac_t a2dp_ldac = {
+	static const a2dp_ldac_t a2dp_ldac = {
 		.info.vendor_id = LDAC_VENDOR_ID,
 		.info.codec_id = LDAC_CODEC_ID,
 		.frequency = LDACBT_SAMPLING_FREQ_044100 |
@@ -92,11 +92,12 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags, uint8
 			LDACBT_CHANNEL_MODE_DUAL_CHANNEL |
 			LDACBT_CHANNEL_MODE_STEREO,
 	};
+
 	memcpy(caps, &a2dp_ldac, sizeof(a2dp_ldac));
 	return sizeof(a2dp_ldac);
 }
 
-static struct a2dp_codec_config
+static const struct a2dp_codec_config
 ldac_frequencies[] = {
 	{ LDACBT_SAMPLING_FREQ_044100, 44100, 3 },
 	{ LDACBT_SAMPLING_FREQ_048000, 48000, 2 },
@@ -104,7 +105,7 @@ ldac_frequencies[] = {
 	{ LDACBT_SAMPLING_FREQ_096000, 96000, 0 },
 };
 
-static struct a2dp_codec_config
+static const struct a2dp_codec_config
 ldac_channel_modes[] = {
 	{ LDACBT_CHANNEL_MODE_STEREO,       2, 2 },
 	{ LDACBT_CHANNEL_MODE_DUAL_CHANNEL, 2, 1 },

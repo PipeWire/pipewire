@@ -81,7 +81,7 @@ impl_log_logv(void *object,
 	char timestamp[15] = {0};
 	char filename[64] = {0};
 	char location[1000 + RESERVED_LENGTH], *p, *s;
-	static const char *levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
+	static const char * const levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
 	const char *prefix = "", *suffix = "";
 	int size, len;
 	bool do_trace;

@@ -55,7 +55,7 @@ struct impl {
 static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 		uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
-	const a2dp_sbc_t a2dp_sbc = {
+	static const a2dp_sbc_t a2dp_sbc = {
 		.frequency =
 			SBC_SAMPLING_FREQ_16000 |
 			SBC_SAMPLING_FREQ_32000 |
@@ -80,6 +80,7 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 		.min_bitpool = SBC_MIN_BITPOOL,
 		.max_bitpool = SBC_MAX_BITPOOL,
 	};
+
 	memcpy(caps, &a2dp_sbc, sizeof(a2dp_sbc));
 	return sizeof(a2dp_sbc);
 }
@@ -121,7 +122,7 @@ static uint8_t default_bitpool(uint8_t freq, uint8_t mode, bool xq)
 }
 
 
-static struct a2dp_codec_config
+static const struct a2dp_codec_config
 sbc_frequencies[] = {
 	{ SBC_SAMPLING_FREQ_48000, 48000, 3 },
 	{ SBC_SAMPLING_FREQ_44100, 44100, 2 },
@@ -129,13 +130,13 @@ sbc_frequencies[] = {
 	{ SBC_SAMPLING_FREQ_16000, 16000, 0 },
 };
 
-static struct a2dp_codec_config
+static const struct a2dp_codec_config
 sbc_xq_frequencies[] = {
 	{ SBC_SAMPLING_FREQ_44100, 44100, 1 },
 	{ SBC_SAMPLING_FREQ_48000, 48000, 0 },
 };
 
-static struct a2dp_codec_config
+static const struct a2dp_codec_config
 sbc_channel_modes[] = {
 	{ SBC_CHANNEL_MODE_JOINT_STEREO, 2, 3 },
 	{ SBC_CHANNEL_MODE_STEREO,       2, 2 },
@@ -143,7 +144,7 @@ sbc_channel_modes[] = {
 	{ SBC_CHANNEL_MODE_MONO,         1, 0 },
 };
 
-static struct a2dp_codec_config
+static const struct a2dp_codec_config
 sbc_xq_channel_modes[] = {
 	{ SBC_CHANNEL_MODE_DUAL_CHANNEL, 2, 2 },
 	{ SBC_CHANNEL_MODE_JOINT_STEREO, 2, 1 },
@@ -158,7 +159,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	a2dp_sbc_t conf;
 	int bitpool, i;
 	size_t n;
-	struct a2dp_codec_config * configs;
+	const struct a2dp_codec_config *configs;
 	bool xq = false;
 
 

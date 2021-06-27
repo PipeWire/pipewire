@@ -658,9 +658,11 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 			goto exit;
 		}
 		if (filter) {
+			static const struct spa_rectangle step = {1, 1};
+
+			const struct spa_rectangle *values;
 			const struct spa_pod_prop *p;
 			struct spa_pod *val;
-			const struct spa_rectangle step = { 1, 1 }, *values;
 			uint32_t choice, i, n_values;
 
 			/* check if we have a fixed frame size */
@@ -749,10 +751,12 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 			goto exit;
 		}
 		if (filter) {
+			static const struct spa_fraction step = {1, 1};
+
+			const struct spa_fraction *values;
 			const struct spa_pod_prop *p;
 			struct spa_pod *val;
 			uint32_t i, n_values, choice;
-			const struct spa_fraction step = { 1, 1 }, *values;
 
 			if (!(p = spa_pod_find_prop(filter, NULL, SPA_FORMAT_VIDEO_framerate)))
 				goto have_framerate;

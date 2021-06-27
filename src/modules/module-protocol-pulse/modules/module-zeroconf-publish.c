@@ -379,15 +379,15 @@ static void service_entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupStat
 
 static void publish_service(struct service *s)
 {
-	AvahiStringList *txt = NULL;
-	const char *t;
-	char cm[PA_CHANNEL_MAP_SNPRINT_MAX];
-
-	const char * const subtype_text[] = {
+	static const char * const subtype_text[] = {
 		[SUBTYPE_HARDWARE] = "hardware",
 		[SUBTYPE_VIRTUAL] = "virtual",
 		[SUBTYPE_MONITOR] = "monitor"
 	};
+
+	AvahiStringList *txt = NULL;
+	const char *t;
+	char cm[PA_CHANNEL_MAP_SNPRINT_MAX];
 
 	spa_assert(s);
 

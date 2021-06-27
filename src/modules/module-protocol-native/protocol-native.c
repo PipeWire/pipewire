@@ -2015,7 +2015,7 @@ pw_protocol_native_registry_event_demarshal[PW_REGISTRY_EVENT_NUM] =
 	[PW_REGISTRY_EVENT_GLOBAL_REMOVE] = { &registry_demarshal_global_remove, 0, }
 };
 
-const struct pw_protocol_marshal pw_protocol_native_registry_marshal = {
+static const struct pw_protocol_marshal pw_protocol_native_registry_marshal = {
 	PW_TYPE_INTERFACE_Registry,
 	PW_VERSION_REGISTRY,
 	0,
@@ -2050,7 +2050,7 @@ pw_protocol_native_module_method_demarshal[PW_MODULE_METHOD_NUM] =
 	[PW_MODULE_METHOD_ADD_LISTENER] = { NULL, 0, },
 };
 
-const struct pw_protocol_marshal pw_protocol_native_module_marshal = {
+static const struct pw_protocol_marshal pw_protocol_native_module_marshal = {
 	PW_TYPE_INTERFACE_Module,
 	PW_VERSION_MODULE,
 	0,
@@ -2084,7 +2084,7 @@ pw_protocol_native_factory_method_demarshal[PW_FACTORY_METHOD_NUM] =
 	[PW_FACTORY_METHOD_ADD_LISTENER] = { NULL, 0, },
 };
 
-const struct pw_protocol_marshal pw_protocol_native_factory_marshal = {
+static const struct pw_protocol_marshal pw_protocol_native_factory_marshal = {
 	PW_TYPE_INTERFACE_Factory,
 	PW_VERSION_FACTORY,
 	0,

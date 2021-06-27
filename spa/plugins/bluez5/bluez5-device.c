@@ -163,7 +163,7 @@ static void init_node(struct impl *this, struct node *node, uint32_t id)
 
 static const struct a2dp_codec *get_a2dp_codec(enum spa_bluetooth_audio_codec id)
 {
-	const struct a2dp_codec **c;
+	const struct a2dp_codec * const *c;
 
 	for (c = a2dp_codecs; *c; ++c)
 		if ((*c)->id == id)
@@ -684,7 +684,9 @@ static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_a
 	 */
 	if (profile == DEVICE_PROFILE_A2DP && !(this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE)) {
 		int ret;
-		const struct a2dp_codec *codec_list[2], **codecs, *a2dp_codec;
+		const struct a2dp_codec *codec_list[2];
+		const struct a2dp_codec * const *codecs;
+		const struct a2dp_codec *a2dp_codec;
 
 		a2dp_codec = get_a2dp_codec(codec);
 		if (a2dp_codec == NULL) {

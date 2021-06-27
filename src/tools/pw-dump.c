@@ -376,14 +376,16 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 					SPA_POD_CONTENTS(struct spa_pod, &b->child),
 					b->child.size);
 		} else {
-			void *p;
-			static const char *range_labels[] = { "default", "min", "max", NULL };
-			static const char *step_labels[] = { "default", "min", "max", "step", NULL };
-			static const char *enum_labels[] = { "default", "alt%u" };
-			static const char *flags_labels[] = { "default", "flag%u" };
-			const char **labels, *label;
+			static const char * const range_labels[] = { "default", "min", "max", NULL };
+			static const char * const step_labels[] = { "default", "min", "max", "step", NULL };
+			static const char * const enum_labels[] = { "default", "alt%u" };
+			static const char * const flags_labels[] = { "default", "flag%u" };
+
+			const char * const *labels;
+			const char *label;
 			char buffer[64];
 			int max_labels, flags = 0;
+			void *p;
 
 			switch (b->type) {
 			case SPA_CHOICE_Range:
@@ -512,7 +514,7 @@ struct flags_info {
 };
 
 static void put_flags(struct data *d, const char *key,
-		uint64_t flags, struct flags_info *info)
+		uint64_t flags, const struct flags_info *info)
 {
 	uint32_t i;
 	put_begin(d, key, "[", STATE_SIMPLE);
@@ -526,12 +528,14 @@ static void put_flags(struct data *d, const char *key,
 /* core */
 static void core_dump(struct object *o)
 {
-	struct data *d = o->data;
-	struct pw_core_info *i = d->info;
-	struct flags_info fl[] = {
+	static const struct flags_info fl[] = {
 		{ "props", PW_CORE_CHANGE_MASK_PROPS },
 		{ NULL, 0 },
 	};
+
+	struct data *d = o->data;
+	struct pw_core_info *i = d->info;
+
 	put_begin(d, "info", "{", 0);
 	put_int(d, "cookie", i->cookie);
 	put_value(d, "user-name", i->user_name);
@@ -552,12 +556,14 @@ static const struct class core_class = {
 /* client */
 static void client_dump(struct object *o)
 {
-	struct data *d = o->data;
-	struct pw_client_info *i = o->info;
-	struct flags_info fl[] = {
+	static const struct flags_info fl[] = {
 		{ "props", PW_CLIENT_CHANGE_MASK_PROPS },
 		{ NULL, 0 },
 	};
+
+	struct data *d = o->data;
+	struct pw_client_info *i = o->info;
+
 	put_begin(d, "info", "{", 0);
 	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
@@ -606,12 +612,14 @@ static const struct class client_class = {
 /* module */
 static void module_dump(struct object *o)
 {
-	struct data *d = o->data;
-	struct pw_module_info *i = o->info;
-	struct flags_info fl[] = {
+	static const struct flags_info fl[] = {
 		{ "props", PW_MODULE_CHANGE_MASK_PROPS },
 		{ NULL, 0 },
 	};
+
+	struct data *d = o->data;
+	struct pw_module_info *i = o->info;
+
 	put_begin(d, "info", "{", 0);
 	put_value(d, "name", i->name);
 	put_value(d, "filename", i->filename);
@@ -663,12 +671,14 @@ static const struct class module_class = {
 /* factory */
 static void factory_dump(struct object *o)
 {
-	struct data *d = o->data;
-	struct pw_factory_info *i = o->info;
-	struct flags_info fl[] = {
+	static const struct flags_info fl[] = {
 		{ "props", PW_FACTORY_CHANGE_MASK_PROPS },
 		{ NULL, 0 },
 	};
+
+	struct data *d = o->data;
+	struct pw_factory_info *i = o->info;
+
 	put_begin(d, "info", "{", 0);
 	put_value(d, "name", i->name);
 	put_value(d, "type", i->type);
@@ -720,13 +730,15 @@ static const struct class factory_class = {
 /* device */
 static void device_dump(struct object *o)
 {
-	struct data *d = o->data;
-	struct pw_device_info *i = o->info;
-	struct flags_info fl[] = {
+	static const struct flags_info fl[] = {
 		{ "props", PW_DEVICE_CHANGE_MASK_PROPS },
 		{ "params", PW_DEVICE_CHANGE_MASK_PARAMS },
 		{ NULL, 0 },
 	};
+
+	struct data *d = o->data;
+	struct pw_device_info *i = o->info;
+
 	put_begin(d, "info", "{", 0);
 	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
@@ -802,9 +814,7 @@ static const struct class device_class = {
 /* node */
 static void node_dump(struct object *o)
 {
-	struct data *d = o->data;
-	struct pw_node_info *i = o->info;
-	struct flags_info fl[] = {
+	static const struct flags_info fl[] = {
 		{ "input-ports", PW_NODE_CHANGE_MASK_INPUT_PORTS },
 		{ "output-ports", PW_NODE_CHANGE_MASK_OUTPUT_PORTS },
 		{ "state", PW_NODE_CHANGE_MASK_STATE },
@@ -812,6 +822,10 @@ static void node_dump(struct object *o)
 		{ "params", PW_NODE_CHANGE_MASK_PARAMS },
 		{ NULL, 0 },
 	};
+
+	struct data *d = o->data;
+	struct pw_node_info *i = o->info;
+
 	put_begin(d, "info", "{", 0);
 	put_int(d, "max-input-ports", i->max_input_ports);
 	put_int(d, "max-output-ports", i->max_output_ports);
@@ -896,13 +910,15 @@ static const struct class node_class = {
 /* port */
 static void port_dump(struct object *o)
 {
-	struct data *d = o->data;
-	struct pw_port_info *i = o->info;
-	struct flags_info fl[] = {
+	static const struct flags_info fl[] = {
 		{ "props", PW_PORT_CHANGE_MASK_PROPS },
 		{ "params", PW_PORT_CHANGE_MASK_PARAMS },
 		{ NULL, },
 	};
+
+	struct data *d = o->data;
+	struct pw_port_info *i = o->info;
+
 	put_begin(d, "info", "{", 0);
 	put_value(d, "direction", pw_direction_as_string(i->direction));
 	put_flags(d, "change-mask", i->change_mask, fl);
@@ -979,14 +995,16 @@ static const struct class port_class = {
 /* link */
 static void link_dump(struct object *o)
 {
-	struct data *d = o->data;
-	struct pw_link_info *i = o->info;
-	struct flags_info fl[] = {
+	static const struct flags_info fl[] = {
 		{ "state", PW_LINK_CHANGE_MASK_STATE },
 		{ "format", PW_LINK_CHANGE_MASK_FORMAT },
 		{ "props", PW_LINK_CHANGE_MASK_PROPS },
 		{ NULL, },
 	};
+
+	struct data *d = o->data;
+	struct pw_link_info *i = o->info;
+
 	put_begin(d, "info", "{", 0);
 	put_int(d, "output-node-id", i->output_node_id);
 	put_int(d, "output-port-id", i->output_port_id);
@@ -1314,14 +1332,16 @@ static const struct pw_registry_events registry_events = {
 
 static void dump_objects(struct data *d)
 {
-	struct object *o;
-	struct flags_info fl[] = {
+	static const struct flags_info fl[] = {
 		{ "r", PW_PERM_R },
 		{ "w", PW_PERM_W },
 		{ "x", PW_PERM_X },
 		{ "m", PW_PERM_M },
 		{ NULL, },
 	};
+
+	struct object *o;
+
 	d->state = STATE_FIRST;
 	spa_list_for_each(o, &d->object_list, link) {
 		if (d->id != SPA_ID_INVALID && d->id != o->id)

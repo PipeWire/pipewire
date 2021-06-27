@@ -1,5 +1,4 @@
-
-const struct type_info {
+static const struct type_info {
 	const char *type;
 	const char *name;
 	uint32_t id;

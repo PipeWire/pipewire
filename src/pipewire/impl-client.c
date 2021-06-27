@@ -135,7 +135,7 @@ static int client_error(void *object, uint32_t id, int res, const char *error)
 	return 0;
 }
 
-static bool has_key(const char *keys[], const char *key)
+static bool has_key(const char * const keys[], const char *key)
 {
 	int i;
 	for (i = 0; keys[i]; i++) {
@@ -147,13 +147,15 @@ static bool has_key(const char *keys[], const char *key)
 
 static int update_properties(struct pw_impl_client *client, const struct spa_dict *dict, bool filter)
 {
-	struct pw_resource *resource;
-	int changed = 0;
-	uint32_t i;
-	const char *old, *ignored[] = {
+	static const char * const ignored[] = {
 		PW_KEY_OBJECT_ID,
 		NULL
 	};
+
+	struct pw_resource *resource;
+	int changed = 0;
+	uint32_t i;
+	const char *old;
 
         for (i = 0; i < dict->n_items; i++) {
 		if (filter) {
@@ -200,14 +202,16 @@ static void update_busy(struct pw_impl_client *client)
 
 static int finish_register(struct pw_impl_client *client)
 {
-	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
-	struct pw_impl_client *current;
-	const char *keys[] = {
+	static const char * const keys[] = {
 		PW_KEY_ACCESS,
 		PW_KEY_CLIENT_ACCESS,
 		PW_KEY_APP_NAME,
 		NULL
 	};
+
+	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
+	struct pw_impl_client *current;
+
 	if (impl->registered)
 		return 0;
 
@@ -469,8 +473,7 @@ SPA_EXPORT
 int pw_impl_client_register(struct pw_impl_client *client,
 		       struct pw_properties *properties)
 {
-	struct pw_context *context = client->context;
-	const char *keys[] = {
+	static const char * const keys[] = {
 		PW_KEY_MODULE_ID,
 		PW_KEY_PROTOCOL,
 		PW_KEY_SEC_PID,
@@ -479,6 +482,8 @@ int pw_impl_client_register(struct pw_impl_client *client,
 		PW_KEY_SEC_LABEL,
 		NULL
 	};
+
+	struct pw_context *context = client->context;
 
 	if (client->registered)
 		goto error_existed;

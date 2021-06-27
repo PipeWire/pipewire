@@ -461,17 +461,17 @@ int midi_file_write_event(struct midi_file *mf, const struct midi_event *event)
 	return 0;
 }
 
-static const char *event_names[] = {
+static const char * const event_names[] = {
 	"Text", "Copyright", "Sequence/Track Name",
 	"Instrument", "Lyric", "Marker", "Cue Point",
 	"Program Name", "Device (Port) Name"
 };
 
-static const char *note_names[] = {
+static const char * const note_names[] = {
 	"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
 };
 
-static const char *controller_names[128] = {
+static const char * const controller_names[128] = {
 	[0] =	"Bank Select (coarse)",
 	[1] =	"Modulation Wheel (coarse)",
 	[2] =	"Breath controller (coarse)",
@@ -541,7 +541,7 @@ static const char *controller_names[128] = {
 	[127] =	"Poly Operation",
 };
 
-static const char *program_names[] = {
+static const char * const program_names[] = {
 	"Acoustic Grand", "Bright Acoustic", "Electric Grand", "Honky-Tonk",
 	"Electric Piano 1", "Electric Piano 2", "Harpsichord", "Clavinet",
 	"Celesta", "Glockenspiel", "Music Box", "Vibraphone", "Marimba",
@@ -572,19 +572,19 @@ static const char *program_names[] = {
 	"Applause", "Gunshot"
 };
 
-static const char *smpte_rates[] = {
+static const char * const smpte_rates[] = {
 	"24 fps",
 	"25 fps",
 	"30 fps (drop frame)",
 	"30 fps (non drop frame)"
 };
 
-static const char *const major_keys[] = {
+static const char * const major_keys[] = {
 	"Unknown major", "Fb", "Cb", "Gb", "Db", "Ab", "Eb", "Bb", "F",
 	"C", "G", "D", "A", "E", "B", "F#", "C#", "G#", "Unknown major"
 };
 
-static const char *const minor_keys[] = {
+static const char * const minor_keys[] = {
 	"Unknown minor", "Dbm", "Abm", "Ebm", "Bbm", "Fm", "Cm", "Gm", "Dm",
 	"Am", "Em", "Bm", "F#m", "C#m", "G#m", "D#m", "A#m", "E#m", "Unknown minor"
 };

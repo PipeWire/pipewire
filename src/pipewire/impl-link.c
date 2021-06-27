@@ -1228,9 +1228,7 @@ SPA_EXPORT
 int pw_impl_link_register(struct pw_impl_link *link,
 		     struct pw_properties *properties)
 {
-	struct pw_context *context = link->context;
-	struct pw_impl_node *output_node, *input_node;
-	const char *keys[] = {
+	static const char * const keys[] = {
 		PW_KEY_OBJECT_PATH,
 		PW_KEY_MODULE_ID,
 		PW_KEY_FACTORY_ID,
@@ -1241,6 +1239,9 @@ int pw_impl_link_register(struct pw_impl_link *link,
 		PW_KEY_LINK_INPUT_NODE,
 		NULL
 	};
+
+	struct pw_context *context = link->context;
+	struct pw_impl_node *output_node, *input_node;
 
 	if (link->registered)
 		goto error_existed;

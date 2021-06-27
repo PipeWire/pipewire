@@ -693,18 +693,19 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 static void emit_node_info(struct impl *this, bool full)
 {
-	bool is_ag = (this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
-	struct spa_dict_item ag_node_info_items[] = {
+	static const struct spa_dict_item hu_node_info_items[] = {
+		{ SPA_KEY_DEVICE_API, "bluez5" },
+		{ SPA_KEY_MEDIA_CLASS, "Audio/Sink" },
+		{ SPA_KEY_NODE_DRIVER, "true" },
+	};
+
+	const struct spa_dict_item ag_node_info_items[] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
 		{ SPA_KEY_MEDIA_CLASS, "Stream/Input/Audio" },
 		{ "media.name", ((this->transport && this->transport->device->name) ?
 		                 this->transport->device->name : "HSP/HFP") },
 	};
-	struct spa_dict_item hu_node_info_items[] = {
-		{ SPA_KEY_DEVICE_API, "bluez5" },
-		{ SPA_KEY_MEDIA_CLASS, "Audio/Sink" },
-		{ SPA_KEY_NODE_DRIVER, "true" },
-	};
+	bool is_ag = (this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
 	uint64_t old = full ? this->info.change_mask : 0;
 
 	if (full)
@@ -1311,7 +1312,7 @@ static const struct spa_dict_item info_items[] = {
 
 static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
-struct spa_handle_factory spa_sco_sink_factory = {
+const struct spa_handle_factory spa_sco_sink_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	SPA_NAME_API_BLUEZ5_SCO_SINK,
 	&info,

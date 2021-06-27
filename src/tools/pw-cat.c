@@ -1163,7 +1163,7 @@ static int setup_midifile(struct data *data)
 
 static int fill_properties(struct data *data)
 {
-	static const char* table[] = {
+	static const char * const table[] = {
 		[SF_STR_TITLE] = PW_KEY_MEDIA_TITLE,
 		[SF_STR_COPYRIGHT] = PW_KEY_MEDIA_COPYRIGHT,
 		[SF_STR_SOFTWARE] = PW_KEY_MEDIA_SOFTWARE,
@@ -1171,6 +1171,7 @@ static int fill_properties(struct data *data)
 		[SF_STR_COMMENT] = PW_KEY_MEDIA_COMMENT,
 		[SF_STR_DATE] = PW_KEY_MEDIA_DATE
 	};
+
 	SF_INFO sfi;
 	SF_FORMAT_INFO fi;
 	int res;

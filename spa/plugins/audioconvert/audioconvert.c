@@ -591,7 +591,7 @@ static void fmt_input_port_info(void *data,
 		spa_node_emit_port_info(&this->hooks, direction, port, info);
 }
 
-static struct spa_node_events fmt_input_events = {
+static const struct spa_node_events fmt_input_events = {
 	SPA_VERSION_NODE_EVENTS,
 	.port_info = fmt_input_port_info,
 	.result = on_node_result,
@@ -612,7 +612,7 @@ static void fmt_output_port_info(void *data,
 		spa_node_emit_port_info(&this->hooks, direction, port, info);
 }
 
-static struct spa_node_events fmt_output_events = {
+static const struct spa_node_events fmt_output_events = {
 	SPA_VERSION_NODE_EVENTS,
 	.port_info = fmt_output_port_info,
 	.result = on_node_result,
@@ -655,13 +655,13 @@ static void on_channelmix_info(void *data, const struct spa_node_info *info)
 	emit_node_info(this, false);
 }
 
-static struct spa_node_events channelmix_events = {
+static const struct spa_node_events channelmix_events = {
 	SPA_VERSION_NODE_EVENTS,
 	.info = on_channelmix_info,
 	.result = on_node_result,
 };
 
-static struct spa_node_events resample_events = {
+static const struct spa_node_events resample_events = {
 	SPA_VERSION_NODE_EVENTS,
 	.result = on_node_result,
 };

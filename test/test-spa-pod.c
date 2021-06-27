@@ -1570,12 +1570,7 @@ PWTEST(pod_static)
 
 PWTEST(pod_overflow)
 {
-	uint8_t buffer[1024];
-	struct spa_pod_builder b = { 0 };
-	struct spa_pod_builder_state state;
-	struct spa_pod_frame f[2];
-	uint32_t idx;
-	const char *labels[] = {
+	static const char * const labels[] = {
 		"640x480p59", "720x480i29", "720x480p59", "720x576i25", "720x576p50",
 		"1280x720p24", "1280x720p25", "1280x720p30", "1280x720p50", "1280x720p60",
 		"1920x1080p24", "1920x1080p25", "1920x1080p30", "1920x1080i25", "1920x1080p50",
@@ -1599,6 +1594,12 @@ PWTEST(pod_overflow)
 		"3840x2160p24", "3840x2160p25", "3840x2160p30", "3840x2160p50", "3840x2160p60",
 		"4096x2160p24", "4096x2160p25", "4096x2160p30", "4096x2160p50", "4096x2160p59",
 		"4096x2160p60", NULL };
+
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = { 0 };
+	struct spa_pod_builder_state state;
+	struct spa_pod_frame f[2];
+	uint32_t idx;
 	struct spa_pod *pod;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));

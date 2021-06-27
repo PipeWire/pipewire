@@ -78,8 +78,7 @@ static int client_endpoint_stream_update(void *object,
 	struct pw_properties *props = NULL;
 
 	if (!stream) {
-		struct pw_context *context = pw_global_get_context(endpoint->global);
-		const char *keys[] = {
+		static const char * const keys[] = {
 			PW_KEY_FACTORY_ID,
 			PW_KEY_CLIENT_ID,
 			PW_KEY_ENDPOINT_ID,
@@ -89,6 +88,8 @@ static int client_endpoint_stream_update(void *object,
 			PW_KEY_ENDPOINT_STREAM_DESCRIPTION,
 			NULL
 		};
+
+		struct pw_context *context = pw_global_get_context(endpoint->global);
 
 		stream = calloc(1, sizeof(struct endpoint_stream));
 		if (!stream)
@@ -128,7 +129,7 @@ static int client_endpoint_stream_update(void *object,
 	return -ENOMEM;
 }
 
-static struct pw_client_endpoint_methods methods = {
+static const struct pw_client_endpoint_methods methods = {
 	PW_VERSION_CLIENT_ENDPOINT_METHODS,
 	.update = client_endpoint_update,
 	.stream_update = client_endpoint_stream_update,

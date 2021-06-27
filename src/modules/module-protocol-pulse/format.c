@@ -380,7 +380,7 @@ bool channel_map_valid(const struct channel_map *map)
 }
 
 
-static const char *encoding_names[] = {
+static const char * const encoding_names[] = {
 	[ENCODING_ANY] = "ANY",
 	[ENCODING_PCM] = "PCM",
 	[ENCODING_AC3_IEC61937] = "AC3-IEC61937",

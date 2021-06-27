@@ -135,7 +135,7 @@ static void on_mute_changed(void *data, struct acp_device *dev)
 	fprintf(stderr, "*** mute %s changed to %d\n", dev->name, mute);
 }
 
-struct acp_card_events card_events = {
+static const struct acp_card_events card_events = {
 	ACP_VERSION_CARD_EVENTS,
         .props_changed = card_props_changed,
         .profile_changed = card_profile_changed,

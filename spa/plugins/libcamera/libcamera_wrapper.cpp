@@ -75,7 +75,7 @@ using namespace controls;
 
 extern "C" {
 
-	static struct {
+	static const struct {
 		spa_video_format video_format;
 		unsigned int drm_fourcc;
 	} format_map[] = {

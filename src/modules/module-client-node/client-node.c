@@ -1098,7 +1098,7 @@ static int client_node_port_buffers(void *data,
 	return 0;
 }
 
-static struct pw_client_node_methods client_node_methods = {
+static const struct pw_client_node_methods client_node_methods = {
 	PW_VERSION_CLIENT_NODE_METHODS,
 	.get_node = client_node_get_node,
 	.update = client_node_update,

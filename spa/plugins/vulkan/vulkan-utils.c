@@ -100,7 +100,7 @@ static int vkresult_to_errno(VkResult result)
 
 static int createInstance(struct vulkan_state *s)
 {
-	const VkApplicationInfo applicationInfo = {
+	static const VkApplicationInfo applicationInfo = {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		.pApplicationName = "PipeWire",
 		.applicationVersion = 0,
@@ -108,10 +108,11 @@ static int createInstance(struct vulkan_state *s)
 		.engineVersion = 0,
 		.apiVersion = VK_API_VERSION_1_1
 	};
-	const char *extensions[] = {
+	static const char * const extensions[] = {
 		VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME
 	};
-        VkInstanceCreateInfo createInfo = {
+
+	const VkInstanceCreateInfo createInfo = {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 		.pApplicationInfo = &applicationInfo,
 		.enabledExtensionCount = 1,
@@ -166,17 +167,18 @@ static int findPhysicalDevice(struct vulkan_state *s)
 
 static int createDevice(struct vulkan_state *s)
 {
-	VkDeviceQueueCreateInfo queueCreateInfo = {
+
+	const VkDeviceQueueCreateInfo queueCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
 		.queueFamilyIndex = s->queueFamilyIndex,
 		.queueCount = 1,
 		.pQueuePriorities = (const float[]) { 1.0f }
 	};
-	const char *extensions[] = {
+	static const char * const extensions[] = {
 		VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
 		VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME
 	};
-	VkDeviceCreateInfo deviceCreateInfo = {
+	const VkDeviceCreateInfo deviceCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 		.queueCreateInfoCount = 1,
 		.pQueueCreateInfos = &queueCreateInfo,
@@ -188,7 +190,7 @@ static int createDevice(struct vulkan_state *s)
 
 	vkGetDeviceQueue(s->device, s->queueFamilyIndex, 0, &s->queue);
 
-	VkFenceCreateInfo fenceCreateInfo = {
+	static const VkFenceCreateInfo fenceCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 		.flags = 0,
 	};
@@ -215,11 +217,11 @@ static uint32_t findMemoryType(struct vulkan_state *s,
 
 static int createDescriptors(struct vulkan_state *s)
 {
-	VkDescriptorPoolSize descriptorPoolSize = {
+	static const VkDescriptorPoolSize descriptorPoolSize = {
 		.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1
 	};
-	VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
+	static const VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 		.maxSets = 1,
 		.poolSizeCount = 1,
@@ -230,13 +232,13 @@ static int createDescriptors(struct vulkan_state *s)
 				&descriptorPoolCreateInfo, NULL,
 				&s->descriptorPool));
 
-	VkDescriptorSetLayoutBinding descriptorSetLayoutBinding = {
+	static const VkDescriptorSetLayoutBinding descriptorSetLayoutBinding = {
 		.binding = 0,
 		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
 	};
-	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
+	static const VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 		.bindingCount = 1,
 		.pBindings = &descriptorSetLayoutBinding
@@ -245,7 +247,7 @@ static int createDescriptors(struct vulkan_state *s)
 				&descriptorSetLayoutCreateInfo, NULL,
 				&s->descriptorSetLayout));
 
-	VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {
+	const VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 		.descriptorPool = s->descriptorPool,
 		.descriptorSetCount = 1,
@@ -260,7 +262,7 @@ static int createDescriptors(struct vulkan_state *s)
 
 static int createBuffer(struct vulkan_state *s, uint32_t id)
 {
-	VkBufferCreateInfo bufferCreateInfo = {
+	const VkBufferCreateInfo bufferCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.size = s->bufferSize,
 		.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
@@ -274,14 +276,14 @@ static int createBuffer(struct vulkan_state *s, uint32_t id)
 	vkGetBufferMemoryRequirements(s->device,
 			s->buffers[id].buffer, &memoryRequirements);
 
-	VkMemoryAllocateInfo allocateInfo = {
+	const VkMemoryAllocateInfo allocateInfo = {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		.allocationSize = memoryRequirements.size
+		.allocationSize = memoryRequirements.size,
+		.memoryTypeIndex = findMemoryType(s,
+						  memoryRequirements.memoryTypeBits,
+						  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
+						  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
 	};
-	allocateInfo.memoryTypeIndex = findMemoryType(s,
-			memoryRequirements.memoryTypeBits,
-			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
 	VK_CHECK_RESULT(vkAllocateMemory(s->device,
 				&allocateInfo, NULL, &s->buffers[id].memory));
@@ -296,12 +298,12 @@ static int updateDescriptors(struct vulkan_state *s, uint32_t buffer_id)
 	if (s->current_buffer_id == buffer_id)
 		return 0;
 
-	VkDescriptorBufferInfo descriptorBufferInfo = {
+	const VkDescriptorBufferInfo descriptorBufferInfo = {
 		.buffer = s->buffers[buffer_id].buffer,
 		.offset = 0,
 		.range = s->bufferSize,
 	};
-	VkWriteDescriptorSet writeDescriptorSet = {
+	const VkWriteDescriptorSet writeDescriptorSet = {
 		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 		.dstSet = s->descriptorSet,
 		.dstBinding = 0,
@@ -335,7 +337,7 @@ static VkShaderModule createShaderModule(struct vulkan_state *s, const char* sha
 
 	data = mmap(NULL, stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 
-	VkShaderModuleCreateInfo shaderModuleCreateInfo = {
+	const VkShaderModuleCreateInfo shaderModuleCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
 		.codeSize = stat.st_size,
 		.pCode = data,
@@ -355,13 +357,13 @@ static VkShaderModule createShaderModule(struct vulkan_state *s, const char* sha
 
 static int createComputePipeline(struct vulkan_state *s, const char *shader_file)
 {
-	const VkPushConstantRange range = {
+	static const VkPushConstantRange range = {
 		.stageFlags = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
 		.offset = 0,
 		.size = sizeof(struct push_constants)
 	};
 
-	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
+	const VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.setLayoutCount = 1,
 		.pSetLayouts = &s->descriptorSetLayout,
@@ -376,13 +378,13 @@ static int createComputePipeline(struct vulkan_state *s, const char *shader_file
 	if (s->computeShaderModule == VK_NULL_HANDLE)
 		return -ENOENT;
 
-	VkPipelineShaderStageCreateInfo shaderStageCreateInfo = {
+	const VkPipelineShaderStageCreateInfo shaderStageCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
 		.module = s->computeShaderModule,
 		.pName = "main",
 	};
-	VkComputePipelineCreateInfo pipelineCreateInfo = {
+	const VkComputePipelineCreateInfo pipelineCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
 		.stage = shaderStageCreateInfo,
 		.layout = s->pipelineLayout,
@@ -395,7 +397,7 @@ static int createComputePipeline(struct vulkan_state *s, const char *shader_file
 
 static int createCommandBuffer(struct vulkan_state *s)
 {
-	VkCommandPoolCreateInfo commandPoolCreateInfo = {
+	const VkCommandPoolCreateInfo commandPoolCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 		.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
 		.queueFamilyIndex = s->queueFamilyIndex,
@@ -404,7 +406,7 @@ static int createCommandBuffer(struct vulkan_state *s)
 				&commandPoolCreateInfo, NULL,
 				&s->commandPool));
 
-	VkCommandBufferAllocateInfo commandBufferAllocateInfo = {
+	const VkCommandBufferAllocateInfo commandBufferAllocateInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 		.commandPool = s->commandPool,
 		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
@@ -419,7 +421,7 @@ static int createCommandBuffer(struct vulkan_state *s)
 
 static int runCommandBuffer(struct vulkan_state *s)
 {
-	VkCommandBufferBeginInfo beginInfo = {
+	static const VkCommandBufferBeginInfo beginInfo = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 	};
@@ -440,7 +442,7 @@ static int runCommandBuffer(struct vulkan_state *s)
 
 	VK_CHECK_RESULT(vkResetFences(s->device, 1, &s->fence));
 
-	VkSubmitInfo submitInfo = {
+	const VkSubmitInfo submitInfo = {
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 		.commandBufferCount = 1,
 		.pCommandBuffers = &s->commandBuffer,
@@ -476,7 +478,7 @@ int spa_vulkan_use_buffers(struct vulkan_state *s, uint32_t flags,
 	for (i = 0; i < n_buffers; i++) {
 		createBuffer(s, i);
 
-		VkMemoryGetFdInfoKHR getFdInfo = {
+		const VkMemoryGetFdInfoKHR getFdInfo = {
 			.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
 			.memory = s->buffers[i].memory,
 			.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT

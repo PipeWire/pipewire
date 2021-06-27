@@ -451,7 +451,7 @@ static void on_core_proxy_destroy(void *data)
 	client_cleanup(client);
 }
 
-static struct pw_proxy_events core_proxy_events = {
+static const struct pw_proxy_events core_proxy_events = {
 	PW_VERSION_CORE_EVENTS,
 	.destroy = on_core_proxy_destroy,
 };

@@ -101,7 +101,7 @@ conv_s16_to_f32d_2s_neon(void *data, void * SPA_RESTRICT dst[], const void * SPA
 		"      vcvt.f32.s32 q0, q0, #15\n"
 		"      vcvt.f32.s32 q1, q1, #15\n"
 		"      vst1.32 { d0[0] }, [%[d0]]!\n"
-		"      vst1.32 { d1[0] }, [%[d1]]!\n"
+		"      vst1.32 { d2[0] }, [%[d1]]!\n"
 		"      bne 3b\n"
 		"4:"
 		: [d0] "+r" (d0), [d1] "+r" (d1), [s] "+r" (s), [n_samples] "+r" (n_samples),

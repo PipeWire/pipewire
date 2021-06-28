@@ -1462,7 +1462,7 @@ mmap_init(struct impl *this,
 
 		if (port->have_expbuf &&
 		    d[0].type != SPA_ID_INVALID &&
-		    (d[0].type & (1u << SPA_DATA_DmaBuf))) {
+		    (d[0].type & ((1u << SPA_DATA_DmaBuf)|(1u<<SPA_DATA_MemFd)))) {
 			struct v4l2_exportbuffer expbuf;
 
 			spa_zero(expbuf);
@@ -1479,7 +1479,10 @@ mmap_init(struct impl *this,
 				spa_log_error(this->log, "v4l2: '%s' VIDIOC_EXPBUF: %m", this->props.device);
 				return -errno;
 			}
-			d[0].type = SPA_DATA_DmaBuf;
+			if (d[0].type & (1u<<SPA_DATA_DmaBuf))
+				d[0].type = SPA_DATA_DmaBuf;
+			else
+				d[0].type = SPA_DATA_MemFd;
 			d[0].flags = SPA_DATA_FLAG_READABLE;
 			d[0].fd = expbuf.fd;
 			d[0].data = NULL;

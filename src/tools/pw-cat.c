@@ -940,7 +940,7 @@ static void do_print_delay(void *userdata, uint64_t expirations)
 	struct data *data = userdata;
 	struct pw_time time;
 	pw_stream_get_time(data->stream, &time);
-	printf("now=%li rate=%u/%u ticks=%lu delay=%li queued=%lu\n",
+	printf("now=%"PRIi64" rate=%u/%u ticks=%"PRIu64" delay=%"PRIi64" queued=%"PRIu64"\n",
 		time.now,
 		time.rate.num, time.rate.denom,
 		time.ticks, time.delay, time.queued);

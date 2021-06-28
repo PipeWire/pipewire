@@ -1,3 +1,106 @@
+# PipeWire 0.3.31 (2021-06-28)
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+## Highlights
+  - Fixes for alsa-lib 1.2.5
+  - New pulseaudio modules: module-avahi-zeroconf,
+    module-pipe-source, module-roc-sink, module-roc-source
+  - JACK has seen massive stability improvements. Locking
+    and correctness wrt to callbacks and has been reworked. Also
+    thread priorities have improved.
+  - Handle various crashes and lockups when running out of file
+    descriptors.
+  - Bluetooth now uses a hardware database to disable
+    non-working features on listed devices.
+  - Scheduling quantum and rate can now be changed dynamically
+    with pw-metadata.
+  - Many bugfixes and improvements.
+
+
+## PipeWire
+  - Improve cleanup of context in error cases.
+  - There is now a pw-test framework for improved unit tests.
+  - Improve property serialization to valid JSON.
+  - Fix some macros to work with better with coverity.
+  - Metadata permissions are checked now. Clients need the
+    M permission on an object to be able to set metadata for
+    it.
+  - The core metadata object will now remove metadata for
+    removed objects, the implementor does not need to worry
+    about that anymore.
+  - Audioadapter will now follow the rate of the graph with
+    the resampler adjusting itself dynamically.
+  - Core now has a metadata implementation helper. A context
+    will expose a metadata with settings that can be changed
+    at runtime. This can be used to change the lowlevel or
+    graph quantum and samplerate on the fly.
+  - An infinite loop was fixed in the audio converter.
+  - Handle out-of-fds more gracefully. Handle truncated
+    control data by dropping the client connection.
+  - Fix profiler crash with many streams.
+  - Improve latency handling in pw-filter. There is now a
+    default handler and a ProcessLatency parameter to simplify
+    latency reporting.
+  - Latency reporting was improved in devices and streams.
+  - And example sink/source was added.
+
+## ALSA
+  - hardware mute and volume are now properties on the
+    Route param to make things easier.
+  - More fixes for alsa-ucm 1.2.5.
+
+## Tools
+  - spa-json-dump now properly encodes string and keys
+  - pw-dump now shows the correct subject of the metadata.
+
+
+## PulseAudio server
+  - Ensure the node.description is set, some applications
+    crash otherwise (TeamSpeak).
+  - Module loading and unloading was improved.
+  - module-avahi-zeroconf was implemented.
+  - module-pipe-source was implemented
+  - module-roc-sink and module-roc-source was implemented
+  - The maximum amount of connections has been limited to 64,
+    like pulseaudio.
+  - Handle out-of-fds more gracefully.
+  - Fix overflow of read/write pointers.
+  - source and sink state are now decoupled from the monitor
+    state and will report IDLE when not playing anything.
+
+## media-session
+  - Port switching should now happen to/from the port that
+    actually changed.
+
+## JACK
+  - The locking was reviewed. All callbacks are not emited
+    from the PipeWire thread with the lock released and
+    the process function will be disabled for the duration
+    of the callback. This ensures that no two callbacks are
+    called at the same time.
+  - Improve internal consistency and try to never call callbacks
+    with invalid objects.
+  - Monitor port can now be accessed with system:monitor_%d
+  - client threads are now created with SCHED_FIFO and module-rt
+    is used to create the other RT threads. This should avoid
+    SIGKILL from RTKit in some cases.
+
+## Bluetooth
+  - Various bugfixes to improve connections to devices.
+  - Handle delayed UUID connection.
+  - There is now a hardware database that can disable features
+    in listed devices.
+  - Use libusb to detect availability of mSBC.
+
+## ALSA
+  - The virtual device name can now also contain a media role.
+
+
+Older versions:
+
+
 # PipeWire 0.3.30
 
 This is a bugfix release that is API and ABI compatible
@@ -33,9 +136,6 @@ problems with the previous release.
   - Fix locking in many places to avoid deadlocks and crashes.
   - Fix port rename.
   - Stop freewheeling correctly instead of deadlocking.
-
-
-Older versions:
 
 # PipeWire 0.3.29
 
@@ -1623,9 +1723,6 @@ with previous 0.3.x releases.
    2) a part in the session manager that uses the permission
       store to manage the permissions of portal managed
       clients.
-
-
-Older versions:
 
 
 PipeWire 0.3.6

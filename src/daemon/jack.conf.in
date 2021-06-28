@@ -32,8 +32,8 @@ context.modules = [
     # If nofail is given, module initialization failures are ignored.
     #
     #
-    # Uses RTKit to boost the data thread priority.
-    {   name = libpipewire-module-rtkit
+    # Boost the data thread priority.
+    {   name = libpipewire-module-rt
         args = {
             #nice.level   = -11
             #rt.prio      = 88

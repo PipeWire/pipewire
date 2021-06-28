@@ -55,6 +55,13 @@
 
 #define JACK_DEFAULT_VIDEO_TYPE	"32 bit float RGBA video"
 
+#define JACK_SCHED_POLICY SCHED_FIFO
+/* use 512KB stack per thread - the default is way too high to be feasible
+ * with mlockall() on many systems */
+#define THREAD_STACK 524288
+
+#define DEFAULT_RT_MAX	88
+
 #define JACK_CLIENT_NAME_SIZE		128
 #define JACK_PORT_NAME_SIZE		256
 #define JACK_PORT_MAX			4096
@@ -377,6 +384,7 @@ struct client {
 	unsigned int filter_name:1;
 	unsigned int freewheeling:1;
 	int self_connect_mode;
+	int rt_max;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -2860,6 +2868,9 @@ jack_client_t * jack_client_open (const char *client_name,
 		else if (spa_streq(str, "ignore-all"))
 			client->self_connect_mode = SELF_CONNECT_IGNORE_ALL;
 	}
+	client->rt_max = DEFAULT_RT_MAX;
+	if ((str = pw_properties_get(client->props, "rt.prio")) != NULL)
+		client->rt_max = atoi(str);
 
 	spa_list_init(&client->context.free_objects);
 	pthread_mutex_init(&client->context.lock, NULL);
@@ -5394,20 +5405,68 @@ int jack_client_has_session_callback (jack_client_t *client, const char *client_
 SPA_EXPORT
 int jack_client_real_time_priority (jack_client_t * client)
 {
-	return 20;
+	return jack_client_max_real_time_priority(client) - 5;
 }
 
 SPA_EXPORT
 int jack_client_max_real_time_priority (jack_client_t *client)
 {
-	return 20;
+	struct client *c = (struct client *) client;
+	int max;
+
+	spa_return_val_if_fail(c != NULL, -1);
+
+	max = sched_get_priority_max(JACK_SCHED_POLICY);
+	return SPA_MIN(max, c->rt_max) - 1;
 }
+
+#define CHECK(expression,label)						\
+do {									\
+	if ((errno = expression) != 0) {				\
+		res = -errno;						\
+		pw_log_error(#expression ": %s", strerror(errno));	\
+		goto label;						\
+	}								\
+} while(false);
 
 SPA_EXPORT
 int jack_acquire_real_time_scheduling (jack_native_thread_t thread, int priority)
 {
-	pw_log_warn("not implemented %lu %d", thread, priority);
-	return -ENOTSUP;
+	struct sched_param rt_param;
+	int res;
+
+	spa_zero(rt_param);
+	rt_param.sched_priority = priority;
+
+	pw_log_info("thread %lu: priority %d", thread, priority);
+
+	if ((res = pthread_setschedparam((pthread_t)thread,
+				JACK_SCHED_POLICY | SCHED_RESET_ON_FORK,
+				&rt_param)) == 0)
+		return 0;
+
+	pw_log_warn("thread %lu: can't use RT priority %d: %s", thread, priority,
+			strerror(res));
+	return res;
+}
+
+SPA_EXPORT
+int jack_drop_real_time_scheduling (jack_native_thread_t thread)
+{
+	struct sched_param rt_param;
+	int res;
+
+	spa_zero(rt_param);
+
+	pw_log_info("thread %lu", thread);
+
+	if ((res = pthread_setschedparam((pthread_t)thread,
+				SCHED_OTHER, &rt_param)) == 0)
+		return 0;
+
+	pw_log_warn("thread %lu: can't drop RT priority: %s", thread,
+			strerror(res));
+	return res;
 }
 
 /**
@@ -5434,20 +5493,36 @@ int jack_client_create_thread (jack_client_t* client,
                                void *(*start_routine)(void*),
                                void *arg)
 {
+	pthread_attr_t attributes;
+	int res;
+
 	spa_return_val_if_fail(client != NULL, -EINVAL);
 
 	if (globals.creator == NULL)
 		globals.creator = pthread_create;
 
-	pw_log_debug("client %p: create thread", client);
-	return globals.creator(thread, NULL, start_routine, arg);
-}
+	pthread_attr_init(&attributes);
+	CHECK(pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_JOINABLE), error);
+	CHECK(pthread_attr_setscope(&attributes, PTHREAD_SCOPE_SYSTEM), error);
+	CHECK(pthread_attr_setinheritsched(&attributes, PTHREAD_EXPLICIT_SCHED), error);
+	CHECK(pthread_attr_setstacksize(&attributes, THREAD_STACK), error);
 
-SPA_EXPORT
-int jack_drop_real_time_scheduling (jack_native_thread_t thread)
-{
-	pw_log_warn("not implemented %lu", thread);
-	return -ENOTSUP;
+	pw_log_info("client %p: create thread rt:%d prio:%d", client, realtime, priority);
+	res = globals.creator(thread, &attributes, start_routine, arg);
+
+	pthread_attr_destroy(&attributes);
+
+	if (res == 0 && realtime) {
+		/* Try to acquire RT scheduling, we don't fail here but the
+		 * function will emit a warning. Real JACK fails here. */
+		jack_acquire_real_time_scheduling(*thread, priority);
+	}
+
+error:
+	if (res != 0)
+		pw_log_warn("client %p: create RT thread failed: %s",
+				client, strerror(res));
+	return res;
 }
 
 SPA_EXPORT

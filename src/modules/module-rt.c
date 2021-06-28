@@ -109,7 +109,7 @@ static void idle_func(struct spa_source *source)
 {
 	struct impl *impl = source->data;
 	uint64_t count;
-	int policy = SCHED_RR;
+	int policy = SCHED_FIFO;
 	int rtprio = impl->rt_prio;
 	struct rlimit rl;
 	struct sched_param sp;

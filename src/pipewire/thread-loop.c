@@ -44,7 +44,7 @@
 /** \cond */
 struct pw_thread_loop {
 	struct pw_loop *loop;
-	char *name;
+	char name[16];
 
 	struct spa_hook_list listener_list;
 
@@ -112,7 +112,7 @@ static struct pw_thread_loop *loop_new(struct pw_loop *loop,
 	if (this == NULL)
 		return NULL;
 
-	pw_log_debug(NAME" %p: new", this);
+	pw_log_debug(NAME" %p: new name:%s", this, name);
 
 	if (loop == NULL) {
 		loop = pw_loop_new(props);
@@ -123,7 +123,7 @@ static struct pw_thread_loop *loop_new(struct pw_loop *loop,
 		goto clean_this;
 	}
 	this->loop = loop;
-	this->name = name ? strdup(name) : NULL;
+	snprintf(this->name, sizeof(this->name), "%s", name ? name : "pw-thread-loop");
 
 	spa_hook_list_init(&this->listener_list);
 
@@ -155,7 +155,6 @@ clean_lock:
 clean_this:
 	if (this->created && this->loop)
 		pw_loop_destroy(this->loop);
-	free(this->name);
 	free(this);
 	errno = -res;
 	return NULL;
@@ -223,7 +222,6 @@ void pw_thread_loop_destroy(struct pw_thread_loop *loop)
 	pthread_cond_destroy(&loop->cond);
 	pthread_mutex_destroy(&loop->lock);
 
-	free(loop->name);
 	free(loop);
 }
 
@@ -250,7 +248,6 @@ static void *do_loop(void *user_data)
 
 	pthread_mutex_lock(&this->lock);
 	pw_log_debug(NAME" %p: enter thread", this);
-	pthread_setname_np(this->thread, this->name ? this->name : "pipewire-thread");
 	pw_loop_enter(this->loop);
 
 	while (this->running) {
@@ -287,6 +284,8 @@ int pw_thread_loop_start(struct pw_thread_loop *loop)
 			loop->running = false;
 			return -err;
 		}
+		if ((err = pthread_setname_np(loop->thread, loop->name)) != 0)
+			pw_log_warn(NAME" %p: error: %s", loop, strerror(err));
 	}
 	return 0;
 }

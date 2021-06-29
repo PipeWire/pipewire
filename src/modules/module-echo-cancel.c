@@ -83,6 +83,7 @@
  * - \ref PW_KEY_NODE_NAME
  * - \ref PW_KEY_NODE_DESCRIPTION
  * - \ref PW_KEY_NODE_GROUP
+ * - \ref PW_KEY_NODE_LINK_GROUP
  * - \ref PW_KEY_NODE_VIRTUAL
  * - \ref PW_KEY_NODE_LATENCY
  * - \ref PW_KEY_REMOTE_NAME
@@ -566,13 +567,16 @@ static int setup_streams(struct impl *impl)
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	struct pw_properties *props;
+	const char *str;
 
 	props = pw_properties_new(
 			PW_KEY_NODE_NAME, "echo-cancel-capture",
 			PW_KEY_NODE_VIRTUAL, "true",
 			NULL);
-	pw_properties_setf(props,
-			PW_KEY_NODE_GROUP, "echo-cancel-%u", impl->id);
+	if ((str = pw_properties_get(impl->source_props, PW_KEY_NODE_GROUP)) != NULL)
+		pw_properties_set(props, PW_KEY_NODE_GROUP, str);
+	if ((str = pw_properties_get(impl->source_props, PW_KEY_NODE_LINK_GROUP)) != NULL)
+		pw_properties_set(props, PW_KEY_NODE_LINK_GROUP, str);
 	if (impl->aec_info->latency)
 		pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec_info->latency);
 
@@ -595,22 +599,14 @@ static int setup_streams(struct impl *impl)
 			&impl->source_listener,
 			&source_events, impl);
 
-	impl->sink = pw_stream_new(impl->core,
-			"echo-cancel sink", impl->sink_props);
-	impl->sink_props = NULL;
-	if (impl->sink == NULL)
-		return -errno;
-
-	pw_stream_add_listener(impl->sink,
-			&impl->sink_listener,
-			&sink_events, impl);
-
 	props = pw_properties_new(
 			PW_KEY_NODE_NAME, "echo-cancel-playback",
 			PW_KEY_NODE_VIRTUAL, "true",
 			NULL);
-	pw_properties_setf(props,
-			PW_KEY_NODE_GROUP, "echo-cancel-%u", impl->id);
+	if ((str = pw_properties_get(impl->sink_props, PW_KEY_NODE_GROUP)) != NULL)
+		pw_properties_set(props, PW_KEY_NODE_GROUP, str);
+	if ((str = pw_properties_get(impl->sink_props, PW_KEY_NODE_LINK_GROUP)) != NULL)
+		pw_properties_set(props, PW_KEY_NODE_LINK_GROUP, str);
 	if (impl->aec_info->latency)
 		pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec_info->latency);
 
@@ -622,6 +618,16 @@ static int setup_streams(struct impl *impl)
 	pw_stream_add_listener(impl->playback,
 			&impl->playback_listener,
 			&playback_events, impl);
+
+	impl->sink = pw_stream_new(impl->core,
+			"echo-cancel sink", impl->sink_props);
+	impl->sink_props = NULL;
+	if (impl->sink == NULL)
+		return -errno;
+
+	pw_stream_add_listener(impl->sink,
+			&impl->sink_listener,
+			&sink_events, impl);
 
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -922,6 +928,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_NAME);
 	copy_props(impl, props, PW_KEY_NODE_DESCRIPTION);
 	copy_props(impl, props, PW_KEY_NODE_GROUP);
+	copy_props(impl, props, PW_KEY_NODE_LINK_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 	copy_props(impl, props, PW_KEY_NODE_LATENCY);
 

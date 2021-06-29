@@ -247,6 +247,7 @@ static void manager_added(void *d, struct pw_manager_object *o)
 	props = pw_properties_new(NULL, NULL);
 	pw_properties_set(props, PW_KEY_NODE_TARGET, sink_name);
 	pw_properties_setf(props, PW_KEY_NODE_GROUP, "combine_sink-%u", data->module->idx);
+	pw_properties_setf(props, PW_KEY_NODE_LINK_GROUP, "combine_sink-%u", data->module->idx);
 	pw_properties_set(props, PW_KEY_NODE_DONT_RECONNECT, "true");
 	pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 	pw_properties_set(props, PW_KEY_NODE_PASSIVE, "true");
@@ -330,6 +331,7 @@ static int module_combine_sink_load(struct client *client, struct module *module
 	pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, data->sink_name);
 	pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 	pw_properties_setf(props, PW_KEY_NODE_GROUP, "combine_sink-%u", data->module->idx);
+	pw_properties_setf(props, PW_KEY_NODE_LINK_GROUP, "combine_sink-%u", data->module->idx);
 	pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 
 	data->sink = pw_stream_new(data->core, data->sink_name, props);

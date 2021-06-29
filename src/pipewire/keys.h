@@ -162,6 +162,8 @@ extern "C" {
 #define PW_KEY_NODE_PASSIVE		"node.passive"		/**< indicate that a node wants passive links
 								  *  on output/input/all ports when the value is
 								  *  "out"/"in"/"true" respectively */
+#define PW_KEY_NODE_LINK_GROUP		"node.link-group"	/**< the node is internally linked to
+								  *  nodes with the same link-group */
 
 /** Port keys */
 #define PW_KEY_PORT_ID			"port.id"		/**< port id */

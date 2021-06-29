@@ -24,11 +24,6 @@ foreach h : module_sources
 endforeach
 inputs += meson.source_root() / 'test' / 'pwtest.h'
 
-find = find_program('find', required: false)
-if find.found()
-
-endif
-
 # SPA headers use static inline functions. Doxygen doesn't extract those
 # unless we have EXTRACT_STATIC set - but we don't want it to extract
 # everything in the rest of the tree.

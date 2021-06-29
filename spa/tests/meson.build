@@ -2,6 +2,7 @@
 # ones which have circular dependencies and take some effort to fix.
 # Do it for C++ if possible (picks up C++-specific errors), otherwise for C.
 find = find_program('find', required: false)
+summary({'find (for header testing)': find.found()}, bool_yn: true, section: 'Optional programs')
 if find.found()
   spa_headers = run_command(find,
                             meson.source_root() / 'spa' / 'include',

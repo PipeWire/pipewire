@@ -6,9 +6,9 @@ with previous 0.3.x releases.
 ## Highlights
   - Fixes for alsa-lib 1.2.5
   - New pulseaudio modules: module-avahi-zeroconf,
-    module-pipe-source, module-roc-sink, module-roc-source
+    module-pipe-source, module-roc-sink, module-roc-source.
   - JACK has seen massive stability improvements. Locking
-    and correctness wrt to callbacks and has been reworked. Also
+    and correctness wrt to callbacks has been reworked. Also
     thread priorities have improved.
   - Handle various crashes and lockups when running out of file
     descriptors.
@@ -34,7 +34,7 @@ with previous 0.3.x releases.
     the resampler adjusting itself dynamically.
   - Core now has a metadata implementation helper. A context
     will expose a metadata with settings that can be changed
-    at runtime. This can be used to change the lowlevel or
+    at runtime. This can be used to change the loglevel or
     graph quantum and samplerate on the fly.
   - An infinite loop was fixed in the audio converter.
   - Handle out-of-fds more gracefully. Handle truncated
@@ -52,7 +52,7 @@ with previous 0.3.x releases.
   - More fixes for alsa-ucm 1.2.5.
 
 ## Tools
-  - spa-json-dump now properly encodes string and keys
+  - spa-json-dump now properly encodes string and keys.
   - pw-dump now shows the correct subject of the metadata.
 
 
@@ -62,12 +62,12 @@ with previous 0.3.x releases.
   - Module loading and unloading was improved.
   - module-avahi-zeroconf was implemented.
   - module-pipe-source was implemented
-  - module-roc-sink and module-roc-source was implemented
+  - module-roc-sink and module-roc-source was implemented.
   - The maximum amount of connections has been limited to 64,
     like pulseaudio.
   - Handle out-of-fds more gracefully.
   - Fix overflow of read/write pointers.
-  - source and sink state are now decoupled from the monitor
+  - Source and sink state are now decoupled from the monitor
     state and will report IDLE when not playing anything.
 
 ## media-session
@@ -75,7 +75,7 @@ with previous 0.3.x releases.
     actually changed.
 
 ## JACK
-  - The locking was reviewed. All callbacks are not emited
+  - The locking was reviewed. All callbacks are now emited
     from the PipeWire thread with the lock released and
     the process function will be disabled for the duration
     of the callback. This ensures that no two callbacks are

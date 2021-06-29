@@ -439,6 +439,49 @@ static struct node *find_node_by_id_name(struct impl *impl, uint32_t id, const c
 	return NULL;
 }
 
+static bool can_link_check(struct impl *impl, const char *link_group, struct node *target, int hops)
+{
+	const char *g, *ng;
+	struct node *n;
+
+	if (hops == 8)
+		return false;
+
+	pw_log_debug("link group %s", link_group);
+
+	if (target->obj->info == NULL || target->obj->info->props == NULL)
+		return true;
+	g = spa_dict_lookup(target->obj->info->props, PW_KEY_NODE_LINK_GROUP);
+	if (g == NULL)
+		return true;
+	if (spa_streq(g, link_group))
+		return false;
+
+	spa_list_for_each(n, &impl->node_list, link) {
+		if (n == target || n->direction != target->direction)
+			continue;
+		if (n->obj->info == NULL || n->obj->info->props == NULL)
+			return true;
+		ng = spa_dict_lookup(n->obj->info->props, PW_KEY_NODE_LINK_GROUP);
+		if (ng == NULL || !spa_streq(ng, g))
+			continue;
+		if (n->peer != NULL && !can_link_check(impl, link_group, n->peer, hops + 1))
+			return false;
+	}
+	return true;
+}
+
+static bool can_link(struct impl *impl, struct node *node, struct node *target)
+{
+	const char *link_group;
+
+	link_group = spa_dict_lookup(node->obj->info->props, PW_KEY_NODE_LINK_GROUP);
+	if (link_group == NULL)
+		return true;
+
+	return can_link_check(impl, link_group, target, 0);
+}
+
 static const char *get_device_name(struct node *node)
 {
 	if (node->type != NODE_TYPE_DEVICE ||
@@ -508,6 +551,7 @@ struct find_data {
 	struct node *node;
 
 	const char *media;
+	const char *link_group;
 	bool capture_sink;
 	enum pw_direction direction;
 
@@ -545,6 +589,11 @@ static int find_node(void *data, struct node *node)
 		pw_log_debug(".. incompatible media %s <-> %s", node->media, find->media);
 		return 0;
 	}
+	if (find->link_group && !can_link_check(impl, find->link_group, node, 0)) {
+		pw_log_info(".. connecting link-group %s", find->link_group);
+		return 0;
+	}
+
 	plugged = node->plugged;
 	priority = node->priority;
 
@@ -794,6 +843,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 	find.capture_sink = n->capture_sink;
 	find.direction = n->direction;
 	find.exclusive = exclusive;
+	find.link_group = n->peer == NULL ? spa_dict_lookup(props, PW_KEY_NODE_LINK_GROUP) : NULL;
 
 	/* we always honour the target node asked for by the client */
 	path_id = SPA_ID_INVALID;
@@ -809,7 +859,8 @@ static int rescan_node(struct impl *impl, struct node *n)
 		spa_list_for_each(peer, &impl->node_list, link)
 			find_node(&find, peer);
 
-		if (follows_default && find.node != NULL && find.node != n->peer) {
+		if (follows_default && find.node != NULL &&
+		    find.node != n->peer && can_link(impl, n, find.node)) {
 			pw_log_debug(NAME " %p: node %d follows default, changed (%d -> %d)", impl, n->id,
 			             n->peer->id, find.node->id);
 			unlink_nodes(n, n->peer);

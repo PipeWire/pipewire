@@ -263,6 +263,8 @@ struct pa_alsa_ucm_config {
     pa_hashmap *mixers;
     PA_LLIST_HEAD(pa_alsa_ucm_verb, verbs);
     PA_LLIST_HEAD(pa_alsa_jack, jacks);
+
+    char *alibpref;
 };
 
 struct pa_alsa_ucm_mapping_context {

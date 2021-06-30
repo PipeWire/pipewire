@@ -168,7 +168,7 @@ static void *create_object(void *_data,
 	const char *str, *factory_name;
 	int res;
 	struct node_data *nd;
-	bool linger;
+	bool linger, do_register;
 
 	if (properties == NULL)
 		goto error_properties;
@@ -178,6 +178,9 @@ static void *create_object(void *_data,
 
 	str = pw_properties_get(properties, PW_KEY_OBJECT_LINGER);
 	linger = str ? pw_properties_parse_bool(str) : false;
+
+	str = pw_properties_get(properties, PW_KEY_OBJECT_REGISTER);
+	do_register = str ? pw_properties_parse_bool(str) : true;
 
 	client = resource ? pw_resource_get_client(resource): NULL;
 	if (client && !linger) {
@@ -231,7 +234,10 @@ static void *create_object(void *_data,
 
 	pw_impl_node_add_listener(adapter, &nd->adapter_listener, &node_events, nd);
 
-	pw_impl_node_register(adapter, NULL);
+	if (do_register)
+		pw_impl_node_register(adapter, NULL);
+	else
+		pw_impl_node_initialized(adapter);
 
 	return adapter;
 

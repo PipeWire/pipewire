@@ -1275,6 +1275,11 @@ struct pw_proxy *pw_core_spa_node_export(struct pw_core *core,
 {
 	struct pw_impl_node *node;
 	struct pw_proxy *proxy;
+	const char *str;
+	bool do_register;
+
+	str = props ? spa_dict_lookup(props, PW_KEY_OBJECT_REGISTER) : NULL;
+	do_register = str ? pw_properties_parse_bool(str) : true;
 
 	node = pw_context_create_node(pw_core_get_context(core),
 			props ? pw_properties_new_dict(props) : NULL, 0);
@@ -1282,7 +1287,9 @@ struct pw_proxy *pw_core_spa_node_export(struct pw_core *core,
 		return NULL;
 
 	pw_impl_node_set_implementation(node, (struct spa_node*)object);
-	pw_impl_node_register(node, NULL);
+
+	if (do_register)
+		pw_impl_node_register(node, NULL);
 
 	proxy = node_export(core, node, true, user_data_size);
 	if (proxy)

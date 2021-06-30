@@ -1747,6 +1747,7 @@ pw_stream_connect(struct pw_stream *stream,
 			goto error_node;
 		}
 		pw_properties_setf(props, "adapt.follower.node", "pointer:%p", follower);
+		pw_properties_set(props, "object.register", "false");
 		impl->node = pw_impl_factory_create_object(factory,
 				NULL,
 				PW_TYPE_INTERFACE_Node,

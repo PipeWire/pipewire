@@ -61,8 +61,13 @@ extern "C" {
 #define PW_KEY_LIBRARY_NAME_LOOP	"library.name.loop"	/**< name of the loop library to use */
 #define PW_KEY_LIBRARY_NAME_DBUS	"library.name.dbus"	/**< name of the dbus library to use */
 
+/** object properties */
 #define PW_KEY_OBJECT_PATH		"object.path"		/**< unique path to construct the object */
 #define PW_KEY_OBJECT_ID		"object.id"		/**< a global object id */
+#define PW_KEY_OBJECT_LINGER		"object.linger"		/**< the object lives on even after the client
+								  *  that created it has been destroyed */
+#define PW_KEY_OBJECT_REGISTER		"object.register"	/**< If the object should be registered. */
+
 
 /* config */
 #define PW_KEY_CONFIG_PREFIX		"config.prefix"		/**< a config prefix directory */
@@ -258,10 +263,6 @@ extern "C" {
 #define PW_KEY_STREAM_DONT_REMIX	"stream.dont-remix"	/**< don't remix channels */
 #define PW_KEY_STREAM_CAPTURE_SINK	"stream.capture.sink"	/**< Try to capture the sink output instead of
 								  *  source output */
-
-/** object properties */
-#define PW_KEY_OBJECT_LINGER		"object.linger"		/**< the object lives on even after the client
-								  *  that created it has been destroyed */
 
 /** Media */
 #define PW_KEY_MEDIA_TYPE		"media.type"		/**< Media type, one of

@@ -1454,6 +1454,7 @@ pw_filter_connect(struct pw_filter *filter,
 	const char *str;
 	int res;
 	uint32_t i;
+	struct spa_dict_item items[1];
 
 	pw_log_debug(NAME" %p: connect", filter);
 	impl->flags = flags;
@@ -1506,8 +1507,11 @@ pw_filter_connect(struct pw_filter *filter,
 	}
 
 	pw_log_debug(NAME" %p: export node %p", filter, &impl->impl_node);
+
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_OBJECT_REGISTER, "false");
 	filter->proxy = pw_core_export(filter->core,
-			SPA_TYPE_INTERFACE_Node, NULL, &impl->impl_node, 0);
+			SPA_TYPE_INTERFACE_Node, &SPA_DICT_INIT_ARRAY(items),
+			&impl->impl_node, 0);
 	if (filter->proxy == NULL) {
 		res = -errno;
 		goto error_proxy;

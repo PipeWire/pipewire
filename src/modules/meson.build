@@ -174,6 +174,7 @@ pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse/operation.c',
   'module-protocol-pulse/pending-sample.c',
   'module-protocol-pulse/pulse-server.c',
+  'module-protocol-pulse/quirks.c',
   'module-protocol-pulse/reply.c',
   'module-protocol-pulse/sample.c',
   'module-protocol-pulse/sample-play.c',

@@ -64,6 +64,8 @@ struct client {
 
 	struct pw_properties *props;
 
+	uint64_t quirks;
+
 	struct pw_core *core;
 	struct pw_manager *manager;
 	struct spa_hook manager_listener;

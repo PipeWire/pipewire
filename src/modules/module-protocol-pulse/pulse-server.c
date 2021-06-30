@@ -69,6 +69,7 @@
 #include "module.h"
 #include "operation.h"
 #include "pending-sample.h"
+#include "quirks.h"
 #include "reply.h"
 #include "sample.h"
 #include "sample-play.h"
@@ -530,6 +531,9 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 		if (client->connect_tag == SPA_ID_INVALID)
 			res = reply_set_client_name(client, tag);
 	}
+
+	client_update_quirks(client);
+
 	return res;
 error:
 	pw_log_error(NAME" %p: failed to connect client: %s", impl, spa_strerror(res));
@@ -1705,6 +1709,9 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	stream->muted = muted;
 	stream->muted_set = muted_set;
 	stream->attr = attr;
+
+	if (client->quirks & QUIRK_REMOVE_CAPTURE_DONT_MOVE)
+		no_move = false;
 
 	if (peak_detect)
 		pw_properties_set(props, PW_KEY_STREAM_MONITOR, "true");
@@ -2929,7 +2936,10 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 
 		pw_stream_update_properties(stream->stream, &props->dict);
 	} else {
-		pw_core_update_properties(client->core, &props->dict);
+		if (pw_properties_update(client->props, &props->dict) > 0) {
+			client_update_quirks(client);
+			pw_core_update_properties(client->core, &client->props->dict);
+		}
 	}
 	res = reply_simple_ack(client, tag);
 exit:
@@ -3444,6 +3454,9 @@ static int fill_sink_info(struct client *client, struct message *m,
 	if (SPA_FLAG_IS_SET(dev_info.volume_info.flags, VOLUME_HW_MUTE))
                 flags |= SINK_HW_MUTE_CTRL;
 
+	if (client->quirks & QUIRK_FORCE_S16_FORMAT)
+		dev_info.ss.format = SPA_AUDIO_FORMAT_S16;
+
 	message_put(m,
 		TAG_U32, o->id,				/* sink index */
 		TAG_STRING, name,
@@ -3595,6 +3608,9 @@ static int fill_source_info(struct client *client, struct message *m,
                 flags |= SOURCE_HW_VOLUME_CTRL;
 	if (SPA_FLAG_IS_SET(dev_info.volume_info.flags, VOLUME_HW_MUTE))
                 flags |= SOURCE_HW_MUTE_CTRL;
+
+	if (client->quirks & QUIRK_FORCE_S16_FORMAT)
+		dev_info.ss.format = SPA_AUDIO_FORMAT_S16;
 
 	message_put(m,
 		TAG_U32, is_monitor ? o->id | MONITOR_FLAG: o->id,	/* source index */

@@ -824,6 +824,7 @@ struct pw_impl_port {
 		struct spa_list node_link;
 	} rt;					/**< data only accessed from the data thread */
 	unsigned int added:1;
+	unsigned int destroying:1;
 
 	struct spa_latency_info latency[2];	/**< latencies */
 	unsigned int have_latency_param:1;

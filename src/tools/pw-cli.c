@@ -1387,10 +1387,14 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 	else
 		props = pw_properties_new(NULL, NULL);
 
-	pw_properties_set(props, PW_KEY_LINK_OUTPUT_NODE, a[0]);
-	pw_properties_set(props, PW_KEY_LINK_OUTPUT_PORT, a[1]);
-	pw_properties_set(props, PW_KEY_LINK_INPUT_NODE, a[2]);
-	pw_properties_set(props, PW_KEY_LINK_INPUT_PORT, a[3]);
+	if (!spa_streq(a[0], "-"))
+		pw_properties_set(props, PW_KEY_LINK_OUTPUT_NODE, a[0]);
+	if (!spa_streq(a[1], "-"))
+		pw_properties_set(props, PW_KEY_LINK_OUTPUT_PORT, a[1]);
+	if (!spa_streq(a[2], "-"))
+		pw_properties_set(props, PW_KEY_LINK_INPUT_NODE, a[2]);
+	if (!spa_streq(a[3], "-"))
+		pw_properties_set(props, PW_KEY_LINK_INPUT_PORT, a[3]);
 
 	proxy = (struct pw_proxy*)pw_core_create_object(rd->core,
 					  "link-factory",

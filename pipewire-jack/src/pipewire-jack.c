@@ -5461,7 +5461,7 @@ int jack_drop_real_time_scheduling (jack_native_thread_t thread)
 	pw_log_info("thread %lu", thread);
 
 	if ((res = pthread_setschedparam((pthread_t)thread,
-				SCHED_OTHER, &rt_param)) == 0)
+				SCHED_OTHER | SCHED_RESET_ON_FORK, &rt_param)) == 0)
 		return 0;
 
 	pw_log_warn("thread %lu: can't drop RT priority: %s", thread,

@@ -117,6 +117,7 @@ struct impl {
 	struct port port;
 
 	unsigned int started:1;
+	unsigned int following:1;
 	struct spa_source timer_source;
 	struct itimerspec timerspec;
 	uint64_t next_time;
@@ -181,6 +182,65 @@ static int impl_node_enum_params(void *object, int seq,
 	return 0;
 }
 
+static void set_timeout(struct impl *this, uint64_t next_time)
+{
+	spa_log_trace(this->log, "set timeout %"PRIu64, next_time);
+	this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
+	this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
+	spa_system_timerfd_settime(this->data_system,
+			this->timer_source.fd, SPA_FD_TIMER_ABSTIME, &this->timerspec, NULL);
+}
+
+static int set_timers(struct impl *this)
+{
+	struct timespec now;
+	int res;
+
+	if ((res = spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &now)) < 0)
+	    return res;
+	this->next_time = SPA_TIMESPEC_TO_NSEC(&now);
+
+	if (this->following) {
+		set_timeout(this, 0);
+	} else {
+		set_timeout(this, this->next_time);
+	}
+	return 0;
+}
+
+static inline bool is_following(struct impl *this)
+{
+	return this->position && this->clock && this->position->clock.id != this->clock->id;
+}
+
+static int do_reassign_follower(struct spa_loop *loop,
+			    bool async,
+			    uint32_t seq,
+			    const void *data,
+			    size_t size,
+			    void *user_data)
+{
+	struct impl *this = user_data;
+	set_timers(this);
+	return 0;
+}
+
+static int reassign_follower(struct impl *this)
+{
+	bool following;
+
+	if (!this->started)
+		return 0;
+
+	following = is_following(this);
+	if (following != this->following) {
+		spa_log_debug(this->log, NAME" %p: reassign follower %d->%d", this, this->following, following);
+		this->following = following;
+		spa_loop_invoke(this->data_loop, do_reassign_follower, 0, NULL, 0, true, this);
+	}
+	return 0;
+}
+
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
 	struct impl *this = object;
@@ -199,17 +259,9 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	default:
 		return -ENOENT;
 	}
+	reassign_follower(this);
+
 	return 0;
-}
-
-static void set_timer(struct impl *this, uint64_t next_time)
-{
-	spa_log_trace(this->log, "set timer %"PRIu64, next_time);
-
-	this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
-	this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
-	spa_system_timerfd_settime(this->data_system,
-			this->timer_source.fd, SPA_FD_TIMER_ABSTIME, &this->timerspec, NULL);
 }
 
 static void on_timeout(struct spa_source *source)
@@ -250,7 +302,27 @@ static void on_timeout(struct spa_source *source)
 
 	spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_DATA);
 
-	set_timer(this, this->next_time);
+	set_timeout(this, this->next_time);
+}
+
+static int do_start(struct impl *this)
+{
+	if (this->started)
+		return 0;
+
+	this->following = is_following(this);
+	set_timers(this);
+	this->started = true;
+	return 0;
+}
+
+static int do_stop(struct impl *this)
+{
+	if (!this->started)
+		return 0;
+	this->started = false;
+	set_timeout(this, 0);
+	return 0;
 }
 
 static int impl_node_send_command(void *object, const struct spa_command *command)
@@ -266,28 +338,17 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
 	{
-		struct timespec now;
-
 		if (!port->have_format)
 			return -EIO;
 		if (port->n_buffers == 0)
 			return -EIO;
 
-		if (this->started)
-			return 0;
-
-		clock_gettime(CLOCK_MONOTONIC, &now);
-		this->next_time = SPA_TIMESPEC_TO_NSEC(&now);
-		set_timer(this, this->next_time);
-		this->started = true;
+		do_start(this);
 		break;
 	}
 	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Pause:
-		if (!this->started)
-			return 0;
-		this->started = false;
-		set_timer(this, 0);
+		do_stop(this);
 		break;
 
 	default:

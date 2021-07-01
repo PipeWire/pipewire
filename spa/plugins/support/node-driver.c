@@ -119,8 +119,11 @@ static void on_timeout(struct spa_source *source)
 	spa_log_trace(this->log, "timeout");
 
 	if (spa_system_timerfd_read(this->data_system,
-				this->timer_source.fd, &expirations) < 0)
+				this->timer_source.fd, &expirations) < 0) {
+		if (errno == EAGAIN)
+			return;
 		perror("read timerfd");
+	}
 
 	nsec = this->next_time;
 
@@ -349,7 +352,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->timer_source.func = on_timeout;
 	this->timer_source.data = this;
-	this->timer_source.fd = spa_system_timerfd_create(this->data_system, CLOCK_MONOTONIC, SPA_FD_CLOEXEC);
+	this->timer_source.fd = spa_system_timerfd_create(this->data_system, CLOCK_MONOTONIC,
+							  SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	this->timer_source.mask = SPA_IO_IN;
 	this->timer_source.rmask = 0;
 	this->timerspec.it_value.tv_sec = 0;

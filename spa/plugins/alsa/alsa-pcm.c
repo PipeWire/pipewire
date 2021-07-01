@@ -1623,6 +1623,7 @@ int spa_alsa_reassign_follower(struct state *state)
 		SPA_FLAG_IS_SET(state->position->clock.flags, SPA_IO_CLOCK_FLAG_FREEWHEEL);
 
 	if (state->freewheel != freewheel) {
+		spa_log_debug(state->log, NAME" %p: freewheel %d->%d", state, state->freewheel, freewheel);
 		state->freewheel = freewheel;
 		if (freewheel)
 			snd_pcm_pause(state->hndl, 1);

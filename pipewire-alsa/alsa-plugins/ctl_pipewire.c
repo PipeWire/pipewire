@@ -1100,6 +1100,10 @@ static void registry_event_global(void *data, uint32_t id,
 		pw_log_debug("found node %d type:%s", id, str);
 		info = &node_info;
 	} else if (spa_streq(type, PW_TYPE_INTERFACE_Metadata)) {
+		if (props == NULL ||
+		    ((str = spa_dict_lookup(props, PW_KEY_METADATA_NAME)) == NULL) ||
+		    (!spa_streq(str, "default")))
+			return;
 		if (ctl->metadata != NULL)
 			return;
 		info = &metadata_info;

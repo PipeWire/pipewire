@@ -1462,6 +1462,7 @@ do_update_driver_activation(struct spa_loop *loop,
 
 static int update_driver_activation(struct client *c)
 {
+	jack_client_t *client = (jack_client_t*)c;
 	struct link *link;
 	bool freewheeling;
 
@@ -1469,8 +1470,19 @@ static int update_driver_activation(struct client *c)
 
 	freewheeling = SPA_FLAG_IS_SET(c->position->clock.flags, SPA_IO_CLOCK_FLAG_FREEWHEEL);
 	if (c->freewheeling != freewheeling) {
+		jack_native_thread_t thr = jack_client_thread_id(client);
+
 		c->freewheeling = freewheeling;
+		if (freewheeling && thr) {
+			jack_drop_real_time_scheduling(thr);
+		}
+
 		do_callback(c, freewheel_callback, freewheeling, c->freewheel_arg);
+
+		if (!freewheeling && thr) {
+			jack_acquire_real_time_scheduling(thr,
+					jack_client_real_time_priority(client));
+		}
 	}
 
 	link = find_activation(&c->links, c->driver_id);

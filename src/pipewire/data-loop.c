@@ -253,6 +253,18 @@ bool pw_data_loop_in_thread(struct pw_data_loop * loop)
 	return pthread_equal(loop->thread, pthread_self());
 }
 
+/** Get the thread object.
+ * \param loop the data loop to get the thread of
+ * \return the thread object or NULL when the thread is not running
+ *
+ * On posix based systems this returns a pthread_t *
+ */
+SPA_EXPORT
+void *pw_data_loop_get_thread(struct pw_data_loop * loop)
+{
+	return loop->running ? &loop->thread : NULL;
+}
+
 SPA_EXPORT
 int pw_data_loop_invoke(struct pw_data_loop *loop,
 		spa_invoke_func_t func, uint32_t seq, const void *data, size_t size,

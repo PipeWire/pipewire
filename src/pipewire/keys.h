@@ -294,7 +294,7 @@ extern "C" {
 								  *  Ex: "32 bit float mono audio" */
 /** audio related properties */
 #define PW_KEY_AUDIO_CHANNEL		"audio.channel"		/**< an audio channel. Ex: "FL" */
-#define PW_KEY_AUDIO_RATE		"audio.samplerate"	/**< an audio samplerate */
+#define PW_KEY_AUDIO_RATE		"audio.rate"		/**< an audio samplerate */
 #define PW_KEY_AUDIO_CHANNELS		"audio.channels"	/**< number of audio channels */
 #define PW_KEY_AUDIO_FORMAT		"audio.format"		/**< an audio format. Ex: "S16LE" */
 

@@ -1182,7 +1182,6 @@ static inline uint32_t cycle_run(struct client *c)
 	struct pw_node_activation *activation = c->activation;
 	struct pw_node_activation *driver = c->rt.driver_activation;
 
-	/* this is blocking if nothing ready */
 	while (true) {
 		if (SPA_UNLIKELY(read(fd, &cmd, sizeof(cmd)) != sizeof(cmd))) {
 			if (errno == EINTR)
@@ -1237,13 +1236,18 @@ static inline uint32_t cycle_run(struct client *c)
 static inline uint32_t cycle_wait(struct client *c)
 {
 	int res;
+	uint32_t nframes;
 
-	res = pw_data_loop_wait(c->loop, -1);
-	if (SPA_UNLIKELY(res <= 0)) {
-		pw_log_warn(NAME" %p: wait error %m", c);
-		return 0;
-	}
-	return cycle_run(c);
+	do {
+		res = pw_data_loop_wait(c->loop, -1);
+		if (SPA_UNLIKELY(res <= 0)) {
+			pw_log_warn(NAME" %p: wait error %m", c);
+			return 0;
+		}
+		nframes = cycle_run(c);
+	} while (!nframes);
+
+	return nframes;
 }
 
 static inline void signal_sync(struct client *c)

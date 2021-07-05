@@ -47,6 +47,7 @@
 
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
+#include <pipewire/thread.h>
 #include <pipewire/data-loop.h>
 
 #include "pipewire/extensions/client-node.h"
@@ -5456,41 +5457,15 @@ do {									\
 SPA_EXPORT
 int jack_acquire_real_time_scheduling (jack_native_thread_t thread, int priority)
 {
-	struct sched_param rt_param;
-	int res;
-
-	spa_zero(rt_param);
-	rt_param.sched_priority = priority;
-
-	pw_log_info("thread %lu: priority %d", thread, priority);
-
-	if ((res = pthread_setschedparam((pthread_t)thread,
-				JACK_SCHED_POLICY | SCHED_RESET_ON_FORK,
-				&rt_param)) == 0)
-		return 0;
-
-	pw_log_warn("thread %lu: can't use RT priority %d: %s", thread, priority,
-			strerror(res));
-	return res;
+	pw_log_info("acquire");
+	return pw_thread_utils_acquire_rt((struct pw_thread*)thread, priority);
 }
 
 SPA_EXPORT
 int jack_drop_real_time_scheduling (jack_native_thread_t thread)
 {
-	struct sched_param rt_param;
-	int res;
-
-	spa_zero(rt_param);
-
-	pw_log_info("thread %lu", thread);
-
-	if ((res = pthread_setschedparam((pthread_t)thread,
-				SCHED_OTHER | SCHED_RESET_ON_FORK, &rt_param)) == 0)
-		return 0;
-
-	pw_log_warn("thread %lu: can't drop RT priority: %s", thread,
-			strerror(res));
-	return res;
+	pw_log_info("drop");
+	return pw_thread_utils_drop_rt((struct pw_thread*)thread);
 }
 
 /**
@@ -5517,24 +5492,30 @@ int jack_client_create_thread (jack_client_t* client,
                                void *(*start_routine)(void*),
                                void *arg)
 {
-	pthread_attr_t attributes;
-	int res;
+	struct pw_thread *thr;
+	int res = 0;
 
 	spa_return_val_if_fail(client != NULL, -EINVAL);
 
-	if (globals.creator == NULL)
-		globals.creator = pthread_create;
-
-	pthread_attr_init(&attributes);
-	CHECK(pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_JOINABLE), error);
-	CHECK(pthread_attr_setscope(&attributes, PTHREAD_SCOPE_SYSTEM), error);
-	CHECK(pthread_attr_setinheritsched(&attributes, PTHREAD_EXPLICIT_SCHED), error);
-	CHECK(pthread_attr_setstacksize(&attributes, THREAD_STACK), error);
-
 	pw_log_info("client %p: create thread rt:%d prio:%d", client, realtime, priority);
-	res = globals.creator(thread, &attributes, start_routine, arg);
+	if (globals.creator != NULL) {
+		pthread_attr_t attributes;
 
-	pthread_attr_destroy(&attributes);
+		pthread_attr_init(&attributes);
+		CHECK(pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_JOINABLE), error);
+		CHECK(pthread_attr_setscope(&attributes, PTHREAD_SCOPE_SYSTEM), error);
+		CHECK(pthread_attr_setinheritsched(&attributes, PTHREAD_EXPLICIT_SCHED), error);
+		CHECK(pthread_attr_setstacksize(&attributes, THREAD_STACK), error);
+
+		res = globals.creator(thread, &attributes, start_routine, arg);
+
+		pthread_attr_destroy(&attributes);
+	} else {
+		thr = pw_thread_utils_create(NULL, start_routine, arg);
+		if (thr == NULL)
+			res = -errno;
+		*thread = (pthread_t)thr;
+	}
 
 	if (res == 0 && realtime) {
 		/* Try to acquire RT scheduling, we don't fail here but the
@@ -5558,7 +5539,7 @@ int jack_client_stop_thread(jack_client_t* client, jack_native_thread_t thread)
 		return -EINVAL;
 
 	pw_log_debug("join thread %lu", thread);
-        pthread_join(thread, &status);
+	pw_thread_utils_join((struct pw_thread*)thread, &status);
 	pw_log_debug("stopped thread %lu", thread);
 	return 0;
 }
@@ -5572,9 +5553,9 @@ int jack_client_kill_thread(jack_client_t* client, jack_native_thread_t thread)
 		return -EINVAL;
 
 	pw_log_debug("cancel thread %lu", thread);
-        pthread_cancel(thread);
+	pthread_cancel(thread);
 	pw_log_debug("join thread %lu", thread);
-        pthread_join(thread, &status);
+	pw_thread_utils_join((struct pw_thread*)thread, &status);
 	pw_log_debug("stopped thread %lu", thread);
 	return 0;
 }
@@ -5582,10 +5563,7 @@ int jack_client_kill_thread(jack_client_t* client, jack_native_thread_t thread)
 SPA_EXPORT
 void jack_set_thread_creator (jack_thread_creator_t creator)
 {
-	if (creator == NULL)
-		globals.creator = pthread_create;
-	else
-		globals.creator = creator;
+	globals.creator = creator;
 }
 
 static inline uint8_t * midi_event_data (void* port_buffer,

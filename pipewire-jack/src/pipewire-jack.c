@@ -1784,7 +1784,7 @@ static void port_update_latency(struct port *p)
 	param_latency(c, p, &params[4], &b);
 	param_latency_other(c, p, &params[5], &b);
 
-	pw_log_info("port %s: param:", p->object->port.name);
+	pw_log_info("port %s: update", p->object->port.name);
 
 	p->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	p->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
@@ -1862,7 +1862,7 @@ static int port_set_latency(struct client *c, struct port *p,
 
 	*current = info;
 
-	pw_log_info("port %p: set %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, p,
+	pw_log_info("port %s: set %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, p->object->port.name,
 			info.direction == SPA_DIRECTION_INPUT ? "playback" : "capture",
 			info.min_quantum, info.max_quantum,
 			info.min_rate, info.max_rate,
@@ -1901,7 +1901,9 @@ static int client_node_port_set_param(void *object,
 	if (p == NULL || !p->valid)
 		return -EINVAL;
 
-	pw_log_info("port %p: %d.%d id:%d %p", p, direction, port_id, id, param);
+	pw_log_info("client %p: port %s %d.%d id:%d (%s) %p", c, p->object->port.name,
+			direction, port_id, id,
+			spa_debug_type_find_name(spa_type_param, id), param);
 
 	switch (id) {
 	case SPA_PARAM_Format:
@@ -3651,7 +3653,7 @@ jack_nframes_t jack_get_sample_rate (jack_client_t *client)
 				res = c->position->clock.rate.denom;
 		}
 	}
-	pw_log_info("sample_rate: %u", res);
+	pw_log_debug("sample_rate: %u", res);
 	return res;
 }
 
@@ -3674,7 +3676,7 @@ jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 				res = c->position->clock.duration;
 		}
 	}
-	pw_log_info("buffer_frames: %u", res);
+	pw_log_debug("buffer_frames: %u", res);
 	return res;
 }
 
@@ -4552,7 +4554,7 @@ int jack_disconnect (jack_client_t *client,
 	spa_return_val_if_fail(source_port != NULL, -EINVAL);
 	spa_return_val_if_fail(destination_port != NULL, -EINVAL);
 
-	pw_log_debug(NAME" %p: disconnect %s %s", client, source_port, destination_port);
+	pw_log_info(NAME" %p: disconnect %s %s", client, source_port, destination_port);
 
 	pw_thread_loop_lock(c->context.loop);
 
@@ -4714,7 +4716,7 @@ void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_
 	else
 		direction = SPA_DIRECTION_INPUT;
 
-	pw_log_info(NAME" %p: set %d latency range %d %d", o, mode, range->min, range->max);
+	pw_log_info(NAME" %p: %s set %d latency range %d %d", c, o->port.name, mode, range->min, range->max);
 
 	default_latency(c, direction, &latency);
 
@@ -4725,6 +4727,12 @@ void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_
 		(latency.min_ns * rate) / SPA_NSEC_PER_SEC;
 	latency.max_rate = range->max - (latency.max_quantum * nframes) -
 		(latency.max_ns * rate) / SPA_NSEC_PER_SEC;
+
+	pw_log_info("client %p: update %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, c,
+			latency.direction == SPA_DIRECTION_INPUT ? "playback" : "capture",
+			latency.min_quantum, latency.max_quantum,
+			latency.min_rate, latency.max_rate,
+			latency.min_ns, latency.max_ns);
 
 	current = &o->port.latency[direction];
 

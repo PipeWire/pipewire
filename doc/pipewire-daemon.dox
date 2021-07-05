@@ -1,5 +1,74 @@
 /** \page page_daemon PipeWire Daemon
 
+\section sec_config Configuration Files
+
+On startup, the daemon reads a configuration file to configure itself.
+It executes a series of commands listed in the config file. The lookup order
+for configuration files are:
+
+- `$XDG_CONFIG_HOME/pipewire/pipewire.conf` (usually `$HOME/.config/pipewire/pipewire.conf`)
+- `$sysconfdir/pipewire/pipewire.conf` (usually `/etc/pipewire/pipewire.conf`)
+- `$datadir/pipewire/pipewire.conf` (usually `/usr/share/pipewire/pipewire.conf`)
+
+The first configuration file found is loaded, the PipeWire daemon does not
+currently combine configuration files.
+
+The environment variables `PIPEWIRE_CONFIG_DIR`, `PIPEWIRE_CONFIG_PREFIX`
+and `PIPEWIRE_CONFIG_NAME` can be used to specify an alternative config
+directory, subdirectory and filename, respectively.
+
+\subsection subsec Configuration File Format
+
+PipeWire's configuration file format resembles JSON. Unlike true JSON, no
+trailing commas are required and comments starting with `#` are permitted as
+shown below.
+
+The configuration file format is grouped into sections.  A section is
+either a dictionary (`{}`) or an array (`[]`). Dictionary and array entries
+are separated by whitespace and may be simple value assignment, an array or
+a dictionary. For example:
+
+```
+# A dictionary section
+context.properties = {
+       # Keys often have a dot notation
+       core.daemon = true
+}
+
+# An array section containing three dictionary objects
+context.modules = [
+    # a dictionary object with one key assigned to a string
+    { name = libpipewire-module-protocol-native }
+    { name = libpipewire-module-profiler }
+
+    # a dictionary object with two keys, one assigned to a string
+    # the other one to an array of strings
+    { name = libpipewire-module-portal
+      flags = [ ifexists nofail ]
+    }
+]
+```
+
+Allowed configuration file sections are:
+
+- **context.properties**  (dictionary):   These   properties  configure  the
+  pipewire instance.
+
+- **context.spa-libs** (dictionary): Maps plugin features with globs to a
+  spa library.
+
+- **context.modules** (array): Each entry in the array is a dictionary with
+  the name of the module to load, including optional args and flags. Most
+  modules support being loaded multiple times.
+
+- **context.objects** (array):  Each entry in the array is a dictionary con‐
+  taining the factory to create an object from and optional  extra  argu‐
+  ments specific to that factory.
+
+- **context.exec**  (array): Each entry in the array is dictionary containing
+  the path of a program to execute on startup and optional args. This ar‐
+  ray usually contains an entry to start the session manager.
+
 
 \section sec_logging Logging
 

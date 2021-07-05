@@ -69,7 +69,7 @@
 
 
 struct spa_bt_sco_io {
-	int started:1;
+	bool started;
 
 	uint8_t read_buffer[MAX_MTU];
 	uint32_t read_size;

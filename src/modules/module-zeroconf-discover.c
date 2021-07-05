@@ -208,9 +208,6 @@ static void pw_properties_from_avahi_string(const char *key, const char *value, 
 	else if (spa_streq(key, "icon-name")) {
 		pw_properties_set(props, PW_KEY_DEVICE_ICON_NAME, value);
 	}
-	else if (spa_streq(key, "channel_map")) {
-		return;
-	}
 	else if (spa_streq(key, "product-name")) {
 		pw_properties_set(props, PW_KEY_DEVICE_PRODUCT_NAME, value);
 	}

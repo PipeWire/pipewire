@@ -56,7 +56,6 @@
 
 #define JACK_DEFAULT_VIDEO_TYPE	"32 bit float RGBA video"
 
-#define JACK_SCHED_POLICY SCHED_FIFO
 /* use 512KB stack per thread - the default is way too high to be feasible
  * with mlockall() on many systems */
 #define THREAD_STACK 524288
@@ -5437,11 +5436,11 @@ SPA_EXPORT
 int jack_client_max_real_time_priority (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	int max;
+	int min, max;
 
 	spa_return_val_if_fail(c != NULL, -1);
 
-	max = sched_get_priority_max(JACK_SCHED_POLICY);
+	pw_thread_utils_get_rt_range(NULL, &min, &max);
 	return SPA_MIN(max, c->rt_max) - 1;
 }
 

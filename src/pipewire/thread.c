@@ -54,6 +54,16 @@ static int impl_join(void *data, struct pw_thread *thread, void **retval)
 	return pthread_join(pt, retval);
 }
 
+static int impl_get_rt_range(void *data, const struct spa_dict *props,
+		int *min, int *max)
+{
+	if (min)
+		*min = sched_get_priority_min(SCHED_OTHER);
+	if (max)
+		*max = sched_get_priority_max(SCHED_OTHER);
+	return 0;
+}
+
 static struct {
 	struct pw_thread_utils utils;
 	struct pw_thread_utils_methods methods;
@@ -63,8 +73,10 @@ static struct {
 		 SPA_CALLBACKS_INIT(&default_impl.methods,
 				 &default_impl) } },
 	{ PW_VERSION_THREAD_UTILS_METHODS,
-            .create = impl_create,
-	    .join = impl_join, }
+		.create = impl_create,
+		.join = impl_join,
+		.get_rt_range = impl_get_rt_range
+	}
 };
 
 static struct pw_thread_utils *global_impl = &default_impl.utils;
@@ -78,41 +90,7 @@ void pw_thread_utils_set_impl(struct pw_thread_utils *impl)
 }
 
 SPA_EXPORT
-struct pw_thread *pw_thread_utils_create(const struct spa_dict *props,
-		void *(*start_routine)(void*), void *arg)
+struct pw_thread_utils *pw_thread_utils_get_impl(void)
 {
-	struct pw_thread *res = NULL;
-	spa_interface_call_res(&global_impl->iface,
-			struct pw_thread_utils_methods, res, create, 0,
-			props, start_routine, arg);
-	return res;
-}
-
-SPA_EXPORT
-int pw_thread_utils_join(struct pw_thread *thread, void **retval)
-{
-	int res = -ENOTSUP;
-	spa_interface_call_res(&global_impl->iface,
-			struct pw_thread_utils_methods, res, join, 0,
-			thread, retval);
-	return res;
-}
-
-SPA_EXPORT
-int pw_thread_utils_acquire_rt(struct pw_thread *thread, int priority)
-{
-	int res = -ENOTSUP;
-	spa_interface_call_res(&global_impl->iface,
-			struct pw_thread_utils_methods, res, acquire_rt, 0,
-			thread, priority);
-	return res;
-}
-
-SPA_EXPORT
-int pw_thread_utils_drop_rt(struct pw_thread *thread)
-{
-	int res = -ENOTSUP;
-	spa_interface_call_res(&global_impl->iface,
-			struct pw_thread_utils_methods, res, drop_rt, 0, thread);
-	return res;
+	return global_impl;
 }

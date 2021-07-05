@@ -45,6 +45,8 @@
 /** \page page_module_rt PipeWire Module: RT
  */
 
+#define DEFAULT_POLICY	SCHED_FIFO
+
 #define DEFAULT_NICE_LEVEL -11
 #define DEFAULT_RT_PRIO 88
 #define DEFAULT_RT_TIME_SOFT 2000000
@@ -178,9 +180,20 @@ static int impl_join(void *data, struct pw_thread *thread, void **retval)
 	return pthread_join(pt, retval);
 }
 
+static int impl_get_rt_range(void *data, const struct spa_dict *props,
+		int *min, int *max)
+{
+	int policy = DEFAULT_POLICY;
+	if (min)
+		*min = sched_get_priority_min(policy);
+	if (max)
+		*max = sched_get_priority_max(policy);
+	return 0;
+}
+
 static int impl_acquire_rt(void *data, struct pw_thread *thread, int priority)
 {
-	int err, policy = SCHED_FIFO;
+	int err, policy = DEFAULT_POLICY;
 	int rtprio = priority;
 	struct sched_param sp;
 	pthread_t pt = (pthread_t)thread;
@@ -222,6 +235,7 @@ static const struct pw_thread_utils_methods impl_thread_utils = {
 	PW_VERSION_THREAD_UTILS_METHODS,
 	.create = impl_create,
 	.join = impl_join,
+	.get_rt_range = impl_get_rt_range,
 	.acquire_rt = impl_acquire_rt,
 	.drop_rt = impl_drop_rt,
 };

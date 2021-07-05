@@ -553,7 +553,7 @@ static int process_read(struct seq_state *state)
 		/* convert the age to samples and convert to an offset */
 		offset = (diff * state->rate.denom) / (state->rate.num * SPA_NSEC_PER_SEC);
 		if (state->duration > offset)
-			offset = state->duration - offset;
+			offset = state->duration - 1 - offset;
 		else
 			offset = 0;
 

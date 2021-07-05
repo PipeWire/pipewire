@@ -850,14 +850,16 @@ static void input_port_latency_changed(void *data)
 {
 	struct impl *impl = data;
 	struct pw_impl_link *this = &impl->this;
-	pw_impl_port_recalc_latency(this->output);
+	if (!this->feedback)
+		pw_impl_port_recalc_latency(this->output);
 }
 
 static void output_port_latency_changed(void *data)
 {
 	struct impl *impl = data;
 	struct pw_impl_link *this = &impl->this;
-	pw_impl_port_recalc_latency(this->input);
+	if (!this->feedback)
+		pw_impl_port_recalc_latency(this->input);
 }
 
 static const struct pw_impl_port_events input_port_events = {

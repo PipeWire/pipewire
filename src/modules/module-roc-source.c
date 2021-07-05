@@ -52,8 +52,8 @@
  *
  * - `source.props = {}`: properties to be passed to the source stream
  * - `local.ip = <str>`: local sender ip
- * - `local.source.port = <str>`: local receiver port for source packets
- * - `local.repair.port = <str>`: local receiver port for receiver packets
+ * - `local.source.port = <str>`: local receiver TCP/UDP port for source packets
+ * - `local.repair.port = <str>`: local receiver TCP/UDP port for receiver packets
  * - `sess.latency.msec = <str>`: target network latency in milliseconds
  * - `resampler.profile = <str>`: Possible values: `disable`, `high`,
  *   `medium`, `low`.

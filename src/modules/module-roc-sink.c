@@ -53,8 +53,8 @@
  * - `sink.props = {}`: properties to be passed to the sink stream
  * - `local.ip = <str>`: local sender ip
  * - `remote.ip = <str>`: remote receiver ip
- * - `remote.source.port = <str>`: remote receiver port for source packets
- * - `remote.repair.port = <str>`: remote receiver port for receiver packets
+ * - `remote.source.port = <str>`: remote receiver TCP/UDP port for source packets
+ * - `remote.repair.port = <str>`: remote receiver TCP/UDP port for receiver packets
  *
  * ## General options
  *

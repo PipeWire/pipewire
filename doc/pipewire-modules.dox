@@ -21,6 +21,8 @@ List of known modules:
 - \subpage page_module_client_device
 - \subpage page_module_client_node
 - \subpage page_module_echo_cancel
+- \subpage page_module_example_sink
+- \subpage page_module_example_source
 - \subpage page_module_filter_chain
 - \subpage page_module_link_factory
 - \subpage page_module_loopback
@@ -31,6 +33,8 @@ List of known modules:
 - \subpage page_module_protocol_pulse
 - \subpage page_module_protocol_simple
 - \subpage page_module_pulse_tunnel
+- \subpage page_module_roc_sink
+- \subpage page_module_roc_source
 - \subpage page_module_rt
 - \subpage page_module_rtkit
 - \subpage page_module_session_manager

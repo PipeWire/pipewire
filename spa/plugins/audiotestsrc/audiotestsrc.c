@@ -725,7 +725,7 @@ port_set_format(struct impl *this,
 	} else {
 		struct spa_audio_info info = { 0 };
 		int idx;
-		int sizes[4] = { 2, 4, 4, 8 };
+		const size_t sizes[4] = { 2, 4, 4, 8 };
 
 		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
 			return res;

@@ -192,6 +192,39 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy,
 };
 
+static void pw_properties_from_avahi_string(const char *key, const char *value, struct pw_properties *props) {
+	if (spa_streq(key, "device")) {
+		pw_properties_set(props, PW_KEY_NODE_TARGET, value);
+	}
+	else if (spa_streq(key, "rate")) {
+		pw_properties_setf(props, PW_KEY_AUDIO_RATE, "%u", atoi(value));
+	}
+	else if (spa_streq(key, "channels")) {
+		pw_properties_setf(props, PW_KEY_AUDIO_CHANNELS, "%u", atoi(value));
+	}
+	else if (spa_streq(key, "format")) {
+		pw_properties_set(props, PW_KEY_AUDIO_FORMAT, value);
+	}
+	else if (spa_streq(key, "icon-name")) {
+		pw_properties_set(props, PW_KEY_DEVICE_ICON_NAME, value);
+	}
+	else if (spa_streq(key, "channel_map")) {
+		return;
+	}
+	else if (spa_streq(key, "product-name")) {
+		pw_properties_set(props, PW_KEY_DEVICE_PRODUCT_NAME, value);
+	}
+	else if (spa_streq(key, "description")) {
+		pw_properties_set(props, "tunnel.remote.description", value);
+	}
+	else if (spa_streq(key, "fqdn")) {
+		pw_properties_set(props, "tunnel.remote.fqdn", value);
+	}
+	else if (spa_streq(key, "user-name")) {
+		pw_properties_set(props, "tunnel.remote.user", value);
+	}
+}
+
 static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiProtocol protocol,
 	AvahiResolverEvent event, const char *name, const char *type, const char *domain,
 	const char *host_name, const AvahiAddress *a, uint16_t port, AvahiStringList *txt,
@@ -233,35 +266,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		if (avahi_string_list_get_pair(l, &key, &value, NULL) != 0)
 			break;
 
-		if (spa_streq(key, "device")) {
-			pw_properties_set(props, PW_KEY_NODE_TARGET, value);
-		}
-		else if (spa_streq(key, "rate")) {
-			pw_properties_setf(props, PW_KEY_AUDIO_RATE, "%u", atoi(value));
-		}
-		else if (spa_streq(key, "channels")) {
-			pw_properties_setf(props, PW_KEY_AUDIO_CHANNELS, "%u", atoi(value));
-		}
-		else if (spa_streq(key, "format")) {
-			pw_properties_set(props, PW_KEY_AUDIO_FORMAT, value);
-		}
-		else if (spa_streq(key, "icon-name")) {
-			pw_properties_set(props, PW_KEY_DEVICE_ICON_NAME, value);
-		}
-		else if (spa_streq(key, "channel_map")) {
-		}
-		else if (spa_streq(key, "product-name")) {
-			pw_properties_set(props, PW_KEY_DEVICE_PRODUCT_NAME, value);
-		}
-		else if (spa_streq(key, "description")) {
-			pw_properties_set(props, "tunnel.remote.description", value);
-		}
-		else if (spa_streq(key, "fqdn")) {
-			pw_properties_set(props, "tunnel.remote.fqdn", value);
-		}
-		else if (spa_streq(key, "user-name")) {
-			pw_properties_set(props, "tunnel.remote.user", value);
-		}
+		pw_properties_from_avahi_string(key, value, props);
 		avahi_free(key);
 		avahi_free(value);
 	}

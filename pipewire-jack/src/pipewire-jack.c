@@ -4747,10 +4747,24 @@ void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_
 			NULL, 0, false, p);
 }
 
+static int
+do_recompute_latencies(struct spa_loop *loop,
+		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct client *c = user_data;
+	pw_log_debug("start");
+	do_callback(c, latency_callback, JackCaptureLatency, c->latency_arg);
+	do_callback(c, latency_callback, JackPlaybackLatency, c->latency_arg);
+	pw_log_debug("stop");
+	return 0;
+}
+
 SPA_EXPORT
 int jack_recompute_total_latencies (jack_client_t *client)
 {
-	pw_log_warn(NAME" %p: not implemented", client);
+	struct client *c = (struct client *) client;
+	pw_loop_invoke(c->context.l, do_recompute_latencies, 0,
+			NULL, 0, false, c);
 	return 0;
 }
 

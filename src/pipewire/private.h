@@ -450,6 +450,7 @@ struct pw_context {
 	struct pw_impl_client *current_client;	/**< client currently executing code in mainloop */
 
 	long sc_pagesize;
+	unsigned int freewheeling:1;
 
 	void *user_data;		/**< extra user data */
 };

@@ -41,6 +41,7 @@
 
 #include <pipewire/impl.h>
 #include <pipewire/private.h>
+#include <pipewire/thread.h>
 #include <pipewire/conf.h>
 
 #include <pipewire/extensions/protocol-native.h>
@@ -182,6 +183,30 @@ static int try_load_conf(struct pw_context *this, const char *conf_prefix,
 	}
 	return res;
 }
+
+static int context_set_freewheel(struct pw_context *context, bool freewheel)
+{
+	struct pw_thread *thr;
+	int res;
+
+	if ((thr = pw_data_loop_get_thread(context->data_loop_impl)) == NULL)
+		return -EIO;
+
+	if (freewheel) {
+		pw_log_info(NAME" %p: enter freewheel", context);
+		res = pw_thread_utils_drop_rt(thr);
+	} else {
+		pw_log_info(NAME" %p: exit freewheel", context);
+		res = pw_thread_utils_acquire_rt(thr, 88);
+	}
+	if (res < 0)
+		pw_log_info(NAME" %p: freewheel error:%s", context, spa_strerror(res));
+
+	context->freewheeling = freewheel;
+
+	return res;
+}
+
 
 /** Create a new context object
  *
@@ -384,6 +409,8 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	if ((res = pw_data_loop_start(this->data_loop_impl)) < 0)
 		goto error_free;
+
+	context_set_freewheel(this, false);
 
 	pw_settings_init(this);
 
@@ -982,6 +1009,7 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
 	struct pw_impl_node *n, *s, *target, *fallback;
 	uint32_t max_quantum, min_quantum, def_quantum, def_rate;
+	bool freewheel = false;
 
 	pw_log_info(NAME" %p: busy:%d reason:%s", context, impl->recalc, reason);
 
@@ -1029,6 +1057,8 @@ again:
 				 * is a target for our unassigned nodes */
 				if (target == NULL)
 					target = n;
+				if (n->freewheel)
+					freewheel = true;
 				break;
 			}
 		}
@@ -1036,6 +1066,10 @@ again:
 	/* no active node, use fallback driving node */
 	if (target == NULL)
 		target = fallback;
+
+	/* update the freewheel status */
+	if (context->freewheeling != freewheel)
+		context_set_freewheel(context, freewheel);
 
 	/* now go through all available nodes. The ones we didn't visit
 	 * in collect_nodes() are not linked to any driver. We assign them

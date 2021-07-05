@@ -886,8 +886,6 @@ gst_caps_from_format (const struct spa_pod *format)
         handle_int_prop (prop, "channels", res);
       }
     }
-    else if (media_subtype == SPA_MEDIA_SUBTYPE_aac) {
-    }
   }
   return res;
 }

@@ -86,9 +86,8 @@ int pw_data_loop_stop(struct pw_data_loop *loop);
 
 /** Check if the current thread is the processing thread */
 bool pw_data_loop_in_thread(struct pw_data_loop *loop);
-
 /** Get the thread object */
-void *pw_data_loop_get_thread(struct pw_data_loop *loop);
+struct pw_thread *pw_data_loop_get_thread(struct pw_data_loop *loop);
 
 /** invoke func in the context of the thread or in the caller thread when
  * the loop is not running. Since 0.3.3 */

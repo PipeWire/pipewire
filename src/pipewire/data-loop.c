@@ -29,6 +29,7 @@
 #include "pipewire/log.h"
 #include "pipewire/data-loop.h"
 #include "pipewire/private.h"
+#include "pipewire/thread.h"
 
 #define NAME "data-loop"
 
@@ -203,13 +204,15 @@ SPA_EXPORT
 int pw_data_loop_start(struct pw_data_loop *loop)
 {
 	if (!loop->running) {
-		int err;
+		struct pw_thread *thr;
 
 		loop->running = true;
-		if ((err = pthread_create(&loop->thread, NULL, do_loop, loop)) != 0) {
-			pw_log_error(NAME" %p: can't create thread: %s", loop, strerror(err));
+		thr = pw_thread_utils_create(NULL, do_loop, loop);
+		loop->thread = (pthread_t)thr;
+		if (thr == NULL) {
+			pw_log_error(NAME" %p: can't create thread: %m", loop);
 			loop->running = false;
-			return -err;
+			return -errno;
 		}
 	}
 	return 0;
@@ -235,7 +238,7 @@ int pw_data_loop_stop(struct pw_data_loop *loop)
 			pthread_cancel(loop->thread);
 		}
 		pw_log_debug(NAME": %p join", loop);
-		pthread_join(loop->thread, NULL);
+		pw_thread_utils_join((struct pw_thread*)loop->thread, NULL);
 		pw_log_debug(NAME": %p joined", loop);
 	}
 	pw_log_debug(NAME": %p stopped", loop);
@@ -260,9 +263,9 @@ bool pw_data_loop_in_thread(struct pw_data_loop * loop)
  * On posix based systems this returns a pthread_t *
  */
 SPA_EXPORT
-void *pw_data_loop_get_thread(struct pw_data_loop * loop)
+struct pw_thread *pw_data_loop_get_thread(struct pw_data_loop * loop)
 {
-	return loop->running ? &loop->thread : NULL;
+	return loop->running ? (struct pw_thread*)loop->thread : NULL;
 }
 
 SPA_EXPORT

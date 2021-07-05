@@ -366,9 +366,6 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	fill_properties(this);
 
-	if ((res = pw_data_loop_start(this->data_loop_impl)) < 0)
-		goto error_free;
-
 	if ((res = pw_context_parse_conf_section(this, conf, "context.spa-libs")) < 0)
 		goto error_free;
 	pw_log_info(NAME" %p: parsed %d context.spa-libs items", this, res);
@@ -384,6 +381,9 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	if ((res = pw_context_parse_conf_section(this, conf, "context.exec")) < 0)
 		goto error_free;
 	pw_log_info(NAME" %p: parsed %d context.exec items", this, res);
+
+	if ((res = pw_data_loop_start(this->data_loop_impl)) < 0)
+		goto error_free;
 
 	pw_settings_init(this);
 
@@ -435,6 +435,9 @@ void pw_context_destroy(struct pw_context *context)
 	spa_list_consume(resource, &context->registry_resource_list, link)
 		pw_resource_destroy(resource);
 
+	if (context->data_loop_impl)
+		pw_data_loop_destroy(context->data_loop_impl);
+
 	spa_list_consume(module, &context->module_list, link)
 		pw_impl_module_destroy(module);
 
@@ -452,9 +455,6 @@ void pw_context_destroy(struct pw_context *context)
 
 	if (context->pool)
 		pw_mempool_destroy(context->pool);
-
-	if (context->data_loop_impl)
-		pw_data_loop_destroy(context->data_loop_impl);
 
 	if (context->work_queue)
 		pw_work_queue_destroy(context->work_queue);

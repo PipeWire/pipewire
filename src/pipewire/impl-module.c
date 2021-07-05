@@ -227,7 +227,7 @@ pw_context_load_module(struct pw_context *context,
 	if (this->global == NULL)
 		goto error_no_global;
 
-	spa_list_append(&context->module_list, &this->link);
+	spa_list_prepend(&context->module_list, &this->link);
 
 	this->info.id = this->global->id;
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);

@@ -32,9 +32,13 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <pthread.h>
+
+#include <spa/utils/dict.h>
+#include <spa/utils/result.h>
 
 #include <pipewire/impl.h>
-#include <spa/utils/dict.h>
+#include <pipewire/thread.h>
 
 #include "config.h"
 
@@ -66,9 +70,7 @@ static const struct spa_dict_item module_props[] = {
 struct impl {
 	struct pw_context *context;
 
-	struct spa_loop *loop;
-	struct spa_system *system;
-	struct spa_source source;
+	struct pw_thread_utils thread_utils;
 
 	int rt_prio;
 	rlim_t rt_time_soft;
@@ -77,26 +79,11 @@ struct impl {
 	struct spa_hook module_listener;
 };
 
-static int do_remove_source(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct spa_source *source = user_data;
-
-	spa_loop_remove_source(loop, source);
-
-	return 0;
-}
-
 static void module_destroy(void *data)
 {
 	struct impl *impl = data;
-
+	pw_thread_utils_set_impl(NULL);
 	spa_hook_remove(&impl->module_listener);
-
-	if (impl->source.fd != -1) {
-		spa_loop_invoke(impl->loop, do_remove_source, SPA_ID_INVALID, NULL, 0, true, &impl->source);
-		spa_system_close(impl->system, impl->source.fd);
-		impl->source.fd = -1;
-	}
 	free(impl);
 }
 
@@ -105,57 +92,47 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-static void idle_func(struct spa_source *source)
-{
-	struct impl *impl = source->data;
-	uint64_t count;
-	int policy = SCHED_FIFO;
-	int rtprio = impl->rt_prio;
-	struct rlimit rl;
-	struct sched_param sp;
-
-	if (SPA_UNLIKELY(spa_system_eventfd_read(impl->system, impl->source.fd, &count) < 0))
-		pw_log_warn("read failed: %m");
-
-        if (rtprio < sched_get_priority_min(policy) ||
-            rtprio > sched_get_priority_max(policy)) {
-		pw_log_warn("invalid priority %d for policy %d", rtprio, policy);
-		return;
-	}
-
-	rl.rlim_cur = impl->rt_time_soft;
-	rl.rlim_max = impl->rt_time_hard;
-	if (setrlimit(RLIMIT_RTTIME, &rl) < 0)
-		pw_log_warn("could not set rlimit: %m");
-	else
-		pw_log_debug("rt.prio %d, rt.time.soft %"PRIi64", rt.time.hard %"PRIi64,
-			rtprio, (int64_t)rl.rlim_cur, (int64_t)rl.rlim_max);
-
-	spa_zero(sp);
-	sp.sched_priority = rtprio;
-        if (sched_setscheduler(0, policy | SCHED_RESET_ON_FORK, &sp) < 0) {
-		pw_log_warn("could not make thread realtime: %m");
-		return;
-        }
-
-	pw_log_info("processing thread has realtime priority %d", rtprio);
-}
-
-static void set_nice(struct impl *impl, int nice_level)
+static int set_nice(struct impl *impl, int nice_level)
 {
 	long tid;
-	int res;
+	int res = 0;
 
 	tid = syscall(SYS_gettid);
 	if (tid < 0) {
 		pw_log_warn("could not get main thread id: %m");
 		tid = 0; /* means current thread in setpriority() on linux */
 	}
-	res = setpriority(PRIO_PROCESS, (id_t)tid, nice_level);
+	if (setpriority(PRIO_PROCESS, (id_t)tid, nice_level) < 0)
+		res = -errno;
+
 	if (res < 0)
-		pw_log_warn("could not set nice-level to %d: %m", nice_level);
+		pw_log_warn("could not set nice-level to %d: %s",
+				nice_level, spa_strerror(res));
 	else
-		pw_log_info("main thread nice level set to %d", nice_level);
+		pw_log_info("main thread nice level set to %d",
+				nice_level);
+
+	return res;
+}
+
+static int set_rlimit(struct impl *impl)
+{
+	struct rlimit rl;
+	int res = 0;
+
+	rl.rlim_cur = impl->rt_time_soft;
+	rl.rlim_max = impl->rt_time_hard;
+
+	if (setrlimit(RLIMIT_RTTIME, &rl) < 0)
+		res = -errno;
+
+	if (res < 0)
+		pw_log_warn("could not set rlimit: %s", spa_strerror(res));
+	else
+		pw_log_debug("rt.time.soft %"PRIi64", rt.time.hard %"PRIi64,
+				(int64_t)rl.rlim_cur, (int64_t)rl.rlim_max);
+
+	return res;
 }
 
 static int get_default_int(struct pw_properties *properties, const char *name, int def)
@@ -182,28 +159,81 @@ static int get_default_int(struct pw_properties *properties, const char *name, i
 	return val;
 }
 
+static struct pw_thread *impl_create(void *data,
+			const struct spa_dict *props,
+			void *(*start)(void*), void *arg)
+{
+	pthread_t pt;
+	int err;
+	if ((err = pthread_create(&pt, NULL, start, arg)) != 0) {
+		errno = err;
+		return NULL;
+	}
+	return (struct pw_thread*)pt;
+}
+
+static int impl_join(void *data, struct pw_thread *thread, void **retval)
+{
+	pthread_t pt = (pthread_t)thread;
+	return pthread_join(pt, retval);
+}
+
+static int impl_acquire_rt(void *data, struct pw_thread *thread, int priority)
+{
+	int err, policy = SCHED_FIFO;
+	int rtprio = priority;
+	struct sched_param sp;
+	pthread_t pt = (pthread_t)thread;
+
+        if (rtprio < sched_get_priority_min(policy) ||
+            rtprio > sched_get_priority_max(policy)) {
+		pw_log_warn("invalid priority %d for policy %d", rtprio, policy);
+		return -EINVAL;
+	}
+
+	spa_zero(sp);
+	sp.sched_priority = rtprio;
+	if ((err = pthread_setschedparam(pt, policy | SCHED_RESET_ON_FORK,
+                                &sp)) != 0) {
+		pw_log_warn("%p: could not make thread realtime: %s", thread, strerror(err));
+		return -err;
+        }
+	pw_log_info("thread %p has realtime priority %d", thread, rtprio);
+	return 0;
+}
+
+static int impl_drop_rt(void *data, struct pw_thread *thread)
+{
+	struct sched_param sp;
+	pthread_t pt = (pthread_t)thread;
+	int err;
+
+	spa_zero(sp);
+	if ((err = pthread_setschedparam(pt,
+				SCHED_OTHER | SCHED_RESET_ON_FORK, &sp)) != 0) {
+		pw_log_warn("%p: could not drop realtime: %s", thread, strerror(err));
+		return -err;
+        }
+	pw_log_info("thread %p dropped realtime priority", thread);
+	return 0;
+}
+
+static const struct pw_thread_utils_methods impl_thread_utils = {
+	PW_VERSION_THREAD_UTILS_METHODS,
+	.create = impl_create,
+	.join = impl_join,
+	.acquire_rt = impl_acquire_rt,
+	.drop_rt = impl_drop_rt,
+};
+
 SPA_EXPORT
 int pipewire__module_init(struct pw_impl_module *module, const char *args)
 {
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct impl *impl;
-	struct spa_loop *loop;
-	struct spa_system *system;
-	const struct spa_support *support;
-	uint32_t n_support;
 	struct pw_properties *props;
 	int nice_level;
 	int res;
-
-	support = pw_context_get_support(context, &n_support);
-
-	loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
-        if (loop == NULL)
-                return -ENOTSUP;
-
-	system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
-        if (system == NULL)
-                return -ENOTSUP;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -212,8 +242,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_log_debug("module %p: new %s", impl, args);
 
 	impl->context = context;
-	impl->loop = loop;
-	impl->system = system;
 	props = args ? pw_properties_new_string(args) : pw_properties_new(NULL, NULL);
 	if (props == NULL) {
 		res = -errno;
@@ -227,19 +255,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->rt_time_soft = get_default_int(props, "rt.time.soft", DEFAULT_RT_TIME_SOFT);
 	impl->rt_time_hard = get_default_int(props, "rt.time.hard", DEFAULT_RT_TIME_HARD);
 
-	impl->source.loop = loop;
-	impl->source.func = idle_func;
-	impl->source.data = impl;
-	impl->source.fd = spa_system_eventfd_create(system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	impl->source.mask = SPA_IO_IN;
-	if (impl->source.fd == -1) {
-		res = -errno;
-		goto error;
-	}
+	set_rlimit(impl);
 
-	spa_loop_add_source(impl->loop, &impl->source);
-	if (SPA_UNLIKELY(spa_system_eventfd_write(system, impl->source.fd, 1) < 0))
-		pw_log_warn("write failed: %m");
+	impl->thread_utils.iface = SPA_INTERFACE_INIT(
+			PW_TYPE_INTERFACE_ThreadUtils,
+			PW_VERSION_THREAD_UTILS,
+			&impl_thread_utils, impl);
+
+	pw_thread_utils_set_impl(&impl->thread_utils);
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 

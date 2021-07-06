@@ -260,12 +260,12 @@ bool pw_data_loop_in_thread(struct pw_data_loop * loop)
  * \param loop the data loop to get the thread of
  * \return the thread object or NULL when the thread is not running
  *
- * On posix based systems this returns a pthread_t *
+ * On posix based systems this returns a pthread_t
  */
 SPA_EXPORT
-struct pw_thread *pw_data_loop_get_thread(struct pw_data_loop * loop)
+struct spa_thread *pw_data_loop_get_thread(struct pw_data_loop * loop)
 {
-	return loop->running ? (struct pw_thread*)loop->thread : NULL;
+	return loop->running ? (struct spa_thread*)loop->thread : NULL;
 }
 
 SPA_EXPORT

@@ -5485,14 +5485,14 @@ SPA_EXPORT
 int jack_acquire_real_time_scheduling (jack_native_thread_t thread, int priority)
 {
 	pw_log_info("acquire");
-	return pw_thread_utils_acquire_rt((struct pw_thread*)thread, priority);
+	return pw_thread_utils_acquire_rt((struct spa_thread*)thread, priority);
 }
 
 SPA_EXPORT
 int jack_drop_real_time_scheduling (jack_native_thread_t thread)
 {
 	pw_log_info("drop");
-	return pw_thread_utils_drop_rt((struct pw_thread*)thread);
+	return pw_thread_utils_drop_rt((struct spa_thread*)thread);
 }
 
 /**
@@ -5519,7 +5519,6 @@ int jack_client_create_thread (jack_client_t* client,
                                void *(*start_routine)(void*),
                                void *arg)
 {
-	struct pw_thread *thr;
 	int res = 0;
 
 	spa_return_val_if_fail(client != NULL, -EINVAL);
@@ -5538,6 +5537,8 @@ int jack_client_create_thread (jack_client_t* client,
 
 		pthread_attr_destroy(&attributes);
 	} else {
+		struct spa_thread *thr;
+
 		thr = pw_thread_utils_create(NULL, start_routine, arg);
 		if (thr == NULL)
 			res = -errno;
@@ -5566,7 +5567,7 @@ int jack_client_stop_thread(jack_client_t* client, jack_native_thread_t thread)
 		return -EINVAL;
 
 	pw_log_debug("join thread %lu", thread);
-	pw_thread_utils_join((struct pw_thread*)thread, &status);
+	pw_thread_utils_join((struct spa_thread*)thread, &status);
 	pw_log_debug("stopped thread %lu", thread);
 	return 0;
 }
@@ -5582,7 +5583,7 @@ int jack_client_kill_thread(jack_client_t* client, jack_native_thread_t thread)
 	pw_log_debug("cancel thread %lu", thread);
 	pthread_cancel(thread);
 	pw_log_debug("join thread %lu", thread);
-	pw_thread_utils_join((struct pw_thread*)thread, &status);
+	pw_thread_utils_join((struct spa_thread*)thread, &status);
 	pw_log_debug("stopped thread %lu", thread);
 	return 0;
 }

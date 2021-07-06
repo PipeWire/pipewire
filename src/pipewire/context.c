@@ -187,7 +187,7 @@ static int try_load_conf(struct pw_context *this, const char *conf_prefix,
 
 static int context_set_freewheel(struct pw_context *context, bool freewheel)
 {
-	struct pw_thread *thr;
+	struct spa_thread *thr;
 	int res;
 
 	if ((thr = pw_data_loop_get_thread(context->data_loop_impl)) == NULL)

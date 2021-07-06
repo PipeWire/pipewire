@@ -72,7 +72,7 @@ static const struct spa_dict_item module_props[] = {
 struct impl {
 	struct pw_context *context;
 
-	struct pw_thread_utils thread_utils;
+	struct spa_thread_utils thread_utils;
 
 	int rt_prio;
 	rlim_t rt_time_soft;
@@ -84,7 +84,7 @@ struct impl {
 static void module_destroy(void *data)
 {
 	struct impl *impl = data;
-	pw_thread_utils_set_impl(NULL);
+	pw_thread_utils_set(NULL);
 	spa_hook_remove(&impl->module_listener);
 	free(impl);
 }
@@ -161,7 +161,7 @@ static int get_default_int(struct pw_properties *properties, const char *name, i
 	return val;
 }
 
-static struct pw_thread *impl_create(void *data,
+static struct spa_thread *impl_create(void *data,
 			const struct spa_dict *props,
 			void *(*start)(void*), void *arg)
 {
@@ -171,10 +171,10 @@ static struct pw_thread *impl_create(void *data,
 		errno = err;
 		return NULL;
 	}
-	return (struct pw_thread*)pt;
+	return (struct spa_thread*)pt;
 }
 
-static int impl_join(void *data, struct pw_thread *thread, void **retval)
+static int impl_join(void *data, struct spa_thread *thread, void **retval)
 {
 	pthread_t pt = (pthread_t)thread;
 	return pthread_join(pt, retval);
@@ -191,7 +191,7 @@ static int impl_get_rt_range(void *data, const struct spa_dict *props,
 	return 0;
 }
 
-static int impl_acquire_rt(void *data, struct pw_thread *thread, int priority)
+static int impl_acquire_rt(void *data, struct spa_thread *thread, int priority)
 {
 	int err, policy = DEFAULT_POLICY;
 	int rtprio = priority;
@@ -215,7 +215,7 @@ static int impl_acquire_rt(void *data, struct pw_thread *thread, int priority)
 	return 0;
 }
 
-static int impl_drop_rt(void *data, struct pw_thread *thread)
+static int impl_drop_rt(void *data, struct spa_thread *thread)
 {
 	struct sched_param sp;
 	pthread_t pt = (pthread_t)thread;
@@ -231,8 +231,8 @@ static int impl_drop_rt(void *data, struct pw_thread *thread)
 	return 0;
 }
 
-static const struct pw_thread_utils_methods impl_thread_utils = {
-	PW_VERSION_THREAD_UTILS_METHODS,
+static const struct spa_thread_utils_methods impl_thread_utils = {
+	SPA_VERSION_THREAD_UTILS_METHODS,
 	.create = impl_create,
 	.join = impl_join,
 	.get_rt_range = impl_get_rt_range,
@@ -272,11 +272,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	set_rlimit(impl);
 
 	impl->thread_utils.iface = SPA_INTERFACE_INIT(
-			PW_TYPE_INTERFACE_ThreadUtils,
-			PW_VERSION_THREAD_UTILS,
+			SPA_TYPE_INTERFACE_ThreadUtils,
+			SPA_VERSION_THREAD_UTILS,
 			&impl_thread_utils, impl);
 
-	pw_thread_utils_set_impl(&impl->thread_utils);
+	pw_thread_utils_set(&impl->thread_utils);
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 

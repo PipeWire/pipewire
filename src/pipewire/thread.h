@@ -32,90 +32,21 @@ extern "C" {
 #include <string.h>
 #include <errno.h>
 
-#include <spa/utils/dict.h>
-#include <pipewire/type.h>
+#include <spa/support/thread.h>
 
-/** \defgroup pw_thread Thread related functions
+/** \defgroup spa_thread Thread related functions
  *
  * \brief functions to manipulate threads
  */
 
-#define PW_TYPE_INTERFACE_ThreadUtils	PW_TYPE_INFO_INTERFACE_BASE "ThreadUtils"
+void pw_thread_utils_set(struct spa_thread_utils *impl);
+struct spa_thread_utils *pw_thread_utils_get(void);
 
-/** a thread object.
- * This can be cast to a platform native thread, like pthread on posix systems
- */
-struct pw_thread;
-
-#define PW_VERSION_THREAD_UTILS		0
-struct pw_thread_utils { struct spa_interface iface; };
-
-/** thread utils */
-struct pw_thread_utils_methods {
-#define PW_VERSION_THREAD_UTILS_METHODS	0
-	uint32_t version;
-
-	/** create a new thread that runs \a start with \a arg */
-	struct pw_thread * (*create) (void *data, const struct spa_dict *props,
-			void *(*start)(void*), void *arg);
-	/** stop and join a thread */
-	int (*join)(void *data, struct pw_thread *thread, void **retval);
-
-	/** get realtime priority range for threads created with \a props */
-	int (*get_rt_range) (void *data, const struct spa_dict *props, int *min, int *max);
-	/** acquire realtime priority */
-	int (*acquire_rt) (void *data, struct pw_thread *thread, int priority);
-	/** drop realtime priority */
-	int (*drop_rt) (void *data, struct pw_thread *thread);
-};
-
-void pw_thread_utils_set_impl(struct pw_thread_utils *impl);
-struct pw_thread_utils *pw_thread_utils_get_impl(void);
-
-static inline struct pw_thread *pw_thread_utils_create(const struct spa_dict *props,
-		void *(*start_routine)(void*), void *arg)
-{
-	struct pw_thread *res = NULL;
-	spa_interface_call_res(&pw_thread_utils_get_impl()->iface,
-			struct pw_thread_utils_methods, res, create, 0,
-			props, start_routine, arg);
-	return res;
-}
-
-static inline int pw_thread_utils_join(struct pw_thread *thread, void **retval)
-{
-	int res = -ENOTSUP;
-	spa_interface_call_res(&pw_thread_utils_get_impl()->iface,
-			struct pw_thread_utils_methods, res, join, 0,
-			thread, retval);
-	return res;
-}
-
-static inline int pw_thread_utils_get_rt_range(const struct spa_dict *props, int *min, int *max)
-{
-	int res = -ENOTSUP;
-	spa_interface_call_res(&pw_thread_utils_get_impl()->iface,
-			struct pw_thread_utils_methods, res, get_rt_range, 0,
-			props, min, max);
-	return res;
-}
-
-static inline int pw_thread_utils_acquire_rt(struct pw_thread *thread, int priority)
-{
-	int res = -ENOTSUP;
-	spa_interface_call_res(&pw_thread_utils_get_impl()->iface,
-			struct pw_thread_utils_methods, res, acquire_rt, 0,
-			thread, priority);
-	return res;
-}
-
-static inline int pw_thread_utils_drop_rt(struct pw_thread *thread)
-{
-	int res = -ENOTSUP;
-	spa_interface_call_res(&pw_thread_utils_get_impl()->iface,
-			struct pw_thread_utils_methods, res, drop_rt, 0, thread);
-	return res;
-}
+#define pw_thread_utils_create(...)		spa_thread_utils_create(pw_thread_utils_get(), ##__VA_ARGS__)
+#define pw_thread_utils_join(...)		spa_thread_utils_join(pw_thread_utils_get(), ##__VA_ARGS__)
+#define pw_thread_utils_get_rt_range(...)	spa_thread_utils_get_rt_range(pw_thread_utils_get(), ##__VA_ARGS__)
+#define pw_thread_utils_acquire_rt(...)		spa_thread_utils_acquire_rt(pw_thread_utils_get(), ##__VA_ARGS__)
+#define pw_thread_utils_drop_rt(...)		spa_thread_utils_drop_rt(pw_thread_utils_get(), ##__VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

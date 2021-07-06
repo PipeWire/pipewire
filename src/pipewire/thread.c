@@ -34,8 +34,7 @@
 
 #include "thread.h"
 
-
-static struct pw_thread *impl_create(void *data,
+static struct spa_thread *impl_create(void *data,
 			const struct spa_dict *props,
 			void *(*start)(void*), void *arg)
 {
@@ -45,10 +44,10 @@ static struct pw_thread *impl_create(void *data,
 		errno = err;
 		return NULL;
 	}
-	return (struct pw_thread*)pt;
+	return (struct spa_thread*)pt;
 }
 
-static int impl_join(void *data, struct pw_thread *thread, void **retval)
+static int impl_join(void *data, struct spa_thread *thread, void **retval)
 {
 	pthread_t pt = (pthread_t)thread;
 	return pthread_join(pt, retval);
@@ -65,24 +64,24 @@ static int impl_get_rt_range(void *data, const struct spa_dict *props,
 }
 
 static struct {
-	struct pw_thread_utils utils;
-	struct pw_thread_utils_methods methods;
+	struct spa_thread_utils utils;
+	struct spa_thread_utils_methods methods;
 } default_impl = {
-	{ { PW_TYPE_INTERFACE_ThreadUtils,
-		 PW_VERSION_THREAD_UTILS,
+	{ { SPA_TYPE_INTERFACE_ThreadUtils,
+		 SPA_VERSION_THREAD_UTILS,
 		 SPA_CALLBACKS_INIT(&default_impl.methods,
 				 &default_impl) } },
-	{ PW_VERSION_THREAD_UTILS_METHODS,
+	{ SPA_VERSION_THREAD_UTILS_METHODS,
 		.create = impl_create,
 		.join = impl_join,
 		.get_rt_range = impl_get_rt_range
 	}
 };
 
-static struct pw_thread_utils *global_impl = &default_impl.utils;
+static struct spa_thread_utils *global_impl = &default_impl.utils;
 
 SPA_EXPORT
-void pw_thread_utils_set_impl(struct pw_thread_utils *impl)
+void pw_thread_utils_set(struct spa_thread_utils *impl)
 {
 	if (impl == NULL)
 		impl = &default_impl.utils;
@@ -90,7 +89,7 @@ void pw_thread_utils_set_impl(struct pw_thread_utils *impl)
 }
 
 SPA_EXPORT
-struct pw_thread_utils *pw_thread_utils_get_impl(void)
+struct spa_thread_utils *pw_thread_utils_get(void)
 {
 	return global_impl;
 }

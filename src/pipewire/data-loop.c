@@ -204,7 +204,7 @@ SPA_EXPORT
 int pw_data_loop_start(struct pw_data_loop *loop)
 {
 	if (!loop->running) {
-		struct pw_thread *thr;
+		struct spa_thread *thr;
 
 		loop->running = true;
 		thr = pw_thread_utils_create(NULL, do_loop, loop);
@@ -238,7 +238,7 @@ int pw_data_loop_stop(struct pw_data_loop *loop)
 			pthread_cancel(loop->thread);
 		}
 		pw_log_debug(NAME": %p join", loop);
-		pw_thread_utils_join((struct pw_thread*)loop->thread, NULL);
+		pw_thread_utils_join((struct spa_thread*)loop->thread, NULL);
 		pw_log_debug(NAME": %p joined", loop);
 	}
 	pw_log_debug(NAME": %p stopped", loop);

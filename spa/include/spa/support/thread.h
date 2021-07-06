@@ -33,6 +33,7 @@ extern "C" {
 #include <errno.h>
 
 #include <spa/utils/defs.h>
+#include <spa/utils/hook.h>
 #include <spa/utils/dict.h>
 
 /**

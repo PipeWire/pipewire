@@ -1713,7 +1713,7 @@ static int impl_set_param(void *object,
 	switch (id) {
 	case SPA_PARAM_Profile:
 	{
-		uint32_t id, next;
+		uint32_t idx, next;
 		uint32_t profile;
 		enum spa_bluetooth_audio_codec codec;
 
@@ -1722,13 +1722,13 @@ static int impl_set_param(void *object,
 
 		if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id))) < 0) {
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&idx))) < 0) {
 			spa_log_warn(this->log, "can't parse profile");
 			spa_debug_pod(0, NULL, param);
 			return res;
 		}
 
-		profile = get_profile_from_index(this, id, &next, &codec);
+		profile = get_profile_from_index(this, idx, &next, &codec);
 		if (profile == SPA_ID_INVALID)
 			return -EINVAL;
 
@@ -1737,7 +1737,7 @@ static int impl_set_param(void *object,
 	}
 	case SPA_PARAM_Route:
 	{
-		uint32_t id, device;
+		uint32_t idx, device;
 		struct spa_pod *props = NULL;
 		struct node *node;
 		bool save = false;
@@ -1747,7 +1747,7 @@ static int impl_set_param(void *object,
 
 		if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
-				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&idx),
 				SPA_PARAM_ROUTE_device, SPA_POD_Int(&device),
 				SPA_PARAM_ROUTE_props, SPA_POD_OPT_Pod(&props),
 				SPA_PARAM_ROUTE_save, SPA_POD_OPT_Bool(&save))) < 0) {

@@ -305,9 +305,9 @@ on_client_data(void *data, int fd, uint32_t mask)
 		client->need_flush = false;
 		res = client_flush_messages(client);
 		if (res >= 0) {
-			int mask = client->source->mask;
-			SPA_FLAG_CLEAR(mask, SPA_IO_OUT);
-			pw_loop_update_io(impl->loop, client->source, mask);
+			int m = client->source->mask;
+			SPA_FLAG_CLEAR(m, SPA_IO_OUT);
+			pw_loop_update_io(impl->loop, client->source, m);
 		} else if (res != -EAGAIN && res != -EWOULDBLOCK)
 			goto error;
 	}
@@ -361,9 +361,9 @@ on_connect(void *data, int fd, uint32_t mask)
 	if (client_fd < 0) {
 		if (errno == EMFILE || errno == ENFILE) {
 			if (server->n_clients > 0) {
-				int mask = server->source->mask;
-				SPA_FLAG_CLEAR(mask, SPA_IO_IN);
-				pw_loop_update_io(impl->loop, server->source, mask);
+				int m = server->source->mask;
+				SPA_FLAG_CLEAR(m, SPA_IO_IN);
+				pw_loop_update_io(impl->loop, server->source, m);
 				server->wait_clients++;
 			}
 		}

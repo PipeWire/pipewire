@@ -375,10 +375,10 @@ static void device_event_param(void *object, int seq,
 		return;
 
 	if (id == SPA_PARAM_Route && !has_param(&o->this.param_list, p)) {
-		uint32_t id, device;
+		uint32_t idx, device;
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
-				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&idx),
 				SPA_PARAM_ROUTE_device,  SPA_POD_Int(&device)) < 0)
 			return;
 

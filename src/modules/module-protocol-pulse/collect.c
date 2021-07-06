@@ -238,7 +238,7 @@ void collect_device_info(struct pw_manager_object *device, struct pw_manager_obj
 
 	if (card && !monitor) {
 		spa_list_for_each(p, &card->param_list, link) {
-			uint32_t id, device;
+			uint32_t id, dev;
 			struct spa_pod *props;
 
 			if (p->id != SPA_PARAM_Route)
@@ -247,10 +247,10 @@ void collect_device_info(struct pw_manager_object *device, struct pw_manager_obj
 			if (spa_pod_parse_object(p->param,
 					SPA_TYPE_OBJECT_ParamRoute, NULL,
 					SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
-					SPA_PARAM_ROUTE_device,  SPA_POD_Int(&device),
+					SPA_PARAM_ROUTE_device,  SPA_POD_Int(&dev),
 					SPA_PARAM_ROUTE_props,  SPA_POD_OPT_Pod(&props)) < 0)
 				continue;
-			if (device != dev_info->device)
+			if (dev != dev_info->device)
 				continue;
 			dev_info->active_port = id;
 			if (props) {

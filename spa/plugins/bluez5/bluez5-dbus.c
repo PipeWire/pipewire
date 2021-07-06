@@ -2693,11 +2693,11 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	is_new = transport == NULL;
 
 	if (is_new) {
-		char *path = strdup(transport_path);
+		char *tpath = strdup(transport_path);
 
-		transport = spa_bt_transport_create(monitor, path, 0);
+		transport = spa_bt_transport_create(monitor, tpath, 0);
 		if (transport == NULL) {
-			free(path);
+			free(tpath);
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 		}
 

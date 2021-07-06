@@ -634,28 +634,28 @@ static int impl_set_param(void *object,
 	switch (id) {
 	case SPA_PARAM_Profile:
 	{
-		uint32_t id;
+		uint32_t idx;
 		bool save = false;
 
 		if (param == NULL) {
-			id = acp_card_find_best_profile_index(this->card, NULL);
+			idx = acp_card_find_best_profile_index(this->card, NULL);
 			save = true;
 		} else if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&idx),
 				SPA_PARAM_PROFILE_save, SPA_POD_OPT_Bool(&save))) < 0) {
 			spa_log_warn(this->log, "can't parse profile");
 			spa_debug_pod(0, NULL, param);
 			return res;
 		}
 
-		acp_card_set_profile(this->card, id, save ? ACP_PROFILE_SAVE : 0);
+		acp_card_set_profile(this->card, idx, save ? ACP_PROFILE_SAVE : 0);
 		emit_info(this, false);
 		break;
 	}
 	case SPA_PARAM_Route:
 	{
-		uint32_t id, device;
+		uint32_t idx, device;
 		struct spa_pod *props = NULL;
 		struct acp_device *dev;
 		bool save = false;
@@ -665,7 +665,7 @@ static int impl_set_param(void *object,
 
 		if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
-				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&idx),
 				SPA_PARAM_ROUTE_device, SPA_POD_Int(&device),
 				SPA_PARAM_ROUTE_props, SPA_POD_OPT_Pod(&props),
 				SPA_PARAM_ROUTE_save, SPA_POD_OPT_Bool(&save))) < 0) {
@@ -677,7 +677,7 @@ static int impl_set_param(void *object,
 			return -EINVAL;
 
 		dev = this->card->devices[device];
-		acp_device_set_port(dev, id, save ? ACP_PORT_SAVE : 0);
+		acp_device_set_port(dev, idx, save ? ACP_PORT_SAVE : 0);
 		if (props)
 			apply_device_props(this, dev, props);
 		emit_info(this, false);

@@ -859,14 +859,14 @@ static void device_event_param(void *object, int seq,
 	switch (id) {
 	case SPA_PARAM_Route:
 	{
-		uint32_t index, device;
+		uint32_t idx, device;
 		enum spa_direction direction;
 		struct spa_pod *props = NULL;
 		struct global *ng;
 
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
-				SPA_PARAM_ROUTE_index, SPA_POD_Int(&index),
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&idx),
 				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&direction),
 				SPA_PARAM_ROUTE_device, SPA_POD_Int(&device),
 				SPA_PARAM_ROUTE_props, SPA_POD_OPT_Pod(&props)) < 0) {
@@ -874,13 +874,13 @@ static void device_event_param(void *object, int seq,
 			return;
 		}
 		if (direction == SPA_DIRECTION_OUTPUT)
-			g->device.active_route_output = index;
+			g->device.active_route_output = idx;
                 else
-                        g->device.active_route_input = index;
+                        g->device.active_route_input = idx;
 
 		pw_log_debug("device %d: active %s route %d", g->id,
 				direction == SPA_DIRECTION_OUTPUT ? "output" : "input",
-				index);
+				idx);
 
 		ng = find_node_for_route(ctl, g->id, device);
 		if (props && ng)

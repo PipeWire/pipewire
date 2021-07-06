@@ -410,20 +410,28 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	}
 	if (j == 0) {
 		char buf[1024];
-		int i, offs;
+		int i, r, offs;
 
 		for (i = 0, offs = 0; i <= SND_PCM_FORMAT_LAST; i++) {
-			if (snd_pcm_format_mask_test(fmask, (snd_pcm_format_t)i))
-				offs += snprintf(&buf[offs], sizeof(buf) - offs,
+			if (snd_pcm_format_mask_test(fmask, (snd_pcm_format_t)i)) {
+				r = snprintf(&buf[offs], sizeof(buf) - offs,
 						"%s ", snd_pcm_format_name((snd_pcm_format_t)i));
+				if (r < 0 || r + offs >= (int)sizeof(buf))
+					return -ENOSPC;
+				offs += r;
+			}
 		}
 		spa_log_warn(state->log, "%s: unsupported card: formats:%s",
 				state->props.device, buf);
 
 		for (i = 0, offs = 0; i <= SND_PCM_ACCESS_LAST; i++) {
-			if (snd_pcm_access_mask_test(amask, (snd_pcm_access_t)i))
-				offs += snprintf(&buf[offs], sizeof(buf) - offs,
+			if (snd_pcm_access_mask_test(amask, (snd_pcm_access_t)i)) {
+				r = snprintf(&buf[offs], sizeof(buf) - offs,
 						"%s ", snd_pcm_access_name((snd_pcm_access_t)i));
+				if (r < 0 || r + offs >= (int)sizeof(buf))
+					return -ENOSPC;
+				offs += r;
+			}
 		}
 		spa_log_warn(state->log, "%s: unsupported card: access:%s",
 				state->props.device, buf);

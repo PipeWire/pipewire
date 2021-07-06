@@ -455,12 +455,15 @@ int format_info_from_spec(struct format_info *info, struct sample_spec *ss,
 	pw_properties_setf(info->props, "format.channels", "%d", ss->channels);
 	if (map && map->channels == ss->channels) {
 		char chmap[1024] = "";
-		int i, o;
+		int i, o, r;
 		uint32_t aux = 0;
 
 		for (i = 0, o = 0; i < map->channels; i++) {
-			o += snprintf(chmap+o, sizeof(chmap)-o, "%s%s", i == 0 ? "" : ",",
+			r = snprintf(chmap+o, sizeof(chmap)-o, "%s%s", i == 0 ? "" : ",",
 					channel_id2paname(map->map[i], &aux));
+			if (r < 0 || o + r >= (int)sizeof(chmap))
+				return -ENOSPC;
+			o += r;
 		}
 		pw_properties_setf(info->props, "format.channel_map", "\"%s\"", chmap);
 	}

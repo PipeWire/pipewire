@@ -254,6 +254,11 @@ static int conf_load(const char *prefix, const char *name, struct pw_properties 
 	struct stat sbuf;
 	int fd;
 
+	if (name == NULL) {
+		pw_log_debug(NAME" %p: config name must not be NULL", conf);
+		return -EINVAL;
+	}
+
 	if (get_read_path(path, sizeof(path), prefix, name) == 0) {
 		pw_log_debug(NAME" %p: can't load config '%s': %m", conf, path);
 		return -ENOENT;

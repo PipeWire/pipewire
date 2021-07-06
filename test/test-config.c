@@ -75,9 +75,24 @@ PWTEST(config_load_abspath)
 	return PWTEST_PASS;
 }
 
+PWTEST(config_load_nullname)
+{
+	struct pw_properties *props = pw_properties_new("ignore", "me", NULL);
+	int r;
+
+	r = pw_conf_load_conf(NULL, NULL, props);
+	pwtest_neg_errno(r, -EINVAL);
+
+	r = pw_conf_load_conf("/dummy", NULL, props);
+	pwtest_neg_errno(r, -EINVAL);
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(context)
 {
 	pwtest_add(config_load_abspath, PWTEST_NOARG);
+	pwtest_add(config_load_nullname, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

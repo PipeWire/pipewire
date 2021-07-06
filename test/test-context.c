@@ -258,8 +258,6 @@ PWTEST(context_support)
 
 PWTEST_SUITE(context)
 {
-	pwtest_add(context_support, PWTEST_NOARG);
-
 	pwtest_add(context_abi, PWTEST_NOARG);
 	pwtest_add(context_create, PWTEST_NOARG);
 	pwtest_add(context_properties, PWTEST_NOARG);

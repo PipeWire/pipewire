@@ -2713,6 +2713,7 @@ static void registry_event_global(void *data, uint32_t id,
 	case INTERFACE_Link:
 		do_callback(c, connect_callback,
 				o->port_link.src, o->port_link.dst, 1, c->connect_arg);
+		do_callback(c, graph_callback, c->graph_arg);
 		break;
 	}
 
@@ -2764,6 +2765,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 					o->port_link.src, o->port_link.dst);
 			do_callback(c, connect_callback,
 					o->port_link.src, o->port_link.dst, 0, c->connect_arg);
+			do_callback(c, graph_callback, c->graph_arg);
 		} else
 			pw_log_warn("unlink between unknown ports %d and %d",
 					o->port_link.src, o->port_link.dst);

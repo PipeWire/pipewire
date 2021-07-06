@@ -414,7 +414,7 @@ conv_s24_32d_to_f32d_c(struct convert *conv, void * SPA_RESTRICT dst[], const vo
 		float *d = dst[i];
 
 		for (j = 0; j < n_samples; j++)
-			d[j] = S24_TO_F32(s[j]);
+			d[j] = S24_32_TO_F32(s[j]);
 	}
 }
 
@@ -428,8 +428,9 @@ conv_s24_32_to_f32_c(struct convert *conv, void * SPA_RESTRICT dst[], const void
 
 	n_samples *= n_channels;
 
-	for (i = 0; i < n_samples; i++)
-		d[i] = S24_TO_F32(s[i]);
+	for (i = 0; i < n_samples; i++) {
+		d[i] = S24_32_TO_F32(s[i]);
+	}
 }
 
 void
@@ -442,7 +443,7 @@ conv_s24_32_to_f32d_c(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 
 	for (j = 0; j < n_samples; j++) {
 		for (i = 0; i < n_channels; i++)
-			d[i][j] = S24_TO_F32(*s++);
+			d[i][j] = S24_32_TO_F32(*s++);
 	}
 }
 
@@ -456,7 +457,7 @@ conv_s24_32d_to_f32_c(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 
 	for (j = 0; j < n_samples; j++) {
 		for (i = 0; i < n_channels; i++)
-			*d++ = S24_TO_F32(s[i][j]);
+			*d++ = S24_32_TO_F32(s[i][j]);
 	}
 }
 
@@ -782,7 +783,7 @@ conv_f32d_to_s24_32d_c(struct convert *conv, void * SPA_RESTRICT dst[], const vo
 		int32_t *d = dst[i];
 
 		for (j = 0; j < n_samples; j++)
-			d[j] = F32_TO_S24(s[j]);
+			d[j] = F32_TO_S24_32(s[j]);
 	}
 }
 
@@ -797,7 +798,7 @@ conv_f32_to_s24_32_c(struct convert *conv, void * SPA_RESTRICT dst[], const void
 	n_samples *= n_channels;
 
 	for (i = 0; i < n_samples; i++)
-		d[i] = F32_TO_S24(s[i]);
+		d[i] = F32_TO_S24_32(s[i]);
 }
 
 void
@@ -810,7 +811,7 @@ conv_f32_to_s24_32d_c(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 
 	for (j = 0; j < n_samples; j++) {
 		for (i = 0; i < n_channels; i++)
-			d[i][j] = F32_TO_S24(*s++);
+			d[i][j] = F32_TO_S24_32(*s++);
 	}
 }
 
@@ -824,7 +825,7 @@ conv_f32d_to_s24_32_c(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 
 	for (j = 0; j < n_samples; j++) {
 		for (i = 0; i < n_channels; i++)
-			*d++ = F32_TO_S24(s[i][j]);
+			*d++ = F32_TO_S24_32(s[i][j]);
 	}
 }
 

@@ -33,6 +33,7 @@
 #include <pwd.h>
 #include <errno.h>
 #include <dlfcn.h>
+#include <pthread.h>
 
 #include <locale.h>
 #include <libintl.h>
@@ -50,6 +51,8 @@
 #define MAX_SUPPORT	32
 
 #define SUPPORTLIB	"support/libspa-support"
+
+static char *prgname;
 
 static struct spa_i18n *_pipewire_i18n = NULL;
 
@@ -610,33 +613,48 @@ const char *pw_get_application_name(void)
 	return NULL;
 }
 
-/** Get the program name */
-SPA_EXPORT
-const char *pw_get_prgname(void)
+static void init_prgname(void)
 {
-	static char prgname[PATH_MAX];
-	spa_memzero(prgname, sizeof(prgname));
+	static char name[PATH_MAX];
+
+	spa_memzero(name, sizeof(name));
 #if defined(__linux__) || defined(__FreeBSD_kernel__)
 	{
-		if (readlink("/proc/self/exe", prgname, sizeof(prgname)-1) > 0)
-			return strrchr(prgname, '/') + 1;
+		if (readlink("/proc/self/exe", name, sizeof(name)-1) > 0) {
+			prgname = strrchr(name, '/') + 1;
+			return;
+		}
 	}
 #endif
 #if defined __FreeBSD__
 	{
 		ssize_t len;
-		spa_memzero(prgname, sizeof(prgname));
-		if ((len = readlink("/proc/curproc/file", prgname, sizeof(prgname)-1)) > 0)
-			return strrchr(prgname, '/') + 1;
+
+		if ((len = readlink("/proc/curproc/file", name, sizeof(name)-1)) > 0) {
+			prgname = strrchr(name, '/') + 1;
+			return;
+		}
 	}
 #endif
 #ifndef __FreeBSD__
 	{
-		if (prctl(PR_GET_NAME, (unsigned long) prgname, 0, 0, 0) == 0)
-			return prgname;
+		if (prctl(PR_GET_NAME, (unsigned long) name, 0, 0, 0) == 0) {
+			prgname = name;
+			return;
+		}
 	}
 #endif
-	snprintf(prgname, sizeof(prgname), "pid-%d", getpid());
+	snprintf(name, sizeof(name), "pid-%d", getpid());
+	prgname = name;
+}
+
+/** Get the program name */
+SPA_EXPORT
+const char *pw_get_prgname(void)
+{
+	static pthread_once_t prgname_is_initialized = PTHREAD_ONCE_INIT;
+
+	pthread_once(&prgname_is_initialized, init_prgname);
 	return prgname;
 }
 

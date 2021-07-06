@@ -4998,7 +4998,7 @@ jack_nframes_t jack_frames_since_cycle_start (const jack_client_t *client)
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	diff = SPA_TIMESPEC_TO_NSEC(&ts) - pos->clock.nsec;
-	return (jack_nframes_t) floor(((float)c->sample_rate * diff) / SPA_NSEC_PER_SEC);
+	return (jack_nframes_t) floor(((double)c->sample_rate * diff) / SPA_NSEC_PER_SEC);
 }
 
 SPA_EXPORT
@@ -5280,7 +5280,7 @@ jack_nframes_t jack_get_current_transport_frame (const jack_client_t *client)
 		struct timespec ts;
 		clock_gettime(CLOCK_MONOTONIC, &ts);
 		uint64_t nsecs = SPA_TIMESPEC_TO_NSEC(&ts) - pos->clock.nsec;
-		running += (uint64_t)floor((((float) c->sample_rate) / SPA_NSEC_PER_SEC) * nsecs);
+		running += (uint64_t)floor((((double) c->sample_rate) / SPA_NSEC_PER_SEC) * nsecs);
 	}
 	seg = &pos->segments[0];
 

@@ -453,7 +453,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	case SPA_PARAM_Props:
 		if (this->target != this->follower)
 			res = spa_node_set_param(this->target, id, flags, param);
-		res = spa_node_set_param(this->follower, id, flags, param);
+		res2 = spa_node_set_param(this->follower, id, flags, param);
 		if (res < 0 && res2 < 0)
 			return res;
 		res = 0;

@@ -63,6 +63,7 @@ test('test lib',
 test('test context',
     executable('test-context',
                'test-context.c',
+               'test-config.c',
                include_directories: pwtest_inc,
                link_with: pwtest_lib)
 )

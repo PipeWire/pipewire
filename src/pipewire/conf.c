@@ -69,13 +69,27 @@ static int get_read_path(char *path, size_t size, const char *prefix, const char
 	const char *dir;
 	char buffer[4096];
 
-	if (prefix[0] == '/') {
+	if (name[0] == '/') {
+		const char *paths[] = { name, NULL };
+		if (make_path(path, size, paths) == 0 &&
+		    access(path, R_OK) == 0)
+			return 1;
+		return -ENOENT;
+	}
+
+	if (prefix && prefix[0] == '/') {
 		const char *paths[] = { prefix, name, NULL };
 		if (make_path(path, size, paths) == 0 &&
 		    access(path, R_OK) == 0)
 			return 1;
 		return -ENOENT;
 	}
+
+	if (prefix == NULL) {
+		prefix = name;
+		name = NULL;
+	}
+
 	if (pw_check_option("no-config", "true"))
 		goto no_config;
 
@@ -239,11 +253,6 @@ static int conf_load(const char *prefix, const char *name, struct pw_properties 
 	char path[PATH_MAX], *data;
 	struct stat sbuf;
 	int fd;
-
-	if (prefix == NULL) {
-		prefix = name;
-		name = NULL;
-	}
 
 	if (get_read_path(path, sizeof(path), prefix, name) == 0) {
 		pw_log_debug(NAME" %p: can't load config '%s': %m", conf, path);

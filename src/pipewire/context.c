@@ -175,10 +175,11 @@ static int try_load_conf(struct pw_context *this, const char *conf_prefix,
 	if (spa_streq(conf_name, "null"))
 		return 0;
 	if ((res = pw_conf_load_conf(conf_prefix, conf_name, conf)) < 0) {
+		bool skip_prefix = conf_prefix == NULL || conf_name[0] == '/';
 		pw_log_warn(NAME" %p: can't load config %s%s%s: %s",
 				this,
-				conf_prefix ? conf_prefix : "",
-				conf_prefix ? "/" : "",
+				skip_prefix ? "" : conf_prefix,
+				skip_prefix ? "" : "/",
 				conf_name, spa_strerror(res));
 	}
 	return res;

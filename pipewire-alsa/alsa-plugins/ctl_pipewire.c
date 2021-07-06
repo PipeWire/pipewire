@@ -600,17 +600,19 @@ static int pipewire_write_integer(snd_ctl_ext_t * ext, snd_ctl_ext_key_t key,
 			vol->values[i] = value[i];
 
 		if (key == 0)
-			set_volume_mute(ctl, ctl->default_source, vol, NULL);
+			err = set_volume_mute(ctl, ctl->default_source, vol, NULL);
 		else
-			set_volume_mute(ctl, ctl->default_sink, vol, NULL);
+			err = set_volume_mute(ctl, ctl->default_sink, vol, NULL);
 	} else {
 		if (key == 1)
-			set_volume_mute(ctl, ctl->default_source, NULL, &ctl->source_muted);
+			err = set_volume_mute(ctl, ctl->default_source, NULL, &ctl->source_muted);
 		else
-			set_volume_mute(ctl, ctl->default_sink, NULL, &ctl->sink_muted);
+			err = set_volume_mute(ctl, ctl->default_sink, NULL, &ctl->sink_muted);
 	}
+	if (err < 0)
+		goto finish;
 
-	wait_resync(ctl);
+	err = wait_resync(ctl);
 
 	if (err < 0)
 		goto finish;
@@ -1353,7 +1355,9 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 			&ctl->registry_listener,
 			&registry_events, ctl);
 
-	wait_resync(ctl);
+	err = wait_resync(ctl);
+	if (err < 0)
+		goto error_unlock;
 
 	pw_thread_loop_unlock(ctl->mainloop);
 

@@ -541,7 +541,7 @@ static int codec_start_encode (void *data,
 
 	this->payload->frame_count = 0;
 	this->header->v = 2;
-	this->header->pt = 1;
+	this->header->pt = 96;
 	this->header->sequence_number = htons(seqnum);
 	this->header->timestamp = htonl(timestamp);
 	this->header->ssrc = htonl(1);

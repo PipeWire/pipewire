@@ -287,7 +287,7 @@ static int codec_start_encode (void *data,
 	memset(this->header, 0, sizeof(struct rtp_header));
 
 	this->header->v = 2;
-	this->header->pt = 1;
+	this->header->pt = 96;
 	this->header->sequence_number = htons(seqnum);
 	this->header->timestamp = htonl(timestamp);
 	return sizeof(struct rtp_header);

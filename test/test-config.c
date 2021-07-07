@@ -86,6 +86,8 @@ PWTEST(config_load_nullname)
 	r = pw_conf_load_conf("/dummy", NULL, props);
 	pwtest_neg_errno(r, -EINVAL);
 
+	pw_properties_free(props);
+
 	return PWTEST_PASS;
 }
 

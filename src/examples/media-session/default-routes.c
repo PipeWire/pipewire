@@ -155,6 +155,7 @@ struct route {
 	uint32_t priority;
 	enum spa_param_availability available;
 	struct spa_pod *props;
+	struct spa_pod *profiles;
 	bool save;
 };
 
@@ -231,7 +232,8 @@ static int parse_enum_route(struct sm_param *p, uint32_t device_id, struct route
 			SPA_PARAM_ROUTE_name, SPA_POD_String(&r->name),
 			SPA_PARAM_ROUTE_priority,  SPA_POD_OPT_Int(&r->priority),
 			SPA_PARAM_ROUTE_available,  SPA_POD_OPT_Id(&r->available),
-			SPA_PARAM_ROUTE_devices, SPA_POD_OPT_Pod(&devices))) < 0)
+			SPA_PARAM_ROUTE_devices, SPA_POD_OPT_Pod(&devices),
+			SPA_PARAM_ROUTE_profiles, SPA_POD_OPT_Pod(&r->profiles))) < 0)
 		return res;
 
 	if (device_id != SPA_ID_INVALID && !array_contains(devices, device_id))
@@ -764,10 +766,12 @@ static int handle_device(struct device *dev)
 {
 	struct profile pr;
 	struct sm_param *p;
-	int res;
 	bool route_changed = false;
 
 	dev->generation++;
+
+	if (find_current_profile(dev, &pr) < 0)
+		pr.index = SPA_ID_INVALID;
 
 	/* first look at all routes and update */
 	spa_list_for_each(p, &dev->obj->param_list, link) {
@@ -786,7 +790,8 @@ static int handle_device(struct device *dev)
 			pw_log_info("device %d: route %s available changed %d -> %d",
 					dev->id, r.name, ri->available, r.available);
 			ri->available = r.available;
-			route_changed = true;
+			if (array_contains(r.profiles, pr.index))
+				route_changed = true;
 		}
 		ri->generation = dev->generation;
 		ri->prev_active = ri->active;
@@ -804,7 +809,7 @@ static int handle_device(struct device *dev)
 
 	prune_route_info(dev);
 
-	if ((res = find_current_profile(dev, &pr)) >= 0) {
+	if (pr.index != SPA_ID_INVALID) {
 		bool restore = dev->active_profile != pr.index;
 		if (restore || route_changed)
 			reconfigure_profile(dev, &pr, restore);

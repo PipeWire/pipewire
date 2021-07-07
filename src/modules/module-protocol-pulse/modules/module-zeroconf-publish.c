@@ -518,25 +518,7 @@ static void client_callback(AvahiClient *c, AvahiClientState state, void *d)
 		break;
 	default:
 		break;
-}
-}
-
-static void manager_updated(void *d, struct pw_manager_object *o)
-{
-	struct service *s;
-	char *service_name;
-
-	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
-		return;
-
-	service_name = get_service_name(o);
-
-	s = pw_manager_object_add_data(o, service_name, sizeof(struct service));
-
-	free(service_name);
-	spa_assert(s);
-
-	publish_service(s);
+	}
 }
 
 static void manager_removed(void *d, struct pw_manager_object *o)
@@ -562,7 +544,6 @@ static void manager_added(void *d, struct pw_manager_object *o)
 static const struct pw_manager_events manager_events = {
 	PW_VERSION_MANAGER_EVENTS,
 	.added = manager_added,
-	.updated = manager_updated,
 	.removed = manager_removed,
 };
 

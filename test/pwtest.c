@@ -412,6 +412,7 @@ void _pwtest_add(struct pwtest_context *ctx, struct pwtest_suite *suite,
 		return;
 
 	t = calloc(1, sizeof *t);
+	t->result = PWTEST_SYSTEM_ERROR;
 	t->name = funcname;
 	t->func = func;
 	t->args.range.min = 0;
@@ -432,6 +433,8 @@ void _pwtest_add(struct pwtest_context *ctx, struct pwtest_suite *suite,
 		case PWTEST_NOARG:
 			break;
 		case PWTEST_ARG_SIGNAL:
+			if (RUNNING_ON_VALGRIND)
+				t->result = PWTEST_SKIP;
 			t->args.signal = va_arg(args, int);
 			break;
 		case PWTEST_ARG_RANGE:
@@ -907,6 +910,12 @@ static void run_test(struct pwtest_context *ctx, struct pwtest_suite *c, struct 
 	pid_t pw_daemon = 0;
 	int read_fds[_FD_LAST], write_fds[_FD_LAST];
 	int r;
+
+	if (t->result == PWTEST_SKIP) {
+		char *buf = pw_array_add(&t->logs[FD_LOG], 64);
+		spa_scnprintf(buf, 64, "pwtest: test skipped by pwtest\n");
+		return;
+	}
 
 	t->result = PWTEST_SYSTEM_ERROR;
 

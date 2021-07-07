@@ -935,7 +935,7 @@ static bool pw_impl_node_can_reach(struct pw_impl_node *output, struct pw_impl_n
 	struct pw_impl_port *p;
 	struct pw_impl_link *l;
 
-	output->visited = true;
+	output->loopchecked = true;
 
 	if (output == input)
 		return true;
@@ -947,11 +947,11 @@ static bool pw_impl_node_can_reach(struct pw_impl_node *output, struct pw_impl_n
 
 	spa_list_for_each(p, &output->output_ports, link) {
 		spa_list_for_each(l, &p->links, output_link)
-			l->input->node->visited = l->feedback;
+			l->input->node->loopchecked = l->feedback;
 	}
 	spa_list_for_each(p, &output->output_ports, link) {
 		spa_list_for_each(l, &p->links, output_link) {
-			if (l->input->node->visited)
+			if (l->input->node->loopchecked)
 				continue;
 			if (pw_impl_node_can_reach(l->input->node, input, hop+1))
 				return true;

@@ -153,6 +153,8 @@ void pa_device_port_free(pa_device_port *port)
 	pa_xfree(port->availability_group);
 	pa_hashmap_free(port->profiles);
 	pa_proplist_free(port->proplist);
+	if (port->impl_free)
+	        port->impl_free (port);
 	free(port);
 }
 

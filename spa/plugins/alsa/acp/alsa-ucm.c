@@ -916,6 +916,8 @@ static void set_eld_devices(pa_hashmap *hash)
             }
         }
         data->eld_device = eld_device;
+        if (data->eld_mixer_device_name)
+            pa_xfree(data->eld_mixer_device_name);
         data->eld_mixer_device_name = pa_xstrdup(eld_mixer_device_name);
     }
 }
@@ -1430,7 +1432,8 @@ static void ucm_add_mapping(pa_alsa_profile *p, pa_alsa_mapping *m) {
     /* create empty path set for the future path additions */
     ps = pa_xnew0(pa_alsa_path_set, 1);
     ps->direction = m->direction;
-    ps->paths = pa_hashmap_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
+    ps->paths = pa_hashmap_new_full(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func, pa_xfree,
+                                    (pa_free_cb_t) pa_alsa_path_free);
 
     switch (m->direction) {
         case PA_ALSA_DIRECTION_ANY:
@@ -2032,8 +2035,10 @@ pa_alsa_profile_set* pa_alsa_ucm_add_profile_set(pa_alsa_ucm_config *ucm, pa_cha
     pa_alsa_profile_set *ps;
 
     ps = pa_xnew0(pa_alsa_profile_set, 1);
-    ps->mappings = pa_hashmap_new(pa_idxset_string_hash_func, pa_idxset_string_compare_func);
-    ps->profiles = pa_hashmap_new(pa_idxset_string_hash_func, pa_idxset_string_compare_func);
+    ps->mappings = pa_hashmap_new_full(pa_idxset_string_hash_func, pa_idxset_string_compare_func, NULL,
+                                       (pa_free_cb_t) pa_alsa_mapping_free);
+    ps->profiles = pa_hashmap_new_full(pa_idxset_string_hash_func, pa_idxset_string_compare_func, NULL,
+                                       (pa_free_cb_t) pa_alsa_profile_free);
     ps->decibel_fixes = pa_hashmap_new(pa_idxset_string_hash_func, pa_idxset_string_compare_func);
 
     /* create a profile for each verb */
@@ -2296,8 +2301,7 @@ static void ucm_port_data_init(pa_alsa_ucm_port_data *port, pa_alsa_ucm_config *
         device_add_ucm_port(devices[i], port);
     }
 
-    port->paths = pa_hashmap_new_full(pa_idxset_string_hash_func, pa_idxset_string_compare_func, pa_xfree,
-                                      (pa_free_cb_t) pa_alsa_path_free);
+    port->paths = pa_hashmap_new_full(pa_idxset_string_hash_func, pa_idxset_string_compare_func, pa_xfree, NULL);
 
     ucm_port_update_available(port);
 }

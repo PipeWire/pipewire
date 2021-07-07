@@ -3780,7 +3780,7 @@ static void path_set_make_path_descriptions_unique(pa_alsa_path_set *ps) {
     }
 }
 
-static void mapping_free(pa_alsa_mapping *m) {
+void pa_alsa_mapping_free(pa_alsa_mapping *m) {
     pa_assert(m);
 
     pa_xfree(m->name);
@@ -3810,7 +3810,7 @@ static void mapping_free(pa_alsa_mapping *m) {
     pa_xfree(m);
 }
 
-static void profile_free(pa_alsa_profile *p) {
+void pa_alsa_profile_free(pa_alsa_profile *p) {
     pa_assert(p);
 
     pa_xfree(p->name);
@@ -4888,8 +4888,8 @@ pa_alsa_profile_set* pa_alsa_profile_set_new(const char *fname, const pa_channel
     };
 
     ps = pa_xnew0(pa_alsa_profile_set, 1);
-    ps->mappings = pa_hashmap_new_full(pa_idxset_string_hash_func, pa_idxset_string_compare_func, NULL, (pa_free_cb_t) mapping_free);
-    ps->profiles = pa_hashmap_new_full(pa_idxset_string_hash_func, pa_idxset_string_compare_func, NULL, (pa_free_cb_t) profile_free);
+    ps->mappings = pa_hashmap_new_full(pa_idxset_string_hash_func, pa_idxset_string_compare_func, NULL, (pa_free_cb_t) pa_alsa_mapping_free);
+    ps->profiles = pa_hashmap_new_full(pa_idxset_string_hash_func, pa_idxset_string_compare_func, NULL, (pa_free_cb_t) pa_alsa_profile_free);
     ps->decibel_fixes = pa_hashmap_new_full(pa_idxset_string_hash_func, pa_idxset_string_compare_func, NULL, (pa_free_cb_t) decibel_fix_free);
     ps->input_paths = pa_hashmap_new_full(pa_idxset_string_hash_func, pa_idxset_string_compare_func, NULL, (pa_free_cb_t) pa_alsa_path_free);
     ps->output_paths = pa_hashmap_new_full(pa_idxset_string_hash_func, pa_idxset_string_compare_func, NULL, (pa_free_cb_t) pa_alsa_path_free);

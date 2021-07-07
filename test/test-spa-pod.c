@@ -701,6 +701,8 @@ PWTEST(pod_empty)
 	struct spa_pod_frame f;
 	uint32_t n_vals, ch;
 
+	memset(buffer, 0xab, sizeof(buffer));
+
 	/* create empty arrays */
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	spa_assert(spa_pod_builder_push_array(&b, &f) == 0);

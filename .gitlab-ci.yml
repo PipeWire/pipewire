@@ -22,7 +22,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2021-06-02.0'
+    FDO_DISTRIBUTION_TAG: '2021-07-06.0'
     FDO_DISTRIBUTION_VERSION: '33'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
@@ -50,6 +50,7 @@ include:
       vulkan-loader-devel
       webrtc-audio-processing-devel
       which
+      valgrind
       xmltoman
 
 .ubuntu:
@@ -211,6 +212,14 @@ build_with_custom_options:
     - meson "$BUILD_DIR" . --prefix="$PREFIX" "-D$MESON_OPTION=$MESON_OPTION_VALUE"
     - ninja -C "$BUILD_DIR"
     - ninja -C "$BUILD_DIR" test
+
+valgrind:
+  extends:
+    - .build_on_fedora
+  script:
+    - echo "Building with $MESON_OPTIONS"
+    - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
+    - meson test -C "$BUILD_DIR" --setup=valgrind
 
 build_with_coverity:
   extends:

@@ -937,7 +937,7 @@ static void dump_states(struct pw_impl_node *driver)
 			continue;
 		if (a->status == PW_NODE_ACTIVATION_TRIGGERED ||
 		    a->status == PW_NODE_ACTIVATION_AWAKE) {
-			pw_log_warn("(%s-%u) client too slow! rate:%u/%u pos:%"PRIu64" status:%s",
+			pw_log_info("(%s-%u) client too slow! rate:%u/%u pos:%"PRIu64" status:%s",
 				t->node->name, t->node->info.id,
 				(uint32_t)(cl->rate.num * cl->duration), cl->rate.denom,
 				cl->position, str_status(a->status));
@@ -1074,7 +1074,7 @@ static void node_on_fd_events(struct spa_source *source)
 		if (SPA_UNLIKELY(spa_system_eventfd_read(data_system, this->source.fd, &cmd) < 0))
 			pw_log_warn(NAME" %p: read failed %m", this);
 		else if (SPA_UNLIKELY(cmd > 1))
-			pw_log_warn("(%s-%u) client missed %"PRIu64" wakeups",
+			pw_log_info("(%s-%u) client missed %"PRIu64" wakeups",
 				this->name, this->info.id, cmd - 1);
 
 		pw_log_trace_fp(NAME" %p: got process", this);
@@ -1640,7 +1640,7 @@ static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_po
 		} else {
 			rate = SPA_FRACTION(0,0);
 		}
-		pw_log_error("(%s-%d) XRun! rate:%u/%u count:%u time:%"PRIu64
+		pw_log_info("(%s-%d) XRun! rate:%u/%u count:%u time:%"PRIu64
 				" delay:%"PRIu64" max:%"PRIu64,
 				this->name, this->info.id,
 				rate.num, rate.denom, a->xrun_count,

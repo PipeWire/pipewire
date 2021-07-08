@@ -131,6 +131,14 @@ static void remove_device(struct impl *this, struct device *device)
 	*device = this->devices[--this->n_devices];
 }
 
+static void clear_devices(struct impl *this)
+{
+        uint32_t i;
+	for (i = 0; i < this->n_devices; i++)
+	        udev_device_unref(this->devices[i].dev);
+	this->n_devices = 0;
+}
+
 static uint32_t get_card_id(struct impl *this, struct udev_device *dev)
 {
 	const char *e, *str;
@@ -594,6 +602,8 @@ static int stop_monitor(struct impl *this)
 {
 	if (this->umonitor == NULL)
 		return 0;
+
+        clear_devices (this);
 
 	spa_loop_remove_source(this->main_loop, &this->source);
 	udev_monitor_unref(this->umonitor);

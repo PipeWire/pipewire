@@ -318,8 +318,10 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 	if ((err = snd_ctl_open(&ctl_hndl, device, 0)) < 0) {
 		pa_log_error("can't open control for card %s: %s",
 				device, snd_strerror(err));
+	        free(device);
 		return err;
 	}
+	free(device);
 
 	snd_pcm_info_alloca(&pcminfo);
 

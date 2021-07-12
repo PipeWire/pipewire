@@ -353,8 +353,7 @@ struct module *create_module_pipe_source(struct impl *impl, const char *argument
 		goto out;
 	}
 
-	if ((str = pw_properties_get(props, PW_KEY_MEDIA_CLASS)) == NULL)
-		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Source");
+	pw_properties_set(playback_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 
 	module = module_new(impl, &module_pipesource_methods, sizeof(*d) + stride);
 	if (module == NULL) {

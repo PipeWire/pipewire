@@ -296,8 +296,7 @@ struct module *create_module_pipe_sink(struct impl *impl, const char *argument)
 		goto out;
 	}
 
-	if ((str = pw_properties_get(props, PW_KEY_MEDIA_CLASS)) == NULL)
-		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
+	pw_properties_set(capture_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 
 	module = module_new(impl, &module_pipesink_methods, sizeof(*d));
 	if (module == NULL) {

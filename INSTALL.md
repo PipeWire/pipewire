@@ -16,6 +16,11 @@ Generate the build files for Ninja:
 $ meson setup builddir
 ```
 
+If you're using Fedora, you will need to install dbus-devel package:
+```
+$ dnf install dbus-devel
+```
+
 Once this is done, the next step is to review the build options:
 
 ```

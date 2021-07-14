@@ -3220,7 +3220,7 @@ static int64_t get_port_latency_offset(struct client *client, struct pw_manager_
 	size_t j;
 
 	/*
-	 * The latency offset is a property of nodes in Pipewire, so we look it up on the
+	 * The latency offset is a property of nodes in PipeWire, so we look it up on the
 	 * nodes. We'll return the latency offset of the first node in the port.
 	 *
 	 * This is also because we need to be consistent with

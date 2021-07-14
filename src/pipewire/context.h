@@ -47,7 +47,7 @@ extern "C" {
  *
  */
 
-/** \defgroup pw_context Pipewire Context
+/** \defgroup pw_context PipeWire Context
  *
  * \brief The PipeWire context object manages all locally available
  * resources. It is used by both clients and servers.

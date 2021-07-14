@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-/** \defgroup pw_impl_device Pipewire Device Interface
+/** \defgroup pw_impl_device PipeWire Device Interface
  *
  * The device is an object that manages nodes. It typically
  * corresponds to a physical hardware device but it does not

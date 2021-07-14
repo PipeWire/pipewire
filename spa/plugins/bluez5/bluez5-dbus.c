@@ -3039,7 +3039,7 @@ static int adapter_register_endpoints(struct spa_bt_adapter *a)
 
 	if (!a->endpoints_registered) {
 		/* Should never happen as SBC support is always enabled */
-		spa_log_error(monitor->log, "Broken Pipewire build - unable to locate SBC codec");
+		spa_log_error(monitor->log, "Broken PipeWire build - unable to locate SBC codec");
 		err = -ENOSYS;
 	}
 

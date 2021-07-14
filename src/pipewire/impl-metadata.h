@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-/** \defgroup pw_impl_metadata Pipewire Metadata Interface
+/** \defgroup pw_impl_metadata PipeWire Metadata Interface
  *
  * The metadata is used to store key/type/value pairs per object id.
  */

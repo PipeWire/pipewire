@@ -31,7 +31,7 @@ extern "C" {
 
 #include <spa/utils/type.h>
 
-/** \defgroup pw_type Pipewire Types
+/** \defgroup pw_type PipeWire Types
  */
 
 /**

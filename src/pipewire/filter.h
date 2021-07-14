@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-/** \defgroup pw_filter Pipewire Filter
+/** \defgroup pw_filter PipeWire Filter
  *
  * \brief PipeWire filter object class
  *

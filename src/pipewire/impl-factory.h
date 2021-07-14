@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-/** \defgroup pw_impl_factory Pipewire Factory Interface
+/** \defgroup pw_impl_factory PipeWire Factory Interface
  *
  * The factory is used to make objects on demand.
  */

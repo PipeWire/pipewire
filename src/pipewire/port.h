@@ -38,7 +38,7 @@ extern "C" {
 
 #include <pipewire/proxy.h>
 
-/** \defgroup pw_port Pipewire Port
+/** \defgroup pw_port PipeWire Port
  *
  */
 

@@ -34,7 +34,7 @@ extern "C" {
 
 #include <pipewire/proxy.h>
 
-/** \defgroup pw_link Pipewire Link
+/** \defgroup pw_link PipeWire Link
  *
  * A link is the connection between 2 nodes (\ref pw_node). Nodes are
  * linked together on ports.

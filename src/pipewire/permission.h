@@ -31,7 +31,7 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
-/** \defgroup pw_permission Pipewire Permission
+/** \defgroup pw_permission PipeWire Permission
  *
  * Permissions are kept for a client and describe what the client is
  * allowed to do with an object.

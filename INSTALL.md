@@ -16,10 +16,10 @@ Generate the build files for Ninja:
 $ meson setup builddir
 ```
 
-If you're using Fedora, you will need to install dbus-devel package:
-```
-$ dnf install dbus-devel
-```
+For distribution-specific build dependencies, please check our
+[CI pipeline](https://gitlab.freedesktop.org/pipewire/pipewire/-/blob/master/.gitlab-ci.yml)
+(search for `FDO_DISTRIBUTION_PACKAGES`). Note that some dependencies are
+optional and depend on options passed to meson.
 
 Once this is done, the next step is to review the build options:
 

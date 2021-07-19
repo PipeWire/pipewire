@@ -146,7 +146,7 @@ static void playback_stream_process(void *d)
 	uint32_t size;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
-		pw_log_warn("out of buffers: %m");
+		pw_log_debug("out of buffers: %m");
 		return;
 	}
 

@@ -273,10 +273,10 @@ static void capture_process(void *d)
 	int32_t stride = 0;
 
 	if ((in = pw_stream_dequeue_buffer(impl->capture)) == NULL)
-		pw_log_warn("out of capture buffers: %m");
+		pw_log_debug("out of capture buffers: %m");
 
 	if ((out = pw_stream_dequeue_buffer(impl->playback)) == NULL)
-		pw_log_warn("out of playback buffers: %m");
+		pw_log_debug("out of playback buffers: %m");
 
 	if (in == NULL || out == NULL)
 		goto done;

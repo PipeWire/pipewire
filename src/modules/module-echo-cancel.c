@@ -338,7 +338,7 @@ static void capture_process(void *data)
 	int32_t avail;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->capture)) == NULL) {
-		pw_log_warn("out of capture buffers: %m");
+		pw_log_debug("out of capture buffers: %m");
 		return;
 	}
 
@@ -493,7 +493,7 @@ static void sink_process(void *data)
 	int32_t avail;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->sink)) == NULL) {
-		pw_log_warn("out of sink buffers: %m");
+		pw_log_debug("out of sink buffers: %m");
 		return;
 	}
 

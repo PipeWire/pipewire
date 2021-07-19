@@ -145,7 +145,7 @@ static void capture_process(void *data)
 	uint32_t i, size, offset;
 
 	if ((in = pw_stream_dequeue_buffer(impl->capture)) == NULL) {
-		pw_log_warn("Out of capture buffers: %m");
+		pw_log_debug("Out of capture buffers: %m");
 		return;
 	}
 

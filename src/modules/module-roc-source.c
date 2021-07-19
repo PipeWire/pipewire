@@ -173,7 +173,7 @@ static void playback_process(void *data)
 	uint8_t *dst;
 
 	if ((b = pw_stream_dequeue_buffer(impl->playback)) == NULL) {
-		pw_log_warn("Out of playback buffers: %m");
+		pw_log_debug("Out of playback buffers: %m");
 		return;
 	}
 

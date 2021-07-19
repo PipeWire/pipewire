@@ -90,8 +90,6 @@ static inline int memfd_create(const char *name, unsigned int flags)
 #define F_SEAL_WRITE    0x0008	/* prevent writes */
 #endif
 
-static struct spa_list _mempools = SPA_LIST_INIT(&_mempools);
-
 #define pw_mempool_emit(p,m,v,...) spa_hook_list_call(&p->listener_list, struct pw_mempool_events, m, v, ##__VA_ARGS__)
 #define pw_mempool_emit_destroy(p)	pw_mempool_emit(p, destroy, 0)
 #define pw_mempool_emit_added(p,b)	pw_mempool_emit(p, added, 0, b)
@@ -99,8 +97,6 @@ static struct spa_list _mempools = SPA_LIST_INIT(&_mempools);
 
 struct mempool {
 	struct pw_mempool this;
-
-	struct spa_list link;		/* link in global _mempools */
 
 	struct spa_hook_list listener_list;
 
@@ -154,8 +150,6 @@ struct pw_mempool *pw_mempool_new(struct pw_properties *props)
 	pw_map_init(&impl->map, 64, 64);
 	spa_list_init(&impl->blocks);
 
-	spa_list_append(&_mempools, &impl->link);
-
 	return this;
 }
 
@@ -180,8 +174,6 @@ void pw_mempool_destroy(struct pw_mempool *pool)
 	pw_mempool_emit_destroy(impl);
 
 	pw_mempool_clear(pool);
-
-	spa_list_remove(&impl->link);
 
 	spa_hook_list_clean(&impl->listener_list);
 

@@ -192,13 +192,13 @@ loop_invoke(void *object,
 	item->size = size;
 	item->block = block && !in_thread;
 	item->user_data = user_data;
+	item->item_size = SPA_ROUND_UP_N(sizeof(struct invoke_item) + size, 8);
 
 	spa_log_trace(impl->log, NAME " %p: add item %p filled:%d", impl, item, filled);
 
-	if (l0 > sizeof(struct invoke_item) + size) {
+	if (l0 >= item->item_size) {
 		/* item + size fit in current ringbuffer idx */
 		item->data = SPA_PTROFF(item, sizeof(struct invoke_item), void);
-		item->item_size = SPA_ROUND_UP_N(sizeof(struct invoke_item) + size, 8);
 		if (l0 < sizeof(struct invoke_item) + item->item_size) {
 			/* not enough space for next invoke_item, fill up till the end
 			 * so that the next item will be at the start */

@@ -182,6 +182,8 @@ loop_invoke(void *object,
 	}
 	offset = idx & (DATAS_SIZE - 1);
 
+	/* l0 is remaining size in ringbuffer, this should always be larger than
+	 * invoke_item, see below */
 	l0 = DATAS_SIZE - offset;
 
 	item = SPA_PTROFF(impl->buffer_data, offset, struct invoke_item);
@@ -194,13 +196,24 @@ loop_invoke(void *object,
 	spa_log_trace(impl->log, NAME " %p: add item %p filled:%d", impl, item, filled);
 
 	if (l0 > sizeof(struct invoke_item) + size) {
+		/* item + size fit in current ringbuffer idx */
 		item->data = SPA_PTROFF(item, sizeof(struct invoke_item), void);
 		item->item_size = SPA_ROUND_UP_N(sizeof(struct invoke_item) + size, 8);
-		if (l0 < sizeof(struct invoke_item) + item->item_size)
+		if (l0 < sizeof(struct invoke_item) + item->item_size) {
+			/* not enough space for next invoke_item, fill up till the end
+			 * so that the next item will be at the start */
 			item->item_size = l0;
+		}
 	} else {
+		/* item does not fit, place the invoke_item at idx and start the
+		 * data at the start of the ringbuffer */
 		item->data = impl->buffer_data;
 		item->item_size = SPA_ROUND_UP_N(l0 + size, 8);
+	}
+	if (avail < item->item_size) {
+		spa_log_warn(impl->log, NAME " %p: queue full %d, need %zd", impl, avail,
+				item->item_size);
+		return -EPIPE;
 	}
 	if (data && size > 0)
 		memcpy(item->data, data, size);

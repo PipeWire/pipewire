@@ -5251,11 +5251,14 @@ jack_transport_state_t jack_transport_query (const jack_client_t *client,
 
 	spa_return_val_if_fail(c != NULL, JackTransportStopped);
 
-	if (SPA_LIKELY((a = c->rt.driver_activation) != NULL))
+	if (SPA_LIKELY((a = c->rt.driver_activation) != NULL)) {
 		jack_state = position_to_jack(a, pos);
-	else if (pos != NULL)
+	} else if ((a = c->driver_activation) != NULL) {
+		jack_state = position_to_jack(a, pos);
+	} else if (pos != NULL) {
 		memset(pos, 0, sizeof(jack_position_t));
-
+		pos->frame_rate = jack_get_sample_rate((jack_client_t*)client);
+	}
 	return jack_state;
 }
 

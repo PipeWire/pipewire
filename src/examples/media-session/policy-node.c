@@ -1052,7 +1052,12 @@ static int handle_move(struct impl *impl, struct node *src_node, struct node *ds
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_NODE_DONT_RECONNECT)) != NULL &&
 		    pw_properties_parse_bool(str)) {
-		pw_log_warn("can't reconnect node %d to %d", src_node->id,
+		pw_log_warn("can't reconnect node %d to %d: dont-reconnect flag set",
+				src_node->id, dst_node->id);
+		return -EPERM;
+	}
+	if (!can_link(impl, src_node, dst_node)) {
+		pw_log_debug("can't link node %d to %d: same link-group", src_node->id,
 				dst_node->id);
 		return -EPERM;
 	}

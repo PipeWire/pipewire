@@ -254,6 +254,9 @@ endif
 if cc.has_function('getpagesize', prefix : '#include<unistd.h>')
   cdata.set('HAVE_GETPAGESIZE', 1)
 endif
+if cc.has_function('gettid', prefix : '#include<unistd.h>', args: [ '-D_GNU_SOURCE' ])
+  cdata.set('HAVE_GETTID', 1)
+endif
 if cc.has_function('clock_gettime', prefix : '#include <time.h>')
   cdata.set('HAVE_CLOCK_GETTIME', 1)
 endif

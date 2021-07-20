@@ -182,12 +182,16 @@ void pw_rtkit_bus_free(struct pw_rtkit_bus *system_bus)
 
 static pid_t _gettid(void)
 {
-#ifndef __FreeBSD__
+#if defined(HAVE_GETTID)
 	return (pid_t) gettid();
-#else
+#elif defined(__linux__)
+	return syscall(SYS_gettid);
+#elif defined(__FreeBSD__)
 	long pid;
 	thr_self(&pid);
 	return (pid_t)pid;
+#else
+#error "No gettid impl"
 #endif
 }
 

@@ -1,3 +1,93 @@
+# PipeWire 0.3.32 (2021-07-20)
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+## Highlights
+  - Real-time priority handling for threads was reworked. Freewheeling
+    will now drop RT priorities to avoid being killed.
+  - Problems with filter chains and echo-cancel being linked in a loop
+    was fixed.
+  - alsamixer should now be able to see the mixer controls again.
+  - JACK has seen some latency reporting improvements that make Ardour
+    report latencies correctly.
+  - Many bugfixes and improvements.
+
+
+## PipeWire
+  - Fix a bug in the neon audio resampler code.
+  - There is now a node.link-group property to relate linked streams.
+    this can be used to track the dataflow with coupled streams.
+  - Fix a crash when recalculating latency on a destroyed port. (#1371)
+  - Filter chains and other modules that create streams can now also
+    be added to the daemon config itself. (#1309)
+  - Fix some potential deadlocks in timerfd. (#1377)
+  - Feedback links are skipped when recalculating latency to avoid
+    loops.
+  - The dummy driver and null-sink now stop the timerfd when following
+    another driver instead of generating useless graph wakeups.
+  - rt.limit was increased to 2 seconds. Some applications got killed
+    because they run lengthy code in the Real-Time thread. (#1344)
+  - Fix s24_32 to float, it was not sign extending properly. (#1393)
+  - The performance of the feedback loop check algorithm was improved
+    a lot, making complex graphs start much much faster.
+  - The zeroconf publish module now doesn't republish nodes every time
+    the volume changes. (#1406)
+  - A potential memory corruption error has been fixed in the loop
+    that could cause random crashes.
+  - Mempools can now be created from multiple threads at the same
+    time.
+
+## media-session
+  - Loops in coupled streams are now avoided. (#1394)
+  - Port changes for inactive profiles are ignored now by the
+    default-route module. (#1403)
+
+## ALSA
+  - Make sure tha alibpref is not part of the device node name because
+    it is random. (#1362)
+  - Fixed an off-by-one that could cause midi events to end up with a
+    wrong timestamp and thus being discarded by some apps. (#1395)
+  - Fix some memory leaks when destroying a card object.
+
+## JACK
+  - Fix some invalid cycle wakeups that could cause JACK application to
+    run with a 0 buffer size. (#1386)
+  - JACK can now use rtkit to manage realtime priorities on threads.
+  - The Real-time priority is dropped when entering freewheel mode to
+    make sure we don't get killed when using too much CPU.
+  - jack_recompute_total_latencies() is now implemented, fixing the
+    latency reporting in Ardour. (#1388)
+  - Fix some overflows in time calculations.
+  - Ensure frame_rate in position is never 0.
+  - Graph callbacks are now emitted as well.
+
+## Bluetooth
+  - RTP payload type is now set correctly for aptX, LDAC and SBC, which
+    should improve compatibility with devices that care about this.
+
+## PulseAudio server
+  - There is now a quirks database to deal with bad clients. The database
+    is builtin but can be made external later.
+    - Teams is now lied to and told all sink/sources use s16 samples to make
+      it show all sinks/sources.
+    - Firefox is forced to remove the DONT_MOVE flag on capture streams so
+      that you can move firefox streams with other tools.
+  - The UNDERFLOW warnings are now made into info log messages to not
+    spam the log too much. Many application just let things underrun
+    and PulseAudio did not warn about this either. (#910)
+
+## ALSA plugin
+  - The alsa plugin now uses the right metadata for finding the default
+    source and sink, which makes the volume controls reappear. (#1384)
+
+## Other
+  - Cleanups in pulse-server and pipewire.
+  - Documentation additions.
+
+
+Older versions:
+
 # PipeWire 0.3.31 (2021-06-28)
 
 This is a bugfix release that is API and ABI compatible
@@ -96,9 +186,6 @@ with previous 0.3.x releases.
 
 ## ALSA
   - The virtual device name can now also contain a media role.
-
-
-Older versions:
 
 
 # PipeWire 0.3.30

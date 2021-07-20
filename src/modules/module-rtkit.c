@@ -592,7 +592,7 @@ static pid_t impl_gettid(struct impl *impl, pthread_t pt)
 	if ((thr = find_thread_by_pt(impl, pt)) != NULL)
 		pid = thr->pid;
 	else
-		pid = getpid();
+		pid = _gettid();
 	pthread_mutex_unlock(&impl->lock);
 
 	return pid;

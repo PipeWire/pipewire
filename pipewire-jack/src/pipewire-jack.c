@@ -2444,7 +2444,7 @@ static void registry_event_global(void *data, uint32_t id,
 	struct object *o, *ot, *op;
 	const char *str;
 	size_t size;
-	bool is_first = false;
+	bool is_first = false, graph_changed = false;
 
 	if (props == NULL)
 		return;
@@ -2701,6 +2701,7 @@ static void registry_event_global(void *data, uint32_t id,
 			pw_log_info(NAME" %p: client added \"%s\"", c, o->node.name);
 			do_callback(c, registration_callback,
 					o->node.name, 1, c->registration_arg);
+			graph_changed = true;
 		}
 		break;
 
@@ -2708,14 +2709,17 @@ static void registry_event_global(void *data, uint32_t id,
 		pw_log_info(NAME" %p: port added %d \"%s\"", c, o->id, o->port.name);
 		do_callback(c, portregistration_callback,
 				o->id, 1, c->portregistration_arg);
+		graph_changed = true;
 		break;
 
 	case INTERFACE_Link:
 		do_callback(c, connect_callback,
 				o->port_link.src, o->port_link.dst, 1, c->connect_arg);
-		do_callback(c, graph_callback, c->graph_arg);
+		graph_changed = true;
 		break;
 	}
+	if (graph_changed)
+		do_callback(c, graph_callback, c->graph_arg);
 
       exit:
 	return;
@@ -2728,6 +2732,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 {
 	struct client *c = (struct client *) object;
 	struct object *o;
+	bool graph_changed = false;
 
 	pw_log_debug(NAME" %p: removed: %u", c, id);
 
@@ -2751,12 +2756,14 @@ static void registry_event_global_remove(void *object, uint32_t id)
 			pw_log_info(NAME" %p: client %u removed \"%s\"", c, o->id, o->node.name);
 			do_callback(c, registration_callback,
 					o->node.name, 0, c->registration_arg);
+			graph_changed = true;
 		}
 		break;
 	case INTERFACE_Port:
 		pw_log_info(NAME" %p: port %u removed \"%s\"", c, o->id, o->port.name);
 		do_callback(c, portregistration_callback,
 				o->id, 0, c->portregistration_arg);
+		graph_changed = true;
 		break;
 	case INTERFACE_Link:
 		if (find_type(c, o->port_link.src, INTERFACE_Port) != NULL &&
@@ -2765,12 +2772,14 @@ static void registry_event_global_remove(void *object, uint32_t id)
 					o->port_link.src, o->port_link.dst);
 			do_callback(c, connect_callback,
 					o->port_link.src, o->port_link.dst, 0, c->connect_arg);
-			do_callback(c, graph_callback, c->graph_arg);
+			graph_changed = true;
 		} else
 			pw_log_warn("unlink between unknown ports %d and %d",
 					o->port_link.src, o->port_link.dst);
 		break;
 	}
+	if (graph_changed)
+		do_callback(c, graph_callback, c->graph_arg);
 
 	/* JACK clients expect the objects to hang around after
 	 * they are unregistered. We keep the memory around for that
@@ -3210,6 +3219,8 @@ int jack_activate (jack_client_t *client)
 	if (c->position)
 		check_buffer_frames(c, c->position);
 
+	do_callback(c, graph_callback, c->graph_arg);
+
 done:
 	pw_thread_loop_unlock(c->context.loop);
 
@@ -3548,7 +3559,7 @@ int jack_set_graph_order_callback (jack_client_t *client,
 		pw_log_error(NAME" %p: can't set callback on active client", c);
 		return -EIO;
 	}
-	pw_log_trace(NAME" %p: %p %p", c, graph_callback, data);
+	pw_log_debug(NAME" %p: %p %p", c, graph_callback, data);
 	c->graph_callback = graph_callback;
 	c->graph_arg = data;
 	return 0;

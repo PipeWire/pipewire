@@ -518,7 +518,7 @@ static void *custom_start(void *data)
 	struct impl *impl = this->impl;
 
 	pthread_mutex_lock(&impl->lock);
-	this->pid = gettid();
+	this->pid = _gettid();
 	pthread_cond_broadcast(&impl->cond);
 	pthread_mutex_unlock(&impl->lock);
 

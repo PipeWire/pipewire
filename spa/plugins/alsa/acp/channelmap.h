@@ -207,7 +207,7 @@ static inline pa_channel_map* pa_channel_map_init_pro(pa_channel_map *m,
 	unsigned i;
 	pa_channel_map_init(m);
 	for (i = 0; i < channels; i++)
-		m->map[i] = PA_CHANNEL_POSITION_INVALID;
+		m->map[i] = PA_CHANNEL_POSITION_AUX0 + i;
 	m->channels = (uint8_t) channels;
 	return m;
 }

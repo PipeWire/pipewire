@@ -194,6 +194,7 @@ static int metadata_property(void *object, uint32_t subject,
 
 			if (value == NULL) {
 				def->value = SPA_ID_INVALID;
+				changed += pw_properties_set(impl->properties, key, NULL);
 			} else {
 				if (json_object_find(value, "name", name, sizeof(name)) < 0)
 					return 0;

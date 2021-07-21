@@ -98,7 +98,11 @@ enum acp_channel {
 	ACP_CHANNEL_BC,			/**< bottom center */
 	ACP_CHANNEL_BLC,		/**< bottom left center */
 	ACP_CHANNEL_BRC,		/**< bottom right center */
-	ACP_CHANNEL_CUSTOM_START  = 0x10000,
+
+	ACP_CHANNEL_START_Aux  = 0x1000,
+	ACP_CHANNEL_LAST_Aux  = 0x1fff,
+
+	ACP_CHANNEL_START_Custom  = 0x10000,
 };
 
 char *acp_channel_str(char *buf, size_t len, enum acp_channel ch);

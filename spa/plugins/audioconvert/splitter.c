@@ -168,19 +168,13 @@ static int init_port(struct impl *this, enum spa_direction direction,
 		uint32_t port_id, uint32_t position)
 {
 	struct port *port = GET_OUT_PORT(this, port_id);
+	const char *name;
 
 	port->direction = direction;
 	port->id = port_id;
 
-	if (position < SPA_N_ELEMENTS(spa_type_audio_channel)) {
-		snprintf(port->position, sizeof(port->position), "%s",
-				spa_debug_type_short_name(spa_type_audio_channel[position].name));
-	} else if (position >= SPA_AUDIO_CHANNEL_CUSTOM_START) {
-		snprintf(port->position, sizeof(port->position), "AUX%d",
-				position - SPA_AUDIO_CHANNEL_CUSTOM_START);
-	} else {
-		snprintf(port->position, sizeof(port->position), "UNK");
-	}
+	name = spa_debug_type_find_short_name(spa_type_audio_channel, position);
+	snprintf(port->position, sizeof(port->position), "%s", name ? name : "UNK");
 
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PROPS |

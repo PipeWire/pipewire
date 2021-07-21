@@ -1528,10 +1528,25 @@ static void alsa_mapping_add_ucm_modifier(pa_alsa_mapping *m, pa_alsa_ucm_modifi
         pa_channel_map_init(&m->channel_map);
 }
 
-static const char *ucm_strip(pa_alsa_ucm_config *ucm, const char *dev) {
-    if (ucm->alibpref != NULL && pa_startswith(dev, ucm->alibpref))
-	    return dev + strlen(ucm->alibpref);
-    return dev;
+static pa_alsa_mapping* ucm_alsa_mapping_get(pa_alsa_ucm_config *ucm, pa_alsa_profile_set *ps, const char *verb_name, const char *device_str, bool is_sink) {
+    pa_alsa_mapping *m;
+    char *mapping_name;
+    size_t ucm_alibpref_len = 0;
+
+    /* find private alsa-lib's configuration device prefix */
+    if (ucm->alibpref != NULL && ucm->alibpref[0] && pa_startswith(device_str, ucm->alibpref))
+        ucm_alibpref_len = strlen(ucm->alibpref);
+
+    mapping_name = pa_sprintf_malloc("Mapping %s: %s: %s", verb_name, device_str + ucm_alibpref_len, is_sink ? "sink" : "source");
+
+    m = pa_alsa_mapping_get(ps, mapping_name);
+
+    if (!m)
+        pa_log("No mapping for %s", mapping_name);
+
+    pa_xfree(mapping_name);
+
+    return m;
 }
 
 static int ucm_create_mapping_direction(
@@ -1545,20 +1560,14 @@ static int ucm_create_mapping_direction(
         bool is_sink) {
 
     pa_alsa_mapping *m;
-    char *mapping_name;
     unsigned priority, rate, channels;
 
-    mapping_name = pa_sprintf_malloc("Mapping %s: %s: %s", verb_name,
-		    ucm_strip(ucm, device_str), is_sink ? "sink" : "source");
+    m = ucm_alsa_mapping_get(ucm, ps, verb_name, device_str, is_sink);
 
-    m = pa_alsa_mapping_get(ps, mapping_name);
-    if (!m) {
-        pa_log("No mapping for %s", mapping_name);
-        pa_xfree(mapping_name);
+    if (!m)
         return -1;
-    }
-    pa_log_debug("UCM mapping: %s dev %s", mapping_name, device_name);
-    pa_xfree(mapping_name);
+
+    pa_log_debug("UCM mapping: %s dev %s", m->name, device_name);
 
     priority = is_sink ? device->playback_priority : device->capture_priority;
     rate = is_sink ? device->playback_rate : device->capture_rate;
@@ -1603,19 +1612,13 @@ static int ucm_create_mapping_for_modifier(
         bool is_sink) {
 
     pa_alsa_mapping *m;
-    char *mapping_name;
 
-    mapping_name = pa_sprintf_malloc("Mapping %s: %s: %s", verb_name,
-		    ucm_strip(ucm, device_str), is_sink ? "sink" : "source");
+    m = ucm_alsa_mapping_get(ucm, ps, verb_name, device_str, is_sink);
 
-    m = pa_alsa_mapping_get(ps, mapping_name);
-    if (!m) {
-        pa_log("no mapping for %s", mapping_name);
-        pa_xfree(mapping_name);
+    if (!m)
         return -1;
-    }
-    pa_log_info("ucm mapping: %s modifier %s", mapping_name, mod_name);
-    pa_xfree(mapping_name);
+
+    pa_log_info("UCM mapping: %s modifier %s", m->name, mod_name);
 
     if (!m->ucm_context.ucm_devices && !m->ucm_context.ucm_modifiers) {   /* new mapping */
         m->ucm_context.ucm_devices = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);

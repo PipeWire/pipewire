@@ -5103,7 +5103,7 @@ void pa_alsa_profile_set_probe(
     pp += add_profiles_to_probe(pp, ps->profiles, false, false);
     pp += add_profiles_to_probe(pp, ps->profiles, false, true);
     pp += add_profiles_to_probe(pp, ps->profiles, true, false);
-    add_profiles_to_probe(pp, ps->profiles, true, true);
+    pp += add_profiles_to_probe(pp, ps->profiles, true, true);
 
     for (pp = probe_order; *pp; pp++) {
         uint32_t idx;

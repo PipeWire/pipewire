@@ -371,10 +371,11 @@ void channel_map_parse(const char *str, struct channel_map *map)
 bool channel_map_valid(const struct channel_map *map)
 {
 	uint8_t i;
+	uint32_t aux = 0;
 	if (map->channels == 0 || map->channels > CHANNELS_MAX)
 		return false;
 	for (i = 0; i < map->channels; i++)
-		if (map->map[i] >= CHANNEL_POSITION_MAX)
+		if (channel_id2pa(map->map[i], &aux) >= CHANNEL_POSITION_MAX)
 			return false;
 	return true;
 }

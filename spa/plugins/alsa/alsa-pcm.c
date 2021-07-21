@@ -20,8 +20,6 @@ int spa_alsa_init(struct state *state)
 {
 	int err;
 
-	snd_config_update_free_global();
-
 	if (state->open_ucm) {
 		char card_name[64];
 		const char *alibpref = NULL;

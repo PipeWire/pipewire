@@ -1,0 +1,137 @@
+/** \page page_access PipeWire Access control
+
+This document explains how access control is designed implemented.
+
+## The PipeWire daemon
+
+When a new client connects to the PipeWire daemon and right after it
+updates its properties, it will be registered and made visible to other
+clients.
+
+The PipeWire core will emit a context check_access event for the newly
+registered client.
+
+Clients with R permissions on the core object can continue communicating
+with the daemon. Clients without R permissions on the core are suspended
+and are not able to send more messages.
+
+A suspended client can only resume processing after some other client
+sets the core permissions to R. This other client is usually a session
+manager.
+
+
+## The access module
+
+\subpage page_module_access
+
+The access module hooks into the check_access event when a new client is
+registered and will check the permissions of the client.
+
+The current permissions on the client are stored in the PW_KEY_ACCESS
+property on the client object. If this property is set, the access module
+does nothing.
+
+If the property is not set, it will go through a set of checks to determine
+the allows access for a client:
+
+- The cmdline of the client is checked against a list of allowed clients.
+  If yes, PW_KEY_ACCESS is set to "allowed".
+
+- The cmdline of the client is checked against a list of rejected clients.
+  If yes, PW_KEY_ACCESS is set to "rejected".
+
+- The cmdline of the client is checked against a list of restricted clients.
+  If yes, PW_KEY_ACCESS is set to "restricted".
+
+- If the client has the "access.force" property, it is set as the
+  PW_KEY_ACCESS property.
+
+- A check is performed if the application is a flatpak. If yes,
+  PW_KEY_ACCESS is set to "flatpak".
+
+- If PW_KEY_CLIENT_ACCESS is set, it is copied to PW_KEY_ACCESS.
+
+- If no other value is set, PW_KEY_ACCESS is set to "unrestricted".
+
+Depending on the value of the PW_KEY_ACCESS one the following happens:
+
+ * "allowed", "unrestricted" :  ALL permissions are set on the core
+    object and the client will be able to resume.
+
+ * "restricted", "flatpak", "$access.force" :  no permissions are set on
+    the core object and the client will be suspended.
+
+ * "rejected" : an error is sent to the client and the client is
+    suspended.
+
+In some cases the client will be suspended. This is where the session
+manager or another client will need to configure permissions on the object
+for it to resume.
+
+## The session manager
+
+The session manager listens for new clients to appear. It will use the
+PW_KEY_ACCESS property to determine what to do.
+
+For clients that are blocked with "restricted", "flatpak" or "$access.force"
+access, the session manager needs to set permissions on the client for the
+various PipeWire objects in the graph that it is allowed to interact with.
+
+To resume a client, it will eventually need to set the R permission on the
+core object for the client.
+
+Permissions of objects for a client can be changed at any time by the
+session manager. Removing the client core R permission will suspend the
+client completely.
+
+
+## Use cases
+
+### new clients need their permissions configured
+
+A new client that has been suspended by the PipeWire access module need
+to be resumed at some point with the right permissions.
+
+### Flatpaks can't modify other stream/device volumes
+
+Permissions of the PipeWire objects should not have the W permission to
+avoid this.
+
+### Flatpaks can't move other streams to different devices
+
+Streams are moved to another device by setting the "target.node" metadata
+on the node id. By not setting the M bit on the other objects, this can
+be avoided.
+
+### Manager applications
+
+Some applications might be shipped in a flatpak but really require full
+access to the PipeWire graph. This includes moving streams
+(setting metadata) and modifying properties (volume).
+
+These manager applications will set the PW_KEY_MEDIA_CATEGORY property
+in the client object to "Manager".
+
+The session manager needs to do additional checks to determine if the
+manager permissions can be given to the particular client and then
+configure ALL permissions on the client. Possible checks include
+permission store checks or ask the user if the application is allowed
+full access.
+
+
+### pipewire-media-session
+
+The example media session has an access-flatpak module that handles the
+clients that have a PW_KEY_ACCESS as "flatpak". Other clients are
+ignored.
+
+It sets the permissions of all objects to RX. This limits the flatpaks
+from doing modifications to other objects.
+
+Because this will also set the core object R permissions, the client will
+resume with the new permissions.
+
+pipewire-media-session implements Manager applications by simply setting
+the client permissions to ALL. No additional checks are performed yet.
+
+*/

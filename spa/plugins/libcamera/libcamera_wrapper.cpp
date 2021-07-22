@@ -524,13 +524,12 @@ extern "C" {
 	void LibCamera::stop() {
 		this->disconnect();
 
-		uint32_t bufIdx = 0;
 		StreamConfiguration &cfg = this->config_->at(0);
 		Stream *stream = cfg.stream();
+		uint32_t nbuffers = this->allocator_->buffers(stream).size();
 
-		for (const std::unique_ptr<FrameBuffer> &buffer : this->allocator_->buffers(stream)) {
+		for (uint32_t bufIdx = 0; bufIdx < nbuffers; bufIdx++) {
 			delete [] this->fd_[bufIdx];
-			bufIdx++;
 		}
 		delete [] this->fd_;
 

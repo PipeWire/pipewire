@@ -458,6 +458,9 @@ static void flush_data(struct impl *this)
 			if (written < 0) {
 				spa_log_warn(this->log, "sco-sink: write failure: %d", written);
 				goto stop;
+			} else if (written == 0) {
+				/* EAGAIN or similar, just skip ahead */
+				written = SPA_MIN(port->write_buffer_size, (uint32_t)48);
 			}
 
 			processed = written;

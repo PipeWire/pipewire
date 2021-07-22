@@ -49,7 +49,7 @@
 #include <libcamera/camera_manager.h>
 #include <libcamera/request.h>
 #include <libcamera/framebuffer_allocator.h>
-#include <libcamera/buffer.h>
+#include <libcamera/framebuffer.h>
 #include <libcamera/property_ids.h>
 #include <libcamera/controls.h>
 

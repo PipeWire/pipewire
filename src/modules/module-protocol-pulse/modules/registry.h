@@ -40,6 +40,7 @@ struct module *create_module_remap_source(struct impl *impl, const char *argumen
 struct module *create_module_tunnel_sink(struct impl *impl, const char *argument);
 struct module *create_module_tunnel_source(struct impl *impl, const char *argument);
 struct module *create_module_simple_protocol_tcp(struct impl *impl, const char *argument);
+struct module *create_module_switch_on_connect(struct impl *impl, const char *argument);
 struct module *create_module_pipe_source(struct impl *impl, const char *argument);
 struct module *create_module_pipe_sink(struct impl *impl, const char *argument);
 struct module *create_module_zeroconf_discover(struct impl *impl, const char *argument);

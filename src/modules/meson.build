@@ -194,6 +194,7 @@ pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse/modules/module-remap-sink.c',
   'module-protocol-pulse/modules/module-remap-source.c',
   'module-protocol-pulse/modules/module-simple-protocol-tcp.c',
+  'module-protocol-pulse/modules/module-switch-on-connect.c',
   'module-protocol-pulse/modules/module-tunnel-sink.c',
   'module-protocol-pulse/modules/module-tunnel-source.c',
   'module-protocol-pulse/modules/module-zeroconf-discover.c',

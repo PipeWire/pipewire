@@ -1,0 +1,119 @@
+/** \page page_portal PipeWire Portal access control
+
+This document explains how clients from the portal are handled.
+
+## The portal
+
+The portal is a DBus service that exposes a couple of interfaces to
+request access to the PipeWire daemon to perform a certain set of
+functions.
+
+The portal makes it possible to use PipeWire without having to expose
+the local PipeWire socket in the sandboxed application. PipeWire can
+detect and enforce extra permission checks on the Portal session.
+
+Once such portal is the Camera portal that provides a PipeWire session
+to stream video from a camera.
+
+In the portal case, it is the portal itself that will make a connection
+to the PipeWire daemon to configure the session. It then hands the
+file descriptor of the PipeWire connection to the client. The client
+can then use the file descriptor to interface with the PipeWire
+session.
+
+When the portal connects, it will set the following properties on the
+client object:
+
+ * "pipewire.access.portal.is_portal" = true when this connection is the
+    portal itself and not a client it is managing.
+ * "pipewire.access.portal.app_id" the application id of the client.
+ * "pipewire.access.portal.media_roles" media roles of the client.
+    Currently "Camera" is defined.
+
+Before returning the connection to a client, the portal will configure
+minimal permissions on the client. No objects are initialy visible. It is
+the task of the session manager to make the objects in the graph
+visible, depending on the client media_roles.
+
+## The PipeWire portal module
+
+\subpage page_module_portal
+
+The pipewire daemon uses the portal module to find the PID of the
+processes that owns the DBus name "org.freedesktop.portal.Desktop".
+
+It can then detect clients that connect from this PID and tag them
+as PW_KEY_ACCESS "portal". It will also set ALL permissions for this
+client so that it can resume. See also \ref page_module_access.
+
+
+## The client
+
+A client can ask the portal for a connection to the PipeWire daemon.
+
+It receives a file descriptor that can then be used to interface with
+the PipeWire daemon.
+
+The connection will have been tagged by the portal as shown above and
+will have limited permissions.
+
+
+## The session manager
+
+The session manager listens for new clients to appear. It will use the
+PW_KEY_ACCESS property to find portal connections.
+
+Based on the media_roles it will enable or disable access to PipeWire
+objects. It might have to consult a database to decide what is
+allowed.
+
+The permission store can be used for this. Usually the portal also
+implements "org.freedesktop.impl.portal.PermissionStore" for this.
+
+
+## Use cases
+
+### new portal managed clients need device permissions configured
+
+When a new client is detected, the available objects are scanned and
+permissions are configured for each of them.
+
+Only the devices belonging to the media_roles given by the
+portal are considered.
+
+### new devices need to be made visible to portal managed clients
+
+Newly created objects are made visible to a client when the client
+is allowed to interact with it.
+
+Only the devices belonging to the media_roles given by the
+portal are considered.
+
+### permissions for a device need to be revoked
+
+The session manager listens to changes in the permissions of devices
+and will remove the client permissions accordingly.
+
+Usually this is implemented by listening to the permission store
+DBus object. The desktop environment might provide a configuration panel
+where these permissions can be managed.
+
+## pipewire-media-session
+
+The example media session has an access-portal module that handles the
+clients that have a PW_KEY_ACCESS as "portal". Other clients are
+ignored.
+
+It currently only handles the camera media_roles and asks the permission
+store for camera device permissions. It receives an array of app_id
+and the associated permissions. It enables all camera objects when the
+camera permissions is given to the app_id of the client.
+
+For new nodes that appear, it will check if the client is allowed to
+see them or not and set the permissions on the new object accordingly.
+
+It watches changes in the permission stored and updates the permissions
+of the objects of clients accordingly.
+
+
+*/

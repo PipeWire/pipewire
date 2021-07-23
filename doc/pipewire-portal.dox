@@ -2,24 +2,55 @@
 
 This document explains how clients from the portal are handled.
 
-## The portal
-
 The portal is a DBus service that exposes a couple of interfaces to
 request access to the PipeWire daemon to perform a certain set of
 functions.
 
 The portal makes it possible to use PipeWire without having to expose
-the local PipeWire socket in the sandboxed application. PipeWire can
-detect and enforce extra permission checks on the Portal session.
+the local PipeWire socket in the sandboxed application. It is the
+portal can connects to PipeWire on behalf of the client. The client
+becomes a portal managed client. PipeWire can detect and enforce
+extra permission checks on the portal managed clients.
 
 Once such portal is the Camera portal that provides a PipeWire session
 to stream video from a camera.
 
-In the portal case, it is the portal itself that will make a connection
-to the PipeWire daemon to configure the session. It then hands the
-file descriptor of the PipeWire connection to the client. The client
-can then use the file descriptor to interface with the PipeWire
-session.
+# Use cases
+
+## new portal managed clients need device permissions configured
+
+When a new client is detected, the available objects need to be
+scanned and permissions configured for each of them.
+
+Only the devices belonging to the media_roles given by the
+portal are considered.
+
+## new devices need to be made visible to portal managed clients
+
+Newly created objects are made visible to a client when the client
+is allowed to interact with it.
+
+Only the devices belonging to the media_roles given by the
+portal are considered.
+
+## permissions for a device need to be revoked
+
+The session manager listens to changes in the permissions of devices
+and will remove the client permissions accordingly.
+
+Usually this is implemented by listening to the permission store
+DBus object. The desktop environment might provide a configuration panel
+where these permissions can be managed.
+
+
+# Design
+
+## The portal
+
+The portal itself will make a connection to the PipeWire daemon to
+configure the session. It then hands the file descriptor of the PipeWire
+connection to the client. The client can then use the file descriptor
+to interface with the PipeWire session.
 
 When the portal connects, it will set the following properties on the
 client object:
@@ -70,33 +101,7 @@ allowed.
 The permission store can be used for this. Usually the portal also
 implements "org.freedesktop.impl.portal.PermissionStore" for this.
 
-
-## Use cases
-
-### new portal managed clients need device permissions configured
-
-When a new client is detected, the available objects are scanned and
-permissions are configured for each of them.
-
-Only the devices belonging to the media_roles given by the
-portal are considered.
-
-### new devices need to be made visible to portal managed clients
-
-Newly created objects are made visible to a client when the client
-is allowed to interact with it.
-
-Only the devices belonging to the media_roles given by the
-portal are considered.
-
-### permissions for a device need to be revoked
-
-The session manager listens to changes in the permissions of devices
-and will remove the client permissions accordingly.
-
-Usually this is implemented by listening to the permission store
-DBus object. The desktop environment might provide a configuration panel
-where these permissions can be managed.
+# Implementation
 
 ## pipewire-media-session
 

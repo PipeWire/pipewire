@@ -2,6 +2,57 @@
 
 This document explains how access control is designed implemented.
 
+PipeWire implements per client permissions on the objects in the graph.
+
+Permissions include R (read), W (write), X (execute) and M (metadata).
+
+An object with R permissions is visible to the client. The client will
+receive registry events for the object and can interact with it.
+
+Methods can be called on an object with X permissions. Some of those
+methods will only query state, others will modify the object.
+
+An object with W permission can be modified. This is usually done with
+a method that modifies the state of the object. The W permission usually
+implies the X permission.
+
+An object with M permission can be used as the subject in metadata.
+
+# Use cases
+
+## new clients need their permissions configured
+
+A new client is not allowed to communicate with the PipeWire daemon until
+it has been configured with permissions.
+
+## Flatpaks can't modify other stream/device volumes
+
+Flatpaks should not be able to modify the state of certain objects.
+
+Permissions of the relevant PipeWire objects should not have the W
+permission to avoid this.
+
+## Flatpaks can't move other streams to different devices
+
+Streams are moved to another device by setting the "target.node" metadata
+on the node id. By not setting the M bit on the other objects, this can
+be avoided.
+
+## Some application should be restricted in what they can see
+
+Application should only be able to see the objects that they are allowed
+to see. For example, a web browser that was given access to a camera should
+not be able to see audio devices.
+
+## Manager applications
+
+Some applications might be shipped in a flatpak but really require full
+access to the PipeWire graph. This includes moving streams
+(setting metadata) and modifying properties (volume).
+
+
+# Design
+
 ## The PipeWire daemon
 
 When a new client connects to the PipeWire daemon and right after it
@@ -84,32 +135,7 @@ Permissions of objects for a client can be changed at any time by the
 session manager. Removing the client core R permission will suspend the
 client completely.
 
-
-## Use cases
-
-### new clients need their permissions configured
-
-A new client that has been suspended by the PipeWire access module need
-to be resumed at some point with the right permissions.
-
-### Flatpaks can't modify other stream/device volumes
-
-Permissions of the PipeWire objects should not have the W permission to
-avoid this.
-
-### Flatpaks can't move other streams to different devices
-
-Streams are moved to another device by setting the "target.node" metadata
-on the node id. By not setting the M bit on the other objects, this can
-be avoided.
-
-### Manager applications
-
-Some applications might be shipped in a flatpak but really require full
-access to the PipeWire graph. This includes moving streams
-(setting metadata) and modifying properties (volume).
-
-These manager applications will set the PW_KEY_MEDIA_CATEGORY property
+Manager applications will set the PW_KEY_MEDIA_CATEGORY property
 in the client object to "Manager".
 
 The session manager needs to do additional checks to determine if the
@@ -119,7 +145,9 @@ permission store checks or ask the user if the application is allowed
 full access.
 
 
-### pipewire-media-session
+# Implementation
+
+## pipewire-media-session
 
 The example media session has an access-flatpak module that handles the
 clients that have a PW_KEY_ACCESS as "flatpak". Other clients are

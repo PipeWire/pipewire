@@ -94,7 +94,7 @@ int get_runtime_dir(char *buf, size_t buflen, const char *dir)
 			return res;
 		}
 		pw_log_info(NAME": created %s", buf);
-	} else if ((stat_buf.st_mode & S_IFMT) != S_IFDIR) {
+	} else if (!S_ISDIR(stat_buf.st_mode)) {
 		pw_log_error(NAME": %s is not a directory", buf);
 		return -ENOTDIR;
 	}

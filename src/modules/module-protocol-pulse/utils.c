@@ -69,6 +69,11 @@ int get_runtime_dir(char *buf, size_t buflen, const char *dir)
 			runtime_dir = result ? result->pw_dir : NULL;
 	}
 
+	if (runtime_dir == NULL) {
+		pw_log_error(NAME": could not find a suitable runtime directory");
+		return -ENOENT;
+	}
+
 	size = snprintf(buf, buflen, "%s/%s", runtime_dir, dir);
 	if (size < 0)
 		return -errno;

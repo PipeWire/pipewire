@@ -64,6 +64,22 @@ static inline bool spa_strneq(const char *s1, const char *s2, size_t len)
 
 
 /**
+ * \return true if \a s starts with the \a prefix or false otherwise.
+ * A \a s is NULL, it never starts with the given \a prefix. A \a prefix of
+ * NULL is a bug in the caller.
+ */
+static inline bool spa_strstartswith(const char *s, const char *prefix)
+{
+	if (SPA_UNLIKELY(s == NULL))
+		return false;
+
+	spa_assert(prefix);
+
+	return strncmp(s, prefix, strlen(prefix)) == 0;
+}
+
+
+/**
  * \return true if \a s ends with the \a suffix or false otherwise.
  * A \a s is NULL, it never ends with the given \a suffix. A \a suffix of
  * NULL is a bug in the caller.

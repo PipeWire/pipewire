@@ -68,11 +68,15 @@ int get_runtime_dir(char *buf, size_t buflen, const char *dir)
 		if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
 			runtime_dir = result ? result->pw_dir : NULL;
 	}
-	size = snprintf(buf, buflen, "%s/%s", runtime_dir, dir) + 1;
-	if (size > (int) buflen) {
+
+	size = snprintf(buf, buflen, "%s/%s", runtime_dir, dir);
+	if (size < 0)
+		return -errno;
+	if ((size_t) size >= buflen) {
 		pw_log_error(NAME": path %s/%s too long", runtime_dir, dir);
 		return -ENAMETOOLONG;
 	}
+
 	if (stat(buf, &stat_buf) < 0) {
 		res = -errno;
 		if (res != -ENOENT) {

@@ -353,8 +353,9 @@ on_connect(void *data, int fd, uint32_t mask)
 	struct impl * const impl = server->impl;
 	struct sockaddr_storage name;
 	socklen_t length;
-	int client_fd, val, pid;
+	int client_fd, val;
 	struct client *client = NULL;
+	pid_t pid;
 
 	length = sizeof(name);
 	client_fd = accept4(fd, (struct sockaddr *) &name, &length, SOCK_CLOEXEC);

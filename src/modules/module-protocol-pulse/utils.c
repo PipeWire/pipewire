@@ -101,13 +101,13 @@ int get_runtime_dir(char *buf, size_t buflen, const char *dir)
 	return 0;
 }
 
-int check_flatpak(struct client *client, int pid)
+int check_flatpak(struct client *client, pid_t pid)
 {
 	char root_path[2048];
 	int root_fd, info_fd, res;
 	struct stat stat_buf;
 
-	sprintf(root_path, "/proc/%u/root", pid);
+	sprintf(root_path, "/proc/%ld/root", (long) pid);
 	root_fd = openat(AT_FDCWD, root_path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
 	if (root_fd == -1) {
 		res = -errno;
@@ -147,7 +147,7 @@ int check_flatpak(struct client *client, int pid)
 	return 1;
 }
 
-int get_client_pid(struct client *client, int client_fd)
+pid_t get_client_pid(struct client *client, int client_fd)
 {
 	socklen_t len;
 #if defined(__linux__)

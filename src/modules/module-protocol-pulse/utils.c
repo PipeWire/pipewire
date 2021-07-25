@@ -193,7 +193,7 @@ int create_pid_file(void) {
 	if ((res = get_runtime_dir(pid_file, sizeof(pid_file), "pulse")) < 0)
 		return res;
 
-	if (strlen(pid_file) > PATH_MAX - 5) {
+	if (strlen(pid_file) > PATH_MAX - sizeof("/pid")) {
 		pw_log_error(NAME": path too long: %s/pid", pid_file);
 		return -ENAMETOOLONG;
 	}

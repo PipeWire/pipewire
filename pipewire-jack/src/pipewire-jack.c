@@ -718,7 +718,7 @@ void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto
 
 #define do_callback(c,callback,...)				\
 ({								\
-	if (c->callback) {					\
+	if (c->callback && c->active) {				\
 		pw_thread_loop_unlock(c->context.loop);		\
 		pthread_mutex_lock(&c->rt_lock);		\
 		c->callback(__VA_ARGS__);			\

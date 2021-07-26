@@ -272,27 +272,27 @@ endpoint_event_info(void *object, const struct pw_endpoint_info *info)
 	struct test_endpoint_data *d = object;
 	const char *val;
 
-	spa_assert(info);
-	spa_assert(info->version == PW_VERSION_ENDPOINT_INFO);
-	spa_assert(info->id == pw_proxy_get_bound_id(d->bound_proxy));
-	spa_assert(info->id == pw_proxy_get_bound_id(d->export_proxy));
-	spa_assert(info->change_mask == PW_ENDPOINT_CHANGE_MASK_ALL);
-	spa_assert(spa_streq(info->name, "test-endpoint"));
-	spa_assert(spa_streq(info->media_class, "Audio/Sink"));
-	spa_assert(info->direction == PW_DIRECTION_OUTPUT);
-	spa_assert(info->n_streams == 0);
-	spa_assert(info->session_id == SPA_ID_INVALID);
-	spa_assert(info->n_params == SPA_N_ELEMENTS (param_info));
-	spa_assert(info->n_params == 2);
-	spa_assert(info->params[0].id == param_info[0].id);
-	spa_assert(info->params[0].flags == param_info[0].flags);
-	spa_assert(info->params[1].id == param_info[1].id);
-	spa_assert(info->params[1].flags == param_info[1].flags);
-	spa_assert(info->props != NULL);
+	spa_assert_se(info);
+	spa_assert_se(info->version == PW_VERSION_ENDPOINT_INFO);
+	spa_assert_se(info->id == pw_proxy_get_bound_id(d->bound_proxy));
+	spa_assert_se(info->id == pw_proxy_get_bound_id(d->export_proxy));
+	spa_assert_se(info->change_mask == PW_ENDPOINT_CHANGE_MASK_ALL);
+	spa_assert_se(spa_streq(info->name, "test-endpoint"));
+	spa_assert_se(spa_streq(info->media_class, "Audio/Sink"));
+	spa_assert_se(info->direction == PW_DIRECTION_OUTPUT);
+	spa_assert_se(info->n_streams == 0);
+	spa_assert_se(info->session_id == SPA_ID_INVALID);
+	spa_assert_se(info->n_params == SPA_N_ELEMENTS (param_info));
+	spa_assert_se(info->n_params == 2);
+	spa_assert_se(info->params[0].id == param_info[0].id);
+	spa_assert_se(info->params[0].flags == param_info[0].flags);
+	spa_assert_se(info->params[1].id == param_info[1].id);
+	spa_assert_se(info->params[1].flags == param_info[1].flags);
+	spa_assert_se(info->props != NULL);
 	val = spa_dict_lookup(info->props, PW_KEY_ENDPOINT_NAME);
-	spa_assert(val && spa_streq(val, "test-endpoint"));
+	spa_assert_se(val && spa_streq(val, "test-endpoint"));
 	val = spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS);
-	spa_assert(val && spa_streq(val, "Audio/Sink"));
+	spa_assert_se(val && spa_streq(val, "Audio/Sink"));
 
 	d->info_received = true;
 	pw_main_loop_quit(d->loop);
@@ -307,12 +307,12 @@ endpoint_event_param(void *object, int seq,
 
 	if (id == SPA_PARAM_Props) {
 		struct props *p = &d->props;
-		spa_assert(param);
+		spa_assert_se(param);
 		spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_Props, &id,
 			SPA_PROP_volume, SPA_POD_OPT_Float(&p->volume),
 			SPA_PROP_mute,   SPA_POD_OPT_Bool(&p->mute));
-		spa_assert(id == SPA_PARAM_Props);
+		spa_assert_se(id == SPA_PARAM_Props);
 	}
 
 	d->params_received++;
@@ -351,13 +351,13 @@ test_endpoint_global(void *object, uint32_t id,
 
 	d->bound_proxy = pw_registry_bind(d->registry, id, type,
 					PW_VERSION_ENDPOINT, 0);
-	spa_assert(d->bound_proxy != NULL);
+	spa_assert_se(d->bound_proxy != NULL);
 
-	spa_assert(props != NULL);
+	spa_assert_se(props != NULL);
 	val = spa_dict_lookup(props, PW_KEY_ENDPOINT_NAME);
-	spa_assert(val && spa_streq(val, "test-endpoint"));
+	spa_assert_se(val && spa_streq(val, "test-endpoint"));
 	val = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS);
-	spa_assert(val && spa_streq(val, "Audio/Sink"));
+	spa_assert_se(val && spa_streq(val, "Audio/Sink"));
 
 	pw_endpoint_add_listener(d->bound_proxy, &d->object_listener,
 				 &endpoint_events, d);
@@ -388,10 +388,10 @@ static void test_endpoint(void)
 
 	d.loop = pw_main_loop_new(NULL);
 	d.context = pw_context_new(pw_main_loop_get_loop(d.loop), NULL, 0);
-	spa_assert(d.context != NULL);
+	spa_assert_se(d.context != NULL);
 
 	d.core = pw_context_connect_self(d.context, NULL, 0);
-	spa_assert(d.core != NULL);
+	spa_assert_se(d.core != NULL);
 
 	d.registry = pw_core_get_registry(d.core, PW_VERSION_REGISTRY, 0);
 	pw_registry_add_listener(d.registry,
@@ -403,10 +403,10 @@ static void test_endpoint(void)
 	endpoint_init(&d.endpoint);
 	d.export_proxy = pw_core_export(d.core, PW_TYPE_INTERFACE_Endpoint,
 				d.endpoint.info.props, &d.endpoint.iface, 0);
-	spa_assert(d.export_proxy != NULL);
+	spa_assert_se(d.export_proxy != NULL);
 	pw_main_loop_run(d.loop);
-	spa_assert(d.bound_proxy);
-	spa_assert(d.info_received == true);
+	spa_assert_se(d.bound_proxy);
+	spa_assert_se(d.info_received == true);
 
 	/* request params */
 	d.params_received = 0;
@@ -414,9 +414,9 @@ static void test_endpoint(void)
 	d.props.mute = true;
 	pw_endpoint_subscribe_params(d.bound_proxy, ids, SPA_N_ELEMENTS(ids));
 	pw_main_loop_run(d.loop);
-	spa_assert(d.params_received == 1);
-	spa_assert(d.props.volume > 0.89 && d.props.volume < 0.91);
-	spa_assert(d.props.mute == false);
+	spa_assert_se(d.params_received == 1);
+	spa_assert_se(d.props.volume > 0.89 && d.props.volume < 0.91);
+	spa_assert_se(d.props.mute == false);
 
 	/* set param from the client */
 	d.params_received = 0;
@@ -425,9 +425,9 @@ static void test_endpoint(void)
 				SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
 				SPA_PROP_volume, SPA_POD_Float(0.5)));
 	pw_main_loop_run(d.loop);
-	spa_assert(d.params_received == 1);
-	spa_assert(d.props.volume > 0.49 && d.props.volume < 0.51);
-	spa_assert(d.props.mute == false);
+	spa_assert_se(d.params_received == 1);
+	spa_assert_se(d.props.volume > 0.49 && d.props.volume < 0.51);
+	spa_assert_se(d.props.mute == false);
 
 	/* set param from the impl */
 	d.params_received = 0;
@@ -437,14 +437,14 @@ static void test_endpoint(void)
 				SPA_PROP_volume, SPA_POD_Float(0.2),
 				SPA_PROP_mute, SPA_POD_Bool(true)));
 	pw_main_loop_run(d.loop);
-	spa_assert(d.params_received == 1);
-	spa_assert(d.props.volume > 0.19 && d.props.volume < 0.21);
-	spa_assert(d.props.mute == true);
+	spa_assert_se(d.params_received == 1);
+	spa_assert_se(d.props.volume > 0.19 && d.props.volume < 0.21);
+	spa_assert_se(d.props.mute == true);
 
 	/* stop exporting and expect to see that reflected on the registry */
 	pw_proxy_destroy(d.export_proxy);
 	pw_main_loop_run(d.loop);
-	spa_assert(!d.bound_proxy);
+	spa_assert_se(!d.bound_proxy);
 
 	endpoint_clear(&d.endpoint);
 	pw_proxy_destroy((struct pw_proxy*)d.registry);

@@ -38,50 +38,50 @@
 PWTEST(pod_abi_sizes)
 {
 #if defined(__x86_64__) && defined(__LP64__)
-	spa_assert(sizeof(struct spa_pod) == 8);
-	spa_assert(sizeof(struct spa_pod_bool) == 16);
-	spa_assert(sizeof(struct spa_pod_id) == 16);
-	spa_assert(sizeof(struct spa_pod_int) == 16);
-	spa_assert(sizeof(struct spa_pod_long) == 16);
-	spa_assert(sizeof(struct spa_pod_float) == 16);
-	spa_assert(sizeof(struct spa_pod_double) == 16);
-	spa_assert(sizeof(struct spa_pod_string) == 8);
-	spa_assert(sizeof(struct spa_pod_bytes) == 8);
-	spa_assert(sizeof(struct spa_pod_rectangle) == 16);
-	spa_assert(sizeof(struct spa_pod_fraction) == 16);
-	spa_assert(sizeof(struct spa_pod_bitmap) == 8);
-	spa_assert(sizeof(struct spa_pod_array_body) == 8);
-	spa_assert(sizeof(struct spa_pod_array) == 16);
+	spa_assert_se(sizeof(struct spa_pod) == 8);
+	spa_assert_se(sizeof(struct spa_pod_bool) == 16);
+	spa_assert_se(sizeof(struct spa_pod_id) == 16);
+	spa_assert_se(sizeof(struct spa_pod_int) == 16);
+	spa_assert_se(sizeof(struct spa_pod_long) == 16);
+	spa_assert_se(sizeof(struct spa_pod_float) == 16);
+	spa_assert_se(sizeof(struct spa_pod_double) == 16);
+	spa_assert_se(sizeof(struct spa_pod_string) == 8);
+	spa_assert_se(sizeof(struct spa_pod_bytes) == 8);
+	spa_assert_se(sizeof(struct spa_pod_rectangle) == 16);
+	spa_assert_se(sizeof(struct spa_pod_fraction) == 16);
+	spa_assert_se(sizeof(struct spa_pod_bitmap) == 8);
+	spa_assert_se(sizeof(struct spa_pod_array_body) == 8);
+	spa_assert_se(sizeof(struct spa_pod_array) == 16);
 
-	spa_assert(sizeof(struct spa_pod_choice_body) == 16);
-	spa_assert(sizeof(struct spa_pod_choice) == 24);
-	spa_assert(sizeof(struct spa_pod_struct) == 8);
-	spa_assert(sizeof(struct spa_pod_object_body) == 8);
-	spa_assert(sizeof(struct spa_pod_object) == 16);
-	spa_assert(sizeof(struct spa_pod_pointer_body) == 16);
-	spa_assert(sizeof(struct spa_pod_pointer) == 24);
-	spa_assert(sizeof(struct spa_pod_fd) == 16);
-	spa_assert(sizeof(struct spa_pod_prop) == 16);
-	spa_assert(sizeof(struct spa_pod_control) == 16);
-	spa_assert(sizeof(struct spa_pod_sequence_body) == 8);
-	spa_assert(sizeof(struct spa_pod_sequence) == 16);
+	spa_assert_se(sizeof(struct spa_pod_choice_body) == 16);
+	spa_assert_se(sizeof(struct spa_pod_choice) == 24);
+	spa_assert_se(sizeof(struct spa_pod_struct) == 8);
+	spa_assert_se(sizeof(struct spa_pod_object_body) == 8);
+	spa_assert_se(sizeof(struct spa_pod_object) == 16);
+	spa_assert_se(sizeof(struct spa_pod_pointer_body) == 16);
+	spa_assert_se(sizeof(struct spa_pod_pointer) == 24);
+	spa_assert_se(sizeof(struct spa_pod_fd) == 16);
+	spa_assert_se(sizeof(struct spa_pod_prop) == 16);
+	spa_assert_se(sizeof(struct spa_pod_control) == 16);
+	spa_assert_se(sizeof(struct spa_pod_sequence_body) == 8);
+	spa_assert_se(sizeof(struct spa_pod_sequence) == 16);
 
 	/* builder */
-	spa_assert(sizeof(struct spa_pod_frame) == 24);
-	spa_assert(sizeof(struct spa_pod_builder_state) == 16);
-	spa_assert(sizeof(struct spa_pod_builder) == 48);
+	spa_assert_se(sizeof(struct spa_pod_frame) == 24);
+	spa_assert_se(sizeof(struct spa_pod_builder_state) == 16);
+	spa_assert_se(sizeof(struct spa_pod_builder) == 48);
 
 	/* command */
-	spa_assert(sizeof(struct spa_command_body) == 8);
-	spa_assert(sizeof(struct spa_command) == 16);
+	spa_assert_se(sizeof(struct spa_command_body) == 8);
+	spa_assert_se(sizeof(struct spa_command) == 16);
 
 	/* event */
-	spa_assert(sizeof(struct spa_event_body) == 8);
-	spa_assert(sizeof(struct spa_event) == 16);
+	spa_assert_se(sizeof(struct spa_event_body) == 8);
+	spa_assert_se(sizeof(struct spa_event) == 16);
 
 	/* parser */
-	spa_assert(sizeof(struct spa_pod_parser_state) == 16);
-	spa_assert(sizeof(struct spa_pod_parser) == 32);
+	spa_assert_se(sizeof(struct spa_pod_parser_state) == 16);
+	spa_assert_se(sizeof(struct spa_pod_parser) == 32);
 
 	return PWTEST_PASS;
 #endif
@@ -90,11 +90,11 @@ PWTEST(pod_abi_sizes)
 
 PWTEST(pod_abi)
 {
-	spa_assert(SPA_CHOICE_None == 0);
-	spa_assert(SPA_CHOICE_Range == 1);
-	spa_assert(SPA_CHOICE_Step == 2);
-	spa_assert(SPA_CHOICE_Enum == 3);
-	spa_assert(SPA_CHOICE_Flags == 4);
+	spa_assert_se(SPA_CHOICE_None == 0);
+	spa_assert_se(SPA_CHOICE_Range == 1);
+	spa_assert_se(SPA_CHOICE_Step == 2);
+	spa_assert_se(SPA_CHOICE_Enum == 3);
+	spa_assert_se(SPA_CHOICE_Flags == 4);
 
 	return PWTEST_PASS;
 }
@@ -105,182 +105,182 @@ PWTEST(pod_init)
 		struct spa_pod pod = SPA_POD_INIT(sizeof(int64_t), SPA_TYPE_Long);
 		int32_t val;
 
-		spa_assert(SPA_POD_SIZE(&pod) == sizeof(int64_t) + 8);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Long);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == sizeof(int64_t));
-		spa_assert(SPA_POD_CONTENTS_SIZE(struct spa_pod, &pod) == sizeof(int64_t));
-		spa_assert(spa_pod_is_long(&pod));
+		spa_assert_se(SPA_POD_SIZE(&pod) == sizeof(int64_t) + 8);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Long);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == sizeof(int64_t));
+		spa_assert_se(SPA_POD_CONTENTS_SIZE(struct spa_pod, &pod) == sizeof(int64_t));
+		spa_assert_se(spa_pod_is_long(&pod));
 
 		pod = SPA_POD_INIT(sizeof(int32_t), SPA_TYPE_Int);
-		spa_assert(SPA_POD_SIZE(&pod) == sizeof(int32_t) + 8);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Int);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == sizeof(int32_t));
-		spa_assert(SPA_POD_CONTENTS_SIZE(struct spa_pod, &pod) == sizeof(int32_t));
-		spa_assert(spa_pod_is_int(&pod));
+		spa_assert_se(SPA_POD_SIZE(&pod) == sizeof(int32_t) + 8);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Int);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == sizeof(int32_t));
+		spa_assert_se(SPA_POD_CONTENTS_SIZE(struct spa_pod, &pod) == sizeof(int32_t));
+		spa_assert_se(spa_pod_is_int(&pod));
 
 		/** too small */
 		pod = SPA_POD_INIT(0, SPA_TYPE_Int);
-		spa_assert(!spa_pod_is_int(&pod));
-		spa_assert(spa_pod_get_int(&pod, &val) < 0);
+		spa_assert_se(!spa_pod_is_int(&pod));
+		spa_assert_se(spa_pod_get_int(&pod, &val) < 0);
 	}
 	{
 		struct spa_pod pod = SPA_POD_INIT_None();
 
-		spa_assert(SPA_POD_SIZE(&pod) == 8);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_None);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 0);
-		spa_assert(SPA_POD_CONTENTS_SIZE(struct spa_pod, &pod) == 0);
-		spa_assert(spa_pod_is_none(&pod));
+		spa_assert_se(SPA_POD_SIZE(&pod) == 8);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_None);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 0);
+		spa_assert_se(SPA_POD_CONTENTS_SIZE(struct spa_pod, &pod) == 0);
+		spa_assert_se(spa_pod_is_none(&pod));
 	}
 	{
 		struct spa_pod_bool pod = SPA_POD_INIT_Bool(true);
 		bool val;
 
-		spa_assert(SPA_POD_SIZE(&pod) == 12);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Bool);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 4);
-		spa_assert(SPA_POD_VALUE(struct spa_pod_bool, &pod) == true);
-		spa_assert(spa_pod_is_bool(&pod.pod));
-		spa_assert(spa_pod_get_bool(&pod.pod, &val) == 0);
-		spa_assert(val == true);
+		spa_assert_se(SPA_POD_SIZE(&pod) == 12);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Bool);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 4);
+		spa_assert_se(SPA_POD_VALUE(struct spa_pod_bool, &pod) == true);
+		spa_assert_se(spa_pod_is_bool(&pod.pod));
+		spa_assert_se(spa_pod_get_bool(&pod.pod, &val) == 0);
+		spa_assert_se(val == true);
 
 		pod = SPA_POD_INIT_Bool(false);
-		spa_assert(SPA_POD_SIZE(&pod) == 12);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Bool);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 4);
-		spa_assert(SPA_POD_VALUE(struct spa_pod_bool, &pod) == false);
-		spa_assert(spa_pod_is_bool(&pod.pod));
-		spa_assert(spa_pod_get_bool(&pod.pod, &val) == 0);
-		spa_assert(val == false);
+		spa_assert_se(SPA_POD_SIZE(&pod) == 12);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Bool);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 4);
+		spa_assert_se(SPA_POD_VALUE(struct spa_pod_bool, &pod) == false);
+		spa_assert_se(spa_pod_is_bool(&pod.pod));
+		spa_assert_se(spa_pod_get_bool(&pod.pod, &val) == 0);
+		spa_assert_se(val == false);
 
 		pod.pod = SPA_POD_INIT(0, SPA_TYPE_Bool);
-		spa_assert(!spa_pod_is_bool(&pod.pod));
-		spa_assert(spa_pod_get_bool(&pod.pod, &val) < 0);
+		spa_assert_se(!spa_pod_is_bool(&pod.pod));
+		spa_assert_se(spa_pod_get_bool(&pod.pod, &val) < 0);
 	}
 	{
 		struct spa_pod_id pod = SPA_POD_INIT_Id(SPA_TYPE_Int);
 		uint32_t val;
 
-		spa_assert(SPA_POD_SIZE(&pod) == 12);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Id);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 4);
-		spa_assert(SPA_POD_VALUE(struct spa_pod_id, &pod) == SPA_TYPE_Int);
-		spa_assert(spa_pod_is_id(&pod.pod));
-		spa_assert(spa_pod_get_id(&pod.pod, &val) == 0);
-		spa_assert(val == SPA_TYPE_Int);
+		spa_assert_se(SPA_POD_SIZE(&pod) == 12);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Id);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 4);
+		spa_assert_se(SPA_POD_VALUE(struct spa_pod_id, &pod) == SPA_TYPE_Int);
+		spa_assert_se(spa_pod_is_id(&pod.pod));
+		spa_assert_se(spa_pod_get_id(&pod.pod, &val) == 0);
+		spa_assert_se(val == SPA_TYPE_Int);
 
 		pod = SPA_POD_INIT_Id(SPA_TYPE_Long);
-		spa_assert(SPA_POD_SIZE(&pod) == 12);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Id);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 4);
-		spa_assert(SPA_POD_VALUE(struct spa_pod_id, &pod) == SPA_TYPE_Long);
-		spa_assert(spa_pod_is_id(&pod.pod));
-		spa_assert(spa_pod_get_id(&pod.pod, &val) == 0);
-		spa_assert(val == SPA_TYPE_Long);
+		spa_assert_se(SPA_POD_SIZE(&pod) == 12);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Id);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 4);
+		spa_assert_se(SPA_POD_VALUE(struct spa_pod_id, &pod) == SPA_TYPE_Long);
+		spa_assert_se(spa_pod_is_id(&pod.pod));
+		spa_assert_se(spa_pod_get_id(&pod.pod, &val) == 0);
+		spa_assert_se(val == SPA_TYPE_Long);
 
 		pod.pod = SPA_POD_INIT(0, SPA_TYPE_Id);
-		spa_assert(!spa_pod_is_id(&pod.pod));
-		spa_assert(spa_pod_get_id(&pod.pod, &val) < 0);
+		spa_assert_se(!spa_pod_is_id(&pod.pod));
+		spa_assert_se(spa_pod_get_id(&pod.pod, &val) < 0);
 	}
 	{
 		struct spa_pod_int pod = SPA_POD_INIT_Int(23);
 		int32_t val;
 
-		spa_assert(SPA_POD_SIZE(&pod) == 12);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Int);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 4);
-		spa_assert(SPA_POD_VALUE(struct spa_pod_int, &pod) == 23);
-		spa_assert(spa_pod_is_int(&pod.pod));
-		spa_assert(spa_pod_get_int(&pod.pod, &val) == 0);
-		spa_assert(val == 23);
+		spa_assert_se(SPA_POD_SIZE(&pod) == 12);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Int);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 4);
+		spa_assert_se(SPA_POD_VALUE(struct spa_pod_int, &pod) == 23);
+		spa_assert_se(spa_pod_is_int(&pod.pod));
+		spa_assert_se(spa_pod_get_int(&pod.pod, &val) == 0);
+		spa_assert_se(val == 23);
 
 		pod = SPA_POD_INIT_Int(-123);
-		spa_assert(SPA_POD_SIZE(&pod) == 12);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Int);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 4);
-		spa_assert(SPA_POD_VALUE(struct spa_pod_int, &pod) == -123);
-		spa_assert(spa_pod_is_int(&pod.pod));
-		spa_assert(spa_pod_get_int(&pod.pod, &val) == 0);
-		spa_assert(val == -123);
+		spa_assert_se(SPA_POD_SIZE(&pod) == 12);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Int);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 4);
+		spa_assert_se(SPA_POD_VALUE(struct spa_pod_int, &pod) == -123);
+		spa_assert_se(spa_pod_is_int(&pod.pod));
+		spa_assert_se(spa_pod_get_int(&pod.pod, &val) == 0);
+		spa_assert_se(val == -123);
 
 		pod.pod = SPA_POD_INIT(0, SPA_TYPE_Int);
-		spa_assert(!spa_pod_is_int(&pod.pod));
-		spa_assert(spa_pod_get_int(&pod.pod, &val) < 0);
+		spa_assert_se(!spa_pod_is_int(&pod.pod));
+		spa_assert_se(spa_pod_get_int(&pod.pod, &val) < 0);
 	}
 	{
 		struct spa_pod_long pod = SPA_POD_INIT_Long(-23);
 		int64_t val;
 
-		spa_assert(SPA_POD_SIZE(&pod) == 16);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Long);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 8);
-		spa_assert(SPA_POD_VALUE(struct spa_pod_long, &pod) == -23);
-		spa_assert(spa_pod_is_long(&pod.pod));
-		spa_assert(spa_pod_get_long(&pod.pod, &val) == 0);
-		spa_assert(val == -23);
+		spa_assert_se(SPA_POD_SIZE(&pod) == 16);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Long);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 8);
+		spa_assert_se(SPA_POD_VALUE(struct spa_pod_long, &pod) == -23);
+		spa_assert_se(spa_pod_is_long(&pod.pod));
+		spa_assert_se(spa_pod_get_long(&pod.pod, &val) == 0);
+		spa_assert_se(val == -23);
 
 		pod = SPA_POD_INIT_Long(123);
-		spa_assert(SPA_POD_SIZE(&pod) == 16);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Long);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 8);
-		spa_assert(SPA_POD_VALUE(struct spa_pod_long, &pod) == 123);
-		spa_assert(spa_pod_is_long(&pod.pod));
-		spa_assert(spa_pod_get_long(&pod.pod, &val) == 0);
-		spa_assert(val == 123);
+		spa_assert_se(SPA_POD_SIZE(&pod) == 16);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Long);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 8);
+		spa_assert_se(SPA_POD_VALUE(struct spa_pod_long, &pod) == 123);
+		spa_assert_se(spa_pod_is_long(&pod.pod));
+		spa_assert_se(spa_pod_get_long(&pod.pod, &val) == 0);
+		spa_assert_se(val == 123);
 
 		pod.pod = SPA_POD_INIT(0, SPA_TYPE_Long);
-		spa_assert(!spa_pod_is_long(&pod.pod));
-		spa_assert(spa_pod_get_long(&pod.pod, &val) < 0);
+		spa_assert_se(!spa_pod_is_long(&pod.pod));
+		spa_assert_se(spa_pod_get_long(&pod.pod, &val) < 0);
 	}
 	{
 		struct spa_pod_float pod = SPA_POD_INIT_Float(0.67f);
 		float val;
 
-		spa_assert(SPA_POD_SIZE(&pod) == 12);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Float);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 4);
-		spa_assert(SPA_POD_VALUE(struct spa_pod_float, &pod) == 0.67f);
-		spa_assert(spa_pod_is_float(&pod.pod));
-		spa_assert(spa_pod_get_float(&pod.pod, &val) == 0);
-		spa_assert(val == 0.67f);
+		spa_assert_se(SPA_POD_SIZE(&pod) == 12);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Float);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 4);
+		spa_assert_se(SPA_POD_VALUE(struct spa_pod_float, &pod) == 0.67f);
+		spa_assert_se(spa_pod_is_float(&pod.pod));
+		spa_assert_se(spa_pod_get_float(&pod.pod, &val) == 0);
+		spa_assert_se(val == 0.67f);
 
 		pod = SPA_POD_INIT_Float(-134.8f);
-		spa_assert(SPA_POD_SIZE(&pod) == 12);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Float);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 4);
-		spa_assert(SPA_POD_VALUE(struct spa_pod_float, &pod) == -134.8f);
-		spa_assert(spa_pod_is_float(&pod.pod));
-		spa_assert(spa_pod_get_float(&pod.pod, &val) == 0);
-		spa_assert(val == -134.8f);
+		spa_assert_se(SPA_POD_SIZE(&pod) == 12);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Float);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 4);
+		spa_assert_se(SPA_POD_VALUE(struct spa_pod_float, &pod) == -134.8f);
+		spa_assert_se(spa_pod_is_float(&pod.pod));
+		spa_assert_se(spa_pod_get_float(&pod.pod, &val) == 0);
+		spa_assert_se(val == -134.8f);
 
 		pod.pod = SPA_POD_INIT(0, SPA_TYPE_Float);
-		spa_assert(!spa_pod_is_float(&pod.pod));
-		spa_assert(spa_pod_get_float(&pod.pod, &val) < 0);
+		spa_assert_se(!spa_pod_is_float(&pod.pod));
+		spa_assert_se(spa_pod_get_float(&pod.pod, &val) < 0);
 	}
 	{
 		struct spa_pod_double pod = SPA_POD_INIT_Double(0.67);
 		double val;
 
-		spa_assert(SPA_POD_SIZE(&pod) == 16);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Double);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 8);
-		spa_assert(SPA_POD_VALUE(struct spa_pod_double, &pod) == 0.67);
-		spa_assert(spa_pod_is_double(&pod.pod));
-		spa_assert(spa_pod_get_double(&pod.pod, &val) == 0);
-		spa_assert(val == 0.67);
+		spa_assert_se(SPA_POD_SIZE(&pod) == 16);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Double);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 8);
+		spa_assert_se(SPA_POD_VALUE(struct spa_pod_double, &pod) == 0.67);
+		spa_assert_se(spa_pod_is_double(&pod.pod));
+		spa_assert_se(spa_pod_get_double(&pod.pod, &val) == 0);
+		spa_assert_se(val == 0.67);
 
 		pod = SPA_POD_INIT_Double(-134.8);
-		spa_assert(SPA_POD_SIZE(&pod) == 16);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Double);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 8);
-		spa_assert(SPA_POD_VALUE(struct spa_pod_double, &pod) == -134.8);
-		spa_assert(spa_pod_is_double(&pod.pod));
-		spa_assert(spa_pod_get_double(&pod.pod, &val) == 0);
-		spa_assert(val == -134.8);
+		spa_assert_se(SPA_POD_SIZE(&pod) == 16);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Double);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 8);
+		spa_assert_se(SPA_POD_VALUE(struct spa_pod_double, &pod) == -134.8);
+		spa_assert_se(spa_pod_is_double(&pod.pod));
+		spa_assert_se(spa_pod_get_double(&pod.pod, &val) == 0);
+		spa_assert_se(val == -134.8);
 
 		pod.pod = SPA_POD_INIT(0, SPA_TYPE_Double);
-		spa_assert(!spa_pod_is_double(&pod.pod));
-		spa_assert(spa_pod_get_double(&pod.pod, &val) < 0);
+		spa_assert_se(!spa_pod_is_double(&pod.pod));
+		spa_assert_se(spa_pod_get_double(&pod.pod, &val) < 0);
 	}
 	{
 		struct {
@@ -292,55 +292,55 @@ PWTEST(pod_init)
 		pod.pod	= SPA_POD_INIT_String(9);
 		strncpy(pod.str, "test", 9);
 
-		spa_assert(SPA_POD_SIZE(&pod) == 17);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_String);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 9);
-		spa_assert(spa_pod_is_string(&pod.pod.pod));
-		spa_assert(spa_pod_copy_string(&pod.pod.pod, sizeof(val), val) == 0);
-		spa_assert(spa_streq(pod.str, val));
+		spa_assert_se(SPA_POD_SIZE(&pod) == 17);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_String);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 9);
+		spa_assert_se(spa_pod_is_string(&pod.pod.pod));
+		spa_assert_se(spa_pod_copy_string(&pod.pod.pod, sizeof(val), val) == 0);
+		spa_assert_se(spa_streq(pod.str, val));
 
 		pod.pod	= SPA_POD_INIT_String(6);
 		memcpy(pod.str, "test123456789", 9);
 
-		spa_assert(SPA_POD_SIZE(&pod) == 14);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_String);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 6);
-		spa_assert(!spa_pod_is_string(&pod.pod.pod));
-		spa_assert(spa_pod_copy_string(&pod.pod.pod, sizeof(val), val) < 0);
+		spa_assert_se(SPA_POD_SIZE(&pod) == 14);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_String);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 6);
+		spa_assert_se(!spa_pod_is_string(&pod.pod.pod));
+		spa_assert_se(spa_pod_copy_string(&pod.pod.pod, sizeof(val), val) < 0);
 	}
 	{
 		struct spa_pod_rectangle pod = SPA_POD_INIT_Rectangle(SPA_RECTANGLE(320,240));
 		struct spa_rectangle val;
 
-		spa_assert(SPA_POD_SIZE(&pod) == 16);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Rectangle);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 8);
-		spa_assert(memcmp(&SPA_POD_VALUE(struct spa_pod_rectangle, &pod),
+		spa_assert_se(SPA_POD_SIZE(&pod) == 16);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Rectangle);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 8);
+		spa_assert_se(memcmp(&SPA_POD_VALUE(struct spa_pod_rectangle, &pod),
 					&SPA_RECTANGLE(320,240), sizeof(struct spa_rectangle)) == 0);
-		spa_assert(spa_pod_is_rectangle(&pod.pod));
-		spa_assert(spa_pod_get_rectangle(&pod.pod, &val) == 0);
-		spa_assert(memcmp(&val, &SPA_RECTANGLE(320,240), sizeof(struct spa_rectangle)) == 0);
+		spa_assert_se(spa_pod_is_rectangle(&pod.pod));
+		spa_assert_se(spa_pod_get_rectangle(&pod.pod, &val) == 0);
+		spa_assert_se(memcmp(&val, &SPA_RECTANGLE(320,240), sizeof(struct spa_rectangle)) == 0);
 
 		pod.pod = SPA_POD_INIT(0, SPA_TYPE_Rectangle);
-		spa_assert(!spa_pod_is_rectangle(&pod.pod));
-		spa_assert(spa_pod_get_rectangle(&pod.pod, &val) < 0);
+		spa_assert_se(!spa_pod_is_rectangle(&pod.pod));
+		spa_assert_se(spa_pod_get_rectangle(&pod.pod, &val) < 0);
 	}
 	{
 		struct spa_pod_fraction pod = SPA_POD_INIT_Fraction(SPA_FRACTION(25,1));
 		struct spa_fraction val;
 
-		spa_assert(SPA_POD_SIZE(&pod) == 16);
-		spa_assert(SPA_POD_TYPE(&pod) == SPA_TYPE_Fraction);
-		spa_assert(SPA_POD_BODY_SIZE(&pod) == 8);
-		spa_assert(memcmp(&SPA_POD_VALUE(struct spa_pod_fraction, &pod),
+		spa_assert_se(SPA_POD_SIZE(&pod) == 16);
+		spa_assert_se(SPA_POD_TYPE(&pod) == SPA_TYPE_Fraction);
+		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 8);
+		spa_assert_se(memcmp(&SPA_POD_VALUE(struct spa_pod_fraction, &pod),
 					&SPA_FRACTION(25,1), sizeof(struct spa_fraction)) == 0);
-		spa_assert(spa_pod_is_fraction(&pod.pod));
-		spa_assert(spa_pod_get_fraction(&pod.pod, &val) == 0);
-		spa_assert(memcmp(&val, &SPA_FRACTION(25,1), sizeof(struct spa_fraction)) == 0);
+		spa_assert_se(spa_pod_is_fraction(&pod.pod));
+		spa_assert_se(spa_pod_get_fraction(&pod.pod, &val) == 0);
+		spa_assert_se(memcmp(&val, &SPA_FRACTION(25,1), sizeof(struct spa_fraction)) == 0);
 
 		pod.pod = SPA_POD_INIT(0, SPA_TYPE_Fraction);
-		spa_assert(!spa_pod_is_fraction(&pod.pod));
-		spa_assert(spa_pod_get_fraction(&pod.pod, &val) < 0);
+		spa_assert_se(!spa_pod_is_fraction(&pod.pod));
+		spa_assert_se(spa_pod_get_fraction(&pod.pod, &val) < 0);
 	}
 	return PWTEST_PASS;
 }
@@ -371,247 +371,247 @@ PWTEST(pod_build)
 	struct spa_pod_frame f;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_assert(b.data == buffer);
-	spa_assert(b.size == sizeof(buffer));
-	spa_assert(b.state.offset == 0);
-	spa_assert(b.state.flags == 0);
+	spa_assert_se(b.data == buffer);
+	spa_assert_se(b.size == sizeof(buffer));
+	spa_assert_se(b.state.offset == 0);
+	spa_assert_se(b.state.flags == 0);
 
-	spa_assert(spa_pod_builder_none(&b) == 0);
-	spa_assert(b.state.offset == 8);
-	spa_assert(spa_pod_builder_bool(&b, true) == 0);
-	spa_assert(b.state.offset == 24);
-	spa_assert(spa_pod_builder_id(&b, SPA_TYPE_Object) == 0);
-	spa_assert(b.state.offset == 40);
-	spa_assert(spa_pod_builder_int(&b, 21) == 0);
-	spa_assert(b.state.offset == 56);
-	spa_assert(spa_pod_builder_float(&b, 0.8f) == 0);
-	spa_assert(b.state.offset == 72);
-	spa_assert(spa_pod_builder_double(&b, -1.56) == 0);
-	spa_assert(b.state.offset == 88);
-	spa_assert(spa_pod_builder_string(&b, "test") == 0);
-	spa_assert(b.state.offset == 104);
-	spa_assert(spa_pod_builder_bytes(&b, "PipeWire", 8) == 0);
-	spa_assert(b.state.offset == 120);
-	spa_assert(spa_pod_builder_pointer(&b, SPA_TYPE_Object, &b) == 0);
-	spa_assert(b.state.offset == 144);
-	spa_assert(spa_pod_builder_fd(&b, 4) == 0);
-	spa_assert(b.state.offset == 160);
-	spa_assert(spa_pod_builder_rectangle(&b, 320, 240) == 0);
-	spa_assert(b.state.offset == 176);
-	spa_assert(spa_pod_builder_fraction(&b, 25, 1) == 0);
+	spa_assert_se(spa_pod_builder_none(&b) == 0);
+	spa_assert_se(b.state.offset == 8);
+	spa_assert_se(spa_pod_builder_bool(&b, true) == 0);
+	spa_assert_se(b.state.offset == 24);
+	spa_assert_se(spa_pod_builder_id(&b, SPA_TYPE_Object) == 0);
+	spa_assert_se(b.state.offset == 40);
+	spa_assert_se(spa_pod_builder_int(&b, 21) == 0);
+	spa_assert_se(b.state.offset == 56);
+	spa_assert_se(spa_pod_builder_float(&b, 0.8f) == 0);
+	spa_assert_se(b.state.offset == 72);
+	spa_assert_se(spa_pod_builder_double(&b, -1.56) == 0);
+	spa_assert_se(b.state.offset == 88);
+	spa_assert_se(spa_pod_builder_string(&b, "test") == 0);
+	spa_assert_se(b.state.offset == 104);
+	spa_assert_se(spa_pod_builder_bytes(&b, "PipeWire", 8) == 0);
+	spa_assert_se(b.state.offset == 120);
+	spa_assert_se(spa_pod_builder_pointer(&b, SPA_TYPE_Object, &b) == 0);
+	spa_assert_se(b.state.offset == 144);
+	spa_assert_se(spa_pod_builder_fd(&b, 4) == 0);
+	spa_assert_se(b.state.offset == 160);
+	spa_assert_se(spa_pod_builder_rectangle(&b, 320, 240) == 0);
+	spa_assert_se(b.state.offset == 176);
+	spa_assert_se(spa_pod_builder_fraction(&b, 25, 1) == 0);
 
-	spa_assert(b.state.offset == 192);
-	spa_assert(spa_pod_builder_push_array(&b, &f) == 0);
-	spa_assert(f.offset == 192);
-	spa_assert(b.state.flags == (SPA_POD_BUILDER_FLAG_BODY | SPA_POD_BUILDER_FLAG_FIRST));
-	spa_assert(b.state.offset == 200);
-	spa_assert(spa_pod_builder_int(&b, 1) == 0);
-	spa_assert(b.state.flags == SPA_POD_BUILDER_FLAG_BODY);
-	spa_assert(b.state.offset == 212);
-	spa_assert(spa_pod_builder_int(&b, 2) == 0);
-	spa_assert(b.state.offset == 216);
-	spa_assert(spa_pod_builder_int(&b, 3) == 0);
+	spa_assert_se(b.state.offset == 192);
+	spa_assert_se(spa_pod_builder_push_array(&b, &f) == 0);
+	spa_assert_se(f.offset == 192);
+	spa_assert_se(b.state.flags == (SPA_POD_BUILDER_FLAG_BODY | SPA_POD_BUILDER_FLAG_FIRST));
+	spa_assert_se(b.state.offset == 200);
+	spa_assert_se(spa_pod_builder_int(&b, 1) == 0);
+	spa_assert_se(b.state.flags == SPA_POD_BUILDER_FLAG_BODY);
+	spa_assert_se(b.state.offset == 212);
+	spa_assert_se(spa_pod_builder_int(&b, 2) == 0);
+	spa_assert_se(b.state.offset == 216);
+	spa_assert_se(spa_pod_builder_int(&b, 3) == 0);
 	array = spa_pod_builder_pop(&b, &f);
-	spa_assert(f.pod.size == 20);
-	spa_assert(array != NULL);
-	spa_assert(SPA_POD_BODY_SIZE(array) == 8 + 12);
-	spa_assert(b.state.flags == 0);
+	spa_assert_se(f.pod.size == 20);
+	spa_assert_se(array != NULL);
+	spa_assert_se(SPA_POD_BODY_SIZE(array) == 8 + 12);
+	spa_assert_se(b.state.flags == 0);
 
-	spa_assert(b.state.offset == 224);
-	spa_assert(spa_pod_builder_array(&b,
+	spa_assert_se(b.state.offset == 224);
+	spa_assert_se(spa_pod_builder_array(&b,
 				sizeof(int64_t), SPA_TYPE_Long,
 				SPA_N_ELEMENTS(longs), longs) == 0);
-	spa_assert(b.state.flags == 0);
+	spa_assert_se(b.state.flags == 0);
 
-	spa_assert(b.state.offset == 280);
-	spa_assert(spa_pod_builder_push_choice(&b, &f, SPA_CHOICE_Enum, 0) == 0);
-	spa_assert(b.state.flags == (SPA_POD_BUILDER_FLAG_BODY | SPA_POD_BUILDER_FLAG_FIRST));
-	spa_assert(b.state.offset == 296);
-	spa_assert(spa_pod_builder_long(&b, 1) == 0);
-	spa_assert(b.state.flags == SPA_POD_BUILDER_FLAG_BODY);
-	spa_assert(b.state.offset == 312);
-	spa_assert(spa_pod_builder_long(&b, 2) == 0);
-	spa_assert(b.state.offset == 320);
-	spa_assert(spa_pod_builder_long(&b, 3) == 0);
+	spa_assert_se(b.state.offset == 280);
+	spa_assert_se(spa_pod_builder_push_choice(&b, &f, SPA_CHOICE_Enum, 0) == 0);
+	spa_assert_se(b.state.flags == (SPA_POD_BUILDER_FLAG_BODY | SPA_POD_BUILDER_FLAG_FIRST));
+	spa_assert_se(b.state.offset == 296);
+	spa_assert_se(spa_pod_builder_long(&b, 1) == 0);
+	spa_assert_se(b.state.flags == SPA_POD_BUILDER_FLAG_BODY);
+	spa_assert_se(b.state.offset == 312);
+	spa_assert_se(spa_pod_builder_long(&b, 2) == 0);
+	spa_assert_se(b.state.offset == 320);
+	spa_assert_se(spa_pod_builder_long(&b, 3) == 0);
 	choice = spa_pod_builder_pop(&b, &f);
-	spa_assert(choice != NULL);
-	spa_assert(b.state.flags == 0);
+	spa_assert_se(choice != NULL);
+	spa_assert_se(b.state.flags == 0);
 
-	spa_assert(b.state.offset == 328);
-	spa_assert(spa_pod_builder_push_struct(&b, &f) == 0);
-	spa_assert(b.state.flags == 0);
-	spa_assert(b.state.offset == 336);
-	spa_assert(spa_pod_builder_int(&b, 21) == 0);
-	spa_assert(b.state.offset == 352);
-	spa_assert(spa_pod_builder_float(&b, 0.8f) == 0);
-	spa_assert(b.state.offset == 368);
-	spa_assert(spa_pod_builder_double(&b, -1.56) == 0);
-	spa_assert(spa_pod_builder_pop(&b, &f) != NULL);
+	spa_assert_se(b.state.offset == 328);
+	spa_assert_se(spa_pod_builder_push_struct(&b, &f) == 0);
+	spa_assert_se(b.state.flags == 0);
+	spa_assert_se(b.state.offset == 336);
+	spa_assert_se(spa_pod_builder_int(&b, 21) == 0);
+	spa_assert_se(b.state.offset == 352);
+	spa_assert_se(spa_pod_builder_float(&b, 0.8f) == 0);
+	spa_assert_se(b.state.offset == 368);
+	spa_assert_se(spa_pod_builder_double(&b, -1.56) == 0);
+	spa_assert_se(spa_pod_builder_pop(&b, &f) != NULL);
 
-	spa_assert(b.state.offset == 384);
-	spa_assert(spa_pod_builder_push_object(&b, &f, SPA_TYPE_OBJECT_Props, 0) == 0);
-	spa_assert(b.state.flags == 0);
-	spa_assert(b.state.offset == 400);
-	spa_assert(spa_pod_builder_prop(&b, 1, 0) == 0);
-	spa_assert(b.state.flags == 0);
-	spa_assert(b.state.offset == 408);
-	spa_assert(spa_pod_builder_int(&b, 21) == 0);
-	spa_assert(b.state.flags == 0);
-	spa_assert(b.state.offset == 424);
-	spa_assert(spa_pod_builder_prop(&b, 2, 0) == 0);
-	spa_assert(b.state.flags == 0);
-	spa_assert(b.state.offset == 432);
-	spa_assert(spa_pod_builder_long(&b, 42) == 0);
-	spa_assert(b.state.flags == 0);
-	spa_assert(b.state.offset == 448);
-	spa_assert(spa_pod_builder_prop(&b, 3, 0) == 0);
-	spa_assert(b.state.offset == 456);
-	spa_assert(spa_pod_builder_string(&b, "test123") == 0);
-	spa_assert(spa_pod_builder_pop(&b, &f) != NULL);
-	spa_assert(b.state.flags == 0);
+	spa_assert_se(b.state.offset == 384);
+	spa_assert_se(spa_pod_builder_push_object(&b, &f, SPA_TYPE_OBJECT_Props, 0) == 0);
+	spa_assert_se(b.state.flags == 0);
+	spa_assert_se(b.state.offset == 400);
+	spa_assert_se(spa_pod_builder_prop(&b, 1, 0) == 0);
+	spa_assert_se(b.state.flags == 0);
+	spa_assert_se(b.state.offset == 408);
+	spa_assert_se(spa_pod_builder_int(&b, 21) == 0);
+	spa_assert_se(b.state.flags == 0);
+	spa_assert_se(b.state.offset == 424);
+	spa_assert_se(spa_pod_builder_prop(&b, 2, 0) == 0);
+	spa_assert_se(b.state.flags == 0);
+	spa_assert_se(b.state.offset == 432);
+	spa_assert_se(spa_pod_builder_long(&b, 42) == 0);
+	spa_assert_se(b.state.flags == 0);
+	spa_assert_se(b.state.offset == 448);
+	spa_assert_se(spa_pod_builder_prop(&b, 3, 0) == 0);
+	spa_assert_se(b.state.offset == 456);
+	spa_assert_se(spa_pod_builder_string(&b, "test123") == 0);
+	spa_assert_se(spa_pod_builder_pop(&b, &f) != NULL);
+	spa_assert_se(b.state.flags == 0);
 
-	spa_assert(b.state.offset == 472);
-	spa_assert(spa_pod_builder_push_sequence(&b, &f, 0) == 0);
-	spa_assert(b.state.flags == 0);
-	spa_assert(b.state.offset == 488);
-	spa_assert(spa_pod_builder_control(&b, 0, 0) == 0);
-	spa_assert(b.state.flags == 0);
-	spa_assert(b.state.offset == 496);
-	spa_assert(spa_pod_builder_float(&b, 0.667f) == 0);
-	spa_assert(b.state.flags == 0);
-	spa_assert(b.state.offset == 512);
-	spa_assert(spa_pod_builder_control(&b, 12, 0) == 0);
-	spa_assert(b.state.flags == 0);
-	spa_assert(b.state.offset == 520);
-	spa_assert(spa_pod_builder_double(&b, 1.22) == 0);
-	spa_assert(b.state.flags == 0);
-	spa_assert(spa_pod_builder_pop(&b, &f) != NULL);
-	spa_assert(b.state.flags == 0);
+	spa_assert_se(b.state.offset == 472);
+	spa_assert_se(spa_pod_builder_push_sequence(&b, &f, 0) == 0);
+	spa_assert_se(b.state.flags == 0);
+	spa_assert_se(b.state.offset == 488);
+	spa_assert_se(spa_pod_builder_control(&b, 0, 0) == 0);
+	spa_assert_se(b.state.flags == 0);
+	spa_assert_se(b.state.offset == 496);
+	spa_assert_se(spa_pod_builder_float(&b, 0.667f) == 0);
+	spa_assert_se(b.state.flags == 0);
+	spa_assert_se(b.state.offset == 512);
+	spa_assert_se(spa_pod_builder_control(&b, 12, 0) == 0);
+	spa_assert_se(b.state.flags == 0);
+	spa_assert_se(b.state.offset == 520);
+	spa_assert_se(spa_pod_builder_double(&b, 1.22) == 0);
+	spa_assert_se(b.state.flags == 0);
+	spa_assert_se(spa_pod_builder_pop(&b, &f) != NULL);
+	spa_assert_se(b.state.flags == 0);
 
-	spa_assert(b.state.offset == 536);
+	spa_assert_se(b.state.offset == 536);
 
 	len = b.state.offset;
 	pod = head = (struct spa_pod *)buffer;
 
-	spa_assert(spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_none(pod));
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_bool(pod));
-	spa_assert(spa_pod_get_bool(pod, &val.b) == 0);
-	spa_assert(val.b == true);
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_id(pod));
-	spa_assert(spa_pod_get_id(pod, &val.I) == 0);
-	spa_assert(val.I == SPA_TYPE_Object);
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_int(pod));
-	spa_assert(spa_pod_get_int(pod, &val.i) == 0);
-	spa_assert(val.i == 21);
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_float(pod));
-	spa_assert(spa_pod_get_float(pod, &val.f) == 0);
-	spa_assert(val.f == 0.8f);
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_double(pod));
-	spa_assert(spa_pod_get_double(pod, &val.d) == 0);
-	spa_assert(val.d == -1.56);
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_string(pod));
-	spa_assert(spa_pod_get_string(pod, &val.s) == 0);
-	spa_assert(spa_streq(val.s, "test"));
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_bytes(pod));
-	spa_assert(spa_pod_get_bytes(pod, &val.y, &yl) == 0);
-	spa_assert(yl == 8);
-	spa_assert(memcmp(val.y, "PipeWire", yl) == 0);
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_pointer(pod));
-	spa_assert(spa_pod_get_pointer(pod, &yl, &val.p) == 0);
-	spa_assert(yl == SPA_TYPE_Object);
-	spa_assert(val.p == &b);
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_fd(pod));
-	spa_assert(spa_pod_get_fd(pod, &val.l) == 0);
-	spa_assert(val.l == 4);
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_rectangle(pod));
-	spa_assert(spa_pod_get_rectangle(pod, &val.R) == 0);
-	spa_assert(memcmp(&val.R, &SPA_RECTANGLE(320,240), sizeof(struct spa_rectangle)) == 0);
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_fraction(pod));
-	spa_assert(spa_pod_get_fraction(pod, &val.F) == 0);
-	spa_assert(memcmp(&val.F, &SPA_FRACTION(25,1), sizeof(struct spa_fraction)) == 0);
+	spa_assert_se(spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_none(pod));
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_bool(pod));
+	spa_assert_se(spa_pod_get_bool(pod, &val.b) == 0);
+	spa_assert_se(val.b == true);
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_id(pod));
+	spa_assert_se(spa_pod_get_id(pod, &val.I) == 0);
+	spa_assert_se(val.I == SPA_TYPE_Object);
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_int(pod));
+	spa_assert_se(spa_pod_get_int(pod, &val.i) == 0);
+	spa_assert_se(val.i == 21);
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_float(pod));
+	spa_assert_se(spa_pod_get_float(pod, &val.f) == 0);
+	spa_assert_se(val.f == 0.8f);
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_double(pod));
+	spa_assert_se(spa_pod_get_double(pod, &val.d) == 0);
+	spa_assert_se(val.d == -1.56);
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_string(pod));
+	spa_assert_se(spa_pod_get_string(pod, &val.s) == 0);
+	spa_assert_se(spa_streq(val.s, "test"));
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_bytes(pod));
+	spa_assert_se(spa_pod_get_bytes(pod, &val.y, &yl) == 0);
+	spa_assert_se(yl == 8);
+	spa_assert_se(memcmp(val.y, "PipeWire", yl) == 0);
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_pointer(pod));
+	spa_assert_se(spa_pod_get_pointer(pod, &yl, &val.p) == 0);
+	spa_assert_se(yl == SPA_TYPE_Object);
+	spa_assert_se(val.p == &b);
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_fd(pod));
+	spa_assert_se(spa_pod_get_fd(pod, &val.l) == 0);
+	spa_assert_se(val.l == 4);
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_rectangle(pod));
+	spa_assert_se(spa_pod_get_rectangle(pod, &val.R) == 0);
+	spa_assert_se(memcmp(&val.R, &SPA_RECTANGLE(320,240), sizeof(struct spa_rectangle)) == 0);
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_fraction(pod));
+	spa_assert_se(spa_pod_get_fraction(pod, &val.F) == 0);
+	spa_assert_se(memcmp(&val.F, &SPA_FRACTION(25,1), sizeof(struct spa_fraction)) == 0);
 
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_array(pod));
-	spa_assert(SPA_POD_ARRAY_VALUE_TYPE(pod) == SPA_TYPE_Int);
-	spa_assert(SPA_POD_ARRAY_VALUE_SIZE(pod) == sizeof(int32_t));
-	spa_assert(SPA_POD_ARRAY_N_VALUES(pod) == 3);
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_array(pod));
+	spa_assert_se(SPA_POD_ARRAY_VALUE_TYPE(pod) == SPA_TYPE_Int);
+	spa_assert_se(SPA_POD_ARRAY_VALUE_SIZE(pod) == sizeof(int32_t));
+	spa_assert_se(SPA_POD_ARRAY_N_VALUES(pod) == 3);
 	ai = SPA_POD_ARRAY_VALUES(pod);
-	spa_assert(ai != NULL);
-	spa_assert(SPA_POD_ARRAY_CHILD(pod)->type == SPA_TYPE_Int);
-	spa_assert(SPA_POD_ARRAY_CHILD(pod)->size == sizeof(int32_t));
-	spa_assert(ai[0] == 1);
-	spa_assert(ai[1] == 2);
-	spa_assert(ai[2] == 3);
+	spa_assert_se(ai != NULL);
+	spa_assert_se(SPA_POD_ARRAY_CHILD(pod)->type == SPA_TYPE_Int);
+	spa_assert_se(SPA_POD_ARRAY_CHILD(pod)->size == sizeof(int32_t));
+	spa_assert_se(ai[0] == 1);
+	spa_assert_se(ai[1] == 2);
+	spa_assert_se(ai[2] == 3);
 	i = 1;
 	SPA_POD_ARRAY_FOREACH((struct spa_pod_array*)pod, ai) {
-		spa_assert(*ai == i);
+		spa_assert_se(*ai == i);
 		i++;
 	}
 
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_array(pod));
-	spa_assert(SPA_POD_ARRAY_VALUE_TYPE(pod) == SPA_TYPE_Long);
-	spa_assert(SPA_POD_ARRAY_VALUE_SIZE(pod) == sizeof(int64_t));
-	spa_assert(SPA_POD_ARRAY_N_VALUES(pod) == SPA_N_ELEMENTS(longs));
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_array(pod));
+	spa_assert_se(SPA_POD_ARRAY_VALUE_TYPE(pod) == SPA_TYPE_Long);
+	spa_assert_se(SPA_POD_ARRAY_VALUE_SIZE(pod) == sizeof(int64_t));
+	spa_assert_se(SPA_POD_ARRAY_N_VALUES(pod) == SPA_N_ELEMENTS(longs));
 	al = SPA_POD_ARRAY_VALUES(pod);
-	spa_assert(al != NULL);
-	spa_assert(SPA_POD_ARRAY_CHILD(pod)->type == SPA_TYPE_Long);
-	spa_assert(SPA_POD_ARRAY_CHILD(pod)->size == sizeof(int64_t));
+	spa_assert_se(al != NULL);
+	spa_assert_se(SPA_POD_ARRAY_CHILD(pod)->type == SPA_TYPE_Long);
+	spa_assert_se(SPA_POD_ARRAY_CHILD(pod)->size == sizeof(int64_t));
 	for (i = 0; i < SPA_N_ELEMENTS(longs); i++)
-		spa_assert(al[i] == longs[i]);
+		spa_assert_se(al[i] == longs[i]);
 	i = 0;
 	SPA_POD_ARRAY_FOREACH((struct spa_pod_array*)pod, al) {
-		spa_assert(*al == longs[i++]);
+		spa_assert_se(*al == longs[i++]);
 	}
 
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_choice(pod));
-	spa_assert(SPA_POD_CHOICE_TYPE(pod) == SPA_CHOICE_Enum);
-	spa_assert(SPA_POD_CHOICE_FLAGS(pod) == 0);
-	spa_assert(SPA_POD_CHOICE_VALUE_TYPE(pod) == SPA_TYPE_Long);
-	spa_assert(SPA_POD_CHOICE_VALUE_SIZE(pod) == sizeof(int64_t));
-	spa_assert(SPA_POD_CHOICE_N_VALUES(pod) == 3);
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_choice(pod));
+	spa_assert_se(SPA_POD_CHOICE_TYPE(pod) == SPA_CHOICE_Enum);
+	spa_assert_se(SPA_POD_CHOICE_FLAGS(pod) == 0);
+	spa_assert_se(SPA_POD_CHOICE_VALUE_TYPE(pod) == SPA_TYPE_Long);
+	spa_assert_se(SPA_POD_CHOICE_VALUE_SIZE(pod) == sizeof(int64_t));
+	spa_assert_se(SPA_POD_CHOICE_N_VALUES(pod) == 3);
 	al = SPA_POD_CHOICE_VALUES(pod);
-	spa_assert(al != NULL);
-	spa_assert(SPA_POD_CHOICE_CHILD(pod)->type == SPA_TYPE_Long);
-	spa_assert(SPA_POD_CHOICE_CHILD(pod)->size == sizeof(int64_t));
-	spa_assert(al[0] == 1);
-	spa_assert(al[1] == 2);
-	spa_assert(al[2] == 3);
+	spa_assert_se(al != NULL);
+	spa_assert_se(SPA_POD_CHOICE_CHILD(pod)->type == SPA_TYPE_Long);
+	spa_assert_se(SPA_POD_CHOICE_CHILD(pod)->size == sizeof(int64_t));
+	spa_assert_se(al[0] == 1);
+	spa_assert_se(al[1] == 2);
+	spa_assert_se(al[2] == 3);
 	i = 1;
 	SPA_POD_CHOICE_FOREACH((struct spa_pod_choice*)pod, al) {
-		spa_assert(*al == i);
+		spa_assert_se(*al == i);
 		i++;
 	}
 
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_struct(pod));
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_struct(pod));
 	i = 0;
 	SPA_POD_STRUCT_FOREACH(pod, it) {
 		switch (i++) {
 		case 0:
-			spa_assert(spa_pod_is_int(it));
-			spa_assert(spa_pod_get_int(it, &val.i) == 0 && val.i == 21);
+			spa_assert_se(spa_pod_is_int(it));
+			spa_assert_se(spa_pod_get_int(it, &val.i) == 0 && val.i == 21);
 			break;
 		case 1:
-			spa_assert(spa_pod_is_float(it));
-			spa_assert(spa_pod_get_float(it, &val.f) == 0 && val.f == 0.8f);
+			spa_assert_se(spa_pod_is_float(it));
+			spa_assert_se(spa_pod_get_float(it, &val.f) == 0 && val.f == 0.8f);
 			break;
 		case 2:
-			spa_assert(spa_pod_is_double(it));
-			spa_assert(spa_pod_get_double(it, &val.d) == 0 && val.d == -1.56);
+			spa_assert_se(spa_pod_is_double(it));
+			spa_assert_se(spa_pod_get_double(it, &val.d) == 0 && val.d == -1.56);
 			break;
 		default:
 			spa_assert_not_reached();
@@ -619,27 +619,27 @@ PWTEST(pod_build)
 		}
 	}
 
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_object(pod));
-	spa_assert(spa_pod_is_object_type(pod, SPA_TYPE_OBJECT_Props));
-	spa_assert(spa_pod_is_object_id(pod, 0));
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_object(pod));
+	spa_assert_se(spa_pod_is_object_type(pod, SPA_TYPE_OBJECT_Props));
+	spa_assert_se(spa_pod_is_object_id(pod, 0));
 	i = 0;
 	SPA_POD_OBJECT_FOREACH((const struct spa_pod_object*)pod, prop) {
 		switch (i++) {
 		case 0:
-			spa_assert(prop->key == 1);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 20);
-			spa_assert(spa_pod_get_int(&prop->value, &val.i) == 0 && val.i == 21);
+			spa_assert_se(prop->key == 1);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 20);
+			spa_assert_se(spa_pod_get_int(&prop->value, &val.i) == 0 && val.i == 21);
 			break;
 		case 1:
-			spa_assert(prop->key == 2);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 24);
-			spa_assert(spa_pod_get_long(&prop->value, &val.l) == 0 && val.l == 42);
+			spa_assert_se(prop->key == 2);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 24);
+			spa_assert_se(spa_pod_get_long(&prop->value, &val.l) == 0 && val.l == 42);
 			break;
 		case 2:
-			spa_assert(prop->key == 3);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 24);
-			spa_assert(spa_pod_get_string(&prop->value, &val.s) == 0 &&
+			spa_assert_se(prop->key == 3);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 24);
+			spa_assert_se(spa_pod_get_string(&prop->value, &val.s) == 0 &&
 					spa_streq(val.s, "test123"));
 			break;
 		default:
@@ -648,42 +648,42 @@ PWTEST(pod_build)
 		}
 	}
 	prop = spa_pod_find_prop(pod, NULL, 3);
-	spa_assert(prop != NULL);
-	spa_assert(prop->key == 3);
-	spa_assert(spa_pod_get_string(&prop->value, &val.s) == 0 &&
+	spa_assert_se(prop != NULL);
+	spa_assert_se(prop->key == 3);
+	spa_assert_se(spa_pod_get_string(&prop->value, &val.s) == 0 &&
 				spa_streq(val.s, "test123"));
 	prop = spa_pod_find_prop(pod, prop, 1);
-	spa_assert(prop != NULL);
-	spa_assert(prop->key == 1);
-	spa_assert(spa_pod_get_int(&prop->value, &val.i) == 0 && val.i == 21);
+	spa_assert_se(prop != NULL);
+	spa_assert_se(prop->key == 1);
+	spa_assert_se(spa_pod_get_int(&prop->value, &val.i) == 0 && val.i == 21);
 	prop = spa_pod_find_prop(pod, prop, 2);
-	spa_assert(prop != NULL);
-	spa_assert(prop->key == 2);
-	spa_assert(spa_pod_get_long(&prop->value, &val.l) == 0 && val.l == 42);
+	spa_assert_se(prop != NULL);
+	spa_assert_se(prop->key == 2);
+	spa_assert_se(spa_pod_get_long(&prop->value, &val.l) == 0 && val.l == 42);
 	prop = spa_pod_find_prop(pod, prop, 5);
-	spa_assert(prop == NULL);
+	spa_assert_se(prop == NULL);
 
 	prop = spa_pod_find_prop(pod, NULL, 3);
-	spa_assert(prop != NULL);
-	spa_assert(prop->key == 3);
-	spa_assert(spa_pod_get_string(&prop->value, &val.s) == 0 &&
+	spa_assert_se(prop != NULL);
+	spa_assert_se(prop->key == 3);
+	spa_assert_se(spa_pod_get_string(&prop->value, &val.s) == 0 &&
 				spa_streq(val.s, "test123"));
 
-	spa_assert((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
-	spa_assert(spa_pod_is_sequence(pod));
+	spa_assert_se((pod = spa_pod_next(pod)) != NULL && spa_pod_is_inside(head, len, pod));
+	spa_assert_se(spa_pod_is_sequence(pod));
 
 	i = 0;
 	SPA_POD_SEQUENCE_FOREACH((const struct spa_pod_sequence*)pod, control) {
 		switch (i++) {
 		case 0:
-			spa_assert(control->offset == 0);
-			spa_assert(SPA_POD_CONTROL_SIZE(control) == 20);
-			spa_assert(spa_pod_get_float(&control->value, &val.f) == 0 && val.f == 0.667f);
+			spa_assert_se(control->offset == 0);
+			spa_assert_se(SPA_POD_CONTROL_SIZE(control) == 20);
+			spa_assert_se(spa_pod_get_float(&control->value, &val.f) == 0 && val.f == 0.667f);
 			break;
 		case 1:
-			spa_assert(control->offset == 12);
-			spa_assert(SPA_POD_CONTROL_SIZE(control) == 24);
-			spa_assert(spa_pod_get_double(&control->value, &val.d) == 0 && val.d == 1.22);
+			spa_assert_se(control->offset == 12);
+			spa_assert_se(SPA_POD_CONTROL_SIZE(control) == 24);
+			spa_assert_se(spa_pod_get_double(&control->value, &val.d) == 0 && val.d == 1.22);
 			break;
 		default:
 			spa_assert_not_reached();
@@ -705,73 +705,73 @@ PWTEST(pod_empty)
 
 	/* create empty arrays */
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_assert(spa_pod_builder_push_array(&b, &f) == 0);
-	spa_assert(spa_pod_builder_child(&b, sizeof(uint32_t), SPA_TYPE_Id) == 0);
+	spa_assert_se(spa_pod_builder_push_array(&b, &f) == 0);
+	spa_assert_se(spa_pod_builder_child(&b, sizeof(uint32_t), SPA_TYPE_Id) == 0);
 	array = spa_pod_builder_pop(&b, &f);
-	spa_assert(array != NULL);
+	spa_assert_se(array != NULL);
 	spa_debug_mem(0, array, 16);
-	spa_assert(spa_pod_is_array(array));
+	spa_assert_se(spa_pod_is_array(array));
 	a2 = spa_pod_get_array(array, &n_vals);
-	spa_assert(a2 != NULL);
-	spa_assert(n_vals == 0);
+	spa_assert_se(a2 != NULL);
+	spa_assert_se(n_vals == 0);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_assert(spa_pod_builder_push_array(&b, &f) == 0);
+	spa_assert_se(spa_pod_builder_push_array(&b, &f) == 0);
 	array = spa_pod_builder_pop(&b, &f);
-	spa_assert(array != NULL);
-	spa_assert(spa_pod_is_array(array));
+	spa_assert_se(array != NULL);
+	spa_assert_se(spa_pod_is_array(array));
 	a2 = spa_pod_get_array(array, &n_vals);
-	spa_assert(a2 != NULL);
-	spa_assert(n_vals == 0);
+	spa_assert_se(a2 != NULL);
+	spa_assert_se(n_vals == 0);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_assert(spa_pod_builder_push_array(&b, &f) == 0);
-	spa_assert(spa_pod_builder_none(&b) == 0);
+	spa_assert_se(spa_pod_builder_push_array(&b, &f) == 0);
+	spa_assert_se(spa_pod_builder_none(&b) == 0);
 	array = spa_pod_builder_pop(&b, &f);
-	spa_assert(array != NULL);
-	spa_assert(spa_pod_is_array(array));
+	spa_assert_se(array != NULL);
+	spa_assert_se(spa_pod_is_array(array));
 	a2 = spa_pod_get_array(array, &n_vals);
-	spa_assert(a2 != NULL);
-	spa_assert(n_vals == 0);
+	spa_assert_se(a2 != NULL);
+	spa_assert_se(n_vals == 0);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_assert(spa_pod_builder_array(&b, 4, SPA_TYPE_Id, 0, NULL) == 0);
+	spa_assert_se(spa_pod_builder_array(&b, 4, SPA_TYPE_Id, 0, NULL) == 0);
 	array = (struct spa_pod*)buffer;
-	spa_assert(spa_pod_is_array(array));
+	spa_assert_se(spa_pod_is_array(array));
 	a2 = spa_pod_get_array(array, &n_vals);
-	spa_assert(a2 != NULL);
-	spa_assert(n_vals == 0);
+	spa_assert_se(a2 != NULL);
+	spa_assert_se(n_vals == 0);
 
 	/* create empty choice */
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_assert(spa_pod_builder_push_choice(&b, &f, 0, 0) == 0);
-	spa_assert(spa_pod_builder_child(&b, sizeof(uint32_t), SPA_TYPE_Id) == 0);
+	spa_assert_se(spa_pod_builder_push_choice(&b, &f, 0, 0) == 0);
+	spa_assert_se(spa_pod_builder_child(&b, sizeof(uint32_t), SPA_TYPE_Id) == 0);
 	choice = spa_pod_builder_pop(&b, &f);
-	spa_assert(choice != NULL);
+	spa_assert_se(choice != NULL);
 	spa_debug_mem(0, choice, 32);
-	spa_assert(spa_pod_is_choice(choice));
+	spa_assert_se(spa_pod_is_choice(choice));
 	ch2 = spa_pod_get_values(choice, &n_vals, &ch);
-	spa_assert(ch2 != NULL);
-	spa_assert(n_vals == 0);
+	spa_assert_se(ch2 != NULL);
+	spa_assert_se(n_vals == 0);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_assert(spa_pod_builder_push_choice(&b, &f, 0, 0) == 0);
+	spa_assert_se(spa_pod_builder_push_choice(&b, &f, 0, 0) == 0);
 	choice = spa_pod_builder_pop(&b, &f);
-	spa_assert(choice != NULL);
-	spa_assert(spa_pod_is_choice(choice));
+	spa_assert_se(choice != NULL);
+	spa_assert_se(spa_pod_is_choice(choice));
 	ch2 = spa_pod_get_values(choice, &n_vals, &ch);
-	spa_assert(ch2 != NULL);
-	spa_assert(n_vals == 0);
+	spa_assert_se(ch2 != NULL);
+	spa_assert_se(n_vals == 0);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_assert(spa_pod_builder_push_choice(&b, &f, 0, 0) == 0);
-	spa_assert(spa_pod_builder_none(&b) == 0);
+	spa_assert_se(spa_pod_builder_push_choice(&b, &f, 0, 0) == 0);
+	spa_assert_se(spa_pod_builder_none(&b) == 0);
 	choice = spa_pod_builder_pop(&b, &f);
-	spa_assert(choice != NULL);
-	spa_assert(spa_pod_is_choice(choice));
+	spa_assert_se(choice != NULL);
+	spa_assert_se(spa_pod_is_choice(choice));
 	ch2 = spa_pod_get_values(choice, &n_vals, &ch);
-	spa_assert(ch2 != NULL);
-	spa_assert(n_vals == 0);
+	spa_assert_se(ch2 != NULL);
+	spa_assert_se(n_vals == 0);
 	return PWTEST_PASS;
 }
 
@@ -824,53 +824,53 @@ PWTEST(pod_varargs)
 	SPA_POD_OBJECT_FOREACH((const struct spa_pod_object*)pod, prop) {
 		switch (i++) {
 		case 0:
-			spa_assert(prop->key == SPA_FORMAT_mediaType);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 20);
-			spa_assert(spa_pod_get_id(&prop->value, &val.I) == 0 && val.I == SPA_MEDIA_TYPE_video);
+			spa_assert_se(prop->key == SPA_FORMAT_mediaType);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 20);
+			spa_assert_se(spa_pod_get_id(&prop->value, &val.I) == 0 && val.I == SPA_MEDIA_TYPE_video);
 			break;
 		case 1:
-			spa_assert(prop->key == SPA_FORMAT_mediaSubtype);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 20);
-			spa_assert(spa_pod_get_id(&prop->value, &val.I) == 0 && val.I == SPA_MEDIA_SUBTYPE_raw);
+			spa_assert_se(prop->key == SPA_FORMAT_mediaSubtype);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 20);
+			spa_assert_se(spa_pod_get_id(&prop->value, &val.I) == 0 && val.I == SPA_MEDIA_SUBTYPE_raw);
 			break;
 		case 2:
-			spa_assert(prop->key == SPA_FORMAT_VIDEO_format);
-			spa_assert(spa_pod_is_choice(&prop->value));
-			spa_assert(SPA_POD_CHOICE_TYPE(&prop->value) == SPA_CHOICE_Enum);
-			spa_assert(SPA_POD_CHOICE_N_VALUES(&prop->value) == 3);
-			spa_assert(SPA_POD_CHOICE_VALUE_TYPE(&prop->value) == SPA_TYPE_Id);
-			spa_assert(SPA_POD_CHOICE_VALUE_SIZE(&prop->value) == sizeof(uint32_t));
+			spa_assert_se(prop->key == SPA_FORMAT_VIDEO_format);
+			spa_assert_se(spa_pod_is_choice(&prop->value));
+			spa_assert_se(SPA_POD_CHOICE_TYPE(&prop->value) == SPA_CHOICE_Enum);
+			spa_assert_se(SPA_POD_CHOICE_N_VALUES(&prop->value) == 3);
+			spa_assert_se(SPA_POD_CHOICE_VALUE_TYPE(&prop->value) == SPA_TYPE_Id);
+			spa_assert_se(SPA_POD_CHOICE_VALUE_SIZE(&prop->value) == sizeof(uint32_t));
 			aI = SPA_POD_CHOICE_VALUES(&prop->value);
-			spa_assert(aI != NULL);
-			spa_assert(aI[0] == SPA_VIDEO_FORMAT_I420);
-			spa_assert(aI[1] == SPA_VIDEO_FORMAT_I420);
-			spa_assert(aI[2] == SPA_VIDEO_FORMAT_YUY2);
+			spa_assert_se(aI != NULL);
+			spa_assert_se(aI[0] == SPA_VIDEO_FORMAT_I420);
+			spa_assert_se(aI[1] == SPA_VIDEO_FORMAT_I420);
+			spa_assert_se(aI[2] == SPA_VIDEO_FORMAT_YUY2);
 			break;
 		case 3:
-			spa_assert(prop->key == SPA_FORMAT_VIDEO_size);
-			spa_assert(spa_pod_is_choice(&prop->value));
-			spa_assert(SPA_POD_CHOICE_TYPE(&prop->value) == SPA_CHOICE_Range);
-			spa_assert(SPA_POD_CHOICE_N_VALUES(&prop->value) == 3);
-			spa_assert(SPA_POD_CHOICE_VALUE_TYPE(&prop->value) == SPA_TYPE_Rectangle);
-			spa_assert(SPA_POD_CHOICE_VALUE_SIZE(&prop->value) == sizeof(struct spa_rectangle));
+			spa_assert_se(prop->key == SPA_FORMAT_VIDEO_size);
+			spa_assert_se(spa_pod_is_choice(&prop->value));
+			spa_assert_se(SPA_POD_CHOICE_TYPE(&prop->value) == SPA_CHOICE_Range);
+			spa_assert_se(SPA_POD_CHOICE_N_VALUES(&prop->value) == 3);
+			spa_assert_se(SPA_POD_CHOICE_VALUE_TYPE(&prop->value) == SPA_TYPE_Rectangle);
+			spa_assert_se(SPA_POD_CHOICE_VALUE_SIZE(&prop->value) == sizeof(struct spa_rectangle));
 			aR = SPA_POD_CHOICE_VALUES(&prop->value);
-			spa_assert(aR != NULL);
-			spa_assert(memcmp(&aR[0], &SPA_RECTANGLE(320,242), sizeof(struct spa_rectangle)) == 0);
-			spa_assert(memcmp(&aR[1], &SPA_RECTANGLE(1,1), sizeof(struct spa_rectangle)) == 0);
-			spa_assert(memcmp(&aR[2], &SPA_RECTANGLE(INT32_MAX,INT32_MAX), sizeof(struct spa_rectangle)) == 0);
+			spa_assert_se(aR != NULL);
+			spa_assert_se(memcmp(&aR[0], &SPA_RECTANGLE(320,242), sizeof(struct spa_rectangle)) == 0);
+			spa_assert_se(memcmp(&aR[1], &SPA_RECTANGLE(1,1), sizeof(struct spa_rectangle)) == 0);
+			spa_assert_se(memcmp(&aR[2], &SPA_RECTANGLE(INT32_MAX,INT32_MAX), sizeof(struct spa_rectangle)) == 0);
 			break;
 		case 4:
-			spa_assert(prop->key == SPA_FORMAT_VIDEO_framerate);
-			spa_assert(spa_pod_is_choice(&prop->value));
-			spa_assert(SPA_POD_CHOICE_TYPE(&prop->value) == SPA_CHOICE_Range);
-			spa_assert(SPA_POD_CHOICE_N_VALUES(&prop->value) == 3);
-			spa_assert(SPA_POD_CHOICE_VALUE_TYPE(&prop->value) == SPA_TYPE_Fraction);
-			spa_assert(SPA_POD_CHOICE_VALUE_SIZE(&prop->value) == sizeof(struct spa_fraction));
+			spa_assert_se(prop->key == SPA_FORMAT_VIDEO_framerate);
+			spa_assert_se(spa_pod_is_choice(&prop->value));
+			spa_assert_se(SPA_POD_CHOICE_TYPE(&prop->value) == SPA_CHOICE_Range);
+			spa_assert_se(SPA_POD_CHOICE_N_VALUES(&prop->value) == 3);
+			spa_assert_se(SPA_POD_CHOICE_VALUE_TYPE(&prop->value) == SPA_TYPE_Fraction);
+			spa_assert_se(SPA_POD_CHOICE_VALUE_SIZE(&prop->value) == sizeof(struct spa_fraction));
 			aF = SPA_POD_CHOICE_VALUES(&prop->value);
-			spa_assert(aF != NULL);
-			spa_assert(memcmp(&aF[0], &SPA_FRACTION(25,1), sizeof(struct spa_fraction)) == 0);
-			spa_assert(memcmp(&aF[1], &SPA_FRACTION(0,1), sizeof(struct spa_fraction)) == 0);
-			spa_assert(memcmp(&aF[2], &SPA_FRACTION(INT32_MAX,1), sizeof(struct spa_fraction)) == 0);
+			spa_assert_se(aF != NULL);
+			spa_assert_se(memcmp(&aF[0], &SPA_FRACTION(25,1), sizeof(struct spa_fraction)) == 0);
+			spa_assert_se(memcmp(&aF[1], &SPA_FRACTION(0,1), sizeof(struct spa_fraction)) == 0);
+			spa_assert_se(memcmp(&aF[2], &SPA_FRACTION(INT32_MAX,1), sizeof(struct spa_fraction)) == 0);
 			break;
 		default:
 			spa_assert_not_reached();
@@ -878,7 +878,7 @@ PWTEST(pod_varargs)
 		}
 	}
 
-	spa_assert(spa_pod_parse_object(pod,
+	spa_assert_se(spa_pod_parse_object(pod,
 		SPA_TYPE_OBJECT_Format, NULL,
 		SPA_FORMAT_mediaType,		SPA_POD_Id(&media_type),
 		SPA_FORMAT_mediaSubtype,	SPA_POD_Id(&media_subtype),
@@ -886,34 +886,34 @@ PWTEST(pod_varargs)
 		SPA_FORMAT_VIDEO_size,		SPA_POD_PodChoice(&Vsize),
 		SPA_FORMAT_VIDEO_framerate,	SPA_POD_PodChoice(&Vframerate)) == 5);
 
-	spa_assert(media_type == SPA_MEDIA_TYPE_video);
-	spa_assert(media_subtype == SPA_MEDIA_SUBTYPE_raw);
+	spa_assert_se(media_type == SPA_MEDIA_TYPE_video);
+	spa_assert_se(media_subtype == SPA_MEDIA_SUBTYPE_raw);
 
-	spa_assert(spa_pod_is_choice(Vformat));
-	spa_assert(SPA_POD_CHOICE_TYPE(Vformat) == SPA_CHOICE_Enum);
-	spa_assert(SPA_POD_CHOICE_N_VALUES(Vformat) == 3);
-	spa_assert(SPA_POD_CHOICE_VALUE_TYPE(Vformat) == SPA_TYPE_Id);
-	spa_assert(SPA_POD_CHOICE_VALUE_SIZE(Vformat) == sizeof(uint32_t));
+	spa_assert_se(spa_pod_is_choice(Vformat));
+	spa_assert_se(SPA_POD_CHOICE_TYPE(Vformat) == SPA_CHOICE_Enum);
+	spa_assert_se(SPA_POD_CHOICE_N_VALUES(Vformat) == 3);
+	spa_assert_se(SPA_POD_CHOICE_VALUE_TYPE(Vformat) == SPA_TYPE_Id);
+	spa_assert_se(SPA_POD_CHOICE_VALUE_SIZE(Vformat) == sizeof(uint32_t));
 	aI = SPA_POD_CHOICE_VALUES(Vformat);
-	spa_assert(aI != NULL);
-	spa_assert(aI[0] == SPA_VIDEO_FORMAT_I420);
-	spa_assert(aI[1] == SPA_VIDEO_FORMAT_I420);
-	spa_assert(aI[2] == SPA_VIDEO_FORMAT_YUY2);
+	spa_assert_se(aI != NULL);
+	spa_assert_se(aI[0] == SPA_VIDEO_FORMAT_I420);
+	spa_assert_se(aI[1] == SPA_VIDEO_FORMAT_I420);
+	spa_assert_se(aI[2] == SPA_VIDEO_FORMAT_YUY2);
 
-	spa_assert(spa_pod_is_choice(Vsize));
-	spa_assert(SPA_POD_CHOICE_TYPE(Vsize) == SPA_CHOICE_Range);
-	spa_assert(SPA_POD_CHOICE_N_VALUES(Vsize) == 3);
-	spa_assert(SPA_POD_CHOICE_VALUE_TYPE(Vsize) == SPA_TYPE_Rectangle);
-	spa_assert(SPA_POD_CHOICE_VALUE_SIZE(Vsize) == sizeof(struct spa_rectangle));
+	spa_assert_se(spa_pod_is_choice(Vsize));
+	spa_assert_se(SPA_POD_CHOICE_TYPE(Vsize) == SPA_CHOICE_Range);
+	spa_assert_se(SPA_POD_CHOICE_N_VALUES(Vsize) == 3);
+	spa_assert_se(SPA_POD_CHOICE_VALUE_TYPE(Vsize) == SPA_TYPE_Rectangle);
+	spa_assert_se(SPA_POD_CHOICE_VALUE_SIZE(Vsize) == sizeof(struct spa_rectangle));
 	aR = SPA_POD_CHOICE_VALUES(Vsize);
-	spa_assert(aR != NULL);
-	spa_assert(memcmp(&aR[0], &SPA_RECTANGLE(320,242), sizeof(struct spa_rectangle)) == 0);
-	spa_assert(memcmp(&aR[1], &SPA_RECTANGLE(1,1), sizeof(struct spa_rectangle)) == 0);
-	spa_assert(memcmp(&aR[2], &SPA_RECTANGLE(INT32_MAX,INT32_MAX), sizeof(struct spa_rectangle)) == 0);
+	spa_assert_se(aR != NULL);
+	spa_assert_se(memcmp(&aR[0], &SPA_RECTANGLE(320,242), sizeof(struct spa_rectangle)) == 0);
+	spa_assert_se(memcmp(&aR[1], &SPA_RECTANGLE(1,1), sizeof(struct spa_rectangle)) == 0);
+	spa_assert_se(memcmp(&aR[2], &SPA_RECTANGLE(INT32_MAX,INT32_MAX), sizeof(struct spa_rectangle)) == 0);
 
-	spa_assert(spa_pod_is_choice(Vframerate));
+	spa_assert_se(spa_pod_is_choice(Vframerate));
 
-	spa_assert(spa_pod_parse_object(pod,
+	spa_assert_se(spa_pod_parse_object(pod,
 		SPA_TYPE_OBJECT_Format, NULL,
 		SPA_FORMAT_mediaType,		SPA_POD_Id(&media_type),
 		SPA_FORMAT_mediaSubtype,	SPA_POD_Id(&media_subtype),
@@ -922,7 +922,7 @@ PWTEST(pod_varargs)
 		SPA_FORMAT_VIDEO_size,		SPA_POD_Rectangle(&size),
 		SPA_FORMAT_VIDEO_framerate,	SPA_POD_Fraction(&framerate)) == -ESRCH);
 
-	spa_assert(spa_pod_parse_object(pod,
+	spa_assert_se(spa_pod_parse_object(pod,
 		SPA_TYPE_OBJECT_Format, NULL,
 		SPA_FORMAT_mediaType,		SPA_POD_Id(&media_type),
 		SPA_FORMAT_mediaSubtype,	SPA_POD_Id(&media_subtype),
@@ -933,7 +933,7 @@ PWTEST(pod_varargs)
 	spa_debug_pod(0, NULL, pod);
 	spa_pod_fixate(pod);
 
-	spa_assert(spa_pod_parse_object(pod,
+	spa_assert_se(spa_pod_parse_object(pod,
 		SPA_TYPE_OBJECT_Format, NULL,
 		SPA_FORMAT_mediaType,		SPA_POD_Id(&media_type),
 		SPA_FORMAT_mediaSubtype,	SPA_POD_Id(&media_subtype),
@@ -942,11 +942,11 @@ PWTEST(pod_varargs)
 		SPA_FORMAT_VIDEO_size,		SPA_POD_Rectangle(&size),
 		SPA_FORMAT_VIDEO_framerate,	SPA_POD_Fraction(&framerate)) == 5);
 
-	spa_assert(media_type == SPA_MEDIA_TYPE_video);
-	spa_assert(media_subtype == SPA_MEDIA_SUBTYPE_raw);
-	spa_assert(format == SPA_VIDEO_FORMAT_I420);
-	spa_assert(memcmp(&size, &SPA_RECTANGLE(320,242), sizeof(struct spa_rectangle)) == 0);
-	spa_assert(memcmp(&framerate, &SPA_FRACTION(25,1), sizeof(struct spa_fraction)) == 0);
+	spa_assert_se(media_type == SPA_MEDIA_TYPE_video);
+	spa_assert_se(media_subtype == SPA_MEDIA_SUBTYPE_raw);
+	spa_assert_se(format == SPA_VIDEO_FORMAT_I420);
+	spa_assert_se(memcmp(&size, &SPA_RECTANGLE(320,242), sizeof(struct spa_rectangle)) == 0);
+	spa_assert_se(memcmp(&framerate, &SPA_FRACTION(25,1), sizeof(struct spa_fraction)) == 0);
 
 	spa_debug_pod(0, NULL, pod);
 	return PWTEST_PASS;
@@ -1006,104 +1006,104 @@ PWTEST(pod_varargs2)
 	SPA_POD_OBJECT_FOREACH((const struct spa_pod_object*)pod, prop) {
 		switch (i++) {
 		case 0:
-			spa_assert(prop->key == 1);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 20);
-			spa_assert(spa_pod_get_bool(&prop->value, &val.b) == 0 && val.b == true);
+			spa_assert_se(prop->key == 1);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 20);
+			spa_assert_se(spa_pod_get_bool(&prop->value, &val.b) == 0 && val.b == true);
 			break;
 		case 1:
-			spa_assert(prop->key == 2);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 20);
-			spa_assert(spa_pod_get_id(&prop->value, &val.I) == 0 && val.I == SPA_TYPE_Id);
+			spa_assert_se(prop->key == 2);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 20);
+			spa_assert_se(spa_pod_get_id(&prop->value, &val.I) == 0 && val.I == SPA_TYPE_Id);
 			break;
 		case 2:
-			spa_assert(prop->key == 3);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 20);
-			spa_assert(spa_pod_get_int(&prop->value, &val.i) == 0 && val.i == 3);
+			spa_assert_se(prop->key == 3);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 20);
+			spa_assert_se(spa_pod_get_int(&prop->value, &val.i) == 0 && val.i == 3);
 			break;
 		case 3:
-			spa_assert(prop->key == 4);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 24);
-			spa_assert(spa_pod_get_long(&prop->value, &val.l) == 0 && val.l == 4);
+			spa_assert_se(prop->key == 4);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 24);
+			spa_assert_se(spa_pod_get_long(&prop->value, &val.l) == 0 && val.l == 4);
 			break;
 		case 4:
-			spa_assert(prop->key == 5);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 20);
-			spa_assert(spa_pod_get_float(&prop->value, &val.f) == 0 && val.f == 0.453f);
+			spa_assert_se(prop->key == 5);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 20);
+			spa_assert_se(spa_pod_get_float(&prop->value, &val.f) == 0 && val.f == 0.453f);
 			break;
 		case 5:
-			spa_assert(prop->key == 6);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 24);
-			spa_assert(spa_pod_get_double(&prop->value, &val.d) == 0 && val.d == 0.871);
+			spa_assert_se(prop->key == 6);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 24);
+			spa_assert_se(spa_pod_get_double(&prop->value, &val.d) == 0 && val.d == 0.871);
 			break;
 		case 6:
-			spa_assert(prop->key == 7);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 21);
-			spa_assert(spa_pod_get_string(&prop->value, &val.s) == 0);
-			spa_assert(spa_streq(val.s, "test"));
+			spa_assert_se(prop->key == 7);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 21);
+			spa_assert_se(spa_pod_get_string(&prop->value, &val.s) == 0);
+			spa_assert_se(spa_streq(val.s, "test"));
 			break;
 		case 7:
-			spa_assert(prop->key == 8);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 21);
-			spa_assert(spa_pod_get_bytes(&prop->value, &val.y, &val.yl) == 0);
-			spa_assert(val.yl == sizeof(bytes));
-			spa_assert(memcmp(val.y, bytes, val.yl) == 0);
+			spa_assert_se(prop->key == 8);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 21);
+			spa_assert_se(spa_pod_get_bytes(&prop->value, &val.y, &val.yl) == 0);
+			spa_assert_se(val.yl == sizeof(bytes));
+			spa_assert_se(memcmp(val.y, bytes, val.yl) == 0);
 			break;
 		case 8:
-			spa_assert(prop->key == 9);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 24);
-			spa_assert(spa_pod_get_rectangle(&prop->value, &val.R) == 0);
-			spa_assert(memcmp(&val.R, &SPA_RECTANGLE(3,4), sizeof(struct spa_rectangle)) == 0);
+			spa_assert_se(prop->key == 9);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 24);
+			spa_assert_se(spa_pod_get_rectangle(&prop->value, &val.R) == 0);
+			spa_assert_se(memcmp(&val.R, &SPA_RECTANGLE(3,4), sizeof(struct spa_rectangle)) == 0);
 			break;
 		case 9:
-			spa_assert(prop->key == 10);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 24);
-			spa_assert(spa_pod_get_fraction(&prop->value, &val.F) == 0);
-			spa_assert(memcmp(&val.F, &SPA_FRACTION(24,1), sizeof(struct spa_fraction)) == 0);
+			spa_assert_se(prop->key == 10);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 24);
+			spa_assert_se(spa_pod_get_fraction(&prop->value, &val.F) == 0);
+			spa_assert_se(memcmp(&val.F, &SPA_FRACTION(24,1), sizeof(struct spa_fraction)) == 0);
 			break;
 		case 10:
-			spa_assert(prop->key == 11);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 56);
-			spa_assert(spa_pod_is_array(&prop->value));
-			spa_assert(SPA_POD_ARRAY_VALUE_TYPE(&prop->value) == SPA_TYPE_Long);
-			spa_assert(SPA_POD_ARRAY_VALUE_SIZE(&prop->value) == sizeof(int64_t));
-			spa_assert(SPA_POD_ARRAY_N_VALUES(&prop->value) == SPA_N_ELEMENTS(longs));
+			spa_assert_se(prop->key == 11);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 56);
+			spa_assert_se(spa_pod_is_array(&prop->value));
+			spa_assert_se(SPA_POD_ARRAY_VALUE_TYPE(&prop->value) == SPA_TYPE_Long);
+			spa_assert_se(SPA_POD_ARRAY_VALUE_SIZE(&prop->value) == sizeof(int64_t));
+			spa_assert_se(SPA_POD_ARRAY_N_VALUES(&prop->value) == SPA_N_ELEMENTS(longs));
 			al = SPA_POD_ARRAY_VALUES(&prop->value);
-			spa_assert(al != NULL);
-			spa_assert(SPA_POD_ARRAY_CHILD(&prop->value)->type == SPA_TYPE_Long);
-			spa_assert(SPA_POD_ARRAY_CHILD(&prop->value)->size == sizeof(int64_t));
+			spa_assert_se(al != NULL);
+			spa_assert_se(SPA_POD_ARRAY_CHILD(&prop->value)->type == SPA_TYPE_Long);
+			spa_assert_se(SPA_POD_ARRAY_CHILD(&prop->value)->size == sizeof(int64_t));
 			for (j = 0; j < SPA_N_ELEMENTS(longs); j++)
-				spa_assert(al[j] == longs[j]);
+				spa_assert_se(al[j] == longs[j]);
 			break;
 		case 11:
-			spa_assert(prop->key == 12);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == (sizeof(struct spa_pod_prop) +
+			spa_assert_se(prop->key == 12);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == (sizeof(struct spa_pod_prop) +
 					sizeof(struct spa_pod_pointer_body)));
-			spa_assert(spa_pod_get_pointer(&prop->value, &val.ptype, &val.p) == 0);
-			spa_assert(val.ptype == SPA_TYPE_Object);
-			spa_assert(val.p == &b);
+			spa_assert_se(spa_pod_get_pointer(&prop->value, &val.ptype, &val.p) == 0);
+			spa_assert_se(val.ptype == SPA_TYPE_Object);
+			spa_assert_se(val.p == &b);
 			break;
 		case 12:
-			spa_assert(prop->key == 13);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 24);
-			spa_assert(spa_pod_get_fd(&prop->value, &val.h) == 0);
-			spa_assert(val.h == 3);
+			spa_assert_se(prop->key == 13);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 24);
+			spa_assert_se(spa_pod_get_fd(&prop->value, &val.h) == 0);
+			spa_assert_se(val.h == 3);
 			break;
 		case 13:
-			spa_assert(prop->key == 14);
-			spa_assert(SPA_POD_PROP_SIZE(prop) == 20);
-			spa_assert(spa_pod_get_int(&prop->value, &val.i) == 0);
-			spa_assert(val.i == 77);
+			spa_assert_se(prop->key == 14);
+			spa_assert_se(SPA_POD_PROP_SIZE(prop) == 20);
+			spa_assert_se(spa_pod_get_int(&prop->value, &val.i) == 0);
+			spa_assert_se(val.i == 77);
 			break;
 		default:
 			spa_assert_not_reached();
 			break;
 		}
 	}
-	spa_assert(spa_pod_parse_object(pod, SPA_TYPE_OBJECT_Format, NULL) == -EPROTO);
-	spa_assert(spa_pod_parse_object(pod, SPA_TYPE_OBJECT_Props, NULL) == 0);
+	spa_assert_se(spa_pod_parse_object(pod, SPA_TYPE_OBJECT_Format, NULL) == -EPROTO);
+	spa_assert_se(spa_pod_parse_object(pod, SPA_TYPE_OBJECT_Props, NULL) == 0);
 
 	spa_zero(val);
-	spa_assert(spa_pod_parse_object(pod,
+	spa_assert_se(spa_pod_parse_object(pod,
 		SPA_TYPE_OBJECT_Props, NULL,
 		1,	SPA_POD_Bool(&val.b),
 		2,	SPA_POD_Id(&val.I),
@@ -1120,28 +1120,28 @@ PWTEST(pod_varargs2)
 		13,	SPA_POD_Fd(&val.h),
 		14,	SPA_POD_Pod(&val.P)) == 14);
 
-	spa_assert(val.b == true);
-	spa_assert(val.I == SPA_TYPE_Id);
-	spa_assert(val.i == 3);
-	spa_assert(val.l == 4);
-	spa_assert(val.f == 0.453f);
-	spa_assert(val.d == 0.871);
-	spa_assert(spa_streq(val.s, "test"));
-	spa_assert(val.yl == sizeof(bytes));
-	spa_assert(memcmp(val.y, bytes, sizeof(bytes)) == 0);
-	spa_assert(memcmp(&val.R, &SPA_RECTANGLE(3, 4), sizeof(struct spa_rectangle)) == 0);
-	spa_assert(memcmp(&val.F, &SPA_FRACTION(24, 1), sizeof(struct spa_fraction)) == 0);
-	spa_assert(val.asize == sizeof(int64_t));
-	spa_assert(val.atype == SPA_TYPE_Long);
-	spa_assert(val.anvals == SPA_N_ELEMENTS(longs));
-	spa_assert(memcmp(val.a, longs, val.anvals * val.asize) == 0);
-	spa_assert(val.ptype == SPA_TYPE_Object);
-	spa_assert(val.p == &b);
-	spa_assert(val.h == 3);
-	spa_assert(memcmp(val.P, &pi, sizeof(pi)) == 0);
+	spa_assert_se(val.b == true);
+	spa_assert_se(val.I == SPA_TYPE_Id);
+	spa_assert_se(val.i == 3);
+	spa_assert_se(val.l == 4);
+	spa_assert_se(val.f == 0.453f);
+	spa_assert_se(val.d == 0.871);
+	spa_assert_se(spa_streq(val.s, "test"));
+	spa_assert_se(val.yl == sizeof(bytes));
+	spa_assert_se(memcmp(val.y, bytes, sizeof(bytes)) == 0);
+	spa_assert_se(memcmp(&val.R, &SPA_RECTANGLE(3, 4), sizeof(struct spa_rectangle)) == 0);
+	spa_assert_se(memcmp(&val.F, &SPA_FRACTION(24, 1), sizeof(struct spa_fraction)) == 0);
+	spa_assert_se(val.asize == sizeof(int64_t));
+	spa_assert_se(val.atype == SPA_TYPE_Long);
+	spa_assert_se(val.anvals == SPA_N_ELEMENTS(longs));
+	spa_assert_se(memcmp(val.a, longs, val.anvals * val.asize) == 0);
+	spa_assert_se(val.ptype == SPA_TYPE_Object);
+	spa_assert_se(val.p == &b);
+	spa_assert_se(val.h == 3);
+	spa_assert_se(memcmp(val.P, &pi, sizeof(pi)) == 0);
 
 	spa_zero(val);
-	spa_assert(spa_pod_parse_object(pod,
+	spa_assert_se(spa_pod_parse_object(pod,
 		SPA_TYPE_OBJECT_Props, NULL,
 		0,	SPA_POD_OPT_Bool(&val.b),
 		0,	SPA_POD_OPT_Id(&val.I),
@@ -1160,7 +1160,7 @@ PWTEST(pod_varargs2)
 
 	for (i = 1; i < 15; i++) {
 		spa_zero(val);
-		spa_assert(spa_pod_parse_object(pod,
+		spa_assert_se(spa_pod_parse_object(pod,
 			SPA_TYPE_OBJECT_Props, NULL,
 			i,	SPA_POD_OPT_Bool(&val.b),
 			i,	SPA_POD_OPT_Id(&val.I),
@@ -1231,47 +1231,47 @@ PWTEST(pod_parser)
 	spa_debug_pod(0, NULL, pod);
 
 	spa_pod_parser_pod(&p, pod);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_bool(&p, &val.b) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_id(&p, &val.I) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_int(&p, &val.i) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_long(&p, &val.l) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_float(&p, &val.f) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_double(&p, &val.d) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_string(&p, &val.s) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_bytes(&p, &val.y, &val.yl) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_rectangle(&p, &val.R) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_fraction(&p, &val.F) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_pointer(&p, &val.ptype, &val.p) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_fd(&p, &val.h) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_pod(&p, &val.P) == 0);
-	spa_assert(p.state.offset == 392);
-	spa_assert(spa_pod_is_object(val.P));
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_bool(&p, &val.b) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_id(&p, &val.I) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_int(&p, &val.i) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_long(&p, &val.l) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_float(&p, &val.f) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_double(&p, &val.d) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_string(&p, &val.s) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_bytes(&p, &val.y, &val.yl) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_rectangle(&p, &val.R) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_fraction(&p, &val.F) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_pointer(&p, &val.ptype, &val.p) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_fd(&p, &val.h) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_pod(&p, &val.P) == 0);
+	spa_assert_se(p.state.offset == 392);
+	spa_assert_se(spa_pod_is_object(val.P));
 
 	spa_pod_parser_pod(&p, val.P);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_push_struct(&p, &f) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_push_object(&p, &f, SPA_TYPE_OBJECT_Format, NULL) == -EPROTO);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_push_object(&p, &f, SPA_TYPE_OBJECT_Props, NULL) == 0);
-	spa_assert(p.state.offset == 392);
-	spa_assert(spa_pod_parser_frame(&p, &f) == val.P);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_push_struct(&p, &f) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_push_object(&p, &f, SPA_TYPE_OBJECT_Format, NULL) == -EPROTO);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_push_object(&p, &f, SPA_TYPE_OBJECT_Props, NULL) == 0);
+	spa_assert_se(p.state.offset == 392);
+	spa_assert_se(spa_pod_parser_frame(&p, &f) == val.P);
 
 	spa_zero(val);
-	spa_assert(spa_pod_parser_get(&p,
+	spa_assert_se(spa_pod_parser_get(&p,
 		1,	SPA_POD_OPT_Bool(&val.b),
 		2,	SPA_POD_OPT_Id(&val.I),
 		3,	SPA_POD_OPT_Int(&val.i),
@@ -1288,27 +1288,27 @@ PWTEST(pod_parser)
 		14,	SPA_POD_OPT_Pod(&val.P), 0) == 14);
 	spa_pod_parser_pop(&p, &f);
 
-	spa_assert(val.b == true);
-	spa_assert(val.I == SPA_TYPE_Id);
-	spa_assert(val.i == 3);
-	spa_assert(val.l == 4);
-	spa_assert(val.f == 0.453f);
-	spa_assert(val.d == 0.871);
-	spa_assert(spa_streq(val.s, "test"));
-	spa_assert(val.yl == sizeof(bytes));
-	spa_assert(memcmp(val.y, bytes, sizeof(bytes)) == 0);
-	spa_assert(memcmp(&val.R, &SPA_RECTANGLE(3, 4), sizeof(struct spa_rectangle)) == 0);
-	spa_assert(memcmp(&val.F, &SPA_FRACTION(24, 1), sizeof(struct spa_fraction)) == 0);
-	spa_assert(val.asize == sizeof(int64_t));
-	spa_assert(val.atype == SPA_TYPE_Long);
-	spa_assert(val.anvals == SPA_N_ELEMENTS(longs));
-	spa_assert(memcmp(val.a, longs, val.anvals * val.asize) == 0);
-	spa_assert(val.ptype == SPA_TYPE_Object);
-	spa_assert(val.p == &b);
-	spa_assert(val.h == 3);
-	spa_assert(memcmp(val.P, &pi, sizeof(pi)) == 0);
+	spa_assert_se(val.b == true);
+	spa_assert_se(val.I == SPA_TYPE_Id);
+	spa_assert_se(val.i == 3);
+	spa_assert_se(val.l == 4);
+	spa_assert_se(val.f == 0.453f);
+	spa_assert_se(val.d == 0.871);
+	spa_assert_se(spa_streq(val.s, "test"));
+	spa_assert_se(val.yl == sizeof(bytes));
+	spa_assert_se(memcmp(val.y, bytes, sizeof(bytes)) == 0);
+	spa_assert_se(memcmp(&val.R, &SPA_RECTANGLE(3, 4), sizeof(struct spa_rectangle)) == 0);
+	spa_assert_se(memcmp(&val.F, &SPA_FRACTION(24, 1), sizeof(struct spa_fraction)) == 0);
+	spa_assert_se(val.asize == sizeof(int64_t));
+	spa_assert_se(val.atype == SPA_TYPE_Long);
+	spa_assert_se(val.anvals == SPA_N_ELEMENTS(longs));
+	spa_assert_se(memcmp(val.a, longs, val.anvals * val.asize) == 0);
+	spa_assert_se(val.ptype == SPA_TYPE_Object);
+	spa_assert_se(val.p == &b);
+	spa_assert_se(val.h == 3);
+	spa_assert_se(memcmp(val.P, &pi, sizeof(pi)) == 0);
 
-	spa_assert(p.state.offset == 392);
+	spa_assert_se(p.state.offset == 392);
 	return PWTEST_PASS;
 }
 
@@ -1362,90 +1362,90 @@ PWTEST(pod_parser2)
 	spa_debug_pod(0, NULL, pod);
 
 	spa_pod_parser_pod(&p, pod);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_bool(&p, &val.b) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_id(&p, &val.I) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_int(&p, &val.i) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_long(&p, &val.l) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_float(&p, &val.f) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_double(&p, &val.d) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_string(&p, &val.s) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_bytes(&p, &val.y, &val.yl) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_rectangle(&p, &val.R) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_fraction(&p, &val.F) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_pointer(&p, &val.ptype, &val.p) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_fd(&p, &val.h) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_get_pod(&p, &val.P) == 0);
-	spa_assert(p.state.offset == 272);
-	spa_assert(spa_pod_is_struct(val.P));
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_bool(&p, &val.b) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_id(&p, &val.I) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_int(&p, &val.i) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_long(&p, &val.l) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_float(&p, &val.f) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_double(&p, &val.d) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_string(&p, &val.s) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_bytes(&p, &val.y, &val.yl) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_rectangle(&p, &val.R) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_fraction(&p, &val.F) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_pointer(&p, &val.ptype, &val.p) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_fd(&p, &val.h) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_get_pod(&p, &val.P) == 0);
+	spa_assert_se(p.state.offset == 272);
+	spa_assert_se(spa_pod_is_struct(val.P));
 
 	spa_pod_parser_pod(&p, val.P);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_push_object(&p, &f, SPA_TYPE_OBJECT_Format, NULL) == -EINVAL);
-	spa_assert(p.state.offset == 0);
-	spa_assert(spa_pod_parser_push_struct(&p, &f) == 0);
-	spa_assert(f.pod.type == SPA_TYPE_Struct);
-	spa_assert(f.pod.size == 264);
-	spa_assert(f.offset == 0);
-	spa_assert(p.state.frame == &f);
-	spa_assert(spa_pod_parser_frame(&p, &f) == val.P);
-	spa_assert(p.state.offset == 8);
-	spa_assert(spa_pod_parser_get_bool(&p, &val.b) == 0 && val.b == true);
-	spa_assert(p.state.offset == 24);
-	spa_assert(spa_pod_parser_get_id(&p, &val.I) == 0 && val.I == SPA_TYPE_Id);
-	spa_assert(p.state.offset == 40);
-	spa_assert(spa_pod_parser_get_int(&p, &val.i) == 0 && val.i == 3);
-	spa_assert(p.state.offset == 56);
-	spa_assert(spa_pod_parser_get_long(&p, &val.l) == 0 && val.l == 4);
-	spa_assert(p.state.offset == 72);
-	spa_assert(spa_pod_parser_get_float(&p, &val.f) == 0 && val.f == 0.453f);
-	spa_assert(p.state.offset == 88);
-	spa_assert(spa_pod_parser_get_double(&p, &val.d) == 0 && val.d == 0.871);
-	spa_assert(p.state.offset == 104);
-	spa_assert(spa_pod_parser_get_string(&p, &val.s) == 0 && spa_streq(val.s, "test"));
-	spa_assert(p.state.offset == 120);
-	spa_assert(spa_pod_parser_get_bytes(&p, &val.y, &val.yl) == 0);
-	spa_assert(val.yl == sizeof(bytes));
-	spa_assert(memcmp(bytes, val.y, sizeof(bytes)) == 0);
-	spa_assert(p.state.offset == 136);
-	spa_assert(spa_pod_parser_get_rectangle(&p, &val.R) == 0);
-	spa_assert(memcmp(&val.R, &SPA_RECTANGLE(3,4), sizeof(struct spa_rectangle)) == 0);
-	spa_assert(p.state.offset == 152);
-	spa_assert(spa_pod_parser_get_fraction(&p, &val.F) == 0);
-	spa_assert(memcmp(&val.F, &SPA_FRACTION(24,1), sizeof(struct spa_fraction)) == 0);
-	spa_assert(p.state.offset == 168);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_push_object(&p, &f, SPA_TYPE_OBJECT_Format, NULL) == -EINVAL);
+	spa_assert_se(p.state.offset == 0);
+	spa_assert_se(spa_pod_parser_push_struct(&p, &f) == 0);
+	spa_assert_se(f.pod.type == SPA_TYPE_Struct);
+	spa_assert_se(f.pod.size == 264);
+	spa_assert_se(f.offset == 0);
+	spa_assert_se(p.state.frame == &f);
+	spa_assert_se(spa_pod_parser_frame(&p, &f) == val.P);
+	spa_assert_se(p.state.offset == 8);
+	spa_assert_se(spa_pod_parser_get_bool(&p, &val.b) == 0 && val.b == true);
+	spa_assert_se(p.state.offset == 24);
+	spa_assert_se(spa_pod_parser_get_id(&p, &val.I) == 0 && val.I == SPA_TYPE_Id);
+	spa_assert_se(p.state.offset == 40);
+	spa_assert_se(spa_pod_parser_get_int(&p, &val.i) == 0 && val.i == 3);
+	spa_assert_se(p.state.offset == 56);
+	spa_assert_se(spa_pod_parser_get_long(&p, &val.l) == 0 && val.l == 4);
+	spa_assert_se(p.state.offset == 72);
+	spa_assert_se(spa_pod_parser_get_float(&p, &val.f) == 0 && val.f == 0.453f);
+	spa_assert_se(p.state.offset == 88);
+	spa_assert_se(spa_pod_parser_get_double(&p, &val.d) == 0 && val.d == 0.871);
+	spa_assert_se(p.state.offset == 104);
+	spa_assert_se(spa_pod_parser_get_string(&p, &val.s) == 0 && spa_streq(val.s, "test"));
+	spa_assert_se(p.state.offset == 120);
+	spa_assert_se(spa_pod_parser_get_bytes(&p, &val.y, &val.yl) == 0);
+	spa_assert_se(val.yl == sizeof(bytes));
+	spa_assert_se(memcmp(bytes, val.y, sizeof(bytes)) == 0);
+	spa_assert_se(p.state.offset == 136);
+	spa_assert_se(spa_pod_parser_get_rectangle(&p, &val.R) == 0);
+	spa_assert_se(memcmp(&val.R, &SPA_RECTANGLE(3,4), sizeof(struct spa_rectangle)) == 0);
+	spa_assert_se(p.state.offset == 152);
+	spa_assert_se(spa_pod_parser_get_fraction(&p, &val.F) == 0);
+	spa_assert_se(memcmp(&val.F, &SPA_FRACTION(24,1), sizeof(struct spa_fraction)) == 0);
+	spa_assert_se(p.state.offset == 168);
 	val.P = spa_pod_parser_next(&p);
-	spa_assert(val.P != NULL);
-	spa_assert(spa_pod_is_array(val.P));
-	spa_assert(p.state.offset == 216);
-	spa_assert(SPA_POD_ARRAY_VALUE_TYPE(val.P) == SPA_TYPE_Long);
-	spa_assert(SPA_POD_ARRAY_VALUE_SIZE(val.P) == sizeof(int64_t));
-	spa_assert(SPA_POD_ARRAY_N_VALUES(val.P) == SPA_N_ELEMENTS(longs));
-	spa_assert(spa_pod_parser_get_pointer(&p, &val.ptype, &val.p) == 0);
-	spa_assert(val.ptype == SPA_TYPE_Object);
-	spa_assert(val.p == &b);
-	spa_assert(p.state.offset == 240);
-	spa_assert(spa_pod_parser_get_fd(&p, &val.h) == 0);
-	spa_assert(val.h == 3);
-	spa_assert(p.state.offset == 256);
-	spa_assert(spa_pod_parser_get_pod(&p, &val.P) == 0);
-	spa_assert(p.state.offset == 272);
-	spa_assert(spa_pod_is_int(val.P));
+	spa_assert_se(val.P != NULL);
+	spa_assert_se(spa_pod_is_array(val.P));
+	spa_assert_se(p.state.offset == 216);
+	spa_assert_se(SPA_POD_ARRAY_VALUE_TYPE(val.P) == SPA_TYPE_Long);
+	spa_assert_se(SPA_POD_ARRAY_VALUE_SIZE(val.P) == sizeof(int64_t));
+	spa_assert_se(SPA_POD_ARRAY_N_VALUES(val.P) == SPA_N_ELEMENTS(longs));
+	spa_assert_se(spa_pod_parser_get_pointer(&p, &val.ptype, &val.p) == 0);
+	spa_assert_se(val.ptype == SPA_TYPE_Object);
+	spa_assert_se(val.p == &b);
+	spa_assert_se(p.state.offset == 240);
+	spa_assert_se(spa_pod_parser_get_fd(&p, &val.h) == 0);
+	spa_assert_se(val.h == 3);
+	spa_assert_se(p.state.offset == 256);
+	spa_assert_se(spa_pod_parser_get_pod(&p, &val.P) == 0);
+	spa_assert_se(p.state.offset == 272);
+	spa_assert_se(spa_pod_is_int(val.P));
 	spa_pod_parser_pop(&p, &f);
-	spa_assert(p.state.offset == 272);
-	spa_assert(p.state.frame == NULL);
+	spa_assert_se(p.state.offset == 272);
+	spa_assert_se(p.state.frame == NULL);
 	return PWTEST_PASS;
 }
 
@@ -1543,12 +1543,12 @@ PWTEST(pod_static)
 		SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&vals.size),
 		SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&vals.framerate));
 
-	spa_assert(res == -EPROTO);
-	spa_assert(vals.media_type == SPA_MEDIA_TYPE_video);
-	spa_assert(vals.media_subtype == SPA_MEDIA_SUBTYPE_raw);
-	spa_assert(vals.format == 0);
-	spa_assert(vals.size.width == 0 && vals.size.height == 0);
-	spa_assert(vals.framerate.num == 0 && vals.framerate.denom == 0);
+	spa_assert_se(res == -EPROTO);
+	spa_assert_se(vals.media_type == SPA_MEDIA_TYPE_video);
+	spa_assert_se(vals.media_subtype == SPA_MEDIA_SUBTYPE_raw);
+	spa_assert_se(vals.format == 0);
+	spa_assert_se(vals.size.width == 0 && vals.size.height == 0);
+	spa_assert_se(vals.framerate.num == 0 && vals.framerate.denom == 0);
 
 	spa_pod_fixate(&test_format.fmt.pod);
 
@@ -1561,12 +1561,12 @@ PWTEST(pod_static)
 		SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&vals.size),
 		SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&vals.framerate));
 
-	spa_assert(res == 5);
-	spa_assert(vals.media_type == SPA_MEDIA_TYPE_video);
-	spa_assert(vals.media_subtype == SPA_MEDIA_SUBTYPE_raw);
-	spa_assert(vals.format == SPA_VIDEO_FORMAT_I420);
-	spa_assert(vals.size.width == 320 && vals.size.height == 243);
-	spa_assert(vals.framerate.num == 25 && vals.framerate.denom == 1);
+	spa_assert_se(res == 5);
+	spa_assert_se(vals.media_type == SPA_MEDIA_TYPE_video);
+	spa_assert_se(vals.media_subtype == SPA_MEDIA_SUBTYPE_raw);
+	spa_assert_se(vals.format == SPA_VIDEO_FORMAT_I420);
+	spa_assert_se(vals.size.width == 320 && vals.size.height == 243);
+	spa_assert_se(vals.framerate.num == 25 && vals.framerate.denom == 1);
 	return PWTEST_PASS;
 }
 
@@ -1622,18 +1622,18 @@ PWTEST(pod_overflow)
 		spa_pod_builder_int(&b, idx);
 		spa_pod_builder_string(&b, labels[idx]);
 	}
-	spa_assert(b.state.offset > sizeof(buffer));
+	spa_assert_se(b.state.offset > sizeof(buffer));
 	pod = spa_pod_builder_pop(&b, &f[1]);
-	spa_assert(pod == NULL);
+	spa_assert_se(pod == NULL);
 	spa_pod_builder_reset(&b, &state);
 
 	spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
 	spa_pod_builder_push_struct(&b, &f[1]);
 	pod = spa_pod_builder_pop(&b, &f[1]);
 
-	spa_assert(b.state.offset < sizeof(buffer));
+	spa_assert_se(b.state.offset < sizeof(buffer));
 	pod = spa_pod_builder_pop(&b, &f[0]);
-	spa_assert(pod != NULL);
+	spa_assert_se(pod != NULL);
 
 	spa_debug_pod(0, NULL, pod);
 	return PWTEST_PASS;

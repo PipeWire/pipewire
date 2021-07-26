@@ -79,22 +79,22 @@ static int setup_context(struct context *ctx)
 
 	/* make convert */
 	factory = find_factory(SPA_NAME_AUDIO_CONVERT);
-	spa_assert(factory != NULL);
+	spa_assert_se(factory != NULL);
 
 	size = spa_handle_factory_get_size(factory, NULL);
 
 	ctx->convert_handle = calloc(1, size);
-	spa_assert(ctx->convert_handle != NULL);
+	spa_assert_se(ctx->convert_handle != NULL);
 
 	res = spa_handle_factory_init(factory,
 			ctx->convert_handle,
 			NULL,
 			support, 1);
-	spa_assert(res >= 0);
+	spa_assert_se(res >= 0);
 
 	res = spa_handle_get_interface(ctx->convert_handle,
 			SPA_TYPE_INTERFACE_Node, &iface);
-	spa_assert(res >= 0);
+	spa_assert_se(res >= 0);
 	ctx->convert_node = iface;
 
 	return 0;
@@ -115,8 +115,8 @@ static void node_info_check(void *data, const struct spa_node_info *info)
 			info->max_input_ports,
 			info->max_output_ports);
 
-	spa_assert(info->max_input_ports == MAX_PORTS);
-	spa_assert(info->max_output_ports == MAX_PORTS);
+	spa_assert_se(info->max_input_ports == MAX_PORTS);
+	spa_assert_se(info->max_output_ports == MAX_PORTS);
 
 	ctx->got_node_info = true;
 }
@@ -151,11 +151,11 @@ static int test_init_state(struct context *ctx)
 			&listener, &init_events, ctx);
 	spa_hook_remove(&listener);
 
-	spa_assert(ctx->got_node_info);
-	spa_assert(ctx->n_port_info[0] == 1);
-	spa_assert(ctx->n_port_info[1] == 1);
-	spa_assert(ctx->got_port_info[0][0] == true);
-	spa_assert(ctx->got_port_info[1][0] == true);
+	spa_assert_se(ctx->got_node_info);
+	spa_assert_se(ctx->n_port_info[0] == 1);
+	spa_assert_se(ctx->n_port_info[1] == 1);
+	spa_assert_se(ctx->got_port_info[0][0] == true);
+	spa_assert_se(ctx->got_port_info[1][0] == true);
 
 	return 0;
 }
@@ -181,7 +181,7 @@ static int test_set_in_format(struct context *ctx)
 
 	res = spa_node_port_set_param(ctx->convert_node, SPA_DIRECTION_INPUT, 0,
 			SPA_PARAM_Format, 0, param);
-	spa_assert(res == 0);
+	spa_assert_se(res == 0);
 
 	return 0;
 }
@@ -225,7 +225,7 @@ static int test_split_setup1(struct context *ctx)
 		SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(param));
 
 	res = spa_node_set_param(ctx->convert_node, SPA_PARAM_PortConfig, 0, param);
-	spa_assert(res == 0);
+	spa_assert_se(res == 0);
 
 	spa_hook_remove(&listener);
 
@@ -269,7 +269,7 @@ static int test_split_setup2(struct context *ctx)
 		SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(param));
 
 	res = spa_node_set_param(ctx->convert_node, SPA_PARAM_PortConfig, 0, param);
-	spa_assert(res == 0);
+	spa_assert_se(res == 0);
 
 	spa_hook_remove(&listener);
 
@@ -300,7 +300,7 @@ static int test_convert_setup1(struct context *ctx)
 		SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_convert));
 
 	res = spa_node_set_param(ctx->convert_node, SPA_PARAM_PortConfig, 0, param);
-	spa_assert(res == 0);
+	spa_assert_se(res == 0);
 
 	spa_hook_remove(&listener);
 
@@ -331,7 +331,7 @@ static int test_set_out_format(struct context *ctx)
 
 	res = spa_node_port_set_param(ctx->convert_node, SPA_DIRECTION_OUTPUT, 0,
 			SPA_PARAM_Format, 0, param);
-	spa_assert(res == 0);
+	spa_assert_se(res == 0);
 
 	return 0;
 }
@@ -375,7 +375,7 @@ static int test_merge_setup1(struct context *ctx)
 		SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(param));
 
 	res = spa_node_set_param(ctx->convert_node, SPA_PARAM_PortConfig, 0, param);
-	spa_assert(res == 0);
+	spa_assert_se(res == 0);
 
 	spa_hook_remove(&listener);
 
@@ -403,7 +403,7 @@ static int test_set_out_format2(struct context *ctx)
 
 	res = spa_node_port_set_param(ctx->convert_node, SPA_DIRECTION_OUTPUT, 0,
 			SPA_PARAM_Format, 0, param);
-	spa_assert(res == 0);
+	spa_assert_se(res == 0);
 
 	return 0;
 }
@@ -445,7 +445,7 @@ static int test_merge_setup2(struct context *ctx)
 		SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(param));
 
 	res = spa_node_set_param(ctx->convert_node, SPA_PARAM_PortConfig, 0, param);
-	spa_assert(res == 0);
+	spa_assert_se(res == 0);
 
 	spa_hook_remove(&listener);
 
@@ -476,7 +476,7 @@ static int test_convert_setup2(struct context *ctx)
 		SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_convert));
 
 	res = spa_node_set_param(ctx->convert_node, SPA_PARAM_PortConfig, 0, param);
-	spa_assert(res == 0);
+	spa_assert_se(res == 0);
 
 	spa_hook_remove(&listener);
 
@@ -505,7 +505,7 @@ static int test_set_in_format2(struct context *ctx)
 
 	res = spa_node_port_set_param(ctx->convert_node, SPA_DIRECTION_INPUT, 0,
 			SPA_PARAM_Format, 0, param);
-	spa_assert(res == 0);
+	spa_assert_se(res == 0);
 
 	return 0;
 }

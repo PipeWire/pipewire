@@ -80,27 +80,27 @@ static int setup_context(struct context *ctx)
 	factory = &test_source_factory;
 	size = spa_handle_factory_get_size(factory, NULL);
 	ctx->follower_handle = calloc(1, size);
-	spa_assert(ctx->follower_handle != NULL);
+	spa_assert_se(ctx->follower_handle != NULL);
 
 	res = spa_handle_factory_init(factory,
 			ctx->follower_handle,
 			NULL, support, 1);
-	spa_assert(res >= 0);
+	spa_assert_se(res >= 0);
 
 	res = spa_handle_get_interface(ctx->follower_handle,
 			SPA_TYPE_INTERFACE_Node, &iface);
-	spa_assert(res >= 0);
+	spa_assert_se(res >= 0);
 
 	ctx->follower_node = iface;
 
 	/* make adapter */
 	factory = find_factory(SPA_NAME_AUDIO_ADAPT);
-	spa_assert(factory != NULL);
+	spa_assert_se(factory != NULL);
 
 	size = spa_handle_factory_get_size(factory, NULL);
 
 	ctx->adapter_handle = calloc(1, size);
-	spa_assert(ctx->adapter_handle != NULL);
+	spa_assert_se(ctx->adapter_handle != NULL);
 
 	snprintf(value, sizeof(value), "pointer:%p", ctx->follower_node);
 	items[0] = SPA_DICT_ITEM_INIT("audio.adapt.follower", value);
@@ -109,11 +109,11 @@ static int setup_context(struct context *ctx)
 			ctx->adapter_handle,
 			&SPA_DICT_INIT(items, 1),
 			support, 1);
-	spa_assert(res >= 0);
+	spa_assert_se(res >= 0);
 
 	res = spa_handle_get_interface(ctx->adapter_handle,
 			SPA_TYPE_INTERFACE_Node, &iface);
-	spa_assert(res >= 0);
+	spa_assert_se(res >= 0);
 	ctx->adapter_node = iface;
 
 	return 0;
@@ -134,8 +134,8 @@ static void node_info(void *data, const struct spa_node_info *info)
 			info->max_input_ports,
 			info->max_output_ports);
 
-	spa_assert(info->max_input_ports == 0);
-	spa_assert(info->max_output_ports > 0);
+	spa_assert_se(info->max_input_ports == 0);
+	spa_assert_se(info->max_output_ports > 0);
 }
 
 static void port_info_none(void *data,
@@ -167,8 +167,8 @@ static void port_info_5_1(void *data,
 		enum spa_direction direction, uint32_t port,
 		const struct spa_port_info *info)
 {
-	spa_assert(direction == SPA_DIRECTION_OUTPUT);
-	spa_assert(port < 6);
+	spa_assert_se(direction == SPA_DIRECTION_OUTPUT);
+	spa_assert_se(port < 6);
 }
 
 static int test_split_setup(struct context *ctx)
@@ -207,7 +207,7 @@ static int test_split_setup(struct context *ctx)
 		SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(param));
 
 	res = spa_node_set_param(ctx->adapter_node, SPA_PARAM_PortConfig, 0, param);
-	spa_assert(res == 0);
+	spa_assert_se(res == 0);
 
 	spa_zero(listener);
 	spa_node_add_listener(ctx->adapter_node,
@@ -228,7 +228,7 @@ static int test_split_setup(struct context *ctx)
 	spa_log_debug(&logger.log, "set format %d@%d", info.channels, info.rate);
 	res = spa_node_set_param(ctx->adapter_node, SPA_PARAM_Format, 0, param);
 	spa_log_debug(&logger.log, "result %d", res);
-	spa_assert(res >= 0);
+	spa_assert_se(res >= 0);
 
 	return 0;
 }

@@ -45,7 +45,7 @@ static void dump_matrix(struct channelmix *mix, float *coeff)
 		for (j = 0; j < mix->src_chan; j++) {
 			float v = mix->matrix_orig[i][j];
 			spa_log_debug(mix->log, "%d %d: %f <-> %f", i, j, v, *coeff);
-			spa_assert(fabs(v - *coeff) < 0.000001);
+			spa_assert_se(fabs(v - *coeff) < 0.000001);
 			coeff++;
 		}
 	}

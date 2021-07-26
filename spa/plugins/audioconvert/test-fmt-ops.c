@@ -54,7 +54,7 @@ static void compare_mem(int i, int j, const void *m1, const void *m2, size_t siz
 		spa_debug_mem(0, m1, size);
 		spa_debug_mem(0, m2, size);
 	}
-//	spa_assert(res == 0);
+//	spa_assert_se(res == 0);
 }
 
 static void run_test(const char *name,

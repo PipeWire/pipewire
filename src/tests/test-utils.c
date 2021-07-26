@@ -37,7 +37,7 @@ static void test_abi(void)
 {
 	pw_destroy_t f;
 	f = test_destroy;
-	spa_assert(f == test_destroy);
+	spa_assert_se(f == test_destroy);
 }
 
 static void test__pw_split_walk(void)
@@ -177,13 +177,13 @@ static void test__pw_split_walk(void)
 		size_t j = 0, len;
 
 		while ((s = pw_split_walk(str, tc->delim, &len, &state)) != NULL && tc->expected[j] != NULL) {
-			spa_assert(strlen(tc->expected[j]) == len);
-			spa_assert(strncmp(s, tc->expected[j], len) == 0);
+			spa_assert_se(strlen(tc->expected[j]) == len);
+			spa_assert_se(strncmp(s, tc->expected[j], len) == 0);
 
 			j += 1;
 		}
 
-		spa_assert(s == NULL && tc->expected[j] == NULL);
+		spa_assert_se(s == NULL && tc->expected[j] == NULL);
 	}
 }
 
@@ -195,20 +195,20 @@ static void test__pw_split_strv(void)
 	char **res;
 
 	res = pw_split_strv(test1, del, INT_MAX, &n_tokens);
-	spa_assert(res != NULL);
-	spa_assert(n_tokens == 3);
-	spa_assert(spa_streq(res[0], "a"));
-	spa_assert(spa_streq(res[1], "test"));
-	spa_assert(spa_streq(res[2], "string"));
-	spa_assert(res[3] == NULL);
+	spa_assert_se(res != NULL);
+	spa_assert_se(n_tokens == 3);
+	spa_assert_se(spa_streq(res[0], "a"));
+	spa_assert_se(spa_streq(res[1], "test"));
+	spa_assert_se(spa_streq(res[2], "string"));
+	spa_assert_se(res[3] == NULL);
 	pw_free_strv(res);
 
 	res = pw_split_strv(test1, del, 2, &n_tokens);
-	spa_assert(res != NULL);
-	spa_assert(n_tokens == 2);
-	spa_assert(spa_streq(res[0], "a"));
-	spa_assert(spa_streq(res[1], "test string  \n \r "));
-	spa_assert(res[2] == NULL);
+	spa_assert_se(res != NULL);
+	spa_assert_se(n_tokens == 2);
+	spa_assert_se(spa_streq(res[0], "a"));
+	spa_assert_se(spa_streq(res[1], "test string  \n \r "));
+	spa_assert_se(res[2] == NULL);
 	pw_free_strv(res);
 }
 
@@ -223,9 +223,9 @@ static void test_strip(void)
 	char test1[] = " \n\r \n a test string  \n \r ";
 	char test2[] = " \n\r \n   \n \r ";
 	char test3[] = "a test string";
-	spa_assert(spa_streq(pw_strip(test1, "\n\r "), "a test string"));
-	spa_assert(spa_streq(pw_strip(test2, "\n\r "), ""));
-	spa_assert(spa_streq(pw_strip(test3, "\n\r "), "a test string"));
+	spa_assert_se(spa_streq(pw_strip(test1, "\n\r "), "a test string"));
+	spa_assert_se(spa_streq(pw_strip(test2, "\n\r "), ""));
+	spa_assert_se(spa_streq(pw_strip(test3, "\n\r "), "a test string"));
 }
 
 int main(int argc, char *argv[])

@@ -31,7 +31,7 @@
 #define TEST_FUNC(a,b,func)	\
 do {				\
 	a.func = b.func;	\
-	spa_assert(SPA_PTRDIFF(&a.func, &a) == SPA_PTRDIFF(&b.func, &b)); \
+	spa_assert_se(SPA_PTRDIFF(&a.func, &a) == SPA_PTRDIFF(&b.func, &b)); \
 } while(0)
 
 static void test_abi(void)
@@ -63,27 +63,27 @@ static void test_abi(void)
 	TEST_FUNC(ev, test, drained);
 
 #if defined(__x86_64__) && defined(__LP64__)
-	spa_assert(sizeof(struct pw_buffer) == 24);
-	spa_assert(sizeof(struct pw_time) == 40);
+	spa_assert_se(sizeof(struct pw_buffer) == 24);
+	spa_assert_se(sizeof(struct pw_time) == 40);
 #else
 	fprintf(stderr, "%zd\n", sizeof(struct pw_buffer));
 	fprintf(stderr, "%zd\n", sizeof(struct pw_time));
 #endif
 
-	spa_assert(PW_VERSION_STREAM_EVENTS == 0);
-	spa_assert(sizeof(ev) == sizeof(test));
+	spa_assert_se(PW_VERSION_STREAM_EVENTS == 0);
+	spa_assert_se(sizeof(ev) == sizeof(test));
 
-	spa_assert(PW_STREAM_STATE_ERROR == -1);
-	spa_assert(PW_STREAM_STATE_UNCONNECTED == 0);
-	spa_assert(PW_STREAM_STATE_CONNECTING == 1);
-	spa_assert(PW_STREAM_STATE_PAUSED == 2);
-	spa_assert(PW_STREAM_STATE_STREAMING == 3);
+	spa_assert_se(PW_STREAM_STATE_ERROR == -1);
+	spa_assert_se(PW_STREAM_STATE_UNCONNECTED == 0);
+	spa_assert_se(PW_STREAM_STATE_CONNECTING == 1);
+	spa_assert_se(PW_STREAM_STATE_PAUSED == 2);
+	spa_assert_se(PW_STREAM_STATE_STREAMING == 3);
 
-	spa_assert(pw_stream_state_as_string(PW_STREAM_STATE_ERROR) != NULL);
-	spa_assert(pw_stream_state_as_string(PW_STREAM_STATE_UNCONNECTED) != NULL);
-	spa_assert(pw_stream_state_as_string(PW_STREAM_STATE_CONNECTING) != NULL);
-	spa_assert(pw_stream_state_as_string(PW_STREAM_STATE_PAUSED) != NULL);
-	spa_assert(pw_stream_state_as_string(PW_STREAM_STATE_STREAMING) != NULL);
+	spa_assert_se(pw_stream_state_as_string(PW_STREAM_STATE_ERROR) != NULL);
+	spa_assert_se(pw_stream_state_as_string(PW_STREAM_STATE_UNCONNECTED) != NULL);
+	spa_assert_se(pw_stream_state_as_string(PW_STREAM_STATE_CONNECTING) != NULL);
+	spa_assert_se(pw_stream_state_as_string(PW_STREAM_STATE_PAUSED) != NULL);
+	spa_assert_se(pw_stream_state_as_string(PW_STREAM_STATE_STREAMING) != NULL);
 }
 
 static void stream_destroy_error(void *data)
@@ -151,37 +151,37 @@ static void test_create(void)
 
 	loop = pw_main_loop_new(NULL);
 	context = pw_context_new(pw_main_loop_get_loop(loop), NULL, 12);
-	spa_assert(context != NULL);
+	spa_assert_se(context != NULL);
 	core = pw_context_connect_self(context, NULL, 0);
-	spa_assert(core != NULL);
+	spa_assert_se(core != NULL);
 	stream = pw_stream_new(core, "test", NULL);
-	spa_assert(stream != NULL);
+	spa_assert_se(stream != NULL);
 	pw_stream_add_listener(stream, &listener, &stream_events, stream);
 
 	/* check state */
-	spa_assert(pw_stream_get_state(stream, &error) == PW_STREAM_STATE_UNCONNECTED);
-	spa_assert(error == NULL);
+	spa_assert_se(pw_stream_get_state(stream, &error) == PW_STREAM_STATE_UNCONNECTED);
+	spa_assert_se(error == NULL);
 	/* check name */
-	spa_assert(spa_streq(pw_stream_get_name(stream), "test"));
+	spa_assert_se(spa_streq(pw_stream_get_name(stream), "test"));
 
 	/* check id, only when connected */
-	spa_assert(pw_stream_get_node_id(stream) == SPA_ID_INVALID);
+	spa_assert_se(pw_stream_get_node_id(stream) == SPA_ID_INVALID);
 
-	spa_assert(pw_stream_get_time(stream, &tm) == 0);
-	spa_assert(tm.now == 0);
-	spa_assert(tm.rate.num == 0);
-	spa_assert(tm.rate.denom == 0);
-	spa_assert(tm.ticks == 0);
-	spa_assert(tm.delay == 0);
-	spa_assert(tm.queued == 0);
+	spa_assert_se(pw_stream_get_time(stream, &tm) == 0);
+	spa_assert_se(tm.now == 0);
+	spa_assert_se(tm.rate.num == 0);
+	spa_assert_se(tm.rate.denom == 0);
+	spa_assert_se(tm.ticks == 0);
+	spa_assert_se(tm.delay == 0);
+	spa_assert_se(tm.queued == 0);
 
-	spa_assert(pw_stream_dequeue_buffer(stream) == NULL);
+	spa_assert_se(pw_stream_dequeue_buffer(stream) == NULL);
 
 	/* check destroy */
 	destroy_count = 0;
 	stream_events.destroy = stream_destroy_count;
 	pw_stream_destroy(stream);
-	spa_assert(destroy_count == 1);
+	spa_assert_se(destroy_count == 1);
 
 	pw_context_destroy(context);
 	pw_main_loop_destroy(loop);
@@ -200,21 +200,21 @@ static void test_properties(void)
 
 	loop = pw_main_loop_new(NULL);
 	context = pw_context_new(pw_main_loop_get_loop(loop), NULL, 12);
-	spa_assert(context != NULL);
+	spa_assert_se(context != NULL);
 	core = pw_context_connect_self(context, NULL, 0);
-	spa_assert(core != NULL);
+	spa_assert_se(core != NULL);
 	stream = pw_stream_new(core, "test",
 			pw_properties_new("foo", "bar",
 					  "biz", "fuzz",
 					  NULL));
-	spa_assert(stream != NULL);
+	spa_assert_se(stream != NULL);
 	pw_stream_add_listener(stream, &listener, &stream_events, stream);
 
 	props = pw_stream_get_properties(stream);
-	spa_assert(props != NULL);
-	spa_assert(spa_streq(pw_properties_get(props, "foo"), "bar"));
-	spa_assert(spa_streq(pw_properties_get(props, "biz"), "fuzz"));
-	spa_assert(pw_properties_get(props, "buzz") == NULL);
+	spa_assert_se(props != NULL);
+	spa_assert_se(spa_streq(pw_properties_get(props, "foo"), "bar"));
+	spa_assert_se(spa_streq(pw_properties_get(props, "biz"), "fuzz"));
+	spa_assert_se(pw_properties_get(props, "buzz") == NULL);
 
 	/* remove foo */
 	items[0] = SPA_DICT_ITEM_INIT("foo", NULL);
@@ -224,16 +224,16 @@ static void test_properties(void)
 	items[2] = SPA_DICT_ITEM_INIT("buzz", "frizz");
 	pw_stream_update_properties(stream, &SPA_DICT_INIT(items, 3));
 
-	spa_assert(props == pw_stream_get_properties(stream));
-	spa_assert(pw_properties_get(props, "foo") == NULL);
-	spa_assert(spa_streq(pw_properties_get(props, "biz"), "buzz"));
-	spa_assert(spa_streq(pw_properties_get(props, "buzz"), "frizz"));
+	spa_assert_se(props == pw_stream_get_properties(stream));
+	spa_assert_se(pw_properties_get(props, "foo") == NULL);
+	spa_assert_se(spa_streq(pw_properties_get(props, "biz"), "buzz"));
+	spa_assert_se(spa_streq(pw_properties_get(props, "buzz"), "frizz"));
 
 	/* check destroy */
 	destroy_count = 0;
 	stream_events.destroy = stream_destroy_count;
 	pw_context_destroy(context);
-	spa_assert(destroy_count == 1);
+	spa_assert_se(destroy_count == 1);
 
 	pw_main_loop_destroy(loop);
 }

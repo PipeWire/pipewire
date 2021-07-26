@@ -331,7 +331,7 @@ pwtest_spa_plugin_try_load_interface(struct pwtest_spa_plugin *plugin,
 	bool found = false;
 	struct spa_handle *handle;
 
-	spa_assert(libdir != NULL);
+	spa_assert_se(libdir != NULL);
 	spa_scnprintf(path, sizeof(path), "%s/%s.so", libdir, libname);
 
         hnd = dlopen(path, RTLD_NOW);
@@ -516,7 +516,7 @@ static void add_tests(struct pwtest_context *ctx)
 
 	spa_list_for_each(c, &ctx->suites, link) {
 		c->result = c->decl->setup(ctx, c);
-		spa_assert(c->result >= PWTEST_PASS && c->result <= PWTEST_SYSTEM_ERROR);
+		spa_assert_se(c->result >= PWTEST_PASS && c->result <= PWTEST_SYSTEM_ERROR);
 	}
 }
 
@@ -526,7 +526,7 @@ static int remove_file(const char *fpath, const struct stat *sb, int typeflag, s
 	int r;
 
 	/* Safety check: bail out if somehow we left TMPDIR */
-	spa_assert(spa_strneq(fpath, tmpdir, strlen(tmpdir)));
+	spa_assert_se(spa_strneq(fpath, tmpdir, strlen(tmpdir)));
 
 	r = remove(fpath);
 	if (r)
@@ -546,9 +546,9 @@ static void remove_xdg_runtime_dir(const char *xdg_dir)
 
 	/* Safety checks, we really don't want to recursively remove a
 	 * random directory due to a bug */
-	spa_assert(spa_strneq(xdg_dir, tmpdir, strlen(tmpdir)));
+	spa_assert_se(spa_strneq(xdg_dir, tmpdir, strlen(tmpdir)));
 	r = spa_scnprintf(path, sizeof(path), "%s/pwtest.dir", xdg_dir);
-	spa_assert((size_t)r == strlen(xdg_dir) + 11);
+	spa_assert_se((size_t)r == strlen(xdg_dir) + 11);
 	if (access(path, F_OK) != 0) {
 		fprintf(stderr, "XDG_RUNTIME_DIR changed, cannot clean up\n");
 		return;
@@ -588,7 +588,7 @@ static inline void log_append(struct pw_array *buffer, int fd)
 
 	while (true) {
 		r = pw_array_ensure_size(buffer, sz);
-		spa_assert(r == 0);
+		spa_assert_se(r == 0);
 		r = read(fd, pw_array_end(buffer), sz);
 		if (r <= 0)
 			break;
@@ -617,7 +617,7 @@ static bool collect_child(struct pwtest_test *t, pid_t pid)
 			case PWTEST_SYSTEM_ERROR:
 				break;
 			default:
-				spa_assert(!"Invalid test result");
+				spa_assert_se(!"Invalid test result");
 				break;
 		}
 		return true;
@@ -677,11 +677,11 @@ static void make_xdg_runtime_test_dir(char dir[PATH_MAX], const char *prefix)
 	int r;
 
 	r = spa_scnprintf(dir, PATH_MAX, "%s/%zd", prefix, counter++);
-	spa_assert(r >= (int)(strlen(prefix) + 2));
+	spa_assert_se(r >= (int)(strlen(prefix) + 2));
 	r = mkdir(dir, 0777);
 	if (r == -1) {
 		fprintf(stderr, "Failed to make XDG_RUNTIME_DIR %s (%m)\n", dir);
-		spa_assert(r != -1);
+		spa_assert_se(r != -1);
 	}
 }
 
@@ -787,10 +787,10 @@ static int start_test_forked(struct pwtest_test *t, int read_fds[_FD_LAST], int 
 	sigaction(SIGALRM, &act, NULL);
 
 	r = dup2(write_fds[FD_STDERR], STDERR_FILENO);
-	spa_assert(r != -1);
+	spa_assert_se(r != -1);
 	setlinebuf(stderr);
 	r = dup2(write_fds[FD_STDOUT], STDOUT_FILENO);
-	spa_assert(r != -1);
+	spa_assert_se(r != -1);
 	setlinebuf(stdout);
 
 	/* For convenience in the tests, let this be a global variable. */
@@ -1019,8 +1019,8 @@ static void log_test_result(struct pwtest_test *t)
 		{ "ERROR", SPA_ANSI_BOLD_MAGENTA },
 	};
 
-	spa_assert(t->result >= PWTEST_PASS);
-	spa_assert(t->result <= PWTEST_SYSTEM_ERROR);
+	spa_assert_se(t->result >= PWTEST_PASS);
+	spa_assert_se(t->result <= PWTEST_SYSTEM_ERROR);
 	s = &statuses[t->result - PWTEST_PASS];
 
 	fprintf(stderr, "    status: %s%s%s\n",
@@ -1075,14 +1075,14 @@ static char* make_xdg_runtime_dir(void)
 		tmpdir = "/tmp";
 
 	int r = asprintf(&dir, "%s/pwtest-%02d:%02d-XXXXXX", tmpdir, tm->tm_hour, tm->tm_min);
-	spa_assert((size_t)r == strlen(tmpdir) + 20); /* rough estimate */
-	spa_assert(mkdtemp(dir) != NULL);
+	spa_assert_se((size_t)r == strlen(tmpdir) + 20); /* rough estimate */
+	spa_assert_se(mkdtemp(dir) != NULL);
 
 	/* Marker file to avoid removing a random directory during cleanup */
 	r = spa_scnprintf(path, sizeof(path), "%s/pwtest.dir", dir);
-	spa_assert((size_t)r == strlen(dir) + 11);
+	spa_assert_se((size_t)r == strlen(dir) + 11);
 	fp = fopen(path, "w");
-	spa_assert(fp);
+	spa_assert_se(fp);
 	fprintf(fp, "pwtest\n");
 	fclose(fp);
 

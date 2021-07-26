@@ -28,7 +28,7 @@
 #define TEST_FUNC(a,b,func)	\
 do {				\
 	a.func = b.func;	\
-	spa_assert(SPA_PTRDIFF(&a.func, &a) == SPA_PTRDIFF(&b.func, &b)); \
+	spa_assert_se(SPA_PTRDIFF(&a.func, &a) == SPA_PTRDIFF(&b.func, &b)); \
 } while(0)
 
 static void test_abi(void)
@@ -54,8 +54,8 @@ static void test_abi(void)
 	TEST_FUNC(ev, test, resource_removed);
 	TEST_FUNC(ev, test, busy_changed);
 
-	spa_assert(PW_VERSION_IMPL_CLIENT_EVENTS == 0);
-	spa_assert(sizeof(ev) == sizeof(test));
+	spa_assert_se(PW_VERSION_IMPL_CLIENT_EVENTS == 0);
+	spa_assert_se(sizeof(ev) == sizeof(test));
 }
 
 int main(int argc, char *argv[])

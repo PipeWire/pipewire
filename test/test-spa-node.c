@@ -46,11 +46,11 @@ PWTEST(node_io_abi_sizes)
 	pwtest_int_eq(sizeof(struct spa_io_position), 1688U);
 	pwtest_int_eq(sizeof(struct spa_io_rate_match), 48U);
 
-	spa_assert(sizeof(struct spa_node_info) == 48);
-	spa_assert(sizeof(struct spa_port_info) == 48);
+	spa_assert_se(sizeof(struct spa_node_info) == 48);
+	spa_assert_se(sizeof(struct spa_port_info) == 48);
 
-	spa_assert(sizeof(struct spa_result_node_error) == 8);
-	spa_assert(sizeof(struct spa_result_node_params) == 24);
+	spa_assert_se(sizeof(struct spa_result_node_error) == 8);
+	spa_assert_se(sizeof(struct spa_result_node_params) == 24);
 
 	return PWTEST_PASS;
 #else

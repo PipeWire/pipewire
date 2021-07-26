@@ -38,16 +38,16 @@ static void test_create(struct pw_protocol_native_connection *conn)
 	int res;
 
 	res = pw_protocol_native_connection_get_next(conn, &msg);
-	spa_assert(res != 1);
+	spa_assert_se(res != 1);
 
 	res = pw_protocol_native_connection_get_fd(conn, 0);
-	spa_assert(res == -ENOENT);
+	spa_assert_se(res == -ENOENT);
 
 	res = pw_protocol_native_connection_flush(conn);
-	spa_assert(res == 0);
+	spa_assert_se(res == 0);
 
 	res = pw_protocol_native_connection_clear(conn);
-	spa_assert(res == 0);
+	spa_assert_se(res == 0);
 }
 
 static void write_message(struct pw_protocol_native_connection *conn, int fd)
@@ -57,8 +57,8 @@ static void write_message(struct pw_protocol_native_connection *conn, int fd)
 	int seq = -1, res;
 
 	b = pw_protocol_native_connection_begin(conn, 1, 5, &msg);
-	spa_assert(b != NULL);
-	spa_assert(msg->seq != -1);
+	spa_assert_se(b != NULL);
+	spa_assert_se(msg->seq != -1);
 
 	seq = SPA_RESULT_RETURN_ASYNC(msg->seq);
 
@@ -68,7 +68,7 @@ static void write_message(struct pw_protocol_native_connection *conn, int fd)
 			SPA_POD_Int(pw_protocol_native_connection_add_fd(conn, fd)));
 
 	res = pw_protocol_native_connection_end(conn, b);
-	spa_assert(seq == res);
+	spa_assert_se(seq == res);
 }
 
 static int read_message(struct pw_protocol_native_connection *conn,
@@ -88,10 +88,10 @@ static int read_message(struct pw_protocol_native_connection *conn,
 	if (pmsg)
 		*pmsg = msg;
 
-	spa_assert(msg->opcode == 5);
-	spa_assert(msg->id == 1);
-	spa_assert(msg->data != NULL);
-	spa_assert(msg->size > 0);
+	spa_assert_se(msg->opcode == 5);
+	spa_assert_se(msg->id == 1);
+	spa_assert_se(msg->data != NULL);
+	spa_assert_se(msg->size > 0);
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_get_struct(&prs,
@@ -101,7 +101,7 @@ static int read_message(struct pw_protocol_native_connection *conn,
                 spa_assert_not_reached();
 
 	fd = pw_protocol_native_connection_get_fd(conn, fdidx);
-	spa_assert(fd != -ENOENT);
+	spa_assert_se(fd != -ENOENT);
 	pw_log_debug("got fd %d %d", fdidx, fd);
 	return 0;
 }
@@ -113,16 +113,16 @@ static void test_read_write(struct pw_protocol_native_connection *in,
 	pw_protocol_native_connection_flush(out);
 	write_message(out, 2);
 	pw_protocol_native_connection_flush(out);
-	spa_assert(read_message(in, NULL) == 0);
-	spa_assert(read_message(in, NULL) == 0);
-	spa_assert(read_message(in, NULL) == -1);
+	spa_assert_se(read_message(in, NULL) == 0);
+	spa_assert_se(read_message(in, NULL) == 0);
+	spa_assert_se(read_message(in, NULL) == -1);
 
 	write_message(out, 1);
 	write_message(out, 2);
 	pw_protocol_native_connection_flush(out);
-	spa_assert(read_message(in, NULL) == 0);
-	spa_assert(read_message(in, NULL) == 0);
-	spa_assert(read_message(in, NULL) == -1);
+	spa_assert_se(read_message(in, NULL) == 0);
+	spa_assert_se(read_message(in, NULL) == 0);
+	spa_assert_se(read_message(in, NULL) == -1);
 }
 
 static void test_reentering(struct pw_protocol_native_connection *in,
@@ -132,16 +132,16 @@ static void test_reentering(struct pw_protocol_native_connection *in,
 	int i;
 
 #define READ_MSG(idx) \
-	spa_assert(read_message(in, &msg ## idx) == 0); \
-	spa_assert((msg ## idx)->n_fds == 1); \
-	spa_assert((msg ## idx)->size < sizeof(buf ## idx)); \
+	spa_assert_se(read_message(in, &msg ## idx) == 0); \
+	spa_assert_se((msg ## idx)->n_fds == 1); \
+	spa_assert_se((msg ## idx)->size < sizeof(buf ## idx)); \
 	fd ## idx = (msg ## idx)->fds[0]; \
 	memcpy(buf ## idx, (msg ## idx)->data, (msg ## idx)->size); \
 	size ## idx = (msg ## idx)->size
 
 #define CHECK_MSG(idx) \
-	spa_assert((msg ## idx)->fds[0] == fd ## idx); \
-	spa_assert(memcmp((msg ## idx)->data, buf ## idx, size ## idx) == 0)
+	spa_assert_se((msg ## idx)->fds[0] == fd ## idx); \
+	spa_assert_se(memcmp((msg ## idx)->data, buf ## idx, size ## idx) == 0)
 
 	for (i = 0; i < 50; ++i) {
 		int fd1, fd2;
@@ -165,16 +165,16 @@ static void test_reentering(struct pw_protocol_native_connection *in,
 		CHECK_MSG(2);
 		pw_protocol_native_connection_enter(in); /* 2 */
 		pw_protocol_native_connection_enter(in); /* 3 */
-		spa_assert(read_message(in, NULL) == 0);
+		spa_assert_se(read_message(in, NULL) == 0);
 		CHECK_MSG(1);
 		CHECK_MSG(2);
 		pw_protocol_native_connection_leave(in); /* 3 */
-		spa_assert(read_message(in, NULL) == 0);
+		spa_assert_se(read_message(in, NULL) == 0);
 		CHECK_MSG(1);
 		CHECK_MSG(2);
 		pw_protocol_native_connection_leave(in); /* 2 */
 		CHECK_MSG(2);
-		spa_assert(read_message(in, NULL) == 0);
+		spa_assert_se(read_message(in, NULL) == 0);
 		CHECK_MSG(1);
 		pw_protocol_native_connection_leave(in); /* 1 */
 		CHECK_MSG(1);
@@ -199,9 +199,9 @@ int main(int argc, char *argv[])
 	}
 
 	in = pw_protocol_native_connection_new(context, fds[0]);
-	spa_assert(in != NULL);
+	spa_assert_se(in != NULL);
 	out = pw_protocol_native_connection_new(context, fds[1]);
-	spa_assert(out != NULL);
+	spa_assert_se(out != NULL);
 
 	test_create(in);
 	test_create(out);

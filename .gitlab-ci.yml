@@ -213,6 +213,15 @@ build_with_custom_options:
     - ninja -C "$BUILD_DIR"
     - ninja -C "$BUILD_DIR" test
 
+# A release build with NDEBUG, all options on auto() but tests explicitly
+# enabled. This should show issues with tests failing due to different
+# optimization or relying on assert.
+build_release:
+  extends:
+    - .build_on_fedora
+  variables:
+    MESON_OPTIONS: "-Dtest=enabled -Dbuildtype=release -Db_ndebug=true"
+
 valgrind:
   extends:
     - .build_on_fedora

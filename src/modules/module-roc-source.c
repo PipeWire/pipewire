@@ -460,6 +460,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(props, "source.name", NULL);
 	}
 
+	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
+		pw_properties_set(props, PW_KEY_NODE_GROUP, "pipewire.dummy");
+	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
+		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 	if ((str = pw_properties_get(props, PW_KEY_MEDIA_CLASS)) == NULL)
 		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 

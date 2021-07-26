@@ -56,17 +56,18 @@ void stream_free(struct stream *stream)
 	if (stream->killed)
 		stream_send_killed(stream);
 
-	/* force processing of all pending messages before we destroy
-	 * the stream */
-	pw_loop_invoke(impl->loop, NULL, 0, NULL, 0, false, client);
-
-	if (stream->channel != SPA_ID_INVALID)
-		pw_map_remove(&client->streams, stream->channel);
-
 	if (stream->stream) {
 		spa_hook_remove(&stream->stream_listener);
+		pw_stream_disconnect(stream->stream);
+
+		/* force processing of all pending messages before we destroy
+		 * the stream */
+		pw_loop_invoke(impl->loop, NULL, 0, NULL, 0, false, client);
+
 		pw_stream_destroy(stream->stream);
 	}
+	if (stream->channel != SPA_ID_INVALID)
+		pw_map_remove(&client->streams, stream->channel);
 
 	pw_work_queue_cancel(impl->work_queue, stream, SPA_ID_INVALID);
 

@@ -155,6 +155,20 @@ static void flush_items(struct impl *impl)
 }
 
 static int
+loop_invoke_inthread(struct impl *impl,
+	    spa_invoke_func_t func,
+	    uint32_t seq,
+	    const void *data,
+	    size_t size,
+	    bool block,
+	    void *user_data)
+{
+	if (!impl->flushing)
+		flush_items(impl);
+	return func ? func(&impl->loop, true, seq, data, size, user_data) : 0;
+}
+
+static int
 loop_invoke(void *object,
 	    spa_invoke_func_t func,
 	    uint32_t seq,
@@ -164,11 +178,13 @@ loop_invoke(void *object,
 	    void *user_data)
 {
 	struct impl *impl = object;
-	bool in_thread = pthread_equal(impl->thread, pthread_self());
 	struct invoke_item *item;
 	int res;
 	int32_t filled;
 	uint32_t avail, idx, offset, l0;
+
+	if (pthread_equal(impl->thread, pthread_self()))
+		return loop_invoke_inthread(impl, func, seq, data, size, block, user_data);
 
 	filled = spa_ringbuffer_get_write_index(&impl->buffer, &idx);
 	if (filled < 0 || filled > DATAS_SIZE) {
@@ -190,7 +206,7 @@ loop_invoke(void *object,
 	item->func = func;
 	item->seq = seq;
 	item->size = size;
-	item->block = block && !in_thread;
+	item->block = block;
 	item->user_data = user_data;
 	item->item_size = SPA_ROUND_UP_N(sizeof(struct invoke_item) + size, 8);
 
@@ -220,14 +236,9 @@ loop_invoke(void *object,
 
 	spa_ringbuffer_write_update(&impl->buffer, idx + item->item_size);
 
-	if (in_thread) {
-		if (!impl->flushing)
-			flush_items(impl);
-	} else {
-		loop_signal_event(impl, impl->wakeup);
-	}
+	loop_signal_event(impl, impl->wakeup);
 
-	if (block && !in_thread) {
+	if (block) {
 		uint64_t count = 1;
 
 		spa_loop_control_hook_before(&impl->hooks_list);

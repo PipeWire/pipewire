@@ -1657,14 +1657,6 @@ static const struct pw_resource_events resource_events = {
 	.pong = client_node_resource_pong,
 };
 
-static int process_node(void *data)
-{
-	struct impl *impl = data;
-	struct node *this = &impl->node;
-	pw_log_trace_fp(NAME " %p: process", this);
-	return spa_node_process(&this->node);
-}
-
 /** Create a new client node
  * \param client an owner \ref pw_client
  * \param id an id
@@ -1731,9 +1723,6 @@ struct pw_impl_client_node *pw_impl_client_node_new(struct pw_resource *resource
 
 	this->node->remote = true;
 	this->flags = 0;
-
-	this->node->rt.target.signal = process_node;
-	this->node->rt.target.data = impl;
 
 	pw_resource_add_listener(this->resource,
 				&impl->resource_listener,

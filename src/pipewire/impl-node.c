@@ -831,20 +831,14 @@ static void check_properties(struct pw_impl_node *node)
 		pw_log_debug(NAME" %p: name '%s'", node, node->name);
 	}
 
-	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_PAUSE_ON_IDLE)))
-		impl->pause_on_idle = pw_properties_parse_bool(str);
-	else
-		impl->pause_on_idle = true;
+	str = pw_properties_get(node->properties, PW_KEY_NODE_PAUSE_ON_IDLE);
+	impl->pause_on_idle = str ? pw_properties_parse_bool(str) : true;
 
-	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_CACHE_PARAMS)))
-		impl->cache_params = pw_properties_parse_bool(str);
-	else
-		impl->cache_params = true;
+	str = pw_properties_get(node->properties, PW_KEY_NODE_CACHE_PARAMS);
+	impl->cache_params = str ? pw_properties_parse_bool(str) : true;
 
-	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_DRIVER)))
-		driver = pw_properties_parse_bool(str);
-	else
-		driver = false;
+	str = pw_properties_get(node->properties, PW_KEY_NODE_DRIVER);
+	driver = str ? pw_properties_parse_bool(str) : false;
 
 	if (node->driver != driver) {
 		pw_log_debug(NAME" %p: driver %d -> %d", node, node->driver, driver);
@@ -869,10 +863,14 @@ static void check_properties(struct pw_impl_node *node)
 		recalc_reason = "group changed";
 	}
 
-	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_ALWAYS_PROCESS)))
-		node->want_driver = pw_properties_parse_bool(str);
-	else
-		node->want_driver = false;
+	str = pw_properties_get(node->properties, PW_KEY_NODE_WANT_DRIVER);
+	node->want_driver = str ? pw_properties_parse_bool(str) : false;
+
+	str = pw_properties_get(node->properties, PW_KEY_NODE_ALWAYS_PROCESS);
+	node->always_process = str ? pw_properties_parse_bool(str) : false;
+
+	if (node->always_process)
+		node->want_driver = true;
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_LATENCY))) {
 		uint32_t num, denom;

@@ -292,8 +292,7 @@ struct module *create_module_switch_on_connect(struct impl *impl, const char *ar
 		goto out;
 	}
 
-	if (str != DEFAULT_BLOCKLIST)
-		pw_properties_set(props, "blocklist", NULL);
+	pw_properties_set(props, "blocklist", NULL);
 
 	module = module_new(impl, &module_switch_on_connect_methods, sizeof(*d));
 	if (module == NULL) {

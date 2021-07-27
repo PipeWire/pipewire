@@ -66,15 +66,7 @@ get_runtime_dir(void)
 	if (runtime_dir == NULL)
 		runtime_dir = getenv("XDG_RUNTIME_DIR");
 	if (runtime_dir == NULL)
-		runtime_dir = getenv("HOME");
-	if (runtime_dir == NULL)
 		runtime_dir = getenv("USERPROFILE");
-	if (runtime_dir == NULL) {
-		struct passwd pwd, *result = NULL;
-		char buffer[4096];
-		if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
-			runtime_dir = result ? result->pw_dir : NULL;
-	}
 	return runtime_dir;
 }
 

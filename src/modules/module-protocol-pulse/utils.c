@@ -55,22 +55,15 @@ int get_runtime_dir(char *buf, size_t buflen, const char *dir)
 {
 	const char *runtime_dir;
 	struct stat stat_buf;
-	char buffer[4096];
 	int res, size;
 
 	runtime_dir = getenv("PULSE_RUNTIME_PATH");
 	if (runtime_dir == NULL)
 		runtime_dir = getenv("XDG_RUNTIME_DIR");
-	if (runtime_dir == NULL)
-		runtime_dir = getenv("HOME");
-	if (runtime_dir == NULL) {
-		struct passwd pwd, *result = NULL;
-		if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
-			runtime_dir = result ? result->pw_dir : NULL;
-	}
 
 	if (runtime_dir == NULL) {
-		pw_log_error(NAME": could not find a suitable runtime directory");
+		pw_log_error(NAME": could not find a suitable runtime directory in"
+				"$PULSE_RUNTIME_PATH and $XDG_RUNTIME_DIR");
 		return -ENOENT;
 	}
 

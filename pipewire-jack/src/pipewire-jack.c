@@ -395,6 +395,10 @@ static int do_sync(struct client *client);
 
 #include "metadata.c"
 
+int pw_jack_match_rules(const char *rules, size_t size, const struct spa_dict *props,
+		int (*matched) (void *data, const char *action, const char *val, int len),
+		void *data);
+
 static void init_port_pool(struct client *c, enum spa_direction direction)
 {
 	spa_list_init(&c->ports[direction]);
@@ -2824,6 +2828,15 @@ static void varargs_parse (struct client *c, jack_options_t options, va_list ap)
 	}
 }
 
+
+static int execute_match(void *data, const char *action, const char *val, int len)
+{
+	struct client *client = data;
+	if (spa_streq(action, "update-props"))
+		pw_properties_update_string(client->props, val, len);
+	return 1;
+}
+
 SPA_EXPORT
 jack_client_t * jack_client_open (const char *client_name,
                                   jack_options_t options,
@@ -2887,6 +2900,16 @@ jack_client_t * jack_client_open (const char *client_name,
 
         if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
 		pw_properties_update_string(client->props, str, strlen(str));
+
+
+	if ((str = pw_context_get_conf_section(client->context.context,
+					"jack.rules")) != NULL) {
+		const struct pw_properties *p =
+			pw_context_get_properties(client->context.context);
+		if (p != NULL)
+			pw_jack_match_rules(str, strlen(str), &p->dict,
+				execute_match, client);
+	}
 
 	if ((str = pw_properties_get(client->props, "jack.merge-monitor")) != NULL)
 		client->merge_monitor = pw_properties_parse_bool(str);

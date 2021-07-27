@@ -56,6 +56,7 @@ context.modules = [
     {   name = libpipewire-module-metadata }
 ]
 
+# global properties for all jack clients
 jack.properties = {
      #node.latency = 1024/48000
      #jack.merge-monitor  = false
@@ -69,3 +70,22 @@ jack.properties = {
      # ignore-all:      Ignore all self connect requests
      #jack.self-connect-mode  = allow
 }
+
+# client specific properties
+jack.rules = [
+    {
+        matches = [
+            {
+                # all keys must match the value. ~ starts regex.
+                #client.name = "Carla"
+                #application.process.binary = "jack_simple_client"
+                #application.name = "~jack_simple_client.*"
+            }
+        ]
+        actions = {
+            update-props = {
+                #node.latency = 512/48000
+            }
+        }
+    }
+]

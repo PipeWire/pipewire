@@ -152,6 +152,7 @@ struct object {
 	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
 	struct spa_hook object_listener;
+	unsigned int removing:1;
 };
 
 struct midi_buffer {
@@ -588,7 +589,7 @@ static struct object *find_node(struct client *c, const char *name)
 	struct object *o;
 
 	spa_list_for_each(o, &c->context.nodes, link) {
-		if (spa_streq(o->node.name, name))
+		if (!o->removing && spa_streq(o->node.name, name))
 			return o;
 	}
 	return NULL;
@@ -2713,6 +2714,8 @@ static void registry_event_global(void *data, uint32_t id,
 		break;
 
 	case INTERFACE_Link:
+		pw_log_info(NAME" %p: link %u %d -> %d added", c, o->id,
+				o->port_link.src, o->port_link.dst);
 		do_callback(c, connect_callback,
 				o->port_link.src, o->port_link.dst, 1, c->connect_arg);
 		graph_changed = true;
@@ -2743,6 +2746,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 		pw_proxy_destroy(o->proxy);
 		o->proxy = NULL;
 	}
+	o->removing = true;
 
 	switch (o->type) {
 	case INTERFACE_Node:
@@ -2784,6 +2788,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	/* JACK clients expect the objects to hang around after
 	 * they are unregistered. We keep the memory around for that
 	 * reason but reuse it when we can. */
+	o->removing = false;
 	unlink_object(c, o);
 	recycle_object(c, o);
 	/* we keep the object available with the id because jack clients

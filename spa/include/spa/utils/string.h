@@ -73,7 +73,7 @@ static inline bool spa_strstartswith(const char *s, const char *prefix)
 	if (SPA_UNLIKELY(s == NULL))
 		return false;
 
-	spa_assert(prefix);
+	spa_assert_se(prefix);
 
 	return strncmp(s, prefix, strlen(prefix)) == 0;
 }
@@ -91,7 +91,7 @@ static inline bool spa_strendswith(const char *s, const char *suffix)
 	if (SPA_UNLIKELY(s == NULL))
 	    return false;
 
-	spa_assert(suffix);
+	spa_assert_se(suffix);
 
 	l1 = strlen(s);
 	l2 = strlen(suffix);
@@ -228,7 +228,7 @@ static inline int spa_vscnprintf(char *buffer, size_t size, const char *format, 
 {
 	int r;
 
-	spa_assert((ssize_t)size > 0);
+	spa_assert_se((ssize_t)size > 0);
 
 	r = vsnprintf(buffer, size, format, args);
 	if (SPA_UNLIKELY(r < 0))

@@ -536,15 +536,7 @@ get_runtime_dir(void)
 	if (runtime_dir == NULL)
 		runtime_dir = getenv("XDG_RUNTIME_DIR");
 	if (runtime_dir == NULL)
-		runtime_dir = getenv("HOME");
-	if (runtime_dir == NULL)
 		runtime_dir = getenv("USERPROFILE");
-	if (runtime_dir == NULL) {
-		struct passwd pwd, *result = NULL;
-		char buffer[4096];
-		if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
-			runtime_dir = result ? result->pw_dir : NULL;
-	}
 	return runtime_dir;
 }
 
@@ -562,8 +554,8 @@ static int init_socket_name(struct server *s, const char *name)
 	pw_log_debug("name:%s runtime_dir:%s", name, runtime_dir);
 
 	if (runtime_dir == NULL && !path_is_absolute) {
-		pw_log_error("server %p: name %s is not an absolute path and no runtime dir found."
-				"set one of PIPEWIRE_RUNTIME_DIR, XDG_RUNTIME_DIR, HOME or "
+		pw_log_error("server %p: name %s is not an absolute path and no runtime dir found. "
+				"Set one of PIPEWIRE_RUNTIME_DIR, XDG_RUNTIME_DIR or "
 				"USERPROFILE in the environment", s, name);
 		return -ENOENT;
 	}

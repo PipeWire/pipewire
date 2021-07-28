@@ -207,6 +207,7 @@ struct spa_pod_prop {
 							 *	  (String : key,
 							 *	   String : value)*)) */
 #define SPA_POD_PROP_FLAG_MANDATORY	(1u<<3)		/**< is mandatory */
+#define SPA_POD_PROP_FLAG_DONT_FIXATE	(1u<<4)		/**< choices need no fixation */
 	uint32_t flags;			/**< flags for property */
 	struct spa_pod value;
 	/* value follows */

@@ -163,7 +163,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	}
 
 	/* start with copying the property */
-	spa_pod_builder_prop(b, p1->key, 0);
+	spa_pod_builder_prop(b, p1->key, p1->flags & p2->flags);
 	spa_pod_builder_push_choice(b, &f, 0, 0);
 	nc = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f);
 

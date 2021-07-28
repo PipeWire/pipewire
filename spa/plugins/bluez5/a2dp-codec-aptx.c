@@ -29,7 +29,7 @@
 
 #include <spa/param/audio/format.h>
 
-#include <openaptx.h>
+#include <freeaptx.h>
 
 #include "defs.h"
 #include "rtp.h"

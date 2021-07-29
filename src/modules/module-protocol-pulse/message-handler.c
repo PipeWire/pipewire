@@ -8,6 +8,7 @@
 #include <spa/pod/builder.h>
 #include <spa/pod/pod.h>
 #include <spa/utils/defs.h>
+#include <spa/utils/json.h>
 #include <spa/utils/string.h>
 
 #include <pipewire/pipewire.h>
@@ -29,9 +30,8 @@ static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_man
 		return -EINVAL;
 
 	if (spa_streq(message, "switch-codec")) {
-		regex_t re;
-		regmatch_t matches[2];
-		char *codec;
+		char codec[256];
+		struct spa_json it;
 		char buf[1024];
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 		struct spa_pod_frame f[1];
@@ -41,19 +41,12 @@ static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_man
 		/* Parse args */
 		if (params == NULL)
 			return -EINVAL;
-		if (regcomp(&re, "[:space:]*{\\([0-9]*\\)}[:space:]*", 0) != 0)
-			return -EIO;
-		if (regexec(&re, params, SPA_N_ELEMENTS(matches), matches, 0) != 0) {
-			regfree(&re);
-			return -EINVAL;
-		}
-		regfree(&re);
 
-		codec = strndup(params + matches[1].rm_so, matches[1].rm_eo - matches[1].rm_so);
-		if (codec) {
-			codec_id = atoi(codec);
-			free(codec);
-		}
+		spa_json_init(&it, params, strlen(params));
+		if (spa_json_get_string(&it, codec, sizeof(codec)-1) <= 0)
+			return -EINVAL;
+
+		codec_id = atoi(codec);
 
 		/* Switch codec */
 		spa_pod_builder_push_object(&b, &f[0],
@@ -69,24 +62,27 @@ static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_man
 		uint32_t i;
 		FILE *r;
 		size_t size;
+		bool first = true;
 
 		r = open_memstream(response, &size);
 		if (r == NULL)
 			return -ENOMEM;
 
-		fputc('{', r);
+		fputc('[', r);
 		for (i = 0; i < n_codecs; ++i) {
 			const char *desc = codecs[i].description;
-			fprintf(r, "{{%d}{%s}}", (int)codecs[i].id, desc ? desc : "Unknown");
+			fprintf(r, "%s{\"name\":\"%d\",\"description\":\"%s\"}",
+					first ? "" : ",",
+					(int)codecs[i].id, desc ? desc : "Unknown");
 		}
-		fputc('}', r);
+		fputc(']', r);
 
 		return fclose(r) ? -errno : 0;
 	} else if (spa_streq(message, "get-codec")) {
 		if (active == SPA_ID_INVALID)
-			*response = strdup("{none}");
+			*response = strdup("null");
 		else
-			*response = spa_aprintf("{%d}", (int)codecs[active].id);
+			*response = spa_aprintf("\"%d\"", (int)codecs[active].id);
 		return *response ? 0 : -ENOMEM;
 	}
 
@@ -100,17 +96,22 @@ static int core_object_message_handler(struct pw_manager *m, struct pw_manager_o
 	if (spa_streq(message, "list-handlers")) {
 		FILE *r;
 		size_t size;
+		bool first = true;
 
 		r = open_memstream(response, &size);
 		if (r == NULL)
 			return -ENOMEM;
 
-		fputc('{', r);
+		fputc('[', r);
 		spa_list_for_each(o, &m->object_list, link) {
-			if (o->message_object_path)
-				fprintf(r, "{{%s}{%s}}", o->message_object_path, o->type);
+			if (o->message_object_path) {
+				fprintf(r, "%s{\"name\":\"%s\",\"description\":\"%s\"}",
+						first ? "" : ",",
+						o->message_object_path, o->type);
+				first = false;
+			}
 		}
-		fputc('}', r);
+		fputc(']', r);
 		return fclose(r) ? -errno : 0;
 	}
 

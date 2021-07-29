@@ -625,45 +625,28 @@ static inline enum spa_bt_transport_state spa_bt_transport_state_from_string(con
 
 #define DEFAULT_AG_VOLUME	1.0f
 #define DEFAULT_RX_VOLUME	1.0f
-#define DEFAULT_TX_VOLUME	0.064f /* pa_sw_volume_to_linear(0.4 * PA_VOLUME_NORM) */
+#define DEFAULT_TX_VOLUME	0.064f /* spa_bt_volume_hw_to_linear(40, 100) */
 
-#define PA_VOLUME_MUTED	((uint32_t) 0u)
-#define PA_VOLUME_NORM	((uint32_t) 0x10000u)
-#define PA_VOLUME_MAX	((uint32_t) UINT32_MAX/2)
-
-static inline uint32_t pa_sw_volume_from_linear(double v)
-{
-    	if (v <= 0.0)
-        	return PA_VOLUME_MUTED;
-    	return SPA_CLAMP(
-	    	(uint64_t) lround(cbrt(v) * PA_VOLUME_NORM),
-		PA_VOLUME_MUTED, PA_VOLUME_MAX);
-}
-
-static inline double pa_sw_volume_to_linear(uint32_t v)
-{
-	double f;
-	if (v <= PA_VOLUME_MUTED)
-		return 0.0;
-	if (v == PA_VOLUME_NORM)
-		return 1.0;
-	f = ((double) v / PA_VOLUME_NORM);
-	return f*f*f;
-}
-
-/* AVRCP/HSP volume is considered as percentage, so map it to pulseaudio volume. */
+/* AVRCP/HSP volume is considered as percentage, so map it to pulseaudio (cubic) volume. */
 static inline uint32_t spa_bt_volume_linear_to_hw(double v, uint32_t hw_volume_max)
 {
-	return SPA_CLAMP(
-		pa_sw_volume_from_linear(v) * hw_volume_max / PA_VOLUME_NORM,
-		0u, hw_volume_max);
+	if (v <= 0.0)
+		return 0;
+	if (v >= 1.0)
+		return hw_volume_max;
+	return SPA_CLAMP((uint64_t) lround(cbrt(v) * hw_volume_max),
+			 0u, hw_volume_max);
 }
 
 static inline double spa_bt_volume_hw_to_linear(uint32_t v, uint32_t hw_volume_max)
 {
-	return SPA_CLAMP(
-		pa_sw_volume_to_linear(v * PA_VOLUME_NORM / hw_volume_max),
-		0.0, 1.0);
+	double f;
+	if (v <= 0)
+		return 0.0;
+	if (v >= hw_volume_max)
+		return 1.0;
+	f = ((double) v / hw_volume_max);
+	return f * f * f;
 }
 
 enum spa_bt_feature {

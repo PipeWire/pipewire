@@ -82,6 +82,7 @@ extra_docs = [
   'spa-pod.dox',
   'spa-buffer.dox',
   'pulseaudio.dox',
+  'dma-buf.dox',
 ]
 
 foreach extra : extra_docs

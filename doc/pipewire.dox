@@ -12,6 +12,7 @@
 - \subpage page_proxy
 - \subpage page_thread_loop
 - \subpage page_objects_design
+- \subpage page_dma_buf
 
 ## Components
 

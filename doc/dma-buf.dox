@@ -1,0 +1,55 @@
+/** \page page_dma_buf DMA-BUF sharing
+
+PipeWire supports sharing Direct Memory Access buffers (DMA-BUFs) between
+clients via the `SPA_DATA_DmaBuf` data type. However properly negociating
+DMA-BUF support on both the producer and the consumer side require following
+a specific procedure. This page describes said procedure.
+
+# Stream parameters
+
+The stream parameters should contain two `SPA_PARAM_EnumFormat` objects: the
+first one is used for DMA-BUFs, the second one for shared memory buffers as a
+fallback.
+
+Query the list of all supported modifiers from your graphics API of choice.
+Add a `SPA_FORMAT_VIDEO_modifier` property to the first stream parameter with
+the flags `SPA_POD_PROP_FLAG_MANDATORY | SPA_POD_PROP_FLAG_DONT_FIXATE`. The
+value of the property should be set to a `SPA_CHOICE_Enum` containing once
+`long` choice per supported modifier, plus `DRM_FORMAT_MOD_INVALID` if the
+graphics API supports modifier-less buffers.
+
+The second stream parameter should not contain any `SPA_FORMAT_VIDEO_modifier`
+property.
+
+# `param_changed` hook for `SPA_PARAM_Format`
+
+Use `spa_pod_find_prop(param, NULL, SPA_FORMAT_VIDEO_modifier)` to check
+whether modifiers were negotiated. If they were negotiated, set the
+`SPA_PARAM_BUFFERS_dataType` property to `1 << SPA_DATA_DmaBuf`. If they were
+not negotiated, fall back to shared memory.
+
+## For producers
+
+When allocating a buffer, collect all possible modifiers from the
+`SPA_FORMAT_VIDEO_modifier` property and pass them all to the graphics API.
+If the allocation fails and the list of possible modifiers contains
+`DRM_FORMAT_MOD_INVALID`, fall back to allocating without an explicit modifier
+if the graphics API allows it.
+
+Once a buffer has been allocated, update the `SPA_PARAM_Format` parameter of
+the stream. Set the `SPA_FORMAT_VIDEO_modifier` property to the modifier of the
+buffer as `long`. Set the `SPA_PARAM_BUFFERS_stride` to the stride of the
+buffer.
+
+## For consumers
+
+Use `spa_format_video_raw_parse` to get the final stride and modifier.
+
+# For consumers: `add_buffer` hook
+
+Get the DMA-BUF FD and import it to the graphics API. If the modifier is not
+`DRM_FORMAT_MOD_INVALID`, provide the modifier to the graphics API. If the
+modifier is `DRM_FORMAT_MOD_INVALID`, import the DMA-BUF without an explicit
+modifier if the graphics API allows it.
+
+*/

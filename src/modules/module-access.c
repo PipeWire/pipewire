@@ -53,6 +53,10 @@
  * is only performed once per client, subsequent checks return the same
  * resolution.
  *
+ * Permissions assigned to a client are configured as arguments to this
+ * module, see the example configuration below. A special use-case is Flatpak
+ * where the permission management is delegated.
+ *
  * This module sets the \ref PW_KEY_ACCESS property to one of
  * - `allowed`: the client is explicitly allowed to access all resources
  * - `rejected`: the client does not have access to any resources and a
@@ -60,6 +64,8 @@
  * - `restricted`: the client is restricted, see note below
  * - `flatpak`: restricted, special case for clients running inside flatpak,
  *   see note below
+ * - `$access.force`: the value of the `access.force` argument given in the
+ *   module configuration.
  * - `unrestricted`: the client is allowed to access all resources. This is the
  *   default for clients not listed in any of the `access.*` options
  *   unless the client requested reduced permissions in \ref

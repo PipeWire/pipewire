@@ -5,6 +5,22 @@
 PipeWire Media Session is the reference/example session manager provided by
 the PipeWire project.
 
+# Access management
+
+The \ref page_media_session_module_access_flatpak module handles clients
+that have \ref PW_KEY_ACCESS set to "flatpak". Other clients are
+ignored.
+
+The module sets the permissions of all objects to `RX`. This limits the
+flatpaks from doing modifications to other objects.
+
+Because this will also set the core object permission `R`, the client will
+resume with the new permissions.
+
+`pipewire-media-session` implements \ref PW_KEY_MEDIA_CATEGORY type
+"Manager" applications by simply setting the client permissions to ALL. No
+additional checks are performed yet.
+
 # Modules
 
 List of Media Session modules:

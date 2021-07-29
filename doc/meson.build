@@ -51,8 +51,8 @@ endif
 # Note: order here is how doxygen will expose the pages in the sidebar
 extra_docs = [
   'index.dox',
+  'overview.dox',
   'pipewire.dox',
-  'pipewire-overview.dox',
   'pipewire-design.dox',
   'pipewire-access.dox',
   'pipewire-midi.dox',

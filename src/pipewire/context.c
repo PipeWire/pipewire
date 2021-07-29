@@ -1123,8 +1123,14 @@ again:
 
 		quantum = SPA_CLAMP(quantum, min_quantum, max_quantum);
 
-		n->rt.position->clock.rate = SPA_FRACTION(1, def_rate);
-		if (n->rt.position && quantum != n->rt.position->clock.duration) {
+		if (def_rate != n->rt.position->clock.rate.denom) {
+			pw_log_info("(%s-%u) new rate:%u->%u",
+					n->name, n->info.id,
+					n->rt.position->clock.rate.denom,
+					def_rate);
+			n->rt.position->clock.rate = SPA_FRACTION(1, def_rate);
+		}
+		if (quantum != n->rt.position->clock.duration) {
 			pw_log_info("(%s-%u) new quantum:%"PRIu64"->%u",
 					n->name, n->info.id,
 					n->rt.position->clock.duration,

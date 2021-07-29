@@ -1,4 +1,4 @@
-/** \page page_midi PipeWire MIDI
+/** \page page_midi MIDI Support
 
 This document explains how MIDI is implemented.
 

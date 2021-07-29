@@ -63,7 +63,7 @@ if get_option('session-managers').contains('media-session') and alsa_dep.found()
     sm_logind_src = ['media-session/logind.c']
     sm_logind_dep = [systemd_dep]
   endif
-  executable('pipewire-media-session',
+  media_session_sources = [
     'media-session/access-flatpak.c',
     'media-session/access-portal.c',
     'media-session/alsa-midi.c',
@@ -87,6 +87,9 @@ if get_option('session-managers').contains('media-session') and alsa_dep.found()
     'media-session/v4l2-endpoint.c',
     'media-session/libcamera-monitor.c',
     'media-session/suspend-node.c',
+  ]
+  executable('pipewire-media-session',
+    media_session_sources,
     sm_logind_src,
     install: true,
     dependencies : [dbus_dep, pipewire_dep, alsa_dep, mathlib, sm_logind_dep, libinotify_dep],

@@ -36,6 +36,8 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_access_flatpak Media Session Module: Access Flatpak
+ */
 #define NAME		"access-flatpak"
 #define SESSION_KEY	"access-flatpak"
 

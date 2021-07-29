@@ -1005,6 +1005,20 @@ static inline void get_rate(struct pw_context *context, uint32_t *def)
 	*def = s->clock_force_rate == 0 ? s->clock_rate : s->clock_force_rate;
 }
 
+static void suspend_driver(struct pw_context *context, struct pw_impl_node *n)
+{
+	struct pw_impl_node *s;
+
+	spa_list_for_each(s, &n->follower_list, follower_link) {
+		if (s == n)
+			continue;
+		pw_log_debug(NAME" %p: follower %p: '%s' suspend",
+				context, s, s->name);
+		pw_impl_node_set_state(s, PW_NODE_STATE_SUSPENDED);
+	}
+	pw_impl_node_set_state(n, PW_NODE_STATE_SUSPENDED);
+}
+
 int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 {
 	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
@@ -1128,6 +1142,9 @@ again:
 					n->name, n->info.id,
 					n->rt.position->clock.rate.denom,
 					def_rate);
+			if (context->settings.clock_rate_update_mode == CLOCK_RATE_UPDATE_MODE_HARD)
+				suspend_driver(context, n);
+
 			n->rt.position->clock.rate = SPA_FRACTION(1, def_rate);
 		}
 		if (quantum != n->rt.position->clock.duration) {

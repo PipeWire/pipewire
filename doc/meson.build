@@ -60,6 +60,7 @@ extra_docs = [
   'pipewire-tools.dox',
   'pipewire-session-manager.dox',
   'pipewire-objects-design.dox',
+  'pipewire-audio.dox',
   'api.dox',
   'tutorial.dox',
   'tutorial1.dox',

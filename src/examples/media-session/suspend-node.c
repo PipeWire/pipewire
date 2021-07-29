@@ -88,7 +88,7 @@ static void idle_timeout(void *data, uint64_t expirations)
 	struct impl *impl = node->impl;
 	struct spa_command *cmd = &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Suspend);
 
-	pw_log_debug(NAME " %p: node %d idle timeout", impl, node->id);
+	pw_log_info(NAME " %p: node %d suspend", impl, node->id);
 
 	remove_idle_timeout(node);
 

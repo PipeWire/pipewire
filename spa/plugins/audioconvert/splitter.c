@@ -732,6 +732,7 @@ static int port_set_format(void *object,
 				port->have_format = this->have_profile;
 			else
 				port->have_format = false;
+			port->format.info.raw.rate = 0;
 			clear_buffers(this, port);
 		}
 	} else {

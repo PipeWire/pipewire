@@ -1,35 +1,39 @@
 /** \page page_design Design
 
+A short overview of PipeWire's design.
+
 PipeWire is a media server that can run graphs of multimedia nodes.
-Nodes can run inside the server or in separate processes.
+Nodes can run inside the server process or in separate processes,
+communicating with the server.
 
-Some of the requirements are:
+PipeWire was designed to
 
- - must be efficient for raw video using fd passing and audio with
+ - be efficient for raw video using fd passing and audio with
    shared ringbuffers
- - must be able to provide/consume/process media from any process
- - policy to restrict access to devices and streams
- - extensible
+ - be able to provide/consume/process media from any process
+ - provide policy to restrict access to devices and streams
+ - be easily extensible
 
 Although an initial goal, the design is not limited to raw video
 only and should be able to handle compressed video and other
 media as well.
 
-PipeWire uses the SPA plugin API for the nodes in the graph. SPA is
-a plugin API designed for low-latency and efficient processing of
-any multimedia format.
+PipeWire uses the \ref page_spa "SPA plugin API" for the nodes in the graph.
+SPA is designed for low-latency and efficient processing of any multimedia
+format. SPA also provides a number of helper utilities that are not available
+in the standard C library.
 
 Some of the application we intend to build
 
- - v4l2 device provider. Provide controlled access to v4l2 devices
-   and share 1 device between multiple processes.
+ - v4l2 device provider: Provide controlled access to v4l2 devices
+   and share one device between multiple processes.
 
- - gnome-shell video provider. Gnome-shell provides a node that
+ - gnome-shell video provider: GNOME Shell provides a node that
    gives the contents of the frame buffer for screen sharing or
    screen recording.
 
- - audio server. Mix and playback multiple audio streams. The design
-   is more like CRAS (Chromium audio server) than pulseaudio and with
+ - audio server: Mix and playback multiple audio streams. The design
+   is more like CRAS (Chromium audio server) than PulseAudio and with
    the added benefit that processing can be arranged in a graph.
 
  - Pro audio graph processing like JACK.
@@ -40,9 +44,11 @@ Some of the application we intend to build
 Protocol
 --------
 
-The native protocol and object model is similar to wayland but with custom
+The native protocol and object model is similar to
+[Wayland](https://wayland.freedesktop.org) but with custom
 serialization/deserialization of messages. This is because the datastructures
-in the messages are more complicated and not easily expressible in xml format.
+in the messages are more complicated and not easily expressible in XML.
+See \ref page_module_protocol_native for details.
 
 
 Extensibility
@@ -51,7 +57,8 @@ Extensibility
 The functionality of the server is implemented and extended with modules and
 extensions. Modules are server side bits of logic that hook into various
 places to provide extra features. This mostly means controlling the processing
-graph in some way.
+graph in some way. See \ref page_pipewire_modules for a list of current
+modules.
 
 Extensions are the client side version of the modules. Most extensions provide
 both a client side and server side init function. New interfaces or new object
@@ -65,7 +72,7 @@ Some of the extensions that can be written
 
  - a module to check security of method calls
 
- - a module to automatically create or link or relink nodes
+ - a module to automatically create, link or relink nodes
 
  - a module to suspend idle nodes
 

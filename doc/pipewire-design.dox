@@ -1,4 +1,4 @@
-/** \page page_design PipeWire Design
+/** \page page_design Design
 
 PipeWire is a media server that can run graphs of multimedia nodes.
 Nodes can run inside the server or in separate processes.

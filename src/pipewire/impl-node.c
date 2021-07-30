@@ -888,6 +888,20 @@ static void check_properties(struct pw_impl_node *node)
 	str = pw_properties_get(node->properties, PW_KEY_NODE_LOCK_QUANTUM);
 	node->lock_quantum = str ? pw_properties_parse_bool(str) : false;
 
+	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_RATE))) {
+                if (sscanf(str, "%u/%u", &frac.num, &frac.denom) == 2 && frac.denom != 0) {
+			if (node->rate.num != frac.num || node->rate.denom != frac.denom) {
+				pw_log_info("(%s-%u) rate:%u/%u -> %u/%u", node->name,
+						node->info.id, node->rate.num,
+						node->rate.denom, frac.num, frac.denom);
+				node->rate = frac;
+				recalc_reason = "node rate changed";
+			}
+		}
+	}
+	str = pw_properties_get(node->properties, PW_KEY_NODE_LOCK_RATE);
+	node->lock_rate = str ? pw_properties_parse_bool(str) : false;
+
 	pw_log_debug(NAME" %p: driver:%d recalc:%s active:%d", node, node->driver,
 			recalc_reason, node->active);
 

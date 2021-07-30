@@ -20,14 +20,15 @@ context.properties = {
     core.name                              = pipewire-0               # core name and socket name
 
     ## Properties for the DSP configuration.
-    #default.clock.rate        = 48000
-    #default.clock.quantum     = 1024
-    #default.clock.min-quantum = 32
-    #default.clock.max-quantum = 8192
-    #default.video.width       = 640
-    #default.video.height      = 480
-    #default.video.rate.num    = 25
-    #default.video.rate.denom  = 1
+    #default.clock.rate          = 48000
+    #default.clock.allowed-rates = [ 48000 ]
+    #default.clock.quantum       = 1024
+    #default.clock.min-quantum   = 32
+    #default.clock.max-quantum   = 8192
+    #default.video.width         = 640
+    #default.video.height        = 480
+    #default.video.rate.num      = 25
+    #default.video.rate.denom    = 1
     #
     # These overrides are only applied when running in a vm.
     vm.overrides = {

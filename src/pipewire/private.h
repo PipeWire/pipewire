@@ -49,15 +49,18 @@ struct ucred {
 #define spa_debug(...) pw_log_trace(__VA_ARGS__)
 #endif
 
+#define MAX_RATES				16u
 #define CLOCK_MIN_QUANTUM			4u
 #define CLOCK_MAX_QUANTUM			8192u
 
 struct settings {
 	uint32_t log_level;
-	uint32_t clock_rate;
-	uint32_t clock_quantum;
-	uint32_t clock_min_quantum;
-	uint32_t clock_max_quantum;
+	uint32_t clock_rate;			/* default clock rate */
+	uint32_t clock_rates[MAX_RATES];	/* allowed clock rates */
+	uint32_t n_clock_rates;			/* number of alternative clock rates */
+	uint32_t clock_quantum;			/* default quantum */
+	uint32_t clock_min_quantum;		/* min quantum */
+	uint32_t clock_max_quantum;		/* max quantum */
 	struct spa_rectangle video_size;
 	struct spa_fraction video_rate;
 	uint32_t link_max_buffers;
@@ -67,8 +70,8 @@ struct settings {
 #define CLOCK_RATE_UPDATE_MODE_HARD 0
 #define CLOCK_RATE_UPDATE_MODE_SOFT 1
 	int clock_rate_update_mode;
-	uint32_t clock_force_rate;
-	uint32_t clock_force_quantum;
+	uint32_t clock_force_rate;		/* force a clock rate */
+	uint32_t clock_force_quantum;		/* force a quantum */
 };
 
 struct ratelimit {
@@ -678,6 +681,7 @@ struct pw_impl_node {
 	unsigned int loopchecked:1;	/**< for feedback loop checking */
 	unsigned int always_process:1;	/**< this node wants to always be processing, even when idle */
 	unsigned int lock_quantum:1;	/**< don't change graph quantum */
+	unsigned int lock_rate:1;	/**< don't change graph rate */
 
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 
@@ -702,6 +706,7 @@ struct pw_impl_node {
 
 	struct spa_fraction latency;		/**< requested latency */
 	struct spa_fraction max_latency;	/**< maximum latency */
+	struct spa_fraction rate;		/**< requested rate */
 	struct spa_source source;		/**< source to remotely trigger this node */
 	struct pw_memblock *activation;
 	struct {

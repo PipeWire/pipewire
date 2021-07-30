@@ -817,6 +817,7 @@ static void check_properties(struct pw_impl_node *node)
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_context *context = node->context;
 	const char *str, *recalc_reason = NULL;
+	struct spa_fraction frac;
 	bool driver;
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_PRIORITY_DRIVER))) {
@@ -873,43 +874,23 @@ static void check_properties(struct pw_impl_node *node)
 		node->want_driver = true;
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_LATENCY))) {
-		uint32_t num, denom;
-                if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
-			uint32_t quantum_size;
-
-			node->latency = SPA_FRACTION(num, denom);
-			quantum_size = (num * context->settings.clock_rate / denom);
-			if (context->settings.clock_power_of_two_quantum)
-				quantum_size = flp2(quantum_size);
-
-			if (quantum_size != node->quantum_size) {
-				pw_log_debug(NAME" %p: latency '%s' quantum %u/%u",
-						node, str, quantum_size, context->settings.clock_rate);
-				pw_log_info("(%s-%u) latency:%s ->quantum %u/%u", node->name,
-						node->info.id, str, quantum_size,
-						context->settings.clock_rate);
-				node->quantum_size = quantum_size;
+                if (sscanf(str, "%u/%u", &frac.num, &frac.denom) == 2 && frac.denom != 0) {
+			if (node->latency.num != frac.num || node->latency.denom != frac.denom) {
+				pw_log_info("(%s-%u) latency:%u/%u -> %u/%u", node->name,
+						node->info.id, node->latency.num,
+						node->latency.denom, frac.num, frac.denom);
+				node->latency = frac;
 				recalc_reason = "quantum changed";
 			}
 		}
 	}
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_MAX_LATENCY))) {
-		uint32_t num, denom;
-                if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {
-			uint32_t max_quantum_size;
-
-			node->max_latency = SPA_FRACTION(num, denom);
-			max_quantum_size = (num * context->settings.clock_rate / denom);
-			if (context->settings.clock_power_of_two_quantum)
-				max_quantum_size = flp2(max_quantum_size);
-
-			if (max_quantum_size != node->max_quantum_size) {
-				pw_log_debug(NAME" %p: max latency '%s' quantum %u/%u",
-						node, str, max_quantum_size, context->settings.clock_rate);
-				pw_log_info("(%s-%u) max latency:%s ->quantum %u/%u", node->name,
-						node->info.id, str, max_quantum_size,
-						context->settings.clock_rate);
-				node->max_quantum_size = max_quantum_size;
+                if (sscanf(str, "%u/%u", &frac.num, &frac.denom) == 2 && frac.denom != 0) {
+			if (node->max_latency.num != frac.num || node->max_latency.denom != frac.denom) {
+				pw_log_info("(%s-%u) max-latency:%u/%u -> %u/%u", node->name,
+						node->info.id, node->max_latency.num,
+						node->max_latency.denom, frac.num, frac.denom);
+				node->max_latency = frac;
 				recalc_reason = "max quantum changed";
 			}
 		}

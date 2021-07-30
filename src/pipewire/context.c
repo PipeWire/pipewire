@@ -1019,6 +1019,22 @@ static void suspend_driver(struct pw_context *context, struct pw_impl_node *n)
 	pw_impl_node_set_state(n, PW_NODE_STATE_SUSPENDED);
 }
 
+/* find smaller power of 2 */
+static uint32_t flp2(uint32_t x)
+{
+	x = x | (x >> 1);
+	x = x | (x >> 2);
+	x = x | (x >> 4);
+	x = x | (x >> 8);
+	x = x | (x >> 16);
+	return x - (x >> 1);
+}
+
+static int64_t fraction_compare(const struct spa_fraction *a, const struct spa_fraction *b)
+{
+	return (int64_t)(a->num * b->denom) - (int64_t)(b->num * a->denom);
+}
+
 int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 {
 	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
@@ -1113,7 +1129,9 @@ again:
 	/* assign final quantum and set state for followers and drivers */
 	spa_list_for_each(n, &context->driver_list, driver_link) {
 		bool running = false, lock_quantum = false;
-		uint32_t quantum = 0;
+		struct spa_fraction latency = SPA_FRACTION(0, 0);
+		struct spa_fraction max_latency = SPA_FRACTION(0, 0);
+		uint32_t quantum;
 
 		if (!n->driving || n->exported)
 			continue;
@@ -1123,21 +1141,32 @@ again:
 
 			lock_quantum |= s->lock_quantum;
 
-			if (s->quantum_size > 0) {
-				if (quantum == 0 || s->quantum_size < quantum)
-					quantum = s->quantum_size;
-			}
-			if (s->max_quantum_size > 0) {
-				if (s->max_quantum_size < max_quantum)
-					max_quantum = s->max_quantum_size;
-			}
+			if (latency.denom == 0 ||
+			    (s->latency.denom > 0 &&
+			     fraction_compare(&s->latency, &latency) < 0))
+				latency = s->latency;
+
+			if (max_latency.denom == 0 ||
+			    (s->max_latency.denom > 0 &&
+			     fraction_compare(&s->max_latency, &max_latency) < 0))
+				max_latency = s->max_latency;
+
 			if (s->active)
 				running = !n->passive;
 		}
-		if (quantum == 0)
-			quantum = def_quantum;
+		if (max_latency.denom != 0) {
+			uint32_t tmp = (max_latency.num * def_rate / max_latency.denom);
+			if (tmp < max_quantum)
+				max_quantum = tmp;
+		}
 
+		quantum = def_quantum;
+		if (latency.denom != 0)
+			quantum = (latency.num * def_rate / latency.denom);
 		quantum = SPA_CLAMP(quantum, min_quantum, max_quantum);
+
+		if (context->settings.clock_power_of_two_quantum)
+			quantum = flp2(quantum);
 
 		if (def_rate != n->rt.position->clock.rate.denom) {
 			pw_log_info("(%s-%u) new rate:%u->%u",

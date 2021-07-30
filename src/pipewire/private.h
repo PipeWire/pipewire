@@ -701,9 +701,7 @@ struct pw_impl_node {
 	struct pw_loop *data_loop;		/**< the data loop for this node */
 
 	struct spa_fraction latency;		/**< requested latency */
-	uint32_t quantum_size;			/**< desired quantum */
 	struct spa_fraction max_latency;	/**< maximum latency */
-	uint32_t max_quantum_size;		/**< max supported quantum */
 	struct spa_source source;		/**< source to remotely trigger this node */
 	struct pw_memblock *activation;
 	struct {

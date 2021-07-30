@@ -2,22 +2,23 @@
 
 This document explains how clients from the portal are handled.
 
-The portal is a DBus service that exposes a couple of interfaces to
+The portal is a DBus service that exposes interfaces to
 request access to the PipeWire daemon to perform a certain set of
-functions.
+functions. The PipeWire daemon runs outside the sandbox, the portal is a way
+for clients inside the sandbox to connect to and use PipeWire.
 
-The portal makes it possible to use PipeWire without having to expose
-the local PipeWire socket in the sandboxed application. It is the
-portal can connects to PipeWire on behalf of the client. The client
-becomes a portal managed client. PipeWire can detect and enforce
+The PipeWire socket is not exposed in the sandbox. Instead, The portal
+connects to PipeWire on behalf of the client, informing PipeWire that this
+client is a portal-managed client. PipeWire can detect and enforce
 extra permission checks on the portal managed clients.
 
-Once such portal is the Camera portal that provides a PipeWire session
-to stream video from a camera.
+Once such portal is the [Camera
+portal](https://flatpak.github.io/xdg-desktop-portal/portal-docs.html#gdbus-org.freedesktop.portal.Camera)
+that provides a PipeWire session to stream video from a camera.
 
 # Use cases
 
-## new portal managed clients need device permissions configured
+### new portal managed clients need device permissions configured
 
 When a new client is detected, the available objects need to be
 scanned and permissions configured for each of them.
@@ -25,7 +26,7 @@ scanned and permissions configured for each of them.
 Only the devices belonging to the media_roles given by the
 portal are considered.
 
-## new devices need to be made visible to portal managed clients
+### new devices need to be made visible to portal managed clients
 
 Newly created objects are made visible to a client when the client
 is allowed to interact with it.
@@ -33,7 +34,7 @@ is allowed to interact with it.
 Only the devices belonging to the media_roles given by the
 portal are considered.
 
-## permissions for a device need to be revoked
+### permissions for a device need to be revoked
 
 The session manager listens to changes in the permissions of devices
 and will remove the client permissions accordingly.
@@ -47,35 +48,36 @@ where these permissions can be managed.
 
 ## The portal
 
-The portal itself will make a connection to the PipeWire daemon to
-configure the session. It then hands the file descriptor of the PipeWire
-connection to the client. The client can then use the file descriptor
-to interface with the PipeWire session.
+A sandboxed client cannot connect to PipeWire directly. Instead, it connects
+to the sandbox side of the portal which then connects the PipeWire daemon to
+configure the session. The portal then hands the file descriptor of the
+PipeWire connection to the client and the client can use this file descriptor
+to interface with the PipeWire session directly.
 
 When the portal connects, it will set the following properties on the
 client object:
 
- * "pipewire.access.portal.is_portal" = true when this connection is the
-    portal itself and not a client it is managing.
- * "pipewire.access.portal.app_id" the application id of the client.
- * "pipewire.access.portal.media_roles" media roles of the client.
-    Currently "Camera" is defined.
+- `"pipewire.access.portal.is_portal" = true` for the connection of the
+  portal itself (as opposed to a client managed by the portal).
+- `"pipewire.access.portal.app_id"` the [application id](https://docs.flatpak.org/en/latest/conventions.html#application-ids) of the client.
+- `"pipewire.access.portal.media_roles"` media roles of the client.
+  Currently only `"Camera"` is defined.
 
-Before returning the connection to a client, the portal will configure
-minimal permissions on the client. No objects are initialy visible. It is
-the task of the session manager to make the objects in the graph
-visible, depending on the client media_roles.
+Before returning the connection to a client, the portal configures
+minimal permissions on the client. No objects are initially visible. It is
+the task of the \ref page_session_manager to make the objects in the graph
+visible, depending on the client's `media_roles` (see also \ref
+PW_KEY_MEDIA_ROLE).
 
 ## The PipeWire portal module
 
-\subpage page_module_portal
+The pipewire daemon uses the \ref page_module_portal to find the PID of the
+processes that owns the DBus name `org.freedesktop.portal.Desktop`
+(see the [XDG Desktop Portal](https://github.com/flatpak/xdg-desktop-portal)).
 
-The pipewire daemon uses the portal module to find the PID of the
-processes that owns the DBus name "org.freedesktop.portal.Desktop".
-
-It can then detect clients that connect from this PID and tag them
-as PW_KEY_ACCESS "portal". It will also set ALL permissions for this
-client so that it can resume. See also \ref page_module_access.
+Client connections from this PID are tagged as \ref PW_KEY_ACCESS
+`"portal"` (see \ref page_module_access). It will also set ALL permissions for
+this client so that it can resume.
 
 
 ## The client
@@ -92,33 +94,14 @@ will have limited permissions.
 ## The session manager
 
 The session manager listens for new clients to appear. It will use the
-PW_KEY_ACCESS property to find portal connections.
+\ref PW_KEY_ACCESS property to find portal connections.
 
-Based on the media_roles it will enable or disable access to PipeWire
+Based on the `media_roles` it will enable or disable access to PipeWire
 objects. It might have to consult a database to decide what is
 allowed.
 
 The permission store can be used for this. Usually the portal also
-implements "org.freedesktop.impl.portal.PermissionStore" for this.
-
-# Implementation
-
-## pipewire-media-session
-
-The example media session has an access-portal module that handles the
-clients that have a PW_KEY_ACCESS as "portal". Other clients are
-ignored.
-
-It currently only handles the camera media_roles and asks the permission
-store for camera device permissions. It receives an array of app_id
-and the associated permissions. It enables all camera objects when the
-camera permissions is given to the app_id of the client.
-
-For new nodes that appear, it will check if the client is allowed to
-see them or not and set the permissions on the new object accordingly.
-
-It watches changes in the permission stored and updates the permissions
-of the objects of clients accordingly.
-
+implements support for `org.freedesktop.impl.portal.PermissionStore`,
+see for example the \ref page_media_session_module_access_portal.
 
 */

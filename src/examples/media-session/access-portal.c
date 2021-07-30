@@ -40,6 +40,37 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_access_portal Media Session Module: Access Portal
+ *
+ * The Access Portal module manages media roles for clients
+ * started through a portal (see \ref page_module_portal). Clients must have a
+ * \ref PW_KEY_ACCESS or \ref PW_KEY_CLIENT_ACCESS property value of
+ * `"portal"`, all other clients are ignored. The portal is expected to assign
+ *`"pipewire.access.portal.media_roles"` to this client, these roles are
+ * checked against the
+ * [org.freedesktop.impl.portal.PermissionStore](https://flatpak.github.io/xdg-desktop-portal/portal-docs.html#gdbus-org.freedesktop.impl.portal.PermissionStore).
+ * Where permitted, the resulting client media role becomes the permitted
+ * set of roles.
+ *
+ * @note Currently only the "Camera" media role is supported.
+ *
+ * The Permission Store entry table used by this module is `"devices"`, the
+ * resource ID is `"camera"`.
+ *
+ * ## Module Properties
+ *
+ * This module requires the following properties on the client object:
+ *
+ * - `"pipewire.access.portal.is_portal"`: set to `"true"` for the portal
+ *   client itself, empty or `"false"` otherwise
+ * - `"pipewire.access.portal.app_id"`: the application ID of the client
+ * - `"pipewire.access.portal.media_roles"` the media roles that should be
+ *   assigned to this client (if permitted by the PermissionStore).
+ *
+ * The above properties must be set by the portal initiating the client
+ * connection.
+ *
+ */
 #define NAME		"access-portal"
 #define SESSION_KEY	"access-portal"
 

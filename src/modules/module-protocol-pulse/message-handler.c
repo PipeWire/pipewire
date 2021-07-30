@@ -74,6 +74,7 @@ static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_man
 			fprintf(r, "%s{\"name\":\"%d\",\"description\":\"%s\"}",
 					first ? "" : ",",
 					(int)codecs[i].id, desc ? desc : "Unknown");
+			first = false;
 		}
 		fputc(']', r);
 

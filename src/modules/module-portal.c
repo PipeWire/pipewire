@@ -114,8 +114,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 	if ((str = pw_properties_get(props, PW_KEY_SEC_PID)) == NULL)
 		return;
 
-	pid = atoi(str);
-	if (pid != impl->portal_pid)
+	if (!spa_atoi32(str, &pid, 10) || pid != impl->portal_pid)
 		return;
 
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, "portal");

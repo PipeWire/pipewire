@@ -1112,7 +1112,7 @@ again:
 
 	/* assign final quantum and set state for followers and drivers */
 	spa_list_for_each(n, &context->driver_list, driver_link) {
-		bool running = false;
+		bool running = false, lock_quantum = false;
 		uint32_t quantum = 0;
 
 		if (!n->driving || n->exported)
@@ -1120,6 +1120,8 @@ again:
 
 		/* collect quantum and count active nodes */
 		spa_list_for_each(s, &n->follower_list, follower_link) {
+
+			lock_quantum |= s->lock_quantum;
 
 			if (s->quantum_size > 0) {
 				if (quantum == 0 || s->quantum_size < quantum)
@@ -1147,7 +1149,7 @@ again:
 
 			n->rt.position->clock.rate = SPA_FRACTION(1, def_rate);
 		}
-		if (quantum != n->rt.position->clock.duration) {
+		if (quantum != n->rt.position->clock.duration && !lock_quantum) {
 			pw_log_info("(%s-%u) new quantum:%"PRIu64"->%u",
 					n->name, n->info.id,
 					n->rt.position->clock.duration,

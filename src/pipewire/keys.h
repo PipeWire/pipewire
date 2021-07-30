@@ -155,6 +155,9 @@ extern "C" {
 								  *  a fraction. Ex: 128/48000 */
 #define PW_KEY_NODE_MAX_LATENCY		"node.max-latency"	/**< the maximum supported latency of the
 								  *  node as a fraction. Ex: 1024/48000 */
+#define PW_KEY_NODE_LOCK_QUANTUM	"node.lock-quantum"	/**< don't change quantum when this node
+								  *  is active */
+
 #define PW_KEY_NODE_DONT_RECONNECT	"node.dont-reconnect"	/**< don't reconnect this node */
 #define PW_KEY_NODE_ALWAYS_PROCESS	"node.always-process"	/**< process even when unlinked */
 #define PW_KEY_NODE_WANT_DRIVER		"node.want-driver"	/**< the node wants to be grouped with a driver

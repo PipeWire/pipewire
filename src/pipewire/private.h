@@ -677,6 +677,7 @@ struct pw_impl_node {
 	unsigned int freewheel:1;	/**< if this is the freewheel driver */
 	unsigned int loopchecked:1;	/**< for feedback loop checking */
 	unsigned int always_process:1;	/**< this node wants to always be processing, even when idle */
+	unsigned int lock_quantum:1;	/**< don't change graph quantum */
 
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 

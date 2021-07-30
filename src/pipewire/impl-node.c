@@ -914,6 +914,8 @@ static void check_properties(struct pw_impl_node *node)
 			}
 		}
 	}
+	str = pw_properties_get(node->properties, PW_KEY_NODE_LOCK_QUANTUM);
+	node->lock_quantum = str ? pw_properties_parse_bool(str) : false;
 
 	pw_log_debug(NAME" %p: driver:%d recalc:%s active:%d", node, node->driver,
 			recalc_reason, node->active);

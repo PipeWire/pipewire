@@ -2,9 +2,42 @@
 
 \page page_pipewire_modules PipeWire Modules
 
-A PipeWire module is effectively a client provided in a `.so` file that
+A PipeWire module is effectively a PipeWire client in an `.so` file that
 shares the \ref pw_context with the loading entity. Usually modules are
-loaded when they are listed in the configuration files.
+loaded when they are listed in the configuration files. For example the
+default configuration file loads several modules:
+
+```
+context.modules = [
+    ...
+    # The native communication protocol.
+    {   name = libpipewire-module-protocol-native }
+
+    # The profile module. Allows application to access profiler
+    # and performance data. It provides an interface that is used
+    # by pw-top and pw-profiler.
+    {   name = libpipewire-module-profiler }
+
+    # Allows applications to create metadata objects. It creates
+    # a factory for Metadata objects.
+    {   name = libpipewire-module-metadata }
+
+    # Creates a factory for making devices that run in the
+    # context of the PipeWire server.
+    {   name = libpipewire-module-spa-device-factory }
+    ...
+]
+```
+And the matching libraries are:
+```
+$ ls -1 /usr/lib64/pipewire-0.3/libpipewire-module*
+...
+/usr/lib64/pipewire-0.3/libpipewire-module-metadata.so
+/usr/lib64/pipewire-0.3/libpipewire-module-profiler.so
+/usr/lib64/pipewire-0.3/libpipewire-module-protocol-native.so
+/usr/lib64/pipewire-0.3/libpipewire-module-spa-device-factory.so
+...
+```
 
 A module's entry point is the `pipewire__module_init` function, see \ref
 PIPEWIRE_SYMBOL_MODULE_INIT.
@@ -12,6 +45,9 @@ PIPEWIRE_SYMBOL_MODULE_INIT.
 \code
 int pipewire__module_init(struct pw_impl_module *module, const char *args).`
 \endcode
+
+See the \ref page_module_example_sink and \ref page_module_example_source
+modules for a general oveview of how modules look like.
 
 
 List of known modules:

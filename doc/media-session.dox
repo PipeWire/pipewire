@@ -30,6 +30,7 @@ List of Media Session modules:
 - \subpage page_media_session_module_alsa_endpoint
 - \subpage page_media_session_module_alsa_midi
 - \subpage page_media_session_module_alsa_monitor
+- \subpage page_media_session_module_bluez_autoswitch
 - \subpage page_media_session_module_bluez_endpoint
 - \subpage page_media_session_module_bluez_monitor
 - \subpage page_media_session_module_default_nodes

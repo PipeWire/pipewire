@@ -71,6 +71,7 @@ if get_option('session-managers').contains('media-session') and alsa_dep.found()
     'media-session/alsa-endpoint.c',
     'media-session/bluez-monitor.c',
     'media-session/bluez-endpoint.c',
+    'media-session/bluez-autoswitch.c',
     'media-session/default-nodes.c',
     'media-session/default-profile.c',
     'media-session/default-routes.c',

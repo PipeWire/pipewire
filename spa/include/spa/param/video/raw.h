@@ -42,6 +42,17 @@ extern "C" {
 #define SPA_VIDEO_MAX_PLANES 4
 #define SPA_VIDEO_MAX_COMPONENTS 4
 
+/**
+ * Video formats
+ *
+ * The components are in general described in big-endian order. There are some
+ * exceptions (e.g. RGB15 and RGB16) which use the host endianness.
+ *
+ * Most of the formats are identical to their GStreamer equivalent. See the
+ * GStreamer video formats documentation for more details:
+ *
+ * https://gstreamer.freedesktop.org/documentation/additional/design/mediatype-video-raw.html#formats
+ */
 enum spa_video_format {
 	SPA_VIDEO_FORMAT_UNKNOWN,
 	SPA_VIDEO_FORMAT_ENCODED,

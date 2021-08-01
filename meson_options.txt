@@ -52,8 +52,8 @@ option('pipewire-jack',
        value: 'enabled')
 option('jack-devel',
        description: 'Install jack development files',
-       type: 'feature',
-       value: 'disabled')
+       type: 'boolean',
+       value: 'false')
 option('libjack-path',
        description: 'Where to install the libjack.so library',
        type: 'string')

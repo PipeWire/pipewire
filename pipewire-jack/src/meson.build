@@ -68,7 +68,7 @@ pipewire_jackserver = shared_library('jacknet',
     install_dir : libjack_path,
 )
 
-if get_option('jack-devel').enabled()
+if get_option('jack-devel') == true
   pkgconfig.generate(filebase : 'jack',
   libraries : [pipewire_jack, pipewire_jackserver],
   name : 'jack',

@@ -17,11 +17,11 @@ conf_config.set('comment', '#')
 
 conf_config_uninstalled = conf_config
 conf_config_uninstalled.set('session_manager_path',
-  meson.build_root() / 'src' / 'examples' / 'pipewire-media-session')
+  meson.project_build_root() / 'src' / 'examples' / 'pipewire-media-session')
 conf_config_uninstalled.set('pipewire_path',
-  meson.build_root() / 'src' / 'daemon' / 'pipewire')
+  meson.project_build_root() / 'src' / 'daemon' / 'pipewire')
 conf_config_uninstalled.set('pipewire_pulse_path',
-  meson.build_root() / 'src' / 'daemon' / 'pipewire-pulse')
+  meson.project_build_root() / 'src' / 'daemon' / 'pipewire-pulse')
 conf_config_uninstalled.set('comment', '')
 
 build_ms = get_option('session-managers').contains('media-session')
@@ -48,9 +48,9 @@ elif build_wp
 
     # wp-uninstalled.sh -b path/to/wp/build/root wireplumber
     conf_config_uninstalled.set('session_manager_path',
-      meson.source_root() / 'subprojects' / 'wireplumber' / 'wp-uninstalled.sh')
+      meson.project_source_root() / 'subprojects' / 'wireplumber' / 'wp-uninstalled.sh')
     conf_config_uninstalled.set('session_manager_args',
-      '-b ' + meson.build_root() / 'subprojects' / 'wireplumber' + ' wireplumber')
+      '-b ' + meson.project_build_root() / 'subprojects' / 'wireplumber' + ' wireplumber')
   endif
 endif
 
@@ -96,7 +96,7 @@ custom_target('pipewire-uninstalled',
   install: false,
   input: pipewire_exec,
   output: 'pipewire-uninstalled',
-  command: [ln, '-fs', meson.build_root() + '/@INPUT@', '@OUTPUT@'],
+  command: [ln, '-fs', meson.project_build_root() + '/@INPUT@', '@OUTPUT@'],
 )
 
 #desktop_file = i18n.merge_file(

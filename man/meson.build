@@ -5,8 +5,8 @@ manpage_conf.set('PACKAGE_URL', 'http://pipewire.org')
 manpage_conf.set('PACKAGE_BUGREPORT', 'https://gitlab.freedesktop.org/pipewire/pipewire/issues')
 manpage_conf.set('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
 manpage_conf.set('PIPEWIRE_CONFDATADIR', pipewire_confdatadir)
-manpage_conf.set('top_srcdir', meson.source_root())
-manpage_conf.set('top_builddir', meson.build_root())
+manpage_conf.set('top_srcdir', meson.project_source_root())
+manpage_conf.set('top_builddir', meson.project_build_root())
 
 manpages = [
   'pipewire.1.xml.in',

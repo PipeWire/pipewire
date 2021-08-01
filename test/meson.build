@@ -14,8 +14,8 @@ pwtest_deps = [
 ]
 
 pwtest_c_args = [
-  '-DBUILD_ROOT="@0@"'.format(meson.build_root()),
-  '-DSOURCE_ROOT="@0@"'.format(meson.source_root()),
+  '-DBUILD_ROOT="@0@"'.format(meson.project_build_root()),
+  '-DSOURCE_ROOT="@0@"'.format(meson.project_source_root()),
 ]
 
 pwtest_inc = [

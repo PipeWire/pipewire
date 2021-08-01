@@ -1,8 +1,8 @@
 doxyfile_conf = configuration_data()
 doxyfile_conf.set('PACKAGE_NAME', meson.project_name())
 doxyfile_conf.set('PACKAGE_VERSION', meson.project_version())
-doxyfile_conf.set('top_srcdir', meson.source_root())
-doxyfile_conf.set('top_builddir', meson.build_root())
+doxyfile_conf.set('top_srcdir', meson.project_source_root())
+doxyfile_conf.set('top_builddir', meson.project_build_root())
 
 dot_found = find_program('dot', required: false).found()
 summary({'dot (used with doxygen)': dot_found}, bool_yn: true, section: 'Optional programs')
@@ -14,18 +14,18 @@ endif
 
 inputs = []
 foreach h : pipewire_headers
-  inputs += meson.source_root() / 'src' / 'pipewire' / h
+  inputs += meson.project_source_root() / 'src' / 'pipewire' / h
 endforeach
 foreach h : pipewire_sources
-  inputs += meson.source_root() / 'src' / 'pipewire' / h
+  inputs += meson.project_source_root() / 'src' / 'pipewire' / h
 endforeach
 foreach h : module_sources
-  inputs += meson.source_root() / 'src' / 'modules' / h
+  inputs += meson.project_source_root() / 'src' / 'modules' / h
 endforeach
 foreach h : media_session_sources
-  inputs += meson.source_root() / 'src' / 'examples' / h
+  inputs += meson.project_source_root() / 'src' / 'examples' / h
 endforeach
-inputs += meson.source_root() / 'test' / 'pwtest.h'
+inputs += meson.project_source_root() / 'test' / 'pwtest.h'
 
 # SPA headers use static inline functions. Doxygen doesn't extract those
 # unless we have EXTRACT_STATIC set - but we don't want it to extract
@@ -39,7 +39,7 @@ inputs += meson.source_root() / 'test' / 'pwtest.h'
 sed = find_program('sed', required: false)
 summary({'sed (for SPA docs)': sed.found()}, bool_yn: true, section: 'Optional programs')
 if sed.found()
-  spa_srcdir = meson.source_root() / 'spa' / 'include' / 'spa'
+  spa_srcdir = meson.project_source_root() / 'spa' / 'include' / 'spa'
   spa_dstdir = meson.current_build_dir() / 'spa'
   spa_strip_static = custom_target(
     'spa-strip-static',
@@ -86,12 +86,12 @@ extra_docs = [
 ]
 
 foreach extra : extra_docs
-  inputs += meson.source_root() / 'doc' / extra
+  inputs += meson.project_source_root() / 'doc' / extra
 endforeach
 
 cssfiles = [
-  meson.source_root() / 'doc' / 'doxygen-awesome.css',
-  meson.source_root() / 'doc' / 'custom.css'
+  meson.project_source_root() / 'doc' / 'doxygen-awesome.css',
+  meson.project_source_root() / 'doc' / 'custom.css'
 ]
 
 doxyfile_conf.set('inputs', ' '.join(inputs + [spa_dstdir]))

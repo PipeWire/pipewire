@@ -75,7 +75,7 @@ if get_option('jack-devel').enabled()
   description : 'PipeWire JACK API',
   version : '1.9.17',
   extra_cflags : '-D_REENTRANT',
-  variables: ['server_libs=-L${libdir} -ljackserver'])
+  unescaped_variables: ['server_libs=-L${libdir} -ljackserver'])
 endif
 
 if sdl_dep.found()

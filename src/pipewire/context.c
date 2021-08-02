@@ -1250,6 +1250,8 @@ again:
 			}
 			n->rt.position->clock.rate = SPA_FRACTION(1, target_rate);
 			current_rate = target_rate;
+			/* we might be suspended now and the links need to be prepared again */
+			goto again;
 		}
 
 

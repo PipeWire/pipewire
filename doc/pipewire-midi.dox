@@ -4,22 +4,22 @@ This document explains how MIDI is implemented.
 
 # Use cases
 
-## MIDI devices are made available as processing nodes/ports
+### MIDI devices are made available as processing nodes/ports
 
 Applications need to be able to see a port for each stream of a
 MIDI device.
 
-## MIDI devices can be plugged and unplugged
+### MIDI devices can be plugged and unplugged
 
 When devices are plugged and unplugged the associated nodes/ports
 need to be created and removed.
 
-## Applications can connect to MIDI devices
+### Applications can connect to MIDI devices
 
 Applications can create ports that can connect to the MIDI ports
 so that data can be provided to or consumed from them.
 
-## Some MIDI devices are sinks or sources for midi data
+### Some MIDI devices are sinks or sources for midi data
 
 It should be possible to create a MIDI sink or source that routes the
 midi events to specific midi ports.
@@ -30,7 +30,7 @@ renderer.
 An example of a MIDI source would be after a virtual keyboard or
 as a mix from many midi input devices.
 
-## Applications should autoconnect to MIDI sinks or sources
+### Applications should autoconnect to MIDI sinks or sources
 
 An application should be able to be connected to a MIDI sink when
 it wants to play midi data.
@@ -42,11 +42,11 @@ wants to capture midi data.
 
 ## SPA
 
-MIDI devices/streams are implemented with an SPA Node with generic
+MIDI devices/streams are implemented with an \ref spa_node with generic
 control input and output Ports. These ports have a media type of
-"application/control" and the data transported over these ports
-are of type spa_pod_sequence with the spa_pod_control type set to
-SPA_CONTROL_Midi.
+`"application/control"` and the data transported over these ports
+are of type \ref spa_pod_sequence with the \ref spa_pod_control type set to
+\ref SPA_CONTROL_Midi.
 
 This means that every midi event is timestamped with the sample
 offset against the current graph clock cycle to get sample accurate
@@ -59,7 +59,7 @@ property updates or OSC messages.
 ## The PipeWire daemon
 
 Nothing special is implemented for MIDI. Negotiation of formats
-happens between "application/control" media types and buffers are
+happens between `"application/control"` media types and buffers are
 negotiated in the same way as any generic format.
 
 ## The session manager
@@ -78,20 +78,20 @@ in order to route MIDI streams to them from applications that want this.
 
 ## pipewire-media-session
 
-PipeWire media session uses the SPA_NAME_API_ALSA_SEQ_BRIDGE plugin
-for the midi features. This creates a single SPA Node with ports per
+PipeWire media session uses the \ref SPA_NAME_API_ALSA_SEQ_BRIDGE plugin for
+the midi features. This creates a single SPA Node with ports per
 MIDI client/stream.
 
-The media session will check the permissions on /dev/snd/seq before
+The media session will check the permissions on `/dev/snd/seq` before
 attempting to create this node. It will also use inotify to wait
 until the sequencer device node is accessible.
 
 ## JACK
 
-JACK assumes all "application/control" ports are midi ports.
+JACK assumes all `"application/control"` ports are midi ports.
 
 The control messages are converted to the JACK event format by
-filtering out the SPA_CONTROL_Midi types. On output ports, the JACK
+filtering out the \ref SPA_CONTROL_Midi types. On output ports, the JACK
 event stream is converted to control messages in a similar way.
 
 There is a 1 to 1 mapping between the JACK events and control

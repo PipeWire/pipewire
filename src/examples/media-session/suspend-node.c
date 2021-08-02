@@ -178,8 +178,8 @@ handle_node(struct impl *impl, struct sm_object *object)
 	if (media_class == NULL)
 		return 0;
 
-	if (strstr(media_class, "Audio/") != media_class &&
-	    (strstr(media_class, "Video/") != media_class))
+	if (!spa_strstartswith(media_class, "Audio/") &&
+	    (!spa_strstartswith(media_class, "Video/")))
 		return 0;
 
 	node = sm_object_add_data(object, SESSION_KEY, sizeof(struct node));

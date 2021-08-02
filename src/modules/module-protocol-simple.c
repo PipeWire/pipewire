@@ -634,7 +634,7 @@ static struct server *create_server(struct impl *impl, const char *address)
 	spa_list_init(&server->client_list);
 	spa_list_append(&impl->server_list, &server->link);
 
-	if (strstr(address, "tcp:") == address) {
+	if (spa_strstartswith(address, "tcp:")) {
 		fd = make_inet_socket(server, address+4);
 	} else {
 		fd = -EINVAL;

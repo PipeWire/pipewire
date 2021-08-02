@@ -63,9 +63,9 @@ static int key_from_name(const char *name, char *key, size_t maxlen)
 {
 	const char *media_class, *select, *str;
 
-	if (strstr(name, "sink-input-") == name)
+	if (spa_strstartswith(name, "sink-input-"))
 		media_class = "Output/Audio";
-	else if (strstr(name, "source-output-") == name)
+	else if (spa_strstartswith(name, "source-output-"))
 		media_class = "Input/Audio";
 	else
 		return -1;
@@ -100,9 +100,9 @@ static int key_to_name(const char *key, char *name, size_t maxlen)
 {
 	const char *type, *select, *str;
 
-	if (strstr(key, "restore.stream.Output/Audio.") == key)
+	if (spa_strstartswith(key, "restore.stream.Output/Audio."))
 		type = "sink-input";
-	else if (strstr(key, "restore.stream.Input/Audio.") == key)
+	else if (spa_strstartswith(key, "restore.stream.Input/Audio."))
 		type = "source-output";
 	else
 		type = "stream";

@@ -175,7 +175,7 @@ impl_cpu_get_vm_type(void *object)
 			continue;
 
 		for (j = 0; j < SPA_N_ELEMENTS(dmi_vendor_table); j++) {
-			if (strstr(s, dmi_vendor_table[j].vendor) == s) {
+			if (spa_strstartswith(s, dmi_vendor_table[j].vendor)) {
 				spa_log_debug(impl->log, "Virtualization %s found in DMI (%s)",
 						s, dmi_vendors[i]);
 				impl->vm_type = dmi_vendor_table[j].id;

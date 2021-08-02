@@ -563,7 +563,7 @@ handle_device(struct impl *impl, struct sm_object *obj)
 
 	pw_log_debug(NAME" %p: device "PW_KEY_MEDIA_CLASS":%s api:%s", impl, media_class, str);
 
-	if (strstr(media_class, "Video/") != media_class)
+	if (!spa_strstartswith(media_class, "Video/"))
 		return 0;
 	if (!spa_streq(str, "v4l2"))
 		return 0;

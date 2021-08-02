@@ -244,7 +244,7 @@ static int metadata_property(void *object, uint32_t subject,
 			pw_properties_clear(impl->props);
 			changed = 1;
 		}
-		else if (strstr(key, PREFIX) == key) {
+		else if (spa_strstartswith(key, PREFIX)) {
 			changed += pw_properties_set(impl->props, key, value);
 		}
 	}
@@ -472,12 +472,12 @@ static void session_create(void *data, struct sm_object *object)
 	    (media_class = pw_properties_get(object->props, PW_KEY_MEDIA_CLASS)) == NULL)
 		return;
 
-	if (strstr(media_class, "Stream/") == media_class) {
+	if (spa_strstartswith(media_class, "Stream/")) {
 		media_class += strlen("Stream/");
 		pw_log_debug(NAME " %p: add stream '%d' %s", impl, object->id, media_class);
-	} else if (strstr(media_class, "Audio/") == media_class &&
-	    ((routes = pw_properties_get(object->props, "device.routes")) == NULL ||
-	    atoi(routes) == 0)) {
+	} else if (spa_strstartswith(media_class, "Audio/") &&
+		   ((routes = pw_properties_get(object->props, "device.routes")) == NULL ||
+		    atoi(routes) == 0)) {
 		pw_log_debug(NAME " %p: add node '%d' %s", impl, object->id, media_class);
 	} else {
 		return;

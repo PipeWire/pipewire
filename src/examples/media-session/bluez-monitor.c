@@ -405,7 +405,7 @@ static int update_device_props(struct device *device)
 		snprintf(temp, sizeof(temp), "%d", device->id);
 		s = temp;
 	}
-	if (strstr(s, "bluez_card.") == s)
+	if (spa_strstartswith(s, "bluez_card."))
 		s += strlen("bluez_card.");
 
 	pw_properties_set(p, PW_KEY_DEVICE_NAME,

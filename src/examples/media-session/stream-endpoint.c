@@ -516,16 +516,16 @@ handle_node(struct impl *impl, struct sm_object *obj)
 	if (media_class == NULL)
 		return 0;
 
-	if (strstr(media_class, "Stream/") != media_class)
+	if (!spa_strstartswith(media_class, "Stream/"))
 		return 0;
 
 	media_class += strlen("Stream/");
 
-	if (strstr(media_class, "Output/") == media_class) {
+	if (spa_strstartswith(media_class, "Output/")) {
 		direction = PW_DIRECTION_OUTPUT;
 		media_class += strlen("Output/");
 	}
-	else if (strstr(media_class, "Input/") == media_class) {
+	else if (spa_strstartswith(media_class, "Input/")) {
 		direction = PW_DIRECTION_INPUT;
 		media_class += strlen("Input/");
 	}

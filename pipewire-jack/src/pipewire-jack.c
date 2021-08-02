@@ -2534,7 +2534,7 @@ static void registry_event_global(void *data, uint32_t id,
 		node_id = atoi(str);
 
 		if ((str = spa_dict_lookup(props, PW_KEY_PORT_EXTRA)) != NULL &&
-		    strstr(str, "jack:flags:") == str)
+		    spa_strstartswith(str, "jack:flags:"))
 			flags = atoi(str+11);
 
 		if ((str = spa_dict_lookup(props, PW_KEY_PORT_NAME)) == NULL)

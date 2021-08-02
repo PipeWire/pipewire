@@ -294,21 +294,21 @@ handle_node(struct impl *impl, struct sm_object *object)
 	if (role && spa_streq(role, "DSP"))
 		node->active = node->configured = true;
 
-	if (strstr(media_class, "Stream/") == media_class) {
+	if (spa_strstartswith(media_class, "Stream/")) {
 		media_class += strlen("Stream/");
 
-		if (strstr(media_class, "Output/") == media_class) {
+		if (spa_strstartswith(media_class, "Output/")) {
 			direction = PW_DIRECTION_OUTPUT;
 			media_class += strlen("Output/");
 		}
-		else if (strstr(media_class, "Input/") == media_class) {
+		else if (spa_strstartswith(media_class, "Input/")) {
 			direction = PW_DIRECTION_INPUT;
 			media_class += strlen("Input/");
 		}
 		else
 			return 0;
 
-		if (strstr(media_class, "Video") == media_class) {
+		if (spa_strstartswith(media_class, "Video")) {
 			if (direction == PW_DIRECTION_OUTPUT) {
 				if ((str = pw_properties_get(object->props, PW_KEY_NODE_PLUGGED)) != NULL)
 					node->plugged = pw_properties_parse_uint64(str);
@@ -317,7 +317,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 			}
 			node->active = node->configured = true;
 		}
-		else if (strstr(media_class, "Unknown") == media_class) {
+		else if (spa_strstartswith(media_class, "Unknown")) {
 			node->active = node->configured = true;
 		}
 
@@ -330,11 +330,11 @@ handle_node(struct impl *impl, struct sm_object *object)
 		const char *media;
 		bool virtual = false;
 
-		if (strstr(media_class, "Audio/") == media_class) {
+		if (spa_strstartswith(media_class, "Audio/")) {
 			media_class += strlen("Audio/");
 			media = "Audio";
 		}
-		else if (strstr(media_class, "Video/") == media_class) {
+		else if (spa_strstartswith(media_class, "Video/")) {
 			media_class += strlen("Video/");
 			media = "Video";
 			node->active = node->configured = true;

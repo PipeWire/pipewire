@@ -37,7 +37,7 @@ static inline void push_item(struct spa_pod_builder *b, const struct spa_dict_it
 	const char *str;
 	spa_pod_builder_string(b, item->key);
 	str = item->value;
-	if (strstr(str, "pointer:") == str)
+	if (spa_strstartswith(str, "pointer:"))
 		str = "";
 	spa_pod_builder_string(b, str);
 }
@@ -50,7 +50,7 @@ static inline int parse_item(struct spa_pod_parser *prs, struct spa_dict_item *i
 		       SPA_POD_String(&item->value),
 		       NULL)) < 0)
 		return res;
-	if (strstr(item->value, "pointer:") == item->value)
+	if (spa_strstartswith(item->value, "pointer:"))
 		item->value = "";
 	return 0;
 }

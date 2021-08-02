@@ -159,7 +159,7 @@ static int update_properties(struct pw_impl_client *client, const struct spa_dic
 
         for (i = 0; i < dict->n_items; i++) {
 		if (filter) {
-			if (strstr(dict->items[i].key, "pipewire.") == dict->items[i].key &&
+			if (spa_strstartswith(dict->items[i].key, "pipewire.") &&
 			    (old = pw_properties_get(client->properties, dict->items[i].key)) != NULL &&
 			    (dict->items[i].value == NULL || !spa_streq(old, dict->items[i].value))) {
 				pw_log_warn(NAME" %p: refuse property update '%s' from '%s' to '%s'",

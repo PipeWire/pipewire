@@ -412,9 +412,9 @@ static const struct a2dp_codec *a2dp_endpoint_to_codec(const char *endpoint)
 	const char *codec_name;
 	int i;
 
-	if (strstr(endpoint, A2DP_SINK_ENDPOINT "/") == endpoint)
+	if (spa_strstartswith(endpoint, A2DP_SINK_ENDPOINT "/"))
 		codec_name = endpoint + strlen(A2DP_SINK_ENDPOINT "/");
-	else if (strstr(endpoint, A2DP_SOURCE_ENDPOINT "/") == endpoint)
+	else if (spa_strstartswith(endpoint, A2DP_SOURCE_ENDPOINT "/"))
 		codec_name = endpoint + strlen(A2DP_SOURCE_ENDPOINT "/");
 	else
 		return NULL;
@@ -430,9 +430,9 @@ static const struct a2dp_codec *a2dp_endpoint_to_codec(const char *endpoint)
 static int a2dp_endpoint_to_profile(const char *endpoint)
 {
 
-	if (strstr(endpoint, A2DP_SINK_ENDPOINT "/") == endpoint)
+	if (spa_strstartswith(endpoint, A2DP_SINK_ENDPOINT "/"))
 		return SPA_BT_PROFILE_A2DP_SOURCE;
-	else if (strstr(endpoint, A2DP_SOURCE_ENDPOINT "/") == endpoint)
+	else if (spa_strstartswith(endpoint, A2DP_SOURCE_ENDPOINT "/"))
 		return SPA_BT_PROFILE_A2DP_SINK;
 	else
 		return SPA_BT_PROFILE_NULL;

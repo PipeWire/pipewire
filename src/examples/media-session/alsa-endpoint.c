@@ -610,6 +610,8 @@ static int setup_alsa_ucm_endpoint(struct device *device)
 		pw_log_debug("verb: %s", verb_list[i]);
 	}
 
+	/* FIXME: implement this */
+
 	snd_use_case_free_list(verb_list, num_verbs);
 
 	res = -ENOTSUP;

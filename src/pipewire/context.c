@@ -1068,6 +1068,8 @@ static void suspend_driver(struct pw_context *context, struct pw_impl_node *n)
 				context, s, s->name);
 		pw_impl_node_set_state(s, PW_NODE_STATE_SUSPENDED);
 	}
+	pw_log_debug(NAME" %p: driver %p: '%s' suspend",
+			context, n, n->name);
 	pw_impl_node_set_state(n, PW_NODE_STATE_SUSPENDED);
 }
 
@@ -1233,8 +1235,9 @@ again:
 			target_rate = current_rate;
 
 		if (target_rate != current_rate) {
-			pw_log_info("(%s-%u) new rate:%u->%u",
+			pw_log_info("(%s-%u) state:%s new rate:%u->%u",
 					n->name, n->info.id,
+					pw_node_state_as_string(n->info.state),
 					n->rt.position->clock.rate.denom,
 					target_rate);
 

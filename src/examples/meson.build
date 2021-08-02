@@ -87,10 +87,9 @@ if get_option('session-managers').contains('media-session') and alsa_dep.found()
     'media-session/v4l2-endpoint.c',
     'media-session/libcamera-monitor.c',
     'media-session/suspend-node.c',
-  ]
+  ] + sm_logind_src
   executable('pipewire-media-session',
     media_session_sources,
-    sm_logind_src,
     install: true,
     dependencies : [dbus_dep, pipewire_dep, alsa_dep, mathlib, sm_logind_dep, libinotify_dep],
 )

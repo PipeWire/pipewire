@@ -995,6 +995,8 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *driver
 				if (t->visited || !t->active)
 					continue;
 
+				pw_impl_link_prepare(l);
+
 				if (!l->passive)
 					driver->passive = n->passive = false;
 
@@ -1004,8 +1006,8 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *driver
 				}
 			}
 		}
-		/* now go through all the followers of this driver and add the
-		 * nodes that have the same group and that are not yet visited */
+		/* now go through all the nodes that have the same group and
+		 * that are not yet visited */
 		if (n->group[0] == '\0')
 			continue;
 

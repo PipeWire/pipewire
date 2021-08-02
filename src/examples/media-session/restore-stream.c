@@ -45,6 +45,9 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_restore_stream Media Session Module: Restore Stream
+ */
+
 #define NAME		"restore-stream"
 #define SESSION_KEY	"restore-stream"
 #define PREFIX		"restore.stream."

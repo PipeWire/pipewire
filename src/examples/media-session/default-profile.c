@@ -45,6 +45,9 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_default_profile Media Session Module: Default Profile
+ */
+
 #define NAME		"default-profile"
 #define SESSION_KEY	"default-profile"
 #define PREFIX		"default.profile."

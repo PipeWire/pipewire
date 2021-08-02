@@ -44,6 +44,9 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_libcamera_monitor Media Session Module: libCamera Monitor
+ */
+
 struct device;
 
 struct node {

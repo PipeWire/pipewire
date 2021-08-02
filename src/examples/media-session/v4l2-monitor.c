@@ -44,6 +44,8 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_v4l2_monitor Media Session Module: V4L2 Monitor
+ */
 #define SESSION_CONF	"v4l2-monitor.conf"
 
 struct device;

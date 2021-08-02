@@ -43,6 +43,9 @@
 #include "pipewire/extensions/session-manager.h"
 #include "media-session.h"
 
+/** \page page_media_session_module_stream_endpoint Media Session Module: Stream Endpoint
+ */
+
 #define NAME "stream-endpoint"
 #define SESSION_KEY	"stream-endpoint"
 

@@ -46,6 +46,9 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_v4l2_endpoint Media Session Module: V4L2 Endpoint
+ */
+
 #define NAME		"v4l2-endpoint"
 #define SESSION_KEY	"v4l2-endpoint"
 

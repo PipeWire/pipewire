@@ -37,6 +37,9 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_stream_follow_default Media Session Module: Stream Follow Default
+ */
+
 #define KEY_NAME	"policy-node.streams-follow-default"
 
 int sm_streams_follow_default_start(struct sm_media_session *session)

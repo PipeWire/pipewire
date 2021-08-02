@@ -43,6 +43,9 @@
 #define SEQ_NAME "seq"
 #define SND_SEQ_PATH SND_PATH"/"SEQ_NAME
 
+/** \page page_media_session_module_alsa_midi Media Session Module: ALSA MIDI
+ */
+
 #define DEFAULT_NAME	"Midi-Bridge"
 
 struct impl {

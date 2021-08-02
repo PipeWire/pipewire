@@ -43,6 +43,9 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_default_nodes Media Session Module: Default Nodes
+ */
+
 #define NAME		"default-nodes"
 #define SESSION_KEY	"default-nodes"
 #define PREFIX		"default."

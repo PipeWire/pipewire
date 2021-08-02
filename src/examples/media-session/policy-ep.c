@@ -42,6 +42,9 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_policy_endpoint Media Session Module: Policy Endpoint
+ */
+
 #define NAME "policy-ep"
 #define SESSION_KEY	"policy-endpoint"
 

@@ -47,6 +47,9 @@
 #include "pipewire/impl.h"
 #include "media-session.h"
 
+/** \page page_media_session_module_bluez_monitor Media Session Module: BlueZ Monitor
+ */
+
 #define NAME		"bluez5-monitor"
 #define SESSION_CONF	"bluez-monitor.conf"
 #define FEATURES_CONF	"bluez-hardware.conf"

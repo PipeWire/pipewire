@@ -58,6 +58,8 @@
 
 #include "reserve.c"
 
+/** \page page_media_session_module_alsa_monitor Media Session Module: ALSA Monitor
+ */
 #define SESSION_CONF	"alsa-monitor.conf"
 
 #define DEFAULT_JACK_SECONDS	1

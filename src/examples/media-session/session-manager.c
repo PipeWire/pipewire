@@ -41,6 +41,9 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_session_manager Media Session Module: Session Manager
+ */
+
 #define NAME		"session-manager"
 #define SESSION_KEY	"session-manager"
 

@@ -43,6 +43,9 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_policy_node Media Session Module: Policy Node
+ */
+
 #define NAME		"policy-node"
 #define SESSION_KEY	"policy-node"
 

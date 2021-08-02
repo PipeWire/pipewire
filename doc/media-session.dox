@@ -28,5 +28,24 @@ List of Media Session modules:
 - \subpage page_media_session_module_access_flatpak
 - \subpage page_media_session_module_access_portal
 - \subpage page_media_session_module_alsa_endpoint
+- \subpage page_media_session_module_alsa_midi
+- \subpage page_media_session_module_alsa_monitor
+- \subpage page_media_session_module_bluez_endpoint
+- \subpage page_media_session_module_bluez_monitor
+- \subpage page_media_session_module_default_nodes
+- \subpage page_media_session_module_default_profile
+- \subpage page_media_session_module_default_routes
+- \subpage page_media_session_module_libcamera_monitor
+- \subpage page_media_session_module_logind
+- \subpage page_media_session_module_metadata
+- \subpage page_media_session_module_policy_endpoint
+- \subpage page_media_session_module_policy_node
+- \subpage page_media_session_module_restore_stream
+- \subpage page_media_session_module_session_manager
+- \subpage page_media_session_module_stream_endpoint
+- \subpage page_media_session_module_stream_follow_default
+- \subpage page_media_session_module_suspend_node
+- \subpage page_media_session_module_v4l2_endpoint
+- \subpage page_media_session_module_v4l2_monitor
 
 */

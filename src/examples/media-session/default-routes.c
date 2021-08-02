@@ -45,6 +45,8 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_default_routes Media Session Module: Default Routes
+ */
 #define NAME		"default-routes"
 #define SESSION_KEY	"default-routes"
 #define PREFIX		"default.route."

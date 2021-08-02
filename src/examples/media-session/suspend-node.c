@@ -40,6 +40,9 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_suspend_node Media Session Module: Suspend Node
+ */
+
 #define NAME		"suspend-node"
 #define SESSION_KEY	"suspend-node"
 

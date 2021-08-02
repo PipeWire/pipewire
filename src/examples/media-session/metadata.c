@@ -31,6 +31,9 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_metadata Media Session Module: Metadata
+ */
+
 #define NAME "metadata"
 
 struct metadata {

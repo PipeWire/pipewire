@@ -47,6 +47,8 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_bluez_endpoint Media Session Module: BlueZ Endpoint
+ */
 #define NAME		"bluez-endpoint"
 #define SESSION_KEY	"bluez-endpoint"
 

@@ -40,6 +40,9 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_logind Media Session Module: Logind
+ */
+
 #define NAME		"logind"
 
 struct impl {

@@ -673,7 +673,7 @@ int pw_impl_link_prepare(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
-	pw_log_debug(NAME" %p: prepare prepared:%d busy:%d in_active:%d out_active:%d",
+	pw_log_debug(NAME" %p: prepared:%d preparing:%d in_active:%d out_active:%d",
 			this, this->prepared, this->preparing,
 			impl->inode->active, impl->onode->active);
 
@@ -771,10 +771,12 @@ error_resource:
 	return -errno;
 }
 
-static void port_state_changed(struct pw_impl_link *this, struct pw_impl_port *port, struct pw_impl_port *other,
-			enum pw_impl_port_state state, const char *error)
+static void port_state_changed(struct pw_impl_link *this, struct pw_impl_port *port,
+		struct pw_impl_port *other, enum pw_impl_port_state old,
+		enum pw_impl_port_state state, const char *error)
 {
-	pw_log_debug(NAME" %p: port %p state %d", this, port, state);
+	pw_log_debug(NAME" %p: port %p old:%d -> state:%d prepared:%d preparing:%d",
+			this, port, old, state, this->prepared, this->preparing);
 
 	switch (state) {
 	case PW_IMPL_PORT_STATE_ERROR:
@@ -782,13 +784,13 @@ static void port_state_changed(struct pw_impl_link *this, struct pw_impl_port *p
 		break;
 	case PW_IMPL_PORT_STATE_INIT:
 	case PW_IMPL_PORT_STATE_CONFIGURE:
-		if (this->prepared) {
+		if (this->prepared || state < old) {
 			this->prepared = false;
 			link_update_state(this, PW_LINK_STATE_INIT, 0, NULL);
 		}
 		break;
 	case PW_IMPL_PORT_STATE_READY:
-		if (this->prepared) {
+		if (this->prepared || state < old) {
 			this->prepared = false;
 			link_update_state(this, PW_LINK_STATE_NEGOTIATING, 0, NULL);
 		}
@@ -835,7 +837,7 @@ static void input_port_state_changed(void *data, enum pw_impl_port_state old,
 {
 	struct impl *impl = data;
 	struct pw_impl_link *this = &impl->this;
-	port_state_changed(this, this->input, this->output, state, error);
+	port_state_changed(this, this->input, this->output, old, state, error);
 }
 
 static void output_port_param_changed(void *data, uint32_t id)
@@ -850,7 +852,7 @@ static void output_port_state_changed(void *data, enum pw_impl_port_state old,
 {
 	struct impl *impl = data;
 	struct pw_impl_link *this = &impl->this;
-	port_state_changed(this, this->output, this->input, state, error);
+	port_state_changed(this, this->output, this->input, old, state, error);
 }
 
 static void input_port_latency_changed(void *data)

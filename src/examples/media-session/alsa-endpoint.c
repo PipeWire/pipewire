@@ -49,6 +49,15 @@
 
 #include "media-session.h"
 
+/** \page page_media_session_module_alsa_endpoint Media Session Module: ALSA Endpoint
+ *
+ * The ALSA endpoint module creates an endpoint and corresponding endpoint
+ * stream for each Node on ALSA devices.
+ *
+ * ALSA devices are defined as devices with a \ref PW_KEY_MEDIA_CLASS
+ * starting with `"Audio/"` and a \ref PW_KEY_DEVICE_API of `"alsa"`.
+ */
+
 #define NAME		"alsa-endpoint"
 #define SESSION_KEY	"alsa-endpoint"
 

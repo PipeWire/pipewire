@@ -41,6 +41,13 @@
 #include "media-session.h"
 
 /** \page page_media_session_module_logind Media Session Module: Logind
+ *
+ * The logind module uses systemd logind to keep track of the user's session
+ * and updates the media session's seat state accordingly.
+ *
+ * The session state may be used by other modules, e.g. the \ref
+ * page_media_session_module_bluez_monitor module enables/disables
+ * Bluetooth whenever the session changes between active and inactive.
  */
 
 #define NAME		"logind"

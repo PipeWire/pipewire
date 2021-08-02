@@ -1,6 +1,6 @@
 /** \page page_access Access Control
 
-This document explains how access control is designed implemented.
+This document explains how access control is designed and implemented.
 
 PipeWire implements per client permissions on the objects in the graph.
 Permissions include `R` (read), `W` (write), `X` (execute) and `M` (metadata).
@@ -72,26 +72,24 @@ sets the core permissions to `R`. This other client is usually a session
 manager, see e.g. \ref page_session_manager.
 
 
-## The access module
+## The PipeWire access module
 
-The \ref page_module_access hooks into the `check_access` event when a new
-client is registered and will check the permissions of the client.
-The current permissions on the client are stored in the \ref PW_KEY_ACCESS
+The \ref page_module_access hooks into the `check_access` event that is
+emitted when a new client is registered. The module checks the permissions of
+the client and stores those in the \ref PW_KEY_ACCESS
 property on the client object. If this property is already set, the access
 module does nothing.
 
 If the property is not set, it will go through a set of checks to determine
 the permissions for a client, see the \ref page_module_access documentation
-for details.
+for details, particularly on the values documented below. Depending on the
+value of the \ref PW_KEY_ACCESS property one the following happens:
 
-Depending on the value of the \ref PW_KEY_ACCESS property one the following
-happens:
-
-- "allowed", "unrestricted" :  ALL permissions are set on the core
+- `"allowed"`, `"unrestricted"`:  ALL permissions are set on the core
     object and the client will be able to resume.
-- "restricted", "flatpak", "$access.force" :  no permissions are set on
+- `"restricted"`, `"flatpak"`, `"$access.force"`:  no permissions are set on
     the core object and the client will be suspended.
-- "rejected" : an error is sent to the client and the client is
+- `"rejected"`: an error is sent to the client and the client is
     suspended.
 
 As detailed above, the client may be suspended. In that case the session
@@ -103,11 +101,11 @@ for it to resume.
 The session manager listens for new clients to appear. It will use the
 \ref PW_KEY_ACCESS property to determine what to do.
 
-For clients that are suspended with "restricted", "flatpak" or "$access.force"
-access, the session manager needs to set permissions on the client for the
-various PipeWire objects in the graph that it is allowed to interact with.
-To resume a client, the session manager needs to set permission `R`
-on the core object for the client.
+For clients that are suspended with `"restricted"`, `"flatpak"` or
+`"$access.force"` access, the session manager needs to set permissions on the
+client for the various PipeWire objects in the graph that it is allowed to
+interact with.  To resume a client, the session manager needs to set
+permission `R` on the core object for the client.
 
 Permissions of objects for a client can be changed at any time by the
 session manager. Removing the client core permission `R` will suspend the

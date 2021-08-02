@@ -89,6 +89,7 @@ static void info_changed(struct pw_impl_link *link)
 
 static void link_update_state(struct pw_impl_link *link, enum pw_link_state state, int res, char *error)
 {
+	struct impl *impl = SPA_CONTAINER_OF(link, struct impl, this);
 	enum pw_link_state old = link->info.state;
 
 	link->info.state = state;
@@ -133,6 +134,11 @@ static void link_update_state(struct pw_impl_link *link, enum pw_link_state stat
 		link->prepared = false;
 		link->preparing = false;
 		pw_context_recalc_graph(link->context, "link unprepared");
+	} else if (state == PW_LINK_STATE_INIT) {
+		link->prepared = false;
+		link->preparing = false;
+		pw_work_queue_cancel(impl->work, link->output, SPA_ID_INVALID);
+		pw_work_queue_cancel(impl->work, link->input, SPA_ID_INVALID);
 	}
 }
 

@@ -1148,6 +1148,9 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 	impl->io = SPA_IO_BUFFERS_INIT;
 
+	this->rt.out_mix.peer_id = input->global->id;
+	this->rt.in_mix.peer_id = output->global->id;
+
 	pw_impl_port_init_mix(output, &this->rt.out_mix);
 	pw_impl_port_init_mix(input, &this->rt.in_mix);
 

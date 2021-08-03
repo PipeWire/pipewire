@@ -740,6 +740,7 @@ struct pw_impl_port_mix {
 	} port;
 	struct spa_io_buffers *io;
 	uint32_t id;
+	uint32_t peer_id;
 	unsigned int have_buffers:1;
 };
 

@@ -60,7 +60,7 @@ extern "C" {
  *     return foo;
  * }
  */
-#if defined(__clang__) && __cplusplus >= 201103L
+#if defined(__clang__) && defined(__cplusplus) && __cplusplus >= 201103L
    /* clang's fallthrough annotations are only available starting in C++11. */
 #  define SPA_FALLTHROUGH [[clang::fallthrough]];
 #elif __GNUC__ >= 7 || __clang_major__ >= 10

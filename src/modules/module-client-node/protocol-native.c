@@ -574,6 +574,39 @@ static int client_node_demarshal_set_activation(void *object, const struct pw_pr
 	return 0;
 }
 
+static int client_node_demarshal_port_set_mix_info(void *object, const struct pw_protocol_native_message *msg)
+{
+	struct pw_proxy *proxy = object;
+	struct spa_pod_parser prs;
+	uint32_t direction, port_id, mix_id, peer_id;
+	struct spa_pod_frame f[2];
+	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
+
+	spa_pod_parser_init(&prs, msg->data, msg->size);
+	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
+	    spa_pod_parser_get(&prs,
+			SPA_POD_Int(&direction),
+			SPA_POD_Int(&port_id),
+			SPA_POD_Int(&mix_id),
+			SPA_POD_Int(&peer_id), NULL) < 0)
+		return -EINVAL;
+
+	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0)
+		return -EINVAL;
+	if (spa_pod_parser_get(&prs,
+			 SPA_POD_Int(&props.n_items), NULL) < 0)
+		return -EINVAL;
+
+	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
+	if (parse_dict(&prs, &props) < 0)
+		return -EINVAL;
+
+	pw_proxy_notify(proxy, struct pw_client_node_events, port_set_mix_info, 1,
+							direction, port_id, mix_id,
+							peer_id, &props);
+	return 0;
+}
+
 static int client_node_demarshal_set_io(void *object, const struct pw_protocol_native_message *msg)
 {
 	struct pw_proxy *proxy = object;
@@ -840,6 +873,33 @@ client_node_marshal_set_io(void *object,
 			       SPA_POD_Int(size));
 	return pw_protocol_native_end_resource(resource, b);
 }
+
+static int
+client_node_marshal_port_set_mix_info(void *object,
+				uint32_t direction,
+				uint32_t port_id,
+				uint32_t mix_id,
+				uint32_t peer_id,
+				const struct spa_dict *props)
+{
+	struct pw_resource *resource = object;
+	struct spa_pod_builder *b;
+	struct spa_pod_frame f;
+
+	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_PORT_SET_MIX_INFO, NULL);
+
+	spa_pod_builder_push_struct(b, &f);
+	spa_pod_builder_add(b,
+			SPA_POD_Int(direction),
+			SPA_POD_Int(port_id),
+			SPA_POD_Int(mix_id),
+			SPA_POD_Int(peer_id), NULL);
+	push_dict(b, props);
+	spa_pod_builder_pop(b, &f);
+
+	return pw_protocol_native_end_resource(resource, b);
+}
+
 
 static int client_node_demarshal_get_node(void *object, const struct pw_protocol_native_message *msg)
 {
@@ -1128,6 +1188,7 @@ static const struct pw_client_node_events pw_protocol_native_client_node_event_m
 	.port_use_buffers = &client_node_marshal_port_use_buffers,
 	.port_set_io = &client_node_marshal_port_set_io,
 	.set_activation = &client_node_marshal_set_activation,
+	.port_set_mix_info = &client_node_marshal_port_set_mix_info,
 };
 
 static const struct pw_protocol_native_demarshal
@@ -1143,7 +1204,8 @@ pw_protocol_native_client_node_event_demarshal[PW_CLIENT_NODE_EVENT_NUM] =
 	[PW_CLIENT_NODE_EVENT_PORT_SET_PARAM] = { &client_node_demarshal_port_set_param, 0 },
 	[PW_CLIENT_NODE_EVENT_PORT_USE_BUFFERS] = { &client_node_demarshal_port_use_buffers, 0 },
 	[PW_CLIENT_NODE_EVENT_PORT_SET_IO] = { &client_node_demarshal_port_set_io, 0 },
-	[PW_CLIENT_NODE_EVENT_SET_ACTIVATION] = { &client_node_demarshal_set_activation, 0 }
+	[PW_CLIENT_NODE_EVENT_SET_ACTIVATION] = { &client_node_demarshal_set_activation, 0 },
+	[PW_CLIENT_NODE_EVENT_PORT_SET_MIX_INFO] = { &client_node_demarshal_port_set_mix_info, 0 }
 };
 
 static const struct pw_protocol_marshal pw_protocol_native_client_node_marshal = {

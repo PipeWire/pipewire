@@ -34,7 +34,7 @@ extern "C" {
 
 #define PW_TYPE_INTERFACE_ClientNode		PW_TYPE_INFO_INTERFACE_BASE "ClientNode"
 
-#define PW_VERSION_CLIENT_NODE			3
+#define PW_VERSION_CLIENT_NODE			4
 struct pw_client_node;
 
 #define PW_EXTENSION_MODULE_CLIENT_NODE		PIPEWIRE_MODULE_PREFIX "module-client-node"
@@ -58,11 +58,12 @@ struct pw_client_node_buffer {
 #define PW_CLIENT_NODE_EVENT_PORT_USE_BUFFERS	8
 #define PW_CLIENT_NODE_EVENT_PORT_SET_IO	9
 #define PW_CLIENT_NODE_EVENT_SET_ACTIVATION	10
-#define PW_CLIENT_NODE_EVENT_NUM		11
+#define PW_CLIENT_NODE_EVENT_PORT_SET_MIX_INFO	11
+#define PW_CLIENT_NODE_EVENT_NUM		12
 
 /** \ref pw_client_node events */
 struct pw_client_node_events {
-#define PW_VERSION_CLIENT_NODE_EVENTS		0
+#define PW_VERSION_CLIENT_NODE_EVENTS		1
 	uint32_t version;
 	/**
 	 * Notify of a new transport area
@@ -193,12 +194,40 @@ struct pw_client_node_events {
 			     uint32_t offset,
 			     uint32_t size);
 
+	/**
+	 * Notify the activation record of the next
+	 * node to trigger
+	 *
+	 * \param node_id the peer node id
+	 * \param signalfd the fd to wake up the peer
+	 * \param mem_id the mem id of the memory
+	 * \param the offset in \a mem_id to map
+	 * \param the size of \a mem_id to map
+	 */
 	int (*set_activation) (void *object,
 				uint32_t node_id,
 				int signalfd,
 				uint32_t mem_id,
 				uint32_t offset,
 				uint32_t size);
+
+	/**
+	 * Notify about the peer of mix_id
+	 *
+	 * \param direction the direction of the port
+	 * \param port_id the port id
+	 * \param mix_id the mix id
+	 * \param peer_id the id of the peer port
+	 * \param props extra properties
+	 *
+	 * Since version 4:1
+	 */
+	int (*port_set_mix_info) (void *object,
+			enum spa_direction direction,
+			uint32_t port_id,
+			uint32_t mix_id,
+			uint32_t peer_id,
+			const struct spa_dict *props);
 };
 
 #define PW_CLIENT_NODE_METHOD_ADD_LISTENER	0

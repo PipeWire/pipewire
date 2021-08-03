@@ -83,6 +83,7 @@ struct mix {
 	unsigned int valid:1;
 	uint32_t id;
 	struct port *port;
+	uint32_t peer_id;
 	uint32_t n_buffers;
 	struct buffer buffers[MAX_BUFFERS];
 };
@@ -188,6 +189,8 @@ struct impl {
 	pw_client_node_resource(r,port_set_io,0,__VA_ARGS__)
 #define pw_client_node_resource_set_activation(r,...)	\
 	pw_client_node_resource(r,set_activation,0,__VA_ARGS__)
+#define pw_client_node_resource_port_set_mix_info(r,...)	\
+	pw_client_node_resource(r,port_set_mix_info,1,__VA_ARGS__)
 
 static int
 do_port_use_buffers(struct impl *impl,
@@ -866,6 +869,10 @@ do_port_use_buffers(struct impl *impl,
 	}
 	mix->n_buffers = n_buffers;
 
+	if (this->resource->version >= 4)
+		pw_client_node_resource_port_set_mix_info(this->resource,
+						 direction, port_id, mix_id,
+						 mix->peer_id, NULL);
 	return pw_client_node_resource_port_use_buffers(this->resource,
 						 direction, port_id, mix_id, flags,
 						 n_buffers, mb);
@@ -1375,6 +1382,8 @@ static int port_init_mix(void *data, struct pw_impl_port_mix *mix)
 	mix->io = SPA_PTROFF(impl->io_areas->map->ptr,
 			mix->id * sizeof(struct spa_io_buffers), void);
 	*mix->io = SPA_IO_BUFFERS_INIT;
+
+	m->peer_id = mix->peer_id;
 
 	pw_log_debug(NAME " %p: init mix id:%d io:%p base:%p", impl,
 			mix->id, mix->io, impl->io_areas->map->ptr);

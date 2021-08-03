@@ -401,7 +401,7 @@ static int client_node_demarshal_add_port(void *object, const struct pw_protocol
 
 	if (spa_pod_parser_get(&prs,
 			SPA_POD_Int(&direction),
-			SPA_POD_Int(&port_id)) < 0)
+			SPA_POD_Int(&port_id), NULL) < 0)
 		return -EINVAL;
 
 	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0)
@@ -670,7 +670,7 @@ client_node_marshal_add_port(void *object,
 	spa_pod_builder_push_struct(b, &f);
 	spa_pod_builder_add(b,
 			SPA_POD_Int(direction),
-			SPA_POD_Int(port_id));
+			SPA_POD_Int(port_id), NULL);
 	push_dict(b, props);
 	spa_pod_builder_pop(b, &f);
 

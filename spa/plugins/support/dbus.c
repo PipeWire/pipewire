@@ -188,8 +188,10 @@ static void toggle_watch(DBusWatch *watch, void *userdata)
 
 	spa_log_debug(impl->log, "toggle watch %p", watch);
 
-	if ((data = dbus_watch_get_data(watch)) != NULL)
-		spa_loop_utils_update_io(impl->utils, data->source, dbus_to_io(watch));
+	if ((data = dbus_watch_get_data(watch)) == NULL)
+		return;
+
+	spa_loop_utils_update_io(impl->utils, data->source, dbus_to_io(watch));
 }
 
 static void
@@ -198,9 +200,15 @@ handle_timer_event(void *userdata, uint64_t expirations)
 	DBusTimeout *timeout = userdata;
 	uint64_t t;
 	struct timespec ts;
-	struct source_data *data = dbus_timeout_get_data(timeout);
-	struct connection *conn = data->conn;
-	struct impl *impl = conn->impl;
+	struct source_data *data;
+	struct connection *conn;
+	struct impl *impl;
+
+	if ((data = dbus_timeout_get_data(timeout)) == NULL)
+		return;
+
+	conn = data->conn;
+	impl = conn->impl;
 
 	spa_log_debug(impl->log, "timeout %p conn:%p impl:%p", timeout, conn, impl);
 
@@ -257,7 +265,8 @@ static void toggle_timeout(DBusTimeout *timeout, void *userdata)
 	struct source_data *data;
 	struct timespec ts, *tsp;
 
-	data = dbus_timeout_get_data(timeout);
+	if ((data = dbus_timeout_get_data(timeout)) == NULL)
+		return;
 
 	spa_log_debug(impl->log, "toggle timeout %p conn:%p impl:%p", timeout, conn, impl);
 

@@ -166,7 +166,7 @@ pw_protocol_get_marshal(struct pw_protocol *protocol, const char *type, uint32_t
 
 	spa_list_for_each(impl, &protocol->marshal_list, link) {
 		if (spa_streq(impl->marshal->type, type) &&
-		    impl->marshal->version == version &&
+		    impl->marshal->version >= version &&
 		    (impl->marshal->flags & flags) == flags)
                         return impl->marshal;
         }

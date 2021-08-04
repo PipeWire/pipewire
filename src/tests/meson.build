@@ -1,10 +1,8 @@
 test_apps = [
-  'test-client',
   'test-endpoint',
   'test-interfaces',
   #	'test-remote',
   'test-stream',
-  'test-utils'
 ]
 
 foreach a : test_apps

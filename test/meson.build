@@ -51,12 +51,19 @@ test('test pipewire utils',
     executable('test-pw-utils',
                'test-properties.c',
                'test-array.c',
+               'test-utils.c',
                include_directories: pwtest_inc,
                link_with: pwtest_lib)
 )
 test('test lib',
     executable('test-lib',
                'test-lib.c',
+               include_directories: pwtest_inc,
+               link_with: pwtest_lib)
+)
+test('test client',
+    executable('test-client',
+               'test-client.c',
                include_directories: pwtest_inc,
                link_with: pwtest_lib)
 )

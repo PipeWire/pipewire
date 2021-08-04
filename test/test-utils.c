@@ -22,6 +22,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "pwtest.h"
 #include <limits.h>
 
 #include <pipewire/utils.h>
@@ -30,14 +31,16 @@
 
 static void test_destroy(void *object)
 {
-	spa_assert_not_reached();
+	pwtest_fail_if_reached();
 }
 
-static void test_abi(void)
+PWTEST(utils_abi)
 {
-	pw_destroy_t f;
-	f = test_destroy;
-	spa_assert_se(f == test_destroy);
+	pw_destroy_t f = test_destroy;
+
+	pwtest_ptr_eq(f, &test_destroy);
+
+	return PWTEST_PASS;
 }
 
 static void test__pw_split_walk(void)
@@ -177,13 +180,14 @@ static void test__pw_split_walk(void)
 		size_t j = 0, len;
 
 		while ((s = pw_split_walk(str, tc->delim, &len, &state)) != NULL && tc->expected[j] != NULL) {
-			spa_assert_se(strlen(tc->expected[j]) == len);
-			spa_assert_se(strncmp(s, tc->expected[j], len) == 0);
+			pwtest_int_eq(strlen(tc->expected[j]), len);
+			pwtest_str_eq_n(s, tc->expected[j], len);
 
 			j += 1;
 		}
 
-		spa_assert_se(s == NULL && tc->expected[j] == NULL);
+		pwtest_ptr_null(s);
+		pwtest_ptr_null(tc->expected[j]);
 	}
 }
 
@@ -195,30 +199,32 @@ static void test__pw_split_strv(void)
 	char **res;
 
 	res = pw_split_strv(test1, del, INT_MAX, &n_tokens);
-	spa_assert_se(res != NULL);
-	spa_assert_se(n_tokens == 3);
-	spa_assert_se(spa_streq(res[0], "a"));
-	spa_assert_se(spa_streq(res[1], "test"));
-	spa_assert_se(spa_streq(res[2], "string"));
-	spa_assert_se(res[3] == NULL);
+	pwtest_ptr_notnull(res);
+	pwtest_int_eq(n_tokens, 3);
+	pwtest_str_eq(res[0], "a");
+	pwtest_str_eq(res[1], "test");
+	pwtest_str_eq(res[2], "string");
+	pwtest_ptr_null(res[3]);
 	pw_free_strv(res);
 
 	res = pw_split_strv(test1, del, 2, &n_tokens);
-	spa_assert_se(res != NULL);
-	spa_assert_se(n_tokens == 2);
-	spa_assert_se(spa_streq(res[0], "a"));
-	spa_assert_se(spa_streq(res[1], "test string  \n \r "));
-	spa_assert_se(res[2] == NULL);
+	pwtest_ptr_notnull(res);
+	pwtest_int_eq(n_tokens, 2);
+	pwtest_str_eq(res[0], "a");
+	pwtest_str_eq(res[1], "test string  \n \r ");
+	pwtest_ptr_null(res[2]);
 	pw_free_strv(res);
 }
 
-static void test_split(void)
+PWTEST(utils_split)
 {
 	test__pw_split_walk();
 	test__pw_split_strv();
+
+	return PWTEST_PASS;
 }
 
-static void test_strip(void)
+PWTEST(utils_strip)
 {
 	char test1[] = " \n\r \n a test string  \n \r ";
 	char test2[] = " \n\r \n   \n \r ";
@@ -226,13 +232,15 @@ static void test_strip(void)
 	spa_assert_se(spa_streq(pw_strip(test1, "\n\r "), "a test string"));
 	spa_assert_se(spa_streq(pw_strip(test2, "\n\r "), ""));
 	spa_assert_se(spa_streq(pw_strip(test3, "\n\r "), "a test string"));
+
+	return PWTEST_PASS;
 }
 
-int main(int argc, char *argv[])
+PWTEST_SUITE(utils)
 {
-	test_abi();
-	test_split();
-	test_strip();
+	pwtest_add(utils_abi, PWTEST_NOARG);
+	pwtest_add(utils_split, PWTEST_NOARG);
+	pwtest_add(utils_strip, PWTEST_NOARG);
 
-	return 0;
+	return PWTEST_PASS;
 }

@@ -22,16 +22,18 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "pwtest.h"
+
 #include <pipewire/pipewire.h>
 #include <pipewire/impl-client.h>
 
 #define TEST_FUNC(a,b,func)	\
 do {				\
 	a.func = b.func;	\
-	spa_assert_se(SPA_PTRDIFF(&a.func, &a) == SPA_PTRDIFF(&b.func, &b)); \
+	pwtest_ptr_eq(SPA_PTRDIFF(&a.func, &a), SPA_PTRDIFF(&b.func, &b)); \
 } while(0)
 
-static void test_abi(void)
+PWTEST(client_abi)
 {
 	static const struct {
 		uint32_t version;
@@ -54,15 +56,15 @@ static void test_abi(void)
 	TEST_FUNC(ev, test, resource_removed);
 	TEST_FUNC(ev, test, busy_changed);
 
-	spa_assert_se(PW_VERSION_IMPL_CLIENT_EVENTS == 0);
-	spa_assert_se(sizeof(ev) == sizeof(test));
+	pwtest_int_eq(PW_VERSION_IMPL_CLIENT_EVENTS, 0);
+	pwtest_int_eq(sizeof(ev), sizeof(test));
+
+	return PWTEST_PASS;
 }
 
-int main(int argc, char *argv[])
+PWTEST_SUITE(client)
 {
-	pw_init(&argc, &argv);
+	pwtest_add(client_abi, PWTEST_NOARG);
 
-	test_abi();
-
-	return 0;
+	return PWTEST_PASS;
 }

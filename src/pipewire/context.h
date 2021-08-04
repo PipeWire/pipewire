@@ -32,21 +32,6 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 
-/** \page page_core_api Core API
- *
- * The Core API serves to access a PipeWire instance. It consists of the
- * following object-specific APIs:
- *
- * - \ref pw_context
- * - \ref pw_global
- * - \ref pw_client
- * - \ref pw_resource
- * - \ref pw_node
- * - \ref pw_port
- * - \ref pw_link
- *
- */
-
 /** \defgroup pw_context PipeWire Context
  *
  * \brief The PipeWire context object manages all locally available

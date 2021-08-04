@@ -29,28 +29,6 @@
 extern "C" {
 #endif
 
-/** \page page_implementation_api Implementation API
- *
- * The implementation API provides the tools to build new objects and
- * modules. It consists of the following object-specific APIs:
- *
- * - \ref pw_impl_core
- * - \ref pw_impl_client
- * - \ref pw_impl_device
- * - \ref pw_impl_factory
- * - \ref pw_impl_link
- * - \ref pw_impl_metadata
- * - \ref pw_impl_module
- * - \ref pw_impl_node
- * - \ref pw_impl_port
- * - \ref pw_control
- * - \ref pw_global
- * - \ref pw_resource
- * - \ref pw_work_queue
- *
- */
-
-
 struct pw_impl_client;
 struct pw_impl_module;
 struct pw_global;

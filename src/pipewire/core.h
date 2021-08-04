@@ -34,11 +34,11 @@ extern "C" {
 
 #include <spa/utils/hook.h>
 
-/** \defgroup pw_core The Core Global Object
+/** \defgroup pw_core The PipeWire Core Global Object
  *
  * \brief The core global object.
  *
- * This is a special singleton object.  It
+ * This is a special singleton object. It
  * is used for internal PipeWire protocol features.
  */
 

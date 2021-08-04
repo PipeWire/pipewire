@@ -191,6 +191,7 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	loop = pw_main_loop_new(NULL);
+	spa_assert_se(loop != NULL);
 	context = pw_context_new(pw_main_loop_get_loop(loop), NULL, 0);
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0) {

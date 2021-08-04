@@ -72,14 +72,22 @@ test('test context',
                'test-context.c',
                'test-config.c',
                include_directories: pwtest_inc,
-               link_with: pwtest_lib)
+               link_with: [pwtest_lib,
+                            spa_support_lib,
+                            spa_dbus_lib,
+                            pipewire_module_protocol_native,
+                            pipewire_module_client_node,
+                            pipewire_module_client_device,
+                            pipewire_module_adapter,
+                            pipewire_module_metadata,
+                            pipewire_module_session_manager])
 )
 test('test support',
     executable('test-support',
                'test-support.c',
                'test-logger.c',
                include_directories: pwtest_inc,
-               link_with: pwtest_lib)
+               link_with: [pwtest_lib, spa_support_lib])
 )
 test('test spa',
     executable('test-spa',

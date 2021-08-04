@@ -112,7 +112,7 @@ pipewire_module_portal = shared_library('pipewire-module-portal', [ 'module-port
 )
 endif
 
-pipewire_module_client_node = shared_library('pipewire-module-client-device',
+pipewire_module_client_device = shared_library('pipewire-module-client-device',
   [ 'module-client-device.c',
     'module-client-device/resource-device.c',
     'module-client-device/proxy-device.c',

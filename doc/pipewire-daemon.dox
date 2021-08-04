@@ -71,9 +71,11 @@ directory, subdirectory and filename, respectively.
 
 \subsection sec_config_format Configuration File Format
 
-PipeWire's configuration file format resembles JSON. Unlike true JSON, no
-trailing commas are required and comments starting with `#` are permitted as
-shown below.
+PipeWire's configuration file format is JSON. In addition to true JSON,
+PipeWire also understands a more compact JSON representation where
+`"` can be omitted around strings, no trailing commas are required and
+`:` or `=` can be used to separate object keys from their values.
+Also, `#` can be used to start a comment until the end of the line.
 
 The configuration file format is grouped into sections.  A section is
 either a dictionary (`{}`) or an array (`[]`). Dictionary and array entries

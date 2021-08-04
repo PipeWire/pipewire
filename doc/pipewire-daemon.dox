@@ -1,5 +1,57 @@
 /** \page page_daemon PipeWire Daemon
 
+The PipeWire daemon is the central process that manages data exchange between
+devices and clients.
+
+Typically general, users run one PipeWire daemon that listens for incoming
+connections and manages devices. Clients (including the \ref
+page_session_manager) are separate processes that talk to the daemon using the
+PipeWire socket (default: `$XDG_RUNTIME_DIR/pipewire-0`). This approach
+provides provides address-space separation between the privileged daemon and
+non-privileged clients.
+
+@dot
+digraph pw {
+  compound=true;
+  node [shape="box"];
+
+  subgraph cluster_pw {
+	rankdir="TB";
+	label="PipeWire daemon";
+	style="dashed";
+
+	subgraph cluster_prot_native {
+		label="pipewire-module-protocol-native";
+		style="solid";
+		socket [label="$XDG_RUNTIME_DIR/pipewire-0"];
+		mod_impl [label="module implementation"];
+
+		socket -> mod_impl;
+	}
+	core [label="PipeWire Core"];
+	alsa [label="PipeWire ALSA support"];
+
+	mod_impl -> core;
+	core -> alsa;
+  }
+
+  kernel
+
+  client1 [ label="Media Player" ];
+  client2 [ label="Audio Software" ];
+  sm [ label="Session Manager", style="dotted" ];
+
+  client1 -> socket;
+  client2 -> socket;
+  sm -> socket;
+  alsa -> kernel;
+}
+@enddot
+
+As shown above, the protocol is handled by the \ref
+page_module_protocol_native. From PipeWire's point-of-view this module is just
+another module.
+
 \section sec_config Configuration Files
 
 On startup, the daemon reads a configuration file to configure itself.

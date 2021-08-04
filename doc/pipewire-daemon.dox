@@ -69,7 +69,7 @@ The environment variables `PIPEWIRE_CONFIG_DIR`, `PIPEWIRE_CONFIG_PREFIX`
 and `PIPEWIRE_CONFIG_NAME` can be used to specify an alternative config
 directory, subdirectory and filename, respectively.
 
-\subsection subsec Configuration File Format
+\subsection sec_config_format Configuration File Format
 
 PipeWire's configuration file format resembles JSON. Unlike true JSON, no
 trailing commas are required and comments starting with `#` are permitted as

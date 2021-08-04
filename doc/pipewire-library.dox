@@ -220,5 +220,23 @@ data unless they can see the objects and connect to them.
 PipeWire also exposes an API to implement the server side objects in
 a graph.
 
+
+## Error reporting
+
+Functions return either NULL with errno set or a negative int error
+code when an error occurs. Error codes are used from the SPA plugin
+library on which PipeWire is built.
+
+Some functions might return asynchronously. The error code for such
+functions is positive and SPA_RESULT_IS_ASYNC() will return true.
+SPA_RESULT_ASYNC_SEQ() can be used to get the unique sequence number
+associated with the async operation.
+
+The object returning the async result code will have some way to
+signal the completion of the async operation (with, for example, a
+callback). The sequence number can be used to see which operation
+completed.
+
+
 */
 

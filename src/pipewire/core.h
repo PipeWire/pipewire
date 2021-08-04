@@ -38,8 +38,13 @@ extern "C" {
  *
  * \brief The core global object.
  *
- * This is a special singleton object. It
- * is used for internal PipeWire protocol features.
+ * This is a special singleton object. It is used for internal PipeWire
+ * protocol features. Connecting to a PipeWire instance returns one core
+ * object, the caller should then register event listeners
+ * using \ref pw_core_add_listener.
+ *
+ * Updates to the core object are then provided through the \ref
+ * pw_core_events interface. See \ref page_tutorial2 for an example.
  */
 
 /**
@@ -54,16 +59,17 @@ struct pw_core;
 #define PW_VERSION_REGISTRY	3
 struct pw_registry;
 
-/* the default remote name to connect to */
+/** The default remote name to connect to */
 #define PW_DEFAULT_REMOTE	"pipewire-0"
 
-/* default ID for the core object after connect */
+/** default ID for the core object after connect */
 #define PW_ID_CORE		0
 
 /* invalid ID that matches any object when used for permissions */
 #define PW_ID_ANY		(uint32_t)(0xffffffff)
 
-/**  The core information. Extra information can be added in later versions */
+/**  The core information. Extra information may be added in later versions,
+ * clients must not assume a constant struct size */
 struct pw_core_info {
 	uint32_t id;			/**< id of the global */
 	uint32_t cookie;		/**< a random cookie for identifying this instance of PipeWire */
@@ -524,21 +530,29 @@ pw_registry_bind(struct pw_registry *registry,
  */
 
 /** Connect to a PipeWire instance
+ *
+ * \param context a \ref pw_context
+ * \param properties optional properties, ownership of the properties is
+ *	taken.
+ * \param user_data_size extra user data size
+ *
  * \return a \ref pw_core on success or NULL with errno set on error. The core
- * will have an id of PW_ID_CORE (0) */
+ * will have an id of \ref PW_ID_CORE (0)
+ */
 struct pw_core *
-pw_context_connect(struct pw_context *context,		/**< a \ref pw_context */
-	      struct pw_properties *properties,	/**< optional properties, ownership of
-						  *  the properties is taken.*/
-	      size_t user_data_size		/**< extra user data size */);
+pw_context_connect(struct pw_context *context,
+	      struct pw_properties *properties,
+	      size_t user_data_size);
 
 /** Connect to a PipeWire instance on the given socket
+ *
  * \param context a \ref pw_context
  * \param fd the connected socket to use, the socket will be closed
  *	automatically on disconnect or error.
  * \param properties optional properties, ownership of the properties is
  *	taken.
  * \param user_data_size extra user data size
+ *
  * \return a \ref pw_core on success or NULL with errno set on error */
 struct pw_core *
 pw_context_connect_fd(struct pw_context *context,
@@ -547,12 +561,17 @@ pw_context_connect_fd(struct pw_context *context,
 	      size_t user_data_size);
 
 /** Connect to a given PipeWire instance
+ *
+ * \param context a \ref pw_context to connect to
+ * \param properties optional properties, ownership of the properties is
+ *	taken.
+ * \param user_data_size extra user data size
+ *
  * \return a \ref pw_core on success or NULL with errno set on error */
 struct pw_core *
-pw_context_connect_self(struct pw_context *context,	/**< a \ref pw_context to connect to */
-	      struct pw_properties *properties,	/**< optional properties, ownership of
-						  *  the properties is taken.*/
-	      size_t user_data_size		/**< extra user data size */);
+pw_context_connect_self(struct pw_context *context,
+	      struct pw_properties *properties,
+	      size_t user_data_size);
 
 /** Steal the fd of the core connection or < 0 on error. The core
   * will be disconnected after this call. */

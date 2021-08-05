@@ -212,26 +212,86 @@ struct spa_interface {
  * \}
  */
 
-/** \defgroup spa_hook SPA Hooks
+/** \defgroup spa_hooks SPA Hooks
  *
- * \brief a list of hooks
+ * A SPA Hook is a data structure to keep track of callbacks. It is similar to
+ * the \ref spa_interfaces and typically used where an implementation allows
+ * for multiple external callback functions. For example, an implementation may
+ * use a hook list to implement signals with each caller using a hook to
+ * register callbacks to be invoked on those signals.
  *
- * The hook list provides a way to keep track of hooks.
+ * The below (pseudo)code is a minimal example outlining the use of hooks:
+ * \code{.c}
+ * // the public interface
+ * struct bar_events {
+ *    uint32_t version;
+ *    void (*boom)(void *data, const char *msg);
+ * };
+ *
+ * // private implementation
+ * struct party {
+ *     struct spa_hook_list bar_list;
+ * };
+ *
+ * void party_add_event_listener(struct party *p, struct spa_hook *listener,
+ *                               struct bar_events *events, void *data)
+ * {
+ *    spa_hook_list_append(&p->bar_list, listener, events, data);
+ * }
+ *
+ * static void party_on(struct party *p)
+ * {
+ *     spa_hook_list_call(&p->list, struct bar_events,
+ *                        boom, // function name
+ *                        0 // hardcoded version,
+ *                        "party on, wayne");
+ * }
+ * \endcode
+ *
+ * In the caller, the hooks can be used like this:
+ * \code{.c}
+ * static void boom_cb(void *data, const char *msg) {
+ *      // data is userdata from main()
+ *      printf("%s", msg);
+ * }
+ *
+ * static const struct bar_events {
+ *    .boom = boom_cb,
+ * };
+ *
+ * void main(void) {
+ *      void *userdata = whatever;
+ *      struct spa_hook hook;
+ *      struct party *p = start_the_party();
+ *
+ *      party_add_event_listener(p, &hook, boom_cb, userdata);
+ *
+ *      mainloop();
+ *      return 0;
+ * }
+ *
+ * \endcode
  */
 
 /**
- * \addtogroup spa_hook
+ * \addtogroup spa_hooks
  * \{
  */
 
-/** A list of hooks */
+/** \struct spa_hook_list
+ * A list of hooks. This struct is primarily used by
+ * implementation that use multiple caller-provided \ref spa_hook. */
 struct spa_hook_list {
 	struct spa_list list;
 };
 
 
-/** A hook, contains the structure with functions and the data passed
- * to the functions. */
+/** \struct spa_hook
+ * A hook, contains the structure with functions and the data passed
+ * to the functions.
+ *
+ * A hook should be treated as opaque by the caller.
+ */
 struct spa_hook {
 	struct spa_list link;
 	struct spa_callbacks cb;
@@ -241,7 +301,7 @@ struct spa_hook {
 	void *priv;
 };
 
-/** Initialize a hook list */
+/** Initialize a hook list to the empty list*/
 static inline void spa_hook_list_init(struct spa_hook_list *list)
 {
 	spa_list_init(&list->list);
@@ -280,6 +340,7 @@ static inline void spa_hook_remove(struct spa_hook *hook)
 		hook->removed(hook);
 }
 
+/** Remove all hooks from the list */
 static inline void spa_hook_list_clean(struct spa_hook_list *list)
 {
 	struct spa_hook *h;
@@ -339,7 +400,16 @@ spa_hook_list_join(struct spa_hook_list *list,
 	count;									\
 })
 
+/**
+ * Call the method named \a m for each element in list \a l.
+ * \a t specifies the type of the callback struct.
+ */
 #define spa_hook_list_call(l,t,m,v,...)			spa_hook_list_do_call(l,NULL,t,m,v,false,##__VA_ARGS__)
+/**
+ * Call the method named \a m for each element in list \a l, stopping after
+ * the first invocation.
+ * \a t specifies the type of the callback struct.
+ */
 #define spa_hook_list_call_once(l,t,m,v,...)		spa_hook_list_do_call(l,NULL,t,m,v,true,##__VA_ARGS__)
 
 #define spa_hook_list_call_start(l,s,t,m,v,...)		spa_hook_list_do_call(l,s,t,m,v,false,##__VA_ARGS__)

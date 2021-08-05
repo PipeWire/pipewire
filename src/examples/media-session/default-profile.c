@@ -78,7 +78,7 @@ struct device {
 
 	struct spa_hook listener;
 
-	unsigned int restored:1;
+	unsigned int restore_saved_profile:1;
 	uint32_t best_profile;
 	uint32_t active_profile;
 };
@@ -263,10 +263,10 @@ static int handle_active_profile(struct device *dev)
 	if ((res = find_current_profile(dev, &pr)) < 0)
 		return res;
 
-	/* when the active profile is off, always try to restored the saved
+	/* when the active profile is off, always try to restore the saved
 	 * profile again */
 	if (spa_streq(pr.name, "off"))
-		dev->restored = false;
+		dev->restore_saved_profile = true;
 
 	if (dev->active_profile == pr.index) {
 		/* no change, we're done */
@@ -307,7 +307,7 @@ static int handle_profile_switch(struct device *dev)
 		pw_log_info("device '%s': found best profile '%s' changed:%d",
 				dev->name, best.name, changed);
 	}
-	if (!dev->restored) {
+	if (dev->restore_saved_profile) {
 		/* try to restore our saved profile */
 		res = find_saved_profile(dev, &saved);
 		if (res >= 0) {
@@ -327,7 +327,7 @@ static int handle_profile_switch(struct device *dev)
 			pw_log_info("device '%s': no saved profile: %s",
 				dev->name, spa_strerror(res));
 		}
-		dev->restored = true;
+		dev->restore_saved_profile = false;
 	}
 
 	if (best.index != SPA_ID_INVALID && changed) {

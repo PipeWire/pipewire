@@ -32,22 +32,16 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 
-/** \defgroup spa_hook SPA Hooks
+/** \defgroup spa_interface SPA Interfaces
  *
- * \brief a list of hooks
+ * \brief Generic implementation of interfaces
  *
- * The hook list provides a way to keep track of hooks.
  */
 
 /**
- * \addtogroup spa_hook
+ * \addtogroup spa_interface
  * \{
  */
-
-/** A list of hooks */
-struct spa_hook_list {
-	struct spa_list list;
-};
 
 /** Callbacks, contains the structure with functions and the data passed
  * to the functions.  The structure should also contain a version field that
@@ -70,6 +64,49 @@ struct spa_interface {
 
 #define SPA_INTERFACE_INIT(_type,_version,_funcs,_data) \
 	(struct spa_interface){ _type, _version, SPA_CALLBACKS_INIT(_funcs,_data), }
+
+#define spa_callbacks_call(callbacks,type,method,vers,...)			\
+({										\
+	const type *_f = (const type *) (callbacks)->funcs;			\
+	if (SPA_LIKELY(SPA_CALLBACK_CHECK(_f,method,vers)))			\
+		_f->method((callbacks)->data, ## __VA_ARGS__);			\
+})
+
+#define spa_callbacks_call_res(callbacks,type,res,method,vers,...)		\
+({										\
+	const type *_f = (const type *) (callbacks)->funcs;			\
+	if (SPA_LIKELY(SPA_CALLBACK_CHECK(_f,method,vers)))			\
+		res = _f->method((callbacks)->data, ## __VA_ARGS__);		\
+	res;									\
+})
+
+#define spa_interface_call(iface,type,method,vers,...)				\
+	spa_callbacks_call(&(iface)->cb,type,method,vers,##__VA_ARGS__)
+
+#define spa_interface_call_res(iface,type,res,method,vers,...)			\
+	spa_callbacks_call_res(&(iface)->cb,type,res,method,vers,##__VA_ARGS__)
+
+/**
+ * \}
+ */
+
+/** \defgroup spa_hook SPA Hooks
+ *
+ * \brief a list of hooks
+ *
+ * The hook list provides a way to keep track of hooks.
+ */
+
+/**
+ * \addtogroup spa_hook
+ * \{
+ */
+
+/** A list of hooks */
+struct spa_hook_list {
+	struct spa_list list;
+};
+
 
 /** A hook, contains the structure with functions and the data passed
  * to the functions. */
@@ -148,27 +185,6 @@ spa_hook_list_join(struct spa_hook_list *list,
 {
 	spa_list_insert_list(&list->list, &save->list);
 }
-
-#define spa_callbacks_call(callbacks,type,method,vers,...)			\
-({										\
-	const type *_f = (const type *) (callbacks)->funcs;			\
-	if (SPA_LIKELY(SPA_CALLBACK_CHECK(_f,method,vers)))			\
-		_f->method((callbacks)->data, ## __VA_ARGS__);			\
-})
-
-#define spa_callbacks_call_res(callbacks,type,res,method,vers,...)		\
-({										\
-	const type *_f = (const type *) (callbacks)->funcs;			\
-	if (SPA_LIKELY(SPA_CALLBACK_CHECK(_f,method,vers)))			\
-		res = _f->method((callbacks)->data, ## __VA_ARGS__);		\
-	res;									\
-})
-
-#define spa_interface_call(iface,type,method,vers,...)				\
-	spa_callbacks_call(&(iface)->cb,type,method,vers,##__VA_ARGS__)
-
-#define spa_interface_call_res(iface,type,res,method,vers,...)			\
-	spa_callbacks_call_res(&(iface)->cb,type,res,method,vers,##__VA_ARGS__)
 
 #define spa_hook_list_call_simple(l,type,method,vers,...)			\
 ({										\

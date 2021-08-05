@@ -2032,11 +2032,14 @@ char *sm_media_session_sanitize_name(char *name, int size, char sub, const char 
 {
 	char *p;
 	va_list varargs;
+	int res;
 
 	va_start(varargs, fmt);
-	if (vsnprintf(name, size, fmt, varargs) < 0)
-		return NULL;
+	res = vsnprintf(name, size, fmt, varargs);
 	va_end(varargs);
+
+	if (res < 0)
+		return NULL;
 
 	for (p = name; *p; p++) {
 		switch(*p) {
@@ -2057,11 +2060,14 @@ char *sm_media_session_sanitize_description(char *name, int size, char sub, cons
 {
 	char *p;
 	va_list varargs;
+	int res;
 
 	va_start(varargs, fmt);
-	if (vsnprintf(name, size, fmt, varargs) < 0)
-		return NULL;
+	res = vsnprintf(name, size, fmt, varargs);
 	va_end(varargs);
+
+	if (res < 0)
+		return NULL;
 
 	for (p = name; *p; p++) {
 		switch(*p) {

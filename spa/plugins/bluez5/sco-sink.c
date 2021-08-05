@@ -32,6 +32,7 @@
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
 #include <spa/support/system.h>
+#include <spa/utils/result.h>
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
@@ -433,9 +434,11 @@ static void flush_data(struct impl *this)
 			port->write_buffer_size = 0;
 
 			/* Write */
-			written = spa_bt_sco_io_write(this->transport->sco_io, packet, this->buffer_next - this->buffer_head);
+			written = spa_bt_sco_io_write(this->transport->sco_io, packet,
+					this->buffer_next - this->buffer_head);
 			if (written < 0) {
-				spa_log_warn(this->log, "failed to write data");
+				spa_log_warn(this->log, "failed to write data: %d (%s)",
+						written, spa_strerror(written));
 				goto stop;
 			}
 			spa_log_trace(this->log, "wrote socket data %d", written);
@@ -454,9 +457,11 @@ static void flush_data(struct impl *this)
 				this->buffer_head = this->buffer;
 			}
 		} else {
-			written = spa_bt_sco_io_write(this->transport->sco_io, packet, port->write_buffer_size);
+			written = spa_bt_sco_io_write(this->transport->sco_io, packet,
+					port->write_buffer_size);
 			if (written < 0) {
-				spa_log_warn(this->log, "sco-sink: write failure: %d", written);
+				spa_log_warn(this->log, "sco-sink: write failure: %d (%s)",
+						written, spa_strerror(written));
 				goto stop;
 			} else if (written == 0) {
 				/* EAGAIN or similar, just skip ahead */

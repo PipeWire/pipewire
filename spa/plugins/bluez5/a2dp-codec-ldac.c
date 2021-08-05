@@ -322,7 +322,6 @@ static int codec_enum_props(void *props, const struct spa_dict *settings, uint32
 
 			spa_pod_builder_prop(b, SPA_PROP_INFO_type, 0);
 			spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Enum, 0);
-			spa_pod_builder_frame(b, &f[1]);
 			spa_pod_builder_int(b, p->eqmid);
 			spa_pod_builder_int(b, LDACBT_EQMID_AUTO);
 			spa_pod_builder_int(b, LDACBT_EQMID_HQ);

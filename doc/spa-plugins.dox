@@ -221,6 +221,8 @@ the plugin.
 Some interfaces also provide extra fields in the interface, like the
 log interface above that has the log level as a read/write parameter.
 
+See \ref spa_interface for some implementation details on interfaces.
+
 ## SPA Events
 
 Some interfaces will also allow you to register a callback (a hook or

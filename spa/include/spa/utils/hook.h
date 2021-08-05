@@ -32,18 +32,99 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 
-/** \defgroup spa_interface SPA Interfaces
+/** \defgroup spa_interfaces SPA Interfaces
  *
- * \brief Generic implementation of interfaces
+ * \brief Generic implementation of implementation-independent interfaces
  *
+ * A SPA Interface is a generic struct that, together with a few macros,
+ * provides a generic way of invoking methods on objects without knowing the
+ * details of the implementation.
+ *
+ * The primary interaction with interfaces is through macros that expand into
+ * the right method call. For the implementation of an interface, we need two
+ * structs and a macro to invoke the `bar` method:
+ *
+ * \code{.c}
+ * // this struct must be public and defines the interface to a
+ * // struct foo
+ * struct foo_methods {
+ *     uint32_t version;
+ *     void (*bar)(void *object, const char *msg);
+ * };
+ *
+ * // this struct does not need to be public
+ * struct foo {
+ *     struct spa_interface iface; // must be first element, see foo_bar()
+ *     int some_other_field;
+ *     ...
+ * };
+ *
+ * // if struct foo is private, we need to cast to a
+ * // generic spa_interface object
+ * #define foo_bar(obj, ...) ({ \
+ *     struct foo *f = obj;
+ *     spa_interface_call((struct spa_interface *)f, // pointer to spa_interface in foo
+ *                        struct foo_methods, // type of callbacks
+ *                        bar, // name of methods
+ *                        0, // hardcoded version to match foo_methods->version
+ *                        __VA_ARGS__ // pass rest of args through
+ *                        );/
+ * })
+ * \endcode
+ *
+ * The `struct foo_methods` and the invocation macro `foo_bar()` must be
+ * available to the caller. The implementation of `struct foo` can be private.
+ *
+ * \code{.c}
+ * void main(void) {
+ *      struct foo *myfoo = get_foo_from_somewhere();
+ *      foo_bar(myfoo, "Invoking bar() on myfoo");
+ * }
+ * \endcode
+ * The expansion of `foo_bar()` resolves roughly into this code:
+ * \code{.c}
+ * void main(void) {
+ *     struct foo *myfoo = get_foo_from_somewhere();
+ *     // foo_bar(myfoo, "Invoking bar() on myfoo");
+ *     const struct foo_methods *methods = ((struct spa_interface*)myfoo)->cb;
+ *     if (0 >= methods->version && // version check
+ *         methods->bar) // compile error if this function does not exist,
+ *             methods->bar(myfoo, "Invoking bar() on myfoo");
+ * }
+ * \endcode
+ *
+ * The typecast used in `foo_bar()` allows `struct foo` to be opaque to the
+ * caller. The implementation may assign the callback methods at object
+ * instantiation, and the caller will transparently invoke the method on the
+ * given object. For example, the following code assigns a different `bar()` method on
+ * Mondays - the caller does not need to know this.
+ * \code{.c}
+ *
+ * static void bar_stdout(struct foo *f, const char *msg) {
+ *     printf(msg);
+ * }
+ * static void bar_stderr(struct foo *f, const char *msg) {
+ *     fprintf(stderr, msg);
+ * }
+ *
+ * struct foo* get_foo_from_somewhere() {
+ *     struct foo *f = calloc(sizeof struct foo);
+ *     // illustrative only, use SPA_INTERFACE_INIT()
+ *     f->iface->cb = (struct foo_methods*) { .bar = bar_stdout };
+ *     if (today_is_monday)
+ *         f->iface->cb = (struct foo_methods*) { .bar = bar_stderr };
+ *     return f;
+ * }
+ * \endcode
  */
 
 /**
- * \addtogroup spa_interface
+ * \addtogroup spa_interfaces
  * \{
  */
 
-/** Callbacks, contains the structure with functions and the data passed
+/** \struct spa_callbacks
+ * Callbacks, contains the structure with functions and the data passed
  * to the functions.  The structure should also contain a version field that
  * is checked. */
 struct spa_callbacks {
@@ -54,17 +135,40 @@ struct spa_callbacks {
 /** Check if a callback \a c has method \a m of version \a v */
 #define SPA_CALLBACK_CHECK(c,m,v) ((c) && ((v) == 0 || (c)->version > (v)-1) && (c)->m)
 
+/**
+ * Initialize the set of functions \a funcs as a \ref spa_callbacks, together
+ * with \a _data.
+ */
 #define SPA_CALLBACKS_INIT(_funcs,_data) (struct spa_callbacks){ _funcs, _data, }
 
+/** \struct spa_interface
+ */
 struct spa_interface {
 	const char *type;
 	uint32_t version;
 	struct spa_callbacks cb;
 };
 
+/**
+ * Initialize a \ref spa_interface.
+ *
+ * \code{.c}
+ * const static struct foo_methods foo_funcs = {
+ *    .bar = some_bar_implementation,
+ * };
+ *
+ * struct foo *f = malloc(...);
+ * f->iface = SPA_INTERFACE_INIT("foo type", 0, foo_funcs, NULL);
+ * \endcode
+ *
+ */
 #define SPA_INTERFACE_INIT(_type,_version,_funcs,_data) \
 	(struct spa_interface){ _type, _version, SPA_CALLBACKS_INIT(_funcs,_data), }
 
+/**
+ * Invoke method named \a method in the \a callbacks.
+ * The \a method_type defines the type of the method struct.
+ */
 #define spa_callbacks_call(callbacks,type,method,vers,...)			\
 ({										\
 	const type *_f = (const type *) (callbacks)->funcs;			\
@@ -72,6 +176,12 @@ struct spa_interface {
 		_f->method((callbacks)->data, ## __VA_ARGS__);			\
 })
 
+/**
+ * Invoke method named \a method in the \a callbacks.
+ * The \a method_type defines the type of the method struct.
+ *
+ * The return value is stored in \a res.
+ */
 #define spa_callbacks_call_res(callbacks,type,res,method,vers,...)		\
 ({										\
 	const type *_f = (const type *) (callbacks)->funcs;			\
@@ -80,11 +190,23 @@ struct spa_interface {
 	res;									\
 })
 
-#define spa_interface_call(iface,type,method,vers,...)				\
-	spa_callbacks_call(&(iface)->cb,type,method,vers,##__VA_ARGS__)
+/**
+ * Invoke method named \a method in the callbacks on the given interface object.
+ * The \a method_type defines the type of the method struct, not the interface
+ * itself.
+ */
+#define spa_interface_call(iface,method_type,method,vers,...)				\
+	spa_callbacks_call(&(iface)->cb,method_type,method,vers,##__VA_ARGS__)
 
-#define spa_interface_call_res(iface,type,res,method,vers,...)			\
-	spa_callbacks_call_res(&(iface)->cb,type,res,method,vers,##__VA_ARGS__)
+/**
+ * Invoke method named \a method in the callbacks on the given interface object.
+ * The \a method_type defines the type of the method struct, not the interface
+ * itself.
+ *
+ * The return value is stored in \a res.
+ */
+#define spa_interface_call_res(iface,method_type,res,method,vers,...)			\
+	spa_callbacks_call_res(&(iface)->cb,method_type,res,method,vers,##__VA_ARGS__)
 
 /**
  * \}

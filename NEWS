@@ -1,3 +1,88 @@
+# PipeWire 0.3.33 (2021-08-05)
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+## Highlights
+  - Better support for virtual sinks/sources for Pro Audio
+    profile.
+  - Better DMA-BUF format modifier negotiation.
+  - Support multiple sample rates in the graph. Not enabled
+    by default yet.
+  - Bluetooth can now automatically switch between headset
+    and audio profile.
+  - Documentation updates.
+  - Many improvements and crasher fixes.
+
+## PipeWire
+  - Make AUX channels an official channel map, use this for the
+    PRO audio profile so that we can name the channels. This
+    make it possible to define virtual sources and sinks for
+    Pro Audio devices in a more reliable way.
+  - Fix scheduling of some virtual sinks/sources. (#1407)
+  - Fix potential corruption of ringbuffer because of multiple
+    concurrent writers. This might be the cause for many reported
+    crashes. (#1451)
+  - Don't place sockets in $HOME. (#1443)
+  - Improve DMA-BUF negotiation. Add a flag to avoid fixation
+    of a property so that producers can negotiate more
+    efficiently. This is used to negotiate DMA-BUF modifiers,
+    which should make more efficient use of the GPU. (#1084)
+  - Add support for multipe sample rates. The graph can switch
+    when IDLE to one of the supported rates. Add an option to
+    lock the rate as well. This is not enabled by default yet
+    because of driver bugs that need to be worked around first.
+  - Add node.lock-quantum property that can be used to lock the
+    quantum in place.
+  - Improve latency reporting in the loopback module.
+  - Make new client-node method to send the peer port id to the
+    mixer. This can be used to know where the buffers entering the
+    mixer are coming from. (#1471)
+
+## Tools
+  - pw-top should now also correctly show bluetooth devices. (#1540)
+
+## media-session
+  - Handle unset of the default node.
+  - Added a module that can switch the bluetooth profile to headset
+    profile when a stream wants to record from it.
+
+## JACK
+  - Only call the jack callbacks when the client is active. Some
+    JACK applications don't expect callbacks before the client is
+    active and crash (x42-dpl). (#1461)
+  - Emit client unregister event.
+  - Add per-client match rules in the config file to set app
+    specific configuration and tweaks. (#1456)
+  - Use peer_id to implement jack_port_get_buffer() from one of
+    our peer ports to get the data before it enters the mixer.
+    Makes the capture monitors work in Ardour6.8. (#1471)
+
+## Bluetooth
+  - Add some broken kernel versions to the mSBC blocklist
+  - Avoid looping and consuming CPU when we can't write to the
+    BT socket.
+  - Use libfreeaptx instead of libopenaptx.
+  - Fix rounding errors in HW volume conversion.
+
+## PulseAudio server
+  - implement module-switch-on-connect to emulate pulseaudio
+    behaviour of new devices. Some desktop environments expect
+    this behaviour and break otherwise.
+  - Fix stream cleanup, make sure the stream is stopped before
+    destroying it. Might be cause for some of the reported
+    crashes.
+  - Update message API to use the JSON format.
+
+## Other
+  - Many documentation updates.
+  - Many cleanups and small improvements.
+  - Support the latest libcamera version. (#1435)
+
+
+
+Older versions:
+
 # PipeWire 0.3.32 (2021-07-20)
 
 This is a bugfix release that is API and ABI compatible
@@ -84,9 +169,6 @@ with previous 0.3.x releases.
 ## Other
   - Cleanups in pulse-server and pipewire.
   - Documentation additions.
-
-
-Older versions:
 
 # PipeWire 0.3.31 (2021-06-28)
 

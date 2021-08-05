@@ -702,18 +702,25 @@ static void clear_buffers(struct pw_stream *stream)
 static int parse_latency(struct pw_stream *stream, const struct spa_pod *param)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct spa_latency_info latency;
+	struct spa_latency_info info;
 	int res;
 
 	if (param == NULL)
 		return 0;
 
-	if ((res = spa_latency_parse(param, &latency)) < 0)
+	if ((res = spa_latency_parse(param, &info)) < 0)
 		return res;
-	if (latency.direction == impl->direction)
+
+	pw_log_info("stream %p: set %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, stream,
+			info.direction == SPA_DIRECTION_INPUT ? "input" : "output",
+			info.min_quantum, info.max_quantum,
+			info.min_rate, info.max_rate,
+			info.min_ns, info.max_ns);
+
+	if (info.direction == impl->direction)
 		return 0;
 
-	impl->latency = latency;
+	impl->latency = info;
 	return 0;
 }
 

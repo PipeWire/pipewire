@@ -79,7 +79,6 @@ struct device {
 	struct spa_hook listener;
 
 	unsigned int restored:1;
-	uint32_t saved_profile;
 	uint32_t best_profile;
 	uint32_t active_profile;
 };
@@ -283,7 +282,6 @@ static int handle_active_profile(struct device *dev)
 	if (!pr.save)
 		return 0;
 
-	dev->saved_profile = pr.index;
 	if (pw_properties_setf(impl->properties, dev->key, "{ \"name\": \"%s\" }", pr.name)) {
 		pw_log_info("device '%s': active profile saved as '%s'", dev->name, pr.name);
 		add_idle_timeout(impl);
@@ -404,7 +402,6 @@ static void session_create(void *data, struct sm_object *object)
 	dev->name = strdup(name);
 	dev->key = spa_aprintf(PREFIX"%s", name);
 	dev->active_profile = SPA_ID_INVALID;
-	dev->saved_profile = SPA_ID_INVALID;
 	dev->best_profile = SPA_ID_INVALID;
 
 	dev->obj->obj.mask |= SM_DEVICE_CHANGE_MASK_PARAMS;

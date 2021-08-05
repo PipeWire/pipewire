@@ -129,13 +129,13 @@ struct pw_proxy_events {
         void (*error) (void *data, int seq, int res, const char *message);
 };
 
-/** Make a new proxy object. The id can be used to bind to a remote object and
-  * can be retrieved with \ref pw_proxy_get_id . */
+/* Make a new proxy object. The id can be used to bind to a remote object and
+ * can be retrieved with \ref pw_proxy_get_id . */
 struct pw_proxy *
-pw_proxy_new(struct pw_proxy *factory,	/**< factory */
-	     const char *type,		/**< interface type */
-	     uint32_t version,		/**< interface version */
-	     size_t user_data_size	/**< size of user data */);
+pw_proxy_new(struct pw_proxy *factory,
+	     const char *type,		/* interface type */
+	     uint32_t version,		/* interface version */
+	     size_t user_data_size	/* size of user data */);
 
 /** Add an event listener to proxy */
 void pw_proxy_add_listener(struct pw_proxy *proxy,

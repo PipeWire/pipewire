@@ -799,6 +799,9 @@ static int handle_latency(struct filter *impl, struct port *port, const struct s
 	struct spa_latency_info info;
 	int res;
 
+	if (param == NULL)
+		return 0;
+
 	if ((res = spa_latency_parse(param, &info)) < 0)
 		return res;
 

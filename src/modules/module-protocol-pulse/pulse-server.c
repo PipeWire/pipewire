@@ -3049,7 +3049,7 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 	reply = reply_new(client, tag);
 	message_put(reply,
 		TAG_STRING, name,
-		TAG_STRING, "14.0.0",
+		TAG_STRING, "15.0.0",
 		TAG_STRING, pw_get_user_name(),
 		TAG_STRING, pw_get_host_name(),
 		TAG_SAMPLE_SPEC, &impl->defs.sample_spec,

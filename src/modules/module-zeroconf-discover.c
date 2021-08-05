@@ -512,6 +512,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 error_errno:
 	res = -errno;
-	impl_free(impl);
+	if (impl)
+		impl_free(impl);
 	return res;
 }

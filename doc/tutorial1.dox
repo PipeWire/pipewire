@@ -30,8 +30,10 @@ Before you can use any PipeWire functions, you need to call `pw_init()`.
 
 ## Compilation
 
+PipeWire provides a pkg-config file named `libpipewire-0.3` (note: the version
+suffix may change with future releases of pipewire).
 To compile the simple test application, copy it into a test1.c file and
-use:
+use pkg-config to provide the required dependencies:
 
     gcc -Wall test1.c -o test1 $(pkg-config --cflags --libs libpipewire-0.3)
 
@@ -41,6 +43,15 @@ then run it with:
     Compiled with libpipewire 0.3.5
     Linked with libpipewire 0.3.5
     #
+
+Use your build system's pkg-config support to integrate it into your project.
+For example, a minimal [meson.build](https://mesonbuild.com/) entry would look
+like this:
+
+    project('test1', ['c'])
+    pipewire_dep = dependency('libpipewire-0.3')
+    executable('test1', 'test1.c',
+               dependencies: [pipewire_dep])
 
 \ref page_tutorial "Index" | \ref page_tutorial2
 

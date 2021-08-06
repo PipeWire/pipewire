@@ -557,17 +557,14 @@ static int metadata_property(void *object, uint32_t subject,
 {
 	struct impl *impl = object;
 	if (subject == PW_ID_CORE) {
-		char *val = NULL;
 		char name[1024];
 
 		if (key && value && json_object_find(value, "name", name, sizeof(name)) < 0)
 			return 0;
-		else
-			val = name;
 
 		if (key == NULL || spa_streq(key, DEFAULT_AUDIO_SINK_KEY)) {
 			free(impl->default_sink);
-			impl->default_sink = (key && val) ? strdup(val) : NULL;
+			impl->default_sink = (key && value) ? strdup(name) : NULL;
 
 			/* Switch also when default output changes */
 			switch_profile_if_needed(impl);

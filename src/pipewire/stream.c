@@ -112,6 +112,7 @@ struct stream {
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
 
+	struct spa_io_clock *clock;
 	struct spa_io_position *position;
 	struct spa_io_buffers *io;
 	struct {
@@ -164,6 +165,7 @@ struct stream {
 	unsigned int allow_mlock:1;
 	unsigned int warn_mlock:1;
 	unsigned int process_rt:1;
+	unsigned int driving:1;
 };
 
 static int get_param_index(uint32_t id)
@@ -433,15 +435,25 @@ static int impl_set_io(void *object, uint32_t id, void *data, size_t size)
 			spa_debug_type_find_name(spa_type_io, id), data, size);
 
 	switch(id) {
+	case SPA_IO_Clock:
+		if (data && size >= sizeof(struct spa_io_clock))
+			impl->clock = data;
+		else
+			impl->clock = NULL;
+		break;
 	case SPA_IO_Position:
 		if (data && size >= sizeof(struct spa_io_position))
 			impl->position = data;
 		else
 			impl->position = NULL;
+
 		pw_loop_invoke(impl->context->data_loop,
 				do_set_position, 1, NULL, 0, true, impl);
 		break;
+	default:
+		break;
 	}
+	impl->driving = impl->clock && impl->position && impl->position->clock.id == impl->clock->id;
 	pw_stream_emit_io_changed(stream, id, data, size);
 
 	return 0;
@@ -938,8 +950,7 @@ again:
 
 	copy_position(impl, impl->queued.outcount);
 
-	if (!impl->draining &&
-	    !SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_DRIVER)) {
+	if (!impl->draining && !impl->driving) {
 		/* we're not draining, not a driver check if we need to get
 		 * more buffers */
 		if (!impl->process_rt) {
@@ -1993,22 +2004,12 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 }
 
 static int
-do_process(struct spa_loop *loop,
+do_trigger(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct stream *impl = user_data;
 	int res = impl->node_methods.process(impl);
 	return spa_node_call_ready(&impl->callbacks, res);
-}
-
-static inline int call_trigger(struct stream *impl)
-{
-	int res = 0;
-	if (SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_DRIVER)) {
-		res = pw_loop_invoke(impl->context->data_loop,
-			do_process, 1, NULL, 0, false, impl);
-	}
-	return res;
 }
 
 SPA_EXPORT
@@ -2052,9 +2053,11 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 	if ((res = push_queue(impl, &impl->queued, b)) < 0)
 		return res;
 
-	if (impl->direction == SPA_DIRECTION_OUTPUT)
-		res = call_trigger(impl);
-
+	if (impl->direction == SPA_DIRECTION_OUTPUT &&
+	    impl->driving) {
+		res = pw_loop_invoke(impl->context->data_loop,
+			do_trigger, 1, NULL, 0, false, impl);
+	}
 	return res;
 }
 

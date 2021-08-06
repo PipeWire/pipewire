@@ -518,6 +518,7 @@ static void session_destroy(void *data)
 	if (impl->session->metadata)
 		spa_hook_remove(&impl->meta_listener);
 	pw_properties_free(impl->old_profiles);
+	free(impl->default_sink);
 	free(impl);
 }
 

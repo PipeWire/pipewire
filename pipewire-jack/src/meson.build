@@ -68,14 +68,23 @@ pipewire_jackserver = shared_library('jacknet',
     install_dir : libjack_path,
 )
 
-if get_option('jack-devel') == true
-  pkgconfig.generate(filebase : 'jack',
-  libraries : [pipewire_jack, pipewire_jackserver],
-  name : 'jack',
-  description : 'PipeWire JACK API',
-  version : '1.9.17',
-  extra_cflags : '-D_REENTRANT',
-  unescaped_variables: ['server_libs=-L${libdir} -ljackserver'])
+if meson.version().version_compare('>=0.59.0')
+  if get_option('jack-devel') == true
+    pkgconfig.generate(filebase : 'jack',
+    libraries : [pipewire_jack, pipewire_jackserver],
+    name : 'jack',
+    description : 'PipeWire JACK API',
+    version : '1.9.17',
+    extra_cflags : '-D_REENTRANT',
+    unescaped_variables: ['server_libs=-L${libdir} -ljackserver'])
+  endif
+else
+  warning(
+          '''
+          No jack pkg-config file is generated.\n
+          Before version 0.59.0 Meson creates a wrong jack pkg-config file.\n
+          Please update Meson if you want to generate a jack pkg-config file.
+          ''')
 endif
 
 if sdl_dep.found()

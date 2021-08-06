@@ -546,7 +546,7 @@ static int impl_send_command(void *object, const struct spa_command *command)
 
 			if (impl->direction == SPA_DIRECTION_INPUT)
 				impl->io->status = SPA_STATUS_NEED_DATA;
-			else
+			else if (!impl->process_rt && !impl->driving)
 				call_process(impl);
 
 			stream_set_state(stream, PW_STREAM_STATE_STREAMING, NULL);

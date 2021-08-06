@@ -5,7 +5,7 @@ find = find_program('find', required: false)
 summary({'find (for header testing)': find.found()}, bool_yn: true, section: 'Optional programs')
 if find.found()
   spa_headers = run_command(find,
-                            meson.project_source_root() / 'spa' / 'include',
+                            meson.source_root() / 'spa' / 'include',
                             '-name', '*.h',
                             '-not', '-name', 'type-info.h',
                             '-type', 'f',
@@ -40,7 +40,7 @@ foreach a : benchmark_apps
 		install : installed_tests_enabled,
 		install_dir : installed_tests_execdir),
 	env : [
-		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.project_build_root()),
+		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),
 	])
 
   if installed_tests_enabled

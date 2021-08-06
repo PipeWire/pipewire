@@ -363,6 +363,10 @@ int pw_stream_set_active(struct pw_stream *stream, bool active);
  * be called when all data is played or recorded */
 int pw_stream_flush(struct pw_stream *stream, bool drain);
 
+/** Start a push/pull on the stream. The graph will be started and
+ * process will be called. Since 0.3.34 */
+int pw_stream_drive(struct pw_stream *stream);
+
 /**
  * \}
  */

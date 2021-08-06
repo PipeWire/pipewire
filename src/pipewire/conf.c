@@ -248,21 +248,12 @@ error:
 	return res;
 }
 
-static int conf_load(const char *prefix, const char *name, struct pw_properties *conf)
+static int conf_load(const char *path, struct pw_properties *conf)
 {
-	char path[PATH_MAX], *data;
+	char *data;
 	struct stat sbuf;
 	int fd;
 
-	if (name == NULL) {
-		pw_log_debug(NAME" %p: config name must not be NULL", conf);
-		return -EINVAL;
-	}
-
-	if (get_read_path(path, sizeof(path), prefix, name) == 0) {
-		pw_log_debug(NAME" %p: can't load config '%s': %m", conf, path);
-		return -ENOENT;
-	}
 	if ((fd = open(path,  O_CLOEXEC | O_RDONLY)) < 0)  {
 		pw_log_warn(NAME" %p: error loading config '%s': %m", conf, path);
 		return -errno;
@@ -288,13 +279,37 @@ error_close:
 SPA_EXPORT
 int pw_conf_load_conf(const char *prefix, const char *name, struct pw_properties *conf)
 {
-	return conf_load(prefix, name, conf);
+	char path[PATH_MAX];
+
+	if (name == NULL) {
+		pw_log_debug(NAME" %p: config name must not be NULL", conf);
+		return -EINVAL;
+	}
+
+	if (get_read_path(path, sizeof(path), prefix, name) == 0) {
+		pw_log_debug(NAME" %p: can't load config '%s': %m", conf, path);
+		return -ENOENT;
+	}
+
+	return conf_load(path, conf);
 }
 
 SPA_EXPORT
 int pw_conf_load_state(const char *prefix, const char *name, struct pw_properties *conf)
 {
-	return conf_load(prefix, name, conf);
+	char path[PATH_MAX];
+
+	if (name == NULL) {
+		pw_log_debug(NAME" %p: config name must not be NULL", conf);
+		return -EINVAL;
+	}
+
+	if (get_read_path(path, sizeof(path), prefix, name) == 0) {
+		pw_log_debug(NAME" %p: can't load config '%s': %m", conf, path);
+		return -ENOENT;
+	}
+
+	return conf_load(path, conf);
 }
 
 /* context.spa-libs = {

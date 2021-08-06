@@ -80,8 +80,8 @@ static void draw_elipse(uint32_t *dst, int width, int height, uint32_t color)
 	}
 }
 
-/* called on timeout and we should push a new buffer in the queue */
-static void on_timeout(void *userdata, uint64_t expirations)
+/* called when we should push a new buffer in the queue */
+static void on_process(void *userdata)
 {
 	struct data *data = userdata;
 	struct pw_buffer *b;
@@ -92,8 +92,6 @@ static void on_timeout(void *userdata, uint64_t expirations)
 	struct spa_meta_header *h;
 	struct spa_meta_region *mc;
 	struct spa_meta_cursor *mcs;
-
-	pw_log_trace("timeout");
 
 	if ((b = pw_stream_dequeue_buffer(data->stream)) == NULL) {
 		pw_log_warn("out of buffers: %m");
@@ -176,6 +174,14 @@ static void on_timeout(void *userdata, uint64_t expirations)
 	buf->datas[0].chunk->stride = data->stride;
 
 	pw_stream_queue_buffer(data->stream, b);
+}
+
+/* trigger the graph when we are a driver */
+static void on_timeout(void *userdata, uint64_t expirations)
+{
+	struct data *data = userdata;
+	pw_log_trace("timeout");
+	pw_stream_drive(data->stream);
 }
 
 /* when the stream is STREAMING, start the timer at 40ms intervals
@@ -345,6 +351,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
+	.process = on_process,
 	.state_changed = on_stream_state_changed,
 	.param_changed = on_stream_param_changed,
 	.add_buffer = on_stream_add_buffer,

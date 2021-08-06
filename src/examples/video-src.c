@@ -178,7 +178,7 @@ static void on_timeout(void *userdata, uint64_t expirations)
 {
 	struct data *data = userdata;
 	pw_log_trace("timeout");
-	pw_stream_drive(data->stream);
+	pw_stream_trigger_process(data->stream);
 }
 
 static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum pw_stream_state state,

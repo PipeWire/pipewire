@@ -181,7 +181,7 @@ static void on_timeout(void *userdata, uint64_t expirations)
 {
 	struct data *data = userdata;
 	pw_log_trace("timeout");
-	pw_stream_drive(data->stream);
+	pw_stream_trigger_process(data->stream);
 }
 
 /* when the stream is STREAMING, start the timer at 40ms intervals

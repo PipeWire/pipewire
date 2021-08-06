@@ -284,7 +284,7 @@ on_stream_io_changed(void *_data, uint32_t id, void *area, uint32_t size)
 static void on_timeout(void *userdata, uint64_t expirations)
 {
 	struct data *data = userdata;
-	pw_stream_drive(data->stream);
+	pw_stream_trigger_process(data->stream);
 }
 
 /* Be notified when the stream param changes. We're only looking at the

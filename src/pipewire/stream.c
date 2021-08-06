@@ -2005,7 +2005,7 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 }
 
 static int
-do_trigger(struct spa_loop *loop,
+do_trigger_deprecated(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct stream *impl = user_data;
@@ -2058,7 +2058,7 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 	    impl->driving && !impl->using_drive) {
 		pw_log_debug("use pw_stream_drive() to drive the stream.");
 		res = pw_loop_invoke(impl->context->data_loop,
-			do_trigger, 1, NULL, 0, false, impl);
+			do_trigger_deprecated, 1, NULL, 0, false, impl);
 	}
 	return res;
 }
@@ -2107,7 +2107,7 @@ int pw_stream_flush(struct pw_stream *stream, bool drain)
 }
 
 static int
-do_drive(struct spa_loop *loop,
+do_trigger_process(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct stream *impl = user_data;
@@ -2123,14 +2123,16 @@ do_drive(struct spa_loop *loop,
 }
 
 SPA_EXPORT
-int pw_stream_drive(struct pw_stream *stream)
+int pw_stream_trigger_process(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int res = 0;
 
 	pw_log_trace(NAME" %p", impl);
 
+	/* flag to check for old or new behaviour */
 	impl->using_drive = true;
+
 	if (impl->driving) {
 		if (impl->direction == SPA_DIRECTION_OUTPUT &&
 		    !impl->process_rt) {
@@ -2138,7 +2140,7 @@ int pw_stream_drive(struct pw_stream *stream)
 				do_call_process, 1, NULL, 0, false, impl);
 		}
 		res = pw_loop_invoke(impl->context->data_loop,
-			do_drive, 1, NULL, 0, false, impl);
+			do_trigger_process, 1, NULL, 0, false, impl);
 	}
 	return res;
 }

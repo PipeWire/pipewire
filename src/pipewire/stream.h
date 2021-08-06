@@ -238,7 +238,6 @@ struct pw_stream_events {
 
 	/** The stream is drained */
         void (*drained) (void *data);
-
 };
 
 /** Convert a stream state to a readable string */
@@ -363,9 +362,9 @@ int pw_stream_set_active(struct pw_stream *stream, bool active);
  * be called when all data is played or recorded */
 int pw_stream_flush(struct pw_stream *stream, bool drain);
 
-/** Start a push/pull on the stream. The graph will be started and
- * process will be called. Since 0.3.34 */
-int pw_stream_drive(struct pw_stream *stream);
+/** Trigger a push/pull on the stream. One iteration of the graph will
+ * scheduled and process() will be called. Since 0.3.34 */
+int pw_stream_trigger_process(struct pw_stream *stream);
 
 /**
  * \}

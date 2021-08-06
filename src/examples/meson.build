@@ -122,6 +122,12 @@ if sdl_dep.found()
     install_dir : installed_tests_execdir / 'examples',
     dependencies : [pipewire_dep, sdl_dep, mathlib],
   )
+  executable('video-play-pull',
+    'video-play-pull.c',
+    install : installed_tests_enabled,
+    install_dir : installed_tests_execdir / 'examples',
+    dependencies : [pipewire_dep, sdl_dep, mathlib],
+  )
   executable('video-dsp-play',
     'video-dsp-play.c',
     install : installed_tests_enabled,

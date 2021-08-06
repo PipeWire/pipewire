@@ -46,6 +46,35 @@
 #include "media-session.h"
 
 /** \page page_media_session_module_default_profile Media Session Module: Default Profile
+ *
+ * The default profile module restores a previously saved profile
+ * or otherwise the best available profile.
+ *
+ * The module tracks the \ref SPA_PARAM_Profile parameter on devices
+ * (excluding Bluetooth devices).
+ * When the profile is changed by an external party (e.g. `pavucontrol`), that
+ * profile is written to the state file. In the future, when the active
+ * profile is `"off"`, the previously saved profile (if available) is restored.
+ *
+ * If no saved profile exists, the best profile is restored. The rules for
+ * determining the best profile are:
+ * - the highest-priority available profile, or, if no profiles are available,
+ * - the highest-priority profile with availability unknown, or, if no such
+ *   profile exists,
+ * - the `"off"` profile.
+ *
+ * \note The special profile named `"pro-audio"` is excluded from the above search.
+ *
+ * ## Module-specific properties
+ *
+ * This module stores its state in
+ * `$XDG_CONFIG_HOME/pipewire/media-sesssion.d/default-profile`:
+ *
+ * - `default.profile.$devicename = { "name": "$profilename" }`: stores the default
+ *   profile for `$devicename`
+ *
+ * ## See also
+ * See \ref spa_param_availability for availability values.
  */
 
 #define NAME		"default-profile"

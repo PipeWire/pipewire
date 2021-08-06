@@ -362,6 +362,12 @@ int pw_stream_set_active(struct pw_stream *stream, bool active);
  * be called when all data is played or recorded */
 int pw_stream_flush(struct pw_stream *stream, bool drain);
 
+/** Check if the stream is driving. The stream needs to have the
+ * PW_STREAM_FLAG_DRIVER set. When the stream is driving,
+ * pw_stream_trigger_process() needs to be called when data is
+ * available (output) or needed (input). Since 0.3.34 */
+bool pw_stream_is_driving(struct pw_stream *stream);
+
 /** Trigger a push/pull on the stream. One iteration of the graph will
  * scheduled and process() will be called. Since 0.3.34 */
 int pw_stream_trigger_process(struct pw_stream *stream);

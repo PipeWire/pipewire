@@ -2106,6 +2106,13 @@ int pw_stream_flush(struct pw_stream *stream, bool drain)
 	return 0;
 }
 
+SPA_EXPORT
+bool pw_stream_is_driving(struct pw_stream *stream)
+{
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	return impl->driving;
+}
+
 static int
 do_trigger_process(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
@@ -2133,14 +2140,16 @@ int pw_stream_trigger_process(struct pw_stream *stream)
 	/* flag to check for old or new behaviour */
 	impl->using_drive = true;
 
-	if (impl->driving) {
-		if (impl->direction == SPA_DIRECTION_OUTPUT &&
-		    !impl->process_rt) {
-			pw_loop_invoke(impl->context->main_loop,
-				do_call_process, 1, NULL, 0, false, impl);
-		}
-		res = pw_loop_invoke(impl->context->data_loop,
-			do_trigger_process, 1, NULL, 0, false, impl);
+	if (!impl->driving)
+		return -EINVAL;
+
+	if (impl->direction == SPA_DIRECTION_OUTPUT &&
+	    !impl->process_rt) {
+		pw_loop_invoke(impl->context->main_loop,
+			do_call_process, 1, NULL, 0, false, impl);
 	}
+	res = pw_loop_invoke(impl->context->data_loop,
+		do_trigger_process, 1, NULL, 0, false, impl);
+
 	return res;
 }

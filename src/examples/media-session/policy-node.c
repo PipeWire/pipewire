@@ -762,12 +762,10 @@ static int rescan_node(struct impl *impl, struct node *n)
 	struct spa_dict *props;
 	const char *str;
 	bool exclusive, reconnect, autoconnect;
-	struct find_data find;
 	struct pw_node_info *info;
 	struct node *peer;
 	struct sm_object *obj;
 	uint32_t path_id;
-	bool follows_default;
 
 	if (!n->active) {
 		pw_log_debug(NAME " %p: node %d is not active", impl, n->id);
@@ -793,18 +791,6 @@ static int rescan_node(struct impl *impl, struct node *n)
 
 	str = spa_dict_lookup(props, PW_KEY_NODE_DONT_RECONNECT);
 	reconnect = str ? !pw_properties_parse_bool(str) : true;
-
-	follows_default = (impl->streams_follow_default &&
-	                   n->type == NODE_TYPE_STREAM &&
-	                   reconnect &&
-	                   n->obj->target_node == NULL &&
-	                   ((str = spa_dict_lookup(props, PW_KEY_NODE_TARGET)) == NULL ||
-			    (uint32_t)atoi(str) == SPA_ID_INVALID));
-
-	if (n->peer != NULL && !follows_default) {
-		pw_log_debug(NAME " %p: node %d is already linked", impl, n->id);
-		return 0;
-	}
 
 	if ((str = spa_dict_lookup(props, PW_KEY_STREAM_DONT_REMIX)) != NULL)
 		n->dont_remix = pw_properties_parse_bool(str);
@@ -837,41 +823,40 @@ static int rescan_node(struct impl *impl, struct node *n)
 
 	str = spa_dict_lookup(props, PW_KEY_NODE_EXCLUSIVE);
 	exclusive = str ? pw_properties_parse_bool(str) : false;
-
 	pw_log_debug(NAME " %p: exclusive:%d", impl, exclusive);
-
-	spa_zero(find);
-	find.impl = impl;
-	find.media = n->media;
-	find.capture_sink = n->capture_sink;
-	find.direction = n->direction;
-	find.exclusive = exclusive;
-	find.link_group = n->peer == NULL ? spa_dict_lookup(props, PW_KEY_NODE_LINK_GROUP) : NULL;
 
 	/* we always honour the target node asked for by the client */
 	path_id = SPA_ID_INVALID;
-	if ((str = spa_dict_lookup(props, PW_KEY_NODE_TARGET)) != NULL)
+	if ((str = spa_dict_lookup(props, PW_KEY_NODE_TARGET)) != NULL) {
+		bool has_target = ((uint32_t)atoi(str) != SPA_ID_INVALID);
 		path_id = find_device_for_name(impl, str);
+		if (!reconnect && has_target && path_id == SPA_ID_INVALID) {
+			/* don't use fallbacks for non-reconnecting nodes */
+			peer = NULL;
+			goto do_link;
+		}
+	}
 	if (path_id == SPA_ID_INVALID && n->obj->target_node != NULL)
 		path_id = find_device_for_name(impl, n->obj->target_node);
 
-	pw_log_info("trying to link node %d exclusive:%d reconnect:%d target:%d follows-default:%d", n->id,
-	            exclusive, reconnect, path_id, follows_default);
-
 	if (n->peer != NULL) {
-		spa_list_for_each(peer, &impl->node_list, link)
-			find_node(&find, peer);
-
-		if (follows_default && find.node != NULL &&
-		    find.node != n->peer && can_link(impl, n, find.node)) {
-			pw_log_debug(NAME " %p: node %d follows default, changed (%d -> %d)", impl, n->id,
-			             n->peer->id, find.node->id);
-			unlink_nodes(n, n->peer);
-		} else {
-			pw_log_debug(NAME " %p: node %d already linked (not changing)", impl, n->id);
+		/* Do we need to check again where to link to? */
+		bool target_found = (path_id != SPA_ID_INVALID);
+		bool peer_is_target = (target_found && n->peer->obj->obj.id == path_id);
+		bool follows_default = (impl->streams_follow_default &&
+				n->type == NODE_TYPE_STREAM);
+		bool recheck = !peer_is_target && (follows_default || target_found) &&
+			reconnect;
+		if (!recheck) {
+			pw_log_debug(NAME " %p: node %d is already linked, peer-is-target:%d "
+					"follows-default:%d", impl, n->id, peer_is_target,
+					follows_default);
 			return 0;
 		}
 	}
+
+	pw_log_info("trying to link node %d exclusive:%d reconnect:%d target:%d",
+			n->id, exclusive, reconnect, path_id);
 
 	if (path_id != SPA_ID_INVALID) {
 		pw_log_debug(NAME " %p: target:%d", impl, path_id);
@@ -884,23 +869,35 @@ static int rescan_node(struct impl *impl, struct node *n)
 					path_id, obj->type);
 			if (spa_streq(obj->type, PW_TYPE_INTERFACE_Node)) {
 				peer = sm_object_get_data(obj, SESSION_KEY);
-				if (peer == NULL)
-					return -ENOENT;
 				goto do_link;
 			}
 		}
 		pw_log_warn("node %d target:%d not found, find fallback:%d", n->id,
 				path_id, reconnect);
 	}
+
 	if (path_id == SPA_ID_INVALID && (reconnect || n->connect_count == 0)) {
-		if (find.node == NULL)
-			spa_list_for_each(peer, &impl->node_list, link)
-				find_node(&find, peer);
+		/* find fallback */
+		struct find_data find;
+
+		spa_zero(find);
+		find.impl = impl;
+		find.media = n->media;
+		find.capture_sink = n->capture_sink;
+		find.direction = n->direction;
+		find.exclusive = exclusive;
+		find.link_group = n->peer == NULL ? spa_dict_lookup(props, PW_KEY_NODE_LINK_GROUP) : NULL;
+
+		spa_list_for_each(peer, &impl->node_list, link)
+			find_node(&find, peer);
+
+		peer = find.node;
 	} else {
-		find.node = NULL;
+		peer = NULL;
 	}
 
-	if (find.node == NULL) {
+do_link:
+	if (peer == NULL) {
 		struct sm_object *obj;
 
 		if (!reconnect) {
@@ -925,8 +922,11 @@ static int rescan_node(struct impl *impl, struct node *n)
 				n->id, -ENOENT, "no node available");
 		}
 		return -ENOENT;
+	} else if (peer == n->peer) {
+		pw_log_debug(NAME " %p: node %d already linked to %d (not changing)",
+				impl, n->id, peer->id);
+		return 0;
 	}
-	peer = find.node;
 
 	if (exclusive && peer->obj->info->state == PW_NODE_STATE_RUNNING) {
 		pw_log_warn("node %d busy, can't get exclusive access", peer->id);
@@ -934,15 +934,21 @@ static int rescan_node(struct impl *impl, struct node *n)
 	}
 	n->exclusive = exclusive;
 
-	pw_log_debug(NAME" %p: linking to node '%d'", impl, peer->id);
+	if (n->peer != NULL) {
+		pw_log_debug(NAME " %p: node %d change link (%d -> %d)", impl, n->id,
+				n->peer->id, peer->id);
+		unlink_nodes(n, n->peer);
+	}
 
-do_link:
 	if (peer == n->failed_peer && n->failed_count > MAX_LINK_RETRY) {
 		/* Break rescan -> failed link -> rescan loop. */
 		pw_log_debug(NAME" %p: tried to link '%d' on last rescan, not retrying",
 				impl, peer->id);
 		return 0;
 	}
+
+	pw_log_debug(NAME" %p: linking node %d to node %d", impl, n->id, peer->id);
+
 	link_nodes(n, peer);
 	return 1;
 }

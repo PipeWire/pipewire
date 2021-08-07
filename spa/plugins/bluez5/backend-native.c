@@ -654,6 +654,8 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 	unsigned int gain;
 	unsigned int len;
 	unsigned int selected_codec;
+	unsigned int indicator;
+	unsigned int indicator_value;
 
 	if (sscanf(buf, "AT+BRSF=%u", &features) == 1) {
 		unsigned int ag_features = SPA_BT_HFP_AG_FEATURE_NONE;
@@ -692,6 +694,7 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 		}
 
 		/* send reply to HF with the features supported by Audio Gateway (=computer) */
+		ag_features |= SPA_BT_HFP_AG_FEATURE_HF_INDICATORS;
 		rfcomm_send_reply(rfcomm, "+BRSF: %u", ag_features);
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (strncmp(buf, "AT+BAC=", 7) == 0) {
@@ -809,6 +812,31 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 		} else {
 			spa_log_debug(backend->log, NAME": RFCOMM receive unsupported VGS gain: %s", buf);
 			rfcomm_send_reply(rfcomm, "ERROR");
+		}
+	} else if (strncmp(buf, "AT+BIND=", 8) == 0) {
+               // BIND=... should return a comma separated list of indicators and
+               // 2 should be among the other numbers telling that battery charge
+               // is supported
+		rfcomm_send_reply(rfcomm, "OK");
+	} else if (strncmp(buf, "AT+BIND=?", 9) == 0) {
+		rfcomm_send_reply(rfcomm, "+BIND: (2)");
+		rfcomm_send_reply(rfcomm, "OK");
+	} else if (strncmp(buf, "AT+BIND?", 8) == 0) {
+		rfcomm_send_reply(rfcomm, "+BIND: 2,1");
+		rfcomm_send_reply(rfcomm, "OK");
+	} else if (sscanf(buf, "AT+BIEV=%u,%u", &indicator, &indicator_value) == 2) {
+		if (indicator == SPA_BT_HFP_HF_INDICATOR_BATTERY_LEVEL) {
+			// Battery level is reported in range 0-100
+			spa_log_debug(backend->log, NAME": battery level: %u%%", indicator_value);
+
+			if (indicator_value <= 100) {
+				// TODO: report without Battery Provider (using props)
+				spa_bt_device_report_battery_level(rfcomm->device, indicator_value);
+			} else {
+				spa_log_warn(backend->log, NAME": battery HF indicator %u outside of range [0, 100]: %u", indicator, indicator_value);
+			}
+		} else {
+			spa_log_warn(backend->log, NAME": unknown HF indicator: %u", indicator);
 		}
 	} else if (strncmp(buf, "AT+XAPL=", 8) == 0) {
 		// We expect battery status only (bitmask 10)

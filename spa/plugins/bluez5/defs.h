@@ -256,6 +256,12 @@ enum spa_bt_hfp_hf_feature {
 	SPA_BT_HFP_HF_FEATURE_ESCO_S4 =			(1 << 9),
 };
 
+/* https://btprodspecificationrefs.blob.core.windows.net/assigned-numbers/Assigned%20Number%20Types/Hands-Free%20Profile.pdf */
+enum spa_bt_hfp_hf_indicator {
+	SPA_BT_HFP_HF_INDICATOR_ENHANCED_SAFETY =        1,
+	SPA_BT_HFP_HF_INDICATOR_BATTERY_LEVEL =          2,
+};
+
 enum spa_bt_hfp_sdp_hf_features {
 	SPA_BT_HFP_SDP_HF_FEATURE_NONE =		(0),
 	SPA_BT_HFP_SDP_HF_FEATURE_ECNR =		(1 << 0),

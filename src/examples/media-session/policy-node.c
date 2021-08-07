@@ -906,8 +906,14 @@ static int rescan_node(struct impl *impl, struct node *n)
 		if (!reconnect) {
 			pw_log_info("don-reconnect target node destroyed: destroy %d", n->id);
 			sm_media_session_destroy_object(impl->session, n->id);
+		} else if (reconnect && n->connect_count > 0) {
+			/* Don't error the stream on reconnects */
+			pw_log_info(NAME " %p: no node found for %d, waiting reconnect", impl, n->id);
+			if (n->peer != NULL)
+				unlink_nodes(n, n->peer);
+			return 0;
 		} else {
-			pw_log_warn("no node found for %d", n->id);
+			pw_log_warn(NAME " %p: no node found for %d, stream error", impl, n->id);
 		}
 
 		obj = sm_media_session_find_object(impl->session, n->client_id);

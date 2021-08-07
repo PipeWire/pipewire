@@ -813,16 +813,16 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 			spa_log_debug(backend->log, NAME": RFCOMM receive unsupported VGS gain: %s", buf);
 			rfcomm_send_reply(rfcomm, "ERROR");
 		}
-	} else if (strncmp(buf, "AT+BIND=", 8) == 0) {
-               // BIND=... should return a comma separated list of indicators and
-               // 2 should be among the other numbers telling that battery charge
-               // is supported
-		rfcomm_send_reply(rfcomm, "OK");
-	} else if (strncmp(buf, "AT+BIND=?", 9) == 0) {
+	} else if (spa_strstartswith(buf, "AT+BIND=?")) {
 		rfcomm_send_reply(rfcomm, "+BIND: (2)");
 		rfcomm_send_reply(rfcomm, "OK");
-	} else if (strncmp(buf, "AT+BIND?", 8) == 0) {
+	} else if (spa_strstartswith(buf, "AT+BIND?")) {
 		rfcomm_send_reply(rfcomm, "+BIND: 2,1");
+		rfcomm_send_reply(rfcomm, "OK");
+	} else if (spa_strstartswith(buf, "AT+BIND=")) {
+		// BIND=... should return a comma separated list of indicators and
+		// 2 should be among the other numbers telling that battery charge
+		// is supported
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (sscanf(buf, "AT+BIEV=%u,%u", &indicator, &indicator_value) == 2) {
 		if (indicator == SPA_BT_HFP_HF_INDICATOR_BATTERY_LEVEL) {

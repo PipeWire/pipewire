@@ -155,8 +155,8 @@ struct sm_node {
 	struct pw_node_info *info;
 	struct spa_list port_list;
 
-	char *target_node;		/** desired target node from stored
-					  * preferences */
+	char *target_node;		/**< desired target node */
+	unsigned int fixed_target:1;	/**< target_node has priority over node.target */
 };
 
 struct sm_port {

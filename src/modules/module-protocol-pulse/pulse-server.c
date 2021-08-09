@@ -108,7 +108,7 @@ static struct sample *find_sample(struct impl *impl, uint32_t idx, const char *n
 
 	pw_array_for_each(item, &impl->samples.items) {
 		struct sample *s = item->data;
-                if (!pw_map_item_is_free(item) &&
+		if (!pw_map_item_is_free(item) &&
 		    spa_streq(s->name, name))
 			return s;
 	}
@@ -203,7 +203,7 @@ static struct stream *find_stream(struct client *client, uint32_t id)
 	union pw_map_item *item;
 	pw_array_for_each(item, &client->streams.items) {
 		struct stream *s = item->data;
-                if (!pw_map_item_is_free(item) &&
+		if (!pw_map_item_is_free(item) &&
 		    s->id == id)
 			return s;
 	}
@@ -269,8 +269,8 @@ static int64_t get_node_latency_offset(struct pw_manager_object *o)
 		if (p->id != SPA_PARAM_Props)
 			continue;
 		if (spa_pod_parse_object(p->param,
-		                         SPA_TYPE_OBJECT_Props, NULL,
-		                         SPA_PROP_latencyOffsetNsec, SPA_POD_Long(&latency_offset)) == 1)
+					SPA_TYPE_OBJECT_Props, NULL,
+					SPA_PROP_latencyOffsetNsec, SPA_POD_Long(&latency_offset)) == 1)
 			break;
 	}
 	return latency_offset;
@@ -1043,7 +1043,7 @@ struct process_data {
 
 static int
 do_process_done(struct spa_loop *loop,
-                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct stream *stream = user_data;
 	struct client *client = stream->client;
@@ -1154,8 +1154,8 @@ static void stream_process(void *data)
 	if (buffer == NULL)
 		return;
 
-        buf = buffer->buffer;
-        if ((p = buf->datas[0].data) == NULL)
+	buf = buffer->buffer;
+	if ((p = buf->datas[0].data) == NULL)
 		return;
 
 	spa_zero(pd);
@@ -1215,10 +1215,10 @@ static void stream_process(void *data)
 			pd.missing = size;
 			pd.underrun = false;
 		}
-	        buf->datas[0].chunk->offset = 0;
-	        buf->datas[0].chunk->stride = stream->frame_size;
-	        buf->datas[0].chunk->size = size;
-	        buffer->size = size / stream->frame_size;
+		buf->datas[0].chunk->offset = 0;
+		buf->datas[0].chunk->stride = stream->frame_size;
+		buf->datas[0].chunk->size = size;
+		buffer->size = size / stream->frame_size;
 	} else  {
 		int32_t filled = spa_ringbuffer_get_write_index(&stream->ring, &index);
 		size = buf->datas[0].chunk->size;
@@ -3448,11 +3448,11 @@ static int fill_sink_info(struct client *client, struct message *m,
 
 	flags = SINK_LATENCY | SINK_DYNAMIC_LATENCY | SINK_DECIBEL_VOLUME;
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)) != NULL)
-                flags |= SINK_HARDWARE;
+		flags |= SINK_HARDWARE;
 	if (SPA_FLAG_IS_SET(dev_info.volume_info.flags, VOLUME_HW_VOLUME))
-                flags |= SINK_HW_VOLUME_CTRL;
+		flags |= SINK_HW_VOLUME_CTRL;
 	if (SPA_FLAG_IS_SET(dev_info.volume_info.flags, VOLUME_HW_MUTE))
-                flags |= SINK_HW_MUTE_CTRL;
+		flags |= SINK_HW_MUTE_CTRL;
 
 	if (client->quirks & QUIRK_FORCE_S16_FORMAT)
 		dev_info.ss.format = SPA_AUDIO_FORMAT_S16;
@@ -3603,11 +3603,11 @@ static int fill_source_info(struct client *client, struct message *m,
 
 	flags = SOURCE_LATENCY | SOURCE_DYNAMIC_LATENCY | SOURCE_DECIBEL_VOLUME;
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)) != NULL)
-                flags |= SOURCE_HARDWARE;
+		flags |= SOURCE_HARDWARE;
 	if (SPA_FLAG_IS_SET(dev_info.volume_info.flags, VOLUME_HW_VOLUME))
-                flags |= SOURCE_HW_VOLUME_CTRL;
+		flags |= SOURCE_HW_VOLUME_CTRL;
 	if (SPA_FLAG_IS_SET(dev_info.volume_info.flags, VOLUME_HW_MUTE))
-                flags |= SOURCE_HW_MUTE_CTRL;
+		flags |= SOURCE_HW_MUTE_CTRL;
 
 	if (client->quirks & QUIRK_FORCE_S16_FORMAT)
 		dev_info.ss.format = SPA_AUDIO_FORMAT_S16;
@@ -4051,7 +4051,7 @@ static int do_get_sample_info_list(struct client *client, uint32_t command, uint
 	reply = reply_new(client, tag);
 	pw_array_for_each(item, &impl->samples.items) {
 		struct sample *s = item->data;
-                if (pw_map_item_is_free(item))
+		if (pw_map_item_is_free(item))
 			continue;
 		fill_sample_info(client, reply, s);
 	}
@@ -4313,12 +4313,12 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 	if (o->proxy == NULL)
 		return -ENOENT;
 
-        pw_device_set_param((struct pw_device*)o->proxy,
-                        SPA_PARAM_Profile, 0,
-                        spa_pod_builder_add_object(&b,
-                                SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-                                SPA_PARAM_PROFILE_index, SPA_POD_Int(profile_id),
-                                SPA_PARAM_PROFILE_save, SPA_POD_Bool(true)));
+	pw_device_set_param((struct pw_device*)o->proxy,
+			SPA_PARAM_Profile, 0,
+			spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(profile_id),
+				SPA_PARAM_PROFILE_save, SPA_POD_Bool(true)));
 
 	return operation_new(client, tag);
 }
@@ -4521,8 +4521,8 @@ static void on_module_loaded(void *data, int result)
 		struct message *reply;
 
 		pw_log_info(NAME" %p: [%s] loaded module id:%u name:%s",
-			    impl, client->name,
-			    module->idx, module->name);
+				impl, client->name,
+				module->idx, module->name);
 
 		module->loaded = true;
 
@@ -4539,9 +4539,9 @@ static void on_module_loaded(void *data, int result)
 	}
 	else {
 		pw_log_warn(NAME" %p: [%s] failed to load module id:%u name:%s result:%d (%s)",
-			    impl, client->name,
-			    module->idx, module->name,
-			    result, spa_strerror(result));
+				impl, client->name,
+				module->idx, module->name,
+				result, spa_strerror(result));
 
 		reply_error(client, COMMAND_LOAD_MODULE, tag, result);
 		module_schedule_unload(module);
@@ -4941,8 +4941,8 @@ static int parse_position(struct pw_properties *props, const char *key, const ch
 		str = def;
 
 	spa_json_init(&it[0], str, strlen(str));
-        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-                spa_json_init(&it[1], str, strlen(str));
+	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+		spa_json_init(&it[1], str, strlen(str));
 
 	res->channels = 0;
 	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
@@ -5043,13 +5043,13 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 
 	if ((res = servers_create_and_start(impl, str, NULL)) < 0) {
 		pw_log_error(NAME" %p: no servers could be started: %s",
-			     impl, spa_strerror(res));
+				impl, spa_strerror(res));
 		goto error_free;
 	}
 
 	if ((res = create_pid_file()) < 0) {
 		pw_log_warn(NAME" %p: can't create pid file: %s",
-			    impl, spa_strerror(res));
+				impl, spa_strerror(res));
 	}
 	pw_context_add_listener(context, &impl->context_listener,
 			&context_events, impl);

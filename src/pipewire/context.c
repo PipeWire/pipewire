@@ -1170,7 +1170,7 @@ again:
 			pw_log_debug(NAME" %p: unassigned node %p: '%s' active:%d want_driver:%d target:%p",
 					context, n, n->name, n->active, n->want_driver, target);
 
-			t = (n->active && n->want_driver) ? target : NULL;
+			t = n->want_driver ? target : NULL;
 
 			pw_impl_node_set_driver(n, t);
 			if (t == NULL)

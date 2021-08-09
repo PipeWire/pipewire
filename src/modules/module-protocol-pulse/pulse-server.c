@@ -4402,6 +4402,7 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	struct pw_manager *manager = client->manager;
 	struct pw_manager_object *o, *dev, *dev_default;
 	uint32_t id, id_device;
+	int target_id;
 	const char *name_device;
 	struct selector sel;
 	int res;
@@ -4432,29 +4433,23 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	if ((dev = find_device(client, id_device, name_device, sink, NULL)) == NULL)
 		return -ENOENT;
 
-	if ((res = pw_manager_set_metadata(manager, client->metadata_default,
-			o->id,
-			METADATA_TARGET_NODE,
-			SPA_TYPE_INFO_BASE"Id", "%d", dev->id)) < 0)
-		return res;
-
 	dev_default = find_device(client, SPA_ID_INVALID, NULL, sink, NULL);
 	if (dev == dev_default) {
 		/*
 		 * When moving streams to a node that is equal to the default,
 		 * Pulseaudio understands this to mean '... and unset preferred sink/source',
 		 * forgetting target.node. Follow that behavior here.
-		 *
-		 * XXX: We set target.node key above regardless, to make policy-node
-		 * XXX: to always see the unset event. The metadata is currently not
-		 * XXX: always set when the node has explicit target.
 		 */
-		if ((res = pw_manager_set_metadata(manager, client->metadata_default,
-				o->id,
-				METADATA_TARGET_NODE,
-				NULL, NULL)) < 0)
-			return res;
+		target_id = -1;
+	} else {
+		target_id = dev->id;
 	}
+
+	if ((res = pw_manager_set_metadata(manager, client->metadata_default,
+			o->id,
+			METADATA_TARGET_NODE,
+			SPA_TYPE_INFO_BASE"Id", "%d", target_id)) < 0)
+		return res;
 
 	return reply_simple_ack(client, tag);
 }

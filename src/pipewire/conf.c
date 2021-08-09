@@ -187,6 +187,13 @@ static int get_state_path(char *path, size_t size, const char *prefix, const cha
 			dir = result ? result->pw_dir : NULL;
 	}
 	if (dir != NULL) {
+		const char *paths[] = { dir, ".local", "state", "pipewire", prefix, name, NULL };
+		if (make_path(path, size, paths) == 0 &&
+		    access(path, R_OK) == 0)
+			return 1;
+	}
+	if (dir != NULL) {
+		/* fallback for old XDG_CONFIG_HOME */
 		const char *paths[] = { dir, ".config", "pipewire", prefix, name, NULL };
 		if (make_path(path, size, paths) == 0 &&
 		    access(path, R_OK) == 0)

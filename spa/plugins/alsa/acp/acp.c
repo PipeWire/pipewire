@@ -1047,10 +1047,10 @@ static int read_volume(pa_alsa_device *dev)
 	/* Shift down by the base volume, so that 0dB becomes maximum volume */
 	pa_sw_cvolume_multiply_scalar(&r, &r, dev->base_volume);
 
-	if (pa_cvolume_equal(&dev->real_volume, &r))
+	if (pa_cvolume_equal(&dev->hardware_volume, &r))
 		return 0;
 
-	dev->real_volume = r;
+	dev->real_volume = dev->hardware_volume = r;
 
 	pa_log_info("New hardware volume: min:%d max:%d",
 			pa_cvolume_min(&r), pa_cvolume_max(&r));

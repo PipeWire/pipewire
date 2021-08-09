@@ -1027,7 +1027,11 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	}
 	loop = pw_thread_loop_get_loop(pw->main_loop);
 	pw->system = loop->system;
-	if ((pw->context = pw_context_new(loop, NULL, 0)) == NULL) {
+	if ((pw->context = pw_context_new(loop,
+					pw_properties_new(
+						PW_KEY_CONFIG_NAME, "client-rt.conf",
+						NULL),
+					0)) == NULL) {
 		err = -errno;
 		goto error;
 	}

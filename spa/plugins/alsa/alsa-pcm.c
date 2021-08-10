@@ -52,6 +52,7 @@ int spa_alsa_init(struct state *state)
 			spa_scnprintf(name, sizeof(name), "%s%s", alibpref,
 					state->props.device);
 			strcpy(state->props.device, name);
+			free((void*)alibpref);
 		}
 	}
 	return 0;

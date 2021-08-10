@@ -1124,6 +1124,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	char label[256] = "";
 	bool have_control = false;
 	uint32_t i;
+	int len;
 
 	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
 		if (spa_streq("type", key)) {
@@ -1149,6 +1150,11 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		} else if (spa_streq("control", key)) {
 			it[0] = *json;
 			have_control = true;
+			len = spa_json_next(json, &val);
+			if (!spa_json_is_object(val, len)) {
+				pw_log_error("control expects an object");
+				return -EINVAL;
+			}
 		} else if (spa_json_next(json, &val) < 0)
 			break;
 	}

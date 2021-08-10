@@ -24,12 +24,15 @@
 
 #include <sndfile.h>
 
+#include "plugin.h"
+#include "ladspa.h"
+
 #include "biquad.h"
 #include "convolver.h"
 
 struct builtin {
 	unsigned long rate;
-	LADSPA_Data *port[64];
+	float *port[64];
 
 	struct biquad bq;
 	float freq;
@@ -37,8 +40,8 @@ struct builtin {
 	float gain;
 };
 
-static LADSPA_Handle builtin_instantiate(const struct _LADSPA_Descriptor * Descriptor,
-		unsigned long SampleRate)
+static void *builtin_instantiate(const struct fc_descriptor * Descriptor,
+		unsigned long SampleRate, const char *config)
 {
 	struct builtin *impl;
 
@@ -51,49 +54,48 @@ static LADSPA_Handle builtin_instantiate(const struct _LADSPA_Descriptor * Descr
 	return impl;
 }
 
-static void builtin_connect_port(LADSPA_Handle Instance, unsigned long Port,
-                        LADSPA_Data * DataLocation)
+static void builtin_connect_port(void *Instance, unsigned long Port,
+                        float * DataLocation)
 {
 	struct builtin *impl = Instance;
 	impl->port[Port] = DataLocation;
 }
 
-static void builtin_cleanup(LADSPA_Handle Instance)
+static void builtin_cleanup(void * Instance)
 {
 	struct builtin *impl = Instance;
 	free(impl);
 }
 
 /** copy */
-static void copy_run(LADSPA_Handle Instance, unsigned long SampleCount)
+static void copy_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
 	float *in = impl->port[1], *out = impl->port[0];
 	memcpy(out, in, SampleCount * sizeof(float));
 }
 
-static const LADSPA_PortDescriptor copy_port_desc[] = {
-	LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO,
-	LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
+static struct fc_port copy_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In",
+	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
+	}
 };
 
-static const char * const copy_port_names[] = {
-	"Out", "In"
-};
+static const struct fc_descriptor copy_desc = {
+	.name = "copy",
 
-static const LADSPA_PortRangeHint copy_range_hints[] = {
-	{ 0, }, { 0, },
-};
+	//.Name = "Copy input to output",
+	//.Maker = "PipeWire",
+	//.Copyright = "MIT",
 
-static const LADSPA_Descriptor copy_desc = {
-	.Label = "copy",
-	.Name = "Copy input to output",
-	.Maker = "PipeWire",
-	.Copyright = "MIT",
-	.PortCount = 2,
-	.PortDescriptors = copy_port_desc,
-	.PortNames = copy_port_names,
-	.PortRangeHints = copy_range_hints,
+	.n_ports = 2,
+	.ports = copy_ports,
+
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = copy_run,
@@ -101,7 +103,7 @@ static const LADSPA_Descriptor copy_desc = {
 };
 
 /** mixer */
-static void mixer_run(LADSPA_Handle Instance, unsigned long SampleCount)
+static void mixer_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
 	unsigned long i;
@@ -120,52 +122,63 @@ static void mixer_run(LADSPA_Handle Instance, unsigned long SampleCount)
 	}
 }
 
-static const LADSPA_PortDescriptor mixer_port_desc[] = {
-	LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO,
-	LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
-	LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
-	LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
-	LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
-};
-
-static const char * const mixer_port_names[] = {
-	"Out", "In 1", "In 2", "Gain 1", "Gain 2"
-};
-
+#if 0
 static const LADSPA_PortRangeHint mixer_range_hints[] = {
 	{ 0, }, { 0, }, { 0, },
 	{ LADSPA_HINT_BOUNDED_BELOW | LADSPA_HINT_BOUNDED_ABOVE | LADSPA_HINT_DEFAULT_1, 0.0, 10.0 },
 	{ LADSPA_HINT_BOUNDED_BELOW | LADSPA_HINT_BOUNDED_ABOVE | LADSPA_HINT_DEFAULT_1, 0.0, 10.0 }
 };
+#endif
 
-static const LADSPA_Descriptor mixer_desc = {
-	.Label = "mixer",
-	.Name = "Mix 2 inputs",
-	.Maker = "PipeWire",
-	.Copyright = "MIT",
-	.PortCount = 5,
-	.PortDescriptors = mixer_port_desc,
-	.PortNames = mixer_port_names,
-	.PortRangeHints = mixer_range_hints,
+static struct fc_port mixer_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In 1",
+	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "In 2",
+	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
+	},
+	{ .index = 3,
+	  .name = "Gain 1",
+	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
+	},
+	{ .index = 4,
+	  .name = "Gain 2",
+	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
+	},
+};
+
+static const char *mixer_get_prop(struct fc_descriptor *desc, const char *name)
+{
+	if (spa_streq(name, "description"))
+		return "Mix 2 inputs";
+	if (spa_streq(name, "maker"))
+		return "PipeWire";
+	if (spa_streq(name, "copyright"))
+		return "MIT";
+	return NULL;
+}
+
+static const struct fc_descriptor mixer_desc = {
+	.name = "mixer",
+
+	.get_prop = mixer_get_prop,
+
+	.n_ports = 5,
+	.ports = mixer_ports,
+
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = mixer_run,
 	.cleanup = builtin_cleanup,
 };
 
-
-static const LADSPA_PortDescriptor bq_port_desc[] = {
-	LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO,
-	LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
-	LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
-	LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
-	LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
-};
-
-static const char * const bq_port_names[] = {
-	"Out", "In", "Freq", "Q", "Gain"
-};
-
+#if 0
 static const LADSPA_PortRangeHint bq_range_hints[] = {
 	{ 0, }, { 0, },
 	{ LADSPA_HINT_BOUNDED_BELOW | LADSPA_HINT_BOUNDED_ABOVE |
@@ -174,6 +187,30 @@ static const LADSPA_PortRangeHint bq_range_hints[] = {
 		LADSPA_HINT_DEFAULT_0, 0.0, 10.0 },
 	{ LADSPA_HINT_BOUNDED_BELOW | LADSPA_HINT_BOUNDED_ABOVE |
 		LADSPA_HINT_DEFAULT_0, -120.0, 5.0 },
+};
+#endif
+
+static struct fc_port bq_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In",
+	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "Freq",
+	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
+	},
+	{ .index = 3,
+	  .name = "Q",
+	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
+	},
+	{ .index = 4,
+	  .name = "Gain",
+	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
+	},
 };
 
 static void bq_run(struct builtin *impl, unsigned long samples, int type)
@@ -219,21 +256,20 @@ static void bq_run(struct builtin *impl, unsigned long samples, int type)
 }
 
 /** bq_lowpass */
-static void bq_lowpass_run(LADSPA_Handle Instance, unsigned long SampleCount)
+static void bq_lowpass_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
 	bq_run(impl, SampleCount, BQ_LOWPASS);
 }
 
-static const LADSPA_Descriptor bq_lowpass_desc = {
-	.Label = "bq_lowpass",
-	.Name = "Biquad lowpass filter",
-	.Maker = "PipeWire",
-	.Copyright = "MIT",
-	.PortCount = 5,
-	.PortDescriptors = bq_port_desc,
-	.PortNames = bq_port_names,
-	.PortRangeHints = bq_range_hints,
+static const struct fc_descriptor bq_lowpass_desc = {
+	.name = "bq_lowpass",
+	//.Name = "Biquad lowpass filter",
+	//.Maker = "PipeWire",
+	//.Copyright = "MIT",
+	.n_ports = 5,
+	.ports = bq_ports,
+
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = bq_lowpass_run,
@@ -241,21 +277,19 @@ static const LADSPA_Descriptor bq_lowpass_desc = {
 };
 
 /** bq_highpass */
-static void bq_highpass_run(LADSPA_Handle Instance, unsigned long SampleCount)
+static void bq_highpass_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
 	bq_run(impl, SampleCount, BQ_HIGHPASS);
 }
 
-static const LADSPA_Descriptor bq_highpass_desc = {
-	.Label = "bq_highpass",
-	.Name = "Biquad highpass filter",
-	.Maker = "PipeWire",
-	.Copyright = "MIT",
-	.PortCount = 5,
-	.PortDescriptors = bq_port_desc,
-	.PortNames = bq_port_names,
-	.PortRangeHints = bq_range_hints,
+static const struct fc_descriptor bq_highpass_desc = {
+	.name = "bq_highpass",
+	//.Name = "Biquad highpass filter",
+	//.Maker = "PipeWire",
+	//.Copyright = "MIT",
+	.n_ports = 5,
+	.ports = bq_ports,
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = bq_highpass_run,
@@ -263,21 +297,19 @@ static const LADSPA_Descriptor bq_highpass_desc = {
 };
 
 /** bq_bandpass */
-static void bq_bandpass_run(LADSPA_Handle Instance, unsigned long SampleCount)
+static void bq_bandpass_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
 	bq_run(impl, SampleCount, BQ_BANDPASS);
 }
 
-static const LADSPA_Descriptor bq_bandpass_desc = {
-	.Label = "bq_bandpass",
-	.Name = "Biquad bandpass filter",
-	.Maker = "PipeWire",
-	.Copyright = "MIT",
-	.PortCount = 5,
-	.PortDescriptors = bq_port_desc,
-	.PortNames = bq_port_names,
-	.PortRangeHints = bq_range_hints,
+static const struct fc_descriptor bq_bandpass_desc = {
+	.name = "bq_bandpass",
+	//.Name = "Biquad bandpass filter",
+	//.Maker = "PipeWire",
+	//.Copyright = "MIT",
+	.n_ports = 5,
+	.ports = bq_ports,
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = bq_bandpass_run,
@@ -285,21 +317,19 @@ static const LADSPA_Descriptor bq_bandpass_desc = {
 };
 
 /** bq_lowshelf */
-static void bq_lowshelf_run(LADSPA_Handle Instance, unsigned long SampleCount)
+static void bq_lowshelf_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
 	bq_run(impl, SampleCount, BQ_LOWSHELF);
 }
 
-static const LADSPA_Descriptor bq_lowshelf_desc = {
-	.Label = "bq_lowshelf",
-	.Name = "Biquad lowshelf filter",
-	.Maker = "PipeWire",
-	.Copyright = "MIT",
-	.PortCount = 5,
-	.PortDescriptors = bq_port_desc,
-	.PortNames = bq_port_names,
-	.PortRangeHints = bq_range_hints,
+static const struct fc_descriptor bq_lowshelf_desc = {
+	.name = "bq_lowshelf",
+	//.Name = "Biquad lowshelf filter",
+	//.Maker = "PipeWire",
+	//.Copyright = "MIT",
+	.n_ports = 5,
+	.ports = bq_ports,
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = bq_lowshelf_run,
@@ -307,21 +337,19 @@ static const LADSPA_Descriptor bq_lowshelf_desc = {
 };
 
 /** bq_highshelf */
-static void bq_highshelf_run(LADSPA_Handle Instance, unsigned long SampleCount)
+static void bq_highshelf_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
 	bq_run(impl, SampleCount, BQ_HIGHSHELF);
 }
 
-static const LADSPA_Descriptor bq_highshelf_desc = {
-	.Label = "bq_highshelf",
-	.Name = "Biquad highshelf filter",
-	.Maker = "PipeWire",
-	.Copyright = "MIT",
-	.PortCount = 5,
-	.PortDescriptors = bq_port_desc,
-	.PortNames = bq_port_names,
-	.PortRangeHints = bq_range_hints,
+static const struct fc_descriptor bq_highshelf_desc = {
+	.name = "bq_highshelf",
+	//.Name = "Biquad highshelf filter",
+	//.Maker = "PipeWire",
+	//.Copyright = "MIT",
+	.n_ports = 5,
+	.ports = bq_ports,
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = bq_highshelf_run,
@@ -329,21 +357,19 @@ static const LADSPA_Descriptor bq_highshelf_desc = {
 };
 
 /** bq_peaking */
-static void bq_peaking_run(LADSPA_Handle Instance, unsigned long SampleCount)
+static void bq_peaking_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
 	bq_run(impl, SampleCount, BQ_PEAKING);
 }
 
-static const LADSPA_Descriptor bq_peaking_desc = {
-	.Label = "bq_peaking",
-	.Name = "Biquad peaking filter",
-	.Maker = "PipeWire",
-	.Copyright = "MIT",
-	.PortCount = 5,
-	.PortDescriptors = bq_port_desc,
-	.PortNames = bq_port_names,
-	.PortRangeHints = bq_range_hints,
+static const struct fc_descriptor bq_peaking_desc = {
+	.name = "bq_peaking",
+	//.Name = "Biquad peaking filter",
+	//.Maker = "PipeWire",
+	//.Copyright = "MIT",
+	.n_ports = 5,
+	.ports = bq_ports,
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = bq_peaking_run,
@@ -351,21 +377,19 @@ static const LADSPA_Descriptor bq_peaking_desc = {
 };
 
 /** bq_notch */
-static void bq_notch_run(LADSPA_Handle Instance, unsigned long SampleCount)
+static void bq_notch_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
 	bq_run(impl, SampleCount, BQ_NOTCH);
 }
 
-static const LADSPA_Descriptor bq_notch_desc = {
-	.Label = "bq_notch",
-	.Name = "Biquad notch filter",
-	.Maker = "PipeWire",
-	.Copyright = "MIT",
-	.PortCount = 5,
-	.PortDescriptors = bq_port_desc,
-	.PortNames = bq_port_names,
-	.PortRangeHints = bq_range_hints,
+static const struct fc_descriptor bq_notch_desc = {
+	.name = "bq_notch",
+	//.Name = "Biquad notch filter",
+	//.Maker = "PipeWire",
+	//.Copyright = "MIT",
+	.n_ports = 5,
+	.ports = bq_ports,
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = bq_notch_run,
@@ -374,21 +398,19 @@ static const LADSPA_Descriptor bq_notch_desc = {
 
 
 /** bq_allpass */
-static void bq_allpass_run(LADSPA_Handle Instance, unsigned long SampleCount)
+static void bq_allpass_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
 	bq_run(impl, SampleCount, BQ_ALLPASS);
 }
 
-static const LADSPA_Descriptor bq_allpass_desc = {
-	.Label = "bq_allpass",
-	.Name = "Biquad allpass filter",
-	.Maker = "PipeWire",
-	.Copyright = "MIT",
-	.PortCount = 5,
-	.PortDescriptors = bq_port_desc,
-	.PortNames = bq_port_names,
-	.PortRangeHints = bq_range_hints,
+static const struct fc_descriptor bq_allpass_desc = {
+	.name = "bq_allpass",
+	//.Name = "Biquad allpass filter",
+	//.Maker = "PipeWire",
+	//.Copyright = "MIT",
+	.n_ports = 5,
+	.ports = bq_ports,
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = bq_allpass_run,
@@ -403,8 +425,8 @@ struct convolver_impl {
 	struct convolver *conv;
 };
 
-static LADSPA_Handle convolver_instantiate(const struct _LADSPA_Descriptor * Descriptor,
-		unsigned long SampleRate)
+static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
+		unsigned long SampleRate, const char *config)
 {
 	struct convolver_impl *impl;
 	SF_INFO info;
@@ -417,7 +439,7 @@ static LADSPA_Handle convolver_instantiate(const struct _LADSPA_Descriptor * Des
 	spa_zero(info);
 	f = sf_open(filename, SFM_READ, &info) ;
 	if (f == NULL) {
-		pw_log_error("can't open %s", filename);
+		fprintf(stderr, "can't open %s", filename);
 		return NULL;
 	}
 
@@ -441,54 +463,50 @@ static LADSPA_Handle convolver_instantiate(const struct _LADSPA_Descriptor * Des
 	return impl;
 }
 
-static void convolver_connect_port(LADSPA_Handle Instance, unsigned long Port,
+static void convolver_connect_port(void * Instance, unsigned long Port,
                         LADSPA_Data * DataLocation)
 {
 	struct convolver_impl *impl = Instance;
 	impl->port[Port] = DataLocation;
 }
 
-static void convolver_cleanup(LADSPA_Handle Instance)
+static void convolver_cleanup(void * Instance)
 {
 	struct convolver_impl *impl = Instance;
 	free(impl);
 }
 
-static const LADSPA_PortDescriptor convolve_port_desc[] = {
-	LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO,
-	LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
+static struct fc_port convolve_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In",
+	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
+	},
 };
 
-static const char * const convolve_port_names[] = {
-	"Out", "In"
-};
-
-static const LADSPA_PortRangeHint convolve_range_hints[] = {
-	{ 0, }, { 0, },
-};
-
-static void convolve_run(LADSPA_Handle Instance, unsigned long SampleCount)
+static void convolve_run(void * Instance, unsigned long SampleCount)
 {
 	struct convolver_impl *impl = Instance;
 	convolver_run(impl->conv, impl->port[1], impl->port[0], SampleCount);
 }
 
-static const LADSPA_Descriptor convolve_desc = {
-	.Label = "convolver",
-	.Name = "Convolver",
-	.Maker = "PipeWire",
-	.Copyright = "MIT",
-	.PortCount = 2,
-	.PortDescriptors = convolve_port_desc,
-	.PortNames = convolve_port_names,
-	.PortRangeHints = convolve_range_hints,
+static const struct fc_descriptor convolve_desc = {
+	.name = "convolver",
+	//.Name = "Convolver",
+	//.Maker = "PipeWire",
+	//.Copyright = "MIT",
+	.n_ports = 2,
+	.ports = convolve_ports,
 	.instantiate = convolver_instantiate,
 	.connect_port = convolver_connect_port,
 	.run = convolve_run,
 	.cleanup = convolver_cleanup,
 };
 
-static const LADSPA_Descriptor * builtin_ladspa_descriptor(unsigned long Index)
+static const struct fc_descriptor * builtin_descriptor(unsigned long Index)
 {
 	switch(Index) {
 	case 0:
@@ -517,3 +535,24 @@ static const LADSPA_Descriptor * builtin_ladspa_descriptor(unsigned long Index)
 	return NULL;
 }
 
+static const struct fc_descriptor *builtin_make_desc(struct fc_plugin *plugin, const char *name)
+{
+	unsigned long i;
+	for (i = 0; ;i++) {
+		const struct fc_descriptor *d = builtin_descriptor(i);
+		if (d == NULL)
+			break;
+		if (spa_streq(d->name, name))
+			return d;
+	}
+	return NULL;
+}
+
+static struct fc_plugin builtin_plugin = {
+	.make_desc = builtin_make_desc
+};
+
+struct fc_plugin *load_builtin_plugin(const char *plugin, const char *config)
+{
+	return &builtin_plugin;
+}

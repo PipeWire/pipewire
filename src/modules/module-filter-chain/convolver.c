@@ -61,7 +61,7 @@ static int next_power_of_two(int val)
 struct convolver *convolver_new(int block, const float *ir, int irlen)
 {
 	struct convolver *conv;
-	int i, j;
+	int i;
 
 	if (block == 0)
 		return NULL;
@@ -111,12 +111,6 @@ struct convolver *convolver_new(int block, const float *ir, int irlen)
 			memset(conv->fft_buffer + copy, 0, (conv->segSize - copy) * sizeof(float));
 
 	        kiss_fftr_f32(conv->fft, conv->fft_buffer, conv->segmentsIr[i]);
-
-//		for (j = 0; j < conv->fftComplexSize; j++) {
-//			conv->segmentsIr[i][j].r /= conv->segSize * 2;
-//			conv->segmentsIr[i][j].i /= conv->segSize * 2;
-//		}
-
 	}
 	conv->pre_mult = calloc(sizeof(kiss_fft_f32_cpx), conv->fftComplexSize);
 	conv->conv = calloc(sizeof(kiss_fft_f32_cpx), conv->fftComplexSize);
@@ -193,7 +187,7 @@ int convolver_run(struct convolver *conv, const float *input, float *output, int
 		kiss_fftri_f32(conv->ifft, conv->conv, conv->fft_buffer);
 
 		for (i = 0; i < conv->segSize; i++)
-			conv->fft_buffer[i] /= conv->segSize * 4;
+			conv->fft_buffer[i] /= conv->segSize * 2;
 
 		Sum(output + processed, conv->fft_buffer + inputBufferPos, conv->overlap + inputBufferPos, processing);
 

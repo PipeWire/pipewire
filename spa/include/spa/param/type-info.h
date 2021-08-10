@@ -85,6 +85,11 @@ static const struct spa_type_info spa_type_prop_channel_map[] = {
 	{ 0, 0, NULL, NULL },
 };
 
+static const struct spa_type_info spa_type_prop_iec958_codec[] = {
+	{ SPA_PROP_START, SPA_TYPE_Id, SPA_TYPE_INFO_BASE "iec958Codec", spa_type_audio_iec958_codec, },
+	{ 0, 0, NULL, NULL },
+};
+
 static const struct spa_type_info spa_type_props[] = {
 	{ SPA_PROP_START, SPA_TYPE_Id, SPA_TYPE_INFO_PROPS_BASE, spa_type_param, },
 	{ SPA_PROP_unknown, SPA_TYPE_None, SPA_TYPE_INFO_PROPS_BASE "unknown", NULL },
@@ -119,6 +124,7 @@ static const struct spa_type_info spa_type_props[] = {
 	{ SPA_PROP_latencyOffsetNsec, SPA_TYPE_Long, SPA_TYPE_INFO_PROPS_BASE "latencyOffsetNsec", NULL },
 	{ SPA_PROP_softMute, SPA_TYPE_Bool, SPA_TYPE_INFO_PROPS_BASE "softMute", NULL },
 	{ SPA_PROP_softVolumes, SPA_TYPE_Array, SPA_TYPE_INFO_PROPS_BASE "softVolumes", spa_type_prop_float_array },
+	{ SPA_PROP_iec958Codecs, SPA_TYPE_Array, SPA_TYPE_INFO_PROPS_BASE "iec958Codecs", spa_type_prop_iec958_codec },
 
 	{ SPA_PROP_brightness, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "brightness", NULL },
 	{ SPA_PROP_contrast, SPA_TYPE_Int, SPA_TYPE_INFO_PROPS_BASE "contrast", NULL },
@@ -196,6 +202,7 @@ static const struct spa_type_info spa_type_media_subtype[] = {
 	/* generic subtypes */
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "raw", NULL },
 	{ SPA_MEDIA_SUBTYPE_dsp, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "dsp", NULL },
+	{ SPA_MEDIA_SUBTYPE_iec958, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "iec958", NULL },
 	/* audio subtypes */
 	{ SPA_MEDIA_SUBTYPE_mp3, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "mp3", NULL },
 	{ SPA_MEDIA_SUBTYPE_aac, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "aac", NULL },
@@ -257,6 +264,9 @@ static const struct spa_type_info spa_type_format[] = {
 	{ SPA_FORMAT_AUDIO_channels, SPA_TYPE_Int, SPA_TYPE_INFO_FORMAT_AUDIO_BASE "channels", NULL },
 	{ SPA_FORMAT_AUDIO_position, SPA_TYPE_Array, SPA_TYPE_INFO_FORMAT_AUDIO_BASE "position",
 		spa_type_prop_channel_map },
+
+	{ SPA_FORMAT_AUDIO_iec958Codec, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_AUDIO_BASE "iec958Codec",
+		spa_type_audio_iec958_codec },
 
 	{ SPA_FORMAT_VIDEO_format, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_VIDEO_BASE "format",
 		spa_type_video_format, },

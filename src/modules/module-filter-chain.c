@@ -318,7 +318,7 @@ done:
 static float get_default(struct impl *impl, struct descriptor *desc, uint32_t p)
 {
 	struct fc_port *port = &desc->desc->ports[p];
-	return port->get_param(port, "default");
+	return port->def;
 }
 
 static struct node *find_node(struct graph *graph, const char *name)
@@ -388,12 +388,7 @@ static struct spa_pod *get_prop_info(struct graph *graph, struct spa_pod_builder
 	struct descriptor *desc = node->desc;
 	const struct fc_descriptor *d = desc->desc;
 	struct fc_port *p = &d->ports[port->p];
-	float def, min, max;
 	char name[512];
-
-	def = p->get_param(p, "default");
-	min = p->get_param(p, "min");
-	max = p->get_param(p, "max");
 
 	if (node->name[0] != '\0')
 		snprintf(name, sizeof(name), "%s:%s", node->name, p->name);
@@ -407,13 +402,13 @@ static struct spa_pod *get_prop_info(struct graph *graph, struct spa_pod_builder
 			SPA_PROP_INFO_name, SPA_POD_String(name),
 			0);
 	spa_pod_builder_prop(b, SPA_PROP_INFO_type, 0);
-	if (min == max) {
-		spa_pod_builder_float(b, def);
+	if (p->min == p->max) {
+		spa_pod_builder_float(b, p->def);
 	} else {
 		spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Range, 0);
-		spa_pod_builder_float(b, def);
-		spa_pod_builder_float(b, min);
-		spa_pod_builder_float(b, max);
+		spa_pod_builder_float(b, p->def);
+		spa_pod_builder_float(b, p->min);
+		spa_pod_builder_float(b, p->max);
 		spa_pod_builder_pop(b, &f[1]);
 	}
 	spa_pod_builder_prop(b, SPA_PROP_INFO_params, 0);
@@ -736,10 +731,10 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 		}
 	}
 
-	if (spa_streq(path, "builtin")) {
+	if (spa_streq(type, "builtin")) {
 		pl = load_builtin_plugin(path, NULL);
 	}
-	else if (spa_streq(path, "ladspa")) {
+	else if (spa_streq(type, "ladspa")) {
 		pl = load_ladspa_plugin(path, NULL);
 	}
 	if (pl == NULL)

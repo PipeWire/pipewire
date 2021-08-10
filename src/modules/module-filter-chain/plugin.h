@@ -39,22 +39,20 @@ struct fc_plugin {
 
 struct fc_port {
 	uint32_t index;
-	struct fc_descriptor *desc;
 	const char *name;
 	uint64_t flags;
 
-	float (*get_param) (struct fc_port *port, const char *name);
+	uint64_t hint;
+	float def;
+	float min;
+	float max;
 };
 
 struct fc_descriptor {
-	struct fc_plugin *plugin;
-
 	const char *name;
 	uint64_t flags;
 
 	void (*free) (struct fc_descriptor *desc);
-
-	const char *(*get_prop) (struct fc_descriptor *desc, const char *name);
 
 	uint32_t n_ports;
 	struct fc_port *ports;

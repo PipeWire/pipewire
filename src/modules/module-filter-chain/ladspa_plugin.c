@@ -67,11 +67,6 @@ static const LADSPA_Descriptor *find_desc(LADSPA_Descriptor_Function desc_func, 
 	return NULL;
 }
 
-static const char *ladspa_get_prop(struct fc_descriptor *desc, const char *name)
-{
-	return NULL;
-}
-
 static float get_default(struct fc_port *port, LADSPA_PortRangeHintDescriptor hint,
 		LADSPA_Data lower, LADSPA_Data upper)
 {
@@ -126,9 +121,8 @@ static float get_default(struct fc_port *port, LADSPA_PortRangeHintDescriptor hi
 	return def;
 }
 
-static float ladspa_port_get_param(struct fc_port *port, const char *name)
+static void ladspa_port_update_ranges(struct descriptor *dd, struct fc_port *port)
 {
-	struct descriptor *dd = (struct descriptor*)port->desc;
 	const LADSPA_Descriptor *d = dd->d;
 	unsigned long p = port->index;
 	LADSPA_PortRangeHintDescriptor hint = d->PortRangeHints[p].HintDescriptor;
@@ -137,21 +131,10 @@ static float ladspa_port_get_param(struct fc_port *port, const char *name)
 	lower = d->PortRangeHints[p].LowerBound;
 	upper = d->PortRangeHints[p].UpperBound;
 
-	if (LADSPA_IS_HINT_SAMPLE_RATE(hint)) {
-		lower *= (LADSPA_Data) 48000.0f;
-		upper *= (LADSPA_Data) 48000.0f;
-	}
-
-	if (spa_streq(name, "default")) {
-		return get_default(port, hint, lower, upper);
-	}
-	if (spa_streq(name, "min")) {
-		return lower;
-	}
-	if (spa_streq(name, "max")) {
-		return upper;
-	}
-	return 0.0f;
+	port->hint = hint;
+	port->def = get_default(port, hint, lower, upper);
+	port->min = lower;
+	port->max = upper;
 }
 
 static void ladspa_free(struct fc_descriptor *desc)
@@ -183,7 +166,6 @@ static const struct fc_descriptor *ladspa_make_desc(struct fc_plugin *plugin, co
 	desc->desc.run = d->run;
 
 	desc->desc.free = ladspa_free;
-	desc->desc.get_prop = ladspa_get_prop;
 
 	desc->desc.name = d->Label;
 	desc->desc.flags = d->Properties;
@@ -195,7 +177,7 @@ static const struct fc_descriptor *ladspa_make_desc(struct fc_plugin *plugin, co
 		desc->desc.ports[i].index = i;
 		desc->desc.ports[i].name = d->PortNames[i];
 		desc->desc.ports[i].flags = d->PortDescriptors[i];
-		desc->desc.ports[i].get_param = ladspa_port_get_param;
+		ladspa_port_update_ranges(desc, &desc->desc.ports[i]);
 	}
 	return &desc->desc;
 }

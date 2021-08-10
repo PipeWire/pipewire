@@ -89,10 +89,6 @@ static struct fc_port copy_ports[] = {
 static const struct fc_descriptor copy_desc = {
 	.name = "copy",
 
-	//.Name = "Copy input to output",
-	//.Maker = "PipeWire",
-	//.Copyright = "MIT",
-
 	.n_ports = 2,
 	.ports = copy_ports,
 
@@ -122,14 +118,6 @@ static void mixer_run(void * Instance, unsigned long SampleCount)
 	}
 }
 
-#if 0
-static const LADSPA_PortRangeHint mixer_range_hints[] = {
-	{ 0, }, { 0, }, { 0, },
-	{ LADSPA_HINT_BOUNDED_BELOW | LADSPA_HINT_BOUNDED_ABOVE | LADSPA_HINT_DEFAULT_1, 0.0, 10.0 },
-	{ LADSPA_HINT_BOUNDED_BELOW | LADSPA_HINT_BOUNDED_ABOVE | LADSPA_HINT_DEFAULT_1, 0.0, 10.0 }
-};
-#endif
-
 static struct fc_port mixer_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
@@ -146,28 +134,17 @@ static struct fc_port mixer_ports[] = {
 	{ .index = 3,
 	  .name = "Gain 1",
 	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
+	  .def = 1.0f, .min = 0.0f, .max = 10.0f
 	},
 	{ .index = 4,
 	  .name = "Gain 2",
 	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
+	  .def = 1.0f, .min = 0.0f, .max = 10.0f
 	},
 };
 
-static const char *mixer_get_prop(struct fc_descriptor *desc, const char *name)
-{
-	if (spa_streq(name, "description"))
-		return "Mix 2 inputs";
-	if (spa_streq(name, "maker"))
-		return "PipeWire";
-	if (spa_streq(name, "copyright"))
-		return "MIT";
-	return NULL;
-}
-
 static const struct fc_descriptor mixer_desc = {
 	.name = "mixer",
-
-	.get_prop = mixer_get_prop,
 
 	.n_ports = 5,
 	.ports = mixer_ports,
@@ -177,18 +154,6 @@ static const struct fc_descriptor mixer_desc = {
 	.run = mixer_run,
 	.cleanup = builtin_cleanup,
 };
-
-#if 0
-static const LADSPA_PortRangeHint bq_range_hints[] = {
-	{ 0, }, { 0, },
-	{ LADSPA_HINT_BOUNDED_BELOW | LADSPA_HINT_BOUNDED_ABOVE |
-		LADSPA_HINT_SAMPLE_RATE | LADSPA_HINT_DEFAULT_LOW, 0.0, 1.0 },
-	{ LADSPA_HINT_BOUNDED_BELOW | LADSPA_HINT_BOUNDED_ABOVE |
-		LADSPA_HINT_DEFAULT_0, 0.0, 10.0 },
-	{ LADSPA_HINT_BOUNDED_BELOW | LADSPA_HINT_BOUNDED_ABOVE |
-		LADSPA_HINT_DEFAULT_0, -120.0, 5.0 },
-};
-#endif
 
 static struct fc_port bq_ports[] = {
 	{ .index = 0,
@@ -202,14 +167,18 @@ static struct fc_port bq_ports[] = {
 	{ .index = 2,
 	  .name = "Freq",
 	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
+	  .hint = LADSPA_HINT_SAMPLE_RATE,
+	  .def = 0.0f, .min = 0.0f, .max = 1.0f,
 	},
 	{ .index = 3,
 	  .name = "Q",
 	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
+	  .def = 0.0f, .min = 0.0f, .max = 10.0f,
 	},
 	{ .index = 4,
 	  .name = "Gain",
 	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
+	  .def = 0.0f, .min = -120.0f, .max = 5.0f,
 	},
 };
 
@@ -264,9 +233,7 @@ static void bq_lowpass_run(void * Instance, unsigned long SampleCount)
 
 static const struct fc_descriptor bq_lowpass_desc = {
 	.name = "bq_lowpass",
-	//.Name = "Biquad lowpass filter",
-	//.Maker = "PipeWire",
-	//.Copyright = "MIT",
+
 	.n_ports = 5,
 	.ports = bq_ports,
 
@@ -285,11 +252,10 @@ static void bq_highpass_run(void * Instance, unsigned long SampleCount)
 
 static const struct fc_descriptor bq_highpass_desc = {
 	.name = "bq_highpass",
-	//.Name = "Biquad highpass filter",
-	//.Maker = "PipeWire",
-	//.Copyright = "MIT",
+
 	.n_ports = 5,
 	.ports = bq_ports,
+
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = bq_highpass_run,
@@ -305,11 +271,10 @@ static void bq_bandpass_run(void * Instance, unsigned long SampleCount)
 
 static const struct fc_descriptor bq_bandpass_desc = {
 	.name = "bq_bandpass",
-	//.Name = "Biquad bandpass filter",
-	//.Maker = "PipeWire",
-	//.Copyright = "MIT",
+
 	.n_ports = 5,
 	.ports = bq_ports,
+
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = bq_bandpass_run,
@@ -325,11 +290,10 @@ static void bq_lowshelf_run(void * Instance, unsigned long SampleCount)
 
 static const struct fc_descriptor bq_lowshelf_desc = {
 	.name = "bq_lowshelf",
-	//.Name = "Biquad lowshelf filter",
-	//.Maker = "PipeWire",
-	//.Copyright = "MIT",
+
 	.n_ports = 5,
 	.ports = bq_ports,
+
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = bq_lowshelf_run,
@@ -345,11 +309,10 @@ static void bq_highshelf_run(void * Instance, unsigned long SampleCount)
 
 static const struct fc_descriptor bq_highshelf_desc = {
 	.name = "bq_highshelf",
-	//.Name = "Biquad highshelf filter",
-	//.Maker = "PipeWire",
-	//.Copyright = "MIT",
+
 	.n_ports = 5,
 	.ports = bq_ports,
+
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = bq_highshelf_run,
@@ -365,11 +328,10 @@ static void bq_peaking_run(void * Instance, unsigned long SampleCount)
 
 static const struct fc_descriptor bq_peaking_desc = {
 	.name = "bq_peaking",
-	//.Name = "Biquad peaking filter",
-	//.Maker = "PipeWire",
-	//.Copyright = "MIT",
+
 	.n_ports = 5,
 	.ports = bq_ports,
+
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = bq_peaking_run,
@@ -385,11 +347,10 @@ static void bq_notch_run(void * Instance, unsigned long SampleCount)
 
 static const struct fc_descriptor bq_notch_desc = {
 	.name = "bq_notch",
-	//.Name = "Biquad notch filter",
-	//.Maker = "PipeWire",
-	//.Copyright = "MIT",
+
 	.n_ports = 5,
 	.ports = bq_ports,
+
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = bq_notch_run,
@@ -406,11 +367,10 @@ static void bq_allpass_run(void * Instance, unsigned long SampleCount)
 
 static const struct fc_descriptor bq_allpass_desc = {
 	.name = "bq_allpass",
-	//.Name = "Biquad allpass filter",
-	//.Maker = "PipeWire",
-	//.Copyright = "MIT",
+
 	.n_ports = 5,
 	.ports = bq_ports,
+
 	.instantiate = builtin_instantiate,
 	.connect_port = builtin_connect_port,
 	.run = bq_allpass_run,
@@ -495,11 +455,10 @@ static void convolve_run(void * Instance, unsigned long SampleCount)
 
 static const struct fc_descriptor convolve_desc = {
 	.name = "convolver",
-	//.Name = "Convolver",
-	//.Maker = "PipeWire",
-	//.Copyright = "MIT",
+
 	.n_ports = 2,
 	.ports = convolve_ports,
+
 	.instantiate = convolver_instantiate,
 	.connect_port = convolver_connect_port,
 	.run = convolve_run,

@@ -67,6 +67,8 @@ static inline void spa_json_enter(struct spa_json * iter, struct spa_json * sub)
 	*sub = SPA_JSON_ENTER(iter);
 }
 
+#define SPA_JSON_SAVE(iter) (struct spa_json) { (iter)->cur, (iter)->end, }
+
 /** Get the next token. \a value points to the token and the return value
  * is the length. */
 static inline int spa_json_next(struct spa_json * iter, const char **value)

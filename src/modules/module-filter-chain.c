@@ -69,6 +69,9 @@ static const struct spa_dict_item module_props[] = {
 				"          name = <name> "
 				"          plugin = <plugin> "
 				"          label = <label> "
+				"          config = { "
+				"             <configkey> = <value> ... "
+				"          } "
 				"          control = { "
 				"             <controlname> = <value> ... "
 				"          } "
@@ -99,8 +102,6 @@ static const struct spa_dict_item module_props[] = {
 #include <spa/param/audio/raw.h>
 
 #include <pipewire/pipewire.h>
-
-#include "ladspa.h"
 
 #define MAX_HNDL 64
 #define MAX_PORTS 64
@@ -158,6 +159,7 @@ struct node {
 	struct descriptor *desc;
 
 	char name[256];
+	char *config;
 
 	struct port input_port[MAX_PORTS];
 	struct port output_port[MAX_PORTS];
@@ -352,16 +354,16 @@ static struct port *find_port(struct node *node, const char *name, int descripto
 	if (node == NULL)
 		return NULL;
 
-	if (LADSPA_IS_PORT_INPUT(descriptor)) {
-		if (LADSPA_IS_PORT_CONTROL(descriptor)) {
+	if (FC_IS_PORT_INPUT(descriptor)) {
+		if (FC_IS_PORT_CONTROL(descriptor)) {
 			ports = node->control_port;
 			n_ports = node->desc->n_control;
 		} else {
 			ports = node->input_port;
 			n_ports = node->desc->n_input;
 		}
-	} else if (LADSPA_IS_PORT_OUTPUT(descriptor)) {
-		if (LADSPA_IS_PORT_CONTROL(descriptor)) {
+	} else if (FC_IS_PORT_OUTPUT(descriptor)) {
+		if (FC_IS_PORT_CONTROL(descriptor)) {
 			ports = node->notify_port;
 			n_ports = node->desc->n_notify;
 		} else {
@@ -382,13 +384,25 @@ static struct port *find_port(struct node *node, const char *name, int descripto
 
 static struct spa_pod *get_prop_info(struct graph *graph, struct spa_pod_builder *b, uint32_t idx)
 {
+	struct impl *impl = graph->impl;
 	struct spa_pod_frame f[2];
 	struct port *port = graph->control_port[idx];
 	struct node *node = port->node;
 	struct descriptor *desc = node->desc;
 	const struct fc_descriptor *d = desc->desc;
 	struct fc_port *p = &d->ports[port->p];
+	float def, min, max;
 	char name[512];
+
+	if (p->hint & FC_HINT_SAMPLE_RATE) {
+		def = p->def * impl->rate;
+		min = p->min * impl->rate;
+		max = p->max * impl->rate;
+	} else {
+		def = p->def;
+		min = p->min;
+		max = p->max;
+	}
 
 	if (node->name[0] != '\0')
 		snprintf(name, sizeof(name), "%s:%s", node->name, p->name);
@@ -402,13 +416,13 @@ static struct spa_pod *get_prop_info(struct graph *graph, struct spa_pod_builder
 			SPA_PROP_INFO_name, SPA_POD_String(name),
 			0);
 	spa_pod_builder_prop(b, SPA_PROP_INFO_type, 0);
-	if (p->min == p->max) {
-		spa_pod_builder_float(b, p->def);
+	if (min == max) {
+		spa_pod_builder_float(b, def);
 	} else {
 		spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Range, 0);
-		spa_pod_builder_float(b, p->def);
-		spa_pod_builder_float(b, p->min);
-		spa_pod_builder_float(b, p->max);
+		spa_pod_builder_float(b, def);
+		spa_pod_builder_float(b, min);
+		spa_pod_builder_float(b, max);
 		spa_pod_builder_pop(b, &f[1]);
 	}
 	spa_pod_builder_prop(b, SPA_PROP_INFO_params, 0);
@@ -452,7 +466,7 @@ static int set_control_value(struct node *node, const char *name, float *value)
 	struct port *port;
 	float old;
 
-	port = find_port(node, name, LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL);
+	port = find_port(node, name, FC_PORT_INPUT | FC_PORT_CONTROL);
 	if (port == NULL)
 		return 0;
 
@@ -816,24 +830,24 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 	for (p = 0; p < d->n_ports; p++) {
 		struct fc_port *fp = &d->ports[p];
 
-		if (LADSPA_IS_PORT_AUDIO(fp->flags)) {
-			if (LADSPA_IS_PORT_INPUT(fp->flags)) {
+		if (FC_IS_PORT_AUDIO(fp->flags)) {
+			if (FC_IS_PORT_INPUT(fp->flags)) {
 				pw_log_info("using port %lu ('%s') as input %d", p,
 						fp->name, desc->n_input);
 				desc->input[desc->n_input++] = p;
 			}
-			else if (LADSPA_IS_PORT_OUTPUT(fp->flags)) {
+			else if (FC_IS_PORT_OUTPUT(fp->flags)) {
 				pw_log_info("using port %lu ('%s') as output %d", p,
 						fp->name, desc->n_output);
 				desc->output[desc->n_output++] = p;
 			}
-		} else if (LADSPA_IS_PORT_CONTROL(fp->flags)) {
-			if (LADSPA_IS_PORT_INPUT(fp->flags)) {
+		} else if (FC_IS_PORT_CONTROL(fp->flags)) {
+			if (FC_IS_PORT_INPUT(fp->flags)) {
 				pw_log_info("using port %lu ('%s') as control %d", p,
 						fp->name, desc->n_control);
 				desc->control[desc->n_control++] = p;
 			}
-			else if (LADSPA_IS_PORT_OUTPUT(fp->flags)) {
+			else if (FC_IS_PORT_OUTPUT(fp->flags)) {
 				pw_log_info("using port %lu ('%s') as notify %d", p,
 						fp->name, desc->n_notify);
 				desc->notify[desc->n_notify++] = p;
@@ -861,6 +875,31 @@ exit:
 	free(desc);
 	errno = -res;
 	return NULL;
+}
+
+/**
+ * {
+ *   ...
+ * }
+ */
+static int parse_config(struct node *node, struct spa_json *config)
+{
+	const char *val;
+	int len;
+
+	if ((len = spa_json_next(config, &val)) <= 0)
+		return len;
+
+	if (spa_json_is_null(val, len))
+		return 0;
+
+	if (spa_json_is_container(val, len))
+		len = spa_json_container_len(config, val, len);
+
+	if ((node->config = malloc(len+1)) != NULL)
+		spa_json_parse_string(val, len, node->config);
+
+	return 0;
 }
 
 /**
@@ -914,12 +953,12 @@ static int parse_link(struct graph *graph, struct spa_json *json)
 			break;
 	}
 	def_node = spa_list_first(&graph->node_list, struct node, link);
-	if ((out_port = find_port(def_node, output, LADSPA_PORT_OUTPUT)) == NULL) {
+	if ((out_port = find_port(def_node, output, FC_PORT_OUTPUT)) == NULL) {
 		pw_log_error("unknown output port %s", output);
 		return -ENOENT;
 	}
 	def_node = spa_list_last(&graph->node_list, struct node, link);
-	if ((in_port = find_port(def_node, input, LADSPA_PORT_INPUT)) == NULL) {
+	if ((in_port = find_port(def_node, input, FC_PORT_INPUT)) == NULL) {
 		pw_log_error("unknown input port %s", input);
 		return -ENOENT;
 	}
@@ -968,13 +1007,16 @@ static void link_free(struct link *link)
  * name = rev
  * plugin = g2reverb
  * label = G2reverb
- * control = [
+ * config = {
  *     ...
- * ]
+ * }
+ * control = {
+ *     ...
+ * }
  */
 static int load_node(struct graph *graph, struct spa_json *json)
 {
-	struct spa_json control;
+	struct spa_json control, config;
 	struct descriptor *desc;
 	struct node *node;
 	const char *val;
@@ -984,6 +1026,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	char plugin[256] = "";
 	char label[256] = "";
 	bool have_control = false;
+	bool have_config = false;
 	uint32_t i;
 
 	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
@@ -1013,6 +1056,9 @@ static int load_node(struct graph *graph, struct spa_json *json)
 				return -EINVAL;
 			}
 			have_control = true;
+		} else if (spa_streq("config", key)) {
+			config = SPA_JSON_SAVE(json);
+			have_config = true;
 		} else if (spa_json_next(json, &val) < 0)
 			break;
 	}
@@ -1068,6 +1114,8 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		port->p = desc->notify[i];
 		spa_list_init(&port->link_list);
 	}
+	if (have_config)
+		parse_config(node, &config);
 	if (have_control)
 		parse_control(node, &control);
 
@@ -1219,7 +1267,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		desc = node->desc;
 		d = desc->desc;
 		for (i = 0; i < n_hndl; i++) {
-			if ((node->hndl[i] = d->instantiate(d, impl->rate, NULL)) == NULL) {
+			if ((node->hndl[i] = d->instantiate(d, impl->rate, i, node->config)) == NULL) {
 				pw_log_error("cannot create plugin instance");
 				res = -ENOMEM;
 				goto error;
@@ -1244,7 +1292,6 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 			}
 			if (d->activate)
 				d->activate(node->hndl[i]);
-
 		}
 		/* collect all control ports on the graph */
 		for (j = 0; j < desc->n_control; j++) {
@@ -1272,7 +1319,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 				if (spa_streq(v, "null")) {
 					gp->desc = NULL;
 					pw_log_info("ignore input port %d", graph->n_input);
-				} else if ((port = find_port(first, v, LADSPA_PORT_INPUT)) == NULL) {
+				} else if ((port = find_port(first, v, FC_PORT_INPUT)) == NULL) {
 					res = -ENOENT;
 					pw_log_error("input port %s not found", v);
 					goto error;
@@ -1320,7 +1367,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 				if (spa_streq(v, "null")) {
 					gp->desc = NULL;
 					pw_log_info("silence output port %d", graph->n_output);
-				} else if ((port = find_port(last, v, LADSPA_PORT_OUTPUT)) == NULL) {
+				} else if ((port = find_port(last, v, FC_PORT_OUTPUT)) == NULL) {
 					res = -ENOENT;
 					pw_log_error("output port %s not found", v);
 					goto error;

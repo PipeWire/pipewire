@@ -48,7 +48,7 @@ struct descriptor {
 };
 
 static void *ladspa_instantiate(const struct fc_descriptor *desc,
-                        unsigned long SampleRate, const char *config)
+                        unsigned long SampleRate, int index, const char *config)
 {
 	struct descriptor *d = (struct descriptor *)desc;
 	return d->d->instantiate(d->d, SampleRate);

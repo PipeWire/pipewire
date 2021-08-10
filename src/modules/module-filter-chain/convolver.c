@@ -81,10 +81,6 @@ struct convolver *convolver_new(int block, const float *ir, int irlen)
 	conv->segCount = (irlen + conv->blockSize-1) / conv->blockSize;
 	conv->fftComplexSize = (conv->segSize / 2) + 1;
 
-	fprintf(stderr, "blockSize:%d segSize:%d segCount:%d fftComplexSize:%d\n",
-			conv->blockSize, conv->segSize, conv->segCount,
-			conv->fftComplexSize);
-
         conv->fft = kiss_fftr_f32_alloc(conv->segSize, 0, NULL, NULL);
         if (conv->fft == NULL)
                 return NULL;
@@ -155,9 +151,6 @@ int convolver_run(struct convolver *conv, const float *input, float *output, int
 	while (processed < len) {
 		const int processing = SPA_MIN(len - processed, conv->blockSize - conv->inputBufferFill);
 		const int inputBufferPos = conv->inputBufferFill;
-
-		fprintf(stderr, "len:%d processing:%d fill:%d processed:%d\n",
-				len, processing, inputBufferPos, processed);
 
 		memcpy(conv->inputBuffer + inputBufferPos, input + processed, processing * sizeof(float));
 

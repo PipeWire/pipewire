@@ -40,13 +40,23 @@ struct fc_plugin {
 struct fc_port {
 	uint32_t index;
 	const char *name;
+#define FC_PORT_INPUT	(1ULL << 0)
+#define FC_PORT_OUTPUT	(1ULL << 1)
+#define FC_PORT_CONTROL	(1ULL << 2)
+#define FC_PORT_AUDIO	(1ULL << 3)
 	uint64_t flags;
 
+#define FC_HINT_SAMPLE_RATE	(1ULL << 3)
 	uint64_t hint;
 	float def;
 	float min;
 	float max;
 };
+
+#define FC_IS_PORT_INPUT(x)	((x) & FC_PORT_INPUT)
+#define FC_IS_PORT_OUTPUT(x)	((x) & FC_PORT_OUTPUT)
+#define FC_IS_PORT_CONTROL(x)	((x) & FC_PORT_CONTROL)
+#define FC_IS_PORT_AUDIO(x)	((x) & FC_PORT_AUDIO)
 
 struct fc_descriptor {
 	const char *name;
@@ -58,7 +68,7 @@ struct fc_descriptor {
 	struct fc_port *ports;
 
 	void *(*instantiate) (const struct fc_descriptor *desc,
-			unsigned long SampleRate, const char *config);
+			unsigned long SampleRate, int index, const char *config);
 
 	void (*cleanup) (void *instance);
 

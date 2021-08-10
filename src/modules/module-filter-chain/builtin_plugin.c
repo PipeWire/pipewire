@@ -24,8 +24,9 @@
 
 #include <sndfile.h>
 
+#include <spa/utils/json.h>
+
 #include "plugin.h"
-#include "ladspa.h"
 
 #include "biquad.h"
 #include "convolver.h"
@@ -41,7 +42,7 @@ struct builtin {
 };
 
 static void *builtin_instantiate(const struct fc_descriptor * Descriptor,
-		unsigned long SampleRate, const char *config)
+		unsigned long SampleRate, int index, const char *config)
 {
 	struct builtin *impl;
 
@@ -78,11 +79,11 @@ static void copy_run(void * Instance, unsigned long SampleCount)
 static struct fc_port copy_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO,
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In",
-	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
 	}
 };
 
@@ -121,24 +122,24 @@ static void mixer_run(void * Instance, unsigned long SampleCount)
 static struct fc_port mixer_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO,
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In 1",
-	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
 	},
 	{ .index = 2,
 	  .name = "In 2",
-	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
 	},
 	{ .index = 3,
 	  .name = "Gain 1",
-	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
 	  .def = 1.0f, .min = 0.0f, .max = 10.0f
 	},
 	{ .index = 4,
 	  .name = "Gain 2",
-	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
 	  .def = 1.0f, .min = 0.0f, .max = 10.0f
 	},
 };
@@ -158,26 +159,26 @@ static const struct fc_descriptor mixer_desc = {
 static struct fc_port bq_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO,
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In",
-	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
 	},
 	{ .index = 2,
 	  .name = "Freq",
-	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
-	  .hint = LADSPA_HINT_SAMPLE_RATE,
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .hint = FC_HINT_SAMPLE_RATE,
 	  .def = 0.0f, .min = 0.0f, .max = 1.0f,
 	},
 	{ .index = 3,
 	  .name = "Q",
-	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
 	  .def = 0.0f, .min = 0.0f, .max = 10.0f,
 	},
 	{ .index = 4,
 	  .name = "Gain",
-	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_CONTROL,
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
 	  .def = 0.0f, .min = -120.0f, .max = 5.0f,
 	},
 };
@@ -380,22 +381,47 @@ static const struct fc_descriptor bq_allpass_desc = {
 /** convolve */
 struct convolver_impl {
 	unsigned long rate;
-	LADSPA_Data *port[64];
+	float *port[64];
 
 	struct convolver *conv;
 };
 
 static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
-		unsigned long SampleRate, const char *config)
+		unsigned long SampleRate, int index, const char *config)
 {
 	struct convolver_impl *impl;
 	SF_INFO info;
 	SNDFILE *f;
 	float *samples;
-	const char *filename;
+	int i, offset;
+	struct spa_json it[2];
+	const char *val;
+	char key[256];
+	char filename[PATH_MAX] = "";
+	int blocksize = 256;
 
-	filename = "src/modules/module-filter-chain/convolve.wav";
-	filename = "src/modules/module-filter-chain/street2-L.wav";
+	if (config == NULL)
+		return NULL;
+
+	spa_json_init(&it[0], config, strlen(config));
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+		return NULL;
+
+	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+		if (spa_streq(key, "filename")) {
+			if (spa_json_get_string(&it[1], filename, sizeof(filename)) <= 0)
+				return NULL;
+		}
+		else if (spa_streq(key, "blocksize")) {
+			if (spa_json_get_int(&it[1], &blocksize) <= 0)
+				return NULL;
+		}
+		else if (spa_json_next(&it[1], &val) < 0)
+			break;
+	}
+	if (!filename[0])
+		return NULL;
+
 	spa_zero(info);
 	f = sf_open(filename, SFM_READ, &info) ;
 	if (f == NULL) {
@@ -415,7 +441,12 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 
 	sf_read_float(f, samples, info.frames);
 
-	impl->conv = convolver_new(256, samples, info.frames);
+	offset = index % info.channels;
+
+	for (i = 0; i < info.frames; i++)
+		samples[i] = samples[info.channels * i + offset];
+
+	impl->conv = convolver_new(blocksize, samples, info.frames);
 
 	free(samples);
 	sf_close(f);
@@ -424,7 +455,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 }
 
 static void convolver_connect_port(void * Instance, unsigned long Port,
-                        LADSPA_Data * DataLocation)
+                        float * DataLocation)
 {
 	struct convolver_impl *impl = Instance;
 	impl->port[Port] = DataLocation;
@@ -439,11 +470,11 @@ static void convolver_cleanup(void * Instance)
 static struct fc_port convolve_ports[] = {
 	{ .index = 0,
 	  .name = "Out",
-	  .flags = LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO,
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
 	},
 	{ .index = 1,
 	  .name = "In",
-	  .flags = LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
 	},
 };
 

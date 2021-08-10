@@ -36,20 +36,22 @@
 #include "ladspa.h"
 
 
-struct plugin_data {
+struct plugin {
+	struct fc_plugin plugin;
 	void *handle;
 	LADSPA_Descriptor_Function desc_func;
 };
 
-struct desc_data {
+struct descriptor {
+	struct fc_descriptor desc;
 	const LADSPA_Descriptor *d;
 };
 
 static void *ladspa_instantiate(const struct fc_descriptor *desc,
                         unsigned long SampleRate, const char *config)
 {
-	struct desc_data *dd = desc->user;
-	return dd->d->instantiate(dd->d, SampleRate);
+	struct descriptor *d = (struct descriptor *)desc;
+	return d->d->instantiate(d->d, SampleRate);
 }
 
 static const LADSPA_Descriptor *find_desc(LADSPA_Descriptor_Function desc_func, const char *name)
@@ -63,11 +65,6 @@ static const LADSPA_Descriptor *find_desc(LADSPA_Descriptor_Function desc_func, 
 			return d;
 	}
 	return NULL;
-}
-
-static void ladspa_free(struct fc_descriptor *desc)
-{
-	free(desc->ports);
 }
 
 static const char *ladspa_get_prop(struct fc_descriptor *desc, const char *name)
@@ -131,8 +128,7 @@ static float get_default(struct fc_port *port, LADSPA_PortRangeHintDescriptor hi
 
 static float ladspa_port_get_param(struct fc_port *port, const char *name)
 {
-	struct fc_descriptor *desc = port->desc;
-	struct desc_data *dd = desc->user;
+	struct descriptor *dd = (struct descriptor*)port->desc;
 	const LADSPA_Descriptor *d = dd->d;
 	unsigned long p = port->index;
 	LADSPA_PortRangeHintDescriptor hint = d->PortRangeHints[p].HintDescriptor;
@@ -158,68 +154,71 @@ static float ladspa_port_get_param(struct fc_port *port, const char *name)
 	return 0.0f;
 }
 
+static void ladspa_free(struct fc_descriptor *desc)
+{
+	struct descriptor *d = (struct descriptor*)desc;
+	free(d->desc.ports);
+	free(d);
+}
+
 static const struct fc_descriptor *ladspa_make_desc(struct fc_plugin *plugin, const char *name)
 {
-	struct plugin_data *pd = plugin->user;
-	struct fc_descriptor *desc;
-	struct desc_data *dd;
+	struct plugin *p = (struct plugin *)plugin;
+	struct descriptor *desc;
 	const LADSPA_Descriptor *d;
 	uint32_t i;
 
-	d = find_desc(pd->desc_func, name);
+	d = find_desc(p->desc_func, name);
 	if (d == NULL)
 		return NULL;
 
-	desc = fc_descriptor_new(plugin, sizeof(*dd));
-	dd = desc->user;
-	dd->d = d;
+	desc = calloc(1, sizeof(*desc));
+	desc->d = d;
 
-	desc->instantiate = ladspa_instantiate;
-	desc->cleanup = d->cleanup;
-	desc->connect_port = d->connect_port;
-	desc->activate = d->activate;
-	desc->deactivate = d->deactivate;
-	desc->run = d->run;
+	desc->desc.instantiate = ladspa_instantiate;
+	desc->desc.cleanup = d->cleanup;
+	desc->desc.connect_port = d->connect_port;
+	desc->desc.activate = d->activate;
+	desc->desc.deactivate = d->deactivate;
+	desc->desc.run = d->run;
 
-	desc->free = ladspa_free;
-	desc->get_prop = ladspa_get_prop;
+	desc->desc.free = ladspa_free;
+	desc->desc.get_prop = ladspa_get_prop;
 
-	desc->name = d->Label;
-	desc->flags = d->Properties;
+	desc->desc.name = d->Label;
+	desc->desc.flags = d->Properties;
 
-	desc->n_ports = d->PortCount;
-	desc->ports = calloc(desc->n_ports, sizeof(struct fc_port));
+	desc->desc.n_ports = d->PortCount;
+	desc->desc.ports = calloc(desc->desc.n_ports, sizeof(struct fc_port));
 
-	for (i = 0; i < desc->n_ports; i++) {
-		desc->ports[i].index = i;
-		desc->ports[i].name = d->PortNames[i];
-		desc->ports[i].flags = d->PortDescriptors[i];
-		desc->ports[i].get_param = ladspa_port_get_param;
+	for (i = 0; i < desc->desc.n_ports; i++) {
+		desc->desc.ports[i].index = i;
+		desc->desc.ports[i].name = d->PortNames[i];
+		desc->desc.ports[i].flags = d->PortDescriptors[i];
+		desc->desc.ports[i].get_param = ladspa_port_get_param;
 	}
-	return desc;
+	return &desc->desc;
 }
 
 static void ladspa_unload(struct fc_plugin *plugin)
 {
-	struct plugin_data *pd = plugin->user;
-	if (pd->handle)
-		dlclose(pd->handle);
+	struct plugin *p = (struct plugin *)plugin;
+	if (p->handle)
+		dlclose(p->handle);
+	free(p);
 }
 
 static struct fc_plugin *ladspa_handle_load_by_path(const char *path)
 {
-	struct fc_plugin *plugin;
-	struct plugin_data *pd;
+	struct plugin *p;
 	int res;
 
-	plugin = fc_plugin_new(sizeof(*pd));
-	if (!plugin)
+	p = calloc(1, sizeof(*p));
+	if (!p)
 		return NULL;
 
-	pd = plugin->user;
-
-	pd->handle = dlopen(path, RTLD_NOW);
-	if (!pd->handle) {
+	p->handle = dlopen(path, RTLD_NOW);
+	if (!p->handle) {
 		pw_log_debug("failed to open '%s': %s", path, dlerror());
 		res = -ENOENT;
 		goto exit;
@@ -227,20 +226,20 @@ static struct fc_plugin *ladspa_handle_load_by_path(const char *path)
 
 	pw_log_info("successfully opened '%s'", path);
 
-	pd->desc_func = (LADSPA_Descriptor_Function) dlsym(pd->handle, "ladspa_descriptor");
-	if (!pd->desc_func) {
+	p->desc_func = (LADSPA_Descriptor_Function) dlsym(p->handle, "ladspa_descriptor");
+	if (!p->desc_func) {
 		pw_log_warn("cannot find descriptor function in '%s': %s", path, dlerror());
 		res = -ENOSYS;
 		goto exit;
 	}
-	plugin->make_desc = ladspa_make_desc;
-	plugin->unload = ladspa_unload;
+	p->plugin.make_desc = ladspa_make_desc;
+	p->plugin.unload = ladspa_unload;
 
-	return plugin;
+	return &p->plugin;
 
 exit:
-	if (pd->handle)
-		dlclose(pd->handle);
+	if (p->handle)
+		dlclose(p->handle);
 	errno = -res;
 	return NULL;
 }

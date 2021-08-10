@@ -33,8 +33,6 @@
 #include <spa/utils/string.h>
 
 struct fc_plugin {
-	void *user;
-
 	const struct fc_descriptor *(*make_desc)(struct fc_plugin *plugin, const char *name);
 	void (*unload) (struct fc_plugin *plugin);
 };
@@ -50,7 +48,6 @@ struct fc_port {
 
 struct fc_descriptor {
 	struct fc_plugin *plugin;
-	void *user;
 
 	const char *name;
 	uint64_t flags;
@@ -75,37 +72,16 @@ struct fc_descriptor {
 	void (*run) (void *instance, unsigned long SampleCount);
 };
 
-static inline struct fc_plugin *fc_plugin_new(size_t extra)
-{
-	struct fc_plugin *plugin;
-
-	plugin = calloc(1, sizeof(*plugin) + extra);
-	plugin->user = SPA_PTROFF(plugin, sizeof(*plugin), void);
-	return plugin;
-}
-
 static inline void fc_plugin_free(struct fc_plugin *plugin)
 {
 	if (plugin->unload)
 		plugin->unload(plugin);
-	free(plugin);
-}
-
-static inline struct fc_descriptor *fc_descriptor_new(struct fc_plugin *plugin, size_t extra)
-{
-	struct fc_descriptor *desc;
-
-	desc = calloc(1, sizeof(*desc) + extra);
-	desc->plugin = plugin;
-	desc->user = SPA_PTROFF(desc, sizeof(*desc), void);
-	return desc;
 }
 
 static inline void fc_descriptor_free(struct fc_descriptor *desc)
 {
 	if (desc->free)
 		desc->free(desc);
-	free(desc);
 }
 
 struct fc_plugin *load_ladspa_plugin(const char *path, const char *config);

@@ -47,12 +47,15 @@ pipewire_module_loopback = shared_library('pipewire-module-loopback',
 
 pipewire_module_filter_chain = shared_library('pipewire-module-filter-chain',
   [ 'module-filter-chain.c',
-    'module-filter-chain/biquad.c' ],
+    'module-filter-chain/biquad.c',
+    'module-filter-chain/kiss_fft_f32.c',
+    'module-filter-chain/kiss_fftr_f32.c',
+    'module-filter-chain/convolver.c' ],
   include_directories : [configinc, spa_inc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep],
+  dependencies : [mathlib, dl_lib, pipewire_dep, sndfile_dep],
 )
 
 pipewire_module_echo_cancel_sources = [

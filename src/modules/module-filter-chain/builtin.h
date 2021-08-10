@@ -22,7 +22,10 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <sndfile.h>
+
 #include "biquad.h"
+#include "convolver.h"
 
 struct builtin {
 	unsigned long rate;
@@ -392,6 +395,99 @@ static const LADSPA_Descriptor bq_allpass_desc = {
 	.cleanup = builtin_cleanup,
 };
 
+/** convolve */
+struct convolver_impl {
+	unsigned long rate;
+	LADSPA_Data *port[64];
+
+	struct convolver *conv;
+};
+
+static LADSPA_Handle convolver_instantiate(const struct _LADSPA_Descriptor * Descriptor,
+		unsigned long SampleRate)
+{
+	struct convolver_impl *impl;
+	SF_INFO info;
+	SNDFILE *f;
+	float *samples;
+	const char *filename;
+
+	filename = "src/modules/module-filter-chain/convolve.wav";
+	filename = "src/modules/module-filter-chain/street2-L.wav";
+	spa_zero(info);
+	f = sf_open(filename, SFM_READ, &info) ;
+	if (f == NULL) {
+		pw_log_error("can't open %s", filename);
+		return NULL;
+	}
+
+	impl = calloc(1, sizeof(*impl));
+	if (impl == NULL)
+		return NULL;
+
+	impl->rate = SampleRate;
+
+	samples = malloc(info.frames * sizeof(float) * info.channels);
+        if (samples == NULL)
+		return NULL;
+
+	sf_read_float(f, samples, info.frames);
+
+	impl->conv = convolver_new(256, samples, info.frames);
+
+	free(samples);
+	sf_close(f);
+
+	return impl;
+}
+
+static void convolver_connect_port(LADSPA_Handle Instance, unsigned long Port,
+                        LADSPA_Data * DataLocation)
+{
+	struct convolver_impl *impl = Instance;
+	impl->port[Port] = DataLocation;
+}
+
+static void convolver_cleanup(LADSPA_Handle Instance)
+{
+	struct convolver_impl *impl = Instance;
+	free(impl);
+}
+
+static const LADSPA_PortDescriptor convolve_port_desc[] = {
+	LADSPA_PORT_OUTPUT | LADSPA_PORT_AUDIO,
+	LADSPA_PORT_INPUT | LADSPA_PORT_AUDIO,
+};
+
+static const char * const convolve_port_names[] = {
+	"Out", "In"
+};
+
+static const LADSPA_PortRangeHint convolve_range_hints[] = {
+	{ 0, }, { 0, },
+};
+
+static void convolve_run(LADSPA_Handle Instance, unsigned long SampleCount)
+{
+	struct convolver_impl *impl = Instance;
+	convolver_run(impl->conv, impl->port[1], impl->port[0], SampleCount);
+}
+
+static const LADSPA_Descriptor convolve_desc = {
+	.Label = "convolver",
+	.Name = "Convolver",
+	.Maker = "PipeWire",
+	.Copyright = "MIT",
+	.PortCount = 2,
+	.PortDescriptors = convolve_port_desc,
+	.PortNames = convolve_port_names,
+	.PortRangeHints = convolve_range_hints,
+	.instantiate = convolver_instantiate,
+	.connect_port = convolver_connect_port,
+	.run = convolve_run,
+	.cleanup = convolver_cleanup,
+};
+
 static const LADSPA_Descriptor * builtin_ladspa_descriptor(unsigned long Index)
 {
 	switch(Index) {
@@ -415,6 +511,8 @@ static const LADSPA_Descriptor * builtin_ladspa_descriptor(unsigned long Index)
 		return &bq_allpass_desc;
 	case 9:
 		return &copy_desc;
+	case 10:
+		return &convolve_desc;
 	}
 	return NULL;
 }

@@ -7,20 +7,20 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PipeWire master\n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
-"issues/new\n"
-"POT-Creation-Date: 2021-04-18 16:54+0800\n"
-"PO-Revision-Date: 2018-03-04 15:20+0700\n"
-"Last-Translator: Andika Triwidada <atriwidada@gnome.org>\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
+"issues\n"
+"POT-Creation-Date: 2021-05-16 13:13+0000\n"
+"PO-Revision-Date: 2021-08-11 10:50+0700\n"
+"Last-Translator: Andika Triwidada <andika@gmail.com>\n"
 "Language-Team: Indonesia <id@li.org>\n"
 "Language: id\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Poedit 1.8.11\n"
+"Plural-Forms: nplurals=2; plural=n>1;\n"
+"X-Generator: Poedit 2.2.1\n"
 
-#: src/daemon/pipewire.c:43
+#: src/daemon/pipewire.c:45
 #, c-format
 msgid ""
 "%s [options]\n"
@@ -28,28 +28,54 @@ msgid ""
 "      --version                         Show version\n"
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
+"%s [opsi]\n"
+"  -h, --help                            Tampilkan bantuan ini\n"
+"      --version                         Tampilkan versi\n"
+"  -c, --config                          Muat konfig (Baku %s)\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr ""
+msgstr "Sistem Media PipeWire"
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr ""
+msgstr "Memulai Sistem Media PipeWire"
 
-#: src/examples/media-session/alsa-monitor.c:526
+#: src/examples/media-session/alsa-monitor.c:585
 #: spa/plugins/alsa/acp/compat.c:187
 msgid "Built-in Audio"
 msgstr "Audio Bawaan"
 
-#: src/examples/media-session/alsa-monitor.c:530
+#: src/examples/media-session/alsa-monitor.c:589
 #: spa/plugins/alsa/acp/compat.c:192
 msgid "Modem"
 msgstr "Modem"
 
-#: src/examples/media-session/alsa-monitor.c:539
+#: src/examples/media-session/alsa-monitor.c:598
+#: src/modules/module-zeroconf-discover.c:290
 msgid "Unknown device"
-msgstr ""
+msgstr "Perangkat tak dikenal"
+
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:182
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:182
+#, c-format
+msgid "Tunnel to %s/%s"
+msgstr "Tunnel ke %s/%s"
+
+#: src/modules/module-pulse-tunnel.c:511
+#, c-format
+msgid "Tunnel for %s@%s"
+msgstr "Tunnel untuk %s@%s"
+
+#: src/modules/module-zeroconf-discover.c:302
+#, c-format
+msgid "%s on %s@%s"
+msgstr "%s pada %s@%s"
+
+#: src/modules/module-zeroconf-discover.c:306
+#, c-format
+msgid "%s on %s"
+msgstr "%s pada %s"
 
 #: src/tools/pw-cat.c:991
 #, c-format
@@ -60,6 +86,11 @@ msgid ""
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
+"%s [opsi] <berkas>\n"
+"  -h, --help                            Menampilkan bantuan ini\n"
+"      --version                         Menampilkan versi\n"
+"  -v, --verbose                         Memfungsikan pesan rinci\n"
+"\n"
 
 #: src/tools/pw-cat.c:998
 #, c-format
@@ -78,6 +109,20 @@ msgid ""
 "      --list-targets                    List available targets for --target\n"
 "\n"
 msgstr ""
+"  -R, --remote                          Nama daemon remote\n"
+"      --media-type                      Atur tipe media (baku %s)\n"
+"      --media-category                  Atur kategori media (baku %s)\n"
+"      --media-role                      Atur peran media (baku %s)\n"
+"      --target                          Atur target simpul (baku %s)\n"
+"                                          0 berarti jangan tautkan\n"
+"      --latency                         Atur latensi simpul (baku %s)\n"
+"                                          Xunit (unit = s, ms, us, ns)\n"
+"                                          or cuplikan langsung (256)\n"
+"                                          laju adalah satu dari berkas "
+"sumber\n"
+"      --list-targets                    Daftar target yang tersedia untuk --"
+"target\n"
+"\n"
 
 #: src/tools/pw-cat.c:1016
 #, c-format
@@ -98,6 +143,21 @@ msgid ""
 "%d)\n"
 "\n"
 msgstr ""
+"      --rate                            Laju cuplik (req. for rec) (baku "
+"%u)\n"
+"      --channels                        Cacah kanal (req. for rec) (baku "
+"%u)\n"
+"      --channel-map                     Peta kanal\n"
+"                                            satu dari: \"stereo\", "
+"\"surround-51\",... or\n"
+"                                            daftar dipisah koma dari nama "
+"kanal: mis. \"FL,FR\"\n"
+"      --format                          Format cuplikan %s (req. for rec) "
+"(baku %s)\n"
+"      --volume                          Volume stream 0-1.0 (baku %.3f)\n"
+"  -q  --quality                         Kualitas resampler (0 - 15) (baku "
+"%d)\n"
+"\n"
 
 #: src/tools/pw-cat.c:1033
 msgid ""
@@ -106,8 +166,12 @@ msgid ""
 "  -m, --midi                            Midi mode\n"
 "\n"
 msgstr ""
+"  -p, --playback                        Mode main ulang\n"
+"  -r, --record                          Mode perekaman\n"
+"  -m, --midi                            Mode midi\n"
+"\n"
 
-#: src/tools/pw-cli.c:2932
+#: src/tools/pw-cli.c:2959
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -117,19 +181,21 @@ msgid ""
 "  -r, --remote                          Remote daemon name\n"
 "\n"
 msgstr ""
+"%s [opsi] [perintah]\n"
+"  -h, --help                            Tampilkan bantuan ini\n"
+"      --version                         Tampilkan versi\n"
+"  -d, --daemon                          Mulai sebagai daemon (Baku = false)\n"
+"  -r, --remote                          Nama daemon remote\n"
+"\n"
 
-#: spa/plugins/alsa/acp/acp.c:290
+#: spa/plugins/alsa/acp/acp.c:291
 msgid "Pro Audio"
-msgstr ""
+msgstr "Pro Audio"
 
-#: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4704
-#: spa/plugins/bluez5/bluez5-device.c:1000
+#: spa/plugins/alsa/acp/acp.c:412 spa/plugins/alsa/acp/alsa-mixer.c:4704
+#: spa/plugins/bluez5/bluez5-device.c:1020
 msgid "Off"
 msgstr "Mati"
-
-#: spa/plugins/alsa/acp/channelmap.h:466
-msgid "(invalid)"
-msgstr "(tak valid)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2709
 msgid "Input"
@@ -144,19 +210,17 @@ msgid "Docking Station Microphone"
 msgstr "Mikrofon Docking Station"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2712
-#, fuzzy
 msgid "Docking Station Line In"
-msgstr "Jalur Masuk Docking Station"
+msgstr "Docking Station Line In"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2713
 #: spa/plugins/alsa/acp/alsa-mixer.c:2804
-#, fuzzy
 msgid "Line In"
-msgstr "Jalur Masuk"
+msgstr "Line In"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2714
 #: spa/plugins/alsa/acp/alsa-mixer.c:2798
-#: spa/plugins/bluez5/bluez5-device.c:1145
+#: spa/plugins/bluez5/bluez5-device.c:1175
 msgid "Microphone"
 msgstr "Mikrofon"
 
@@ -222,7 +286,7 @@ msgid "No Bass Boost"
 msgstr "Tanpa Boost Bass"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2729
-#: spa/plugins/bluez5/bluez5-device.c:1150
+#: spa/plugins/bluez5/bluez5-device.c:1180
 msgid "Speaker"
 msgstr "Speaker"
 
@@ -236,7 +300,6 @@ msgid "Analog Input"
 msgstr "Masukan Analog"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2801
-#, fuzzy
 msgid "Dock Microphone"
 msgstr "Mikrofon Dok"
 
@@ -249,18 +312,16 @@ msgid "Analog Output"
 msgstr "Keluaran Analog"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2809
-#, fuzzy
 msgid "Headphones 2"
-msgstr "Headphone"
+msgstr "Headphone 2"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2810
 msgid "Headphones Mono Output"
 msgstr "Keluaran Mono Headphone"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2811
-#, fuzzy
 msgid "Line Out"
-msgstr "Jalur Keluar"
+msgstr "Line Out"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2812
 msgid "Analog Mono Output"
@@ -291,39 +352,33 @@ msgid "Multichannel Output"
 msgstr "Keluaran Multikanal"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2819
-#, fuzzy
 msgid "Game Output"
-msgstr "Keluaran %s"
+msgstr "Keluaran Permainan"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2820
 #: spa/plugins/alsa/acp/alsa-mixer.c:2821
-#, fuzzy
 msgid "Chat Output"
-msgstr "Keluaran %s"
+msgstr "Keluaran Obrolan"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2822
-#, fuzzy
 msgid "Chat Input"
-msgstr "Masukan %s"
+msgstr "Masukan Obrolan"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2823
-#, fuzzy
 msgid "Virtual Surround 7.1"
-msgstr "Muara virtual surround"
+msgstr "Virtual Surround 7.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4527
 msgid "Analog Mono"
 msgstr "Analog Mono"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4528
-#, fuzzy
 msgid "Analog Mono (Left)"
-msgstr "Analog Mono"
+msgstr "Analog Mono (Kiri)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4529
-#, fuzzy
 msgid "Analog Mono (Right)"
-msgstr "Analog Mono"
+msgstr "Analog Mono (Kanan)"
 
 #. Note: Not translated to "Analog Stereo Input", because the source
 #. * name gets "Input" appended to it automatically, so adding "Input"
@@ -346,15 +401,14 @@ msgstr "Stereo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4540
 #: spa/plugins/alsa/acp/alsa-mixer.c:4698
-#: spa/plugins/bluez5/bluez5-device.c:1135
+#: spa/plugins/bluez5/bluez5-device.c:1165
 msgid "Headset"
 msgstr "Headset"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4541
 #: spa/plugins/alsa/acp/alsa-mixer.c:4699
-#, fuzzy
 msgid "Speakerphone"
-msgstr "Speaker"
+msgstr "Speakerphone"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4542
 #: spa/plugins/alsa/acp/alsa-mixer.c:4543
@@ -431,11 +485,11 @@ msgstr "Surround 5.1 Digital (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4561
 msgid "Chat"
-msgstr ""
+msgstr "Obrolan"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4562
 msgid "Game"
-msgstr ""
+msgstr "Permainan"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4696
 msgid "Analog Mono Duplex"
@@ -459,7 +513,7 @@ msgstr "Dupleks Stereo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4703
 msgid "Mono Chat + 7.1 Surround"
-msgstr ""
+msgstr "Mono Chat + 7.1 Surround"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4806
 #, c-format
@@ -472,7 +526,7 @@ msgid "%s Input"
 msgstr "Masukan %s"
 
 #: spa/plugins/alsa/acp/alsa-util.c:1175 spa/plugins/alsa/acp/alsa-util.c:1269
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu "
 "ms).\n"
@@ -488,9 +542,14 @@ msgstr[0] ""
 "ms).\n"
 "Sangat mungkin ini adalah kutu pada driver ALSA '%s'. Silakan laporkan hal "
 "ini ke para pengembang ALSA."
+msgstr[1] ""
+"snd_pcm_avail() mengembalikan nilai yang luar biasa besar: %lu byte (%lu "
+"ms).\n"
+"Sangat mungkin ini adalah kutu pada driver ALSA '%s'. Silakan laporkan hal "
+"ini ke para pengembang ALSA."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1241
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s"
 "%lu ms).\n"
@@ -502,6 +561,11 @@ msgid_plural ""
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgstr[0] ""
+"snd_pcm_delay() mengembalikan nilai yang luar biasa besar: %li byte (%s%lu "
+"ms).\n"
+"Sangat mungkin ini adalah kutu pada driver ALSA '%s'. Silakan laporkan hal "
+"ini ke para pengembang ALSA."
+msgstr[1] ""
 "snd_pcm_delay() mengembalikan nilai yang luar biasa besar: %li byte (%s%lu "
 "ms).\n"
 "Sangat mungkin ini adalah kutu pada driver ALSA '%s'. Silakan laporkan hal "
@@ -521,7 +585,7 @@ msgstr ""
 "kasus ini ke para pengembang ALSA."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1331
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte "
 "(%lu ms).\n"
@@ -537,63 +601,71 @@ msgstr[0] ""
 "(%lu ms).\n"
 "Sangat mungkin ini adalah kutu pada driver ALSA '%s'. Silakan laporkan hal "
 "ini ke para pengembang ALSA."
+msgstr[1] ""
+"snd_pcm_mmap_begin() mengembalikan nilai yang luar biasa besar: %lu byte "
+"(%lu ms).\n"
+"Sangat mungkin ini adalah kutu pada driver ALSA '%s'. Silakan laporkan hal "
+"ini ke para pengembang ALSA."
 
-#: spa/plugins/bluez5/bluez5-device.c:1010
+#: spa/plugins/alsa/acp/channelmap.h:466
+msgid "(invalid)"
+msgstr "(tak valid)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1030
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
-msgstr ""
+msgstr "Audio Gateway (A2DP Source & HSP/HFP AG)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1033
+#: spa/plugins/bluez5/bluez5-device.c:1053
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
-msgstr ""
+msgstr "High Fidelity Playback (A2DP Sink, codec %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1035
+#: spa/plugins/bluez5/bluez5-device.c:1055
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
-msgstr ""
+msgstr "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1041
+#: spa/plugins/bluez5/bluez5-device.c:1061
 msgid "High Fidelity Playback (A2DP Sink)"
-msgstr ""
+msgstr "High Fidelity Playback (A2DP Sink)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1043
+#: spa/plugins/bluez5/bluez5-device.c:1063
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
-msgstr ""
+msgstr "High Fidelity Duplex (A2DP Source/Sink)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1070
+#: spa/plugins/bluez5/bluez5-device.c:1090
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr ""
+msgstr "Headset Head Unit (HSP/HFP, codec %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1074
+#: spa/plugins/bluez5/bluez5-device.c:1094
 msgid "Headset Head Unit (HSP/HFP)"
-msgstr ""
+msgstr "Headset Head Unit (HSP/HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1140
+#: spa/plugins/bluez5/bluez5-device.c:1170
 msgid "Handsfree"
 msgstr "Handsfree"
 
-#: spa/plugins/bluez5/bluez5-device.c:1155
+#: spa/plugins/bluez5/bluez5-device.c:1185
 msgid "Headphone"
 msgstr "Headphone"
 
-#: spa/plugins/bluez5/bluez5-device.c:1160
+#: spa/plugins/bluez5/bluez5-device.c:1190
 msgid "Portable"
 msgstr "Portabel"
 
-#: spa/plugins/bluez5/bluez5-device.c:1165
+#: spa/plugins/bluez5/bluez5-device.c:1195
 msgid "Car"
 msgstr "Mobil"
 
-#: spa/plugins/bluez5/bluez5-device.c:1170
+#: spa/plugins/bluez5/bluez5-device.c:1200
 msgid "HiFi"
 msgstr "HiFi"
 
-#: spa/plugins/bluez5/bluez5-device.c:1175
+#: spa/plugins/bluez5/bluez5-device.c:1205
 msgid "Phone"
 msgstr "Telepon"
 
-#: spa/plugins/bluez5/bluez5-device.c:1181
-#, fuzzy
+#: spa/plugins/bluez5/bluez5-device.c:1211
 msgid "Bluetooth"
-msgstr "Masukan Bluetooth"
+msgstr "Bluetooth"

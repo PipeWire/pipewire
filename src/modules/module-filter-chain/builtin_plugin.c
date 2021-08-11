@@ -416,6 +416,10 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 			if (spa_json_get_int(&it[1], &blocksize) <= 0)
 				return NULL;
 		}
+		else if (spa_streq(key, "offset")) {
+			if (spa_json_get_int(&it[1], &index) <= 0)
+				return NULL;
+		}
 		else if (spa_json_next(&it[1], &val) < 0)
 			break;
 	}

@@ -393,12 +393,14 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	SF_INFO info;
 	SNDFILE *f;
 	float *samples;
-	int i, offset;
+	int i, offset = 0, length = 0, channel = index, n_frames;
 	struct spa_json it[2];
 	const char *val;
 	char key[256];
 	char filename[PATH_MAX] = "";
-	int blocksize = 256;
+	int blocksize = 0;
+	int delay = 0;
+	float gain = 1.0f;
 
 	if (config == NULL)
 		return NULL;
@@ -408,16 +410,32 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 		return NULL;
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
-		if (spa_streq(key, "filename")) {
-			if (spa_json_get_string(&it[1], filename, sizeof(filename)) <= 0)
-				return NULL;
-		}
-		else if (spa_streq(key, "blocksize")) {
+		if (spa_streq(key, "blocksize")) {
 			if (spa_json_get_int(&it[1], &blocksize) <= 0)
 				return NULL;
 		}
+		else if (spa_streq(key, "gain")) {
+			if (spa_json_get_float(&it[1], &gain) <= 0)
+				return NULL;
+		}
+		else if (spa_streq(key, "delay")) {
+			if (spa_json_get_int(&it[1], &delay) <= 0)
+				return NULL;
+		}
+		else if (spa_streq(key, "filename")) {
+			if (spa_json_get_string(&it[1], filename, sizeof(filename)) <= 0)
+				return NULL;
+		}
 		else if (spa_streq(key, "offset")) {
-			if (spa_json_get_int(&it[1], &index) <= 0)
+			if (spa_json_get_int(&it[1], &offset) <= 0)
+				return NULL;
+		}
+		else if (spa_streq(key, "length")) {
+			if (spa_json_get_int(&it[1], &length) <= 0)
+				return NULL;
+		}
+		else if (spa_streq(key, "channel")) {
+			if (spa_json_get_int(&it[1], &channel) <= 0)
 				return NULL;
 		}
 		else if (spa_json_next(&it[1], &val) < 0)
@@ -439,18 +457,31 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 
 	impl->rate = SampleRate;
 
-	samples = malloc(info.frames * sizeof(float) * info.channels);
+	if (length == 0)
+		length = info.frames;
+	else
+		length = SPA_MIN(length, info.frames);
+
+	length -= SPA_MIN(offset, length);
+
+	n_frames = delay + length;
+
+	if (blocksize == 0)
+		blocksize = SPA_CLAMP(n_frames, 64, 256);
+
+	samples = calloc(sizeof(float), n_frames * info.channels);
         if (samples == NULL)
 		return NULL;
 
-	sf_readf_float(f, samples, info.frames);
+	sf_seek(f, offset, SEEK_SET);
+	sf_readf_float(f, samples + (delay * info.channels), length);
 
-	offset = index % info.channels;
+	channel = channel % info.channels;
 
-	for (i = 0; i < info.frames; i++)
-		samples[i] = samples[info.channels * i + offset];
+	for (i = 0; i < n_frames; i++)
+		samples[i] = samples[info.channels * i + channel] * gain;
 
-	impl->conv = convolver_new(blocksize, samples, info.frames);
+	impl->conv = convolver_new(blocksize, samples, n_frames);
 
 	free(samples);
 	sf_close(f);

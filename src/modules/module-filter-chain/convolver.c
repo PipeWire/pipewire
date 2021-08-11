@@ -180,7 +180,7 @@ int convolver_run(struct convolver *conv, const float *input, float *output, int
 		kiss_fftri_f32(conv->ifft, conv->conv, conv->fft_buffer);
 
 		for (i = 0; i < conv->segSize; i++)
-			conv->fft_buffer[i] /= conv->segSize * 2;
+			conv->fft_buffer[i] /= conv->segSize;
 
 		Sum(output + processed, conv->fft_buffer + inputBufferPos, conv->overlap + inputBufferPos, processing);
 

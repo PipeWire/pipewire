@@ -439,7 +439,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
         if (samples == NULL)
 		return NULL;
 
-	sf_read_float(f, samples, info.frames);
+	sf_readf_float(f, samples, info.frames);
 
 	offset = index % info.channels;
 

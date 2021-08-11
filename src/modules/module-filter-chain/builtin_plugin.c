@@ -457,11 +457,16 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 
 	impl->rate = SampleRate;
 
-	if (length == 0)
+	if (delay < 0)
+		delay = 0;
+
+	if (length <= 0)
 		length = info.frames;
 	else
 		length = SPA_MIN(length, info.frames);
 
+	if (offset < 0)
+		offset = 0;
 	length -= SPA_MIN(offset, length);
 
 	n_frames = delay + length;
@@ -473,7 +478,8 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
         if (samples == NULL)
 		return NULL;
 
-	sf_seek(f, offset, SEEK_SET);
+	if (offset > 0)
+		sf_seek(f, offset, SEEK_SET);
 	sf_readf_float(f, samples + (delay * info.channels), length);
 
 	channel = channel % info.channels;

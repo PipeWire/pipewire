@@ -1006,15 +1006,11 @@ exit:
  */
 static int parse_control(struct node *node, struct spa_json *control)
 {
-	struct spa_json it[1];
 	char key[256];
 
-        if (spa_json_enter_object(control, &it[0]) <= 0)
-		return -EINVAL;
-
-	while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
+	while (spa_json_get_string(control, key, sizeof(key)) > 0) {
 		float fl;
-		if (spa_json_get_float(&it[0], &fl) <= 0)
+		if (spa_json_get_float(control, &fl) <= 0)
 			break;
 		set_control_value(node, key, &fl);
 	}
@@ -1113,7 +1109,7 @@ static void link_free(struct link *link)
  */
 static int load_node(struct graph *graph, struct spa_json *json)
 {
-	struct spa_json it[1];
+	struct spa_json control;
 	struct ladspa_descriptor *desc;
 	struct node *node;
 	const char *val;
@@ -1124,7 +1120,6 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	char label[256] = "";
 	bool have_control = false;
 	uint32_t i;
-	int len;
 
 	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
 		if (spa_streq("type", key)) {
@@ -1148,13 +1143,11 @@ static int load_node(struct graph *graph, struct spa_json *json)
 				return -EINVAL;
 			}
 		} else if (spa_streq("control", key)) {
-			it[0] = *json;
-			have_control = true;
-			len = spa_json_next(json, &val);
-			if (!spa_json_is_object(val, len)) {
+			if (spa_json_enter_object(json, &control) <= 0) {
 				pw_log_error("control expects an object");
 				return -EINVAL;
 			}
+			have_control = true;
 		} else if (spa_json_next(json, &val) < 0)
 			break;
 	}
@@ -1210,7 +1203,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		spa_list_init(&port->link_list);
 	}
 	if (have_control)
-		parse_control(node, &it[0]);
+		parse_control(node, &control);
 
 	spa_list_append(&graph->node_list, &node->link);
 

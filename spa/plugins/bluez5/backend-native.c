@@ -656,6 +656,10 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 	unsigned int selected_codec;
 	unsigned int indicator;
 	unsigned int indicator_value;
+	int xapl_vendor;
+	int xapl_product;
+	int xapl_version;
+	int xapl_features;
 
 	if (sscanf(buf, "AT+BRSF=%u", &features) == 1) {
 		unsigned int ag_features = SPA_BT_HFP_AG_FEATURE_NONE;
@@ -838,9 +842,11 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 		} else {
 			spa_log_warn(backend->log, NAME": unknown HF indicator: %u", indicator);
 		}
-	} else if (strncmp(buf, "AT+XAPL=", 8) == 0) {
-		// We expect battery status only (bitmask 10)
-		rfcomm_send_reply(rfcomm, "+XAPL: iPhone,2");
+	} else if (sscanf(buf, "AT+XAPL=%04x-%04x-%04x,%u", &xapl_vendor, &xapl_product, &xapl_version, &xapl_features) == 4) {
+		if (xapl_features & SPA_BT_HFP_HF_XAPL_FEATURE_BATTERY_REPORTING) {
+			/* claim, that we support battery status reports */
+			rfcomm_send_reply(rfcomm, "+XAPL=iPhone,%u", SPA_BT_HFP_HF_XAPL_FEATURE_BATTERY_REPORTING);
+		}
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (sscanf(buf, "AT+IPHONEACCEV=%u", &len) == 1) {
 		unsigned int i;
@@ -864,7 +870,7 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 			if (sscanf(buf, "%d", &v) != 1)
 				return false;
 
-			if (k == SPA_BT_HFP_HF_IPHONEACCEV_KEY_BATTERY) {
+			if (k == SPA_BT_HFP_HF_IPHONEACCEV_KEY_BATTERY_LEVEL) {
 				// Battery level is reported in range of 0-9, convert to 0-100%
 				uint8_t level = (SPA_CLAMP(v, 0, 9) + 1) * 10;
 				spa_log_debug(backend->log, NAME": battery level: %d%%", (int)level);

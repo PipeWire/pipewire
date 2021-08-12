@@ -36,6 +36,7 @@ extern "C" {
 
 #include <spa/param/format.h>
 #include <spa/param/audio/raw.h>
+#include <spa/param/audio/iec958.h>
 
 struct spa_audio_info {
 	uint32_t media_type;
@@ -43,6 +44,7 @@ struct spa_audio_info {
 	union {
 		struct spa_audio_info_raw raw;
 		struct spa_audio_info_dsp dsp;
+		struct spa_audio_info_iec958 iec958;
 	} info;
 };
 

@@ -209,6 +209,11 @@ int format_parse_param(const struct spa_pod *param, struct sample_spec *ss,
 
 const struct spa_pod *format_build_param(struct spa_pod_builder *b, uint32_t id,
 		const struct sample_spec *spec, const struct channel_map *map);
+
+int format_info_from_spec(struct format_info *info, const struct sample_spec *ss,
+			  const struct channel_map *map);
+int format_info_from_param(struct format_info *info, struct spa_pod *param, uint32_t index);
+
 const struct spa_pod *format_info_build_param(struct spa_pod_builder *b, uint32_t id,
 		const struct format_info *info, uint32_t *rate);
 

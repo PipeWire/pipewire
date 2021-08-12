@@ -382,25 +382,39 @@ bool channel_map_valid(const struct channel_map *map)
 	return true;
 }
 
+struct encoding_info {
+	const char *name;
+	uint32_t id;
+};
 
-static const char * const encoding_names[] = {
-	[ENCODING_ANY] = "ANY",
-	[ENCODING_PCM] = "PCM",
-	[ENCODING_AC3_IEC61937] = "AC3-IEC61937",
-	[ENCODING_EAC3_IEC61937] = "EAC3-IEC61937",
-	[ENCODING_MPEG_IEC61937] = "MPEG-IEC61937",
-	[ENCODING_DTS_IEC61937] = "DTS-IEC61937",
-	[ENCODING_MPEG2_AAC_IEC61937] = "MPEG2-AAC-IEC61937",
-	[ENCODING_TRUEHD_IEC61937] = "TRUEHD-IEC61937",
-	[ENCODING_DTSHD_IEC61937] = "DTSHD-IEC61937",
+static const struct encoding_info encoding_names[] = {
+	[ENCODING_ANY] = { "ANY", 0 },
+	[ENCODING_PCM] = { "PCM", 0 },
+	[ENCODING_AC3_IEC61937] = { "AC3-IEC61937", SPA_AUDIO_IEC958_CODEC_AC3 },
+	[ENCODING_EAC3_IEC61937] = { "EAC3-IEC61937", SPA_AUDIO_IEC958_CODEC_EAC3 },
+	[ENCODING_MPEG_IEC61937] = { "MPEG-IEC61937", SPA_AUDIO_IEC958_CODEC_MPEG },
+	[ENCODING_DTS_IEC61937] = { "DTS-IEC61937", SPA_AUDIO_IEC958_CODEC_DTS },
+	[ENCODING_MPEG2_AAC_IEC61937] = { "MPEG2-AAC-IEC61937", SPA_AUDIO_IEC958_CODEC_MPEG2_AAC },
+	[ENCODING_TRUEHD_IEC61937] = { "TRUEHD-IEC61937", SPA_AUDIO_IEC958_CODEC_TRUEHD },
+	[ENCODING_DTSHD_IEC61937] = { "DTSHD-IEC61937", SPA_AUDIO_IEC958_CODEC_DTSHD },
 };
 
 const char *format_encoding2name(enum encoding enc)
 {
 	if (enc >= 0 && enc < (int)SPA_N_ELEMENTS(encoding_names) &&
-	    encoding_names[enc] != NULL)
-		return encoding_names[enc];
+	    encoding_names[enc].name != NULL)
+		return encoding_names[enc].name;
 	return "INVALID";
+}
+
+static enum encoding format_encoding_from_id(uint32_t id)
+{
+	int i;
+	for (i = 0; i < (int)SPA_N_ELEMENTS(encoding_names); i++) {
+		if (encoding_names[i].id == id)
+			return i;
+	}
+	return ENCODING_ANY;
 }
 
 int format_parse_param(const struct spa_pod *param, struct sample_spec *ss, struct channel_map *map)
@@ -471,6 +485,126 @@ int format_info_from_spec(struct format_info *info, const struct sample_spec *ss
 		pw_properties_setf(info->props, "format.channel_map", "\"%s\"", chmap);
 	}
 	return 0;
+}
+
+static int add_int(struct format_info *info, const char *k, struct spa_pod *param,
+		uint32_t key)
+{
+	const struct spa_pod_prop *prop;
+	struct spa_pod *val;
+	uint32_t i, n_values, choice;
+	int32_t *values;
+
+	prop = spa_pod_find_prop(param, NULL, key);
+	if (prop == NULL)
+		return -ENOENT;
+
+	val = spa_pod_get_values(&prop->value, &n_values, &choice);
+	if (val->type != SPA_TYPE_Int)
+		return -ENOTSUP;
+
+	values = SPA_POD_BODY(val);
+
+	switch (choice) {
+	case SPA_CHOICE_None:
+		pw_properties_setf(info->props, k, "%d", values[0]);
+		break;
+	case SPA_CHOICE_Range:
+		pw_properties_setf(info->props, k, "{ \"min\": %d, \"max\": %d }",
+				values[1], values[2]);
+		break;
+	case SPA_CHOICE_Enum:
+	{
+		char *ptr;
+		size_t size;
+		FILE *f;
+
+		f = open_memstream(&ptr, &size);
+		fprintf(f, "[");
+		for (i = 1; i < n_values; i++)
+			fprintf(f, "%s %d", i == 1 ? "" : ",", values[i]);
+		fprintf(f, " ]");
+		fclose(f);
+
+		pw_properties_set(info->props, k, ptr);
+		free(ptr);
+		break;
+	}
+	default:
+		return -ENOTSUP;
+	}
+	return 0;
+}
+
+static int format_info_pcm_from_param(struct format_info *info, struct spa_pod *param, uint32_t index)
+{
+	if (index > 0)
+		return -ENOENT;
+
+	info->encoding = ENCODING_PCM;
+	/* don't add params here yet, pulseaudio doesn't do that either */
+	return 0;
+}
+
+static int format_info_iec958_from_param(struct format_info *info, struct spa_pod *param, uint32_t index)
+{
+	const struct spa_pod_prop *prop;
+	struct spa_pod *val;
+	uint32_t n_values, *values, choice;
+
+	prop = spa_pod_find_prop(param, NULL, SPA_FORMAT_AUDIO_iec958Codec);
+	if (prop == NULL)
+		return -ENOENT;
+
+	val = spa_pod_get_values(&prop->value, &n_values, &choice);
+	if (val->type != SPA_TYPE_Id)
+		return -ENOTSUP;
+
+	if (index >= n_values)
+		return -ENOENT;
+
+	values = SPA_POD_BODY(val);
+
+	switch (choice) {
+	case SPA_CHOICE_None:
+		info->encoding = format_encoding_from_id(values[index]);
+		break;
+	case SPA_CHOICE_Enum:
+		info->encoding = format_encoding_from_id(values[index+1]);
+		break;
+	default:
+		return -ENOTSUP;
+	}
+	if ((info->props = pw_properties_new(NULL, NULL)) == NULL)
+		return -errno;
+
+	add_int(info, "format.rate", param, SPA_FORMAT_AUDIO_rate);
+
+	return 0;
+}
+
+int format_info_from_param(struct format_info *info, struct spa_pod *param, uint32_t index)
+{
+	uint32_t media_type, media_subtype;
+	int res;
+
+	if (spa_format_parse(param, &media_type, &media_subtype) < 0)
+		return -ENOTSUP;
+
+	if (media_type != SPA_MEDIA_TYPE_audio)
+                return -ENOTSUP;
+
+	switch(media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
+		res = format_info_pcm_from_param(info, param, index);
+		break;
+	case SPA_MEDIA_SUBTYPE_iec958:
+		res = format_info_iec958_from_param(info, param, index);
+		break;
+	default:
+		return -ENOTSUP;
+	}
+	return res;
 }
 
 int format_info_to_spec(const struct format_info *info, struct sample_spec *ss,

@@ -3541,13 +3541,33 @@ static int fill_sink_info(struct client *client, struct message *m,
 			TAG_INVALID);
 	}
 	if (client->version >= 21) {
-		struct format_info info;
-		spa_zero(info);
-		info.encoding = ENCODING_PCM;
+		struct pw_manager_param *p;
+		struct format_info info[32];
+		uint32_t i, n_info = 0;
+
+		spa_list_for_each(p, &o->param_list, link) {
+			uint32_t index = 0;
+
+			if (p->id != SPA_PARAM_EnumFormat)
+				continue;
+
+			while (n_info < SPA_N_ELEMENTS(info)) {
+				spa_zero(info[n_info]);
+				if (format_info_from_param(&info[n_info], p->param, index++) < 0)
+					break;
+				if (info[n_info].encoding == ENCODING_ANY)
+					continue;
+				n_info++;
+			}
+		}
 		message_put(m,
-			TAG_U8, 1,			/* n_formats */
-			TAG_FORMAT_INFO, &info,
+			TAG_U8, n_info,				/* n_formats */
 			TAG_INVALID);
+		for (i = 0; i < n_info; i++) {
+			message_put(m,
+				TAG_FORMAT_INFO, &info[i],
+				TAG_INVALID);
+		}
 	}
 	return 0;
 }

@@ -140,7 +140,7 @@ int stream_send_underflow(struct stream *stream, int64_t offset, uint32_t underr
 	struct impl *impl = client->impl;
 	struct message *reply;
 
-	if (ratelimit_test(&impl->rate_limit, stream->timestamp)) {
+	if (ratelimit_test(&impl->rate_limit, stream->timestamp, SPA_LOG_LEVEL_INFO)) {
 		pw_log_info("client %p [%s]: stream %p UNDERFLOW channel:%u offset:%" PRIi64 " underrun:%u",
 			    client, client->name, stream, stream->channel, offset, underrun_for);
 	}

@@ -1533,7 +1533,7 @@ static int node_ready(void *data, int status)
 
 		if (SPA_UNLIKELY(state->pending > 0)) {
 			pw_context_driver_emit_incomplete(node->context, node);
-			if (ratelimit_test(&node->rt.rate_limit, a->signal_time)) {
+			if (ratelimit_test(&node->rt.rate_limit, a->signal_time, SPA_LOG_LEVEL_DEBUG)) {
 				pw_log_debug("(%s-%u) graph not finished: state:%p quantum:%"PRIu64
 						" pending %d/%d", node->name, node->info.id,
 						state, a->position.clock.duration,
@@ -1631,7 +1631,7 @@ static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_po
 	if (da && da != a)
 		update_xrun_stats(da, trigger, delay);
 
-	if (ratelimit_test(&this->rt.rate_limit, a->signal_time)) {
+	if (ratelimit_test(&this->rt.rate_limit, a->signal_time, SPA_LOG_LEVEL_INFO)) {
 		struct spa_fraction rate;
 		if (da) {
 			struct spa_io_clock *cl = &da->position.clock;

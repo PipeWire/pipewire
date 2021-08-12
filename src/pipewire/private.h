@@ -81,11 +81,11 @@ struct ratelimit {
 	unsigned n_printed, n_missed;
 };
 
-static inline bool ratelimit_test(struct ratelimit *r, uint64_t now)
+static inline bool ratelimit_test(struct ratelimit *r, uint64_t now, enum spa_log_level level)
 {
 	if (r->begin + r->interval < now) {
 		if (r->n_missed)
-			pw_log_warn("%u events suppressed", r->n_missed);
+			pw_log(level, "%u events suppressed", r->n_missed);
 		r->begin = now;
 		r->n_printed = 0;
 		r->n_missed = 0;

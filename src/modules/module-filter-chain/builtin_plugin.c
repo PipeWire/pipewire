@@ -22,9 +22,14 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "config.h"
+
+#ifdef HAVE_SNDFILE
 #include <sndfile.h>
+#endif
 
 #include <spa/utils/json.h>
+#include <pipewire/log.h>
 
 #include "plugin.h"
 
@@ -386,14 +391,63 @@ struct convolver_impl {
 	struct convolver *conv;
 };
 
+static float *read_samples(const char *filename, float gain, int delay, int offset,
+		int length, int channel, int *n_samples)
+{
+	float *samples;
+#ifdef HAVE_SNDFILE
+	SF_INFO info;
+	SNDFILE *f;
+	int i, n;
+
+	spa_zero(info);
+	f = sf_open(filename, SFM_READ, &info) ;
+	if (f == NULL) {
+		fprintf(stderr, "can't open %s", filename);
+		return NULL;
+	}
+
+	if (length <= 0)
+		length = info.frames;
+	else
+		length = SPA_MIN(length, info.frames);
+
+	length -= SPA_MIN(offset, length);
+
+	n = delay + length;
+
+	samples = calloc(n * info.channels, sizeof(float));
+        if (samples == NULL)
+		return NULL;
+
+	if (offset > 0)
+		sf_seek(f, offset, SEEK_SET);
+	sf_readf_float(f, samples + (delay * info.channels), length);
+	sf_close(f);
+
+	channel = channel % info.channels;
+
+	for (i = 0; i < n; i++)
+		samples[i] = samples[info.channels * i + channel] * gain;
+
+	*n_samples = n;
+	return samples;
+#else
+	pw_log_error("compiled without sndfile support, can't load samples: "
+			"using dirac impulse");
+	samples = calloc(1, sizeof(float));
+	samples[0] = gain;
+	*n_samples = 1;
+	return samples;
+#endif
+}
+
 static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct convolver_impl *impl;
-	SF_INFO info;
-	SNDFILE *f;
 	float *samples;
-	int i, offset = 0, length = 0, channel = index, n_frames;
+	int offset = 0, length = 0, channel = index, n_samples;
 	struct spa_json it[2];
 	const char *val;
 	char key[256];
@@ -443,13 +497,18 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	}
 	if (!filename[0])
 		return NULL;
+	if (delay < 0)
+		delay = 0;
+	if (offset < 0)
+		offset = 0;
 
-	spa_zero(info);
-	f = sf_open(filename, SFM_READ, &info) ;
-	if (f == NULL) {
-		fprintf(stderr, "can't open %s", filename);
+	samples = read_samples(filename, gain, delay, offset,
+			length, channel, &n_samples);
+	if (samples == NULL)
 		return NULL;
-	}
+
+	if (blocksize <= 0)
+		blocksize = SPA_CLAMP(n_samples, 64, 256);
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
@@ -457,40 +516,8 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 
 	impl->rate = SampleRate;
 
-	if (delay < 0)
-		delay = 0;
-
-	if (length <= 0)
-		length = info.frames;
-	else
-		length = SPA_MIN(length, info.frames);
-
-	if (offset < 0)
-		offset = 0;
-	length -= SPA_MIN(offset, length);
-
-	n_frames = delay + length;
-
-	if (blocksize == 0)
-		blocksize = SPA_CLAMP(n_frames, 64, 256);
-
-	samples = calloc(sizeof(float), n_frames * info.channels);
-        if (samples == NULL)
-		return NULL;
-
-	if (offset > 0)
-		sf_seek(f, offset, SEEK_SET);
-	sf_readf_float(f, samples + (delay * info.channels), length);
-
-	channel = channel % info.channels;
-
-	for (i = 0; i < n_frames; i++)
-		samples[i] = samples[info.channels * i + channel] * gain;
-
-	impl->conv = convolver_new(blocksize, samples, n_frames);
-
+	impl->conv = convolver_new(blocksize, samples, n_samples);
 	free(samples);
-	sf_close(f);
 
 	return impl;
 }

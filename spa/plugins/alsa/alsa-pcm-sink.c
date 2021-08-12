@@ -497,7 +497,18 @@ impl_node_port_enum_params(void *object, int seq,
 		if (result.index > 0)
 			return 0;
 
-		param = spa_format_audio_raw_build(&b, id, &this->current_format.info.raw);
+		switch (this->current_format.media_subtype) {
+		case SPA_MEDIA_SUBTYPE_raw:
+			param = spa_format_audio_raw_build(&b, id,
+					&this->current_format.info.raw);
+			break;
+		case SPA_MEDIA_SUBTYPE_iec958:
+			param = spa_format_audio_iec958_build(&b, id,
+					&this->current_format.info.iec958);
+			break;
+		default:
+			return -EIO;
+		}
 		break;
 
 	case SPA_PARAM_Buffers:
@@ -612,12 +623,21 @@ static int port_set_format(void *object,
 		if ((err = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
 			return err;
 
-		if (info.media_type != SPA_MEDIA_TYPE_audio ||
-		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+		if (info.media_type != SPA_MEDIA_TYPE_audio)
 			return -EINVAL;
 
-		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
+		switch (info.media_subtype) {
+		case SPA_MEDIA_SUBTYPE_raw:
+			if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
+				return -EINVAL;
+			break;
+		case SPA_MEDIA_SUBTYPE_iec958:
+			if (spa_format_audio_iec958_parse(format, &info.info.iec958) < 0)
+				return -EINVAL;
+			break;
+		default:
 			return -EINVAL;
+		}
 
 		if ((err = spa_alsa_set_format(this, &info, flags)) < 0)
 			return err;

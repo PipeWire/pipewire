@@ -682,7 +682,7 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	return res;
 }
 
-int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t flags)
+static int set_pcm_format(struct state *state, struct spa_audio_info_raw *info, uint32_t flags)
 {
 	unsigned int rrate, rchannels;
 	snd_pcm_uframes_t period_size;
@@ -690,7 +690,6 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	snd_pcm_hw_params_t *params;
 	snd_pcm_format_t format;
 	snd_pcm_access_mask_t *amask;
-	struct spa_audio_info_raw *info = &fmt->info.raw;
 	snd_pcm_t *hndl;
 	unsigned int periods;
 	bool match = true, planar, is_batch;
@@ -830,6 +829,51 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	CHECK(snd_pcm_hw_params(hndl, params), "set_hw_params");
 
 	return match ? 0 : 1;
+}
+
+static int set_iec958_format(struct state *state, struct spa_audio_info_iec958 *info, uint32_t flags)
+{
+	struct spa_audio_info_raw fmt;
+
+	fmt.format = SPA_AUDIO_FORMAT_S16_LE;
+	fmt.channels = 2;
+	fmt.rate = info->rate;
+
+	switch (info->codec) {
+	case SPA_AUDIO_IEC958_CODEC_PCM:
+	case SPA_AUDIO_IEC958_CODEC_DTS:
+	case SPA_AUDIO_IEC958_CODEC_AC3:
+	case SPA_AUDIO_IEC958_CODEC_MPEG:
+	case SPA_AUDIO_IEC958_CODEC_MPEG2_AAC:
+		break;
+	case SPA_AUDIO_IEC958_CODEC_EAC3:
+		fmt.rate *= 4;
+		break;
+	case SPA_AUDIO_IEC958_CODEC_TRUEHD:
+	case SPA_AUDIO_IEC958_CODEC_DTSHD:
+		fmt.channels = 8;
+		break;
+	default:
+		return -ENOTSUP;
+	}
+	return set_pcm_format(state, &fmt, flags);
+}
+
+int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t flags)
+{
+	int res;
+
+	switch (fmt->media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
+		res = set_pcm_format(state, &fmt->info.raw, flags);
+		break;
+	case SPA_MEDIA_SUBTYPE_iec958:
+		res = set_iec958_format(state, &fmt->info.iec958, flags);
+		break;
+	default:
+		return -ENOTSUP;
+	}
+	return res;
 }
 
 static int set_swparams(struct state *state)

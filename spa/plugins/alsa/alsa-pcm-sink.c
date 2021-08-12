@@ -100,7 +100,7 @@ static int impl_node_enum_params(void *object, int seq,
 	struct state *this = object;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
-	uint8_t buffer[1024];
+	uint8_t buffer[2048];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
 
@@ -169,6 +169,17 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_name, SPA_POD_String("Latency offset (ns)"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(0, 0, INT64_MAX));
 			break;
+		case 7:
+			if (this->is_iec958 || this->is_hdmi) {
+				param = spa_pod_builder_add_object(&b,
+					SPA_TYPE_OBJECT_PropInfo, id,
+					SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_iec958Codecs),
+					SPA_PROP_INFO_name, SPA_POD_String("Enabled IEC958 (S/PDIF) codecs"),
+					SPA_PROP_INFO_type, SPA_POD_Id(SPA_AUDIO_IEC958_CODEC_UNKNOWN),
+	                                SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
+				break;
+			}
+			SPA_FALLTHROUGH
 		default:
 			return 0;
 		}
@@ -177,18 +188,30 @@ static int impl_node_enum_params(void *object, int seq,
 	case SPA_PARAM_Props:
 	{
 		struct props *p = &this->props;
+		struct spa_pod_frame f;
+		uint32_t codecs[16], n_codecs;
 
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_Props, id,
+			spa_pod_builder_push_object(&b, &f,
+                                SPA_TYPE_OBJECT_Props, id);
+			spa_pod_builder_add(&b,
 				SPA_PROP_device,       SPA_POD_Stringn(p->device, sizeof(p->device)),
 				SPA_PROP_deviceName,   SPA_POD_Stringn(p->device_name, sizeof(p->device_name)),
 				SPA_PROP_cardName,     SPA_POD_Stringn(p->card_name, sizeof(p->card_name)),
 				SPA_PROP_minLatency,   SPA_POD_Int(p->min_latency),
 				SPA_PROP_maxLatency,   SPA_POD_Int(p->max_latency),
 				SPA_PROP_START_CUSTOM, SPA_POD_Bool(p->use_chmap),
-				SPA_PROP_latencyOffsetNsec,   SPA_POD_Long(this->process_latency.ns));
+				SPA_PROP_latencyOffsetNsec,   SPA_POD_Long(this->process_latency.ns),
+				0);
+
+			n_codecs = spa_alsa_get_iec958_codecs(this, codecs, SPA_N_ELEMENTS(codecs));
+			if (n_codecs > 0) {
+				spa_pod_builder_prop(&b, SPA_PROP_iec958Codecs, 0);
+				spa_pod_builder_array(&b, sizeof(uint32_t), SPA_TYPE_Id,
+						n_codecs, codecs);
+			}
+			param = spa_pod_builder_pop(&b, &f);
 			break;
 		default:
 			return 0;
@@ -296,6 +319,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	{
 		struct props *p = &this->props;
 		struct spa_process_latency_info info;
+		struct spa_pod *iec958_codecs = NULL;
 
 		if (param == NULL) {
 			reset_props(p);
@@ -310,8 +334,17 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			SPA_PROP_minLatency,   SPA_POD_OPT_Int(&p->min_latency),
 			SPA_PROP_maxLatency,   SPA_POD_OPT_Int(&p->max_latency),
 			SPA_PROP_latencyOffsetNsec,   SPA_POD_OPT_Long(&info.ns),
-			SPA_PROP_START_CUSTOM, SPA_POD_OPT_Bool(&p->use_chmap));
+			SPA_PROP_START_CUSTOM, SPA_POD_OPT_Bool(&p->use_chmap),
+			SPA_PROP_iec958Codecs, SPA_POD_OPT_Pod(&iec958_codecs));
 
+		if (iec958_codecs != NULL) {
+			uint32_t i, codecs[16], n_codecs;
+			n_codecs = spa_pod_copy_array(iec958_codecs, SPA_TYPE_Id,
+					codecs, SPA_N_ELEMENTS(codecs));
+			this->iec958_codecs = 0;
+			for (i = 0; i < n_codecs; i++)
+				this->iec958_codecs |= 1ULL << codecs[i];
+		}
 		handle_process_latency(this, &info);
 		break;
 	}
@@ -916,6 +949,8 @@ impl_init(const struct spa_handle_factory *factory,
 			this->process_latency.rate = atoi(s);
 		} else if (spa_streq(k, "latency.internal.ns")) {
 			this->process_latency.ns = atoi(s);
+		} else if (spa_streq(k, "iec958.codecs")) {
+			spa_alsa_parse_iec958_codecs(&this->iec958_codecs, s, strlen(s));
 		} else if (spa_streq(k, "api.alsa.period-size")) {
 			this->default_period_size = atoi(s);
 		} else if (spa_streq(k, "api.alsa.headroom")) {

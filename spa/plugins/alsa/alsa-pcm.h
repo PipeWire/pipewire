@@ -185,6 +185,10 @@ struct state {
 	unsigned int planar:1;
 	unsigned int freewheel:1;
 	unsigned int open_ucm:1;
+	unsigned int is_iec958:1;
+	unsigned int is_hdmi:1;
+
+	uint64_t iec958_codecs;
 
 	int64_t sample_count;
 
@@ -260,6 +264,44 @@ static inline void spa_alsa_parse_position(struct channel_map *map, const char *
 	    map->channels < SPA_AUDIO_MAX_CHANNELS) {
 		map->pos[map->channels++] = spa_alsa_channel_from_name(v);
 	}
+}
+
+static inline uint32_t spa_alsa_iec958_codec_from_name(const char *name)
+{
+	int i;
+	for (i = 0; spa_type_audio_iec958_codec[i].name; i++) {
+		if (strcmp(name, spa_debug_type_short_name(spa_type_audio_iec958_codec[i].name)) == 0)
+			return spa_type_audio_iec958_codec[i].type;
+	}
+	return SPA_AUDIO_IEC958_CODEC_UNKNOWN;
+}
+
+static inline void spa_alsa_parse_iec958_codecs(uint64_t *codecs, const char *val, size_t len)
+{
+	struct spa_json it[2];
+	char v[256];
+
+	spa_json_init(&it[0], val, len);
+        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+                spa_json_init(&it[1], val, len);
+
+	*codecs = 0;
+	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0)
+		*codecs |= 1ULL << spa_alsa_iec958_codec_from_name(v);
+}
+
+static inline uint32_t spa_alsa_get_iec958_codecs(struct state *state, uint32_t *codecs,
+		uint32_t max_codecs)
+{
+	uint64_t mask = state->iec958_codecs;
+	uint32_t i = 0, j = 0;
+	while (mask && i < max_codecs) {
+		if (mask & 1)
+			codecs[i++] = j;
+		mask >>= 1;
+		j++;
+	}
+	return i;
 }
 
 #ifdef __cplusplus

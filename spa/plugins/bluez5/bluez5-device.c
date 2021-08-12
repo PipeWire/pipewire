@@ -345,7 +345,7 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 {
 	struct spa_bt_device *device = this->bt_dev;
 	struct spa_device_object_info info;
-	struct spa_dict_item items[6];
+	struct spa_dict_item items[7];
 	uint32_t n_items = 0;
 	char transport[32], str_id[32];
 	bool is_dyn_node = SPA_FLAG_IS_SET(id, DYNAMIC_NODE_ID_FLAG);
@@ -360,6 +360,10 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 	if (!is_dyn_node) {
 		snprintf(str_id, sizeof(str_id), "%d", id);
 		items[5] = SPA_DICT_ITEM_INIT("card.profile.device", str_id);
+		n_items++;
+	}
+	if (spa_streq(spa_bt_profile_name(t->profile), "headset-head-unit")) {
+		items[n_items] = SPA_DICT_ITEM_INIT("device.intended-roles", "Communication");
 		n_items++;
 	}
 

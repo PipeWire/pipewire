@@ -171,6 +171,14 @@ static void port_info_5_1(void *data,
 	spa_assert_se(port < 6);
 }
 
+static void port_info_1_1(void *data,
+		enum spa_direction direction, uint32_t port,
+		const struct spa_port_info *info)
+{
+	spa_assert_se(direction == SPA_DIRECTION_OUTPUT);
+	spa_assert_se(port < 2);
+}
+
 static int test_split_setup(struct context *ctx)
 {
 	struct spa_pod_builder b = { 0 };
@@ -233,6 +241,48 @@ static int test_split_setup(struct context *ctx)
 	return 0;
 }
 
+static int test_passthrough_setup(struct context *ctx)
+{
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+	struct spa_pod *param;
+	struct spa_audio_info_raw info;
+	int res;
+	struct spa_hook listener;
+	static const struct spa_node_events node_events = {
+		SPA_VERSION_NODE_EVENTS,
+		.port_info = port_info_1_1,
+	};
+
+	/* internal format */
+	spa_zero(info);
+	info.format = SPA_AUDIO_FORMAT_S16;
+	info.channels = 2;
+	info.rate = 44100;
+	info.position[0] = SPA_AUDIO_CHANNEL_FL;
+	info.position[1] = SPA_AUDIO_CHANNEL_FR;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+        param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info);
+
+	spa_log_debug(&logger.log, "set profile %d@%d", info.channels, info.rate);
+	param = spa_pod_builder_add_object(&b,
+		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
+		SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(SPA_DIRECTION_OUTPUT),
+		SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_passthrough),
+		SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(param));
+
+	res = spa_node_set_param(ctx->adapter_node, SPA_PARAM_PortConfig, 0, param);
+	spa_assert_se(res == 0);
+
+	spa_zero(listener);
+	spa_node_add_listener(ctx->adapter_node,
+			&listener, &node_events, ctx);
+	spa_hook_remove(&listener);
+
+	return 0;
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -244,6 +294,7 @@ int main(int argc, char *argv[])
 
 	test_init_state(&ctx);
 	test_split_setup(&ctx);
+	test_passthrough_setup(&ctx);
 
 	clean_context(&ctx);
 

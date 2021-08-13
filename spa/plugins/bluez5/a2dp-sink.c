@@ -647,6 +647,7 @@ again:
 		spa_log_trace(this->log, NAME" %p: error flushing %s", this,
 				spa_strerror(written));
 		reset_buffer(this);
+		enable_flush(this, false);
 		return written;
 	}
 	else if (written > 0) {
@@ -658,6 +659,11 @@ again:
 		if (!spa_list_is_empty(&port->ready))
 			goto again;
 
+		enable_flush(this, false);
+	}
+	else {
+		/* Don't want to flush yet, or failed to write anything */
+		spa_log_trace(this->log, NAME" %p: skip flush", this);
 		enable_flush(this, false);
 	}
 	return 0;

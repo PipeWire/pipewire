@@ -148,8 +148,8 @@ static const struct a2dp_codec * const a2dp_codec_list[] = {
 #if ENABLE_MP3
 	&a2dp_codec_mpeg,
 #endif
-	&a2dp_codec_sbc_xq,
 	&a2dp_codec_sbc,
+	&a2dp_codec_sbc_xq,
 	NULL
 };
 

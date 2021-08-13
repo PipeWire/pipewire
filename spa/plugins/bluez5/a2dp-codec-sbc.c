@@ -681,5 +681,4 @@ const struct a2dp_codec a2dp_codec_sbc_xq = {
 	.decode = codec_decode,
 	.reduce_bitpool = codec_reduce_bitpool,
 	.increase_bitpool = codec_increase_bitpool,
-	.feature_flag = "sbc-xq",
 };

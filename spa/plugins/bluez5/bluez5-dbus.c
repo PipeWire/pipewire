@@ -91,7 +91,6 @@ struct spa_bt_monitor {
 
 	struct spa_bt_quirks *quirks;
 
-	unsigned int enable_sbc_xq:1;
 	unsigned int backend_native_registered:1;
 	unsigned int backend_ofono_registered:1;
 	unsigned int backend_hsphfpd_registered:1;
@@ -440,10 +439,6 @@ static int a2dp_endpoint_to_profile(const char *endpoint)
 
 static bool is_a2dp_codec_enabled(struct spa_bt_monitor *monitor, const struct a2dp_codec *codec)
 {
-	if (!monitor->enable_sbc_xq && codec->feature_flag != NULL &&
-	    spa_streq(codec->feature_flag, "sbc-xq"))
-		return false;
-
 	return spa_dict_lookup(&monitor->enabled_codecs, codec->name) != NULL;
 }
 
@@ -1384,6 +1379,7 @@ static int device_update_props(struct spa_bt_device *device,
 
 bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec *codec)
 {
+	struct spa_bt_monitor *monitor = device->monitor;
 	struct spa_bt_remote_endpoint *ep;
 
 	if (!is_a2dp_codec_enabled(device->monitor, codec))
@@ -1392,6 +1388,14 @@ bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struc
 	if (!device->adapter->application_registered) {
 		/* Codec switching not supported: only plain SBC allowed */
 		return (codec->codec_id == A2DP_CODEC_SBC && spa_streq(codec->name, "sbc"));
+	}
+
+	if (codec->id == SPA_BLUETOOTH_AUDIO_CODEC_SBC_XQ) {
+		uint32_t bt_features = (uint32_t)-1;
+		if (monitor->quirks)
+			spa_bt_quirks_get_features(monitor->quirks, device->adapter, device, &bt_features);
+		if (!(bt_features & SPA_BT_FEATURE_SBC_XQ))
+			return false;
 	}
 
 	spa_list_for_each(ep, &device->remote_endpoint_list, device_link) {
@@ -3861,7 +3865,6 @@ static int impl_clear(struct spa_handle *handle)
 	monitor->objects_listed = false;
 
 	monitor->connection_info_supported = false;
-	monitor->enable_sbc_xq = false;
 	monitor->backend_native_registered = false;
 	monitor->backend_ofono_registered = false;
 	monitor->backend_hsphfpd_registered = false;
@@ -4069,10 +4072,6 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, "bluez5.default.channels")) != NULL &&
 		    ((tmp =  atoi(str)) > 0))
 			this->default_audio_info.channels = tmp;
-
-		if ((str = spa_dict_lookup(info, "bluez5.enable-sbc-xq")) != NULL &&
-		    spa_atob(str))
-			this->enable_sbc_xq = true;
 	}
 
 	register_media_application(this);

@@ -88,7 +88,7 @@ struct pw_context * pw_impl_module_get_context(struct pw_impl_module *module);
 /** Get the global of a module */
 struct pw_global * pw_impl_module_get_global(struct pw_impl_module *module);
 
-/** Get the node properties */
+/** Get the module properties */
 const struct pw_properties *pw_impl_module_get_properties(struct pw_impl_module *module);
 
 /** Update the module properties */

@@ -164,13 +164,14 @@ struct impl {
 
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_INPUT && (p) == 0)
 
-static const uint32_t default_min_latency = MIN_LATENCY;
-static const uint32_t default_max_latency = MAX_LATENCY;
-
-static void reset_props(struct props *props)
+static void reset_props(struct impl *this, struct props *props)
 {
-	props->min_latency = default_min_latency;
-	props->max_latency = default_max_latency;
+	if (this->codec->id == SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL) {
+		props->min_latency = 256;
+	} else {
+		props->min_latency = MIN_LATENCY;
+	}
+	props->max_latency = MAX_LATENCY;
 	props->latency_offset = 0;
 }
 
@@ -366,7 +367,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	int changed = 0;
 
 	if (param == NULL) {
-		reset_props(&new_props);
+		reset_props(this, &new_props);
 	} else {
 		spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_Props, NULL,
@@ -472,7 +473,7 @@ static int send_buffer(struct impl *this)
 
 static bool want_flush(struct impl *this)
 {
-	return (this->frame_count * this->block_size / this->port.frame_size >= MIN_LATENCY);
+	return (this->frame_count * this->block_size / this->port.frame_size >= this->props.min_latency);
 }
 
 static int encode_buffer(struct impl *this, const void *data, uint32_t size)
@@ -915,19 +916,24 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	return 0;
 }
 
-static const struct spa_dict_item node_info_items[] = {
-	{ SPA_KEY_DEVICE_API, "bluez5" },
-	{ SPA_KEY_MEDIA_CLASS, "Audio/Sink" },
-	{ SPA_KEY_NODE_DRIVER, "true" },
-	{ SPA_KEY_NODE_LATENCY, SPA_STRINGIFY(MIN_LATENCY)"/48000" },
-};
-
 static void emit_node_info(struct impl *this, bool full)
 {
+	char latency[64] = SPA_STRINGIFY(MIN_LATENCY)"/48000";
+	struct spa_dict_item node_info_items[] = {
+		{ SPA_KEY_DEVICE_API, "bluez5" },
+		{ SPA_KEY_MEDIA_CLASS, "Audio/Sink" },
+		{ SPA_KEY_NODE_DRIVER, "true" },
+		{ SPA_KEY_NODE_LATENCY, latency },
+	};
 	uint64_t old = full ? this->info.change_mask : 0;
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
+		if (this->transport && this->port.have_format)
+			snprintf(latency, sizeof(latency), "%d/%d", (int)this->props.min_latency,
+					(int)this->port.current_format.info.raw.rate);
+		else
+			snprintf(latency, sizeof(latency), "%d/48000", (int)this->props.min_latency);
 		this->info.props = &SPA_DICT_INIT_ARRAY(node_info_items);
 		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = old;
@@ -1459,8 +1465,6 @@ impl_init(const struct spa_handle_factory *factory,
 			&impl_node, this);
 	spa_hook_list_init(&this->hooks);
 
-	reset_props(&this->props);
-
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |
 			SPA_NODE_CHANGE_MASK_PARAMS |
 			SPA_NODE_CHANGE_MASK_PROPS;
@@ -1509,6 +1513,8 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->codec->init_props != NULL)
 		this->codec_props = this->codec->init_props(this->codec,
 					this->transport->device->settings);
+
+	reset_props(this, &this->props);
 
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);

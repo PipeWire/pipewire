@@ -35,6 +35,18 @@
 #include "rtp.h"
 #include "a2dp-codecs.h"
 
+#define APTX_LL_LEVEL1(level) (((level) >> 8) & 0xFF)
+#define APTX_LL_LEVEL2(level) (((level) >> 0) & 0xFF)
+#define APTX_LL_LEVEL(level1, level2) ((((level1) & 0xFF) << 8) | (((level2) & 0xFF) << 0))
+
+/*
+ * XXX: Bump requested device buffer levels up by 50% from defaults,
+ * XXX: increasing latency similarly. This seems to be necessary for
+ * XXX: stable output when moving headphones. It might be possible to
+ * XXX: reduce this by changing the scheduling of the socket writes.
+ */
+#define LL_LEVEL_ADJUSTMENT	3/2
+
 struct impl {
 	struct aptx_context *aptx;
 
@@ -49,13 +61,25 @@ struct impl {
 	bool hd;
 };
 
-static inline bool codec_is_hd(const struct a2dp_codec *codec) {
+static inline bool codec_is_hd(const struct a2dp_codec *codec)
+{
 	return codec->vendor.codec_id == APTX_HD_CODEC_ID
 		&& codec->vendor.vendor_id == APTX_HD_VENDOR_ID;
 }
 
-static inline size_t codec_get_caps_size(const struct a2dp_codec *codec) {
-	return codec_is_hd(codec) ? sizeof(a2dp_aptx_hd_t) : sizeof(a2dp_aptx_t);
+static inline bool codec_is_ll(const struct a2dp_codec *codec)
+{
+	return codec->id == SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL;
+}
+
+static inline size_t codec_get_caps_size(const struct a2dp_codec *codec)
+{
+	if (codec_is_hd(codec))
+		return sizeof(a2dp_aptx_hd_t);
+	else if (codec_is_ll(codec))
+		return sizeof(a2dp_aptx_ll_t);
+	else
+		return sizeof(a2dp_aptx_t);
 }
 
 static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
@@ -72,7 +96,15 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 		.channel_mode =
 			APTX_CHANNEL_MODE_STEREO,
 	};
-	memcpy(caps, &a2dp_aptx, sizeof(a2dp_aptx));
+	const a2dp_aptx_ll_t a2dp_aptx_ll = {
+		.aptx = a2dp_aptx,
+		.bidirect_link = false,
+		.has_new_caps = false,
+	};
+	if (codec_is_ll(codec))
+		memcpy(caps, &a2dp_aptx_ll, sizeof(a2dp_aptx_ll));
+	else
+		memcpy(caps, &a2dp_aptx, sizeof(a2dp_aptx));
 	return actual_conf_size;
 }
 
@@ -116,6 +148,58 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		return -ENOTSUP;
 
 	memcpy(config, &conf, sizeof(conf));
+
+	return actual_conf_size;
+}
+
+static int codec_select_config_ll(const struct a2dp_codec *codec, uint32_t flags,
+		const void *caps, size_t caps_size,
+		const struct a2dp_codec_audio_info *info,
+		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
+{
+	a2dp_aptx_ll_ext_t conf = { 0 };
+	size_t actual_conf_size;
+	int res;
+
+	/* caps may contain only conf.base, or also the extended attributes */
+
+	if (caps_size < sizeof(conf.base))
+		return -EINVAL;
+
+	memcpy(&conf, caps, SPA_MIN(caps_size, sizeof(conf)));
+
+	actual_conf_size = conf.base.has_new_caps ? sizeof(conf) : sizeof(conf.base);
+	if (caps_size < actual_conf_size)
+		return -EINVAL;
+
+	if ((res = codec_select_config(codec, flags, caps, caps_size, info, settings, config)) < 0)
+		return res;
+
+	memcpy(&conf.base.aptx, config, sizeof(conf.base.aptx));
+
+	if (conf.base.has_new_caps) {
+		int target_level = APTX_LL_LEVEL(conf.target_level1, conf.target_level2);
+		int initial_level = APTX_LL_LEVEL(conf.initial_level1, conf.initial_level2);
+		int good_working_level = APTX_LL_LEVEL(conf.good_working_level1, conf.good_working_level2);
+
+		target_level = SPA_MAX(target_level, APTX_LL_TARGET_CODEC_LEVEL * LL_LEVEL_ADJUSTMENT);
+		initial_level = SPA_MAX(initial_level, APTX_LL_INITIAL_CODEC_LEVEL * LL_LEVEL_ADJUSTMENT);
+		good_working_level = SPA_MAX(good_working_level, APTX_LL_GOOD_WORKING_LEVEL * LL_LEVEL_ADJUSTMENT);
+
+		conf.target_level1 = APTX_LL_LEVEL1(target_level);
+		conf.target_level2 = APTX_LL_LEVEL2(target_level);
+		conf.initial_level1 = APTX_LL_LEVEL1(initial_level);
+		conf.initial_level2 = APTX_LL_LEVEL2(initial_level);
+		conf.good_working_level1 = APTX_LL_LEVEL1(good_working_level);
+		conf.good_working_level2 = APTX_LL_LEVEL2(good_working_level);
+
+		if (conf.sra_max_rate == 0)
+			conf.sra_max_rate = APTX_LL_SRA_MAX_RATE;
+		if (conf.sra_avg_time == 0)
+			conf.sra_avg_time = APTX_LL_SRA_AVG_TIME;
+	}
+
+	memcpy(config, &conf, actual_conf_size);
 
 	return actual_conf_size;
 }
@@ -395,4 +479,38 @@ const struct a2dp_codec a2dp_codec_aptx_hd = {
 	.decode = codec_decode,
 	.reduce_bitpool = codec_reduce_bitpool,
 	.increase_bitpool = codec_increase_bitpool,
+};
+
+#define APTX_LL_COMMON_DEFS				\
+	.id = SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL,	\
+	.codec_id = A2DP_CODEC_VENDOR,			\
+	.name = "aptx_ll",				\
+	.description = "aptX-LL",			\
+	.fill_caps = codec_fill_caps,			\
+	.select_config = codec_select_config_ll,	\
+	.enum_config = codec_enum_config,		\
+	.init = codec_init,				\
+	.deinit = codec_deinit,				\
+	.get_block_size = codec_get_block_size,		\
+	.abr_process = codec_abr_process,		\
+	.start_encode = codec_start_encode,		\
+	.encode = codec_encode,				\
+	.start_decode = codec_start_decode,		\
+	.decode = codec_decode,				\
+	.reduce_bitpool = codec_reduce_bitpool,		\
+	.increase_bitpool = codec_increase_bitpool
+
+
+const struct a2dp_codec a2dp_codec_aptx_ll_0 = {
+	APTX_LL_COMMON_DEFS,
+	.vendor = { .vendor_id = APTX_LL_VENDOR_ID,
+		.codec_id = APTX_LL_CODEC_ID },
+	.endpoint_name = "aptx_ll_0",
+};
+
+const struct a2dp_codec a2dp_codec_aptx_ll_1 = {
+	APTX_LL_COMMON_DEFS,
+	.vendor = { .vendor_id = APTX_LL_VENDOR_ID2,
+		.codec_id = APTX_LL_CODEC_ID },
+	.endpoint_name = "aptx_ll_1",
 };

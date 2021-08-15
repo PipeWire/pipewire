@@ -1933,24 +1933,20 @@ int64_t spa_bt_transport_get_delay_nsec(struct spa_bt_transport *t)
 	if (t->a2dp_codec == NULL)
 		return 30 * SPA_NSEC_PER_MSEC;
 
-	switch (t->a2dp_codec->codec_id) {
-	case A2DP_CODEC_SBC:
+	switch (t->a2dp_codec->id) {
+	case SPA_BLUETOOTH_AUDIO_CODEC_SBC:
+	case SPA_BLUETOOTH_AUDIO_CODEC_SBC_XQ:
 		return 200 * SPA_NSEC_PER_MSEC;
-	case A2DP_CODEC_MPEG24:
+	case SPA_BLUETOOTH_AUDIO_CODEC_MPEG:
+	case SPA_BLUETOOTH_AUDIO_CODEC_AAC:
 		return 200 * SPA_NSEC_PER_MSEC;
-	case A2DP_CODEC_VENDOR:
-	{
-		uint32_t vendor_id = t->a2dp_codec->vendor.vendor_id;
-		uint16_t codec_id = t->a2dp_codec->vendor.codec_id;
-
-		if (vendor_id == APTX_VENDOR_ID && codec_id == APTX_CODEC_ID)
-			return 150 * SPA_NSEC_PER_MSEC;
-		if (vendor_id == APTX_HD_VENDOR_ID && codec_id == APTX_HD_CODEC_ID)
-			return 150 * SPA_NSEC_PER_MSEC;
-		if (vendor_id == LDAC_VENDOR_ID && codec_id == LDAC_CODEC_ID)
-			return 175 * SPA_NSEC_PER_MSEC;
-		break;
-	}
+	case SPA_BLUETOOTH_AUDIO_CODEC_APTX:
+	case SPA_BLUETOOTH_AUDIO_CODEC_APTX_HD:
+		return 150 * SPA_NSEC_PER_MSEC;
+	case SPA_BLUETOOTH_AUDIO_CODEC_LDAC:
+		return 175 * SPA_NSEC_PER_MSEC;
+	case SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL:
+		return 40 * SPA_NSEC_PER_MSEC;
 	default:
 		break;
 	};

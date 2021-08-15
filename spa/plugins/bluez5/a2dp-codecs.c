@@ -132,6 +132,8 @@ extern struct a2dp_codec a2dp_codec_mpeg;
 #if ENABLE_APTX
 extern struct a2dp_codec a2dp_codec_aptx;
 extern struct a2dp_codec a2dp_codec_aptx_hd;
+extern struct a2dp_codec a2dp_codec_aptx_ll_0;
+extern struct a2dp_codec a2dp_codec_aptx_ll_1;
 #endif
 
 static const struct a2dp_codec * const a2dp_codec_list[] = {
@@ -150,6 +152,10 @@ static const struct a2dp_codec * const a2dp_codec_list[] = {
 #endif
 	&a2dp_codec_sbc,
 	&a2dp_codec_sbc_xq,
+#if ENABLE_APTX
+	&a2dp_codec_aptx_ll_0,
+	&a2dp_codec_aptx_ll_1,
+#endif
 	NULL
 };
 

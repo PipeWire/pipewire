@@ -4,6 +4,7 @@
 # Necdet Yücel <necdetyucel@gmail.com>, 2014.
 # Kaan Özdinçer <kaanozdincer@gmail.com>, 2014.
 # Muhammet Kara <muhammetk@gmail.com>, 2015, 2016, 2017.
+# Oğuz Ersen <oguzersen@protonmail.com>, 2021.
 #
 msgid ""
 msgstr ""
@@ -11,7 +12,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
 "POT-Creation-Date: 2021-04-18 16:54+0800\n"
-"PO-Revision-Date: 2021-01-27 18:40+0000\n"
+"PO-Revision-Date: 2021-08-15 19:51+0300\n"
 "Last-Translator: Oğuz Ersen <oguzersen@protonmail.com>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/"
 "pipewire/pipewire/tr/>\n"
@@ -30,14 +31,18 @@ msgid ""
 "      --version                         Show version\n"
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
+"%s [seçenekler]\n"
+"  -h, --help                            Bu yardımı göster\n"
+"      --version                         Sürümü göster\n"
+"  -c, --config                          Yapılandırmayı yükle (Öntanımlı %s)\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr ""
+msgstr "PipeWire Ortam Sistemi"
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr ""
+msgstr "PipeWire Ortam Sistemini Başlat"
 
 #: src/examples/media-session/alsa-monitor.c:526
 #: spa/plugins/alsa/acp/compat.c:187
@@ -51,7 +56,7 @@ msgstr "Modem"
 
 #: src/examples/media-session/alsa-monitor.c:539
 msgid "Unknown device"
-msgstr ""
+msgstr "Bilinmeyen aygıt"
 
 #: src/tools/pw-cat.c:991
 #, c-format
@@ -62,6 +67,11 @@ msgid ""
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
+"%s [seçenekler] <dosya>\n"
+"  -h, --help                            Bu yardımı göster\n"
+"      --version                         Sürümü göster\n"
+"  -v, --verbose                         Ayrıntılı işlemleri etkinleştir\n"
+"\n"
 
 #: src/tools/pw-cat.c:998
 #, c-format
@@ -80,6 +90,22 @@ msgid ""
 "      --list-targets                    List available targets for --target\n"
 "\n"
 msgstr ""
+"  -R, --remote                          Uzak arka plan programı adı\n"
+"      --media-type                      Ortam türünü ayarla (öntanımlı %s)\n"
+"      --media-category                  Ortam kategorisini ayarla (öntanımlı "
+"%s)\n"
+"      --media-role                      Ortam rolünü ayarla (öntanımlı %s)\n"
+"      --target                          Düğüm hedefini ayarla (öntanımlı "
+"%s)\n"
+"                                          0, bağlanmayacağı anlamına gelir\n"
+"      --latency                         Düğüm gecikmesini ayarla (öntanımlı "
+"%s)\n"
+"                                          Xbirim (birim = s, ms, us, ns)\n"
+"                                          veya doğrudan örneklemeler (256)\n"
+"                                          oran kaynak dosyadan biridir\n"
+"      --list-targets                    --target için kullanılabilir "
+"hedefleri listele\n"
+"\n"
 
 #: src/tools/pw-cat.c:1016
 #, c-format
@@ -100,6 +126,22 @@ msgid ""
 "%d)\n"
 "\n"
 msgstr ""
+"      --rate                            Örnekleme oranı (kayıt için gerekli) "
+"(öntanımlı %u)\n"
+"      --channels                        Kanal sayısı (kayıt için gerekli) "
+"(öntanımlı %u)\n"
+"      --channel-map                     Kanal haritası\n"
+"                                            şunlardan biri: \"stereo\", "
+"\"surround-51\",... veya\n"
+"                                            kanal adlarının virgülle "
+"ayrılmış listesi: örn. \"FL,FR\"\n"
+"      --format                          Örnekleme biçimi %s (kayıt için "
+"gerekli) (öntanımlı %s)\n"
+"      --volume                          Akış ses seviyesi 0-1.0 (öntanımlı "
+"%.3f)\n"
+"  -q  --quality                         Yeniden örnekleyici kalitesi (0 - "
+"15) (öntanımlı %d)\n"
+"\n"
 
 #: src/tools/pw-cat.c:1033
 msgid ""
@@ -108,6 +150,10 @@ msgid ""
 "  -m, --midi                            Midi mode\n"
 "\n"
 msgstr ""
+"  -p, --playback                        Çalma modu\n"
+"  -r, --record                          Kayıt modu\n"
+"  -m, --midi                            Midi modu\n"
+"\n"
 
 #: src/tools/pw-cli.c:2932
 #, c-format
@@ -119,10 +165,17 @@ msgid ""
 "  -r, --remote                          Remote daemon name\n"
 "\n"
 msgstr ""
+"%s [seçenekler] [komut]\n"
+"  -h, --help                            Bu yardımı göster\n"
+"      --version                         Sürümü göster\n"
+"  -d, --daemon                          Arka plan programı olarak başlat "
+"(Öntanımlı olarak yanlış)\n"
+"  -r, --remote                          Uzak arka plan programı adı\n"
+"\n"
 
 #: spa/plugins/alsa/acp/acp.c:290
 msgid "Pro Audio"
-msgstr ""
+msgstr "Profesyonel Ses"
 
 #: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4704
 #: spa/plugins/bluez5/bluez5-device.c:1000
@@ -187,15 +240,15 @@ msgstr "Radyo"
 #: spa/plugins/alsa/acp/alsa-mixer.c:2720
 #: spa/plugins/alsa/acp/alsa-mixer.c:2806
 msgid "Video"
-msgstr "Görüntü"
+msgstr "Video"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2721
 msgid "Automatic Gain Control"
-msgstr "Otomatik Kazanç Kontrolü"
+msgstr "Otomatik Kazanç Denetimi"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2722
 msgid "No Automatic Gain Control"
-msgstr "Otomatik Kazanç Kontrolü Yok"
+msgstr "Otomatik Kazanç Denetimi Yok"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2723
 msgid "Boost"
@@ -211,7 +264,7 @@ msgstr "Yükseltici"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2726
 msgid "No Amplifier"
-msgstr "Anfi Yok"
+msgstr "Yükseltici Yok"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2727
 msgid "Bass Boost"
@@ -219,7 +272,7 @@ msgstr "Bas Artır"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2728
 msgid "No Bass Boost"
-msgstr "Bas Artırma"
+msgstr "Bas Artırma Yok"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2729
 #: spa/plugins/bluez5/bluez5-device.c:1150
@@ -269,23 +322,23 @@ msgstr "Hoparlörler"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2814
 msgid "HDMI / DisplayPort"
-msgstr "HDMI / ÇıkışıNoktası"
+msgstr "HDMI / DisplayPort"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2815
 msgid "Digital Output (S/PDIF)"
-msgstr "Dijital Çıkış (S/PDIF)"
+msgstr "Sayısal Çıkış (S/PDIF)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2816
 msgid "Digital Input (S/PDIF)"
-msgstr "Dijital Giriş (S/PDIF)"
+msgstr "Sayısal Giriş (S/PDIF)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2817
 msgid "Multichannel Input"
-msgstr "Çok Kanallı Girdi"
+msgstr "Çok Kanallı Giriş"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2818
 msgid "Multichannel Output"
-msgstr "Çok Kanallı Çıktı"
+msgstr "Çok Kanallı Çıkış"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2819
 msgid "Game Output"
@@ -397,27 +450,27 @@ msgstr "Analog Çevresel Ses 7.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4555
 msgid "Digital Stereo (IEC958)"
-msgstr "Dijital İki Kanallı (IEC958)"
+msgstr "Sayısal Stereo (IEC958)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4556
 msgid "Digital Surround 4.0 (IEC958/AC3)"
-msgstr "Dijital Çevresel Ses 4.0 (IEC958/AC3)"
+msgstr "Sayısal Çevresel Ses 4.0 (IEC958/AC3)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4557
 msgid "Digital Surround 5.1 (IEC958/AC3)"
-msgstr "Dijital Çevresel Ses 5.1 (IEC958/AC3)"
+msgstr "Sayısal Çevresel Ses 5.1 (IEC958/AC3)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4558
 msgid "Digital Surround 5.1 (IEC958/DTS)"
-msgstr "Dijital Çevresel Ses 5.1 (IEC958/DTS)"
+msgstr "Sayısal Çevresel Ses 5.1 (IEC958/DTS)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4559
 msgid "Digital Stereo (HDMI)"
-msgstr "Dijital İki Kanallı (HDMI)"
+msgstr "Sayısal Stereo (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4560
 msgid "Digital Surround 5.1 (HDMI)"
-msgstr "Dijital Çevresel Ses 5.1 (HDMI)"
+msgstr "Sayısal Çevresel Ses 5.1 (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4561
 msgid "Chat"
@@ -441,7 +494,7 @@ msgstr "Sayısal İkili Stereo (IEC958)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4701
 msgid "Multichannel Duplex"
-msgstr "Çok Kanallı Duplex"
+msgstr "Çok Kanallı İkili"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4702
 msgid "Stereo Duplex"
@@ -528,34 +581,34 @@ msgstr[0] ""
 
 #: spa/plugins/bluez5/bluez5-device.c:1010
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
-msgstr ""
+msgstr "Ses Geçidi (A2DP Kaynak & HSP/HFP AG)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1033
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
-msgstr ""
+msgstr "Yüksek Kaliteli Çalma (A2DP Alıcı, çözücü %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1035
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
-msgstr ""
+msgstr "Yüksek Kaliteli İkili (A2DP Kaynak/Alıcı, çözücü %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1041
 msgid "High Fidelity Playback (A2DP Sink)"
-msgstr ""
+msgstr "Yüksek Kaliteli Çalma (A2DP Alıcı)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1043
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
-msgstr ""
+msgstr "Yüksek Kaliteli İkili (A2DP Kaynak/Alıcı)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1070
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr ""
+msgstr "Kulaklık Ana Birimi (HSP/HFP, çözücü %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1074
 msgid "Headset Head Unit (HSP/HFP)"
-msgstr ""
+msgstr "Kulaklık Ana Birimi (HSP/HFP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"
@@ -575,7 +628,7 @@ msgstr "Araba"
 
 #: spa/plugins/bluez5/bluez5-device.c:1170
 msgid "HiFi"
-msgstr "Yüksek duyarlılık"
+msgstr "Yüksek Kalite"
 
 #: spa/plugins/bluez5/bluez5-device.c:1175
 msgid "Phone"

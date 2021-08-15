@@ -350,6 +350,7 @@ struct a2dp_codec {
 
 	const char *name;
 	const char *description;
+	const char *endpoint_name;	/**< Endpoint name. If NULL, same as name */
 	const struct spa_dict *info;
 
 	const size_t send_buf_size;

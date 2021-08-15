@@ -400,7 +400,8 @@ static int a2dp_codec_to_endpoint(const struct a2dp_codec *codec,
 				   const char * endpoint,
 				   char** object_path)
 {
-	*object_path = spa_aprintf("%s/%s", endpoint, codec->name);
+	*object_path = spa_aprintf("%s/%s", endpoint,
+		codec->endpoint_name ? codec->endpoint_name : codec->name);
 	if (*object_path == NULL)
 		return -errno;
 	return 0;
@@ -408,19 +409,21 @@ static int a2dp_codec_to_endpoint(const struct a2dp_codec *codec,
 
 static const struct a2dp_codec *a2dp_endpoint_to_codec(const char *endpoint)
 {
-	const char *codec_name;
+	const char *ep_name;
 	int i;
 
 	if (spa_strstartswith(endpoint, A2DP_SINK_ENDPOINT "/"))
-		codec_name = endpoint + strlen(A2DP_SINK_ENDPOINT "/");
+		ep_name = endpoint + strlen(A2DP_SINK_ENDPOINT "/");
 	else if (spa_strstartswith(endpoint, A2DP_SOURCE_ENDPOINT "/"))
-		codec_name = endpoint + strlen(A2DP_SOURCE_ENDPOINT "/");
+		ep_name = endpoint + strlen(A2DP_SOURCE_ENDPOINT "/");
 	else
 		return NULL;
 
 	for (i = 0; a2dp_codecs[i]; i++) {
 		const struct a2dp_codec *codec = a2dp_codecs[i];
-		if (spa_streq(codec->name, codec_name))
+		const char *codec_ep_name =
+			codec->endpoint_name ? codec->endpoint_name : codec->name;
+		if (spa_streq(ep_name, codec_ep_name))
 			return codec;
 	}
 	return NULL;

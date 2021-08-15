@@ -161,15 +161,20 @@ static void init_node(struct impl *this, struct node *node, uint32_t id)
 	}
 }
 
-static const struct a2dp_codec *get_a2dp_codec(enum spa_bluetooth_audio_codec id)
+static void get_a2dp_codecs(enum spa_bluetooth_audio_codec id, const struct a2dp_codec **codecs, size_t size)
 {
 	const struct a2dp_codec * const *c;
 
-	for (c = a2dp_codecs; *c; ++c)
-		if ((*c)->id == id)
-			return *c;
+	spa_assert(size > 0);
 
-	return NULL;
+	for (c = a2dp_codecs; *c && size > 1; ++c) {
+		if ((*c)->id == id || id == 0) {
+			*codecs++ = *c;
+			--size;
+		}
+	}
+
+	*codecs = NULL;
 }
 
 static const struct a2dp_codec *get_supported_a2dp_codec(struct impl *this, enum spa_bluetooth_audio_codec id)
@@ -406,17 +411,15 @@ static struct spa_bt_transport *find_transport(struct impl *this, int profile, e
 {
 	struct spa_bt_device *device = this->bt_dev;
 	struct spa_bt_transport *t;
-	const struct a2dp_codec *a2dp_codec;
-	unsigned int hfp_codec;
-
-	a2dp_codec = get_a2dp_codec(codec);
-	hfp_codec = get_hfp_codec(codec);
 
 	spa_list_for_each(t, &device->transport_list, device_link) {
+		bool codec_ok = codec == 0 ||
+			(t->a2dp_codec != NULL && t->a2dp_codec->id == codec) ||
+			get_hfp_codec_id(t->codec) == codec;
+
 		if ((t->profile & device->connected_profiles) &&
 				(t->profile & profile) == t->profile &&
-				(a2dp_codec == NULL || t->a2dp_codec == a2dp_codec) &&
-				(hfp_codec == 0 || t->codec == hfp_codec))
+				codec_ok)
 			return t;
 	}
 
@@ -682,24 +685,15 @@ static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_a
 	this->props.codec = codec;
 
 	/*
-	 * A2DP: ensure there's a transport with the selected codec (NULL means any).
+	 * A2DP: ensure there's a transport with the selected codec (0 means any).
 	 * Don't try to switch codecs when the device is in the A2DP source role, since
 	 * devices do not appear to like that.
 	 */
 	if (profile == DEVICE_PROFILE_A2DP && !(this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE)) {
 		int ret;
-		const struct a2dp_codec *codec_list[2];
-		const struct a2dp_codec * const *codecs;
-		const struct a2dp_codec *a2dp_codec;
+		const struct a2dp_codec *codecs[64];
 
-		a2dp_codec = get_a2dp_codec(codec);
-		if (a2dp_codec == NULL) {
-			codecs = a2dp_codecs;
-		} else {
-			codec_list[0] = a2dp_codec;
-			codec_list[1] = NULL;
-			codecs = codec_list;
-		}
+		get_a2dp_codecs(codec, codecs, SPA_N_ELEMENTS(codecs));
 
 		this->switching_codec = true;
 
@@ -1350,15 +1344,34 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
+static bool iterate_supported_a2dp_codecs(struct impl *this, int *j, const struct a2dp_codec **codec)
+{
+	int i;
+
+next:
+	*j = *j + 1;
+	spa_assert(*j >= 0);
+	if ((size_t)*j >= this->supported_codec_count)
+		return false;
+
+	for (i = 0; i < *j; ++i)
+		if (this->supported_codecs[i]->id == this->supported_codecs[*j]->id)
+			goto next;
+
+	*codec = this->supported_codecs[*j];
+	return true;
+}
+
 static struct spa_pod *build_prop_info(struct impl *this, struct spa_pod_builder *b, uint32_t id)
 {
 	struct spa_pod_frame f[2];
 	struct spa_pod_choice *choice;
 	const struct a2dp_codec *codec;
-	size_t n, j;
+	size_t n;
+	int j;
 
 #define FOR_EACH_A2DP_CODEC(j, codec) \
-		for (j = 0; (j < this->supported_codec_count) ? (codec = this->supported_codecs[j]) : NULL; ++j)
+		for (j = -1; iterate_supported_a2dp_codecs(this, &j, &codec);)
 #define FOR_EACH_HFP_CODEC(j) \
 		for (j = HFP_AUDIO_CODEC_MSBC; j >= HFP_AUDIO_CODEC_CVSD; --j) \
 			if (spa_bt_device_supports_hfp_codec(this->bt_dev, j) == 1)

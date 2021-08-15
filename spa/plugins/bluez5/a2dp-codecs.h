@@ -355,6 +355,8 @@ struct a2dp_codec {
 
 	const size_t send_buf_size;
 
+	const struct a2dp_codec *duplex_codec;	/**< Codec for non-standard A2DP duplex channel */
+
 	int (*fill_caps) (const struct a2dp_codec *codec, uint32_t flags,
 			uint8_t caps[A2DP_MAX_CAPS_SIZE]);
 	int (*select_config) (const struct a2dp_codec *codec, uint32_t flags,

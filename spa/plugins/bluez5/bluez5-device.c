@@ -106,6 +106,7 @@ struct dynamic_node
 	struct spa_hook transport_listener;
 	uint32_t id;
 	const char *factory_name;
+	bool a2dp_duplex;
 };
 
 struct impl {
@@ -139,6 +140,7 @@ struct impl {
 	size_t supported_codec_count;
 
 	struct dynamic_node dyn_a2dp_source;
+	struct dynamic_node dyn_a2dp_sink;
 	struct dynamic_node dyn_sco_source;
 	struct dynamic_node dyn_sco_sink;
 
@@ -232,10 +234,13 @@ static const char *get_hfp_codec_name(unsigned int codec)
 	return "unknown";
 }
 
-static const char *get_codec_name(struct spa_bt_transport *t)
+static const char *get_codec_name(struct spa_bt_transport *t, bool a2dp_duplex)
 {
-	if (t->a2dp_codec != NULL)
+	if (t->a2dp_codec != NULL) {
+		if (a2dp_duplex && t->a2dp_codec->duplex_codec)
+			return t->a2dp_codec->duplex_codec->name;
 		return t->a2dp_codec->name;
+	}
 	return get_hfp_codec_name(t->codec);
 }
 
@@ -346,11 +351,11 @@ static const struct spa_bt_transport_events transport_events = {
 };
 
 static void emit_node(struct impl *this, struct spa_bt_transport *t,
-		uint32_t id, const char *factory_name)
+		uint32_t id, const char *factory_name, bool a2dp_duplex)
 {
 	struct spa_bt_device *device = this->bt_dev;
 	struct spa_device_object_info info;
-	struct spa_dict_item items[7];
+	struct spa_dict_item items[8];
 	uint32_t n_items = 0;
 	char transport[32], str_id[32];
 	bool is_dyn_node = SPA_FLAG_IS_SET(id, DYNAMIC_NODE_ID_FLAG);
@@ -358,7 +363,7 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 	snprintf(transport, sizeof(transport), "pointer:%p", t);
 	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_TRANSPORT, transport);
 	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PROFILE, spa_bt_profile_name(t->profile));
-	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_CODEC, get_codec_name(t));
+	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_CODEC, get_codec_name(t, a2dp_duplex));
 	items[3] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ADDRESS, device->address);
 	items[4] = SPA_DICT_ITEM_INIT("device.routes", "1");
 	n_items = 5;
@@ -369,6 +374,10 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 	}
 	if (spa_streq(spa_bt_profile_name(t->profile), "headset-head-unit")) {
 		items[n_items] = SPA_DICT_ITEM_INIT("device.intended-roles", "Communication");
+		n_items++;
+	}
+	if (a2dp_duplex) {
+		items[n_items] = SPA_DICT_ITEM_INIT("api.bluez5.a2dp-duplex", "true");
 		n_items++;
 	}
 
@@ -446,7 +455,7 @@ static void dynamic_node_transport_state_changed(void *data,
 	if (state >= SPA_BT_TRANSPORT_STATE_PENDING && old < SPA_BT_TRANSPORT_STATE_PENDING) {
 		if (!SPA_FLAG_IS_SET(this->id, DYNAMIC_NODE_ID_FLAG)) {
 			SPA_FLAG_SET(this->id, DYNAMIC_NODE_ID_FLAG);
-			emit_node(impl, t, this->id, this->factory_name);
+			emit_node(impl, t, this->id, this->factory_name, this->a2dp_duplex);
 		}
 	} else if (state < SPA_BT_TRANSPORT_STATE_PENDING && old >= SPA_BT_TRANSPORT_STATE_PENDING) {
 		if (SPA_FLAG_IS_SET(this->id, DYNAMIC_NODE_ID_FLAG)) {
@@ -511,7 +520,7 @@ static const struct spa_bt_transport_events dynamic_node_transport_events = {
 };
 
 static void emit_dynamic_node(struct dynamic_node *this, struct impl *impl,
-	struct spa_bt_transport *t, uint32_t id, const char *factory_name)
+	struct spa_bt_transport *t, uint32_t id, const char *factory_name, bool a2dp_duplex)
 {
 	spa_log_debug(impl->log, NAME": dynamic node, transport: %p->%p id: %08x->%08x",
 		this->transport, t, this->id, id);
@@ -526,6 +535,7 @@ static void emit_dynamic_node(struct dynamic_node *this, struct impl *impl,
 	this->transport = t;
 	this->id = id;
 	this->factory_name = factory_name;
+	this->a2dp_duplex = a2dp_duplex;
 
 	spa_bt_transport_add_listener(this->transport,
 		&this->transport_listener, &dynamic_node_transport_events, this);
@@ -568,9 +578,9 @@ static int emit_nodes(struct impl *this)
 				else
 					this->props.codec = get_hfp_codec_id(t->codec);
 				emit_dynamic_node(&this->dyn_sco_source, this, t,
-						0, SPA_NAME_API_BLUEZ5_SCO_SOURCE);
+						0, SPA_NAME_API_BLUEZ5_SCO_SOURCE, false);
 				emit_dynamic_node(&this->dyn_sco_sink, this, t,
-						1, SPA_NAME_API_BLUEZ5_SCO_SINK);
+						1, SPA_NAME_API_BLUEZ5_SCO_SINK, false);
 			}
 		}
 		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE) {
@@ -578,7 +588,12 @@ static int emit_nodes(struct impl *this)
 			if (t) {
 				this->props.codec = t->a2dp_codec->id;
 				emit_dynamic_node(&this->dyn_a2dp_source, this, t,
-						2, SPA_NAME_API_BLUEZ5_A2DP_SOURCE);
+						2, SPA_NAME_API_BLUEZ5_A2DP_SOURCE, false);
+
+				if (t->a2dp_codec->duplex_codec) {
+					emit_dynamic_node(&this->dyn_a2dp_sink, this, t,
+						3, SPA_NAME_API_BLUEZ5_A2DP_SINK, true);
+				}
 			}
 		}
 		break;
@@ -588,7 +603,12 @@ static int emit_nodes(struct impl *this)
 			if (t) {
 				this->props.codec = t->a2dp_codec->id;
 				emit_dynamic_node(&this->dyn_a2dp_source, this, t,
-					DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_A2DP_SOURCE);
+					DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_A2DP_SOURCE, false);
+
+				if (t->a2dp_codec->duplex_codec) {
+					emit_node(this, t,
+						DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_A2DP_SINK, true);
+				}
 			}
 		}
 
@@ -596,7 +616,12 @@ static int emit_nodes(struct impl *this)
 			t = find_transport(this, SPA_BT_PROFILE_A2DP_SINK, this->props.codec);
 			if (t) {
 				this->props.codec = t->a2dp_codec->id;
-				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_A2DP_SINK);
+				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_A2DP_SINK, false);
+
+				if (t->a2dp_codec->duplex_codec) {
+					emit_node(this, t,
+						DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_A2DP_SOURCE, true);
+				}
 			}
 		}
 		break;
@@ -610,8 +635,8 @@ static int emit_nodes(struct impl *this)
 					this->props.codec = 0;
 				else
 					this->props.codec = get_hfp_codec_id(t->codec);
-				emit_node(this, t, DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_SCO_SOURCE);
-				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_SCO_SINK);
+				emit_node(this, t, DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_SCO_SOURCE, false);
+				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_SCO_SINK, false);
 			}
 		}
 		break;
@@ -643,6 +668,7 @@ static void emit_info(struct impl *this, bool full)
 static void emit_remove_nodes(struct impl *this)
 {
 	remove_dynamic_node (&this->dyn_a2dp_source);
+	remove_dynamic_node (&this->dyn_a2dp_sink);
 	remove_dynamic_node (&this->dyn_sco_source);
 	remove_dynamic_node (&this->dyn_sco_sink);
 
@@ -887,16 +913,21 @@ static int impl_sync(void *object, int seq)
 	return 0;
 }
 
-static uint32_t profile_direction_mask(struct impl *this, uint32_t index)
+static uint32_t profile_direction_mask(struct impl *this, uint32_t index, enum spa_bluetooth_audio_codec codec)
 {
 	struct spa_bt_device *device = this->bt_dev;
 	uint32_t mask;
 	bool have_output = false, have_input = false;
+	const struct a2dp_codec *a2dp_codec;
 
 	switch (index) {
 	case DEVICE_PROFILE_A2DP:
 		if (device->connected_profiles & SPA_BT_PROFILE_A2DP_SINK)
 			have_output = true;
+
+		a2dp_codec = get_supported_a2dp_codec(this, codec);
+		if (a2dp_codec && a2dp_codec->duplex_codec)
+			have_input = true;
 		break;
 	case DEVICE_PROFILE_HSP_HFP:
 		if (device->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT)
@@ -1070,7 +1101,7 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 			}
 			name_and_codec = spa_aprintf("%s-%s", name, a2dp_codec->name);
 			name = name_and_codec;
-			if (profile == SPA_BT_PROFILE_A2DP_SINK) {
+			if (profile == SPA_BT_PROFILE_A2DP_SINK && !a2dp_codec->duplex_codec) {
 				desc = _("High Fidelity Playback (A2DP Sink, codec %s)");
 			} else {
 				desc = _("High Fidelity Duplex (A2DP Source/Sink, codec %s)");
@@ -1248,15 +1279,6 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		return NULL;
 	}
 
-	if (dev != SPA_ID_INVALID && !(profile_direction_mask(this, this->profile) & (1 << direction)))
-		return NULL;
-
-	mask = 0;
-	for (i = 1; i < 4; i++)
-		mask |= profile_direction_mask(this, i);
-	if ((mask & (1 << direction)) == 0)
-		return NULL;
-
 	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_ParamRoute, id);
 	spa_pod_builder_add(b,
 		SPA_PARAM_ROUTE_index, SPA_POD_Int(port),
@@ -1276,22 +1298,36 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	spa_pod_builder_pop(b, &f[1]);
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_profiles, 0);
 	spa_pod_builder_push_array(b, &f[1]);
-	for (i = 1; (j = get_profile_from_index(this, i, &next, &codec)) != SPA_ID_INVALID; i = next) {
 
-		if (!(profile_direction_mask(this, j) & (1 << direction)))
+	mask = 0;
+	for (i = 1; (j = get_profile_from_index(this, i, &next, &codec)) != SPA_ID_INVALID; i = next) {
+		uint32_t profile_mask;
+
+		profile_mask = profile_direction_mask(this, j, codec);
+		if (!(profile_mask & (1 << direction)))
 			continue;
 
 		/* Check the profile actually exists */
 		if (!validate_profile(this, j, codec))
 			continue;
 
+		mask |= profile_mask;
 		spa_pod_builder_int(b, i);
 	}
 	spa_pod_builder_pop(b, &f[1]);
 
+	if (!(mask & (1 << direction))) {
+		/* No profile has route direction */
+		return NULL;
+	}
+
 	if (dev != SPA_ID_INVALID) {
 		struct node *node = &this->nodes[dev];
 		struct spa_bt_transport_volume *t_volume;
+
+		mask = profile_direction_mask(this, this->profile, this->props.codec);
+		if (!(mask & (1 << direction)))
+			return NULL;
 
 		t_volume = node->transport
 			? &node->transport->volumes[node->id]

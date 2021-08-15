@@ -146,6 +146,7 @@ struct impl {
 	uint64_t skip_count;
 
 	bool is_input;
+	bool is_duplex;
 };
 
 #define NAME "a2dp-source"
@@ -465,6 +466,8 @@ static void a2dp_on_ready_read(struct spa_source *source)
 		goto stop;
 	}
 
+	spa_log_trace(this->log, "socket poll");
+
 	/* update the current pts */
 	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
 
@@ -667,7 +670,8 @@ static int do_start(struct impl *this)
 
 	spa_return_val_if_fail(this->transport != NULL, -EIO);
 
-	if (this->transport->state >= SPA_BT_TRANSPORT_STATE_PENDING)
+	if (this->transport->state >= SPA_BT_TRANSPORT_STATE_PENDING ||
+			this->is_duplex)
 		res = transport_start(this);
 
 	this->started = true;
@@ -1377,6 +1381,8 @@ impl_init(const struct spa_handle_factory *factory,
 			sscanf(str, "pointer:%p", &this->transport);
 		if ((str = spa_dict_lookup(info, "bluez5.a2dp-source-role")) != NULL)
 			this->is_input = spa_streq(str, "input");
+		if ((str = spa_dict_lookup(info, "api.bluez5.a2dp-duplex")) != NULL)
+			this->is_duplex = spa_atob(str);
 	}
 
 	if (this->transport == NULL) {
@@ -1388,6 +1394,16 @@ impl_init(const struct spa_handle_factory *factory,
 		return -EINVAL;
 	}
 	this->codec = this->transport->a2dp_codec;
+
+	if (this->is_duplex) {
+		if (!this->codec->duplex_codec) {
+			spa_log_error(this->log, "transport codec doesn't support duplex");
+			return -EINVAL;
+		}
+		this->codec = this->codec->duplex_codec;
+		this->is_input = true;
+	}
+
 	if (this->codec->init_props != NULL)
 		this->codec_props = this->codec->init_props(this->codec,
 					this->transport->device->settings);

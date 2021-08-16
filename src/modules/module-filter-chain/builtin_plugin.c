@@ -452,7 +452,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	const char *val;
 	char key[256];
 	char filename[PATH_MAX] = "";
-	int blocksize = 0;
+	int blocksize = 0, tailsize = 0;
 	int delay = 0;
 	float gain = 1.0f;
 
@@ -466,6 +466,10 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 		if (spa_streq(key, "blocksize")) {
 			if (spa_json_get_int(&it[1], &blocksize) <= 0)
+				return NULL;
+		}
+		else if (spa_streq(key, "tailsize")) {
+			if (spa_json_get_int(&it[1], &tailsize) <= 0)
 				return NULL;
 		}
 		else if (spa_streq(key, "gain")) {
@@ -509,6 +513,10 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 
 	if (blocksize <= 0)
 		blocksize = SPA_CLAMP(n_samples, 64, 256);
+	if (tailsize <= 0)
+		tailsize = SPA_CLAMP(4096, blocksize, 4096);
+
+	pw_log_info("using %d:%d blocksize ir:%s", blocksize, tailsize, filename);
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
@@ -516,7 +524,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 
 	impl->rate = SampleRate;
 
-	impl->conv = convolver_new(blocksize, samples, n_samples);
+	impl->conv = convolver_new(blocksize, tailsize, samples, n_samples);
 	free(samples);
 
 	return impl;

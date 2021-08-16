@@ -25,7 +25,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-struct convolver *convolver_new(int block, const float *ir, int irlen);
+struct convolver *convolver_new(int block, int tail, const float *ir, int irlen);
 void convolver_free(struct convolver *conv);
 
 int convolver_run(struct convolver *conv, const float *input, float *output, int length);

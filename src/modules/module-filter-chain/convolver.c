@@ -1,24 +1,29 @@
-// ==================================================================================
-// Copyright (c) 2017 HiFi-LoFi
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is furnished
-// to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-// FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-// COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-// IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-// ==================================================================================
-
+/* PipeWire
+ *
+ * Copyright (c) 2017 HiFi-LoFi
+ * Copyright © 2021 Wim Taymans
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ *
+ * Adapted from https://github.com/HiFi-LoFi/FFTConvolver
+ */
 #include "convolver.h"
 
 #include <spa/utils/defs.h>
@@ -26,7 +31,7 @@
 #include "kiss_fft_f32.h"
 #include "kiss_fftr_f32.h"
 
-struct convolver {
+struct convolver1 {
 	int blockSize;
 	int segSize;
 	int segCount;
@@ -58,9 +63,9 @@ static int next_power_of_two(int val)
 	return r;
 }
 
-struct convolver *convolver_new(int block, const float *ir, int irlen)
+static struct convolver1 *convolver1_new(int block, const float *ir, int irlen)
 {
-	struct convolver *conv;
+	struct convolver1 *conv;
 	int i;
 
 	if (block == 0)
@@ -118,8 +123,22 @@ struct convolver *convolver_new(int block, const float *ir, int irlen)
 	return conv;
 }
 
-void convolver_free(struct convolver *conv)
+static void convolver1_free(struct convolver1 *conv)
 {
+	int i;
+	for (i = 0; i < conv->segCount; i++) {
+		free(conv->segments[i]);
+		free(conv->segmentsIr[i]);
+	}
+	free(conv->fft);
+	free(conv->ifft);
+	free(conv->fft_buffer);
+	free(conv->segments);
+	free(conv->segmentsIr);
+	free(conv->pre_mult);
+	free(conv->conv);
+	free(conv->overlap);
+	free(conv->inputBuffer);
 	free(conv);
 }
 
@@ -139,7 +158,7 @@ void ComplexMultiplyAccumulate(kiss_fft_f32_cpx *r, const kiss_fft_f32_cpx *a, c
 	}
 }
 
-int convolver_run(struct convolver *conv, const float *input, float *output, int len)
+static int convolver1_run(struct convolver1 *conv, const float *input, float *output, int len)
 {
 	int i, processed = 0;
 
@@ -197,4 +216,148 @@ int convolver_run(struct convolver *conv, const float *input, float *output, int
 		processed += processing;
 	}
 	return len;
+}
+
+struct convolver
+{
+	int headBlockSize;
+	int tailBlockSize;
+	struct convolver1 *headConvolver;
+	struct convolver1 *tailConvolver0;
+	float *tailOutput0;
+	float *tailPrecalculated0;
+	struct convolver1 *tailConvolver;
+	float *tailOutput;
+	float *tailPrecalculated;
+	float *tailInput;
+	int tailInputFill;
+	int precalculatedPos;
+};
+
+struct convolver *convolver_new(int head_block, int tail_block, const float *ir, int irlen)
+{
+	struct convolver *conv;
+	int head_ir_len;
+
+	if (head_block == 0 || tail_block == 0)
+		return NULL;
+
+	head_block = SPA_MAX(1, head_block);
+	if (head_block > tail_block)
+		SPA_SWAP(head_block, tail_block);
+
+	while (irlen > 0 && fabs(ir[irlen-1]) < 0.000001f)
+		irlen--;
+
+	conv = calloc(1, sizeof(*conv));
+	if (conv == NULL)
+		return NULL;
+
+	if (irlen == 0)
+		return conv;
+
+	conv->headBlockSize = next_power_of_two(head_block);
+	conv->tailBlockSize = next_power_of_two(tail_block);
+
+	head_ir_len = SPA_MIN(irlen, conv->tailBlockSize);
+	conv->headConvolver = convolver1_new(conv->headBlockSize, ir, head_ir_len);
+
+	if (irlen > conv->tailBlockSize) {
+		int conv1IrLen = SPA_MIN(irlen - conv->tailBlockSize, conv->tailBlockSize);
+		conv->tailConvolver0 = convolver1_new(conv->headBlockSize, ir + conv->tailBlockSize, conv1IrLen);
+		conv->tailOutput0 = calloc(conv->tailBlockSize, sizeof(float));
+		conv->tailPrecalculated0 = calloc(conv->tailBlockSize, sizeof(float));
+	}
+
+	if (irlen > 2 * conv->tailBlockSize) {
+		int tailIrLen = irlen - (2 * conv->tailBlockSize);
+		conv->tailConvolver = convolver1_new(conv->tailBlockSize, ir + (2 * conv->tailBlockSize), tailIrLen);
+		conv->tailOutput = calloc(conv->tailBlockSize, sizeof(float));
+		conv->tailPrecalculated = calloc(conv->tailBlockSize, sizeof(float));
+	}
+
+	if (conv->tailConvolver0 || conv->tailConvolver)
+		conv->tailInput = calloc(conv->tailBlockSize, sizeof(float));
+
+	conv->tailInputFill = 0;
+	conv->precalculatedPos = 0;
+
+	return conv;
+}
+
+void convolver_free(struct convolver *conv)
+{
+	if (conv->headConvolver)
+		convolver1_free(conv->headConvolver);
+	if (conv->tailConvolver0)
+		convolver1_free(conv->tailConvolver0);
+	if (conv->tailConvolver)
+		convolver1_free(conv->tailConvolver);
+	free(conv->tailOutput0);
+	free(conv->tailPrecalculated0);
+	free(conv->tailOutput);
+	free(conv->tailPrecalculated);
+	free(conv->tailInput);
+	free(conv);
+}
+
+int convolver_run(struct convolver *conv, const float *input, float *output, int length)
+{
+	int i;
+
+	convolver1_run(conv->headConvolver, input, output, length);
+
+	if (conv->tailInput) {
+		int processed = 0;
+
+		while (processed < length) {
+			int remaining = length - processed;
+			int processing = SPA_MIN(remaining, conv->headBlockSize - (conv->tailInputFill % conv->headBlockSize));
+
+			const int sumBegin = processed;
+			const int sumEnd = processed + processing;
+
+			if (conv->tailPrecalculated0) {
+				int precalculatedPos = conv->precalculatedPos;
+				for (i = sumBegin; i < sumEnd; i++) {
+					output[i] += conv->tailPrecalculated0[precalculatedPos];
+					precalculatedPos++;
+				}
+			}
+
+			if (conv->tailPrecalculated) {
+				int precalculatedPos = conv->precalculatedPos;
+				for (i = sumBegin; i < sumEnd; i++) {
+					output[i] += conv->tailPrecalculated[precalculatedPos];
+					precalculatedPos++;
+				}
+			}
+			conv->precalculatedPos += processing;
+
+			memcpy(conv->tailInput + conv->tailInputFill, input + processed, processing * sizeof(float));
+			conv->tailInputFill += processing;
+
+			if (conv->tailPrecalculated0 && (conv->tailInputFill % conv->headBlockSize == 0)) {
+				int blockOffset = conv->tailInputFill - conv->headBlockSize;
+				convolver1_run(conv->tailConvolver0,
+						conv->tailInput + blockOffset,
+						conv->tailOutput0 + blockOffset,
+						conv->headBlockSize);
+				if (conv->tailInputFill == conv->tailBlockSize)
+					SPA_SWAP(conv->tailPrecalculated0, conv->tailOutput0);
+			}
+
+			if (conv->tailPrecalculated &&
+			    conv->tailInputFill == conv->tailBlockSize) {
+				SPA_SWAP(conv->tailPrecalculated, conv->tailOutput);
+				convolver1_run(conv->tailConvolver, conv->tailInput, conv->tailOutput, conv->tailBlockSize);
+			}
+			if (conv->tailInputFill == conv->tailBlockSize) {
+				conv->tailInputFill = 0;
+				conv->precalculatedPos = 0;
+			}
+			processed += processing;
+		}
+	}
+	return 0;
 }

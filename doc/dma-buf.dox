@@ -1,55 +1,116 @@
 /** \page page_dma_buf DMA-BUF sharing
 
 PipeWire supports sharing Direct Memory Access buffers (DMA-BUFs) between
-clients via the `SPA_DATA_DmaBuf` data type. However properly negociating
+clients via the `SPA_DATA_DmaBuf` data type. However properly negotiating
 DMA-BUF support on both the producer and the consumer side require following
-a specific procedure. This page describes said procedure.
+a specific procedure. This page describes said procedure by using events and
+methods from the filter or stream API.
 
-# Stream parameters
+# Capability negotiations
 
-The stream parameters should contain two `SPA_PARAM_EnumFormat` objects: the
-first one is used for DMA-BUFs, the second one for shared memory buffers as a
-fallback.
+The capability negotiation for DMA-BUFs is complicated by the fact, that a
+usable and preferred optimal modifier for a given format can only be
+determined by the allocator, which has to be invoked with the intersection
+of all supported modifiers of all clients. As a result the fixation of the
+modifier has to be delegated from PipeWire to the node responsible for
+allocating the buffers.
+
+## pw_stream_connect
+
+The stream parameters should contain two `SPA_PARAM_EnumFormat` objects for
+each format: the first one is used for DMA-BUFs, the second one for shared
+memory buffers as a fallback.
 
 Query the list of all supported modifiers from your graphics API of choice.
 Add a `SPA_FORMAT_VIDEO_modifier` property to the first stream parameter with
 the flags `SPA_POD_PROP_FLAG_MANDATORY | SPA_POD_PROP_FLAG_DONT_FIXATE`. The
-value of the property should be set to a `SPA_CHOICE_Enum` containing once
+value of the property should be set to a `SPA_CHOICE_Enum` containing one
 `long` choice per supported modifier, plus `DRM_FORMAT_MOD_INVALID` if the
 graphics API supports modifier-less buffers.
+
+Note: When a producer is only supporting modifier-less buffers it can omit
+the `SPA_POD_PROP_FLAG_DONT_FIXATE` (see param_changed hook, For producers).
 
 The second stream parameter should not contain any `SPA_FORMAT_VIDEO_modifier`
 property.
 
-# `param_changed` hook for `SPA_PARAM_Format`
+To prioritise DMA-BUFs place those `SPA_PARAM_EnumFormat` containing modifiers
+first, when emitting them to PipeWire
 
-Use `spa_pod_find_prop(param, NULL, SPA_FORMAT_VIDEO_modifier)` to check
+## param_changed hook
+
+When the `param_changed` hook is called for a `SPA_PARAM_Format` the client
+has to parse the 'spa_pod' directly. Use
+`spa_pod_find_prop(param, NULL, SPA_FORMAT_VIDEO_modifier)` to check
 whether modifiers were negotiated. If they were negotiated, set the
 `SPA_PARAM_BUFFERS_dataType` property to `1 << SPA_DATA_DmaBuf`. If they were
-not negotiated, fall back to shared memory.
+not negotiated, fall back to shared memory by setting the
+`SPA_PARAM_BUFFERS_dataType` property to `1 << SPA_DATA_MemFd`,
+`1 << SPA_DATA_MemPtr`, or both.
 
-## For producers
+While consumers only have to parse the resulting 'SPA_PARAM_Format' for any
+format related information, it's up to the producer to fixate onto a single
+format modifier pair. The producer is also responsible to check if all clients
+announce sufficient capabilities or fallback to shared memory buffers when
+possible.
 
-When allocating a buffer, collect all possible modifiers from the
-`SPA_FORMAT_VIDEO_modifier` property and pass them all to the graphics API.
-If the allocation fails and the list of possible modifiers contains
-`DRM_FORMAT_MOD_INVALID`, fall back to allocating without an explicit modifier
-if the graphics API allows it.
+### For consumers
 
-Once a buffer has been allocated, update the `SPA_PARAM_Format` parameter of
-the stream. Set the `SPA_FORMAT_VIDEO_modifier` property to the modifier of the
-buffer as `long`. Set the `SPA_PARAM_BUFFERS_stride` to the stride of the
-buffer.
+Use `spa_format_video_raw_parse` to get the format and modifier.
 
-## For consumers
+### For producers
 
-Use `spa_format_video_raw_parse` to get the final stride and modifier.
+Producers have to handle two cases when it comes to modifiers wrt. to the
+previous announced capabilities: Using only the modifier-less API, only the
+modifier aware one, or supporting both.
 
-# For consumers: `add_buffer` hook
+- modifier-less:
+  In this case only the modifier `DRM_FORMAT_MOD_INVALID` was announced with
+  the format.
+  It is sufficient to check if the `SPA_PARAM_Format` contains the modifier
+  property as described above. Is that the case use DMA-BUFs for screen-sharing,
+  else fall back to SHM, if possible.
+- modifier-aware:
+  In this case a list with all supported modifiers will be returned in the format.
+  (using 'DRM_FORMAT_MOD_INVALID' as the token for the modifier-less API).
+  On the 'param_changed' event check if the modifier key is present and has the flag
+  'SPA_POD_PROP_FLAG_DONT_FIXATE'. attached to it. In this case extract all modifiers
+  from the list and do a test allocation with your allocator to choose the preferred
+  modifier. Fixate on that 'EnumFormat' by announcing a 'SPA_PARAM_EnumFormat' with
+  only one modifier in the 'SPA_CHOICE_Enum' and without the
+  'SPA_POD_PROP_FLAG_DONT_FIXATE', followed by the previous announced
+  'EnumFormat's. This will retrigger (**TBD**) the 'param_changed' event with an
+  'SPA__PARAM_Format' as described below.
+  If the 'SPA_PARAM_Format' contains a modifier key, without the flag
+  'SPA_POD_PROP_FLAG_DONT_FIXATE', it should only contain one value in the
+  'SPA_CHOICE_Enum'. In this case announce the 'SPA_PARAM_Buffers' accordingly
+  to the selected format and modifier. It is important to query the plane count
+  of the used format modifier pair and set 'SPA_PARAM_BUFFERS_blocks' accordingly.
 
-Get the DMA-BUF FD and import it to the graphics API. If the modifier is not
-`DRM_FORMAT_MOD_INVALID`, provide the modifier to the graphics API. If the
-modifier is `DRM_FORMAT_MOD_INVALID`, import the DMA-BUF without an explicit
-modifier if the graphics API allows it.
+Note: When test allocating a buffer, collect all possible modifiers, while omitting
+'DRM_FORMAT_MOD_INVALID' from the `SPA_FORMAT_VIDEO_modifier` property and
+pass them all to the graphics API. If the allocation fails and the list of
+possible modifiers contains `DRM_FORMAT_MOD_INVALID`, fall back to allocating
+without an explicit modifier if the graphics API allows it.
+
+## add_buffer hook
+
+This is relevant for producers.
+
+Allocate a DMA-BUF only using the negotiated format and modifier.
+
+## on_event hook
+
+This is relevant for consumers.
+
+Check the type of the dequeued buffer. If its `SPA_DATA_MemFd` or
+`SPA_DATA_MemPtr` use the fallback SHM import mechanism.
+If it's `SPA_DATA_DmaBuf`:
+Get the DMA-BUF FDs (the plane count is encoded in the `n_datas` variable of the
+`spa_buffer` struct) and import them with the graphics API.
+
+Note: Some graphics APIs have separated functions for the modifier-less case
+(`DRM_FORMAT_MOD_INVALID`) or are omitting the modifier, since it might be used
+for error handling.
 
 */

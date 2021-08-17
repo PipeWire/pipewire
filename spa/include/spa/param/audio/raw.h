@@ -93,6 +93,9 @@ enum spa_audio_format {
 	/* other formats start here */
 	SPA_AUDIO_FORMAT_START_Other		= 0x400,
 
+	SPA_AUDIO_FORMAT_ULAW,
+	SPA_AUDIO_FORMAT_ALAW,
+
 	/* Aliases */
 
 	/* DSP formats */

@@ -33,8 +33,8 @@
 
 static const struct format audio_formats[] = {
 	[SAMPLE_U8] = { SAMPLE_U8, SPA_AUDIO_FORMAT_U8, "u8", 1 },
-	[SAMPLE_ALAW] = { SAMPLE_ALAW, SPA_AUDIO_FORMAT_UNKNOWN, "aLaw", 1 },
-	[SAMPLE_ULAW] = { SAMPLE_ULAW, SPA_AUDIO_FORMAT_UNKNOWN, "uLaw", 1 },
+	[SAMPLE_ALAW] = { SAMPLE_ALAW, SPA_AUDIO_FORMAT_ALAW, "aLaw", 1 },
+	[SAMPLE_ULAW] = { SAMPLE_ULAW, SPA_AUDIO_FORMAT_ULAW, "uLaw", 1 },
 	[SAMPLE_S16LE] = { SAMPLE_S16LE, SPA_AUDIO_FORMAT_S16_LE, "s16le", 2 },
 	[SAMPLE_S16BE] = { SAMPLE_S16BE, SPA_AUDIO_FORMAT_S16_BE, "s16be", 2 },
 	[SAMPLE_FLOAT32LE] = { SAMPLE_FLOAT32LE, SPA_AUDIO_FORMAT_F32_LE, "float32le", 4 },
@@ -193,6 +193,8 @@ uint32_t sample_spec_frame_size(const struct sample_spec *ss)
 {
 	switch (ss->format) {
 	case SPA_AUDIO_FORMAT_U8:
+	case SPA_AUDIO_FORMAT_ULAW:
+	case SPA_AUDIO_FORMAT_ALAW:
 		return ss->channels;
 	case SPA_AUDIO_FORMAT_S16_LE:
 	case SPA_AUDIO_FORMAT_S16_BE:

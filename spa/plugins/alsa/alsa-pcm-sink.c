@@ -881,6 +881,10 @@ impl_init(const struct spa_handle_factory *factory,
 			this->default_format = spa_alsa_format_from_name(s, strlen(s));
 		} else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
 			spa_alsa_parse_position(&this->default_pos, s, strlen(s));
+		} else if (spa_streq(k, "latency.internal.rate")) {
+			this->process_latency.rate = atoi(s);
+		} else if (spa_streq(k, "latency.internal.ns")) {
+			this->process_latency.ns = atoi(s);
 		} else if (spa_streq(k, "api.alsa.period-size")) {
 			this->default_period_size = atoi(s);
 		} else if (spa_streq(k, "api.alsa.headroom")) {

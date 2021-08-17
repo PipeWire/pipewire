@@ -215,7 +215,7 @@ void
 conv_alaw_to_f32d_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_samples)
 {
-	const int8_t *s = src[0];
+	const uint8_t *s = src[0];
 	float **d = (float **) dst;
 	uint32_t i, j, n_channels = conv->n_channels;
 
@@ -229,7 +229,7 @@ void
 conv_ulaw_to_f32d_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_samples)
 {
-	const int8_t *s = src[0];
+	const uint8_t *s = src[0];
 	float **d = (float **) dst;
 	uint32_t i, j, n_channels = conv->n_channels;
 

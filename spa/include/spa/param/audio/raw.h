@@ -79,6 +79,9 @@ enum spa_audio_format {
 	SPA_AUDIO_FORMAT_F64_LE,
 	SPA_AUDIO_FORMAT_F64_BE,
 
+	SPA_AUDIO_FORMAT_ULAW,
+	SPA_AUDIO_FORMAT_ALAW,
+
 	/* planar formats */
 	SPA_AUDIO_FORMAT_START_Planar		= 0x200,
 	SPA_AUDIO_FORMAT_U8P,
@@ -92,9 +95,6 @@ enum spa_audio_format {
 
 	/* other formats start here */
 	SPA_AUDIO_FORMAT_START_Other		= 0x400,
-
-	SPA_AUDIO_FORMAT_ULAW,
-	SPA_AUDIO_FORMAT_ALAW,
 
 	/* Aliases */
 

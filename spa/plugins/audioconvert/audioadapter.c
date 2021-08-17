@@ -795,7 +795,6 @@ static void follower_port_info(void *data,
 			if (idx == IDX_Latency) {
 				res = recalc_latency(this, direction, port_id);
 				spa_log_debug(this->log, "latency: %d", res);
-				continue;
 			}
 
 			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;

@@ -48,6 +48,8 @@ static const struct media_type media_type_map[] = {
   { "image/jpeg", SPA_MEDIA_TYPE_video, SPA_MEDIA_SUBTYPE_mjpg },
   { "video/x-jpeg", SPA_MEDIA_TYPE_video, SPA_MEDIA_SUBTYPE_mjpg },
   { "video/x-h264", SPA_MEDIA_TYPE_video, SPA_MEDIA_SUBTYPE_h264 },
+  { "audio/x-mulaw", SPA_MEDIA_TYPE_audio, SPA_MEDIA_SUBTYPE_raw },
+  { "audio/x-alaw", SPA_MEDIA_TYPE_audio, SPA_MEDIA_SUBTYPE_raw },
   { NULL, }
 };
 
@@ -470,6 +472,12 @@ handle_audio_fields (ConvertData *d)
       if (i == 1)
         choice->body.type = SPA_CHOICE_None;
     }
+  } else if (strcmp(d->type->name, "audio/x-mulaw") == 0) {
+        spa_pod_builder_prop (&d->b, SPA_FORMAT_AUDIO_format, 0);
+        spa_pod_builder_id (&d->b, SPA_AUDIO_FORMAT_ULAW);
+  } else if (strcmp(d->type->name, "audio/x-alaw") == 0) {
+        spa_pod_builder_prop (&d->b, SPA_FORMAT_AUDIO_format, 0);
+        spa_pod_builder_id (&d->b, SPA_AUDIO_FORMAT_ALAW);
   }
 
 #if 0

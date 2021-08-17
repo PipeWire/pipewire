@@ -85,7 +85,8 @@ struct impl {
 #define IDX_EnumPortConfig	4
 #define IDX_PortConfig		5
 #define IDX_Latency		6
-#define N_NODE_PARAMS		7
+#define IDX_ProcessLatency	7
+#define N_NODE_PARAMS		8
 	struct spa_param_info params[N_NODE_PARAMS];
 	uint32_t convert_params_flags[N_NODE_PARAMS];
 	uint32_t follower_params_flags[N_NODE_PARAMS];
@@ -132,6 +133,7 @@ next:
 		return res;
 	case SPA_PARAM_PropInfo:
 	case SPA_PARAM_Props:
+	case SPA_PARAM_ProcessLatency:
 	{
 		if (result.next < 0x10000) {
 			if ((res = spa_node_enum_params_sync(this->convert,
@@ -458,6 +460,9 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			return res;
 		res = 0;
 		break;
+	case SPA_PARAM_ProcessLatency:
+		res = spa_node_set_param(this->follower, id, flags, param);
+		break;
 	default:
 		res = -ENOTSUP;
 		break;
@@ -697,6 +702,9 @@ static void follower_info(void *data, const struct spa_node_info *info)
 			switch (info->params[i].id) {
 			case SPA_PARAM_Props:
 				idx = IDX_Props;
+				break;
+			case SPA_PARAM_ProcessLatency:
+				idx = IDX_ProcessLatency;
 				break;
 			default:
 				continue;
@@ -971,7 +979,8 @@ impl_node_port_set_param(void *object,
 			flags, param)) < 0)
 		return res;
 
-	if (id == SPA_PARAM_Latency && direction == this->direction) {
+	if ((id == SPA_PARAM_Latency) &&
+	    direction == this->direction) {
 		if ((res = spa_node_port_set_param(this->follower, direction, 0, id,
 				flags, param)) < 0)
 			return res;
@@ -1276,6 +1285,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->params[IDX_EnumPortConfig] = SPA_PARAM_INFO(SPA_PARAM_EnumPortConfig, SPA_PARAM_INFO_READ);
 	this->params[IDX_PortConfig] = SPA_PARAM_INFO(SPA_PARAM_PortConfig, SPA_PARAM_INFO_READWRITE);
 	this->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READWRITE);
+	this->params[IDX_ProcessLatency] = SPA_PARAM_INFO(SPA_PARAM_ProcessLatency, SPA_PARAM_INFO_READWRITE);
 	this->info.params = this->params;
 	this->info.n_params = N_NODE_PARAMS;
 

@@ -104,10 +104,11 @@ struct state {
 
 	uint64_t info_all;
 	struct spa_node_info info;
-#define NODE_PropInfo	0
-#define NODE_Props	1
-#define NODE_IO		2
-#define N_NODE_PARAMS	3
+#define NODE_PropInfo		0
+#define NODE_Props		1
+#define NODE_IO			2
+#define NODE_ProcessLatency	3
+#define N_NODE_PARAMS		4
 	struct spa_param_info params[N_NODE_PARAMS];
 	struct props props;
 
@@ -141,13 +142,13 @@ struct state {
 
 	uint64_t port_info_all;
 	struct spa_port_info port_info;
-#define PORT_EnumFormat	0
-#define PORT_Meta	1
-#define PORT_IO		2
-#define PORT_Format	3
-#define PORT_Buffers	4
-#define PORT_Latency	5
-#define N_PORT_PARAMS	6
+#define PORT_EnumFormat		0
+#define PORT_Meta		1
+#define PORT_IO			2
+#define PORT_Format		3
+#define PORT_Buffers		4
+#define PORT_Latency		5
+#define N_PORT_PARAMS		6
 	struct spa_param_info port_params[N_PORT_PARAMS];
 	enum spa_direction port_direction;
 	struct spa_io_buffers *io;
@@ -198,6 +199,7 @@ struct state {
 	double max_error;
 
 	struct spa_latency_info latency[2];
+	struct spa_process_latency_info process_latency;
 
 	snd_use_case_mgr_t *ucm;
 };

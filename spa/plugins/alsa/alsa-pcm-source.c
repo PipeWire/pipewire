@@ -161,6 +161,13 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_name, SPA_POD_String("Use the driver channelmap"),
 				SPA_PROP_INFO_type, SPA_POD_Bool(p->use_chmap));
 			break;
+		case 6:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_latencyOffsetNsec),
+				SPA_PROP_INFO_name, SPA_POD_String("Latency offset (ns)"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(0, 0, INT64_MAX));
+			break;
 		default:
 			return 0;
 		}
@@ -176,7 +183,8 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_cardName,     SPA_POD_Stringn(p->card_name, sizeof(p->card_name)),
 				SPA_PROP_minLatency,   SPA_POD_Int(p->min_latency),
 				SPA_PROP_maxLatency,   SPA_POD_Int(p->max_latency),
-				SPA_PROP_START_CUSTOM, SPA_POD_Bool(p->use_chmap));
+				SPA_PROP_START_CUSTOM, SPA_POD_Bool(p->use_chmap),
+				SPA_PROP_latencyOffsetNsec,   SPA_POD_Long(this->process_latency.ns));
 			break;
 		default:
 			return 0;
@@ -249,6 +257,29 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	return 0;
 }
 
+static void handle_process_latency(struct state *this,
+		const struct spa_process_latency_info *info)
+{
+	bool ns_changed = this->process_latency.ns != info->ns;
+
+	if (this->process_latency.quantum == info->quantum &&
+	    this->process_latency.rate == info->rate &&
+	    !ns_changed)
+		return;
+
+	this->process_latency = *info;
+
+	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+	if (ns_changed)
+		this->params[NODE_Props].flags ^= SPA_PARAM_INFO_SERIAL;
+	this->params[NODE_ProcessLatency].flags ^= SPA_PARAM_INFO_SERIAL;
+	emit_node_info(this, false);
+
+	this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	this->port_params[PORT_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
+	emit_port_info(this, false);
+}
+
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
@@ -261,17 +292,24 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	case SPA_PARAM_Props:
 	{
 		struct props *p = &this->props;
+		struct spa_process_latency_info info;
 
 		if (param == NULL) {
 			reset_props(p);
 			return 0;
 		}
+
+		info = this->process_latency;
+
 		spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_Props, NULL,
 			SPA_PROP_device,       SPA_POD_OPT_Stringn(p->device, sizeof(p->device)),
 			SPA_PROP_minLatency,   SPA_POD_OPT_Int(&p->min_latency),
 			SPA_PROP_maxLatency,   SPA_POD_OPT_Int(&p->max_latency),
+			SPA_PROP_latencyOffsetNsec,   SPA_POD_OPT_Long(&info.ns),
 			SPA_PROP_START_CUSTOM, SPA_POD_OPT_Bool(&p->use_chmap));
+
+		handle_process_latency(this, &info);
 		break;
 	}
 	case SPA_PARAM_ProcessLatency:
@@ -279,15 +317,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		struct spa_process_latency_info info;
 		if ((res = spa_process_latency_parse(param, &info)) < 0)
 			return res;
-		this->process_latency = info;
 
-		this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
-		this->params[NODE_ProcessLatency].flags ^= SPA_PARAM_INFO_SERIAL;
-		emit_node_info(this, false);
-
-		this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-		this->port_params[PORT_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
-		emit_port_info(this, false);
+		handle_process_latency(this, &info);
 		break;
 	}
 	default:

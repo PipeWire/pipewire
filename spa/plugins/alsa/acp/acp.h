@@ -225,6 +225,8 @@ struct acp_device {
 
 	uint32_t n_ports;
 	struct acp_port **ports;
+
+	int64_t latency_ns;
 };
 
 struct acp_card_profile {

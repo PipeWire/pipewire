@@ -460,6 +460,9 @@ static struct spa_pod *build_route(struct spa_pod_builder *b, uint32_t id,
 		spa_pod_builder_array(b, sizeof(float), SPA_TYPE_Float,
 				channels, soft_volumes);
 
+		spa_pod_builder_prop(b, SPA_PROP_latencyOffsetNsec, 0);
+		spa_pod_builder_long(b, dev->latency_ns);
+
 		spa_pod_builder_pop(b, &f[1]);
 	}
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_devices, 0);
@@ -574,6 +577,32 @@ static int impl_enum_params(void *object, int seq,
 	return 0;
 }
 
+static void on_latency_changed(void *data, struct acp_device *dev)
+{
+	struct impl *this = data;
+	struct spa_event *event;
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = { 0 };
+	struct spa_pod_frame f[1];
+
+	spa_log_info(this->log, "device %s latency changed", dev->name);
+	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+	this->params[IDX_Route].user++;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_push_object(&b, &f[0],
+			SPA_TYPE_EVENT_Device, SPA_DEVICE_EVENT_ObjectConfig);
+	spa_pod_builder_prop(&b, SPA_EVENT_DEVICE_Object, 0);
+	spa_pod_builder_int(&b, dev->index);
+	spa_pod_builder_prop(&b, SPA_EVENT_DEVICE_Props, 0);
+	spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
+			SPA_PROP_latencyOffsetNsec, SPA_POD_Long(dev->latency_ns));
+	event = spa_pod_builder_pop(&b, &f[0]);
+
+	spa_device_emit_event(&this->hooks, event);
+}
+
 static int apply_device_props(struct impl *this, struct acp_device *dev, struct spa_pod *props)
 {
 	float volume = 0;
@@ -613,6 +642,20 @@ static int apply_device_props(struct impl *this, struct acp_device *dev, struct 
 					channels, ACP_MAX_CHANNELS) > 0) {
 				changed++;
 			}
+			break;
+		case SPA_PROP_latencyOffsetNsec:
+		{
+			int64_t latency_ns;
+			if (spa_pod_get_long(&prop->value, &latency_ns) == 0) {
+				if (dev->latency_ns != latency_ns) {
+					dev->latency_ns = latency_ns;
+					on_latency_changed(this, dev);
+					changed++;
+				}
+			}
+			break;
+		}
+		default:
 			break;
 		}
 	}

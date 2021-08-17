@@ -23,6 +23,7 @@
  */
 
 #include <math.h>
+#include <byteswap.h>
 
 #include <spa/utils/defs.h>
 
@@ -45,7 +46,9 @@
 #define S16_MAX_F	32767.0f
 #define S16_SCALE	32767.0f
 #define S16_TO_F32(v)	(((int16_t)(v)) * (1.0f / S16_SCALE))
+#define S16S_TO_F32(v)	(((int16_t)bswap_16((uint16_t)v)) * (1.0f / S16_SCALE))
 #define F32_TO_S16(v)	(int16_t)(SPA_CLAMP(v, -1.0f, 1.0f) * S16_SCALE)
+#define F32_TO_S16S(v)	((int16_t)bswap_16((uint16_t)(SPA_CLAMP(v, -1.0f, 1.0f) * S16_SCALE)))
 
 #define S24_MIN		-8388607
 #define S24_MAX		8388607
@@ -58,10 +61,14 @@
 #define S32_MIN		2147483520.0f
 
 #define S32_TO_F32(v)	S24_TO_F32((v) >> 8)
+#define S32S_TO_F32(v)	bswap_32(S24_TO_F32((v) >> 8))
 #define F32_TO_S32(v)	(F32_TO_S24(v) << 8)
+#define F32_TO_S32S(v)	bswap_32((F32_TO_S24(v) << 8))
 
 #define S24_32_TO_F32(v)	S32_TO_F32((v)<<8)
+#define S24_32S_TO_F32(v)	bswap_32(S32_TO_F32((v)<<8))
 #define F32_TO_S24_32(v)	F32_TO_S24(v)
+#define F32_TO_S24_32S(v)	bswap_32(F32_TO_S24(v))
 
 static inline int32_t read_s24(const void *src)
 {
@@ -157,10 +164,12 @@ DEFINE_FUNCTION(s8d_to_f32, c);
 DEFINE_FUNCTION(s16d_to_f32d, c);
 DEFINE_FUNCTION(s16_to_f32, c);
 DEFINE_FUNCTION(s16_to_f32d, c);
+DEFINE_FUNCTION(s16s_to_f32d, c);
 DEFINE_FUNCTION(s16d_to_f32, c);
 DEFINE_FUNCTION(s32d_to_f32d, c);
 DEFINE_FUNCTION(s32_to_f32, c);
 DEFINE_FUNCTION(s32_to_f32d, c);
+DEFINE_FUNCTION(s32s_to_f32d, c);
 DEFINE_FUNCTION(s32d_to_f32, c);
 DEFINE_FUNCTION(s24d_to_f32d, c);
 DEFINE_FUNCTION(s24_to_f32, c);
@@ -170,6 +179,7 @@ DEFINE_FUNCTION(s24d_to_f32, c);
 DEFINE_FUNCTION(s24_32d_to_f32d, c);
 DEFINE_FUNCTION(s24_32_to_f32, c);
 DEFINE_FUNCTION(s24_32_to_f32d, c);
+DEFINE_FUNCTION(s24_32s_to_f32d, c);
 DEFINE_FUNCTION(s24_32d_to_f32, c);
 DEFINE_FUNCTION(f32d_to_u8d, c);
 DEFINE_FUNCTION(f32_to_u8, c);
@@ -183,10 +193,12 @@ DEFINE_FUNCTION(f32d_to_s16d, c);
 DEFINE_FUNCTION(f32_to_s16, c);
 DEFINE_FUNCTION(f32_to_s16d, c);
 DEFINE_FUNCTION(f32d_to_s16, c);
+DEFINE_FUNCTION(f32d_to_s16s, c);
 DEFINE_FUNCTION(f32d_to_s32d, c);
 DEFINE_FUNCTION(f32_to_s32, c);
 DEFINE_FUNCTION(f32_to_s32d, c);
 DEFINE_FUNCTION(f32d_to_s32, c);
+DEFINE_FUNCTION(f32d_to_s32s, c);
 DEFINE_FUNCTION(f32d_to_s24d, c);
 DEFINE_FUNCTION(f32_to_s24, c);
 DEFINE_FUNCTION(f32_to_s24d, c);
@@ -196,14 +208,17 @@ DEFINE_FUNCTION(f32d_to_s24_32d, c);
 DEFINE_FUNCTION(f32_to_s24_32, c);
 DEFINE_FUNCTION(f32_to_s24_32d, c);
 DEFINE_FUNCTION(f32d_to_s24_32, c);
+DEFINE_FUNCTION(f32d_to_s24_32s, c);
 DEFINE_FUNCTION(deinterleave_8, c);
 DEFINE_FUNCTION(deinterleave_16, c);
 DEFINE_FUNCTION(deinterleave_24, c);
 DEFINE_FUNCTION(deinterleave_32, c);
+DEFINE_FUNCTION(deinterleave_32s, c);
 DEFINE_FUNCTION(interleave_8, c);
 DEFINE_FUNCTION(interleave_16, c);
 DEFINE_FUNCTION(interleave_24, c);
 DEFINE_FUNCTION(interleave_32, c);
+DEFINE_FUNCTION(interleave_32s, c);
 
 #if defined(HAVE_NEON)
 DEFINE_FUNCTION(s16_to_f32d, neon);

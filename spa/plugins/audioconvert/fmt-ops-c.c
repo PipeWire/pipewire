@@ -31,6 +31,7 @@
 #include <spa/param/audio/format-utils.h>
 
 #include "fmt-ops.h"
+#include "law.h"
 
 void
 conv_copy8d_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
@@ -207,6 +208,34 @@ conv_s8d_to_f32_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * 
 	for (j = 0; j < n_samples; j++) {
 		for (i = 0; i < n_channels; i++)
 			*d++ = S8_TO_F32(s[i][j]);
+	}
+}
+
+void
+conv_alaw_to_f32d_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const int8_t *s = src[0];
+	float **d = (float **) dst;
+	uint32_t i, j, n_channels = conv->n_channels;
+
+	for (j = 0; j < n_samples; j++) {
+		for (i = 0; i < n_channels; i++)
+			d[i][j] = alaw_to_f32(*s++);
+	}
+}
+
+void
+conv_ulaw_to_f32d_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const int8_t *s = src[0];
+	float **d = (float **) dst;
+	uint32_t i, j, n_channels = conv->n_channels;
+
+	for (j = 0; j < n_samples; j++) {
+		for (i = 0; i < n_channels; i++)
+			d[i][j] = ulaw_to_f32(*s++);
 	}
 }
 
@@ -614,6 +643,34 @@ conv_f32d_to_s8_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * 
 	for (j = 0; j < n_samples; j++) {
 		for (i = 0; i < n_channels; i++)
 			*d++ = F32_TO_S8(s[i][j]);
+	}
+}
+
+void
+conv_f32d_to_alaw_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const float **s = (const float **) src;
+	int8_t *d = dst[0];
+	uint32_t i, j, n_channels = conv->n_channels;
+
+	for (j = 0; j < n_samples; j++) {
+		for (i = 0; i < n_channels; i++)
+			*d++ = f32_to_alaw(s[i][j]);
+	}
+}
+
+void
+conv_f32d_to_ulaw_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const float **s = (const float **) src;
+	int8_t *d = dst[0];
+	uint32_t i, j, n_channels = conv->n_channels;
+
+	for (j = 0; j < n_samples; j++) {
+		for (i = 0; i < n_channels; i++)
+			*d++ = f32_to_ulaw(s[i][j]);
 	}
 }
 

@@ -691,19 +691,23 @@ static int port_enum_formats(void *object,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-				SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(16,
+				SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(20,
 							SPA_AUDIO_FORMAT_F32P,
 							SPA_AUDIO_FORMAT_F32P,
 							SPA_AUDIO_FORMAT_F32,
+							SPA_AUDIO_FORMAT_F32_OE,
 							SPA_AUDIO_FORMAT_S32P,
 							SPA_AUDIO_FORMAT_S32,
+							SPA_AUDIO_FORMAT_S32_OE,
 							SPA_AUDIO_FORMAT_S24_32P,
 							SPA_AUDIO_FORMAT_S24_32,
+							SPA_AUDIO_FORMAT_S24_32_OE,
 							SPA_AUDIO_FORMAT_S24P,
 							SPA_AUDIO_FORMAT_S24,
 							SPA_AUDIO_FORMAT_S24_OE,
 							SPA_AUDIO_FORMAT_S16P,
 							SPA_AUDIO_FORMAT_S16,
+							SPA_AUDIO_FORMAT_S16_OE,
 							SPA_AUDIO_FORMAT_S8P,
 							SPA_AUDIO_FORMAT_S8,
 							SPA_AUDIO_FORMAT_U8,
@@ -905,11 +909,15 @@ static int calc_width(struct spa_audio_info *info)
 {
 	switch (info->info.raw.format) {
 	case SPA_AUDIO_FORMAT_U8:
+	case SPA_AUDIO_FORMAT_U8P:
 	case SPA_AUDIO_FORMAT_S8:
+	case SPA_AUDIO_FORMAT_S8P:
 		return 1;
+	case SPA_AUDIO_FORMAT_S16P:
 	case SPA_AUDIO_FORMAT_S16:
 	case SPA_AUDIO_FORMAT_S16_OE:
 		return 2;
+	case SPA_AUDIO_FORMAT_S24P:
 	case SPA_AUDIO_FORMAT_S24:
 	case SPA_AUDIO_FORMAT_S24_OE:
 		return 3;

@@ -60,13 +60,13 @@
 #define S32_SCALE	2147483648.0f
 #define S32_MIN		2147483520.0f
 
-#define S32_TO_F32(v)	S24_TO_F32((v) >> 8)
-#define S32S_TO_F32(v)	bswap_32(S24_TO_F32((v) >> 8))
+#define S32_TO_F32(v)	S24_TO_F32(((int32_t)(v)) >> 8)
+#define S32S_TO_F32(v)	S24_TO_F32(((int32_t)bswap_32(v)) >> 8)
 #define F32_TO_S32(v)	(F32_TO_S24(v) << 8)
 #define F32_TO_S32S(v)	bswap_32((F32_TO_S24(v) << 8))
 
 #define S24_32_TO_F32(v)	S32_TO_F32((v)<<8)
-#define S24_32S_TO_F32(v)	bswap_32(S32_TO_F32((v)<<8))
+#define S24_32S_TO_F32(v)	S32_TO_F32(((int32_t)bswap_32(v))<<8)
 #define F32_TO_S24_32(v)	F32_TO_S24(v)
 #define F32_TO_S24_32S(v)	bswap_32(F32_TO_S24(v))
 

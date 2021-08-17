@@ -5,6 +5,9 @@ clients via the `SPA_DATA_DmaBuf` data type. However properly negotiating
 DMA-BUF support on both the producer and the consumer side require following
 a specific procedure. This page describes said procedure by using events and
 methods from the filter or stream API.
+Note: This article focuses mostly on DMA-BUF sharing from arbitrary devices,
+like discrete GPUs. For using DMA-BUFs created by v4l2 please refer to the
+corresponding paragraph.
 
 # Capability negotiations
 
@@ -129,5 +132,18 @@ because of the following issues:
   buffer has been allocated on discrete hardware. Consumers are better off
   using a proper graphics API (such as EGL, Vulkan or VA-API) to process the
   DMA-BUFs.
+
+# v4l2
+
+Another use case for streaming via DMA-BUFs are exporting a camera feed from v4l2
+as DMA-BUFs. Those are located in the main memory where it is possible to mmap them.
+This should be done as follows: Neither producer nor consumer should announce a
+modifier, but both should include `1 << SPA_DATA_DmaBuf` in the
+`SPA_PARAM_BUFFERS_dataType` property. It's the the responsibility of the producer
+while the `add_buffer` event to choose DMA-BUF as the used buffer type even though
+no modifier is present, if it can guarantee, that the used buffer is mmapable.
+
+Note: For now v4l2 uses planar buffers without modifiers. This is the reason for
+this special case.
 
 */

@@ -1440,6 +1440,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 					impl, format_id2name(ss.format), ss.rate,
 					ss.channels);
 		}
+		pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", ss.rate);
 	}
 
 	if (m->offset != m->length)
@@ -1679,6 +1680,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 					impl, format_id2name(ss.format), ss.rate,
 					ss.channels);
 		}
+		pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", ss.rate);
 	}
 	if (m->offset != m->length)
 		goto error_protocol;

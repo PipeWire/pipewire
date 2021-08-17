@@ -231,6 +231,10 @@ sf_format_to_pw(int format)
 		return SPA_AUDIO_FORMAT_U8;
 	case SF_FORMAT_PCM_S8:
 		return SPA_AUDIO_FORMAT_S8;
+	case SF_FORMAT_ULAW:
+		return SPA_AUDIO_FORMAT_ULAW;
+	case SF_FORMAT_ALAW:
+		return SPA_AUDIO_FORMAT_ALAW;
 	case SF_FORMAT_PCM_16:
 		return endianness == 1 ? SPA_AUDIO_FORMAT_S16_LE :
 		       endianness == 2 ? SPA_AUDIO_FORMAT_S16_BE :
@@ -263,6 +267,8 @@ sf_format_samplesize(int format)
 	switch (sub_type) {
 	case SF_FORMAT_PCM_S8:
 	case SF_FORMAT_PCM_U8:
+	case SF_FORMAT_ULAW:
+	case SF_FORMAT_ALAW:
 		return 1;
 	case SF_FORMAT_PCM_16:
 		return 2;
@@ -329,6 +335,8 @@ sf_fmt_playback_fill_fn(int format)
 	switch (fmt) {
 	case SPA_AUDIO_FORMAT_S8:
 	case SPA_AUDIO_FORMAT_U8:
+	case SPA_AUDIO_FORMAT_ULAW:
+	case SPA_AUDIO_FORMAT_ALAW:
 		return sf_playback_fill_x8;
 	case SPA_AUDIO_FORMAT_S16_LE:
 	case SPA_AUDIO_FORMAT_S16_BE:
@@ -411,6 +419,8 @@ sf_fmt_record_fill_fn(int format)
 	switch (fmt) {
 	case SPA_AUDIO_FORMAT_S8:
 	case SPA_AUDIO_FORMAT_U8:
+	case SPA_AUDIO_FORMAT_ULAW:
+	case SPA_AUDIO_FORMAT_ALAW:
 		return sf_record_fill_x8;
 	case SPA_AUDIO_FORMAT_S16_LE:
 	case SPA_AUDIO_FORMAT_S16_BE:

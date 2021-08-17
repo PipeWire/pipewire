@@ -57,6 +57,12 @@ context.modules = [
     }
 ]
 
+# Extra modules can be loaded here. Setup in default.pa can be moved here
+context.exec = [
+    #{ path = "pactl"  args = "module-switch-on-connect" }
+    #{ path = "/usr/bin/sh"  args = "~/.config/pipewire/default.pw" }
+]
+
 stream.properties = {
     #node.latency = 1024/48000
     #node.autoconnect = true

@@ -28,6 +28,9 @@
 #include <arpa/inet.h>
 
 #include <spa/param/audio/format.h>
+#include <spa/param/audio/format-utils.h>
+
+#include <sbc/sbc.h>
 
 #include <freeaptx.h>
 
@@ -59,6 +62,10 @@ struct impl {
 	int max_frames;
 
 	bool hd;
+};
+
+struct msbc_impl {
+	sbc_t msbc;
 };
 
 static inline bool codec_is_hd(const struct a2dp_codec *codec)
@@ -98,7 +105,7 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 	};
 	const a2dp_aptx_ll_t a2dp_aptx_ll = {
 		.aptx = a2dp_aptx,
-		.bidirect_link = false,
+		.bidirect_link = codec->duplex_codec ? true : false,
 		.has_new_caps = false,
 	};
 	if (codec_is_ll(codec))
@@ -171,6 +178,9 @@ static int codec_select_config_ll(const struct a2dp_codec *codec, uint32_t flags
 	actual_conf_size = conf.base.has_new_caps ? sizeof(conf) : sizeof(conf.base);
 	if (caps_size < actual_conf_size)
 		return -EINVAL;
+
+	if (codec->duplex_codec && !conf.base.bidirect_link)
+		return -ENOTSUP;
 
 	if ((res = codec_select_config(codec, flags, caps, caps_size, info, settings, config)) < 0)
 		return res;
@@ -436,6 +446,150 @@ static int codec_decode(void *data,
 	return res;
 }
 
+/*
+ * mSBC duplex codec
+ *
+ * When connected as SRC to SNK, aptX-LL sink may send back mSBC data.
+ */
+
+static int msbc_enum_config(const struct a2dp_codec *codec,
+		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
+		struct spa_pod_builder *b, struct spa_pod **param)
+{
+	struct spa_audio_info_raw info = { 0, };
+
+	if (caps_size < sizeof(a2dp_aptx_ll_t))
+		return -EINVAL;
+
+	if (idx > 0)
+		return 0;
+
+	info.format = SPA_AUDIO_FORMAT_S16_LE;
+	info.channels = 1;
+	info.position[0] = SPA_AUDIO_CHANNEL_MONO;
+	info.rate = 16000;
+
+	*param = spa_format_audio_raw_build(b, id, &info);
+	return *param == NULL ? -EIO : 1;
+}
+
+static int msbc_reduce_bitpool(void *data)
+{
+	return -ENOTSUP;
+}
+
+static int msbc_increase_bitpool(void *data)
+{
+	return -ENOTSUP;
+}
+
+static int msbc_get_block_size(void *data)
+{
+	return MSBC_DECODED_SIZE;
+}
+
+static void *msbc_init(const struct a2dp_codec *codec, uint32_t flags,
+		void *config, size_t config_len, const struct spa_audio_info *info,
+		void *props, size_t mtu)
+{
+	struct msbc_impl *this = NULL;
+	int res;
+
+	if (info->media_type != SPA_MEDIA_TYPE_audio ||
+	    info->media_subtype != SPA_MEDIA_SUBTYPE_raw ||
+	    info->info.raw.format != SPA_AUDIO_FORMAT_S16_LE) {
+		res = -EINVAL;
+		goto error;
+	}
+
+	if ((this = calloc(1, sizeof(struct msbc_impl))) == NULL)
+		goto error_errno;
+
+	if ((res = sbc_init_msbc(&this->msbc, 0)) < 0)
+		goto error;
+
+	this->msbc.endian = SBC_LE;
+
+	return this;
+
+error_errno:
+	res = -errno;
+	goto error;
+error:
+	free(this);
+	errno = -res;
+	return NULL;
+}
+
+static void msbc_deinit(void *data)
+{
+	struct msbc_impl *this = data;
+	sbc_finish(&this->msbc);
+	free(this);
+}
+
+static int msbc_abr_process (void *data, size_t unsent)
+{
+	return -ENOTSUP;
+}
+
+static int msbc_start_encode (void *data,
+		void *dst, size_t dst_size, uint16_t seqnum, uint32_t timestamp)
+{
+	return -ENOTSUP;
+}
+
+static int msbc_encode(void *data,
+		const void *src, size_t src_size,
+		void *dst, size_t dst_size,
+		size_t *dst_out, int *need_flush)
+{
+	return -ENOTSUP;
+}
+
+static int msbc_start_decode (void *data,
+		const void *src, size_t src_size, uint16_t *seqnum, uint32_t *timestamp)
+{
+	return 0;
+}
+
+static int msbc_decode(void *data,
+		const void *src, size_t src_size,
+		void *dst, size_t dst_size,
+		size_t *dst_out)
+{
+	struct msbc_impl *this = data;
+	const uint8_t sync[3] = { 0xAD, 0x00, 0x00 };
+	size_t processed = 0;
+	int res;
+
+	spa_assert(sizeof(sync) <= MSBC_PAYLOAD_SIZE);
+
+	*dst_out = 0;
+
+	/* Scan for msbc sync sequence.
+	 * We could probably assume fixed (<57-byte payload><1-byte pad>)+ format
+	 * which devices seem to be sending. Don't know if there are variations,
+	 * so we make weaker assumption here.
+	 */
+	while (src_size >= MSBC_PAYLOAD_SIZE) {
+		if (memcmp(src, sync, sizeof(sync)) == 0)
+			break;
+		src = (uint8_t*)src + 1;
+		--src_size;
+		++processed;
+	}
+
+	res = sbc_decode(&this->msbc, src, src_size,
+			dst, dst_size, dst_out);
+	if (res <= 0)
+		res = SPA_MIN((size_t)MSBC_PAYLOAD_SIZE, src_size);    /* skip bad payload */
+
+	processed += res;
+	return processed;
+}
+
+
 const struct a2dp_codec a2dp_codec_aptx = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_APTX,
 	.codec_id = A2DP_CODEC_VENDOR,
@@ -482,9 +636,7 @@ const struct a2dp_codec a2dp_codec_aptx_hd = {
 };
 
 #define APTX_LL_COMMON_DEFS				\
-	.id = SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL,	\
 	.codec_id = A2DP_CODEC_VENDOR,			\
-	.name = "aptx_ll",				\
 	.description = "aptX-LL",			\
 	.fill_caps = codec_fill_caps,			\
 	.select_config = codec_select_config_ll,	\
@@ -503,14 +655,58 @@ const struct a2dp_codec a2dp_codec_aptx_hd = {
 
 const struct a2dp_codec a2dp_codec_aptx_ll_0 = {
 	APTX_LL_COMMON_DEFS,
+	.id = SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL,
 	.vendor = { .vendor_id = APTX_LL_VENDOR_ID,
 		.codec_id = APTX_LL_CODEC_ID },
+	.name = "aptx_ll",
 	.endpoint_name = "aptx_ll_0",
 };
 
 const struct a2dp_codec a2dp_codec_aptx_ll_1 = {
 	APTX_LL_COMMON_DEFS,
+	.id = SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL,
 	.vendor = { .vendor_id = APTX_LL_VENDOR_ID2,
 		.codec_id = APTX_LL_CODEC_ID },
+	.name = "aptx_ll",
 	.endpoint_name = "aptx_ll_1",
+};
+
+/* Voice channel mSBC, not a real A2DP codec */
+static const struct a2dp_codec aptx_ll_msbc = {
+	.codec_id = A2DP_CODEC_VENDOR,
+	.name = "aptx_ll_msbc",
+	.description = "aptX-LL mSBC",
+	.fill_caps = codec_fill_caps,
+	.select_config = codec_select_config_ll,
+	.enum_config = msbc_enum_config,
+	.init = msbc_init,
+	.deinit = msbc_deinit,
+	.get_block_size = msbc_get_block_size,
+	.abr_process = msbc_abr_process,
+	.start_encode = msbc_start_encode,
+	.encode = msbc_encode,
+	.start_decode = msbc_start_decode,
+	.decode = msbc_decode,
+	.reduce_bitpool = msbc_reduce_bitpool,
+	.increase_bitpool = msbc_increase_bitpool,
+};
+
+const struct a2dp_codec a2dp_codec_aptx_ll_duplex_0 = {
+	APTX_LL_COMMON_DEFS,
+	.id = SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL_DUPLEX,
+	.vendor = { .vendor_id = APTX_LL_VENDOR_ID,
+		.codec_id = APTX_LL_CODEC_ID },
+	.name = "aptx_ll_duplex",
+	.endpoint_name = "aptx_ll_duplex_0",
+	.duplex_codec = &aptx_ll_msbc,
+};
+
+const struct a2dp_codec a2dp_codec_aptx_ll_duplex_1 = {
+	APTX_LL_COMMON_DEFS,
+	.id = SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL_DUPLEX,
+	.vendor = { .vendor_id = APTX_LL_VENDOR_ID2,
+		.codec_id = APTX_LL_CODEC_ID },
+	.name = "aptx_ll_duplex",
+	.endpoint_name = "aptx_ll_duplex_1",
+	.duplex_codec = &aptx_ll_msbc,
 };

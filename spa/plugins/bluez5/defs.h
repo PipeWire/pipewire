@@ -173,6 +173,7 @@ extern "C" {
  * of the input (number of PCM samples) and output is known up front. */
 #define MSBC_DECODED_SIZE       240
 #define MSBC_ENCODED_SIZE       60  /* 2 bytes header + 57 mSBC payload + 1 byte padding */
+#define MSBC_PAYLOAD_SIZE       57
 
 enum spa_bt_profile {
 	SPA_BT_PROFILE_NULL =		0,

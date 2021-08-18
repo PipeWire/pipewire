@@ -1946,6 +1946,7 @@ int64_t spa_bt_transport_get_delay_nsec(struct spa_bt_transport *t)
 	case SPA_BLUETOOTH_AUDIO_CODEC_LDAC:
 		return 175 * SPA_NSEC_PER_MSEC;
 	case SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL:
+	case SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL_DUPLEX:
 		return 40 * SPA_NSEC_PER_MSEC;
 	default:
 		break;

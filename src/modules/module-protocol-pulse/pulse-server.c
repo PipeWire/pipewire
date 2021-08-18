@@ -1291,7 +1291,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	int res;
 	struct sample_spec ss;
 	struct channel_map map;
-	uint32_t sink_index, syncid;
+	uint32_t sink_index, syncid, rate = 0;
 	const char *sink_name;
 	struct buffer_attr attr = { 0 };
 	bool corked = false,
@@ -1411,6 +1411,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			uint8_t i;
 			for (i = 0; i < n_formats; i++) {
 				struct format_info format;
+				uint32_t r;
 
 				if (message_get(m,
 						TAG_FORMAT_INFO, &format,
@@ -1419,9 +1420,11 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 
 				if (n_params < MAX_FORMATS &&
 				    (params[n_params] = format_info_build_param(&b,
-						SPA_PARAM_EnumFormat, &format)) != NULL) {
+						SPA_PARAM_EnumFormat, &format, &r)) != NULL) {
 					n_params++;
 					n_valid_formats++;
+					if (r > rate)
+						rate = r;
 				} else {
 					log_format_info(impl, SPA_LOG_LEVEL_WARN, &format);
 				}
@@ -1440,7 +1443,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 					impl, format_id2name(ss.format), ss.rate,
 					ss.channels);
 		}
-		pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", ss.rate);
+		rate = ss.rate;
 	}
 
 	if (m->offset != m->length)
@@ -1475,6 +1478,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	stream->is_underrun = true;
 	stream->underrun_for = -1;
 
+	if (rate != 0)
+		pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", rate);
 	if (no_remix)
 		pw_properties_set(props, PW_KEY_STREAM_DONT_REMIX, "true");
 	flags = 0;
@@ -1562,7 +1567,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	struct pw_properties *props = NULL;
 	uint8_t n_formats = 0;
 	struct stream *stream = NULL;
-	uint32_t n_params = 0, n_valid_formats = 0, flags, id;
+	uint32_t n_params = 0, n_valid_formats = 0, flags, id, rate = 0;
 	const struct spa_pod *params[MAX_FORMATS];
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -1640,6 +1645,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 			uint8_t i;
 			for (i = 0; i < n_formats; i++) {
 				struct format_info format;
+				uint32_t r;
 
 				if (message_get(m,
 						TAG_FORMAT_INFO, &format,
@@ -1648,9 +1654,11 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 
 				if (n_params < MAX_FORMATS &&
 				    (params[n_params] = format_info_build_param(&b,
-						SPA_PARAM_EnumFormat, &format)) != NULL) {
+						SPA_PARAM_EnumFormat, &format, &r)) != NULL) {
 					n_params++;
 					n_valid_formats++;
+					if (r > rate)
+						rate = r;
 				} else {
 					log_format_info(impl, SPA_LOG_LEVEL_WARN, &format);
 				}
@@ -1680,7 +1688,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 					impl, format_id2name(ss.format), ss.rate,
 					ss.channels);
 		}
-		pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", ss.rate);
+		rate = ss.rate;
 	}
 	if (m->offset != m->length)
 		goto error_protocol;
@@ -1715,6 +1723,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	if (client->quirks & QUIRK_REMOVE_CAPTURE_DONT_MOVE)
 		no_move = false;
 
+	if (rate != 0)
+		pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", rate);
 	if (peak_detect)
 		pw_properties_set(props, PW_KEY_STREAM_MONITOR, "true");
 	if (no_remix)

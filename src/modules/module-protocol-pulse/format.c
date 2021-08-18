@@ -430,7 +430,7 @@ int format_parse_param(const struct spa_pod *param, struct sample_spec *ss, stru
 }
 
 const struct spa_pod *format_build_param(struct spa_pod_builder *b, uint32_t id,
-					 struct sample_spec *spec, struct channel_map *map)
+		const struct sample_spec *spec, const struct channel_map *map)
 {
 	struct spa_audio_info_raw info;
 
@@ -444,8 +444,8 @@ const struct spa_pod *format_build_param(struct spa_pod_builder *b, uint32_t id,
 	return spa_format_audio_raw_build(b, id, &info);
 }
 
-int format_info_from_spec(struct format_info *info, struct sample_spec *ss,
-			  struct channel_map *map)
+int format_info_from_spec(struct format_info *info, const struct sample_spec *ss,
+			  const struct channel_map *map)
 {
 	spa_zero(*info);
 	info->encoding = ENCODING_PCM;
@@ -473,84 +473,97 @@ int format_info_from_spec(struct format_info *info, struct sample_spec *ss,
 	return 0;
 }
 
-const struct spa_pod *format_info_build_param(struct spa_pod_builder *b, uint32_t id,
-					      struct format_info *info)
+int format_info_to_spec(const struct format_info *info, struct sample_spec *ss,
+			  struct channel_map *map)
 {
 	const char *str, *val;
-	struct sample_spec ss;
-	struct channel_map map, *pmap = NULL;
 	struct spa_json it[2];
 	float f;
 	int len;
 
-	spa_zero(ss);
-	spa_zero(map);
+	spa_zero(*ss);
+	spa_zero(*map);
 
 	if (info->encoding != ENCODING_PCM)
-		return NULL;
+		return -ENOTSUP;
+	if (info->props == NULL)
+		return -ENOENT;
 
 	if ((str = pw_properties_get(info->props, "format.sample_format")) == NULL)
-		return NULL;
+		return -ENOENT;
 
 	spa_json_init(&it[0], str, strlen(str));
 	if ((len = spa_json_next(&it[0], &val)) <= 0)
-		return NULL;
+		return -EINVAL;
 	if (spa_json_is_string(val, len)) {
-		ss.format = format_paname2id(val+1, len-2);
-		if (ss.format == SPA_AUDIO_FORMAT_UNKNOWN)
-			return NULL;
+		ss->format = format_paname2id(val+1, len-2);
+		if (ss->format == SPA_AUDIO_FORMAT_UNKNOWN)
+			return -ENOTSUP;
 	} else if (spa_json_is_array(val, len)) {
-		return NULL;
+		return -ENOTSUP;
 	} else
-		return NULL;
+		return -ENOTSUP;
 
 	if ((str = pw_properties_get(info->props, "format.rate")) == NULL)
-		return NULL;
+		return -ENOENT;
 
 	spa_json_init(&it[0], str, strlen(str));
 	if ((len = spa_json_next(&it[0], &val)) <= 0)
-		return NULL;
+		return -EINVAL;
 	if (spa_json_is_float(val, len)) {
 		if (spa_json_parse_float(val, len, &f) <= 0)
-			return NULL;
-		ss.rate = f;
+			return -EINVAL;
+		ss->rate = f;
 	} else if (spa_json_is_array(val, len)) {
-		return NULL;
+		return -ENOTSUP;
 	} else if (spa_json_is_object(val, len)) {
-		return NULL;
+		return -ENOTSUP;
 	} else
-		return NULL;
+		return -ENOTSUP;
 
 	if ((str = pw_properties_get(info->props, "format.channels")) == NULL)
-		return NULL;
+		return -ENOENT;
 
 	spa_json_init(&it[0], str, strlen(str));
 	if ((len = spa_json_next(&it[0], &val)) <= 0)
-		return NULL;
+		return -EINVAL;
 	if (spa_json_is_float(val, len)) {
 		if (spa_json_parse_float(val, len, &f) <= 0)
-			return NULL;
-		ss.channels = f;
+			return -EINVAL;
+		ss->channels = f;
 	} else if (spa_json_is_array(val, len)) {
-		return NULL;
+		return -ENOTSUP;
 	} else if (spa_json_is_object(val, len)) {
-		return NULL;
+		return -ENOTSUP;
 	} else
-		return NULL;
+		return -ENOTSUP;
 
 	if ((str = pw_properties_get(info->props, "format.channel_map")) != NULL) {
 		spa_json_init(&it[0], str, strlen(str));
 		if ((len = spa_json_next(&it[0], &val)) <= 0)
-			return NULL;
+			return -EINVAL;
 		if (!spa_json_is_string(val, len))
-			return NULL;
+			return -EINVAL;
 		while ((*str == '\"' || *str == ',') &&
 		    (len = strcspn(++str, "\",")) > 0) {
-			map.map[map.channels++] = channel_paname2id(str, len);
+			map->map[map->channels++] = channel_paname2id(str, len);
 			str += len;
 		}
-		if (map.channels == ss.channels)
-			pmap = &map;
 	}
-	return format_build_param(b, id, &ss, pmap);
+	return 0;
+}
+
+const struct spa_pod *format_info_build_param(struct spa_pod_builder *b, uint32_t id,
+		const struct format_info *info, uint32_t *rate)
+{
+	struct sample_spec ss;
+	struct channel_map map;
+	int res;
+
+	if ((res = format_info_to_spec(info, &ss, &map)) < 0) {
+		errno = -res;
+		return NULL;
+	}
+	*rate = ss.rate;
+	return format_build_param(b, id, &ss, &map);
 }

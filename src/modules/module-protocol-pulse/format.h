@@ -205,16 +205,17 @@ void channel_map_parse(const char *str, struct channel_map *map);
 bool channel_map_valid(const struct channel_map *map);
 
 int format_parse_param(const struct spa_pod *param, struct sample_spec *ss,
-		       struct channel_map *map);
+		struct channel_map *map);
 
 const struct spa_pod *format_build_param(struct spa_pod_builder *b, uint32_t id,
-					 struct sample_spec *spec, struct channel_map *map);
-
-int format_info_from_spec(struct format_info *info, struct sample_spec *ss,
-			  struct channel_map *map);
-
+		const struct sample_spec *spec, const struct channel_map *map);
 const struct spa_pod *format_info_build_param(struct spa_pod_builder *b, uint32_t id,
-					      struct format_info *info);
+		const struct format_info *info, uint32_t *rate);
+
+int format_info_from_spec(struct format_info *info, const struct sample_spec *ss,
+		const struct channel_map *map);
+int format_info_to_spec(const struct format_info *info, struct sample_spec *ss,
+		struct channel_map *map);
 
 static inline void format_info_clear(struct format_info *info)
 {

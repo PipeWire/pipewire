@@ -979,7 +979,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *driver
 
 				pw_impl_link_prepare(l);
 
-				if (!l->passive)
+				if (!l->passive && l->prepared)
 					driver->passive = n->passive = false;
 
 				if (l->prepared) {
@@ -997,7 +997,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *driver
 
 				pw_impl_link_prepare(l);
 
-				if (!l->passive)
+				if (!l->passive && l->prepared)
 					driver->passive = n->passive = false;
 
 				if (l->prepared) {

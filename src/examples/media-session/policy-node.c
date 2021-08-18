@@ -36,6 +36,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/pod.h>
+#include <spa/pod/filter.h>
 #include <spa/utils/json.h>
 
 #include "pipewire/pipewire.h"
@@ -132,6 +133,8 @@ struct node {
 	unsigned int linking:1;
 	unsigned int have_passthrough:1;
 	unsigned int passthrough_only:1;
+	unsigned int passthrough:1;
+	unsigned int want_passthrough:1;
 };
 
 static bool find_format(struct node *node)
@@ -203,6 +206,71 @@ static bool find_format(struct node *node)
 	return have_format;
 }
 
+static bool check_passthrough(struct node *node, struct node *peer)
+{
+	struct sm_param *p1, *p2;
+	char buffer[1024];
+	struct spa_pod_builder b;
+	struct spa_pod *res;
+
+	if (peer->obj->info->state == PW_NODE_STATE_RUNNING)
+		return false;
+
+	spa_list_for_each(p1, &node->obj->param_list, link) {
+		if (p1->id != SPA_PARAM_EnumFormat)
+			continue;
+
+		spa_list_for_each(p2, &peer->obj->param_list, link) {
+			if (p2->id != SPA_PARAM_EnumFormat)
+				continue;
+
+			spa_pod_builder_init(&b, buffer, sizeof(buffer));
+			if (spa_pod_filter(&b, &res, p1->param, p2->param) >= 0)
+				return true;
+		}
+	}
+	return false;
+}
+
+static void ensure_suspended(struct node *node)
+{
+	struct spa_command *cmd = &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Suspend);
+
+	if (node->obj->info->state < PW_NODE_STATE_IDLE)
+		return;
+
+	pw_node_send_command((struct pw_node*)node->obj->obj.proxy, cmd);
+}
+
+static int configure_passthrough(struct node *node)
+{
+	char buf[1024];
+	struct spa_pod_builder b = { 0, };
+	struct spa_pod *param;
+
+	pw_log_info("node %d passthrough", node->id);
+
+	ensure_suspended(node);
+
+	spa_pod_builder_init(&b, buf, sizeof(buf));
+	param = spa_pod_builder_add_object(&b,
+		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
+		SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(node->direction),
+		SPA_PARAM_PORT_CONFIG_mode,	 SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_passthrough),
+		SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(false));
+
+	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		spa_debug_pod(2, NULL, param);
+
+	pw_node_set_param((struct pw_node*)node->obj->obj.proxy,
+			SPA_PARAM_PortConfig, 0, param);
+
+	node->configured = true;
+	node->passthrough = true;
+
+	return 0;
+}
+
 static int configure_node(struct node *node, struct spa_audio_info *info, bool force)
 {
 	struct impl *impl = node->impl;
@@ -212,11 +280,15 @@ static int configure_node(struct node *node, struct spa_audio_info *info, bool f
 	struct spa_audio_info format;
 	enum pw_direction direction;
 
-	if (node->configured && !force)
+	if (node->configured && !force) {
+		pw_log_debug("node %d is configured passthrough:%d", node->id, node->passthrough);
 		return 0;
+	}
 
 	if (!spa_streq(node->media, "Audio"))
 		return 0;
+
+	ensure_suspended(node);
 
 	format = node->format;
 
@@ -225,6 +297,9 @@ static int configure_node(struct node *node, struct spa_audio_info *info, bool f
 			node->id, node->monitor, format.info.raw.channels,
 			info->info.raw.channels);
 		format = *info;
+	} else {
+		pw_log_info("node %d monitor:%d channelmix %d",
+			node->id, node->monitor, format.info.raw.channels);
 	}
 	format.info.raw.rate = impl->sample_rate;
 
@@ -249,6 +324,7 @@ static int configure_node(struct node *node, struct spa_audio_info *info, bool f
 			SPA_PARAM_PortConfig, 0, param);
 
 	node->configured = true;
+	node->passthrough = false;
 
 	if (node->type == NODE_TYPE_DEVICE) {
 		/* Schedule rescan in case we need to move streams */
@@ -262,17 +338,26 @@ static void object_update(void *data)
 {
 	struct node *node = data;
 	struct impl *impl = node->impl;
+	const char *str;
 
-	pw_log_debug(NAME" %p: node %p %08x", impl, node, node->obj->obj.changed);
+	pw_log_debug(NAME" %p: node %d %08x", impl, node->id, node->obj->obj.changed);
 
-	if (node->obj->obj.avail & SM_NODE_CHANGE_MASK_PARAMS &&
-	    !node->active) {
-		if (!find_format(node)) {
-			pw_log_debug(NAME" %p: can't find format %p", impl, node);
-			return;
+	if (node->obj->obj.avail & SM_NODE_CHANGE_MASK_INFO &&
+	    node->obj->info != NULL && node->obj->info->props != NULL) {
+		str = spa_dict_lookup(node->obj->info->props, PW_KEY_NODE_EXCLUSIVE);
+		node->exclusive = str ? pw_properties_parse_bool(str) : false;
+	}
+
+	if (!node->active) {
+		if (node->obj->obj.avail & SM_NODE_CHANGE_MASK_PARAMS) {
+			if (!find_format(node)) {
+				pw_log_debug(NAME" %p: node %d can't find format", impl, node->id);
+				return;
+			}
+			node->active = true;
 		}
-		node->active = true;
-		sm_media_session_schedule_rescan(impl->session);
+		if (node->active)
+			sm_media_session_schedule_rescan(impl->session);
 	}
 }
 
@@ -399,8 +484,20 @@ handle_node(struct impl *impl, struct sm_object *object)
 	return 1;
 }
 
+static void unpeer_node(struct node *node)
+{
+	struct impl *impl = node->impl;
+	pw_log_info("unpeer id:%d exclusive:%d", node->id, node->exclusive);
+	if (node->passthrough) {
+		node->passthrough = false;
+		node->configured = false;
+		sm_media_session_schedule_rescan(impl->session);
+	}
+}
+
 static void destroy_node(struct impl *impl, struct node *node)
 {
+	pw_log_info("destroy %d %p", node->id, node->peer);
 	spa_list_remove(&node->link);
 	if (node->linking)
 		impl->linking_node_removed = true;
@@ -408,6 +505,8 @@ static void destroy_node(struct impl *impl, struct node *node)
 	if (node->enabled)
 		spa_hook_remove(&node->listener);
 	free(node->media);
+	if (node->peer)
+		unpeer_node(node->peer);
 	if (node->peer && node->peer->peer == node)
 		node->peer->peer = NULL;
 	sm_object_remove_data((struct sm_object*)node->obj, SESSION_KEY);
@@ -568,6 +667,7 @@ static void session_remove(void *data, struct sm_object *object)
 
 struct find_data {
 	struct impl *impl;
+	struct node *result;
 	struct node *node;
 
 	const char *media;
@@ -576,6 +676,9 @@ struct find_data {
 	enum pw_direction direction;
 
 	bool exclusive;
+	bool have_passthrough;
+	bool passthrough_only;
+	bool can_passthrough;
 	int priority;
 	uint64_t plugged;
 };
@@ -587,7 +690,7 @@ static int find_node(void *data, struct node *node)
 	int priority = 0;
 	uint64_t plugged = 0;
 	struct sm_device *device = node->obj->device;
-	bool is_default = false;
+	bool is_default = false, can_passthrough = false;
 
 	if (node->obj->info == NULL) {
 		pw_log_debug(NAME " %p: skipping node '%d' with no node info", impl, node->id);
@@ -650,17 +753,26 @@ static int find_node(void *data, struct node *node)
 		pw_log_debug(NAME " %p: node '%d' in use", impl, node->id);
 		return 0;
 	}
+	if (find->node && find->have_passthrough && node->have_passthrough)
+		can_passthrough = check_passthrough(find->node, node);
+
+	if ((find->passthrough_only || node->passthrough_only) &&
+	    !can_passthrough) {
+		pw_log_debug(NAME " %p: node '%d' passthrough required", impl, node->id);
+		return 0;
+	}
 
 	pw_log_debug(NAME " %p: found node '%d' %"PRIu64" prio:%d", impl,
 			node->id, plugged, priority);
 
-	if (find->node == NULL ||
+	if (find->result == NULL ||
 	    priority > find->priority ||
 	    (priority == find->priority && plugged > find->plugged)) {
 		pw_log_debug(NAME " %p: new best %d %" PRIu64, impl, priority, plugged);
-		find->node = node;
+		find->result = node;
 		find->priority = priority;
 		find->plugged = plugged;
+		find->can_passthrough = can_passthrough;
 	}
 	return 0;
 }
@@ -691,7 +803,7 @@ static struct node *find_auto_default_node(struct impl *impl, const struct defau
 	spa_list_for_each(node, &impl->node_list, link)
 		find_node(&find, node);
 
-	return find.node;
+	return find.result;
 }
 
 static int link_nodes(struct node *node, struct node *peer)
@@ -704,10 +816,15 @@ static int link_nodes(struct node *node, struct node *peer)
 	pw_log_debug(NAME " %p: link nodes %d %d remix:%d", impl,
 			node->id, peer->id, !node->dont_remix);
 
-	if (node->dont_remix)
-		configure_node(node, NULL, false);
-	else {
-		configure_node(node, &peer->format, true);
+	if (node->want_passthrough) {
+		configure_passthrough(node);
+		configure_passthrough(peer);
+	} else {
+		if (node->dont_remix)
+			configure_node(node, NULL, false);
+		else {
+			configure_node(node, &peer->format, true);
+		}
 	}
 
 	if (node->direction == PW_DIRECTION_INPUT) {
@@ -728,10 +845,12 @@ static int link_nodes(struct node *node, struct node *peer)
 
 	if (impl->linking_node_removed) {
 		impl->linking_node_removed = false;
+		pw_log_info("linking node %d was removed", node->id);
 		return -ENOENT;
 	}
 	node->linking = false;
 
+	pw_log_info("linked %d to %p", res, peer);
 	if (res > 0) {
 		node->peer = peer;
 		node->connect_count++;
@@ -807,7 +926,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 {
 	struct spa_dict *props;
 	const char *str;
-	bool exclusive, reconnect, autoconnect;
+	bool reconnect, autoconnect, can_passthrough = false;
 	struct pw_node_info *info;
 	struct node *peer;
 	struct sm_object *obj;
@@ -863,9 +982,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 		return 0;
 	}
 
-	str = spa_dict_lookup(props, PW_KEY_NODE_EXCLUSIVE);
-	exclusive = str ? pw_properties_parse_bool(str) : false;
-	pw_log_debug(NAME " %p: exclusive:%d", impl, exclusive);
+	pw_log_debug(NAME " %p: exclusive:%d", impl, n->exclusive);
 
 	/* honor target node set by user or asked for by the client */
 	path_id = SPA_ID_INVALID;
@@ -889,7 +1006,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 		bool follows_default = (impl->streams_follow_default &&
 				n->type == NODE_TYPE_STREAM);
 		bool recheck = !peer_is_target && (follows_default || target_found) &&
-			reconnect;
+			reconnect && !n->passthrough;
 		if (!recheck) {
 			pw_log_debug(NAME " %p: node %d is already linked, peer-is-target:%d "
 					"follows-default:%d", impl, n->id, peer_is_target,
@@ -898,15 +1015,8 @@ static int rescan_node(struct impl *impl, struct node *n)
 		}
 	}
 
-	if (n->passthrough_only) {
-		path_id = SPA_ID_INVALID;
-		peer = NULL;
-		reconnect = false;
-		goto do_link;
-	}
-
-	pw_log_info("trying to link node %d exclusive:%d reconnect:%d target:%d",
-			n->id, exclusive, reconnect, path_id);
+	pw_log_info("trying to link node %d exclusive:%d reconnect:%d target:%d, peer %p",
+			n->id, n->exclusive, reconnect, path_id, n->peer);
 
 	if (path_id != SPA_ID_INVALID) {
 		pw_log_debug(NAME " %p: target:%d", impl, path_id);
@@ -914,33 +1024,54 @@ static int rescan_node(struct impl *impl, struct node *n)
 		if (!reconnect)
 			n->obj->target_node = NULL;
 
-		if ((obj = sm_media_session_find_object(impl->session, path_id)) != NULL) {
-			pw_log_debug(NAME " %p: found target:%d type:%s", impl,
-					path_id, obj->type);
-			if (spa_streq(obj->type, PW_TYPE_INTERFACE_Node)) {
-				peer = sm_object_get_data(obj, SESSION_KEY);
-				goto do_link;
-			}
+		if ((obj = sm_media_session_find_object(impl->session, path_id)) == NULL) {
+			pw_log_warn("node %d target:%d not found, find fallback:%d", n->id,
+					path_id, reconnect);
+			path_id = SPA_ID_INVALID;
+			goto fallback;
 		}
-		pw_log_warn("node %d target:%d not found, find fallback:%d", n->id,
-				path_id, reconnect);
+		path_id = SPA_ID_INVALID;
+
+		if (!spa_streq(obj->type, PW_TYPE_INTERFACE_Node))
+			goto fallback;
+
+		peer = sm_object_get_data(obj, SESSION_KEY);
+		pw_log_debug(NAME " %p: found target:%d type:%s %d:%d", impl,
+				peer->id, obj->type, n->passthrough_only, peer->have_passthrough);
+
+		can_passthrough = check_passthrough(n, peer);
+		if (n->passthrough_only && !can_passthrough) {
+			pw_log_info(NAME " %p: peer has no passthrough", impl);
+			goto fallback;
+		}
+
+		goto do_link;
 	}
+fallback:
 	if (path_id == SPA_ID_INVALID && (reconnect || n->connect_count == 0)) {
 		/* find fallback */
 		struct find_data find;
 
 		spa_zero(find);
 		find.impl = impl;
+		find.node = n;
 		find.media = n->media;
 		find.capture_sink = n->capture_sink;
 		find.direction = n->direction;
-		find.exclusive = exclusive;
+		find.exclusive = n->exclusive;
+		find.have_passthrough = n->have_passthrough;
+		find.passthrough_only = n->passthrough_only;
 		find.link_group = n->peer == NULL ? spa_dict_lookup(props, PW_KEY_NODE_LINK_GROUP) : NULL;
 
 		spa_list_for_each(peer, &impl->node_list, link)
 			find_node(&find, peer);
 
-		peer = find.node;
+		peer = find.result;
+		if (peer)
+			can_passthrough = find.can_passthrough;
+
+		if (n->passthrough_only && !can_passthrough)
+			peer = NULL;
 	} else {
 		peer = NULL;
 	}
@@ -973,13 +1104,15 @@ do_link:
 		pw_log_debug(NAME " %p: node %d already linked to %d (not changing)",
 				impl, n->id, peer->id);
 		return 0;
+	} else {
+		n->want_passthrough = can_passthrough;
 	}
 
-	if (exclusive && peer->obj->info->state == PW_NODE_STATE_RUNNING) {
-		pw_log_warn("node %d busy, can't get exclusive access", peer->id);
+	if ((n->exclusive || n->want_passthrough) &&
+			peer->obj->info->state == PW_NODE_STATE_RUNNING) {
+		pw_log_warn("node %d busy, can't get exclusive/passthrough access", peer->id);
 		return -EBUSY;
 	}
-	n->exclusive = exclusive;
 
 	return relink_node(impl, n, peer);
 }

@@ -1358,8 +1358,11 @@ static int setup_sndfile(struct data *data)
 				sf_fmt_to_str(info.format),
 				data->samplesize,
 				data->stride, nom, (double)nom/data->rate);
+
 	if (nom)
 		pw_properties_setf(data->props, PW_KEY_NODE_LATENCY, "%u/%u", nom, data->rate);
+
+	pw_properties_setf(data->props, PW_KEY_NODE_RATE, "1/%u", data->rate);
 
 	if (data->quality >= 0)
 		pw_properties_setf(data->props, "resample.quality", "%d", data->quality);

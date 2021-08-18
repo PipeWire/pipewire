@@ -295,6 +295,8 @@ static inline uint32_t spa_alsa_get_iec958_codecs(struct state *state, uint32_t 
 {
 	uint64_t mask = state->iec958_codecs;
 	uint32_t i = 0, j = 0;
+	if (!(state->is_iec958 || state->is_hdmi))
+		return 0;
 	while (mask && i < max_codecs) {
 		if (mask & 1)
 			codecs[i++] = j;

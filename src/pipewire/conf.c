@@ -586,7 +586,7 @@ static int do_exec(struct pw_context *context, const char *key, const char *args
 		}
 	}
 	else {
-		int status;
+		int status = 0;
 		res = waitpid(pid, &status, WNOHANG);
 		pw_log_info("exec got pid %d res:%d status:%d", pid, res, status);
 	}

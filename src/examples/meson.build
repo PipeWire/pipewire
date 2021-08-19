@@ -66,6 +66,7 @@ if get_option('session-managers').contains('media-session') and alsa_dep.found()
   media_session_sources = [
     'media-session/access-flatpak.c',
     'media-session/access-portal.c',
+    'media-session/alsa-no-dsp.c',
     'media-session/alsa-midi.c',
     'media-session/alsa-monitor.c',
     'media-session/alsa-endpoint.c',

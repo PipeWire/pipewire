@@ -90,6 +90,7 @@ int sm_default_profile_start(struct sm_media_session *sess);
 int sm_default_routes_start(struct sm_media_session *sess);
 int sm_restore_stream_start(struct sm_media_session *sess);
 int sm_streams_follow_default_start(struct sm_media_session *sess);
+int sm_alsa_no_dsp_start(struct sm_media_session *sess);
 int sm_alsa_midi_start(struct sm_media_session *sess);
 int sm_v4l2_monitor_start(struct sm_media_session *sess);
 int sm_libcamera_monitor_start(struct sm_media_session *sess);
@@ -2390,6 +2391,7 @@ static const struct {
 	{ "default-routes", "restore default route", sm_default_routes_start, NULL },
 	{ "restore-stream", "restore stream settings", sm_restore_stream_start, NULL },
 	{ "streams-follow-default", "move streams when default changes", sm_streams_follow_default_start, NULL },
+	{ "alsa-no-dsp", "do not configure audio nodes in DSP mode", sm_alsa_no_dsp_start, NULL },
 	{ "alsa-seq", "alsa seq midi support", sm_alsa_midi_start, NULL },
 	{ "alsa-monitor", "alsa card udev detection", sm_alsa_monitor_start, NULL },
 	{ "v4l2", "video for linux udev detection", sm_v4l2_monitor_start, NULL },

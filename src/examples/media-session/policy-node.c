@@ -92,6 +92,7 @@ struct impl {
 	struct default_node defaults[4];
 
 	bool streams_follow_default;
+	bool alsa_no_dsp;
 };
 
 struct node {
@@ -279,6 +280,7 @@ static int configure_node(struct node *node, struct spa_audio_info *info, bool f
 	struct spa_pod *param;
 	struct spa_audio_info format;
 	enum pw_direction direction;
+	uint32_t mode;
 
 	if (node->configured && !force) {
 		pw_log_debug("node %d is configured passthrough:%d", node->id, node->passthrough);
@@ -292,7 +294,18 @@ static int configure_node(struct node *node, struct spa_audio_info *info, bool f
 
 	format = node->format;
 
-	if (info != NULL && info->info.raw.channels > 0) {
+	if (impl->alsa_no_dsp) {
+		if ((info != NULL && memcmp(&node->format, info, sizeof(node->format)) == 0) ||
+				node->type == NODE_TYPE_DEVICE)
+			mode = SPA_PARAM_PORT_CONFIG_MODE_passthrough;
+		else
+			mode = SPA_PARAM_PORT_CONFIG_MODE_convert;
+	} else {
+		mode = SPA_PARAM_PORT_CONFIG_MODE_dsp;
+	}
+
+	if (mode != SPA_PARAM_PORT_CONFIG_MODE_passthrough &&
+			info != NULL && info->info.raw.channels > 0) {
 		pw_log_info("node %d monitor:%d channelmix %d->%d",
 			node->id, node->monitor, format.info.raw.channels,
 			info->info.raw.channels);
@@ -313,7 +326,7 @@ static int configure_node(struct node *node, struct spa_audio_info *info, bool f
 	param = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
 		SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(direction),
-		SPA_PARAM_PORT_CONFIG_mode,	 SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
+		SPA_PARAM_PORT_CONFIG_mode,	 SPA_POD_Id(mode),
 		SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(true),
 		SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
 
@@ -1314,6 +1327,8 @@ int sm_policy_node_start(struct sm_media_session *session)
 
 	flag = pw_properties_get(session->props, NAME ".streams-follow-default");
 	impl->streams_follow_default = (flag != NULL && pw_properties_parse_bool(flag));
+	flag = pw_properties_get(session->props, NAME ".alsa-no-dsp");
+	impl->alsa_no_dsp = (flag != NULL && pw_properties_parse_bool(flag));
 
 	spa_list_init(&impl->node_list);
 

@@ -129,6 +129,10 @@ struct impl {
 	unsigned int transport_acquired:1;
 	unsigned int following:1;
 
+	unsigned int is_input:1;
+	unsigned int is_duplex:1;
+
+	int fd;
 	struct spa_source source;
 
 	struct spa_io_clock *clock;
@@ -145,8 +149,8 @@ struct impl {
 	uint64_t sample_count;
 	uint64_t skip_count;
 
-	bool is_input;
-	bool is_duplex;
+	int duplex_timerfd;
+	uint64_t duplex_timeout;
 };
 
 #define NAME "a2dp-source"
@@ -379,7 +383,7 @@ static int32_t read_data(struct impl *this) {
 
 again:
 	/* read data from socket */
-	size_read = read(this->source.fd, this->buffer_read, b_size);
+	size_read = recv(this->fd, this->buffer_read, b_size, MSG_DONTWAIT);
 
 	if (size_read == 0)
 		return 0;
@@ -599,6 +603,30 @@ stop:
 		spa_loop_remove_source(this->data_loop, &this->source);
 }
 
+static int set_duplex_timeout(struct impl *this, uint64_t timeout)
+{
+	struct itimerspec ts;
+	ts.it_value.tv_sec = timeout / SPA_NSEC_PER_SEC;
+	ts.it_value.tv_nsec = timeout % SPA_NSEC_PER_SEC;
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
+	return spa_system_timerfd_settime(this->data_system,
+			this->duplex_timerfd, 0, &ts, NULL);
+}
+
+static void a2dp_on_duplex_timeout(struct spa_source *source)
+{
+	struct impl *this = source->data;
+	uint64_t exp;
+
+	if (spa_system_timerfd_read(this->data_system, this->duplex_timerfd, &exp) < 0)
+		spa_log_warn(this->log, "error reading timerfd: %s", strerror(errno));
+
+	set_duplex_timeout(this, this->duplex_timeout);
+
+	a2dp_on_ready_read(source);
+}
+
 static int transport_start(struct impl *this)
 {
 	int res, val;
@@ -643,12 +671,36 @@ static int transport_start(struct impl *this)
 
 	reset_buffers(&this->port);
 
+	this->fd = this->transport->fd;
+
 	this->source.data = this;
-	this->source.fd = this->transport->fd;
-	this->source.func = a2dp_on_ready_read;
-	this->source.mask = SPA_IO_IN;
-	this->source.rmask = 0;
-	spa_loop_add_source(this->data_loop, &this->source);
+
+	if (!this->is_duplex) {
+		this->source.fd = this->transport->fd;
+		this->source.func = a2dp_on_ready_read;
+		this->source.mask = SPA_IO_IN;
+		this->source.rmask = 0;
+		spa_loop_add_source(this->data_loop, &this->source);
+	} else {
+		/*
+		 * XXX: For an unknown reason (on Linux 5.13.10), the socket when working with
+		 * XXX: "duplex" stream sometimes stops waking up from the poll, even though
+		 * XXX: you can recv() from the socket with no problem.
+		 * XXX:
+		 * XXX: The reason for this should be found and fixed.
+		 * XXX: To work around this, for now we just do the stupid thing and poll
+		 * XXX: on a timer, chosen so that it's fast enough for the aptX-LL codec
+		 * XXX: we currently support (which sends mSBC data).
+		 */
+		this->source.fd = this->duplex_timerfd;
+		this->source.func = a2dp_on_duplex_timeout;
+		this->source.mask = SPA_IO_IN;
+		this->source.rmask = 0;
+		spa_loop_add_source(this->data_loop, &this->source);
+
+		this->duplex_timeout = SPA_NSEC_PER_MSEC * 75/10;
+		set_duplex_timeout(this, this->duplex_timeout);
+	}
 
 	this->sample_count = 0;
 	this->skip_count = 0;
@@ -687,6 +739,10 @@ static int do_remove_source(struct spa_loop *loop,
 			    void *user_data)
 {
 	struct impl *this = user_data;
+
+	spa_log_debug(this->log, NAME" %p: remove source", this);
+
+	set_duplex_timeout(this, 0);
 
 	if (this->source.loop)
 		spa_loop_remove_source(this->data_loop, &this->source);
@@ -1287,6 +1343,10 @@ static int impl_clear(struct spa_handle *handle)
 		this->codec->clear_props(this->codec_props);
 	if (this->transport)
 		spa_hook_remove(&this->transport_listener);
+	if (this->duplex_timerfd >= 0) {
+		spa_system_close(this->data_system, this->duplex_timerfd);
+		this->duplex_timerfd = -1;
+	}
 	return 0;
 }
 
@@ -1410,6 +1470,13 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);
+
+	if (this->is_duplex) {
+		this->duplex_timerfd = spa_system_timerfd_create(this->data_system,
+				CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	} else {
+		this->duplex_timerfd = -1;
+	}
 
 	return 0;
 }

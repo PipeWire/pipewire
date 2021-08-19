@@ -184,6 +184,7 @@ struct module *create_module_ladspa_source(struct impl *impl, const char *argume
 
 	if ((str = pw_properties_get(props, "source_name")) != NULL) {
 		pw_properties_set(props, PW_KEY_NODE_NAME, str);
+		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, str);
 		pw_properties_set(props, "source_name", NULL);
 	}
 	if ((str = pw_properties_get(props, "source_properties")) != NULL) {

@@ -120,6 +120,8 @@ const a2dp_mpeg_t bluez_a2dp_mpeg = {
 
 extern struct a2dp_codec a2dp_codec_sbc;
 extern struct a2dp_codec a2dp_codec_sbc_xq;
+extern struct a2dp_codec a2dp_codec_faststream;
+extern struct a2dp_codec a2dp_codec_faststream_duplex;
 #if ENABLE_LDAC
 extern struct a2dp_codec a2dp_codec_ldac;
 #endif
@@ -154,6 +156,8 @@ static const struct a2dp_codec * const a2dp_codec_list[] = {
 #endif
 	&a2dp_codec_sbc,
 	&a2dp_codec_sbc_xq,
+	&a2dp_codec_faststream,
+	&a2dp_codec_faststream_duplex,
 #if ENABLE_APTX
 	&a2dp_codec_aptx_ll_0,
 	&a2dp_codec_aptx_ll_1,

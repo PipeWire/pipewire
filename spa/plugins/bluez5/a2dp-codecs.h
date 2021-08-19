@@ -196,6 +196,17 @@
 #define LDAC_SAMPLING_FREQ_176400	0x02
 #define LDAC_SAMPLING_FREQ_192000	0x01
 
+#define FASTSTREAM_VENDOR_ID            0x0000000a
+#define FASTSTREAM_CODEC_ID             0x0001
+
+#define FASTSTREAM_DIRECTION_SINK       0x1
+#define FASTSTREAM_DIRECTION_SOURCE     0x2
+
+#define FASTSTREAM_SINK_SAMPLING_FREQ_44100     0x2
+#define FASTSTREAM_SINK_SAMPLING_FREQ_48000     0x1
+
+#define FASTSTREAM_SOURCE_SAMPLING_FREQ_16000   0x2
+
 typedef struct {
 	uint32_t vendor_id;
 	uint16_t codec_id;
@@ -261,6 +272,13 @@ typedef struct {
         uint8_t reserved:6;
 } __attribute__ ((packed)) a2dp_aptx_ll_t;
 
+typedef struct {
+        a2dp_vendor_codec_t info;
+        uint8_t direction;
+        uint8_t sink_frequency:4;
+        uint8_t source_frequency:4;
+} __attribute__ ((packed)) a2dp_faststream_t;
+
 #elif __BYTE_ORDER == __BIG_ENDIAN
 
 typedef struct {
@@ -314,6 +332,13 @@ typedef struct {
         uint8_t has_new_caps:1;
         uint8_t bidirect_link:1;
 } __attribute__ ((packed)) a2dp_aptx_ll_t;
+
+typedef struct {
+        a2dp_vendor_codec_t info;
+        uint8_t direction;
+        uint8_t source_frequency:4;
+        uint8_t sink_frequency:4;
+} __attribute__ ((packed)) a2dp_faststream_t;
 
 #else
 #error "Unknown byte order"

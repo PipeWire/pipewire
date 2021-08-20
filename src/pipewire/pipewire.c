@@ -107,21 +107,18 @@ find_plugin(struct registry *registry, const char *filename)
 
 static struct plugin *
 open_plugin(struct registry *registry,
-	    const char *path, const char *lib)
+	    const char *path, size_t len, const char *lib)
 {
 	struct plugin *plugin;
-	char *filename;
+	char filename[PATH_MAX];
 	void *hnd;
 	spa_handle_factory_enum_func_t enum_func;
 	int res;
 
-        if ((filename = spa_aprintf("%s/%s.so", path, lib)) == NULL) {
-		res = -errno;
+        if ((res = spa_scnprintf(filename, sizeof(filename), "%.*s/%s.so", (int)len, path, lib)) < 0)
 		goto error_out;
-	}
 
 	if ((plugin = find_plugin(registry, filename)) != NULL) {
-		free(filename);
 		plugin->ref++;
 		return plugin;
 	}
@@ -129,7 +126,7 @@ open_plugin(struct registry *registry,
         if ((hnd = dlopen(filename, RTLD_NOW)) == NULL) {
 		res = -ENOENT;
 		pw_log_debug("can't load %s: %s", filename, dlerror());
-		goto error_free_filename;
+		goto error_out;
         }
         if ((enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)) == NULL) {
 		res = -ENOSYS;
@@ -144,7 +141,7 @@ open_plugin(struct registry *registry,
 
 	pw_log_debug("loaded plugin:'%s'", filename);
 	plugin->ref = 1;
-	plugin->filename = filename;
+	plugin->filename = strdup(filename);
 	plugin->hnd = hnd;
 	plugin->enum_func = enum_func;
 	spa_list_init(&plugin->handles);
@@ -155,8 +152,6 @@ open_plugin(struct registry *registry,
 
 error_dlclose:
 	dlclose(hnd);
-error_free_filename:
-        free(filename);
 error_out:
 	errno = -res;
 	return NULL;
@@ -249,7 +244,9 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 	struct plugin *plugin;
 	struct handle *handle;
 	const struct spa_handle_factory *factory;
+	const char *state = NULL, *p;
 	int res;
+	size_t len;
 
 	if (factory_name == NULL) {
 		res = -EINVAL;
@@ -261,10 +258,16 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 
 	pw_log_debug("load lib:'%s' factory-name:'%s'", lib, factory_name);
 
-	if ((plugin = open_plugin(sup->registry, sup->plugin_dir, lib)) == NULL) {
+	plugin = NULL;
+	res = -ENOENT;
+
+	while ((p = pw_split_walk(sup->plugin_dir, ":", &len, &state))) {
+		if ((plugin = open_plugin(sup->registry, p, len, lib)) != NULL)
+			break;
 		res = -errno;
-		goto error_out;
 	}
+	if (plugin == NULL)
+		goto error_out;
 
 	factory = find_factory(plugin, factory_name);
 	if (factory == NULL) {

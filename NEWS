@@ -1,3 +1,114 @@
+# PipeWire 0.3.34 (2021-08-26)
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+
+## Highlights
+  - Fixes some critical issues with previous release. Such as
+    devices not showing up and default devices being lost.
+  - Support for consumer driver streams to make the producer v-sync
+    to the consumer monitor in a headless compositor setup.
+  - Improvements to routing of streams.
+  - Bluetooth battery status support for head-set profile and
+    using Apple extensions. aptX-LL and FastStream codec support
+    was added.
+  - Internal latency of ALSA devices can now be configured.
+  - A fast convolver was added to the filter-chain to implement
+    virtual surround sinks or reverbs.
+
+## PipeWire
+  - Add support for streams that are driver nodes for the graph.
+    This was already possible for source streams but it is now
+    also possible for playback streams. This can be used to let
+    a producer v-sync to the consumer monitor in a headless
+    compositor setup. (#1484)
+  - State files are now stored in XDG_STATE_HOME instead of
+    XDG_CONFIG_HOME. They will still be loaded from the config home
+    if they are not in the new state home, to ease migration.
+  - Set a driver on inactive nodes to make transport work in xjadeo.
+    (#1491)
+  - Fix parsing of filter-chain controls.
+  - A new FFT based convolver was added to module-filter-chain. It
+    uses a 0-latency 2 stage convolver with small FFT for the head
+    and a large FFT for the tail of the convolution. A convolution
+    can be used to implement IR based reverbs, HRIR surround sound
+    or other convolution based operations. An example HRIR
+    virtual surround sound sink has been added as well.
+  - module-filter-chain was reworked a bit to support more config
+    options for the plugins.
+  - Endian conversion and alaw/ulaw formats are now supported for
+    streams.
+  - pw-cat will now suggest a samplerate for the graph.
+  - SPA_PLUGIN_DIR can now search in multiple paths separated with
+    a ':'.
+  - Passthrough mode has been worked on and has been partially
+    merged. S/PDIF definitions have been added and ALSA devices
+    updated to report and configure S/PDIF formats. The session
+    manager changes to fully configure and enable passthrough mode
+    will hopefully be merged next time.
+  - Fix a race in pw-stream where it would not always emit the
+    right events.
+
+## ALSA
+  - Fix volume changed check. It was checking against the wrong
+    value and this could cause rounding errors.
+  - The ALSA plugin now also uses RT scheduling.
+  - Fix the behringer UMC202 usb device id, it was using a generic
+    TI chip ID that caused problems.
+  - Fix USB devices that don't show up anymore. Use an ALSA
+    workaround to fix this. (#1478)
+  - Add a rule for the new firmware of Sennheiser GSX 1200.
+  - ALSA sink and source can now use ProcessLatency param to configure
+    the internal latency. The latencyOffsetNsec property is also
+    exposed so that the latency can be adjusted in pavucontrol as
+    well.
+
+## media-session
+  - Fix a critical issue where the default device was not remembered
+    anymore when it was removed.
+  - Fix the issue where some apps need to be restarted when nodes go
+    away and reappear.
+  - Improve routing of streams. Streams that have a specific target
+    set will now be moved to the target when it appears instead of
+    staying on the fallback.
+  - Small memory leak fixes.
+  - Try to switch back to the user selected profile after finishing a
+    Bluetooth recording.
+
+## Bluetooth
+  - Add support for HF indicator 2 battery status.
+  - Add support for XAPL battery status.
+  - Set the Communication intended role for HFP profile.
+  - Enable SBC-XQ by default if not disabled by quirks.
+  - Fix some potential crashes due to excessive polling.
+  - Add aptx-LL codec and enable duplex for aptx-LL devices.
+  - Add FastStream codec. This is a codec that can use a
+    duplex SBC channel.
+
+## PulseAudio server
+  - Suggests a samplerate for the graph.
+  - Support for handling S/PDIF (IEC958) formats was added. This will
+    start working when the session manager supports configuring streams
+    and nodes in passthrough mode.
+  - Be smarter when handling devices without a negotiated format
+    yet so that they are visible as well. This makes virtual
+    devices show up immediately.
+
+## ALSA plugin
+  - Now suggests a samplerate for the graph.
+
+## JACK
+  - The jack.pc file can only be generated with meson >= 0.59.0. When
+    the jack-devel option is enabled, it will generate an error with
+    older meson.
+  - Small stability improvements when connecting/disconnecting in
+    Ardour.
+
+
+
+Older versions:
+
 # PipeWire 0.3.33 (2021-08-05)
 
 This is a bugfix release that is API and ABI compatible
@@ -79,9 +190,6 @@ with previous 0.3.x releases.
   - Many cleanups and small improvements.
   - Support the latest libcamera version. (#1435)
 
-
-
-Older versions:
 
 # PipeWire 0.3.32 (2021-07-20)
 

@@ -696,6 +696,7 @@ static int port_set_format(void *object,
 		port->params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 		port->params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	}
+	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	emit_port_info(this, port, false);
 	return 0;
 }
@@ -1029,7 +1030,8 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	port->id = port_id;
 
 	spa_list_init(&port->queue);
-	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS;
+	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
+		SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.flags = SPA_PORT_FLAG_NO_REF |
 		SPA_PORT_FLAG_DYNAMIC_DATA;

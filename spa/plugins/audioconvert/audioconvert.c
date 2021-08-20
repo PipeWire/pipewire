@@ -729,13 +729,20 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info->info.raw);
-		param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
-			SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(direction),
-			SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
-			SPA_PARAM_PORT_CONFIG_monitor,		SPA_POD_Bool(monitor),
-			SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(param));
-		res = spa_node_set_param(this->fmt[direction], SPA_PARAM_PortConfig, 0, param);
+
+		if (mode == SPA_PARAM_PORT_CONFIG_MODE_dsp) {
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
+				SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(direction),
+				SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
+				SPA_PARAM_PORT_CONFIG_monitor,		SPA_POD_Bool(monitor),
+				SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(param));
+			res = spa_node_set_param(this->fmt[direction], SPA_PARAM_PortConfig, 0, param);
+		} else {
+			res = spa_node_port_set_param(this->fmt[direction], direction, 0,
+				SPA_PARAM_Format, 0, param);
+		}
+
 		if (res < 0)
 			return res;
 

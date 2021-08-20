@@ -457,7 +457,7 @@ static void object_update(void *data)
 	pw_log_info(NAME" %p: stream %p %08x/%08x", impl, str,
 			str->obj->obj.changed, str->obj->obj.avail);
 
-	if (str->obj->obj.changed & SM_NODE_CHANGE_MASK_PARAMS)
+	if (str->obj->obj.changed & (SM_NODE_CHANGE_MASK_INFO | SM_NODE_CHANGE_MASK_PARAMS))
 		update_stream(str);
 }
 

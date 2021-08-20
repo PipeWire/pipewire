@@ -858,6 +858,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_setf(props, PW_KEY_NODE_LINK_GROUP, "echo-cancel-%u", id);
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
+	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_setf(props, PW_KEY_NODE_NAME, "echo-cancel-%u", id);
+	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION,
+				pw_properties_get(props, PW_KEY_NODE_NAME));
 
 	parse_audio_info(props, &impl->info);
 

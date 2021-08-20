@@ -438,6 +438,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 
+	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_setf(props, PW_KEY_NODE_NAME, "loopback-%u", id);
+	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION,
+				pw_properties_get(props, PW_KEY_NODE_NAME));
+
 	if ((str = pw_properties_get(props, "capture.props")) != NULL)
 		pw_properties_update_string(impl->capture_props, str, strlen(str));
 	if ((str = pw_properties_get(props, "playback.props")) != NULL)

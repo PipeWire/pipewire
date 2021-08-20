@@ -1498,7 +1498,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	if (stream->stream == NULL)
 		goto error_errno;
 
-	pw_log_debug(NAME" %p: new stream %p channel:%d", impl, stream, stream->channel);
+	pw_log_debug(NAME" %p: new stream %p channel:%d passthrough:%d",
+			impl, stream, stream->channel, passthrough);
 
 	pw_stream_add_listener(stream->stream,
 			&stream->stream_listener,

@@ -406,6 +406,13 @@ const char *format_encoding2name(enum encoding enc)
 		return encoding_names[enc].name;
 	return "INVALID";
 }
+static uint32_t format_encoding2id(enum encoding enc)
+{
+	if (enc >= 0 && enc < (int)SPA_N_ELEMENTS(encoding_names) &&
+	    encoding_names[enc].name != NULL)
+		return encoding_names[enc].id;
+	return SPA_ID_INVALID;
+}
 
 static enum encoding format_encoding_from_id(uint32_t id)
 {
@@ -425,10 +432,30 @@ int format_parse_param(const struct spa_pod *param, struct sample_spec *ss, stru
 	if (spa_format_parse(param, &info.media_type, &info.media_subtype) < 0)
 		return -ENOTSUP;
 
-	if (info.media_type != SPA_MEDIA_TYPE_audio ||
-	    info.media_subtype != SPA_MEDIA_SUBTYPE_raw ||
-	    spa_format_audio_raw_parse(param, &info.info.raw) < 0) {
+	if (info.media_type != SPA_MEDIA_TYPE_audio)
                 return -ENOTSUP;
+
+	switch (info.media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
+		if (spa_format_audio_raw_parse(param, &info.info.raw) < 0)
+	                return -ENOTSUP;
+		break;
+	case SPA_MEDIA_SUBTYPE_iec958:
+	{
+		struct spa_audio_info_iec958 iec;
+
+		if (spa_format_audio_iec958_parse(param, &iec) < 0)
+			return -ENOTSUP;
+
+		info.info.raw.format = SPA_AUDIO_FORMAT_S16;
+		info.info.raw.channels = 2;
+		info.info.raw.rate = iec.rate;
+		info.info.raw.position[0] = SPA_AUDIO_CHANNEL_FL;
+		info.info.raw.position[1] = SPA_AUDIO_CHANNEL_FR;
+		break;
+	}
+	default:
+		return -ENOTSUP;
         }
 	if (ss) {
 	        ss->format = info.info.raw.format;
@@ -607,13 +634,52 @@ int format_info_from_param(struct format_info *info, struct spa_pod *param, uint
 	return res;
 }
 
+static uint32_t format_info_get_format(const struct format_info *info)
+{
+	const char *str, *val;
+	struct spa_json it[2];
+	int len;
+
+	if ((str = pw_properties_get(info->props, "format.sample_format")) == NULL)
+		return SPA_AUDIO_FORMAT_UNKNOWN;
+
+	spa_json_init(&it[0], str, strlen(str));
+	if ((len = spa_json_next(&it[0], &val)) <= 0)
+		return SPA_AUDIO_FORMAT_UNKNOWN;
+
+	if (spa_json_is_string(val, len))
+		return format_paname2id(val+1, len-2);
+
+	return SPA_AUDIO_FORMAT_UNKNOWN;
+}
+
+static int format_info_get_rate(const struct format_info *info)
+{
+	const char *str, *val;
+	struct spa_json it[2];
+	int len, v;
+
+	if ((str = pw_properties_get(info->props, "format.rate")) == NULL)
+		return -ENOENT;
+
+	spa_json_init(&it[0], str, strlen(str));
+	if ((len = spa_json_next(&it[0], &val)) <= 0)
+		return -EINVAL;
+	if (spa_json_is_int(val, len)) {
+		if (spa_json_parse_int(val, len, &v) <= 0)
+			return -EINVAL;
+		return v;
+	}
+	return -ENOTSUP;
+}
+
 int format_info_to_spec(const struct format_info *info, struct sample_spec *ss,
 			  struct channel_map *map)
 {
 	const char *str, *val;
 	struct spa_json it[2];
 	float f;
-	int len;
+	int res, len;
 
 	spa_zero(*ss);
 	spa_zero(*map);
@@ -623,37 +689,12 @@ int format_info_to_spec(const struct format_info *info, struct sample_spec *ss,
 	if (info->props == NULL)
 		return -ENOENT;
 
-	if ((str = pw_properties_get(info->props, "format.sample_format")) == NULL)
-		return -ENOENT;
-
-	spa_json_init(&it[0], str, strlen(str));
-	if ((len = spa_json_next(&it[0], &val)) <= 0)
-		return -EINVAL;
-	if (spa_json_is_string(val, len)) {
-		ss->format = format_paname2id(val+1, len-2);
-		if (ss->format == SPA_AUDIO_FORMAT_UNKNOWN)
-			return -ENOTSUP;
-	} else if (spa_json_is_array(val, len)) {
-		return -ENOTSUP;
-	} else
+	if ((ss->format = format_info_get_format(info)) == SPA_AUDIO_FORMAT_UNKNOWN)
 		return -ENOTSUP;
 
-	if ((str = pw_properties_get(info->props, "format.rate")) == NULL)
-		return -ENOENT;
-
-	spa_json_init(&it[0], str, strlen(str));
-	if ((len = spa_json_next(&it[0], &val)) <= 0)
-		return -EINVAL;
-	if (spa_json_is_float(val, len)) {
-		if (spa_json_parse_float(val, len, &f) <= 0)
-			return -EINVAL;
-		ss->rate = f;
-	} else if (spa_json_is_array(val, len)) {
-		return -ENOTSUP;
-	} else if (spa_json_is_object(val, len)) {
-		return -ENOTSUP;
-	} else
-		return -ENOTSUP;
+	if ((res = format_info_get_rate(info)) < 0)
+		return res;
+	ss->rate = res;
 
 	if ((str = pw_properties_get(info->props, "format.channels")) == NULL)
 		return -ENOENT;
@@ -692,12 +733,39 @@ const struct spa_pod *format_info_build_param(struct spa_pod_builder *b, uint32_
 {
 	struct sample_spec ss;
 	struct channel_map map;
+	const struct spa_pod *param = NULL;
 	int res;
 
-	if ((res = format_info_to_spec(info, &ss, &map)) < 0) {
-		errno = -res;
-		return NULL;
+	switch (info->encoding) {
+	case ENCODING_PCM:
+		if ((res = format_info_to_spec(info, &ss, &map)) < 0) {
+			errno = -res;
+			return NULL;
+		}
+		*rate = ss.rate;
+		param = format_build_param(b, id, &ss, &map);
+		break;
+	case ENCODING_AC3_IEC61937:
+	case ENCODING_EAC3_IEC61937:
+	case ENCODING_MPEG_IEC61937:
+	case ENCODING_DTS_IEC61937:
+	case ENCODING_MPEG2_AAC_IEC61937:
+	case ENCODING_TRUEHD_IEC61937:
+	case ENCODING_DTSHD_IEC61937:
+	{
+		struct spa_audio_info_iec958 i = { 0 };
+		i.codec = format_encoding2id(info->encoding);
+		if ((res = format_info_get_rate(info)) <= 0) {
+			errno = -res;
+			return NULL;
+		}
+		i.rate = res;
+		param = spa_format_audio_iec958_build(b, id, &i);
+		break;
 	}
-	*rate = ss.rate;
-	return format_build_param(b, id, &ss, &map);
+	default:
+		errno = ENOTSUP;
+		break;
+	}
+	return param;
 }

@@ -725,17 +725,17 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 
 	this->mode[direction] = mode;
 
-	if (info && new != NULL) {
+	if (new != NULL) {
 		struct spa_pod_builder b = { 0 };
 		uint8_t buffer[1024];
-		struct spa_pod *param;
-
-		spa_log_debug(this->log, NAME " %p: port config %d", this, info->info.raw.channels);
+		struct spa_pod *param = NULL;
 
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-		param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info->info.raw);
-
+		if (info) {
+			spa_log_info(this->log, NAME " %p: port config %d", this, info->info.raw.channels);
+			param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info->info.raw);
+		}
 		if (mode == SPA_PARAM_PORT_CONFIG_MODE_dsp) {
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
@@ -748,7 +748,6 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 			res = spa_node_port_set_param(this->fmt[direction], direction, 0,
 				SPA_PARAM_Format, 0, param);
 		}
-
 		if (res < 0)
 			return res;
 

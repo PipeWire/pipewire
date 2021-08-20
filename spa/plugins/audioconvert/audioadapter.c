@@ -100,6 +100,8 @@ struct impl {
 	unsigned int started:1;
 	unsigned int driver:1;
 	unsigned int async:1;
+	unsigned int passthrough:1;
+	unsigned int follower_removing:1;
 };
 
 /** \endcond */
@@ -449,13 +451,23 @@ static int reconfigure_mode(struct impl *this, bool passthrough,
 	char buf[1024];
 	struct spa_pod_builder b = { 0 };
 	struct spa_pod *format = NULL;
+	struct spa_hook l;
 
 	spa_log_debug(this->log, NAME " %p: passthrough mode %d", this, passthrough);
 
-	if (passthrough)
-		configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_none);
-	else
-		configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_dsp);
+	if (this->passthrough != passthrough) {
+		if (passthrough) {
+			/* remove converter split/merge ports */
+			configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_none);
+		} else {
+			/* remove follower ports */
+			this->follower_removing = true;
+			spa_zero(l);
+			spa_node_add_listener(this->follower, &l, &follower_node_events, this);
+			spa_hook_remove(&l);
+			this->follower_removing = false;
+		}
+	}
 
 	/* set new target */
 	this->target = passthrough ? this->follower : this->convert;
@@ -467,12 +479,18 @@ static int reconfigure_mode(struct impl *this, bool passthrough,
 	if ((res = configure_format (this, 0, format)) < 0)
 		return res;
 
-	if (passthrough) {
-		struct spa_hook l;
-
-		spa_zero(l);
-		spa_node_add_listener(this->follower, &l, &follower_node_events, this);
-		spa_hook_remove(&l);
+	if (this->passthrough != passthrough) {
+		this->passthrough = passthrough;
+		if (passthrough) {
+			/* add follower ports */
+			spa_zero(l);
+			spa_node_add_listener(this->follower, &l, &follower_node_events, this);
+			spa_hook_remove(&l);
+		} else {
+			/* add converter ports */
+			configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_dsp);
+			link_io(this);
+		}
 	}
 
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS | SPA_NODE_CHANGE_MASK_PARAMS;
@@ -818,6 +836,9 @@ static void follower_info(void *data, const struct spa_node_info *info)
 	struct impl *this = data;
 	uint32_t i;
 
+	if (this->follower_removing)
+		return;
+
 	this->async = (info->flags & SPA_NODE_FLAG_ASYNC) != 0;
 
 	if (info->max_input_ports > 0)
@@ -907,6 +928,11 @@ static void follower_port_info(void *data,
 	struct impl *this = data;
 	uint32_t i;
 	int res;
+
+	if (this->follower_removing) {
+	      spa_node_emit_port_info(&this->hooks, direction, port_id, NULL);
+	      return;
+	}
 
 	spa_log_debug(this->log, NAME" %p: follower port info %s %p %08"PRIx64, this,
 			this->direction == SPA_DIRECTION_INPUT ?

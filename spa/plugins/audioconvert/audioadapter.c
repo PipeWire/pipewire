@@ -445,12 +445,9 @@ extern const struct spa_handle_factory spa_audioconvert_factory;
 static const struct spa_node_events follower_node_events;
 
 static int reconfigure_mode(struct impl *this, bool passthrough,
-                enum spa_direction direction, struct spa_audio_info *info)
+                enum spa_direction direction, struct spa_pod *format)
 {
 	int res = 0;
-	char buf[1024];
-	struct spa_pod_builder b = { 0 };
-	struct spa_pod *format = NULL;
 	struct spa_hook l;
 
 	spa_log_debug(this->log, NAME " %p: passthrough mode %d", this, passthrough);
@@ -472,11 +469,7 @@ static int reconfigure_mode(struct impl *this, bool passthrough,
 	/* set new target */
 	this->target = passthrough ? this->follower : this->convert;
 
-	spa_pod_builder_init(&b, buf, sizeof(buf));
-	if (info)
-		format = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info->info.raw);
-
-	if ((res = configure_format (this, 0, format)) < 0)
+	if ((res = configure_format(this, 0, format)) < 0)
 		return res;
 
 	if (this->passthrough != passthrough) {
@@ -534,7 +527,6 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		enum spa_direction dir;
 		enum spa_param_port_config_mode mode;
 		struct spa_pod *format = NULL;
-		struct spa_audio_info info = { 0, }, *infop = NULL;
 		int monitor = false;
 
 		if (this->started) {
@@ -550,31 +542,11 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 				SPA_PARAM_PORT_CONFIG_format,		SPA_POD_OPT_Pod(&format)) < 0)
 			return -EINVAL;
 
-		if (format) {
-			if (!spa_pod_is_object_type(format, SPA_TYPE_OBJECT_Format))
-				return -EINVAL;
-
-			if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
-				return res;
-
-			if (info.media_type != SPA_MEDIA_TYPE_audio ||
-			    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
-				return -ENOTSUP;
-
-			if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
-				return -EINVAL;
-
-			if (info.info.raw.channels == 0 || info.info.raw.rate == 0)
-				return -EINVAL;
-
-			infop = &info;
-		}
-
 		switch (mode) {
 		case SPA_PARAM_PORT_CONFIG_MODE_none:
 			return -ENOTSUP;
 		case SPA_PARAM_PORT_CONFIG_MODE_passthrough:
-			if ((res = reconfigure_mode(this, true, dir, infop)) < 0)
+			if ((res = reconfigure_mode(this, true, dir, format)) < 0)
 				return res;
 			break;
 		case SPA_PARAM_PORT_CONFIG_MODE_convert:

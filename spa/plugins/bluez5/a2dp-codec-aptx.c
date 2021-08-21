@@ -473,6 +473,20 @@ static int msbc_enum_config(const struct a2dp_codec *codec,
 	return *param == NULL ? -EIO : 1;
 }
 
+static int msbc_validate_config(const struct a2dp_codec *codec, uint32_t flags,
+			const void *caps, size_t caps_size,
+			struct spa_audio_info *info)
+{
+	spa_zero(*info);
+	info->media_type = SPA_MEDIA_TYPE_audio;
+	info->media_subtype = SPA_MEDIA_SUBTYPE_raw;
+	info->info.raw.format = SPA_AUDIO_FORMAT_S16_LE;
+	info->info.raw.channels = 1;
+	info->info.raw.position[0] = SPA_AUDIO_CHANNEL_MONO;
+	info->info.raw.rate = 16000;
+	return 0;
+}
+
 static int msbc_reduce_bitpool(void *data)
 {
 	return -ENOTSUP;
@@ -679,6 +693,7 @@ static const struct a2dp_codec aptx_ll_msbc = {
 	.fill_caps = codec_fill_caps,
 	.select_config = codec_select_config_ll,
 	.enum_config = msbc_enum_config,
+	.validate_config = msbc_validate_config,
 	.init = msbc_init,
 	.deinit = msbc_deinit,
 	.get_block_size = msbc_get_block_size,

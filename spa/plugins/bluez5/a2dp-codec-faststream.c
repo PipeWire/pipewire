@@ -409,6 +409,21 @@ static int duplex_enum_config(const struct a2dp_codec *codec,
 	return *param == NULL ? -EIO : 1;
 }
 
+static int duplex_validate_config(const struct a2dp_codec *codec, uint32_t flags,
+			const void *caps, size_t caps_size,
+			struct spa_audio_info *info)
+{
+	spa_zero(*info);
+	info->media_type = SPA_MEDIA_TYPE_audio;
+	info->media_subtype = SPA_MEDIA_SUBTYPE_raw;
+	info->info.raw.format = SPA_AUDIO_FORMAT_S16_LE;
+	info->info.raw.channels = 2;
+	info->info.raw.position[0] = SPA_AUDIO_CHANNEL_FL;
+	info->info.raw.position[1] = SPA_AUDIO_CHANNEL_FR;
+	info->info.raw.rate = 16000;
+	return 0;
+}
+
 static int duplex_reduce_bitpool(void *data)
 {
 	return -ENOTSUP;
@@ -567,6 +582,7 @@ static const struct a2dp_codec duplex_codec = {
 	.fill_caps = codec_fill_caps,
 	.select_config = codec_select_config,
 	.enum_config = duplex_enum_config,
+	.validate_config = duplex_validate_config,
 	.init = duplex_init,
 	.deinit = duplex_deinit,
 	.get_block_size = duplex_get_block_size,

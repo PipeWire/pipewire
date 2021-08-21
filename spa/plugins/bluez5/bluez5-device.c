@@ -92,6 +92,7 @@ struct node {
 	unsigned int active:1;
 	unsigned int mute:1;
 	unsigned int save:1;
+	unsigned int a2dp_duplex:1;
 	uint32_t n_channels;
 	int64_t latency_offset;
 	uint32_t channels[SPA_AUDIO_MAX_CHANNELS];
@@ -290,6 +291,26 @@ static void emit_volume(struct impl *this, struct node *node)
 
 static void emit_info(struct impl *this, bool full);
 
+static float get_soft_volume_boost(struct node *node)
+{
+	/*
+	 * For A2DP duplex, the duplex microphone channel sometimes does not appear
+	 * to have hardware gain, and input volume is very low.
+	 *
+	 * Work around this by boosting the software volume level, i.e. adjust
+	 * the scale on the user-visible volume control to something more sensible.
+	 * If this causes clipping, the user can just reduce the mic volume to
+	 * bring SW gain below 1.
+	 */
+	if (node->a2dp_duplex && node->transport &&
+			node->id == DEVICE_ID_SOURCE &&
+			!node->transport->volumes[SPA_BT_VOLUME_ID_RX].active)
+		return 10.0f;	/* 20 dB boost */
+
+	/* In all other cases, no boost */
+	return 1.0f;
+}
+
 static float node_get_hw_volume(struct node *node)
 {
 	uint32_t i;
@@ -350,6 +371,33 @@ static const struct spa_bt_transport_events transport_events = {
 	.volume_changed = volume_changed,
 };
 
+static void get_channels(struct spa_bt_transport *t, bool a2dp_duplex, uint32_t *n_channels, uint32_t *channels)
+{
+	const struct a2dp_codec *codec;
+	struct spa_audio_info info = { 0 };
+
+	if (!a2dp_duplex || !t->a2dp_codec || !t->a2dp_codec->duplex_codec) {
+		*n_channels = t->n_channels;
+		memcpy(channels, t->channels, t->n_channels * sizeof(uint32_t));
+		return;
+	}
+
+	codec = t->a2dp_codec->duplex_codec;
+
+	if (!codec->validate_config ||
+			codec->validate_config(codec, 0,
+					t->configuration, t->configuration_len,
+					&info) < 0) {
+		*n_channels = 1;
+		channels[0] = SPA_AUDIO_CHANNEL_MONO;
+		return;
+	}
+
+	*n_channels = info.info.raw.channels;
+	memcpy(channels, info.info.raw.position,
+			info.info.raw.channels * sizeof(uint32_t));
+}
+
 static void emit_node(struct impl *this, struct spa_bt_transport *t,
 		uint32_t id, const char *factory_name, bool a2dp_duplex)
 {
@@ -391,26 +439,34 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 	spa_device_emit_object_info(&this->hooks, id, &info);
 
 	if (!is_dyn_node) {
-		if (this->nodes[id].n_channels > 0) {
-			size_t i;
-
-			/*
-			* Spread mono volume to all channels, if we had switched HFP -> A2DP.
-			* XXX: we should also use different route for hfp and a2dp
-			*/
-			for (i = this->nodes[id].n_channels; i < t->n_channels; ++i)
-				this->nodes[id].volumes[i] = this->nodes[id].volumes[i % this->nodes[id].n_channels];
-		}
+		uint32_t prev_channels = this->nodes[id].n_channels;
+		float boost;
 
 		this->nodes[id].impl = this;
 		this->nodes[id].active = true;
-		this->nodes[id].n_channels = t->n_channels;
-		memcpy(this->nodes[id].channels, t->channels,
-				t->n_channels * sizeof(uint32_t));
+		this->nodes[id].a2dp_duplex = a2dp_duplex;
+		get_channels(t, a2dp_duplex, &this->nodes[id].n_channels, this->nodes[id].channels);
 		if (this->nodes[id].transport)
 			spa_hook_remove(&this->nodes[id].transport_listener);
 		this->nodes[id].transport = t;
 		spa_bt_transport_add_listener(t, &this->nodes[id].transport_listener, &transport_events, &this->nodes[id]);
+
+		if (prev_channels > 0) {
+			size_t i;
+			/*
+			 * Spread mono volume to all channels, if we had switched HFP -> A2DP.
+			 * XXX: we should also use different route for hfp and a2dp
+			 */
+			for (i = prev_channels; i < this->nodes[id].n_channels; ++i)
+				this->nodes[id].volumes[i] = this->nodes[id].volumes[i % prev_channels];
+		}
+
+		boost = get_soft_volume_boost(&this->nodes[id]);
+		if (boost != 1.0f) {
+			size_t i;
+			for (i = 0; i < this->nodes[id].n_channels; ++i)
+				this->nodes[id].soft_volumes[i] = this->nodes[id].volumes[i] * boost;
+		}
 
 		emit_node_props(this, &this->nodes[id], true);
 	}
@@ -1628,8 +1684,9 @@ static int node_set_volume(struct impl *this, struct node *node, float volumes[]
 		node_update_soft_volumes(node, hw_volume);
 		spa_bt_transport_set_volume(node->transport, node->id, hw_volume);
 	} else {
+		float boost = get_soft_volume_boost(node);
 		for (uint32_t i = 0; i < node->n_channels; ++i)
-			node->soft_volumes[i] = node->volumes[i];
+			node->soft_volumes[i] = node->volumes[i] * boost;
 	}
 
 	emit_volume(this, node);

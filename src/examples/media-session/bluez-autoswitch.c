@@ -71,7 +71,7 @@ struct impl {
 
 	char *default_sink;
 
-	struct pw_properties *old_profiles;
+	struct pw_properties *properties;
 	bool switched;
 };
 
@@ -209,9 +209,46 @@ static int set_profile(struct sm_device *dev, const char *profile_name)
 				       SPA_PARAM_PROFILE_index,	  SPA_POD_Int(index)));
 }
 
-static bool has_pending_restore(struct impl *impl)
+const char *get_saved_profile(struct impl *impl, const char *dev_name)
 {
-	return (impl->old_profiles->dict.n_items > 0);
+	char saved_profile_key[512];
+	spa_scnprintf(saved_profile_key, sizeof(saved_profile_key), "%s:profile", dev_name);
+	return pw_properties_get(impl->properties, saved_profile_key);
+}
+
+void set_saved_profile(struct impl *impl, const char *dev_name, const char *profile_name)
+{
+	char saved_profile_key[512];
+	spa_scnprintf(saved_profile_key, sizeof(saved_profile_key), "%s:profile", dev_name);
+	pw_properties_set(impl->properties, saved_profile_key, profile_name);
+}
+
+bool get_pending_save(struct impl *impl, const char *dev_name)
+{
+	char saved_profile_key[512];
+	spa_scnprintf(saved_profile_key, sizeof(saved_profile_key), "%s:pending-save", dev_name);
+	return spa_atob(pw_properties_get(impl->properties, saved_profile_key));
+}
+
+void set_pending_save(struct impl *impl, const char *dev_name, bool pending)
+{
+	char saved_profile_key[512];
+	spa_scnprintf(saved_profile_key, sizeof(saved_profile_key), "%s:pending-save", dev_name);
+	pw_properties_set(impl->properties, saved_profile_key, pending ? "true" : NULL);
+}
+
+const char *get_saved_headset_profile(struct impl *impl, const char *dev_name)
+{
+	char saved_profile_key[512];
+	spa_scnprintf(saved_profile_key, sizeof(saved_profile_key), "%s:headset-profile", dev_name);
+	return pw_properties_get(impl->properties, saved_profile_key);
+}
+
+void set_saved_headset_profile(struct impl *impl, const char *dev_name, const char *profile_name)
+{
+	char saved_profile_key[512];
+	spa_scnprintf(saved_profile_key, sizeof(saved_profile_key), "%s:headset-profile", dev_name);
+	pw_properties_set(impl->properties, saved_profile_key, profile_name);
 }
 
 static int do_restore_profile(void *data, struct sm_object *obj)
@@ -220,6 +257,7 @@ static int do_restore_profile(void *data, struct sm_object *obj)
 	struct sm_device *dev;
 	const char *dev_name;
 	const char *profile_name;
+	struct sm_param *p;
 
 	/* Find old profile and restore it */
 
@@ -227,15 +265,33 @@ static int do_restore_profile(void *data, struct sm_object *obj)
 		goto next;
 	if ((dev_name = pw_properties_get(obj->props, PW_KEY_DEVICE_NAME)) == NULL)
 		goto next;
-	if ((profile_name = pw_properties_get(impl->old_profiles, dev_name)) == NULL)
+	if ((profile_name = get_saved_profile(impl, dev_name)) == NULL)
 		goto next;
 
 	dev = SPA_CONTAINER_OF(obj, struct sm_device, obj);
+
+	/* Save user-selected headset profile */
+	if (get_pending_save(impl, dev_name)) {
+		spa_list_for_each(p, &dev->param_list, link) {
+			const char *name;
+			if (p->id != SPA_PARAM_Profile || !p->param)
+				continue;
+			if (spa_pod_parse_object(p->param,
+							SPA_TYPE_OBJECT_ParamProfile, NULL,
+							SPA_PARAM_PROFILE_name, SPA_POD_String(&name)) < 0)
+				continue;
+			set_saved_headset_profile(impl, dev_name, name);
+			set_pending_save(impl, dev_name, false);
+			break;
+		}
+	}
+
+	/* Restore previous profile */
 	set_profile(dev, profile_name);
-	pw_properties_set(impl->old_profiles, dev_name, NULL);
+	set_saved_profile(impl, dev_name, NULL);
 
 next:
-	return has_pending_restore(impl) ? 0 : 1;
+	return 0;
 }
 
 static void remove_restore_timeout(struct impl *impl)
@@ -262,7 +318,7 @@ static void restore_timeout(void *data, uint64_t expirations)
 
 	/* Restore previous profiles to devices */
 	sm_media_session_for_each_object(impl->session, do_restore_profile, impl);
-	if ((res = sm_media_session_save_state(impl->session, SESSION_KEY, impl->old_profiles)) < 0)
+	if ((res = sm_media_session_save_state(impl->session, SESSION_KEY, impl->properties)) < 0)
 		pw_log_error("can't save "SESSION_KEY" state: %s", spa_strerror(res));
 
 	impl->switched = false;
@@ -293,6 +349,7 @@ static void switch_profile_if_needed(struct impl *impl)
 	const char *headset_profile_name = NULL;
 	enum spa_direction direction;
 	const char *dev_name;
+	const char *saved_headset_profile = NULL;
 	const char *str;
 	int res;
 
@@ -326,10 +383,13 @@ static void switch_profile_if_needed(struct impl *impl)
 
 	remove_restore_timeout(impl);
 
-	if (pw_properties_get(impl->old_profiles, dev_name)) {
+	if (get_saved_profile(impl, dev_name)) {
 		/* We already switched this device */
 		return;
 	}
+
+	/* Find saved headset profile, if any */
+	saved_headset_profile = get_saved_headset_profile(impl, dev_name);
 
 	/* Find current profile, and highest-priority profile with input route */
 	spa_list_for_each(p, &dev->param_list, link) {
@@ -374,12 +434,19 @@ static void switch_profile_if_needed(struct impl *impl)
 			}
 			break;
 		case SPA_PARAM_Profile:
+		case SPA_PARAM_EnumProfile:
 			if (spa_pod_parse_object(p->param,
 							SPA_TYPE_OBJECT_ParamProfile, NULL,
 							SPA_PARAM_PROFILE_index, SPA_POD_Int(&idx),
 							SPA_PARAM_PROFILE_name, SPA_POD_String(&name)) < 0)
 				continue;
-			current_profile_name = name;
+			if (p->id == SPA_PARAM_Profile) {
+				current_profile_name = name;
+			} else if (spa_streq(name, saved_headset_profile)) {
+				/* Saved headset profile takes priority */
+				headset_profile_priority = INT32_MAX;
+				headset_profile_name = name;
+			}
 			break;
 		}
 	}
@@ -387,9 +454,10 @@ static void switch_profile_if_needed(struct impl *impl)
 	if (set_profile(dev, headset_profile_name) < 0)
 		return;
 
-	pw_properties_set(impl->old_profiles, dev_name, current_profile_name);
+	set_saved_profile(impl, dev_name, current_profile_name);
+	set_pending_save(impl, dev_name, true);
 
-	if ((res = sm_media_session_save_state(impl->session, SESSION_KEY, impl->old_profiles)) < 0)
+	if ((res = sm_media_session_save_state(impl->session, SESSION_KEY, impl->properties)) < 0)
 		pw_log_error("can't save "SESSION_KEY" state: %s", spa_strerror(res));
 
 	impl->switched = true;
@@ -467,7 +535,12 @@ static void session_create(void *data, struct sm_object *object)
 	struct impl *impl = data;
 	struct node *node;
 
-	if (spa_streq(object->type, PW_TYPE_INTERFACE_Device) && has_pending_restore(impl)) {
+	if (spa_streq(object->type, PW_TYPE_INTERFACE_Device) && object->props) {
+		const char *str;
+
+		if ((str = pw_properties_get(object->props, PW_KEY_DEVICE_NAME)) != NULL)
+			set_pending_save(impl, str, false);
+
 		impl->switched = true;
 		add_restore_timeout(impl);
 		return;
@@ -517,7 +590,7 @@ static void session_destroy(void *data)
 	spa_hook_remove(&impl->listener);
 	if (impl->session->metadata)
 		spa_hook_remove(&impl->meta_listener);
-	pw_properties_free(impl->old_profiles);
+	pw_properties_free(impl->properties);
 	free(impl->default_sink);
 	free(impl);
 }
@@ -590,13 +663,13 @@ int sm_bluez5_autoswitch_start(struct sm_media_session *session)
 	impl->session = session;
 	impl->context = session->context;
 
-	impl->old_profiles = pw_properties_new(NULL, NULL);
-	if (impl->old_profiles == NULL) {
+	impl->properties = pw_properties_new(NULL, NULL);
+	if (impl->properties == NULL) {
 		free(impl);
 		return -ENOMEM;
 	}
 
-	if ((res = sm_media_session_load_state(impl->session, SESSION_KEY, impl->old_profiles)) < 0)
+	if ((res = sm_media_session_load_state(impl->session, SESSION_KEY, impl->properties)) < 0)
 		pw_log_info("can't load "SESSION_KEY" state: %s", spa_strerror(res));
 
 	sm_media_session_add_listener(impl->session, &impl->listener, &session_events, impl);

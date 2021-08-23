@@ -130,6 +130,7 @@ struct node {
 	unsigned int capture_sink:1;
 	unsigned int virtual:1;
 	unsigned int linking:1;
+	unsigned int have_passthrough:1;
 	unsigned int passthrough_only:1;
 };
 
@@ -137,7 +138,10 @@ static bool find_format(struct node *node)
 {
 	struct impl *impl = node->impl;
 	struct sm_param *p;
-	bool have_format = false, have_passthrough = false;
+	bool have_format = false;
+
+	node->have_passthrough = false;
+	node->passthrough_only = false;
 
 	spa_list_for_each(p, &node->obj->param_list, link) {
 		struct spa_audio_info info = { 0, };
@@ -153,42 +157,46 @@ static bool find_format(struct node *node)
 		if (info.media_type != SPA_MEDIA_TYPE_audio)
 			continue;
 
-		if (info.media_subtype != SPA_MEDIA_SUBTYPE_raw) {
-			have_passthrough = true;
-			continue;
+		switch (info.media_subtype) {
+		case SPA_MEDIA_SUBTYPE_raw:
+			spa_pod_object_fixate((struct spa_pod_object*)p->param);
+			if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+				spa_debug_pod(2, NULL, p->param);
+
+			/* defaults */
+			info.info.raw.format = SPA_AUDIO_FORMAT_F32;
+			info.info.raw.rate = impl->sample_rate;
+			info.info.raw.channels = 2;
+			info.info.raw.position[0] = SPA_AUDIO_CHANNEL_FL;
+			info.info.raw.position[1] = SPA_AUDIO_CHANNEL_FR;
+
+			spa_pod_parse_object(p->param,
+				SPA_TYPE_OBJECT_Format, NULL,
+				SPA_FORMAT_AUDIO_format,	SPA_POD_Id(&info.info.raw.format),
+				SPA_FORMAT_AUDIO_rate,		SPA_POD_OPT_Int(&info.info.raw.rate),
+				SPA_FORMAT_AUDIO_channels,	SPA_POD_Int(&info.info.raw.channels),
+				SPA_FORMAT_AUDIO_position,	SPA_POD_OPT_Pod(&position));
+
+			if (position != NULL)
+				n_position = spa_pod_copy_array(position, SPA_TYPE_Id,
+						info.info.raw.position, SPA_AUDIO_MAX_CHANNELS);
+			if (n_position == 0 || n_position != info.info.raw.channels)
+				SPA_FLAG_SET(info.info.raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED);
+
+			if (node->format.info.raw.channels < info.info.raw.channels)
+				node->format = info;
+
+			have_format = true;
+			break;
+
+		case SPA_MEDIA_SUBTYPE_iec958:
+			pw_log_info("passthrough node %d found", node->id);
+			node->have_passthrough = true;
+			break;
 		}
-
-		spa_pod_object_fixate((struct spa_pod_object*)p->param);
-		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-			spa_debug_pod(2, NULL, p->param);
-
-		/* defaults */
-		info.info.raw.format = SPA_AUDIO_FORMAT_F32;
-		info.info.raw.rate = impl->sample_rate;
-		info.info.raw.channels = 2;
-		info.info.raw.position[0] = SPA_AUDIO_CHANNEL_FL;
-		info.info.raw.position[1] = SPA_AUDIO_CHANNEL_FR;
-
-		spa_pod_parse_object(p->param,
-			SPA_TYPE_OBJECT_Format, NULL,
-			SPA_FORMAT_AUDIO_format,	SPA_POD_Id(&info.info.raw.format),
-			SPA_FORMAT_AUDIO_rate,		SPA_POD_OPT_Int(&info.info.raw.rate),
-			SPA_FORMAT_AUDIO_channels,	SPA_POD_Int(&info.info.raw.channels),
-			SPA_FORMAT_AUDIO_position,	SPA_POD_OPT_Pod(&position));
-
-		if (position != NULL)
-			n_position = spa_pod_copy_array(position, SPA_TYPE_Id,
-					info.info.raw.position, SPA_AUDIO_MAX_CHANNELS);
-		if (n_position == 0 || n_position != info.info.raw.channels)
-			SPA_FLAG_SET(info.info.raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED);
-
-		if (node->format.info.raw.channels < info.info.raw.channels)
-			node->format = info;
-
-		have_format = true;
 	}
-	if (!have_format && have_passthrough) {
-		pw_log_info("passthrough only stream found");
+	if (!have_format && node->have_passthrough) {
+		pw_log_info("passthrough only node %d found", node->id);
 		node->passthrough_only = true;
 		have_format = true;
 	}

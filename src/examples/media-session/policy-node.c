@@ -130,13 +130,14 @@ struct node {
 	unsigned int capture_sink:1;
 	unsigned int virtual:1;
 	unsigned int linking:1;
+	unsigned int passthrough_only:1;
 };
 
 static bool find_format(struct node *node)
 {
 	struct impl *impl = node->impl;
 	struct sm_param *p;
-	bool have_format = false;
+	bool have_format = false, have_passthrough = false;
 
 	spa_list_for_each(p, &node->obj->param_list, link) {
 		struct spa_audio_info info = { 0, };
@@ -149,9 +150,13 @@ static bool find_format(struct node *node)
 		if (spa_format_parse(p->param, &info.media_type, &info.media_subtype) < 0)
 			continue;
 
-		if (info.media_type != SPA_MEDIA_TYPE_audio ||
-		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+		if (info.media_type != SPA_MEDIA_TYPE_audio)
 			continue;
+
+		if (info.media_subtype != SPA_MEDIA_SUBTYPE_raw) {
+			have_passthrough = true;
+			continue;
+		}
 
 		spa_pod_object_fixate((struct spa_pod_object*)p->param);
 		if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
@@ -180,6 +185,11 @@ static bool find_format(struct node *node)
 		if (node->format.info.raw.channels < info.info.raw.channels)
 			node->format = info;
 
+		have_format = true;
+	}
+	if (!have_format && have_passthrough) {
+		pw_log_info("passthrough only stream found");
+		node->passthrough_only = true;
 		have_format = true;
 	}
 	return have_format;
@@ -880,6 +890,13 @@ static int rescan_node(struct impl *impl, struct node *n)
 		}
 	}
 
+	if (n->passthrough_only) {
+		path_id = SPA_ID_INVALID;
+		peer = NULL;
+		reconnect = false;
+		goto do_link;
+	}
+
 	pw_log_info("trying to link node %d exclusive:%d reconnect:%d target:%d",
 			n->id, exclusive, reconnect, path_id);
 
@@ -900,7 +917,6 @@ static int rescan_node(struct impl *impl, struct node *n)
 		pw_log_warn("node %d target:%d not found, find fallback:%d", n->id,
 				path_id, reconnect);
 	}
-
 	if (path_id == SPA_ID_INVALID && (reconnect || n->connect_count == 0)) {
 		/* find fallback */
 		struct find_data find;
@@ -923,8 +939,6 @@ static int rescan_node(struct impl *impl, struct node *n)
 
 do_link:
 	if (peer == NULL) {
-		struct sm_object *obj;
-
 		if (!reconnect) {
 			pw_log_info("don-reconnect target node destroyed: destroy %d", n->id);
 			sm_media_session_destroy_object(impl->session, n->id);

@@ -608,6 +608,10 @@ static int setup_mixer(struct pw_impl_port *port, const struct spa_pod *param)
 			factory_name = SPA_NAME_AUDIO_MIXER_DSP;
 			break;
 		}
+		case SPA_MEDIA_SUBTYPE_raw:
+			fallback_lib = "audiomixer/libspa-audiomixer";
+			factory_name = SPA_NAME_AUDIO_MIXER;
+			break;
 		default:
 			return -ENOTSUP;
 		}

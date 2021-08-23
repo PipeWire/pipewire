@@ -1757,8 +1757,7 @@ pw_stream_connect(struct pw_stream *stream,
 
 	pw_impl_node_set_implementation(follower, &impl->impl_node);
 
-	if (impl->media_type == SPA_MEDIA_TYPE_audio &&
-	    impl->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
+	if (impl->media_type == SPA_MEDIA_TYPE_audio) {
 		factory = pw_context_find_factory(impl->context, "adapter");
 		if (factory == NULL) {
 			pw_log_error(NAME" %p: no adapter factory found", stream);

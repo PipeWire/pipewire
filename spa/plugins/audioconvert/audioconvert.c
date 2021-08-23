@@ -733,7 +733,7 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 		if (info) {
-			spa_log_info(this->log, NAME " %p: port config %d", this, info->info.raw.channels);
+			spa_log_debug(this->log, NAME " %p: port config %d", this, info->info.raw.channels);
 			param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info->info.raw);
 		}
 		if (mode == SPA_PARAM_PORT_CONFIG_MODE_dsp) {

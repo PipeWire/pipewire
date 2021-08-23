@@ -25,7 +25,6 @@ int spa_alsa_init(struct state *state)
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		state->is_iec958 = spa_strstartswith(state->props.device, "iec958");
 		state->is_hdmi = spa_strstartswith(state->props.device, "hdmi");
-		state->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_PCM;
 	}
 
 	if (state->open_ucm) {
@@ -538,6 +537,30 @@ skip_channels:
 	return 1;
 }
 
+static bool codec_supported(uint32_t codec, unsigned int chmax, unsigned int rmax)
+{
+	switch (codec) {
+	case SPA_AUDIO_IEC958_CODEC_PCM:
+	case SPA_AUDIO_IEC958_CODEC_DTS:
+	case SPA_AUDIO_IEC958_CODEC_AC3:
+	case SPA_AUDIO_IEC958_CODEC_MPEG:
+	case SPA_AUDIO_IEC958_CODEC_MPEG2_AAC:
+		if (chmax >= 2)
+			return true;
+		break;
+	case SPA_AUDIO_IEC958_CODEC_EAC3:
+		if (rmax >= 48000 * 4 && chmax >= 2)
+			return true;
+		break;
+	case SPA_AUDIO_IEC958_CODEC_TRUEHD:
+	case SPA_AUDIO_IEC958_CODEC_DTSHD:
+		if (chmax >= 8)
+			return true;
+		break;
+	}
+	return false;
+}
+
 static int enum_iec958_formats(struct state *state, uint32_t index, uint32_t *next,
 		struct spa_pod **result, struct spa_pod_builder *b)
 {
@@ -548,6 +571,7 @@ static int enum_iec958_formats(struct state *state, uint32_t index, uint32_t *ne
 	struct spa_pod_choice *choice;
 	unsigned int rmin, rmax;
 	unsigned int chmin, chmax;
+	uint32_t i, c, codecs[16], n_codecs;
 
 	if ((index & 0xffff) > 0)
 		return 0;
@@ -586,28 +610,14 @@ static int enum_iec958_formats(struct state *state, uint32_t index, uint32_t *ne
 
 	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_iec958Codec, 0);
 	spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Enum, 0);
-	if (chmax >= 2) {
-		spa_pod_builder_id(b, SPA_AUDIO_IEC958_CODEC_PCM);
-		spa_pod_builder_id(b, SPA_AUDIO_IEC958_CODEC_PCM);
 
-		if (state->iec958_codecs & (1ULL << SPA_AUDIO_IEC958_CODEC_DTS))
-			spa_pod_builder_id(b, SPA_AUDIO_IEC958_CODEC_DTS);
-		if (state->iec958_codecs & (1ULL << SPA_AUDIO_IEC958_CODEC_AC3))
-			spa_pod_builder_id(b, SPA_AUDIO_IEC958_CODEC_AC3);
-		if (state->iec958_codecs & (1ULL << SPA_AUDIO_IEC958_CODEC_MPEG))
-			spa_pod_builder_id(b, SPA_AUDIO_IEC958_CODEC_MPEG);
-		if (state->iec958_codecs & (1ULL << SPA_AUDIO_IEC958_CODEC_MPEG2_AAC))
-			spa_pod_builder_id(b, SPA_AUDIO_IEC958_CODEC_MPEG2_AAC);
-
-		if (rmax >= 48000 * 4 &&
-		    (state->iec958_codecs & (1ULL << SPA_AUDIO_IEC958_CODEC_EAC3)))
-			spa_pod_builder_id(b, SPA_AUDIO_IEC958_CODEC_EAC3);
-	}
-	if (chmax >= 8) {
-		if (state->iec958_codecs & (1ULL << SPA_AUDIO_IEC958_CODEC_TRUEHD))
-			spa_pod_builder_id(b, SPA_AUDIO_IEC958_CODEC_TRUEHD);
-		if (state->iec958_codecs & (1ULL << SPA_AUDIO_IEC958_CODEC_DTSHD))
-			spa_pod_builder_id(b, SPA_AUDIO_IEC958_CODEC_DTSHD);
+	n_codecs = spa_alsa_get_iec958_codecs(state, codecs, SPA_N_ELEMENTS(codecs));
+	for (i = 0, c = 0; i < n_codecs; i++) {
+		if (!codec_supported(codecs[i], chmax, rmax))
+			continue;
+		if (c++ == 0)
+			spa_pod_builder_id(b, codecs[i]);
+		spa_pod_builder_id(b, codecs[i]);
 	}
 	spa_pod_builder_pop(b, &f[1]);
 

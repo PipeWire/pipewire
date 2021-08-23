@@ -28,8 +28,14 @@
 
 #include <spa/utils/defs.h>
 
-#include "kiss_fft_f32.h"
-#include "kiss_fftr_f32.h"
+#include <math.h>
+#include <xmmintrin.h>
+
+#include "pffft.h"
+
+struct fft_cpx {
+	float *v;
+};
 
 struct convolver1 {
 	int blockSize;
@@ -37,16 +43,16 @@ struct convolver1 {
 	int segCount;
 	int fftComplexSize;
 
-	kiss_fft_f32_cpx **segments;
-	kiss_fft_f32_cpx **segmentsIr;
+	struct fft_cpx *segments;
+	struct fft_cpx *segmentsIr;
 
 	float *fft_buffer;
 
 	void *fft;
 	void *ifft;
 
-	kiss_fft_f32_cpx *pre_mult;
-	kiss_fft_f32_cpx *conv;
+	struct fft_cpx pre_mult;
+	struct fft_cpx conv;
 	float *overlap;
 
 	float *inputBuffer;
@@ -55,12 +61,75 @@ struct convolver1 {
 	int current;
 };
 
+static void *fft_alloc(int size)
+{
+	void *d;
+	d = pffft_aligned_malloc(size);
+	memset(d, 0, size);
+	return d;
+}
+static void fft_free(void  *data)
+{
+	pffft_aligned_free(data);
+}
+
+static void fft_cpx_init(struct fft_cpx *cpx, int size)
+{
+	cpx->v = fft_alloc(size * 2 * sizeof(float));
+}
+
+static void fft_cpx_free(struct fft_cpx *cpx)
+{
+	fft_free(cpx->v);
+}
+
+static void fft_cpx_clear(struct fft_cpx *cpx, int size)
+{
+	memset(cpx->v, 0, sizeof(float) * 2 * size);
+}
+
+static void fft_cpx_copy(struct fft_cpx *dst, struct fft_cpx *src, int size)
+{
+	memcpy(dst->v, src->v, sizeof(float) * 2 * size);
+}
+
 static int next_power_of_two(int val)
 {
 	int r = 1;
 	while (r < val)
 		r *= 2;
 	return r;
+}
+
+static inline void *fft_new(int size)
+{
+	return pffft_new_setup(size, PFFFT_REAL);
+}
+
+static inline void *ifft_new(int size)
+{
+	return pffft_new_setup(size, PFFFT_REAL);
+}
+
+static inline void fft_destroy(void *fft)
+{
+	pffft_destroy_setup(fft);
+}
+
+static inline void fft_run(void *fft, float *in, struct fft_cpx *out)
+{
+	pffft_transform(fft, in, out->v, NULL, PFFFT_FORWARD);
+}
+
+static inline void ifft_run(void *ifft, struct fft_cpx *in, float *out)
+{
+	pffft_transform(ifft, in->v, out, NULL, PFFFT_BACKWARD);
+}
+
+static inline void fft_convolve_accum(void *fft, struct fft_cpx *r,
+		const struct fft_cpx *a, const struct fft_cpx *b, int len, float scale)
+{
+	pffft_zconvolve_accumulate(fft, a->v, b->v, r->v, scale);
 }
 
 static struct convolver1 *convolver1_new(int block, const float *ir, int irlen)
@@ -86,37 +155,37 @@ static struct convolver1 *convolver1_new(int block, const float *ir, int irlen)
 	conv->segCount = (irlen + conv->blockSize-1) / conv->blockSize;
 	conv->fftComplexSize = (conv->segSize / 2) + 1;
 
-        conv->fft = kiss_fftr_f32_alloc(conv->segSize, 0, NULL, NULL);
+        conv->fft = fft_new(conv->segSize);
         if (conv->fft == NULL)
                 return NULL;
-        conv->ifft = kiss_fftr_f32_alloc(conv->segSize, 1, NULL, NULL);
+        conv->ifft = ifft_new(conv->segSize);
         if (conv->ifft == NULL)
                 return NULL;
 
-	conv->fft_buffer = calloc(sizeof(float), conv->segSize);
+	conv->fft_buffer = fft_alloc(sizeof(float) * conv->segSize);
         if (conv->fft_buffer == NULL)
                 return NULL;
 
-	conv->segments = calloc(sizeof(kiss_fft_f32_cpx*), conv->segCount);
-	conv->segmentsIr = calloc(sizeof(kiss_fft_f32_cpx*), conv->segCount);
+	conv->segments = calloc(sizeof(struct fft_cpx), conv->segCount);
+	conv->segmentsIr = calloc(sizeof(struct fft_cpx), conv->segCount);
 
 	for (i = 0; i < conv->segCount; i++) {
 		int left = irlen - (i * conv->blockSize);
 		int copy = SPA_MIN(conv->blockSize, left);
 
-		conv->segments[i] = calloc(sizeof(kiss_fft_f32_cpx), conv->fftComplexSize);
-		conv->segmentsIr[i] = calloc(sizeof(kiss_fft_f32_cpx), conv->fftComplexSize);
+		fft_cpx_init(&conv->segments[i], conv->fftComplexSize);
+		fft_cpx_init(&conv->segmentsIr[i], conv->fftComplexSize);
 
 		memcpy(conv->fft_buffer, &ir[i * conv->blockSize], copy * sizeof(float));
 		if (copy < conv->segSize)
 			memset(conv->fft_buffer + copy, 0, (conv->segSize - copy) * sizeof(float));
 
-	        kiss_fftr_f32(conv->fft, conv->fft_buffer, conv->segmentsIr[i]);
+	        fft_run(conv->fft, conv->fft_buffer, &conv->segmentsIr[i]);
 	}
-	conv->pre_mult = calloc(sizeof(kiss_fft_f32_cpx), conv->fftComplexSize);
-	conv->conv = calloc(sizeof(kiss_fft_f32_cpx), conv->fftComplexSize);
-	conv->overlap = calloc(sizeof(float), conv->blockSize);
-	conv->inputBuffer = calloc(sizeof(float), conv->blockSize);
+	fft_cpx_init(&conv->pre_mult, conv->fftComplexSize);
+	fft_cpx_init(&conv->conv, conv->fftComplexSize);
+	conv->overlap = fft_alloc(sizeof(float) * conv->blockSize);
+	conv->inputBuffer = fft_alloc(sizeof(float) * conv->blockSize);
 	conv->inputBufferFill = 0;
 	conv->current = 0;
 
@@ -127,35 +196,38 @@ static void convolver1_free(struct convolver1 *conv)
 {
 	int i;
 	for (i = 0; i < conv->segCount; i++) {
-		free(conv->segments[i]);
-		free(conv->segmentsIr[i]);
+		fft_cpx_free(&conv->segments[i]);
+		fft_cpx_free(&conv->segmentsIr[i]);
 	}
-	free(conv->fft);
-	free(conv->ifft);
-	free(conv->fft_buffer);
+	fft_destroy(conv->fft);
+	fft_destroy(conv->ifft);
+	fft_free(conv->fft_buffer);
 	free(conv->segments);
 	free(conv->segmentsIr);
-	free(conv->pre_mult);
-	free(conv->conv);
-	free(conv->overlap);
-	free(conv->inputBuffer);
+	fft_cpx_free(&conv->pre_mult);
+	fft_cpx_free(&conv->conv);
+	fft_free(conv->overlap);
+	fft_free(conv->inputBuffer);
 	free(conv);
 }
 
 void Sum(float* result, const float* a, const float* b, int len)
 {
 	int i;
+#if defined (__SSE__)
+	const int end4 = 4 * (len / 4);
+	for (i = 0; i < end4; i += 4) {
+		const __m128 va = _mm_load_ps(&a[i]);
+		const __m128 vb = _mm_load_ps(&b[i]);
+		_mm_store_ps(&result[i], _mm_add_ps(va,vb));
+	}
+	for (i = end4; i < len; ++i) {
+		result[i] = a[i] + b[i];
+	}
+#else
 	for (i = 0; i < len; i++)
 		result[i] = a[i] + b[i];
-}
-
-void ComplexMultiplyAccumulate(kiss_fft_f32_cpx *r, const kiss_fft_f32_cpx *a, const kiss_fft_f32_cpx *b, int len)
-{
-	int i;
-	for (i = 0; i < len; i++) {
-		r[i].r += a[i].r * b[i].r - a[i].i * b[i].i;
-		r[i].i += a[i].r * b[i].i + a[i].i * b[i].r;
-	}
+#endif
 }
 
 static int convolver1_run(struct convolver1 *conv, const float *input, float *output, int len)
@@ -176,30 +248,27 @@ static int convolver1_run(struct convolver1 *conv, const float *input, float *ou
 		memcpy(conv->fft_buffer, conv->inputBuffer, conv->blockSize * sizeof(float));
 		memset(conv->fft_buffer + conv->blockSize, 0, (conv->segSize - conv->blockSize) * sizeof(float));
 
-		kiss_fftr_f32(conv->fft, conv->fft_buffer, conv->segments[conv->current]);
+		fft_run(conv->fft, conv->fft_buffer, &conv->segments[conv->current]);
 
 		if (conv->inputBufferFill == 0) {
-			memset(conv->pre_mult, 0, sizeof(kiss_fft_f32_cpx) * conv->fftComplexSize);
+			fft_cpx_clear(&conv->pre_mult, conv->fftComplexSize);
 
 			for (i = 1; i < conv->segCount; i++) {
 				const int indexIr = i;
 				const int indexAudio = (conv->current + i) % conv->segCount;
 
-				ComplexMultiplyAccumulate(conv->pre_mult,
-						conv->segmentsIr[indexIr],
-						conv->segments[indexAudio],
-						conv->fftComplexSize);
+				fft_convolve_accum(conv->fft, &conv->pre_mult,
+						&conv->segmentsIr[indexIr],
+						&conv->segments[indexAudio],
+						conv->fftComplexSize, 1.0f / conv->segSize);
 			}
 		}
-		memcpy(conv->conv, conv->pre_mult, sizeof(kiss_fft_f32_cpx) * conv->fftComplexSize);
+		fft_cpx_copy(&conv->conv, &conv->pre_mult, conv->fftComplexSize);
 
-		ComplexMultiplyAccumulate(conv->conv, conv->segments[conv->current], conv->segmentsIr[0],
-				conv->fftComplexSize);
+		fft_convolve_accum(conv->fft, &conv->conv, &conv->segments[conv->current], &conv->segmentsIr[0],
+				conv->fftComplexSize, 1.0f / conv->segSize);
 
-		kiss_fftri_f32(conv->ifft, conv->conv, conv->fft_buffer);
-
-		for (i = 0; i < conv->segSize; i++)
-			conv->fft_buffer[i] /= conv->segSize;
+		ifft_run(conv->ifft, &conv->conv, conv->fft_buffer);
 
 		Sum(output + processed, conv->fft_buffer + inputBufferPos, conv->overlap + inputBufferPos, processing);
 
@@ -265,19 +334,19 @@ struct convolver *convolver_new(int head_block, int tail_block, const float *ir,
 	if (irlen > conv->tailBlockSize) {
 		int conv1IrLen = SPA_MIN(irlen - conv->tailBlockSize, conv->tailBlockSize);
 		conv->tailConvolver0 = convolver1_new(conv->headBlockSize, ir + conv->tailBlockSize, conv1IrLen);
-		conv->tailOutput0 = calloc(conv->tailBlockSize, sizeof(float));
-		conv->tailPrecalculated0 = calloc(conv->tailBlockSize, sizeof(float));
+		conv->tailOutput0 = fft_alloc(conv->tailBlockSize * sizeof(float));
+		conv->tailPrecalculated0 = fft_alloc(conv->tailBlockSize * sizeof(float));
 	}
 
 	if (irlen > 2 * conv->tailBlockSize) {
 		int tailIrLen = irlen - (2 * conv->tailBlockSize);
 		conv->tailConvolver = convolver1_new(conv->tailBlockSize, ir + (2 * conv->tailBlockSize), tailIrLen);
-		conv->tailOutput = calloc(conv->tailBlockSize, sizeof(float));
-		conv->tailPrecalculated = calloc(conv->tailBlockSize, sizeof(float));
+		conv->tailOutput = fft_alloc(conv->tailBlockSize * sizeof(float));
+		conv->tailPrecalculated = fft_alloc(conv->tailBlockSize * sizeof(float));
 	}
 
 	if (conv->tailConvolver0 || conv->tailConvolver)
-		conv->tailInput = calloc(conv->tailBlockSize, sizeof(float));
+		conv->tailInput = fft_alloc(conv->tailBlockSize * sizeof(float));
 
 	conv->tailInputFill = 0;
 	conv->precalculatedPos = 0;
@@ -293,11 +362,11 @@ void convolver_free(struct convolver *conv)
 		convolver1_free(conv->tailConvolver0);
 	if (conv->tailConvolver)
 		convolver1_free(conv->tailConvolver);
-	free(conv->tailOutput0);
-	free(conv->tailPrecalculated0);
-	free(conv->tailOutput);
-	free(conv->tailPrecalculated);
-	free(conv->tailInput);
+	fft_free(conv->tailOutput0);
+	fft_free(conv->tailPrecalculated0);
+	fft_free(conv->tailOutput);
+	fft_free(conv->tailPrecalculated);
+	fft_free(conv->tailInput);
 	free(conv);
 }
 

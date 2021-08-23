@@ -1145,7 +1145,7 @@ static void stream_process(void *data)
 	void *p;
 	struct pw_buffer *buffer;
 	struct spa_buffer *buf;
-	uint32_t size, minreq, index;
+	uint32_t size, minreq = 0, index;
 	struct process_data pd;
 
 	pw_log_trace_fp(NAME" %p: process", stream);
@@ -1165,7 +1165,7 @@ static void stream_process(void *data)
 
 		if (stream->rate_match)
 			minreq = stream->rate_match->size * stream->frame_size;
-		else
+		if (minreq == 0)
 			minreq = stream->attr.minreq;
 
 		if (avail < (int32_t)minreq || stream->corked) {

@@ -75,6 +75,7 @@ struct impl {
 
 	struct spa_io_buffers io_buffers;
 	struct spa_io_rate_match io_rate_match;
+	struct spa_io_position *io_position;
 
 	uint64_t info_all;
 	struct spa_node_info info;
@@ -419,33 +420,68 @@ static int configure_format(struct impl *this, uint32_t flags, const struct spa_
 	return res;
 }
 
+static int configure_convert(struct impl *this, uint32_t mode)
+{
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+	struct spa_pod *param;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	spa_log_debug(this->log, "%p: configure convert %p", this, this->target);
+
+	param = spa_pod_builder_add_object(&b,
+		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
+		SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(this->direction),
+		SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(mode));
+
+	return spa_node_set_param(this->convert, SPA_PARAM_PortConfig, 0, param);
+}
+
+extern const struct spa_handle_factory spa_audioconvert_factory;
+
+static const struct spa_node_events follower_node_events;
+
 static int reconfigure_mode(struct impl *this, bool passthrough,
                 enum spa_direction direction, struct spa_audio_info *info)
 {
-        int res = 0;
+	int res = 0;
+	char buf[1024];
+	struct spa_pod_builder b = { 0 };
+	struct spa_pod *format = NULL;
 
-        spa_log_debug(this->log, NAME " %p: passthrough mode %d", this, passthrough);
+	spa_log_debug(this->log, NAME " %p: passthrough mode %d", this, passthrough);
+
+	if (passthrough)
+		configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_none);
+	else
+		configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_dsp);
 
 	/* set new target */
 	this->target = passthrough ? this->follower : this->convert;
 
-        if (info) {
-                char buf[1024];
-                struct spa_pod_builder b = { 0 };
-                struct spa_pod *format;
-                spa_pod_builder_init(&b, buf, sizeof(buf));
-                format = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info->info.raw);
-                if ((res = configure_format (this, 0, format)) < 0)
-                        return res;
+	spa_pod_builder_init(&b, buf, sizeof(buf));
+	if (info)
+		format = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info->info.raw);
 
-		this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS | SPA_NODE_CHANGE_MASK_PARAMS;
-		this->info.flags &= ~SPA_NODE_FLAG_NEED_CONFIGURE;
-		this->params[IDX_Props].user++;
-        }
+	if ((res = configure_format (this, 0, format)) < 0)
+		return res;
 
-        emit_node_info(this, false);
+	if (passthrough) {
+		struct spa_hook l;
 
-        return 0;
+		spa_zero(l);
+		spa_node_add_listener(this->follower, &l, &follower_node_events, this);
+		spa_hook_remove(&l);
+	}
+
+	this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS | SPA_NODE_CHANGE_MASK_PARAMS;
+	this->info.flags &= ~SPA_NODE_FLAG_NEED_CONFIGURE;
+	this->params[IDX_Props].user++;
+
+	emit_node_info(this, false);
+
+	return 0;
 }
 
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
@@ -483,8 +519,10 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		struct spa_audio_info info = { 0, }, *infop = NULL;
 		int monitor = false;
 
-		if (this->started)
+		if (this->started) {
+			spa_log_error(this->log, "was started");
 			return -EIO;
+		}
 
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamPortConfig, NULL,
@@ -561,6 +599,14 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	int res = 0;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
+
+	switch (id) {
+	case SPA_IO_Position:
+		this->io_position = data;
+		break;
+	default:
+		break;
+	}
 
 	if (this->target)
 		res = spa_node_set_io(this->target, id, data, size);
@@ -667,15 +713,17 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	}
 
 	if ((res = spa_node_send_command(this->target, command)) < 0) {
-		spa_log_error(this->log, NAME " %p: can't send command: %s",
-				this, spa_strerror(res));
+		spa_log_error(this->log, NAME " %p: can't send command %d: %s",
+				this, SPA_NODE_COMMAND_ID(command),
+				spa_strerror(res));
 		return res;
 	}
 
 	if (this->target != this->follower) {
 		if ((res = spa_node_send_command(this->follower, command)) < 0) {
-			spa_log_error(this->log, NAME " %p: can't send command: %s",
-					this, spa_strerror(res));
+			spa_log_error(this->log, NAME " %p: can't send command %d: %s",
+					this, SPA_NODE_COMMAND_ID(command),
+					spa_strerror(res));
 			return res;
 		}
 	}
@@ -1163,8 +1211,11 @@ static int impl_node_process(void *object)
 	spa_log_trace_fp(this->log, "%p: process convert:%p driver:%d",
 			this, this->convert, this->driver);
 
-	if (this->target == this->follower)
+	if (this->target == this->follower) {
+		if (this->io_position)
+			this->io_rate_match.size = this->io_position->clock.duration;
 		return spa_node_process(this->follower);
+	}
 
 	if (this->direction == SPA_DIRECTION_INPUT) {
 		/* an input node (sink).
@@ -1304,25 +1355,6 @@ static int impl_clear(struct spa_handle *handle)
 	return 0;
 }
 
-static int configure_adapt(struct impl *this)
-{
-	struct spa_pod_builder b = { 0 };
-	uint8_t buffer[1024];
-	struct spa_pod *param;
-
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-
-	spa_log_debug(this->log, "%p: configure convert %p", this, this->target);
-
-	param = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
-		SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(this->direction),
-		SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp));
-
-	return spa_node_set_param(this->target, SPA_PARAM_PortConfig, 0, param);
-}
-
-extern const struct spa_handle_factory spa_audioconvert_factory;
 
 static size_t
 impl_get_size(const struct spa_handle_factory *factory,
@@ -1410,7 +1442,7 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_node_add_listener(this->convert,
 			&this->convert_listener, &convert_node_events, this);
 
-	configure_adapt(this);
+	configure_convert(this, SPA_PARAM_PORT_CONFIG_MODE_dsp);
 
 	link_io(this);
 

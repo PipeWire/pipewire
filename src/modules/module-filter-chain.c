@@ -39,6 +39,7 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/param/profiler.h>
+#include <spa/support/cpu.h>
 #include <spa/debug/pod.h>
 
 #include <pipewire/utils.h>
@@ -1629,6 +1630,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct impl *impl;
 	uint32_t id = pw_global_get_id(pw_impl_module_get_global(module));
 	const char *str;
+	const struct spa_support *support;
+	uint32_t n_support;
+	struct spa_cpu *cpu_iface;
 	int res;
 
 	impl = calloc(1, sizeof(struct impl));
@@ -1636,6 +1640,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		return -errno;
 
 	pw_log_debug("module %p: new %s", impl, args);
+
+	support = pw_context_get_support(context, &n_support);
+	cpu_iface = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
+	init_builtin_plugin(cpu_iface ? spa_cpu_get_flags(cpu_iface) : 0);
 
 	if (args)
 		props = pw_properties_new_string(args);
@@ -1727,7 +1735,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_log_error("can't connect: %m");
 		goto error;
 	}
-
 	pw_properties_free(props);
 
 	pw_proxy_add_listener((struct pw_proxy*)impl->core,

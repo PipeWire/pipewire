@@ -34,6 +34,7 @@
 #include "plugin.h"
 
 #include "biquad.h"
+#include "pffft.h"
 #include "convolver.h"
 
 struct builtin {
@@ -621,4 +622,9 @@ static struct fc_plugin builtin_plugin = {
 struct fc_plugin *load_builtin_plugin(const char *plugin, const char *config)
 {
 	return &builtin_plugin;
+}
+
+void init_builtin_plugin(uint32_t cpu_flags)
+{
+	pffft_select_cpu(cpu_flags);
 }

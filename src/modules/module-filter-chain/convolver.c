@@ -29,7 +29,6 @@
 #include <spa/utils/defs.h>
 
 #include <math.h>
-#include <xmmintrin.h>
 
 #include "pffft.h"
 
@@ -132,6 +131,11 @@ static inline void fft_convolve_accum(void *fft, struct fft_cpx *r,
 	pffft_zconvolve_accumulate(fft, a->v, b->v, r->v, scale);
 }
 
+static inline void fft_sum(float *r, const float *a, const float *b,int len)
+{
+	pffft_sum(a, b, r, len);
+}
+
 static struct convolver1 *convolver1_new(int block, const float *ir, int irlen)
 {
 	struct convolver1 *conv;
@@ -211,25 +215,6 @@ static void convolver1_free(struct convolver1 *conv)
 	free(conv);
 }
 
-void Sum(float* result, const float* a, const float* b, int len)
-{
-	int i;
-#if defined (__SSE__)
-	const int end4 = 4 * (len / 4);
-	for (i = 0; i < end4; i += 4) {
-		const __m128 va = _mm_load_ps(&a[i]);
-		const __m128 vb = _mm_load_ps(&b[i]);
-		_mm_store_ps(&result[i], _mm_add_ps(va,vb));
-	}
-	for (i = end4; i < len; ++i) {
-		result[i] = a[i] + b[i];
-	}
-#else
-	for (i = 0; i < len; i++)
-		result[i] = a[i] + b[i];
-#endif
-}
-
 static int convolver1_run(struct convolver1 *conv, const float *input, float *output, int len)
 {
 	int i, processed = 0;
@@ -270,7 +255,7 @@ static int convolver1_run(struct convolver1 *conv, const float *input, float *ou
 
 		ifft_run(conv->ifft, &conv->conv, conv->fft_buffer);
 
-		Sum(output + processed, conv->fft_buffer + inputBufferPos, conv->overlap + inputBufferPos, processing);
+		fft_sum(output + processed, conv->fft_buffer + inputBufferPos, conv->overlap + inputBufferPos, processing);
 
 		conv->inputBufferFill += processing;
 		if (conv->inputBufferFill == conv->blockSize) {

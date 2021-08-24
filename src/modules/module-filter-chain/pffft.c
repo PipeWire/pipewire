@@ -60,7 +60,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <stdint.h>
 #include <assert.h>
+
+#include <spa/support/cpu.h>
 
 /* detect compiler flavour */
 #if defined(_MSC_VER)
@@ -81,19 +84,19 @@
 #define VLA_ARRAY_ON_STACK(type__, varname__, size__) type__ *varname__ = (type__*)_alloca(size__ * sizeof(type__))
 #endif
 
-/* 
+/*
    vector support macros: the rest of the code is independant of
    SSE/Altivec/NEON -- adding support for other platforms with 4-element
-   vectors should be limited to these macros 
+   vectors should be limited to these macros
 */
 
 // define PFFFT_SIMD_DISABLE if you want to use scalar code instead of simd code
 //#define PFFFT_SIMD_DISABLE
 
 /*
-   Altivec support macros 
+   Altivec support macros
 */
-#if !defined(PFFFT_SIMD_DISABLE) && (defined(__ppc__) || defined(__ppc64__))
+#if !defined(PFFFT_SIMD_DISABLE) && (defined(HAVE_ALTIVEC))
 typedef vector float v4sf;
 #define SIMD_SZ 4
 #define VZERO() ((vector float) vec_splat_u8(0))
@@ -125,12 +128,18 @@ inline v4sf ld_ps1(const float *p)
     x3 = vec_mergel(y1, y3);                    \
   }
 #define VSWAPHL(a,b) vec_perm(a,b, (vector unsigned char)(16,17,18,19,20,21,22,23,8,9,10,11,12,13,14,15))
-#define VALIGNED(ptr) ((((long long)(ptr)) & 0xF) == 0)
+#define VALIGNED(ptr) ((((uintptr_t)(ptr)) & 0xF) == 0)
+#define pffft_funcs pffft_funcs_altivec
+#define new_setup_simd new_setup_altivec
+#define zreorder_simd zreorder_altivec
+#define zconvolve_accumulate_simd zconvolve_accumulate_altivec
+#define transform_simd transform_altivec
+#define sum_simd sum_altivec
 
 /*
   SSE1 support macros
 */
-#elif !defined(PFFFT_SIMD_DISABLE) && (defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(i386) || defined(_M_IX86))
+#elif !defined(PFFFT_SIMD_DISABLE) && (defined(HAVE_SSE))
 
 #include <xmmintrin.h>
 typedef __m128 v4sf;
@@ -145,12 +154,18 @@ typedef __m128 v4sf;
 #define UNINTERLEAVE2(in1, in2, out1, out2) { v4sf tmp__ = _mm_shuffle_ps(in1, in2, _MM_SHUFFLE(2,0,2,0)); out2 = _mm_shuffle_ps(in1, in2, _MM_SHUFFLE(3,1,3,1)); out1 = tmp__; }
 #define VTRANSPOSE4(x0,x1,x2,x3) _MM_TRANSPOSE4_PS(x0,x1,x2,x3)
 #define VSWAPHL(a,b) _mm_shuffle_ps(b, a, _MM_SHUFFLE(3,2,1,0))
-#define VALIGNED(ptr) ((((long long)(ptr)) & 0xF) == 0)
+#define VALIGNED(ptr) ((((uintptr_t)(ptr)) & 0xF) == 0)
+#define pffft_funcs pffft_funcs_sse
+#define new_setup_simd new_setup_sse
+#define zreorder_simd zreorder_sse
+#define zconvolve_accumulate_simd zconvolve_accumulate_sse
+#define transform_simd transform_sse
+#define sum_simd sum_sse
 
 /*
   ARM NEON support macros
 */
-#elif !defined(PFFFT_SIMD_DISABLE) && (defined(__arm__) || defined(__aarch64__) || defined(__arm64__))
+#elif !defined(PFFFT_SIMD_DISABLE) && (defined(HAVE_NEON))
 #include <arm_neon.h>
 typedef float32x4_t v4sf;
 #define SIMD_SZ 4
@@ -172,7 +187,13 @@ typedef float32x4_t v4sf;
 // marginally faster version
 //#  define VTRANSPOSE4(x0,x1,x2,x3) { asm("vtrn.32 %q0, %q1;\n vtrn.32 %q2,%q3\n vswp %f0,%e2\n vswp %f1,%e3" : "+w"(x0), "+w"(x1), "+w"(x2), "+w"(x3)::); }
 #define VSWAPHL(a,b) vcombine_f32(vget_low_f32(b), vget_high_f32(a))
-#define VALIGNED(ptr) ((((long long)(ptr)) & 0x3) == 0)
+#define VALIGNED(ptr) ((((uintptr_t)(ptr)) & 0x3) == 0)
+#define pffft_funcs pffft_funcs_neon
+#define new_setup_simd new_setup_neon
+#define zreorder_simd zreorder_neon
+#define zconvolve_accumulate_simd zconvolve_accumulate_neon
+#define transform_simd transform_neon
+#define sum_simd sum_neon
 #else
 #if !defined(PFFFT_SIMD_DISABLE)
 #warning "building with simd disabled !\n";
@@ -190,7 +211,13 @@ typedef float v4sf;
 #define VMADD(a,b,c) ((a)*(b)+(c))
 #define VSUB(a,b) ((a)-(b))
 #define LD_PS1(p) (p)
-#define VALIGNED(ptr) ((((long long)(ptr)) & 0x3) == 0)
+#define VALIGNED(ptr) ((((uintptr_t)(ptr)) & 0x3) == 0)
+#define pffft_funcs pffft_funcs_c
+#define new_setup_simd new_setup_c
+#define zreorder_simd zreorder_c
+#define zconvolve_accumulate_simd zconvolve_accumulate_c
+#define transform_simd transform_c
+#define sum_simd sum_c
 #endif
 
 // shortcuts for complex multiplcations
@@ -212,7 +239,7 @@ typedef union v4sf_union {
 #define assertv4(v,f0,f1,f2,f3) assert(v.f[0] == (f0) && v.f[1] == (f1) && v.f[2] == (f2) && v.f[3] == (f3))
 
 /* detect bugs with the vector support macros */
-void validate_pffft_simd()
+static void validate_pffft_simd()
 {
 	float f[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 	v4sf_union a0, a1, a2, a3, t, u;
@@ -270,34 +297,10 @@ void validate_pffft_simd()
 	assertv4(a3, 3, 7, 11, 15);
 }
 #else
-void validate_pffft_simd()
+static void validate_pffft_simd()
 {
 }				// allow test_pffft.c to call this function even when simd is not available..
 #endif				//!PFFFT_SIMD_DISABLE
-
-/* SSE and co like 16-bytes aligned pointers */
-#define MALLOC_V4SF_ALIGNMENT 64	// with a 64-byte alignment, we are even aligned on L2 cache lines...
-void *pffft_aligned_malloc(size_t nb_bytes)
-{
-	void *p, *p0 = malloc(nb_bytes + MALLOC_V4SF_ALIGNMENT);
-	if (!p0)
-		return (void *)0;
-	p = (void *)(((size_t)p0 + MALLOC_V4SF_ALIGNMENT) &
-		     (~((size_t)(MALLOC_V4SF_ALIGNMENT - 1))));
-	*((void **)p - 1) = p0;
-	return p;
-}
-
-void pffft_aligned_free(void *p)
-{
-	if (p)
-		free(*((void **)p - 1));
-}
-
-int pffft_simd_size()
-{
-	return SIMD_SZ;
-}
 
 /*
   passf2 and passb2 has been merged here, fsign = -1 for passf2, +1 for passb2
@@ -1297,7 +1300,7 @@ static void rffti1_ps(int n, float *wa, int *ifac)
 	}
 }				/* rffti1 */
 
-void cffti1_ps(int n, float *wa, int *ifac)
+static void cffti1_ps(int n, float *wa, int *ifac)
 {
 	static const int ntryh[] = { 5, 3, 4, 2, 0 };
 	int k1, j, ii;
@@ -1335,7 +1338,7 @@ void cffti1_ps(int n, float *wa, int *ifac)
 	}
 }				/* cffti1 */
 
-v4sf *cfftf1_ps(int n, const v4sf * input_readonly, v4sf * work1, v4sf * work2,
+static v4sf *cfftf1_ps(int n, const v4sf * input_readonly, v4sf * work1, v4sf * work2,
 		const float *wa, const int *ifac, int isign)
 {
 	v4sf *in = (v4sf *) input_readonly;
@@ -1399,7 +1402,17 @@ struct PFFFT_Setup {
 	float *twiddle;		// points into 'data', N/4 elements
 };
 
-PFFFT_Setup *pffft_new_setup(int N, pffft_transform_t transform)
+struct funcs {
+  PFFFT_Setup * (*new_setup) (int N, pffft_transform_t transform);
+  void (*transform) (PFFFT_Setup *setup, const float *input, float *output, float *work, pffft_direction_t direction, int ordered);
+  void (*zreorder)(PFFFT_Setup *setup, const float *input, float *output, pffft_direction_t direction);
+  void (*zconvolve_accumulate)(PFFFT_Setup *setup, const float *dft_a, const float *dft_b, float *dft_ab, float scaling);
+  void (*sum)(const float *a, const float *b, float *ab, int len);
+  int (*simd_size)(void);
+  void (*validate)(void);
+};
+
+static PFFFT_Setup *new_setup_simd(int N, pffft_transform_t transform)
 {
 	PFFFT_Setup *s = (PFFFT_Setup *) malloc(sizeof(PFFFT_Setup));
 	int k, m;
@@ -1462,12 +1475,6 @@ PFFFT_Setup *pffft_new_setup(int N, pffft_transform_t transform)
 	return s;
 }
 
-void pffft_destroy_setup(PFFFT_Setup * s)
-{
-	pffft_aligned_free(s->data);
-	free(s);
-}
-
 #if !defined(PFFFT_SIMD_DISABLE)
 
 /* [0 0 1 2 3 4 5 6 7 8] -> [0 8 7 6 5 4 3 2 1] */
@@ -1512,7 +1519,7 @@ static void unreversed_copy(int N, const v4sf * in, v4sf * out, int out_stride)
 	UNINTERLEAVE2(h0, g1, out[0], out[1]);
 }
 
-void pffft_zreorder(PFFFT_Setup * setup, const float *in, float *out,
+static void zreorder_simd(PFFFT_Setup * setup, const float *in, float *out,
 		    pffft_direction_t direction)
 {
 	int k, N = setup->N, Ncvec = setup->Ncvec;
@@ -1563,7 +1570,7 @@ void pffft_zreorder(PFFFT_Setup * setup, const float *in, float *out,
 	}
 }
 
-void pffft_cplx_finalize(int Ncvec, const v4sf * in, v4sf * out, const v4sf * e)
+static void pffft_cplx_finalize(int Ncvec, const v4sf * in, v4sf * out, const v4sf * e)
 {
 	int k, dk = Ncvec / SIMD_SZ;	// number of 4x4 matrix blocks
 	v4sf r0, i0, r1, i1, r2, i2, r3, i3;
@@ -1626,7 +1633,7 @@ void pffft_cplx_finalize(int Ncvec, const v4sf * in, v4sf * out, const v4sf * e)
 	}
 }
 
-void pffft_cplx_preprocess(int Ncvec, const v4sf * in, v4sf * out,
+static void pffft_cplx_preprocess(int Ncvec, const v4sf * in, v4sf * out,
 			   const v4sf * e)
 {
 	int k, dk = Ncvec / SIMD_SZ;	// number of 4x4 matrix blocks
@@ -1908,8 +1915,8 @@ static NEVER_INLINE(void) pffft_real_preprocess(int Ncvec, const v4sf * in,
 	uout[2 * Ncvec - 1].f[3] = ci3;
 }
 
-void pffft_transform_internal(PFFFT_Setup * setup, const float *finput,
-			      float *foutput, v4sf * scratch,
+static void transform_simd(PFFFT_Setup * setup, const float *finput,
+			      float *foutput, float * scratch,
 			      pffft_direction_t direction, int ordered)
 {
 	int k, Ncvec = setup->Ncvec;
@@ -1921,7 +1928,7 @@ void pffft_transform_internal(PFFFT_Setup * setup, const float *finput,
 
 	const v4sf *vinput = (const v4sf *)finput;
 	v4sf *voutput = (v4sf *) foutput;
-	v4sf *buff[2] = { voutput, scratch ? scratch : scratch_on_stack };
+	v4sf *buff[2] = { voutput, scratch ? (v4sf*)scratch : scratch_on_stack };
 	int ib = (nf_odd ^ ordered ? 1 : 0);
 
 	assert(VALIGNED(finput) && VALIGNED(foutput));
@@ -1998,7 +2005,7 @@ void pffft_transform_internal(PFFFT_Setup * setup, const float *finput,
 	assert(buff[ib] == voutput);
 }
 
-void pffft_zconvolve_accumulate(PFFFT_Setup * s, const float *a, const float *b,
+static void zconvolve_accumulate_simd(PFFFT_Setup * s, const float *a, const float *b,
 				float *ab, float scaling)
 {
 	int Ncvec = s->Ncvec;
@@ -2101,12 +2108,25 @@ void pffft_zconvolve_accumulate(PFFFT_Setup * s, const float *a, const float *b,
 	}
 }
 
+static void sum_simd(const float *a, const float *b, float *ab, int len)
+{
+	const v4sf *RESTRICT va = (const v4sf *)a;
+	const v4sf *RESTRICT vb = (const v4sf *)b;
+	v4sf *RESTRICT vab = (v4sf *) ab;
+	int i;
+	const int end4 = len / SIMD_SZ;
+
+	for (i = 0; i < end4; i += 1)
+		vab[i] = VADD(va[i],vb[i]);
+	for (i = i * 4; i < len; ++i)
+		ab[i] = a[i] + b[i];
+}
+
 #else				// defined(PFFFT_SIMD_DISABLE)
 
 // standard routine using scalar floats, without SIMD stuff.
 
-#define pffft_zreorder_nosimd pffft_zreorder
-void pffft_zreorder_nosimd(PFFFT_Setup * setup, const float *in, float *out,
+static void zreorder_simd(PFFFT_Setup * setup, const float *in, float *out,
 			   pffft_direction_t direction)
 {
 	int k, N = setup->N;
@@ -2129,8 +2149,7 @@ void pffft_zreorder_nosimd(PFFFT_Setup * setup, const float *in, float *out,
 	}
 }
 
-#define pffft_transform_internal_nosimd pffft_transform_internal
-void pffft_transform_internal_nosimd(PFFFT_Setup * setup, const float *input,
+static void transform_simd(PFFFT_Setup * setup, const float *input,
 				     float *output, float *scratch,
 				     pffft_direction_t direction, int ordered)
 {
@@ -2198,8 +2217,7 @@ void pffft_transform_internal_nosimd(PFFFT_Setup * setup, const float *input,
 	assert(buff[ib] == output);
 }
 
-#define pffft_zconvolve_accumulate_nosimd pffft_zconvolve_accumulate
-void pffft_zconvolve_accumulate_nosimd(PFFFT_Setup * s, const float *a,
+static void zconvolve_accumulate_simd(PFFFT_Setup * s, const float *a,
 				       const float *b, float *ab, float scaling)
 {
 	int i, Ncvec = s->Ncvec;
@@ -2225,20 +2243,120 @@ void pffft_zconvolve_accumulate_nosimd(PFFFT_Setup * s, const float *a,
 		ab[2 * i + 1] += ai * scaling;
 	}
 }
+static void sum_simd(const float *a, const float *b, float *ab, int len)
+{
+	int i;
+	for (i = 0; i < len; ++i)
+		ab[i] = VADD(a[i], b[i]);
+}
 
 #endif				// defined(PFFFT_SIMD_DISABLE)
 
-void pffft_transform(PFFFT_Setup * setup, const float *input, float *output,
-		     float *work, pffft_direction_t direction)
+static int simd_size_simd(void)
 {
-	pffft_transform_internal(setup, input, output, (v4sf *) work, direction,
-				 0);
+	return SIMD_SZ;
 }
 
-void pffft_transform_ordered(PFFFT_Setup * setup, const float *input,
-			     float *output, float *work,
-			     pffft_direction_t direction)
+struct funcs pffft_funcs = {
+	.new_setup = new_setup_simd,
+	.transform = transform_simd,
+	.zreorder = zreorder_simd,
+	.zconvolve_accumulate = zconvolve_accumulate_simd,
+	.sum = sum_simd,
+	.simd_size = simd_size_simd,
+	.validate = validate_pffft_simd,
+};
+
+#if defined(PFFFT_SIMD_DISABLE)
+
+extern struct funcs pffft_funcs_c;
+#if (defined(HAVE_SSE))
+extern struct funcs pffft_funcs_sse;
+#endif
+#if (defined(HAVE_ALTIVEC))
+extern struct funcs pffft_funcs_altivec;
+#endif
+#if (defined(HAVE_NEON))
+extern struct funcs pffft_funcs_neon;
+#endif
+
+static struct funcs *funcs = &pffft_funcs_c;
+
+/* SSE and co like 16-bytes aligned pointers */
+#define MALLOC_V4SF_ALIGNMENT 64	// with a 64-byte alignment, we are even aligned on L2 cache lines...
+void *pffft_aligned_malloc(size_t nb_bytes)
 {
-	pffft_transform_internal(setup, input, output, (v4sf *) work, direction,
-				 1);
+	void *p, *p0 = malloc(nb_bytes + MALLOC_V4SF_ALIGNMENT);
+	if (!p0)
+		return (void *)0;
+	p = (void *)(((size_t)p0 + MALLOC_V4SF_ALIGNMENT) &
+		     (~((size_t)(MALLOC_V4SF_ALIGNMENT - 1))));
+	*((void **)p - 1) = p0;
+	return p;
 }
+
+void pffft_aligned_free(void *p)
+{
+	if (p)
+		free(*((void **)p - 1));
+}
+
+int pffft_simd_size(void)
+{
+	return funcs->simd_size();
+}
+
+PFFFT_Setup *pffft_new_setup(int N, pffft_transform_t transform)
+{
+	return funcs->new_setup(N, transform);
+}
+
+void pffft_destroy_setup(PFFFT_Setup * s)
+{
+	pffft_aligned_free(s->data);
+	free(s);
+}
+
+void pffft_transform(PFFFT_Setup *setup, const float *input, float *output, float *work, pffft_direction_t direction)
+{
+	return funcs->transform(setup, input, output, work, direction, 0);
+}
+
+void pffft_transform_ordered(PFFFT_Setup *setup, const float *input, float *output, float *work, pffft_direction_t direction)
+{
+	return funcs->transform(setup, input, output, work, direction, 1);
+}
+
+void pffft_zreorder(PFFFT_Setup *setup, const float *input, float *output, pffft_direction_t direction)
+{
+	return funcs->zreorder(setup, input, output, direction);
+}
+
+void pffft_zconvolve_accumulate(PFFFT_Setup *setup, const float *dft_a, const float *dft_b, float *dft_ab, float scaling)
+{
+	return funcs->zconvolve_accumulate(setup, dft_a, dft_b, dft_ab, scaling);
+}
+
+void pffft_sum(const float *a, const float *b, float *ab, int len)
+{
+	return funcs->sum(a, b, ab, len);
+}
+
+void pffft_select_cpu(int flags)
+{
+	funcs = &pffft_funcs_c;
+#if defined(HAVE_SSE)
+	if (flags & SPA_CPU_FLAG_SSE)
+		funcs = &pffft_funcs_sse;
+#endif
+#if defined(HAVE_NEON)
+	if (flags & SPA_CPU_FLAG_NEON)
+		funcs = &pffft_funcs_neon;
+#endif
+#if defined(HAVE_ALTIVEC)
+	if (flags & SPA_CPU_FLAG_ALTIVEC)
+		funcs = &pffft_funcs_altivec;
+#endif
+}
+
+#endif

@@ -45,17 +45,50 @@ pipewire_module_loopback = shared_library('pipewire-module-loopback',
   dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
+simd_cargs = []
+simd_dependencies = []
+
+if have_sse
+  pffft_sse = static_library('pffft_sse',
+    ['module-filter-chain/pffft.c' ],
+    c_args : [sse_args, '-O3', '-DHAVE_SSE'],
+    include_directories : [spa_inc],
+    install : false
+    )
+  simd_cargs += ['-DHAVE_SSE']
+  simd_dependencies += pffft_sse
+endif
+if have_neon
+  pffft_neon = static_library('pffft_neon',
+    ['module-filter-chain/pffft.c' ],
+    c_args : [neon_args, '-O3', '-DHAVE_NEON'],
+    include_directories : [spa_inc],
+    install : false
+    )
+  simd_cargs += ['-DHAVE_NEON']
+  simd_dependencies += pffft_neon
+endif
+
+pffft_c = static_library('pffft_c',
+  ['module-filter-chain/pffft.c' ],
+  c_args : [simd_cargs, '-O3', '-DPFFFT_SIMD_DISABLE'],
+  include_directories : [spa_inc],
+  install : false
+)
+simd_dependencies += pffft_c
+
+
 pipewire_module_filter_chain = shared_library('pipewire-module-filter-chain',
   [ 'module-filter-chain.c',
     'module-filter-chain/biquad.c',
     'module-filter-chain/ladspa_plugin.c',
     'module-filter-chain/builtin_plugin.c',
-    'module-filter-chain/pffft.c',
     'module-filter-chain/convolver.c' ],
   include_directories : [configinc, spa_inc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
+  link_with : simd_dependencies,
   dependencies : [mathlib, dl_lib, pipewire_dep, sndfile_dep],
 )
 

@@ -60,6 +60,7 @@ struct fc_port {
 
 struct fc_descriptor {
 	const char *name;
+#define FC_DESCRIPTOR_SUPPORTS_NULL_DATA	(1ULL << 0)
 	uint64_t flags;
 
 	void (*free) (struct fc_descriptor *desc);

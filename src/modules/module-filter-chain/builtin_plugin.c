@@ -61,8 +61,7 @@ static void *builtin_instantiate(const struct fc_descriptor * Descriptor,
 	return impl;
 }
 
-static void builtin_connect_port(void *Instance, unsigned long Port,
-                        float * DataLocation)
+static void builtin_connect_port(void *Instance, unsigned long Port, float * DataLocation)
 {
 	struct builtin *impl = Instance;
 	impl->port[Port] = DataLocation;
@@ -110,19 +109,37 @@ static void mixer_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
 	unsigned long i;
-	float gain1 = impl->port[3][0];
-	float gain2 = impl->port[4][0];
-	float *in1 = impl->port[1], *in2 = impl->port[2], *out = impl->port[0];
+	float *out = impl->port[0];
+	bool first = true;
 
-	if (gain1 == 0.0f && gain2 == 0.0f) {
-		memset(out, 0, SampleCount * sizeof(float));
-	} else if (gain1 == 1.0f && gain2 == 1.0f) {
-		for (i = 0; i < SampleCount; i++)
-			out[i] = in1[i] + in2[i];
-	} else {
-		for (i = 0; i < SampleCount; i++)
-			out[i] = in1[i] * gain1 + in2[i] * gain2;
+	if (out == NULL)
+		return;
+
+	for (i = 0; i < 8; i++) {
+		float *in = impl->port[1+i];
+		float gain = impl->port[9+i][0];
+
+		if (in == NULL || gain == 0.0f)
+			continue;
+
+		if (first) {
+			if (gain == 1.0f)
+				memcpy(out, in, SampleCount * sizeof(float));
+			else
+				for (i = 0; i < SampleCount; i++)
+					out[i] = in[i] * gain;
+			first = false;
+		} else {
+			if (gain == 1.0f)
+				for (i = 0; i < SampleCount; i++)
+					out[i] += in[i];
+			else
+				for (i = 0; i < SampleCount; i++)
+					out[i] += in[i] * gain;
+		}
 	}
+	if (first)
+		memset(out, 0, SampleCount * sizeof(float));
 }
 
 static struct fc_port mixer_ports[] = {
@@ -130,6 +147,7 @@ static struct fc_port mixer_ports[] = {
 	  .name = "Out",
 	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
 	},
+
 	{ .index = 1,
 	  .name = "In 1",
 	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
@@ -139,12 +157,67 @@ static struct fc_port mixer_ports[] = {
 	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
 	},
 	{ .index = 3,
+	  .name = "In 3",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 4,
+	  .name = "In 4",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 5,
+	  .name = "In 5",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 6,
+	  .name = "In 6",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 7,
+	  .name = "In 7",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 8,
+	  .name = "In 8",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+
+	{ .index = 9,
 	  .name = "Gain 1",
 	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
 	  .def = 1.0f, .min = 0.0f, .max = 10.0f
 	},
-	{ .index = 4,
+	{ .index = 10,
 	  .name = "Gain 2",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 1.0f, .min = 0.0f, .max = 10.0f
+	},
+	{ .index = 11,
+	  .name = "Gain 3",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 1.0f, .min = 0.0f, .max = 10.0f
+	},
+	{ .index = 12,
+	  .name = "Gain 4",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 1.0f, .min = 0.0f, .max = 10.0f
+	},
+	{ .index = 13,
+	  .name = "Gain 5",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 1.0f, .min = 0.0f, .max = 10.0f
+	},
+	{ .index = 14,
+	  .name = "Gain 6",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 1.0f, .min = 0.0f, .max = 10.0f
+	},
+	{ .index = 15,
+	  .name = "Gain 7",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 1.0f, .min = 0.0f, .max = 10.0f
+	},
+	{ .index = 16,
+	  .name = "Gain 8",
 	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
 	  .def = 1.0f, .min = 0.0f, .max = 10.0f
 	},
@@ -152,8 +225,9 @@ static struct fc_port mixer_ports[] = {
 
 static const struct fc_descriptor mixer_desc = {
 	.name = "mixer",
+	.flags = FC_DESCRIPTOR_SUPPORTS_NULL_DATA,
 
-	.n_ports = 5,
+	.n_ports = 17,
 	.ports = mixer_ports,
 
 	.instantiate = builtin_instantiate,

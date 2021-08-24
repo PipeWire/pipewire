@@ -35,7 +35,6 @@
 #include "plugin.h"
 #include "ladspa.h"
 
-
 struct plugin {
 	struct fc_plugin plugin;
 	void *handle;

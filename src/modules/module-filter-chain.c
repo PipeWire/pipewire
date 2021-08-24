@@ -109,6 +109,9 @@ static const struct spa_dict_item module_props[] = {
 #define MAX_CONTROLS 256
 #define MAX_SAMPLES 8192
 
+static float silence_data[MAX_SAMPLES];
+static float discard_data[MAX_SAMPLES];
+
 struct plugin {
 	struct spa_list link;
 	int ref;
@@ -212,9 +215,6 @@ struct graph {
 
 	uint32_t n_control;
 	struct port *control_port[MAX_CONTROLS];
-
-	float silence_data[MAX_SAMPLES];
-	float discard_data[MAX_SAMPLES];
 };
 
 struct impl {
@@ -1265,8 +1265,13 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 	 * the control and notify ports already */
 	graph->n_control = 0;
 	spa_list_for_each(node, &graph->node_list, link) {
+		float *sd = silence_data, *dd = discard_data;
+
 		desc = node->desc;
 		d = desc->desc;
+		if (d->flags & FC_DESCRIPTOR_SUPPORTS_NULL_DATA)
+			sd = dd = NULL;
+
 		for (i = 0; i < n_hndl; i++) {
 			if ((node->hndl[i] = d->instantiate(d, impl->rate, i, node->config)) == NULL) {
 				pw_log_error("cannot create plugin instance");
@@ -1277,11 +1282,11 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 
 			for (j = 0; j < desc->n_input; j++) {
 				p = desc->input[j];
-				d->connect_port(node->hndl[i], p, graph->silence_data);
+				d->connect_port(node->hndl[i], p, sd);
 			}
 			for (j = 0; j < desc->n_output; j++) {
 				p = desc->output[j];
-				d->connect_port(node->hndl[i], p, graph->discard_data);
+				d->connect_port(node->hndl[i], p, dd);
 			}
 			for (j = 0; j < desc->n_control; j++) {
 				port = &node->control_port[j];

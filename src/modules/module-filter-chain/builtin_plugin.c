@@ -108,7 +108,8 @@ static const struct fc_descriptor copy_desc = {
 static void mixer_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
-	unsigned long i;
+	int i;
+	unsigned long j;
 	float *out = impl->port[0];
 	bool first = true;
 
@@ -126,16 +127,16 @@ static void mixer_run(void * Instance, unsigned long SampleCount)
 			if (gain == 1.0f)
 				memcpy(out, in, SampleCount * sizeof(float));
 			else
-				for (i = 0; i < SampleCount; i++)
-					out[i] = in[i] * gain;
+				for (j = 0; j < SampleCount; j++)
+					out[j] = in[j] * gain;
 			first = false;
 		} else {
 			if (gain == 1.0f)
-				for (i = 0; i < SampleCount; i++)
-					out[i] += in[i];
+				for (j = 0; j < SampleCount; j++)
+					out[j] += in[j];
 			else
-				for (i = 0; i < SampleCount; i++)
-					out[i] += in[i] * gain;
+				for (j = 0; j < SampleCount; j++)
+					out[j] += in[j] * gain;
 		}
 	}
 	if (first)

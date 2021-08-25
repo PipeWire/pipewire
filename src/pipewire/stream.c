@@ -2055,7 +2055,7 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 
 	if (impl->direction == SPA_DIRECTION_OUTPUT &&
 	    impl->driving && !impl->using_drive) {
-		pw_log_debug("use pw_stream_drive() to drive the stream.");
+		pw_log_debug("deprecated: use pw_stream_trigger_process() to drive the stream.");
 		res = pw_loop_invoke(impl->context->data_loop,
 			do_trigger_deprecated, 1, NULL, 0, false, impl);
 	}

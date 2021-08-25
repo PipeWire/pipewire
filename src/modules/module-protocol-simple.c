@@ -120,6 +120,7 @@ struct client {
 
 	unsigned int disconnect:1;
 	unsigned int disconnecting:1;
+	unsigned int cleanup:1;
 };
 
 struct server {
@@ -158,6 +159,8 @@ static void client_free(struct client *client)
 
 	client_disconnect(client);
 
+	pw_work_queue_cancel(impl->work_queue, client, SPA_ID_INVALID);
+
 	spa_list_remove(&client->link);
 	client->server->n_clients--;
 
@@ -183,7 +186,10 @@ static void on_client_cleanup(void *obj, void *data, int res, uint32_t id)
 static void client_cleanup(struct client *client)
 {
 	struct impl *impl = client->impl;
-	pw_work_queue_add(impl->work_queue, client, 0, on_client_cleanup, impl);
+	if (!client->cleanup)  {
+		client->cleanup = true;
+		pw_work_queue_add(impl->work_queue, client, 0, on_client_cleanup, impl);
+	}
 }
 
 static void

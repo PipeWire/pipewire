@@ -3172,20 +3172,17 @@ int64_t spa_bt_transport_get_delay_nsec(struct spa_bt_transport *t)
 	/* Fallback values when device does not provide information */
 
 	if (t->media_codec == NULL)
-		return 30 * SPA_NSEC_PER_MSEC;
+		return 20 * SPA_NSEC_PER_MSEC;
 
 	switch (t->media_codec->id) {
 	case SPA_BLUETOOTH_AUDIO_CODEC_SBC:
 	case SPA_BLUETOOTH_AUDIO_CODEC_SBC_XQ:
-		return 200 * SPA_NSEC_PER_MSEC;
 	case SPA_BLUETOOTH_AUDIO_CODEC_MPEG:
 	case SPA_BLUETOOTH_AUDIO_CODEC_AAC:
-		return 200 * SPA_NSEC_PER_MSEC;
 	case SPA_BLUETOOTH_AUDIO_CODEC_APTX:
 	case SPA_BLUETOOTH_AUDIO_CODEC_APTX_HD:
-		return 150 * SPA_NSEC_PER_MSEC;
 	case SPA_BLUETOOTH_AUDIO_CODEC_LDAC:
-		return 175 * SPA_NSEC_PER_MSEC;
+		return 125 * SPA_NSEC_PER_MSEC;
 	case SPA_BLUETOOTH_AUDIO_CODEC_AAC_ELD:
 	case SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL:
 	case SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL_DUPLEX:
@@ -3196,7 +3193,7 @@ int64_t spa_bt_transport_get_delay_nsec(struct spa_bt_transport *t)
 	default:
 		break;
 	};
-	return 150 * SPA_NSEC_PER_MSEC;
+	return 125 * SPA_NSEC_PER_MSEC;
 }
 
 static int transport_update_props(struct spa_bt_transport *transport,

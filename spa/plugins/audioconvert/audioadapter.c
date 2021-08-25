@@ -730,10 +730,6 @@ static void convert_node_info(void *data, const struct spa_node_info *info)
 	struct impl *this = data;
 	uint32_t i;
 
-	if (info->change_mask & SPA_NODE_CHANGE_MASK_FLAGS) {
-		this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS;
-		this->info.flags = info->flags;
-	}
 	if (info->change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
 			uint32_t idx;
@@ -818,8 +814,13 @@ static void follower_info(void *data, const struct spa_node_info *info)
         else
 		this->direction = SPA_DIRECTION_OUTPUT;
 
-	this->info.max_input_ports = this->direction == SPA_DIRECTION_INPUT ? MAX_PORTS : 0;
-	this->info.max_output_ports = this->direction == SPA_DIRECTION_OUTPUT ? MAX_PORTS : 0;
+	if (this->direction == SPA_DIRECTION_INPUT) {
+		this->info.flags |= SPA_NODE_FLAG_IN_PORT_CONFIG;
+		this->info.max_input_ports = MAX_PORTS;
+	} else {
+		this->info.flags |= SPA_NODE_FLAG_OUT_PORT_CONFIG;
+		this->info.max_output_ports = MAX_PORTS;
+	}
 
 	spa_log_debug(this->log, NAME" %p: follower info %s", this,
 			this->direction == SPA_DIRECTION_INPUT ?
@@ -1419,8 +1420,6 @@ impl_init(const struct spa_handle_factory *factory,
 		SPA_NODE_CHANGE_MASK_PARAMS;
 	this->info = SPA_NODE_INFO_INIT();
 	this->info.flags = SPA_NODE_FLAG_RT |
-		SPA_NODE_FLAG_IN_PORT_CONFIG |
-		SPA_NODE_FLAG_OUT_PORT_CONFIG |
 		SPA_NODE_FLAG_NEED_CONFIGURE;
 	this->params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	this->params[IDX_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);

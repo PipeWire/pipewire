@@ -59,6 +59,7 @@ struct impl {
 
 	unsigned int pause_on_idle:1;
 	unsigned int cache_params:1;
+	unsigned int pending_play:1;
 };
 
 #define pw_node_resource(r,m,v,...)	pw_resource_call(r,struct pw_node_events,m,v,__VA_ARGS__)
@@ -215,9 +216,11 @@ static int start_node(struct pw_impl_node *this)
 
 	pw_log_debug(NAME" %p: start node", this);
 
-	if (!(this->driving && this->driver))
+	if (!(this->driving && this->driver)) {
+		impl->pending_play = true;
 		res = spa_node_send_command(this->node,
 			&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start));
+	}
 
 	if (res < 0)
 		pw_log_error("(%s-%u) start node error %d: %s", this->name, this->info.id,
@@ -2011,6 +2014,7 @@ static void on_state_complete(void *obj, void *data, int res, uint32_t seq)
 	char *error = NULL;
 
 	impl->pending_id = SPA_ID_INVALID;
+	impl->pending_play = false;
 
 	pw_log_debug(NAME" %p: state complete res:%d seq:%d", node, res, seq);
 	if (impl->last_error < 0) {
@@ -2101,6 +2105,18 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 
 	if (old != state) {
 		if (impl->pending_id != SPA_ID_INVALID) {
+			pw_log_debug("cancel state from %s to %s to %s",
+				pw_node_state_as_string(node->info.state),
+				pw_node_state_as_string(impl->pending),
+				pw_node_state_as_string(state));
+
+			if (impl->pending == PW_NODE_STATE_RUNNING &&
+			    state < PW_NODE_STATE_RUNNING &&
+			    impl->pending_play) {
+				impl->pending_play = false;
+				spa_node_send_command(node->node,
+					&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Pause));
+			}
 			pw_work_queue_cancel(impl->work, node, impl->pending_id);
 			node->info.state = impl->pending;
 		}

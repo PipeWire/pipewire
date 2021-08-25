@@ -4087,6 +4087,9 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 
 	spa_return_val_if_fail(o != NULL, NULL);
 
+	if (o->type != INTERFACE_Port)
+		return NULL;
+
 	if ((p = o->port.port) == NULL) {
 		struct mix *mix;
 		struct buffer *b;
@@ -5711,7 +5714,7 @@ SPA_EXPORT
 uint32_t jack_midi_get_event_count(void* port_buffer)
 {
 	struct midi_buffer *mb = port_buffer;
-	if (mb == NULL)
+	if (mb == NULL || mb->magic != MIDI_BUFFER_MAGIC)
 		return 0;
 	return mb->event_count;
 }

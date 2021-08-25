@@ -41,7 +41,7 @@
 
 #define FACTORY_USAGE	PW_KEY_LINK_OUTPUT_NODE"=<output-node> "	\
 			"["PW_KEY_LINK_OUTPUT_PORT"=<output-port>] "	\
-			PW_KEY_LINK_INPUT_NODE"=<input-node "		\
+			PW_KEY_LINK_INPUT_NODE"=<input-node> "		\
 			"["PW_KEY_LINK_INPUT_PORT"=<input-port>] "	\
 			"["PW_KEY_OBJECT_LINGER"=<bool>] "		\
 			"["PW_KEY_LINK_PASSIVE"=<bool>]"

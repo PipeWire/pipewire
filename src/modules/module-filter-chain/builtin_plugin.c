@@ -24,6 +24,7 @@
 
 #include "config.h"
 
+#include <math.h>
 #ifdef HAVE_SNDFILE
 #include <sndfile.h>
 #endif
@@ -491,6 +492,8 @@ static float *read_samples(const char *filename, float gain, int delay, int offs
 	length -= SPA_MIN(offset, length);
 
 	n = delay + length;
+	if (n == 0)
+		return NULL;
 
 	samples = calloc(n * info.channels, sizeof(float));
         if (samples == NULL)
@@ -516,6 +519,36 @@ static float *read_samples(const char *filename, float gain, int delay, int offs
 	*n_samples = 1;
 	return samples;
 #endif
+}
+
+static float *create_hilbert(const char *filename, float gain, int delay, int offset,
+		int length, int *n_samples)
+{
+	float *samples, v;
+	int i, n, h;
+
+	if (length <= 0)
+		length = 1024;
+
+	length -= SPA_MIN(offset, length);
+
+	n = delay + length;
+	if (n == 0)
+		return NULL;
+
+	samples = calloc(n, sizeof(float));
+        if (samples == NULL)
+		return NULL;
+
+	gain *= 2 / M_PI;
+	h = length / 2;
+	for (i = 1; i < h; i += 2) {
+		v = (gain / i) * (0.43f + 0.57f * cosf(i * M_PI / h));
+		samples[delay + h + i] = -v;
+		samples[delay + h - i] =  v;
+	}
+	*n_samples = n;
+	return samples;
 }
 
 static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
@@ -577,13 +610,19 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	}
 	if (!filename[0])
 		return NULL;
+
 	if (delay < 0)
 		delay = 0;
 	if (offset < 0)
 		offset = 0;
 
-	samples = read_samples(filename, gain, delay, offset,
-			length, channel, &n_samples);
+	if (spa_streq(filename, "/hilbert")) {
+		samples = create_hilbert(filename, gain, delay, offset,
+				length, &n_samples);
+	} else {
+		samples = read_samples(filename, gain, delay, offset,
+				length, channel, &n_samples);
+	}
 	if (samples == NULL)
 		return NULL;
 

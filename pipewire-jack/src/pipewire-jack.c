@@ -98,6 +98,8 @@ struct globals {
 	jack_thread_creator_t creator;
 	pthread_mutex_t lock;
 	struct pw_array descriptions;
+	struct spa_list free_objects;
+
 };
 
 static struct globals globals;
@@ -250,8 +252,6 @@ struct context {
 	struct pw_loop *l;
 	struct pw_thread_loop *loop;	/* thread_lock protects all below */
 	struct pw_context *context;
-
-	struct spa_list free_objects;
 
 	pthread_mutex_t lock;		/* protects map and lists below, in addition to thread_lock */
 	struct pw_map globals;
@@ -413,39 +413,40 @@ static struct object * alloc_object(struct client *c, int type)
 	struct object *o;
 	int i;
 
-	if (spa_list_is_empty(&c->context.free_objects)) {
+	pthread_mutex_lock(&globals.lock);
+	if (spa_list_is_empty(&globals.free_objects)) {
 		o = calloc(OBJECT_CHUNK, sizeof(struct object));
-		if (o == NULL)
+		if (o == NULL) {
+			pthread_mutex_unlock(&globals.lock);
 			return NULL;
+		}
 		for (i = 0; i < OBJECT_CHUNK; i++)
-			spa_list_append(&c->context.free_objects, &o[i].link);
+			spa_list_append(&globals.free_objects, &o[i].link);
 	}
-
-	o = spa_list_first(&c->context.free_objects, struct object, link);
+	o = spa_list_first(&globals.free_objects, struct object, link);
 	spa_list_remove(&o->link);
+	pthread_mutex_unlock(&globals.lock);
+
 	o->client = c;
 	o->type = type;
+	pw_log_debug(NAME" %p: object:%p type:%d", c, o, type);
 
 	return o;
 }
 
-static void unlink_object(struct client *c, struct object *o)
+static void free_object(struct client *c, struct object *o)
 {
 	pthread_mutex_lock(&c->context.lock);
 	spa_list_remove(&o->link);
 	pthread_mutex_unlock(&c->context.lock);
-}
 
-static void recycle_object(struct client *c, struct object *o)
-{
-	spa_list_append(&c->context.free_objects, &o->link);
+	pw_log_debug(NAME" %p: object:%p type:%d", c, o, o->type);
+
+	pthread_mutex_lock(&globals.lock);
+	spa_list_append(&globals.free_objects, &o->link);
 	o->type = INTERFACE_Invalid;
-}
-
-static void free_object(struct client *c, struct object *o)
-{
-	unlink_object(c, o);
-	recycle_object(c, o);
+	o->client = NULL;
+	pthread_mutex_unlock(&globals.lock);
 }
 
 static void init_mix(struct mix *mix, uint32_t mix_id, struct port *port)
@@ -2836,8 +2837,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	 * they are unregistered. We keep the memory around for that
 	 * reason but reuse it when we can. */
 	o->removing = false;
-	unlink_object(c, o);
-	recycle_object(c, o);
+	free_object(c, o);
 	/* we keep the object available with the id because jack clients
 	 * tend to access the objects with it later.
 	 *
@@ -2976,7 +2976,6 @@ jack_client_t * jack_client_open (const char *client_name,
 	if ((str = pw_properties_get(client->props, "rt.prio")) != NULL)
 		client->rt_max = atoi(str);
 
-	spa_list_init(&client->context.free_objects);
 	pthread_mutex_init(&client->context.lock, NULL);
 	pthread_mutex_init(&client->rt_lock, NULL);
 	spa_list_init(&client->context.nodes);
@@ -3141,6 +3140,7 @@ SPA_EXPORT
 int jack_client_close (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
+	struct object *o;
 	int res;
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
@@ -3164,6 +3164,14 @@ int jack_client_close (jack_client_t *client)
 	pw_thread_loop_destroy(c->context.loop);
 
 	pw_log_debug(NAME" %p: free", client);
+
+	spa_list_consume(o, &c->context.nodes, link)
+		free_object(c, o);
+	spa_list_consume(o, &c->context.ports, link)
+		free_object(c, o);
+	spa_list_consume(o, &c->context.links, link)
+		free_object(c, o);
+
 	pw_map_clear(&c->context.globals);
 	pthread_mutex_destroy(&c->context.lock);
 	pthread_mutex_destroy(&c->rt_lock);
@@ -5884,4 +5892,5 @@ static void reg(void)
 	pw_init(NULL, NULL);
 	pthread_mutex_init(&globals.lock, NULL);
 	pw_array_init(&globals.descriptions, 16);
+	spa_list_init(&globals.free_objects);
 }

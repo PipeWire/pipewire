@@ -318,7 +318,7 @@ static int codec_encode(void *data,
 	return res;
 }
 
-static int codec_start_decode (void *data,
+static SPA_UNUSED int codec_start_decode (void *data,
 		const void *src, size_t src_size, uint16_t *seqnum, uint32_t *timestamp)
 {
 	return 0;
@@ -355,7 +355,7 @@ static int do_decode(sbc_t *sbc,
 	return processed;
 }
 
-static int codec_decode(void *data,
+static SPA_UNUSED int codec_decode(void *data,
 		const void *src, size_t src_size,
 		void *dst, size_t dst_size,
 		size_t *dst_out)
@@ -609,8 +609,6 @@ static const struct a2dp_codec duplex_codec = {
 	.abr_process = codec_abr_process,		\
 	.start_encode = codec_start_encode,		\
 	.encode = codec_encode,				\
-	.start_decode = codec_start_decode,		\
-	.decode = codec_decode,				\
 	.reduce_bitpool = codec_reduce_bitpool,		\
 	.increase_bitpool = codec_increase_bitpool
 

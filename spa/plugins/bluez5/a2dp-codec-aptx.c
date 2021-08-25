@@ -661,8 +661,6 @@ const struct a2dp_codec a2dp_codec_aptx_hd = {
 	.abr_process = codec_abr_process,		\
 	.start_encode = codec_start_encode,		\
 	.encode = codec_encode,				\
-	.start_decode = codec_start_decode,		\
-	.decode = codec_decode,				\
 	.reduce_bitpool = codec_reduce_bitpool,		\
 	.increase_bitpool = codec_increase_bitpool
 

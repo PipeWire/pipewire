@@ -32,6 +32,7 @@
 #include <spa/param/bluetooth/audio.h>
 #include <pipewire/pipewire.h>
 
+#include "internal.h"
 #include "format.h"
 #include "volume.h"
 
@@ -79,7 +80,7 @@ struct device_info {
 	}
 
 void collect_device_info(struct pw_manager_object *device, struct pw_manager_object *card,
-			 struct device_info *dev_info, bool monitor);
+			 struct device_info *dev_info, bool monitor, struct defs *defs);
 
 /* ========================================================================== */
 

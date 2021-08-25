@@ -232,7 +232,7 @@ uint32_t find_profile_id(struct pw_manager_object *card, const char *name)
 }
 
 void collect_device_info(struct pw_manager_object *device, struct pw_manager_object *card,
-			 struct device_info *dev_info, bool monitor)
+			 struct device_info *dev_info, bool monitor, struct defs *defs)
 {
 	struct pw_manager_param *p;
 
@@ -266,12 +266,14 @@ void collect_device_info(struct pw_manager_object *device, struct pw_manager_obj
 		{
 			struct spa_pod *copy = spa_pod_copy(p->param);
 			spa_pod_fixate(copy);
-			format_parse_param(copy, &dev_info->ss, &dev_info->map);
+			format_parse_param(copy, &dev_info->ss, &dev_info->map,
+					&defs->sample_spec, &defs->channel_map);
 			free(copy);
 			break;
 		}
 		case SPA_PARAM_Format:
-			format_parse_param(p->param, &dev_info->ss, &dev_info->map);
+			format_parse_param(p->param, &dev_info->ss, &dev_info->map,
+					NULL, NULL);
 			break;
 
 		case SPA_PARAM_Props:

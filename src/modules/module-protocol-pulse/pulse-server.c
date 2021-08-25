@@ -981,7 +981,7 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 	if (id != SPA_PARAM_Format || param == NULL)
 		return;
 
-	if ((res = format_parse_param(param, &stream->ss, &stream->map)) < 0) {
+	if ((res = format_parse_param(param, &stream->ss, &stream->map, NULL, NULL)) < 0) {
 		pw_stream_set_error(stream->stream, res, "format not supported");
 		return;
 	}
@@ -2669,7 +2669,7 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 		struct selector sel = { .id = card_id, .type = pw_manager_object_is_card, };
 		card = select_object(manager, &sel);
 	}
-	collect_device_info(o, card, &dev_info, is_monitor);
+	collect_device_info(o, card, &dev_info, is_monitor, &impl->defs);
 
 	if (dev_info.have_volume &&
 	    volume_compare(&dev_info.volume_info.volume, &volume) == 0)
@@ -2735,7 +2735,7 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 		struct selector sel = { .id = card_id, .type = pw_manager_object_is_card, };
 		card = select_object(manager, &sel);
 	}
-	collect_device_info(o, card, &dev_info, is_monitor);
+	collect_device_info(o, card, &dev_info, is_monitor, &impl->defs);
 
 	if (dev_info.have_volume &&
 	    dev_info.volume_info.mute == mute)
@@ -3406,6 +3406,7 @@ static int fill_card_info(struct client *client, struct message *m,
 static int fill_sink_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
+	struct impl *impl = client->impl;
 	struct pw_node_info *info = o->info;
 	struct pw_manager *manager = client->manager;
 	const char *name, *desc, *str;
@@ -3447,7 +3448,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 	if (card)
 		collect_card_info(card, &card_info);
 
-	collect_device_info(o, card, &dev_info, false);
+	collect_device_info(o, card, &dev_info, false, &impl->defs);
 
 	if (!sample_spec_valid(&dev_info.ss) ||
 	    !channel_map_valid(&dev_info.map) ||
@@ -3576,6 +3577,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 static int fill_source_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
+	struct impl *impl = client->impl;
 	struct pw_node_info *info = o->info;
 	struct pw_manager *manager = client->manager;
 	bool is_monitor;
@@ -3622,7 +3624,7 @@ static int fill_source_info(struct client *client, struct message *m,
 	if (card)
 		collect_card_info(card, &card_info);
 
-	collect_device_info(o, card, &dev_info, is_monitor);
+	collect_device_info(o, card, &dev_info, is_monitor, &impl->defs);
 
 	if (!sample_spec_valid(&dev_info.ss) ||
 	    !channel_map_valid(&dev_info.map) ||
@@ -3740,6 +3742,7 @@ static const char *get_media_name(struct pw_node_info *info)
 static int fill_sink_input_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
+	struct impl *impl = client->impl;
 	struct pw_node_info *info = o->info;
 	struct pw_manager *manager = client->manager;
 	struct pw_manager_object *peer;
@@ -3756,7 +3759,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 	    (str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
 		client_id = (uint32_t)atoi(str);
 
-	collect_device_info(o, NULL, &dev_info, false);
+	collect_device_info(o, NULL, &dev_info, false, &impl->defs);
 
 	if (!sample_spec_valid(&dev_info.ss) ||
 	    !channel_map_valid(&dev_info.map) ||
@@ -3810,6 +3813,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 static int fill_source_output_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
+	struct impl *impl = client->impl;
 	struct pw_node_info *info = o->info;
 	struct pw_manager *manager = client->manager;
 	struct pw_manager_object *peer;
@@ -3827,7 +3831,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 	    (str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
 		client_id = (uint32_t)atoi(str);
 
-	collect_device_info(o, NULL, &dev_info, false);
+	collect_device_info(o, NULL, &dev_info, false, &impl->defs);
 
 	if (!sample_spec_valid(&dev_info.ss) ||
 	    !channel_map_valid(&dev_info.map) ||

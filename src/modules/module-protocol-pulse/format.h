@@ -205,7 +205,8 @@ void channel_map_parse(const char *str, struct channel_map *map);
 bool channel_map_valid(const struct channel_map *map);
 
 int format_parse_param(const struct spa_pod *param, struct sample_spec *ss,
-		struct channel_map *map);
+		struct channel_map *map, const struct sample_spec *def_ss,
+		const struct channel_map *def_map);
 
 const struct spa_pod *format_build_param(struct spa_pod_builder *b, uint32_t id,
 		const struct sample_spec *spec, const struct channel_map *map);

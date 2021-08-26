@@ -1,0 +1,595 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: pipewire-master\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
+"issues\n"
+"POT-Creation-Date: 2021-08-26 03:31+0000\n"
+"PO-Revision-Date: 2021-08-26 21:52+0630\n"
+"Language-Team: lw1nzayar@yandex.com\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Poedit 2.4.2\n"
+"Last-Translator: zayar lwin <lw1nzayar@yandex.com>\n"
+"Language: my\n"
+
+#: src/daemon/pipewire.c:45
+#, c-format
+msgid ""
+"%s [options]\n"
+"  -h, --help                            Show this help\n"
+"      --version                         Show version\n"
+"  -c, --config                          Load config (Default %s)\n"
+msgstr ""
+"%s [options]\n"
+"  -h, --help                            Show this help\n"
+"      --version                         Show version\n"
+"  -c, --config                          Load config (Default %s)\n"
+
+#: src/daemon/pipewire.desktop.in:4
+msgid "PipeWire Media System"
+msgstr "ပိုက်ဝိုင်ယာ မီဒီယာစစ်စတမ်"
+
+#: src/daemon/pipewire.desktop.in:5
+msgid "Start the PipeWire Media System"
+msgstr "ပိုက်ဝိုင်ယာ မီဒီယာစစ်စတမ် စတင်ရန်"
+
+#: src/examples/media-session/alsa-monitor.c:588
+#: spa/plugins/alsa/acp/compat.c:189
+msgid "Built-in Audio"
+msgstr "နဂိုတည်းကထည့်သွင်းထားသည်ံ့ အသံကရိယာ"
+
+#: src/examples/media-session/alsa-monitor.c:592
+#: spa/plugins/alsa/acp/compat.c:194
+msgid "Modem"
+msgstr "ဆ.သ.ရ-စက်"
+
+#: src/examples/media-session/alsa-monitor.c:601
+#: src/modules/module-zeroconf-discover.c:296
+msgid "Unknown device"
+msgstr "မသိသောစက်"
+
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:173
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:173
+#, c-format
+msgid "Tunnel to %s/%s"
+msgstr "%s/%sသို့ လုံခြုံစွာဒေတာပို့ဆောင်"
+
+#: src/modules/module-pulse-tunnel.c:534
+#, c-format
+msgid "Tunnel for %s@%s"
+msgstr "%s@%sအတွက် လုံခြုံစွာဒေတာပို့ဆောင်"
+
+#: src/modules/module-zeroconf-discover.c:308
+#, c-format
+msgid "%s on %s@%s"
+msgstr ""
+
+#: src/modules/module-zeroconf-discover.c:312
+#, c-format
+msgid "%s on %s"
+msgstr ""
+
+#: src/tools/pw-cat.c:1016
+#, c-format
+msgid ""
+"%s [options] <file>\n"
+"  -h, --help                            Show this help\n"
+"      --version                         Show version\n"
+"  -v, --verbose                         Enable verbose operations\n"
+"\n"
+msgstr ""
+
+#: src/tools/pw-cat.c:1023
+#, c-format
+msgid ""
+"  -R, --remote                          Remote daemon name\n"
+"      --media-type                      Set media type (default %s)\n"
+"      --media-category                  Set media category (default %s)\n"
+"      --media-role                      Set media role (default %s)\n"
+"      --target                          Set node target (default %s)\n"
+"                                          0 means don't link\n"
+"      --latency                         Set node latency (default %s)\n"
+"                                          Xunit (unit = s, ms, us, ns)\n"
+"                                          or direct samples (256)\n"
+"                                          the rate is the one of the source "
+"file\n"
+"      --list-targets                    List available targets for --target\n"
+"\n"
+msgstr ""
+
+#: src/tools/pw-cat.c:1041
+#, c-format
+msgid ""
+"      --rate                            Sample rate (req. for rec) (default "
+"%u)\n"
+"      --channels                        Number of channels (req. for rec) "
+"(default %u)\n"
+"      --channel-map                     Channel map\n"
+"                                            one of: \"stereo\", "
+"\"surround-51\",... or\n"
+"                                            comma separated list of channel "
+"names: eg. \"FL,FR\"\n"
+"      --format                          Sample format %s (req. for rec) "
+"(default %s)\n"
+"      --volume                          Stream volume 0-1.0 (default %.3f)\n"
+"  -q  --quality                         Resampler quality (0 - 15) (default "
+"%d)\n"
+"\n"
+msgstr ""
+
+#: src/tools/pw-cat.c:1058
+msgid ""
+"  -p, --playback                        Playback mode\n"
+"  -r, --record                          Recording mode\n"
+"  -m, --midi                            Midi mode\n"
+"\n"
+msgstr ""
+
+#: src/tools/pw-cli.c:2954
+#, c-format
+msgid ""
+"%s [options] [command]\n"
+"  -h, --help                            Show this help\n"
+"      --version                         Show version\n"
+"  -d, --daemon                          Start as daemon (Default false)\n"
+"  -r, --remote                          Remote daemon name\n"
+"\n"
+msgstr ""
+
+#: spa/plugins/alsa/acp/acp.c:306
+msgid "Pro Audio"
+msgstr "ပရို အော်ဒီယို"
+
+#: spa/plugins/alsa/acp/acp.c:429 spa/plugins/alsa/acp/alsa-mixer.c:4648
+#: spa/plugins/bluez5/bluez5-device.c:1128
+msgid "Off"
+msgstr "ပိတ်"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2652
+msgid "Input"
+msgstr "အသံသွင်းမှု"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2653
+msgid "Docking Station Input"
+msgstr "ချိတ်ဆက်စခန်း အသံသွင်းမှု"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2654
+msgid "Docking Station Microphone"
+msgstr "ချိတ်ဆက်စခန်း မိုက်ခရိုဖုန်း"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2655
+msgid "Docking Station Line In"
+msgstr "ချိတ်ဆက်စခန်း အသံလက်ခံကြိုး"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2656
+#: spa/plugins/alsa/acp/alsa-mixer.c:2747
+msgid "Line In"
+msgstr "အသံလက်ခံကြိုး"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2657
+#: spa/plugins/alsa/acp/alsa-mixer.c:2741
+#: spa/plugins/bluez5/bluez5-device.c:1283
+msgid "Microphone"
+msgstr "မိုက်ခရိုဖုန်း"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2658
+#: spa/plugins/alsa/acp/alsa-mixer.c:2742
+msgid "Front Microphone"
+msgstr "မျက်နှာချင်းဆိုင်မိုက်ခရိုဖုန်း"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2659
+#: spa/plugins/alsa/acp/alsa-mixer.c:2743
+msgid "Rear Microphone"
+msgstr "နောက်ဘက်မိုက်ခရိုဖုန်း"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2660
+msgid "External Microphone"
+msgstr "အပြင်မိုက်ခရိုဖုန်း"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2661
+#: spa/plugins/alsa/acp/alsa-mixer.c:2745
+msgid "Internal Microphone"
+msgstr "အတွင်းမိုက်ခရိုဖုန်း"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2662
+#: spa/plugins/alsa/acp/alsa-mixer.c:2748
+msgid "Radio"
+msgstr "ရေဒီယို"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2663
+#: spa/plugins/alsa/acp/alsa-mixer.c:2749
+msgid "Video"
+msgstr "ဗီဒီယို"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2664
+msgid "Automatic Gain Control"
+msgstr "အလိုအလျောက်gainထိန်းချုပ်မည်"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2665
+msgid "No Automatic Gain Control"
+msgstr "အလိုအလျောက်gainမထိန်းချုပ်ပါ"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2666
+msgid "Boost"
+msgstr "အားတိုးသည်"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2667
+msgid "No Boost"
+msgstr "အားမတိုးပါ"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2668
+msgid "Amplifier"
+msgstr "ချဲ့စက်"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2669
+msgid "No Amplifier"
+msgstr "ချဲ့စက်မရှိပါ"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2670
+msgid "Bass Boost"
+msgstr "Bassတင်ထားသည်"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2671
+msgid "No Bass Boost"
+msgstr "Bassမတင်ထားပါ"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2672
+#: spa/plugins/bluez5/bluez5-device.c:1288
+msgid "Speaker"
+msgstr "စပီကာ"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2673
+#: spa/plugins/alsa/acp/alsa-mixer.c:2751
+msgid "Headphones"
+msgstr "နားကပ်စပီကာများ"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2740
+msgid "Analog Input"
+msgstr "အန်နလော့ အသံသွင်းမှု"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2744
+msgid "Dock Microphone"
+msgstr "မိုက်ခရိုဖုန်းချိတ်ရန်"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2746
+msgid "Headset Microphone"
+msgstr "မိုက်ပါနားကြပ်၏မိုက်"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2750
+msgid "Analog Output"
+msgstr "အန်နလော့ အသံထွက်မှု"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2752
+msgid "Headphones 2"
+msgstr "နားကပ်စပီကာများ ၂"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2753
+msgid "Headphones Mono Output"
+msgstr "နားကပ်စပီကာများ မိုနိုအသံထွက်မှု"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2754
+msgid "Line Out"
+msgstr "အသံပို့ဆောင်ကြိုး"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2755
+msgid "Analog Mono Output"
+msgstr "အန်နလော့ မိုနို အသံထွက်မှု"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2756
+msgid "Speakers"
+msgstr "စပီကာများ"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2757
+msgid "HDMI / DisplayPort"
+msgstr "HDMI / DisplayPort"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2758
+msgid "Digital Output (S/PDIF)"
+msgstr "ဒီဂျစ်တယ် အသံထွက်မှု (S/PDIF)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2759
+msgid "Digital Input (S/PDIF)"
+msgstr "ဒီဂျစ်တယ် အသံသွင်းမှု (S/PDIF)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2760
+msgid "Multichannel Input"
+msgstr "လိုင်းစုံ အသံသွင်းမှု"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2761
+msgid "Multichannel Output"
+msgstr "လိုင်းစုံ အသံထုတ်မှု"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2762
+msgid "Game Output"
+msgstr "ဂိမ်းအသံထွက်မှု"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2763
+#: spa/plugins/alsa/acp/alsa-mixer.c:2764
+msgid "Chat Output"
+msgstr "စကားပြောဆို-အသံထွက်မှု"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2765
+msgid "Chat Input"
+msgstr "စကားပြောဆို-အသံထွက်မှု"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2766
+msgid "Virtual Surround 7.1"
+msgstr "ပတ်ပတ်လည်အယောင်သံ ၇.၁"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4471
+msgid "Analog Mono"
+msgstr "အန်နလော့ မိုနို"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4472
+msgid "Analog Mono (Left)"
+msgstr "အန်နလော့ မိုနို (ဘယ်)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4473
+msgid "Analog Mono (Right)"
+msgstr "အန်နလော့ မိုနို (ညာ)"
+
+#. Note: Not translated to "Analog Stereo Input", because the source
+#. * name gets "Input" appended to it automatically, so adding "Input"
+#. * here would lead to the source name to become "Analog Stereo Input
+#. * Input". The same logic applies to analog-stereo-output,
+#. * multichannel-input and multichannel-output.
+#: spa/plugins/alsa/acp/alsa-mixer.c:4474
+#: spa/plugins/alsa/acp/alsa-mixer.c:4482
+#: spa/plugins/alsa/acp/alsa-mixer.c:4483
+msgid "Analog Stereo"
+msgstr "အန်နလော့ စတယ်ရီယို"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4475
+msgid "Mono"
+msgstr "မိုနို"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4476
+msgid "Stereo"
+msgstr "စတယ်ရီယို"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4484
+#: spa/plugins/alsa/acp/alsa-mixer.c:4642
+#: spa/plugins/bluez5/bluez5-device.c:1273
+msgid "Headset"
+msgstr "မိုက်ပါနားကြပ်"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4485
+#: spa/plugins/alsa/acp/alsa-mixer.c:4643
+msgid "Speakerphone"
+msgstr "စပီကာဖုန်း"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4486
+#: spa/plugins/alsa/acp/alsa-mixer.c:4487
+msgid "Multichannel"
+msgstr "လိုင်းစုံ"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4488
+msgid "Analog Surround 2.1"
+msgstr "အန်နလော့ ပတ်ပတ်လည် ၂.၁"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4489
+msgid "Analog Surround 3.0"
+msgstr "အန်နလော့ ပတ်ပတ်လည် ၃.၀"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4490
+msgid "Analog Surround 3.1"
+msgstr "အန်နလော့ ပတ်ပတ်လည် ၃.၁"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4491
+msgid "Analog Surround 4.0"
+msgstr "အန်နလော့ ပတ်ပတ်လည် ၄.၀"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4492
+msgid "Analog Surround 4.1"
+msgstr "အန်နလော့ ပတ်ပတ်လည် ၄.၁"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4493
+msgid "Analog Surround 5.0"
+msgstr "အန်နလော့ ပတ်ပတ်လည် ၅.၀"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4494
+msgid "Analog Surround 5.1"
+msgstr "အန်နလော့ ပတ်ပတ်လည် ၅.၁"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4495
+msgid "Analog Surround 6.0"
+msgstr "အန်နလော့ ပတ်ပတ်လည် ၆.၀"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4496
+msgid "Analog Surround 6.1"
+msgstr "အန်နလော့ ပတ်ပတ်လည် ၆.၁"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4497
+msgid "Analog Surround 7.0"
+msgstr "အန်နလော့ ပတ်ပတ်လည် ၇.၀"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4498
+msgid "Analog Surround 7.1"
+msgstr "အန်နလော့ ပတ်ပတ်လည် ၇.၁"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4499
+msgid "Digital Stereo (IEC958)"
+msgstr "ဒီဂျစ်တယ်စတယ်ရီယို (IEC958)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4500
+msgid "Digital Surround 4.0 (IEC958/AC3)"
+msgstr "ဒီဂျစ်တယ် ပတ်ပတ်လည် ၄.၀ (IEC958/AC3)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4501
+msgid "Digital Surround 5.1 (IEC958/AC3)"
+msgstr "ဒီဂျစ်တယ် ပတ်ပတ်လည် ၅.၁ (IEC958/AC3)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4502
+msgid "Digital Surround 5.1 (IEC958/DTS)"
+msgstr "ဒီဂျစ်တယ် ပတ်ပတ်လည် ၅.၁ (IEC958/DTS)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4503
+msgid "Digital Stereo (HDMI)"
+msgstr "ဒီဂျစ်တယ်စတယ်ရီယို (HDMI)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4504
+msgid "Digital Surround 5.1 (HDMI)"
+msgstr "ဒီဂျစ်တယ် ပတ်ပတ်လည် ၅.၁ (HDMI)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4505
+msgid "Chat"
+msgstr "စကားပြောဆို"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4506
+msgid "Game"
+msgstr "ဂိမ်း"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4640
+msgid "Analog Mono Duplex"
+msgstr "အန်နလော့ မိုနို ဒူပလက်စ်"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4641
+msgid "Analog Stereo Duplex"
+msgstr "အန်နလော့ စတယ်ရီယို ဒူပလက်စ်"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4644
+msgid "Digital Stereo Duplex (IEC958)"
+msgstr "ဒီဂျစ်တယ်စတယ်ရီယို ဒူပလက်စ်"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4645
+msgid "Multichannel Duplex"
+msgstr "လိုင်းစုံ ဒူပလက်စ်"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4646
+msgid "Stereo Duplex"
+msgstr "စတယ်ရီယို ဒူပလက်စ်"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4647
+msgid "Mono Chat + 7.1 Surround"
+msgstr "မိုနို စကားပြောဆိုသံ + ၇.၁ ပတ်ပတ်လည်"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4750
+#, c-format
+msgid "%s Output"
+msgstr "%s ထုတ်ပို့ကရိယာ"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4757
+#, c-format
+msgid "%s Input"
+msgstr "%s လက်ခံကရိယာ"
+
+#: spa/plugins/alsa/acp/alsa-util.c:1173 spa/plugins/alsa/acp/alsa-util.c:1267
+#, c-format
+msgid ""
+"snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu "
+"ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
+"to the ALSA developers."
+msgid_plural ""
+"snd_pcm_avail() returned a value that is exceptionally large: %lu bytes (%lu "
+"ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
+"to the ALSA developers."
+msgstr[0] ""
+
+#: spa/plugins/alsa/acp/alsa-util.c:1239
+#, c-format
+msgid ""
+"snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s"
+"%lu ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
+"to the ALSA developers."
+msgid_plural ""
+"snd_pcm_delay() returned a value that is exceptionally large: %li bytes (%s"
+"%lu ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
+"to the ALSA developers."
+msgstr[0] ""
+
+#: spa/plugins/alsa/acp/alsa-util.c:1286
+#, c-format
+msgid ""
+"snd_pcm_avail_delay() returned strange values: delay %lu is less than avail "
+"%lu.\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
+"to the ALSA developers."
+msgstr ""
+
+#: spa/plugins/alsa/acp/alsa-util.c:1329
+#, c-format
+msgid ""
+"snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte "
+"(%lu ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
+"to the ALSA developers."
+msgid_plural ""
+"snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu bytes "
+"(%lu ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
+"to the ALSA developers."
+msgstr[0] ""
+
+#: spa/plugins/alsa/acp/channelmap.h:466
+msgid "(invalid)"
+msgstr "(မမှန်ကန်)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1138
+msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
+msgstr "အသံ ဂိတ်ဝေး (A2DP Source & HSP/HFP AG)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1161
+#, c-format
+msgid "High Fidelity Playback (A2DP Sink, codec %s)"
+msgstr "High Fidelity Playback (A2DP Sink, codec %s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1163
+#, c-format
+msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
+msgstr "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1169
+msgid "High Fidelity Playback (A2DP Sink)"
+msgstr "High Fidelity Playback (A2DP Sink)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1171
+msgid "High Fidelity Duplex (A2DP Source/Sink)"
+msgstr "High Fidelity Duplex (A2DP Source/Sink)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1198
+#, c-format
+msgid "Headset Head Unit (HSP/HFP, codec %s)"
+msgstr "မိုက်ပါနားကြပ်ခေါင်းယူနစ် (HSP/HFP၊ codec %s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1202
+msgid "Headset Head Unit (HSP/HFP)"
+msgstr "မိုက်ပါနားကြပ်ခေါင်းယူနစ် (HSP/HFP)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1278
+msgid "Handsfree"
+msgstr "လက်မလို"
+
+#: spa/plugins/bluez5/bluez5-device.c:1293
+msgid "Headphone"
+msgstr "နားကပ်စပီကာ"
+
+#: spa/plugins/bluez5/bluez5-device.c:1298
+msgid "Portable"
+msgstr "သယ်ရလွယ်ကူ"
+
+#: spa/plugins/bluez5/bluez5-device.c:1303
+msgid "Car"
+msgstr "ကား"
+
+#: spa/plugins/bluez5/bluez5-device.c:1308
+msgid "HiFi"
+msgstr "ဟိုင်ဖိုင်"
+
+#: spa/plugins/bluez5/bluez5-device.c:1313
+msgid "Phone"
+msgstr "ဖုန်း"
+
+#: spa/plugins/bluez5/bluez5-device.c:1319
+msgid "Bluetooth"
+msgstr "ဘလူးတု"

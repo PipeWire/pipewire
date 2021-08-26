@@ -189,7 +189,7 @@ static struct convolver1 *convolver1_new(int block, const float *ir, int irlen)
 	fft_cpx_init(&conv->pre_mult, conv->fftComplexSize);
 	fft_cpx_init(&conv->conv, conv->fftComplexSize);
 	conv->overlap = fft_alloc(sizeof(float) * conv->blockSize);
-	conv->inputBuffer = fft_alloc(sizeof(float) * conv->blockSize);
+	conv->inputBuffer = fft_alloc(sizeof(float) * conv->segSize);
 	conv->inputBufferFill = 0;
 	conv->current = 0;
 
@@ -229,11 +229,11 @@ static int convolver1_run(struct convolver1 *conv, const float *input, float *ou
 		const int inputBufferPos = conv->inputBufferFill;
 
 		memcpy(conv->inputBuffer + inputBufferPos, input + processed, processing * sizeof(float));
+		if (inputBufferPos == 0 && processing < conv->blockSize)
+			memset(conv->inputBuffer + processing, 0,
+					sizeof(float) * (conv->blockSize - processing));
 
-		memcpy(conv->fft_buffer, conv->inputBuffer, conv->blockSize * sizeof(float));
-		memset(conv->fft_buffer + conv->blockSize, 0, (conv->segSize - conv->blockSize) * sizeof(float));
-
-		fft_run(conv->fft, conv->fft_buffer, &conv->segments[conv->current]);
+		fft_run(conv->fft, conv->inputBuffer, &conv->segments[conv->current]);
 
 		if (conv->inputBufferFill == 0) {
 			fft_cpx_clear(&conv->pre_mult, conv->fftComplexSize);
@@ -255,11 +255,11 @@ static int convolver1_run(struct convolver1 *conv, const float *input, float *ou
 
 		ifft_run(conv->ifft, &conv->conv, conv->fft_buffer);
 
-		fft_sum(output + processed, conv->fft_buffer + inputBufferPos, conv->overlap + inputBufferPos, processing);
+		fft_sum(output + processed, conv->fft_buffer + inputBufferPos,
+				conv->overlap + inputBufferPos, processing);
 
 		conv->inputBufferFill += processing;
 		if (conv->inputBufferFill == conv->blockSize) {
-			memset(conv->inputBuffer, 0, sizeof(float) * conv->blockSize);
 			conv->inputBufferFill = 0;
 
 			memcpy(conv->overlap, conv->fft_buffer + conv->blockSize, conv->blockSize * sizeof(float));

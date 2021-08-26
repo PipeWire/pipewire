@@ -391,6 +391,7 @@ on_connect(void *data, int fd, uint32_t mask)
 	spa_list_init(&client->out_messages);
 	spa_list_init(&client->operations);
 	spa_list_init(&client->pending_samples);
+	spa_list_init(&client->pending_streams);
 
 	pw_log_debug("server %p: new client %p fd:%d", server, client, client_fd);
 

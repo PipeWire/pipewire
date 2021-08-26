@@ -48,6 +48,7 @@ struct buffer_attr {
 };
 
 struct stream {
+	struct spa_list link;
 	uint32_t create_tag;
 	uint32_t channel;	/* index in map */
 	uint32_t id;		/* id of global */

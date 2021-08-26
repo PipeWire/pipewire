@@ -92,6 +92,8 @@ struct client {
 
 	struct spa_list pending_samples;
 
+	struct spa_list pending_streams;
+
 	unsigned int disconnect:1;
 	unsigned int disconnecting:1;
 	unsigned int need_flush:1;

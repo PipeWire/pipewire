@@ -158,6 +158,7 @@ extern "C" {
      The dft_a, dft_b and dft_ab pointers may alias.
   */
   void pffft_zconvolve_accumulate(PFFFT_Setup *setup, const float *dft_a, const float *dft_b, float *dft_ab, float scaling);
+  void pffft_zconvolve(PFFFT_Setup *setup, const float *dft_a, const float *dft_b, float *dft_ab, float scaling);
 
   void pffft_sum(const float *a, const float *b, float *ab, int len);
   /*

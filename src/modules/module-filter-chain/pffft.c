@@ -1410,7 +1410,7 @@ struct funcs {
   PFFFT_Setup * (*new_setup) (int N, pffft_transform_t transform);
   void (*transform) (PFFFT_Setup *setup, const float *input, float *output, float *work, pffft_direction_t direction, int ordered);
   void (*zreorder)(PFFFT_Setup *setup, const float *input, float *output, pffft_direction_t direction);
-  void (*zconvolve_accumulate)(PFFFT_Setup *setup, const float *dft_a, const float *dft_b, float *dft_ab, float scaling);
+  void (*zconvolve_accumulate)(PFFFT_Setup *setup, const float *dft_a, const float *dft_b, const float *dft_c, float *dft_ab, float scaling);
   void (*zconvolve)(PFFFT_Setup *setup, const float *dft_a, const float *dft_b, float *dft_ab, float scaling);
   void (*sum)(const float *a, const float *b, float *ab, int len);
   int (*simd_size)(void);
@@ -2011,35 +2011,30 @@ static void transform_simd(PFFFT_Setup * setup, const float *finput,
 }
 
 static void zconvolve_accumulate_simd(PFFFT_Setup * s, const float *a, const float *b,
-				float *ab, float scaling)
+				const float *c, float *ab, float scaling)
 {
 	const int Ncvec2 = s->Ncvec * 2;
 	const v4sf *RESTRICT va = (const v4sf *)a;
 	const v4sf *RESTRICT vb = (const v4sf *)b;
 	v4sf *RESTRICT vab = (v4sf *) ab;
+	v4sf *RESTRICT vc = (v4sf *) c;
+	v4sf vscal = LD_PS1(scaling);
+	float ar, ai, br, bi, cr, ci;
+	int i;
 
 #ifdef __arm__
 	__builtin_prefetch(va);
 	__builtin_prefetch(vb);
-	__builtin_prefetch(vab);
+	__builtin_prefetch(c);
 	__builtin_prefetch(va + 2);
 	__builtin_prefetch(vb + 2);
-	__builtin_prefetch(vab + 2);
+	__builtin_prefetch(c + 2);
 	__builtin_prefetch(va + 4);
 	__builtin_prefetch(vb + 4);
-	__builtin_prefetch(vab + 4);
+	__builtin_prefetch(c + 4);
 	__builtin_prefetch(va + 6);
 	__builtin_prefetch(vb + 6);
-	__builtin_prefetch(vab + 6);
-#ifndef __clang__
-#define ZCONVOLVE_USING_INLINE_NEON_ASM
-#endif
-#endif
-
-	float ar, ai, br, bi, abr, abi;
-#ifndef ZCONVOLVE_USING_INLINE_ASM
-	v4sf vscal = LD_PS1(scaling);
-	int i;
+	__builtin_prefetch(c + 6);
 #endif
 
 	assert(VALIGNED(a) && VALIGNED(b) && VALIGNED(ab));
@@ -2047,48 +2042,9 @@ static void zconvolve_accumulate_simd(PFFFT_Setup * s, const float *a, const flo
 	ai = ((v4sf_union *) va)[1].f[0];
 	br = ((v4sf_union *) vb)[0].f[0];
 	bi = ((v4sf_union *) vb)[1].f[0];
-	abr = ((v4sf_union *) vab)[0].f[0];
-	abi = ((v4sf_union *) vab)[1].f[0];
+	cr = ((v4sf_union *) vc)[0].f[0];
+	ci = ((v4sf_union *) vc)[1].f[0];
 
-#ifdef ZCONVOLVE_USING_INLINE_ASM	// inline asm version, unfortunately miscompiled by clang 3.2, at least on ubuntu.. so this will be restricted to gcc
-	const float *a_ = a, *b_ = b;
-	float *ab_ = ab;
-	int N = s->Ncvec;
-	asm volatile ("mov         r8, %2                  \n"
-		      "vdup.f32    q15, %4                 \n"
-		      "1:                                  \n"
-		      "pld         [%0,#64]                \n"
-		      "pld         [%1,#64]                \n"
-		      "pld         [%2,#64]                \n"
-		      "pld         [%0,#96]                \n"
-		      "pld         [%1,#96]                \n"
-		      "pld         [%2,#96]                \n"
-		      "vld1.f32    {q0,q1},   [%0,:128]!         \n"
-		      "vld1.f32    {q4,q5},   [%1,:128]!         \n"
-		      "vld1.f32    {q2,q3},   [%0,:128]!         \n"
-		      "vld1.f32    {q6,q7},   [%1,:128]!         \n"
-		      "vld1.f32    {q8,q9},   [r8,:128]!          \n"
-		      "vmul.f32    q10, q0, q4             \n"
-		      "vmul.f32    q11, q0, q5             \n"
-		      "vmul.f32    q12, q2, q6             \n"
-		      "vmul.f32    q13, q2, q7             \n"
-		      "vmls.f32    q10, q1, q5             \n"
-		      "vmla.f32    q11, q1, q4             \n"
-		      "vld1.f32    {q0,q1}, [r8,:128]!     \n"
-		      "vmls.f32    q12, q3, q7             \n"
-		      "vmla.f32    q13, q3, q6             \n"
-		      "vmla.f32    q8, q10, q15            \n"
-		      "vmla.f32    q9, q11, q15            \n"
-		      "vmla.f32    q0, q12, q15            \n"
-		      "vmla.f32    q1, q13, q15            \n"
-		      "vst1.f32    {q8,q9},[%2,:128]!    \n"
-		      "vst1.f32    {q0,q1},[%2,:128]!    \n"
-		      "subs        %3, #2                  \n"
-		      "bne         1b                      \n":"+r" (a_),
-		      "+r"(b_), "+r"(ab_), "+r"(N):"r"(scaling):"r8", "q0",
-		      "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9",
-		      "q10", "q11", "q12", "q13", "q15", "memory");
-#else				// default routine, works fine for non-arm cpus with current compilers
 	for (i = 0; i < Ncvec2; i += 4) {
 		v4sf ar, ai, br, bi;
 		ar = va[i + 0];
@@ -2096,20 +2052,19 @@ static void zconvolve_accumulate_simd(PFFFT_Setup * s, const float *a, const flo
 		br = vb[i + 0];
 		bi = vb[i + 1];
 		VCPLXMUL(ar, ai, br, bi);
-		vab[i + 0] = VMADD(ar, vscal, vab[i + 0]);
-		vab[i + 1] = VMADD(ai, vscal, vab[i + 1]);
+		vab[i + 0] = VMADD(ar, vscal, vc[i + 0]);
+		vab[i + 1] = VMADD(ai, vscal, vc[i + 1]);
 		ar = va[i + 2];
 		ai = va[i + 3];
 		br = vb[i + 2];
 		bi = vb[i + 3];
 		VCPLXMUL(ar, ai, br, bi);
-		vab[i + 2] = VMADD(ar, vscal, vab[i + 2]);
-		vab[i + 3] = VMADD(ai, vscal, vab[i + 3]);
+		vab[i + 2] = VMADD(ar, vscal, vc[i + 2]);
+		vab[i + 3] = VMADD(ai, vscal, vc[i + 3]);
 	}
-#endif
 	if (s->transform == PFFFT_REAL) {
-		((v4sf_union *) vab)[0].f[0] = abr + ar * br * scaling;
-		((v4sf_union *) vab)[1].f[0] = abi + ai * bi * scaling;
+		((v4sf_union *) vab)[0].f[0] = cr + ar * br * scaling;
+		((v4sf_union *) vab)[1].f[0] = ci + ai * bi * scaling;
 	}
 }
 
@@ -2137,9 +2092,6 @@ static void zconvolve_simd(PFFFT_Setup * s, const float *a, const float *b,
 	__builtin_prefetch(va+6);
 	__builtin_prefetch(vb+6);
 	__builtin_prefetch(vab+6);
-# ifndef __clang__
-#   define ZCONVOLVE_USING_INLINE_NEON_ASM
-# endif
 #endif
 
 	assert(VALIGNED(a) && VALIGNED(b) && VALIGNED(ab));
@@ -2285,16 +2237,16 @@ static void transform_simd(PFFFT_Setup * setup, const float *input,
 
 
 static void zconvolve_accumulate_simd(PFFFT_Setup * s, const float *a,
-				       const float *b, float *ab, float scaling)
+		const float *b, const float *c, float *ab, float scaling)
 {
 	int i, Ncvec2 = s->Ncvec * 2;
 
 	if (s->transform == PFFFT_REAL) {
 		// take care of the fftpack ordering
-		ab[0] += a[0] * b[0] * scaling;
-		ab[Ncvec2 - 1] +=
-		    a[Ncvec2 - 1] * b[Ncvec2 - 1] * scaling;
+		ab[0] = c[0] + a[0] * b[0] * scaling;
+		ab[Ncvec2 - 1] = c[Ncvec2 - 1] + a[Ncvec2 - 1] * b[Ncvec2 - 1] * scaling;
 		++ab;
+		++c;
 		++a;
 		++b;
 		Ncvec2 -= 2;
@@ -2306,13 +2258,13 @@ static void zconvolve_accumulate_simd(PFFFT_Setup * s, const float *a,
 		br = b[i + 0];
 		bi = b[i + 1];
 		VCPLXMUL(ar, ai, br, bi);
-		ab[i + 0] += ar * scaling;
-		ab[i + 1] += ai * scaling;
+		ab[i + 0] = c[i + 0] + ar * scaling;
+		ab[i + 1] = c[i + 1] + ai * scaling;
 	}
 }
 
 static void zconvolve_simd(PFFFT_Setup * s, const float *a,
-				       const float *b, float *ab, float scaling)
+		const float *b, float *ab, float scaling)
 {
 	int i, Ncvec2 = s->Ncvec * 2;
 
@@ -2427,9 +2379,9 @@ void pffft_zreorder(PFFFT_Setup *setup, const float *input, float *output, pffft
 	return funcs->zreorder(setup, input, output, direction);
 }
 
-void pffft_zconvolve_accumulate(PFFFT_Setup *setup, const float *dft_a, const float *dft_b, float *dft_ab, float scaling)
+void pffft_zconvolve_accumulate(PFFFT_Setup *setup, const float *dft_a, const float *dft_b, const float *c, float *dft_ab, float scaling)
 {
-	return funcs->zconvolve_accumulate(setup, dft_a, dft_b, dft_ab, scaling);
+	return funcs->zconvolve_accumulate(setup, dft_a, dft_b, c, dft_ab, scaling);
 }
 
 void pffft_zconvolve(PFFFT_Setup *setup, const float *dft_a, const float *dft_b, float *dft_ab, float scaling)

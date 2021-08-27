@@ -153,11 +153,12 @@ extern "C" {
      perform the operation yourself as the dft coefs are stored as
      interleaved complex numbers).
 
-     the operation performed is: dft_ab += (dft_a * fdt_b)*scaling
+     the operation performed is: dft_ab = dft_c + (dft_a * fdt_b)*scaling
 
      The dft_a, dft_b and dft_ab pointers may alias.
   */
-  void pffft_zconvolve_accumulate(PFFFT_Setup *setup, const float *dft_a, const float *dft_b, float *dft_ab, float scaling);
+  void pffft_zconvolve_accumulate(PFFFT_Setup *setup, const float *dft_a, const float *dft_b, const float *dft_c, float *dft_ab, float scaling);
+
   void pffft_zconvolve(PFFFT_Setup *setup, const float *dft_a, const float *dft_b, float *dft_ab, float scaling);
 
   void pffft_sum(const float *a, const float *b, float *ab, int len);

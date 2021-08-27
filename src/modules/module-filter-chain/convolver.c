@@ -83,11 +83,6 @@ static void fft_cpx_free(struct fft_cpx *cpx)
 	fft_free(cpx->v);
 }
 
-static void fft_cpx_copy(struct fft_cpx *dst, struct fft_cpx *src, int size)
-{
-	memcpy(dst->v, src->v, sizeof(float) * 2 * size);
-}
-
 static int next_power_of_two(int val)
 {
 	int r = 1;
@@ -127,9 +122,9 @@ static inline void fft_convolve(void *fft, struct fft_cpx *r,
 	pffft_zconvolve(fft, a->v, b->v, r->v, scale);
 }
 static inline void fft_convolve_accum(void *fft, struct fft_cpx *r,
-		const struct fft_cpx *a, const struct fft_cpx *b, int len, float scale)
+		const struct fft_cpx *c, const struct fft_cpx *a, const struct fft_cpx *b, int len, float scale)
 {
-	pffft_zconvolve_accumulate(fft, a->v, b->v, r->v, scale);
+	pffft_zconvolve_accumulate(fft, a->v, b->v, c->v, r->v, scale);
 }
 
 static inline void fft_sum(float *r, const float *a, const float *b,int len)
@@ -249,15 +244,17 @@ static int convolver1_run(struct convolver1 *conv, const float *input, float *ou
 				for (i = 2; i < conv->segCount; i++) {
 					indexAudio = (conv->current + i) % conv->segCount;
 
-					fft_convolve_accum(conv->fft, &conv->pre_mult,
+					fft_convolve_accum(conv->fft,
+							&conv->pre_mult,
+							&conv->pre_mult,
 							&conv->segmentsIr[i],
 							&conv->segments[indexAudio],
 							conv->fftComplexSize, conv->scale);
 				}
 			}
-			fft_cpx_copy(&conv->conv, &conv->pre_mult, conv->fftComplexSize);
-
-			fft_convolve_accum(conv->fft, &conv->conv,
+			fft_convolve_accum(conv->fft,
+					&conv->conv,
+					&conv->pre_mult,
 					&conv->segments[conv->current],
 					&conv->segmentsIr[0],
 					conv->fftComplexSize, conv->scale);

@@ -1046,9 +1046,22 @@ static int device_try_connect_profile(struct spa_bt_device *device,
 
 static int reconnect_device_profiles(struct spa_bt_device *device)
 {
+	struct spa_bt_monitor *monitor = device->monitor;
+	struct spa_bt_device *d;
 	uint32_t reconnect = device->profiles
 			& device->reconnect_profiles
 			& (device->connected_profiles ^ device->profiles);
+
+	/* Don't try to connect to same device via multiple adapters */
+	spa_list_for_each(d, &monitor->device_list, link) {
+		if (d != device && spa_streq(d->address, device->address)) {
+			if (d->paired && d->trusted && !d->blocked &&
+					d->reconnect_state == BT_DEVICE_RECONNECT_STOP)
+				reconnect &= ~d->reconnect_profiles;
+			if (d->connected_profiles)
+				reconnect = 0;
+		}
+	}
 
 	if (!(device->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT)) {
 		if (reconnect & SPA_BT_PROFILE_HFP_HF) {

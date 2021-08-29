@@ -696,14 +696,15 @@ struct spa_bt_backend_implementation {
 	int (*free) (void *data);
 	int (*register_profiles) (void *data);
 	int (*unregister_profiles) (void *data);
-	int (*unregistered) (void *data);
-	int (*add_filters) (void *data);
 	int (*ensure_codec) (void *data, struct spa_bt_device *device, unsigned int codec);
 	int (*supports_codec) (void *data, struct spa_bt_device *device, unsigned int codec);
 };
 
 struct spa_bt_backend {
 	struct spa_callbacks impl;
+	const char *name;
+	bool available;
+	bool exclusive;
 };
 
 #define spa_bt_backend_set_implementation(b,_impl,_data) \
@@ -722,8 +723,6 @@ struct spa_bt_backend {
 #define spa_bt_backend_free(b)			spa_bt_backend_impl(b, free, 0)
 #define spa_bt_backend_register_profiles(b)	spa_bt_backend_impl(b, register_profiles, 0)
 #define spa_bt_backend_unregister_profiles(b)	spa_bt_backend_impl(b, unregister_profiles, 0)
-#define spa_bt_backend_unregistered(b)		spa_bt_backend_impl(b, unregistered, 0)
-#define spa_bt_backend_add_filters(b)		spa_bt_backend_impl(b, add_filters, 0)
 #define spa_bt_backend_ensure_codec(b,...)	spa_bt_backend_impl(b, ensure_codec, 0, __VA_ARGS__)
 #define spa_bt_backend_supports_codec(b,...)	spa_bt_backend_impl(b, supports_codec, 0, __VA_ARGS__)
 

@@ -55,6 +55,15 @@
 
 #define NAME "bluez5-monitor"
 
+enum backend_selection {
+	BACKEND_NONE = -2,
+	BACKEND_ANY = -1,
+	BACKEND_HSPHFPD = 0,
+	BACKEND_OFONO = 1,
+	BACKEND_NATIVE = 2,
+	BACKEND_NUM,
+};
+
 struct spa_bt_monitor {
 	struct spa_handle handle;
 	struct spa_device device;
@@ -85,19 +94,15 @@ struct spa_bt_monitor {
 	unsigned int filters_added:1;
 	unsigned int objects_listed:1;
 
-	struct spa_bt_backend *backend_native;
-	struct spa_bt_backend *backend_ofono;
-	struct spa_bt_backend *backend_hsphfpd;
+	struct spa_bt_backend *backend;
+	struct spa_bt_backend *backends[BACKEND_NUM];
+	enum backend_selection backend_selection;
 
 	struct spa_dict enabled_codecs;
 
 	unsigned int connection_info_supported:1;
 
 	struct spa_bt_quirks *quirks;
-
-	unsigned int backend_native_registered:1;
-	unsigned int backend_ofono_registered:1;
-	unsigned int backend_hsphfpd_registered:1;
 
 	/* A reference audio info for A2DP codec configuration. */
 	struct a2dp_codec_audio_info default_audio_info;
@@ -2668,21 +2673,13 @@ int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a
 int spa_bt_device_ensure_hfp_codec(struct spa_bt_device *device, unsigned int codec)
 {
 	struct spa_bt_monitor *monitor = device->monitor;
-	if (monitor->backend_hsphfpd_registered)
-		return spa_bt_backend_ensure_codec(monitor->backend_hsphfpd, device, codec);
-	if (monitor->backend_ofono_registered)
-		return spa_bt_backend_ensure_codec(monitor->backend_ofono, device, codec);
-	return spa_bt_backend_ensure_codec(monitor->backend_native, device, codec);
+	return spa_bt_backend_ensure_codec(monitor->backend, device, codec);
 }
 
 int spa_bt_device_supports_hfp_codec(struct spa_bt_device *device, unsigned int codec)
 {
 	struct spa_bt_monitor *monitor = device->monitor;
-	if (monitor->backend_hsphfpd_registered)
-		return spa_bt_backend_supports_codec(monitor->backend_hsphfpd, device, codec);
-	if (monitor->backend_ofono_registered)
-		return spa_bt_backend_supports_codec(monitor->backend_ofono, device, codec);
-	return spa_bt_backend_supports_codec(monitor->backend_native, device, codec);
+	return spa_bt_backend_supports_codec(monitor->backend, device, codec);
 }
 
 static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
@@ -3314,6 +3311,68 @@ static int adapter_register_application(struct spa_bt_adapter *a) {
 	return 0;
 }
 
+static int switch_backend(struct spa_bt_monitor *monitor, struct spa_bt_backend *backend)
+{
+	int res;
+	size_t i;
+
+	spa_return_val_if_fail(backend != NULL, -EINVAL);
+
+	if (!backend->available)
+		return -ENODEV;
+
+	for (i = 0; i < SPA_N_ELEMENTS(monitor->backends); ++i) {
+		struct spa_bt_backend *b = monitor->backends[i];
+		if (backend != b && b && b->available && b->exclusive)
+			spa_log_warn(monitor->log,
+					"%s running, but not configured as HFP/HSP backend: "
+					"it may interfere with HFP/HSP functionality.",
+					b->name);
+	}
+
+	if (monitor->backend == backend)
+		return 0;
+
+	spa_log_info(monitor->log, "Switching to HFP/HSP backend %s", backend->name);
+
+	spa_bt_backend_unregister_profiles(monitor->backend);
+
+	if ((res = spa_bt_backend_register_profiles(backend)) < 0) {
+		monitor->backend = NULL;
+		return res;
+	}
+
+	monitor->backend = backend;
+	return 0;
+}
+
+static void reselect_backend(struct spa_bt_monitor *monitor)
+{
+	struct spa_bt_backend *backend;
+	size_t i;
+
+	spa_log_debug(monitor->log, NAME": re-selecting HFP/HSP backend");
+
+	if (monitor->backend_selection == BACKEND_NONE) {
+		spa_bt_backend_unregister_profiles(monitor->backend);
+		monitor->backend = NULL;
+		return;
+	} else if (monitor->backend_selection == BACKEND_ANY) {
+		for (i = 0; i < SPA_N_ELEMENTS(monitor->backends); ++i) {
+			backend = monitor->backends[i];
+			if (backend && switch_backend(monitor, backend) == 0)
+				return;
+		}
+	} else {
+		backend = monitor->backends[monitor->backend_selection];
+		if (backend && switch_backend(monitor, backend) == 0)
+			return;
+	}
+
+	spa_log_error(monitor->log, "Failed to start HFP/HSP backend %s",
+			backend ? backend->name : "none");
+}
+
 static void interface_added(struct spa_bt_monitor *monitor,
 			    DBusConnection *conn,
 			    const char *object_path,
@@ -3337,10 +3396,9 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		adapter_register_application(a);
 	}
 	else if (spa_streq(interface_name, BLUEZ_PROFILE_MANAGER_INTERFACE)) {
-		if (!monitor->backend_ofono_registered && !monitor->backend_hsphfpd_registered) {
-			spa_bt_backend_register_profiles(monitor->backend_native);
-			monitor->backend_native_registered = true;
-		}
+		if (monitor->backends[BACKEND_NATIVE])
+			monitor->backends[BACKEND_NATIVE]->available = true;
+		reselect_backend(monitor);
 	}
 	else if (spa_streq(interface_name, BLUEZ_DEVICE_INTERFACE)) {
 		struct spa_bt_device *d;
@@ -3548,11 +3606,6 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 
 				monitor->objects_listed = false;
 
-				if (monitor->backend_native_registered) {
-					spa_bt_backend_unregister_profiles(monitor->backend_native);
-					monitor->backend_native_registered = false;
-				}
-
 				spa_list_consume(t, &monitor->transport_list, link)
 					spa_bt_transport_free(t);
 				spa_list_consume(ep, &monitor->remote_endpoint_list, link)
@@ -3561,55 +3614,24 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 					device_free(d);
 				spa_list_consume(a, &monitor->adapter_list, link)
 					adapter_free(a);
+
+				if (monitor->backends[BACKEND_NATIVE])
+					monitor->backends[BACKEND_NATIVE]->available = false;
+				reselect_backend(monitor);
 			}
 
 			if (has_new_owner) {
 				spa_log_debug(monitor->log, "Bluetooth daemon appeared");
 				get_managed_objects(monitor);
 			}
-		} else if (spa_streq(name, OFONO_SERVICE) && monitor->backend_ofono) {
-			if (old_owner && *old_owner) {
-				spa_log_debug(monitor->log, "oFono daemon disappeared");
-				monitor->backend_ofono_registered = false;
-				spa_bt_backend_register_profiles(monitor->backend_native);
-				monitor->backend_native_registered = true;
-			}
-
-			if (new_owner && *new_owner) {
-				spa_log_debug(monitor->log, "oFono daemon appeared");
-				if (monitor->backend_native_registered) {
-					spa_bt_backend_unregister_profiles(monitor->backend_native);
-					monitor->backend_native_registered = false;
-				}
-				if (spa_bt_backend_register_profiles(monitor->backend_ofono) == 0)
-					monitor->backend_ofono_registered = true;
-				else {
-					spa_bt_backend_register_profiles(monitor->backend_native);
-					monitor->backend_native_registered = true;
-				}
-			}
-		} else if (spa_streq(name, HSPHFPD_SERVICE) && monitor->backend_hsphfpd) {
-			if (old_owner && *old_owner) {
-				spa_log_debug(monitor->log, "hsphfpd daemon disappeared");
-				spa_bt_backend_unregistered(monitor->backend_hsphfpd);
-				monitor->backend_hsphfpd_registered = false;
-				spa_bt_backend_register_profiles(monitor->backend_native);
-				monitor->backend_native_registered = true;
-			}
-
-			if (new_owner && *new_owner) {
-				spa_log_debug(monitor->log, "hsphfpd daemon appeared");
-				if (monitor->backend_native_registered) {
-					spa_bt_backend_unregister_profiles(monitor->backend_native);
-					monitor->backend_native_registered = false;
-				}
-				if (spa_bt_backend_register_profiles(monitor->backend_hsphfpd) == 0)
-					monitor->backend_hsphfpd_registered = true;
-				else {
-					spa_bt_backend_register_profiles(monitor->backend_native);
-					monitor->backend_native_registered = true;
-				}
-			}
+		} else if (spa_streq(name, OFONO_SERVICE)) {
+			if (monitor->backends[BACKEND_OFONO])
+				monitor->backends[BACKEND_OFONO]->available = (new_owner && *new_owner);
+			reselect_backend(monitor);
+		} else if (spa_streq(name, HSPHFPD_SERVICE)) {
+			if (monitor->backends[BACKEND_HSPHFPD])
+				monitor->backends[BACKEND_HSPHFPD]->available = (new_owner && *new_owner);
+			reselect_backend(monitor);
 		}
 	} else if (dbus_message_is_signal(m, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded")) {
 		DBusMessageIter it;
@@ -3800,12 +3822,6 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 	add_filters(this);
 	get_managed_objects(this);
 
-	if (this->backend_ofono)
-		spa_bt_backend_add_filters(this->backend_ofono);
-
-	if (this->backend_hsphfpd)
-		spa_bt_backend_add_filters(this->backend_hsphfpd);
-
         spa_hook_list_join(&this->hooks, &save);
 
 	return 0;
@@ -3840,6 +3856,7 @@ static int impl_clear(struct spa_handle *handle)
 	struct spa_bt_device *d;
 	struct spa_bt_remote_endpoint *ep;
 	struct spa_bt_transport *t;
+	size_t i;
 
 	monitor = (struct spa_bt_monitor *) handle;
 
@@ -3865,19 +3882,9 @@ static int impl_clear(struct spa_handle *handle)
 	spa_list_consume(a, &monitor->adapter_list, link)
 		adapter_free(a);
 
-	if (monitor->backend_native) {
-		spa_bt_backend_free(monitor->backend_native);
-		monitor->backend_native = NULL;
-	}
-
-	if (monitor->backend_ofono) {
-		spa_bt_backend_free(monitor->backend_ofono);
-		monitor->backend_ofono = NULL;
-	}
-
-	if (monitor->backend_hsphfpd) {
-		spa_bt_backend_free(monitor->backend_hsphfpd);
-		monitor->backend_hsphfpd = NULL;
+	for (i = 0; i < SPA_N_ELEMENTS(monitor->backends); ++i) {
+		spa_bt_backend_free(monitor->backends[i]);
+		monitor->backends[i] = NULL;
 	}
 
 	free((void*)monitor->enabled_codecs.items);
@@ -3891,9 +3898,9 @@ static int impl_clear(struct spa_handle *handle)
 	monitor->objects_listed = false;
 
 	monitor->connection_info_supported = false;
-	monitor->backend_native_registered = false;
-	monitor->backend_ofono_registered = false;
-	monitor->backend_hsphfpd_registered = false;
+
+	monitor->backend = NULL;
+	monitor->backend_selection = BACKEND_NATIVE;
 
 	spa_bt_quirks_destroy(monitor->quirks);
 
@@ -4105,6 +4112,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->default_audio_info.rate = A2DP_CODEC_DEFAULT_RATE;
 	this->default_audio_info.channels = A2DP_CODEC_DEFAULT_CHANNELS;
 
+	this->backend_selection = BACKEND_NATIVE;
+
 	if (info) {
 		const char *str;
 		uint32_t tmp;
@@ -4120,18 +4129,28 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, "bluez5.default.channels")) != NULL &&
 		    ((tmp =  atoi(str)) > 0))
 			this->default_audio_info.channels = tmp;
+
+		if ((str = spa_dict_lookup(info, "bluez5.hfphsp-backend")) != NULL) {
+			if (spa_streq(str, "none"))
+				this->backend_selection = BACKEND_NONE;
+			else if (spa_streq(str, "any"))
+				this->backend_selection = BACKEND_ANY;
+			else if (spa_streq(str, "ofono"))
+				this->backend_selection = BACKEND_OFONO;
+			else if (spa_streq(str, "hsphfpd"))
+				this->backend_selection = BACKEND_HSPHFPD;
+			else if (spa_streq(str, "native"))
+				this->backend_selection = BACKEND_NATIVE;
+		}
 	}
 
 	register_media_application(this);
 
-	this->backend_native = backend_native_new(this, this->conn, info, this->quirks, support, n_support);
-	this->backend_ofono = backend_ofono_new(this, this->conn, info, this->quirks, support, n_support);
-	this->backend_hsphfpd = backend_hsphfpd_new(this, this->conn, info, this->quirks, support, n_support);
+	this->backends[BACKEND_NATIVE] = backend_native_new(this, this->conn, info, this->quirks, support, n_support);
+	this->backends[BACKEND_OFONO] = backend_ofono_new(this, this->conn, info, this->quirks, support, n_support);
+	this->backends[BACKEND_HSPHFPD] = backend_hsphfpd_new(this, this->conn, info, this->quirks, support, n_support);
 
-	if (this->backend_ofono && spa_bt_backend_register_profiles(this->backend_ofono) == 0)
-		this->backend_ofono_registered = true;
-	else if (this->backend_hsphfpd && spa_bt_backend_register_profiles(this->backend_hsphfpd) == 0)
-		this->backend_hsphfpd_registered = true;
+	reselect_backend(this);
 
 	return 0;
 

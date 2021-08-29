@@ -1414,7 +1414,7 @@ finish:
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
-static int backend_hsphfpd_add_filters(void *data)
+static int add_filters(void *data)
 {
 	struct impl *backend = data;
 	DBusError err;
@@ -1480,9 +1480,34 @@ static const struct spa_bt_backend_implementation backend_impl = {
 	SPA_VERSION_BT_BACKEND_IMPLEMENTATION,
 	.free = backend_hsphfpd_free,
 	.register_profiles = backend_hsphfpd_register,
-	.unregistered = backend_hsphfpd_unregistered,
-	.add_filters = backend_hsphfpd_add_filters,
+	.unregister_profiles = backend_hsphfpd_unregistered,
 };
+
+static bool is_available(struct impl *backend)
+{
+	DBusMessage *m, *r;
+	DBusError err;
+	bool success = false;
+
+	m = dbus_message_new_method_call(HSPHFPD_SERVICE, "/",
+			DBUS_INTERFACE_INTROSPECTABLE, "Introspect");
+	if (m == NULL)
+		return false;
+
+	dbus_error_init(&err);
+	r = dbus_connection_send_with_reply_and_block(backend->conn, m, -1, &err);
+	dbus_message_unref(m);
+
+	if (r && dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
+		success = true;
+
+	if (r)
+		dbus_message_unref(r);
+	else
+		dbus_error_free(&err);
+
+	return success;
+}
 
 struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
@@ -1506,6 +1531,8 @@ struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 
 	spa_bt_backend_set_implementation(&backend->this, &backend_impl, backend);
 
+	backend->this.name = "hsphfpd";
+	backend->this.exclusive = true;
 	backend->monitor = monitor;
 	backend->quirks = quirks;
 	backend->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
@@ -1542,6 +1569,16 @@ struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 		free(backend);
 		return NULL;
 	}
+
+	if (add_filters(backend) < 0) {
+		dbus_connection_unregister_object_path(backend->conn, HSPHFP_AUDIO_CLIENT_MSBC);
+		dbus_connection_unregister_object_path(backend->conn, HSPHFP_AUDIO_CLIENT_PCM_S16LE_8KHZ);
+		dbus_connection_unregister_object_path(backend->conn, APPLICATION_OBJECT_MANAGER_PATH);
+		free(backend);
+		return NULL;
+	}
+
+	backend->this.available = is_available(backend);
 
 	return &backend->this;
 }

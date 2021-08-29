@@ -166,7 +166,7 @@ struct route {
 			.available = SPA_PARAM_AVAILABILITY_unknown,	\
 		}
 
-static struct route_info *find_route_info(struct device *dev, struct route *r)
+static struct route_info *find_route_info(struct device *dev, const struct route *r)
 {
 	struct route_info *i;
 
@@ -205,7 +205,7 @@ static int parse_route(struct sm_param *p, struct route *r)
 			SPA_PARAM_ROUTE_save, SPA_POD_OPT_Bool(&r->save));
 }
 
-static bool array_contains(struct spa_pod *pod, uint32_t val)
+static bool array_contains(const struct spa_pod *pod, uint32_t val)
 {
 	uint32_t *vals, n_vals;
 	uint32_t n;
@@ -245,7 +245,7 @@ static int parse_enum_route(struct sm_param *p, uint32_t device_id, struct route
 	return 0;
 }
 
-static char *serialize_props(struct device *dev, const struct spa_pod *param)
+static char *serialize_props(const struct device *dev, const struct spa_pod *param)
 {
 	struct spa_pod_prop *prop;
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
@@ -325,7 +325,7 @@ static char *serialize_props(struct device *dev, const struct spa_pod *param)
 	return ptr;
 }
 
-static int restore_route_params(struct device *dev, const char *val, struct route *r)
+static int restore_route_params(struct device *dev, const char *val, const struct route *r)
 {
 	struct spa_json it[3];
 	char buf[1024], key[128];
@@ -437,7 +437,7 @@ struct profile {
 	struct spa_pod *classes;
 };
 
-static int parse_profile(struct sm_param *p, struct profile *pr)
+static int parse_profile(const struct sm_param *p, struct profile *pr)
 {
 	int res;
 	spa_zero(*pr);
@@ -452,7 +452,7 @@ static int parse_profile(struct sm_param *p, struct profile *pr)
 	return 0;
 }
 
-static int find_current_profile(struct device *dev, struct profile *pr)
+static int find_current_profile(const struct device *dev, struct profile *pr)
 {
 	struct sm_param *p;
 	spa_list_for_each(p, &dev->obj->param_list, link) {
@@ -463,7 +463,7 @@ static int find_current_profile(struct device *dev, struct profile *pr)
 	return -ENOENT;
 }
 
-static int restore_route(struct device *dev, struct route *r)
+static int restore_route(struct device *dev, const struct route *r)
 {
 	struct impl *impl = dev->impl;
 	char key[1024];
@@ -491,7 +491,7 @@ static int restore_route(struct device *dev, struct route *r)
 	return 0;
 }
 
-static int save_route(struct device *dev, struct route *r)
+static int save_route(const struct device *dev, const struct route *r)
 {
 	struct impl *impl = dev->impl;
 	char key[1024], *val;
@@ -511,12 +511,12 @@ static int save_route(struct device *dev, struct route *r)
 	return 0;
 }
 
-static char *serialize_routes(struct device *dev)
+static char *serialize_routes(const struct device *dev)
 {
 	char *ptr;
 	size_t size;
 	FILE *f;
-	struct route_info *ri;
+	const struct route_info *ri;
 	int count = 0;
 
 	f = open_memstream(&ptr, &size);
@@ -604,7 +604,7 @@ static int find_best_route(struct device *dev, uint32_t device_id, struct route 
 	return 0;
 }
 
-static int find_route(struct device *dev, uint32_t device_id, const char *name, struct route *r)
+static int find_route(const struct device *dev, uint32_t device_id, const char *name, struct route *r)
 {
 	struct sm_param *p;
 
@@ -741,7 +741,7 @@ static void prune_route_info(struct device *dev)
 	}
 }
 
-static int handle_route(struct device *dev, struct route *r)
+static int handle_route(struct device *dev, const struct route *r)
 {
 	struct route_info *ri;
 

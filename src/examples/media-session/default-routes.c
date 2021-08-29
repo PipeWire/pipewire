@@ -532,7 +532,7 @@ static char *serialize_routes(const struct device *dev)
 	return ptr;
 }
 
-static int save_profile(struct device *dev, struct profile *pr)
+static int save_profile(struct device *dev, const char *profile_name)
 {
 	struct impl *impl = dev->impl;
 	char key[1024], *val;
@@ -540,16 +540,16 @@ static int save_profile(struct device *dev, struct profile *pr)
 	if (pw_array_get_len(&dev->route_info, struct route_info) == 0)
 		return 0;
 
-	snprintf(key, sizeof(key), PREFIX"%s:profile:%s", dev->name, pr->name);
+	snprintf(key, sizeof(key), PREFIX"%s:profile:%s", dev->name, profile_name);
 
 	val = serialize_routes(dev);
 	if (pw_properties_set(impl->to_restore, key, val)) {
 		pw_log_info("device %d: profile %s routes changed %s %s",
-				dev->id, pr->name, key, val);
+				dev->id, profile_name, key, val);
 		add_idle_timeout(impl);
 	} else {
 		pw_log_info("device %d: profile %s unchanged (%s)",
-				dev->id, pr->name, val);
+				dev->id, profile_name, val);
 	}
 	free(val);
 	return 0;
@@ -816,7 +816,7 @@ static int handle_device(struct device *dev)
 		if (restore || route_changed)
 			reconfigure_profile(dev, &pr, restore);
 
-		save_profile(dev, &pr);
+		save_profile(dev, pr.name);
 	}
 	return 0;
 }

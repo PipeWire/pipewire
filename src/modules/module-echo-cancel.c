@@ -572,6 +572,7 @@ static int setup_streams(struct impl *impl)
 	props = pw_properties_new(
 			PW_KEY_NODE_NAME, "echo-cancel-capture",
 			PW_KEY_NODE_VIRTUAL, "true",
+			PW_KEY_NODE_PASSIVE, "true",
 			NULL);
 	if ((str = pw_properties_get(impl->source_props, PW_KEY_NODE_GROUP)) != NULL)
 		pw_properties_set(props, PW_KEY_NODE_GROUP, str);
@@ -581,7 +582,7 @@ static int setup_streams(struct impl *impl)
 		pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec_info->latency);
 
 	impl->capture = pw_stream_new(impl->core,
-			"echo-cancel capture", props);
+			"Echo-Cancel Capture", props);
 	if (impl->capture == NULL)
 		return -errno;
 
@@ -590,7 +591,7 @@ static int setup_streams(struct impl *impl)
 			&capture_events, impl);
 
 	impl->source = pw_stream_new(impl->core,
-			"echo-cancel source", impl->source_props);
+			"Echo-Cancel Source", impl->source_props);
 	impl->source_props = NULL;
 	if (impl->source == NULL)
 		return -errno;
@@ -602,6 +603,7 @@ static int setup_streams(struct impl *impl)
 	props = pw_properties_new(
 			PW_KEY_NODE_NAME, "echo-cancel-playback",
 			PW_KEY_NODE_VIRTUAL, "true",
+			PW_KEY_NODE_PASSIVE, "true",
 			NULL);
 	if ((str = pw_properties_get(impl->sink_props, PW_KEY_NODE_GROUP)) != NULL)
 		pw_properties_set(props, PW_KEY_NODE_GROUP, str);
@@ -611,7 +613,7 @@ static int setup_streams(struct impl *impl)
 		pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec_info->latency);
 
 	impl->playback = pw_stream_new(impl->core,
-			"echo-cancel playback", props);
+			"Echo-Cancel Playback", props);
 	if (impl->playback == NULL)
 		return -errno;
 
@@ -620,7 +622,7 @@ static int setup_streams(struct impl *impl)
 			&playback_events, impl);
 
 	impl->sink = pw_stream_new(impl->core,
-			"echo-cancel sink", impl->sink_props);
+			"Echo-Cancel Sink", impl->sink_props);
 	impl->sink_props = NULL;
 	if (impl->sink == NULL)
 		return -errno;
@@ -858,11 +860,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_setf(props, PW_KEY_NODE_LINK_GROUP, "echo-cancel-%u", id);
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
-	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_NAME, "echo-cancel-%u", id);
-	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
-		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION,
-				pw_properties_get(props, PW_KEY_NODE_NAME));
 
 	parse_audio_info(props, &impl->info);
 
@@ -879,8 +876,17 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((str = pw_properties_get(props, "sink.props")) != NULL)
 		pw_properties_update_string(impl->sink_props, str, strlen(str));
 
+	if (pw_properties_get(impl->source_props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_set(impl->source_props, PW_KEY_NODE_NAME, "echo-cancel-source");
+	if (pw_properties_get(impl->source_props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_set(impl->source_props, PW_KEY_NODE_DESCRIPTION, "Echo-Cancel Source");
 	if (pw_properties_get(impl->source_props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(impl->source_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
+
+	if (pw_properties_get(impl->sink_props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_set(impl->sink_props, PW_KEY_NODE_NAME, "echo-cancel-sink");
+	if (pw_properties_get(impl->sink_props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_set(impl->sink_props, PW_KEY_NODE_DESCRIPTION, "Echo-Cancel Sink");
 	if (pw_properties_get(impl->sink_props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(impl->sink_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 
@@ -932,8 +938,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 
-	copy_props(impl, props, PW_KEY_NODE_NAME);
-	copy_props(impl, props, PW_KEY_NODE_DESCRIPTION);
 	copy_props(impl, props, PW_KEY_NODE_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_LINK_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);

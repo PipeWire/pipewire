@@ -179,14 +179,14 @@ struct module *create_module_echo_cancel(struct impl *impl, const char *argument
 		pw_properties_set(source_props, PW_KEY_NODE_NAME, str);
 		pw_properties_set(props, "source_name", NULL);
 	} else {
-		pw_properties_set(source_props, PW_KEY_NODE_NAME, "echo-cancel");
+		pw_properties_set(source_props, PW_KEY_NODE_NAME, "echo-cancel-source");
 	}
 
 	if ((str = pw_properties_get(props, "sink_name")) != NULL) {
 		pw_properties_set(sink_props, PW_KEY_NODE_NAME, str);
 		pw_properties_set(props, "sink_name", NULL);
 	} else {
-		pw_properties_set(sink_props, PW_KEY_NODE_NAME, "echo-cancel");
+		pw_properties_set(sink_props, PW_KEY_NODE_NAME, "echo-cancel-sink");
 	}
 
 	if ((str = pw_properties_get(props, "source_master")) != NULL) {

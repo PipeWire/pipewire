@@ -432,8 +432,6 @@ static int restore_route_params(struct device *dev, const char *val, const struc
 struct profile {
 	uint32_t index;
 	const char *name;
-	uint32_t prio;
-	uint32_t available;
 	struct spa_pod *classes;
 };
 
@@ -445,8 +443,6 @@ static int parse_profile(const struct sm_param *p, struct profile *pr)
 			SPA_TYPE_OBJECT_ParamProfile, NULL,
 			SPA_PARAM_PROFILE_index,   SPA_POD_Int(&pr->index),
 			SPA_PARAM_PROFILE_name,    SPA_POD_String(&pr->name),
-			SPA_PARAM_PROFILE_priority,  SPA_POD_OPT_Int(&pr->prio),
-			SPA_PARAM_PROFILE_available,  SPA_POD_OPT_Id(&pr->available),
 			SPA_PARAM_PROFILE_classes, SPA_POD_OPT_Pod(&pr->classes))) < 0)
 		return res;
 	return 0;

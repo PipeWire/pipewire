@@ -552,7 +552,7 @@ static int create_pulse_stream(struct impl *impl)
 	bufferattr.prebuf = (uint32_t) -1;
 
 	if (impl->mode == MODE_CAPTURE) {
-		bufferattr.tlength = pa_usec_to_bytes(DEFAULT_LATENCY_USEC, &ss);
+		bufferattr.fragsize = pa_usec_to_bytes(DEFAULT_LATENCY_USEC, &ss);
 
 		res = pa_stream_connect_record(impl->pa_stream,
 				remote_node_target, &bufferattr,
@@ -560,7 +560,7 @@ static int create_pulse_stream(struct impl *impl)
 				PA_STREAM_ADJUST_LATENCY |
 				PA_STREAM_AUTO_TIMING_UPDATE);
 	} else {
-		bufferattr.fragsize = pa_usec_to_bytes(DEFAULT_LATENCY_USEC, &ss);
+		bufferattr.tlength = pa_usec_to_bytes(DEFAULT_LATENCY_USEC, &ss);
 
 		res = pa_stream_connect_playback(impl->pa_stream,
 				remote_node_target, &bufferattr,

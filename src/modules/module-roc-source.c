@@ -51,6 +51,7 @@
  * Options specific to the behavior of this module
  *
  * - `source.props = {}`: properties to be passed to the source stream
+ * - `source.name = <str>`: node.name of the source
  * - `local.ip = <str>`: local sender ip
  * - `local.source.port = <str>`: local receiver TCP/UDP port for source packets
  * - `local.repair.port = <str>`: local receiver TCP/UDP port for receiver packets
@@ -63,6 +64,8 @@
  * Options with well-known behavior:
  *
  * - \ref PW_KEY_NODE_NAME
+ * - \ref PW_KEY_NODE_DESCRIPTION
+ * - \ref PW_KEY_MEDIA_NAME
  *
  * ## Example configuration
  *\code{.unparsed}
@@ -74,6 +77,7 @@
  *          sess.latency.msec = 5000
  *          local.source.port = 10001
  *          local.repair.port = 10002
+ *          source.name = "ROC Source"
  *          source.props = {
  *             node.name = "roc-source"
  *          }
@@ -336,6 +340,8 @@ static int roc_source_setup(struct module_roc_source_data *data)
 	info.rate = 44100;
 	info.channels = 2;
 	info.format = SPA_AUDIO_FORMAT_F32_LE;
+	info.position[0] = SPA_AUDIO_CHANNEL_FL;
+	info.position[1] = SPA_AUDIO_CHANNEL_FR;
 
 	if (roc_parse_resampler_profile(&receiver_config.resampler_profile,
 				data->resampler_profile)) {
@@ -392,7 +398,6 @@ static int roc_source_setup(struct module_roc_source_data *data)
 	if ((res = pw_stream_connect(data->playback,
 			PW_DIRECTION_OUTPUT,
 			PW_ID_ANY,
-			PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_MAP_BUFFERS |
 			PW_STREAM_FLAG_RT_PROCESS,
 			params, n_params)) < 0)
@@ -404,12 +409,13 @@ static int roc_source_setup(struct module_roc_source_data *data)
 static const struct spa_dict_item module_roc_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "roc source" },
-	{ PW_KEY_MODULE_USAGE, "source.name=<name for the source> "
+	{ PW_KEY_MODULE_USAGE,	"source.name=<name for the source> "
 				"resampler.profile=<empty>|disable|high|medium|low "
 				"sess.latency.msec=<target network latency in milliseconds> "
 				"local.ip=<local receiver ip> "
 				"local.source.port=<local receiver port for source packets> "
-				"local.repair.port=<local receiver port for repair packets> " },
+				"local.repair.port=<local receiver port for repair packets> "
+				"source.props= { key=value ... }" },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -460,12 +466,21 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(props, "source.name", NULL);
 	}
 
-	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
-		pw_properties_set(props, PW_KEY_NODE_GROUP, "pipewire.dummy");
-	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
-		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
-	if ((str = pw_properties_get(props, PW_KEY_MEDIA_CLASS)) == NULL)
-		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Source");
+	if ((str = pw_properties_get(props, "source.props")) != NULL)
+		pw_properties_update_string(playback_props, str, strlen(str));
+
+	if (pw_properties_get(playback_props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_set(playback_props, PW_KEY_NODE_NAME, "roc-source");
+	if (pw_properties_get(playback_props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_set(playback_props, PW_KEY_NODE_DESCRIPTION, "ROC Source");
+	if (pw_properties_get(playback_props, PW_KEY_NODE_GROUP) == NULL)
+		pw_properties_set(playback_props, PW_KEY_NODE_GROUP, "pipewire.dummy");
+	if (pw_properties_get(playback_props, PW_KEY_NODE_VIRTUAL) == NULL)
+		pw_properties_set(playback_props, PW_KEY_NODE_VIRTUAL, "true");
+	if (pw_properties_get(playback_props, PW_KEY_NODE_PASSIVE) == NULL)
+		pw_properties_set(playback_props, PW_KEY_NODE_PASSIVE, "true");
+	if ((str = pw_properties_get(playback_props, PW_KEY_MEDIA_CLASS)) == NULL)
+		pw_properties_set(playback_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 
 	if ((str = pw_properties_get(props, "local.ip")) != NULL) {
 		local_ip = strdup(str);

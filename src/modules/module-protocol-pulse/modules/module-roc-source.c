@@ -157,8 +157,8 @@ struct module *create_module_roc_source(struct impl *impl, const char *argument)
 	}
 
 	if ((str = pw_properties_get(props, PW_KEY_MEDIA_CLASS)) == NULL) {
-		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
-		pw_properties_set(source_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
+		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Source");
+		pw_properties_set(source_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 	}
 
 	if ((str = pw_properties_get(props, "local_ip")) != NULL) {

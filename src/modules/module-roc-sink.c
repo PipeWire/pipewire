@@ -51,6 +51,7 @@
  * Options specific to the behavior of this module
  *
  * - `sink.props = {}`: properties to be passed to the sink stream
+ * - `sink.name = <str>`: node.name of the sink
  * - `local.ip = <str>`: local sender ip
  * - `remote.ip = <str>`: remote receiver ip
  * - `remote.source.port = <str>`: remote receiver TCP/UDP port for source packets
@@ -61,6 +62,8 @@
  * Options with well-known behavior:
  *
  * - \ref PW_KEY_NODE_NAME
+ * - \ref PW_KEY_NODE_DESCRIPTION
+ * - \ref PW_KEY_MEDIA_NAME
  *
  * ## Example configuration
  *\code{.unparsed}
@@ -71,6 +74,7 @@
  *          remote.ip = 192.168.0.244
  *          remote.source.port = 10001
  *          remote.repair.port = 10002
+ *          sink.name = "ROC Sink"
  *          sink.props = {
  *             node.name = "roc-sink"
  *          }
@@ -306,6 +310,8 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 	info.rate = 44100;
 	info.channels = 2;
 	info.format = SPA_AUDIO_FORMAT_F32_LE;
+	info.position[0] = SPA_AUDIO_CHANNEL_FL;
+	info.position[1] = SPA_AUDIO_CHANNEL_FR;
 
 	data->sender = roc_sender_open(data->context, &sender_config);
 	if (!data->sender) {
@@ -348,7 +354,6 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 	if ((res = pw_stream_connect(data->capture,
 			PW_DIRECTION_INPUT,
 			PW_ID_ANY,
-			PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_MAP_BUFFERS |
 			PW_STREAM_FLAG_RT_PROCESS,
 			params, n_params)) < 0)
@@ -360,11 +365,12 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 static const struct spa_dict_item module_roc_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "roc sink" },
-	{ PW_KEY_MODULE_USAGE, "sink.name=<name for the sink> "
+	{ PW_KEY_MODULE_USAGE,	"sink.name=<name for the sink> "
 				"local.ip=<local sender ip> "
 				"remote.ip=<remote receiver ip> "
 				"remote.source.port=<remote receiver port for source packets> "
-				"remote.repair.port=<remote receiver port for repair packets> " },
+				"remote.repair.port=<remote receiver port for repair packets> "
+				"sink.props= { key=val ... } " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -415,12 +421,21 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(props, "sink.name", NULL);
 	}
 
-	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
-		pw_properties_set(props, PW_KEY_NODE_GROUP, "pipewire.dummy");
-	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
-		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
-	if ((str = pw_properties_get(props, PW_KEY_MEDIA_CLASS)) == NULL)
-		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
+	if ((str = pw_properties_get(props, "sink.props")) != NULL)
+		pw_properties_update_string(capture_props, str, strlen(str));
+
+	if (pw_properties_get(capture_props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_set(capture_props, PW_KEY_NODE_NAME, "roc-sink");
+	if (pw_properties_get(capture_props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_set(capture_props, PW_KEY_NODE_DESCRIPTION, "ROC Sink");
+	if (pw_properties_get(capture_props, PW_KEY_NODE_GROUP) == NULL)
+		pw_properties_set(capture_props, PW_KEY_NODE_GROUP, "pipewire.dummy");
+	if (pw_properties_get(capture_props, PW_KEY_NODE_VIRTUAL) == NULL)
+		pw_properties_set(capture_props, PW_KEY_NODE_VIRTUAL, "true");
+	if (pw_properties_get(capture_props, PW_KEY_NODE_PASSIVE) == NULL)
+		pw_properties_set(capture_props, PW_KEY_NODE_PASSIVE, "true");
+	if ((str = pw_properties_get(capture_props, PW_KEY_MEDIA_CLASS)) == NULL)
+		pw_properties_set(capture_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 
 	if ((str = pw_properties_get(props, "remote.ip")) != NULL) {
 		remote_ip = strdup(str);

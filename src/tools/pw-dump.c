@@ -22,6 +22,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1423,7 +1424,8 @@ static void show_help(struct data *data, const char *name)
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n"
 		"  -m, --monitor                         monitor changes\n"
-		"  -N, --no-colors                       disable color output\n",
+		"  -N, --no-colors                       disable color output\n"
+		"  -C, --color[=WHEN]                    whether to enable color support. WHEN is `never`, `always`, or `auto`\n",
 		name);
 }
 
@@ -1439,6 +1441,7 @@ int main(int argc, char *argv[])
 		{ "remote",	required_argument,	NULL, 'r' },
 		{ "monitor",	no_argument,		NULL, 'm' },
 		{ "no-colors",	no_argument,		NULL, 'N' },
+		{ "color",	optional_argument,	NULL, 'C' },
 		{ NULL, 0, NULL, 0}
 	};
 	int c;
@@ -1449,7 +1452,7 @@ int main(int argc, char *argv[])
 	if (isatty(fileno(data.out)) && getenv("NO_COLOR") == NULL)
 		colors = true;
 
-	while ((c = getopt_long(argc, argv, "hVr:mN", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:mNC", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h' :
 			show_help(&data, argv[0]);
@@ -1470,6 +1473,19 @@ int main(int argc, char *argv[])
 			break;
 		case 'N' :
 			colors = false;
+			break;
+		case 'C' :
+			if (optarg == NULL || !strcmp(optarg, "auto"))
+				break; /* nothing to do, tty detection was done
+					  before parsing options */
+			else if (!strcmp(optarg, "never"))
+				colors = false;
+			else if (!strcmp(optarg, "always"))
+				colors = true;
+			else {
+				show_help(&data, argv[0]);
+				return -1;
+			}
 			break;
 		default:
 			show_help(&data, argv[0]);

@@ -16,10 +16,79 @@
 
 #include "alsa-pcm.h"
 
-int spa_alsa_init(struct state *state)
+static struct spa_list cards = SPA_LIST_INIT(&cards);
+
+struct card {
+	struct spa_list link;
+	int ref;
+	uint32_t index;
+	snd_use_case_mgr_t *ucm;
+};
+
+static struct card *find_card(uint32_t index)
 {
+	struct card *c;
+	spa_list_for_each(c, &cards, link) {
+		if (c->index == index) {
+			c->ref++;
+			return c;
+		}
+	}
+	return NULL;
+}
+
+static struct card *ensure_card(uint32_t index)
+{
+	struct card *c;
+	char card_name[64];
 	int err;
 
+	if ((c = find_card(index)) != NULL)
+		return c;
+
+	c = calloc(1, sizeof(*c));
+	c->ref = 1;
+	c->index = index;
+
+	snprintf(card_name, sizeof(card_name), "hw:%i", index);
+	err = snd_use_case_mgr_open(&c->ucm, card_name);
+	if (err < 0) {
+		char *name;
+		err = snd_card_get_name(index, &name);
+		if (err < 0) {
+			errno = -err;
+			return NULL;
+		}
+		snprintf(card_name, sizeof(card_name), "%s", name);
+		free(name);
+
+		err = snd_use_case_mgr_open(&c->ucm, card_name);
+		if (err < 0) {
+			errno = -err;
+			return NULL;
+		}
+	}
+	spa_list_append(&cards, &c->link);
+
+	return c;
+}
+
+static void release_card(uint32_t index)
+{
+	struct card *c;
+	if ((c = find_card(index)) == NULL)
+		return;
+
+	if (--c->ref > 0)
+		return;
+
+	snd_use_case_mgr_close(c->ucm);
+	spa_list_remove(&c->link);
+	free(c);
+}
+
+int spa_alsa_init(struct state *state)
+{
 	snd_config_update_free_global();
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
@@ -28,49 +97,38 @@ int spa_alsa_init(struct state *state)
 	}
 
 	if (state->open_ucm) {
-		char card_name[64];
+		struct card *c;
 		const char *alibpref = NULL;
 
-		snprintf(card_name, sizeof(card_name), "hw:%i", state->card_index);
-		err = snd_use_case_mgr_open(&state->ucm, card_name);
-		if (err < 0) {
-			char *name;
-			err = snd_card_get_name(state->card_index, &name);
-			if (err < 0) {
-				spa_log_error(state->log,
-						"can't get card name from index %d",
-						state->card_index);
-				return err;
-			}
-			snprintf(card_name, sizeof(card_name), "%s", name);
-			free(name);
-
-			err = snd_use_case_mgr_open(&state->ucm, card_name);
-			if (err < 0) {
-				spa_log_error(state->log, "UCM not available for card %s", card_name);
-				return err;
-			}
+		c = ensure_card(state->card_index);
+		if (c == NULL) {
+			spa_log_error(state->log, "UCM not available for card %d", state->card_index);
+			return -errno;
 		}
 
-		if ((snd_use_case_get(state->ucm, "_alibpref", &alibpref) != 0))
+		if ((snd_use_case_get(c->ucm, "_alibpref", &alibpref) != 0))
 			alibpref = NULL;
 		if (alibpref != NULL) {
 			char name[sizeof(state->props.device)];
+			state->ucm_prefix_len = strlen(alibpref);
 			spa_scnprintf(name, sizeof(name), "%s%s", alibpref,
 					state->props.device);
 			strcpy(state->props.device, name);
 			free((void*)alibpref);
 		}
 	}
-
 	return 0;
 }
 
 int spa_alsa_clear(struct state *state)
 {
-	if (state->ucm)
-		snd_use_case_mgr_close(state->ucm);
-	state->ucm = NULL;
+	if (state->ucm_prefix_len > 0) {
+		memmove(state->props.device,
+				state->props.device + state->ucm_prefix_len,
+				sizeof(state->props.device) - state->ucm_prefix_len);
+		state->ucm_prefix_len = 0;
+	}
+	release_card(state->card_index);
 	return 0;
 }
 

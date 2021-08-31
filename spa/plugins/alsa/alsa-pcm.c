@@ -1626,7 +1626,9 @@ static int handle_play(struct state *state, uint64_t nsec,
 	int res;
 
 	if (SPA_UNLIKELY(delay > target + state->max_error)) {
-		spa_log_trace(state->log, NAME" %p: early wakeup %ld %ld", state, delay, target);
+		spa_log_trace(state->log, NAME" %p: early wakeup %lu %lu", state, delay, target);
+		if (delay > target * 3)
+			delay = target * 3;
 		state->next_time = nsec + (delay - target) * SPA_NSEC_PER_SEC / state->rate;
 		return -EAGAIN;
 	}

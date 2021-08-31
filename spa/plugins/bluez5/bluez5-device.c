@@ -164,13 +164,14 @@ static void init_node(struct impl *this, struct node *node, uint32_t id)
 	}
 }
 
-static void get_a2dp_codecs(enum spa_bluetooth_audio_codec id, const struct a2dp_codec **codecs, size_t size)
+static void get_a2dp_codecs(struct impl *this, enum spa_bluetooth_audio_codec id, const struct a2dp_codec **codecs, size_t size)
 {
 	const struct a2dp_codec * const *c;
 
 	spa_assert(size > 0);
+	spa_assert(this->supported_codecs);
 
-	for (c = a2dp_codecs; *c && size > 1; ++c) {
+	for (c = this->supported_codecs; *c && size > 1; ++c) {
 		if ((*c)->id == id || id == 0) {
 			*codecs++ = *c;
 			--size;
@@ -775,7 +776,7 @@ static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_a
 		int ret;
 		const struct a2dp_codec *codecs[64];
 
-		get_a2dp_codecs(codec, codecs, SPA_N_ELEMENTS(codecs));
+		get_a2dp_codecs(this, codec, codecs, SPA_N_ELEMENTS(codecs));
 
 		this->switching_codec = true;
 

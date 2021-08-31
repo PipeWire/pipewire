@@ -8,6 +8,8 @@
  *
  */
 
+#include <spa/utils/string.h>
+
 #include "a2dp-codecs.h"
 
 int a2dp_codec_select_config(const struct a2dp_codec_config configs[], size_t n,
@@ -78,93 +80,129 @@ bool a2dp_codec_check_caps(const struct a2dp_codec *codec, unsigned int codec_id
 	return ((size_t)res == caps_size);
 }
 
-#if ENABLE_MP3
-const a2dp_mpeg_t bluez_a2dp_mpeg = {
-	.layer =
-		MPEG_LAYER_MP1 |
-		MPEG_LAYER_MP2 |
-		MPEG_LAYER_MP3,
-	.crc = 1,
-	.channel_mode =
-		MPEG_CHANNEL_MODE_MONO |
-		MPEG_CHANNEL_MODE_DUAL_CHANNEL |
-		MPEG_CHANNEL_MODE_STEREO |
-		MPEG_CHANNEL_MODE_JOINT_STEREO,
-	.mpf = 1,
-	.frequency =
-		MPEG_SAMPLING_FREQ_16000 |
-		MPEG_SAMPLING_FREQ_22050 |
-		MPEG_SAMPLING_FREQ_24000 |
-		MPEG_SAMPLING_FREQ_32000 |
-		MPEG_SAMPLING_FREQ_44100 |
-		MPEG_SAMPLING_FREQ_48000,
-	.bitrate =
-		MPEG_BIT_RATE_VBR |
-		MPEG_BIT_RATE_320000 |
-		MPEG_BIT_RATE_256000 |
-		MPEG_BIT_RATE_224000 |
-		MPEG_BIT_RATE_192000 |
-		MPEG_BIT_RATE_160000 |
-		MPEG_BIT_RATE_128000 |
-		MPEG_BIT_RATE_112000 |
-		MPEG_BIT_RATE_96000 |
-		MPEG_BIT_RATE_80000 |
-		MPEG_BIT_RATE_64000 |
-		MPEG_BIT_RATE_56000 |
-		MPEG_BIT_RATE_48000 |
-		MPEG_BIT_RATE_40000 |
-		MPEG_BIT_RATE_32000 |
-		MPEG_BIT_RATE_FREE,
-};
-#endif
+#ifdef CODEC_PLUGIN
 
-extern struct a2dp_codec a2dp_codec_sbc;
-extern struct a2dp_codec a2dp_codec_sbc_xq;
-extern struct a2dp_codec a2dp_codec_faststream;
-extern struct a2dp_codec a2dp_codec_faststream_duplex;
-#if ENABLE_LDAC
-extern struct a2dp_codec a2dp_codec_ldac;
-#endif
-#if ENABLE_AAC
-extern struct a2dp_codec a2dp_codec_aac;
-#endif
-#if ENABLE_MP3
-extern struct a2dp_codec a2dp_codec_mpeg;
-#endif
-#if ENABLE_APTX
-extern struct a2dp_codec a2dp_codec_aptx;
-extern struct a2dp_codec a2dp_codec_aptx_hd;
-extern struct a2dp_codec a2dp_codec_aptx_ll_0;
-extern struct a2dp_codec a2dp_codec_aptx_ll_1;
-extern struct a2dp_codec a2dp_codec_aptx_ll_duplex_0;
-extern struct a2dp_codec a2dp_codec_aptx_ll_duplex_1;
-#endif
-
-static const struct a2dp_codec * const a2dp_codec_list[] = {
-#if ENABLE_LDAC
-	&a2dp_codec_ldac,
-#endif
-#if ENABLE_APTX
-	&a2dp_codec_aptx_hd,
-	&a2dp_codec_aptx,
-#endif
-#if ENABLE_AAC
-	&a2dp_codec_aac,
-#endif
-#if ENABLE_MP3
-	&a2dp_codec_mpeg,
-#endif
-	&a2dp_codec_sbc,
-	&a2dp_codec_sbc_xq,
-	&a2dp_codec_faststream,
-	&a2dp_codec_faststream_duplex,
-#if ENABLE_APTX
-	&a2dp_codec_aptx_ll_0,
-	&a2dp_codec_aptx_ll_1,
-	&a2dp_codec_aptx_ll_duplex_0,
-	&a2dp_codec_aptx_ll_duplex_1,
-#endif
-	NULL
+struct impl {
+	struct spa_handle handle;
+	struct spa_bluez5_codec_a2dp bluez5_codec_a2dp;
 };
 
-const struct a2dp_codec * const * const a2dp_codecs = a2dp_codec_list;
+static int
+impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
+{
+	struct impl *this;
+
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+	spa_return_val_if_fail(interface != NULL, -EINVAL);
+
+	this = (struct impl *) handle;
+
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Bluez5CodecA2DP))
+		*interface = &this->bluez5_codec_a2dp;
+	else
+		return -ENOENT;
+
+	return 0;
+}
+
+static int
+impl_clear(struct spa_handle *handle)
+{
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+	return 0;
+}
+
+static size_t
+impl_get_size(const struct spa_handle_factory *factory, const struct spa_dict *params)
+{
+	return sizeof(struct impl);
+}
+
+static int
+impl_init(const struct spa_handle_factory *factory,
+		struct spa_handle *handle,
+		const struct spa_dict *info,
+		const struct spa_support *support,
+		uint32_t n_support)
+{
+	struct impl *this;
+
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+
+	handle->get_interface = impl_get_interface;
+	handle->clear = impl_clear;
+
+	this = (struct impl *) handle;
+
+	this->bluez5_codec_a2dp.codecs = codec_plugin_a2dp_codecs;
+	this->bluez5_codec_a2dp.iface = SPA_INTERFACE_INIT(
+		SPA_TYPE_INTERFACE_Bluez5CodecA2DP,
+		SPA_VERSION_BLUEZ5_CODEC_A2DP,
+		NULL,
+		this);
+
+	return 0;
+}
+
+static const struct spa_interface_info impl_interfaces[] = {
+        {SPA_TYPE_INTERFACE_Bluez5CodecA2DP,},
+};
+
+static int
+impl_enum_interface_info(const struct spa_handle_factory *factory,
+			 const struct spa_interface_info **info,
+			 uint32_t *index)
+{
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(info != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+
+	switch (*index) {
+	case 0:
+		*info = &impl_interfaces[*index];
+		break;
+	default:
+		return 0;
+	}
+	(*index)++;
+
+	return 1;
+}
+
+static const struct spa_dict_item handle_info_items[] = {
+        { SPA_KEY_FACTORY_DESCRIPTION, "Bluetooth codec plugin" },
+};
+
+static const struct spa_dict handle_info = SPA_DICT_INIT_ARRAY(handle_info_items);
+
+static struct spa_handle_factory handle_factory = {
+	SPA_VERSION_HANDLE_FACTORY,
+	NULL,
+	&handle_info,
+	impl_get_size,
+	impl_init,
+	impl_enum_interface_info,
+};
+
+SPA_EXPORT
+int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
+{
+	spa_return_val_if_fail(factory != NULL, -EINVAL);
+	spa_return_val_if_fail(index != NULL, -EINVAL);
+
+	if (handle_factory.name == NULL)
+		handle_factory.name = codec_plugin_factory_name;
+
+	switch (*index) {
+	case 0:
+		*factory = &handle_factory;
+		break;
+	default:
+		return 0;
+	}
+	(*index)++;
+	return 1;
+}
+
+#endif

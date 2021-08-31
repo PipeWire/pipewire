@@ -36,7 +36,6 @@
 
 #include <sbc/sbc.h>
 
-#include "defs.h"
 #include "a2dp-codecs.h"
 
 struct impl {
@@ -624,3 +623,9 @@ const struct a2dp_codec a2dp_codec_faststream_duplex = {
 	.name = "faststream_duplex",
 	.duplex_codec = &duplex_codec,
 };
+
+A2DP_CODEC_EXPORT_DEF(
+	"faststream",
+	&a2dp_codec_faststream,
+	&a2dp_codec_faststream_duplex
+);

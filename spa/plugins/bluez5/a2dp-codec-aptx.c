@@ -34,13 +34,16 @@
 
 #include <freeaptx.h>
 
-#include "defs.h"
 #include "rtp.h"
 #include "a2dp-codecs.h"
 
 #define APTX_LL_LEVEL1(level) (((level) >> 8) & 0xFF)
 #define APTX_LL_LEVEL2(level) (((level) >> 0) & 0xFF)
 #define APTX_LL_LEVEL(level1, level2) ((((level1) & 0xFF) << 8) | (((level2) & 0xFF) << 0))
+
+#define MSBC_DECODED_SIZE       240
+#define MSBC_ENCODED_SIZE       60
+#define MSBC_PAYLOAD_SIZE       57
 
 /*
  * XXX: Bump requested device buffer levels up by 50% from defaults,
@@ -723,3 +726,13 @@ const struct a2dp_codec a2dp_codec_aptx_ll_duplex_1 = {
 	.endpoint_name = "aptx_ll_duplex_1",
 	.duplex_codec = &aptx_ll_msbc,
 };
+
+A2DP_CODEC_EXPORT_DEF(
+	"aptx",
+	&a2dp_codec_aptx_hd,
+	&a2dp_codec_aptx,
+	&a2dp_codec_aptx_ll_0,
+	&a2dp_codec_aptx_ll_1,
+	&a2dp_codec_aptx_ll_duplex_0,
+	&a2dp_codec_aptx_ll_duplex_1
+);

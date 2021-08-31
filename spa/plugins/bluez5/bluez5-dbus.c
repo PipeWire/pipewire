@@ -39,6 +39,7 @@
 #include <spa/support/loop.h>
 #include <spa/support/dbus.h>
 #include <spa/support/plugin.h>
+#include <spa/support/plugin-loader.h>
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
 #include <spa/utils/hook.h>
@@ -49,7 +50,7 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 
-#include "a2dp-codecs.h"
+#include "codec-loader.h"
 #include "defs.h"
 
 #define NAME "bluez5-monitor"
@@ -61,6 +62,7 @@ struct spa_bt_monitor {
 	struct spa_log *log;
 	struct spa_loop *main_loop;
 	struct spa_system *main_system;
+	struct spa_plugin_loader *plugin_loader;
 	struct spa_dbus *dbus;
 	struct spa_dbus_connection *dbus_connection;
 	DBusConnection *conn;
@@ -68,6 +70,8 @@ struct spa_bt_monitor {
 	struct spa_hook_list hooks;
 
 	uint32_t id;
+
+	const struct a2dp_codec * const * a2dp_codecs;
 
 	/*
 	 * Lists of BlueZ objects, kept up-to-date by following DBus events
@@ -407,9 +411,10 @@ static int a2dp_codec_to_endpoint(const struct a2dp_codec *codec,
 	return 0;
 }
 
-static const struct a2dp_codec *a2dp_endpoint_to_codec(const char *endpoint)
+static const struct a2dp_codec *a2dp_endpoint_to_codec(struct spa_bt_monitor *monitor, const char *endpoint)
 {
 	const char *ep_name;
+	const struct a2dp_codec * const * const a2dp_codecs = monitor->a2dp_codecs;
 	int i;
 
 	if (spa_strstartswith(endpoint, A2DP_SINK_ENDPOINT "/"))
@@ -470,7 +475,7 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 	for (i = 0; i < size; i++)
 		spa_log_debug(monitor->log, "  %d: %02x", i, cap[i]);
 
-	codec = a2dp_endpoint_to_codec(path);
+	codec = a2dp_endpoint_to_codec(monitor, path);
 	if (codec != NULL)
 		/* FIXME: We can't determine which device the SelectConfiguration()
 		 * call is associated with, therefore device settings are not passed.
@@ -1425,6 +1430,8 @@ bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struc
 
 const struct a2dp_codec **spa_bt_device_get_supported_a2dp_codecs(struct spa_bt_device *device, size_t *count)
 {
+	struct spa_bt_monitor *monitor = device->monitor;
+	const struct a2dp_codec * const * const a2dp_codecs = monitor->a2dp_codecs;
 	const struct a2dp_codec **supported_codecs;
 	size_t i, j, size;
 
@@ -2697,7 +2704,7 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	endpoint = dbus_message_get_path(m);
 
 	profile = a2dp_endpoint_to_profile(endpoint);
-	codec = a2dp_endpoint_to_codec(endpoint);
+	codec = a2dp_endpoint_to_codec(monitor, endpoint);
 	if (codec == NULL) {
 		spa_log_warn(monitor->log, "unknown SetConfiguration() codec");
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -3016,6 +3023,7 @@ static int register_a2dp_endpoint(struct spa_bt_monitor *monitor,
 static int adapter_register_endpoints(struct spa_bt_adapter *a)
 {
 	struct spa_bt_monitor *monitor = a->monitor;
+	const struct a2dp_codec * const * const a2dp_codecs = monitor->a2dp_codecs;
 	int i;
 	int err = 0;
 
@@ -3108,6 +3116,7 @@ static void append_a2dp_object(DBusMessageIter *iter, const char *endpoint,
 static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *m, void *user_data)
 {
 	struct spa_bt_monitor *monitor = user_data;
+	const struct a2dp_codec * const * const a2dp_codecs = monitor->a2dp_codecs;
 	const char *path, *interface, *member;
 	char *endpoint;
 	DBusMessage *r;
@@ -3221,6 +3230,7 @@ finish:
 
 static int register_media_application(struct spa_bt_monitor * monitor)
 {
+	const struct a2dp_codec * const * const a2dp_codecs = monitor->a2dp_codecs;
 	const DBusObjectPathVTable vtable_object_manager = {
 		.message_function = object_manager_handler,
 	};
@@ -3247,6 +3257,7 @@ static int register_media_application(struct spa_bt_monitor * monitor)
 
 static void unregister_media_application(struct spa_bt_monitor * monitor)
 {
+	const struct a2dp_codec * const * const a2dp_codecs = monitor->a2dp_codecs;
 	int ret;
 	char *object_path = NULL;
 
@@ -3886,6 +3897,8 @@ static int impl_clear(struct spa_handle *handle)
 
 	spa_bt_quirks_destroy(monitor->quirks);
 
+	free_a2dp_codecs(monitor->a2dp_codecs);
+
 	return 0;
 }
 
@@ -3928,6 +3941,7 @@ int spa_bt_profiles_from_json_array(const char *str)
 
 static int parse_codec_array(struct spa_bt_monitor *this, const struct spa_dict *info)
 {
+	const struct a2dp_codec * const * const a2dp_codecs = this->a2dp_codecs;
 	const char *str;
 	struct spa_dict_item *codecs;
 	struct spa_json it, it_array;
@@ -4024,29 +4038,47 @@ impl_init(const struct spa_handle_factory *factory,
 	this->dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
 	this->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	this->main_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_System);
+	this->plugin_loader = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_PluginLoader);
 
 	if (this->dbus == NULL) {
 		spa_log_error(this->log, "a dbus is needed");
 		return -EINVAL;
 	}
 
+	if (this->plugin_loader == NULL) {
+		spa_log_error(this->log, "a plugin loader is needed");
+		return -EINVAL;
+	}
+
+	this->a2dp_codecs = NULL;
+	this->quirks = NULL;
+	this->dbus_connection = NULL;
+
+	this->a2dp_codecs = load_a2dp_codecs(this->plugin_loader, this->log);
+	if (this->a2dp_codecs == NULL) {
+		spa_log_error(this->log, NAME ": failed to load required A2DP codec plugins");
+		res = -EIO;
+		goto fail;
+	}
+
 	this->quirks = spa_bt_quirks_create(info, this->log);
 	if (this->quirks == NULL) {
 		spa_log_error(this->log, NAME ": failed to parse quirk table");
-		return -EINVAL;
+		res = -EINVAL;
+		goto fail;
 	}
 
 	this->dbus_connection = spa_dbus_get_connection(this->dbus, SPA_DBUS_TYPE_SYSTEM);
 	if (this->dbus_connection == NULL) {
 		spa_log_error(this->log, "no dbus connection");
-		return -EIO;
+		res = -EIO;
+		goto fail;
 	}
 	this->conn = spa_dbus_connection_get(this->dbus_connection);
 	if (this->conn == NULL) {
 		spa_log_error(this->log, "failed to get dbus connection");
-		spa_dbus_connection_destroy(this->dbus_connection);
-		this->dbus_connection = NULL;
-		return -EIO;
+		res = -EIO;
+		goto fail;
 	}
 
 	/* XXX: We should handle spa_dbus reconnecting, but we don't, so ref
@@ -4067,7 +4099,7 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&this->transport_list);
 
 	if ((res = parse_codec_array(this, info)) < 0)
-		return res;
+		goto fail;
 
 	this->default_audio_info.rate = A2DP_CODEC_DEFAULT_RATE;
 	this->default_audio_info.channels = A2DP_CODEC_DEFAULT_CHANNELS;
@@ -4101,6 +4133,18 @@ impl_init(const struct spa_handle_factory *factory,
 		this->backend_hsphfpd_registered = true;
 
 	return 0;
+
+fail:
+	if (this->a2dp_codecs)
+		free_a2dp_codecs(this->a2dp_codecs);
+	if (this->quirks)
+		spa_bt_quirks_destroy(this->quirks);
+	if (this->dbus_connection)
+		spa_dbus_connection_destroy(this->dbus_connection);
+	this->a2dp_codecs = NULL;
+	this->quirks = NULL;
+	this->dbus_connection = NULL;
+	return res;
 }
 
 static const struct spa_interface_info impl_interfaces[] = {

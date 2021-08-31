@@ -32,7 +32,6 @@
 
 #include <sbc/sbc.h>
 
-#include "defs.h"
 #include "rtp.h"
 #include "a2dp-codecs.h"
 
@@ -682,3 +681,9 @@ const struct a2dp_codec a2dp_codec_sbc_xq = {
 	.reduce_bitpool = codec_reduce_bitpool,
 	.increase_bitpool = codec_increase_bitpool,
 };
+
+A2DP_CODEC_EXPORT_DEF(
+	"sbc",
+	&a2dp_codec_sbc,
+	&a2dp_codec_sbc_xq
+);

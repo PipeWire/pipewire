@@ -166,7 +166,7 @@ struct stream {
 	unsigned int warn_mlock:1;
 	unsigned int process_rt:1;
 	unsigned int driving:1;
-	unsigned int using_drive:1;
+	unsigned int using_trigger:1;
 };
 
 static int get_param_index(uint32_t id)
@@ -1476,6 +1476,7 @@ void pw_stream_add_listener(struct pw_stream *stream,
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	spa_hook_list_append(&stream->listener_list, listener, events, data);
+
 	if (events->process && impl->rt_callbacks.funcs == NULL) {
 		impl->rt_callbacks = SPA_CALLBACKS_INIT(events, data);
 		listener->removed = hook_removed;
@@ -2057,7 +2058,7 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 		return res;
 
 	if (impl->direction == SPA_DIRECTION_OUTPUT &&
-	    impl->driving && !impl->using_drive) {
+	    impl->driving && !impl->using_trigger) {
 		pw_log_debug("deprecated: use pw_stream_trigger_process() to drive the stream.");
 		res = pw_loop_invoke(impl->context->data_loop,
 			do_trigger_deprecated, 1, NULL, 0, false, impl);
@@ -2140,7 +2141,7 @@ int pw_stream_trigger_process(struct pw_stream *stream)
 	pw_log_trace(NAME" %p", impl);
 
 	/* flag to check for old or new behaviour */
-	impl->using_drive = true;
+	impl->using_trigger = true;
 
 	if (!impl->driving)
 		return -EINVAL;

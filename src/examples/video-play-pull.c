@@ -287,6 +287,13 @@ on_stream_io_changed(void *_data, uint32_t id, void *area, uint32_t size)
 	}
 }
 
+static void
+on_trigger_done(void *_data)
+{
+	struct data *data = _data;
+	pw_log_trace("%p trigger done", data);
+}
+
 static void on_timeout(void *userdata, uint64_t expirations)
 {
 	struct data *data = userdata;
@@ -424,6 +431,7 @@ static const struct pw_stream_events stream_events = {
 	.io_changed = on_stream_io_changed,
 	.param_changed = on_stream_param_changed,
 	.process = on_process,
+	.trigger_done = on_trigger_done,
 };
 
 static int build_format(struct data *data, struct spa_pod_builder *b, const struct spa_pod **params)

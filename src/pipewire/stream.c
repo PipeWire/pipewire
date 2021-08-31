@@ -419,6 +419,23 @@ static void call_drained(struct stream *impl)
 }
 
 static int
+do_call_trigger_done(struct spa_loop *loop,
+                 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct stream *impl = user_data;
+	struct pw_stream *stream = &impl->this;
+	pw_log_trace("%p: trigger_done", stream);
+	pw_stream_emit_trigger_done(stream);
+	return 0;
+}
+
+static void call_trigger_done(struct stream *impl)
+{
+	pw_loop_invoke(impl->context->main_loop,
+		do_call_trigger_done, 1, NULL, 0, false, impl);
+}
+
+static int
 do_set_position(struct spa_loop *loop,
 		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
@@ -940,6 +957,9 @@ static int impl_node_process_input(void *object)
 		io->buffer_id = b ? b->id : SPA_ID_INVALID;
 		io->status = SPA_STATUS_NEED_DATA;
 	}
+	if (impl->driving && impl->using_trigger)
+		call_trigger_done(impl);
+
 	return SPA_STATUS_NEED_DATA | SPA_STATUS_HAVE_DATA;
 }
 
@@ -1003,6 +1023,9 @@ again:
 	}
 
 	pw_log_trace("%p: res %d", stream, res);
+
+	if (impl->driving && impl->using_trigger && res != SPA_STATUS_HAVE_DATA)
+		call_trigger_done(impl);
 
 	return res;
 }

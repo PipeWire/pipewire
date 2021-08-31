@@ -210,7 +210,7 @@ struct pw_time {
 /** Events for a stream. These events are always called from the mainloop
  * unless explicitly documented otherwise. */
 struct pw_stream_events {
-#define PW_VERSION_STREAM_EVENTS	1
+#define PW_VERSION_STREAM_EVENTS	2
 	uint32_t version;
 
 	void (*destroy) (void *data);
@@ -242,6 +242,9 @@ struct pw_stream_events {
 
 	/** A command notify, Since 0.3.39:1 */
 	void (*command) (void *data, const struct spa_command *command);
+
+	/** a trigger_process completed. Since version 0.3.40:2 */
+	void (*trigger_done) (void *data);
 };
 
 /** Convert a stream state to a readable string */

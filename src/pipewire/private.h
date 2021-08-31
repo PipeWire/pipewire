@@ -1004,6 +1004,7 @@ struct pw_core {
 #define pw_stream_emit_drained(s)		pw_stream_emit(s, drained,0)
 #define pw_stream_emit_control_info(s,i,c)	pw_stream_emit(s, control_info, 0, i, c)
 #define pw_stream_emit_command(s,c)		pw_stream_emit(s, command,1,c)
+#define pw_stream_emit_trigger_done(s)		pw_stream_emit(s, trigger_done,2)
 
 
 struct pw_stream {

@@ -24,6 +24,50 @@
 
 #include <spa/utils/defs.h>
 
+static inline int32_t read_s24(const void *src)
+{
+	const int8_t *s = src;
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	return (((int32_t)s[2] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[0]);
+#else
+	return (((int32_t)s[0] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[2]);
+#endif
+}
+
+static inline void write_s24(void *dst, int32_t val)
+{
+	uint8_t *d = dst;
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	d[0] = (uint8_t) (val);
+	d[1] = (uint8_t) (val >> 8);
+	d[2] = (uint8_t) (val >> 16);
+#else
+	d[0] = (uint8_t) (val >> 16);
+	d[1] = (uint8_t) (val >> 8);
+	d[2] = (uint8_t) (val);
+#endif
+}
+
+#define S8_MIN		-127
+#define S8_MAX		127
+#define S8_MIX(a, b)    (int8_t)(SPA_CLAMP((int16_t)(a) + (int16_t)(b), S8_MIN, S8_MAX))
+
+#define S16_MIN		-32767
+#define S16_MAX		32767
+#define S16_MIX(a, b)   (int16_t)(SPA_CLAMP((int32_t)(a) + (int32_t)(b), S16_MIN, S16_MAX))
+
+#define S24_MIN		-8388607
+#define S24_MAX		8388607
+#define S24_MIX(a, b)   (int32_t)(SPA_CLAMP((int32_t)(a) + (int32_t)(b), S24_MIN, S24_MAX))
+
+#define S32_MIN		-2147483647
+#define S32_MAX		2147483647
+#define S32_MIX(a, b)   (int32_t)(SPA_CLAMP((int64_t)(a) + (int64_t)(b), S32_MIN, S32_MAX))
+
+#define F32_MIX(a, b)   (float)((float)(a) + (float)(b))
+
+#define F64_MIX(a, b)   (double)((double)(a) + (double)(b))
+
 struct mix_ops {
 	uint32_t fmt;
 	uint32_t n_channels;
@@ -50,6 +94,10 @@ void mix_##name##_##arch(struct mix_ops *ops, void * SPA_RESTRICT dst,	\
 		const void * SPA_RESTRICT src[], uint32_t n_src,		\
 		uint32_t n_samples)						\
 
+DEFINE_FUNCTION(s8, c);
+DEFINE_FUNCTION(s16, c);
+DEFINE_FUNCTION(s24, c);
+DEFINE_FUNCTION(s32, c);
 DEFINE_FUNCTION(f32, c);
 DEFINE_FUNCTION(f64, c);
 

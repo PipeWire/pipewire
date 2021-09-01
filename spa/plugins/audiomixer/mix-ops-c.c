@@ -31,6 +31,85 @@
 #include "mix-ops.h"
 
 void
+mix_s8_c(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
+		uint32_t n_src, uint32_t n_samples)
+{
+	uint32_t i, n;
+	int8_t *d = dst;
+
+	if (n_src == 0)
+		memset(dst, 0, n_samples * ops->n_channels * sizeof(int8_t));
+	else if (dst != src[0])
+		memcpy(dst, src[0], n_samples * ops->n_channels * sizeof(int8_t));
+
+	for (i = 1; i < n_src; i++) {
+		const int8_t *s = src[i];
+		for (n = 0; n < n_samples * ops->n_channels; n++)
+			d[n] = S8_MIX(d[n], s[n]);
+	}
+}
+
+void
+mix_s16_c(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
+		uint32_t n_src, uint32_t n_samples)
+{
+	uint32_t i, n;
+	int16_t *d = dst;
+
+	if (n_src == 0)
+		memset(dst, 0, n_samples * ops->n_channels * sizeof(int16_t));
+	else if (dst != src[0])
+		memcpy(dst, src[0], n_samples * ops->n_channels * sizeof(int16_t));
+
+	for (i = 1; i < n_src; i++) {
+		const int16_t *s = src[i];
+		for (n = 0; n < n_samples * ops->n_channels; n++)
+			d[n] = S16_MIX(d[n], s[n]);
+	}
+}
+
+void
+mix_s24_c(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
+		uint32_t n_src, uint32_t n_samples)
+{
+	uint32_t i, n;
+	uint8_t *d = dst;
+
+	if (n_src == 0)
+		memset(dst, 0, n_samples * ops->n_channels * sizeof(uint8_t) * 3);
+	else if (dst != src[0])
+		memcpy(dst, src[0], n_samples * ops->n_channels * sizeof(uint8_t) * 3);
+
+	for (i = 1; i < n_src; i++) {
+		const uint8_t *s = src[i];
+		for (n = 0; n < n_samples * ops->n_channels; n++) {
+			write_s24(d, S24_MIX(read_s24(d), read_s24(s)));
+			d += 3;
+			s += 3;
+		}
+	}
+}
+
+void
+mix_s32_c(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
+		uint32_t n_src, uint32_t n_samples)
+{
+	uint32_t i, n;
+	int32_t *d = dst;
+
+	if (n_src == 0)
+		memset(dst, 0, n_samples * ops->n_channels * sizeof(int32_t));
+	else if (dst != src[0])
+		memcpy(dst, src[0], n_samples * ops->n_channels * sizeof(int32_t));
+
+	for (i = 1; i < n_src; i++) {
+		const int32_t *s = src[i];
+		for (n = 0; n < n_samples * ops->n_channels; n++)
+			d[n] = S32_MIX(d[n], s[n]);
+	}
+}
+
+void
 mix_f32_c(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
 		uint32_t n_src, uint32_t n_samples)
 {
@@ -38,14 +117,14 @@ mix_f32_c(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_RESTRIC
 	float *d = dst;
 
 	if (n_src == 0)
-		memset(dst, 0, n_samples * sizeof(float));
+		memset(dst, 0, n_samples * ops->n_channels * sizeof(float));
 	else if (dst != src[0])
-		memcpy(dst, src[0], n_samples * sizeof(float));
+		memcpy(dst, src[0], n_samples * ops->n_channels * sizeof(float));
 
 	for (i = 1; i < n_src; i++) {
 		const float *s = src[i];
-		for (n = 0; n < n_samples; n++)
-			d[n] += s[n];
+		for (n = 0; n < n_samples * ops->n_channels; n++)
+			d[n] = F32_MIX(d[n], s[n]);
 	}
 }
 
@@ -57,13 +136,13 @@ mix_f64_c(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_RESTRIC
 	double *d = dst;
 
 	if (n_src == 0)
-		memset(dst, 0, n_samples * sizeof(double));
+		memset(dst, 0, n_samples * ops->n_channels * sizeof(double));
 	else if (dst != src[0])
-		memcpy(dst, src[0], n_samples * sizeof(double));
+		memcpy(dst, src[0], n_samples * ops->n_channels * sizeof(double));
 
 	for (i = 1; i < n_src; i++) {
 		const double *s = src[i];
-		for (n = 0; n < n_samples; n++)
-			d[n] += s[n];
+		for (n = 0; n < n_samples * ops->n_channels; n++)
+			d[n] = F64_MIX(d[n], s[n]);
 	}
 }

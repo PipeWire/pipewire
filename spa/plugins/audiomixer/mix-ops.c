@@ -54,15 +54,32 @@ static struct mix_info mix_table[] =
 	{ SPA_AUDIO_FORMAT_F32, 1, SPA_CPU_FLAG_SSE, 4, mix_f32_sse },
 	{ SPA_AUDIO_FORMAT_F32P, 1, SPA_CPU_FLAG_SSE, 4, mix_f32_sse },
 #endif
-	{ SPA_AUDIO_FORMAT_F32, 1, 0, 4, mix_f32_c },
-	{ SPA_AUDIO_FORMAT_F32P, 1, 0, 4, mix_f32_c },
+	{ SPA_AUDIO_FORMAT_F32, 0, 0, 4, mix_f32_c },
+	{ SPA_AUDIO_FORMAT_F32P, 0, 0, 4, mix_f32_c },
 
+	/* f64 */
 #if defined (HAVE_SSE2)
 	{ SPA_AUDIO_FORMAT_F64, 1, SPA_CPU_FLAG_SSE2, 8, mix_f64_sse2 },
 	{ SPA_AUDIO_FORMAT_F64P, 1, SPA_CPU_FLAG_SSE2, 8, mix_f64_sse2 },
 #endif
-	{ SPA_AUDIO_FORMAT_F64, 1, 0, 8, mix_f64_c },
-	{ SPA_AUDIO_FORMAT_F64P, 1, 0, 8, mix_f64_c },
+	{ SPA_AUDIO_FORMAT_F64, 0, 0, 8, mix_f64_c },
+	{ SPA_AUDIO_FORMAT_F64P, 0, 0, 8, mix_f64_c },
+
+	/* s8 */
+	{ SPA_AUDIO_FORMAT_S8, 0, 0, 1, mix_s8_c },
+	{ SPA_AUDIO_FORMAT_S8P, 0, 0, 1, mix_s8_c },
+
+	/* s16 */
+	{ SPA_AUDIO_FORMAT_S16, 0, 0, 2, mix_s16_c },
+	{ SPA_AUDIO_FORMAT_S16P, 0, 0, 2, mix_s16_c },
+
+	/* s24 */
+	{ SPA_AUDIO_FORMAT_S24, 0, 0, 3, mix_s24_c },
+	{ SPA_AUDIO_FORMAT_S24P, 0, 0, 3, mix_s24_c },
+
+	/* s32 */
+	{ SPA_AUDIO_FORMAT_S32, 0, 0, 4, mix_s32_c },
+	{ SPA_AUDIO_FORMAT_S32P, 0, 0, 4, mix_s32_c },
 };
 
 #define MATCH_CHAN(a,b)		((a) == 0 || (a) == (b))

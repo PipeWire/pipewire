@@ -27,16 +27,12 @@
 
 #include "extension.h"
 
-static int do_extension_device_restore(struct client *client, uint32_t tag, struct message *m)
-{
-	return -ENOTSUP;
-}
-
 static int do_extension_device_manager(struct client *client, uint32_t tag, struct message *m)
 {
 	return -ENOTSUP;
 }
 
+#include "extensions/ext-device-restore.c"
 #include "extensions/ext-stream-restore.c"
 
 static const struct extension extensions[] = {

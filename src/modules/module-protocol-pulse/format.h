@@ -189,6 +189,7 @@ uint32_t format_paname2id(const char *name, size_t size);
 enum sample_format format_id2pa(uint32_t id);
 const char *format_id2paname(uint32_t id);
 const char *format_encoding2name(enum encoding enc);
+uint32_t format_encoding2id(enum encoding enc);
 
 uint32_t sample_spec_frame_size(const struct sample_spec *ss);
 bool sample_spec_valid(const struct sample_spec *ss);

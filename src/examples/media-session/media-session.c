@@ -1741,7 +1741,7 @@ static void check_endpoint_link(struct endpoint_link *link)
 static void proxy_link_error(void *data, int seq, int res, const char *message)
 {
 	struct link *l = data;
-	pw_log_warn("can't link %d:%d -> %d:%d: %s",
+	pw_log_info("can't link %d:%d -> %d:%d: %s",
 			l->output_node, l->output_port,
 			l->input_node, l->input_port, message);
 	pw_proxy_destroy(l->proxy);
@@ -2181,7 +2181,7 @@ static void core_error(void *data, uint32_t id, int seq, int res, const char *me
 {
 	struct impl *impl = data;
 
-	pw_log(res == -ENOENT ? SPA_LOG_LEVEL_INFO : SPA_LOG_LEVEL_WARN,
+	pw_log(res == -ENOENT || res == -EINVAL ? SPA_LOG_LEVEL_INFO : SPA_LOG_LEVEL_WARN,
 			"error id:%u seq:%d res:%d (%s): %s",
 			id, seq, res, spa_strerror(res), message);
 

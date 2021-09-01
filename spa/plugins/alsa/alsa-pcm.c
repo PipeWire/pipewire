@@ -94,6 +94,7 @@ int spa_alsa_init(struct state *state)
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		state->is_iec958 = spa_strstartswith(state->props.device, "iec958");
 		state->is_hdmi = spa_strstartswith(state->props.device, "hdmi");
+		state->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_PCM;
 	}
 
 	if (state->open_ucm) {

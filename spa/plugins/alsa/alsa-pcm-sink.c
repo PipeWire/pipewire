@@ -205,8 +205,8 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_latencyOffsetNsec,   SPA_POD_Long(this->process_latency.ns),
 				0);
 
-			n_codecs = spa_alsa_get_iec958_codecs(this, codecs, SPA_N_ELEMENTS(codecs));
-			if (n_codecs > 0) {
+			if (this->is_iec958 || this->is_hdmi) {
+				n_codecs = spa_alsa_get_iec958_codecs(this, codecs, SPA_N_ELEMENTS(codecs));
 				spa_pod_builder_prop(&b, SPA_PROP_iec958Codecs, 0);
 				spa_pod_builder_array(&b, sizeof(uint32_t), SPA_TYPE_Id,
 						n_codecs, codecs);
@@ -337,11 +337,11 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			SPA_PROP_START_CUSTOM, SPA_POD_OPT_Bool(&p->use_chmap),
 			SPA_PROP_iec958Codecs, SPA_POD_OPT_Pod(&iec958_codecs));
 
-		if (iec958_codecs != NULL) {
+		if ((this->is_iec958 || this->is_hdmi) && iec958_codecs != NULL) {
 			uint32_t i, codecs[16], n_codecs;
 			n_codecs = spa_pod_copy_array(iec958_codecs, SPA_TYPE_Id,
 					codecs, SPA_N_ELEMENTS(codecs));
-			this->iec958_codecs = 0;
+			this->iec958_codecs = 1ULL << SPA_AUDIO_IEC958_CODEC_PCM;
 			for (i = 0; i < n_codecs; i++)
 				this->iec958_codecs |= 1ULL << codecs[i];
 		}

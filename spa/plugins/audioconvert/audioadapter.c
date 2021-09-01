@@ -916,6 +916,9 @@ static void follower_port_info(void *data,
 			uint32_t idx;
 
 			switch (info->params[i].id) {
+			case SPA_PARAM_EnumFormat:
+				idx = IDX_EnumFormat;
+				break;
 			case SPA_PARAM_Format:
 				idx = IDX_Format;
 				break;

@@ -723,6 +723,8 @@ impl_node_port_set_param(void *object,
 	case SPA_PARAM_Latency:
 	{
 		struct spa_latency_info info;
+		if (param == NULL)
+			return 0;
 		if ((res = spa_latency_parse(param, &info)) < 0)
 			return res;
 		if (direction == info.direction)

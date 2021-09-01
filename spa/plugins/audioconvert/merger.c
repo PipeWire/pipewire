@@ -499,6 +499,9 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
+	if (param == NULL)
+		return 0;
+
 	switch (id) {
 	case SPA_PARAM_PortConfig:
 	{

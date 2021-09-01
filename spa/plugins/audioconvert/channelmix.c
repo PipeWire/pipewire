@@ -516,6 +516,9 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	bool have_channel_volume = false;
 	bool have_soft_volume = false;
 
+	if (param == NULL)
+		return 0;
+
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_volume:

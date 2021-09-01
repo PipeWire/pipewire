@@ -3578,8 +3578,11 @@ static int fill_sink_info(struct client *client, struct message *m,
 				spa_zero(info[n_info]);
 				if (format_info_from_param(&info[n_info], p->param, index++) < 0)
 					break;
-				if (info[n_info].encoding == ENCODING_ANY)
+				if (info[n_info].encoding == ENCODING_ANY ||
+				    (info[n_info].encoding == ENCODING_PCM && info[n_info].props != NULL)) {
+					format_info_clear(&info[n_info]);
 					continue;
+				}
 				n_info++;
 			}
 		}
@@ -3590,6 +3593,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 			message_put(m,
 				TAG_FORMAT_INFO, &info[i],
 				TAG_INVALID);
+			format_info_clear(&info[i]);
 		}
 	}
 	return 0;

@@ -62,7 +62,7 @@ static void emit_node_info(struct state *this, bool full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
 		struct spa_dict_item items[4];
-		uint32_t n_items = 0;
+		uint32_t i, n_items = 0;
 		char latency[64];
 
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "alsa");
@@ -74,6 +74,14 @@ static void emit_node_info(struct state *this, bool full)
 		}
 		this->info.props = &SPA_DICT_INIT(items, n_items);
 
+		if (this->info.change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
+			for (i = 0; i < this->info.n_params; i++) {
+				if (this->params[i].user > 0) {
+					this->params[i].flags ^= SPA_PARAM_INFO_SERIAL;
+					this->params[i].user = 0;
+				}
+			}
+		}
 		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = old;
 	}
@@ -85,6 +93,16 @@ static void emit_port_info(struct state *this, bool full)
 	if (full)
 		this->port_info.change_mask = this->port_info_all;
 	if (this->port_info.change_mask) {
+		uint32_t i;
+
+		if (this->port_info.change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
+			for (i = 0; i < this->port_info.n_params; i++) {
+				if (this->port_params[i].user > 0) {
+					this->port_params[i].flags ^= SPA_PARAM_INFO_SERIAL;
+					this->port_params[i].user = 0;
+				}
+			}
+		}
 		spa_node_emit_port_info(&this->hooks,
 				SPA_DIRECTION_OUTPUT, 0, &this->port_info);
 		this->port_info.change_mask = old;
@@ -271,13 +289,11 @@ static void handle_process_latency(struct state *this,
 
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 	if (ns_changed)
-		this->params[NODE_Props].flags ^= SPA_PARAM_INFO_SERIAL;
-	this->params[NODE_ProcessLatency].flags ^= SPA_PARAM_INFO_SERIAL;
-	emit_node_info(this, false);
+		this->params[NODE_Props].user++;
+	this->params[NODE_ProcessLatency].user++;
 
 	this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-	this->port_params[PORT_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
-	emit_port_info(this, false);
+	this->port_params[PORT_Latency].user++;
 }
 
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
@@ -310,6 +326,9 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			SPA_PROP_START_CUSTOM, SPA_POD_OPT_Bool(&p->use_chmap));
 
 		handle_process_latency(this, &info);
+
+		emit_node_info(this, false);
+		emit_port_info(this, false);
 		break;
 	}
 	case SPA_PARAM_ProcessLatency:
@@ -319,6 +338,9 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			return res;
 
 		handle_process_latency(this, &info);
+
+		emit_node_info(this, false);
+		emit_port_info(this, false);
 		break;
 	}
 	default:
@@ -597,7 +619,7 @@ static int port_set_format(void *object,
 	if (this->have_format) {
 		this->port_params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
 		this->port_params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
-		this->port_params[PORT_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
+		this->port_params[PORT_Latency].user++;
 	} else {
 		this->port_params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 		this->port_params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
@@ -634,7 +656,7 @@ impl_node_port_set_param(void *object,
 
 		this->latency[info.direction] = info;
 		this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-		this->port_params[PORT_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
+		this->port_params[PORT_Latency].user++;
 		emit_port_info(this, false);
 		break;
 	}

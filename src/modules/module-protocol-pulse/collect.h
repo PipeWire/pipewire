@@ -63,6 +63,7 @@ struct device_info {
 	struct channel_map map;
 	struct volume_info volume_info;
 	unsigned int have_volume:1;
+	unsigned int have_iec958codecs:1;
 
 	uint32_t device;
 	uint32_t active_port;

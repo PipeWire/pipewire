@@ -281,6 +281,8 @@ void collect_device_info(struct pw_manager_object *device, struct pw_manager_obj
 				volume_parse_param(p->param, &dev_info->volume_info, monitor);
 				dev_info->have_volume = true;
 			}
+			dev_info->have_iec958codecs = spa_pod_find_prop(p->param,
+					NULL, SPA_PROP_iec958Codecs) != NULL;
 			break;
 		}
 	}

@@ -3488,6 +3488,8 @@ static int fill_sink_info(struct client *client, struct message *m,
 		flags |= SINK_HW_VOLUME_CTRL;
 	if (SPA_FLAG_IS_SET(dev_info.volume_info.flags, VOLUME_HW_MUTE))
 		flags |= SINK_HW_MUTE_CTRL;
+	if (dev_info.have_iec958codecs)
+		flags |= SINK_SET_FORMATS;
 
 	if (client->quirks & QUIRK_FORCE_S16_FORMAT)
 		dev_info.ss.format = SPA_AUDIO_FORMAT_S16;

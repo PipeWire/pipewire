@@ -34,7 +34,6 @@
 #include <spa/utils/dict.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
-#include <spa/debug/pod.h>
 #include <pipewire/log.h>
 #include <pipewire/properties.h>
 
@@ -217,8 +216,6 @@ static int do_extension_device_restore_save_formats(struct client *client,
 			SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
 			SPA_PROP_iec958Codecs, SPA_POD_Array(sizeof(uint32_t),
 				SPA_TYPE_Id, n_codecs, iec958codecs));
-
-	spa_debug_pod(0, NULL, param);
 
 	pw_node_set_param((struct pw_node*)o->proxy,
 			SPA_PARAM_Props, 0, param);

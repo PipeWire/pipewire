@@ -495,6 +495,117 @@ const char *pw_properties_get(const struct pw_properties *properties, const char
 	return pw_array_get_unchecked(&impl->items, index, struct spa_dict_item)->value;
 }
 
+/** Fetch a property as uint32_t.
+ *
+ * \param properties a \ref pw_properties
+ * \param key a key
+ * \param value set to the value of the property on success, otherwise left
+ * unmodified
+ * \return 0 on success or a negative errno otherwise
+ * \retval -ENOENT The property does not exist
+ * \retval -EINVAL The property is not in the expected format
+ */
+SPA_EXPORT
+int pw_properties_fetch_uint32(const struct pw_properties *properties, const char *key,
+			       uint32_t *value)
+{
+	const char *str = pw_properties_get(properties, key);
+
+	if (!str)
+		return -ENOENT;
+
+	return spa_atou32(str, value, 0) ? 0 : -EINVAL;
+}
+
+/** Fetch a property as int32_t
+ *
+ * \param properties a \ref pw_properties
+ * \param key a key
+ * \param value set to the value of the property on success, otherwise left
+ * unmodified
+ * \return 0 on success or a negative errno otherwise
+ * \retval -ENOENT The property does not exist
+ * \retval -EINVAL The property is not in the expected format
+ */
+SPA_EXPORT
+int pw_properties_fetch_int32(const struct pw_properties *properties, const char *key,
+			      int32_t *value)
+{
+	const char *str = pw_properties_get(properties, key);
+
+	if (!str)
+		return -ENOENT;
+
+	return spa_atoi32(str, value, 0) ? 0 : -EINVAL;
+}
+
+/** Fetch a property as uint64_t.
+ *
+ * \param properties a \ref pw_properties
+ * \param key a key
+ * \param value set to the value of the property on success, otherwise left
+ * unmodified
+ * \return 0 on success or a negative errno otherwise
+ * \retval -ENOENT The property does not exist
+ * \retval -EINVAL The property is not in the expected format
+ */
+SPA_EXPORT
+int pw_properties_fetch_uint64(const struct pw_properties *properties, const char *key,
+			       uint64_t *value)
+{
+	const char *str = pw_properties_get(properties, key);
+
+	if (!str)
+		return -ENOENT;
+
+	return spa_atou64(str, value, 0) ? 0 : -EINVAL;
+}
+
+/** Fetch a property as int64_t
+ *
+ * \param properties a \ref pw_properties
+ * \param key a key
+ * \param value set to the value of the property on success, otherwise left
+ * unmodified
+ * \return 0 on success or a negative errno otherwise
+ * \retval -ENOENT The property does not exist
+ * \retval -EINVAL The property is not in the expected format
+ */
+SPA_EXPORT
+int pw_properties_fetch_int64(const struct pw_properties *properties, const char *key,
+			      int64_t *value)
+{
+	const char *str = pw_properties_get(properties, key);
+
+	if (!str)
+		return -ENOENT;
+
+	return spa_atoi64(str, value, 0) ? 0 : -EINVAL;
+}
+
+/** Fetch a property as boolean value
+ *
+ * \param properties a \ref pw_properties
+ * \param key a key
+ * \param value set to the value of the property on success, otherwise left
+ * unmodified
+ * \return 0 on success or a negative errno otherwise
+ * \retval -ENOENT The property does not exist
+ * \retval -EINVAL The property is not in the expected format
+ */
+SPA_EXPORT
+int pw_properties_fetch_bool(const struct pw_properties *properties, const char *key,
+			     bool *value)
+{
+	const char *str = pw_properties_get(properties, key);
+
+	if (!str)
+		return -ENOENT;
+
+	*value = spa_atob(str);
+	return 0;
+}
+
 /** Iterate property values
  *
  * \param properties a \ref pw_properties

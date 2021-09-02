@@ -77,6 +77,7 @@ error:
  *
  * \param factory another proxy object that serves as a factory
  * \param type Type of the proxy object
+ * \param version Interface version
  * \param user_data_size size of user_data
  * \return A newly allocated proxy object or NULL on failure
  *

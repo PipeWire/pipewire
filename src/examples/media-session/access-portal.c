@@ -490,8 +490,7 @@ static void client_info_changed(struct client *client, const struct pw_client_in
 	}
 
 	is_portal = spa_dict_lookup(props, "pipewire.access.portal.is_portal");
-	if (is_portal != NULL &&
-	    (spa_streq(is_portal, "yes") || pw_properties_parse_bool(is_portal))) {
+	if (spa_streq(is_portal, "yes") || pw_properties_parse_bool(is_portal)) {
 		pw_log_info(NAME " %p: client %d is the portal itself",
 			     impl, client->id);
 		client->is_portal = true;

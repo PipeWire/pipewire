@@ -205,7 +205,7 @@ struct state {
 	struct spa_latency_info latency[2];
 	struct spa_process_latency_info process_latency;
 
-	uint32_t ucm_prefix_len;
+	const char *ucm_prefix;
 };
 
 int

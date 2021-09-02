@@ -68,6 +68,7 @@ struct spa_i18n_methods {
 			const char *msgid_plural, unsigned long int n);
 };
 
+SPA_FORMAT_ARG_FUNC(2)
 static inline const char *
 spa_i18n_text(struct spa_i18n *i18n, const char *msgid)
 {

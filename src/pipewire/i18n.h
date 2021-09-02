@@ -31,8 +31,8 @@ extern "C" {
 
 #include <spa/support/i18n.h>
 
-const char *pw_gettext(const char *msgid);
-const char *pw_ngettext(const char *msgid, const char *msgid_plural, unsigned long int n);
+SPA_FORMAT_ARG_FUNC(1) const char *pw_gettext(const char *msgid);
+SPA_FORMAT_ARG_FUNC(1) const char *pw_ngettext(const char *msgid, const char *msgid_plural, unsigned long int n);
 
 #define _(String)	(pw_gettext(String))
 #define N_(String)	(String)

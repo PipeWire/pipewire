@@ -195,6 +195,7 @@ struct spa_fraction {
 
 #ifdef __GNUC__
 #define SPA_PRINTF_FUNC(fmt, arg1) __attribute__((format(printf, fmt, arg1)))
+#define SPA_FORMAT_ARG_FUNC(arg1) __attribute__((format_arg(arg1)))
 #define SPA_ALIGNED(align) __attribute__((aligned(align)))
 #define SPA_DEPRECATED __attribute__ ((deprecated))
 #define SPA_EXPORT __attribute__((visibility("default")))
@@ -203,6 +204,7 @@ struct spa_fraction {
 #define SPA_NORETURN __attribute__ ((noreturn))
 #else
 #define SPA_PRINTF_FUNC(fmt, arg1)
+#define SPA_FORMAT_ARG_FUNC(arg1)
 #define SPA_ALIGNED(align)
 #define SPA_DEPRECATED
 #define SPA_EXPORT

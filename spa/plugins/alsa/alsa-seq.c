@@ -732,6 +732,7 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 	queue_elapsed = NSEC_TO_CLOCK(state->clock, state->queue_time) / corr;
 
 	err = ((int64_t)clock_elapsed - (int64_t) queue_elapsed);
+	err = SPA_CLAMP(err, -64, 64);
 
 	if (state->dll.bw == 0.0) {
 		spa_dll_set_bw(&state->dll, SPA_DLL_BW_MAX, state->threshold,

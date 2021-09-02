@@ -37,6 +37,22 @@
 #include "media-session.h"
 
 /** \page page_media_session_module_access_flatpak Media Session Module: Access Flatpak
+ *
+ * The Access Flatpak module manages permissions for flatpak clients. It
+ * monitors clients with a \ref PW_KEY_ACCESS value of `"flatpak"` and
+ * restricts those clients to the \ref PW_PERM_R and \ref PW_PERM_X
+ * permissions.
+ *
+ * Clients of \ref PW_KEY_MEDIA_CATEGORY type "Manager" are permitted full
+ * access (\ref PW_PERM_ALL).
+ *
+ * The value "flatpak" is typically assigned by the \ref page_module_access.
+ *
+ * ## Module Properties
+ *
+ * This module requires the following properties on the client object:
+ * - \ref PW_KEY_ACCESS
+ * - \ref PW_KEY_MEDIA_CATEGORY (optional, only matters for "Manager" objects)
  */
 #define NAME		"access-flatpak"
 #define SESSION_KEY	"access-flatpak"

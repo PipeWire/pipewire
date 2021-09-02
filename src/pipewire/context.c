@@ -33,6 +33,8 @@
 
 #include <spa/support/cpu.h>
 #include <spa/support/dbus.h>
+#include <spa/support/plugin.h>
+#include <spa/support/plugin-loader.h>
 #include <spa/node/utils.h>
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
@@ -66,6 +68,7 @@
 struct impl {
 	struct pw_context this;
 	struct spa_handle *dbus_handle;
+	struct spa_plugin_loader plugin_loader;
 	unsigned int recalc:1;
 	unsigned int recalc_pending:1;
 };
@@ -249,6 +252,39 @@ static int context_set_freewheel(struct pw_context *context, bool freewheel)
 	return res;
 }
 
+static struct spa_handle *impl_plugin_loader_load(void *object, const char *factory_name, const struct spa_dict *info)
+{
+	struct impl *impl = object;
+
+	if (impl == NULL || factory_name == NULL) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	return pw_context_load_spa_handle(&impl->this, factory_name, info);
+}
+
+static int impl_plugin_loader_unload(void *object, struct spa_handle *handle)
+{
+	spa_return_val_if_fail(object != NULL, -EINVAL);
+	return pw_unload_spa_handle(handle);
+}
+
+static const struct spa_plugin_loader_methods impl_plugin_loader = {
+        SPA_VERSION_PLUGIN_LOADER_METHODS,
+        .load = impl_plugin_loader_load,
+	.unload = impl_plugin_loader_unload,
+};
+
+static void init_plugin_loader(struct impl *impl)
+{
+	impl->plugin_loader.iface = SPA_INTERFACE_INIT(
+		SPA_TYPE_INTERFACE_PluginLoader,
+		SPA_VERSION_PLUGIN_LOADER,
+		&impl_plugin_loader,
+		impl);
+}
+
 
 /** Create a new context object
  *
@@ -398,11 +434,14 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	this->data_system = this->data_loop->system;
 	this->main_loop = main_loop;
 
+	init_plugin_loader(impl);
+
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, this->main_loop->system);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Loop, this->main_loop->loop);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_LoopUtils, this->main_loop->utils);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataSystem, this->data_system);
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DataLoop, this->data_loop->loop);
+	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_PluginLoader, &impl->plugin_loader);
 
 	if ((str = pw_properties_get(properties, "support.dbus")) == NULL ||
 	    pw_properties_parse_bool(str)) {
@@ -423,6 +462,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		}
 	}
 	this->n_support = n_support;
+	spa_assert(n_support <= SPA_N_ELEMENTS(this->support));
 
 	this->core = pw_context_create_core(this, pw_properties_copy(properties), 0);
 	if (this->core == NULL) {

@@ -95,6 +95,8 @@ struct impl {
 	struct spa_hook meta_listener;
 
 	struct pw_properties *properties;
+
+	unsigned int restore_bluetooth:1;
 };
 
 struct device {
@@ -399,7 +401,7 @@ static void object_update(void *data)
 
 	if (dev->obj->info && dev->obj->info->props &&
 	    (str = spa_dict_lookup(dev->obj->info->props, PW_KEY_DEVICE_BUS)) != NULL &&
-	    spa_streq(str, "bluetooth"))
+	    spa_streq(str, "bluetooth") && !impl->restore_bluetooth)
 		return;
 
 	if (dev->obj->obj.changed & SM_DEVICE_CHANGE_MASK_PARAMS)
@@ -479,6 +481,7 @@ int sm_default_profile_start(struct sm_media_session *session)
 {
 	struct impl *impl;
 	int res;
+	const char *str;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
@@ -492,6 +495,9 @@ int sm_default_profile_start(struct sm_media_session *session)
 		free(impl);
 		return -ENOMEM;
 	}
+
+	if ((str = pw_properties_get(session->props, "default-profile.restore-bluetooth")) != NULL)
+		impl->restore_bluetooth = pw_properties_parse_bool(str);
 
 	if ((res = sm_media_session_load_state(impl->session,
 					SESSION_KEY, impl->properties)) < 0)

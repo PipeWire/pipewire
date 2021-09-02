@@ -463,6 +463,12 @@ static struct spa_pod *build_route(struct spa_pod_builder *b, uint32_t id,
 		spa_pod_builder_prop(b, SPA_PROP_latencyOffsetNsec, 0);
 		spa_pod_builder_long(b, dev->latency_ns);
 
+		if (SPA_FLAG_IS_SET(dev->flags, ACP_DEVICE_IEC958)) {
+			spa_pod_builder_prop(b, SPA_PROP_iec958Codecs, 0);
+			spa_pod_builder_array(b, sizeof(uint32_t), SPA_TYPE_Id,
+					dev->n_codecs, dev->codecs);
+		}
+
 		spa_pod_builder_pop(b, &f[1]);
 	}
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_devices, 0);
@@ -603,6 +609,33 @@ static void on_latency_changed(void *data, struct acp_device *dev)
 	spa_device_emit_event(&this->hooks, event);
 }
 
+static void on_codecs_changed(void *data, struct acp_device *dev)
+{
+	struct impl *this = data;
+	struct spa_event *event;
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = { 0 };
+	struct spa_pod_frame f[1];
+
+	spa_log_info(this->log, "device %s codecs changed", dev->name);
+	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+	this->params[IDX_Route].user++;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_push_object(&b, &f[0],
+			SPA_TYPE_EVENT_Device, SPA_DEVICE_EVENT_ObjectConfig);
+	spa_pod_builder_prop(&b, SPA_EVENT_DEVICE_Object, 0);
+	spa_pod_builder_int(&b, dev->index);
+	spa_pod_builder_prop(&b, SPA_EVENT_DEVICE_Props, 0);
+	spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
+			SPA_PROP_iec958Codecs, SPA_POD_Array(sizeof(uint32_t),
+				SPA_TYPE_Id, dev->n_codecs, dev->codecs));
+	event = spa_pod_builder_pop(&b, &f[0]);
+
+	spa_device_emit_event(&this->hooks, event);
+}
+
 static int apply_device_props(struct impl *this, struct acp_device *dev, struct spa_pod *props)
 {
 	float volume = 0;
@@ -652,6 +685,21 @@ static int apply_device_props(struct impl *this, struct acp_device *dev, struct 
 					on_latency_changed(this, dev);
 					changed++;
 				}
+			}
+			break;
+		}
+		case SPA_PROP_iec958Codecs:
+		{
+			uint32_t codecs[32], n_codecs;
+
+			n_codecs = spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
+					codecs, SPA_N_ELEMENTS(codecs));
+			if (n_codecs != dev->n_codecs ||
+			    memcmp(dev->codecs, codecs, n_codecs * sizeof(uint32_t)) != 0) {
+				memcpy(dev->codecs, codecs, n_codecs * sizeof(uint32_t));
+				dev->n_codecs = n_codecs;
+				on_codecs_changed(this, dev);
+				changed++;
 			}
 			break;
 		}

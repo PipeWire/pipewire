@@ -165,20 +165,81 @@ static int do_extension_device_restore_read_formats(struct client *client,
 	return client_queue_message(client, data.reply);
 }
 
-static int do_extension_device_restore_save_formats(struct client *client,
-		uint32_t command, uint32_t tag, struct message *m)
+static int set_card_codecs(struct pw_manager_object *o, uint32_t id,
+		uint32_t device_id, uint32_t n_codecs, uint32_t *codecs)
 {
-	struct pw_manager *manager = client->manager;
-	struct selector sel;
-	struct pw_manager_object *o;
-	int res;
-	uint32_t type, sink_index;
-	uint8_t i, n_formats;
-	uint32_t codec, iec958codecs[32];
-	uint32_t n_codecs = 0;
+	char buf[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	struct spa_pod_frame f[2];
+	struct spa_pod *param;
+
+	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
+		return -EACCES;
+
+	if (o->proxy == NULL)
+		return -ENOENT;
+
+	spa_pod_builder_push_object(&b, &f[0],
+			SPA_TYPE_OBJECT_ParamRoute, SPA_PARAM_Route);
+	spa_pod_builder_add(&b,
+			SPA_PARAM_ROUTE_index, SPA_POD_Int(id),
+			SPA_PARAM_ROUTE_device, SPA_POD_Int(device_id),
+			0);
+	spa_pod_builder_prop(&b, SPA_PARAM_ROUTE_props, 0);
+	spa_pod_builder_push_object(&b, &f[1],
+			SPA_TYPE_OBJECT_Props,  SPA_PARAM_Props);
+	spa_pod_builder_add(&b,
+			SPA_PROP_iec958Codecs, SPA_POD_Array(sizeof(uint32_t),
+				SPA_TYPE_Id, n_codecs, codecs), 0);
+	spa_pod_builder_pop(&b, &f[1]);
+	spa_pod_builder_prop(&b, SPA_PARAM_ROUTE_save, 0);
+	spa_pod_builder_bool(&b, true);
+	param = spa_pod_builder_pop(&b, &f[0]);
+
+	pw_device_set_param((struct pw_device*)o->proxy,
+			SPA_PARAM_Route, 0, param);
+	return 0;
+}
+
+static int set_node_codecs(struct pw_manager_object *o, uint32_t n_codecs, uint32_t *codecs)
+{
 	char buf[1024];
 	struct spa_pod_builder b;
 	struct spa_pod *param;
+
+	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
+		return -EACCES;
+
+	if (o->proxy == NULL)
+		return -ENOENT;
+
+	spa_pod_builder_init(&b, buf, sizeof(buf));
+	param = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
+			SPA_PROP_iec958Codecs, SPA_POD_Array(sizeof(uint32_t),
+				SPA_TYPE_Id, n_codecs, codecs));
+
+	pw_node_set_param((struct pw_node*)o->proxy,
+			SPA_PARAM_Props, 0, param);
+
+	return 0;
+}
+
+
+static int do_extension_device_restore_save_formats(struct client *client,
+		uint32_t command, uint32_t tag, struct message *m)
+{
+	struct impl *impl = client->impl;
+	struct pw_manager *manager = client->manager;
+	struct selector sel;
+	struct pw_manager_object *o, *card = NULL;
+	struct pw_node_info *info;
+	int res;
+	uint32_t type, sink_index, card_id = SPA_ID_INVALID;
+	uint8_t i, n_formats;
+	uint32_t n_codecs = 0, codec, iec958codecs[32];
+	struct device_info dev_info;
+	const char *str;
 
 	if ((res = message_get(m,
 			TAG_U32, &type,
@@ -188,6 +249,9 @@ static int do_extension_device_restore_save_formats(struct client *client,
 		return -EPROTO;
 	if (n_formats < 1)
 		return -EPROTO;
+
+	if (type != DEVICE_TYPE_SINK)
+		return -ENOTSUP;
 
 	for (i = 0; i < n_formats; ++i) {
 		struct format_info format;
@@ -208,17 +272,29 @@ static int do_extension_device_restore_save_formats(struct client *client,
 	sel.type = pw_manager_object_is_sink;
 
 	o = select_object(manager, &sel);
-        if (o == NULL)
+	if (o == NULL || (info = o->info) == NULL || info->props == NULL)
 		return -ENOENT;
 
-	spa_pod_builder_init(&b, buf, sizeof(buf));
-	param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
-			SPA_PROP_iec958Codecs, SPA_POD_Array(sizeof(uint32_t),
-				SPA_TYPE_Id, n_codecs, iec958codecs));
+	dev_info = DEVICE_INFO_INIT(SPA_DIRECTION_INPUT);
 
-	pw_node_set_param((struct pw_node*)o->proxy,
-			SPA_PARAM_Props, 0, param);
+	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
+		card_id = (uint32_t)atoi(str);
+	if ((str = spa_dict_lookup(info->props, "card.profile.device")) != NULL)
+		dev_info.device = (uint32_t)atoi(str);
+	if (card_id != SPA_ID_INVALID) {
+		struct selector sel = { .id = card_id, .type = pw_manager_object_is_card, };
+		card = select_object(manager, &sel);
+	}
+	collect_device_info(o, card, &dev_info, false, &impl->defs);
+
+	if (card != NULL && dev_info.active_port != SPA_ID_INVALID) {
+		res = set_card_codecs(card, dev_info.active_port,
+				dev_info.device, n_codecs, iec958codecs);
+	} else {
+		res = set_node_codecs(o, n_codecs, iec958codecs);
+	}
+	if (res < 0)
+		return res;
 
 	return reply_simple_ack(client, tag);
 }

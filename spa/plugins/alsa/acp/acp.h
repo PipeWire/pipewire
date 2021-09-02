@@ -209,6 +209,7 @@ struct acp_device {
 #define ACP_DEVICE_HW_VOLUME	(1<<1)
 #define ACP_DEVICE_HW_MUTE	(1<<2)
 #define ACP_DEVICE_UCM_DEVICE	(1<<3)
+#define ACP_DEVICE_IEC958	(1<<4)
 	uint32_t flags;
 
 	const char *name;
@@ -227,6 +228,8 @@ struct acp_device {
 	struct acp_port **ports;
 
 	int64_t latency_ns;
+	uint32_t codecs[32];
+	uint32_t n_codecs;
 };
 
 struct acp_card_profile {

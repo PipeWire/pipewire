@@ -205,6 +205,7 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 		pa_alsa_mapping *m, uint32_t index)
 {
 	uint32_t i;
+	char **d;
 
 	dev->card = impl;
 	dev->mapping = m;
@@ -244,17 +245,20 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 	if (m->ucm_context.ucm) {
 		dev->ucm_context = &m->ucm_context;
 		if (impl->ucm.alibpref != NULL) {
-			char **d;
 			for (d = m->device_strings; *d; d++) {
 				if (pa_startswith(*d, impl->ucm.alibpref)) {
 					size_t plen = strlen(impl->ucm.alibpref);
 					size_t len = strlen(*d);
 					memmove(*d, (*d) + plen, len - plen + 1);
 					dev->device.flags |= ACP_DEVICE_UCM_DEVICE;
-					break;
 				}
 			}
 		}
+	}
+	for (d = m->device_strings; *d; d++) {
+		if (pa_startswith(*d, "iec958") ||
+		    pa_startswith(*d, "hdmi"))
+			dev->device.flags |= ACP_DEVICE_IEC958;
 	}
 	pa_dynarray_init(&dev->port_array, NULL);
 }

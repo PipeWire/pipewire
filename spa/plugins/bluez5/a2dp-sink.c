@@ -222,7 +222,7 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_latencyOffsetNsec),
 				SPA_PROP_INFO_name, SPA_POD_String("Latency offset (ns)"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(0, INT64_MIN, INT64_MAX));
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(0LL, INT64_MIN, INT64_MAX));
 			break;
 		default:
 			enum_codec = true;

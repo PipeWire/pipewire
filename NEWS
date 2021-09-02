@@ -1,3 +1,109 @@
+# PipeWire 0.3.35 (2021-09-09)
+
+This is a bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+## Highlights
+  - S/PDIF passthrough over optical or HDMI is now implemented.
+  - Some critical fixes to MIDI, draining of streams and various
+    modules.
+  - skypeforlinux should work better now after adding it to the
+    quirks database.
+  - Bluetooth codecs are now in separate plugins to make it easier
+    to ship them.
+
+## PipeWire
+  - Drain was fixed in pw-stream. In some cases it would not clear
+    the drain state correctly. Fixes the issue where speaker-test would
+    only play one channel.
+  - Loopback connections to a driver will now activate the driver. This
+    fixes an issue where MIDI connections between devices or some
+    applications (puredata) would not get any MIDI messages. (#1559)
+  - The audiomixer can now mix more formats. Together with the passthrough
+    improvements this can be used to avoid conversions to/from the DSP
+    format in some cases.
+  - Make sure we idle drivers when removing a node from it in all cases.
+    JACK clients could keep a driver node busy.
+  - Add new methods to accumulate object info. The old one was difficult
+    to use when applications need to accumulate multiple changes.
+  - A new interface to load modules has been added. Plugins can use this
+    to ask the host (PipeWire) to load spa plugins.
+  - Increase param buffer size to handle larger params. Nodes with a large
+    number of channels would sometimes not have properties. (#1574)
+  - Concurrent link negotiation that caused some links to not work,
+    is now avoided. This fixes monitor ports in Ardour6.
+  - Small tweaks to how the quantum and rate are handled when nodes move
+    between drivers. Make node.lock-quantum work with node.latency
+
+## PipeWire modules
+  - The convolver plugin in filter-chain has been optimized some more.
+  - The echo-cancel stream properties were improved so that it actually
+    can remember the streams it links to. (#1557)
+  - module-pulse-tunnel had the buffer attributes wrong and would cause
+    high latency with older pulseaudio servers. (#1434)
+  - module-roc had the properties configured wrongly, which would cause
+    it to not work at all in most cases. (#1538)
+  - There is now an example of a 7.1 virtual surround sink using the
+    hesuvi impulse responses.
+  - The convolver now supports dirac pulses as the IR.
+
+## ALSA
+  - UCM config is now cached per device, using up less memory. It also
+    temporarily works around a problem in alsa-lib that is now being
+    patched and rolled out. Should stop devices from disappearing when
+    logging out and back in. (#1553)
+  - Fix the MIDI clock rate matching. It was too sensitive to small
+    changes and would spiral out of control and break MIDI rather
+    quickly.
+
+## pipewire-media-session
+  - The media session can now save and restore IEC958 (S/PDIF) codecs
+    for the sinks.
+  - Passthrough of IEC958 (S/PDIF) content is now possible. If the client
+    and the sink contain a compatible set of codecs, an exclusive
+    connection can be made between client and sink to pass the encoded
+    S/PDIF content directly to the device.
+  - Use new introspection info update methods to suspend nodes in all
+    cases. Sometimes, nodes would fail to suspend because the state info
+    was not evaluated.
+  - The media session can now work in non-DSP mode, which will try to
+    avoid any audio conversions between client and device when possible.
+    But, this will also disable compatibility with JACK applications.
+
+## Bluetooth
+  - Bluetooth codecs are now compiled into sperate plugins which are
+    dynamically loaded. This makes it possible to change the plugin
+    implementation or ship plugins separately without having to recompile
+    the bluetooth module.
+
+## PulseAudio server
+  - Delay stream create reply until the stream is linked to a sink/source.
+  - The device-restore extension is now implemented. This makes it possible
+    to configure the IEC958 (S/PDIF) codecs supported by the sink with
+    pavucontrol.
+  - skypeforlinux now uses the same quirks as teams to make the sinks
+    show up in all cases. This fixes the issue of not being able to hear
+    the remote end in skypeforlinux.
+
+## JACK
+  - Improve catia and carla compatibility by caching objects a little longer
+    after being removed. (#1531)
+  - JACK ports now notify the negotiated format correctly.
+  - A potential deadlock was fixed when multiple threads would perform a
+    call that would require a roundtrip.
+  - Improve bufsize callback, it should not be called right after doing
+    activate() but only when the buffersize changes later.
+  - Add tweak to disable the process lock. Some older apps might not
+    expect it. (#1576)
+
+## Docs
+  - man pages are now generated with rst2man.
+  - DMA-BUF docs were updated.
+  - Documentation updates.
+
+
+Older versions:
+
 # PipeWire 0.3.34 (2021-08-26)
 
 This is a bugfix release that is API and ABI compatible
@@ -105,9 +211,6 @@ with previous 0.3.x releases.
   - Small stability improvements when connecting/disconnecting in
     Ardour.
 
-
-
-Older versions:
 
 # PipeWire 0.3.33 (2021-08-05)
 

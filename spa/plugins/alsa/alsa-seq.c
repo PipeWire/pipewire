@@ -700,7 +700,7 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 {
 	snd_seq_queue_status_t *status;
 	const snd_seq_real_time_t* queue_time;
-	uint64_t queue_real, position;
+	uint64_t queue_real, duration;
 	double err, corr;
 	uint64_t clock_elapsed, queue_elapsed;
 
@@ -709,10 +709,12 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 		state->rate = clock->rate;
 		state->duration = clock->duration;
 		state->threshold = state->duration;
-		position = clock->position;
+		duration = clock->duration;
 	} else {
-		position = 0;
+		duration = 1024;
 	}
+
+	corr = 1.0 - (state->dll.z2 + state->dll.z3);
 
 	/* take queue time */
 	snd_seq_queue_status_alloca(&status);
@@ -720,16 +722,16 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 	queue_time = snd_seq_queue_status_get_real_time(status);
 	queue_real = SPA_TIMESPEC_TO_NSEC(queue_time);
 
-	if (state->queue_base == 0) {
-		state->queue_base = nsec - queue_real;
-		state->clock_base = position;
-	}
+	if (state->queue_base == 0)
+		queue_elapsed = 0;
+	else
+		queue_elapsed = (queue_real - state->queue_base) / corr;
 
-	corr = 1.0 - (state->dll.z2 + state->dll.z3);
+	state->queue_base = queue_real;
+	state->queue_time = queue_real;
 
-	clock_elapsed = position - state->clock_base;
-	state->queue_time = nsec - state->queue_base;
-	queue_elapsed = NSEC_TO_CLOCK(state->clock, state->queue_time) / corr;
+	queue_elapsed = NSEC_TO_CLOCK(state->clock, queue_elapsed);
+	clock_elapsed = duration;
 
 	err = ((int64_t)clock_elapsed - (int64_t) queue_elapsed);
 	err = SPA_CLAMP(err, -64, 64);

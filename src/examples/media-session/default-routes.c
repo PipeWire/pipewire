@@ -136,6 +136,26 @@ static const char *channel_to_name(uint32_t channel)
 	return "UNK";
 }
 
+static uint32_t iec958Codec_from_name(const char *name)
+{
+	int i;
+	for (i = 0; spa_type_audio_iec958_codec[i].name; i++) {
+		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_iec958_codec[i].name)))
+			return spa_type_audio_iec958_codec[i].type;
+	}
+	return SPA_AUDIO_IEC958_CODEC_UNKNOWN;
+}
+
+static const char *iec958Codec_to_name(uint32_t codec)
+{
+	int i;
+	for (i = 0; spa_type_audio_iec958_codec[i].name; i++) {
+		if (spa_type_audio_iec958_codec[i].type == codec)
+			return spa_debug_type_short_name(spa_type_audio_iec958_codec[i].name);
+	}
+	return "UNKNOWN";
+}
+
 struct route_info {
 	uint32_t index;
 	uint32_t generation;
@@ -315,6 +335,21 @@ static char *serialize_props(const struct device *dev, const struct spa_pod *par
 			fprintf(f, "%s \"latencyOffsetNsec\": %"PRIi64, (comma ? "," : ""), delay);
 			break;
 		}
+		case SPA_PROP_iec958Codecs:
+		{
+			uint32_t i, codecs[64], n_codecs;
+
+			n_codecs = spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
+					codecs, sizeof(codecs));
+			if (n_codecs == 0)
+				continue;
+
+			fprintf(f, "%s \"iec958Codecs\": [", (comma ? "," : ""));
+			for (i = 0; i < n_codecs; i++)
+				fprintf(f, "%s \"%s\"", (i == 0 ? "" : ","), iec958Codec_to_name(codecs[i]));
+			fprintf(f, " ]");
+			break;
+		}
 		default:
 			continue;
 		}
@@ -408,6 +443,26 @@ static int restore_route_params(struct device *dev, const char *val, const struc
                                 continue;
 			spa_pod_builder_prop(&b, SPA_PROP_latencyOffsetNsec, 0);
 			spa_pod_builder_long(&b, (int64_t)SPA_CLAMP(delay, INT64_MIN, INT64_MAX));
+		}
+		else if (spa_streq(key, "iec958Codecs")) {
+			uint32_t n_codecs;
+			uint32_t codecs[64];
+
+			if (spa_json_enter_array(&it[1], &it[2]) <= 0)
+				continue;
+
+			for (n_codecs = 0; n_codecs < 64; n_codecs++) {
+				char name[16];
+                                if (spa_json_get_string(&it[2], name, sizeof(name)) <= 0)
+                                        break;
+				codecs[n_codecs] = iec958Codec_from_name(name);
+                        }
+			if (n_codecs == 0)
+				continue;
+
+			spa_pod_builder_prop(&b, SPA_PROP_iec958Codecs, 0);
+			spa_pod_builder_array(&b, sizeof(uint32_t), SPA_TYPE_Id,
+					n_codecs, codecs);
 		} else {
 			if (spa_json_next(&it[1], &value) <= 0)
                                 break;

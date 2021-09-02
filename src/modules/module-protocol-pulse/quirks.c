@@ -43,6 +43,7 @@ static const char quirks_rules[] =
 "#\n"
 "["
 "    { application.process.binary = teams, quirks = [ force-s16-info ] },"
+"    { application.process.binary = skypeforlinux, quirks = [ force-s16-info ] },"
 "    { application.process.binary = firefox, quirks = [ remove-capture-dont-move ] },"
 "]";
 

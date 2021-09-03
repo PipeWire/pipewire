@@ -442,10 +442,15 @@ if doxygen.found()
   subdir('doc')
 endif
 
-xmltoman = find_program('xmltoman', required : get_option('man'))
-summary({'Manpage generation': xmltoman.found()}, bool_yn: true)
-if xmltoman.found()
-  subdir('man')
+if not get_option('man').disabled()
+  rst2man = find_program('rst2man', required: false)
+  if not rst2man.found()
+    rst2man = find_program('rst2man.py', required: get_option('man'))
+  endif
+  summary({'Manpage generation': rst2man.found()}, bool_yn: true)
+  if rst2man.found()
+    subdir('man')
+  endif
 endif
 
 setenv = find_program('pw-uninstalled.sh')

@@ -1,0 +1,44 @@
+.. This file is part of PipeWire.
+
+pw-mon
+######
+
+--------------------
+The PipeWire monitor
+--------------------
+
+:Manual section: 1
+:Manual group: General Commands Manual
+
+SYNOPSIS
+========
+
+| **pw-mon** [*options*]
+
+DESCRIPTION
+===========
+
+Monitor objects on the PipeWire instance.
+
+OPTIONS
+=======
+
+-r | --remote=NAME
+  The name the *remote* instance to monitor. If left unspecified,
+  a connection is made to the default PipeWire instance.
+
+-h | --help
+  Show help.
+
+--version
+  Show version information.
+
+AUTHORS
+=======
+
+The PipeWire Developers <@PACKAGE_BUGREPORT@>; PipeWire is available from @PACKAGE_URL@
+
+SEE ALSO
+========
+
+``pipewire(1)``,

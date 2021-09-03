@@ -1,0 +1,141 @@
+.. This file is part of PipeWire.
+
+pw-cli
+######
+
+-----------------------------------
+The PipeWire Command Line Interface
+-----------------------------------
+
+:Manual section: 1
+:Manual group: General Commands Manual
+
+SYNOPSIS
+========
+
+| **pw-cli** [*command*]
+
+DESCRIPTION
+===========
+
+Interact with a PipeWire instance.
+
+When a command is given, **pw-cli**
+will execute the command and exit
+
+When no command is given, **pw-cli**
+starts an interactive session with the default PipeWire instance
+*pipewire-0*.
+
+Connections to other, remote instances can be made. The current instance
+name is displayed at the prompt. Some commands operate on the current
+instance and some on the local instance.
+
+Use the 'help' command to list the available commands.
+
+GENERAL COMMANDS
+================
+
+help
+  Show a quick help on the commands available.
+
+MODULE MANAGEMENT
+=================
+
+| Modules are loaded and unloaded in the local instance and can add functionality or objects to the local instance.
+
+load-module *name* [*arguments...*]
+  Load a module specified by its name and arguments. For most
+  modules it is OK to be loaded more than once.
+
+  This command returns a module variable that can be used
+  to unload the module.
+
+unload-module *module-var*
+  Unload a module, specified either by its variable.
+
+OBJECT INTROSPECTION
+====================
+
+list-objects
+  List the objects of the current instance.
+
+  Objects are listed with their *id*, *type* and *version*.
+
+info *id* | *all*
+  Get information about a specific object or *all* objects.
+
+  Requesting info about an object will also notify you of changes.
+
+WORKING WITH REMOTES
+====================
+
+connect [*remote-name*]
+  Connect to a remote instance and make this the new current
+  instance.
+
+  If no remote name is specified, a connection is made to
+  the default remote instance, usually *pipewire-0*.
+
+  This command returns a remote var that can be used to disconnect or
+  switch remotes.
+
+disconnect [*remote-var*]
+  Disconnect from a *remote instance*.
+
+  If no remote name is specified, the current instance is disconnected.
+
+list-remotes
+  List all *remote instances*.
+
+switch-remote [*remote-var*]
+  Make the specified *remote* the current instance.
+
+  If no remote name is specified, the local instance is made current.
+
+NODE MANAGEMENT
+===============
+
+create-node *factory-name* [*properties...*]
+  Create a node from a factory in the current instance.
+
+  Properties are key=value pairs separated by whitespace.
+
+  This command returns a *node variable*.
+
+destroy-node *node-var*
+  Destroy a node.
+
+export-node *node-id* [*remote-var*]
+  Export a node from the local instance to the specified instance.
+  When no instance is specified, the node will be exported to the current
+  instance.
+
+LINK MANAGEMENT
+===============
+
+create-link *node-id* *port-id* *node-id* *port-id* [*properties...*]
+  Create a link between 2 nodes and ports.
+
+  Port *ids* can be *-1* to automatically select an available port.
+
+  Properties are key=value pairs separated by whitespace.
+
+  This command returns a *link variable*.
+
+destroy-link *link-var*
+  Destroy a link.
+
+EXAMPLES
+========
+
+AUTHORS
+=======
+
+The PipeWire Developers <@PACKAGE_BUGREPORT@>; PipeWire is available from @PACKAGE_URL@
+
+SEE ALSO
+========
+
+``pipewire(1)``,
+``pw-mon(1)``,

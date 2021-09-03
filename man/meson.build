@@ -9,32 +9,31 @@ manpage_conf.set('top_srcdir', meson.source_root())
 manpage_conf.set('top_builddir', meson.build_root())
 
 manpages = [
-  'pipewire.1.xml.in',
-  'pipewire.conf.5.xml.in',
-  'pw-cat.1.xml.in',
-  'pw-cli.1.xml.in',
-  'pw-dot.1.xml.in',
-  'pw-metadata.1.xml.in',
-  'pw-mididump.1.xml.in',
-  'pw-mon.1.xml.in',
-  'pw-profiler.1.xml.in',
+  'pipewire.1.rst.in',
+  'pipewire.conf.5.rst.in',
+  'pw-cat.1.rst.in',
+  'pw-cli.1.rst.in',
+  'pw-dot.1.rst.in',
+  'pw-metadata.1.rst.in',
+  'pw-mididump.1.rst.in',
+  'pw-mon.1.rst.in',
+  'pw-profiler.1.rst.in',
 ]
 
 if not get_option('pipewire-jack').disabled()
-  manpages += 'pw-jack.1.xml.in'
+  manpages += 'pw-jack.1.rst.in'
 endif
 
 foreach m : manpages
-  file = m.split('.xml.in').get(0)
-  xml = configure_file(input : m,
-		       output : file + '.xml',
+  file = m.split('.rst.in').get(0)
+  rst = configure_file(input : m,
+		       output : file + '.rst',
 		       configuration : manpage_conf)
   section = file.split('.').get(-1)
   custom_target(file + '.target',
 		output : file,
-		input : xml,
-		command : [xmltoman, '@INPUT@'],
-		capture : true,
+		input : rst,
+		command : [rst2man, '@INPUT@', '@OUTPUT@'],
 		install : true,
 		install_dir : get_option('mandir') / 'man' + section)
 endforeach

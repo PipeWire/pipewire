@@ -1,0 +1,50 @@
+.. This file is part of PipeWire.
+
+pipewire
+########
+
+-------------------------
+The PipeWire media server
+-------------------------
+
+:Manual section: 1
+:Manual group: General Commands Manual
+
+SYNOPSIS
+========
+
+| **pipewire** [*options*]
+
+DESCRIPTION
+===========
+
+PipeWire is a service that facilitates sharing of multimedia content
+between devices and applications.
+
+The **pipewire** daemon reads a config file that is further documented in
+``pipewire.conf(5)`` manual page.
+
+OPTIONS
+=======
+
+-h | --help
+  Show help.
+
+ --version
+  Show version information.
+
+-c | --config=FILE
+  Load the given config file (Default: pipewire.conf).
+
+AUTHORS
+=======
+
+The PipeWire Developers <@PACKAGE_BUGREPORT@>;
+PipeWire is available from @PACKAGE_URL@
+
+SEE ALSO
+========
+
+``pw-mon(1)``,
+``pw-cat(1)``,
+``pw-cli(1)``,

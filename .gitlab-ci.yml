@@ -22,7 +22,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2021-08-01.0'
+    FDO_DISTRIBUTION_TAG: '2021-09-03.0'
     FDO_DISTRIBUTION_VERSION: '33'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
@@ -42,6 +42,7 @@ include:
       libva-devel
       libX11-devel
       pulseaudio-libs-devel
+      python3-docutils
       sbc-devel
       ShellCheck
       SDL2-devel
@@ -50,7 +51,6 @@ include:
       webrtc-audio-processing-devel
       which
       valgrind
-      xmltoman
       ninja-build
       pkgconf
       python3-pip
@@ -60,7 +60,7 @@ include:
 .ubuntu:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2021-08-01.0'
+    FDO_DISTRIBUTION_TAG: '2021-09-03.0'
     FDO_DISTRIBUTION_VERSION: '20.04'
     FDO_DISTRIBUTION_PACKAGES: >-
       debhelper-compat
@@ -82,8 +82,8 @@ include:
       libx11-dev
       ninja-build
       pkg-config
+      python3-docutils
       systemd
-      xmltoman
       python3-pip
     FDO_DISTRIBUTION_EXEC: >-
       pip3 install meson

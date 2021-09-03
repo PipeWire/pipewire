@@ -1,0 +1,91 @@
+.. This file is part of PipeWire.
+
+pipewire.conf
+#############
+
+--------------------------------------
+The PipeWire server configuration file
+--------------------------------------
+
+:Manual section: 5
+:Manual group: File Formats Manual
+
+.. _synopsis:
+
+SYNOPSIS
+========
+
+*$XDG_CONFIG_HOME/pipewire/pipewire.conf*
+
+*@PIPEWIRE_CONFIG_DIR@/pipewire.conf*
+
+*@PIPEWIRE_CONFDATADIR@/pipewire.conf*
+
+DESCRIPTION
+===========
+
+PipeWire is a service that facilitates sharing of multimedia content
+between devices and applications.
+
+On startup, the daemon reads a configuration file to configure
+itself. It executes a series of commands listed in the config
+file.
+
+The config files are loaded in the order listed in the SYNOPSIS_.
+The environment variables ``PIPEWIRE_CONFIG_DIR``, ``PIPEWIRE_CONFIG_PREFIX``
+and ``PIPEWIRE_CONFIG_NAME`` can be used to specify an alternative config
+directory, subdirectory and file respectively.
+
+CONFIGURATION FILE FORMAT
+=========================
+
+The configuration file format is grouped into sections. A section
+is either a dictionary, {}, or an array, []. Dictionary and array
+entries are separated by whitespace and may be simple value
+assignment, an array or a dictionary. For example:
+
+name = value # simple assignment
+
+name = { key1 = value1 key2 = value2 } # a dictionary with two
+entries
+
+name = [ value1 value2 ] # an array with two entries
+
+name = [ { k = v1 } { k = v2 } ] # an array of dictionaries
+
+CONFIGURATION FILE SECTIONS
+===========================
+
+context.properties
+  Dictionary. These properties configure the PipeWire instance.
+
+context.spa-libs
+  Dictionary. Maps plugin features with globs to a spa library.
+
+context.modules
+  Array of dictionaries. Each entry in the array is a dictionary with the *name* of the module to load,
+  including optional *args* and *flags*. Most modules support being loaded
+  multiple times.
+
+context.objects
+  Array of dictionaries. Each entry in the array is a dictionary containing the *factory* to create an
+  object from and optional extra arguments specific to that factory.
+
+context.exec
+  Array of dictionaries. Each entry in the array is dictionary containing the *path* of a program to
+  execute on startup and optional *args*.
+
+  This array used to contain an entry to start the session manager but this mode
+  of operation has since been demoted to development aid. Avoid starting a
+  session manager in this way in production environment.
+
+AUTHORS
+=======
+
+The PipeWire Developers <@PACKAGE_BUGREPORT@>; PipeWire is available from @PACKAGE_URL@
+
+SEE ALSO
+========
+
+``pipewire(1)``,
+``pw-mon(1)``,

@@ -188,8 +188,10 @@ static int pause_node(struct pw_impl_node *this)
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = 0;
 
-	pw_log_debug(NAME" %p: pause node state:%s pause-on-idle:%d", this,
-			pw_node_state_as_string(this->info.state), impl->pause_on_idle);
+	pw_log_debug(NAME" %p: pause node state:%s pending:%s pause-on-idle:%d", this,
+			pw_node_state_as_string(this->info.state),
+			pw_node_state_as_string(impl->pending),
+			impl->pause_on_idle);
 
 	if (impl->pending <= PW_NODE_STATE_IDLE)
 		return 0;
@@ -1712,7 +1714,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_impl_port *port;
 	struct pw_impl_node *follower;
-	bool active;
+	bool active, had_driver;
 
 	active = node->active;
 	node->active = false;
@@ -1725,6 +1727,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	pw_impl_node_emit_destroy(node);
 
 	pw_log_debug(NAME" %p: driver node %p", impl, node->driver_node);
+	had_driver = node != node->driver_node;
 
 	/* remove ourself as a follower from the driver node */
 	spa_list_remove(&node->follower_link);
@@ -1757,8 +1760,9 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 		pw_global_destroy(node->global);
 	}
 
-	if (active)
-		pw_context_recalc_graph(node->context, "active node destroy");
+	if (active || had_driver)
+		pw_context_recalc_graph(node->context,
+				"active node destroy");
 
 	pw_log_debug(NAME" %p: free", node);
 	pw_impl_node_emit_free(node);
@@ -2064,11 +2068,12 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	enum pw_node_state old = impl->pending;
 
-	pw_log_debug(NAME" %p: set state (%s) %s -> %s, active %d", node,
+	pw_log_debug(NAME" %p: set state (%s) %s -> %s, active %d pause_on_idle:%d", node,
 			pw_node_state_as_string(node->info.state),
 			pw_node_state_as_string(old),
 			pw_node_state_as_string(state),
-			node->active);
+			node->active,
+			impl->pause_on_idle);
 
 	if (old != state)
 		pw_impl_node_emit_state_request(node, state);

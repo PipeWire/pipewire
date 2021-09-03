@@ -3203,20 +3203,24 @@ char *jack_get_uuid_for_client_name (jack_client_t *client,
 	struct client *c = (struct client *) client;
 	struct object *o;
 	char *uuid = NULL;
+	bool monitor;
 
 	spa_return_val_if_fail(c != NULL, NULL);
 	spa_return_val_if_fail(client_name != NULL, NULL);
 
+	monitor = spa_strendswith(client_name, MONITOR_EXT);
+
 	pthread_mutex_lock(&c->context.lock);
 
 	spa_list_for_each(o, &c->context.nodes, link) {
-		if (spa_streq(o->node.name, client_name)) {
+		if (spa_streq(o->node.name, client_name) ||
+		    (monitor && spa_strneq(o->node.name, client_name,
+			    strlen(client_name) - strlen(MONITOR_EXT)))) {
 			uuid = spa_aprintf( "%" PRIu64, client_make_uuid(o->id));
-			pw_log_debug(NAME" %p: name %s -> %s",
-					client, client_name, uuid);
 			break;
 		}
 	}
+	pw_log_debug(NAME" %p: name %s -> %s", client, client_name, uuid);
 	pthread_mutex_unlock(&c->context.lock);
 	return uuid;
 }

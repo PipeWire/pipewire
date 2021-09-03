@@ -444,7 +444,6 @@ static void free_object(struct client *c, struct object *o)
 
 	pthread_mutex_lock(&globals.lock);
 	spa_list_append(&globals.free_objects, &o->link);
-	o->type = INTERFACE_Invalid;
 	o->client = NULL;
 	pthread_mutex_unlock(&globals.lock);
 }
@@ -643,17 +642,17 @@ static struct object *find_port(struct client *c, const char *name)
 	return NULL;
 }
 
-static struct object *find_id(struct client *c, uint32_t id)
+static struct object *find_id(struct client *c, uint32_t id, bool valid)
 {
 	struct object *o = pw_map_lookup(&c->context.globals, id);
-	if (o != NULL && o->type == INTERFACE_Invalid)
-		return NULL;
-	return o;
+	if (o != NULL && (!valid || o->client == c))
+		return o;
+	return NULL;
 }
 
-static struct object *find_type(struct client *c, uint32_t id, uint32_t type)
+static struct object *find_type(struct client *c, uint32_t id, uint32_t type, bool valid)
 {
-	struct object *o = find_id(c, id);
+	struct object *o = find_id(c, id, valid);
 	if (o != NULL && o->type == type)
 		return o;
 	return NULL;
@@ -2404,7 +2403,7 @@ static int metadata_property(void *object, uint32_t id,
 				c->metadata->default_audio_source[0] = '\0';
 		}
 	} else {
-		if ((o = find_id(c, id)) == NULL)
+		if ((o = find_id(c, id, true)) == NULL)
 			return -EINVAL;
 
 		switch (o->type) {
@@ -2624,7 +2623,7 @@ static void registry_event_global(void *data, uint32_t id,
 			spa_list_append(&c->context.ports, &o->link);
 			pthread_mutex_unlock(&c->context.lock);
 
-			if ((ot = find_type(c, node_id, INTERFACE_Node)) == NULL)
+			if ((ot = find_type(c, node_id, INTERFACE_Node, true)) == NULL)
 				goto exit_free;
 
 			if (is_monitor && !c->merge_monitor)
@@ -2696,14 +2695,14 @@ static void registry_event_global(void *data, uint32_t id,
 			goto exit_free;
 		o->port_link.src = pw_properties_parse_int(str);
 
-		if (find_type(c, o->port_link.src, INTERFACE_Port) == NULL)
+		if (find_type(c, o->port_link.src, INTERFACE_Port, true) == NULL)
 			goto exit_free;
 
 		if ((str = spa_dict_lookup(props, PW_KEY_LINK_INPUT_PORT)) == NULL)
 			goto exit_free;
 		o->port_link.dst = pw_properties_parse_int(str);
 
-		if (find_type(c, o->port_link.dst, INTERFACE_Port) == NULL)
+		if (find_type(c, o->port_link.dst, INTERFACE_Port, true) == NULL)
 			goto exit_free;
 
 		pw_log_debug(NAME" %p: add link %d %d->%d", c, id,
@@ -2787,7 +2786,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 
 	pw_log_debug(NAME" %p: removed: %u", c, id);
 
-	if ((o = find_id(c, id)) == NULL)
+	if ((o = find_id(c, id, true)) == NULL)
 		return;
 
 	if (o->proxy) {
@@ -2818,8 +2817,8 @@ static void registry_event_global_remove(void *object, uint32_t id)
 		graph_changed = true;
 		break;
 	case INTERFACE_Link:
-		if (find_type(c, o->port_link.src, INTERFACE_Port) != NULL &&
-		    find_type(c, o->port_link.dst, INTERFACE_Port) != NULL) {
+		if (find_type(c, o->port_link.src, INTERFACE_Port, true) != NULL &&
+		    find_type(c, o->port_link.dst, INTERFACE_Port, true) != NULL) {
 			pw_log_info(NAME" %p: link %u %d -> %d removed", c, o->id,
 					o->port_link.src, o->port_link.dst);
 			do_callback(c, connect_callback,
@@ -4266,9 +4265,9 @@ const char ** jack_port_get_all_connections (const jack_client_t *client,
 	pthread_mutex_lock(&c->context.lock);
 	spa_list_for_each(l, &c->context.links, link) {
 		if (l->port_link.src == o->id)
-			p = find_type(c, l->port_link.dst, INTERFACE_Port);
+			p = find_type(c, l->port_link.dst, INTERFACE_Port, true);
 		else if (l->port_link.dst == o->id)
-			p = find_type(c, l->port_link.src, INTERFACE_Port);
+			p = find_type(c, l->port_link.src, INTERFACE_Port, true);
 		else
 			continue;
 
@@ -5088,7 +5087,7 @@ jack_port_t * jack_port_by_id (jack_client_t *client,
 
 	pthread_mutex_lock(&c->context.lock);
 
-	res = find_type(c, port_id, INTERFACE_Port);
+	res = find_type(c, port_id, INTERFACE_Port, false);
 	pw_log_debug(NAME" %p: port %d -> %p", c, port_id, res);
 
 	pthread_mutex_unlock(&c->context.lock);

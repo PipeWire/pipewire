@@ -1,7 +1,7 @@
 manpage_conf = configuration_data()
 manpage_conf.set('PACKAGE_NAME', meson.project_name())
 manpage_conf.set('PACKAGE_VERSION', meson.project_version())
-manpage_conf.set('PACKAGE_URL', 'http://pipewire.org')
+manpage_conf.set('PACKAGE_URL', 'https://pipewire.org')
 manpage_conf.set('PACKAGE_BUGREPORT', 'https://gitlab.freedesktop.org/pipewire/pipewire/issues')
 manpage_conf.set('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
 manpage_conf.set('PIPEWIRE_CONFDATADIR', pipewire_confdatadir)

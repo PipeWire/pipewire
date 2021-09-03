@@ -89,7 +89,11 @@ struct pw_node_info {
 
 struct pw_node_info *
 pw_node_info_update(struct pw_node_info *info,
-		    const struct pw_node_info *update);
+		const struct pw_node_info *update);
+
+struct pw_node_info *
+pw_node_info_merge(struct pw_node_info *info,
+		const struct pw_node_info *update, bool reset);
 
 void
 pw_node_info_free(struct pw_node_info *info);

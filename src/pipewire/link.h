@@ -87,7 +87,11 @@ struct pw_link_info {
 
 struct pw_link_info *
 pw_link_info_update(struct pw_link_info *info,
-		    const struct pw_link_info *update);
+		const struct pw_link_info *update);
+
+struct pw_link_info *
+pw_link_info_merge(struct pw_link_info *info,
+		const struct pw_link_info *update, bool reset);
 
 void
 pw_link_info_free(struct pw_link_info *info);

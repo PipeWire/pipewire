@@ -51,11 +51,14 @@ struct pw_device_info {
 	uint32_t n_params;		/**< number of items in \a params */
 };
 
-/** Update and existing \ref pw_device_info with \a update */
+/** Update and existing \ref pw_device_info with \a update and reset */
 struct pw_device_info *
 pw_device_info_update(struct pw_device_info *info,
-		      const struct pw_device_info *update);
-
+		const struct pw_device_info *update);
+/** Merge and existing \ref pw_device_info with \a update */
+struct pw_device_info *
+pw_device_info_merge(struct pw_device_info *info,
+		const struct pw_device_info *update, bool reset);
 /** Free a \ref pw_device_info */
 void pw_device_info_free(struct pw_device_info *info);
 

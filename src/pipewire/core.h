@@ -87,11 +87,14 @@ struct pw_core_info {
 #include <pipewire/properties.h>
 #include <pipewire/proxy.h>
 
-/** Update and existing \ref pw_core_info with \a update */
+/** Update an existing \ref pw_core_info with \a update with reset */
 struct pw_core_info *
 pw_core_info_update(struct pw_core_info *info,
-		    const struct pw_core_info *update);
-
+		const struct pw_core_info *update);
+/** Update an existing \ref pw_core_info with \a update */
+struct pw_core_info *
+pw_core_info_merge(struct pw_core_info *info,
+		const struct pw_core_info *update, bool reset);
 /** Free a \ref pw_core_info  */
 void pw_core_info_free(struct pw_core_info *info);
 

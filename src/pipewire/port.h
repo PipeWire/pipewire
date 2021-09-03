@@ -74,7 +74,11 @@ struct pw_port_info {
 
 struct pw_port_info *
 pw_port_info_update(struct pw_port_info *info,
-		    const struct pw_port_info *update);
+		const struct pw_port_info *update);
+
+struct pw_port_info *
+pw_port_info_merge(struct pw_port_info *info,
+		const struct pw_port_info *update, bool reset);
 
 void
 pw_port_info_free(struct pw_port_info *info);

@@ -56,8 +56,10 @@ struct pw_factory_info {
 
 struct pw_factory_info *
 pw_factory_info_update(struct pw_factory_info *info,
-		       const struct pw_factory_info *update);
-
+		const struct pw_factory_info *update);
+struct pw_factory_info *
+pw_factory_info_merge(struct pw_factory_info *info,
+		const struct pw_factory_info *update, bool reset);
 void
 pw_factory_info_free(struct pw_factory_info *info);
 

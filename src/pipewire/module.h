@@ -51,11 +51,14 @@ struct pw_module_info {
 	struct spa_dict *props;	/**< extra properties */
 };
 
-/** Update and existing \ref pw_module_info with \a update */
+/** Update and existing \ref pw_module_info with \a update with reset */
 struct pw_module_info *
 pw_module_info_update(struct pw_module_info *info,
-		      const struct pw_module_info *update);
-
+		const struct pw_module_info *update);
+/** Merge and existing \ref pw_module_info with \a update */
+struct pw_module_info *
+pw_module_info_merge(struct pw_module_info *info,
+		const struct pw_module_info *update, bool reset);
 /** Free a \ref pw_module_info */
 void pw_module_info_free(struct pw_module_info *info);
 

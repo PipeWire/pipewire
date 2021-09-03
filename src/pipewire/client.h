@@ -60,11 +60,14 @@ struct pw_client_info {
 	struct spa_dict *props;		/**< extra properties */
 };
 
-/** Update and existing \ref pw_client_info with \a update */
+/** Update an existing \ref pw_client_info with \a update with reset */
 struct pw_client_info *
 pw_client_info_update(struct pw_client_info *info,
-		      const struct pw_client_info *update);
-
+		const struct pw_client_info *update);
+/** Merge an existing \ref pw_client_info with \a update */
+struct pw_client_info *
+pw_client_info_merge(struct pw_client_info *info,
+		const struct pw_client_info *update, bool reset);
 /** Free a \ref pw_client_info */
 void pw_client_info_free(struct pw_client_info *info);
 

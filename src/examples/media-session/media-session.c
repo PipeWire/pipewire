@@ -455,7 +455,7 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 	struct impl *impl = SPA_CONTAINER_OF(client->obj.session, struct impl, this);
 
 	pw_log_debug(NAME" %p: client %d info", impl, client->obj.id);
-	client->info = pw_client_info_update(client->info, info);
+	client->info = pw_client_info_merge(client->info, info, client->obj.changed == 0);
 
 	client->obj.avail |= SM_CLIENT_CHANGE_MASK_INFO;
 	client->obj.changed |= SM_CLIENT_CHANGE_MASK_INFO;
@@ -493,7 +493,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 	uint32_t i;
 
 	pw_log_debug(NAME" %p: device %d info", impl, device->obj.id);
-	info = device->info = pw_device_info_update(device->info, info);
+	info = device->info = pw_device_info_merge(device->info, info, device->obj.changed == 0);
 
 	device->obj.avail |= SM_DEVICE_CHANGE_MASK_INFO;
 	device->obj.changed |= SM_DEVICE_CHANGE_MASK_INFO;
@@ -601,7 +601,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	uint32_t i;
 
 	pw_log_debug(NAME" %p: node %d info", impl, node->obj.id);
-	info = node->info = pw_node_info_update(node->info, info);
+	info = node->info = pw_node_info_merge(node->info, info, node->obj.changed == 0);
 
 	node->obj.avail |= SM_NODE_CHANGE_MASK_INFO;
 	node->obj.changed |= SM_NODE_CHANGE_MASK_INFO;
@@ -724,7 +724,7 @@ static void port_event_info(void *object, const struct pw_port_info *info)
 	struct impl *impl = SPA_CONTAINER_OF(port->obj.session, struct impl, this);
 
 	pw_log_debug(NAME" %p: port %d info", impl, port->obj.id);
-	port->info = pw_port_info_update(port->info, info);
+	port->info = pw_port_info_merge(port->info, info, port->obj.changed == 0);
 
 	port->obj.avail |= SM_PORT_CHANGE_MASK_INFO;
 	port->obj.changed |= SM_PORT_CHANGE_MASK_INFO;
@@ -2132,7 +2132,7 @@ static void core_info(void *data, const struct pw_core_info *info)
 {
 	struct impl *impl = data;
 	pw_log_debug(NAME" %p: info", impl);
-	impl->this.info = pw_core_info_update(impl->this.info, info);
+	impl->this.info = pw_core_info_merge(impl->this.info, info, true);
 
 	if (impl->this.info->change_mask != 0)
 		sm_media_session_emit_info(impl, impl->this.info);

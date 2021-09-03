@@ -124,8 +124,8 @@ static struct spa_dict *pw_spa_dict_copy(struct spa_dict *dict)
 }
 
 SPA_EXPORT
-struct pw_core_info *pw_core_info_update(struct pw_core_info *info,
-					 const struct pw_core_info *update)
+struct pw_core_info *pw_core_info_merge(struct pw_core_info *info,
+		const struct pw_core_info *update, bool reset)
 {
 	if (update == NULL)
 		return info;
@@ -142,7 +142,9 @@ struct pw_core_info *pw_core_info_update(struct pw_core_info *info,
 		info->version = update->version ? strdup(update->version) : NULL;
 		info->name = update->name ? strdup(update->name) : NULL;
 	}
-	info->change_mask = update->change_mask;
+	if (reset)
+		info->change_mask = 0;
+	info->change_mask |= update->change_mask;
 
 	if (update->change_mask & PW_CORE_CHANGE_MASK_PROPS) {
 		if (info->props)
@@ -150,6 +152,13 @@ struct pw_core_info *pw_core_info_update(struct pw_core_info *info,
 		info->props = pw_spa_dict_copy(update->props);
 	}
 	return info;
+}
+
+SPA_EXPORT
+struct pw_core_info *pw_core_info_update(struct pw_core_info *info,
+		const struct pw_core_info *update)
+{
+	return pw_core_info_merge(info, update, true);
 }
 
 SPA_EXPORT
@@ -165,8 +174,8 @@ void pw_core_info_free(struct pw_core_info *info)
 }
 
 SPA_EXPORT
-struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
-					 const struct pw_node_info *update)
+struct pw_node_info *pw_node_info_merge(struct pw_node_info *info,
+		const struct pw_node_info *update, bool reset)
 {
 	if (update == NULL)
 		return info;
@@ -180,7 +189,9 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 		info->max_input_ports = update->max_input_ports;
 		info->max_output_ports = update->max_output_ports;
 	}
-	info->change_mask = update->change_mask;
+	if (reset)
+		info->change_mask = 0;
+	info->change_mask |= update->change_mask;
 
 	if (update->change_mask & PW_NODE_CHANGE_MASK_INPUT_PORTS) {
 		info->n_input_ports = update->n_input_ports;
@@ -188,7 +199,6 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 	if (update->change_mask & PW_NODE_CHANGE_MASK_OUTPUT_PORTS) {
 		info->n_output_ports = update->n_output_ports;
 	}
-
 	if (update->change_mask & PW_NODE_CHANGE_MASK_STATE) {
 		info->state = update->state;
 		free((void *) info->error);
@@ -207,7 +217,7 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 			n_params = 0;
 
 		for (i = 0; i < SPA_MIN(info->n_params, n_params); i++) {
-			user = info->params[i].user;
+			user = reset ? 0 : info->params[i].user;
 			if (info->params[i].flags != update->params[i].flags)
 				user++;
 			info->params[i] = update->params[i];
@@ -223,9 +233,15 @@ struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
 }
 
 SPA_EXPORT
+struct pw_node_info *pw_node_info_update(struct pw_node_info *info,
+		const struct pw_node_info *update)
+{
+	return pw_node_info_merge(info, update, true);
+}
+
+SPA_EXPORT
 void pw_node_info_free(struct pw_node_info *info)
 {
-
 	free((void *) info->error);
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
@@ -234,8 +250,8 @@ void pw_node_info_free(struct pw_node_info *info)
 }
 
 SPA_EXPORT
-struct pw_port_info *pw_port_info_update(struct pw_port_info *info,
-					 const struct pw_port_info *update)
+struct pw_port_info *pw_port_info_merge(struct pw_port_info *info,
+		const struct pw_port_info *update, bool reset)
 {
 
 	if (update == NULL)
@@ -249,7 +265,9 @@ struct pw_port_info *pw_port_info_update(struct pw_port_info *info,
 		info->id = update->id;
 		info->direction = update->direction;
 	}
-	info->change_mask = update->change_mask;
+	if (reset)
+		info->change_mask = 0;
+	info->change_mask |= update->change_mask;
 
 	if (update->change_mask & PW_PORT_CHANGE_MASK_PROPS) {
 		if (info->props)
@@ -264,7 +282,7 @@ struct pw_port_info *pw_port_info_update(struct pw_port_info *info,
 			n_params = 0;
 
 		for (i = 0; i < SPA_MIN(info->n_params, n_params); i++) {
-			user = info->params[i].user;
+			user = reset ? 0 : info->params[i].user;
 			if (info->params[i].flags != update->params[i].flags)
 				user++;
 			info->params[i] = update->params[i];
@@ -280,9 +298,15 @@ struct pw_port_info *pw_port_info_update(struct pw_port_info *info,
 }
 
 SPA_EXPORT
+struct pw_port_info *pw_port_info_update(struct pw_port_info *info,
+		const struct pw_port_info *update)
+{
+	return pw_port_info_merge(info, update, true);
+}
+
+SPA_EXPORT
 void pw_port_info_free(struct pw_port_info *info)
 {
-
 	if (info->props)
 		pw_spa_dict_destroy(info->props);
 	free((void *) info->params);
@@ -290,8 +314,8 @@ void pw_port_info_free(struct pw_port_info *info)
 }
 
 SPA_EXPORT
-struct pw_factory_info *pw_factory_info_update(struct pw_factory_info *info,
-					       const struct pw_factory_info *update)
+struct pw_factory_info *pw_factory_info_merge(struct pw_factory_info *info,
+		const struct pw_factory_info *update, bool reset)
 {
 	if (update == NULL)
 		return info;
@@ -306,7 +330,9 @@ struct pw_factory_info *pw_factory_info_update(struct pw_factory_info *info,
 		info->type = update->type ? strdup(update->type) : NULL;
 		info->version = update->version;
 	}
-	info->change_mask = update->change_mask;
+	if (reset)
+		info->change_mask = 0;
+	info->change_mask |= update->change_mask;
 
 	if (update->change_mask & PW_FACTORY_CHANGE_MASK_PROPS) {
 		if (info->props)
@@ -314,6 +340,13 @@ struct pw_factory_info *pw_factory_info_update(struct pw_factory_info *info,
 		info->props = pw_spa_dict_copy(update->props);
 	}
 	return info;
+}
+
+SPA_EXPORT
+struct pw_factory_info *pw_factory_info_update(struct pw_factory_info *info,
+					       const struct pw_factory_info *update)
+{
+	return pw_factory_info_merge(info, update, true);
 }
 
 SPA_EXPORT
@@ -327,8 +360,8 @@ void pw_factory_info_free(struct pw_factory_info *info)
 }
 
 SPA_EXPORT
-struct pw_module_info *pw_module_info_update(struct pw_module_info *info,
-					     const struct pw_module_info *update)
+struct pw_module_info *pw_module_info_merge(struct pw_module_info *info,
+		const struct pw_module_info *update, bool reset)
 {
 	if (update == NULL)
 		return info;
@@ -343,7 +376,9 @@ struct pw_module_info *pw_module_info_update(struct pw_module_info *info,
 		info->filename = update->filename ? strdup(update->filename) : NULL;
 		info->args = update->args ? strdup(update->args) : NULL;
 	}
-	info->change_mask = update->change_mask;
+	if (reset)
+		info->change_mask = 0;
+	info->change_mask |= update->change_mask;
 
 	if (update->change_mask & PW_MODULE_CHANGE_MASK_PROPS) {
 		if (info->props)
@@ -351,6 +386,13 @@ struct pw_module_info *pw_module_info_update(struct pw_module_info *info,
 		info->props = pw_spa_dict_copy(update->props);
 	}
 	return info;
+}
+
+SPA_EXPORT
+struct pw_module_info *pw_module_info_update(struct pw_module_info *info,
+		const struct pw_module_info *update)
+{
+	return pw_module_info_merge(info, update, true);
 }
 
 SPA_EXPORT
@@ -365,8 +407,8 @@ void pw_module_info_free(struct pw_module_info *info)
 }
 
 SPA_EXPORT
-struct pw_device_info *pw_device_info_update(struct pw_device_info *info,
-					     const struct pw_device_info *update)
+struct pw_device_info *pw_device_info_merge(struct pw_device_info *info,
+		const struct pw_device_info *update, bool reset)
 {
 	if (update == NULL)
 		return info;
@@ -378,7 +420,9 @@ struct pw_device_info *pw_device_info_update(struct pw_device_info *info,
 
 		info->id = update->id;
 	}
-	info->change_mask = update->change_mask;
+	if (reset)
+		info->change_mask = 0;
+	info->change_mask |= update->change_mask;
 
 	if (update->change_mask & PW_DEVICE_CHANGE_MASK_PROPS) {
 		if (info->props)
@@ -393,7 +437,7 @@ struct pw_device_info *pw_device_info_update(struct pw_device_info *info,
 			n_params = 0;
 
 		for (i = 0; i < SPA_MIN(info->n_params, n_params); i++) {
-			user = info->params[i].user;
+			user = reset ? 0 : info->params[i].user;
 			if (info->params[i].flags != update->params[i].flags)
 				user++;
 			info->params[i] = update->params[i];
@@ -409,6 +453,13 @@ struct pw_device_info *pw_device_info_update(struct pw_device_info *info,
 }
 
 SPA_EXPORT
+struct pw_device_info *pw_device_info_update(struct pw_device_info *info,
+		const struct pw_device_info *update)
+{
+	return pw_device_info_merge(info, update, true);
+}
+
+SPA_EXPORT
 void pw_device_info_free(struct pw_device_info *info)
 {
 	if (info->props)
@@ -418,8 +469,8 @@ void pw_device_info_free(struct pw_device_info *info)
 }
 
 SPA_EXPORT
-struct pw_client_info *pw_client_info_update(struct pw_client_info *info,
-					     const struct pw_client_info *update)
+struct pw_client_info *pw_client_info_merge(struct pw_client_info *info,
+		const struct pw_client_info *update, bool reset)
 {
 	if (update == NULL)
 		return info;
@@ -431,7 +482,9 @@ struct pw_client_info *pw_client_info_update(struct pw_client_info *info,
 
 		info->id = update->id;
 	}
-	info->change_mask = update->change_mask;
+	if (reset)
+		info->change_mask = 0;
+	info->change_mask |= update->change_mask;
 
 	if (update->change_mask & PW_CLIENT_CHANGE_MASK_PROPS) {
 		if (info->props)
@@ -439,6 +492,13 @@ struct pw_client_info *pw_client_info_update(struct pw_client_info *info,
 		info->props = pw_spa_dict_copy(update->props);
 	}
 	return info;
+}
+
+SPA_EXPORT
+struct pw_client_info *pw_client_info_update(struct pw_client_info *info,
+		const struct pw_client_info *update)
+{
+	return pw_client_info_merge(info, update, true);
 }
 
 SPA_EXPORT
@@ -450,8 +510,8 @@ void pw_client_info_free(struct pw_client_info *info)
 }
 
 SPA_EXPORT
-struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
-					 const struct pw_link_info *update)
+struct pw_link_info *pw_link_info_merge(struct pw_link_info *info,
+		const struct pw_link_info *update, bool reset)
 {
 	if (update == NULL)
 		return info;
@@ -467,8 +527,9 @@ struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 		info->input_node_id = update->input_node_id;
 		info->input_port_id = update->input_port_id;
 	}
-
-	info->change_mask = update->change_mask;
+	if (reset)
+		info->change_mask = 0;
+	info->change_mask |= update->change_mask;
 
 	if (update->change_mask & PW_LINK_CHANGE_MASK_STATE) {
 		info->state = update->state;
@@ -485,6 +546,13 @@ struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
 		info->props = pw_spa_dict_copy(update->props);
 	}
 	return info;
+}
+
+SPA_EXPORT
+struct pw_link_info *pw_link_info_update(struct pw_link_info *info,
+		const struct pw_link_info *update)
+{
+	return pw_link_info_merge(info, update, true);
 }
 
 SPA_EXPORT

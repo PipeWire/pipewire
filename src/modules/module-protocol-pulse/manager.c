@@ -218,9 +218,9 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 	struct object *o = object;
 	int changed = 0;
 
-        pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
+	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
-        info = o->this.info = pw_client_info_update(o->this.info, info);
+	info = o->this.info = pw_client_info_merge(o->this.info, info, o->this.changed == 0);
 
 	if (info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS)
 		changed++;
@@ -254,12 +254,12 @@ static const struct object_info client_info = {
 /* module */
 static void module_event_info(void *object, const struct pw_module_info *info)
 {
-        struct object *o = object;
+	struct object *o = object;
 	int changed = 0;
 
-        pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
+	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
-        info = o->this.info = pw_module_info_update(o->this.info, info);
+	info = o->this.info = pw_module_info_merge(o->this.info, info, o->this.changed == 0);
 
 	if (info->change_mask & PW_MODULE_CHANGE_MASK_PROPS)
 		changed++;
@@ -298,7 +298,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
-	info = o->this.info = pw_device_info_update(o->this.info, info);
+	info = o->this.info = pw_device_info_merge(o->this.info, info, o->this.changed == 0);
 
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS)
 		changed++;
@@ -418,7 +418,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
-	info = o->this.info = pw_node_info_update(o->this.info, info);
+	info = o->this.info = pw_node_info_merge(o->this.info, info, o->this.changed == 0);
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_STATE)
 		changed++;
@@ -655,7 +655,7 @@ static const struct pw_registry_events registry_events = {
 static void on_core_info(void *data, const struct pw_core_info *info)
 {
 	struct manager *m = data;
-	m->this.info = pw_core_info_update(m->this.info, info);
+	m->this.info = pw_core_info_merge(m->this.info, info, true);
 }
 
 static void on_core_done(void *data, uint32_t id, int seq)

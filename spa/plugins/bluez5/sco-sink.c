@@ -713,7 +713,8 @@ static void emit_node_info(struct impl *this, bool full)
 		{ "media.name", ((this->transport && this->transport->device->name) ?
 		                 this->transport->device->name : "HSP/HFP") },
 	};
-	bool is_ag = (this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
+	bool is_ag = this->transport &&
+		(this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
 	uint64_t old = full ? this->info.change_mask : 0;
 
 	if (full)

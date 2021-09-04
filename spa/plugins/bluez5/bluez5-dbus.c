@@ -4052,6 +4052,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->a2dp_codecs = NULL;
 	this->quirks = NULL;
+	this->conn = NULL;
 	this->dbus_connection = NULL;
 
 	this->a2dp_codecs = load_a2dp_codecs(this->plugin_loader, this->log);
@@ -4139,10 +4140,13 @@ fail:
 		free_a2dp_codecs(this->a2dp_codecs);
 	if (this->quirks)
 		spa_bt_quirks_destroy(this->quirks);
+	if (this->conn)
+		dbus_connection_unref(this->conn);
 	if (this->dbus_connection)
 		spa_dbus_connection_destroy(this->dbus_connection);
 	this->a2dp_codecs = NULL;
 	this->quirks = NULL;
+	this->conn = NULL;
 	this->dbus_connection = NULL;
 	return res;
 }

@@ -79,7 +79,7 @@ static int codec_order_cmp(const void *a, const void *b)
 
 static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name)
 {
-	struct spa_handle *handle;
+	struct spa_handle *handle = NULL;
 	void *iface;
 	const struct spa_bluez5_codec_a2dp *bluez5_codec_a2dp;
 	int n_codecs = 0;
@@ -97,7 +97,7 @@ static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name)
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Bluez5CodecA2DP, &iface)) < 0) {
 		spa_log_info(impl->log, NAME ": Bluetooth codec plugin %s has no codec interface",
 				factory_name);
-		return res;
+		goto fail;
 	}
 
 	bluez5_codec_a2dp = iface;
@@ -105,7 +105,8 @@ static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name)
 	if (bluez5_codec_a2dp->iface.version != SPA_VERSION_BLUEZ5_CODEC_A2DP) {
 		spa_log_info(impl->log, NAME ": codec plugin %s has incompatible ABI version (%d != %d)",
 				factory_name, bluez5_codec_a2dp->iface.version, SPA_VERSION_BLUEZ5_CODEC_A2DP);
-		return -ENOENT;
+		res = -ENOENT;
+		goto fail;
 	}
 
 	for (i = 0; bluez5_codec_a2dp->codecs[i]; ++i) {
@@ -141,6 +142,11 @@ static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name)
 		spa_plugin_loader_unload(impl->loader, handle);
 
 	return 0;
+
+fail:
+	if (handle)
+		spa_plugin_loader_unload(impl->loader, handle);
+	return res;
 }
 
 const struct a2dp_codec * const *load_a2dp_codecs(struct spa_plugin_loader *loader, struct spa_log *log)

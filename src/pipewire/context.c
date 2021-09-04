@@ -1132,9 +1132,12 @@ static uint32_t flp2(uint32_t x)
 	return x - (x >> 1);
 }
 
-static int64_t fraction_compare(const struct spa_fraction *a, const struct spa_fraction *b)
+/* cmp fractions, avoiding overflows */
+static int fraction_compare(const struct spa_fraction *a, const struct spa_fraction *b)
 {
-	return (int64_t)(a->num * b->denom) - (int64_t)(b->num * a->denom);
+	uint64_t fa = (uint64_t)a->num * (uint64_t)b->denom;
+	uint64_t fb = (uint64_t)b->num * (uint64_t)a->denom;
+	return fa < fb ? -1 : (fa > fb ? 1 : 0);
 }
 
 int pw_context_recalc_graph(struct pw_context *context, const char *reason)

@@ -138,10 +138,9 @@ int spa_alsa_open(struct state *state)
 
 	CHECK(snd_output_stdio_attach(&state->output, stderr, 0), "attach failed");
 
-	spa_scnprintf(device_name, sizeof(device_name), "%s%s%s",
+	spa_scnprintf(device_name, sizeof(device_name), "%s%s",
 			state->ucm_prefix ? state->ucm_prefix : "",
-			props->device,
-			(state->is_iec958 || state->is_hdmi) ? ",AES0=6": "");
+			props->device);
 
 	spa_log_info(state->log, NAME" %p: ALSA device open '%s' %s", state, device_name,
 			state->stream == SND_PCM_STREAM_CAPTURE ? "capture" : "playback");

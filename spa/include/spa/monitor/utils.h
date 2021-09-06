@@ -45,9 +45,10 @@ static inline void spa_result_func_device_params(void *data, int seq, int res,
 	const struct spa_result_device_params *r =
 		(const struct spa_result_device_params *)result;
 	uint32_t offset = d->builder->state.offset;
-	spa_pod_builder_raw_padded(d->builder, r->param, SPA_POD_SIZE(r->param));
+	if (spa_pod_builder_raw_padded(d->builder, r->param, SPA_POD_SIZE(r->param)) < 0)
+		return;
 	d->data.next = r->next;
-	d->data.param = SPA_PTROFF(d->builder->data, offset, struct spa_pod);
+	d->data.param = spa_pod_builder_deref(d->builder, offset);
 }
 
 static inline int spa_device_enum_params_sync(struct spa_device *device,

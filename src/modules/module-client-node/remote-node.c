@@ -292,7 +292,7 @@ static int add_node_update(struct node_data *data, uint32_t change_mask, uint32_
 
 	if (change_mask & PW_CLIENT_NODE_UPDATE_PARAMS) {
 		uint32_t i, idx, id;
-		uint8_t buf[2048];
+		uint8_t buf[4096];
 		struct spa_pod_builder b = { 0 };
 
 		for (i = 0; i < node->info.n_params; i++) {
@@ -347,7 +347,7 @@ static int add_port_update(struct node_data *data, struct pw_impl_port *port, ui
 
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
 		uint32_t i, idx, id;
-		uint8_t buf[2048];
+		uint8_t buf[4096];
 		struct spa_pod_builder b = { 0 };
 
 		for (i = 0; i < port->info.n_params; i++) {

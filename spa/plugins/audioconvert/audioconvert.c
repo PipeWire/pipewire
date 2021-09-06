@@ -727,7 +727,7 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 
 	if (new != NULL) {
 		struct spa_pod_builder b = { 0 };
-		uint8_t buffer[1024];
+		uint8_t buffer[4096];
 		struct spa_pod *param = NULL;
 
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));

@@ -160,7 +160,7 @@ setup_props(struct pw_context *context, struct spa_node *spa_node, struct pw_pro
 	void *state = NULL;
 	const char *key;
 	uint32_t index = 0;
-	uint8_t buf[2048];
+	uint8_t buf[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 	const struct spa_pod_prop *prop = NULL;
 

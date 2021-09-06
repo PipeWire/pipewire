@@ -119,7 +119,7 @@ static int impl_node_enum_params(void *object, int seq,
 	struct state *this = object;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
-	uint8_t buffer[2048];
+	uint8_t buffer[4096];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
 

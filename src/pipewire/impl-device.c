@@ -322,7 +322,7 @@ int pw_impl_device_for_each_param(struct pw_impl_device *device,
 
 	if (pi->user == 1) {
 		struct pw_param *p;
-		uint8_t buffer[1024];
+		uint8_t buffer[4096];
 		struct spa_pod_builder b = { 0 };
 	        struct spa_result_device_params result;
 		uint32_t count = 0;

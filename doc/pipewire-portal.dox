@@ -79,29 +79,137 @@ Client connections from this PID are tagged as \ref PW_KEY_ACCESS
 `"portal"` (see \ref page_module_access). It will also set ALL permissions for
 this client so that it can resume.
 
+\dot
+digraph pw {
+  compound=true;
+  node [shape="box"];
+  rankdir="TB";
+
+  dbus [label="org.freedesktop.portal.Desktop"];
+
+  portal_access [label="PipeWire (mod: Portal Access)"];
+  portal [label="xdg-desktop-portal"];
+
+  dbus -> portal_access [arrowhead="dot"];
+  dbus -> portal [arrowhead="dot"];
+
+  portal_access -> portal [label="pipewire.access = portal"];
+
+  { rank="same"; portal_access; portal}
+}
+\enddot
 
 ## The client
 
 A client can ask the portal for a connection to the PipeWire daemon.
 
-It receives a file descriptor that can then be used to interface with
-the PipeWire daemon.
+\dot
+digraph pw {
+  compound=true;
+  node [shape="box"];
+  rankdir="LR";
 
-The connection will have been tagged by the portal as shown above and
-will have limited permissions.
+  pw [label="PipeWire"];
+  portal [label="xdg-desktop-portal"];
+  client [label="client"];
 
+  client -> portal;
+  portal -> pw [label="portal.is_portal=true", arrowhead="none"]
+
+  {rank="min"; pw};
+  {rank="max"; client};
+}
+\enddot
+
+The portal maintains an (unrestricted) connection to the PipeWire daemon with
+`"pipewire.access.portal.is_portal" = true` to identify the nodes the client
+needs access to. It then creates a new restricted connection for the client,
+tagged with additional information.
+
+\dot
+digraph pw {
+  compound=true;
+  node [shape="box"];
+  rankdir="LR";
+
+  pw [label="PipeWire"];
+  portal [label="xdg-desktop-portal"];
+  client [label="client"];
+
+  client -> portal [arrowhead="none"];
+  portal -> pw [label="portal.is_portal=true", arrowhead="none"]
+  portal -> pw [label="portal.app_id = $appid"]
+
+  {rank="min"; pw};
+  {rank="max"; client};
+}
+\enddot
+
+
+The file descriptor for this restricted connection is passed back to the
+client which can now make use of the resources it has been permitted to
+access.
+
+\dot
+digraph pw {
+  compound=true;
+  node [shape="box"];
+  rankdir="LR";
+
+  pw [label="PipeWire"];
+  portal [label="xdg-desktop-portal"];
+  client [label="client"];
+
+  portal -> pw [label="portal.is_portal=true", arrowhead="none"]
+
+  pw->client [label="restricted connection"];
+
+  {rank="min"; pw};
+  {rank="max"; client};
+}
+\enddot
 
 ## The session manager
 
 The session manager listens for new clients to appear. It will use the
-\ref PW_KEY_ACCESS property to find portal connections.
+\ref PW_KEY_ACCESS property to find portal connections. For client connections
+from the portal the session manager checks the requested `media_roles` and
+enables or disables access to the respective PipeWire objects.
+It might have to consult a database to decide what is allowed, for example the
+[org.freedesktop.impl.portal.PermissionStore](https://flatpak.github.io/xdg-desktop-portal/portal-docs.html#gdbus-org.freedesktop.impl.portal.PermissionStore).
 
-Based on the `media_roles` it will enable or disable access to PipeWire
-objects. It might have to consult a database to decide what is
-allowed.
+\dot
+strict digraph pw {
+  compound=true;
+  node [shape="box"];
+  rankdir="LR";
 
-The permission store can be used for this. Usually the portal also
-implements support for `org.freedesktop.impl.portal.PermissionStore`,
-see for example the \ref page_media_session_module_access_portal.
+  portal [label="xdg-desktop-portal"];
+  client [label="client"];
+
+
+  subgraph {
+	  rankdir="TB";
+	  permissions [label="PermissionStore"];
+
+	  sm->permissions;
+
+	  sm [label="Session Manager"];
+	  pw [label="PipeWire"];
+	  sm -> pw [headlabel="allow $media.roles"];
+	  pw -> sm;
+	  portal -> pw [label="portal.app_id = $appid"];
+  }
+
+  client -> portal [arrowhead="none"];
+
+  {rank="min"; sm, pw};
+  {rank="max"; client};
+}
+\enddot
+
+In the case of the [XDG Desktop
+Portal](https://github.com/flatpak/xdg-desktop-portal), the portal itself
+queries the PermissionStore directly.
 
 */

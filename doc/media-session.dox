@@ -39,6 +39,7 @@ List of Media Session modules:
 - \subpage page_media_session_module_libcamera_monitor
 - \subpage page_media_session_module_logind
 - \subpage page_media_session_module_metadata
+- \subpage page_media_session_module_no_dsp
 - \subpage page_media_session_module_policy_endpoint
 - \subpage page_media_session_module_policy_node
 - \subpage page_media_session_module_restore_stream

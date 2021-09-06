@@ -22,16 +22,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-/*
- * Instruct policy-node to not configure audio adapter nodes in DSP mode.
- * Device nodes will always be configured in passthrough mode. If a client node
- * wants to be linked with a device node that has a different format, then the
- * policy will configure the client node in convert mode so that both nodes
- * have the same format.
- *
- * This is done by just setting a session property flag, and policy-node does the rest.
- */
-
 #include "config.h"
 
 #include "pipewire/pipewire.h"
@@ -40,6 +30,14 @@
 #include "media-session.h"
 
 /** \page page_media_session_module_no_dsp Media Session Module: No DSP
+ *
+ * Instruct \ref page_media_session_module_policy_node to not configure audio
+ * adapter nodes in DSP mode.  Device nodes will always be configured in
+ * passthrough mode. If a client node wants to be linked with a device node
+ * that has a different format, then the policy will configure the client node
+ * in convert mode so that both nodes have the same format.
+ *
+ * This is done by just setting a session property flag, and policy-node does the rest.
  */
 
 #define KEY_NAME	"policy-node.alsa-no-dsp"

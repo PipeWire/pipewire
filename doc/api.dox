@@ -15,7 +15,7 @@ invokes that same method on the remote side. Marshalling and de-marshalling is
 handled transparently by the \ref page_module_protocol_native.
 The below graph illustrates this approach:
 
-@dot
+\dot
 digraph API {
   compound=true;
   node [shape="box"];
@@ -46,7 +46,7 @@ digraph API {
   obj_node -> impl_node;
 
 }
-@enddot
+\enddot
 
 It is common for clients to use both the Core API and the Implementation API
 and both APIs are provided by the same library.

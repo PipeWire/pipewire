@@ -712,17 +712,16 @@ static int format_ip_address(const struct sockaddr_storage *addr, char *buffer, 
 {
 	char ip[INET6_ADDRSTRLEN];
 	const void *src;
-	const char *fmt;
+	bool is_ipv6 = false;
 	int port;
 
 	switch (addr->ss_family) {
 	case AF_INET:
-		fmt = "%s:%d";
 		src = &((struct sockaddr_in *) addr)->sin_addr.s_addr;
 		port = ntohs(((struct sockaddr_in *) addr)->sin_port);
 		break;
 	case AF_INET6:
-		fmt = "[%s]:%d";
+		is_ipv6 = true;
 		src = &((struct sockaddr_in6 *) addr)->sin6_addr.s6_addr;
 		port = ntohs(((struct sockaddr_in6 *) addr)->sin6_port);
 		break;
@@ -733,7 +732,11 @@ static int format_ip_address(const struct sockaddr_storage *addr, char *buffer, 
 	if (inet_ntop(addr->ss_family, src, ip, sizeof(ip)) == NULL)
 		return -errno;
 
-	return snprintf(buffer, buflen, fmt, ip, port);
+	return snprintf(buffer, buflen, "%s%s%s:%d",
+			is_ipv6 ? "[" : "",
+			ip,
+			is_ipv6 ? "]" : "",
+			port);
 }
 
 static int get_ip_address_length(const struct sockaddr_storage *addr)

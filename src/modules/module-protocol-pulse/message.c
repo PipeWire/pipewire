@@ -515,7 +515,7 @@ static void write_cvolume(struct message *m, struct volume *vol)
 static void add_stream_group(struct message *m, struct spa_dict *dict, const char *key,
 		const char *media_class, const char *media_role)
 {
-	const char *str, *fmt, *prefix;
+	const char *str, *id, *prefix;
 	char *b;
 	int l;
 
@@ -529,20 +529,20 @@ static void add_stream_group(struct message *m, struct spa_dict *dict, const cha
 		return;
 
 	if ((str = media_role) != NULL)
-		fmt = "%s-by-media-role:%s";
+		id = "media-role";
 	else if ((str = spa_dict_lookup(dict, PW_KEY_APP_ID)) != NULL)
-		fmt = "%s-by-application-id:%s";
+		id = "application-id";
 	else if ((str = spa_dict_lookup(dict, PW_KEY_APP_NAME)) != NULL)
-		fmt = "%s-by-application-name:%s";
+		id = "application-name";
 	else if ((str = spa_dict_lookup(dict, PW_KEY_MEDIA_NAME)) != NULL)
-		fmt = "%s-by-media-name:%s";
+		id = "media-name";
 	else
 		return;
 
 	write_string(m, key);
-	l = strlen(fmt) + strlen(prefix) + strlen(str) - 3;
+	l = strlen(prefix) + strlen(id) + strlen(str) + 6; /* "-by-" , ":" and \0 */
 	b = alloca(l);
-	snprintf(b, l, fmt, prefix, str);
+	snprintf(b, l, "%s-by-%s:%s", prefix, id, str);
 	write_u32(m, l);
 	write_arbitrary(m, b, l);
 }

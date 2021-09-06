@@ -159,8 +159,6 @@ struct seq_state {
 	uint64_t next_time;
 	uint64_t base_time;
 	uint64_t queue_time;
-	uint64_t queue_base;
-	uint64_t clock_base;
 
 	unsigned int opened:1;
 	unsigned int started:1;

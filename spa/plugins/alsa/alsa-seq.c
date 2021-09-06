@@ -498,6 +498,9 @@ static int process_recycle(struct seq_state *state)
 	return 0;
 }
 
+#define NSEC_TO_CLOCK(r,n) (((n) * (r)->denom) / ((r)->num * SPA_NSEC_PER_SEC))
+#define NSEC_FROM_CLOCK(r,n) (((n) * (r)->num * SPA_NSEC_PER_SEC) / (r)->denom)
+
 static int process_read(struct seq_state *state)
 {
 	snd_seq_event_t *ev;
@@ -551,7 +554,7 @@ static int process_read(struct seq_state *state)
 			diff = 0;
 
 		/* convert the age to samples and convert to an offset */
-		offset = (diff * state->rate.denom) / (state->rate.num * SPA_NSEC_PER_SEC);
+		offset = NSEC_TO_CLOCK(&state->rate, diff);
 		if (state->duration > offset)
 			offset = state->duration - 1 - offset;
 		else
@@ -673,8 +676,7 @@ static int process_write(struct seq_state *state)
 			snd_seq_ev_set_source(&ev, state->event.addr.port);
 			snd_seq_ev_set_dest(&ev, port->addr.client, port->addr.port);
 
-			out_time = state->queue_time +
-				(c->offset * state->rate.num * SPA_NSEC_PER_SEC) / state->rate.denom;
+			out_time = state->queue_time + NSEC_FROM_CLOCK(&state->rate, c->offset);
 
 			out_rt.tv_nsec = out_time % SPA_NSEC_PER_SEC;
 			out_rt.tv_sec = out_time / SPA_NSEC_PER_SEC;
@@ -694,25 +696,23 @@ static int process_write(struct seq_state *state)
 	return res;
 }
 
-#define NSEC_TO_CLOCK(c,n) ((n) * (c)->rate.denom / ((c)->rate.num * SPA_NSEC_PER_SEC))
-
 static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 {
 	snd_seq_queue_status_t *status;
 	const snd_seq_real_time_t* queue_time;
-	uint64_t queue_real, duration;
+	uint64_t queue_real;
 	double err, corr;
-	uint64_t clock_elapsed, queue_elapsed;
+	uint64_t queue_elapsed;
 
 	if (state->position) {
 		struct spa_io_clock *clock = &state->position->clock;
 		state->rate = clock->rate;
 		state->duration = clock->duration;
-		state->threshold = state->duration;
-		duration = clock->duration;
 	} else {
-		duration = 1024;
+		state->rate = SPA_FRACTION(1, 48000);
+		state->duration = 1024;
 	}
+	state->threshold = state->duration;
 
 	corr = 1.0 - (state->dll.z2 + state->dll.z3);
 
@@ -722,18 +722,16 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 	queue_time = snd_seq_queue_status_get_real_time(status);
 	queue_real = SPA_TIMESPEC_TO_NSEC(queue_time);
 
-	if (state->queue_base == 0)
+	if (state->queue_time == 0)
 		queue_elapsed = 0;
 	else
-		queue_elapsed = (queue_real - state->queue_base) / corr;
+		queue_elapsed = (queue_real - state->queue_time) / corr;
 
-	state->queue_base = queue_real;
 	state->queue_time = queue_real;
 
-	queue_elapsed = NSEC_TO_CLOCK(state->clock, queue_elapsed);
-	clock_elapsed = duration;
+	queue_elapsed = NSEC_TO_CLOCK(&state->rate, queue_elapsed);
 
-	err = ((int64_t)clock_elapsed - (int64_t) queue_elapsed);
+	err = ((int64_t)state->threshold - (int64_t) queue_elapsed);
 	err = SPA_CLAMP(err, -64, 64);
 
 	if (state->dll.bw == 0.0) {
@@ -896,7 +894,7 @@ int spa_alsa_seq_start(struct seq_state *state)
 	state->source.rmask = 0;
 	spa_loop_add_source(state->data_loop, &state->source);
 
-	state->queue_base = 0;
+	state->queue_time = 0;
 	spa_dll_init(&state->dll);
 	set_timers(state);
 

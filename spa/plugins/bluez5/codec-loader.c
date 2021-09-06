@@ -31,6 +31,8 @@
 #include "defs.h"
 #include "codec-loader.h"
 
+#define A2DP_CODEC_LIB_BASE	"bluez5/libspa-codec-bluez5-"
+
 /* AVDTP allows 0x3E endpoints, can't have more codecs than that */
 #define MAX_CODECS	0x3E
 #define MAX_HANDLES	MAX_CODECS
@@ -77,7 +79,7 @@ static int codec_order_cmp(const void *a, const void *b)
 	return (ia == ib) ? (*ca < *cb ? -1 : 1) : ia - ib;
 }
 
-static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name)
+static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name, const char *libname)
 {
 	struct spa_handle *handle = NULL;
 	void *iface;
@@ -85,8 +87,12 @@ static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name)
 	int n_codecs = 0;
 	int res;
 	size_t i;
+	struct spa_dict_item info_items[] = {
+		{ SPA_KEY_LIBRARY_NAME, libname },
+	};
+	struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
-	handle = spa_plugin_loader_load(impl->loader, factory_name, NULL);
+	handle = spa_plugin_loader_load(impl->loader, factory_name, &info);
 	if (handle == NULL) {
 		spa_log_info(impl->log, NAME ": Bluetooth codec plugin %s not available", factory_name);
 		return -ENOENT;
@@ -152,15 +158,18 @@ fail:
 const struct a2dp_codec * const *load_a2dp_codecs(struct spa_plugin_loader *loader, struct spa_log *log)
 {
 	struct impl *impl;
-	const char *codec_plugins[] = {
-		A2DP_CODEC_FACTORY_NAME("aac"),
-		A2DP_CODEC_FACTORY_NAME("aptx"),
-		A2DP_CODEC_FACTORY_NAME("faststream"),
-		A2DP_CODEC_FACTORY_NAME("ldac"),
-		A2DP_CODEC_FACTORY_NAME("sbc")
-	};
 	bool has_sbc;
 	size_t i;
+	const struct { const char *factory; const char *lib; } plugins[] = {
+#define A2DP_CODEC_FACTORY_LIB(basename) \
+		{ A2DP_CODEC_FACTORY_NAME(basename), A2DP_CODEC_LIB_BASE basename }
+		A2DP_CODEC_FACTORY_LIB("aac"),
+		A2DP_CODEC_FACTORY_LIB("aptx"),
+		A2DP_CODEC_FACTORY_LIB("faststream"),
+		A2DP_CODEC_FACTORY_LIB("ldac"),
+		A2DP_CODEC_FACTORY_LIB("sbc")
+#undef A2DP_CODEC_FACTORY_LIB
+	};
 
 	impl = calloc(sizeof(struct impl), 1);
 	if (impl == NULL)
@@ -169,8 +178,8 @@ const struct a2dp_codec * const *load_a2dp_codecs(struct spa_plugin_loader *load
 	impl->loader = loader;
 	impl->log = log;
 
-	for (i = 0; i < SPA_N_ELEMENTS(codec_plugins); ++i)
-		load_a2dp_codecs_from(impl, codec_plugins[i]);
+	for (i = 0; i < SPA_N_ELEMENTS(plugins); ++i)
+		load_a2dp_codecs_from(impl, plugins[i].factory, plugins[i].lib);
 
 	has_sbc = false;
 	for (i = 0; i < impl->n_codecs; ++i)

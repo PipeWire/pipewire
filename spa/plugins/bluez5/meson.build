@@ -56,7 +56,7 @@ bluez5lib = shared_library('spa-bluez5',
 
 codec_args = [ '-DCODEC_PLUGIN' ]
 
-bluez_codec_sbc = shared_library('spa-bluez5-codec-sbc',
+bluez_codec_sbc = shared_library('spa-codec-bluez5-sbc',
 	[ 'a2dp-codec-sbc.c', 'a2dp-codecs.c' ],
 	include_directories : [ spa_inc, configinc ],
         c_args : codec_args,
@@ -64,7 +64,7 @@ bluez_codec_sbc = shared_library('spa-bluez5-codec-sbc',
 	install : true,
         install_dir : spa_plugindir / 'bluez5')
 
-bluez_codec_faststream = shared_library('spa-bluez5-codec-faststream',
+bluez_codec_faststream = shared_library('spa-codec-bluez5-faststream',
 	[ 'a2dp-codec-faststream.c', 'a2dp-codecs.c' ],
 	include_directories : [ spa_inc, configinc ],
         c_args : codec_args,
@@ -73,7 +73,7 @@ bluez_codec_faststream = shared_library('spa-bluez5-codec-faststream',
         install_dir : spa_plugindir / 'bluez5')
 
 if fdk_aac_dep.found()
-  bluez_codec_aac = shared_library('spa-bluez5-codec-aac',
+  bluez_codec_aac = shared_library('spa-codec-bluez5-aac',
 	[ 'a2dp-codec-aac.c', 'a2dp-codecs.c' ],
 	include_directories : [ spa_inc, configinc ],
         c_args : codec_args,
@@ -83,7 +83,7 @@ if fdk_aac_dep.found()
 endif
 
 if aptx_dep.found()
-  bluez_codec_aac = shared_library('spa-bluez5-codec-aptx',
+  bluez_codec_aac = shared_library('spa-codec-bluez5-aptx',
 	[ 'a2dp-codec-aptx.c', 'a2dp-codecs.c' ],
 	include_directories : [ spa_inc, configinc ],
         c_args : codec_args,
@@ -99,7 +99,7 @@ if ldac_dep.found()
     ldac_args += [ '-DENABLE_LDAC_ABR' ]
     ldac_dep += ldac_abr_dep
   endif
-  bluez_codec_ldac = shared_library('spa-bluez5-codec-ldac',
+  bluez_codec_ldac = shared_library('spa-codec-bluez5-ldac',
 	[ 'a2dp-codec-ldac.c', 'a2dp-codecs.c' ],
 	include_directories : [ spa_inc, configinc ],
 	c_args : ldac_args,

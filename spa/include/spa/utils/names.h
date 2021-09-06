@@ -115,7 +115,9 @@ extern "C" {
 #define SPA_NAME_API_BLUEZ5_A2DP_SOURCE	"api.bluez5.a2dp.source"	/**< a capture Node interface for A2DP profiles */
 #define SPA_NAME_API_BLUEZ5_SCO_SINK	"api.bluez5.sco.sink"		/**< a playback Node interface for HSP/HFP profiles */
 #define SPA_NAME_API_BLUEZ5_SCO_SOURCE	"api.bluez5.sco.source"		/**< a capture Node interface for HSP/HFP profiles */
-#define SPA_NAME_API_BLUEZ5_CODEC_A2DP	"api.bluez5.codec.a2dp"		/**< Bluez5 A2DP codec plugin */
+
+/** keys for codec factory names */
+#define SPA_NAME_API_CODEC_BLUEZ5_A2DP	"api.codec.bluez5.a2dp"		/**< Bluez5 A2DP codec plugin */
 
 /** keys for v4l2 factory names */
 #define SPA_NAME_API_V4L2_ENUM_UDEV	"api.v4l2.enum.udev"		/**< a v4l2 udev Device interface */

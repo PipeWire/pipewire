@@ -50,7 +50,7 @@ struct spa_bluez5_codec_a2dp {
 	const struct a2dp_codec * const *codecs;	/**< NULL terminated array */
 };
 
-#define A2DP_CODEC_FACTORY_NAME(basename)		(SPA_NAME_API_BLUEZ5_CODEC_A2DP "." basename)
+#define A2DP_CODEC_FACTORY_NAME(basename)		(SPA_NAME_API_CODEC_BLUEZ5_A2DP "." basename)
 
 #ifdef CODEC_PLUGIN
 #define A2DP_CODEC_EXPORT_DEF(basename,...)	\

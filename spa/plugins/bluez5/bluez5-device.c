@@ -1159,11 +1159,13 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 			name_and_codec = spa_aprintf("%s-%s", name, a2dp_codec->name);
 			name = name_and_codec;
 			if (profile == SPA_BT_PROFILE_A2DP_SINK && !a2dp_codec->duplex_codec) {
-				desc = _("High Fidelity Playback (A2DP Sink, codec %s)");
+				desc_and_codec = spa_aprintf(_("High Fidelity Playback (A2DP Sink, codec %s)"),
+							     a2dp_codec->description);
 			} else {
-				desc = _("High Fidelity Duplex (A2DP Source/Sink, codec %s)");
+				desc_and_codec = spa_aprintf(_("High Fidelity Duplex (A2DP Source/Sink, codec %s)"),
+							     a2dp_codec->description);
+
 			}
-			desc_and_codec = spa_aprintf(desc, a2dp_codec->description);
 			desc = desc_and_codec;
 		} else {
 			if (profile == SPA_BT_PROFILE_A2DP_SINK) {

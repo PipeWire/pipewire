@@ -408,13 +408,13 @@ static bool rfcomm_send_volume_cmd(struct spa_source *source, int id)
 	rfcomm->volumes[id].hw_volume = hw_volume;
 
 	if (id == SPA_BT_VOLUME_ID_TX)
-		format = "AT+VGM=%d";
+		format = "AT+VGM";
 	else if (id == SPA_BT_VOLUME_ID_RX)
-		format = "AT+VGS=%d";
+		format = "AT+VGS";
 	else
 	 	spa_assert_not_reached();
 
-	rfcomm_send_cmd(rfcomm, format, hw_volume);
+	rfcomm_send_cmd(rfcomm, "%s=%d", format, hw_volume);
 
 	return true;
 }

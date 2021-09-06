@@ -59,6 +59,67 @@
 #include "reserve.c"
 
 /** \page page_media_session_module_alsa_monitor Media Session Module: ALSA Monitor
+ *
+ * This module monitors udev for ALSA devices and creates the required
+ * PipeWire Device objects for each ALSA device.
+ *
+ * Devices advertised by udev are reserved using the [DBus ReserveDevice
+ * API](http://git.0pointer.net/reserve.git/tree/reserve.txt) and exported as
+ * \ref SPA_TYPE_INTERFACE_Device in the \ref pw_core. For each device,
+ * objects of type \ref SPA_TYPE_INTERFACE_Node are then created as required.
+ *
+ * Additionally, extra configuration is applied as shown below. This
+ * configuration is applied before the device is exported.
+ *
+ * ## Configuration
+ *
+ * This module loads the `alsa-monitor.conf` configuration file. The main
+ * component in that file is the `rules = []` array that consists of multiple
+ * dictionaries that `matches` a device and specifying `actions` to take.
+ *
+ * The following `actions` are supported:
+ * - `update-props`: update properties on the matched object
+ *
+ * For example:
+ * ```
+ * rules = [
+ * {
+ *   # Matches is an array of dictionaries. For a dictionary to match, **all**
+ *   # key/value matches must apply. For a match to be successful, **any**
+ *   # dictionary must apply.
+ *   matches = [
+ *   {
+ *     # A regular expression is prefixed with ~
+ *     device.name = "~alsa_card.*"
+ *   }
+ *   {
+ *     # standard string comparisons
+ *     device.name = "alsa_card.abcdef"
+ *     node.name = "alsa_input.12345"
+ *   }
+ *   {
+ *     # 'null' matches if the property is unset
+ *     some.random.property = "null"
+ *   }
+ *   ]
+ *   actions = {
+ *     update-props = {
+ *       api.alsa.use-acp = true
+ *     }
+ *   }
+ * }
+ * ]
+ * ```
+ *
+ * ## Module-specific properties:
+ *
+ * Ths modules supports the following entries in the `properties` dictionary:
+ * - `alsa.reserve = false`: disable device reservation (default: enabled)
+ * - `alsa.jack-device = true`: createa a JACK device (default: disabled), see
+ *   the comment in the example configuration file.
+ *
+ * See the `alsa-monitor.conf` provided by your installation for details on
+ * possible actions and matches.
  */
 #define SESSION_CONF	"alsa-monitor.conf"
 

@@ -551,6 +551,24 @@ static float *create_hilbert(const char *filename, float gain, int delay, int of
 	return samples;
 }
 
+static float *create_dirac(const char *filename, float gain, int delay, int offset,
+		int length, int *n_samples)
+{
+	float *samples;
+	int n;
+
+	n = delay + 1;
+
+	samples = calloc(n, sizeof(float));
+        if (samples == NULL)
+		return NULL;
+
+	samples[delay] = gain;
+
+	*n_samples = n;
+	return samples;
+}
+
 static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
@@ -618,6 +636,9 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 
 	if (spa_streq(filename, "/hilbert")) {
 		samples = create_hilbert(filename, gain, delay, offset,
+				length, &n_samples);
+	} else if (spa_streq(filename, "/dirac")) {
+		samples = create_dirac(filename, gain, delay, offset,
 				length, &n_samples);
 	} else {
 		samples = read_samples(filename, gain, delay, offset,

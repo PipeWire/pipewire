@@ -32,7 +32,7 @@ if sm_choice == 'media-session'
   if get_option('session-managers') == []
     summary({'No session manager': 'pw-uninstalled.sh will not work out of the box!'})
   elif not build_ms
-    error('media-session is the chosen session manager but it won\'t be built')
+    error('media-session is the selected default session manager but it won\'t be built')
   endif
 endif
 

@@ -1740,6 +1740,10 @@ static int param_latency_other(struct client *c, struct port *p,
 static int port_set_format(struct client *c, struct port *p,
 		uint32_t flags, const struct spa_pod *param)
 {
+	struct spa_pod *params[6];
+	uint8_t buffer[4096];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+
 	if (param == NULL) {
 		struct mix *mix;
 
@@ -1747,6 +1751,8 @@ static int port_set_format(struct client *c, struct port *p,
 
 		spa_list_for_each(mix, &p->mix, port_link)
 			clear_buffers(c, mix);
+
+		p->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	}
 	else {
 		struct spa_audio_info info = { 0 };
@@ -1784,7 +1790,29 @@ static int port_set_format(struct client *c, struct port *p,
 		default:
 			return -EINVAL;
 		}
+		p->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
 	}
+
+	pw_log_info("port %s: update", p->object->port.name);
+
+	p->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+
+	param_enum_format(c, p, &params[0], &b);
+	param_format(c, p, &params[1], &b);
+	param_buffers(c, p, &params[2], &b);
+	param_io(c, p, &params[3], &b);
+	param_latency(c, p, &params[4], &b);
+	param_latency_other(c, p, &params[5], &b);
+
+	pw_client_node_port_update(c->node,
+					 p->direction,
+					 p->id,
+					 PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
+					 PW_CLIENT_NODE_PORT_UPDATE_INFO,
+					 SPA_N_ELEMENTS(params),
+					 (const struct spa_pod **) params,
+					 &p->info);
+	p->info.change_mask = 0;
 	return 0;
 }
 
@@ -1816,7 +1844,7 @@ static void port_update_latency(struct port *p)
 					 SPA_N_ELEMENTS(params),
 					 (const struct spa_pod **) params,
 					 &p->info);
-	c->info.change_mask = 0;
+	p->info.change_mask = 0;
 }
 
 /* called from thread-loop */
@@ -1916,9 +1944,6 @@ static int client_node_port_set_param(void *object,
 {
 	struct client *c = (struct client *) object;
 	struct port *p = GET_PORT(c, direction, port_id);
-	struct spa_pod *params[6];
-	uint8_t buffer[4096];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
 	if (p == NULL || !p->valid)
 		return -EINVAL;
@@ -1929,28 +1954,14 @@ static int client_node_port_set_param(void *object,
 
 	switch (id) {
 	case SPA_PARAM_Format:
-		port_set_format(c, p, flags, param);
+		return port_set_format(c, p, flags, param);
 		break;
 	case SPA_PARAM_Latency:
 		return port_set_latency(c, p, flags, param);
 	default:
 		break;
 	}
-
-	param_enum_format(c, p, &params[0], &b);
-	param_format(c, p, &params[1], &b);
-	param_buffers(c, p, &params[2], &b);
-	param_io(c, p, &params[3], &b);
-	param_latency(c, p, &params[4], &b);
-	param_latency_other(c, p, &params[5], &b);
-
-	return pw_client_node_port_update(c->node,
-					 direction,
-					 port_id,
-					 PW_CLIENT_NODE_PORT_UPDATE_PARAMS,
-					 SPA_N_ELEMENTS(params),
-					 (const struct spa_pod **) params,
-					 NULL);
+	return 0;
 }
 
 static inline void *init_buffer(struct port *p)
@@ -3075,6 +3086,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	pw_client_node_update(client->node,
 			PW_CLIENT_NODE_UPDATE_INFO,
 			0, NULL, &client->info);
+	client->info.change_mask = 0;
 
 	if (status)
 		*status = 0;

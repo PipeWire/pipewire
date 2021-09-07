@@ -288,6 +288,7 @@ struct client {
 	struct pw_core *core;
 	struct spa_hook core_listener;
 	struct pw_mempool *pool;
+	int pending_sync;
 	int last_sync;
 	int last_res;
 	bool error;
@@ -772,7 +773,8 @@ static void on_sync_reply(void *data, uint32_t id, int seq)
 	if (id != PW_ID_CORE)
 		return;
 	client->last_sync = seq;
-	pw_thread_loop_signal(client->context.loop, false);
+	if (client->pending_sync == seq)
+		pw_thread_loop_signal(client->context.loop, false);
 }
 
 
@@ -800,14 +802,12 @@ static const struct pw_core_events core_events = {
 
 static int do_sync(struct client *client)
 {
-	int seq;
-
 	if (pw_thread_loop_in_thread(client->context.loop)) {
 		pw_log_warn("sync requested from callback");
 		return 0;
 	}
 
-	seq = pw_proxy_sync((struct pw_proxy*)client->core, client->last_sync);
+	client->pending_sync = pw_proxy_sync((struct pw_proxy*)client->core, client->pending_sync);
 
 	while (true) {
 	        pw_thread_loop_wait(client->context.loop);
@@ -815,7 +815,7 @@ static int do_sync(struct client *client)
 		if (client->error)
 			return client->last_res;
 
-		if (client->last_sync == seq)
+		if (client->pending_sync == client->last_sync)
 			break;
 	}
 	return 0;

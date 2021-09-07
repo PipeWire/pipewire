@@ -33,6 +33,8 @@
 #include <sys/socket.h>
 #include <sys/mman.h>
 
+#include <pthread.h>
+
 #include <alsa/asoundlib.h>
 #include <alsa/pcm_external.h>
 
@@ -53,6 +55,8 @@
 #define MAX_RATE	(48000*8)
 
 #define MIN_PERIOD	64
+
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct {
 	snd_pcm_ioplug_t io;
@@ -159,7 +163,9 @@ static int snd_pcm_pipewire_close(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 	pw_log_debug(NAME" %p:", pw);
+	pthread_mutex_lock(&lock);
 	snd_pcm_pipewire_free(pw);
+	pthread_mutex_unlock(&lock);
 	return 0;
 }
 
@@ -1112,10 +1118,6 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 	uint32_t flags = 0;
 	int err;
 
-	pw_init(NULL, NULL);
-	if (strstr(pw_get_library_version(), "0.2") != NULL)
-		return -ENOTSUP;
-
 	snd_config_for_each(i, next, conf) {
 		snd_config_t *n = snd_config_iterator_entry(i);
 		const char *id;
@@ -1191,9 +1193,17 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 		return -EINVAL;
 	}
 
+	pthread_mutex_lock(&lock);
+	pw_init(NULL, NULL);
+	if (strstr(pw_get_library_version(), "0.2") != NULL) {
+		pthread_mutex_unlock(&lock);
+		return -ENOTSUP;
+	}
+
 	err = snd_pcm_pipewire_open(pcmp, name, node_name, server_name, playback_node,
 			capture_node, role, stream, mode, flags, rate, format,
 			channels, period_bytes);
+	pthread_mutex_unlock(&lock);
 
 	return err;
 }

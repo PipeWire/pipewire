@@ -13,7 +13,8 @@ conf_config.set('session_manager_path', pipewire_bindir / 'pipewire-media-sessio
 conf_config.set('session_manager_args', '')
 conf_config.set('pipewire_path', pipewire_bindir / 'pipewire')
 conf_config.set('pipewire_pulse_path', pipewire_bindir / 'pipewire-pulse')
-conf_config.set('comment', '#')
+conf_config.set('sm_comment', '#')
+conf_config.set('pulse_comment', '#')
 
 conf_config_uninstalled = conf_config
 conf_config_uninstalled.set('session_manager_path',
@@ -22,7 +23,8 @@ conf_config_uninstalled.set('pipewire_path',
   meson.build_root() / 'src' / 'daemon' / 'pipewire')
 conf_config_uninstalled.set('pipewire_pulse_path',
   meson.build_root() / 'src' / 'daemon' / 'pipewire-pulse')
-conf_config_uninstalled.set('comment', '')
+conf_config_uninstalled.set('sm_comment', '')
+conf_config_uninstalled.set('pulse_comment', '')
 
 build_ms = get_option('session-managers').contains('media-session')
 build_wp = get_option('session-managers').contains('wireplumber')

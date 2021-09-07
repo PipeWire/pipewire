@@ -46,8 +46,13 @@ if sm_choice == 'media-session'
 endif
 
 if not build_wp and (sm_choice == 'wireplumber')
-  error('building of the wireplumber subproject is disabled, ' +
-        'but the requested session-manager is wireplumber')
+  wp_prog = find_program('wireplumber')
+  conf_config.set('session_manager_path', wp_prog.full_path())
+  conf_config_uninstalled.set('session_manager_path', wp_prog.full_path())
+  conf_config_uninstalled.set('session_manager_args', '')
+  summary({'Using system wireplumber': wp_prog.full_path()},
+          section: 'Session managers',
+          bool_yn: true)
 elif build_wp
   wp_proj = subproject('wireplumber', required : true)
   if sm_choice == 'wireplumber'

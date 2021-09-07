@@ -129,7 +129,7 @@ Allowed configuration file sections are:
 The `PIPEWIRE_DEBUG` environment variable can be used to enable
 more debugging. The format is:
 
-`<level>[<category>;...]`
+`<level>[<category>,<category>,...]`
 
 - `<level>` specifies the log level:
   + `0`: no logging is enabled

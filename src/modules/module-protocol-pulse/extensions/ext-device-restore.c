@@ -94,8 +94,10 @@ static int do_sink_read_format(void *data, struct pw_manager_object *o)
 			spa_zero(info[n_info]);
 			if (format_info_from_param(&info[n_info], p->param, index++) < 0)
 				break;
-			if (info[n_info].encoding == ENCODING_ANY)
+			if (info[n_info].encoding == ENCODING_ANY) {
+				format_info_clear(&info[n_info]);
 				continue;
+			}
 			n_info++;
 		}
 	}
@@ -108,6 +110,7 @@ static int do_sink_read_format(void *data, struct pw_manager_object *o)
 		message_put(d->reply,
 			TAG_FORMAT_INFO, &info[i],
 			TAG_INVALID);
+		format_info_clear(&info[i]);
 	}
 	return 0;
 }
@@ -255,6 +258,7 @@ static int do_extension_device_restore_save_formats(struct client *client,
 
 	for (i = 0; i < n_formats; ++i) {
 		struct format_info format;
+		spa_zero(format);
 		if (message_get(m,
 				TAG_FORMAT_INFO, &format,
 				TAG_INVALID) < 0)
@@ -263,6 +267,8 @@ static int do_extension_device_restore_save_formats(struct client *client,
 		codec = format_encoding2id(format.encoding);
 		if (codec != SPA_ID_INVALID && n_codecs < SPA_N_ELEMENTS(iec958codecs))
 			iec958codecs[n_codecs++] = codec;
+
+		format_info_clear(&format);
 	}
 	if (n_codecs == 0)
 		return -ENOTSUP;

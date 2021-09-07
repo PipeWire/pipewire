@@ -204,8 +204,3 @@ option('session-managers',
        type : 'array',
        choices : ['media-session', 'wireplumber'],
        value : ['media-session'])
-option('default-session-manager',
-       description : 'Default session manager (leave as-is if none are built)',
-       type : 'combo',
-       choices : ['auto', 'media-session', 'wireplumber'],
-       value : 'auto')

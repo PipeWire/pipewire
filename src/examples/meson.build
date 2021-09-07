@@ -56,6 +56,7 @@ executable('export-spa-device',
   dependencies : [pipewire_dep, mathlib],
 )
 
+media_session_sources = []
 if get_option('session-managers').contains('media-session')
   if not alsa_dep.found()
     error('Required dependency alsa not found, cannot build media-session without it')
@@ -66,7 +67,7 @@ if get_option('session-managers').contains('media-session')
     sm_logind_src = ['media-session/logind.c']
     sm_logind_dep = [systemd_dep]
   endif
-  media_session_sources = [
+  media_session_sources += [
     'media-session/access-flatpak.c',
     'media-session/access-portal.c',
     'media-session/alsa-no-dsp.c',

@@ -500,7 +500,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 static void unpeer_node(struct node *node)
 {
 	struct impl *impl = node->impl;
-	pw_log_info("unpeer id:%d exclusive:%d", node->id, node->exclusive);
+	pw_log_debug("unpeer id:%d exclusive:%d", node->id, node->exclusive);
 	if (node->passthrough) {
 		node->passthrough = false;
 		node->configured = false;
@@ -510,7 +510,7 @@ static void unpeer_node(struct node *node)
 
 static void destroy_node(struct impl *impl, struct node *node)
 {
-	pw_log_info("destroy %d %p", node->id, node->peer);
+	pw_log_debug("destroy %d %p", node->id, node->peer);
 	spa_list_remove(&node->link);
 	if (node->linking)
 		impl->linking_node_removed = true;

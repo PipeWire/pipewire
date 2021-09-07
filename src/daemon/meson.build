@@ -27,6 +27,15 @@ conf_config_uninstalled.set('comment', '')
 build_ms = get_option('session-managers').contains('media-session')
 build_wp = get_option('session-managers').contains('wireplumber')
 sm_choice = get_option('default-session-manager')
+if sm_choice == 'auto'
+  sm_choice = get_option('session-managers').get(0, '')
+endif
+
+summary({'Build media-session': build_ms,
+         'Build wireplumber': build_wp,
+         'Default session-manager': sm_choice},
+         section: 'Session managers',
+         bool_yn: true)
 
 if sm_choice == 'media-session'
   if get_option('session-managers') == []

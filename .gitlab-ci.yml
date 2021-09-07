@@ -22,8 +22,8 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2021-09-03.0'
-    FDO_DISTRIBUTION_VERSION: '33'
+    FDO_DISTRIBUTION_TAG: '2021-09-08.1'
+    FDO_DISTRIBUTION_VERSION: '34'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
       bluez-libs-devel
@@ -31,6 +31,7 @@ include:
       doxygen
       findutils
       gcc
+      gcc-c++
       git
       glib-devel
       graphviz

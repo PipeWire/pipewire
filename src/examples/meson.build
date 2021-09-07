@@ -56,7 +56,10 @@ executable('export-spa-device',
   dependencies : [pipewire_dep, mathlib],
 )
 
-if get_option('session-managers').contains('media-session') and alsa_dep.found()
+if get_option('session-managers').contains('media-session')
+  if not alsa_dep.found()
+    error('Required dependency alsa not found, cannot build media-session without it')
+  endif
   sm_logind_src = []
   sm_logind_dep = []
   if systemd.found() and systemd_dep.found()

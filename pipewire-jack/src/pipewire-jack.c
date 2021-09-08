@@ -1159,14 +1159,15 @@ do_buffer_frames(struct spa_loop *loop,
 	return 0;
 }
 
-static inline void check_buffer_frames(struct client *c, struct spa_io_position *pos)
+static inline void check_buffer_frames(struct client *c, struct spa_io_position *pos, bool emit)
 {
 	uint32_t buffer_frames = pos->clock.duration;
 	if (SPA_UNLIKELY(buffer_frames != c->buffer_frames)) {
 		pw_log_info(NAME" %p: bufferframes %d", c, buffer_frames);
 		c->buffer_frames = buffer_frames;
-		pw_loop_invoke(c->context.l, do_buffer_frames, 0,
-				&buffer_frames, sizeof(buffer_frames), false, c);
+		if (emit)
+			pw_loop_invoke(c->context.l, do_buffer_frames, 0,
+					&buffer_frames, sizeof(buffer_frames), false, c);
 	}
 }
 
@@ -1228,7 +1229,7 @@ static inline uint32_t cycle_run(struct client *c)
 		return 0;
 	}
 
-	check_buffer_frames(c, pos);
+	check_buffer_frames(c, pos, true);
 	check_sample_rate(c, pos);
 
 	if (SPA_LIKELY(driver)) {
@@ -3312,7 +3313,7 @@ int jack_activate (jack_client_t *client)
 	c->active = true;
 
 	if (c->position)
-		check_buffer_frames(c, c->position);
+		check_buffer_frames(c, c->position, false);
 
 	do_callback(c, graph_callback, c->graph_arg);
 

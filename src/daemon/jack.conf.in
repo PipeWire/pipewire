@@ -59,6 +59,7 @@ context.modules = [
 # global properties for all jack clients
 jack.properties = {
      #node.latency = 1024/48000
+     #node.lock-quantum   = false
      #jack.merge-monitor  = false
      #jack.short-name     = false
      #jack.filter-name    = false
@@ -69,6 +70,7 @@ jack.properties = {
      # fail-all:        Fail all self connect requests
      # ignore-all:      Ignore all self connect requests
      #jack.self-connect-mode  = allow
+     #jack.locked-process = true
 }
 
 # client specific properties

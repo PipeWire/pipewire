@@ -387,6 +387,7 @@ struct client {
 	unsigned int short_name:1;
 	unsigned int filter_name:1;
 	unsigned int freewheeling:1;
+	unsigned int locked_process:1;
 	int self_connect_mode;
 	int rt_max;
 
@@ -739,9 +740,11 @@ void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto
 ({								\
 	if (c->callback && c->active) {				\
 		pw_thread_loop_unlock(c->context.loop);		\
-		pthread_mutex_lock(&c->rt_lock);		\
+		if (c->locked_process)				\
+			pthread_mutex_lock(&c->rt_lock);	\
 		c->callback(__VA_ARGS__);			\
-		pthread_mutex_unlock(&c->rt_lock);		\
+		if (c->locked_process)				\
+			pthread_mutex_unlock(&c->rt_lock);	\
 		pw_thread_loop_lock(c->context.loop);		\
 	}							\
 })
@@ -2971,6 +2974,9 @@ jack_client_t * jack_client_open (const char *client_name,
 		client->short_name = pw_properties_parse_bool(str);
 	if ((str = pw_properties_get(client->props, "jack.filter-name")) != NULL)
 		client->filter_name = pw_properties_parse_bool(str);
+
+	str = pw_properties_get(client->props, "jack.locked-process");
+	client->locked_process = str ? pw_properties_parse_bool(str) : true;
 
 	client->self_connect_mode = SELF_CONNECT_ALLOW;
 	if ((str = pw_properties_get(client->props, "jack.self-connect-mode")) != NULL) {

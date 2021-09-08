@@ -709,7 +709,15 @@ static void clear_buffers(struct pw_stream *stream)
 		}
 	}
 	impl->n_buffers = 0;
-	clear_queue(impl, &impl->dequeued);
+	if (impl->direction == SPA_DIRECTION_INPUT) {
+		struct buffer *b;
+
+		while ((b = pop_queue(impl, &impl->dequeued))) {
+			if (b->busy)
+				ATOMIC_DEC(b->busy->count);
+		}
+	} else
+		clear_queue(impl, &impl->dequeued);
 	clear_queue(impl, &impl->queued);
 }
 

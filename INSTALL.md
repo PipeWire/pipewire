@@ -106,12 +106,12 @@ with the distribution as shown below.
 ### PipeWire daemon
 
 A correctly installed PipeWire system should have a pipewire
-process and a pipewire-media-session (or alternative) process
-running. PipeWire is usually started as a systemd unit using
-socket activation or as a service.
+process, a pipewire-media-session (or alternative) and an (optional)
+pipewire-pulse process running. PipeWire is usually started as a
+systemd unit using socket activation or as a service.
 
 Configuration of the PipeWire daemon can be found in
-/etc/pipewire/pipewire.conf. Please refer to the comments in the
+/usr/share/pipewire/pipewire.conf. Please refer to the comments in the
 config file for more information about the configuration options.
 
 The daemon is started with:
@@ -209,7 +209,7 @@ The binary is normally placed here:
 ```
 
 The server can be started with provided systemd activation files or
-from PipeWire itself. (See `/etc/pipewire/pipewire.conf`)
+from PipeWire itself. (See `/usr/share/pipewire/pipewire.conf`)
 
 ```
 systemctl --user start pipewire-pulse.service pipewire-pulse.socket

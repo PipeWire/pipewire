@@ -1246,8 +1246,10 @@ again:
 		/* collect quantum and rate */
 		spa_list_for_each(s, &n->follower_list, follower_link) {
 
-			lock_quantum |= s->lock_quantum;
-			lock_rate |= s->lock_rate;
+			if (s->info.state > PW_NODE_STATE_SUSPENDED) {
+				lock_quantum |= s->lock_quantum;
+				lock_rate |= s->lock_rate;
+			}
 
 			/* smallest latencies */
 			if (latency.denom == 0 ||

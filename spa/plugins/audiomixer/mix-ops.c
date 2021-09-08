@@ -68,18 +68,28 @@ static struct mix_info mix_table[] =
 	/* s8 */
 	{ SPA_AUDIO_FORMAT_S8, 0, 0, 1, mix_s8_c },
 	{ SPA_AUDIO_FORMAT_S8P, 0, 0, 1, mix_s8_c },
+	{ SPA_AUDIO_FORMAT_U8, 0, 0, 1, mix_u8_c },
+	{ SPA_AUDIO_FORMAT_U8P, 0, 0, 1, mix_u8_c },
 
 	/* s16 */
 	{ SPA_AUDIO_FORMAT_S16, 0, 0, 2, mix_s16_c },
 	{ SPA_AUDIO_FORMAT_S16P, 0, 0, 2, mix_s16_c },
+	{ SPA_AUDIO_FORMAT_U16, 0, 0, 2, mix_u16_c },
 
 	/* s24 */
 	{ SPA_AUDIO_FORMAT_S24, 0, 0, 3, mix_s24_c },
 	{ SPA_AUDIO_FORMAT_S24P, 0, 0, 3, mix_s24_c },
+	{ SPA_AUDIO_FORMAT_U24, 0, 0, 3, mix_u24_c },
 
 	/* s32 */
 	{ SPA_AUDIO_FORMAT_S32, 0, 0, 4, mix_s32_c },
 	{ SPA_AUDIO_FORMAT_S32P, 0, 0, 4, mix_s32_c },
+	{ SPA_AUDIO_FORMAT_U32, 0, 0, 4, mix_u32_c },
+
+	/* s24_32 */
+	{ SPA_AUDIO_FORMAT_S24_32, 0, 0, 4, mix_s24_32_c },
+	{ SPA_AUDIO_FORMAT_S24_32P, 0, 0, 4, mix_s24_32_c },
+	{ SPA_AUDIO_FORMAT_U24_32, 0, 0, 4, mix_u24_32_c },
 };
 
 #define MATCH_CHAN(a,b)		((a) == 0 || (a) == (b))

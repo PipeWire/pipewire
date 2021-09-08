@@ -344,6 +344,7 @@ int resample_native_init(struct resample *r)
 	scale = SPA_MIN(q->cutoff * out_rate / in_rate, 1.0);
 	/* multiple of 8 taps to ease simd optimizations */
 	n_taps = SPA_ROUND_UP_N((uint32_t)ceil(q->n_taps / scale), 8);
+	n_taps = SPA_MIN(n_taps, 1u << 18);
 
 	/* try to get at least 256 phases so that interpolation is
 	 * accurate enough when activated */

@@ -843,7 +843,7 @@ extern "C" {
 			unsigned int planeIdx = 0;
 			const std::vector<FrameBuffer::Plane> &planes = buffer->planes();
 			const FrameMetadata &metadata = buffer->metadata();
-			for (const FrameMetadata::Plane &plane : metadata.planes) {
+			for (const FrameMetadata::Plane &plane : metadata.planes()) {
 				pBuf->datas[planeIdx].idx = planeIdx;
 				pBuf->datas[planeIdx].type = 3; /*SPA_DATA_DmaBuf;*/
 				pBuf->datas[planeIdx].fd = planes[planeIdx].fd.fd();

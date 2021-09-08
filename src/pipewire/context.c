@@ -1321,7 +1321,7 @@ again:
 		if (context->settings.clock_power_of_two_quantum)
 			quantum = flp2(quantum);
 
-		if (quantum != n->rt.position->clock.duration && !lock_quantum) {
+		if (running && quantum != n->rt.position->clock.duration && !lock_quantum) {
 			pw_log_info("(%s-%u) new quantum:%"PRIu64"->%u",
 					n->name, n->info.id,
 					n->rt.position->clock.duration,

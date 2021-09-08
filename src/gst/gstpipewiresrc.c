@@ -400,18 +400,33 @@ buffer_recycle (GstMiniObject *obj)
   GstPipeWireSrc *src;
   GstPipeWirePoolData *data;
 
-  gst_mini_object_ref (obj);
   data = gst_pipewire_pool_get_data (GST_BUFFER_CAST(obj));
+
+  GST_OBJECT_LOCK (data->pool);
+  if (!obj->dispose) {
+    GST_OBJECT_UNLOCK (data->pool);
+    return TRUE;
+  }
 
   GST_BUFFER_FLAGS (obj) = data->flags;
   src = data->owner;
+
+  pw_thread_loop_lock (src->core->loop);
+  if (!obj->dispose) {
+    pw_thread_loop_unlock (src->core->loop);
+    GST_OBJECT_UNLOCK (data->pool);
+    return TRUE;
+  }
+
+  gst_mini_object_ref (obj);
+
   data->queued = TRUE;
 
   GST_LOG_OBJECT (src, "recycle buffer %p", obj);
-  pw_thread_loop_lock (src->core->loop);
-  if (src->stream)
-    pw_stream_queue_buffer (src->stream, data->b);
+  pw_stream_queue_buffer (src->stream, data->b);
   pw_thread_loop_unlock (src->core->loop);
+
+  GST_OBJECT_UNLOCK (data->pool);
 
   return FALSE;
 }
@@ -441,7 +456,10 @@ on_remove_buffer (void *_data, struct pw_buffer *b)
 
   GST_MINI_OBJECT_CAST (buf)->dispose = NULL;
 
-  gst_buffer_unref (buf);
+  if (data->queued)
+    gst_buffer_unref (buf);
+  else
+    pw_stream_queue_buffer (pwsrc->stream, b);
 }
 
 static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
@@ -1170,12 +1188,14 @@ gst_pipewire_src_close (GstPipeWireSrc * pwsrc)
   g_clear_object (&pwsrc->clock);
   GST_OBJECT_UNLOCK (pwsrc);
 
+  GST_OBJECT_LOCK (pwsrc->pool);
   pw_thread_loop_lock (pwsrc->core->loop);
   if (pwsrc->stream) {
     pw_stream_destroy (pwsrc->stream);
     pwsrc->stream = NULL;
   }
   pw_thread_loop_unlock (pwsrc->core->loop);
+  GST_OBJECT_UNLOCK (pwsrc->pool);
 
   if (pwsrc->core) {
     gst_pipewire_core_release (pwsrc->core);

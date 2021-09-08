@@ -81,6 +81,7 @@ struct node {
 	struct spa_hook listener;
 	unsigned char active:1;
 	unsigned char communication:1;
+	unsigned char was_active:1;
 };
 
 struct find_data {
@@ -473,6 +474,8 @@ static void change_node_state(struct node *node, bool active, bool communication
 	bool need_switch = false;
 	struct impl *impl = node->impl;
 
+	node->was_active = node->was_active || active;
+
 	if (node->active != active) {
 		impl->record_count += active ? 1 : -1;
 		node->active = active;
@@ -506,6 +509,17 @@ static void check_node(struct node *node)
 
 	if ((str = spa_dict_lookup(node->obj->info->props, PW_KEY_STREAM_MONITOR)) != NULL &&
 			spa_atob(str))
+		goto inactive;
+
+	/*
+	 * XXX: This is not fully the right thing to do --- the node may be
+	 * XXX: idle/suspended also because it's linked to a source that is not
+	 * XXX: generating data. However, this seems the closest approximation
+	 * XXX: to Pulse corked stream status.
+	 */
+	if (node->was_active && (node->obj->info->state == PW_NODE_STATE_SUSPENDED ||
+			node->obj->info->state == PW_NODE_STATE_IDLE ||
+			node->obj->info->state == PW_NODE_STATE_ERROR))
 		goto inactive;
 
 	if (spa_streq(pw_properties_get(node->obj->obj.props, PW_KEY_MEDIA_ROLE), "Communication"))

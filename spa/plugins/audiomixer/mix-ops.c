@@ -47,20 +47,20 @@ static struct mix_info mix_table[] =
 {
 	/* f32 */
 #if defined(HAVE_AVX)
-	{ SPA_AUDIO_FORMAT_F32, 1, SPA_CPU_FLAG_AVX, 4, mix_f32_avx },
-	{ SPA_AUDIO_FORMAT_F32P, 1, SPA_CPU_FLAG_AVX, 4, mix_f32_avx },
+	{ SPA_AUDIO_FORMAT_F32, 0, SPA_CPU_FLAG_AVX, 4, mix_f32_avx },
+	{ SPA_AUDIO_FORMAT_F32P, 0, SPA_CPU_FLAG_AVX, 4, mix_f32_avx },
 #endif
 #if defined (HAVE_SSE)
-	{ SPA_AUDIO_FORMAT_F32, 1, SPA_CPU_FLAG_SSE, 4, mix_f32_sse },
-	{ SPA_AUDIO_FORMAT_F32P, 1, SPA_CPU_FLAG_SSE, 4, mix_f32_sse },
+	{ SPA_AUDIO_FORMAT_F32, 0, SPA_CPU_FLAG_SSE, 4, mix_f32_sse },
+	{ SPA_AUDIO_FORMAT_F32P, 0, SPA_CPU_FLAG_SSE, 4, mix_f32_sse },
 #endif
 	{ SPA_AUDIO_FORMAT_F32, 0, 0, 4, mix_f32_c },
 	{ SPA_AUDIO_FORMAT_F32P, 0, 0, 4, mix_f32_c },
 
 	/* f64 */
 #if defined (HAVE_SSE2)
-	{ SPA_AUDIO_FORMAT_F64, 1, SPA_CPU_FLAG_SSE2, 8, mix_f64_sse2 },
-	{ SPA_AUDIO_FORMAT_F64P, 1, SPA_CPU_FLAG_SSE2, 8, mix_f64_sse2 },
+	{ SPA_AUDIO_FORMAT_F64, 0, SPA_CPU_FLAG_SSE2, 8, mix_f64_sse2 },
+	{ SPA_AUDIO_FORMAT_F64P, 0, SPA_CPU_FLAG_SSE2, 8, mix_f64_sse2 },
 #endif
 	{ SPA_AUDIO_FORMAT_F64, 0, 0, 8, mix_f64_c },
 	{ SPA_AUDIO_FORMAT_F64P, 0, 0, 8, mix_f64_c },

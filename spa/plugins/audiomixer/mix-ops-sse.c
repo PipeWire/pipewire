@@ -79,11 +79,11 @@ mix_f32_sse(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_RESTR
 	uint32_t i;
 
 	if (n_src == 0)
-		memset(dst, 0, n_samples * sizeof(float));
+		memset(dst, 0, n_samples * ops->n_channels * sizeof(float));
 	else if (dst != src[0])
-		memcpy(dst, src[0], n_samples * sizeof(float));
+		memcpy(dst, src[0], n_samples * ops->n_channels * sizeof(float));
 
 	for (i = 1; i < n_src; i++) {
-		mix_2(dst, src[i], n_samples);
+		mix_2(dst, src[i], n_samples * ops->n_channels);
 	}
 }

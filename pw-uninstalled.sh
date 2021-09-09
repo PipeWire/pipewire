@@ -52,5 +52,10 @@ export ALSA_PLUGIN_DIR="${BUILDDIR}/pipewire-alsa/alsa-plugins"
 export PW_UNINSTALLED=1
 export PKG_CONFIG_PATH="${BUILDDIR}/meson-uninstalled/:${PKG_CONFIG_PATH}"
 
-# FIXME: find a nice, shell-neutral way to specify a prompt
-${SHELL}
+if [ -d "${BUILDDIR}/subprojects/wireplumber" ]; then
+	# FIXME: find a nice, shell-neutral way to specify a prompt
+	"${SCRIPT_DIR}"/subprojects/wireplumber/wp-uninstalled.sh -b"${BUILDDIR}"/subprojects/wireplumber "${SHELL}"
+else
+	# FIXME: find a nice, shell-neutral way to specify a prompt
+	${SHELL}
+fi

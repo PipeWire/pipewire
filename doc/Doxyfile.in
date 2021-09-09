@@ -12,6 +12,7 @@ GENERATE_TESTLIST      = NO
 GENERATE_BUGLIST       = NO
 QUIET                  = YES
 WARN_NO_PARAMDOC       = YES
+HAVE_DOT               = @HAVE_DOT@
 INPUT                  = @inputs@
 FILE_PATTERNS          = "*.h" "*.c"
 RECURSIVE              = YES

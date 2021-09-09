@@ -76,7 +76,7 @@ variable like so:
 
 ```
 cd builddir/
-PIPEWIRE_DEBUG=4 make run
+PIPEWIRE_DEBUG="D" make run
 ```
 
 You might have to stop the pipewire service/socket that might have been

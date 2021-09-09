@@ -243,6 +243,49 @@ PWTEST(logger_debug_env)
 	return PWTEST_PASS;
 }
 
+PWTEST(logger_debug_env_alpha)
+{
+	enum spa_log_level level = pwtest_get_iteration(current_test);
+	enum spa_log_level default_level = pw_log_level;
+	struct spa_log *default_logger = pw_log_get();
+	char *lvl;
+	char *oldenv = getenv("PIPEWIRE_DEBUG");
+
+	if (oldenv)
+		oldenv = strdup(oldenv);
+
+	switch(level) {
+		case SPA_LOG_LEVEL_NONE:  lvl = "X"; break;
+		case SPA_LOG_LEVEL_ERROR: lvl = "E"; break;
+		case SPA_LOG_LEVEL_WARN:  lvl = "W"; break;
+		case SPA_LOG_LEVEL_INFO:  lvl = "I"; break;
+		case SPA_LOG_LEVEL_DEBUG: lvl = "D"; break;
+		case SPA_LOG_LEVEL_TRACE: lvl = "T"; break;
+		default:
+			pwtest_fail_if_reached();
+			break;
+	}
+	setenv("PIPEWIRE_DEBUG", lvl, 1);
+
+	/* Disable logging, let PIPEWIRE_DEBUG set the level */
+	pw_log_set_level(SPA_LOG_LEVEL_NONE);
+
+	test_log_levels(level);
+
+	if (oldenv) {
+		setenv("PIPEWIRE_DEBUG", oldenv, 1);
+		free(oldenv);
+	} else {
+		unsetenv("PIPEWIRE_DEBUG");
+	}
+
+	pw_log_set(default_logger);
+	pw_log_set_level(default_level);
+	pw_deinit();
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(logger)
 {
 	pwtest_add(logger_truncate_long_lines, PWTEST_NOARG);
@@ -251,6 +294,9 @@ PWTEST_SUITE(logger)
 		   PWTEST_ARG_RANGE, SPA_LOG_LEVEL_NONE, SPA_LOG_LEVEL_TRACE + 1,
 		   PWTEST_NOARG);
 	pwtest_add(logger_debug_env,
+		   PWTEST_ARG_RANGE, SPA_LOG_LEVEL_NONE, SPA_LOG_LEVEL_TRACE + 1,
+		   PWTEST_NOARG);
+	pwtest_add(logger_debug_env_alpha,
 		   PWTEST_ARG_RANGE, SPA_LOG_LEVEL_NONE, SPA_LOG_LEVEL_TRACE + 1,
 		   PWTEST_NOARG);
 

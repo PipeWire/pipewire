@@ -38,7 +38,9 @@ or with the provided scripts shown below.
 PipeWire can use environment variables to control the behaviour of
 applications:
 
-* `PIPEWIRE_DEBUG=<level>`         to increase the debug level
+* `PIPEWIRE_DEBUG=<level>`         to increase the debug level (or use one of
+                                   `XEWIDT` for none, error, warnings, info,
+                                   debug, or trace, respectively).
 * `PIPEWIRE_LOG=<filename>`        to redirect log to filename
 * `PIPEWIRE_LOG_SYSTEMD=false`     to disable logging to systemd journal
 * `PIPEWIRE_LATENCY=<num/denom>`   to configure latency as a fraction. 10/1000

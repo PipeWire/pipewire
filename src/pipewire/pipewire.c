@@ -215,8 +215,17 @@ static void configure_debug(struct support *support, const char *str)
 	int n_tokens;
 
 	level = pw_split_strv(str, ":", INT_MAX, &n_tokens);
-	if (n_tokens > 0)
-		pw_log_set_level(atoi(level[0]));
+	if (n_tokens > 0) {
+		switch (level[0][0]) {
+			case 'X': pw_log_set_level(SPA_LOG_LEVEL_NONE); break;
+			case 'E': pw_log_set_level(SPA_LOG_LEVEL_ERROR); break;
+			case 'W': pw_log_set_level(SPA_LOG_LEVEL_WARN); break;
+			case 'I': pw_log_set_level(SPA_LOG_LEVEL_INFO); break;
+			case 'D': pw_log_set_level(SPA_LOG_LEVEL_DEBUG); break;
+			case 'T': pw_log_set_level(SPA_LOG_LEVEL_TRACE); break;
+			default:  pw_log_set_level(atoi(level[0])); break;
+		}
+	}
 
 	if (n_tokens > 1)
 		support->categories = pw_split_strv(level[1], ",", INT_MAX, &n_tokens);

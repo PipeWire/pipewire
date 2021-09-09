@@ -328,7 +328,7 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 	struct node *node;
 	struct impl *impl = device->impl;
 	int res;
-	const char *dev, *subdev, *stream, *profile, *profile_desc, *rules;
+	const char *dev, *subdev, *stream, *profile, *profile_desc, *rules, *str;
 	char tmp[1024];
 	int i, priority;
 
@@ -474,6 +474,13 @@ static struct node *alsa_create_node(struct device *device, uint32_t id,
 	}
 	if (pw_properties_get(node->props, PW_KEY_DEVICE_ICON_NAME) == NULL)
 		update_icon_name(node->props, node->direction == PW_DIRECTION_INPUT);
+
+	if ((str = pw_properties_get(device->props, PW_KEY_DEVICE_BUS)) != NULL)
+		pw_properties_set(node->props, PW_KEY_DEVICE_BUS, str);
+	if ((str = pw_properties_get(device->props, PW_KEY_DEVICE_BUS_PATH)) != NULL)
+		pw_properties_set(node->props, PW_KEY_DEVICE_BUS_PATH, str);
+	if ((str = pw_properties_get(device->props, PW_KEY_DEVICE_FORM_FACTOR)) != NULL)
+		pw_properties_set(node->props, PW_KEY_DEVICE_FORM_FACTOR, str);
 
 	node->impl = impl;
 	node->device = device;

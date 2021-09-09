@@ -217,6 +217,9 @@ static bool check_passthrough(struct node *node, struct node *peer)
 	if (peer->obj->info->state == PW_NODE_STATE_RUNNING)
 		return false;
 
+	if (!node->have_passthrough || !peer->have_passthrough)
+		return false;
+
 	spa_list_for_each(p1, &node->obj->param_list, link) {
 		if (p1->id != SPA_PARAM_EnumFormat)
 			continue;

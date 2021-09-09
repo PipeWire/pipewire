@@ -214,6 +214,9 @@ static bool check_passthrough(struct node *node, struct node *peer)
 	struct spa_pod_builder b;
 	struct spa_pod *res;
 
+	if (peer->obj->info == NULL)
+		return false;
+
 	if (peer->obj->info->state == PW_NODE_STATE_RUNNING)
 		return false;
 

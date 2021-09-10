@@ -166,6 +166,9 @@ pw_context_load_module(struct pw_context *context,
 	const char *module_dir;
 	int res;
 	pw_impl_module_init_func_t init_func;
+	const char *state = NULL, *p;
+	size_t len;
+	char path_part[PATH_MAX];
 
 	module_dir = getenv("PIPEWIRE_MODULE_DIR");
 	if (module_dir == NULL) {
@@ -176,13 +179,21 @@ pw_context_load_module(struct pw_context *context,
 		pw_log_debug("PIPEWIRE_MODULE_DIR set to: %s", module_dir);
 	}
 
-	filename = find_module(module_dir, name, 8);
+	while ((p = pw_split_walk(module_dir, ":", &len, &state))) {
+		if ((res = spa_scnprintf(path_part, sizeof(path_part), "%.*s", (int)len, p)) > 0) {
+			filename = find_module(path_part, name, 8);
+		if (filename != NULL) {
+			pw_log_debug("trying to load module: %s (%s) args(%s)", name, filename, args);
+
+		hnd = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
+		if (hnd != NULL)
+		break;
+		}
+	}
+}
+
 	if (filename == NULL)
 		goto error_not_found;
-
-	pw_log_debug("trying to load module: %s (%s) args(%s)", name, filename, args);
-
-	hnd = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
 	if (hnd == NULL)
 		goto error_open_failed;
 

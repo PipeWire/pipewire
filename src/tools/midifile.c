@@ -187,7 +187,7 @@ exit_unmap:
 exit_close:
 	close(mf->fd);
 exit:
-	return res ;
+	return res;
 }
 
 static inline int write_n(int fd, const void *buf, int count)

@@ -5,6 +5,7 @@ tools_sources = [
   [ 'pw-dump', [ 'pw-dump.c' ] ],
   [ 'pw-profiler', [ 'pw-profiler.c' ] ],
   [ 'pw-mididump', [ 'pw-mididump.c', 'midifile.c' ] ],
+  [ 'pw-dsdplay', [ 'pw-dsdplay.c' ] ],
   [ 'pw-metadata', [ 'pw-metadata.c' ] ],
   [ 'pw-loopback', [ 'pw-loopback.c' ] ],
   [ 'pw-link', [ 'pw-link.c' ] ],

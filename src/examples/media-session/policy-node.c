@@ -684,6 +684,40 @@ static void session_remove(void *data, struct sm_object *object)
 	sm_media_session_schedule_rescan(impl->session);
 }
 
+static bool have_available_route(struct node *node, struct sm_device *dev)
+{
+	struct sm_param *p;
+	const char *str;
+	uint32_t card_profile_device;
+
+	if (node->obj->info == NULL || node->obj->info->props == NULL ||
+	    (str = spa_dict_lookup(node->obj->info->props, "card.profile.device")) == NULL)
+		return 1;
+
+	if (!spa_atou32(str, &card_profile_device, 0))
+		return 1;
+
+	spa_list_for_each(p, &dev->param_list, link) {
+		uint32_t device_id;
+		enum spa_param_availability available;
+
+		if (p->id != SPA_PARAM_Route)
+			continue;
+
+		if (spa_pod_parse_object(p->param,
+					SPA_TYPE_OBJECT_ParamRoute, NULL,
+					SPA_PARAM_ROUTE_device, SPA_POD_Int(&device_id),
+					SPA_PARAM_ROUTE_available,  SPA_POD_Id(&available)) < 0)
+			continue;
+
+		/* we found the route for the device and it is not available */
+		if (device_id == card_profile_device &&
+		    available == SPA_PARAM_AVAILABILITY_no)
+			return 0;
+	}
+	return 1;
+}
+
 struct find_data {
 	struct impl *impl;
 	struct node *result;
@@ -732,7 +766,11 @@ static int find_node(void *data, struct node *node)
 		return 0;
 	}
 	if (find->link_group && !can_link_check(impl, find->link_group, node, 0)) {
-		pw_log_info(".. connecting link-group %s", find->link_group);
+		pw_log_debug(".. connecting link-group %s", find->link_group);
+		return 0;
+	}
+	if (device != NULL && !have_available_route(node, device)) {
+		pw_log_debug(".. no available routes");
 		return 0;
 	}
 

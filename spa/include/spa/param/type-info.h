@@ -90,6 +90,15 @@ static const struct spa_type_info spa_type_prop_iec958_codec[] = {
 	{ 0, 0, NULL, NULL },
 };
 
+#define SPA_TYPE_INFO_ParamBitorder		SPA_TYPE_INFO_ENUM_BASE "ParamBitorder"
+#define SPA_TYPE_INFO_PARAM_BITORDER_BASE	SPA_TYPE_INFO_ParamBitorder ":"
+
+static const struct spa_type_info spa_type_param_bitorder[] = {
+	{ SPA_PARAM_BITORDER_msb, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_BITORDER_BASE "msb", NULL },
+	{ SPA_PARAM_BITORDER_lsb, SPA_TYPE_Int, SPA_TYPE_INFO_PARAM_BITORDER_BASE "lsb", NULL },
+	{ 0, 0, NULL, NULL },
+};
+
 static const struct spa_type_info spa_type_props[] = {
 	{ SPA_PROP_START, SPA_TYPE_Id, SPA_TYPE_INFO_PROPS_BASE, spa_type_param, },
 	{ SPA_PROP_unknown, SPA_TYPE_None, SPA_TYPE_INFO_PROPS_BASE "unknown", NULL },
@@ -203,6 +212,7 @@ static const struct spa_type_info spa_type_media_subtype[] = {
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "raw", NULL },
 	{ SPA_MEDIA_SUBTYPE_dsp, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "dsp", NULL },
 	{ SPA_MEDIA_SUBTYPE_iec958, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "iec958", NULL },
+	{ SPA_MEDIA_SUBTYPE_dsd, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "dsd", NULL },
 	/* audio subtypes */
 	{ SPA_MEDIA_SUBTYPE_mp3, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "mp3", NULL },
 	{ SPA_MEDIA_SUBTYPE_aac, SPA_TYPE_Int, SPA_TYPE_INFO_MEDIA_SUBTYPE_BASE "aac", NULL },
@@ -267,6 +277,9 @@ static const struct spa_type_info spa_type_format[] = {
 
 	{ SPA_FORMAT_AUDIO_iec958Codec, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_AUDIO_BASE "iec958Codec",
 		spa_type_audio_iec958_codec },
+
+	{ SPA_FORMAT_AUDIO_bitorder, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_AUDIO_BASE "bitorder",
+		spa_type_param_bitorder },
 
 	{ SPA_FORMAT_VIDEO_format, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_VIDEO_BASE "format",
 		spa_type_video_format, },

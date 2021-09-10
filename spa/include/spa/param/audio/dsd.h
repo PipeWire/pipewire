@@ -1,6 +1,6 @@
 /* Simple Plugin API
  *
- * Copyright © 2018 Wim Taymans
+ * Copyright © 2021 Wim Taymans
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,33 +22,52 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef SPA_PARAM_AUDIO_FORMAT_H
-#define SPA_PARAM_AUDIO_FORMAT_H
+#ifndef SPA_AUDIO_DSD_H
+#define SPA_AUDIO_DSD_H
+
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include <spa/param/param.h>
+#include <spa/param/audio/raw.h>
 
 /**
  * \addtogroup spa_param
  * \{
  */
 
-#include <spa/param/format.h>
-#include <spa/param/audio/raw.h>
-#include <spa/param/audio/iec958.h>
-#include <spa/param/audio/dsd.h>
+/** Extra DSD audio flags */
+#define SPA_AUDIO_DSD_FLAG_NONE		(0)		/*< no valid flag */
 
-struct spa_audio_info {
-	uint32_t media_type;
-	uint32_t media_subtype;
-	union {
-		struct spa_audio_info_raw raw;
-		struct spa_audio_info_dsp dsp;
-		struct spa_audio_info_iec958 iec958;
-		struct spa_audio_info_dsd dsd;
-	} info;
+/* DSD bits are transfered in a buffer grouped in bytes with the bitorder
+ * defined by \a bitorder.
+ *
+ * Channels are placed in separate planes or interleaved using the stride
+ * field of the buffer. The stride is then the number of bytes grouped per
+ * channel.
+ *
+ *  Planar:
+ *    plane1: l1 l2 l3 l4 l5 ...
+ *    plane2: r1 r2 r3 r4 r5 ...
+ *
+ *  Interleaved stride 4:
+ *    plane1: l1 l2 l3 l4 r1 r2 r3 r4 l5 l6 l7 l8 r5 r6 r7 r8 l9 ...
+ *
+ *  Interleaved stride 2:
+ *    plane1: l1 l2 r1 r2 l3 l4 r3 r4  ...
+ */
+struct spa_audio_info_dsd {
+	enum spa_param_bitorder bitorder;		/*< the order of the bits */
+	uint32_t flags;					/*< extra flags */
+	uint32_t rate;					/*< sample rate */
+	uint32_t channels;				/*< channels */
+	uint32_t position[SPA_AUDIO_MAX_CHANNELS];	/*< channel position from enum spa_audio_channel */
 };
+
+#define SPA_AUDIO_INFO_DSD_INIT(...)		(struct spa_audio_info_dsd) { __VA_ARGS__ }
 
 /**
  * \}
@@ -58,4 +77,4 @@ struct spa_audio_info {
 }  /* extern "C" */
 #endif
 
-#endif /* SPA_PARAM_AUDIO_FORMAT_H */
+#endif /* SPA_AUDIO_DSD_H */

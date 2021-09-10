@@ -285,7 +285,6 @@ static const struct spa_type_info spa_type_audio_iec958_codec[] = {
 	{ 0, 0, NULL, NULL },
 };
 
-
 /**
  * \}
  */

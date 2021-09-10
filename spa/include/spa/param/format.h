@@ -53,6 +53,7 @@ enum spa_media_subtype {
 	SPA_MEDIA_SUBTYPE_raw,
 	SPA_MEDIA_SUBTYPE_dsp,
 	SPA_MEDIA_SUBTYPE_iec958,	/** S/PDIF */
+	SPA_MEDIA_SUBTYPE_dsd,
 
 	SPA_MEDIA_SUBTYPE_START_Audio	= 0x10000,
 	SPA_MEDIA_SUBTYPE_mp3,
@@ -111,7 +112,9 @@ enum spa_format {
 	SPA_FORMAT_AUDIO_channels,	/**< number of audio channels (Int) */
 	SPA_FORMAT_AUDIO_position,	/**< channel positions (Id enum spa_audio_position) */
 
-	SPA_FORMAT_AUDIO_iec958Codec,		/**< codec used (IEC958) (Id enum spa_audio_iec958_codec) */
+	SPA_FORMAT_AUDIO_iec958Codec,	/**< codec used (IEC958) (Id enum spa_audio_iec958_codec) */
+
+	SPA_FORMAT_AUDIO_bitorder,	/**< bit order (Id enum spa_param_bitorder) */
 
 	/* Video Format keys */
 	SPA_FORMAT_START_Video = 0x20000,

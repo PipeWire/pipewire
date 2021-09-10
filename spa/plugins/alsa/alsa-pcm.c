@@ -374,21 +374,148 @@ static void sanitize_map(snd_pcm_chmap_t* map)
 	}
 }
 
+static int add_rate(struct state *state, uint32_t index, uint32_t *next,
+		snd_pcm_hw_params_t *params, struct spa_pod_builder *b)
+{
+	struct spa_pod_frame f[1];
+	int err, dir;
+	unsigned int min, max;
+	struct spa_pod_choice *choice;
+	uint32_t rate;
+
+	CHECK(snd_pcm_hw_params_get_rate_min(params, &min, &dir), "get_rate_min");
+	CHECK(snd_pcm_hw_params_get_rate_max(params, &max, &dir), "get_rate_max");
+
+	if (state->default_rate != 0) {
+		if (min < state->default_rate)
+			min = state->default_rate;
+		if (max > state->default_rate)
+			max = state->default_rate;
+	}
+
+	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_rate, 0);
+
+	spa_pod_builder_push_choice(b, &f[0], SPA_CHOICE_None, 0);
+	choice = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f[0]);
+
+	rate = state->position ? state->position->clock.rate.denom : DEFAULT_RATE;
+
+	spa_pod_builder_int(b, SPA_CLAMP(rate, min, max));
+	if (min != max) {
+		spa_pod_builder_int(b, min);
+		spa_pod_builder_int(b, max);
+		choice->body.type = SPA_CHOICE_Range;
+	}
+	spa_pod_builder_pop(b, &f[0]);
+
+	return 1;
+}
+
+static int add_channels(struct state *state, uint32_t index, uint32_t *next,
+		snd_pcm_hw_params_t *params, struct spa_pod_builder *b)
+{
+	struct spa_pod_frame f[1];
+	size_t i;
+	int err;
+	snd_pcm_t *hndl = state->hndl;
+	snd_pcm_chmap_query_t **maps;
+	unsigned int min, max;
+
+	CHECK(snd_pcm_hw_params_get_channels_min(params, &min), "get_channels_min");
+	CHECK(snd_pcm_hw_params_get_channels_max(params, &max), "get_channels_max");
+	spa_log_debug(state->log, "channels (%d %d)", min, max);
+
+	if (state->default_channels != 0) {
+		if (min < state->default_channels)
+			min = state->default_channels;
+		if (max > state->default_channels)
+			max = state->default_channels;
+	}
+	min = SPA_MIN(min, SPA_AUDIO_MAX_CHANNELS);
+	max = SPA_MIN(max, SPA_AUDIO_MAX_CHANNELS);
+
+	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_channels, 0);
+
+	if (state->props.use_chmap && (maps = snd_pcm_query_chmaps(hndl)) != NULL) {
+		uint32_t channel;
+		snd_pcm_chmap_t* map;
+
+skip_channels:
+		if (maps[index] == NULL) {
+			snd_pcm_free_chmaps(maps);
+			return 0;
+		}
+		map = &maps[index]->map;
+
+		spa_log_debug(state->log, "map %d channels (%d %d)", map->channels, min, max);
+
+		if (map->channels < min || map->channels > max) {
+			index = (*next)++;
+			goto skip_channels;
+		}
+
+		sanitize_map(map);
+		spa_pod_builder_int(b, map->channels);
+
+		spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_position, 0);
+		spa_pod_builder_push_array(b, &f[0]);
+		for (i = 0; i < map->channels; i++) {
+			spa_log_debug(state->log, NAME" %p: position %zd %d", state, i, map->pos[i]);
+			channel = chmap_position_to_channel(map->pos[i]);
+			spa_pod_builder_id(b, channel);
+		}
+		spa_pod_builder_pop(b, &f[0]);
+
+		snd_pcm_free_chmaps(maps);
+	}
+	else {
+		const struct channel_map *map = NULL;
+		struct spa_pod_choice *choice;
+
+		if (index > 0)
+			return 0;
+
+		spa_pod_builder_push_choice(b, &f[0], SPA_CHOICE_None, 0);
+		choice = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f[0]);
+		spa_pod_builder_int(b, max);
+		if (min != max) {
+			spa_pod_builder_int(b, min);
+			spa_pod_builder_int(b, max);
+			choice->body.type = SPA_CHOICE_Range;
+		}
+		spa_pod_builder_pop(b, &f[0]);
+
+		if (min == max) {
+			if (state->default_pos.channels == min)
+				map = &state->default_pos;
+			else if (min == max && min <= 8)
+				map = &default_map[min];
+		}
+		if (map) {
+			spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_position, 0);
+			spa_pod_builder_push_array(b, &f[0]);
+			for (i = 0; i < map->channels; i++) {
+				spa_log_debug(state->log, NAME" %p: position %zd %d", state, i, map->pos[i]);
+				spa_pod_builder_id(b, map->pos[i]);
+			}
+			spa_pod_builder_pop(b, &f[0]);
+		}
+	}
+	return 1;
+}
+
 static int enum_pcm_formats(struct state *state, uint32_t index, uint32_t *next,
 		struct spa_pod **result, struct spa_pod_builder *b)
 {
-	int err, dir;
+	int res, err;
 	size_t i, j;
 	snd_pcm_t *hndl;
 	snd_pcm_hw_params_t *params;
-	snd_pcm_chmap_query_t **maps;
 	struct spa_pod_frame f[2];
 	snd_pcm_format_mask_t *fmask;
 	snd_pcm_access_mask_t *amask;
-	unsigned int min, max;
 	unsigned int rrate, rchannels;
 	struct spa_pod_choice *choice;
-	uint32_t rate;
 
 	hndl = state->hndl;
 	snd_pcm_hw_params_alloca(&params);
@@ -484,110 +611,12 @@ static int enum_pcm_formats(struct state *state, uint32_t index, uint32_t *next,
 		choice->body.type = SPA_CHOICE_Enum;
 	spa_pod_builder_pop(b, &f[1]);
 
-	CHECK(snd_pcm_hw_params_get_rate_min(params, &min, &dir), "get_rate_min");
-	CHECK(snd_pcm_hw_params_get_rate_max(params, &max, &dir), "get_rate_max");
+	if ((res = add_rate(state, index & 0xffff, next, params, b)) != 1)
+		return res;
 
-	if (state->default_rate != 0) {
-		if (min < state->default_rate)
-			min = state->default_rate;
-		if (max > state->default_rate)
-			max = state->default_rate;
-	}
+	if ((res = add_channels(state, index & 0xffff, next, params, b)) != 1)
+		return res;
 
-	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_rate, 0);
-
-	spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_None, 0);
-	choice = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f[1]);
-
-	rate = state->position ? state->position->clock.rate.denom : DEFAULT_RATE;
-
-	spa_pod_builder_int(b, SPA_CLAMP(rate, min, max));
-	if (min != max) {
-		spa_pod_builder_int(b, min);
-		spa_pod_builder_int(b, max);
-		choice->body.type = SPA_CHOICE_Range;
-	}
-	spa_pod_builder_pop(b, &f[1]);
-
-	CHECK(snd_pcm_hw_params_get_channels_min(params, &min), "get_channels_min");
-	CHECK(snd_pcm_hw_params_get_channels_max(params, &max), "get_channels_max");
-	spa_log_debug(state->log, "channels (%d %d)", min, max);
-
-	if (state->default_channels != 0) {
-		if (min < state->default_channels)
-			min = state->default_channels;
-		if (max > state->default_channels)
-			max = state->default_channels;
-	}
-	min = SPA_MIN(min, SPA_AUDIO_MAX_CHANNELS);
-	max = SPA_MIN(max, SPA_AUDIO_MAX_CHANNELS);
-
-	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_channels, 0);
-
-	if (state->props.use_chmap && (maps = snd_pcm_query_chmaps(hndl)) != NULL) {
-		uint32_t channel;
-		snd_pcm_chmap_t* map;
-
-skip_channels:
-		if (maps[index] == NULL) {
-			snd_pcm_free_chmaps(maps);
-			return 0;
-		}
-		map = &maps[index]->map;
-
-		spa_log_debug(state->log, "map %d channels (%d %d)", map->channels, min, max);
-
-		if (map->channels < min || map->channels > max) {
-			index = (*next)++;
-			goto skip_channels;
-		}
-
-		sanitize_map(map);
-		spa_pod_builder_int(b, map->channels);
-
-		spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_position, 0);
-		spa_pod_builder_push_array(b, &f[1]);
-		for (j = 0; j < map->channels; j++) {
-			spa_log_debug(state->log, NAME" %p: position %zd %d", state, j, map->pos[j]);
-			channel = chmap_position_to_channel(map->pos[j]);
-			spa_pod_builder_id(b, channel);
-		}
-		spa_pod_builder_pop(b, &f[1]);
-
-		snd_pcm_free_chmaps(maps);
-	}
-	else {
-		const struct channel_map *map = NULL;
-
-		if (index > 0)
-			return 0;
-
-		spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_None, 0);
-		choice = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f[1]);
-		spa_pod_builder_int(b, max);
-		if (min != max) {
-			spa_pod_builder_int(b, min);
-			spa_pod_builder_int(b, max);
-			choice->body.type = SPA_CHOICE_Range;
-		}
-		spa_pod_builder_pop(b, &f[1]);
-
-		if (min == max) {
-			if (state->default_pos.channels == min)
-				map = &state->default_pos;
-			else if (min == max && min <= 8)
-				map = &default_map[min];
-		}
-		if (map) {
-			spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_position, 0);
-			spa_pod_builder_push_array(b, &f[1]);
-			for (j = 0; j < map->channels; j++) {
-				spa_log_debug(state->log, NAME" %p: position %zd %d", state, j, map->pos[j]);
-				spa_pod_builder_id(b, map->pos[j]);
-			}
-			spa_pod_builder_pop(b, &f[1]);
-		}
-	}
 	*result = spa_pod_builder_pop(b, &f[0]);
 	return 1;
 }
@@ -619,11 +648,10 @@ static bool codec_supported(uint32_t codec, unsigned int chmax, unsigned int rma
 static int enum_iec958_formats(struct state *state, uint32_t index, uint32_t *next,
 		struct spa_pod **result, struct spa_pod_builder *b)
 {
-	int err, dir;
+	int res, err, dir;
 	snd_pcm_t *hndl;
 	snd_pcm_hw_params_t *params;
 	struct spa_pod_frame f[2];
-	struct spa_pod_choice *choice;
 	unsigned int rmin, rmax;
 	unsigned int chmin, chmax;
 	uint32_t i, c, codecs[16], n_codecs;
@@ -676,19 +704,46 @@ static int enum_iec958_formats(struct state *state, uint32_t index, uint32_t *ne
 	}
 	spa_pod_builder_pop(b, &f[1]);
 
-	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_rate, 0);
-	spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_None, 0);
-	choice = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f[1]);
-
-	spa_pod_builder_int(b, SPA_CLAMP(DEFAULT_RATE, rmin, rmax));
-	if (rmin != rmax) {
-		spa_pod_builder_int(b, rmin);
-		spa_pod_builder_int(b, rmax);
-		choice->body.type = SPA_CHOICE_Range;
-	}
-	spa_pod_builder_pop(b, &f[1]);
+	if ((res = add_rate(state, index & 0xffff, next, params, b)) != 1)
+		return res;
 
 	(*next)++;
+	*result = spa_pod_builder_pop(b, &f[0]);
+	return 1;
+}
+
+static int enum_dsd_formats(struct state *state, uint32_t index, uint32_t *next,
+		struct spa_pod **result, struct spa_pod_builder *b)
+{
+	int res, err;
+	snd_pcm_t *hndl;
+	snd_pcm_hw_params_t *params;
+	struct spa_pod_frame f[2];
+
+	if ((index & 0xffff) > 0)
+		return 0;
+
+	hndl = state->hndl;
+	snd_pcm_hw_params_alloca(&params);
+	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration: no configurations available");
+
+	CHECK(snd_pcm_hw_params_set_rate_resample(hndl, params, 0), "set_rate_resample");
+
+	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+	spa_pod_builder_add(b,
+			SPA_FORMAT_mediaType,    SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+			SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsd),
+			0);
+
+	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_bitorder, 0);
+	spa_pod_builder_id(b, SPA_PARAM_BITORDER_msb);
+
+	if ((res = add_rate(state, index & 0xffff, next, params, b)) != 1)
+		return res;
+
+	if ((res = add_channels(state, index & 0xffff, next, params, b)) != 1)
+		return res;
+
 	*result = spa_pod_builder_pop(b, &f[0]);
 	return 1;
 }
@@ -726,6 +781,12 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	else if (result.index < 0x20000) {
 		if ((res = enum_iec958_formats(state, result.index, &result.next, &fmt, &b)) != 1) {
 			result.next = 0x20000;
+			goto next;
+		}
+	}
+	else if (result.index < 0x30000) {
+		if ((res = enum_dsd_formats(state, result.index, &result.next, &fmt, &b)) != 1) {
+			result.next = 0x30000;
 			goto next;
 		}
 	}

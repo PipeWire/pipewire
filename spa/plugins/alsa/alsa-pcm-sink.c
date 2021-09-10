@@ -535,6 +535,10 @@ impl_node_port_enum_params(void *object, int seq,
 			param = spa_format_audio_iec958_build(&b, id,
 					&this->current_format.info.iec958);
 			break;
+		case SPA_MEDIA_SUBTYPE_dsd:
+			param = spa_format_audio_dsd_build(&b, id,
+					&this->current_format.info.dsd);
+			break;
 		default:
 			return -EIO;
 		}
@@ -662,6 +666,10 @@ static int port_set_format(void *object,
 			break;
 		case SPA_MEDIA_SUBTYPE_iec958:
 			if (spa_format_audio_iec958_parse(format, &info.info.iec958) < 0)
+				return -EINVAL;
+			break;
+		case SPA_MEDIA_SUBTYPE_dsd:
+			if (spa_format_audio_dsd_parse(format, &info.info.dsd) < 0)
 				return -EINVAL;
 			break;
 		default:

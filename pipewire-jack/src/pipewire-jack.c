@@ -736,18 +736,23 @@ void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto
 		*proto_ptr = 0;
 }
 
-#define do_callback(c,callback,...)				\
+#define do_callback_expr(c,expr,callback,...)			\
 ({								\
 	if (c->callback && c->active) {				\
 		pw_thread_loop_unlock(c->context.loop);		\
 		if (c->locked_process)				\
 			pthread_mutex_lock(&c->rt_lock);	\
+		(expr);						\
 		c->callback(__VA_ARGS__);			\
 		if (c->locked_process)				\
 			pthread_mutex_unlock(&c->rt_lock);	\
 		pw_thread_loop_lock(c->context.loop);		\
+	} else {						\
+		(expr);						\
 	}							\
 })
+
+#define do_callback(c,callback,...) do_callback_expr(c,{},callback,__VA_ARGS__)
 
 #define do_rt_callback_res(c,callback,...)			\
 ({								\
@@ -1158,20 +1163,20 @@ do_buffer_frames(struct spa_loop *loop,
 {
 	uint32_t buffer_frames = *((uint32_t*)data);
 	struct client *c = user_data;
-	do_callback(c, bufsize_callback, buffer_frames, c->bufsize_arg);
+	do_callback_expr(c, c->buffer_frames = buffer_frames, bufsize_callback, buffer_frames, c->bufsize_arg);
 	return 0;
 }
 
-static inline void check_buffer_frames(struct client *c, struct spa_io_position *pos, bool emit)
+static inline int check_buffer_frames(struct client *c, struct spa_io_position *pos, bool emit)
 {
 	uint32_t buffer_frames = pos->clock.duration;
 	if (SPA_UNLIKELY(buffer_frames != c->buffer_frames)) {
 		pw_log_info(NAME" %p: bufferframes %d", c, buffer_frames);
-		c->buffer_frames = buffer_frames;
 		if (emit)
 			pw_loop_invoke(c->context.l, do_buffer_frames, 0,
 					&buffer_frames, sizeof(buffer_frames), false, c);
 	}
+	return c->buffer_frames == buffer_frames;
 }
 
 static int
@@ -1180,19 +1185,19 @@ do_sample_rate(struct spa_loop *loop,
 {
 	struct client *c = user_data;
 	uint32_t sample_rate = *((uint32_t*)data);
-	do_callback(c, srate_callback, sample_rate, c->srate_arg);
+	do_callback_expr(c, c->sample_rate = sample_rate, srate_callback, sample_rate, c->srate_arg);
 	return 0;
 }
 
-static inline void check_sample_rate(struct client *c, struct spa_io_position *pos)
+static inline int check_sample_rate(struct client *c, struct spa_io_position *pos)
 {
 	uint32_t sample_rate = pos->clock.rate.denom;
 	if (SPA_UNLIKELY(sample_rate != c->sample_rate)) {
 		pw_log_info(NAME" %p: sample_rate %d", c, sample_rate);
-		c->sample_rate = sample_rate;
 		pw_loop_invoke(c->context.l, do_sample_rate, 0,
 				&sample_rate, sizeof(sample_rate), false, c);
 	}
+	return c->sample_rate == sample_rate;
 }
 
 static inline uint32_t cycle_run(struct client *c)
@@ -1232,8 +1237,10 @@ static inline uint32_t cycle_run(struct client *c)
 		return 0;
 	}
 
-	check_buffer_frames(c, pos, true);
-	check_sample_rate(c, pos);
+	if (check_buffer_frames(c, pos, true) == 0)
+		return 0;
+	if (check_sample_rate(c, pos) == 0)
+		return 0;
 
 	if (SPA_LIKELY(driver)) {
 		c->jack_state = position_to_jack(driver, &c->jack_position);
@@ -1357,7 +1364,8 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 
 		buffer_frames = cycle_run(c);
 
-		status = do_rt_callback_res(c, process_callback, buffer_frames, c->process_arg);
+		if (buffer_frames > 0)
+			status = do_rt_callback_res(c, process_callback, buffer_frames, c->process_arg);
 
 		cycle_signal(c, status);
 	}

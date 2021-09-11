@@ -342,6 +342,9 @@ pw_stream_update_params(struct pw_stream *stream,	/**< a \ref pw_stream */
 							  *  buffer allocation. */
 			uint32_t n_params		/**< number of elements in \a params */);
 
+/** Get control values */
+const struct pw_stream_control *pw_stream_get_control(struct pw_stream *stream, uint32_t id);
+
 /** Set control values */
 int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_values, float *values, ...);
 

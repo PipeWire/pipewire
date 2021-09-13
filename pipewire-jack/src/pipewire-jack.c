@@ -381,7 +381,6 @@ struct client {
 	unsigned int has_transport:1;
 	unsigned int allow_mlock:1;
 	unsigned int warn_mlock:1;
-	unsigned int timeowner_pending:1;
 	unsigned int timeowner_conditional:1;
 	unsigned int merge_monitor:1;
 	unsigned int short_name:1;
@@ -1451,7 +1450,7 @@ static int install_timeowner(struct client *c)
 	struct pw_node_activation *a;
 	uint32_t owner;
 
-	if (!c->timeowner_pending)
+	if (!c->timebase_callback)
 		return 0;
 
 	if ((a = c->driver_activation) == NULL)
@@ -1475,7 +1474,6 @@ static int install_timeowner(struct client *c)
 	}
 
 	pw_log_debug(NAME" %p: timebase installed for id:%u", c, c->node_id);
-	c->timeowner_pending = false;
 
 	return 0;
 }
@@ -5294,7 +5292,6 @@ int jack_release_timebase (jack_client_t *client)
 	c->timebase_callback = NULL;
 	c->timebase_arg = NULL;
 	c->activation->pending_new_pos = false;
-	c->timeowner_pending = false;
 
 	return 0;
 }
@@ -5357,7 +5354,6 @@ int  jack_set_timebase_callback (jack_client_t *client,
 
 	c->timebase_callback = timebase_callback;
 	c->timebase_arg = arg;
-	c->timeowner_pending = true;
 	c->timeowner_conditional = conditional;
 	install_timeowner(c);
 

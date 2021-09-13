@@ -6,7 +6,7 @@ Bluetooth Radio, Bluetooth Headset, Desktop Environment, Distribution, Version (
 
 ```
 # run the following and paste output here
-bluetoothctl show|grep Modalias; bluetoothctl devices; echo $XDG_SESSION_DESKTOP; grep PRETTY /etc/os-release; pipewire --version; bluetoothctl --version; uname -r
+lsusb; bluetoothctl devices; echo $XDG_SESSION_DESKTOP; grep PRETTY /etc/os-release; pipewire --version; bluetoothctl --version; uname -r
 ```
 
 Description of Problem:

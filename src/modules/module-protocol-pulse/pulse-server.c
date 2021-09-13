@@ -683,9 +683,17 @@ static int reply_create_stream(struct stream *stream, struct pw_manager_object *
 static void manager_added(void *data, struct pw_manager_object *o)
 {
 	struct client *client = data;
+	struct pw_manager *manager = client->manager;
 	const char *str;
 
 	register_object_message_handlers(o);
+
+	if (strcmp(o->type, PW_TYPE_INTERFACE_Core) == 0 && manager->info != NULL) {
+		struct pw_core_info *info = manager->info;
+		if (info->props &&
+		    (str = spa_dict_lookup(info->props, "default.clock.rate")) != NULL)
+			client->impl->defs.sample_spec.rate = atoi(str);
+	}
 
 	if (spa_streq(o->type, PW_TYPE_INTERFACE_Metadata)) {
 		if (o->props != NULL &&
@@ -697,7 +705,7 @@ static void manager_added(void *data, struct pw_manager_object *o)
 		struct stream *s;
 		struct pw_manager_object *peer = NULL;
 		spa_list_for_each(s, &client->pending_streams, link) {
-			peer = find_linked(s->client->manager, s->id, s->direction);
+			peer = find_linked(manager, s->id, s->direction);
 			if (peer)
 				break;
 		}
@@ -3062,21 +3070,10 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 	struct pw_manager *manager = client->manager;
 	struct pw_core_info *info = manager->info;
 	char name[256];
-	const char *str;
 	struct message *reply;
-	uint32_t cookie;
 
 	pw_log_info(NAME" %p: [%s] GET_SERVER_INFO tag:%u", impl, client->name, tag);
 
-
-	if (info != NULL) {
-		if (info->props &&
-		    (str = spa_dict_lookup(info->props, "default.clock.rate")) != NULL)
-			impl->defs.sample_spec.rate = atoi(str);
-		cookie = info->cookie;
-	} else {
-		cookie = 0;
-	}
 
 	snprintf(name, sizeof(name), "PulseAudio (on PipeWire %s)", pw_get_library_version());
 
@@ -3089,7 +3086,7 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 		TAG_SAMPLE_SPEC, &impl->defs.sample_spec,
 		TAG_STRING, get_default(client, true),		/* default sink name */
 		TAG_STRING, get_default(client, false),		/* default source name */
-		TAG_U32, cookie,				/* cookie */
+		TAG_U32, info ? info->cookie : 0,			/* cookie */
 		TAG_INVALID);
 
 	if (client->version >= 15) {

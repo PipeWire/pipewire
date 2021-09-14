@@ -360,7 +360,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_ParamBegin:
-		if ((res = spa_alsa_open(this)) < 0)
+		if ((res = spa_alsa_open(this, NULL)) < 0)
 			return res;
 		break;
 	case SPA_NODE_COMMAND_ParamEnd:

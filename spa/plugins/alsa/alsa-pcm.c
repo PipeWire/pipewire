@@ -126,21 +126,21 @@ int spa_alsa_clear(struct state *state)
 
 #define CHECK(s,msg,...) if ((err = (s)) < 0) { spa_log_error(state->log, msg ": %s", ##__VA_ARGS__, snd_strerror(err)); return err; }
 
-int spa_alsa_open(struct state *state)
+int spa_alsa_open(struct state *state, const char *params)
 {
 	int err;
 	struct props *props = &state->props;
 	snd_pcm_info_t *pcminfo;
-	char device_name[128];
+	char device_name[256];
 
 	if (state->opened)
 		return 0;
 
 	CHECK(snd_output_stdio_attach(&state->output, stderr, 0), "attach failed");
 
-	spa_scnprintf(device_name, sizeof(device_name), "%s%s",
+	spa_scnprintf(device_name, sizeof(device_name), "%s%s%s",
 			state->ucm_prefix ? state->ucm_prefix : "",
-			props->device);
+			props->device, params ? params : "");
 
 	spa_log_info(state->log, NAME" %p: ALSA device open '%s' %s", state, device_name,
 			state->stream == SND_PCM_STREAM_CAPTURE ? "capture" : "playback");
@@ -706,7 +706,7 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	uint32_t count = 0;
 
 	opened = state->opened;
-	if ((err = spa_alsa_open(state)) < 0)
+	if ((err = spa_alsa_open(state, NULL)) < 0)
 		return err;
 
 	result.id = SPA_PARAM_EnumFormat;
@@ -758,8 +758,30 @@ static int set_pcm_format(struct state *state, struct spa_audio_info_raw *info, 
 	snd_pcm_t *hndl;
 	unsigned int periods;
 	bool match = true, planar, is_batch;
+	char spdif_params[128] = "";
 
-	if ((err = spa_alsa_open(state)) < 0)
+	if (spdif) {
+		unsigned aes3;
+		switch (info->rate) {
+		case 22050: aes3 = IEC958_AES3_CON_FS_22050; break;
+		case 24000: aes3 = IEC958_AES3_CON_FS_24000; break;
+		case 32000: aes3 = IEC958_AES3_CON_FS_32000; break;
+		case 44100: aes3 = IEC958_AES3_CON_FS_44100; break;
+		case 48000: aes3 = IEC958_AES3_CON_FS_48000; break;
+		case 88200: aes3 = IEC958_AES3_CON_FS_88200; break;
+		case 96000: aes3 = IEC958_AES3_CON_FS_96000; break;
+		case 176400: aes3 = IEC958_AES3_CON_FS_176400; break;
+		case 192000: aes3 = IEC958_AES3_CON_FS_192000; break;
+		case 768000: aes3 = IEC958_AES3_CON_FS_768000; break;
+		default: aes3 = IEC958_AES3_CON_FS_NOTID; break;
+		}
+		spa_scnprintf(spdif_params, sizeof(spdif_params),
+				",AES0=0x%x,AES1=0x%x,AES2=0x%x,AES3=0x%x",
+				IEC958_AES0_CON_EMPHASIS_NONE | IEC958_AES0_NONAUDIO,
+				IEC958_AES1_CON_ORIGINAL | IEC958_AES1_CON_PCM_CODER,
+				0, aes3);
+	}
+	if ((err = spa_alsa_open(state, spdif_params)) < 0)
 		return err;
 
 	hndl = state->hndl;

@@ -218,7 +218,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *info, uint32
 int spa_alsa_init(struct state *state);
 int spa_alsa_clear(struct state *state);
 
-int spa_alsa_open(struct state *state);
+int spa_alsa_open(struct state *state, const char *params);
 int spa_alsa_start(struct state *state);
 int spa_alsa_reassign_follower(struct state *state);
 int spa_alsa_pause(struct state *state);

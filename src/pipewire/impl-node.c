@@ -843,6 +843,9 @@ static void check_properties(struct pw_impl_node *node)
 	str = pw_properties_get(node->properties, PW_KEY_NODE_CACHE_PARAMS);
 	impl->cache_params = str ? pw_properties_parse_bool(str) : true;
 
+	str = pw_properties_get(node->properties, "node.transport.sync");
+	node->transport_sync = str ? pw_properties_parse_bool(str) : false;
+
 	str = pw_properties_get(node->properties, PW_KEY_NODE_DRIVER);
 	driver = str ? pw_properties_parse_bool(str) : false;
 
@@ -1028,9 +1031,9 @@ static inline int process_node(void *data)
 
 	pw_log_trace_fp(NAME" %p: process %"PRIu64, this, a->awake_time);
 
-	/* not implemented yet, just clear the flags */
-	a->pending_sync = false;
-	a->pending_new_pos = false;
+	/* when transport sync is not supported, just clear the flag */
+	if (!this->transport_sync)
+		a->pending_sync = false;
 
 	spa_list_for_each(p, &this->rt.input_mix, rt.node_link)
 		spa_node_process(p->mix);

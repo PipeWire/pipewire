@@ -682,6 +682,7 @@ struct pw_impl_node {
 	unsigned int always_process:1;	/**< this node wants to always be processing, even when idle */
 	unsigned int lock_quantum:1;	/**< don't change graph quantum */
 	unsigned int lock_rate:1;	/**< don't change graph rate */
+	unsigned int transport_sync:1;	/**< supports transport sync */
 
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 

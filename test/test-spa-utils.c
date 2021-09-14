@@ -866,6 +866,108 @@ PWTEST(utils_snprintf_abort_neg_size)
 	return PWTEST_FAIL;
 }
 
+struct cbtest_data {
+	bool invoked;
+	const char *data;
+};
+
+static void cbtest_func(void *object, const char *msg)
+{
+	struct cbtest_data *data = object;
+	data->invoked = true;
+	data->data = msg;
+}
+
+PWTEST(utils_callback)
+{
+	struct cbtest_methods {
+		uint32_t version;
+		void (*func_v0)(void *object, const char *msg);
+		void (*func_v1)(void *object, const char *msg);
+	} methods = { 0, cbtest_func, cbtest_func };
+	struct cbtest {
+		struct spa_interface iface;
+	} cbtest;
+	struct cbtest_data data;
+
+	/* Interface version doesn't matter for this test */
+	cbtest.iface = SPA_INTERFACE_INIT("cbtest type", 0, &methods, &data);
+
+	/* Methods are version 0 */
+	methods.version = 0;
+	data.invoked = false;
+	spa_interface_call(&cbtest.iface,
+			   struct cbtest_methods,
+			   func_v0, 0, "cbtest v0");
+	pwtest_bool_true(data.invoked);
+	pwtest_str_eq(data.data, "cbtest v0");
+
+	/* v1 call should be silently filtered */
+	data.invoked = false;
+	spa_interface_call(&cbtest.iface,
+			   struct cbtest_methods,
+			   func_v1, 1, "cbtest v1");
+	pwtest_bool_false(data.invoked);
+
+	/* Methods are version 1 */
+	methods.version = 1;
+	data.invoked = false;
+	spa_interface_call(&cbtest.iface,
+			   struct cbtest_methods,
+			   func_v0, 0, "cbtest v0");
+	pwtest_bool_true(data.invoked);
+	pwtest_str_eq(data.data, "cbtest v0");
+
+	/* v1 call expected to be called */
+	data.invoked = false;
+	spa_interface_call(&cbtest.iface,
+			   struct cbtest_methods,
+			   func_v1, 1, "cbtest v1");
+	pwtest_bool_true(data.invoked);
+	pwtest_str_eq(data.data, "cbtest v1");
+
+	return PWTEST_PASS;
+}
+
+PWTEST(utils_callback_func_is_null)
+{
+	struct cbtest_methods {
+		uint32_t version;
+		void (*func_v0)(void *object, const char *msg);
+		void (*func_v1)(void *object, const char *msg);
+	} methods = { 0, NULL, NULL };
+	struct cbtest {
+		struct spa_interface iface;
+	} cbtest;
+	struct cbtest_data data;
+
+	/* Interface version doesn't matter for this test */
+	cbtest.iface = SPA_INTERFACE_INIT("cbtest type", 0, &methods, &data);
+
+	/* Methods are version 0 */
+	methods.version = 0;
+
+	/* func_v0 and func_v1 are NULL so this shouldn't crash */
+	data.invoked = false;
+	spa_interface_call(&cbtest.iface,
+			   struct cbtest_methods,
+			   func_v0, 0, "cbtest v0");
+	pwtest_bool_false(data.invoked);
+	spa_interface_call(&cbtest.iface,
+			   struct cbtest_methods,
+			   func_v1, 0, "cbtest v1");
+	pwtest_bool_false(data.invoked);
+
+	/* func_v1 is NULL so this shouldn't crash, though the call should get
+	 * filtered anyway due to version mismatch */
+	spa_interface_call(&cbtest.iface,
+			   struct cbtest_methods,
+			   func_v1, 1, "cbtest v1");
+	pwtest_bool_false(data.invoked);
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(spa_utils)
 {
 	pwtest_add(utils_abi_sizes, PWTEST_NOARG);
@@ -891,6 +993,8 @@ PWTEST_SUITE(spa_utils)
 		   PWTEST_ARG_RANGE, -2, 0);
 	pwtest_add(utils_atob, PWTEST_NOARG);
 	pwtest_add(utils_ansi, PWTEST_NOARG);
+	pwtest_add(utils_callback, PWTEST_NOARG);
+	pwtest_add(utils_callback_func_is_null, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

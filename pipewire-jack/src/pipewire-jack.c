@@ -742,12 +742,16 @@ void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto
 		if (c->locked_process)				\
 			pthread_mutex_lock(&c->rt_lock);	\
 		(expr);						\
+		pw_log_info("emit " #callback);			\
 		c->callback(__VA_ARGS__);			\
 		if (c->locked_process)				\
 			pthread_mutex_unlock(&c->rt_lock);	\
 		pw_thread_loop_lock(c->context.loop);		\
 	} else {						\
 		(expr);						\
+		pw_log_info("skip " #callback 			\
+			" cb:%p active:%d", c->callback,	\
+			c->active);				\
 	}							\
 })
 
@@ -1170,7 +1174,8 @@ static inline int check_buffer_frames(struct client *c, struct spa_io_position *
 {
 	uint32_t buffer_frames = pos->clock.duration;
 	if (SPA_UNLIKELY(buffer_frames != c->buffer_frames)) {
-		pw_log_info(NAME" %p: bufferframes %d", c, buffer_frames);
+		pw_log_info(NAME" %p: bufferframes old:%d new:%d emit:%d", c,
+				c->buffer_frames, buffer_frames, emit);
 		if (emit)
 			pw_loop_invoke(c->context.l, do_buffer_frames, 0,
 					&buffer_frames, sizeof(buffer_frames), false, c);
@@ -3295,12 +3300,8 @@ void jack_internal_client_close (const char *client_name)
 static int do_activate(struct client *c)
 {
 	int res;
-
-	pw_log_info(NAME" %p: activate", c);
 	pw_client_node_set_active(c->node, true);
-
 	res = do_sync(c);
-
 	return res;
 }
 
@@ -3311,6 +3312,8 @@ int jack_activate (jack_client_t *client)
 	int res = 0;
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
+
+	pw_log_info(NAME" %p: active:%d", c, c->active);
 
 	if (c->active)
 		return 0;
@@ -3343,11 +3346,12 @@ int jack_deactivate (jack_client_t *client)
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 
+	pw_log_info(NAME" %p: active:%d", c, c->active);
+
 	if (!c->active)
 		return 0;
 
 	pw_thread_loop_lock(c->context.loop);
-	pw_log_info(NAME" %p: deactivate", c);
 	pw_data_loop_stop(c->loop);
 
 	pw_client_node_set_active(c->node, false);

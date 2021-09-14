@@ -32,6 +32,10 @@
 #include <spa/support/log.h>
 #include <pipewire/pipewire.h>
 
+#ifdef HAVE_SYSTEMD
+#include <systemd/sd-journal.h>
+#endif
+
 PWTEST(logger_truncate_long_lines)
 {
 	struct pwtest_spa_plugin *plugin;
@@ -286,6 +290,144 @@ PWTEST(logger_debug_env_alpha)
 	return PWTEST_PASS;
 }
 
+PWTEST(logger_journal)
+{
+	enum pwtest_result result = PWTEST_SKIP;
+#ifdef HAVE_SYSTEMD
+	struct pwtest_spa_plugin *plugin;
+	void *iface;
+	struct spa_dict_item items[2];
+	struct spa_dict info;
+	bool mark_line_found = false;
+	sd_journal *journal;
+	int rc;
+
+	pw_init(0, NULL);
+
+	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LEVEL, "4"); /* debug */
+	info = SPA_DICT_INIT(items, 1);
+	plugin = pwtest_spa_plugin_new();
+	iface = pwtest_spa_plugin_load_interface(plugin, "support/libspa-journal",
+						 SPA_NAME_SUPPORT_LOG, SPA_TYPE_INTERFACE_Log,
+						 &info);
+	pwtest_ptr_notnull(iface);
+
+	rc = sd_journal_open(&journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_CURRENT_USER);
+	pwtest_neg_errno_ok(rc);
+
+	sd_journal_seek_head(journal);
+	if (sd_journal_next(journal) == 0) { /* No entries? We don't have a journal */
+		goto cleanup;
+	}
+
+	sd_journal_seek_tail(journal);
+
+	spa_log_info(iface, "MARK\n");
+	while ((rc = sd_journal_next(journal)) > 0) {
+		char buffer[1024] = {0};
+		const char *d;
+		size_t l;
+		int r = sd_journal_get_data(journal, "MESSAGE", (const void **)&d, &l);
+		pwtest_neg_errno_ok(r);
+		spa_scnprintf(buffer, sizeof(buffer), "%.*s", (int) l, d);
+		if (strstr(buffer, "MARK"))
+			mark_line_found = true;
+	}
+	pwtest_neg_errno_ok(rc);
+	pwtest_bool_true(mark_line_found);
+
+	result = PWTEST_PASS;
+
+cleanup:
+	sd_journal_close(journal);
+	pwtest_spa_plugin_destroy(plugin);
+	pw_deinit();
+#endif
+	return result;
+}
+
+PWTEST(logger_journal_chain)
+{
+	enum pwtest_result result = PWTEST_SKIP;
+#ifdef HAVE_SYSTEMD
+	struct pwtest_spa_plugin *plugin;
+	void *iface_log;
+	void *iface;
+	char fname[PATH_MAX];
+	char buffer[1024];
+	FILE *fp;
+	struct spa_dict_item items[2];
+	struct spa_dict info;
+	bool mark_line_found = false;
+	sd_journal *journal;
+	int rc;
+
+	pw_init(0, NULL);
+	pwtest_mkstemp(fname);
+
+	/* Load a normal logger interface first, writing to fname */
+	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_FILE, fname);
+	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LEVEL, "4"); /* debug */
+	info = SPA_DICT_INIT(items, 2);
+	plugin = pwtest_spa_plugin_new();
+	iface_log = pwtest_spa_plugin_load_interface(plugin, "support/libspa-support",
+						 SPA_NAME_SUPPORT_LOG, SPA_TYPE_INTERFACE_Log,
+						 &info);
+	pwtest_ptr_notnull(iface_log);
+
+	/* Load the journal logger, it should chain to the above */
+	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LEVEL, "4"); /* debug */
+	info = SPA_DICT_INIT(&items[1], 1);
+	iface = pwtest_spa_plugin_load_interface(plugin, "support/libspa-journal",
+						 SPA_NAME_SUPPORT_LOG, SPA_TYPE_INTERFACE_Log,
+						 &info);
+	pwtest_ptr_notnull(iface);
+
+	rc = sd_journal_open(&journal, SD_JOURNAL_LOCAL_ONLY);
+	pwtest_neg_errno_ok(rc);
+	sd_journal_seek_head(journal);
+	if (sd_journal_next(journal) == 0) { /* No entries? We don't have a journal */
+		goto cleanup;
+	}
+
+	sd_journal_seek_tail(journal);
+
+	spa_log_info(iface, "MARK\n");
+	while ((rc = sd_journal_next(journal)) > 0) {
+		char buffer[1024] = {0};
+		const char *d;
+		size_t l;
+		int r = sd_journal_get_data(journal, "MESSAGE", (const void **)&d, &l);
+		pwtest_neg_errno_ok(r);
+		spa_scnprintf(buffer, sizeof(buffer), "%.*s", (int) l, d);
+		if (strstr(buffer, "MARK"))
+			mark_line_found = true;
+	}
+	pwtest_neg_errno_ok(rc);
+	pwtest_bool_true(mark_line_found);
+
+	/* Now check that the line is in the chained file logger too */
+	mark_line_found = false;
+	fp = fopen(fname, "r");
+	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+		if (strstr(buffer, "MARK"))
+			mark_line_found = true;
+	}
+
+	fclose(fp);
+
+	result = PWTEST_PASS;
+	pwtest_bool_true(mark_line_found);
+
+cleanup:
+	sd_journal_close(journal);
+	pwtest_spa_plugin_destroy(plugin);
+	pw_deinit();
+
+#endif
+	return result;
+}
+
 PWTEST_SUITE(logger)
 {
 	pwtest_add(logger_truncate_long_lines, PWTEST_NOARG);
@@ -299,6 +441,8 @@ PWTEST_SUITE(logger)
 	pwtest_add(logger_debug_env_alpha,
 		   PWTEST_ARG_RANGE, SPA_LOG_LEVEL_NONE, SPA_LOG_LEVEL_TRACE + 1,
 		   PWTEST_NOARG);
+	pwtest_add(logger_journal, PWTEST_NOARG);
+	pwtest_add(logger_journal_chain, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

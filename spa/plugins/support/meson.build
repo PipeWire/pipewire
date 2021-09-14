@@ -52,4 +52,7 @@ if systemd_dep.found()
     dependencies : systemd_dep,
     install : true,
     install_dir : spa_plugindir / 'support')
+  spa_journal_dep = declare_dependency(link_with: spa_journal_lib)
+else
+  spa_journal_dep = declare_dependency()
 endif

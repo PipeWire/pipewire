@@ -112,9 +112,6 @@ struct spa_log_methods {
 
 #define spa_log_level_enabled(l,lev) ((l) && (l)->level >= (lev))
 
-#if defined(__USE_ISOC11) || defined(__USE_ISOC99) || \
-    (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)
-
 #define spa_log_log(l,lev,...)					\
 ({								\
 	struct spa_log *_l = l;					\
@@ -143,35 +140,6 @@ struct spa_log_methods {
 #define spa_log_trace_fp(l,...)	spa_log_log(l,SPA_LOG_LEVEL_TRACE,__FILE__,__LINE__,__func__,__VA_ARGS__)
 #else
 #define spa_log_trace_fp(l,...)
-#endif
-
-#else
-
-#define SPA_LOG_FUNC(name,lev)							\
-static inline SPA_PRINTF_FUNC(2,3) void spa_log_##name (struct spa_log *l, const char *format, ...)  \
-{										\
-	if (SPA_UNLIKELY(spa_log_level_enabled(l, lev))) {			\
-		va_list varargs;						\
-		va_start (varargs, format);					\
-		spa_interface_call(&l->iface,					\
-			struct spa_log_methods, logv, 0, lev,			\
-			__FILE__,__LINE__,__func__,format,varargs);		\
-		va_end (varargs);						\
-	}									\
-}
-
-SPA_LOG_FUNC(error, SPA_LOG_LEVEL_ERROR)
-SPA_LOG_FUNC(warn, SPA_LOG_LEVEL_WARN)
-SPA_LOG_FUNC(info, SPA_LOG_LEVEL_INFO)
-SPA_LOG_FUNC(debug, SPA_LOG_LEVEL_DEBUG)
-SPA_LOG_FUNC(trace, SPA_LOG_LEVEL_TRACE)
-
-#ifndef FASTPATH
-SPA_LOG_FUNC(trace_fp, SPA_LOG_LEVEL_TRACE)
-#else
-static inline void spa_log_trace_fp (struct spa_log *l, const char *format, ...) { }
-#endif
-
 #endif
 
 /** \fn spa_log_error */

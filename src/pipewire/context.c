@@ -1081,12 +1081,14 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *driver
 	return 0;
 }
 
-static inline void get_quantums(struct pw_context *context, uint32_t *def, uint32_t *min, uint32_t *max)
+static inline void get_quantums(struct pw_context *context, uint32_t *def,
+		uint32_t *min, uint32_t *max, uint32_t *rate)
 {
 	struct settings *s = &context->settings;
 	*def = s->clock_force_quantum == 0 ? s->clock_quantum : s->clock_force_quantum;
 	*min = s->clock_force_quantum == 0 ? s->clock_min_quantum : s->clock_force_quantum;
 	*max = s->clock_force_quantum == 0 ? s->clock_max_quantum : s->clock_force_quantum;
+	*rate = s->clock_force_quantum == 0 ? s->clock_rate : s->clock_force_rate;
 }
 
 static inline uint32_t *get_rates(struct pw_context *context, uint32_t *def, uint32_t *n_rates,
@@ -1144,7 +1146,7 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 {
 	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
 	struct pw_impl_node *n, *s, *target, *fallback;
-	uint32_t max_quantum, min_quantum, def_quantum;
+	uint32_t max_quantum, min_quantum, def_quantum, rate_quantum;
 	uint32_t *rates, n_rates, def_rate;
 	bool freewheel = false, force_rate;
 
@@ -1158,7 +1160,7 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 again:
 	impl->recalc = true;
 
-	get_quantums(context, &def_quantum, &min_quantum, &max_quantum);
+	get_quantums(context, &def_quantum, &min_quantum, &max_quantum, &rate_quantum);
 	rates = get_rates(context, &def_rate, &n_rates, &force_rate);
 
 	/* start from all drivers and group all nodes that are linked
@@ -1307,6 +1309,11 @@ again:
 			goto again;
 		}
 
+		if (rate_quantum != 0 && current_rate != rate_quantum) {
+			def_quantum = def_quantum * current_rate / rate_quantum;
+			min_quantum = min_quantum * current_rate / rate_quantum;
+			max_quantum = max_quantum * current_rate / rate_quantum;
+		}
 
 		/* calculate desired quantum */
 		if (max_latency.denom != 0) {

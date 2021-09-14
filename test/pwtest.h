@@ -344,6 +344,17 @@ struct pwtest_context *pwtest_get_context(struct pwtest_test *t);
 	} while(0)
 
 
+/** Assert haystack contains needle */
+#define pwtest_str_contains(haystack_, needle_) \
+	do { \
+		const char *_h = haystack_; \
+		const char *_n = needle_; \
+		if (!strstr(_h, _n)) \
+			_pwtest_fail_comparison_str(__FILE__, __LINE__, __func__, \
+						     #haystack_ " contains " #needle_, _h, _n); \
+	} while(0)
+
+
 /* Needs to be a #define NULL for SPA_SENTINEL */
 enum pwtest_arg {
 	PWTEST_NOARG = 0,

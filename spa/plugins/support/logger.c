@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <time.h>
+#include <fnmatch.h>
 
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
@@ -49,6 +50,8 @@
 
 #define TRACE_BUFFER (16*1024)
 
+#include "log-patterns.c"
+
 struct impl {
 	struct spa_handle handle;
 	struct spa_log log;
@@ -64,11 +67,14 @@ struct impl {
 	unsigned int colors:1;
 	unsigned int timestamp:1;
 	unsigned int line:1;
+
+	struct spa_list patterns;
 };
 
-static SPA_PRINTF_FUNC(6,0) void
-impl_log_logv(void *object,
+static SPA_PRINTF_FUNC(7,0) void
+impl_log_logtv(void *object,
 	      enum spa_log_level level,
+	      const struct spa_log_topic *topic,
 	      const char *file,
 	      int line,
 	      const char *func,
@@ -79,6 +85,7 @@ impl_log_logv(void *object,
 
 	struct impl *impl = object;
 	char timestamp[15] = {0};
+	char topicstr[32] = {0};
 	char filename[64] = {0};
 	char location[1000 + RESERVED_LENGTH], *p, *s;
 	static const char * const levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
@@ -109,20 +116,24 @@ impl_log_logv(void *object,
 		spa_scnprintf(timestamp, sizeof(timestamp), "[%05lu.%06lu]",
 			(now.tv_sec & 0x1FFFFFFF) % 100000, now.tv_nsec / 1000);
 	}
+
+	if (topic && topic->topic)
+		spa_scnprintf(topicstr, sizeof(topicstr), " %-12s | ", topic->topic);
+
+
 	if (impl->line && line != 0) {
 		s = strrchr(file, '/');
 		spa_scnprintf(filename, sizeof(filename), "[%16.16s:%5i %s()]",
 			s ? s + 1 : file, line, func);
 	}
 
-	size = spa_scnprintf(p, len, "%s[%s]%s%s ", prefix, levels[level],
-			     timestamp, filename);
+	size = spa_scnprintf(p, len, "%s[%s]%s%s%s ", prefix, levels[level],
+			     timestamp, topicstr, filename);
 	/*
 	 * it is assumed that at this point `size` <= `len`,
 	 * which is reasonable as long as file names and function names
 	 * don't become very long
 	 */
-
 	size += spa_vscnprintf(p + size, len - size, fmt, args);
 
 	/*
@@ -160,6 +171,32 @@ impl_log_logv(void *object,
 #undef RESERVED_LENGTH
 }
 
+static SPA_PRINTF_FUNC(6,0) void
+impl_log_logv(void *object,
+	      enum spa_log_level level,
+	      const char *file,
+	      int line,
+	      const char *func,
+	      const char *fmt,
+	      va_list args)
+{
+	impl_log_logtv(object, level, NULL, file, line, func, fmt, args);
+}
+
+static SPA_PRINTF_FUNC(7,8) void
+impl_log_logt(void *object,
+	     enum spa_log_level level,
+	     const struct spa_log_topic *topic,
+	     const char *file,
+	     int line,
+	     const char *func,
+	     const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	impl_log_logtv(object, level, topic, file, line, func, fmt, args);
+	va_end(args);
+}
 
 static SPA_PRINTF_FUNC(6,7) void
 impl_log_log(void *object,
@@ -171,7 +208,7 @@ impl_log_log(void *object,
 {
 	va_list args;
 	va_start(args, fmt);
-	impl_log_logv(object, level, file, line, func, fmt, args);
+	impl_log_logtv(object, level, NULL, file, line, func, fmt, args);
 	va_end(args);
 }
 
@@ -203,10 +240,22 @@ static void on_trace_event(struct spa_source *source)
         }
 }
 
+static void
+impl_log_topic_init(void *object, struct spa_log_topic *t)
+{
+	struct impl *impl = object;
+	enum spa_log_level level = impl->log.level;
+
+	support_log_topic_init(&impl->patterns, level, t);
+}
+
 static const struct spa_log_methods impl_log = {
-	SPA_VERSION_LOG_METHODS,
+	SPA_VERSION_LOG_METHODS_LOGT,
 	.log = impl_log_log,
 	.logv = impl_log_logv,
+	.logt = impl_log_logt,
+	.logtv = impl_log_logtv,
+	.topic_init = impl_log_topic_init,
 };
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
@@ -233,6 +282,8 @@ static int impl_clear(struct spa_handle *handle)
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
 	this = (struct impl *) handle;
+
+	support_log_free_patterns(&this->patterns);
 
 	if (this->have_source) {
 		spa_loop_remove_source(this->source.loop, &this->source);
@@ -276,6 +327,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	this->system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_System);
+	spa_list_init(&this->patterns);
 
 	if (loop != NULL && this->system != NULL) {
 		this->source.func = on_trace_event;
@@ -305,6 +357,8 @@ impl_init(const struct spa_handle_factory *factory,
 			if (this->file == NULL)
 				fprintf(stderr, "Warning: failed to open file %s: (%m)", str);
 		}
+		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_PATTERNS)) != NULL)
+			support_log_parse_patterns(&this->patterns, str);
 	}
 	if (this->file == NULL)
 		this->file = stderr;

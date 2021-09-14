@@ -287,6 +287,52 @@ PWTEST(logger_debug_env_alpha)
 	return PWTEST_PASS;
 }
 
+PWTEST(logger_topics)
+{
+	struct pwtest_spa_plugin *plugin;
+	void *iface;
+	char fname[PATH_MAX];
+	struct spa_dict_item items[2];
+	struct spa_dict info;
+	char buffer[1024];
+	FILE *fp;
+	bool mark_line_found = false;
+	struct spa_log_topic topic = {
+		.version = 0,
+		.topic = "my topic",
+		.level = SPA_LOG_LEVEL_DEBUG,
+	};
+
+	pw_init(0, NULL);
+
+	pwtest_mkstemp(fname);
+	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_FILE, fname);
+	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, "true");
+	info = SPA_DICT_INIT(items, 2);
+	plugin = pwtest_spa_plugin_new();
+	iface = pwtest_spa_plugin_load_interface(plugin, "support/libspa-support",
+						 SPA_NAME_SUPPORT_LOG, SPA_TYPE_INTERFACE_Log,
+						 &info);
+	pwtest_ptr_notnull(iface);
+
+	spa_logt_info(iface, &topic, "MARK\n");
+
+	fp = fopen(fname, "r");
+	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+		if (strstr(buffer, "MARK")) {
+			mark_line_found = true;
+			pwtest_str_contains(buffer, "my topic");
+		}
+	}
+
+	pwtest_bool_true(mark_line_found);
+	pwtest_spa_plugin_destroy(plugin);
+
+	fclose(fp);
+
+	return PWTEST_PASS;
+}
+
 PWTEST(logger_journal)
 {
 	enum pwtest_result result = PWTEST_SKIP;
@@ -296,6 +342,11 @@ PWTEST(logger_journal)
 	struct spa_dict_item items[2];
 	struct spa_dict info;
 	bool mark_line_found = false;
+	struct spa_log_topic topic = {
+		.version = 0,
+		.topic = "pwtest journal",
+		.level = SPA_LOG_LEVEL_DEBUG,
+	};
 	sd_journal *journal;
 	int rc;
 
@@ -319,7 +370,7 @@ PWTEST(logger_journal)
 
 	sd_journal_seek_tail(journal);
 
-	spa_log_info(iface, "MARK\n");
+	spa_logt_info(iface, &topic, "MARK\n");
 	while ((rc = sd_journal_next(journal)) > 0) {
 		char buffer[1024] = {0};
 		const char *d;
@@ -327,8 +378,10 @@ PWTEST(logger_journal)
 		int r = sd_journal_get_data(journal, "MESSAGE", (const void **)&d, &l);
 		pwtest_neg_errno_ok(r);
 		spa_scnprintf(buffer, sizeof(buffer), "%.*s", (int) l, d);
-		if (strstr(buffer, "MARK"))
+		if (strstr(buffer, "MARK")) {
 			mark_line_found = true;
+			pwtest_str_contains(buffer, "pwtest journal");
+		}
 	}
 	pwtest_neg_errno_ok(rc);
 	pwtest_bool_true(mark_line_found);
@@ -356,6 +409,11 @@ PWTEST(logger_journal_chain)
 	struct spa_dict_item items[2];
 	struct spa_dict info;
 	bool mark_line_found = false;
+	struct spa_log_topic topic = {
+		.version = 0,
+		.topic = "pwtest journal",
+		.level = SPA_LOG_LEVEL_DEBUG,
+	};
 	sd_journal *journal;
 	int rc;
 
@@ -389,7 +447,7 @@ PWTEST(logger_journal_chain)
 
 	sd_journal_seek_tail(journal);
 
-	spa_log_info(iface, "MARK\n");
+	spa_logt_info(iface, &topic, "MARK\n");
 	while ((rc = sd_journal_next(journal)) > 0) {
 		char buffer[1024] = {0};
 		const char *d;
@@ -397,8 +455,10 @@ PWTEST(logger_journal_chain)
 		int r = sd_journal_get_data(journal, "MESSAGE", (const void **)&d, &l);
 		pwtest_neg_errno_ok(r);
 		spa_scnprintf(buffer, sizeof(buffer), "%.*s", (int) l, d);
-		if (strstr(buffer, "MARK"))
+		if (strstr(buffer, "MARK")) {
 			mark_line_found = true;
+			pwtest_str_contains(buffer, "pwtest journal");
+		}
 	}
 	pwtest_neg_errno_ok(rc);
 	pwtest_bool_true(mark_line_found);
@@ -407,8 +467,13 @@ PWTEST(logger_journal_chain)
 	mark_line_found = false;
 	fp = fopen(fname, "r");
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-		if (strstr(buffer, "MARK"))
+		if (strstr(buffer, "MARK")) {
 			mark_line_found = true;
+			pwtest_ptr_null(strstr(buffer, SPA_ANSI_RESET));
+			pwtest_ptr_null(strstr(buffer, SPA_ANSI_RED));
+			pwtest_ptr_null(strstr(buffer, SPA_ANSI_BRIGHT_RED));
+			pwtest_ptr_null(strstr(buffer, SPA_ANSI_BOLD_RED));
+		}
 	}
 
 	fclose(fp);
@@ -438,6 +503,7 @@ PWTEST_SUITE(logger)
 	pwtest_add(logger_debug_env_alpha,
 		   PWTEST_ARG_RANGE, SPA_LOG_LEVEL_NONE, SPA_LOG_LEVEL_TRACE + 1,
 		   PWTEST_NOARG);
+	pwtest_add(logger_topics, PWTEST_NOARG);
 	pwtest_add(logger_journal, PWTEST_NOARG);
 	pwtest_add(logger_journal_chain, PWTEST_NOARG);
 

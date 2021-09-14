@@ -1,6 +1,7 @@
 spa_support_sources = [
   'cpu.c',
   'logger.c',
+  'log-patterns.c',
   'loop.c',
   'node-driver.c',
   'null-audio-sink.c',

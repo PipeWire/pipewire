@@ -132,8 +132,11 @@ struct spa_callbacks {
 	void *data;
 };
 
+/** Check if a callback \a c is of at least version \a v */
+#define SPA_CALLBACK_VERSION_MIN(c,v) ((c) && ((v) == 0 || (c)->version > (v)-1))
+
 /** Check if a callback \a c has method \a m of version \a v */
-#define SPA_CALLBACK_CHECK(c,m,v) ((c) && ((v) == 0 || (c)->version > (v)-1) && (c)->m)
+#define SPA_CALLBACK_CHECK(c,m,v) (SPA_CALLBACK_VERSION_MIN(c,v) && (c)->m)
 
 /**
  * Initialize the set of functions \a funcs as a \ref spa_callbacks, together

@@ -292,7 +292,7 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 	}
 	spa_memzero(port, sizeof(struct port));
 
-	if (port_id == this->last_port - 1) {
+	if (port_id + 1 == this->last_port) {
 		int i;
 
 		for (i = this->last_port - 1; i >= 0; i--)

@@ -384,13 +384,16 @@ static struct seq_port *alloc_port(struct seq_state *state, struct seq_stream *s
 
 static void free_port(struct seq_state *state, struct seq_stream *stream, struct seq_port *port)
 {
+	port->valid = false;
+
 	if (port->id + 1 == stream->last_port) {
 		int i;
 		for (i = stream->last_port - 1; i >= 0; i--)
-			if (!stream->ports[i].valid)
+			if (stream->ports[i].valid)
 				break;
 		stream->last_port = i + 1;
 	}
+
 	spa_node_emit_port_info(&state->hooks,
 			port->direction, port->id, NULL);
 	spa_zero(*port);

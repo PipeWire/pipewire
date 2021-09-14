@@ -69,9 +69,8 @@ impl_log_logv(void *object,
 	if (impl->chain_log != NULL) {
 		va_list args_copy;
 		va_copy(args_copy, args);
-		spa_interface_call(&impl->chain_log->iface,
-				   struct spa_log_methods, logv, 0,
-				   level, file, line, func, fmt, args_copy);
+		spa_log_logv(impl->chain_log,
+			      level, file, line, func, fmt, args_copy);
 		va_end(args_copy);
 	}
 

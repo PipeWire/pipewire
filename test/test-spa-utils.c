@@ -968,6 +968,43 @@ PWTEST(utils_callback_func_is_null)
 	return PWTEST_PASS;
 }
 
+PWTEST(utils_callback_version)
+{
+	struct cbtest_methods {
+		uint32_t version;
+		void (*func_v0)(void *object, const char *msg);
+	} methods = { 0, cbtest_func };
+	struct cbtest {
+		struct spa_interface iface;
+	} cbtest;
+	struct cbtest_data data;
+
+	/* Interface version doesn't matter for this test */
+	cbtest.iface = SPA_INTERFACE_INIT("cbtest type", 0, &methods, &data);
+
+	/* Methods are version 0 */
+	methods.version = 0;
+	pwtest_bool_true(spa_interface_callback_version_min(&cbtest.iface,
+							    struct cbtest_methods,
+							    0));
+	pwtest_bool_false(spa_interface_callback_version_min(&cbtest.iface,
+							     struct cbtest_methods,
+							     1));
+	/* Methods are version 1 */
+	methods.version = 1;
+	pwtest_bool_true(spa_interface_callback_version_min(&cbtest.iface,
+							    struct cbtest_methods,
+							    0));
+	pwtest_bool_true(spa_interface_callback_version_min(&cbtest.iface,
+							    struct cbtest_methods,
+							    1));
+	pwtest_bool_false(spa_interface_callback_version_min(&cbtest.iface,
+							     struct cbtest_methods,
+							     2));
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(spa_utils)
 {
 	pwtest_add(utils_abi_sizes, PWTEST_NOARG);
@@ -995,6 +1032,7 @@ PWTEST_SUITE(spa_utils)
 	pwtest_add(utils_ansi, PWTEST_NOARG);
 	pwtest_add(utils_callback, PWTEST_NOARG);
 	pwtest_add(utils_callback_func_is_null, PWTEST_NOARG);
+	pwtest_add(utils_callback_version, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

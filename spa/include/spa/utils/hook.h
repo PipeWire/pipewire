@@ -180,6 +180,15 @@ struct spa_interface {
 })
 
 /**
+ * True if the \a callbacks are of version \a vers, false otherwise
+ */
+#define spa_callback_version_min(callbacks,type,vers)				\
+({										\
+	const type *_f = (const type *) (callbacks)->funcs;			\
+	SPA_CALLBACK_VERSION_MIN(_f,vers);					\
+})
+
+/**
  * Invoke method named \a method in the \a callbacks.
  * The \a method_type defines the type of the method struct.
  *
@@ -192,6 +201,12 @@ struct spa_interface {
 		res = _f->method((callbacks)->data, ## __VA_ARGS__);		\
 	res;									\
 })
+
+/**
+ * True if the \a iface's \a callbacks are of version \a vers, false otherwise
+ */
+#define spa_interface_callback_version_min(iface,method_type,vers)				\
+   spa_callback_version_min(&(iface)->cb, method_type, vers)
 
 /**
  * Invoke method named \a method in the callbacks on the given interface object.

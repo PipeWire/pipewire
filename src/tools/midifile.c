@@ -649,6 +649,35 @@ int midi_file_dump_event(FILE *out, const struct midi_event *ev)
 	case 0xf7:
 		dump_mem(out, "SysEx", ev->data, ev->size);
 		break;
+	case 0xf1:
+		fprintf(out, "MIDI Time Code Quarter Frame: type %d values %d",
+				ev->data[0] >> 4, ev->data[0] & 0xf);
+		break;
+	case 0xf2:
+		fprintf(out, "Song Position Pointer: value %d",
+				((int)ev->data[1] << 7 | ev->data[0]));
+		break;
+	case 0xf3:
+		fprintf(out, "Song Select: value %d", (ev->data[0] & 0x7f));
+		break;
+	case 0xf6:
+		fprintf(out, "Tune Request");
+		break;
+	case 0xf8:
+		fprintf(out, "Timing Clock");
+		break;
+	case 0xfa:
+		fprintf(out, "Start Sequence");
+		break;
+	case 0xfb:
+		fprintf(out, "Continue Sequence");
+		break;
+	case 0xfc:
+		fprintf(out, "Stop Sequence");
+		break;
+	case 0xfe:
+		fprintf(out, "Active Sensing");
+		break;
 	case 0xff:
 		fprintf(out, "Meta: ");
 		switch (ev->data[1]) {
@@ -698,6 +727,9 @@ int midi_file_dump_event(FILE *out, const struct midi_event *ev)
 		default:
 			dump_mem(out, "Invalid", ev->data, ev->size);
 		}
+		break;
+	default:
+		dump_mem(out, "Unknown", ev->data, ev->size);
 		break;
 	}
 	fprintf(out, "\n");

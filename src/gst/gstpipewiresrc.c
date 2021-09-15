@@ -586,6 +586,7 @@ gst_pipewire_src_stream_start (GstPipeWireSrc *pwsrc)
 start_error:
   {
     GST_DEBUG_OBJECT (pwsrc, "error starting stream: %s", error);
+    pw_thread_loop_signal (pwsrc->core->loop, FALSE);
     pw_thread_loop_unlock (pwsrc->core->loop);
     return FALSE;
   }

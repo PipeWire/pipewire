@@ -149,6 +149,8 @@ static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
 	pw_log_debug(NAME" %p:", pw);
 	if (pw->main_loop)
 		pw_thread_loop_stop(pw->main_loop);
+	if (pw->stream)
+		pw_stream_destroy(pw->stream);
 	if (pw->context)
 		pw_context_destroy(pw->context);
 	if (pw->fd >= 0)

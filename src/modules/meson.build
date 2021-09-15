@@ -122,7 +122,8 @@ pipewire_module_profiler = shared_library('pipewire-module-profiler',
   dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
-if build_machine.system() == 'linux'
+build_module_rt = build_machine.system() == 'linux'
+if build_module_rt
 pipewire_module_rt = shared_library('pipewire-module-rt', [ 'module-rt.c' ],
   include_directories : [configinc, spa_inc],
   install : true,
@@ -131,8 +132,10 @@ pipewire_module_rt = shared_library('pipewire-module-rt', [ 'module-rt.c' ],
   dependencies : [dl_lib, pipewire_dep],
 )
 endif
+summary({'rt': build_module_rt}, bool_yn: true, section: 'Optional Modules')
 
-if dbus_dep.found()
+build_module_rtkit = dbus_dep.found()
+if build_module_rtkit
 pipewire_module_rtkit = shared_library('pipewire-module-rtkit', [ 'module-rtkit.c' ],
   include_directories : [configinc, spa_inc],
   install : true,
@@ -140,6 +143,11 @@ pipewire_module_rtkit = shared_library('pipewire-module-rtkit', [ 'module-rtkit.
   install_rpath: modules_install_dir,
   dependencies : [dbus_dep, mathlib, dl_lib, pipewire_dep],
 )
+endif
+summary({'rtkit': build_module_rtkit}, bool_yn: true, section: 'Optional Modules')
+
+build_module_portal = dbus_dep.found()
+if build_module_portal
 pipewire_module_portal = shared_library('pipewire-module-portal', [ 'module-portal.c' ],
   include_directories : [configinc, spa_inc],
   install : true,
@@ -148,6 +156,7 @@ pipewire_module_portal = shared_library('pipewire-module-portal', [ 'module-port
   dependencies : [dbus_dep, mathlib, dl_lib, pipewire_dep],
 )
 endif
+summary({'portal': build_module_portal}, bool_yn: true, section: 'Optional Modules')
 
 pipewire_module_client_device = shared_library('pipewire-module-client-device',
   [ 'module-client-device.c',
@@ -266,7 +275,8 @@ pipewire_module_protocol_pulse = shared_library('pipewire-module-protocol-pulse'
   dependencies : pipewire_module_protocol_pulse_deps,
 )
 
-if pulseaudio_dep.found()
+build_module_pulse_tunnel = pulseaudio_dep.found()
+if build_module_pulse_tunnel
   pipewire_module_pulse_tunnel = shared_library('pipewire-module-pulse-tunnel',
   [ 'module-pulse-tunnel.c' ],
   include_directories : [configinc, spa_inc],
@@ -276,6 +286,7 @@ if pulseaudio_dep.found()
   dependencies : [mathlib, dl_lib, pipewire_dep, pulseaudio_dep],
 )
 endif
+summary({'pulse-tunnel': build_module_pulse_tunnel}, bool_yn: true, section: 'Optional Modules')
 
 pipewire_module_protocol_simple = shared_library('pipewire-module-protocol-simple',
   [ 'module-protocol-simple.c' ],
@@ -393,7 +404,8 @@ pipewire_module_session_manager = shared_library('pipewire-module-session-manage
   dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
-if avahi_dep.found()
+build_module_zeroconf_discover = avahi_dep.found()
+if build_module_zeroconf_discover
 pipewire_module_zeroconf_discover = shared_library('pipewire-module-zeroconf-discover',
   [ 'module-zeroconf-discover.c',
     'module-zeroconf-discover/avahi-poll.c' ],
@@ -404,8 +416,10 @@ pipewire_module_zeroconf_discover = shared_library('pipewire-module-zeroconf-dis
   dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep],
 )
 endif
+summary({'zeroconf-discover': build_module_zeroconf_discover}, bool_yn: true, section: 'Optional Modules')
 
-if roc_lib.found()
+build_module_roc = roc_lib.found()
+if build_module_roc
 pipewire_module_roc_sink = shared_library('pipewire-module-roc-sink',
   [ 'module-roc-sink.c' ],
   include_directories : [configinc, spa_inc],
@@ -424,3 +438,5 @@ pipewire_module_roc_source = shared_library('pipewire-module-roc-source',
   dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, roc_lib],
 )
 endif
+summary({'roc-sink': build_module_roc}, bool_yn: true, section: 'Optional Modules')
+summary({'roc-source': build_module_roc}, bool_yn: true, section: 'Optional Modules')

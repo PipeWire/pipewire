@@ -572,6 +572,11 @@ gst_pipewire_src_stream_start (GstPipeWireSrc *pwsrc)
     if (state == PW_STREAM_STATE_ERROR)
       goto start_error;
 
+    if (pwsrc->flushing) {
+      error = "flushing";
+      goto start_error;
+    }
+
     pw_thread_loop_wait (pwsrc->core->loop);
   }
 
@@ -607,6 +612,11 @@ wait_started (GstPipeWireSrc *this)
 
     if (state == PW_STREAM_STATE_ERROR)
       break;
+
+    if (this->flushing) {
+      state = PW_STREAM_STATE_ERROR;
+      break;
+    }
 
     if (this->started)
       break;
@@ -672,7 +682,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
       if (state == PW_STREAM_STATE_UNCONNECTED)
         break;
 
-      if (state == PW_STREAM_STATE_ERROR) {
+      if (state == PW_STREAM_STATE_ERROR || pwsrc->flushing) {
         g_ptr_array_unref (possible);
         goto connect_error;
       }
@@ -695,7 +705,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
     enum pw_stream_state state = pw_stream_get_state (pwsrc->stream, &error);
 
     GST_DEBUG_OBJECT (basesrc, "waiting for NEGOTIATED, now %s", pw_stream_state_as_string (state));
-    if (state == PW_STREAM_STATE_ERROR)
+    if (state == PW_STREAM_STATE_ERROR || pwsrc->flushing)
       goto connect_error;
 
     if (pwsrc->negotiated)

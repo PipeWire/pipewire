@@ -1,3 +1,69 @@
+# PipeWire 0.3.36 (2021-09-16)
+
+This is a quick bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+## Highlights
+  - A quick update with mostly only bugfixes and small improvements.
+  - Capture and playback is now avoided on unavailable devices. This
+    should fix some issues where an unusable microphone was selected
+    by default.
+  - MIDI output should not stop randomly now.
+  - The GStreamer elements are much improved, cheese should work
+    a lot better now.
+  - Virtual sinks and sources should now always show up immediately.
+  - JACK processing is now delayed until buffersize and samplerate
+    are emited. This should improve stability of many JACK apps.
+  - JACK transport sync is now implemented correctly so that preroll
+    in bitwig works.
+
+## PipeWire
+  - The module dir environment variable can now contain multiple paths.
+  - Documentation now contains dot graphs of dependencies. (#1585)
+  - config min/max/default quantum values are now scaled with the
+    samplerate.
+  - A potential crash was fixed where destroyed memory was still used
+    by a node. This could cause crashes in cheese.
+
+## pipewire-media-session
+  - Only allow passthrough for passthrough formats (S/PDIF) for
+    now. (#1587)
+  - Improve bluetooth profile autoswitch.
+  - Don't try to route audio to nodes with unavailable routes.
+
+## ALSA
+  - Pass the right AES bits to the alsa device when opening an
+    S/PDIF stream.
+  - Fix a bug in the MIDI bridge port management logic. When a port
+    was added and immediately removed, output would stop.
+
+## GStreamer
+  - The GStreamer source now handles the flushing state correctly.
+  - All blocking operations now have a 30 seconds timeout, to avoid
+    infinite locks.
+
+## Plugins
+  - V4l2 Device formats and controls are now passed on the node, just
+    like with audio devices.
+  - audioconvert now also exposes the softMute property.
+
+## JACK
+  - Improve stability when changing buffer size and sample rate
+    dynamically by pausing the processing until the application has
+    handled the callback.
+  - Improve handling of timebase master. When the master was moved to
+    another driver, it did not attempt to become a new timebase
+    master on the new driver. (#1589)
+  - Implement transport sync to make preroll in bitwig work. (#1589)
+
+## pulse-server
+  - Fix an issue where virtual sinks/sources would not show up
+    immediately. (#1588)
+
+
+Older versions:
+
+
 # PipeWire 0.3.35 (2021-09-09)
 
 This is a bugfix release that is API and ABI compatible
@@ -101,8 +167,6 @@ with previous 0.3.x releases.
   - DMA-BUF docs were updated.
   - Documentation updates.
 
-
-Older versions:
 
 # PipeWire 0.3.34 (2021-08-26)
 

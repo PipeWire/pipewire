@@ -433,7 +433,7 @@ client_node_set_io(void *object,
 	struct pw_proxy *proxy = (struct pw_proxy*)data->client_node;
 	struct pw_memmap *old, *mm;
 	void *ptr;
-	uint32_t tag[5] = { data->remote_id, id, };
+	uint32_t tag[5] = { data->remote_id, SPA_ID_INVALID, id, };
 	int res;
 
 	old = pw_mempool_find_tag(data->pool, tag, sizeof(tag));

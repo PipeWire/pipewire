@@ -146,7 +146,8 @@ struct impl {
 	struct spa_node_info info;
 #define NODE_PropInfo	0
 #define NODE_Props	1
-#define N_NODE_PARAMS	2
+#define NODE_EnumFormat	2
+#define N_NODE_PARAMS	3
 	struct spa_param_info params[N_NODE_PARAMS];
 	struct props props;
 
@@ -219,7 +220,7 @@ static int impl_node_enum_params(void *object, int seq,
 		default:
 			return 0;
 		}
-		break;
+		return spa_v4l2_enum_controls(this, seq, start, num, filter);
 	}
 	case SPA_PARAM_Props:
 	{
@@ -238,6 +239,8 @@ static int impl_node_enum_params(void *object, int seq,
 		}
 		break;
 	}
+	case SPA_PARAM_EnumFormat:
+		return spa_v4l2_enum_format(this, seq, start, num, filter);
 	default:
 		return -ENOENT;
 	}
@@ -993,6 +996,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.max_output_ports = 1;
 	this->info.flags = SPA_NODE_FLAG_RT;
 	this->params[NODE_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
+	this->params[NODE_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	this->params[NODE_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
 	this->info.params = this->params;
 	this->info.n_params = N_NODE_PARAMS;

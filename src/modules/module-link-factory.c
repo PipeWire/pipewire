@@ -39,6 +39,9 @@
 
 #define NAME "link-factory"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define FACTORY_USAGE	PW_KEY_LINK_OUTPUT_NODE"=<output-node> "	\
 			"["PW_KEY_LINK_OUTPUT_PORT"=<output-port>] "	\
 			PW_KEY_LINK_INPUT_NODE"=<input-node> "		\
@@ -487,7 +490,7 @@ static void module_registered(void *data)
 	pw_impl_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
 
 	if ((res = pw_impl_factory_register(factory, NULL)) < 0) {
-		pw_log_error(NAME" %p: can't register factory: %s", factory, spa_strerror(res));
+		pw_log_error("%p: can't register factory: %s", factory, spa_strerror(res));
 	}
 }
 
@@ -504,6 +507,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_impl_factory *factory;
 	struct factory_data *data;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	factory = pw_context_create_factory(context,
 				 "link-factory",

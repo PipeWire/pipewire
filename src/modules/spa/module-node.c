@@ -33,6 +33,11 @@
 
 #include "spa-node.h"
 
+#define NAME "spa-node"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define MODULE_USAGE	"<factory> [key=value ...]"
 
 static const struct spa_dict_item module_props[] = {
@@ -71,6 +76,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_impl_node *node;
         struct node_data *data;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	if (args == NULL)
 		goto error_arguments;

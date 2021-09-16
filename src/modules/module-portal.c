@@ -81,6 +81,9 @@
 
 #define NAME "portal"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct impl {
 	struct pw_context *context;
 	struct pw_properties *properties;
@@ -120,7 +123,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, "portal");
 	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));
 
-	pw_log_info(NAME" %p: portal managed client %p added", impl, client);
+	pw_log_info("%p: portal managed client %p added", impl, client);
 
 	/* portal makes this connection and will change the permissions before
 	 * handing this connection to the client */
@@ -307,6 +310,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	const struct spa_support *support;
 	uint32_t n_support;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	support = pw_context_get_support(context, &n_support);
 

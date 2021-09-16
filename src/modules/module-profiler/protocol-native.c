@@ -33,6 +33,9 @@
 #include <pipewire/extensions/protocol-native.h>
 #include <pipewire/extensions/profiler.h>
 
+PW_LOG_TOPIC_EXTERN(mod_topic);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 static int profiler_proxy_marshal_add_listener(void *object,
 			struct spa_hook *listener,
 			const struct pw_profiler_events *events,

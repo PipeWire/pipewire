@@ -110,6 +110,10 @@
  */
 
 #define NAME "echo-cancel"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 /* Hopefully this is enough for any combination of AEC engine and resampler
  * input requirement for rate matching */
 #define MAX_BUFSIZE_MS 100
@@ -819,6 +823,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	uint32_t id = pw_global_get_id(pw_impl_module_get_global(module));
 	const char *str;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

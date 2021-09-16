@@ -33,6 +33,9 @@
 #include <pipewire/extensions/protocol-native.h>
 #include <pipewire/extensions/client-node.h>
 
+PW_LOG_TOPIC_EXTERN(mod_topic);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 static inline void push_item(struct spa_pod_builder *b, const struct spa_dict_item *item)
 {
 	const char *str;

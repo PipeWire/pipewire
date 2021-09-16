@@ -56,6 +56,9 @@
 
 #define NAME "pulse-tunnel"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define MODULE_USAGE	"[ remote.name=<remote> ] "				\
 			"[ node.latency=<latency as fraction> ] "		\
 			"[ node.name=<name of the nodes> ] "			\
@@ -201,10 +204,10 @@ static void playback_stream_process(void *d)
 
 	filled = spa_ringbuffer_get_write_index(&impl->ring, &write_index);
 	if (filled < 0) {
-		pw_log_warn(NAME" %p: underrun write:%u filled:%d",
+		pw_log_warn("%p: underrun write:%u filled:%d",
 				impl, write_index, filled);
 	} else if ((uint32_t)filled + size > RINGBUFFER_SIZE) {
-		pw_log_debug(NAME" %p: overrun write:%u filled:%d size:%u max:%u",
+		pw_log_debug("%p: overrun write:%u filled:%d size:%u max:%u",
                                         impl, write_index, filled,
                                         size, RINGBUFFER_SIZE);
 	}
@@ -383,10 +386,10 @@ static void stream_read_request_cb(pa_stream *s, size_t length, void *userdata)
 	filled = spa_ringbuffer_get_write_index(&impl->ring, &write_index);
 
 	if (filled < 0) {
-		pw_log_warn(NAME" %p: underrun write:%u filled:%d",
+		pw_log_warn("%p: underrun write:%u filled:%d",
 				impl, write_index, filled);
 	} else if (filled + length > RINGBUFFER_SIZE) {
-		pw_log_warn(NAME" %p: overrun write:%u filled:%d",
+		pw_log_warn("%p: overrun write:%u filled:%d",
 				impl, write_index, filled);
 	}
 	while (length > 0) {
@@ -732,6 +735,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct impl *impl;
 	const char *str;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

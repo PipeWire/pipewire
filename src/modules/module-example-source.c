@@ -53,6 +53,9 @@
 
 #define NAME "example-source"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define DEFAULT_FORMAT "S16"
 #define DEFAULT_RATE "48000"
 #define DEFAULT_CHANNELS "2"
@@ -388,6 +391,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct impl *impl;
 	const char *str;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

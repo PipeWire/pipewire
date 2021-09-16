@@ -48,6 +48,11 @@
 /** \page page_module_rtkit PipeWire Module: RTKit
  */
 
+#define NAME "rtkit"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define DEFAULT_NICE_LEVEL	-11
 #define DEFAULT_RT_PRIO		88
 #define DEFAULT_RT_TIME_SOFT	2000000
@@ -674,6 +679,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	const struct pw_properties *props;
 	const char *str;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	if ((props = pw_context_get_properties(context)) != NULL &&
 	    (str = pw_properties_get(props, "support.dbus")) != NULL &&

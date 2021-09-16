@@ -51,6 +51,9 @@
 
 #define NAME "zeroconf-discover"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define MODULE_USAGE	" "
 
 static const struct spa_dict_item module_props[] = {
@@ -478,6 +481,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props;
 	struct impl *impl;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

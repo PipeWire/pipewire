@@ -46,6 +46,9 @@
 
 #define NAME "profiler"
 
+PW_LOG_TOPIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define TMP_BUFFER		(16 * 1024)
 #define MAX_BUFFER		(8 * 1024 * 1024)
 #define MIN_FLUSH		(16 * 1024)
@@ -135,7 +138,7 @@ static void flush_timeout(void *data, uint64_t expirations)
 
 	avail = spa_ringbuffer_get_read_index(&impl->buffer, &idx);
 
-	pw_log_trace(NAME"%p avail %d", impl, avail);
+	pw_log_trace("%p avail %d", impl, avail);
 
 	if (avail <= 0) {
 		if (++impl->empty == DEFAULT_IDLE)
@@ -233,12 +236,12 @@ static void context_do_profile(void *data, struct pw_impl_node *node)
 
 	filled = spa_ringbuffer_get_write_index(&impl->buffer, &idx);
 	if (filled < 0 || filled > MAX_BUFFER) {
-		pw_log_warn(NAME " %p: queue xrun %d", impl, filled);
+		pw_log_warn("%p: queue xrun %d", impl, filled);
 		goto done;
 	}
 	avail = MAX_BUFFER - filled;
 	if (avail < b.state.offset) {
-		pw_log_warn(NAME " %p: queue full %d < %d", impl, avail, b.state.offset);
+		pw_log_warn("%p: queue full %d < %d", impl, avail, b.state.offset);
 		goto done;
 	}
 	spa_ringbuffer_write_data(&impl->buffer,
@@ -280,7 +283,7 @@ static void resource_destroy(void *data)
 {
 	struct impl *impl = data;
 	if (--impl->busy == 0) {
-		pw_log_info(NAME" %p: stopping profiler", impl);
+		pw_log_info("%p: stopping profiler", impl);
 		stop_listener(impl);
 	}
 }
@@ -323,7 +326,7 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 			&resource_events, impl);
 
 	if (++impl->busy == 1) {
-		pw_log_info(NAME" %p: starting profiler", impl);
+		pw_log_info("%p: starting profiler", impl);
 		pw_loop_invoke(impl->context->data_loop,
                        do_start, SPA_ID_INVALID, NULL, 0, false, impl);
 		impl->listening = true;
@@ -356,6 +359,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props;
 	struct impl *impl;
 	struct pw_loop *main_loop = pw_context_get_main_loop(context);
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

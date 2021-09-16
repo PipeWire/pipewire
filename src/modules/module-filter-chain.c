@@ -49,6 +49,9 @@
 
 #define NAME "filter-chain"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 /**
  * \page page_module_filter_chain PipeWire Module: Filter-Chain
  *
@@ -1639,6 +1642,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	uint32_t n_support;
 	struct spa_cpu *cpu_iface;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

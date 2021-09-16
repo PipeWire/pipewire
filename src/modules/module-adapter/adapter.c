@@ -47,6 +47,9 @@
 
 #define NAME "adapter"
 
+PW_LOG_TOPIC_EXTERN(mod_topic);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct buffer {
 	struct spa_buffer buf;
 	struct spa_data datas[1];
@@ -187,14 +190,14 @@ static int find_format(struct pw_impl_node *node, enum pw_direction direction,
 				SPA_PARAM_EnumFormat, &state,
 				NULL, &format, &b)) != 1) {
 		res = res < 0 ? res : -ENOENT;
-		pw_log_warn(NAME " %p: can't get format: %s", node, spa_strerror(res));
+		pw_log_warn("%p: can't get format: %s", node, spa_strerror(res));
 		return res;
 	}
 
 	if ((res = spa_format_parse(format, media_type, media_subtype)) < 0)
 		return res;
 
-	pw_log_debug(NAME " %p: %s/%s", node,
+	pw_log_debug("%p: %s/%s", node,
 			spa_debug_type_find_name(spa_type_media_type, *media_type),
 			spa_debug_type_find_name(spa_type_media_subtype, *media_subtype));
 	return 0;
@@ -220,7 +223,7 @@ struct pw_impl_node *pw_adapter_new(struct pw_context *context,
 		goto error;
 	}
 
-	pw_log_debug(NAME " %p: in %d/%d out %d/%d", follower,
+	pw_log_debug("%p: in %d/%d out %d/%d", follower,
 			info->n_input_ports, info->max_input_ports,
 			info->n_output_ports, info->max_output_ports);
 

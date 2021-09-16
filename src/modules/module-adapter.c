@@ -42,6 +42,9 @@
  */
 #define NAME "adapter"
 
+PW_LOG_TOPIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define FACTORY_USAGE	SPA_KEY_FACTORY_NAME"=<factory-name> " \
 			"["SPA_KEY_LIBRARY_NAME"=<library-name>] " \
 			ADAPTER_USAGE
@@ -79,7 +82,7 @@ static void resource_destroy(void *data)
 {
 	struct node_data *nd = data;
 
-	pw_log_debug(NAME" %p: destroy %p", nd, nd->adapter);
+	pw_log_debug("%p: destroy %p", nd, nd->adapter);
 	spa_hook_remove(&nd->resource_listener);
 	nd->bound_resource = NULL;
 	if (nd->adapter && !nd->linger)
@@ -94,7 +97,7 @@ static const struct pw_resource_events resource_events = {
 static void node_destroy(void *data)
 {
 	struct node_data *nd = data;
-	pw_log_debug(NAME" %p: destroy %p", nd, nd->adapter);
+	pw_log_debug("%p: destroy %p", nd, nd->adapter);
 	spa_list_remove(&nd->link);
 	nd->adapter = NULL;
 }
@@ -103,7 +106,7 @@ static void node_free(void *data)
 {
 	struct node_data *nd = data;
 
-	pw_log_debug(NAME" %p: free %p", nd, nd->follower);
+	pw_log_debug("%p: free %p", nd, nd->follower);
 
 	if (nd->bound_resource != NULL)
 		spa_hook_remove(&nd->resource_listener);
@@ -275,7 +278,7 @@ static void module_destroy(void *data)
 	struct factory_data *d = data;
 	struct node_data *nd;
 
-	pw_log_debug(NAME" %p: destroy", d);
+	pw_log_debug("%p: destroy", d);
 	spa_hook_remove(&d->module_listener);
 
 	spa_list_consume(nd, &d->node_list, link)
@@ -298,7 +301,7 @@ static void module_registered(void *data)
 	pw_impl_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
 
 	if ((res = pw_impl_factory_register(factory, NULL)) < 0) {
-		pw_log_error(NAME" %p: can't register factory: %s", factory, spa_strerror(res));
+		pw_log_error("%p: can't register factory: %s", factory, spa_strerror(res));
 	}
 }
 
@@ -314,6 +317,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_impl_factory *factory;
 	struct factory_data *data;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	factory = pw_context_create_factory(context,
 				 "adapter",

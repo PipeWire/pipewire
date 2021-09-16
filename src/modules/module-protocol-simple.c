@@ -54,6 +54,9 @@
 
 #define NAME "protocol-simple"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define DEFAULT_PORT 4711
 #define DEFAULT_SERVER "[ \"tcp:"SPA_STRINGIFY(DEFAULT_PORT)"\" ]"
 
@@ -155,7 +158,7 @@ static void client_free(struct client *client)
 {
 	struct impl *impl = client->impl;
 
-	pw_log_info(NAME" %p: client:%p [%s] free", impl, client, client->name);
+	pw_log_info("%p: client:%p [%s] free", impl, client, client->name);
 
 	client_disconnect(client);
 
@@ -211,9 +214,9 @@ on_client_data(void *data, int fd, uint32_t mask)
 
 error:
         if (res == -EPIPE)
-                pw_log_info(NAME" %p: client:%p [%s] disconnected", impl, client, client->name);
+                pw_log_info("%p: client:%p [%s] disconnected", impl, client, client->name);
         else  {
-                pw_log_error(NAME" %p: client:%p [%s] error %d (%s)", impl,
+                pw_log_error("%p: client:%p [%s] error %d (%s)", impl,
                                 client, client->name, res, spa_strerror(res));
 	}
 	client_cleanup(client);
@@ -503,7 +506,7 @@ on_connect(void *data, int fd, uint32_t mask)
 	if (client->source == NULL)
 		goto error;
 
-	pw_log_info(NAME" %p: client:%p [%s] connected", impl, client, client->name);
+	pw_log_info("%p: client:%p [%s] connected", impl, client, client->name);
 
 	props = pw_properties_new(
 			PW_KEY_CLIENT_API, "protocol-simple",
@@ -544,7 +547,7 @@ on_connect(void *data, int fd, uint32_t mask)
 
 	return;
 error:
-	pw_log_error(NAME" %p: failed to create client: %m", impl);
+	pw_log_error("%p: failed to create client: %m", impl);
 	pw_properties_free(props);
 	if (client != NULL)
 		client_free(client);
@@ -578,13 +581,13 @@ static int make_inet_socket(struct server *server, const char *name)
 
 	if ((fd = socket(PF_INET, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: socket() failed: %m", server);
+		pw_log_error("%p: socket() failed: %m", server);
 		goto error;
 	}
 
 	on = 1;
 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const void *) &on, sizeof(on)) < 0)
-		pw_log_warn(NAME" %p: setsockopt(): %m", server);
+		pw_log_warn("%p: setsockopt(): %m", server);
 
 	spa_zero(addr);
 	addr.sin_family = AF_INET;
@@ -593,16 +596,16 @@ static int make_inet_socket(struct server *server, const char *name)
 
 	if (bind(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: bind() failed: %m", server);
+		pw_log_error("%p: bind() failed: %m", server);
 		goto error_close;
 	}
 	if (listen(fd, 5) < 0) {
 		res = -errno;
-		pw_log_error(NAME" %p: listen() failed: %m", server);
+		pw_log_error("%p: listen() failed: %m", server);
 		goto error_close;
 	}
 	server->type = SERVER_TYPE_INET;
-	pw_log_info(NAME" listening on tcp:%08x:%u", address, port);
+	pw_log_info("listening on tcp:%08x:%u", address, port);
 
 	return fd;
 
@@ -617,7 +620,7 @@ static void server_free(struct server *server)
 	struct impl *impl = server->impl;
 	struct client *c;
 
-	pw_log_debug(NAME" %p: free server %p", impl, server);
+	pw_log_debug("%p: free server %p", impl, server);
 
 	spa_list_remove(&server->link);
 	spa_list_consume(c, &server->client_list, link)
@@ -652,7 +655,7 @@ static struct server *create_server(struct impl *impl, const char *address)
 	server->source = pw_loop_add_io(impl->loop, fd, SPA_IO_IN, true, on_connect, server);
 	if (server->source == NULL) {
 		res = -errno;
-		pw_log_error(NAME" %p: can't create server source: %m", impl);
+		pw_log_error("%p: can't create server source: %m", impl);
 		goto error_close;
 	}
 	return server;
@@ -783,7 +786,7 @@ static int parse_params(struct impl *impl)
         if (spa_json_enter_array(&it[0], &it[1]) > 0) {
                 while (spa_json_get_string(&it[1], value, sizeof(value)-1) > 0) {
                         if (create_server(impl, value) == NULL) {
-				pw_log_warn(NAME" %p: can't create server for %s: %m",
+				pw_log_warn("%p: can't create server for %s: %m",
 					impl, value);
 			}
 		}
@@ -810,6 +813,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props;
 	struct impl *impl;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

@@ -45,6 +45,12 @@
 /** \page page_module_rt PipeWire Module: RT
  */
 
+
+#define NAME "rt"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define DEFAULT_POLICY	SCHED_FIFO
 
 #define DEFAULT_NICE_LEVEL -11
@@ -248,6 +254,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props;
 	int nice_level;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

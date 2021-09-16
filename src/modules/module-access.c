@@ -124,6 +124,9 @@
 
 #define NAME "access"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define MODULE_USAGE	"[ access.force=flatpak ] "		\
 			"[ access.allowed=<cmd-line> ] "	\
 			"[ access.rejected=<cmd-line> ] "	\
@@ -258,7 +261,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 	if (impl->properties && (str = pw_properties_get(impl->properties, "access.allowed")) != NULL) {
 		res = check_cmdline(client, pid, str);
 		if (res < 0) {
-			pw_log_warn(NAME" %p: client %p allowed check failed: %s",
+			pw_log_warn("%p: client %p allowed check failed: %s",
 				impl, client, spa_strerror(res));
 		} else if (res > 0) {
 			access = "allowed";
@@ -269,7 +272,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 	if (impl->properties && (str = pw_properties_get(impl->properties, "access.rejected")) != NULL) {
 		res = check_cmdline(client, pid, str);
 		if (res < 0) {
-			pw_log_warn(NAME" %p: client %p rejected check failed: %s",
+			pw_log_warn("%p: client %p rejected check failed: %s",
 				impl, client, spa_strerror(res));
 		} else if (res > 0) {
 			res = -EACCES;
@@ -281,11 +284,11 @@ context_check_access(void *data, struct pw_impl_client *client)
 	if (impl->properties && (str = pw_properties_get(impl->properties, "access.restricted")) != NULL) {
 		res = check_cmdline(client, pid, str);
 		if (res < 0) {
-			pw_log_warn(NAME" %p: client %p restricted check failed: %s",
+			pw_log_warn("%p: client %p restricted check failed: %s",
 				impl, client, spa_strerror(res));
 		}
 		else if (res > 0) {
-			pw_log_debug(NAME" %p: restricted client %p added", impl, client);
+			pw_log_debug(" %p: restricted client %p added", impl, client);
 			access = "restricted";
 			goto wait_permissions;
 		}
@@ -302,11 +305,11 @@ context_check_access(void *data, struct pw_impl_client *client)
 				access = "unrestricted";
 				goto granted;
 			}
-			pw_log_warn(NAME" %p: client %p sandbox check failed: %s",
+			pw_log_warn("%p: client %p sandbox check failed: %s",
 				impl, client, spa_strerror(res));
 		}
 		else if (res > 0) {
-			pw_log_debug(NAME" %p: flatpak client %p added", impl, client);
+			pw_log_debug(" %p: flatpak client %p added", impl, client);
 		}
 		access = "flatpak";
 		goto wait_permissions;
@@ -316,7 +319,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 		access = "unrestricted";
 
 granted:
-	pw_log_info(NAME" %p: client %p '%s' access granted", impl, client, access);
+	pw_log_info("%p: client %p '%s' access granted", impl, client, access);
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
 	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));
 
@@ -325,7 +328,7 @@ granted:
 	return;
 
 wait_permissions:
-	pw_log_info(NAME " %p: client %p wait for '%s' permissions",
+	pw_log_info("%p: client %p wait for '%s' permissions",
 			impl, client, access);
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
 	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));
@@ -366,6 +369,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_properties *props;
 	struct impl *impl;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

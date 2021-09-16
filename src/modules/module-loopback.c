@@ -47,6 +47,9 @@
 
 #define NAME "loopback"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Create loopback streams" },
@@ -397,6 +400,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	uint32_t id = pw_global_get_id(pw_impl_module_get_global(module));
 	const char *str;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

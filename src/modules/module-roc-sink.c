@@ -85,6 +85,11 @@
  *
  */
 
+#define NAME "roc-sink"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define ROC_DEFAULT_IP "0.0.0.0"
 #define ROC_DEFAULT_SOURCE_PORT 10001
 #define ROC_DEFAULT_REPAIR_PORT 10002
@@ -383,6 +388,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	const char *str;
 	char *local_ip = NULL, *remote_ip = NULL;
 	int res = 0, remote_repair_port, remote_source_port;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	data = calloc(1, sizeof(struct module_roc_sink_data));
 	if (data == NULL)

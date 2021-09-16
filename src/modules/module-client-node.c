@@ -41,6 +41,9 @@
 
 #define NAME "client-node"
 
+PW_LOG_TOPIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Allow clients to create and control remote nodes" },
@@ -138,7 +141,7 @@ static void module_registered(void *data)
 	pw_impl_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
 
 	if ((res = pw_impl_factory_register(factory, NULL)) < 0) {
-		pw_log_error(NAME" %p: can't register factory: %s", factory, spa_strerror(res));
+		pw_log_error("%p: can't register factory: %s", factory, spa_strerror(res));
 	}
 }
 
@@ -154,6 +157,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_impl_factory *factory;
 	struct factory_data *data;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	factory = pw_context_create_factory(context,
 				 "client-node",

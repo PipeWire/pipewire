@@ -160,11 +160,15 @@ GstPipeWireCore *gst_pipewire_core_get (int fd)
 
 static void do_sync(GstPipeWireCore * core)
 {
+  struct timespec abstime;
   core->pending_seq = pw_core_sync(core->core, 0, core->pending_seq);
+  pw_thread_loop_get_time (core->loop, &abstime,
+              GST_PIPEWIRE_DEFAULT_TIMEOUT * SPA_NSEC_PER_SEC);
   while (true) {
     if (core->last_seq == core->pending_seq || core->last_error < 0)
       break;
-    pw_thread_loop_wait (core->loop);
+    if (pw_thread_loop_timed_wait_full (core->loop, &abstime) < 0)
+      break;
   }
 }
 

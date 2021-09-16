@@ -559,9 +559,14 @@ static gboolean
 gst_pipewire_src_stream_start (GstPipeWireSrc *pwsrc)
 {
   const char *error = NULL;
+  struct timespec abstime;
 
   pw_thread_loop_lock (pwsrc->core->loop);
   GST_DEBUG_OBJECT (pwsrc, "doing stream start");
+
+  pw_thread_loop_get_time (pwsrc->core->loop, &abstime,
+		  GST_PIPEWIRE_DEFAULT_TIMEOUT * SPA_NSEC_PER_SEC);
+
   while (TRUE) {
     enum pw_stream_state state = pw_stream_get_state (pwsrc->stream, &error);
 
@@ -577,7 +582,10 @@ gst_pipewire_src_stream_start (GstPipeWireSrc *pwsrc)
       goto start_error;
     }
 
-    pw_thread_loop_wait (pwsrc->core->loop);
+    if (pw_thread_loop_timed_wait_full (pwsrc->core->loop, &abstime) < 0) {
+      error = "timeout";
+      goto start_error;
+    }
   }
 
   parse_stream_properties (pwsrc, pw_stream_get_properties (pwsrc->stream));
@@ -602,8 +610,13 @@ wait_started (GstPipeWireSrc *this)
 {
   enum pw_stream_state state;
   const char *error = NULL;
+  struct timespec abstime;
 
   pw_thread_loop_lock (this->core->loop);
+
+  pw_thread_loop_get_time (this->core->loop, &abstime,
+		  GST_PIPEWIRE_DEFAULT_TIMEOUT * SPA_NSEC_PER_SEC);
+
   while (TRUE) {
     state = pw_stream_get_state (this->stream, &error);
 
@@ -621,9 +634,13 @@ wait_started (GstPipeWireSrc *this)
     if (this->started)
       break;
 
-    pw_thread_loop_wait (this->core->loop);
+    if (pw_thread_loop_timed_wait_full (this->core->loop, &abstime) < 0) {
+      state = PW_STREAM_STATE_ERROR;
+      break;
+    }
   }
-  GST_DEBUG_OBJECT (this, "got started signal");
+  GST_DEBUG_OBJECT (this, "got started signal: %s",
+		  pw_stream_state_as_string (state));
   pw_thread_loop_unlock (this->core->loop);
 
   return state;
@@ -639,6 +656,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   gboolean result = FALSE;
   GPtrArray *possible;
   const char *error = NULL;
+  struct timespec abstime;
 
   /* first see what is possible on our source pad */
   thiscaps = gst_pad_query_caps (GST_BASE_SRC_PAD (basesrc), NULL);
@@ -701,6 +719,9 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
                      possible->len);
   g_ptr_array_free (possible, TRUE);
 
+  pw_thread_loop_get_time (pwsrc->core->loop, &abstime,
+		  GST_PIPEWIRE_DEFAULT_TIMEOUT * SPA_NSEC_PER_SEC);
+
   while (TRUE) {
     enum pw_stream_state state = pw_stream_get_state (pwsrc->stream, &error);
 
@@ -711,7 +732,8 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
     if (pwsrc->negotiated)
       break;
 
-    pw_thread_loop_wait (pwsrc->core->loop);
+    if (pw_thread_loop_timed_wait_full (pwsrc->core->loop, &abstime) < 0)
+        goto connect_error;
   }
   caps = pwsrc->caps;
   pwsrc->caps = NULL;
@@ -759,6 +781,7 @@ no_common_caps:
   }
 connect_error:
   {
+    GST_DEBUG_OBJECT (basesrc, "connect error");
     pw_thread_loop_unlock (pwsrc->core->loop);
     return FALSE;
   }
@@ -1084,6 +1107,8 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
 {
   struct pw_properties *props;
 
+  GST_DEBUG_OBJECT (pwsrc, "open");
+
   pwsrc->core = gst_pipewire_core_get(pwsrc->fd);
   if (pwsrc->core == NULL)
       goto connect_error;
@@ -1134,6 +1159,8 @@ static void
 gst_pipewire_src_close (GstPipeWireSrc * pwsrc)
 {
   pwsrc->last_time = gst_clock_get_time (pwsrc->clock);
+
+  GST_DEBUG_OBJECT (pwsrc, "close");
 
   gst_element_post_message (GST_ELEMENT (pwsrc),
     gst_message_new_clock_lost (GST_OBJECT_CAST (pwsrc), pwsrc->clock));

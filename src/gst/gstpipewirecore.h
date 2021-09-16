@@ -33,6 +33,8 @@ G_BEGIN_DECLS
 
 typedef struct _GstPipeWireCore GstPipeWireCore;
 
+#define GST_PIPEWIRE_DEFAULT_TIMEOUT 30
+
 /**
  * GstPipeWireCore:
  *

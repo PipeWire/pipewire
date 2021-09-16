@@ -510,6 +510,7 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   guint size;
   guint min_buffers;
   guint max_buffers;
+  struct timespec abstime;
 
   pwsink = GST_PIPEWIRE_SINK (bsink);
 
@@ -536,6 +537,9 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
                           (const struct spa_pod **) possible->pdata,
                           possible->len);
 
+    pw_thread_loop_get_time (pwsink->core->loop, &abstime,
+              GST_PIPEWIRE_DEFAULT_TIMEOUT * SPA_NSEC_PER_SEC);
+
     while (TRUE) {
       state = pw_stream_get_state (pwsink->stream, &error);
 
@@ -545,7 +549,10 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
       if (state == PW_STREAM_STATE_ERROR)
         goto start_error;
 
-      pw_thread_loop_wait (pwsink->core->loop);
+      if (pw_thread_loop_timed_wait_full (pwsink->core->loop, &abstime) < 0) {
+        error = "timeout";
+        goto start_error;
+      }
     }
   }
   res = TRUE;

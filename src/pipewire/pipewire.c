@@ -213,30 +213,6 @@ static void unref_handle(struct handle *handle)
 	}
 }
 
-static void configure_debug(struct support *support, const char *str)
-{
-	char **level;
-	int n_tokens;
-
-	level = pw_split_strv(str, ":", INT_MAX, &n_tokens);
-	if (n_tokens > 0) {
-		switch (level[0][0]) {
-			case 'X': pw_log_set_level(SPA_LOG_LEVEL_NONE); break;
-			case 'E': pw_log_set_level(SPA_LOG_LEVEL_ERROR); break;
-			case 'W': pw_log_set_level(SPA_LOG_LEVEL_WARN); break;
-			case 'I': pw_log_set_level(SPA_LOG_LEVEL_INFO); break;
-			case 'D': pw_log_set_level(SPA_LOG_LEVEL_DEBUG); break;
-			case 'T': pw_log_set_level(SPA_LOG_LEVEL_TRACE); break;
-			default:  pw_log_set_level(atoi(level[0])); break;
-		}
-	}
-
-	if (n_tokens > 1)
-		support->categories = pw_split_strv(level[1], ",", INT_MAX, &n_tokens);
-
-	pw_free_strv(level);
-}
-
 SPA_EXPORT
 uint32_t pw_get_support(struct spa_support *support, uint32_t max_support)
 {
@@ -623,9 +599,6 @@ void pw_init(int *argc, char **argv[])
 	if ((str = getenv("PIPEWIRE_NO_CONFIG")) != NULL)
 		support->no_config = pw_properties_parse_bool(str);
 
-	if ((str = getenv("PIPEWIRE_DEBUG")) != NULL)
-		configure_debug(support, str);
-
 	init_i18n(support);
 
 	if ((str = getenv("SPA_PLUGIN_DIR")) == NULL)
@@ -671,6 +644,8 @@ void pw_init(int *argc, char **argv[])
 		support->support[support->n_support++] =
 			SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, pw_log_get());
 	}
+
+	pw_log_init();
 
 	n_items = 0;
 	if ((str = getenv("PIPEWIRE_CPU")))

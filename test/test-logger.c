@@ -24,6 +24,7 @@
 
 #include "pwtest.h"
 
+#include <fcntl.h>
 #include <unistd.h>
 
 #include <spa/utils/ansi.h>
@@ -287,6 +288,114 @@ PWTEST(logger_debug_env_alpha)
 	return PWTEST_PASS;
 }
 
+PWTEST(logger_debug_env_topic_all)
+{
+	enum spa_log_level level = pwtest_get_iteration(current_test);
+	enum spa_log_level default_level = pw_log_level;
+	struct spa_log *default_logger = pw_log_get();
+	char *oldenv = getenv("PIPEWIRE_DEBUG");
+	char lvlstr[32];
+	char *lvl = SPA_LOG_LEVEL_NONE;
+
+	if (oldenv)
+		oldenv = strdup(oldenv);
+
+	switch(level) {
+		case SPA_LOG_LEVEL_NONE:  lvl = "X"; break;
+		case SPA_LOG_LEVEL_ERROR: lvl = "E"; break;
+		case SPA_LOG_LEVEL_WARN:  lvl = "W"; break;
+		case SPA_LOG_LEVEL_INFO:  lvl = "I"; break;
+		case SPA_LOG_LEVEL_DEBUG: lvl = "D"; break;
+		case SPA_LOG_LEVEL_TRACE: lvl = "T"; break;
+		default:
+			pwtest_fail_if_reached();
+			break;
+	}
+
+	/* Check that the * glob works to enable all topics */
+	spa_scnprintf(lvlstr, sizeof(lvlstr), "*:%s", lvl);
+	setenv("PIPEWIRE_DEBUG", lvlstr, 1);
+
+	/* Disable logging, let PIPEWIRE_DEBUG set the level */
+	pw_log_set_level(SPA_LOG_LEVEL_NONE);
+
+	test_log_levels(level);
+
+	if (oldenv) {
+		setenv("PIPEWIRE_DEBUG", oldenv, 1);
+		free(oldenv);
+	} else {
+		unsetenv("PIPEWIRE_DEBUG");
+	}
+
+	pw_log_set(default_logger);
+	pw_log_set_level(default_level);
+
+	return PWTEST_PASS;
+}
+
+PWTEST(logger_debug_env_invalid)
+{
+	enum spa_log_level default_level = pw_log_level;
+	struct spa_log *default_logger = pw_log_get();
+	char *oldenv = getenv("PIPEWIRE_DEBUG");
+	char fname[PATH_MAX];
+	char buf[1024] = {0};
+	int fd;
+	int rc;
+	bool error_message_found = false;
+	long unsigned int which = pwtest_get_iteration(current_test);
+	const char *envvars[] = {
+		"invalid value",
+		"*:5,some invalid value",
+		"*:W,foo.bar:3,invalid:",
+		"*:W,1,foo.bar:D",
+		"*:W,D,foo.bar:3",
+	};
+
+	pwtest_int_lt(which, SPA_N_ELEMENTS(envvars));
+
+	if (oldenv)
+		oldenv = strdup(oldenv);
+
+	/* The error message during pw_init() will go to stderr because no
+	 * logger has been set up yet. Intercept that in our temp file */
+	pwtest_mkstemp(fname);
+	fd = open(fname, O_RDWR);
+	pwtest_errno_ok(fd);
+	rc = dup2(fd, STDERR_FILENO);
+	setlinebuf(stderr);
+	pwtest_errno_ok(rc);
+
+	setenv("PIPEWIRE_DEBUG", envvars[which], 1);
+	pw_init(0, NULL);
+
+	fsync(STDERR_FILENO);
+	lseek(fd, SEEK_SET, 0);
+	while ((rc = read(fd, buf, sizeof(buf) - 1) > 0)) {
+		if (strstr(buf, "Ignoring invalid format in PIPEWIRE_DEBUG")) {
+		    error_message_found = true;
+		    break;
+		}
+	}
+	pwtest_errno_ok(rc);
+	close(fd);
+	pwtest_bool_true(error_message_found);
+
+	if (oldenv) {
+		setenv("PIPEWIRE_DEBUG", oldenv, 1);
+		free(oldenv);
+	} else {
+		unsetenv("PIPEWIRE_DEBUG");
+	}
+
+	pw_log_set(default_logger);
+	pw_log_set_level(default_level);
+	pw_deinit();
+
+	return PWTEST_PASS;
+}
+
 PWTEST(logger_topics)
 {
 	struct pwtest_spa_plugin *plugin;
@@ -502,6 +611,12 @@ PWTEST_SUITE(logger)
 		   PWTEST_NOARG);
 	pwtest_add(logger_debug_env_alpha,
 		   PWTEST_ARG_RANGE, SPA_LOG_LEVEL_NONE, SPA_LOG_LEVEL_TRACE + 1,
+		   PWTEST_NOARG);
+	pwtest_add(logger_debug_env_topic_all,
+		   PWTEST_ARG_RANGE, SPA_LOG_LEVEL_NONE, SPA_LOG_LEVEL_TRACE + 1,
+		   PWTEST_NOARG);
+	pwtest_add(logger_debug_env_invalid,
+		   PWTEST_ARG_RANGE, 0, 5, /* see the test */
 		   PWTEST_NOARG);
 	pwtest_add(logger_topics, PWTEST_NOARG);
 	pwtest_add(logger_journal, PWTEST_NOARG);

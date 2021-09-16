@@ -127,9 +127,16 @@ Allowed configuration file sections are:
 \section sec_logging Logging
 
 The `PIPEWIRE_DEBUG` environment variable can be used to enable
-more debugging. The format is:
+more debugging. This variable supports one of two formats:
 
-`<level>[<category>,<category>,...]`
+- `PIPEWIRE_DEBUG=<level>` where `<level>` is either a numerical log level or it's
+   respective key, see below.
+- `PIPEWIRE_DEBUG=<glob1>:<level1>,<glob2>:<level2>,...` where the globs are
+  shell-globs to match on log topics and the levels are the respective
+  log level to set for that topic. Globs are applied in-order and a matching
+  glob overrides an earlier glob for that category. For example,
+  `PIPEWIRE_DEBUG=*:E,mod.*:D,mod.foo:X" enables global error messages,
+  debugging on all modules but no messages on the foo module.
 
 - `<level>` specifies the log level:
   + `X` or `0`: no logging is enabled
@@ -140,9 +147,14 @@ more debugging. The format is:
   + `T` or `5`: Trace messages are enabled. These messages can be logged
      	from the realtime threads.
 
-- `<category>`:  Specifies a string category to enable. Many categories
-     	  can be separated by commas. Current categories are:
-  + `connection`: to log connection messages
+PipeWire uses a "category.topic" naming scheme, with the following categories:
+- `pw.*`: pipewire-internal topics
+- `mod.*`: module topics, for example `mod.foo` would usually refer to the
+  "foo" module
+- `conn.*`: connection-specific topics such as printing raw messages sent over
+  a communication socket. These are in a separate namespace as they are
+  usually vastly more verbose than the normal debugging topics.
+  This namespace must be explicitly enabled with a `conn.<glob>` glob.
 
 
 The behavior of the logging can be further controlled with the following

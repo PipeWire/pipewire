@@ -1567,8 +1567,10 @@ static int client_node_set_io(void *object,
 		c->position = ptr;
 		c->driver_id = ptr ? c->position->clock.id : SPA_ID_INVALID;
 		update_driver_activation(c);
-		if (ptr)
+		if (ptr) {
 			check_sample_rate(c, c->position);
+			check_buffer_frames(c, c->position);
+		}
 		break;
 	default:
 		break;
@@ -3136,7 +3138,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	}
 	pw_thread_loop_unlock(client->context.loop);
 
-	pw_log_debug(NAME" %p: new", client);
+	pw_log_info(NAME" %p: opened", client);
 	return (jack_client_t *)client;
 
 no_props:
@@ -3335,8 +3337,6 @@ int jack_activate (jack_client_t *client)
 	c->activation->pending_new_pos = true;
 	c->activation->pending_sync = true;
 
-	if (c->position)
-		check_buffer_frames(c, c->position);
 
 	c->active = true;
 

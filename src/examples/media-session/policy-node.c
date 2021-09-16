@@ -869,6 +869,7 @@ static int link_nodes(struct node *node, struct node *peer)
 	struct pw_properties *props;
 	struct node *output, *input;
 	int res;
+	uint32_t node_id = node->id;
 
 	pw_log_debug(NAME " %p: link nodes %d %d remix:%d", impl,
 			node->id, peer->id, !node->dont_remix);
@@ -902,7 +903,7 @@ static int link_nodes(struct node *node, struct node *peer)
 
 	if (impl->linking_node_removed) {
 		impl->linking_node_removed = false;
-		pw_log_info("linking node %d was removed", node->id);
+		pw_log_info("linking node %d was removed", node_id);
 		return -ENOENT;
 	}
 	node->linking = false;

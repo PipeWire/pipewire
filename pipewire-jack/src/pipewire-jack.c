@@ -742,14 +742,14 @@ void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto
 		if (c->locked_process)				\
 			pthread_mutex_lock(&c->rt_lock);	\
 		(expr);						\
-		pw_log_info("emit " #callback);			\
+		pw_log_debug("emit " #callback);		\
 		c->callback(__VA_ARGS__);			\
 		if (c->locked_process)				\
 			pthread_mutex_unlock(&c->rt_lock);	\
 		pw_thread_loop_lock(c->context.loop);		\
 	} else {						\
 		(expr);						\
-		pw_log_info("skip " #callback 			\
+		pw_log_debug("skip " #callback 			\
 			" cb:%p active:%d", c->callback,	\
 			c->active);				\
 	}							\
@@ -1170,15 +1170,18 @@ do_buffer_frames(struct spa_loop *loop,
 	return 0;
 }
 
-static inline int check_buffer_frames(struct client *c, struct spa_io_position *pos, bool emit)
+static inline int check_buffer_frames(struct client *c, struct spa_io_position *pos)
 {
 	uint32_t buffer_frames = pos->clock.duration;
 	if (SPA_UNLIKELY(buffer_frames != c->buffer_frames)) {
-		pw_log_info(NAME" %p: bufferframes old:%d new:%d emit:%d", c,
-				c->buffer_frames, buffer_frames, emit);
-		if (emit)
+		pw_log_info(NAME" %p: bufferframes old:%d new:%d cb:%p", c,
+				c->buffer_frames, buffer_frames, c->bufsize_callback);
+		if (c->bufsize_callback != NULL) {
 			pw_loop_invoke(c->context.l, do_buffer_frames, 0,
 					&buffer_frames, sizeof(buffer_frames), false, c);
+		} else {
+			c->buffer_frames =  buffer_frames;
+		}
 	}
 	return c->buffer_frames == buffer_frames;
 }
@@ -1197,9 +1200,14 @@ static inline int check_sample_rate(struct client *c, struct spa_io_position *po
 {
 	uint32_t sample_rate = pos->clock.rate.denom;
 	if (SPA_UNLIKELY(sample_rate != c->sample_rate)) {
-		pw_log_info(NAME" %p: sample_rate %d", c, sample_rate);
-		pw_loop_invoke(c->context.l, do_sample_rate, 0,
-				&sample_rate, sizeof(sample_rate), false, c);
+		pw_log_info(NAME" %p: sample_rate old:%d new:%d cb:%p", c,
+				c->sample_rate, sample_rate, c->srate_callback);
+		if (c->srate_callback != NULL) {
+			pw_loop_invoke(c->context.l, do_sample_rate, 0,
+					&sample_rate, sizeof(sample_rate), false, c);
+		} else {
+			c->sample_rate = sample_rate;
+		}
 	}
 	return c->sample_rate == sample_rate;
 }
@@ -1241,7 +1249,7 @@ static inline uint32_t cycle_run(struct client *c)
 		return 0;
 	}
 
-	if (check_buffer_frames(c, pos, true) == 0)
+	if (check_buffer_frames(c, pos) == 0)
 		return 0;
 	if (check_sample_rate(c, pos) == 0)
 		return 0;
@@ -3326,10 +3334,11 @@ int jack_activate (jack_client_t *client)
 
 	c->activation->pending_new_pos = true;
 	c->activation->pending_sync = true;
-	c->active = true;
 
 	if (c->position)
-		check_buffer_frames(c, c->position, false);
+		check_buffer_frames(c, c->position);
+
+	c->active = true;
 
 	do_callback(c, graph_callback, c->graph_arg);
 

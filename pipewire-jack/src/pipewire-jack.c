@@ -1498,6 +1498,10 @@ do_update_driver_activation(struct spa_loop *loop,
 	struct client *c = user_data;
 	c->rt.position = c->position;
 	c->rt.driver_activation = c->driver_activation;
+	if (c->position) {
+		check_sample_rate(c, c->position);
+		check_buffer_frames(c, c->position);
+	}
 	return 0;
 }
 
@@ -1567,10 +1571,6 @@ static int client_node_set_io(void *object,
 		c->position = ptr;
 		c->driver_id = ptr ? c->position->clock.id : SPA_ID_INVALID;
 		update_driver_activation(c);
-		if (ptr) {
-			check_sample_rate(c, c->position);
-			check_buffer_frames(c, c->position);
-		}
 		break;
 	default:
 		break;

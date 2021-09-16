@@ -156,10 +156,10 @@ test_log_levels(enum spa_log_level level)
 	 * with our level, one with a level above (should never show up)
 	 * and one with a level below (should show up).
 	 */
-	if (level > SPA_LOG_LEVEL_NONE) {
+	if (level > SPA_LOG_LEVEL_NONE)
 		pw_log(level, "CURRENT");
+	if (level > SPA_LOG_LEVEL_ERROR)
 		pw_log(level - 1, "BELOW");
-	}
 	if (level < SPA_LOG_LEVEL_TRACE)
 		pw_log(level + 1, "ABOVE");
 
@@ -179,6 +179,9 @@ test_log_levels(enum spa_log_level level)
 	pwtest_bool_false(above_level_found);
 	if (level == SPA_LOG_LEVEL_NONE) {
 		pwtest_bool_false(current_level_found);
+		pwtest_bool_false(below_level_found);
+	} else if (level == SPA_LOG_LEVEL_ERROR) {
+		pwtest_bool_true(current_level_found);
 		pwtest_bool_false(below_level_found);
 	} else {
 		pwtest_bool_true(current_level_found);

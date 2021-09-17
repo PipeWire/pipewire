@@ -252,7 +252,7 @@ PWTEST(logger_debug_env_alpha)
 	enum spa_log_level level = pwtest_get_iteration(current_test);
 	enum spa_log_level default_level = pw_log_level;
 	struct spa_log *default_logger = pw_log_get();
-	char *lvl;
+	char *lvl = NULL;
 	char *oldenv = getenv("PIPEWIRE_DEBUG");
 
 	if (oldenv)

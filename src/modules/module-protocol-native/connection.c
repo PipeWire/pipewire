@@ -36,7 +36,12 @@
 
 #include <pipewire/pipewire.h>
 
-#define spa_debug pw_log_debug
+PW_LOG_TOPIC_EXTERN(mod_topic);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+PW_LOG_TOPIC_EXTERN(mod_topic_connection);
+
+#undef spa_debug
+#define spa_debug(...) pw_logt_debug(mod_topic_connection, __VA_ARGS__)
 #include <spa/debug/pod.h>
 
 #include "connection.h"
@@ -47,8 +52,6 @@
 
 #define HDR_SIZE_V0	8
 #define HDR_SIZE	16
-
-static bool debug_messages = 0;
 
 struct buffer {
 	uint8_t *buffer_data;
@@ -367,7 +370,6 @@ struct pw_protocol_native_connection *pw_protocol_native_connection_new(struct p
 	if (impl == NULL)
 		return NULL;
 
-	debug_messages = pw_debug_is_category_enabled("connection");
 	impl->context = context;
 
 	this = &impl->this;
@@ -633,7 +635,7 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 	else
 		buf->n_fds = buf->msg.n_fds;
 
-	if (debug_messages) {
+	if (mod_topic_connection->level >= SPA_LOG_LEVEL_DEBUG) {
 		pw_log_debug(">>>>>>>>> out: id:%d op:%d size:%d seq:%d",
 				buf->msg.id, buf->msg.opcode, size, buf->msg.seq);
 	        spa_debug_pod(0, NULL, SPA_PTROFF(p, impl->hdr_size, struct spa_pod));

@@ -32,6 +32,10 @@
 
 #include "connection.h"
 
+#define NAME "protocol-native"
+PW_LOG_TOPIC(mod_topic, "mod." NAME);
+PW_LOG_TOPIC(mod_topic_connection, "conn." NAME);
+
 static void test_create(struct pw_protocol_native_connection *conn)
 {
 	const struct pw_protocol_native_message *msg;
@@ -189,6 +193,9 @@ int main(int argc, char *argv[])
 	int fds[2];
 
 	pw_init(&argc, &argv);
+
+	PW_LOG_TOPIC_INIT(mod_topic);
+	PW_LOG_TOPIC_INIT(mod_topic_connection);
 
 	loop = pw_main_loop_new(NULL);
 	spa_assert_se(loop != NULL);

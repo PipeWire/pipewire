@@ -44,6 +44,9 @@
 
 #include "../connection.h"
 
+PW_LOG_TOPIC_EXTERN(mod_topic);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define PW_PROTOCOL_NATIVE_FLAG_REMAP        (1<<0)
 
 SPA_EXPORT

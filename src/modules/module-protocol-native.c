@@ -58,16 +58,20 @@
 #include "modules/module-protocol-native/connection.h"
 #include "modules/module-protocol-native/defs.h"
 
+
+#define NAME "protocol-native"
+PW_LOG_TOPIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+PW_LOG_TOPIC(mod_topic_connection, "conn." NAME);
+
 #undef spa_debug
-#define spa_debug pw_log_debug
+#define spa_debug(...) pw_logt_debug(mod_topic_connection, __VA_ARGS__)
 
 #include <spa/debug/pod.h>
 #include <spa/debug/types.h>
 
 /** \page page_module_protocol_native PipeWire Module: Protocol Native
  */
-
-#define NAME "protocol-native"
 
 #ifndef UNIX_PATH_MAX
 #define UNIX_PATH_MAX   108
@@ -156,8 +160,9 @@ struct client_data {
 static void debug_msg(const char *prefix, const struct pw_protocol_native_message *msg, bool hex)
 {
 	struct spa_pod *pod;
-	pw_log_debug("%s: id:%d op:%d size:%d seq:%d", prefix,
-			msg->id, msg->opcode, msg->size, msg->seq);
+	pw_logt_debug(mod_topic_connection,
+		      "%s: id:%d op:%d size:%d seq:%d", prefix,
+		      msg->id, msg->opcode, msg->size, msg->seq);
 
 	if ((pod = spa_pod_from_data(msg->data, msg->size, 0, msg->size)) != NULL)
 		spa_debug_pod(0, NULL, pod);
@@ -202,7 +207,7 @@ process_messages(struct client_data *data)
 
 		client->recv_seq = msg->seq;
 
-		pw_log_trace(NAME" %p: got message %d from %u", client->protocol,
+		pw_log_trace("%p: got message %d from %u", client->protocol,
 			     msg->opcode, msg->id);
 
 		if (debug_messages)
@@ -276,7 +281,7 @@ client_busy_changed(void *data, bool busy)
 
 	SPA_FLAG_UPDATE(mask, SPA_IO_IN, !busy);
 
-	pw_log_debug(NAME" %p: busy changed %d", client->protocol, busy);
+	pw_log_debug("%p: busy changed %d", client->protocol, busy);
 	pw_loop_update_io(client->context->main_loop, c->source, mask);
 
 	if (!busy)
@@ -286,9 +291,9 @@ client_busy_changed(void *data, bool busy)
 static void handle_client_error(struct pw_impl_client *client, int res)
 {
 	if (res == -EPIPE)
-		pw_log_info(NAME" %p: client %p disconnected", client->protocol, client);
+		pw_log_info("%p: client %p disconnected", client->protocol, client);
 	else
-		pw_log_error(NAME" %p: client %p error %d (%s)", client->protocol,
+		pw_log_error("%p: client %p error %d (%s)", client->protocol,
 				client, res, spa_strerror(res));
 	pw_impl_client_destroy(client);
 }
@@ -331,7 +336,7 @@ static void client_free(void *data)
 	struct client_data *this = data;
 	struct pw_impl_client *client = this->client;
 
-	pw_log_debug(NAME" %p: free", this);
+	pw_log_debug("%p: free", this);
 	spa_list_remove(&this->protocol_link);
 
 	spa_hook_remove(&this->client_listener);
@@ -751,7 +756,7 @@ process_remote(struct client *impl)
 		if (res == 0)
 			break;
 
-		pw_log_trace(NAME" %p: got message %d from %u seq:%d",
+		pw_log_trace("%p: got message %d from %u seq:%d",
 			this, msg->opcode, msg->id, msg->seq);
 
 		this->recv_seq = msg->seq;
@@ -762,9 +767,9 @@ process_remote(struct client *impl)
 		proxy = pw_core_find_proxy(this, msg->id);
 		if (proxy == NULL || proxy->zombie) {
 			if (proxy == NULL)
-				pw_log_error(NAME" %p: could not find proxy %u", this, msg->id);
+				pw_log_error("%p: could not find proxy %u", this, msg->id);
 			else
-				pw_log_debug(NAME" %p: zombie proxy %u", this, msg->id);
+				pw_log_debug("%p: zombie proxy %u", this, msg->id);
 
 			/* FIXME close fds */
 			continue;
@@ -772,7 +777,7 @@ process_remote(struct client *impl)
 
 		marshal = pw_proxy_get_marshal(proxy);
 		if (marshal == NULL || msg->opcode >= marshal->n_server_methods) {
-			pw_log_error(NAME" %p: invalid method %u for %u (%d)",
+			pw_log_error("%p: invalid method %u for %u (%d)",
 					this, msg->opcode, msg->id,
 					marshal ? marshal->n_server_methods : (uint32_t)-1);
 			continue;
@@ -780,7 +785,7 @@ process_remote(struct client *impl)
 
 		demarshal = marshal->client_demarshal;
 		if (!demarshal[msg->opcode].func) {
-                               pw_log_error(NAME" %p: function %d not implemented on %u",
+                               pw_log_error("%p: function %d not implemented on %u",
 					this, msg->opcode, msg->id);
 			continue;
 		}
@@ -791,7 +796,7 @@ process_remote(struct client *impl)
 		pw_proxy_unref(proxy);
 
 		if (res < 0) {
-			pw_log_error(NAME" %p: invalid message received %u for %u: %s",
+			pw_log_error("%p: invalid message received %u for %u: %s",
 					this, msg->opcode, msg->id, spa_strerror(res));
 			debug_msg("*invalid*", msg, true);
 		}
@@ -829,7 +834,7 @@ on_remote_data(void *data, int fd, uint32_t mask)
 
 			if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &res, &len) < 0) {
 				res = -errno;
-				pw_log_error(NAME" getsockopt: %m");
+				pw_log_error("getsockopt: %m");
 				goto error;
 			}
 			if (res != 0) {
@@ -837,7 +842,7 @@ on_remote_data(void *data, int fd, uint32_t mask)
 				goto error;
 			}
 			impl->connected = true;
-			pw_log_debug(NAME" %p: connected, fd %d", impl, fd);
+			pw_log_debug("%p: connected, fd %d", impl, fd);
 		}
 		impl->need_flush = false;
 		res = pw_protocol_native_connection_flush(conn);
@@ -853,7 +858,7 @@ done:
 	pw_proxy_unref(core_proxy);
 	return;
 error:
-	pw_log_debug(NAME" %p: got connection error %d (%s)", impl, res, spa_strerror(res));
+	pw_log_debug("%p: got connection error %d (%s)", impl, res, spa_strerror(res));
 	if (impl->source) {
 		pw_loop_destroy_source(loop, impl->source);
 		impl->source = NULL;
@@ -960,7 +965,7 @@ static int impl_set_paused(struct pw_protocol_client *client, bool paused)
 
 	SPA_FLAG_UPDATE(mask, SPA_IO_IN, !paused);
 
-	pw_log_debug(NAME" %p: paused %d", client->protocol, paused);
+	pw_log_debug("%p: paused %d", client->protocol, paused);
 	pw_loop_update_io(impl->context->main_loop, impl->source, mask);
 
 	return paused ? 0 : process_remote(impl);
@@ -1021,7 +1026,7 @@ impl_new_client(struct pw_protocol *protocol,
 	if ((impl = calloc(1, sizeof(struct client))) == NULL)
 		return NULL;
 
-	pw_log_debug(NAME" %p: new client %p", protocol, impl);
+	pw_log_debug("%p: new client %p", protocol, impl);
 
 	this = &impl->this;
 	this->protocol = protocol;
@@ -1045,7 +1050,7 @@ impl_new_client(struct pw_protocol *protocol,
 	if (str == NULL)
 		str = "generic";
 
-	pw_log_debug(NAME" %p: connect %s", protocol, str);
+	pw_log_debug("%p: connect %s", protocol, str);
 
 	if (spa_streq(str, "screencast"))
 		this->connect = pw_protocol_native_connect_portal_screencast;
@@ -1075,7 +1080,7 @@ static void destroy_server(struct pw_protocol_server *server)
 	struct server *s = SPA_CONTAINER_OF(server, struct server, this);
 	struct client_data *data, *tmp;
 
-	pw_log_debug(NAME" %p: server %p", s->this.protocol, s);
+	pw_log_debug("%p: server %p", s->this.protocol, s);
 
 	spa_list_remove(&server->link);
 
@@ -1148,7 +1153,7 @@ create_server(struct pw_protocol *protocol,
 
 	spa_list_append(&protocol->server_list, &this->link);
 
-	pw_log_debug(NAME" %p: created server %p", protocol, this);
+	pw_log_debug("%p: created server %p", protocol, this);
 
 	return s;
 }
@@ -1182,7 +1187,7 @@ impl_add_server(struct pw_protocol *protocol,
 	if ((s->resume = pw_loop_add_event(s->loop, do_resume, s)) == NULL)
 		goto error;
 
-	pw_log_info(NAME" %p: Listening on '%s'", protocol, name);
+	pw_log_info("%p: Listening on '%s'", protocol, name);
 
 	return this;
 
@@ -1299,6 +1304,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	const struct pw_properties *props;
 	int res;
 
+	PW_LOG_TOPIC_INIT(mod_topic);
+	PW_LOG_TOPIC_INIT(mod_topic_connection);
+
 	if (pw_context_find_protocol(context, PW_TYPE_INFO_PROTOCOL_Native) != NULL)
 		return 0;
 
@@ -1306,7 +1314,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (this == NULL)
 		return -errno;
 
-	debug_messages = pw_debug_is_category_enabled("connection");
+	debug_messages = mod_topic_connection->level >= SPA_LOG_LEVEL_DEBUG;
 
 	this->implementation = &protocol_impl;
 	this->extension = &protocol_ext_impl;
@@ -1314,7 +1322,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_protocol_native_init(this);
 	pw_protocol_native0_init(this);
 
-	pw_log_debug(NAME" %p: new debug:%d", this, debug_messages);
+	pw_log_debug("%p: new debug:%d", this, debug_messages);
 
 	d = pw_protocol_get_user_data(this);
 	d->protocol = this;

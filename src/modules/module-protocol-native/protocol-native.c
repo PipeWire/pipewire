@@ -34,6 +34,9 @@
 
 #include "connection.h"
 
+PW_LOG_TOPIC_EXTERN(mod_topic);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 static int core_method_marshal_add_listener(void *object,
 			struct spa_hook *listener,
 			const struct pw_core_events *events,

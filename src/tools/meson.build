@@ -5,7 +5,7 @@ tools_sources = [
   [ 'pw-dump', [ 'pw-dump.c' ] ],
   [ 'pw-profiler', [ 'pw-profiler.c' ] ],
   [ 'pw-mididump', [ 'pw-mididump.c', 'midifile.c' ] ],
-  [ 'pw-dsdplay', [ 'pw-dsdplay.c' ] ],
+  [ 'pw-dsdplay', [ 'pw-dsdplay.c', 'dsffile.c' ] ],
   [ 'pw-metadata', [ 'pw-metadata.c' ] ],
   [ 'pw-loopback', [ 'pw-loopback.c' ] ],
   [ 'pw-link', [ 'pw-link.c' ] ],
@@ -34,6 +34,7 @@ if not get_option('pw-cat').disabled() and sndfile_dep.found()
   pwcat_sources = [
     'pw-cat.c',
     'midifile.c',
+    'dsffile.c',
   ]
 
   pwcat_aliases = [

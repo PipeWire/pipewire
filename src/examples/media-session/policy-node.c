@@ -194,6 +194,7 @@ static bool find_format(struct node *node)
 			break;
 
 		case SPA_MEDIA_SUBTYPE_iec958:
+		case SPA_MEDIA_SUBTYPE_dsd:
 			pw_log_info("passthrough node %d found", node->id);
 			node->have_passthrough = true;
 			break;

@@ -829,22 +829,61 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	return res;
 }
 
-static int set_pcm_format(struct state *state, struct spa_audio_info_raw *info, uint32_t flags, bool spdif)
+int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t flags)
 {
-	unsigned int rrate, rchannels;
+	unsigned int rrate, rchannels, val;
 	snd_pcm_uframes_t period_size;
 	int err, dir;
 	snd_pcm_hw_params_t *params;
-	snd_pcm_format_t format;
+	snd_pcm_format_t rformat;
 	snd_pcm_access_mask_t *amask;
 	snd_pcm_t *hndl;
 	unsigned int periods;
-	bool match = true, planar, is_batch;
+	bool match = true, planar = false, is_batch;
 	char spdif_params[128] = "";
 
-	if (spdif) {
+	state->use_mmap = !state->disable_mmap;
+
+	switch (fmt->media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
+	{
+		struct spa_audio_info_raw *f = &fmt->info.raw;
+		rrate = f->rate;
+		rchannels = f->channels;
+		rformat = spa_format_to_alsa(f->format, &planar);
+		break;
+	}
+	case SPA_MEDIA_SUBTYPE_iec958:
+	{
+		struct spa_audio_info_iec958 *f = &fmt->info.iec958;
 		unsigned aes3;
-		switch (info->rate) {
+
+		spa_log_info(state->log, "using IEC958 Codec:%s rate:%d",
+				spa_debug_type_find_short_name(spa_type_audio_iec958_codec, f->codec),
+				f->rate);
+
+		rformat = SND_PCM_FORMAT_S16_LE;
+		rchannels = 2;
+		rrate = f->rate;
+
+		switch (f->codec) {
+		case SPA_AUDIO_IEC958_CODEC_PCM:
+		case SPA_AUDIO_IEC958_CODEC_DTS:
+		case SPA_AUDIO_IEC958_CODEC_AC3:
+		case SPA_AUDIO_IEC958_CODEC_MPEG:
+		case SPA_AUDIO_IEC958_CODEC_MPEG2_AAC:
+			break;
+		case SPA_AUDIO_IEC958_CODEC_EAC3:
+			rrate *= 4;
+			break;
+		case SPA_AUDIO_IEC958_CODEC_TRUEHD:
+		case SPA_AUDIO_IEC958_CODEC_DTSHD:
+			rchannels = 8;
+			break;
+		default:
+			return -ENOTSUP;
+		}
+		switch (rrate) {
 		case 22050: aes3 = IEC958_AES3_CON_FS_22050; break;
 		case 24000: aes3 = IEC958_AES3_CON_FS_24000; break;
 		case 32000: aes3 = IEC958_AES3_CON_FS_32000; break;
@@ -862,7 +901,50 @@ static int set_pcm_format(struct state *state, struct spa_audio_info_raw *info, 
 				IEC958_AES0_CON_EMPHASIS_NONE | IEC958_AES0_NONAUDIO,
 				IEC958_AES1_CON_ORIGINAL | IEC958_AES1_CON_PCM_CODER,
 				0, aes3);
+		break;
 	}
+	case SPA_MEDIA_SUBTYPE_dsd:
+	{
+		struct spa_audio_info_dsd *f = &fmt->info.dsd;
+
+		rrate = f->rate;
+		rchannels = f->channels;
+
+		switch (f->interleave) {
+		case 4:
+			rformat = SND_PCM_FORMAT_DSD_U32_BE;
+			rrate /= 4;
+			break;
+		case -4:
+			rformat = SND_PCM_FORMAT_DSD_U32_LE;
+			rrate /= 4;
+			break;
+		case 2:
+			rformat = SND_PCM_FORMAT_DSD_U16_BE;
+			rrate /= 2;
+			break;
+		case -2:
+			rformat = SND_PCM_FORMAT_DSD_U16_LE;
+			rrate /= 2;
+			break;
+		case 1:
+			rformat = SND_PCM_FORMAT_DSD_U8;
+			break;
+		default:
+			return -ENOTSUP;
+		}
+		break;
+	}
+	default:
+		return -ENOTSUP;
+	}
+
+	if (rformat == SND_PCM_FORMAT_UNKNOWN) {
+		spa_log_warn(state->log, NAME" %s: unknown format",
+				state->props.device);
+		return -EINVAL;
+	}
+
 	if ((err = spa_alsa_open(state, spdif_params)) < 0)
 		return err;
 
@@ -874,19 +956,10 @@ static int set_pcm_format(struct state *state, struct spa_audio_info_raw *info, 
 	/* set hardware resampling, no resample */
 	CHECK(snd_pcm_hw_params_set_rate_resample(hndl, params, 0), "set_rate_resample");
 
-	/* get format info */
-	format = spa_format_to_alsa(info->format, &planar);
-	if (format == SND_PCM_FORMAT_UNKNOWN) {
-		spa_log_warn(state->log, NAME" %s: unknown format %u",
-				state->props.device, info->format);
-		return -EINVAL;
-	}
-
 	/* set the interleaved/planar read/write format */
 	snd_pcm_access_mask_alloca(&amask);
 	snd_pcm_hw_params_get_access_mask(params, amask);
 
-	state->use_mmap = !state->disable_mmap;
 	if (state->use_mmap) {
 		if ((err = snd_pcm_hw_params_set_access(hndl, params,
 					planar ? SND_PCM_ACCESS_MMAP_NONINTERLEAVED
@@ -906,48 +979,47 @@ static int set_pcm_format(struct state *state, struct spa_audio_info_raw *info, 
 		}
 	}
 
-
 	/* set the sample format */
 	spa_log_debug(state->log, NAME" %p: Stream parameters are %iHz fmt:%s access:%s-%s channels:%i",
-			state, info->rate, snd_pcm_format_name(format),
+			state, rrate, snd_pcm_format_name(rformat),
 			state->use_mmap ? "mmap" : "rw",
-			planar ? "planar" : "interleaved", info->channels);
-	CHECK(snd_pcm_hw_params_set_format(hndl, params, format), "set_format");
+			planar ? "planar" : "interleaved", rchannels);
+	CHECK(snd_pcm_hw_params_set_format(hndl, params, rformat), "set_format");
 
 	/* set the count of channels */
-	rchannels = info->channels;
-	CHECK(snd_pcm_hw_params_set_channels_near(hndl, params, &rchannels), "set_channels");
-	if (rchannels != info->channels) {
+	val = rchannels;
+	CHECK(snd_pcm_hw_params_set_channels_near(hndl, params, &val), "set_channels");
+	if (rchannels != val) {
 		spa_log_warn(state->log, NAME" %s: Channels doesn't match (requested %u, got %u)",
-				state->props.device, info->channels, rchannels);
+				state->props.device, rchannels, val);
 		if (!SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_NEAREST))
 			return -EINVAL;
-		info->channels = rchannels;
+		rchannels = val;
 		match = false;
 	}
 
 	/* set the stream rate */
-	rrate = info->rate;
-	CHECK(snd_pcm_hw_params_set_rate_near(hndl, params, &rrate, 0), "set_rate_near");
-	if (rrate != info->rate) {
+	val = rrate;
+	CHECK(snd_pcm_hw_params_set_rate_near(hndl, params, &val, 0), "set_rate_near");
+	if (rrate != val) {
 		spa_log_warn(state->log, NAME" %s: Rate doesn't match (requested %iHz, got %iHz)",
-				state->props.device, info->rate, rrate);
+				state->props.device, rrate, val);
 		if (!SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_NEAREST))
 			return -EINVAL;
-		info->rate = rrate;
+		rrate = val;
 		match = false;
 	}
 
-	state->format = format;
-	state->channels = info->channels;
-	state->rate = info->rate;
-	state->frame_size = snd_pcm_format_physical_width(format) / 8;
+	state->format = rformat;
+	state->channels = rchannels;
+	state->rate = rrate;
+	state->frame_size = snd_pcm_format_physical_width(rformat) / 8;
 	state->planar = planar;
 	state->blocks = 1;
 	if (planar)
-		state->blocks *= info->channels;
+		state->blocks *= rchannels;
 	else
-		state->frame_size *= info->channels;
+		state->frame_size *= rchannels;
 
 	dir = 0;
 	period_size = state->default_period_size ? state->default_period_size : 1024;
@@ -998,55 +1070,6 @@ static int set_pcm_format(struct state *state, struct spa_audio_info_raw *info, 
 	CHECK(snd_pcm_hw_params(hndl, params), "set_hw_params");
 
 	return match ? 0 : 1;
-}
-
-static int set_iec958_format(struct state *state, struct spa_audio_info_iec958 *info, uint32_t flags)
-{
-	struct spa_audio_info_raw fmt;
-
-	spa_log_info(state->log, "using IEC958 Codec:%s rate:%d",
-			spa_debug_type_find_short_name(spa_type_audio_iec958_codec, info->codec),
-			info->rate);
-
-	fmt.format = SPA_AUDIO_FORMAT_S16_LE;
-	fmt.channels = 2;
-	fmt.rate = info->rate;
-
-	switch (info->codec) {
-	case SPA_AUDIO_IEC958_CODEC_PCM:
-	case SPA_AUDIO_IEC958_CODEC_DTS:
-	case SPA_AUDIO_IEC958_CODEC_AC3:
-	case SPA_AUDIO_IEC958_CODEC_MPEG:
-	case SPA_AUDIO_IEC958_CODEC_MPEG2_AAC:
-		break;
-	case SPA_AUDIO_IEC958_CODEC_EAC3:
-		fmt.rate *= 4;
-		break;
-	case SPA_AUDIO_IEC958_CODEC_TRUEHD:
-	case SPA_AUDIO_IEC958_CODEC_DTSHD:
-		fmt.channels = 8;
-		break;
-	default:
-		return -ENOTSUP;
-	}
-	return set_pcm_format(state, &fmt, flags, true);
-}
-
-int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t flags)
-{
-	int res;
-
-	switch (fmt->media_subtype) {
-	case SPA_MEDIA_SUBTYPE_raw:
-		res = set_pcm_format(state, &fmt->info.raw, flags, false);
-		break;
-	case SPA_MEDIA_SUBTYPE_iec958:
-		res = set_iec958_format(state, &fmt->info.iec958, flags);
-		break;
-	default:
-		return -ENOTSUP;
-	}
-	return res;
 }
 
 static int set_swparams(struct state *state)

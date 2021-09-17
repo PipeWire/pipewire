@@ -76,6 +76,7 @@ PWTEST(logger_truncate_long_lines)
 
 	pwtest_bool_true(mark_line_found);
 	pwtest_spa_plugin_destroy(plugin);
+	pw_deinit();
 
 	return PWTEST_PASS;
 }
@@ -122,6 +123,7 @@ PWTEST(logger_no_ansi)
 
 	pwtest_bool_true(mark_line_found);
 	pwtest_spa_plugin_destroy(plugin);
+	pw_deinit();
 
 	return PWTEST_PASS;
 }
@@ -188,6 +190,7 @@ test_log_levels(enum spa_log_level level)
 		pwtest_bool_true(below_level_found);
 	}
 	pwtest_spa_plugin_destroy(plugin);
+	pw_deinit();
 }
 
 PWTEST(logger_levels)
@@ -212,7 +215,6 @@ PWTEST(logger_levels)
 
 	pw_log_set(default_logger);
 	pw_log_set_level(default_level);
-	pw_deinit();
 
 	return PWTEST_PASS;
 }
@@ -245,7 +247,6 @@ PWTEST(logger_debug_env)
 
 	pw_log_set(default_logger);
 	pw_log_set_level(default_level);
-	pw_deinit();
 
 	return PWTEST_PASS;
 }
@@ -288,7 +289,6 @@ PWTEST(logger_debug_env_alpha)
 
 	pw_log_set(default_logger);
 	pw_log_set_level(default_level);
-	pw_deinit();
 
 	return PWTEST_PASS;
 }

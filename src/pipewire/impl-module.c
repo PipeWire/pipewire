@@ -37,7 +37,8 @@
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
 
-#define NAME "module"
+PW_LOG_TOPIC_EXTERN(log_module);
+#define PW_LOG_TOPIC_DEFAULT log_module
 
 /** \cond */
 struct impl {
@@ -118,7 +119,7 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	if (resource == NULL)
 		goto error_resource;
 
-	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
+	pw_log_debug("%p: bound to %d", this, resource->id);
 	pw_global_add_resource(global, resource);
 
 	this->info.change_mask = PW_MODULE_CHANGE_MASK_ALL;
@@ -128,7 +129,7 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	return 0;
 
 error_resource:
-	pw_log_error(NAME" %p: can't create module resource: %m", this);
+	pw_log_error("%p: can't create module resource: %m", this);
 	return -errno;
 }
 
@@ -256,7 +257,7 @@ pw_context_load_module(struct pw_context *context,
 
 	pw_impl_module_emit_registered(this);
 
-	pw_log_debug(NAME" %p: loaded module: %s", this, this->info.name);
+	pw_log_debug("%p: loaded module: %s", this, this->info.name);
 
 	return this;
 
@@ -306,7 +307,7 @@ void pw_impl_module_destroy(struct pw_impl_module *module)
 {
 	struct impl *impl = SPA_CONTAINER_OF(module, struct impl, this);
 
-	pw_log_debug(NAME" %p: destroy", module);
+	pw_log_debug("%p: destroy", module);
 	pw_impl_module_emit_destroy(module);
 
 	if (module->global) {
@@ -315,7 +316,7 @@ void pw_impl_module_destroy(struct pw_impl_module *module)
 		pw_global_destroy(module->global);
 	}
 
-	pw_log_debug(NAME" %p: free", module);
+	pw_log_debug("%p: free", module);
 	pw_impl_module_emit_free(module);
 	free((char *) module->info.name);
 	free((char *) module->info.filename);
@@ -326,7 +327,7 @@ void pw_impl_module_destroy(struct pw_impl_module *module)
 	spa_hook_list_clean(&module->listener_list);
 
 	if (!pw_in_valgrind() && dlclose(impl->hnd) != 0)
-		pw_log_warn(NAME" %p: dlclose failed: %s", module, dlerror());
+		pw_log_warn("%p: dlclose failed: %s", module, dlerror());
 	free(impl);
 }
 
@@ -358,7 +359,7 @@ int pw_impl_module_update_properties(struct pw_impl_module *module, const struct
 	changed = pw_properties_update(module->properties, dict);
 	module->info.props = &module->properties->dict;
 
-	pw_log_debug(NAME" %p: updated %d properties", module, changed);
+	pw_log_debug("%p: updated %d properties", module, changed);
 
 	if (!changed)
 		return 0;

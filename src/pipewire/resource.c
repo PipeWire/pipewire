@@ -31,7 +31,8 @@
 
 #include <spa/debug/types.h>
 
-#define NAME "resource"
+PW_LOG_TOPIC_EXTERN(log_device);
+#define PW_LOG_TOPIC_DEFAULT log_device
 
 /** \cond */
 struct impl {
@@ -72,14 +73,14 @@ struct pw_resource *pw_resource_new(struct pw_impl_client *client,
 	}
 
 	if ((res = pw_map_insert_at(&client->objects, id, this)) < 0) {
-		pw_log_error(NAME" %p: can't add id %u for client %p: %s",
+		pw_log_error("%p: can't add id %u for client %p: %s",
 			this, id, client, spa_strerror(res));
 		goto error_clean;
 	}
 	this->id = id;
 
 	if ((res = pw_resource_install_marshal(this, false)) < 0) {
-		pw_log_error(NAME" %p: no marshal for type %s/%d: %s", this,
+		pw_log_error("%p: no marshal for type %s/%d: %s", this,
 				type, version, spa_strerror(res));
 		goto error_clean;
 	}
@@ -88,7 +89,7 @@ struct pw_resource *pw_resource_new(struct pw_impl_client *client,
 	if (user_data_size > 0)
 		this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
-	pw_log_debug(NAME" %p: new %u type %s/%d client:%p marshal:%p",
+	pw_log_debug("%p: new %u type %s/%d client:%p marshal:%p",
 			this, id, type, version, client, this->marshal);
 
 	pw_impl_client_emit_resource_added(client, this);
@@ -200,7 +201,7 @@ int pw_resource_ping(struct pw_resource *resource, int seq)
 	if (client->core_resource != NULL) {
 		pw_core_resource_ping(client->core_resource, resource->id, seq);
 		res = client->send_seq;
-		pw_log_debug(NAME" %p: %u seq:%d ping %d", resource, resource->id, seq, res);
+		pw_log_debug("%p: %u seq:%d ping %d", resource, resource->id, seq, res);
 	}
 	return res;
 }
@@ -212,7 +213,7 @@ int pw_resource_set_bound_id(struct pw_resource *resource, uint32_t global_id)
 
 	resource->bound_id = global_id;
 	if (client->core_resource != NULL) {
-		pw_log_debug(NAME" %p: %u global_id:%u", resource, resource->id, global_id);
+		pw_log_debug("%p: %u global_id:%u", resource, resource->id, global_id);
 		pw_core_resource_bound_id(client->core_resource, resource->id, global_id);
 	}
 	return 0;
@@ -270,7 +271,7 @@ void pw_resource_destroy(struct pw_resource *resource)
 		resource->global = NULL;
 	}
 
-	pw_log_debug(NAME" %p: destroy %u", resource, resource->id);
+	pw_log_debug("%p: destroy %u", resource, resource->id);
 	pw_resource_emit_destroy(resource);
 
 	pw_map_insert_at(&client->objects, resource->id, NULL);
@@ -279,7 +280,7 @@ void pw_resource_destroy(struct pw_resource *resource)
 	if (client->core_resource && !resource->removed)
 		pw_core_resource_remove_id(client->core_resource, resource->id);
 
-	pw_log_debug(NAME" %p: free %u", resource, resource->id);
+	pw_log_debug("%p: free %u", resource, resource->id);
 
 	spa_hook_list_clean(&resource->listener_list);
 	spa_hook_list_clean(&resource->object_listener_list);

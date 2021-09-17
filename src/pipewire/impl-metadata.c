@@ -32,7 +32,8 @@
 
 #include "pipewire/extensions/metadata.h"
 
-#define NAME "metadata"
+PW_LOG_TOPIC_EXTERN(log_metadata);
+#define PW_LOG_TOPIC_DEFAULT log_metadata
 
 #define pw_metadata_emit(hooks,method,version,...)			\
 	spa_hook_list_call_simple(hooks, struct pw_metadata_events,	\
@@ -142,7 +143,7 @@ static int clear_subjects(struct metadata *this, struct pw_array *storage, uint3
 		if (item == NULL)
 			break;
 
-		pw_log_debug(NAME" %p: remove id:%d key:%s", this, subject, item->key);
+		pw_log_debug("%p: remove id:%d key:%s", this, subject, item->key);
 
 		clear_item(item);
 		pw_array_remove(storage, item);
@@ -180,7 +181,7 @@ static int impl_set_property(void *object,
 	struct item *item = NULL;
 	int changed = 0;
 
-	pw_log_debug(NAME" %p: id:%d key:%s type:%s value:%s", this, subject, key, type, value);
+	pw_log_debug("%p: id:%d key:%s type:%s value:%s", this, subject, key, type, value);
 
 	if (key == NULL)
 		return clear_subjects(this, &this->storage, subject);
@@ -192,7 +193,7 @@ static int impl_set_property(void *object,
 			pw_array_remove(&this->storage, item);
 			type = NULL;
 			changed++;
-			pw_log_info(NAME" %p: remove id:%d key:%s", this,
+			pw_log_info("%p: remove id:%d key:%s", this,
 					subject, key);
 		}
 	} else if (item == NULL) {
@@ -201,14 +202,14 @@ static int impl_set_property(void *object,
 			return -errno;
 		set_item(item, subject, key, type, value);
 		changed++;
-		pw_log_info(NAME" %p: add id:%d key:%s type:%s value:%s", this,
+		pw_log_info("%p: add id:%d key:%s type:%s value:%s", this,
 				subject, key, type, value);
 	} else {
 		if (type == NULL)
 			type = item->type;
 		changed = change_item(item, type, value);
 		if (changed)
-			pw_log_info(NAME" %p: change id:%d key:%s type:%s value:%s", this,
+			pw_log_info("%p: change id:%d key:%s type:%s value:%s", this,
 				subject, key, type, value);
 	}
 
@@ -314,7 +315,7 @@ struct pw_impl_metadata *pw_context_create_metadata(struct pw_context *context,
 	if (user_data_size > 0)
 		this->user_data = SPA_PTROFF(this, sizeof(*this), void);
 
-	pw_log_debug(NAME" %p: new", this);
+	pw_log_debug("%p: new", this);
 
 	return this;
 
@@ -355,7 +356,7 @@ void pw_impl_metadata_destroy(struct pw_impl_metadata *metadata)
 {
 	struct impl *impl = SPA_CONTAINER_OF(metadata, struct impl, this);
 
-	pw_log_debug(NAME" %p: destroy", metadata);
+	pw_log_debug("%p: destroy", metadata);
 	pw_impl_metadata_emit_destroy(metadata);
 
 	if (metadata->registered)
@@ -367,7 +368,7 @@ void pw_impl_metadata_destroy(struct pw_impl_metadata *metadata)
 	}
 
 	pw_impl_metadata_emit_free(metadata);
-	pw_log_debug(NAME" %p: free", metadata);
+	pw_log_debug("%p: free", metadata);
 
 	metadata_reset(&impl->def);
 
@@ -474,7 +475,7 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
         data->impl = this;
         data->resource = resource;
 
-	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
+	pw_log_debug("%p: bound to %d", this, resource->id);
 	pw_global_add_resource(global, resource);
 
 	/* listen for when the resource goes away */
@@ -495,7 +496,7 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	return 0;
 
 error_resource:
-	pw_log_error(NAME" %p: can't create metadata resource: %m", this);
+	pw_log_error("%p: can't create metadata resource: %m", this);
 	return -errno;
 }
 

@@ -52,6 +52,9 @@
 
 #define SUPPORTLIB	"support/libspa-support"
 
+PW_LOG_TOPIC_EXTERN(log_context);
+#define PW_LOG_TOPIC_DEFAULT log_context
+
 static char *prgname;
 
 static struct spa_i18n *_pipewire_i18n = NULL;

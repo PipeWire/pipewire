@@ -69,7 +69,8 @@ ssize_t getrandom(void *buf, size_t buflen, unsigned int flags) {
 
 #include "pipewire/extensions/protocol-native.h"
 
-#define NAME "impl-core"
+PW_LOG_TOPIC_EXTERN(log_core);
+#define PW_LOG_TOPIC_DEFAULT log_core
 
 struct resource_data {
 	struct pw_resource *resource;
@@ -202,7 +203,7 @@ static int core_hello(void *object, uint32_t version)
 	struct pw_impl_core *this = client->core;
 	int res;
 
-	pw_log_debug(NAME" %p: hello %d from resource %p", context, version, resource);
+	pw_log_debug("%p: hello %d from resource %p", context, version, resource);
 	pw_map_for_each(&client->objects, destroy_resource, client);
 
 	pw_mempool_clear(client->pool);
@@ -221,7 +222,7 @@ static int core_hello(void *object, uint32_t version)
 static int core_sync(void *object, uint32_t id, int seq)
 {
 	struct pw_resource *resource = object;
-	pw_log_trace(NAME" %p: sync %d for resource %d", resource->context, seq, id);
+	pw_log_trace("%p: sync %d for resource %d", resource->context, seq, id);
 	pw_core_resource_done(resource, id, seq);
 	return 0;
 }
@@ -232,7 +233,7 @@ static int core_pong(void *object, uint32_t id, int seq)
 	struct pw_impl_client *client = resource->client;
 	struct pw_resource *r;
 
-	pw_log_debug(NAME" %p: pong %d for resource %d", resource->context, seq, id);
+	pw_log_debug("%p: pong %d for resource %d", resource->context, seq, id);
 
 	if ((r = pw_impl_client_find_resource(client, id)) == NULL)
 		return -EINVAL;
@@ -247,7 +248,7 @@ static int core_error(void *object, uint32_t id, int seq, int res, const char *m
 	struct pw_impl_client *client = resource->client;
 	struct pw_resource *r;
 
-	pw_log_error(NAME" %p: error %d for resource %d: %s", resource->context, res, id, message);
+	pw_log_error("%p: error %d for resource %d: %s", resource->context, res, id, message);
 
 	if ((r = pw_impl_client_find_resource(client, id)) == NULL)
 		return -EINVAL;
@@ -362,18 +363,18 @@ core_create_object(void *object,
 
 error_no_factory:
 	res = -ENOENT;
-	pw_log_debug(NAME" %p: can't find factory '%s'", context, factory_name);
+	pw_log_debug("%p: can't find factory '%s'", context, factory_name);
 	pw_resource_errorf_id(resource, new_id, res, "unknown factory name %s", factory_name);
 	goto error_exit;
 error_version:
 error_type:
 	res = -EPROTO;
-	pw_log_debug(NAME" %p: invalid resource type/version", context);
+	pw_log_debug("%p: invalid resource type/version", context);
 	pw_resource_errorf_id(resource, new_id, res, "wrong resource type/version");
 	goto error_exit;
 error_properties:
 	res = -errno;
-	pw_log_debug(NAME" %p: can't create properties: %m", context);
+	pw_log_debug("%p: can't create properties: %m", context);
 	pw_resource_errorf_id(resource, new_id, res, "can't create properties: %s", spa_strerror(res));
 	goto error_exit;
 error_create_failed:
@@ -392,7 +393,7 @@ static int core_destroy(void *object, void *proxy)
 	struct pw_impl_client *client = resource->client;
 	struct pw_impl_core *this = client->core;
 	struct pw_resource *r = proxy;
-	pw_log_debug(NAME" %p: destroy resource %p from client %p", this, r, client);
+	pw_log_debug("%p: destroy resource %p from client %p", this, r, client);
 	pw_resource_destroy(r);
 	return 0;
 }
@@ -458,7 +459,7 @@ struct pw_impl_core *pw_context_create_core(struct pw_context *context,
 	if (user_data_size > 0)
 		this->user_data = SPA_PTROFF(this, sizeof(*this), void);
 
-	pw_log_debug(NAME" %p: new %s", this, name);
+	pw_log_debug("%p: new %s", this, name);
 
 	return this;
 
@@ -478,7 +479,7 @@ struct pw_impl_core *pw_context_get_default_core(struct pw_context *context)
 SPA_EXPORT
 void pw_impl_core_destroy(struct pw_impl_core *core)
 {
-	pw_log_debug(NAME" %p: destroy", core);
+	pw_log_debug("%p: destroy", core);
 	pw_impl_core_emit_destroy(core);
 
 	if (core->registered)
@@ -490,7 +491,7 @@ void pw_impl_core_destroy(struct pw_impl_core *core)
 	}
 
 	pw_impl_core_emit_free(core);
-	pw_log_debug(NAME" %p: free", core);
+	pw_log_debug("%p: free", core);
 
 	spa_hook_list_clean(&core->listener_list);
 
@@ -554,12 +555,12 @@ global_bind(void *_data,
 		this->info.change_mask = 0;
 	}
 
-	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
+	pw_log_debug("%p: bound to %d", this, resource->id);
 
 	return 0;
 
 error:
-	pw_log_error(NAME" %p: can't create resource: %m", this);
+	pw_log_error("%p: can't create resource: %m", this);
 	return res;
 }
 
@@ -591,7 +592,7 @@ int pw_impl_core_update_properties(struct pw_impl_core *core, const struct spa_d
 	changed = pw_properties_update(core->properties, dict);
 	core->info.props = &core->properties->dict;
 
-	pw_log_debug(NAME" %p: updated %d properties", core, changed);
+	pw_log_debug("%p: updated %d properties", core, changed);
 
 	if (!changed)
 		return 0;

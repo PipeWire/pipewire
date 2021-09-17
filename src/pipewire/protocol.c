@@ -31,7 +31,8 @@
 #include <pipewire/private.h>
 #include <pipewire/type.h>
 
-#define NAME "protocol"
+PW_LOG_TOPIC_EXTERN(log_protocol);
+#define PW_LOG_TOPIC_DEFAULT log_protocol
 
 /** \cond */
 struct impl {
@@ -68,7 +69,7 @@ struct pw_protocol *pw_protocol_new(struct pw_context *context,
 
 	spa_list_append(&context->protocol_list, &protocol->link);
 
-	pw_log_debug(NAME" %p: Created protocol %s", protocol, name);
+	pw_log_debug("%p: Created protocol %s", protocol, name);
 
 	return protocol;
 }
@@ -107,7 +108,7 @@ void pw_protocol_destroy(struct pw_protocol *protocol)
 	struct pw_protocol_server *server;
 	struct pw_protocol_client *client;
 
-	pw_log_debug(NAME" %p: destroy", protocol);
+	pw_log_debug("%p: destroy", protocol);
 	pw_protocol_emit_destroy(protocol);
 
 	spa_hook_list_clean(&protocol->listener_list);
@@ -152,7 +153,7 @@ pw_protocol_add_marshal(struct pw_protocol *protocol,
 
 	spa_list_append(&protocol->marshal_list, &impl->link);
 
-	pw_log_debug(NAME" %p: Add marshal %s/%d to protocol %s", protocol,
+	pw_log_debug("%p: Add marshal %s/%d to protocol %s", protocol,
 			marshal->type, marshal->version, protocol->name);
 
 	return 0;
@@ -170,7 +171,7 @@ pw_protocol_get_marshal(struct pw_protocol *protocol, const char *type, uint32_t
 		    (impl->marshal->flags & flags) == flags)
                         return impl->marshal;
         }
-	pw_log_debug(NAME" %p: No marshal %s/%d for protocol %s", protocol,
+	pw_log_debug("%p: No marshal %s/%d for protocol %s", protocol,
 			type, version, protocol->name);
 	return NULL;
 }

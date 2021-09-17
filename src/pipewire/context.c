@@ -49,7 +49,8 @@
 
 #include <pipewire/extensions/protocol-native.h>
 
-#define NAME "context"
+PW_LOG_TOPIC_EXTERN(log_context);
+#define PW_LOG_TOPIC_DEFAULT log_context
 
 #define DEFAULT_CLOCK_RATE			48000u
 #define DEFAULT_CLOCK_QUANTUM			1024u
@@ -220,7 +221,7 @@ static int try_load_conf(struct pw_context *this, const char *conf_prefix,
 		return 0;
 	if ((res = pw_conf_load_conf(conf_prefix, conf_name, conf)) < 0) {
 		bool skip_prefix = conf_prefix == NULL || conf_name[0] == '/';
-		pw_log_warn(NAME" %p: can't load config %s%s%s: %s",
+		pw_log_warn("%p: can't load config %s%s%s: %s",
 				this,
 				skip_prefix ? "" : conf_prefix,
 				skip_prefix ? "" : "/",
@@ -238,14 +239,14 @@ static int context_set_freewheel(struct pw_context *context, bool freewheel)
 		return -EIO;
 
 	if (freewheel) {
-		pw_log_info(NAME" %p: enter freewheel", context);
+		pw_log_info("%p: enter freewheel", context);
 		res = pw_thread_utils_drop_rt(thr);
 	} else {
-		pw_log_info(NAME" %p: exit freewheel", context);
+		pw_log_info("%p: exit freewheel", context);
 		res = pw_thread_utils_acquire_rt(thr, 88);
 	}
 	if (res < 0)
-		pw_log_info(NAME" %p: freewheel error:%s", context, spa_strerror(res));
+		pw_log_info("%p: freewheel error:%s", context, spa_strerror(res));
 
 	context->freewheeling = freewheel;
 
@@ -314,7 +315,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	this = &impl->this;
 
-	pw_log_debug(NAME" %p: new", this);
+	pw_log_debug("%p: new", this);
 
 	if (user_data_size > 0)
 		this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
@@ -369,7 +370,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		if (try_load_conf(this, conf_prefix, conf_name, conf) < 0) {
 			conf_name = "client.conf";
 			if ((res = try_load_conf(this, conf_prefix, conf_name, conf)) < 0) {
-				pw_log_error(NAME" %p: can't load config %s: %s",
+				pw_log_error("%p: can't load config %s: %s",
 					this, conf_name, spa_strerror(res));
 				goto error_free;
 			}
@@ -381,7 +382,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	if ((str = pw_properties_get(conf, "context.properties")) != NULL) {
 		pw_properties_update_string(properties, str, strlen(str));
-		pw_log_info(NAME" %p: parsed context.properties section", this);
+		pw_log_info("%p: parsed context.properties section", this);
 	}
 
 	if ((str = getenv("PIPEWIRE_CORE"))) {
@@ -405,9 +406,9 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	if ((str = pw_properties_get(properties, "mem.mlock-all")) != NULL &&
 	    pw_properties_parse_bool(str)) {
 		if (mlockall(MCL_CURRENT | MCL_FUTURE) < 0)
-			pw_log_warn(NAME" %p: could not mlockall; %m", impl);
+			pw_log_warn("%p: could not mlockall; %m", impl);
 		else
-			pw_log_info(NAME" %p: mlockall succeeded", impl);
+			pw_log_info("%p: mlockall succeeded", impl);
 	}
 
 	fill_defaults(this);
@@ -456,7 +457,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		if (impl->dbus_handle == NULL ||
 		    (res = spa_handle_get_interface(impl->dbus_handle,
 							SPA_TYPE_INTERFACE_DBus, &dbus_iface)) < 0) {
-				pw_log_warn(NAME" %p: can't load dbus interface: %s", this, spa_strerror(res));
+				pw_log_warn("%p: can't load dbus interface: %s", this, spa_strerror(res));
 		} else {
 			this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DBus, dbus_iface);
 		}
@@ -475,19 +476,19 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	if ((res = pw_context_parse_conf_section(this, conf, "context.spa-libs")) < 0)
 		goto error_free;
-	pw_log_info(NAME" %p: parsed %d context.spa-libs items", this, res);
+	pw_log_info("%p: parsed %d context.spa-libs items", this, res);
 	if ((res = pw_context_parse_conf_section(this, conf, "context.modules")) < 0)
 		goto error_free;
 	if (res > 0)
-		pw_log_info(NAME" %p: parsed %d context.modules items", this, res);
+		pw_log_info("%p: parsed %d context.modules items", this, res);
 	else
-		pw_log_warn(NAME "%p: no modules loaded from context.modules", this);
+		pw_log_warn("%p: no modules loaded from context.modules", this);
 	if ((res = pw_context_parse_conf_section(this, conf, "context.objects")) < 0)
 		goto error_free;
-	pw_log_info(NAME" %p: parsed %d context.objects items", this, res);
+	pw_log_info("%p: parsed %d context.objects items", this, res);
 	if ((res = pw_context_parse_conf_section(this, conf, "context.exec")) < 0)
 		goto error_free;
-	pw_log_info(NAME" %p: parsed %d context.exec items", this, res);
+	pw_log_info("%p: parsed %d context.exec items", this, res);
 
 	if ((res = pw_data_loop_start(this->data_loop_impl)) < 0)
 		goto error_free;
@@ -496,7 +497,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	pw_settings_init(this);
 
-	pw_log_debug(NAME" %p: created", this);
+	pw_log_debug("%p: created", this);
 
 	return this;
 
@@ -526,7 +527,7 @@ void pw_context_destroy(struct pw_context *context)
 	struct pw_impl_metadata *metadata;
 	struct pw_impl_core *core_impl;
 
-	pw_log_debug(NAME" %p: destroy", context);
+	pw_log_debug("%p: destroy", context);
 	pw_context_emit_destroy(context);
 
 	spa_list_consume(core, &context->core_list, link)
@@ -559,7 +560,7 @@ void pw_context_destroy(struct pw_context *context)
 	spa_list_consume(core_impl, &context->core_impl_list, link)
 		pw_impl_core_destroy(core_impl);
 
-	pw_log_debug(NAME" %p: free", context);
+	pw_log_debug("%p: free", context);
 	pw_context_emit_free(context);
 
 	if (context->pool)
@@ -653,7 +654,7 @@ int pw_context_update_properties(struct pw_context *context, const struct spa_di
 	int changed;
 
 	changed = pw_properties_update(context->properties, dict);
-	pw_log_debug(NAME" %p: updated %d properties", context, changed);
+	pw_log_debug("%p: updated %d properties", context, changed);
 
 	return changed;
 }
@@ -726,7 +727,7 @@ struct pw_impl_port *pw_context_find_port(struct pw_context *context,
 
 	have_id = id != PW_ID_ANY;
 
-	pw_log_debug(NAME" %p: id:%u", context, id);
+	pw_log_debug("%p: id:%u", context, id);
 
 	spa_list_for_each(n, &context->node_list, link) {
 		if (n->global == NULL)
@@ -738,11 +739,11 @@ struct pw_impl_port *pw_context_find_port(struct pw_context *context,
 		if (!global_can_read(context, n->global))
 			continue;
 
-		pw_log_debug(NAME" %p: node id:%d", context, n->global->id);
+		pw_log_debug("%p: node id:%d", context, n->global->id);
 
 		if (have_id) {
 			if (n->global->id == id) {
-				pw_log_debug(NAME" %p: id:%u matches node %p", context, id, n);
+				pw_log_debug("%p: id:%u matches node %p", context, id, n);
 
 				best =
 				    pw_impl_node_find_port(n,
@@ -868,7 +869,7 @@ int pw_context_find_format(struct pw_context *context,
 	out_state = output->state;
 	in_state = input->state;
 
-	pw_log_debug(NAME" %p: finding best format %d %d", context, out_state, in_state);
+	pw_log_debug("%p: finding best format %d %d", context, out_state, in_state);
 
 	/* when a port is configured but the node is idle, we can reconfigure with a different format */
 	if (out_state > PW_IMPL_PORT_STATE_CONFIGURE && output->node->info.state == PW_NODE_STATE_IDLE)
@@ -876,7 +877,7 @@ int pw_context_find_format(struct pw_context *context,
 	if (in_state > PW_IMPL_PORT_STATE_CONFIGURE && input->node->info.state == PW_NODE_STATE_IDLE)
 		in_state = PW_IMPL_PORT_STATE_CONFIGURE;
 
-	pw_log_debug(NAME" %p: states %d %d", context, out_state, in_state);
+	pw_log_debug("%p: states %d %d", context, out_state, in_state);
 
 	if (in_state == PW_IMPL_PORT_STATE_CONFIGURE && out_state > PW_IMPL_PORT_STATE_CONFIGURE) {
 		/* only input needs format */
@@ -891,7 +892,7 @@ int pw_context_find_format(struct pw_context *context,
 				*error = spa_aprintf("no output formats");
 			goto error;
 		}
-		pw_log_debug(NAME" %p: Got output format:", context);
+		pw_log_debug("%p: Got output format:", context);
 		pw_log_format(SPA_LOG_LEVEL_DEBUG, filter);
 
 		if ((res = spa_node_port_enum_params_sync(input->node->node,
@@ -899,7 +900,7 @@ int pw_context_find_format(struct pw_context *context,
 						     SPA_PARAM_EnumFormat, &iidx,
 						     filter, format, builder)) <= 0) {
 			if (res == -ENOENT || res == 0) {
-				pw_log_debug(NAME" %p: no input format filter, using output format: %s",
+				pw_log_debug("%p: no input format filter, using output format: %s",
 						context, spa_strerror(res));
 				*format = filter;
 			} else {
@@ -920,7 +921,7 @@ int pw_context_find_format(struct pw_context *context,
 				*error = spa_aprintf("no input format");
 			goto error;
 		}
-		pw_log_debug(NAME" %p: Got input format:", context);
+		pw_log_debug("%p: Got input format:", context);
 		pw_log_format(SPA_LOG_LEVEL_DEBUG, filter);
 
 		if ((res = spa_node_port_enum_params_sync(output->node->node,
@@ -928,7 +929,7 @@ int pw_context_find_format(struct pw_context *context,
 						     SPA_PARAM_EnumFormat, &oidx,
 						     filter, format, builder)) <= 0) {
 			if (res == -ENOENT || res == 0) {
-				pw_log_debug(NAME" %p: no output format filter, using input format: %s",
+				pw_log_debug("%p: no output format filter, using input format: %s",
 						context, spa_strerror(res));
 				*format = filter;
 			} else {
@@ -939,14 +940,14 @@ int pw_context_find_format(struct pw_context *context,
 	} else if (in_state == PW_IMPL_PORT_STATE_CONFIGURE && out_state == PW_IMPL_PORT_STATE_CONFIGURE) {
 	      again:
 		/* both ports need a format */
-		pw_log_debug(NAME" %p: do enum input %d", context, iidx);
+		pw_log_debug("%p: do enum input %d", context, iidx);
 		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
 		if ((res = spa_node_port_enum_params_sync(input->node->node,
 						     input->direction, input->port_id,
 						     SPA_PARAM_EnumFormat, &iidx,
 						     NULL, &filter, &fb)) != 1) {
 			if (res == -ENOENT) {
-				pw_log_debug(NAME" %p: no input filter", context);
+				pw_log_debug("%p: no input filter", context);
 				filter = NULL;
 			} else {
 				if (res < 0)
@@ -956,7 +957,7 @@ int pw_context_find_format(struct pw_context *context,
 				goto error;
 			}
 		}
-		pw_log_debug(NAME" %p: enum output %d with filter: %p", context, oidx, filter);
+		pw_log_debug("%p: enum output %d with filter: %p", context, oidx, filter);
 		pw_log_format(SPA_LOG_LEVEL_DEBUG, filter);
 
 		if ((res = spa_node_port_enum_params_sync(output->node->node,
@@ -971,7 +972,7 @@ int pw_context_find_format(struct pw_context *context,
 			goto error;
 		}
 
-		pw_log_debug(NAME" %p: Got filtered:", context);
+		pw_log_debug("%p: Got filtered:", context);
 		pw_log_format(SPA_LOG_LEVEL_DEBUG, *format);
 	} else {
 		res = -EBADF;
@@ -1114,11 +1115,11 @@ static void suspend_driver(struct pw_context *context, struct pw_impl_node *n)
 	spa_list_for_each(s, &n->follower_list, follower_link) {
 		if (s == n)
 			continue;
-		pw_log_debug(NAME" %p: follower %p: '%s' suspend",
+		pw_log_debug("%p: follower %p: '%s' suspend",
 				context, s, s->name);
 		pw_impl_node_set_state(s, PW_NODE_STATE_SUSPENDED);
 	}
-	pw_log_debug(NAME" %p: driver %p: '%s' suspend",
+	pw_log_debug("%p: driver %p: '%s' suspend",
 			context, n, n->name);
 	pw_impl_node_set_state(n, PW_NODE_STATE_SUSPENDED);
 }
@@ -1150,7 +1151,7 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 	uint32_t *rates, n_rates, def_rate;
 	bool freewheel = false, force_rate;
 
-	pw_log_info(NAME" %p: busy:%d reason:%s", context, impl->recalc, reason);
+	pw_log_info("%p: busy:%d reason:%s", context, impl->recalc, reason);
 
 	if (impl->recalc) {
 		impl->recalc_pending = true;
@@ -1189,7 +1190,7 @@ again:
 			continue;
 
 		spa_list_for_each(s, &n->follower_list, follower_link) {
-			pw_log_debug(NAME" %p: driver %p: follower %p %s: active:%d",
+			pw_log_debug("%p: driver %p: follower %p %s: active:%d",
 					context, n, s, s->name, s->active);
 			if (s != n && s->active) {
 				/* if the driving node has active followers, it
@@ -1220,7 +1221,7 @@ again:
 		if (!n->visited) {
 			struct pw_impl_node *t;
 
-			pw_log_debug(NAME" %p: unassigned node %p: '%s' active:%d want_driver:%d target:%p",
+			pw_log_debug("%p: unassigned node %p: '%s' active:%d want_driver:%d target:%p",
 					context, n, n->name, n->active, n->want_driver, target);
 
 			t = n->want_driver ? target : NULL;
@@ -1338,13 +1339,13 @@ again:
 			n->rt.position->clock.duration = quantum;
 		}
 
-		pw_log_debug(NAME" %p: driving %p running:%d passive:%d quantum:%u '%s'",
+		pw_log_debug("%p: driving %p running:%d passive:%d quantum:%u '%s'",
 				context, n, running, n->passive, quantum, n->name);
 
 		spa_list_for_each(s, &n->follower_list, follower_link) {
 			if (s == n)
 				continue;
-			pw_log_debug(NAME" %p: follower %p: active:%d '%s'",
+			pw_log_debug("%p: follower %p: active:%d '%s'",
 					context, s, s->active, s->name);
 			ensure_state(s, running);
 		}
@@ -1373,13 +1374,13 @@ int pw_context_add_spa_lib(struct pw_context *context,
 	if ((err = regcomp(&entry->regex, factory_regexp, REG_EXTENDED | REG_NOSUB)) != 0) {
 		char errbuf[1024];
 		regerror(err, &entry->regex, errbuf, sizeof(errbuf));
-		pw_log_error(NAME" %p: can compile regex: %s", context, errbuf);
+		pw_log_error("%p: can compile regex: %s", context, errbuf);
 		pw_array_remove(&context->factory_lib, entry);
 		return -EINVAL;
 	}
 
 	entry->lib = strdup(lib);
-	pw_log_debug(NAME" %p: map factory regex '%s' to '%s", context,
+	pw_log_debug("%p: map factory regex '%s' to '%s", context,
 			factory_regexp, lib);
 	return 0;
 }
@@ -1406,14 +1407,14 @@ struct spa_handle *pw_context_load_spa_handle(struct pw_context *context,
 	uint32_t n_support;
 	struct spa_handle *handle;
 
-	pw_log_debug(NAME" %p: load factory %s", context, factory_name);
+	pw_log_debug("%p: load factory %s", context, factory_name);
 
 	lib = pw_context_find_spa_lib(context, factory_name);
 	if (lib == NULL && info != NULL)
 		lib = spa_dict_lookup(info, SPA_KEY_LIBRARY_NAME);
 	if (lib == NULL) {
 		errno = ENOENT;
-		pw_log_warn(NAME" %p: no library for %s: %m",
+		pw_log_warn("%p: no library for %s: %m",
 				context, factory_name);
 		return NULL;
 	}

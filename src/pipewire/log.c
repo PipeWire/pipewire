@@ -53,6 +53,15 @@ PW_LOG_TOPIC(log_context, "pw.context");
 PW_LOG_TOPIC(log_metadata, "pw.metadata");
 PW_LOG_TOPIC(log_node, "pw.node");
 PW_LOG_TOPIC(log_port, "pw.port");
+PW_LOG_TOPIC(log_core, "pw.core");
+PW_LOG_TOPIC(log_proxy, "pw.proxy");
+PW_LOG_TOPIC(log_global, "pw.global");
+PW_LOG_TOPIC(log_protocol, "pw.protocol");
+PW_LOG_TOPIC(log_client, "pw.client");
+PW_LOG_TOPIC(log_factory, "pw.factory");
+PW_LOG_TOPIC(log_module, "pw.module");
+PW_LOG_TOPIC(log_device, "pw.device");
+PW_LOG_TOPIC(log_resource, "pw.resource");
 
 PW_LOG_TOPIC(PW_LOG_TOPIC_DEFAULT, "default");
 
@@ -413,4 +422,13 @@ pw_log_init(void)
 	PW_LOG_TOPIC_INIT(log_metadata);
 	PW_LOG_TOPIC_INIT(log_node);
 	PW_LOG_TOPIC_INIT(log_port);
+	PW_LOG_TOPIC_INIT(log_core);
+	PW_LOG_TOPIC_INIT(log_proxy);
+	PW_LOG_TOPIC_INIT(log_global);
+	PW_LOG_TOPIC_INIT(log_protocol);
+	PW_LOG_TOPIC_INIT(log_client);
+	PW_LOG_TOPIC_INIT(log_factory);
+	PW_LOG_TOPIC_INIT(log_module);
+	PW_LOG_TOPIC_INIT(log_device);
+	PW_LOG_TOPIC_INIT(log_resource);
 }

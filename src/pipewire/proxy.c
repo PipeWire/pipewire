@@ -32,7 +32,8 @@
 
 #include <spa/debug/types.h>
 
-#define NAME "proxy"
+PW_LOG_TOPIC_EXTERN(log_proxy);
+#define PW_LOG_TOPIC_DEFAULT log_proxy
 
 /** \cond */
 struct proxy {
@@ -52,7 +53,7 @@ int pw_proxy_init(struct pw_proxy *proxy, const char *type, uint32_t version)
 	proxy->id = pw_map_insert_new(&proxy->core->objects, proxy);
 	if (proxy->id == SPA_ID_INVALID) {
 		res = -errno;
-		pw_log_error(NAME" %p: can't allocate new id: %m", proxy);
+		pw_log_error("%p: can't allocate new id: %m", proxy);
 		goto error;
 	}
 
@@ -60,7 +61,7 @@ int pw_proxy_init(struct pw_proxy *proxy, const char *type, uint32_t version)
 	spa_hook_list_init(&proxy->object_listener_list);
 
 	if ((res = pw_proxy_install_marshal(proxy, false)) < 0) {
-		pw_log_error(NAME" %p: no marshal for type %s/%d: %s", proxy,
+		pw_log_error("%p: no marshal for type %s/%d: %s", proxy,
 				type, version, spa_strerror(res));
 		goto error_clean;
 	}
@@ -108,7 +109,7 @@ struct pw_proxy *pw_proxy_new(struct pw_proxy *factory,
 	if (user_data_size > 0)
 		this->user_data = SPA_PTROFF(impl, sizeof(struct proxy), void);
 
-	pw_log_debug(NAME" %p: new %u type %s/%d core-proxy:%p, marshal:%p",
+	pw_log_debug("%p: new %u type %s/%d core-proxy:%p, marshal:%p",
 			this, this->id, type, version, this->core, this->marshal);
 	return this;
 
@@ -159,7 +160,7 @@ SPA_EXPORT
 int pw_proxy_set_bound_id(struct pw_proxy *proxy, uint32_t global_id)
 {
 	proxy->bound_id = global_id;
-	pw_log_debug(NAME" %p: id:%d bound:%d", proxy, proxy->id, global_id);
+	pw_log_debug("%p: id:%d bound:%d", proxy, proxy->id, global_id);
 	pw_proxy_emit_bound(proxy, global_id);
 	return 0;
 }
@@ -229,7 +230,7 @@ static inline void remove_from_map(struct pw_proxy *proxy)
 SPA_EXPORT
 void pw_proxy_destroy(struct pw_proxy *proxy)
 {
-	pw_log_debug(NAME" %p: destroy id:%u removed:%u zombie:%u ref:%d", proxy,
+	pw_log_debug("%p: destroy id:%u removed:%u zombie:%u ref:%d", proxy,
 			proxy->id, proxy->removed, proxy->zombie, proxy->refcount);
 
 	assert(!proxy->destroyed);
@@ -267,7 +268,7 @@ void pw_proxy_remove(struct pw_proxy *proxy)
 {
 	assert(proxy->refcount > 0);
 
-	pw_log_debug(NAME" %p: remove id:%u removed:%u destroyed:%u zombie:%u ref:%d", proxy,
+	pw_log_debug("%p: remove id:%u removed:%u destroyed:%u zombie:%u ref:%d", proxy,
 			proxy->id, proxy->removed, proxy->destroyed, proxy->zombie,
 			proxy->refcount);
 
@@ -294,7 +295,7 @@ void pw_proxy_unref(struct pw_proxy *proxy)
 	if (--proxy->refcount > 0)
 		return;
 
-	pw_log_debug(NAME" %p: free %u", proxy, proxy->id);
+	pw_log_debug("%p: free %u", proxy, proxy->id);
 	/** client must explicitly destroy all proxies */
 	assert(proxy->destroyed);
 	free(proxy);
@@ -315,7 +316,7 @@ int pw_proxy_sync(struct pw_proxy *proxy, int seq)
 
 	if (core && !core->removed) {
 		res = pw_core_sync(core, proxy->id, seq);
-		pw_log_debug(NAME" %p: %u seq:%d sync %u", proxy, proxy->id, seq, res);
+		pw_log_debug("%p: %u seq:%d sync %u", proxy, proxy->id, seq, res);
 	}
 	return res;
 }

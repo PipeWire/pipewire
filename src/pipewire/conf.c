@@ -46,7 +46,8 @@
 
 #include <pipewire/impl.h>
 
-#define NAME "config"
+PW_LOG_TOPIC_EXTERN(log_conf);
+#define PW_LOG_TOPIC_DEFAULT log_conf
 
 static int make_path(char *path, int size, const char *paths[])
 {
@@ -306,7 +307,7 @@ int pw_conf_save_state(const char *prefix, const char *name, struct pw_propertie
 		goto error;
 	}
 	res = 0;
-	pw_log_info(NAME" %p: saved state '%s%s'", conf, path, name);
+	pw_log_info("%p: saved state '%s%s'", conf, path, name);
 error:
 	close(sfd);
 	return res;
@@ -319,11 +320,11 @@ static int conf_load(const char *path, struct pw_properties *conf)
 	int fd;
 
 	if ((fd = open(path,  O_CLOEXEC | O_RDONLY)) < 0)  {
-		pw_log_warn(NAME" %p: error loading config '%s': %m", conf, path);
+		pw_log_warn("%p: error loading config '%s': %m", conf, path);
 		return -errno;
 	}
 
-	pw_log_info(NAME" %p: loading config '%s'", conf, path);
+	pw_log_info("%p: loading config '%s'", conf, path);
 	if (fstat(fd, &sbuf) < 0)
 		goto error_close;
 	if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
@@ -346,12 +347,12 @@ int pw_conf_load_conf(const char *prefix, const char *name, struct pw_properties
 	char path[PATH_MAX];
 
 	if (name == NULL) {
-		pw_log_debug(NAME" %p: config name must not be NULL", conf);
+		pw_log_debug("%p: config name must not be NULL", conf);
 		return -EINVAL;
 	}
 
 	if (get_config_path(path, sizeof(path), prefix, name) == 0) {
-		pw_log_debug(NAME" %p: can't load config '%s': %m", conf, path);
+		pw_log_debug("%p: can't load config '%s': %m", conf, path);
 		return -ENOENT;
 	}
 
@@ -364,12 +365,12 @@ int pw_conf_load_state(const char *prefix, const char *name, struct pw_propertie
 	char path[PATH_MAX];
 
 	if (name == NULL) {
-		pw_log_debug(NAME" %p: config name must not be NULL", conf);
+		pw_log_debug("%p: config name must not be NULL", conf);
 		return -EINVAL;
 	}
 
 	if (get_state_path(path, sizeof(path), prefix, name) == 0) {
-		pw_log_debug(NAME" %p: can't load config '%s': %m", conf, path);
+		pw_log_debug("%p: can't load config '%s': %m", conf, path);
 		return -ENOENT;
 	}
 
@@ -405,18 +406,18 @@ static int load_module(struct pw_context *context, const char *key, const char *
 {
 	if (pw_context_load_module(context, key, args, NULL) == NULL) {
 		if (errno == ENOENT && flags && strstr(flags, "ifexists") != NULL) {
-			pw_log_info(NAME" %p: skipping unavailable module %s",
+			pw_log_info("%p: skipping unavailable module %s",
 					context, key);
 		} else if (flags == NULL || strstr(flags, "nofail") == NULL) {
-			pw_log_error(NAME" %p: could not load mandatory module \"%s\": %m",
+			pw_log_error("%p: could not load mandatory module \"%s\": %m",
 					context, key);
 			return -errno;
 		} else {
-			pw_log_info(NAME" %p: could not load optional module \"%s\": %m",
+			pw_log_info("%p: could not load optional module \"%s\": %m",
 					context, key);
 		}
 	} else {
-		pw_log_info(NAME" %p: loaded module %s", context, key);
+		pw_log_info("%p: loaded module %s", context, key);
 	}
 	return 0;
 }

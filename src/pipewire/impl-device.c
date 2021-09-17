@@ -32,7 +32,8 @@
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
 
-#define NAME "device"
+PW_LOG_TOPIC_EXTERN(log_device);
+#define PW_LOG_TOPIC_DEFAULT log_device
 
 struct impl {
 	struct pw_impl_device this;
@@ -133,7 +134,7 @@ static void check_properties(struct pw_impl_device *device)
 	    (device->name == NULL || !spa_streq(str, device->name))) {
 		free(device->name);
 		device->name = strdup(str);
-		pw_log_debug(NAME" %p: name '%s'", device, device->name);
+		pw_log_debug("%p: name '%s'", device, device->name);
 	}
 }
 
@@ -157,7 +158,7 @@ struct pw_impl_device *pw_context_create_device(struct pw_context *context,
 
 	this = &impl->this;
 	this->name = strdup("device");
-	pw_log_debug(NAME" %p: new", this);
+	pw_log_debug("%p: new", this);
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
@@ -196,7 +197,7 @@ void pw_impl_device_destroy(struct pw_impl_device *device)
 	struct impl *impl = SPA_CONTAINER_OF(device, struct impl, this);
 	struct object_data *od;
 
-	pw_log_debug(NAME" %p: destroy", device);
+	pw_log_debug("%p: destroy", device);
 	pw_impl_device_emit_destroy(device);
 
 	spa_list_consume(od, &device->object_list, link)
@@ -212,7 +213,7 @@ void pw_impl_device_destroy(struct pw_impl_device *device)
 		spa_hook_remove(&device->global_listener);
 		pw_global_destroy(device->global);
 	}
-	pw_log_debug(NAME" %p: free", device);
+	pw_log_debug("%p: free", device);
 	pw_impl_device_emit_free(device);
 
 	pw_param_clear(&impl->param_list, SPA_ID_INVALID);
@@ -255,7 +256,7 @@ static void resource_pong(void *data, int seq)
 {
 	struct resource_data *d = data;
 	struct pw_resource *resource = d->resource;
-	pw_log_debug(NAME" %p: resource %p: got pong %d", d->device,
+	pw_log_debug("%p: resource %p: got pong %d", d->device,
 			resource, seq);
 }
 
@@ -269,7 +270,7 @@ static void result_device_params(void *data, int seq, int res, uint32_t type, co
 {
 	struct result_device_params_data *d = data;
 	struct impl *impl = d->impl;
-	pw_log_debug(NAME" %p: type %d", impl, type);
+	pw_log_debug("%p: type %d", impl, type);
 
 	switch (type) {
 	case SPA_RESULT_TYPE_DEVICE_PARAMS:
@@ -277,7 +278,7 @@ static void result_device_params(void *data, int seq, int res, uint32_t type, co
 		const struct spa_result_device_params *r = result;
 		d->callback(d->data, seq, r->id, r->index, r->next, r->param);
 		if (d->cache) {
-			pw_log_debug(NAME" %p: add param %d", impl, r->id);
+			pw_log_debug("%p: add param %d", impl, r->id);
 			if (d->count++ == 0)
 				pw_param_add(&impl->pending_list, r->id, NULL);
 			pw_param_add(&impl->pending_list, r->id, r->param);
@@ -316,7 +317,7 @@ int pw_impl_device_for_each_param(struct pw_impl_device *device,
 	if (max == 0)
 		max = UINT32_MAX;
 
-	pw_log_debug(NAME" %p: params id:%d (%s) index:%u max:%u cached:%d", device, param_id,
+	pw_log_debug("%p: params id:%d (%s) index:%u max:%u cached:%d", device, param_id,
 			spa_debug_type_find_name(spa_type_param, param_id),
 			index, max, pi->user);
 
@@ -342,7 +343,7 @@ int pw_impl_device_for_each_param(struct pw_impl_device *device,
 			if (spa_pod_filter(&b, &result.param, p->param, filter) != 0)
 				continue;
 
-			pw_log_debug(NAME " %p: %d param %u", device, seq, result.index);
+			pw_log_debug("%p: %d param %u", device, seq, result.index);
 			result_device_params(&user_data, seq, 0, SPA_RESULT_TYPE_DEVICE_PARAMS, &result);
 
 			if (++count == max)
@@ -381,7 +382,7 @@ static void result_device_params_async(void *data, int seq, int res, uint32_t ty
 {
 	struct resource_data *d = data;
 
-	pw_log_debug(NAME" %p: async result %d %d (%d/%d)", d->device,
+	pw_log_debug("%p: async result %d %d (%d/%d)", d->device,
 			res, seq, d->seq, d->end);
 
 	if (seq == d->seq)
@@ -443,7 +444,7 @@ static int device_subscribe_params(void *object, uint32_t *ids, uint32_t n_ids)
 
 	for (i = 0; i < n_ids; i++) {
 		data->subscribe_ids[i] = ids[i];
-		pw_log_debug(NAME" %p: resource %p subscribe param id:%d (%s)",
+		pw_log_debug("%p: resource %p subscribe param id:%d (%s)",
 				data->device, resource, ids[i],
 				spa_debug_type_find_name(spa_type_param, ids[i]));
 		device_enum_params(data, 1, ids[i], 0, UINT32_MAX, NULL);
@@ -455,7 +456,7 @@ static void result_device_done(void *data, int seq, int res, uint32_t type, cons
 {
 	struct resource_data *d = data;
 
-	pw_log_debug(NAME" %p: async result %d %d (%d/%d)", d->device,
+	pw_log_debug("%p: async result %d %d (%d/%d)", d->device,
 			res, seq, d->seq, d->end);
 
 	if (seq == d->end)
@@ -523,7 +524,7 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 			&data->object_listener,
 			&device_methods, data);
 
-	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
+	pw_log_debug("%p: bound to %d", this, resource->id);
 	pw_global_add_resource(global, resource);
 
 	this->info.change_mask = PW_DEVICE_CHANGE_MASK_ALL;
@@ -533,7 +534,7 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	return 0;
 
 error_resource:
-	pw_log_error(NAME" %p: can't create device resource: %m", this);
+	pw_log_error("%p: can't create device resource: %m", this);
 	return -errno;
 }
 
@@ -658,7 +659,7 @@ static int update_properties(struct pw_impl_device *device, const struct spa_dic
 	changed = pw_properties_update_ignore(device->properties, dict, filter ? ignored : NULL);
 	device->info.props = &device->properties->dict;
 
-	pw_log_debug(NAME" %p: updated %d properties", device, changed);
+	pw_log_debug("%p: updated %d properties", device, changed);
 
 	if (!changed)
 		return 0;
@@ -690,7 +691,7 @@ static int notify_param(void *data, int seq, uint32_t id,
 		if (!resource_is_subscribed(resource, id))
 			continue;
 
-		pw_log_debug(NAME" %p: resource %p notify param %d", device, resource, id);
+		pw_log_debug("%p: resource %p notify param %d", device, resource, id);
 		pw_device_resource_param(resource, seq, id, index, next, param);
 	}
 	return 0;
@@ -704,7 +705,7 @@ static void emit_params(struct pw_impl_device *device, uint32_t *changed_ids, ui
 	if (device->global == NULL)
 		return;
 
-	pw_log_debug(NAME" %p: emit %d params", device, n_changed_ids);
+	pw_log_debug("%p: emit %d params", device, n_changed_ids);
 
 	for (i = 0; i < n_changed_ids; i++) {
 		struct pw_resource *resource;
@@ -720,7 +721,7 @@ static void emit_params(struct pw_impl_device *device, uint32_t *changed_ids, ui
 
 		if ((res = pw_impl_device_for_each_param(device, 1, changed_ids[i], 0, UINT32_MAX,
 					NULL, notify_param, device)) < 0) {
-			pw_log_error(NAME" %p: error %d (%s)", device, res, spa_strerror(res));
+			pw_log_error("%p: error %d (%s)", device, res, spa_strerror(res));
 		}
 	}
 }
@@ -730,7 +731,7 @@ static void device_info(void *data, const struct spa_device_info *info)
 	struct pw_impl_device *device = data;
 	uint32_t changed_ids[MAX_PARAMS], n_changed_ids = 0;
 
-	pw_log_debug(NAME" %p: flags:%08"PRIx64" change_mask:%08"PRIx64,
+	pw_log_debug("%p: flags:%08"PRIx64" change_mask:%08"PRIx64,
 			device, info->flags, info->change_mask);
 
 	if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PROPS) {
@@ -745,7 +746,7 @@ static void device_info(void *data, const struct spa_device_info *info)
 		for (i = 0; i < device->info.n_params; i++) {
 			uint32_t id = info->params[i].id;
 
-			pw_log_debug(NAME" %p: param %d id:%d (%s) %08x:%08x", device, i,
+			pw_log_debug("%p: param %d id:%d (%s) %08x:%08x", device, i,
 					id, spa_debug_type_find_name(spa_type_param, id),
 					device->info.params[i].flags, info->params[i].flags);
 
@@ -753,7 +754,7 @@ static void device_info(void *data, const struct spa_device_info *info)
 			if (device->info.params[i].flags == info->params[i].flags)
 				continue;
 
-			pw_log_debug(NAME" %p: update param %d", device, id);
+			pw_log_debug("%p: update param %d", device, id);
 			device->info.params[i] = info->params[i];
 			device->info.params[i].user = 0;
 
@@ -778,19 +779,19 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 	struct object_data *od = NULL;
 
 	if (info->factory_name == NULL) {
-		pw_log_debug(NAME" %p: missing factory name", device);
+		pw_log_debug("%p: missing factory name", device);
 		return;
 	}
 
 	handle = pw_context_load_spa_handle(context, info->factory_name, info->props);
 	if (handle == NULL) {
-		pw_log_warn(NAME" %p: can't load handle %s: %m",
+		pw_log_warn("%p: can't load handle %s: %m",
 				device, info->factory_name);
 		return;
 	}
 
 	if ((res = spa_handle_get_interface(handle, info->type, &iface)) < 0) {
-		pw_log_error(NAME" %p: can't get %s interface: %s", device, info->type,
+		pw_log_error("%p: can't get %s interface: %s", device, info->type,
 				spa_strerror(res));
 		return;
 	}
@@ -818,7 +819,7 @@ static void device_add_object(struct pw_impl_device *device, uint32_t id,
 		pw_impl_device_add_listener(dev, &od->listener, &device_object_events, od);
 		pw_impl_device_set_implementation(dev, iface);
 	} else {
-		pw_log_warn(NAME" %p: unknown type %s", device, info->type);
+		pw_log_warn("%p: unknown type %s", device, info->type);
 		pw_properties_free(props);
 	}
 
@@ -851,7 +852,7 @@ static void device_object_info(void *data, uint32_t id,
 	od = find_object(device, id);
 
 	if (info == NULL) {
-		pw_log_debug(NAME" %p: remove node %d (%p)", device, id, od);
+		pw_log_debug("%p: remove node %d (%p)", device, id, od);
 		if (od)
 			object_destroy(od);
 	}
@@ -873,10 +874,10 @@ static const struct spa_device_events device_events = {
 SPA_EXPORT
 int pw_impl_device_set_implementation(struct pw_impl_device *device, struct spa_device *spa_device)
 {
-	pw_log_debug(NAME" %p: implementation %p", device, spa_device);
+	pw_log_debug("%p: implementation %p", device, spa_device);
 
 	if (device->device) {
-		pw_log_error(NAME" %p: implementation existed %p",
+		pw_log_error("%p: implementation existed %p",
 				device, device->device);
 		return -EEXIST;
 	}

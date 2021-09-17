@@ -30,7 +30,8 @@
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
 
-#define NAME "factory"
+PW_LOG_TOPIC_EXTERN(log_factory);
+#define PW_LOG_TOPIC_DEFAULT log_factory
 
 #define pw_factory_resource_info(r,...) pw_resource_call(r,struct pw_factory_events,info,0,__VA_ARGS__)
 
@@ -68,7 +69,7 @@ struct pw_impl_factory *pw_context_create_factory(struct pw_context *context,
 	if (user_data_size > 0)
 		this->user_data = SPA_PTROFF(this, sizeof(*this), void);
 
-	pw_log_debug(NAME" %p: new %s", this, name);
+	pw_log_debug("%p: new %s", this, name);
 
 	return this;
 
@@ -81,7 +82,7 @@ error_exit:
 SPA_EXPORT
 void pw_impl_factory_destroy(struct pw_impl_factory *factory)
 {
-	pw_log_debug(NAME" %p: destroy", factory);
+	pw_log_debug("%p: destroy", factory);
 	pw_impl_factory_emit_destroy(factory);
 
 	if (factory->registered)
@@ -93,7 +94,7 @@ void pw_impl_factory_destroy(struct pw_impl_factory *factory)
 	}
 
 	pw_impl_factory_emit_free(factory);
-	pw_log_debug(NAME" %p: free", factory);
+	pw_log_debug("%p: free", factory);
 
 	spa_hook_list_clean(&factory->listener_list);
 
@@ -116,7 +117,7 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	if (resource == NULL)
 		goto error_resource;
 
-	pw_log_debug(NAME" %p: bound to %d", this, resource->id);
+	pw_log_debug("%p: bound to %d", this, resource->id);
 	pw_global_add_resource(global, resource);
 
 	this->info.change_mask = PW_FACTORY_CHANGE_MASK_ALL;
@@ -126,7 +127,7 @@ global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
 	return 0;
 
 error_resource:
-	pw_log_error(NAME" %p: can't create factory resource: %m", this);
+	pw_log_error("%p: can't create factory resource: %m", this);
 	return -errno;
 }
 
@@ -158,7 +159,7 @@ int pw_impl_factory_update_properties(struct pw_impl_factory *factory, const str
 	changed = pw_properties_update(factory->properties, dict);
 	factory->info.props = &factory->properties->dict;
 
-	pw_log_debug(NAME" %p: updated %d properties", factory, changed);
+	pw_log_debug("%p: updated %d properties", factory, changed);
 
 	if (!changed)
 		return 0;

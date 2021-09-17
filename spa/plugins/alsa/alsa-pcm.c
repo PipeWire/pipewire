@@ -718,6 +718,7 @@ static int enum_dsd_formats(struct state *state, uint32_t index, uint32_t *next,
 	int res, err;
 	snd_pcm_t *hndl;
 	snd_pcm_hw_params_t *params;
+	snd_pcm_format_mask_t *fmask;
 	struct spa_pod_frame f[2];
 
 	if ((index & 0xffff) > 0)
@@ -726,6 +727,12 @@ static int enum_dsd_formats(struct state *state, uint32_t index, uint32_t *next,
 	hndl = state->hndl;
 	snd_pcm_hw_params_alloca(&params);
 	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration: no configurations available");
+
+	snd_pcm_format_mask_alloca(&fmask);
+	snd_pcm_hw_params_get_format_mask(params, fmask);
+
+	if (!snd_pcm_format_mask_test(fmask, SND_PCM_FORMAT_DSD_U32_BE))
+		return 0;
 
 	CHECK(snd_pcm_hw_params_set_rate_resample(hndl, params, 0), "set_rate_resample");
 

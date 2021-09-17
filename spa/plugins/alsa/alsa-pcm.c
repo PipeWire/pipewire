@@ -720,6 +720,7 @@ static int enum_dsd_formats(struct state *state, uint32_t index, uint32_t *next,
 	snd_pcm_hw_params_t *params;
 	snd_pcm_format_mask_t *fmask;
 	struct spa_pod_frame f[2];
+	int32_t interleave;
 
 	if ((index & 0xffff) > 0)
 		return 0;
@@ -731,7 +732,17 @@ static int enum_dsd_formats(struct state *state, uint32_t index, uint32_t *next,
 	snd_pcm_format_mask_alloca(&fmask);
 	snd_pcm_hw_params_get_format_mask(params, fmask);
 
-	if (!snd_pcm_format_mask_test(fmask, SND_PCM_FORMAT_DSD_U32_BE))
+	if (snd_pcm_format_mask_test(fmask, SND_PCM_FORMAT_DSD_U32_BE))
+		interleave = 4;
+	else if (snd_pcm_format_mask_test(fmask, SND_PCM_FORMAT_DSD_U32_LE))
+		interleave = -4;
+	else if (snd_pcm_format_mask_test(fmask, SND_PCM_FORMAT_DSD_U16_BE))
+		interleave = 2;
+	else if (snd_pcm_format_mask_test(fmask, SND_PCM_FORMAT_DSD_U16_LE))
+		interleave = -2;
+	else if (snd_pcm_format_mask_test(fmask, SND_PCM_FORMAT_DSD_U8))
+		interleave = 1;
+	else
 		return 0;
 
 	CHECK(snd_pcm_hw_params_set_rate_resample(hndl, params, 0), "set_rate_resample");
@@ -744,6 +755,9 @@ static int enum_dsd_formats(struct state *state, uint32_t index, uint32_t *next,
 
 	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_bitorder, 0);
 	spa_pod_builder_id(b, SPA_PARAM_BITORDER_msb);
+
+	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_interleave, 0);
+	spa_pod_builder_int(b, interleave);
 
 	if ((res = add_rate(state, index & 0xffff, next, params, b)) != 1)
 		return res;

@@ -88,6 +88,7 @@ spa_format_audio_dsd_parse(const struct spa_pod *format, struct spa_audio_info_d
 	res = spa_pod_parse_object(format,
 			SPA_TYPE_OBJECT_Format, NULL,
 			SPA_FORMAT_AUDIO_bitorder,	SPA_POD_Id(&info->bitorder),
+			SPA_FORMAT_AUDIO_interleave,	SPA_POD_Int(&info->interleave),
 			SPA_FORMAT_AUDIO_rate,		SPA_POD_Int(&info->rate),
 			SPA_FORMAT_AUDIO_channels,	SPA_POD_Int(&info->channels),
 			SPA_FORMAT_AUDIO_position,	SPA_POD_OPT_Pod(&position));
@@ -167,8 +168,13 @@ spa_format_audio_dsd_build(struct spa_pod_builder *builder, uint32_t id, struct 
 	spa_pod_builder_add(builder,
 			SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 			SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsd),
-			SPA_FORMAT_AUDIO_bitorder,	SPA_POD_Id(info->bitorder),
 			0);
+	if (info->bitorder != SPA_PARAM_BITORDER_unknown)
+		spa_pod_builder_add(builder,
+			SPA_FORMAT_AUDIO_bitorder,	SPA_POD_Id(info->bitorder), 0);
+	if (info->interleave != 0)
+		spa_pod_builder_add(builder,
+			SPA_FORMAT_AUDIO_interleave,	SPA_POD_Int(info->interleave), 0);
 	if (info->rate != 0)
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_AUDIO_rate,		SPA_POD_Int(info->rate), 0);

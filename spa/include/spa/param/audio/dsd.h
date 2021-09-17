@@ -45,23 +45,24 @@ extern "C" {
 /* DSD bits are transfered in a buffer grouped in bytes with the bitorder
  * defined by \a bitorder.
  *
- * Channels are placed in separate planes or interleaved using the stride
- * field of the buffer. The stride is then the number of bytes grouped per
- * channel.
+ * Channels are placed in separate planes (interleave = 0) or interleaved
+ * using the interleave value. A negative interleave value means that the
+ * bytes need to be reversed in the group.
  *
- *  Planar:
+ *  Planar (interleave = 0):
  *    plane1: l1 l2 l3 l4 l5 ...
  *    plane2: r1 r2 r3 r4 r5 ...
  *
- *  Interleaved stride 4:
+ *  Interleaved 4:
  *    plane1: l1 l2 l3 l4 r1 r2 r3 r4 l5 l6 l7 l8 r5 r6 r7 r8 l9 ...
  *
- *  Interleaved stride 2:
+ *  Interleaved 2:
  *    plane1: l1 l2 r1 r2 l3 l4 r3 r4  ...
  */
 struct spa_audio_info_dsd {
 	enum spa_param_bitorder bitorder;		/*< the order of the bits */
 	uint32_t flags;					/*< extra flags */
+	int32_t interleave;				/*< interleave bytes */
 	uint32_t rate;					/*< sample rate (in bits per second) */
 	uint32_t channels;				/*< channels */
 	uint32_t position[SPA_AUDIO_MAX_CHANNELS];	/*< channel position from enum spa_audio_channel */

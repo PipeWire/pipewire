@@ -115,6 +115,7 @@ enum spa_format {
 	SPA_FORMAT_AUDIO_iec958Codec,	/**< codec used (IEC958) (Id enum spa_audio_iec958_codec) */
 
 	SPA_FORMAT_AUDIO_bitorder,	/**< bit order (Id enum spa_param_bitorder) */
+	SPA_FORMAT_AUDIO_interleave,	/**< Interleave bytes (Int) */
 
 	/* Video Format keys */
 	SPA_FORMAT_START_Video = 0x20000,

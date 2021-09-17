@@ -195,6 +195,7 @@ enum spa_param_process_latency {
 };
 
 enum spa_param_bitorder {
+	SPA_PARAM_BITORDER_unknown,	/**< unknown bitorder */
 	SPA_PARAM_BITORDER_msb,		/**< most significant bit */
 	SPA_PARAM_BITORDER_lsb,		/**< least significant bit */
 };

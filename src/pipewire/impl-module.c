@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <dlfcn.h>
 #include <dirent.h>
+#include <limits.h>
 #include <sys/stat.h>
 #include <errno.h>
 

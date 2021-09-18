@@ -54,6 +54,7 @@ else
 endif
 
 spa_plugindir = pipewire_libdir / spa_name
+spa_datadir = pipewire_datadir / spa_name
 
 alsadatadir = pipewire_datadir / 'alsa-card-profile' / 'mixer'
 
@@ -198,6 +199,7 @@ cdata.set_quoted('PACKAGE_VERSION', pipewire_version)
 cdata.set_quoted('MODULEDIR', modules_install_dir)
 cdata.set_quoted('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
 cdata.set_quoted('PLUGINDIR', spa_plugindir)
+cdata.set_quoted('SPADATADIR', spa_datadir)
 # FIXME: --with-memory-alignment],[8,N,malloc,pagesize (default is 32)]) option
 cdata.set('MEMORY_ALIGNMENT_MALLOC', 1)
 cdata.set_quoted('PA_ALSA_PATHS_DIR', alsadatadir / 'paths')
@@ -467,6 +469,7 @@ if meson.version().version_compare('>=0.58.0')
   devenv.set('PIPEWIRE_MODULE_DIR', builddir / 'src' / 'modules')
 
   devenv.set('SPA_PLUGIN_DIR', builddir / 'spa' / 'plugins')
+  devenv.set('SPA_DATA_DIR', builddir / 'spa' / 'plugins')
 
   devenv.set('GST_PLUGIN_PATH', builddir / 'src'/ 'gst')
 

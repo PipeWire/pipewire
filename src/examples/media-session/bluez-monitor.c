@@ -719,9 +719,7 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 {
 	int res;
 	struct impl *impl;
-	const char *key, *str;
-	struct pw_properties *hw_features = NULL;
-	void *state = NULL;
+	const char *str;
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL) {
@@ -737,16 +735,9 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 		res = -errno;
 		goto out_free;
 	}
-	if ((hw_features = pw_properties_new(NULL, NULL)) == NULL) {
-		res = -errno;
-		goto out_free;
-	}
 	if ((res = sm_media_session_load_conf(impl->session,
 					SESSION_CONF, impl->conf)) < 0)
 		pw_log_info("can't load "SESSION_CONF" config: %s", spa_strerror(res));
-	if ((res = sm_media_session_load_conf(impl->session,
-					FEATURES_CONF, hw_features)) < 0)
-		pw_log_info("can't load "FEATURES_CONF" config: %s", spa_strerror(res));
 
 	if ((impl->props = pw_properties_new(NULL, NULL)) == NULL) {
 		res = -errno;
@@ -757,15 +748,6 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 
 	pw_properties_set(impl->props, "api.bluez5.connection-info", "true");
 
-	while ((key = pw_properties_iterate(hw_features, &state)) != NULL) {
-		if (strncmp(key, "bluez5.features.", strlen("bluez5.features.")) != 0)
-			continue;
-		if ((str = pw_properties_get(hw_features, key)) != NULL)
-			pw_properties_set(impl->props, key, str);
-	}
-
-	pw_properties_free(hw_features);
-
 	sm_media_session_add_listener(session, &impl->session_listener,
 			&session_events, impl);
 	return 0;
@@ -773,7 +755,6 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 out_free:
 	pw_properties_free(impl->conf);
 	pw_properties_free(impl->props);
-	pw_properties_free(hw_features);
 	free(impl);
 out:
 	return res;

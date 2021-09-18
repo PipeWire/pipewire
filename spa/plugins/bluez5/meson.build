@@ -32,6 +32,10 @@ bluez5_sources = ['plugin.c',
 		  'bluez5-device.c',
 		  'bluez5-dbus.c']
 
+bluez5_data = ['bluez-hardware.conf']
+
+install_data(bluez5_data, install_dir : spa_datadir / 'bluez5')
+
 if not get_option('bluez5-backend-hsp-native').disabled() or not get_option('bluez5-backend-hfp-native').disabled()
   if libusb_dep.found()
     bluez5_deps += libusb_dep

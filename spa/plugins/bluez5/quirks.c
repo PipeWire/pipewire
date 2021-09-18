@@ -31,7 +31,12 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <regex.h>
+#include <limits.h>
 #include <sys/utsname.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <bluetooth/bluetooth.h>
 
@@ -163,6 +168,63 @@ static int parse_force_flag(const struct spa_dict *info, const char *key)
 		return (strcmp(str, "true") == 0 || atoi(str)) ? 1 : 0;
 }
 
+static void load_quirks(struct spa_bt_quirks *this, const char *str, size_t len)
+{
+	struct spa_json data = SPA_JSON_INIT(str, len);
+	struct spa_json rules;
+	char key[1024];
+
+	if (spa_json_enter_object(&data, &rules) <= 0)
+		spa_json_init(&rules, str, len);
+
+	while (spa_json_get_string(&rules, key, sizeof(key)-1)) {
+		int sz;
+		const char *value;
+
+		if ((sz = spa_json_next(&rules, &value)) <= 0)
+			break;
+
+		if (!spa_json_is_container(value, sz))
+			continue;
+
+		sz = spa_json_container_len(&rules, value, sz);
+
+		if (spa_streq(key, "bluez5.features.kernel") && !this->kernel_rules)
+			this->kernel_rules = strndup(value, sz);
+		else if (spa_streq(key, "bluez5.features.adapter") && !this->adapter_rules)
+			this->adapter_rules = strndup(value, sz);
+		else if (spa_streq(key, "bluez5.features.device") && !this->device_rules)
+			this->device_rules = strndup(value, sz);
+	}
+}
+
+static int load_conf(struct spa_bt_quirks *this, const char *path)
+{
+	char *data;
+	struct stat sbuf;
+	int fd = -1;
+
+	spa_log_debug(this->log, NAME ": loading %s", path);
+
+	if ((fd = open(path, O_CLOEXEC | O_RDONLY)) < 0)
+		goto fail;
+	if (fstat(fd, &sbuf) < 0)
+		goto fail;
+	if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
+		goto fail;
+	close(fd);
+
+	load_quirks(this, data, sbuf.st_size);
+	munmap(data, sbuf.st_size);
+
+	return 0;
+
+fail:
+	if (fd >= 0)
+		close(fd);
+	return -errno;
+}
+
 struct spa_bt_quirks *spa_bt_quirks_create(const struct spa_dict *info, struct spa_log *log)
 {
 	struct spa_bt_quirks *this;
@@ -183,15 +245,22 @@ struct spa_bt_quirks *spa_bt_quirks_create(const struct spa_dict *info, struct s
 	this->force_msbc = parse_force_flag(info, "bluez5.enable-msbc");
 	this->force_hw_volume = parse_force_flag(info, "bluez5.enable-hw-volume");
 
-	str = spa_dict_lookup(info, "bluez5.features.kernel");
-	this->kernel_rules = str ? strdup(str) : NULL;
-	str = spa_dict_lookup(info, "bluez5.features.adapter");
-	this->adapter_rules = str ? strdup(str) : NULL;
-	str = spa_dict_lookup(info, "bluez5.features.device");
-	this->device_rules = str ? strdup(str) : NULL;
+	if ((str = spa_dict_lookup(info, "bluez5.hardware-database")) != NULL) {
+		spa_log_debug(this->log, NAME ": loading session manager provided data");
+		load_quirks(this, str, strlen(str));
+	} else {
+		char path[PATH_MAX];
+		const char *dir = getenv("SPA_DATA_DIR");
+
+		if (dir == NULL)
+			dir = SPADATADIR;
+
+		if (spa_scnprintf(path, sizeof(path), "%s/bluez5/bluez-hardware.conf", dir) >= 0)
+			load_conf(this, path);
+	}
 
 	if (!(this->kernel_rules && this->adapter_rules && this->device_rules))
-		spa_log_info(this->log, NAME " failed to find data from bluez-hardware.conf");
+		spa_log_warn(this->log, NAME ": failed to load bluez-hardware.conf");
 
 	return this;
 }

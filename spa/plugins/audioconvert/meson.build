@@ -87,7 +87,7 @@ if have_neon
   simd_dependencies += audioconvert_neon
 endif
 
-audioconvert = static_library('audioconvert',
+audioconvert_lib = static_library('audioconvert',
   ['fmt-ops.c',
     'biquad.c',
     'crossover.c',
@@ -103,15 +103,16 @@ audioconvert = static_library('audioconvert',
   include_directories : [configinc, spa_inc],
   install : false
   )
+audioconvert_dep = declare_dependency(link_with: audioconvert_lib)
 
-audioconvertlib = shared_library('spa-audioconvert',
+spa_audioconvert_lib = shared_library('spa-audioconvert',
   audioconvert_sources,
   c_args : simd_cargs,
   include_directories : [spa_inc],
-  dependencies : [ mathlib ],
-  link_with : audioconvert,
+  dependencies : [ mathlib, audioconvert_dep ],
   install : true,
   install_dir : spa_plugindir / 'audioconvert')
+spa_audioconvert_dep = declare_dependency(link_with: spa_audioconvert_lib)
 
 test_lib = static_library('test_lib',
   ['test-source.c' ],
@@ -131,9 +132,9 @@ test_apps = [
 foreach a : test_apps
   test(a,
     executable(a, a + '.c',
-      dependencies : [dl_lib, pthread_lib, mathlib ],
+      dependencies : [ dl_lib, pthread_lib, mathlib, audioconvert_dep, spa_audioconvert_dep ],
       include_directories : [ configinc, spa_inc ],
-      link_with : [ audioconvert, test_lib, audioconvertlib ],
+      link_with : [ test_lib ],
       install_rpath : spa_plugindir / 'audioconvert',
       c_args : [ simd_cargs ],
       install : installed_tests_enabled,
@@ -162,10 +163,9 @@ benchmark_apps = [
 foreach a : benchmark_apps
   benchmark(a,
     executable(a, a + '.c',
-      dependencies : [dl_lib, pthread_lib, mathlib, ],
+      dependencies : [ dl_lib, pthread_lib, mathlib, audioconvert_dep, spa_audioconvert_dep ],
       include_directories : [ configinc, spa_inc ],
       c_args : [ simd_cargs ],
-      link_with : [ audioconvert, audioconvertlib ],
       install_rpath : spa_plugindir / 'audioconvert',
       install : installed_tests_enabled,
       install_dir : installed_tests_execdir / 'audioconvert'),
@@ -193,8 +193,8 @@ if sndfile_dep.found()
     sparesample_sources,
     c_args : [ simd_cargs ],
     include_directories : [spa_inc ],
-    link_with : [ audioconvert, test_lib ],
-    dependencies : [sndfile_dep, mathlib],
+    link_with : [ test_lib ],
+    dependencies : [sndfile_dep, mathlib, audioconvert_dep],
     install : true,
     )
 endif

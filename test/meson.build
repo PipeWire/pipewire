@@ -87,7 +87,8 @@ test('test support',
                'test-support.c',
                'test-logger.c',
                include_directories: pwtest_inc,
-               link_with: [pwtest_lib, spa_support_lib])
+               dependencies: [systemd_dep, spa_support_dep],
+               link_with: [pwtest_lib])
 )
 test('test spa',
     executable('test-spa',

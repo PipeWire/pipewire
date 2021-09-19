@@ -14,6 +14,7 @@ spa_support_lib = shared_library('spa-support',
   dependencies : [ pthread_lib, epoll_shim_dep ],
   install : true,
   install_dir : spa_plugindir / 'support')
+spa_support_dep = declare_dependency(link_with: spa_support_lib)
 
 
 if not get_option('evl').disabled()

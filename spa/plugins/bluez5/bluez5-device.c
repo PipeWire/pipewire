@@ -681,6 +681,9 @@ static int emit_nodes(struct impl *this)
 				}
 			}
 		}
+
+		if (get_supported_a2dp_codec(this, this->props.codec) == NULL)
+			this->props.codec = 0;
 		break;
 	case DEVICE_PROFILE_HSP_HFP:
 		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT) {
@@ -696,6 +699,9 @@ static int emit_nodes(struct impl *this)
 				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_SCO_SINK, false);
 			}
 		}
+
+		if (spa_bt_device_supports_hfp_codec(this->bt_dev, get_hfp_codec(this->props.codec)) != 1)
+			this->props.codec = 0;
 		break;
 	default:
 		return -EINVAL;

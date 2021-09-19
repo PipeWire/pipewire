@@ -469,7 +469,7 @@ if meson.version().version_compare('>=0.58.0')
   devenv.set('PIPEWIRE_MODULE_DIR', builddir / 'src' / 'modules')
 
   devenv.set('SPA_PLUGIN_DIR', builddir / 'spa' / 'plugins')
-  devenv.set('SPA_DATA_DIR', builddir / 'spa' / 'plugins')
+  devenv.set('SPA_DATA_DIR', srcdir / 'spa' / 'plugins')
 
   devenv.set('GST_PLUGIN_PATH', builddir / 'src'/ 'gst')
 

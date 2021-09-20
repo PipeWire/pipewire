@@ -121,31 +121,31 @@ static int impl_add_listener(void *object,
         return 0;
 }
 
-static struct item *find_item(struct metadata *this, uint32_t subject, const char *key)
+static struct item *find_item(struct pw_array *storage, uint32_t subject, const char *key)
 {
 	struct item *item;
 
-	pw_array_for_each(item, &this->storage) {
+	pw_array_for_each(item, storage) {
 		if (item->subject == subject && (key == NULL || spa_streq(item->key, key)))
 			return item;
 	}
 	return NULL;
 }
 
-static int clear_subjects(struct metadata *this, uint32_t subject)
+static int clear_subjects(struct metadata *this, struct pw_array *storage, uint32_t subject)
 {
 	struct item *item;
 	uint32_t removed = 0;
 
 	while (true) {
-		item = find_item(this, subject, NULL);
+		item = find_item(storage, subject, NULL);
 		if (item == NULL)
 			break;
 
 		pw_log_debug(NAME" %p: remove id:%d key:%s", this, subject, item->key);
 
 		clear_item(item);
-		pw_array_remove(&this->storage, item);
+		pw_array_remove(storage, item);
 		removed++;
 	}
 	if (removed > 0)
@@ -157,9 +157,17 @@ static int clear_subjects(struct metadata *this, uint32_t subject)
 static void clear_items(struct metadata *this)
 {
 	struct item *item;
-	pw_array_consume(item, &this->storage)
-		clear_subjects(this, item->subject);
-	pw_array_reset(&this->storage);
+	struct pw_array tmp;
+
+	/* copy to tmp and reinitialize the storage so that the callbacks
+	 * will operate on the new empty metadata. Otherwise, if a callbacks
+	 * adds new metadata we just keep on emptying the metadata forever. */
+	tmp = this->storage;
+	pw_array_init(&this->storage, 4096);
+
+	pw_array_consume(item, &tmp)
+		clear_subjects(this, &tmp, item->subject);
+	pw_array_clear(&tmp);
 }
 
 static int impl_set_property(void *object,
@@ -175,9 +183,9 @@ static int impl_set_property(void *object,
 	pw_log_debug(NAME" %p: id:%d key:%s type:%s value:%s", this, subject, key, type, value);
 
 	if (key == NULL)
-		return clear_subjects(this, subject);
+		return clear_subjects(this, &this->storage, subject);
 
-	item = find_item(this, subject, key);
+	item = find_item(&this->storage, subject, key);
 	if (value == NULL) {
 		if (item != NULL) {
 			clear_item(item);

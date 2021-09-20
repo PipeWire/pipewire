@@ -89,7 +89,7 @@ if fdk_aac_dep.found()
 endif
 
 if aptx_dep.found()
-  bluez_codec_aac = shared_library('spa-codec-bluez5-aptx',
+  bluez_codec_aptx = shared_library('spa-codec-bluez5-aptx',
     [ 'a2dp-codec-aptx.c', 'a2dp-codecs.c' ],
     include_directories : [ spa_inc, configinc ],
     c_args : codec_args,

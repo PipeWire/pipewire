@@ -92,7 +92,7 @@
  * ## Example configuration
  *\code{.unparsed}
  * context.modules = [
- *  {   name = libpipewire-echo-cancel
+ *  {   name = libpipewire-module-echo-cancel
  *      args = {
  *          # aec.method = webrtc
  *          # node.latency = 1024/48000

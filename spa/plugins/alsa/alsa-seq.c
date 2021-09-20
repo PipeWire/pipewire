@@ -627,7 +627,7 @@ static int process_write(struct seq_state *state)
 {
 	struct seq_stream *stream = &state->streams[SPA_DIRECTION_INPUT];
 	uint32_t i;
-	int res = 0;
+	int err, res = 0;
 
 	for (i = 0; i < stream->last_port; i++) {
 		struct seq_port *port = &stream->ports[i];
@@ -690,9 +690,9 @@ static int process_write(struct seq_state *state)
 			spa_log_trace_fp(state->log, "event time:%"PRIu64" offset:%d size:%ld port:%d.%d",
 				out_time, c->offset, size, port->addr.client, port->addr.port);
 
-			if ((res = snd_seq_event_output(state->event.hndl, &ev)) < 0) {
+			if ((err = snd_seq_event_output(state->event.hndl, &ev)) < 0) {
 				spa_log_warn(state->log, "failed to output event: %s",
-						snd_strerror(res));
+						snd_strerror(err));
 			}
 		}
 	}

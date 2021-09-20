@@ -1,6 +1,6 @@
 # PulseAudio config file for PipeWire version @VERSION@ #
 #
-# Copy and edit this file in @PIPEWIRE_CONFIG_DIR@ for systemwide changes
+# Copy and edit this file in @PIPEWIRE_CONFIG_DIR@ for system-wide changes
 # or in ~/.config/pipewire for local changes.
 
 context.properties = {
@@ -17,7 +17,7 @@ context.spa-libs = {
 }
 
 context.modules = [
-    {   name = libpipewire-module-rtkit
+    { name = libpipewire-module-rtkit
         args = {
             #nice.level   = -11
             #rt.prio      = 88
@@ -26,32 +26,32 @@ context.modules = [
         }
         flags = [ ifexists nofail ]
     }
-    {   name = libpipewire-module-protocol-native }
-    {   name = libpipewire-module-client-node }
-    {   name = libpipewire-module-adapter }
-    {   name = libpipewire-module-metadata }
+    { name = libpipewire-module-protocol-native }
+    { name = libpipewire-module-client-node }
+    { name = libpipewire-module-adapter }
+    { name = libpipewire-module-metadata }
 
-    {   name = libpipewire-module-protocol-pulse
+    { name = libpipewire-module-protocol-pulse
         args = {
-	    # the addresses this server listens on
+            # the addresses this server listens on
             server.address = [
                 "unix:native"
-                # "unix:/tmp/something" # absolute paths may be used
-                # "tcp:4713" # IPv4 and IPv6 on all addresses
-                # "tcp:[::]:9999" # IPv6 on all addresses
-                # "tcp:127.0.0.1:8888" # IPv4 on a single address
+                #"unix:/tmp/something"              # absolute paths may be used
+                #"tcp:4713"                         # IPv4 and IPv6 on all addresses
+                #"tcp:[::]:9999"                    # IPv6 on all addresses
+                #"tcp:127.0.0.1:8888"               # IPv4 on a single address
             ]
-	    #pulse.min.req = 256/48000              # 5ms
-	    #pulse.default.req = 960/48000          # 20 milliseconds
-	    #pulse.min.frag = 256/48000             # 5ms
-	    #pulse.default.frag = 96000/48000       # 2 seconds
-	    #pulse.default.tlength = 96000/48000    # 2 seconds
-	    #pulse.min.quantum = 256/48000          # 5ms
-	    #pulse.default.format = F32
-	    #pulse.default.position = [ FL FR ]
+            #pulse.min.req          = 256/48000     # 5ms
+            #pulse.default.req      = 960/48000     # 20 milliseconds
+            #pulse.min.frag         = 256/48000     # 5ms
+            #pulse.default.frag     = 96000/48000   # 2 seconds
+            #pulse.default.tlength  = 96000/48000   # 2 seconds
+            #pulse.min.quantum      = 256/48000     # 5ms
+            #pulse.default.format   = F32
+            #pulse.default.position = [ FL FR ]
             # These overrides are only applied when running in a vm.
             vm.overrides = {
-	        pulse.min.quantum = 1024/48000         # 22ms
+                pulse.min.quantum = 1024/48000      # 22ms
             }
         }
     }
@@ -59,16 +59,16 @@ context.modules = [
 
 # Extra modules can be loaded here. Setup in default.pa can be moved here
 context.exec = [
-    #{ path = "pactl"  args = "module-switch-on-connect" }
+    #{ path = "pactl"        args = "module-switch-on-connect" }
     #{ path = "/usr/bin/sh"  args = "~/.config/pipewire/default.pw" }
 ]
 
 stream.properties = {
-    #node.latency = 1024/48000
-    #node.autoconnect = true
-    #resample.quality = 4
-    #channelmix.normalize = false
-    #channelmix.mix-lfe = false
-    #channelmix.upmix = false
+    #node.latency          = 1024/48000
+    #node.autoconnect      = true
+    #resample.quality      = 4
+    #channelmix.normalize  = false
+    #channelmix.mix-lfe    = false
+    #channelmix.upmix      = false
     #channelmix.lfe-cutoff = 0
 }

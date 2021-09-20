@@ -1,6 +1,6 @@
 # JACK client config file for PipeWire version @VERSION@ #
 #
-# Copy and edit this file in @PIPEWIRE_CONFIG_DIR@ for systemwide changes
+# Copy and edit this file in @PIPEWIRE_CONFIG_DIR@ for system-wide changes
 # or in ~/.config/pipewire for local changes.
 
 context.properties = {
@@ -22,8 +22,8 @@ context.spa-libs = {
 }
 
 context.modules = [
-    #{   name = <module-name>
-    #    [ args = { <key> = <value> ... } ]
+    #{ name = <module-name>
+    #    [ args  = { <key> = <value> ... } ]
     #    [ flags = [ [ ifexists ] [ nofail ] ]
     #}
     #
@@ -33,7 +33,7 @@ context.modules = [
     #
     #
     # Boost the data thread priority.
-    {   name = libpipewire-module-rt
+    { name = libpipewire-module-rt
         args = {
             #nice.level   = -11
             #rt.prio      = 88
@@ -44,33 +44,33 @@ context.modules = [
     }
 
     # The native communication protocol.
-    {   name = libpipewire-module-protocol-native }
+    { name = libpipewire-module-protocol-native }
 
     # Allows creating nodes that run in the context of the
     # client. Is used by all clients that want to provide
     # data to PipeWire.
-    {   name = libpipewire-module-client-node }
+    { name = libpipewire-module-client-node }
 
     # Allows applications to create metadata objects. It creates
     # a factory for Metadata objects.
-    {   name = libpipewire-module-metadata }
+    { name = libpipewire-module-metadata }
 ]
 
 # global properties for all jack clients
 jack.properties = {
-     #node.latency = 1024/48000
-     #node.lock-quantum   = false
-     #jack.merge-monitor  = false
-     #jack.short-name     = false
-     #jack.filter-name    = false
+     #node.latency       = 1024/48000
+     #node.lock-quantum  = false
+     #jack.merge-monitor = false
+     #jack.short-name    = false
+     #jack.filter-name   = false
      #
      # allow:           Don't restrict self connect requests
      # fail-external:   Fail self connect requests to external ports only
      # ignore-external: Ignore self connect requests to external ports only
      # fail-all:        Fail all self connect requests
      # ignore-all:      Ignore all self connect requests
-     #jack.self-connect-mode  = allow
-     #jack.locked-process = true
+     #jack.self-connect-mode = allow
+     #jack.locked-process    = true
 }
 
 # client specific properties
@@ -79,9 +79,9 @@ jack.rules = [
         matches = [
             {
                 # all keys must match the value. ~ starts regex.
-                #client.name = "Carla"
+                #client.name                = "Carla"
                 #application.process.binary = "jack_simple_client"
-                #application.name = "~jack_simple_client.*"
+                #application.name           = "~jack_simple_client.*"
             }
         ]
         actions = {

@@ -684,11 +684,28 @@ static void session_remove(void *data, struct sm_object *object)
 	sm_media_session_schedule_rescan(impl->session);
 }
 
+static bool array_contains(const struct spa_pod *pod, uint32_t val)
+{
+	uint32_t *vals, n_vals;
+	uint32_t n;
+
+	if (pod == NULL)
+		return false;
+	vals = spa_pod_get_array(pod, &n_vals);
+	if (vals == NULL || n_vals == 0)
+		return false;
+	for (n = 0; n < n_vals; n++)
+		if (vals[n] == val)
+			return true;
+	return false;
+}
+
 static bool have_available_route(struct node *node, struct sm_device *dev)
 {
 	struct sm_param *p;
 	const char *str;
 	uint32_t card_profile_device;
+	int found = 0, avail = 0;
 
 	if (node->obj->info == NULL || node->obj->info->props == NULL ||
 	    (str = spa_dict_lookup(node->obj->info->props, "card.profile.device")) == NULL)
@@ -710,12 +727,39 @@ static bool have_available_route(struct node *node, struct sm_device *dev)
 					SPA_PARAM_ROUTE_available,  SPA_POD_Id(&available)) < 0)
 			continue;
 
-		/* we found the route for the device and it is not available */
-		if (device_id == card_profile_device &&
-		    available == SPA_PARAM_AVAILABILITY_no)
+		/* we found the route for the device */
+		if (device_id != card_profile_device)
+			continue;
+		if (available == SPA_PARAM_AVAILABILITY_no)
 			return 0;
+		return 1;
 	}
-	return 1;
+	/* Route is not found so no active profile. Check if there is a route that
+	 * is available */
+	spa_list_for_each(p, &dev->param_list, link) {
+		struct spa_pod *devices = NULL;
+		enum spa_param_availability available;
+
+		if (p->id != SPA_PARAM_EnumRoute)
+			continue;
+
+		if (spa_pod_parse_object(p->param,
+					SPA_TYPE_OBJECT_ParamRoute, NULL,
+					SPA_PARAM_ROUTE_devices, SPA_POD_OPT_Pod(&devices),
+					SPA_PARAM_ROUTE_available,  SPA_POD_Id(&available)) < 0)
+			continue;
+
+		if (!array_contains(devices, card_profile_device))
+			continue;
+		found++;
+		if (available != SPA_PARAM_AVAILABILITY_no)
+			avail++;
+	}
+	if (found == 0)
+		return 1;
+	if (avail > 0)
+		return 1;
+	return 0;
 }
 
 struct find_data {

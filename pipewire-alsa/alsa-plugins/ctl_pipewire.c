@@ -141,13 +141,17 @@ static void do_resync(snd_ctl_pipewire_t *ctl)
 
 static int wait_resync(snd_ctl_pipewire_t *ctl)
 {
+	int res;
 	do_resync(ctl);
 
 	while (true) {
 		pw_thread_loop_wait(ctl->mainloop);
 
-		if (ctl->error)
-			return ctl->error;
+		res = ctl->error;
+		if (res < 0) {
+			ctl->error = 0;
+			return res;
+		}
 
 		if (ctl->pending_seq == ctl->last_seq)
 			break;
@@ -269,9 +273,9 @@ static int pipewire_elem_count(snd_ctl_ext_t * ext)
 
 	pw_thread_loop_lock(ctl->mainloop);
 
-
 	err = ctl->error;
 	if (err < 0) {
+		ctl->error = 0;
 		count = err;
 		goto finish;
 	}
@@ -308,8 +312,10 @@ static int pipewire_elem_list(snd_ctl_ext_t * ext, unsigned int offset,
 	pw_thread_loop_lock(ctl->mainloop);
 
 	err = ctl->error;
-	if (err < 0)
+	if (err < 0) {
+		ctl->error = 0;
 		goto finish;
+	}
 
 	if (ctl->default_source[0] != '\0') {
 		if (offset == 0)
@@ -375,8 +381,10 @@ static int pipewire_get_attribute(snd_ctl_ext_t * ext, snd_ctl_ext_key_t key,
 	pw_thread_loop_lock(ctl->mainloop);
 
 	err = ctl->error;
-	if (err < 0)
+	if (err < 0) {
+		ctl->error = 0;
 		goto finish;
+	}
 
 	err = pipewire_update_volume(ctl);
 	if (err < 0)
@@ -429,8 +437,10 @@ static int pipewire_read_integer(snd_ctl_ext_t * ext, snd_ctl_ext_key_t key,
 	pw_thread_loop_lock(ctl->mainloop);
 
 	err = ctl->error;
-	if (err < 0)
+	if (err < 0) {
+		ctl->error = 0;
 		goto finish;
+	}
 
 	err = pipewire_update_volume(ctl);
 	if (err < 0)
@@ -559,8 +569,10 @@ static int pipewire_write_integer(snd_ctl_ext_t * ext, snd_ctl_ext_key_t key,
 	pw_thread_loop_lock(ctl->mainloop);
 
 	err = ctl->error;
-	if (err < 0)
+	if (err < 0) {
+		ctl->error = 0;
 		goto finish;
+	}
 
 	err = pipewire_update_volume(ctl);
 	if (err < 0)
@@ -656,8 +668,10 @@ static int pipewire_read_event(snd_ctl_ext_t * ext, snd_ctl_elem_id_t * id,
 	pw_thread_loop_lock(ctl->mainloop);
 
 	err = ctl->error;
-	if (err < 0)
+	if (err < 0) {
+		ctl->error = 0;
 		goto finish;
+	}
 
 	if (!ctl->updated || !ctl->subscribed) {
 		err = -EAGAIN;
@@ -685,12 +699,12 @@ static int pipewire_read_event(snd_ctl_ext_t * ext, snd_ctl_elem_id_t * id,
 
 	*event_mask = SND_CTL_EVENT_MASK_VALUE;
 
-	if (!ctl->updated)
-		poll_deactivate(ctl);
-
 	err = 1;
 
 finish:
+	if (!ctl->updated)
+		poll_deactivate(ctl);
+
 	pw_thread_loop_unlock(ctl->mainloop);
 
 	return err;
@@ -711,8 +725,10 @@ static int pipewire_ctl_poll_revents(snd_ctl_ext_t * ext, struct pollfd *pfd,
 	pw_thread_loop_lock(ctl->mainloop);
 
 	err = ctl->error;
-	if (err < 0)
+	if (err < 0) {
+		ctl->error = 0;
 		goto finish;
+	}
 
 	if (ctl->updated)
 		*revents = POLLIN;
@@ -1173,9 +1189,14 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE) {
-		ctl->error = res;
-		if (ctl->fd != -1)
-			poll_activate(ctl);
+		switch (res) {
+		case -ENOENT:
+			break;
+		default:
+			ctl->error = res;
+			if (ctl->fd != -1)
+				poll_activate(ctl);
+		}
 	}
 	pw_thread_loop_signal(ctl->mainloop, false);
 }

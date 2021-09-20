@@ -769,10 +769,6 @@ static int find_node(void *data, struct node *node)
 		pw_log_debug(".. connecting link-group %s", find->link_group);
 		return 0;
 	}
-	if (device != NULL && !have_available_route(node, device)) {
-		pw_log_debug(".. no available routes");
-		return 0;
-	}
 
 	plugged = node->plugged;
 	priority = node->priority;
@@ -798,6 +794,10 @@ static int find_node(void *data, struct node *node)
 		}
 		if (is_default)
 			priority += 10000;
+	}
+	if (device != NULL && !is_default && !have_available_route(node, device)) {
+		pw_log_debug(".. no available routes");
+		return 0;
 	}
 
 	if ((find->capture_sink && node->direction != PW_DIRECTION_INPUT) ||

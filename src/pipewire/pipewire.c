@@ -507,7 +507,7 @@ void pw_init(int *argc, char **argv[])
 
 	support->in_valgrind = RUNNING_ON_VALGRIND;
 
-	if ((str = getenv("NO_COLOR")) != NULL)
+	if (getenv("NO_COLOR") != NULL)
 		support->no_color = true;
 
 	if ((str = getenv("PIPEWIRE_NO_CONFIG")) != NULL)

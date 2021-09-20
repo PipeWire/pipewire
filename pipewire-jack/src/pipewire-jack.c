@@ -902,7 +902,7 @@ static inline void reuse_buffer(struct client *c, struct mix *mix, uint32_t id)
 }
 
 
-static void convert_from_midi(void *midi, void *buffer, size_t size)
+static size_t convert_from_midi(void *midi, void *buffer, size_t size)
 {
 	struct spa_pod_builder b = { 0, };
 	uint32_t i, count;
@@ -919,7 +919,8 @@ static void convert_from_midi(void *midi, void *buffer, size_t size)
 		spa_pod_builder_control(&b, ev.time, SPA_CONTROL_Midi);
 		spa_pod_builder_bytes(&b, ev.buffer, ev.size);
 	}
-        spa_pod_builder_pop(&b, &f);
+	spa_pod_builder_pop(&b, &f);
+	return b.state.offset;
 }
 
 static void convert_to_midi(struct spa_pod_sequence **seq, uint32_t n_seq, void *midi)
@@ -960,7 +961,7 @@ static void convert_to_midi(struct spa_pod_sequence **seq, uint32_t n_seq, void 
 }
 
 
-static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t stride)
+static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t stride, struct buffer **buf)
 {
 	struct mix *mix;
 	struct client *c = p->client;
@@ -987,6 +988,8 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 		}
 		reuse_buffer(c, mix, b->id);
 		ptr = b->datas[0].data;
+		if (buf)
+			*buf = b;
 
 		b->datas[0].chunk->offset = 0;
 		b->datas[0].chunk->size = frames * sizeof(float);
@@ -1019,15 +1022,20 @@ static void process_tee(struct client *c, uint32_t frames)
 
 		switch (p->object->port.type_id) {
 		case TYPE_ID_AUDIO:
-			ptr = get_buffer_output(p, frames, sizeof(float));
+			ptr = get_buffer_output(p, frames, sizeof(float), NULL);
 			if (SPA_LIKELY(ptr != NULL))
 				memcpy(ptr, p->emptyptr, frames * sizeof(float));
 			break;
 		case TYPE_ID_MIDI:
-			ptr = get_buffer_output(p, MAX_BUFFER_FRAMES, 1);
-			if (SPA_LIKELY(ptr != NULL))
-				convert_from_midi(p->emptyptr, ptr, MAX_BUFFER_FRAMES * sizeof(float));
+		{
+			struct buffer *b;
+			ptr = get_buffer_output(p, MAX_BUFFER_FRAMES, 1, &b);
+			if (SPA_LIKELY(ptr != NULL)) {
+				b->datas[0].chunk->size = convert_from_midi(p->emptyptr,
+						ptr, MAX_BUFFER_FRAMES * sizeof(float));
+			}
 			break;
+		}
 		default:
 			pw_log_warn("port %p: unhandled format %d", p, p->object->port.type_id);
 			break;
@@ -4105,7 +4113,7 @@ static void *get_buffer_output_float(struct port *p, jack_nframes_t frames)
 {
 	void *ptr;
 
-	ptr = get_buffer_output(p, frames, sizeof(float));
+	ptr = get_buffer_output(p, frames, sizeof(float), NULL);
 	if (SPA_UNLIKELY(p->empty_out = (ptr == NULL)))
 		ptr = p->emptyptr;
 	return ptr;

@@ -739,7 +739,7 @@ impl_node_port_enum_params(void *object, int seq,
 	struct port *port;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
-	uint8_t buffer[1024];
+	uint8_t buffer[2048];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res;

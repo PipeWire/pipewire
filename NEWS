@@ -1,3 +1,56 @@
+# PipeWire 0.3.37 (2021-09-23)
+
+This is a quick bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+## Highlights
+  - Capture and playback is now avoided even more on unavailable
+    devices. This should fix some issues where an unusable microphone
+    was selected by default. It should now also again be possible
+    to select an unavailable device as the default.
+  - Native DSD audio playback is now supported. pw-cat can now also
+    play DSF files with the -d option.
+  - JACK stability improvements with buffer-size and samplerate
+    changes in some apps.
+  - Many cleanups and bugfixes all over the place.
+
+## PipeWire
+  - pw-metadata -d does not cause an infinite loop anymore. (#1622)
+  - Increase some plugin buffer sizes to fix some issues with many
+    channels. (#1620)
+  - Protect the global plugin list with a lock. Make sure pw_init()
+    is locked. Fixes some issues with concurrent ALSA plugin usage.
+
+## media-session
+  - Unavailable devices can be set as the default again. (#1624)
+  - Do a better check if a device has available routes and avoid
+    selecting devices with unavailable routes as default.
+  - Media-session was moved to its own directory. It used to live
+    in examples but it is past the example stage and it interferes
+    with the build options for the real examples.
+
+## Bluetooth
+  - The hardware quirk database is now loaded by the plugin instead of
+    the session manager. This makes it also work with wireplumber.
+
+## ALSA
+  - The ALSA mixer now handles device removal much better. (#1627)
+
+## libcamera
+  - Many fixes and improvement to the libcamera plugin. (#1513)
+
+## pulse-server
+  - Improve compatibility with pulseaudio module arguments.
+  - Parse channel_map arguments in module-loopback. (#1486)
+
+## JACK
+  - Delay emiting the samplerate and buffersize callbacks until the
+    client is active. This fixes some crashes with Carla and other
+    JACK apps.
+
+
+Older versions:
+
 # PipeWire 0.3.36 (2021-09-16)
 
 This is a quick bugfix release that is API and ABI compatible
@@ -59,9 +112,6 @@ with previous 0.3.x releases.
 ## pulse-server
   - Fix an issue where virtual sinks/sources would not show up
     immediately. (#1588)
-
-
-Older versions:
 
 
 # PipeWire 0.3.35 (2021-09-09)

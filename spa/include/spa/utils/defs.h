@@ -120,6 +120,11 @@ struct spa_fraction {
 #define SPA_FOR_EACH_ELEMENT(arr, ptr) \
 	for (ptr = arr; (void*)ptr < SPA_PTROFF(arr, sizeof(arr), void); ptr++)
 
+#define SPA_ABS(a)			\
+({					\
+	__typeof__(a) _a = (a);		\
+	SPA_LIKELY(_a >= 0) ? _a : -_a;	\
+})
 #define SPA_MIN(a,b)		\
 ({				\
 	__typeof__(a) _min_a = (a);	\

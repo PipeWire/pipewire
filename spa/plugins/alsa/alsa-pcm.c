@@ -374,7 +374,7 @@ static void sanitize_map(snd_pcm_chmap_t* map)
 	}
 }
 
-static int add_rate(struct state *state, uint32_t index, uint32_t *next,
+static int add_rate(struct state *state, uint32_t scale, uint32_t index, uint32_t *next,
 		snd_pcm_hw_params_t *params, struct spa_pod_builder *b)
 {
 	struct spa_pod_frame f[1];
@@ -400,10 +400,10 @@ static int add_rate(struct state *state, uint32_t index, uint32_t *next,
 
 	rate = state->position ? state->position->clock.rate.denom : DEFAULT_RATE;
 
-	spa_pod_builder_int(b, SPA_CLAMP(rate, min, max));
+	spa_pod_builder_int(b, SPA_CLAMP(rate, min, max) * scale);
 	if (min != max) {
-		spa_pod_builder_int(b, min);
-		spa_pod_builder_int(b, max);
+		spa_pod_builder_int(b, min * scale);
+		spa_pod_builder_int(b, max * scale);
 		choice->body.type = SPA_CHOICE_Range;
 	}
 	spa_pod_builder_pop(b, &f[0]);
@@ -611,7 +611,7 @@ static int enum_pcm_formats(struct state *state, uint32_t index, uint32_t *next,
 		choice->body.type = SPA_CHOICE_Enum;
 	spa_pod_builder_pop(b, &f[1]);
 
-	if ((res = add_rate(state, index & 0xffff, next, params, b)) != 1)
+	if ((res = add_rate(state, 1, index & 0xffff, next, params, b)) != 1)
 		return res;
 
 	if ((res = add_channels(state, index & 0xffff, next, params, b)) != 1)
@@ -704,7 +704,7 @@ static int enum_iec958_formats(struct state *state, uint32_t index, uint32_t *ne
 	}
 	spa_pod_builder_pop(b, &f[1]);
 
-	if ((res = add_rate(state, index & 0xffff, next, params, b)) != 1)
+	if ((res = add_rate(state, 1, index & 0xffff, next, params, b)) != 1)
 		return res;
 
 	(*next)++;
@@ -759,7 +759,7 @@ static int enum_dsd_formats(struct state *state, uint32_t index, uint32_t *next,
 	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_interleave, 0);
 	spa_pod_builder_int(b, interleave);
 
-	if ((res = add_rate(state, index & 0xffff, next, params, b)) != 1)
+	if ((res = add_rate(state, SPA_ABS(interleave), index & 0xffff, next, params, b)) != 1)
 		return res;
 
 	if ((res = add_channels(state, index & 0xffff, next, params, b)) != 1)

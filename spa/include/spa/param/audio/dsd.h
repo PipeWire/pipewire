@@ -63,7 +63,7 @@ struct spa_audio_info_dsd {
 	enum spa_param_bitorder bitorder;		/*< the order of the bits */
 	uint32_t flags;					/*< extra flags */
 	int32_t interleave;				/*< interleave bytes */
-	uint32_t rate;					/*< sample rate (in bits per second) */
+	uint32_t rate;					/*< sample rate (in bytes per second) */
 	uint32_t channels;				/*< channels */
 	uint32_t position[SPA_AUDIO_MAX_CHANNELS];	/*< channel position from enum spa_audio_channel */
 };

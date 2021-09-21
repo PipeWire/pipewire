@@ -69,7 +69,7 @@ static void on_process(void *userdata)
 	if ((d = buf->datas[0].data) == NULL)
 		return;
 
-	stride = data->info.channels * data->layout.interleave;
+	stride = data->info.channels * SPA_ABS(data->layout.interleave);
 
 	samples = dsf_file_read(data->f, d, buf->datas[0].maxsize / stride,
 			&data->layout);
@@ -127,7 +127,6 @@ struct layout_info {
 	 uint32_t type;
 	 struct spa_audio_layout_info info;
 };
-
 static const struct layout_info layouts[] = {
 	{ 1, { SPA_AUDIO_LAYOUT_Mono, }, },
 	{ 2, { SPA_AUDIO_LAYOUT_Stereo, }, },

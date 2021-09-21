@@ -518,8 +518,6 @@ extern "C" {
 	}
 
 	void LibCamera::stop() {
-		this->disconnect();
-
 		StreamConfiguration &cfg = this->config_->at(0);
 		Stream *stream = cfg.stream();
 		uint32_t nbuffers = this->allocator_->buffers(stream).size();

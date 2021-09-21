@@ -912,6 +912,10 @@ static int spa_libcamera_stream_off(struct impl *this)
 
 	libcamera_stop_capture(dev->camera);
 
+	spa_log_info(this->log, "disconnecting camera");
+
+	libcamera_disconnect(dev->camera);
+
 	spa_loop_invoke(this->data_loop, do_remove_source, 0, NULL, 0, true, port);
 
 	spa_list_init(&port->queue);

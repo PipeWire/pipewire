@@ -532,6 +532,7 @@ extern "C" {
     	spa_log_info(this->log_, "Stopping camera ...");
     	this->cam_->stop();
     	if(this->allocator_) {
+		this->allocator_->free(stream);
 	    	delete this->allocator_;
 	    	this->allocator_ = nullptr;
     	}

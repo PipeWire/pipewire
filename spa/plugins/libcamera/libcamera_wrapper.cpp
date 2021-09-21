@@ -486,7 +486,6 @@ extern "C" {
 	}
 
 	int LibCamera::start() {
-		this->streamName_.clear();
 		for (unsigned int index = 0; index < this->config_->size(); ++index) {
 			StreamConfiguration &cfg = this->config_->at(index);
 			this->streamName_[cfg.stream()] = "stream" + std::to_string(index);
@@ -536,6 +535,8 @@ extern "C" {
     	}
 
 	    this->item_free_fn();
+	    this->requests_.clear();
+	    this->streamName_.clear();
 	}
 
 	void LibCamera::close() {

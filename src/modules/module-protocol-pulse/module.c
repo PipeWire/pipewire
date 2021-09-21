@@ -174,6 +174,7 @@ int module_args_to_audioinfo(struct impl *impl, struct pw_properties *props, str
 
 	/* We don't use any incoming format setting and use our native format */
 	spa_zero(*info);
+	info->flags = SPA_AUDIO_FLAG_UNPOSITIONED;
 	info->format = SPA_AUDIO_FORMAT_F32P;
 
 	if ((str = pw_properties_get(props, "channels")) != NULL) {
@@ -199,6 +200,7 @@ int module_args_to_audioinfo(struct impl *impl, struct pw_properties *props, str
 			return -EINVAL;
 		}
 		channel_map_to_positions(&map, info->position);
+		info->flags &= ~SPA_AUDIO_FLAG_UNPOSITIONED;
 		pw_properties_set(props, "channel_map", NULL);
 	} else {
 		if (info->channels == 0)
@@ -216,6 +218,8 @@ int module_args_to_audioinfo(struct impl *impl, struct pw_properties *props, str
 			for (i = 0; i < info->channels; i++)
 				info->position[i] = SPA_AUDIO_CHANNEL_UNKNOWN;
 		}
+		if (info->position[0] != SPA_AUDIO_CHANNEL_UNKNOWN)
+			info->flags &= ~SPA_AUDIO_FLAG_UNPOSITIONED;
 	}
 
 	if ((str = pw_properties_get(props, "rate")) != NULL) {

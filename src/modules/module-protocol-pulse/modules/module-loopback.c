@@ -63,15 +63,23 @@ static int module_loopback_load(struct client *client, struct module *module)
 	struct module_loopback_data *data = module->user_data;
 	FILE *f;
 	char *args;
-	size_t size;
+	size_t size, i;
 
 	pw_properties_setf(data->capture_props, PW_KEY_NODE_GROUP, "loopback-%u", module->idx);
 	pw_properties_setf(data->playback_props, PW_KEY_NODE_GROUP, "loopback-%u", module->idx);
 
 	f = open_memstream(&args, &size);
 	fprintf(f, "{");
-	if (data->info.channels != 0)
+	if (data->info.channels != 0) {
 		fprintf(f, " audio.channels = %u", data->info.channels);
+		if (!(data->info.flags & SPA_AUDIO_FLAG_UNPOSITIONED)) {
+			fprintf(f, " audio.position = [ ");
+			for (i = 0; i < data->info.channels; i++)
+				fprintf(f, "%s%s", i == 0 ? "" : ",",
+					channel_id2name(data->info.position[i]));
+			fprintf(f, " ]");
+		}
+	}
 	fprintf(f, " capture.props = {");
 	pw_properties_serialize_dict(f, &data->capture_props->dict, 0);
 	fprintf(f, " } playback.props = {");

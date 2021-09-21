@@ -486,10 +486,6 @@ extern "C" {
 	}
 
 	int LibCamera::start() {
-		if(!this->set_config()) {
-			return -1;
-		}
-
 		this->streamName_.clear();
 		for (unsigned int index = 0; index < this->config_->size(); ++index) {
 			StreamConfiguration &cfg = this->config_->at(index);

@@ -481,6 +481,10 @@ static int spa_libcamera_set_format(struct impl *this, struct spa_video_info *fo
 	libcamera_set_streamcfg_width(dev->camera, size->width);
 	libcamera_set_streamcfg_height(dev->camera, size->height);
 
+	if(!libcamera_set_config(dev->camera)) {
+		return -EINVAL;
+	}
+
 	/* start the camera now with the configured params */
 	libcamera_start_capture(dev->camera);
 

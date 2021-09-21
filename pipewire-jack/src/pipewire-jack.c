@@ -748,7 +748,8 @@ void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto
 			pthread_mutex_unlock(&c->rt_lock);	\
 		pw_thread_loop_lock(c->context.loop);		\
 	} else {						\
-		(expr);						\
+		if (c->active)					\
+			(expr);					\
 		pw_log_debug("skip " #callback 			\
 			" cb:%p active:%d", c->callback,	\
 			c->active);				\

@@ -540,7 +540,6 @@ extern "C" {
 	}
 
 	void LibCamera::close() {
-    	this->stop();
 		this->cam_->release();
 	}
 

@@ -46,6 +46,25 @@
 #include "media-session.h"
 
 /** \page page_media_session_module_restore_stream Media Session Module: Restore Stream
+ *
+ * The Restore Stream modules monitors \ref pw_node
+ * of media class `"Stream/..."` and `"Audio/..."` and saves the \ref
+ * SPA_PROP_volume, \ref SPA_PROP_mute, and \ref SPA_PROP_channelMap
+ * parameters to the `route-settings` state file and the `route-settings`
+ * metadata objects.
+ *
+ * When a stream re-appears and matches a saved state, the parameters are
+ * restored to their respective values. Additionally, the target node is saved
+ * so the stream can be re-associated with that node, if possible.
+ *
+ * To match a stream with a previously saved state, this module uses one of
+ * \ref PW_KEY_MEDIA_ROLE, \ref PW_KEY_APP_ID,
+ * \ref PW_KEY_APP_NAME, \ref PW_KEY_MEDIA_NAME, and \ref PW_KEY_NODE_NAME,
+ * whichever applies.
+ *
+ * The state file is `$XDG_STATE_HOME/pipewire/media-session.d/restore-stream`.
+ *
+ * The `route-settings` metadata object is owned by this module.
  */
 
 #define NAME		"restore-stream"

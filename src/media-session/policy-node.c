@@ -65,6 +65,9 @@
 
 #define MAX_LINK_RETRY			5
 
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct default_node {
 	char *key;
 	char *key_config;
@@ -360,7 +363,7 @@ static void object_update(void *data)
 	struct impl *impl = node->impl;
 	const char *str;
 
-	pw_log_debug(NAME" %p: node %d %08x", impl, node->id, node->obj->obj.changed);
+	pw_log_debug("%p: node %d %08x", impl, node->id, node->obj->obj.changed);
 
 	if (node->obj->obj.avail & SM_NODE_CHANGE_MASK_INFO &&
 	    node->obj->info != NULL && node->obj->info->props != NULL) {
@@ -371,7 +374,7 @@ static void object_update(void *data)
 	if (!node->active) {
 		if (node->obj->obj.avail & SM_NODE_CHANGE_MASK_PARAMS) {
 			if (!find_format(node)) {
-				pw_log_debug(NAME" %p: node %d can't find format", impl, node->id);
+				pw_log_debug("%p: node %d can't find format", impl, node->id);
 				return;
 			}
 			node->active = true;
@@ -402,7 +405,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 		role = pw_properties_get(object->props, PW_KEY_MEDIA_ROLE);
 	}
 
-	pw_log_debug(NAME" %p: node "PW_KEY_MEDIA_CLASS" %s", impl, media_class);
+	pw_log_debug("%p: node "PW_KEY_MEDIA_CLASS" %s", impl, media_class);
 
 	if (media_class == NULL)
 		return 0;
@@ -449,7 +452,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 		node->direction = direction;
 		node->type = NODE_TYPE_STREAM;
 		node->media = strdup(media_class);
-		pw_log_debug(NAME" %p: node %d is stream %s", impl, object->id, node->media);
+		pw_log_debug("%p: node %d is stream %s", impl, object->id, node->media);
 	}
 	else {
 		const char *media;
@@ -493,7 +496,7 @@ handle_node(struct impl *impl, struct sm_object *object)
 		node->type = NODE_TYPE_DEVICE;
 		node->media = strdup(media);
 
-		pw_log_debug(NAME" %p: node %d '%s' prio:%d", impl,
+		pw_log_debug("%p: node %d '%s' prio:%d", impl,
 				object->id, node->media, node->priority);
 	}
 
@@ -659,7 +662,7 @@ static void session_create(void *data, struct sm_object *object)
 		res = 0;
 
 	if (res < 0) {
-		pw_log_warn(NAME" %p: can't handle global %d", impl, object->id);
+		pw_log_warn("%p: can't handle global %d", impl, object->id);
 	} else
 		sm_media_session_schedule_rescan(impl->session);
 }
@@ -667,7 +670,7 @@ static void session_create(void *data, struct sm_object *object)
 static void session_remove(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
-	pw_log_debug(NAME " %p: remove global '%d'", impl, object->id);
+	pw_log_debug("%p: remove global '%d'", impl, object->id);
 
 	if (spa_streq(object->type, PW_TYPE_INTERFACE_Node)) {
 		struct node *n, *node;
@@ -791,11 +794,11 @@ static int find_node(void *data, struct node *node)
 	bool is_default = false, can_passthrough = false;
 
 	if (node->obj->info == NULL) {
-		pw_log_debug(NAME " %p: skipping node '%d' with no node info", impl, node->id);
+		pw_log_debug("%p: skipping node '%d' with no node info", impl, node->id);
 		return 0;
 	}
 
-	pw_log_debug(NAME " %p: looking at node '%d' enabled:%d state:%d peer:%p exclusive:%d",
+	pw_log_debug("%p: looking at node '%d' enabled:%d state:%d peer:%p exclusive:%d",
 			impl, node->id, node->enabled, node->obj->info->state, node->peer, node->exclusive);
 
 	if (!node->enabled || node->type == NODE_TYPE_UNKNOWN)
@@ -852,7 +855,7 @@ static int find_node(void *data, struct node *node)
 	}
 	if ((find->exclusive && node->obj->info->state == PW_NODE_STATE_RUNNING) ||
 	    (node->peer && node->peer->exclusive)) {
-		pw_log_debug(NAME " %p: node '%d' in use", impl, node->id);
+		pw_log_debug("%p: node '%d' in use", impl, node->id);
 		return 0;
 	}
 	if (find->node && find->have_passthrough && node->have_passthrough)
@@ -860,17 +863,17 @@ static int find_node(void *data, struct node *node)
 
 	if ((find->passthrough_only || node->passthrough_only) &&
 	    !can_passthrough) {
-		pw_log_debug(NAME " %p: node '%d' passthrough required", impl, node->id);
+		pw_log_debug("%p: node '%d' passthrough required", impl, node->id);
 		return 0;
 	}
 
-	pw_log_debug(NAME " %p: found node '%d' %"PRIu64" prio:%d", impl,
+	pw_log_debug("%p: found node '%d' %"PRIu64" prio:%d", impl,
 			node->id, plugged, priority);
 
 	if (find->result == NULL ||
 	    priority > find->priority ||
 	    (priority == find->priority && plugged > find->plugged)) {
-		pw_log_debug(NAME " %p: new best %d %" PRIu64, impl, priority, plugged);
+		pw_log_debug("%p: new best %d %" PRIu64, impl, priority, plugged);
 		find->result = node;
 		find->priority = priority;
 		find->plugged = plugged;
@@ -916,7 +919,7 @@ static int link_nodes(struct node *node, struct node *peer)
 	int res;
 	uint32_t node_id = node->id;
 
-	pw_log_debug(NAME " %p: link nodes %d %d remix:%d", impl,
+	pw_log_debug("%p: link nodes %d %d remix:%d", impl,
 			node->id, peer->id, !node->dont_remix);
 
 	if (node->want_passthrough) {
@@ -966,7 +969,7 @@ static int unlink_nodes(struct node *node, struct node *peer)
 	struct impl *impl = node->impl;
 	struct pw_properties *props;
 
-	pw_log_debug(NAME " %p: unlink nodes %d %d", impl, node->id, peer->id);
+	pw_log_debug("%p: unlink nodes %d %d", impl, node->id, peer->id);
 
 	if (peer->peer == node)
 		peer->peer = NULL;
@@ -995,7 +998,7 @@ static int relink_node(struct impl *impl, struct node *n, struct node *peer)
 
 	if (peer == n->failed_peer && n->failed_count > MAX_LINK_RETRY) {
 		/* Break rescan -> failed link -> rescan loop. */
-		pw_log_debug(NAME" %p: tried to link '%d' on last rescan, not retrying",
+		pw_log_debug("%p: tried to link '%d' on last rescan, not retrying",
 				impl, peer->id);
 		return -EBUSY;
 	}
@@ -1015,7 +1018,7 @@ static int relink_node(struct impl *impl, struct node *n, struct node *peer)
 		if ((res = unlink_nodes(n, n->peer)) < 0)
 			return res;
 
-	pw_log_debug(NAME" %p: linking node %d to node %d", impl, n->id, peer->id);
+	pw_log_debug("%p: linking node %d to node %d", impl, n->id, peer->id);
 
 	/* NB. if link_nodes returns error, n may have been invalidated */
 	if ((res = link_nodes(n, peer)) > 0) {
@@ -1036,7 +1039,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 	uint32_t path_id;
 
 	if (!n->active) {
-		pw_log_debug(NAME " %p: node %d is not active", impl, n->id);
+		pw_log_debug("%p: node %d is not active", impl, n->id);
 		return 0;
 	}
 
@@ -1046,7 +1049,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 	}
 
 	if (n->obj->info == NULL || n->obj->info->props == NULL) {
-		pw_log_debug(NAME " %p: node %d has no properties", impl, n->id);
+		pw_log_debug("%p: node %d has no properties", impl, n->id);
 		return 0;
 	}
 
@@ -1075,17 +1078,17 @@ static int rescan_node(struct impl *impl, struct node *n)
 		autoconnect = true;
 
 	if (!autoconnect) {
-		pw_log_debug(NAME" %p: node %d does not need autoconnect", impl, n->id);
+		pw_log_debug("%p: node %d does not need autoconnect", impl, n->id);
 		configure_node(n, NULL, false);
 		return 0;
 	}
 
 	if (n->media == NULL) {
-		pw_log_debug(NAME" %p: node %d has unknown media", impl, n->id);
+		pw_log_debug("%p: node %d has unknown media", impl, n->id);
 		return 0;
 	}
 
-	pw_log_debug(NAME " %p: exclusive:%d", impl, n->exclusive);
+	pw_log_debug("%p: exclusive:%d", impl, n->exclusive);
 
 	/* honor target node set by user or asked for by the client */
 	path_id = SPA_ID_INVALID;
@@ -1111,7 +1114,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 		bool recheck = !peer_is_target && (follows_default || target_found) &&
 			reconnect && !n->passthrough;
 		if (!recheck) {
-			pw_log_debug(NAME " %p: node %d is already linked, peer-is-target:%d "
+			pw_log_debug("%p: node %d is already linked, peer-is-target:%d "
 					"follows-default:%d", impl, n->id, peer_is_target,
 					follows_default);
 			return 0;
@@ -1122,7 +1125,7 @@ static int rescan_node(struct impl *impl, struct node *n)
 			n->id, n->exclusive, reconnect, path_id, n->peer);
 
 	if (path_id != SPA_ID_INVALID) {
-		pw_log_debug(NAME " %p: target:%d", impl, path_id);
+		pw_log_debug("%p: target:%d", impl, path_id);
 
 		if (!reconnect)
 			n->obj->target_node = NULL;
@@ -1139,12 +1142,12 @@ static int rescan_node(struct impl *impl, struct node *n)
 			goto fallback;
 
 		peer = sm_object_get_data(obj, SESSION_KEY);
-		pw_log_debug(NAME " %p: found target:%d type:%s %d:%d", impl,
+		pw_log_debug("%p: found target:%d type:%s %d:%d", impl,
 				peer->id, obj->type, n->passthrough_only, peer->have_passthrough);
 
 		can_passthrough = check_passthrough(n, peer);
 		if (n->passthrough_only && !can_passthrough) {
-			pw_log_info(NAME " %p: peer has no passthrough", impl);
+			pw_log_info("%p: peer has no passthrough", impl);
 			goto fallback;
 		}
 
@@ -1186,16 +1189,16 @@ do_link:
 			sm_media_session_destroy_object(impl->session, n->id);
 		} else if (reconnect && n->connect_count > 0) {
 			/* Don't error the stream on reconnects */
-			pw_log_info(NAME " %p: no node found for %d, waiting reconnect", impl, n->id);
+			pw_log_info("%p: no node found for %d, waiting reconnect", impl, n->id);
 			if (n->peer != NULL)
 				unlink_nodes(n, n->peer);
 			return 0;
 		} else {
-			pw_log_warn(NAME " %p: no node found for %d, stream error", impl, n->id);
+			pw_log_warn("%p: no node found for %d, stream error", impl, n->id);
 		}
 
 		obj = sm_media_session_find_object(impl->session, n->client_id);
-		pw_log_debug(NAME " %p: client_id:%d object:%p type:%s", impl,
+		pw_log_debug("%p: client_id:%d object:%p type:%s", impl,
 				n->client_id, obj, obj ? obj->type : "None");
 
 		if (obj && spa_streq(obj->type, PW_TYPE_INTERFACE_Client)) {
@@ -1204,7 +1207,7 @@ do_link:
 		}
 		return -ENOENT;
 	} else if (peer == n->peer) {
-		pw_log_debug(NAME " %p: node %d already linked to %d (not changing)",
+		pw_log_debug("%p: node %d already linked to %d (not changing)",
 				impl, n->id, peer->id);
 		return 0;
 	} else {
@@ -1230,7 +1233,7 @@ static void session_info(void *data, const struct pw_core_info *info)
 		if ((str = spa_dict_lookup(info->props, "default.clock.rate")) != NULL)
 			impl->sample_rate = atoi(str);
 
-		pw_log_debug(NAME" %p: props changed sample_rate:%d", impl, impl->sample_rate);
+		pw_log_debug("%p: props changed sample_rate:%d", impl, impl->sample_rate);
 	}
 }
 
@@ -1241,7 +1244,7 @@ static void refresh_auto_default_nodes(struct impl *impl)
 	if (impl->session->metadata == NULL)
 		return;
 
-	pw_log_debug(NAME" %p: refresh", impl);
+	pw_log_debug("%p: refresh", impl);
 
 	/* Auto set default nodes */
 	for (def = impl->defaults; def->key != NULL; ++def) {
@@ -1274,7 +1277,7 @@ static void session_rescan(void *data, int seq)
 	struct impl *impl = data;
 	struct node *node;
 
-	pw_log_debug(NAME" %p: rescan", impl);
+	pw_log_debug("%p: rescan", impl);
 
 again:
 	impl->node_list_changed = false;
@@ -1394,6 +1397,8 @@ int sm_policy_node_start(struct sm_media_session *session)
 {
 	struct impl *impl;
 	const char *flag;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

@@ -120,7 +120,7 @@ static DBusHandlerResult object_handler(DBusConnection *c, DBusMessage *m, void 
 					DBUS_TYPE_INVALID))
 			goto invalid;
 
-		pw_log_debug(NAME" %p: request release priority:%d", d, priority);
+		pw_log_debug("%p: request release priority:%d", d, priority);
 
 		if (!(reply = dbus_message_new_method_return(m)))
 			goto oom;
@@ -260,7 +260,7 @@ static DBusHandlerResult filter_handler(DBusConnection *c, DBusMessage *m, void 
 		if (!spa_streq(name, d->service_name))
 			goto invalid;
 
-		pw_log_debug(NAME" %p: acquired %s, %s", d, name, d->service_name);
+		pw_log_debug("%p: acquired %s, %s", d, name, d->service_name);
 
 		d->owning = true;
 
@@ -288,7 +288,7 @@ static DBusHandlerResult filter_handler(DBusConnection *c, DBusMessage *m, void 
 		if (!spa_streq(name, d->service_name))
 			goto invalid;
 
-		pw_log_debug(NAME" %p: lost %s", d, name);
+		pw_log_debug("%p: lost %s", d, name);
 
 		d->owning = false;
 
@@ -310,7 +310,7 @@ static DBusHandlerResult filter_handler(DBusConnection *c, DBusMessage *m, void 
 		if (!spa_streq(name, d->service_name) || d->owning)
 			goto invalid;
 
-		pw_log_debug(NAME" %p: changed %s: %s -> %s", d, name, old, new);
+		pw_log_debug("%p: changed %s: %s -> %s", d, name, old, new);
 
 		if (old == NULL || *old == 0) {
 			if (d->callbacks->busy && !d->acquiring)
@@ -374,7 +374,7 @@ rd_device_new(DBusConnection *connection, const char *device_name, const char *a
 
 	dbus_connection_ref(d->connection);
 
-	pw_log_debug(NAME"%p: new device %s", d, device_name);
+	pw_log_debug("%p: new device %s", d, device_name);
 
 	return d;
 
@@ -393,7 +393,7 @@ int rd_device_acquire(struct rd_device *d)
 
 	dbus_error_init(&error);
 
-	pw_log_debug(NAME"%p: reserve %s", d, d->service_name);
+	pw_log_debug("%p: reserve %s", d, d->service_name);
 
 	d->acquiring = true;
 
@@ -401,12 +401,12 @@ int rd_device_acquire(struct rd_device *d)
 					d->service_name,
 					(d->priority < INT32_MAX ? DBUS_NAME_FLAG_ALLOW_REPLACEMENT : 0),
 					&error)) < 0) {
-			pw_log_warn(NAME"%p: reserve failed: %s", d, error.message);
+			pw_log_warn("%p: reserve failed: %s", d, error.message);
 			dbus_error_free(&error);
 			return -EIO;
 	}
 
-	pw_log_debug(NAME"%p: reserve result: %d", d, res);
+	pw_log_debug("%p: reserve result: %d", d, res);
 
 	if (res == DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER ||
 	    res == DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER)
@@ -451,7 +451,7 @@ int rd_device_complete_release(struct rd_device *d, int res)
 	if (d->reply == NULL)
 		return -EINVAL;
 
-	pw_log_debug(NAME" %p: complete release %d", d, res);
+	pw_log_debug("%p: complete release %d", d, res);
 
 	if (!dbus_message_append_args(d->reply,
 				DBUS_TYPE_BOOLEAN, &ret,
@@ -473,7 +473,7 @@ exit:
 
 void rd_device_release(struct rd_device *d)
 {
-	pw_log_debug(NAME" %p: release %d", d, d->owning);
+	pw_log_debug("%p: release %d", d, d->owning);
 
 	if (d->owning) {
 		DBusError error;

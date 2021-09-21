@@ -79,6 +79,9 @@
 #define NAME		"access-portal"
 #define SESSION_KEY	"access-portal"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 enum media_role {
 	MEDIA_ROLE_INVALID = -1,
 	MEDIA_ROLE_NONE = 0,
@@ -178,7 +181,7 @@ static void object_update(void *data)
 	struct client *client = data;
 	struct impl *impl = client->impl;
 
-	pw_log_debug(NAME" %p: client %p %08x", impl, client, client->obj->obj.changed);
+	pw_log_debug("%p: client %p %08x", impl, client, client->obj->obj.changed);
 
 	if (client->obj->obj.avail & SM_CLIENT_CHANGE_MASK_INFO)
 		client_info_changed(client, client->obj->info);
@@ -195,7 +198,7 @@ handle_client(struct impl *impl, struct sm_object *object)
 	struct client *client;
 	const char *str;
 
-	pw_log_debug(NAME" %p: client %u", impl, object->id);
+	pw_log_debug("%p: client %u", impl, object->id);
 
 	client = sm_object_add_data(object, SESSION_KEY, sizeof(struct client));
 	client->obj = (struct sm_client*)object;
@@ -210,7 +213,7 @@ handle_client(struct impl *impl, struct sm_object *object)
 	    (str = pw_properties_get(client->obj->obj.props, PW_KEY_CLIENT_ACCESS)) != NULL) &&
 	    spa_streq(str, "portal")) {
 		client->portal_managed = true;
-		pw_log_info(NAME " %p: portal managed client %d added",
+		pw_log_info("%p: portal managed client %d added",
 			     impl, client->id);
 	}
 	return 1;
@@ -230,7 +233,7 @@ set_global_permissions(void *data, struct sm_object *object)
 	if ((props = object->props) == NULL)
 		return 0;
 
-	pw_log_debug(NAME" %p: object %d type:%s", impl, object->id, object->type);
+	pw_log_debug("%p: object %d type:%s", impl, object->id, object->type);
 
 	if (spa_streq(object->type, PW_TYPE_INTERFACE_Client)) {
 		set_permission = allowed = object->id == client->id;
@@ -261,7 +264,7 @@ set_global_permissions(void *data, struct sm_object *object)
 	if (set_permission) {
 		permissions[n_permissions++] =
 			PW_PERMISSION_INIT(object->id, allowed ? PW_PERM_ALL : 0);
-		pw_log_info(NAME" %p: object %d allowed:%d", impl, object->id, allowed);
+		pw_log_info("%p: object %d allowed:%d", impl, object->id, allowed);
 		pw_client_update_permissions(client->obj->obj.proxy,
 				n_permissions, permissions);
 	}
@@ -274,7 +277,7 @@ static void session_create(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
 
-	pw_log_debug(NAME " %p: create global '%d'", impl, object->id);
+	pw_log_debug("%p: create global '%d'", impl, object->id);
 
 	if (spa_streq(object->type, PW_TYPE_INTERFACE_Client)) {
 		handle_client(impl, object);
@@ -300,7 +303,7 @@ static void destroy_client(struct impl *impl, struct client *client)
 static void session_remove(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
-	pw_log_debug(NAME " %p: remove global '%d'", impl, object->id);
+	pw_log_debug("%p: remove global '%d'", impl, object->id);
 
 	if (spa_streq(object->type, PW_TYPE_INTERFACE_Client)) {
 		struct client *client;
@@ -491,7 +494,7 @@ static void client_info_changed(struct client *client, const struct pw_client_in
 
 	is_portal = spa_dict_lookup(props, "pipewire.access.portal.is_portal");
 	if (spa_streq(is_portal, "yes") || pw_properties_parse_bool(is_portal)) {
-		pw_log_info(NAME " %p: client %d is the portal itself",
+		pw_log_info("%p: client %d is the portal itself",
 			     impl, client->id);
 		client->is_portal = true;
 		return;
@@ -499,13 +502,13 @@ static void client_info_changed(struct client *client, const struct pw_client_in
 
 	app_id = spa_dict_lookup(props, "pipewire.access.portal.app_id");
 	if (app_id == NULL) {
-		pw_log_error(NAME" %p: Portal managed client %d didn't set app_id",
+		pw_log_error("%p: Portal managed client %d didn't set app_id",
 				impl, client->id);
 		return;
 	}
 	media_roles = spa_dict_lookup(props, "pipewire.access.portal.media_roles");
 	if (media_roles == NULL) {
-		pw_log_error(NAME" %p: Portal managed client %d didn't set media_roles",
+		pw_log_error("%p: Portal managed client %d didn't set media_roles",
 				impl, client->id);
 		return;
 	}
@@ -513,7 +516,7 @@ static void client_info_changed(struct client *client, const struct pw_client_in
 	client->app_id = strdup(app_id);
 	client->media_roles = parse_media_roles(media_roles);
 
-	pw_log_info(NAME" %p: client %d with app_id '%s' set to portal access",
+	pw_log_info("%p: client %d with app_id '%s' set to portal access",
 			impl, client->id, client->app_id);
 
 	do_permission_store_check(client);
@@ -646,6 +649,8 @@ static DBusConnection *get_dbus_connection(struct impl *impl)
 int sm_access_portal_start(struct sm_media_session *session)
 {
 	struct impl *impl;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

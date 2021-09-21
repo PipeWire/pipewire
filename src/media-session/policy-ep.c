@@ -53,6 +53,9 @@
 
 #define DEFAULT_IDLE_SECONDS	3
 
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct impl {
 	struct timespec now;
 
@@ -119,7 +122,7 @@ handle_endpoint(struct impl *impl, struct sm_object *object)
 
 	media_class = object->props ? pw_properties_get(object->props, PW_KEY_MEDIA_CLASS) : NULL;
 
-	pw_log_debug(NAME" %p: endpoint "PW_KEY_MEDIA_CLASS" %s", impl, media_class);
+	pw_log_debug("%p: endpoint "PW_KEY_MEDIA_CLASS" %s", impl, media_class);
 
 	if (media_class == NULL)
 		return 0;
@@ -150,7 +153,7 @@ handle_endpoint(struct impl *impl, struct sm_object *object)
 		ep->direction = direction;
 		ep->type = ENDPOINT_TYPE_STREAM;
 		ep->media = strdup(media_class);
-		pw_log_debug(NAME "%p: endpoint %d is stream %s", impl, object->id, ep->media);
+		pw_log_debug("%p: endpoint %d is stream %s", impl, object->id, ep->media);
 	}
 	else {
 		const char *media;
@@ -176,7 +179,7 @@ handle_endpoint(struct impl *impl, struct sm_object *object)
 		ep->type = ENDPOINT_TYPE_DEVICE;
 		ep->media = strdup(media);
 
-		pw_log_debug(NAME" %p: endpoint %d '%s' prio:%d", impl,
+		pw_log_debug("%p: endpoint %d '%s' prio:%d", impl,
 				object->id, ep->media, ep->priority);
 	}
 	return 1;
@@ -230,7 +233,7 @@ static void session_create(void *data, struct sm_object *object)
 		res = 0;
 
 	if (res < 0) {
-		pw_log_warn(NAME" %p: can't handle global %d", impl, object->id);
+		pw_log_warn("%p: can't handle global %d", impl, object->id);
 	}
 	else
 		sm_media_session_schedule_rescan(impl->session);
@@ -239,7 +242,7 @@ static void session_create(void *data, struct sm_object *object)
 static void session_remove(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
-	pw_log_debug(NAME " %p: remove global '%d'", impl, object->id);
+	pw_log_debug("%p: remove global '%d'", impl, object->id);
 
 	if (spa_streq(object->type, PW_TYPE_INTERFACE_Endpoint)) {
 		struct endpoint *ep;
@@ -271,7 +274,7 @@ static int find_endpoint(void *data, struct endpoint *endpoint)
 	int priority = 0;
 	uint64_t plugged = 0;
 
-	pw_log_debug(NAME " %p: looking at endpoint '%d' enabled:%d busy:%d exclusive:%d",
+	pw_log_debug("%p: looking at endpoint '%d' enabled:%d busy:%d exclusive:%d",
 			impl, endpoint->id, endpoint->enabled, endpoint->busy, endpoint->exclusive);
 
 	if (!endpoint->enabled)
@@ -290,17 +293,17 @@ static int find_endpoint(void *data, struct endpoint *endpoint)
 	priority = endpoint->priority;
 
 	if ((find->exclusive && endpoint->busy) || endpoint->exclusive) {
-		pw_log_debug(NAME " %p: endpoint '%d' in use", impl, endpoint->id);
+		pw_log_debug("%p: endpoint '%d' in use", impl, endpoint->id);
 		return 0;
 	}
 
-	pw_log_debug(NAME " %p: found endpoint '%d' %"PRIu64" prio:%d", impl,
+	pw_log_debug("%p: found endpoint '%d' %"PRIu64" prio:%d", impl,
 			endpoint->id, plugged, priority);
 
 	if (find->endpoint == NULL ||
 	    priority > find->priority ||
 	    (priority == find->priority && plugged > find->plugged)) {
-		pw_log_debug(NAME " %p: new best %d %" PRIu64, impl, priority, plugged);
+		pw_log_debug("%p: new best %d %" PRIu64, impl, priority, plugged);
 		find->endpoint = endpoint;
 		find->priority = priority;
 		find->plugged = plugged;
@@ -313,7 +316,7 @@ static int link_endpoints(struct endpoint *endpoint, struct endpoint *peer)
 	struct impl *impl = endpoint->impl;
 	struct pw_properties *props;
 
-	pw_log_debug(NAME " %p: link endpoints %d %d", impl, endpoint->id, peer->id);
+	pw_log_debug("%p: link endpoints %d %d", impl, endpoint->id, peer->id);
 
 	if (endpoint->direction == PW_DIRECTION_INPUT) {
 		struct endpoint *t = endpoint;
@@ -325,7 +328,7 @@ static int link_endpoints(struct endpoint *endpoint, struct endpoint *peer)
 	pw_properties_setf(props, PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM, "%d", -1);
 	pw_properties_setf(props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT, "%d", peer->id);
 	pw_properties_setf(props, PW_KEY_ENDPOINT_LINK_INPUT_STREAM, "%d", -1);
-	pw_log_debug(NAME " %p: endpoint %d -> endpoint %d", impl,
+	pw_log_debug("%p: endpoint %d -> endpoint %d", impl,
 			endpoint->id, peer->id);
 
 	pw_endpoint_create_link((struct pw_endpoint*)endpoint->obj->obj.proxy,
@@ -344,7 +347,7 @@ static int link_node(struct endpoint *endpoint, struct sm_node *peer)
 	struct impl *impl = endpoint->impl;
 	struct pw_properties *props;
 
-	pw_log_debug(NAME " %p: link endpoint %d to node %d", impl, endpoint->id, peer->obj.id);
+	pw_log_debug("%p: link endpoint %d to node %d", impl, endpoint->id, peer->obj.id);
 
 	props = pw_properties_new(NULL, NULL);
 
@@ -353,14 +356,14 @@ static int link_node(struct endpoint *endpoint, struct sm_node *peer)
 		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", -1);
 		pw_properties_setf(props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT, "%d", endpoint->id);
 		pw_properties_setf(props, PW_KEY_ENDPOINT_LINK_INPUT_STREAM, "%d", -1);
-		pw_log_debug(NAME " %p: node %d -> endpoint %d", impl,
+		pw_log_debug("%p: node %d -> endpoint %d", impl,
 				peer->obj.id, endpoint->id);
 	} else {
 		pw_properties_setf(props, PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT, "%d", endpoint->id);
 		pw_properties_setf(props, PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM, "%d", -1);
 		pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", peer->obj.id);
 		pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", -1);
-		pw_log_debug(NAME " %p: endpoint %d -> node %d", impl,
+		pw_log_debug("%p: endpoint %d -> node %d", impl,
 				endpoint->id, peer->obj.id);
 	}
 
@@ -389,12 +392,12 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 		return 0;
 
 	if (ep->obj->info == NULL || ep->obj->info->props == NULL) {
-		pw_log_debug(NAME " %p: endpoint %d has no properties", impl, ep->id);
+		pw_log_debug("%p: endpoint %d has no properties", impl, ep->id);
 		return 0;
 	}
 
 	if (ep->linked > 0) {
-		pw_log_debug(NAME " %p: endpoint %d is already linked", impl, ep->id);
+		pw_log_debug("%p: endpoint %d is already linked", impl, ep->id);
 		return 0;
 	}
 
@@ -403,12 +406,12 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 
         str = spa_dict_lookup(props, PW_KEY_ENDPOINT_AUTOCONNECT);
         if (str == NULL || !pw_properties_parse_bool(str)) {
-		pw_log_debug(NAME" %p: endpoint %d does not need autoconnect", impl, ep->id);
+		pw_log_debug("%p: endpoint %d does not need autoconnect", impl, ep->id);
                 return 0;
 	}
 
 	if (ep->media == NULL) {
-		pw_log_debug(NAME" %p: endpoint %d has unknown media", impl, ep->id);
+		pw_log_debug("%p: endpoint %d has unknown media", impl, ep->id);
 		return 0;
 	}
 
@@ -423,14 +426,14 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 	find.ep = ep;
 	find.exclusive = exclusive;
 
-	pw_log_debug(NAME " %p: exclusive:%d", impl, exclusive);
+	pw_log_debug("%p: exclusive:%d", impl, exclusive);
 
 	str = spa_dict_lookup(props, PW_KEY_ENDPOINT_TARGET);
 	if (str == NULL)
 		str = spa_dict_lookup(props, PW_KEY_NODE_TARGET);
 	if (str != NULL) {
 		uint32_t path_id = atoi(str);
-		pw_log_debug(NAME " %p: target:%d", impl, path_id);
+		pw_log_debug("%p: target:%d", impl, path_id);
 
 		if ((obj = sm_media_session_find_object(impl->session, path_id)) != NULL) {
 			if (spa_streq(obj->type, PW_TYPE_INTERFACE_Endpoint)) {
@@ -450,7 +453,7 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 	if (find.endpoint == NULL) {
 		struct sm_object *obj;
 
-		pw_log_warn(NAME " %p: no endpoint found for %d", impl, ep->id);
+		pw_log_warn("%p: no endpoint found for %d", impl, ep->id);
 
 		str = spa_dict_lookup(props, PW_KEY_NODE_DONT_RECONNECT);
 		if (str != NULL && pw_properties_parse_bool(str)) {
@@ -467,12 +470,12 @@ static int rescan_endpoint(struct impl *impl, struct endpoint *ep)
 	peer = find.endpoint;
 
 	if (exclusive && peer->busy) {
-		pw_log_warn(NAME" %p: endpoint %d busy, can't get exclusive access", impl, peer->id);
+		pw_log_warn("%p: endpoint %d busy, can't get exclusive access", impl, peer->id);
 		return -EBUSY;
 	}
 	peer->exclusive = exclusive;
 
-	pw_log_debug(NAME" %p: linking to endpoint '%d'", impl, peer->id);
+	pw_log_debug("%p: linking to endpoint '%d'", impl, peer->id);
 
         peer->busy = true;
 
@@ -490,7 +493,7 @@ static void session_rescan(void *data, int seq)
 	struct endpoint *ep;
 
 	clock_gettime(CLOCK_MONOTONIC, &impl->now);
-	pw_log_debug(NAME" %p: rescan", impl);
+	pw_log_debug("%p: rescan", impl);
 
 	spa_list_for_each(ep, &impl->endpoint_list, link)
 		rescan_endpoint(impl, ep);
@@ -514,6 +517,8 @@ static const struct sm_media_session_events session_events = {
 int sm_policy_ep_start(struct sm_media_session *session)
 {
 	struct impl *impl;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

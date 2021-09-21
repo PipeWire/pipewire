@@ -151,6 +151,9 @@ PipeWire uses a "category.topic" naming scheme, with the following categories:
 - `pw.*`: pipewire-internal topics
 - `mod.*`: module topics, for example `mod.foo` would usually refer to the
   "foo" module
+- `ms.*`: media session topics
+- `ms.mod.*`: media session modules, for example `ms.foo` would usually refer
+   to the "media-session-foo" module
 - `conn.*`: connection-specific topics such as printing raw messages sent over
   a communication socket. These are in a separate namespace as they are
   usually vastly more verbose than the normal debugging topics.

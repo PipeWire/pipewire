@@ -71,6 +71,9 @@
 #define SESSION_KEY	"restore-stream"
 #define PREFIX		"restore.stream."
 
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define SAVE_INTERVAL	1
 
 struct impl {
@@ -119,7 +122,7 @@ static void remove_idle_timeout(struct impl *impl)
 static void idle_timeout(void *data, uint64_t expirations)
 {
 	struct impl *impl = data;
-	pw_log_debug(NAME " %p: idle timeout", impl);
+	pw_log_debug("%p: idle timeout", impl);
 	remove_idle_timeout(impl);
 }
 
@@ -321,7 +324,7 @@ static int restore_stream(struct stream *str)
 	if (val == NULL)
 		return -ENOENT;
 
-	pw_log_info("stream %d: restore '%s' to %s", str->id, str->key, val);
+	pw_log_info("stream %d: restoring '%s' to %s", str->id, str->key, val);
 
 	spa_json_init(&it[0], val, strlen(val));
 
@@ -456,7 +459,7 @@ static void update_stream(struct stream *str)
 	if (key == NULL)
 		return;
 
-	pw_log_debug(NAME " %p: stream %p key '%s'", impl, str, key);
+	pw_log_debug("%p: stream %p key '%s'", impl, str, key);
 	free(str->key);
 	str->key = key;
 
@@ -473,7 +476,7 @@ static void object_update(void *data)
 	struct stream *str = data;
 	struct impl *impl = str->impl;
 
-	pw_log_info(NAME" %p: stream %p %08x/%08x", impl, str,
+	pw_log_info("%p: stream %p %08x/%08x", impl, str,
 			str->obj->obj.changed, str->obj->obj.avail);
 
 	if (str->obj->obj.changed & (SM_NODE_CHANGE_MASK_INFO | SM_NODE_CHANGE_MASK_PARAMS))
@@ -498,11 +501,11 @@ static void session_create(void *data, struct sm_object *object)
 
 	if (spa_strstartswith(media_class, "Stream/")) {
 		media_class += strlen("Stream/");
-		pw_log_debug(NAME " %p: add stream '%d' %s", impl, object->id, media_class);
+		pw_log_debug("%p: add stream '%d' %s", impl, object->id, media_class);
 	} else if (spa_strstartswith(media_class, "Audio/") &&
 		   ((routes = pw_properties_get(object->props, "device.routes")) == NULL ||
 		    atoi(routes) == 0)) {
-		pw_log_debug(NAME " %p: add node '%d' %s", impl, object->id, media_class);
+		pw_log_debug("%p: add node '%d' %s", impl, object->id, media_class);
 	} else {
 		return;
 	}
@@ -534,7 +537,7 @@ static void session_remove(void *data, struct sm_object *object)
 	if (!spa_streq(object->type, PW_TYPE_INTERFACE_Node))
 		return;
 
-	pw_log_debug(NAME " %p: remove node '%d'", impl, object->id);
+	pw_log_debug("%p: remove node '%d'", impl, object->id);
 
 	if ((str = sm_object_get_data(object, SESSION_KEY)) != NULL)
 		destroy_stream(impl, str);
@@ -551,6 +554,8 @@ int sm_restore_stream_start(struct sm_media_session *session)
 {
 	struct impl *impl;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

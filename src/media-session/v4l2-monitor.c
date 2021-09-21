@@ -46,7 +46,11 @@
 
 /** \page page_media_session_module_v4l2_monitor Media Session Module: V4L2 Monitor
  */
+#define NAME "v4l2-monitor"
 #define SESSION_CONF	"v4l2-monitor.conf"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
 
 struct device;
 
@@ -538,6 +542,8 @@ int sm_v4l2_monitor_start(struct sm_media_session *sess)
 	struct impl *impl;
 	int res;
 	void *iface;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

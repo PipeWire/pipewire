@@ -83,6 +83,9 @@
 
 #define SAVE_INTERVAL	1
 
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct impl {
 	struct timespec now;
 
@@ -131,7 +134,7 @@ static void remove_idle_timeout(struct impl *impl)
 static void idle_timeout(void *data, uint64_t expirations)
 {
 	struct impl *impl = data;
-	pw_log_debug(NAME " %p: idle timeout", impl);
+	pw_log_debug("%p: idle timeout", impl);
 	remove_idle_timeout(impl);
 }
 
@@ -396,7 +399,7 @@ static void object_update(void *data)
 	struct impl *impl = dev->impl;
 	const char *str;
 
-	pw_log_debug(NAME" %p: device %p %08x/%08x", impl, dev,
+	pw_log_debug("%p: device %p %08x/%08x", impl, dev,
 			dev->obj->obj.changed, dev->obj->obj.avail);
 
 	if (dev->obj->info && dev->obj->info->props &&
@@ -424,7 +427,7 @@ static void session_create(void *data, struct sm_object *object)
 	    (name = pw_properties_get(object->props, PW_KEY_DEVICE_NAME)) == NULL)
 		return;
 
-	pw_log_debug(NAME " %p: add device '%d' %s", impl, object->id, name);
+	pw_log_debug("%p: add device '%d' %s", impl, object->id, name);
 
 	dev = sm_object_add_data(object, SESSION_KEY, sizeof(struct device));
 	dev->obj = (struct sm_device*)object;
@@ -455,7 +458,7 @@ static void session_remove(void *data, struct sm_object *object)
 	if (!spa_streq(object->type, PW_TYPE_INTERFACE_Device))
 		return;
 
-	pw_log_debug(NAME " %p: remove device '%d'", impl, object->id);
+	pw_log_debug("%p: remove device '%d'", impl, object->id);
 
 	if ((dev = sm_object_get_data(object, SESSION_KEY)) != NULL)
 		destroy_device(impl, dev);
@@ -482,6 +485,8 @@ int sm_default_profile_start(struct sm_media_session *session)
 	struct impl *impl;
 	int res;
 	const char *str;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

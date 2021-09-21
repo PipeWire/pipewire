@@ -52,6 +52,9 @@
 
 #define NAME		"logind"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct impl {
 	struct sm_media_session *session;
 	struct spa_hook listener;
@@ -106,6 +109,8 @@ int sm_logind_start(struct sm_media_session *session)
 	struct pw_loop *main_loop;
 	int res;
 
+	PW_LOG_TOPIC_INIT(mod_topic);
+
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
 		return -errno;
@@ -132,7 +137,7 @@ int sm_logind_start(struct sm_media_session *session)
 	return 0;
 
 fail:
-	pw_log_error(NAME ": failed to start systemd logind monitor: %d (%s)", res, spa_strerror(res));
+	pw_log_error(": failed to start systemd logind monitor: %d (%s)", res, spa_strerror(res));
 	free(impl);
 	return res;
 }

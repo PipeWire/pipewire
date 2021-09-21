@@ -53,6 +53,9 @@
 #define NAME		"bluez-autoswitch"
 #define SESSION_KEY	"bluez-autoswitch"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define RESTORE_DELAY_SEC		3
 
 #define DEFAULT_AUDIO_SINK_KEY		"default.audio.sink"
@@ -201,7 +204,7 @@ static int set_profile(struct sm_device *dev, const char *profile_name)
        if ((ret = find_profile(dev, -1, profile_name, &index, NULL, NULL)) < 0)
 	       return ret;
 
-       pw_log_info(NAME ": switching device %d to profile %s", dev->obj.id, profile_name);
+       pw_log_info("switching device %d to profile %s", dev->obj.id, profile_name);
 
        return pw_device_set_param((struct pw_device *)dev->obj.proxy,
 		       SPA_PARAM_Profile, 0,
@@ -357,7 +360,7 @@ static void switch_profile_if_needed(struct impl *impl)
 	if (impl->record_count == 0)
 		goto inactive;
 
-	pw_log_debug(NAME ": considering switching device profiles");
+	pw_log_debug("considering switching device profiles");
 
 	if ((dev = find_default_output_device(impl)) == NULL)
 		goto inactive;
@@ -566,7 +569,7 @@ static void session_create(void *data, struct sm_object *object)
 	if (!spa_streq(pw_properties_get(object->props, PW_KEY_MEDIA_CLASS), "Stream/Input/Audio"))
 		return;
 
-	pw_log_debug(NAME ": input stream %d added", object->id);
+	pw_log_debug("input stream %d added", object->id);
 
 	node = sm_object_add_data(object, SESSION_KEY, sizeof(struct node));
 	if (!node->obj) {
@@ -591,7 +594,7 @@ static void session_remove(void *data, struct sm_object *object)
 	change_node_state(node, false, false);
 
 	if (node->obj) {
-		pw_log_debug(NAME ": input stream %d removed", object->id);
+		pw_log_debug("input stream %d removed", object->id);
 		spa_hook_remove(&node->listener);
 		node->obj = NULL;
 	}
@@ -669,6 +672,8 @@ int sm_bluez5_autoswitch_start(struct sm_media_session *session)
 {
 	struct impl *impl;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

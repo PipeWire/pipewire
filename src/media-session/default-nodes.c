@@ -53,6 +53,9 @@
 #define DEFAULT_CONFIG_AUDIO_SOURCE_KEY	"default.configured.audio.source"
 #define DEFAULT_CONFIG_VIDEO_SOURCE_KEY	"default.configured.video.source"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct impl {
 	struct sm_media_session *session;
 	struct spa_hook listener;
@@ -89,7 +92,7 @@ static void remove_idle_timeout(struct impl *impl)
 static void idle_timeout(void *data, uint64_t expirations)
 {
 	struct impl *impl = data;
-	pw_log_debug(NAME " %p: idle timeout", impl);
+	pw_log_debug("%p: idle timeout", impl);
 	remove_idle_timeout(impl);
 }
 
@@ -170,6 +173,8 @@ int sm_default_nodes_start(struct sm_media_session *session)
 {
 	struct impl *impl;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

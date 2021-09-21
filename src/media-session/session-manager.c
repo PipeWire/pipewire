@@ -47,6 +47,9 @@
 #define NAME		"session-manager"
 #define SESSION_KEY	"session-manager"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 int sm_stream_endpoint_start(struct sm_media_session *sess);
 int sm_v4l2_endpoint_start(struct sm_media_session *sess);
 int sm_bluez5_endpoint_start(struct sm_media_session *sess);
@@ -145,6 +148,8 @@ static const struct sm_media_session_events session_events = {
 int sm_session_manager_start(struct sm_media_session *session)
 {
 	struct impl *impl;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

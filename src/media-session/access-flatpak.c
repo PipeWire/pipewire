@@ -57,6 +57,9 @@
 #define NAME		"access-flatpak"
 #define SESSION_KEY	"access-flatpak"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct impl {
 	struct sm_media_session *session;
 	struct spa_hook listener;
@@ -82,7 +85,7 @@ static void object_update(void *data)
 	struct impl *impl = client->impl;
 	const char *str;
 
-	pw_log_debug(NAME" %p: client %p %08x", impl, client, client->obj->obj.changed);
+	pw_log_debug("%p: client %p %08x", impl, client, client->obj->obj.changed);
 
 	if (client->obj->obj.avail & SM_CLIENT_CHANGE_MASK_INFO &&
 	    !client->active) {
@@ -104,7 +107,7 @@ static void object_update(void *data)
 			perms = PW_PERM_R | PW_PERM_X;
 		}
 
-		pw_log_info(NAME" %p: flatpak client %d granted 0x%08x permissions"
+		pw_log_info("%p: flatpak client %d granted 0x%08x permissions"
 				, impl, client->id, perms);
 		permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, perms);
 		pw_client_update_permissions(client->obj->obj.proxy,
@@ -123,7 +126,7 @@ handle_client(struct impl *impl, struct sm_object *object)
 {
 	struct client *client;
 
-	pw_log_debug(NAME" %p: client", impl);
+	pw_log_debug("%p: client", impl);
 
 	client = sm_object_add_data(object, SESSION_KEY, sizeof(struct client));
 	client->obj = (struct sm_client*)object;
@@ -149,7 +152,7 @@ static void session_create(void *data, struct sm_object *object)
 	struct impl *impl = data;
 	int res;
 
-	pw_log_debug(NAME " %p: create global '%d'", impl, object->id);
+	pw_log_debug("%p: create global '%d'", impl, object->id);
 
 	if (spa_streq(object->type, PW_TYPE_INTERFACE_Client))
 		res = handle_client(impl, object);
@@ -157,13 +160,13 @@ static void session_create(void *data, struct sm_object *object)
 		res = 0;
 
 	if (res < 0)
-		pw_log_warn(NAME" %p: can't handle global %d", impl, object->id);
+		pw_log_warn("%p: can't handle global %d", impl, object->id);
 }
 
 static void session_remove(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
-	pw_log_debug(NAME " %p: remove global '%d'", impl, object->id);
+	pw_log_debug("%p: remove global '%d'", impl, object->id);
 
 	if (spa_streq(object->type, PW_TYPE_INTERFACE_Client)) {
 		struct client *client;
@@ -195,6 +198,8 @@ static const struct sm_media_session_events session_events = {
 int sm_access_flatpak_start(struct sm_media_session *session)
 {
 	struct impl *impl;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

@@ -36,6 +36,9 @@
 
 #define NAME "metadata"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct metadata {
 	struct pw_impl_metadata *impl;
 	struct pw_metadata *metadata;
@@ -67,6 +70,8 @@ struct pw_metadata *sm_media_session_export_metadata(struct sm_media_session *se
 	struct metadata *this;
 	int res;
 	struct spa_dict_item items[1];
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	this = calloc(1, sizeof(*this));
 	if (this == NULL)

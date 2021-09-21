@@ -52,6 +52,9 @@
 #define NAME		"v4l2-endpoint"
 #define SESSION_KEY	"v4l2-endpoint"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct endpoint {
 	struct spa_list link;
 
@@ -117,7 +120,7 @@ static int client_endpoint_set_param(void *object,
 {
 	struct endpoint *endpoint = object;
 	struct impl *impl = endpoint->impl;
-	pw_log_debug(NAME " %p: endpoint %p set param %d", impl, endpoint, id);
+	pw_log_debug("%p: endpoint %p set param %d", impl, endpoint, id);
 	return pw_node_set_param((struct pw_node*)endpoint->node->node->obj.proxy,
 				id, flags, param);
 }
@@ -145,7 +148,7 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 	struct pw_properties *p;
 	int res;
 
-	pw_log_debug(NAME" %p: endpoint %p", impl, endpoint);
+	pw_log_debug("%p: endpoint %p", impl, endpoint);
 
 	if (props == NULL)
 		return -EINVAL;
@@ -160,13 +163,13 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 
 		str = spa_dict_lookup(props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT);
 		if (str == NULL) {
-			pw_log_warn(NAME" %p: no target endpoint given", impl);
+			pw_log_warn("%p: no target endpoint given", impl);
 			res = -EINVAL;
 			goto exit;
 		}
 		obj = sm_media_session_find_object(impl->session, atoi(str));
 		if (obj == NULL || !spa_streq(obj->type, PW_TYPE_INTERFACE_Endpoint)) {
-			pw_log_warn(NAME" %p: could not find endpoint %s (%p)", impl, str, obj);
+			pw_log_warn("%p: could not find endpoint %s (%p)", impl, str, obj);
 			res = -EINVAL;
 			goto exit;
 		}
@@ -264,7 +267,7 @@ static void update_params(void *data)
 	struct sm_node *node = endpoint->node->node;
 	struct sm_param *p;
 
-	pw_log_debug(NAME" %p: endpoint", endpoint);
+	pw_log_debug("%p: endpoint", endpoint);
 
 	params = alloca(sizeof(struct spa_pod *) * node->n_params);
 	n_params = 0;
@@ -294,7 +297,7 @@ static void object_update(void *data)
 	struct impl *impl = endpoint->impl;
 	struct sm_node *node = endpoint->node->node;
 
-	pw_log_debug(NAME" %p: endpoint %p", impl, endpoint);
+	pw_log_debug("%p: endpoint %p", impl, endpoint);
 
 	if (node->obj.changed & SM_NODE_CHANGE_MASK_PARAMS)
 		update_params(endpoint);
@@ -453,7 +456,7 @@ static struct endpoint *create_endpoint(struct node *node)
 	endpoint->info.n_params = 2;
 	spa_list_init(&endpoint->stream_list);
 
-	pw_log_debug(NAME" %p: new endpoint %p for v4l2 node %p", impl, endpoint, node);
+	pw_log_debug("%p: new endpoint %p for v4l2 node %p", impl, endpoint, node);
 	pw_proxy_add_listener(proxy,
 			&endpoint->proxy_listener,
 			&proxy_events, endpoint);
@@ -466,7 +469,7 @@ static struct endpoint *create_endpoint(struct node *node)
 	subscribe[n_subscribe++] = SPA_PARAM_EnumFormat;
 	subscribe[n_subscribe++] = SPA_PARAM_Props;
 	subscribe[n_subscribe++] = SPA_PARAM_PropInfo;
-	pw_log_debug(NAME" %p: endpoint %p proxy %p subscribe %d params", impl,
+	pw_log_debug("%p: endpoint %p proxy %p subscribe %d params", impl,
 				endpoint, node->node->obj.proxy, n_subscribe);
 	pw_node_subscribe_params((struct pw_node*)node->node->obj.proxy,
 				subscribe, n_subscribe);
@@ -493,12 +496,12 @@ static int setup_v4l2_endpoint(struct device *device)
 	struct sm_node *n;
 	struct sm_device *d = device->device;
 
-	pw_log_debug(NAME" %p: device %p setup", impl, d);
+	pw_log_debug("%p: device %p setup", impl, d);
 
 	spa_list_for_each(n, &d->node_list, link) {
 		struct node *node;
 
-		pw_log_debug(NAME" %p: device %p has node %p", impl, d, n);
+		pw_log_debug("%p: device %p has node %p", impl, d, n);
 
 		node = sm_object_add_data(&n->obj, SESSION_KEY, sizeof(struct node));
 		node->device = device;
@@ -521,7 +524,7 @@ static int deactivate_device(struct device *device)
 	struct impl *impl = device->impl;
 	struct endpoint *e;
 
-	pw_log_debug(NAME" %p: device %p deactivate", impl, device->device);
+	pw_log_debug("%p: device %p deactivate", impl, device->device);
 	spa_list_consume(e, &device->endpoint_list, link)
 		destroy_endpoint(impl, e);
 
@@ -533,7 +536,7 @@ static void device_update(void *data)
 	struct device *device = data;
 	struct impl *impl = device->impl;
 
-	pw_log_debug(NAME" %p: device %p %08x %08x", impl, device,
+	pw_log_debug("%p: device %p %08x %08x", impl, device,
 			device->device->obj.avail, device->device->obj.changed);
 
 	if (!SPA_FLAG_IS_SET(device->device->obj.avail,
@@ -564,7 +567,7 @@ handle_device(struct impl *impl, struct sm_object *obj)
 	media_class = pw_properties_get(obj->props, PW_KEY_MEDIA_CLASS);
 	str = pw_properties_get(obj->props, PW_KEY_DEVICE_API);
 
-	pw_log_debug(NAME" %p: device "PW_KEY_MEDIA_CLASS":%s api:%s", impl, media_class, str);
+	pw_log_debug("%p: device "PW_KEY_MEDIA_CLASS":%s api:%s", impl, media_class, str);
 
 	if (!spa_strstartswith(media_class, "Video/"))
 		return 0;
@@ -576,7 +579,7 @@ handle_device(struct impl *impl, struct sm_object *obj)
 	device->id = obj->id;
 	device->device = (struct sm_device*)obj;
 	spa_list_init(&device->endpoint_list);
-	pw_log_debug(NAME" %p: found v4l2 device %d media_class %s", impl, obj->id, media_class);
+	pw_log_debug("%p: found v4l2 device %d media_class %s", impl, obj->id, media_class);
 
 	sm_object_add_listener(obj, &device->listener, &device_events, device);
 
@@ -601,7 +604,7 @@ static void session_create(void *data, struct sm_object *object)
 		res = 0;
 
 	if (res < 0) {
-		pw_log_warn(NAME" %p: can't handle global %d: %s", impl,
+		pw_log_warn("%p: can't handle global %d: %s", impl,
 				object->id, spa_strerror(res));
 	}
 }
@@ -634,6 +637,8 @@ static const struct sm_media_session_events session_events = {
 int sm_v4l2_endpoint_start(struct sm_media_session *session)
 {
 	struct impl *impl;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

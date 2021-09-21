@@ -56,9 +56,6 @@
 
 #include "media-session.h"
 
-#define NAME "alsa-monitor"
-#include "reserve.c"
-
 /** \page page_media_session_module_alsa_monitor Media Session Module: ALSA Monitor
  *
  * This module monitors udev for ALSA devices and creates the required
@@ -122,6 +119,14 @@
  * See the `alsa-monitor.conf` provided by your installation for details on
  * possible actions and matches.
  */
+
+#define NAME "alsa-monitor"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
+#include "reserve.c"
+
 #define SESSION_CONF	"alsa-monitor.conf"
 
 #define DEFAULT_JACK_SECONDS	1
@@ -1173,6 +1178,8 @@ int sm_alsa_monitor_start(struct sm_media_session *session)
 	void *iface;
 	int res;
 	const char *str;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

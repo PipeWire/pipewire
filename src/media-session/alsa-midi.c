@@ -46,6 +46,11 @@
 /** \page page_media_session_module_alsa_midi Media Session Module: ALSA MIDI
  */
 
+#define NAME "alsa-midi"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define DEFAULT_NAME	"Midi-Bridge"
 
 struct impl {
@@ -174,6 +179,8 @@ int sm_alsa_midi_start(struct sm_media_session *session)
 	struct impl *impl;
 	int res;
 	const char *name;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

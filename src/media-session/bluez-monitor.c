@@ -54,6 +54,9 @@
 #define SESSION_CONF	"bluez-monitor.conf"
 #define FEATURES_CONF	"bluez-hardware.conf"
 
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct device;
 
 struct node {
@@ -700,10 +703,10 @@ static void seat_active(void *data, bool active)
 	impl->seat_active = active;
 
 	if (impl->seat_active) {
-		pw_log_info(NAME ": seat active, starting bluetooth");
+		pw_log_info("seat active, starting bluetooth");
 		load_bluez_handle(impl);
 	} else {
-		pw_log_info(NAME ": seat not active, stopping bluetooth");
+		pw_log_info("seat not active, stopping bluetooth");
 		unload_bluez_handle(impl);
 	}
 }
@@ -720,6 +723,8 @@ int sm_bluez5_monitor_start(struct sm_media_session *session)
 	int res;
 	struct impl *impl;
 	const char *str;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL) {

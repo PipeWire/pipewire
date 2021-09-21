@@ -52,6 +52,9 @@
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_SAMPLERATE	48000
 
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct endpoint;
 
 struct impl {
@@ -116,7 +119,7 @@ static int client_endpoint_set_param(void *object,
 	struct impl *impl = endpoint->impl;
 	struct node *node = endpoint->node;
 
-	pw_log_debug(NAME " %p: node %d set param %d", impl, node->obj->obj.id, id);
+	pw_log_debug("%p: node %d set param %d", impl, node->obj->obj.id, id);
 	return pw_node_set_param((struct pw_node*)node->obj->obj.proxy,
 			id, flags, param);
 }
@@ -207,13 +210,13 @@ static int client_endpoint_create_link(void *object, const struct spa_dict *prop
 
 		str = spa_dict_lookup(props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT);
 		if (str == NULL) {
-			pw_log_warn(NAME" %p: no target endpoint given", impl);
+			pw_log_warn("%p: no target endpoint given", impl);
 			res = -EINVAL;
 			goto exit;
 		}
 		obj = sm_media_session_find_object(impl->session, atoi(str));
 		if (obj == NULL || !spa_streq(obj->type, PW_TYPE_INTERFACE_Endpoint)) {
-			pw_log_warn(NAME" %p: could not find endpoint %s (%p)", impl, str, obj);
+			pw_log_warn("%p: could not find endpoint %s (%p)", impl, str, obj);
 			res = -EINVAL;
 			goto exit;
 		}
@@ -301,7 +304,7 @@ static void complete_endpoint(void *data)
 	struct node *node = endpoint->node;
 	struct sm_param *p;
 
-	pw_log_debug(NAME" %p: endpoint %p", impl, endpoint);
+	pw_log_debug("%p: endpoint %p", impl, endpoint);
 
 	spa_list_for_each(p, &node->obj->param_list, link) {
 		struct spa_audio_info info = { 0, };
@@ -346,7 +349,7 @@ static void update_params(void *data)
 	struct node *node = endpoint->node;
 	struct sm_param *p;
 
-	pw_log_debug(NAME" %p: endpoint %p", impl, endpoint);
+	pw_log_debug("%p: endpoint %p", impl, endpoint);
 
 	params = alloca(sizeof(struct spa_pod *) * node->obj->n_params);
 	n_params = 0;
@@ -468,7 +471,7 @@ static struct endpoint *create_endpoint(struct node *node)
 	subscribe[n_subscribe++] = SPA_PARAM_EnumFormat;
 	subscribe[n_subscribe++] = SPA_PARAM_Props;
 	subscribe[n_subscribe++] = SPA_PARAM_PropInfo;
-	pw_log_debug(NAME" %p: node %p proxy %p subscribe %d params", impl,
+	pw_log_debug("%p: node %p proxy %p subscribe %d params", impl,
 				node->obj, node->obj->obj.proxy, n_subscribe);
 	pw_node_subscribe_params((struct pw_node*)node->obj->obj.proxy,
 				subscribe, n_subscribe);
@@ -488,7 +491,7 @@ static void object_update(void *data)
 	struct node *node = data;
 	struct impl *impl = node->impl;
 
-	pw_log_debug(NAME" %p: node %p endpoint %p %08x", impl, node, node->endpoint, node->obj->obj.changed);
+	pw_log_debug("%p: node %p endpoint %p %08x", impl, node, node->endpoint, node->obj->obj.changed);
 
 	if (node->endpoint == NULL &&
 	    node->obj->obj.avail & SM_OBJECT_CHANGE_MASK_PROPERTIES)
@@ -514,7 +517,7 @@ handle_node(struct impl *impl, struct sm_object *obj)
 
 	media_class = obj->props ? pw_properties_get(obj->props, PW_KEY_MEDIA_CLASS) : NULL;
 
-	pw_log_debug(NAME" %p: node "PW_KEY_MEDIA_CLASS" %s", impl, media_class);
+	pw_log_debug("%p: node "PW_KEY_MEDIA_CLASS" %s", impl, media_class);
 
 	if (media_class == NULL)
 		return 0;
@@ -541,7 +544,7 @@ handle_node(struct impl *impl, struct sm_object *obj)
 	node->id = obj->id;
 	node->direction = direction;
 	node->media = strdup(media_class);
-	pw_log_debug(NAME "%p: node %d is stream %d:%s", impl, node->id,
+	pw_log_debug("%p: node %d is stream %d:%s", impl, node->id,
 			node->direction, node->media);
 
 	sm_object_add_listener(obj, &node->listener, &object_events, node);
@@ -569,7 +572,7 @@ static void session_create(void *data, struct sm_object *object)
 		res = 0;
 
 	if (res < 0) {
-		pw_log_warn(NAME" %p: can't handle global %d: %s", impl,
+		pw_log_warn("%p: can't handle global %d: %s", impl,
 				object->id, spa_strerror(res));
 	}
 }
@@ -602,6 +605,8 @@ static const struct sm_media_session_events session_events = {
 int sm_stream_endpoint_start(struct sm_media_session *session)
 {
 	struct impl *impl;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

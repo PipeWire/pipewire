@@ -48,6 +48,9 @@
 
 #define DEFAULT_IDLE_SECONDS	3
 
+PW_LOG_TOPIC_STATIC(mod_topic, "ms.mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct impl {
 	struct timespec now;
 
@@ -91,7 +94,7 @@ static void idle_timeout(void *data, uint64_t expirations)
 	struct impl *impl = node->impl;
 	struct spa_command *cmd = &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Suspend);
 
-	pw_log_info(NAME " %p: node %d suspend", impl, node->id);
+	pw_log_info("%p: node %d suspend", impl, node->id);
 
 	remove_idle_timeout(node);
 
@@ -125,14 +128,14 @@ static void add_idle_timeout(struct node *node)
 
 static int on_node_idle(struct impl *impl, struct node *node)
 {
-	pw_log_debug(NAME" %p: node %d idle", impl, node->id);
+	pw_log_debug("%p: node %d idle", impl, node->id);
 	add_idle_timeout(node);
 	return 0;
 }
 
 static int on_node_running(struct impl *impl, struct node *node)
 {
-	pw_log_debug(NAME" %p: node %d running", impl, node->id);
+	pw_log_debug("%p: node %d running", impl, node->id);
 	sm_object_acquire(&node->obj->obj);
 	remove_idle_timeout(node);
 	return 0;
@@ -143,7 +146,7 @@ static void object_update(void *data)
 	struct node *node = data;
 	struct impl *impl = node->impl;
 
-	pw_log_debug(NAME" %p: node %p %08x", impl, node, node->obj->obj.changed);
+	pw_log_debug("%p: node %p %08x", impl, node, node->obj->obj.changed);
 
 	if (node->obj->obj.changed & SM_NODE_CHANGE_MASK_INFO) {
 		const struct pw_node_info *info = node->obj->info;
@@ -216,13 +219,13 @@ static void session_create(void *data, struct sm_object *object)
 		res = 0;
 
 	if (res < 0)
-		pw_log_warn(NAME" %p: can't handle global %d", impl, object->id);
+		pw_log_warn("%p: can't handle global %d", impl, object->id);
 }
 
 static void session_remove(void *data, struct sm_object *object)
 {
 	struct impl *impl = data;
-	pw_log_debug(NAME " %p: remove global '%d'", impl, object->id);
+	pw_log_debug("%p: remove global '%d'", impl, object->id);
 
 	if (spa_streq(object->type, PW_TYPE_INTERFACE_Node)) {
 		struct node *node;
@@ -248,6 +251,8 @@ static const struct sm_media_session_events session_events = {
 int sm_suspend_node_start(struct sm_media_session *session)
 {
 	struct impl *impl;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

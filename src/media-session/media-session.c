@@ -66,6 +66,9 @@
 #define SESSION_PREFIX	"media-session.d"
 #define SESSION_CONF	"media-session.conf"
 
+PW_LOG_TOPIC(mod_topic, "ms.core");
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define sm_object_emit(o,m,v,...) spa_hook_list_call(&(o)->hooks, struct sm_object_events, m, v, ##__VA_ARGS__)
 
 #define sm_object_emit_update(s)		sm_object_emit(s, update, 0)
@@ -304,7 +307,7 @@ static int sm_object_destroy_maybe_free(struct sm_object *obj)
 	struct impl *impl = SPA_CONTAINER_OF(obj->session, struct impl, this);
 	struct data *d;
 
-	pw_log_debug(NAME" %p: destroy object %p id:%d proxy:%p handle:%p monitor:%d destroyed:%d discarded:%d", obj->session,
+	pw_log_debug("%p: destroy object %p id:%d proxy:%p handle:%p monitor:%d destroyed:%d discarded:%d", obj->session,
 			obj, obj->id, obj->proxy, obj->handle, obj->monitor_global, obj->destroyed, obj->discarded);
 
 	if (obj->destroyed)
@@ -376,13 +379,13 @@ static struct param *add_param(struct spa_list *param_list,
 		id = SPA_POD_OBJECT_ID(param);
 
 	if (id >= SM_MAX_PARAMS) {
-		pw_log_error(NAME": too big param id %d", id);
+		pw_log_error("too big param id %d", id);
 		errno = EINVAL;
 		return NULL;
 	}
 
 	if (seq != param_seq[id]) {
-		pw_log_debug(NAME": ignoring param %d, seq:%d != current_seq:%d",
+		pw_log_debug("ignoring param %d, seq:%d != current_seq:%d",
 				id, seq, param_seq[id]);
 		errno = EBUSY;
 		return NULL;
@@ -455,7 +458,7 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 	struct sm_client *client = object;
 	struct impl *impl = SPA_CONTAINER_OF(client->obj.session, struct impl, this);
 
-	pw_log_debug(NAME" %p: client %d info", impl, client->obj.id);
+	pw_log_debug("%p: client %d info", impl, client->obj.id);
 	client->info = pw_client_info_merge(client->info, info, client->obj.changed == 0);
 
 	client->obj.avail |= SM_CLIENT_CHANGE_MASK_INFO;
@@ -493,7 +496,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 	struct impl *impl = SPA_CONTAINER_OF(device->obj.session, struct impl, this);
 	uint32_t i;
 
-	pw_log_debug(NAME" %p: device %d info", impl, device->obj.id);
+	pw_log_debug("%p: device %d info", impl, device->obj.id);
 	info = device->info = pw_device_info_merge(device->info, info, device->obj.changed == 0);
 
 	device->obj.avail |= SM_DEVICE_CHANGE_MASK_INFO;
@@ -507,7 +510,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 				continue;
 
 			if (id >= SM_MAX_PARAMS) {
-				pw_log_error(NAME" %p: too big param id %d", impl, id);
+				pw_log_error("%p: too big param id %d", impl, id);
 				continue;
 			}
 
@@ -519,7 +522,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 						++device->param_seq[id], id, 0, UINT32_MAX, NULL);
 				if (SPA_RESULT_IS_ASYNC(res))
 					device->param_seq[id] = res;
-				pw_log_debug(NAME" %p: device %d enum params %d seq:%d", impl,
+				pw_log_debug("%p: device %d enum params %d seq:%d", impl,
 						device->obj.id, id, device->param_seq[id]);
 			}
 			info->params[i].user = 0;
@@ -536,7 +539,7 @@ static void device_event_param(void *object, int seq,
 	struct sm_device *device = object;
 	struct impl *impl = SPA_CONTAINER_OF(device->obj.session, struct impl, this);
 
-	pw_log_debug(NAME" %p: device %p param %d index:%d seq:%d", impl, device, id, index, seq);
+	pw_log_debug("%p: device %p param %d index:%d seq:%d", impl, device, id, index, seq);
 	if (add_param(&device->param_list, seq, device->param_seq, id, param) != NULL)
 		device->n_params++;
 
@@ -601,7 +604,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	struct impl *impl = SPA_CONTAINER_OF(node->obj.session, struct impl, this);
 	uint32_t i;
 
-	pw_log_debug(NAME" %p: node %d info", impl, node->obj.id);
+	pw_log_debug("%p: node %d info", impl, node->obj.id);
 	info = node->info = pw_node_info_merge(node->info, info, node->obj.changed == 0);
 
 	node->obj.avail |= SM_NODE_CHANGE_MASK_INFO;
@@ -616,7 +619,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 				continue;
 
 			if (id >= SM_MAX_PARAMS) {
-				pw_log_error(NAME" %p: too big param id %d", impl, id);
+				pw_log_error("%p: too big param id %d", impl, id);
 				continue;
 			}
 
@@ -628,7 +631,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 						++node->param_seq[id], id, 0, UINT32_MAX, NULL);
 				if (SPA_RESULT_IS_ASYNC(res))
 					node->param_seq[id] = res;
-				pw_log_debug(NAME" %p: node %d enum params %d seq:%d", impl,
+				pw_log_debug("%p: node %d enum params %d seq:%d", impl,
 						node->obj.id, id, node->param_seq[id]);
 			}
 			info->params[i].user = 0;
@@ -645,7 +648,7 @@ static void node_event_param(void *object, int seq,
 	struct sm_node *node = object;
 	struct impl *impl = SPA_CONTAINER_OF(node->obj.session, struct impl, this);
 
-	pw_log_debug(NAME" %p: node %p param %d index:%d seq:%d", impl, node, id, index, seq);
+	pw_log_debug("%p: node %p param %d index:%d seq:%d", impl, node, id, index, seq);
 	if (add_param(&node->param_list, seq, node->param_seq, id, param) != NULL)
 		node->n_params++;
 
@@ -672,7 +675,7 @@ static int node_init(void *object)
 	if (props) {
 		if ((str = pw_properties_get(props, PW_KEY_DEVICE_ID)) != NULL)
 			node->device = find_object(impl, atoi(str), NULL);
-		pw_log_debug(NAME" %p: node %d parent device %s (%p)", impl,
+		pw_log_debug("%p: node %d parent device %s (%p)", impl,
 				node->obj.id, str, node->device);
 		if (node->device) {
 			spa_list_append(&node->device->node_list, &node->link);
@@ -724,7 +727,7 @@ static void port_event_info(void *object, const struct pw_port_info *info)
 	struct sm_port *port = object;
 	struct impl *impl = SPA_CONTAINER_OF(port->obj.session, struct impl, this);
 
-	pw_log_debug(NAME" %p: port %d info", impl, port->obj.id);
+	pw_log_debug("%p: port %d info", impl, port->obj.id);
 	port->info = pw_port_info_merge(port->info, info, port->obj.changed == 0);
 
 	port->obj.avail |= SM_PORT_CHANGE_MASK_INFO;
@@ -769,7 +772,7 @@ static int port_init(void *object)
 		if ((str = pw_properties_get(props, PW_KEY_NODE_ID)) != NULL)
 			port->node = find_object(impl, atoi(str), PW_TYPE_INTERFACE_Node);
 
-		pw_log_debug(NAME" %p: port %d parent node %s (%p) direction:%d type:%d", impl,
+		pw_log_debug("%p: port %d parent node %s (%p) direction:%d type:%d", impl,
 				port->obj.id, str, port->node, port->direction, port->type);
 		if (port->node) {
 			spa_list_append(&port->node->port_list, &port->link);
@@ -809,7 +812,7 @@ static void session_event_info(void *object, const struct pw_session_info *info)
 	struct impl *impl = SPA_CONTAINER_OF(sess->obj.session, struct impl, this);
 	struct pw_session_info *i = sess->info;
 
-	pw_log_debug(NAME" %p: session %d info", impl, sess->obj.id);
+	pw_log_debug("%p: session %d info", impl, sess->obj.id);
 	if (i == NULL && info) {
 		i = sess->info = calloc(1, sizeof(struct pw_session_info));
 		i->version = PW_VERSION_SESSION_INFO;
@@ -881,7 +884,7 @@ static void endpoint_event_info(void *object, const struct pw_endpoint_info *inf
 	struct pw_endpoint_info *i = endpoint->info;
 	const char *str;
 
-	pw_log_debug(NAME" %p: endpoint %d info", impl, endpoint->obj.id);
+	pw_log_debug("%p: endpoint %d info", impl, endpoint->obj.id);
 	if (i == NULL && info) {
 		i = endpoint->info = calloc(1, sizeof(struct pw_endpoint_info));
 		i->id = info->id;
@@ -923,7 +926,7 @@ static int endpoint_init(void *object)
 	if (props) {
 		if ((str = pw_properties_get(props, PW_KEY_SESSION_ID)) != NULL)
 			endpoint->session = find_object(impl, atoi(str), PW_TYPE_INTERFACE_Session);
-		pw_log_debug(NAME" %p: endpoint %d parent session %s", impl,
+		pw_log_debug("%p: endpoint %d parent session %s", impl,
 				endpoint->obj.id, str);
 		if (endpoint->session) {
 			spa_list_append(&endpoint->session->endpoint_list, &endpoint->link);
@@ -976,7 +979,7 @@ static void endpoint_stream_event_info(void *object, const struct pw_endpoint_st
 	struct sm_endpoint_stream *stream = object;
 	struct impl *impl = SPA_CONTAINER_OF(stream->obj.session, struct impl, this);
 
-	pw_log_debug(NAME" %p: endpoint stream %d info", impl, stream->obj.id);
+	pw_log_debug("%p: endpoint stream %d info", impl, stream->obj.id);
 	if (stream->info == NULL && info) {
 		stream->info = calloc(1, sizeof(struct pw_endpoint_stream_info));
 		stream->info->version = PW_VERSION_ENDPOINT_STREAM_INFO;
@@ -1008,7 +1011,7 @@ static int endpoint_stream_init(void *object)
 	if (props) {
 		if ((str = pw_properties_get(props, PW_KEY_ENDPOINT_ID)) != NULL)
 			stream->endpoint = find_object(impl, atoi(str), PW_TYPE_INTERFACE_Endpoint);
-		pw_log_debug(NAME" %p: stream %d parent endpoint %s", impl,
+		pw_log_debug("%p: stream %d parent endpoint %s", impl,
 				stream->obj.id, str);
 		if (stream->endpoint) {
 			spa_list_append(&stream->endpoint->stream_list, &stream->link);
@@ -1052,7 +1055,7 @@ static void endpoint_link_event_info(void *object, const struct pw_endpoint_link
 	struct sm_endpoint_link *link = object;
 	struct impl *impl = SPA_CONTAINER_OF(link->obj.session, struct impl, this);
 
-	pw_log_debug(NAME" %p: endpoint link %d info", impl, link->obj.id);
+	pw_log_debug("%p: endpoint link %d info", impl, link->obj.id);
 	if (link->info == NULL && info) {
 		link->info = calloc(1, sizeof(struct pw_endpoint_link_info));
 		link->info->version = PW_VERSION_ENDPOINT_LINK_INFO;
@@ -1253,13 +1256,13 @@ create_object(struct impl *impl, struct pw_proxy *proxy, struct pw_proxy *handle
 
 	info = get_object_info(impl, type);
 	if (info == NULL) {
-		pw_log_error(NAME" %p: unknown object type %s", impl, type);
+		pw_log_error("%p: unknown object type %s", impl, type);
 		errno = ENOTSUP;
 		return NULL;
 	}
 	obj = init_object(impl, info, proxy, handle, SPA_ID_INVALID, props, monitor_global);
 
-	pw_log_debug(NAME" %p: created new object %p proxy:%p handle:%p", impl,
+	pw_log_debug("%p: created new object %p proxy:%p handle:%p", impl,
 			obj, obj->proxy, obj->handle);
 
 	return obj;
@@ -1278,7 +1281,7 @@ bind_object(struct impl *impl, const struct object_info *info, struct registry_e
 	sm_object_discard(obj);
 	add_object(impl, obj, re->id);
 
-	pw_log_debug(NAME" %p: bound new object %p proxy %p id:%d", impl, obj, obj->proxy, obj->id);
+	pw_log_debug("%p: bound new object %p proxy %p id:%d", impl, obj, obj->proxy, obj->id);
 
 	return obj;
 }
@@ -1294,7 +1297,7 @@ update_object(struct impl *impl, const struct object_info *info, struct sm_objec
 	if (obj->proxy != NULL)
 		return 0;
 
-	pw_log_debug(NAME" %p: update type:%s", impl, obj->type);
+	pw_log_debug("%p: update type:%s", impl, obj->type);
 
 	proxy = re->proxy;
 	re->proxy = NULL;
@@ -1333,7 +1336,7 @@ static int handle_registry_event(struct impl *impl, struct registry_event *re)
 
 	obj = find_object(impl, re->id, NULL);
 
-	pw_log_debug(NAME " %p: new global '%d' %s/%d obj:%p monitor:%d seq:%d",
+	pw_log_debug("%p: new global '%d' %s/%d obj:%p monitor:%d seq:%d",
 			impl, re->id, re->type, re->version, obj, re->monitor, re->seq);
 
 	info = get_object_info(impl, re->type);
@@ -1377,7 +1380,7 @@ static int monitor_sync(struct impl *impl)
 {
 	pw_core_set_paused(impl->policy_core, true);
 	impl->monitor_seq = pw_core_sync(impl->monitor_core, 0, impl->monitor_seq);
-	pw_log_debug(NAME " %p: monitor sync start %d", impl, impl->monitor_seq);
+	pw_log_debug("%p: monitor sync start %d", impl, impl->monitor_seq);
 	sm_media_session_schedule_rescan(&impl->this);
 	return impl->monitor_seq;
 }
@@ -1395,7 +1398,7 @@ registry_global(void *data, uint32_t id,
 	if (info == NULL)
 		return;
 
-	pw_log_debug(NAME " %p: registry event (policy) for new global '%d'", impl, id);
+	pw_log_debug("%p: registry event (policy) for new global '%d'", impl, id);
 
 	/*
 	 * Handle policy core events after monitor core ones.
@@ -1435,7 +1438,7 @@ registry_global(void *data, uint32_t id,
 error:
 	if (re)
 		registry_event_free(re);
-	pw_log_warn(NAME" %p: can't handle global %d: %s", impl, id, spa_strerror(-errno));
+	pw_log_warn("%p: can't handle global %d: %s", impl, id, spa_strerror(-errno));
 }
 
 static void
@@ -1447,7 +1450,7 @@ registry_global_remove(void *data, uint32_t id)
 	obj = find_object(impl, id, NULL);
 	obj = (obj && !obj->monitor_global) ? obj : NULL;
 
-	pw_log_debug(NAME " %p: registry event (policy) for remove global '%d' obj:%p",
+	pw_log_debug("%p: registry event (policy) for remove global '%d' obj:%p",
 			impl, id, obj);
 
 	if (obj)
@@ -1472,7 +1475,7 @@ monitor_registry_global(void *data, uint32_t id,
 		.props = props,	.monitor = true
 	};
 
-	pw_log_debug(NAME " %p: registry event (monitor) for new global '%d'", impl, id);
+	pw_log_debug("%p: registry event (monitor) for new global '%d'", impl, id);
 
 	info = get_object_info(impl, type);
 	if (info == NULL)
@@ -1483,7 +1486,7 @@ monitor_registry_global(void *data, uint32_t id,
 	if (re.proxy)
 		handle_registry_event(impl, &re);
 	else
-		pw_log_warn(NAME" %p: can't handle global %d: %s", impl, id, spa_strerror(-errno));
+		pw_log_warn("%p: can't handle global %d: %s", impl, id, spa_strerror(-errno));
 
 	registry_event_free(&re);
 	return;
@@ -1498,7 +1501,7 @@ monitor_registry_global_remove(void *data, uint32_t id)
 	obj = find_object(impl, id, NULL);
 	obj = (obj && obj->monitor_global) ? obj : NULL;
 
-	pw_log_debug(NAME " %p: registry event (monitor) for remove global '%d' obj:%p", impl, id, obj);
+	pw_log_debug("%p: registry event (monitor) for remove global '%d' obj:%p", impl, id, obj);
 
 	if (obj)
 		sm_object_destroy_maybe_free(obj);
@@ -1616,21 +1619,21 @@ int sm_media_session_roundtrip(struct sm_media_session *sess)
 	if ((seq = sm_media_session_sync(sess, roundtrip_callback, &done)) < 0)
 		return seq;
 
-	pw_log_debug(NAME" %p: roundtrip %d", impl, seq);
+	pw_log_debug("%p: roundtrip %d", impl, seq);
 
 	pw_loop_enter(loop);
 	while (!done) {
 		if ((res = pw_loop_iterate(loop, -1)) < 0) {
 			if (res == -EINTR)
 				continue;
-			pw_log_warn(NAME" %p: iterate error %d (%s)",
+			pw_log_warn("%p: iterate error %d (%s)",
 				loop, res, spa_strerror(res));
 			break;
 		}
 	}
         pw_loop_leave(loop);
 
-	pw_log_debug(NAME" %p: roundtrip %d done", impl, seq);
+	pw_log_debug("%p: roundtrip %d done", impl, seq);
 
 	return 0;
 }
@@ -1642,7 +1645,7 @@ struct pw_proxy *sm_media_session_export(struct sm_media_session *sess,
 	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
 	struct pw_proxy *handle;
 
-	pw_log_debug(NAME " %p: object %s %p", impl, type, object);
+	pw_log_debug("%p: object %s %p", impl, type, object);
 
 	handle = pw_core_export(impl->monitor_core, type,
 			props, object, user_data_size);
@@ -1659,7 +1662,7 @@ struct sm_node *sm_media_session_export_node(struct sm_media_session *sess,
 	struct sm_node *node;
 	struct pw_proxy *handle;
 
-	pw_log_debug(NAME " %p: node %p", impl, object);
+	pw_log_debug("%p: node %p", impl, object);
 
 	handle = pw_core_export(impl->monitor_core, PW_TYPE_INTERFACE_Node,
 			props, object, sizeof(struct sm_node));
@@ -1678,7 +1681,7 @@ struct sm_device *sm_media_session_export_device(struct sm_media_session *sess,
 	struct sm_device *device;
 	struct pw_proxy *handle;
 
-	pw_log_debug(NAME " %p: device %p", impl, object);
+	pw_log_debug("%p: device %p", impl, object);
 
 	handle = pw_core_export(impl->monitor_core, SPA_TYPE_INTERFACE_Device,
 			props, object, sizeof(struct sm_device));
@@ -1706,7 +1709,7 @@ struct sm_node *sm_media_session_create_node(struct sm_media_session *sess,
 	struct sm_node *node;
 	struct pw_proxy *proxy;
 
-	pw_log_debug(NAME " %p: node '%s'", impl, factory_name);
+	pw_log_debug("%p: node '%s'", impl, factory_name);
 
 	proxy = pw_core_create_object(impl->policy_core,
 				factory_name,
@@ -1832,7 +1835,7 @@ static int link_nodes(struct impl *impl, struct endpoint_link *link,
 	bool passive = false;
 	const char *str;
 
-	pw_log_debug(NAME" %p: linking %d -> %d", impl, outnode->obj.id, innode->obj.id);
+	pw_log_debug("%p: linking %d -> %d", impl, outnode->obj.id, innode->obj.id);
 
 	if ((str = spa_dict_lookup(outnode->info->props, PW_KEY_NODE_PASSIVE)) != NULL)
 		passive |= (pw_properties_parse_bool(str) || spa_streq(str, "out"));
@@ -1856,13 +1859,13 @@ static int link_nodes(struct impl *impl, struct endpoint_link *link,
 
 		inport = find_input_port(impl, outnode, outport, innode);
 		if (inport == NULL) {
-			pw_log_debug(NAME" %p: port %d:%d can't be linked", impl,
+			pw_log_debug("%p: port %d:%d can't be linked", impl,
 				outport->direction, outport->obj.id);
 			continue;
 		}
 		inport->visited = true;
 
-		pw_log_debug(NAME" %p: port %d:%d -> %d:%d", impl,
+		pw_log_debug("%p: port %d:%d -> %d:%d", impl,
 				outport->direction, outport->obj.id,
 				inport->direction, inport->obj.id);
 
@@ -2098,7 +2101,7 @@ static void monitor_core_done(void *data, uint32_t id, int seq)
 		handle_postponed_registry_events(impl, seq);
 
 	if (seq == impl->monitor_seq) {
-		pw_log_debug(NAME " %p: monitor sync stop %d", impl, seq);
+		pw_log_debug("%p: monitor sync stop %d", impl, seq);
 		pw_core_set_paused(impl->policy_core, false);
 	}
 }
@@ -2132,7 +2135,7 @@ static int start_session(struct impl *impl)
 static void core_info(void *data, const struct pw_core_info *info)
 {
 	struct impl *impl = data;
-	pw_log_debug(NAME" %p: info", impl);
+	pw_log_debug("%p: info", impl);
 	impl->this.info = pw_core_info_merge(impl->this.info, info, true);
 
 	if (impl->this.info->change_mask != 0)
@@ -2157,7 +2160,7 @@ static void core_done(void *data, uint32_t id, int seq)
 		struct sm_object *obj, *to;
 
 		if (!impl->scanning) {
-			pw_log_trace(NAME" %p: rescan %u %d", impl, id, seq);
+			pw_log_trace("%p: rescan %u %d", impl, id, seq);
 			impl->scanning = true;
 			sm_media_session_emit_rescan(impl, seq);
 			impl->scanning = false;
@@ -2170,7 +2173,7 @@ static void core_done(void *data, uint32_t id, int seq)
 		spa_list_for_each_safe(obj, to, &impl->object_list, link) {
 			if (obj->id == SPA_ID_INVALID)
 				continue;
-			pw_log_trace(NAME" %p: obj %p %08x", impl, obj, obj->changed);
+			pw_log_trace("%p: obj %p %08x", impl, obj, obj->changed);
 			if (obj->changed)
 				sm_object_emit_update(obj);
 			obj->changed = 0;
@@ -2203,7 +2206,7 @@ static const struct pw_core_events policy_core_events = {
 static void policy_core_destroy(void *data)
 {
 	struct impl *impl = data;
-	pw_log_debug(NAME" %p: policy core destroy", impl);
+	pw_log_debug("%p: policy core destroy", impl);
 	impl->policy_core = NULL;
 }
 
@@ -2242,7 +2245,7 @@ static void session_shutdown(struct impl *impl)
 	struct registry_event *re;
 	struct spa_list free_list;
 
-	pw_log_info(NAME" %p", impl);
+	pw_log_info("%p", impl);
 	sm_media_session_emit_shutdown(impl);
 
 	/*
@@ -2450,6 +2453,8 @@ int main(int argc, char *argv[])
 	enum spa_log_level level = pw_log_level;
 
 	pw_init(&argc, &argv);
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	while ((c = getopt_long(argc, argv, "hVc:v", long_options, NULL)) != -1) {
 		switch (c) {

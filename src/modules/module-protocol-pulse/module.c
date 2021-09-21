@@ -227,6 +227,14 @@ int module_args_to_audioinfo(struct impl *impl, struct pw_properties *props, str
 	return 0;
 }
 
+bool module_args_parse_bool(const char *v)
+{
+	if (spa_streq(v, "1") || !strcasecmp(v, "y") || !strcasecmp(v, "t") ||
+	    !strcasecmp(v, "yes") || !strcasecmp(v, "true") || !strcasecmp(v, "on"))
+		return true;
+	return false;
+}
+
 #include "modules/registry.h"
 
 static const struct module_info module_list[] = {

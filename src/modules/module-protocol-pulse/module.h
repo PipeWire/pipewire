@@ -82,5 +82,6 @@ void module_add_listener(struct module *module,
 
 void module_args_add_props(struct pw_properties *props, const char *str);
 int module_args_to_audioinfo(struct impl *impl, struct pw_properties *props, struct spa_audio_info_raw *info);
+bool module_args_parse_bool(const char *str);
 
 #endif

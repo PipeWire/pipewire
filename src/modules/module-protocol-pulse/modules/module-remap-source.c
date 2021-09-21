@@ -200,7 +200,7 @@ struct module *create_module_remap_source(struct impl *impl, const char *argumen
 	if ((str = pw_properties_get(props, "remix")) != NULL) {
 		/* Note that the boolean is inverted */
 		pw_properties_set(capture_props, PW_KEY_STREAM_DONT_REMIX,
-				pw_properties_parse_bool(str) ? "false" : "true");
+				module_args_parse_bool(str) ? "false" : "true");
 		pw_properties_set(props, "remix", NULL);
 	}
 

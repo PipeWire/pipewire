@@ -268,12 +268,12 @@ struct module *create_module_switch_on_connect(struct impl *impl, const char *ar
 		module_args_add_props(props, argument);
 
 	if ((str = pw_properties_get(props, "only_from_unavailable")) != NULL) {
-		only_from_unavailable = pw_properties_parse_bool(str);
+		only_from_unavailable = module_args_parse_bool(str);
 		pw_properties_set(props, "only_from_unavailable", NULL);
 	}
 
 	if ((str = pw_properties_get(props, "ignore_virtual")) != NULL) {
-		ignore_virtual = pw_properties_parse_bool(str);
+		ignore_virtual = module_args_parse_bool(str);
 		pw_properties_set(props, "ignore_virtual", NULL);
 	}
 

@@ -81,17 +81,19 @@ struct support {
 	char **categories;
 	const char *plugin_dir;
 	const char *support_lib;
-	struct registry *registry;
+	struct registry registry;
 	char *i18n_domain;
 	struct spa_interface i18n_iface;
 	struct spa_support support[MAX_SUPPORT];
 	uint32_t n_support;
+	unsigned int initialized:1;
 	unsigned int in_valgrind:1;
 	unsigned int no_color:1;
 	unsigned int no_config:1;
 };
 
-static struct registry global_registry;
+static pthread_mutex_t init_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t support_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct support global_support;
 
 static struct plugin *
@@ -242,8 +244,7 @@ uint32_t pw_get_support(struct spa_support *support, uint32_t max_support)
 	return n;
 }
 
-SPA_EXPORT
-struct spa_handle *pw_load_spa_handle(const char *lib,
+static struct spa_handle *load_spa_handle(const char *lib,
 		const char *factory_name,
 		const struct spa_dict *info,
 		uint32_t n_support,
@@ -271,12 +272,14 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 	res = -ENOENT;
 
 	while ((p = pw_split_walk(sup->plugin_dir, ":", &len, &state))) {
-		if ((plugin = open_plugin(sup->registry, p, len, lib)) != NULL)
+		if ((plugin = open_plugin(&sup->registry, p, len, lib)) != NULL)
 			break;
 		res = -errno;
 	}
 	if (plugin == NULL)
 		goto error_out;
+
+	pthread_mutex_unlock(&support_lock);
 
 	factory = find_factory(plugin, factory_name);
 	if (factory == NULL) {
@@ -298,6 +301,7 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 		goto error_free_handle;
 	}
 
+	pthread_mutex_lock(&support_lock);
 	handle->ref = 1;
 	handle->plugin = plugin;
 	handle->factory_name = strdup(factory_name);
@@ -308,15 +312,30 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 error_free_handle:
 	free(handle);
 error_unref_plugin:
+	pthread_mutex_lock(&support_lock);
 	unref_plugin(plugin);
 error_out:
 	errno = -res;
 	return NULL;
 }
 
+SPA_EXPORT
+struct spa_handle *pw_load_spa_handle(const char *lib,
+		const char *factory_name,
+		const struct spa_dict *info,
+		uint32_t n_support,
+		const struct spa_support support[])
+{
+	struct spa_handle *handle;
+	pthread_mutex_lock(&support_lock);
+	handle = load_spa_handle(lib, factory_name, info, n_support, support);
+	pthread_mutex_unlock(&support_lock);
+	return handle;
+}
+
 static struct handle *find_handle(struct spa_handle *handle)
 {
-	struct registry *registry = global_support.registry;
+	struct registry *registry = &global_support.registry;
 	struct plugin *p;
 	struct handle *h;
 
@@ -333,13 +352,16 @@ SPA_EXPORT
 int pw_unload_spa_handle(struct spa_handle *handle)
 {
 	struct handle *h;
+	int res = 0;
 
+	pthread_mutex_lock(&support_lock);
 	if ((h = find_handle(handle)) == NULL)
-		return -ENOENT;
+		res = -ENOENT;
+	else
+		unref_handle(h);
+	pthread_mutex_unlock(&support_lock);
 
-	unref_handle(h);
-
-	return 0;
+	return res;
 }
 
 static void *add_interface(struct support *support,
@@ -351,17 +373,24 @@ static void *add_interface(struct support *support,
 	void *iface = NULL;
 	int res = -ENOENT;
 
-	handle = pw_load_spa_handle(support->support_lib,
+	handle = load_spa_handle(support->support_lib,
 			factory_name, info,
 			support->n_support, support->support);
+	if (handle == NULL)
+		return NULL;
 
-	if (handle == NULL ||
-	    (res = spa_handle_get_interface(handle, type, &iface)) < 0) {
-			pw_log_error("can't get %s interface %d", type, res);
-	} else {
-		support->support[support->n_support++] =
-			SPA_SUPPORT_INIT(type, iface);
+	pthread_mutex_unlock(&support_lock);
+	res = spa_handle_get_interface(handle, type, &iface);
+	pthread_mutex_lock(&support_lock);
+
+	if (res < 0 || iface == NULL) {
+		pw_log_error("can't get %s interface %d: %s", type, res,
+				spa_strerror(res));
+		return NULL;
 	}
+
+	support->support[support->n_support++] =
+		SPA_SUPPORT_INIT(type, iface);
 	return iface;
 }
 
@@ -376,6 +405,7 @@ int pw_set_domain(const char *domain)
 		return -errno;
 	return 0;
 }
+
 SPA_EXPORT
 const char *pw_get_domain(void)
 {
@@ -458,24 +488,30 @@ static struct spa_log *load_journal_logger(struct support *support)
 	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LEVEL, level);
 	info = SPA_DICT_INIT(items, 1);
 
-	handle = pw_load_spa_handle("support/libspa-journal",
+	handle = load_spa_handle("support/libspa-journal",
 				    SPA_NAME_SUPPORT_LOG, &info,
 				    support->n_support, support->support);
+	if (handle == NULL)
+		return NULL;
 
-	if (handle == NULL ||
-	    (res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Log, &iface)) < 0) {
-			pw_log_error("can't get log interface %d", res);
-	} else {
-		/* look for an existing logger, and
-		 * replace it with the journal logger */
-		for (i = 0; i < support->n_support; i++) {
-			if (spa_streq(support->support[i].type, SPA_TYPE_INTERFACE_Log)) {
-				support->support[i].data = iface;
-				break;
-			}
-		}
+	pthread_mutex_unlock(&support_lock);
+	res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Log, &iface);
+	pthread_mutex_lock(&support_lock);
+
+	if (res < 0 || iface == NULL) {
+		pw_log_error("can't get log interface %d: %s", res,
+				spa_strerror(res));
+		return NULL;
 	}
 
+	/* look for an existing logger, and
+	 * replace it with the journal logger */
+	for (i = 0; i < support->n_support; i++) {
+		if (spa_streq(support->support[i].type, SPA_TYPE_INTERFACE_Log)) {
+			support->support[i].data = iface;
+			break;
+		}
+	}
 	return (struct spa_log *) iface;
 }
 #endif
@@ -502,9 +538,11 @@ void pw_init(int *argc, char **argv[])
 	struct spa_log *log;
 	char level[32];
 
-	if (support->registry != NULL)
-		return;
+	pthread_mutex_lock(&init_lock);
+	if (support->initialized)
+		goto done;
 
+	pthread_mutex_lock(&support_lock);
 	support->in_valgrind = RUNNING_ON_VALGRIND;
 
 	if (getenv("NO_COLOR") != NULL)
@@ -526,8 +564,7 @@ void pw_init(int *argc, char **argv[])
 		str = SUPPORTLIB;
 	support->support_lib = str;
 
-	spa_list_init(&global_registry.plugins);
-	support->registry = &global_registry;
+	spa_list_init(&support->registry.plugins);
 
 	if (pw_log_is_default()) {
 		n_items = 0;
@@ -569,15 +606,21 @@ void pw_init(int *argc, char **argv[])
 	add_i18n(support);
 
 	pw_log_info("version %s", pw_get_library_version());
+	support->initialized = true;
+	pthread_mutex_unlock(&support_lock);
+done:
+	pthread_mutex_unlock(&init_lock);
 }
 
 SPA_EXPORT
 void pw_deinit(void)
 {
 	struct support *support = &global_support;
-	struct registry *registry = &global_registry;
+	struct registry *registry = &support->registry;
 	struct plugin *p;
 
+	pthread_mutex_lock(&init_lock);
+	pthread_mutex_lock(&support_lock);
 	pw_log_set(NULL);
 	spa_list_consume(p, &registry->plugins, link) {
 		struct handle *h;
@@ -589,7 +632,8 @@ void pw_deinit(void)
 	pw_free_strv(support->categories);
 	free(support->i18n_domain);
 	spa_zero(global_support);
-	spa_zero(global_registry);
+	pthread_mutex_unlock(&support_lock);
+	pthread_mutex_unlock(&init_lock);
 
 }
 

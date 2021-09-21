@@ -30,6 +30,12 @@
 #include "../module.h"
 #include "registry.h"
 
+#define NAME "zeroconf-discover"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
+
 struct module_zeroconf_discover_data {
 	struct module *module;
 
@@ -99,6 +105,8 @@ struct module *create_module_zeroconf_discover(struct impl *impl, const char *ar
 	struct module_zeroconf_discover_data *d;
 	struct pw_properties *props = NULL;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_zeroconf_discover_info));
 	if (props == NULL) {

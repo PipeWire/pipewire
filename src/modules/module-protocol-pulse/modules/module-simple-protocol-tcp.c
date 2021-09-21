@@ -29,6 +29,11 @@
 #include "../module.h"
 #include "registry.h"
 
+#define NAME "simple-protocol-tcp"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct module_simple_protocol_tcp_data {
 	struct module *module;
 	struct pw_properties *module_props;
@@ -134,6 +139,8 @@ struct module *create_module_simple_protocol_tcp(struct impl *impl, const char *
 	struct pw_properties *props = NULL, *module_props = NULL;
 	const char *str, *port, *listen;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_simple_protocol_tcp_info));
 	if (props == NULL) {

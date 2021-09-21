@@ -28,6 +28,7 @@
 #include <pipewire/log.h>
 
 #include "client.h"
+#include "log.h"
 #include "manager.h"
 #include "operation.h"
 #include "reply.h"

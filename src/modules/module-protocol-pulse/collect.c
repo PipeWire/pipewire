@@ -30,6 +30,7 @@
 
 #include "collect.h"
 #include "defs.h"
+#include "log.h"
 #include "manager.h"
 
 void select_best(struct selector *s, struct pw_manager_object *o)

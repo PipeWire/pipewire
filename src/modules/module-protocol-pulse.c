@@ -43,6 +43,11 @@
 
 #define NAME "protocol-pulse"
 
+PW_LOG_TOPIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+PW_LOG_TOPIC(pulse_ext_dev_restore, "mod." NAME ".device-restore");
+PW_LOG_TOPIC(pulse_ext_stream_restore, "mod." NAME ".stream-restore");
+
 #define MODULE_USAGE	PW_PROTOCOL_PULSE_USAGE
 
 static const struct spa_dict_item module_props[] = {
@@ -87,6 +92,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props;
 	struct impl *impl;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
+	/* it's easier to init these here than adding an init() call to the
+	 * extensions */
+	PW_LOG_TOPIC_INIT(pulse_ext_dev_restore);
+	PW_LOG_TOPIC_INIT(pulse_ext_stream_restore);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)

@@ -47,6 +47,10 @@
 #include "../reply.h"
 #include "../volume.h"
 
+PW_LOG_TOPIC_EXTERN(pulse_ext_stream_restore);
+#undef PW_LOG_TOPIC_DEFAULT
+#define PW_LOG_TOPIC_DEFAULT pulse_ext_stream_restore
+
 static int do_extension_stream_restore_test(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct message *reply;

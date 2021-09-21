@@ -54,6 +54,7 @@
 #include "commands.h"
 #include "defs.h"
 #include "internal.h"
+#include "log.h"
 #include "message.h"
 #include "reply.h"
 #include "server.h"

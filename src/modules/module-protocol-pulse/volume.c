@@ -28,6 +28,7 @@
 #include <spa/utils/defs.h>
 #include <pipewire/log.h>
 
+#include "log.h"
 #include "volume.h"
 
 int volume_compare(struct volume *vol, struct volume *other)

@@ -32,6 +32,11 @@
 #include "../module.h"
 #include "registry.h"
 
+#define NAME "combine-sink"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define MAX_SINKS 64 /* ... good enough for anyone */
 
 static const struct spa_dict_item module_combine_sink_info[] = {
@@ -417,6 +422,8 @@ struct module *create_module_combine_sink(struct impl *impl, const char *argumen
 	char *sink_name = NULL, **sink_names = NULL;
 	struct spa_audio_info_raw info = { 0 };
 	int i, n, res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_combine_sink_info));
 	if (!props) {

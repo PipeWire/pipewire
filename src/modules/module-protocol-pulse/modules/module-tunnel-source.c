@@ -34,6 +34,11 @@
 #include "../module.h"
 #include "registry.h"
 
+#define NAME "tunnel-source"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct module_tunnel_source_data {
 	struct module *module;
 
@@ -149,6 +154,8 @@ struct module *create_module_tunnel_source(struct impl *impl, const char *argume
 	const char *str, *server, *remote_source_name;
 	struct spa_audio_info_raw info = { 0 };
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_tunnel_source_info));
 	stream_props = pw_properties_new(NULL, NULL);

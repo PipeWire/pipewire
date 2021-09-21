@@ -40,6 +40,7 @@
 #include "commands.h"
 #include "defs.h"
 #include "internal.h"
+#include "log.h"
 #include "manager.h"
 #include "message.h"
 #include "operation.h"

@@ -28,6 +28,11 @@
 #include "../module.h"
 #include "registry.h"
 
+#define NAME "null-sink"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct module_null_sink_data {
 	struct pw_proxy *proxy;
 	struct spa_hook listener;
@@ -136,6 +141,8 @@ struct module *create_module_null_sink(struct impl *impl, const char *argument)
 	struct spa_audio_info_raw info = { 0 };
 	uint32_t i;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_null_sink_info));
 	if (props == NULL) {

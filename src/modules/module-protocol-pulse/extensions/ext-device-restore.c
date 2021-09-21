@@ -48,6 +48,10 @@
 #include "../reply.h"
 #include "../volume.h"
 
+PW_LOG_TOPIC_EXTERN(pulse_ext_dev_restore);
+#undef PW_LOG_TOPIC_DEFAULT
+#define PW_LOG_TOPIC_DEFAULT pulse_ext_dev_restore
+
 #define DEVICE_TYPE_SINK	0
 #define DEVICE_TYPE_SOURCE	1
 

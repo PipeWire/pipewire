@@ -1,6 +1,6 @@
 /* PipeWire
  *
- * Copyright © 2020 Wim Taymans
+ * Copyright © 2021 Red Hat, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,26 +22,13 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <spa/utils/list.h>
-#include <spa/utils/hook.h>
-#include <pipewire/work-queue.h>
 
-#include "client.h"
-#include "internal.h"
-#include "log.h"
-#include "pending-sample.h"
-#include "sample-play.h"
+#ifndef PULSE_LOG_H
+#define PULSE_LOG_H
 
-void pending_sample_free(struct pending_sample *ps)
-{
-	struct client * const client = ps->client;
-	struct impl * const impl = client->impl;
+#include <pipewire/log.h>
 
-	spa_list_remove(&ps->link);
-	spa_hook_remove(&ps->listener);
-	pw_work_queue_cancel(impl->work_queue, ps, SPA_ID_INVALID);
+PW_LOG_TOPIC_EXTERN(mod_topic);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
 
-	client->ref--;
-
-	sample_play_destroy(ps->play);
-}
+#endif /* PULSE_LOG_H */

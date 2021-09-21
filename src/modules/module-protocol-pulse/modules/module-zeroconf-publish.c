@@ -41,6 +41,11 @@
 #include <avahi-common/error.h>
 #include <avahi-common/domain.h>
 
+#define NAME "zeroconf-publish"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define SERVICE_TYPE_SINK "_pulse-sink._tcp"
 #define SERVICE_TYPE_SOURCE "_pulse-source._tcp"
 #define SERVICE_TYPE_SERVER "_pulse-server._tcp"
@@ -635,6 +640,8 @@ struct module *create_module_zeroconf_publish(struct impl *impl, const char *arg
 	struct pw_properties *props = NULL;
 	const char *port;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_zeroconf_publish_info));
 	if (!props) {

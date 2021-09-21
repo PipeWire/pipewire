@@ -29,6 +29,7 @@
 #include <pipewire/properties.h>
 
 #include "internal.h"
+#include "log.h"
 #include "sample.h"
 
 void sample_free(struct sample *sample)

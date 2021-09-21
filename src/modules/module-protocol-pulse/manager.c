@@ -30,6 +30,8 @@
 #include <spa/utils/string.h>
 #include <pipewire/extensions/metadata.h>
 
+#include "log.h"
+
 #define MAX_PARAMS 32
 
 #define manager_emit_sync(m) spa_hook_list_call(&m->hooks, struct pw_manager_events, sync, 0)

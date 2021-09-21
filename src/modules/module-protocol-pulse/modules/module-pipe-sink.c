@@ -36,6 +36,11 @@
 #include "../module.h"
 #include "registry.h"
 
+#define NAME "pipe-sink"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define DEFAULT_FILE_NAME "/tmp/music.output"
 
 struct module_pipesink_data {
@@ -230,6 +235,8 @@ struct module *create_module_pipe_sink(struct impl *impl, const char *argument)
 	bool do_unlink_fifo;
 	int res = 0;
 	int fd = -1;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_pipesink_info));
 	capture_props = pw_properties_new(NULL, NULL);

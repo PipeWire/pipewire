@@ -29,8 +29,8 @@
 #include <spa/support/dbus.h>
 #include <spa/support/plugin.h>
 #include <pipewire/context.h>
-#include <pipewire/log.h>
 
+#include "log.h"
 #include "dbus-name.h"
 
 void *dbus_request_name(struct pw_context *context, const char *name)

@@ -39,6 +39,7 @@
 #include "client.h"
 #include "commands.h"
 #include "internal.h"
+#include "log.h"
 #include "message.h"
 #include "reply.h"
 #include "stream.h"

@@ -39,6 +39,7 @@
 #include "defs.h"
 #include "format.h"
 #include "internal.h"
+#include "log.h"
 #include "module.h"
 
 static void on_module_unload(void *obj, void *data, int res, uint32_t id)

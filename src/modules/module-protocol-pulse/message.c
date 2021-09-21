@@ -34,6 +34,7 @@
 #include "defs.h"
 #include "format.h"
 #include "internal.h"
+#include "log.h"
 #include "media-roles.h"
 #include "message.h"
 #include "volume.h"

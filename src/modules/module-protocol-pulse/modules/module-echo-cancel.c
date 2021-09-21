@@ -33,6 +33,11 @@
 #include "../module.h"
 #include "registry.h"
 
+#define NAME "echo-cancel"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct module_echo_cancel_data {
 	struct module *module;
 
@@ -163,6 +168,8 @@ struct module *create_module_echo_cancel(struct impl *impl, const char *argument
 	const char *str;
 	struct spa_audio_info_raw info = { 0 };
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_echo_cancel_info));
 	aec_props = pw_properties_new(NULL, NULL);

@@ -32,6 +32,11 @@
 #include "../module.h"
 #include "registry.h"
 
+#define NAME "remap-sink"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 struct module_remap_source_data {
 	struct module *module;
 
@@ -150,6 +155,8 @@ struct module *create_module_remap_source(struct impl *impl, const char *argumen
 	struct spa_audio_info_raw capture_info = { 0 };
 	struct spa_audio_info_raw playback_info = { 0 };
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_remap_source_info));
 	capture_props = pw_properties_new(NULL, NULL);

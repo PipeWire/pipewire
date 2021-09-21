@@ -49,6 +49,7 @@
 #include <pipewire/log.h>
 #include <pipewire/keys.h>
 
+#include "log.h"
 #include "utils.h"
 
 int get_runtime_dir(char *buf, size_t buflen, const char *dir)
@@ -62,7 +63,7 @@ int get_runtime_dir(char *buf, size_t buflen, const char *dir)
 		runtime_dir = getenv("XDG_RUNTIME_DIR");
 
 	if (runtime_dir == NULL) {
-		pw_log_error(NAME": could not find a suitable runtime directory in"
+		pw_log_error("could not find a suitable runtime directory in"
 				"$PULSE_RUNTIME_PATH and $XDG_RUNTIME_DIR");
 		return -ENOENT;
 	}
@@ -71,24 +72,24 @@ int get_runtime_dir(char *buf, size_t buflen, const char *dir)
 	if (size < 0)
 		return -errno;
 	if ((size_t) size >= buflen) {
-		pw_log_error(NAME": path %s/%s too long", runtime_dir, dir);
+		pw_log_error("path %s/%s too long", runtime_dir, dir);
 		return -ENAMETOOLONG;
 	}
 
 	if (stat(buf, &stat_buf) < 0) {
 		res = -errno;
 		if (res != -ENOENT) {
-			pw_log_error(NAME": stat() %s failed: %m", buf);
+			pw_log_error("stat() %s failed: %m", buf);
 			return res;
 		}
 		if (mkdir(buf, 0700) < 0) {
 			res = -errno;
-			pw_log_error(NAME": mkdir() %s failed: %m", buf);
+			pw_log_error("mkdir() %s failed: %m", buf);
 			return res;
 		}
-		pw_log_info(NAME": created %s", buf);
+		pw_log_info("created %s", buf);
 	} else if (!S_ISDIR(stat_buf.st_mode)) {
-		pw_log_error(NAME": %s is not a directory", buf);
+		pw_log_error("%s is not a directory", buf);
 		return -ENOTDIR;
 	}
 	return 0;
@@ -117,7 +118,7 @@ int check_flatpak(struct client *client, pid_t pid)
 		/* Not able to open the root dir shouldn't happen. Probably the app died and
 		 * we're failing due to /proc/$pid not existing. In that case fail instead
 		 * of treating this as privileged. */
-		pw_log_info("failed to open \"%s\": %s", root_path, spa_strerror(res));
+		pw_log_info("failed to open \"%s\"%s", root_path, spa_strerror(res));
 		return res;
 	}
 	info_fd = openat(root_fd, ".flatpak-info", O_RDONLY | O_CLOEXEC | O_NOCTTY);
@@ -187,7 +188,7 @@ int create_pid_file(void) {
 		return res;
 
 	if (strlen(pid_file) > PATH_MAX - sizeof("/pid")) {
-		pw_log_error(NAME": path too long: %s/pid", pid_file);
+		pw_log_error("path too long: %s/pid", pid_file);
 		return -ENAMETOOLONG;
 	}
 
@@ -195,7 +196,7 @@ int create_pid_file(void) {
 
 	if ((f = fopen(pid_file, "w")) == NULL) {
 		res = -errno;
-		pw_log_error(NAME": failed to open pid file: %m");
+		pw_log_error("failed to open pid file: %m");
 		return res;
 	}
 

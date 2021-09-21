@@ -36,6 +36,12 @@
 #include "../module.h"
 #include "registry.h"
 
+#define NAME "pipe-source"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
+
 #define DEFAULT_FILE_NAME "/tmp/music.input"
 
 struct module_pipesrc_data {
@@ -248,6 +254,8 @@ struct module *create_module_pipe_source(struct impl *impl, const char *argument
 	char *filename = NULL;
 	int stride, res = 0;
 	int fd = -1;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_pipesource_info));
 	playback_props = pw_properties_new(NULL, NULL);

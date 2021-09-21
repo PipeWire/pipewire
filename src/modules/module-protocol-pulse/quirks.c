@@ -28,6 +28,7 @@
 
 #include <pipewire/properties.h>
 
+#include "log.h"
 #include "quirks.h"
 
 #define QUOTE(...) #__VA_ARGS__

@@ -38,6 +38,7 @@
 #include <pipewire/stream.h>
 
 #include "format.h"
+#include "log.h"
 #include "sample.h"
 #include "sample-play.h"
 

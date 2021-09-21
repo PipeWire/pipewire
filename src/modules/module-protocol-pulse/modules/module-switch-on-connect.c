@@ -36,7 +36,10 @@
 #include "../manager.h"
 #include "../collect.h"
 
-#define NAME "pulse-server: module-switch-on-connect"
+#define NAME "switch-on-connect"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
 
 /* Ignore HDMI by default */
 #define DEFAULT_BLOCKLIST "hdmi"
@@ -109,24 +112,24 @@ static void manager_added(void *data, struct pw_manager_object *o)
 	if (!card_info || !card_info->props)
 		return;
 
-	pw_log_debug(NAME ": considering switching to %s", name);
+	pw_log_debug("considering switching to %s", name);
 
 	/* If internal device, only consider hdmi sinks */
 	str = spa_dict_lookup(info->props, "api.alsa.path");
 	bus = spa_dict_lookup(card_info->props, PW_KEY_DEVICE_BUS);
 	if ((spa_streq(bus, "pci") || spa_streq(bus, "isa")) &&
 			!(pw_manager_object_is_sink(o) && spa_strstartswith(str, "hdmi"))) {
-		pw_log_debug(NAME ": not switching to internal device");
+		pw_log_debug("not switching to internal device");
 		return;
 	}
 
 	if (d->blocklist && regexec(d->blocklist, name, 0, NULL, 0) == 0) {
-		pw_log_debug(NAME ": not switching to blocklisted device");
+		pw_log_debug("not switching to blocklisted device");
 		return;
 	}
 
 	if (d->ignore_virtual && spa_dict_lookup(info->props, PW_KEY_DEVICE_API) == NULL) {
-		pw_log_debug(NAME ": not switching to virtual device");
+		pw_log_debug("not switching to virtual device");
 		return;
 	}
 
@@ -135,13 +138,13 @@ static void manager_added(void *data, struct pw_manager_object *o)
 	}
 
 	/* Switch default */
-	pw_log_debug(NAME ": switching to %s", name);
+	pw_log_debug("switching to %s", name);
 
 	pw_manager_set_metadata(d->manager, d->metadata_default,
 			PW_ID_CORE,
 			pw_manager_object_is_sink(o) ? METADATA_CONFIG_DEFAULT_SINK
 				: METADATA_CONFIG_DEFAULT_SOURCE,
-			"Spa:String:JSON", "{ \"name\": \"%s\" }", name);
+			"Spa:String:JSON", "{ \"name\"\"%s\" }", name);
 }
 
 static void manager_sync(void *data)
@@ -163,7 +166,7 @@ static void on_core_done(void *data, uint32_t id, int seq)
 {
 	struct module_switch_on_connect_data *d = data;
 	if (seq == d->sync_seq) {
-		pw_log_debug(NAME" %p: started", d);
+		pw_log_debug("%p: started", d);
 		d->started = true;
 	}
 }
@@ -202,7 +205,7 @@ static int module_switch_on_connect_load(struct client *client, struct module *m
 	return 0;
 
 error:
-	pw_log_error(NAME" %p: failed to connect: %s", impl, spa_strerror(res));
+	pw_log_error("%p: failed to connect: %s", impl, spa_strerror(res));
 	return res;
 }
 
@@ -259,6 +262,8 @@ struct module *create_module_switch_on_connect(struct impl *impl, const char *ar
 	const char *str;
 	int res;
 
+	PW_LOG_TOPIC_INIT(mod_topic);
+
 	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_switch_on_connect_info));
 	if (!props) {
 		res = -EINVAL;
@@ -309,7 +314,7 @@ struct module *create_module_switch_on_connect(struct impl *impl, const char *ar
 
 	if (d->only_from_unavailable) {
 		/* XXX: not implemented */
-		pw_log_warn(NAME": only_from_unavailable is not implemented");
+		pw_log_warn("only_from_unavailable is not implemented");
 	}
 
 	return module;

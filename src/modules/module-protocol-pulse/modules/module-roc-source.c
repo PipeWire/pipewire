@@ -31,6 +31,11 @@
 #include "../module.h"
 #include "registry.h"
 
+#define NAME "roc-source"
+
+PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
+
 #define ROC_DEFAULT_IP "0.0.0.0"
 #define ROC_DEFAULT_SOURCE_PORT "10001"
 #define ROC_DEFAULT_REPAIR_PORT "10002"
@@ -139,6 +144,8 @@ struct module *create_module_roc_source(struct impl *impl, const char *argument)
 	struct pw_properties *props = NULL, *source_props = NULL, *roc_props = NULL;
 	const char *str;
 	int res;
+
+	PW_LOG_TOPIC_INIT(mod_topic);
 
 	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_roc_source_info));
 	source_props = pw_properties_new(NULL, NULL);

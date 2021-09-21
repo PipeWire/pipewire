@@ -52,6 +52,7 @@
 #include <pipewire/extensions/metadata.h>
 
 #include "midifile.h"
+#include "dsffile.h"
 
 #define DEFAULT_MEDIA_TYPE	"Audio"
 #define DEFAULT_MIDI_MEDIA_TYPE	"Midi"
@@ -116,7 +117,10 @@ struct data {
 
 	enum mode mode;
 	bool verbose;
-	bool is_midi;
+#define TYPE_PCM	0
+#define TYPE_MIDI	1
+#define TYPE_DSD	2
+	int data_type;
 	const char *remote_name;
 	const char *media_type;
 	const char *media_category;
@@ -161,6 +165,11 @@ struct data {
 		struct midi_file *file;
 		struct midi_file_info info;
 	} midi;
+	struct {
+		struct dsf_file *file;
+		struct dsf_file_info info;
+		struct dsf_layout layout;
+	} dsf;
 };
 
 static inline int
@@ -851,7 +860,8 @@ on_io_changed(void *userdata, uint32_t id, void *data, uint32_t size)
 		d->position = data;
 		break;
 	case SPA_IO_RateMatch:
-		d->rate_match = data;
+		if (d->data_type == TYPE_PCM)
+			d->rate_match = data;
 		break;
 	default:
 		break;
@@ -862,8 +872,37 @@ static void
 on_param_changed(void *userdata, uint32_t id, const struct spa_pod *param)
 {
 	struct data *data = userdata;
+	struct spa_audio_info info = { 0 };
+	int err;
+
 	if (data->verbose)
 		printf("stream param change: id=%"PRIu32"\n", id);
+
+	if (id != SPA_PARAM_Format || param == NULL)
+		return;
+
+	if ((err = spa_format_parse(param, &info.media_type, &info.media_subtype)) < 0)
+		return;
+
+	if (info.media_type != SPA_MEDIA_TYPE_audio ||
+	    info.media_subtype != SPA_MEDIA_SUBTYPE_dsd)
+		return;
+
+	if (spa_format_audio_dsd_parse(param, &info.info.dsd) < 0)
+		return;
+
+	data->dsf.layout.interleave = info.info.dsd.interleave,
+	data->dsf.layout.channels = info.info.dsd.channels;
+	data->dsf.layout.lsb = info.info.dsd.bitorder == SPA_PARAM_BITORDER_lsb;
+
+	data->stride = data->dsf.info.channels * SPA_ABS(data->dsf.layout.interleave);
+
+	if (data->verbose) {
+		printf("DSD out: channels:%d bitorder:%s interleave:%d\n",
+				data->dsf.layout.channels,
+				data->dsf.layout.lsb ? "lsb" : "msb",
+				data->dsf.layout.interleave);
+	}
 }
 
 static void on_process(void *userdata)
@@ -1058,6 +1097,7 @@ static void show_usage(const char *name, bool is_error)
 		   _("  -p, --playback                        Playback mode\n"
 		     "  -r, --record                          Recording mode\n"
 		     "  -m, --midi                            Midi mode\n"
+		     "  -d, --dsd                             DSD mode\n"
 		     "\n"), fp);
 	}
 }
@@ -1174,6 +1214,47 @@ static int setup_midifile(struct data *data)
 	data->fill = data->mode == mode_playback ?  midi_play : midi_record;
 	data->stride = 1;
 
+	return 0;
+}
+
+struct dsd_layout_info {
+	 uint32_t type;
+	 struct spa_audio_layout_info info;
+};
+static const struct dsd_layout_info dsd_layouts[] = {
+	{ 1, { SPA_AUDIO_LAYOUT_Mono, }, },
+	{ 2, { SPA_AUDIO_LAYOUT_Stereo, }, },
+	{ 3, { SPA_AUDIO_LAYOUT_2FC }, },
+	{ 4, { SPA_AUDIO_LAYOUT_Quad }, },
+	{ 5, { SPA_AUDIO_LAYOUT_3_1 }, },
+	{ 6, { SPA_AUDIO_LAYOUT_5_0R }, },
+	{ 7, { SPA_AUDIO_LAYOUT_5_1R }, },
+};
+
+static int dsf_play(struct data *d, void *src, unsigned int n_frames)
+{
+	return dsf_file_read(d->dsf.file, src, n_frames, &d->dsf.layout);
+}
+
+static int setup_dsffile(struct data *data)
+{
+	if (data->mode == mode_record)
+		return -ENOTSUP;
+
+	data->dsf.file = dsf_file_open(data->filename, "r", &data->dsf.info);
+	if (data->dsf.file == NULL) {
+		fprintf(stderr, "error: can't read dsf file '%s': %m\n", data->filename);
+		return -errno;
+	}
+
+	if (data->verbose)
+		printf("opened file \"%s\" channels:%d rate:%d bitorder:%s\n",
+				data->filename,
+				data->dsf.info.channels, data->dsf.info.rate,
+				data->dsf.info.lsb ? "lsb" : "msb");
+
+	data->fill = dsf_play;
+;
 	return 0;
 }
 
@@ -1398,16 +1479,21 @@ int main(int argc, char *argv[])
 		prog = argv[0];
 
 	/* prime the mode from the program name */
-	if (spa_streq(prog, "pw-play"))
+	if (spa_streq(prog, "pw-play")) {
 		data.mode = mode_playback;
-	else if (spa_streq(prog, "pw-record"))
+		data.data_type = TYPE_PCM;
+	} else if (spa_streq(prog, "pw-record")) {
 		data.mode = mode_record;
-	else if (spa_streq(prog, "pw-midiplay")) {
+		data.data_type = TYPE_PCM;
+	} else if (spa_streq(prog, "pw-midiplay")) {
 		data.mode = mode_playback;
-		data.is_midi = true;
+		data.data_type = TYPE_MIDI;
 	} else if (spa_streq(prog, "pw-midirecord")) {
 		data.mode = mode_record;
-		data.is_midi = true;
+		data.data_type = TYPE_MIDI;
+	} else if (spa_streq(prog, "pw-dsdplay")) {
+		data.mode = mode_playback;
+		data.data_type = TYPE_DSD;
 	} else
 		data.mode = mode_none;
 
@@ -1418,7 +1504,7 @@ int main(int argc, char *argv[])
 	/* initialize list every time */
 	spa_list_init(&data.targets);
 
-	while ((c = getopt_long(argc, argv, "hvprmR:q:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hvprmdR:q:", long_options, NULL)) != -1) {
 
 		switch (c) {
 
@@ -1448,7 +1534,11 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'm':
-			data.is_midi = true;
+			data.data_type = TYPE_MIDI;
+			break;
+
+		case 'd':
+			data.data_type = TYPE_DSD;
 			break;
 
 		case 'R':
@@ -1538,10 +1628,14 @@ int main(int argc, char *argv[])
 	}
 
 	if (!data.media_type) {
-		if (data.is_midi)
+		switch (data.data_type) {
+		case TYPE_MIDI:
 			data.media_type = DEFAULT_MIDI_MEDIA_TYPE;
-		else
+			break;
+		default:
 			data.media_type = DEFAULT_MEDIA_TYPE;
+			break;
+		}
 	}
 	if (!data.media_category)
 		data.media_category = data.mode == mode_playback ?
@@ -1637,12 +1731,21 @@ int main(int argc, char *argv[])
 	data.sync = pw_core_sync(data.core, 0, data.sync);
 
 	if (!data.list_targets) {
-		struct spa_audio_info_raw info;
 
-		if (data.is_midi)
-			ret = setup_midifile(&data);
-		else
+		switch (data.data_type) {
+		case TYPE_PCM:
 			ret = setup_sndfile(&data);
+			break;
+		case TYPE_MIDI:
+			ret = setup_midifile(&data);
+			break;
+		case TYPE_DSD:
+			ret = setup_dsffile(&data);
+			break;
+		default:
+			ret = -ENOTSUP;
+			break;
+		}
 
 		if (ret < 0) {
 			fprintf(stderr, "error: open failed: %s\n", spa_strerror(ret));
@@ -1654,8 +1757,10 @@ int main(int argc, char *argv[])
 				goto error_usage;
 			}
 		}
-
-		if (!data.is_midi) {
+		switch (data.data_type) {
+		case TYPE_PCM:
+		{
+			struct spa_audio_info_raw info;
 			info = SPA_AUDIO_INFO_RAW_INIT(
 				.flags = data.channelmap.n_channels ? 0 : SPA_AUDIO_FLAG_UNPOSITIONED,
 				.format = data.spa_format,
@@ -1666,13 +1771,35 @@ int main(int argc, char *argv[])
 				memcpy(info.position, data.channelmap.channels, data.channels * sizeof(int));
 
 			params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
-		} else {
+			break;
+		}
+		case TYPE_MIDI:
 			params[0] = spa_pod_builder_add_object(&b,
 					SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 					SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_application),
 					SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 
 			pw_properties_set(data.props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
+			break;
+		case TYPE_DSD:
+		{
+			struct spa_audio_info_dsd info;
+			size_t i;
+
+			spa_zero(info);
+			info.channels = data.dsf.info.channels;
+			info.rate = data.dsf.info.rate / 8;
+
+			for (i = 0; i < SPA_N_ELEMENTS(dsd_layouts); i++) {
+				if (dsd_layouts[i].type != data.dsf.info.channel_type)
+					continue;
+				info.channels = dsd_layouts[i].info.n_channels;
+				memcpy(info.position, dsd_layouts[i].info.position,
+						info.channels * sizeof(uint32_t));
+			}
+			params[0] = spa_format_audio_dsd_build(&b, SPA_PARAM_EnumFormat, &info);
+			break;
+		}
 		}
 
 		data.stream = pw_stream_new(data.core, prog, data.props);

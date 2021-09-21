@@ -270,10 +270,10 @@ static int do_extension_stream_restore_write(struct client *client, uint32_t com
 		fclose(f);
 		if (key_from_name(name, key, sizeof(key)) >= 0) {
 			pw_log_debug("%s -> %s: %s", name, key, ptr);
-			if (pw_manager_set_metadata(client->manager,
+			if ((res = pw_manager_set_metadata(client->manager,
 							client->metadata_routes,
-							PW_ID_CORE, key, "Spa:String:JSON", "%s", ptr) < 0)
-				pw_log_warn("failed to set metadata %s = %s", key, ptr);
+							PW_ID_CORE, key, "Spa:String:JSON", "%s", ptr)) < 0)
+				pw_log_warn("failed to set metadata %s = %s, %s", key, ptr, strerror(-res));
 		}
 		free(ptr);
 	}

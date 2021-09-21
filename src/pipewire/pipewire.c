@@ -204,7 +204,9 @@ static void unref_handle(struct handle *handle)
 	if (--handle->ref == 0) {
 		spa_list_remove(&handle->link);
 		pw_log_debug("clear handle '%s'", handle->factory_name);
+		pthread_mutex_unlock(&support_lock);
 		spa_handle_clear(&handle->handle);
+		pthread_mutex_lock(&support_lock);
 		unref_plugin(handle->plugin);
 		free(handle->factory_name);
 		free(handle);

@@ -582,6 +582,10 @@ extern "C" {
 		camera->set_streamcfgpixel_format(fmt);
 	}
 
+	bool libcamera_set_config(LibCamera *camera) {
+		return camera->set_config();
+	}
+
 	void libcamera_ringbuffer_read_update(LibCamera *camera) {
 		camera->ring_buffer_update_read_index();
 	}

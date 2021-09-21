@@ -104,6 +104,8 @@ void libcamera_set_streamcfg_height(LibCamera *camera, uint32_t w);
 
 void libcamera_set_streamcfgpixel_format(LibCamera *camera, uint32_t fmt);
 
+bool libcamera_set_config(LibCamera *camera);
+
 void libcamera_get_streamcfg_size(LibCamera *camera, uint32_t idx, uint32_t *width, uint32_t *height);
 
 uint32_t libcamera_get_stride(LibCamera *camera);

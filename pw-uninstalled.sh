@@ -41,7 +41,7 @@ export SPA_PLUGIN_DIR="${BUILDDIR}/spa/plugins"
 export SPA_DATA_DIR="${SCRIPT_DIR}/spa/plugins"
 # the directory with pipewire modules
 export PIPEWIRE_MODULE_DIR="${BUILDDIR}/src/modules"
-export PATH="${BUILDDIR}/src/daemon:${BUILDDIR}/src/tools:${BUILDDIR}/src/examples:${PATH}"
+export PATH="${BUILDDIR}/src/daemon:${BUILDDIR}/src/tools:${BUILDDIR}/src/media-session:${BUILDDIR}/src/examples:${PATH}"
 export LD_LIBRARY_PATH="${BUILDDIR}/src/pipewire/:${BUILDDIR}/pipewire-jack/src/${LD_LIBRARY_PATH+":$LD_LIBRARY_PATH"}"
 export GST_PLUGIN_PATH="${BUILDDIR}/src/gst/${GST_PLUGIN_PATH+":${GST_PLUGIN_PATH}"}"
 # the directory with card profiles and paths

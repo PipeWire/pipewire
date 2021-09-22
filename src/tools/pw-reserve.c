@@ -33,7 +33,7 @@
 
 #include "pipewire/pipewire.h"
 
-#include "reserve.c"
+#include "../media-session/reserve.c"
 
 #define NAME "reserve"
 

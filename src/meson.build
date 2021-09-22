@@ -3,6 +3,7 @@ subdir('pipewire')
 subdir('daemon')
 subdir('tools')
 subdir('modules')
+subdir('media-session')
 if not get_option('examples').disabled()
   subdir('examples')
 endif

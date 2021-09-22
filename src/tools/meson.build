@@ -59,3 +59,9 @@ elif not sndfile_dep.found() and get_option('pw-cat').enabled()
 	error('pw-cat is enabled but required dependency `sndfile` was not found.')
 endif
 summary({'Build pw-cat tool': build_pw_cat}, bool_yn: true, section: 'pw-cat/pw-play/pw-dump tool')
+
+executable('pw-reserve',
+	'pw-reserve.c',
+	install: true,
+	dependencies : [dbus_dep, pipewire_dep],
+)

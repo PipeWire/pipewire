@@ -254,7 +254,15 @@ build_with_coverity:
         -Dvulkan=enabled
         -Dsdl2=enabled
         -Dsndfile=enabled
-    - cov-build --dir cov-int ninja -C "$BUILD_DIR"
+    - cov-configure --config coverity_conf.xml
+        --comptype gcc --compiler cc --template
+        --xml-option=append_arg@C:--ppp_translator
+        --xml-option=append_arg@C:"replace/_sd_deprecated_\s+=/ ="
+        --xml-option=append_arg@C:--ppp_translator
+        --xml-option=append_arg@C:"replace/GLIB_(DEPRECATED|AVAILABLE)_ENUMERATOR_IN_\d_\d\d(_FOR\(\w+\)|)\s+=/ ="
+        --xml-option=append_arg@C:--ppp_translator
+        --xml-option=append_arg@C:"replace/(__has_builtin|_GLIBCXX_HAS_BUILTIN)\(\w+\)/1"
+    - cov-build --dir cov-int --config coverity_conf.xml ninja -C "$BUILD_DIR"
     - tar czf cov-int.tar.gz cov-int
     - curl https://scan.coverity.com/builds?project=$COVERITY_SCAN_PROJECT_NAME
         --form token=$COVERITY_SCAN_TOKEN --form email=$GITLAB_USER_EMAIL

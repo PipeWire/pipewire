@@ -56,6 +56,7 @@
 
 #include "media-session.h"
 
+#define NAME "alsa-monitor"
 #include "reserve.c"
 
 /** \page page_media_session_module_alsa_monitor Media Session Module: ALSA Monitor

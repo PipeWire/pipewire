@@ -187,6 +187,7 @@ void pw_data_loop_add_listener(struct pw_data_loop *loop,
 	spa_hook_list_append(&loop->listener_list, listener, events, data);
 }
 
+SPA_EXPORT
 struct pw_loop *
 pw_data_loop_get_loop(struct pw_data_loop *loop)
 {

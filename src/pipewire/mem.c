@@ -130,6 +130,7 @@ struct memmap {
 	struct spa_list link;
 };
 
+SPA_EXPORT
 struct pw_mempool *pw_mempool_new(struct pw_properties *props)
 {
 	struct mempool *impl;
@@ -153,6 +154,7 @@ struct pw_mempool *pw_mempool_new(struct pw_properties *props)
 	return this;
 }
 
+SPA_EXPORT
 void pw_mempool_clear(struct pw_mempool *pool)
 {
 	struct mempool *impl = SPA_CONTAINER_OF(pool, struct mempool, this);
@@ -165,6 +167,7 @@ void pw_mempool_clear(struct pw_mempool *pool)
 	pw_map_reset(&impl->map);
 }
 
+SPA_EXPORT
 void pw_mempool_destroy(struct pw_mempool *pool)
 {
 	struct mempool *impl = SPA_CONTAINER_OF(pool, struct mempool, this);
@@ -182,7 +185,7 @@ void pw_mempool_destroy(struct pw_mempool *pool)
 	free(impl);
 }
 
-
+SPA_EXPORT
 void pw_mempool_add_listener(struct pw_mempool *pool,
 			     struct spa_hook *listener,
 			     const struct pw_mempool_events *events,
@@ -662,6 +665,7 @@ struct pw_memmap * pw_mempool_import_map(struct pw_mempool *pool,
 	return map;
 }
 
+SPA_EXPORT
 int pw_mempool_remove_id(struct pw_mempool *pool, uint32_t id)
 {
 	struct mempool *impl = SPA_CONTAINER_OF(pool, struct mempool, this);

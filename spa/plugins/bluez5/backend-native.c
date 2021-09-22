@@ -32,8 +32,6 @@
 
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/sco.h>
-#include <bluetooth/hci.h>
-#include <bluetooth/hci_lib.h>
 
 #include <dbus/dbus.h>
 
@@ -550,20 +548,17 @@ fail:
 #endif
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+
+static int sco_create_socket(struct impl *backend, struct spa_bt_adapter *adapter, bool msbc);
+
 static bool device_supports_required_mSBC_transport_modes(
 		struct impl *backend, struct spa_bt_device *device) {
-	bdaddr_t src;
-	uint8_t features[8], max_page = 0;
-	struct hci_dev_info di;
-	int device_id;
 	int sock;
 	bool msbc_ok, msbc_alt1_ok;
 	uint32_t bt_features;
 
 	if (device->adapter == NULL)
 		return false;
-
-	spa_log_debug(backend->log, NAME": Entering function");
 
 	if (backend->quirks && spa_bt_quirks_get_features(backend->quirks, device->adapter, device, &bt_features) == 0) {
 		msbc_ok = bt_features & SPA_BT_FEATURE_MSBC;
@@ -579,50 +574,49 @@ static bool device_supports_required_mSBC_transport_modes(
 	if (!msbc_ok && !msbc_alt1_ok)
 		return false;
 
-	str2ba(device->adapter->address, &src);
-
-	device_id = hci_get_route(&src);
-
-	if (hci_devinfo(device_id, &di) < 0) {
-		spa_log_error(backend->log, NAME": Error getting device info for hci%d: %s (%d)\n",
-						device_id, strerror(errno), errno);
-		return false;
-	}
-
-	sock = hci_open_dev(device_id);
+	/*
+	 * Check if adapter supports BT_VOICE_TRANSPARENT. Do this without
+	 * directly probing HCI properties.
+	 */
+	sock = sco_create_socket(backend, device->adapter, true);
 	if (sock < 0) {
-		spa_log_error(backend->log, NAME": Error opening device hci%d: %s (%d)\n",
-						device_id, strerror(errno), errno);
 		return false;
-	}
-
-	if (hci_read_local_ext_features(sock, 0, &max_page, features, 1000) < 0) {
-		spa_log_error(backend->log, NAME": Error reading extended features hci%d: %s (%d)\n",
-						device_id, strerror(errno), errno);
-		hci_close_dev(sock);
-		return false;
-	}
-	hci_close_dev(sock);
-
-	if (!(features[2] & LMP_TRSP_SCO)) {
-		/* When adapter support, then the LMP_TRSP_SCO bit in features[2] is set*/
-		spa_log_info(backend->log,
-			NAME": bluetooth host adapter not capable of Transparent SCO LMP_TRSP_SCO" );
-		return false;
-
-	} else if (!(features[3] & LMP_ESCO)) {
-	  /* When adapter support, then the LMP_ESCO bit in features[3] is set*/
-		spa_log_info(backend->log,
-			NAME": bluetooth host adapter not capable of eSCO link mode (LMP_ESCO)" );
-		return false;
-
 	} else {
-		spa_log_info(backend->log,
-				NAME": bluetooth host adapter supports eSCO link and Transparent Data mode" );
+		struct sockaddr_sco addr;
+		socklen_t len;
+		bdaddr_t dst;
+		int res;
+
+		/* Connect to self */
+		str2ba(device->adapter->address, &dst);
+		len = sizeof(addr);
+		memset(&addr, 0, len);
+		addr.sco_family = AF_BLUETOOTH;
+		bacpy(&addr.sco_bdaddr, &dst);
+
+		spa_log_debug(backend->log, NAME": connect to determine adapter msbc support...");
+
+		/* Linux kernel code checks for features needed for BT_VOICE_TRANSPARENT
+		 * among the first checks it does, and fails with EOPNOTSUPP if not
+		 * supported. The connection to self generally timeouts, so set it
+		 * nonblocking since we are just checking.
+		 */
+		fcntl(sock, F_SETFL, O_NONBLOCK);
+		res = connect(sock, (struct sockaddr *) &addr, len);
+		if (res < 0)
+			res = errno;
+		else
+			res = 0;
+		close(sock);
+
+		spa_log_debug(backend->log, NAME": determined adapter-msbc:%d res:%d",
+				(res != EOPNOTSUPP), res);
+		if (res == EOPNOTSUPP)
+			return false;
 	}
 
-	if ((di.type & 0x0f) == HCI_USB && !msbc_alt1_ok && msbc_ok) {
-		/* Check if USB ALT6 is really available on the device */
+	/* Check if USB ALT6 is really available on the device */
+	if (device->adapter->bus_type == BUS_TYPE_USB && !msbc_alt1_ok && msbc_ok) {
 #if HAVE_LIBUSB
 		if (device->adapter->source_id == SOURCE_ID_USB) {
 			msbc_ok = check_usb_altsetting_6(backend, device->adapter->vendor_id,
@@ -638,7 +632,7 @@ static bool device_supports_required_mSBC_transport_modes(
 		msbc_ok = false;
 #endif
 	}
-	if ((di.type & 0x0f) != HCI_USB)
+	if (device->adapter->bus_type != BUS_TYPE_USB)
 		msbc_alt1_ok = false;
 
 	return msbc_ok || msbc_alt1_ok;
@@ -1021,6 +1015,7 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 
 	return true;
 }
+
 #endif
 
 static void rfcomm_event(struct spa_source *source)
@@ -1068,32 +1063,20 @@ static void rfcomm_event(struct spa_source *source)
 	return;
 }
 
-static int sco_do_connect(struct spa_bt_transport *t)
+static int sco_create_socket(struct impl *backend, struct spa_bt_adapter *adapter, bool msbc)
 {
-	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
-	struct spa_bt_device *d = t->device;
 	struct sockaddr_sco addr;
 	socklen_t len;
-	int err;
-	int sock;
 	bdaddr_t src;
-	bdaddr_t dst;
-	int retry = 2;
+	int sock = -1;
 
-	spa_log_debug(backend->log, NAME": transport %p: enter sco_do_connect", t);
-
-	if (d->adapter == NULL)
-		return -EIO;
-
-	str2ba(d->adapter->address, &src);
-	str2ba(d->address, &dst);
-
-again:
 	sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_SCO);
 	if (sock < 0) {
 		spa_log_error(backend->log, NAME": socket(SEQPACKET, SCO) %s", strerror(errno));
-		return -errno;
+		goto fail;
 	}
+
+	str2ba(adapter->address, &src);
 
 	len = sizeof(addr);
 	memset(&addr, 0, len);
@@ -1102,24 +1085,57 @@ again:
 
 	if (bind(sock, (struct sockaddr *) &addr, len) < 0) {
 		spa_log_error(backend->log, NAME": bind(): %s", strerror(errno));
-		goto fail_close;
+		goto fail;
 	}
 
-	memset(&addr, 0, len);
-	addr.sco_family = AF_BLUETOOTH;
-	bacpy(&addr.sco_bdaddr, &dst);
-
-	spa_log_debug(backend->log, NAME": transport %p: codec=%u", t, t->codec);
-	if (t->codec == HFP_AUDIO_CODEC_MSBC) {
+	spa_log_debug(backend->log, NAME": msbc=%d", (int)msbc);
+	if (msbc) {
 		/* set correct socket options for mSBC */
 		struct bt_voice voice_config;
 		memset(&voice_config, 0, sizeof(voice_config));
 		voice_config.setting = BT_VOICE_TRANSPARENT;
 		if (setsockopt(sock, SOL_BLUETOOTH, BT_VOICE, &voice_config, sizeof(voice_config)) < 0) {
 			spa_log_error(backend->log, NAME": setsockopt(): %s", strerror(errno));
-			goto fail_close;
+			goto fail;
 		}
 	}
+
+	return sock;
+
+fail:
+	if (sock >= 0)
+		close(sock);
+	return -1;
+}
+
+static int sco_do_connect(struct spa_bt_transport *t)
+{
+	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
+	struct spa_bt_device *d = t->device;
+	struct sockaddr_sco addr;
+	socklen_t len;
+	int err;
+	int sock;
+	bdaddr_t dst;
+	int retry = 2;
+
+	spa_log_debug(backend->log, NAME": transport %p: enter sco_do_connect, codec=%u",
+			t, t->codec);
+
+	if (d->adapter == NULL)
+		return -EIO;
+
+	str2ba(d->address, &dst);
+
+again:
+	sock = sco_create_socket(backend, d->adapter, (t->codec == HFP_AUDIO_CODEC_MSBC));
+	if (sock < 0)
+		return -1;
+
+	len = sizeof(addr);
+	memset(&addr, 0, len);
+	addr.sco_family = AF_BLUETOOTH;
+	bacpy(&addr.sco_bdaddr, &dst);
 
 	spa_log_debug(backend->log, NAME": transport %p: doing connect", t);
 	err = connect(sock, (struct sockaddr *) &addr, len);

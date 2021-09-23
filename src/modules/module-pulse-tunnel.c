@@ -65,6 +65,7 @@
 			"[ audio.channels=<number of channels> ] "		\
 			"[ audio.position=<channel map> ] "			\
 			"pulse.server.address=<address> "			\
+			"pulse.latency=<latency in usec> "			\
 			"[ tunnel.mode=capture|playback "			\
 			"[ stream.props=<properties> ] "
 
@@ -97,6 +98,8 @@ struct impl {
 	struct pw_core *core;
 	struct spa_hook core_proxy_listener;
 	struct spa_hook core_listener;
+
+	uint64_t latency_usec;
 
 	struct pw_properties *stream_props;
 	struct pw_stream *stream;
@@ -322,7 +325,7 @@ static int create_stream(struct impl *impl)
 
 	spa_zero(latency);
 	latency.direction = impl->mode == MODE_CAPTURE ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
-	latency.min_ns = latency.max_ns = DEFAULT_LATENCY_USEC * 1000;
+	latency.min_ns = latency.max_ns = impl->latency_usec * 1000;
 
 	params[n_params++] = spa_latency_build(&b,
 			SPA_PARAM_Latency, &latency);
@@ -552,7 +555,7 @@ static int create_pulse_stream(struct impl *impl)
 	bufferattr.prebuf = (uint32_t) -1;
 
 	if (impl->mode == MODE_CAPTURE) {
-		bufferattr.fragsize = pa_usec_to_bytes(DEFAULT_LATENCY_USEC, &ss);
+		bufferattr.fragsize = pa_usec_to_bytes(impl->latency_usec, &ss);
 
 		res = pa_stream_connect_record(impl->pa_stream,
 				remote_node_target, &bufferattr,
@@ -560,7 +563,7 @@ static int create_pulse_stream(struct impl *impl)
 				PA_STREAM_ADJUST_LATENCY |
 				PA_STREAM_AUTO_TIMING_UPDATE);
 	} else {
-		bufferattr.tlength = pa_usec_to_bytes(DEFAULT_LATENCY_USEC, &ss);
+		bufferattr.tlength = pa_usec_to_bytes(impl->latency_usec, &ss);
 
 		res = pa_stream_connect_playback(impl->pa_stream,
 				remote_node_target, &bufferattr,
@@ -777,6 +780,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			goto error;
 		}
 	}
+
+	impl->latency_usec = DEFAULT_LATENCY_USEC;
+	if ((str = pw_properties_get(props, "pulse.latency")) != NULL)
+		spa_atou64(str, &impl->latency_usec, 0);
+
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_GROUP, "pipewire.dummy");
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)

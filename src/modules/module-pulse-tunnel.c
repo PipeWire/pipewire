@@ -79,7 +79,7 @@ static const struct spa_dict_item module_props[] = {
 #define RINGBUFFER_SIZE		(1u << 22)
 #define RINGBUFFER_MASK		(RINGBUFFER_SIZE-1)
 
-#define DEFAULT_LATENCY_USEC (20 * PA_USEC_PER_MSEC)
+#define DEFAULT_LATENCY_USEC (100 * PA_USEC_PER_MSEC)
 
 struct impl {
 	struct pw_context *context;

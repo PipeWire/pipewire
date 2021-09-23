@@ -5,18 +5,16 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire\n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/issue"
-"s\n"
-"POT-Creation-Date: 2021-05-16 13:13+0000\n"
-"PO-Revision-Date: 2021-05-16 19:13+0300\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/issues\n"
+"POT-Creation-Date: 2021-09-21 15:31+0000\n"
+"PO-Revision-Date: 2021-09-23 12:37+0300\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <trans-uk@lists.fedoraproject.org>\n"
 "Language: uk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<"
-"=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
 "X-Generator: Lokalize 20.12.0\n"
 
 #: src/daemon/pipewire.c:45
@@ -41,43 +39,43 @@ msgstr "Мультимедійна система PipeWire"
 msgid "Start the PipeWire Media System"
 msgstr "Запустити мультимедійну систему PipeWire"
 
-#: src/examples/media-session/alsa-monitor.c:585
-#: spa/plugins/alsa/acp/compat.c:187
+#: src/examples/media-session/alsa-monitor.c:656
+#: spa/plugins/alsa/acp/compat.c:189
 msgid "Built-in Audio"
 msgstr "Вбудоване аудіо"
 
-#: src/examples/media-session/alsa-monitor.c:589
-#: spa/plugins/alsa/acp/compat.c:192
+#: src/examples/media-session/alsa-monitor.c:660
+#: spa/plugins/alsa/acp/compat.c:194
 msgid "Modem"
 msgstr "Модем"
 
-#: src/examples/media-session/alsa-monitor.c:598
-#: src/modules/module-zeroconf-discover.c:290
+#: src/examples/media-session/alsa-monitor.c:669
+#: src/modules/module-zeroconf-discover.c:296
 msgid "Unknown device"
 msgstr "Невідомий пристрій"
 
-#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:182
-#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:182
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:173
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:173
 #, c-format
 msgid "Tunnel to %s/%s"
 msgstr "Тунель до %s/%s"
 
-#: src/modules/module-pulse-tunnel.c:511
+#: src/modules/module-pulse-tunnel.c:534
 #, c-format
 msgid "Tunnel for %s@%s"
 msgstr "Тунель для %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:302
+#: src/modules/module-zeroconf-discover.c:308
 #, c-format
 msgid "%s on %s@%s"
 msgstr "%s на %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:306
+#: src/modules/module-zeroconf-discover.c:312
 #, c-format
 msgid "%s on %s"
 msgstr "%s на %s"
 
-#: src/tools/pw-cat.c:991
+#: src/tools/pw-cat.c:1055
 #, c-format
 msgid ""
 "%s [options] <file>\n"
@@ -93,7 +91,7 @@ msgstr ""
 "інформації\n"
 "\n"
 
-#: src/tools/pw-cat.c:998
+#: src/tools/pw-cat.c:1062
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
@@ -129,7 +127,7 @@ msgstr ""
 "target\n"
 "\n"
 
-#: src/tools/pw-cat.c:1016
+#: src/tools/pw-cat.c:1080
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -165,19 +163,26 @@ msgstr ""
 "(типово, %d)\n"
 "\n"
 
-#: src/tools/pw-cat.c:1033
+#: src/tools/pw-cat.c:1097
+#| msgid ""
+#| "  -p, --playback                        Playback mode\n"
+#| "  -r, --record                          Recording mode\n"
+#| "  -m, --midi                            Midi mode\n"
+#| "\n"
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
 "  -m, --midi                            Midi mode\n"
+"  -d, --dsd                             DSD mode\n"
 "\n"
 msgstr ""
 "  -p, --playback                        режим відтворення\n"
 "  -r, --record                          режим запису\n"
 "  -m, --midi                            режим MIDI\n"
+"  -d, --dsd                             режим DSD\n"
 "\n"
 
-#: src/tools/pw-cli.c:2959
+#: src/tools/pw-cli.c:2954
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -195,195 +200,195 @@ msgstr ""
 "  -r, --remote                          назва віддаленої фонової служби\n"
 "\n"
 
-#: spa/plugins/alsa/acp/acp.c:291
+#: spa/plugins/alsa/acp/acp.c:310
 msgid "Pro Audio"
 msgstr "Професійний звук"
 
-#: spa/plugins/alsa/acp/acp.c:412 spa/plugins/alsa/acp/alsa-mixer.c:4704
-#: spa/plugins/bluez5/bluez5-device.c:1020
+#: spa/plugins/alsa/acp/acp.c:433 spa/plugins/alsa/acp/alsa-mixer.c:4648
+#: spa/plugins/bluez5/bluez5-device.c:1135
 msgid "Off"
 msgstr "Вимкнено"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2709
+#: spa/plugins/alsa/acp/alsa-mixer.c:2652
 msgid "Input"
 msgstr "Вхід"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2710
+#: spa/plugins/alsa/acp/alsa-mixer.c:2653
 msgid "Docking Station Input"
 msgstr "Вхідний канал док-станції"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2711
+#: spa/plugins/alsa/acp/alsa-mixer.c:2654
 msgid "Docking Station Microphone"
 msgstr "Мікрофон док-станції"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2712
+#: spa/plugins/alsa/acp/alsa-mixer.c:2655
 msgid "Docking Station Line In"
 msgstr "Лінійний вхід док-станції"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2713
-#: spa/plugins/alsa/acp/alsa-mixer.c:2804
+#: spa/plugins/alsa/acp/alsa-mixer.c:2656
+#: spa/plugins/alsa/acp/alsa-mixer.c:2747
 msgid "Line In"
 msgstr "Лінійний вхід"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2714
-#: spa/plugins/alsa/acp/alsa-mixer.c:2798
-#: spa/plugins/bluez5/bluez5-device.c:1175
+#: spa/plugins/alsa/acp/alsa-mixer.c:2657
+#: spa/plugins/alsa/acp/alsa-mixer.c:2741
+#: spa/plugins/bluez5/bluez5-device.c:1292
 msgid "Microphone"
 msgstr "Мікрофон"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2715
-#: spa/plugins/alsa/acp/alsa-mixer.c:2799
+#: spa/plugins/alsa/acp/alsa-mixer.c:2658
+#: spa/plugins/alsa/acp/alsa-mixer.c:2742
 msgid "Front Microphone"
 msgstr "Передній мікрофон"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2716
-#: spa/plugins/alsa/acp/alsa-mixer.c:2800
+#: spa/plugins/alsa/acp/alsa-mixer.c:2659
+#: spa/plugins/alsa/acp/alsa-mixer.c:2743
 msgid "Rear Microphone"
 msgstr "Задній мікрофон"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2717
+#: spa/plugins/alsa/acp/alsa-mixer.c:2660
 msgid "External Microphone"
 msgstr "Зовнішній мікрофон"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2718
-#: spa/plugins/alsa/acp/alsa-mixer.c:2802
+#: spa/plugins/alsa/acp/alsa-mixer.c:2661
+#: spa/plugins/alsa/acp/alsa-mixer.c:2745
 msgid "Internal Microphone"
 msgstr "Вбудований мікрофон"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2719
-#: spa/plugins/alsa/acp/alsa-mixer.c:2805
+#: spa/plugins/alsa/acp/alsa-mixer.c:2662
+#: spa/plugins/alsa/acp/alsa-mixer.c:2748
 msgid "Radio"
 msgstr "Радіо"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2720
-#: spa/plugins/alsa/acp/alsa-mixer.c:2806
+#: spa/plugins/alsa/acp/alsa-mixer.c:2663
+#: spa/plugins/alsa/acp/alsa-mixer.c:2749
 msgid "Video"
 msgstr "Відео"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2721
+#: spa/plugins/alsa/acp/alsa-mixer.c:2664
 msgid "Automatic Gain Control"
 msgstr "Автоматичне керування підсиленням"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2722
+#: spa/plugins/alsa/acp/alsa-mixer.c:2665
 msgid "No Automatic Gain Control"
 msgstr "Без автоматичного керування підсиленням"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2723
+#: spa/plugins/alsa/acp/alsa-mixer.c:2666
 msgid "Boost"
 msgstr "Підсилення"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2724
+#: spa/plugins/alsa/acp/alsa-mixer.c:2667
 msgid "No Boost"
 msgstr "Без пісилення"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2725
+#: spa/plugins/alsa/acp/alsa-mixer.c:2668
 msgid "Amplifier"
 msgstr "Підсилювач"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2726
+#: spa/plugins/alsa/acp/alsa-mixer.c:2669
 msgid "No Amplifier"
 msgstr "Без підсилювача"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2727
+#: spa/plugins/alsa/acp/alsa-mixer.c:2670
 msgid "Bass Boost"
 msgstr "Підсилення басів"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2728
+#: spa/plugins/alsa/acp/alsa-mixer.c:2671
 msgid "No Bass Boost"
 msgstr "Без підсилення"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2729
-#: spa/plugins/bluez5/bluez5-device.c:1180
+#: spa/plugins/alsa/acp/alsa-mixer.c:2672
+#: spa/plugins/bluez5/bluez5-device.c:1297
 msgid "Speaker"
 msgstr "Динамік"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2730
-#: spa/plugins/alsa/acp/alsa-mixer.c:2808
+#: spa/plugins/alsa/acp/alsa-mixer.c:2673
+#: spa/plugins/alsa/acp/alsa-mixer.c:2751
 msgid "Headphones"
 msgstr "Аналогові навушники"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2797
+#: spa/plugins/alsa/acp/alsa-mixer.c:2740
 msgid "Analog Input"
 msgstr "Аналогових вхід"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2801
+#: spa/plugins/alsa/acp/alsa-mixer.c:2744
 msgid "Dock Microphone"
 msgstr "Мікрофон док-станції"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2803
+#: spa/plugins/alsa/acp/alsa-mixer.c:2746
 msgid "Headset Microphone"
 msgstr "Мікрофон гарнітури"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2807
+#: spa/plugins/alsa/acp/alsa-mixer.c:2750
 msgid "Analog Output"
 msgstr "Аналогове відтворення"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2809
+#: spa/plugins/alsa/acp/alsa-mixer.c:2752
 msgid "Headphones 2"
 msgstr "Навушники 2"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2810
+#: spa/plugins/alsa/acp/alsa-mixer.c:2753
 msgid "Headphones Mono Output"
 msgstr "Моно-вихід навушників"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2811
+#: spa/plugins/alsa/acp/alsa-mixer.c:2754
 msgid "Line Out"
 msgstr "Лінійний вихід"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2812
+#: spa/plugins/alsa/acp/alsa-mixer.c:2755
 msgid "Analog Mono Output"
 msgstr "Аналоговий моно-вихід"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2813
+#: spa/plugins/alsa/acp/alsa-mixer.c:2756
 msgid "Speakers"
 msgstr "Акустичні колонки"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2814
+#: spa/plugins/alsa/acp/alsa-mixer.c:2757
 msgid "HDMI / DisplayPort"
 msgstr "HDMI / DisplayPort"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2815
+#: spa/plugins/alsa/acp/alsa-mixer.c:2758
 msgid "Digital Output (S/PDIF)"
 msgstr "Цифровий вихід (S/PDIF)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2816
+#: spa/plugins/alsa/acp/alsa-mixer.c:2759
 msgid "Digital Input (S/PDIF)"
 msgstr "Цифровий вхід (S/PDIF)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2817
+#: spa/plugins/alsa/acp/alsa-mixer.c:2760
 msgid "Multichannel Input"
 msgstr "Багатоканальний вхід"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2818
+#: spa/plugins/alsa/acp/alsa-mixer.c:2761
 msgid "Multichannel Output"
 msgstr "Багатоканальний вихід"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2819
+#: spa/plugins/alsa/acp/alsa-mixer.c:2762
 msgid "Game Output"
 msgstr "Ігровий вихід"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2820
-#: spa/plugins/alsa/acp/alsa-mixer.c:2821
+#: spa/plugins/alsa/acp/alsa-mixer.c:2763
+#: spa/plugins/alsa/acp/alsa-mixer.c:2764
 msgid "Chat Output"
 msgstr "Вихід спілкування"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2822
+#: spa/plugins/alsa/acp/alsa-mixer.c:2765
 msgid "Chat Input"
 msgstr "Вхід спілкування"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2823
+#: spa/plugins/alsa/acp/alsa-mixer.c:2766
 msgid "Virtual Surround 7.1"
 msgstr "Віртуальний об'ємний звук 7.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4527
+#: spa/plugins/alsa/acp/alsa-mixer.c:4471
 msgid "Analog Mono"
 msgstr "Аналогове моно"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4528
+#: spa/plugins/alsa/acp/alsa-mixer.c:4472
 msgid "Analog Mono (Left)"
 msgstr "Аналогове моно (лівий)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4529
+#: spa/plugins/alsa/acp/alsa-mixer.c:4473
 msgid "Analog Mono (Right)"
 msgstr "Аналогове моно (правий)"
 
@@ -392,147 +397,147 @@ msgstr "Аналогове моно (правий)"
 #. * here would lead to the source name to become "Analog Stereo Input
 #. * Input". The same logic applies to analog-stereo-output,
 #. * multichannel-input and multichannel-output.
-#: spa/plugins/alsa/acp/alsa-mixer.c:4530
-#: spa/plugins/alsa/acp/alsa-mixer.c:4538
-#: spa/plugins/alsa/acp/alsa-mixer.c:4539
+#: spa/plugins/alsa/acp/alsa-mixer.c:4474
+#: spa/plugins/alsa/acp/alsa-mixer.c:4482
+#: spa/plugins/alsa/acp/alsa-mixer.c:4483
 msgid "Analog Stereo"
 msgstr "Аналогове стерео"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4531
+#: spa/plugins/alsa/acp/alsa-mixer.c:4475
 msgid "Mono"
 msgstr "Моно"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4532
+#: spa/plugins/alsa/acp/alsa-mixer.c:4476
 msgid "Stereo"
 msgstr "Стерео"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4540
-#: spa/plugins/alsa/acp/alsa-mixer.c:4698
-#: spa/plugins/bluez5/bluez5-device.c:1165
+#: spa/plugins/alsa/acp/alsa-mixer.c:4484
+#: spa/plugins/alsa/acp/alsa-mixer.c:4642
+#: spa/plugins/bluez5/bluez5-device.c:1282
 msgid "Headset"
 msgstr "Гарнітура"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4541
-#: spa/plugins/alsa/acp/alsa-mixer.c:4699
+#: spa/plugins/alsa/acp/alsa-mixer.c:4485
+#: spa/plugins/alsa/acp/alsa-mixer.c:4643
 msgid "Speakerphone"
 msgstr "Гучномовець"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4542
-#: spa/plugins/alsa/acp/alsa-mixer.c:4543
+#: spa/plugins/alsa/acp/alsa-mixer.c:4486
+#: spa/plugins/alsa/acp/alsa-mixer.c:4487
 msgid "Multichannel"
 msgstr "Багатоканальний"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4544
+#: spa/plugins/alsa/acp/alsa-mixer.c:4488
 msgid "Analog Surround 2.1"
 msgstr "Аналоговий об'ємний 2.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4545
+#: spa/plugins/alsa/acp/alsa-mixer.c:4489
 msgid "Analog Surround 3.0"
 msgstr "Аналоговий об'ємний 3.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4546
+#: spa/plugins/alsa/acp/alsa-mixer.c:4490
 msgid "Analog Surround 3.1"
 msgstr "Аналоговий об'ємний 3.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4547
+#: spa/plugins/alsa/acp/alsa-mixer.c:4491
 msgid "Analog Surround 4.0"
 msgstr "Аналоговий об'ємний 4.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4548
+#: spa/plugins/alsa/acp/alsa-mixer.c:4492
 msgid "Analog Surround 4.1"
 msgstr "Аналоговий об'ємний 4.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4549
+#: spa/plugins/alsa/acp/alsa-mixer.c:4493
 msgid "Analog Surround 5.0"
 msgstr "Аналоговий об'ємний 5.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4550
+#: spa/plugins/alsa/acp/alsa-mixer.c:4494
 msgid "Analog Surround 5.1"
 msgstr "Аналоговий об'ємний 5.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4551
+#: spa/plugins/alsa/acp/alsa-mixer.c:4495
 msgid "Analog Surround 6.0"
 msgstr "Аналоговий об'ємний 6.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4552
+#: spa/plugins/alsa/acp/alsa-mixer.c:4496
 msgid "Analog Surround 6.1"
 msgstr "Аналоговий об'ємний 6.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4553
+#: spa/plugins/alsa/acp/alsa-mixer.c:4497
 msgid "Analog Surround 7.0"
 msgstr "Аналоговий об'ємний 7.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4554
+#: spa/plugins/alsa/acp/alsa-mixer.c:4498
 msgid "Analog Surround 7.1"
 msgstr "Аналоговий об'ємний 7.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4555
+#: spa/plugins/alsa/acp/alsa-mixer.c:4499
 msgid "Digital Stereo (IEC958)"
 msgstr "Цифрове стерео (IEC958)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4556
+#: spa/plugins/alsa/acp/alsa-mixer.c:4500
 msgid "Digital Surround 4.0 (IEC958/AC3)"
 msgstr "Цифровий об’ємний 4.0 (IEC958/AC3)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4557
+#: spa/plugins/alsa/acp/alsa-mixer.c:4501
 msgid "Digital Surround 5.1 (IEC958/AC3)"
 msgstr "Цифровий об’ємний 5.1 (IEC958/AC3)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4558
+#: spa/plugins/alsa/acp/alsa-mixer.c:4502
 msgid "Digital Surround 5.1 (IEC958/DTS)"
 msgstr "Цифровий об’ємний 5.1 (IEC958/DTS)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4559
+#: spa/plugins/alsa/acp/alsa-mixer.c:4503
 msgid "Digital Stereo (HDMI)"
 msgstr "Цифровий стерео (HDMI)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4560
+#: spa/plugins/alsa/acp/alsa-mixer.c:4504
 msgid "Digital Surround 5.1 (HDMI)"
 msgstr "Цифровий об’ємний 5.1 (HDMI)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4561
+#: spa/plugins/alsa/acp/alsa-mixer.c:4505
 msgid "Chat"
 msgstr "Чат"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4562
+#: spa/plugins/alsa/acp/alsa-mixer.c:4506
 msgid "Game"
 msgstr "Гра"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4696
+#: spa/plugins/alsa/acp/alsa-mixer.c:4640
 msgid "Analog Mono Duplex"
 msgstr "Аналогове двобічне моно"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4697
+#: spa/plugins/alsa/acp/alsa-mixer.c:4641
 msgid "Analog Stereo Duplex"
 msgstr "Аналогове двобічне стерео"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4700
+#: spa/plugins/alsa/acp/alsa-mixer.c:4644
 msgid "Digital Stereo Duplex (IEC958)"
 msgstr "Цифрове двобічне стерео (IEC958)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4701
+#: spa/plugins/alsa/acp/alsa-mixer.c:4645
 msgid "Multichannel Duplex"
 msgstr "Багатоканальний двобічний"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4702
+#: spa/plugins/alsa/acp/alsa-mixer.c:4646
 msgid "Stereo Duplex"
 msgstr "Двобічне стерео"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4703
+#: spa/plugins/alsa/acp/alsa-mixer.c:4647
 msgid "Mono Chat + 7.1 Surround"
 msgstr "Моно, спілкування + об'ємний 7.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4806
+#: spa/plugins/alsa/acp/alsa-mixer.c:4750
 #, c-format
 msgid "%s Output"
 msgstr "%s-вихід"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4813
+#: spa/plugins/alsa/acp/alsa-mixer.c:4757
 #, c-format
 msgid "%s Input"
 msgstr "%s-вхід"
 
-#: spa/plugins/alsa/acp/alsa-util.c:1175 spa/plugins/alsa/acp/alsa-util.c:1269
+#: spa/plugins/alsa/acp/alsa-util.c:1173 spa/plugins/alsa/acp/alsa-util.c:1267
 #, c-format
 msgid ""
 "snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu "
@@ -560,7 +565,7 @@ msgstr[2] ""
 "Ймовірно, ви натрапили на помилку у драйвері ALSA «%s». Будь ласка, "
 "повідомте про цю помилку розробникам ALSA."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1241
+#: spa/plugins/alsa/acp/alsa-util.c:1239
 #, c-format
 msgid ""
 "snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s"
@@ -588,7 +593,7 @@ msgstr[2] ""
 "Ймовірно, ви натрапили на помилку у драйвері ALSA «%s». Будь ласка, "
 "повідомте про цю помилку розробникам ALSA."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1288
+#: spa/plugins/alsa/acp/alsa-util.c:1286
 #, c-format
 msgid ""
 "snd_pcm_avail_delay() returned strange values: delay %lu is less than avail "
@@ -601,7 +606,7 @@ msgstr ""
 "Ймовірно, це пов’язано з помилкою у драйвері ALSA «%s». Будь ласка, "
 "повідомте про цю помилку розробникам ALSA."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1331
+#: spa/plugins/alsa/acp/alsa-util.c:1329
 #, c-format
 msgid ""
 "snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte "
@@ -633,61 +638,61 @@ msgstr[2] ""
 msgid "(invalid)"
 msgstr "(некоректний)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1030
+#: spa/plugins/bluez5/bluez5-device.c:1145
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "Звуковий шлюз (джерело A2DP і HSP/HFP AG)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1053
+#: spa/plugins/bluez5/bluez5-device.c:1168
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr "Високоточне відтворення (приймач A2DP, кодек %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1055
+#: spa/plugins/bluez5/bluez5-device.c:1171
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr "Двобічний високоточний обмін (джерело/приймач A2DP, кодек %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1061
+#: spa/plugins/bluez5/bluez5-device.c:1178
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr "Високоточне відтворення (приймач A2DP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1063
+#: spa/plugins/bluez5/bluez5-device.c:1180
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr "Двобічний високоточний обмін (джерело/приймач A2DP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1090
+#: spa/plugins/bluez5/bluez5-device.c:1207
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
 msgstr "Головний модуль гарнітури (HSP/HFP, кодек %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1094
+#: spa/plugins/bluez5/bluez5-device.c:1211
 msgid "Headset Head Unit (HSP/HFP)"
 msgstr "Головний модуль гарнітури (HSP/HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1170
+#: spa/plugins/bluez5/bluez5-device.c:1287
 msgid "Handsfree"
 msgstr "Hands-Free пристрій"
 
-#: spa/plugins/bluez5/bluez5-device.c:1185
+#: spa/plugins/bluez5/bluez5-device.c:1302
 msgid "Headphone"
 msgstr "Навушники"
 
-#: spa/plugins/bluez5/bluez5-device.c:1190
+#: spa/plugins/bluez5/bluez5-device.c:1307
 msgid "Portable"
 msgstr "Портативна акустика"
 
-#: spa/plugins/bluez5/bluez5-device.c:1195
+#: spa/plugins/bluez5/bluez5-device.c:1312
 msgid "Car"
 msgstr "Автомобільна акустика"
 
-#: spa/plugins/bluez5/bluez5-device.c:1200
+#: spa/plugins/bluez5/bluez5-device.c:1317
 msgid "HiFi"
 msgstr "Hi-Fi"
 
-#: spa/plugins/bluez5/bluez5-device.c:1205
+#: spa/plugins/bluez5/bluez5-device.c:1322
 msgid "Phone"
 msgstr "Телефон"
 
-#: spa/plugins/bluez5/bluez5-device.c:1211
+#: spa/plugins/bluez5/bluez5-device.c:1328
 msgid "Bluetooth"
 msgstr "Bluetooth"

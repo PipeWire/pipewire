@@ -131,28 +131,18 @@ PWTEST(logger_no_ansi)
 static void
 test_log_levels(enum spa_log_level level)
 {
-	struct pwtest_spa_plugin *plugin;
-	void *iface;
 	char fname[PATH_MAX];
-	struct spa_dict_item items[2];
-	struct spa_dict info;
 	char buffer[1024];
 	FILE *fp;
 	bool above_level_found = false;
 	bool below_level_found = false;
 	bool current_level_found = false;
+	char *oldenv = getenv("PIPEWIRE_LOG");
+
+	pwtest_mkstemp(fname);
+	setenv("PIPEWIRE_LOG", fname, 1);
 
 	pw_init(0, NULL);
-	pwtest_mkstemp(fname);
-	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_FILE, fname);
-	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, "true");
-	info = SPA_DICT_INIT(items, 2);
-	plugin = pwtest_spa_plugin_new();
-	iface = pwtest_spa_plugin_load_interface(plugin, "support/libspa-support",
-						 SPA_NAME_SUPPORT_LOG, SPA_TYPE_INTERFACE_Log,
-						 &info);
-	pwtest_ptr_notnull(iface);
-	pw_log_set(iface);
 
 	/* current level is whatever the iteration is. Log one line
 	 * with our level, one with a level above (should never show up)
@@ -189,8 +179,12 @@ test_log_levels(enum spa_log_level level)
 		pwtest_bool_true(current_level_found);
 		pwtest_bool_true(below_level_found);
 	}
-	pwtest_spa_plugin_destroy(plugin);
 	pw_deinit();
+
+	if (oldenv)
+		setenv("PIPEWIRE_LOG", oldenv, 1);
+	else
+		unsetenv("PIPEWIRE_LOG");
 }
 
 PWTEST(logger_levels)

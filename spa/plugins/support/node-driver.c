@@ -314,7 +314,7 @@ static int impl_node_process(void *object)
 		this->next_time = SPA_TIMESPEC_TO_NSEC(&now);
 		set_timeout(this, this->next_time);
 	}
-	return SPA_STATUS_OK;
+	return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

@@ -105,6 +105,7 @@ ATTRS{idVendor}=="17cc", ATTRS{idProduct}=="041d", ENV{ACP_PROFILE_SET}="native-
 ATTRS{idVendor}=="17cc", ATTRS{idProduct}=="1010", ENV{ACP_PROFILE_SET}="native-instruments-traktor-audio6.conf"
 ATTRS{idVendor}=="17cc", ATTRS{idProduct}=="1011", ENV{ACP_PROFILE_SET}="native-instruments-traktor-audio6.conf"
 
+
 ATTRS{idVendor}=="17cc", ATTRS{idProduct}=="1001", ENV{ACP_PROFILE_SET}="native-instruments-komplete-audio6.conf"
 ATTRS{idVendor}=="17cc", ATTRS{idProduct}=="1021", ENV{ACP_PROFILE_SET}="native-instruments-traktor-audio10.conf"
 ATTRS{idVendor}=="0763", ATTRS{idProduct}=="2012", ENV{ACP_PROFILE_SET}="maudio-fasttrack-pro.conf"
@@ -122,7 +123,9 @@ ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1260", ENV{ACP_PROFILE_SET}="usb-gam
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="12ad", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1294", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1730", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
-# ID 1038:12c4 is for Arctis 9 Wireless
+# ID 1038:1282 is for SteelSeries GameDAC
+ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1282", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
+# ID 1038:12c4 is for Arctis 9
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="12c4", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 # Lucidsound LS31
 ATTRS{idVendor}=="2f12", ATTRS{idProduct}=="0109", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
@@ -162,6 +165,13 @@ ATTRS{idVendor}=="1395", ATTRS{idProduct}=="005e", ENV{ACP_PROFILE_SET}="sennhei
 ATTRS{idVendor}=="1395", ATTRS{idProduct}=="00a0", ENV{ACP_PROFILE_SET}="sennheiser-gsx.conf"
 ATTRS{idVendor}=="1395", ATTRS{idProduct}=="005f", ENV{ACP_PROFILE_SET}="sennheiser-gsx.conf"
 ATTRS{idVendor}=="1395", ATTRS{idProduct}=="00a1", ENV{ACP_PROFILE_SET}="sennheiser-gsx.conf"
+
+# Sennheiser GSA 70 wireless USB dongle for GSP 670
+ATTRS{idVendor}=="1395", ATTRS{idProduct}=="0089", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
+# EPOS GSA 70 wireless USB dongle for GSP 670 (Sennheiser GSA 70 with updated firmware)
+ATTRS{idVendor}=="1395", ATTRS{idProduct}=="0300", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
+# Sennheiser GSP 670 USB headset
+ATTRS{idVendor}=="1395", ATTRS{idProduct}=="008a", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 
 GOTO="pipewire_end"
 

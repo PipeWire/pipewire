@@ -59,12 +59,14 @@ int main(int argc, char *argv[])
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
 		{ "config",	required_argument,	NULL, 'c' },
+		{ "verbose",	no_argument,		NULL, 'v' },
 
 		{ NULL, 0, NULL, 0}
 	};
 	int c, res = 0;
 	char path[PATH_MAX];
 	const char *config_name;
+	enum spa_log_level level = pw_log_level;
 
 	if (setenv("PIPEWIRE_INTERNAL", "1", 1) < 0)
 		fprintf(stderr, "can't set PIPEWIRE_INTERNAL env: %m");
@@ -74,8 +76,12 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hVc:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVc:v", long_options, NULL)) != -1) {
 		switch (c) {
+		case 'v':
+			if (level < SPA_LOG_LEVEL_TRACE)
+				level++;
+			break;
 		case 'h':
 			show_help(argv[0], config_name);
 			return 0;
@@ -95,6 +101,7 @@ int main(int argc, char *argv[])
 			goto done;
 		}
 	}
+	pw_log_set_level(level);
 
 	properties = pw_properties_new(
 				PW_KEY_CONFIG_NAME, config_name,

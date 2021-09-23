@@ -2442,15 +2442,21 @@ int main(int argc, char *argv[])
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
 		{ "config",	required_argument,	NULL, 'c' },
+		{ "verbose",	no_argument,		NULL, 'v' },
 		{ NULL, 0, NULL, 0}
 	};
         size_t i;
 	const struct spa_dict_item *item;
+	enum spa_log_level level = pw_log_level;
 
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hVc:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVc:v", long_options, NULL)) != -1) {
 		switch (c) {
+		case 'v':
+			if (level < SPA_LOG_LEVEL_TRACE)
+				level++;
+			break;
 		case 'h':
 			do_show_help = true;
 			break;
@@ -2469,6 +2475,7 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 	}
+	pw_log_set_level(level);
 
 	impl.this.props = pw_properties_new(
 			PW_KEY_CONFIG_PREFIX, SESSION_PREFIX,

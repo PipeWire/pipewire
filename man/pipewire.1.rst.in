@@ -30,6 +30,10 @@ OPTIONS
 -h | --help
   Show help.
 
+-v | --verbose
+  Increase the verbosity by one level. This option may be specified multiple
+  times.
+
 --version
   Show version information.
 

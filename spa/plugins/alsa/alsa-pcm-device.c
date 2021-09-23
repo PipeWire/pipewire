@@ -31,7 +31,6 @@
 
 #include <alsa/asoundlib.h>
 
-#include <spa/support/log.h>
 #include <spa/utils/type.h>
 #include <spa/node/node.h>
 #include <spa/utils/keys.h>
@@ -45,6 +44,8 @@
 #include <spa/pod/filter.h>
 #include <spa/pod/parser.h>
 #include <spa/debug/pod.h>
+
+#include "alsa.h"
 
 #define NAME  "alsa-device"
 
@@ -532,6 +533,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	alsa_log_topic_init(this->log);
 
 	this->device.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Device,

@@ -926,6 +926,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct state *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	alsa_log_topic_init(this->log);
 	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 

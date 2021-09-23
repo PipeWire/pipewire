@@ -37,6 +37,8 @@
 #include <spa/support/system.h>
 #include <spa/control/control.h>
 
+#include "alsa.h"
+
 #define NAME "alsa-seq"
 
 #include "dll.h"

@@ -33,7 +33,6 @@
 #include <libudev.h>
 #include <alsa/asoundlib.h>
 
-#include <spa/support/log.h>
 #include <spa/utils/type.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
@@ -43,6 +42,8 @@
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
+
+#include "alsa.h"
 
 #define NAME  "alsa-udev"
 
@@ -759,6 +760,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->notify.fd = -1;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	alsa_log_topic_init(this->log);
 	this->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 
 	if (this->main_loop == NULL) {

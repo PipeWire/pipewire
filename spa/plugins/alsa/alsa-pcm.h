@@ -37,7 +37,6 @@ extern "C" {
 
 #include <spa/support/plugin.h>
 #include <spa/support/loop.h>
-#include <spa/support/log.h>
 #include <spa/utils/list.h>
 #include <spa/utils/json.h>
 
@@ -48,6 +47,8 @@ extern "C" {
 #include <spa/param/param.h>
 #include <spa/param/latency-utils.h>
 #include <spa/param/audio/format-utils.h>
+
+#include "alsa.h"
 
 #include "dll.h"
 

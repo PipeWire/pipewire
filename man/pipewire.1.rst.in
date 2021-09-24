@@ -30,7 +30,7 @@ OPTIONS
 -h | --help
   Show help.
 
- --version
+--version
   Show version information.
 
 -c | --config=FILE

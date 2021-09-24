@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'v':
 			if (level < SPA_LOG_LEVEL_TRACE)
-				level++;
+				pw_log_set_level(++level);
 			break;
 		case 'h':
 			show_help(argv[0], config_name);
@@ -101,7 +101,6 @@ int main(int argc, char *argv[])
 			goto done;
 		}
 	}
-	pw_log_set_level(level);
 
 	properties = pw_properties_new(
 				PW_KEY_CONFIG_NAME, config_name,

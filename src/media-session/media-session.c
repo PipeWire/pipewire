@@ -2455,7 +2455,7 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'v':
 			if (level < SPA_LOG_LEVEL_TRACE)
-				level++;
+				pw_log_set_level(++level);
 			break;
 		case 'h':
 			do_show_help = true;
@@ -2475,7 +2475,6 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 	}
-	pw_log_set_level(level);
 
 	impl.this.props = pw_properties_new(
 			PW_KEY_CONFIG_PREFIX, SESSION_PREFIX,

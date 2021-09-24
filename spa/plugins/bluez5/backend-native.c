@@ -2142,38 +2142,6 @@ static const struct spa_bt_backend_implementation backend_impl = {
 	.supports_codec = backend_native_supports_codec,
 };
 
-static bool is_available(struct impl *backend)
-{
-	DBusMessage *m, *r;
-	DBusError err;
-	bool success = false;
-
-	m = dbus_message_new_method_call(BLUEZ_SERVICE, "/org/bluez",
-			DBUS_INTERFACE_INTROSPECTABLE, "Introspect");
-	if (m == NULL)
-		return false;
-
-	dbus_error_init(&err);
-	r = dbus_connection_send_with_reply_and_block(backend->conn, m, -1, &err);
-	dbus_message_unref(m);
-
-	if (r && dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_METHOD_RETURN) {
-		const char *str;
-		if (dbus_message_get_args(r, &err, DBUS_TYPE_STRING, &str, DBUS_TYPE_INVALID)) {
-			success = strstr(str, BLUEZ_PROFILE_MANAGER_INTERFACE) != NULL;
-		} else {
-			dbus_error_free(&err);
-		}
-	}
-
-	if (r)
-		dbus_message_unref(r);
-	else
-		dbus_error_free(&err);
-
-	return success;
-}
-
 struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		void *dbus_connection,
 		const struct spa_dict *info,
@@ -2235,8 +2203,6 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		goto fail3;
 	}
 #endif
-
-	backend->this.available = is_available(backend);
 
 	return &backend->this;
 

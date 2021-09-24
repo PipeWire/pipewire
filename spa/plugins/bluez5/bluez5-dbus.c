@@ -3546,6 +3546,8 @@ static void get_managed_objects_reply(DBusPendingCall *pending, void *user_data)
 		dbus_message_iter_next(&it[1]);
 	}
 
+	reselect_backend(monitor);
+
 	monitor->objects_listed = true;
 
       finish:
@@ -4146,11 +4148,10 @@ impl_init(const struct spa_handle_factory *factory,
 
 	register_media_application(this);
 
+	/* Create backends. They're started after we get a reply from Bluez. */
 	this->backends[BACKEND_NATIVE] = backend_native_new(this, this->conn, info, this->quirks, support, n_support);
 	this->backends[BACKEND_OFONO] = backend_ofono_new(this, this->conn, info, this->quirks, support, n_support);
 	this->backends[BACKEND_HSPHFPD] = backend_hsphfpd_new(this, this->conn, info, this->quirks, support, n_support);
-
-	reselect_backend(this);
 
 	return 0;
 

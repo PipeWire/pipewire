@@ -105,6 +105,9 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 
 	conf.direction = FASTSTREAM_DIRECTION_SINK;
 
+	if (codec->duplex_codec)
+		conf.direction |= FASTSTREAM_DIRECTION_SOURCE;
+
 	if ((i = a2dp_codec_select_config(frequencies,
 			SPA_N_ELEMENTS(frequencies),
 			conf.sink_frequency,

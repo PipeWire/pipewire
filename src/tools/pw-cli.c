@@ -199,6 +199,7 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 static bool do_permissions(struct data *data, const char *cmd, char *args, char **error);
 static bool do_get_permissions(struct data *data, const char *cmd, char *args, char **error);
 static bool do_dump(struct data *data, const char *cmd, char *args, char **error);
+static bool do_quit(struct data *data, const char *cmd, char *args, char **error);
 
 #define DUMP_NAMES "Core|Module|Device|Node|Port|Factory|Client|Link|Session|Endpoint|EndpointStream"
 
@@ -223,7 +224,15 @@ static const struct command command_list[] = {
 	{ "get-permissions", "gp", "Get permissions of a client <client-id>", do_get_permissions },
 	{ "dump", "D", "Dump objects in ways that are cleaner for humans to understand "
 		 "[short|deep|resolve|notype] [-sdrt] [all|"DUMP_NAMES"|<id>]", do_dump },
+	{ "quit", "q", "Quit", do_quit },
 };
+
+static bool do_quit(struct data *data, const char *cmd, char *args, char **error)
+{
+	pw_main_loop_quit(data->loop);
+	data->quit = true;
+	return true;
+}
 
 static bool do_help(struct data *data, const char *cmd, char *args, char **error)
 {
@@ -2942,7 +2951,7 @@ static void do_input(void *data, int fd, uint32_t mask)
 	}
 }
 
-static void do_quit(void *data, int signal_number)
+static void do_quit_on_signal(void *data, int signal_number)
 {
 	struct data *d = data;
 	d->quit = true;
@@ -3011,8 +3020,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 	l = pw_main_loop_get_loop(data.loop);
-	pw_loop_add_signal(l, SIGINT, do_quit, &data);
-	pw_loop_add_signal(l, SIGTERM, do_quit, &data);
+	pw_loop_add_signal(l, SIGINT, do_quit_on_signal, &data);
+	pw_loop_add_signal(l, SIGTERM, do_quit_on_signal, &data);
 
 	spa_list_init(&data.remotes);
 	pw_map_init(&data.vars, 64, 16);

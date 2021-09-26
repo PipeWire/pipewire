@@ -39,6 +39,9 @@ GENERAL COMMANDS
 help
   Show a quick help on the commands available.
 
+quit
+  Exit from **pw-cli**
+
 MODULE MANAGEMENT
 =================
 

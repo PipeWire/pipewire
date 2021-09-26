@@ -382,26 +382,22 @@ static void msbc_buffer_append_byte(struct impl *this, uint8_t byte)
         ++this->msbc_buffer_pos;
 }
 
-/*
-   Helper function for easier debugging
-   Caveat: If size_read is not a multiple of 16, then the last bytes
-   will not be printed / logged
-*/
-static void hexdump_to_log(void *log, uint8_t *read_data, int size_read)
+/* Helper function for debugging */
+static SPA_UNUSED void hexdump_to_log(struct spa_log *log, uint8_t *data, size_t size)
 {
-
-	int rowsize = 16*3;
-	int line_idx = 0;
-	char hexline[16*3] = "";
-	int i;
-	for (i = 0; i < size_read; ++i) {
-		snprintf(&hexline[line_idx], 4, "%02X ", read_data[i]);
-		line_idx += 3;
-		if (line_idx == rowsize) {
-			spa_log_trace(log, "Processing read data: read_data %02i: %s", i-15, hexline);
-			line_idx = 0;
-		}
+	char buf[2048];
+	size_t i, col = 0, pos = 0;
+	buf[0] = '\0';
+	for (i = 0; i < size; ++i) {
+		int res;
+		res = spa_scnprintf(buf + pos, sizeof(buf) - pos, "%s%02x",
+				(col == 0) ? "\n\t" : " ", data[i]);
+		if (res < 0)
+			break;
+		pos += res;
+		col = (col + 1) % 16;
 	}
+	spa_log_trace(log, "hexdump (%d bytes):%s", (int)size, buf);
 }
 
 /* helper function to detect if a packet consists only of zeros */
@@ -422,12 +418,6 @@ static void preprocess_and_decode_msbc_data(void *userdata, uint8_t *read_data, 
 	struct spa_data *datas = port->current_buffer->buf->datas;
 
 	spa_log_trace(this->log, "handling mSBC data");
-
-	/* print hexdump of package  */
-	bool flag_hexdump_to_log = false;
-	if (flag_hexdump_to_log) {
-		hexdump_to_log(this->log, read_data, size_read);
-	}
 
 	/* check if the packet contains only zeros - if so ignore the packet.
 	   This is necessary, because some kernels insert bogus "all-zero" packets
@@ -522,12 +512,22 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 
 	/* handle data read from socket */
 	spa_log_trace(this->log, "read socket data %d", size_read);
+#if 0
+	hexdump_to_log(this->log, read_data, size_read);
+#endif
 
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
 		preprocess_and_decode_msbc_data(userdata, read_data, size_read);
 
 	} else {
 		uint8_t *packet;
+		if (size_read != 48 && is_zero_packet(read_data, size_read)) {
+			/* Adapter is returning non-standard CVSD stream. For example
+			 * Intel 8087:0029 at Firmware revision 0.0 build 191 week 21 2021
+			 * on kernel 5.13.19 produces such data.
+			 */
+			return 0;
+		}
 		packet = (uint8_t *)datas[0].data + port->ready_offset;
 		spa_memmove(packet, read_data, size_read);
 		port->ready_offset += size_read;

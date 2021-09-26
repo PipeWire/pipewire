@@ -1,6 +1,5 @@
 tools_sources = [
   [ 'pw-mon', [ 'pw-mon.c' ] ],
-  [ 'pw-cli', [ 'pw-cli.c' ] ],
   [ 'pw-dot', [ 'pw-dot.c' ] ],
   [ 'pw-dump', [ 'pw-dump.c' ] ],
   [ 'pw-profiler', [ 'pw-profiler.c' ] ],
@@ -17,6 +16,14 @@ foreach t : tools_sources
 	dependencies : [pipewire_dep, mathlib],
   )
 endforeach
+
+if readline_dep.found()
+  executable('pw-cli',
+    'pw-cli.c',
+    install: true,
+    dependencies: [pipewire_dep, readline_dep]
+  )
+endif
 
 if ncurses_dep.found()
   executable('pw-top',

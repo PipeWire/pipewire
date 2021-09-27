@@ -153,6 +153,7 @@ static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
 		spa_system_close(pw->system, pw->fd);
 	if (pw->main_loop)
 		pw_thread_loop_destroy(pw->main_loop);
+	free(pw->node_name);
 	free(pw->target);
 	free(pw);
 }

@@ -61,19 +61,19 @@ struct spa_thread_utils_methods {
 	uint32_t version;
 
 	/** create a new thread that runs \a start with \a arg */
-	struct spa_thread * (*create) (void *data, const struct spa_dict *props,
+	struct spa_thread * (*create) (void *object, const struct spa_dict *props,
 			void *(*start)(void*), void *arg);
 	/** stop and join a thread */
-	int (*join)(void *data, struct spa_thread *thread, void **retval);
+	int (*join)(void *object, struct spa_thread *thread, void **retval);
 
 	/** get realtime priority range for threads created with \a props */
-	int (*get_rt_range) (void *data, const struct spa_dict *props, int *min, int *max);
+	int (*get_rt_range) (void *object, const struct spa_dict *props, int *min, int *max);
 	/** acquire realtime priority, a priority of -1 refers to the priority
 	 * configured in the realtime module
 	 */
-	int (*acquire_rt) (void *data, struct spa_thread *thread, int priority);
+	int (*acquire_rt) (void *object, struct spa_thread *thread, int priority);
 	/** drop realtime priority */
-	int (*drop_rt) (void *data, struct spa_thread *thread);
+	int (*drop_rt) (void *object, struct spa_thread *thread);
 };
 
 /** \copydoc spa_thread_utils_methods.create

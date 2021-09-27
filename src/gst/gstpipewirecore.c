@@ -48,9 +48,9 @@ on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
   pw_thread_loop_signal(core->loop, FALSE);
 }
 
-static void on_core_done (void *object, uint32_t id, int seq)
+static void on_core_done (void *data, uint32_t id, int seq)
 {
-  GstPipeWireCore * core = object;
+  GstPipeWireCore * core = data;
   if (id == PW_ID_CORE) {
     core->last_seq = seq;
     pw_thread_loop_signal (core->loop, FALSE);

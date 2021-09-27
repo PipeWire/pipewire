@@ -54,7 +54,7 @@ struct pw_profiler_events {
 #define PW_VERSION_PROFILER_EVENTS		0
 	uint32_t version;
 
-	void (*profile) (void *object, const struct spa_pod *pod);
+	void (*profile) (void *data, const struct spa_pod *pod);
 };
 
 #define PW_PROFILER_METHOD_ADD_LISTENER		0

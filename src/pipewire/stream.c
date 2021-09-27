@@ -1306,9 +1306,9 @@ static int node_event_param(void *object, int seq,
 	return 0;
 }
 
-static void node_event_info(void *object, const struct pw_node_info *info)
+static void node_event_info(void *data, const struct pw_node_info *info)
 {
-	struct pw_stream *stream = object;
+	struct pw_stream *stream = data;
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	uint32_t i;
 
@@ -1336,9 +1336,9 @@ static const struct pw_impl_node_events node_events = {
 	.info_changed = node_event_info,
 };
 
-static void on_core_error(void *object, uint32_t id, int seq, int res, const char *message)
+static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
 {
-	struct pw_stream *stream = object;
+	struct pw_stream *stream = data;
 
 	pw_log_debug("%p: error id:%u seq:%d res:%d (%s): %s", stream,
 			id, seq, res, spa_strerror(res), message);

@@ -148,10 +148,10 @@ static void remove_params(struct proxy_data *data, uint32_t id, int seq)
 	}
 }
 
-static void event_param(void *object, int seq, uint32_t id,
+static void event_param(void *_data, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
-        struct proxy_data *data = object;
+        struct proxy_data *data = _data;
 	struct param *p;
 
 	/* remove all params with the same id and older seq */
@@ -233,9 +233,9 @@ static void on_core_info(void *data, const struct pw_core_info *info)
 	}
 }
 
-static void module_event_info(void *object, const struct pw_module_info *info)
+static void module_event_info(void *_data, const struct pw_module_info *info)
 {
-        struct proxy_data *data = object;
+        struct proxy_data *data = _data;
 	bool print_all, print_mark;
 
 	print_all = true;
@@ -309,9 +309,9 @@ static void print_node(struct proxy_data *data)
 	}
 }
 
-static void node_event_info(void *object, const struct pw_node_info *info)
+static void node_event_info(void *_data, const struct pw_node_info *info)
 {
-        struct proxy_data *data = object;
+        struct proxy_data *data = _data;
 	uint32_t i;
 
 	info = data->info = pw_node_info_update(data->info, info);
@@ -368,9 +368,9 @@ static void print_port(struct proxy_data *data)
 	}
 }
 
-static void port_event_info(void *object, const struct pw_port_info *info)
+static void port_event_info(void *_data, const struct pw_port_info *info)
 {
-        struct proxy_data *data = object;
+        struct proxy_data *data = _data;
 	uint32_t i;
 
 	info = data->info = pw_port_info_update(data->info, info);
@@ -399,9 +399,9 @@ static const struct pw_port_events port_events = {
         .param = event_param
 };
 
-static void factory_event_info(void *object, const struct pw_factory_info *info)
+static void factory_event_info(void *_data, const struct pw_factory_info *info)
 {
-        struct proxy_data *data = object;
+        struct proxy_data *data = _data;
 	bool print_all, print_mark;
 
 	print_all = true;
@@ -433,9 +433,9 @@ static const struct pw_factory_events factory_events = {
         .info = factory_event_info
 };
 
-static void client_event_info(void *object, const struct pw_client_info *info)
+static void client_event_info(void *_data, const struct pw_client_info *info)
 {
-        struct proxy_data *data = object;
+        struct proxy_data *data = _data;
 	bool print_all, print_mark;
 
 	print_all = true;
@@ -465,9 +465,9 @@ static const struct pw_client_events client_events = {
         .info = client_event_info
 };
 
-static void link_event_info(void *object, const struct pw_link_info *info)
+static void link_event_info(void *_data, const struct pw_link_info *info)
 {
-        struct proxy_data *data = object;
+        struct proxy_data *data = _data;
 	bool print_all, print_mark;
 
 	print_all = true;
@@ -544,9 +544,9 @@ static void print_device(struct proxy_data *data)
 }
 
 
-static void device_event_info(void *object, const struct pw_device_info *info)
+static void device_event_info(void *_data, const struct pw_device_info *info)
 {
-        struct proxy_data *data = object;
+        struct proxy_data *data = _data;
 	uint32_t i;
 
 	info = data->info = pw_device_info_update(data->info, info);
@@ -700,9 +700,9 @@ static struct proxy_data *find_proxy(struct data *d, uint32_t id)
 	return NULL;
 }
 
-static void registry_event_global_remove(void *object, uint32_t id)
+static void registry_event_global_remove(void *data, uint32_t id)
 {
-	struct data *d = object;
+	struct data *d = data;
 	struct proxy_data *pd;
 
 	printf("removed:\n");

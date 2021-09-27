@@ -215,9 +215,9 @@ static const struct object_info core_info = {
 };
 
 /* client */
-static void client_event_info(void *object, const struct pw_client_info *info)
+static void client_event_info(void *data, const struct pw_client_info *info)
 {
-	struct object *o = object;
+	struct object *o = data;
 	int changed = 0;
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
@@ -254,9 +254,9 @@ static const struct object_info client_info = {
 };
 
 /* module */
-static void module_event_info(void *object, const struct pw_module_info *info)
+static void module_event_info(void *data, const struct pw_module_info *info)
 {
-	struct object *o = object;
+	struct object *o = data;
 	int changed = 0;
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
@@ -293,9 +293,9 @@ static const struct object_info module_info = {
 };
 
 /* device */
-static void device_event_info(void *object, const struct pw_device_info *info)
+static void device_event_info(void *data, const struct pw_device_info *info)
 {
-	struct object *o = object;
+	struct object *o = data;
 	uint32_t i, changed = 0;
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
@@ -364,11 +364,11 @@ static struct object *find_device(struct manager *m, uint32_t card_id, uint32_t 
 	return NULL;
 }
 
-static void device_event_param(void *object, int seq,
+static void device_event_param(void *data, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
-	struct object *o = object, *dev;
+	struct object *o = data, *dev;
 	struct manager *m = o->manager;
 	struct pw_manager_param *p;
 
@@ -413,9 +413,9 @@ static const struct object_info device_info = {
 };
 
 /* node */
-static void node_event_info(void *object, const struct pw_node_info *info)
+static void node_event_info(void *data, const struct pw_node_info *info)
 {
-	struct object *o = object;
+	struct object *o = data;
 	uint32_t i, changed = 0;
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
@@ -459,11 +459,11 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	}
 }
 
-static void node_event_param(void *object, int seq,
+static void node_event_param(void *data, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
-	struct object *o = object;
+	struct object *o = data;
 	add_param(&o->pending_list, seq, o->param_seq, id, param);
 }
 
@@ -495,13 +495,13 @@ static const struct object_info link_info = {
 };
 
 /* metadata */
-static int metadata_property(void *object,
+static int metadata_property(void *data,
 			uint32_t subject,
 			const char *key,
 			const char *type,
 			const char *value)
 {
-	struct object *o = object;
+	struct object *o = data;
 	struct manager *m = o->manager;
 	manager_emit_metadata(m, &o->this, subject, key, type, value);
 	return 0;
@@ -639,9 +639,9 @@ static void registry_event_global(void *data, uint32_t id,
 	core_sync(m);
 }
 
-static void registry_event_global_remove(void *object, uint32_t id)
+static void registry_event_global_remove(void *data, uint32_t id)
 {
-	struct manager *m = object;
+	struct manager *m = data;
 	struct object *o;
 
 	if ((o = find_object_by_id(m, id)) == NULL)

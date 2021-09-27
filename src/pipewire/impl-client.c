@@ -303,10 +303,10 @@ static const struct pw_resource_events resource_events = {
 };
 
 static int
-global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
+global_bind(void *object, struct pw_impl_client *client, uint32_t permissions,
 		 uint32_t version, uint32_t id)
 {
-	struct pw_impl_client *this = _data;
+	struct pw_impl_client *this = object;
 	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 	struct resource_data *data;
@@ -469,9 +469,9 @@ error_cleanup:
 	return NULL;
 }
 
-static void global_destroy(void *object)
+static void global_destroy(void *data)
 {
-	struct pw_impl_client *client = object;
+	struct pw_impl_client *client = data;
 	spa_hook_remove(&client->global_listener);
 	client->global = NULL;
 	pw_impl_client_destroy(client);

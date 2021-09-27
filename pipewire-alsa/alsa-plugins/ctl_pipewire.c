@@ -784,9 +784,9 @@ static const snd_ctl_ext_callback_t pipewire_ext_callback = {
 };
 
 /** device */
-static void device_event_info(void *object, const struct pw_device_info *info)
+static void device_event_info(void *data, const struct pw_device_info *info)
 {
-	struct global *g = object;
+	struct global *g = data;
 	snd_ctl_pipewire_t *ctl = g->ctl;
 	uint32_t n;
 
@@ -864,11 +864,11 @@ static struct global *find_node_for_route(snd_ctl_pipewire_t *ctl, uint32_t card
 	return NULL;
 }
 
-static void device_event_param(void *object, int seq,
+static void device_event_param(void *data, int seq,
                 uint32_t id, uint32_t index, uint32_t next,
                 const struct spa_pod *param)
 {
-	struct global *g = object;
+	struct global *g = data;
 	snd_ctl_pipewire_t *ctl = g->ctl;
 
 	pw_log_debug("param %d", id);
@@ -922,9 +922,9 @@ static const struct global_info device_info = {
 };
 
 /** node */
-static void node_event_info(void *object, const struct pw_node_info *info)
+static void node_event_info(void *data, const struct pw_node_info *info)
 {
-	struct global *g = object;
+	struct global *g = data;
 	snd_ctl_pipewire_t *ctl = g->ctl;
 	const char *str;
 	uint32_t i;
@@ -970,11 +970,11 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 }
 
 
-static void node_event_param(void *object, int seq,
+static void node_event_param(void *data, int seq,
                 uint32_t id, uint32_t index, uint32_t next,
                 const struct spa_pod *param)
 {
-	struct global *g = object;
+	struct global *g = data;
 	pw_log_debug("update param %d %d", g->id, id);
 
 	switch (id) {
@@ -1023,13 +1023,13 @@ static int json_object_find(const char *obj, const char *key, char *value, size_
 	return -ENOENT;
 }
 
-static int metadata_property(void *object,
+static int metadata_property(void *data,
                         uint32_t subject,
                         const char *key,
                         const char *type,
                         const char *value)
 {
-	struct global *g = object;
+	struct global *g = data;
 	snd_ctl_pipewire_t *ctl = g->ctl;
 
 	if (subject == PW_ID_CORE) {

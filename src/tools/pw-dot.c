@@ -603,15 +603,15 @@ static const struct pw_module_events module_events = {
 	.info = module_event_info
 };
 
-static void removed_proxy(void *user_data)
+static void removed_proxy(void *data)
 {
-	struct global *g = user_data;
+	struct global *g = data;
 	pw_proxy_destroy(g->proxy);
 }
 
-static void destroy_proxy(void *user_data)
+static void destroy_proxy(void *data)
 {
-	struct global *g = user_data;
+	struct global *g = data;
 	spa_hook_remove(&g->object_listener);
 	spa_hook_remove(&g->proxy_listener);
 }

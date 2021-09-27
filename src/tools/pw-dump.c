@@ -582,9 +582,9 @@ static void client_dump(struct object *o)
 	put_end(d, "}", 0);
 }
 
-static void client_event_info(void *object, const struct pw_client_info *info)
+static void client_event_info(void *data, const struct pw_client_info *info)
 {
-	struct object *o = object;
+	struct object *o = data;
 	int changed = 0;
 
         pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->id, info->change_mask);
@@ -642,9 +642,9 @@ static void module_dump(struct object *o)
 	put_end(d, "}", 0);
 }
 
-static void module_event_info(void *object, const struct pw_module_info *info)
+static void module_event_info(void *data, const struct pw_module_info *info)
 {
-        struct object *o = object;
+        struct object *o = data;
 	int changed = 0;
 
         pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->id, info->change_mask);
@@ -702,9 +702,9 @@ static void factory_dump(struct object *o)
 	put_end(d, "}", 0);
 }
 
-static void factory_event_info(void *object, const struct pw_factory_info *info)
+static void factory_event_info(void *data, const struct pw_factory_info *info)
 {
-        struct object *o = object;
+        struct object *o = data;
 	int changed = 0;
 
         pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->id, info->change_mask);
@@ -761,9 +761,9 @@ static void device_dump(struct object *o)
 	put_end(d, "}", 0);
 }
 
-static void device_event_info(void *object, const struct pw_device_info *info)
+static void device_event_info(void *data, const struct pw_device_info *info)
 {
-	struct object *o = object;
+	struct object *o = data;
 	uint32_t i, changed = 0;
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->id, info->change_mask);
@@ -796,11 +796,11 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 	}
 }
 
-static void device_event_param(void *object, int seq,
+static void device_event_param(void *data, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
-	struct object *o = object;
+	struct object *o = data;
 	add_param(&o->pending_list, id, param);
 }
 
@@ -855,9 +855,9 @@ static void node_dump(struct object *o)
 	put_end(d, "}", 0);
 }
 
-static void node_event_info(void *object, const struct pw_node_info *info)
+static void node_event_info(void *data, const struct pw_node_info *info)
 {
-	struct object *o = object;
+	struct object *o = data;
 	uint32_t i, changed = 0;
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->id, info->change_mask);
@@ -893,11 +893,11 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	}
 }
 
-static void node_event_param(void *object, int seq,
+static void node_event_param(void *data, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
-	struct object *o = object;
+	struct object *o = data;
 	add_param(&o->pending_list, id, param);
 }
 
@@ -944,9 +944,9 @@ static void port_dump(struct object *o)
 	put_end(d, "}", 0);
 }
 
-static void port_event_info(void *object, const struct pw_port_info *info)
+static void port_event_info(void *data, const struct pw_port_info *info)
 {
-	struct object *o = object;
+	struct object *o = data;
 	uint32_t i, changed = 0;
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->id, info->change_mask);
@@ -979,11 +979,11 @@ static void port_event_info(void *object, const struct pw_port_info *info)
 	}
 }
 
-static void port_event_param(void *object, int seq,
+static void port_event_param(void *data, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
-	struct object *o = object;
+	struct object *o = data;
 	add_param(&o->pending_list, id, param);
 }
 
@@ -1036,9 +1036,9 @@ static void link_dump(struct object *o)
 	put_end(d, "}", 0);
 }
 
-static void link_event_info(void *object, const struct pw_link_info *info)
+static void link_event_info(void *data, const struct pw_link_info *info)
 {
-	struct object *o = object;
+	struct object *o = data;
 	uint32_t changed = 0;
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->id, info->change_mask);
@@ -1163,13 +1163,13 @@ static struct metadata_entry *metadata_find(struct object *o, uint32_t subject, 
 	return NULL;
 }
 
-static int metadata_property(void *object,
+static int metadata_property(void *data,
 			uint32_t subject,
 			const char *key,
 			const char *type,
 			const char *value)
 {
-	struct object *o = object;
+	struct object *o = data;
 	struct metadata_entry *e;
 
 	while ((e = metadata_find(o, subject, key)) != NULL) {
@@ -1332,9 +1332,9 @@ bind_failed:
 	return;
 }
 
-static void registry_event_global_remove(void *object, uint32_t id)
+static void registry_event_global_remove(void *data, uint32_t id)
 {
-	struct data *d = object;
+	struct data *d = data;
 	struct object *o;
 
 	if ((o = find_object(d, id)) == NULL)

@@ -801,9 +801,9 @@ static void info_endpoint_stream(struct proxy_data *pd)
 	info->change_mask = 0;
 }
 
-static void core_event_info(void *object, const struct pw_core_info *info)
+static void core_event_info(void *data, const struct pw_core_info *info)
 {
-	struct proxy_data *pd = object;
+	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
 		printf("remote %d core %d changed\n", rd->id, info->id);
@@ -822,9 +822,9 @@ static const struct pw_core_events core_events = {
 };
 
 
-static void module_event_info(void *object, const struct pw_module_info *info)
+static void module_event_info(void *data, const struct pw_module_info *info)
 {
-	struct proxy_data *pd = object;
+	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
 		printf("remote %d module %d changed\n", rd->id, info->id);
@@ -842,9 +842,9 @@ static const struct pw_module_events module_events = {
 	.info = module_event_info
 };
 
-static void node_event_info(void *object, const struct pw_node_info *info)
+static void node_event_info(void *data, const struct pw_node_info *info)
 {
-	struct proxy_data *pd = object;
+	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
 		printf("remote %d node %d changed\n", rd->id, info->id);
@@ -857,10 +857,10 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	}
 }
 
-static void event_param(void *object, int seq, uint32_t id,
+static void event_param(void *_data, int seq, uint32_t id,
 		uint32_t index, uint32_t next, const struct spa_pod *param)
 {
-        struct proxy_data *data = object;
+        struct proxy_data *data = _data;
 	struct remote_data *rd = data->rd;
 
 	if (rd->data->interactive)
@@ -877,9 +877,9 @@ static const struct pw_node_events node_events = {
 };
 
 
-static void port_event_info(void *object, const struct pw_port_info *info)
+static void port_event_info(void *data, const struct pw_port_info *info)
 {
-	struct proxy_data *pd = object;
+	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
 		printf("remote %d port %d changed\n", rd->id, info->id);
@@ -898,9 +898,9 @@ static const struct pw_port_events port_events = {
 	.param = event_param
 };
 
-static void factory_event_info(void *object, const struct pw_factory_info *info)
+static void factory_event_info(void *data, const struct pw_factory_info *info)
 {
-	struct proxy_data *pd = object;
+	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
 		printf("remote %d factory %d changed\n", rd->id, info->id);
@@ -918,9 +918,9 @@ static const struct pw_factory_events factory_events = {
 	.info = factory_event_info
 };
 
-static void client_event_info(void *object, const struct pw_client_info *info)
+static void client_event_info(void *data, const struct pw_client_info *info)
 {
-	struct proxy_data *pd = object;
+	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
 		printf("remote %d client %d changed\n", rd->id, info->id);
@@ -933,10 +933,10 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 	}
 }
 
-static void client_event_permissions(void *object, uint32_t index,
+static void client_event_permissions(void *_data, uint32_t index,
 		uint32_t n_permissions, const struct pw_permission *permissions)
 {
-        struct proxy_data *data = object;
+        struct proxy_data *data = _data;
 	struct remote_data *rd = data->rd;
 	uint32_t i;
 
@@ -959,9 +959,9 @@ static const struct pw_client_events client_events = {
 	.permissions = client_event_permissions
 };
 
-static void link_event_info(void *object, const struct pw_link_info *info)
+static void link_event_info(void *data, const struct pw_link_info *info)
 {
-	struct proxy_data *pd = object;
+	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
 		printf("remote %d link %d changed\n", rd->id, info->id);
@@ -980,9 +980,9 @@ static const struct pw_link_events link_events = {
 };
 
 
-static void device_event_info(void *object, const struct pw_device_info *info)
+static void device_event_info(void *data, const struct pw_device_info *info)
 {
-	struct proxy_data *pd = object;
+	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
 		printf("remote %d device %d changed\n", rd->id, info->id);
@@ -1008,10 +1008,10 @@ static void session_info_free(struct pw_session_info *info)
 	free(info);
 }
 
-static void session_event_info(void *object,
+static void session_event_info(void *data,
 				const struct pw_session_info *update)
 {
-	struct proxy_data *pd = object;
+	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
 	struct pw_session_info *info = pd->info;
 
@@ -1055,10 +1055,10 @@ static void endpoint_info_free(struct pw_endpoint_info *info)
 	free(info);
 }
 
-static void endpoint_event_info(void *object,
+static void endpoint_event_info(void *data,
 				const struct pw_endpoint_info *update)
 {
-	struct proxy_data *pd = object;
+	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
 	struct pw_endpoint_info *info = pd->info;
 
@@ -1109,10 +1109,10 @@ static void endpoint_stream_info_free(struct pw_endpoint_stream_info *info)
 	free(info);
 }
 
-static void endpoint_stream_event_info(void *object,
+static void endpoint_stream_event_info(void *data,
 				const struct pw_endpoint_stream_info *update)
 {
-	struct proxy_data *pd = object;
+	struct proxy_data *pd = data;
 	struct remote_data *rd = pd->rd;
 	struct pw_endpoint_stream_info *info = pd->info;
 

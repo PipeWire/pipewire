@@ -849,10 +849,10 @@ int pw_impl_link_deactivate(struct pw_impl_link *this)
 }
 
 static int
-global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
+global_bind(void *object, struct pw_impl_client *client, uint32_t permissions,
 	       uint32_t version, uint32_t id)
 {
-	struct pw_impl_link *this = _data;
+	struct pw_impl_link *this = object;
 	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 
@@ -1322,9 +1322,9 @@ error_exit:
 	return NULL;
 }
 
-static void global_destroy(void *object)
+static void global_destroy(void *data)
 {
-	struct pw_impl_link *link = object;
+	struct pw_impl_link *link = data;
 	spa_hook_remove(&link->global_listener);
 	link->global = NULL;
 	pw_impl_link_destroy(link);

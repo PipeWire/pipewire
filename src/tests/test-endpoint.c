@@ -267,9 +267,9 @@ struct test_endpoint_data
 };
 
 static void
-endpoint_event_info(void *object, const struct pw_endpoint_info *info)
+endpoint_event_info(void *data, const struct pw_endpoint_info *info)
 {
-	struct test_endpoint_data *d = object;
+	struct test_endpoint_data *d = data;
 	const char *val;
 
 	spa_assert_se(info);
@@ -299,11 +299,11 @@ endpoint_event_info(void *object, const struct pw_endpoint_info *info)
 }
 
 static void
-endpoint_event_param(void *object, int seq,
+endpoint_event_param(void *data, int seq,
 		uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
-	struct test_endpoint_data *d = object;
+	struct test_endpoint_data *d = data;
 
 	if (id == SPA_PARAM_Props) {
 		struct props *p = &d->props;
@@ -326,9 +326,9 @@ static const struct pw_endpoint_events endpoint_events = {
 };
 
 static void
-endpoint_proxy_destroy(void *object)
+endpoint_proxy_destroy(void *data)
 {
-	struct test_endpoint_data *d = object;
+	struct test_endpoint_data *d = data;
 	d->bound_proxy = NULL;
 	pw_main_loop_quit(d->loop);
 }
@@ -339,11 +339,11 @@ static const struct pw_proxy_events proxy_events = {
 };
 
 static void
-test_endpoint_global(void *object, uint32_t id,
+test_endpoint_global(void *data, uint32_t id,
 		uint32_t permissions, const char *type, uint32_t version,
 		const struct spa_dict *props)
 {
-	struct test_endpoint_data *d = object;
+	struct test_endpoint_data *d = data;
 	const char *val;
 
 	if (!spa_streq(type, PW_TYPE_INTERFACE_Endpoint))
@@ -366,9 +366,9 @@ test_endpoint_global(void *object, uint32_t id,
 }
 
 static void
-test_endpoint_global_remove(void *object, uint32_t id)
+test_endpoint_global_remove(void *data, uint32_t id)
 {
-	struct test_endpoint_data *d = object;
+	struct test_endpoint_data *d = data;
 	if (d->bound_proxy && id == pw_proxy_get_bound_id(d->bound_proxy))
 		pw_proxy_destroy(d->bound_proxy);
 }

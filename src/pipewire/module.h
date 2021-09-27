@@ -82,7 +82,7 @@ struct pw_module_events {
 	 *
 	 * \param info info about the module
 	 */
-	void (*info) (void *object, const struct pw_module_info *info);
+	void (*info) (void *data, const struct pw_module_info *info);
 };
 
 #define PW_MODULE_METHOD_ADD_LISTENER	0

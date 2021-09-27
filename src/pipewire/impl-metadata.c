@@ -268,10 +268,10 @@ struct resource_data {
 };
 
 
-static int metadata_property(void *object, uint32_t subject, const char *key,
+static int metadata_property(void *data, uint32_t subject, const char *key,
 		const char *type, const char *value)
 {
-	struct pw_impl_metadata *this = object;
+	struct pw_impl_metadata *this = data;
 	pw_impl_metadata_emit_property(this, subject, key, type, value);
 	return 0;
 }
@@ -391,13 +391,13 @@ void pw_impl_metadata_destroy(struct pw_impl_metadata *metadata)
 #define pw_metadata_resource_property(r,...)        \
         pw_metadata_resource(r,property,0,__VA_ARGS__)
 
-static int metadata_resource_property(void *object,
+static int metadata_resource_property(void *data,
 			uint32_t subject,
 			const char *key,
 			const char *type,
 			const char *value)
 {
-	struct resource_data *d = object;
+	struct resource_data *d = data;
 	struct pw_resource *resource = d->resource;
 	struct pw_impl_client *client = pw_resource_get_client(resource);
 
@@ -465,10 +465,10 @@ static const struct pw_resource_events resource_events = {
 };
 
 static int
-global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
+global_bind(void *object, struct pw_impl_client *client, uint32_t permissions,
 		  uint32_t version, uint32_t id)
 {
-	struct pw_impl_metadata *this = _data;
+	struct pw_impl_metadata *this = object;
 	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 	struct resource_data *data;
@@ -506,9 +506,9 @@ error_resource:
 	return -errno;
 }
 
-static void global_destroy(void *object)
+static void global_destroy(void *data)
 {
-	struct pw_impl_metadata *metadata = object;
+	struct pw_impl_metadata *metadata = data;
 	spa_hook_remove(&metadata->global_listener);
 	metadata->global = NULL;
 	pw_impl_metadata_destroy(metadata);

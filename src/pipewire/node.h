@@ -111,7 +111,7 @@ struct pw_node_events {
 	 *
 	 * \param info info about the node
 	 */
-	void (*info) (void *object, const struct pw_node_info *info);
+	void (*info) (void *data, const struct pw_node_info *info);
 	/**
 	 * Notify a node param
 	 *
@@ -123,7 +123,7 @@ struct pw_node_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	void (*param) (void *object, int seq,
+	void (*param) (void *data, int seq,
 		      uint32_t id, uint32_t index, uint32_t next,
 		      const struct spa_pod *param);
 };

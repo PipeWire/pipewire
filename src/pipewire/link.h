@@ -109,7 +109,7 @@ struct pw_link_events {
 	 *
 	 * \param info info about the link
 	 */
-	void (*info) (void *object, const struct pw_link_info *info);
+	void (*info) (void *data, const struct pw_link_info *info);
 };
 
 #define PW_LINK_METHOD_ADD_LISTENER	0

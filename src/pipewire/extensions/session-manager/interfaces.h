@@ -71,7 +71,7 @@ struct pw_session_events {
 	 *
 	 * \param info info about the session
 	 */
-	void (*info) (void *object, const struct pw_session_info *info);
+	void (*info) (void *data, const struct pw_session_info *info);
 
 	/**
 	 * Notify a session param
@@ -84,7 +84,7 @@ struct pw_session_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	void (*param) (void *object, int seq,
+	void (*param) (void *data, int seq,
 		       uint32_t id, uint32_t index, uint32_t next,
 		       const struct spa_pod *param);
 };
@@ -173,7 +173,7 @@ struct pw_endpoint_events {
 	 *
 	 * \param info info about the endpoint
 	 */
-	void (*info) (void *object, const struct pw_endpoint_info *info);
+	void (*info) (void *data, const struct pw_endpoint_info *info);
 
 	/**
 	 * Notify a endpoint param
@@ -186,7 +186,7 @@ struct pw_endpoint_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	void (*param) (void *object, int seq,
+	void (*param) (void *data, int seq,
 		       uint32_t id, uint32_t index, uint32_t next,
 		       const struct spa_pod *param);
 };
@@ -277,7 +277,7 @@ struct pw_endpoint_stream_events {
 	 *
 	 * \param info info about the endpoint stream
 	 */
-	void (*info) (void *object, const struct pw_endpoint_stream_info *info);
+	void (*info) (void *data, const struct pw_endpoint_stream_info *info);
 
 	/**
 	 * Notify a endpoint stream param
@@ -290,7 +290,7 @@ struct pw_endpoint_stream_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	void (*param) (void *object, int seq,
+	void (*param) (void *data, int seq,
 		       uint32_t id, uint32_t index, uint32_t next,
 		       const struct spa_pod *param);
 };
@@ -377,7 +377,7 @@ struct pw_endpoint_link_events {
 	 *
 	 * \param info info about the endpoint link
 	 */
-	void (*info) (void *object, const struct pw_endpoint_link_info *info);
+	void (*info) (void *data, const struct pw_endpoint_link_info *info);
 
 	/**
 	 * Notify a endpoint link param
@@ -390,7 +390,7 @@ struct pw_endpoint_link_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	void (*param) (void *object, int seq,
+	void (*param) (void *data, int seq,
 		       uint32_t id, uint32_t index, uint32_t next,
 		       const struct spa_pod *param);
 };

@@ -312,10 +312,10 @@ do_start(struct spa_loop *loop,
 	return 0;
 }
 static int
-global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
+global_bind(void *object, struct pw_impl_client *client, uint32_t permissions,
             uint32_t version, uint32_t id)
 {
-	struct impl *impl = _data;
+	struct impl *impl = object;
 	struct pw_global *global = impl->global;
 	struct pw_resource *resource;
 	struct resource_data *data;

@@ -54,7 +54,7 @@ struct pw_metadata_events {
 #define PW_VERSION_METADATA_EVENTS		0
 	uint32_t version;
 
-	int (*property) (void *object,
+	int (*property) (void *data,
 			uint32_t subject,
 			const char *key,
 			const char *type,

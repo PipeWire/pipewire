@@ -174,10 +174,10 @@ static const struct pw_endpoint_stream_methods stream_methods = {
 	.set_param = method_set_param,
 };
 
-static int global_bind(void *_data, struct pw_impl_client *client,
+static int global_bind(void *object, struct pw_impl_client *client,
 		uint32_t permissions, uint32_t version, uint32_t id)
 {
-	struct impl *impl = _data;
+	struct impl *impl = object;
 	struct pw_resource *resource;
 	struct resource_data *data;
 
@@ -276,9 +276,9 @@ static int emit_info(void *data, struct pw_resource *resource)
 	return 0;
 }
 
-static void event_info(void *object, const struct pw_endpoint_stream_info *info)
+static void event_info(void *data, const struct pw_endpoint_stream_info *info)
 {
-	struct impl *impl = object;
+	struct impl *impl = data;
 	uint32_t changed_ids[MAX_PARAMS], n_changed_ids = 0;
 	uint32_t i;
 
@@ -341,11 +341,11 @@ static int emit_param(void *_data, struct pw_resource *resource)
 	return 0;
 }
 
-static void event_param(void *object, int seq,
+static void event_param(void *data, int seq,
 		       uint32_t id, uint32_t index, uint32_t next,
 		       const struct spa_pod *param)
 {
-	struct impl *impl = object;
+	struct impl *impl = data;
 	struct param_data *pdata;
 	struct spa_pod **pod;
 	struct param_event_args args = { id, index, next, param };

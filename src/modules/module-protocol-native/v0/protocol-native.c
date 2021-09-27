@@ -83,9 +83,9 @@ update_types_server(struct pw_resource *resource)
 }
 
 
-static void core_marshal_info(void *object, const struct pw_core_info *info)
+static void core_marshal_info(void *data, const struct pw_core_info *info)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct protocol_compat_v2 *compat_v2 = client->compat_v2;
 	struct spa_pod_builder *b;
@@ -138,9 +138,9 @@ static void core_marshal_info(void *object, const struct pw_core_info *info)
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static void core_marshal_done(void *object, uint32_t id, int seq)
+static void core_marshal_done(void *data, uint32_t id, int seq)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CORE_V0_EVENT_DONE, NULL);
@@ -150,9 +150,9 @@ static void core_marshal_done(void *object, uint32_t id, int seq)
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static void core_marshal_error(void *object, uint32_t id, int seq, int res, const char *error)
+static void core_marshal_error(void *data, uint32_t id, int seq, int res, const char *error)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CORE_V0_EVENT_ERROR, NULL);
@@ -165,9 +165,9 @@ static void core_marshal_error(void *object, uint32_t id, int seq, int res, cons
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static void core_marshal_remove_id(void *object, uint32_t id)
+static void core_marshal_remove_id(void *data, uint32_t id)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CORE_V0_EVENT_REMOVE_ID, NULL);
@@ -798,10 +798,10 @@ static int core_demarshal_update_types_server(void *object, const struct pw_prot
 	return 0;
 }
 
-static void registry_marshal_global(void *object, uint32_t id, uint32_t permissions,
+static void registry_marshal_global(void *data, uint32_t id, uint32_t permissions,
 				    const char *type, uint32_t version, const struct spa_dict *props)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
@@ -854,9 +854,9 @@ static void registry_marshal_global(void *object, uint32_t id, uint32_t permissi
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static void registry_marshal_global_remove(void *object, uint32_t id)
+static void registry_marshal_global_remove(void *data, uint32_t id)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_REGISTRY_V0_EVENT_GLOBAL_REMOVE, NULL);
@@ -889,9 +889,9 @@ static int registry_demarshal_bind(void *object, const struct pw_protocol_native
 	return pw_resource_notify(resource, struct pw_registry_methods, bind, 0, id, type_name, version, new_id);
 }
 
-static void module_marshal_info(void *object, const struct pw_module_info *info)
+static void module_marshal_info(void *data, const struct pw_module_info *info)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	uint32_t i, n_items;
@@ -919,9 +919,9 @@ static void module_marshal_info(void *object, const struct pw_module_info *info)
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static void factory_marshal_info(void *object, const struct pw_factory_info *info)
+static void factory_marshal_info(void *data, const struct pw_factory_info *info)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
@@ -956,9 +956,9 @@ static void factory_marshal_info(void *object, const struct pw_factory_info *inf
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static void node_marshal_info(void *object, const struct pw_node_info *info)
+static void node_marshal_info(void *data, const struct pw_node_info *info)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	uint32_t i, n_items;
@@ -990,10 +990,10 @@ static void node_marshal_info(void *object, const struct pw_node_info *info)
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static void node_marshal_param(void *object, int seq, uint32_t id, uint32_t index, uint32_t next,
+static void node_marshal_param(void *data, int seq, uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
@@ -1037,9 +1037,9 @@ static int node_demarshal_enum_params(void *object, const struct pw_protocol_nat
                         0, id, index, num, filter);
 }
 
-static void port_marshal_info(void *object, const struct pw_port_info *info)
+static void port_marshal_info(void *data, const struct pw_port_info *info)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	uint32_t i, n_items;
@@ -1083,10 +1083,10 @@ static void port_marshal_info(void *object, const struct pw_port_info *info)
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static void port_marshal_param(void *object, int seq, uint32_t id, uint32_t index, uint32_t next,
+static void port_marshal_param(void *data, int seq, uint32_t id, uint32_t index, uint32_t next,
 		const struct spa_pod *param)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
@@ -1130,9 +1130,9 @@ static int port_demarshal_enum_params(void *object, const struct pw_protocol_nat
                         0, id, index, num, filter);
 }
 
-static void client_marshal_info(void *object, const struct pw_client_info *info)
+static void client_marshal_info(void *data, const struct pw_client_info *info)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	uint32_t i, n_items;
@@ -1157,15 +1157,15 @@ static void client_marshal_info(void *object, const struct pw_client_info *info)
 	pw_protocol_native_end_resource(resource, b);
 }
 
-static void client_marshal_permissions(void *object, uint32_t index, uint32_t n_permissions,
+static void client_marshal_permissions(void *data, uint32_t index, uint32_t n_permissions,
                 const struct pw_permission *permissions)
 {
 }
 
 
-static void link_marshal_info(void *object, const struct pw_link_info *info)
+static void link_marshal_info(void *data, const struct pw_link_info *info)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	uint32_t i, n_items;

@@ -157,9 +157,9 @@ static const struct pw_registry_methods registry_methods = {
 	.destroy = registry_destroy
 };
 
-static void destroy_registry_resource(void *object)
+static void destroy_registry_resource(void *_data)
 {
-	struct resource_data *data = object;
+	struct resource_data *data = _data;
 	struct pw_resource *resource = data->resource;
 	spa_list_remove(&resource->link);
 	spa_hook_remove(&data->resource_listener);
@@ -507,13 +507,13 @@ static const struct pw_resource_events core_resource_events = {
 };
 
 static int
-global_bind(void *_data,
+global_bind(void *object,
 	    struct pw_impl_client *client,
 	    uint32_t permissions,
 	    uint32_t version,
 	    uint32_t id)
 {
-	struct pw_impl_core *this = _data;
+	struct pw_impl_core *this = object;
 	struct pw_global *global = this->global;
 	struct pw_resource *resource;
 	struct resource_data *data;
@@ -555,9 +555,9 @@ error:
 	return res;
 }
 
-static void global_destroy(void *object)
+static void global_destroy(void *data)
 {
-	struct pw_impl_core *core = object;
+	struct pw_impl_core *core = data;
 	spa_hook_remove(&core->global_listener);
 	core->global = NULL;
 	pw_impl_core_destroy(core);

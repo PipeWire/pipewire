@@ -1515,11 +1515,11 @@ static void clean_transport(struct client *c)
 	c->has_transport = false;
 }
 
-static int client_node_transport(void *object,
+static int client_node_transport(void *data,
                            int readfd, int writefd,
 			   uint32_t mem_id, uint32_t offset, uint32_t size)
 {
-	struct client *c = (struct client *) object;
+	struct client *c = (struct client *) data;
 
 	clean_transport(c);
 
@@ -1547,11 +1547,11 @@ static int client_node_transport(void *object,
 	return 0;
 }
 
-static int client_node_set_param(void *object,
+static int client_node_set_param(void *data,
 			uint32_t id, uint32_t flags,
 			const struct spa_pod *param)
 {
-	struct client *c = (struct client *) object;
+	struct client *c = (struct client *) data;
 	pw_proxy_error((struct pw_proxy*)c->node, -ENOTSUP, "not supported");
 	return -ENOTSUP;
 }
@@ -1639,13 +1639,13 @@ static int update_driver_activation(struct client *c)
 	return 0;
 }
 
-static int client_node_set_io(void *object,
+static int client_node_set_io(void *data,
 			uint32_t id,
 			uint32_t mem_id,
 			uint32_t offset,
 			uint32_t size)
 {
-	struct client *c = (struct client *) object;
+	struct client *c = (struct client *) data;
 	struct pw_memmap *old, *mm;
 	void *ptr;
 	uint32_t tag[5] = { c->node_id, id, };
@@ -1680,14 +1680,14 @@ static int client_node_set_io(void *object,
 	return 0;
 }
 
-static int client_node_event(void *object, const struct spa_event *event)
+static int client_node_event(void *data, const struct spa_event *event)
 {
 	return -ENOTSUP;
 }
 
-static int client_node_command(void *object, const struct spa_command *command)
+static int client_node_command(void *data, const struct spa_command *command)
 {
-	struct client *c = (struct client *) object;
+	struct client *c = (struct client *) data;
 
 	pw_log_debug("%p: got command %d", c, SPA_COMMAND_TYPE(command));
 
@@ -1720,20 +1720,20 @@ static int client_node_command(void *object, const struct spa_command *command)
 	return 0;
 }
 
-static int client_node_add_port(void *object,
+static int client_node_add_port(void *data,
                           enum spa_direction direction,
                           uint32_t port_id, const struct spa_dict *props)
 {
-	struct client *c = (struct client *) object;
+	struct client *c = (struct client *) data;
 	pw_proxy_error((struct pw_proxy*)c->node, -ENOTSUP, "add port not supported");
 	return -ENOTSUP;
 }
 
-static int client_node_remove_port(void *object,
+static int client_node_remove_port(void *data,
                              enum spa_direction direction,
                              uint32_t port_id)
 {
-	struct client *c = (struct client *) object;
+	struct client *c = (struct client *) data;
 	pw_proxy_error((struct pw_proxy*)c->node, -ENOTSUP, "remove port not supported");
 	return -ENOTSUP;
 }
@@ -2071,13 +2071,13 @@ static int port_set_latency(struct client *c, struct port *p,
 }
 
 /* called from thread-loop */
-static int client_node_port_set_param(void *object,
+static int client_node_port_set_param(void *data,
                                 enum spa_direction direction,
                                 uint32_t port_id,
                                 uint32_t id, uint32_t flags,
                                 const struct spa_pod *param)
 {
-	struct client *c = (struct client *) object;
+	struct client *c = (struct client *) data;
 	struct port *p = GET_PORT(c, direction, port_id);
 
 	if (p == NULL || !p->valid)
@@ -2121,7 +2121,7 @@ static inline void *init_buffer(struct port *p)
 	return data;
 }
 
-static int client_node_port_use_buffers(void *object,
+static int client_node_port_use_buffers(void *data,
                                   enum spa_direction direction,
                                   uint32_t port_id,
                                   uint32_t mix_id,
@@ -2129,7 +2129,7 @@ static int client_node_port_use_buffers(void *object,
                                   uint32_t n_buffers,
                                   struct pw_client_node_buffer *buffers)
 {
-	struct client *c = (struct client *) object;
+	struct client *c = (struct client *) data;
 	struct port *p = GET_PORT(c, direction, port_id);
 	struct buffer *b;
 	uint32_t i, j, fl;
@@ -2268,7 +2268,7 @@ static int client_node_port_use_buffers(void *object,
 	return res;
 }
 
-static int client_node_port_set_io(void *object,
+static int client_node_port_set_io(void *data,
                              enum spa_direction direction,
                              uint32_t port_id,
                              uint32_t mix_id,
@@ -2277,7 +2277,7 @@ static int client_node_port_set_io(void *object,
                              uint32_t offset,
                              uint32_t size)
 {
-	struct client *c = (struct client *) object;
+	struct client *c = (struct client *) data;
 	struct port *p = GET_PORT(c, direction, port_id);
         struct pw_memmap *mm, *old;
         struct mix *mix;
@@ -2340,14 +2340,14 @@ do_activate_link(struct spa_loop *loop,
 	return 0;
 }
 
-static int client_node_set_activation(void *object,
+static int client_node_set_activation(void *data,
                              uint32_t node_id,
                              int signalfd,
                              uint32_t mem_id,
                              uint32_t offset,
                              uint32_t size)
 {
-	struct client *c = (struct client *) object;
+	struct client *c = (struct client *) data;
 	struct pw_memmap *mm;
 	struct link *link;
 	void *ptr;
@@ -2412,14 +2412,14 @@ static int client_node_set_activation(void *object,
 	return res;
 }
 
-static int client_node_port_set_mix_info(void *object,
+static int client_node_port_set_mix_info(void *data,
                                   enum spa_direction direction,
                                   uint32_t port_id,
                                   uint32_t mix_id,
                                   uint32_t peer_id,
                                   const struct spa_dict *props)
 {
-	struct client *c = (struct client *) object;
+	struct client *c = (struct client *) data;
 	struct port *p = GET_PORT(c, direction, port_id);
 	struct mix *mix;
 	struct object *l;
@@ -2617,10 +2617,10 @@ static int json_object_find(const char *obj, const char *key, char *value, size_
 	return -ENOENT;
 }
 
-static int metadata_property(void *object, uint32_t id,
+static int metadata_property(void *data, uint32_t id,
 		const char *key, const char *type, const char *value)
 {
-	struct client *c = (struct client *) object;
+	struct client *c = (struct client *) data;
 	struct object *o;
 	jack_uuid_t uuid;
 
@@ -2712,11 +2712,11 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = proxy_destroy,
 };
 
-static void port_param(void *object, int seq,
+static void port_param(void *data, int seq,
 			uint32_t id, uint32_t index, uint32_t next,
 			const struct spa_pod *param)
 {
-	struct object *o = object;
+	struct object *o = data;
 
 	switch (id) {
 	case SPA_PARAM_Latency:
@@ -3073,9 +3073,9 @@ static void registry_event_global(void *data, uint32_t id,
 	return;
 }
 
-static void registry_event_global_remove(void *object, uint32_t id)
+static void registry_event_global_remove(void *data, uint32_t id)
 {
-	struct client *c = (struct client *) object;
+	struct client *c = (struct client *) data;
 	struct object *o;
 	bool graph_changed = false;
 

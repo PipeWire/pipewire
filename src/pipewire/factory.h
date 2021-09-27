@@ -84,7 +84,7 @@ struct pw_factory_events {
 	 *
 	 * \param info info about the factory
 	 */
-	void (*info) (void *object, const struct pw_factory_info *info);
+	void (*info) (void *data, const struct pw_factory_info *info);
 };
 
 #define PW_FACTORY_METHOD_ADD_LISTENER	0

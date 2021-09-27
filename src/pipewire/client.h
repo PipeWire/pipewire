@@ -85,7 +85,7 @@ struct pw_client_events {
 	 *
 	 * \param info info about the client
 	 */
-	void (*info) (void *object, const struct pw_client_info *info);
+	void (*info) (void *data, const struct pw_client_info *info);
 	/**
 	 * Notify a client permission
 	 *
@@ -96,7 +96,7 @@ struct pw_client_events {
 	 * \param n_permissions the number of permissions
 	 * \param permissions the permissions
 	 */
-	void (*permissions) (void *object,
+	void (*permissions) (void *data,
 			     uint32_t index,
 			     uint32_t n_permissions,
 			     const struct pw_permission *permissions);

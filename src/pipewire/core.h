@@ -125,7 +125,7 @@ struct pw_core_events {
 	 *
 	 * \param info new core info
 	 */
-	void (*info) (void *object, const struct pw_core_info *info);
+	void (*info) (void *data, const struct pw_core_info *info);
 	/**
 	 * Emit a done event
 	 *
@@ -134,14 +134,14 @@ struct pw_core_events {
 	 *
 	 * \param seq the seq number passed to the sync method call
 	 */
-	void (*done) (void *object, uint32_t id, int seq);
+	void (*done) (void *data, uint32_t id, int seq);
 
 	/** Emit a ping event
 	 *
 	 * The client should reply with a pong reply with the same seq
 	 * number.
 	 */
-	void (*ping) (void *object, uint32_t id, int seq);
+	void (*ping) (void *data, uint32_t id, int seq);
 
 	/**
 	 * Fatal error event
@@ -160,7 +160,7 @@ struct pw_core_events {
          * \param res error code
          * \param message error description
 	 */
-	void (*error) (void *object, uint32_t id, int seq, int res, const char *message);
+	void (*error) (void *data, uint32_t id, int seq, int res, const char *message);
 	/**
 	 * Remove an object ID
          *
@@ -172,7 +172,7 @@ struct pw_core_events {
 	 *
          * \param id deleted object ID
 	 */
-	void (*remove_id) (void *object, uint32_t id);
+	void (*remove_id) (void *data, uint32_t id);
 
 	/**
 	 * Notify an object binding
@@ -184,7 +184,7 @@ struct pw_core_events {
 	 * \param id bound object ID
 	 * \param global_id the global id bound to
 	 */
-	void (*bound_id) (void *object, uint32_t id, uint32_t global_id);
+	void (*bound_id) (void *data, uint32_t id, uint32_t global_id);
 
 	/**
 	 * Add memory for a client
@@ -200,14 +200,14 @@ struct pw_core_events {
 	 * \param fd the file descriptor
 	 * \param flags extra flags
 	 */
-	void (*add_mem) (void *object, uint32_t id, uint32_t type, int fd, uint32_t flags);
+	void (*add_mem) (void *data, uint32_t id, uint32_t type, int fd, uint32_t flags);
 
 	/**
 	 * Remove memory for a client
 	 *
 	 * \param id the memory id to remove
 	 */
-	void (*remove_mem) (void *object, uint32_t id);
+	void (*remove_mem) (void *data, uint32_t id);
 };
 
 #define PW_CORE_METHOD_ADD_LISTENER	0
@@ -442,7 +442,7 @@ struct pw_registry_events {
 	 * \param version the version of the interface
 	 * \param props extra properties of the global
 	 */
-	void (*global) (void *object, uint32_t id,
+	void (*global) (void *data, uint32_t id,
 		       uint32_t permissions, const char *type, uint32_t version,
 		       const struct spa_dict *props);
 	/**
@@ -454,7 +454,7 @@ struct pw_registry_events {
 	 *
 	 * \param id the id of the global that was removed
 	 */
-	void (*global_remove) (void *object, uint32_t id);
+	void (*global_remove) (void *data, uint32_t id);
 };
 
 #define PW_REGISTRY_METHOD_ADD_LISTENER	0

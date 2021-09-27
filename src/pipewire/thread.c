@@ -34,7 +34,7 @@
 
 #include "thread.h"
 
-static struct spa_thread *impl_create(void *data,
+static struct spa_thread *impl_create(void *object,
 			const struct spa_dict *props,
 			void *(*start)(void*), void *arg)
 {
@@ -47,13 +47,13 @@ static struct spa_thread *impl_create(void *data,
 	return (struct spa_thread*)pt;
 }
 
-static int impl_join(void *data, struct spa_thread *thread, void **retval)
+static int impl_join(void *object, struct spa_thread *thread, void **retval)
 {
 	pthread_t pt = (pthread_t)thread;
 	return pthread_join(pt, retval);
 }
 
-static int impl_get_rt_range(void *data, const struct spa_dict *props,
+static int impl_get_rt_range(void *object, const struct spa_dict *props,
 		int *min, int *max)
 {
 	if (min)

@@ -71,7 +71,7 @@ struct pw_client_endpoint_events {
 	 *         -EINVAL when the session id has already been set
 	 *         -ENOTSUP when the endpoint is a session master
 	 */
-	int (*set_session_id) (void *object, uint32_t session_id);
+	int (*set_session_id) (void *data, uint32_t session_id);
 
 	/**
 	 * Set the configurable parameter in \a endpoint.
@@ -94,7 +94,7 @@ struct pw_client_endpoint_events {
 	 *         -ENOTSUP when there are no parameters implemented on \a endpoint
 	 *         -ENOENT the parameter is unknown
 	 */
-	int (*set_param) (void *object,
+	int (*set_param) (void *data,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param);
 
@@ -118,11 +118,11 @@ struct pw_client_endpoint_events {
 	 *         -ESRCH when the type or size of a property is not correct.
 	 *         -ENOENT when the param id is not found
 	 */
-	int (*stream_set_param) (void *object, uint32_t stream_id,
+	int (*stream_set_param) (void *data, uint32_t stream_id,
 			         uint32_t id, uint32_t flags,
 			         const struct spa_pod *param);
 
-	int (*create_link) (void *object, const struct spa_dict *props);
+	int (*create_link) (void *data, const struct spa_dict *props);
 };
 
 #define PW_CLIENT_ENDPOINT_METHOD_ADD_LISTENER	0
@@ -208,7 +208,7 @@ struct pw_client_session_events {
 	 *         -ENOTSUP when there are no parameters implemented on \a session
 	 *         -ENOENT the parameter is unknown
 	 */
-	int (*set_param) (void *object,
+	int (*set_param) (void *data,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param);
 
@@ -232,11 +232,11 @@ struct pw_client_session_events {
 	 *         -ESRCH when the type or size of a property is not correct.
 	 *         -ENOENT when the param id is not found
 	 */
-	int (*link_set_param) (void *object, uint32_t link_id,
+	int (*link_set_param) (void *data, uint32_t link_id,
 			       uint32_t id, uint32_t flags,
 			       const struct spa_pod *param);
 
-	int (*link_request_state) (void *object, uint32_t link_id, uint32_t state);
+	int (*link_request_state) (void *data, uint32_t link_id, uint32_t state);
 };
 
 #define PW_CLIENT_SESSION_METHOD_ADD_LISTENER	0

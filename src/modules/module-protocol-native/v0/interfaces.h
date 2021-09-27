@@ -192,7 +192,7 @@ struct pw_core_v0_events {
 	 * \param types the types as a string
 	 * \param n_types the number of \a types
 	 */
-	void (*update_types) (void *object,
+	void (*update_types) (void *data,
 			      uint32_t first_id,
 			      const char **types,
 			      uint32_t n_types);
@@ -203,7 +203,7 @@ struct pw_core_v0_events {
 	 * same sequence number.
 	 * \param seq the sequence number passed to the sync method call
 	 */
-	void (*done) (void *object, uint32_t seq);
+	void (*done) (void *data, uint32_t seq);
 	/**
 	 * Fatal error event
          *
@@ -216,7 +216,7 @@ struct pw_core_v0_events {
          * \param res error code
          * \param error error description
 	 */
-	void (*error) (void *object, uint32_t id, int res, const char *error, ...);
+	void (*error) (void *data, uint32_t id, int res, const char *error, ...);
 	/**
 	 * Remove an object ID
          *
@@ -227,13 +227,13 @@ struct pw_core_v0_events {
          * safely reuse the object ID.
          * \param id deleted object ID
 	 */
-	void (*remove_id) (void *object, uint32_t id);
+	void (*remove_id) (void *data, uint32_t id);
 	/**
 	 * Notify new core info
 	 *
 	 * \param info new core info
 	 */
-	void (*info) (void *object, struct pw_core_info *info);
+	void (*info) (void *data, struct pw_core_info *info);
 };
 
 #define pw_core_resource_v0_update_types(r,...) pw_resource_notify(r,struct pw_core_v0_events,update_types,__VA_ARGS__)
@@ -319,7 +319,7 @@ struct pw_registry_v0_events {
 	 * \param version the version of the interface
 	 * \param props extra properties of the global
 	 */
-	void (*global) (void *object, uint32_t id, uint32_t parent_id,
+	void (*global) (void *data, uint32_t id, uint32_t parent_id,
 			uint32_t permissions, uint32_t type, uint32_t version,
 			const struct spa_dict *props);
 	/**
@@ -331,7 +331,7 @@ struct pw_registry_v0_events {
 	 *
 	 * \param id the id of the global that was removed
 	 */
-	void (*global_remove) (void *object, uint32_t id);
+	void (*global_remove) (void *data, uint32_t id);
 };
 
 #define pw_registry_resource_v0_global(r,...)        pw_resource_notify(r,struct pw_registry_v0_events,global,__VA_ARGS__)
@@ -352,7 +352,7 @@ struct pw_module_v0_events {
 	 *
 	 * \param info info about the module
 	 */
-	void (*info) (void *object, struct pw_module_info *info);
+	void (*info) (void *data, struct pw_module_info *info);
 };
 
 #define pw_module_resource_v0_info(r,...)	pw_resource_notify(r,struct pw_module_v0_events,info,__VA_ARGS__)
@@ -372,7 +372,7 @@ struct pw_node_v0_events {
 	 *
 	 * \param info info about the node
 	 */
-	void (*info) (void *object, struct pw_node_info *info);
+	void (*info) (void *data, struct pw_node_info *info);
 	/**
 	 * Notify a node param
 	 *
@@ -383,7 +383,7 @@ struct pw_node_v0_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	void (*param) (void *object,
+	void (*param) (void *data,
 		       uint32_t id, uint32_t index, uint32_t next,
 		       const struct spa_pod *param);
 };
@@ -428,7 +428,7 @@ struct pw_port_v0_events {
 	 *
 	 * \param info info about the port
 	 */
-	void (*info) (void *object, struct pw_port_info *info);
+	void (*info) (void *data, struct pw_port_info *info);
 	/**
 	 * Notify a port param
 	 *
@@ -439,7 +439,7 @@ struct pw_port_v0_events {
 	 * \param next the param index of the next param
 	 * \param param the parameter
 	 */
-	void (*param) (void *object,
+	void (*param) (void *data,
 		       uint32_t id, uint32_t index, uint32_t next,
 		       const struct spa_pod *param);
 };
@@ -483,7 +483,7 @@ struct pw_factory_v0_events {
 	 *
 	 * \param info info about the factory
 	 */
-	void (*info) (void *object, struct pw_factory_info *info);
+	void (*info) (void *data, struct pw_factory_info *info);
 };
 
 #define pw_factory_resource_v0_info(r,...) pw_resource_notify(r,struct pw_factory_v0_events,info,__VA_ARGS__)
@@ -502,7 +502,7 @@ struct pw_client_v0_events {
 	 *
 	 * \param info info about the client
 	 */
-	void (*info) (void *object, struct pw_client_info *info);
+	void (*info) (void *data, struct pw_client_info *info);
 };
 
 #define pw_client_resource_v0_info(r,...) pw_resource_notify(r,struct pw_client_v0_events,info,__VA_ARGS__)
@@ -522,7 +522,7 @@ struct pw_link_v0_events {
 	 *
 	 * \param info info about the link
 	 */
-	void (*info) (void *object, struct pw_link_info *info);
+	void (*info) (void *data, struct pw_link_info *info);
 };
 
 #define pw_link_resource_v0_info(r,...)      pw_resource_notify(r,struct pw_link_v0_events,info,__VA_ARGS__)

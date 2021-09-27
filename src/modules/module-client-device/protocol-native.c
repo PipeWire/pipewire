@@ -218,10 +218,10 @@ static int device_demarshal_set_param(void *object, const struct pw_protocol_nat
 	return 0;
 }
 
-static void device_marshal_info(void *object,
+static void device_marshal_info(void *data,
 		const struct spa_device_info *info)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f[2];
 	uint32_t i, n_items;
@@ -262,10 +262,10 @@ static void device_marshal_info(void *object,
 	pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int device_demarshal_info(void *object,
+static int device_demarshal_info(void *data,
 		const struct pw_protocol_native_message *msg)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_parser prs;
 	struct spa_pod *ipod;
 	struct spa_device_info info = SPA_DEVICE_INFO_INIT(), *infop;
@@ -306,10 +306,10 @@ static int device_demarshal_info(void *object,
 	return 0;
 }
 
-static void device_marshal_result(void *object,
+static void device_marshal_result(void *data,
 		int seq, int res, uint32_t type, const void *result)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f[2];
 
@@ -342,10 +342,10 @@ static void device_marshal_result(void *object,
 	pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int device_demarshal_result(void *object,
+static int device_demarshal_result(void *data,
 		const struct pw_protocol_native_message *msg)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[1];
 	int seq, res;
@@ -384,9 +384,9 @@ static int device_demarshal_result(void *object,
 	return 0;
 }
 
-static void device_marshal_event(void *object, const struct spa_event *event)
+static void device_marshal_event(void *data, const struct spa_event *event)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_proxy(proxy, SPA_DEVICE_EVENT_EVENT, NULL);
@@ -397,10 +397,10 @@ static void device_marshal_event(void *object, const struct spa_event *event)
 	pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int device_demarshal_event(void *object,
+static int device_demarshal_event(void *data,
 		const struct pw_protocol_native_message *msg)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_parser prs;
 	struct spa_event *event;
 
@@ -413,10 +413,10 @@ static int device_demarshal_event(void *object,
 	return 0;
 }
 
-static void device_marshal_object_info(void *object, uint32_t id,
+static void device_marshal_object_info(void *data, uint32_t id,
                 const struct spa_device_object_info *info)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f[2];
 	uint32_t i, n_items;
@@ -452,10 +452,10 @@ static void device_marshal_object_info(void *object, uint32_t id,
 	pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int device_demarshal_object_info(void *object,
+static int device_demarshal_object_info(void *data,
 		const struct pw_protocol_native_message *msg)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_parser prs;
 	struct spa_device_object_info info = SPA_DEVICE_OBJECT_INFO_INIT(), *infop;
 	struct spa_pod *ipod;

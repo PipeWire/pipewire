@@ -59,13 +59,13 @@ struct resource_data {
 #define pw_metadata_resource_property(r,...)        \
         pw_metadata_resource(r,property,0,__VA_ARGS__)
 
-static int metadata_property(void *object,
+static int metadata_property(void *data,
 			uint32_t subject,
 			const char *key,
 			const char *type,
 			const char *value)
 {
-	struct resource_data *d = object;
+	struct resource_data *d = data;
 	struct pw_resource *resource = d->resource;
 	struct pw_impl_client *client = pw_resource_get_client(resource);
 	struct impl *impl = d->impl;
@@ -166,10 +166,10 @@ static const struct pw_resource_events impl_resource_events = {
 };
 
 static int
-global_bind(void *_data, struct pw_impl_client *client, uint32_t permissions,
+global_bind(void *object, struct pw_impl_client *client, uint32_t permissions,
             uint32_t version, uint32_t id)
 {
-	struct impl *impl = _data;
+	struct impl *impl = object;
 	struct pw_resource *resource;
 	struct resource_data *data;
 

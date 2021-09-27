@@ -492,9 +492,9 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 	}
 }
 
-static void registry_event_global_remove(void *object, uint32_t id)
+static void registry_event_global_remove(void *data, uint32_t id)
 {
-	struct data *d = object;
+	struct data *d = data;
 	struct object *obj;
 
 	if ((obj = find_object(d, OBJECT_ANY, id)) == NULL)

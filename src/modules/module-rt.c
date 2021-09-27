@@ -612,7 +612,7 @@ static int impl_acquire_rt_sched(struct spa_thread *thread, int priority)
 	return 0;
 }
 
-static int impl_drop_rt_generic(void *data, struct spa_thread *thread)
+static int impl_drop_rt_generic(void *object, struct spa_thread *thread)
 {
 	struct sched_param sp;
 	pthread_t pt = (pthread_t)thread;
@@ -685,9 +685,9 @@ exit:
 	return (struct spa_thread*)this->thread;
 }
 
-static int impl_join(void *data, struct spa_thread *thread, void **retval)
+static int impl_join(void *object, struct spa_thread *thread, void **retval)
 {
-	struct impl *impl = data;
+	struct impl *impl = object;
 	pthread_t pt = (pthread_t)thread;
 	struct thread *thr;
 
@@ -701,10 +701,10 @@ static int impl_join(void *data, struct spa_thread *thread, void **retval)
 	return pthread_join(pt, retval);
 }
 
-static int impl_get_rt_range(void *data, const struct spa_dict *props,
+static int impl_get_rt_range(void *object, const struct spa_dict *props,
 		int *min, int *max)
 {
-	struct impl *impl = data;
+	struct impl *impl = object;
 	if (impl->use_rtkit) {
 		if (min)
 			*min = 1;
@@ -735,9 +735,9 @@ static pid_t impl_gettid(struct impl *impl, pthread_t pt)
 	return pid;
 }
 
-static int impl_acquire_rt(void *data, struct spa_thread *thread, int priority)
+static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority)
 {
-	struct impl *impl = data;
+	struct impl *impl = object;
 	struct sched_param sp;
 	int err, rtprio_limit;
 	pthread_t pt = (pthread_t)thread;

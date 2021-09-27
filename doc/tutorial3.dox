@@ -28,7 +28,7 @@ tutorial. This is the event handler:
 \code{.c}
         int pending, done = 0;
 
-        void core_event_done(void *object, uint32_t id, int seq) {
+        void core_event_done(void *data, uint32_t id, int seq) {
                 if (id == PW_ID_CORE && seq == pending) {
                         done = 1;
                         pw_main_loop_quit(loop);

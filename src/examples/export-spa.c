@@ -56,9 +56,9 @@ struct data {
 	uint32_t id;
 };
 
-static void proxy_event_bound(void *object, uint32_t global_id)
+static void proxy_event_bound(void *_data, uint32_t global_id)
 {
-	struct data *data = object;
+	struct data *data = _data;
 	if (data->id != global_id) {
 		printf("node id: %u\n", global_id);
 		data->id = global_id;

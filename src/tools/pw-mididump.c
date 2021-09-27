@@ -75,9 +75,9 @@ static int dump_file(const char *filename)
 	return 0;
 }
 
-static void on_process(void *userdata, struct spa_io_position *position)
+static void on_process(void *_data, struct spa_io_position *position)
 {
-	struct data *data = userdata;
+	struct data *data = _data;
 	struct pw_buffer *b;
 	struct spa_buffer *buf;
 	struct spa_data *d;

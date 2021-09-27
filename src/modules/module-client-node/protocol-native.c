@@ -374,9 +374,9 @@ client_node_marshal_port_buffers(void *object,
 	return pw_protocol_native_end_proxy(proxy, b);
 }
 
-static int client_node_demarshal_transport(void *object, const struct pw_protocol_native_message *msg)
+static int client_node_demarshal_transport(void *data, const struct pw_protocol_native_message *msg)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_parser prs;
 	uint32_t mem_id, offset, sz;
 	int64_t ridx, widx;
@@ -403,9 +403,9 @@ static int client_node_demarshal_transport(void *object, const struct pw_protoco
 	return 0;
 }
 
-static int client_node_demarshal_set_param(void *object, const struct pw_protocol_native_message *msg)
+static int client_node_demarshal_set_param(void *data, const struct pw_protocol_native_message *msg)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_parser prs;
 	uint32_t id, flags;
 	const struct spa_pod *param = NULL;
@@ -421,9 +421,9 @@ static int client_node_demarshal_set_param(void *object, const struct pw_protoco
 	return 0;
 }
 
-static int client_node_demarshal_event_event(void *object, const struct pw_protocol_native_message *msg)
+static int client_node_demarshal_event_event(void *data, const struct pw_protocol_native_message *msg)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_parser prs;
 	const struct spa_event *event;
 
@@ -436,9 +436,9 @@ static int client_node_demarshal_event_event(void *object, const struct pw_proto
 	return 0;
 }
 
-static int client_node_demarshal_command(void *object, const struct pw_protocol_native_message *msg)
+static int client_node_demarshal_command(void *data, const struct pw_protocol_native_message *msg)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_parser prs;
 	const struct spa_command *command;
 
@@ -451,9 +451,9 @@ static int client_node_demarshal_command(void *object, const struct pw_protocol_
 	return 0;
 }
 
-static int client_node_demarshal_add_port(void *object, const struct pw_protocol_native_message *msg)
+static int client_node_demarshal_add_port(void *data, const struct pw_protocol_native_message *msg)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
 	int32_t direction, port_id;
@@ -475,9 +475,9 @@ static int client_node_demarshal_add_port(void *object, const struct pw_protocol
 	return 0;
 }
 
-static int client_node_demarshal_remove_port(void *object, const struct pw_protocol_native_message *msg)
+static int client_node_demarshal_remove_port(void *data, const struct pw_protocol_native_message *msg)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_parser prs;
 	int32_t direction, port_id;
 
@@ -491,9 +491,9 @@ static int client_node_demarshal_remove_port(void *object, const struct pw_proto
 	return 0;
 }
 
-static int client_node_demarshal_port_set_param(void *object, const struct pw_protocol_native_message *msg)
+static int client_node_demarshal_port_set_param(void *data, const struct pw_protocol_native_message *msg)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_parser prs;
 	uint32_t direction, port_id, id, flags;
 	const struct spa_pod *param = NULL;
@@ -512,9 +512,9 @@ static int client_node_demarshal_port_set_param(void *object, const struct pw_pr
 	return 0;
 }
 
-static int client_node_demarshal_port_use_buffers(void *object, const struct pw_protocol_native_message *msg)
+static int client_node_demarshal_port_use_buffers(void *data, const struct pw_protocol_native_message *msg)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f;
 	uint32_t direction, port_id, mix_id, flags, n_buffers, data_id;
@@ -588,9 +588,9 @@ static int client_node_demarshal_port_use_buffers(void *object, const struct pw_
 	return 0;
 }
 
-static int client_node_demarshal_port_set_io(void *object, const struct pw_protocol_native_message *msg)
+static int client_node_demarshal_port_set_io(void *data, const struct pw_protocol_native_message *msg)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_parser prs;
 	uint32_t direction, port_id, mix_id, id, memid, off, sz;
 
@@ -612,9 +612,9 @@ static int client_node_demarshal_port_set_io(void *object, const struct pw_proto
 	return 0;
 }
 
-static int client_node_demarshal_set_activation(void *object, const struct pw_protocol_native_message *msg)
+static int client_node_demarshal_set_activation(void *data, const struct pw_protocol_native_message *msg)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_parser prs;
 	uint32_t node_id, memid, off, sz;
 	int64_t sigidx;
@@ -639,9 +639,9 @@ static int client_node_demarshal_set_activation(void *object, const struct pw_pr
 	return 0;
 }
 
-static int client_node_demarshal_port_set_mix_info(void *object, const struct pw_protocol_native_message *msg)
+static int client_node_demarshal_port_set_mix_info(void *data, const struct pw_protocol_native_message *msg)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_parser prs;
 	uint32_t direction, port_id, mix_id, peer_id;
 	struct spa_pod_frame f[2];
@@ -664,9 +664,9 @@ static int client_node_demarshal_port_set_mix_info(void *object, const struct pw
 	return 0;
 }
 
-static int client_node_demarshal_set_io(void *object, const struct pw_protocol_native_message *msg)
+static int client_node_demarshal_set_io(void *data, const struct pw_protocol_native_message *msg)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_proxy *proxy = data;
 	struct spa_pod_parser prs;
 	uint32_t id, memid, off, sz;
 
@@ -683,11 +683,11 @@ static int client_node_demarshal_set_io(void *object, const struct pw_protocol_n
 	return 0;
 }
 
-static int client_node_marshal_transport(void *object, int readfd, int writefd,
+static int client_node_marshal_transport(void *data, int readfd, int writefd,
 		uint32_t mem_id, uint32_t offset, uint32_t size)
 {
 	struct pw_protocol_native_message *msg;
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_TRANSPORT, &msg);
@@ -703,10 +703,10 @@ static int client_node_marshal_transport(void *object, int readfd, int writefd,
 }
 
 static int
-client_node_marshal_set_param(void *object, uint32_t id, uint32_t flags,
+client_node_marshal_set_param(void *data, uint32_t id, uint32_t flags,
 			      const struct spa_pod *param)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_SET_PARAM, NULL);
@@ -719,9 +719,9 @@ client_node_marshal_set_param(void *object, uint32_t id, uint32_t flags,
 	return pw_protocol_native_end_resource(resource, b);
 }
 
-static int client_node_marshal_event_event(void *object, const struct spa_event *event)
+static int client_node_marshal_event_event(void *data, const struct spa_event *event)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_EVENT, NULL);
@@ -733,9 +733,9 @@ static int client_node_marshal_event_event(void *object, const struct spa_event 
 }
 
 static int
-client_node_marshal_command(void *object, const struct spa_command *command)
+client_node_marshal_command(void *data, const struct spa_command *command)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_COMMAND, NULL);
@@ -747,11 +747,11 @@ client_node_marshal_command(void *object, const struct spa_command *command)
 }
 
 static int
-client_node_marshal_add_port(void *object,
+client_node_marshal_add_port(void *data,
 			     enum spa_direction direction, uint32_t port_id,
 			     const struct spa_dict *props)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 
@@ -768,10 +768,10 @@ client_node_marshal_add_port(void *object,
 }
 
 static int
-client_node_marshal_remove_port(void *object,
+client_node_marshal_remove_port(void *data,
 				enum spa_direction direction, uint32_t port_id)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_REMOVE_PORT, NULL);
@@ -784,14 +784,14 @@ client_node_marshal_remove_port(void *object,
 }
 
 static int
-client_node_marshal_port_set_param(void *object,
+client_node_marshal_port_set_param(void *data,
 				   enum spa_direction direction,
 				   uint32_t port_id,
 				   uint32_t id,
 				   uint32_t flags,
 				   const struct spa_pod *param)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_PORT_SET_PARAM, NULL);
@@ -807,14 +807,14 @@ client_node_marshal_port_set_param(void *object,
 }
 
 static int
-client_node_marshal_port_use_buffers(void *object,
+client_node_marshal_port_use_buffers(void *data,
 				     enum spa_direction direction,
 				     uint32_t port_id,
 				     uint32_t mix_id,
 				     uint32_t flags,
 				     uint32_t n_buffers, struct pw_client_node_buffer *buffers)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 	uint32_t i, j;
@@ -862,7 +862,7 @@ client_node_marshal_port_use_buffers(void *object,
 }
 
 static int
-client_node_marshal_port_set_io(void *object,
+client_node_marshal_port_set_io(void *data,
 				uint32_t direction,
 				uint32_t port_id,
 				uint32_t mix_id,
@@ -871,7 +871,7 @@ client_node_marshal_port_set_io(void *object,
 				uint32_t offset,
 				uint32_t size)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_PORT_SET_IO, NULL);
@@ -889,7 +889,7 @@ client_node_marshal_port_set_io(void *object,
 }
 
 static int
-client_node_marshal_set_activation(void *object,
+client_node_marshal_set_activation(void *data,
 				uint32_t node_id,
 				int signalfd,
 				uint32_t memid,
@@ -897,7 +897,7 @@ client_node_marshal_set_activation(void *object,
 				uint32_t size)
 {
 	struct pw_protocol_native_message *msg;
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_SET_ACTIVATION, &msg);
@@ -913,13 +913,13 @@ client_node_marshal_set_activation(void *object,
 }
 
 static int
-client_node_marshal_set_io(void *object,
+client_node_marshal_set_io(void *data,
 			   uint32_t id,
 			   uint32_t memid,
 			   uint32_t offset,
 			   uint32_t size)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 
 	b = pw_protocol_native_begin_resource(resource, PW_CLIENT_NODE_EVENT_SET_IO, NULL);
@@ -932,14 +932,14 @@ client_node_marshal_set_io(void *object,
 }
 
 static int
-client_node_marshal_port_set_mix_info(void *object,
+client_node_marshal_port_set_mix_info(void *data,
 				uint32_t direction,
 				uint32_t port_id,
 				uint32_t mix_id,
 				uint32_t peer_id,
 				const struct spa_dict *props)
 {
-	struct pw_resource *resource = object;
+	struct pw_resource *resource = data;
 	struct spa_pod_builder *b;
 	struct spa_pod_frame f;
 

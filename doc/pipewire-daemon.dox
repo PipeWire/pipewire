@@ -149,5 +149,6 @@ The behavior of the logging can be further controlled with the following
 environment variables:
 - `PIPEWIRE_LOG_SYSTEMD=false`: disable logging to the systemd journal
 - `PIPEWIRE_LOG=<filename>`: redirect the log to the given filename
+- `PIPEWIRE_LOG_LINE=false`: don't log filename, function, and source code line
 
 */

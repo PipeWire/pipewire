@@ -567,7 +567,8 @@ void pw_init(int *argc, char **argv[])
 		if (!support->no_color)
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, "true");
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_TIMESTAMP, "true");
-		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LINE, "true");
+		if ((str = getenv("PIPEWIRE_LOG_LINE")) == NULL || spa_atob(str))
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LINE, "true");
 		snprintf(level, sizeof(level), "%d", pw_log_level);
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LEVEL, level);
 		if ((str = getenv("PIPEWIRE_LOG")) != NULL)

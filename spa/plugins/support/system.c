@@ -41,7 +41,9 @@
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
 
-#define NAME "system"
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.system");
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 #ifndef TFD_TIMER_CANCEL_ON_SET
 #  define TFD_TIMER_CANCEL_ON_SET (1 << 1)
@@ -83,7 +85,7 @@ static int impl_close(void *object, int fd)
 {
 	struct impl *impl = object;
 	int res = close(fd);
-	spa_log_debug(impl->log, NAME " %p: close fd:%d", impl, fd);
+	spa_log_debug(impl->log, "%p: close fd:%d", impl, fd);
 	return res < 0 ? -errno : res;
 }
 
@@ -110,7 +112,7 @@ static int impl_pollfd_create(void *object, int flags)
 	if (flags & SPA_FD_CLOEXEC)
 		fl |= EPOLL_CLOEXEC;
 	res = epoll_create1(fl);
-	spa_log_debug(impl->log, NAME " %p: new fd:%d", impl, res);
+	spa_log_debug(impl->log, "%p: new fd:%d", impl, res);
 	return res < 0 ? -errno : res;
 }
 
@@ -172,7 +174,7 @@ static int impl_timerfd_create(void *object, int clockid, int flags)
 	if (flags & SPA_FD_NONBLOCK)
 		fl |= TFD_NONBLOCK;
 	res = timerfd_create(clockid, fl);
-	spa_log_debug(impl->log, NAME " %p: new fd:%d", impl, res);
+	spa_log_debug(impl->log, "%p: new fd:%d", impl, res);
 	return res < 0 ? -errno : res;
 }
 
@@ -216,7 +218,7 @@ static int impl_eventfd_create(void *object, int flags)
 	if (flags & SPA_FD_EVENT_SEMAPHORE)
 		fl |= EFD_SEMAPHORE;
 	res = eventfd(0, fl);
-	spa_log_debug(impl->log, NAME " %p: new fd:%d", impl, res);
+	spa_log_debug(impl->log, "%p: new fd:%d", impl, res);
 	return res < 0 ? -errno : res;
 }
 
@@ -250,7 +252,7 @@ static int impl_signalfd_create(void *object, int signal, int flags)
 	sigaddset(&mask, signal);
 	res = signalfd(-1, &mask, fl);
 	sigprocmask(SIG_BLOCK, &mask, NULL);
-	spa_log_debug(impl->log, NAME " %p: new fd:%d", impl, res);
+	spa_log_debug(impl->log, "%p: new fd:%d", impl, res);
 
 	return res < 0 ? -errno : res;
 }
@@ -345,8 +347,9 @@ impl_init(const struct spa_handle_factory *factory,
 			&impl_system, impl);
 
 	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	spa_log_topic_init(impl->log, &log_topic);
 
-	spa_log_debug(impl->log, NAME " %p: initialized", impl);
+	spa_log_debug(impl->log, "%p: initialized", impl);
 
 	return 0;
 }

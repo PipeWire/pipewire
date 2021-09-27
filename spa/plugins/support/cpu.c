@@ -42,7 +42,9 @@
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
 
-#define NAME "cpu"
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.cpu");
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 struct impl {
 	struct spa_handle handle;
@@ -250,6 +252,7 @@ impl_init(const struct spa_handle_factory *factory,
 			&impl_cpu, this);
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	spa_log_topic_init(this->log, &log_topic);
 
 	this->flags = 0;
 	this->force = SPA_CPU_FORCE_AUTODETECT;
@@ -264,7 +267,7 @@ impl_init(const struct spa_handle_factory *factory,
 			this->vm_type = atoi(str);
 	}
 
-	spa_log_debug(this->log, NAME " %p: count:%d align:%d flags:%08x",
+	spa_log_debug(this->log, "%p: count:%d align:%d flags:%08x",
 			this, this->count, this->max_align, this->flags);
 
 	return 0;

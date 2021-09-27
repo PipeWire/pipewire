@@ -41,7 +41,9 @@
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/string.h>
 
-#define NAME "loop"
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.loop");
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 #define DATAS_SIZE (4096 * 8)
 
@@ -138,7 +140,7 @@ static void flush_items(struct impl *impl)
 		item = SPA_PTROFF(impl->buffer_data, index & (DATAS_SIZE - 1), struct invoke_item);
 		block = item->block;
 
-		spa_log_trace(impl->log, NAME " %p: flush item %p", impl, item);
+		spa_log_trace(impl->log, "%p: flush item %p", impl, item);
 		item->res = item->func ? item->func(&impl->loop,
 				true, item->seq, item->data, item->size,
 			   item->user_data) : 0;
@@ -147,7 +149,7 @@ static void flush_items(struct impl *impl)
 
 		if (block) {
 			if ((res = spa_system_eventfd_write(impl->system, impl->ack_fd, 1)) < 0)
-				spa_log_warn(impl->log, NAME " %p: failed to write event fd: %s",
+				spa_log_warn(impl->log, "%p: failed to write event fd: %s",
 						impl, spa_strerror(res));
 		}
 	}
@@ -188,12 +190,12 @@ loop_invoke(void *object,
 
 	filled = spa_ringbuffer_get_write_index(&impl->buffer, &idx);
 	if (filled < 0 || filled > DATAS_SIZE) {
-		spa_log_warn(impl->log, NAME " %p: queue xrun %d", impl, filled);
+		spa_log_warn(impl->log, "%p: queue xrun %d", impl, filled);
 		return -EPIPE;
 	}
 	avail = DATAS_SIZE - filled;
 	if (avail < sizeof(struct invoke_item)) {
-		spa_log_warn(impl->log, NAME " %p: queue full %d", impl, avail);
+		spa_log_warn(impl->log, "%p: queue full %d", impl, avail);
 		return -EPIPE;
 	}
 	offset = idx & (DATAS_SIZE - 1);
@@ -210,7 +212,7 @@ loop_invoke(void *object,
 	item->user_data = user_data;
 	item->item_size = SPA_ROUND_UP_N(sizeof(struct invoke_item) + size, 8);
 
-	spa_log_trace(impl->log, NAME " %p: add item %p filled:%d", impl, item, filled);
+	spa_log_trace(impl->log, "%p: add item %p filled:%d", impl, item, filled);
 
 	if (l0 >= item->item_size) {
 		/* item + size fit in current ringbuffer idx */
@@ -227,7 +229,7 @@ loop_invoke(void *object,
 		item->item_size = SPA_ROUND_UP_N(l0 + size, 8);
 	}
 	if (avail < item->item_size) {
-		spa_log_warn(impl->log, NAME " %p: queue full %d, need %zd", impl, avail,
+		spa_log_warn(impl->log, "%p: queue full %d, need %zd", impl, avail,
 				item->item_size);
 		return -EPIPE;
 	}
@@ -244,7 +246,7 @@ loop_invoke(void *object,
 		spa_loop_control_hook_before(&impl->hooks_list);
 
 		if ((res = spa_system_eventfd_read(impl->system, impl->ack_fd, &count)) < 0)
-			spa_log_warn(impl->log, NAME " %p: failed to read event fd: %s",
+			spa_log_warn(impl->log, "%p: failed to read event fd: %s",
 					impl, spa_strerror(res));
 
 		spa_loop_control_hook_after(&impl->hooks_list);
@@ -286,13 +288,13 @@ static void loop_enter(void *object)
 {
 	struct impl *impl = object;
 	impl->thread = pthread_self();
-	spa_log_trace(impl->log, NAME" %p: enter %lu", impl, impl->thread);
+	spa_log_trace(impl->log, "%p: enter %lu", impl, impl->thread);
 }
 
 static void loop_leave(void *object)
 {
 	struct impl *impl = object;
-	spa_log_trace(impl->log, NAME" %p: leave %lu", impl, impl->thread);
+	spa_log_trace(impl->log, "%p: leave %lu", impl, impl->thread);
 	impl->thread = 0;
 }
 
@@ -341,7 +343,7 @@ static int loop_iterate(void *object, int timeout)
 static void source_io_func(struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
-	spa_log_trace_fp(impl->impl->log, NAME" %p: io %08x", impl, source->rmask);
+	spa_log_trace_fp(impl->impl->log, "%p: io %08x", impl, source->rmask);
 	impl->func.io(source->data, source->fd, source->rmask);
 }
 
@@ -378,7 +380,7 @@ static struct spa_source *loop_add_io(void *object,
 		source->fallback = spa_loop_utils_add_idle(&impl->utils,
 				mask & (SPA_IO_IN | SPA_IO_OUT) ? true : false,
 				(spa_source_idle_func_t) source_io_func, source);
-		spa_log_trace(impl->log, NAME" %p: adding fallback %p", impl,
+		spa_log_trace(impl->log, "%p: adding fallback %p", impl,
 				source->fallback);
 	}
 
@@ -399,7 +401,7 @@ static int loop_update_io(void *object, struct spa_source *source, uint32_t mask
 	struct source_impl *s = SPA_CONTAINER_OF(source, struct source_impl, source);
 	int res;
 	source->mask = mask;
-	spa_log_trace(impl->log, NAME" %p: update %08x", s, mask);
+	spa_log_trace(impl->log, "%p: update %08x", s, mask);
 	if (s->fallback)
 		res = spa_loop_utils_enable_idle(&impl->utils, s->fallback,
 				mask & (SPA_IO_IN | SPA_IO_OUT) ? true : false);
@@ -421,12 +423,12 @@ static int loop_enable_idle(void *object, struct spa_source *source, bool enable
 
 	if (enabled && !impl->enabled) {
 		if ((res = spa_system_eventfd_write(impl->impl->system, source->fd, 1)) < 0)
-			spa_log_warn(impl->impl->log, NAME " %p: failed to write idle fd %d: %s",
+			spa_log_warn(impl->impl->log, "%p: failed to write idle fd %d: %s",
 					source, source->fd, spa_strerror(res));
 	} else if (!enabled && impl->enabled) {
 		uint64_t count;
 		if ((res = spa_system_eventfd_read(impl->impl->system, source->fd, &count)) < 0)
-			spa_log_warn(impl->impl->log, NAME " %p: failed to read idle fd %d: %s",
+			spa_log_warn(impl->impl->log, "%p: failed to read idle fd %d: %s",
 					source, source->fd, spa_strerror(res));
 	}
 	impl->enabled = enabled;
@@ -482,7 +484,7 @@ static void source_event_func(struct spa_source *source)
 	int res;
 
 	if ((res = spa_system_eventfd_read(impl->impl->system, source->fd, &count)) < 0)
-		spa_log_warn(impl->impl->log, NAME " %p: failed to read event fd %d: %s",
+		spa_log_warn(impl->impl->log, "%p: failed to read event fd %d: %s",
 				source, source->fd, spa_strerror(res));
 
 	impl->func.event(source->data, count);
@@ -533,7 +535,7 @@ static int loop_signal_event(void *object, struct spa_source *source)
 	int res;
 
 	if (SPA_UNLIKELY((res = spa_system_eventfd_write(impl->impl->system, source->fd, 1)) < 0))
-		spa_log_warn(impl->impl->log, NAME " %p: failed to write event fd %d: %s",
+		spa_log_warn(impl->impl->log, "%p: failed to write event fd %d: %s",
 				source, source->fd, spa_strerror(res));
 	return res;
 }
@@ -546,7 +548,7 @@ static void source_timer_func(struct spa_source *source)
 
 	if (SPA_UNLIKELY((res = spa_system_timerfd_read(impl->impl->system,
 				source->fd, &expirations)) < 0))
-		spa_log_warn(impl->impl->log, NAME " %p: failed to read timer fd %d: %s",
+		spa_log_warn(impl->impl->log, "%p: failed to read timer fd %d: %s",
 				source, source->fd, spa_strerror(res));
 
 	impl->func.timer(source->data, expirations);
@@ -624,7 +626,7 @@ static void source_signal_func(struct spa_source *source)
 	int res, signal_number = 0;
 
 	if ((res = spa_system_signalfd_read(impl->impl->system, source->fd, &signal_number)) < 0)
-		spa_log_warn(impl->impl->log, NAME " %p: failed to read signal fd %d: %s",
+		spa_log_warn(impl->impl->log, "%p: failed to read signal fd %d: %s",
 				source, source->fd, spa_strerror(res));
 
 	impl->func.signal(source->data, signal_number);
@@ -675,7 +677,7 @@ static void loop_destroy_source(void *object, struct spa_source *source)
 {
 	struct source_impl *impl = SPA_CONTAINER_OF(source, struct source_impl, source);
 
-	spa_log_trace(impl->impl->log, NAME" %p ", impl);
+	spa_log_trace(impl->impl->log, "%p ", impl);
 
 	spa_list_remove(&impl->link);
 
@@ -801,16 +803,17 @@ impl_init(const struct spa_handle_factory *factory,
 			&impl_loop_utils, impl);
 
 	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	spa_log_topic_init(impl->log, &log_topic);
 	impl->system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_System);
 
 	if (impl->system == NULL) {
-		spa_log_error(impl->log, NAME " %p: a System is needed", impl);
+		spa_log_error(impl->log, "%p: a System is needed", impl);
 		res = -EINVAL;
 		goto error_exit;
 	}
 
 	if ((res = spa_system_pollfd_create(impl->system, SPA_FD_CLOEXEC)) < 0) {
-		spa_log_error(impl->log, NAME " %p: can't create pollfd: %s",
+		spa_log_error(impl->log, "%p: can't create pollfd: %s",
 				impl, spa_strerror(res));
 		goto error_exit;
 	}
@@ -826,18 +829,18 @@ impl_init(const struct spa_handle_factory *factory,
 	impl->wakeup = loop_add_event(impl, wakeup_func, impl);
 	if (impl->wakeup == NULL) {
 		res = -errno;
-		spa_log_error(impl->log, NAME " %p: can't create wakeup event: %m", impl);
+		spa_log_error(impl->log, "%p: can't create wakeup event: %m", impl);
 		goto error_exit_free_poll;
 	}
 	if ((res = spa_system_eventfd_create(impl->system,
 			SPA_FD_EVENT_SEMAPHORE | SPA_FD_CLOEXEC)) < 0) {
-		spa_log_error(impl->log, NAME " %p: can't create ack event: %s",
+		spa_log_error(impl->log, "%p: can't create ack event: %s",
 				impl, spa_strerror(res));
 		goto error_exit_free_wakeup;
 	}
 	impl->ack_fd = res;
 
-	spa_log_debug(impl->log, NAME " %p: initialized", impl);
+	spa_log_debug(impl->log, "%p: initialized", impl);
 
 	return 0;
 

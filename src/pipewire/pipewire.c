@@ -472,26 +472,20 @@ const char *pw_ngettext(const char *msgid, const char *msgid_plural, unsigned lo
 }
 
 #ifdef HAVE_SYSTEMD
-static struct spa_log *load_journal_logger(struct support *support)
+static struct spa_log *load_journal_logger(struct support *support,
+					   const struct spa_dict *info)
 {
 	struct spa_handle *handle;
 	void *iface = NULL;
 	int res = -ENOENT;
-	struct spa_dict info;
-	struct spa_dict_item items[1];
-	char level[32];
 	uint32_t i;
 
 	/* is the journal even available? */
 	if (access("/run/systemd/journal/socket", F_OK) != 0)
 		return NULL;
 
-	snprintf(level, sizeof(level), "%d", pw_log_level);
-	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LEVEL, level);
-	info = SPA_DICT_INIT(items, 1);
-
 	handle = load_spa_handle("support/libspa-journal",
-				    SPA_NAME_SUPPORT_LOG, &info,
+				    SPA_NAME_SUPPORT_LOG, info,
 				    support->n_support, support->support);
 	if (handle == NULL)
 		return NULL;
@@ -586,7 +580,7 @@ void pw_init(int *argc, char **argv[])
 
 #ifdef HAVE_SYSTEMD
 		if ((str = getenv("PIPEWIRE_LOG_SYSTEMD")) == NULL || spa_atob(str)) {
-			log = load_journal_logger(support);
+			log = load_journal_logger(support, &info);
 			if (log)
 				pw_log_set(log);
 		}

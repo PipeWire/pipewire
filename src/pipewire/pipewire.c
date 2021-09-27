@@ -512,6 +512,82 @@ static struct spa_log *load_journal_logger(struct support *support,
 }
 #endif
 
+static enum spa_log_level
+parse_log_level(const char *str)
+{
+	enum spa_log_level l = SPA_LOG_LEVEL_NONE;
+	switch(str[0]) {
+		case 'X': l = SPA_LOG_LEVEL_NONE; break;
+		case 'E': l = SPA_LOG_LEVEL_ERROR; break;
+		case 'W': l = SPA_LOG_LEVEL_WARN; break;
+		case 'I': l = SPA_LOG_LEVEL_INFO; break;
+		case 'D': l = SPA_LOG_LEVEL_DEBUG; break;
+		case 'T': l = SPA_LOG_LEVEL_TRACE; break;
+		default:
+			  l = atoi(str);
+			  break;
+	}
+	return l;
+}
+
+static char *
+parse_pw_debug_env(void)
+{
+	const char *str;
+	char **tokens;
+	int n_tokens;
+	size_t slen;
+	char json[1024] = {0};
+	char *pos = json;
+	char *end = pos + sizeof(json) - 1;
+
+	str = getenv("PIPEWIRE_DEBUG");
+
+	if (!str || (slen = strlen(str)) == 0)
+		return NULL;
+
+	/* String format is PIPEWIRE_DEBUG=<glob>:<level>[,<glob>:<level>,...],
+	 * converted into [{ conn.* = 0}, {glob = level}, {glob = level}, ....] ,
+	 * with the connection namespace disabled by default.
+	 */
+	pos += spa_scnprintf(pos, end - pos, "[ { conn.* = %d },", SPA_LOG_LEVEL_NONE);
+
+	/* We only have single-digit log levels, so any single-character
+	 * string is of the form PIPEWIRE_DEBUG=<N> */
+	if (slen == 1) {
+		pw_log_set_level(parse_log_level(str));
+		goto out;
+	}
+
+	tokens = pw_split_strv(str, ",", INT_MAX, &n_tokens);
+	if (n_tokens > 0) {
+		int i;
+		for (i = 0; i < n_tokens; i++) {
+			int n_tok;
+			char **tok;
+			char *pattern;
+			enum spa_log_level lvl;
+
+			tok = pw_split_strv(tokens[i], ":", 2, &n_tok);
+			if (n_tok == 2) {
+				pattern = tok[0];
+				lvl = parse_log_level(tok[1]);
+
+				pos += spa_scnprintf(pos, end - pos, "{ %s = %d },",
+						     pattern, lvl);
+			} else {
+				pw_log_warn("Ignoring invalid format in PIPEWIRE_DEBUG: '%s'\n", tokens[i]);
+			}
+
+			pw_free_strv(tok);
+		}
+	}
+	pw_free_strv(tokens);
+out:
+	pos += spa_scnprintf(pos, end - pos, "]");
+	return strdup(json);
+}
+
 /** Initialize PipeWire
  *
  * \param argc pointer to argc
@@ -527,7 +603,7 @@ SPA_EXPORT
 void pw_init(int *argc, char **argv[])
 {
 	const char *str;
-	struct spa_dict_item items[5];
+	struct spa_dict_item items[6];
 	uint32_t n_items;
 	struct spa_dict info;
 	struct support *support = &global_support;
@@ -563,6 +639,8 @@ void pw_init(int *argc, char **argv[])
 	spa_list_init(&support->registry.plugins);
 
 	if (pw_log_is_default()) {
+		char *patterns = NULL;
+
 		n_items = 0;
 		if (!support->no_color)
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_COLORS, "true");
@@ -573,6 +651,8 @@ void pw_init(int *argc, char **argv[])
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_LEVEL, level);
 		if ((str = getenv("PIPEWIRE_LOG")) != NULL)
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_FILE, str);
+		if ((patterns = parse_pw_debug_env()) != NULL)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LOG_PATTERNS, patterns);
 		info = SPA_DICT_INIT(items, n_items);
 
 		log = add_interface(support, SPA_NAME_SUPPORT_LOG, SPA_TYPE_INTERFACE_Log, &info);
@@ -586,6 +666,7 @@ void pw_init(int *argc, char **argv[])
 				pw_log_set(log);
 		}
 #endif
+		free(patterns);
 	} else {
 		support->support[support->n_support++] =
 			SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_Log, pw_log_get());

@@ -261,10 +261,10 @@ static void impl_native_process(struct resample *r,
 		in = *in_len;
 		data->func(r, src, skip, &in, dst, out, out_len);
 
-		spa_log_trace_fp(r->log, "native %p: in:%d/%d out %d/%d",
-				r, *in_len, in, *out_len, out);
+		spa_log_trace_fp(r->log, "native %p: in:%d/%d out %d/%d skip:%d",
+				r, *in_len, in, *out_len, out, skip);
 
-		remain = *in_len - skip - in;
+		remain = *in_len - in;
 		if (remain > 0 && remain <= n_taps) {
 			/* not enough input data remaining for more output,
 			 * copy to history */

@@ -153,13 +153,7 @@ static struct tunnel *find_tunnel(struct impl *impl, const struct tunnel_info *i
 
 static void free_tunnel(struct tunnel *t)
 {
-	spa_list_remove(&t->link);
-	if (t->module)
-		pw_impl_module_destroy(t->module);
-	free((char*)t->info.name);
-	free((char*)t->info.type);
-	free((char*)t->info.domain);
-	free(t);
+	pw_impl_module_destroy(t->module);
 }
 
 static void impl_free(struct impl *impl)
@@ -224,6 +218,25 @@ static void pw_properties_from_avahi_string(const char *key, const char *value, 
 		pw_properties_set(props, "tunnel.remote.user", value);
 	}
 }
+
+static void submodule_destroy(void *data)
+{
+	struct tunnel *t = data;
+
+	spa_list_remove(&t->link);
+	spa_hook_remove(&t->module_listener);
+
+	free((char *) t->info.name);
+	free((char *) t->info.type);
+	free((char *) t->info.domain);
+
+	free(t);
+}
+
+static const struct pw_impl_module_events submodule_events = {
+	PW_VERSION_IMPL_MODULE_EVENTS,
+	.destroy = submodule_destroy,
+};
 
 static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiProtocol protocol,
 	AvahiResolverEvent event, const char *name, const char *type, const char *domain,
@@ -342,6 +355,9 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		pw_impl_module_destroy(mod);
 		goto done;
 	}
+
+	pw_impl_module_add_listener(mod, &t->module_listener, &submodule_events, t);
+
 	t->module = mod;
 
 done:

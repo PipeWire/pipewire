@@ -250,7 +250,7 @@ impl_log_topic_init(void *object, struct spa_log_topic *t)
 }
 
 static const struct spa_log_methods impl_log = {
-	SPA_VERSION_LOG_METHODS_LOGT,
+	SPA_VERSION_LOG_METHODS,
 	.log = impl_log_log,
 	.logv = impl_log_logv,
 	.logt = impl_log_logt,

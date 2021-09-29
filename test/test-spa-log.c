@@ -113,7 +113,7 @@ PWTEST(utils_log_logt)
 	pwtest_ptr_null(data.topic);
 	data.invoked = false;
 
-	impl_log.version = SPA_VERSION_LOG_METHODS_LOGT;
+	impl_log.version = SPA_VERSION_LOG_METHODS;
 
 	/* impl_log is v1 so we expect logt to be called */
 	spa_log_debug(&log, "call v1");
@@ -148,7 +148,7 @@ PWTEST(utils_log_logt)
 PWTEST(utils_log_logt_levels)
 {
 	struct spa_log_methods impl_log = {
-		SPA_VERSION_LOG_METHODS_LOGT,
+		SPA_VERSION_LOG_METHODS,
 		.log = impl_log_log,
 		.logv = impl_log_logv,
 		.logt = impl_log_logt,

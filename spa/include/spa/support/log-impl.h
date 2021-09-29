@@ -123,7 +123,7 @@ struct {					\
 	{ { { SPA_TYPE_INTERFACE_Log, SPA_VERSION_LOG,	\
 	      SPA_CALLBACKS_INIT(&name.methods, &name) },	\
 	    SPA_LOG_LEVEL_INFO,	},			\
-	  { SPA_VERSION_LOG_METHODS_LOGT,			\
+	  { SPA_VERSION_LOG_METHODS,			\
 	    spa_log_impl_log,				\
 	    spa_log_impl_logv,				\
 	    spa_log_impl_logt,				\

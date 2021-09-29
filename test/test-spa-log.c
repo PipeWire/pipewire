@@ -95,7 +95,7 @@ PWTEST(utils_log_logt)
 	log.level = SPA_LOG_LEVEL_DEBUG;
 	log.iface = SPA_INTERFACE_INIT(SPA_TYPE_INTERFACE_Log, 0, &impl_log, &data);
 
-	impl_log.version = SPA_VERSION_LOG_METHODS;
+	impl_log.version = 0;
 
 	/* impl_log is v0 so we expect the non-topic function to be called */
 	spa_log_debug(&log, "call v0");

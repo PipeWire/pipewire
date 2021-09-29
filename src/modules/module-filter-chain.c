@@ -247,7 +247,7 @@ struct impl {
 	unsigned int do_disconnect:1;
 	unsigned int unloading:1;
 
-	uint32_t rate;
+	long unsigned rate;
 
 	struct graph graph;
 };
@@ -1276,7 +1276,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 			sd = dd = NULL;
 
 		for (i = 0; i < n_hndl; i++) {
-			if ((node->hndl[i] = d->instantiate(d, impl->rate, i, node->config)) == NULL) {
+			if ((node->hndl[i] = d->instantiate(d, &impl->rate, i, node->config)) == NULL) {
 				pw_log_error("cannot create plugin instance");
 				res = -ENOMEM;
 				goto error;
@@ -1308,6 +1308,14 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 			graph->n_control++;
 		}
 	}
+	pw_log_info("suggested rate:%lu capture:%d playback:%d", impl->rate,
+			impl->capture_info.rate, impl->playback_info.rate);
+
+	if (impl->capture_info.rate == 0)
+		impl->capture_info.rate = impl->rate;
+	if (impl->playback_info.rate == 0)
+		impl->playback_info.rate = impl->rate;
+
 	/* now collect all input and output ports for all the handles. */
 	for (i = 0; i < n_hndl; i++) {
 		if (inputs == NULL) {

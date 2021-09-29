@@ -49,7 +49,7 @@ struct builtin {
 };
 
 static void *builtin_instantiate(const struct fc_descriptor * Descriptor,
-		unsigned long SampleRate, int index, const char *config)
+		unsigned long *SampleRate, int index, const char *config)
 {
 	struct builtin *impl;
 
@@ -57,7 +57,7 @@ static void *builtin_instantiate(const struct fc_descriptor * Descriptor,
 	if (impl == NULL)
 		return NULL;
 
-	impl->rate = SampleRate;
+	impl->rate = *SampleRate;
 
 	return impl;
 }
@@ -469,7 +469,7 @@ struct convolver_impl {
 };
 
 static float *read_samples(const char *filename, float gain, int delay, int offset,
-		int length, int channel, int *n_samples)
+		int length, int channel, long unsigned *rate, int *n_samples)
 {
 	float *samples;
 #ifdef HAVE_SNDFILE
@@ -510,6 +510,7 @@ static float *read_samples(const char *filename, float gain, int delay, int offs
 		samples[i] = samples[info.channels * i + channel] * gain;
 
 	*n_samples = n;
+	*rate = info.samplerate;
 	return samples;
 #else
 	pw_log_error("compiled without sndfile support, can't load samples: "
@@ -570,7 +571,7 @@ static float *create_dirac(const char *filename, float gain, int delay, int offs
 }
 
 static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
-		unsigned long SampleRate, int index, const char *config)
+		unsigned long *SampleRate, int index, const char *config)
 {
 	struct convolver_impl *impl;
 	float *samples;
@@ -642,7 +643,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 				length, &n_samples);
 	} else {
 		samples = read_samples(filename, gain, delay, offset,
-				length, channel, &n_samples);
+				length, channel, SampleRate, &n_samples);
 	}
 	if (samples == NULL)
 		return NULL;
@@ -658,7 +659,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	if (impl == NULL)
 		return NULL;
 
-	impl->rate = SampleRate;
+	impl->rate = *SampleRate;
 
 	impl->conv = convolver_new(blocksize, tailsize, samples, n_samples);
 	free(samples);

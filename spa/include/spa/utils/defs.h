@@ -207,7 +207,6 @@ struct spa_fraction {
 #define SPA_SENTINEL __attribute__((__sentinel__))
 #define SPA_UNUSED __attribute__ ((unused))
 #define SPA_NORETURN __attribute__ ((noreturn))
-#define SPA_WEAK __attribute__ ((weak))
 #else
 #define SPA_PRINTF_FUNC(fmt, arg1)
 #define SPA_FORMAT_ARG_FUNC(arg1)
@@ -217,7 +216,6 @@ struct spa_fraction {
 #define SPA_SENTINEL
 #define SPA_UNUSED
 #define SPA_NORETURN
-/* SPA_WEAK intentionally undef here */
 #endif
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L

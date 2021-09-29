@@ -1,5 +1,5 @@
 [Unit]
-Description=Multimedia Service Session Manager
+Description=PipeWire Media Session Manager
 After=pipewire.service
 BindsTo=pipewire.service
 

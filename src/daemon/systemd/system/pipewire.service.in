@@ -1,5 +1,5 @@
 [Unit]
-Description=Multimedia Service
+Description=PipeWire Multimedia Service
 
 # We require pipewire.socket to be active before starting the daemon, because
 # while it is possible to use the service without the socket, it is not clear

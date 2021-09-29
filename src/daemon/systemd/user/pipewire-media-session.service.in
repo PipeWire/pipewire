@@ -17,3 +17,4 @@ Slice=session.slice
 
 [Install]
 WantedBy=pipewire.service
+Alias=pipewire-session-manager.service

@@ -18,3 +18,4 @@ Environment=PIPEWIRE_RUNTIME_DIR=%t/pipewire
 
 [Install]
 WantedBy=pipewire.service
+Alias=pipewire-session-manager.service

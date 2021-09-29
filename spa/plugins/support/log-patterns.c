@@ -31,8 +31,8 @@
 
 struct support_log_pattern {
 	struct spa_list link;
-	const char *pattern;
 	enum spa_log_level level;
+	char pattern[];
 };
 
 static void
@@ -86,8 +86,7 @@ support_log_parse_patterns(struct spa_list *patterns, const char *jsonstr)
 
 			p = calloc(1, sizeof(*p) + strlen(pattern) + 1);
 			p->level = lvl;
-			memcpy(p + 1, pattern, strlen(pattern));
-			p->pattern = (const char *)(p+1);
+			strcpy(p->pattern, pattern);
 			spa_list_append(patterns, &p->link);
 		}
 	}

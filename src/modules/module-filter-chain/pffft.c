@@ -2128,15 +2128,19 @@ static void zconvolve_simd(PFFFT_Setup * s, const float *a, const float *b,
 
 static void sum_simd(const float *a, const float *b, float *ab, int len)
 {
-	const v4sf *RESTRICT va = (const v4sf *)a;
-	const v4sf *RESTRICT vb = (const v4sf *)b;
-	v4sf *RESTRICT vab = (v4sf *) ab;
-	int i;
-	const int end4 = len / SIMD_SZ;
+	int i = 0;
 
-	for (i = 0; i < end4; i += 1)
-		vab[i] = VADD(va[i],vb[i]);
-	for (i = i * 4; i < len; ++i)
+	if (VALIGNED(a) && VALIGNED(b) && VALIGNED(ab)) {
+		const v4sf *RESTRICT va = (const v4sf *)a;
+		const v4sf *RESTRICT vb = (const v4sf *)b;
+		v4sf *RESTRICT vab = (v4sf *) ab;
+		const int end4 = len / SIMD_SZ;
+
+		for (; i < end4; i += 1)
+			vab[i] = VADD(va[i],vb[i]);
+		i *= 4;
+	}
+	for (; i < len; ++i)
 		ab[i] = a[i] + b[i];
 }
 

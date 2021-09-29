@@ -1409,6 +1409,12 @@ bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struc
 {
 	struct spa_bt_monitor *monitor = device->monitor;
 	struct spa_bt_remote_endpoint *ep;
+	const struct { enum spa_bluetooth_audio_codec codec; uint32_t mask; } quirks[] = {
+		{ SPA_BLUETOOTH_AUDIO_CODEC_SBC_XQ, SPA_BT_FEATURE_SBC_XQ },
+		{ SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM, SPA_BT_FEATURE_FASTSTREAM },
+		{ SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM_DUPLEX, SPA_BT_FEATURE_FASTSTREAM },
+	};
+	size_t i;
 
 	if (!is_a2dp_codec_enabled(device->monitor, codec))
 		return false;
@@ -1418,11 +1424,17 @@ bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struc
 		return (codec->codec_id == A2DP_CODEC_SBC && spa_streq(codec->name, "sbc"));
 	}
 
-	if (codec->id == SPA_BLUETOOTH_AUDIO_CODEC_SBC_XQ) {
-		uint32_t bt_features = (uint32_t)-1;
-		if (monitor->quirks)
-			spa_bt_quirks_get_features(monitor->quirks, device->adapter, device, &bt_features);
-		if (!(bt_features & SPA_BT_FEATURE_SBC_XQ))
+	/* Check codec quirks */
+	for (i = 0; i < SPA_N_ELEMENTS(quirks); ++i) {
+		uint32_t bt_features;
+
+		if (codec->id != quirks[i].codec)
+			continue;
+		if (monitor->quirks == NULL)
+			break;
+		if (spa_bt_quirks_get_features(monitor->quirks, device->adapter, device, &bt_features) < 0)
+			break;
+		if (!(bt_features & quirks[i].mask))
 			return false;
 	}
 

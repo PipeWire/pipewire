@@ -678,6 +678,7 @@ enum spa_bt_feature {
 	SPA_BT_FEATURE_HW_VOLUME	= (1 << 3),
 	SPA_BT_FEATURE_HW_VOLUME_MIC	= (1 << 4),
 	SPA_BT_FEATURE_SBC_XQ		= (1 << 5),
+	SPA_BT_FEATURE_FASTSTREAM	= (1 << 6),
 };
 
 struct spa_bt_quirks;

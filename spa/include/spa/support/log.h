@@ -104,9 +104,7 @@ struct spa_log_topic {
 };
 
 struct spa_log_methods {
-#define SPA_VERSION_LOG_METHODS		0
-/* version 1: added logt and logtv */
-#define SPA_VERSION_LOG_METHODS_LOGT	1
+#define SPA_VERSION_LOG_METHODS		1
 	uint32_t version;
 	/**
 	 * Log a message with the given log level.

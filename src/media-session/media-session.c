@@ -2534,6 +2534,7 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
+	pw_log_info("media-session context properties:");
 	spa_dict_for_each(item, &impl.this.props->dict)
 		pw_log_info("  '%s' = '%s'", item->key, item->value);
 
@@ -2588,7 +2589,7 @@ int main(int argc, char *argv[])
 	for (i = 0; i < SPA_N_ELEMENTS(modules); i++) {
 		const char *name = modules[i].name;
 		if (is_module_enabled(&impl, name)) {
-			pw_log_info("enable: %s", name);
+			pw_log_info("enabling media session module: %s", name);
 			modules[i].start(&impl.this);
 		}
 	}

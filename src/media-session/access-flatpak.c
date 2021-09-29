@@ -126,7 +126,7 @@ handle_client(struct impl *impl, struct sm_object *object)
 {
 	struct client *client;
 
-	pw_log_debug("%p: client", impl);
+	pw_log_debug("%p: new client '%u'", impl, object->id);
 
 	client = sm_object_add_data(object, SESSION_KEY, sizeof(struct client));
 	client->obj = (struct sm_client*)object;

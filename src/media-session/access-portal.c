@@ -198,7 +198,7 @@ handle_client(struct impl *impl, struct sm_object *object)
 	struct client *client;
 	const char *str;
 
-	pw_log_debug("%p: client %u", impl, object->id);
+	pw_log_debug("%p: new client '%u'", impl, object->id);
 
 	client = sm_object_add_data(object, SESSION_KEY, sizeof(struct client));
 	client->obj = (struct sm_client*)object;
@@ -213,7 +213,7 @@ handle_client(struct impl *impl, struct sm_object *object)
 	    (str = pw_properties_get(client->obj->obj.props, PW_KEY_CLIENT_ACCESS)) != NULL) &&
 	    spa_streq(str, "portal")) {
 		client->portal_managed = true;
-		pw_log_info("%p: portal managed client %d added",
+		pw_log_info("%p: portal-managed client %d added",
 			     impl, client->id);
 	}
 	return 1;

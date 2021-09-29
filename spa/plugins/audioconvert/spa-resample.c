@@ -92,6 +92,27 @@ static void show_usage(const char *name, bool is_error)
 		STR_FMTS, DEFAULT_QUALITY);
 }
 
+static inline const char *
+sf_fmt_to_str(int fmt)
+{
+	switch(fmt & SF_FORMAT_SUBMASK) {
+	case SF_FORMAT_PCM_S8:
+		return "s8";
+	case SF_FORMAT_PCM_16:
+		return "s16";
+	case SF_FORMAT_PCM_24:
+		return "s24";
+	case SF_FORMAT_PCM_32:
+		return "s32";
+	case SF_FORMAT_FLOAT:
+		return "f32";
+	case SF_FORMAT_DOUBLE:
+		return "f64";
+	default:
+		return "unknown";
+	}
+}
+
 static inline int
 sf_str_to_fmt(const char *str)
 {
@@ -132,6 +153,14 @@ static int open_files(struct data *d)
 				d->oname, sf_strerror(NULL));
 		return -EIO;
 	}
+	if (d->verbose) {
+		fprintf(stdout, "input '%s': channels:%d rate:%d format:%s\n",
+				d->iname, d->iinfo.channels, d->iinfo.samplerate,
+				sf_fmt_to_str(d->iinfo.format));
+		fprintf(stdout, "output '%s': channels:%d rate:%d format:%s\n",
+				d->oname, d->oinfo.channels, d->oinfo.samplerate,
+				sf_fmt_to_str(d->oinfo.format));
+	}
 	return 0;
 }
 
@@ -154,6 +183,7 @@ static int do_conversion(struct data *d)
 	float obuf[MAX_SAMPLES * channels];
 	uint32_t in_len, out_len;
         uint32_t pin_len, pout_len;
+	size_t read, written;
 	const void *src[channels];
 	void *dst[channels];
 	uint32_t i;
@@ -173,12 +203,15 @@ static int do_conversion(struct data *d)
 	for (j = 0; j < channels; j++)
 		dst[j] = &out[MAX_SAMPLES * j];
 
-	queued = 0;
+	read = written = queued = 0;
 	while (true) {
 		pout_len = out_len = MAX_SAMPLES;
                 in_len = SPA_MIN(MAX_SAMPLES, resample_in_len(&r, out_len)) - queued;
 
-	        pin_len = in_len = sf_readf_float(d->ifile, &ibuf[queued * channels], in_len);
+		pin_len = in_len = sf_readf_float(d->ifile, &ibuf[queued * channels], in_len);
+
+		read += pin_len;
+
 		if (pin_len == 0) {
 			if (flushing)
 				break;
@@ -212,6 +245,11 @@ static int do_conversion(struct data *d)
 			}
 		}
 		pout_len = sf_writef_float(d->ofile, obuf, pout_len);
+
+		written += pout_len;
+	}
+	if (d->verbose) {
+		fprintf(stdout, "read %zu samples, wrote %zu samples\n", read, written);
 	}
 	return 0;
 }

@@ -39,11 +39,11 @@
 
 #include <systemd/sd-journal.h>
 
+#include "log-patterns.h"
+
 #define NAME "journal"
 
 #define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_INFO
-
-#include "log-patterns.c"
 
 struct impl {
 	struct spa_handle handle;

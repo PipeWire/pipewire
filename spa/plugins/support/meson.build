@@ -45,7 +45,10 @@ spa_dbus_lib = shared_library('spa-dbus',
 
 
 if systemd_dep.found()
-  spa_journal_sources = ['journal.c']
+  spa_journal_sources = [
+    'journal.c',
+    'log-patterns.c',
+  ]
 
   spa_journal_lib = shared_library('spa-journal',
     spa_journal_sources,

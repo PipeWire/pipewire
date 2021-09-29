@@ -29,13 +29,15 @@
 #include <spa/utils/list.h>
 #include <spa/utils/json.h>
 
+#include "log-patterns.h"
+
 struct support_log_pattern {
 	struct spa_list link;
 	enum spa_log_level level;
 	char pattern[];
 };
 
-static void
+void
 support_log_topic_init(struct spa_list *patterns, enum spa_log_level default_level,
 		       struct spa_log_topic *t)
 {
@@ -53,7 +55,7 @@ support_log_topic_init(struct spa_list *patterns, enum spa_log_level default_lev
 	t->level = level;
 }
 
-static int
+int
 support_log_parse_patterns(struct spa_list *patterns, const char *jsonstr)
 {
 	struct spa_json iter, array, elem;
@@ -94,7 +96,7 @@ support_log_parse_patterns(struct spa_list *patterns, const char *jsonstr)
 	return res;
 }
 
-static void
+void
 support_log_free_patterns(struct spa_list *patterns)
 {
 	struct support_log_pattern *p, *tmp;

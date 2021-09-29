@@ -40,6 +40,8 @@
 #include <spa/utils/string.h>
 #include <spa/utils/ansi.h>
 
+#include "log-patterns.h"
+
 #ifdef __FreeBSD__
 #define CLOCK_MONOTONIC_RAW CLOCK_MONOTONIC
 #endif
@@ -49,8 +51,6 @@
 #define DEFAULT_LOG_LEVEL SPA_LOG_LEVEL_INFO
 
 #define TRACE_BUFFER (16*1024)
-
-#include "log-patterns.c"
 
 struct impl {
 	struct spa_handle handle;

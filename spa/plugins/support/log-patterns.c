@@ -99,9 +99,9 @@ support_log_parse_patterns(struct spa_list *patterns, const char *jsonstr)
 void
 support_log_free_patterns(struct spa_list *patterns)
 {
-	struct support_log_pattern *p, *tmp;
+	struct support_log_pattern *p;
 
-	spa_list_for_each_safe(p, tmp, patterns, link) {
+	spa_list_consume(p, patterns, link) {
 		spa_list_remove(&p->link);
 		free(p);
 	}

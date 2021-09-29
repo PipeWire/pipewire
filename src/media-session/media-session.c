@@ -1393,12 +1393,23 @@ registry_global(void *data, uint32_t id,
 	struct impl *impl = data;
 	const struct object_info *info;
 	struct registry_event *re = NULL;
+	static bool warned_about_wireplumber = false;
 
 	info = get_object_info(impl, type);
 	if (info == NULL)
 		return;
 
 	pw_log_debug("%p: registry event (policy) for new global '%d'", impl, id);
+
+	if (!warned_about_wireplumber && props &&
+	    spa_streq(info->type, PW_TYPE_INTERFACE_Client)) {
+		const char *name = spa_dict_lookup(props, PW_KEY_APP_NAME);
+		if (spa_streq(name, "WirePlumber")) {
+			pw_log_error("WirePlumber appears to be running; "
+				     "please stop it before starting pipewire-media-session");
+			warned_about_wireplumber = true;
+		}
+	}
 
 	/*
 	 * Handle policy core events after monitor core ones.

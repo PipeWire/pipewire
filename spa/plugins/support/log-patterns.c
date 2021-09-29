@@ -59,7 +59,7 @@ int
 support_log_parse_patterns(struct spa_list *patterns, const char *jsonstr)
 {
 	struct spa_json iter, array, elem;
-	int res;
+	int res = 0;
 
 	spa_json_init(&iter, jsonstr, strlen(jsonstr));
 

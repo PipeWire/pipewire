@@ -326,6 +326,11 @@ dbus_dep = dependency('dbus-1')
 sdl_dep = dependency('sdl2', required : get_option('sdl2'))
 summary({'SDL 2': sdl_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 readline_dep = dependency('readline', required : false)
+
+if not readline_dep.found()
+  readline_dep = cc.find_library('readline', required: false)
+endif
+
 summary({'readline (for pw-cli)': readline_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 ncurses_dep = dependency('ncursesw', required : false)
 sndfile_dep = dependency('sndfile', version : '>= 1.0.20', required : get_option('sndfile'))
@@ -406,7 +411,12 @@ libinotify_dep = (build_machine.system() == 'freebsd'
     : dependency('', required: false))
 
 # On FreeBSD, libintl library is required for gettext
-libintl_dep = cc.find_library('intl', required: false)
+libintl_dep = dependency('intl', required: false)
+
+if not libintl_dep.found()
+    libintl_dep = cc.find_library('intl', required: false)
+endif
+summary({'intl support': libintl_dep.found()}, bool_yn: true)
 
 need_alsa = get_option('pipewire-alsa').enabled() or get_option('session-managers').contains('media-session')
 alsa_dep = dependency('alsa', version : '>=1.1.7', required: need_alsa)

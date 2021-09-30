@@ -68,7 +68,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"[ audio.channels=<number of channels> ] "		\
 			"[ audio.position=<channel map> ] "			\
 			"pulse.server.address=<address> "			\
-			"pulse.latency=<latency in usec> "			\
+			"pulse.latency=<latency in msec> "			\
 			"[ tunnel.mode=capture|playback "			\
 			"[ stream.props=<properties> ] "
 
@@ -83,7 +83,7 @@ static const struct spa_dict_item module_props[] = {
 #define RINGBUFFER_SIZE		(1u << 22)
 #define RINGBUFFER_MASK		(RINGBUFFER_SIZE-1)
 
-#define DEFAULT_LATENCY_USEC (100 * PA_USEC_PER_MSEC)
+#define DEFAULT_LATENCY_MSEC	(100)
 
 struct impl {
 	struct pw_context *context;
@@ -102,7 +102,7 @@ struct impl {
 	struct spa_hook core_proxy_listener;
 	struct spa_hook core_listener;
 
-	uint64_t latency_usec;
+	uint32_t latency_msec;
 
 	struct pw_properties *stream_props;
 	struct pw_stream *stream;
@@ -328,7 +328,7 @@ static int create_stream(struct impl *impl)
 
 	spa_zero(latency);
 	latency.direction = impl->mode == MODE_CAPTURE ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
-	latency.min_ns = latency.max_ns = impl->latency_usec * 1000;
+	latency.min_ns = latency.max_ns = impl->latency_msec * SPA_NSEC_PER_MSEC;
 
 	params[n_params++] = spa_latency_build(&b,
 			SPA_PARAM_Latency, &latency);
@@ -558,7 +558,7 @@ static int create_pulse_stream(struct impl *impl)
 	bufferattr.prebuf = (uint32_t) -1;
 
 	if (impl->mode == MODE_CAPTURE) {
-		bufferattr.fragsize = pa_usec_to_bytes(impl->latency_usec, &ss);
+		bufferattr.fragsize = pa_usec_to_bytes(impl->latency_msec * SPA_USEC_PER_MSEC, &ss);
 
 		res = pa_stream_connect_record(impl->pa_stream,
 				remote_node_target, &bufferattr,
@@ -566,7 +566,7 @@ static int create_pulse_stream(struct impl *impl)
 				PA_STREAM_ADJUST_LATENCY |
 				PA_STREAM_AUTO_TIMING_UPDATE);
 	} else {
-		bufferattr.tlength = pa_usec_to_bytes(impl->latency_usec, &ss);
+		bufferattr.tlength = pa_usec_to_bytes(impl->latency_msec * SPA_USEC_PER_MSEC, &ss);
 
 		res = pa_stream_connect_playback(impl->pa_stream,
 				remote_node_target, &bufferattr,
@@ -786,9 +786,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		}
 	}
 
-	impl->latency_usec = DEFAULT_LATENCY_USEC;
+	impl->latency_msec = DEFAULT_LATENCY_MSEC;
 	if ((str = pw_properties_get(props, "pulse.latency")) != NULL)
-		spa_atou64(str, &impl->latency_usec, 0);
+		spa_atou32(str, &impl->latency_msec, 0);
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_GROUP, "pipewire.dummy");

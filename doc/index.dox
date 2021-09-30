@@ -26,10 +26,14 @@ PipeWire ships with the following components:
 
 See \ref page_api
 
+### More Documentation
+
+See our [Wiki](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/home) for
+More information on how to configure and use PipeWire.
 
 ### Resources
 
-* [LAC 2020 Paper](https://lac2020.sciencesconf.org/307881/document)
-* [PipeWire Under The Hood](https://venam.nixers.net/blog/unix/2021/06/23/pipewire-under-the-hood.html)
+- [LAC 2020 Paper](https://lac2020.sciencesconf.org/307881/document)
+- [PipeWire Under The Hood](https://venam.nixers.net/blog/unix/2021/06/23/pipewire-under-the-hood.html)
 
 */

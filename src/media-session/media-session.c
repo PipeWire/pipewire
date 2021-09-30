@@ -2477,7 +2477,7 @@ int main(int argc, char *argv[])
 			config_name = optarg;
 			break;
 		default:
-			return -1;
+			return 1;
 		}
 	}
 
@@ -2486,10 +2486,10 @@ int main(int argc, char *argv[])
 			PW_KEY_CONFIG_NAME, config_name,
 			NULL);
 	if (impl.this.props == NULL)
-		return -1;
+		return 1;
 
 	if ((impl.conf = pw_properties_new(NULL, NULL)) == NULL)
-		return -1;
+		return 1;
 
 	pw_conf_load_conf(SESSION_PREFIX, config_name, impl.conf);
 
@@ -2497,7 +2497,7 @@ int main(int argc, char *argv[])
 		pw_properties_update_string(impl.this.props, str, strlen(str));
 
 	if ((impl.modules = pw_properties_new("default", "true", NULL)) == NULL)
-		return -1;
+		return 1;
 	if ((str = pw_properties_get(impl.conf, "session.modules")) != NULL)
 		collect_modules(&impl, str);
 
@@ -2511,7 +2511,7 @@ int main(int argc, char *argv[])
 
 	impl.loop = pw_main_loop_new(NULL);
 	if (impl.loop == NULL)
-		return -1;
+		return 1;
 	impl.this.loop = pw_main_loop_get_loop(impl.loop);
 
 	pw_loop_add_signal(impl.this.loop, SIGINT, do_quit, &impl);
@@ -2522,7 +2522,7 @@ int main(int argc, char *argv[])
 				0);
 
 	if (impl.this.context == NULL)
-		return -1;
+		return 1;
 
 	pw_context_set_object(impl.this.context, SM_TYPE_MEDIA_SESSION, &impl);
 

@@ -1,3 +1,50 @@
+# PipeWire 0.3.38 (2021-09-30)
+
+This is a quick bugfix release that is API and ABI compatible
+with previous 0.3.x releases.
+
+## Highlights
+  - Topic based logging was added to improve debugging.
+  - An off-by-one error was fixed in the audio resampler that could
+    cause distortion when downsampling.
+  - Various bluetooth compatibility improvements.
+  - More fixes and improvements.
+
+## PipeWire
+  - module-pulse-tunnel now has better default latency to make it work
+    better in more cases. There is also an option to configure the
+    desired latency.
+  - pw-cli now has readline support.
+  - Topic based logging was added. Log lines can now be filtered by
+    topic using wildcards. This should improve debugging.
+  - The systemd service files should now have better descriptions.
+  - Fix a crash in module-zeroconf-discover when unloading.
+  - Fix a crash in filter-chain when using unaligned memory.
+
+## ALSA
+  - Sync the udev rules and profiles with pulseaudio.
+  - Fix a memory leak.
+
+## SPA plugins
+  - An off-by-one error was fixed in the resampler that could cause
+    distortion when downsampling. (#1646)
+
+## Bluetooth
+  - Avoid probing the native backend because it might block for DBus
+    activation. This fixes some long startup times.
+  - Fix the kernel version check, 5.14.x kernels should also support
+    mSBC.
+  - Fix FastStream microphone support in more cases.
+  - Add workaround for Intel AX200.
+  - SCO sink should now also work in follower mode.
+
+## PulseAudio server
+  - Make the service file require a session manager.
+
+
+Older versions:
+
+
 # PipeWire 0.3.37 (2021-09-23)
 
 This is a quick bugfix release that is API and ABI compatible
@@ -47,9 +94,6 @@ with previous 0.3.x releases.
   - Delay emiting the samplerate and buffersize callbacks until the
     client is active. This fixes some crashes with Carla and other
     JACK apps.
-
-
-Older versions:
 
 # PipeWire 0.3.36 (2021-09-16)
 

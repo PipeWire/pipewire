@@ -346,19 +346,21 @@ pipewire_module_metadata = shared_library('pipewire-module-metadata',
 )
 
 test('pw-test-protocol-native',
-	executable('pw-test-protocol-native',
-		[ 'module-protocol-native/test-connection.c',
-		  'module-protocol-native/connection.c' ],
-			c_args : libpipewire_c_args,
-			include_directories : [configinc, spa_inc ],
-			dependencies : [pipewire_dep],
-			install : installed_tests_enabled,
-			install_dir : installed_tests_execdir),
-	env : [
-		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),
-		'PIPEWIRE_CONFIG_DIR=@0@/src/daemon/'.format(meson.build_root()),
-		'PIPEWIRE_MODULE_DIR=@0@/src/modules/'.format(meson.build_root())
-	])
+  executable('pw-test-protocol-native',
+    [ 'module-protocol-native/test-connection.c',
+      'module-protocol-native/connection.c' ],
+    c_args : libpipewire_c_args,
+    include_directories : [configinc, spa_inc ],
+    dependencies : [pipewire_dep],
+    install : installed_tests_enabled,
+    install_dir : installed_tests_execdir,
+  ),
+  env : [
+    'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),
+    'PIPEWIRE_CONFIG_DIR=@0@/src/daemon/'.format(meson.build_root()),
+    'PIPEWIRE_MODULE_DIR=@0@/src/modules/'.format(meson.build_root())
+  ]
+)
 
 if installed_tests_enabled
   test_conf = configuration_data()

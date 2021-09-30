@@ -1,7 +1,7 @@
 test_apps = [
   'test-endpoint',
   'test-interfaces',
-  #	'test-remote',
+  # 'test-remote',
   'test-stream',
 ]
 

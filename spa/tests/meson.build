@@ -27,21 +27,23 @@ if find.found()
 endif
 
 benchmark_apps = [
-	'stress-ringbuffer',
-	'benchmark-pod',
-	'benchmark-dict',
+  'stress-ringbuffer',
+  'benchmark-pod',
+  'benchmark-dict',
 ]
 
 foreach a : benchmark_apps
   benchmark('spa-' + a,
-	executable('spa-' + a, a + '.c',
-		dependencies : [dl_lib, pthread_lib, mathlib ],
-		include_directories : [spa_inc ],
-		install : installed_tests_enabled,
-		install_dir : installed_tests_execdir),
-	env : [
-		'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),
-	])
+    executable('spa-' + a, a + '.c',
+      dependencies : [dl_lib, pthread_lib, mathlib ],
+      include_directories : [spa_inc ],
+      install : installed_tests_enabled,
+      install_dir : installed_tests_execdir,
+    ),
+    env : [
+      'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),
+    ]
+  )
 
   if installed_tests_enabled
     test_conf = configuration_data()
@@ -50,7 +52,7 @@ foreach a : benchmark_apps
       input: installed_tests_template,
       output: 'spa-' + a + '.test',
       install_dir: installed_tests_metadir,
-      configuration: test_conf
+      configuration: test_conf,
     )
   endif
 endforeach

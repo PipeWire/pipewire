@@ -27,13 +27,13 @@ endif
 foreach m : manpages
   file = m.split('.rst.in').get(0)
   rst = configure_file(input : m,
-		       output : file + '.rst',
-		       configuration : manpage_conf)
+                       output : file + '.rst',
+                       configuration : manpage_conf)
   section = file.split('.').get(-1)
   custom_target(file + '.target',
-		output : file,
-		input : rst,
-		command : [rst2man, '@INPUT@', '@OUTPUT@'],
-		install : true,
-		install_dir : get_option('mandir') / 'man' + section)
+                output : file,
+                input : rst,
+                command : [rst2man, '@INPUT@', '@OUTPUT@'],
+                install : true,
+                install_dir : get_option('mandir') / 'man' + section)
 endforeach

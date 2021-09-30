@@ -45,6 +45,8 @@ struct module_tunnel_sink_data {
 	struct pw_impl_module *mod;
 	struct spa_hook mod_listener;
 
+	uint32_t latency_msec;
+
 	struct pw_properties *stream_props;
 };
 
@@ -76,6 +78,8 @@ static int module_tunnel_sink_load(struct client *client, struct module *module)
 	pw_properties_serialize_dict(f, &module->props->dict, 0);
 	fprintf(f, " pulse.server.address = \"%s\" ", server);
 	fprintf(f, " tunnel.mode = playback ");
+	if (data->latency_msec > 0)
+		fprintf(f, " pulse.latency = %u ", data->latency_msec);
 	fprintf(f, " stream.props = {");
 	pw_properties_serialize_dict(f, &data->stream_props->dict, 0);
 	fprintf(f, " } }");
@@ -129,6 +133,7 @@ static const struct spa_dict_item module_tunnel_sink_info[] = {
 		"channels=<number of channels> "
 		"rate=<sample rate> "
 		"channel_map=<channel map> "
+		"latency_msec=<fixed latency in ms> "
 		"cookie=<cookie file path>" },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
@@ -188,6 +193,7 @@ struct module *create_module_tunnel_sink(struct impl *impl, const char *argument
 		pw_properties_setf(stream_props, PW_KEY_NODE_NAME,
 				"tunnel-sink.%s", server);
 	}
+
 	if ((str = pw_properties_get(props, "sink_properties")) != NULL) {
 		module_args_add_props(stream_props, str);
 		pw_properties_set(props, "sink_properties", NULL);
@@ -209,6 +215,9 @@ struct module *create_module_tunnel_sink(struct impl *impl, const char *argument
 	d = module->user_data;
 	d->module = module;
 	d->stream_props = stream_props;
+
+	if ((str = pw_properties_get(props, "latency_msec")) != NULL)
+		spa_atou32(str, &d->latency_msec, 0);
 
 	return module;
 out:

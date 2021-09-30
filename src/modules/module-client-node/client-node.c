@@ -749,7 +749,7 @@ do_port_use_buffers(struct impl *impl,
 	struct node *this = &impl->node;
 	struct port *p;
 	struct mix *mix;
-	uint32_t i, j;
+	uint32_t i, j, peer_id;
 	struct pw_client_node_buffer *mb;
 
 	if (!CHECK_PORT(this, direction, port_id))
@@ -761,11 +761,16 @@ do_port_use_buffers(struct impl *impl,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
 			port_id, mix_id, buffers, n_buffers, flags);
 
-	if (direction == SPA_DIRECTION_OUTPUT)
-		mix_id = SPA_ID_INVALID;
-
 	if ((mix = find_mix(p, mix_id)) == NULL || !mix->valid)
 		return -EINVAL;
+
+	peer_id = mix->peer_id;
+
+	if (direction == SPA_DIRECTION_OUTPUT) {
+		mix_id = SPA_ID_INVALID;
+		if ((mix = find_mix(p, mix_id)) == NULL || !mix->valid)
+			return -EINVAL;
+	}
 
 	clear_buffers(this, mix);
 
@@ -875,7 +880,7 @@ do_port_use_buffers(struct impl *impl,
 	if (this->resource->version >= 4)
 		pw_client_node_resource_port_set_mix_info(this->resource,
 						 direction, port_id, mix_id,
-						 mix->peer_id, NULL);
+						 peer_id, NULL);
 	return pw_client_node_resource_port_use_buffers(this->resource,
 						 direction, port_id, mix_id, flags,
 						 n_buffers, mb);

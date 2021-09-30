@@ -256,8 +256,14 @@ static int codec_validate_config(const struct a2dp_codec *codec, uint32_t flags,
 	info->media_subtype = SPA_MEDIA_SUBTYPE_raw;
 	info->info.raw.format = SPA_AUDIO_FORMAT_S16;
 
-	if (conf.object_type != AAC_OBJECT_TYPE_MPEG2_AAC_LC &&
-			conf.object_type != AAC_OBJECT_TYPE_MPEG4_AAC_LC)
+	/*
+	 * A2DP v1.3.2, 4.5.2: only one bit shall be set in bitfields.
+	 * However, there is a report (#1342) of device setting multiple
+	 * bits for AAC object type. It's not clear if this was due to
+	 * a BlueZ bug, but we can be lax here and below in codec_init.
+	 */
+	if (!(conf.object_type & (AAC_OBJECT_TYPE_MPEG2_AAC_LC |
+					AAC_OBJECT_TYPE_MPEG4_AAC_LC)))
 		return -EINVAL;
 
 	for (j = 0; j < SPA_N_ELEMENTS(aac_frequencies); ++j) {
@@ -336,11 +342,12 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	if (res != AACENC_OK)
 		goto error;
 
-	if (conf->object_type != AAC_OBJECT_TYPE_MPEG2_AAC_LC &&
-	    conf->object_type != AAC_OBJECT_TYPE_MPEG4_AAC_LC) {
+	if (!(conf->object_type & (AAC_OBJECT_TYPE_MPEG2_AAC_LC |
+					AAC_OBJECT_TYPE_MPEG4_AAC_LC))) {
 		res = -EINVAL;
 		goto error;
 	}
+
 	res = aacEncoder_SetParam(this->aacenc, AACENC_AOT, AOT_AAC_LC);
 	if (res != AACENC_OK)
 		goto error;

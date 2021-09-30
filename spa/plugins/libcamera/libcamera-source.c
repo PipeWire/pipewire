@@ -994,10 +994,10 @@ impl_init(const struct spa_handle_factory *factory,
 	port->dev.log = this->log;
 	port->dev.fd = -1;
 
-	if(port->dev.camera == NULL) {
+	if(port->dev.camera == NULL)
 		port->dev.camera = (LibCamera*)newLibCamera();
+	if(port->dev.camera != NULL)
 		libcamera_set_log(port->dev.camera, port->dev.log);
-	}
 
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_LIBCAMERA_PATH))) {
 		strncpy(this->props.device, str, 63);

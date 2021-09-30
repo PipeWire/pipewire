@@ -540,7 +540,8 @@ extern "C" {
 	}
 
 	void LibCamera::close() {
-		this->cam_->release();
+		if (this->cam_)
+			this->cam_->release();
 	}
 
 	void LibCamera::connect()
@@ -775,6 +776,9 @@ extern "C" {
 		std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
 		LibCamera* camera = new LibCamera();
 
+		pthread_mutexattr_init(&attr);
+		pthread_mutex_init(&camera->lock, &attr);
+
 		ret = cm->start();
 		if (ret) {
 			deleteLibCamera(camera);
@@ -793,9 +797,6 @@ extern "C" {
 			deleteLibCamera(camera);
 			return nullptr;
 		}
-
-		pthread_mutexattr_init(&attr);
-		pthread_mutex_init(&camera->lock, &attr);
 
 		camera->ring_buffer_init();
 

@@ -210,10 +210,10 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_DEVICE_CHANGE_MASK_PROPS;
 	this->info.flags = 0;
 
-	if(this->dev.camera == NULL) {
+	if(this->dev.camera == NULL)
 		this->dev.camera = (LibCamera*)newLibCamera();
+	if(this->dev.camera != NULL)
 		libcamera_set_log(this->dev.camera, this->dev.log);
-	}
 
 	return 0;
 }

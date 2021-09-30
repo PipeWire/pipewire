@@ -80,7 +80,7 @@ arm_init(struct impl *impl)
 	int arch;
 
 	if (!(cpuinfo = get_cpuinfo())) {
-		spa_log_warn(impl->log, NAME " %p: Can't read cpuinfo", impl);
+		spa_log_warn(impl->log, "%p: Can't read cpuinfo", impl);
 		return 1;
 	}
 

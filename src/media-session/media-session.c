@@ -66,8 +66,8 @@
 #define SESSION_PREFIX	"media-session.d"
 #define SESSION_CONF	"media-session.conf"
 
-PW_LOG_TOPIC(mod_topic, "ms.core");
-#define PW_LOG_TOPIC_DEFAULT mod_topic
+PW_LOG_TOPIC(ms_topic, "ms.core");
+#define PW_LOG_TOPIC_DEFAULT ms_topic
 
 #define sm_object_emit(o,m,v,...) spa_hook_list_call(&(o)->hooks, struct sm_object_events, m, v, ##__VA_ARGS__)
 
@@ -2454,7 +2454,7 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
-	PW_LOG_TOPIC_INIT(mod_topic);
+	PW_LOG_TOPIC_INIT(ms_topic);
 
 	while ((c = getopt_long(argc, argv, "hVc:v", long_options, NULL)) != -1) {
 		switch (c) {

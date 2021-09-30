@@ -37,8 +37,8 @@
 #include <pipewire/pipewire.h>
 #include "media-session.h"
 
-PW_LOG_TOPIC_EXTERN(mod_topic);
-#define PW_LOG_TOPIC_DEFAULT mod_topic
+PW_LOG_TOPIC_EXTERN(ms_topic);
+#define PW_LOG_TOPIC_DEFAULT ms_topic
 
 static bool find_match(struct spa_json *arr, struct pw_properties *props)
 {

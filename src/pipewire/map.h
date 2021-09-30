@@ -142,8 +142,20 @@ static inline int pw_map_insert_at(struct pw_map *map, uint32_t id, void *data)
 		item = (union pw_map_item *) pw_array_add(&map->items, sizeof(union pw_map_item));
 		if (item == NULL)
 			return -errno;
-	}
-	else {
+	} else {
+		if (pw_map_id_is_free(map, id)) {
+			uint32_t *current = &map->free_list;
+			while (*current != SPA_ID_INVALID) {
+				uint32_t current_id = (*current) >> 1;
+				uint32_t *next = &pw_map_get_item(map, current_id)->next;
+
+				if (current_id == id) {
+					*current = *next;
+					break;
+				}
+				current = next;
+			}
+		}
 		item = pw_map_get_item(map, id);
 	}
 	item->data = data;
@@ -156,6 +168,9 @@ static inline int pw_map_insert_at(struct pw_map *map, uint32_t id, void *data)
  */
 static inline void pw_map_remove(struct pw_map *map, uint32_t id)
 {
+	if (pw_map_id_is_free(map, id))
+		return;
+
 	pw_map_get_item(map, id)->next = map->free_list;
 	map->free_list = (id << 1) | 1;
 }

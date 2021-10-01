@@ -139,7 +139,20 @@ struct node {
 	unsigned int passthrough_only:1;
 	unsigned int passthrough:1;
 	unsigned int want_passthrough:1;
+	unsigned int unpositioned:1;
 };
+
+static bool is_unpositioned(struct spa_audio_info *info)
+{
+	uint32_t i;
+	if (SPA_FLAG_IS_SET(info->info.raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED))
+		return true;
+	for (i = 0; i < info->info.raw.channels; i++)
+		if (info->info.raw.position[i] >= SPA_AUDIO_CHANNEL_START_Aux &&
+		    info->info.raw.position[i] <= SPA_AUDIO_CHANNEL_LAST_Aux)
+			return true;
+	return false;
+}
 
 static bool find_format(struct node *node)
 {
@@ -190,9 +203,11 @@ static bool find_format(struct node *node)
 			if (n_position == 0 || n_position != info.info.raw.channels)
 				SPA_FLAG_SET(info.info.raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED);
 
-			if (node->format.info.raw.channels < info.info.raw.channels)
+			if (node->format.info.raw.channels < info.info.raw.channels) {
 				node->format = info;
-
+				if (is_unpositioned(&info))
+					node->unpositioned = true;
+			}
 			have_format = true;
 			break;
 
@@ -926,11 +941,10 @@ static int link_nodes(struct node *node, struct node *peer)
 		configure_passthrough(node);
 		configure_passthrough(peer);
 	} else {
-		if (node->dont_remix)
-			configure_node(node, NULL, false);
-		else {
+		if (node->dont_remix || peer->unpositioned)
+			configure_node(node, NULL, peer->unpositioned);
+		else
 			configure_node(node, &peer->format, true);
-		}
 	}
 
 	if (node->direction == PW_DIRECTION_INPUT) {

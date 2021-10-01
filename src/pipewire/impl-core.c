@@ -34,33 +34,6 @@
 #include <sys/random.h>
 #endif
 
-#undef GETRANDOM_FALLBACK
-#ifndef HAVE_GETRANDOM
-# ifdef __FreeBSD__
-#  include <sys/param.h>
-// FreeBSD versions < 12 do not have getrandom() syscall
-// Give a poor-man implementation here
-// Can be removed after September 30, 2021
-#  if __FreeBSD_version < 1200000
-#   define GETRANDOM_FALLBACK	1
-#  endif
-# else
-#  include <fcntl.h>
-#  define GETRANDOM_FALLBACK	1
-# endif
-#endif
-
-#ifdef GETRANDOM_FALLBACK
-ssize_t getrandom(void *buf, size_t buflen, unsigned int flags) {
-	int fd = open("/dev/random", O_CLOEXEC);
-	if (fd < 0)
-		return -1;
-	ssize_t bytes = read(fd, buf, buflen);
-	close(fd);
-	return bytes;
-}
-#endif
-
 #include <spa/utils/string.h>
 #include <spa/debug/types.h>
 

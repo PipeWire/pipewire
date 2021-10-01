@@ -673,7 +673,8 @@ static int spa_libcamera_use_buffers(struct impl *this, struct spa_buffer **buff
 	if (n_buffers > 0) {
 		d = buffers[0]->datas;
 
-		if (d[0].type == SPA_DATA_MemPtr && d[0].data != NULL) {
+		if (d[0].type == SPA_DATA_MemFd ||
+		    (d[0].type == SPA_DATA_MemPtr && d[0].data != NULL)) {
 			port->memtype = SPA_DATA_MemPtr;
 		} else if (d[0].type == SPA_DATA_DmaBuf) {
 			port->memtype = SPA_DATA_DmaBuf;
@@ -761,6 +762,9 @@ mmap_init(struct impl *this,
 		if (d[0].type != SPA_ID_INVALID &&
 		    d[0].type & (1u << SPA_DATA_DmaBuf)) {
 			port->memtype = SPA_DATA_DmaBuf;
+		} else if (d[0].type != SPA_ID_INVALID &&
+		    d[0].type & (1u << SPA_DATA_MemFd)) {
+			port->memtype = SPA_DATA_MemFd;
 		} else if (d[0].type & (1u << SPA_DATA_MemPtr)) {
 			port->memtype = SPA_DATA_MemPtr;
 		} else {
@@ -797,7 +801,8 @@ mmap_init(struct impl *this,
 			d[j].chunk->stride = port->fmt.bytesperline; /* FIXME:: This needs to be appropriately filled */
 			d[j].chunk->flags = 0;
 
-			if(port->memtype == SPA_DATA_DmaBuf) {
+			if (port->memtype == SPA_DATA_DmaBuf ||
+			    port->memtype == SPA_DATA_MemFd) {
 				d[j].fd = libcamera_get_fd(port->dev.camera, i, j);
 				spa_log_info(this->log, "libcamera: Got fd = %ld for buffer: #%d", d[j].fd, i);
 				d[j].data = NULL;

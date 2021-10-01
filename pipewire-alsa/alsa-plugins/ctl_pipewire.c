@@ -502,7 +502,7 @@ static struct spa_pod *build_volume_mute(struct spa_pod_builder *b, struct volum
 
 static int set_volume_mute(snd_ctl_pipewire_t *ctl, const char *name, struct volume *volume, int *mute)
 {
-	struct global *g, *dg;
+	struct global *g, *dg = NULL;
 	uint32_t id = SPA_ID_INVALID, device_id = SPA_ID_INVALID;
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
@@ -522,7 +522,7 @@ static int set_volume_mute(snd_ctl_pipewire_t *ctl, const char *name, struct vol
 		device_id = g->node.profile_device_id;
 	}
 	pw_log_debug("id %d device_id %d flags:%08x", id, device_id, g->node.flags);
-	if (id != SPA_ID_INVALID && device_id != SPA_ID_INVALID) {
+	if (id != SPA_ID_INVALID && device_id != SPA_ID_INVALID && dg != NULL) {
 		if (!SPA_FLAG_IS_SET(dg->permissions, PW_PERM_W | PW_PERM_X))
 			return -EPERM;
 

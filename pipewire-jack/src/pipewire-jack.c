@@ -4219,7 +4219,9 @@ int jack_port_is_mine (const jack_client_t *client, const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
 	spa_return_val_if_fail(o != NULL, 0);
-	return o->type == INTERFACE_Port && o->port.port_id != SPA_ID_INVALID;
+	return o->type == INTERFACE_Port &&
+		o->port.port != NULL &&
+		o->port.port->client == (struct client*)client;
 }
 
 SPA_EXPORT

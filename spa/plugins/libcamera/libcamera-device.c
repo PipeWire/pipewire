@@ -95,7 +95,7 @@ static int emit_info(struct impl *this, bool full)
 	} while (err == -1 && errno == EINTR);
 
 	if(err < 0) {
-		spa_log_error(this->log, "%s:: Failed to query MEDIA_IOC_DEVICE_INFO on fd %d\n", __FUNCTION__, this->dev.fd);
+		spa_log_error(this->log, "%s:: Failed to query MEDIA_IOC_DEVICE_INFO on fd %d", __FUNCTION__, this->dev.fd);
 	}
 
 #define ADD_ITEM(key, value) items[n_items++] = SPA_DICT_ITEM_INIT(key, value)

@@ -55,7 +55,9 @@
 #include "rtp.h"
 #include "a2dp-codecs.h"
 
-struct codec;
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.sink.a2dp");
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 struct props {
 	uint32_t min_latency;
@@ -159,8 +161,6 @@ struct impl {
 	uint32_t tmp_buffer_used;
 	uint32_t fd_buffer_size;
 };
-
-#define NAME "a2dp-sink"
 
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_INPUT && (p) == 0)
 
@@ -331,7 +331,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 	following = is_following(this);
 	if (this->started && following != this->following) {
-		spa_log_debug(this->log, NAME " %p: reassign follower %d->%d", this, this->following, following);
+		spa_log_debug(this->log, "%p: reassign follower %d->%d", this, this->following, following);
 		this->following = following;
 		spa_loop_invoke(this->data_loop, do_reassign_follower, 0, NULL, 0, true, this);
 	}
@@ -438,10 +438,10 @@ static int get_transport_unused_size(struct impl *this)
 	int res, value;
 	res = ioctl(this->flush_source.fd, TIOCOUTQ, &value);
 	if (res < 0) {
-		spa_log_error(this->log, NAME " %p: ioctl fail: %m", this);
+		spa_log_error(this->log, "%p: ioctl fail: %m", this);
 		return -errno;
 	}
-	spa_log_trace(this->log, NAME " %p: fd unused buffer size:%d/%d", this, value, this->fd_buffer_size);
+	spa_log_trace(this->log, "%p: fd unused buffer size:%d/%d", this, value, this->fd_buffer_size);
 	return value;
 }
 
@@ -454,17 +454,17 @@ static int send_buffer(struct impl *this)
 		this->codec->abr_process(this->codec_data, unsent);
 	}
 
-	spa_log_trace(this->log, NAME " %p: send %d %u %u %u %u",
+	spa_log_trace(this->log, "%p: send %d %u %u %u %u",
 			this, this->frame_count, this->block_size, this->seqnum,
 			this->timestamp, this->buffer_used);
 
 	written = send(this->flush_source.fd, this->buffer,
 			this->buffer_used, MSG_DONTWAIT | MSG_NOSIGNAL);
 
-	spa_log_trace(this->log, NAME " %p: send %d", this, written);
+	spa_log_trace(this->log, "%p: send %d", this, written);
 
 	if (written < 0) {
-		spa_log_debug(this->log, NAME " %p: %m", this);
+		spa_log_debug(this->log, "%p: %m", this);
 		return -errno;
 	}
 
@@ -484,7 +484,7 @@ static int encode_buffer(struct impl *this, const void *data, uint32_t size)
 	const void *from_data = data;
 	int from_size = size;
 
-	spa_log_trace(this->log, NAME " %p: encode %d used %d, %d %d %d",
+	spa_log_trace(this->log, "%p: encode %d used %d, %d %d %d",
 			this, size, this->buffer_used, port->frame_size, this->block_size,
 			this->frame_count);
 
@@ -517,7 +517,7 @@ static int encode_buffer(struct impl *this, const void *data, uint32_t size)
 	this->frame_count += processed / this->block_size;
 	this->buffer_used += out_encoded;
 
-	spa_log_trace(this->log, NAME " %p: processed %d %zd used %d",
+	spa_log_trace(this->log, "%p: processed %d %zd used %d",
 			this, processed, out_encoded, this->buffer_used);
 
 	if (this->tmp_buffer_used) {
@@ -529,7 +529,7 @@ static int encode_buffer(struct impl *this, const void *data, uint32_t size)
 
 static int flush_buffer(struct impl *this)
 {
-	spa_log_trace(this->log, NAME" %p: used:%d block_size:%d", this,
+	spa_log_trace(this->log, "%p: used:%d block_size:%d", this,
 			this->buffer_used, this->block_size);
 
 	if (this->need_flush || want_flush(this))
@@ -603,7 +603,7 @@ again:
 				spa_list_remove(&b->link);
 				SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 				this->port.io->buffer_id = b->id;
-				spa_log_warn(this->log, NAME " %p: error %s, reuse buffer %u",
+				spa_log_warn(this->log, "%p: error %s, reuse buffer %u",
 						this, spa_strerror(written), b->id);
 				spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
 				port->ready_offset = 0;
@@ -618,7 +618,7 @@ again:
 		if (port->ready_offset >= d[0].chunk->size) {
 			spa_list_remove(&b->link);
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
-			spa_log_trace(this->log, NAME " %p: reuse buffer %u", this, b->id);
+			spa_log_trace(this->log, "%p: reuse buffer %u", this, b->id);
 			this->port.io->buffer_id = b->id;
 
 			spa_node_call_reuse_buffer(&this->callbacks, 0, b->id);
@@ -626,7 +626,7 @@ again:
 		}
 		total_frames += n_frames;
 
-		spa_log_trace(this->log, NAME " %p: written %u frames", this, total_frames);
+		spa_log_trace(this->log, "%p: written %u frames", this, total_frames);
 	}
 
 	if (written > 0 && this->buffer_used == this->header_size) {
@@ -636,7 +636,7 @@ again:
 
 	written = flush_buffer(this);
 	if (written == -EAGAIN) {
-		spa_log_trace(this->log, NAME" %p: delay flush", this);
+		spa_log_trace(this->log, "%p: delay flush", this);
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC / 2) {
 			this->codec->reduce_bitpool(this->codec_data);
 			this->last_error = now_time;
@@ -645,7 +645,7 @@ again:
 		enable_flush(this, true);
 	}
 	else if (written < 0) {
-		spa_log_trace(this->log, NAME" %p: error flushing %s", this,
+		spa_log_trace(this->log, "%p: error flushing %s", this,
 				spa_strerror(written));
 		reset_buffer(this);
 		enable_flush(this, false);
@@ -664,7 +664,7 @@ again:
 	}
 	else {
 		/* Don't want to flush yet, or failed to write anything */
-		spa_log_trace(this->log, NAME" %p: skip flush", this);
+		spa_log_trace(this->log, "%p: skip flush", this);
 		enable_flush(this, false);
 	}
 	return 0;
@@ -674,10 +674,10 @@ static void a2dp_on_flush(struct spa_source *source)
 {
 	struct impl *this = source->data;
 
-	spa_log_trace(this->log, NAME" %p: flushing", this);
+	spa_log_trace(this->log, "%p: flushing", this);
 
 	if (!SPA_FLAG_IS_SET(source->rmask, SPA_IO_OUT)) {
-		spa_log_warn(this->log, NAME" %p: error %d", this, source->rmask);
+		spa_log_warn(this->log, "%p: error %d", this, source->rmask);
 		if (this->flush_source.loop)
 			spa_loop_remove_source(this->data_loop, &this->flush_source);
 		return;
@@ -703,7 +703,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 	prev_time = this->current_time;
 	now_time = this->current_time = this->next_time;
 
-	spa_log_debug(this->log, NAME" %p: timeout %"PRIu64" %"PRIu64"", this,
+	spa_log_debug(this->log, "%p: timeout %"PRIu64" %"PRIu64"", this,
 			now_time, now_time - prev_time);
 
 	if (SPA_LIKELY(this->position)) {
@@ -734,7 +734,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 	}
 
 
-	spa_log_trace(this->log, NAME " %p: %d", this, io->status);
+	spa_log_trace(this->log, "%p: %d", this, io->status);
 	io->status = SPA_STATUS_NEED_DATA;
 	spa_node_call_ready(&this->callbacks, SPA_STATUS_NEED_DATA);
 
@@ -755,7 +755,7 @@ static int do_start(struct impl *this)
 
 	this->following = is_following(this);
 
-        spa_log_debug(this->log, NAME " %p: start following:%d", this, this->following);
+        spa_log_debug(this->log, "%p: start following:%d", this, this->following);
 
 	if ((res = spa_bt_transport_acquire(this->transport, false)) < 0)
 		return res;
@@ -777,7 +777,7 @@ static int do_start(struct impl *this)
 	if (this->codec_data == NULL)
 		return -EIO;
 
-        spa_log_info(this->log, NAME " %p: using A2DP codec %s, delay:%"PRIi64" ms", this, this->codec->description,
+        spa_log_info(this->log, "%p: using A2DP codec %s, delay:%"PRIi64" ms", this, this->codec->description,
                      (int64_t)(spa_bt_transport_get_delay_nsec(this->transport) / SPA_NSEC_PER_MSEC));
 
 	this->seqnum = 0;
@@ -789,7 +789,7 @@ static int do_start(struct impl *this)
 		return -EIO;
 	}
 
-        spa_log_debug(this->log, NAME " %p: block_size %d", this,
+        spa_log_debug(this->log, "%p: block_size %d", this,
 			this->block_size);
 
 	val = this->codec->send_buf_size > 0
@@ -797,20 +797,20 @@ static int do_start(struct impl *this)
 			? this->codec->send_buf_size / 2 + this->codec->send_buf_size % 2
 			: FILL_FRAMES * this->transport->write_mtu;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val)) < 0)
-		spa_log_warn(this->log, NAME " %p: SO_SNDBUF %m", this);
+		spa_log_warn(this->log, "%p: SO_SNDBUF %m", this);
 
 	len = sizeof(val);
 	if (getsockopt(this->transport->fd, SOL_SOCKET, SO_SNDBUF, &val, &len) < 0) {
-		spa_log_warn(this->log, NAME " %p: SO_SNDBUF %m", this);
+		spa_log_warn(this->log, "%p: SO_SNDBUF %m", this);
 	}
 	else {
-		spa_log_debug(this->log, NAME " %p: SO_SNDBUF: %d", this, val);
+		spa_log_debug(this->log, "%p: SO_SNDBUF: %d", this, val);
 	}
 	this->fd_buffer_size = val;
 
 	val = FILL_FRAMES * this->transport->read_mtu;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val)) < 0)
-		spa_log_warn(this->log, NAME " %p: SO_RCVBUF %m", this);
+		spa_log_warn(this->log, "%p: SO_RCVBUF %m", this);
 
 	val = 6;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
@@ -868,7 +868,7 @@ static int do_stop(struct impl *this)
 	if (!this->started)
 		return 0;
 
-        spa_log_trace(this->log, NAME " %p: stop", this);
+        spa_log_trace(this->log, "%p: stop", this);
 
 	spa_loop_invoke(this->data_loop, do_remove_source, 0, NULL, 0, true, this);
 
@@ -1261,7 +1261,7 @@ impl_node_port_use_buffers(void *object,
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
 		if (buffers[i]->datas[0].data == NULL) {
-			spa_log_error(this->log, NAME " %p: need mapped memory", this);
+			spa_log_error(this->log, "%p: need mapped memory", this);
 			return -EINVAL;
 		}
 	}
@@ -1316,12 +1316,12 @@ static int impl_node_process(void *object)
 		struct buffer *b = &port->buffers[io->buffer_id];
 
 		if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
-			spa_log_warn(this->log, NAME " %p: buffer %u in use", this, io->buffer_id);
+			spa_log_warn(this->log, "%p: buffer %u in use", this, io->buffer_id);
 			io->status = -EINVAL;
 			return -EINVAL;
 		}
 
-		spa_log_trace(this->log, NAME " %p: queue buffer %u", this, io->buffer_id);
+		spa_log_trace(this->log, "%p: queue buffer %u", this, io->buffer_id);
 
 		spa_list_append(&port->ready, &b->link);
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
@@ -1449,6 +1449,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
+
+	spa_log_topic_init(this->log, &log_topic);
 
 	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data loop is needed");

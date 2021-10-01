@@ -54,6 +54,10 @@
 
 #include "defs.h"
 
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.source.sco");
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+
 struct props {
 	uint32_t min_latency;
 	uint32_t max_latency;
@@ -140,8 +144,6 @@ struct impl {
 
 	struct timespec now;
 };
-
-#define NAME "sco-source"
 
 #define CHECK_PORT(this,d,p)	((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
 
@@ -256,7 +258,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 	following = is_following(this);
 	if (this->started && following != this->following) {
-		spa_log_debug(this->log, NAME" %p: reassign follower %d->%d", this, this->following, following);
+		spa_log_debug(this->log, "%p: reassign follower %d->%d", this, this->following, following);
 		this->following = following;
 	}
 
@@ -329,7 +331,7 @@ static void recycle_buffer(struct impl *this, struct port *port, uint32_t buffer
 	struct buffer *b = &port->buffers[buffer_id];
 
 	if (b->outstanding) {
-		spa_log_trace(this->log, NAME " %p: recycle buffer %u", this, buffer_id);
+		spa_log_trace(this->log, "%p: recycle buffer %u", this, buffer_id);
 		spa_list_append(&port->free, &b->link);
 		b->outstanding = false;
 	}
@@ -383,7 +385,7 @@ static void msbc_buffer_append_byte(struct impl *this, uint8_t byte)
 }
 
 /* Helper function for debugging */
-static SPA_UNUSED void hexdump_to_log(struct spa_log *log, uint8_t *data, size_t size)
+static SPA_UNUSED void hexdump_to_log(struct impl *this, uint8_t *data, size_t size)
 {
 	char buf[2048];
 	size_t i, col = 0, pos = 0;
@@ -397,7 +399,7 @@ static SPA_UNUSED void hexdump_to_log(struct spa_log *log, uint8_t *data, size_t
 		pos += res;
 		col = (col + 1) % 16;
 	}
-	spa_log_trace(log, "hexdump (%d bytes):%s", (int)size, buf);
+	spa_log_trace(this->log, "hexdump (%d bytes):%s", (int)size, buf);
 }
 
 /* helper function to detect if a packet consists only of zeros */
@@ -513,7 +515,7 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 	/* handle data read from socket */
 	spa_log_trace(this->log, "read socket data %d", size_read);
 #if 0
-	hexdump_to_log(this->log, read_data, size_read);
+	hexdump_to_log(this, read_data, size_read);
 #endif
 
 	if (this->transport->codec == HFP_AUDIO_CODEC_MSBC) {
@@ -611,7 +613,7 @@ static int do_start(struct impl *this)
 
 	this->following = is_following(this);
 
-	spa_log_debug(this->log, NAME" %p: start following:%d",
+	spa_log_debug(this->log, "%p: start following:%d",
 			this, this->following);
 
 	/* Make sure the transport is valid */
@@ -1077,7 +1079,7 @@ impl_node_port_use_buffers(void *object,
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
 		if (d[0].data == NULL) {
-			spa_log_error(this->log, NAME " %p: need mapped memory", this);
+			spa_log_error(this->log, "%p: need mapped memory", this);
 			return -EINVAL;
 		}
 		spa_list_append(&port->free, &b->link);
@@ -1274,6 +1276,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
+
+	spa_log_topic_init(this->log, &log_topic);
 
 	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data loop is needed");

@@ -56,6 +56,10 @@
 #include "rtp.h"
 #include "a2dp-codecs.h"
 
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.source.a2dp");
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+
 struct props {
 	uint32_t min_latency;
 	uint32_t max_latency;
@@ -152,8 +156,6 @@ struct impl {
 	int duplex_timerfd;
 	uint64_t duplex_timeout;
 };
-
-#define NAME "a2dp-source"
 
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
 
@@ -292,7 +294,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 	following = is_following(this);
 	if (this->started && following != this->following) {
-		spa_log_debug(this->log, NAME" %p: reassign follower %d->%d", this, this->following, following);
+		spa_log_debug(this->log, "%p: reassign follower %d->%d", this, this->following, following);
 		this->following = following;
 		spa_loop_invoke(this->data_loop, do_reassing_follower, 0, NULL, 0, true, this);
 	}
@@ -371,7 +373,7 @@ static void recycle_buffer(struct impl *this, struct port *port, uint32_t buffer
 	struct buffer *b = &port->buffers[buffer_id];
 
 	if (b->outstanding) {
-		spa_log_trace(this->log, NAME " %p: recycle buffer %u", this, buffer_id);
+		spa_log_trace(this->log, "%p: recycle buffer %u", this, buffer_id);
 		spa_list_append(&port->free, &b->link);
 		b->outstanding = false;
 	}
@@ -517,7 +519,7 @@ static void a2dp_on_ready_read(struct spa_source *source)
 			return;
 		}
 		if (this->skip_count > 0) {
-			spa_log_info(this->log, NAME " %p: xrun, skipped %"PRIu64" usec",
+			spa_log_info(this->log, "%p: xrun, skipped %"PRIu64" usec",
 			             this, (uint64_t)(this->skip_count * SPA_USEC_PER_SEC / port->current_format.info.raw.rate));
 			this->skip_count = 0;
 		}
@@ -542,7 +544,7 @@ static void a2dp_on_ready_read(struct spa_source *source)
 	/* copy data into buffer */
 	avail = SPA_MIN(decoded, (int32_t)(datas[0].maxsize - port->ready_offset));
 	if (avail < decoded)
-		spa_log_warn(this->log, NAME ": buffer too small (%d > %d)", decoded, avail);
+		spa_log_warn(this->log, "buffer too small (%d > %d)", decoded, avail);
 	memcpy ((uint8_t *)datas[0].data + port->ready_offset, read_decoded, avail);
 	port->ready_offset += avail;
 	this->sample_count += decoded / port->frame_size;
@@ -635,7 +637,7 @@ static int transport_start(struct impl *this)
 	if (this->transport_acquired)
 		return 0;
 
-	spa_log_debug(this->log, NAME" %p: transport %p acquire", this,
+	spa_log_debug(this->log, "%p: transport %p acquire", this,
 			this->transport);
 	if ((res = spa_bt_transport_acquire(this->transport, false)) < 0)
 		return res;
@@ -651,19 +653,19 @@ static int transport_start(struct impl *this)
 	if (this->codec_data == NULL)
 		return -EIO;
 
-        spa_log_info(this->log, NAME " %p: using A2DP codec %s", this, this->codec->description);
+        spa_log_info(this->log, "%p: using A2DP codec %s", this, this->codec->description);
 
 	val = fcntl(this->transport->fd, F_GETFL);
 	if (fcntl(this->transport->fd, F_SETFL, val | O_NONBLOCK) < 0)
-		spa_log_warn(this->log, NAME" %p: fcntl %u %m", this, val | O_NONBLOCK);
+		spa_log_warn(this->log, "%p: fcntl %u %m", this, val | O_NONBLOCK);
 
 	val = FILL_FRAMES * this->transport->write_mtu;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val)) < 0)
-		spa_log_warn(this->log, NAME" %p: SO_SNDBUF %m", this);
+		spa_log_warn(this->log, "%p: SO_SNDBUF %m", this);
 
 	val = FILL_FRAMES * this->transport->read_mtu;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val)) < 0)
-		spa_log_warn(this->log, NAME" %p: SO_RCVBUF %m", this);
+		spa_log_warn(this->log, "%p: SO_RCVBUF %m", this);
 
 	val = 6;
 	if (setsockopt(this->transport->fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
@@ -717,7 +719,7 @@ static int do_start(struct impl *this)
 
 	this->following = is_following(this);
 
-	spa_log_debug(this->log, NAME" %p: start state:%d following:%d",
+	spa_log_debug(this->log, "%p: start state:%d following:%d",
 			this, this->transport->state, this->following);
 
 	spa_return_val_if_fail(this->transport != NULL, -EIO);
@@ -740,7 +742,7 @@ static int do_remove_source(struct spa_loop *loop,
 {
 	struct impl *this = user_data;
 
-	spa_log_debug(this->log, NAME" %p: remove source", this);
+	spa_log_debug(this->log, "%p: remove source", this);
 
 	set_duplex_timeout(this, 0);
 
@@ -754,7 +756,7 @@ static int transport_stop(struct impl *this)
 {
 	int res;
 
-	spa_log_debug(this->log, NAME" %p: transport stop", this);
+	spa_log_debug(this->log, "%p: transport stop", this);
 
 	spa_loop_invoke(this->data_loop, do_remove_source, 0, NULL, 0, true, this);
 
@@ -779,7 +781,7 @@ static int do_stop(struct impl *this)
 	if (!this->started)
 		return 0;
 
-	spa_log_debug(this->log, NAME" %p: stop", this);
+	spa_log_debug(this->log, "%p: stop", this);
 
 	res = transport_stop(this);
 
@@ -1174,7 +1176,7 @@ impl_node_port_use_buffers(void *object,
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
 		if (d[0].data == NULL) {
-			spa_log_error(this->log, NAME " %p: need mapped memory", this);
+			spa_log_error(this->log, "%p: need mapped memory", this);
 			return -EINVAL;
 		}
 		spa_list_append(&port->free, &b->link);
@@ -1379,6 +1381,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
+
+	spa_log_topic_init(this->log, &log_topic);
 
 	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data loop is needed");

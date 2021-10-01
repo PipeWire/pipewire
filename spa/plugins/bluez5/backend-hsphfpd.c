@@ -39,7 +39,9 @@
 
 #include "defs.h"
 
-#define NAME "hsphfpd"
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.hsphfpd");
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 struct impl {
 	struct spa_bt_backend this;
@@ -233,13 +235,13 @@ static int set_dbus_property(struct impl *backend,
 	m = NULL;
 
 	if (r == NULL) {
-		spa_log_error(backend->log, NAME": Transport Set() failed for transport %s (%s)", path, err.message);
+		spa_log_error(backend->log, "Transport Set() failed for transport %s (%s)", path, err.message);
 		dbus_error_free(&err);
 		return -EIO;
 	}
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
-		spa_log_error(backend->log, NAME": Set() returned error: %s", dbus_message_get_error_name(r));
+		spa_log_error(backend->log, "Set() returned error: %s", dbus_message_get_error_name(r));
 		return -EIO;
 	}
 
@@ -257,7 +259,7 @@ static inline void set_rx_volume_gain_property(const struct spa_bt_transport *tr
 	if (set_dbus_property(backend, HSPHFPD_SERVICE, transport_data->transport_path,
 	                      HSPHFPD_AUDIO_TRANSPORT_INTERFACE, "RxVolumeGain",
 	                      DBUS_TYPE_UINT16, &gain))
-		spa_log_error(backend->log, NAME": Changing rx volume gain to %u for transport %s failed",
+		spa_log_error(backend->log, "Changing rx volume gain to %u for transport %s failed",
 		              (unsigned)gain, transport_data->transport_path);
 }
 
@@ -271,7 +273,7 @@ static inline void set_tx_volume_gain_property(const struct spa_bt_transport *tr
 	if (set_dbus_property(backend, HSPHFPD_SERVICE, transport_data->transport_path,
 	                      HSPHFPD_AUDIO_TRANSPORT_INTERFACE, "TxVolumeGain",
 	                      DBUS_TYPE_UINT16, &gain))
-		spa_log_error(backend->log, NAME": Changing tx volume gain to %u for transport %s failed",
+		spa_log_error(backend->log, "Changing tx volume gain to %u for transport %s failed",
 		              (unsigned)gain, transport_data->transport_path);
 }
 
@@ -299,19 +301,19 @@ static void parse_transport_properties_values(struct impl *backend,
 		dbus_message_iter_recurse(&element_i, &dict_i);
 
 		if (dbus_message_iter_get_arg_type(&dict_i) != DBUS_TYPE_STRING) {
-			spa_log_error(backend->log, NAME": Received invalid property for transport %s", transport_path);
+			spa_log_error(backend->log, "Received invalid property for transport %s", transport_path);
 			return;
 		}
 
 		dbus_message_iter_get_basic(&dict_i, &key);
 
 		if (!dbus_message_iter_next(&dict_i)) {
-			spa_log_error(backend->log, NAME": Received invalid property for transport %s", transport_path);
+			spa_log_error(backend->log, "Received invalid property for transport %s", transport_path);
 			return;
 		}
 
 		if (dbus_message_iter_get_arg_type(&dict_i) != DBUS_TYPE_VARIANT) {
-			spa_log_error(backend->log, NAME": Received invalid property for transport %s", transport_path);
+			spa_log_error(backend->log, "Received invalid property for transport %s", transport_path);
 			return;
 		}
 
@@ -334,7 +336,7 @@ static void parse_transport_properties_values(struct impl *backend,
 						volume_control = 0;
 
 					if (!volume_control)
-						spa_log_warn(backend->log, NAME": Transport %s received invalid '%s' property value '%s', ignoring", transport_path, key, value);
+						spa_log_warn(backend->log, "Transport %s received invalid '%s' property value '%s', ignoring", transport_path, key, value);
 					else if (spa_streq(key, "RxVolumeControl"))
 						*rx_volume_control = volume_control;
 					else if (spa_streq(key, "TxVolumeControl"))
@@ -384,20 +386,20 @@ static void hsphfpd_parse_transport_properties(struct impl *backend, struct spa_
 																		&rx_volume_gain, &tx_volume_gain, &mtu);
 
 	if (endpoint_path)
-			spa_log_warn(backend->log, NAME": Transport %s received a duplicate '%s' property, ignoring",
+			spa_log_warn(backend->log, "Transport %s received a duplicate '%s' property, ignoring",
 			             transport_data->transport_path, "Endpoint");
 
 	if (air_codec)
-			spa_log_warn(backend->log, NAME": Transport %s received a duplicate '%s' property, ignoring",
+			spa_log_warn(backend->log, "Transport %s received a duplicate '%s' property, ignoring",
 			             transport_data->transport_path, "AirCodec");
 
 	if (mtu)
-			spa_log_warn(backend->log, NAME": Transport %s received a duplicate '%s' property, ignoring",
+			spa_log_warn(backend->log, "Transport %s received a duplicate '%s' property, ignoring",
 			             transport_data->transport_path, "MTU");
 
 	if (rx_volume_control) {
 		if (!!transport_data->rx_soft_volume != !!(rx_volume_control != HSPHFPD_VOLUME_CONTROL_REMOTE)) {
-			spa_log_info(backend->log, NAME": Transport %s changed rx soft volume from %d to %d",
+			spa_log_info(backend->log, "Transport %s changed rx soft volume from %d to %d",
 			             transport_data->transport_path, transport_data->rx_soft_volume,
 			             (rx_volume_control != HSPHFPD_VOLUME_CONTROL_REMOTE));
 			transport_data->rx_soft_volume = (rx_volume_control != HSPHFPD_VOLUME_CONTROL_REMOTE);
@@ -411,7 +413,7 @@ static void hsphfpd_parse_transport_properties(struct impl *backend, struct spa_
 
 	if (tx_volume_control) {
 		if (!!transport_data->tx_soft_volume != !!(tx_volume_control != HSPHFPD_VOLUME_CONTROL_REMOTE)) {
-			spa_log_info(backend->log, NAME": Transport %s changed tx soft volume from %d to %d",
+			spa_log_info(backend->log, "Transport %s changed tx soft volume from %d to %d",
 			             transport_data->transport_path, transport_data->rx_soft_volume,
 			             (tx_volume_control != HSPHFPD_VOLUME_CONTROL_REMOTE));
 			transport_data->tx_soft_volume = (tx_volume_control != HSPHFPD_VOLUME_CONTROL_REMOTE);
@@ -425,7 +427,7 @@ static void hsphfpd_parse_transport_properties(struct impl *backend, struct spa_
 
 	if (rx_volume_gain != (uint16_t)-1) {
 		if (transport_data->rx_volume_gain != rx_volume_gain) {
-			spa_log_info(backend->log, NAME": Transport %s changed rx volume gain from %u to %u",
+			spa_log_info(backend->log, "Transport %s changed rx volume gain from %u to %u",
 			             transport_data->transport_path, (unsigned)transport_data->rx_volume_gain, (unsigned)rx_volume_gain);
 			transport_data->rx_volume_gain = rx_volume_gain;
 			rx_volume_gain_changed = true;
@@ -434,7 +436,7 @@ static void hsphfpd_parse_transport_properties(struct impl *backend, struct spa_
 
 	if (tx_volume_gain != (uint16_t)-1) {
 		if (transport_data->tx_volume_gain != tx_volume_gain) {
-			spa_log_info(backend->log, NAME": Transport %s changed tx volume gain from %u to %u",
+			spa_log_info(backend->log, "Transport %s changed tx volume gain from %u to %u",
 			             transport_data->transport_path, (unsigned)transport_data->tx_volume_gain, (unsigned)tx_volume_gain);
 			transport_data->tx_volume_gain = tx_volume_gain;
 			tx_volume_gain_changed = true;
@@ -448,8 +450,8 @@ static void hsphfpd_parse_transport_properties(struct impl *backend, struct spa_
 	if (tx_volume_gain_changed || tx_soft_volume_changed)
 		pa_hook_fire(pa_bluetooth_discovery_hook(transport_data->hsphfpd->discovery, PA_BLUETOOTH_HOOK_TRANSPORT_TX_VOLUME_GAIN_CHANGED), transport);
 #else
-	spa_log_debug(backend->log, NAME": RX volume gain changed: %d, soft volume changed: %d", rx_volume_gain_changed, rx_soft_volume_changed);
-	spa_log_debug(backend->log, NAME": TX volume gain changed: %d, soft volume changed: %d", tx_volume_gain_changed, tx_soft_volume_changed);
+	spa_log_debug(backend->log, "RX volume gain changed: %d, soft volume changed: %d", rx_volume_gain_changed, rx_soft_volume_changed);
+	spa_log_debug(backend->log, "TX volume gain changed: %d, soft volume changed: %d", tx_volume_gain_changed, tx_soft_volume_changed);
 #endif
 
 	if (rx_volume_control_changed)
@@ -592,12 +594,12 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	dbus_message_iter_next(&arg_i);
 	dbus_message_iter_get_basic(&arg_i, &fd);
 
-	spa_log_debug(backend->log, NAME": NewConnection %s, fd %d", transport_path, fd);
+	spa_log_debug(backend->log, "NewConnection %s, fd %d", transport_path, fd);
 
 	sender = dbus_message_get_sender(m);
 	if (!spa_streq(sender, backend->hsphfpd_service_id)) {
 		close(fd);
-		spa_log_error(backend->log, NAME": Sender '%s' is not authorized", sender);
+		spa_log_error(backend->log, "Sender '%s' is not authorized", sender);
 		r = dbus_message_new_error_printf(m, HSPHFPD_ERROR_REJECTED, "Sender '%s' is not authorized", sender);
 		goto fail;
 	}
@@ -620,28 +622,28 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 
 	if (!endpoint_path) {
 		close(fd);
-		spa_log_error(backend->log, NAME": Endpoint property was not specified");
+		spa_log_error(backend->log, "Endpoint property was not specified");
 		r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "Endpoint property was not specified");
 		goto fail;
 	}
 
 	if (!air_codec) {
 		close(fd);
-		spa_log_error(backend->log, NAME": AirCodec property was not specified");
+		spa_log_error(backend->log, "AirCodec property was not specified");
 		r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "AirCodec property was not specified");
 		goto fail;
 	}
 
 	if (!rx_volume_control) {
 		close(fd);
-		spa_log_error(backend->log, NAME": RxVolumeControl property was not specified");
+		spa_log_error(backend->log, "RxVolumeControl property was not specified");
 		r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "RxVolumeControl property was not specified");
 		goto fail;
 	}
 
 	if (!tx_volume_control) {
 		close(fd);
-		spa_log_error(backend->log, NAME": TxVolumeControl property was not specified");
+		spa_log_error(backend->log, "TxVolumeControl property was not specified");
 		r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "TxVolumeControl property was not specified");
 		goto fail;
 	}
@@ -649,7 +651,7 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	if (rx_volume_control != HSPHFPD_VOLUME_CONTROL_NONE) {
 		if (rx_volume_gain == (uint16_t)-1) {
 			close(fd);
-			spa_log_error(backend->log, NAME": RxVolumeGain property was not specified, but VolumeControl is not none");
+			spa_log_error(backend->log, "RxVolumeGain property was not specified, but VolumeControl is not none");
 			r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "RxVolumeGain property was not specified, but VolumeControl is not none");
 			goto fail;
 		}
@@ -660,7 +662,7 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	if (tx_volume_control != HSPHFPD_VOLUME_CONTROL_NONE) {
 		if (tx_volume_gain == (uint16_t)-1) {
 			close(fd);
-			spa_log_error(backend->log, NAME": TxVolumeGain property was not specified, but VolumeControl is not none");
+			spa_log_error(backend->log, "TxVolumeGain property was not specified, but VolumeControl is not none");
 			r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "TxVolumeGain property was not specified, but VolumeControl is not none");
 			goto fail;
 		}
@@ -670,7 +672,7 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 
 	if (!mtu) {
 		close(fd);
-		spa_log_error(backend->log, NAME": MTU property was not specified");
+		spa_log_error(backend->log, "MTU property was not specified");
 		r = dbus_message_new_error(m, HSPHFPD_ERROR_REJECTED, "MTU property was not specified");
 		goto fail;
 	}
@@ -678,14 +680,14 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	endpoint = endpoint_find(backend, endpoint_path);
 	if (!endpoint) {
 		close(fd);
-		spa_log_error(backend->log, NAME": Endpoint %s does not exist", endpoint_path);
+		spa_log_error(backend->log, "Endpoint %s does not exist", endpoint_path);
 		r = dbus_message_new_error_printf(m, HSPHFPD_ERROR_REJECTED, "Endpoint %s does not exist", endpoint_path);
 		goto fail;
 	}
 
 	if (!endpoint->valid) {
 		close(fd);
-		spa_log_error(backend->log, NAME": Endpoint %s is not valid", endpoint_path);
+		spa_log_error(backend->log, "Endpoint %s is not valid", endpoint_path);
 		r = dbus_message_new_error_printf(m, HSPHFPD_ERROR_REJECTED, "Endpoint %s is not valid", endpoint_path);
 		goto fail;
 	}
@@ -693,17 +695,17 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 	transport = spa_bt_transport_find(backend->monitor, endpoint_path);
 	if (!transport) {
 		close(fd);
-		spa_log_error(backend->log, NAME": Endpoint %s is not connected", endpoint_path);
+		spa_log_error(backend->log, "Endpoint %s is not connected", endpoint_path);
 		r = dbus_message_new_error_printf(m, HSPHFPD_ERROR_REJECTED, "Endpoint %s is not connected", endpoint_path);
 		goto fail;
 	}
 
 	if (transport->codec != codec)
-		spa_log_warn(backend->log, NAME": Expecting codec to be %d, got %d", transport->codec, codec);
+		spa_log_warn(backend->log, "Expecting codec to be %d, got %d", transport->codec, codec);
 
 	if (transport->fd >= 0) {
 		close(fd);
-		spa_log_error(backend->log, NAME": Endpoint %s has already active transport", endpoint_path);
+		spa_log_error(backend->log, "Endpoint %s has already active transport", endpoint_path);
 		r = dbus_message_new_error_printf(m, HSPHFPD_ERROR_REJECTED, "Endpoint %s has already active transport", endpoint_path);
 		goto fail;
 	}
@@ -753,7 +755,7 @@ static DBusHandlerResult audio_agent_endpoint_handler(DBusConnection *c, DBusMes
 	interface = dbus_message_get_interface(m);
 	member = dbus_message_get_member(m);
 
-	spa_log_debug(backend->log, NAME": dbus: path=%s, interface=%s, member=%s", path, interface, member);
+	spa_log_debug(backend->log, "dbus: path=%s, interface=%s, member=%s", path, interface, member);
 
 	if (dbus_message_is_method_call(m, "org.freedesktop.DBus.Introspectable", "Introspect")) {
 		const char *xml = AUDIO_AGENT_ENDPOINT_INTROSPECT_XML;
@@ -818,7 +820,7 @@ static DBusHandlerResult application_object_manager_handler(DBusConnection *c, D
 	interface = dbus_message_get_interface(m);
 	member = dbus_message_get_member(m);
 
-	spa_log_debug(backend->log, NAME": dbus: path=%s, interface=%s, member=%s", path, interface, member);
+	spa_log_debug(backend->log, "dbus: path=%s, interface=%s, member=%s", path, interface, member);
 
 	if (dbus_message_is_method_call(m, "org.freedesktop.DBus.Introspectable", "Introspect")) {
 		const char *xml = APPLICATION_OBJECT_MANAGER_INTROSPECT_XML;
@@ -869,18 +871,18 @@ static void hsphfpd_audio_acquire_reply(DBusPendingCall *pending, void *user_dat
 		return;
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
-		spa_log_error(backend->log, NAME": RegisterApplication() failed: %s",
+		spa_log_error(backend->log, "RegisterApplication() failed: %s",
 				dbus_message_get_error_name(r));
 		goto finish;
 	}
 
 	if (!spa_streq(dbus_message_get_sender(r), backend->hsphfpd_service_id)) {
-		spa_log_error(backend->log, NAME": Reply for " HSPHFPD_ENDPOINT_INTERFACE ".ConnectAudio() from invalid sender");
+		spa_log_error(backend->log, "Reply for " HSPHFPD_ENDPOINT_INTERFACE ".ConnectAudio() from invalid sender");
 		goto finish;
 	}
 
 	if (!check_signature(r, "oso")) {
-		spa_log_error(backend->log, NAME": Invalid reply signature for " HSPHFPD_ENDPOINT_INTERFACE ".ConnectAudio()");
+		spa_log_error(backend->log, "Invalid reply signature for " HSPHFPD_ENDPOINT_INTERFACE ".ConnectAudio()");
 		goto finish;
 	}
 
@@ -889,7 +891,7 @@ static void hsphfpd_audio_acquire_reply(DBusPendingCall *pending, void *user_dat
 	                          DBUS_TYPE_STRING, &service_id,
 	                          DBUS_TYPE_OBJECT_PATH, &agent_path,
 	                          DBUS_TYPE_INVALID) == FALSE) {
-		spa_log_error(backend->log, NAME": Failed to parse " HSPHFPD_ENDPOINT_INTERFACE ".ConnectAudio() reply: %s", error.message);
+		spa_log_error(backend->log, "Failed to parse " HSPHFPD_ENDPOINT_INTERFACE ".ConnectAudio() reply: %s", error.message);
 		goto finish;
 	}
 
@@ -898,7 +900,7 @@ static void hsphfpd_audio_acquire_reply(DBusPendingCall *pending, void *user_dat
 		goto finish;
 	}
 
-	spa_log_debug(backend->log, NAME": hsphfpd audio acquired");
+	spa_log_debug(backend->log, "hsphfpd audio acquired");
 
 finish:
 	dbus_message_unref(r);
@@ -915,7 +917,7 @@ static int hsphfpd_audio_acquire(void *data, bool optional)
 	DBusPendingCall *call;
 	DBusError err;
 
-	spa_log_debug(backend->log, NAME": transport %p: Acquire %s",
+	spa_log_debug(backend->log, "transport %p: Acquire %s",
 			transport, transport->path);
 
 	if (backend->acquire_in_progress)
@@ -956,7 +958,7 @@ static int hsphfpd_audio_release(void *data)
 	struct impl *backend = SPA_CONTAINER_OF(transport->backend, struct impl, this);
 	struct hsphfpd_transport_data *transport_data = transport->user_data;
 
-	spa_log_debug(backend->log, NAME": transport %p: Release %s",
+	spa_log_debug(backend->log, "transport %p: Release %s",
 			transport, transport->path);
 
 	if (transport->sco_io) {
@@ -1022,24 +1024,24 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 						endpoint->local_address = strdup(value);
 					else if (spa_streq(key, "Profile")) {
 						if (endpoint->profile)
-							spa_log_warn(backend->log, NAME": Endpoint %s received a duplicate '%s' property, ignoring", endpoint->path, key);
+							spa_log_warn(backend->log, "Endpoint %s received a duplicate '%s' property, ignoring", endpoint->path, key);
 						else if (spa_streq(value, "headset"))
 							endpoint->profile = HSPHFPD_PROFILE_HEADSET;
 						else if (spa_streq(value, "handsfree"))
 							endpoint->profile = HSPHFPD_PROFILE_HANDSFREE;
 						else
-							spa_log_warn(backend->log, NAME": Endpoint %s received invalid '%s' property value '%s', ignoring", endpoint->path, key, value);
+							spa_log_warn(backend->log, "Endpoint %s received invalid '%s' property value '%s', ignoring", endpoint->path, key, value);
 					} else if (spa_streq(key, "Role")) {
 						if (endpoint->role)
-							spa_log_warn(backend->log, NAME": Endpoint %s received a duplicate '%s' property, ignoring", endpoint->path, key);
+							spa_log_warn(backend->log, "Endpoint %s received a duplicate '%s' property, ignoring", endpoint->path, key);
 						else if (spa_streq(value, "client"))
 							endpoint->role = HSPHFPD_ROLE_CLIENT;
 						else if (spa_streq(value, "gateway"))
 							endpoint->role = HSPHFPD_ROLE_GATEWAY;
 						else
-							spa_log_warn(backend->log, NAME": Endpoint %s received invalid '%s' property value '%s', ignoring", endpoint->path, key, value);
+							spa_log_warn(backend->log, "Endpoint %s received invalid '%s' property value '%s', ignoring", endpoint->path, key, value);
 					}
-					spa_log_trace(backend->log, NAME":   %s: %s (%p)", key, value, endpoint);
+					spa_log_trace(backend->log, "  %s: %s (%p)", key, value, endpoint);
 				}
 				break;
 
@@ -1049,7 +1051,7 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 					dbus_message_iter_get_basic(&value_i, &value);
 					if (spa_streq(key, "Connected"))
 						endpoint->connected = value;
-					spa_log_trace(backend->log, NAME":   %s: %d", key, value);
+					spa_log_trace(backend->log, "  %s: %d", key, value);
 				}
 				break;
 
@@ -1081,13 +1083,13 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 		endpoint->valid = true;
 
 	if (!endpoint->remote_address || !endpoint->local_address) {
-		spa_log_debug(backend->log, NAME": Missing addresses for %s", endpoint->path);
+		spa_log_debug(backend->log, "Missing addresses for %s", endpoint->path);
 		return DBUS_HANDLER_RESULT_HANDLED;
 	}
 
 	d = spa_bt_device_find_by_address(backend->monitor, endpoint->remote_address, endpoint->local_address);
 	if (!d) {
-		spa_log_debug(backend->log, NAME": No device for %s", endpoint->path);
+		spa_log_debug(backend->log, "No device for %s", endpoint->path);
 		return DBUS_HANDLER_RESULT_HANDLED;
 	}
 
@@ -1097,9 +1099,9 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 		if (!endpoint->connected || (backend->msbc_supported && (endpoint->air_codecs & HFP_AUDIO_CODEC_MSBC) && t->codec == HFP_AUDIO_CODEC_CVSD)) {
 			spa_bt_transport_free(t);
 			spa_bt_device_check_profiles(d, false);
-			spa_log_debug(backend->log, NAME": Transport released for %s", endpoint->path);
+			spa_log_debug(backend->log, "Transport released for %s", endpoint->path);
 		} else {
-			spa_log_debug(backend->log, NAME": Transport already configured for %s", endpoint->path);
+			spa_log_debug(backend->log, "Transport already configured for %s", endpoint->path);
 			return DBUS_HANDLER_RESULT_HANDLED;
 		}
 	}
@@ -1110,7 +1112,7 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 	char *t_path = strdup(endpoint->path);
 	t = spa_bt_transport_create(backend->monitor, t_path, sizeof(struct hsphfpd_transport_data));
 	if (t == NULL) {
-		spa_log_warn(backend->log, NAME": can't create transport: %m");
+		spa_log_warn(backend->log, "can't create transport: %m");
 		free(t_path);
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 	}
@@ -1142,7 +1144,7 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 	spa_bt_device_add_profile(d, t->profile);
 	spa_bt_device_connect_profile(t->device, t->profile);
 
-	spa_log_debug(backend->log, NAME": Transport %s available for hsphfpd", endpoint->path);
+	spa_log_debug(backend->log, "Transport %s available for hsphfpd", endpoint->path);
 
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
@@ -1175,11 +1177,11 @@ static DBusHandlerResult hsphfpd_parse_interfaces(struct impl *backend, DBusMess
 				endpoint = calloc(1, sizeof(struct hsphfpd_endpoint));
 				endpoint->path = strdup(path);
 				spa_list_append(&backend->endpoint_list, &endpoint->link);
-				spa_log_debug(backend->log, NAME": Found endpoint %s", path);
+				spa_log_debug(backend->log, "Found endpoint %s", path);
 			}
 			hsphfpd_parse_endpoint_properties(backend, endpoint, &iface_i);
 		} else
-			spa_log_debug(backend->log, NAME": Unknown interface %s found, skipping", interface);
+			spa_log_debug(backend->log, "Unknown interface %s found, skipping", interface);
 
 		dbus_message_iter_next(&element_i);
 	}
@@ -1198,18 +1200,18 @@ static void hsphfpd_get_endpoints_reply(DBusPendingCall *pending, void *user_dat
 		return;
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
-		spa_log_error(backend->log, NAME": Failed to get a list of endpoints from hsphfpd: %s",
+		spa_log_error(backend->log, "Failed to get a list of endpoints from hsphfpd: %s",
 				dbus_message_get_error_name(r));
 		goto finish;
 	}
 
 	if (!spa_streq(dbus_message_get_sender(r), backend->hsphfpd_service_id)) {
-		spa_log_error(backend->log, NAME": Reply for GetManagedObjects() from invalid sender");
+		spa_log_error(backend->log, "Reply for GetManagedObjects() from invalid sender");
 		goto finish;
 	}
 
 	if (!dbus_message_iter_init(r, &i) || !check_signature(r, "a{oa{sa{sv}}}")) {
-		spa_log_error(backend->log, NAME": Invalid arguments in GetManagedObjects() reply");
+		spa_log_error(backend->log, "Invalid arguments in GetManagedObjects() reply");
 		goto finish;
 	}
 
@@ -1238,7 +1240,7 @@ static int backend_hsphfpd_register(void *data)
 	DBusError err;
 	int res;
 
-	spa_log_debug(backend->log, NAME": Registering to hsphfpd");
+	spa_log_debug(backend->log, "Registering to hsphfpd");
 
 	m = dbus_message_new_method_call(HSPHFPD_SERVICE, "/",
 			HSPHFPD_APPLICATION_MANAGER_INTERFACE, "RegisterApplication");
@@ -1254,11 +1256,11 @@ static int backend_hsphfpd_register(void *data)
 
 	if (r == NULL) {
 		if (dbus_error_has_name(&err, "org.freedesktop.DBus.Error.ServiceUnknown")) {
-			spa_log_info(backend->log, NAME": hsphfpd not available: %s",
+			spa_log_info(backend->log, "hsphfpd not available: %s",
 					err.message);
 			res = -ENOTSUP;
 		} else {
-			spa_log_warn(backend->log, NAME": Registering application %s failed: %s (%s)",
+			spa_log_warn(backend->log, "Registering application %s failed: %s (%s)",
 					path, err.message, err.name);
 			res = -EIO;
 		}
@@ -1267,7 +1269,7 @@ static int backend_hsphfpd_register(void *data)
 	}
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
-		spa_log_error(backend->log, NAME": RegisterApplication() failed: %s",
+		spa_log_error(backend->log, "RegisterApplication() failed: %s",
 				dbus_message_get_error_name(r));
 		goto finish;
 	}
@@ -1275,7 +1277,7 @@ static int backend_hsphfpd_register(void *data)
 
 	backend->hsphfpd_service_id = strdup(dbus_message_get_sender(r));
 
-	spa_log_debug(backend->log, NAME": Registered to hsphfpd");
+	spa_log_debug(backend->log, "Registered to hsphfpd");
 
 	m = dbus_message_new_method_call(HSPHFPD_SERVICE, "/",
 			DBUS_INTERFACE_OBJECTMANAGER, "GetManagedObjects");
@@ -1323,13 +1325,13 @@ static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, 
 		if (dbus_message_is_signal(m, DBUS_INTERFACE_OBJECTMANAGER, "InterfacesAdded")) {
 			DBusMessageIter arg_i;
 
-			spa_log_warn(backend->log, NAME": sender: %s", dbus_message_get_sender(m));
+			spa_log_warn(backend->log, "sender: %s", dbus_message_get_sender(m));
 
 			if (!backend->endpoints_listed)
 				goto finish;
 
 			if (!dbus_message_iter_init(m, &arg_i) || !check_signature(m, "oa{sa{sv}}")) {
-					spa_log_error(backend->log, NAME": Invalid signature found in InterfacesAdded");
+					spa_log_error(backend->log, "Invalid signature found in InterfacesAdded");
 					goto finish;
 			}
 
@@ -1342,7 +1344,7 @@ static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, 
 				goto finish;
 
 			if (!dbus_message_iter_init(m, &arg_i) || !check_signature(m, "oas")) {
-					spa_log_error(backend->log, NAME": Invalid signature found in InterfacesRemoved");
+					spa_log_error(backend->log, "Invalid signature found in InterfacesRemoved");
 					goto finish;
 			}
 
@@ -1362,7 +1364,7 @@ static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, 
 							if (transport)
 								spa_bt_transport_free(transport);
 
-							spa_log_debug(backend->log, NAME": Remove endpoint %s", path);
+							spa_log_debug(backend->log, "Remove endpoint %s", path);
 							endpoint = endpoint_find(backend, path);
 							if (endpoint)
 								endpoint_free(endpoint);
@@ -1379,7 +1381,7 @@ static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, 
 				goto finish;
 
 			if (!dbus_message_iter_init(m, &arg_i) || !check_signature(m, "sa{sv}as")) {
-					spa_log_error(backend->log, NAME": Invalid signature found in PropertiesChanged");
+					spa_log_error(backend->log, "Invalid signature found in PropertiesChanged");
 					goto finish;
 			}
 
@@ -1391,20 +1393,20 @@ static DBusHandlerResult hsphfpd_filter_cb(DBusConnection *bus, DBusMessage *m, 
 			if (spa_streq(iface, HSPHFPD_ENDPOINT_INTERFACE)) {
 				struct hsphfpd_endpoint *endpoint = endpoint_find(backend, path);
 				if (!endpoint) {
-					spa_log_warn(backend->log, NAME": Properties changed on unknown endpoint %s", path);
+					spa_log_warn(backend->log, "Properties changed on unknown endpoint %s", path);
 					goto finish;
 				}
-				spa_log_debug(backend->log, NAME": Properties changed on endpoint %s", path);
+				spa_log_debug(backend->log, "Properties changed on endpoint %s", path);
 				hsphfpd_parse_endpoint_properties(backend, endpoint, &arg_i);
 			} else if (spa_streq(iface, HSPHFPD_AUDIO_TRANSPORT_INTERFACE)) {
 				struct spa_bt_transport *transport = spa_bt_transport_find_full(backend->monitor,
 				                                                                hsphfpd_cmp_transport_path,
 				                                                                (const void *)path);
 				if (!transport) {
-					spa_log_warn(backend->log, NAME": Properties changed on unknown transport %s", path);
+					spa_log_warn(backend->log, "Properties changed on unknown transport %s", path);
 					goto finish;
 				}
-				spa_log_debug(backend->log, NAME": Properties changed on transport %s", path);
+				spa_log_debug(backend->log, "Properties changed on transport %s", path);
 				hsphfpd_parse_transport_properties(backend, transport, &arg_i);
 			}
 		}
@@ -1425,7 +1427,7 @@ static int add_filters(void *data)
 	dbus_error_init(&err);
 
 	if (!dbus_connection_add_filter(backend->conn, hsphfpd_filter_cb, backend, NULL)) {
-		spa_log_error(backend->log, NAME": failed to add filter function");
+		spa_log_error(backend->log, "failed to add filter function");
 		goto fail;
 	}
 
@@ -1543,6 +1545,8 @@ struct spa_bt_backend *backend_hsphfpd_new(struct spa_bt_monitor *monitor,
 		backend->msbc_supported = spa_atob(str);
 	else
 		backend->msbc_supported = false;
+
+	spa_log_topic_init(backend->log, &log_topic);
 
 	spa_list_init(&backend->endpoint_list);
 

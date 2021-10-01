@@ -53,6 +53,10 @@
 
 #include "defs.h"
 
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.sink.sco");
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
+
 struct props {
 	uint32_t min_latency;
 	uint32_t max_latency;
@@ -152,8 +156,6 @@ struct impl {
 	uint64_t start_time;
 	uint64_t total_samples;
 };
-
-#define NAME "sco-sink"
 
 #define CHECK_PORT(this,d,p)	((d) == SPA_DIRECTION_INPUT && (p) == 0)
 
@@ -313,7 +315,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 	following = is_following(this);
 	if (this->started && following != this->following) {
-		spa_log_debug(this->log, NAME " %p: reassign follower %d->%d", this, this->following, following);
+		spa_log_debug(this->log, "%p: reassign follower %d->%d", this, this->following, following);
 		this->following = following;
 		spa_loop_invoke(this->data_loop, do_reassign_follower, 0, NULL, 0, true, this);
 	}
@@ -567,7 +569,7 @@ static int do_start(struct impl *this)
 
 	this->following = is_following(this);
 
-	spa_log_debug(this->log, NAME " %p: start following:%d", this, this->following);
+	spa_log_debug(this->log, "%p: start following:%d", this, this->following);
 
 	/* Do accept if Gateway; otherwise do connect for Head Unit */
 	do_accept = this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY;
@@ -1071,7 +1073,7 @@ impl_node_port_use_buffers(void *object,
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
 		if (buffers[i]->datas[0].data == NULL) {
-			spa_log_error(this->log, NAME " %p: need mapped memory", this);
+			spa_log_error(this->log, "%p: need mapped memory", this);
 			return -EINVAL;
 		}
 	}
@@ -1129,12 +1131,12 @@ static int impl_node_process(void *object)
 		struct buffer *b = &port->buffers[io->buffer_id];
 
 		if (!b->outstanding) {
-			spa_log_warn(this->log, NAME " %p: buffer %u in use", this, io->buffer_id);
+			spa_log_warn(this->log, "%p: buffer %u in use", this, io->buffer_id);
 			io->status = -EINVAL;
 			return -EINVAL;
 		}
 
-		spa_log_trace(this->log, NAME " %p: queue buffer %u", this, io->buffer_id);
+		spa_log_trace(this->log, "%p: queue buffer %u", this, io->buffer_id);
 
 		spa_list_append(&port->ready, &b->link);
 		b->outstanding = false;
@@ -1246,6 +1248,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
+
+	spa_log_topic_init(this->log, &log_topic);
 
 	if (this->data_loop == NULL) {
 		spa_log_error(this->log, "a data loop is needed");

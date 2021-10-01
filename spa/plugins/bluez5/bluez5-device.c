@@ -53,7 +53,9 @@
 #include "defs.h"
 #include "a2dp-codecs.h"
 
-#define NAME  "bluez5-device"
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.device");
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 #define MAX_DEVICES	64
 
@@ -579,7 +581,7 @@ static const struct spa_bt_transport_events dynamic_node_transport_events = {
 static void emit_dynamic_node(struct dynamic_node *this, struct impl *impl,
 	struct spa_bt_transport *t, uint32_t id, const char *factory_name, bool a2dp_duplex)
 {
-	spa_log_debug(impl->log, NAME": dynamic node, transport: %p->%p id: %08x->%08x",
+	spa_log_debug(impl->log, "dynamic node, transport: %p->%p id: %08x->%08x",
 		this->transport, t, this->id, id);
 
 	if (this->transport) {
@@ -754,7 +756,7 @@ static bool validate_profile(struct impl *this, uint32_t profile,
 static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_audio_codec codec)
 {
 	if (!validate_profile(this, profile, codec)) {
-		spa_log_warn(this->log, NAME ": trying to set invalid profile %d, codec %d, %08x %08x",
+		spa_log_warn(this->log, "trying to set invalid profile %d, codec %d, %08x %08x",
 			    profile, codec,
 			    this->bt_dev->profiles, this->bt_dev->connected_profiles);
 		return -EINVAL;
@@ -789,7 +791,7 @@ static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_a
 		ret = spa_bt_device_ensure_a2dp_codec(this->bt_dev, codecs);
 		if (ret < 0) {
 			if (ret != -ENOTSUP)
-				spa_log_error(this->log, NAME": failed to switch codec (%d), setting basic profile", ret);
+				spa_log_error(this->log, "failed to switch codec (%d), setting basic profile", ret);
 		} else {
 			return 0;
 		}
@@ -801,7 +803,7 @@ static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_a
 		ret = spa_bt_device_ensure_hfp_codec(this->bt_dev, get_hfp_codec(codec));
 		if (ret < 0) {
 			if (ret != -ENOTSUP)
-				spa_log_error(this->log, NAME": failed to switch codec (%d), setting basic profile", ret);
+				spa_log_error(this->log, "failed to switch codec (%d), setting basic profile", ret);
 		} else {
 			return 0;
 		}
@@ -826,13 +828,13 @@ static void codec_switched(void *userdata, int status)
 {
 	struct impl *this = userdata;
 
-	spa_log_debug(this->log, NAME": codec switched (status %d)", status);
+	spa_log_debug(this->log, "codec switched (status %d)", status);
 
 	this->switching_codec = false;
 
 	if (status < 0) {
 		/* Failed to switch: return to a fallback profile */
-		spa_log_error(this->log, NAME": failed to switch codec (%d), setting fallback profile", status);
+		spa_log_error(this->log, "failed to switch codec (%d), setting fallback profile", status);
 		if (this->profile == DEVICE_PROFILE_A2DP && this->props.codec != 0) {
 			this->props.codec = 0;
 		} else if (this->profile == DEVICE_PROFILE_HSP_HFP && this->props.codec != 0) {
@@ -865,7 +867,7 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 	connected_change = (this->bt_dev->connected_profiles ^ prev_connected_profiles);
 
 	/* Profiles changed. We have to re-emit device information. */
-	spa_log_info(this->log, NAME": profiles changed to  %08x %08x (prev %08x %08x, change %08x)"
+	spa_log_info(this->log, "profiles changed to  %08x %08x (prev %08x %08x, change %08x)"
 		     " switching_codec:%d",
 		     this->bt_dev->profiles, this->bt_dev->connected_profiles,
 		     prev_profiles, prev_connected_profiles, connected_change,
@@ -888,7 +890,7 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 	case DEVICE_PROFILE_AG:
 		nodes_changed = (connected_change & (SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY |
 						     SPA_BT_PROFILE_A2DP_SOURCE));
-		spa_log_debug(this->log, NAME": profiles changed: AG nodes changed: %d",
+		spa_log_debug(this->log, "profiles changed: AG nodes changed: %d",
 			      nodes_changed);
 		break;
 	case DEVICE_PROFILE_A2DP:
@@ -896,14 +898,14 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 			this->props.codec = 0;
 		nodes_changed = (connected_change & (SPA_BT_PROFILE_A2DP_SINK |
 						     SPA_BT_PROFILE_A2DP_SOURCE));
-		spa_log_debug(this->log, NAME": profiles changed: A2DP nodes changed: %d",
+		spa_log_debug(this->log, "profiles changed: A2DP nodes changed: %d",
 			      nodes_changed);
 		break;
 	case DEVICE_PROFILE_HSP_HFP:
 		if (spa_bt_device_supports_hfp_codec(this->bt_dev, get_hfp_codec(this->props.codec)) != 1)
 			this->props.codec = 0;
 		nodes_changed = (connected_change & SPA_BT_PROFILE_HEADSET_HEAD_UNIT);
-		spa_log_debug(this->log, NAME": profiles changed: HSP/HFP nodes changed: %d",
+		spa_log_debug(this->log, "profiles changed: HSP/HFP nodes changed: %d",
 			      nodes_changed);
 		break;
 	}
@@ -1074,7 +1076,7 @@ static bool set_initial_hsp_hfp_profile(struct impl *this)
 				DEVICE_PROFILE_AG : DEVICE_PROFILE_HSP_HFP;
 			this->props.codec = get_hfp_codec_id(t->codec);
 
-			spa_log_debug(this->log, NAME": initial profile HSP/HFP profile:%d codec:%d",
+			spa_log_debug(this->log, "initial profile HSP/HFP profile:%d codec:%d",
 					this->profile, this->props.codec);
 			return true;
 		}
@@ -1111,7 +1113,7 @@ static void set_initial_profile(struct impl *this)
 			this->profile = (i == SPA_BT_PROFILE_A2DP_SOURCE) ?
 				DEVICE_PROFILE_AG : DEVICE_PROFILE_A2DP;
 			this->props.codec = t->a2dp_codec->id;
-			spa_log_debug(this->log, NAME": initial profile A2DP profile:%d codec:%d",
+			spa_log_debug(this->log, "initial profile A2DP profile:%d codec:%d",
 					this->profile, this->props.codec);
 			return;
 		}
@@ -1120,7 +1122,7 @@ static void set_initial_profile(struct impl *this)
 	if (set_initial_hsp_hfp_profile(this))
 		return;
 
-	spa_log_debug(this->log, NAME": initial profile off");
+	spa_log_debug(this->log, "initial profile off");
 
 	this->profile = DEVICE_PROFILE_OFF;
 	this->props.codec = 0;
@@ -1859,7 +1861,7 @@ static int impl_set_param(void *object,
 		if (profile == SPA_ID_INVALID)
 			return -EINVAL;
 
-		spa_log_debug(this->log, NAME": setting profile %d codec:%d", profile, codec);
+		spa_log_debug(this->log, "setting profile %d codec:%d", profile, codec);
 		return set_profile(this, profile, codec);
 	}
 	case SPA_PARAM_Route:
@@ -2032,6 +2034,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	_i18n = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_I18N);
+
+	spa_log_topic_init(this->log, &log_topic);
 
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_DEVICE)))
 		sscanf(str, "pointer:%p", &this->bt_dev);

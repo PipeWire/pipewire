@@ -26,8 +26,6 @@
 
 #include <spa/utils/string.h>
 
-#define NAME "bluez5-a2dp-codecs"
-
 #include "defs.h"
 #include "codec-loader.h"
 
@@ -36,6 +34,10 @@
 /* AVDTP allows 0x3E endpoints, can't have more codecs than that */
 #define MAX_CODECS	0x3E
 #define MAX_HANDLES	MAX_CODECS
+
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.codecs");
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 struct impl {
 	const struct a2dp_codec *codecs[MAX_CODECS + 1];
@@ -94,14 +96,14 @@ static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name, co
 
 	handle = spa_plugin_loader_load(impl->loader, factory_name, &info);
 	if (handle == NULL) {
-		spa_log_info(impl->log, NAME ": Bluetooth codec plugin %s not available", factory_name);
+		spa_log_info(impl->log, "Bluetooth codec plugin %s not available", factory_name);
 		return -ENOENT;
 	}
 
-	spa_log_debug(impl->log, NAME ": loading codecs from %s", factory_name);
+	spa_log_debug(impl->log, "loading codecs from %s", factory_name);
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Bluez5CodecA2DP, &iface)) < 0) {
-		spa_log_info(impl->log, NAME ": Bluetooth codec plugin %s has no codec interface",
+		spa_log_info(impl->log, "Bluetooth codec plugin %s has no codec interface",
 				factory_name);
 		goto fail;
 	}
@@ -109,7 +111,7 @@ static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name, co
 	bluez5_codec_a2dp = iface;
 
 	if (bluez5_codec_a2dp->iface.version != SPA_VERSION_BLUEZ5_CODEC_A2DP) {
-		spa_log_info(impl->log, NAME ": codec plugin %s has incompatible ABI version (%d != %d)",
+		spa_log_info(impl->log, "codec plugin %s has incompatible ABI version (%d != %d)",
 				factory_name, bluez5_codec_a2dp->iface.version, SPA_VERSION_BLUEZ5_CODEC_A2DP);
 		res = -ENOENT;
 		goto fail;
@@ -120,7 +122,7 @@ static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name, co
 		size_t j;
 
 		if (impl->n_codecs >= MAX_CODECS) {
-			spa_log_error(impl->log, NAME ": too many A2DP codecs");
+			spa_log_error(impl->log, "too many A2DP codecs");
 			break;
 		}
 
@@ -133,7 +135,7 @@ static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name, co
 				goto next_codec;
 		}
 
-		spa_log_debug(impl->log, NAME ": loaded A2DP codec %s from %s", c->name, factory_name);
+		spa_log_debug(impl->log, "loaded A2DP codec %s from %s", c->name, factory_name);
 
 		impl->codecs[impl->n_codecs++] = c;
 		++n_codecs;
@@ -178,6 +180,8 @@ const struct a2dp_codec * const *load_a2dp_codecs(struct spa_plugin_loader *load
 	impl->loader = loader;
 	impl->log = log;
 
+	spa_log_topic_init(impl->log, &log_topic);
+
 	for (i = 0; i < SPA_N_ELEMENTS(plugins); ++i)
 		load_a2dp_codecs_from(impl, plugins[i].factory, plugins[i].lib);
 
@@ -187,7 +191,7 @@ const struct a2dp_codec * const *load_a2dp_codecs(struct spa_plugin_loader *load
 			has_sbc = true;
 
 	if (!has_sbc) {
-		spa_log_error(impl->log, NAME ": failed to load A2DP SBC codec from plugins");
+		spa_log_error(impl->log, "failed to load A2DP SBC codec from plugins");
 		free_a2dp_codecs(impl->codecs);
 		errno = ENOENT;
 		return NULL;

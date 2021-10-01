@@ -59,7 +59,9 @@
 #include "a2dp-codecs.h"
 #include "defs.h"
 
-#define NAME "bluez5-quirks"
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.quirks");
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 struct spa_bt_quirks {
 	struct spa_log *log;
@@ -204,7 +206,7 @@ static int load_conf(struct spa_bt_quirks *this, const char *path)
 	struct stat sbuf;
 	int fd = -1;
 
-	spa_log_debug(this->log, NAME ": loading %s", path);
+	spa_log_debug(this->log, "loading %s", path);
 
 	if ((fd = open(path, O_CLOEXEC | O_RDONLY)) < 0)
 		goto fail;
@@ -241,12 +243,14 @@ struct spa_bt_quirks *spa_bt_quirks_create(const struct spa_dict *info, struct s
 
 	this->log = log;
 
+	spa_log_topic_init(this->log, &log_topic);
+
 	this->force_sbc_xq = parse_force_flag(info, "bluez5.enable-sbc-xq");
 	this->force_msbc = parse_force_flag(info, "bluez5.enable-msbc");
 	this->force_hw_volume = parse_force_flag(info, "bluez5.enable-hw-volume");
 
 	if ((str = spa_dict_lookup(info, "bluez5.hardware-database")) != NULL) {
-		spa_log_debug(this->log, NAME ": loading session manager provided data");
+		spa_log_debug(this->log, "loading session manager provided data");
 		load_quirks(this, str, strlen(str));
 	} else {
 		char path[PATH_MAX];
@@ -260,7 +264,7 @@ struct spa_bt_quirks *spa_bt_quirks_create(const struct spa_dict *info, struct s
 	}
 
 	if (!(this->kernel_rules && this->adapter_rules && this->device_rules))
-		spa_log_warn(this->log, NAME ": failed to load bluez-hardware.conf");
+		spa_log_warn(this->log, "failed to load bluez-hardware.conf");
 
 	return this;
 }
@@ -316,7 +320,7 @@ int spa_bt_quirks_get_features(const struct spa_bt_quirks *this,
 		props = SPA_DICT_INIT(items, nitems);
 		log_props(this->log, &props);
 		do_match(this->kernel_rules, &props, &no_features);
-		spa_log_debug(this->log, NAME ": kernel quirks:%08x", no_features);
+		spa_log_debug(this->log, "kernel quirks:%08x", no_features);
 		*features &= ~no_features;
 	}
 
@@ -341,7 +345,7 @@ int spa_bt_quirks_get_features(const struct spa_bt_quirks *this,
 		props = SPA_DICT_INIT(items, nitems);
 		log_props(this->log, &props);
 		do_match(this->adapter_rules, &props, &no_features);
-		spa_log_debug(this->log, NAME ": adapter quirks:%08x", no_features);
+		spa_log_debug(this->log, "adapter quirks:%08x", no_features);
 		*features &= ~no_features;
 	}
 
@@ -368,7 +372,7 @@ int spa_bt_quirks_get_features(const struct spa_bt_quirks *this,
 		props = SPA_DICT_INIT(items, nitems);
 		log_props(this->log, &props);
 		do_match(this->device_rules, &props, &no_features);
-		spa_log_debug(this->log, NAME ": device quirks:%08x", no_features);
+		spa_log_debug(this->log, "device quirks:%08x", no_features);
 		*features &= ~no_features;
 	}
 

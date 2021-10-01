@@ -1788,6 +1788,12 @@ static const struct pw_proxy_events proxy_link_events = {
 	.destroy = proxy_link_destroy
 };
 
+static bool channel_is_aux(uint32_t channel)
+{
+	return channel >= SPA_AUDIO_CHANNEL_START_Aux &&
+		channel <= SPA_AUDIO_CHANNEL_LAST_Aux;
+}
+
 static int score_ports(struct sm_port *out, struct sm_port *in)
 {
 	int score = 0;
@@ -1810,8 +1816,10 @@ static int score_ports(struct sm_port *out, struct sm_port *in)
 	         (out->channel == SPA_AUDIO_CHANNEL_MONO && in->channel == SPA_AUDIO_CHANNEL_FC))
 		score += 50;
 	else if (in->channel == SPA_AUDIO_CHANNEL_UNKNOWN ||
+	    channel_is_aux(in->channel) ||
 	    in->channel == SPA_AUDIO_CHANNEL_MONO ||
 	    out->channel == SPA_AUDIO_CHANNEL_UNKNOWN ||
+	    channel_is_aux(out->channel) ||
 	    out->channel == SPA_AUDIO_CHANNEL_MONO)
 		score += 10;
 	if (score > 0 && !in->visited)

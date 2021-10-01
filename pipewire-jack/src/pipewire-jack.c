@@ -133,6 +133,9 @@ struct object {
 		struct {
 			uint32_t src;
 			uint32_t dst;
+			bool src_ours;
+			bool dst_ours;
+			bool is_complete;
 		} port_link;
 		struct {
 			unsigned long flags;
@@ -2321,6 +2324,8 @@ static int client_node_port_set_mix_info(void *object,
 	struct client *c = (struct client *) object;
 	struct port *p = GET_PORT(c, direction, port_id);
 	struct mix *mix;
+	struct object *l;
+	uint32_t src, dst;
 	int res = 0;
 
 	if (p == NULL || !p->valid) {
@@ -2333,6 +2338,21 @@ static int client_node_port_set_mix_info(void *object,
 		goto exit;
 	}
 	mix->peer_id = peer_id;
+
+	if (direction == SPA_DIRECTION_INPUT) {
+		src = peer_id;
+		dst = p->object->id;
+	} else {
+		src = p->object->id;
+		dst = peer_id;
+	}
+
+	if ((l = find_link(c, src, dst)) != NULL && !l->port_link.is_complete) {
+		l->port_link.is_complete = true;
+		pw_log_info(NAME" %p: our link %d -> %d completed", c, src, dst);
+		do_callback(c, connect_callback, src, dst, 1, c->connect_arg);
+		do_callback(c, graph_callback, c->graph_arg);
+	}
 
 exit:
 	if (res < 0)
@@ -2730,6 +2750,8 @@ static void registry_event_global(void *data, uint32_t id,
 				o->port.name, type_id);
 	}
 	else if (spa_streq(type, PW_TYPE_INTERFACE_Link)) {
+		struct object *p;
+
 		o = alloc_object(c, INTERFACE_Link);
 
 		pthread_mutex_lock(&c->context.lock);
@@ -2740,16 +2762,23 @@ static void registry_event_global(void *data, uint32_t id,
 			goto exit_free;
 		o->port_link.src = pw_properties_parse_int(str);
 
-		if (find_type(c, o->port_link.src, INTERFACE_Port, true) == NULL)
+		if ((p = find_type(c, o->port_link.src, INTERFACE_Port, true)) == NULL)
 			goto exit_free;
+
+		o->port_link.src_ours = o->port.port != NULL &&
+			o->port.port->client == c;
 
 		if ((str = spa_dict_lookup(props, PW_KEY_LINK_INPUT_PORT)) == NULL)
 			goto exit_free;
 		o->port_link.dst = pw_properties_parse_int(str);
 
-		if (find_type(c, o->port_link.dst, INTERFACE_Port, true) == NULL)
+		if ((p = find_type(c, o->port_link.dst, INTERFACE_Port, true)) == NULL)
 			goto exit_free;
 
+		o->port_link.dst_ours = o->port.port != NULL &&
+			o->port.port->client == c;
+
+		o->port_link.is_complete = !o->port_link.src_ours && !o->port_link.dst_ours;
 		pw_log_debug(NAME" %p: add link %d %d->%d", c, id,
 				o->port_link.src, o->port_link.dst);
 	}
@@ -2806,11 +2835,13 @@ static void registry_event_global(void *data, uint32_t id,
 		break;
 
 	case INTERFACE_Link:
-		pw_log_info(NAME" %p: link %u %d -> %d added", c, o->id,
-				o->port_link.src, o->port_link.dst);
-		do_callback(c, connect_callback,
-				o->port_link.src, o->port_link.dst, 1, c->connect_arg);
-		graph_changed = true;
+		pw_log_info(NAME" %p: link %u %d -> %d added complete:%d", c, o->id,
+				o->port_link.src, o->port_link.dst, o->port_link.is_complete);
+		if (o->port_link.is_complete) {
+			do_callback(c, connect_callback,
+					o->port_link.src, o->port_link.dst, 1, c->connect_arg);
+			graph_changed = true;
+		}
 		break;
 	}
 	if (graph_changed)
@@ -2862,10 +2893,12 @@ static void registry_event_global_remove(void *object, uint32_t id)
 		graph_changed = true;
 		break;
 	case INTERFACE_Link:
-		if (find_type(c, o->port_link.src, INTERFACE_Port, true) != NULL &&
+		if (o->port_link.is_complete &&
+		    find_type(c, o->port_link.src, INTERFACE_Port, true) != NULL &&
 		    find_type(c, o->port_link.dst, INTERFACE_Port, true) != NULL) {
 			pw_log_info(NAME" %p: link %u %d -> %d removed", c, o->id,
 					o->port_link.src, o->port_link.dst);
+			o->port_link.is_complete = false;
 			do_callback(c, connect_callback,
 					o->port_link.src, o->port_link.dst, 0, c->connect_arg);
 			graph_changed = true;
@@ -4238,6 +4271,8 @@ int jack_port_connected (const jack_port_t *port)
 
 	pthread_mutex_lock(&c->context.lock);
 	spa_list_for_each(l, &c->context.links, link) {
+		if (!l->port_link.is_complete)
+			continue;
 		if (l->port_link.src == o->id ||
 		    l->port_link.dst == o->id)
 			res++;
@@ -4277,7 +4312,8 @@ int jack_port_connected_to (const jack_port_t *port,
 		p = o;
 		o = l;
 	}
-	if (find_link(c, o->id, p->id))
+	if ((l = find_link(c, o->id, p->id)) != NULL &&
+	    l->port_link.is_complete)
 		res = 1;
 
      exit:

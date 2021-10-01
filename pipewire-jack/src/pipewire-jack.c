@@ -2765,8 +2765,8 @@ static void registry_event_global(void *data, uint32_t id,
 		if ((p = find_type(c, o->port_link.src, INTERFACE_Port, true)) == NULL)
 			goto exit_free;
 
-		o->port_link.src_ours = o->port.port != NULL &&
-			o->port.port->client == c;
+		o->port_link.src_ours = p->port.port != NULL &&
+			p->port.port->client == c;
 
 		if ((str = spa_dict_lookup(props, PW_KEY_LINK_INPUT_PORT)) == NULL)
 			goto exit_free;
@@ -2775,8 +2775,8 @@ static void registry_event_global(void *data, uint32_t id,
 		if ((p = find_type(c, o->port_link.dst, INTERFACE_Port, true)) == NULL)
 			goto exit_free;
 
-		o->port_link.dst_ours = o->port.port != NULL &&
-			o->port.port->client == c;
+		o->port_link.dst_ours = p->port.port != NULL &&
+			p->port.port->client == c;
 
 		o->port_link.is_complete = !o->port_link.src_ours && !o->port_link.dst_ours;
 		pw_log_debug(NAME" %p: add link %d %d->%d", c, id,

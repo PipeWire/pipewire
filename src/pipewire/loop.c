@@ -35,7 +35,9 @@
 
 #define DATAS_SIZE (4096 * 8)
 
-#define NAME "loop"
+PW_LOG_TOPIC_EXTERN(log_loop);
+#define PW_LOG_TOPIC_DEFAULT log_loop
+
 
 /** \cond */
 
@@ -81,14 +83,14 @@ struct pw_loop *pw_loop_new(const struct spa_dict *props)
 			props, n_support, support);
 	if (impl->system_handle == NULL) {
 		res = -errno;
-		pw_log_error(NAME" %p: can't make "SPA_NAME_SUPPORT_SYSTEM" handle: %m", this);
+		pw_log_error("%p: can't make "SPA_NAME_SUPPORT_SYSTEM" handle: %m", this);
 		goto error_free;
 	}
 
         if ((res = spa_handle_get_interface(impl->system_handle,
 					    SPA_TYPE_INTERFACE_System,
 					    &iface)) < 0) {
-                pw_log_error(NAME" %p: can't get System interface: %s", this, spa_strerror(res));
+                pw_log_error("%p: can't get System interface: %s", this, spa_strerror(res));
                 goto error_unload_system;
 	}
 	this->system = iface;
@@ -105,14 +107,14 @@ struct pw_loop *pw_loop_new(const struct spa_dict *props)
 			n_support, support);
 	if (impl->loop_handle == NULL) {
 		res = -errno;
-		pw_log_error(NAME" %p: can't make "SPA_NAME_SUPPORT_LOOP" handle: %m", this);
+		pw_log_error("%p: can't make "SPA_NAME_SUPPORT_LOOP" handle: %m", this);
 		goto error_unload_system;
 	}
 
         if ((res = spa_handle_get_interface(impl->loop_handle,
 					    SPA_TYPE_INTERFACE_Loop,
 					    &iface)) < 0) {
-		pw_log_error(NAME" %p: can't get Loop interface: %s",
+		pw_log_error("%p: can't get Loop interface: %s",
 				this, spa_strerror(res));
                 goto error_unload_loop;
         }
@@ -121,7 +123,7 @@ struct pw_loop *pw_loop_new(const struct spa_dict *props)
         if ((res = spa_handle_get_interface(impl->loop_handle,
 					    SPA_TYPE_INTERFACE_LoopControl,
 					    &iface)) < 0) {
-		pw_log_error(NAME" %p: can't get LoopControl interface: %s",
+		pw_log_error("%p: can't get LoopControl interface: %s",
 				this, spa_strerror(res));
                 goto error_unload_loop;
         }
@@ -130,7 +132,7 @@ struct pw_loop *pw_loop_new(const struct spa_dict *props)
         if ((res = spa_handle_get_interface(impl->loop_handle,
 					    SPA_TYPE_INTERFACE_LoopUtils,
 					    &iface)) < 0) {
-		pw_log_error(NAME" %p: can't get LoopUtils interface: %s",
+		pw_log_error("%p: can't get LoopUtils interface: %s",
 				this, spa_strerror(res));
                 goto error_unload_loop;
         }

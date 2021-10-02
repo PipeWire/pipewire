@@ -26,12 +26,13 @@
 #include "pipewire/main-loop.h"
 #include "pipewire/private.h"
 
-#define NAME "main-loop"
+PW_LOG_TOPIC_EXTERN(log_main_loop);
+#define PW_LOG_TOPIC_DEFAULT log_main_loop
 
 static void do_stop(void *data, uint64_t count)
 {
 	struct pw_main_loop *this = data;
-	pw_log_debug(NAME" %p: do stop", this);
+	pw_log_debug("%p: do stop", this);
 	this->running = false;
 }
 
@@ -46,7 +47,7 @@ static struct pw_main_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 		goto error_cleanup;
 	}
 
-	pw_log_debug(NAME" %p: new", this);
+	pw_log_debug("%p: new", this);
 
 	if (loop == NULL) {
 		loop = pw_loop_new(props);
@@ -95,7 +96,7 @@ struct pw_main_loop *pw_main_loop_new(const struct spa_dict *props)
 SPA_EXPORT
 void pw_main_loop_destroy(struct pw_main_loop *loop)
 {
-	pw_log_debug(NAME" %p: destroy", loop);
+	pw_log_debug("%p: destroy", loop);
 	pw_main_loop_emit_destroy(loop);
 
 	if (loop->created)
@@ -130,7 +131,7 @@ struct pw_loop * pw_main_loop_get_loop(struct pw_main_loop *loop)
 SPA_EXPORT
 int pw_main_loop_quit(struct pw_main_loop *loop)
 {
-	pw_log_debug(NAME" %p: quit", loop);
+	pw_log_debug("%p: quit", loop);
 	return pw_loop_signal_event(loop->loop, loop->event);
 }
 
@@ -146,7 +147,7 @@ int pw_main_loop_run(struct pw_main_loop *loop)
 {
 	int res = 0;
 
-	pw_log_debug(NAME" %p: run", loop);
+	pw_log_debug("%p: run", loop);
 
 	loop->running = true;
 	pw_loop_enter(loop->loop);
@@ -154,7 +155,7 @@ int pw_main_loop_run(struct pw_main_loop *loop)
 		if ((res = pw_loop_iterate(loop->loop, -1)) < 0) {
 			if (res == -EINTR)
 				continue;
-			pw_log_warn(NAME" %p: iterate error %d (%s)",
+			pw_log_warn("%p: iterate error %d (%s)",
 					loop, res, spa_strerror(res));
 		}
 	}

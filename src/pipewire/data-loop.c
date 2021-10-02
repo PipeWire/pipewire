@@ -31,7 +31,8 @@
 #include "pipewire/private.h"
 #include "pipewire/thread.h"
 
-#define NAME "data-loop"
+PW_LOG_TOPIC_EXTERN(log_data_loop);
+#define PW_LOG_TOPIC_DEFAULT log_data_loop
 
 SPA_EXPORT
 int pw_data_loop_wait(struct pw_data_loop *this, int timeout)
@@ -61,7 +62,7 @@ void pw_data_loop_exit(struct pw_data_loop *this)
 static void thread_cleanup(void *arg)
 {
 	struct pw_data_loop *this = arg;
-	pw_log_debug(NAME" %p: leave thread", this);
+	pw_log_debug("%p: leave thread", this);
 	this->running = false;
 	pw_loop_leave(this->loop);
 }
@@ -71,7 +72,7 @@ static void *do_loop(void *user_data)
 	struct pw_data_loop *this = user_data;
 	int res;
 
-	pw_log_debug(NAME" %p: enter thread", this);
+	pw_log_debug("%p: enter thread", this);
 	pw_loop_enter(this->loop);
 
 	pthread_cleanup_push(thread_cleanup, this);
@@ -80,7 +81,7 @@ static void *do_loop(void *user_data)
 		if ((res = pw_loop_iterate(this->loop, -1)) < 0) {
 			if (res == -EINTR)
 				continue;
-			pw_log_error(NAME" %p: iterate error %d (%s)",
+			pw_log_error("%p: iterate error %d (%s)",
 					this, res, spa_strerror(res));
 		}
 	}
@@ -92,7 +93,7 @@ static void *do_loop(void *user_data)
 static void do_stop(void *data, uint64_t count)
 {
 	struct pw_data_loop *this = data;
-	pw_log_debug(NAME" %p: stopping", this);
+	pw_log_debug("%p: stopping", this);
 	this->running = false;
 }
 
@@ -108,7 +109,7 @@ static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 		goto error_cleanup;
 	}
 
-	pw_log_debug(NAME" %p: new", this);
+	pw_log_debug("%p: new", this);
 
 	if (loop == NULL) {
 		loop = pw_loop_new(props);
@@ -116,7 +117,7 @@ static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 	}
 	if (loop == NULL) {
 		res = -errno;
-		pw_log_error(NAME" %p: can't create loop: %m", this);
+		pw_log_error("%p: can't create loop: %m", this);
 		goto error_free;
 	}
 	this->loop = loop;
@@ -127,7 +128,7 @@ static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 		this->event = pw_loop_add_event(this->loop, do_stop, this);
 		if (this->event == NULL) {
 			res = -errno;
-			pw_log_error(NAME" %p: can't add event: %m", this);
+			pw_log_error("%p: can't add event: %m", this);
 			goto error_loop_destroy;
 		}
 	}
@@ -162,7 +163,7 @@ struct pw_data_loop *pw_data_loop_new(const struct spa_dict *props)
 SPA_EXPORT
 void pw_data_loop_destroy(struct pw_data_loop *loop)
 {
-	pw_log_debug(NAME" %p: destroy", loop);
+	pw_log_debug("%p: destroy", loop);
 
 	pw_data_loop_emit_destroy(loop);
 
@@ -211,7 +212,7 @@ int pw_data_loop_start(struct pw_data_loop *loop)
 		thr = pw_thread_utils_create(NULL, do_loop, loop);
 		loop->thread = (pthread_t)thr;
 		if (thr == NULL) {
-			pw_log_error(NAME" %p: can't create thread: %m", loop);
+			pw_log_error("%p: can't create thread: %m", loop);
 			loop->running = false;
 			return -errno;
 		}
@@ -229,20 +230,20 @@ int pw_data_loop_start(struct pw_data_loop *loop)
 SPA_EXPORT
 int pw_data_loop_stop(struct pw_data_loop *loop)
 {
-	pw_log_debug(NAME": %p stopping", loop);
+	pw_log_debug("%p stopping", loop);
 	if (loop->running) {
 		if (loop->event) {
-			pw_log_debug(NAME": %p signal", loop);
+			pw_log_debug("%p signal", loop);
 			pw_loop_signal_event(loop->loop, loop->event);
 		} else {
-			pw_log_debug(NAME": %p cancel", loop);
+			pw_log_debug("%p cancel", loop);
 			pthread_cancel(loop->thread);
 		}
-		pw_log_debug(NAME": %p join", loop);
+		pw_log_debug("%p join", loop);
 		pw_thread_utils_join((struct spa_thread*)loop->thread, NULL);
-		pw_log_debug(NAME": %p joined", loop);
+		pw_log_debug("%p joined", loop);
 	}
-	pw_log_debug(NAME": %p stopped", loop);
+	pw_log_debug("%p stopped", loop);
 	return 0;
 }
 

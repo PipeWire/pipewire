@@ -81,6 +81,7 @@ doxyfile_conf.set('inputs', ' '.join(inputs))
 doxyfile_conf.set('cssfiles', ' '.join(cssfiles))
 doxyfile_conf.set('path_prefixes', ' '.join(path_prefixes))
 doxyfile_conf.set('c_input_filter', meson.source_root() / 'doc' / 'input-filter.sh')
+doxyfile_conf.set('h_input_filter', meson.source_root() / 'doc' / 'input-filter-h.sh')
 
 doxyfile = configure_file(input: 'Doxyfile.in',
                           output: 'Doxyfile',

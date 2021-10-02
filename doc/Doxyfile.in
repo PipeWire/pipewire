@@ -6,6 +6,9 @@ JAVADOC_AUTOBRIEF      = YES
 TAB_SIZE               = 8
 OPTIMIZE_OUTPUT_FOR_C  = YES
 EXTRACT_ALL            = YES
+EXTRACT_STATIC         = YES
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        = @path_prefixes@
 SHOW_INCLUDE_FILES     = NO
 GENERATE_TODOLIST      = NO
 GENERATE_TESTLIST      = NO
@@ -14,6 +17,7 @@ QUIET                  = YES
 WARN_NO_PARAMDOC       = YES
 HAVE_DOT               = @HAVE_DOT@
 INPUT                  = @inputs@
+FILTER_PATTERNS        = "*.c=@c_input_filter@"
 FILE_PATTERNS          = "*.h" "*.c"
 RECURSIVE              = YES
 EXAMPLE_PATH           = "@top_srcdir@/src/tools" \
@@ -23,7 +27,9 @@ EXAMPLE_PATH           = "@top_srcdir@/src/tools" \
 REFERENCED_BY_RELATION = YES
 REFERENCES_RELATION    = YES
 IGNORE_PREFIX          = pw_ \
-                         PW_
+                         PW_ \
+                         spa_ \
+                         SPA_
 GENERATE_TREEVIEW      = YES
 SEARCHENGINE           = NO
 GENERATE_LATEX         = NO

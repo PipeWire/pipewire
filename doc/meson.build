@@ -25,31 +25,14 @@ endforeach
 foreach h : media_session_sources
   inputs += meson.source_root() / 'src' / 'media-session' / h
 endforeach
+inputs += meson.source_root() / 'spa' / 'include' / 'spa'
 inputs += meson.source_root() / 'test' / 'pwtest.h'
 
-# SPA headers use static inline functions. Doxygen doesn't extract those
-# unless we have EXTRACT_STATIC set - but we don't want it to extract
-# everything in the rest of the tree.
-# The shell script here basically does a:
-#   cp spa/* builddir/spa/ && sed -i 's/^static//' buildir/spa/**.h
-# The copied files are passed to doxygen as input and they are parsed as
-# normal functions.
-# Because this uses globbing, this target won't rebuild if the headers
-# change but meh.
-sed = find_program('sed', required: false)
-summary({'sed (for SPA docs)': sed.found()}, bool_yn: true, section: 'Optional programs')
-if sed.found()
-  spa_srcdir = meson.source_root() / 'spa' / 'include' / 'spa'
-  spa_dstdir = meson.current_build_dir() / 'spa'
-  spa_strip_static = custom_target(
-    'spa-strip-static',
-    command: [ find_program('strip-static.sh'), spa_srcdir, spa_dstdir ],
-    build_by_default: true,
-    output: 'spa',
-  )
-else
-  spa_strip_static = []
-endif
+path_prefixes = [
+  meson.source_root() / 'src',
+  meson.source_root() / 'spa' / 'include',
+  meson.source_root(),
+]
 
 # Note: order here is how doxygen will expose the pages in the sidebar
 extra_docs = [
@@ -94,8 +77,10 @@ cssfiles = [
   meson.source_root() / 'doc' / 'custom.css'
 ]
 
-doxyfile_conf.set('inputs', ' '.join(inputs + [spa_dstdir]))
+doxyfile_conf.set('inputs', ' '.join(inputs))
 doxyfile_conf.set('cssfiles', ' '.join(cssfiles))
+doxyfile_conf.set('path_prefixes', ' '.join(path_prefixes))
+doxyfile_conf.set('c_input_filter', meson.source_root() / 'doc' / 'input-filter.sh')
 
 doxyfile = configure_file(input: 'Doxyfile.in',
                           output: 'Doxyfile',
@@ -110,6 +95,5 @@ html_target = custom_target('pipewire-docs',
                             input: [ doxyfile ] + inputs + cssfiles,
                             output: [ 'html' ],
                             command: [ doxygen, doxyfile ],
-                            depends: spa_strip_static,
                             install: true,
                             install_dir: docdir)

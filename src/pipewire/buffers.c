@@ -36,7 +36,8 @@
 
 #include "buffers.h"
 
-#define NAME "buffers"
+PW_LOG_TOPIC_EXTERN(log_buffers);
+#define PW_LOG_TOPIC_DEFAULT log_buffers
 
 #define MAX_ALIGN	32
 #define MAX_BLOCKS	64u
@@ -88,7 +89,7 @@ static int alloc_buffers(struct pw_mempool *pool,
 				SPA_PARAM_META_size, SPA_POD_Int(&size)) < 0)
 				continue;
 
-			pw_log_debug(NAME" %p: enable meta %d %d", allocation, type, size);
+			pw_log_debug("%p: enable meta %d %d", allocation, type, size);
 
 			metas[n_metas].type = type;
 			metas[n_metas].size = size;
@@ -143,7 +144,7 @@ static int alloc_buffers(struct pw_mempool *pool,
 		data = NULL;
 	}
 
-	pw_log_debug(NAME" %p: layout buffers skel:%p data:%p buffers:%p",
+	pw_log_debug("%p: layout buffers skel:%p data:%p buffers:%p",
 			allocation, skel, data, buffers);
 	spa_buffer_alloc_layout_array(&info, n_buffers, buffers, skel, data);
 
@@ -170,7 +171,7 @@ param_filter(struct pw_buffers *this,
 
 	for (iidx = 0;;) {
 	        spa_pod_builder_init(&ib, ibuf, sizeof(ibuf));
-		pw_log_debug(NAME" %p: input param %d id:%d", this, iidx, id);
+		pw_log_debug("%p: input param %d id:%d", this, iidx, id);
 		in_res = spa_node_port_enum_params_sync(in_port->node,
 						in_port->direction, in_port->port_id,
 						id, &iidx, NULL, &iparam, &ib);
@@ -189,7 +190,7 @@ param_filter(struct pw_buffers *this,
 		pw_log_pod(SPA_LOG_LEVEL_DEBUG, iparam);
 
 		for (oidx = 0;;) {
-			pw_log_debug(NAME" %p: output param %d id:%d", this, oidx, id);
+			pw_log_debug("%p: output param %d id:%d", this, oidx, id);
 			out_res = spa_node_port_enum_params_sync(out_port->node,
 						out_port->direction, out_port->port_id,
 						id, &oidx, iparam, &oparam, result);
@@ -273,7 +274,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	for (i = 0, offset = 0; i < n_params; i++) {
 		params[i] = SPA_PTROFF(buffer, offset, struct spa_pod);
 		spa_pod_fixate(params[i]);
-		pw_log_debug(NAME" %p: fixated param %d:", result, i);
+		pw_log_debug("%p: fixated param %d:", result, i);
 		pw_log_pod(SPA_LOG_LEVEL_DEBUG, params[i]);
 		offset += SPA_ROUND_UP_N(SPA_POD_SIZE(params[i]), 8);
 	}
@@ -313,11 +314,11 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		align = SPA_MAX(align, qalign);
 		types = qtypes;
 
-		pw_log_debug(NAME" %p: %d %d %d %d %d %d -> %d %zd %zd %d %zd %d", result,
+		pw_log_debug("%p: %d %d %d %d %d %d -> %d %zd %zd %d %zd %d", result,
 				qblocks, qminsize, qstride, qmax_buffers, qalign, qtypes,
 				blocks, minsize, stride, max_buffers, align, types);
 	} else {
-		pw_log_warn(NAME" %p: no buffers param", result);
+		pw_log_warn("%p: no buffers param", result);
 		minsize = 8192;
 		max_buffers = 2;
 	}
@@ -346,7 +347,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 				 data_aligns, data_types,
 				 flags,
 				 result)) < 0) {
-		pw_log_error(NAME" %p: can't alloc buffers: %s", result, spa_strerror(res));
+		pw_log_error("%p: can't alloc buffers: %s", result, spa_strerror(res));
 	}
 
 	return res;
@@ -355,7 +356,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 SPA_EXPORT
 void pw_buffers_clear(struct pw_buffers *buffers)
 {
-	pw_log_debug(NAME" %p: clear %d buffers:%p", buffers, buffers->n_buffers, buffers->buffers);
+	pw_log_debug("%p: clear %d buffers:%p", buffers, buffers->n_buffers, buffers->buffers);
 	if (buffers->mem)
 		pw_memblock_unref(buffers->mem);
 	free(buffers->buffers);

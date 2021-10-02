@@ -48,6 +48,7 @@ SPA_EXPORT
 struct spa_log_topic *PW_LOG_TOPIC_DEFAULT;
 
 PW_LOG_TOPIC_STATIC(log_topic, "pw.log"); /* log topic for this file here */
+PW_LOG_TOPIC(log_buffers, "pw.buffers");
 PW_LOG_TOPIC(log_conf, "pw.conf");
 PW_LOG_TOPIC(log_context, "pw.context");
 PW_LOG_TOPIC(log_metadata, "pw.metadata");
@@ -417,6 +418,8 @@ void
 pw_log_init(void)
 {
 	PW_LOG_TOPIC_INIT(PW_LOG_TOPIC_DEFAULT);
+	PW_LOG_TOPIC_INIT(log_buffers);
+	PW_LOG_TOPIC_INIT(log_conf);
 	PW_LOG_TOPIC_INIT(log_topic);
 	PW_LOG_TOPIC_INIT(log_context);
 	PW_LOG_TOPIC_INIT(log_metadata);

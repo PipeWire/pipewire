@@ -47,3 +47,6 @@ PREDEFINED             = PA_C_DECL_BEGIN= \
 			 SPA_NORETURN \
 			 SPA_RESTRICT
 HTML_EXTRA_STYLESHEET  = @cssfiles@
+
+# Fix up some apparent Doxygen mis-parsing
+EXCLUDE_SYMBOLS        = "desc" "methods" "msgid_plural" "n" "name" "props" "utils" "start"

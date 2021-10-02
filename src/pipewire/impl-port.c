@@ -38,8 +38,6 @@
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
 
-#define NAME "port"
-
 PW_LOG_TOPIC_EXTERN(log_port);
 #define PW_LOG_TOPIC_DEFAULT log_port
 
@@ -119,7 +117,7 @@ void pw_impl_port_update_state(struct pw_impl_port *port, enum pw_impl_port_stat
 
 	pw_log(state == PW_IMPL_PORT_STATE_ERROR ?
 			SPA_LOG_LEVEL_ERROR : SPA_LOG_LEVEL_DEBUG,
-		NAME" %p: state %s -> %s (%s)", port,
+		"%p: state %s -> %s (%s)", port,
 		port_state_as_string(old), port_state_as_string(state), error);
 
 	pw_impl_port_emit_state_changed(port, old, state, error);
@@ -1215,7 +1213,7 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 			if (spa_pod_filter(&b, &result.param, p->param, filter) != 0)
 				continue;
 
-			pw_log_debug(NAME " %p: %d param %u", port, seq, result.index);
+			pw_log_debug("%p: %d param %u", port, seq, result.index);
 			result_port_params(&user_data, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 			if (++count == max)

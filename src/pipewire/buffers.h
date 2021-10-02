@@ -34,6 +34,14 @@
 extern "C" {
 #endif
 
+/** \defgroup pw_buffers Buffers
+ */
+
+/**
+ * \addtogroup pw_buffers
+ * \{
+ */
+
 #define PW_BUFFERS_FLAG_NONE		0
 #define PW_BUFFERS_FLAG_NO_MEM		(1<<0)	/**< don't allocate buffer memory */
 #define PW_BUFFERS_FLAG_SHARED		(1<<1)	/**< buffers can be shared */
@@ -52,6 +60,10 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		struct pw_buffers *result);
 
 void pw_buffers_clear(struct pw_buffers *buffers);
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }

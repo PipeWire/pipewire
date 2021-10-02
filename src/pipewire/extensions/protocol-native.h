@@ -34,6 +34,14 @@ extern "C" {
 #include <pipewire/proxy.h>
 #include <pipewire/resource.h>
 
+/** \defgroup pw_protocol_native Native Protocol
+ *
+ */
+
+/**
+ * \addtogroup pw_protocol_native
+ * \{
+ */
 #define PW_TYPE_INFO_PROTOCOL_Native		PW_TYPE_INFO_PROTOCOL_BASE "Native"
 
 struct pw_protocol_native_message {
@@ -85,6 +93,10 @@ struct pw_protocol_native_ext {
 #define pw_protocol_native_add_resource_fd(r,...)	pw_protocol_ext(pw_resource_get_protocol(r),struct pw_protocol_native_ext,add_resource_fd,r,__VA_ARGS__)
 #define pw_protocol_native_get_resource_fd(r,...)	pw_protocol_ext(pw_resource_get_protocol(r),struct pw_protocol_native_ext,get_resource_fd,r,__VA_ARGS__)
 #define pw_protocol_native_end_resource(r,...)		pw_protocol_ext(pw_resource_get_protocol(r),struct pw_protocol_native_ext,end_resource,r,__VA_ARGS__)
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

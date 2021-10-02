@@ -34,7 +34,12 @@ extern "C" {
 #include <spa/utils/defs.h>
 
 /**
- * \addtogroup spa_utils
+ * \defgroup spa_dict Dictionary
+ *
+ */
+
+/**
+ * \addtogroup spa_dict
  * \{
  */
 

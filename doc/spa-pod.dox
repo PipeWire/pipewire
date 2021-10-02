@@ -1,6 +1,6 @@
 /** \page page_spa_pod SPA POD
 
-POD (plain old data) is a sort of data container. It is comparable to
+\ref spa_pod (plain old data) is a sort of data container. It is comparable to
 DBus Variant or LV2 Atom.
 
 A POD can express nested structures of Objects (with properties), Vectors,
@@ -518,5 +518,9 @@ field specifies the size following the type field.
 
 Each POD is aligned to an 8 byte boundary.
 
+
+\addtogroup spa_pod
+
+See: \ref page_spa_pod
 
 */

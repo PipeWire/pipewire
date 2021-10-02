@@ -29,14 +29,14 @@
 extern "C" {
 #endif
 
-/** \defgroup pw_filter PipeWire Filter
+/** \defgroup pw_filter Filter API
  *
  * \brief PipeWire filter object class
  *
  * The filter object provides a convenient way to implement
  * processing filters.
  *
- * See also \ref page_core_api
+ * See also \ref api_pw_core
  */
 
 /**

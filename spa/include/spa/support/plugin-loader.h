@@ -32,8 +32,12 @@ extern "C" {
 #include <spa/utils/hook.h>
 #include <spa/utils/defs.h>
 
+/** \defgroup spa_plugin_loader Plugin Loader
+ *
+ */
+
 /**
- * \addtogroup spa_support
+ * \addtogroup spa_plugin_loader
  * \{
  */
 

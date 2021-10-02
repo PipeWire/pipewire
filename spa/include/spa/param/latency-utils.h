@@ -29,6 +29,10 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup spa_param
+ * \{
+ */
 
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
@@ -157,6 +161,10 @@ spa_process_latency_info_add(const struct spa_process_latency_info *process,
 	info->max_ns += process->ns;
 	return 0;
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

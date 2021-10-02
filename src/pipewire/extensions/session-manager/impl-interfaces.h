@@ -36,6 +36,15 @@
 extern "C" {
 #endif
 
+/** \defgroup pw_session_manager_impl Implementation
+ *
+ */
+
+/**
+ * \addtogroup pw_session_manager_impl
+ * \{
+ */
+
 #define PW_TYPE_INTERFACE_ClientEndpoint	PW_TYPE_INFO_INTERFACE_BASE "ClientEndpoint"
 
 #define PW_VERSION_CLIENT_ENDPOINT		0
@@ -281,6 +290,10 @@ struct pw_client_session_methods {
 #define pw_client_session_add_listener(o,...)	pw_client_session_method(o,add_listener,0,__VA_ARGS__)
 #define pw_client_session_update(o,...)		pw_client_session_method(o,update,0,__VA_ARGS__)
 #define pw_client_session_link_update(o,...)	pw_client_session_method(o,link_update,0,__VA_ARGS__)
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -31,7 +31,7 @@ extern "C" {
 
 #include <spa/utils/hook.h>
 
-/** \defgroup pw_impl_port Port Object
+/** \defgroup pw_impl_port Port Impl
  *
  * \brief A port can be used to link two nodes.
  */

@@ -2,7 +2,7 @@
 
 > What is the array of `spa_data` in `spa_buffer`?
 
-A buffer contains metadata and data. There can be many metadata items (headers, color info, cursor position, etc) in the buffer. The metadata items are stored in the metas array. In the same way, the buffer can contain multiple data blocks in the datas array. Each data block is, for example, a video plane or an audio channel. There are `n_datas` of those blocks.
+A \ref spa_buffer "SPA Buffer" contains metadata and data. There can be many metadata items (headers, color info, cursor position, etc) in the buffer. The metadata items are stored in the metas array. In the same way, the buffer can contain multiple data blocks in the datas array. Each data block is, for example, a video plane or an audio channel. There are `n_datas` of those blocks.
 
 > What is the `void*` data pointer in `spa_data`?
 
@@ -61,5 +61,11 @@ The reason why is this set up like this is that the metadata memory, the data an
 	 *      +==============================+
 
 Taken from [here](https://gitlab.freedesktop.org/pipewire/pipewire/-/blob/11f95fe11e07192cec19fddb4fafc708e023e49c/spa/include/spa/buffer/alloc.h).
+
+
+
+\addtogroup spa_buffer
+
+See: \ref page_spa_buffer
 
 */

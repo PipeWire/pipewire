@@ -37,11 +37,13 @@ extern "C" {
 #include <stddef.h>
 #include <stdio.h>
 
-/** \defgroup spa_utils SPA Utils
+/**
+ * \defgroup spa_utils_defs Miscellaneous
+ *
  */
 
 /**
- * \addtogroup spa_utils
+ * \addtogroup spa_utils_defs
  * \{
  */
 

@@ -36,7 +36,12 @@ extern "C" {
 #include <spa/utils/defs.h>
 
 /**
- * \addtogroup spa_utils
+ * \defgroup spa_string String handling
+ *
+ */
+
+/**
+ * \addtogroup spa_string
  * \{
  */
 
@@ -45,7 +50,6 @@ extern "C" {
  *
  * If both \a a and \a b are NULL, the two are considered equal.
  *
- * \ingroup spa
  */
 static inline bool spa_streq(const char *s1, const char *s2)
 {

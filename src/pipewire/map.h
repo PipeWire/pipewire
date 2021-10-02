@@ -35,7 +35,7 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <pipewire/array.h>
 
-/** \defgroup pw_map Map Objects
+/** \defgroup pw_map Map
  *
  * \brief A map that holds objects indexed by id
  */

@@ -31,7 +31,7 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/buffer/meta.h>
 
-/** \defgroup spa_buffer SPA Buffers
+/** \defgroup spa_buffer Buffers
  *
  * Buffers describe the data and metadata that is exchanged between
  * ports of a node.

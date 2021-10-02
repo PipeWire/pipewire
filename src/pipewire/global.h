@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-/** \defgroup pw_global PipeWire Global Object
+/** \defgroup pw_global Global
  *
  * \brief A global object visible to remote clients
  *

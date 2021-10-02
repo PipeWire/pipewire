@@ -32,8 +32,12 @@ extern "C" {
 #include <spa/utils/hook.h>
 #include <spa/utils/defs.h>
 
+/** \defgroup spa_i18n I18N
+ *
+ */
+
 /**
- * \addtogroup spa_support
+ * \addtogroup spa_i18n
  * \{
  */
 

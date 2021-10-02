@@ -1,14 +1,22 @@
-/** \page page_api API Documentation
+/** \page page_api PipeWire API
 
-The API consists of two parts:
+The PipeWire API consists of several parts:
 
-- The \ref page_core_api to access a PipeWire instance. This API is used
+- The \ref pw_stream for a convenient way to send and receive data streams from/to PipeWire.
+
+- The \ref pw_filter for a convenient way to implement processing filters.
+
+- The \ref api_pw_core to access a PipeWire instance. This API is used
 by all clients that need to communicate with the \ref page_daemon and provides
 the necessary structs to interface with the daemon.
-- The \ref page_implementation_api and tools to build new objects and modules.
-This API is primarily used by the \ref page_daemon itself but also by the
+
+- The \ref api_pw_impl is primarily used by the \ref page_daemon itself but also by the
 \ref page_session_manager and modules/extensions that need to build objects in
 the graph.
+
+- The \ref api_pw_util containing various utility functions and structures.
+
+- The \ref api_pw_ext for interfacing with certain extension modules.
 
 The APIs work through proxy objects, so that calling a method on an object
 invokes that same method on the remote side. Marshalling and de-marshalling is
@@ -48,47 +56,32 @@ digraph API {
 }
 \enddot
 
-It is common for clients to use both the Core API and the Implementation API
+It is common for clients to use both the \ref api_pw_core and the \ref api_pw_impl
 and both APIs are provided by the same library.
 
-\section page_core_api Core API
 
-The Core API serves to access a PipeWire instance. This API is used by all
-clients to communicate with the \ref page_daemon. It consists of the
-following object-specific APIs:
 
-- \ref pw_core
-- \ref pw_context
-- \ref pw_global
-- \ref pw_client
-- \ref pw_resource
-- \ref pw_node
-- \ref pw_port
-- \ref pw_link
+
+
+\addtogroup api_pw_core Core API
+
+The Core API to access a PipeWire instance. This API is used by all
+clients to communicate with the \ref page_daemon.
 
 If you are familiar with Wayland implementation, the Core API is
 roughly equivalent to libwayland-client.
 
-\section page_implementation_api Implementation API
+See: \ref page_api
+
+
+\addtogroup api_pw_impl Implementation API
 
 The implementation API provides the tools to build new objects and
-modules. It consists of the following object-specific APIs:
-
-- \ref pw_impl_core
-- \ref pw_impl_client
-- \ref pw_impl_device
-- \ref pw_impl_factory
-- \ref pw_impl_link
-- \ref pw_impl_metadata
-- \ref pw_impl_module
-- \ref pw_impl_node
-- \ref pw_impl_port
-- \ref pw_control
-- \ref pw_global
-- \ref pw_resource
-- \ref pw_work_queue
+modules.
 
 If you are familiar with Wayland implementation, the Implementation API is
 roughly equivalent to libwayland-server.
+
+See: \ref page_api
 
 */

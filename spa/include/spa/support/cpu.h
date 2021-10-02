@@ -34,12 +34,12 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 
-/** \defgroup spa_support SPA Support Features
+/** \defgroup spa_cpu CPU
  *
  */
 
 /**
- * \addtogroup spa_support
+ * \addtogroup spa_cpu
  * \{
  */
 

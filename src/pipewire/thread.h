@@ -34,9 +34,14 @@ extern "C" {
 
 #include <spa/support/thread.h>
 
-/** \defgroup spa_thread Thread related functions
+/** \defgroup pw_thread Thread
  *
  * \brief functions to manipulate threads
+ */
+
+/**
+ * \addtogroup pw_thread
+ * \{
  */
 
 void pw_thread_utils_set(struct spa_thread_utils *impl);
@@ -47,6 +52,10 @@ struct spa_thread_utils *pw_thread_utils_get(void);
 #define pw_thread_utils_get_rt_range(...)	spa_thread_utils_get_rt_range(pw_thread_utils_get(), ##__VA_ARGS__)
 #define pw_thread_utils_acquire_rt(...)		spa_thread_utils_acquire_rt(pw_thread_utils_get(), ##__VA_ARGS__)
 #define pw_thread_utils_drop_rt(...)		spa_thread_utils_drop_rt(pw_thread_utils_get(), ##__VA_ARGS__)
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-/** \defgroup pw_impl_link Link Objects
+/** \defgroup pw_impl_link Link Impl
  *
  * \brief PipeWire link object.
  */

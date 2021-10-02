@@ -33,7 +33,7 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
-/** \defgroup pw_array Array Objects
+/** \defgroup pw_array Array
  *
  * \brief An array object
  *

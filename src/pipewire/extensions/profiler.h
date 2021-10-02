@@ -31,6 +31,14 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
+/** \defgroup pw_profiler Profiler
+ *
+ */
+
+/**
+ * \addtogroup pw_profiler
+ * \{
+ */
 #define PW_TYPE_INTERFACE_Profiler		PW_TYPE_INFO_INTERFACE_BASE "Profiler"
 
 #define PW_VERSION_PROFILER			3
@@ -75,6 +83,10 @@ struct pw_profiler_methods {
 #define pw_profiler_add_listener(c,...)		pw_profiler_method(c,add_listener,0,__VA_ARGS__)
 
 #define PW_KEY_PROFILER_NAME		"profiler.name"
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

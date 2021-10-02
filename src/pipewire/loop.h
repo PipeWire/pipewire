@@ -32,7 +32,7 @@ extern "C" {
 #include <spa/support/loop.h>
 #include <spa/utils/dict.h>
 
-/** \defgroup pw_loop PipeWire Loop
+/** \defgroup pw_loop Loop
  *
  * PipeWire loop object provides an implementation of
  * the spa loop interfaces. It can be used to implement various

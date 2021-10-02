@@ -31,7 +31,9 @@ extern "C" {
 
 #include <spa/utils/hook.h>
 
-/** \defgroup pw_data_loop PipeWire rt-loop object
+/** \defgroup pw_data_loop Data Loop
+ *
+ * \brief PipeWire rt-loop object
  *
  * This loop starts a new real-time thread that
  * is designed to run the processing graph.

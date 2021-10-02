@@ -1,6 +1,6 @@
 /** \page page_spa_plugins SPA Plugins
 
-Plugins are dynamically loadable objects that contain objects and interfaces that
+\ref spa_handle "SPA plugins" are dynamically loadable objects that contain objects and interfaces that
 can be introspected and used at runtime in any application. This document
 introduces the basic concepts of SPA plugins. It first covers using the API
 and then talks about implementing new Plugins.
@@ -345,5 +345,11 @@ expected_seq = SPA_RESULT_ASYNC_SEQ(res);
 # Implementing a new plugin
 
 FIXME
+
+
+
+\addtogroup spa_handle
+
+See: \ref page_spa_plugins
 
 */

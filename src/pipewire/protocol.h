@@ -31,7 +31,7 @@ extern "C" {
 
 #include <spa/utils/list.h>
 
-/** \defgroup pw_protocol PipeWire Protocol
+/** \defgroup pw_protocol Protocol
  *
  * \brief Manages protocols and their implementation
  */

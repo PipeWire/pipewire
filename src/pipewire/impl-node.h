@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-/** \defgroup pw_impl_node Node
+/** \defgroup pw_impl_node Node Impl
  *
  * The node object processes data. The node has a list of
  * input and output ports (\ref pw_impl_port) on which it

@@ -31,7 +31,7 @@ extern "C" {
 
 #include <pipewire/loop.h>
 
-/** \page page_thread_loop Threaded Loop
+/** \page page_thread_loop Thread Loop
  *
  * \section sec_thread_loop_overview Overview
  *
@@ -80,7 +80,7 @@ extern "C" {
  * All events and callbacks are called with the thread lock held.
  *
  */
-/** \defgroup pw_thread_loop PipeWire Threaded Loop Object
+/** \defgroup pw_thread_loop Thread Loop
  *
  * The threaded loop object runs a \ref pw_loop in a separate thread
  * and ensures proper locking is done.

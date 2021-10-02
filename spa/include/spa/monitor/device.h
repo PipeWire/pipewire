@@ -35,7 +35,7 @@ extern "C" {
 #include <spa/pod/event.h>
 
 /**
- * \defgroup spa_device SPA Device
+ * \defgroup spa_device Device
  *
  * The device interface can be used to monitor all kinds of devices
  * and create objects as a result. Objects a typically other

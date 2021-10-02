@@ -32,6 +32,14 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/param/param.h>
 
+/** \defgroup pw_client_node Client Node
+ *
+ */
+
+/**
+ * \addtogroup pw_client_node
+ * \{
+ */
 #define PW_TYPE_INTERFACE_ClientNode		PW_TYPE_INFO_INTERFACE_BASE "ClientNode"
 
 #define PW_VERSION_CLIENT_NODE			4
@@ -337,6 +345,10 @@ pw_client_node_get_node(struct pw_client_node *p, uint32_t version, size_t user_
 #define pw_client_node_set_active(c,...)	pw_client_node_method(c,set_active,0,__VA_ARGS__)
 #define pw_client_node_event(c,...)		pw_client_node_method(c,event,0,__VA_ARGS__)
 #define pw_client_node_port_buffers(c,...)	pw_client_node_method(c,port_buffers,0,__VA_ARGS__)
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

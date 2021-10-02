@@ -12,9 +12,54 @@ else
   doxyfile_conf.set('HAVE_DOT', 'NO')
 endif
 
+# Note: order here is how doxygen will expose the pages in the sidebar
+# api-tree.dox should be first to determine ordering of Modules.
+extra_docs = [
+  'api-tree.dox',
+  'index.dox',
+  'overview.dox',
+  'pipewire.dox',
+  'pipewire-design.dox',
+  'pipewire-access.dox',
+  'pipewire-midi.dox',
+  'pipewire-portal.dox',
+  'pipewire-daemon.dox',
+  'pipewire-library.dox',
+  'pipewire-modules.dox',
+  'pipewire-tools.dox',
+  'pipewire-session-manager.dox',
+  'pipewire-objects-design.dox',
+  'pipewire-audio.dox',
+  'media-session.dox',
+  'tutorial.dox',
+  'tutorial1.dox',
+  'tutorial2.dox',
+  'tutorial3.dox',
+  'tutorial4.dox',
+  'tutorial5.dox',
+  'tutorial6.dox',
+  'api.dox',
+  'spa-index.dox',
+  'spa-plugins.dox',
+  'spa-design.dox',
+  'spa-pod.dox',
+  'spa-buffer.dox',
+  'pulseaudio.dox',
+  'dma-buf.dox',
+]
+
 inputs = []
+foreach extra : extra_docs
+  inputs += meson.source_root() / 'doc' / extra
+endforeach
 foreach h : pipewire_headers
   inputs += meson.source_root() / 'src' / 'pipewire' / h
+endforeach
+foreach h : pipewire_ext_headers
+  inputs += meson.source_root() / 'src' / 'pipewire' / 'extensions' / h
+endforeach
+foreach h : pipewire_ext_sm_headers
+  inputs += meson.source_root() / 'src' / 'pipewire' / 'extensions' / h
 endforeach
 foreach h : pipewire_sources
   inputs += meson.source_root() / 'src' / 'pipewire' / h
@@ -33,44 +78,6 @@ path_prefixes = [
   meson.source_root() / 'spa' / 'include',
   meson.source_root(),
 ]
-
-# Note: order here is how doxygen will expose the pages in the sidebar
-extra_docs = [
-  'index.dox',
-  'overview.dox',
-  'pipewire.dox',
-  'pipewire-design.dox',
-  'pipewire-access.dox',
-  'pipewire-midi.dox',
-  'pipewire-portal.dox',
-  'pipewire-daemon.dox',
-  'pipewire-library.dox',
-  'pipewire-modules.dox',
-  'pipewire-tools.dox',
-  'pipewire-session-manager.dox',
-  'pipewire-objects-design.dox',
-  'pipewire-audio.dox',
-  'media-session.dox',
-  'api.dox',
-  'tutorial.dox',
-  'tutorial1.dox',
-  'tutorial2.dox',
-  'tutorial3.dox',
-  'tutorial4.dox',
-  'tutorial5.dox',
-  'tutorial6.dox',
-  'spa-index.dox',
-  'spa-plugins.dox',
-  'spa-design.dox',
-  'spa-pod.dox',
-  'spa-buffer.dox',
-  'pulseaudio.dox',
-  'dma-buf.dox',
-]
-
-foreach extra : extra_docs
-  inputs += meson.source_root() / 'doc' / extra
-endforeach
 
 cssfiles = [
   meson.source_root() / 'doc' / 'doxygen-awesome.css',

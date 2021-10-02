@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 /**
- * \defgroup pw_keys PipeWire Keys
+ * \defgroup pw_keys Key Names
  *
  * A collection of keys that are used to add extra information on objects.
  *

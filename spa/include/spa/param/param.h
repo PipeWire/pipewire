@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-/** \defgroup spa_param SPA Parameters
+/** \defgroup spa_param Parameters
  */
 
 /**

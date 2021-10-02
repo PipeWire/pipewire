@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-/** \defgroup pw_impl_core PipeWire Core Interface
+/** \defgroup pw_impl_core Core Impl
  *
  * \brief PipeWire core interface.
  *

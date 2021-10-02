@@ -33,7 +33,7 @@ extern "C" {
 #include <spa/utils/dict.h>
 
 /**
- * \defgroup spa_handle SPA Plugin Handles
+ * \defgroup spa_handle Plugin Handle
  */
 
 /**

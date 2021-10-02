@@ -29,6 +29,10 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup api_pw_impl
+ */
+
 struct pw_impl_client;
 struct pw_impl_module;
 struct pw_global;

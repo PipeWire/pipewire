@@ -60,9 +60,8 @@ extern "C" {
 #include <pipewire/utils.h>
 #include <pipewire/version.h>
 
-/** \defgroup pw_pipewire PipeWire initialization and infrastructure functions
+/** \defgroup pw_pipewire Initialization etc.
  */
-
 
 /**
  * \addtogroup pw_pipewire

@@ -30,7 +30,12 @@ extern "C" {
 #endif
 
 /**
- * \addtogroup spa_utils
+ * \defgroup spa_ringbuffer Ringbuffer
+ *
+ */
+
+/**
+ * \addtogroup spa_ringbuffer
  * \{
  */
 

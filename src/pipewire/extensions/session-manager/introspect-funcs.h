@@ -34,6 +34,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup pw_session_manager
+ * \{
+ */
+
 static inline struct pw_session_info *
 pw_session_info_update (struct pw_session_info *info,
 			const struct pw_session_info *update)
@@ -306,6 +311,10 @@ pw_endpoint_link_info_free (struct pw_endpoint_link_info *info)
 	free((void *) info->params);
 	free(ext);
 }
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -29,7 +29,8 @@
 extern "C" {
 #endif
 
-/** \defgroup spa_node SPA Nodes
+/** \defgroup spa_node Node
+ *
  * A spa_node is a component that can consume and produce buffers.
  */
 

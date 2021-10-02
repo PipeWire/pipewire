@@ -34,6 +34,15 @@ extern "C" {
 
 #include <pipewire/proxy.h>
 
+/** \defgroup pw_device Device
+ *
+ */
+
+/**
+ * \addtogroup pw_device
+ * \{
+ */
+
 #define PW_TYPE_INTERFACE_Device	PW_TYPE_INFO_INTERFACE_BASE "Device"
 
 #define PW_VERSION_DEVICE		3
@@ -157,6 +166,10 @@ struct pw_device_methods {
 #define pw_device_subscribe_params(c,...)	pw_device_method(c,subscribe_params,0,__VA_ARGS__)
 #define pw_device_enum_params(c,...)		pw_device_method(c,enum_params,0,__VA_ARGS__)
 #define pw_device_set_param(c,...)		pw_device_method(c,set_param,0,__VA_ARGS__)
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

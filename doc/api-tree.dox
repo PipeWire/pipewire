@@ -1,0 +1,127 @@
+/**
+
+\defgroup api_pw_core Core API
+\brief PipeWire Core API
+\{
+\addtogroup pw_pipewire
+\addtogroup pw_context
+\addtogroup pw_client
+\addtogroup pw_core
+\addtogroup pw_device
+\addtogroup pw_factory
+\addtogroup pw_link
+\addtogroup pw_loop
+\addtogroup pw_module
+\addtogroup pw_node
+\addtogroup pw_permission
+\addtogroup pw_port
+\addtogroup pw_proxy
+\addtogroup pw_registry
+\addtogroup pw_type
+\addtogroup pw_keys
+\}
+
+\defgroup api_pw_impl Implementation API
+\brief PipeWire Object Implementation API
+\{
+\addtogroup pw_impl_client
+\addtogroup pw_impl_core
+\addtogroup pw_impl_device
+\addtogroup pw_impl_factory
+\addtogroup pw_impl_link
+\addtogroup pw_impl_metadata
+\addtogroup pw_impl_module
+\addtogroup pw_impl_node
+\addtogroup pw_impl_port
+\addtogroup pw_buffers
+\addtogroup pw_control
+\addtogroup pw_data_loop
+\addtogroup pw_global
+\addtogroup pw_protocol
+\addtogroup pw_resource
+\addtogroup pw_thread_loop
+\addtogroup pw_work_queue
+\}
+
+\defgroup api_pw_util Utilities
+\brief PipeWire Utilities
+\{
+\addtogroup pw_array
+\addtogroup pw_conf
+\addtogroup pw_gettext
+\addtogroup pw_log
+\addtogroup pw_main_loop
+\addtogroup pw_map
+\addtogroup pw_memblock
+\addtogroup pw_properties
+\addtogroup pw_thread
+\addtogroup pw_utils
+\}
+
+\defgroup api_pw_ext Extensions
+\brief PipeWire Extensions
+\{
+\addtogroup pw_client_node
+\addtogroup pw_metadata
+\addtogroup pw_profiler
+\addtogroup pw_protocol_native
+\addtogroup pw_session_manager
+\{
+\addtogroup pw_session_manager_impl
+\}
+\}
+
+\defgroup api_spa SPA
+\brief Simple Plugin API
+\{
+\addtogroup spa_buffer
+\addtogroup spa_control
+\addtogroup spa_debug
+\addtogroup spa_device
+\addtogroup spa_graph
+\addtogroup spa_node
+\addtogroup spa_param
+\addtogroup spa_pod
+\defgroup spa_utils Utilities
+\{
+\addtogroup spa_ansi
+\addtogroup spa_utils_defs
+\addtogroup spa_dict
+\addtogroup spa_list
+\addtogroup spa_hooks
+\addtogroup spa_interfaces
+\addtogroup spa_json
+\addtogroup spa_keys
+\addtogroup spa_names
+\addtogroup spa_result
+\addtogroup spa_ringbuffer
+\addtogroup spa_string
+\addtogroup spa_types
+\}
+\defgroup spa_support Support
+\{
+\addtogroup spa_cpu
+\addtogroup spa_dbus
+\addtogroup spa_i18n
+\addtogroup spa_log
+\addtogroup spa_loop
+\addtogroup spa_handle
+\addtogroup spa_plugin_loader
+\addtogroup spa_system
+\addtogroup spa_thread
+\}
+\}
+
+\defgroup pw_stream Stream API
+\{
+\}
+
+\defgroup pw_filter Filter API
+\{
+\}
+
+\defgroup pwtest Test Suite
+\{
+\}
+
+*/

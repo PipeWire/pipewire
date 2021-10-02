@@ -31,7 +31,7 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
-/** \defgroup spa_types SPA Types
+/** \defgroup spa_types Types
  */
 
 /**

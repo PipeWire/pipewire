@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-/** \defgroup spa_pod SPA POD
+/** \defgroup spa_pod POD
  */
 
 /**

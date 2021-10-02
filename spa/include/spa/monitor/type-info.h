@@ -33,6 +33,11 @@ extern "C" {
 
 #include <spa/monitor/event.h>
 
+/**
+ * \addtogroup spa_device
+ * \{
+ */
+
 #define SPA_TYPE_INFO_DeviceEvent		SPA_TYPE_INFO_EVENT_BASE "Device"
 #define SPA_TYPE_INFO_DEVICE_EVENT_BASE		SPA_TYPE_INFO_DeviceEvent ":"
 
@@ -50,6 +55,10 @@ static const struct spa_type_info spa_type_device_event[] = {
 	{ SPA_EVENT_DEVICE_Props, SPA_TYPE_OBJECT_Props, SPA_TYPE_INFO_DEVICE_EVENT_BASE "Props", NULL },
 	{ 0, 0, NULL, NULL },
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

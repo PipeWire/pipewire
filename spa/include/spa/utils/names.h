@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-/** \defgroup spa_names SPA Factory Names
+/** \defgroup spa_names Factory Names
  */
 
 /**

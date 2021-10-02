@@ -36,8 +36,12 @@ extern "C" {
 #include <spa/utils/hook.h>
 #include <spa/utils/dict.h>
 
+/** \defgroup spa_thread Thread
+ *
+ */
+
 /**
- * \addtogroup spa_support
+ * \addtogroup spa_thread
  * \{
  */
 

@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-/** \defgroup pw_main_loop PipeWire Main-Loop Interface
+/** \defgroup pw_main_loop Main Loop
  *
  * A main loop object
  */

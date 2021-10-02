@@ -37,6 +37,14 @@ extern "C" {
 
 #include <pipewire/proxy.h>
 
+/** \defgroup pw_factory Factory
+ *
+ */
+
+/**
+ * \addtogroup pw_factory
+ * \{
+ */
 #define PW_TYPE_INTERFACE_Factory	PW_TYPE_INFO_INTERFACE_BASE "Factory"
 
 #define PW_VERSION_FACTORY		3
@@ -103,6 +111,10 @@ struct pw_factory_methods {
 })
 
 #define pw_factory_add_listener(c,...)	pw_factory_method(c,add_listener,0,__VA_ARGS__)
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -37,13 +37,13 @@ extern "C" {
 #define PIPEWIRE_SYMBOL_MODULE_INIT "pipewire__module_init"
 #define PIPEWIRE_MODULE_PREFIX "libpipewire-"
 
-/** \defgroup pw_impl_module Dynamically loadable Module
+/** \defgroup pw_impl_module Module Impl
  *
  * A dynamically loadable module
  */
 
 /**
- * \addtogropu pw_impl_module
+ * \addtogroup pw_impl_module
  * \{
  */
 struct pw_impl_module;

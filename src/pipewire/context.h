@@ -32,7 +32,7 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 
-/** \defgroup pw_context PipeWire Context
+/** \defgroup pw_context Context
  *
  * \brief The PipeWire context object manages all locally available
  * resources. It is used by both clients and servers.

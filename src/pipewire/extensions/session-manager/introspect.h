@@ -34,6 +34,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup pw_session_manager
+ * \{
+ */
+
 enum pw_endpoint_link_state {
 	PW_ENDPOINT_LINK_STATE_ERROR = -1,
 	PW_ENDPOINT_LINK_STATE_PREPARING,
@@ -113,6 +118,10 @@ struct pw_endpoint_link_info {
 	struct spa_param_info *params;		/**< parameters */
 	uint32_t n_params;			/**< number of items in \a params */
 };
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

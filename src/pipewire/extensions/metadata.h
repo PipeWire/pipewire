@@ -31,6 +31,14 @@ extern "C" {
 
 #include <spa/utils/defs.h>
 
+/** \defgroup pw_metadata Metadata
+ *
+ */
+
+/**
+ * \addtogroup pw_metadata
+ * \{
+ */
 #define PW_TYPE_INTERFACE_Metadata		PW_TYPE_INFO_INTERFACE_BASE "Metadata"
 
 #define PW_VERSION_METADATA			3
@@ -92,6 +100,10 @@ struct pw_metadata_methods {
 #define pw_metadata_clear(c)			pw_metadata_method(c,clear,0)
 
 #define PW_KEY_METADATA_NAME		"metadata.name"
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

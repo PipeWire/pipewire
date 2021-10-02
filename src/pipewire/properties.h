@@ -34,7 +34,7 @@ extern "C" {
 #include <spa/utils/dict.h>
 #include <spa/utils/string.h>
 
-/** \defgroup pw_properties Key-Value pairs
+/** \defgroup pw_properties Properties
  *
  * Properties are used to pass around arbitrary key/value pairs.
  * Both keys and values are strings which keeps things simple.

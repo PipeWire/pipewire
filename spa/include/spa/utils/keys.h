@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-/** \defgroup spa_keys  SPA Key Names
+/** \defgroup spa_keys  Key Names
  */
 
 /**

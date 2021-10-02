@@ -31,7 +31,7 @@ extern "C" {
 
 #include <spa/utils/hook.h>
 
-/** \page page_client Client
+/** \page page_client Client Implementation
  *
  * \section sec_page_client_overview Overview
  *
@@ -61,7 +61,7 @@ extern "C" {
  * See also \ref pw_resource
  */
 
-/** \defgroup pw_impl_client Client Object
+/** \defgroup pw_impl_client Client Impl
  *
  * \brief PipeWire client object class
  *

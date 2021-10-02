@@ -41,7 +41,7 @@ extern "C" {
 #include "spa/support/plugin.h"
 
 /**
- * \defgroup pwtest The pwtest PipeWire Test Suite
+ * \defgroup pwtest Test Suite
  * \brief `pwtest` is a test runner framework for PipeWire.
  *
  * It's modelled after other

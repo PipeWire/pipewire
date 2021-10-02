@@ -34,7 +34,7 @@ extern "C" {
 
 #include <spa/utils/hook.h>
 
-/** \defgroup pw_core The PipeWire Core Global Object
+/** \defgroup pw_core Core
  *
  * \brief The core global object.
  *
@@ -112,7 +112,6 @@ void pw_core_info_free(struct pw_core_info *info);
 
 /** \struct pw_core_events
  *  \brief Core events
- *  \ingroup pw_core_interface The pw_core interface
  */
 struct pw_core_events {
 #define PW_VERSION_CORE_EVENTS	0

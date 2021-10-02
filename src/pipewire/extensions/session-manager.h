@@ -26,9 +26,22 @@
 #ifndef PIPEWIRE_EXT_SESSION_MANAGER_H
 #define PIPEWIRE_EXT_SESSION_MANAGER_H
 
+/** \defgroup pw_session_manager Session Manager
+ *
+ */
+
+/**
+ * \addtogroup pw_session_manager
+ * \{
+ */
+
 #include "session-manager/introspect.h"
 #include "session-manager/interfaces.h"
 #include "session-manager/impl-interfaces.h"
 #include "session-manager/keys.h"
+
+/**
+ * \}
+ */
 
 #endif /* PIPEWIRE_EXT_SESSION_MANAGER_H */

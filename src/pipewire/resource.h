@@ -31,7 +31,7 @@ extern "C" {
 
 #include <spa/utils/hook.h>
 
-/** \defgroup pw_resource PipeWire Resources
+/** \defgroup pw_resource Resource
  *
  * \brief Client owned objects
  *

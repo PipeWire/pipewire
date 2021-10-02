@@ -30,7 +30,12 @@ extern "C" {
 #endif
 
 /**
- * \addtogroup spa_utils
+ * \defgroup spa_result Result handling
+ *
+ */
+
+/**
+ * \addtogroup spa_result
  * \{
  */
 

@@ -35,6 +35,11 @@
 extern "C" {
 #endif
 
+/**
+ * \addtogroup pw_session_manager
+ * \{
+ */
+
 #define PW_TYPE_INTERFACE_Session		PW_TYPE_INFO_INTERFACE_BASE "Session"
 #define PW_VERSION_SESSION			0
 struct pw_session;
@@ -462,6 +467,10 @@ struct pw_endpoint_link_methods {
 #define pw_endpoint_link_set_param(c,...)		pw_endpoint_link_method(c,set_param,0,__VA_ARGS__)
 #define pw_endpoint_link_request_state(c,...)		pw_endpoint_link_method(c,request_state,0,__VA_ARGS__)
 
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -1,6 +1,6 @@
 /** \page page_spa SPA (Simple Plugin API)
 
-SPA (Simple Plugin API) is an extensible API to implement all kinds of
+\ref api_spa (Simple Plugin API) is an extensible API to implement all kinds of
 plugins.
 
 It is inspired by many other plugin APIs, mostly LV2 and
@@ -70,9 +70,15 @@ Please see \ref page_spa_plugins for the details on how to use SPA plugins.
 
 ## Further details
 
+- \ref api_spa
 - \subpage page_spa_design
 - \subpage page_spa_plugins
 - \subpage page_spa_pod
 - \subpage page_spa_buffer
+
+
+\addtogroup api_spa
+
+See: \ref page_spa, \ref page_spa_design
 
 */

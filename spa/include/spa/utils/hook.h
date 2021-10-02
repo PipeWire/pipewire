@@ -32,7 +32,7 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 
-/** \defgroup spa_interfaces SPA Interfaces
+/** \defgroup spa_interfaces Interfaces
  *
  * \brief Generic implementation of implementation-independent interfaces
  *
@@ -230,7 +230,7 @@ struct spa_interface {
  * \}
  */
 
-/** \defgroup spa_hooks SPA Hooks
+/** \defgroup spa_hooks Hooks
  *
  * A SPA Hook is a data structure to keep track of callbacks. It is similar to
  * the \ref spa_interfaces and typically used where an implementation allows

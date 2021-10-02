@@ -38,7 +38,7 @@ extern "C" {
 #include <spa/utils/defs.h>
 #include <spa/pod/pod.h>
 
-/** \defgroup pw_utils PipeWire Utility Functions
+/** \defgroup pw_utils Utilities
  *
  * Various utility functions
  */

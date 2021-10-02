@@ -87,7 +87,7 @@ extern "C" {
  * associated to the proxy.
  */
 
-/** \defgroup pw_proxy Proxy Object
+/** \defgroup pw_proxy Proxy
  *
  * \brief Represents an object on the client side.
  *

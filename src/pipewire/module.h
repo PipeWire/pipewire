@@ -34,6 +34,14 @@ extern "C" {
 
 #include <pipewire/proxy.h>
 
+/** \defgroup pw_module Module
+ *
+ */
+
+/**
+ * \addtogroup pw_module
+ * \{
+ */
 #define PW_TYPE_INTERFACE_Module	PW_TYPE_INFO_INTERFACE_BASE "Module"
 
 #define PW_VERSION_MODULE		3
@@ -101,6 +109,10 @@ struct pw_module_methods {
 })
 
 #define pw_module_add_listener(c,...)	pw_module_method(c,add_listener,0,__VA_ARGS__)
+
+/**
+ * \}
+ */
 
 #ifdef __cplusplus
 }  /* extern "C" */

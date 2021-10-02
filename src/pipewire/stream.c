@@ -42,7 +42,8 @@
 #include "pipewire/stream.h"
 #include "pipewire/private.h"
 
-#define NAME "stream"
+PW_LOG_TOPIC_EXTERN(log_stream);
+#define PW_LOG_TOPIC_DEFAULT log_stream
 
 #define MAX_BUFFERS	64
 
@@ -216,11 +217,11 @@ static void fix_datatype(const struct spa_pod *param)
 	if (spa_pod_get_int(&vals[0], (int32_t*)&dataType) < 0)
 		return;
 
-	pw_log_debug(NAME" dataType: %u", dataType);
+	pw_log_debug("dataType: %u", dataType);
 	if (dataType & (1u << SPA_DATA_MemPtr)) {
 		SPA_POD_VALUE(struct spa_pod_int, &vals[0]) =
 			dataType | mappable_dataTypes;
-		pw_log_debug(NAME" Change dataType: %u -> %u", dataType,
+		pw_log_debug("Change dataType: %u -> %u", dataType,
 				SPA_POD_VALUE(struct spa_pod_int, &vals[0]));
 	}
 }
@@ -357,12 +358,12 @@ static bool stream_set_state(struct pw_stream *stream, enum pw_stream_state stat
 		free(stream->error);
 		stream->error = error ? strdup(error) : NULL;
 
-		pw_log_debug(NAME" %p: update state from %s -> %s (%s)", stream,
+		pw_log_debug("%p: update state from %s -> %s (%s)", stream,
 			     pw_stream_state_as_string(old),
 			     pw_stream_state_as_string(state), stream->error);
 
 		if (state == PW_STREAM_STATE_ERROR)
-			pw_log_error(NAME" %p: error %s", stream, error);
+			pw_log_error("%p: error %s", stream, error);
 
 		stream->state = state;
 		pw_stream_emit_state_changed(stream, old, state, error);
@@ -386,14 +387,14 @@ do_call_process(struct spa_loop *loop,
 {
 	struct stream *impl = user_data;
 	struct pw_stream *stream = &impl->this;
-	pw_log_trace(NAME" %p: do process", stream);
+	pw_log_trace("%p: do process", stream);
 	pw_stream_emit_process(stream);
 	return 0;
 }
 
 static void call_process(struct stream *impl)
 {
-	pw_log_trace(NAME" %p: call process rt:%u", impl, impl->process_rt);
+	pw_log_trace("%p: call process rt:%u", impl, impl->process_rt);
 	if (impl->process_rt)
 		spa_callbacks_call(&impl->rt_callbacks, struct pw_stream_events, process, 0);
 	else
@@ -407,7 +408,7 @@ do_call_drained(struct spa_loop *loop,
 {
 	struct stream *impl = user_data;
 	struct pw_stream *stream = &impl->this;
-	pw_log_trace(NAME" %p: drained", stream);
+	pw_log_trace("%p: drained", stream);
 	pw_stream_emit_drained(stream);
 	return 0;
 }
@@ -432,7 +433,7 @@ static int impl_set_io(void *object, uint32_t id, void *data, size_t size)
 	struct stream *impl = object;
 	struct pw_stream *stream = &impl->this;
 
-	pw_log_debug(NAME" %p: set io id %d (%s) %p %zd", impl, id,
+	pw_log_debug("%p: set io id %d (%s) %p %zd", impl, id,
 			spa_debug_type_find_name(spa_type_io, id), data, size);
 
 	switch(id) {
@@ -476,7 +477,7 @@ static int enum_params(void *object, bool is_port, int seq, uint32_t id, uint32_
 	result.id = id;
 	result.next = 0;
 
-	pw_log_debug(NAME" %p: param id %d (%s) start:%d num:%d", d, id,
+	pw_log_debug("%p: param id %d (%s) start:%d num:%d", d, id,
 			spa_debug_type_find_name(spa_type_param, id),
 			start, num);
 
@@ -536,13 +537,13 @@ static int impl_send_command(void *object, const struct spa_command *command)
 			NULL, 0, NULL, 0, false, impl);
 		if (stream->state == PW_STREAM_STATE_STREAMING) {
 
-			pw_log_debug(NAME" %p: pause", stream);
+			pw_log_debug("%p: pause", stream);
 			stream_set_state(stream, PW_STREAM_STATE_PAUSED, NULL);
 		}
 		break;
 	case SPA_NODE_COMMAND_Start:
 		if (stream->state == PW_STREAM_STATE_PAUSED) {
-			pw_log_debug(NAME" %p: start %d", stream, impl->direction);
+			pw_log_debug("%p: start %d", stream, impl->direction);
 
 			if (impl->direction == SPA_DIRECTION_INPUT)
 				impl->io->status = SPA_STATUS_NEED_DATA;
@@ -556,7 +557,7 @@ static int impl_send_command(void *object, const struct spa_command *command)
 	case SPA_NODE_COMMAND_ParamEnd:
 		break;
 	default:
-		pw_log_warn(NAME" %p: unhandled node command %d", stream,
+		pw_log_warn("%p: unhandled node command %d", stream,
 				SPA_NODE_COMMAND_ID(command));
 		break;
 	}
@@ -617,7 +618,7 @@ static int impl_port_set_io(void *object, enum spa_direction direction, uint32_t
 	struct stream *impl = object;
 	struct pw_stream *stream = &impl->this;
 
-	pw_log_debug(NAME" %p: set io id %d (%s) %p %zd", impl, id,
+	pw_log_debug("%p: set io id %d (%s) %p %zd", impl, id,
 			spa_debug_type_find_name(spa_type_io, id), data, size);
 
 	switch (id) {
@@ -650,18 +651,18 @@ static int map_data(struct stream *impl, struct spa_data *data, int prot)
 
 	ptr = mmap(NULL, range.size, prot, MAP_SHARED, data->fd, range.offset);
 	if (ptr == MAP_FAILED) {
-		pw_log_error(NAME" %p: failed to mmap buffer mem: %m", impl);
+		pw_log_error("%p: failed to mmap buffer mem: %m", impl);
 		return -errno;
 	}
 
 	data->data = SPA_PTROFF(ptr, range.start, void);
-	pw_log_debug(NAME" %p: fd %"PRIi64" mapped %d %d %p", impl, data->fd,
+	pw_log_debug("%p: fd %"PRIi64" mapped %d %d %p", impl, data->fd,
 			range.offset, range.size, data->data);
 
 	if (impl->allow_mlock && mlock(data->data, data->maxsize) < 0) {
 		if (errno != ENOMEM || !mlock_warned) {
 			pw_log(impl->warn_mlock ? SPA_LOG_LEVEL_WARN : SPA_LOG_LEVEL_DEBUG,
-					NAME" %p: Failed to mlock memory %p %u: %s", impl,
+					"%p: Failed to mlock memory %p %u: %s", impl,
 					data->data, data->maxsize,
 					errno == ENOMEM ?
 					"This is not a problem but for best performance, "
@@ -679,9 +680,9 @@ static int unmap_data(struct stream *impl, struct spa_data *data)
 	pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->context->sc_pagesize);
 
 	if (munmap(SPA_PTROFF(data->data, -range.start, void), range.size) < 0)
-		pw_log_warn(NAME" %p: failed to unmap: %m", impl);
+		pw_log_warn("%p: failed to unmap: %m", impl);
 
-	pw_log_debug(NAME" %p: fd %"PRIi64" unmapped", impl, data->fd);
+	pw_log_debug("%p: fd %"PRIi64" unmapped", impl, data->fd);
 	return 0;
 }
 
@@ -690,7 +691,7 @@ static void clear_buffers(struct pw_stream *stream)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	uint32_t i, j;
 
-	pw_log_debug(NAME" %p: clear buffers %d", stream, impl->n_buffers);
+	pw_log_debug("%p: clear buffers %d", stream, impl->n_buffers);
 
 	for (i = 0; i < impl->n_buffers; i++) {
 		struct buffer *b = &impl->buffers[i];
@@ -701,7 +702,7 @@ static void clear_buffers(struct pw_stream *stream)
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
 			for (j = 0; j < b->this.buffer->n_datas; j++) {
 				struct spa_data *d = &b->this.buffer->datas[j];
-				pw_log_debug(NAME" %p: clear buffer %d mem",
+				pw_log_debug("%p: clear buffer %d mem",
 						stream, b->id);
 				unmap_data(impl, d);
 			}
@@ -749,7 +750,7 @@ static int impl_port_set_param(void *object,
 	if (impl->disconnecting && param != NULL)
 		return -EIO;
 
-	pw_log_debug(NAME" %p: param id %d (%s) changed: %p", impl, id,
+	pw_log_debug("%p: param id %d (%s) changed: %p", impl, id,
 			spa_debug_type_find_name(spa_type_param, id), param);
 
 	if (param)
@@ -813,19 +814,19 @@ static int impl_port_use_buffers(void *object,
 					SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
 				}
 				else if (d->type == SPA_DATA_MemPtr && d->data == NULL) {
-					pw_log_error(NAME" %p: invalid buffer mem", stream);
+					pw_log_error("%p: invalid buffer mem", stream);
 					return -EINVAL;
 				}
 				buf_size += d->maxsize;
 			}
 
 			if (size > 0 && buf_size != size) {
-				pw_log_error(NAME" %p: invalid buffer size %d", stream, buf_size);
+				pw_log_error("%p: invalid buffer size %d", stream, buf_size);
 				return -EINVAL;
 			} else
 				size = buf_size;
 		}
-		pw_log_debug(NAME" %p: got buffer id:%d datas:%d, mapped size %d", stream, i,
+		pw_log_debug("%p: got buffer id:%d datas:%d, mapped size %d", stream, i,
 				buffers[i]->n_datas, size);
 	}
 
@@ -836,7 +837,7 @@ static int impl_port_use_buffers(void *object,
 		b->busy = spa_buffer_find_meta_data(buffers[i], SPA_META_Busy, sizeof(*b->busy));
 
 		if (impl->direction == SPA_DIRECTION_OUTPUT) {
-			pw_log_trace(NAME" %p: recycle buffer %d", stream, b->id);
+			pw_log_trace("%p: recycle buffer %d", stream, b->id);
 			push_queue(impl, &impl->dequeued, b);
 		}
 
@@ -853,7 +854,7 @@ static int impl_port_use_buffers(void *object,
 static int impl_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 {
 	struct stream *d = object;
-	pw_log_trace(NAME" %p: recycle buffer %d", d, buffer_id);
+	pw_log_trace("%p: recycle buffer %d", d, buffer_id);
 	if (buffer_id < d->n_buffers)
 		push_queue(d, &d->queued, &d->buffers[buffer_id]);
 	return 0;
@@ -885,7 +886,7 @@ static int impl_node_process_input(void *object)
 	struct spa_io_buffers *io = impl->io;
 	struct buffer *b;
 
-	pw_log_trace(NAME" %p: process in status:%d id:%d ticks:%"PRIu64" delay:%"PRIi64,
+	pw_log_trace("%p: process in status:%d id:%d ticks:%"PRIu64" delay:%"PRIi64,
 			stream, io->status, io->buffer_id, impl->time.ticks, impl->time.delay);
 
 	if (io->status == SPA_STATUS_HAVE_DATA &&
@@ -901,7 +902,7 @@ static int impl_node_process_input(void *object)
 	if (io->status != SPA_STATUS_NEED_DATA) {
 		/* pop buffer to recycle */
 		if ((b = pop_queue(impl, &impl->queued))) {
-			pw_log_trace(NAME" %p: recycle buffer %d", stream, b->id);
+			pw_log_trace("%p: recycle buffer %d", stream, b->id);
 		} else if (io->status == -EPIPE)
 			return io->status;
 		io->buffer_id = b ? b->id : SPA_ID_INVALID;
@@ -920,13 +921,13 @@ static int impl_node_process_output(void *object)
 	uint32_t index;
 
 again:
-	pw_log_trace(NAME" %p: process out status:%d id:%d", stream,
+	pw_log_trace("%p: process out status:%d id:%d", stream,
 			io->status, io->buffer_id);
 
 	if ((res = io->status) != SPA_STATUS_HAVE_DATA) {
 		/* recycle old buffer */
 		if ((b = get_buffer(stream, io->buffer_id)) != NULL) {
-			pw_log_trace(NAME" %p: recycle buffer %d", stream, b->id);
+			pw_log_trace("%p: recycle buffer %d", stream, b->id);
 			push_queue(impl, &impl->dequeued, b);
 		}
 
@@ -935,17 +936,17 @@ again:
 			impl->drained = false;
 			io->buffer_id = b->id;
 			res = io->status = SPA_STATUS_HAVE_DATA;
-			pw_log_trace(NAME" %p: pop %d %p", stream, b->id, io);
+			pw_log_trace("%p: pop %d %p", stream, b->id, io);
 		} else if (impl->draining || impl->drained) {
 			impl->draining = true;
 			impl->drained = true;
 			io->buffer_id = SPA_ID_INVALID;
 			res = io->status = SPA_STATUS_DRAINED;
-			pw_log_trace(NAME" %p: draining", stream);
+			pw_log_trace("%p: draining", stream);
 		} else {
 			io->buffer_id = SPA_ID_INVALID;
 			res = io->status = SPA_STATUS_NEED_DATA;
-			pw_log_trace(NAME" %p: no more buffers %p", stream, io);
+			pw_log_trace("%p: no more buffers %p", stream, io);
 		}
 	}
 
@@ -969,7 +970,7 @@ again:
 		}
 	}
 
-	pw_log_trace(NAME" %p: res %d", stream, res);
+	pw_log_trace("%p: res %d", stream, res);
 
 	return res;
 }
@@ -992,7 +993,7 @@ static const struct spa_node_methods impl_node = {
 static void proxy_removed(void *_data)
 {
 	struct pw_stream *stream = _data;
-	pw_log_debug(NAME" %p: removed", stream);
+	pw_log_debug("%p: removed", stream);
 	spa_hook_remove(&stream->proxy_listener);
 	stream->node_id = SPA_ID_INVALID;
 	stream_set_state(stream, PW_STREAM_STATE_UNCONNECTED, NULL);
@@ -1001,7 +1002,7 @@ static void proxy_removed(void *_data)
 static void proxy_destroy(void *_data)
 {
 	struct pw_stream *stream = _data;
-	pw_log_debug(NAME" %p: destroy", stream);
+	pw_log_debug("%p: destroy", stream);
 	proxy_removed(_data);
 }
 
@@ -1116,7 +1117,7 @@ static int node_event_param(void *object, int seq,
 		}
 
 		c->id = iid;
-		pw_log_debug(NAME" %p: add control %d (%s) container:%d (def:%f min:%f max:%f)",
+		pw_log_debug("%p: add control %d (%s) container:%d (def:%f min:%f max:%f)",
 				stream, c->id, c->control.name, c->container,
 				c->control.def, c->control.min, c->control.max);
 		break;
@@ -1170,10 +1171,10 @@ static int node_event_param(void *object, int seq,
 			c->control.n_values = n_values;
 			c->emitted = true;
 
-			pw_log_debug(NAME" %p: control %d (%s) changed %d:", stream,
+			pw_log_debug("%p: control %d (%s) changed %d:", stream,
 					prop->key, c->control.name, n_values);
 			for (i = 0; i < n_values; i++)
-				pw_log_debug(NAME" %p:  value %d %f", stream, i, values[i]);
+				pw_log_debug("%p:  value %d %f", stream, i, values[i]);
 
 			pw_stream_emit_control_info(stream, prop->key, &c->control);
 		}
@@ -1219,7 +1220,7 @@ static void on_core_error(void *object, uint32_t id, int seq, int res, const cha
 {
 	struct pw_stream *stream = object;
 
-	pw_log_debug(NAME" %p: error id:%u seq:%d res:%d (%s): %s", stream,
+	pw_log_debug("%p: error id:%u seq:%d res:%d (%s): %s", stream,
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE && res == -EPIPE) {
@@ -1270,7 +1271,7 @@ stream_new(struct pw_context *context, const char *name,
 	}
 
 	this = &impl->this;
-	pw_log_debug(NAME" %p: new \"%s\"", impl, name);
+	pw_log_debug("%p: new \"%s\"", impl, name);
 
 	if (props == NULL) {
 		props = pw_properties_new(PW_KEY_MEDIA_NAME, name, NULL);
@@ -1421,7 +1422,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct control *c;
 
-	pw_log_debug(NAME" %p: destroy", stream);
+	pw_log_debug("%p: destroy", stream);
 
 	pw_stream_emit_destroy(stream);
 
@@ -1436,7 +1437,7 @@ void pw_stream_destroy(struct pw_stream *stream)
 
 	clear_params(impl, SPA_ID_INVALID);
 
-	pw_log_debug(NAME" %p: free", stream);
+	pw_log_debug("%p: free", stream);
 	free(stream->error);
 
 	pw_properties_free(stream->properties);
@@ -1561,14 +1562,14 @@ static int find_format(struct stream *impl, enum pw_direction direction,
 				impl->direction, 0,
 				SPA_PARAM_EnumFormat, &state,
 				NULL, &format, &b) != 1) {
-		pw_log_warn(NAME" %p: no format given", impl);
+		pw_log_warn("%p: no format given", impl);
 		return 0;
 	}
 
 	if ((res = spa_format_parse(format, media_type, media_subtype)) < 0)
 		return res;
 
-	pw_log_debug(NAME " %p: %s/%s", impl,
+	pw_log_debug("%p: %s/%s", impl,
 			spa_debug_type_find_name(spa_type_media_type, *media_type),
 			spa_debug_type_find_name(spa_type_media_subtype, *media_subtype));
 	return 0;
@@ -1615,7 +1616,7 @@ pw_stream_connect(struct pw_stream *stream,
 	uint32_t i;
 	int res;
 
-	pw_log_debug(NAME" %p: connect target:%d", stream, target_id);
+	pw_log_debug("%p: connect target:%d", stream, target_id);
 	impl->direction =
 	    direction == PW_DIRECTION_INPUT ? SPA_DIRECTION_INPUT : SPA_DIRECTION_OUTPUT;
 	impl->flags = flags;
@@ -1737,7 +1738,7 @@ pw_stream_connect(struct pw_stream *stream,
 		impl->disconnect_core = true;
 	}
 
-	pw_log_debug(NAME" %p: creating node", stream);
+	pw_log_debug("%p: creating node", stream);
 	props = pw_properties_copy(stream->properties);
 	if (props == NULL) {
 		res = -errno;
@@ -1761,7 +1762,7 @@ pw_stream_connect(struct pw_stream *stream,
 	if (impl->media_type == SPA_MEDIA_TYPE_audio) {
 		factory = pw_context_find_factory(impl->context, "adapter");
 		if (factory == NULL) {
-			pw_log_error(NAME" %p: no adapter factory found", stream);
+			pw_log_error("%p: no adapter factory found", stream);
 			res = -ENOENT;
 			goto error_node;
 		}
@@ -1786,7 +1787,7 @@ pw_stream_connect(struct pw_stream *stream,
 	pw_impl_node_set_active(impl->node,
 			!SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_INACTIVE));
 
-	pw_log_debug(NAME" %p: export node %p", stream, impl->node);
+	pw_log_debug("%p: export node %p", stream, impl->node);
 	stream->proxy = pw_core_export(stream->core,
 			PW_TYPE_INTERFACE_Node, NULL, impl->node, 0);
 	if (stream->proxy == NULL) {
@@ -1801,13 +1802,13 @@ pw_stream_connect(struct pw_stream *stream,
 	return 0;
 
 error_connect:
-	pw_log_error(NAME" %p: can't connect: %s", stream, spa_strerror(res));
+	pw_log_error("%p: can't connect: %s", stream, spa_strerror(res));
 	goto exit_cleanup;
 error_node:
-	pw_log_error(NAME" %p: can't make node: %s", stream, spa_strerror(res));
+	pw_log_error("%p: can't make node: %s", stream, spa_strerror(res));
 	goto exit_cleanup;
 error_proxy:
-	pw_log_error(NAME" %p: can't make proxy: %s", stream, spa_strerror(res));
+	pw_log_error("%p: can't make proxy: %s", stream, spa_strerror(res));
 	goto exit_cleanup;
 
 exit_cleanup:
@@ -1826,7 +1827,7 @@ int pw_stream_disconnect(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 
-	pw_log_debug(NAME" %p: disconnect", stream);
+	pw_log_debug("%p: disconnect", stream);
 
 	if (impl->disconnecting)
 		return 0;
@@ -1887,7 +1888,7 @@ int pw_stream_update_params(struct pw_stream *stream,
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int res;
 
-	pw_log_debug(NAME" %p: update params", stream);
+	pw_log_debug("%p: update params", stream);
 	if ((res = update_params(impl, SPA_ID_INVALID, params, n_params)) < 0)
 		return res;
 
@@ -1912,7 +1913,7 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 
 	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 	while (1) {
-		pw_log_debug(NAME" %p: set control %d %d %f", stream, id, n_values, values[0]);
+		pw_log_debug("%p: set control %d %d %f", stream, id, n_values, values[0]);
 
 		if ((c = find_control(stream, id))) {
 			spa_pod_builder_prop(&b, id, 0);
@@ -1933,7 +1934,7 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 				break;
 			}
 		} else {
-			pw_log_warn(NAME" %p: unknown control with id %d", stream, id);
+			pw_log_warn("%p: unknown control with id %d", stream, id);
 		}
 		if ((id = va_arg(varargs, uint32_t)) == 0)
 			break;
@@ -1967,7 +1968,7 @@ SPA_EXPORT
 int pw_stream_set_active(struct pw_stream *stream, bool active)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	pw_log_debug(NAME" %p: active:%d", stream, active);
+	pw_log_debug("%p: active:%d", stream, active);
 	if (impl->node)
 		pw_impl_node_set_active(impl->node, active);
 
@@ -1997,7 +1998,7 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	time->delay += (impl->latency.min_rate + impl->latency.max_rate) / 2;
 	time->delay += ((impl->latency.min_ns + impl->latency.max_ns) / 2) * time->rate.denom / SPA_NSEC_PER_SEC;
 
-	pw_log_trace(NAME" %p: %"PRIi64" %"PRIi64" %"PRIu64" %d/%d %"PRIu64" %"
+	pw_log_trace("%p: %"PRIi64" %"PRIi64" %"PRIu64" %d/%d %"PRIu64" %"
 			PRIu64" %"PRIu64" %"PRIu64" %"PRIu64, stream,
 			time->now, time->delay, time->ticks,
 			time->rate.num, time->rate.denom, time->queued,
@@ -2025,17 +2026,17 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 
 	if ((b = pop_queue(impl, &impl->dequeued)) == NULL) {
 		res = -errno;
-		pw_log_trace(NAME" %p: no more buffers: %m", stream);
+		pw_log_trace("%p: no more buffers: %m", stream);
 		errno = -res;
 		return NULL;
 	}
-	pw_log_trace(NAME" %p: dequeue buffer %d", stream, b->id);
+	pw_log_trace("%p: dequeue buffer %d", stream, b->id);
 
 	if (b->busy && impl->direction == SPA_DIRECTION_OUTPUT) {
 		if (ATOMIC_INC(b->busy->count) > 1) {
 			ATOMIC_DEC(b->busy->count);
 			push_queue(impl, &impl->dequeued, b);
-			pw_log_trace(NAME" %p: buffer busy", stream);
+			pw_log_trace("%p: buffer busy", stream);
 			errno = EBUSY;
 			return NULL;
 		}
@@ -2053,7 +2054,7 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 	if (b->busy)
 		ATOMIC_DEC(b->busy->count);
 
-	pw_log_trace(NAME" %p: queue buffer %d", stream, b->id);
+	pw_log_trace("%p: queue buffer %d", stream, b->id);
 	if ((res = push_queue(impl, &impl->queued, b)) < 0)
 		return res;
 
@@ -2073,7 +2074,7 @@ do_flush(struct spa_loop *loop,
 	struct stream *impl = user_data;
 	struct buffer *b;
 
-	pw_log_trace(NAME" %p: flush", impl);
+	pw_log_trace("%p: flush", impl);
 	do {
 		b = pop_queue(impl, &impl->queued);
 		if (b != NULL)
@@ -2091,7 +2092,7 @@ do_drain(struct spa_loop *loop,
                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct stream *impl = user_data;
-	pw_log_trace(NAME" %p", impl);
+	pw_log_trace("%p", impl);
 	impl->draining = true;
 	impl->drained = false;
 	return 0;
@@ -2138,7 +2139,7 @@ int pw_stream_trigger_process(struct pw_stream *stream)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int res = 0;
 
-	pw_log_trace(NAME" %p", impl);
+	pw_log_trace("%p", impl);
 
 	/* flag to check for old or new behaviour */
 	impl->using_trigger = true;

@@ -52,6 +52,7 @@ PW_LOG_TOPIC(log_buffers, "pw.buffers");
 PW_LOG_TOPIC(log_conf, "pw.conf");
 PW_LOG_TOPIC(log_context, "pw.context");
 PW_LOG_TOPIC(log_data_loop, "pw.data-loop");
+PW_LOG_TOPIC(log_filter, "pw.filter");
 PW_LOG_TOPIC(log_metadata, "pw.metadata");
 PW_LOG_TOPIC(log_node, "pw.node");
 PW_LOG_TOPIC(log_port, "pw.port");
@@ -67,6 +68,7 @@ PW_LOG_TOPIC(log_factory, "pw.factory");
 PW_LOG_TOPIC(log_module, "pw.module");
 PW_LOG_TOPIC(log_device, "pw.device");
 PW_LOG_TOPIC(log_resource, "pw.resource");
+PW_LOG_TOPIC(log_stream, "pw.stream");
 PW_LOG_TOPIC(log_thread_loop, "pw.thread-loop");
 
 PW_LOG_TOPIC(PW_LOG_TOPIC_DEFAULT, "default");
@@ -426,6 +428,7 @@ pw_log_init(void)
 	PW_LOG_TOPIC_INIT(log_buffers);
 	PW_LOG_TOPIC_INIT(log_conf);
 	PW_LOG_TOPIC_INIT(log_data_loop);
+	PW_LOG_TOPIC_INIT(log_filter);
 	PW_LOG_TOPIC_INIT(log_topic);
 	PW_LOG_TOPIC_INIT(log_context);
 	PW_LOG_TOPIC_INIT(log_metadata);
@@ -443,5 +446,6 @@ pw_log_init(void)
 	PW_LOG_TOPIC_INIT(log_module);
 	PW_LOG_TOPIC_INIT(log_device);
 	PW_LOG_TOPIC_INIT(log_resource);
+	PW_LOG_TOPIC_INIT(log_stream);
 	PW_LOG_TOPIC_INIT(log_thread_loop);
 }

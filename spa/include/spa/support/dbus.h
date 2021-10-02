@@ -109,8 +109,14 @@ struct spa_dbus_connection {
 	_res;								\
 })
 
+/** \copydoc spa_dbus_connection.get
+ * \sa spa_dbus_connection.get */
 #define spa_dbus_connection_get(c)		spa_dbus_connection_call_vp(c,get,0)
+/** \copydoc spa_dbus_connection.destroy
+ * \sa spa_dbus_connection.destroy */
 #define spa_dbus_connection_destroy(c)		spa_dbus_connection_call(c,destroy,0)
+/** \copydoc spa_dbus_connection.add_listener
+ * \sa spa_dbus_connection.add_listener */
 #define spa_dbus_connection_add_listener(c,...)	spa_dbus_connection_call(c,add_listener,1,__VA_ARGS__)
 
 struct spa_dbus_methods {
@@ -133,6 +139,9 @@ struct spa_dbus_methods {
 							enum spa_dbus_type type);
 };
 
+/** \copydoc spa_dbus_methods.get_connection
+ * \sa spa_dbus_methods.get_connection
+ */
 static inline struct spa_dbus_connection *
 spa_dbus_get_connection(struct spa_dbus *dbus, enum spa_dbus_type type)
 {

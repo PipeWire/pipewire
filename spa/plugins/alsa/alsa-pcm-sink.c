@@ -37,8 +37,6 @@
 #include <spa/pod/filter.h>
 #include <spa/debug/pod.h>
 
-#define NAME "alsa-pcm-sink"
-
 #include "alsa-pcm.h"
 
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_INPUT && (p) == 0)
@@ -753,7 +751,7 @@ impl_node_port_use_buffers(void *object,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	spa_log_debug(this->log, NAME " %p: use %d buffers", this, n_buffers);
+	spa_log_debug(this->log, "%p: use %d buffers", this, n_buffers);
 
 	if (!this->have_format)
 		return -EIO;
@@ -775,10 +773,10 @@ impl_node_port_use_buffers(void *object,
 		b->h = spa_buffer_find_meta_data(b->buf, SPA_META_Header, sizeof(*b->h));
 
 		if (d[0].data == NULL) {
-			spa_log_error(this->log, NAME " %p: need mapped memory", this);
+			spa_log_error(this->log, "%p: need mapped memory", this);
 			return -EINVAL;
 		}
-		spa_log_debug(this->log, NAME " %p: %d %p data:%p", this, i, b->buf, d[0].data);
+		spa_log_debug(this->log, "%p: %d %p data:%p", this, i, b->buf, d[0].data);
 	}
 	this->n_buffers = n_buffers;
 
@@ -798,7 +796,7 @@ impl_node_port_set_io(void *object,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	spa_log_debug(this->log, NAME " %p: io %d %p %zd", this, id, data, size);
+	spa_log_debug(this->log, "%p: io %d %p %zd", this, id, data, size);
 
 	switch (id) {
 	case SPA_IO_Buffers:
@@ -828,7 +826,7 @@ static int impl_node_process(void *object)
 	input = this->io;
 	spa_return_val_if_fail(input != NULL, -EIO);
 
-	spa_log_trace_fp(this->log, NAME " %p: process %d %d/%d", this, input->status,
+	spa_log_trace_fp(this->log, "%p: process %d %d/%d", this, input->status,
 			input->buffer_id, this->n_buffers);
 
 	if (this->position && this->position->clock.flags & SPA_IO_CLOCK_FLAG_FREEWHEEL) {
@@ -840,12 +838,12 @@ static int impl_node_process(void *object)
 		struct buffer *b = &this->buffers[input->buffer_id];
 
 		if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
-			spa_log_warn(this->log, NAME " %p: buffer %u in use",
+			spa_log_warn(this->log, "%p: buffer %u in use",
 					this, input->buffer_id);
 			input->status = -EINVAL;
 			return -EINVAL;
 		}
-		spa_log_trace_fp(this->log, NAME " %p: queue buffer %u", this, input->buffer_id);
+		spa_log_trace_fp(this->log, "%p: queue buffer %u", this, input->buffer_id);
 		spa_list_append(&this->ready, &b->link);
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		input->buffer_id = SPA_ID_INVALID;

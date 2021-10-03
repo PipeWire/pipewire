@@ -39,8 +39,6 @@
 
 #include "alsa.h"
 
-#define NAME "alsa-seq"
-
 #include "dll.h"
 #include "alsa-seq.h"
 
@@ -460,7 +458,7 @@ int spa_alsa_seq_recycle_buffer(struct seq_state *state, struct seq_port *port, 
 	struct buffer *b = &port->buffers[buffer_id];
 
 	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
-		spa_log_trace_fp(state->log, NAME " %p: recycle buffer port:%p buffer-id:%u",
+		spa_log_trace_fp(state->log, "%p: recycle buffer port:%p buffer-id:%u",
 				state, port, buffer_id);
 		spa_list_append(&port->free, &b->link);
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
@@ -751,7 +749,7 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 
 	if ((state->next_time - state->base_time) > BW_PERIOD) {
 		state->base_time = state->next_time;
-		spa_log_debug(state->log, NAME" %p: follower:%d rate:%f bw:%f err:%f (%f %f %f)",
+		spa_log_debug(state->log, "%p: follower:%d rate:%f bw:%f err:%f (%f %f %f)",
 				state, follower, corr, state->dll.bw, err,
 				state->dll.z1, state->dll.z2, state->dll.z3);
 	}

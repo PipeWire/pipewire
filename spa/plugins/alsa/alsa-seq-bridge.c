@@ -39,8 +39,6 @@
 #include <spa/param/latency-utils.h>
 #include <spa/pod/filter.h>
 
-#define NAME "alsa-bridge"
-
 #include "alsa-seq.h"
 
 static const char default_device[] = "default";
@@ -719,7 +717,7 @@ impl_node_port_use_buffers(void *object,
 
 	port = GET_PORT(this, direction, port_id);
 
-	spa_log_debug(this->log, NAME " %p: port %d.%d buffers:%d format:%d", this,
+	spa_log_debug(this->log, "%p: port %d.%d buffers:%d format:%d", this,
 			direction, port_id, n_buffers, port->have_format);
 
 	if (!port->have_format)
@@ -738,7 +736,7 @@ impl_node_port_use_buffers(void *object,
 		b->h = spa_buffer_find_meta_data(b->buf, SPA_META_Header, sizeof(*b->h));
 
 		if (d[0].data == NULL) {
-			spa_log_error(this->log, NAME " %p: need mapped memory", this);
+			spa_log_error(this->log, "%p: need mapped memory", this);
 			return -EINVAL;
 		}
 		if (direction == SPA_DIRECTION_OUTPUT)
@@ -765,7 +763,7 @@ impl_node_port_set_io(void *object,
 
 	port = GET_PORT(this, direction, port_id);
 
-	spa_log_debug(this->log, NAME " %p: io %d.%d %d %p %zd", this,
+	spa_log_debug(this->log, "%p: io %d.%d %d %p %zd", this,
 			direction, port_id, id, data, size);
 
 	switch (id) {

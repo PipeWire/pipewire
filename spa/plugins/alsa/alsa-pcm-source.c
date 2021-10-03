@@ -39,8 +39,6 @@
 
 #include "alsa.h"
 
-#define NAME "alsa-pcm-source"
-
 #include "alsa-pcm.h"
 
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
@@ -686,7 +684,7 @@ impl_node_port_use_buffers(void *object,
 	if (!this->have_format)
 		return -EIO;
 
-	spa_log_debug(this->log, NAME " %p: use %d buffers", this, n_buffers);
+	spa_log_debug(this->log, "%p: use %d buffers", this, n_buffers);
 
 	if (this->n_buffers > 0) {
 		spa_alsa_pause(this);
@@ -704,7 +702,7 @@ impl_node_port_use_buffers(void *object,
 		b->h = spa_buffer_find_meta_data(b->buf, SPA_META_Header, sizeof(*b->h));
 
 		if (d[0].data == NULL) {
-			spa_log_error(this->log, NAME " %p: need mapped memory", this);
+			spa_log_error(this->log, "%p: need mapped memory", this);
 			return -EINVAL;
 		}
 		spa_list_append(&this->free, &b->link);
@@ -727,7 +725,7 @@ impl_node_port_set_io(void *object,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	spa_log_debug(this->log, NAME " %p: io %d %p %zd", this, id, data, size);
+	spa_log_debug(this->log, "%p: io %d %p %zd", this, id, data, size);
 
 	switch (id) {
 	case SPA_IO_Buffers:
@@ -772,7 +770,7 @@ static int impl_node_process(void *object)
 	io = this->io;
 	spa_return_val_if_fail(io != NULL, -EIO);
 
-	spa_log_trace_fp(this->log, NAME " %p; status %d", this, io->status);
+	spa_log_trace_fp(this->log, "%p; status %d", this, io->status);
 
 	if (io->status == SPA_STATUS_HAVE_DATA)
 		return SPA_STATUS_HAVE_DATA;
@@ -795,7 +793,7 @@ static int impl_node_process(void *object)
 	spa_list_remove(&b->link);
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 
-	spa_log_trace_fp(this->log, NAME " %p: dequeue buffer %d", this, b->id);
+	spa_log_trace_fp(this->log, "%p: dequeue buffer %d", this, b->id);
 
 	io->buffer_id = b->id;
 	io->status = SPA_STATUS_HAVE_DATA;
@@ -881,11 +879,11 @@ impl_init(const struct spa_handle_factory *factory,
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 
 	if (this->data_loop == NULL) {
-		spa_log_error(this->log, NAME" %p: a data loop is needed", this);
+		spa_log_error(this->log, "%p: a data loop is needed", this);
 		return -EINVAL;
 	}
 	if (this->data_system == NULL) {
-		spa_log_error(this->log, NAME" %p: a data system is needed", this);
+		spa_log_error(this->log, "%p: a data system is needed", this);
 		return -EINVAL;
 	}
 

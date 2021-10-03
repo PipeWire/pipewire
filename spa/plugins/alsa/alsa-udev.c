@@ -45,8 +45,6 @@
 
 #include "alsa.h"
 
-#define NAME  "alsa-udev"
-
 #define MAX_DEVICES	64
 
 #define ACTION_ADD	0

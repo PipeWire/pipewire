@@ -53,8 +53,6 @@
 
 extern struct spa_i18n *acp_i18n;
 
-#define NAME  "alsa-device"
-
 #define MAX_POLL	16
 
 #define DEFAULT_DEVICE		"hw:0"

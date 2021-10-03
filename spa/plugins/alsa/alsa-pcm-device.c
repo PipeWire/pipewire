@@ -47,8 +47,6 @@
 
 #include "alsa.h"
 
-#define NAME  "alsa-device"
-
 #define MAX_DEVICES	64
 
 static const char default_device[] = "hw:0";

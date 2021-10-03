@@ -35,8 +35,6 @@
 
 #include "../media-session/reserve.c"
 
-#define NAME "reserve"
-
 struct impl {
 	struct pw_main_loop *mainloop;
 	struct pw_loop *loop;

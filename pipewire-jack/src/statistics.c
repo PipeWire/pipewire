@@ -35,7 +35,7 @@ float jack_get_max_delayed_usecs (jack_client_t *client)
 	if (c->driver_activation)
 		res = (float)c->driver_activation->max_delay / SPA_USEC_PER_SEC;
 
-	pw_log_trace(NAME" %p: max delay %f", client, res);
+	pw_log_trace("%p: max delay %f", client, res);
 	return res;
 }
 
@@ -50,7 +50,7 @@ float jack_get_xrun_delayed_usecs (jack_client_t *client)
 	if (c->driver_activation)
 		res = (float)c->driver_activation->xrun_delay / SPA_USEC_PER_SEC;
 
-	pw_log_trace(NAME" %p: xrun delay %f", client, res);
+	pw_log_trace("%p: xrun delay %f", client, res);
 	return res;
 }
 

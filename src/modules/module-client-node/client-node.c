@@ -42,8 +42,6 @@
 #include "modules/spa/spa-node.h"
 #include "client-node.h"
 
-#define NAME "client-node"
-
 PW_LOG_TOPIC_EXTERN(mod_topic);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
@@ -282,7 +280,7 @@ static int clear_buffers(struct node *this, struct mix *mix)
 	for (i = 0; i < mix->n_buffers; i++) {
 		struct buffer *b = &mix->buffers[i];
 
-		spa_log_debug(this->log, NAME" %p: clear buffer %d", this, i);
+		spa_log_debug(this->log, "%p: clear buffer %d", this, i);
 
 		for (j = 0; j < b->buffer.n_datas; j++) {
 			struct spa_data *d = &b->datas[j];
@@ -491,7 +489,7 @@ do_update_port(struct node *this,
 	uint32_t i;
 
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
-		spa_log_debug(this->log, NAME" %p: port %u update %d params", this, port->id, n_params);
+		spa_log_debug(this->log, "%p: port %u update %d params", this, port->id, n_params);
 		for (i = 0; i < port->n_params; i++)
 			free(port->params[i]);
 		port->n_params = n_params;
@@ -526,7 +524,7 @@ clear_port(struct node *this, struct port *port)
 {
 	struct mix *mix;
 
-	spa_log_debug(this->log, NAME" %p: clear port %p", this, port);
+	spa_log_debug(this->log, "%p: clear port %p", this, port);
 
 	do_update_port(this, port,
 		       PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
@@ -757,7 +755,7 @@ do_port_use_buffers(struct impl *impl,
 
 	p = GET_PORT(this, direction, port_id);
 
-	spa_log_debug(this->log, NAME " %p: %s port %d.%d use buffers %p %u flags:%08x", this,
+	spa_log_debug(this->log, "%p: %s port %d.%d use buffers %p %u flags:%08x", this,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
 			port_id, mix_id, buffers, n_buffers, flags);
 
@@ -826,7 +824,7 @@ do_port_use_buffers(struct impl *impl,
 		mb[i].mem_id = m->id;
 		mb[i].offset = SPA_PTRDIFF(baseptr, mem->map->ptr);
 		mb[i].size = SPA_PTRDIFF(endptr, baseptr);
-		spa_log_debug(this->log, NAME" %p: buffer %d %d %d %d", this, i, mb[i].mem_id,
+		spa_log_debug(this->log, "%p: buffer %d %d %d %d", this, i, mb[i].mem_id,
 				mb[i].offset, mb[i].size);
 
 		b->buffer.n_metas = SPA_MIN(buffers[i]->n_metas, MAX_METAS);
@@ -934,7 +932,7 @@ static int impl_node_process(void *object)
 	n->rt.activation->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
 	if (SPA_UNLIKELY(spa_system_eventfd_write(this->data_system, this->writefd, 1) < 0))
-		spa_log_warn(this->log, NAME" %p: error %m", this);
+		spa_log_warn(this->log, "%p: error %m", this);
 
 	return SPA_STATUS_OK;
 }
@@ -1000,7 +998,7 @@ client_node_port_update(void *data,
 	struct port *port;
 	bool remove;
 
-	spa_log_debug(this->log, NAME" %p: got port update change:%08x params:%d",
+	spa_log_debug(this->log, "%p: got port update change:%08x params:%d",
 			this, change_mask, n_params);
 	if (!CHECK_PORT_ID(this, direction, port_id))
 		return -EINVAL;
@@ -1038,7 +1036,7 @@ static int client_node_set_active(void *data, bool active)
 {
 	struct impl *impl = data;
 	struct node *this = &impl->node;
-	spa_log_debug(this->log, NAME" %p: active:%d", this, active);
+	spa_log_debug(this->log, "%p: active:%d", this, active);
 	return pw_impl_node_set_active(impl->this.node, active);
 }
 
@@ -1063,7 +1061,7 @@ static int client_node_port_buffers(void *data,
 	struct mix *mix;
 	uint32_t i, j;
 
-	spa_log_debug(this->log, NAME " %p: %s port %d.%d buffers %p %u", this,
+	spa_log_debug(this->log, "%p: %s port %d.%d buffers %p %u", this,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
 			port_id, mix_id, buffers, n_buffers);
 
@@ -1128,7 +1126,7 @@ static void node_on_data_fd_events(struct spa_source *source)
 	struct node *this = source->data;
 
 	if (source->rmask & (SPA_IO_ERR | SPA_IO_HUP)) {
-		spa_log_warn(this->log, NAME" %p: got error", this);
+		spa_log_warn(this->log, "%p: got error", this);
 		return;
 	}
 
@@ -1143,7 +1141,7 @@ static void node_on_data_fd_events(struct spa_source *source)
 			pw_log_warn("(%s-%u) client missed %"PRIu64" wakeups",
 				node->name, node->info.id, cmd - 1);
 
-		spa_log_trace_fp(this->log, NAME" %p: got ready", this);
+		spa_log_trace_fp(this->log, "%p: got ready", this);
 		spa_node_call_ready(&this->callbacks, SPA_STATUS_HAVE_DATA);
 	}
 }

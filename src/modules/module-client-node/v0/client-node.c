@@ -46,7 +46,8 @@
 #include "client-node.h"
 #include "transport.h"
 
-#define NAME "client-node0"
+PW_LOG_TOPIC_EXTERN(mod_topic);
+#define PW_LOG_TOPIC_DEFAULT mod_topic
 
 /** \cond */
 
@@ -301,7 +302,7 @@ static int impl_node_enum_params(void *object, int seq,
 		if (spa_pod_filter(&b, &result.param, param, filter) != 0)
 			continue;
 
-		pw_log_debug(NAME " %p: %d param %u", this, seq, result.index);
+		pw_log_debug("%p: %d param %u", this, seq, result.index);
 		spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 		if (++count == num)
@@ -359,7 +360,7 @@ static int send_clock_update(struct node *this)
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	now = SPA_TIMESPEC_TO_NSEC(&ts);
-	pw_log_trace(NAME " %p: now %"PRIi64, this, now);
+	pw_log_trace("%p: now %"PRIi64, this, now);
 
 	struct spa_command_node0_clock_update cu =
 		SPA_COMMAND_NODE0_CLOCK_UPDATE_INIT(type,
@@ -419,7 +420,7 @@ impl_node_sync(void *object, int seq)
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	pw_log_debug(NAME " %p: sync %p", this, this->resource);
+	pw_log_debug("%p: sync %p", this, this->resource);
 
 	if (this->resource == NULL)
 		return -EIO;
@@ -578,7 +579,7 @@ impl_node_port_enum_params(void *object, int seq,
 
 	port = GET_PORT(this, direction, port_id);
 
-	pw_log_debug(NAME " %p: %d port %d.%d %u %u %u", this, seq,
+	pw_log_debug("%p: %d port %d.%d %u %u %u", this, seq,
 			direction, port_id, id, start, num);
 
 	result.id = id;
@@ -605,7 +606,7 @@ impl_node_port_enum_params(void *object, int seq,
 		if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 			continue;
 
-		pw_log_debug(NAME " %p: %d param %u", this, seq, result.index);
+		pw_log_debug("%p: %d param %u", this, seq, result.index);
 		spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 		if (++count == num)

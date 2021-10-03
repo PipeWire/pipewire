@@ -40,7 +40,7 @@ extern "C" {
 #include <pipewire/proxy.h>
 
 /** \defgroup pw_node Node
- *
+ * Node interface
  */
 
 /**

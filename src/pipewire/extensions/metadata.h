@@ -32,7 +32,7 @@ extern "C" {
 #include <spa/utils/defs.h>
 
 /** \defgroup pw_metadata Metadata
- *
+ * Metadata interface
  */
 
 /**

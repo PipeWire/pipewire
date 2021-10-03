@@ -34,6 +34,7 @@ extern "C" {
 
 /**
  * \defgroup spa_handle Plugin Handle
+ * SPA plugin handle and factory interfaces
  */
 
 /**

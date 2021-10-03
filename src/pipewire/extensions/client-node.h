@@ -33,7 +33,7 @@ extern "C" {
 #include <spa/param/param.h>
 
 /** \defgroup pw_client_node Client Node
- *
+ * Client node interface
  */
 
 /**

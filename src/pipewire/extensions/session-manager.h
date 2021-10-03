@@ -27,7 +27,7 @@
 #define PIPEWIRE_EXT_SESSION_MANAGER_H
 
 /** \defgroup pw_session_manager Session Manager
- *
+ * Session manager interface
  */
 
 /**

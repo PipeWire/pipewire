@@ -61,6 +61,7 @@ extern "C" {
 #include <pipewire/version.h>
 
 /** \defgroup pw_pipewire Initialization
+ * Initializing PipeWire and loading SPA modules.
  */
 
 /**

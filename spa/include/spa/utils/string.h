@@ -37,7 +37,7 @@ extern "C" {
 
 /**
  * \defgroup spa_string String handling
- *
+ * String handling utilities
  */
 
 /**

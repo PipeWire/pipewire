@@ -25,7 +25,7 @@
 #include <pipewire/context.h>
 
 /** \defgroup pw_conf Configuration
- *
+ * Loading/saving properties from/to configuration files.
  */
 
 /**

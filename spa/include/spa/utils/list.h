@@ -31,7 +31,7 @@ extern "C" {
 
 /**
  * \defgroup spa_list List
- *
+ * Doubly linked list data structure
  */
 
 /**

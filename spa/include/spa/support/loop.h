@@ -34,7 +34,7 @@ extern "C" {
 #include <spa/support/system.h>
 
 /** \defgroup spa_loop Loop
- *
+ * Event loop interface
  */
 
 /**

@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 /** \defgroup spa_names Factory Names
+ * SPA plugin factory names
  */
 
 /**

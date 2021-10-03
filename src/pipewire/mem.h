@@ -32,7 +32,7 @@ extern "C" {
 #endif
 
 /** \defgroup pw_memblock Memory Blocks
- *
+ * Memory allocation and pools.
  */
 
 /**

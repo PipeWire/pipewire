@@ -80,6 +80,7 @@
 \addtogroup spa_param
 \addtogroup spa_pod
 \defgroup spa_utils Utilities
+Utility data structures, macros, etc.
 \{
 \addtogroup spa_ansi
 \addtogroup spa_utils_defs
@@ -96,6 +97,7 @@
 \addtogroup spa_types
 \}
 \defgroup spa_support Support
+Support interfaces provided by host
 \{
 \addtogroup spa_cpu
 \addtogroup spa_dbus

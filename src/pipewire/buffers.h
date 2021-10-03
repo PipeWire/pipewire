@@ -35,6 +35,7 @@ extern "C" {
 #endif
 
 /** \defgroup pw_buffers Buffers
+ * Buffer handling
  */
 
 /**

@@ -31,7 +31,8 @@ extern "C" {
 
 #include <spa/utils/type.h>
 
-/** \defgroup pw_type Type
+/** \defgroup pw_type Type info
+ * Type information
  */
 
 /**

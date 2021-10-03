@@ -32,7 +32,7 @@ extern "C" {
 #include <spa/support/loop.h>
 
 /** \defgroup spa_dbus DBus
- *
+ * DBus communication
  */
 
 /**

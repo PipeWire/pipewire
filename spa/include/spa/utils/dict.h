@@ -35,7 +35,7 @@ extern "C" {
 
 /**
  * \defgroup spa_dict Dictionary
- *
+ * Dictionary data structure
  */
 
 /**

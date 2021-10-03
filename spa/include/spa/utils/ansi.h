@@ -31,7 +31,7 @@ extern "C" {
 
 /**
  * \defgroup spa_ansi ANSI codes
- *
+ * ANSI color code macros
  */
 
 /**

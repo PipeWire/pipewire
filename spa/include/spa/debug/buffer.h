@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 /** \defgroup spa_debug Debug
- *
+ * Debugging utilities
  */
 
 /**

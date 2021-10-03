@@ -35,7 +35,7 @@ extern "C" {
 #include <pipewire/resource.h>
 
 /** \defgroup pw_protocol_native Native Protocol
- *
+ * PipeWire native protocol interface
  */
 
 /**

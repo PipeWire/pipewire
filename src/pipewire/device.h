@@ -35,7 +35,7 @@ extern "C" {
 #include <pipewire/proxy.h>
 
 /** \defgroup pw_device Device
- *
+ * Device interface
  */
 
 /**

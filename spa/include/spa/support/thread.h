@@ -37,7 +37,7 @@ extern "C" {
 #include <spa/utils/dict.h>
 
 /** \defgroup spa_thread Thread
- *
+ * Threading utility interfaces
  */
 
 /**

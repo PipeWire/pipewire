@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 /** \defgroup spa_param Parameters
+ * Parameter value enumerations and type information
  */
 
 /**

@@ -36,7 +36,7 @@ extern "C" {
 #include <pipewire/permission.h>
 
 /** \defgroup pw_client Client
- *
+ * Client interface
  */
 
 /**

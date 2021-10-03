@@ -32,6 +32,7 @@ extern "C" {
 #include <spa/utils/defs.h>
 
 /** \defgroup spa_types Types
+ * Data type information enumerations
  */
 
 /**

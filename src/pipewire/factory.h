@@ -38,7 +38,7 @@ extern "C" {
 #include <pipewire/proxy.h>
 
 /** \defgroup pw_factory Factory
- *
+ * Factory interface
  */
 
 /**

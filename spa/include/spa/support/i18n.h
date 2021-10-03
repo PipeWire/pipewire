@@ -33,7 +33,7 @@ extern "C" {
 #include <spa/utils/defs.h>
 
 /** \defgroup spa_i18n I18N
- *
+ * Gettext interface
  */
 
 /**

@@ -39,7 +39,7 @@ extern "C" {
 
 /**
  * \defgroup spa_utils_defs Miscellaneous
- *
+ * Helper macros and functions
  */
 
 /**

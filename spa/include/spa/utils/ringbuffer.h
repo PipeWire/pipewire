@@ -31,7 +31,7 @@ extern "C" {
 
 /**
  * \defgroup spa_ringbuffer Ringbuffer
- *
+ * Ring buffer implementation
  */
 
 /**

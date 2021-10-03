@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 /** \defgroup pw_gettext Internationalization
- *
+ * Gettext interface
  */
 
 /**

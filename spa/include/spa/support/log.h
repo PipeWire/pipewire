@@ -36,6 +36,7 @@ extern "C" {
 #include <spa/utils/hook.h>
 
 /** \defgroup spa_log Log
+ * Logging interface
  */
 
 /**

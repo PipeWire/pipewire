@@ -33,7 +33,7 @@ extern "C" {
 #include <spa/utils/defs.h>
 
 /** \defgroup spa_plugin_loader Plugin Loader
- *
+ * SPA plugin loader
  */
 
 /**

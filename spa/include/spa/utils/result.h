@@ -31,7 +31,7 @@ extern "C" {
 
 /**
  * \defgroup spa_result Result handling
- *
+ * Asynchronous result utilities
  */
 
 /**

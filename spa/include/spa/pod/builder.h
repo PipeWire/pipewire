@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 /** \defgroup spa_pod POD
+ * Binary data serialization format
  */
 
 /**

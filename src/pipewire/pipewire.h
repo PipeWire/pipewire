@@ -60,7 +60,7 @@ extern "C" {
 #include <pipewire/utils.h>
 #include <pipewire/version.h>
 
-/** \defgroup pw_pipewire Initialization etc.
+/** \defgroup pw_pipewire Initialization
  */
 
 /**

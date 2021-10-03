@@ -4,6 +4,7 @@
 \brief PipeWire Core API
 \{
 \addtogroup pw_pipewire
+\addtogroup pw_main_loop
 \addtogroup pw_context
 \addtogroup pw_client
 \addtogroup pw_core
@@ -50,7 +51,6 @@
 \addtogroup pw_conf
 \addtogroup pw_gettext
 \addtogroup pw_log
-\addtogroup pw_main_loop
 \addtogroup pw_map
 \addtogroup pw_memblock
 \addtogroup pw_properties
@@ -66,9 +66,6 @@
 \addtogroup pw_profiler
 \addtogroup pw_protocol_native
 \addtogroup pw_session_manager
-\{
-\addtogroup pw_session_manager_impl
-\}
 \}
 
 \defgroup api_spa SPA
@@ -112,11 +109,11 @@
 \}
 \}
 
-\defgroup pw_stream Stream API
+\defgroup pw_stream Stream
 \{
 \}
 
-\defgroup pw_filter Filter API
+\defgroup pw_filter Filter
 \{
 \}
 

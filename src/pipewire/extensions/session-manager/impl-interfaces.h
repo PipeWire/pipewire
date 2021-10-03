@@ -36,12 +36,8 @@
 extern "C" {
 #endif
 
-/** \defgroup pw_session_manager_impl Implementation
- *
- */
-
 /**
- * \addtogroup pw_session_manager_impl
+ * \addtogroup pw_session_manager
  * \{
  */
 

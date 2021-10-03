@@ -29,13 +29,13 @@
 extern "C" {
 #endif
 
-/** \page page_streams Media Streams
+/** \page page_streams Streams
  *
  * \section sec_overview Overview
  *
- * Media streams are used to exchange data with the PipeWire server. A
- * stream is a wrapper around a proxy for a pw_client_node with
- * an adapter. This means the stream will automatically do conversion
+ * \ref pw_stream "Streams" are used to exchange data with the
+ * PipeWire server. A stream is a wrapper around a proxy for a pw_client_node
+ * with an adapter. This means the stream will automatically do conversion
  * to the type required by the server.
  *
  * Streams can be used to:
@@ -144,7 +144,7 @@ extern "C" {
  *
  * Use \ref pw_stream_disconnect() to disconnect a stream after use.
  */
-/** \defgroup pw_stream Stream API
+/** \defgroup pw_stream Stream
  *
  * \brief PipeWire stream objects
  *

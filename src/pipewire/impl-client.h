@@ -31,9 +31,9 @@ extern "C" {
 
 #include <spa/utils/hook.h>
 
-/** \page page_client Client Implementation
+/** \page page_client_impl Client Implementation
  *
- * \section sec_page_client_overview Overview
+ * \section sec_page_client_impl_overview Overview
  *
  * The \ref pw_impl_client object is created by a protocol implementation when
  * a new client connects.
@@ -41,19 +41,19 @@ extern "C" {
  * The client is used to keep track of all resources belonging to one
  * connection with the PipeWire server.
  *
- * \section sec_page_client_credentials Credentials
+ * \section sec_page_client_impl_credentials Credentials
  *
  * The client object will have its credentials filled in by the protocol.
  * This information is used to check if a resource or action is available
  * for this client.
  *
- * \section sec_page_client_types Types
+ * \section sec_page_client_impl_types Types
  *
  * The client and server maintain a mapping between the client and server
  * types. All type ids that are in messages exchanged between the client
  * and server will automatically be remapped.
  *
- * \section sec_page_client_resources Resources
+ * \section sec_page_client_impl_resources Resources
  *
  * When a client binds to context global object, a resource is made for this
  * binding and a unique id is assigned to the resources. The client and
@@ -70,6 +70,8 @@ extern "C" {
  *
  * Each client has its own list of resources it is bound to along with
  * a mapping between the client types and server types.
+ *
+ * See: \ref page_client_impl
  */
 
 /**

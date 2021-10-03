@@ -1,4 +1,4 @@
-/** \page page_pipewire PipeWire
+/** \page page_pipewire PipeWire Design
 
 ## Internals
 
@@ -7,20 +7,15 @@
 - \subpage page_access
 - \subpage page_portal
 - \subpage page_midi
-- \subpage page_streams
-- \subpage page_client
-- \subpage page_proxy
-- \subpage page_thread_loop
 - \subpage page_objects_design
+- \subpage page_library
 - \subpage page_dma_buf
 
 ## Components
 
 - \subpage page_daemon
-- \subpage page_library
 - \subpage page_tools
 - \subpage page_session_manager
-- \ref page_spa
 
 ## Backends
 

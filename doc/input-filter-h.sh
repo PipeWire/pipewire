@@ -13,7 +13,7 @@ BASEFILE=$(echo "$FILENAME" | sed -e 's@.*src/pipewire/@pipewire/@; s@.*spa/incl
 
 echo "/** \file"
 echo "\`$BASEFILE\`"
-sed -n -e '/.*\\addtogroup [a-zA-Z0-9_].*/ { s/.*addtogroup /\\ingroup /; p; }' < "$FILENAME"
+sed -n -e '/.*\\addtogroup [a-zA-Z0-9_].*/ { s/.*addtogroup /\\ingroup /; p; }' < "$FILENAME" | sort | uniq
 echo " */"
 
 # Add \sa and \copydoc for (struct *methods) callback macros.

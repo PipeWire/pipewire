@@ -25,8 +25,8 @@ EXAMPLE_PATH           = "@top_srcdir@/src/tools" \
                          "@top_srcdir@/src/examples"
 
 
-REFERENCED_BY_RELATION = YES
-REFERENCES_RELATION    = YES
+REFERENCED_BY_RELATION = NO
+REFERENCES_RELATION    = NO
 IGNORE_PREFIX          = pw_ \
                          PW_ \
                          spa_ \
@@ -48,6 +48,19 @@ PREDEFINED             = PA_C_DECL_BEGIN= \
 			 SPA_NORETURN \
 			 SPA_RESTRICT
 HTML_EXTRA_STYLESHEET  = @cssfiles@
+
+MAX_INITIALIZER_LINES  = 1
+
+CALL_GRAPH             = NO
+CALLER_GRAPH           = NO
+CLASS_GRAPH            = NO
+COLLABORATION_GRAPH    = NO
+GROUP_GRAPHS           = NO
+INCLUDED_BY_GRAPH      = NO
+INCLUDE_GRAPH          = NO
+GRAPHICAL_HIERARCHY    = NO
+DIRECTORY_GRAPH        = NO
+TEMPLATE_RELATIONS     = NO
 
 # Fix up some apparent Doxygen mis-parsing
 EXCLUDE_SYMBOLS        = "desc" "methods" "msgid_plural" "n" "name" "props" "utils" "start"

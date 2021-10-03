@@ -34,7 +34,8 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/metadata.h>
 
-#define NAME "alsa-plugin"
+PW_LOG_TOPIC_STATIC(alsa_log_topic, "alsa.ctl");
+#define PW_LOG_TOPIC_DEFAULT alsa_log_topic
 
 #define VOLUME_MAX 65536
 
@@ -748,7 +749,7 @@ static void snd_ctl_pipewire_free(snd_ctl_pipewire_t *ctl)
 	if (ctl == NULL)
 		return;
 
-	pw_log_debug(NAME" %p:", ctl);
+	pw_log_debug("%p:", ctl);
 	if (ctl->mainloop)
 		pw_thread_loop_stop(ctl->mainloop);
 	if (ctl->registry)
@@ -1185,7 +1186,7 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 {
 	snd_ctl_pipewire_t *ctl = data;
 
-	pw_log_warn(NAME" %p: error id:%u seq:%d res:%d (%s): %s", ctl,
+	pw_log_warn("%p: error id:%u seq:%d res:%d (%s): %s", ctl,
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE) {
@@ -1240,6 +1241,8 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 	struct pw_loop *loop;
 
         pw_init(NULL, NULL);
+
+	PW_LOG_TOPIC_INIT(alsa_log_topic);
 
 	snd_config_for_each(i, next, conf) {
 		snd_config_t *n = snd_config_iterator_entry(i);

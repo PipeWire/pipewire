@@ -44,7 +44,8 @@
 
 #include <pipewire/pipewire.h>
 
-#define NAME "alsa-plugin"
+PW_LOG_TOPIC_STATIC(alsa_log_topic, "alsa.pcm");
+#define PW_LOG_TOPIC_DEFAULT alsa_log_topic
 
 #define MIN_BUFFERS	2u
 #define MAX_BUFFERS	64u
@@ -142,7 +143,7 @@ static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
 	if (pw == NULL)
 		return;
 
-	pw_log_debug(NAME" %p:", pw);
+	pw_log_debug("%p:", pw);
 	if (pw->main_loop)
 		pw_thread_loop_stop(pw->main_loop);
 	if (pw->stream)
@@ -161,7 +162,7 @@ static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
 static int snd_pcm_pipewire_close(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
-	pw_log_debug(NAME" %p:", pw);
+	pw_log_debug("%p:", pw);
 	snd_pcm_pipewire_free(pw);
 	return 0;
 }
@@ -346,7 +347,7 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 	buffers = SPA_CLAMP(io->buffer_size / io->period_size, MIN_BUFFERS, MAX_BUFFERS);
 	size = io->period_size * pw->stride;
 
-	pw_log_info(NAME" %p: buffer_size:%lu period_size:%lu buffers:%u size:%u min_avail:%lu",
+	pw_log_info("%p: buffer_size:%lu period_size:%lu buffers:%u size:%u min_avail:%lu",
 			pw, io->buffer_size, io->period_size, buffers, size, pw->min_avail);
 
 	params[n_params++] = spa_pod_builder_add_object(&b,
@@ -377,7 +378,7 @@ static void on_stream_drained(void *data)
 	snd_pcm_pipewire_t *pw = data;
 	pw->drained = true;
 	pw->draining = false;
-	pw_log_debug(NAME" %p: drained", pw);
+	pw_log_debug("%p: drained", pw);
 	pw_thread_loop_signal(pw->main_loop, false);
 }
 
@@ -402,7 +403,7 @@ static void on_stream_process(void *data)
 		return;
 
 	want = pw->rate_match ? pw->rate_match->size : hw_avail;
-	pw_log_trace(NAME" %p: avail:%lu want:%lu", pw, hw_avail, want);
+	pw_log_trace("%p: avail:%lu want:%lu", pw, hw_avail, want);
 
 	snd_pcm_pipewire_process(pw, b, &hw_avail, want);
 
@@ -443,7 +444,7 @@ static int snd_pcm_pipewire_drain(snd_pcm_ioplug_t *io)
 	snd_pcm_pipewire_t *pw = io->private_data;
 
 	pw_thread_loop_lock(pw->main_loop);
-	pw_log_debug(NAME" %p: drain", pw);
+	pw_log_debug("%p: drain", pw);
 	pw->drained = false;
 	pw->draining = false;
 	pipewire_start(pw);
@@ -480,7 +481,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	min_period = (MIN_PERIOD * io->rate / 48000);
 	pw->min_avail = SPA_MAX(pw->min_avail, min_period);
 
-	pw_log_debug(NAME" %p: prepare %d %p %lu %ld", pw,
+	pw_log_debug("%p: prepare %d %p %lu %ld", pw,
 			pw->error, pw->stream, io->period_size, pw->min_avail);
 	if (pw->error >= 0 && pw->stream != NULL)
 		goto done;
@@ -557,7 +558,7 @@ static int snd_pcm_pipewire_start(snd_pcm_ioplug_t *io)
 	snd_pcm_pipewire_t *pw = io->private_data;
 
 	pw_thread_loop_lock(pw->main_loop);
-	pw_log_debug(NAME" %p:", pw);
+	pw_log_debug("%p:", pw);
 	pipewire_start(pw);
 	block_check(io); /* unblock socket for polling if needed */
 	pw_thread_loop_unlock(pw->main_loop);
@@ -568,7 +569,7 @@ static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 
-	pw_log_debug(NAME" %p:", pw);
+	pw_log_debug("%p:", pw);
 	pcm_poll_unblock_check(io);
 
 	pw_thread_loop_lock(pw->main_loop);
@@ -582,7 +583,7 @@ static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io)
 
 static int snd_pcm_pipewire_pause(snd_pcm_ioplug_t * io, int enable)
 {
-	pw_log_debug(NAME" %p:", io);
+	pw_log_debug("%p:", io);
 
 	if (enable)
 		snd_pcm_pipewire_stop(io);
@@ -635,7 +636,7 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 	snd_pcm_pipewire_t *pw = io->private_data;
 	bool planar;
 
-	pw_log_debug(NAME" %p: hw_params buffer_size:%lu period_size:%lu", pw, io->buffer_size, io->period_size);
+	pw_log_debug("%p: hw_params buffer_size:%lu period_size:%lu", pw, io->buffer_size, io->period_size);
 
 	switch(io->access) {
 	case SND_PCM_ACCESS_MMAP_INTERLEAVED:
@@ -702,7 +703,7 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 		pw->blocks = 1;
 		pw->stride = (io->channels * pw->sample_bits) / 8;
 	}
-	pw_log_info(NAME" %p: format:%s channels:%d rate:%d stride:%d blocks:%d", pw,
+	pw_log_info("%p: format:%s channels:%d rate:%d stride:%d blocks:%d", pw,
 			spa_debug_type_find_name(spa_type_audio_format, pw->format.format),
 			io->channels, io->rate, pw->stride, pw->blocks);
 
@@ -946,7 +947,7 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 {
 	snd_pcm_pipewire_t *pw = data;
 
-	pw_log_warn(NAME" %p: error id:%u seq:%d res:%d (%s): %s", pw,
+	pw_log_warn("%p: error id:%u seq:%d res:%d (%s): %s", pw,
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE) {
@@ -993,7 +994,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 
 	str = getenv("PIPEWIRE_NODE");
 
-	pw_log_debug(NAME" %p: open %s %d %d %08x %d %s %d %d '%s'", pw, name,
+	pw_log_debug("%p: open %s %d %d %08x %d %s %d %d '%s'", pw, name,
 			stream, mode, flags, rate,
 			format != SND_PCM_FORMAT_UNKNOWN ? snd_pcm_format_name(format) : "none",
 			channels, period_bytes, str);
@@ -1082,7 +1083,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	if ((err = snd_pcm_ioplug_create(&pw->io, name, stream, mode)) < 0)
 		goto error;
 
-	pw_log_debug(NAME" %p: open %s %d %d", pw, name, pw->io.stream, mode);
+	pw_log_debug("%p: open %s %d %d", pw, name, pw->io.stream, mode);
 
 	if ((err = pipewire_set_hw_constraint(pw, rate, format, channels,
 					period_bytes)) < 0)
@@ -1118,6 +1119,8 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 	pw_init(NULL, NULL);
 	if (strstr(pw_get_library_version(), "0.2") != NULL)
 		return -ENOTSUP;
+
+	PW_LOG_TOPIC_INIT(alsa_log_topic);
 
 	snd_config_for_each(i, next, conf) {
 		snd_config_t *n = snd_config_iterator_entry(i);

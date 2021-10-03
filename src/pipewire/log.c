@@ -59,6 +59,7 @@ PW_LOG_TOPIC(log_port, "pw.port");
 PW_LOG_TOPIC(log_link, "pw.link");
 PW_LOG_TOPIC(log_loop, "pw.loop");
 PW_LOG_TOPIC(log_main_loop, "pw.main-loop");
+PW_LOG_TOPIC(log_mem, "pw.mem");
 PW_LOG_TOPIC(log_core, "pw.core");
 PW_LOG_TOPIC(log_proxy, "pw.proxy");
 PW_LOG_TOPIC(log_global, "pw.global");
@@ -437,6 +438,7 @@ pw_log_init(void)
 	PW_LOG_TOPIC_INIT(log_link);
 	PW_LOG_TOPIC_INIT(log_loop);
 	PW_LOG_TOPIC_INIT(log_main_loop);
+	PW_LOG_TOPIC_INIT(log_mem);
 	PW_LOG_TOPIC_INIT(log_core);
 	PW_LOG_TOPIC_INIT(log_proxy);
 	PW_LOG_TOPIC_INIT(log_global);

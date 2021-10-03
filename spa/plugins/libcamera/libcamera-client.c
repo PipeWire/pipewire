@@ -44,8 +44,6 @@
 
 #include "libcamera.h"
 
-#define NAME "libcamera-client"
-
 struct impl {
 	struct spa_handle handle;
 	struct spa_device device;
@@ -192,6 +190,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	libcamera_log_topic_init(this->log);
+
 	this->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 
 	if (this->main_loop == NULL) {

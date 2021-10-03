@@ -26,6 +26,17 @@
 
 #include <linux/media.h>
 
+#include <spa/support/log.h>
+
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT libcamera_log_topic
+extern struct spa_log_topic *libcamera_log_topic;
+
+static inline void libcamera_log_topic_init(struct spa_log *log)
+{
+	spa_log_topic_init(log, libcamera_log_topic);
+}
+
 #include "libcamera_wrapper.h"
 
 struct spa_libcamera_device {

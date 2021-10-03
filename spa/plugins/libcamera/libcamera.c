@@ -25,10 +25,14 @@
 #include <errno.h>
 
 #include <spa/support/plugin.h>
+#include <spa/support/log.h>
 
 extern const struct spa_handle_factory spa_libcamera_source_factory;
 extern const struct spa_handle_factory spa_libcamera_client_factory;
 extern const struct spa_handle_factory spa_libcamera_device_factory;
+
+struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.libcamera");
+struct spa_log_topic *libcamera_log_topic = &log_topic;
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory,

@@ -49,8 +49,6 @@
 
 #include "libcamera.h"
 
-#define NAME "libcamera-source"
-
 static const char default_device[] = "/dev/media0";
 
 struct props {
@@ -827,7 +825,7 @@ static int impl_node_process(void *object)
 	if (port->control)
 		process_control(this, &port->control->sequence);
 
-	spa_log_trace(this->log, NAME " %p; status %d", this, io->status);
+	spa_log_trace(this->log, "%p; status %d", this, io->status);
 
 	if (io->status == SPA_STATUS_HAVE_DATA) {
 		return SPA_STATUS_HAVE_DATA;
@@ -849,7 +847,7 @@ static int impl_node_process(void *object)
 	spa_list_remove(&b->link);
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
 
-	spa_log_trace(this->log, NAME " %p: dequeue buffer %d", this, b->id);
+	spa_log_trace(this->log, "%p: dequeue buffer %d", this, b->id);
 
 	io->buffer_id = b->id;
 	io->status = SPA_STATUS_HAVE_DATA;
@@ -940,6 +938,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	libcamera_log_topic_init(this->log);
+
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	this->system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_System);
 

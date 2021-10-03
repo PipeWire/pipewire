@@ -589,8 +589,8 @@ static bool device_supports_required_mSBC_transport_modes(
 		bdaddr_t dst;
 		int res;
 
-		/* Connect to self */
-		str2ba(device->adapter->address, &dst);
+		/* Connect to device */
+		str2ba(device->address, &dst);
 		len = sizeof(addr);
 		memset(&addr, 0, len);
 		addr.sco_family = AF_BLUETOOTH;

@@ -1186,7 +1186,7 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
                 goto error_clean;
 	}
 
-	impl->work = pw_work_queue_new(this->context->main_loop);
+	impl->work = pw_context_get_work_queue(this->context);
 	if (impl->work == NULL) {
 		res = -errno;
 		goto error_clean;
@@ -1785,13 +1785,13 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 
 	pw_memblock_unref(node->activation);
 
-	pw_work_queue_destroy(impl->work);
-
 	pw_param_clear(&impl->param_list, SPA_ID_INVALID);
 	pw_param_clear(&impl->pending_list, SPA_ID_INVALID);
 
 	pw_map_clear(&node->input_port_map);
 	pw_map_clear(&node->output_port_map);
+
+	pw_work_queue_cancel(impl->work, node, SPA_ID_INVALID);
 
 	pw_properties_free(node->properties);
 

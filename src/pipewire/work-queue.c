@@ -65,7 +65,7 @@ static void process_work_queue(void *data, uint64_t count)
 
 	spa_list_for_each_safe(item, tmp, &this->work_list, link) {
 		if (item->seq != SPA_ID_INVALID) {
-			pw_log_debug("%p: %d waiting for item %p seq:%d id:%u", this,
+			pw_log_debug("%p: n_queued:%d waiting for item %p seq:%d id:%u", this,
 				     this->n_queued, item->obj, item->seq, item->id);
 			continue;
 		}

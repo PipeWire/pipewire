@@ -70,8 +70,8 @@ endforeach
 foreach h : media_session_sources
   inputs += meson.source_root() / 'src' / 'media-session' / h
 endforeach
-inputs += meson.source_root() / 'spa' / 'include' / 'spa'
 inputs += meson.source_root() / 'test' / 'pwtest.h'
+input_dirs = [ meson.source_root() / 'spa' / 'include' / 'spa' ]
 
 path_prefixes = [
   meson.source_root() / 'src',
@@ -84,7 +84,7 @@ cssfiles = [
   meson.source_root() / 'doc' / 'custom.css'
 ]
 
-doxyfile_conf.set('inputs', ' '.join(inputs))
+doxyfile_conf.set('inputs', ' '.join(inputs + input_dirs))
 doxyfile_conf.set('cssfiles', ' '.join(cssfiles))
 doxyfile_conf.set('path_prefixes', ' '.join(path_prefixes))
 doxyfile_conf.set('c_input_filter', meson.source_root() / 'doc' / 'input-filter.sh')

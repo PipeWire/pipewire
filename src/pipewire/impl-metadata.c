@@ -326,6 +326,12 @@ error_exit:
 }
 
 SPA_EXPORT
+const struct pw_properties *pw_impl_metadata_get_properties(struct pw_impl_metadata *metadata)
+{
+	return metadata->properties;
+}
+
+SPA_EXPORT
 int pw_impl_metadata_set_implementation(struct pw_impl_metadata *metadata,
 		struct pw_metadata *meta)
 {

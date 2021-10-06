@@ -586,21 +586,19 @@ static bool device_supports_required_mSBC_transport_modes(
 	} else {
 		struct sockaddr_sco addr;
 		socklen_t len;
-		bdaddr_t dst;
 		int res;
 
-		/* Connect to device */
-		str2ba(device->address, &dst);
+		/* Connect to non-existent address */
 		len = sizeof(addr);
 		memset(&addr, 0, len);
 		addr.sco_family = AF_BLUETOOTH;
-		bacpy(&addr.sco_bdaddr, &dst);
+		bacpy(&addr.sco_bdaddr, BDADDR_LOCAL);
 
 		spa_log_debug(backend->log, "connect to determine adapter msbc support...");
 
 		/* Linux kernel code checks for features needed for BT_VOICE_TRANSPARENT
 		 * among the first checks it does, and fails with EOPNOTSUPP if not
-		 * supported. The connection to self generally timeouts, so set it
+		 * supported. The connection to generally timeouts, so set it
 		 * nonblocking since we are just checking.
 		 */
 		fcntl(sock, F_SETFL, O_NONBLOCK);

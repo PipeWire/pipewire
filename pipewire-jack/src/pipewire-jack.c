@@ -3004,7 +3004,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->node_id = SPA_ID_INVALID;
 	snprintf(client->name, sizeof(client->name), "pw-%s", client_name);
 	client->context.loop = pw_thread_loop_new(client->name, NULL);
-	client->context.l = pw_thread_loop_get_loop(client->context.loop),
+	client->context.l = pw_thread_loop_get_loop(client->context.loop);
 	client->context.context = pw_context_new(
 			client->context.l,
 			pw_properties_copy(client->props),

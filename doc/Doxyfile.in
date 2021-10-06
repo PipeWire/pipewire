@@ -51,6 +51,7 @@ PREDEFINED             = PA_C_DECL_BEGIN= \
 HTML_EXTRA_STYLESHEET  = @cssfiles@
 
 MAX_INITIALIZER_LINES  = 1
+SORT_MEMBER_DOCS       = NO
 
 CALL_GRAPH             = NO
 CALLER_GRAPH           = NO

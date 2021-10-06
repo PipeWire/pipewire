@@ -450,6 +450,9 @@ configure_file(output : 'config.h',
 if not get_option('pipewire-jack').disabled()
   subdir('pipewire-jack')
 endif
+if not get_option('pipewire-v4l2').disabled()
+  subdir('pipewire-v4l2')
+endif
 
 if alsa_dep.found()
   subdir('pipewire-alsa/alsa-plugins')

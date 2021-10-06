@@ -50,6 +50,10 @@ option('pipewire-jack',
        description: 'Enable pipewire-jack integration',
        type: 'feature',
        value: 'enabled')
+option('pipewire-v4l2',
+       description: 'Enable pipewire-v4l2 integration',
+       type: 'feature',
+       value: 'enabled')
 option('jack-devel',
        description: 'Install jack development files',
        type: 'boolean',

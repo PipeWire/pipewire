@@ -278,7 +278,8 @@ pipewire_module_protocol_pulse = shared_library('pipewire-module-protocol-pulse'
 build_module_pulse_tunnel = pulseaudio_dep.found()
 if build_module_pulse_tunnel
   pipewire_module_pulse_tunnel = shared_library('pipewire-module-pulse-tunnel',
-  [ 'module-pulse-tunnel.c' ],
+  [ 'module-pulse-tunnel.c',
+    'module-protocol-pulse/format.c' ],
   include_directories : [configinc, spa_inc],
   install : true,
   install_dir : modules_install_dir,

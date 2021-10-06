@@ -50,6 +50,7 @@
 #include <pipewire/i18n.h>
 
 #include <pulse/pulseaudio.h>
+#include "module-protocol-pulse/format.h"
 
 /** \page page_module_pulse_tunnel PipeWire Module: Pulse Tunnel
  */
@@ -314,11 +315,6 @@ static int create_stream(struct impl *impl)
 				&playback_stream_events, impl);
 	}
 
-	impl->info = SPA_AUDIO_INFO_RAW_INIT(
-			.format = SPA_AUDIO_FORMAT_S16,
-			.rate = 48000,
-			.channels = 2,
-			.position = { SPA_AUDIO_CHANNEL_FL, SPA_AUDIO_CHANNEL_FR });
 	impl->frame_size = 2 * 2;
 
 	n_params = 0;
@@ -533,9 +529,9 @@ static int create_pulse_stream(struct impl *impl)
 		pa_threaded_mainloop_wait(impl->pa_mainloop);
 	}
 
-	ss.format = PA_SAMPLE_S16NE;
-	ss.channels = 2;
-	ss.rate = 48000;
+	ss.format = (pa_sample_format_t) format_id2pa(impl->info.format);
+	ss.channels = impl->info.channels;
+	ss.rate = impl->info.rate;
 
 	snprintf(stream_name, sizeof(stream_name), _("Tunnel for %s@%s"),
 			pw_get_user_name(), pw_get_host_name());
@@ -704,12 +700,33 @@ static void parse_position(struct spa_audio_info_raw *info, const char *val, siz
 	}
 }
 
+static inline uint32_t format_from_name(const char *name, size_t len)
+{
+	int i;
+	for (i = 0; spa_type_audio_format[i].name; i++) {
+		if (strncmp(name, spa_debug_type_short_name(spa_type_audio_format[i].name), len) == 0)
+			return spa_type_audio_format[i].type;
+	}
+	return SPA_AUDIO_FORMAT_UNKNOWN;
+}
+
 static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_raw *info)
 {
 	const char *str;
 
 	*info = SPA_AUDIO_INFO_RAW_INIT(
-			.format = SPA_AUDIO_FORMAT_F32P);
+			.rate = 48000,
+			.channels = 2,
+			.format = SPA_AUDIO_FORMAT_F32_LE);
+
+	if ((str = pw_properties_get(props, PW_KEY_AUDIO_FORMAT)) != NULL) {
+		uint32_t id;
+
+		id = format_from_name(str, strlen(str));
+		if (id != SPA_AUDIO_FORMAT_UNKNOWN)
+			info->format = id;
+	}
+
 	if ((str = pw_properties_get(props, PW_KEY_AUDIO_RATE)) != NULL)
 		info->rate = atoi(str);
 	if ((str = pw_properties_get(props, PW_KEY_AUDIO_CHANNELS)) != NULL)
@@ -803,6 +820,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((str = pw_properties_get(props, "stream.props")) != NULL)
 		pw_properties_update_string(impl->stream_props, str, strlen(str));
 
+	copy_props(impl, props, PW_KEY_AUDIO_FORMAT);
 	copy_props(impl, props, PW_KEY_AUDIO_RATE);
 	copy_props(impl, props, PW_KEY_AUDIO_CHANNELS);
 	copy_props(impl, props, SPA_KEY_AUDIO_POSITION);

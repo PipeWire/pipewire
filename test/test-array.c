@@ -108,10 +108,39 @@ PWTEST(array_test)
 	return PWTEST_PASS;
 }
 
+PWTEST(array_clear)
+{
+	struct pw_array arr;
+	uint32_t *ptr;
+	uint32_t vals[] = { 0, 100, 0x8a, 0 };
+	size_t i;
+
+	pw_array_init(&arr, 64);
+
+	for (i = 0; i < 4; i++) {
+		ptr = (uint32_t*)pw_array_add(&arr, sizeof(uint32_t));
+		*ptr = vals[i];
+	}
+	pwtest_int_eq(pw_array_get_len(&arr, uint32_t), 4U);
+	pw_array_clear(&arr);
+	pwtest_int_eq(pw_array_get_len(&arr, uint32_t), 0U);
+
+	for (i = 0; i < 4; i++) {
+		ptr = (uint32_t*)pw_array_add(&arr, sizeof(uint32_t));
+		*ptr = vals[i];
+	}
+	pwtest_int_eq(pw_array_get_len(&arr, uint32_t), 4U);
+	pw_array_clear(&arr);
+	pwtest_int_eq(pw_array_get_len(&arr, uint32_t), 0U);
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(pw_array)
 {
 	pwtest_add(array_test_abi, PWTEST_NOARG);
 	pwtest_add(array_test, PWTEST_NOARG);
+	pwtest_add(array_clear, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

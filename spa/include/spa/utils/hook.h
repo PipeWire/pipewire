@@ -171,12 +171,15 @@ struct spa_interface {
 /**
  * Invoke method named \a method in the \a callbacks.
  * The \a method_type defines the type of the method struct.
+ * Returns true if the method could be called, false otherwise.
  */
 #define spa_callbacks_call(callbacks,type,method,vers,...)			\
 ({										\
 	const type *_f = (const type *) (callbacks)->funcs;			\
-	if (SPA_LIKELY(SPA_CALLBACK_CHECK(_f,method,vers)))			\
+	bool _res = SPA_CALLBACK_CHECK(_f,method,vers);				\
+	if (SPA_LIKELY(_res))							\
 		_f->method((callbacks)->data, ## __VA_ARGS__);			\
+	_res;									\
 })
 
 /**

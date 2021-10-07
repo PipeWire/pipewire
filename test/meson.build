@@ -51,6 +51,7 @@ test('test pipewire utils',
     executable('test-pw-utils',
                'test-properties.c',
                'test-array.c',
+               'test-map.c',
                'test-utils.c',
                include_directories: pwtest_inc,
                link_with: pwtest_lib)

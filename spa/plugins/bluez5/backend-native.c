@@ -598,7 +598,7 @@ static bool device_supports_required_mSBC_transport_modes(
 
 		/* Linux kernel code checks for features needed for BT_VOICE_TRANSPARENT
 		 * among the first checks it does, and fails with EOPNOTSUPP if not
-		 * supported. The connection to generally timeouts, so set it
+		 * supported. The connection generally timeouts, so set it
 		 * nonblocking since we are just checking.
 		 */
 		fcntl(sock, F_SETFL, O_NONBLOCK);

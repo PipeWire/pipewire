@@ -420,22 +420,20 @@ spa_hook_list_join(struct spa_hook_list *list,
  * called */
 #define spa_hook_list_do_call(l,start,type,method,vers,once,...)		\
 ({										\
-	struct spa_hook_list *list = l;						\
-	struct spa_list *s = start ? (struct spa_list *)start : &list->list;	\
-	struct spa_hook cursor = { 0 }, *ci;					\
-	int count = 0;								\
-	spa_list_cursor_start(cursor, s, link);					\
-	spa_list_for_each_cursor(ci, cursor, &list->list, link) {		\
-		const type *_f = (const type *)ci->cb.funcs;			\
-		if (SPA_LIKELY(SPA_CALLBACK_CHECK(_f,method,vers))) {		\
-			_f->method(ci->cb.data, ## __VA_ARGS__);		\
-			count++;						\
+	struct spa_hook_list *_list = l;					\
+	struct spa_list *_s = start ? (struct spa_list *)start : &_list->list;	\
+	struct spa_hook _cursor = { 0 }, *_ci;					\
+	int _count = 0;								\
+	spa_list_cursor_start(_cursor, _s, link);				\
+	spa_list_for_each_cursor(_ci, _cursor, &_list->list, link) {		\
+		if (spa_callbacks_call(&_ci->cb,type,method,vers, ## __VA_ARGS__)) {		\
+			_count++;						\
 			if (once)						\
 				break;						\
 		}								\
 	}									\
-	spa_list_cursor_end(cursor, link);					\
-	count;									\
+	spa_list_cursor_end(_cursor, link);					\
+	_count;									\
 })
 
 /**

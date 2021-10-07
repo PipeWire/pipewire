@@ -238,41 +238,35 @@ do {								\
 })
 
 /* Transparently calls to version 0 log if v1 is not supported */
-#define spa_log_logt(l,lev,topic,...)				\
-({								\
-	struct spa_log *_l = l;					\
-	struct spa_interface *_if = &_l->iface;			\
+#define spa_log_logt(l,lev,topic,...)					\
+({									\
+	struct spa_log *_l = l;						\
+	struct spa_interface *_if = &_l->iface;				\
 	if (SPA_UNLIKELY(spa_log_level_topic_enabled(_l, topic, lev))) { \
-		if (spa_interface_callback_version_min(		\
-			_if, struct spa_log_methods, 1))	\
-		    spa_interface_call(_if,			\
-			    struct spa_log_methods, logt, 1,	\
-			    lev, topic,				\
-			    __VA_ARGS__);			\
-		else						\
-		    spa_interface_call(_if,			\
-			    struct spa_log_methods, log, 0,	\
-			    lev, __VA_ARGS__);			\
-	}							\
+		if (!spa_interface_call(_if,				\
+				struct spa_log_methods, logt, 1,	\
+				lev, topic,				\
+				__VA_ARGS__))				\
+		    spa_interface_call(_if,				\
+				struct spa_log_methods, log, 0,		\
+				lev, __VA_ARGS__);			\
+	}								\
 })
 
 /* Transparently calls to version 0 logv if v1 is not supported */
-#define spa_log_logtv(l,lev,topic,...)				\
-({								\
-	struct spa_log *_l = l;					\
-	struct spa_interface *_if = &_l->iface;			\
+#define spa_log_logtv(l,lev,topic,...)					\
+({									\
+	struct spa_log *_l = l;						\
+	struct spa_interface *_if = &_l->iface;				\
 	if (SPA_UNLIKELY(spa_log_level_topic_enabled(_l, topic, lev))) { \
-		if (spa_interface_callback_version_min(		\
-			_if, struct spa_log_methods, 1))	\
-		    spa_interface_call(_if,			\
-			    struct spa_log_methods, logtv, 1,	\
-			    lev, topic,				\
-			    __VA_ARGS__);			\
-		else						\
-		    spa_interface_call(_if,			\
-			    struct spa_log_methods, logv, 0,	\
-			    lev, __VA_ARGS__);			\
-	}							\
+		if (!spa_interface_call(_if,				\
+				struct spa_log_methods, logtv, 1,	\
+				lev, topic,				\
+				__VA_ARGS__))				\
+		    spa_interface_call(_if,				\
+				struct spa_log_methods, logv, 0,	\
+				lev, __VA_ARGS__);			\
+	}								\
 })
 
 #define spa_log_log(l,lev,...)					\

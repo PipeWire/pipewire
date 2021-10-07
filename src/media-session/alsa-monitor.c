@@ -111,9 +111,9 @@
  *
  * ## Module-specific properties:
  *
- * Ths modules supports the following entries in the `properties` dictionary:
+ * This modules supports the following entries in the `properties` dictionary:
  * - `alsa.reserve = false`: disable device reservation (default: enabled)
- * - `alsa.jack-device = true`: createa a JACK device (default: disabled), see
+ * - `alsa.jack-device = true`: create a JACK device (default: disabled), see
  *   the comment in the example configuration file.
  *
  * See the `alsa-monitor.conf` provided by your installation for details on

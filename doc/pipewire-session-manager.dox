@@ -19,7 +19,7 @@ This page describes some of the requirements for session managers in general.
 ## Client management
 
 PipeWire provides a \ref page_access "permission system" to limit client's
-acccess to resources but only \ref page_module_access "basic permission
+access to resources but only \ref page_module_access "basic permission
 handling". The session manager is expected to decide whether clients may
 access specific resources.
 

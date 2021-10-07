@@ -15,7 +15,7 @@ extern "C" {
  * are stored in x1 and x2, and the previous two outputs are stored in y1 and
  * y2.
  *
- * We use double during the coefficients calculation for better accurary, but
+ * We use double during the coefficients calculation for better accuracy, but
  * float is used during the actual filtering for faster computation.
  */
 struct biquad {

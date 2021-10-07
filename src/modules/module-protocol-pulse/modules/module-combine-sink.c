@@ -55,7 +55,7 @@ static const struct spa_dict_item module_combine_sink_info[] = {
 struct module_combine_sink_data;
 
 /* This goes to the stream event listener to be able to identify the stream on
- * which the event occured and to have a link to the module data */
+ * which the event occurred and to have a link to the module data */
 struct combine_stream {
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;

@@ -42,7 +42,7 @@ extern "C" {
 /** Extra DSD audio flags */
 #define SPA_AUDIO_DSD_FLAG_NONE		(0)		/*< no valid flag */
 
-/* DSD bits are transfered in a buffer grouped in bytes with the bitorder
+/* DSD bits are transferred in a buffer grouped in bytes with the bitorder
  * defined by \a bitorder.
  *
  * Channels are placed in separate planes (interleave = 0) or interleaved

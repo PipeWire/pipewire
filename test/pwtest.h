@@ -60,7 +60,7 @@ extern "C" {
  * - \ref PWTEST_FAIL for a test case failure. Usually you should not return this
  *   value but rely on the `pwtest` macros to handle this case.
  * - \ref PWTEST_SKIP to skip the current test
- * - \ref PWTEST_SYSTEM_ERROR in case of an error that would cause the test to not run propertly. This is not a test case failure but some required precondition not being met.
+ * - \ref PWTEST_SYSTEM_ERROR in case of an error that would cause the test to not run properly. This is not a test case failure but some required precondition not being met.
  *
  * ```c
  * #include "pwtest.h"
@@ -85,7 +85,7 @@ extern "C" {
  * ...
  * ```
  *
- * `pwtest` provides comparision macros for most basic data types with the `lt`,
+ * `pwtest` provides comparison macros for most basic data types with the `lt`,
  * `le`, `eq`, `gt`, `ge` suffixes (`<, <=, ==, >, >=`). Tests usually should not
  * return `PWTEST_FAIL` directly, use the `pwtest_fail()` macros if .
  *
@@ -167,7 +167,7 @@ enum pwtest_result {
 					     Use the pwtest_ macros instead */
 	PWTEST_SKIP = 77,		/**< test was skipped */
 	PWTEST_TIMEOUT = 78,		/**< test aborted after timeout */
-	PWTEST_SYSTEM_ERROR = 79,	/**< unrelated error occured */
+	PWTEST_SYSTEM_ERROR = 79,	/**< unrelated error occurred */
 };
 
 /**

@@ -91,7 +91,7 @@ with previous 0.3.x releases.
   - Parse channel_map arguments in module-loopback. (#1486)
 
 ## JACK
-  - Delay emiting the samplerate and buffersize callbacks until the
+  - Delay emitting the samplerate and buffersize callbacks until the
     client is active. This fixes some crashes with Carla and other
     JACK apps.
 
@@ -110,7 +110,7 @@ with previous 0.3.x releases.
     a lot better now.
   - Virtual sinks and sources should now always show up immediately.
   - JACK processing is now delayed until buffersize and samplerate
-    are emited. This should improve stability of many JACK apps.
+    are emitted. This should improve stability of many JACK apps.
   - JACK transport sync is now implemented correctly so that preroll
     in bitwig works.
 
@@ -231,7 +231,7 @@ with previous 0.3.x releases.
     But, this will also disable compatibility with JACK applications.
 
 ## Bluetooth
-  - Bluetooth codecs are now compiled into sperate plugins which are
+  - Bluetooth codecs are now compiled into separate plugins which are
     dynamically loaded. This makes it possible to change the plugin
     implementation or ship plugins separately without having to recompile
     the bluetooth module.
@@ -400,7 +400,7 @@ with previous 0.3.x releases.
     of a property so that producers can negotiate more
     efficiently. This is used to negotiate DMA-BUF modifiers,
     which should make more efficient use of the GPU. (#1084)
-  - Add support for multipe sample rates. The graph can switch
+  - Add support for multiple sample rates. The graph can switch
     when IDLE to one of the supported rates. Add an option to
     lock the rate as well. This is not enabled by default yet
     because of driver bugs that need to be worked around first.
@@ -498,7 +498,7 @@ with previous 0.3.x releases.
     default-route module. (#1403)
 
 ## ALSA
-  - Make sure tha alibpref is not part of the device node name because
+  - Make sure that alibpref is not part of the device node name because
     it is random. (#1362)
   - Fixed an off-by-one that could cause midi events to end up with a
     wrong timestamp and thus being discarded by some apps. (#1395)
@@ -616,7 +616,7 @@ with previous 0.3.x releases.
     actually changed.
 
 ## JACK
-  - The locking was reviewed. All callbacks are now emited
+  - The locking was reviewed. All callbacks are now emitted
     from the PipeWire thread with the lock released and
     the process function will be disabled for the duration
     of the callback. This ensures that no two callbacks are
@@ -692,7 +692,7 @@ with previous 0.3.x releases.
 
 ## PipeWire
   - A new module-rt was added to acquire real-time scheduling
-    priviledges without using RTKit.
+    privileges without using RTKit.
   - Documentation fixes and updates. Docs are now using a
     custom theme.
   - There is now a MANDATORY flag on properties that influence
@@ -700,7 +700,7 @@ with previous 0.3.x releases.
   - Filter-chain now parses the LADSPA_PATH correctly when it
     contains a colon separated list.
   - Move `#pipewire` IRC channel to oftc.net.
-  - Fix an error where param changes were not emited in all
+  - Fix an error where param changes were not emitted in all
     cases.
   - Implement Latency reporting. Latency values are propagated
     through the graph so that each node knows the latency to
@@ -819,7 +819,7 @@ with previous 0.3.x releases.
     include the webrtc echo-canceler.
   - State files don't have the X permission anymore.
   - Move i18n core into a private header file.
-  - Stream can now advertize properties and receive property
+  - Stream can now advertise properties and receive property
     updates.
   - Fix an issue where the wrong index was used to address a port.
     It caused Bluetooth devices to stop working.
@@ -846,7 +846,7 @@ with previous 0.3.x releases.
     result. This fixes some volume update issues.
 
 - GStreamer plugins
-  - GStreamer plugins now advertize handling DMABUF explicitly. This
+  - GStreamer plugins now advertise handling DMABUF explicitly. This
     is currently the only way to avoid a memcpy for v4l2 devices.
 
 - Device support

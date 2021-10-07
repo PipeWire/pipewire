@@ -7,7 +7,7 @@ Permissions include `R` (read), `W` (write), `X` (execute) and `M` (metadata).
 
 - `R`: An object with permission `R` is visible to the client. The client will receive
   registry events for the object and can interact with it.
-- `W`: An object with permisson `W` can be modified. This is usually done
+- `W`: An object with permission `W` can be modified. This is usually done
   through a method that modifies the state of the object. The `W` permission
   usually implies the `X` permission.
 - `X`: An object with permission `X` allows invoking methods on the object.

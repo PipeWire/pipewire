@@ -717,7 +717,7 @@ static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_
 	*info = SPA_AUDIO_INFO_RAW_INIT(
 			.rate = 48000,
 			.channels = 2,
-			.format = SPA_AUDIO_FORMAT_F32_LE);
+			.format = SPA_AUDIO_FORMAT_S16);
 
 	if ((str = pw_properties_get(props, PW_KEY_AUDIO_FORMAT)) != NULL) {
 		uint32_t id;

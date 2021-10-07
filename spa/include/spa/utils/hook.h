@@ -192,6 +192,16 @@ struct spa_interface {
 })
 
 /**
+ * True if the \a callbacks contains \a method of version
+ * \a vers, false otherwise
+ */
+#define spa_callback_check(callbacks,type,method,vers)				\
+({										\
+	const type *_f = (const type *) (callbacks)->funcs;			\
+	SPA_CALLBACK_CHECK(_f,method,vers);					\
+})
+
+/**
  * Invoke method named \a method in the \a callbacks.
  * The \a method_type defines the type of the method struct.
  *
@@ -206,17 +216,24 @@ struct spa_interface {
 })
 
 /**
- * True if the \a iface's \a callbacks are of version \a vers, false otherwise
+ * True if the \a iface's callbacks are of version \a vers, false otherwise
  */
-#define spa_interface_callback_version_min(iface,method_type,vers)				\
+#define spa_interface_callback_version_min(iface,method_type,vers)		\
    spa_callback_version_min(&(iface)->cb, method_type, vers)
+
+/**
+ * True if the \a iface's callback \a method is of version \a vers
+ * and exists, false otherwise
+ */
+#define spa_interface_callback_check(iface,method_type,method,vers)		\
+   spa_callback_check(&(iface)->cb, method_type, method, vers)
 
 /**
  * Invoke method named \a method in the callbacks on the given interface object.
  * The \a method_type defines the type of the method struct, not the interface
  * itself.
  */
-#define spa_interface_call(iface,method_type,method,vers,...)				\
+#define spa_interface_call(iface,method_type,method,vers,...)			\
 	spa_callbacks_call(&(iface)->cb,method_type,method,vers,##__VA_ARGS__)
 
 /**

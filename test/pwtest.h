@@ -141,6 +141,9 @@ extern "C" {
  * Disabling forking makes it easy to debug but should always be used with
  * `--filter-test`. Any test that modifies its environment will affect
  * subsequent tests and may invalidate the test results.
+ *
+ * Where a test has multiple iterations, use `--filter-iteration` to only run
+ * one single iteration.
  */
 
 /**

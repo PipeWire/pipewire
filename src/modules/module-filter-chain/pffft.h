@@ -170,7 +170,7 @@ extern "C" {
   void *pffft_aligned_malloc(size_t nb_bytes);
   void pffft_aligned_free(void *);
 
-  /* return 4 or 1 weather support SSE/Altivec instructions was enable when building pffft.c */
+  /* return 4 or 1 depending on whether support for SSE/Altivec instructions was enabled when building pffft.c */
   int pffft_simd_size();
 
   void pffft_select_cpu(int flags);

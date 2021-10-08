@@ -1211,7 +1211,7 @@ static void on_core_done(void *data, uint32_t id, int seq)
 	if (id != PW_ID_CORE)
 		return;
 
-	ctl->last_seq = ctl->pending_seq;
+	ctl->last_seq = seq;
 	if (seq == ctl->pending_seq) {
 		pipewire_update_volume(ctl);
 		pw_thread_loop_signal(ctl->mainloop, false);

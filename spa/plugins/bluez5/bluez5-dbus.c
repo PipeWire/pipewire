@@ -51,6 +51,7 @@
 #include <spa/utils/json.h>
 
 #include "codec-loader.h"
+#include "player.h"
 #include "defs.h"
 
 static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5");
@@ -103,6 +104,7 @@ struct spa_bt_monitor {
 	struct spa_dict enabled_codecs;
 
 	unsigned int connection_info_supported:1;
+	unsigned int dummy_avrcp_player:1;
 
 	struct spa_bt_quirks *quirks;
 
@@ -670,6 +672,15 @@ static int adapter_update_props(struct spa_bt_adapter *adapter,
 	return 0;
 }
 
+static void adapter_register_player(struct spa_bt_adapter *adapter)
+{
+	if (adapter->player_registered || !adapter->monitor->dummy_avrcp_player)
+		return;
+
+	if (spa_bt_player_register(adapter->dummy_player, adapter->path) == 0)
+		adapter->player_registered = true;
+}
+
 static int adapter_init_bus_type(struct spa_bt_monitor *monitor, struct spa_bt_adapter *d)
 {
 	char path[1024], buf[1024];
@@ -735,6 +746,12 @@ static struct spa_bt_adapter *adapter_create(struct spa_bt_monitor *monitor, con
 	if (d == NULL)
 		return NULL;
 
+	d->dummy_player = spa_bt_player_new(monitor->conn, monitor->log);
+	if (d->dummy_player == NULL) {
+		free(d);
+		return NULL;
+	}
+
 	d->monitor = monitor;
 	d->path = strdup(path);
 
@@ -750,6 +767,8 @@ static void adapter_free(struct spa_bt_adapter *adapter)
 {
 	struct spa_bt_monitor *monitor = adapter->monitor;
 	spa_log_debug(monitor->log, "%p", adapter);
+
+	spa_bt_player_destroy(adapter->dummy_player);
 
 	spa_list_remove(&adapter->link);
 	free(adapter->alias);
@@ -1735,6 +1754,8 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 	spa_bt_transport_destroy(transport);
 
 	if (transport->fd >= 0) {
+		spa_bt_player_set_state(transport->device->adapter->dummy_player, SPA_BT_PLAYER_STOPPED);
+
 		shutdown(transport->fd, SHUT_RDWR);
 		close(transport->fd);
 		transport->fd = -1;
@@ -2247,6 +2268,8 @@ static int transport_acquire(void *data, bool optional)
 	spa_log_debug(monitor->log, "transport %p: %s %s, fd %d MTU %d:%d", transport, method,
 			transport->path, transport->fd, transport->read_mtu, transport->write_mtu);
 
+	spa_bt_player_set_state(transport->device->adapter->dummy_player, SPA_BT_PLAYER_PLAYING);
+
 	transport_sync_volume(transport);
 
 finish:
@@ -2264,6 +2287,8 @@ static int transport_release(void *data)
 
 	spa_log_debug(monitor->log, "transport %p: Release %s",
 			transport, transport->path);
+
+	spa_bt_player_set_state(transport->device->adapter->dummy_player, SPA_BT_PLAYER_STOPPED);
 
 	close(transport->fd);
 	transport->fd = -1;
@@ -3412,6 +3437,7 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		}
 		adapter_update_props(a, props_iter, NULL);
 		adapter_register_application(a);
+		adapter_register_player(a);
 	}
 	else if (spa_streq(interface_name, BLUEZ_PROFILE_MANAGER_INTERFACE)) {
 		if (monitor->backends[BACKEND_NATIVE])
@@ -4165,6 +4191,11 @@ impl_init(const struct spa_handle_factory *factory,
 			else if (spa_streq(str, "native"))
 				this->backend_selection = BACKEND_NATIVE;
 		}
+
+		if ((str = spa_dict_lookup(info, "bluez5.dummy-avrcp-player")) != NULL)
+			this->dummy_avrcp_player = spa_atob(str);
+		else
+			this->dummy_avrcp_player = true;
 	}
 
 	register_media_application(this);

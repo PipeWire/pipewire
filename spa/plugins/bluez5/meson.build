@@ -30,6 +30,7 @@ bluez5_sources = [
   'sco-source.c',
   'sco-io.c',
   'quirks.c',
+  'player.c',
   'bluez5-device.c',
   'bluez5-dbus.c'
 ]

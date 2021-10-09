@@ -314,10 +314,12 @@ static inline const char *spa_bt_profile_name (enum spa_bt_profile profile) {
 
 struct spa_bt_monitor;
 struct spa_bt_backend;
+struct spa_bt_player;
 
 struct spa_bt_adapter {
 	struct spa_list link;
 	struct spa_bt_monitor *monitor;
+	struct spa_bt_player *dummy_player;
 	char *path;
 	char *alias;
 	char *address;
@@ -332,6 +334,7 @@ struct spa_bt_adapter {
 	int powered;
 	unsigned int endpoints_registered:1;
 	unsigned int application_registered:1;
+	unsigned int player_registered:1;
 	unsigned int has_battery_provider;
 	unsigned int battery_provider_unavailable;
 };

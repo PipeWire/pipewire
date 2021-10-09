@@ -4180,7 +4180,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 
 	spa_return_val_if_fail(o != NULL, NULL);
 
-	if (o->type != INTERFACE_Port)
+	if (o->type != INTERFACE_Port || o->client == NULL)
 		return NULL;
 
 	if ((p = o->port.port) == NULL) {
@@ -4267,6 +4267,8 @@ int jack_port_connected (const jack_port_t *port)
 	int res = 0;
 
 	spa_return_val_if_fail(o != NULL, 0);
+	if (o->type != INTERFACE_Port || o->client == NULL)
+		return 0;
 
 	c = o->client;
 
@@ -4296,6 +4298,8 @@ int jack_port_connected_to (const jack_port_t *port,
 
 	spa_return_val_if_fail(o != NULL, 0);
 	spa_return_val_if_fail(port_name != NULL, 0);
+	if (o->type != INTERFACE_Port || o->client == NULL)
+		return 0;
 
 	c = o->client;
 
@@ -4330,6 +4334,8 @@ const char ** jack_port_get_connections (const jack_port_t *port)
 	struct object *o = (struct object *) port;
 
 	spa_return_val_if_fail(o != NULL, NULL);
+	if (o->type != INTERFACE_Port || o->client == NULL)
+		return NULL;
 
 	return jack_port_get_all_connections((jack_client_t *)o->client, port);
 }
@@ -4452,6 +4458,8 @@ int jack_port_set_alias (jack_port_t *port, const char *alias)
 
 	spa_return_val_if_fail(o != NULL, -EINVAL);
 	spa_return_val_if_fail(alias != NULL, -EINVAL);
+	if (o->type != INTERFACE_Port || o->client == NULL)
+		return -EINVAL;
 
 	c = o->client;
 
@@ -4506,6 +4514,8 @@ int jack_port_unset_alias (jack_port_t *port, const char *alias)
 
 	spa_return_val_if_fail(o != NULL, -EINVAL);
 	spa_return_val_if_fail(alias != NULL, -EINVAL);
+	if (o->type != INTERFACE_Port || o->client == NULL)
+		return -EINVAL;
 
 	c = o->client;
 
@@ -4878,6 +4888,8 @@ void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_
 	struct spa_latency_info *info;
 
 	spa_return_if_fail(o != NULL);
+	if (o->type != INTERFACE_Port || o->client == NULL)
+		return;
 	c = o->client;
 
 	if (mode == JackCaptureLatency)
@@ -4917,6 +4929,8 @@ void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_
 	struct port *p;
 
 	spa_return_if_fail(o != NULL);
+	if (o->type != INTERFACE_Port || o->client == NULL)
+		return;
 	c = o->client;
 
 	if (mode == JackCaptureLatency)

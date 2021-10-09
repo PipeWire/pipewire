@@ -714,7 +714,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   pw_stream_connect (pwsrc->stream,
                      PW_DIRECTION_INPUT,
                      pwsrc->path ? (uint32_t)atoi(pwsrc->path) : PW_ID_ANY,
-                     PW_STREAM_FLAG_AUTOCONNECT,
+                     PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_DONT_RECONNECT,
                      (const struct spa_pod **)possible->pdata,
                      possible->len);
   g_ptr_array_free (possible, TRUE);

@@ -4936,8 +4936,10 @@ static void impl_free(struct impl *impl)
 	struct client *c;
 	struct message *msg;
 
+#if HAVE_DBUS
 	if (impl->dbus_name)
 		dbus_release_name(impl->dbus_name);
+#endif
 
 	spa_list_consume(msg, &impl->free_messages, link)
 		message_free(impl, msg, true, true);
@@ -5111,7 +5113,9 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	pw_context_add_listener(context, &impl->context_listener,
 			&context_events, impl);
 
+#if HAVE_DBUS
 	impl->dbus_name = dbus_request_name(context, "org.pulseaudio.Server");
+#endif
 
 	return (struct pw_protocol_pulse *) impl;
 

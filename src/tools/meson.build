@@ -67,8 +67,10 @@ elif not sndfile_dep.found() and get_option('pw-cat').enabled()
 endif
 summary({'Build pw-cat tool': build_pw_cat}, bool_yn: true, section: 'pw-cat/pw-play/pw-dump tool')
 
-executable('pw-reserve',
-  'pw-reserve.c',
-  install: true,
-  dependencies : [dbus_dep, pipewire_dep],
-)
+if dbus_dep.found()
+  executable('pw-reserve',
+    'pw-reserve.c',
+    install: true,
+    dependencies : [dbus_dep, pipewire_dep],
+  )
+endif

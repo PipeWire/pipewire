@@ -201,15 +201,10 @@ pipewire_module_protocol_native = shared_library('pipewire-module-protocol-nativ
 
 pipewire_module_protocol_pulse_deps = pipewire_module_protocol_deps
 
-if dbus_dep.found()
-  pipewire_module_protocol_pulse_deps += dbus_dep
-endif
-
 pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse.c',
   'module-protocol-pulse/client.c',
   'module-protocol-pulse/collect.c',
-  'module-protocol-pulse/dbus-name.c',
   'module-protocol-pulse/extension.c',
   'module-protocol-pulse/format.c',
   'module-protocol-pulse/manager.c',
@@ -245,6 +240,14 @@ pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse/modules/module-tunnel-source.c',
   'module-protocol-pulse/modules/module-zeroconf-discover.c',
 ]
+
+if dbus_dep.found()
+  pipewire_module_protocol_pulse_sources += [
+    'module-protocol-pulse/dbus-name.c',
+  ]
+  pipewire_module_protocol_pulse_deps += dbus_dep
+  cdata.set('HAVE_DBUS', 1)
+endif
 
 if avahi_dep.found()
   pipewire_module_protocol_pulse_sources += [

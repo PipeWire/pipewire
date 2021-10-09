@@ -137,6 +137,10 @@ option('v4l2',
        description: 'Enable v4l2 spa plugin integration',
        type: 'feature',
        value: 'auto')
+option('dbus',
+       description: 'Enable code that depends on dbus',
+       type: 'feature',
+       value: 'enabled')
 option('libcamera',
        description: 'Enable libcamera spa plugin integration',
        type: 'feature',

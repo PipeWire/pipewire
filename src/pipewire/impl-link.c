@@ -1432,6 +1432,8 @@ void pw_impl_link_destroy(struct pw_impl_link *link)
 	pw_log_debug("%p: free", impl);
 	pw_impl_link_emit_free(link);
 
+	pw_work_queue_cancel(impl->work, link, SPA_ID_INVALID);
+
 	spa_hook_list_clean(&link->listener_list);
 
 	pw_properties_free(link->properties);

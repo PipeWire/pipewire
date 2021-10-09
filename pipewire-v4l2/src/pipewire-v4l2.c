@@ -62,11 +62,16 @@ struct file_map {
 	struct file *file;
 };
 
+struct fd_map {
+	int fd;
+	struct file *file;
+};
+
 struct globals {
 	struct fops old_fops;
 
 	pthread_mutex_t lock;
-	struct spa_list files;
+	struct pw_array fd_maps;
 	struct pw_array file_maps;
 };
 
@@ -86,7 +91,6 @@ struct buffer {
 };
 
 struct file {
-	struct spa_list link;
 	int ref;
 
 	struct pw_properties *props;
@@ -110,7 +114,6 @@ struct file {
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 
-	struct spa_video_info format;
 	struct v4l2_format v4l2_format;
 	uint32_t reqbufs;
 
@@ -119,6 +122,8 @@ struct file {
 	uint32_t size;
 
 	struct pw_array buffer_maps;
+
+	uint32_t last_fourcc;
 
 	unsigned int running:1;
 	int fd;
@@ -242,39 +247,13 @@ static struct file *make_file(void)
 
 	file->ref = 1;
 	file->fd = -1;
-	spa_list_init(&file->link);
 	spa_list_init(&file->globals);
 	pw_array_init(&file->buffer_maps, sizeof(struct buffer_map) * MAX_BUFFERS);
 	return file;
 }
 
-static void put_file(struct file *file)
-{
-	pthread_mutex_lock(&globals.lock);
-	spa_list_append(&globals.files, &file->link);
-	pthread_mutex_unlock(&globals.lock);
-}
-
-static struct file *find_file(int fd)
-{
-	struct file *f, *res = NULL;
-	pthread_mutex_lock(&globals.lock);
-	spa_list_for_each(f, &globals.files, link)
-		if (f->fd == fd) {
-			res = f;
-			ATOMIC_INC(f->ref);
-			break;
-		}
-	pthread_mutex_unlock(&globals.lock);
-	return res;
-}
-
 static void free_file(struct file *file)
 {
-	pthread_mutex_lock(&globals.lock);
-	spa_list_remove(&file->link);
-	pthread_mutex_unlock(&globals.lock);
-
 	if (file->loop)
 		pw_thread_loop_stop(file->loop);
 
@@ -307,28 +286,76 @@ static void unref_file(struct file *file)
 		free_file(file);
 }
 
-static int add_file_map(struct file *file, void *addr)
+static int add_fd_map(int fd, struct file *file)
+{
+	struct fd_map *map;
+	pthread_mutex_lock(&globals.lock);
+	map = pw_array_add(&globals.fd_maps, sizeof(*map));
+	if (map != NULL) {
+		map->fd = fd;
+		map->file = file;
+		file->ref++;
+	}
+	pthread_mutex_unlock(&globals.lock);
+	return 0;
+}
+static struct fd_map *find_fd_map(int fd)
+{
+	struct fd_map *map, *res = NULL;
+	pthread_mutex_lock(&globals.lock);
+	pw_array_for_each(map, &globals.fd_maps) {
+		if (map->fd == fd) {
+			ATOMIC_INC(map->file->ref);
+			res =  map;
+			break;
+		}
+	}
+	pthread_mutex_unlock(&globals.lock);
+	return res;
+}
+
+static struct file *find_file(int fd)
+{
+	struct fd_map *map = find_fd_map(fd);
+	if (map == NULL)
+		return NULL;
+	return map->file;
+}
+
+static void remove_fd_map(struct fd_map *map)
+{
+	struct file *file = map->file;
+	pthread_mutex_lock(&globals.lock);
+	pw_array_remove(&globals.fd_maps, map);
+	pthread_mutex_unlock(&globals.lock);
+
+	unref_file(file);
+}
+
+static int add_file_map(void *addr, struct file *file)
 {
 	struct file_map *map;
 	pthread_mutex_lock(&globals.lock);
 	map = pw_array_add(&globals.file_maps, sizeof(*map));
 	if (map != NULL) {
-		map->file = file;
 		map->addr = addr;
+		map->file = file;
 	}
 	pthread_mutex_unlock(&globals.lock);
 	return 0;
 }
 static struct file_map *find_file_map(void *addr)
 {
-	struct file_map *map;
+	struct file_map *map, *res = NULL;
 	pthread_mutex_lock(&globals.lock);
 	pw_array_for_each(map, &globals.file_maps) {
-		if (map->addr == addr)
-			return map;
+		if (map->addr == addr) {
+			res =  map;
+			break;
+		}
 	}
 	pthread_mutex_unlock(&globals.lock);
-	return NULL;
+	return res;
 }
 static void remove_file_map(struct file_map *map)
 {
@@ -431,7 +458,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 
 	info = g->info = pw_node_info_merge(g->info, info, g->changed == 0);
 
-	pw_log_info("update %d %"PRIu64, g->id, info->change_mask);
+	pw_log_debug("update %d %"PRIu64, g->id, info->change_mask);
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS && info->props) {
 		if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)))
@@ -465,7 +492,6 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 			if (id != SPA_PARAM_EnumFormat)
 				continue;
 
-			add_param(&g->param_list, g->param_seq[id], g->param_seq, id, NULL);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 
@@ -484,7 +510,7 @@ static void node_event_param(void *object, int seq,
 {
 	struct global *g = object;
 
-	pw_log_info("update param %d %d", g->id, id);
+	pw_log_debug("update param %d %d %d %d", g->id, id, seq, g->param_seq[id]);
 	add_param(&g->param_list, seq, g->param_seq, id, param);
 }
 
@@ -653,7 +679,7 @@ static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 	pw_log_info("path:%s oflag:%d mode:%d -> %d (%s)", path, oflag, mode,
 			res, strerror(res < 0 ? errno : 0));
 
-	put_file(file);
+	add_fd_map(res, file);
 
 	return res;
 
@@ -670,15 +696,16 @@ static int v4l2_dup(int oldfd)
 	int res;
 	struct file *file;
 
-	if ((file = find_file(oldfd)) == NULL)
-		return globals.old_fops.dup(oldfd);
-
 	res = globals.old_fops.dup(oldfd);
+	if (res < 0)
+		return res;
 
-	pw_log_info("fd:%d -> %d (%s)", oldfd,
-			res, strerror(res < 0 ? errno : 0));
-	unref_file(file);
-
+	if ((file = find_file(oldfd)) != NULL) {
+		add_fd_map(res, file);
+		unref_file(file);
+		pw_log_info("fd:%d -> %d (%s)", oldfd,
+				res, strerror(res < 0 ? errno : 0));
+	}
 	return res;
 }
 
@@ -686,11 +713,14 @@ static int v4l2_close(int fd)
 {
 	int res = 0;
 	struct file *file;
+	struct fd_map *map;
 
-	if ((file = find_file(fd)) == NULL)
+	if ((map = find_fd_map(fd)) == NULL)
 		return globals.old_fops.close(fd);
 
-	free_file(file);
+	file = map->file;
+	remove_fd_map(map);
+	unref_file(file);
 
 	pw_log_info("fd:%d -> %d (%s)", fd,
 			res, strerror(res < 0 ? errno : 0));
@@ -730,120 +760,119 @@ struct format_info {
 	uint32_t media_type;
 	uint32_t media_subtype;
 	uint32_t format;
+	uint32_t bpp;
 	const char *desc;
 };
 
-#define MAKE_FORMAT(fcc,mt,mst,fmt)	\
-	{ V4L2_PIX_FMT_ ## fcc, SPA_MEDIA_TYPE_ ## mt, SPA_MEDIA_SUBTYPE_ ## mst, SPA_VIDEO_FORMAT_ ## fmt, #fcc }
+#define MAKE_FORMAT(fcc,mt,mst,bpp,fmt)	\
+	{ V4L2_PIX_FMT_ ## fcc, SPA_MEDIA_TYPE_ ## mt, SPA_MEDIA_SUBTYPE_ ## mst, SPA_VIDEO_FORMAT_ ## fmt, bpp, #fcc }
 
 static const struct format_info format_info[] = {
 	/* RGB formats */
-	MAKE_FORMAT(RGB332, video, raw, UNKNOWN),
-	MAKE_FORMAT(ARGB555, video, raw, UNKNOWN),
-	MAKE_FORMAT(XRGB555, video, raw, RGB15),
-	MAKE_FORMAT(ARGB555X, video, raw, UNKNOWN),
-	MAKE_FORMAT(XRGB555X, video, raw, BGR15),
-	MAKE_FORMAT(RGB565, video, raw, RGB16),
-	MAKE_FORMAT(RGB565X, video, raw, UNKNOWN),
-	MAKE_FORMAT(BGR666, video, raw, UNKNOWN),
-	MAKE_FORMAT(BGR24, video, raw, BGR),
-	MAKE_FORMAT(RGB24, video, raw, RGB),
-	MAKE_FORMAT(ABGR32, video, raw, BGRA),
-	MAKE_FORMAT(XBGR32, video, raw, BGRx),
-	MAKE_FORMAT(ARGB32, video, raw, ARGB),
-	MAKE_FORMAT(XRGB32, video, raw, xRGB),
+	MAKE_FORMAT(RGB332, video, raw, 4, UNKNOWN),
+	MAKE_FORMAT(ARGB555, video, raw, 4, UNKNOWN),
+	MAKE_FORMAT(XRGB555, video, raw, 4, RGB15),
+	MAKE_FORMAT(ARGB555X, video, raw, 4, UNKNOWN),
+	MAKE_FORMAT(XRGB555X, video, raw, 4, BGR15),
+	MAKE_FORMAT(RGB565, video, raw, 4, RGB16),
+	MAKE_FORMAT(RGB565X, video, raw, 4, UNKNOWN),
+	MAKE_FORMAT(BGR666, video, raw, 4, UNKNOWN),
+	MAKE_FORMAT(BGR24, video, raw, 4, BGR),
+	MAKE_FORMAT(RGB24, video, raw, 4, RGB),
+	MAKE_FORMAT(ABGR32, video, raw, 4, BGRA),
+	MAKE_FORMAT(XBGR32, video, raw, 4, BGRx),
+	MAKE_FORMAT(ARGB32, video, raw, 4, ARGB),
+	MAKE_FORMAT(XRGB32, video, raw, 4, xRGB),
 
 	/* Deprecated Packed RGB Image Formats (alpha ambiguity) */
-	MAKE_FORMAT(RGB444, video, raw, UNKNOWN),
-	MAKE_FORMAT(RGB555, video, raw, RGB15),
-	MAKE_FORMAT(RGB555X, video, raw, BGR15),
-	MAKE_FORMAT(BGR32, video, raw, BGRx),
-	MAKE_FORMAT(RGB32, video, raw, xRGB),
+	MAKE_FORMAT(RGB444, video, raw, 2, UNKNOWN),
+	MAKE_FORMAT(RGB555, video, raw, 2, RGB15),
+	MAKE_FORMAT(RGB555X, video, raw, 2, BGR15),
+	MAKE_FORMAT(BGR32, video, raw, 4, BGRx),
+	MAKE_FORMAT(RGB32, video, raw, 4, xRGB),
 
         /* Grey formats */
-	MAKE_FORMAT(GREY, video, raw, GRAY8),
-	MAKE_FORMAT(Y4, video, raw, UNKNOWN),
-	MAKE_FORMAT(Y6, video, raw, UNKNOWN),
-	MAKE_FORMAT(Y10, video, raw, UNKNOWN),
-	MAKE_FORMAT(Y12, video, raw, UNKNOWN),
-	MAKE_FORMAT(Y16, video, raw, GRAY16_LE),
-	MAKE_FORMAT(Y16_BE, video, raw, GRAY16_BE),
-	MAKE_FORMAT(Y10BPACK, video, raw, UNKNOWN),
+	MAKE_FORMAT(GREY, video, raw, 1, GRAY8),
+	MAKE_FORMAT(Y4, video, raw, 1, UNKNOWN),
+	MAKE_FORMAT(Y6, video, raw, 1, UNKNOWN),
+	MAKE_FORMAT(Y10, video, raw, 2, UNKNOWN),
+	MAKE_FORMAT(Y12, video, raw, 2, UNKNOWN),
+	MAKE_FORMAT(Y16, video, raw, 2, GRAY16_LE),
+	MAKE_FORMAT(Y16_BE, video, raw, 2, GRAY16_BE),
+	MAKE_FORMAT(Y10BPACK, video, raw, 2, UNKNOWN),
 
 	/* Palette formats */
-	MAKE_FORMAT(PAL8, video, raw, UNKNOWN),
+	MAKE_FORMAT(PAL8, video, raw, 1, UNKNOWN),
 
 	/* Chrominance formats */
-	MAKE_FORMAT(UV8, video, raw, UNKNOWN),
+	MAKE_FORMAT(UV8, video, raw, 2, UNKNOWN),
 
 	/* Luminance+Chrominance formats */
-	MAKE_FORMAT(YUYV, video, raw, YUY2),
-
-	MAKE_FORMAT(YVU410, video, raw, YVU9),
-	MAKE_FORMAT(YVU420, video, raw, YV12),
-	MAKE_FORMAT(YVU420M, video, raw, UNKNOWN),
-	MAKE_FORMAT(YUYV, video, raw, YUY2),
-	MAKE_FORMAT(YYUV, video, raw, UNKNOWN),
-	MAKE_FORMAT(YVYU, video, raw, YVYU),
-	MAKE_FORMAT(UYVY, video, raw, UYVY),
-	MAKE_FORMAT(VYUY, video, raw, UNKNOWN),
-	MAKE_FORMAT(YUV422P, video, raw, Y42B),
-	MAKE_FORMAT(YUV411P, video, raw, Y41B),
-	MAKE_FORMAT(Y41P, video, raw, UNKNOWN),
-	MAKE_FORMAT(YUV444, video, raw, UNKNOWN),
-	MAKE_FORMAT(YUV555, video, raw, UNKNOWN),
-	MAKE_FORMAT(YUV565, video, raw, UNKNOWN),
-	MAKE_FORMAT(YUV32, video, raw, UNKNOWN),
-	MAKE_FORMAT(YUV410, video, raw, YUV9),
-	MAKE_FORMAT(YUV420, video, raw, I420),
-	MAKE_FORMAT(YUV420M, video, raw, I420),
-	MAKE_FORMAT(HI240, video, raw, UNKNOWN),
-	MAKE_FORMAT(HM12, video, raw, UNKNOWN),
-	MAKE_FORMAT(M420, video, raw, UNKNOWN),
+	MAKE_FORMAT(YVU410, video, raw, 1, YVU9),
+	MAKE_FORMAT(YVU420, video, raw, 1, YV12),
+	MAKE_FORMAT(YVU420M, video, raw, 1, UNKNOWN),
+	MAKE_FORMAT(YUYV, video, raw, 2, YUY2),
+	MAKE_FORMAT(YYUV, video, raw, 2, UNKNOWN),
+	MAKE_FORMAT(YVYU, video, raw, 2, YVYU),
+	MAKE_FORMAT(UYVY, video, raw, 2, UYVY),
+	MAKE_FORMAT(VYUY, video, raw, 2, UNKNOWN),
+	MAKE_FORMAT(YUV422P, video, raw, 1, Y42B),
+	MAKE_FORMAT(YUV411P, video, raw, 1, Y41B),
+	MAKE_FORMAT(Y41P, video, raw, 1, UNKNOWN),
+	MAKE_FORMAT(YUV444, video, raw, 1, UNKNOWN),
+	MAKE_FORMAT(YUV555, video, raw, 1, UNKNOWN),
+	MAKE_FORMAT(YUV565, video, raw, 1, UNKNOWN),
+	MAKE_FORMAT(YUV32, video, raw, 1, UNKNOWN),
+	MAKE_FORMAT(YUV410, video, raw, 1, YUV9),
+	MAKE_FORMAT(YUV420, video, raw, 1, I420),
+	MAKE_FORMAT(YUV420M, video, raw, 1, I420),
+	MAKE_FORMAT(HI240, video, raw, 1, UNKNOWN),
+	MAKE_FORMAT(HM12, video, raw, 1, UNKNOWN),
+	MAKE_FORMAT(M420, video, raw, 1, UNKNOWN),
 
 	/* two planes -- one Y, one Cr + Cb interleaved  */
-	MAKE_FORMAT(NV12, video, raw, NV12),
-	MAKE_FORMAT(NV12M, video, raw, NV12),
-	MAKE_FORMAT(NV12MT, video, raw, NV12_64Z32),
-	MAKE_FORMAT(NV12MT_16X16, video, raw, UNKNOWN),
-	MAKE_FORMAT(NV21, video, raw, NV21),
-	MAKE_FORMAT(NV21M, video, raw, NV21),
-	MAKE_FORMAT(NV16, video, raw, NV16),
-	MAKE_FORMAT(NV16M, video, raw, NV16),
-	MAKE_FORMAT(NV61, video, raw, NV61),
-	MAKE_FORMAT(NV61M, video, raw, NV61),
-	MAKE_FORMAT(NV24, video, raw, NV24),
-	MAKE_FORMAT(NV42, video, raw, UNKNOWN),
+	MAKE_FORMAT(NV12, video, raw, 1, NV12),
+	MAKE_FORMAT(NV12M, video, raw, 1,  NV12),
+	MAKE_FORMAT(NV12MT, video, raw, 1,  NV12_64Z32),
+	MAKE_FORMAT(NV12MT_16X16, video, raw, 1, UNKNOWN),
+	MAKE_FORMAT(NV21, video, raw, 1, NV21),
+	MAKE_FORMAT(NV21M, video, raw, 1, NV21),
+	MAKE_FORMAT(NV16, video, raw, 1, NV16),
+	MAKE_FORMAT(NV16M, video, raw, 1, NV16),
+	MAKE_FORMAT(NV61, video, raw, 1, NV61),
+	MAKE_FORMAT(NV61M, video, raw, 1, NV61),
+	MAKE_FORMAT(NV24, video, raw, 1, NV24),
+	MAKE_FORMAT(NV42, video, raw, 1, UNKNOWN),
 
 	/* Bayer formats - see http://www.siliconimaging.com/RGB%20Bayer.htm */
-	MAKE_FORMAT(SBGGR8, video, bayer, UNKNOWN),
-	MAKE_FORMAT(SGBRG8, video, bayer, UNKNOWN),
-	MAKE_FORMAT(SGRBG8, video, bayer, UNKNOWN),
-	MAKE_FORMAT(SRGGB8, video, bayer, UNKNOWN),
+	MAKE_FORMAT(SBGGR8, video, bayer, 1, UNKNOWN),
+	MAKE_FORMAT(SGBRG8, video, bayer, 1, UNKNOWN),
+	MAKE_FORMAT(SGRBG8, video, bayer, 1, UNKNOWN),
+	MAKE_FORMAT(SRGGB8, video, bayer, 1, UNKNOWN),
 
 	/* compressed formats */
-	MAKE_FORMAT(MJPEG, video, mjpg, ENCODED),
-	MAKE_FORMAT(JPEG, video, mjpg, ENCODED),
-	MAKE_FORMAT(PJPG, video, mjpg, ENCODED),
-	MAKE_FORMAT(DV, video, dv, ENCODED),
-	MAKE_FORMAT(MPEG, video, mpegts, ENCODED),
-	MAKE_FORMAT(H264, video, h264, ENCODED),
-	MAKE_FORMAT(H264_NO_SC, video, h264, ENCODED),
-	MAKE_FORMAT(H264_MVC, video, h264, ENCODED),
-	MAKE_FORMAT(H263, video, h263, ENCODED),
-	MAKE_FORMAT(MPEG1, video, mpeg1, ENCODED),
-	MAKE_FORMAT(MPEG2, video, mpeg2, ENCODED),
-	MAKE_FORMAT(MPEG4, video, mpeg4, ENCODED),
-	MAKE_FORMAT(XVID, video, xvid, ENCODED),
-	MAKE_FORMAT(VC1_ANNEX_G, video, vc1, ENCODED),
-	MAKE_FORMAT(VC1_ANNEX_L, video, vc1, ENCODED),
-	MAKE_FORMAT(VP8, video, vp8, ENCODED),
+	MAKE_FORMAT(MJPEG, video, mjpg, 1, ENCODED),
+	MAKE_FORMAT(JPEG, video, mjpg, 1, ENCODED),
+	MAKE_FORMAT(PJPG, video, mjpg, 1, ENCODED),
+	MAKE_FORMAT(DV, video, dv, 1, ENCODED),
+	MAKE_FORMAT(MPEG, video, mpegts, 1, ENCODED),
+	MAKE_FORMAT(H264, video, h264, 1, ENCODED),
+	MAKE_FORMAT(H264_NO_SC, video, h264, 1, ENCODED),
+	MAKE_FORMAT(H264_MVC, video, h264, 1, ENCODED),
+	MAKE_FORMAT(H263, video, h263, 1, ENCODED),
+	MAKE_FORMAT(MPEG1, video, mpeg1, 1, ENCODED),
+	MAKE_FORMAT(MPEG2, video, mpeg2, 1, ENCODED),
+	MAKE_FORMAT(MPEG4, video, mpeg4, 1, ENCODED),
+	MAKE_FORMAT(XVID, video, xvid, 1, ENCODED),
+	MAKE_FORMAT(VC1_ANNEX_G, video, vc1, 1, ENCODED),
+	MAKE_FORMAT(VC1_ANNEX_L, video, vc1, 1, ENCODED),
+	MAKE_FORMAT(VP8, video, vp8, 1, ENCODED),
 
 	/*  Vendor-specific formats   */
-	MAKE_FORMAT(WNVA, video, raw, UNKNOWN),
-	MAKE_FORMAT(SN9C10X, video, raw, UNKNOWN),
-	MAKE_FORMAT(PWC1, video, raw, UNKNOWN),
-	MAKE_FORMAT(PWC2, video, raw, UNKNOWN),
+	MAKE_FORMAT(WNVA, video, raw, 1, UNKNOWN),
+	MAKE_FORMAT(SN9C10X, video, raw, 1, UNKNOWN),
+	MAKE_FORMAT(PWC1, video, raw, 1, UNKNOWN),
+	MAKE_FORMAT(PWC2, video, raw, 1, UNKNOWN),
 };
 
 static const struct format_info *format_info_from_media_type(uint32_t type,
@@ -867,6 +896,81 @@ static const struct format_info *format_info_from_fourcc(uint32_t fourcc)
 			return &format_info[i];
 	}
 	return NULL;
+}
+
+static int format_to_info(const struct v4l2_format *arg, struct spa_video_info *info)
+{
+	const struct format_info *fi;
+
+	pw_log_info("type: %u", arg->type);
+	pw_log_info("width: %u", arg->fmt.pix.width);
+	pw_log_info("height: %u", arg->fmt.pix.height);
+	pw_log_info("fmt: %u", arg->fmt.pix.pixelformat);
+
+	if (arg->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		return -EINVAL;
+
+	fi = format_info_from_fourcc(arg->fmt.pix.pixelformat);
+	if (fi == NULL)
+		return -EINVAL;
+
+	spa_zero(*info);
+	info->media_type = fi->media_type;
+	info->media_subtype = fi->media_subtype;
+
+	switch (info->media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
+		info->info.raw.format = fi->format;
+		info->info.raw.size.width = arg->fmt.pix.width;
+		info->info.raw.size.height = arg->fmt.pix.height;
+		break;
+	case SPA_MEDIA_SUBTYPE_h264:
+		info->info.h264.size.width = arg->fmt.pix.width;
+		info->info.h264.size.height = arg->fmt.pix.height;
+		break;
+	case SPA_MEDIA_SUBTYPE_mjpg:
+	case SPA_MEDIA_SUBTYPE_jpeg:
+		info->info.mjpg.size.width = arg->fmt.pix.width;
+		info->info.mjpg.size.height = arg->fmt.pix.height;
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static struct spa_pod *info_to_param(struct spa_pod_builder *builder, uint32_t id,
+		struct spa_video_info *info)
+{
+	struct spa_pod *pod;
+
+	if (info->media_type != SPA_MEDIA_TYPE_video)
+		return NULL;
+
+	switch (info->media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
+		pod = spa_format_video_raw_build(builder, id, &info->info.raw);
+		break;
+	case SPA_MEDIA_SUBTYPE_mjpg:
+	case SPA_MEDIA_SUBTYPE_jpeg:
+		pod = spa_format_video_mjpg_build(builder, id, &info->info.mjpg);
+		break;
+	case SPA_MEDIA_SUBTYPE_h264:
+		pod = spa_format_video_h264_build(builder, id, &info->info.h264);
+		break;
+	default:
+		return NULL;
+	}
+	return pod;
+}
+
+static struct spa_pod *fmt_to_param(struct spa_pod_builder *builder, uint32_t id,
+		const struct v4l2_format *fmt)
+{
+	struct spa_video_info info;
+	if (format_to_info(fmt, &info) < 0)
+		return NULL;
+	return info_to_param(builder, id, &info);
 }
 
 static int param_to_info(const struct spa_pod *param, struct spa_video_info *info)
@@ -897,6 +1001,71 @@ static int param_to_info(const struct spa_pod *param, struct spa_video_info *inf
 	return res;
 }
 
+static int info_to_fmt(const struct spa_video_info *info, struct v4l2_format *fmt)
+{
+	const struct format_info *fi;
+	uint32_t format;
+
+	if (info->media_type != SPA_MEDIA_TYPE_video)
+		return -EINVAL;
+
+	if (info->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
+		format = info->info.raw.format;
+	} else {
+		format = SPA_VIDEO_FORMAT_ENCODED;
+	}
+
+	fi = format_info_from_media_type(info->media_type, info->media_subtype,
+			format);
+	if (fi == NULL)
+		return -EINVAL;
+
+	spa_zero(*fmt);
+	fmt->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	fmt->fmt.pix.pixelformat = fi->fourcc;
+	fmt->fmt.pix.field = V4L2_FIELD_NONE;
+
+	switch (info->media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
+		fmt->fmt.pix.width = info->info.raw.size.width;
+		fmt->fmt.pix.height = info->info.raw.size.height;
+		break;
+	case SPA_MEDIA_SUBTYPE_mjpg:
+	case SPA_MEDIA_SUBTYPE_jpeg:
+		fmt->fmt.pix.width = info->info.mjpg.size.width;
+		fmt->fmt.pix.height = info->info.mjpg.size.height;
+		break;
+	case SPA_MEDIA_SUBTYPE_h264:
+		fmt->fmt.pix.width = info->info.h264.size.width;
+		fmt->fmt.pix.height = info->info.h264.size.height;
+		break;
+	default:
+		return -EINVAL;
+	}
+	fmt->fmt.pix.bytesperline = SPA_ROUND_UP_N(fmt->fmt.pix.width, 4) * fi->bpp;
+	fmt->fmt.pix.sizeimage = fmt->fmt.pix.bytesperline *
+		SPA_ROUND_UP_N(fmt->fmt.pix.height, 2);
+	return 0;
+}
+
+static int param_to_fmt(const struct spa_pod *param, struct v4l2_format *fmt)
+{
+	struct spa_video_info info;
+	struct spa_pod *copy;
+	int res;
+
+	copy = spa_pod_copy(param);
+	spa_pod_fixate(copy);
+	res = param_to_info(copy, &info);
+	free(copy);
+
+	if (res < 0)
+		return -EINVAL;
+	if (info_to_fmt(&info, fmt) < 0)
+		return -EINVAL;
+	return 0;
+}
+
 static void on_stream_param_changed(void *data, uint32_t id, const struct spa_pod *param)
 {
 	struct file *file = data;
@@ -905,15 +1074,15 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t buffers, size;
-	struct spa_video_info info;
+	struct v4l2_format fmt;
 
 	if (param == NULL || id != SPA_PARAM_Format)
 		return;
 
-	if (param_to_info(param, &info) < 0)
+	if (param_to_fmt(param, &fmt) < 0)
 		return;
 
-	file->format = info;
+	file->v4l2_format = fmt;
 
 	buffers = file->reqbufs;
 	size = 0;
@@ -1002,9 +1171,10 @@ static const struct pw_stream_events stream_events = {
 
 static int vidioc_enum_fmt(struct file *file, struct v4l2_fmtdesc *arg)
 {
-	uint32_t count = 0;
+	uint32_t count = 0, last_fourcc = 0;
 	struct global *g = file->node;
 	struct param *p;
+	bool found = false;
 
 	pw_log_info("index: %u", arg->index);
 	pw_log_info("type: %u", arg->type);
@@ -1033,20 +1203,26 @@ static int vidioc_enum_fmt(struct file *file, struct v4l2_fmtdesc *arg)
 			format = SPA_VIDEO_FORMAT_ENCODED;
 		}
 
-		pw_log_info("%d %d", count, arg->index);
 		fi = format_info_from_media_type(media_type, media_subtype, format);
 		if (fi == NULL)
 			continue;
 
+		if (fi->fourcc == last_fourcc)
+			continue;
+		pw_log_info("count:%d %d %d", count, fi->fourcc, last_fourcc);
+
 		arg->flags = fi->format == SPA_VIDEO_FORMAT_ENCODED ? V4L2_FMT_FLAG_COMPRESSED : 0;
 		arg->pixelformat = fi->fourcc;
-		if (count == arg->index)
+		last_fourcc = fi->fourcc;
+		if (count == arg->index) {
+			found = true;
 			break;
+		}
 		count++;
 	}
 	pw_thread_loop_unlock(file->loop);
 
-	if (count != arg->index)
+	if (!found)
 		return -EINVAL;
 
 	pw_log_info("format: %u", arg->pixelformat);
@@ -1065,91 +1241,57 @@ static int vidioc_g_fmt(struct file *file, struct v4l2_format *arg)
 	return 0;
 }
 
-static int format_to_info(struct v4l2_format *arg, struct spa_video_info *info)
+static int score_diff(struct v4l2_format *fmt, struct v4l2_format *tmp)
 {
-	const struct format_info *fi;
-
-	pw_log_info("type: %u", arg->type);
-	pw_log_info("width: %u", arg->fmt.pix.width);
-	pw_log_info("height: %u", arg->fmt.pix.height);
-	pw_log_info("fmt: %u", arg->fmt.pix.pixelformat);
-
-	if (arg->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
-		return -EINVAL;
-
-	fi = format_info_from_fourcc(arg->fmt.pix.pixelformat);
-	if (fi == NULL)
-		return -EINVAL;
-
-	spa_zero(*info);
-	info->media_type = fi->media_type;
-	info->media_subtype = fi->media_subtype;
-
-	switch (info->media_subtype) {
-	case SPA_MEDIA_SUBTYPE_raw:
-		info->info.raw.format = fi->format;
-		info->info.raw.size.width = arg->fmt.pix.width;
-		info->info.raw.size.height = arg->fmt.pix.height;
-		break;
-	case SPA_MEDIA_SUBTYPE_h264:
-		info->info.h264.size.width = arg->fmt.pix.width;
-		info->info.h264.size.height = arg->fmt.pix.height;
-		break;
-	case SPA_MEDIA_SUBTYPE_mjpg:
-	case SPA_MEDIA_SUBTYPE_jpeg:
-		info->info.mjpg.size.width = arg->fmt.pix.width;
-		info->info.mjpg.size.height = arg->fmt.pix.height;
-		break;
-	default:
-		return -EINVAL;
-	}
-	return 0;
+	int score = 0;
+	if (fmt->fmt.pix.pixelformat != tmp->fmt.pix.pixelformat)
+		score += 20000;
+	score += SPA_ABS((int)fmt->fmt.pix.width - (int)tmp->fmt.pix.width);
+	score += SPA_ABS((int)fmt->fmt.pix.height - (int)tmp->fmt.pix.height);
+	return score;
 }
 
-static struct spa_pod *info_to_param(struct spa_pod_builder *builder, uint32_t id,
-		struct spa_video_info *info)
-{
-	struct spa_pod *pod;
-
-	if (info->media_type != SPA_MEDIA_TYPE_video)
-		return NULL;
-
-	switch (info->media_subtype) {
-	case SPA_MEDIA_SUBTYPE_raw:
-		pod = spa_format_video_raw_build(builder, id, &info->info.raw);
-		break;
-	case SPA_MEDIA_SUBTYPE_mjpg:
-	case SPA_MEDIA_SUBTYPE_jpeg:
-		pod = spa_format_video_mjpg_build(builder, id, &info->info.mjpg);
-		break;
-	case SPA_MEDIA_SUBTYPE_h264:
-		pod = spa_format_video_h264_build(builder, id, &info->info.h264);
-		break;
-	default:
-		return NULL;
-	}
-	return pod;
-}
-
-static int try_format(struct file *file, const struct spa_pod *pod)
+static int try_format(struct file *file, struct v4l2_format *fmt)
 {
 	struct param *p;
 	struct global *g = file->node;
+	struct v4l2_format best_fmt = *fmt;
+	int best = -1;
 
+	pw_log_info("in: type: %u", fmt->type);
+	pw_log_info("in: format: %.4s", (char*)&fmt->fmt.pix.pixelformat);
+	pw_log_info("in: width: %u", fmt->fmt.pix.width);
+	pw_log_info("in: height: %u", fmt->fmt.pix.height);
+	pw_log_info("in: field: %u", fmt->fmt.pix.field);
 	spa_list_for_each(p, &g->param_list, link) {
-		char buffer[1024];
-		struct spa_pod_builder b;
-		struct spa_pod *res;
+		struct v4l2_format tmp;
+		int score;
 
-		if (p->id != SPA_PARAM_EnumFormat ||
-		    p->param == NULL)
+		if (p->id != SPA_PARAM_EnumFormat || p->param == NULL)
 			continue;
 
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if (spa_pod_filter(&b, &res, p->param, pod) >= 0)
-			return 0;
+		if (param_to_fmt(p->param, &tmp) < 0)
+			continue;
+
+		score = score_diff(fmt, &tmp);
+		pw_log_debug("check: type: %u", tmp.type);
+		pw_log_debug("check: format: %.4s", (char*)&tmp.fmt.pix.pixelformat);
+		pw_log_debug("check: width: %u", tmp.fmt.pix.width);
+		pw_log_debug("check: height: %u", tmp.fmt.pix.height);
+		pw_log_debug("check: score: %d best:%d", score, best);
+
+		if (best == -1 || score < best) {
+			best = score;
+			best_fmt = tmp;
+		}
 	}
-	return -EINVAL;
+	*fmt = best_fmt;
+	pw_log_info("out: format: %.4s", (char*)&fmt->fmt.pix.pixelformat);
+	pw_log_info("out: width: %u", fmt->fmt.pix.width);
+	pw_log_info("out: height: %u", fmt->fmt.pix.height);
+	pw_log_info("out: field: %u", fmt->fmt.pix.field);
+	pw_log_info("out: size: %u", fmt->fmt.pix.sizeimage);
+	return 0;
 }
 
 static int disconnect_stream(struct file *file)
@@ -1174,7 +1316,7 @@ static int connect_stream(struct file *file)
 	const struct spa_pod *params[1];
 	struct pw_properties *props;
 
-	params[0] = info_to_param(&b, SPA_PARAM_EnumFormat, &file->format);
+	params[0] = fmt_to_param(&b, SPA_PARAM_EnumFormat, &file->v4l2_format);
 	if (params[0] == NULL) {
 		res = -EINVAL;
 		goto exit;
@@ -1251,51 +1393,24 @@ exit:
 static int vidioc_s_fmt(struct file *file, struct v4l2_format *arg)
 {
 	int res;
-	const struct spa_pod *params[1];
-	uint8_t buffer[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	struct spa_video_info info;
-
-	if ((res = format_to_info(arg, &info)) < 0)
-		goto exit;
-
-	params[0] = info_to_param(&b, SPA_PARAM_EnumFormat, &info);
-	if (params[0] == NULL) {
-		res = -EINVAL;
-		goto exit;
-	}
 
 	pw_thread_loop_lock(file->loop);
-	if ((res = try_format(file, params[0])) < 0)
+	if ((res = try_format(file, arg)) < 0)
 		goto exit_unlock;
 
-	file->format = info;
 	file->v4l2_format = *arg;
 
 exit_unlock:
 	pw_thread_loop_unlock(file->loop);
-exit:
 	return res;
 }
 static int vidioc_try_fmt(struct file *file, struct v4l2_format *arg)
 {
 	int res;
-	struct spa_video_info info;
-	const struct spa_pod *params[1];
-	uint8_t buffer[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-
-	if ((res = format_to_info(arg, &info)) < 0)
-		goto exit;
-
-	params[0] = info_to_param(&b, SPA_PARAM_EnumFormat, &info);
-	if (params[0] == NULL)
-		goto exit;
 
 	pw_thread_loop_lock(file->loop);
-	res = try_format(file, params[0]);
+	res = try_format(file, arg);
 	pw_thread_loop_unlock(file->loop);
-exit:
 	return res;
 }
 
@@ -1414,7 +1529,7 @@ static int vidioc_qbuf(struct file *file, struct v4l2_buffer *arg)
 	arg->flags = buf->v4l2.flags;
 
 	pw_stream_queue_buffer(file->stream, buf->buf);
-	pw_log_info("file:%p %d -> %d (%s)", file, arg->index, res, spa_strerror(res));
+	pw_log_debug("file:%p %d -> %d (%s)", file, arg->index, res, spa_strerror(res));
 
 exit:
 	pw_thread_loop_unlock(file->loop);
@@ -1464,13 +1579,15 @@ static int vidioc_dqbuf(struct file *file, struct v4l2_buffer *arg)
 exit_unlock:
 	pw_thread_loop_unlock(file->loop);
 
-	pw_log_info("file:%p %d -> %d (%s)", file, arg->index, res, spa_strerror(res));
+	pw_log_debug("file:%p %d -> %d (%s)", file, arg->index, res, spa_strerror(res));
 	return res;
 }
 
 static int vidioc_streamon(struct file *file, int *arg)
 {
 	int res;
+
+	pw_log_info("file:%p -> %d", file, *arg);
 
 	if (*arg != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
@@ -1583,7 +1700,7 @@ done:
 		errno = -res;
 		res = -1;
 	}
-	pw_log_info("fd:%d request:%lx nr:%d arg:%p -> %d (%s)",
+	pw_log_debug("fd:%d request:%lx nr:%d arg:%p -> %d (%s)",
 			fd, request, (int)_IOC_NR(request), arg,
 			res, strerror(res < 0 ? errno : 0));
 
@@ -1687,8 +1804,7 @@ const struct fops fops = {
 	.munmap = v4l2_munmap,
 };
 
-static void reg(void) __attribute__ ((constructor));
-static void reg(void)
+static void initialize(void)
 {
 	globals.old_fops.openat = dlsym(RTLD_NEXT, "openat64");
 	globals.old_fops.dup = dlsym(RTLD_NEXT, "dup");
@@ -1701,6 +1817,13 @@ static void reg(void)
 	PW_LOG_TOPIC_INIT(v4l2_log_topic);
 
 	pthread_mutex_init(&globals.lock, NULL);
-	spa_list_init(&globals.files);
 	pw_array_init(&globals.file_maps, 1024);
+	pw_array_init(&globals.fd_maps, 256);
+}
+
+const struct fops *get_fops(void)
+{
+	static pthread_once_t initialized = PTHREAD_ONCE_INIT;
+        pthread_once(&initialized, initialize);
+	return &fops;
 }

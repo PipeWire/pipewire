@@ -35,4 +35,4 @@ struct fops {
 	int (*munmap)(void *addr, size_t length);
 };
 
-extern const struct fops fops;
+const struct fops *get_fops(void);

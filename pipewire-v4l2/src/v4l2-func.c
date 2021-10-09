@@ -48,7 +48,7 @@ SPA_EXPORT int open(const char *path, int oflag, ...)
 	if (oflag & O_CREAT || oflag & O_TMPFILE)
 		extract_va_arg(mode_t, mode, oflag);
 
-	return fops.openat(AT_FDCWD, path, oflag, mode);
+	return get_fops()->openat(AT_FDCWD, path, oflag, mode);
 }
 
 /* _FORTIFY_SOURCE redirects open to __open_2 */
@@ -64,7 +64,7 @@ SPA_EXPORT int open64(const char *path, int oflag, ...)
 	if (oflag & O_CREAT || oflag & O_TMPFILE)
 		extract_va_arg(mode_t, mode, oflag);
 
-	return fops.openat(AT_FDCWD, path, oflag | O_LARGEFILE, mode);
+	return get_fops()->openat(AT_FDCWD, path, oflag | O_LARGEFILE, mode);
 }
 
 SPA_EXPORT int __open64_2(const char *path, int oflag)
@@ -79,7 +79,7 @@ SPA_EXPORT int openat(int dirfd, const char *path, int oflag, ...)
 	if (oflag & O_CREAT || oflag & O_TMPFILE)
 		extract_va_arg(mode_t, mode, oflag);
 
-	return fops.openat(dirfd, path, oflag, mode);
+	return get_fops()->openat(dirfd, path, oflag, mode);
 }
 
 SPA_EXPORT int __openat_2(int dirfd, const char *path, int oflag)
@@ -94,7 +94,7 @@ SPA_EXPORT int openat64(int dirfd, const char *path, int oflag, ...)
 	if (oflag & O_CREAT || oflag & O_TMPFILE)
 		extract_va_arg(mode_t, mode, oflag);
 
-	return fops.openat(dirfd, path, oflag | O_LARGEFILE, mode);
+	return get_fops()->openat(dirfd, path, oflag | O_LARGEFILE, mode);
 }
 
 SPA_EXPORT int __openat64_2(int dirfd, const char *path, int oflag)
@@ -105,36 +105,36 @@ SPA_EXPORT int __openat64_2(int dirfd, const char *path, int oflag)
 
 SPA_EXPORT int dup(int oldfd)
 {
-	return fops.dup(oldfd);
+	return get_fops()->dup(oldfd);
 }
 
 SPA_EXPORT int close(int fd)
 {
-	return fops.close(fd);
+	return get_fops()->close(fd);
 }
 
 SPA_EXPORT void *mmap(void *addr, size_t length, int prot, int flags,
                             int fd, off_t offset)
 {
-	return fops.mmap(addr, length, prot, flags, fd, offset);
+	return get_fops()->mmap(addr, length, prot, flags, fd, offset);
 }
 
 #ifndef mmap64
 SPA_EXPORT void *mmap64(void *addr, size_t length, int prot, int flags,
                               int fd, off64_t offset)
 {
-	return fops.mmap(addr, length, prot, flags, fd, offset);
+	return get_fops()->mmap(addr, length, prot, flags, fd, offset);
 }
 #endif
 
 SPA_EXPORT int munmap(void *addr, size_t length)
 {
-	return fops.munmap(addr, length);
+	return get_fops()->munmap(addr, length);
 }
 
 SPA_EXPORT int ioctl(int fd, unsigned long int request, ...)
 {
 	void *arg;
 	extract_va_arg(void *, arg, request);
-	return fops.ioctl(fd, request, arg);
+	return get_fops()->ioctl(fd, request, arg);
 }

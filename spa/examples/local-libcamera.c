@@ -25,6 +25,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+/*
+ [title]
+ Example using libspa-libcamera, with only \ref api_spa
+ [title]
+ */
+
 #include "config.h"
 
 #include <string.h>

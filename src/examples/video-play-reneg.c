@@ -22,6 +22,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+/*
+ [title]
+ Video input stream using \ref pw_stream "pw_stream", with format renegotiation.
+ [title]
+ */
+
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>

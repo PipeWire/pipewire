@@ -22,6 +22,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+/*
+ [title]
+ Video input stream using \ref pw_filter "pw_filter".
+ [title]
+ */
+
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/mman.h>

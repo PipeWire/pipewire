@@ -22,6 +22,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+/*
+ [title]
+ Using the \ref spa_device "SPA Device API", among other things.
+ [title]
+ */
+
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>

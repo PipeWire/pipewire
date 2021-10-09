@@ -22,6 +22,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+/*
+ [title]
+ Exporting and loading a SPA node, using \ref api_pw_core.
+ [title]
+ */
+
 #include <stdio.h>
 #include <sys/mman.h>
 #include <signal.h>

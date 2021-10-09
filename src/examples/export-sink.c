@@ -22,6 +22,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+/*
+ [title]
+ Exporting and implementing a video sink SPA node, using \ref api_pw_core.
+ [title]
+ */
+
 #include <errno.h>
 #include <stdio.h>
 #include <sys/mman.h>

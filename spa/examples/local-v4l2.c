@@ -22,6 +22,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+/*
+ [title]
+ Example using libspa-v4l2, with only \ref api_spa
+ [title]
+ */
+
 #include "config.h"
 
 #include <string.h>

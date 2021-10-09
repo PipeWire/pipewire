@@ -22,6 +22,16 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+/*
+ [title]
+ Running audioadapter nodes.
+ [title]
+ [doc]
+ Runs an output audioadapter using audiotestsrc as follower
+ with an input audioadapter using alsa-pcm-sink as follower
+ for easy testing.
+ [doc]
+ */
 
 #include "config.h"
 

@@ -22,6 +22,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+/*
+ [title]
+ Audio filter using \ref pw_filter "pw_filter".
+ [title]
+ */
+
 #include <stdio.h>
 #include <errno.h>
 #include <math.h>

@@ -22,9 +22,9 @@ INPUT                  = @inputs@
 FILTER_PATTERNS        = "*.c=@c_input_filter@" "*.h=@h_input_filter@"
 FILE_PATTERNS          = "*.h" "*.c"
 RECURSIVE              = YES
-EXAMPLE_PATH           = "@top_srcdir@/src/tools" \
-                         "@top_srcdir@/src/examples"
-
+EXAMPLE_PATH           = "@top_srcdir@/src/examples" \
+                         "@top_srcdir@/spa/examples"
+EXAMPLE_PATTERNS       = "*.c"
 
 REFERENCED_BY_RELATION = NO
 REFERENCES_RELATION    = NO

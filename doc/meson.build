@@ -84,6 +84,49 @@ cssfiles = [
   meson.source_root() / 'doc' / 'custom.css'
 ]
 
+# Example files (in order from simple to esoteric)
+example_files = [
+  'audio-src.c',
+  'audio-dsp-src.c',
+  'audio-dsp-filter.c',
+  'video-play.c',
+  'video-src.c',
+  'video-dsp-play.c',
+  'video-play-pull.c',
+  'video-play-reneg.c',
+  'video-src-alloc.c',
+  'video-src-reneg.c',
+  'export-sink.c',
+  'export-source.c',
+  'export-spa.c',
+  'export-spa-device.c',
+  'bluez-session.c',
+  'local-v4l2.c',
+  'spa/examples/adapter-control.c',
+  'spa/examples/example-control.c',
+  'spa/examples/local-libcamera.c',
+  'spa/examples/local-v4l2.c',
+]
+
+example_doxygen = []
+example_ref = []
+foreach h : example_files
+  example_doxygen += ['\\example ' + h,
+                      '\\snippet{doc} ' + h + ' title',
+                      '<br>',
+                      '\\snippet{doc} ' + h + ' doc']
+  example_ref += ['- \\ref ' + h + ' "": \snippet{doc} ' + h + ' title']
+endforeach
+
+examples_dox_conf = configuration_data()
+examples_dox_conf.set('example_doxygen', '\n'.join(example_doxygen))
+examples_dox_conf.set('example_ref', '\n'.join(example_ref))
+examples_dox = configure_file(input: 'examples.dox.in',
+                              output: 'examples.dox',
+                              configuration: examples_dox_conf)
+
+input_dirs += [ 'doc/examples.dox' ]
+
 doxyfile_conf.set('inputs', ' '.join(inputs + input_dirs))
 doxyfile_conf.set('cssfiles', ' '.join(cssfiles))
 doxyfile_conf.set('path_prefixes', ' '.join(path_prefixes))
@@ -100,7 +143,7 @@ if docdir == ''
 endif
 
 html_target = custom_target('pipewire-docs',
-                            input: [ doxyfile ] + inputs + cssfiles,
+                            input: [ doxyfile, examples_dox ] + inputs + cssfiles,
                             output: [ 'html' ],
                             command: [ doxygen, doxyfile ],
                             install: true,

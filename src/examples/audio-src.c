@@ -22,6 +22,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+/*
+ [title]
+ Audio source using \ref pw_stream "pw_stream".
+ [title]
+ */
+
 #include <stdio.h>
 #include <errno.h>
 #include <math.h>

@@ -22,6 +22,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+/*
+ [title]
+ Allocating buffer memory and sending fds to the server.
+ [title]
+ */
+
 #include "config.h"
 
 #include <stdio.h>

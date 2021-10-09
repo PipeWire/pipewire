@@ -22,6 +22,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+/*
+ [title]
+ Video source using \ref pw_stream.
+ [title]
+ */
+
 #include <stdio.h>
 #include <errno.h>
 #include <signal.h>

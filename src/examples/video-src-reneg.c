@@ -22,6 +22,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+/*
+ [title]
+ Renegotiating video producer and consumer formats with \ref pw_stream
+ [title]
+ */
+
 #include "config.h"
 
 #include <stdio.h>

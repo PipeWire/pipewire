@@ -86,6 +86,12 @@ cssfiles = [
 
 # Example files (in order from simple to esoteric)
 example_files = [
+  'tutorial1.c',
+  'tutorial2.c',
+  'tutorial3.c',
+  'tutorial4.c',
+  'tutorial5.c',
+  'tutorial6.c',
   'audio-src.c',
   'audio-dsp-src.c',
   'audio-dsp-filter.c',

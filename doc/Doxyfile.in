@@ -23,7 +23,8 @@ FILTER_PATTERNS        = "*.c=@c_input_filter@" "*.h=@h_input_filter@"
 FILE_PATTERNS          = "*.h" "*.c"
 RECURSIVE              = YES
 EXAMPLE_PATH           = "@top_srcdir@/src/examples" \
-                         "@top_srcdir@/spa/examples"
+                         "@top_srcdir@/spa/examples" \
+                         "@top_srcdir@/doc"
 EXAMPLE_PATTERNS       = "*.c"
 
 REFERENCED_BY_RELATION = NO

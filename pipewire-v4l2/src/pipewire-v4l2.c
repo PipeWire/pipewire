@@ -748,13 +748,6 @@ static int vidioc_querycap(struct file *file, struct v4l2_capability *arg)
 	return res;
 }
 
-static int vidioc_enum_framesizes(struct file *file, struct v4l2_frmsizeenum *arg)
-{
-	int res = -ENOTTY;
-	pw_log_info("file:%p -> %d (%s)", file, res, spa_strerror(res));
-	return res;
-}
-
 struct format_info {
 	uint32_t fourcc;
 	uint32_t media_type;
@@ -1168,6 +1161,89 @@ static const struct pw_stream_events stream_events = {
 	.remove_buffer = on_stream_remove_buffer,
 	.process = on_stream_process,
 };
+
+static int vidioc_enum_framesizes(struct file *file, struct v4l2_frmsizeenum *arg)
+{
+	uint32_t count = 0;
+	struct global *g = file->node;
+	struct param *p;
+	bool found = false;
+
+	pw_log_info("index: %u", arg->index);
+	pw_log_info("format: %.4s", (char*)&arg->pixel_format);
+
+	pw_thread_loop_lock(file->loop);
+	spa_list_for_each(p, &g->param_list, link) {
+		const struct format_info *fi;
+		uint32_t media_type, media_subtype, format;
+		struct spa_rectangle size;
+
+		if (p->id != SPA_PARAM_EnumFormat || p->param == NULL)
+			continue;
+
+		if (spa_format_parse(p->param, &media_type, &media_subtype) < 0)
+			continue;
+		if (media_type != SPA_MEDIA_TYPE_video)
+			continue;
+		if (media_subtype == SPA_MEDIA_SUBTYPE_raw) {
+			if (spa_pod_parse_object(p->param,
+					SPA_TYPE_OBJECT_Format, NULL,
+					SPA_FORMAT_VIDEO_format, SPA_POD_Id(&format)) < 0)
+				continue;
+		} else {
+			format = SPA_VIDEO_FORMAT_ENCODED;
+		}
+
+		fi = format_info_from_media_type(media_type, media_subtype, format);
+		if (fi == NULL)
+			continue;
+
+		if (fi->fourcc != arg->pixel_format)
+			continue;
+		if (spa_pod_parse_object(p->param,
+				SPA_TYPE_OBJECT_Format, NULL,
+				SPA_FORMAT_VIDEO_size, SPA_POD_Rectangle(&size)) < 0)
+			continue;
+
+		arg->type = V4L2_FRMSIZE_TYPE_DISCRETE;
+		arg->discrete.width = size.width;
+		arg->discrete.height = size.height;
+
+		pw_log_debug("count:%d %d %dx%d", count, fi->fourcc,
+				size.width, size.height);
+		if (count == arg->index) {
+			found = true;
+			break;
+		}
+		count++;
+	}
+	pw_thread_loop_unlock(file->loop);
+
+	if (!found)
+		return -EINVAL;
+
+	switch (arg->type) {
+	case V4L2_FRMSIZE_TYPE_DISCRETE:
+		pw_log_info("type: discrete");
+		pw_log_info("width: %u", arg->discrete.width);
+		pw_log_info("height: %u", arg->discrete.height);
+		break;
+	case V4L2_FRMSIZE_TYPE_CONTINUOUS:
+	case V4L2_FRMSIZE_TYPE_STEPWISE:
+		pw_log_info("type: stepwise");
+		pw_log_info("min-width: %u", arg->stepwise.min_width);
+		pw_log_info("max-width: %u", arg->stepwise.max_width);
+		pw_log_info("step-width: %u", arg->stepwise.step_width);
+		pw_log_info("min-height: %u", arg->stepwise.min_height);
+		pw_log_info("max-height: %u", arg->stepwise.max_height);
+		pw_log_info("step-height: %u", arg->stepwise.step_height);
+		break;
+	}
+
+	memset(arg->reserved, 0, sizeof(arg->reserved));
+
+	return 0;
+}
 
 static int vidioc_enum_fmt(struct file *file, struct v4l2_fmtdesc *arg)
 {

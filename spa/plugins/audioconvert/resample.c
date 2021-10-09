@@ -275,7 +275,8 @@ static void reset_node(struct impl *this)
 	outport = GET_OUT_PORT(this, 0);
 	inport = GET_IN_PORT(this, 0);
 
-	resample_reset(&this->resample);
+	if (this->resample.reset)
+		resample_reset(&this->resample);
 	outport->offset = 0;
 	inport->offset = 0;
 }

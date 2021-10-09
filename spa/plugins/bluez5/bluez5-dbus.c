@@ -3360,7 +3360,7 @@ static int switch_backend(struct spa_bt_monitor *monitor, struct spa_bt_backend 
 	return 0;
 }
 
-static void reselect_backend(struct spa_bt_monitor *monitor)
+static void reselect_backend(struct spa_bt_monitor *monitor, bool silent)
 {
 	struct spa_bt_backend *backend;
 	size_t i;
@@ -3383,8 +3383,12 @@ static void reselect_backend(struct spa_bt_monitor *monitor)
 			return;
 	}
 
-	spa_log_error(monitor->log, "Failed to start HFP/HSP backend %s",
-			backend ? backend->name : "none");
+	spa_bt_backend_unregister_profiles(monitor->backend);
+	monitor->backend = NULL;
+
+	if (!silent)
+		spa_log_error(monitor->log, "Failed to start HFP/HSP backend %s",
+				backend ? backend->name : "none");
 }
 
 static void interface_added(struct spa_bt_monitor *monitor,
@@ -3412,7 +3416,7 @@ static void interface_added(struct spa_bt_monitor *monitor,
 	else if (spa_streq(interface_name, BLUEZ_PROFILE_MANAGER_INTERFACE)) {
 		if (monitor->backends[BACKEND_NATIVE])
 			monitor->backends[BACKEND_NATIVE]->available = true;
-		reselect_backend(monitor);
+		reselect_backend(monitor, false);
 	}
 	else if (spa_streq(interface_name, BLUEZ_DEVICE_INTERFACE)) {
 		struct spa_bt_device *d;
@@ -3560,7 +3564,7 @@ static void get_managed_objects_reply(DBusPendingCall *pending, void *user_data)
 		dbus_message_iter_next(&it[1]);
 	}
 
-	reselect_backend(monitor);
+	reselect_backend(monitor, false);
 
 	monitor->objects_listed = true;
 
@@ -3612,6 +3616,11 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 
 			if (has_old_owner) {
 				spa_log_debug(monitor->log, "Bluetooth daemon disappeared");
+
+				if (monitor->backends[BACKEND_NATIVE])
+					monitor->backends[BACKEND_NATIVE]->available = false;
+
+				reselect_backend(monitor, true);
 			}
 
 			if (has_old_owner || has_new_owner) {
@@ -3630,10 +3639,6 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 					device_free(d);
 				spa_list_consume(a, &monitor->adapter_list, link)
 					adapter_free(a);
-
-				if (monitor->backends[BACKEND_NATIVE])
-					monitor->backends[BACKEND_NATIVE]->available = false;
-				reselect_backend(monitor);
 			}
 
 			if (has_new_owner) {
@@ -3643,11 +3648,11 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 		} else if (spa_streq(name, OFONO_SERVICE)) {
 			if (monitor->backends[BACKEND_OFONO])
 				monitor->backends[BACKEND_OFONO]->available = (new_owner && *new_owner);
-			reselect_backend(monitor);
+			reselect_backend(monitor, false);
 		} else if (spa_streq(name, HSPHFPD_SERVICE)) {
 			if (monitor->backends[BACKEND_HSPHFPD])
 				monitor->backends[BACKEND_HSPHFPD]->available = (new_owner && *new_owner);
-			reselect_backend(monitor);
+			reselect_backend(monitor, false);
 		}
 	} else if (dbus_message_is_signal(m, "org.freedesktop.DBus.ObjectManager", "InterfacesAdded")) {
 		DBusMessageIter it;

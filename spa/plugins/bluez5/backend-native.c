@@ -2020,7 +2020,7 @@ static void unregister_profile(struct impl *backend, const char *profile)
 	m = NULL;
 
 	if (r == NULL) {
-		spa_log_error(backend->log, "Unregistering Profile %s failed", profile);
+		spa_log_info(backend->log, "Unregistering Profile %s failed", profile);
 		dbus_error_free(&err);
 		return;
 	}

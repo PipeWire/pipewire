@@ -56,8 +56,8 @@ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.native");
 
 #define PROP_KEY_HEADSET_ROLES "bluez5.headset-roles"
 
-#define HFP_CODEC_SWITCH_INITIAL_TIMEOUT_MSEC 2000
-#define HFP_CODEC_SWITCH_TIMEOUT_MSEC 5000
+#define HFP_CODEC_SWITCH_INITIAL_TIMEOUT_MSEC 5000
+#define HFP_CODEC_SWITCH_TIMEOUT_MSEC 20000
 
 enum {
 	HFP_AG_INITIAL_CODEC_SETUP_NONE = 0,

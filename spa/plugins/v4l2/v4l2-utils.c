@@ -726,7 +726,35 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 		spa_pod_builder_id(&b, info->format);
 	}
 	spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_size, 0);
-	spa_pod_builder_rectangle(&b, port->frmsize.discrete.width, port->frmsize.discrete.height);
+	if (port->frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
+		spa_pod_builder_rectangle(&b,
+				port->frmsize.discrete.width,
+				port->frmsize.discrete.height);
+	} else if (port->frmsize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS ||
+		   port->frmsize.type == V4L2_FRMSIZE_TYPE_STEPWISE) {
+		spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_None, 0);
+		choice = (struct spa_pod_choice*)spa_pod_builder_frame(&b, &f[1]);
+
+		spa_pod_builder_rectangle(&b,
+				port->frmsize.stepwise.min_width,
+				port->frmsize.stepwise.min_height);
+		spa_pod_builder_rectangle(&b,
+				port->frmsize.stepwise.min_width,
+				port->frmsize.stepwise.min_height);
+		spa_pod_builder_rectangle(&b,
+				port->frmsize.stepwise.max_width,
+				port->frmsize.stepwise.max_height);
+
+		if (port->frmsize.type == V4L2_FRMSIZE_TYPE_CONTINUOUS) {
+			choice->body.type = SPA_CHOICE_Range;
+		} else {
+			choice->body.type = SPA_CHOICE_Step;
+			spa_pod_builder_rectangle(&b,
+					port->frmsize.stepwise.max_width,
+					port->frmsize.stepwise.max_height);
+		}
+		spa_pod_builder_pop(&b, &f[1]);
+	}
 
 	spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_framerate, 0);
 

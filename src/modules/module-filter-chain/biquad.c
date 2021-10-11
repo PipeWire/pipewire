@@ -343,8 +343,7 @@ static void biquad_allpass(struct biquad *bq, double frequency, double Q)
 void biquad_set(struct biquad *bq, enum biquad_type type, double freq, double Q,
 		double gain)
 {
-	/* Default is an identity filter. Also clear history values. */
-	set_coefficient(bq, 1, 0, 0, 1, 0, 0);
+	/* Clear history values. */
 	bq->x1 = 0;
 	bq->x2 = 0;
 	bq->y1 = 0;
@@ -376,6 +375,8 @@ void biquad_set(struct biquad *bq, enum biquad_type type, double freq, double Q,
 		biquad_allpass(bq, freq, Q);
 		break;
 	case BQ_NONE:
+		/* Default is an identity filter. */
+		set_coefficient(bq, 1, 0, 0, 1, 0, 0);
 		break;
 	}
 }

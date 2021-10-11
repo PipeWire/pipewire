@@ -281,7 +281,7 @@ static void bq_run(struct builtin *impl, unsigned long samples, int type)
 		impl->freq = freq;
 		impl->Q = Q;
 		impl->gain = gain;
-		biquad_set(bq, type, freq / impl->rate, Q, gain);
+		biquad_set(bq, type, freq * 2 / impl->rate, Q, gain);
 	}
 	x1 = bq->x1;
 	x2 = bq->x2;

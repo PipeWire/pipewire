@@ -43,6 +43,9 @@ if dbus_dep.found()
     dependencies : [dbus_dep, ],
     install : true,
     install_dir : spa_plugindir / 'support')
+  spa_dbus_dep = declare_dependency(link_with: spa_dbus_lib)
+else
+  spa_dbus_dep = declare_dependency()
 endif
 
 

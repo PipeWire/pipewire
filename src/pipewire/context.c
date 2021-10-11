@@ -459,10 +459,11 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 				SPA_NAME_SUPPORT_DBUS, NULL,
 				n_support, this->support);
 
-		if (impl->dbus_handle == NULL ||
-		    (res = spa_handle_get_interface(impl->dbus_handle,
-							SPA_TYPE_INTERFACE_DBus, &dbus_iface)) < 0) {
-				pw_log_warn("%p: can't load dbus interface: %s", this, spa_strerror(res));
+		if (impl->dbus_handle == NULL) {
+			pw_log_warn("%p: can't load dbus library: %s", this, lib);
+		} else if ((res = spa_handle_get_interface(impl->dbus_handle,
+							   SPA_TYPE_INTERFACE_DBus, &dbus_iface)) < 0) {
+			pw_log_warn("%p: can't load dbus interface: %s", this, spa_strerror(res));
 		} else {
 			this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_DBus, dbus_iface);
 		}

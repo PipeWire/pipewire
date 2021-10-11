@@ -478,6 +478,7 @@ PWTEST(logger_journal)
 	}
 
 	sd_journal_seek_tail(journal);
+	sd_journal_next(journal);
 
 	spa_logt_info(iface, &topic, "MARK\n");
 	while ((rc = sd_journal_next(journal)) > 0) {
@@ -555,6 +556,7 @@ PWTEST(logger_journal_chain)
 	}
 
 	sd_journal_seek_tail(journal);
+	sd_journal_next(journal);
 
 	spa_logt_info(iface, &topic, "MARK\n");
 	while ((rc = sd_journal_next(journal)) > 0) {

@@ -239,7 +239,8 @@ static int impl_node_enum_params(void *object, int seq,
 
 	if (enum_codec) {
 		int res;
-		if (this->codec->enum_props == NULL || this->codec_props == NULL)
+		if (this->codec->enum_props == NULL || this->codec_props == NULL ||
+		    this->transport == NULL)
 			return 0;
 		else if ((res = this->codec->enum_props(this->codec_props,
 					this->transport->device->settings,

@@ -33,7 +33,7 @@ pwtest_lib = static_library(
   include_directories: pwtest_inc,
 )
 
-test('test pwtest',
+test('test-pwtest',
     executable('test-pwtest',
                'test-pwtest.c',
                include_directories: pwtest_inc,
@@ -47,7 +47,7 @@ executable('test-example',
   include_directories: pwtest_inc,
   link_with: pwtest_lib)
 
-test('test pipewire utils',
+test('test-pw-utils',
     executable('test-pw-utils',
                'test-properties.c',
                'test-array.c',
@@ -56,19 +56,22 @@ test('test pipewire utils',
                include_directories: pwtest_inc,
                link_with: pwtest_lib)
 )
-test('test lib',
+
+test('test-lib',
     executable('test-lib',
                'test-lib.c',
                include_directories: pwtest_inc,
                link_with: pwtest_lib)
 )
-test('test client',
+
+test('test-client',
     executable('test-client',
                'test-client.c',
                include_directories: pwtest_inc,
                link_with: pwtest_lib)
 )
-test('test context',
+
+test('test-context',
     executable('test-context',
                'test-context.c',
                'test-config.c',
@@ -83,7 +86,7 @@ test('test context',
                             pipewire_module_session_manager])
 )
 
-test('test support',
+test('test-support',
     executable('test-support',
                'test-support.c',
                'test-logger.c',
@@ -91,7 +94,7 @@ test('test support',
                dependencies: [systemd_dep, spa_support_dep, spa_journal_dep],
                link_with: [pwtest_lib])
 )
-test('test spa',
+test('test-spa',
     executable('test-spa',
                'test-spa-buffer.c',
                'test-spa-json.c',

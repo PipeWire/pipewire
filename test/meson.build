@@ -109,7 +109,7 @@ test('test-spa',
 valgrind = find_program('valgrind', required: false)
 summary({'valgrind (test setup)': valgrind.found()}, bool_yn: true, section: 'Optional programs')
 if valgrind.found()
-  valgrind_env = environment()
+  valgrind_env = environment({'PIPEWIRE_DEBUG': 'D'})
   add_test_setup('valgrind',
                  exe_wrapper : [ valgrind,
                    '--leak-check=full',

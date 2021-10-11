@@ -78,11 +78,14 @@ static char *read_file(const char *name, char *buffer, size_t len)
 # if defined (__i386__) || defined (__x86_64__)
 #include "cpu-x86.c"
 #define init(t)	x86_init(t)
+#define impl_cpu_zero_denormals x86_zero_denormals
 # elif defined (__arm__) || defined (__aarch64__)
 #include "cpu-arm.c"
 #define init(t)	arm_init(t)
+#define impl_cpu_zero_denormals arm_zero_denormals
 # else
 #define init(t)
+#define impl_cpu_zero_denormals NULL
 #endif
 
 static uint32_t
@@ -197,6 +200,7 @@ static const struct spa_cpu_methods impl_cpu = {
 	.get_count = impl_cpu_get_count,
 	.get_max_align = impl_cpu_get_max_align,
 	.get_vm_type = impl_cpu_get_vm_type,
+	.zero_denormals = impl_cpu_zero_denormals,
 };
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
@@ -265,6 +269,8 @@ impl_init(const struct spa_handle_factory *factory,
 			this->flags = atoi(str);
 		if ((str = spa_dict_lookup(info, SPA_KEY_CPU_VM_TYPE)) != NULL)
 			this->vm_type = atoi(str);
+		if ((str = spa_dict_lookup(info, SPA_KEY_CPU_ZERO_DENORMALS)) != NULL)
+			impl_cpu_zero_denormals(this, spa_atob(str));
 	}
 
 	spa_log_debug(this->log, "%p: count:%d align:%d flags:%08x",

@@ -123,3 +123,40 @@ arm_init(struct impl *impl)
 
 	return 0;
 }
+
+
+static int arm_zero_denormals(void *object, bool enable)
+{
+#if defined(__aarch64__)
+	uint64_t cw;
+	if (enable)
+		__asm__ __volatile__(
+			"mrs	%0, fpcr		\n"
+			"orr	%0, %0, #0x1000000	\n"
+			"msr	fpcr, %0		\n"
+			"isb				\n"
+			: "=r"(cw)::"memory");
+	else
+		__asm__ __volatile__(
+			"mrs	%0, fpcr		\n"
+			"and	%0, %0, #~0x1000000	\n"
+			"msr	fpcr, %0		\n"
+			"isb				\n"
+			: "=r"(cw)::"memory");
+#else
+	uint32_t cw;
+	if (enable)
+		__asm__ __volatile__(
+			"vmrs	%0, fpscr		\n"
+			"orr	%0, %0, #0x1000000	\n"
+			"vmsr	fpscr, %0		\n"
+			: "=r"(cw)::"memory");
+	else
+		__asm__ __volatile__(
+			"vmrs	%0, fpscr		\n"
+			"and	%0, %0, #~0x1000000	\n"
+			"vmsr	fpscr, %0		\n"
+			: "=r"(cw)::"memory");
+#endif
+	return 0;
+}

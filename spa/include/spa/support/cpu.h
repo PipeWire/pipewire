@@ -113,7 +113,7 @@ struct spa_cpu { struct spa_interface iface; };
 struct spa_cpu_methods {
 	/** the version of the methods. This can be used to expand this
 	  structure in the future */
-#define SPA_VERSION_CPU_METHODS	1
+#define SPA_VERSION_CPU_METHODS	2
 	uint32_t version;
 
 	/** get CPU flags */
@@ -130,6 +130,10 @@ struct spa_cpu_methods {
 
 	/* check if running in a VM. Since:1 */
 	uint32_t (*get_vm_type) (void *object);
+
+	/* denormals will be handled as zero, either with FTZ or DAZ.
+	 * Since:2 */
+	int (*zero_denormals) (void *object, bool enable);
 };
 
 #define spa_cpu_method(o,method,version,...)				\
@@ -146,10 +150,12 @@ struct spa_cpu_methods {
 #define spa_cpu_get_count(c)		spa_cpu_method(c, get_count, 0)
 #define spa_cpu_get_max_align(c)	spa_cpu_method(c, get_max_align, 0)
 #define spa_cpu_get_vm_type(c)		spa_cpu_method(c, get_vm_type, 1)
+#define spa_cpu_zero_denormals(c,e)	spa_cpu_method(c, zero_denormals, 2, e)
 
 /** keys can be given when initializing the cpu handle */
 #define SPA_KEY_CPU_FORCE		"cpu.force"		/**< force cpu flags */
 #define SPA_KEY_CPU_VM_TYPE		"cpu.vm.type"		/**< force a VM type */
+#define SPA_KEY_CPU_ZERO_DENORMALS	"cpu.zero.denormals"	/**< zero denormals */
 
 /**
  * \}

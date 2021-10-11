@@ -15,6 +15,7 @@ context.properties = {
     #mem.mlock-all                         = false
     #clock.power-of-two-quantum            = true
     #log.level                             = 2
+    #cpu.zero.denormals                    = true
 
     core.daemon = true              # listening for socket connections
     core.name   = pipewire-0        # core name and socket name

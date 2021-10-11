@@ -176,3 +176,15 @@ x86_init(struct impl *impl)
 
 	return 0;
 }
+
+static int x86_zero_denormals(void *object, bool enable)
+{
+	unsigned int mxcsr;
+	mxcsr = __builtin_ia32_stmxcsr();
+	if (enable)
+		mxcsr |= 0x8040;
+	else
+		mxcsr &= ~0x8040;
+	__builtin_ia32_ldmxcsr(mxcsr);
+	return 0;
+}

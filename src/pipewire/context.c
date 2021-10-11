@@ -395,9 +395,14 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 			pw_properties_update_string(properties, str, strlen(str));
 		pw_properties_set(properties, "vm.overrides", NULL);
 	}
-	if (pw_properties_get(properties, PW_KEY_CPU_MAX_ALIGN) == NULL && cpu != NULL)
-		pw_properties_setf(properties, PW_KEY_CPU_MAX_ALIGN,
+	if (cpu != NULL) {
+		if (pw_properties_get(properties, PW_KEY_CPU_MAX_ALIGN) == NULL)
+			pw_properties_setf(properties, PW_KEY_CPU_MAX_ALIGN,
 				"%u", spa_cpu_get_max_align(cpu));
+		if ((str = pw_properties_get(properties, SPA_KEY_CPU_ZERO_DENORMALS)) == NULL)
+			str = "true";
+		spa_cpu_zero_denormals(cpu, spa_atob(str));
+	}
 
 	if (getenv("PIPEWIRE_DEBUG") == NULL &&
 	    (str = pw_properties_get(properties, "log.level")) != NULL)

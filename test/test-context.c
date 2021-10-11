@@ -60,6 +60,8 @@ PWTEST(context_abi)
 	pwtest_int_eq(PW_VERSION_CONTEXT_EVENTS, 0);
 	pwtest_int_eq(sizeof(ev), sizeof(test));
 
+	pw_deinit();
+
 	return PWTEST_PASS;
 }
 
@@ -168,6 +170,8 @@ PWTEST(context_create)
 	pwtest_int_eq(global_removed_count, 2);
 	pw_main_loop_destroy(loop);
 
+	pw_deinit();
+
 	return PWTEST_PASS;
 }
 
@@ -215,6 +219,8 @@ PWTEST(context_properties)
 	pw_context_destroy(context);
 	pw_main_loop_destroy(loop);
 
+	pw_deinit();
+
 	return PWTEST_PASS;
 }
 
@@ -254,6 +260,8 @@ PWTEST(context_support)
 
 	pw_context_destroy(context);
 	pw_main_loop_destroy(loop);
+
+	pw_deinit();
 
 	return PWTEST_PASS;
 }

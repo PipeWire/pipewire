@@ -3996,9 +3996,11 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 			goto error_invalid;
 	}
 
-	if (command == COMMAND_GET_SOURCE_INFO &&
-	    sel.value != NULL && spa_strendswith(sel.value, ".monitor")) {
-		sel.value = strndupa(sel.value, strlen(sel.value)-8);
+	if (command == COMMAND_GET_SOURCE_INFO) {
+		if (sel.value != NULL && spa_strendswith(sel.value, ".monitor"))
+			sel.value = strndupa(sel.value, strlen(sel.value)-8);
+		if (sel.id & MONITOR_FLAG)
+			sel.id &= INDEX_MASK;
 	}
 
 	o = select_object(manager, &sel);

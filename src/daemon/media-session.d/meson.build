@@ -1,3 +1,7 @@
+conf_config = configuration_data()
+conf_config.set('VERSION', '"@0@"'.format(pipewire_version))
+conf_config.set('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
+
 conf_files = [
   [ 'bluez-monitor.conf', 'bluez-monitor.conf' ],
   [ 'v4l2-monitor.conf', 'v4l2-monitor.conf' ],

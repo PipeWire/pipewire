@@ -295,7 +295,7 @@ PWTEST(logger_debug_env_topic_all)
 	struct spa_log *default_logger = pw_log_get();
 	char *oldenv = getenv("PIPEWIRE_DEBUG");
 	char lvlstr[32];
-	char *lvl = SPA_LOG_LEVEL_NONE;
+	char *lvl = "X";
 
 	if (oldenv)
 		oldenv = strdup(oldenv);

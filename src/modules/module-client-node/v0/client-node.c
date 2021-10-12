@@ -1343,7 +1343,6 @@ struct pw_impl_client_node0 *pw_impl_client_node0_new(struct pw_resource *resour
 	const struct spa_support *support;
 	uint32_t n_support;
 	const char *name;
-	const char *str;
 	int res;
 
 	impl = calloc(1, sizeof(struct impl));
@@ -1389,8 +1388,7 @@ struct pw_impl_client_node0 *pw_impl_client_node0_new(struct pw_resource *resour
 		goto error_no_node;
 	}
 
-	str = pw_properties_get(properties, "pipewire.client.reuse");
-	impl->client_reuse = str && pw_properties_parse_bool(str);
+	impl->client_reuse = pw_properties_get_bool(properties, "pipewire.client.reuse", false);
 
 	pw_resource_add_listener(this->resource,
 				 &impl->resource_listener,

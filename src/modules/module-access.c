@@ -246,8 +246,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 			pw_log_info("client %p: has already access: '%s'", client, str);
 			return;
 		}
-		if ((str = pw_properties_get(props, PW_KEY_SEC_PID)) != NULL)
-			pid = atoi(str);
+		 pw_properties_fetch_int32(props, PW_KEY_SEC_PID, &pid);
 	}
 
 	if (pid < 0) {

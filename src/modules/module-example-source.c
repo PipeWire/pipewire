@@ -57,7 +57,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
 #define DEFAULT_FORMAT "S16"
-#define DEFAULT_RATE "48000"
+#define DEFAULT_RATE 48000
 #define DEFAULT_CHANNELS "2"
 #define DEFAULT_POSITION "[ FL FR ]"
 
@@ -65,7 +65,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"[ node.name=<name of the nodes> ] "					\
 			"[ node.description=<description of the nodes> ] "			\
 			"[ audio.format=<format, default:"DEFAULT_FORMAT"> ] "			\
-			"[ audio.rate=<sample rate, default:"DEFAULT_RATE"> ] "			\
+			"[ audio.rate=<sample rate, default: 48000> ] "				\
 			"[ audio.channels=<number of channels, default:"DEFAULT_CHANNELS"> ] "	\
 			"[ audio.position=<channel map, default:"DEFAULT_POSITION"> ] "		\
 			"[ stream.props=<properties> ] "
@@ -351,9 +351,7 @@ static int parse_audio_info(struct impl *impl)
 		pw_log_error("unsupported format '%s'", str);
 		return -EINVAL;
 	}
-	if ((str = pw_properties_get(props, PW_KEY_AUDIO_RATE)) == NULL)
-		str = DEFAULT_RATE;
-	info->rate = atoi(str);
+	info->rate = pw_properties_get_uint32(props, PW_KEY_AUDIO_RATE, DEFAULT_RATE);
 	if (info->rate == 0) {
 		pw_log_error("invalid rate '%s'", str);
 		return -EINVAL;

@@ -96,9 +96,7 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 
 	old = pw_impl_port_get_properties(port);
 
-	is_monitor = (str = pw_properties_get(old, PW_KEY_PORT_MONITOR)) != NULL &&
-			pw_properties_parse_bool(str);
-
+	is_monitor = pw_properties_get_bool(old, PW_KEY_PORT_MONITOR, false);
 	if (!is_monitor && direction != n->direction)
 		return;
 

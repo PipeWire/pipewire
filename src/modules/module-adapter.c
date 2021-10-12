@@ -179,11 +179,8 @@ static void *create_object(void *_data,
 	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
 			pw_impl_factory_get_info(d->this)->id);
 
-	str = pw_properties_get(properties, PW_KEY_OBJECT_LINGER);
-	linger = str ? pw_properties_parse_bool(str) : false;
-
-	str = pw_properties_get(properties, PW_KEY_OBJECT_REGISTER);
-	do_register = str ? pw_properties_parse_bool(str) : true;
+	linger = pw_properties_get_bool(properties, PW_KEY_OBJECT_LINGER, false);
+	do_register = pw_properties_get_bool(properties, PW_KEY_OBJECT_REGISTER, true);
 
 	client = resource ? pw_resource_get_client(resource): NULL;
 	if (client && !linger) {

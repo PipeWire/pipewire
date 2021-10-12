@@ -11,15 +11,15 @@ msgstr ""
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
 "POT-Creation-Date: 2021-04-18 16:54+0800\n"
-"PO-Revision-Date: 2018-09-30 17:34+0200\n"
-"Last-Translator: Marek Černocký <marek@manet.cz>\n"
+"PO-Revision-Date: 2021-10-12 14:18+0200\n"
+"Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
 "Language-Team: čeština <gnome-cs-list@gnome.org>\n"
 "Language: cs\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
-"X-Generator: Gtranslator 2.91.7\n"
+"X-Generator: Poedit 3.0\n"
 
 #: src/daemon/pipewire.c:43
 #, c-format
@@ -29,6 +29,10 @@ msgid ""
 "      --version                         Show version\n"
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
+"%s [volby]\n"
+"  -h, --help                            Zobrazit tuto nápovědu\n"
+"      --version                         Zobrazit verzi\n"
+"  -c, --config                          Načíst konfiguraci (výchozí je %s)\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
@@ -50,7 +54,7 @@ msgstr "Modem"
 
 #: src/examples/media-session/alsa-monitor.c:539
 msgid "Unknown device"
-msgstr ""
+msgstr "Neznámé zařízení"
 
 #: src/tools/pw-cat.c:991
 #, c-format
@@ -61,6 +65,11 @@ msgid ""
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
+"%s [volby] <soubor>\n"
+"  -h, --help                            Zobrazit tuto nápovědu\n"
+"      --version                         Zobrazit verzi\n"
+"  -v, --verbose                         Povolit podrobné operace\n"
+"\n"
 
 #: src/tools/pw-cat.c:998
 #, c-format
@@ -79,6 +88,22 @@ msgid ""
 "      --list-targets                    List available targets for --target\n"
 "\n"
 msgstr ""
+"  -R, --remote                          Název vzdáleného démonu\n"
+"      --media-type                      Nastavit typ médií (výchozí je %s)\n"
+"      --media-category                  Nastavit kategorii médií (výchozí je "
+"%s)\n"
+"      --media-role                      Nastavit roli médií (výchozí je %s)\n"
+"      --target                          Nastavit cíl uzlu (výchozí je %s)\n"
+"                                          0 znamená nepropojovat\n"
+"      --latency                         Nastavit latenci uzlu (výchozí je "
+"%s)\n"
+"                                          Xjednotka (jednotka = s, ms, us, "
+"ns)\n"
+"                                          nebo přímé vzorky (256)\n"
+"                                          frekvence je stejná jako u "
+"zdrojového souboru\n"
+"      --list-targets                    Zobrazit dostupné cíle pro --target\n"
+"\n"
 
 #: src/tools/pw-cat.c:1016
 #, c-format
@@ -99,6 +124,22 @@ msgid ""
 "%d)\n"
 "\n"
 msgstr ""
+"      --rate                            Vzorkovací frekvence (vyžad. pro "
+"rec) (výchozí je %u)\n"
+"      --channels                        Počet kanálů (vyžad. pro rec) "
+"(výchozí je %u)\n"
+"      --channel-map                     Mapa kanálů\n"
+"                                            jedno z: \"stereo\", "
+"\"surround-51\",... nebo\n"
+"                                            čárkami oddělený seznam názvů "
+"kanálů: např. \"FL,FR\"\n"
+"      --format                          Formát vzorku %s (vyžad. pro rec) "
+"(výchozí je %s)\n"
+"      --volume                          Hlasitost streamu 0-1.0 (výchozí je "
+"%.3f)\n"
+"  -q  --quality                         Kvalita resampleru (0 - 15) (výchozí "
+"je %d)\n"
+"\n"
 
 #: src/tools/pw-cat.c:1033
 msgid ""
@@ -107,6 +148,10 @@ msgid ""
 "  -m, --midi                            Midi mode\n"
 "\n"
 msgstr ""
+"  -p, --playback                        Playback mód\n"
+"  -r, --record                          Recording mód\n"
+"  -m, --midi                            Midi mód\n"
+"\n"
 
 #: src/tools/pw-cli.c:2932
 #, c-format
@@ -118,10 +163,17 @@ msgid ""
 "  -r, --remote                          Remote daemon name\n"
 "\n"
 msgstr ""
+"%s [volby] [příkaz]\n"
+"  -h, --help                            Zobrazit tuto nápovědu\n"
+"      --version                         Zobrazit verzi\n"
+"  -d, --daemon                          Spustit jako démon (výchozí je "
+"false)\n"
+"  -r, --remote                          Název vzdáleného démonu\n"
+"\n"
 
 #: spa/plugins/alsa/acp/acp.c:290
 msgid "Pro Audio"
-msgstr ""
+msgstr "Pro Audio"
 
 #: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4704
 #: spa/plugins/bluez5/bluez5-device.c:1000
@@ -247,9 +299,8 @@ msgid "Analog Output"
 msgstr "Analogový výstup"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2809
-#, fuzzy
 msgid "Headphones 2"
-msgstr "Sluchátka"
+msgstr "Sluchátka 2"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2810
 msgid "Headphones Mono Output"
@@ -297,28 +348,24 @@ msgid "Chat Output"
 msgstr "Komunikační výstup"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2822
-#, fuzzy
 msgid "Chat Input"
-msgstr "Komunikační výstup"
+msgstr "Komunikační vstup"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2823
-#, fuzzy
 msgid "Virtual Surround 7.1"
-msgstr "Virtuální cíl surround"
+msgstr "Virtuální surround 7.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4527
 msgid "Analog Mono"
 msgstr "Analogové mono"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4528
-#, fuzzy
 msgid "Analog Mono (Left)"
-msgstr "Analogové mono"
+msgstr "Analogové mono (levé)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4529
-#, fuzzy
 msgid "Analog Mono (Right)"
-msgstr "Analogové mono"
+msgstr "Analogové mono (pravé)"
 
 #. Note: Not translated to "Analog Stereo Input", because the source
 #. * name gets "Input" appended to it automatically, so adding "Input"
@@ -347,9 +394,8 @@ msgstr "Náhlavní souprava"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4541
 #: spa/plugins/alsa/acp/alsa-mixer.c:4699
-#, fuzzy
 msgid "Speakerphone"
-msgstr "Reproduktor"
+msgstr "Hlasitý odposlech"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4542
 #: spa/plugins/alsa/acp/alsa-mixer.c:4543
@@ -426,11 +472,11 @@ msgstr "Digitální Surround 5.1 (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4561
 msgid "Chat"
-msgstr ""
+msgstr "Chat"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4562
 msgid "Game"
-msgstr ""
+msgstr "Hra"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4696
 msgid "Analog Mono Duplex"
@@ -454,7 +500,7 @@ msgstr "Duplexní stereo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4703
 msgid "Mono Chat + 7.1 Surround"
-msgstr ""
+msgstr "Mono Chat + 7.1 Surround"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4806
 #, c-format
@@ -467,7 +513,7 @@ msgid "%s Input"
 msgstr "Vstup %s"
 
 #: spa/plugins/alsa/acp/alsa-util.c:1175 spa/plugins/alsa/acp/alsa-util.c:1269
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu "
 "ms).\n"
@@ -495,7 +541,7 @@ msgstr[2] ""
 "prosím tento problém vývojářům ALSA."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1241
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s"
 "%lu ms).\n"
@@ -531,12 +577,12 @@ msgid ""
 "to the ALSA developers."
 msgstr ""
 "Volání snd_pcm_delay() vrátilo hodnotu, která je podivná: zpoždění %lu je "
-"menší možné %lu.\n"
+"menší než možné %lu.\n"
 "S největší pravděpodobností se jedná o chybu v ovladači ALSA „%s“. Nahlaste "
 "prosím tento problém vývojářům ALSA."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1331
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte "
 "(%lu ms).\n"
@@ -565,34 +611,34 @@ msgstr[2] ""
 
 #: spa/plugins/bluez5/bluez5-device.c:1010
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
-msgstr ""
+msgstr "Zvuková brána (A2DP Source & HSP/HFP AG)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1033
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
-msgstr ""
+msgstr "High Fidelity Playback (A2DP Sink, kodek %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1035
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
-msgstr ""
+msgstr "High Fidelity Duplex (A2DP Source/Sink, kodek %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1041
 msgid "High Fidelity Playback (A2DP Sink)"
-msgstr ""
+msgstr "High Fidelity Playback (A2DP Sink)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1043
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
-msgstr ""
+msgstr "High Fidelity Duplex (A2DP Source/Sink)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1070
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr ""
+msgstr "Jednotka náhlavní soupravy (HSP/HFP, kodek %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1074
 msgid "Headset Head Unit (HSP/HFP)"
-msgstr ""
+msgstr "Jednotka náhlavní soupravy (HSP/HFP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"
@@ -619,6 +665,5 @@ msgid "Phone"
 msgstr "Telefon"
 
 #: spa/plugins/bluez5/bluez5-device.c:1181
-#, fuzzy
 msgid "Bluetooth"
-msgstr "Vstup přes Bluetooth"
+msgstr "Bluetooth"

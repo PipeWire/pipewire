@@ -442,6 +442,45 @@ PWTEST(logger_topics)
 	return PWTEST_PASS;
 }
 
+#ifdef HAVE_SYSTEMD
+static enum pwtest_result
+find_in_journal(sd_journal *journal, const char *needle, char *out, size_t out_sz)
+{
+	int rc;
+	int i;
+
+	/* We give ourselves up to a second for our message to appear */
+	for (i = 0; i < 10; i++) {
+		int activity = sd_journal_wait(journal, 100000);
+
+		pwtest_neg_errno_ok(activity);
+		switch (activity) {
+		case SD_JOURNAL_NOP:
+			break;
+		case SD_JOURNAL_INVALIDATE:
+		case SD_JOURNAL_APPEND:
+			while ((rc = sd_journal_next(journal)) > 0) {
+				char buffer[1024] = {0};
+				const char *d;
+				size_t l;
+				int r = sd_journal_get_data(journal, "MESSAGE", (const void **)&d, &l);
+				pwtest_neg_errno_ok(r);
+				spa_scnprintf(buffer, sizeof(buffer), "%.*s", (int) l, d);
+				if (strstr(buffer, needle)) {
+					spa_scnprintf(out, out_sz, "%s", buffer);
+					return PWTEST_PASS;
+				}
+			}
+			pwtest_neg_errno_ok(rc);
+			break;
+		default:
+			break;
+		}
+	}
+	return PWTEST_FAIL;
+}
+#endif
+
 PWTEST(logger_journal)
 {
 	enum pwtest_result result = PWTEST_SKIP;
@@ -450,12 +489,12 @@ PWTEST(logger_journal)
 	void *iface;
 	struct spa_dict_item items[2];
 	struct spa_dict info;
-	bool mark_line_found = false;
 	struct spa_log_topic topic = {
 		.version = 0,
 		.topic = "pwtest journal",
 		.level = SPA_LOG_LEVEL_DEBUG,
 	};
+	char buffer[1024] = {0};
 	sd_journal *journal;
 	int rc;
 
@@ -481,22 +520,10 @@ PWTEST(logger_journal)
 	sd_journal_next(journal);
 
 	spa_logt_info(iface, &topic, "MARK\n");
-	while ((rc = sd_journal_next(journal)) > 0) {
-		char buffer[1024] = {0};
-		const char *d;
-		size_t l;
-		int r = sd_journal_get_data(journal, "MESSAGE", (const void **)&d, &l);
-		pwtest_neg_errno_ok(r);
-		spa_scnprintf(buffer, sizeof(buffer), "%.*s", (int) l, d);
-		if (strstr(buffer, "MARK")) {
-			mark_line_found = true;
-			pwtest_str_contains(buffer, "pwtest journal");
-		}
-	}
-	pwtest_neg_errno_ok(rc);
-	pwtest_bool_true(mark_line_found);
 
-	result = PWTEST_PASS;
+	result = find_in_journal(journal, "MARK", buffer, sizeof(buffer));
+	pwtest_int_eq((int)result, PWTEST_PASS);
+	pwtest_str_contains(buffer, "pwtest journal");
 
 cleanup:
 	sd_journal_close(journal);
@@ -559,22 +586,12 @@ PWTEST(logger_journal_chain)
 	sd_journal_next(journal);
 
 	spa_logt_info(iface, &topic, "MARK\n");
-	while ((rc = sd_journal_next(journal)) > 0) {
-		char buffer[1024] = {0};
-		const char *d;
-		size_t l;
-		int r = sd_journal_get_data(journal, "MESSAGE", (const void **)&d, &l);
-		pwtest_neg_errno_ok(r);
-		spa_scnprintf(buffer, sizeof(buffer), "%.*s", (int) l, d);
-		if (strstr(buffer, "MARK")) {
-			mark_line_found = true;
-			pwtest_str_contains(buffer, "pwtest journal");
-		}
-	}
-	pwtest_neg_errno_ok(rc);
-	pwtest_bool_true(mark_line_found);
+	result = find_in_journal(journal, "MARK", buffer, sizeof(buffer));
+	pwtest_int_eq((int)result, PWTEST_PASS);
+	pwtest_str_contains(buffer, "pwtest journal");
 
 	/* Now check that the line is in the chained file logger too */
+	spa_memzero(buffer, sizeof(buffer));
 	mark_line_found = false;
 	fp = fopen(fname, "r");
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {

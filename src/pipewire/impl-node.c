@@ -85,22 +85,6 @@ struct resource_data {
 
 /** \endcond */
 
-static void node_deactivate(struct pw_impl_node *this)
-{
-	struct pw_impl_port *port;
-	struct pw_impl_link *link;
-
-	pw_log_debug("%p: deactivate", this);
-	spa_list_for_each(port, &this->input_ports, link) {
-		spa_list_for_each(link, &port->links, input_link)
-			pw_impl_link_deactivate(link);
-	}
-	spa_list_for_each(port, &this->output_ports, link) {
-		spa_list_for_each(link, &port->links, output_link)
-			pw_impl_link_deactivate(link);
-	}
-}
-
 static void add_node(struct pw_impl_node *this, struct pw_impl_node *driver)
 {
 	struct pw_node_activation_state *dstate, *nstate;
@@ -184,6 +168,23 @@ do_node_remove(struct spa_loop *loop,
 	return 0;
 }
 
+static void node_deactivate(struct pw_impl_node *this)
+{
+	struct pw_impl_port *port;
+	struct pw_impl_link *link;
+
+	pw_log_debug("%p: deactivate", this);
+	spa_list_for_each(port, &this->input_ports, link) {
+		spa_list_for_each(link, &port->links, input_link)
+			pw_impl_link_deactivate(link);
+	}
+	spa_list_for_each(port, &this->output_ports, link) {
+		spa_list_for_each(link, &port->links, output_link)
+			pw_impl_link_deactivate(link);
+	}
+	pw_loop_invoke(this->data_loop, do_node_remove, 1, NULL, 0, true, this);
+}
+
 static int pause_node(struct pw_impl_node *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
@@ -198,8 +199,6 @@ static int pause_node(struct pw_impl_node *this)
 		return 0;
 
 	node_deactivate(this);
-
-	pw_loop_invoke(this->data_loop, do_node_remove, 1, NULL, 0, true, this);
 
 	res = spa_node_send_command(this->node,
 				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Pause));
@@ -1735,6 +1734,8 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 
 	pw_log_debug("%p: destroy", impl);
 	pw_log_info("(%s-%u) destroy", node->name, node->info.id);
+
+	node_deactivate(node);
 
 	suspend_node(node);
 

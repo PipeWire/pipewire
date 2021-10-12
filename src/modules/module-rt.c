@@ -150,10 +150,7 @@ static int get_default_int(struct pw_properties *properties, const char *name, i
 	bool set_default = true;
 
 	if ((str = pw_properties_get(properties, name)) != NULL) {
-		char *endptr;
-
-		val = (int)strtol(str, &endptr, 10);
-		if (*endptr == '\0')
+		if (spa_atoi32(str, &val, 10))
 			set_default = false;
 		else
 			pw_log_warn("invalid integer value '%s' of property %s, using default (%d) instead", str, name, def);

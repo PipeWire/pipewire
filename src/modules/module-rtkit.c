@@ -501,12 +501,20 @@ static int get_default_int(struct pw_properties *properties, const char *name, i
 {
 	int val;
 	const char *str;
-	if ((str = pw_properties_get(properties, name)) != NULL)
-		val = atoi(str);
-	else {
+	bool set_default = true;
+
+	if ((str = pw_properties_get(properties, name)) != NULL) {
+		if (spa_atoi32(str, &val, 10))
+			set_default = false;
+		else
+			pw_log_warn("invalid integer value '%s' of property %s, using default (%d) instead", str, name, def);
+	}
+
+	if (set_default) {
 		val = def;
 		pw_properties_setf(properties, name, "%d", val);
 	}
+
 	return val;
 }
 

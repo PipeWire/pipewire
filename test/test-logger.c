@@ -497,6 +497,7 @@ PWTEST(logger_journal)
 	char buffer[1024] = {0};
 	sd_journal *journal;
 	int rc;
+	char token[64];
 
 	pw_init(0, NULL);
 
@@ -519,9 +520,10 @@ PWTEST(logger_journal)
 	sd_journal_seek_tail(journal);
 	sd_journal_next(journal);
 
-	spa_logt_info(iface, &topic, "MARK\n");
+	spa_scnprintf(token, sizeof(token), "MARK %s:%d", __func__, __LINE__);
+	spa_logt_info(iface, &topic, "%s", token);
 
-	result = find_in_journal(journal, "MARK", buffer, sizeof(buffer));
+	result = find_in_journal(journal, token, buffer, sizeof(buffer));
 	pwtest_int_eq((int)result, PWTEST_PASS);
 	pwtest_str_contains(buffer, "pwtest journal");
 
@@ -553,6 +555,7 @@ PWTEST(logger_journal_chain)
 	};
 	sd_journal *journal;
 	int rc;
+	char token[64];
 
 	pw_init(0, NULL);
 	pwtest_mkstemp(fname);
@@ -585,8 +588,10 @@ PWTEST(logger_journal_chain)
 	sd_journal_seek_tail(journal);
 	sd_journal_next(journal);
 
-	spa_logt_info(iface, &topic, "MARK\n");
-	result = find_in_journal(journal, "MARK", buffer, sizeof(buffer));
+	spa_scnprintf(token, sizeof(token), "MARK %s:%d", __func__, __LINE__);
+
+	spa_logt_info(iface, &topic, "%s", token);
+	result = find_in_journal(journal, token, buffer, sizeof(buffer));
 	pwtest_int_eq((int)result, PWTEST_PASS);
 	pwtest_str_contains(buffer, "pwtest journal");
 
@@ -595,7 +600,7 @@ PWTEST(logger_journal_chain)
 	mark_line_found = false;
 	fp = fopen(fname, "r");
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-		if (strstr(buffer, "MARK")) {
+		if (strstr(buffer, token)) {
 			mark_line_found = true;
 			pwtest_ptr_null(strstr(buffer, SPA_ANSI_RESET));
 			pwtest_ptr_null(strstr(buffer, SPA_ANSI_RED));

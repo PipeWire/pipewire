@@ -1455,7 +1455,6 @@ pw_filter_connect(struct pw_filter *filter,
 		  uint32_t n_params)
 {
 	struct filter *impl = SPA_CONTAINER_OF(filter, struct filter, this);
-	const char *str;
 	int res;
 	uint32_t i;
 	struct spa_dict_item items[1];
@@ -1465,8 +1464,7 @@ pw_filter_connect(struct pw_filter *filter,
 
 	impl->process_rt = SPA_FLAG_IS_SET(flags, PW_FILTER_FLAG_RT_PROCESS);
 
-	if ((str = pw_properties_get(filter->properties, "mem.warn-mlock")) != NULL)
-		impl->warn_mlock = pw_properties_parse_bool(str);
+	impl->warn_mlock = pw_properties_get_bool(filter->properties, "mem.warn-mlock", impl->warn_mlock);
 
 	impl->impl_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,

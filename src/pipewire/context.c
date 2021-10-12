@@ -408,8 +408,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	    (str = pw_properties_get(properties, "log.level")) != NULL)
 		pw_log_set_level(atoi(str));
 
-	if ((str = pw_properties_get(properties, "mem.mlock-all")) != NULL &&
-	    pw_properties_parse_bool(str)) {
+	if (pw_properties_get_bool(properties, "mem.mlock-all", false)) {
 		if (mlockall(MCL_CURRENT | MCL_FUTURE) < 0)
 			pw_log_warn("%p: could not mlockall; %m", impl);
 		else

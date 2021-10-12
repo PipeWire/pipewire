@@ -253,7 +253,6 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	uint32_t types, *data_types;
 	struct port output = { outnode, SPA_DIRECTION_OUTPUT, out_port_id };
 	struct port input = { innode, SPA_DIRECTION_INPUT, in_port_id };
-	const char *str;
 	int res;
 
 	res = param_filter(result, &input, &output, SPA_PARAM_Buffers, &b);
@@ -281,10 +280,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 
 	max_buffers = context->settings.link_max_buffers;
 
-	if ((str = pw_properties_get(context->properties, PW_KEY_CPU_MAX_ALIGN)) != NULL)
-		align = pw_properties_parse_int(str);
-	else
-		align = MAX_ALIGN;
+	align = pw_properties_get_uint32(context->properties, PW_KEY_CPU_MAX_ALIGN, MAX_ALIGN);
 
 	minsize = stride = 0;
 	types = SPA_ID_INVALID; /* bitmask of allowed types */

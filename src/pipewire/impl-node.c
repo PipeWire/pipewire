@@ -837,17 +837,10 @@ static void check_properties(struct pw_impl_node *node)
 		pw_log_debug("%p: name '%s'", node, node->name);
 	}
 
-	str = pw_properties_get(node->properties, PW_KEY_NODE_PAUSE_ON_IDLE);
-	impl->pause_on_idle = str ? pw_properties_parse_bool(str) : true;
-
-	str = pw_properties_get(node->properties, PW_KEY_NODE_CACHE_PARAMS);
-	impl->cache_params = str ? pw_properties_parse_bool(str) : true;
-
-	str = pw_properties_get(node->properties, "node.transport.sync");
-	node->transport_sync = str ? pw_properties_parse_bool(str) : false;
-
-	str = pw_properties_get(node->properties, PW_KEY_NODE_DRIVER);
-	driver = str ? pw_properties_parse_bool(str) : false;
+	impl->pause_on_idle = pw_properties_get_bool(node->properties, PW_KEY_NODE_PAUSE_ON_IDLE, true);
+	impl->cache_params =  pw_properties_get_bool(node->properties, PW_KEY_NODE_CACHE_PARAMS, true);
+	node->transport_sync = pw_properties_get_bool(node->properties, "node.transport.sync", false);
+	driver = pw_properties_get_bool(node->properties, PW_KEY_NODE_DRIVER, false);
 
 	if (node->driver != driver) {
 		pw_log_debug("%p: driver %d -> %d", node, node->driver, driver);
@@ -872,11 +865,9 @@ static void check_properties(struct pw_impl_node *node)
 		recalc_reason = "group changed";
 	}
 
-	str = pw_properties_get(node->properties, PW_KEY_NODE_WANT_DRIVER);
-	node->want_driver = str ? pw_properties_parse_bool(str) : false;
 
-	str = pw_properties_get(node->properties, PW_KEY_NODE_ALWAYS_PROCESS);
-	node->always_process = str ? pw_properties_parse_bool(str) : false;
+	node->want_driver = pw_properties_get_bool(node->properties, PW_KEY_NODE_WANT_DRIVER, false);
+	node->always_process = pw_properties_get_bool(node->properties, PW_KEY_NODE_ALWAYS_PROCESS, false);
 
 	if (node->always_process)
 		node->want_driver = true;
@@ -903,8 +894,7 @@ static void check_properties(struct pw_impl_node *node)
 			}
 		}
 	}
-	str = pw_properties_get(node->properties, PW_KEY_NODE_LOCK_QUANTUM);
-	node->lock_quantum = str ? pw_properties_parse_bool(str) : false;
+	node->lock_quantum = pw_properties_get_bool(node->properties, PW_KEY_NODE_LOCK_QUANTUM, false);
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_RATE))) {
                 if (sscanf(str, "%u/%u", &frac.num, &frac.denom) == 2 && frac.denom != 0) {
@@ -917,8 +907,7 @@ static void check_properties(struct pw_impl_node *node)
 			}
 		}
 	}
-	str = pw_properties_get(node->properties, PW_KEY_NODE_LOCK_RATE);
-	node->lock_rate = str ? pw_properties_parse_bool(str) : false;
+	node->lock_rate = pw_properties_get_bool(node->properties, PW_KEY_NODE_LOCK_RATE, false);
 
 	pw_log_debug("%p: driver:%d recalc:%s active:%d", node, node->driver,
 			recalc_reason, node->active);

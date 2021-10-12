@@ -110,14 +110,13 @@ struct stream {
 static int
 handle_endpoint(struct impl *impl, struct sm_object *object)
 {
-	const char *str, *media_class;
+	const char *media_class;
 	enum pw_direction direction;
 	struct endpoint *ep;
 	uint32_t client_id = SPA_ID_INVALID;
 
 	if (object->props) {
-		if ((str = pw_properties_get(object->props, PW_KEY_CLIENT_ID)) != NULL)
-			client_id = atoi(str);
+		pw_properties_fetch_uint32(object->props, PW_KEY_CLIENT_ID, &client_id);
 	}
 
 	media_class = object->props ? pw_properties_get(object->props, PW_KEY_MEDIA_CLASS) : NULL;

@@ -134,18 +134,16 @@ static struct sm_object *find_by_id(struct impl *impl, const char *type, uint32_
 static struct sm_device *find_default_output_device(struct impl *impl)
 {
 	struct sm_object *obj;
-	const char *str;
 	uint32_t device_id;
 
 	if ((obj = find_by_name(impl, PW_TYPE_INTERFACE_Node, impl->default_sink)) == NULL ||
 			!obj->props)
 		return NULL;
 
-	if ((str = pw_properties_get(obj->props, PW_KEY_DEVICE_ID)) == NULL)
+	if (pw_properties_fetch_uint32(obj->props, PW_KEY_DEVICE_ID, &device_id) < 0)
 		return NULL;
 
-	if (!spa_atou32(str, &device_id, 10) ||
-			(obj = find_by_id(impl, PW_TYPE_INTERFACE_Device, device_id)) == NULL)
+	if ((obj = find_by_id(impl, PW_TYPE_INTERFACE_Device, device_id)) == NULL)
 		return NULL;
 
 	if (!spa_streq(obj->type, PW_TYPE_INTERFACE_Device) || !obj->props)
@@ -231,7 +229,7 @@ bool get_pending_save(struct impl *impl, const char *dev_name)
 {
 	char saved_profile_key[512];
 	spa_scnprintf(saved_profile_key, sizeof(saved_profile_key), "%s:pending-save", dev_name);
-	return spa_atob(pw_properties_get(impl->properties, saved_profile_key));
+	return pw_properties_get_bool(impl->properties, saved_profile_key, false);
 }
 
 void set_pending_save(struct impl *impl, const char *dev_name, bool pending)

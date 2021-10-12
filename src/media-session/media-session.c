@@ -667,16 +667,17 @@ static int node_init(void *object)
 	struct sm_node *node = object;
 	struct impl *impl = SPA_CONTAINER_OF(node->obj.session, struct impl, this);
 	struct pw_properties *props = node->obj.props;
-	const char *str;
 
 	spa_list_init(&node->port_list);
 	spa_list_init(&node->param_list);
 
 	if (props) {
-		if ((str = pw_properties_get(props, PW_KEY_DEVICE_ID)) != NULL)
-			node->device = find_object(impl, atoi(str), NULL);
-		pw_log_debug("%p: node %d parent device %s (%p)", impl,
-				node->obj.id, str, node->device);
+		uint32_t id = SPA_ID_INVALID;
+
+		if (pw_properties_fetch_uint32(props, PW_KEY_DEVICE_ID, &id) == 0)
+			node->device = find_object(impl, id, NULL);
+		pw_log_debug("%p: node %d parent device %d (%p)", impl,
+				node->obj.id, id, node->device);
 		if (node->device) {
 			spa_list_append(&node->device->node_list, &node->link);
 			node->device->obj.avail |= SM_DEVICE_CHANGE_MASK_NODES;
@@ -758,6 +759,8 @@ static int port_init(void *object)
 	const char *str;
 
 	if (props) {
+		uint32_t id = SPA_ID_INVALID;
+
 		if ((str = pw_properties_get(props, PW_KEY_PORT_DIRECTION)) != NULL)
 			port->direction = spa_streq(str, "out") ?
 				PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
@@ -769,8 +772,8 @@ static int port_init(void *object)
 		}
 		if ((str = pw_properties_get(props, PW_KEY_AUDIO_CHANNEL)) != NULL)
 			port->channel = find_channel(str);
-		if ((str = pw_properties_get(props, PW_KEY_NODE_ID)) != NULL)
-			port->node = find_object(impl, atoi(str), PW_TYPE_INTERFACE_Node);
+		if (pw_properties_fetch_uint32(props, PW_KEY_NODE_ID, &id) == 0)
+			port->node = find_object(impl, id, PW_TYPE_INTERFACE_Node);
 
 		pw_log_debug("%p: port %d parent node %s (%p) direction:%d type:%d", impl,
 				port->obj.id, str, port->node, port->direction, port->type);
@@ -921,13 +924,14 @@ static int endpoint_init(void *object)
 	struct sm_endpoint *endpoint = object;
 	struct impl *impl = SPA_CONTAINER_OF(endpoint->obj.session, struct impl, this);
 	struct pw_properties *props = endpoint->obj.props;
-	const char *str;
 
 	if (props) {
-		if ((str = pw_properties_get(props, PW_KEY_SESSION_ID)) != NULL)
-			endpoint->session = find_object(impl, atoi(str), PW_TYPE_INTERFACE_Session);
-		pw_log_debug("%p: endpoint %d parent session %s", impl,
-				endpoint->obj.id, str);
+		uint32_t id = SPA_ID_INVALID;
+
+		if (pw_properties_fetch_uint32(props, PW_KEY_SESSION_ID, &id) == 0)
+			endpoint->session = find_object(impl, id, PW_TYPE_INTERFACE_Session);
+		pw_log_debug("%p: endpoint %d parent session %d", impl,
+				endpoint->obj.id, id);
 		if (endpoint->session) {
 			spa_list_append(&endpoint->session->endpoint_list, &endpoint->link);
 			endpoint->session->obj.avail |= SM_SESSION_CHANGE_MASK_ENDPOINTS;
@@ -1006,13 +1010,14 @@ static int endpoint_stream_init(void *object)
 	struct sm_endpoint_stream *stream = object;
 	struct impl *impl = SPA_CONTAINER_OF(stream->obj.session, struct impl, this);
 	struct pw_properties *props = stream->obj.props;
-	const char *str;
 
 	if (props) {
-		if ((str = pw_properties_get(props, PW_KEY_ENDPOINT_ID)) != NULL)
-			stream->endpoint = find_object(impl, atoi(str), PW_TYPE_INTERFACE_Endpoint);
-		pw_log_debug("%p: stream %d parent endpoint %s", impl,
-				stream->obj.id, str);
+		uint32_t id = SPA_ID_INVALID;
+
+		if (pw_properties_fetch_uint32(props, PW_KEY_ENDPOINT_ID, &id) == 0)
+			stream->endpoint = find_object(impl, id, PW_TYPE_INTERFACE_Endpoint);
+		pw_log_debug("%p: stream %d parent endpoint %d", impl,
+				stream->obj.id, id);
 		if (stream->endpoint) {
 			spa_list_append(&stream->endpoint->stream_list, &stream->link);
 			stream->endpoint->obj.avail |= SM_ENDPOINT_CHANGE_MASK_STREAMS;
@@ -2430,8 +2435,7 @@ static const struct {
 
 static bool is_module_enabled(struct impl *impl, const char *val)
 {
-	const char *str = pw_properties_get(impl->modules, val);
-	return str ? pw_properties_parse_bool(str) : false;
+	return pw_properties_get_bool(impl->modules, val, false);
 }
 
 static void show_help(const char *name, struct impl *impl, const char *config_name)

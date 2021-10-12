@@ -407,14 +407,13 @@ static const struct sm_object_events object_events = {
 static int
 handle_node(struct impl *impl, struct sm_object *object)
 {
-	const char *str, *media_class = NULL, *role;
+	const char *media_class = NULL, *role;
 	enum pw_direction direction;
 	struct node *node;
 	uint32_t client_id = SPA_ID_INVALID;
 
 	if (object->props) {
-		if ((str = pw_properties_get(object->props, PW_KEY_CLIENT_ID)) != NULL)
-			client_id = atoi(str);
+		pw_properties_fetch_uint32(object->props, PW_KEY_CLIENT_ID, &client_id);
 
 		media_class = pw_properties_get(object->props, PW_KEY_MEDIA_CLASS);
 		role = pw_properties_get(object->props, PW_KEY_MEDIA_ROLE);
@@ -453,10 +452,8 @@ handle_node(struct impl *impl, struct sm_object *object)
 
 		if (spa_strstartswith(media_class, "Video")) {
 			if (direction == PW_DIRECTION_OUTPUT) {
-				if ((str = pw_properties_get(object->props, PW_KEY_NODE_PLUGGED)) != NULL)
-					node->plugged = pw_properties_parse_uint64(str);
-				else
-					node->plugged = SPA_TIMESPEC_TO_NSEC(&impl->now);
+				node->plugged = pw_properties_get_uint64(object->props, PW_KEY_NODE_PLUGGED,
+									 SPA_TIMESPEC_TO_NSEC(&impl->now));
 			}
 			node->active = node->configured = true;
 		}
@@ -496,15 +493,9 @@ handle_node(struct impl *impl, struct sm_object *object)
 		} else
 			return 0;
 
-		if ((str = pw_properties_get(object->props, PW_KEY_NODE_PLUGGED)) != NULL)
-			node->plugged = pw_properties_parse_uint64(str);
-		else
-			node->plugged = SPA_TIMESPEC_TO_NSEC(&impl->now);
-
-		if ((str = pw_properties_get(object->props, PW_KEY_PRIORITY_SESSION)) != NULL)
-			node->priority = pw_properties_parse_int(str);
-		else
-			node->priority = 0;
+		node->plugged = pw_properties_get_uint64(object->props, PW_KEY_NODE_PLUGGED,
+							 SPA_TIMESPEC_TO_NSEC(&impl->now));
+		node->priority = pw_properties_get_uint32(object->props, PW_KEY_PRIORITY_SESSION, 0);
 
 		node->direction = direction;
 		node->virtual = virtual;
@@ -1410,7 +1401,6 @@ static const struct pw_metadata_events metadata_events = {
 int sm_policy_node_start(struct sm_media_session *session)
 {
 	struct impl *impl;
-	const char *flag;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -1434,10 +1424,9 @@ int sm_policy_node_start(struct sm_media_session *session)
 	};
 	impl->defaults[3] = (struct default_node){ NULL, NULL, NULL, NULL };
 
-	flag = pw_properties_get(session->props, NAME ".streams-follow-default");
-	impl->streams_follow_default = (flag != NULL && pw_properties_parse_bool(flag));
-	flag = pw_properties_get(session->props, NAME ".alsa-no-dsp");
-	impl->alsa_no_dsp = (flag != NULL && pw_properties_parse_bool(flag));
+
+	impl->streams_follow_default = pw_properties_get_bool(session->props, NAME ".streams-follow-default", false);
+	impl->alsa_no_dsp = pw_properties_get_bool(session->props, NAME ".alsa-no-dsp", false);
 
 	spa_list_init(&impl->node_list);
 

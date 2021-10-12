@@ -1029,7 +1029,7 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 {
 	struct device *device;
 	int res;
-	const char *str, *card, *rules;
+	const char *card, *rules;
 
 	pw_log_debug("new device %u", id);
 	if (pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
@@ -1059,8 +1059,7 @@ static struct device *alsa_create_device(struct impl *impl, uint32_t id,
 	if ((rules = pw_properties_get(impl->conf, "rules")) != NULL)
 		sm_media_session_match_rules(rules, strlen(rules), device->props);
 
-	str = pw_properties_get(device->props, "api.alsa.use-acp");
-	device->use_acp = str ? pw_properties_parse_bool(str) : true;
+	device->use_acp = pw_properties_get_bool(device->props, "api.alsa.use-acp", true);
 	if (device->use_acp)
 		device->factory_name = strdup(SPA_NAME_API_ALSA_ACP_DEVICE);
 	else
@@ -1203,9 +1202,7 @@ int sm_alsa_monitor_start(struct sm_media_session *session)
 	if ((str = pw_properties_get(impl->conf, "properties")) != NULL)
 		pw_properties_update_string(impl->props, str, strlen(str));
 
-	if ((str = pw_properties_get(impl->props, "alsa.reserve")) == NULL ||
-	    pw_properties_parse_bool(str))
-		impl->reserve = true;
+	impl->reserve = pw_properties_get_bool(impl->props, "alsa.reserve", true);
 
 	impl->handle = pw_context_load_spa_handle(context, SPA_NAME_API_ALSA_ENUM_UDEV, NULL);
 	if (impl->handle == NULL) {
@@ -1222,8 +1219,7 @@ int sm_alsa_monitor_start(struct sm_media_session *session)
 	spa_list_init(&impl->device_list);
 	spa_device_add_listener(impl->monitor, &impl->listener, &alsa_udev_events, impl);
 
-	if ((str = pw_properties_get(impl->props, "alsa.jack-device")) != NULL &&
-	    pw_properties_parse_bool(str)) {
+	if (pw_properties_get_bool(impl->props, "alsa.jack-device", true)) {
 		if ((res = alsa_start_jack_device(impl)) < 0)
 			goto out_free;
 	}

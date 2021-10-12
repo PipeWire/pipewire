@@ -22,11 +22,12 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2021-09-08.1'
+    FDO_DISTRIBUTION_TAG: '2021-10-12.1'
     FDO_DISTRIBUTION_VERSION: '34'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
       bluez-libs-devel
+      clang
       dbus-devel
       doxygen
       findutils
@@ -202,6 +203,9 @@ build_with_no_commandline_options:
     - .build_on_fedora
   variables:
     MESON_OPTIONS: ""
+  parallel:
+    matrix:
+      - CC: [gcc, clang]
 
 # build with a set of options enabled or disabled
 build_with_custom_options:
@@ -226,6 +230,9 @@ build_release:
     - .build_on_fedora
   variables:
     MESON_OPTIONS: "-Dtest=enabled -Dbuildtype=release -Db_ndebug=true"
+  parallel:
+    matrix:
+      - CC: [gcc, clang]
 
 valgrind:
   extends:

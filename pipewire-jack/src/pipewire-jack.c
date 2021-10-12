@@ -3032,15 +3032,10 @@ jack_client_t * jack_client_open (const char *client_name,
 				execute_match, client);
 	}
 
-	if ((str = pw_properties_get(client->props, "jack.merge-monitor")) != NULL)
-		client->merge_monitor = pw_properties_parse_bool(str);
-	if ((str = pw_properties_get(client->props, "jack.short-name")) != NULL)
-		client->short_name = pw_properties_parse_bool(str);
-	if ((str = pw_properties_get(client->props, "jack.filter-name")) != NULL)
-		client->filter_name = pw_properties_parse_bool(str);
-
-	str = pw_properties_get(client->props, "jack.locked-process");
-	client->locked_process = str ? pw_properties_parse_bool(str) : true;
+	client->merge_monitor = pw_properties_get_bool(client->props, "jack.merge-monitor", false);
+	client->short_name = pw_properties_get_bool(client->props, "jack.short-name", false);
+	client->filter_name = pw_properties_get_bool(client->props, "jack.filter-name", false);
+	client->locked_process = pw_properties_get_bool(client->props, "jack.locked-process", true);
 
 	client->self_connect_mode = SELF_CONNECT_ALLOW;
 	if ((str = pw_properties_get(client->props, "jack.self-connect-mode")) != NULL) {
@@ -3053,9 +3048,7 @@ jack_client_t * jack_client_open (const char *client_name,
 		else if (spa_streq(str, "ignore-all"))
 			client->self_connect_mode = SELF_CONNECT_IGNORE_ALL;
 	}
-	client->rt_max = DEFAULT_RT_MAX;
-	if ((str = pw_properties_get(client->props, "rt.prio")) != NULL)
-		client->rt_max = atoi(str);
+	client->rt_max = pw_properties_get_int32(client->props, "rt.prio", DEFAULT_RT_MAX);
 
 	pthread_mutex_init(&client->context.lock, NULL);
 	pthread_mutex_init(&client->rt_lock, NULL);

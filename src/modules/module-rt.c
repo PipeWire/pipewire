@@ -143,27 +143,6 @@ static int set_rlimit(struct impl *impl)
 	return res;
 }
 
-static int get_default_int(struct pw_properties *properties, const char *name, int def)
-{
-	const char *str;
-	int val;
-	bool set_default = true;
-
-	if ((str = pw_properties_get(properties, name)) != NULL) {
-		if (spa_atoi32(str, &val, 10))
-			set_default = false;
-		else
-			pw_log_warn("invalid integer value '%s' of property %s, using default (%d) instead", str, name, def);
-	}
-
-	if (set_default) {
-		val = def;
-		pw_properties_setf(properties, name, "%d", val);
-	}
-
-	return val;
-}
-
 static struct spa_thread *impl_create(void *data,
 			const struct spa_dict *props,
 			void *(*start)(void*), void *arg)
@@ -267,12 +246,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 
-	nice_level = get_default_int(props, "nice.level", DEFAULT_NICE_LEVEL);
+	nice_level = pw_properties_get_int32(props, "nice.level", DEFAULT_NICE_LEVEL);
 	set_nice(impl, nice_level);
 
-	impl->rt_prio = get_default_int(props, "rt.prio", DEFAULT_RT_PRIO);
-	impl->rt_time_soft = get_default_int(props, "rt.time.soft", DEFAULT_RT_TIME_SOFT);
-	impl->rt_time_hard = get_default_int(props, "rt.time.hard", DEFAULT_RT_TIME_HARD);
+	impl->rt_prio = pw_properties_get_int32(props, "rt.prio", DEFAULT_RT_PRIO);
+	impl->rt_time_soft = pw_properties_get_int32(props, "rt.time.soft", DEFAULT_RT_TIME_SOFT);
+	impl->rt_time_hard = pw_properties_get_int32(props, "rt.time.hard", DEFAULT_RT_TIME_HARD);
 
 	set_rlimit(impl);
 

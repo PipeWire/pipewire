@@ -103,7 +103,6 @@ context_check_access(void *data, struct pw_impl_client *client)
 {
 	struct impl *impl = data;
 	const struct pw_properties *props;
-	const char *str;
 	struct pw_permission permissions[1];
 	struct spa_dict_item items[1];
 	pid_t pid;
@@ -114,10 +113,10 @@ context_check_access(void *data, struct pw_impl_client *client)
 	if ((props = pw_impl_client_get_properties(client)) == NULL)
 		return;
 
-	if ((str = pw_properties_get(props, PW_KEY_SEC_PID)) == NULL)
+	if (pw_properties_fetch_int32(props, PW_KEY_SEC_PID, &pid) < 0)
 		return;
 
-	if (!spa_atoi32(str, &pid, 10) || pid != impl->portal_pid)
+	if (pid != impl->portal_pid)
 		return;
 
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, "portal");

@@ -107,7 +107,7 @@ static void *create_object(void *_data,
 	struct factory_data *data = _data;
 	struct pw_context *context = data->context;
 	struct pw_impl_node *node;
-	const char *factory_name, *str;
+	const char *factory_name;
 	struct node_data *nd;
 	int res;
 	struct pw_impl_client *client;
@@ -123,8 +123,7 @@ static void *create_object(void *_data,
 	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
 			pw_global_get_id(pw_impl_factory_get_global(data->this)));
 
-	str = pw_properties_get(properties, PW_KEY_OBJECT_LINGER);
-	linger = str ? pw_properties_parse_bool(str) : false;
+	linger = pw_properties_get_bool(properties, PW_KEY_OBJECT_LINGER, false);
 
 	client = resource ? pw_resource_get_client(resource) : NULL;
 	if (client && !linger) {

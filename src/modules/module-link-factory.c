@@ -367,7 +367,6 @@ static void *create_object(void *_data,
 	const char *output_node_str, *input_node_str;
 	const char *output_port_str, *input_port_str;
 	struct link_data *ld;
-	const char *str;
 	int res;
 	bool linger;
 
@@ -401,8 +400,7 @@ static void *create_object(void *_data,
 	if (inport == NULL)
 		goto error_input_port;
 
-	str = pw_properties_get(properties, PW_KEY_OBJECT_LINGER);
-	linger = str ? pw_properties_parse_bool(str) : false;
+	linger = pw_properties_get_bool(properties, PW_KEY_OBJECT_LINGER, false);
 
 	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
 			pw_impl_factory_get_info(d->this)->id);

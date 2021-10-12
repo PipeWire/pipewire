@@ -215,8 +215,7 @@ struct module *create_module_tunnel_source(struct impl *impl, const char *argume
 	d->module = module;
 	d->stream_props = stream_props;
 
-	if ((str = pw_properties_get(props, "latency_msec")) != NULL)
-		spa_atou32(str, &d->latency_msec, 0);
+	pw_properties_fetch_uint32(props, "latency_msec", &d->latency_msec);
 
 	return module;
 out:

@@ -62,7 +62,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define DEFAULT_FORMAT "S16"
 #define DEFAULT_RATE "44100"
-#define DEFAULT_CHANNELS "2"
+#define DEFAULT_CHANNELS 2
 #define DEFAULT_POSITION "[ FL FR ]"
 #define DEFAULT_LATENCY "1024/48000"
 
@@ -74,7 +74,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"[ playback.node=<sink-target> ] "				\
 			"[ audio.rate=<sample-rate, default:"DEFAULT_RATE"> ] "		\
 			"[ audio.format=<format, default:"DEFAULT_FORMAT"> ] "		\
-			"[ audio.channels=<channels, default:"DEFAULT_CHANNELS"> ] "	\
+			"[ audio.channels=<channels, default: 2> ] "	\
 			"[ audio.position=<position, default:"DEFAULT_POSITION"> ] "	\
 			"[ server.address=<[ tcp:[<ip>:]<port>[,...] ], default:"DEFAULT_SERVER">"	\
 
@@ -722,10 +722,8 @@ static int parse_params(struct impl *impl)
 	struct spa_json it[2];
 	char value[512];
 
-	if ((str = pw_properties_get(impl->props, "capture")) != NULL)
-		impl->capture = pw_properties_parse_bool(str);
-	if ((str = pw_properties_get(impl->props, "playback")) != NULL)
-		impl->playback = pw_properties_parse_bool(str);
+	pw_properties_get_bool(impl->props, "capture", &impl->capture);
+	pw_properties_get_bool(impl->props, "playback", &impl->playback);
 	if (!impl->playback && !impl->capture) {
 		pw_log_error("missing capture or playback param");
 		return -EINVAL;
@@ -745,9 +743,7 @@ static int parse_params(struct impl *impl)
 		pw_log_error("invalid rate '%s'", str);
 		return -EINVAL;
 	}
-	if ((str = pw_properties_get(impl->props, "audio.channels")) == NULL)
-		str = DEFAULT_CHANNELS;
-	impl->info.channels = atoi(str);
+	impl->info.channels = pw_properties_get_uint32(impl->props, "audio.channels", DEFAULT_CHANNELS);
 	if (impl->info.channels == 0) {
 		pw_log_error("invalid channels '%s'", str);
 		return -EINVAL;

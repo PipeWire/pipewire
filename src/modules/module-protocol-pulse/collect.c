@@ -35,12 +35,10 @@
 
 void select_best(struct selector *s, struct pw_manager_object *o)
 {
-	const char *str;
 	int32_t prio = 0;
 
 	if (o->props &&
-	    (str = pw_properties_get(o->props, PW_KEY_PRIORITY_SESSION)) != NULL) {
-		prio = pw_properties_parse_int(str);
+	    pw_properties_fetch_int32(o->props, PW_KEY_PRIORITY_SESSION, &prio) == 0) {
 		if (s->best == NULL || prio > s->score) {
 			s->best = o;
 			s->score = prio;
@@ -75,19 +73,15 @@ struct pw_manager_object *select_object(struct pw_manager *m, struct selector *s
 bool collect_is_linked(struct pw_manager *m, uint32_t obj_id, enum pw_direction direction)
 {
 	struct pw_manager_object *o;
-	const char *str;
 	uint32_t in_node, out_node;
 
 	spa_list_for_each(o, &m->object_list, link) {
 		if (o->props == NULL || !pw_manager_object_is_link(o))
 			continue;
 
-		if ((str = pw_properties_get(o->props, PW_KEY_LINK_OUTPUT_NODE)) == NULL)
+		if (pw_properties_fetch_uint32(o->props, PW_KEY_LINK_OUTPUT_NODE, &out_node) != 0 ||
+                    pw_properties_fetch_uint32(o->props, PW_KEY_LINK_INPUT_NODE, &in_node) != 0)
                         continue;
-		out_node = pw_properties_parse_int(str);
-                if ((str = pw_properties_get(o->props, PW_KEY_LINK_INPUT_NODE)) == NULL)
-                        continue;
-		in_node = pw_properties_parse_int(str);
 
 		if ((direction == PW_DIRECTION_OUTPUT && obj_id == out_node) ||
 		    (direction == PW_DIRECTION_INPUT && obj_id == in_node))
@@ -99,19 +93,15 @@ bool collect_is_linked(struct pw_manager *m, uint32_t obj_id, enum pw_direction 
 struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t obj_id, enum pw_direction direction)
 {
 	struct pw_manager_object *o, *p;
-	const char *str;
 	uint32_t in_node, out_node;
 
 	spa_list_for_each(o, &m->object_list, link) {
 		if (o->props == NULL || !pw_manager_object_is_link(o))
 			continue;
 
-		if ((str = pw_properties_get(o->props, PW_KEY_LINK_OUTPUT_NODE)) == NULL)
+		if (pw_properties_fetch_uint32(o->props, PW_KEY_LINK_OUTPUT_NODE, &out_node) != 0 ||
+                    pw_properties_fetch_uint32(o->props, PW_KEY_LINK_INPUT_NODE, &in_node) != 0)
                         continue;
-		out_node = pw_properties_parse_int(str);
-                if ((str = pw_properties_get(o->props, PW_KEY_LINK_INPUT_NODE)) == NULL)
-                        continue;
-		in_node = pw_properties_parse_int(str);
 
 		if (direction == PW_DIRECTION_OUTPUT && obj_id == out_node) {
 			struct selector sel = { .id = in_node, .type = pw_manager_object_is_sink, };

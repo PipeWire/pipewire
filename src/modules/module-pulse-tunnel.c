@@ -727,10 +727,8 @@ static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_
 			info->format = id;
 	}
 
-	if ((str = pw_properties_get(props, PW_KEY_AUDIO_RATE)) != NULL)
-		info->rate = atoi(str);
-	if ((str = pw_properties_get(props, PW_KEY_AUDIO_CHANNELS)) != NULL)
-		info->channels = atoi(str);
+	info->rate = pw_properties_get_uint32(props, PW_KEY_AUDIO_RATE, info->rate);
+	info->channels = pw_properties_get_uint32(props, PW_KEY_AUDIO_CHANNELS, info->channels);
 	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL)
 		parse_position(info, str, strlen(str));
 }
@@ -803,9 +801,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		}
 	}
 
-	impl->latency_msec = DEFAULT_LATENCY_MSEC;
-	if ((str = pw_properties_get(props, "pulse.latency")) != NULL)
-		spa_atou32(str, &impl->latency_msec, 0);
+	impl->latency_msec = pw_properties_get_uint32(props, "pulse.latency", DEFAULT_LATENCY_MSEC);
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_GROUP, "pipewire.dummy");

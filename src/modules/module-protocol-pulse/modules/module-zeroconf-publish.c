@@ -638,7 +638,6 @@ struct module *create_module_zeroconf_publish(struct impl *impl, const char *arg
 	struct module *module;
 	struct module_zeroconf_publish_data *d;
 	struct pw_properties *props = NULL;
-	const char *port;
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -661,11 +660,7 @@ struct module *create_module_zeroconf_publish(struct impl *impl, const char *arg
 	d = module->user_data;
 	d->module = module;
 
-	if ((port = pw_properties_get(props, "port")) == NULL)
-		d->port = PW_PROTOCOL_PULSE_DEFAULT_PORT;
-	else
-		d->port = atoi(port);
-
+	d->port = pw_properties_get_uint32(props, "port", PW_PROTOCOL_PULSE_DEFAULT_PORT);
 
 	return module;
 out:

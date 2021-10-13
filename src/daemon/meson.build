@@ -40,8 +40,7 @@ endif
 if default_sm == ''
   summary({'No session manager': 'pw-uninstalled.sh will not work out of the box!'})
 elif default_sm == 'media-session'
-  conf_config_uninstalled.set('session_manager_path',
-    meson.build_root() / 'src' / 'media-session' / 'pipewire-media-session')
+  conf_config_uninstalled.set('session_manager_path', pipewire_media_session.full_path())
   conf_config_uninstalled.set('sm_comment', '')
 elif default_sm == 'wireplumber'
   wp_bindir = wp_proj.get_variable('wireplumber_bin_dir', pipewire_bindir)

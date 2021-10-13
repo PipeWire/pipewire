@@ -43,7 +43,9 @@
 #include <spa/debug/pod.h>
 #include <spa/debug/types.h>
 
-#define NAME "audioconvert"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT log_topic
+static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.audioconvert");
 
 #define MAX_PORTS	SPA_AUDIO_MAX_CHANNELS
 
@@ -410,7 +412,7 @@ static int negotiate_link_buffers(struct impl *this, struct link *link)
 static void flush_convert(struct impl *this)
 {
 	int i;
-	spa_log_debug(this->log, NAME " %p: %d", this, this->n_links);
+	spa_log_debug(this->log, "%p: %d", this, this->n_links);
 	for (i = 0; i < this->n_links; i++)
 		this->links[i].io.status = SPA_STATUS_OK;
 }
@@ -419,7 +421,7 @@ static void clean_convert(struct impl *this)
 {
 	int i;
 
-	spa_log_debug(this->log, NAME " %p: %d", this, this->n_links);
+	spa_log_debug(this->log, "%p: %d", this, this->n_links);
 
 	for (i = 0; i < this->n_links; i++)
 		clean_link(this, &this->links[i]);
@@ -430,18 +432,18 @@ static int setup_buffers(struct impl *this, enum spa_direction direction)
 {
 	int i, res;
 
-	spa_log_debug(this->log, NAME " %p: %d %d", this, direction, this->n_links);
+	spa_log_debug(this->log, "%p: %d %d", this, direction, this->n_links);
 
 	if (direction == SPA_DIRECTION_INPUT) {
 		for (i = 0; i < this->n_links; i++) {
 			if ((res = negotiate_link_buffers(this, &this->links[i])) < 0)
-				spa_log_error(this->log, NAME " %p: buffers %d failed %s",
+				spa_log_error(this->log, "%p: buffers %d failed %s",
 						this, i, spa_strerror(res));
 		}
 	} else {
 		for (i = this->n_links-1; i >= 0 ; i--) {
 			if ((res = negotiate_link_buffers(this, &this->links[i])) < 0)
-				spa_log_error(this->log, NAME " %p: buffers %d failed %s",
+				spa_log_error(this->log, "%p: buffers %d failed %s",
 						this, i, spa_strerror(res));
 		}
 	}
@@ -552,7 +554,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_debug(this->log, NAME " %p: io %d %p/%zd", this, id, data, size);
+	spa_log_debug(this->log, "%p: io %d %p/%zd", this, id, data, size);
 
 	switch (id) {
 	case SPA_IO_Position:
@@ -675,7 +677,7 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	struct spa_node *old, *new;
 	bool do_signal;
 
-	spa_log_debug(this->log, NAME " %p: mode %d", this, mode);
+	spa_log_debug(this->log, "%p: mode %d", this, mode);
 
 	/* old node on input/output */
 	old = this->fmt[direction];
@@ -733,7 +735,7 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 		if (info) {
-			spa_log_debug(this->log, NAME " %p: port config %d", this, info->info.raw.channels);
+			spa_log_debug(this->log, "%p: port config %d", this, info->info.raw.channels);
 			param = spa_format_audio_raw_build(&b, SPA_PARAM_Format, &info->info.raw);
 		}
 		if (mode == SPA_PARAM_PORT_CONFIG_MODE_dsp) {
@@ -884,7 +886,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 	for (i = 0; i < this->n_nodes; i++) {
 		if ((res = spa_node_send_command(this->nodes[i], command)) < 0) {
-			spa_log_error(this->log, NAME " %p: can't send command to node %d: %s",
+			spa_log_error(this->log, "%p: can't send command to node %d: %s",
 					this, i, spa_strerror(res));
 		}
 	}
@@ -980,7 +982,7 @@ impl_node_port_enum_params(void *object, int seq,
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
-	spa_log_debug(this->log, NAME" %p: port %d.%d %d %u", this, direction, port_id, seq, id);
+	spa_log_debug(this->log, "%p: port %d.%d %d %u", this, direction, port_id, seq, id);
 
 	result.id = id;
 	result.next = start;
@@ -1059,7 +1061,7 @@ impl_node_port_set_param(void *object,
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_debug(this->log, NAME " %p: set param %u on port %d:%d %p",
+	spa_log_debug(this->log, "%p: set param %u on port %d:%d %p",
 				this, id, direction, port_id, param);
 
 	switch (id) {
@@ -1167,7 +1169,7 @@ static int impl_node_process(void *object)
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_trace_fp(this->log, NAME " %p: process %d %d", this, this->n_links, this->n_nodes);
+	spa_log_trace_fp(this->log, "%p: process %d %d", this, this->n_links, this->n_nodes);
 
 	while (1) {
 		res = SPA_STATUS_OK;
@@ -1175,7 +1177,7 @@ static int impl_node_process(void *object)
 		for (i = 0; i < this->n_nodes; i++) {
 			r = spa_node_process(this->nodes[i]);
 
-			spa_log_trace_fp(this->log, NAME " %p: process %d %d: %s",
+			spa_log_trace_fp(this->log, "%p: process %d %d: %s",
 					this, i, r, r < 0 ? spa_strerror(r) : "ok");
 
 			if (SPA_UNLIKELY(r < 0))
@@ -1195,7 +1197,7 @@ static int impl_node_process(void *object)
 			break;
 	}
 
-	spa_log_trace_fp(this->log, NAME " %p: process result: %d", this, res);
+	spa_log_trace_fp(this->log, "%p: process result: %d", this, res);
 
 	return res;
 }
@@ -1298,8 +1300,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
+	spa_log_topic_init(this->log, log_topic);
 
+	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 	if (this->cpu)
 		this->max_align = spa_cpu_get_max_align(this->cpu);
 

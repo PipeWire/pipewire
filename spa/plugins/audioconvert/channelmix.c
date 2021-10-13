@@ -44,7 +44,9 @@
 
 #include "channelmix-ops.h"
 
-#define NAME "channelmix"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT log_topic
+static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.channelmix");
 
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
@@ -335,7 +337,7 @@ static int setup_convert(struct impl *this,
 	if (dst_mask & 1 || dst_chan == 1)
 		dst_mask = default_mask(dst_chan);
 
-	spa_log_info(this->log, NAME " %p: %s/%d@%d->%s/%d@%d %08"PRIx64":%08"PRIx64, this,
+	spa_log_info(this->log, "%p: %s/%d@%d->%s/%d@%d %08"PRIx64":%08"PRIx64, this,
 			spa_debug_type_find_name(spa_type_audio_format, src_info->info.raw.format),
 			src_chan,
 			src_info->info.raw.rate,
@@ -365,7 +367,7 @@ static int setup_convert(struct impl *this,
 
 	this->is_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY);
 
-	spa_log_debug(this->log, NAME " %p: got channelmix features %08x:%08x flags:%08x passthrough:%d",
+	spa_log_debug(this->log, "%p: got channelmix features %08x:%08x flags:%08x passthrough:%d",
 			this, this->cpu_flags, this->mix.cpu_flags,
 			this->mix.flags, this->is_passthrough);
 
@@ -611,7 +613,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_debug(this->log, NAME " %p: io %d %p/%zd", this, id, data, size);
+	spa_log_debug(this->log, "%p: io %d %p/%zd", this, id, data, size);
 
 	switch (id) {
 	case SPA_IO_Position:
@@ -922,7 +924,7 @@ impl_node_port_enum_params(void *object, int seq,
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_debug(this->log, NAME " %p: clear buffers %p", this, port);
+		spa_log_debug(this->log, "%p: clear buffers %p", this, port);
 		port->n_buffers = 0;
 		spa_list_init(&port->queue);
 	}
@@ -981,7 +983,7 @@ static int port_set_format(void *object,
 		port->format = info;
 		port->have_format = true;
 
-		spa_log_debug(this->log, NAME " %p: set format on port %d %d", this, port_id, res);
+		spa_log_debug(this->log, "%p: set format on port %d %d", this, port_id, res);
 	}
 
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
@@ -1037,7 +1039,7 @@ impl_node_port_use_buffers(void *object,
 	if (IS_DATA_PORT(this, direction, port_id))
 		spa_return_val_if_fail(port->have_format, -EIO);
 
-	spa_log_debug(this->log, NAME " %p: use buffers %d on port %d", this, n_buffers, port_id);
+	spa_log_debug(this->log, "%p: use buffers %d on port %d", this, n_buffers, port_id);
 
 	clear_buffers(this, port);
 
@@ -1059,12 +1061,12 @@ impl_node_port_use_buffers(void *object,
 				return -EINVAL;
 
 			if (d[j].data == NULL) {
-				spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
+				spa_log_error(this->log, "%p: invalid memory on buffer %p", this,
 					      buffers[i]);
 				return -EINVAL;
 			}
 			if (!SPA_IS_ALIGNED(d[j].data, 16)) {
-				spa_log_warn(this->log, NAME " %p: memory %d on buffer %d not aligned",
+				spa_log_warn(this->log, "%p: memory %d on buffer %d not aligned",
 						this, j, i);
 			}
 			b->datas[j] = d[j].data;
@@ -1114,7 +1116,7 @@ static void recycle_buffer(struct impl *this, uint32_t id)
 	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 		spa_list_append(&port->queue, &b->link);
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
-		spa_log_trace_fp(this->log, NAME " %p: recycle buffer %d", this, id);
+		spa_log_trace_fp(this->log, "%p: recycle buffer %d", this, id);
 	}
 }
 
@@ -1187,7 +1189,7 @@ static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 
 		chunk = SPA_MIN(avail_samples, c->offset - ctrlport->ctrl_offset);
 
-		spa_log_trace_fp(this->log, NAME " %p: process %d %d", this,
+		spa_log_trace_fp(this->log, "%p: process %d %d", this,
 				c->offset, chunk);
 
 		channelmix_process(&this->mix, n_dst, dst, n_src, src, chunk);
@@ -1204,7 +1206,7 @@ static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 
 	/* when we get here we run out of control points but still have some
 	 * remaining samples */
-	spa_log_trace_fp(this->log, NAME " %p: remain %d", this, avail_samples);
+	spa_log_trace_fp(this->log, "%p: remain %d", this, avail_samples);
 	if (avail_samples > 0)
 		channelmix_process(&this->mix, n_dst, dst, n_src, src, avail_samples);
 
@@ -1232,7 +1234,7 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(outio != NULL, -EIO);
 	spa_return_val_if_fail(inio != NULL, -EIO);
 
-	spa_log_trace_fp(this->log, NAME " %p: status %p %d %d -> %p %d %d", this,
+	spa_log_trace_fp(this->log, "%p: status %p %d %d -> %p %d %d", this,
 			inio, inio->status, inio->buffer_id,
 			outio, outio->status, outio->buffer_id);
 
@@ -1292,7 +1294,7 @@ static int impl_node_process(void *object)
 			db->datas[i].chunk->size = n_samples * outport->stride;
 		}
 
-		spa_log_trace_fp(this->log, NAME " %p: n_src:%d n_dst:%d n_samples:%d p:%d",
+		spa_log_trace_fp(this->log, "%p: n_src:%d n_dst:%d n_samples:%d p:%d",
 				this, n_src_datas, n_dst_datas, n_samples, is_passthrough);
 
 		if (!is_passthrough) {
@@ -1412,8 +1414,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
+	spa_log_topic_init(this->log, log_topic);
 
+	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 	if (this->cpu)
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 

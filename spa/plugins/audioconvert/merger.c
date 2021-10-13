@@ -48,7 +48,9 @@
 #include "volume-ops.h"
 #include "fmt-ops.h"
 
-#define NAME "merger"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT log_topic
+static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.merger");
 
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
@@ -258,7 +260,7 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	port->format.info.dsp.format = SPA_AUDIO_FORMAT_DSP_F32;
 	spa_list_init(&port->queue);
 
-	spa_log_debug(this->log, NAME " %p: add port %d:%d position:%s",
+	spa_log_debug(this->log, "%p: add port %d:%d position:%s",
 			this, direction, port_id, port->position);
 	emit_port_info(this, port, true);
 
@@ -416,7 +418,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_debug(this->log, NAME " %p: io %d %p/%zd", this, id, data, size);
+	spa_log_debug(this->log, "%p: io %d %p/%zd", this, id, data, size);
 
 	switch (id) {
 	case SPA_IO_Position:
@@ -544,7 +546,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		if (this->have_profile && memcmp(&this->format, &info, sizeof(info)) == 0)
 			return 0;
 
-		spa_log_debug(this->log, NAME " %p: port config %d/%d %d", this,
+		spa_log_debug(this->log, "%p: port config %d/%d %d", this,
 				info.info.raw.rate, info.info.raw.channels, monitor);
 
 		for (i = 0; i < this->port_count; i++) {
@@ -632,7 +634,7 @@ impl_node_add_listener(void *object,
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_trace(this->log, NAME" %p: add listener %p", this, listener);
+	spa_log_trace(this->log, "%p: add listener %p", this, listener);
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
 	emit_node_info(this, true);
@@ -845,7 +847,7 @@ impl_node_port_enum_params(void *object, int seq,
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_debug(this->log, NAME " %p: clear buffers %p", this, port);
+		spa_log_debug(this->log, "%p: clear buffers %p", this, port);
 		port->n_buffers = 0;
 		spa_list_init(&port->queue);
 	}
@@ -867,7 +869,7 @@ static int setup_convert(struct impl *this)
 	src_fmt = SPA_AUDIO_FORMAT_DSP_F32;
 	dst_fmt = outformat.info.raw.format;
 
-	spa_log_info(this->log, NAME " %p: %s/%d@%dx%d->%s/%d@%d", this,
+	spa_log_info(this->log, "%p: %s/%d@%dx%d->%s/%d@%d", this,
 			spa_debug_type_find_name(spa_type_audio_format, src_fmt),
 			1,
 			informat.info.raw.rate,
@@ -883,7 +885,7 @@ static int setup_convert(struct impl *this)
 				continue;
 			this->src_remap[j] = i;
 			this->dst_remap[i] = j;
-			spa_log_debug(this->log, NAME " %p: channel %d -> %d (%s -> %s)", this,
+			spa_log_debug(this->log, "%p: channel %d -> %d (%s -> %s)", this,
 					i, j,
 					spa_debug_type_find_short_name(spa_type_audio_channel,
 						informat.info.raw.position[i]),
@@ -904,7 +906,7 @@ static int setup_convert(struct impl *this)
 
 	this->is_passthrough = this->conv.is_passthrough;
 
-	spa_log_debug(this->log, NAME " %p: got converter features %08x:%08x passthrough:%d", this,
+	spa_log_debug(this->log, "%p: got converter features %08x:%08x passthrough:%d", this,
 			this->cpu_flags, this->conv.cpu_flags, this->is_passthrough);
 
 	return 0;
@@ -944,7 +946,7 @@ static int port_set_latency(void *object,
 	enum spa_direction other = SPA_DIRECTION_REVERSE(direction);
 	uint32_t i;
 
-	spa_log_debug(this->log, NAME " %p: set latency direction:%d", this, direction);
+	spa_log_debug(this->log, "%p: set latency direction:%d", this, direction);
 
 	if (latency == NULL) {
 		this->latency[other] = SPA_LATENCY_INFO(other);
@@ -980,7 +982,7 @@ static int port_set_format(void *object,
 
 	port = GET_PORT(this, direction, port_id);
 
-	spa_log_debug(this->log, NAME " %p: set format", this);
+	spa_log_debug(this->log, "%p: set format", this);
 
 	if (format == NULL) {
 		if (port->have_format) {
@@ -1044,7 +1046,7 @@ static int port_set_format(void *object,
 		}
 		port->format = info;
 
-		spa_log_debug(this->log, NAME " %p: %d %d %d", this,
+		spa_log_debug(this->log, "%p: %d %d %d", this,
 				port_id, port->stride, port->blocks);
 
 		if (!PORT_IS_DSP(direction, port_id))
@@ -1097,7 +1099,7 @@ static void queue_buffer(struct impl *this, struct port *port, uint32_t id)
 {
 	struct buffer *b = &port->buffers[id];
 
-	spa_log_trace_fp(this->log, NAME " %p: queue buffer %d on port %d %d",
+	spa_log_trace_fp(this->log, "%p: queue buffer %d on port %d %d",
 			this, id, port->id, b->flags);
 	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_QUEUED))
 		return;
@@ -1116,7 +1118,7 @@ static struct buffer *dequeue_buffer(struct impl *this, struct port *port)
 	b = spa_list_first(&port->queue, struct buffer, link);
 	spa_list_remove(&b->link);
 	SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_QUEUED);
-	spa_log_trace_fp(this->log, NAME " %p: dequeue buffer %d on port %d %u",
+	spa_log_trace_fp(this->log, "%p: dequeue buffer %d on port %d %u",
 			this, b->id, port->id, b->flags);
 
 	return b;
@@ -1142,7 +1144,7 @@ impl_node_port_use_buffers(void *object,
 
 	spa_return_val_if_fail(port->have_format, -EIO);
 
-	spa_log_debug(this->log, NAME " %p: use buffers %d on port %d:%d",
+	spa_log_debug(this->log, "%p: use buffers %d on port %d:%d",
 			this, n_buffers, direction, port_id);
 
 	clear_buffers(this, port);
@@ -1158,19 +1160,19 @@ impl_node_port_use_buffers(void *object,
 		b->buf = buffers[i];
 
 		if (n_datas != port->blocks) {
-			spa_log_error(this->log, NAME " %p: invalid blocks %d on buffer %d",
+			spa_log_error(this->log, "%p: invalid blocks %d on buffer %d",
 					this, n_datas, i);
 			return -EINVAL;
 		}
 
 		for (j = 0; j < n_datas; j++) {
 			if (d[j].data == NULL) {
-				spa_log_error(this->log, NAME " %p: invalid memory %d on buffer %d %d %p",
+				spa_log_error(this->log, "%p: invalid memory %d on buffer %d %d %p",
 						this, j, i, d[j].type, d[j].data);
 				return -EINVAL;
 			}
 			if (!SPA_IS_ALIGNED(d[j].data, MAX_ALIGN)) {
-				spa_log_warn(this->log, NAME " %p: memory %d on buffer %d not aligned",
+				spa_log_warn(this->log, "%p: memory %d on buffer %d not aligned",
 						this, j, i);
 			}
 			b->datas[j] = d[j].data;
@@ -1197,7 +1199,7 @@ impl_node_port_set_io(void *object,
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_debug(this->log, NAME " %p: set io %d on port %d:%d %p",
+	spa_log_debug(this->log, "%p: set io %d on port %d:%d %p",
 			this, id, direction, port_id, data);
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
@@ -1234,13 +1236,13 @@ static inline int get_in_buffer(struct impl *this, struct port *port, struct buf
 	struct spa_io_buffers *io;
 
 	if ((io = port->io) == NULL) {
-		spa_log_trace_fp(this->log, NAME " %p: no io on port %d",
+		spa_log_trace_fp(this->log, "%p: no io on port %d",
 				this, port->id);
 		return -EIO;
 	}
 	if (io->status != SPA_STATUS_HAVE_DATA ||
 	    io->buffer_id >= port->n_buffers) {
-		spa_log_trace_fp(this->log, NAME " %p: empty port %d %p %d %d %d",
+		spa_log_trace_fp(this->log, "%p: empty port %d %p %d %d %d",
 				this, port->id, io, io->status, io->buffer_id,
 				port->n_buffers);
 		return -EPIPE;
@@ -1316,7 +1318,7 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(outio != NULL, -EIO);
 	spa_return_val_if_fail(this->conv.process != NULL, -EIO);
 
-	spa_log_trace_fp(this->log, NAME " %p: status %p %d %d", this,
+	spa_log_trace_fp(this->log, "%p: status %p %d %d", this,
 			outio, outio->status, outio->buffer_id);
 
 	if (SPA_UNLIKELY((res = get_out_buffer(this, outport, &dbuf)) != 0))
@@ -1353,7 +1355,7 @@ static int impl_node_process(void *object)
 
 		n_samples = SPA_MIN(n_samples, sd->chunk->size / inport->stride);
 
-		spa_log_trace_fp(this->log, NAME " %p: %d %d %d %p", this,
+		spa_log_trace_fp(this->log, "%p: %d %d %d %p", this,
 				sd->chunk->size, maxsize, n_samples, src_datas[i]);
 	}
 
@@ -1382,7 +1384,7 @@ static int impl_node_process(void *object)
 		dd[i].chunk->size = n_samples * outport->stride;
 	}
 
-	spa_log_trace_fp(this->log, NAME " %p: n_src:%d n_dst:%d n_samples:%d max:%d p:%d", this,
+	spa_log_trace_fp(this->log, "%p: n_src:%d n_dst:%d n_samples:%d max:%d p:%d", this,
 			n_src_datas, n_dst_datas, n_samples, maxsize, this->is_passthrough);
 
 	if (!this->is_passthrough)
@@ -1458,8 +1460,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
+	spa_log_topic_init(this->log, log_topic);
 
+	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 	if (this->cpu)
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 

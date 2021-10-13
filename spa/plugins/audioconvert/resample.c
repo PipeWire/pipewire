@@ -41,7 +41,9 @@
 
 #include "resample.h"
 
-#define NAME "resample"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT log_topic
+static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.resample");
 
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
@@ -149,7 +151,7 @@ static int setup_convert(struct impl *this,
 		dst_info = info;
 	}
 
-	spa_log_info(this->log, NAME " %p: %s/%d@%d->%s/%d@%d", this,
+	spa_log_info(this->log, "%p: %s/%d@%d->%s/%d@%d", this,
 			spa_debug_type_find_name(spa_type_audio_format, src_info->info.raw.format),
 			src_info->info.raw.channels,
 			src_info->info.raw.rate,
@@ -232,7 +234,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_debug(this->log, NAME " %p: io %d %p/%zd", this, id, data, size);
+	spa_log_debug(this->log, "%p: io %d %p/%zd", this, id, data, size);
 
 	switch (id) {
 	case SPA_IO_Position:
@@ -263,7 +265,7 @@ static void update_rate_match(struct impl *this, bool passthrough, uint32_t out_
 		}
 		match_size -= SPA_MIN(match_size, in_queued);
 		this->io_rate_match->size = match_size;
-		spa_log_trace_fp(this->log, NAME " %p: next match %u", this, match_size);
+		spa_log_trace_fp(this->log, "%p: next match %u", this, match_size);
 	} else {
 		resample_update_rate(&this->resample, this->rate_scale * this->props.rate);
 	}
@@ -544,7 +546,7 @@ impl_node_port_enum_params(void *object, int seq,
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_debug(this->log, NAME " %p: clear buffers %p", this, port);
+		spa_log_debug(this->log, "%p: clear buffers %p", this, port);
 		port->n_buffers = 0;
 		spa_list_init(&port->queue);
 	}
@@ -595,7 +597,7 @@ static int port_set_format(void *object,
 		port->format = info;
 		port->have_format = true;
 
-		spa_log_debug(this->log, NAME " %p: set format on port %d %d", this, port_id, res);
+		spa_log_debug(this->log, "%p: set format on port %d %d", this, port_id, res);
 	}
 
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
@@ -648,7 +650,7 @@ impl_node_port_use_buffers(void *object,
 
 	spa_return_val_if_fail(port->have_format, -EIO);
 
-	spa_log_debug(this->log, NAME " %p: use buffers %d on port %d:%d", this,
+	spa_log_debug(this->log, "%p: use buffers %d on port %d:%d", this,
 			n_buffers, direction, port_id);
 
 	clear_buffers(this, port);
@@ -668,13 +670,13 @@ impl_node_port_use_buffers(void *object,
 				size = d[j].maxsize;
 			else
 				if (size != d[j].maxsize) {
-					spa_log_error(this->log, NAME " %p: invalid size %d on buffer %p", this,
+					spa_log_error(this->log, "%p: invalid size %d on buffer %p", this,
 						      size, buffers[i]);
 					return -EINVAL;
 				}
 
 			if (d[j].data == NULL) {
-				spa_log_error(this->log, NAME " %p: invalid memory on buffer %p", this,
+				spa_log_error(this->log, "%p: invalid memory on buffer %p", this,
 					      buffers[i]);
 				return -EINVAL;
 			}
@@ -705,7 +707,7 @@ impl_node_port_set_io(void *object,
 
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
 
-	spa_log_trace_fp(this->log, NAME " %p: %d:%d io %d", this, direction, port_id, id);
+	spa_log_trace_fp(this->log, "%p: %d:%d io %d", this, direction, port_id, id);
 
 	port = GET_PORT(this, direction, port_id);
 
@@ -730,7 +732,7 @@ static void recycle_buffer(struct impl *this, uint32_t id)
 	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 		spa_list_append(&port->queue, &b->link);
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
-		spa_log_trace_fp(this->log, NAME " %p: recycle buffer %d", this, id);
+		spa_log_trace_fp(this->log, "%p: recycle buffer %d", this, id);
 	}
 }
 
@@ -794,7 +796,7 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(outio != NULL, -EIO);
 	spa_return_val_if_fail(inio != NULL, -EIO);
 
-	spa_log_trace_fp(this->log, NAME " %p: status %p %d %d -> %p %d %d", this,
+	spa_log_trace_fp(this->log, "%p: status %p %d %d -> %p %d %d", this,
 			inio, inio->status, inio->buffer_id,
 			outio, outio->status, outio->buffer_id);
 
@@ -902,7 +904,7 @@ static int impl_node_process(void *object)
 	}
 
 #ifndef FASTPATH
-	spa_log_trace_fp(this->log, NAME " %p: in %d/%d %zd %d out %d/%d %zd %d max:%d",
+	spa_log_trace_fp(this->log, "%p: in %d/%d %zd %d out %d/%d %zd %d max:%d",
 			this, pin_len, in_len, size / sizeof(float), inport->offset,
 			pout_len, out_len, maxsize / sizeof(float), outport->offset,
 			max);
@@ -916,7 +918,7 @@ static int impl_node_process(void *object)
 	inport->offset += in_len * sizeof(float);
 	if (inport->offset >= size || flush_in) {
 		inio->status = SPA_STATUS_NEED_DATA;
-		spa_log_trace_fp(this->log, NAME" %p: return input buffer of %zd samples",
+		spa_log_trace_fp(this->log, "%p: return input buffer of %zd samples",
 				this, size / sizeof(float));
 		inport->offset = 0;
 		size = 0;
@@ -927,7 +929,7 @@ static int impl_node_process(void *object)
 	if (outport->offset > 0 && (outport->offset >= maxsize || flush_out)) {
 		outio->status = SPA_STATUS_HAVE_DATA;
 		outio->buffer_id = dbuf->id;
-		spa_log_trace_fp(this->log, NAME" %p: have output buffer of %zd samples",
+		spa_log_trace_fp(this->log, "%p: have output buffer of %zd samples",
 				this, outport->offset / sizeof(float));
 		dequeue_buffer(this, dbuf);
 		outport->offset = 0;
@@ -938,7 +940,7 @@ static int impl_node_process(void *object)
 		outio->status = SPA_STATUS_HAVE_DATA;
 		outio->buffer_id = SPA_ID_INVALID;
 		SPA_FLAG_SET(res, SPA_STATUS_HAVE_DATA);
-		spa_log_trace_fp(this->log, NAME " %p: no output buffer", this);
+		spa_log_trace_fp(this->log, "%p: no output buffer", this);
 	}
 
 	update_rate_match(this, passthrough, max - outport->offset / sizeof(float),
@@ -1021,8 +1023,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
+	spa_log_topic_init(this->log, log_topic);
 
+	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 	if (this->cpu)
 		this->resample.cpu_flags = spa_cpu_get_flags(this->cpu);
 

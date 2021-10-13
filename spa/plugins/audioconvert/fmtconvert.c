@@ -45,7 +45,9 @@
 
 #include "fmt-ops.h"
 
-#define NAME "fmtconvert"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT log_topic
+static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.fmtconvert");
 
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
@@ -174,7 +176,7 @@ static int setup_convert(struct impl *this)
 	src_fmt = informat.info.raw.format;
 	dst_fmt = outformat.info.raw.format;
 
-	spa_log_info(this->log, NAME " %p: %s/%d@%d->%s/%d@%d", this,
+	spa_log_info(this->log, "%p: %s/%d@%d->%s/%d@%d", this,
 			spa_debug_type_find_name(spa_type_audio_format, src_fmt),
 			informat.info.raw.channels,
 			informat.info.raw.rate,
@@ -203,7 +205,7 @@ static int setup_convert(struct impl *this)
 				else
 					this->dst_remap[j] = 0;
 			}
-			spa_log_debug(this->log, NAME " %p: channel %d -> %d (%s -> %s)", this,
+			spa_log_debug(this->log, "%p: channel %d -> %d (%s -> %s)", this,
 					i, j,
 					spa_debug_type_find_short_name(spa_type_audio_channel,
 						informat.info.raw.position[i]),
@@ -223,7 +225,7 @@ static int setup_convert(struct impl *this)
 
 	this->is_passthrough = this->conv.is_passthrough;
 
-	spa_log_debug(this->log, NAME " %p: got converter features %08x:%08x passthrough:%d", this,
+	spa_log_debug(this->log, "%p: got converter features %08x:%08x passthrough:%d", this,
 			this->cpu_flags, this->conv.cpu_flags, this->is_passthrough);
 
 	return 0;
@@ -248,7 +250,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_debug(this->log, NAME " %p: io %d %p/%zd", this, id, data, size);
+	spa_log_debug(this->log, "%p: io %d %p/%zd", this, id, data, size);
 
 	switch (id) {
 	case SPA_IO_Position:
@@ -370,7 +372,7 @@ static int port_enum_formats(void *object,
 	port = GET_PORT(this, direction, port_id);
 	other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), 0);
 
-	spa_log_debug(this->log, NAME " %p: enum %p %d %d", this, other, port->have_format, other->have_format);
+	spa_log_debug(this->log, "%p: enum %p %d %d", this, other, port->have_format, other->have_format);
 	switch (index) {
 	case 0:
 		if (port->have_format) {
@@ -627,7 +629,7 @@ static int calc_width(struct spa_audio_info *info)
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
-		spa_log_debug(this->log, NAME " %p: clear buffers %p", this, port);
+		spa_log_debug(this->log, "%p: clear buffers %p", this, port);
 		port->n_buffers = 0;
 		spa_list_init(&port->queue);
 	}
@@ -667,7 +669,7 @@ static int port_set_format(void *object,
 			return -EINVAL;
 
 		if (other->have_format) {
-			spa_log_debug(this->log, NAME "%p: channels:%d<>%d rate:%d<>%d format:%d<>%d", this,
+			spa_log_debug(this->log, "%p: channels:%d<>%d rate:%d<>%d format:%d<>%d", this,
 				info.info.raw.channels, other->format.info.raw.channels,
 				info.info.raw.rate, other->format.info.raw.rate,
 				info.info.raw.format, other->format.info.raw.format);
@@ -691,7 +693,7 @@ static int port_set_format(void *object,
 			if ((res = setup_convert(this)) < 0)
 				return res;
 
-		spa_log_debug(this->log, NAME " %p: set format on port %d:%d res:%d stride:%d",
+		spa_log_debug(this->log, "%p: set format on port %d:%d res:%d stride:%d",
 				this, direction, port_id, res, port->stride);
 	}
 	if (port->have_format) {
@@ -721,7 +723,7 @@ impl_node_port_set_param(void *object,
 
 	port = GET_PORT(this, direction, port_id);
 
-	spa_log_debug(this->log, NAME " %p: set param %u on port %d:%d %p",
+	spa_log_debug(this->log, "%p: set param %u on port %d:%d %p",
 				this, id, direction, port_id, param);
 
 	switch (id) {
@@ -770,7 +772,7 @@ impl_node_port_use_buffers(void *object,
 
 	spa_return_val_if_fail(port->have_format, -EIO);
 
-	spa_log_debug(this->log, NAME " %p: use buffers %d on port %d", this, n_buffers, port_id);
+	spa_log_debug(this->log, "%p: use buffers %d on port %d", this, n_buffers, port_id);
 
 	clear_buffers(this, port);
 
@@ -786,7 +788,7 @@ impl_node_port_use_buffers(void *object,
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
 		if (n_datas != port->blocks) {
-			spa_log_error(this->log, NAME " %p: expected %d blocks on buffer %d", this,
+			spa_log_error(this->log, "%p: expected %d blocks on buffer %d", this,
 				      port->blocks, i);
 			return -EINVAL;
 		}
@@ -795,18 +797,18 @@ impl_node_port_use_buffers(void *object,
 			if (size == SPA_ID_INVALID)
 				size = d[j].maxsize;
 			else if (size != d[j].maxsize) {
-				spa_log_error(this->log, NAME " %p: expected size %d on buffer %d",
+				spa_log_error(this->log, "%p: expected size %d on buffer %d",
 						this, size, i);
 				return -EINVAL;
 			}
 
 			if (d[j].data == NULL) {
-				spa_log_error(this->log, NAME " %p: invalid memory %d on buffer %d",
+				spa_log_error(this->log, "%p: invalid memory %d on buffer %d",
 						this, j, i);
 				return -EINVAL;
 			}
 			if (!SPA_IS_ALIGNED(d[j].data, MAX_ALIGN)) {
-				spa_log_warn(this->log, NAME " %p: memory %d on buffer %d not aligned",
+				spa_log_warn(this->log, "%p: memory %d on buffer %d not aligned",
 						this, j, i);
 			}
 			b->datas[j] = d[j].data;
@@ -823,7 +825,7 @@ impl_node_port_use_buffers(void *object,
 	port->n_buffers = n_buffers;
 	port->size = size;
 
-	spa_log_debug(this->log, NAME " %p: buffer size %d", this, size);
+	spa_log_debug(this->log, "%p: buffer size %d", this, size);
 
 	return 0;
 }
@@ -841,7 +843,7 @@ impl_node_port_set_io(void *object,
 
 	port = GET_PORT(this, direction, port_id);
 
-	spa_log_debug(this->log, NAME " %p: port %d:%d update io %d %p",
+	spa_log_debug(this->log, "%p: port %d:%d update io %d %p",
 			this, direction, port_id, id, data);
 
 	switch (id) {
@@ -861,7 +863,7 @@ static void recycle_buffer(struct impl *this, struct port *port, uint32_t id)
 	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 		spa_list_append(&port->queue, &b->link);
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
-		spa_log_trace_fp(this->log, NAME " %p: recycle buffer %d", this, id);
+		spa_log_trace_fp(this->log, "%p: recycle buffer %d", this, id);
 	}
 }
 
@@ -912,12 +914,12 @@ static int impl_node_process(void *object)
 	outio = outport->io;
 	inio = inport->io;
 
-	spa_log_trace_fp(this->log, NAME " %p: io %p %p", this, inio, outio);
+	spa_log_trace_fp(this->log, "%p: io %p %p", this, inio, outio);
 
 	spa_return_val_if_fail(outio != NULL, -EIO);
 	spa_return_val_if_fail(inio != NULL, -EIO);
 
-	spa_log_trace_fp(this->log, NAME " %p: status %p %d %d -> %p %d %d", this,
+	spa_log_trace_fp(this->log, "%p: status %p %d %d -> %p %d %d", this,
 			inio, inio->status, inio->buffer_id,
 			outio, outio->status, outio->buffer_id);
 
@@ -961,7 +963,7 @@ static int impl_node_process(void *object)
 	maxsize = outb->datas[0].maxsize;
 	n_samples = SPA_MIN(n_samples, maxsize / outport->stride);
 
-	spa_log_trace_fp(this->log, NAME " %p: n_src:%d n_dst:%d size:%d maxsize:%d n_samples:%d p:%d",
+	spa_log_trace_fp(this->log, "%p: n_src:%d n_dst:%d size:%d maxsize:%d n_samples:%d p:%d",
 			this, n_src_datas, n_dst_datas, size, maxsize, n_samples,
 			this->is_passthrough);
 
@@ -1080,8 +1082,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
+	spa_log_topic_init(this->log, log_topic);
 
+	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 	if (this->cpu)
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 

@@ -42,7 +42,9 @@
 #include <spa/debug/format.h>
 #include <spa/debug/pod.h>
 
-#define NAME "audioadapter"
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT log_topic
+static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.audioadapter");
 
 #define MAX_PORTS	SPA_AUDIO_MAX_CHANNELS
 
@@ -125,7 +127,7 @@ static int impl_node_enum_params(void *object, int seq,
 next:
 	result.index = result.next;
 
-	spa_log_debug(this->log, NAME" %p: %d id:%u", this, seq, id);
+	spa_log_debug(this->log, "%p: %d id:%u", this, seq, id);
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
@@ -181,7 +183,7 @@ static int link_io(struct impl *this)
 	if (this->convert == NULL)
 		return 0;
 
-	spa_log_debug(this->log, NAME " %p: controls", this);
+	spa_log_debug(this->log, "%p: controls", this);
 
 	spa_zero(this->io_rate_match);
 	this->io_rate_match.rate = 1.0;
@@ -190,14 +192,14 @@ static int link_io(struct impl *this)
 			this->direction, 0,
 			SPA_IO_RateMatch,
 			&this->io_rate_match, sizeof(this->io_rate_match))) < 0) {
-		spa_log_debug(this->log, NAME " %p: set RateMatch on follower disabled %d %s", this,
+		spa_log_debug(this->log, "%p: set RateMatch on follower disabled %d %s", this,
 			res, spa_strerror(res));
 	}
 	else if ((res = spa_node_port_set_io(this->convert,
 			SPA_DIRECTION_REVERSE(this->direction), 0,
 			SPA_IO_RateMatch,
 			&this->io_rate_match, sizeof(this->io_rate_match))) < 0) {
-		spa_log_warn(this->log, NAME " %p: set RateMatch on convert failed %d %s", this,
+		spa_log_warn(this->log, "%p: set RateMatch on convert failed %d %s", this,
 			res, spa_strerror(res));
 	}
 
@@ -207,7 +209,7 @@ static int link_io(struct impl *this)
 			this->direction, 0,
 			SPA_IO_Buffers,
 			&this->io_buffers, sizeof(this->io_buffers))) < 0) {
-		spa_log_warn(this->log, NAME " %p: set Buffers on follower failed %d %s", this,
+		spa_log_warn(this->log, "%p: set Buffers on follower failed %d %s", this,
 			res, spa_strerror(res));
 		return res;
 	}
@@ -215,7 +217,7 @@ static int link_io(struct impl *this)
 			SPA_DIRECTION_REVERSE(this->direction), 0,
 			SPA_IO_Buffers,
 			&this->io_buffers, sizeof(this->io_buffers))) < 0) {
-		spa_log_warn(this->log, NAME " %p: set Buffers on convert failed %d %s", this,
+		spa_log_warn(this->log, "%p: set Buffers on convert failed %d %s", this,
 			res, spa_strerror(res));
 		return res;
 	}
@@ -294,7 +296,7 @@ static int negotiate_buffers(struct impl *this)
 	struct spa_data *datas;
 	uint32_t follower_flags, conv_flags;
 
-	spa_log_debug(this->log, NAME" %p: %d", this, this->n_buffers);
+	spa_log_debug(this->log, "%p: %d", this, this->n_buffers);
 
 	if (this->target == this->follower)
 		return 0;
@@ -394,7 +396,7 @@ static int configure_format(struct impl *this, uint32_t flags, const struct spa_
 {
 	int res;
 
-	spa_log_debug(this->log, NAME "%p: configure format:", this);
+	spa_log_debug(this->log, "%p: configure format:", this);
 	if (format && spa_log_level_enabled(this->log, SPA_LOG_LEVEL_DEBUG))
 		spa_debug_format(0, NULL, format);
 
@@ -450,7 +452,7 @@ static int reconfigure_mode(struct impl *this, bool passthrough,
 	int res = 0;
 	struct spa_hook l;
 
-	spa_log_debug(this->log, NAME " %p: passthrough mode %d", this, passthrough);
+	spa_log_debug(this->log, "%p: passthrough mode %d", this, passthrough);
 
 	if (this->passthrough != passthrough) {
 		if (passthrough) {
@@ -502,7 +504,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	struct impl *this = object;
 	struct spa_audio_info info = { 0 };
 
-	spa_log_debug(this->log, NAME" %p: set param %d", this, id);
+	spa_log_debug(this->log, "%p: set param %d", this, id);
 
 	switch (id) {
 	case SPA_PARAM_Format:
@@ -623,7 +625,7 @@ static int negotiate_format(struct impl *this)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	spa_log_debug(this->log, NAME " %p: negiotiate", this);
+	spa_log_debug(this->log, "%p: negiotiate", this);
 
 	spa_node_send_command(this->follower,
 			&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamBegin));
@@ -680,7 +682,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_debug(this->log, NAME " %p: command %d", this, SPA_NODE_COMMAND_ID(command));
+	spa_log_debug(this->log, "%p: command %d", this, SPA_NODE_COMMAND_ID(command));
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
@@ -703,7 +705,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	}
 
 	if ((res = spa_node_send_command(this->target, command)) < 0) {
-		spa_log_error(this->log, NAME " %p: can't send command %d: %s",
+		spa_log_error(this->log, "%p: can't send command %d: %s",
 				this, SPA_NODE_COMMAND_ID(command),
 				spa_strerror(res));
 		return res;
@@ -711,7 +713,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 	if (this->target != this->follower) {
 		if ((res = spa_node_send_command(this->follower, command)) < 0) {
-			spa_log_error(this->log, NAME " %p: can't send command %d: %s",
+			spa_log_error(this->log, "%p: can't send command %d: %s",
 					this, SPA_NODE_COMMAND_ID(command),
 					spa_strerror(res));
 			return res;
@@ -774,7 +776,7 @@ static void convert_port_info(void *data,
 			port_id--;
 	}
 
-	spa_log_trace(this->log, NAME" %p: port info %d:%d", this,
+	spa_log_trace(this->log, "%p: port info %d:%d", this,
 			direction, port_id);
 
 	if (this->target != this->follower)
@@ -788,7 +790,7 @@ static void convert_result(void *data, int seq, int res, uint32_t type, const vo
 	if (this->target == this->follower)
 		return;
 
-	spa_log_trace(this->log, NAME" %p: result %d %d", this, seq, res);
+	spa_log_trace(this->log, "%p: result %d %d", this, seq, res);
 	spa_node_emit_result(&this->hooks, seq, res, type, result);
 }
 
@@ -822,7 +824,7 @@ static void follower_info(void *data, const struct spa_node_info *info)
 		this->info.max_output_ports = MAX_PORTS;
 	}
 
-	spa_log_debug(this->log, NAME" %p: follower info %s", this,
+	spa_log_debug(this->log, "%p: follower info %s", this,
 			this->direction == SPA_DIRECTION_INPUT ?
 				"Input" : "Output");
 
@@ -870,7 +872,7 @@ static int recalc_latency(struct impl *this, enum spa_direction direction, uint3
 	struct spa_latency_info latency;
 	int res;
 
-	spa_log_debug(this->log, NAME" %p: ", this);
+	spa_log_debug(this->log, "%p: ", this);
 
 	if (this->target == this->follower)
 		return 0;
@@ -907,7 +909,7 @@ static void follower_port_info(void *data,
 	      return;
 	}
 
-	spa_log_debug(this->log, NAME" %p: follower port info %s %p %08"PRIx64, this,
+	spa_log_debug(this->log, "%p: follower port info %s %p %08"PRIx64, this,
 			this->direction == SPA_DIRECTION_INPUT ?
 				"Input" : "Output", info, info->change_mask);
 
@@ -960,7 +962,7 @@ static void follower_result(void *data, int seq, int res, uint32_t type, const v
 	if (this->target != this->follower)
 		return;
 
-	spa_log_trace(this->log, NAME" %p: result %d %d", this, seq, res);
+	spa_log_trace(this->log, "%p: result %d %d", this, seq, res);
 	spa_node_emit_result(&this->hooks, seq, res, type, result);
 }
 
@@ -975,7 +977,7 @@ static int follower_ready(void *data, int status)
 {
 	struct impl *this = data;
 
-	spa_log_trace_fp(this->log, NAME " %p: ready %d", this, status);
+	spa_log_trace_fp(this->log, "%p: ready %d", this, status);
 
 	if (this->target != this->follower) {
 		this->driver = true;
@@ -1024,7 +1026,7 @@ static int impl_node_add_listener(void *object,
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_log_trace(this->log, NAME" %p: add listener %p", this, listener);
+	spa_log_trace(this->log, "%p: add listener %p", this, listener);
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
 
@@ -1114,7 +1116,7 @@ impl_node_port_enum_params(void *object, int seq,
 	if (direction != this->direction)
 		port_id++;
 
-	spa_log_debug(this->log, NAME" %p: %d %u", this, seq, id);
+	spa_log_debug(this->log, "%p: %d %u", this, seq, id);
 
 	return spa_node_port_enum_params(this->target, seq, direction, port_id, id,
 			start, num, filter);
@@ -1185,7 +1187,7 @@ impl_node_port_use_buffers(void *object,
 	if (direction != this->direction)
 		port_id++;
 
-	spa_log_debug(this->log, NAME" %p: %d %d:%d", this,
+	spa_log_debug(this->log, "%p: %d %d:%d", this,
 			n_buffers, direction, port_id);
 
 	if ((res = spa_node_port_use_buffers(this->target,
@@ -1390,6 +1392,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	spa_log_topic_init(this->log, log_topic);
+
 	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 
 	if (info == NULL ||

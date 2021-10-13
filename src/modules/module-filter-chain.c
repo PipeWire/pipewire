@@ -587,6 +587,23 @@ static void param_latency_changed(struct impl *impl, const struct spa_pod *param
 		pw_stream_update_params(impl->playback, params, 1);
 }
 
+static void state_changed(void *data, enum pw_stream_state old,
+		enum pw_stream_state state, const char *error)
+{
+	struct impl *impl = data;
+	struct graph *graph = &impl->graph;
+
+	switch (state) {
+	case PW_STREAM_STATE_PAUSED:
+		pw_stream_flush(impl->playback, false);
+		pw_stream_flush(impl->capture, false);
+		graph_reset(graph);
+		break;
+	default:
+		break;
+	}
+}
+
 static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 {
 	struct impl *impl = data;
@@ -611,6 +628,7 @@ static const struct pw_stream_events in_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = capture_destroy,
 	.process = capture_process,
+	.state_changed = state_changed,
 	.param_changed = param_changed
 };
 
@@ -624,6 +642,7 @@ static void playback_destroy(void *d)
 static const struct pw_stream_events out_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = playback_destroy,
+	.state_changed = state_changed,
 	.param_changed = param_changed
 };
 

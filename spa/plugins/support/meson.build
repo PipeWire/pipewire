@@ -12,7 +12,7 @@ spa_support_sources = [
 simd_cargs = []
 
 if have_sse
-  simd_cargs += ['-DHAVE_SSE']
+  simd_cargs += [sse_args, '-DHAVE_SSE']
 endif
 
 spa_support_lib = shared_library('spa-support',

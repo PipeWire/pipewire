@@ -28,8 +28,12 @@
 #include <spa/utils/string.h>
 
 #include "pipewire/array.h"
+#include "pipewire/log.h"
 #include "pipewire/utils.h"
 #include "pipewire/properties.h"
+
+PW_LOG_TOPIC_EXTERN(log_properties);
+#define PW_LOG_TOPIC_DEFAULT log_properties
 
 /** \cond */
 struct properties {
@@ -510,11 +514,16 @@ int pw_properties_fetch_uint32(const struct pw_properties *properties, const cha
 			       uint32_t *value)
 {
 	const char *str = pw_properties_get(properties, key);
+	bool success;
 
 	if (!str)
 		return -ENOENT;
 
-	return spa_atou32(str, value, 0) ? 0 : -EINVAL;
+	success = spa_atou32(str, value, 0);
+	if (SPA_UNLIKELY(!success))
+		pw_log_warn("Failed to parse \"%s\"=\"%s\" as int32", key, str);
+
+	return success ? 0 : -EINVAL;
 }
 
 /** Fetch a property as int32_t
@@ -532,11 +541,16 @@ int pw_properties_fetch_int32(const struct pw_properties *properties, const char
 			      int32_t *value)
 {
 	const char *str = pw_properties_get(properties, key);
+	bool success;
 
 	if (!str)
 		return -ENOENT;
 
-	return spa_atoi32(str, value, 0) ? 0 : -EINVAL;
+	success = spa_atoi32(str, value, 0);
+	if (SPA_UNLIKELY(!success))
+		pw_log_warn("Failed to parse \"%s\"=\"%s\" as int32", key, str);
+
+	return success ? 0 : -EINVAL;
 }
 
 /** Fetch a property as uint64_t.
@@ -554,11 +568,16 @@ int pw_properties_fetch_uint64(const struct pw_properties *properties, const cha
 			       uint64_t *value)
 {
 	const char *str = pw_properties_get(properties, key);
+	bool success;
 
 	if (!str)
 		return -ENOENT;
 
-	return spa_atou64(str, value, 0) ? 0 : -EINVAL;
+	success = spa_atou64(str, value, 0);
+	if (SPA_UNLIKELY(!success))
+		pw_log_warn("Failed to parse \"%s\"=\"%s\" as uint64", key, str);
+
+	return success ? 0 : -EINVAL;
 }
 
 /** Fetch a property as int64_t
@@ -576,11 +595,16 @@ int pw_properties_fetch_int64(const struct pw_properties *properties, const char
 			      int64_t *value)
 {
 	const char *str = pw_properties_get(properties, key);
+	bool success;
 
 	if (!str)
 		return -ENOENT;
 
-	return spa_atoi64(str, value, 0) ? 0 : -EINVAL;
+	success = spa_atoi64(str, value, 0);
+	if (SPA_UNLIKELY(!success))
+		pw_log_warn("Failed to parse \"%s\"=\"%s\" as int64", key, str);
+
+	return success ? 0 : -EINVAL;
 }
 
 /** Fetch a property as boolean value

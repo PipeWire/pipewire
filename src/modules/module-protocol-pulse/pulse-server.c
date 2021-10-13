@@ -2170,8 +2170,6 @@ static struct pw_manager_object *find_device(struct client *client,
 	struct selector sel;
 	bool monitor = false, find_default = false;
 
-	pw_log_info("name:%s id:%u", name, id);
-
 	if (name != NULL) {
 		if (spa_streq(name, DEFAULT_MONITOR)) {
 			if (sink)
@@ -2197,7 +2195,6 @@ static struct pw_manager_object *find_device(struct client *client,
 		name = get_default(client, sink);
 		id = SPA_ID_INVALID;
 	}
-	pw_log_info("name:%s id:%u", name, id);
 
 	if (id != SPA_ID_INVALID) {
 		if (id & MONITOR_FLAG) {

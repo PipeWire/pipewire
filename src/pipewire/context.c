@@ -1318,7 +1318,6 @@ again:
 		if (rate_quantum != 0 && current_rate != rate_quantum) {
 			def_quantum = def_quantum * current_rate / rate_quantum;
 			min_quantum = min_quantum * current_rate / rate_quantum;
-			max_quantum = max_quantum * current_rate / rate_quantum;
 		}
 
 		/* calculate desired quantum */

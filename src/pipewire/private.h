@@ -1239,9 +1239,6 @@ int pw_control_remove_link(struct pw_control_link *link);
 
 void pw_control_destroy(struct pw_control *control);
 
-void pw_proxy_unref(struct pw_proxy *proxy);
-void pw_proxy_ref(struct pw_proxy *proxy);
-
 #define PW_LOG_OBJECT_POD	(1<<0)
 void pw_log_log_object(enum spa_log_level level, const char *file, int line,
 	   const char *func, uint32_t flags, const void *object);

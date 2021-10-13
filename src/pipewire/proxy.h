@@ -153,6 +153,9 @@ void pw_proxy_add_object_listener(struct pw_proxy *proxy,	/**< the proxy */
 /** destroy a proxy */
 void pw_proxy_destroy(struct pw_proxy *proxy);
 
+void pw_proxy_ref(struct pw_proxy *proxy);
+void pw_proxy_unref(struct pw_proxy *proxy);
+
 /** Get the user_data. The size was given in \ref pw_proxy_new */
 void *pw_proxy_get_user_data(struct pw_proxy *proxy);
 

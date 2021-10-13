@@ -473,8 +473,11 @@ if not get_option('man').disabled()
 endif
 
 setenv = find_program('pw-uninstalled.sh')
-run_target('pw-uninstalled', command : [setenv,
-    '-b@0@'.format(meson.build_root()), '-v@0@'.format(pipewire_version)])
+run_target('pw-uninstalled',
+  command : [setenv,
+             '-b@0@'.format(meson.build_root()),
+             '-v@0@'.format(pipewire_version)]
+)
 
 if meson.version().version_compare('>=0.58.0')
   devenv = environment()

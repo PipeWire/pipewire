@@ -722,8 +722,8 @@ static int parse_params(struct impl *impl)
 	struct spa_json it[2];
 	char value[512];
 
-	pw_properties_get_bool(impl->props, "capture", &impl->capture);
-	pw_properties_get_bool(impl->props, "playback", &impl->playback);
+	pw_properties_fetch_bool(impl->props, "capture", &impl->capture);
+	pw_properties_fetch_bool(impl->props, "playback", &impl->playback);
 	if (!impl->playback && !impl->capture) {
 		pw_log_error("missing capture or playback param");
 		return -EINVAL;

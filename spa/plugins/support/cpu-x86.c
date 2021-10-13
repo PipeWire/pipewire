@@ -177,14 +177,22 @@ x86_init(struct impl *impl)
 	return 0;
 }
 
+#if defined(HAVE_SSE)
+#include <xmmintrin.h>
+#endif
+
 static int x86_zero_denormals(void *object, bool enable)
 {
+#if defined(HAVE_SSE)
 	unsigned int mxcsr;
-	mxcsr = __builtin_ia32_stmxcsr();
+	mxcsr = _mm_getcsr();
 	if (enable)
 		mxcsr |= 0x8040;
 	else
 		mxcsr &= ~0x8040;
-	__builtin_ia32_ldmxcsr(mxcsr);
+	_mm_setcsr(mxcsr);
 	return 0;
+#else
+	return -ENOTSUP;
+#endif
 }

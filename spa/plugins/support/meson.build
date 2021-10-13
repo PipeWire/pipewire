@@ -9,9 +9,16 @@ spa_support_sources = [
   'system.c'
 ]
 
+simd_cargs = []
+
+if have_sse
+  simd_cargs += ['-DHAVE_SSE']
+endif
+
 spa_support_lib = shared_library('spa-support',
   spa_support_sources,
   include_directories : [ spa_inc ],
+  c_args : [ simd_cargs ],
   dependencies : [ pthread_lib, epoll_shim_dep ],
   install : true,
   install_dir : spa_plugindir / 'support')

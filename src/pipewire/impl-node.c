@@ -208,10 +208,29 @@ static int pause_node(struct pw_impl_node *this)
 	return res;
 }
 
+static void node_activate(struct pw_impl_node *this)
+{
+	struct pw_impl_port *port;
+
+	pw_log_debug("%p: activate", this);
+	spa_list_for_each(port, &this->input_ports, link) {
+		struct pw_impl_link *link;
+		spa_list_for_each(link, &port->links, input_link)
+			pw_impl_link_activate(link);
+	}
+	spa_list_for_each(port, &this->output_ports, link) {
+		struct pw_impl_link *link;
+		spa_list_for_each(link, &port->links, output_link)
+			pw_impl_link_activate(link);
+	}
+}
+
 static int start_node(struct pw_impl_node *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = 0;
+
+	node_activate(this);
 
 	if (impl->pending_state >= PW_NODE_STATE_RUNNING)
 		return 0;
@@ -2041,23 +2060,6 @@ static void on_state_complete(void *obj, void *data, int res, uint32_t seq)
 	node_update_state(node, state, res, error);
 }
 
-static void node_activate(struct pw_impl_node *this)
-{
-	struct pw_impl_port *port;
-
-	pw_log_debug("%p: activate", this);
-	spa_list_for_each(port, &this->input_ports, link) {
-		struct pw_impl_link *link;
-		spa_list_for_each(link, &port->links, input_link)
-			pw_impl_link_activate(link);
-	}
-	spa_list_for_each(port, &this->output_ports, link) {
-		struct pw_impl_link *link;
-		spa_list_for_each(link, &port->links, output_link)
-			pw_impl_link_activate(link);
-	}
-}
-
 /** Set the node state
  * \param node a \ref pw_impl_node
  * \param state a \ref pw_node_state
@@ -2096,10 +2098,8 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 		break;
 
 	case PW_NODE_STATE_RUNNING:
-		if (node->active) {
-			node_activate(node);
+		if (node->active)
 			res = start_node(node);
-		}
 		break;
 
 	case PW_NODE_STATE_ERROR:

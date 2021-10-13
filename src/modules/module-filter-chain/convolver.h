@@ -28,4 +28,5 @@
 struct convolver *convolver_new(int block, int tail, const float *ir, int irlen);
 void convolver_free(struct convolver *conv);
 
+void convolver_reset(struct convolver *conv);
 int convolver_run(struct convolver *conv, const float *input, float *output, int length);

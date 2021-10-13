@@ -691,6 +691,12 @@ static struct fc_port convolve_ports[] = {
 	},
 };
 
+static void convolver_deactivate(void * Instance)
+{
+	struct convolver_impl *impl = Instance;
+	convolver_reset(impl->conv);
+}
+
 static void convolve_run(void * Instance, unsigned long SampleCount)
 {
 	struct convolver_impl *impl = Instance;
@@ -705,6 +711,7 @@ static const struct fc_descriptor convolve_desc = {
 
 	.instantiate = convolver_instantiate,
 	.connect_port = convolver_connect_port,
+	.deactivate = convolver_deactivate,
 	.run = convolve_run,
 	.cleanup = convolver_cleanup,
 };

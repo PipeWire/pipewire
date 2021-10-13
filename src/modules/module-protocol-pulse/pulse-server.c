@@ -3916,7 +3916,6 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	int res;
 	struct pw_manager_object *o;
 	struct selector sel;
-	const char *def = NULL;
 	int (*fill_func) (struct client *client, struct message *m, struct pw_manager_object *o) = NULL;
 
 	spa_zero(sel);
@@ -3955,13 +3954,11 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 		sel.type = pw_manager_object_is_sink;
 		sel.key = PW_KEY_NODE_NAME;
 		fill_func = fill_sink_info;
-		def = DEFAULT_SINK;
 		break;
 	case COMMAND_GET_SOURCE_INFO:
 		sel.type = pw_manager_object_is_source_or_monitor;
 		sel.key = PW_KEY_NODE_NAME;
 		fill_func = fill_source_info;
-		def = DEFAULT_SOURCE;
 		break;
 	case COMMAND_GET_SINK_INPUT_INFO:
 		sel.type = pw_manager_object_is_sink_input;
@@ -3988,22 +3985,13 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 			commands[command].name, tag, sel.id, sel.value);
 
 	if (command == COMMAND_GET_SINK_INFO || command == COMMAND_GET_SOURCE_INFO) {
-		if ((sel.value == NULL && (sel.id == SPA_ID_INVALID || sel.id == 0)) ||
-		    (sel.value != NULL && (spa_streq(sel.value, def) || spa_streq(sel.value, "0"))))
-			sel.value = get_default(client, command == COMMAND_GET_SINK_INFO);
+		o = find_device(client, sel.id, sel.value,
+				command == COMMAND_GET_SINK_INFO, NULL);
 	} else {
 		if (sel.value == NULL && sel.id == SPA_ID_INVALID)
 			goto error_invalid;
+		o = select_object(manager, &sel);
 	}
-
-	if (command == COMMAND_GET_SOURCE_INFO) {
-		if (sel.value != NULL && spa_strendswith(sel.value, ".monitor"))
-			sel.value = strndupa(sel.value, strlen(sel.value)-8);
-		if (sel.id & MONITOR_FLAG)
-			sel.id &= INDEX_MASK;
-	}
-
-	o = select_object(manager, &sel);
 	if (o == NULL)
 		goto error_noentity;
 

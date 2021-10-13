@@ -400,7 +400,7 @@ static int suspend_node(struct pw_impl_node *this)
 	if (this->info.state > 0 && this->info.state <= PW_NODE_STATE_SUSPENDED)
 		return 0;
 
-	pause_node(this);
+	node_deactivate(this);
 
 	spa_list_for_each(p, &this->input_ports, link) {
 		if ((res = pw_impl_port_set_param(p, SPA_PARAM_Format, 0, NULL)) < 0)

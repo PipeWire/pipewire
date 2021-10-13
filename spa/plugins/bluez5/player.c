@@ -197,7 +197,7 @@ static DBusMessage *introspect(struct impl *impl, DBusMessage *m)
 
 static DBusHandlerResult player_handler(DBusConnection *c, DBusMessage *m, void *userdata)
 {
-	struct impl *impl = impl;
+	struct impl *impl = userdata;
 	DBusMessage *r;
 
 	if (dbus_message_is_method_call(m, DBUS_INTERFACE_INTROSPECTABLE, "Introspect")) {
@@ -227,6 +227,7 @@ static int send_update_signal(struct impl *impl)
 	DBusMessage *m;
 	const char *iface = PLAYER_INTERFACE;
 	DBusMessageIter i, a;
+	int res = 0;
 
 	m = dbus_message_new_signal(impl->path, DBUS_INTERFACE_PROPERTIES, "PropertiesChanged");
 	if (m == NULL)
@@ -241,10 +242,12 @@ static int send_update_signal(struct impl *impl)
 			DBUS_TYPE_STRING_AS_STRING, &a);
         dbus_message_iter_close_container(&i, &a);
 
-	dbus_connection_send(impl->conn, m, NULL);
+	if (!dbus_connection_send(impl->conn, m, NULL))
+		res = -EIO;
+
 	dbus_message_unref(m);
 
-	return 0;
+	return res;
 }
 
 static void update_properties(struct impl *impl, bool send_signal)

@@ -33,7 +33,7 @@ if get_option('session-managers').contains('media-session')
     'libcamera-monitor.c',
     'suspend-node.c',
   ] + sm_logind_src
-  pms = executable('pipewire-media-session',
+  pipewire_media_session = executable('pipewire-media-session',
     media_session_sources,
     install: true,
     dependencies : [dbus_dep, pipewire_dep, alsa_dep, mathlib, sm_logind_dep, libinotify_dep],

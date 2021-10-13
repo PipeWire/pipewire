@@ -48,7 +48,7 @@ PW_LOG_TOPIC_EXTERN(log_node);
 struct impl {
 	struct pw_impl_node this;
 
-	enum pw_node_state pending;
+	enum pw_node_state pending_state;
 	uint32_t pending_id;
 
 	struct pw_work_queue *work;
@@ -192,10 +192,10 @@ static int pause_node(struct pw_impl_node *this)
 
 	pw_log_debug("%p: pause node state:%s pending:%s pause-on-idle:%d", this,
 			pw_node_state_as_string(this->info.state),
-			pw_node_state_as_string(impl->pending),
+			pw_node_state_as_string(impl->pending_state),
 			impl->pause_on_idle);
 
-	if (impl->pending <= PW_NODE_STATE_IDLE)
+	if (impl->pending_state <= PW_NODE_STATE_IDLE)
 		return 0;
 
 	node_deactivate(this);
@@ -213,7 +213,7 @@ static int start_node(struct pw_impl_node *this)
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = 0;
 
-	if (impl->pending >= PW_NODE_STATE_RUNNING)
+	if (impl->pending_state >= PW_NODE_STATE_RUNNING)
 		return 0;
 
 	pw_log_debug("%p: start node", this);
@@ -343,7 +343,7 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 	free((char*)node->info.error);
 	node->info.error = error;
 	node->info.state = state;
-	impl->pending = state;
+	impl->pending_state = state;
 
 	pw_log_debug("%p: (%s) %s -> %s (%s)", node, node->name,
 		     pw_node_state_as_string(old), pw_node_state_as_string(state), error);
@@ -2070,7 +2070,7 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 {
 	int res = 0;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
-	enum pw_node_state old = impl->pending;
+	enum pw_node_state old = impl->pending_state;
 
 	pw_log_debug("%p: set state (%s) %s -> %s, active %d pause_on_idle:%d", node,
 			pw_node_state_as_string(node->info.state),
@@ -2116,10 +2116,10 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 		if (impl->pending_id != SPA_ID_INVALID) {
 			pw_log_debug("cancel state from %s to %s to %s",
 				pw_node_state_as_string(node->info.state),
-				pw_node_state_as_string(impl->pending),
+				pw_node_state_as_string(impl->pending_state),
 				pw_node_state_as_string(state));
 
-			if (impl->pending == PW_NODE_STATE_RUNNING &&
+			if (impl->pending_state == PW_NODE_STATE_RUNNING &&
 			    state < PW_NODE_STATE_RUNNING &&
 			    impl->pending_play) {
 				impl->pending_play = false;
@@ -2127,9 +2127,9 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 					&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Pause));
 			}
 			pw_work_queue_cancel(impl->work, node, impl->pending_id);
-			node->info.state = impl->pending;
+			node->info.state = impl->pending_state;
 		}
-		impl->pending = state;
+		impl->pending_state = state;
 		impl->pending_id = pw_work_queue_add(impl->work,
 				node, res, on_state_complete, SPA_INT_TO_PTR(state));
 	}

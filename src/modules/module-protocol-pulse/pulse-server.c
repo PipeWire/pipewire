@@ -2168,48 +2168,62 @@ static struct pw_manager_object *find_device(struct client *client,
 		uint32_t id, const char *name, bool sink, bool *is_monitor)
 {
 	struct selector sel;
-	const char *def;
-	bool monitor = false;
+	bool monitor = false, find_default = false;
 
-	if (id == 0)
-		id = SPA_ID_INVALID;
+	pw_log_info("name:%s id:%u", name, id);
 
-	if (name != NULL && !sink) {
-		if (spa_strendswith(name, ".monitor")) {
-			name = strndupa(name, strlen(name)-8);
-			monitor = true;
-		} else if (spa_streq(name, DEFAULT_MONITOR)) {
+	if (name != NULL) {
+		if (spa_streq(name, DEFAULT_MONITOR)) {
+			if (sink)
+				return NULL;
+			sink = true;
+			find_default = true;
+		} else if (spa_streq(name, DEFAULT_SOURCE)) {
+			if (sink)
+				return NULL;
+			find_default = true;
+		} else if (spa_streq(name, DEFAULT_SINK)) {
+			if (!sink)
+				return NULL;
+			find_default = true;
+		} else if (spa_atou32(name, &id, 0)) {
 			name = NULL;
-			monitor = true;
 		}
 	}
-	if (id != SPA_ID_INVALID && !sink) {
+	if (name == NULL && (id == SPA_ID_INVALID || id == 0))
+		find_default = true;
+
+	if (find_default) {
+		name = get_default(client, sink);
+		id = SPA_ID_INVALID;
+	}
+	pw_log_info("name:%s id:%u", name, id);
+
+	if (id != SPA_ID_INVALID) {
 		if (id & MONITOR_FLAG) {
+			if (sink)
+				return NULL;
 			monitor = true;
 			id &= ~MONITOR_FLAG;
 		}
-	}
-	if (monitor)
-		sink = true;
+	} else if (name != NULL) {
+		if (spa_strendswith(name, ".monitor")) {
+			name = strndupa(name, strlen(name)-8);
+			monitor = true;
+		}
+	} else
+		return NULL;
+
 	if (is_monitor)
 		*is_monitor = monitor;
 
 	spa_zero(sel);
+	sel.type = sink ?
+		pw_manager_object_is_sink :
+		pw_manager_object_is_source_or_monitor;
 	sel.id = id;
 	sel.key = PW_KEY_NODE_NAME;
 	sel.value = name;
-
-	if (sink) {
-		sel.type = pw_manager_object_is_sink;
-		def = DEFAULT_SINK;
-	} else {
-		sel.type = pw_manager_object_is_source;
-		def = DEFAULT_SOURCE;
-	}
-	if (id == SPA_ID_INVALID &&
-	    (sel.value == NULL || spa_streq(sel.value, def) ||
-	    spa_streq(sel.value, "0")))
-		sel.value = get_default(client, sink);
 
 	return select_object(client->manager, &sel);
 }

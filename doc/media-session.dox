@@ -5,6 +5,20 @@
 PipeWire Media Session is the reference/example session manager provided by
 the PipeWire project.
 
+On startup, Media Session reads the `media-session.conf`
+configuration file to configure itself. The following directories are searched
+for this file:
+
+- in `$XDG_CONFIG_HOME/pipewire/media-session.d/` (usually
+`$HOME/.config/pipewire/media-session.d/`)
+- `$sysconfdir/pipewire/media-session.d` (usually
+`/etc/pipewire/media-session.d/`)
+- `$datadir/pipewire/media-session.d/` (usually
+`/usr/share/pipewire/media-session.d/`)
+
+The environment variable `MEDIA_SESSION_CONFIG_DIR` can be used to
+specify an alternative config directory.
+
 ## Access management
 
 The \ref page_media_session_module_access_flatpak module handles clients

@@ -2360,13 +2360,16 @@ static int collect_modules(struct impl *impl, const char *str)
 {
 	struct spa_json it[3];
 	char key[512], value[512];
-	const char *dir, *val;
+	const char *dir, *prefix = NULL, *val;
 	char check_path[PATH_MAX];
 	struct stat statbuf;
 	int count = 0;
 
-	if ((dir = getenv("PIPEWIRE_CONFIG_DIR")) == NULL)
+	dir = getenv("MEDIA_SESSION_CONFIG_DIR");
+	if (dir == NULL && (dir = getenv("PIPEWIRE_CONFIG_DIR")) == NULL) {
 		dir = PIPEWIRE_CONFDATADIR;
+		prefix = SESSION_PREFIX;
+	}
 	if (dir == NULL)
 		return -ENOENT;
 
@@ -2382,7 +2385,7 @@ again:
 			add = true;
 		} else {
 			snprintf(check_path, sizeof(check_path),
-					"%s/"SESSION_PREFIX"/%s", dir, key);
+				 "%s%s%s/%s", dir, prefix ? "/" : "", prefix ? prefix : "", key);
 			add = (stat(check_path, &statbuf) == 0);
 		}
 		if (add) {
@@ -2474,6 +2477,7 @@ int main(int argc, char *argv[])
         size_t i;
 	const struct spa_dict_item *item;
 	enum spa_log_level level = pw_log_level;
+	const char *config_dir;
 
 	pw_init(&argc, &argv);
 
@@ -2504,8 +2508,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	config_dir = getenv("MEDIA_SESSION_CONFIG_DIR");
 	impl.this.props = pw_properties_new(
-			PW_KEY_CONFIG_PREFIX, SESSION_PREFIX,
+			PW_KEY_CONFIG_PREFIX, config_dir ? config_dir : SESSION_PREFIX,
 			PW_KEY_CONFIG_NAME, config_name,
 			NULL);
 	if (impl.this.props == NULL)

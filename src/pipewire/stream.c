@@ -1014,7 +1014,11 @@ static void proxy_destroy(void *_data)
 static void proxy_error(void *_data, int seq, int res, const char *message)
 {
 	struct pw_stream *stream = _data;
-	stream_set_state(stream, PW_STREAM_STATE_ERROR, message);
+	/* we just emit the state change here to inform the application.
+	 * If this is supposed to be a permanent error, the app should
+	 * do a pw_stream_set_error() */
+	pw_stream_emit_state_changed(stream, stream->state,
+			PW_STREAM_STATE_ERROR, message);
 }
 
 static void proxy_bound(void *data, uint32_t global_id)

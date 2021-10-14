@@ -605,7 +605,7 @@ static int impl_port_set_io(void *object, enum spa_direction direction, uint32_t
 	struct filter *impl = object;
 	struct port *port;
 
-	pw_log_debug("%p: set io %s %p %zd", impl,
+	pw_log_debug("%p: id:%d (%s) %p %zd", impl, id,
 			spa_debug_type_find_name(spa_type_io, id), data, size);
 
 	if ((port = get_port(impl, direction, port_id)) == NULL)
@@ -837,10 +837,13 @@ static int impl_port_set_param(void *object,
 	const struct spa_pod *params[1];
 	uint32_t n_params = 0;
 
+	pw_log_debug("%p: port:%d.%d id:%d (%s) param:%p disconnecting:%d", impl,
+			direction, port_id, id,
+			spa_debug_type_find_name(spa_type_param, id), param,
+			impl->disconnecting);
+
 	if (impl->disconnecting && param != NULL)
 		return -EIO;
-
-	pw_log_debug("%p: param changed: %p %d", impl, param, impl->disconnecting);
 
 	if ((port = get_port(impl, direction, port_id)) == NULL)
 		return -EINVAL;
@@ -886,6 +889,9 @@ static int impl_port_use_buffers(void *object,
 	uint32_t i, j, impl_flags;
 	int prot, res;
 	int size = 0;
+
+	pw_log_debug("%p: port:%d.%d buffers:%u disconnecting:%d", impl,
+			direction, port_id, n_buffers, impl->disconnecting);
 
 	if (impl->disconnecting && n_buffers > 0)
 		return -EIO;

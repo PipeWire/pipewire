@@ -362,24 +362,34 @@ static int add_file_map(void *addr, struct file *file)
 	pthread_mutex_unlock(&globals.lock);
 	return 0;
 }
-static struct file_map *find_file_map(void *addr)
+
+/* must be called with `globals.lock` held */
+static struct file_map *find_file_map_unlocked(void *addr)
 {
-	struct file_map *map, *res = NULL;
-	pthread_mutex_lock(&globals.lock);
+	struct file_map *map;
+
 	pw_array_for_each(map, &globals.file_maps) {
-		if (map->addr == addr) {
-			res =  map;
-			break;
-		}
+		if (map->addr == addr)
+			return map;
 	}
-	pthread_mutex_unlock(&globals.lock);
-	return res;
+
+	return NULL;
 }
-static void remove_file_map(struct file_map *map)
+static struct file *remove_file_map(void *addr)
 {
 	pthread_mutex_lock(&globals.lock);
-	pw_array_remove(&globals.file_maps, map);
+
+	struct file_map *map = find_file_map_unlocked(addr);
+	struct file *file = NULL;
+
+	if (map != NULL) {
+		file = map->file;
+		pw_array_remove(&globals.file_maps, map);
+	}
+
 	pthread_mutex_unlock(&globals.lock);
+
+	return file;
 }
 
 static int add_buffer_map(struct file *file, void *addr, uint32_t id)
@@ -729,9 +739,9 @@ static int v4l2_dup(int oldfd)
 
 static int v4l2_close(int fd)
 {
-	struct file *file = remove_fd_map(fd);
+	struct file *file;
 
-	if (file == NULL)
+	if ((file = remove_fd_map(fd)) == NULL)
 		return globals.old_fops.close(fd);
 
 	unref_file(file);
@@ -1852,14 +1862,11 @@ error_unlock:
 static int v4l2_munmap(void *addr, size_t length)
 {
 	int res;
-	struct file_map *fmap;
 	struct buffer_map *bmap;
 	struct file *file;
 
-	if ((fmap = find_file_map(addr)) == NULL)
+	if ((file = remove_file_map(addr)) == NULL)
 		return globals.old_fops.munmap(addr, length);
-
-	file = fmap->file;
 
 	pw_thread_loop_lock(file->loop);
 
@@ -1878,8 +1885,6 @@ static int v4l2_munmap(void *addr, size_t length)
 
 exit_unlock:
 	pw_thread_loop_unlock(file->loop);
-
-	remove_file_map(fmap);
 
 	return res;
 }

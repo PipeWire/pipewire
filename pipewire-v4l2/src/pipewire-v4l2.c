@@ -744,9 +744,11 @@ static int v4l2_close(int fd)
 	if ((file = remove_fd_map(fd)) == NULL)
 		return globals.old_fops.close(fd);
 
+	if (fd != file->fd)
+		spa_system_close(file->l->system, fd);
+
 	unref_file(file);
 
-	pw_log_info("fd:%d closed", fd);
 	return 0;
 }
 

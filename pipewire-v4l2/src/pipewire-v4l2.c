@@ -294,7 +294,7 @@ static int add_fd_map(int fd, struct file *file)
 	if (map != NULL) {
 		map->fd = fd;
 		map->file = file;
-		file->ref++;
+		ATOMIC_INC(file->ref);
 	}
 	pthread_mutex_unlock(&globals.lock);
 	return 0;

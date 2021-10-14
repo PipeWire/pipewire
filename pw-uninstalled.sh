@@ -36,7 +36,6 @@ fi
 
 # the config file read by the daemon
 export PIPEWIRE_CONFIG_DIR="${BUILDDIR}/src/daemon"
-export MEDIA_SESSION_CONFIG_DIR="${BUILDDIR}/src/media-session/media-session.d"
 # the directory with SPA plugins
 export SPA_PLUGIN_DIR="${BUILDDIR}/spa/plugins"
 export SPA_DATA_DIR="${SCRIPT_DIR}/spa/plugins"
@@ -57,6 +56,9 @@ export PKG_CONFIG_PATH="${BUILDDIR}/meson-uninstalled/:${PKG_CONFIG_PATH}"
 if [ -d "${BUILDDIR}/subprojects/wireplumber" ]; then
 	# FIXME: find a nice, shell-neutral way to specify a prompt
 	"${SCRIPT_DIR}"/subprojects/wireplumber/wp-uninstalled.sh -b"${BUILDDIR}"/subprojects/wireplumber "${SHELL}"
+elif [ -d "${BUILDDIR}/subprojects/media-session" ]; then
+	# FIXME: find a nice, shell-neutral way to specify a prompt
+	"${SCRIPT_DIR}"/subprojects/media-session/media-session-uninstalled.sh -b"${BUILDDIR}"/subprojects/media-session "${SHELL}"
 else
 	# FIXME: find a nice, shell-neutral way to specify a prompt
 	${SHELL}

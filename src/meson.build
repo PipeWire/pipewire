@@ -1,6 +1,5 @@
 
 subdir('pipewire')
-subdir('media-session')
 subdir('daemon')
 subdir('tools')
 subdir('modules')

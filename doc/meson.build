@@ -30,7 +30,6 @@ extra_docs = [
   'pipewire-session-manager.dox',
   'pipewire-objects-design.dox',
   'pipewire-audio.dox',
-  'media-session.dox',
   'tutorial.dox',
   'tutorial1.dox',
   'tutorial2.dox',
@@ -66,9 +65,6 @@ foreach h : pipewire_sources
 endforeach
 foreach h : module_sources
   inputs += meson.source_root() / 'src' / 'modules' / h
-endforeach
-foreach h : media_session_sources
-  inputs += meson.source_root() / 'src' / 'media-session' / h
 endforeach
 inputs += meson.source_root() / 'test' / 'pwtest.h'
 input_dirs = [ meson.source_root() / 'spa' / 'include' / 'spa' ]

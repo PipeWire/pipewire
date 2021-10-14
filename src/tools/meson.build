@@ -69,6 +69,7 @@ summary({'Build pw-cat tool': build_pw_cat}, bool_yn: true, section: 'pw-cat/pw-
 
 if dbus_dep.found()
   executable('pw-reserve',
+    'reserve.h',
     'pw-reserve.c',
     install: true,
     dependencies : [dbus_dep, pipewire_dep],

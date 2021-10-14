@@ -10,7 +10,8 @@ consistent of Devices, Nodes and Ports. The session manager is the one that
 decides on the links between those elements.
 
 Two prominent session managers currently exist:
-- \ref page_media_session - the reference session manager provided by PipeWire
+- [PipeWire Media Session](https://gitlab.freedesktop.org/pipewire/pipewire-media-session), the
+example session manager
 - [WirePlumber](https://gitlab.freedesktop.org/pipewire/wireplumber), a
 modular session manager based on GObject
 

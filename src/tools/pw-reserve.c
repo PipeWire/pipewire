@@ -33,7 +33,7 @@
 
 #include "pipewire/pipewire.h"
 
-#include "../media-session/reserve.c"
+#include "reserve.c"
 
 struct impl {
 	struct pw_main_loop *mainloop;

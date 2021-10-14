@@ -391,6 +391,20 @@ static void capture_process(void *data)
 	pw_stream_queue_buffer(impl->capture, buf);
 }
 
+static void input_state_changed(void *data, enum pw_stream_state old,
+		enum pw_stream_state state, const char *error)
+{
+	struct impl *impl = data;
+	switch (state) {
+	case PW_STREAM_STATE_PAUSED:
+		pw_stream_flush(impl->source, false);
+		pw_stream_flush(impl->capture, false);
+		break;
+	default:
+		break;
+	}
+}
+
 static void input_param_latency_changed(struct impl *impl, const struct spa_pod *param)
 {
 	struct spa_latency_info latency;
@@ -423,6 +437,7 @@ static void input_param_changed(void *data, uint32_t id, const struct spa_pod *p
 static const struct pw_stream_events capture_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = capture_destroy,
+	.state_changed = input_state_changed,
 	.io_changed = capture_io_changed,
 	.process = capture_process,
 	.param_changed = input_param_changed
@@ -438,8 +453,23 @@ static void source_destroy(void *d)
 static const struct pw_stream_events source_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = source_destroy,
+	.state_changed = input_state_changed,
 	.param_changed = input_param_changed
 };
+
+static void output_state_changed(void *data, enum pw_stream_state old,
+		enum pw_stream_state state, const char *error)
+{
+	struct impl *impl = data;
+	switch (state) {
+	case PW_STREAM_STATE_PAUSED:
+		pw_stream_flush(impl->sink, false);
+		pw_stream_flush(impl->playback, false);
+		break;
+	default:
+		break;
+	}
+}
 
 static void output_param_latency_changed(struct impl *impl, const struct spa_pod *param)
 {
@@ -553,6 +583,7 @@ static void playback_destroy(void *d)
 static const struct pw_stream_events playback_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = playback_destroy,
+	.state_changed = output_state_changed,
 	.param_changed = output_param_changed
 };
 static const struct pw_stream_events sink_events = {
@@ -560,6 +591,7 @@ static const struct pw_stream_events sink_events = {
 	.destroy = sink_destroy,
 	.io_changed = sink_io_changed,
 	.process = sink_process,
+	.state_changed = output_state_changed,
 	.param_changed = output_param_changed
 };
 

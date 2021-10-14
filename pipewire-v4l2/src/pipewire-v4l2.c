@@ -299,37 +299,55 @@ static int add_fd_map(int fd, struct file *file)
 	pthread_mutex_unlock(&globals.lock);
 	return 0;
 }
-static struct fd_map *find_fd_map(int fd)
+
+/* must be called with `globals.lock` held */
+static struct fd_map *find_fd_map_unlocked(int fd)
 {
-	struct fd_map *map, *res = NULL;
-	pthread_mutex_lock(&globals.lock);
+	struct fd_map *map;
+
 	pw_array_for_each(map, &globals.fd_maps) {
 		if (map->fd == fd) {
 			ATOMIC_INC(map->file->ref);
-			res =  map;
-			break;
+			return map;
 		}
 	}
-	pthread_mutex_unlock(&globals.lock);
-	return res;
+
+	return NULL;
 }
 
 static struct file *find_file(int fd)
 {
-	struct fd_map *map = find_fd_map(fd);
-	if (map == NULL)
-		return NULL;
-	return map->file;
-}
-
-static void remove_fd_map(struct fd_map *map)
-{
-	struct file *file = map->file;
 	pthread_mutex_lock(&globals.lock);
-	pw_array_remove(&globals.fd_maps, map);
+
+	struct fd_map *map = find_fd_map_unlocked(fd);
+	struct file *file = NULL;
+
+	if (map != NULL)
+		file = map->file;
+
 	pthread_mutex_unlock(&globals.lock);
 
-	unref_file(file);
+	return file;
+}
+
+static struct file *remove_fd_map(int fd)
+{
+	pthread_mutex_lock(&globals.lock);
+
+	struct fd_map *map = find_fd_map_unlocked(fd);
+	struct file *file = NULL;
+
+	if (map != NULL) {
+		file = map->file;
+		pw_array_remove(&globals.fd_maps, map);
+	}
+
+	pthread_mutex_unlock(&globals.lock);
+
+	if (file != NULL)
+		unref_file(file);
+
+	return file;
 }
 
 static int add_file_map(void *addr, struct file *file)
@@ -711,20 +729,15 @@ static int v4l2_dup(int oldfd)
 
 static int v4l2_close(int fd)
 {
-	int res = 0;
-	struct file *file;
-	struct fd_map *map;
+	struct file *file = remove_fd_map(fd);
 
-	if ((map = find_fd_map(fd)) == NULL)
+	if (file == NULL)
 		return globals.old_fops.close(fd);
 
-	file = map->file;
-	remove_fd_map(map);
 	unref_file(file);
 
-	pw_log_info("fd:%d -> %d (%s)", fd,
-			res, strerror(res < 0 ? errno : 0));
-	return res;
+	pw_log_info("fd:%d closed", fd);
+	return 0;
 }
 
 #define KERNEL_VERSION(a, b, c) (((a) << 16) + ((b) << 8) + (c))

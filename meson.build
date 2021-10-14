@@ -491,6 +491,8 @@ if meson.version().version_compare('>=0.58.0')
   devenv.set('PIPEWIRE_CONFIG_DIR', builddir / 'src' / 'daemon')
   devenv.set('PIPEWIRE_MODULE_DIR', builddir / 'src' / 'modules')
 
+  devenv.set('MEDIA_SESSION_CONFIG_DIR', builddir / 'src' / 'media-session' / 'media-session.d')
+
   devenv.set('SPA_PLUGIN_DIR', builddir / 'spa' / 'plugins')
   devenv.set('SPA_DATA_DIR', srcdir / 'spa' / 'plugins')
 

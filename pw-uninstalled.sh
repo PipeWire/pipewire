@@ -36,6 +36,7 @@ fi
 
 # the config file read by the daemon
 export PIPEWIRE_CONFIG_DIR="${BUILDDIR}/src/daemon"
+export MEDIA_SESSION_CONFIG_DIR="${BUILDDIR}/src/media-session/media-session.d"
 # the directory with SPA plugins
 export SPA_PLUGIN_DIR="${BUILDDIR}/spa/plugins"
 export SPA_DATA_DIR="${SCRIPT_DIR}/spa/plugins"

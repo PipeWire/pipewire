@@ -37,5 +37,6 @@ if get_option('session-managers').contains('media-session')
     media_session_sources,
     install: true,
     dependencies : [dbus_dep, pipewire_dep, alsa_dep, mathlib, sm_logind_dep, libinotify_dep],
-)
+  )
+  subdir('media-session.d')
 endif

@@ -117,9 +117,6 @@ custom_target('pipewire-uninstalled',
 #endif
 
 subdir('filter-chain')
-if build_ms
-  subdir('media-session.d')
-endif
 if systemd.found()
   subdir('systemd')
 endif

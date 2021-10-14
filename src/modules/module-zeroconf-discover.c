@@ -44,6 +44,7 @@
 #include <avahi-common/error.h>
 #include <avahi-common/malloc.h>
 
+#include "module-protocol-pulse/format.h"
 #include "module-zeroconf-discover/avahi-poll.h"
 
 /** \page page_module_zeroconf_discover PipeWire Module: Zeroconf Discover
@@ -198,6 +199,23 @@ static void pw_properties_from_avahi_string(const char *key, const char *value, 
 	}
 	else if (spa_streq(key, "channels")) {
 		pw_properties_setf(props, PW_KEY_AUDIO_CHANNELS, "%u", atoi(value));
+	}
+	else if (spa_streq(key, "channel_map")) {
+		struct channel_map channel_map;
+		uint32_t i, pos[CHANNELS_MAX];
+		char *p, *s;
+
+		spa_zero(channel_map);
+		channel_map_parse(value, &channel_map);
+		channel_map_to_positions(&channel_map, pos);
+
+		p = s = alloca(4 + channel_map.channels * 6);
+		p += snprintf(p, 6, "[");
+		for (i = 0; i < channel_map.channels; i++)
+			p += snprintf(p, 6, "%s%s", i == 0 ? "" : ",",
+				channel_id2name(pos[i]));
+		p += snprintf(p, 6, "]");
+		pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
 	}
 	else if (spa_streq(key, "format")) {
 		pw_properties_set(props, PW_KEY_AUDIO_FORMAT, value);

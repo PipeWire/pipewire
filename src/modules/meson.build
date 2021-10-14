@@ -414,6 +414,7 @@ build_module_zeroconf_discover = avahi_dep.found()
 if build_module_zeroconf_discover
 pipewire_module_zeroconf_discover = shared_library('pipewire-module-zeroconf-discover',
   [ 'module-zeroconf-discover.c',
+    'module-protocol-pulse/format.c',
     'module-zeroconf-discover/avahi-poll.c' ],
   include_directories : [configinc, spa_inc],
   install : true,

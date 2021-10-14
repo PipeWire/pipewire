@@ -3493,6 +3493,8 @@ static int fill_sink_info(struct client *client, struct message *m,
 	flags = SINK_LATENCY | SINK_DYNAMIC_LATENCY | SINK_DECIBEL_VOLUME;
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)) != NULL)
 		flags |= SINK_HARDWARE;
+	if ((str = spa_dict_lookup(info->props, PW_KEY_NODE_NETWORK)) != NULL)
+		flags |= SINK_NETWORK;
 	if (SPA_FLAG_IS_SET(dev_info.volume_info.flags, VOLUME_HW_VOLUME))
 		flags |= SINK_HW_VOLUME_CTRL;
 	if (SPA_FLAG_IS_SET(dev_info.volume_info.flags, VOLUME_HW_MUTE))
@@ -3675,6 +3677,8 @@ static int fill_source_info(struct client *client, struct message *m,
 	flags = SOURCE_LATENCY | SOURCE_DYNAMIC_LATENCY | SOURCE_DECIBEL_VOLUME;
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)) != NULL)
 		flags |= SOURCE_HARDWARE;
+	if ((str = spa_dict_lookup(info->props, PW_KEY_NODE_NETWORK)) != NULL)
+		flags |= SOURCE_NETWORK;
 	if (SPA_FLAG_IS_SET(dev_info.volume_info.flags, VOLUME_HW_VOLUME))
 		flags |= SOURCE_HW_VOLUME_CTRL;
 	if (SPA_FLAG_IS_SET(dev_info.volume_info.flags, VOLUME_HW_MUTE))

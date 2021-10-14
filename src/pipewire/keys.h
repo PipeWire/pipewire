@@ -178,6 +178,7 @@ extern "C" {
 								  *  "out"/"in"/"true" respectively */
 #define PW_KEY_NODE_LINK_GROUP		"node.link-group"	/**< the node is internally linked to
 								  *  nodes with the same link-group */
+#define PW_KEY_NODE_NETWORK		"node.network"		/**< the node is on a network */
 
 /** Port keys */
 #define PW_KEY_PORT_ID			"port.id"		/**< port id */

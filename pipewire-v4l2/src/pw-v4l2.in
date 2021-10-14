@@ -54,7 +54,7 @@ done
 
 shift $(( OPTIND - 1 ))
 
-if [ x"$LD_PRELOAD" = x ] ; then
+if [ "$LD_PRELOAD" = "" ] ; then
    LD_PRELOAD="@LIBV4L2_PATH@/libpw-v4l2.so"
 else
    LD_PRELOAD="$LD_PRELOAD @LIBV4L2_PATH@/libpw-v4l2.so"

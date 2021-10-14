@@ -1,3 +1,108 @@
+# PipeWire 0.3.39 (2021-10-21)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - media-session is now moved into a separate module to speed up its
+    deprecation in favour of WirePlumber.
+  - There is now an LD_PRELOAD v4l2 emulation library to run some existing
+    v4l2 applications on top of PipeWire.
+  - Filter-chains should now flush out remaining samples when paused. There
+    is now also the option to let a filter-chain drain so that long filters
+    such as reverbs can fade out properly.
+  - Stability and compatibility improvements in JACK apps.
+  - Better Bluetooth compatibility with more devices.
+  - libcamera plugin improvements.
+  - Many bugfixes and improvements all over the map.
+
+
+## PipeWire
+  - Fix compilation on ARM.
+  - Log topics are added to most modules.
+  - Documentation updates. Many improvements to the layout. Reorganisation
+    of the modules and groups.
+  - Share a work queue for all links and nodes. This removes the need for
+    a separate eventfd per link and per node.
+  - Catch errors in the map implementation.
+  - Add option to compile without dbus support.
+  - Fix biquad frequency. It was using the wrong sample rate.
+  - Fix a potential crash when destroying nodes, in some cases the node
+    would not be deactivated properly.
+  - Add some more helpers for dealing with properties and their values.
+  - Implement flush and reset on virtual sinks/sources.
+  - Make it possible to let virtual sinks/filter-chains run and drain
+    after being idle.
+  - Fix a bug where the quantum could exceed the maximum because it was
+    scaled with the sample rate.
+  - Fix channel_map parsing in module-zeroconf-discover so that the remote
+    channel map is used.
+  - pw-stream errors emitted on the proxy are reported but not fatal
+    any more. They are usually used by the session manager to signal status
+    to the client but otherwise does not really cause an error on the
+    client.
+  - Links now also store the output and input node id in the global
+    properties so that applications can parse and use them regardless of
+    how the link was made. (#1723)
+  - pw-stream and pw-filter now have an event to notify commands.
+  - The echo-cancel module can now operate on larger quantums.
+  - pw-cat now uses the right metadata to find the default devices in
+    --list-targets.
+
+## media-session
+  - Don't try to remix unpositioned streams when linking. This ensures
+    that linking to Pro-Audio nodes does not remix the stream channels
+    but links them as they are, one by one.
+  - media-session is now moved to a separate module to accelerate its
+    deprecation in favour of WirePlumber.
+
+## SPA
+  - Many libcamera improvements, handle MemFd buffers, handle errors
+    gracefully.
+  - Small improvements to make interface fall-backs easier to implement.
+  - Add support to enable flush-to-zero and denormals-are-zero to avoid
+    high CPU usage when dealing with denormals.
+  - AUX13 channels are no longer reported as AUX12. (#1727)
+  - Devices with more than 32 channels in Pro-Audio mode now only
+    uses AUX channels.
+  - Improve windowing function of the resampler to reduce aliasing and
+    improve the quality.
+
+## JACK
+  - Port connect callbacks will not only be emitted after the port
+    has negotiated buffers, which improves compatibility with
+    applications that try to use the port right after the callback
+    (jack_midi_latency_test).
+  - Fix crash when midi ports were removed and being monitored, like
+    in Ardour.
+
+## pulse-server
+  - The pulse tunnel will now use the specified format/rate/channels.
+  - Improve lookup of default source and fall back to the monitors when
+    no sources are available.
+  - Mark some nodes as network nodes so that we can set the NETWORK flag
+    correctly.
+
+## GStreamer
+  - The GStreamer element not releases the buffers in the stream again in
+    all cases so that they can be reused by other streams.
+
+## v4l2
+  - Add a v4l2 LD_PRELOAD library to emulate v4l2 system calls on top of
+    PipeWire. This is tested with firefox and GStreamer and is known to
+    not work with Chrome.
+
+## Bluetooth
+  - AAC compatibility improvements.
+  - Disable hardware volume for "Tribit MAXSound Plus" and
+    "SoundCore mini".
+  - Add quirk to disable faststream. Disable faststream on "FiiO BTR3".
+  - Add a dummy AVRCP player to improve compatibility with some devices.
+
+
+Older versions:
+
+
 # PipeWire 0.3.38 (2021-09-30)
 
 This is a quick bugfix release that is API and ABI compatible
@@ -40,9 +145,6 @@ with previous 0.3.x releases.
 
 ## PulseAudio server
   - Make the service file require a session manager.
-
-
-Older versions:
 
 
 # PipeWire 0.3.37 (2021-09-23)

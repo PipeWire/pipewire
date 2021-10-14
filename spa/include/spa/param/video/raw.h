@@ -177,7 +177,8 @@ enum spa_video_interlace_mode {
  */
 struct spa_video_info_raw {
 	enum spa_video_format format;				/**< the format */
-	int64_t modifier;					/**< format modifier */
+	int64_t modifier;					/**< format modifier
+								  * only used with DMA-BUF */
 	struct spa_rectangle size;				/**< the frame size of the video */
 	struct spa_fraction framerate;				/**< the framerate of the video, 0/1 means variable rate */
 	struct spa_fraction max_framerate;			/**< the maximum framerate of the video. This is only valid when

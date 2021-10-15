@@ -528,6 +528,7 @@ static int remove_file(const char *fpath, const struct stat *sb, int typeflag, s
 	int r;
 
 	/* Safety check: bail out if somehow we left TMPDIR */
+	spa_assert_se(tmpdir != NULL);
 	spa_assert_se(spa_strneq(fpath, tmpdir, strlen(tmpdir)));
 
 	r = remove(fpath);
@@ -548,6 +549,7 @@ static void remove_xdg_runtime_dir(const char *xdg_dir)
 
 	/* Safety checks, we really don't want to recursively remove a
 	 * random directory due to a bug */
+	spa_assert_se(tmpdir != NULL);
 	spa_assert_se(spa_strneq(xdg_dir, tmpdir, strlen(tmpdir)));
 	r = spa_scnprintf(path, sizeof(path), "%s/pwtest.dir", xdg_dir);
 	spa_assert_se((size_t)r == strlen(xdg_dir) + 11);
@@ -913,6 +915,9 @@ static void run_test(struct pwtest_context *ctx, struct pwtest_suite *c, struct 
 	pid_t pw_daemon = 0;
 	int read_fds[_FD_LAST], write_fds[_FD_LAST];
 	int r;
+	const char *tmpdir = getenv("TMPDIR");
+
+	spa_assert_se(tmpdir != NULL);
 
 	if (t->result == PWTEST_SKIP) {
 		char *buf = pw_array_add(&t->logs[FD_LOG], 64);
@@ -929,7 +934,7 @@ static void run_test(struct pwtest_context *ctx, struct pwtest_suite *c, struct 
 	}
 
 	set_test_env(ctx, t);
-	r = chdir(getenv("TMPDIR"));
+	r = chdir(tmpdir);
 	if (r < 0) {
 		t->sig_or_errno = -errno;
 		return;

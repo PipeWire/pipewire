@@ -62,7 +62,7 @@ include:
 .ubuntu:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2021-09-03.0'
+    FDO_DISTRIBUTION_TAG: '2021-10-15.0'
     FDO_DISTRIBUTION_VERSION: '20.04'
     FDO_DISTRIBUTION_PACKAGES: >-
       debhelper-compat

@@ -130,6 +130,8 @@ struct sync {
 struct impl {
 	struct sm_media_session this;
 
+	const char *config_dir;
+
 	struct pw_properties *conf;
 	struct pw_properties *modules;
 
@@ -2041,7 +2043,8 @@ int sm_media_session_remove_links(struct sm_media_session *sess,
 int sm_media_session_load_conf(struct sm_media_session *sess, const char *name,
 		struct pw_properties *conf)
 {
-	return pw_conf_load_conf(SESSION_PREFIX, name, conf);
+	struct impl *impl = SPA_CONTAINER_OF(sess, struct impl, this);
+	return pw_conf_load_conf(impl->config_dir, name, conf);
 }
 
 int sm_media_session_load_state(struct sm_media_session *sess,
@@ -2509,8 +2512,9 @@ int main(int argc, char *argv[])
 	}
 
 	config_dir = getenv("MEDIA_SESSION_CONFIG_DIR");
+	impl.config_dir = config_dir ? config_dir : SESSION_PREFIX;
 	impl.this.props = pw_properties_new(
-			PW_KEY_CONFIG_PREFIX, config_dir ? config_dir : SESSION_PREFIX,
+			PW_KEY_CONFIG_PREFIX, impl.config_dir,
 			PW_KEY_CONFIG_NAME, config_name,
 			NULL);
 	if (impl.this.props == NULL)
@@ -2519,7 +2523,7 @@ int main(int argc, char *argv[])
 	if ((impl.conf = pw_properties_new(NULL, NULL)) == NULL)
 		return 1;
 
-	pw_conf_load_conf(SESSION_PREFIX, config_name, impl.conf);
+	pw_conf_load_conf(config_dir, config_name, impl.conf);
 
 	if ((str = pw_properties_get(impl.conf, "context.properties")) != NULL)
 		pw_properties_update_string(impl.this.props, str, strlen(str));

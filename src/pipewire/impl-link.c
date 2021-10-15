@@ -1378,8 +1378,10 @@ int pw_impl_link_register(struct pw_impl_link *link,
 
 	link->info.id = link->global->id;
 	pw_properties_setf(link->properties, PW_KEY_OBJECT_ID, "%d", link->info.id);
-	pw_properties_setf(link->properties, PW_KEY_LINK_OUTPUT_PORT, "%d", link->info.output_port_id);
-	pw_properties_setf(link->properties, PW_KEY_LINK_INPUT_PORT, "%d", link->info.input_port_id);
+	pw_properties_setf(link->properties, PW_KEY_LINK_OUTPUT_NODE, "%u", link->info.output_node_id);
+	pw_properties_setf(link->properties, PW_KEY_LINK_OUTPUT_PORT, "%u", link->info.output_port_id);
+	pw_properties_setf(link->properties, PW_KEY_LINK_INPUT_NODE, "%u", link->info.input_node_id);
+	pw_properties_setf(link->properties, PW_KEY_LINK_INPUT_PORT, "%u", link->info.input_port_id);
 	link->info.props = &link->properties->dict;
 
 	pw_global_update_keys(link->global, link->info.props, keys);

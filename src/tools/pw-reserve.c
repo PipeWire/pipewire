@@ -32,8 +32,9 @@
 #include <spa/support/dbus.h>
 
 #include "pipewire/pipewire.h"
+#include "pipewire/log.h"
 
-#include "reserve.c"
+#include "reserve.h"
 
 struct impl {
 	struct pw_main_loop *mainloop;

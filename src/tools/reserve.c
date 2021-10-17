@@ -29,6 +29,7 @@
 #include "reserve.h"
 
 #include <spa/utils/string.h>
+#include <pipewire/log.h>
 
 #define SERVICE_PREFIX "org.freedesktop.ReserveDevice1."
 #define OBJECT_PREFIX "/org/freedesktop/ReserveDevice1/"

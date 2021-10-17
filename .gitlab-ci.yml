@@ -121,7 +121,7 @@ include:
     - export BUILD_DIR="$PWD/build-$BUILD_ID"
     - export XDG_RUNTIME_DIR="$(mktemp -p $PWD -d xdg-runtime-XXXXXX)"
   script:
-    - echo "Building with $MESON_OPTIONS"
+    - echo "Building with meson options $MESON_OPTIONS"
     - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
     - ninja -C "$BUILD_DIR"
     - ninja -C "$BUILD_DIR" test
@@ -238,7 +238,7 @@ valgrind:
   extends:
     - .build_on_fedora
   script:
-    - echo "Building with $MESON_OPTIONS"
+    - echo "Building with meson options $MESON_OPTIONS"
     - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
     - meson test -C "$BUILD_DIR" --setup=valgrind
 

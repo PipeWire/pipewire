@@ -234,6 +234,21 @@ build_release:
     matrix:
       - CC: [gcc, clang]
 
+build_session_managers:
+  extends:
+    - .build_on_fedora
+  script:
+    - echo "Building with meson options $MESON_OPTIONS"
+    - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
+    - ninja -C "$BUILD_DIR"
+    - ninja -C "$BUILD_DIR" install
+  variables:
+    MESON_OPTIONS: "-Dsession-managers=$SESSION_MANAGERS"
+  parallel:
+    matrix:
+      - SESSION_MANAGERS: ["[]", "wireplumber", "media-session", "media-session,wireplumber", "wireplumber,media-session" ]
+  allow_failure: true
+
 valgrind:
   extends:
     - .build_on_fedora

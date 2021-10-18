@@ -60,10 +60,12 @@ static inline double sinc(double x)
 
 static inline double blackman(double x, double n_taps)
 {
-	double w = 2.0 * x * M_PI / n_taps + M_PI;
-	return 0.3635819 - 0.4891775 * cos(w) +
-		0.1365995 * cos(2 * w) - 0.0106411 * cos(3 * w);
+	double alpha = 0.232;
+	x =  2.0 * M_PI * x / n_taps;
+	return (1.0 - alpha) / 2.0 + (1.0 / 2.0) * cos(x) +
+		(alpha / 2.0) * cos(2 * x);
 }
+
 
 static int build_filter(float *taps, uint32_t stride, uint32_t n_taps, uint32_t n_phases, double cutoff)
 {

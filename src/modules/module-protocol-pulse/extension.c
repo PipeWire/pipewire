@@ -42,5 +42,6 @@ const struct extension *extension_find(uint32_t idx, const char *name)
 		if (idx == extensions[i].idx || spa_streq(name, extensions[i].name))
 			return &extensions[i];
 	}
-	return 0;
+
+	return NULL;
 }

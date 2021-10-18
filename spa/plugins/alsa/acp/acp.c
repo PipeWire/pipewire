@@ -201,10 +201,22 @@ static void device_free(void *data)
 	pa_hashmap_free(dev->ports);
 }
 
+static inline void channelmap_to_acp(pa_channel_map *m, uint32_t *map)
+{
+	uint32_t i, j;
+	for (i = 0; i < m->channels; i++) {
+		map[i] = channel_pa2acp(m->map[i]);
+		for (j = 0; j < i; j++) {
+			if (map[i] == map[j])
+				map[i] += 32;
+		}
+
+	}
+}
+
 static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t direction,
 		pa_alsa_mapping *m, uint32_t index)
 {
-	uint32_t i;
 	char **d;
 
 	dev->card = impl;
@@ -219,8 +231,7 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 	dev->device.format.channels = m->channel_map.channels;
 	pa_cvolume_reset(&dev->real_volume, dev->device.format.channels);
 	pa_cvolume_reset(&dev->soft_volume, dev->device.format.channels);
-	for (i = 0; i < m->channel_map.channels; i++)
-		dev->device.format.map[i]= channel_pa2acp(m->channel_map.map[i]);
+	channelmap_to_acp(&m->channel_map, dev->device.format.map);
 	dev->direction = direction;
 	dev->proplist = pa_proplist_new();
 	pa_proplist_update(dev->proplist, PA_UPDATE_REPLACE, m->proplist);

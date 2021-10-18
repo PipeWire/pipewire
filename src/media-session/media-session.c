@@ -2523,7 +2523,7 @@ int main(int argc, char *argv[])
 	if ((impl.conf = pw_properties_new(NULL, NULL)) == NULL)
 		return 1;
 
-	pw_conf_load_conf(config_dir, config_name, impl.conf);
+	pw_conf_load_conf(impl.config_dir, config_name, impl.conf);
 
 	if ((str = pw_properties_get(impl.conf, "context.properties")) != NULL)
 		pw_properties_update_string(impl.this.props, str, strlen(str));

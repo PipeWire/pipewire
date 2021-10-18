@@ -194,7 +194,7 @@ static inline pa_channel_map* pa_channel_map_init_extend(pa_channel_map *m,
 		if (pa_channel_map_init_auto(m, c, def) == NULL)
 			continue;
 		for (i = 0; c < channels; c++, i++)
-			m->map[c] = PA_CHANNEL_POSITION_AUX0 + i;
+			m->map[c] = PA_CHANNEL_POSITION_AUX0 + (i & 31);
 		m->channels = (uint8_t) channels;
 		return m;
 	}

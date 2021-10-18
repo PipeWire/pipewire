@@ -25,15 +25,9 @@
 #include <spa/utils/defs.h>
 #include <spa/utils/string.h>
 
+#include "defs.h"
 #include "extension.h"
-
-static int do_extension_device_manager(struct client *client, uint32_t tag, struct message *m)
-{
-	return -ENOTSUP;
-}
-
-#include "extensions/ext-device-restore.c"
-#include "extensions/ext-stream-restore.c"
+#include "extensions/registry.h"
 
 static const struct extension extensions[] = {
 	{ "module-stream-restore", 0 | EXTENSION_FLAG, do_extension_stream_restore, },

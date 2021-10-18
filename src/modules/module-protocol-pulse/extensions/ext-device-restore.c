@@ -47,6 +47,7 @@
 #include "../message.h"
 #include "../reply.h"
 #include "../volume.h"
+#include "registry.h"
 
 PW_LOG_TOPIC_EXTERN(pulse_ext_dev_restore);
 #undef PW_LOG_TOPIC_DEFAULT
@@ -318,7 +319,7 @@ static const struct extension_sub ext_device_restore[] = {
 	{ "SAVE_FORMATS", 5, do_extension_device_restore_save_formats, },
 };
 
-static int do_extension_device_restore(struct client *client, uint32_t tag, struct message *m)
+int do_extension_device_restore(struct client *client, uint32_t tag, struct message *m)
 {
 	uint32_t command;
 	int res;

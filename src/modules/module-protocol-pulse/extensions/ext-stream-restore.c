@@ -46,6 +46,7 @@
 #include "../message.h"
 #include "../reply.h"
 #include "../volume.h"
+#include "registry.h"
 
 PW_LOG_TOPIC_EXTERN(pulse_ext_stream_restore);
 #undef PW_LOG_TOPIC_DEFAULT
@@ -304,7 +305,7 @@ static const struct extension_sub ext_stream_restore[] = {
 	{ "EVENT", 5, },
 };
 
-static int do_extension_stream_restore(struct client *client, uint32_t tag, struct message *m)
+int do_extension_stream_restore(struct client *client, uint32_t tag, struct message *m)
 {
 	uint32_t command;
 	int res;

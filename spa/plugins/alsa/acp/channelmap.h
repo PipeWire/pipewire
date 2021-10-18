@@ -144,6 +144,8 @@ static inline pa_channel_map* pa_channel_map_init(pa_channel_map *m)
 
 static inline pa_channel_map* pa_channel_map_init_auto(pa_channel_map *m, unsigned channels, pa_channel_map_def_t def)
 {
+	unsigned i;
+
 	pa_assert(m);
 	pa_assert(pa_channels_valid(channels));
 	pa_assert(def < PA_CHANNEL_MAP_DEF_MAX);
@@ -179,6 +181,10 @@ static inline pa_channel_map* pa_channel_map_init_auto(pa_channel_map *m, unsign
                 default:
                     return NULL;
             }
+	case PA_CHANNEL_MAP_AUX:
+	    for (i = 0; i < channels; i++)
+		m->map[i] = PA_CHANNEL_POSITION_AUX0 + (i & 31);
+	    break;
 	default:
 	    break;
 	}
@@ -199,17 +205,6 @@ static inline pa_channel_map* pa_channel_map_init_extend(pa_channel_map *m,
 		return m;
 	}
 	return NULL;
-}
-
-static inline pa_channel_map* pa_channel_map_init_pro(pa_channel_map *m,
-		unsigned channels)
-{
-	unsigned i;
-	pa_channel_map_init(m);
-	for (i = 0; i < channels; i++)
-		m->map[i] = PA_CHANNEL_POSITION_AUX0 + i;
-	m->channels = (uint8_t) channels;
-	return m;
 }
 
 typedef uint64_t pa_channel_position_mask_t;
@@ -327,6 +322,7 @@ static const char *const pa_position_table[PA_CHANNEL_POSITION_MAX] = {
 	[PA_CHANNEL_POSITION_AUX29] = "aux29",
 	[PA_CHANNEL_POSITION_AUX30] = "aux30",
 	[PA_CHANNEL_POSITION_AUX31] = "aux31",
+
 	[PA_CHANNEL_POSITION_TOP_CENTER] = "top-center",
 	[PA_CHANNEL_POSITION_TOP_FRONT_CENTER] = "top-front-center",
 	[PA_CHANNEL_POSITION_TOP_FRONT_LEFT] = "top-front-left",

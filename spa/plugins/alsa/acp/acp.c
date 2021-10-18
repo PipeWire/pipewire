@@ -373,7 +373,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 				snd_pcm_close(m->output_pcm);
 				m->output_pcm = NULL;
 				m->supported = true;
-				pa_channel_map_init_pro(&m->channel_map, m->sample_spec.channels);
+				pa_channel_map_init_auto(&m->channel_map, m->sample_spec.channels, PA_CHANNEL_MAP_AUX);
 			}
 			pa_idxset_put(ap->output_mappings, m, NULL);
 			free(name);
@@ -403,7 +403,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 				snd_pcm_close(m->input_pcm);
 				m->input_pcm = NULL;
 				m->supported = true;
-				pa_channel_map_init_pro(&m->channel_map, m->sample_spec.channels);
+				pa_channel_map_init_auto(&m->channel_map, m->sample_spec.channels, PA_CHANNEL_MAP_AUX);
 			}
 			pa_idxset_put(ap->input_mappings, m, NULL);
 			free(name);

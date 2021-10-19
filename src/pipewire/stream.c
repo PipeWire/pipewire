@@ -2192,6 +2192,18 @@ do_trigger_process(struct spa_loop *loop,
 	return spa_node_call_ready(&impl->callbacks, res);
 }
 
+static int trigger_request_process(struct stream *impl)
+{
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = { 0 };
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_node_emit_event(&impl->hooks,
+			spa_pod_builder_add_object(&b,
+				SPA_TYPE_EVENT_Node, SPA_NODE_EVENT_RequestProcess));
+	return 0;
+}
+
 SPA_EXPORT
 int pw_stream_trigger_process(struct pw_stream *stream)
 {
@@ -2203,16 +2215,16 @@ int pw_stream_trigger_process(struct pw_stream *stream)
 	/* flag to check for old or new behaviour */
 	impl->using_trigger = true;
 
-	if (!impl->driving)
-		return -EINVAL;
-
-	if (impl->direction == SPA_DIRECTION_OUTPUT &&
-	    !impl->process_rt) {
-		pw_loop_invoke(impl->context->main_loop,
-			do_call_process, 1, NULL, 0, false, impl);
+	if (!impl->driving) {
+		res = trigger_request_process(impl);
+	} else {
+		if (impl->direction == SPA_DIRECTION_OUTPUT &&
+		    !impl->process_rt) {
+			pw_loop_invoke(impl->context->main_loop,
+				do_call_process, 1, NULL, 0, false, impl);
+		}
+		res = pw_loop_invoke(impl->context->data_loop,
+			do_trigger_process, 1, NULL, 0, false, impl);
 	}
-	res = pw_loop_invoke(impl->context->data_loop,
-		do_trigger_process, 1, NULL, 0, false, impl);
-
 	return res;
 }

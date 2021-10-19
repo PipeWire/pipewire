@@ -1437,8 +1437,15 @@ static void node_event(void *data, const struct spa_event *event)
 		node_update_state(node, PW_NODE_STATE_ERROR,
 				-EFAULT, strdup("Received error event"));
 		break;
+	case SPA_NODE_EVENT_RequestProcess:
+		pw_log_debug("request process");
+		if (!node->driving) {
+			pw_impl_node_send_command(node->driver_node,
+				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_RequestProcess));
+		}
+		break;
 	default:
-		pw_log_debug("unhandled event");
+		pw_log_debug("unhandled event %d", SPA_NODE_EVENT_ID(event));
 		break;
 	}
 	pw_impl_node_emit_event(node, event);

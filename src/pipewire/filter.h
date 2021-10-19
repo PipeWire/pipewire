@@ -76,7 +76,7 @@ struct pw_buffer {
 /** Events for a filter. These events are always called from the mainloop
  * unless explicitly documented otherwise. */
 struct pw_filter_events {
-#define PW_VERSION_FILTER_EVENTS	0
+#define PW_VERSION_FILTER_EVENTS	1
 	uint32_t version;
 
 	void (*destroy) (void *data);
@@ -103,6 +103,9 @@ struct pw_filter_events {
 
 	/** The filter is drained */
         void (*drained) (void *data);
+
+	/** A command notify, Since 0.3.39:1 */
+	void (*command) (void *data, const struct spa_command *command);
 };
 
 /** Convert a filter state to a readable string  */

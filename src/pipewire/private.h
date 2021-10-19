@@ -1003,6 +1003,7 @@ struct pw_core {
 #define pw_stream_emit_process(s)		pw_stream_emit(s, process, 0)
 #define pw_stream_emit_drained(s)		pw_stream_emit(s, drained,0)
 #define pw_stream_emit_control_info(s,i,c)	pw_stream_emit(s, control_info, 0, i, c)
+#define pw_stream_emit_command(s,c)		pw_stream_emit(s, command,1,c)
 
 
 struct pw_stream {
@@ -1038,6 +1039,7 @@ struct pw_stream {
 #define pw_filter_emit_remove_buffer(s,p,b)	pw_filter_emit(s, remove_buffer, 0, p, b)
 #define pw_filter_emit_process(s,p)		pw_filter_emit(s, process, 0, p)
 #define pw_filter_emit_drained(s)		pw_filter_emit(s, drained, 0)
+#define pw_filter_emit_command(s,c)		pw_filter_emit(s, command, 1, c)
 
 
 struct pw_filter {

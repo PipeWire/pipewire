@@ -506,6 +506,7 @@ static int impl_send_command(void *object, const struct spa_command *command)
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Suspend:
+	case SPA_NODE_COMMAND_Flush:
 	case SPA_NODE_COMMAND_Pause:
 		pw_loop_invoke(impl->context->main_loop,
 			NULL, 0, NULL, 0, false, impl);
@@ -521,10 +522,9 @@ static int impl_send_command(void *object, const struct spa_command *command)
 		}
 		break;
 	default:
-		pw_log_warn("%p: unhandled node command %d", filter,
-				SPA_NODE_COMMAND_ID(command));
 		break;
 	}
+	pw_filter_emit_command(filter, command);
 	return 0;
 }
 

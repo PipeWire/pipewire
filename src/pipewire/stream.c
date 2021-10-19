@@ -528,8 +528,12 @@ static int impl_send_command(void *object, const struct spa_command *command)
 {
 	struct stream *impl = object;
 	struct pw_stream *stream = &impl->this;
+	uint32_t id = SPA_NODE_COMMAND_ID(command);
 
-	switch (SPA_NODE_COMMAND_ID(command)) {
+	pw_log_info("%p: command %s", impl,
+			spa_debug_type_find_name(spa_type_node_command_id, id));
+
+	switch (id) {
 	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Flush:
 	case SPA_NODE_COMMAND_Pause:

@@ -46,6 +46,11 @@ static void *webrtc_create(const struct pw_properties *args, const spa_audio_inf
 	webrtc::ProcessingConfig pconfig;
 	webrtc::Config config;
 
+	// TODO: wire up args to control these
+	config.Set<webrtc::ExtendedFilter>(new webrtc::ExtendedFilter(true));
+	// Enable Agnostic Delay Detection, would greatly improve performance for larger latencies
+	config.Set<webrtc::DelayAgnostic>(new webrtc::DelayAgnostic(true));
+
 	apm = webrtc::AudioProcessing::Create(config);
 
 	pconfig = {{
@@ -64,13 +69,15 @@ static void *webrtc_create(const struct pw_properties *args, const spa_audio_inf
 	apm->high_pass_filter()->Enable(true);
 	apm->echo_cancellation()->enable_drift_compensation(false);
 	apm->echo_cancellation()->Enable(true);
+	apm->echo_cancellation()->set_suppression_level(webrtc::EchoCancellation::kHighSuppression);
         apm->noise_suppression()->set_level(webrtc::NoiseSuppression::kHigh);
 	apm->noise_suppression()->Enable(true);
-	apm->gain_control()->set_analog_level_limits(0, 255);
-	// FIXME: can we hook up AGC?
-	apm->gain_control()->set_mode(webrtc::GainControl::kAdaptiveDigital);
-	apm->gain_control()->Enable(true);
-	apm->voice_detection()->Enable(true);
+	// FIXME: wire up args to AGC
+	// Note: AGC seems to mess up with Agnostic Delay Detection, especially with speech,
+	// result in very poor performance, disable by default
+	// apm->gain_control()->set_analog_level_limits(0, 255);
+	// apm->gain_control()->set_mode(webrtc::GainControl::kAdaptiveDigital);
+	// apm->gain_control()->Enable(true);
 
 	impl = (struct impl *)calloc(1, sizeof(struct impl));
 	impl->info = *info;
@@ -127,7 +134,8 @@ static int webrtc_run(void *ec, const float *rec[], const float *play[], float *
 			pw_log_error("Processing reverse stream failed");
 		}
 
-		impl->apm->set_stream_delay_ms(0);
+		// Extra delay introduced by multiple frames
+		impl->apm->set_stream_delay_ms((num_blocks - 1) * 10);
 
 		if (impl->apm->ProcessStream(impl->rec_buffer, config, config, impl->out_buffer) !=
 				webrtc::AudioProcessing::kNoError) {

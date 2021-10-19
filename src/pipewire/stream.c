@@ -1554,7 +1554,7 @@ static void add_params(struct stream *impl)
 	uint8_t buffer[4096];
 	struct spa_pod_builder b;
 
-	spa_pod_builder_init(&b, buffer, 4096);
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	add_param(impl, SPA_PARAM_IO, PARAM_FLAG_LOCKED,
 		spa_pod_builder_add_object(&b,

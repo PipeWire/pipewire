@@ -614,7 +614,9 @@ static int setup_streams(struct impl *impl)
 		pw_properties_set(props, PW_KEY_NODE_GROUP, str);
 	if ((str = pw_properties_get(impl->source_props, PW_KEY_NODE_LINK_GROUP)) != NULL)
 		pw_properties_set(props, PW_KEY_NODE_LINK_GROUP, str);
-	if (impl->aec_info->latency)
+	if ((str = pw_properties_get(impl->source_props, PW_KEY_NODE_LATENCY)) != NULL)
+		pw_properties_set(props, PW_KEY_NODE_LATENCY, str);
+	else if (impl->aec_info->latency)
 		pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec_info->latency);
 
 	impl->capture = pw_stream_new(impl->core,
@@ -645,7 +647,9 @@ static int setup_streams(struct impl *impl)
 		pw_properties_set(props, PW_KEY_NODE_GROUP, str);
 	if ((str = pw_properties_get(impl->sink_props, PW_KEY_NODE_LINK_GROUP)) != NULL)
 		pw_properties_set(props, PW_KEY_NODE_LINK_GROUP, str);
-	if (impl->aec_info->latency)
+	if ((str = pw_properties_get(impl->sink_props, PW_KEY_NODE_LATENCY)) != NULL)
+		pw_properties_set(props, PW_KEY_NODE_LATENCY, str);
+	else if (impl->aec_info->latency)
 		pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec_info->latency);
 
 	impl->playback = pw_stream_new(impl->core,
@@ -946,13 +950,31 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_properties_free(aec_props);
 
 	if (impl->aec_info->latency) {
-		unsigned int num, denom;
-
-		pw_log_info("Setting node latency to %s", impl->aec_info->latency);
-		pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec_info->latency);
+		unsigned int num, denom, req_num, req_denom;
+		unsigned int factor = 0;
+		unsigned int new_num = 0;
 
 		sscanf(impl->aec_info->latency, "%u/%u", &num, &denom);
-		impl->aec_blocksize = sizeof(float) * impl->info.rate * num / denom;
+
+		if ((str = pw_properties_get(props, PW_KEY_NODE_LATENCY)) != NULL) {
+			sscanf(str, "%u/%u", &req_num, &req_denom);
+			factor = (req_num * denom) / (req_denom * num);
+			new_num = req_num / factor * factor;
+		}
+
+		if (factor == 0 || new_num == 0) {
+			pw_log_info("Setting node latency to %s", impl->aec_info->latency);
+			pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec_info->latency);
+			impl->aec_blocksize = sizeof(float) * impl->info.rate * num / denom;
+		} else {
+			char* new_latency_str = (char*)calloc(strlen(str), sizeof(char));
+
+			sprintf(new_latency_str, "%u/%u", new_num, req_denom);
+			pw_log_info("Setting node latency to %s", new_latency_str);
+			pw_properties_set(props, PW_KEY_NODE_LATENCY, new_latency_str);
+			impl->aec_blocksize = sizeof(float) * impl->info.rate * num / denom * factor;
+			free(new_latency_str);
+		}
 	} else {
 		/* Implementation doesn't care about the block size */
 		impl->aec_blocksize = 0;

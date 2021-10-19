@@ -34,6 +34,9 @@
 struct impl {
 	webrtc::AudioProcessing *apm = NULL;
 	spa_audio_info_raw info;
+	float** play_buffer;
+	float** rec_buffer;
+	float** out_buffer;
 };
 
 static void *webrtc_create(const struct pw_properties *args, const spa_audio_info_raw *info)
@@ -72,6 +75,10 @@ static void *webrtc_create(const struct pw_properties *args, const spa_audio_inf
 	impl = (struct impl *)calloc(1, sizeof(struct impl));
 	impl->info = *info;
 
+	impl->play_buffer = (float **)calloc(info->channels, sizeof(float*));
+	impl->rec_buffer = (float **)calloc(info->channels, sizeof(float*));
+	impl->out_buffer = (float **)calloc(info->channels, sizeof(float*));
+
 	impl->apm = apm;
 
 	return impl;
@@ -88,6 +95,9 @@ static void webrtc_destroy(void *ec)
 	struct impl *impl = (struct impl*)ec;
 
 	delete impl->apm;
+	free(impl->play_buffer);
+	free(impl->rec_buffer);
+	free(impl->out_buffer);
 	free(impl);
 }
 
@@ -96,25 +106,33 @@ static int webrtc_run(void *ec, const float *rec[], const float *play[], float *
 	struct impl *impl = (struct impl*)ec;
 	webrtc::StreamConfig config =
 		webrtc::StreamConfig(impl->info.rate, impl->info.channels, false);
+	unsigned int num_blocks = n_samples * 1000 / impl->info.rate / 10;
 
-	if (n_samples * 1000 / impl->info.rate != 10) {
-		pw_log_error("Buffers must be 10ms in length (currently %u samples)", n_samples);
+	if (n_samples * 1000 / impl->info.rate % 10 != 0) {
+		pw_log_error("Buffers must be multiples of 10ms in length (currently %u samples)", n_samples);
 		return -1;
 	}
 
-	/* FIXME: ProcessReverseStream may change the playback buffer, in which
-	 * case we should use that, if we ever expose the intelligibility
-	 * enhancer */
-	if (impl->apm->ProcessReverseStream(play, config, config, (float**)play) !=
-			webrtc::AudioProcessing::kNoError) {
-		pw_log_error("Processing reverse stream failed");
-	}
+	for (size_t i = 0; i < num_blocks; i ++) {
+		for (size_t j = 0; j < impl->info.channels; j++) {
+			impl->play_buffer[j] = (float*)play[j] + config.num_frames() * i;
+			impl->rec_buffer[j] = (float*)rec[j] + config.num_frames() * i;
+			impl->out_buffer[j] = out[j] + config.num_frames() * i;
+		}
+		/* FIXME: ProcessReverseStream may change the playback buffer, in which
+		* case we should use that, if we ever expose the intelligibility
+		* enhancer */
+		if (impl->apm->ProcessReverseStream(impl->play_buffer, config, config, impl->play_buffer) !=
+				webrtc::AudioProcessing::kNoError) {
+			pw_log_error("Processing reverse stream failed");
+		}
 
-	impl->apm->set_stream_delay_ms(0);
+		impl->apm->set_stream_delay_ms(0);
 
-	if (impl->apm->ProcessStream(rec, config, config, out) !=
-			webrtc::AudioProcessing::kNoError) {
-		pw_log_error("Processing stream failed");
+		if (impl->apm->ProcessStream(impl->rec_buffer, config, config, impl->out_buffer) !=
+				webrtc::AudioProcessing::kNoError) {
+			pw_log_error("Processing stream failed");
+		}
 	}
 
 	return 0;

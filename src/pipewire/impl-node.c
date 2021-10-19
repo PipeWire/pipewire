@@ -2159,3 +2159,9 @@ bool pw_impl_node_is_active(struct pw_impl_node *node)
 {
 	return node->active;
 }
+
+SPA_EXPORT
+int pw_impl_node_send_command(struct pw_impl_node *node, const struct spa_command *command)
+{
+	return spa_node_send_command(node->node, command);
+}

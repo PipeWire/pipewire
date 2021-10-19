@@ -1,6 +1,5 @@
 src/daemon/pipewire.c
 src/daemon/pipewire.desktop.in
-src/media-session/alsa-monitor.c
 src/modules/module-protocol-pulse/modules/module-tunnel-sink.c
 src/modules/module-protocol-pulse/modules/module-tunnel-source.c
 src/modules/module-pulse-tunnel.c

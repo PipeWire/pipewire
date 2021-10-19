@@ -209,7 +209,7 @@ struct pw_time {
 /** Events for a stream. These events are always called from the mainloop
  * unless explicitly documented otherwise. */
 struct pw_stream_events {
-#define PW_VERSION_STREAM_EVENTS	0
+#define PW_VERSION_STREAM_EVENTS	1
 	uint32_t version;
 
 	void (*destroy) (void *data);
@@ -238,6 +238,9 @@ struct pw_stream_events {
 
 	/** The stream is drained */
         void (*drained) (void *data);
+
+	/** A command notify, Since 0.3.39:1 */
+	void (*command) (void *data, const struct spa_command *command);
 };
 
 /** Convert a stream state to a readable string */

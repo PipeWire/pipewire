@@ -557,14 +557,10 @@ static int impl_send_command(void *object, const struct spa_command *command)
 			stream_set_state(stream, PW_STREAM_STATE_STREAMING, NULL);
 		}
 		break;
-	case SPA_NODE_COMMAND_ParamBegin:
-	case SPA_NODE_COMMAND_ParamEnd:
-		break;
 	default:
-		pw_log_warn("%p: unhandled node command %d", stream,
-				SPA_NODE_COMMAND_ID(command));
 		break;
 	}
+	pw_stream_emit_command(stream, command);
 	return 0;
 }
 

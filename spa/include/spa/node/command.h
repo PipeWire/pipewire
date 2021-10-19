@@ -54,6 +54,8 @@ enum spa_node_command {
 					  *  remain opened, like query formats and then
 					  *  set a format */
 	SPA_NODE_COMMAND_ParamEnd,	/**< end a transaction */
+	SPA_NODE_COMMAND_RequestProcess,/**< Sent to a driver when some other node emitted
+					  *  the RequestProcess event. */
 };
 
 #define SPA_NODE_COMMAND_ID(cmd)	SPA_COMMAND_ID(cmd, SPA_TYPE_COMMAND_Node)

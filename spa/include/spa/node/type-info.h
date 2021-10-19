@@ -64,6 +64,7 @@ static const struct spa_type_info spa_type_node_event_id[] = {
 	{ SPA_NODE_EVENT_Error,		 SPA_TYPE_Int, SPA_TYPE_INFO_NODE_EVENT_BASE "Error",   NULL },
 	{ SPA_NODE_EVENT_Buffering,	 SPA_TYPE_Int, SPA_TYPE_INFO_NODE_EVENT_BASE "Buffering", NULL },
 	{ SPA_NODE_EVENT_RequestRefresh, SPA_TYPE_Int, SPA_TYPE_INFO_NODE_EVENT_BASE "RequestRefresh", NULL },
+	{ SPA_NODE_EVENT_RequestProcess, SPA_TYPE_Int, SPA_TYPE_INFO_NODE_EVENT_BASE "RequestProcess", NULL },
 	{ 0, 0, NULL, NULL },
 };
 
@@ -86,6 +87,7 @@ static const struct spa_type_info spa_type_node_command_id[] = {
 	{ SPA_NODE_COMMAND_Marker,	SPA_TYPE_Int, SPA_TYPE_INFO_NODE_COMMAND_BASE "Marker",  NULL },
 	{ SPA_NODE_COMMAND_ParamBegin,	SPA_TYPE_Int, SPA_TYPE_INFO_NODE_COMMAND_BASE "ParamBegin",  NULL },
 	{ SPA_NODE_COMMAND_ParamEnd,	SPA_TYPE_Int, SPA_TYPE_INFO_NODE_COMMAND_BASE "ParamEnd",  NULL },
+	{ SPA_NODE_COMMAND_RequestProcess, SPA_TYPE_Int, SPA_TYPE_INFO_NODE_COMMAND_BASE "RequestProcess",  NULL },
 	{ 0, 0, NULL, NULL },
 };
 

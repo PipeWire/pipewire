@@ -68,7 +68,7 @@ static const struct spa_type_info spa_type_node_event_id[] = {
 };
 
 static const struct spa_type_info spa_type_node_event[] = {
-	{ 0, SPA_TYPE_Id, SPA_TYPE_INFO_NODE_EVENT_BASE, spa_type_node_event_id },
+	{ SPA_EVENT_NODE_START, SPA_TYPE_Id, SPA_TYPE_INFO_NODE_EVENT_BASE, spa_type_node_event_id },
 	{ 0, 0, NULL, NULL },
 };
 

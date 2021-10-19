@@ -74,6 +74,7 @@ struct data {
 	SDL_Rect rect;
 	SDL_Rect cursor_rect;
 	bool is_yuv;
+	bool have_request_process;
 };
 
 static void handle_events(struct data *data)
@@ -244,6 +245,25 @@ on_process(void *_data)
 	pw_stream_queue_buffer(stream, b);
 }
 
+static void enable_timeouts(struct data *data, bool enabled)
+{
+	struct timespec timeout, interval, *to, *iv;
+
+	if (!enabled || data->have_request_process) {
+		to = iv = NULL;
+	} else {
+		timeout.tv_sec = 0;
+		timeout.tv_nsec = 1;
+		interval.tv_sec = 0;
+		interval.tv_nsec = 80 * SPA_NSEC_PER_MSEC;
+		to = &timeout;
+		iv = &interval;
+	}
+	pw_loop_update_timer(pw_main_loop_get_loop(data->loop),
+				data->timer, to, iv, false);
+}
+
+
 static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 				    enum pw_stream_state state, const char *error)
 {
@@ -254,22 +274,11 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 		pw_main_loop_quit(data->loop);
 		break;
 	case PW_STREAM_STATE_PAUSED:
-		pw_loop_update_timer(pw_main_loop_get_loop(data->loop),
-				data->timer, NULL, NULL, false);
+		enable_timeouts(data, false);
 		break;
 	case PW_STREAM_STATE_STREAMING:
-	{
-		struct timespec timeout, interval;
-
-		timeout.tv_sec = 0;
-		timeout.tv_nsec = 1;
-		interval.tv_sec = 0;
-		interval.tv_nsec = 80 * SPA_NSEC_PER_MSEC;
-
-		pw_loop_update_timer(pw_main_loop_get_loop(data->loop),
-				data->timer, &timeout, &interval, false);
+		enable_timeouts(data, true);
 		break;
-	}
 	default:
 		break;
 	}
@@ -297,7 +306,23 @@ on_trigger_done(void *_data)
 static void on_timeout(void *userdata, uint64_t expirations)
 {
 	struct data *data = userdata;
-	pw_stream_trigger_process(data->stream);
+	if (!data->have_request_process)
+		pw_stream_trigger_process(data->stream);
+}
+
+static void
+on_command(void *_data, const struct spa_command *command)
+{
+	struct data *data = _data;
+	switch (SPA_NODE_COMMAND_ID(command)) {
+	case SPA_NODE_COMMAND_RequestProcess:
+		data->have_request_process = true;
+		enable_timeouts(data, false);
+		pw_stream_trigger_process(data->stream);
+		break;
+	default:
+		break;
+	}
 }
 
 /* Be notified when the stream param changes. We're only looking at the
@@ -432,6 +457,7 @@ static const struct pw_stream_events stream_events = {
 	.param_changed = on_stream_param_changed,
 	.process = on_process,
 	.trigger_done = on_trigger_done,
+	.command = on_command,
 };
 
 static int build_format(struct data *data, struct spa_pod_builder *b, const struct spa_pod **params)

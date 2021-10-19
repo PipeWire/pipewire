@@ -214,9 +214,8 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 		interval.tv_sec = 0;
 		interval.tv_nsec = 40 * SPA_NSEC_PER_MSEC;
 
-		if (pw_stream_is_driving(data->stream))
-			pw_loop_update_timer(pw_main_loop_get_loop(data->loop),
-					data->timer, &timeout, &interval, false);
+		pw_loop_update_timer(pw_main_loop_get_loop(data->loop),
+				data->timer, &timeout, &interval, false);
 		break;
 	}
 	default:

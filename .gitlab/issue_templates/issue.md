@@ -1,25 +1,29 @@
-If you are filing this issue with a regular release please try master as it might already be fixed.
+<!-- If you are filing this issue with a regular release please try master as it might already be fixed. -->
 
-Version, Distribution, Desktop Environment:
+- PipeWire version (`pipewire --version`):
+- Distribution and distribution version (`PRETTY_NAME` from `/etc/os-release`):
+- Desktop Environment:
+- Kernel version (`uname -r`):
+
+## Description of Problem:
 
 
-Description of Problem:
+## How Reproducible:
 
 
-How Reproducible:
+### Steps to Reproduce:
 
-
-Steps to Reproduce:
- 
  1.
  2.
  3.
 
 
-Actual Results:
+### Actual Results:
 
 
-Expected Results:
+### Expected Results:
 
 
-Additional Info Eg. `pw-dump -N > file` (As Attachment Please):
+# Additional Info (as attachments):
+
+ - `pw-dump > pw-dump.log`:

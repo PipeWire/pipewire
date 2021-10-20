@@ -1,21 +1,29 @@
-If you are filing this issue with a regular release please try master as it might already be fixed.
-If you can, test also with Pulseaudio and list `pulseaudio --version`.
+<!-- If you are filing this issue with a regular release please try master as it might already be fixed. -->
 
+<!-- If you can, test also with Pulseaudio and list `pulseaudio --version`. -->
 
-Bluetooth Radio, Bluetooth Headset, Desktop Environment, Distribution, Version (Bluez, Kernel, and PipeWire):
+- PipeWire version (`pipewire --version`):
+- Distribution and distribution version (`PRETTY_NAME` from `/etc/os-release`):
+- Desktop Environment:
+- Kernel version (`uname -r`):
+- BlueZ version (`bluetoothctl --version`):
+- `lsusb`:
+```
+# paste the output of "lsusb" here
+```
+- Bluetooth devices:
 
 ```
-# run the following and paste output here
-lsusb; bluetoothctl devices; echo $XDG_SESSION_DESKTOP; grep PRETTY /etc/os-release; pipewire --version; bluetoothctl --version; uname -r
+# paste the output of "bluetoothctl devices" here
 ```
 
-Description of Problem:
+## Description of Problem:
 
 
-How Reproducible:
+## How Reproducible:
 
 
-Steps to Reproduce:
+### Steps to Reproduce:
 
 
  1.
@@ -23,15 +31,13 @@ Steps to Reproduce:
  3.
 
 
-Actual Results:
+### Actual Results:
 
 
-Expected Results:
+### Expected Results:
 
 
-Additional Info (as attachments):
+# Additional Info (as attachments):
 
-pw-dump output: `pw-dump -N > pw-dump.log`
-
-Bluetooth debug log
-https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Troubleshooting#bluetooth
+ - `pw-dump > pw-dump.log`:
+ - Bluetooth debug log, see [here](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/Troubleshooting#bluetooth):

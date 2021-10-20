@@ -446,6 +446,24 @@ static inline int spa_pod_fixate(struct spa_pod *pod)
 	return spa_pod_object_fixate((struct spa_pod_object *)pod);
 }
 
+static inline int spa_pod_object_is_fixated(const struct spa_pod_object *pod)
+{
+	struct spa_pod_prop *res;
+	SPA_POD_OBJECT_FOREACH(pod, res) {
+		if (res->value.type == SPA_TYPE_Choice &&
+		   ((struct spa_pod_choice*)&res->value)->body.type != SPA_CHOICE_None)
+			return 0;
+	}
+	return 1;
+}
+
+static inline int spa_pod_is_fixated(const struct spa_pod *pod)
+{
+	if (!spa_pod_is_object(pod))
+		return -EINVAL;
+	return spa_pod_object_is_fixated((const struct spa_pod_object *)pod);
+}
+
 /**
  * \}
  */

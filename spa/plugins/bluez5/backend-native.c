@@ -1042,18 +1042,26 @@ static void rfcomm_event(struct spa_source *source)
 		buf[len] = 0;
 		spa_log_debug(backend->log, "RFCOMM << %s", buf);
 
+		switch (rfcomm->profile) {
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
-		if (rfcomm->profile == SPA_BT_PROFILE_HSP_HS)
+		case SPA_BT_PROFILE_HSP_HS:
 			res = rfcomm_hsp_ag(source, buf);
-		else if (rfcomm->profile == SPA_BT_PROFILE_HSP_AG)
+			break;
+		case SPA_BT_PROFILE_HSP_AG:
 			res = rfcomm_hsp_hs(source, buf);
+			break;
 #endif
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
-		if (rfcomm->profile == SPA_BT_PROFILE_HFP_HF)
+		case SPA_BT_PROFILE_HFP_HF:
 			res = rfcomm_hfp_ag(source, buf);
-		else if (rfcomm->profile == SPA_BT_PROFILE_HFP_AG)
+			break;
+		case SPA_BT_PROFILE_HFP_AG:
 			res = rfcomm_hfp_hf(source, buf);
+			break;
 #endif
+		default:
+			break;
+		}
 
 		if (!res) {
 			spa_log_debug(backend->log, "RFCOMM receive unsupported command: %s", buf);

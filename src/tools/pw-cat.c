@@ -751,6 +751,9 @@ static void registry_event_global(void *userdata, uint32_t id,
 	if (spa_streq(type, PW_TYPE_INTERFACE_Metadata)) {
 		if (data->metadata != NULL)
 			return;
+		if ((name = spa_dict_lookup(props, PW_KEY_METADATA_NAME)) != NULL &&
+		    !spa_streq(name, "default"))
+			return;
 
 		data->metadata = pw_registry_bind(data->registry,
 				id, type, PW_VERSION_METADATA, 0);

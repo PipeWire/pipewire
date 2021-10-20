@@ -1419,6 +1419,10 @@ int pw_impl_port_set_param(struct pw_impl_port *port, uint32_t id, uint32_t flag
 		if (param == NULL || res < 0) {
 			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_CONFIGURE, 0, NULL);
 		}
+		else if (spa_pod_is_fixated(param) <= 0) {
+			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_CONFIGURE, 0, NULL);
+			pw_impl_port_emit_param_changed(port, id);
+		}
 		else if (!SPA_RESULT_IS_ASYNC(res)) {
 			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_READY, 0, NULL);
 		}

@@ -916,8 +916,6 @@ static void port_param_changed(struct pw_impl_link *this, uint32_t id,
 	case SPA_PARAM_EnumFormat:
 		target = PW_IMPL_PORT_STATE_CONFIGURE;
 		break;
-	case SPA_PARAM_Latency:
-		return;
 	default:
 		return;
 	}
@@ -926,6 +924,8 @@ static void port_param_changed(struct pw_impl_link *this, uint32_t id,
 	if (inport)
 		pw_impl_port_update_state(inport, target, 0, NULL);
 
+	this->preparing = this->prepared = false;
+	link_update_state(this, PW_LINK_STATE_INIT, 0, NULL);
 	pw_impl_link_prepare(this);
 }
 

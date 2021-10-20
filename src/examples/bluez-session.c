@@ -48,7 +48,7 @@
 
 #include "pipewire/pipewire.h"
 
-#define NAME "media-session"
+#define NAME "bluez-session"
 
 struct impl;
 struct object;

@@ -353,9 +353,8 @@ static void rfcomm_emit_volume_changed(struct rfcomm *rfcomm, int id, int hw_vol
 }
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
-static bool rfcomm_hsp_ag(struct spa_source *source, char* buf)
+static bool rfcomm_hsp_ag(struct rfcomm *rfcomm, char* buf)
 {
-	struct rfcomm *rfcomm = source->data;
 	struct impl *backend = rfcomm->backend;
 	unsigned int gain, dummy;
 
@@ -389,9 +388,8 @@ static bool rfcomm_hsp_ag(struct spa_source *source, char* buf)
 	return true;
 }
 
-static bool rfcomm_send_volume_cmd(struct spa_source *source, int id)
+static bool rfcomm_send_volume_cmd(struct rfcomm *rfcomm, int id)
 {
-	struct rfcomm *rfcomm = source->data;
 	struct spa_bt_transport_volume *t_volume;
 	const char *format;
 	int hw_volume;
@@ -419,9 +417,8 @@ static bool rfcomm_send_volume_cmd(struct spa_source *source, int id)
 	return true;
 }
 
-static bool rfcomm_hsp_hs(struct spa_source *source, char* buf)
+static bool rfcomm_hsp_hs(struct rfcomm *rfcomm, char* buf)
 {
-	struct rfcomm *rfcomm = source->data;
 	struct impl *backend = rfcomm->backend;
 	unsigned int gain;
 
@@ -446,12 +443,12 @@ static bool rfcomm_hsp_hs(struct spa_source *source, char* buf)
 		}
 	} else if (spa_strstartswith(buf, "\r\nOK\r\n")) {
 		if (rfcomm->hs_state == hsp_hs_init2) {
-			if (rfcomm_send_volume_cmd(&rfcomm->source, SPA_BT_VOLUME_ID_RX))
+			if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
 				rfcomm->hs_state = hsp_hs_vgs;
 			else
 				rfcomm->hs_state = hsp_hs_init1;
 		} else if (rfcomm->hs_state == hsp_hs_vgs) {
-			if (rfcomm_send_volume_cmd(&rfcomm->source, SPA_BT_VOLUME_ID_TX))
+			if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_TX))
 				rfcomm->hs_state = hsp_hs_vgm;
 			else
 				rfcomm->hs_state = hsp_hs_init1;
@@ -640,9 +637,8 @@ static bool device_supports_required_mSBC_transport_modes(
 
 static int codec_switch_start_timer(struct rfcomm *rfcomm, int timeout_msec);
 
-static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
+static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 {
-	struct rfcomm *rfcomm = source->data;
 	struct impl *backend = rfcomm->backend;
 	unsigned int features;
 	unsigned int gain;
@@ -883,11 +879,10 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 	return true;
 }
 
-static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
+static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* buf)
 {
 	static const char separators[] = "\r\n:";
 
-	struct rfcomm *rfcomm = source->data;
 	struct impl *backend = rfcomm->backend;
 	unsigned int features;
 	unsigned int gain;
@@ -993,16 +988,16 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 						}
 					}
 					/* Report volume on SLC establishment */
-					if (rfcomm_send_volume_cmd(source, SPA_BT_VOLUME_ID_RX))
+					if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
 						rfcomm->hf_state = hfp_hf_vgs;
 					break;
 				case hfp_hf_slc2:
-					if (rfcomm_send_volume_cmd(source, SPA_BT_VOLUME_ID_RX))
+					if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
 						rfcomm->hf_state = hfp_hf_vgs;
 					break;
 				case hfp_hf_vgs:
 					rfcomm->hf_state = hfp_hf_slc1;
-					if (rfcomm_send_volume_cmd(source, SPA_BT_VOLUME_ID_TX))
+					if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_TX))
 						rfcomm->hf_state = hfp_hf_vgm;
 					break;
 				default:
@@ -1045,18 +1040,18 @@ static void rfcomm_event(struct spa_source *source)
 		switch (rfcomm->profile) {
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 		case SPA_BT_PROFILE_HSP_HS:
-			res = rfcomm_hsp_ag(source, buf);
+			res = rfcomm_hsp_ag(rfcomm, buf);
 			break;
 		case SPA_BT_PROFILE_HSP_AG:
-			res = rfcomm_hsp_hs(source, buf);
+			res = rfcomm_hsp_hs(rfcomm, buf);
 			break;
 #endif
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 		case SPA_BT_PROFILE_HFP_HF:
-			res = rfcomm_hfp_ag(source, buf);
+			res = rfcomm_hfp_ag(rfcomm, buf);
 			break;
 		case SPA_BT_PROFILE_HFP_AG:
-			res = rfcomm_hfp_hf(source, buf);
+			res = rfcomm_hfp_hf(rfcomm, buf);
 			break;
 #endif
 		default:
@@ -1353,12 +1348,12 @@ static void sco_listen_event(struct spa_source *source)
 
 	/* Report initial volume to remote */
 	if (t->profile == SPA_BT_PROFILE_HSP_AG) {
-		if (rfcomm_send_volume_cmd(&rfcomm->source, SPA_BT_VOLUME_ID_RX))
+		if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
 			rfcomm->hs_state = hsp_hs_vgs;
 		else
 			rfcomm->hs_state = hsp_hs_init1;
 	} else if (t->profile == SPA_BT_PROFILE_HFP_AG) {
-		if (rfcomm_send_volume_cmd(&rfcomm->source, SPA_BT_VOLUME_ID_RX))
+		if (rfcomm_send_volume_cmd(rfcomm, SPA_BT_VOLUME_ID_RX))
 			rfcomm->hf_state = hfp_hf_vgs;
 		else
 			rfcomm->hf_state = hfp_hf_slc1;

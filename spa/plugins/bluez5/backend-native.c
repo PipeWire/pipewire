@@ -1630,13 +1630,34 @@ static const struct spa_bt_device_events device_events = {
 	.destroy = device_destroy,
 };
 
+static enum spa_bt_profile path_to_profile(const char *path)
+{
+#ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
+	if (spa_streq(path, PROFILE_HSP_AG))
+		return SPA_BT_PROFILE_HSP_HS;
+
+	if (spa_streq(path, PROFILE_HSP_HS))
+		return SPA_BT_PROFILE_HSP_AG;
+#endif
+
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+	if (spa_streq(path, PROFILE_HFP_AG))
+		return SPA_BT_PROFILE_HFP_HF;
+
+	if (spa_streq(path, PROFILE_HFP_HF))
+		return SPA_BT_PROFILE_HFP_AG;
+#endif
+
+	return SPA_BT_PROFILE_NULL;
+}
+
 static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
 	struct impl *backend = userdata;
 	DBusMessage *r;
 	DBusMessageIter it[5];
 	const char *handler, *path;
-	enum spa_bt_profile profile = SPA_BT_PROFILE_NULL;
+	enum spa_bt_profile profile;
 	struct rfcomm *rfcomm;
 	struct spa_bt_device *d;
 	struct spa_bt_transport *t = NULL;
@@ -1648,19 +1669,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	}
 
 	handler = dbus_message_get_path(m);
-#ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
-	if (spa_streq(handler, PROFILE_HSP_AG))
-		profile = SPA_BT_PROFILE_HSP_HS;
-	else if (spa_streq(handler, PROFILE_HSP_HS))
-		profile = SPA_BT_PROFILE_HSP_AG;
-#endif
-#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
-	if (spa_streq(handler, PROFILE_HFP_AG))
-		profile = SPA_BT_PROFILE_HFP_HF;
-	else if (spa_streq(handler, PROFILE_HFP_HF))
-		profile = SPA_BT_PROFILE_HFP_AG;
-#endif
-
+	profile = path_to_profile(handler);
 	if (profile == SPA_BT_PROFILE_NULL) {
 		spa_log_warn(backend->log, "invalid handler %s", handler);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -1787,19 +1796,7 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 	}
 
 	handler = dbus_message_get_path(m);
-#ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
-	if (spa_streq(handler, PROFILE_HSP_AG))
-		profile = SPA_BT_PROFILE_HSP_HS;
-	else if (spa_streq(handler, PROFILE_HSP_HS))
-		profile = SPA_BT_PROFILE_HSP_AG;
-#endif
-#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
-	if (spa_streq(handler, PROFILE_HFP_AG))
-		profile = SPA_BT_PROFILE_HFP_HF;
-	else if (spa_streq(handler, PROFILE_HFP_HF))
-		profile = SPA_BT_PROFILE_HFP_AG;
-#endif
-
+	profile = path_to_profile(handler);
 	if (profile == SPA_BT_PROFILE_NULL) {
 		spa_log_warn(backend->log, "invalid handler %s", handler);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;

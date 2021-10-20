@@ -444,7 +444,7 @@ static bool rfcomm_hsp_hs(struct spa_source *source, char* buf)
 		} else {
 			spa_log_debug(backend->log, "RFCOMM receive unsupported VGM gain: %s", buf);
 		}
-	} if (spa_strstartswith(buf, "\r\nOK\r\n")) {
+	} else if (spa_strstartswith(buf, "\r\nOK\r\n")) {
 		if (rfcomm->hs_state == hsp_hs_init2) {
 			if (rfcomm_send_volume_cmd(&rfcomm->source, SPA_BT_VOLUME_ID_RX))
 				rfcomm->hs_state = hsp_hs_vgs;

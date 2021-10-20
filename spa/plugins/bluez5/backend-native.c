@@ -637,12 +637,51 @@ static bool device_supports_required_mSBC_transport_modes(
 
 static int codec_switch_start_timer(struct rfcomm *rfcomm, int timeout_msec);
 
+static void process_iphoneaccev_indicator(struct rfcomm *rfcomm, unsigned int key, unsigned int value)
+{
+	struct impl *backend = rfcomm->backend;
+
+	spa_log_debug(backend->log, "key:%u value:%u", key, value);
+
+	if (key == SPA_BT_HFP_HF_IPHONEACCEV_KEY_BATTERY_LEVEL) {
+		// Battery level is reported in range of 0-9, convert to 10-100%
+		uint8_t level = (SPA_CLAMP(value, 0u, 9u) + 1) * 10;
+		spa_log_debug(backend->log, "battery level: %d%%", (int) level);
+
+		// TODO: report without Battery Provider (using props)
+		spa_bt_device_report_battery_level(rfcomm->device, level);
+	} else {
+		spa_log_warn(backend->log, "unknown AT+IPHONEACCEV key:%u value:%u", key, value);
+	}
+}
+
+static void process_hfp_hf_indicator(struct rfcomm *rfcomm, unsigned int indicator, unsigned int value)
+{
+	struct impl *backend = rfcomm->backend;
+
+	spa_log_debug(backend->log, "indicator:%u value:%u", indicator, value);
+
+	if (indicator == SPA_BT_HFP_HF_INDICATOR_BATTERY_LEVEL) {
+		// Battery level is reported in range 0-100
+		spa_log_debug(backend->log, "battery level: %u%%", value);
+
+		if (value <= 100) {
+			// TODO: report without Battery Provider (using props)
+			spa_bt_device_report_battery_level(rfcomm->device, value);
+		} else {
+			spa_log_warn(backend->log, "battery HF indicator %u outside of range [0, 100]: %u", indicator, value);
+		}
+	} else {
+		spa_log_warn(backend->log, "unknown HF indicator:%u value:%u", indicator, value);
+	}
+}
+
 static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 {
 	struct impl *backend = rfcomm->backend;
 	unsigned int features;
 	unsigned int gain;
-	unsigned int len;
+	unsigned int count, r;
 	unsigned int selected_codec;
 	unsigned int indicator;
 	unsigned int indicator_value;
@@ -819,55 +858,27 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		// is supported
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (sscanf(buf, "AT+BIEV=%u,%u", &indicator, &indicator_value) == 2) {
-		if (indicator == SPA_BT_HFP_HF_INDICATOR_BATTERY_LEVEL) {
-			// Battery level is reported in range 0-100
-			spa_log_debug(backend->log, "battery level: %u%%", indicator_value);
-
-			if (indicator_value <= 100) {
-				// TODO: report without Battery Provider (using props)
-				spa_bt_device_report_battery_level(rfcomm->device, indicator_value);
-			} else {
-				spa_log_warn(backend->log, "battery HF indicator %u outside of range [0, 100]: %u", indicator, indicator_value);
-			}
-		} else {
-			spa_log_warn(backend->log, "unknown HF indicator: %u", indicator);
-		}
+		process_hfp_hf_indicator(rfcomm, indicator, indicator_value);
 	} else if (sscanf(buf, "AT+XAPL=%04x-%04x-%04x,%u", &xapl_vendor, &xapl_product, &xapl_version, &xapl_features) == 4) {
 		if (xapl_features & SPA_BT_HFP_HF_XAPL_FEATURE_BATTERY_REPORTING) {
 			/* claim, that we support battery status reports */
 			rfcomm_send_reply(rfcomm, "+XAPL=iPhone,%u", SPA_BT_HFP_HF_XAPL_FEATURE_BATTERY_REPORTING);
 		}
 		rfcomm_send_reply(rfcomm, "OK");
-	} else if (sscanf(buf, "AT+IPHONEACCEV=%u", &len) == 1) {
-		unsigned int i;
-		int k, v;
-
-		if (len < 1 || len > 100)
+	} else if (sscanf(buf, "AT+IPHONEACCEV=%u%n", &count, &r) == 1) {
+		if (count < 1 || count > 100)
 			return false;
 
-		for (i = 1; i <= len; i++) {
-			buf = strchr(buf, ',');
-			if (buf == NULL)
-				return false;
-			++buf;
-			if (sscanf(buf, "%d", &k) != 1)
+		buf += r;
+
+		for (unsigned int i = 0; i < count; i++) {
+			unsigned int key, value;
+
+			if (sscanf(buf, " , %u , %u%n", &key, &value, &r) != 2)
 				return false;
 
-			buf = strchr(buf, ',');
-			if (buf == NULL)
-				return false;
-			++buf;
-			if (sscanf(buf, "%d", &v) != 1)
-				return false;
-
-			if (k == SPA_BT_HFP_HF_IPHONEACCEV_KEY_BATTERY_LEVEL) {
-				// Battery level is reported in range of 0-9, convert to 0-100%
-				uint8_t level = (SPA_CLAMP(v, 0, 9) + 1) * 10;
-				spa_log_debug(backend->log, "battery level: %d%%", (int)level);
-
-				// TODO: report without Battery Provider (using props)
-				spa_bt_device_report_battery_level(rfcomm->device, level);
-			}
+			process_iphoneaccev_indicator(rfcomm, key, value);
+			buf += r;
 		}
 	} else if (spa_strstartswith(buf, "AT+APLSIRI?")) {
 		// This command is sent when we activate Apple extensions

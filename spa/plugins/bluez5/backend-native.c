@@ -444,7 +444,7 @@ static bool rfcomm_hsp_hs(struct spa_source *source, char* buf)
 		} else {
 			spa_log_debug(backend->log, "RFCOMM receive unsupported VGM gain: %s", buf);
 		}
-	} if (strncmp(buf, "\r\nOK\r\n", 6) == 0) {
+	} if (spa_strstartswith(buf, "\r\nOK\r\n")) {
 		if (rfcomm->hs_state == hsp_hs_init2) {
 			if (rfcomm_send_volume_cmd(&rfcomm->source, SPA_BT_VOLUME_ID_RX))
 				rfcomm->hs_state = hsp_hs_vgs;
@@ -695,7 +695,7 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 		ag_features |= SPA_BT_HFP_AG_FEATURE_HF_INDICATORS;
 		rfcomm_send_reply(rfcomm, "+BRSF: %u", ag_features);
 		rfcomm_send_reply(rfcomm, "OK");
-	} else if (strncmp(buf, "AT+BAC=", 7) == 0) {
+	} else if (spa_strstartswith(buf, "AT+BAC=")) {
 		/* retrieve supported codecs */
 		/* response has the form AT+BAC=<codecID1>,<codecID2>,<codecIDx>
 		   strategy: split the string into tokens */
@@ -723,13 +723,13 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 		}
 
 		rfcomm_send_reply(rfcomm, "OK");
-	} else if (strncmp(buf, "AT+CIND=?", 9) == 0) {
+	} else if (spa_strstartswith(buf, "AT+CIND=?")) {
 		rfcomm_send_reply(rfcomm, "+CIND:(\"service\",(0-1)),(\"call\",(0-1)),(\"callsetup\",(0-3)),(\"callheld\",(0-2))");
 		rfcomm_send_reply(rfcomm, "OK");
-	} else if (strncmp(buf, "AT+CIND?", 8) == 0) {
+	} else if (spa_strstartswith(buf, "AT+CIND?")) {
 		rfcomm_send_reply(rfcomm, "+CIND: 0,0,0,0");
 		rfcomm_send_reply(rfcomm, "OK");
-	} else if (strncmp(buf, "AT+CMER", 7) == 0) {
+	} else if (spa_strstartswith(buf, "AT+CMER")) {
 		rfcomm->slc_configured = true;
 		rfcomm_send_reply(rfcomm, "OK");
 
@@ -873,7 +873,7 @@ static bool rfcomm_hfp_ag(struct spa_source *source, char* buf)
 				spa_bt_device_report_battery_level(rfcomm->device, level);
 			}
 		}
-	} else if (strncmp(buf, "AT+APLSIRI?", 11) == 0) {
+	} else if (spa_strstartswith(buf, "AT+APLSIRI?")) {
 		// This command is sent when we activate Apple extensions
 		rfcomm_send_reply(rfcomm, "OK");
 	} else {
@@ -897,14 +897,14 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 	token = strtok(buf, separators);
 	while (token != NULL)
 	{
-		if (strncmp(token, "+BRSF", 5) == 0) {
+		if (spa_strstartswith(token, "+BRSF")) {
 			/* get next token */
 			token = strtok(NULL, separators);
 			features = atoi(token);
 			if (((features & (SPA_BT_HFP_AG_FEATURE_CODEC_NEGOTIATION)) != 0) &&
 			    rfcomm->msbc_supported_by_hfp)
 				rfcomm->codec_negotiation_supported = true;
-		} else if (strncmp(token, "+BCS", 4) == 0 && rfcomm->codec_negotiation_supported) {
+		} else if (spa_strstartswith(token, "+BCS") && rfcomm->codec_negotiation_supported) {
 			/* get next token */
 			token = strtok(NULL, separators);
 			selected_codec = atoi(token);
@@ -933,10 +933,10 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 					}
 				}
 			}
-		} else if (strncmp(token, "+CIND", 5) == 0) {
+		} else if (spa_strstartswith(token, "+CIND")) {
 			/* get next token and discard it */
 			token = strtok(NULL, separators);
-		} else if (strncmp(token, "+VGM", 4) == 0) {
+		} else if (spa_strstartswith(token, "+VGM")) {
 			/* get next token */
 			token = strtok(NULL, separators);
 			gain = atoi(token);
@@ -946,7 +946,7 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 			} else {
 				spa_log_debug(backend->log, "RFCOMM receive unsupported VGM gain: %s", token);
 			}
-		} else if (strncmp(token, "+VGS", 4) == 0) {
+		} else if (spa_strstartswith(token, "+VGS")) {
 			/* get next token */
 			token = strtok(NULL, separators);
 			gain = atoi(token);
@@ -956,7 +956,7 @@ static bool rfcomm_hfp_hf(struct spa_source *source, char* buf)
 			} else {
 				spa_log_debug(backend->log, "RFCOMM receive unsupported VGS gain: %s", token);
 			}
-		} else if (strncmp(token, "OK", 5) == 0) {
+		} else if (spa_strstartswith(token, "OK")) {
 			switch(rfcomm->hf_state) {
 				case hfp_hf_brsf:
 					if (rfcomm->codec_negotiation_supported) {

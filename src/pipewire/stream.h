@@ -162,6 +162,7 @@ struct pw_stream;
 
 #include <spa/buffer/buffer.h>
 #include <spa/param/param.h>
+#include <spa/pod/command.h>
 
 /** \enum pw_stream_state The state of a stream */
 enum pw_stream_state {

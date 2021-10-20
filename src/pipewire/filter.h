@@ -48,6 +48,7 @@ struct pw_filter;
 #include <spa/buffer/buffer.h>
 #include <spa/node/io.h>
 #include <spa/param/param.h>
+#include <spa/pod/command.h>
 
 #include <pipewire/core.h>
 #include <pipewire/stream.h>

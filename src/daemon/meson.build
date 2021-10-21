@@ -46,21 +46,17 @@ elif default_sm == 'media-session'
   ms_bindir = ms_proj.get_variable('media_session_bin_dir', pipewire_bindir)
   conf_config.set('session_manager_path', ms_bindir / 'pipewire-media-session')
 
-  conf_config_uninstalled.set('session_manager_path',
-    meson.source_root() / 'subprojects' / 'media-session' / 'media-session-uninstalled.sh')
-  conf_config_uninstalled.set('session_manager_args',
-    '-b ' + meson.build_root() / 'subprojects' / 'media-session' + ' pipewire-media-session')
+  ms_uninstalled = ms_proj.get_variable('media_session_uninstalled')
+  conf_config_uninstalled.set('session_manager_path', ms_uninstalled.full_path())
+  conf_config_uninstalled.set('session_manager_args', 'pipewire-media-session')
   conf_config_uninstalled.set('sm_comment', '')
 elif default_sm == 'wireplumber'
   wp_bindir = wp_proj.get_variable('wireplumber_bin_dir', pipewire_bindir)
-
   conf_config.set('session_manager_path', wp_bindir / 'wireplumber')
 
-  # wp-uninstalled.sh -b path/to/wp/build/root wireplumber
-  conf_config_uninstalled.set('session_manager_path',
-    meson.source_root() / 'subprojects' / 'wireplumber' / 'wp-uninstalled.sh')
-  conf_config_uninstalled.set('session_manager_args',
-    '-b ' + meson.build_root() / 'subprojects' / 'wireplumber' + ' wireplumber')
+  wp_uninstalled = wp_proj.get_variable('wireplumber_uninstalled')
+  conf_config_uninstalled.set('session_manager_path', wp_uninstalled.full_path())
+  conf_config_uninstalled.set('session_manager_args', 'wireplumber')
   conf_config_uninstalled.set('sm_comment', '')
 endif
 

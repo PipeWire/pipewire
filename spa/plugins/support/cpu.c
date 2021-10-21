@@ -270,7 +270,7 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, SPA_KEY_CPU_VM_TYPE)) != NULL)
 			this->vm_type = atoi(str);
 		if ((str = spa_dict_lookup(info, SPA_KEY_CPU_ZERO_DENORMALS)) != NULL)
-			impl_cpu_zero_denormals(this, spa_atob(str));
+			spa_cpu_zero_denormals(&this->cpu, spa_atob(str));
 	}
 
 	spa_log_debug(this->log, "%p: count:%d align:%d flags:%08x",

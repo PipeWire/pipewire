@@ -1247,7 +1247,7 @@ static void sco_listen_event(struct spa_source *source)
 {
 	struct impl *backend = source->data;
 	struct sockaddr_sco addr;
-	socklen_t optlen;
+	socklen_t addrlen;
 	int sock = -1;
 	char local_address[18], remote_address[18];
 	struct rfcomm *rfcomm, *rfcomm_tmp;
@@ -1260,10 +1260,10 @@ static void sco_listen_event(struct spa_source *source)
 	}
 
 	memset(&addr, 0, sizeof(addr));
-	optlen = sizeof(addr);
+	addrlen = sizeof(addr);
 
 	spa_log_debug(backend->log, "doing accept");
-	sock = accept(source->fd, (struct sockaddr *) &addr, &optlen);
+	sock = accept(source->fd, (struct sockaddr *) &addr, &addrlen);
 	if (sock < 0) {
 		if (errno != EAGAIN)
 			spa_log_error(backend->log, "SCO accept(): %s", strerror(errno));
@@ -1273,9 +1273,9 @@ static void sco_listen_event(struct spa_source *source)
 	ba2str(&addr.sco_bdaddr, remote_address);
 
 	memset(&addr, 0, sizeof(addr));
-	optlen = sizeof(addr);
+	addrlen = sizeof(addr);
 
-	if (getsockname(sock, (struct sockaddr *) &addr, &optlen) < 0) {
+	if (getsockname(sock, (struct sockaddr *) &addr, &addrlen) < 0) {
 		spa_log_error(backend->log, "SCO getsockname(): %s", strerror(errno));
 		goto fail;
 	}

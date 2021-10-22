@@ -197,7 +197,7 @@ static void test_properties(void)
 	const struct pw_properties *props;
 	struct pw_stream *stream;
 	struct pw_stream_events stream_events = stream_events_error;
-	struct spa_hook listener = { NULL, };
+	struct spa_hook listener = { { NULL }, };
 	struct spa_dict_item items[3];
 
 	loop = pw_main_loop_new(NULL);

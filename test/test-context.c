@@ -126,7 +126,7 @@ PWTEST(context_create)
 {
 	struct pw_main_loop *loop;
 	struct pw_context *context;
-	struct spa_hook listener = { NULL, };
+	struct spa_hook listener = { { NULL }, };
 	struct pw_context_events context_events = context_events_error;
 	int res;
 
@@ -180,7 +180,7 @@ PWTEST(context_properties)
 	struct pw_main_loop *loop;
 	struct pw_context *context;
 	const struct pw_properties *props;
-	struct spa_hook listener = { NULL, };
+	struct spa_hook listener = { { NULL }, };
 	struct pw_context_events context_events = context_events_error;
 	struct spa_dict_item items[3];
 

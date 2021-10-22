@@ -12,7 +12,7 @@ task:
     LDFLAGS: -L$LOCALBASE/lib
   deps_script:
     - sed -i.bak -e 's/quarterly/latest/' /etc/pkg/FreeBSD.conf
-    - pkg install -y meson pkgconf dbus glib libepoll-shim libudev-devd vulkan-loader vulkan-headers gstreamer1 gstreamer1-plugins libinotify gettext libsndfile sdl2 alsa-lib
+    - pkg install -y meson pkgconf git-lite dbus glib libepoll-shim libudev-devd vulkan-loader vulkan-headers gstreamer1 gstreamer1-plugins libinotify gettext libsndfile sdl2 alsa-lib
     - sysrc dbus_enable=YES
     - service dbus restart
   build_script:

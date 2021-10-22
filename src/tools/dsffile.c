@@ -46,11 +46,6 @@ struct dsf_file {
 	size_t offset;
 };
 
-static inline uint16_t parse_le16(const uint8_t *in)
-{
-	return in[0] | (in[1] << 8);
-}
-
 static inline uint32_t parse_le32(const uint8_t *in)
 {
 	return in[0] | (in[1] << 8) | (in[2] << 16) | (in[3] << 24);

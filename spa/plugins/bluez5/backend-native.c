@@ -1059,7 +1059,7 @@ static void rfcomm_event(struct spa_source *source)
 		}
 
 		if (!res) {
-			spa_log_debug(backend->log, "RFCOMM receive unsupported command: %s", buf);
+			spa_log_debug(backend->log, "RFCOMM received unsupported command: %s", buf);
 			rfcomm_send_reply(rfcomm, "ERROR");
 		}
 	}

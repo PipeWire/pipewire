@@ -1250,7 +1250,7 @@ static void sco_listen_event(struct spa_source *source)
 	socklen_t addrlen;
 	int sock = -1;
 	char local_address[18], remote_address[18];
-	struct rfcomm *rfcomm, *rfcomm_tmp;
+	struct rfcomm *rfcomm;
 	struct spa_bt_transport *t = NULL;
 	struct transport_data *td;
 
@@ -1283,7 +1283,7 @@ static void sco_listen_event(struct spa_source *source)
 	ba2str(&addr.sco_bdaddr, local_address);
 
 	/* Find transport for local and remote address */
-	spa_list_for_each_safe(rfcomm, rfcomm_tmp, &backend->rfcomm_list, link) {
+	spa_list_for_each(rfcomm, &backend->rfcomm_list, link) {
 		if (rfcomm->transport && spa_streq(rfcomm->transport->device->address, remote_address) &&
 		    spa_streq(rfcomm->transport->device->adapter->address, local_address)) {
 					t = rfcomm->transport;

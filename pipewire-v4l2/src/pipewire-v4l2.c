@@ -1741,7 +1741,11 @@ static int v4l2_ioctl(int fd, unsigned long int request, void *arg)
 	if ((file = find_file(fd)) == NULL)
 		return globals.old_fops.ioctl(fd, request, arg);
 
+#ifdef __FreeBSD__
+	if (arg == NULL && (request & IOC_DIRMASK != IOC_VOID)) {
+#else
 	if (arg == NULL && (_IOC_DIR(request) & (_IOC_WRITE | _IOC_READ))) {
+#endif
 		res = -EFAULT;
 		goto done;
 	}

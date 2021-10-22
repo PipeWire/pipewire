@@ -165,7 +165,7 @@ static void test_f32_u16(void)
 
 static void test_u16_f32(void)
 {
-	static const int16_t in[] = { 32767, 65535, 0, 49150, 16383, };
+	static const uint16_t in[] = { 32767, 65535, 0, 49150, 16383, };
 	static const float out[] = { 0.0f, 1.0f, -1.0f, 0.4999847412f, -0.4999847412f };
 
 	run_test("test_u16_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),

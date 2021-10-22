@@ -184,6 +184,7 @@ exit:
 	return res;
 }
 
+#if defined(__linux__)
 static int check_flatpak(struct pw_impl_client *client, int pid)
 {
 	char root_path[2048];
@@ -229,6 +230,7 @@ static int check_flatpak(struct pw_impl_client *client, int pid)
 	close(info_fd);
 	return 1;
 }
+#endif
 
 static void
 context_check_access(void *data, struct pw_impl_client *client)

@@ -1063,7 +1063,6 @@ static void rfcomm_event(struct spa_source *source)
 			rfcomm_send_reply(rfcomm, "ERROR");
 		}
 	}
-	return;
 }
 
 static int sco_create_socket(struct impl *backend, struct spa_bt_adapter *adapter, bool msbc)

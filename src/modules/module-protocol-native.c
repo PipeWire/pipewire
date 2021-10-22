@@ -419,9 +419,10 @@ static struct client_data *client_new(struct server *s, int fd)
 	struct pw_impl_client *client;
 	struct pw_protocol *protocol = s->this.protocol;
 	socklen_t len;
-	struct ucred ucred;
 #if defined(__FreeBSD__)
 	struct xucred xucred;
+#else
+	struct ucred ucred;
 #endif
 	struct pw_context *context = protocol->context;
 	struct pw_properties *props;
@@ -477,6 +478,8 @@ static struct client_data *client_new(struct server *s, int fd)
 #endif
 		pw_properties_setf(props, PW_KEY_SEC_UID, "%d", xucred.cr_uid);
 		pw_properties_setf(props, PW_KEY_SEC_GID, "%d", xucred.cr_gid);
+		// this is what Linuxulator does at the moment, see sys/compat/linux/linux_socket.c
+		pw_properties_set(props, PW_KEY_SEC_LABEL, "unconfined");
 	}
 #endif
 

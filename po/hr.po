@@ -9,8 +9,8 @@ msgstr ""
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
 "POT-Creation-Date: 2021-04-18 16:54+0800\n"
-"PO-Revision-Date: 2020-07-15 19:29+0000\n"
-"Last-Translator: Milo Ivir <mail@milotype.de>\n"
+"PO-Revision-Date: 2021-10-23 19:58+0200\n"
+"Last-Translator: gogo <trebelnik2@gmail.com>\n"
 "Language-Team: Croatian <https://translate.fedoraproject.org/projects/"
 "pipewire/pipewire/hr/>\n"
 "Language: hr\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
 "%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 4.1.1\n"
+"X-Generator: Poedit 2.3\n"
 "X-Launchpad-Export-Date: 2017-04-20 21:04+0000\n"
 
 #: src/daemon/pipewire.c:43
@@ -30,14 +30,18 @@ msgid ""
 "      --version                         Show version\n"
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
+"%s [mogućnosti]\n"
+"  -h, --help                            Prikaži ovu pomoć\n"
+"      --version                         Prikaži inačicu\n"
+"  -c, --config                          Učitaj podešavanje (Zadano %s)\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr ""
+msgstr "PipeWire medijski sustav"
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr ""
+msgstr "Pokreni PipeWire medijski sustav"
 
 #: src/examples/media-session/alsa-monitor.c:526
 #: spa/plugins/alsa/acp/compat.c:187
@@ -51,7 +55,7 @@ msgstr "Modem"
 
 #: src/examples/media-session/alsa-monitor.c:539
 msgid "Unknown device"
-msgstr ""
+msgstr "Nepoznat uređaj"
 
 #: src/tools/pw-cat.c:991
 #, c-format
@@ -62,6 +66,11 @@ msgid ""
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
+"%s [mogućnosti] <datoteka>\n"
+"  -h, --help                            Prikaži ovu pomoć\n"
+"      --version                         Prikaži inačicu\n"
+"  -v, --verbose                         Omogući opširnije radnje\n"
+"\n"
 
 #: src/tools/pw-cat.c:998
 #, c-format
@@ -80,6 +89,25 @@ msgid ""
 "      --list-targets                    List available targets for --target\n"
 "\n"
 msgstr ""
+"  -R, --remote                          Naziv udaljenog pozadinskog "
+"programa\n"
+"      --media-type                      Postavi vrstu medija (zadano je %s)\n"
+"      --media-category                  Postavi kategoriju medija (zadano je "
+"%s)\n"
+"      --media-role                      Postavi namjenu medija (zadano je "
+"%s)\n"
+"      --target                          Postavi odredište čvora (zadano je "
+"%s)\n"
+"                                          0 znači bez povezivanja\n"
+"      --latency                         Postavi latenciju čvora (zadano je "
+"%s)\n"
+"                                          Xunit (jedinica = s, ms, us, ns)\n"
+"                                          ili izravne uzorke (256)\n"
+"                                          frekvencija je jednaka izvornoj "
+"datoteci\n"
+"      --list-targets                    Prikaži dostupna odredišta za --"
+"target\n"
+"\n"
 
 #: src/tools/pw-cat.c:1016
 #, c-format
@@ -100,6 +128,22 @@ msgid ""
 "%d)\n"
 "\n"
 msgstr ""
+"      --rate                            Frekvencija (potrebno za snimanje) "
+"(zadano je %u)\n"
+"      --channels                        Broj kanala (potrebno za snimanje) "
+"(zadano je %u)\n"
+"      --channel-map                     Broj kanala\n"
+"                                            jedan od: \"stereo\", "
+"\"surround-51\",... ili\n"
+"                                            zarezom odvojen popis naziva "
+"kanala: npr. \"FL,FR\"\n"
+"      --format                          Format %s (potrebno za snimanje) "
+"(zadano je  %s)\n"
+"      --volume                          Glasnoća zvuka strujanja 0-1.0 "
+"(zadano je %.3f)\n"
+"  -q  --quality                         Kvaliteta normalizacije zvuka (0 - "
+"15) (zadano je %d)\n"
+"\n"
 
 #: src/tools/pw-cat.c:1033
 msgid ""
@@ -108,6 +152,10 @@ msgid ""
 "  -m, --midi                            Midi mode\n"
 "\n"
 msgstr ""
+"  -p, --playback                        Način reprodukcije\n"
+"  -r, --record                          Način snimanja\n"
+"  -m, --midi                            Midi način\n"
+"\n"
 
 #: src/tools/pw-cli.c:2932
 #, c-format
@@ -119,10 +167,18 @@ msgid ""
 "  -r, --remote                          Remote daemon name\n"
 "\n"
 msgstr ""
+"%s [mogućnosti] [naredba]\n"
+"  -h, --help                            Prikaži ovu pomoć\n"
+"      --version                         Prikaži inačicu\n"
+"  -d, --daemon                          Pokreni kao pozadinski program "
+"(Zadano je laž)\n"
+"  -r, --remote                          Naziv udaljenog pozadinskog "
+"programa\n"
+"\n"
 
 #: spa/plugins/alsa/acp/acp.c:290
 msgid "Pro Audio"
-msgstr ""
+msgstr "Pro Audio"
 
 #: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4704
 #: spa/plugins/bluez5/bluez5-device.c:1000
@@ -248,9 +304,8 @@ msgid "Analog Output"
 msgstr "Analogni izlaz"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2809
-#, fuzzy
 msgid "Headphones 2"
-msgstr "Slušalice"
+msgstr "Slušalice 2"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2810
 msgid "Headphones Mono Output"
@@ -270,7 +325,7 @@ msgstr "Zvučnici"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2814
 msgid "HDMI / DisplayPort"
-msgstr "HDMI / Ekranski priključak"
+msgstr "HDMI / DisplayPort"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2815
 msgid "Digital Output (S/PDIF)"
@@ -298,28 +353,24 @@ msgid "Chat Output"
 msgstr "Izlaz razgovora"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2822
-#, fuzzy
 msgid "Chat Input"
-msgstr "Izlaz razgovora"
+msgstr "Ulaz razgovora"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2823
-#, fuzzy
 msgid "Virtual Surround 7.1"
-msgstr "Virtalni surround slivnik"
+msgstr "Virtalni surround 7.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4527
 msgid "Analog Mono"
 msgstr "Analogni mono"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4528
-#, fuzzy
 msgid "Analog Mono (Left)"
-msgstr "Analogni mono"
+msgstr "Analogni mono (lijevi)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4529
-#, fuzzy
 msgid "Analog Mono (Right)"
-msgstr "Analogni mono"
+msgstr "Analogni mono (desni)"
 
 #. Note: Not translated to "Analog Stereo Input", because the source
 #. * name gets "Input" appended to it automatically, so adding "Input"
@@ -348,7 +399,6 @@ msgstr "Slušalice s mikrofonom"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4541
 #: spa/plugins/alsa/acp/alsa-mixer.c:4699
-#, fuzzy
 msgid "Speakerphone"
 msgstr "Zvučnik"
 
@@ -427,11 +477,11 @@ msgstr "Digitalni surround 5.1 (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4561
 msgid "Chat"
-msgstr ""
+msgstr "Razgovor"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4562
 msgid "Game"
-msgstr ""
+msgstr "Igra"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4696
 msgid "Analog Mono Duplex"
@@ -455,7 +505,7 @@ msgstr "Stereo obostrani"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4703
 msgid "Mono Chat + 7.1 Surround"
-msgstr ""
+msgstr "Mono razgovor + 7.1 Surround"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4806
 #, c-format
@@ -566,34 +616,34 @@ msgstr[2] ""
 
 #: spa/plugins/bluez5/bluez5-device.c:1010
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
-msgstr ""
+msgstr "Zvučni pristupnik (A2DP izvor i HSP/HFP AG)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1033
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
-msgstr ""
+msgstr "Reprodukcija visoke autentičnosti (A2DP slivnik, kôdek %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1035
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
-msgstr ""
+msgstr "Telefonija visoke autentičnosti (A2DP slivnik, kôdek %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1041
 msgid "High Fidelity Playback (A2DP Sink)"
-msgstr ""
+msgstr "Reprodukcija visoke autentičnosti (A2DP slivnik)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1043
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
-msgstr ""
+msgstr "Telefonija visoke autentičnosti (A2DP izvor/slivnik)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1070
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr ""
+msgstr "Jedinica slušalice s mikrofonom (HSP/HFP, kôdek %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1074
 msgid "Headset Head Unit (HSP/HFP)"
-msgstr ""
+msgstr "Jedinica slušalice s mikrofonom (HSP/HFP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"
@@ -620,6 +670,5 @@ msgid "Phone"
 msgstr "Telefon"
 
 #: spa/plugins/bluez5/bluez5-device.c:1181
-#, fuzzy
 msgid "Bluetooth"
-msgstr "Bluetooth ulaz"
+msgstr "Bluetooth"

@@ -58,6 +58,9 @@ elif default_sm == 'wireplumber'
   conf_config_uninstalled.set('session_manager_path', wp_uninstalled.full_path())
   conf_config_uninstalled.set('session_manager_args', 'wireplumber')
   conf_config_uninstalled.set('sm_comment', '')
+else
+  conf_config_uninstalled.set('session_manager_path', default_sm)
+  conf_config_uninstalled.set('sm_comment', '')
 endif
 
 conf_files = [

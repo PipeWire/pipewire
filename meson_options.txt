@@ -208,7 +208,6 @@ option('libusb',
        type: 'feature',
        value: 'auto')
 option('session-managers',
-       description : 'Session managers to build (can be [] for none)',
+       description : 'Session managers to build (can be [] for none or an absolute path)',
        type : 'array',
-       choices : ['media-session', 'wireplumber'],
        value : ['media-session'])

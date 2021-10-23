@@ -50,7 +50,7 @@ static const char *port_types[] = {
 
 static const char *str_port_type(pa_device_port_type_t type)
 {
-	int idx = (type >= 0 && type < PA_ELEMENTSOF(port_types)) ? type : 0;
+	int idx = (type < PA_ELEMENTSOF(port_types)) ? type : 0;
 	return port_types[idx];
 }
 

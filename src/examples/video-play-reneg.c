@@ -181,6 +181,7 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 
 		pw_loop_update_timer(pw_main_loop_get_loop(data->loop),
 				data->timer, &timeout, &interval, false);
+		break;
 	}
 	default:
 		break;

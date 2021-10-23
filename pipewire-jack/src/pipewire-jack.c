@@ -760,7 +760,7 @@ void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto
 	}							\
 })
 
-#define do_callback(c,callback,...) do_callback_expr(c,{},callback,__VA_ARGS__)
+#define do_callback(c,callback,...) do_callback_expr(c,(void)0,callback,__VA_ARGS__)
 
 #define do_rt_callback_res(c,callback,...)			\
 ({								\

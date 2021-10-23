@@ -411,9 +411,9 @@ static void impl_on_notify_events(struct spa_source *source)
 {
 	bool deleted = false;
 	struct impl *this = source->data;
-	struct {
-		struct inotify_event e;
-		char name[NAME_MAX+1];
+	union {
+		unsigned char name[sizeof(struct inotify_event) + NAME_MAX + 1];
+		struct inotify_event e; /* for appropriate alignment */
 	} buf;
 
 	while (true) {

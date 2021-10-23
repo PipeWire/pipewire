@@ -306,6 +306,11 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	fprintf(stderr, "got format:\n");
 	spa_debug_format(2, NULL, param);
 
+	if (!spa_pod_is_fixated(param)) {
+		fprintf(stderr, "not fixated\n");
+		return;
+	}
+
 	if (spa_format_parse(param, &data->format.media_type, &data->format.media_subtype) < 0)
 		return;
 

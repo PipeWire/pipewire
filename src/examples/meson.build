@@ -16,6 +16,14 @@ executable('video-src-reneg',
   install_dir : installed_tests_execdir / 'examples',
   dependencies : [pipewire_dep, mathlib],
 )
+if drm_dep.found()
+  executable('video-src-fixate',
+    'video-src-fixate.c',
+    install : installed_tests_enabled,
+    install_dir : installed_tests_execdir / 'examples',
+    dependencies : [pipewire_dep, drm_dep, mathlib],
+  )
+endif
 executable('audio-src',
   'audio-src.c',
   install : installed_tests_enabled,
@@ -76,6 +84,14 @@ if sdl_dep.found()
     install_dir : installed_tests_execdir / 'examples',
     dependencies : [pipewire_dep, sdl_dep, mathlib],
   )
+  if drm_dep.found()
+    executable('video-play-fixate',
+      'video-play-fixate.c',
+      install : installed_tests_enabled,
+      install_dir : installed_tests_execdir / 'examples',
+      dependencies : [pipewire_dep, sdl_dep, drm_dep, mathlib],
+    )
+  endif
   executable('video-play-pull',
     'video-play-pull.c',
     install : installed_tests_enabled,

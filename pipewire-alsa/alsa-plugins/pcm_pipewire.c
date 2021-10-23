@@ -766,7 +766,7 @@ static enum snd_pcm_chmap_position channel_to_chmap(enum spa_audio_channel chann
 
 static enum spa_audio_channel chmap_to_channel(enum snd_pcm_chmap_position pos)
 {
-	if (pos < 0 || pos >= SPA_N_ELEMENTS(chmap_info))
+	if (pos >= SPA_N_ELEMENTS(chmap_info))
 		return SPA_AUDIO_CHANNEL_UNKNOWN;
 	return chmap_info[pos].channel;
 }

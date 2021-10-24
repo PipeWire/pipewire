@@ -47,9 +47,9 @@ elif default_sm == 'media-session'
   conf_config.set('session_manager_path', ms_bindir / 'pipewire-media-session')
 
   conf_config_uninstalled.set('session_manager_path',
-    meson.source_root() / 'subprojects' / 'pipewire-media-session' / 'media-session-uninstalled.sh')
+    meson.source_root() / 'subprojects' / 'media-session' / 'media-session-uninstalled.sh')
   conf_config_uninstalled.set('session_manager_args',
-    '-b ' + meson.build_root() / 'subprojects' / 'pipewire-media-session' + ' pipewire-media-session')
+    '-b ' + meson.build_root() / 'subprojects' / 'media-session' + ' pipewire-media-session')
   conf_config_uninstalled.set('sm_comment', '')
 elif default_sm == 'wireplumber'
   wp_bindir = wp_proj.get_variable('wireplumber_bin_dir', pipewire_bindir)

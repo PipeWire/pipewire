@@ -143,7 +143,7 @@ static int arm_zero_denormals(void *object, bool enable)
 			"msr	fpcr, %0		\n"
 			"isb				\n"
 			: "=r"(cw)::"memory");
-#else
+#elif (defined(__VFP_FP__) && !defined(__SOFTFP__))
 	uint32_t cw;
 	if (enable)
 		__asm__ __volatile__(

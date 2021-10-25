@@ -214,7 +214,7 @@ on_process(void *_data)
 	if (buf->datas[0].type == SPA_DATA_DmaBuf) {
 		// Simulate a failed import of a DmaBuf
 		// We should try another modifier
-		printf("Failed to import dmabuf, stripping modifier %ul\n", data->format.info.raw.modifier);
+		printf("Failed to import dmabuf, stripping modifier %"PRIu64"\n", data->format.info.raw.modifier);
 		strip_modifier(data, data->format.info.raw.format, data->format.info.raw.modifier);
 		pw_loop_signal_event(pw_main_loop_get_loop(data->loop), data->reneg);
 		goto done;
@@ -263,15 +263,6 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 	case PW_STREAM_STATE_PAUSED:
 		break;
 	case PW_STREAM_STATE_STREAMING:
-	{
-		struct timespec timeout, interval;
-
-		timeout.tv_sec = 1;
-		timeout.tv_nsec = 0;
-		interval.tv_sec = 1;
-		interval.tv_nsec = 0;
-
-	}
 	default:
 		break;
 	}

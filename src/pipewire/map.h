@@ -74,7 +74,7 @@ extern "C" {
  * first item to get re-used on the next insert.
  */
 union pw_map_item {
-	uint32_t next;	/* next free index */
+	uintptr_t next;	/* next free index */
 	void *data;	/* data of this item, must be an even address */
 };
 

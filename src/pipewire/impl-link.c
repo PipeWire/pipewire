@@ -486,6 +486,9 @@ static int do_allocation(struct pw_impl_link *this)
 
 	pw_log_debug("%p: out-state:%d in-state:%d", this, output->state, input->state);
 
+	if (input->state != PW_IMPL_PORT_STATE_READY && output->state != PW_IMPL_PORT_STATE_READY)
+		return 0;
+
 	link_update_state(this, PW_LINK_STATE_ALLOCATING, 0, NULL);
 
 	out_flags = output->spa_flags;

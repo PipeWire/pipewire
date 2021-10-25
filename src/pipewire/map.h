@@ -182,20 +182,9 @@ static inline int pw_map_insert_at(struct pw_map *map, uint32_t id, void *data)
 		if (item == NULL)
 			return -errno;
 	} else {
-		if (pw_map_id_is_free(map, id)) {
-			uint32_t *current = &map->free_list;
-			while (*current != SPA_ID_INVALID) {
-				uint32_t current_id = (*current) >> 1;
-				uint32_t *next = &pw_map_get_item(map, current_id)->next;
-
-				if (current_id == id) {
-					*current = *next;
-					break;
-				}
-				current = next;
-			}
-		}
 		item = pw_map_get_item(map, id);
+		if (pw_map_item_is_free(item))
+			return -EINVAL;
 	}
 	item->data = data;
 	return 0;

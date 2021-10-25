@@ -188,7 +188,6 @@ PWTEST(map_insert_at_free)
 	int data[3] = {1, 2, 3};
 	int new_data = 4;
 	int *ptr[3] = {&data[0], &data[1], &data[3]};
-	int *new_ptr = &new_data;
 	int idx[3];
 	int rc;
 
@@ -225,21 +224,7 @@ PWTEST(map_insert_at_free)
 	}
 
 	rc = pw_map_insert_at(&map, item_idx, &new_data);
-	pwtest_neg_errno_ok(rc);
-	pwtest_ptr_eq(new_ptr, pw_map_lookup(&map, item_idx));
-
-	if (before_idx != SKIP && before_idx != item_idx) {
-		rc = pw_map_insert_at(&map, before_idx, &ptr[before_idx]);
-		pwtest_neg_errno_ok(rc);
-		pwtest_ptr_eq(&ptr[before_idx], pw_map_lookup(&map, before_idx));
-	}
-
-	if (after_idx != SKIP && after_idx != item_idx) {
-		rc = pw_map_insert_at(&map, after_idx, &ptr[after_idx]);
-		pwtest_neg_errno_ok(rc);
-		pwtest_ptr_eq(&ptr[after_idx], pw_map_lookup(&map, after_idx));
-	}
-
+	pwtest_neg_errno(rc, -EINVAL);
 	pw_map_clear(&map);
 
 	return PWTEST_PASS;

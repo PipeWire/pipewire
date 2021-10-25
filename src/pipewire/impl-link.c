@@ -358,10 +358,11 @@ static int do_negotiate(struct pw_impl_link *this)
 		}
 	}
 
-	pw_log_debug("%p: doing set format %p", this, format);
 	pw_log_pod(SPA_LOG_LEVEL_DEBUG, format);
 
 	SPA_POD_OBJECT_ID(format) = SPA_PARAM_Format;
+	pw_log_debug("%p: doing set format %p fixated:%d", this,
+			format, spa_pod_is_fixated(format));
 
 	if (out_state == PW_IMPL_PORT_STATE_CONFIGURE) {
 		pw_log_debug("%p: doing set format on output", this);

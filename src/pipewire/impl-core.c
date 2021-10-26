@@ -34,6 +34,19 @@
 #include <sys/random.h>
 #endif
 
+#ifndef HAVE_GETRANDOM
+#include <fcntl.h>
+
+ssize_t getrandom(void *buf, size_t buflen, unsigned int flags) {
+	int fd = open("/dev/random", O_CLOEXEC);
+	if (fd < 0)
+		return -1;
+	ssize_t bytes = read(fd, buf, buflen);
+	close(fd);
+	return bytes;
+}
+#endif
+
 #include <spa/utils/string.h>
 #include <spa/debug/types.h>
 

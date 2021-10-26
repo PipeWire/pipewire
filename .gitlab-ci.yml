@@ -249,6 +249,19 @@ build_session_managers:
       - SESSION_MANAGERS: ["[]", "wireplumber", "media-session", "media-session,wireplumber", "wireplumber,media-session" ]
   allow_failure: true
 
+build_meson_prerelease:
+  extends:
+    - .build_on_fedora
+  script:
+    - pip3 install --upgrade --pre meson
+    - echo "Building with meson options $MESON_OPTIONS"
+    - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
+    - ninja -C "$BUILD_DIR"
+    - ninja -C "$BUILD_DIR" install
+  variables:
+    MESON_OPTIONS: "-Dsession-managers=wireplumber,media-session"
+  allow_failure: true
+
 valgrind:
   extends:
     - .build_on_fedora

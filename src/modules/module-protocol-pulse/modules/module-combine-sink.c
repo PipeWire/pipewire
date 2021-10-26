@@ -260,10 +260,10 @@ static void manager_added(void *d, struct pw_manager_object *o)
 		cstream = &data->streams[i];
 	}
 
-	snprintf(buffer, sizeof(buffer), "Simultaneous output on %s",
-			pw_properties_get(o->props, PW_KEY_NODE_DESCRIPTION));
-
 	props = pw_properties_new(NULL, NULL);
+	pw_properties_setf(props, PW_KEY_NODE_NAME,
+			"combine_output.sink-%u.%s", data->module->idx, sink_name);
+	pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, data->sink_name);
 	pw_properties_set(props, PW_KEY_NODE_TARGET, sink_name);
 	pw_properties_setf(props, PW_KEY_NODE_GROUP, "combine_sink-%u", data->module->idx);
 	pw_properties_setf(props, PW_KEY_NODE_LINK_GROUP, "combine_sink-%u", data->module->idx);
@@ -272,7 +272,7 @@ static void manager_added(void *d, struct pw_manager_object *o)
 	pw_properties_set(props, PW_KEY_NODE_PASSIVE, "true");
 
 	cstream->data = data;
-	cstream->stream = pw_stream_new(data->core, buffer, props);
+	cstream->stream = pw_stream_new(data->core, NULL, props);
 	if (cstream->stream == NULL) {
 		pw_log_error("Could not create stream");
 		return;
@@ -334,6 +334,7 @@ static int module_combine_sink_load(struct client *client, struct module *module
 	const struct spa_pod *params[1];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	const char *str;
 
 	data->core = pw_context_connect(module->impl->context,
 			pw_properties_copy(client->props),
@@ -346,12 +347,16 @@ static int module_combine_sink_load(struct client *client, struct module *module
 			&core_events, data);
 
 	props = pw_properties_new(NULL, NULL);
+
 	pw_properties_set(props, PW_KEY_NODE_NAME, data->sink_name);
 	pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, data->sink_name);
 	pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 	pw_properties_setf(props, PW_KEY_NODE_GROUP, "combine_sink-%u", data->module->idx);
 	pw_properties_setf(props, PW_KEY_NODE_LINK_GROUP, "combine_sink-%u", data->module->idx);
 	pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
+
+	if ((str = pw_properties_get(module->props, "sink_properties")) != NULL)
+		module_args_add_props(props, str);
 
 	data->sink = pw_stream_new(data->core, data->sink_name, props);
 	if (data->sink == NULL)

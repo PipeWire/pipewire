@@ -676,7 +676,7 @@ static struct object *find_link(struct client *c, uint32_t src, uint32_t dst)
 	return NULL;
 }
 
-static struct buffer *dequeue_buffer(struct mix *mix)
+static struct buffer *dequeue_buffer(struct client *c, struct mix *mix)
 {
 	struct buffer *b;
 
@@ -686,6 +686,7 @@ static struct buffer *dequeue_buffer(struct mix *mix)
 	b = spa_list_first(&mix->queue, struct buffer, link);
 	spa_list_remove(&b->link);
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+	pw_log_trace_fp("%p: port %p: dequeue buffer %d", c, mix->port, b->id);
 
 	return b;
 }

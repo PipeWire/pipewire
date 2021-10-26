@@ -166,10 +166,24 @@ static void on_in_stream_state_changed(void *d, enum pw_stream_state old,
 {
 	struct module_combine_sink_data *data = d;
 	struct module *module = data->module;
+	uint32_t i;
 
-	if (state == PW_STREAM_STATE_UNCONNECTED) {
+	switch (state) {
+	case PW_STREAM_STATE_PAUSED:
+		pw_stream_flush(data->sink, false);
+		for (i = 0; i < MAX_SINKS; i++) {
+			struct combine_stream *s = &data->streams[i];
+			if (s->stream == NULL || s->cleanup)
+				continue;
+			pw_stream_flush(s->stream, false);
+		}
+		break;
+	case PW_STREAM_STATE_UNCONNECTED:
 		pw_log_info("stream disconnected, unloading");
 		module_schedule_unload(module);
+		break;
+	default:
+		break;
 	}
 }
 

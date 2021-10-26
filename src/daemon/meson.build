@@ -23,8 +23,8 @@ conf_config_uninstalled.set('pipewire_pulse_path',
   meson.build_root() / 'src' / 'daemon' / 'pipewire-pulse')
 conf_config_uninstalled.set('pulse_comment', '')
 
-build_ms = get_option('session-managers').contains('media-session')
-build_wp = get_option('session-managers').contains('wireplumber')
+build_ms = 'media-session' in get_option('session-managers')
+build_wp = 'wireplumber' in get_option('session-managers')
 default_sm = get_option('session-managers').get(0, '')
 
 summary({'Build media-session': build_ms,

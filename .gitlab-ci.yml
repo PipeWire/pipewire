@@ -262,6 +262,22 @@ build_meson_prerelease:
     MESON_OPTIONS: "-Dsession-managers=wireplumber,media-session"
   allow_failure: true
 
+build_meson_exact_release:
+  extends:
+    - .build_on_fedora
+  script:
+    - meson_version=$(head -n 5 meson.build | grep 'meson_version' | sed -e 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/')
+    - echo "Requiring meson version $meson_version"
+    - test -n "$meson_version" || (echo "Meson version parser failed" && exit 1)
+    - pip3 uninstall --yes meson
+    - pip3 install "meson==$meson_version"
+    - echo "Building with meson options $MESON_OPTIONS"
+    - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
+    - ninja -C "$BUILD_DIR"
+    - ninja -C "$BUILD_DIR" install
+  variables:
+    MESON_OPTIONS: "-Dsession-managers=[]"
+
 valgrind:
   extends:
     - .build_on_fedora

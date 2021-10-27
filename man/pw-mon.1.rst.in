@@ -33,6 +33,10 @@ OPTIONS
 --version
   Show version information.
 
+-N | --color=WHEN
+  Whether to use color, one of 'never', 'always', or 'auto'. The
+  default is 'auto'. **-N** is equivalent to **--color=never**.
+
 AUTHORS
 =======
 

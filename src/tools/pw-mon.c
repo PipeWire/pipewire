@@ -25,9 +25,11 @@
 #include <stdio.h>
 #include <signal.h>
 #include <getopt.h>
+#include <unistd.h>
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
+#include <spa/utils/ansi.h>
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
@@ -37,6 +39,20 @@
 struct proxy_data;
 
 typedef void (*print_func_t) (struct proxy_data *data);
+
+static struct pprefix {
+	const char *prefix;
+	const char *suffix;
+} pprefix[2] = {
+	{ .prefix = " ", .suffix = "" },
+	{ .prefix = "*", .suffix = "" },
+};
+
+#define with_prefix(use_prefix_, stream_) \
+   for (bool once_ = !!fprintf(stream_, "%s", (pprefix[!!(use_prefix_)]).prefix); \
+	once_; \
+	once_ = false, fprintf(stream_, "%s", (pprefix[!!(use_prefix_)]).suffix))
+
 
 struct param {
 	struct spa_list link;
@@ -155,41 +171,51 @@ static void event_param(void *object, int seq, uint32_t id,
 	spa_list_append(&data->param_list, &p->link);
 }
 
-static void print_params(struct proxy_data *data, const char *mark)
+static void print_params(struct proxy_data *data, bool use_prefix)
 {
 	struct param *p;
 
-	fprintf(stderr, "%s\tparams:\n", mark);
+	with_prefix(use_prefix, stderr) {
+		fprintf(stderr, "\tparams:\n");
+	}
+
 	spa_list_for_each(p, &data->param_list, link) {
-		fprintf(stderr, "%s\t  id:%u (%s)\n", p->changed ? mark : " ", p->id,
-			spa_debug_type_find_name(spa_type_param, p->id));
-		if (spa_pod_is_object_type(p->param, SPA_TYPE_OBJECT_Format))
-			spa_debug_format(10, NULL, p->param);
-		else
-			spa_debug_pod(10, NULL, p->param);
+		with_prefix(p->changed, stderr) {
+			fprintf(stderr, "\t  id:%u (%s)\n",
+				p->id,
+				spa_debug_type_find_name(spa_type_param, p->id));
+			if (spa_pod_is_object_type(p->param, SPA_TYPE_OBJECT_Format))
+				spa_debug_format(10, NULL, p->param);
+			else
+				spa_debug_pod(10, NULL, p->param);
+		}
 		p->changed = false;
 	}
 }
 
-static void print_properties(const struct spa_dict *props, const char *mark)
+static void print_properties(const struct spa_dict *props, bool use_prefix)
 {
 	const struct spa_dict_item *item;
 
-	fprintf(stderr, "%s\tproperties:\n", mark);
-	if (props == NULL || props->n_items == 0) {
-		fprintf(stderr, "\t\tnone\n");
-		return;
+	with_prefix(use_prefix, stderr) {
+		fprintf(stderr, "\tproperties:\n");
+		if (props == NULL || props->n_items == 0) {
+			fprintf(stderr, "\t\tnone\n");
+			return;
+		}
 	}
 
 	spa_dict_for_each(item, props) {
-		if (item->value)
-			fprintf(stderr, "%s\t\t%s = \"%s\"\n", mark, item->key, item->value);
-		else
-			fprintf(stderr, "%s\t\t%s = (null)\n", mark, item->key);
+		with_prefix(use_prefix, stderr) {
+			if (item->value)
+				fprintf(stderr, "\t\t%s = \"%s\"\n", item->key, item->value);
+			else
+				fprintf(stderr, "\t\t%s = (null)\n", item->key);
+		}
 	}
 }
 
-#define MARK_CHANGE(f) ((print_mark && ((info)->change_mask & (f))) ? "*" : " ")
+#define MARK_CHANGE(f) (!!(print_mark && ((info)->change_mask & (f))))
 
 static void on_core_info(void *data, const struct pw_core_info *info)
 {
@@ -262,12 +288,18 @@ static void print_node(struct proxy_data *data)
 	fprintf(stderr, "\ttype: %s (version %d)\n", data->type, data->version);
 	if (print_all) {
 		print_params(data, MARK_CHANGE(PW_NODE_CHANGE_MASK_PARAMS));
-		fprintf(stderr, "%s\tinput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_INPUT_PORTS),
+		with_prefix(MARK_CHANGE(PW_NODE_CHANGE_MASK_INPUT_PORTS), stderr) {
+			fprintf(stderr, "\tinput ports: %u/%u\n",
 				info->n_input_ports, info->max_input_ports);
-		fprintf(stderr, "%s\toutput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_OUTPUT_PORTS),
+		}
+		with_prefix(MARK_CHANGE(PW_NODE_CHANGE_MASK_OUTPUT_PORTS), stderr) {
+			fprintf(stderr, "\toutput ports: %u/%u\n",
 				info->n_output_ports, info->max_output_ports);
-		fprintf(stderr, "%s\tstate: \"%s\"", MARK_CHANGE(PW_NODE_CHANGE_MASK_STATE),
+		}
+		with_prefix(MARK_CHANGE(PW_NODE_CHANGE_MASK_STATE), stderr) {
+			fprintf(stderr, "\tstate: \"%s\"",
 				pw_node_state_as_string(info->state));
+		}
 		if (info->state == PW_NODE_STATE_ERROR && info->error)
 			fprintf(stderr, " \"%s\"\n", info->error);
 		else
@@ -459,17 +491,21 @@ static void link_event_info(void *object, const struct pw_link_info *info)
 	fprintf(stderr, "\tinput-node-id: %u\n", info->input_node_id);
 	fprintf(stderr, "\tinput-port-id: %u\n", info->input_port_id);
 	if (print_all) {
-		fprintf(stderr, "%s\tstate: \"%s\"", MARK_CHANGE(PW_LINK_CHANGE_MASK_STATE),
+		with_prefix(MARK_CHANGE(PW_LINK_CHANGE_MASK_STATE), stderr) {
+			fprintf(stderr, "\tstate: \"%s\"",
 				pw_link_state_as_string(info->state));
+		}
 		if (info->state == PW_LINK_STATE_ERROR && info->error)
 			fprintf(stderr, " \"%s\"\n", info->error);
 		else
 			fprintf(stderr, "\n");
-		fprintf(stderr, "%s\tformat:\n", MARK_CHANGE(PW_LINK_CHANGE_MASK_FORMAT));
-		if (info->format)
-			spa_debug_format(2, NULL, info->format);
-		else
-			fprintf(stderr, "\t\tnone\n");
+		with_prefix(MARK_CHANGE(PW_LINK_CHANGE_MASK_FORMAT), stderr) {
+			fprintf(stderr, "\tformat:\n");
+			if (info->format)
+				spa_debug_format(2, NULL, info->format);
+			else
+				fprintf(stderr, "\t\tnone\n");
+		}
 		print_properties(info->props, MARK_CHANGE(PW_LINK_CHANGE_MASK_PROPS));
 	}
 }
@@ -617,7 +653,7 @@ static void registry_event_global(void *data, uint32_t id,
 		fprintf(stderr, "\tpermissions: "PW_PERMISSION_FORMAT"\n",
 				PW_PERMISSION_ARGS(permissions));
 		fprintf(stderr, "\ttype: %s (version %d)\n", type, version);
-		print_properties(props, " ");
+		print_properties(props, false);
 		return;
 	}
 
@@ -710,7 +746,9 @@ static void show_help(const char *name)
         fprintf(stdout, "%s [options]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
-		"  -r, --remote                          Remote daemon name\n",
+		"  -r, --remote                          Remote daemon name\n"
+		"  -N, --no-colors                       disable color output\n"
+		"  -C, --color[=WHEN]                    whether to enable color support. WHEN is `never`, `always`, or `auto`\n",
 		name);
 }
 
@@ -723,11 +761,17 @@ int main(int argc, char *argv[])
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
 		{ "remote",	required_argument,	NULL, 'r' },
+		{ "no-colors",	no_argument,		NULL, 'N' },
+		{ "color",	optional_argument,	NULL, 'C' },
 		{ NULL,	0, NULL, 0}
 	};
 	int c;
+	bool colors = false;
 
 	pw_init(&argc, &argv);
+
+	if (isatty(STDERR_FILENO) && getenv("NO_COLOR") == NULL)
+		colors = true;
 
 	while ((c = getopt_long(argc, argv, "hVr:", long_options, NULL)) != -1) {
 		switch (c) {
@@ -745,10 +789,31 @@ int main(int argc, char *argv[])
 		case 'r':
 			opt_remote = optarg;
 			break;
+		case 'N' :
+			colors = false;
+			break;
+		case 'C' :
+			if (optarg == NULL || !strcmp(optarg, "auto"))
+				break; /* nothing to do, tty detection was done
+					  before parsing options */
+			else if (!strcmp(optarg, "never"))
+				colors = false;
+			else if (!strcmp(optarg, "always"))
+				colors = true;
+			else {
+				show_help(argv[0]);
+				return -1;
+			}
+			break;
 		default:
 			show_help(argv[0]);
 			return -1;
 		}
+	}
+
+	if (colors) {
+		pprefix[1].prefix = SPA_ANSI_RED "*";
+		pprefix[1].suffix = SPA_ANSI_RESET;
 	}
 
 	data.loop = pw_main_loop_new(NULL);

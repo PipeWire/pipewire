@@ -1,3 +1,84 @@
+# PipeWire 0.3.40 (2021-11-11)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Producers and consumers can now incrementally negotiate a format
+    by narrowing down the options. This can be used to select an optimal
+    combination of format and modifiers.
+  - Driver nodes such as the consumer of a headless compositor can now
+    throttle the speed based on a new trigger_done event.
+  - Headless compositors can now signal a damage event to consumers
+    to start the processing of the graph.
+  - Compatibility improvements in JACK.
+  - Draining and resuming is now working correctly in pulse and alsa.
+  - Many bugfixes and improvements.
+
+
+## PipeWire
+  - Many BSD fixes.
+  - clang compilation fixes.
+  - Fix map implementation on big-endian machines.
+  - Improve tracking of param changes in pw-stream.
+  - Add support for renegotiation. With this change, producer and
+    consumer can incrementally renegotiate a format until it is fixed.
+    This will be used to do complex negotiation of DRM modifiers.
+    (#1732).
+  - Add a trigger-done event in the stream. This can be used to know
+    when processing of the complete graph has finished after issuing
+    a trigger_process() and it can be used to throttle processing.
+  - Add a RequestProcess node event and command. This can be used by
+    non-driver nodes to suggest to a driver to start processing. One
+    case is where a compositor can emit this event as a result of a
+    screen update to let the headless compositor start an update.
+  - Fix zeroconf sample format.
+  - pw-mon outputs to stderr now and has colors.
+
+## SPA
+  - Fix compilation on ppc and armv7.
+  - Fix port type check for ALSA seq midi ports so that they are not
+    falsely listed as hardware.
+  - Fix crash when running SSE code on unsupported HW. (#1775)
+  - The libcamera plugin was rewritten. It now supports hotplug,
+    format enumeration and an easier to read codebase.
+  - Fix compatibility some more for cards with 64 channels.
+
+## pulse-server
+  - Flush data in pause in combine-sink to avoid stray audio fragments.
+  - Fix a race where not all objects were removed correctly.
+  - The latency calculations and setup was improved to more closely
+    match pulseaudio behaviour. PULSE_LATENCY_MSEC should now resemble
+    pulseaudio more closely. (#1769)
+  - The drained reply is now sent only once and new data will be
+    accepted once the drain completes.
+  - Fix a potential crasher bug where the stream started processing
+    before the setup was completed.
+  - The server will now drop the client connections when the pipewire
+    connection is lost.
+
+## JACK
+  - Rework the jack_port_get_buffer() method to return the same memory
+    when called multiple times during the process() callback. This makes
+    things work on a new Hydrogen. (#1748)
+  - Add an option to disable showing the monitor ports.
+  - JACK ports are now sorted per node/client and port_id. This should
+    more closely match JACK behaviour and avoid random port order.
+    (#1780)
+
+## v4l2
+  - Fix v4l2 LD_PRELOAD script.
+  - Make sure we destroy the proxy when the global is destroyed.
+
+## ALSA
+  - _prepare should exit the draining state. (#1467)
+  - Fix the precision of the _delay function by taking into account
+    the amount of queued samples are the correct samplerate.
+
+
+Older versions:
+
+
 # PipeWire 0.3.39 (2021-10-21)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -98,9 +179,6 @@ This is a bugfix release that is API and ABI compatible with previous
     "SoundCore mini".
   - Add quirk to disable faststream. Disable faststream on "FiiO BTR3".
   - Add a dummy AVRCP player to improve compatibility with some devices.
-
-
-Older versions:
 
 
 # PipeWire 0.3.38 (2021-09-30)

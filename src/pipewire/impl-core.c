@@ -38,7 +38,7 @@
 #include <fcntl.h>
 
 ssize_t getrandom(void *buf, size_t buflen, unsigned int flags) {
-	int fd = open("/dev/random", O_CLOEXEC);
+	int fd = open("/dev/urandom", O_CLOEXEC);
 	if (fd < 0)
 		return -1;
 	ssize_t bytes = read(fd, buf, buflen);

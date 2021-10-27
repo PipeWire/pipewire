@@ -221,6 +221,7 @@ static void global_destroy(void *data)
 	impl->global = NULL;
 	if (impl->resource)
 		pw_resource_destroy(impl->resource);
+	free(impl);
 }
 
 static const struct pw_global_events global_events = {
@@ -234,6 +235,7 @@ static void impl_resource_destroy(void *data)
 	struct param_data *pdata, *tmp;
 
 	spa_hook_remove(&impl->resource_listener);
+	spa_hook_remove(&impl->link_listener);
 	impl->resource = NULL;
 
 	/* clear cache */

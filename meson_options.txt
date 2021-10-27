@@ -61,6 +61,9 @@ option('jack-devel',
 option('libjack-path',
        description: 'Where to install the libjack.so library',
        type: 'string')
+option('libv4l2-path',
+       description: 'Where to install the libpw-v4l2.so library',
+       type: 'string')
 option('spa-plugins',
        description: 'Enable spa plugins integration',
        type: 'feature',

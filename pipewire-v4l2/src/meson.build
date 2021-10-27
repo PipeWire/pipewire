@@ -15,8 +15,13 @@ pipewire_v4l2_c_args = [
   '-fvisibility=hidden',
 ]
 
-libv4l2_path = modules_install_dir / 'v4l2'
-libv4l2_path_dlopen = modules_install_dir_dlopen / 'v4l2'
+libv4l2_path = get_option('libv4l2-path')
+if libv4l2_path == ''
+  libv4l2_path = modules_install_dir / 'v4l2'
+  libv4l2_path_dlopen = modules_install_dir_dlopen / 'v4l2'
+else
+  libv4l2_path_dlopen = libv4l2_path
+endif
 
 tools_config = configuration_data()
 tools_config.set('LIBV4L2_PATH', libv4l2_path_dlopen)

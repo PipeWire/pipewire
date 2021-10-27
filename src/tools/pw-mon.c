@@ -155,13 +155,13 @@ static void event_param(void *object, int seq, uint32_t id,
 	spa_list_append(&data->param_list, &p->link);
 }
 
-static void print_params(struct proxy_data *data, char mark)
+static void print_params(struct proxy_data *data, const char *mark)
 {
 	struct param *p;
 
-	fprintf(stderr, "%c\tparams:\n", mark);
+	fprintf(stderr, "%s\tparams:\n", mark);
 	spa_list_for_each(p, &data->param_list, link) {
-		fprintf(stderr, "%c\t  id:%u (%s)\n", p->changed ? mark : ' ', p->id,
+		fprintf(stderr, "%s\t  id:%u (%s)\n", p->changed ? mark : " ", p->id,
 			spa_debug_type_find_name(spa_type_param, p->id));
 		if (spa_pod_is_object_type(p->param, SPA_TYPE_OBJECT_Format))
 			spa_debug_format(10, NULL, p->param);
@@ -171,11 +171,11 @@ static void print_params(struct proxy_data *data, char mark)
 	}
 }
 
-static void print_properties(const struct spa_dict *props, char mark)
+static void print_properties(const struct spa_dict *props, const char *mark)
 {
 	const struct spa_dict_item *item;
 
-	fprintf(stderr, "%c\tproperties:\n", mark);
+	fprintf(stderr, "%s\tproperties:\n", mark);
 	if (props == NULL || props->n_items == 0) {
 		fprintf(stderr, "\t\tnone\n");
 		return;
@@ -183,13 +183,13 @@ static void print_properties(const struct spa_dict *props, char mark)
 
 	spa_dict_for_each(item, props) {
 		if (item->value)
-			fprintf(stderr, "%c\t\t%s = \"%s\"\n", mark, item->key, item->value);
+			fprintf(stderr, "%s\t\t%s = \"%s\"\n", mark, item->key, item->value);
 		else
-			fprintf(stderr, "%c\t\t%s = (null)\n", mark, item->key);
+			fprintf(stderr, "%s\t\t%s = (null)\n", mark, item->key);
 	}
 }
 
-#define MARK_CHANGE(f) ((print_mark && ((info)->change_mask & (f))) ? '*' : ' ')
+#define MARK_CHANGE(f) ((print_mark && ((info)->change_mask & (f))) ? "*" : " ")
 
 static void on_core_info(void *data, const struct pw_core_info *info)
 {
@@ -262,11 +262,11 @@ static void print_node(struct proxy_data *data)
 	fprintf(stderr, "\ttype: %s (version %d)\n", data->type, data->version);
 	if (print_all) {
 		print_params(data, MARK_CHANGE(PW_NODE_CHANGE_MASK_PARAMS));
-		fprintf(stderr, "%c\tinput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_INPUT_PORTS),
+		fprintf(stderr, "%s\tinput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_INPUT_PORTS),
 				info->n_input_ports, info->max_input_ports);
-		fprintf(stderr, "%c\toutput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_OUTPUT_PORTS),
+		fprintf(stderr, "%s\toutput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_OUTPUT_PORTS),
 				info->n_output_ports, info->max_output_ports);
-		fprintf(stderr, "%c\tstate: \"%s\"", MARK_CHANGE(PW_NODE_CHANGE_MASK_STATE),
+		fprintf(stderr, "%s\tstate: \"%s\"", MARK_CHANGE(PW_NODE_CHANGE_MASK_STATE),
 				pw_node_state_as_string(info->state));
 		if (info->state == PW_NODE_STATE_ERROR && info->error)
 			fprintf(stderr, " \"%s\"\n", info->error);
@@ -459,13 +459,13 @@ static void link_event_info(void *object, const struct pw_link_info *info)
 	fprintf(stderr, "\tinput-node-id: %u\n", info->input_node_id);
 	fprintf(stderr, "\tinput-port-id: %u\n", info->input_port_id);
 	if (print_all) {
-		fprintf(stderr, "%c\tstate: \"%s\"", MARK_CHANGE(PW_LINK_CHANGE_MASK_STATE),
+		fprintf(stderr, "%s\tstate: \"%s\"", MARK_CHANGE(PW_LINK_CHANGE_MASK_STATE),
 				pw_link_state_as_string(info->state));
 		if (info->state == PW_LINK_STATE_ERROR && info->error)
 			fprintf(stderr, " \"%s\"\n", info->error);
 		else
 			fprintf(stderr, "\n");
-		fprintf(stderr, "%c\tformat:\n", MARK_CHANGE(PW_LINK_CHANGE_MASK_FORMAT));
+		fprintf(stderr, "%s\tformat:\n", MARK_CHANGE(PW_LINK_CHANGE_MASK_FORMAT));
 		if (info->format)
 			spa_debug_format(2, NULL, info->format);
 		else
@@ -617,7 +617,7 @@ static void registry_event_global(void *data, uint32_t id,
 		fprintf(stderr, "\tpermissions: "PW_PERMISSION_FORMAT"\n",
 				PW_PERMISSION_ARGS(permissions));
 		fprintf(stderr, "\ttype: %s (version %d)\n", type, version);
-		print_properties(props, ' ');
+		print_properties(props, " ");
 		return;
 	}
 

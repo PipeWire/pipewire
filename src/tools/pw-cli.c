@@ -369,7 +369,7 @@ static int destroy_global(void *obj, void *data)
 	if (global == NULL)
 		return 0;
 
-	pw_map_remove(&global->rd->globals, global->id);
+	pw_map_insert_at(&global->rd->globals, global->id, NULL);
 	pw_properties_free(global->properties);
 	free(global->type);
 	free(global);

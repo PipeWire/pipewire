@@ -1067,10 +1067,10 @@ static void pw_impl_port_remove(struct pw_impl_port *port)
 	}
 
 	if (port->direction == PW_DIRECTION_INPUT) {
-		pw_map_remove(&node->input_port_map, port->port_id);
+		pw_map_insert_at(&node->input_port_map, port->port_id, NULL);
 		node->info.n_input_ports--;
 	} else {
-		pw_map_remove(&node->output_port_map, port->port_id);
+		pw_map_insert_at(&node->output_port_map, port->port_id, NULL);
 		node->info.n_output_ports--;
 	}
 

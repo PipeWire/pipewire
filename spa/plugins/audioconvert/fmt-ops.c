@@ -66,6 +66,7 @@ static struct conv_info conv_table[] =
 	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32, 0, 0, conv_s16_to_f32_c },
 	{ SPA_AUDIO_FORMAT_S16P, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_s16d_to_f32d_c },
 #if defined (HAVE_NEON)
+	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32P, 2, SPA_CPU_FLAG_NEON, conv_s16_to_f32d_2_neon },
 	{ SPA_AUDIO_FORMAT_S16, SPA_AUDIO_FORMAT_F32P, 0, SPA_CPU_FLAG_NEON, conv_s16_to_f32d_neon },
 #endif
 #if defined (HAVE_AVX2)

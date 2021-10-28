@@ -28,6 +28,88 @@
 
 #include "fmt-ops.h"
 
+void
+conv_s16_to_f32d_2_neon(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const int16_t *s = src[0];
+	float *d0 = dst[0], *d1 = dst[1];
+	unsigned int remainder = n_samples & 7;
+	n_samples -= remainder;
+
+#ifdef __aarch64__
+	asm volatile(
+		"      cmp %[n_samples], #0\n"
+		"      beq 2f\n"
+		"1:"
+		"      ld2 {v2.8h, v3.8h}, [%[s]], #32\n"
+		"      subs %w[n_samples], %w[n_samples], #8\n"
+		"      sxtl v0.4s, v2.4h\n"
+		"      sxtl2 v1.4s, v2.8h\n"
+		"      sxtl v2.4s, v3.4h\n"
+		"      sxtl2 v3.4s, v3.8h\n"
+		"      scvtf v0.4s, v0.4s, #15\n"
+		"      scvtf v1.4s, v1.4s, #15\n"
+		"      scvtf v2.4s, v2.4s, #15\n"
+		"      scvtf v3.4s, v3.4s, #15\n"
+		"      st1 {v0.4s, v1.4s}, [%[d0]], #32\n"
+		"      st1 {v2.4s, v3.4s}, [%[d1]], #32\n"
+		"      b.ne 1b\n"
+		"2:"
+		"      cmp %[remainder], #0\n"
+		"      beq 4f\n"
+		"3:"
+		"      ld2 { v0.h, v1.h }[0], [%[s]], #4\n"
+		"      subs %[remainder], %[remainder], #1\n"
+		"      sshll v2.4s, v0.4h, #0\n"
+		"      sshll v3.4s, v1.4h, #0\n"
+		"      scvtf v0.4s, v2.4s, #15\n"
+		"      scvtf v1.4s, v3.4s, #15\n"
+		"      st1 { v0.s }[0], [%[d0]], #4\n"
+		"      st1 { v1.s }[0], [%[d1]], #4\n"
+		"      bne 3b\n"
+		"4:"
+		: [d0] "+r" (d0), [d1] "+r" (d1), [s] "+r" (s), [n_samples] "+r" (n_samples),
+		  [remainder] "+r" (remainder)
+		: : "v0", "v1", "v2", "v3", "memory", "cc");
+#else
+	asm volatile(
+		"      cmp %[n_samples], #0\n"
+		"      beq 2f\n"
+		"1:"
+		"      vld2.16 {d0-d3}, [%[s]]!\n"
+		"      subs %[n_samples], #8\n"
+		"      vmovl.s16 q3, d3\n"
+		"      vmovl.s16 q2, d2\n"
+		"      vmovl.s16 q1, d1\n"
+		"      vmovl.s16 q0, d0\n"
+		"      vcvt.f32.s32 q3, q3, #15\n"
+		"      vcvt.f32.s32 q2, q2, #15\n"
+		"      vcvt.f32.s32 q1, q1, #15\n"
+		"      vcvt.f32.s32 q0, q0, #15\n"
+		"      vst1.32 {d4-d7}, [%[d1]]!\n"
+		"      vst1.32 {d0-d3}, [%[d0]]!\n"
+		"      bne 1b\n"
+		"2:"
+		"      cmp %[remainder], #0\n"
+		"      beq 4f\n"
+		"3:"
+		"      vld2.16 { d0[0], d1[0] }, [%[s]], #4\n"
+		"      subs %[remainder], %[remainder], #1\n"
+		"      vmovl.s16 q1, d1\n"
+		"      vmovl.s16 q0, d0\n"
+		"      vcvt.f32.s32 q1, q1, #15\n"
+		"      vcvt.f32.s32 q0, q0, #15\n"
+		"      vst1.32 { d2[0] }, [%[d1]]!\n"
+		"      vst1.32 { d0[0] }, [%[d0]]!\n"
+		"      bne 3b\n"
+		"4:"
+		: [d0] "+r" (d0), [d1] "+r" (d1), [s] "+r" (s), [n_samples] "+r" (n_samples),
+		  [remainder] "+r" (remainder)
+		: : "q0", "q1", "q2", "q3", "memory", "cc");
+#endif
+}
+
 static void
 conv_s16_to_f32d_2s_neon(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)

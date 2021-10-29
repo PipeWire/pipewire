@@ -386,6 +386,7 @@ struct client {
 	unsigned int allow_mlock:1;
 	unsigned int warn_mlock:1;
 	unsigned int timeowner_conditional:1;
+	unsigned int show_monitor:1;
 	unsigned int merge_monitor:1;
 	unsigned int short_name:1;
 	unsigned int filter_name:1;
@@ -2684,6 +2685,8 @@ static void registry_event_global(void *data, uint32_t id,
 				is_monitor = pw_properties_parse_bool(item->value);
 			}
 		}
+		if (is_monitor && !c->show_monitor)
+			goto exit;
 
 		o = NULL;
 		if (node_id == c->node_id) {
@@ -3044,6 +3047,7 @@ jack_client_t * jack_client_open (const char *client_name,
 				execute_match, client);
 	}
 
+	client->show_monitor = pw_properties_get_bool(client->props, "jack.show-monitor", true);
 	client->merge_monitor = pw_properties_get_bool(client->props, "jack.merge-monitor", false);
 	client->short_name = pw_properties_get_bool(client->props, "jack.short-name", false);
 	client->filter_name = pw_properties_get_bool(client->props, "jack.filter-name", false);

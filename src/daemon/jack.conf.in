@@ -60,6 +60,7 @@ context.modules = [
 jack.properties = {
      #node.latency       = 1024/48000
      #node.lock-quantum  = false
+     #jack.show-monitor  = true
      #jack.merge-monitor = false
      #jack.short-name    = false
      #jack.filter-name   = false

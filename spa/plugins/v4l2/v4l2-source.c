@@ -304,16 +304,27 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 static int impl_node_send_command(void *object, const struct spa_command *command)
 {
 	struct impl *this = object;
+	struct port *port;
 	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(command != NULL, -EINVAL);
 
+	port = GET_OUT_PORT(this, 0);
+
 	switch (SPA_NODE_COMMAND_ID(command)) {
+	case SPA_NODE_COMMAND_ParamBegin:
+		if ((res = spa_v4l2_open(&port->dev, NULL)) < 0)
+			return res;
+		break;
+	case SPA_NODE_COMMAND_ParamEnd:
+		if (port->have_format)
+			return 0;
+		if ((res = spa_v4l2_close(&port->dev)) < 0)
+			return res;
+		break;
 	case SPA_NODE_COMMAND_Start:
 	{
-		struct port *port = GET_OUT_PORT(this, 0);
-
 		if (!port->have_format) {
 			spa_log_error(this->log, "no format");
 			return -EIO;

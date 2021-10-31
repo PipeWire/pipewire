@@ -1,27 +1,32 @@
-if sdl_dep.found()
-  executable('local-v4l2', 'local-v4l2.c',
-             include_directories : [configinc, spa_inc],
-             dependencies : [dl_lib, sdl_dep, pthread_lib],
-             install : installed_tests_enabled,
-             install_dir : installed_tests_execdir / 'examples' / 'spa')
+# Examples, in order from simple to complicated
+spa_examples = [
+  'adapter-control',
+  'example-control',
+  'local-libcamera',
+  'local-v4l2',
+]
 
-  if libcamera_dep.found()
-    executable('local-libcamera', 'local-libcamera.c',
-               include_directories : [configinc, spa_inc],
-               dependencies : [dl_lib, sdl_dep, pthread_lib, libcamera_dep],
-               install : installed_tests_enabled,
-               install_dir : installed_tests_execdir / 'examples' / 'spa')
+spa_examples_extra_deps = {
+  'local-v4l2': [sdl_dep],
+  'local-libcamera': [sdl_dep, libcamera_dep],
+}
+
+foreach c : spa_examples
+  deps = spa_examples_extra_deps.get(c, [])
+
+  found = true
+  foreach dep : deps
+    found = found and dep.found()
+  endforeach
+
+  if found
+    executable(
+      c,
+      c + '.c',
+      include_directories : [configinc, spa_inc],
+      dependencies : [dl_lib, pthread_lib, mathlib] + deps,
+      install : installed_tests_enabled,
+      install_dir : installed_tests_execdir / 'examples' / 'spa'
+    )
   endif
-endif
-
-executable('example-control', 'example-control.c',
-             include_directories : [configinc, spa_inc],
-             dependencies : [dl_lib, pthread_lib, mathlib],
-             install : installed_tests_enabled,
-             install_dir : installed_tests_execdir / 'examples' / 'spa')
-
-executable('adapter-control', 'adapter-control.c',
-             include_directories : [configinc, spa_inc],
-             dependencies : [dl_lib, pthread_lib, mathlib],
-             install : installed_tests_enabled,
-             install_dir : installed_tests_execdir / 'examples' / 'spa')
+endforeach

@@ -1,121 +1,50 @@
-executable('video-src',
-  'video-src.c',
-  install : installed_tests_enabled,
-  install_dir : installed_tests_execdir / 'examples',
-  dependencies : [pipewire_dep, mathlib],
-)
-executable('video-src-alloc',
-  'video-src-alloc.c',
-  install : installed_tests_enabled,
-  install_dir : installed_tests_execdir / 'examples',
-  dependencies : [pipewire_dep, mathlib],
-)
-executable('video-src-reneg',
-  'video-src-reneg.c',
-  install : installed_tests_enabled,
-  install_dir : installed_tests_execdir / 'examples',
-  dependencies : [pipewire_dep, mathlib],
-)
-if drm_dep.found()
-  executable('video-src-fixate',
-    'video-src-fixate.c',
-    install : installed_tests_enabled,
-    install_dir : installed_tests_execdir / 'examples',
-    dependencies : [pipewire_dep, drm_dep, mathlib],
-  )
-endif
-executable('audio-src',
-  'audio-src.c',
-  install : installed_tests_enabled,
-  install_dir : installed_tests_execdir / 'examples',
-  dependencies : [pipewire_dep, mathlib],
-)
-executable('audio-dsp-src',
-  'audio-dsp-src.c',
-  install : installed_tests_enabled,
-  install_dir : installed_tests_execdir / 'examples',
-  dependencies : [pipewire_dep, mathlib],
-)
-executable('export-source',
-  'export-source.c',
-  install : installed_tests_enabled,
-  install_dir : installed_tests_execdir / 'examples',
-  dependencies : [pipewire_dep, mathlib],
-)
+# Examples, in order from simple to complicated
+examples = [
+  'audio-src',
+  'audio-dsp-src',
+  'audio-dsp-filter',
+  'video-play',
+  'video-src',
+  'video-dsp-play',
+  'video-play-pull',
+  'video-play-reneg',
+  'video-src-alloc',
+  'video-src-reneg',
+  'video-src-fixate',
+  'video-play-fixate',
+  'export-sink',
+  'export-source',
+  'export-spa',
+  'export-spa-device',
+  'bluez-session',
+  'local-v4l2',
+]
 
-executable('audio-dsp-filter',
-  'audio-dsp-filter.c',
-  install : installed_tests_enabled,
-  install_dir : installed_tests_execdir / 'examples',
-  dependencies : [pipewire_dep, mathlib],
-)
+examples_extra_deps = {
+  'video-src-fixate': [drm_dep],
+  'video-play': [sdl_dep],
+  'video-play-reneg': [sdl_dep],
+  'video-play-fixate': [sdl_dep, drm_dep],
+  'video-play-pull': [sdl_dep],
+  'video-dsp-play': [sdl_dep],
+  'local-v4l2': [sdl_dep],
+  'export-sink': [sdl_dep],
+}
 
-executable('export-spa',
-  'export-spa.c',
-  install : installed_tests_enabled,
-  install_dir : installed_tests_execdir / 'examples',
-  dependencies : [pipewire_dep, mathlib],
-)
+foreach c : examples
+  deps = examples_extra_deps.get(c, [])
 
-executable('export-spa-device',
-  'export-spa-device.c',
-  install : installed_tests_enabled,
-  install_dir : installed_tests_execdir / 'examples',
-  dependencies : [pipewire_dep, mathlib],
-)
+  found = true
+  foreach dep : deps
+    found = found and dep.found()
+  endforeach
 
-executable('bluez-session',
-  'bluez-session.c',
-  install : installed_tests_enabled,
-  install_dir : installed_tests_execdir / 'examples',
-  dependencies : [pipewire_dep, mathlib],
-)
-
-if sdl_dep.found()
-  executable('video-play',
-    'video-play.c',
-    install : installed_tests_enabled,
-    install_dir : installed_tests_execdir / 'examples',
-    dependencies : [pipewire_dep, sdl_dep, mathlib],
-  )
-  executable('video-play-reneg',
-    'video-play-reneg.c',
-    install : installed_tests_enabled,
-    install_dir : installed_tests_execdir / 'examples',
-    dependencies : [pipewire_dep, sdl_dep, mathlib],
-  )
-  if drm_dep.found()
-    executable('video-play-fixate',
-      'video-play-fixate.c',
+  if found
+    executable(
+      c, c + '.c',
       install : installed_tests_enabled,
       install_dir : installed_tests_execdir / 'examples',
-      dependencies : [pipewire_dep, sdl_dep, drm_dep, mathlib],
+      dependencies : [pipewire_dep, mathlib] + deps,
     )
   endif
-  executable('video-play-pull',
-    'video-play-pull.c',
-    install : installed_tests_enabled,
-    install_dir : installed_tests_execdir / 'examples',
-    dependencies : [pipewire_dep, sdl_dep, mathlib],
-  )
-  executable('video-dsp-play',
-    'video-dsp-play.c',
-    install : installed_tests_enabled,
-    install_dir : installed_tests_execdir / 'examples',
-    dependencies : [pipewire_dep, sdl_dep, mathlib],
-  )
-
-  executable('local-v4l2',
-    'local-v4l2.c',
-    install : installed_tests_enabled,
-    install_dir : installed_tests_execdir / 'examples',
-    dependencies : [pipewire_dep, sdl_dep],
-  )
-
-  executable('export-sink',
-    'export-sink.c',
-    install : installed_tests_enabled,
-    install_dir : installed_tests_execdir / 'examples',
-    dependencies : [pipewire_dep, sdl_dep, mathlib],
-  )
-endif
+endforeach

@@ -88,27 +88,13 @@ example_files = [
   'tutorial4.c',
   'tutorial5.c',
   'tutorial6.c',
-  'audio-src.c',
-  'audio-dsp-src.c',
-  'audio-dsp-filter.c',
-  'video-play.c',
-  'video-src.c',
-  'video-dsp-play.c',
-  'video-play-pull.c',
-  'video-play-reneg.c',
-  'video-src-alloc.c',
-  'video-src-reneg.c',
-  'export-sink.c',
-  'export-source.c',
-  'export-spa.c',
-  'export-spa-device.c',
-  'bluez-session.c',
-  'local-v4l2.c',
-  'spa/examples/adapter-control.c',
-  'spa/examples/example-control.c',
-  'spa/examples/local-libcamera.c',
-  'spa/examples/local-v4l2.c',
 ]
+foreach h : examples
+  example_files += [h + '.c']
+endforeach
+foreach h : spa_examples
+  example_files += ['spa/examples/' + h + '.c']
+endforeach
 
 example_doxygen = []
 example_ref = []

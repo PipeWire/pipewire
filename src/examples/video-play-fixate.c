@@ -24,7 +24,7 @@
 
 /*
  [title]
- Video input stream using \ref pw_stream "pw_stream", with format renegotiation.
+ Video input stream using \ref pw_stream "pw_stream", with format fixation.
  [title]
  */
 

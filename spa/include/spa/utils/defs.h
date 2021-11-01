@@ -163,7 +163,7 @@ struct spa_fraction {
 /**
  * Return the address (buffer + offset) as pointer of \a type
  */
-#define SPA_PTROFF(ptr_,offset_,type_) ((type_*)((uint8_t*)(ptr_) + (int)(offset_)))
+#define SPA_PTROFF(ptr_,offset_,type_) ((type_*)((uintptr_t)(ptr_) + (ptrdiff_t)(offset_)))
 #define SPA_PTROFF_ALIGN(ptr_,offset_,alignment_,type_) \
    SPA_PTR_ALIGN(SPA_PTROFF(ptr_,offset_,type_),alignment_,type_)
 
@@ -174,9 +174,9 @@ struct spa_fraction {
 #define SPA_MEMBER(b,o,t) SPA_PTROFF(b,o,t)
 #define SPA_MEMBER_ALIGN(b,o,a,t) SPA_PTROFF_ALIGN(b,o,a,t)
 
-#define SPA_CONTAINER_OF(p,t,m) (t*)((uint8_t*)p - offsetof (t,m))
+#define SPA_CONTAINER_OF(p,t,m) (t*)((uintptr_t)p - offsetof (t,m))
 
-#define SPA_PTRDIFF(p1,p2) ((uint8_t*)(p1) - (uint8_t*)(p2))
+#define SPA_PTRDIFF(p1,p2) ((intptr_t)(p1) - (intptr_t)(p2))
 
 #define SPA_PTR_TO_INT(p) ((int) ((intptr_t) (p)))
 #define SPA_INT_TO_PTR(u) ((void*) ((intptr_t) (u)))

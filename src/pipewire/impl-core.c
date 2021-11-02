@@ -34,18 +34,22 @@
 #include <sys/random.h>
 #endif
 
-#ifndef HAVE_GETRANDOM
-#include <fcntl.h>
+static ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags) {
+	ssize_t bytes;
 
-ssize_t getrandom(void *buf, size_t buflen, unsigned int flags) {
+#ifdef HAVE_GETRANDOM
+	bytes = getrandom(buf, buflen ,flags);
+	if (!(bytes == -1 && errno == ENOSYS))
+		return bytes;
+#endif
+
 	int fd = open("/dev/urandom", O_CLOEXEC);
 	if (fd < 0)
 		return -1;
-	ssize_t bytes = read(fd, buf, buflen);
+	bytes = read(fd, buf, buflen);
 	close(fd);
 	return bytes;
 }
-#endif
 
 #include <spa/utils/string.h>
 #include <spa/debug/types.h>
@@ -429,7 +433,7 @@ struct pw_impl_core *pw_context_create_core(struct pw_context *context,
 	this->info.host_name = pw_get_host_name();
 	this->info.version = pw_get_library_version();
 	do {
-		res = getrandom(&this->info.cookie,
+		res = pw_getrandom(&this->info.cookie,
 				sizeof(this->info.cookie), 0);
 	} while ((res == -1) && (errno == EINTR));
 	if (res == -1) {

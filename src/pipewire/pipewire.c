@@ -252,6 +252,10 @@ static struct spa_handle *load_spa_handle(const char *lib,
 	plugin = NULL;
 	res = -ENOENT;
 
+	if (sup->plugin_dir == NULL) {
+		pw_log_error("load lib: plugin directory undefined, set SPA_PLUGIN_DIR");
+		goto error_out;
+	}
 	while ((p = pw_split_walk(sup->plugin_dir, ":", &len, &state))) {
 		if ((plugin = open_plugin(&sup->registry, p, len, lib)) != NULL)
 			break;

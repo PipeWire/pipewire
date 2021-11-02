@@ -184,13 +184,18 @@ x86_init(struct impl *impl)
 static int x86_zero_denormals(void *object, bool enable)
 {
 #if defined(HAVE_SSE)
-	unsigned int mxcsr;
-	mxcsr = _mm_getcsr();
-	if (enable)
-		mxcsr |= 0x8040;
-	else
-		mxcsr &= ~0x8040;
-	_mm_setcsr(mxcsr);
+	struct impl *impl = object;
+	if (impl->flags & SPA_CPU_FLAG_SSE) {
+		unsigned int mxcsr;
+		mxcsr = _mm_getcsr();
+		if (enable)
+			mxcsr |= 0x8040;
+		else
+			mxcsr &= ~0x8040;
+		_mm_setcsr(mxcsr);
+		spa_log_debug(impl->log, "%p: zero-denormals:%s",
+				impl, enable ? "on" : "off");
+	}
 	return 0;
 #else
 	return -ENOTSUP;

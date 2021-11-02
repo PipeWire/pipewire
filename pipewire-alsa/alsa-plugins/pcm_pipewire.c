@@ -68,6 +68,7 @@ typedef struct {
 	unsigned int drained:1;
 	unsigned int draining:1;
 	unsigned int xrun_detected:1;
+	unsigned int hw_params_changed:1;
 
 	snd_pcm_uframes_t hw_ptr;
 	snd_pcm_uframes_t boundary;
@@ -495,8 +496,9 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 
 	pw_log_debug("%p: prepare %d %p %lu %ld", pw,
 			pw->error, pw->stream, io->period_size, pw->min_avail);
-	if (pw->error >= 0 && pw->stream != NULL)
+	if (pw->error >= 0 && pw->stream != NULL && !pw->hw_params_changed)
 		goto done;
+	pw->hw_params_changed = false;
 
 	if (pw->stream != NULL) {
 		pw_stream_destroy(pw->stream);
@@ -717,6 +719,7 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 		pw->blocks = 1;
 		pw->stride = (io->channels * pw->sample_bits) / 8;
 	}
+	pw->hw_params_changed = true;
 	pw_log_info("%p: format:%s channels:%d rate:%d stride:%d blocks:%d", pw,
 			spa_debug_type_find_name(spa_type_audio_format, pw->format.format),
 			io->channels, io->rate, pw->stride, pw->blocks);

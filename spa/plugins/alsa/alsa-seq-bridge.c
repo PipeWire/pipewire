@@ -398,7 +398,7 @@ static void free_port(struct seq_state *state, struct seq_stream *stream, struct
 }
 
 static void init_port(struct seq_state *state, struct seq_port *port, const snd_seq_addr_t *addr,
-		unsigned int caps)
+		unsigned int type)
 {
 	enum spa_direction reverse = SPA_DIRECTION_REVERSE(port->direction);
 
@@ -408,7 +408,7 @@ static void init_port(struct seq_state *state, struct seq_port *port, const snd_
 			SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.flags = SPA_PORT_FLAG_LIVE;
-	if (caps & (SND_SEQ_PORT_TYPE_HARDWARE|SND_SEQ_PORT_TYPE_PORT|SND_SEQ_PORT_TYPE_SPECIFIC))
+	if (type & (SND_SEQ_PORT_TYPE_HARDWARE|SND_SEQ_PORT_TYPE_PORT|SND_SEQ_PORT_TYPE_SPECIFIC))
 		port->info.flags |= SPA_PORT_FLAG_PHYSICAL | SPA_PORT_FLAG_TERMINAL;
 	port->params[PORT_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[PORT_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
@@ -448,7 +448,7 @@ static void update_stream_port(struct seq_state *state, struct seq_stream *strea
 			port = alloc_port(state, stream);
 			if (port == NULL)
 				return;
-			init_port(state, port, addr, caps);
+			init_port(state, port, addr, snd_seq_port_info_get_type(info));
 		} else if (port != NULL) {
 			if ((caps & stream->caps) != stream->caps) {
 				spa_log_debug(state->log, "free port %d.%d", addr->client, addr->port);

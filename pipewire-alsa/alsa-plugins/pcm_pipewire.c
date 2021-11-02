@@ -418,7 +418,7 @@ static void on_stream_process(void *data)
 	if (io->stream == SND_PCM_STREAM_PLAYBACK)
 		pw->time.delay += xfer;
 	else
-		pw->time.delay -= SPA_MIN(pw->time.delay, xfer);
+		pw->time.delay -= SPA_MIN(pw->time.delay, (int64_t)xfer);
 
 	pw_stream_queue_buffer(pw->stream, b);
 

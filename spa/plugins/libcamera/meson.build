@@ -1,9 +1,8 @@
 libcamera_sources = [
   'libcamera.c',
-  'libcamera-device.c',
-  'libcamera-client.c',
-  'libcamera-source.c',
-  'libcamera_wrapper.cpp'
+  'libcamera-manager.cpp',
+  'libcamera-device.cpp',
+  'libcamera-source.cpp'
 ]
 
 libdrm_dep = dependency('libdrm', version : '>= 2.4.98',

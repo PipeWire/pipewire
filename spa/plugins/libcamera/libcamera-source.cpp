@@ -2,8 +2,9 @@
  *
  * Copyright (C) 2020, Collabora Ltd.
  *     Author: Raghavendra Rao Sidlagatta <raghavendra.rao@collabora.com>
+ * Copyright (C) 2021 Wim Taymans <wim.taymans@gmail.com>
  *
- * libcamera-source.c
+ * libcamera-source.cpp
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -36,6 +37,7 @@
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
+#include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/monitor/device.h>
 #include <spa/node/node.h>
@@ -47,19 +49,21 @@
 #include <spa/pod/filter.h>
 #include <spa/debug/pod.h>
 
-#include "libcamera.h"
+#include <libcamera/camera.h>
+#include <libcamera/stream.h>
+#include <libcamera/formats.h>
 
-static const char default_device[] = "/dev/media0";
+#include "libcamera.h"
+#include "libcamera-manager.hpp"
 
 struct props {
-	char device[64];
+	char device[128];
 	char device_name[128];
-	int device_fd;
 };
 
 static void reset_props(struct props *props)
 {
-	strncpy(props->device, default_device, 64);
+	spa_zero(*props);
 }
 
 #define MAX_BUFFERS     32
@@ -85,33 +89,13 @@ struct control {
 	double value;
 };
 
-struct camera_fmt {
-	uint32_t width;
-	uint32_t height;
-	uint32_t pixelformat;
-	uint32_t bytesperline;
-	uint32_t numerator;
-	uint32_t denominator;
-	uint32_t sizeimage;
-};
-
 struct port {
 	struct impl *impl;
-
-	bool export_buf;
-
-	bool next_fmtdesc;
-	uint32_t fmtdesc_index;
-	bool next_frmsize;
 
 	bool have_format;
 	struct spa_video_info current_format;
 	struct spa_fraction rate;
 
-	struct spa_libcamera_device dev;
-
-	bool have_query_ext_ctrl;
-	struct camera_fmt fmt;
 	uint32_t memtype;
 
 	struct control controls[MAX_CONTROLS];
@@ -128,6 +112,12 @@ struct port {
 	struct spa_io_buffers *io;
 	struct spa_io_sequence *control;
 	struct spa_param_info params[8];
+
+	uint32_t fmt_index;
+	bool next_fmt;
+	PixelFormat enum_fmt;
+	uint32_t size_index;
+	bool next_size;
 };
 
 struct impl {
@@ -151,27 +141,36 @@ struct impl {
 
 	struct spa_io_position *position;
 	struct spa_io_clock *clock;
+
+	CameraManager *manager;
+	std::shared_ptr<Camera> camera;
+
+	unsigned int have_config;
+	std::unique_ptr<CameraConfiguration> config;
+
+	unsigned int active:1;
+	unsigned int acquired:1;
 };
 
-#define CHECK_PORT(this,direction,port_id)  ((direction) == SPA_DIRECTION_OUTPUT && (port_id) == 0)
+#define CHECK_PORT(impl,direction,port_id)  ((direction) == SPA_DIRECTION_OUTPUT && (port_id) == 0)
 
-#define GET_OUT_PORT(this,p)         (&this->out_ports[p])
-#define GET_PORT(this,d,p)           GET_OUT_PORT(this,p)
+#define GET_OUT_PORT(impl,p)         (&impl->out_ports[p])
+#define GET_PORT(impl,d,p)           GET_OUT_PORT(impl,p)
 
-#include "libcamera-utils.c"
+#include "libcamera-utils.cpp"
 
 static int impl_node_enum_params(void *object, int seq,
 				 uint32_t id, uint32_t start, uint32_t num,
 				 const struct spa_pod *filter)
 {
-	struct impl *this = object;
+	struct impl *impl = (struct impl*)object;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
 
-	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
 	result.id = id;
@@ -184,29 +183,22 @@ next:
 	switch (id) {
 	case SPA_PARAM_PropInfo:
 	{
-		struct props *p = &this->props;
+		struct props *p = &impl->props;
 
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
+			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_device),
 				SPA_PROP_INFO_name, SPA_POD_String("The libcamera device"),
 				SPA_PROP_INFO_type, SPA_POD_String(p->device));
 			break;
 		case 1:
-			param = spa_pod_builder_add_object(&b,
+			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_deviceName),
 				SPA_PROP_INFO_name, SPA_POD_String("The libcamera device name"),
 				SPA_PROP_INFO_type, SPA_POD_String(p->device_name));
-			break;
-		case 2:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_deviceFd),
-				SPA_PROP_INFO_name, SPA_POD_String("The libcamera fd"),
-				SPA_PROP_INFO_type, SPA_POD_Int(p->device_fd));
 			break;
 		default:
 			return 0;
@@ -215,15 +207,14 @@ next:
 	}
 	case SPA_PARAM_Props:
 	{
-		struct props *p = &this->props;
+		struct props *p = &impl->props;
 
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
+			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Props, id,
 				SPA_PROP_device,     SPA_POD_String(p->device),
-				SPA_PROP_deviceName, SPA_POD_String(p->device_name),
-				SPA_PROP_deviceFd,   SPA_POD_Int(p->device_fd));
+				SPA_PROP_deviceName, SPA_POD_String(p->device_name));
 			break;
 		default:
 			return 0;
@@ -237,7 +228,7 @@ next:
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+	spa_node_emit_result(&impl->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 	if (++count != num)
 		goto next;
@@ -249,14 +240,14 @@ static int impl_node_set_param(void *object,
 			       uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
-	struct impl *this = object;
+	struct impl *impl = (struct impl*)object;
 
-	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != NULL, -EINVAL);
 
 	switch (id) {
 	case SPA_PARAM_Props:
 	{
-		struct props *p = &this->props;
+		struct props *p = &impl->props;
 
 		if (param == NULL) {
 			reset_props(p);
@@ -275,16 +266,16 @@ static int impl_node_set_param(void *object,
 
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
-	struct impl *this = object;
+	struct impl *impl = (struct impl*)object;
 
-	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != NULL, -EINVAL);
 
 	switch (id) {
 	case SPA_IO_Clock:
-		this->clock = data;
+		impl->clock = (struct spa_io_clock*)data;
 		break;
 	case SPA_IO_Position:
-		this->position = data;
+		impl->position = (struct spa_io_position*)data;
 		break;
 	default:
 		return -ENOENT;
@@ -294,29 +285,29 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 static int impl_node_send_command(void *object, const struct spa_command *command)
 {
-	struct impl *this = object;
+	struct impl *impl = (struct impl*)object;
 	int res;
 
-	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != NULL, -EINVAL);
 	spa_return_val_if_fail(command != NULL, -EINVAL);
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
 	{
-		struct port *port = GET_OUT_PORT(this, 0);
+		struct port *port = GET_OUT_PORT(impl, 0);
 
 		if (!port->have_format)
 			return -EIO;
 		if (port->n_buffers == 0)
 			return -EIO;
 
-		if ((res = spa_libcamera_stream_on(this)) < 0)
+		if ((res = spa_libcamera_stream_on(impl)) < 0)
 			return res;
 		break;
 	}
 	case SPA_NODE_COMMAND_Pause:
 	case SPA_NODE_COMMAND_Suspend:
-		if ((res = spa_libcamera_stream_off(this)) < 0)
+		if ((res = spa_libcamera_stream_off(impl)) < 0)
 			return res;
 		break;
 	default:
@@ -334,25 +325,26 @@ static const struct spa_dict_item info_items[] = {
 	{ SPA_KEY_NODE_DRIVER, "true" },
 };
 
-static void emit_node_info(struct impl *this, bool full)
+static void emit_node_info(struct impl *impl, bool full)
 {
-	uint64_t old = full ? this->info.change_mask : 0;
+	uint64_t old = full ? impl->info.change_mask : 0;
 	if (full)
-		this->info.change_mask = this->info_all;
-	if (this->info.change_mask) {
-		this->info.props = &SPA_DICT_INIT_ARRAY(info_items);
-		spa_node_emit_info(&this->hooks, &this->info);
-		this->info.change_mask = old;
+		impl->info.change_mask = impl->info_all;
+	if (impl->info.change_mask) {
+		struct spa_dict dict = SPA_DICT_INIT_ARRAY(info_items);
+		impl->info.props = &dict;
+		spa_node_emit_info(&impl->hooks, &impl->info);
+		impl->info.change_mask = old;
 	}
 }
 
-static void emit_port_info(struct impl *this, struct port *port, bool full)
+static void emit_port_info(struct impl *impl, struct port *port, bool full)
 {
 	uint64_t old = full ? port->info.change_mask : 0;
 	if (full)
 		port->info.change_mask = port->info_all;
 	if (port->info.change_mask) {
-		spa_node_emit_port_info(&this->hooks,
+		spa_node_emit_port_info(&impl->hooks,
 				SPA_DIRECTION_OUTPUT, 0, &port->info);
 		port->info.change_mask = old;
 	}
@@ -364,17 +356,17 @@ impl_node_add_listener(void *object,
 		const struct spa_node_events *events,
 		void *data)
 {
-	struct impl *this = object;
+	struct impl *impl = (struct impl*)object;
 	struct spa_hook_list save;
 
-	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != NULL, -EINVAL);
 
-	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
+	spa_hook_list_isolate(&impl->hooks, &save, listener, events, data);
 
-	emit_node_info(this, true);
-	emit_port_info(this, GET_OUT_PORT(this, 0), true);
+	emit_node_info(impl, true);
+	emit_port_info(impl, GET_OUT_PORT(impl, 0), true);
 
-	spa_hook_list_join(&this->hooks, &save);
+	spa_hook_list_join(&impl->hooks, &save);
 
 	return 0;
 }
@@ -383,22 +375,22 @@ static int impl_node_set_callbacks(void *object,
 				   const struct spa_node_callbacks *callbacks,
 				   void *data)
 {
-	struct impl *this = object;
+	struct impl *impl = (struct impl*)object;
 
-	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != NULL, -EINVAL);
 
-	this->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
+	impl->callbacks = SPA_CALLBACKS_INIT(callbacks, data);
 
 	return 0;
 }
 
 static int impl_node_sync(void *object, int seq)
 {
-	struct impl *this = object;
+	struct impl *impl = (struct impl*)object;
 
-	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != NULL, -EINVAL);
 
-	spa_node_emit_result(&this->hooks, seq, 0, 0, NULL);
+	spa_node_emit_result(&impl->hooks, seq, 0, 0, NULL);
 
 	return 0;
 }
@@ -424,8 +416,8 @@ static int port_get_format(void *object,
 			   struct spa_pod **param,
 			   struct spa_pod_builder *builder)
 {
-	struct impl *this = object;
-	struct port *port = GET_PORT(this, direction, port_id);
+	struct impl *impl = (struct impl*)object;
+	struct port *port = GET_PORT(impl, direction, port_id);
 	struct spa_pod_frame f;
 
 	if (!port->have_format)
@@ -464,7 +456,7 @@ static int port_get_format(void *object,
 		return -EIO;
 	}
 
-	*param = spa_pod_builder_pop(builder, &f);
+	*param = (struct spa_pod*)spa_pod_builder_pop(builder, &f);
 
 	return 1;
 }
@@ -476,7 +468,7 @@ static int impl_node_port_enum_params(void *object, int seq,
 				      const struct spa_pod *filter)
 {
 
-	struct impl *this = object;
+	struct impl *impl = (struct impl*)object;
 	struct port *port;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
@@ -485,11 +477,11 @@ static int impl_node_port_enum_params(void *object, int seq,
 	uint32_t count = 0;
 	int res;
 
-	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
+	spa_return_val_if_fail(CHECK_PORT(impl, direction, port_id), -EINVAL);
 
-	port = GET_PORT(this, direction, port_id);
+	port = GET_PORT(impl, direction, port_id);
 
 	result.id = id;
 	result.next = start;
@@ -500,17 +492,18 @@ next:
 
 	switch (id) {
 	case SPA_PARAM_PropInfo:
-		return spa_libcamera_enum_controls(this, seq, start, num, filter);
+		return spa_libcamera_enum_controls(impl, seq, start, num, filter);
 
 	case SPA_PARAM_EnumFormat:
-		return spa_libcamera_enum_format(this, seq, start, num, filter);
+		return spa_libcamera_enum_format(impl, seq, start, num, filter);
 
 	case SPA_PARAM_Format:
-		if((res = port_get_format(this, direction, port_id,
+		if((res = port_get_format(impl, direction, port_id,
 						result.index, filter, &param, &b)) <= 0)
 			return res;
 		break;
 	case SPA_PARAM_Buffers:
+	{
 		if (!port->have_format)
 			return -EIO;
 		if (result.index > 0)
@@ -519,21 +512,22 @@ next:
 		/* Get the number of buffers to be used from libcamera and send the same to pipewire
 		 * so that exact number of buffers are allocated
 		 */
-		uint32_t n_buffers = libcamera_get_nbuffers(port->dev.camera);
+//		uint32_t n_buffers = libcamera_get_nbuffers(port->dev.camera);
+		uint32_t n_buffers = 0;
 
-		param = spa_pod_builder_add_object(&b,
+		param = (struct spa_pod*)spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(n_buffers, n_buffers, n_buffers),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(port->fmt.sizeimage),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->fmt.bytesperline),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(0),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(0),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;
-
+	}
 	case SPA_PARAM_Meta:
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
+			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamMeta, id,
 				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
 				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
@@ -545,19 +539,19 @@ next:
 	case SPA_PARAM_IO:
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
+			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
 			break;
 		case 1:
-			param = spa_pod_builder_add_object(&b,
+			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Clock),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_clock)));
 			break;
 		case 2:
-			param = spa_pod_builder_add_object(&b,
+			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Control),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_sequence)));
@@ -573,7 +567,7 @@ next:
 	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
 		goto next;
 
-	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+	spa_node_emit_result(&impl->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 	if (++count != num)
 		goto next;
@@ -586,35 +580,34 @@ static int port_set_format(void *object,
 			   uint32_t flags,
 			   const struct spa_pod *format)
 {
-	struct impl *this = object;
+	struct impl *impl = (struct impl*)object;
 	struct spa_video_info info;
-	struct port *port = GET_PORT(this, direction, port_id);
+	struct port *port = GET_PORT(impl, direction, port_id);
 	int res;
 
 	if (format == NULL) {
 		if (!port->have_format)
 			return 0;
 
-		spa_libcamera_stream_off(this);
-		spa_libcamera_clear_buffers(this);
+		spa_libcamera_stream_off(impl);
+		spa_libcamera_clear_buffers(impl);
 		port->have_format = false;
-		port->dev.have_format = false;
 
-		spa_libcamera_close(&port->dev);
+		spa_libcamera_close(impl);
 		goto done;
 	} else {
 		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
 			return res;
 
 		if (info.media_type != SPA_MEDIA_TYPE_video) {
-			spa_log_error(this->log, "media type must be video");
+			spa_log_error(impl->log, "media type must be video");
 			return -EINVAL;
 		}
 
 		switch (info.media_subtype) {
 		case SPA_MEDIA_SUBTYPE_raw:
 			if (spa_format_video_raw_parse(format, &info.info.raw) < 0) {
-				spa_log_error(this->log, "can't parse video raw");
+				spa_log_error(impl->log, "can't parse video raw");
 				return -EINVAL;
 			}
 
@@ -651,11 +644,11 @@ static int port_set_format(void *object,
 	}
 
 	if (port->have_format && !(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
-		spa_libcamera_use_buffers(this, NULL, 0);
+		spa_libcamera_use_buffers(impl, NULL, 0);
 		port->have_format = false;
 	}
 
-	if (spa_libcamera_set_format(this, &info, flags & SPA_NODE_PARAM_FLAG_TEST_ONLY) < 0)
+	if (spa_libcamera_set_format(impl, &info, flags & SPA_NODE_PARAM_FLAG_TEST_ONLY) < 0)
 		return -EINVAL;
 
 	if (!(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
@@ -672,7 +665,7 @@ static int port_set_format(void *object,
 		port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 		port->params[5] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	}
-	emit_port_info(this, port, false);
+	emit_port_info(impl, port, false);
 
 	return 0;
 }
@@ -700,30 +693,30 @@ static int impl_node_port_use_buffers(void *object,
 				      struct spa_buffer **buffers,
 				      uint32_t n_buffers)
 {
-	struct impl *this = object;
+	struct impl *impl = (struct impl*)object;
 	struct port *port;
 	int res;
 
-	spa_return_val_if_fail(this != NULL, -EINVAL);
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
+	spa_return_val_if_fail(impl != NULL, -EINVAL);
+	spa_return_val_if_fail(CHECK_PORT(impl, direction, port_id), -EINVAL);
 
-	port = GET_PORT(this, direction, port_id);
+	port = GET_PORT(impl, direction, port_id);
 
 	if (!port->have_format)
 		return -EIO;
 
 	if (port->n_buffers) {
-		spa_libcamera_stream_off(this);
-		if ((res = spa_libcamera_clear_buffers(this)) < 0)
+		spa_libcamera_stream_off(impl);
+		if ((res = spa_libcamera_clear_buffers(impl)) < 0)
 			return res;
 	}
 	if (buffers == NULL)
 		return 0;
 
 	if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC) {
-		res = spa_libcamera_alloc_buffers(this, buffers, n_buffers);
+		res = spa_libcamera_alloc_buffers(impl, buffers, n_buffers);
 	} else {
-		res = spa_libcamera_use_buffers(this, buffers, n_buffers);
+		res = spa_libcamera_use_buffers(impl, buffers, n_buffers);
 	}
 	return res;
 }
@@ -734,20 +727,20 @@ static int impl_node_port_set_io(void *object,
 				 uint32_t id,
 				 void *data, size_t size)
 {
-	struct impl *this = object;
+	struct impl *impl = (struct impl*)object;
 	struct port *port;
 
-	spa_return_val_if_fail(this != NULL, -EINVAL);
-	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
+	spa_return_val_if_fail(impl != NULL, -EINVAL);
+	spa_return_val_if_fail(CHECK_PORT(impl, direction, port_id), -EINVAL);
 
-	port = GET_PORT(this, direction, port_id);
+	port = GET_PORT(impl, direction, port_id);
 
 	switch (id) {
 	case SPA_IO_Buffers:
-		port->io = data;
+		port->io = (struct spa_io_buffers*)data;
 		break;
 	case SPA_IO_Control:
-		port->control = data;
+		port->control = (struct spa_io_sequence*)data;
 		break;
 	default:
 		return -ENOENT;
@@ -759,30 +752,30 @@ static int impl_node_port_reuse_buffer(void *object,
 				       uint32_t port_id,
 				       uint32_t buffer_id)
 {
-	struct impl *this = object;
+	struct impl *impl = (struct impl*)object;
 	struct port *port;
 	int res;
 
-	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != NULL, -EINVAL);
 	spa_return_val_if_fail(port_id == 0, -EINVAL);
 
-	port = GET_OUT_PORT(this, port_id);
+	port = GET_OUT_PORT(impl, port_id);
 
 	spa_return_val_if_fail(buffer_id < port->n_buffers, -EINVAL);
 
-	res = spa_libcamera_buffer_recycle(this, buffer_id);
+	res = spa_libcamera_buffer_recycle(impl, buffer_id);
 
 	return res;
 }
 
-static void set_control(struct impl *this, struct port *port, uint32_t control_id, float value)
+static void set_control(struct impl *impl, struct port *port, uint32_t control_id, float value)
 {
-	if(libcamera_set_control(port->dev.camera, control_id, value) < 0) {
-		spa_log_error(this->log, "Failed to set control");
-	}
+//	if(libcamera_set_control(port->dev.camera, control_id, value) < 0) {
+		spa_log_error(impl->log, "Failed to set control");
+//	}
 }
 
-static int process_control(struct impl *this, struct spa_pod_sequence *control)
+static int process_control(struct impl *impl, struct spa_pod_sequence *control)
 {
 	struct spa_pod_control *c;
 	struct port *port;
@@ -795,8 +788,8 @@ static int process_control(struct impl *this, struct spa_pod_sequence *control)
 			struct spa_pod_object *obj = (struct spa_pod_object *) &c->value;
 
 			SPA_POD_OBJECT_FOREACH(obj, prop) {
-				port = GET_OUT_PORT(this, 0);
-				set_control(this, port, prop->key,
+				port = GET_OUT_PORT(impl, 0);
+				set_control(impl, port, prop->key,
 						SPA_POD_VALUE(struct spa_pod_float, &prop->value));
 			}
 			break;
@@ -810,31 +803,30 @@ static int process_control(struct impl *this, struct spa_pod_sequence *control)
 
 static int impl_node_process(void *object)
 {
-	struct impl *this = object;
+	struct impl *impl = (struct impl*)object;
 	int res;
 	struct spa_io_buffers *io;
 	struct port *port;
 	struct buffer *b;
 
-	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != NULL, -EINVAL);
 
-	port = GET_OUT_PORT(this, 0);
+	port = GET_OUT_PORT(impl, 0);
 	io = port->io;
 	spa_return_val_if_fail(io != NULL, -EIO);
 
 	if (port->control)
-		process_control(this, &port->control->sequence);
+		process_control(impl, &port->control->sequence);
 
-	spa_log_trace(this->log, "%p; status %d", this, io->status);
+	spa_log_trace(impl->log, "%p; status %d", impl, io->status);
 
 	if (io->status == SPA_STATUS_HAVE_DATA) {
 		return SPA_STATUS_HAVE_DATA;
 	}
 
 	if (io->buffer_id < port->n_buffers) {
-		if ((res = spa_libcamera_buffer_recycle(this, io->buffer_id)) < 0) {
+		if ((res = spa_libcamera_buffer_recycle(impl, io->buffer_id)) < 0)
 			return res;
-		}
 
 		io->buffer_id = SPA_ID_INVALID;
 	}
@@ -847,7 +839,7 @@ static int impl_node_process(void *object)
 	spa_list_remove(&b->link);
 	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
 
-	spa_log_trace(this->log, "%p: dequeue buffer %d", this, b->id);
+	spa_log_trace(impl->log, "%p: dequeue buffer %d", impl, b->id);
 
 	io->buffer_id = b->id;
 	io->status = SPA_STATUS_HAVE_DATA;
@@ -876,15 +868,15 @@ static const struct spa_node_methods impl_node = {
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
-	struct impl *this;
+	struct impl *impl;
 
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 	spa_return_val_if_fail(interface != NULL, -EINVAL);
 
-	this = (struct impl *) handle;
+	impl = (struct impl *) handle;
 
 	if (spa_streq(type, SPA_TYPE_INTERFACE_Node))
-		*interface = &this->node;
+		*interface = &impl->node;
 	else
 		return -ENOENT;
 
@@ -893,19 +885,15 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 static int impl_clear(struct spa_handle *handle)
 {
-	struct impl *this;
+	struct impl *impl;
 	struct port *port;
 
-	this = (struct impl *) handle;
-	port = GET_OUT_PORT(this, 0);
+	impl = (struct impl *) handle;
+	port = GET_OUT_PORT(impl, 0);
 
-	if(port->dev.camera) {
-		deleteLibCamera(port->dev.camera);
-		port->dev.camera = NULL;
-	}
-	if(this->have_source) {
-		spa_system_close(this->system, port->source.fd);
-		this->have_source = false;
+	if(impl->have_source) {
+		spa_system_close(impl->system, port->source.fd);
+		impl->have_source = false;
 	}
 	return 0;
 }
@@ -924,7 +912,7 @@ impl_init(const struct spa_handle_factory *factory,
 	  const struct spa_support *support,
 	  uint32_t n_support)
 {
-	struct impl *this;
+	struct impl *impl;
 	const char *str;
 	struct port *port;
 	int res;
@@ -935,44 +923,44 @@ impl_init(const struct spa_handle_factory *factory,
 	handle->get_interface = impl_get_interface;
 	handle->clear = impl_clear;
 
-	this = (struct impl *) handle;
+	impl = (struct impl *) handle;
 
-	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	libcamera_log_topic_init(this->log);
+	impl->log = (struct spa_log*)spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	libcamera_log_topic_init(impl->log);
 
-	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
-	this->system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_System);
+	impl->data_loop = (struct spa_loop*)spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
+	impl->system = (struct spa_system*)spa_support_find(support, n_support, SPA_TYPE_INTERFACE_System);
 
-	if (this->data_loop == NULL) {
-		spa_log_error(this->log, "a data_loop is needed");
+	if (impl->data_loop == NULL) {
+		spa_log_error(impl->log, "a data_loop is needed");
 		return -EINVAL;
 	}
 
-	if (this->system == NULL) {
-		spa_log_error(this->log, "a system is needed");
+	if (impl->system == NULL) {
+		spa_log_error(impl->log, "a system is needed");
 		return -EINVAL;
 	}
 
-	this->node.iface = SPA_INTERFACE_INIT(
+	impl->node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
-			&impl_node, this);
-	spa_hook_list_init(&this->hooks);
+			&impl_node, impl);
+	spa_hook_list_init(&impl->hooks);
 
-	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |
+	impl->info_all = SPA_NODE_CHANGE_MASK_FLAGS |
 			SPA_NODE_CHANGE_MASK_PROPS |
 			SPA_NODE_CHANGE_MASK_PARAMS;
-	this->info = SPA_NODE_INFO_INIT();
-	this->info.max_output_ports = 1;
-	this->info.flags = SPA_NODE_FLAG_RT;
-	this->params[0] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
-	this->params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
-	this->info.params = this->params;
-	this->info.n_params = 2;
-	reset_props(&this->props);
+	impl->info = SPA_NODE_INFO_INIT();
+	impl->info.max_output_ports = 1;
+	impl->info.flags = SPA_NODE_FLAG_RT;
+	impl->params[0] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
+	impl->params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
+	impl->info.params = impl->params;
+	impl->info.n_params = 2;
+	reset_props(&impl->props);
 
-	port = GET_OUT_PORT(this, 0);
-	port->impl = this;
+	port = GET_OUT_PORT(impl, 0);
+	port->impl = impl;
 	spa_list_init(&port->queue);
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PARAMS;
@@ -989,23 +977,22 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info.params = port->params;
 	port->info.n_params = 6;
 
-	port->export_buf = true;
-	port->have_query_ext_ctrl = true;
-	port->dev.log = this->log;
-	port->dev.fd = -1;
+	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_LIBCAMERA_PATH)))
+		strncpy(impl->props.device, str, sizeof(impl->props.device));
 
-	if(port->dev.camera == NULL)
-		port->dev.camera = (LibCamera*)newLibCamera();
-	if(port->dev.camera != NULL)
-		libcamera_set_log(port->dev.camera, port->dev.log);
-
-	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_LIBCAMERA_PATH))) {
-		strncpy(this->props.device, str, 63);
-		if ((res = spa_libcamera_open(&port->dev)) < 0)
-			return res;
-		spa_libcamera_close(&port->dev);
+	impl->manager = libcamera_manager_acquire();
+	if (impl->manager == NULL) {
+		res = -errno;
+		spa_log_error(impl->log, "can't start camera manager: %s", spa_strerror(res));
+                return res;
 	}
 
+	impl->camera = impl->manager->get(impl->props.device);
+	if (impl->camera == NULL) {
+		spa_log_error(impl->log, "unknown camera id %s", impl->props.device);
+		libcamera_manager_release(impl->manager);
+		return -ENOENT;
+	}
 	return 0;
 }
 
@@ -1028,6 +1015,7 @@ static int impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return 1;
 }
 
+extern "C" {
 const struct spa_handle_factory spa_libcamera_source_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	SPA_NAME_API_LIBCAMERA_SOURCE,
@@ -1036,3 +1024,4 @@ const struct spa_handle_factory spa_libcamera_source_factory = {
 	impl_init,
 	impl_enum_interface_info,
 };
+}

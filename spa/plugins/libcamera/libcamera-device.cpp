@@ -1,9 +1,10 @@
-/* Spa libcamera Source
+/* Spa libcamera Device
  *
  * Copyright (C) 2020, Collabora Ltd.
  *     Author: Raghavendra Rao Sidlagatta <raghavendra.rao@collabora.com>
+ * Copyright (C) 2021 Wim Taymans <wim.taymans@gmail.com>
  *
- * libcamera-device.c
+ * libcamera-device.cpp
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -36,6 +37,7 @@
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/result.h>
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
 #include <spa/node/node.h>
@@ -45,18 +47,21 @@
 #include <spa/debug/pod.h>
 
 #include "libcamera.h"
+#include "libcamera-manager.hpp"
 
-static const char default_device[] = "/dev/media0";
+#include <libcamera/camera.h>
+#include <libcamera/property_ids.h>
+
+using namespace libcamera;
 
 struct props {
-	char device[64];
+	char device[128];
 	char device_name[128];
-	int device_fd;
 };
 
 static void reset_props(struct props *props)
 {
-	strncpy(props->device, default_device, 64);
+	spa_zero(*props);
 }
 
 struct impl {
@@ -69,49 +74,68 @@ struct impl {
 
 	struct spa_hook_list hooks;
 
-	struct spa_libcamera_device dev;
+	CameraManager *manager;
+	std::shared_ptr<Camera> camera;
 };
 
-static int emit_info(struct impl *this, bool full)
+std::string cameraDesc(const Camera *camera)
 {
-	int res, err;
+	const ControlList &props = camera->properties();
+	bool addModel = true;
+	std::string name;
+
+        if (props.contains(properties::Location)) {
+		switch (props.get(properties::Location)) {
+		case properties::CameraLocationFront:
+			addModel = false;
+			name = "Internal front camera ";
+		break;
+		case properties::CameraLocationBack:
+			addModel = false;
+			name = "Internal back camera ";
+		break;
+		case properties::CameraLocationExternal:
+			name = "External camera ";
+			break;
+		}
+	}
+	if (addModel) {
+		if (props.contains(properties::Model))
+			name = "" + props.get(properties::Model);
+		else
+			name = "" + camera->id();
+	}
+        return name;
+}
+
+
+static int emit_info(struct impl *impl, bool full)
+{
 	struct spa_dict_item items[10];
+	struct spa_dict dict;
 	uint32_t n_items = 0;
 	struct spa_device_info info;
 	struct spa_param_info params[2];
-	char path[128], version[16];
-
-	if ((res = spa_libcamera_open(&this->dev)) < 0)
-		return res;
+	char path[256], desc[256], name[256];
 
 	info = SPA_DEVICE_INFO_INIT();
 
 	info.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
 
-	do {
-		err = ioctl(this->dev.fd, MEDIA_IOC_DEVICE_INFO, &this->dev.dev_info);
-	} while (err == -1 && errno == EINTR);
-
-	if(err < 0) {
-		spa_log_error(this->log, "%s:: Failed to query MEDIA_IOC_DEVICE_INFO on fd %d", __FUNCTION__, this->dev.fd);
-	}
-
 #define ADD_ITEM(key, value) items[n_items++] = SPA_DICT_ITEM_INIT(key, value)
-	snprintf(path, sizeof(path), "libcamera:%s", this->props.device);
+	snprintf(path, sizeof(path), "libcamera:%s", impl->props.device);
 	ADD_ITEM(SPA_KEY_OBJECT_PATH, path);
 	ADD_ITEM(SPA_KEY_DEVICE_API, "libcamera");
 	ADD_ITEM(SPA_KEY_MEDIA_CLASS, "Video/Device");
-	ADD_ITEM(SPA_KEY_API_LIBCAMERA_PATH, (char *)this->props.device);
-	ADD_ITEM(SPA_KEY_API_LIBCAMERA_CAP_DRIVER, (char *)this->dev.dev_info.driver);
-	ADD_ITEM(SPA_KEY_API_LIBCAMERA_CAP_CARD, (char *)this->dev.dev_info.model);
-	ADD_ITEM(SPA_KEY_API_LIBCAMERA_CAP_BUS_INFO, (char *)this->dev.dev_info.bus_info);
-	snprintf(version, sizeof(version), "%u.%u.%u",
-			(this->dev.dev_info.media_version >> 16) & 0xFF,
-			(this->dev.dev_info.media_version >> 8) & 0xFF,
-			(this->dev.dev_info.media_version) & 0xFF);
-	ADD_ITEM(SPA_KEY_API_LIBCAMERA_CAP_VERSION, version);
+	ADD_ITEM(SPA_KEY_API_LIBCAMERA_PATH, (char *)impl->props.device);
+	snprintf(desc, sizeof(desc), "%s", cameraDesc(impl->camera.get()).c_str());
+	ADD_ITEM(SPA_KEY_DEVICE_DESCRIPTION, desc);
+	snprintf(name, sizeof(name), "libcamera_device.%s", impl->props.device);
+	ADD_ITEM(SPA_KEY_DEVICE_NAME, name);
 #undef ADD_ITEM
-	info.props = &SPA_DICT_INIT(items, n_items);
+
+	dict = SPA_DICT_INIT(items, n_items);
+	info.props = &dict;
 
 	info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
 	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumProfile, SPA_PARAM_INFO_READ);
@@ -119,22 +143,19 @@ static int emit_info(struct impl *this, bool full)
 	info.n_params = SPA_N_ELEMENTS(params);
 	info.params = params;
 
-	spa_device_emit_info(&this->hooks, &info);
+	spa_device_emit_info(&impl->hooks, &info);
 
-	if (spa_libcamera_is_capture(&this->dev)) {
+	if (true) {
 		struct spa_device_object_info oinfo;
 
 		oinfo = SPA_DEVICE_OBJECT_INFO_INIT();
 		oinfo.type = SPA_TYPE_INTERFACE_Node;
 		oinfo.factory_name = SPA_NAME_API_LIBCAMERA_SOURCE;
 		oinfo.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
-		oinfo.props = &SPA_DICT_INIT(items, n_items);
+		oinfo.props = &dict;
 
-		spa_device_emit_object_info(&this->hooks, 0, &oinfo);
+		spa_device_emit_object_info(&impl->hooks, 0, &oinfo);
 	}
-
-	spa_libcamera_close(&this->dev);
-
 	return 0;
 }
 
@@ -143,30 +164,30 @@ static int impl_add_listener(void *object,
 			const struct spa_device_events *events,
 			void *data)
 {
-	struct impl *this = object;
+	struct impl *impl = (struct impl*)object;
 	struct spa_hook_list save;
 	int res = 0;
 
-	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != NULL, -EINVAL);
 	spa_return_val_if_fail(events != NULL, -EINVAL);
 
-	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
+	spa_hook_list_isolate(&impl->hooks, &save, listener, events, data);
 
 	if (events->info || events->object_info)
-		res = emit_info(this, true);
+		res = emit_info(impl, true);
 
-	spa_hook_list_join(&this->hooks, &save);
+	spa_hook_list_join(&impl->hooks, &save);
 
 	return res;
 }
 
 static int impl_sync(void *object, int seq)
 {
-	struct impl *this = object;
+	struct impl *impl = (struct impl*) object;
 
-	spa_return_val_if_fail(this != NULL, -EINVAL);
+	spa_return_val_if_fail(impl != NULL, -EINVAL);
 
-	spa_device_emit_result(&this->hooks, seq, 0, 0, NULL);
+	spa_device_emit_result(&impl->hooks, seq, 0, 0, NULL);
 
 	return 0;
 }
@@ -195,15 +216,15 @@ static const struct spa_device_methods impl_device = {
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
-	struct impl *this;
+	struct impl *impl;
 
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 	spa_return_val_if_fail(interface != NULL, -EINVAL);
 
-	this = (struct impl *) handle;
+	impl = (struct impl *) handle;
 
 	if (spa_streq(type, SPA_TYPE_INTERFACE_Device))
-		*interface = &this->device;
+		*interface = &impl->device;
 	else
 		return -ENOENT;
 
@@ -212,6 +233,10 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct impl *impl = (struct impl *) handle;
+	if (impl->manager)
+		libcamera_manager_release(impl->manager);
+	impl->manager = NULL;
 	return 0;
 }
 
@@ -229,32 +254,44 @@ impl_init(const struct spa_handle_factory *factory,
 	  const struct spa_support *support,
 	  uint32_t n_support)
 {
-	struct impl *this;
+	struct impl *impl;
 	const char *str;
+	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
 	handle->get_interface = impl_get_interface;
-	handle->clear = impl_clear, this = (struct impl *) handle;
+	handle->clear = impl_clear, impl = (struct impl *) handle;
 
-	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	libcamera_log_topic_init(this->log);
+	impl->log = (struct spa_log*) spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	libcamera_log_topic_init(impl->log);
 
-	spa_hook_list_init(&this->hooks);
+	spa_hook_list_init(&impl->hooks);
 
-	this->device.iface = SPA_INTERFACE_INIT(
+	impl->device.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Device,
 			SPA_VERSION_DEVICE,
-			&impl_device, this);
-	this->dev.log = this->log;
-	this->dev.fd = -1;
+			&impl_device, impl);
 
-	reset_props(&this->props);
+	reset_props(&impl->props);
 
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_LIBCAMERA_PATH)))
-		strncpy(this->props.device, str, 63);
+		strncpy(impl->props.device, str, sizeof(impl->props.device));
 
+	impl->manager = libcamera_manager_acquire();
+	if (impl->manager == NULL) {
+		res = -errno;
+		spa_log_error(impl->log, "can't start camera manager: %s", spa_strerror(res));
+                return res;
+	}
+
+	impl->camera = impl->manager->get(impl->props.device);
+	if (impl->camera == NULL) {
+		spa_log_error(impl->log, "unknown camera id %s", impl->props.device);
+		libcamera_manager_release(impl->manager);
+		return -ENOENT;
+	}
 	return 0;
 }
 
@@ -277,6 +314,7 @@ static int impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return 1;
 }
 
+extern "C" {
 const struct spa_handle_factory spa_libcamera_device_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	SPA_NAME_API_LIBCAMERA_DEVICE,
@@ -285,3 +323,4 @@ const struct spa_handle_factory spa_libcamera_device_factory = {
 	impl_init,
 	impl_enum_interface_info,
 };
+}

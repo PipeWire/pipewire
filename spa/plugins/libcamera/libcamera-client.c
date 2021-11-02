@@ -57,7 +57,6 @@ struct impl {
 	struct spa_device_info info;
 
 	struct spa_source source;
-	struct spa_libcamera_device dev;
 };
 
 static int emit_object_info(struct impl *this, uint32_t id)

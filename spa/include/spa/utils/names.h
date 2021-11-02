@@ -128,6 +128,7 @@ extern "C" {
 
 /** keys for libcamera factory names */
 #define SPA_NAME_API_LIBCAMERA_ENUM_CLIENT	"api.libcamera.enum.client"	/**< a libcamera client Device interface */
+#define SPA_NAME_API_LIBCAMERA_ENUM_MANAGER	"api.libcamera.enum.manager"	/**< a libcamera manager Device interface */
 #define SPA_NAME_API_LIBCAMERA_DEVICE		"api.libcamera.device"		/**< a libcamera Device interface */
 #define SPA_NAME_API_LIBCAMERA_SOURCE		"api.libcamera.source"		/**< a libcamera Node interface for
 									  *  capturing */

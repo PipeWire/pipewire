@@ -543,6 +543,8 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 done:
 	pw->hw_ptr = 0;
 	pw->xrun_detected = false;
+	pw->drained = false;
+	pw->draining = false;
 
 	pw_thread_loop_unlock(pw->main_loop);
 

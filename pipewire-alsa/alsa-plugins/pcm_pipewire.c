@@ -234,7 +234,7 @@ static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delay
 	return 0;
 }
 
-static int
+static snd_pcm_uframes_t
 snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b,
 		snd_pcm_uframes_t *hw_avail,snd_pcm_uframes_t want)
 {
@@ -319,6 +319,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b,
 
 			snd_pcm_areas_silence(pwareas, xfer, io->channels,
 							  frames, io->format);
+			xfer += frames;
 		}
 		if (io->state == SND_PCM_STATE_RUNNING ||
 			io->state == SND_PCM_STATE_DRAINING) {
@@ -326,7 +327,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b,
 			pw->xrun_detected = true;
 		}
 	}
-	return 0;
+	return xfer;
 }
 
 static void on_stream_param_changed(void *data, uint32_t id, const struct spa_pod *param)
@@ -387,9 +388,15 @@ static void on_stream_process(void *data)
 	snd_pcm_pipewire_t *pw = data;
 	snd_pcm_ioplug_t *io = &pw->io;
 	struct pw_buffer *b;
-	snd_pcm_uframes_t hw_avail, want;
+	snd_pcm_uframes_t hw_avail, want, xfer;
 
 	pw_stream_get_time(pw->stream, &pw->time);
+
+	if (pw->time.rate.num != 0) {
+		pw->time.delay = pw->time.delay * io->rate * pw->time.rate.num / pw->time.rate.denom;
+		pw->time.rate.denom = io->rate;
+		pw->time.rate.num = 1;
+	}
 
 	hw_avail = snd_pcm_ioplug_hw_avail(io, pw->hw_ptr, io->appl_ptr);
 
@@ -405,7 +412,12 @@ static void on_stream_process(void *data)
 	want = pw->rate_match ? pw->rate_match->size : hw_avail;
 	pw_log_trace("%p: avail:%lu want:%lu", pw, hw_avail, want);
 
-	snd_pcm_pipewire_process(pw, b, &hw_avail, want);
+	xfer = snd_pcm_pipewire_process(pw, b, &hw_avail, want);
+
+	if (io->stream == SND_PCM_STREAM_PLAYBACK)
+		pw->time.delay += xfer;
+	else
+		pw->time.delay -= SPA_MIN(pw->time.delay, xfer);
 
 	pw_stream_queue_buffer(pw->stream, b);
 

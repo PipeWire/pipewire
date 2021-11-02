@@ -1572,7 +1572,9 @@ static int vidioc_reqbufs(struct file *file, struct v4l2_requestbuffers *arg)
 
 		arg->count = file->n_buffers;
 	}
+#ifdef V4L2_BUF_CAP_SUPPORTS_MMAP
 	arg->capabilities = V4L2_BUF_CAP_SUPPORTS_MMAP;
+#endif
 	memset(arg->reserved, 0, sizeof(arg->reserved));
 
 	pw_log_info("result count: %u", arg->count);

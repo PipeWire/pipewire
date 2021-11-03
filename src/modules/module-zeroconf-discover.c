@@ -218,7 +218,9 @@ static void pw_properties_from_avahi_string(const char *key, const char *value, 
 		pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
 	}
 	else if (spa_streq(key, "format")) {
-		pw_properties_set(props, PW_KEY_AUDIO_FORMAT, value);
+		uint32_t fmt = format_paname2id(value, strlen(value));
+		if (fmt != SPA_AUDIO_FORMAT_UNKNOWN)
+			pw_properties_set(props, PW_KEY_AUDIO_FORMAT, format_id2name(fmt));
 	}
 	else if (spa_streq(key, "icon-name")) {
 		pw_properties_set(props, PW_KEY_DEVICE_ICON_NAME, value);

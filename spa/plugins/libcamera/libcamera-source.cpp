@@ -30,6 +30,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <deque>
 
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>
@@ -39,6 +40,7 @@
 #include <spa/utils/names.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
+#include <spa/utils/ringbuffer.h>
 #include <spa/monitor/device.h>
 #include <spa/node/node.h>
 #include <spa/node/io.h>
@@ -52,6 +54,8 @@
 #include <libcamera/camera.h>
 #include <libcamera/stream.h>
 #include <libcamera/formats.h>
+#include <libcamera/framebuffer.h>
+#include <libcamera/framebuffer_allocator.h>
 
 #include "libcamera.h"
 #include "libcamera-manager.hpp"
@@ -66,7 +70,8 @@ static void reset_props(struct props *props)
 	spa_zero(*props);
 }
 
-#define MAX_BUFFERS     32
+#define MAX_BUFFERS	32
+#define MASK_BUFFERS	31
 
 #define BUFFER_FLAG_OUTSTANDING	(1<<0)
 #define BUFFER_FLAG_ALLOCATED	(1<<1)
@@ -95,6 +100,7 @@ struct port {
 	bool have_format;
 	struct spa_video_info current_format;
 	struct spa_fraction rate;
+	StreamConfiguration streamConfig;
 
 	uint32_t memtype;
 
@@ -104,8 +110,8 @@ struct port {
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
 	struct spa_list queue;
-
-	struct spa_source source;
+	struct spa_ringbuffer ring;
+	uint32_t ring_ids[MAX_BUFFERS];
 
 	uint64_t info_all;
 	struct spa_port_info info;
@@ -123,7 +129,6 @@ struct port {
 struct impl {
 	struct spa_handle handle;
 	struct spa_node node;
-	bool have_source;
 
 	struct spa_log *log;
 	struct spa_loop *data_loop;
@@ -145,12 +150,22 @@ struct impl {
 	CameraManager *manager;
 	std::shared_ptr<Camera> camera;
 
+	FrameBufferAllocator *allocator;
+	std::vector<std::unique_ptr<libcamera::Request>> requestPool;
+	std::deque<libcamera::Request *> pendingRequests;
+
+	void requestComplete(libcamera::Request *request);
+
 	unsigned int have_config;
 	std::unique_ptr<CameraConfiguration> config;
+
+	struct spa_source source;
 
 	unsigned int active:1;
 	unsigned int acquired:1;
 };
+
+typedef struct impl Impl;
 
 #define CHECK_PORT(impl,direction,port_id)  ((direction) == SPA_DIRECTION_OUTPUT && (port_id) == 0)
 
@@ -409,15 +424,12 @@ static int impl_node_remove_port(void *object,
 	return -ENOTSUP;
 }
 
-static int port_get_format(void *object,
-			   enum spa_direction direction, uint32_t port_id,
+static int port_get_format(struct impl *impl, struct port *port,
 			   uint32_t index,
 			   const struct spa_pod *filter,
 			   struct spa_pod **param,
 			   struct spa_pod_builder *builder)
 {
-	struct impl *impl = (struct impl*)object;
-	struct port *port = GET_PORT(impl, direction, port_id);
 	struct spa_pod_frame f;
 
 	if (!port->have_format)
@@ -492,14 +504,13 @@ next:
 
 	switch (id) {
 	case SPA_PARAM_PropInfo:
-		return spa_libcamera_enum_controls(impl, seq, start, num, filter);
+		return spa_libcamera_enum_controls(impl, port, seq, start, num, filter);
 
 	case SPA_PARAM_EnumFormat:
-		return spa_libcamera_enum_format(impl, seq, start, num, filter);
+		return spa_libcamera_enum_format(impl, port, seq, start, num, filter);
 
 	case SPA_PARAM_Format:
-		if((res = port_get_format(impl, direction, port_id,
-						result.index, filter, &param, &b)) <= 0)
+		if((res = port_get_format(impl, port, result.index, filter, &param, &b)) <= 0)
 			return res;
 		break;
 	case SPA_PARAM_Buffers:
@@ -512,15 +523,14 @@ next:
 		/* Get the number of buffers to be used from libcamera and send the same to pipewire
 		 * so that exact number of buffers are allocated
 		 */
-//		uint32_t n_buffers = libcamera_get_nbuffers(port->dev.camera);
-		uint32_t n_buffers = 0;
+		uint32_t n_buffers = port->streamConfig.bufferCount;
 
 		param = (struct spa_pod*)spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(n_buffers, n_buffers, n_buffers),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(0),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(0),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(port->streamConfig.frameSize),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->streamConfig.stride),
 			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
 		break;
 	}
@@ -575,14 +585,10 @@ next:
 	return 0;
 }
 
-static int port_set_format(void *object,
-			   enum spa_direction direction, uint32_t port_id,
-			   uint32_t flags,
-			   const struct spa_pod *format)
+static int port_set_format(struct impl *impl, struct port *port,
+			   uint32_t flags, const struct spa_pod *format)
 {
-	struct impl *impl = (struct impl*)object;
 	struct spa_video_info info;
-	struct port *port = GET_PORT(impl, direction, port_id);
 	int res;
 
 	if (format == NULL) {
@@ -590,7 +596,7 @@ static int port_set_format(void *object,
 			return 0;
 
 		spa_libcamera_stream_off(impl);
-		spa_libcamera_clear_buffers(impl);
+		spa_libcamera_clear_buffers(impl, port);
 		port->have_format = false;
 
 		spa_libcamera_close(impl);
@@ -644,11 +650,11 @@ static int port_set_format(void *object,
 	}
 
 	if (port->have_format && !(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
-		spa_libcamera_use_buffers(impl, NULL, 0);
+		spa_libcamera_use_buffers(impl, port, NULL, 0);
 		port->have_format = false;
 	}
 
-	if (spa_libcamera_set_format(impl, &info, flags & SPA_NODE_PARAM_FLAG_TEST_ONLY) < 0)
+	if (spa_libcamera_set_format(impl, port, &info, flags & SPA_NODE_PARAM_FLAG_TEST_ONLY) < 0)
 		return -EINVAL;
 
 	if (!(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
@@ -675,15 +681,23 @@ static int impl_node_port_set_param(void *object,
 				    uint32_t id, uint32_t flags,
 				    const struct spa_pod *param)
 {
+	struct impl *impl = (struct impl*)object;
+	struct port *port;
+	int res;
+
 	spa_return_val_if_fail(object != NULL, -EINVAL);
+	spa_return_val_if_fail(CHECK_PORT(impl, direction, port_id), -EINVAL);
 
-	spa_return_val_if_fail(CHECK_PORT(object, direction, port_id), -EINVAL);
+	port = GET_PORT(impl, direction, port_id);
 
-	if (id == SPA_PARAM_Format) {
-		return port_set_format(object, direction, port_id, flags, param);
+	switch (id) {
+	case SPA_PARAM_Format:
+		res = port_set_format(impl, port, flags, param);
+		break;
+	default:
+		res = -ENOENT;
 	}
-	else
-		return -ENOENT;
+	return res;
 }
 
 static int impl_node_port_use_buffers(void *object,
@@ -707,16 +721,16 @@ static int impl_node_port_use_buffers(void *object,
 
 	if (port->n_buffers) {
 		spa_libcamera_stream_off(impl);
-		if ((res = spa_libcamera_clear_buffers(impl)) < 0)
+		if ((res = spa_libcamera_clear_buffers(impl, port)) < 0)
 			return res;
 	}
 	if (buffers == NULL)
 		return 0;
 
 	if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC) {
-		res = spa_libcamera_alloc_buffers(impl, buffers, n_buffers);
+		res = spa_libcamera_alloc_buffers(impl, port, buffers, n_buffers);
 	} else {
-		res = spa_libcamera_use_buffers(impl, buffers, n_buffers);
+		res = spa_libcamera_use_buffers(impl, port, buffers, n_buffers);
 	}
 	return res;
 }
@@ -763,16 +777,14 @@ static int impl_node_port_reuse_buffer(void *object,
 
 	spa_return_val_if_fail(buffer_id < port->n_buffers, -EINVAL);
 
-	res = spa_libcamera_buffer_recycle(impl, buffer_id);
+	res = spa_libcamera_buffer_recycle(impl, port, buffer_id);
 
 	return res;
 }
 
 static void set_control(struct impl *impl, struct port *port, uint32_t control_id, float value)
 {
-//	if(libcamera_set_control(port->dev.camera, control_id, value) < 0) {
-		spa_log_error(impl->log, "Failed to set control");
-//	}
+	spa_log_error(impl->log, "Failed to set control");
 }
 
 static int process_control(struct impl *impl, struct spa_pod_sequence *control)
@@ -825,7 +837,7 @@ static int impl_node_process(void *object)
 	}
 
 	if (io->buffer_id < port->n_buffers) {
-		if ((res = spa_libcamera_buffer_recycle(impl, io->buffer_id)) < 0)
+		if ((res = spa_libcamera_buffer_recycle(impl, port, io->buffer_id)) < 0)
 			return res;
 
 		io->buffer_id = SPA_ID_INVALID;
@@ -886,15 +898,9 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *impl;
-	struct port *port;
 
 	impl = (struct impl *) handle;
-	port = GET_OUT_PORT(impl, 0);
-
-	if(impl->have_source) {
-		spa_system_close(impl->system, port->source.fd);
-		impl->have_source = false;
-	}
+	impl->~Impl();
 	return 0;
 }
 
@@ -920,10 +926,10 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
+	impl = new(handle) Impl();
+
 	handle->get_interface = impl_get_interface;
 	handle->clear = impl_clear;
-
-	impl = (struct impl *) handle;
 
 	impl->log = (struct spa_log*)spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	libcamera_log_topic_init(impl->log);

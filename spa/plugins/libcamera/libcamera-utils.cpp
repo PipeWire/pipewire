@@ -39,6 +39,8 @@ int spa_libcamera_open(struct impl *impl)
 {
 	if (impl->acquired)
 		return 0;
+
+	spa_log_info(impl->log, "open camera %s", impl->props.device);
 	impl->camera->acquire();
 
 	impl->allocator = new FrameBufferAllocator(impl->camera);
@@ -55,6 +57,7 @@ int spa_libcamera_close(struct impl *impl)
 	if (impl->active || port->have_format)
 		return 0;
 
+	spa_log_info(impl->log, "close camera %s", impl->props.device);
 	delete impl->allocator;
 	impl->allocator = nullptr;
 
@@ -508,8 +511,6 @@ mmap_init(struct impl *impl, struct port *port,
 	const std::vector<std::unique_ptr<FrameBuffer>> &bufs =
 			impl->allocator->buffers(stream);
 
-	spa_log_info(impl->log, "In mmap_init()");
-
 	if (n_buffers > 0) {
 		if (bufs.size() != n_buffers)
 			return -EINVAL;
@@ -558,7 +559,7 @@ mmap_init(struct impl *impl, struct port *port,
 			if (port->memtype == SPA_DATA_DmaBuf ||
 			    port->memtype == SPA_DATA_MemFd) {
 				d[j].fd = bufs[i]->planes()[j].fd.fd();
-				spa_log_info(impl->log, "Got fd = %ld for buffer: #%d", d[j].fd, i);
+				spa_log_debug(impl->log, "Got fd = %ld for buffer: #%d", d[j].fd, i);
 				d[j].data = NULL;
 				SPA_FLAG_SET(b->flags, BUFFER_FLAG_ALLOCATED);
 			}
@@ -575,7 +576,7 @@ mmap_init(struct impl *impl, struct port *port,
 				}
 				b->ptr = d[j].data;
 				SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
-				spa_log_info(impl->log, "mmap ptr:%p", d[j].data);
+				spa_log_debug(impl->log, "mmap ptr:%p", d[j].data);
 			} else {
 				spa_log_error(impl->log, "invalid buffer type");
 				return -EIO;
@@ -584,7 +585,7 @@ mmap_init(struct impl *impl, struct port *port,
 		spa_libcamera_buffer_recycle(impl, port, i);
 	}
 	port->n_buffers = n_buffers;
-	spa_log_info(impl->log, "we have %d buffers", n_buffers);
+	spa_log_debug(impl->log, "we have %d buffers", n_buffers);
 
 	return 0;
 }
@@ -595,8 +596,6 @@ spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 		       uint32_t n_buffers)
 {
 	int res;
-
-	spa_log_info(impl->log, ". %d", port->n_buffers);
 
 	if (port->n_buffers > 0)
 		return -EIO;
@@ -616,7 +615,7 @@ void Impl::requestComplete(libcamera::Request *request)
 	uint32_t index, buffer_id;
 	struct buffer *b;
 
-	spa_log_info(impl->log, "request complete");
+	spa_log_debug(impl->log, "request complete");
 
 	if ((request->status() == Request::RequestCancelled)) {
                 spa_log_debug(impl->log, "Request was cancelled");
@@ -673,10 +672,9 @@ static int spa_libcamera_stream_on(struct impl *impl)
 	if (impl->active)
 		return 0;
 
-	spa_log_info(impl->log, "connecting camera");
-
 	impl->camera->requestCompleted.connect(impl, &impl::requestComplete);
 
+	spa_log_info(impl->log, "starting camera %s", impl->props.device);
 	if ((res = impl->camera->start()) < 0)
 		return res == -EACCES ? -EBUSY : res;
 
@@ -726,14 +724,11 @@ static int spa_libcamera_stream_off(struct impl *impl)
 		return 0;
 	}
 
-	spa_log_info(impl->log, "stopping camera");
-
+	spa_log_info(impl->log, "stopping camera %s", impl->props.device);
 	impl->pendingRequests.clear();
 
 	if ((res = impl->camera->stop()) < 0)
 		return res == -EACCES ? -EBUSY : res;
-
-	spa_log_info(impl->log, "disconnecting camera");
 
 	impl->camera->requestCompleted.disconnect(impl, &impl::requestComplete);
 

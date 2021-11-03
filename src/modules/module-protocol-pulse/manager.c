@@ -165,8 +165,6 @@ static struct object *find_object(struct manager *m, uint32_t id)
 {
 	struct object *o;
 	spa_list_for_each(o, &m->this.object_list, this.link) {
-		if (o->this.creating)
-			continue;
 		if (o->this.id == id)
 			return o;
 	}

@@ -57,6 +57,7 @@ struct data {
 	struct spa_hook registry_listener;
 
 	struct spa_list pending_list;
+	struct spa_list global_list;
 };
 
 struct proxy_data {
@@ -72,6 +73,7 @@ struct proxy_data {
 	struct spa_hook proxy_listener;
 	struct spa_hook object_listener;
 	int pending_seq;
+	struct spa_list global_link;
 	struct spa_list pending_link;
 	print_func_t print_func;
 	struct spa_list param_list;
@@ -545,18 +547,19 @@ removed_proxy (void *data)
 static void
 destroy_proxy (void *data)
 {
-        struct proxy_data *pd = data;
+	struct proxy_data *pd = data;
+
+	spa_list_remove(&pd->global_link);
 
 	clear_params(pd);
 	remove_pending(pd);
+	free(pd->type);
 
-        if (pd->info == NULL)
-                return;
-
+	if (pd->info == NULL)
+		return;
 	if (pd->destroy)
 		pd->destroy(pd->info);
-        pd->info = NULL;
-	free(pd->type);
+	pd->info = NULL;
 }
 
 static const struct pw_proxy_events proxy_events = {
@@ -569,10 +572,10 @@ static void registry_event_global(void *data, uint32_t id,
 				  uint32_t permissions, const char *type, uint32_t version,
 				  const struct spa_dict *props)
 {
-        struct data *d = data;
-        struct pw_proxy *proxy;
-        uint32_t client_version;
-        const void *events;
+	struct data *d = data;
+	struct pw_proxy *proxy;
+	uint32_t client_version;
+	const void *events;
 	struct proxy_data *pd;
 	pw_destroy_t destroy;
 	print_func_t print_func = NULL;
@@ -618,11 +621,11 @@ static void registry_event_global(void *data, uint32_t id,
 		return;
 	}
 
-        proxy = pw_registry_bind(d->registry, id, type,
+	proxy = pw_registry_bind(d->registry, id, type,
 				       client_version,
 				       sizeof(struct proxy_data));
-        if (proxy == NULL)
-                goto no_mem;
+	if (proxy == NULL)
+		goto no_mem;
 
 	pd = pw_proxy_get_user_data(proxy);
 	pd->data = d;
@@ -636,19 +639,40 @@ static void registry_event_global(void *data, uint32_t id,
 	pd->pending_seq = 0;
 	pd->print_func = print_func;
 	spa_list_init(&pd->param_list);
-        pw_proxy_add_object_listener(proxy, &pd->object_listener, events, pd);
-        pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
-        return;
+	pw_proxy_add_object_listener(proxy, &pd->object_listener, events, pd);
+	pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
+	spa_list_append(&d->global_list, &pd->global_link);
 
-      no_mem:
-        printf("failed to create proxy");
-        return;
+	return;
+
+no_mem:
+	printf("failed to create proxy");
+	return;
+}
+
+static struct proxy_data *find_proxy(struct data *d, uint32_t id)
+{
+	struct proxy_data *pd;
+	spa_list_for_each(pd, &d->global_list, global_link) {
+		if (pd->id == id)
+			return pd;
+	}
+	return NULL;
 }
 
 static void registry_event_global_remove(void *object, uint32_t id)
 {
+	struct data *d = object;
+	struct proxy_data *pd;
+
 	printf("removed:\n");
 	printf("\tid: %u\n", id);
+
+	pd = find_proxy(d, id);
+	if (pd == NULL)
+		return;
+	if (pd->proxy)
+		pw_proxy_destroy(pd->proxy);
 }
 
 static const struct pw_registry_events registry_events = {
@@ -744,6 +768,7 @@ int main(int argc, char *argv[])
 	}
 
 	spa_list_init(&data.pending_list);
+	spa_list_init(&data.global_list);
 
 	data.core = pw_context_connect(data.context,
 			pw_properties_new(

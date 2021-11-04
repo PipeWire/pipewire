@@ -29,7 +29,7 @@ extern "C" {
 
 #define PA_CHANNELS_MAX	64
 
-#define PA_CHANNEL_MAP_SNPRINT_MAX 336
+#define PA_CHANNEL_MAP_SNPRINT_MAX (PA_CHANNELS_MAX * 32)
 
 typedef enum pa_channel_map_def {
     PA_CHANNEL_MAP_AIFF,

@@ -280,7 +280,44 @@ static inline PA_PRINTF_FUNC(5, 6) void pa_log_level_meta(enum pa_log_level leve
 #define pa_strnull(s)	((s) ? (s) : "null")
 #define pa_startswith(s,pfx)	(strstr(s, pfx) == s)
 
-#define pa_snprintf	snprintf
+PA_PRINTF_FUNC(3, 0)
+static inline size_t pa_vsnprintf(char *str, size_t size, const char *format, va_list ap)
+{
+	int ret;
+
+	pa_assert(str);
+	pa_assert(size > 0);
+	pa_assert(format);
+
+	ret = vsnprintf(str, size, format, ap);
+
+	str[size-1] = 0;
+
+	if (ret < 0)
+		return strlen(str);
+
+	if ((size_t) ret > size-1)
+		return size-1;
+
+	return (size_t) ret;
+}
+
+PA_PRINTF_FUNC(3, 4)
+static inline size_t pa_snprintf(char *str, size_t size, const char *format, ...)
+{
+	size_t ret;
+	va_list ap;
+
+	pa_assert(str);
+	pa_assert(size > 0);
+	pa_assert(format);
+
+	va_start(ap, format);
+	ret = pa_vsnprintf(str, size, format, ap);
+	va_end(ap);
+
+	return ret;
+}
 
 #define pa_xstrdup(s)		((s) != NULL ? strdup(s) : NULL)
 #define pa_xstrndup(s,n)	((s) != NULL ? strndup(s,n) : NULL)

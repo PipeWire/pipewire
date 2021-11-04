@@ -224,7 +224,7 @@ static char* channel_map_snprint(char *s, size_t l, const struct channel_map *ma
 	*(e = s) = 0;
 
 	for (channel = 0; channel < map->channels && l > 1; channel++) {
-		l -= snprintf(e, l, "%s%s",
+		l -= spa_scnprintf(e, l, "%s%s",
 				first ? "" : ",",
 				channel_id2paname(map->map[channel], &aux));
 
@@ -381,7 +381,7 @@ static void service_entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupStat
 	}
 }
 
-#define PA_CHANNEL_MAP_SNPRINT_MAX 336
+#define PA_CHANNEL_MAP_SNPRINT_MAX (CHANNELS_MAX * 32)
 
 static void publish_service(struct service *s)
 {

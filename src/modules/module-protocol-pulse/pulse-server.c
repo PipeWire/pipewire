@@ -367,13 +367,14 @@ static uint32_t frac_to_bytes_round_up(struct spa_fraction val, const struct sam
 	return (uint32_t) u;
 }
 
-static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
+static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 {
-	uint32_t frame_size, max_prebuf, minreq;
+	uint32_t frame_size, max_prebuf, minreq, latency, max_latency;
 	struct defs *defs = &s->impl->defs;
 
 	frame_size = s->frame_size;
 	minreq = frac_to_bytes_round_up(defs->min_req, &s->ss);
+	max_latency = defs->max_quantum * frame_size;
 
 	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
 		attr->maxlength = MAXLENGTH;
@@ -401,6 +402,26 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 	if (attr->tlength < attr->minreq+frame_size)
 		attr->tlength = attr->minreq + frame_size;
 
+	if (s->early_requests) {
+		latency = attr->minreq;
+	} else if (s->adjust_latency) {
+		if (attr->tlength > attr->minreq * 2)
+			latency = SPA_MIN(max_latency, (attr->tlength - attr->minreq * 2) / 2);
+		else
+			latency = attr->minreq;
+
+		if (attr->tlength >= latency)
+			attr->tlength -= latency;
+	} else {
+		if (attr->tlength > attr->minreq * 2)
+			latency = SPA_MIN(max_latency, attr->tlength - attr->minreq * 2);
+		else
+			latency = attr->minreq;
+	}
+
+	if (attr->tlength < latency + 2 * attr->minreq)
+		attr->tlength = latency + 2 * attr->minreq;
+
 	attr->minreq -= attr->minreq % frame_size;
 	if (attr->minreq <= 0) {
 		attr->minreq = frame_size;
@@ -417,9 +438,11 @@ static void fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 	s->missing = attr->tlength;
 	attr->fragsize = 0;
 
-	pw_log_info("%p: [%s] maxlength:%u tlength:%u minreq:%u prebuf:%u", s,
+	pw_log_info("%p: [%s] maxlength:%u tlength:%u minreq:%u/%u prebuf:%u latency:%u", s,
 			s->client->name, attr->maxlength, attr->tlength,
-			attr->minreq, attr->prebuf);
+			attr->minreq, minreq, attr->prebuf, latency);
+
+	return latency / frame_size;
 }
 
 static int reply_create_playback_stream(struct stream *stream, struct pw_manager_object *peer)
@@ -438,7 +461,8 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 	uint64_t lat_usec;
 	struct defs *defs = &stream->impl->defs;
 
-	fix_playback_buffer_attr(stream, &stream->attr);
+	lat.denom = stream->ss.rate;
+	lat.num = fix_playback_buffer_attr(stream, &stream->attr);
 
 	stream->buffer = calloc(1, stream->attr.maxlength);
 	if (stream->buffer == NULL)
@@ -446,21 +470,6 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 
 	spa_ringbuffer_init(&stream->ring);
 
-	if (stream->early_requests) {
-		lat.num = stream->attr.minreq;
-	} else if (stream->adjust_latency) {
-		if (stream->attr.tlength > stream->attr.minreq * 2)
-			lat.num = (stream->attr.tlength - stream->attr.minreq * 2) / 2;
-		else
-			lat.num = stream->attr.minreq;
-	} else {
-		if (stream->attr.tlength > stream->attr.minreq * 2)
-			lat.num = stream->attr.tlength - stream->attr.minreq * 2;
-		else
-			lat.num = stream->attr.minreq;
-	}
-	lat.denom = stream->ss.rate;
-	lat.num /= stream->frame_size;
 	if (lat.num * defs->min_quantum.denom / lat.denom < defs->min_quantum.num)
 		lat.num = (defs->min_quantum.num * lat.denom +
 				(defs->min_quantum.denom -1)) / defs->min_quantum.denom;
@@ -535,9 +544,9 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 	return client_queue_message(client, reply);
 }
 
-static void fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
+static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
 {
-	uint32_t frame_size, minfrag;
+	uint32_t frame_size, minfrag, latency;
 	struct defs *defs = &s->impl->defs;
 
 	frame_size = s->frame_size;
@@ -560,8 +569,19 @@ static void fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
 
 	attr->tlength = attr->minreq = attr->prebuf = 0;
 
-	pw_log_info("%p: [%s] maxlength:%u fragsize:%u minfrag:%u", s,
-			s->client->name, attr->maxlength, attr->fragsize, minfrag);
+	if (s->early_requests) {
+		latency = attr->fragsize;
+	} else if (s->adjust_latency) {
+		latency = attr->fragsize;
+	} else {
+		latency = attr->fragsize;
+	}
+
+	pw_log_info("%p: [%s] maxlength:%u fragsize:%u minfrag:%u latency:%u", s,
+			s->client->name, attr->maxlength, attr->fragsize, minfrag,
+			latency);
+
+	return latency / frame_size;
 }
 
 static int reply_create_record_stream(struct stream *stream, struct pw_manager_object *peer)
@@ -579,7 +599,8 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 	uint64_t lat_usec;
 	struct defs *defs = &stream->impl->defs;
 
-	fix_record_buffer_attr(stream, &stream->attr);
+	lat.denom = stream->ss.rate;
+	lat.num = fix_record_buffer_attr(stream, &stream->attr);
 
 	stream->buffer = calloc(1, stream->attr.maxlength);
 	if (stream->buffer == NULL)
@@ -587,16 +608,6 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 
 	spa_ringbuffer_init(&stream->ring);
 
-	if (stream->early_requests) {
-		lat.num = stream->attr.fragsize;
-	} else if (stream->adjust_latency) {
-		lat.num = stream->attr.fragsize;
-	} else {
-		lat.num = stream->attr.fragsize;
-	}
-
-	lat.num /= stream->frame_size;
-	lat.denom = stream->ss.rate;
 	if (lat.num * defs->min_quantum.denom / lat.denom < defs->min_quantum.num)
 		lat.num = (defs->min_quantum.num * lat.denom +
 				(defs->min_quantum.denom -1)) / defs->min_quantum.denom;
@@ -691,9 +702,12 @@ static void manager_added(void *data, struct pw_manager_object *o)
 
 	if (strcmp(o->type, PW_TYPE_INTERFACE_Core) == 0 && manager->info != NULL) {
 		struct pw_core_info *info = manager->info;
-		if (info->props &&
-		    (str = spa_dict_lookup(info->props, "default.clock.rate")) != NULL)
-			client->impl->defs.sample_spec.rate = atoi(str);
+		if (info->props) {
+			if ((str = spa_dict_lookup(info->props, "default.clock.rate")) != NULL)
+				client->impl->defs.sample_spec.rate = atoi(str);
+			if ((str = spa_dict_lookup(info->props, "default.clock.max-quantum")) != NULL)
+				client->impl->defs.max_quantum = atoi(str);
+		}
 	}
 
 	if (spa_streq(o->type, PW_TYPE_INTERFACE_Metadata)) {
@@ -5043,6 +5057,7 @@ static void load_defaults(struct defs *def, struct pw_properties *props)
 	parse_format(props, "pulse.default.format", DEFAULT_FORMAT, &def->sample_spec);
 	parse_position(props, "pulse.default.position", DEFAULT_POSITION, &def->channel_map);
 	def->sample_spec.channels = def->channel_map.channels;
+	def->max_quantum = 8192;
 }
 
 struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,

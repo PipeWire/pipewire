@@ -51,6 +51,7 @@ struct defs {
 	struct spa_fraction min_quantum;
 	struct sample_spec sample_spec;
 	struct channel_map channel_map;
+	uint32_t max_quantum;
 };
 
 struct stats {

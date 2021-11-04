@@ -641,7 +641,8 @@ static void registry_event_global_remove(void *object, uint32_t id)
 
 	o->this.removing = true;
 
-	manager_emit_removed(m, &o->this);
+	if (!o->this.creating)
+		manager_emit_removed(m, &o->this);
 
 	object_destroy(o);
 }

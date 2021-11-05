@@ -34,9 +34,11 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
 struct module_null_sink_data {
+	struct pw_core *core;
+	struct spa_hook core_listener;
+
 	struct pw_proxy *proxy;
-	struct spa_hook listener;
-	uint32_t global_id;
+	struct spa_hook proxy_listener;
 };
 
 static void module_null_sink_proxy_removed(void *data)
@@ -53,8 +55,10 @@ static void module_null_sink_proxy_destroy(void *data)
 
 	pw_log_info("proxy %p destroy", d->proxy);
 
-	spa_hook_remove(&d->listener);
+	spa_hook_remove(&d->proxy_listener);
 	d->proxy = NULL;
+
+	module_schedule_unload(module);
 }
 
 static void module_null_sink_proxy_bound(void *data, uint32_t global_id)
@@ -64,7 +68,6 @@ static void module_null_sink_proxy_bound(void *data, uint32_t global_id)
 
 	pw_log_info("proxy %p bound", d->proxy);
 
-	d->global_id = global_id;
 	module_emit_loaded(module, 0);
 }
 
@@ -78,26 +81,47 @@ static void module_null_sink_proxy_error(void *data, int seq, int res, const cha
 	pw_proxy_destroy(d->proxy);
 }
 
+static const struct pw_proxy_events proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.removed = module_null_sink_proxy_removed,
+	.bound = module_null_sink_proxy_bound,
+	.error = module_null_sink_proxy_error,
+	.destroy = module_null_sink_proxy_destroy,
+};
+
+static void module_null_sink_core_error(void *data, uint32_t id, int seq, int res, const char *message)
+{
+	struct module *module = data;
+
+	pw_log_warn("error id:%u seq:%d res:%d (%s): %s",
+			id, seq, res, spa_strerror(res), message);
+
+	if (id == PW_ID_CORE && res == -EPIPE)
+		module_schedule_unload(module);
+}
+
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
+	.error = module_null_sink_core_error,
+};
+
 static int module_null_sink_load(struct client *client, struct module *module)
 {
 	struct module_null_sink_data *d = module->user_data;
-	static const struct pw_proxy_events proxy_events = {
-		PW_VERSION_PROXY_EVENTS,
-		.removed = module_null_sink_proxy_removed,
-		.bound = module_null_sink_proxy_bound,
-		.error = module_null_sink_proxy_error,
-		.destroy = module_null_sink_proxy_destroy,
-	};
 
-	d->proxy = pw_core_create_object(client->core,
-                                "adapter",
-                                PW_TYPE_INTERFACE_Node,
-                                PW_VERSION_NODE,
-                                module->props ? &module->props->dict : NULL, 0);
+	d->core = pw_context_connect(module->impl->context, pw_properties_copy(client->props), 0);
+	if (d->core == NULL)
+		return -errno;
+
+	pw_core_add_listener(d->core, &d->core_listener, &core_events, module);
+
+	d->proxy = pw_core_create_object(d->core,
+					 "adapter", PW_TYPE_INTERFACE_Node, PW_VERSION_NODE,
+					 module->props ? &module->props->dict : NULL, 0);
 	if (d->proxy == NULL)
 		return -errno;
 
-	pw_proxy_add_listener(d->proxy, &d->listener, &proxy_events, module);
+	pw_proxy_add_listener(d->proxy, &d->proxy_listener, &proxy_events, module);
 
 	return SPA_RESULT_RETURN_ASYNC(0);
 }
@@ -106,10 +130,17 @@ static int module_null_sink_unload(struct client *client, struct module *module)
 {
 	struct module_null_sink_data *d = module->user_data;
 
-	if (d->proxy != NULL)
+	if (d->proxy != NULL) {
+		spa_hook_remove(&d->proxy_listener);
 		pw_proxy_destroy(d->proxy);
-	if (d->global_id != SPA_ID_INVALID)
-		pw_registry_destroy(client->manager->registry, d->global_id);
+		d->proxy = NULL;
+	}
+
+	if (d->core != NULL) {
+		spa_hook_remove(&d->core_listener);
+		pw_core_disconnect(d->core);
+		d->core = NULL;
+	}
 
 	return 0;
 }
@@ -135,7 +166,6 @@ static const struct spa_dict_item module_null_sink_info[] = {
 struct module *create_module_null_sink(struct impl *impl, const char *argument)
 {
 	struct module *module;
-	struct module_null_sink_data *d;
 	struct pw_properties *props = NULL;
 	const char *str;
 	struct spa_audio_info_raw info = { 0 };
@@ -202,20 +232,15 @@ struct module *create_module_null_sink(struct impl *impl, const char *argument)
 	}
 	pw_properties_set(props, PW_KEY_FACTORY_NAME, "support.null-audio-sink");
 
-	if (pw_properties_get(props, PW_KEY_OBJECT_LINGER) == NULL)
-		pw_properties_set(props, PW_KEY_OBJECT_LINGER, "true");
-
 	if (pw_properties_get(props, "monitor.channel-volumes") == NULL)
 		pw_properties_set(props, "monitor.channel-volumes", "true");
 
-	module = module_new(impl, &module_null_sink_methods, sizeof(*d));
+	module = module_new(impl, &module_null_sink_methods, sizeof(struct module_null_sink_data));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
 	}
 	module->props = props;
-	d = module->user_data;
-	d->global_id = SPA_ID_INVALID;
 
 	return module;
 out:

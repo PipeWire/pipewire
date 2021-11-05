@@ -267,16 +267,17 @@ static const struct module_info module_list[] = {
 #endif
 	{ "module-roc-sink", create_module_roc_sink, },
 	{ "module-roc-source", create_module_roc_source, },
-	{ NULL, }
 };
 
 static const struct module_info *find_module_info(const char *name)
 {
-	int i;
-	for (i = 0; module_list[i].name != NULL; i++) {
-		if (spa_streq(module_list[i].name, name))
-			return &module_list[i];
+	const struct module_info *info;
+
+	SPA_FOR_EACH_ELEMENT(module_list, info) {
+		if (spa_streq(info->name, name))
+			return info;
 	}
+
 	return NULL;
 }
 

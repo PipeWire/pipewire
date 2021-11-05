@@ -253,6 +253,8 @@ pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse/modules/module-raop-discover.c',
   'module-protocol-pulse/modules/module-remap-sink.c',
   'module-protocol-pulse/modules/module-remap-source.c',
+  'module-protocol-pulse/modules/module-roc-sink.c',
+  'module-protocol-pulse/modules/module-roc-source.c',
   'module-protocol-pulse/modules/module-simple-protocol-tcp.c',
   'module-protocol-pulse/modules/module-switch-on-connect.c',
   'module-protocol-pulse/modules/module-tunnel-sink.c',
@@ -275,17 +277,6 @@ if avahi_dep.found()
   ]
   pipewire_module_protocol_pulse_deps += avahi_dep
   cdata.set('HAVE_AVAHI', 1)
-endif
-
-roc_lib = cc.find_library('roc', required: get_option('roc'))
-summary({'ROC': roc_lib.found()}, bool_yn: true, section: 'Streaming between daemons')
-if roc_lib.found()
-  pipewire_module_protocol_pulse_sources += [
-    'module-protocol-pulse/modules/module-roc-sink.c',
-    'module-protocol-pulse/modules/module-roc-source.c',
-  ]
-  pipewire_module_protocol_pulse_deps += roc_lib
-  cdata.set('HAVE_ROC', 1)
 endif
 
 pipewire_module_protocol_pulse = shared_library('pipewire-module-protocol-pulse',
@@ -471,6 +462,9 @@ pipewire_module_raop_sink = shared_library('pipewire-module-raop-sink',
 )
 endif
 summary({'raop-sink (requires OpenSSL)': build_module_raop}, bool_yn: true, section: 'Optional Modules')
+
+roc_lib = cc.find_library('roc', required: get_option('roc'))
+summary({'ROC': roc_lib.found()}, bool_yn: true, section: 'Streaming between daemons')
 
 build_module_roc = roc_lib.found()
 if build_module_roc

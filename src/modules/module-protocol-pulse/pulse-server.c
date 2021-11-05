@@ -410,6 +410,8 @@ static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 		else
 			latency = attr->minreq;
 
+		latency -= latency % frame_size;
+
 		if (attr->tlength >= latency)
 			attr->tlength -= latency;
 	} else {

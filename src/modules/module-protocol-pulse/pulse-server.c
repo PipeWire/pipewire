@@ -1306,6 +1306,8 @@ static void stream_drained(void *data)
 				stream->drain_tag);
 		reply_simple_ack(stream->client, stream->drain_tag);
 		stream->drain_tag = 0;
+
+		pw_stream_set_active(stream->stream, true);
 	}
 }
 

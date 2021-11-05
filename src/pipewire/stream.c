@@ -2031,7 +2031,7 @@ int pw_stream_set_active(struct pw_stream *stream, bool active)
 	if (impl->node)
 		pw_impl_node_set_active(impl->node, active);
 
-	if (!active)
+	if (!active || impl->drained)
 		impl->drained = impl->draining = false;
 	return 0;
 }

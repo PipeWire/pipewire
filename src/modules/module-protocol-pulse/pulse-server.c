@@ -128,7 +128,6 @@ void broadcast_subscribe_event(struct impl *impl, uint32_t mask, uint32_t event,
 
 static int do_command_auth(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	struct message *reply;
 	uint32_t version;
 	const void *cookie;
@@ -150,7 +149,7 @@ static int do_command_auth(struct client *client, uint32_t command, uint32_t tag
 
 	client->version = version;
 
-	pw_log_info("%p: client:%p AUTH tag:%u version:%d", impl, client, tag, version);
+	pw_log_info("client:%p AUTH tag:%u version:%d", client, tag, version);
 
 	reply = reply_new(client, tag);
 	message_put(reply,
@@ -172,7 +171,7 @@ static int reply_set_client_name(struct client *client, uint32_t tag)
 
 	id = pw_proxy_get_bound_id((struct pw_proxy*)c);
 
-	pw_log_info("%p: [%s] reply tag:%u id:%u", client, client->name, tag, id);
+	pw_log_info("[%s] reply tag:%u id:%u", client->name, tag, id);
 
 	reply = reply_new(client, tag);
 
@@ -440,9 +439,9 @@ static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 	s->missing = attr->tlength;
 	attr->fragsize = 0;
 
-	pw_log_info("%p: [%s] maxlength:%u tlength:%u minreq:%u/%u prebuf:%u latency:%u", s,
+	pw_log_info("[%s] maxlength:%u tlength:%u minreq:%u/%u prebuf:%u latency:%u %u",
 			s->client->name, attr->maxlength, attr->tlength,
-			attr->minreq, minreq, attr->prebuf, latency);
+			attr->minreq, minreq, attr->prebuf, latency, frame_size);
 
 	return latency / frame_size;
 }
@@ -492,8 +491,8 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 
 	missing = stream_pop_missing(stream);
 
-	pw_log_info("%p: [%s] reply CREATE_PLAYBACK_STREAM tag:%u missing:%u latency:%s",
-			stream, client->name, stream->create_tag, missing, latency);
+	pw_log_info("[%s] reply CREATE_PLAYBACK_STREAM tag:%u missing:%u latency:%s",
+			client->name, stream->create_tag, missing, latency);
 
 	reply = reply_new(client, stream->create_tag);
 	message_put(reply,
@@ -579,7 +578,7 @@ static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *att
 		latency = attr->fragsize;
 	}
 
-	pw_log_info("%p: [%s] maxlength:%u fragsize:%u minfrag:%u latency:%u", s,
+	pw_log_info("[%s] maxlength:%u fragsize:%u minfrag:%u latency:%u",
 			s->client->name, attr->maxlength, attr->fragsize, minfrag,
 			latency);
 
@@ -626,8 +625,8 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 	pw_stream_update_properties(stream->stream,
 			&SPA_DICT_INIT(items, 3));
 
-	pw_log_info("%p: [%s] reply CREATE_RECORD_STREAM tag:%u latency:%s",
-			stream, client->name, stream->create_tag, latency);
+	pw_log_info("[%s] reply CREATE_RECORD_STREAM tag:%u latency:%s",
+			client->name, stream->create_tag, latency);
 
 	reply = reply_new(client, stream->create_tag);
 	message_put(reply,
@@ -868,7 +867,7 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 	}
 
 	client->name = pw_properties_get(client->props, PW_KEY_APP_NAME);
-	pw_log_info("%p: [%s] %s tag:%d", impl, client->name,
+	pw_log_info("[%s] %s tag:%d", client->name,
 			commands[command].name, tag);
 
 	if (client->core == NULL) {
@@ -905,7 +904,6 @@ error:
 
 static int do_subscribe(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	uint32_t mask;
 
 	if (message_get(m,
@@ -913,7 +911,7 @@ static int do_subscribe(struct client *client, uint32_t command, uint32_t tag, s
 			TAG_INVALID) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] SUBSCRIBE tag:%u mask:%08x", impl,
+	pw_log_info("[%s] SUBSCRIBE tag:%u mask:%08x",
 			client->name, tag, mask);
 
 	client->subscribed = mask;
@@ -996,8 +994,8 @@ static const struct spa_pod *get_buffers_param(struct stream *s,
 	}
 	buffers = SPA_CLAMP(maxsize / size, MIN_BUFFERS, MAX_BUFFERS);
 
-	pw_log_info("stream %p: stride %d maxsize %d size %u buffers %d", s, stride, maxsize,
-			size, buffers);
+	pw_log_info("[%s] stride %d maxsize %d size %u buffers %d", s->client->name,
+			stride, maxsize, size, buffers);
 
 	param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
@@ -1301,7 +1299,7 @@ static void stream_drained(void *data)
 {
 	struct stream *stream = data;
 	if (stream->drain_tag != 0) {
-		pw_log_info("%p: [%s] drained channel:%u tag:%d", stream,
+		pw_log_info("[%s] drained channel:%u tag:%d",
 				stream->client->name, stream->channel,
 				stream->drain_tag);
 		reply_simple_ack(stream->client, stream->drain_tag);
@@ -1395,8 +1393,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			TAG_INVALID) < 0)
 		goto error_protocol;
 
-	pw_log_info("%p: [%s] CREATE_PLAYBACK_STREAM tag:%u corked:%u sink-name:%s sink-idx:%u",
-			impl, client->name, tag, corked, sink_name, sink_index);
+	pw_log_info("[%s] CREATE_PLAYBACK_STREAM tag:%u corked:%u sink-name:%s sink-idx:%u",
+			client->name, tag, corked, sink_name, sink_index);
 
 	if (sink_index != SPA_ID_INVALID && sink_name != NULL)
 		goto error_invalid;
@@ -1645,8 +1643,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 			TAG_INVALID) < 0)
 		goto error_protocol;
 
-	pw_log_info("%p: [%s] CREATE_RECORD_STREAM tag:%u corked:%u source-name:%s source-index:%u",
-			impl, client->name, tag, corked, source_name, source_index);
+	pw_log_info("[%s] CREATE_RECORD_STREAM tag:%u corked:%u source-name:%s source-index:%u",
+			client->name, tag, corked, source_name, source_index);
 
 	if (source_index != SPA_ID_INVALID && source_name != NULL)
 		goto error_invalid;
@@ -1847,7 +1845,6 @@ error:
 
 static int do_delete_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	uint32_t channel;
 	struct stream *stream;
 	int res;
@@ -1857,7 +1854,7 @@ static int do_delete_stream(struct client *client, uint32_t command, uint32_t ta
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] DELETE_STREAM tag:%u channel:%u", impl,
+	pw_log_info("[%s] DELETE_STREAM tag:%u channel:%u",
 			client->name, tag, channel);
 
 	stream = pw_map_lookup(&client->streams, channel);
@@ -2008,8 +2005,8 @@ static int do_create_upload_stream(struct client *client, uint32_t command, uint
 	if (length >= SCACHE_ENTRY_SIZE_MAX)
 		goto error_toolarge;
 
-	pw_log_info("%p: [%s] %s tag:%u name:%s length:%d",
-			impl, client->name, commands[command].name, tag,
+	pw_log_info("[%s] %s tag:%u name:%s length:%d",
+			client->name, commands[command].name, tag,
 			name, length);
 
 	stream = calloc(1, sizeof(struct stream));
@@ -2088,8 +2085,8 @@ static int do_finish_upload_stream(struct client *client, uint32_t command, uint
 	if (name == NULL)
 		goto error_invalid;
 
-	pw_log_info("%p: [%s] %s tag:%u channel:%u name:%s",
-			impl, client->name, commands[command].name, tag,
+	pw_log_info("[%s] %s tag:%u channel:%u name:%s",
+			client->name, commands[command].name, tag,
 			channel, name);
 
 	sample = find_sample(impl, SPA_ID_INVALID, name);
@@ -2250,11 +2247,10 @@ static void sample_play_ready(void *data, uint32_t index)
 {
 	struct pending_sample *ps = data;
 	struct client *client = ps->client;
-	struct impl *impl = client->impl;
 	struct message *reply;
 
-	pw_log_info("%p: [%s] PLAY_SAMPLE tag:%u index:%u",
-			impl, client->name, ps->tag, index);
+	pw_log_info("[%s] PLAY_SAMPLE tag:%u index:%u",
+			client->name, ps->tag, index);
 
 	reply = reply_new(client, ps->tag);
 	if (client->version >= 13)
@@ -2283,7 +2279,7 @@ static void sample_play_done(void *data, int res)
 	if (res < 0)
 		reply_error(client, COMMAND_PLAY_SAMPLE, ps->tag, res);
 	else
-		pw_log_info("%p: PLAY_SAMPLE done tag:%u", client, ps->tag);
+		pw_log_info("[%s] PLAY_SAMPLE done tag:%u", client->name, ps->tag);
 
 	ps->done = true;
 	pw_work_queue_add(impl->work_queue, ps, 0,
@@ -2326,8 +2322,8 @@ static int do_play_sample(struct client *client, uint32_t command, uint32_t tag,
 			goto error_proto;
 
 	}
-	pw_log_info("%p: [%s] %s tag:%u sink_index:%u sink_name:%s name:%s",
-			impl, client->name, commands[command].name, tag,
+	pw_log_info("[%s] %s tag:%u sink_index:%u sink_name:%s name:%s",
+			client->name, commands[command].name, tag,
 			sink_index, sink_name, name);
 
 	pw_properties_update(props, &client->props->dict);
@@ -2389,8 +2385,8 @@ static int do_remove_sample(struct client *client, uint32_t command, uint32_t ta
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u name:%s",
-			impl, client->name, commands[command].name, tag,
+	pw_log_info("[%s] %s tag:%u name:%s",
+			client->name, commands[command].name, tag,
 			name);
 	if (name == NULL)
 		return -EINVAL;
@@ -2410,7 +2406,6 @@ static int do_remove_sample(struct client *client, uint32_t command, uint32_t ta
 
 static int do_cork_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	uint32_t channel;
 	bool cork;
 	struct stream *stream;
@@ -2422,8 +2417,8 @@ static int do_cork_stream(struct client *client, uint32_t command, uint32_t tag,
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u channel:%u cork:%s",
-			impl, client->name, commands[command].name, tag,
+	pw_log_info("[%s] %s tag:%u channel:%u cork:%s",
+			client->name, commands[command].name, tag,
 			channel, cork ? "yes" : "no");
 
 	stream = pw_map_lookup(&client->streams, channel);
@@ -2444,7 +2439,6 @@ static int do_cork_stream(struct client *client, uint32_t command, uint32_t tag,
 
 static int do_flush_trigger_prebuf_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	uint32_t channel;
 	struct stream *stream;
 	int res;
@@ -2454,8 +2448,8 @@ static int do_flush_trigger_prebuf_stream(struct client *client, uint32_t comman
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u channel:%u",
-			impl, client->name, commands[command].name, tag, channel);
+	pw_log_info("[%s] %s tag:%u channel:%u",
+			client->name, commands[command].name, tag, channel);
 
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL || stream->type == STREAM_TYPE_UPLOAD)
@@ -2586,7 +2580,6 @@ static int set_card_port(struct pw_manager_object *o, uint32_t device_id,
 
 static int do_set_stream_volume(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	struct pw_manager *manager = client->manager;
 	uint32_t id;
 	struct stream *stream;
@@ -2599,7 +2592,7 @@ static int do_set_stream_volume(struct client *client, uint32_t command, uint32_
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u index:%u", impl,
+	pw_log_info("[%s] %s tag:%u index:%u",
 			client->name, commands[command].name, tag, id);
 
 	stream = find_stream(client, id);
@@ -2635,7 +2628,6 @@ done:
 
 static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	struct pw_manager *manager = client->manager;
 	uint32_t id;
 	struct stream *stream;
@@ -2648,8 +2640,8 @@ static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t 
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] DO_SET_STREAM_MUTE tag:%u id:%u mute:%u",
-			impl, client->name, tag, id, mute);
+	pw_log_info("[%s] DO_SET_STREAM_MUTE tag:%u id:%u mute:%u",
+			client->name, tag, id, mute);
 
 	stream = find_stream(client, id);
 	if (stream != NULL) {
@@ -2705,7 +2697,7 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u index:%u name:%s", impl,
+	pw_log_info("[%s] %s tag:%u index:%u name:%s",
 			client->name, commands[command].name, tag, id, name);
 
 	if ((id == SPA_ID_INVALID && name == NULL) ||
@@ -2771,7 +2763,7 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u index:%u name:%s mute:%d", impl,
+	pw_log_info("[%s] %s tag:%u index:%u name:%s mute:%d",
 			client->name, commands[command].name, tag, id, name, mute);
 
 	if ((id == SPA_ID_INVALID && name == NULL) ||
@@ -2817,7 +2809,6 @@ done:
 
 static int do_set_port(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	struct pw_manager *manager = client->manager;
 	struct pw_node_info *info;
 	uint32_t id, card_id = SPA_ID_INVALID, device_id = SPA_ID_INVALID;
@@ -2834,7 +2825,7 @@ static int do_set_port(struct client *client, uint32_t command, uint32_t tag, st
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u index:%u name:%s port:%s", impl,
+	pw_log_info("[%s] %s tag:%u index:%u name:%s port:%s",
 			client->name, commands[command].name, tag, id, name, port_name);
 
 	if ((id == SPA_ID_INVALID && name == NULL) ||
@@ -2873,7 +2864,6 @@ static int do_set_port(struct client *client, uint32_t command, uint32_t tag, st
 
 static int do_set_port_latency_offset(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	struct pw_manager *manager = client->manager;
 	const char *port_name = NULL;
 	struct pw_manager_object *card;
@@ -2898,7 +2888,7 @@ static int do_set_port_latency_offset(struct client *client, uint32_t command, u
 			TAG_INVALID)) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u index:%u card_name:%s port_name:%s offset:%"PRIi64, impl,
+	pw_log_info("[%s] %s tag:%u index:%u card_name:%s port_name:%s offset:%"PRIi64,
 			client->name, commands[command].name, tag, sel.id, sel.value, port_name, offset);
 
 	if ((sel.id == SPA_ID_INVALID && sel.value == NULL) ||
@@ -2944,7 +2934,6 @@ static int do_set_port_latency_offset(struct client *client, uint32_t command, u
 
 static int do_set_stream_name(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	uint32_t channel;
 	struct stream *stream;
 	const char *name = NULL;
@@ -2960,8 +2949,8 @@ static int do_set_stream_name(struct client *client, uint32_t command, uint32_t 
 	if (name == NULL)
 		return -EINVAL;
 
-	pw_log_info("%p: [%s] SET_STREAM_NAME tag:%u channel:%d name:%s",
-			impl, client->name, tag, channel, name);
+	pw_log_info("[%s] SET_STREAM_NAME tag:%u channel:%d name:%s",
+			client->name, tag, channel, name);
 
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL || stream->type == STREAM_TYPE_UPLOAD)
@@ -2976,7 +2965,6 @@ static int do_set_stream_name(struct client *client, uint32_t command, uint32_t 
 
 static int do_update_proplist(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	uint32_t channel, mode;
 	struct stream *stream;
 	struct pw_properties *props;
@@ -2995,7 +2983,7 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 		channel = SPA_ID_INVALID;
 	}
 
-	pw_log_info("%p: [%s] %s tag:%u channel:%d", impl,
+	pw_log_info("[%s] %s tag:%u channel:%d",
 			client->name, commands[command].name, tag, channel);
 
 	if (message_get(m,
@@ -3031,7 +3019,6 @@ error_noentity:
 
 static int do_remove_proplist(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	uint32_t i, channel;
 	struct stream *stream;
 	struct pw_properties *props;
@@ -3052,7 +3039,7 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 		channel = SPA_ID_INVALID;
 	}
 
-	pw_log_info("%p: [%s] %s tag:%u channel:%d", impl,
+	pw_log_info("[%s] %s tag:%u channel:%d",
 			client->name, commands[command].name, tag, channel);
 
 	while (true) {
@@ -3105,7 +3092,7 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 	char name[256];
 	struct message *reply;
 
-	pw_log_info("%p: [%s] GET_SERVER_INFO tag:%u", impl, client->name, tag);
+	pw_log_info("[%s] GET_SERVER_INFO tag:%u", client->name, tag);
 
 
 	snprintf(name, sizeof(name), "PulseAudio (on PipeWire %s)", pw_get_library_version());
@@ -3135,7 +3122,7 @@ static int do_stat(struct client *client, uint32_t command, uint32_t tag, struct
 	struct impl *impl = client->impl;
 	struct message *reply;
 
-	pw_log_info("%p: [%s] STAT tag:%u", impl, client->name, tag);
+	pw_log_info("[%s] STAT tag:%u", client->name, tag);
 
 	reply = reply_new(client, tag);
 	message_put(reply,
@@ -3151,7 +3138,6 @@ static int do_stat(struct client *client, uint32_t command, uint32_t tag, struct
 
 static int do_lookup(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	struct message *reply;
 	struct pw_manager_object *o;
 	const char *name;
@@ -3163,7 +3149,7 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 			TAG_INVALID) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] LOOKUP tag:%u name:'%s'", impl, client->name, tag, name);
+	pw_log_info("[%s] LOOKUP tag:%u name:'%s'", client->name, tag, name);
 
 	if ((o = find_device(client, SPA_ID_INVALID, name, is_sink, &is_monitor)) == NULL)
 		return -ENOENT;
@@ -3178,7 +3164,6 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 
 static int do_drain_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	uint32_t channel;
 	struct stream *stream;
 
@@ -3187,7 +3172,7 @@ static int do_drain_stream(struct client *client, uint32_t command, uint32_t tag
 			TAG_INVALID) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] DRAIN tag:%u channel:%d", impl, client->name, tag, channel);
+	pw_log_info("[%s] DRAIN tag:%u channel:%d", client->name, tag, channel);
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL || stream->type != STREAM_TYPE_PLAYBACK)
 		return -ENOENT;
@@ -4017,7 +4002,7 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 	if (sel.id != SPA_ID_INVALID && sel.value != NULL)
 		goto error_invalid;
 
-	pw_log_info("%p: [%s] %s tag:%u idx:%u name:%s", impl, client->name,
+	pw_log_info("[%s] %s tag:%u idx:%u name:%s", client->name,
 			commands[command].name, tag, sel.id, sel.value);
 
 	if (command == COMMAND_GET_SINK_INFO || command == COMMAND_GET_SOURCE_INFO) {
@@ -4109,7 +4094,7 @@ static int do_get_sample_info(struct client *client, uint32_t command, uint32_t 
 	    (id != SPA_ID_INVALID && name != NULL))
 		return -EINVAL;
 
-	pw_log_info("%p: [%s] %s tag:%u idx:%u name:%s", impl, client->name,
+	pw_log_info("[%s] %s tag:%u idx:%u name:%s", client->name,
 			commands[command].name, tag, id, name);
 
 	if ((sample = find_sample(impl, id, name)) == NULL)
@@ -4133,7 +4118,7 @@ static int do_get_sample_info_list(struct client *client, uint32_t command, uint
 	struct message *reply;
 	union pw_map_item *item;
 
-	pw_log_info("%p: [%s] %s tag:%u", impl, client->name,
+	pw_log_info("[%s] %s tag:%u", client->name,
 			commands[command].name, tag);
 
 	reply = reply_new(client, tag);
@@ -4173,7 +4158,7 @@ static int do_get_info_list(struct client *client, uint32_t command, uint32_t ta
 	struct pw_manager *manager = client->manager;
 	struct info_list_data info;
 
-	pw_log_info("%p: [%s] %s tag:%u", impl, client->name,
+	pw_log_info("[%s] %s tag:%u", client->name,
 			commands[command].name, tag);
 
 	spa_zero(info);
@@ -4217,7 +4202,6 @@ static int do_get_info_list(struct client *client, uint32_t command, uint32_t ta
 
 static int do_set_stream_buffer_attr(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	uint32_t channel;
 	struct stream *stream;
 	struct message *reply;
@@ -4229,7 +4213,7 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 			TAG_INVALID) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u channel:%u", impl, client->name,
+	pw_log_info("[%s] %s tag:%u channel:%u", client->name,
 			commands[command].name, tag, channel);
 
 	stream = pw_map_lookup(&client->streams, channel);
@@ -4300,7 +4284,6 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 
 static int do_update_stream_sample_rate(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	uint32_t channel, rate;
 	struct stream *stream;
 	bool match;
@@ -4311,7 +4294,7 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 			TAG_INVALID) < 0)
 		return -EPROTO;
 
-	pw_log_warn("%p: [%s] %s tag:%u channel:%u rate:%u", impl, client->name,
+	pw_log_info("[%s] %s tag:%u channel:%u rate:%u", client->name,
 			commands[command].name, tag, channel, rate);
 
 	stream = pw_map_lookup(&client->streams, channel);
@@ -4333,7 +4316,6 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 
 static int do_extension(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	uint32_t idx;
 	const char *name;
 	const struct extension *ext;
@@ -4344,7 +4326,7 @@ static int do_extension(struct client *client, uint32_t command, uint32_t tag, s
 			TAG_INVALID) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u id:%u name:%s", impl, client->name,
+	pw_log_info("[%s] %s tag:%u id:%u name:%s", client->name,
 			commands[command].name, tag, idx, name);
 
 	if ((idx == SPA_ID_INVALID && name == NULL) ||
@@ -4360,7 +4342,6 @@ static int do_extension(struct client *client, uint32_t command, uint32_t tag, s
 
 static int do_set_profile(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	struct pw_manager *manager = client->manager;
 	struct pw_manager_object *o;
 	const char *profile_name;
@@ -4380,7 +4361,7 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 			TAG_INVALID) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u id:%u name:%s profile:%s", impl, client->name,
+	pw_log_info("[%s] %s tag:%u id:%u name:%s profile:%s", client->name,
 			commands[command].name, tag, sel.id, sel.value, profile_name);
 
 	if ((sel.id == SPA_ID_INVALID && sel.value == NULL) ||
@@ -4413,7 +4394,6 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 
 static int do_set_default(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	struct pw_manager *manager = client->manager;
 	struct pw_manager_object *o;
 	const char *name, *str;
@@ -4425,7 +4405,7 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 			TAG_INVALID) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u name:%s", impl, client->name,
+	pw_log_info("[%s] %s tag:%u name:%s", client->name,
 			commands[command].name, tag, name);
 
 	if (name != NULL && (o = find_device(client, SPA_ID_INVALID, name, sink, NULL)) == NULL)
@@ -4455,7 +4435,6 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 
 static int do_suspend(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	struct pw_manager_object *o;
 	const char *name;
 	uint32_t id, cmd;
@@ -4468,7 +4447,7 @@ static int do_suspend(struct client *client, uint32_t command, uint32_t tag, str
 			TAG_INVALID) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u id:%u name:%s", impl, client->name,
+	pw_log_info("[%s] %s tag:%u id:%u name:%s", client->name,
 			commands[command].name, tag, id, name);
 
 	if ((o = find_device(client, id, name, sink, NULL)) == NULL)
@@ -4486,7 +4465,6 @@ static int do_suspend(struct client *client, uint32_t command, uint32_t tag, str
 
 static int do_move_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	struct pw_manager *manager = client->manager;
 	struct pw_manager_object *o, *dev, *dev_default;
 	uint32_t id, id_device;
@@ -4507,7 +4485,7 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	    (id_device != SPA_ID_INVALID && name_device != NULL))
 		return -EINVAL;
 
-	pw_log_info("%p: [%s] %s tag:%u idx:%u device:%d name:%s", impl, client->name,
+	pw_log_info("[%s] %s tag:%u idx:%u device:%d name:%s", client->name,
 			commands[command].name, tag, id, id_device, name_device);
 
 	spa_zero(sel);
@@ -4544,7 +4522,6 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 
 static int do_kill(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	struct pw_manager *manager = client->manager;
 	struct pw_manager_object *o;
 	uint32_t id;
@@ -4555,7 +4532,7 @@ static int do_kill(struct client *client, uint32_t command, uint32_t tag, struct
 			TAG_INVALID) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u id:%u", impl, client->name,
+	pw_log_info("[%s] %s tag:%u id:%u", client->name,
 			commands[command].name, tag, id);
 
 	spa_zero(sel);
@@ -4603,8 +4580,8 @@ static void on_module_loaded(void *data, int result)
 	if (SPA_RESULT_IS_OK(result)) {
 		struct message *reply;
 
-		pw_log_info("%p: [%s] loaded module id:%u name:%s",
-				impl, client->name,
+		pw_log_info("[%s] loaded module id:%u name:%s",
+				client->name,
 				module->idx, module->name);
 
 		module->loaded = true;
@@ -4640,7 +4617,6 @@ static int do_load_module(struct client *client, uint32_t command, uint32_t tag,
 		.loaded = on_module_loaded,
 	};
 
-	struct impl *impl = client->impl;
 	const char *name, *argument;
 	struct load_module_data *d;
 	struct module *module;
@@ -4652,7 +4628,7 @@ static int do_load_module(struct client *client, uint32_t command, uint32_t tag,
 			TAG_INVALID) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s name:%s argument:%s", impl,
+	pw_log_info("[%s] %s name:%s argument:%s",
 			client->name, commands[command].name, name, argument);
 
 	module = module_create(client, name, argument);
@@ -4693,7 +4669,7 @@ static int do_unload_module(struct client *client, uint32_t command, uint32_t ta
 			TAG_INVALID) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u id:%u", impl, client->name,
+	pw_log_info("[%s] %s tag:%u id:%u", client->name,
 			commands[command].name, tag, module_idx);
 
 	if (module_idx == SPA_ID_INVALID)
@@ -4731,7 +4707,7 @@ static int do_send_object_message(struct client *client, uint32_t command, uint3
 			TAG_INVALID) < 0)
 		return -EPROTO;
 
-	pw_log_info("%p: [%s] %s tag:%u object_path:'%s' message:'%s' params:'%s'", impl,
+	pw_log_info("[%s] %s tag:%u object_path:'%s' message:'%s' params:'%s'",
 			client->name, commands[command].name, tag, object_path,
 			message, params ? params : "<null>");
 

@@ -144,8 +144,8 @@ int stream_send_underflow(struct stream *stream, int64_t offset, uint32_t underr
 	struct message *reply;
 
 	if (ratelimit_test(&impl->rate_limit, stream->timestamp, SPA_LOG_LEVEL_INFO)) {
-		pw_log_info("client %p [%s]: stream %p UNDERFLOW channel:%u offset:%" PRIi64 " underrun:%u",
-			    client, client->name, stream, stream->channel, offset, underrun_for);
+		pw_log_info("[%s]: UNDERFLOW channel:%u offset:%" PRIi64 " underrun:%u",
+			    client->name, stream->channel, offset, underrun_for);
 	}
 
 	reply = message_alloc(impl, -1, 0);
@@ -194,9 +194,8 @@ int stream_send_killed(struct stream *stream)
 		COMMAND_PLAYBACK_STREAM_KILLED :
 		COMMAND_RECORD_STREAM_KILLED;
 
-	pw_log_info("client %p [%s]: stream %p %s channel:%u",
-		    client, client->name, stream,
-		    commands[command].name, stream->channel);
+	pw_log_info("[%s]: %s channel:%u",
+		    client->name, commands[command].name, stream->channel);
 
 	if (client->version < 23)
 		return 0;

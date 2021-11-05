@@ -61,7 +61,7 @@ void operation_complete(struct operation *o)
 {
 	struct client *client = o->client;
 
-	pw_log_info("client %p [%s]: tag:%u complete", client, client->name, o->tag);
+	pw_log_info("[%s]: tag:%u complete", client->name, o->tag);
 
 	reply_simple_ack(client, o->tag);
 	operation_free(o);

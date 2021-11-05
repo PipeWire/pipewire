@@ -1300,10 +1300,13 @@ static void stream_process(void *data)
 static void stream_drained(void *data)
 {
 	struct stream *stream = data;
-	pw_log_info("%p: [%s] drained channel:%u", stream,
-			stream->client->name, stream->channel);
-	reply_simple_ack(stream->client, stream->drain_tag);
-	stream->drain_tag = 0;
+	if (stream->drain_tag != 0) {
+		pw_log_info("%p: [%s] drained channel:%u tag:%d", stream,
+				stream->client->name, stream->channel,
+				stream->drain_tag);
+		reply_simple_ack(stream->client, stream->drain_tag);
+		stream->drain_tag = 0;
+	}
 }
 
 static const struct pw_stream_events stream_events =

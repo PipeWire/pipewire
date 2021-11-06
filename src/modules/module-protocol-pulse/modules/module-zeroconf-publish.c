@@ -63,8 +63,6 @@ enum service_subtype {
 };
 
 struct service {
-	void *key;
-
 	struct module_zeroconf_publish_data *userdata;
 	AvahiEntryGroup *entry_group;
 	char *service_name;
@@ -306,7 +304,6 @@ static struct service *create_service(struct module_zeroconf_publish_data *d, st
 	s = pw_manager_object_add_data(o, service_name, sizeof(struct service));
 	spa_assert(s);
 
-	s->key = o;
 	s->userdata = d;
 	s->entry_group = NULL;
 	s->service_name = service_name;

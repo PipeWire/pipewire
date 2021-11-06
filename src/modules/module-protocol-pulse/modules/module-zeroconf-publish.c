@@ -66,6 +66,8 @@ enum service_subtype {
 };
 
 struct service {
+	struct spa_list link;
+
 	struct module_zeroconf_publish_data *userdata;
 	AvahiEntryGroup *entry_group;
 	const char *service_type;
@@ -94,7 +96,10 @@ struct module_zeroconf_publish_data {
 
 	AvahiPoll *avahi_poll;
 	AvahiClient *client;
-	bool entry_group_free;
+
+	/* lists of services */
+	struct spa_list pending;
+	struct spa_list published;
 };
 
 static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
@@ -125,19 +130,8 @@ static void get_service_name(struct pw_manager_object *o, char *buf, size_t leng
 	snprintf(buf, length, "%s@%s: %s", un, hn, n);
 }
 
-static int service_free(void *d, struct pw_manager_object *o)
+static void service_free(struct service *s)
 {
-	struct service *s;
-
-	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
-		return 0;
-
-	s = pw_manager_object_get_data(o, SERVICE_DATA_ID);
-	if (s == NULL) {
-		pw_log_error("Could not find service to remove");
-		return 0;
-	}
-
 	if (s->entry_group) {
 		pw_log_debug("Removing entry group for %s.", s->service_name);
 		avahi_entry_group_free(s->entry_group);
@@ -149,42 +143,21 @@ static int service_free(void *d, struct pw_manager_object *o)
 	}
 
 	pw_properties_free(s->props);
-
-	return 0;
+	spa_list_remove(&s->link);
 }
 
-static int unpublish_service(void *data, struct pw_manager_object *o)
+static void unpublish_service(struct service *s)
 {
-	struct module_zeroconf_publish_data *d = data;
+	spa_list_remove(&s->link);
+	spa_list_append(&s->userdata->pending, &s->link);
+}
+
+static void unpublish_all_services(struct module_zeroconf_publish_data *d)
+{
 	struct service *s;
 
-	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
-		return 0;
-
-	s = pw_manager_object_get_data(o, SERVICE_DATA_ID);
-	if (s == NULL) {
-		pw_log_error("Could not find service to remove");
-		return 0;
-	}
-
-	if (s->entry_group) {
-		if (d->entry_group_free) {
-			pw_log_debug("Removing entry group for %s.", s->service_name);
-			avahi_entry_group_free(s->entry_group);
-			s->entry_group = NULL;
-		} else {
-			avahi_entry_group_reset(s->entry_group);
-			pw_log_debug("Resetting entry group for %s.", s->service_name);
-		}
-	}
-
-	return 0;
-}
-
-static void unpublish_all_services(struct module_zeroconf_publish_data *d, bool entry_group_free)
-{
-	d->entry_group_free = entry_group_free;
-	pw_manager_for_each_object(d->manager, unpublish_service, d);
+	spa_list_consume(s, &d->published, link)
+		unpublish_service(s);
 }
 
 static char* channel_map_snprint(char *s, size_t l, const struct channel_map *map)
@@ -289,6 +262,7 @@ static struct service *create_service(struct module_zeroconf_publish_data *d, st
 	s->userdata = d;
 	s->entry_group = NULL;
 	get_service_name(o, s->service_name, sizeof(s->service_name));
+	spa_list_append(&d->pending, &s->link);
 
 	fill_service_data(d, s, o);
 
@@ -321,6 +295,15 @@ static AvahiStringList* txt_record_server_data(struct pw_core_info *info, AvahiS
 	return l;
 }
 
+static void clear_entry_group(struct service *s)
+{
+	if (s->entry_group == NULL)
+		return;
+
+	avahi_entry_group_free(s->entry_group);
+	s->entry_group = NULL;
+}
+
 static void publish_service(struct service *s);
 
 static void service_entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state, void *userdata)
@@ -343,14 +326,16 @@ static void service_entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupStat
 		snprintf(s->service_name, sizeof(s->service_name), "%s", t);
 		avahi_free(t);
 
+		unpublish_service(s);
 		publish_service(s);
 		break;
 	}
 	case AVAHI_ENTRY_GROUP_FAILURE:
 		pw_log_error("Failed to register service: %s",
 				avahi_strerror(avahi_client_errno(avahi_entry_group_get_client(g))));
-		avahi_entry_group_free(g);
-		s->entry_group = NULL;
+
+		unpublish_service(s);
+		clear_entry_group(s);
 		break;
 
 	case AVAHI_ENTRY_GROUP_UNCOMMITED:
@@ -379,14 +364,15 @@ static void publish_service(struct service *s)
 		return;
 
 	if (!s->entry_group) {
-		if (!(s->entry_group =
-		avahi_entry_group_new(s->userdata->client, service_entry_group_callback, s))) {
+		s->entry_group = avahi_entry_group_new(s->userdata->client, service_entry_group_callback, s);
+		if (s->entry_group == NULL) {
 			pw_log_error("avahi_entry_group_new(): %s",
 					avahi_strerror(avahi_client_errno(s->userdata->client)));
 			goto finish;
 		}
-	} else
+	} else {
 		avahi_entry_group_reset(s->entry_group);
+	}
 
 	txt = txt_record_server_data(s->userdata->manager->info, txt);
 
@@ -461,10 +447,29 @@ static void publish_service(struct service *s)
 		goto finish;
 	}
 
+	spa_list_remove(&s->link);
+	spa_list_append(&s->userdata->published, &s->link);
+
 	pw_log_info("Successfully created entry group for %s.", s->service_name);
 
 finish:
 	avahi_string_list_free(txt);
+}
+
+static void publish_pending(struct module_zeroconf_publish_data *data)
+{
+	struct service *s, *next;
+
+	spa_list_for_each_safe(s, next, &data->pending, link)
+		publish_service(s);
+}
+
+static void clear_pending_entry_groups(struct module_zeroconf_publish_data *data)
+{
+	struct service *s;
+
+	spa_list_for_each(s, &data->pending, link)
+		clear_entry_group(s);
 }
 
 static void client_callback(AvahiClient *c, AvahiClientState state, void *d)
@@ -478,27 +483,37 @@ static void client_callback(AvahiClient *c, AvahiClientState state, void *d)
 
 	switch (state) {
 	case AVAHI_CLIENT_S_RUNNING:
+		pw_log_info("the avahi daemon is up and running");
+		publish_pending(data);
 		break;
 	case AVAHI_CLIENT_S_COLLISION:
 		pw_log_error("Host name collision");
-		unpublish_all_services(d, false);
+		unpublish_all_services(d);
 		break;
 	case AVAHI_CLIENT_FAILURE:
-		if (avahi_client_errno(c) == AVAHI_ERR_DISCONNECTED) {
-			int error;
+	{
+		int err = avahi_client_errno(data->client);
 
-			pw_log_debug("Avahi daemon disconnected.");
+		pw_log_error("avahi client failure: %s", avahi_strerror(err));
 
-			unpublish_all_services(d, true);
-			avahi_client_free(data->client);
+		unpublish_all_services(data);
+		clear_pending_entry_groups(data);
+		avahi_client_free(data->client);
+		data->client = NULL;
 
-			if (!(data->client = avahi_client_new(data->avahi_poll,
-					AVAHI_CLIENT_NO_FAIL, client_callback, data, &error))) {
-				pw_log_error("avahi_client_new() failed: %s",
-						avahi_strerror(error));
-				module_schedule_unload(data->module);
-			}
+		if (err == AVAHI_ERR_DISCONNECTED) {
+			data->client = avahi_client_new(data->avahi_poll, AVAHI_CLIENT_NO_FAIL, client_callback, data, &err);
+			if (data->client == NULL)
+				pw_log_error("avahi_client_new(): %s", avahi_strerror(err));
 		}
+
+		if (data->client == NULL)
+			module_schedule_unload(data->module);
+
+		break;
+	}
+	case AVAHI_CLIENT_CONNECTING:
+		pw_log_info("connecting to the avahi daemon...");
 		break;
 	default:
 		break;
@@ -510,7 +525,11 @@ static void manager_removed(void *d, struct pw_manager_object *o)
 	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
 		return;
 
-	service_free(d, o);
+	struct service *s = pw_manager_object_get_data(o, SERVICE_DATA_ID);
+	if (s == NULL)
+		return;
+
+	service_free(s);
 }
 
 static void manager_added(void *d, struct pw_manager_object *o)
@@ -573,8 +592,12 @@ static int module_zeroconf_publish_load(struct client *client, struct module *mo
 static int module_zeroconf_publish_unload(struct client *client, struct module *module)
 {
 	struct module_zeroconf_publish_data *d = module->user_data;
+	struct service *s;
 
-	pw_manager_for_each_object(d->manager, service_free, d);
+	unpublish_all_services(d);
+
+	spa_list_consume(s, &d->pending, link)
+		service_free(s);
 
 	if (d->client)
 		avahi_client_free(d->client);
@@ -634,8 +657,9 @@ struct module *create_module_zeroconf_publish(struct impl *impl, const char *arg
 	module->props = props;
 	d = module->user_data;
 	d->module = module;
-
 	d->port = pw_properties_get_uint32(props, "port", PW_PROTOCOL_PULSE_DEFAULT_PORT);
+	spa_list_init(&d->pending);
+	spa_list_init(&d->published);
 
 	return module;
 out:

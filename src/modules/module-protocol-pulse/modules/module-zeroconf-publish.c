@@ -573,15 +573,12 @@ static int module_zeroconf_publish_load(struct client *client, struct module *mo
 			client_callback, data, &error);
 	if (!data->client) {
 		pw_log_error("avahi_client_new() failed: %s", avahi_strerror(error));
-		pw_avahi_poll_free(data->avahi_poll);
 		return -errno;
 	}
 
 	data->manager = pw_manager_new(data->core);
 	if (client->manager == NULL) {
 		pw_log_error("Failed to create pipewire manager");
-		avahi_client_free(data->client);
-		pw_avahi_poll_free(data->avahi_poll);
 		return -errno;
 	}
 

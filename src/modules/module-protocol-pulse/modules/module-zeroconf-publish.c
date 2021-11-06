@@ -56,6 +56,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define SERVICE_SUBTYPE_SOURCE_MONITOR "_monitor._sub."SERVICE_TYPE_SOURCE
 #define SERVICE_SUBTYPE_SOURCE_NON_MONITOR "_non-monitor._sub."SERVICE_TYPE_SOURCE
 
+#define SERVICE_DATA_ID "module-zeroconf-publish.service"
+
 enum service_subtype {
 	SUBTYPE_HARDWARE,
 	SUBTYPE_VIRTUAL,
@@ -125,23 +127,18 @@ static char *get_service_name(struct pw_manager_object *o)
 	return service_name;
 }
 
-static int service_free(void *d, struct pw_manager_object *o) {
+static int service_free(void *d, struct pw_manager_object *o)
+{
 	struct service *s;
-	char *service_name;
 
 	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
 		return 0;
 
-	service_name = get_service_name(o);
-
-	s = pw_manager_object_add_data(o, service_name, sizeof(struct service));
+	s = pw_manager_object_add_data(o, SERVICE_DATA_ID, sizeof(*s));
 	if (s == NULL) {
-		pw_log_error("Could not find service %s to remove", service_name);
-		free(service_name);
+		pw_log_error("Could not find service to remove");
 		return 0;
 	}
-	free(service_name);
-	spa_assert(s);
 
 	if (s->entry_group) {
 		pw_log_debug("Removing entry group for %s.", s->service_name);
@@ -166,21 +163,15 @@ static int service_free(void *d, struct pw_manager_object *o) {
 static int unpublish_service(void *data, struct pw_manager_object *o) {
 	struct module_zeroconf_publish_data *d = data;
 	struct service *s;
-	char *service_name;
 
 	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
 		return 0;
 
-	service_name = get_service_name(o);
-
-	s = pw_manager_object_add_data(o, service_name, sizeof(struct service));
+	s = pw_manager_object_add_data(o, SERVICE_DATA_ID, sizeof(*s));
 	if (s == NULL) {
-		pw_log_error("Could not find service %s to remove", service_name);
-		free(service_name);
+		pw_log_error("Could not find service to remove");
 		return 0;
 	}
-	free(service_name);
-	spa_assert(s);
 
 	if (s->entry_group) {
 		if (d->entry_group_free) {
@@ -297,16 +288,13 @@ static void fill_service_data(struct module_zeroconf_publish_data *d, struct ser
 static struct service *create_service(struct module_zeroconf_publish_data *d, struct pw_manager_object *o)
 {
 	struct service *s;
-	char *service_name;
 
-	service_name = get_service_name(o);
-
-	s = pw_manager_object_add_data(o, service_name, sizeof(struct service));
+	s = pw_manager_object_add_data(o, SERVICE_DATA_ID, sizeof(*s));
 	spa_assert(s);
 
 	s->userdata = d;
 	s->entry_group = NULL;
-	s->service_name = service_name;
+	s->service_name = get_service_name(o);
 
 	fill_service_data(d, s, o);
 

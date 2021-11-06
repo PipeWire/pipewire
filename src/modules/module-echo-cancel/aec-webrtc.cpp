@@ -46,10 +46,67 @@ static void *webrtc_create(const struct pw_properties *args, const spa_audio_inf
 	webrtc::ProcessingConfig pconfig;
 	webrtc::Config config;
 
-	// TODO: wire up args to control these
-	config.Set<webrtc::ExtendedFilter>(new webrtc::ExtendedFilter(true));
-	// Enable Agnostic Delay Detection, would greatly improve performance for larger latencies
-	config.Set<webrtc::DelayAgnostic>(new webrtc::DelayAgnostic(true));
+	const char* prop;
+	bool extended_filter;
+	bool delay_agnostic;
+	bool high_pass_filter;
+	bool noise_suppression;
+	bool gain_control;
+	bool experimental_agc;
+	bool experimental_ns;
+	bool intelligibility;
+
+	if ((prop = pw_properties_get(args, "webrtc.extended_filter")) != NULL) {
+		extended_filter = pw_properties_parse_bool(prop);
+	} else {
+		extended_filter = true;
+	}
+	if ((prop = pw_properties_get(args, "webrtc.delay_agnostic")) != NULL) {
+		delay_agnostic = pw_properties_parse_bool(prop);
+	} else {
+		delay_agnostic = true;
+	}
+	if ((prop = pw_properties_get(args, "webrtc.high_pass_filter")) != NULL) {
+		high_pass_filter = pw_properties_parse_bool(prop);
+	} else {
+		high_pass_filter = true;
+	}
+	if ((prop = pw_properties_get(args, "webrtc.noise_suppression")) != NULL) {
+		noise_suppression = pw_properties_parse_bool(prop);
+	} else {
+		noise_suppression = true;
+	}
+	if ((prop = pw_properties_get(args, "webrtc.gain_control")) != NULL) {
+		gain_control = pw_properties_parse_bool(prop);
+	} else {
+		// Note: AGC seems to mess up with Agnostic Delay Detection, especially with speech,
+		// result in very poor performance, disable by default
+		gain_control = false;
+	}
+	// Disable experimental flags by default
+	if ((prop = pw_properties_get(args, "webrtc.experimental_agc")) != NULL) {
+		experimental_agc = pw_properties_parse_bool(prop);
+	} else {
+		experimental_agc = false;
+	}
+	if ((prop = pw_properties_get(args, "webrtc.experimental_ns")) != NULL) {
+		experimental_ns = pw_properties_parse_bool(prop);
+	} else {
+		experimental_ns = false;
+	}
+	// Intelligibility Enhancer will enforce an upmix on non-mono outputs
+	// Disable by default
+	if ((prop = pw_properties_get(args, "webrtc.intelligibility")) != NULL) {
+		intelligibility = pw_properties_parse_bool(prop);
+	} else {
+		intelligibility = false;
+	}
+
+	config.Set<webrtc::ExtendedFilter>(new webrtc::ExtendedFilter(extended_filter));
+	config.Set<webrtc::DelayAgnostic>(new webrtc::DelayAgnostic(delay_agnostic));
+	config.Set<webrtc::ExperimentalAgc>(new webrtc::ExperimentalAgc(experimental_agc));
+	config.Set<webrtc::ExperimentalNs>(new webrtc::ExperimentalNs(experimental_ns));
+	config.Set<webrtc::Intelligibility>(new webrtc::Intelligibility(intelligibility));
 
 	apm = webrtc::AudioProcessing::Create(config);
 
@@ -65,19 +122,18 @@ static void *webrtc_create(const struct pw_properties *args, const spa_audio_inf
 		goto error;
 	}
 
-	// TODO: wire up args to control these
-	apm->high_pass_filter()->Enable(true);
+	apm->high_pass_filter()->Enable(high_pass_filter);
+	// Always disable drift compensation since it requires drift sampling
 	apm->echo_cancellation()->enable_drift_compensation(false);
 	apm->echo_cancellation()->Enable(true);
+	// TODO: wire up supression levels to args
 	apm->echo_cancellation()->set_suppression_level(webrtc::EchoCancellation::kHighSuppression);
-        apm->noise_suppression()->set_level(webrtc::NoiseSuppression::kHigh);
-	apm->noise_suppression()->Enable(true);
-	// FIXME: wire up args to AGC
-	// Note: AGC seems to mess up with Agnostic Delay Detection, especially with speech,
-	// result in very poor performance, disable by default
-	// apm->gain_control()->set_analog_level_limits(0, 255);
-	// apm->gain_control()->set_mode(webrtc::GainControl::kAdaptiveDigital);
-	// apm->gain_control()->Enable(true);
+	apm->noise_suppression()->set_level(webrtc::NoiseSuppression::kHigh);
+	apm->noise_suppression()->Enable(noise_suppression);
+	// TODO: wire up AGC parameters to args
+	apm->gain_control()->set_analog_level_limits(0, 255);
+	apm->gain_control()->set_mode(webrtc::GainControl::kAdaptiveDigital);
+	apm->gain_control()->Enable(gain_control);
 
 	impl = (struct impl *)calloc(1, sizeof(struct impl));
 	impl->info = *info;

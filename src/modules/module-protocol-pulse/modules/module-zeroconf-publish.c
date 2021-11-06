@@ -274,9 +274,9 @@ static void get_service_data(struct module_zeroconf_publish_data *d,
 	collect_device_info(o, card, &dev_info, false, &impl->defs);
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_API)) != NULL) {
-		if (pw_manager_object_is_sink(o))
+		if (is_sink)
 			flags |= SINK_HARDWARE;
-		else if (pw_manager_object_is_source(o))
+		else if (is_source)
 			flags |= SOURCE_HARDWARE;
 	}
 

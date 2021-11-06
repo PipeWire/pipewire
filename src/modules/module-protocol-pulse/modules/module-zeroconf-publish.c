@@ -160,8 +160,7 @@ static int service_free(void *d, struct pw_manager_object *o) {
 		free(s->name);
 	}
 
-	if (s->props)
-		pw_properties_free(s->props);
+	pw_properties_free(s->props);
 
 	return 0;
 }

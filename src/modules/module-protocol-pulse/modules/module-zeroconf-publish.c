@@ -40,6 +40,7 @@
 #include <avahi-common/alternative.h>
 #include <avahi-common/error.h>
 #include <avahi-common/domain.h>
+#include <avahi-common/malloc.h>
 
 #define NAME "zeroconf-publish"
 
@@ -67,7 +68,6 @@ enum service_subtype {
 struct service {
 	struct module_zeroconf_publish_data *userdata;
 	AvahiEntryGroup *entry_group;
-	char *service_name;
 	const char *service_type;
 	enum service_subtype subtype;
 
@@ -77,6 +77,8 @@ struct service {
 	struct sample_spec ss;
 	struct channel_map cm;
 	struct pw_properties *props;
+
+	char service_name[AVAHI_LABEL_MAX];
 };
 
 struct module_zeroconf_publish_data {
@@ -112,19 +114,15 @@ static const struct pw_core_events core_events = {
 	.error = on_core_error,
 };
 
-static char *get_service_name(struct pw_manager_object *o)
+static void get_service_name(struct pw_manager_object *o, char *buf, size_t length)
 {
 	const char *hn, *un, *n;
-	char *service_name;
 
 	hn = pw_get_host_name();
 	un = pw_get_user_name();
 	n = pw_properties_get(o->props, PW_KEY_NODE_DESCRIPTION);
 
-	service_name = calloc(1, AVAHI_LABEL_MAX - 1);
-	snprintf(service_name, AVAHI_LABEL_MAX - 1, "%s@%s: %s", un, hn, n);
-
-	return service_name;
+	snprintf(buf, length, "%s@%s: %s", un, hn, n);
 }
 
 static int service_free(void *d, struct pw_manager_object *o)
@@ -143,11 +141,6 @@ static int service_free(void *d, struct pw_manager_object *o)
 	if (s->entry_group) {
 		pw_log_debug("Removing entry group for %s.", s->service_name);
 		avahi_entry_group_free(s->entry_group);
-	}
-
-	if (s->service_name) {
-		pw_log_debug("Removing service: %s", s->service_name);
-		free(s->service_name);
 	}
 
 	if (s->name) {
@@ -294,7 +287,7 @@ static struct service *create_service(struct module_zeroconf_publish_data *d, st
 
 	s->userdata = d;
 	s->entry_group = NULL;
-	s->service_name = get_service_name(o);
+	get_service_name(o, s->service_name, sizeof(s->service_name));
 
 	fill_service_data(d, s, o);
 
@@ -346,8 +339,8 @@ static void service_entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupStat
 
 		t = avahi_alternative_service_name(s->service_name);
 		pw_log_info("Name collision, renaming %s to %s.", s->service_name, t);
-		free(s->service_name);
-		s->service_name = t;
+		snprintf(s->service_name, sizeof(s->service_name), "%s", t);
+		avahi_free(t);
 
 		publish_service(s);
 		break;

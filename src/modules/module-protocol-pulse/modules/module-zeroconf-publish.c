@@ -235,8 +235,8 @@ static char* channel_map_snprint(char *s, size_t l, const struct channel_map *ma
 	return s;
 }
 
-static void get_service_data(struct module_zeroconf_publish_data *d,
-		struct service *s, struct pw_manager_object *o)
+static void fill_service_data(struct module_zeroconf_publish_data *d, struct service *s,
+				struct pw_manager_object *o)
 {
 	struct impl *impl = d->module->impl;
 	bool is_sink = pw_manager_object_is_sink(o);
@@ -297,7 +297,7 @@ static void get_service_data(struct module_zeroconf_publish_data *d,
 		spa_assert_not_reached();
 }
 
-static struct service *get_service(struct module_zeroconf_publish_data *d, struct pw_manager_object *o)
+static struct service *create_service(struct module_zeroconf_publish_data *d, struct pw_manager_object *o)
 {
 	struct service *s;
 	char *service_name;
@@ -312,7 +312,7 @@ static struct service *get_service(struct module_zeroconf_publish_data *d, struc
 	s->entry_group = NULL;
 	s->service_name = service_name;
 
-	get_service_data(d, s, o);
+	fill_service_data(d, s, o);
 
 	return s;
 }
@@ -542,7 +542,7 @@ static void manager_added(void *d, struct pw_manager_object *o)
 	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
 		return;
 
-	s = get_service(d, o);
+	s = create_service(d, o);
 
 	publish_service(s);
 }

@@ -70,6 +70,8 @@ struct props {
 
 #define FILL_FRAMES 2
 #define MAX_BUFFERS 32
+#define MIN_LATENCY	512
+#define MAX_LATENCY	1024
 
 struct buffer {
 	uint32_t id;

@@ -60,9 +60,6 @@ extern "C" {
 
 #define PIPEWIRE_BATTERY_PROVIDER "/org/freedesktop/pipewire/battery"
 
-#define MIN_LATENCY	512
-#define MAX_LATENCY	1024
-
 #define OBJECT_MANAGER_INTROSPECT_XML                                          \
 	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                                  \
 	"<node>\n"                                                                 \

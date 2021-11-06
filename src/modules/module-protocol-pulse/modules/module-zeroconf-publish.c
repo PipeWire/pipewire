@@ -69,7 +69,10 @@ struct service {
 	struct spa_list link;
 
 	struct module_zeroconf_publish_data *userdata;
+
 	AvahiEntryGroup *entry_group;
+	AvahiStringList *txt;
+
 	const char *service_type;
 	enum service_subtype subtype;
 
@@ -143,6 +146,7 @@ static void service_free(struct service *s)
 	}
 
 	pw_properties_free(s->props);
+	avahi_string_list_free(s->txt);
 	spa_list_remove(&s->link);
 }
 
@@ -346,7 +350,7 @@ static void service_entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupStat
 
 #define PA_CHANNEL_MAP_SNPRINT_MAX (CHANNELS_MAX * 32)
 
-static void publish_service(struct service *s)
+static AvahiStringList *get_service_txt(const struct service *s)
 {
 	static const char * const subtype_text[] = {
 		[SUBTYPE_HARDWARE] = "hardware",
@@ -354,25 +358,19 @@ static void publish_service(struct service *s)
 		[SUBTYPE_MONITOR] = "monitor"
 	};
 
-	AvahiStringList *txt = NULL;
-	const char *t;
+	static const struct mapping {
+		const char *pw_key, *txt_key;
+	} mappings[] = {
+		{ PW_KEY_NODE_DESCRIPTION, "description" },
+		{ PW_KEY_DEVICE_VENDOR_NAME, "vendor-name" },
+		{ PW_KEY_DEVICE_PRODUCT_NAME, "product-name" },
+		{ PW_KEY_DEVICE_CLASS, "class" },
+		{ PW_KEY_DEVICE_FORM_FACTOR, "form-factor" },
+		{ PW_KEY_DEVICE_ICON_NAME, "icon-name" },
+	};
+
 	char cm[PA_CHANNEL_MAP_SNPRINT_MAX];
-
-	spa_assert(s);
-
-	if (!s->userdata->client || avahi_client_get_state(s->userdata->client) != AVAHI_CLIENT_S_RUNNING)
-		return;
-
-	if (!s->entry_group) {
-		s->entry_group = avahi_entry_group_new(s->userdata->client, service_entry_group_callback, s);
-		if (s->entry_group == NULL) {
-			pw_log_error("avahi_entry_group_new(): %s",
-					avahi_strerror(avahi_client_errno(s->userdata->client)));
-			goto finish;
-		}
-	} else {
-		avahi_entry_group_reset(s->entry_group);
-	}
+	AvahiStringList *txt = NULL;
 
 	txt = txt_record_server_data(s->userdata->manager->info, txt);
 
@@ -383,18 +381,34 @@ static void publish_service(struct service *s)
 	txt = avahi_string_list_add_pair(txt, "channel_map", channel_map_snprint(cm, sizeof(cm), &s->cm));
 	txt = avahi_string_list_add_pair(txt, "subtype", subtype_text[s->subtype]);
 
-	if ((t = pw_properties_get(s->props, PW_KEY_NODE_DESCRIPTION)))
-		txt = avahi_string_list_add_pair(txt, "description", t);
-	if ((t = pw_properties_get(s->props, PW_KEY_DEVICE_VENDOR_NAME)))
-		txt = avahi_string_list_add_pair(txt, "vendor-name", t);
-	if ((t = pw_properties_get(s->props, PW_KEY_DEVICE_PRODUCT_NAME)))
-		txt = avahi_string_list_add_pair(txt, "product-name", t);
-	if ((t = pw_properties_get(s->props, PW_KEY_DEVICE_CLASS)))
-		txt = avahi_string_list_add_pair(txt, "class", t);
-	if ((t = pw_properties_get(s->props, PW_KEY_DEVICE_FORM_FACTOR)))
-		txt = avahi_string_list_add_pair(txt, "form-factor", t);
-	if ((t = pw_properties_get(s->props, PW_KEY_DEVICE_ICON_NAME)))
-		txt = avahi_string_list_add_pair(txt, "icon-name", t);
+	const struct mapping *m;
+	SPA_FOR_EACH_ELEMENT(mappings, m) {
+		const char *value = pw_properties_get(s->props, m->pw_key);
+		if (value != NULL)
+			txt = avahi_string_list_add_pair(txt, m->txt_key, value);
+	}
+
+	return txt;
+}
+
+static void publish_service(struct service *s)
+{
+	if (!s->userdata->client || avahi_client_get_state(s->userdata->client) != AVAHI_CLIENT_S_RUNNING)
+		return;
+
+	if (!s->entry_group) {
+		s->entry_group = avahi_entry_group_new(s->userdata->client, service_entry_group_callback, s);
+		if (s->entry_group == NULL) {
+			pw_log_error("avahi_entry_group_new(): %s",
+					avahi_strerror(avahi_client_errno(s->userdata->client)));
+			return;
+		}
+	} else {
+		avahi_entry_group_reset(s->entry_group);
+	}
+
+	if (s->txt == NULL)
+		s->txt = get_service_txt(s);
 
 	if (avahi_entry_group_add_service_strlst(
 				s->entry_group,
@@ -405,10 +419,10 @@ static void publish_service(struct service *s)
 				NULL,
 				NULL,
 				s->userdata->port,
-				txt) < 0) {
+				s->txt) < 0) {
 		pw_log_error("avahi_entry_group_add_service_strlst(): %s",
 			avahi_strerror(avahi_client_errno(s->userdata->client)));
-		goto finish;
+		return;
 	}
 
 	if (avahi_entry_group_add_service_subtype(
@@ -423,7 +437,7 @@ static void publish_service(struct service *s)
 
 		pw_log_error("avahi_entry_group_add_service_subtype(): %s",
 			avahi_strerror(avahi_client_errno(s->userdata->client)));
-		goto finish;
+		return;
 	}
 
 	if (!s->is_sink && s->subtype != SUBTYPE_MONITOR) {
@@ -437,23 +451,20 @@ static void publish_service(struct service *s)
 					SERVICE_SUBTYPE_SOURCE_NON_MONITOR) < 0) {
 			pw_log_error("avahi_entry_group_add_service_subtype(): %s",
 					avahi_strerror(avahi_client_errno(s->userdata->client)));
-					goto finish;
+			return;
 		}
 	}
 
 	if (avahi_entry_group_commit(s->entry_group) < 0) {
 		pw_log_error("avahi_entry_group_commit(): %s",
 				avahi_strerror(avahi_client_errno(s->userdata->client)));
-		goto finish;
+		return;
 	}
 
 	spa_list_remove(&s->link);
 	spa_list_append(&s->userdata->published, &s->link);
 
 	pw_log_info("Successfully created entry group for %s.", s->service_name);
-
-finish:
-	avahi_string_list_free(txt);
 }
 
 static void publish_pending(struct module_zeroconf_publish_data *data)

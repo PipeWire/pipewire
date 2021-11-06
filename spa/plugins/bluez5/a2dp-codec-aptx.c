@@ -343,6 +343,8 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 
 	if (this->hd)
 		this->max_frames = (this->mtu - sizeof(struct rtp_header)) / this->frame_length;
+	else if (codec_is_ll(codec))
+		this->max_frames = SPA_MIN(256u, this->mtu) / this->frame_length;
 	else
 		this->max_frames = this->mtu / this->frame_length;
 

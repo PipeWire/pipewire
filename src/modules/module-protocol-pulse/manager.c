@@ -853,6 +853,14 @@ done:
 	return SPA_PTROFF(d, sizeof(struct object_data), void);
 }
 
+void *pw_manager_object_get_data(struct pw_manager_object *obj, const char *id)
+{
+	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
+	struct object_data *d = object_find_data(o, id);
+
+	return d ? SPA_PTROFF(d, sizeof(*d), void) : NULL;
+}
+
 int pw_manager_sync(struct pw_manager *manager)
 {
 	struct manager *m = SPA_CONTAINER_OF(manager, struct manager, this);

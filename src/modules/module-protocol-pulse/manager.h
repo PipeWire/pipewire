@@ -112,6 +112,7 @@ int pw_manager_for_each_object(struct pw_manager *manager,
 		void *data);
 
 void *pw_manager_object_add_data(struct pw_manager_object *o, const char *id, size_t size);
+void *pw_manager_object_get_data(struct pw_manager_object *obj, const char *id);
 
 bool pw_manager_object_is_client(struct pw_manager_object *o);
 bool pw_manager_object_is_module(struct pw_manager_object *o);

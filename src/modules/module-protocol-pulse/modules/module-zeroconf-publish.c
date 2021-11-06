@@ -132,7 +132,7 @@ static int service_free(void *d, struct pw_manager_object *o)
 	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
 		return 0;
 
-	s = pw_manager_object_add_data(o, SERVICE_DATA_ID, sizeof(*s));
+	s = pw_manager_object_get_data(o, SERVICE_DATA_ID);
 	if (s == NULL) {
 		pw_log_error("Could not find service to remove");
 		return 0;
@@ -153,14 +153,15 @@ static int service_free(void *d, struct pw_manager_object *o)
 	return 0;
 }
 
-static int unpublish_service(void *data, struct pw_manager_object *o) {
+static int unpublish_service(void *data, struct pw_manager_object *o)
+{
 	struct module_zeroconf_publish_data *d = data;
 	struct service *s;
 
 	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
 		return 0;
 
-	s = pw_manager_object_add_data(o, SERVICE_DATA_ID, sizeof(*s));
+	s = pw_manager_object_get_data(o, SERVICE_DATA_ID);
 	if (s == NULL) {
 		pw_log_error("Could not find service to remove");
 		return 0;

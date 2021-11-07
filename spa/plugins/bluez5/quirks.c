@@ -70,6 +70,7 @@ struct spa_bt_quirks {
 	int force_hw_volume;
 	int force_sbc_xq;
 	int force_faststream;
+	int force_a2dp_duplex;
 
 	char *device_rules;
 	char *adapter_rules;
@@ -86,6 +87,7 @@ static enum spa_bt_feature parse_feature(const char *str)
 		{ "hw-volume-mic", SPA_BT_FEATURE_HW_VOLUME_MIC },
 		{ "sbc-xq", SPA_BT_FEATURE_SBC_XQ },
 		{ "faststream", SPA_BT_FEATURE_FASTSTREAM },
+		{ "a2dp-duplex", SPA_BT_FEATURE_A2DP_DUPLEX },
 	};
 	size_t i;
 	for (i = 0; i < SPA_N_ELEMENTS(feature_keys); ++i) {
@@ -251,6 +253,7 @@ struct spa_bt_quirks *spa_bt_quirks_create(const struct spa_dict *info, struct s
 	this->force_msbc = parse_force_flag(info, "bluez5.enable-msbc");
 	this->force_hw_volume = parse_force_flag(info, "bluez5.enable-hw-volume");
 	this->force_faststream = parse_force_flag(info, "bluez5.enable-faststream");
+	this->force_a2dp_duplex = parse_force_flag(info, "bluez5.enable-a2dp-duplex");
 
 	if ((str = spa_dict_lookup(info, "bluez5.hardware-database")) != NULL) {
 		spa_log_debug(this->log, "loading session manager provided data");
@@ -394,6 +397,9 @@ int spa_bt_quirks_get_features(const struct spa_bt_quirks *this,
 
 	if (this->force_faststream != -1)
 		SPA_FLAG_UPDATE(*features, SPA_BT_FEATURE_FASTSTREAM, this->force_faststream);
+
+	if (this->force_a2dp_duplex != -1)
+		SPA_FLAG_UPDATE(*features, SPA_BT_FEATURE_A2DP_DUPLEX, this->force_a2dp_duplex);
 
 	return 0;
 }

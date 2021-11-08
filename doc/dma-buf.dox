@@ -81,8 +81,8 @@ modifier aware one, or supporting both.
   from the list and do a test allocation with your allocator to choose the preferred
   modifier. Fixate on that `EnumFormat` by announcing a `SPA_PARAM_EnumFormat` with
   only one modifier in the `SPA_CHOICE_Enum` and without the
-  `SPA_POD_PROP_FLAG_DONT_FIXATE`, followed by the previous announced
-  `EnumFormat`s. This will retrigger (**TBD**) the `param_changed` event with an
+  `SPA_POD_PROP_FLAG_DONT_FIXATE` flag, followed by the previous announced
+  `EnumFormat`s. This will retrigger the `param_changed` event with an
   `SPA_PARAM_Format` as described below.
   If the `SPA_PARAM_Format` contains a modifier key, without the flag
   `SPA_POD_PROP_FLAG_DONT_FIXATE`, it should only contain one value in the
@@ -115,6 +115,11 @@ Get the DMA-BUF FDs (the plane count is encoded in the `n_datas` variable of the
 Note: Some graphics APIs have separated functions for the modifier-less case
 (`DRM_FORMAT_MOD_INVALID`) or are omitting the modifier, since it might be used
 for error handling.
+
+## Example programs
+
+- \ref video-src-fixate.c "": \snippet{doc} video-src-fixate.c title
+- \ref video-play-fixate.c "": \snippet{doc} video-play-fixate.c title
 
 # DMA-BUF mapping warning
 

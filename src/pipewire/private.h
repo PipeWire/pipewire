@@ -330,6 +330,7 @@ struct pw_global {
 
 	pw_global_bind_func_t func;	/**< bind function */
 	void *object;			/**< object associated with the interface */
+	uint64_t serial;		/**< increasing serial number */
 
 	struct spa_list resource_list;	/**< The list of resources of this global */
 

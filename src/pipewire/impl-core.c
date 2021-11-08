@@ -71,7 +71,8 @@ struct resource_data {
 static void * registry_bind(void *object, uint32_t id,
 		const char *type, uint32_t version, size_t user_data_size)
 {
-	struct pw_resource *resource = object;
+	struct resource_data *data = object;
+	struct pw_resource *resource = data->resource;
 	struct pw_impl_client *client = resource->client;
 	struct pw_context *context = resource->context;
 	struct pw_global *global;
@@ -115,7 +116,8 @@ error_exit_clean:
 
 static int registry_destroy(void *object, uint32_t id)
 {
-	struct pw_resource *resource = object;
+	struct resource_data *data = object;
+	struct pw_resource *resource = data->resource;
 	struct pw_impl_client *client = resource->client;
 	struct pw_context *context = resource->context;
 	struct pw_global *global;
@@ -278,7 +280,7 @@ static struct pw_registry *core_get_registry(void *object, uint32_t version, siz
 	pw_resource_add_object_listener(registry_resource,
 				&data->object_listener,
 				&registry_methods,
-				resource);
+				data);
 
 	spa_list_append(&context->registry_resource_list, &registry_resource->link);
 

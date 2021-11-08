@@ -1165,15 +1165,19 @@ static void registry_event_global_remove(void *data, uint32_t id)
 	struct global *g;
 	const char *name;
 
-	if ((g = find_global(ctl, id, NULL, PW_TYPE_INTERFACE_Node)) == NULL)
-		return;
-	if ((name = pw_properties_get(g->props, PW_KEY_NODE_NAME)) == NULL)
+	if ((g = find_global(ctl, id, NULL, NULL)) == NULL)
 		return;
 
-	if (spa_streq(name, ctl->default_sink))
-		ctl->default_sink[0] = '\0';
-	if (spa_streq(name, ctl->default_source))
-		ctl->default_source[0] = '\0';
+	if (spa_streq(g->ginfo->type, PW_TYPE_INTERFACE_Node)) {
+		if ((name = pw_properties_get(g->props, PW_KEY_NODE_NAME)) == NULL)
+			return;
+
+		if (spa_streq(name, ctl->default_sink))
+			ctl->default_sink[0] = '\0';
+		if (spa_streq(name, ctl->default_source))
+			ctl->default_source[0] = '\0';
+	}
+	pw_proxy_destroy(g->proxy);
 }
 
 static const struct pw_registry_events registry_events = {

@@ -633,8 +633,25 @@ static void registry_event_global(void *data, uint32_t id,
 	}
 }
 
-static void registry_event_global_remove(void *object, uint32_t id)
+static struct global *find_global(struct file *file, uint32_t id)
 {
+	struct global *g;
+	spa_list_for_each(g, &file->globals, link) {
+		if (g->id == id)
+			return g;
+	}
+	return NULL;
+}
+
+static void registry_event_global_remove(void *data, uint32_t id)
+{
+	struct file *file = data;
+	struct global *g;
+
+	if ((g = find_global(file, id)) == NULL)
+		return;
+
+	pw_proxy_destroy(g->proxy);
 }
 
 static const struct pw_registry_events registry_events = {

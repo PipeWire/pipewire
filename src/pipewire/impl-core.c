@@ -64,6 +64,9 @@ static void * registry_bind(void *object, uint32_t id,
 	if (!PW_PERM_IS_R(permissions))
 		goto error_no_id;
 
+	if (resource->client->recv_generation != 0 && global->generation > resource->client->recv_generation)
+		goto error_stale_id;
+
 	if (!spa_streq(global->type, type))
 		goto error_wrong_interface;
 
@@ -75,6 +78,12 @@ static void * registry_bind(void *object, uint32_t id,
 
 	return NULL;
 
+error_stale_id:
+	pw_log_debug("registry %p: not binding stale global "
+			"id %u to %u, generation:%"PRIu64" recv-generation:%"PRIu64,
+			resource, id, new_id, global->generation, resource->client->recv_generation);
+	pw_resource_errorf_id(resource, new_id, -ESTALE, "no global %u any more", id);
+	goto error_exit_clean;
 error_no_id:
 	pw_log_debug("registry %p: no global with id %u to bind to %u", resource, id, new_id);
 	pw_resource_errorf_id(resource, new_id, -ENOENT, "no global %u", id);
@@ -110,6 +119,9 @@ static int registry_destroy(void *object, uint32_t id)
 	if (!PW_PERM_IS_R(permissions))
 		goto error_no_id;
 
+	if (resource->client->recv_generation != 0 && global->generation > resource->client->recv_generation)
+		goto error_stale_id;
+
 	if (id == PW_ID_CORE || !PW_PERM_IS_X(permissions))
 		goto error_not_allowed;
 
@@ -118,6 +130,13 @@ static int registry_destroy(void *object, uint32_t id)
 	pw_global_destroy(global);
 	return 0;
 
+error_stale_id:
+	pw_log_debug("registry %p: not destroying stale global "
+			"id %u, generation:%"PRIu64" recv-generation:%"PRIu64,
+			resource, id, global->generation, resource->client->recv_generation);
+	pw_resource_errorf(resource, -ESTALE, "no global %u any more", id);
+	res = -ESTALE;
+	goto error_exit;
 error_no_id:
 	pw_log_debug("registry %p: no global with id %u to destroy", resource, id);
 	pw_resource_errorf(resource, -ENOENT, "no global %u", id);

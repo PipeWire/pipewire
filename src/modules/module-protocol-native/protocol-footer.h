@@ -30,17 +30,21 @@
  */
 
 enum {
-	FOOTER_PROXY_OPCODE_LAST = 0,
+	FOOTER_PROXY_OPCODE_GENERATION = 0,
+	FOOTER_PROXY_OPCODE_LAST
 };
 
 enum {
-	FOOTER_RESOURCE_OPCODE_LAST = 0,
+	FOOTER_RESOURCE_OPCODE_GENERATION = 0,
+	FOOTER_RESOURCE_OPCODE_LAST
 };
 
 struct footer_proxy_global_state {
+	uint64_t last_recv_generation;
 };
 
 struct footer_resource_global_state {
+	uint64_t last_sent_generation;
 };
 
 struct footer_demarshal {

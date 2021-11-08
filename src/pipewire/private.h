@@ -299,6 +299,7 @@ struct pw_impl_client {
 	struct pw_protocol *protocol;	/**< protocol in use */
 	int recv_seq;			/**< last received sequence number */
 	int send_seq;			/**< last sender sequence number */
+	uint64_t recv_generation;	/**< last received registry generation */
 
 	void *user_data;		/**< extra user data */
 
@@ -334,6 +335,7 @@ struct pw_global {
 	pw_global_bind_func_t func;	/**< bind function */
 	void *object;			/**< object associated with the interface */
 	uint64_t serial;		/**< increasing serial number */
+	uint64_t generation;		/**< registry generation number */
 
 	struct spa_list resource_list;	/**< The list of resources of this global */
 
@@ -430,6 +432,7 @@ struct pw_context {
 
 	uint64_t stamp;
 	uint64_t serial;
+	uint64_t generation;			/**< registry generation number */
 	struct pw_map globals;			/**< map of globals */
 
 	struct spa_list core_impl_list;		/**< list of core_imp */
@@ -1001,6 +1004,7 @@ struct pw_core {
 	struct pw_protocol_client *conn;	/**< the protocol client connection */
 	int recv_seq;				/**< last received sequence number */
 	int send_seq;				/**< last protocol result code */
+	uint64_t recv_generation;		/**< last received registry generation */
 
 	unsigned int removed:1;
 	unsigned int destroyed:1;

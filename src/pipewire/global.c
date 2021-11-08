@@ -146,6 +146,8 @@ int pw_global_register(struct pw_global *global)
 	spa_list_append(&context->global_list, &global->link);
 	global->registered = true;
 
+	global->generation = ++context->generation;
+
 	spa_list_for_each(registry, &context->registry_resource_list, link) {
 		uint32_t permissions = pw_global_get_permissions(global, registry->client);
 		pw_log_debug("registry %p: global %d %08x serial:%"PRIu64,
@@ -352,8 +354,7 @@ int pw_global_update_permissions(struct pw_global *global, struct pw_impl_client
 		}
 		else if (do_show) {
 			pw_log_debug("client %p: resource %p show global %d serial:%"PRIu64,
-					client, resource, global->id,
-					global->serial);
+					client, resource, global->id, global->serial);
 			pw_registry_resource_global(resource,
 						    global->id,
 						    new_permissions,

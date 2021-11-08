@@ -737,6 +737,9 @@ int pw_impl_client_check_permissions(struct pw_impl_client *client,
 	if ((global = pw_context_find_global(context, global_id)) == NULL)
 		return -ENOENT;
 
+	if (client->recv_generation != 0 && global->generation > client->recv_generation)
+		return -ESTALE;
+
 	perms = pw_global_get_permissions(global, client);
 	if ((perms & permissions) != permissions)
 		return -EPERM;

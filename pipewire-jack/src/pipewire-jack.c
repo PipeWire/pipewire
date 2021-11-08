@@ -144,6 +144,7 @@ struct object {
 			char alias1[REAL_JACK_PORT_NAME_SIZE+1];
 			char alias2[REAL_JACK_PORT_NAME_SIZE+1];
 			char system[REAL_JACK_PORT_NAME_SIZE+1];
+			uint32_t system_id;
 			uint32_t type_id;
 			uint32_t node_id;
 			uint32_t port_id;
@@ -2717,6 +2718,7 @@ static void registry_event_global(void *data, uint32_t id,
 			if (c->filter_name)
 				filter_name(tmp, FILTER_PORT);
 
+			o->port.system_id = 0;
 			o->port.port_id = SPA_ID_INVALID;
 			o->port.priority = ot->node.priority;
 			o->port.node = ot;
@@ -2744,11 +2746,13 @@ static void registry_event_global(void *data, uint32_t id,
 		if ((str = spa_dict_lookup(props, PW_KEY_PORT_ALIAS)) != NULL)
 			snprintf(o->port.alias2, sizeof(o->port.alias2), "%s", str);
 
-		if ((str = spa_dict_lookup(props, PW_KEY_PORT_ID)) != NULL)
+		if ((str = spa_dict_lookup(props, PW_KEY_PORT_ID)) != NULL) {
+			o->port.system_id = atoi(str);
 			snprintf(o->port.system, sizeof(o->port.system), "system:%s_%d",
 					flags & JackPortIsInput ? "playback" :
 					is_monitor ? "monitor" : "capture",
-					atoi(str)+1);
+					o->port.system_id+1);
+		}
 
 		o->port.flags = flags;
 		o->port.type_id = type_id;
@@ -5070,10 +5074,17 @@ static int port_compare_func(const void *v1, const void *v2)
 		res = is_def2 - is_def1;
 	else if ((*o1)->port.priority != (*o2)->port.priority)
 		res = (*o2)->port.priority - (*o1)->port.priority;
-	else if ((res = strcmp((*o1)->port.alias1, (*o2)->port.alias1) == 0))
-		res = (*o1)->id - (*o2)->id;
+	else if ((res = strcmp((*o1)->port.alias1, (*o2)->port.alias1) == 0)) {
+		res = (*o1)->port.node_id - (*o2)->port.node_id;
+		if (res == 0)
+			res = (*o1)->port.system_id - (*o2)->port.system_id;
+		if (res == 0)
+			res = (*o1)->id - (*o2)->id;
+	}
 
-	pw_log_debug("port type:%d<->%d def:%d<->%d prio:%d<->%d id:%d<->%d res:%d",
+
+	pw_log_debug("port %s<->%s type:%d<->%d def:%d<->%d prio:%d<->%d id:%d<->%d res:%d",
+			(*o1)->port.name, (*o2)->port.name,
 			(*o1)->port.type_id, (*o2)->port.type_id,
 			is_def1, is_def2,
 			(*o1)->port.priority, (*o2)->port.priority,

@@ -954,7 +954,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		unsigned int factor = 0;
 		unsigned int new_num = 0;
 
-		sscanf(impl->aec_info->latency, "%u/%u", &num, &denom);
+		spa_assert_se(sscanf(impl->aec_info->latency, "%u/%u", &num, &denom) == 2);
 
 		if ((str = pw_properties_get(props, PW_KEY_NODE_LATENCY)) != NULL) {
 			sscanf(str, "%u/%u", &req_num, &req_denom);
@@ -967,13 +967,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec_info->latency);
 			impl->aec_blocksize = sizeof(float) * impl->info.rate * num / denom;
 		} else {
-			char* new_latency_str = (char*)calloc(strlen(str), sizeof(char));
-
-			sprintf(new_latency_str, "%u/%u", new_num, req_denom);
-			pw_log_info("Setting node latency to %s", new_latency_str);
-			pw_properties_set(props, PW_KEY_NODE_LATENCY, new_latency_str);
+			pw_log_info("Setting node latency to %u/%u", new_num, req_denom);
+			pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u", new_num, req_denom);
 			impl->aec_blocksize = sizeof(float) * impl->info.rate * num / denom * factor;
-			free(new_latency_str);
 		}
 	} else {
 		/* Implementation doesn't care about the block size */

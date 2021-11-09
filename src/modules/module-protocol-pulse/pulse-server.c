@@ -1189,8 +1189,10 @@ static void stream_process(void *data)
 	uint32_t size, minreq = 0, index;
 	struct process_data pd;
 
-	pw_log_trace_fp("%p: process", stream);
+	if (stream->create_tag != SPA_ID_INVALID)
+		return;
 
+	pw_log_trace_fp("%p: process", stream);
 	buffer = pw_stream_dequeue_buffer(stream->stream);
 	if (buffer == NULL)
 		return;

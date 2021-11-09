@@ -46,61 +46,22 @@ static void *webrtc_create(const struct pw_properties *args, const spa_audio_inf
 	webrtc::ProcessingConfig pconfig;
 	webrtc::Config config;
 
-	const char* prop;
-	bool extended_filter;
-	bool delay_agnostic;
-	bool high_pass_filter;
-	bool noise_suppression;
-	bool gain_control;
-	bool experimental_agc;
-	bool experimental_ns;
-	bool intelligibility;
+	bool extended_filter = pw_properties_get_bool(args, "webrtc.extended_filter", true);
+	bool delay_agnostic = pw_properties_get_bool(args, "webrtc.delay_agnostic", true);
+	bool high_pass_filter = pw_properties_get_bool(args, "webrtc.high_pass_filter", true);
+	bool noise_suppression = pw_properties_get_bool(args, "webrtc.noise_suppression", true);
 
-	if ((prop = pw_properties_get(args, "webrtc.extended_filter")) != NULL) {
-		extended_filter = pw_properties_parse_bool(prop);
-	} else {
-		extended_filter = true;
-	}
-	if ((prop = pw_properties_get(args, "webrtc.delay_agnostic")) != NULL) {
-		delay_agnostic = pw_properties_parse_bool(prop);
-	} else {
-		delay_agnostic = true;
-	}
-	if ((prop = pw_properties_get(args, "webrtc.high_pass_filter")) != NULL) {
-		high_pass_filter = pw_properties_parse_bool(prop);
-	} else {
-		high_pass_filter = true;
-	}
-	if ((prop = pw_properties_get(args, "webrtc.noise_suppression")) != NULL) {
-		noise_suppression = pw_properties_parse_bool(prop);
-	} else {
-		noise_suppression = true;
-	}
-	if ((prop = pw_properties_get(args, "webrtc.gain_control")) != NULL) {
-		gain_control = pw_properties_parse_bool(prop);
-	} else {
-		// Note: AGC seems to mess up with Agnostic Delay Detection, especially with speech,
-		// result in very poor performance, disable by default
-		gain_control = false;
-	}
+	// Note: AGC seems to mess up with Agnostic Delay Detection, especially with speech,
+	// result in very poor performance, disable by default
+	bool gain_control = pw_properties_get_bool(args, "webrtc.gain_control", false);
+
 	// Disable experimental flags by default
-	if ((prop = pw_properties_get(args, "webrtc.experimental_agc")) != NULL) {
-		experimental_agc = pw_properties_parse_bool(prop);
-	} else {
-		experimental_agc = false;
-	}
-	if ((prop = pw_properties_get(args, "webrtc.experimental_ns")) != NULL) {
-		experimental_ns = pw_properties_parse_bool(prop);
-	} else {
-		experimental_ns = false;
-	}
+	bool experimental_agc = pw_properties_get_bool(args, "webrtc.experimental_agc", false);
+	bool experimental_ns = pw_properties_get_bool(args, "webrtc.experimental_ns", false);
+
 	// Intelligibility Enhancer will enforce an upmix on non-mono outputs
 	// Disable by default
-	if ((prop = pw_properties_get(args, "webrtc.intelligibility")) != NULL) {
-		intelligibility = pw_properties_parse_bool(prop);
-	} else {
-		intelligibility = false;
-	}
+	bool intelligibility = pw_properties_get_bool(args, "webrtc.intelligibility", false);
 
 	config.Set<webrtc::ExtendedFilter>(new webrtc::ExtendedFilter(extended_filter));
 	config.Set<webrtc::DelayAgnostic>(new webrtc::DelayAgnostic(delay_agnostic));

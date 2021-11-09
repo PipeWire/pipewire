@@ -346,6 +346,8 @@ static void module_destroy(void *data)
 
 	pw_properties_free(impl->properties);
 
+	pw_loop_destroy_source(pw_context_get_main_loop(impl->context), impl->flush_timeout);
+
 	free(impl);
 }
 

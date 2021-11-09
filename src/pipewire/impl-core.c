@@ -25,34 +25,12 @@
 #include "config.h"
 
 #include <unistd.h>
-#include <errno.h>
-#include <fcntl.h>
 #ifndef ENODATA
 #define ENODATA 9919
 #endif
-#if HAVE_SYS_RANDOM_H
-#include <sys/random.h>
-#endif
 
-static ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags) {
-	ssize_t bytes;
-
-#ifdef HAVE_GETRANDOM
-	bytes = getrandom(buf, buflen ,flags);
-	if (!(bytes == -1 && errno == ENOSYS))
-		return bytes;
-#endif
-
-	int fd = open("/dev/urandom", O_CLOEXEC);
-	if (fd < 0)
-		return -1;
-	bytes = read(fd, buf, buflen);
-	close(fd);
-	return bytes;
-}
-
-#include <spa/utils/string.h>
 #include <spa/debug/types.h>
+#include <spa/utils/string.h>
 
 #include "pipewire/impl.h"
 #include "pipewire/private.h"

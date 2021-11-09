@@ -22,6 +22,14 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "config.h"
+
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
+#if HAVE_SYS_RANDOM_H
+#include <sys/random.h>
+#endif
 #include <string.h>
 
 #include <pipewire/array.h>
@@ -132,4 +140,31 @@ char *pw_strip(char *str, const char *whitespace)
 		*str = '\0';
 
 	return str;
+}
+
+/** Fill a buffer with random data
+ * \param buf a buffer to fill
+ * \param buflen the number of bytes to fill
+ * \param flags optional flags
+ * \return the number of bytes filled
+ *
+ * Fill \a buf with \a buflen random bytes.
+ */
+SPA_EXPORT
+ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags)
+{
+	ssize_t bytes;
+
+#ifdef HAVE_GETRANDOM
+	bytes = getrandom(buf, buflen, flags);
+	if (!(bytes == -1 && errno == ENOSYS))
+		return bytes;
+#endif
+
+	int fd = open("/dev/urandom", O_CLOEXEC);
+	if (fd < 0)
+		return -1;
+	bytes = read(fd, buf, buflen);
+	close(fd);
+	return bytes;
 }

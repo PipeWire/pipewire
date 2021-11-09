@@ -85,6 +85,7 @@ pw_strip(char *str, const char *whitespace);
 	})
 #endif
 
+ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags);
 /**
  * \}
  */

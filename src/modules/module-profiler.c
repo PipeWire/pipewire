@@ -77,6 +77,7 @@ struct impl {
 	struct spa_hook module_listener;
 
 	struct pw_global *global;
+	struct spa_hook global_listener;
 
 	int64_t count;
 	uint32_t busy;
@@ -338,7 +339,8 @@ static void module_destroy(void *data)
 {
 	struct impl *impl = data;
 
-	pw_global_destroy(impl->global);
+	if (impl->global != NULL)
+		pw_global_destroy(impl->global);
 
 	spa_hook_remove(&impl->module_listener);
 
@@ -350,6 +352,22 @@ static void module_destroy(void *data)
 static const struct pw_impl_module_events module_events = {
 	PW_VERSION_IMPL_MODULE_EVENTS,
 	.destroy = module_destroy,
+};
+
+static void global_destroy(void *data)
+{
+	struct impl *impl = data;
+
+	stop_listener(impl);
+	stop_flush(impl);
+
+	spa_hook_remove(&impl->global_listener);
+	impl->global = NULL;
+}
+
+static const struct pw_global_events global_events = {
+	PW_VERSION_GLOBAL_EVENTS,
+	.destroy = global_destroy,
 };
 
 SPA_EXPORT
@@ -397,6 +415,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	pw_global_register(impl->global);
+
+	pw_global_add_listener(impl->global, &impl->global_listener, &global_events, impl);
 
 	return 0;
 }

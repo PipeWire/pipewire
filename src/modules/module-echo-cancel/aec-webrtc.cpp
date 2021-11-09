@@ -116,7 +116,7 @@ error:
 
 static void webrtc_destroy(void *ec)
 {
-	struct impl *impl = (struct impl*)ec;
+	auto impl = static_cast<struct impl *>(ec);
 
 	delete impl->apm;
 	free(impl->play_buffer);
@@ -127,7 +127,7 @@ static void webrtc_destroy(void *ec)
 
 static int webrtc_run(void *ec, const float *rec[], const float *play[], float *out[], uint32_t n_samples)
 {
-	struct impl *impl = (struct impl*)ec;
+	auto impl = static_cast<struct impl *>(ec);
 	webrtc::StreamConfig config =
 		webrtc::StreamConfig(impl->info.rate, impl->info.channels, false);
 	unsigned int num_blocks = n_samples * 1000 / impl->info.rate / 10;
@@ -139,8 +139,8 @@ static int webrtc_run(void *ec, const float *rec[], const float *play[], float *
 
 	for (size_t i = 0; i < num_blocks; i ++) {
 		for (size_t j = 0; j < impl->info.channels; j++) {
-			impl->play_buffer[j] = (float*)play[j] + config.num_frames() * i;
-			impl->rec_buffer[j] = (float*)rec[j] + config.num_frames() * i;
+			impl->play_buffer[j] = const_cast<float *>(play[j]) + config.num_frames() * i;
+			impl->rec_buffer[j] = const_cast<float *>(rec[j]) + config.num_frames() * i;
 			impl->out_buffer[j] = out[j] + config.num_frames() * i;
 		}
 		/* FIXME: ProcessReverseStream may change the playback buffer, in which

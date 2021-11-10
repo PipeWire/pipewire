@@ -22,6 +22,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "pipewire/core.h"
 #define NAME "pulse-server"
 
 #include "config.h"
@@ -835,6 +836,21 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 	}
 }
 
+
+static void do_free_client(void *obj, void *data, int res, uint32_t id)
+{
+	struct client *client = data;
+	client_free(client);
+}
+
+static void manager_disconnect(void *data)
+{
+	struct client *client = data;
+	pw_log_debug("manager_disconnect()");
+	pw_work_queue_add(client->impl->work_queue, NULL, 0,
+				do_free_client, client);
+}
+
 static const struct pw_manager_events manager_events = {
 	PW_VERSION_MANAGER_EVENTS,
 	.sync = manager_sync,
@@ -842,6 +858,7 @@ static const struct pw_manager_events manager_events = {
 	.updated = manager_updated,
 	.removed = manager_removed,
 	.metadata = manager_metadata,
+	.disconnect = manager_disconnect
 };
 
 static int do_set_client_name(struct client *client, uint32_t command, uint32_t tag, struct message *m)

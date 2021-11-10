@@ -31,6 +31,7 @@
 #include <pipewire/extensions/metadata.h>
 
 #include "log.h"
+#include "module-protocol-pulse/server.h"
 
 #define MAX_PARAMS 32
 
@@ -39,6 +40,7 @@
 #define manager_emit_updated(m,o) spa_hook_list_call(&m->hooks, struct pw_manager_events, updated, 0, o)
 #define manager_emit_removed(m,o) spa_hook_list_call(&m->hooks, struct pw_manager_events, removed, 0, o)
 #define manager_emit_metadata(m,o,s,k,t,v) spa_hook_list_call(&m->hooks, struct pw_manager_events, metadata,0,o,s,k,t,v)
+#define manager_emit_disconnect(m) spa_hook_list_call(&m->hooks, struct pw_manager_events, disconnect, 0)
 
 struct object;
 
@@ -688,10 +690,21 @@ static void on_core_done(void *data, uint32_t id, int seq)
 	}
 }
 
+static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
+{
+	struct manager *m = data;
+
+	if (id == PW_ID_CORE) {
+		pw_log_debug("connection error: %d, %s", res, message);
+		manager_emit_disconnect(m);
+	}
+}
+
 static const struct pw_core_events core_events = {
 	PW_VERSION_CORE_EVENTS,
 	.done = on_core_done,
 	.info = on_core_info,
+	.error = on_core_error
 };
 
 struct pw_manager *pw_manager_new(struct pw_core *core)

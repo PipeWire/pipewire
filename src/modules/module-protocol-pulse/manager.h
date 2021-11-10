@@ -53,6 +53,8 @@ struct pw_manager_events {
 	void (*metadata) (void *data, struct pw_manager_object *object,
 			uint32_t subject, const char *key,
 			const char *type, const char *value);
+
+	void (*disconnect) (void *data);
 };
 
 struct pw_manager {

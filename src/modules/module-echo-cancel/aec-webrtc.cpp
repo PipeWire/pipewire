@@ -64,16 +64,15 @@ static void *webrtc_create(const struct pw_properties *args, const spa_audio_inf
 	bool experimental_agc = pw_properties_get_bool(args, "webrtc.experimental_agc", false);
 	bool experimental_ns = pw_properties_get_bool(args, "webrtc.experimental_ns", false);
 
-	// Intelligibility Enhancer will enforce an upmix on non-mono outputs
-	// Disable by default
-	bool intelligibility = pw_properties_get_bool(args, "webrtc.intelligibility", false);
+	// FIXME: Intelligibility enhancer is not currently supported
+	// This filter will modify playback buffer (when calling ProcessReverseStream), but now
+	// playback buffer modifications are discarded.
 
 	webrtc::Config config;
 	config.Set<webrtc::ExtendedFilter>(new webrtc::ExtendedFilter(extended_filter));
 	config.Set<webrtc::DelayAgnostic>(new webrtc::DelayAgnostic(delay_agnostic));
 	config.Set<webrtc::ExperimentalAgc>(new webrtc::ExperimentalAgc(experimental_agc));
 	config.Set<webrtc::ExperimentalNs>(new webrtc::ExperimentalNs(experimental_ns));
-	config.Set<webrtc::Intelligibility>(new webrtc::Intelligibility(intelligibility));
 
 	webrtc::ProcessingConfig pconfig = {{
 		webrtc::StreamConfig(info->rate, info->channels, false), /* input stream */

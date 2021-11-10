@@ -54,6 +54,7 @@ static void *webrtc_create(const struct pw_properties *args, const spa_audio_inf
 	bool delay_agnostic = pw_properties_get_bool(args, "webrtc.delay_agnostic", true);
 	bool high_pass_filter = pw_properties_get_bool(args, "webrtc.high_pass_filter", true);
 	bool noise_suppression = pw_properties_get_bool(args, "webrtc.noise_suppression", true);
+	bool voice_detection = pw_properties_get_bool(args, "webrtc.voice_detection", true);
 
 	// Note: AGC seems to mess up with Agnostic Delay Detection, especially with speech,
 	// result in very poor performance, disable by default
@@ -95,6 +96,7 @@ static void *webrtc_create(const struct pw_properties *args, const spa_audio_inf
 	apm->echo_cancellation()->set_suppression_level(webrtc::EchoCancellation::kHighSuppression);
 	apm->noise_suppression()->set_level(webrtc::NoiseSuppression::kHigh);
 	apm->noise_suppression()->Enable(noise_suppression);
+	apm->voice_detection()->Enable(voice_detection);
 	// TODO: wire up AGC parameters to args
 	apm->gain_control()->set_analog_level_limits(0, 255);
 	apm->gain_control()->set_mode(webrtc::GainControl::kAdaptiveDigital);

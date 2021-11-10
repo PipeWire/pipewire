@@ -120,12 +120,17 @@ include:
     - export PREFIX="$PWD/prefix-$BUILD_ID"
     - export BUILD_DIR="$PWD/build-$BUILD_ID"
     - export XDG_RUNTIME_DIR="$(mktemp -p $PWD -d xdg-runtime-XXXXXX)"
+    - |
+      if [ -n "$FDO_CI_CONCURRENT" ]; then
+         NINJA_ARGS="-j$FDO_CI_CONCURRENT $NINJA_ARGS"
+         export NINJA_ARGS
+      fi
   script:
     - echo "Building with meson options $MESON_OPTIONS"
     - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
-    - ninja -C "$BUILD_DIR"
-    - ninja -C "$BUILD_DIR" test
-    - ninja -C "$BUILD_DIR" install
+    - ninja $NINJA_ARGS -C "$BUILD_DIR"
+    - ninja $NINJA_ARGS -C "$BUILD_DIR" test
+    - ninja $NINJA_ARGS -C "$BUILD_DIR" install
     - ./check_missing_headers.sh
   artifacts:
     name: pipewire-$CI_COMMIT_SHA
@@ -219,8 +224,8 @@ build_with_custom_options:
   script:
     - echo "Building with -D$MESON_OPTION=$MESON_OPTION_VALUE"
     - meson "$BUILD_DIR" . --prefix="$PREFIX" "-D$MESON_OPTION=$MESON_OPTION_VALUE"
-    - ninja -C "$BUILD_DIR"
-    - ninja -C "$BUILD_DIR" test
+    - ninja $NINJA_ARGS -C "$BUILD_DIR"
+    - ninja $NINJA_ARGS -C "$BUILD_DIR" test
 
 # A release build with NDEBUG, all options on auto() but tests explicitly
 # enabled. This should show issues with tests failing due to different
@@ -240,8 +245,8 @@ build_session_managers:
   script:
     - echo "Building with meson options $MESON_OPTIONS"
     - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
-    - ninja -C "$BUILD_DIR"
-    - ninja -C "$BUILD_DIR" install
+    - ninja $NINJA_ARGS -C "$BUILD_DIR"
+    - ninja $NINJA_ARGS -C "$BUILD_DIR" install
   variables:
     MESON_OPTIONS: "-Dsession-managers=$SESSION_MANAGERS"
   parallel:
@@ -256,8 +261,8 @@ build_meson_prerelease:
     - pip3 install --upgrade --pre meson
     - echo "Building with meson options $MESON_OPTIONS"
     - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
-    - ninja -C "$BUILD_DIR"
-    - ninja -C "$BUILD_DIR" install
+    - ninja $NINJA_ARGS -C "$BUILD_DIR"
+    - ninja $NINJA_ARGS -C "$BUILD_DIR" install
   variables:
     MESON_OPTIONS: "-Dsession-managers=wireplumber,media-session"
   allow_failure: true
@@ -273,8 +278,8 @@ build_meson_exact_release:
     - pip3 install "meson==$meson_version"
     - echo "Building with meson options $MESON_OPTIONS"
     - meson "$BUILD_DIR" . --prefix="$PREFIX" $MESON_OPTIONS
-    - ninja -C "$BUILD_DIR"
-    - ninja -C "$BUILD_DIR" install
+    - ninja $NINJA_ARGS -C "$BUILD_DIR"
+    - ninja $NINJA_ARGS -C "$BUILD_DIR" install
   variables:
     MESON_OPTIONS: "-Dsession-managers=[]"
 
@@ -313,7 +318,7 @@ build_with_coverity:
         --xml-option=append_arg@C:"replace/GLIB_(DEPRECATED|AVAILABLE)_ENUMERATOR_IN_\d_\d\d(_FOR\(\w+\)|)\s+=/ ="
         --xml-option=append_arg@C:--ppp_translator
         --xml-option=append_arg@C:"replace/(__has_builtin|_GLIBCXX_HAS_BUILTIN)\(\w+\)/1"
-    - cov-build --dir cov-int --config coverity_conf.xml ninja -C "$BUILD_DIR"
+    - cov-build --dir cov-int --config coverity_conf.xml ninja $NINJA_ARGS -C "$BUILD_DIR"
     - tar czf cov-int.tar.gz cov-int
     - curl https://scan.coverity.com/builds?project=$COVERITY_SCAN_PROJECT_NAME
         --form token=$COVERITY_SCAN_TOKEN --form email=$GITLAB_USER_EMAIL

@@ -52,6 +52,12 @@ struct pixel {
 	float r, g, b, a;
 };
 
+struct pw_version {
+  int major;
+  int minor;
+  int micro;
+};
+
 struct modifier_info {
         uint32_t spa_format;
         uint32_t n_modifiers;
@@ -82,6 +88,20 @@ struct data {
 	int counter;
 };
 
+static struct pw_version parse_pw_version(const char* version) {
+	struct pw_version pw_version;
+	sscanf(version, "%d.%d.%d", &pw_version.major, &pw_version.minor,
+		&pw_version.micro);
+	return pw_version;
+}
+
+static bool has_pw_version(int major, int minor, int micro) {
+	struct pw_version pw_version = parse_pw_version(pw_get_library_version());
+	printf("PW Version: %d.%d.%d\n", pw_version.major, pw_version.minor,
+		pw_version.micro);
+	return major <= pw_version.major && minor <= pw_version.minor && micro <= pw_version.micro;
+}
+
 static void init_modifiers(struct data *data)
 {
 	data->n_mod_info = 1;
@@ -104,10 +124,18 @@ static void strip_modifier(struct data *data, uint32_t spa_format, uint64_t modi
 		return;
 	struct modifier_info *mod_info = &data->mod_info[0];
 	uint32_t counter = 0;
-	for (uint32_t i = 0; i < mod_info->n_modifiers; i++) {
-		if (mod_info->modifiers[i] == modifier)
-			continue;
-		mod_info->modifiers[counter++] = mod_info->modifiers[i];
+	// Dropping of single modifiers is only supported on PipeWire 0.3.40 and newer.
+	// On older PipeWire just dropping all modifiers might work on Versions newer then 0.3.33/35
+	if (has_pw_version(0,3,40)) {
+		printf("Dropping a single modifier\n");
+		for (uint32_t i = 0; i < mod_info->n_modifiers; i++) {
+			if (mod_info->modifiers[i] == modifier)
+				continue;
+			mod_info->modifiers[counter++] = mod_info->modifiers[i];
+		}
+	} else {
+		printf("Dropping all modifiers\n");
+		counter = 0;
 	}
 	mod_info->n_modifiers = counter;
 }

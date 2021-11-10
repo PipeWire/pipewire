@@ -176,7 +176,7 @@ static void on_process(void *userdata)
 
 	buf = b->buffer;
 	if ((p = buf->datas[0].data) == NULL) {
-		printf("No data ptr");
+		printf("No data ptr\n");
 		goto done;
 	}
 
@@ -330,7 +330,7 @@ static void on_stream_add_buffer(void *_data, struct pw_buffer *buffer)
 	d[0].type = SPA_DATA_MemFd;
 	d[0].flags = SPA_DATA_FLAG_READWRITE;
 #ifdef HAVE_MEMFD_CREATE
-	d[0].fd = memfd_create("video-src-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+	d[0].fd = memfd_create("video-src-fixate-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
 #else
 	d[0].fd = -1;
 #endif
@@ -449,7 +449,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 			pw_stream_update_params(stream, params, 3);
 			return;
 		}
-		printf("no fixation needed\n");
+		printf("no fixation required\n");
 		blocks = 1;
 		size = data->stride * data->format.size.height;
 		stride = data->stride;

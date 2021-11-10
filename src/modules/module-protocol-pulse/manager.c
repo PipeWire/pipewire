@@ -694,7 +694,7 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 {
 	struct manager *m = data;
 
-	if (id == PW_ID_CORE) {
+	if (id == PW_ID_CORE && res == -EPIPE) {
 		pw_log_debug("connection error: %d, %s", res, message);
 		manager_emit_disconnect(m);
 	}

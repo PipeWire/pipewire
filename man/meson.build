@@ -10,6 +10,7 @@ manpage_conf.set('top_builddir', meson.build_root())
 
 manpages = [
   'pipewire.1.rst.in',
+  'pipewire-pulse.1.rst.in',
   'pipewire.conf.5.rst.in',
   'pw-cat.1.rst.in',
   'pw-cli.1.rst.in',

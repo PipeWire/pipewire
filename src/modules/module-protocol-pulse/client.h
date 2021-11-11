@@ -102,6 +102,7 @@ struct client {
 	struct pw_manager_object *prev_default_source;
 };
 
+struct client *client_new(struct server *server);
 bool client_detach(struct client *client);
 void client_disconnect(struct client *client);
 void client_free(struct client *client);

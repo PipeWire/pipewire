@@ -29,6 +29,7 @@
 #include <sys/socket.h>
 
 #include <spa/utils/defs.h>
+#include <spa/utils/hook.h>
 #include <spa/utils/list.h>
 #include <pipewire/core.h>
 #include <pipewire/log.h>
@@ -47,6 +48,29 @@
 #include "pending-sample.h"
 #include "server.h"
 #include "stream.h"
+
+struct client *client_new(struct server *server)
+{
+	struct client *client = calloc(1, sizeof(*client));
+	if (client == NULL)
+		return NULL;
+
+	client->ref = 1;
+	client->server = server;
+	client->impl = server->impl;
+	client->connect_tag = SPA_ID_INVALID;
+
+	pw_map_init(&client->streams, 16, 16);
+	spa_list_init(&client->out_messages);
+	spa_list_init(&client->operations);
+	spa_list_init(&client->pending_samples);
+	spa_list_init(&client->pending_streams);
+
+	spa_list_append(&server->clients, &client->link);
+	server->n_clients++;
+
+	return client;
+}
 
 static int client_free_stream(void *item, void *data)
 {

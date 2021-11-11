@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 #include <spa/utils/hook.h>
-#include <spa/utils/defs.h>
+#include <spa/utils/dict.h>
 
 /** \defgroup spa_plugin_loader Plugin Loader
  * SPA plugin loader

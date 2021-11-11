@@ -182,6 +182,11 @@ int client_queue_message(struct client *client, struct message *msg)
 	if (msg == NULL)
 		return -EINVAL;
 
+	if (client->disconnect) {
+		res = -ENOTCONN;
+		goto error;
+	}
+
 	if (msg->length == 0) {
 		res = 0;
 		goto error;
@@ -211,6 +216,8 @@ int client_flush_messages(struct client *client)
 {
 	struct impl *impl = client->impl;
 	int res;
+
+	spa_assert(!client->disconnect);
 
 	while (true) {
 		struct message *m;
@@ -268,6 +275,9 @@ int client_queue_subscribe_event(struct client *client, uint32_t mask, uint32_t 
 {
 	struct impl *impl = client->impl;
 	struct message *reply, *m, *t;
+
+	if (client->disconnect)
+		return -ENOTCONN;
 
 	if (!(client->subscribed & mask))
 		return 0;

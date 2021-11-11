@@ -94,7 +94,7 @@ conv_s16_to_f32d_2_neon(struct convert *conv, void * SPA_RESTRICT dst[], const v
 		"      cmp %[remainder], #0\n"
 		"      beq 4f\n"
 		"3:"
-		"      vld2.16 { d0[0], d1[0] }, [%[s]], #4\n"
+		"      vld2.16 { d0[0], d1[0] }, [%[s]]!\n"
 		"      subs %[remainder], %[remainder], #1\n"
 		"      vmovl.s16 q1, d1\n"
 		"      vmovl.s16 q0, d0\n"

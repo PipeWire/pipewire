@@ -254,7 +254,6 @@ pool_activated (GstPipeWirePool *pool, GstPipeWireSink *sink)
 	      max_buffers ? max_buffers : INT32_MAX),
       SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16),
       SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(
-						(1<<SPA_DATA_DmaBuf) |
 						(1<<SPA_DATA_MemFd) |
 						(1<<SPA_DATA_MemPtr)),
       0);

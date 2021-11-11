@@ -275,7 +275,6 @@ static void
 on_client_data(void *data, int fd, uint32_t mask)
 {
 	struct client * const client = data;
-	struct impl * const impl = client->impl;
 	int res;
 
 	client->ref++;
@@ -302,15 +301,9 @@ on_client_data(void *data, int fd, uint32_t mask)
 		}
 	}
 
-	if (mask & SPA_IO_OUT || client->need_flush) {
-		pw_log_trace("client %p: can write", client);
-		client->need_flush = false;
+	if (mask & SPA_IO_OUT || client->new_msg_since_last_flush) {
 		res = client_flush_messages(client);
-		if (res >= 0) {
-			int m = client->source->mask;
-			SPA_FLAG_CLEAR(m, SPA_IO_OUT);
-			pw_loop_update_io(impl->loop, client->source, m);
-		} else if (res != -EAGAIN && res != -EWOULDBLOCK)
+		if (res < 0)
 			goto error;
 	}
 

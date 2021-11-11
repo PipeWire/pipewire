@@ -886,10 +886,10 @@ static int server_start(struct server *server, const struct sockaddr_storage *ad
 
 static int parse_address(const char *address, struct pw_array *addrs)
 {
-	if (strncmp(address, "tcp:", strlen("tcp:")) == 0)
+	if (spa_strstartswith(address, "tcp:"))
 		return parse_ip_address(address + strlen("tcp:"), addrs);
 
-	if (strncmp(address, "unix:", strlen("unix:")) == 0)
+	if (spa_strstartswith(address, "unix:"))
 		return parse_unix_address(address + strlen("unix:"), addrs);
 
 	return -EAFNOSUPPORT;

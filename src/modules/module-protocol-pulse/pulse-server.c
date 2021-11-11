@@ -4602,30 +4602,16 @@ static int do_kill(struct client *client, uint32_t command, uint32_t tag, struct
 	return reply_simple_ack(client, tag);
 }
 
-struct load_module_data {
-	struct client *client;
-	struct module *module;
-	struct spa_hook listener;
-	uint32_t tag;
-};
-
-static void on_module_loaded(void *data, int result)
+static void handle_module_loaded(struct module *module, struct client *client, uint32_t tag, int result)
 {
-	struct load_module_data *d = data;
-	struct module *module = d->module;
-	struct client *client = d->client;
+	const char *client_name = client != NULL ? client->name : "?";
 	struct impl *impl = module->impl;
-	uint32_t tag = d->tag;
 
-	spa_hook_remove(&d->listener);
-	free(d);
+	spa_assert(!SPA_RESULT_IS_ASYNC(result));
 
 	if (SPA_RESULT_IS_OK(result)) {
-		struct message *reply;
-
 		pw_log_info("[%s] loaded module id:%u name:%s",
-				client->name,
-				module->idx, module->name);
+				client_name, module->idx, module->name);
 
 		module->loaded = true;
 
@@ -4634,34 +4620,72 @@ static void on_module_loaded(void *data, int result)
 			SUBSCRIPTION_EVENT_NEW | SUBSCRIPTION_EVENT_MODULE,
 			module->idx);
 
-		reply = reply_new(client, tag);
-		message_put(reply,
-			TAG_U32, module->idx,
-			TAG_INVALID);
-		client_queue_message(client, reply);
+		if (client != NULL) {
+			struct message *reply = reply_new(client, tag);
+
+			message_put(reply,
+				TAG_U32, module->idx,
+				TAG_INVALID);
+			client_queue_message(client, reply);
+		}
 	}
 	else {
 		pw_log_warn("%p: [%s] failed to load module id:%u name:%s result:%d (%s)",
-				impl, client->name,
+				impl, client_name,
 				module->idx, module->name,
 				result, spa_strerror(result));
 
-		reply_error(client, COMMAND_LOAD_MODULE, tag, result);
 		module_schedule_unload(module);
-	}
 
-	client_unref(client);
+		if (client != NULL)
+			reply_error(client, COMMAND_LOAD_MODULE, tag, result);
+	}
+}
+
+struct pending_module {
+	struct client *client;
+	struct spa_hook client_listener;
+
+	struct module *module;
+	struct spa_hook module_listener;
+
+	uint32_t tag;
+};
+
+static void on_module_loaded(void *data, int result)
+{
+	struct pending_module *pm = data;
+
+	if (pm->client != NULL)
+		spa_hook_remove(&pm->client_listener);
+
+	spa_hook_remove(&pm->module_listener);
+
+	handle_module_loaded(pm->module, pm->client, pm->tag, result);
+
+	free(pm);
+}
+
+static void on_client_disconnect(void *data)
+{
+	struct pending_module *pm = data;
+
+	spa_hook_remove(&pm->client_listener);
+	pm->client = NULL;
 }
 
 static int do_load_module(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	static const struct module_events listener = {
+	static const struct module_events module_events = {
 		VERSION_MODULE_EVENTS,
 		.loaded = on_module_loaded,
 	};
+	static const struct client_events client_events = {
+		VERSION_CLIENT_EVENTS,
+		.disconnect = on_client_disconnect,
+	};
 
 	const char *name, *argument;
-	struct load_module_data *d;
 	struct module *module;
 	int r;
 
@@ -4678,25 +4702,25 @@ static int do_load_module(struct client *client, uint32_t command, uint32_t tag,
 	if (module == NULL)
 		return -errno;
 
-	d = calloc(1, sizeof(*d));
-	if (d == NULL)
-		return -errno;
-
-	d->tag = tag;
-	d->client = client;
-	d->module = module;
-	module_add_listener(module, &d->listener, &listener, d);
-
-	client->ref += 1;
-
 	r = module_load(client, module);
-	if (!SPA_RESULT_IS_ASYNC(r))
-		module_emit_loaded(module, r);
-	/* in the async case the module itself must emit the "loaded" event */
+	if (SPA_RESULT_IS_ASYNC(r)) {
+		struct pending_module *pm = calloc(1, sizeof(*pm));
+		if (pm == NULL)
+			return -errno;
+
+		pm->tag = tag;
+		pm->client = client;
+		pm->module = module;
+
+		module_add_listener(module, &pm->module_listener, &module_events, pm);
+		client_add_listener(client, &pm->client_listener, &client_events, pm);
+	} else {
+		handle_module_loaded(module, client, tag, r);
+	}
 
 	/*
 	 * return 0 to prevent `handle_packet()` from sending a reply
-	 * because we want `on_module_loaded()` to send the reply
+	 * because we want `handle_module_loaded()` to send the reply
 	 */
 	return 0;
 }

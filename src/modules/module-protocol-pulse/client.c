@@ -292,10 +292,12 @@ int client_flush_messages(struct client *client)
 static bool client_prune_subscribe_events(struct client *client, uint32_t mask, uint32_t event, uint32_t id)
 {
 	struct impl *impl = client->impl;
-	struct message *m, *t;
+	struct message *m, *t, *first;
 
 	if ((event & SUBSCRIPTION_EVENT_TYPE_MASK) == SUBSCRIPTION_EVENT_NEW)
 		return false;
+
+	first = spa_list_first(&client->out_messages, struct message, link);
 
 	spa_list_for_each_safe_reverse(m, t, &client->out_messages, link) {
 		if (m->extra[0] != COMMAND_SUBSCRIBE_EVENT)
@@ -309,9 +311,12 @@ static bool client_prune_subscribe_events(struct client *client, uint32_t mask, 
 			/* This object is being removed, hence there is
 			 * point in keeping the old events regarding
 			 * entry in the queue. */
-			message_free(impl, m, true, false);
-			pw_log_debug("client %p: dropped redundant event due to remove event", client);
-			continue;
+
+			/* if the first message has already been partially sent, do not drop it */
+			if (m != first || client->out_index == 0) {
+				message_free(impl, m, true, false);
+				pw_log_debug("client %p: dropped redundant event due to remove event", client);
+			}
 		}
 
 		if ((event & SUBSCRIPTION_EVENT_TYPE_MASK) == SUBSCRIPTION_EVENT_CHANGE) {

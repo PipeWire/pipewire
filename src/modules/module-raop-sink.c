@@ -361,7 +361,8 @@ static int flush_to_udp_packet(struct impl *impl)
 		memset(dst, 0, len);
 		break;
 	}
-	aes_encrypt(impl, dst, len);
+	if (impl->encryption != CRYPTO_NONE)
+		aes_encrypt(impl, dst, len);
 
 	impl->rtptime += n_frames;
 	impl->seq = (impl->seq + 1) & 0xffff;
@@ -402,7 +403,8 @@ static int flush_to_tcp_packet(struct impl *impl)
 		memset(dst, 0, len);
 		break;
 	}
-	aes_encrypt(impl, dst, len);
+	if (impl->encryption != CRYPTO_NONE)
+		aes_encrypt(impl, dst, len);
 
 	pkt[0] |= htonl((uint32_t) len + 12);
 

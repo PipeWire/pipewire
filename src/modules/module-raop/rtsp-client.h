@@ -45,7 +45,7 @@ struct pw_rtsp_client_events {
 	void (*error) (void *data, int res);
 	void (*disconnected) (void *data);
 
-	void (*message) (void *data, int status, int state,
+	void (*message) (void *data, int status,
 			const struct spa_dict *headers);
 
 };

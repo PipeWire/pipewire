@@ -32,12 +32,6 @@
 
 #include "rtsp-client.h"
 
-enum {
-	STATE_INIT = 0,
-	STATE_CONNECTING,
-	STATE_CONNECTED,
-};
-
 #define pw_rtsp_client_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_rtsp_client_events, m, v, ##__VA_ARGS__)
 #define pw_rtsp_client_emit_destroy(c)		pw_rtsp_client_emit(c, destroy, 0)
 #define pw_rtsp_client_emit_connected(c)	pw_rtsp_client_emit(c, connected, 0)
@@ -70,8 +64,8 @@ struct pw_rtsp_client {
 		struct sockaddr_in6 in6;
 	} local_addr;
 
-	int state;
 	struct spa_source *source;
+	unsigned int connecting:1;
 	unsigned int need_flush:1;
 	unsigned int wait_status:1;
 
@@ -103,7 +97,6 @@ struct pw_rtsp_client *pw_rtsp_client_new(struct pw_loop *main_loop,
 	client->props = props;
 	if (user_data_size > 0)
 		client->user_data = SPA_PTROFF(client, sizeof(*client), void);
-	client->state = STATE_INIT;
 
 	spa_list_init(&client->messages);
 	spa_list_init(&client->pending);
@@ -117,6 +110,12 @@ struct pw_rtsp_client *pw_rtsp_client_new(struct pw_loop *main_loop,
 
 void pw_rtsp_client_destroy(struct pw_rtsp_client *client)
 {
+	pw_log_info("destroy client %p", client);
+	pw_rtsp_client_emit_destroy(client);
+
+	pw_rtsp_client_disconnect(client);
+	pw_properties_free(client->headers);
+	pw_properties_free(client->props);
 	spa_hook_list_clean(&client->listener_list);
 	free(client);
 }
@@ -186,7 +185,7 @@ static int handle_connect(struct pw_rtsp_client *client, int fd)
 
 	pw_log_info("connected local ip %s", local_ip);
 
-	client->state = STATE_CONNECTED;
+	client->connecting = false;
 	client->wait_status = true;
 	pw_rtsp_client_emit_connected(client);
 
@@ -283,7 +282,7 @@ static int process_input(struct pw_rtsp_client *client)
 				free(msg);
 			} else {
 				pw_rtsp_client_emit_message(client, client->status,
-					client->state, &client->headers->dict);
+					&client->headers->dict);
 			}
 			client->wait_status = true;
 		} else {
@@ -294,6 +293,8 @@ static int process_input(struct pw_rtsp_client *client)
 			if (value == NULL)
 				goto error;
 			*value++ = '\0';
+			while (*value == ' ')
+				value++;
 			pw_properties_set(client->headers, key, value);
 		}
 	}
@@ -364,7 +365,7 @@ on_source_io(void *data, int fd, uint32_t mask)
 			goto error;
         }
 	if (mask & SPA_IO_OUT || client->need_flush) {
-		if (client->state == STATE_CONNECTING) {
+		if (client->connecting) {
 			if ((res = handle_connect(client, fd)) < 0)
 				goto error;
 		}
@@ -437,7 +438,7 @@ int pw_rtsp_client_connect(struct pw_rtsp_client *client,
 		close(fd);
 		return -errno;
 	}
-	client->state = STATE_CONNECTING;
+	client->connecting = true;
 	free(client->session_id);
 	client->session_id = strdup(session_id);
 	pw_log_info("%p: connecting", client);
@@ -452,7 +453,10 @@ int pw_rtsp_client_disconnect(struct pw_rtsp_client *client)
 
 	pw_loop_destroy_source(client->loop, client->source);
 	client->source = NULL;
-	client->state = STATE_INIT;
+	free(client->url);
+	client->url = NULL;
+	free(client->session_id);
+	client->session_id = NULL;
 	pw_rtsp_client_emit_disconnected(client);
 	return 0;
 }

@@ -69,6 +69,7 @@ List of known modules:
 - \subpage page_module_protocol_pulse
 - \subpage page_module_protocol_simple
 - \subpage page_module_pulse_tunnel
+- \subpage page_module_raop_sink
 - \subpage page_module_roc_sink
 - \subpage page_module_roc_source
 - \subpage page_module_rt

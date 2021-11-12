@@ -92,6 +92,8 @@ void module_free(struct module *module)
 {
 	struct impl *impl = module->impl;
 
+	module_emit_destroy(module);
+
 	if (module->idx != SPA_ID_INVALID)
 		pw_map_remove(&impl->modules, module->idx & INDEX_MASK);
 

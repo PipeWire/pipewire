@@ -4666,6 +4666,11 @@ static void on_module_loaded(void *data, int result)
 	free(pm);
 }
 
+static void on_module_destroy(void *data)
+{
+	on_module_loaded(data, -ECANCELED);
+}
+
 static void on_client_disconnect(void *data)
 {
 	struct pending_module *pm = data;
@@ -4679,6 +4684,7 @@ static int do_load_module(struct client *client, uint32_t command, uint32_t tag,
 	static const struct module_events module_events = {
 		VERSION_MODULE_EVENTS,
 		.loaded = on_module_loaded,
+		.destroy = on_module_destroy,
 	};
 	static const struct client_events client_events = {
 		VERSION_CLIENT_EVENTS,

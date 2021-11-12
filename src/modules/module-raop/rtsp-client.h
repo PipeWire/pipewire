@@ -64,9 +64,6 @@ void pw_rtsp_client_add_listener(struct pw_rtsp_client *client,
 
 const struct pw_properties *pw_rtsp_client_get_properties(struct pw_rtsp_client *client);
 
-void *pw_rtsp_client_get_user_data(struct pw_rtsp_client *client);
-
-
 int pw_rtsp_client_connect(struct pw_rtsp_client *client,
 		const char *hostname, uint16_t port, const char *session_id);
 int pw_rtsp_client_disconnect(struct pw_rtsp_client *client);

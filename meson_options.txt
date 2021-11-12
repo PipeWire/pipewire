@@ -214,3 +214,7 @@ option('session-managers',
        description : 'Session managers to build (can be [] for none or an absolute path)',
        type : 'array',
        value : ['media-session'])
+option('raop',
+       description: 'Enable module for Remote Audio Output Protocol',
+       type: 'feature',
+       value: 'auto')

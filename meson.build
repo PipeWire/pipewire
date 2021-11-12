@@ -427,8 +427,8 @@ need_alsa = get_option('pipewire-alsa').enabled() or 'media-session' in get_opti
 alsa_dep = dependency('alsa', version : '>=1.1.7', required: need_alsa)
 summary({'pipewire-alsa': alsa_dep.found()}, bool_yn: true)
 
-openssl_lib = dependency('openssl', required: false)
-summary({'openssl': openssl_lib.found()}, bool_yn: true)
+openssl_lib = dependency('openssl', required: get_option('raop'))
+summary({'OpenSSL (for raop-sink)': openssl_lib.found()}, bool_yn: true)
 
 installed_tests_metadir = pipewire_datadir / 'installed-tests' / pipewire_name
 installed_tests_execdir = pipewire_libexecdir / 'installed-tests' / pipewire_name

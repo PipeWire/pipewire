@@ -442,7 +442,7 @@ pipewire_module_raop_discover = shared_library('pipewire-module-raop-discover',
   dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep],
 )
 endif
-summary({'raop-discover': build_module_raop_discover}, bool_yn: true, section: 'Optional Modules')
+summary({'raop-discover (needs Avahi)': build_module_raop_discover}, bool_yn: true, section: 'Optional Modules')
 
 build_module_raop = openssl_lib.found()
 if build_module_raop
@@ -456,7 +456,7 @@ pipewire_module_raop_sink = shared_library('pipewire-module-raop-sink',
   dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, openssl_lib],
 )
 endif
-summary({'raop-sink': build_module_raop}, bool_yn: true, section: 'Optional Modules')
+summary({'raop-sink (requires OpenSSL)': build_module_raop}, bool_yn: true, section: 'Optional Modules')
 
 build_module_roc = roc_lib.found()
 if build_module_roc

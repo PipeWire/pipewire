@@ -434,7 +434,7 @@ static void playback_stream_process(void *d)
 	data = SPA_PTROFF(bd->data, bd->chunk->offset, uint8_t);
 	size = bd->chunk->size;
 
-	while (size > 0) {
+	while (size > 0 && impl->block_size > 0) {
 		uint32_t avail, to_fill;
 
 		avail = impl->block_size - impl->filled;

@@ -252,6 +252,7 @@ static const struct module_info module_list[] = {
 	{ "module-native-protocol-tcp", create_module_native_protocol_tcp, },
 	{ "module-pipe-source", create_module_pipe_source, },
 	{ "module-pipe-sink", create_module_pipe_sink, },
+	{ "module-raop-discover", create_module_raop_discover, },
 	{ "module-remap-sink", create_module_remap_sink, },
 	{ "module-remap-source", create_module_remap_source, },
 	{ "module-simple-protocol-tcp", create_module_simple_protocol_tcp, },

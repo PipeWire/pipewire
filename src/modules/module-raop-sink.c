@@ -270,7 +270,7 @@ static int send_udp_sync_packet(struct impl *impl)
 	rtptime += delay;
 	pkt[4] = htonl(rtptime);
 
-	pw_log_info("sync: delayed:%u now:%"PRIu64" rtptime:%u",
+	pw_log_debug("sync: delayed:%u now:%"PRIu64" rtptime:%u",
 			rtptime - delay, transmitted, rtptime);
 
 	return write(impl->control_fd, pkt, sizeof(pkt));
@@ -291,7 +291,7 @@ static int send_udp_timing_packet(struct impl *impl, uint64_t remote, uint64_t r
 	pkt[6] = htonl(transmitted >> 32);
 	pkt[7] = htonl(transmitted & 0xffffffff);
 
-	pw_log_info("sync: remote:%"PRIu64" received:%"PRIu64" transmitted:%"PRIu64,
+	pw_log_debug("sync: remote:%"PRIu64" received:%"PRIu64" transmitted:%"PRIu64,
 			remote, received, transmitted);
 
 	return write(impl->timing_fd, pkt, sizeof(pkt));
@@ -628,7 +628,7 @@ on_control_source_io(void *data, int fd, uint32_t mask)
 
 		switch (hdr >> 16 & 0xff) {
 		case 0xd5:
-			pw_log_info("retransmit request seq:%u num:%u", seq, num);
+			pw_log_debug("retransmit request seq:%u num:%u", seq, num);
 			/* retransmit request */
 			break;
 		}

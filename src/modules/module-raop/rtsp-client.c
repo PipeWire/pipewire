@@ -388,51 +388,52 @@ error:
 int pw_rtsp_client_connect(struct pw_rtsp_client *client,
 		const char *hostname, uint16_t port, const char *session_id)
 {
-	struct sockaddr_in my_addr, dest_addr;
-	struct hostent *h;
-	int fd;
+	struct addrinfo hints;
+	struct addrinfo *result, *rp;
+	int res, fd;
+	char port_str[12];
 
 	if (client->source != NULL)
 		pw_rtsp_client_disconnect(client);
 
 	pw_log_info("%p: connect %s:%u", client, hostname, port);
-        fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
-	if (fd < 0)
-		return -errno;
 
-	spa_zero(my_addr);
-	my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	my_addr.sin_family = AF_INET;
-	my_addr.sin_port = 0;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = 0;
+	hints.ai_protocol = 0;
 
-	if (bind(fd, (struct sockaddr *) &my_addr, sizeof(my_addr)) < 0) {
-		pw_log_error("%p: bind failed: %m", client);
-		close(fd);
-                return -errno;
+	spa_scnprintf(port_str, sizeof(port_str), "%u", port);
+
+	if ((res = getaddrinfo(hostname, port_str, &hints, &result)) != 0) {
+		pw_log_error("getaddrinfo: %s", gai_strerror(res));
+		return -EINVAL;
 	}
+	for (rp = result; rp != NULL; rp = rp->ai_next) {
+		fd = socket(rp->ai_family,
+				rp->ai_socktype | SOCK_CLOEXEC | SOCK_NONBLOCK,
+				rp->ai_protocol);
+		if (fd == -1)
+			continue;
 
-	h = gethostbyname(hostname);
-	if (h != NULL) {
-		dest_addr.sin_family = h->h_addrtype;
-		memcpy((char*) &dest_addr.sin_addr.s_addr, h->h_addr_list[0], h->h_length);
-	} else {
-		dest_addr.sin_family = AF_INET;
-		if ((dest_addr.sin_addr.s_addr = inet_addr(hostname)) == 0xFFFFFFFF)
-			return -1;
-        }
-	dest_addr.sin_port = htons(port);
+		res = connect(fd, rp->ai_addr, rp->ai_addrlen);
+		if (res == 0 || (res < 0 && errno == EINPROGRESS))
+			break;
 
-	if (connect(fd, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr)) < 0) {
-		if (errno != EINPROGRESS) {
-			pw_log_error("%p: connect failed: %m", client);
-			close(fd);
-			return -errno;
-		}
+		close(fd);
+	}
+	freeaddrinfo(result);
+
+	if (rp == NULL) {
+		pw_log_error("Could not connect to %s:%u", hostname, port);
+		return -EINVAL;
 	}
 
 	client->source = pw_loop_add_io(client->loop, fd,
 			SPA_IO_IN | SPA_IO_OUT | SPA_IO_HUP | SPA_IO_ERR,
 			true, on_source_io, client);
+
 	if (client->source == NULL) {
 		pw_log_error("%p: source create failed: %m", client);
 		close(fd);

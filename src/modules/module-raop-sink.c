@@ -173,6 +173,7 @@ struct impl {
 
 	uint16_t server_port;
 	int server_fd;
+	struct spa_source *server_source;
 
 	uint32_t block_size;
 	uint32_t delay;
@@ -537,7 +538,7 @@ error:
 	return res;
 }
 
-static int connect_udp_socket(struct impl *impl, int fd, uint16_t port)
+static int connect_socket(struct impl *impl, int type, int fd, uint16_t port)
 {
 	const char *host;
 	struct sockaddr_in sa4;
@@ -566,12 +567,13 @@ static int connect_udp_socket(struct impl *impl, int fd, uint16_t port)
 	}
 
 	if (fd < 0 &&
-	    (fd = socket(af, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
+	    (fd = socket(af, type | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		pw_log_error("socket failed: %m");
 		return -errno;
 	}
 
-	if (connect(fd, sa, salen) < 0) {
+	res = connect(fd, sa, salen);
+	if (res < 0 && errno != EINPROGRESS) {
 		res = -errno;
 		pw_log_error("connect failed: %m");
 		goto error;
@@ -726,6 +728,37 @@ static int rtsp_do_record(struct impl *impl)
 	return res;
 }
 
+static void
+on_server_source_io(void *data, int fd, uint32_t mask)
+{
+	struct impl *impl = data;
+
+	if (mask & (SPA_IO_ERR | SPA_IO_HUP))
+		goto error;
+	if (mask & SPA_IO_OUT) {
+		int res;
+		socklen_t len;
+
+		pw_loop_update_io(impl->loop, impl->server_source,
+			impl->server_source->mask & ~SPA_IO_OUT);
+
+		len = sizeof(res);
+		if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &res, &len) < 0) {
+			pw_log_error("getsockopt: %m");
+			goto error;
+		}
+		if (res != 0)
+			goto error;
+
+		impl->ready = true;
+		if (pw_stream_get_state(impl->stream, NULL) == PW_STREAM_STATE_STREAMING)
+			rtsp_do_record(impl);
+	}
+	return;
+error:
+	pw_loop_update_io(impl->loop, impl->server_source, 0);
+}
+
 static void rtsp_setup_reply(void *data, int status, const struct spa_dict *headers)
 {
 	struct impl *impl = data;
@@ -763,10 +796,19 @@ static void rtsp_setup_reply(void *data, int status, const struct spa_dict *head
 		pw_log_error("missing server port in Transport");
 		return;
 	}
+
+	pw_getrandom(&impl->seq, sizeof(impl->seq), 0);
+	pw_getrandom(&impl->rtptime, sizeof(impl->rtptime), 0);
+
 	pw_log_info("server port:%u", impl->server_port);
 
 	switch (impl->protocol) {
 	case PROTO_TCP:
+		if ((impl->server_fd = connect_socket(impl, SOCK_STREAM, -1, impl->server_port)) <= 0)
+			return;
+
+		impl->server_source = pw_loop_add_io(impl->loop, impl->server_fd,
+				SPA_IO_OUT, false, on_server_source_io, impl);
 		break;
 
 	case PROTO_UDP:
@@ -776,11 +818,11 @@ static void rtsp_setup_reply(void *data, int status, const struct spa_dict *head
 		}
 		pw_log_info("control:%u timing:%u", control_port, timing_port);
 
-		if ((impl->server_fd = connect_udp_socket(impl, -1, impl->server_port)) <= 0)
+		if ((impl->server_fd = connect_socket(impl, SOCK_DGRAM, -1, impl->server_port)) <= 0)
 			return;
-		if ((impl->control_fd = connect_udp_socket(impl, impl->control_fd, control_port)) <= 0)
+		if ((impl->control_fd = connect_socket(impl, SOCK_DGRAM, impl->control_fd, control_port)) <= 0)
 			return;
-		if ((impl->timing_fd = connect_udp_socket(impl, impl->timing_fd, timing_port)) <= 0)
+		if ((impl->timing_fd = connect_socket(impl, SOCK_DGRAM, impl->timing_fd, timing_port)) <= 0)
 			return;
 
 		ntp = ntp_now(CLOCK_MONOTONIC);
@@ -790,18 +832,14 @@ static void rtsp_setup_reply(void *data, int status, const struct spa_dict *head
 				SPA_IO_IN, false, on_timing_source_io, impl);
 		impl->control_source = pw_loop_add_io(impl->loop, impl->control_fd,
 				SPA_IO_IN, false, on_control_source_io, impl);
+
+		impl->ready = true;
+		if (pw_stream_get_state(impl->stream, NULL) == PW_STREAM_STATE_STREAMING)
+			rtsp_do_record(impl);
 		break;
 	default:
 		return;
 	}
-
-	pw_getrandom(&impl->seq, sizeof(impl->seq), 0);
-	pw_getrandom(&impl->rtptime, sizeof(impl->rtptime), 0);
-
-	impl->ready = true;
-
-	if (pw_stream_get_state(impl->stream, NULL) == PW_STREAM_STATE_STREAMING)
-		rtsp_do_record(impl);
 }
 
 static int rtsp_do_setup(struct impl *impl)
@@ -1167,6 +1205,10 @@ static void connection_cleanup(struct impl *impl)
 	if (impl->timing_fd != -1) {
 		close(impl->timing_fd);
 		impl->timing_fd = -1;
+	}
+	if (impl->server_source != NULL) {
+		pw_loop_destroy_source(impl->loop, impl->server_source);
+		impl->server_source = NULL;
 	}
 	if (impl->timing_source != NULL) {
 		pw_loop_destroy_source(impl->loop, impl->timing_source);

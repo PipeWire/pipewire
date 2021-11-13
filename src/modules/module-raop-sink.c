@@ -41,6 +41,7 @@
 #include <openssl/rsa.h>
 #include <openssl/engine.h>
 #include <openssl/aes.h>
+#include <openssl/md5.h>
 
 #include "config.h"
 
@@ -75,7 +76,14 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_UDP_CONTROL_PORT 6001
 #define DEFAULT_UDP_TIMING_PORT  6002
 
-#define AES_CHUNK_SIZE 16
+#define AES_CHUNK_SIZE		16
+#ifndef MD5_DIGEST_LENGTH
+#define MD5_DIGEST_LENGTH	16
+#endif
+#define MD5_HASH_LENGTH (2*MD5_DIGEST_LENGTH)
+
+#define DEFAULT_USER_AGENT	"iTunes/11.0.4 (Windows; N)"
+#define DEFAULT_USER_NAME	"iTunes"
 
 #define MAX_PORT_RETRY	128
 
@@ -146,6 +154,7 @@ struct impl {
 	struct pw_properties *headers;
 
 	char session_id[32];
+	char *password;
 
 	unsigned int do_disconnect:1;
 	unsigned int unloading:1;
@@ -994,13 +1003,129 @@ static int rtsp_do_announce(struct impl *impl)
 	return res;
 }
 
+static const char *find_attr(char **tokens, const char *key)
+{
+	int i;
+	char *p, *s;
+	for (i = 0; tokens[i]; i++) {
+		if (!spa_strstartswith(tokens[i], key))
+			continue;
+		p = tokens[i] + strlen(key);
+		if ((s = rindex(p, '"')) == NULL)
+			continue;
+		*s = '\0';
+		if ((s = index(p, '"')) == NULL)
+			continue;
+		return s+1;
+	}
+	return NULL;
+}
+
+static void rtsp_auth_reply(void *data, int status, const struct spa_dict *headers)
+{
+	struct impl *impl = data;
+	pw_log_info("auth %d", status);
+
+	switch (status) {
+	case 200:
+		rtsp_do_announce(impl);
+		break;
+	}
+}
+
+SPA_PRINTF_FUNC(2,3)
+static int MD5_hash(char hash[MD5_HASH_LENGTH+1], const char *fmt, ...)
+{
+	unsigned char d[MD5_DIGEST_LENGTH];
+	int i;
+	va_list args;
+	char buffer[1024];
+
+	va_start(args, fmt);
+	vsnprintf(buffer, sizeof(buffer), fmt, args);
+	va_end(args);
+
+	MD5((unsigned char*) buffer, strlen(buffer), d);
+	for (i = 0; i < MD5_DIGEST_LENGTH; i++)
+		sprintf(&hash[2*i], "%02x", (uint8_t) d[i]);
+	hash[MD5_HASH_LENGTH] = '\0';
+	return 0;
+}
+
+static int rtsp_do_auth(struct impl *impl, const struct spa_dict *headers)
+{
+	const char *str;
+	char **tokens;
+	int n_tokens;
+	char auth[1024];
+
+	if (impl->password == NULL)
+		return -ENOTSUP;
+
+	if ((str = spa_dict_lookup(headers, "WWW-Authenticate")) == NULL)
+		return -ENOENT;
+
+	pw_log_info("Auth: %s", str);
+
+	tokens = pw_split_strv(str, " ", INT_MAX, &n_tokens);
+	if (tokens == NULL || tokens[0] == NULL)
+		goto error;
+
+	if (spa_streq(tokens[0], "Basic")) {
+		char buf[256];
+		char enc[512];
+		spa_scnprintf(buf, sizeof(buf), "%s:%s", DEFAULT_USER_NAME, impl->password);
+		base64_encode((uint8_t*)buf, strlen(buf), enc, '=');
+		spa_scnprintf(auth, sizeof(auth), "Basic %s", enc);
+	}
+	else if (spa_streq(tokens[0], "Digest")) {
+		const char *realm, *nonce;
+		char h1[MD5_HASH_LENGTH+1];
+		char h2[MD5_HASH_LENGTH+1];
+		char resp[MD5_HASH_LENGTH+1];
+
+		realm = find_attr(tokens, "realm");
+		nonce = find_attr(tokens, "nonce");
+		if (realm == NULL || nonce == NULL)
+			goto error;
+
+		MD5_hash(h1, "%s:%s:%s", DEFAULT_USER_NAME, realm, impl->password);
+		MD5_hash(h2, "OPTIONS:*");
+		MD5_hash(resp, "%s:%s:%s", h1, nonce, h2);
+
+		spa_scnprintf(auth, sizeof(auth),
+				"Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"*\", response=\"%s\"",
+				DEFAULT_USER_NAME, realm, nonce, resp);
+	}
+	else
+		return -EINVAL;
+
+	pw_properties_setf(impl->headers, "Authorization", "%s %s",
+			tokens[0], auth);
+	pw_free_strv(tokens);
+
+	pw_rtsp_client_send(impl->rtsp, "OPTIONS", &impl->headers->dict,
+			NULL, NULL, rtsp_auth_reply, impl);
+
+	return 0;
+error:
+	pw_free_strv(tokens);
+	return -EINVAL;
+}
 
 static void rtsp_options_reply(void *data, int status, const struct spa_dict *headers)
 {
 	struct impl *impl = data;
-	pw_log_info("options");
+	pw_log_info("options %d", status);
 
-	rtsp_do_announce(impl);
+	switch (status) {
+	case 401:
+		rtsp_do_auth(impl, headers);
+		break;
+	case 200:
+		rtsp_do_announce(impl);
+		break;
+	}
 }
 
 static void rtsp_connected(void *data)
@@ -1256,7 +1381,7 @@ static void impl_destroy(struct impl *impl)
 	pw_properties_free(impl->headers);
 	pw_properties_free(impl->stream_props);
 	pw_properties_free(impl->props);
-
+	free(impl->password);
 	if (impl->work)
 		pw_work_queue_cancel(impl->work, impl, SPA_ID_INVALID);
 	free(impl);
@@ -1488,6 +1613,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_log_error( "can't handle codec type %s", str);
 		goto error;
 	}
+	str = pw_properties_get(props, "raop.password");
+	impl->password = str ? strdup(str) : NULL;
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

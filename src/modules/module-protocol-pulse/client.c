@@ -49,6 +49,8 @@
 #include "server.h"
 #include "stream.h"
 
+#define client_emit_disconnect(c) spa_hook_list_call(&(c)->listener_list, struct client_events, disconnect, 0)
+
 struct client *client_new(struct server *server)
 {
 	struct client *client = calloc(1, sizeof(*client));
@@ -65,6 +67,7 @@ struct client *client_new(struct server *server)
 	spa_list_init(&client->operations);
 	spa_list_init(&client->pending_samples);
 	spa_list_init(&client->pending_streams);
+	spa_hook_list_init(&client->listener_list);
 
 	spa_list_append(&server->clients, &client->link);
 	server->n_clients++;
@@ -115,6 +118,8 @@ void client_disconnect(struct client *client)
 
 	if (client->disconnect)
 		return;
+
+	client_emit_disconnect(client);
 
 	/* the client must be detached from the server to disconnect */
 	spa_assert(client->server == NULL);
@@ -170,6 +175,8 @@ void client_free(struct client *client)
 
 	pw_properties_free(client->props);
 	pw_properties_free(client->routes);
+
+	spa_hook_list_clean(&client->listener_list);
 
 	free(client);
 }

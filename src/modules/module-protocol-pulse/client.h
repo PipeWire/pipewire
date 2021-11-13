@@ -100,6 +100,15 @@ struct client {
 
 	struct pw_manager_object *prev_default_sink;
 	struct pw_manager_object *prev_default_source;
+
+	struct spa_hook_list listener_list;
+};
+
+struct client_events {
+#define VERSION_CLIENT_EVENTS	0
+	uint32_t version;
+
+	void (*disconnect) (void *data);
 };
 
 struct client *client_new(struct server *server);
@@ -114,6 +123,12 @@ static inline void client_unref(struct client *client)
 {
 	if (--client->ref == 0)
 		client_free(client);
+}
+
+static inline void client_add_listener(struct client *client, struct spa_hook *listener,
+				       const struct client_events *events, void *data)
+{
+	spa_hook_list_append(&client->listener_list, listener, events, data);
 }
 
 #endif /* PULSER_SERVER_CLIENT_H */

@@ -1147,6 +1147,8 @@ static void rtsp_connected(void *data)
 	base64_encode(rac, sizeof(rac), sac, '\0');
 	pw_properties_set(impl->headers, "Apple-Challenge", sac);
 
+	pw_properties_set(impl->headers, "User-Agent", DEFAULT_USER_AGENT);
+
 	pw_rtsp_client_send(impl->rtsp, "OPTIONS", &impl->headers->dict,
 			NULL, NULL, rtsp_options_reply, impl);
 }

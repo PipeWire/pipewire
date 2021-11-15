@@ -1,5 +1,5 @@
 [Unit]
-Description=Multimedia System
+Description=PipeWire Multimedia System Socket
 
 [Socket]
 Priority=6

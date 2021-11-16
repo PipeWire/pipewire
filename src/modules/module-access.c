@@ -319,6 +319,11 @@ context_check_access(void *data, struct pw_impl_client *client)
 	if ((access = pw_properties_get(props, PW_KEY_CLIENT_ACCESS)) == NULL)
 		access = "unrestricted";
 
+	if (spa_streq(access, "unrestricted") || spa_streq(access, "allowed"))
+		goto granted;
+	else
+		goto wait_permissions;
+
 granted:
 	pw_log_info("%p: client %p '%s' access granted", impl, client, access);
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);

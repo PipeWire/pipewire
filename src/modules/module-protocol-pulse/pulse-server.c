@@ -470,8 +470,6 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 	if (stream->buffer == NULL)
 		return -errno;
 
-	spa_ringbuffer_init(&stream->ring);
-
 	if (lat.num * defs->min_quantum.denom / lat.denom < defs->min_quantum.num)
 		lat.num = (defs->min_quantum.num * lat.denom +
 				(defs->min_quantum.denom -1)) / defs->min_quantum.denom;
@@ -610,8 +608,6 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 	stream->buffer = calloc(1, stream->attr.maxlength);
 	if (stream->buffer == NULL)
 		return -errno;
-
-	spa_ringbuffer_init(&stream->ring);
 
 	if (lat.num * defs->min_quantum.denom / lat.denom < defs->min_quantum.num)
 		lat.num = (defs->min_quantum.num * lat.denom +
@@ -1566,30 +1562,17 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	if (n_valid_formats == 0)
 		goto error_no_formats;
 
-	stream = calloc(1, sizeof(struct stream));
+	stream = stream_new(client, STREAM_TYPE_PLAYBACK, tag, &ss, &map, &attr);
 	if (stream == NULL)
 		goto error_errno;
 
-	spa_list_init(&stream->link);
-	stream->impl = impl;
-	stream->client = client;
 	stream->corked = corked;
 	stream->adjust_latency = adjust_latency;
 	stream->early_requests = early_requests;
-	stream->channel = pw_map_insert_new(&client->streams, stream);
-	if (stream->channel == SPA_ID_INVALID)
-		goto error_errno;
-
-	stream->type = STREAM_TYPE_PLAYBACK;
-	stream->direction = PW_DIRECTION_OUTPUT;
-	stream->create_tag = tag;
-	stream->ss = ss;
-	stream->map = map;
 	stream->volume = volume;
 	stream->volume_set = volume_set;
 	stream->muted = muted;
 	stream->muted_set = muted_set;
-	stream->attr = attr;
 	stream->is_underrun = true;
 	stream->underrun_for = -1;
 
@@ -1829,30 +1812,17 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	if (n_valid_formats == 0)
 		goto error_no_formats;
 
-	stream = calloc(1, sizeof(struct stream));
+	stream = stream_new(client, STREAM_TYPE_RECORD, tag, &ss, &map, &attr);
 	if (stream == NULL)
 		goto error_errno;
 
-	spa_list_init(&stream->link);
-	stream->type = STREAM_TYPE_RECORD;
-	stream->direction = PW_DIRECTION_INPUT;
-	stream->impl = impl;
-	stream->client = client;
 	stream->corked = corked;
 	stream->adjust_latency = adjust_latency;
 	stream->early_requests = early_requests;
-	stream->channel = pw_map_insert_new(&client->streams, stream);
-	if (stream->channel == SPA_ID_INVALID)
-		goto error_errno;
-
-	stream->create_tag = tag;
-	stream->ss = ss;
-	stream->map = map;
 	stream->volume = volume;
 	stream->volume_set = volume_set;
 	stream->muted = muted;
 	stream->muted_set = muted_set;
-	stream->attr = attr;
 
 	if (client->quirks & QUIRK_REMOVE_CAPTURE_DONT_MOVE)
 		no_move = false;
@@ -2048,7 +2018,6 @@ static int do_get_record_latency(struct client *client, uint32_t command, uint32
 
 static int do_create_upload_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
-	struct impl *impl = client->impl;
 	const char *name;
 	struct sample_spec ss;
 	struct channel_map map;
@@ -2096,31 +2065,17 @@ static int do_create_upload_stream(struct client *client, uint32_t command, uint
 			client->name, commands[command].name, tag,
 			name, length);
 
-	stream = calloc(1, sizeof(struct stream));
+	stream = stream_new(client, STREAM_TYPE_UPLOAD, tag, &ss, &map, &(struct buffer_attr) {
+		.maxlength = length,
+	});
 	if (stream == NULL)
 		goto error_errno;
 
-	spa_list_init(&stream->link);
-	stream->type = STREAM_TYPE_UPLOAD;
-	stream->direction = PW_DIRECTION_OUTPUT;
-	stream->impl = impl;
-	stream->client = client;
-	stream->channel = pw_map_insert_new(&client->streams, stream);
-	if (stream->channel == SPA_ID_INVALID)
-		goto error_errno;
-
-	stream->create_tag = tag;
-	stream->ss = ss;
-	stream->map = map;
 	stream->props = props;
-
-	stream->attr.maxlength = length;
 
 	stream->buffer = calloc(1, stream->attr.maxlength);
 	if (stream->buffer == NULL)
 		goto error_errno;
-
-	spa_ringbuffer_init(&stream->ring);
 
 	reply = reply_new(client, tag);
 	message_put(reply,

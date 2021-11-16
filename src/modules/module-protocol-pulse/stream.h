@@ -47,6 +47,12 @@ struct buffer_attr {
 	uint32_t fragsize;
 };
 
+enum stream_type {
+	STREAM_TYPE_RECORD,
+	STREAM_TYPE_PLAYBACK,
+	STREAM_TYPE_UPLOAD,
+};
+
 struct stream {
 	struct spa_list link;
 	uint32_t create_tag;
@@ -55,10 +61,7 @@ struct stream {
 
 	struct impl *impl;
 	struct client *client;
-#define STREAM_TYPE_RECORD	0
-#define STREAM_TYPE_PLAYBACK	1
-#define STREAM_TYPE_UPLOAD	2
-	uint32_t type;
+	enum stream_type type;
 	enum pw_direction direction;
 
 	struct pw_properties *props;
@@ -105,6 +108,9 @@ struct stream {
 	unsigned int killed:1;
 };
 
+struct stream *stream_new(struct client *client, enum stream_type type, uint32_t create_tag,
+			  const struct sample_spec *ss, const struct channel_map *map,
+			  const struct buffer_attr *attr);
 void stream_free(struct stream *stream);
 void stream_flush(struct stream *stream);
 uint32_t stream_pop_missing(struct stream *stream);

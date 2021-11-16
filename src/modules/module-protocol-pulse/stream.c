@@ -44,6 +44,51 @@
 #include "reply.h"
 #include "stream.h"
 
+struct stream *stream_new(struct client *client, enum stream_type type, uint32_t create_tag,
+			  const struct sample_spec *ss, const struct channel_map *map,
+			  const struct buffer_attr *attr)
+{
+	int res;
+
+	struct stream *stream = calloc(1, sizeof(*stream));
+	if (stream == NULL)
+		return NULL;
+
+	stream->channel = pw_map_insert_new(&client->streams, stream);
+	if (stream->channel == SPA_ID_INVALID)
+		goto error_errno;
+
+	stream->impl = client->impl;
+	stream->client = client;
+	stream->type = type;
+	stream->create_tag = create_tag;
+	stream->ss = *ss;
+	stream->map = *map;
+	stream->attr = *attr;
+	spa_ringbuffer_init(&stream->ring);
+
+	switch (type) {
+	case STREAM_TYPE_RECORD:
+		stream->direction = PW_DIRECTION_INPUT;
+		break;
+	case STREAM_TYPE_PLAYBACK:
+	case STREAM_TYPE_UPLOAD:
+		stream->direction = PW_DIRECTION_OUTPUT;
+		break;
+	default:
+		spa_assert_not_reached();
+	}
+
+	return stream;
+
+error_errno:
+	res = errno;
+	free(stream);
+	errno = res;
+
+	return NULL;
+}
+
 void stream_free(struct stream *stream)
 {
 	struct client *client = stream->client;

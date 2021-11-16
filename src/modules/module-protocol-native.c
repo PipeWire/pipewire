@@ -237,8 +237,10 @@ process_messages(struct client_data *data)
 
 		if ((required & permissions) != required) {
 			pw_resource_errorf_id(resource, msg->id,
-				-EACCES, "no permission to call method %u on %u (requires %08x, have %08x)",
-				msg->opcode, msg->id, required, permissions);
+				-EACCES, "no permission to call method %u on %u "
+				"(requires "PW_PERMISSION_FORMAT", have "PW_PERMISSION_FORMAT")",
+				msg->opcode, msg->id,
+				PW_PERMISSION_ARGS(required), PW_PERMISSION_ARGS(permissions));
 			continue;
 		}
 

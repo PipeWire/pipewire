@@ -144,11 +144,8 @@ void client_free(struct client *client)
 	free(client->default_sink);
 	free(client->default_source);
 
-	if (client->props)
-		pw_properties_free(client->props);
-
-	if (client->routes)
-		pw_properties_free(client->routes);
+	pw_properties_free(client->props);
+	pw_properties_free(client->routes);
 
 	free(client);
 }

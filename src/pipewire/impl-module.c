@@ -184,15 +184,18 @@ pw_context_load_module(struct pw_context *context,
 	while ((p = pw_split_walk(module_dir, ":", &len, &state))) {
 		if ((res = spa_scnprintf(path_part, sizeof(path_part), "%.*s", (int)len, p)) > 0) {
 			filename = find_module(path_part, name, 8);
-		if (filename != NULL) {
-			pw_log_debug("trying to load module: %s (%s) args(%s)", name, filename, args);
+			if (filename != NULL) {
+				pw_log_debug("trying to load module: %s (%s) args(%s)", name, filename, args);
 
-		hnd = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
-		if (hnd != NULL)
-		break;
+				hnd = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
+				if (hnd != NULL)
+					break;
+
+				free(filename);
+				filename = NULL;
+			}
 		}
 	}
-}
 
 	if (filename == NULL)
 		goto error_not_found;

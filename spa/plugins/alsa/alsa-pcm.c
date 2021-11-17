@@ -55,18 +55,15 @@ static struct card *ensure_card(uint32_t index)
 	if (err < 0) {
 		char *name;
 		err = snd_card_get_name(index, &name);
-		if (err < 0) {
-			errno = -err;
-			return NULL;
-		}
+		if (err < 0)
+			goto error;
+
 		snprintf(card_name, sizeof(card_name), "%s", name);
 		free(name);
 
 		err = snd_use_case_mgr_open(&c->ucm, card_name);
-		if (err < 0) {
-			errno = -err;
-			return NULL;
-		}
+		if (err < 0)
+			goto error;
 	}
 	if ((snd_use_case_get(c->ucm, "_alibpref", &alibpref) != 0))
 		alibpref = NULL;
@@ -75,6 +72,10 @@ static struct card *ensure_card(uint32_t index)
 	spa_list_append(&cards, &c->link);
 
 	return c;
+error:
+	free(c);
+	errno = -err;
+	return NULL;
 }
 
 static void release_card(uint32_t index)

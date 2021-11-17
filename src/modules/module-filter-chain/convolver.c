@@ -179,16 +179,16 @@ static struct convolver1 *convolver1_new(int block, const float *ir, int irlen)
 	conv->segCount = (irlen + conv->blockSize-1) / conv->blockSize;
 	conv->fftComplexSize = (conv->segSize / 2) + 1;
 
-        conv->fft = fft_new(conv->segSize);
-        if (conv->fft == NULL)
-                return NULL;
-        conv->ifft = ifft_new(conv->segSize);
-        if (conv->ifft == NULL)
-                return NULL;
+	conv->fft = fft_new(conv->segSize);
+	if (conv->fft == NULL)
+		goto error;
+	conv->ifft = ifft_new(conv->segSize);
+	if (conv->ifft == NULL)
+		goto error;
 
 	conv->fft_buffer = fft_alloc(conv->segSize);
-        if (conv->fft_buffer == NULL)
-                return NULL;
+	if (conv->fft_buffer == NULL)
+		goto error;
 
 	conv->segments = calloc(sizeof(struct fft_cpx), conv->segCount);
 	conv->segmentsIr = calloc(sizeof(struct fft_cpx), conv->segCount);
@@ -214,6 +214,15 @@ static struct convolver1 *convolver1_new(int block, const float *ir, int irlen)
 	convolver1_reset(conv);
 
 	return conv;
+error:
+	if (conv->fft)
+		fft_destroy(conv->fft);
+	if (conv->ifft)
+		fft_destroy(conv->ifft);
+	if (conv->fft_buffer)
+		fft_free(conv->fft_buffer);
+	free(conv);
+	return NULL;
 }
 
 static void convolver1_free(struct convolver1 *conv)

@@ -1838,7 +1838,7 @@ static void *v4l2_mmap(void *addr, size_t length, int prot,
 {
 	void *res;
 	struct file *file;
-	uint32_t id;
+	off64_t id;
 	struct pw_map_range range;
 	struct buffer *buf;
 	struct spa_data *data;

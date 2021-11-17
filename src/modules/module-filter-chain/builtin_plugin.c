@@ -657,14 +657,21 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
-		return NULL;
+		goto error;
 
 	impl->rate = *SampleRate;
 
 	impl->conv = convolver_new(blocksize, tailsize, samples, n_samples);
+	if (impl->conv == NULL)
+		goto error;
+
 	free(samples);
 
 	return impl;
+error:
+	free(samples);
+	free(impl);
+	return NULL;
 }
 
 static void convolver_connect_port(void * Instance, unsigned long Port,
@@ -677,6 +684,8 @@ static void convolver_connect_port(void * Instance, unsigned long Port,
 static void convolver_cleanup(void * Instance)
 {
 	struct convolver_impl *impl = Instance;
+	if (impl->conv)
+		convolver_free(impl->conv);
 	free(impl);
 }
 

@@ -221,6 +221,7 @@ static struct fc_plugin *ladspa_handle_load_by_path(const char *path)
 exit:
 	if (p->handle)
 		dlclose(p->handle);
+	free(p);
 	errno = -res;
 	return NULL;
 }

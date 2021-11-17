@@ -77,12 +77,11 @@ static void sample_play_stream_destroy(void *data)
 	struct sample_play *p = data;
 
 	pw_log_info("destroy %s", p->sample->name);
+
 	spa_hook_remove(&p->listener);
-
-	if (--p->sample->ref == 0)
-		sample_free(p->sample);
-
 	p->stream = NULL;
+
+	sample_unref(p->sample);
 	p->sample = NULL;
 }
 
@@ -173,9 +172,11 @@ struct sample_play *sample_play_new(struct pw_core *core,
 		goto error_free;
 	}
 
-	p->sample = sample;
+	/* safe to increment the reference count here because it will be decreased
+	   by the stream's 'destroy' event handler, which will be called
+	   (even if `pw_stream_connect()` fails) */
+	p->sample = sample_ref(sample);
 	p->stride = sample_spec_frame_size(&sample->ss);
-	sample->ref++;
 
 	pw_stream_add_listener(p->stream,
 			&p->listener,

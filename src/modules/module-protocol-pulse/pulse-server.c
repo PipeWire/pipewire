@@ -2110,7 +2110,7 @@ static int do_finish_upload_stream(struct client *client, uint32_t command, uint
 {
 	struct impl *impl = client->impl;
 	uint32_t channel, event;
-	struct stream *stream = NULL;
+	struct stream *stream;
 	struct sample *sample;
 	const char *name;
 	int res;
@@ -2134,22 +2134,36 @@ static int do_finish_upload_stream(struct client *client, uint32_t command, uint
 			client->name, commands[command].name, tag,
 			channel, name);
 
-	sample = find_sample(impl, SPA_ID_INVALID, name);
-	if (sample == NULL) {
-		sample = calloc(1, sizeof(struct sample));
+	struct sample *old = find_sample(impl, SPA_ID_INVALID, name);
+	if (old == NULL || (old != NULL && old->ref > 1)) {
+		sample = calloc(1, sizeof(*sample));
 		if (sample == NULL)
 			goto error_errno;
 
-		sample->index = pw_map_insert_new(&impl->samples, sample);
-		if (sample->index == SPA_ID_INVALID)
-			goto error_errno;
+		if (old != NULL) {
+			sample->index = old->index;
+			spa_assert_se(pw_map_insert_at(&impl->samples, sample->index, sample) == 0);
 
-		event = SUBSCRIPTION_EVENT_NEW;
+			old->index = SPA_ID_INVALID;
+			sample_unref(old);
+		} else {
+			sample->index = pw_map_insert_new(&impl->samples, sample);
+			if (sample->index == SPA_ID_INVALID)
+				goto error_errno;
+		}
 	} else {
-		pw_properties_free(sample->props);
-		free(sample->buffer);
-		event = SUBSCRIPTION_EVENT_CHANGE;
+		pw_properties_free(old->props);
+		free(old->buffer);
+		impl->stat.sample_cache -= old->length;
+
+		sample = old;
 	}
+
+	if (old != NULL)
+		event = SUBSCRIPTION_EVENT_CHANGE;
+	else
+		event = SUBSCRIPTION_EVENT_NEW;
+
 	sample->ref = 1;
 	sample->impl = impl;
 	sample->name = name;
@@ -2442,7 +2456,10 @@ static int do_remove_sample(struct client *client, uint32_t command, uint32_t ta
 			SUBSCRIPTION_EVENT_SAMPLE_CACHE,
 			sample->index);
 
-	sample_free(sample);
+	pw_map_remove(&impl->samples, sample->index);
+	sample->index = SPA_ID_INVALID;
+
+	sample_unref(sample);
 
 	return reply_simple_ack(client, tag);
 }

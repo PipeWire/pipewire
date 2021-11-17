@@ -46,4 +46,16 @@ struct sample {
 
 void sample_free(struct sample *sample);
 
+static inline struct sample *sample_ref(struct sample *sample)
+{
+	sample->ref++;
+	return sample;
+}
+
+static inline void sample_unref(struct sample *sample)
+{
+	if (--sample->ref == 0)
+		sample_free(sample);
+}
+
 #endif /* PULSE_SERVER_SAMPLE_H */

@@ -75,9 +75,15 @@ static void *create_object(void *_data,
 	struct pw_impl_factory *this = data->this;
 	void *result;
 	struct pw_resource *device_resource;
-	struct pw_impl_client *client = pw_resource_get_client(resource);
+	struct pw_impl_client *client;
 	int res;
 
+	if (resource == NULL) {
+		res = -EINVAL;
+		goto error_exit;
+	}
+
+	client = pw_resource_get_client(resource);
 	device_resource = pw_resource_new(client, new_id, PW_PERM_ALL, type, version, 0);
 	if (device_resource == NULL) {
 		res = -errno;

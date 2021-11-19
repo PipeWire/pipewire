@@ -1817,6 +1817,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 			pw_properties_setf(props,
 					PW_KEY_NODE_TARGET,
 					"%.*s", (int)strlen(source_name)-8, source_name);
+			pw_properties_set(props,
+					PW_KEY_STREAM_CAPTURE_SINK, "true");
 		} else {
 			pw_properties_set(props,
 					PW_KEY_NODE_TARGET, source_name);

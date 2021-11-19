@@ -200,6 +200,8 @@ struct module *create_module_echo_cancel(struct impl *impl, const char *argument
 		if (spa_strendswith(str, ".monitor")) {
 			pw_properties_setf(source_props, PW_KEY_NODE_TARGET,
 					"%.*s", (int)strlen(str)-8, str);
+			pw_properties_set(source_props, PW_KEY_STREAM_CAPTURE_SINK,
+					"true");
 		} else {
 			pw_properties_set(source_props, PW_KEY_NODE_TARGET, str);
 		}

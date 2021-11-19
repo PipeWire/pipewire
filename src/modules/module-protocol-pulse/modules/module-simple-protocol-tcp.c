@@ -82,6 +82,8 @@ static int module_simple_protocol_tcp_load(struct client *client, struct module 
 		fprintf(f, "capture.node=\"%s\" ", str);
 	if ((str = pw_properties_get(data->module_props, "playback.node")) != NULL)
 		fprintf(f, "playback.node=\"%s\" ", str);
+	if ((str = pw_properties_get(data->module_props, PW_KEY_STREAM_CAPTURE_SINK)) != NULL)
+		fprintf(f, PW_KEY_STREAM_CAPTURE_SINK"=\"%s\" ", str);
 	fclose(f);
 
 	data->mod = pw_context_load_module(impl->context,
@@ -181,6 +183,8 @@ struct module *create_module_simple_protocol_tcp(struct impl *impl, const char *
 		if (spa_strendswith(str, ".monitor")) {
 			pw_properties_setf(module_props, "capture.node",
 					"%.*s", (int)strlen(str)-8, str);
+			pw_properties_set(module_props, PW_KEY_STREAM_CAPTURE_SINK,
+					"true");
 		} else {
 			pw_properties_set(module_props, "capture.node", str);
 		}

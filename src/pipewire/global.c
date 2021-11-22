@@ -135,7 +135,12 @@ int pw_global_register(struct pw_global *global)
 
 	spa_list_append(&context->global_list, &global->link);
 	global->registered = true;
-	global->serial = ++serial;
+	global->serial = serial++;
+	if ((uint32_t)serial == SPA_ID_INVALID)
+		serial++;
+
+	pw_properties_setf(global->properties,
+			PW_KEY_OBJECT_SERIAL, "%"PRIu64, global->serial);
 
 	spa_list_for_each(registry, &context->registry_resource_list, link) {
 		uint32_t permissions = pw_global_get_permissions(global, registry->client);

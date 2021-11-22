@@ -3303,6 +3303,47 @@ int jack_client_close (jack_client_t *client)
 }
 
 SPA_EXPORT
+jack_intclient_t jack_internal_client_handle (jack_client_t *client,
+		const char *client_name, jack_status_t *status)
+{
+	struct client *c = (struct client *) client;
+	spa_return_val_if_fail(c != NULL, 0);
+	if (status)
+		*status = JackNoSuchClient | JackFailure;
+	return 0;
+}
+
+SPA_EXPORT
+jack_intclient_t jack_internal_client_load (jack_client_t *client,
+		const char *client_name, jack_options_t options,
+		jack_status_t *status, ...)
+{
+	struct client *c = (struct client *) client;
+	spa_return_val_if_fail(c != NULL, 0);
+	if (status)
+		*status = JackNoSuchClient | JackFailure;
+	return 0;
+}
+
+SPA_EXPORT
+jack_status_t jack_internal_client_unload (jack_client_t *client,
+        jack_intclient_t intclient)
+{
+	struct client *c = (struct client *) client;
+	spa_return_val_if_fail(c != NULL, 0);
+	return JackFailure | JackNoSuchClient;
+}
+
+SPA_EXPORT
+char *jack_get_internal_client_name (jack_client_t *client,
+		jack_intclient_t intclient)
+{
+	struct client *c = (struct client *) client;
+	spa_return_val_if_fail(c != NULL, NULL);
+	return strdup(c->name);
+}
+
+SPA_EXPORT
 int jack_client_name_size (void)
 {
 	pw_log_trace("%d", JACK_CLIENT_NAME_SIZE);

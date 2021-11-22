@@ -127,6 +127,9 @@ void *pw_global_get_object(struct pw_global *global);
 /** Get the unique id of the global */
 uint32_t pw_global_get_id(struct pw_global *global);
 
+/** Get the serial number of the global */
+uint64_t pw_global_get_serial(struct pw_global *global);
+
 /** Add a resource to a global */
 int pw_global_add_resource(struct pw_global *global, struct pw_resource *resource);
 

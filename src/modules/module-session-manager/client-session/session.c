@@ -276,6 +276,7 @@ int session_init(struct session *this,
 		struct pw_properties *properties)
 {
 	static const char * const keys[] = {
+		PW_KEY_OBJECT_SERIAL,
 		PW_KEY_FACTORY_ID,
 		PW_KEY_CLIENT_ID,
 		NULL
@@ -295,6 +296,8 @@ int session_init(struct session *this,
 
 	pw_properties_setf(this->props, PW_KEY_OBJECT_ID, "%u",
 			pw_global_get_id(this->global));
+	pw_properties_setf(this->props, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
+			pw_global_get_serial(this->global));
 
 	this->info.version = PW_VERSION_SESSION_INFO;
 	this->info.id = pw_global_get_id(this->global);

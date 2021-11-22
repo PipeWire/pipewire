@@ -581,6 +581,7 @@ int pw_impl_core_register(struct pw_impl_core *core,
 			 struct pw_properties *properties)
 {
 	static const char * const keys[] = {
+		PW_KEY_OBJECT_SERIAL,
 		PW_KEY_USER_NAME,
 		PW_KEY_HOST_NAME,
 		PW_KEY_CORE_NAME,
@@ -608,6 +609,8 @@ int pw_impl_core_register(struct pw_impl_core *core,
 
 	core->info.id = core->global->id;
 	pw_properties_setf(core->properties, PW_KEY_OBJECT_ID, "%d", core->info.id);
+	pw_properties_setf(core->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
+			pw_global_get_serial(core->global));
 	core->info.props = &core->properties->dict;
 
 	pw_global_update_keys(core->global, core->info.props, keys);

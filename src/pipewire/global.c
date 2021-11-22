@@ -102,6 +102,7 @@ pw_global_new(struct pw_context *context,
 		pw_log_error("%p: can't allocate new id: %m", this);
 		goto error_free;
 	}
+	this->serial = SPA_ID_INVALID;
 
 	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
@@ -116,6 +117,16 @@ error_cleanup:
 	pw_properties_free(properties);
 	errno = -res;
 	return NULL;
+}
+
+SPA_EXPORT
+uint64_t pw_global_get_serial(struct pw_global *global)
+{
+	if (global->serial == SPA_ID_INVALID)
+		global->serial = serial++;
+	if ((uint32_t)serial == SPA_ID_INVALID)
+		serial++;
+	return global->serial;
 }
 
 /** register a global to the context registry
@@ -135,12 +146,6 @@ int pw_global_register(struct pw_global *global)
 
 	spa_list_append(&context->global_list, &global->link);
 	global->registered = true;
-	global->serial = serial++;
-	if ((uint32_t)serial == SPA_ID_INVALID)
-		serial++;
-
-	pw_properties_setf(global->properties,
-			PW_KEY_OBJECT_SERIAL, "%"PRIu64, global->serial);
 
 	spa_list_for_each(registry, &context->registry_resource_list, link) {
 		uint32_t permissions = pw_global_get_permissions(global, registry->client);
@@ -178,6 +183,7 @@ static int global_unregister(struct pw_global *global)
 
 	spa_list_remove(&global->link);
 	global->registered = false;
+	global->serial = SPA_ID_INVALID;
 
 	pw_log_debug("%p: unregistered %u", global, global->id);
 	pw_context_emit_global_removed(context, global);

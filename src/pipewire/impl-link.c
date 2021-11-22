@@ -1343,6 +1343,7 @@ int pw_impl_link_register(struct pw_impl_link *link,
 		     struct pw_properties *properties)
 {
 	static const char * const keys[] = {
+		PW_KEY_OBJECT_SERIAL,
 		PW_KEY_OBJECT_PATH,
 		PW_KEY_MODULE_ID,
 		PW_KEY_FACTORY_ID,
@@ -1382,6 +1383,8 @@ int pw_impl_link_register(struct pw_impl_link *link,
 
 	link->info.id = link->global->id;
 	pw_properties_setf(link->properties, PW_KEY_OBJECT_ID, "%d", link->info.id);
+	pw_properties_setf(link->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
+			pw_global_get_serial(link->global));
 	pw_properties_setf(link->properties, PW_KEY_LINK_OUTPUT_NODE, "%u", link->info.output_node_id);
 	pw_properties_setf(link->properties, PW_KEY_LINK_OUTPUT_PORT, "%u", link->info.output_port_id);
 	pw_properties_setf(link->properties, PW_KEY_LINK_INPUT_NODE, "%u", link->info.input_node_id);

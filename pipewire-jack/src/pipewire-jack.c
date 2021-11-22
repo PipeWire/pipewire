@@ -4960,6 +4960,7 @@ void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_
 	struct spa_latency_info *current, latency;
 	jack_nframes_t nframes, rate;
 	struct port *p;
+	uint32_t lat;
 
 	spa_return_if_fail(o != NULL);
 	if (o->type != INTERFACE_Port || o->client == NULL)
@@ -4978,10 +4979,25 @@ void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_
 	nframes = jack_get_buffer_size((jack_client_t*)c);
 	rate = jack_get_sample_rate((jack_client_t*)c);
 
-	latency.min_rate = range->min - (latency.min_quantum * nframes) -
-		(latency.min_ns * rate) / SPA_NSEC_PER_SEC;
-	latency.max_rate = range->max - (latency.max_quantum * nframes) -
-		(latency.max_ns * rate) / SPA_NSEC_PER_SEC;
+	latency.min_rate = range->min;
+	lat = latency.min_quantum * nframes;
+	if (latency.min_rate >= lat)
+		latency.min_rate -= lat;
+	else
+		latency.min_quantum = 0;
+	lat = (latency.min_ns * rate) / SPA_NSEC_PER_SEC;
+	if (latency.min_rate >= lat)
+		latency.min_rate -= lat;
+
+	latency.max_rate = range->max;
+	lat = latency.max_quantum * nframes;
+	if (latency.max_rate >= lat)
+		latency.max_rate -= lat;
+	else
+		latency.max_quantum = 0;
+	lat = (latency.max_ns * rate) / SPA_NSEC_PER_SEC;
+	if (latency.max_rate >= lat)
+		latency.max_rate -= lat;
 
 	current = &o->port.latency[direction];
 

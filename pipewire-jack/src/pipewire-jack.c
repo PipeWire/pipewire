@@ -1209,6 +1209,8 @@ do_buffer_frames(struct spa_loop *loop,
 	uint32_t buffer_frames = *((uint32_t*)data);
 	struct client *c = user_data;
 	do_callback_expr(c, c->buffer_frames = buffer_frames, bufsize_callback, buffer_frames, c->bufsize_arg);
+	do_callback(c, latency_callback, JackCaptureLatency, c->latency_arg);
+	do_callback(c, latency_callback, JackPlaybackLatency, c->latency_arg);
 	return 0;
 }
 

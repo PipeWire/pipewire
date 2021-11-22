@@ -216,15 +216,12 @@ static void stream_destroy(void *d)
 
 static inline void bit_writer(uint8_t **p, int *pos, uint8_t data, int len)
 {
-	int lb, rb;
-        lb = 7 - *pos;
-        rb = lb - len + 1;
+	int rb = 8 - *pos - len;
 	if (rb >= 0) {
 		**p = (*pos ? **p : 0) | (data << rb);
                 *pos += len;
 	} else {
-		**p |= (data >> -rb);
-		(*p)++;
+		*(*p)++ |= (data >> -rb);
 		**p = data << (8+rb);
 		*pos = -rb;
 	}

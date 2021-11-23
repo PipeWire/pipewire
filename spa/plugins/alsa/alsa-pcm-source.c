@@ -587,11 +587,8 @@ static int port_set_format(void *object,
 			return 0;
 
 		spa_log_debug(this->log, "clear format");
-		this->card->format_ref--;
-		spa_alsa_pause(this);
-		clear_buffers(this);
 		spa_alsa_close(this);
-		this->have_format = false;
+		clear_buffers(this);
 	} else {
 		struct spa_audio_info info = { 0 };
 
@@ -609,7 +606,6 @@ static int port_set_format(void *object,
 			return err;
 
 		this->current_format = info;
-		this->have_format = true;
 	}
 
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;

@@ -176,6 +176,8 @@ int spa_alsa_close(struct state *state)
 	if (!state->opened)
 		return 0;
 
+	spa_alsa_pause(state);
+
 	spa_log_info(state->log, "%p: Device '%s' closing", state, state->props.device);
 	if ((err = snd_pcm_close(state->hndl)) < 0)
 		spa_log_warn(state->log, "%s: close failed: %s", state->props.device,
@@ -186,6 +188,10 @@ int spa_alsa_close(struct state *state)
 
 	spa_system_close(state->data_system, state->timerfd);
 
+	if (state->have_format)
+		state->card->format_ref--;
+
+	state->have_format = false;
 	state->opened = false;
 
 	return err;
@@ -1022,6 +1028,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	else
 		state->frame_size *= rchannels;
 
+	state->have_format = true;
 	if (state->card->format_ref++ == 0)
 		state->card->rate = rrate;
 

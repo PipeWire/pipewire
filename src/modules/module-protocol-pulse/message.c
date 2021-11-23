@@ -39,6 +39,8 @@
 #include "message.h"
 #include "volume.h"
 
+#define MAX_ALLOCATED (16*1024 *1024)
+
 #define VOLUME_MUTED ((uint32_t) 0U)
 #define VOLUME_NORM ((uint32_t) 0x10000U)
 #define VOLUME_MAX ((uint32_t) UINT32_MAX/2)
@@ -858,6 +860,9 @@ void message_free(struct impl *impl, struct message *msg, bool dequeue, bool des
 {
 	if (dequeue)
 		spa_list_remove(&msg->link);
+
+	if (msg->stat->allocated > MAX_ALLOCATED)
+		destroy = true;
 
 	if (destroy) {
 		pw_log_trace("destroy message %p", msg);

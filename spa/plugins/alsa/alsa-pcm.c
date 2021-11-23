@@ -11,6 +11,7 @@
 #include <spa/pod/filter.h>
 #include <spa/utils/string.h>
 #include <spa/support/system.h>
+#include <spa/utils/keys.h>
 
 #include "alsa-pcm.h"
 
@@ -88,9 +89,51 @@ static void release_card(uint32_t index)
 	free(c);
 }
 
-int spa_alsa_init(struct state *state)
+int spa_alsa_init(struct state *state, const struct spa_dict *info)
 {
+	uint32_t i;
+
 	snd_config_update_free_global();
+
+	for (i = 0; info && i < info->n_items; i++) {
+		const char *k = info->items[i].key;
+		const char *s = info->items[i].value;
+		if (spa_streq(k, SPA_KEY_API_ALSA_PATH)) {
+			snprintf(state->props.device, 63, "%s", s);
+		} else if (spa_streq(k, SPA_KEY_API_ALSA_PCM_CARD)) {
+			state->card_index = atoi(s);
+		} else if (spa_streq(k, SPA_KEY_API_ALSA_OPEN_UCM)) {
+			state->open_ucm = spa_atob(s);
+		} else if (spa_streq(k, SPA_KEY_AUDIO_CHANNELS)) {
+			state->default_channels = atoi(s);
+		} else if (spa_streq(k, SPA_KEY_AUDIO_RATE)) {
+			state->default_rate = atoi(s);
+		} else if (spa_streq(k, SPA_KEY_AUDIO_FORMAT)) {
+			state->default_format = spa_alsa_format_from_name(s, strlen(s));
+		} else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
+			spa_alsa_parse_position(&state->default_pos, s, strlen(s));
+		} else if (spa_streq(k, "latency.internal.rate")) {
+			state->process_latency.rate = atoi(s);
+		} else if (spa_streq(k, "latency.internal.ns")) {
+			state->process_latency.ns = atoi(s);
+		} else if (spa_streq(k, "iec958.codecs")) {
+			spa_alsa_parse_iec958_codecs(&state->iec958_codecs, s, strlen(s));
+		} else if (spa_streq(k, "api.alsa.period-size")) {
+			state->default_period_size = atoi(s);
+		} else if (spa_streq(k, "api.alsa.headroom")) {
+			state->default_headroom = atoi(s);
+		} else if (spa_streq(k, "api.alsa.start-delay")) {
+			state->default_start_delay = atoi(s);
+		} else if (spa_streq(k, "api.alsa.disable-mmap")) {
+			state->disable_mmap = spa_atob(s);
+		} else if (spa_streq(k, "api.alsa.disable-batch")) {
+			state->disable_batch = spa_atob(s);
+		} else if (spa_streq(k, "api.alsa.use-chmap")) {
+			state->props.use_chmap = spa_atob(s);
+		} else if (spa_streq(k, "api.alsa.multi-rate")) {
+			state->multi_rate = spa_atob(s);
+		}
+	}
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		state->is_iec958 = spa_strstartswith(state->props.device, "iec958");

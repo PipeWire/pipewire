@@ -228,7 +228,7 @@ spa_alsa_enum_format(struct state *state, int seq,
 
 int spa_alsa_set_format(struct state *state, struct spa_audio_info *info, uint32_t flags);
 
-int spa_alsa_init(struct state *state);
+int spa_alsa_init(struct state *state, const struct spa_dict *info);
 int spa_alsa_clear(struct state *state);
 
 int spa_alsa_open(struct state *state, const char *params);

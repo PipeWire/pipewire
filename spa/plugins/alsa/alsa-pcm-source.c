@@ -860,7 +860,6 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct state *this;
-	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -927,42 +926,7 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&this->free);
 	spa_list_init(&this->ready);
 
-	for (i = 0; info && i < info->n_items; i++) {
-		const char *k = info->items[i].key;
-		const char *s = info->items[i].value;
-		if (spa_streq(k, SPA_KEY_API_ALSA_PATH)) {
-			snprintf(this->props.device, 63, "%s", s);
-		} else if (spa_streq(k, SPA_KEY_API_ALSA_PCM_CARD)) {
-			this->card_index = atoi(s);
-		} else if (spa_streq(k, SPA_KEY_API_ALSA_OPEN_UCM)) {
-			this->open_ucm = spa_atob(s);
-		} else if (spa_streq(k, SPA_KEY_AUDIO_CHANNELS)) {
-			this->default_channels = atoi(s);
-		} else if (spa_streq(k, SPA_KEY_AUDIO_RATE)) {
-			this->default_rate = atoi(s);
-		} else if (spa_streq(k, SPA_KEY_AUDIO_FORMAT)) {
-			this->default_format = spa_alsa_format_from_name(s, strlen(s));
-		} else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
-			spa_alsa_parse_position(&this->default_pos, s, strlen(s));
-		} else if (spa_streq(k, "latency.internal.rate")) {
-			this->process_latency.rate = atoi(s);
-		} else if (spa_streq(k, "latency.internal.ns")) {
-			this->process_latency.ns = atoi(s);
-		} else if (spa_streq(k, "api.alsa.period-size")) {
-			this->default_period_size = atoi(s);
-		} else if (spa_streq(k, "api.alsa.headroom")) {
-			this->default_headroom = atoi(s);
-		} else if (spa_streq(k, "api.alsa.disable-mmap")) {
-			this->disable_mmap = spa_atob(s);
-		} else if (spa_streq(k, "api.alsa.disable-batch")) {
-			this->disable_batch = spa_atob(s);
-		} else if (spa_streq(k, "api.alsa.use-chmap")) {
-			this->props.use_chmap = spa_atob(s);
-		} else if (spa_streq(k, "api.alsa.multi-rate")) {
-			this->multi_rate = spa_atob(s);
-		}
-	}
-	return spa_alsa_init(this);
+	return spa_alsa_init(this, info);
 }
 
 static const struct spa_interface_info impl_interfaces[] = {

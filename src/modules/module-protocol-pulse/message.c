@@ -39,7 +39,8 @@
 #include "message.h"
 #include "volume.h"
 
-#define MAX_ALLOCATED (16*1024 *1024)
+#define MAX_SIZE	(256*1024)
+#define MAX_ALLOCATED	(16*1024 *1024)
 
 #define VOLUME_MUTED ((uint32_t) 0U)
 #define VOLUME_NORM ((uint32_t) 0x10000U)
@@ -861,17 +862,17 @@ void message_free(struct impl *impl, struct message *msg, bool dequeue, bool des
 	if (dequeue)
 		spa_list_remove(&msg->link);
 
-	if (msg->stat->allocated > MAX_ALLOCATED)
+	if (msg->stat->allocated > MAX_ALLOCATED || msg->allocated > MAX_SIZE)
 		destroy = true;
 
 	if (destroy) {
-		pw_log_trace("destroy message %p", msg);
+		pw_log_trace("destroy message %p size:%d", msg, msg->allocated);
 		msg->stat->n_allocated--;
 		msg->stat->allocated -= msg->allocated;
 		free(msg->data);
 		free(msg);
 	} else {
-		pw_log_trace("recycle message %p", msg);
+		pw_log_trace("recycle message %p size:%d", msg, msg->allocated);
 		spa_list_append(&impl->free_messages, &msg->link);
 	}
 }

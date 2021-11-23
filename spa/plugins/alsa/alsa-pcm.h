@@ -88,6 +88,18 @@ struct channel_map {
 	uint32_t channels;
 	uint32_t pos[SPA_AUDIO_MAX_CHANNELS];
 };
+
+
+struct card {
+	struct spa_list link;
+	int ref;
+	uint32_t index;
+	snd_use_case_mgr_t *ucm;
+	char *ucm_prefix;
+	int format_ref;
+	uint32_t rate;
+};
+
 struct state {
 	struct spa_handle handle;
 	struct spa_node node;
@@ -97,6 +109,7 @@ struct state {
 	struct spa_loop *data_loop;
 
 	int card_index;
+	struct card *card;
 	snd_pcm_stream_t stream;
 	snd_output_t *output;
 
@@ -115,7 +128,7 @@ struct state {
 
 	bool opened;
 	snd_pcm_t *hndl;
-	int card;
+	int pcm_card;
 
 	bool have_format;
 	struct spa_audio_info current_format;
@@ -188,6 +201,7 @@ struct state {
 	unsigned int open_ucm:1;
 	unsigned int is_iec958:1;
 	unsigned int is_hdmi:1;
+	unsigned int multi_rate:1;
 
 	uint64_t iec958_codecs;
 
@@ -205,8 +219,6 @@ struct state {
 
 	struct spa_latency_info latency[2];
 	struct spa_process_latency_info process_latency;
-
-	const char *ucm_prefix;
 };
 
 int

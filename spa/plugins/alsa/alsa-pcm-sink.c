@@ -644,6 +644,7 @@ static int port_set_format(void *object,
 			return 0;
 
 		spa_log_debug(this->log, "clear format");
+		this->card->format_ref--;
 		spa_alsa_pause(this);
 		clear_buffers(this);
 		spa_alsa_close(this);
@@ -1020,6 +1021,8 @@ impl_init(const struct spa_handle_factory *factory,
 			this->disable_batch = spa_atob(s);
 		} else if (spa_streq(k, "api.alsa.use-chmap")) {
 			this->props.use_chmap = spa_atob(s);
+		} else if (spa_streq(k, "api.alsa.multi-rate")) {
+			this->multi_rate = spa_atob(s);
 		}
 	}
 

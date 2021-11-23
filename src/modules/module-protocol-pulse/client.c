@@ -125,6 +125,9 @@ void client_free(struct client *client)
 	spa_list_consume(p, &client->pending_samples, link)
 		pending_sample_free(p);
 
+	if (client->message)
+		message_free(impl, client->message, false, false);
+
 	spa_list_consume(msg, &client->out_messages, link)
 		message_free(impl, msg, true, false);
 

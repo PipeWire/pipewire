@@ -232,6 +232,8 @@ static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delay
 	else
 		*delayp = filled + elapsed;
 
+	pw_log_trace("delay:%ld", *delayp);
+
 	return 0;
 }
 
@@ -389,7 +391,7 @@ static void on_stream_process(void *data)
 	snd_pcm_pipewire_t *pw = data;
 	snd_pcm_ioplug_t *io = &pw->io;
 	struct pw_buffer *b;
-	snd_pcm_uframes_t hw_avail, want, xfer;
+	snd_pcm_uframes_t hw_avail, before, want, xfer;
 
 	pw_stream_get_time(pw->stream, &pw->time);
 
@@ -399,7 +401,7 @@ static void on_stream_process(void *data)
 		pw->time.rate.num = 1;
 	}
 
-	hw_avail = snd_pcm_ioplug_hw_avail(io, pw->hw_ptr, io->appl_ptr);
+	before = hw_avail = snd_pcm_ioplug_hw_avail(io, pw->hw_ptr, io->appl_ptr);
 
 	if (pw->drained) {
 		pcm_poll_unblock_check(io); /* unblock socket for polling if needed */
@@ -411,9 +413,11 @@ static void on_stream_process(void *data)
 		return;
 
 	want = pw->rate_match ? pw->rate_match->size : hw_avail;
-	pw_log_trace("%p: avail:%lu want:%lu", pw, hw_avail, want);
 
 	xfer = snd_pcm_pipewire_process(pw, b, &hw_avail, want);
+
+	pw_log_trace("%p: avail-before:%lu avail:%lu want:%lu xfer:%lu",
+			pw, before, hw_avail, want, xfer);
 
 	if (io->stream == SND_PCM_STREAM_PLAYBACK)
 		pw->time.delay += xfer;

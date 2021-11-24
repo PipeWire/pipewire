@@ -633,8 +633,8 @@ static int enum_pcm_formats(struct state *state, uint32_t index, uint32_t *next,
 				offs += r;
 			}
 		}
-		spa_log_warn(state->log, "%s: unsupported card: formats:%s",
-				state->props.device, buf);
+		spa_log_warn(state->log, "%s: no format found (def:%d) formats:%s",
+				state->props.device, state->default_format, buf);
 
 		for (i = 0, offs = 0; i <= SND_PCM_ACCESS_LAST; i++) {
 			if (snd_pcm_access_mask_test(amask, (snd_pcm_access_t)i)) {
@@ -645,8 +645,7 @@ static int enum_pcm_formats(struct state *state, uint32_t index, uint32_t *next,
 				offs += r;
 			}
 		}
-		spa_log_warn(state->log, "%s: unsupported card: access:%s",
-				state->props.device, buf);
+		spa_log_warn(state->log, "%s: access:%s", state->props.device, buf);
 		return -ENOTSUP;
 	}
 	if (j > 1)

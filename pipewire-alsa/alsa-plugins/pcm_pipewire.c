@@ -214,7 +214,7 @@ static snd_pcm_sframes_t snd_pcm_pipewire_pointer(snd_pcm_ioplug_t *io)
 static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delayp)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
-	int64_t elapsed = 0, filled;
+	int64_t elapsed = 0, filled, avail;
 
 	if (pw->time.rate.num != 0) {
 		struct timespec ts;
@@ -223,14 +223,16 @@ static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delay
 		diff = SPA_TIMESPEC_TO_NSEC(&ts) - pw->time.now;
 	        elapsed = (pw->time.rate.denom * diff) / (pw->time.rate.num * SPA_NSEC_PER_SEC);
 	}
-	filled = pw->time.delay + snd_pcm_ioplug_avail(io, pw->hw_ptr, io->appl_ptr);
+	avail = snd_pcm_ioplug_avail(io, pw->hw_ptr, io->appl_ptr);
+	filled = pw->time.delay + avail;
 
 	if (io->stream == SND_PCM_STREAM_PLAYBACK)
 		*delayp = filled - SPA_MIN(elapsed, filled);
 	else
 		*delayp = filled + elapsed;
 
-	pw_log_trace("delay:%ld", *delayp);
+	pw_log_trace("avail:%"PRIi64" filled %"PRIi64" elapsed:%"PRIi64" delay:%ld",
+			avail, filled, elapsed, *delayp);
 
 	return 0;
 }

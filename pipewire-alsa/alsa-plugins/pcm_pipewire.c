@@ -368,7 +368,8 @@ static void on_stream_io_changed(void *data, uint32_t id, void *area, uint32_t s
 	snd_pcm_pipewire_t *pw = data;
 	switch (id) {
 	case SPA_IO_RateMatch:
-		pw->rate_match = area;
+		if (pw->io.stream == SND_PCM_STREAM_PLAYBACK)
+			pw->rate_match = area;
 		break;
 	default:
 		break;

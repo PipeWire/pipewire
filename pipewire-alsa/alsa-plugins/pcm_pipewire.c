@@ -223,7 +223,11 @@ static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delay
 		diff = SPA_TIMESPEC_TO_NSEC(&ts) - pw->time.now;
 	        elapsed = (pw->time.rate.denom * diff) / (pw->time.rate.num * SPA_NSEC_PER_SEC);
 	}
-	avail = snd_pcm_ioplug_avail(io, pw->hw_ptr, io->appl_ptr);
+	if (io->stream == SND_PCM_STREAM_PLAYBACK)
+		avail = snd_pcm_ioplug_hw_avail(io, pw->hw_ptr, io->appl_ptr);
+	else
+		avail = snd_pcm_ioplug_avail(io, pw->hw_ptr, io->appl_ptr);
+
 	filled = pw->time.delay + avail;
 
 	if (io->stream == SND_PCM_STREAM_PLAYBACK)
@@ -231,8 +235,8 @@ static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delay
 	else
 		*delayp = filled + elapsed;
 
-	pw_log_trace("avail:%"PRIi64" filled %"PRIi64" elapsed:%"PRIi64" delay:%ld",
-			avail, filled, elapsed, *delayp);
+	pw_log_trace("avail:%"PRIi64" filled %"PRIi64" elapsed:%"PRIi64" delay:%ld %lu %lu",
+			avail, filled, elapsed, *delayp, pw->hw_ptr, io->appl_ptr);
 
 	return 0;
 }

@@ -241,6 +241,9 @@ static void capture_process(void *data)
 	size = d->chunk->size;
 	offset = d->chunk->offset;
 
+	if (size + offset > d->maxsize)
+		size = d->maxsize - SPA_MIN(offset, d->maxsize);
+
 	while (size > 0) {
 		res = send(client->source->fd,
 				SPA_PTROFF(d->data, offset, void),

@@ -990,6 +990,7 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 	struct client *c = p->client;
 	void *ptr = NULL;
 	struct buffer *b;
+	struct spa_data *d;
 
 	if (frames == 0)
 		return NULL;
@@ -1006,6 +1007,7 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 	if (p->io.status == SPA_STATUS_HAVE_DATA &&
 	    p->io.buffer_id < mix->n_buffers) {
 		b = &mix->buffers[p->io.buffer_id];
+		d = &b->datas[0];
 	} else {
 		if (p->io.buffer_id < mix->n_buffers) {
 			reuse_buffer(c, mix, p->io.buffer_id);
@@ -1015,14 +1017,15 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 			pw_log_warn("port %p: out of buffers", p);
 			return NULL;
 		}
-		b->datas[0].chunk->offset = 0;
-		b->datas[0].chunk->size = frames * sizeof(float);
-		b->datas[0].chunk->stride = stride;
+		d = &b->datas[0];
+		d->chunk->offset = 0;
+		d->chunk->size = frames * sizeof(float);
+		d->chunk->stride = stride;
 
 		p->io.status = SPA_STATUS_HAVE_DATA;
 		p->io.buffer_id = b->id;
 	}
-	ptr = b->datas[0].data;
+	ptr = d->data;
 	if (buf)
 		*buf = b;
 	return ptr;
@@ -4165,16 +4168,27 @@ static void *get_buffer_input_float(struct port *p, jack_nframes_t frames)
 	void *ptr = NULL;
 
 	spa_list_for_each(mix, &p->mix, port_link) {
+		struct spa_data *d;
+		uint32_t offset, size;
+		void *np;
+
 		pw_log_trace_fp("%p: port %p mix %d.%d get buffer %d",
 				p->client, p, p->id, mix->id, frames);
 
 		if ((b = get_mix_buffer(mix)) == NULL)
 			continue;
 
-		if (layer++ == 0)
-			ptr = b->datas[0].data;
-		else  {
-			mix2(p->emptyptr, ptr, b->datas[0].data, frames);
+		d = &b->datas[0];
+		offset = SPA_MIN(d->chunk->offset, d->maxsize);
+		size = SPA_MIN(d->chunk->size, d->maxsize - offset);
+		if (size / sizeof(float) < frames)
+			continue;
+
+		np = SPA_PTROFF(d->data, offset, void);
+		if (layer++ == 0) {
+			ptr = np;
+		} else {
+			mix2(p->emptyptr, ptr, np, frames);
 			ptr = p->emptyptr;
 			p->zeroed = false;
 		}
@@ -4260,13 +4274,24 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 	if ((p = o->port.port) == NULL) {
 		struct mix *mix;
 		struct buffer *b;
+		struct spa_data *d;
+		uint32_t offset, size;
 
 		if ((mix = find_mix_peer(o->client, o->id)) == NULL)
 			return NULL;
+
+		pw_log_trace("peer mix: %p %d", mix, mix->peer_id);
+
 		if ((b = get_mix_buffer(mix)) == NULL)
 			return NULL;
-		pw_log_trace("peer mix: %p %d", mix, mix->peer_id);
-		return b->datas[0].data;
+
+		d = &b->datas[0];
+		offset = SPA_MIN(d->chunk->offset, d->maxsize);
+		size = SPA_MIN(d->chunk->size, d->maxsize - offset);
+		if (size / sizeof(float) < frames)
+			return NULL;
+
+		return SPA_PTROFF(d->data, offset, void);
 	}
 
 	ptr = p->get_buffer(p, frames);

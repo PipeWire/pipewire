@@ -252,26 +252,30 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b,
 	unsigned int channel;
 	struct spa_data *d;
 	void *ptr;
+	uint32_t bl, offset, size;
 
 	d = b->buffer->datas;
 	pwareas = alloca(io->channels * sizeof(snd_pcm_channel_area_t));
 
-	if (io->stream == SND_PCM_STREAM_PLAYBACK) {
-		nframes = d[0].maxsize - SPA_MIN(d[0].maxsize, d[0].chunk->offset);
-		nframes /= pw->stride;
-		nframes = SPA_MIN(nframes, pw->min_avail);
-	} else {
-		nframes = d[0].chunk->size / pw->stride;
+	for (bl = 0; bl < pw->blocks; bl++) {
+		if (io->stream == SND_PCM_STREAM_PLAYBACK) {
+			size = SPA_MIN(d[bl].maxsize, pw->min_avail * pw->stride);
+		} else {
+			offset = SPA_MIN(d[bl].chunk->offset, d[bl].maxsize);
+			size = SPA_MIN(d[bl].chunk->size, d[bl].maxsize - offset);
+		}
+		want = SPA_MIN(want, size / pw->stride);
 	}
-	want = SPA_MIN(nframes, want);
 	nframes = SPA_MIN(want, *hw_avail);
 
 	if (pw->blocks == 1) {
 		if (io->stream == SND_PCM_STREAM_PLAYBACK) {
 			d[0].chunk->size = want * pw->stride;
-			d[0].chunk->offset = 0;
+			d[0].chunk->offset = offset = 0;
+		} else {
+			offset = SPA_MIN(d[0].chunk->offset, d[0].maxsize);
 		}
-		ptr = SPA_PTROFF(d[0].data, d[0].chunk->offset, void);
+		ptr = SPA_PTROFF(d[0].data, offset, void);
 		for (channel = 0; channel < io->channels; channel++) {
 			pwareas[channel].addr = ptr;
 			pwareas[channel].first = channel * pw->sample_bits;
@@ -281,9 +285,11 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b,
 		for (channel = 0; channel < io->channels; channel++) {
 			if (io->stream == SND_PCM_STREAM_PLAYBACK) {
 				d[channel].chunk->size = want * pw->stride;
-				d[channel].chunk->offset = 0;
+				d[channel].chunk->offset = offset = 0;
+			} else {
+				offset = SPA_MIN(d[channel].chunk->offset, d[channel].maxsize);
 			}
-			ptr = SPA_PTROFF(d[channel].data, d[channel].chunk->offset, void);
+			ptr = SPA_PTROFF(d[channel].data, offset, void);
 			pwareas[channel].addr = ptr;
 			pwareas[channel].first = 0;
 			pwareas[channel].step = pw->sample_bits;

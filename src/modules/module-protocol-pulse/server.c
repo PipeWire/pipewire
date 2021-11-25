@@ -195,7 +195,7 @@ static int do_read(struct client *client)
 	} else {
 		uint32_t idx = client->in_index - sizeof(client->desc);
 
-		if (client->message == NULL) {
+		if (client->message == NULL || client->message->length < idx) {
 			res = -EPROTO;
 			goto exit;
 		}

@@ -1261,7 +1261,8 @@ bool pw_log_is_default(void);
 void pw_log_init(void);
 void pw_log_deinit(void);
 
-int pw_settings_init(struct pw_context *context);
+void pw_settings_init(struct pw_context *context);
+int pw_settings_expose(struct pw_context *context);
 void pw_settings_clean(struct pw_context *context);
 
 /** \endcond */

@@ -40,7 +40,6 @@
 #include <spa/utils/string.h>
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
-#include <spa/utils/json.h>
 
 #include <pipewire/impl.h>
 #include <pipewire/private.h>
@@ -51,19 +50,6 @@
 
 PW_LOG_TOPIC_EXTERN(log_context);
 #define PW_LOG_TOPIC_DEFAULT log_context
-
-#define DEFAULT_CLOCK_RATE			48000u
-#define DEFAULT_CLOCK_QUANTUM			1024u
-#define DEFAULT_CLOCK_MIN_QUANTUM		32u
-#define DEFAULT_CLOCK_MAX_QUANTUM		8192u
-#define DEFAULT_CLOCK_POWER_OF_TWO_QUANTUM	true
-#define DEFAULT_VIDEO_WIDTH			640
-#define DEFAULT_VIDEO_HEIGHT			480
-#define DEFAULT_VIDEO_RATE_NUM			25u
-#define DEFAULT_VIDEO_RATE_DENOM		1u
-#define DEFAULT_LINK_MAX_BUFFERS		64u
-#define DEFAULT_MEM_WARN_MLOCK			false
-#define DEFAULT_MEM_ALLOW_MLOCK			true
 
 /** \cond */
 struct impl {
@@ -113,101 +99,6 @@ static void fill_properties(struct pw_context *context)
 	}
 	pw_properties_set(properties, PW_KEY_CORE_VERSION, context->core->info.version);
 	pw_properties_set(properties, PW_KEY_CORE_NAME, context->core->info.name);
-}
-
-static uint32_t get_default_int(struct pw_properties *properties, const char *name, uint32_t def)
-{
-	uint32_t val;
-	const char *str;
-	if ((str = pw_properties_get(properties, name)) != NULL)
-		val = atoi(str);
-	else {
-		val = def;
-		pw_properties_setf(properties, name, "%d", val);
-	}
-	return val;
-}
-
-static bool get_default_bool(struct pw_properties *properties, const char *name, bool def)
-{
-	bool val;
-	const char *str;
-	if ((str = pw_properties_get(properties, name)) != NULL)
-		val = pw_properties_parse_bool(str);
-	else {
-		val = def;
-		pw_properties_set(properties, name, val ? "true" : "false");
-	}
-	return val;
-}
-
-static bool rates_contains(uint32_t *rates, uint32_t n_rates, uint32_t rate)
-{
-	uint32_t i;
-	for (i = 0; i < n_rates; i++)
-		if (rates[i] == rate)
-			return true;
-	return false;
-}
-
-static uint32_t parse_clock_rate(struct pw_properties *properties, const char *name,
-		uint32_t *rates, uint32_t def)
-{
-	const char *str;
-	uint32_t count = 0, r;
-	struct spa_json it[2];
-	char v[256];
-
-	if ((str = pw_properties_get(properties, name)) == NULL)
-		goto fallback;
-
-	spa_json_init(&it[0], str, strlen(str));
-	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-		spa_json_init(&it[1], str, strlen(str));
-
-	while (spa_json_get_string(&it[1], v, sizeof(v)-1) > 0 &&
-	    count < MAX_RATES) {
-		if (spa_atou32(v, &r, 0))
-	                rates[count++] = r;
-        }
-	if (count == 0 ||!rates_contains(rates, count, def))
-		goto fallback;
-
-	return count;
-fallback:
-	rates[0] = def;
-	pw_properties_setf(properties, name, "[ %u ]", def);
-	return 1;
-}
-
-static void fill_defaults(struct pw_context *this)
-{
-	struct pw_properties *p = this->properties;
-	struct settings *d = &this->defaults;
-
-	d->clock_rate = get_default_int(p, "default.clock.rate", DEFAULT_CLOCK_RATE);
-	d->n_clock_rates = parse_clock_rate(p, "default.clock.allowed-rates", d->clock_rates, d->clock_rate);
-	d->clock_quantum = get_default_int(p, "default.clock.quantum", DEFAULT_CLOCK_QUANTUM);
-	d->clock_min_quantum = get_default_int(p, "default.clock.min-quantum", DEFAULT_CLOCK_MIN_QUANTUM);
-	d->clock_max_quantum = get_default_int(p, "default.clock.max-quantum", DEFAULT_CLOCK_MAX_QUANTUM);
-	d->video_size.width = get_default_int(p, "default.video.width", DEFAULT_VIDEO_WIDTH);
-	d->video_size.height = get_default_int(p, "default.video.height", DEFAULT_VIDEO_HEIGHT);
-	d->video_rate.num = get_default_int(p, "default.video.rate.num", DEFAULT_VIDEO_RATE_NUM);
-	d->video_rate.denom = get_default_int(p, "default.video.rate.denom", DEFAULT_VIDEO_RATE_DENOM);
-
-	d->log_level = get_default_int(p, "log.level", pw_log_level);
-	d->clock_power_of_two_quantum = get_default_bool(p, "clock.power-of-two-quantum",
-			DEFAULT_CLOCK_POWER_OF_TWO_QUANTUM);
-	d->link_max_buffers = get_default_int(p, "link.max-buffers", DEFAULT_LINK_MAX_BUFFERS);
-	d->mem_warn_mlock = get_default_bool(p, "mem.warn-mlock", DEFAULT_MEM_WARN_MLOCK);
-	d->mem_allow_mlock = get_default_bool(p, "mem.allow-mlock", DEFAULT_MEM_ALLOW_MLOCK);
-
-	d->clock_max_quantum = SPA_CLAMP(d->clock_max_quantum,
-			CLOCK_MIN_QUANTUM, CLOCK_MAX_QUANTUM);
-	d->clock_min_quantum = SPA_CLAMP(d->clock_min_quantum,
-			CLOCK_MIN_QUANTUM, d->clock_max_quantum);
-	d->clock_quantum = SPA_CLAMP(d->clock_quantum,
-			d->clock_min_quantum, d->clock_max_quantum);
 }
 
 static int try_load_conf(struct pw_context *this, const char *conf_prefix,
@@ -291,6 +182,7 @@ static void init_plugin_loader(struct impl *impl)
  *
  * \param main_loop the main loop to use
  * \param properties extra properties for the context, ownership it taken
+ *
  * \return a newly allocated context object
  */
 SPA_EXPORT
@@ -415,7 +307,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 			pw_log_info("%p: mlockall succeeded", impl);
 	}
 
-	fill_defaults(this);
+	pw_settings_init(this);
 	this->settings = this->defaults;
 
 	pr = pw_properties_copy(properties);
@@ -500,7 +392,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	context_set_freewheel(this, false);
 
-	pw_settings_init(this);
+	pw_settings_expose(this);
 
 	pw_log_debug("%p: created", this);
 
@@ -1146,6 +1038,15 @@ static int fraction_compare(const struct spa_fraction *a, const struct spa_fract
 	uint64_t fa = (uint64_t)a->num * (uint64_t)b->denom;
 	uint64_t fb = (uint64_t)b->num * (uint64_t)a->denom;
 	return fa < fb ? -1 : (fa > fb ? 1 : 0);
+}
+
+static bool rates_contains(uint32_t *rates, uint32_t n_rates, uint32_t rate)
+{
+	uint32_t i;
+	for (i = 0; i < n_rates; i++)
+		if (rates[i] == rate)
+			return true;
+	return false;
 }
 
 int pw_context_recalc_graph(struct pw_context *context, const char *reason)

@@ -1243,8 +1243,10 @@ static void stream_process(void *data)
 			if (stream->attr.prebuf == 0 && !stream->corked) {
 				pd.missing = size;
 				pd.playing_for = size;
-				index += size;
-				pd.read_inc = size;
+				if (avail > 0) {
+					index += avail;
+					pd.read_inc = avail;
+				}
 				spa_ringbuffer_read_update(&stream->ring, index);
 			}
 		} else {

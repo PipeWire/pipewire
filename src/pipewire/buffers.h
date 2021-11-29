@@ -47,6 +47,7 @@ extern "C" {
 #define PW_BUFFERS_FLAG_NO_MEM		(1<<0)	/**< don't allocate buffer memory */
 #define PW_BUFFERS_FLAG_SHARED		(1<<1)	/**< buffers can be shared */
 #define PW_BUFFERS_FLAG_DYNAMIC		(1<<2)	/**< buffers have dynamic data */
+#define PW_BUFFERS_FLAG_SHARED_MEM	(1<<3)	/**< buffers need shared memory */
 
 struct pw_buffers {
 	struct pw_memblock *mem;	/**< allocated buffer memory */

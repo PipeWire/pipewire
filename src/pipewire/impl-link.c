@@ -516,6 +516,9 @@ static int do_allocation(struct pw_impl_link *this)
 		flags = 0;
 		/* always shared buffers for the link */
 		alloc_flags = PW_BUFFERS_FLAG_SHARED;
+		if (output->node->remote || input->node->remote)
+			alloc_flags |= PW_BUFFERS_FLAG_SHARED_MEM;
+
 		/* if output port can alloc buffers, alloc skeleton buffers */
 		if (SPA_FLAG_IS_SET(out_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS)) {
 			SPA_FLAG_SET(alloc_flags, PW_BUFFERS_FLAG_NO_MEM);

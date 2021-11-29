@@ -319,6 +319,10 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		max_buffers = 2;
 	}
 
+	if (types == SPA_ID_INVALID &&
+	    SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_SHARED_MEM))
+		types = 1<<SPA_DATA_MemFd;
+
 	if (SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_NO_MEM))
 		minsize = 0;
 

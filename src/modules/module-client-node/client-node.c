@@ -810,9 +810,15 @@ do_port_use_buffers(struct impl *impl,
 		}
 		for (j = 0; j < buffers[i]->n_datas; j++) {
 			struct spa_data *d = buffers[i]->datas;
-			if (d->type == SPA_DATA_MemPtr)
-				endptr = SPA_PTROFF(d->data, d->maxsize, void);
+			if (d->type == SPA_DATA_MemPtr) {
+				if ((m = pw_mempool_find_ptr(impl->context->pool, d->data)) == NULL ||
+				    m != mem)
+					return -EINVAL;
+				endptr = SPA_MAX(endptr, SPA_PTROFF(d->data, d->maxsize, void));
+			}
 		}
+		if (endptr > SPA_PTROFF(baseptr, mem->size, void))
+			return -EINVAL;
 
 		m = pw_mempool_import_block(this->client->pool, mem);
 		if (m == NULL)

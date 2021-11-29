@@ -814,13 +814,12 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info.flags = SPA_PORT_FLAG_NO_REF;
 	if (this->props.live)
 		port->info.flags |= SPA_PORT_FLAG_LIVE;
-	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
-	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
-	port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
+	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	port->info.params = port->params;
-	port->info.n_params = 5;
+	port->info.n_params = 4;
 
 	spa_list_init(&port->empty);
 

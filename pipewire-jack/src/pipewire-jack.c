@@ -5211,6 +5211,7 @@ const char ** jack_get_ports (jack_client_t *client,
 	struct object *tmp[JACK_PORT_MAX];
 	const char *str;
 	uint32_t i, count, id;
+	int r;
 	regex_t port_regex, type_regex;
 
 	spa_return_val_if_fail(c != NULL, NULL);
@@ -5220,10 +5221,18 @@ const char ** jack_get_ports (jack_client_t *client,
 	else
 		id = SPA_ID_INVALID;
 
-	if (port_name_pattern && port_name_pattern[0])
-		regcomp(&port_regex, port_name_pattern, REG_EXTENDED | REG_NOSUB);
-	if (type_name_pattern && type_name_pattern[0])
-		regcomp(&type_regex, type_name_pattern, REG_EXTENDED | REG_NOSUB);
+	if (port_name_pattern && port_name_pattern[0]) {
+		if ((r = regcomp(&port_regex, port_name_pattern, REG_EXTENDED | REG_NOSUB)) != 0) {
+			pw_log_error("cant compile regex %s: %d", port_name_pattern, r);
+			return NULL;
+		}
+	}
+	if (type_name_pattern && type_name_pattern[0]) {
+		if ((r = regcomp(&type_regex, type_name_pattern, REG_EXTENDED | REG_NOSUB)) != 0) {
+			pw_log_error("cant compile regex %s: %d", type_name_pattern, r);
+			return NULL;
+		}
+	}
 
 	pw_log_debug("%p: ports id:%d name:\"%s\" type:\"%s\" flags:%08lx", c, id,
 			port_name_pattern, type_name_pattern, flags);

@@ -91,16 +91,22 @@ static void release_card(uint32_t index)
 
 int spa_alsa_set_param(struct state *state, const char *k, const char *s)
 {
+	int fmt_change = 0;
 	if (spa_streq(k, SPA_KEY_AUDIO_CHANNELS)) {
 		state->default_channels = atoi(s);
+		fmt_change++;
 	} else if (spa_streq(k, SPA_KEY_AUDIO_RATE)) {
 		state->default_rate = atoi(s);
+		fmt_change++;
 	} else if (spa_streq(k, SPA_KEY_AUDIO_FORMAT)) {
 		state->default_format = spa_alsa_format_from_name(s, strlen(s));
+		fmt_change++;
 	} else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
 		spa_alsa_parse_position(&state->default_pos, s, strlen(s));
+		fmt_change++;
 	} else if (spa_streq(k, "iec958.codecs")) {
 		spa_alsa_parse_iec958_codecs(&state->iec958_codecs, s, strlen(s));
+		fmt_change++;
 	} else if (spa_streq(k, "api.alsa.period-size")) {
 		state->default_period_size = atoi(s);
 	} else if (spa_streq(k, "api.alsa.headroom")) {
@@ -115,7 +121,31 @@ int spa_alsa_set_param(struct state *state, const char *k, const char *s)
 		state->props.use_chmap = spa_atob(s);
 	} else if (spa_streq(k, "api.alsa.multi-rate")) {
 		state->multi_rate = spa_atob(s);
+	} else
+		return 0;
+
+	if (fmt_change > 0) {
+		state->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+		state->port_params[PORT_EnumFormat].user++;
 	}
+	return 1;
+}
+
+static int position_to_string(struct channel_map *map, char *val, size_t len)
+{
+	uint32_t i, o = 0;
+	int r;
+	o += snprintf(val, len, "[ ");
+	for (i = 0; i < map->channels; i++) {
+		r = snprintf(val+o, len-o, "%s%s", i == 0 ? "" : ", ",
+				spa_debug_type_find_short_name(spa_type_audio_channel,
+					map->pos[i]));
+		if (r < 0 || o + r >= len)
+			return -ENOSPC;
+		o += r;
+	}
+	if (len > o)
+		o += snprintf(val+o, len-o, " ]");
 	return 0;
 }
 
@@ -149,18 +179,24 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_id,   SPA_POD_Id(id),
 			SPA_PROP_INFO_name, SPA_POD_String(SPA_KEY_AUDIO_FORMAT),
 			SPA_PROP_INFO_description, SPA_POD_String("Audio Format"),
-			SPA_PROP_INFO_type, SPA_POD_String(""),
+			SPA_PROP_INFO_type, SPA_POD_String(
+				spa_debug_type_find_short_name(spa_type_audio_format,
+					state->default_format)),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
 	case 3:
+	{
+		char buf[1024];
+		position_to_string(&state->default_pos, buf, sizeof(buf));
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, id,
 			SPA_PROP_INFO_id,   SPA_POD_Id(id),
 			SPA_PROP_INFO_name, SPA_POD_String(SPA_KEY_AUDIO_POSITION),
 			SPA_PROP_INFO_description, SPA_POD_String("Audio Position"),
-			SPA_PROP_INFO_type, SPA_POD_String("[ ]"),
+			SPA_PROP_INFO_type, SPA_POD_String(buf),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
+	}
 	case 4:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, id,
@@ -233,6 +269,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 int spa_alsa_add_prop_params(struct state *state, struct spa_pod_builder *b)
 {
 	struct spa_pod_frame f[1];
+	char buf[1024];
 
 	spa_pod_builder_prop(b, SPA_PROP_params, 0);
 	spa_pod_builder_push_struct(b, &f[0]);
@@ -244,10 +281,13 @@ int spa_alsa_add_prop_params(struct state *state, struct spa_pod_builder *b)
 	spa_pod_builder_int(b, state->default_rate);
 
 	spa_pod_builder_string(b, SPA_KEY_AUDIO_FORMAT);
-	spa_pod_builder_string(b, "");
+	spa_pod_builder_string(b,
+			spa_debug_type_find_short_name(spa_type_audio_format,
+					state->default_format));
 
+	position_to_string(&state->default_pos, buf, sizeof(buf));
 	spa_pod_builder_string(b, SPA_KEY_AUDIO_POSITION);
-	spa_pod_builder_string(b, "[ ]");
+	spa_pod_builder_string(b, buf);
 
 	spa_pod_builder_string(b, "api.alsa.period-size");
 	spa_pod_builder_int(b, state->default_period_size);

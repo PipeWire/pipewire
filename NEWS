@@ -1,3 +1,110 @@
+# PipeWire 0.3.41 (2021-12-13)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Improved compatibility for flatpaks. Flatpaks with newer PipeWire
+    version can connect to an older server in all cases.
+  - A new RAOP module was added to stream to Apple Airplay devices.
+  - OBS can now capture from the monitor devices again when using
+    WirePlumber.
+  - Improved JACK compatibility. Improved stability in Carla and Ardour
+    when changing buffer size. Improved latency calculations and
+    playback latency in Ardour.
+  - Improved pulse-server handling of underruns and buffer size changes.
+  - Many bugfixes and improvements.
+
+
+## PipeWire
+  - The systemd service files now have better names.
+  - client.access permission checks are improved.
+  - Fix some memory leaks in error paths.
+  - Objects now have a global serial number that is unique for the
+    lifetime of the server.
+  - Make clock.rate, clock.allowed-rates and clock.quantum
+    runtime tunable parameters with the settings metadata.
+  - Add some additional memory checks in client-node to avoid
+    sending invalid memory to clients. (#1859)
+  - Improve buffer memory allocation. If one of the nodes is a
+    remote node, ensure we only use memory that can be shared.
+  - Version checks when binding to objects is removed. This means
+    that newer clients can now bind to older servers, which is
+    a typical case for a flatpak.
+  - A bug in the latency calculations was fixed where it would in
+    some cases report the wrong minumum latency.
+
+## modules
+  - module-echo-cancel has voice-detection enabled now.
+  - module-raop-sink and module-raop-discover to stream audio to
+    an Apple Airplay device.
+  - module-filter-chain now has preliminary support for LV2
+    plugins.
+
+## SPA
+  - The audio resampler now has improved buffer size calculations.
+    In some cases it was too small and would cause distortions.
+  - More checks are done when doing volume changes so that the
+    channelmap is correct.
+  - Audioadapter now exposes most config options with params so that
+    they can be adjusted at runtime.
+  - The resampler can now calculate the expected input buffer size
+    before receiving the first buffer, which avoids some confusion
+    when starting streams.
+  - Support was added for some 10bit video formats.
+  - MONO channel handling was improved.
+  - Most plugins now set a clock name and this is configurable where
+    it makes sense. The clock.system.monotonic clock name is used
+    for most plugins that use the system clock for timing.
+
+## pulse-server
+  - implement module-raop-discover
+  - Use STREAM_CAPTURE_SINK property when capturing from a monitor
+    source to better inform the session manager. This fixes some
+    issues where OBS would capture from the microphone instead of
+    the output monitor.
+  - Limit the amount of cache messages to 16MB and don't add large
+    memory blocks to the cache. This should fix some excessive
+    memory usage that people reported.
+  - Fix a potential memory leak when cleaning up a client.
+  - Do some additional checks to avoid buffer overruns.
+  - Improve recovery from underruns better. (#1857) This improves
+    seeking in gnome-music.
+  - Improve recovery when the quantum is forced larger that the
+    stream configured latency.
+  - The prebuf state is now handled correctly.
+
+## JACK
+  - A per type object cache is now implemented. This ensures that
+    port objects remain valid for a longer time because many
+    JACK applications inspect objects after they are destroyed.
+    This improves catia/carla compatibility.
+  - Recompute the latencies when the buffer-size changes. Fix some
+    cases where we would end up with negative latencies.
+  - Handle regcomp errors to avoid some crashes later.
+  - Latency calculations are improved a lot.
+  - More care is taken to not call a process callback while a buffer
+    size change is pending. This fixes some crashes in Carla, which
+    expect that all clients are paused when one handles the buffersize
+    callback.
+  - Loopback links to a client are now handled correctly and without
+    latency. This fixes playback latency in ardour6 (#1839)
+
+## ALSA
+  - ALSA devices now keep track of the samplerate of the card and
+    ensure that all PCM use the same rate. This is a workaround for
+    a kernel bug that is fixed in 5.16.
+  - Refactor the ALSA plugin a little.
+  - The ALSA plugin now reports correct delay for a capture PCM. (#1697)
+  - The ALSA nodes now expose all config options with params that can be
+    changed at runtime.
+  - The ALSA node has a configurable clock name. Adaptive resampling to
+    match clock rates is avoided when the driver has the same clock
+    name as the ALSA node. This can be used to link alsa devices together
+    with a word clock.
+
+Older versions:
+
 # PipeWire 0.3.40 (2021-11-11)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -74,9 +181,6 @@ This is a bugfix release that is API and ABI compatible with previous
   - _prepare should exit the draining state. (#1467)
   - Fix the precision of the _delay function by taking into account
     the amount of queued samples are the correct samplerate.
-
-
-Older versions:
 
 
 # PipeWire 0.3.39 (2021-10-21)

@@ -222,14 +222,18 @@ process_messages(struct client_data *data)
 
 		marshal = pw_resource_get_marshal(resource);
 		if (marshal == NULL || msg->opcode >= marshal->n_client_methods) {
-			res = -ENOSYS;
-			goto invalid_method;
+			pw_resource_errorf_id(resource, msg->id,
+					-ENOSYS, "invalid method id:%u op:%u",
+					msg->id, msg->opcode);
+			continue;
 		}
 
 		demarshal = marshal->server_demarshal;
 		if (!demarshal[msg->opcode].func) {
-			res = -ENOTSUP;
-			goto invalid_message;
+			pw_resource_errorf_id(resource, msg->id,
+					-ENOTSUP, "function not supported id:%u op:%u",
+					msg->id, msg->opcode);
+			continue;
 		}
 
 		permissions = pw_resource_get_permissions(resource);
@@ -247,23 +251,18 @@ process_messages(struct client_data *data)
 		pw_protocol_native_connection_enter(conn);
 		res = demarshal[msg->opcode].func(resource, msg);
 		pw_protocol_native_connection_leave(conn);
-		if (res < 0)
-			goto invalid_message;
+		if (res < 0) {
+			pw_resource_errorf_id(resource, msg->id,
+					res, "invalid message id:%u op:%u (%s)",
+					msg->id, msg->opcode, spa_strerror(res));
+			debug_msg("*invalid message*", msg, true);
+		}
 	}
 	res = 0;
 done:
 	context->current_client = NULL;
 	return res;
 
-invalid_method:
-	pw_resource_errorf_id(resource, msg->id, res, "invalid method id:%u op:%u",
-			msg->id, msg->opcode);
-	goto done;
-invalid_message:
-	pw_resource_errorf_id(resource, msg->id, res, "invalid message id:%u op:%u (%s)",
-			msg->id, msg->opcode, spa_strerror(res));
-	debug_msg("*invalid message*", msg, true);
-	goto done;
 error:
 	if (client->core_resource)
 		pw_resource_errorf(client->core_resource, res, "client error %d (%s)",

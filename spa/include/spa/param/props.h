@@ -49,6 +49,7 @@ enum spa_prop_info {
 					  *  for the value. */
 	SPA_PROP_INFO_container,	/**< type of container if any (Id) */
 	SPA_PROP_INFO_params,		/**< is part of params property (Bool) */
+	SPA_PROP_INFO_description,	/**< User readable description */
 };
 
 /** predefined properties for SPA_TYPE_OBJECT_Props */

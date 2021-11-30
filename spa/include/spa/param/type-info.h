@@ -161,6 +161,7 @@ static const struct spa_type_info spa_type_prop_info[] = {
 	{ SPA_PROP_INFO_labels, SPA_TYPE_Struct, SPA_TYPE_INFO_PROP_INFO_BASE "labels", NULL },
 	{ SPA_PROP_INFO_container, SPA_TYPE_Id, SPA_TYPE_INFO_PROP_INFO_BASE "container", NULL },
 	{ SPA_PROP_INFO_params, SPA_TYPE_Bool, SPA_TYPE_INFO_PROP_INFO_BASE "params", NULL },
+	{ SPA_PROP_INFO_description, SPA_TYPE_String, SPA_TYPE_INFO_PROP_INFO_BASE "description", NULL },
 	{ 0, 0, NULL, NULL },
 };
 

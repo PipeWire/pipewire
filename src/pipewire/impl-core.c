@@ -314,8 +314,10 @@ core_create_object(void *object,
 	if (!spa_streq(factory->info.type, type))
 		goto error_type;
 
-	if (factory->info.version < version)
-		goto error_version;
+	if (factory->info.version < version) {
+		pw_log_info("%p: version %d < %d", context,
+				factory->info.version, version);
+	}
 
 	if (props) {
 		properties = pw_properties_new_dict(props);
@@ -325,7 +327,8 @@ core_create_object(void *object,
 		properties = NULL;
 
 	/* error will be posted */
-	obj = pw_impl_factory_create_object(factory, resource, type, version, properties, new_id);
+	obj = pw_impl_factory_create_object(factory, resource, type,
+			version, properties, new_id);
 	if (obj == NULL)
 		goto error_create_failed;
 
@@ -336,7 +339,6 @@ error_no_factory:
 	pw_log_debug("%p: can't find factory '%s'", context, factory_name);
 	pw_resource_errorf_id(resource, new_id, res, "unknown factory name %s", factory_name);
 	goto error_exit;
-error_version:
 error_type:
 	res = -EPROTO;
 	pw_log_debug("%p: invalid resource type/version", context);

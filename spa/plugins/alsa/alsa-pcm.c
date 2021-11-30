@@ -89,6 +89,237 @@ static void release_card(uint32_t index)
 	free(c);
 }
 
+int spa_alsa_set_param(struct state *state, const char *k, const char *s)
+{
+	if (spa_streq(k, SPA_KEY_AUDIO_CHANNELS)) {
+		state->default_channels = atoi(s);
+	} else if (spa_streq(k, SPA_KEY_AUDIO_RATE)) {
+		state->default_rate = atoi(s);
+	} else if (spa_streq(k, SPA_KEY_AUDIO_FORMAT)) {
+		state->default_format = spa_alsa_format_from_name(s, strlen(s));
+	} else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
+		spa_alsa_parse_position(&state->default_pos, s, strlen(s));
+	} else if (spa_streq(k, "iec958.codecs")) {
+		spa_alsa_parse_iec958_codecs(&state->iec958_codecs, s, strlen(s));
+	} else if (spa_streq(k, "api.alsa.period-size")) {
+		state->default_period_size = atoi(s);
+	} else if (spa_streq(k, "api.alsa.headroom")) {
+		state->default_headroom = atoi(s);
+	} else if (spa_streq(k, "api.alsa.start-delay")) {
+		state->default_start_delay = atoi(s);
+	} else if (spa_streq(k, "api.alsa.disable-mmap")) {
+		state->disable_mmap = spa_atob(s);
+	} else if (spa_streq(k, "api.alsa.disable-batch")) {
+		state->disable_batch = spa_atob(s);
+	} else if (spa_streq(k, "api.alsa.use-chmap")) {
+		state->props.use_chmap = spa_atob(s);
+	} else if (spa_streq(k, "api.alsa.multi-rate")) {
+		state->multi_rate = spa_atob(s);
+	}
+	return 0;
+}
+
+struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
+		uint32_t idx, uint32_t id, struct spa_pod_builder *b)
+{
+	struct spa_pod *param;
+
+	switch (idx) {
+	case 0:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_PROP_INFO_name, SPA_POD_String(SPA_KEY_AUDIO_CHANNELS),
+			SPA_PROP_INFO_description, SPA_POD_String("Audio Channels"),
+			SPA_PROP_INFO_type, SPA_POD_Int(state->default_channels),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 1:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_PROP_INFO_name, SPA_POD_String(SPA_KEY_AUDIO_RATE),
+			SPA_PROP_INFO_description, SPA_POD_String("Audio Rate"),
+			SPA_PROP_INFO_type, SPA_POD_Int(state->default_rate),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 2:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_PROP_INFO_name, SPA_POD_String(SPA_KEY_AUDIO_FORMAT),
+			SPA_PROP_INFO_description, SPA_POD_String("Audio Format"),
+			SPA_PROP_INFO_type, SPA_POD_String(""),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 3:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_PROP_INFO_name, SPA_POD_String(SPA_KEY_AUDIO_POSITION),
+			SPA_PROP_INFO_description, SPA_POD_String("Audio Position"),
+			SPA_PROP_INFO_type, SPA_POD_String("[ ]"),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 4:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.period-size"),
+			SPA_PROP_INFO_description, SPA_POD_String("Period Size"),
+			SPA_PROP_INFO_type, SPA_POD_Int(state->default_period_size),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 5:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.headroom"),
+			SPA_PROP_INFO_description, SPA_POD_String("Headroom"),
+			SPA_PROP_INFO_type, SPA_POD_Int(state->default_headroom),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 6:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.start-delay"),
+			SPA_PROP_INFO_description, SPA_POD_String("Start Delay"),
+			SPA_PROP_INFO_type, SPA_POD_Int(state->default_start_delay),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 7:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.disable-mmap"),
+			SPA_PROP_INFO_description, SPA_POD_String("Disable MMAP"),
+			SPA_PROP_INFO_type, SPA_POD_Bool(state->disable_mmap),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 8:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.disable-batch"),
+			SPA_PROP_INFO_description, SPA_POD_String("Disable Batch"),
+			SPA_PROP_INFO_type, SPA_POD_Bool(state->disable_batch),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 9:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.use-chmap"),
+			SPA_PROP_INFO_description, SPA_POD_String("Use the driver channelmap"),
+			SPA_PROP_INFO_type, SPA_POD_Bool(state->props.use_chmap),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 10:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.multi-rate"),
+			SPA_PROP_INFO_description, SPA_POD_String("Support multiple rates"),
+			SPA_PROP_INFO_type, SPA_POD_Bool(state->multi_rate),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	default:
+		return NULL;
+	}
+	return param;
+}
+
+int spa_alsa_add_prop_params(struct state *state, struct spa_pod_builder *b)
+{
+	struct spa_pod_frame f[1];
+
+	spa_pod_builder_prop(b, SPA_PROP_params, 0);
+	spa_pod_builder_push_struct(b, &f[0]);
+
+	spa_pod_builder_string(b, SPA_KEY_AUDIO_CHANNELS);
+	spa_pod_builder_int(b, state->default_channels);
+
+	spa_pod_builder_string(b, SPA_KEY_AUDIO_RATE);
+	spa_pod_builder_int(b, state->default_rate);
+
+	spa_pod_builder_string(b, SPA_KEY_AUDIO_FORMAT);
+	spa_pod_builder_string(b, "");
+
+	spa_pod_builder_string(b, SPA_KEY_AUDIO_POSITION);
+	spa_pod_builder_string(b, "[ ]");
+
+	spa_pod_builder_string(b, "api.alsa.period-size");
+	spa_pod_builder_int(b, state->default_period_size);
+
+	spa_pod_builder_string(b, "api.alsa.headroom");
+	spa_pod_builder_int(b, state->default_headroom);
+
+	spa_pod_builder_string(b, "api.alsa.start-delay");
+	spa_pod_builder_int(b, state->default_start_delay);
+
+	spa_pod_builder_string(b, "api.alsa.disable-mmap");
+	spa_pod_builder_bool(b, state->disable_mmap);
+
+	spa_pod_builder_string(b, "api.alsa.disable-batch");
+	spa_pod_builder_bool(b, state->disable_batch);
+
+	spa_pod_builder_string(b, "api.alsa.use-chmap");
+	spa_pod_builder_bool(b, state->props.use_chmap);
+
+	spa_pod_builder_string(b, "api.alsa.multi-rate");
+	spa_pod_builder_bool(b, state->multi_rate);
+
+	spa_pod_builder_pop(b, &f[0]);
+	return 0;
+}
+
+int spa_alsa_parse_prop_params(struct state *state, struct spa_pod *params)
+{
+	struct spa_pod_parser prs;
+	struct spa_pod_frame f;
+	int changed = 0;
+
+	if (params == NULL)
+		return 0;
+
+	spa_pod_parser_pod(&prs, params);
+	if (spa_pod_parser_push_struct(&prs, &f) < 0)
+		return 0;
+
+	while (true) {
+		const char *name;
+		struct spa_pod *pod;
+		char value[512];
+
+		if (spa_pod_parser_get_string(&prs, &name) < 0)
+			break;
+		spa_log_info(state->log, "%s", name);
+
+		if (spa_pod_parser_get_pod(&prs, &pod) < 0)
+			break;
+		if (spa_pod_is_string(pod)) {
+			spa_pod_copy_string(pod, sizeof(value), value);
+		} else if (spa_pod_is_int(pod)) {
+			snprintf(value, sizeof(value), "%u",
+					SPA_POD_VALUE(struct spa_pod_int, pod));
+		} else if (spa_pod_is_bool(pod)) {
+			snprintf(value, sizeof(value), "%s",
+					SPA_POD_VALUE(struct spa_pod_bool, pod) ?
+					"true" : "false");
+		} else
+			continue;
+
+		spa_alsa_set_param(state, name, value);
+		changed++;
+	}
+	if (changed > 0) {
+		state->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+		state->params[NODE_Props].user++;
+	}
+	return changed;
+}
+
 int spa_alsa_init(struct state *state, const struct spa_dict *info)
 {
 	uint32_t i;
@@ -104,34 +335,12 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 			state->card_index = atoi(s);
 		} else if (spa_streq(k, SPA_KEY_API_ALSA_OPEN_UCM)) {
 			state->open_ucm = spa_atob(s);
-		} else if (spa_streq(k, SPA_KEY_AUDIO_CHANNELS)) {
-			state->default_channels = atoi(s);
-		} else if (spa_streq(k, SPA_KEY_AUDIO_RATE)) {
-			state->default_rate = atoi(s);
-		} else if (spa_streq(k, SPA_KEY_AUDIO_FORMAT)) {
-			state->default_format = spa_alsa_format_from_name(s, strlen(s));
-		} else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
-			spa_alsa_parse_position(&state->default_pos, s, strlen(s));
 		} else if (spa_streq(k, "latency.internal.rate")) {
 			state->process_latency.rate = atoi(s);
 		} else if (spa_streq(k, "latency.internal.ns")) {
 			state->process_latency.ns = atoi(s);
-		} else if (spa_streq(k, "iec958.codecs")) {
-			spa_alsa_parse_iec958_codecs(&state->iec958_codecs, s, strlen(s));
-		} else if (spa_streq(k, "api.alsa.period-size")) {
-			state->default_period_size = atoi(s);
-		} else if (spa_streq(k, "api.alsa.headroom")) {
-			state->default_headroom = atoi(s);
-		} else if (spa_streq(k, "api.alsa.start-delay")) {
-			state->default_start_delay = atoi(s);
-		} else if (spa_streq(k, "api.alsa.disable-mmap")) {
-			state->disable_mmap = spa_atob(s);
-		} else if (spa_streq(k, "api.alsa.disable-batch")) {
-			state->disable_batch = spa_atob(s);
-		} else if (spa_streq(k, "api.alsa.use-chmap")) {
-			state->props.use_chmap = spa_atob(s);
-		} else if (spa_streq(k, "api.alsa.multi-rate")) {
-			state->multi_rate = spa_atob(s);
+		} else {
+			spa_alsa_set_param(state, k, s);
 		}
 	}
 

@@ -221,8 +221,12 @@ struct state {
 	struct spa_process_latency_info process_latency;
 };
 
-int
-spa_alsa_enum_format(struct state *state, int seq,
+struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
+		uint32_t idx, uint32_t id, struct spa_pod_builder *b);
+int spa_alsa_add_prop_params(struct state *state, struct spa_pod_builder *b);
+int spa_alsa_parse_prop_params(struct state *state, struct spa_pod *params);
+
+int spa_alsa_enum_format(struct state *state, int seq,
 		     uint32_t start, uint32_t num,
 		     const struct spa_pod *filter);
 

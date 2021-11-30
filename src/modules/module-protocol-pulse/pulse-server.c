@@ -1249,6 +1249,8 @@ static void stream_process(void *data)
 				}
 				spa_ringbuffer_read_update(&stream->ring, index);
 			}
+			pw_log_debug("%p: [%s] underrun read:%u avail:%d max:%u",
+					stream, client->name, index, avail, minreq);
 		} else {
 			if (avail > (int32_t)stream->attr.maxlength) {
 				uint32_t skip = avail - stream->attr.maxlength;

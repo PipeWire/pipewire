@@ -416,7 +416,6 @@ static struct spa_pod *get_prop_info(struct graph *graph, struct spa_pod_builder
 	spa_pod_builder_push_object(b, &f[0],
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
 	spa_pod_builder_add (b,
-			SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_START_CUSTOM + idx),
 			SPA_PROP_INFO_name, SPA_POD_String(name),
 			0);
 	spa_pod_builder_prop(b, SPA_PROP_INFO_type, 0);
@@ -531,30 +530,8 @@ static void param_props_changed(struct impl *impl, const struct spa_pod *param)
 	int changed = 0;
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
-		uint32_t idx;
-		float value;
-		struct port *port;
-
-		if (prop->key == SPA_PROP_params) {
+		if (prop->key == SPA_PROP_params)
 			changed += parse_params(graph, &prop->value);
-			continue;
-		}
-		if (prop->key < SPA_PROP_START_CUSTOM)
-			continue;
-		idx = prop->key - SPA_PROP_START_CUSTOM;
-		if (idx >= graph->n_control)
-			continue;
-
-		if (spa_pod_get_float(&prop->value, &value) < 0)
-			continue;
-
-		port = graph->control_port[idx];
-
-		if (port->control_data != value) {
-			port->control_data = value;
-			changed++;
-			pw_log_info("control %d to %f", idx, port->control_data);
-		}
 	}
 	if (changed > 0) {
 		uint8_t buffer[1024];

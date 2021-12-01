@@ -24,6 +24,7 @@
 
 #include "pwtest.h"
 
+#include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -464,6 +465,9 @@ find_in_journal(sd_journal *journal, const char *needle, char *out, size_t out_s
 				const char *d;
 				size_t l;
 				int r = sd_journal_get_data(journal, "MESSAGE", (const void **)&d, &l);
+				if (r == -ENOENT || r == -E2BIG || r == -EBADMSG)
+					continue;
+
 				pwtest_neg_errno_ok(r);
 				spa_scnprintf(buffer, sizeof(buffer), "%.*s", (int) l, d);
 				if (strstr(buffer, needle)) {

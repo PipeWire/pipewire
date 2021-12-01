@@ -996,6 +996,12 @@ error:
 		}
 	}
 
+	for (size_t i = 0; i < SPA_N_ELEMENTS(t->logs); i++) {
+		char *e = pw_array_add(&t->logs[i], 1);
+		spa_assert_se(e);
+		*e = '\0';
+	}
+
 	close_pipes(read_fds);
 	close_pipes(write_fds);
 

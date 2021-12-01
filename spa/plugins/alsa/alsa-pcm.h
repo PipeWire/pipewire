@@ -222,7 +222,7 @@ struct state {
 };
 
 struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
-		uint32_t idx, uint32_t id, struct spa_pod_builder *b);
+		uint32_t idx, struct spa_pod_builder *b);
 int spa_alsa_add_prop_params(struct state *state, struct spa_pod_builder *b);
 int spa_alsa_parse_prop_params(struct state *state, struct spa_pod *params);
 

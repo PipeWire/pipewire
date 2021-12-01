@@ -195,8 +195,7 @@ static int impl_node_enum_params(void *object, int seq,
 			}
 			SPA_FALLTHROUGH
 		default:
-			param = spa_alsa_enum_propinfo(this, result.index - 7,
-					SPA_PROP_START_CUSTOM + result.index - 6, &b);
+			param = spa_alsa_enum_propinfo(this, result.index - 7, &b);
 			if (param == NULL)
 				return 0;
 		}

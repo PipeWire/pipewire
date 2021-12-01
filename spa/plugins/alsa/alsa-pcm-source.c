@@ -181,8 +181,7 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(0LL, 0LL, INT64_MAX));
 			break;
 		default:
-			param = spa_alsa_enum_propinfo(this, result.index - 6,
-					SPA_PROP_START_CUSTOM + result.index - 5, &b);
+			param = spa_alsa_enum_propinfo(this, result.index - 6, &b);
 			if (param == NULL)
 				return 0;
 		}

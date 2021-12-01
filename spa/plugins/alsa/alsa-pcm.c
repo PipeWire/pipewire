@@ -150,15 +150,14 @@ static int position_to_string(struct channel_map *map, char *val, size_t len)
 }
 
 struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
-		uint32_t idx, uint32_t id, struct spa_pod_builder *b)
+		uint32_t idx, struct spa_pod_builder *b)
 {
 	struct spa_pod *param;
 
 	switch (idx) {
 	case 0:
 		param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
-			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String(SPA_KEY_AUDIO_CHANNELS),
 			SPA_PROP_INFO_description, SPA_POD_String("Audio Channels"),
 			SPA_PROP_INFO_type, SPA_POD_Int(state->default_channels),
@@ -166,8 +165,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 		break;
 	case 1:
 		param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
-			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String(SPA_KEY_AUDIO_RATE),
 			SPA_PROP_INFO_description, SPA_POD_String("Audio Rate"),
 			SPA_PROP_INFO_type, SPA_POD_Int(state->default_rate),
@@ -175,8 +173,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 		break;
 	case 2:
 		param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
-			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String(SPA_KEY_AUDIO_FORMAT),
 			SPA_PROP_INFO_description, SPA_POD_String("Audio Format"),
 			SPA_PROP_INFO_type, SPA_POD_String(
@@ -189,8 +186,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 		char buf[1024];
 		position_to_string(&state->default_pos, buf, sizeof(buf));
 		param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
-			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String(SPA_KEY_AUDIO_POSITION),
 			SPA_PROP_INFO_description, SPA_POD_String("Audio Position"),
 			SPA_PROP_INFO_type, SPA_POD_String(buf),
@@ -199,8 +195,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 	}
 	case 4:
 		param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
-			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.period-size"),
 			SPA_PROP_INFO_description, SPA_POD_String("Period Size"),
 			SPA_PROP_INFO_type, SPA_POD_Int(state->default_period_size),
@@ -208,8 +203,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 		break;
 	case 5:
 		param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
-			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.headroom"),
 			SPA_PROP_INFO_description, SPA_POD_String("Headroom"),
 			SPA_PROP_INFO_type, SPA_POD_Int(state->default_headroom),
@@ -217,8 +211,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 		break;
 	case 6:
 		param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
-			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.start-delay"),
 			SPA_PROP_INFO_description, SPA_POD_String("Start Delay"),
 			SPA_PROP_INFO_type, SPA_POD_Int(state->default_start_delay),
@@ -226,8 +219,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 		break;
 	case 7:
 		param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
-			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.disable-mmap"),
 			SPA_PROP_INFO_description, SPA_POD_String("Disable MMAP"),
 			SPA_PROP_INFO_type, SPA_POD_Bool(state->disable_mmap),
@@ -235,8 +227,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 		break;
 	case 8:
 		param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
-			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.disable-batch"),
 			SPA_PROP_INFO_description, SPA_POD_String("Disable Batch"),
 			SPA_PROP_INFO_type, SPA_POD_Bool(state->disable_batch),
@@ -244,8 +235,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 		break;
 	case 9:
 		param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
-			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.use-chmap"),
 			SPA_PROP_INFO_description, SPA_POD_String("Use the driver channelmap"),
 			SPA_PROP_INFO_type, SPA_POD_Bool(state->props.use_chmap),
@@ -253,8 +243,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 		break;
 	case 10:
 		param = spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_PropInfo, id,
-			SPA_PROP_INFO_id,   SPA_POD_Id(id),
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.multi-rate"),
 			SPA_PROP_INFO_description, SPA_POD_String("Support multiple rates"),
 			SPA_PROP_INFO_type, SPA_POD_Bool(state->multi_rate),

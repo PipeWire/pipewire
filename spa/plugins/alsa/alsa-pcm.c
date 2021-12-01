@@ -89,7 +89,7 @@ static void release_card(uint32_t index)
 	free(c);
 }
 
-int spa_alsa_set_param(struct state *state, const char *k, const char *s)
+static int alsa_set_param(struct state *state, const char *k, const char *s)
 {
 	int fmt_change = 0;
 	if (spa_streq(k, SPA_KEY_AUDIO_CHANNELS)) {
@@ -323,7 +323,6 @@ int spa_alsa_parse_prop_params(struct state *state, struct spa_pod *params)
 
 		if (spa_pod_parser_get_string(&prs, &name) < 0)
 			break;
-		spa_log_info(state->log, "%s", name);
 
 		if (spa_pod_parser_get_pod(&prs, &pod) < 0)
 			break;
@@ -339,7 +338,8 @@ int spa_alsa_parse_prop_params(struct state *state, struct spa_pod *params)
 		} else
 			continue;
 
-		spa_alsa_set_param(state, name, value);
+		spa_log_debug(state->log, "key:'%s' val:'%s'", name, value);
+		alsa_set_param(state, name, value);
 		changed++;
 	}
 	if (changed > 0) {
@@ -369,7 +369,7 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 		} else if (spa_streq(k, "latency.internal.ns")) {
 			state->process_latency.ns = atoi(s);
 		} else {
-			spa_alsa_set_param(state, k, s);
+			alsa_set_param(state, k, s);
 		}
 	}
 

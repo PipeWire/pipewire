@@ -856,6 +856,9 @@ static void follower_info(void *data, const struct spa_node_info *info)
 			uint32_t idx;
 
 			switch (info->params[i].id) {
+			case SPA_PARAM_PropInfo:
+				idx = IDX_PropInfo;
+				break;
 			case SPA_PARAM_Props:
 				idx = IDX_Props;
 				break;

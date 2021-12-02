@@ -524,6 +524,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	int changed = 0;
 	bool have_channel_volume = false;
 	bool have_soft_volume = false;
+	uint32_t n;
 
 	if (param == NULL)
 		return 0;
@@ -541,16 +542,19 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			}
 			break;
 		case SPA_PROP_channelVolumes:
-			if ((p->channel.n_volumes = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					p->channel.volumes, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+				p->channel.n_volumes = n;
 				changed++;
 				have_channel_volume = true;
 			}
 			break;
 		case SPA_PROP_channelMap:
-			if ((p->n_channels = spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
-					p->channel_map, SPA_AUDIO_MAX_CHANNELS)) > 0)
+			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
+					p->channel_map, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+				p->n_channels = n;
 				changed++;
+			}
 			break;
 		case SPA_PROP_softMute:
 			if (spa_pod_get_bool(&prop->value, &p->soft.mute) == 0) {
@@ -559,8 +563,9 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			}
 			break;
 		case SPA_PROP_softVolumes:
-			if ((p->soft.n_volumes = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					p->soft.volumes, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+				p->soft.n_volumes = n;
 				changed++;
 				have_soft_volume = true;
 			}
@@ -570,9 +575,11 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 				changed++;
 			break;
 		case SPA_PROP_monitorVolumes:
-			if ((p->monitor.n_volumes = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					p->monitor.volumes, SPA_AUDIO_MAX_CHANNELS)) > 0)
+			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+					p->monitor.volumes, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+				p->monitor.n_volumes = n;
 				changed++;
+			}
 			break;
 		default:
 			break;

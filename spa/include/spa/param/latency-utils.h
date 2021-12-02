@@ -34,6 +34,8 @@ extern "C" {
  * \{
  */
 
+#include <float.h>
+
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
 #include <spa/param/param.h>
@@ -63,20 +65,39 @@ spa_latency_info_compare(const struct spa_latency_info *a, struct spa_latency_in
 	return 1;
 }
 
+static inline void
+spa_latency_info_combine_start(struct spa_latency_info *info, enum spa_direction direction)
+{
+	*info = SPA_LATENCY_INFO(direction,
+			.min_quantum = FLT_MAX,
+			.min_rate = UINT32_MAX,
+			.min_ns = UINT64_MAX);
+}
+static inline void
+spa_latency_info_combine_finish(struct spa_latency_info *info)
+{
+	if (info->min_quantum == FLT_MAX)
+		info->min_quantum = 0;
+	if (info->min_rate == UINT32_MAX)
+		info->min_rate = 0;
+	if (info->min_ns == UINT64_MAX)
+		info->min_ns = 0;
+}
+
 static inline int
 spa_latency_info_combine(struct spa_latency_info *info, const struct spa_latency_info *other)
 {
 	if (info->direction != other->direction)
 		return -EINVAL;
-	if (info->min_quantum == 0.0f || other->min_quantum < info->min_quantum)
+	if (other->min_quantum < info->min_quantum)
 		info->min_quantum = other->min_quantum;
 	if (other->max_quantum > info->max_quantum)
 		info->max_quantum = other->max_quantum;
-	if (info->min_rate == 0U || other->min_rate < info->min_rate)
+	if (other->min_rate < info->min_rate)
 		info->min_rate = other->min_rate;
 	if (other->max_rate > info->max_rate)
 		info->max_rate = other->max_rate;
-	if (info->min_ns == 0UL || other->min_ns < info->min_ns)
+	if (other->min_ns < info->min_ns)
 		info->min_ns = other->min_ns;
 	if (other->max_ns > info->max_ns)
 		info->max_ns = other->max_ns;

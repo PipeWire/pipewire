@@ -1318,7 +1318,7 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 	if (port->destroying)
 		return 0;
 
-	latency = SPA_LATENCY_INFO(SPA_DIRECTION_REVERSE(port->direction));
+	spa_latency_info_combine_start(&latency, SPA_DIRECTION_REVERSE(port->direction));
 
 	if (port->direction == PW_DIRECTION_OUTPUT) {
 		spa_list_for_each(l, &port->links, output_link) {
@@ -1341,6 +1341,7 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 					latency.min_ns, latency.max_ns);
 		}
 	}
+	spa_latency_info_combine_finish(&latency);
 
 	current = &port->latency[latency.direction];
 

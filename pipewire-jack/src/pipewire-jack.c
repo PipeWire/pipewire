@@ -1926,11 +1926,14 @@ static void default_latency(struct client *c, enum spa_direction direction,
 	enum spa_direction other;
 	struct port *p;
 
-	*latency = SPA_LATENCY_INFO(direction);
 	other = SPA_DIRECTION_REVERSE(direction);
+
+	spa_latency_info_combine_start(latency, direction);
 
 	spa_list_for_each(p, &c->ports[other], link)
 		spa_latency_info_combine(latency, &p->object->port.latency[direction]);
+
+	spa_latency_info_combine_finish(latency);
 }
 
 /* called from thread-loop */

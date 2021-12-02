@@ -769,13 +769,13 @@ static int default_latency(struct filter *impl, struct port *port, enum spa_dire
 	struct spa_latency_info info;
 	struct port *p;
 
-	info = SPA_LATENCY_INFO(direction);
-
+	spa_latency_info_combine_start(&info, direction);
 	spa_list_for_each(p, &impl->port_list, link) {
 		if (p->direction == direction)
 			continue;
 		spa_latency_info_combine(&info, &p->latency[direction]);
 	}
+	spa_latency_info_combine_finish(&info);
 
 	spa_process_latency_info_add(&impl->process_latency, &info);
 

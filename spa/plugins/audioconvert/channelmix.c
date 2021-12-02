@@ -579,12 +579,14 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 		}
 	}
 	if (changed) {
+		struct port *port = GET_IN_PORT(this, 0);
 		if (have_soft_volume)
 			p->have_soft_volume = true;
 		else if (have_channel_volume)
 			p->have_soft_volume = false;
 
-		remap_volumes(this, &GET_IN_PORT(this, 0)->format);
+		if (port->have_format)
+			remap_volumes(this, &port->format);
 		set_volume(this);
 	}
 	return changed;

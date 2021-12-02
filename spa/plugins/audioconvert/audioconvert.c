@@ -908,7 +908,7 @@ impl_node_add_listener(void *object,
 {
 	struct impl *this = object;
 	struct spa_hook_list save;
-	struct spa_hook l[4];
+	struct spa_hook l[3];
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -924,18 +924,15 @@ impl_node_add_listener(void *object,
 				&l[0], &fmt_input_events, this);
 	spa_node_add_listener(this->channelmix,
 			&l[1], &channelmix_events, this);
-	spa_node_add_listener(this->resample,
-			&l[2], &resample_events, this);
 	if (this->fmt[SPA_DIRECTION_OUTPUT])
 		spa_node_add_listener(this->fmt[SPA_DIRECTION_OUTPUT],
-				&l[3], &fmt_output_events, this);
+				&l[2], &fmt_output_events, this);
 
 	if (this->fmt[SPA_DIRECTION_INPUT])
 		spa_hook_remove(&l[0]);
 	spa_hook_remove(&l[1]);
-	spa_hook_remove(&l[2]);
 	if (this->fmt[SPA_DIRECTION_OUTPUT])
-		spa_hook_remove(&l[3]);
+		spa_hook_remove(&l[2]);
 
 	this->add_listener = false;
 

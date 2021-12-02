@@ -252,6 +252,9 @@ static void expose_settings(struct pw_context *context, struct pw_impl_metadata 
 		}
 		o += r;
 	}
+	if (s->n_clock_rates == 0)
+		snprintf(rates, sizeof(rates), "%d", s->clock_rate);
+
 	pw_impl_metadata_set_propertyf(metadata,
 			PW_ID_CORE, "clock.allowed-rates", "", "[ %s ]", rates);
 	pw_impl_metadata_set_propertyf(metadata,

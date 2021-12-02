@@ -451,6 +451,33 @@ static int setup_buffers(struct impl *this, enum spa_direction direction)
 	return 0;
 }
 
+static int enum_params(struct impl *this,
+				 uint32_t id,
+				 struct spa_result_node_params *result,
+				 const struct spa_pod *filter,
+				 struct spa_pod_builder *builder)
+{
+	int res;
+	result->param = NULL;
+	result->next = result->index;
+	if (result->next < 0x1000) {
+		if (this->fmt[SPA_DIRECTION_INPUT] == this->merger &&
+		    (res = spa_node_enum_params_sync(this->merger,
+				id, &result->next, filter, &result->param, builder)) == 1) {
+			return res;
+		}
+		result->next = 0x1000;
+	}
+	if (result->next >= 0x1000) {
+		result->next &= 0xfff;
+		if ((res = spa_node_enum_params_sync(this->channelmix,
+				id, &result->next, filter, &result->param, builder)) == 1) {
+			result->next |= 0x1000;
+			return res;
+		}
+	}
+	return 0;
+}
 static int impl_node_enum_params(void *object, int seq,
 				 uint32_t id, uint32_t start, uint32_t num,
 				 const struct spa_pod *filter)
@@ -461,6 +488,7 @@ static int impl_node_enum_params(void *object, int seq,
 	uint8_t buffer[1024];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
+	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
@@ -468,6 +496,7 @@ static int impl_node_enum_params(void *object, int seq,
 	result.id = id;
 	result.next = start;
       next:
+	res = 0;
 	result.index = result.next++;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -524,21 +553,23 @@ static int impl_node_enum_params(void *object, int seq,
 		break;
 
 	case SPA_PARAM_PropInfo:
-		return spa_node_enum_params(this->channelmix, seq, id, start, num, filter);
+		if ((res = enum_params(this, id, &result, filter, &b)) != 1)
+			return res;
+		break;
 
 	case SPA_PARAM_Props:
-		if (this->fmt[SPA_DIRECTION_INPUT] == this->merger)
-			return spa_node_enum_params(this->merger, seq, id, start, num, filter);
-		else
-			return spa_node_enum_params(this->channelmix, seq, id, start, num, filter);
+		if ((res = enum_params(this, id, &result, filter, &b)) != 1)
+			return res;
+		break;
 
 	default:
 		return -ENOENT;
 	}
 
-	if (spa_pod_filter(&b, &result.param, param, filter) < 0)
-		goto next;
-
+	if (res == 0) {
+		if (spa_pod_filter(&b, &result.param, param, filter) < 0)
+			goto next;
+	}
 	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 	if (++count != num)
@@ -665,7 +696,7 @@ static const struct spa_node_events channelmix_events = {
 	.result = on_node_result,
 };
 
-static const struct spa_node_events resample_events = {
+static const struct spa_node_events proxy_events = {
 	SPA_VERSION_NODE_EVENTS,
 	.result = on_node_result,
 };
@@ -1378,8 +1409,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_node_add_listener(this->channelmix,
 			&this->listener[0], &channelmix_events, this);
-	spa_node_add_listener(this->resample,
-			&this->listener[1], &resample_events, this);
+	spa_node_add_listener(this->merger,
+			&this->listener[1], &proxy_events, this);
 
 	return 0;
 }

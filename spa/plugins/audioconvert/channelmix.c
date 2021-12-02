@@ -462,6 +462,42 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume, 0.0, 10.0),
 				SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
 			break;
+		case 8:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.normalize"),
+				SPA_PROP_INFO_description, SPA_POD_String("Normalize Volumes"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
+					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_NORMALIZE)),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 9:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.mix-lfe"),
+				SPA_PROP_INFO_description, SPA_POD_String("Mix LFE into channels"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
+					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_MIX_LFE)),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 10:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.upmix"),
+				SPA_PROP_INFO_description, SPA_POD_String("Enable upmixing"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
+					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_UPMIX)),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 11:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.lfe-cutoff"),
+				SPA_PROP_INFO_description, SPA_POD_String("LFE cutoff frequency"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+					this->mix.lfe_cutoff, 0.0, 1000.0),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
 		default:
 			return 0;
 		}
@@ -470,11 +506,13 @@ static int impl_node_enum_params(void *object, int seq,
 	case SPA_PARAM_Props:
 	{
 		struct props *p = &this->props;
+		struct spa_pod_frame f[2];
 
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_Props, id,
+			spa_pod_builder_push_object(&b, &f[0],
+                                SPA_TYPE_OBJECT_Props, id);
+			spa_pod_builder_add(&b,
 				SPA_PROP_volume,		SPA_POD_Float(p->volume),
 				SPA_PROP_mute,			SPA_POD_Bool(p->channel.mute),
 				SPA_PROP_channelVolumes,	SPA_POD_Array(sizeof(float),
@@ -494,7 +532,23 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_monitorVolumes,	SPA_POD_Array(sizeof(float),
 									SPA_TYPE_Float,
 									p->monitor.n_volumes,
-									p->monitor.volumes));
+									p->monitor.volumes),
+				0);
+			spa_pod_builder_prop(&b, SPA_PROP_params, 0);
+			spa_pod_builder_push_struct(&b, &f[1]);
+			spa_pod_builder_string(&b, "channelmix.normalize");
+			spa_pod_builder_bool(&b, SPA_FLAG_IS_SET(this->mix.options,
+						CHANNELMIX_OPTION_NORMALIZE));
+			spa_pod_builder_string(&b, "channelmix.mix-lfe");
+			spa_pod_builder_bool(&b, SPA_FLAG_IS_SET(this->mix.options,
+						CHANNELMIX_OPTION_MIX_LFE));
+			spa_pod_builder_string(&b, "channelmix.upmix");
+			spa_pod_builder_bool(&b, SPA_FLAG_IS_SET(this->mix.options,
+						CHANNELMIX_OPTION_UPMIX));
+			spa_pod_builder_string(&b, "channelmix.lfe-cutoff");
+			spa_pod_builder_float(&b, this->mix.lfe_cutoff);
+			spa_pod_builder_pop(&b, &f[1]);
+			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
 		default:
 			return 0;
@@ -513,6 +567,60 @@ static int impl_node_enum_params(void *object, int seq,
 	if (++count != num)
 		goto next;
 
+	return 0;
+}
+
+static int channelmix_set_param(struct impl *this, const char *k, const char *s)
+{
+	if (spa_streq(k, "channelmix.normalize"))
+		SPA_FLAG_UPDATE(this->mix.options, CHANNELMIX_OPTION_NORMALIZE, spa_atob(s));
+	else if (spa_streq(k, "channelmix.mix-lfe"))
+		SPA_FLAG_UPDATE(this->mix.options, CHANNELMIX_OPTION_MIX_LFE, spa_atob(s));
+	else if (spa_streq(k, "channelmix.upmix"))
+		SPA_FLAG_UPDATE(this->mix.options, CHANNELMIX_OPTION_UPMIX, spa_atob(s));
+	else if (spa_streq(k, "channelmix.lfe-cutoff"))
+		this->mix.lfe_cutoff = atoi(s);
+	return 0;
+}
+
+static int parse_prop_params(struct impl *this, struct spa_pod *params)
+{
+	struct spa_pod_parser prs;
+	struct spa_pod_frame f;
+
+	spa_pod_parser_pod(&prs, params);
+	if (spa_pod_parser_push_struct(&prs, &f) < 0)
+		return 0;
+
+	while (true) {
+		const char *name;
+		struct spa_pod *pod;
+		char value[512];
+
+		if (spa_pod_parser_get_string(&prs, &name) < 0)
+			break;
+
+		if (spa_pod_parser_get_pod(&prs, &pod) < 0)
+			break;
+
+		if (spa_pod_is_string(pod)) {
+			spa_pod_copy_string(pod, sizeof(value), value);
+		} else if (spa_pod_is_float(pod)) {
+			snprintf(value, sizeof(value), "%f",
+					SPA_POD_VALUE(struct spa_pod_float, pod));
+		} else if (spa_pod_is_int(pod)) {
+			snprintf(value, sizeof(value), "%d",
+					SPA_POD_VALUE(struct spa_pod_int, pod));
+		} else if (spa_pod_is_bool(pod)) {
+			snprintf(value, sizeof(value), "%s",
+					SPA_POD_VALUE(struct spa_pod_bool, pod) ?
+					"true" : "false");
+		} else
+			continue;
+
+		spa_log_info(this->log, "key:'%s' val:'%s'", name, value);
+		channelmix_set_param(this, name, value);
+	}
 	return 0;
 }
 
@@ -580,6 +688,9 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 				p->monitor.n_volumes = n;
 				changed++;
 			}
+			break;
+		case SPA_PROP_params:
+			changed += parse_prop_params(this, &prop->value);
 			break;
 		default:
 			break;
@@ -1436,16 +1547,11 @@ impl_init(const struct spa_handle_factory *factory,
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
-		if (spa_streq(k, "channelmix.normalize") && spa_atob(s))
-			this->mix.options |= CHANNELMIX_OPTION_NORMALIZE;
-		if (spa_streq(k, "channelmix.mix-lfe") && spa_atob(s))
-			this->mix.options |= CHANNELMIX_OPTION_MIX_LFE;
-		if (spa_streq(k, "channelmix.upmix") && spa_atob(s))
-			this->mix.options |= CHANNELMIX_OPTION_UPMIX;
-		if (spa_streq(k, "channelmix.lfe-cutoff"))
-			this->mix.lfe_cutoff = atoi(s);
 		if (spa_streq(k, SPA_KEY_AUDIO_POSITION))
 			this->props.n_channels = parse_position(this->props.channel_map, s, strlen(s));
+		else
+			channelmix_set_param(this, k, s);
+
 	}
 	this->props.channel.n_volumes = this->props.n_channels;
 	this->props.soft.n_volumes = this->props.n_channels;

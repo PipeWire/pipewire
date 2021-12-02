@@ -357,6 +357,15 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume, 0.0, 10.0),
 				SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
 			break;
+		case 8:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("monitor.channel-volumes"),
+				SPA_PROP_INFO_description, SPA_POD_String("Monitor channel volume"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
+					this->monitor_channel_volumes),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
 		default:
 			return 0;
 		}
@@ -366,11 +375,13 @@ static int impl_node_enum_params(void *object, int seq,
 	case SPA_PARAM_Props:
 	{
 		struct props *p = &this->props;
+		struct spa_pod_frame f[2];
 
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_Props, id,
+			spa_pod_builder_push_object(&b, &f[0],
+                                SPA_TYPE_OBJECT_Props, id);
+			spa_pod_builder_add(&b,
 				SPA_PROP_volume,		SPA_POD_Float(p->volume),
 				SPA_PROP_mute,			SPA_POD_Bool(p->channel.mute),
 				SPA_PROP_channelVolumes,	SPA_POD_Array(sizeof(float),
@@ -390,7 +401,14 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_monitorVolumes,	SPA_POD_Array(sizeof(float),
 									SPA_TYPE_Float,
 									p->monitor.n_volumes,
-									p->monitor.volumes));
+									p->monitor.volumes),
+				0);
+			spa_pod_builder_prop(&b, SPA_PROP_params, 0);
+			spa_pod_builder_push_struct(&b, &f[1]);
+			spa_pod_builder_string(&b, "monitor.channel-volumes");
+			spa_pod_builder_bool(&b, this->monitor_channel_volumes);
+			spa_pod_builder_pop(&b, &f[1]);
+			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
 		default:
 			return 0;
@@ -523,6 +541,9 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 				p->monitor.n_volumes = n;
 				changed++;
 			}
+			break;
+		case SPA_PROP_params:
+			parse_prop_params(this, &prop->value);
 			break;
 		default:
 			break;
@@ -1498,7 +1519,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	struct port *port;
-	const char *str;
+	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -1515,10 +1536,10 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->cpu)
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 
-	this->monitor_channel_volumes = false;
-	if (info) {
-		if ((str = spa_dict_lookup(info, "monitor.channel-volumes")) != NULL)
-			this->monitor_channel_volumes = spa_atob(str);
+	for (i = 0; info && i < info->n_items; i++) {
+		const char *k = info->items[i].key;
+		const char *s = info->items[i].value;
+		merger_set_param(this, k, s);
 	}
 
 	this->latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);

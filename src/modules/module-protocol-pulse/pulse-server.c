@@ -490,6 +490,9 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 	items[4] = SPA_DICT_ITEM_INIT("pulse.attr.minreq", attr_minreq);
 	pw_stream_update_properties(stream->stream, &SPA_DICT_INIT(items, 5));
 
+	if (stream->attr.prebuf > 0)
+		stream->in_prebuf = true;
+
 	missing = stream_pop_missing(stream);
 
 	pw_log_info("[%s] reply CREATE_PLAYBACK_STREAM tag:%u missing:%u latency:%s",

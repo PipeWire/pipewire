@@ -117,7 +117,7 @@ static bool stream_prebuf_active(struct stream *stream)
 	if (stream->in_prebuf)
 		return avail < (int32_t) stream->attr.prebuf;
 	else
-		return stream->attr.prebuf > 0 && avail >= 0;
+		return stream->attr.prebuf > 0 && avail <= 0;
 }
 
 uint32_t stream_pop_missing(struct stream *stream)

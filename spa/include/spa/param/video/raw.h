@@ -137,6 +137,15 @@ enum spa_video_format {
 	SPA_VIDEO_FORMAT_RGBA_F16,
 	SPA_VIDEO_FORMAT_RGBA_F32,
 
+	SPA_VIDEO_FORMAT_xRGB_210LE,	/**< 32-bit x:R:G:B 2:10:10:10 little endian */
+	SPA_VIDEO_FORMAT_xBGR_210LE,	/**< 32-bit x:B:G:R 2:10:10:10 little endian */
+	SPA_VIDEO_FORMAT_RGBx_102LE,	/**< 32-bit R:G:B:x 10:10:10:2 little endian */
+	SPA_VIDEO_FORMAT_BGRx_102LE,	/**< 32-bit B:G:R:x 10:10:10:2 little endian */
+	SPA_VIDEO_FORMAT_ARGB_210LE,	/**< 32-bit A:R:G:B 2:10:10:10 little endian */
+	SPA_VIDEO_FORMAT_ABGR_210LE,	/**< 32-bit A:B:G:R 2:10:10:10 little endian */
+	SPA_VIDEO_FORMAT_RGBA_102LE,	/**< 32-bit R:G:B:A 10:10:10:2 little endian */
+	SPA_VIDEO_FORMAT_BGRA_102LE,	/**< 32-bit B:G:R:A 10:10:10:2 little endian */
+
 	/* Aliases */
 	SPA_VIDEO_FORMAT_DSP_F32 = SPA_VIDEO_FORMAT_RGBA_F32,
 };

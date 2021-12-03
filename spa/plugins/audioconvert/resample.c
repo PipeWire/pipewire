@@ -271,6 +271,15 @@ static void update_rate_match(struct impl *this, bool passthrough, uint32_t out_
 	}
 }
 
+static void recalc_rate_match(struct impl *this)
+{
+	bool passthrough = this->resample.i_rate == this->resample.o_rate &&
+		(this->io_rate_match == NULL ||
+		 !SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE));
+	uint32_t out_size = this->io_position ? this->io_position->clock.duration : 1024;
+	update_rate_match(this, passthrough, out_size, 0);
+}
+
 static void reset_node(struct impl *this)
 {
 	struct port *outport, *inport;
@@ -292,15 +301,9 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
-	{
-		bool passthrough = this->resample.i_rate == this->resample.o_rate &&
-			(this->io_rate_match == NULL ||
-			 !SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE));
-		uint32_t out_size = this->io_position ? this->io_position->clock.duration : 1024;
+		recalc_rate_match(this);
 		this->started = true;
-		update_rate_match(this, passthrough, out_size, 0);
 		break;
-	}
 	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Flush:
 		reset_node(this);
@@ -814,9 +817,10 @@ static int impl_node_process(void *object)
 		outio->buffer_id = SPA_ID_INVALID;
 	}
 	if (SPA_UNLIKELY(inio->status != SPA_STATUS_HAVE_DATA)) {
-		if (inio->status != SPA_STATUS_DRAINED || this->drained)
+		if (inio->status != SPA_STATUS_DRAINED || this->drained) {
+			recalc_rate_match(this);
 			return outio->status = inio->status;
-
+		}
 		inio->buffer_id = 0;
 		inport->buffers[0].outbuf->datas[0].chunk->size = 0;
 	}

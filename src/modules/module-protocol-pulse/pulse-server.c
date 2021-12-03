@@ -1096,6 +1096,7 @@ struct process_data {
 	uint32_t underrun_for;
 	uint32_t playing_for;
 	uint32_t missing;
+	uint32_t maxmissing;
 	unsigned int underrun:1;
 };
 
@@ -1134,7 +1135,7 @@ do_process_done(struct spa_loop *loop,
 				stream_send_started(stream);
 		}
 		stream->missing += pd->missing;
-		stream->missing = SPA_MIN(stream->missing, stream->attr.tlength);
+		stream->missing = SPA_MIN(stream->missing, pd->maxmissing);
 		stream->playing_for += pd->playing_for;
 		if (stream->underrun_for != (uint64_t)-1)
 			stream->underrun_for += pd->underrun_for;
@@ -1227,6 +1228,8 @@ static void stream_process(void *data)
 			minreq = stream->rate_match->size * stream->frame_size;
 		if (minreq == 0)
 			minreq = stream->attr.minreq;
+
+		pd.maxmissing = SPA_MAX(minreq, stream->attr.tlength);
 
 		if (avail < (int32_t)minreq || stream->corked) {
 			/* underrun, produce a silence buffer */

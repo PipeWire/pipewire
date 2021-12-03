@@ -5027,9 +5027,8 @@ void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_
 	struct client *c;
 	enum spa_direction direction;
 	struct spa_latency_info *current, latency;
-	jack_nframes_t nframes, rate;
+	jack_nframes_t nframes;
 	struct port *p;
-	uint32_t lat;
 
 	spa_return_if_fail(o != NULL);
 	if (o->type != INTERFACE_Port || o->client == NULL)
@@ -5043,30 +5042,21 @@ void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_
 
 	pw_log_info("%p: %s set %d latency range %d %d", c, o->port.name, mode, range->min, range->max);
 
-	default_latency(c, direction, &latency);
+	latency = SPA_LATENCY_INFO(direction);
 
 	nframes = jack_get_buffer_size((jack_client_t*)c);
-	rate = jack_get_sample_rate((jack_client_t*)c);
 
 	latency.min_rate = range->min;
-	lat = latency.min_quantum * nframes;
-	if (latency.min_rate >= lat)
-		latency.min_rate -= lat;
-	else
-		latency.min_quantum = 0;
-	lat = (latency.min_ns * rate) / SPA_NSEC_PER_SEC;
-	if (latency.min_rate >= lat)
-		latency.min_rate -= lat;
+	if (latency.min_rate >= nframes) {
+		latency.min_quantum = latency.min_rate / nframes;
+		latency.min_rate %= nframes;
+	}
 
 	latency.max_rate = range->max;
-	lat = latency.max_quantum * nframes;
-	if (latency.max_rate >= lat)
-		latency.max_rate -= lat;
-	else
-		latency.max_quantum = 0;
-	lat = (latency.max_ns * rate) / SPA_NSEC_PER_SEC;
-	if (latency.max_rate >= lat)
-		latency.max_rate -= lat;
+	if (latency.max_rate >= nframes) {
+		latency.max_quantum = latency.max_rate / nframes;
+		latency.max_rate %= nframes;
+	}
 
 	current = &o->port.latency[direction];
 
@@ -5075,7 +5065,8 @@ void jack_port_set_latency_range (jack_port_t *port, jack_latency_callback_mode_
 	if (spa_latency_info_compare(current, &latency) == 0)
 		return;
 
-	pw_log_info("client %p: update %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, c,
+	pw_log_info("%p: %s update %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64, c,
+			o->port.name,
 			latency.direction == SPA_DIRECTION_INPUT ? "playback" : "capture",
 			latency.min_quantum, latency.max_quantum,
 			latency.min_rate, latency.max_rate,

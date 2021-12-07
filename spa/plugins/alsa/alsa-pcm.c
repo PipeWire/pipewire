@@ -1596,10 +1596,10 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		state->base_time = state->next_time;
 
 		spa_log_debug(state->log, "%p: follower:%d match:%d rate:%f "
-				"bw:%f thr:%d del:%ld target:%ld err:%f (%f %f %f)",
+				"bw:%f thr:%u del:%ld target:%ld err:%f",
 				state, follower, state->matching, corr, state->dll.bw,
 				state->threshold, delay, target,
-				err, state->dll.z1, state->dll.z2, state->dll.z3);
+				err);
 	}
 
 	if (state->rate_match) {
@@ -1622,7 +1622,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 		state->clock->next_nsec = state->next_time;
 	}
 
-	spa_log_trace_fp(state->log, "%p: follower:%d %"PRIu64" %f %ld %f %f %d",
+	spa_log_trace_fp(state->log, "%p: follower:%d %"PRIu64" %f %ld %f %f %u",
 			state, follower, nsec, corr, delay, err, state->threshold * corr,
 			state->threshold);
 
@@ -1684,9 +1684,8 @@ int spa_alsa_write(struct state *state)
 			return res;
 
 		if (SPA_UNLIKELY(!state->alsa_recovering && delay > target + state->threshold)) {
-			spa_log_warn(state->log, "%s: follower delay:%ld target:%ld resync %f %f %f",
-					state->props.device, delay, target + state->threshold,
-					state->dll.z1, state->dll.z2, state->dll.z3);
+			spa_log_warn(state->log, "%s: follower delay:%ld target:%ld thr:%u, resync",
+					state->props.device, delay, target, state->threshold);
 			spa_dll_init(&state->dll);
 			state->alsa_sync = true;
 		}
@@ -1941,15 +1940,14 @@ int spa_alsa_read(struct state *state)
 			return res;
 
 		if (!state->alsa_recovering && (delay < target / 2 || delay > target * 2)) {
-			spa_log_warn(state->log, "%s: follower delay:%lu target:%lu resync %f %f %f",
-					state->props.device, delay, target, state->dll.z1,
-					state->dll.z2, state->dll.z3);
+			spa_log_warn(state->log, "%s: follower delay:%lu target:%lu thr:%u, resync",
+					state->props.device, delay, target, threshold);
 			spa_dll_init(&state->dll);
 			state->alsa_sync = true;
 		}
 		if (state->alsa_sync) {
-			spa_log_warn(state->log, "%s: follower resync %ld %d %ld",
-					state->props.device, delay, threshold, target);
+			spa_log_warn(state->log, "%s: follower resync delay:%ld target:%ld thr:%u",
+					state->props.device, delay, target, threshold);
 			if (delay < target)
 				snd_pcm_rewind(state->hndl, target - delay);
 			else if (delay > target)

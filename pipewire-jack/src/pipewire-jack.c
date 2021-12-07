@@ -1279,7 +1279,7 @@ static inline uint32_t cycle_run(struct client *c)
 		break;
 	}
 	if (SPA_UNLIKELY(cmd > 1))
-		pw_log_warn("%p: missed %"PRIu64" wakeups", c, cmd - 1);
+		pw_log_info("%p: missed %"PRIu64" wakeups", c, cmd - 1);
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	activation->status = PW_NODE_ACTIVATION_AWAKE;

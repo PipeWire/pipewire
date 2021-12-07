@@ -1124,8 +1124,11 @@ static void reset_position(struct pw_impl_node *this, struct spa_io_position *po
 	uint32_t quantum = s->clock_force_quantum == 0 ? s->clock_quantum : s->clock_force_quantum;
 	uint32_t rate = s->clock_force_rate == 0 ? s->clock_rate : s->clock_force_rate;
 
-	pos->clock.rate = SPA_FRACTION(1, rate);
-	pos->clock.duration = quantum;
+	this->current_rate = SPA_FRACTION(1, rate);
+	this->current_quantum = quantum;
+
+	pos->clock.rate = this->current_rate;
+	pos->clock.duration = this->current_quantum;
 	pos->video.flags = SPA_IO_VIDEO_SIZE_VALID;
 	pos->video.size = s->video_size;
 	pos->video.stride = pos->video.size.width * 16;
@@ -1578,6 +1581,9 @@ static int node_ready(void *data, int status)
 			}
 			node->rt.target.signal(node->rt.target.data);
 		}
+
+		node->rt.position->clock.duration = node->current_quantum;
+		node->rt.position->clock.rate = node->current_rate;
 
 		sync_type = check_updates(node, &reposition_owner);
 		owner[0] = ATOMIC_LOAD(a->segment_owner[0]);

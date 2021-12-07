@@ -728,6 +728,8 @@ struct pw_impl_node {
 
 		struct ratelimit rate_limit;
 	} rt;
+	struct spa_fraction current_rate;
+	uint64_t current_quantum;
 
         void *user_data;                /**< extra user data */
 };

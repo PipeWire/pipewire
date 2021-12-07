@@ -1189,7 +1189,7 @@ again:
 		if (force_rate)
 			lock_rate = false;
 
-		current_rate = n->rt.position->clock.rate.denom;
+		current_rate = n->current_rate.denom;
 		if (target_rate != current_rate && lock_rate)
 			target_rate = current_rate;
 		else if (target_rate != current_rate && !force_rate &&
@@ -1200,7 +1200,7 @@ again:
 			pw_log_info("(%s-%u) state:%s new rate:%u->%u",
 					n->name, n->info.id,
 					pw_node_state_as_string(n->info.state),
-					n->rt.position->clock.rate.denom,
+					n->current_rate.denom,
 					target_rate);
 
 			if (force_rate) {
@@ -1210,7 +1210,7 @@ again:
 				if (n->info.state >= PW_NODE_STATE_IDLE)
 					suspend_driver(context, n);
 			}
-			n->rt.position->clock.rate = SPA_FRACTION(1, target_rate);
+			n->current_rate = SPA_FRACTION(1, target_rate);
 			current_rate = target_rate;
 			/* we might be suspended now and the links need to be prepared again */
 			goto again;
@@ -1236,12 +1236,12 @@ again:
 		if (context->settings.clock_power_of_two_quantum)
 			quantum = flp2(quantum);
 
-		if (running && quantum != n->rt.position->clock.duration && !lock_quantum) {
+		if (running && quantum != n->current_quantum && !lock_quantum) {
 			pw_log_info("(%s-%u) new quantum:%"PRIu64"->%u",
 					n->name, n->info.id,
-					n->rt.position->clock.duration,
+					n->current_quantum,
 					quantum);
-			n->rt.position->clock.duration = quantum;
+			n->current_quantum = quantum;
 		}
 
 		pw_log_debug("%p: driving %p running:%d passive:%d quantum:%u '%s'",

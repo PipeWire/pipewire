@@ -1228,12 +1228,8 @@ static inline int check_buffer_frames(struct client *c, struct spa_io_position *
 	if (SPA_UNLIKELY(buffer_frames != c->buffer_frames)) {
 		pw_log_info("%p: bufferframes old:%d new:%d cb:%p", c,
 				c->buffer_frames, buffer_frames, c->bufsize_callback);
-		if (c->bufsize_callback != NULL || c->latency_callback != NULL) {
-			pw_loop_invoke(c->context.l, do_buffer_frames, 0,
-					&buffer_frames, sizeof(buffer_frames), false, c);
-		} else {
-			c->buffer_frames =  buffer_frames;
-		}
+		pw_loop_invoke(c->context.l, do_buffer_frames, 0,
+				&buffer_frames, sizeof(buffer_frames), false, c);
 	}
 	return c->buffer_frames == buffer_frames;
 }

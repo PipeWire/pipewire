@@ -1205,6 +1205,12 @@ static inline jack_transport_state_t position_to_jack(struct pw_node_activation 
 	return state;
 }
 
+static void recompute_latencies(struct client *c)
+{
+	do_callback(c, latency_callback, JackCaptureLatency, c->latency_arg);
+	do_callback(c, latency_callback, JackPlaybackLatency, c->latency_arg);
+}
+
 static int
 do_buffer_frames(struct spa_loop *loop,
 		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
@@ -1212,8 +1218,7 @@ do_buffer_frames(struct spa_loop *loop,
 	uint32_t buffer_frames = *((uint32_t*)data);
 	struct client *c = user_data;
 	do_callback_expr(c, c->buffer_frames = buffer_frames, bufsize_callback, buffer_frames, c->bufsize_arg);
-	do_callback(c, latency_callback, JackCaptureLatency, c->latency_arg);
-	do_callback(c, latency_callback, JackPlaybackLatency, c->latency_arg);
+	recompute_latencies(c);
 	return 0;
 }
 
@@ -5084,8 +5089,7 @@ do_recompute_latencies(struct spa_loop *loop,
 {
 	struct client *c = user_data;
 	pw_log_debug("start");
-	do_callback(c, latency_callback, JackCaptureLatency, c->latency_arg);
-	do_callback(c, latency_callback, JackPlaybackLatency, c->latency_arg);
+	recompute_latencies(c);
 	pw_log_debug("stop");
 	return 0;
 }

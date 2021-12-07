@@ -139,6 +139,8 @@ struct object {
 			bool is_complete;
 			uint32_t src_idx;
 			uint32_t dst_idx;
+			struct port *our_input;
+			struct port *our_output;
 		} port_link;
 		struct {
 			unsigned long flags;
@@ -205,6 +207,7 @@ struct mix {
 	uint32_t id;
 	uint32_t peer_id;
 	struct port *port;
+	struct port *peer_port;
 
 	struct spa_io_buffers *io;
 
@@ -998,8 +1001,8 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 	if (SPA_UNLIKELY((mix = p->global_mix) == NULL))
 		return NULL;
 
-	pw_log_trace_fp("%p: port %p %d get buffer %d n_buffers:%d",
-			c, p, p->id, frames, mix->n_buffers);
+	pw_log_trace_fp("%p: port %s %d get buffer %d n_buffers:%d",
+			c, p->object->port.name, p->id, frames, mix->n_buffers);
 
 	if (SPA_UNLIKELY(mix->n_buffers == 0))
 		return NULL;
@@ -1057,6 +1060,19 @@ static inline void process_empty(struct port *p, uint32_t frames)
 	}
 }
 
+static void prepare_output(struct port *p, uint32_t frames)
+{
+	struct mix *mix;
+
+	if (SPA_UNLIKELY(p->empty_out))
+		process_empty(p, frames);
+
+	spa_list_for_each(mix, &p->mix, port_link) {
+		if (SPA_LIKELY(mix->io != NULL))
+			*mix->io = p->io;
+	}
+}
+
 static void complete_process(struct client *c, uint32_t frames)
 {
 	struct port *p;
@@ -1069,13 +1085,7 @@ static void complete_process(struct client *c, uint32_t frames)
 		}
 	}
 	spa_list_for_each(p, &c->ports[SPA_DIRECTION_OUTPUT], link) {
-		if (SPA_UNLIKELY(p->empty_out))
-			process_empty(p, frames);
-
-		spa_list_for_each(mix, &p->mix, port_link) {
-			if (SPA_LIKELY(mix->io != NULL))
-				*mix->io = p->io;
-		}
+		prepare_output(p, frames);
 		p->io.status = SPA_STATUS_NEED_DATA;
 	}
 }
@@ -2386,15 +2396,25 @@ static int client_node_port_set_mix_info(void *object,
 		dst = peer_id;
 	}
 
-	if ((l = find_link(c, src, dst)) != NULL && !l->port_link.is_complete) {
-		l->port_link.is_complete = true;
-		pw_log_info("%p: our link %d/%u -> %d/%u completed", c,
-				l->port_link.src, l->port_link.src_idx,
-				l->port_link.dst, l->port_link.dst_idx);
-		do_callback(c, connect_callback,
-				l->port_link.src_idx, l->port_link.dst_idx, 1, c->connect_arg);
-		recompute_latencies(c);
-		do_callback(c, graph_callback, c->graph_arg);
+	if ((l = find_link(c, src, dst)) != NULL) {
+		if (direction == SPA_DIRECTION_INPUT)
+			mix->peer_port = l->port_link.our_output;
+		else
+			mix->peer_port = l->port_link.our_input;
+
+		pw_log_info("peer port %p %p %p", mix->peer_port,
+				l->port_link.our_output, l->port_link.our_input);
+
+		if (!l->port_link.is_complete) {
+			l->port_link.is_complete = true;
+			pw_log_info("%p: our link %d/%u -> %d/%u completed", c,
+					l->port_link.src, l->port_link.src_idx,
+					l->port_link.dst, l->port_link.dst_idx);
+			do_callback(c, connect_callback,
+					l->port_link.src_idx, l->port_link.dst_idx, 1, c->connect_arg);
+			recompute_latencies(c);
+			do_callback(c, graph_callback, c->graph_arg);
+		}
 	}
 
 exit:
@@ -2816,6 +2836,8 @@ static void registry_event_global(void *data, uint32_t id,
 
 		o->port_link.src_ours = p->port.port != NULL &&
 			p->port.port->client == c;
+		if (o->port_link.src_ours)
+			o->port_link.our_output = p->port.port;
 
 		if ((str = spa_dict_lookup(props, PW_KEY_LINK_INPUT_PORT)) == NULL)
 			goto exit_free;
@@ -2827,6 +2849,8 @@ static void registry_event_global(void *data, uint32_t id,
 		o->port_link.dst_idx = p->idx;
 		o->port_link.dst_ours = p->port.port != NULL &&
 			p->port.port->client == c;
+		if (o->port_link.dst_ours)
+			o->port_link.our_input = p->port.port;
 
 		o->port_link.is_complete = !o->port_link.src_ours && !o->port_link.dst_ours;
 		pw_log_debug("%p: add link %d %d->%d", c, id,
@@ -4156,9 +4180,12 @@ done:
 	return res;
 }
 
-static struct buffer *get_mix_buffer(struct mix *mix)
+static struct buffer *get_mix_buffer(struct mix *mix, jack_nframes_t frames)
 {
 	struct spa_io_buffers *io;
+
+	if (mix->peer_port != NULL)
+		prepare_output(mix->peer_port, frames);
 
 	io = mix->io;
 	if (io == NULL ||
@@ -4181,10 +4208,10 @@ static void *get_buffer_input_float(struct port *p, jack_nframes_t frames)
 		uint32_t offset, size;
 		void *np;
 
-		pw_log_trace_fp("%p: port %p mix %d.%d get buffer %d",
-				p->client, p, p->id, mix->id, frames);
+		pw_log_trace_fp("%p: port %s mix %d.%d get buffer %d",
+				p->client, p->object->port.name, p->id, mix->id, frames);
 
-		if ((b = get_mix_buffer(mix)) == NULL)
+		if ((b = get_mix_buffer(mix, frames)) == NULL)
 			continue;
 
 		d = &b->datas[0];
@@ -4224,7 +4251,7 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 		pw_log_trace_fp("%p: port %p mix %d.%d get buffer %d",
 				p->client, p, p->id, mix->id, frames);
 
-		if ((b = get_mix_buffer(mix)) == NULL)
+		if ((b = get_mix_buffer(mix, frames)) == NULL)
 			continue;
 
 		d = &b->datas[0];
@@ -4291,7 +4318,7 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 
 		pw_log_trace("peer mix: %p %d", mix, mix->peer_id);
 
-		if ((b = get_mix_buffer(mix)) == NULL)
+		if ((b = get_mix_buffer(mix, frames)) == NULL)
 			return NULL;
 
 		d = &b->datas[0];

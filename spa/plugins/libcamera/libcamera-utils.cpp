@@ -558,7 +558,7 @@ mmap_init(struct impl *impl, struct port *port,
 
 			if (port->memtype == SPA_DATA_DmaBuf ||
 			    port->memtype == SPA_DATA_MemFd) {
-				d[j].fd = bufs[i]->planes()[j].fd.fd();
+				d[j].fd = bufs[i]->planes()[j].fd.get();
 				spa_log_debug(impl->log, "Got fd = %ld for buffer: #%d", d[j].fd, i);
 				d[j].data = NULL;
 				SPA_FLAG_SET(b->flags, BUFFER_FLAG_ALLOCATED);
@@ -568,7 +568,7 @@ mmap_init(struct impl *impl, struct port *port,
 				d[j].data = mmap(NULL,
 						d[j].maxsize + d[j].mapoffset,
 						PROT_READ, MAP_SHARED,
-						bufs[i]->planes()[j].fd.fd(),
+						bufs[i]->planes()[j].fd.get(),
 						0);
 				if (d[j].data == MAP_FAILED) {
 					spa_log_error(impl->log, "mmap: %m");

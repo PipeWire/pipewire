@@ -1286,8 +1286,8 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 	try_link_controls(impl, output, input);
 
-	pw_impl_port_recalc_latency(this->output);
-	pw_impl_port_recalc_latency(this->input);
+	pw_impl_port_recalc_latency(output);
+	pw_impl_port_recalc_latency(input);
 
 	pw_impl_node_emit_peer_added(impl->onode, impl->inode);
 

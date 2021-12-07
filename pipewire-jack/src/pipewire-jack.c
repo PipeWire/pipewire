@@ -4973,9 +4973,13 @@ SPA_EXPORT
 void jack_port_set_latency (jack_port_t *port, jack_nframes_t frames)
 {
 	struct object *o = (struct object *) port;
+	struct client *c;
 	jack_latency_range_t range = { frames, frames };
 
 	spa_return_if_fail(o != NULL);
+	c = o->client;
+
+	pw_log_debug("%p: %s set latency %d", c, o->port.name, frames);
 
 	if (o->port.flags & JackPortIsOutput) {
 		jack_port_set_latency_range(port, JackCaptureLatency, &range);
@@ -5013,7 +5017,8 @@ void jack_port_get_latency_range (jack_port_t *port, jack_latency_callback_mode_
 	range->max = (info->max_quantum * nframes) +
 		info->max_rate + (info->max_ns * rate) / SPA_NSEC_PER_SEC;
 
-	pw_log_debug("%p: get %d latency range %d %d", o, mode, range->min, range->max);
+	pw_log_debug("%p: %s get %d latency range %d %d", c, o->port.name,
+			mode, range->min, range->max);
 }
 
 static int

@@ -1314,10 +1314,13 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
+	bool changed;
 
 	if (port->destroying)
 		return 0;
 
+	/* given an output port, we calculate the total latency to the sinks or the input
+	 * latency. */
 	spa_latency_info_combine_start(&latency, SPA_DIRECTION_REVERSE(port->direction));
 
 	if (port->direction == PW_DIRECTION_OUTPUT) {
@@ -1345,16 +1348,19 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 
 	current = &port->latency[latency.direction];
 
-	if (spa_latency_info_compare(current, &latency) == 0)
-		return 0;
+	changed = spa_latency_info_compare(current, &latency) != 0;
 
-	*current = latency;
-
-	pw_log_debug("port %d: set %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64,
-			port->info.id, pw_direction_as_string(latency.direction),
+	pw_log_info("port %d: %s %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64,
+			port->info.id, changed ? "set" : "keep",
+			pw_direction_as_string(latency.direction),
 			latency.min_quantum, latency.max_quantum,
 			latency.min_rate, latency.max_rate,
 			latency.min_ns, latency.max_ns);
+
+	if (!changed)
+		return 0;
+
+	*current = latency;
 
 	if (!port->have_latency_param)
 		return 0;

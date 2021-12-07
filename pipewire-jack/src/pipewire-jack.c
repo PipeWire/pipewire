@@ -2393,6 +2393,7 @@ static int client_node_port_set_mix_info(void *object,
 				l->port_link.dst, l->port_link.dst_idx);
 		do_callback(c, connect_callback,
 				l->port_link.src_idx, l->port_link.dst_idx, 1, c->connect_arg);
+		recompute_latencies(c);
 		do_callback(c, graph_callback, c->graph_arg);
 	}
 
@@ -2895,8 +2896,10 @@ static void registry_event_global(void *data, uint32_t id,
 		}
 		break;
 	}
-	if (graph_changed)
+	if (graph_changed) {
+		recompute_latencies(c);
 		do_callback(c, graph_callback, c->graph_arg);
+	}
 
       exit:
 	return;
@@ -2959,8 +2962,10 @@ static void registry_event_global_remove(void *object, uint32_t id)
 					o->port_link.src, o->port_link.dst);
 		break;
 	}
-	if (graph_changed)
+	if (graph_changed) {
+		recompute_latencies(c);
 		do_callback(c, graph_callback, c->graph_arg);
+	}
 
 	/* JACK clients expect the objects to hang around after
 	 * they are unregistered. We keep the memory around for that

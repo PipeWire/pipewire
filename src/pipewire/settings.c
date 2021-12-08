@@ -192,7 +192,7 @@ static int metadata_property(void *data, uint32_t subject, const char *key,
 		recalc = true;
 	}
 	if (recalc)
-		pw_context_recalc_graph(context, "properties changed");
+		pw_context_recalc_graph(context, "settings changed");
 
 	return 0;
 }

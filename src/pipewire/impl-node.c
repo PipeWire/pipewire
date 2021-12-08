@@ -876,6 +876,10 @@ static void check_properties(struct pw_impl_node *node)
 		recalc_reason = "driver changed";
 	}
 
+	/* not scheduled automatically so we add an additional required trigger */
+	if (pw_properties_get_bool(node->properties, PW_KEY_NODE_TRIGGER, false))
+		node->rt.activation->state[0].required++;
+
 	/* group defines what nodes are scheduled together */
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_GROUP)) == NULL)
 		str = "";

@@ -183,6 +183,9 @@ extern "C" {
 #define PW_KEY_NODE_LINK_GROUP		"node.link-group"	/**< the node is internally linked to
 								  *  nodes with the same link-group */
 #define PW_KEY_NODE_NETWORK		"node.network"		/**< the node is on a network */
+#define PW_KEY_NODE_TRIGGER		"node.trigger"		/**< the node is not scheduled automatically
+								  *   based on the dependencies in the graph
+								  *   but it will be triggered explicitly. */
 
 /** Port keys */
 #define PW_KEY_PORT_ID			"port.id"		/**< port id */

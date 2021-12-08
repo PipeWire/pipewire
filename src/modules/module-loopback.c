@@ -166,6 +166,8 @@ static void capture_process(void *d)
 		pw_stream_queue_buffer(impl->capture, in);
 	if (out != NULL)
 		pw_stream_queue_buffer(impl->playback, out);
+
+	pw_stream_trigger_process(impl->playback);
 }
 
 static void param_latency_changed(struct impl *impl, const struct spa_pod *param,
@@ -294,7 +296,8 @@ static int setup_streams(struct impl *impl)
 			PW_ID_ANY,
 			PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS,
+			PW_STREAM_FLAG_RT_PROCESS |
+			PW_STREAM_FLAG_TRIGGER,
 			params, n_params)) < 0)
 		return res;
 

@@ -168,6 +168,7 @@ struct stream {
 	unsigned int process_rt:1;
 	unsigned int driving:1;
 	unsigned int using_trigger:1;
+	unsigned int trigger:1;
 };
 
 static int get_param_index(uint32_t id)
@@ -1766,6 +1767,10 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(stream->properties, PW_KEY_NODE_EXCLUSIVE, "true");
 	if (flags & PW_STREAM_FLAG_DONT_RECONNECT)
 		pw_properties_set(stream->properties, PW_KEY_NODE_DONT_RECONNECT, "true");
+	if (flags & PW_STREAM_FLAG_TRIGGER) {
+		pw_properties_set(stream->properties, PW_KEY_NODE_TRIGGER, "true");
+		impl->trigger = true;
+	}
 
 	if ((str = pw_properties_get(stream->properties, "mem.warn-mlock")) != NULL)
 		impl->warn_mlock = pw_properties_parse_bool(str);
@@ -2215,7 +2220,7 @@ int pw_stream_trigger_process(struct pw_stream *stream)
 	/* flag to check for old or new behaviour */
 	impl->using_trigger = true;
 
-	if (!impl->driving) {
+	if (!impl->driving && !impl->trigger) {
 		res = trigger_request_process(impl);
 	} else {
 		if (impl->direction == SPA_DIRECTION_OUTPUT &&

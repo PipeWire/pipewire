@@ -271,6 +271,11 @@ enum pw_stream_flags {
 	PW_STREAM_FLAG_ALLOC_BUFFERS	= (1 << 8),	/**< the application will allocate buffer
 							  *  memory. In the add_buffer event, the
 							  *  data of the buffer should be set */
+	PW_STREAM_FLAG_TRIGGER		= (1 << 9),	/**< the output stream will not be scheduled
+							  *  automatically but _trigger_process()
+							  *  needs to be called. This can be used
+							  *  when the output of the stream depends
+							  *  on input from other streams. */
 };
 
 /** Create a new unconneced \ref pw_stream

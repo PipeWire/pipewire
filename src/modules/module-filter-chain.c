@@ -319,6 +319,8 @@ done:
 		pw_stream_queue_buffer(impl->capture, in);
 	if (out != NULL)
 		pw_stream_queue_buffer(impl->playback, out);
+
+	pw_stream_trigger_process(impl->playback);
 }
 
 static float get_default(struct impl *impl, struct descriptor *desc, uint32_t p)
@@ -699,7 +701,8 @@ static int setup_streams(struct impl *impl)
 			PW_ID_ANY,
 			PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS,
+			PW_STREAM_FLAG_RT_PROCESS  |
+			PW_STREAM_FLAG_TRIGGER,
 			params, n_params);
 	free(b.data);
 

@@ -169,11 +169,8 @@ static int make_matrix(struct channelmix *mix)
 		else
 			src_mask |= (1ULL << SPA_AUDIO_CHANNEL_FC);
 	}
-	if ((dst_mask & (1Ull << SPA_AUDIO_CHANNEL_MONO)) != 0) {
-		if (mix->dst_chan == 1)
-			dst_mask = 0;
+	if ((dst_mask & (1Ull << SPA_AUDIO_CHANNEL_MONO)) != 0)
 		dst_mask |= (1ULL << SPA_AUDIO_CHANNEL_FC);
-	}
 
 	/* shift so that bit 0 is FL */
 	src_mask >>= 3;

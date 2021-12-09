@@ -36,6 +36,10 @@
 
 #include "channelmix-ops.h"
 
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT log_topic
+struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.channelmix");
+
 #define _M(ch)		(1UL << SPA_AUDIO_CHANNEL_ ## ch)
 #define MASK_MONO	_M(FC)|_M(MONO)|_M(UNKNOWN)
 #define MASK_STEREO	_M(FL)|_M(FR)|_M(UNKNOWN)
@@ -159,24 +163,30 @@ static int make_matrix(struct channelmix *mix)
 
 	/* move the MONO mask to FRONT so that the lower bits can be shifted
 	 * away. */
-	if ((src_mask & (1Ull << SPA_AUDIO_CHANNEL_MONO)) != 0)
-		src_mask |= (1ULL << SPA_AUDIO_CHANNEL_FC);
-	if ((dst_mask & (1Ull << SPA_AUDIO_CHANNEL_MONO)) != 0)
+	if ((src_mask & (1Ull << SPA_AUDIO_CHANNEL_MONO)) != 0) {
+		if (mix->src_chan == 1)
+			src_mask = 0;
+		else
+			src_mask |= (1ULL << SPA_AUDIO_CHANNEL_FC);
+	}
+	if ((dst_mask & (1Ull << SPA_AUDIO_CHANNEL_MONO)) != 0) {
+		if (mix->dst_chan == 1)
+			dst_mask = 0;
 		dst_mask |= (1ULL << SPA_AUDIO_CHANNEL_FC);
+	}
 
 	/* shift so that bit 0 is FL */
 	src_mask >>= 3;
 	dst_mask >>= 3;
 
 	/* unknown channels or just 1 channel */
-	if (src_mask == 0 || mix->src_chan == 1 ||
-	    dst_mask == 0 || mix->dst_chan == 1) {
-		if (src_mask == FRONT && mix->src_chan == 1) {
+	if (src_mask == 0 || dst_mask == 0) {
+		if (mix->src_chan == 1) {
 			/* one FC/MONO src goes everywhere */
 			spa_log_debug(mix->log, "distribute FC/MONO");
 			for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
 				matrix[i][0]= 1.0f;
-		} else if (dst_mask == FRONT && mix->dst_chan == 1) {
+		} else if (mix->dst_chan == 1) {
 			/* one FC/MONO dst get average of everything */
 			spa_log_debug(mix->log, "average FC/MONO");
 			for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)

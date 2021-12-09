@@ -68,17 +68,32 @@ static void test_mix(uint32_t src_chan, uint32_t src_mask, uint32_t dst_chan, ui
 	dump_matrix(&mix, coeff);
 }
 
-static void test_1_N(void)
+static void test_1_N_MONO(void)
 {
 	test_mix(1, _M(MONO), 2, _M(FL)|_M(FR),
-			MATRIX(0.707107, 0.707107));
+			MATRIX(1.0, 1.0));
 	test_mix(1, _M(MONO), 3, _M(FL)|_M(FR)|_M(LFE),
-			MATRIX(0.707107, 0.707107, 0.0));
+			MATRIX(1.0, 1.0, 1.0));
 	test_mix(1, _M(MONO), 4, _M(FL)|_M(FR)|_M(LFE)|_M(FC),
-			MATRIX(0.0, 0.0, 1.0, 0.0));
+			MATRIX(1.0, 1.0, 1.0, 1.0));
 	test_mix(1, _M(MONO), 4, _M(FL)|_M(FR)|_M(RL)|_M(RR),
-			MATRIX(0.707107, 0.707107, 0.0, 0.0));
+			MATRIX(1.0, 1.0, 1.0, 1.0));
 	test_mix(1, _M(MONO), 12, 0,
+			MATRIX(1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+			       1.0, 1.0, 1.0, 1.0, 1.0, 1.0));
+}
+
+static void test_1_N_FC(void)
+{
+	test_mix(1, _M(FC), 2, _M(FL)|_M(FR),
+			MATRIX(0.707107, 0.707107));
+	test_mix(1, _M(FC), 3, _M(FL)|_M(FR)|_M(LFE),
+			MATRIX(0.707107, 0.707107, 0.0));
+	test_mix(1, _M(FC), 4, _M(FL)|_M(FR)|_M(LFE)|_M(FC),
+			MATRIX(0.0, 0.0, 1.0, 0.0));
+	test_mix(1, _M(FC), 4, _M(FL)|_M(FR)|_M(RL)|_M(RR),
+			MATRIX(0.707107, 0.707107, 0.0, 0.0));
+	test_mix(1, _M(FC), 12, 0,
 			MATRIX(1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
 			       1.0, 1.0, 1.0, 1.0, 1.0, 1.0));
 }
@@ -203,7 +218,8 @@ int main(int argc, char *argv[])
 {
 	logger.log.level = SPA_LOG_LEVEL_TRACE;
 
-	test_1_N();
+	test_1_N_MONO();
+	test_1_N_FC();
 	test_N_1();
 	test_3p1_N();
 	test_4_N();

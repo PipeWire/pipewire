@@ -28,6 +28,10 @@
 #include <spa/utils/defs.h>
 #include <spa/param/audio/raw.h>
 
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT log_topic
+extern struct spa_log_topic *log_topic;
+
 #include "crossover.h"
 
 #define VOLUME_MIN 0.0f

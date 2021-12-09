@@ -168,7 +168,9 @@ static int make_matrix(struct channelmix *mix)
 	src_mask >>= 3;
 	dst_mask >>= 3;
 
-	if (src_mask == 0 || dst_mask == 0) {
+	/* unknown channels or just 1 channel */
+	if (src_mask == 0 || mix->src_chan == 1 ||
+	    dst_mask == 0 || mix->dst_chan == 1) {
 		if (src_mask == FRONT && mix->src_chan == 1) {
 			/* one FC/MONO src goes everywhere */
 			spa_log_debug(mix->log, "distribute FC/MONO");

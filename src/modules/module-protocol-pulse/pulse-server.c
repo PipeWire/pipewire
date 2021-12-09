@@ -1246,14 +1246,16 @@ static void stream_process(void *data)
 				pd.underrun_for = size;
 				pd.underrun = true;
 			}
-			if (stream->attr.prebuf == 0 && !stream->corked) {
+			if (!stream->corked) {
 				pd.missing = size;
-				pd.playing_for = size;
-				if (avail > 0) {
-					index += avail;
-					pd.read_inc = avail;
+				if (stream->attr.prebuf == 0) {
+					pd.playing_for = size;
+					if (avail > 0) {
+						index += avail;
+						pd.read_inc = avail;
+					}
+					spa_ringbuffer_read_update(&stream->ring, index);
 				}
-				spa_ringbuffer_read_update(&stream->ring, index);
 			}
 			pw_log_debug("%p: [%s] underrun read:%u avail:%d max:%u",
 					stream, client->name, index, avail, minreq);

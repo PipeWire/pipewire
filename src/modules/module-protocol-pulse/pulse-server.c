@@ -1247,6 +1247,7 @@ static void stream_process(void *data)
 				pd.underrun = true;
 			}
 			if (stream->attr.prebuf == 0 && !stream->corked) {
+				pd.missing = size;
 				pd.playing_for = size;
 				if (avail > 0) {
 					index += avail;
@@ -1254,9 +1255,8 @@ static void stream_process(void *data)
 				}
 				spa_ringbuffer_read_update(&stream->ring, index);
 			}
-			pd.missing = size;
-			pw_log_debug("%p: [%s] underrun read:%u avail:%d max:%u size:%u missing:%u",
-					stream, client->name, index, avail, minreq, size, pd.missing);
+			pw_log_debug("%p: [%s] underrun read:%u avail:%d max:%u",
+					stream, client->name, index, avail, minreq);
 		} else {
 			if (avail > (int32_t)stream->attr.maxlength) {
 				uint32_t skip = avail - stream->attr.maxlength;

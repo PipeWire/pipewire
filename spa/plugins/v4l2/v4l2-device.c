@@ -49,6 +49,8 @@ static const char default_device[] = "/dev/video0";
 
 struct props {
 	char device[64];
+	char product_id[6];
+	char vendor_id[6];
 	int device_fd;
 };
 
@@ -73,7 +75,7 @@ struct impl {
 static int emit_info(struct impl *this, bool full)
 {
 	int res;
-	struct spa_dict_item items[10];
+	struct spa_dict_item items[12];
 	uint32_t n_items = 0;
 	struct spa_device_info info;
 	struct spa_param_info params[2];
@@ -91,6 +93,10 @@ static int emit_info(struct impl *this, bool full)
 	ADD_ITEM(SPA_KEY_OBJECT_PATH, path);
 	ADD_ITEM(SPA_KEY_DEVICE_API, "v4l2");
 	ADD_ITEM(SPA_KEY_MEDIA_CLASS, "Video/Device");
+	if (this->props.product_id[0])
+		ADD_ITEM(SPA_KEY_DEVICE_PRODUCT_ID, this->props.product_id);
+	if (this->props.vendor_id[0])
+		ADD_ITEM(SPA_KEY_DEVICE_VENDOR_ID, this->props.vendor_id);
 	ADD_ITEM(SPA_KEY_API_V4L2_PATH, (char *)this->props.device);
 	ADD_ITEM(SPA_KEY_API_V4L2_CAP_DRIVER, (char *)this->dev.cap.driver);
 	ADD_ITEM(SPA_KEY_API_V4L2_CAP_CARD, (char *)this->dev.cap.card);
@@ -247,6 +253,10 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_V4L2_PATH)))
 		strncpy(this->props.device, str, 63);
+	if (info && (str = spa_dict_lookup(info, SPA_KEY_DEVICE_PRODUCT_ID)))
+		strncpy(this->props.product_id, str, 5);
+	if (info && (str = spa_dict_lookup(info, SPA_KEY_DEVICE_VENDOR_ID)))
+		strncpy(this->props.vendor_id, str, 5);
 
 	return 0;
 }

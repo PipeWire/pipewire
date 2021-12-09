@@ -49,7 +49,6 @@ static const char default_device[] = "/dev/video0";
 
 struct props {
 	char device[64];
-	char device_name[128];
 	int device_fd;
 };
 

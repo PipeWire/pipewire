@@ -49,11 +49,14 @@
 
 #define NAME "null-audio-sink"
 
+#define DEFAULT_CLOCK_NAME	"clock.system.monotonic"
+
 struct props {
 	uint32_t channels;
 	uint32_t rate;
 	uint32_t n_pos;
 	uint32_t pos[SPA_AUDIO_MAX_CHANNELS];
+	char clock_name[64];
 };
 
 static void reset_props(struct props *props)
@@ -61,6 +64,7 @@ static void reset_props(struct props *props)
 	props->channels = 0;
 	props->rate = 0;
 	props->n_pos = 0;
+	strncpy(props->clock_name, DEFAULT_CLOCK_NAME, sizeof(props->clock_name));
 }
 
 #define DEFAULT_CHANNELS	2
@@ -252,6 +256,11 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 		if (size > 0 && size < sizeof(struct spa_io_clock))
 			return -EINVAL;
 		this->clock = data;
+		if (this->clock != NULL) {
+			spa_scnprintf(this->clock->name,
+					sizeof(this->clock->name),
+					"%s", this->props.clock_name);
+		}
 		break;
 	case SPA_IO_Position:
 		this->position = data;
@@ -902,6 +911,10 @@ impl_init(const struct spa_handle_factory *factory,
 			this->props.rate = atoi(s);
 		} else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
 			parse_position(this, s, strlen(s));
+		} else if (spa_streq(k, "clock.name")) {
+			spa_scnprintf(this->props.clock_name,
+					sizeof(this->props.clock_name),
+					"%s", s);
 		}
 	}
 	if (this->props.n_pos > 0)

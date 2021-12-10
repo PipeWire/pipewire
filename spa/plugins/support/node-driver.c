@@ -42,9 +42,11 @@
 #define NAME "driver"
 
 #define DEFAULT_FREEWHEEL	false
+#define DEFAULT_CLOCK_NAME	"clock.system.monotonic"
 
 struct props {
 	bool freewheel;
+	char clock_name[64];
 };
 
 struct impl {
@@ -78,6 +80,8 @@ struct impl {
 static void reset_props(struct props *props)
 {
 	props->freewheel = DEFAULT_FREEWHEEL;
+	spa_scnprintf(props->clock_name, sizeof(props->clock_name),
+			"%s", DEFAULT_CLOCK_NAME);
 }
 
 static void set_timeout(struct impl *this, uint64_t next_time)
@@ -154,6 +158,9 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 		if (size > 0 && size < sizeof(struct spa_io_clock))
 			return -EINVAL;
 		this->clock = data;
+		if (this->clock)
+			spa_scnprintf(this->clock->name, sizeof(this->clock->name),
+					"%s", this->props.clock_name);
 		break;
 	case SPA_IO_Position:
 		if (size > 0 && size < sizeof(struct spa_io_position))
@@ -372,7 +379,7 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct impl *this;
-	const char *str;
+	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -426,11 +433,16 @@ impl_init(const struct spa_handle_factory *factory,
 
 	reset_props(&this->props);
 
-	if (info) {
-		if ((str = spa_dict_lookup(info, "node.freewheel")) != NULL)
-			this->props.freewheel = spa_atob(str);
+	for (i = 0; info && i < info->n_items; i++) {
+		const char *k = info->items[i].key;
+		const char *s = info->items[i].value;
+		if (spa_streq(k, "node.freewheel")) {
+			this->props.freewheel = spa_atob(s);
+		} else if (spa_streq(k, "clock.name")) {
+			spa_scnprintf(this->props.clock_name,
+				sizeof(this->props.clock_name), "%s", s);
+		}
 	}
-
 	spa_loop_add_source(this->data_loop, &this->timer_source);
 
 	return 0;

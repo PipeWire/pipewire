@@ -59,10 +59,13 @@ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.sink.a2dp")
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
+#define DEFAULT_CLOCK_NAME	"clock.system.monotonic"
+
 struct props {
 	uint32_t min_latency;
 	uint32_t max_latency;
 	int64_t latency_offset;
+	char clock_name[64];
 };
 
 #define FILL_FRAMES 2
@@ -173,6 +176,7 @@ static void reset_props(struct impl *this, struct props *props)
 	}
 	props->max_latency = MAX_LATENCY;
 	props->latency_offset = 0;
+	strncpy(props->clock_name, DEFAULT_CLOCK_NAME, sizeof(props->clock_name));
 }
 
 static int impl_node_enum_params(void *object, int seq,
@@ -322,6 +326,11 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	switch (id) {
 	case SPA_IO_Clock:
 		this->clock = data;
+		if (this->clock != NULL) {
+			spa_scnprintf(this->clock->name,
+					sizeof(this->clock->name),
+					"%s", this->props.clock_name);
+		}
 		break;
 	case SPA_IO_Position:
 		this->position = data;

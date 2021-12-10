@@ -1557,6 +1557,8 @@ do_update_driver_activation(struct spa_loop *loop,
 	c->rt.position = c->position;
 	c->rt.driver_activation = c->driver_activation;
 	if (c->position) {
+		pw_log_info("%p: driver:%d clock:%s", c,
+				c->driver_id, c->position->clock.name);
 		check_sample_rate(c, c->position);
 		check_buffer_frames(c, c->position);
 	}

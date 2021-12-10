@@ -754,9 +754,11 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 	else if (spa_streq(type, "ladspa")) {
 		pl = load_ladspa_plugin(path, NULL);
 	}
+#ifdef HAVE_LILV
 	else if (spa_streq(type, "lv2")) {
 		pl = load_lv2_plugin(path, NULL);
 	}
+#endif
 	if (pl == NULL)
 		goto exit;
 

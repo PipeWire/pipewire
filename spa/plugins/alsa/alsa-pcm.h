@@ -128,7 +128,6 @@ struct state {
 
 	bool opened;
 	snd_pcm_t *hndl;
-	int pcm_card;
 
 	bool have_format;
 	struct spa_audio_info current_format;
@@ -142,6 +141,7 @@ struct state {
 	struct channel_map default_pos;
 	unsigned int disable_mmap;
 	unsigned int disable_batch;
+	char clock_name[64];
 
 	snd_pcm_uframes_t buffer_frames;
 	snd_pcm_uframes_t period_frames;

@@ -121,6 +121,9 @@ static int alsa_set_param(struct state *state, const char *k, const char *s)
 		state->props.use_chmap = spa_atob(s);
 	} else if (spa_streq(k, "api.alsa.multi-rate")) {
 		state->multi_rate = spa_atob(s);
+	} else if (spa_streq(k, "clock.name")) {
+		spa_scnprintf(state->clock_name,
+				sizeof(state->clock_name), "%s", s);
 	} else
 		return 0;
 
@@ -249,6 +252,14 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_Bool(state->multi_rate),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
+	case 11:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String("clock.name"),
+			SPA_PROP_INFO_description, SPA_POD_String("The name of the clock"),
+			SPA_PROP_INFO_type, SPA_POD_String(state->clock_name),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
 	default:
 		return NULL;
 	}
@@ -298,6 +309,9 @@ int spa_alsa_add_prop_params(struct state *state, struct spa_pod_builder *b)
 
 	spa_pod_builder_string(b, "api.alsa.multi-rate");
 	spa_pod_builder_bool(b, state->multi_rate);
+
+	spa_pod_builder_string(b, "clock.name");
+	spa_pod_builder_string(b, state->clock_name);
 
 	spa_pod_builder_pop(b, &f[0]);
 	return 0;
@@ -372,6 +386,9 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 			alsa_set_param(state, k, s);
 		}
 	}
+	if (state->clock_name[0] == '\0')
+		snprintf(state->clock_name, sizeof(state->clock_name),
+				"api.alsa.%d", state->card_index);
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		state->is_iec958 = spa_strstartswith(state->props.device, "iec958");
@@ -400,7 +417,6 @@ int spa_alsa_open(struct state *state, const char *params)
 {
 	int err;
 	struct props *props = &state->props;
-	snd_pcm_info_t *pcminfo;
 	char device_name[256];
 
 	if (state->opened)
@@ -429,16 +445,9 @@ int spa_alsa_open(struct state *state, const char *params)
 
 	state->timerfd = err;
 
-	snd_pcm_info_alloca(&pcminfo);
-	snd_pcm_info(state->hndl, pcminfo);
-
-	/* we would love to use the sync_id but it always returns 0, so use the
-	 * card id for now */
-	state->pcm_card = snd_pcm_info_get_card(pcminfo);
-	if (state->clock) {
-		snprintf(state->clock->name, sizeof(state->clock->name),
-				"api.alsa.%d", state->pcm_card);
-	}
+	if (state->clock)
+		spa_scnprintf(state->clock->name, sizeof(state->clock->name),
+				"%s", state->clock_name);
 	state->opened = true;
 	state->sample_count = 0;
 	state->sample_time = 0;
@@ -1636,18 +1645,17 @@ static inline bool is_following(struct state *state)
 
 static int setup_matching(struct state *state)
 {
-	int card;
-
 	state->matching = state->following;
 
 	if (state->position == NULL)
 		return -ENOTSUP;
 
-	spa_log_debug(state->log, "clock:%s card:%d", state->position->clock.name, state->pcm_card);
-	if (sscanf(state->position->clock.name, "api.alsa.%d", &card) == 1 &&
-	    card == state->pcm_card) {
+	spa_log_debug(state->log, "driver clock:'%s' our clock:'%s'",
+			state->position->clock.name, state->clock_name);
+
+	if (spa_streq(state->position->clock.name, state->clock_name))
 		state->matching = false;
-	}
+
 	state->resample = ((uint32_t)state->rate != state->rate_denom) || state->matching;
 	return 0;
 }

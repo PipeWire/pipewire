@@ -41,11 +41,13 @@
 
 #include "alsa-seq.h"
 
-static const char default_device[] = "default";
+#define DEFAULT_DEVICE		"default"
+#define DEFAULT_CLOCK_NAME	"clock.system.monotonic"
 
 static void reset_props(struct props *props)
 {
-	strncpy(props->device, default_device, 64);
+	strncpy(props->device, DEFAULT_DEVICE, sizeof(props->device));
+	strncpy(props->clock_name, DEFAULT_CLOCK_NAME, sizeof(props->clock_name));
 }
 
 static int impl_node_enum_params(void *object, int seq,
@@ -142,6 +144,9 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	switch (id) {
 	case SPA_IO_Clock:
 		this->clock = data;
+		if (this->clock != NULL)
+			spa_scnprintf(this->clock->name, sizeof(this->clock->name),
+					"%s", this->props.clock_name);
 		break;
 	case SPA_IO_Position:
 		this->position = data;
@@ -915,8 +920,14 @@ impl_init(const struct spa_handle_factory *factory,
 	reset_props(&this->props);
 
 	for (i = 0; info && i < info->n_items; i++) {
-		if (spa_streq(info->items[i].key, SPA_KEY_API_ALSA_PATH)) {
-			snprintf(this->props.device, 63, "%s", info->items[i].value);
+		const char *k = info->items[i].key;
+		const char *s = info->items[i].value;
+		if (spa_streq(k, SPA_KEY_API_ALSA_PATH)) {
+			spa_scnprintf(this->props.device,
+					sizeof(this->props.device), "%s", s);
+		} else if (spa_streq(k, "clock.name")) {
+			spa_scnprintf(this->props.clock_name,
+					sizeof(this->props.clock_name), "%s", s);
 		}
 	}
 

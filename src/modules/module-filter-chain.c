@@ -754,6 +754,9 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 	else if (spa_streq(type, "ladspa")) {
 		pl = load_ladspa_plugin(path, NULL);
 	}
+	else if (spa_streq(type, "lv2")) {
+		pl = load_lv2_plugin(path, NULL);
+	}
 	if (pl == NULL)
 		goto exit;
 
@@ -1068,7 +1071,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 
 	if (spa_streq(type, "builtin")) {
 		snprintf(plugin, sizeof(plugin), "%s", "builtin");
-	} else if (!spa_streq(type, "ladspa"))
+	} else if (!spa_streq(type, "ladspa") && !spa_streq(type, "lv2"))
 		return -ENOTSUP;
 
 	pw_log_info("loading type:%s plugin:%s label:%s", type, plugin, label);

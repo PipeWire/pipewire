@@ -430,6 +430,9 @@ summary({'pipewire-alsa': alsa_dep.found()}, bool_yn: true)
 openssl_lib = dependency('openssl', required: get_option('raop'))
 summary({'OpenSSL (for raop-sink)': openssl_lib.found()}, bool_yn: true)
 
+lilv_lib = dependency('lilv-0', required: get_option('lv2'))
+summary({'lilv (for lv2 plugins)': lilv_lib.found()}, bool_yn: true)
+
 installed_tests_metadir = pipewire_datadir / 'installed-tests' / pipewire_name
 installed_tests_execdir = pipewire_libexecdir / 'installed-tests' / pipewire_name
 installed_tests_enabled = not get_option('installed_tests').disabled()

@@ -78,19 +78,33 @@ pffft_c = static_library('pffft_c',
 )
 simd_dependencies += pffft_c
 
+filter_chain_sources = [
+  'module-filter-chain.c',
+  'module-filter-chain/biquad.c',
+  'module-filter-chain/ladspa_plugin.c',
+  'module-filter-chain/builtin_plugin.c',
+  'module-filter-chain/convolver.c'
+]
+filter_chain_dependencies = [
+  mathlib, dl_lib, pipewire_dep, sndfile_dep
+]
+
+if lilv_lib.found()
+  filter_chain_sources += [
+    'module-filter-chain/lv2_plugin.c'
+  ]
+  filter_chain_dependencies += [ lilv_lib ]
+endif
+
 
 pipewire_module_filter_chain = shared_library('pipewire-module-filter-chain',
-  [ 'module-filter-chain.c',
-    'module-filter-chain/biquad.c',
-    'module-filter-chain/ladspa_plugin.c',
-    'module-filter-chain/builtin_plugin.c',
-    'module-filter-chain/convolver.c' ],
+  filter_chain_sources,
   include_directories : [configinc, spa_inc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
   link_with : simd_dependencies,
-  dependencies : [mathlib, dl_lib, pipewire_dep, sndfile_dep],
+  dependencies : filter_chain_dependencies,
 )
 
 pipewire_module_echo_cancel_sources = [

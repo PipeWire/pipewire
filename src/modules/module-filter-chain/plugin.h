@@ -94,5 +94,7 @@ static inline void fc_descriptor_free(struct fc_descriptor *desc)
 }
 
 struct fc_plugin *load_ladspa_plugin(const char *path, const char *config);
+struct fc_plugin *load_lv2_plugin(const char *path, const char *config);
 struct fc_plugin *load_builtin_plugin(const char *path, const char *config);
+
 void init_builtin_plugin(uint32_t cpu_flags);

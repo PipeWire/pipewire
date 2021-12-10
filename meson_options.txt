@@ -218,3 +218,7 @@ option('raop',
        description: 'Enable module for Remote Audio Output Protocol',
        type: 'feature',
        value: 'auto')
+option('lv2',
+       description: 'Enable loading of LV2 plugins',
+       type: 'feature',
+       value: 'auto')

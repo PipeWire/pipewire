@@ -79,7 +79,8 @@ static inline bool codec_is_hd(const struct a2dp_codec *codec)
 
 static inline bool codec_is_ll(const struct a2dp_codec *codec)
 {
-	return codec->id == SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL;
+	return (codec->id == SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL) ||
+		(codec->id == SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL_DUPLEX);
 }
 
 static inline size_t codec_get_caps_size(const struct a2dp_codec *codec)

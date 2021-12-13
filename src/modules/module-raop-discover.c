@@ -47,10 +47,10 @@
 #include "module-protocol-pulse/format.h"
 #include "module-zeroconf-discover/avahi-poll.h"
 
-/** \page page_module_zeroconf_discover PipeWire Module: Zeroconf Discover
+/** \page page_module_raop_discover PipeWire Module: RAOP Discover
  */
 
-#define NAME "zeroconf-discover"
+#define NAME "raop-discover"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic

@@ -39,7 +39,6 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/param/profiler.h>
-#include <spa/support/cpu.h>
 #include <spa/debug/pod.h>
 
 #include <pipewire/utils.h>
@@ -739,6 +738,8 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 	struct fc_plugin *pl = NULL;
 	struct plugin *hndl;
 	int res = 0;
+	const struct spa_support *support;
+	uint32_t n_support;
 
 	spa_list_for_each(hndl, &impl->plugin_list, link) {
 		if (spa_streq(hndl->type, type) &&
@@ -747,16 +748,17 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 			return hndl;
 		}
 	}
+	support = pw_context_get_support(impl->context, &n_support);
 
 	if (spa_streq(type, "builtin")) {
-		pl = load_builtin_plugin(path, NULL);
+		pl = load_builtin_plugin(support, n_support, path, NULL);
 	}
 	else if (spa_streq(type, "ladspa")) {
-		pl = load_ladspa_plugin(path, NULL);
+		pl = load_ladspa_plugin(support, n_support, path, NULL);
 	}
 #ifdef HAVE_LILV
 	else if (spa_streq(type, "lv2")) {
-		pl = load_lv2_plugin(path, NULL);
+		pl = load_lv2_plugin(support, n_support, path, NULL);
 	}
 #endif
 	if (pl == NULL)
@@ -1280,6 +1282,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 			sd = dd = NULL;
 
 		for (i = 0; i < n_hndl; i++) {
+			pw_log_info("instantiate %s %d", d->name, i);
 			if ((node->hndl[i] = d->instantiate(d, &impl->rate, i, node->config)) == NULL) {
 				pw_log_error("cannot create plugin instance");
 				res = -ENOMEM;
@@ -1650,9 +1653,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct impl *impl;
 	uint32_t id = pw_global_get_id(pw_impl_module_get_global(module));
 	const char *str;
-	const struct spa_support *support;
-	uint32_t n_support;
-	struct spa_cpu *cpu_iface;
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -1662,10 +1662,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		return -errno;
 
 	pw_log_debug("module %p: new %s", impl, args);
-
-	support = pw_context_get_support(context, &n_support);
-	cpu_iface = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
-	init_builtin_plugin(cpu_iface ? spa_cpu_get_flags(cpu_iface) : 0);
 
 	if (args)
 		props = pw_properties_new_string(args);

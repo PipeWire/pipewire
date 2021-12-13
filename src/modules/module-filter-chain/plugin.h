@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <limits.h>
 
+#include <spa/support/plugin.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 #include <spa/utils/string.h>
@@ -93,8 +94,9 @@ static inline void fc_descriptor_free(struct fc_descriptor *desc)
 		desc->free(desc);
 }
 
-struct fc_plugin *load_ladspa_plugin(const char *path, const char *config);
-struct fc_plugin *load_lv2_plugin(const char *path, const char *config);
-struct fc_plugin *load_builtin_plugin(const char *path, const char *config);
-
-void init_builtin_plugin(uint32_t cpu_flags);
+struct fc_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t n_support,
+		const char *path, const char *config);
+struct fc_plugin *load_lv2_plugin(const struct spa_support *support, uint32_t n_support,
+		const char *path, const char *config);
+struct fc_plugin *load_builtin_plugin(const struct spa_support *support, uint32_t n_support,
+		const char *path, const char *config);

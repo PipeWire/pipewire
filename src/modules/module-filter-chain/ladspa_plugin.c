@@ -226,7 +226,8 @@ exit:
 	return NULL;
 }
 
-struct fc_plugin *load_ladspa_plugin(const char *plugin, const char *config)
+struct fc_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t n_support,
+		const char *plugin, const char *config)
 {
 	struct fc_plugin *pl = NULL;
 

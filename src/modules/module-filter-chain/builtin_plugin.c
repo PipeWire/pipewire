@@ -30,6 +30,8 @@
 #endif
 
 #include <spa/utils/json.h>
+#include <spa/support/cpu.h>
+
 #include <pipewire/log.h>
 
 #include "plugin.h"
@@ -771,12 +773,11 @@ static struct fc_plugin builtin_plugin = {
 	.make_desc = builtin_make_desc
 };
 
-struct fc_plugin *load_builtin_plugin(const char *plugin, const char *config)
+struct fc_plugin *load_builtin_plugin(const struct spa_support *support, uint32_t n_support,
+		const char *plugin, const char *config)
 {
+	struct spa_cpu *cpu_iface;
+	cpu_iface = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
+	pffft_select_cpu(cpu_iface ? spa_cpu_get_flags(cpu_iface) : 0);
 	return &builtin_plugin;
-}
-
-void init_builtin_plugin(uint32_t cpu_flags)
-{
-	pffft_select_cpu(cpu_flags);
 }

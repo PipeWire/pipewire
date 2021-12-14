@@ -109,15 +109,6 @@
  *
  */
 
-/**
- * .--------.     .---------.     .--------.     .----------.     .-------.
- * | source | --> | capture | --> |        | --> |  source  | --> |  app  |
- * '--------'     '---------'     | echo   |     '----------'     '-------'
- *                                | cancel |
- * .--------.     .---------.     |        |     .----------.     .--------.
- * |  app   | --> |  sink   | --> |        | --> | playback | --> |  sink  |
- * '--------'     '---------'     '--------'     '----------'     '--------'
- */
 #define NAME "echo-cancel"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -264,8 +255,6 @@ static void process(struct impl *impl)
 
 	pw_stream_queue_buffer(impl->playback, pout);
 
-	pw_stream_trigger_process(impl->playback);
-
 	/* Now run the canceller */
 	echo_cancel_run(impl->aec_info, impl->aec, rec,	play, out, size / sizeof(float));
 
@@ -320,7 +309,6 @@ static void process(struct impl *impl)
 		spa_ringbuffer_read_update(&impl->out_ring, oindex);
 		avail -= size;
 	}
-	pw_stream_trigger_process(impl->source);
 
 done:
 	impl->sink_ready = false;
@@ -701,8 +689,7 @@ static int setup_streams(struct impl *impl)
 			PW_DIRECTION_OUTPUT,
 			PW_ID_ANY,
 			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS |
-			PW_STREAM_FLAG_TRIGGER,
+			PW_STREAM_FLAG_RT_PROCESS,
 			params, n_params)) < 0)
 		return res;
 
@@ -719,8 +706,7 @@ static int setup_streams(struct impl *impl)
 			PW_ID_ANY,
 			PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS |
-			PW_STREAM_FLAG_TRIGGER,
+			PW_STREAM_FLAG_RT_PROCESS,
 			params, n_params)) < 0)
 		return res;
 

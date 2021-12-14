@@ -291,7 +291,7 @@ client_busy_changed(void *data, bool busy)
 
 static void handle_client_error(struct pw_impl_client *client, int res)
 {
-	if (res == -EPIPE)
+	if (res == -EPIPE || res == -ECONNRESET)
 		pw_log_info("%p: client %p disconnected", client->protocol, client);
 	else
 		pw_log_error("%p: client %p error %d (%s)", client->protocol,

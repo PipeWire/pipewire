@@ -67,6 +67,7 @@ struct stream {
 	struct spa_hook stream_listener;
 
 	struct spa_io_rate_match *rate_match;
+	struct spa_io_position *position;
 	struct spa_ringbuffer ring;
 	void *buffer;
 
@@ -78,8 +79,9 @@ struct stream {
 	uint64_t timestamp;
 	int64_t delay;
 
-	uint32_t missing;
-	uint32_t requested;
+	uint32_t last_quantum;
+	int64_t missing;
+	int64_t requested;
 
 	struct sample_spec ss;
 	struct channel_map map;
@@ -112,5 +114,6 @@ int stream_send_overflow(struct stream *stream);
 int stream_send_killed(struct stream *stream);
 int stream_send_started(struct stream *stream);
 int stream_send_request(struct stream *stream);
+int stream_update_minreq(struct stream *stream, uint32_t minreq);
 
 #endif /* PULSER_SERVER_STREAM_H */

@@ -49,8 +49,8 @@
 #define NATIVE_COOKIE_LENGTH 256
 #define MAX_TAG_SIZE (64*1024)
 
-#define MIN_BUFFERS     8u
-#define MAX_BUFFERS     64u
+#define MIN_BUFFERS     1u
+#define MAX_BUFFERS     4u
 
 #define MAXLENGTH		(4*1024*1024) /* 4MB */
 

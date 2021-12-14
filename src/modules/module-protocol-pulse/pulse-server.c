@@ -1005,12 +1005,11 @@ static const struct spa_pod *get_buffers_param(struct stream *s,
 	blocks = 1;
 	stride = s->frame_size;
 
+	maxsize = 8192 * 32 * s->frame_size;
 	if (s->direction == PW_DIRECTION_OUTPUT) {
-		maxsize = attr->tlength * s->frame_size;
-		size = attr->minreq * s->frame_size;
+		size = attr->minreq;
 	} else {
 		size = attr->fragsize;
-		maxsize = attr->fragsize * MAX_BUFFERS;
 	}
 	buffers = SPA_CLAMP(maxsize / size, MIN_BUFFERS, MAX_BUFFERS);
 
@@ -1019,7 +1018,8 @@ static const struct spa_pod *get_buffers_param(struct stream *s,
 
 	param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(buffers, MIN_BUFFERS, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(buffers,
+				MIN_BUFFERS, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
 								size, size, maxsize),

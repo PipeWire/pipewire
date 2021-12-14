@@ -1089,6 +1089,9 @@ static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size
 	case SPA_IO_RateMatch:
 		stream->rate_match = area;
 		break;
+	case SPA_IO_Position:
+		stream->position = area;
+		break;
 	}
 }
 
@@ -1099,7 +1102,8 @@ struct process_data {
 	uint32_t underrun_for;
 	uint32_t playing_for;
 	uint32_t missing;
-	uint32_t maxmissing;
+	uint32_t minreq;
+	uint32_t quantum;
 	unsigned int underrun:1;
 };
 
@@ -1121,6 +1125,10 @@ do_process_done(struct spa_loop *loop,
 		stream->delay = 0;
 
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
+		if (stream->last_quantum != 0 && pd->quantum != stream->last_quantum)
+			stream_update_minreq(stream, pd->minreq);
+		stream->last_quantum = pd->quantum;
+
 		stream->read_index += pd->read_inc;
 		if (stream->corked) {
 			if (stream->underrun_for != (uint64_t)-1)
@@ -1138,7 +1146,7 @@ do_process_done(struct spa_loop *loop,
 				stream_send_started(stream);
 		}
 		stream->missing += pd->missing;
-		stream->missing = SPA_MIN(stream->missing, pd->maxmissing);
+		stream->missing = SPA_MIN(stream->missing, (int64_t)stream->attr.tlength);
 		stream->playing_for += pd->playing_for;
 		if (stream->underrun_for != (uint64_t)-1)
 			stream->underrun_for += pd->underrun_for;
@@ -1232,7 +1240,8 @@ static void stream_process(void *data)
 		if (minreq == 0)
 			minreq = stream->attr.minreq;
 
-		pd.maxmissing = SPA_MAX(minreq, stream->attr.tlength);
+		pd.minreq = minreq;
+		pd.quantum = stream->position ? stream->position->clock.duration : minreq;
 
 		if (avail < (int32_t)minreq || stream->corked) {
 			/* underrun, produce a silence buffer */

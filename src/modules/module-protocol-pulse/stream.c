@@ -256,3 +256,42 @@ int stream_send_request(struct stream *stream)
 
 	return client_queue_message(client, msg);
 }
+
+int stream_update_minreq(struct stream *stream, uint32_t minreq)
+{
+	struct client *client = stream->client;
+	struct impl *impl = client->impl;
+	uint32_t old_tlength = stream->attr.tlength;
+	uint32_t new_tlength = minreq + 2 * stream->attr.minreq;
+	uint64_t lat_usec;
+
+	if (new_tlength == old_tlength)
+		return 0;
+
+	if (old_tlength > new_tlength)
+		stream->missing -= old_tlength - new_tlength;
+	else
+		stream->missing += new_tlength - old_tlength;
+
+	stream->attr.tlength = new_tlength;
+
+	if (client->version >= 15) {
+		struct message *msg;
+
+		lat_usec = minreq * SPA_USEC_PER_SEC / stream->ss.rate;
+
+		msg = message_alloc(impl, -1, 0);
+		message_put(msg,
+			TAG_U32, COMMAND_PLAYBACK_BUFFER_ATTR_CHANGED,
+			TAG_U32, -1,
+			TAG_U32, stream->channel,
+			TAG_U32, stream->attr.maxlength,
+			TAG_U32, stream->attr.tlength,
+			TAG_U32, stream->attr.prebuf,
+			TAG_U32, stream->attr.minreq,
+			TAG_USEC, lat_usec,
+			TAG_INVALID);
+		return client_queue_message(client, msg);
+	}
+	return 0;
+}

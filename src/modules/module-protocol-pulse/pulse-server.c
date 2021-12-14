@@ -728,6 +728,7 @@ static void manager_added(void *data, struct pw_manager_object *o)
 		if (peer) {
 			reply_create_stream(s, peer);
 			spa_list_remove(&s->link);
+			s->pending = false;
 		}
 	}
 
@@ -1070,10 +1071,12 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 
 		/* if peer exists, reply immediately, otherwise reply when the link is created */
 		peer = find_linked(stream->client->manager, stream->id, stream->direction);
-		if (peer)
+		if (peer) {
 			reply_create_stream(stream, peer);
-		else
+		} else {
 			spa_list_append(&stream->client->pending_streams, &stream->link);
+			stream->pending = true;
+		}
 	}
 
 	params[n_params++] = get_buffers_param(stream, &stream->attr, &b);

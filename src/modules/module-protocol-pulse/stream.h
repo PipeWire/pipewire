@@ -106,6 +106,7 @@ struct stream {
 	unsigned int in_prebuf:1;
 	unsigned int done:1;
 	unsigned int killed:1;
+	unsigned int pending:1;
 };
 
 struct stream *stream_new(struct client *client, enum stream_type type, uint32_t create_tag,

@@ -658,6 +658,9 @@ static void update_io(struct pw_impl_node *node)
 			    sizeof(struct spa_io_position)) >= 0) {
 		pw_log_debug("%p: set position %p", node, &node->rt.activation->position);
 		node->rt.position = &node->rt.activation->position;
+
+		node->current_rate = node->rt.position->clock.rate;
+		node->current_quantum = node->rt.position->clock.duration;
 	} else if (node->driver) {
 		pw_log_warn("%p: can't set position on driver", node);
 	}
@@ -779,6 +782,9 @@ do_move_nodes(struct spa_loop *loop,
 
 	pw_log_trace("%p: set position %p", node, &driver->rt.activation->position);
 	node->rt.position = &driver->rt.activation->position;
+
+	node->current_rate = node->rt.position->clock.rate;
+	node->current_quantum = node->rt.position->clock.duration;
 
 	if (node->source.loop != NULL) {
 		remove_node(node);

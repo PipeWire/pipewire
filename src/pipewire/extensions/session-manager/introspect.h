@@ -53,7 +53,7 @@ struct pw_session_info {
 #define PW_SESSION_CHANGE_MASK_PROPS		(1 << 0)
 #define PW_SESSION_CHANGE_MASK_PARAMS		(1 << 1)
 #define PW_SESSION_CHANGE_MASK_ALL		((1 << 2)-1)
-	uint32_t change_mask;			/**< bitfield of changed fields since last call */
+	uint64_t change_mask;			/**< bitfield of changed fields since last call */
 	struct spa_dict *props;			/**< extra properties */
 	struct spa_param_info *params;		/**< parameters */
 	uint32_t n_params;			/**< number of items in \a params */
@@ -73,7 +73,7 @@ struct pw_endpoint_info {
 #define PW_ENDPOINT_CHANGE_MASK_PROPS		(1 << 2)
 #define PW_ENDPOINT_CHANGE_MASK_PARAMS		(1 << 3)
 #define PW_ENDPOINT_CHANGE_MASK_ALL		((1 << 4)-1)
-	uint32_t change_mask;			/**< bitfield of changed fields since last call */
+	uint64_t change_mask;			/**< bitfield of changed fields since last call */
 	uint32_t n_streams;			/**< number of streams available */
 	uint32_t session_id;			/**< the id of the controlling session */
 	struct spa_dict *props;			/**< extra properties */
@@ -91,7 +91,7 @@ struct pw_endpoint_stream_info {
 #define PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS		(1 << 1)
 #define PW_ENDPOINT_STREAM_CHANGE_MASK_PARAMS		(1 << 2)
 #define PW_ENDPOINT_STREAM_CHANGE_MASK_ALL		((1 << 3)-1)
-	uint32_t change_mask;			/**< bitfield of changed fields since last call */
+	uint64_t change_mask;			/**< bitfield of changed fields since last call */
 	struct spa_pod *link_params;		/**< information for linking this stream */
 	struct spa_dict *props;			/**< extra properties */
 	struct spa_param_info *params;		/**< parameters */
@@ -111,7 +111,7 @@ struct pw_endpoint_link_info {
 #define PW_ENDPOINT_LINK_CHANGE_MASK_PROPS	(1 << 1)
 #define PW_ENDPOINT_LINK_CHANGE_MASK_PARAMS	(1 << 2)
 #define PW_ENDPOINT_LINK_CHANGE_MASK_ALL	((1 << 3)-1)
-	uint32_t change_mask;			/**< bitfield of changed fields since last call */
+	uint64_t change_mask;			/**< bitfield of changed fields since last call */
 	enum pw_endpoint_link_state state;	/**< the state of the link */
 	char *error;				/**< error string if state == ERROR */
 	struct spa_dict *props;			/**< extra properties */

@@ -126,7 +126,7 @@ marshal_pw_session_info(struct spa_pod_builder *b,
 	spa_pod_builder_add(b,
 		SPA_POD_Int(info->version),
 		SPA_POD_Int(info->id),
-		SPA_POD_Int(info->change_mask),
+		SPA_POD_Long(info->change_mask),
 		NULL);
 	push_dict(b, info->props);
 	push_param_infos(b, info->n_params, info->params);
@@ -143,7 +143,7 @@ do { \
 	    spa_pod_parser_get(p, \
 			SPA_POD_Int(&version), \
 			SPA_POD_Int(&(info)->id), \
-			SPA_POD_Int(&(info)->change_mask), \
+			SPA_POD_Long(&(info)->change_mask), \
 			NULL) < 0) \
 		return -EINVAL; \
 	\
@@ -169,7 +169,7 @@ marshal_pw_endpoint_info(struct spa_pod_builder *b,
 		SPA_POD_String(info->media_class),
 		SPA_POD_Int(info->direction),
 		SPA_POD_Int(info->flags),
-		SPA_POD_Int(info->change_mask),
+		SPA_POD_Long(info->change_mask),
 		SPA_POD_Int(info->n_streams),
 		SPA_POD_Int(info->session_id),
 		NULL);
@@ -192,7 +192,7 @@ do { \
 			SPA_POD_String(&(info)->media_class), \
 			SPA_POD_Int(&(info)->direction), \
 			SPA_POD_Int(&(info)->flags), \
-			SPA_POD_Int(&(info)->change_mask), \
+			SPA_POD_Long(&(info)->change_mask), \
 			SPA_POD_Int(&(info)->n_streams), \
 			SPA_POD_Int(&(info)->session_id), \
 			NULL) < 0) \
@@ -218,7 +218,7 @@ marshal_pw_endpoint_stream_info(struct spa_pod_builder *b,
 		SPA_POD_Int(info->id),
 		SPA_POD_Int(info->endpoint_id),
 		SPA_POD_String(info->name),
-		SPA_POD_Int(info->change_mask),
+		SPA_POD_Long(info->change_mask),
 		SPA_POD_Pod(info->link_params),
 		NULL);
 	push_dict(b, info->props);
@@ -238,7 +238,7 @@ do { \
 			SPA_POD_Int(&(info)->id), \
 			SPA_POD_Int(&(info)->endpoint_id), \
 			SPA_POD_String(&(info)->name), \
-			SPA_POD_Int(&(info)->change_mask), \
+			SPA_POD_Long(&(info)->change_mask), \
 			SPA_POD_Pod(&(info)->link_params), \
 			NULL) < 0) \
 		return -EINVAL; \
@@ -266,7 +266,7 @@ marshal_pw_endpoint_link_info(struct spa_pod_builder *b,
 		SPA_POD_Int(info->output_stream_id),
 		SPA_POD_Int(info->input_endpoint_id),
 		SPA_POD_Int(info->input_stream_id),
-		SPA_POD_Int(info->change_mask),
+		SPA_POD_Long(info->change_mask),
 		SPA_POD_Int(info->state),
 		SPA_POD_String(info->error),
 		NULL);
@@ -290,7 +290,7 @@ do { \
 			SPA_POD_Int(&(info)->output_stream_id), \
 			SPA_POD_Int(&(info)->input_endpoint_id), \
 			SPA_POD_Int(&(info)->input_stream_id), \
-			SPA_POD_Int(&(info)->change_mask), \
+			SPA_POD_Long(&(info)->change_mask), \
 			SPA_POD_Int(&(info)->state), \
 			SPA_POD_String(&(info)->error), \
 			NULL) < 0) \

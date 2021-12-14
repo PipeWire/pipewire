@@ -167,6 +167,14 @@ static void *connection_ensure_size(struct pw_protocol_native_connection *conn, 
 	return (uint8_t *) buf->buffer_data + buf->buffer_size;
 }
 
+static void handle_connection_error(struct pw_protocol_native_connection *conn, int res)
+{
+	if (res == -EPIPE || res == -ECONNRESET)
+		pw_log_info("connection %p: could not recvmsg on fd:%d: %s", conn, conn->fd, strerror(res));
+	else
+		pw_log_error("connection %p: could not recvmsg on fd:%d: %s", conn, conn->fd, strerror(res));
+}
+
 static int refill_buffer(struct pw_protocol_native_connection *conn, struct buffer *buf)
 {
 	ssize_t len;
@@ -224,7 +232,7 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 
 	/* ERRORS */
 recv_error:
-	pw_log_error("connection %p: could not recvmsg on fd:%d: %m", conn, conn->fd);
+	handle_connection_error(conn, errno);
 	return -errno;
 }
 

@@ -114,10 +114,14 @@ static bool stream_prebuf_active(struct stream *stream)
 
 	avail = spa_ringbuffer_get_write_index(&stream->ring, &index);
 
-	if (stream->in_prebuf)
-		return avail < (int32_t) stream->attr.prebuf;
-	else
-		return stream->attr.prebuf > 0 && avail <= 0;
+	if (stream->in_prebuf) {
+		if (avail >= (int32_t) stream->attr.prebuf)
+			stream->in_prebuf = false;
+	} else {
+		if (stream->attr.prebuf > 0 && avail <= 0)
+			stream->in_prebuf = true;
+	}
+	return stream->in_prebuf;
 }
 
 uint32_t stream_pop_missing(struct stream *stream)

@@ -820,6 +820,7 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	if (old != node && old->driving && driver->info.state < PW_NODE_STATE_RUNNING) {
 		driver->current_rate = old->current_rate;
 		driver->current_quantum = old->current_quantum;
+		driver->current_pending = true;
 		pw_log_info("move quantum:%"PRIu64" rate:%d (%s-%d -> %s-%d)",
 				driver->current_quantum,
 				driver->current_rate.denom,
@@ -1592,8 +1593,11 @@ static int node_ready(void *data, int status)
 			node->rt.target.signal(node->rt.target.data);
 		}
 
-		node->rt.position->clock.duration = node->current_quantum;
-		node->rt.position->clock.rate = node->current_rate;
+		if (node->current_pending) {
+			node->rt.position->clock.duration = node->current_quantum;
+			node->rt.position->clock.rate = node->current_rate;
+			node->current_pending = false;
+		}
 
 		sync_type = check_updates(node, &reposition_owner);
 		owner[0] = ATOMIC_LOAD(a->segment_owner[0]);

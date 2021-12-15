@@ -1211,6 +1211,7 @@ again:
 					suspend_driver(context, n);
 			}
 			n->current_rate = SPA_FRACTION(1, target_rate);
+			n->current_pending = true;
 			current_rate = target_rate;
 			/* we might be suspended now and the links need to be prepared again */
 			goto again;
@@ -1242,6 +1243,7 @@ again:
 					n->current_quantum,
 					quantum);
 			n->current_quantum = quantum;
+			n->current_pending = true;
 		}
 
 		pw_log_debug("%p: driving %p running:%d passive:%d quantum:%u '%s'",

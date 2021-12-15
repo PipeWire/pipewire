@@ -3511,6 +3511,7 @@ done:
 SPA_EXPORT
 int jack_deactivate (jack_client_t *client)
 {
+	struct object *l;
 	struct client *c = (struct client *) client;
 	int res;
 
@@ -3528,6 +3529,12 @@ int jack_deactivate (jack_client_t *client)
 
 	c->activation->pending_new_pos = false;
 	c->activation->pending_sync = false;
+
+	spa_list_for_each(l, &c->context.links, link) {
+		if (l->port_link.src_ours || l->port_link.dst_ours) {
+			pw_registry_destroy(c->registry, l->id);
+		}
+	}
 
 	res = do_sync(c);
 

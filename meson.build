@@ -467,6 +467,7 @@ endif
 if alsa_dep.found()
   subdir('pipewire-alsa/alsa-plugins')
   subdir('pipewire-alsa/conf')
+  subdir('pipewire-alsa/tests')
 endif
 
 doxygen = find_program('doxygen', required : get_option('docs'))

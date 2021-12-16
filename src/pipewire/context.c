@@ -1246,6 +1246,12 @@ again:
 			n->current_pending = true;
 		}
 
+		if (n->info.state < PW_NODE_STATE_RUNNING && n->current_pending) {
+			n->rt.position->clock.duration = n->current_quantum;
+			n->rt.position->clock.rate = n->current_rate;
+			n->current_pending = false;
+		}
+
 		pw_log_debug("%p: driving %p running:%d passive:%d quantum:%u '%s'",
 				context, n, running, n->passive, quantum, n->name);
 

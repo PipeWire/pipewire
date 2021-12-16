@@ -265,10 +265,13 @@ int stream_update_minreq(struct stream *stream, uint32_t minreq)
 	uint32_t new_tlength = minreq + 2 * stream->attr.minreq;
 	uint64_t lat_usec;
 
-	if (old_tlength >= new_tlength)
+	if (new_tlength == old_tlength)
 		return 0;
 
-	stream->missing += new_tlength - old_tlength;
+	if (old_tlength > new_tlength)
+		stream->missing -= old_tlength - new_tlength;
+	else
+		stream->missing += new_tlength - old_tlength;
 
 	stream->attr.tlength = new_tlength;
 

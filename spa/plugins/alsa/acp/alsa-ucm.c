@@ -922,6 +922,19 @@ static void set_eld_devices(pa_hashmap *hash)
     }
 }
 
+static void update_mixer_paths(pa_hashmap *ports, const char *profile) {
+    pa_device_port *port;
+    pa_alsa_ucm_port_data *data;
+    void *state;
+
+    /* select volume controls on ports */
+    PA_HASHMAP_FOREACH(port, ports, state) {
+        pa_log_info("Updating mixer path for %s: %s", profile, port->name);
+        data = PA_DEVICE_PORT_DATA(port);
+        data->path = pa_hashmap_get(data->paths, profile);
+    }
+}
+
 static void probe_volumes(pa_hashmap *hash, bool is_sink, snd_pcm_t *pcm_handle, pa_hashmap *mixers, bool ignore_dB) {
     pa_device_port *port;
     pa_alsa_path *path;
@@ -955,11 +968,12 @@ static void probe_volumes(pa_hashmap *hash, bool is_sink, snd_pcm_t *pcm_handle,
             if (pa_alsa_path_probe(path, NULL, mixer_handle, ignore_dB) < 0) {
                 pa_log_warn("Could not probe path: %s, using s/w volume", path->name);
                 pa_hashmap_remove(data->paths, profile);
-            } else if (!path->has_volume) {
-                pa_log_warn("Path %s is not a volume control", path->name);
+            } else if (!path->has_volume && !path->has_mute) {
+                pa_log_warn("Path %s is not a volume or mute control", path->name);
                 pa_hashmap_remove(data->paths, profile);
             } else
-                pa_log_debug("Set up h/w volume using '%s' for %s:%s", path->name, profile, port->name);
+                pa_log_debug("Set up h/w %s using '%s' for %s:%s", path->has_volume ? "volume" : "mute",
+                                path->name, profile, port->name);
         }
     }
 
@@ -1083,8 +1097,6 @@ static void ucm_add_port_combination(
         if (num == 1) {
             /* To keep things simple and not worry about stacking controls, we only support hardware volumes on non-combination
              * ports. */
-            data = PA_DEVICE_PORT_DATA(port);
-
             PA_HASHMAP_FOREACH_KV(profile, vol, is_sink ? dev->playback_volumes : dev->capture_volumes, state) {
                 pa_alsa_path *path = pa_alsa_path_synthesize(vol->mixer_elem,
                                                              is_sink ? PA_ALSA_DIRECTION_OUTPUT : PA_ALSA_DIRECTION_INPUT);
@@ -1312,6 +1324,9 @@ void pa_alsa_ucm_add_ports(
     /* now set up volume paths if any */
     probe_volumes(*p, is_sink, pcm_handle, context->ucm->mixers, ignore_dB);
 
+    if (card->card.active_profile_index < card->card.n_profiles)
+        update_mixer_paths(*p, card->card.profiles[card->card.active_profile_index]->name);
+
     /* then set property PA_PROP_DEVICE_INTENDED_ROLES */
     merged_roles = pa_xstrdup(pa_proplist_gets(proplist, PA_PROP_DEVICE_INTENDED_ROLES));
     PA_IDXSET_FOREACH(dev, context->ucm_devices, idx) {
@@ -1340,9 +1355,6 @@ int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, const char *
     int ret = 0;
     const char *profile;
     pa_alsa_ucm_verb *verb;
-    pa_device_port *port;
-    pa_alsa_ucm_port_data *data;
-    void *state;
 
     if (new_profile == old_profile)
         return ret;
@@ -1370,12 +1382,7 @@ int pa_alsa_ucm_set_profile(pa_alsa_ucm_config *ucm, pa_card *card, const char *
         }
     }
 
-    /* select volume controls on ports */
-    PA_HASHMAP_FOREACH(port, card->ports, state) {
-        data = PA_DEVICE_PORT_DATA(port);
-        data->path = pa_hashmap_get(data->paths, profile);
-    }
-
+    update_mixer_paths(card->ports, profile);
     return ret;
 }
 

@@ -1,3 +1,24 @@
+# PipeWire 0.3.42 (2021-12-16)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+This is a quick emergency release to fix some severe
+problems with the previous release.
+
+## Highlights
+  - Fixes a bug in pulse-server underrun handling that broke qemu
+    and orca.
+  - A fix was added to pulse-server to handle quantum changes
+    gracefully.
+  - Fix module-echo-cancel again.
+  - Fix a bug where the bluetooth headset capture was producing
+    noise.
+
+
+Older versions:
+
+
 # PipeWire 0.3.41 (2021-12-13)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -102,8 +123,6 @@ This is a bugfix release that is API and ABI compatible with previous
     match clock rates is avoided when the driver has the same clock
     name as the ALSA node. This can be used to link alsa devices together
     with a word clock.
-
-Older versions:
 
 # PipeWire 0.3.40 (2021-11-11)
 

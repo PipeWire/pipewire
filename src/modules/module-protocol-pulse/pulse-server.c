@@ -1045,7 +1045,8 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 		return;
 	}
 
-	pw_log_debug("%p: got rate:%u channels:%u", stream, stream->ss.rate, stream->ss.channels);
+	pw_log_info("[%s] got rate:%u channels:%u", stream->client->name,
+			stream->ss.rate, stream->ss.channels);
 
 	stream->frame_size = sample_spec_frame_size(&stream->ss);
 	if (stream->frame_size == 0) {
@@ -1517,9 +1518,17 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 		}
 	}
 	if (sample_spec_valid(&ss)) {
+		if (fix_format)
+			ss.format = SPA_AUDIO_FORMAT_UNKNOWN;
+		if (fix_rate)
+			ss.rate = 0;
+		if (fix_channels)
+			ss.channels = 0;
+
 		if (n_params < MAX_FORMATS &&
 		    (params[n_params] = format_build_param(&b,
-				SPA_PARAM_EnumFormat, &ss, &map)) != NULL) {
+				SPA_PARAM_EnumFormat, &ss,
+				ss.channels > 0 ? &map : NULL)) != NULL) {
 			n_params++;
 			n_valid_formats++;
 		} else {
@@ -1764,9 +1773,17 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		volume_set = false;
 	}
 	if (sample_spec_valid(&ss)) {
+		if (fix_format)
+			ss.format = SPA_AUDIO_FORMAT_UNKNOWN;
+		if (fix_rate)
+			ss.rate = 0;
+		if (fix_channels)
+			ss.channels = 0;
+
 		if (n_params < MAX_FORMATS &&
 		    (params[n_params] = format_build_param(&b,
-				SPA_PARAM_EnumFormat, &ss, &map)) != NULL) {
+				SPA_PARAM_EnumFormat, &ss,
+				ss.channels > 0 ? &map : NULL)) != NULL) {
 			n_params++;
 			n_valid_formats++;
 		} else {

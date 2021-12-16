@@ -687,7 +687,8 @@ static int add_rate(struct state *state, uint32_t scale, bool all, uint32_t inde
 	spa_pod_builder_push_choice(b, &f[0], SPA_CHOICE_None, 0);
 	choice = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f[0]);
 
-	rate = state->position ? state->position->clock.rate.denom : DEFAULT_RATE;
+	if (rate == 0)
+		rate = state->position ? state->position->clock.rate.denom : DEFAULT_RATE;
 
 	spa_pod_builder_int(b, SPA_CLAMP(rate, min, max) * scale);
 	if (min != max) {

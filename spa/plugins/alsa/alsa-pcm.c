@@ -1162,7 +1162,11 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		case SPA_AUDIO_IEC958_CODEC_MPEG2_AAC:
 			break;
 		case SPA_AUDIO_IEC958_CODEC_EAC3:
-			rrate *= 4;
+			/* EAC3 has 3 rates, 32, 44.1 and 48KHz. We need to
+			 * open the device in 4x that rate. Some clients
+			 * already multiply (mpv,..) others don't (vlc). */
+			if (rrate <= 48000)
+				rrate *= 4;
 			break;
 		case SPA_AUDIO_IEC958_CODEC_TRUEHD:
 		case SPA_AUDIO_IEC958_CODEC_DTSHD:

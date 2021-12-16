@@ -503,16 +503,53 @@ int format_parse_param(const struct spa_pod *param, struct sample_spec *ss, stru
 const struct spa_pod *format_build_param(struct spa_pod_builder *b, uint32_t id,
 		const struct sample_spec *spec, const struct channel_map *map)
 {
-	struct spa_audio_info_raw info;
+	struct spa_pod_frame f;
 
-	info = SPA_AUDIO_INFO_RAW_INIT(
-			.format = spec->format,
-			.channels = spec->channels,
-			.rate = spec->rate);
-	if (map)
-		channel_map_to_positions(map, info.position);
+	spa_pod_builder_push_object(b, &f, SPA_TYPE_OBJECT_Format, id);
+	spa_pod_builder_add(b,
+			SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+			SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+			0);
+	if (spec->format != SPA_AUDIO_FORMAT_UNKNOWN)
+		spa_pod_builder_add(b,
+			SPA_FORMAT_AUDIO_format,        SPA_POD_Id(spec->format), 0);
+	else {
+		spa_pod_builder_add(b,
+			SPA_FORMAT_AUDIO_format,	SPA_POD_CHOICE_ENUM_Id(26,
+								SPA_AUDIO_FORMAT_F32,
+								SPA_AUDIO_FORMAT_F32,
+								SPA_AUDIO_FORMAT_F32_OE,
+								SPA_AUDIO_FORMAT_S32,
+								SPA_AUDIO_FORMAT_S32_OE,
+								SPA_AUDIO_FORMAT_S24_32,
+								SPA_AUDIO_FORMAT_S24_32_OE,
+								SPA_AUDIO_FORMAT_S24,
+								SPA_AUDIO_FORMAT_S24_OE,
+								SPA_AUDIO_FORMAT_S16,
+								SPA_AUDIO_FORMAT_S16_OE,
+								SPA_AUDIO_FORMAT_ULAW,
+								SPA_AUDIO_FORMAT_ALAW,
+								SPA_AUDIO_FORMAT_U8),
+			0);
 
-	return spa_format_audio_raw_build(b, id, &info);
+	}
+
+        if (spec->rate != 0)
+		spa_pod_builder_add(b,
+			SPA_FORMAT_AUDIO_rate,          SPA_POD_Int(spec->rate), 0);
+	if (spec->channels != 0) {
+		spa_pod_builder_add(b,
+			SPA_FORMAT_AUDIO_channels,      SPA_POD_Int(spec->channels), 0);
+
+		if (map && map->channels == spec->channels) {
+			uint32_t positions[SPA_AUDIO_MAX_CHANNELS];
+			channel_map_to_positions(map, positions);
+                        spa_pod_builder_add(b, SPA_FORMAT_AUDIO_position,
+                                SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id,
+                                        spec->channels, positions), 0);
+                }
+        }
+        return spa_pod_builder_pop(b, &f);
 }
 
 int format_info_from_spec(struct format_info *info, const struct sample_spec *ss,

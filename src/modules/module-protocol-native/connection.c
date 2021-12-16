@@ -169,7 +169,7 @@ static void *connection_ensure_size(struct pw_protocol_native_connection *conn, 
 
 static void handle_connection_error(struct pw_protocol_native_connection *conn, int res)
 {
-	if (res == -EPIPE || res == -ECONNRESET)
+	if (res == EPIPE || res == ECONNRESET)
 		pw_log_info("connection %p: could not recvmsg on fd:%d: %s", conn, conn->fd, strerror(res));
 	else
 		pw_log_error("connection %p: could not recvmsg on fd:%d: %s", conn, conn->fd, strerror(res));

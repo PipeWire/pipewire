@@ -70,8 +70,11 @@ spa_latency_info_combine_start(struct spa_latency_info *info, enum spa_direction
 {
 	*info = SPA_LATENCY_INFO(direction,
 			.min_quantum = FLT_MAX,
+			.max_quantum = 0.0f,
 			.min_rate = UINT32_MAX,
-			.min_ns = UINT64_MAX);
+			.max_rate = 0,
+			.min_ns = UINT64_MAX,
+			.max_ns = 0);
 }
 static inline void
 spa_latency_info_combine_finish(struct spa_latency_info *info)

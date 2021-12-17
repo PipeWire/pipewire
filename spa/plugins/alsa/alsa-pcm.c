@@ -1327,17 +1327,21 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		state->card->rate = rrate;
 
 	dir = 0;
-	period_size = state->default_period_size ? state->default_period_size : 1024;
+	period_size = state->default_period_size;
 	is_batch = snd_pcm_hw_params_is_batch(params) &&
 		!state->disable_batch;
 
 	if (is_batch) {
+		if (period_size == 0)
+			period_size = state->position ? state->position->clock.duration : DEFAULT_PERIOD;
 		/* batch devices get their hw pointers updated every period. Make
 		 * the period smaller and add one period of headroom */
 		period_size /= 2;
 		spa_log_info(state->log, "%s: batch mode, period_size:%ld",
 			state->props.device, period_size);
 	} else {
+		if (period_size == 0)
+			period_size = DEFAULT_PERIOD;
 		/* disable ALSA wakeups, we use a timer */
 		if (snd_pcm_hw_params_can_disable_period_wakeup(params))
 			CHECK(snd_pcm_hw_params_set_period_wakeup(hndl, params, 0), "set_period_wakeup");

@@ -109,6 +109,8 @@ static int alsa_set_param(struct state *state, const char *k, const char *s)
 		fmt_change++;
 	} else if (spa_streq(k, "api.alsa.period-size")) {
 		state->default_period_size = atoi(s);
+	} else if (spa_streq(k, "api.alsa.period-num")) {
+		state->default_period_num = atoi(s);
 	} else if (spa_streq(k, "api.alsa.headroom")) {
 		state->default_headroom = atoi(s);
 	} else if (spa_streq(k, "api.alsa.start-delay")) {
@@ -207,12 +209,20 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 	case 5:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.period-num"),
+			SPA_PROP_INFO_description, SPA_POD_String("Number of Periods"),
+			SPA_PROP_INFO_type, SPA_POD_Int(state->default_period_num),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 6:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.headroom"),
 			SPA_PROP_INFO_description, SPA_POD_String("Headroom"),
 			SPA_PROP_INFO_type, SPA_POD_Int(state->default_headroom),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 6:
+	case 7:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.start-delay"),
@@ -220,7 +230,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_Int(state->default_start_delay),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 7:
+	case 8:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.disable-mmap"),
@@ -228,7 +238,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_Bool(state->disable_mmap),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 8:
+	case 9:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.disable-batch"),
@@ -236,7 +246,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_Bool(state->disable_batch),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 9:
+	case 10:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.use-chmap"),
@@ -244,7 +254,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_Bool(state->props.use_chmap),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 10:
+	case 11:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.multi-rate"),
@@ -252,7 +262,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_Bool(state->multi_rate),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 11:
+	case 12:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("clock.name"),
@@ -291,6 +301,9 @@ int spa_alsa_add_prop_params(struct state *state, struct spa_pod_builder *b)
 
 	spa_pod_builder_string(b, "api.alsa.period-size");
 	spa_pod_builder_int(b, state->default_period_size);
+
+	spa_pod_builder_string(b, "api.alsa.period-num");
+	spa_pod_builder_int(b, state->default_period_num);
 
 	spa_pod_builder_string(b, "api.alsa.headroom");
 	spa_pod_builder_int(b, state->default_headroom);
@@ -1348,8 +1361,18 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	}
 
 	CHECK(snd_pcm_hw_params_set_period_size_near(hndl, params, &period_size, &dir), "set_period_size_near");
-	CHECK(snd_pcm_hw_params_get_buffer_size_max(params, &state->buffer_frames), "get_buffer_size_max");
-	CHECK(snd_pcm_hw_params_set_buffer_size_near(hndl, params, &state->buffer_frames), "set_buffer_size_near");
+
+	state->period_frames = period_size;
+
+	if (state->default_period_num != 0) {
+		periods = state->default_period_num;
+		CHECK(snd_pcm_hw_params_set_periods_near(hndl, params, &periods, &dir), "set_periods");
+		state->buffer_frames = period_size * periods;
+	} else {
+		CHECK(snd_pcm_hw_params_get_buffer_size_max(params, &state->buffer_frames), "get_buffer_size_max");
+		CHECK(snd_pcm_hw_params_set_buffer_size_near(hndl, params, &state->buffer_frames), "set_buffer_size_near");
+		periods = state->buffer_frames / period_size;
+	}
 
 	state->headroom = state->default_headroom;
 	if (is_batch)
@@ -1360,9 +1383,6 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 	state->latency[state->port_direction].min_rate = state->headroom;
 	state->latency[state->port_direction].max_rate = state->headroom;
-
-	state->period_frames = period_size;
-	periods = state->buffer_frames / state->period_frames;
 
 	spa_log_info(state->log, "%s (%s): format:%s access:%s-%s rate:%d channels:%d "
 			"buffer frames %lu, period frames %lu, periods %u, frame_size %zd "

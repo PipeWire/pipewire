@@ -382,6 +382,7 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 
 	snd_config_update_free_global();
 
+	state->multi_rate = true;
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;

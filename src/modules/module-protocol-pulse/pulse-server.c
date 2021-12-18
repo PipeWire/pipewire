@@ -1219,6 +1219,7 @@ static void stream_process(void *data)
 	struct spa_buffer *buf;
 	uint32_t size, minreq = 0, index;
 	struct process_data pd;
+	bool do_flush = false;
 
 	if (stream->create_tag != SPA_ID_INVALID)
 		return;
@@ -1252,7 +1253,7 @@ static void stream_process(void *data)
 
 			if (stream->draining) {
 				stream->draining = false;
-				pw_stream_flush(stream->stream, true);
+				do_flush = true;
 			} else {
 				pd.underrun_for = size;
 				pd.underrun = true;
@@ -1328,6 +1329,9 @@ static void stream_process(void *data)
 		spa_ringbuffer_write_update(&stream->ring, index);
 	}
 	pw_stream_queue_buffer(stream->stream, buffer);
+
+	if (do_flush)
+		pw_stream_flush(stream->stream, true);
 
 	pw_stream_get_time(stream->stream, &pd.pwt);
 

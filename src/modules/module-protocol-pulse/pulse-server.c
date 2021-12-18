@@ -1258,10 +1258,14 @@ static void stream_process(void *data)
 				pd.underrun_for = size;
 				pd.underrun = true;
 			}
-			if (stream->attr.prebuf == 0 && !stream->corked) {
+			if ((stream->attr.prebuf == 0 || do_flush) && !stream->corked) {
 				pd.missing = size;
 				pd.playing_for = size;
 				if (avail > 0) {
+					spa_ringbuffer_read_data(&stream->ring,
+						stream->buffer, stream->attr.maxlength,
+						index % stream->attr.maxlength,
+						p, avail);
 					index += avail;
 					pd.read_inc = avail;
 				}

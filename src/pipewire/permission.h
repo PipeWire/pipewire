@@ -53,11 +53,10 @@ extern "C" {
 #define PW_PERM_RWX	(PW_PERM_R|PW_PERM_W|PW_PERM_X)
 #define PW_PERM_RWXM	(PW_PERM_RWX|PW_PERM_M)
 
-#define PW_PERM_CHECK(p,b) (((p)&(b)) == (b))
-#define PW_PERM_IS_R(p) PW_PERM_CHECK(p, PW_PERM_R)
-#define PW_PERM_IS_W(p) PW_PERM_CHECK(p, PW_PERM_W)
-#define PW_PERM_IS_X(p) PW_PERM_CHECK(p, PW_PERM_X)
-#define PW_PERM_IS_M(p) PW_PERM_CHECK(p, PW_PERM_M)
+#define PW_PERM_IS_R(p) (((p)&PW_PERM_R) == PW_PERM_R)
+#define PW_PERM_IS_W(p) (((p)&PW_PERM_W) == PW_PERM_W)
+#define PW_PERM_IS_X(p) (((p)&PW_PERM_X) == PW_PERM_X)
+#define PW_PERM_IS_M(p) (((p)&PW_PERM_M) == PW_PERM_M)
 
 #define PW_PERM_ALL	PW_PERM_RWXM
 #define PW_PERM_INVALID	(uint32_t)(0xffffffff)

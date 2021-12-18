@@ -110,7 +110,7 @@ static int registry_destroy(void *object, uint32_t id)
 	if (!PW_PERM_IS_R(permissions))
 		goto error_no_id;
 
-	if (id == PW_ID_CORE || !PW_PERM_CHECK(permissions, PW_PERM_X|PW_PERM_W))
+	if (id == PW_ID_CORE || !PW_PERM_IS_X(permissions))
 		goto error_not_allowed;
 
 	pw_log_debug("global %p: destroy global id %d", global, id);

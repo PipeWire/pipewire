@@ -364,6 +364,7 @@ do {											\
 		char *dest = va_arg(args, char*);					\
 		uint32_t maxlen = va_arg(args, uint32_t);				\
 		strncpy(dest, (char *)SPA_POD_CONTENTS(struct spa_pod_string, pod), maxlen-1);	\
+		dest[maxlen-1] = '\0';							\
 		break;									\
 	}										\
 	case 'y':									\

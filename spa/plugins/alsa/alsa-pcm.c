@@ -402,7 +402,7 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 	}
 	if (state->clock_name[0] == '\0')
 		snprintf(state->clock_name, sizeof(state->clock_name),
-				"api.alsa.%d", state->card_index);
+				"api.alsa.%u", state->card_index);
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		state->is_iec958 = spa_strstartswith(state->props.device, "iec958");
@@ -412,7 +412,7 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 
 	state->card = ensure_card(state->card_index, state->open_ucm);
 	if (state->card == NULL) {
-		spa_log_error(state->log, "can't create card %d", state->card_index);
+		spa_log_error(state->log, "can't create card %u", state->card_index);
 		return -errno;
 	}
 	return 0;

@@ -1127,7 +1127,7 @@ do_process_done(struct spa_loop *loop,
 		stream->delay = 0;
 
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
-		if (stream->last_quantum != 0 && pd->quantum != stream->last_quantum)
+		if (pd->quantum != stream->last_quantum)
 			stream_update_minreq(stream, pd->minreq);
 		stream->last_quantum = pd->quantum;
 

@@ -72,11 +72,9 @@ error:
 	return NULL;
 }
 
-static void release_card(uint32_t index)
+static void release_card(struct card *c)
 {
-	struct card *c;
-	if ((c = find_card(index)) == NULL)
-		return;
+	spa_assert(c->ref > 0);
 
 	if (--c->ref > 0)
 		return;
@@ -420,8 +418,11 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 
 int spa_alsa_clear(struct state *state)
 {
-	release_card(state->card_index);
+	release_card(state->card);
+
 	state->card = NULL;
+	state->card_index = SPA_ID_INVALID;
+
 	return 0;
 }
 

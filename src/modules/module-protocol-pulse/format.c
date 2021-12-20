@@ -515,7 +515,7 @@ const struct spa_pod *format_build_param(struct spa_pod_builder *b, uint32_t id,
 			SPA_FORMAT_AUDIO_format,        SPA_POD_Id(spec->format), 0);
 	else {
 		spa_pod_builder_add(b,
-			SPA_FORMAT_AUDIO_format,	SPA_POD_CHOICE_ENUM_Id(26,
+			SPA_FORMAT_AUDIO_format,	SPA_POD_CHOICE_ENUM_Id(14,
 								SPA_AUDIO_FORMAT_F32,
 								SPA_AUDIO_FORMAT_F32,
 								SPA_AUDIO_FORMAT_F32_OE,

@@ -318,7 +318,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b,
 						io->format);
 
 			hw_ptr += xfer;
-			if (hw_ptr > pw->boundary)
+			if (hw_ptr >= pw->boundary)
 				hw_ptr -= pw->boundary;
 			pw->hw_ptr = hw_ptr;
 			*hw_avail -= xfer;

@@ -5690,6 +5690,7 @@ int  jack_transport_reposition (jack_client_t *client,
 		return -EINVAL;
 
 	pw_log_debug("frame:%u", pos->frame);
+	spa_zero(na->reposition);
 	na->reposition.flags = 0;
 	na->reposition.start = 0;
 	na->reposition.duration = 0;

@@ -1602,6 +1602,7 @@ static int node_ready(void *data, int status)
 		sync_type = check_updates(node, &reposition_owner);
 		owner[0] = ATOMIC_LOAD(a->segment_owner[0]);
 		owner[1] = ATOMIC_LOAD(a->segment_owner[1]);
+again:
 		all_ready = sync_type == SYNC_CHECK;
 		update_sync = !all_ready;
 		target_sync = sync_type == SYNC_START ? true : false;
@@ -1638,8 +1639,13 @@ static int node_ready(void *data, int status)
 		a->prev_signal_time = a->signal_time;
 		a->sync_timeout = SPA_MIN(min_timeout, DEFAULT_SYNC_TIMEOUT);
 
-		if (SPA_UNLIKELY(reposition_node))
+		if (SPA_UNLIKELY(reposition_node)) {
 			do_reposition(node, reposition_node);
+			sync_type = SYNC_START;
+			reposition_owner = 0;
+			reposition_node = NULL;
+			goto again;
+		}
 
 		update_position(node, all_ready);
 

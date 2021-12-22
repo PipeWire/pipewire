@@ -177,9 +177,9 @@ struct module *create_module_null_sink(struct impl *impl, const char *argument)
 
 		pw_properties_setf(props, SPA_KEY_AUDIO_CHANNELS, "%u", info.channels);
 
-		p = s = alloca(info.channels * 6);
+		p = s = alloca(info.channels * 8);
 		for (i = 0; i < info.channels; i++)
-			p += snprintf(p, 6, "%s%s", i == 0 ? "" : ",",
+			p += snprintf(p, 8, "%s%s", i == 0 ? "" : ",",
 					channel_id2name(info.position[i]));
 		pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
 	}

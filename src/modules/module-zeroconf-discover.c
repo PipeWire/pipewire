@@ -209,12 +209,12 @@ static void pw_properties_from_avahi_string(const char *key, const char *value, 
 		channel_map_parse(value, &channel_map);
 		channel_map_to_positions(&channel_map, pos);
 
-		p = s = alloca(4 + channel_map.channels * 6);
-		p += snprintf(p, 6, "[");
+		p = s = alloca(4 + channel_map.channels * 8);
+		p += spa_scnprintf(p, 2, "[");
 		for (i = 0; i < channel_map.channels; i++)
-			p += snprintf(p, 6, "%s%s", i == 0 ? "" : ",",
+			p += spa_scnprintf(p, 8, "%s%s", i == 0 ? "" : ",",
 				channel_id2name(pos[i]));
-		p += snprintf(p, 6, "]");
+		p += spa_scnprintf(p, 2, "]");
 		pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
 	}
 	else if (spa_streq(key, "format")) {

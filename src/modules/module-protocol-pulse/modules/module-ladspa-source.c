@@ -162,7 +162,7 @@ static void position_to_props(struct spa_audio_info_raw *info, struct pw_propert
 	pw_properties_setf(props, SPA_KEY_AUDIO_CHANNELS, "%u", info->channels);
 	p = s = alloca(info->channels * 8);
 	for (i = 0; i < info->channels; i++)
-		p += snprintf(p, 8, "%s%s", i == 0 ? "" : ",",
+		p += spa_scnprintf(p, 8, "%s%s", i == 0 ? "" : ",",
 				channel_id2name(info->position[i]));
 	pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
 }

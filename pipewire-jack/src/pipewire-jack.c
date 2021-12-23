@@ -2471,10 +2471,12 @@ static const char* type_to_string(jack_port_type_id_t type_id)
 	}
 }
 
-static jack_uuid_t client_make_uuid(uint32_t id)
+static jack_uuid_t client_make_uuid(uint32_t id, bool monitor)
 {
 	jack_uuid_t uuid = 0x2; /* JackUUIDClient */
 	uuid = (uuid << 32) | (id + 1);
+	if (monitor)
+		uuid |= (1 << 30);
 	pw_log_debug("uuid %d -> %"PRIu64, id, uuid);
 	return uuid;
 }
@@ -2538,7 +2540,7 @@ static int metadata_property(void *object, uint32_t id,
 
 		switch (o->type) {
 		case INTERFACE_Node:
-			uuid = client_make_uuid(id);
+			uuid = client_make_uuid(id, false);
 			break;
 		case INTERFACE_Port:
 			uuid = jack_port_uuid_generate(id);
@@ -3416,7 +3418,7 @@ char *jack_get_uuid_for_client_name (jack_client_t *client,
 		if (spa_streq(o->node.name, client_name) ||
 		    (monitor && spa_strneq(o->node.name, client_name,
 			    strlen(client_name) - strlen(MONITOR_EXT)))) {
-			uuid = spa_aprintf( "%" PRIu64, client_make_uuid(o->id));
+			uuid = spa_aprintf( "%" PRIu64, client_make_uuid(o->id, monitor));
 			break;
 		}
 	}
@@ -3433,6 +3435,7 @@ char *jack_get_client_name_by_uuid (jack_client_t *client,
 	struct object *o;
 	jack_uuid_t uuid;
 	char *name = NULL;
+	bool monitor;
 
 	spa_return_val_if_fail(c != NULL, NULL);
 	spa_return_val_if_fail(client_uuid != NULL, NULL);
@@ -3440,12 +3443,14 @@ char *jack_get_client_name_by_uuid (jack_client_t *client,
 	if (jack_uuid_parse(client_uuid, &uuid) < 0)
 		return NULL;
 
+	monitor = uuid & (1 << 30);
+
 	pthread_mutex_lock(&c->context.lock);
 	spa_list_for_each(o, &c->context.nodes, link) {
-		if (client_make_uuid(o->id) == uuid) {
+		if (client_make_uuid(o->id, monitor) == uuid) {
 			pw_log_debug("%p: uuid %s (%"PRIu64")-> %s",
 					client, client_uuid, uuid, o->node.name);
-			name = strdup(o->node.name);
+			name = spa_aprintf("%s%s", o->node.name, monitor ? MONITOR_EXT : "");
 			break;
 		}
 	}
@@ -5787,7 +5792,7 @@ char *jack_client_get_uuid (jack_client_t *client)
 
 	spa_return_val_if_fail(c != NULL, NULL);
 
-	return spa_aprintf("%"PRIu64, client_make_uuid(c->node_id));
+	return spa_aprintf("%"PRIu64, client_make_uuid(c->node_id, false));
 }
 
 SPA_EXPORT

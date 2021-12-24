@@ -12,7 +12,10 @@
 #define MAX_VALUE 0x10000
 
 #ifdef __FreeBSD__
+#include <sys/param.h>
+#if __FreeBSD_version < 1400043
 static int sched_getcpu(void) { return -1; };
+#endif
 #endif
 
 static struct spa_ringbuffer rb;

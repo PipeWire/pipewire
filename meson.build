@@ -428,7 +428,16 @@ need_alsa = get_option('pipewire-alsa').enabled() or 'media-session' in get_opti
 alsa_dep = dependency('alsa', version : '>=1.1.7', required: need_alsa)
 summary({'pipewire-alsa': alsa_dep.found()}, bool_yn: true)
 
-openssl_lib = dependency('openssl', required: get_option('raop'))
+if build_machine.system() == 'freebsd'
+# On FreeBSD the OpenSSL library may come from base or a package.
+# Check for a package first and fallback to the base library if we can't find it via pkgconfig
+    openssl_lib = dependency('openssl', required: false)
+    if not openssl_lib.found()
+        openssl_lib = declare_dependency(link_args : [ '-lssl', '-lcrypto'])
+    endif
+else
+    openssl_lib = dependency('openssl', required: get_option('raop'))
+endif
 summary({'OpenSSL (for raop-sink)': openssl_lib.found()}, bool_yn: true)
 
 lilv_lib = dependency('lilv-0', required: get_option('lv2'))

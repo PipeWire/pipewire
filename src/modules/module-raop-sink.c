@@ -35,6 +35,7 @@
 #include <limits.h>
 #include <math.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 
 #include <openssl/err.h>
 #include <openssl/rand.h>

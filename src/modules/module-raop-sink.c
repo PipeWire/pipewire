@@ -35,6 +35,9 @@
 #include <limits.h>
 #include <math.h>
 #include <arpa/inet.h>
+#ifdef __FreeBSD__
+#include <netinet/in.h>
+#endif
 
 #include <openssl/err.h>
 #include <openssl/rand.h>

@@ -196,10 +196,12 @@ static int update_property(struct client *c,
 	}
 	pthread_mutex_unlock(&globals.lock);
 
-	if (c->property_callback && changed)
+	if (c->property_callback && changed) {
+		pw_log_info("emit %lu %s", subject, key);
 		c->property_callback(subject, key, change, c->property_arg);
+	}
 
-	return 0;
+	return changed;
 }
 
 
@@ -222,14 +224,17 @@ int jack_set_property(jack_client_t*client,
 	if (c->metadata == NULL)
 		goto done;
 
+	if (subject & (1<<30))
+		goto done;
+
 	id = jack_uuid_to_index(subject);
 
 	if (type == NULL)
 		type = "";
 
 	pw_log_info("set id:%u (%"PRIu64") '%s' to '%s@%s'", id, subject, key, value, type);
-	update_property(c, id, key, type, value);
-	pw_metadata_set_property(c->metadata->proxy, id, key, type, value);
+	if (update_property(c, subject, key, type, value))
+		pw_metadata_set_property(c->metadata->proxy, id, key, type, value);
 	res = 0;
 done:
 	pw_thread_loop_unlock(c->context.loop);

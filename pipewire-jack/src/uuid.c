@@ -54,7 +54,7 @@ jack_uuid_t jack_port_uuid_generate (uint32_t port_id)
 SPA_EXPORT
 uint32_t jack_uuid_to_index (jack_uuid_t id)
 {
-	return (id & 0xffffffff) - 1;
+	return (id & 0xffffff) - 1;
 }
 
 SPA_EXPORT

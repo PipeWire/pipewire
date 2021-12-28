@@ -135,15 +135,13 @@ static void get_service_name(struct pw_manager_object *o, char *buf, size_t leng
 
 static void service_free(struct service *s)
 {
-	if (s->entry_group) {
-		pw_log_debug("Removing entry group for %s.", s->service_name);
-		avahi_entry_group_free(s->entry_group);
-	}
+	pw_log_debug("service %p: free", s);
 
-	if (s->name) {
-		pw_log_debug("Removing service for node: %s", s->name);
+	if (s->entry_group)
+		avahi_entry_group_free(s->entry_group);
+
+	if (s->name)
 		free(s->name);
-	}
 
 	pw_properties_free(s->props);
 	avahi_string_list_free(s->txt);
@@ -271,6 +269,8 @@ static struct service *create_service(struct module_zeroconf_publish_data *d, st
 
 	fill_service_data(d, s, o);
 
+	pw_log_debug("service %p: created for object %p", s, o);
+
 	return s;
 }
 
@@ -319,14 +319,14 @@ static void service_entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupStat
 
 	switch (state) {
 	case AVAHI_ENTRY_GROUP_ESTABLISHED:
-		pw_log_info("Successfully established service %s.", s->service_name);
+		pw_log_info("established service: %s", s->service_name);
 		break;
 	case AVAHI_ENTRY_GROUP_COLLISION:
 	{
 		char *t;
 
 		t = avahi_alternative_service_name(s->service_name);
-		pw_log_info("Name collision, renaming %s to %s.", s->service_name, t);
+		pw_log_info("service name collision: renaming '%s' to '%s'", s->service_name, t);
 		snprintf(s->service_name, sizeof(s->service_name), "%s", t);
 		avahi_free(t);
 
@@ -335,9 +335,9 @@ static void service_entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupStat
 		break;
 	}
 	case AVAHI_ENTRY_GROUP_FAILURE:
-		pw_log_error("Failed to register service: %s",
-				avahi_strerror(avahi_client_errno(avahi_entry_group_get_client(g))));
-
+		pw_log_error("failed to establish service '%s': %s",
+			     s->service_name,
+			     avahi_strerror(avahi_client_errno(avahi_entry_group_get_client(g))));
 		unpublish_service(s);
 		clear_entry_group(s);
 		break;
@@ -464,7 +464,7 @@ static void publish_service(struct service *s)
 	spa_list_remove(&s->link);
 	spa_list_append(&s->userdata->published, &s->link);
 
-	pw_log_info("Successfully created entry group for %s.", s->service_name);
+	pw_log_info("created service: %s", s->service_name);
 }
 
 static void publish_pending(struct module_zeroconf_publish_data *data)
@@ -498,7 +498,7 @@ static void client_callback(AvahiClient *c, AvahiClientState state, void *d)
 		publish_pending(data);
 		break;
 	case AVAHI_CLIENT_S_COLLISION:
-		pw_log_error("Host name collision");
+		pw_log_error("host name collision");
 		unpublish_all_services(d);
 		break;
 	case AVAHI_CLIENT_FAILURE:
@@ -515,7 +515,7 @@ static void client_callback(AvahiClient *c, AvahiClientState state, void *d)
 		if (err == AVAHI_ERR_DISCONNECTED) {
 			data->client = avahi_client_new(data->avahi_poll, AVAHI_CLIENT_NO_FAIL, client_callback, data, &err);
 			if (data->client == NULL)
-				pw_log_error("avahi_client_new(): %s", avahi_strerror(err));
+				pw_log_error("failed to create avahi client: %s", avahi_strerror(err));
 		}
 
 		if (data->client == NULL)
@@ -572,7 +572,7 @@ static int module_zeroconf_publish_load(struct client *client, struct module *mo
 	data->core = pw_context_connect(module->impl->context,
 			pw_properties_copy(client->props), 0);
 	if (data->core == NULL) {
-		pw_log_error("Failed to connect to pipewire context");
+		pw_log_error("failed to connect to pipewire: %m");
 		return -errno;
 	}
 
@@ -586,13 +586,13 @@ static int module_zeroconf_publish_load(struct client *client, struct module *mo
 	data->client = avahi_client_new(data->avahi_poll, AVAHI_CLIENT_NO_FAIL,
 			client_callback, data, &error);
 	if (!data->client) {
-		pw_log_error("avahi_client_new() failed: %s", avahi_strerror(error));
+		pw_log_error("failed to create avahi client: %s", avahi_strerror(error));
 		return -errno;
 	}
 
 	data->manager = pw_manager_new(data->core);
 	if (client->manager == NULL) {
-		pw_log_error("Failed to create pipewire manager");
+		pw_log_error("failed to create pipewire manager: %m");
 		return -errno;
 	}
 

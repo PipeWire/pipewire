@@ -304,9 +304,9 @@ includes_inc = include_directories('include')
 pipewire_inc = include_directories('src')
 
 makedata = configuration_data()
-  makedata.set('BUILD_ROOT', meson.build_root())
-  makedata.set('SOURCE_ROOT', meson.source_root())
-  makedata.set('VERSION', pipewire_version)
+makedata.set('BUILD_ROOT', meson.project_build_root())
+makedata.set('SOURCE_ROOT', meson.project_source_root())
+makedata.set('VERSION', pipewire_version)
 if version_arr.length() == 4
   makedata.set('TAG', 'HEAD')
 else
@@ -498,7 +498,7 @@ endif
 setenv = find_program('pw-uninstalled.sh')
 run_target('pw-uninstalled',
   command : [setenv,
-             '-b@0@'.format(meson.build_root()),
+             '-b@0@'.format(meson.project_build_root()),
              '-v@0@'.format(pipewire_version)]
 )
 

@@ -1,8 +1,8 @@
 doxyfile_conf = configuration_data()
 doxyfile_conf.set('PACKAGE_NAME', meson.project_name())
 doxyfile_conf.set('PACKAGE_VERSION', meson.project_version())
-doxyfile_conf.set('top_srcdir', meson.source_root())
-doxyfile_conf.set('top_builddir', meson.build_root())
+doxyfile_conf.set('top_srcdir', meson.project_source_root())
+doxyfile_conf.set('top_builddir', meson.project_build_root())
 
 dot_found = find_program('dot', required: false).found()
 summary({'dot (used with doxygen)': dot_found}, bool_yn: true, section: 'Optional programs')
@@ -49,35 +49,35 @@ extra_docs = [
 
 inputs = []
 foreach extra : extra_docs
-  inputs += meson.source_root() / 'doc' / extra
+  inputs += meson.project_source_root() / 'doc' / extra
 endforeach
 foreach h : pipewire_headers
-  inputs += meson.source_root() / 'src' / 'pipewire' / h
+  inputs += meson.project_source_root() / 'src' / 'pipewire' / h
 endforeach
 foreach h : pipewire_ext_headers
-  inputs += meson.source_root() / 'src' / 'pipewire' / 'extensions' / h
+  inputs += meson.project_source_root() / 'src' / 'pipewire' / 'extensions' / h
 endforeach
 foreach h : pipewire_ext_sm_headers
-  inputs += meson.source_root() / 'src' / 'pipewire' / 'extensions' / h
+  inputs += meson.project_source_root() / 'src' / 'pipewire' / 'extensions' / h
 endforeach
 foreach h : pipewire_sources
-  inputs += meson.source_root() / 'src' / 'pipewire' / h
+  inputs += meson.project_source_root() / 'src' / 'pipewire' / h
 endforeach
 foreach h : module_sources
-  inputs += meson.source_root() / 'src' / 'modules' / h
+  inputs += meson.project_source_root() / 'src' / 'modules' / h
 endforeach
-inputs += meson.source_root() / 'test' / 'pwtest.h'
-input_dirs = [ meson.source_root() / 'spa' / 'include' / 'spa' ]
+inputs += meson.project_source_root() / 'test' / 'pwtest.h'
+input_dirs = [ meson.project_source_root() / 'spa' / 'include' / 'spa' ]
 
 path_prefixes = [
-  meson.source_root() / 'src',
-  meson.source_root() / 'spa' / 'include',
-  meson.source_root(),
+  meson.project_source_root() / 'src',
+  meson.project_source_root() / 'spa' / 'include',
+  meson.project_source_root(),
 ]
 
 cssfiles = [
-  meson.source_root() / 'doc' / 'doxygen-awesome.css',
-  meson.source_root() / 'doc' / 'custom.css'
+  meson.project_source_root() / 'doc' / 'doxygen-awesome.css',
+  meson.project_source_root() / 'doc' / 'custom.css'
 ]
 
 # Example files (in order from simple to esoteric)
@@ -118,8 +118,8 @@ input_dirs += [ 'doc/examples.dox' ]
 doxyfile_conf.set('inputs', ' '.join(inputs + input_dirs))
 doxyfile_conf.set('cssfiles', ' '.join(cssfiles))
 doxyfile_conf.set('path_prefixes', ' '.join(path_prefixes))
-doxyfile_conf.set('c_input_filter', meson.source_root() / 'doc' / 'input-filter.sh')
-doxyfile_conf.set('h_input_filter', meson.source_root() / 'doc' / 'input-filter-h.sh')
+doxyfile_conf.set('c_input_filter', meson.project_source_root() / 'doc' / 'input-filter.sh')
+doxyfile_conf.set('h_input_filter', meson.project_source_root() / 'doc' / 'input-filter-h.sh')
 
 doxyfile = configure_file(input: 'Doxyfile.in',
                           output: 'Doxyfile',

@@ -379,9 +379,9 @@ test('pw-test-protocol-native',
     install_dir : installed_tests_execdir,
   ),
   env : [
-    'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.build_root()),
-    'PIPEWIRE_CONFIG_DIR=@0@/src/daemon/'.format(meson.build_root()),
-    'PIPEWIRE_MODULE_DIR=@0@/src/modules/'.format(meson.build_root())
+    'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.project_build_root()),
+    'PIPEWIRE_CONFIG_DIR=@0@/src/daemon/'.format(meson.project_build_root()),
+    'PIPEWIRE_MODULE_DIR=@0@/src/modules/'.format(meson.project_build_root())
   ]
 )
 

@@ -18,9 +18,9 @@ conf_config.set('pulse_comment', '#')
 
 conf_config_uninstalled = conf_config
 conf_config_uninstalled.set('pipewire_path',
-  meson.build_root() / 'src' / 'daemon' / 'pipewire')
+  meson.project_build_root() / 'src' / 'daemon' / 'pipewire')
 conf_config_uninstalled.set('pipewire_pulse_path',
-  meson.build_root() / 'src' / 'daemon' / 'pipewire-pulse')
+  meson.project_build_root() / 'src' / 'daemon' / 'pipewire-pulse')
 conf_config_uninstalled.set('pulse_comment', '')
 
 build_ms = 'media-session' in get_option('session-managers')
@@ -105,7 +105,7 @@ custom_target('pipewire-uninstalled',
   install: false,
   input: pipewire_exec,
   output: 'pipewire-uninstalled',
-  command: [ln, '-fs', meson.build_root() + '/@INPUT@', '@OUTPUT@'],
+  command: [ln, '-fs', meson.project_build_root() + '/@INPUT@', '@OUTPUT@'],
 )
 
 #desktop_file = i18n.merge_file(

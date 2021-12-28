@@ -380,8 +380,8 @@ test('pw-test-protocol-native',
   ),
   env : [
     'SPA_PLUGIN_DIR=@0@'.format(spa_dep.get_variable(internal: 'plugindir')),
-    'PIPEWIRE_CONFIG_DIR=@0@/src/daemon/'.format(meson.project_build_root()),
-    'PIPEWIRE_MODULE_DIR=@0@/src/modules/'.format(meson.project_build_root())
+    'PIPEWIRE_CONFIG_DIR=@0@'.format(pipewire_dep.get_variable(internal: 'confdatadir')),
+    'PIPEWIRE_MODULE_DIR=@0@'.format(pipewire_dep.get_variable(internal: 'moduledir')),
   ]
 )
 

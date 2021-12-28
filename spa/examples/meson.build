@@ -23,8 +23,8 @@ foreach c : spa_examples
     executable(
       c,
       c + '.c',
-      include_directories : [configinc, spa_inc],
-      dependencies : [dl_lib, pthread_lib, mathlib] + deps,
+      include_directories : [configinc],
+      dependencies : [spa_dep, dl_lib, pthread_lib, mathlib] + deps,
       install : installed_tests_enabled,
       install_dir : installed_tests_execdir / 'examples' / 'spa'
     )

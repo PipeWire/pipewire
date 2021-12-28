@@ -19,7 +19,6 @@ pwtest_c_args = [
 ]
 
 pwtest_inc = [
-  spa_inc,
   pipewire_inc,
   configinc,
   includes_inc,
@@ -37,6 +36,7 @@ test('test-pwtest',
     executable('test-pwtest',
                'test-pwtest.c',
                include_directories: pwtest_inc,
+               dependencies: [ spa_dep ],
                link_with: pwtest_lib)
 )
 
@@ -45,6 +45,7 @@ test('test-pwtest',
 executable('test-example',
   'test-example.c',
   include_directories: pwtest_inc,
+  dependencies: [ spa_dep ],
   link_with: pwtest_lib)
 
 test('test-pw-utils',
@@ -54,6 +55,7 @@ test('test-pw-utils',
                'test-map.c',
                'test-utils.c',
                include_directories: pwtest_inc,
+               dependencies: [ spa_dep ],
                link_with: pwtest_lib)
 )
 
@@ -61,6 +63,7 @@ test('test-lib',
     executable('test-lib',
                'test-lib.c',
                include_directories: pwtest_inc,
+               dependencies: [ spa_dep ],
                link_with: pwtest_lib)
 )
 
@@ -68,6 +71,7 @@ test('test-client',
     executable('test-client',
                'test-client.c',
                include_directories: pwtest_inc,
+               dependencies: [ spa_dep ],
                link_with: pwtest_lib)
 )
 
@@ -76,7 +80,7 @@ test('test-context',
                'test-context.c',
                'test-config.c',
                include_directories: pwtest_inc,
-               dependencies: [spa_support_dep, spa_dbus_dep],
+               dependencies: [spa_dep, spa_support_dep, spa_dbus_dep],
                link_with: [pwtest_lib,
                             pipewire_module_protocol_native,
                             pipewire_module_client_node,
@@ -91,7 +95,7 @@ test('test-support',
                'test-support.c',
                'test-logger.c',
                include_directories: pwtest_inc,
-               dependencies: [systemd_dep, spa_support_dep, spa_journal_dep],
+               dependencies: [spa_dep, systemd_dep, spa_support_dep, spa_journal_dep],
                link_with: [pwtest_lib])
 )
 test('test-spa',
@@ -103,6 +107,7 @@ test('test-spa',
                'test-spa-node.c',
                'test-spa-pod.c',
                include_directories: pwtest_inc,
+               dependencies: [ spa_dep ],
                link_with: pwtest_lib)
 )
 

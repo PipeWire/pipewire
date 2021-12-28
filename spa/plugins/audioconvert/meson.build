@@ -17,7 +17,7 @@ if have_sse
       'volume-ops-sse.c',
       'channelmix-ops-sse.c' ],
     c_args : [sse_args, '-O3', '-DHAVE_SSE'],
-    include_directories : [spa_inc],
+    dependencies : [ spa_dep ],
     install : false
     )
   simd_cargs += ['-DHAVE_SSE']
@@ -27,7 +27,7 @@ if have_sse2
   audioconvert_sse2 = static_library('audioconvert_sse2',
     ['fmt-ops-sse2.c' ],
     c_args : [sse2_args, '-O3', '-DHAVE_SSE2'],
-    include_directories : [spa_inc],
+    dependencies : [ spa_dep ],
     install : false
     )
   simd_cargs += ['-DHAVE_SSE2']
@@ -38,7 +38,7 @@ if have_ssse3
     ['fmt-ops-ssse3.c',
       'resample-native-ssse3.c' ],
     c_args : [ssse3_args, '-O3', '-DHAVE_SSSE3'],
-    include_directories : [spa_inc],
+    dependencies : [ spa_dep ],
     install : false
     )
   simd_cargs += ['-DHAVE_SSSE3']
@@ -48,7 +48,7 @@ if have_sse41
   audioconvert_sse41 = static_library('audioconvert_sse41',
     ['fmt-ops-sse41.c'],
     c_args : [sse41_args, '-O3', '-DHAVE_SSE41'],
-    include_directories : [spa_inc],
+    dependencies : [ spa_dep ],
     install : false
     )
   simd_cargs += ['-DHAVE_SSE41']
@@ -58,7 +58,7 @@ if have_avx and have_fma
   audioconvert_avx = static_library('audioconvert_avx',
     ['resample-native-avx.c'],
     c_args : [avx_args, fma_args, '-O3', '-DHAVE_AVX', '-DHAVE_FMA'],
-    include_directories : [spa_inc],
+    dependencies : [ spa_dep ],
     install : false
     )
   simd_cargs += ['-DHAVE_AVX', '-DHAVE_FMA']
@@ -68,7 +68,7 @@ if have_avx2
   audioconvert_avx2 = static_library('audioconvert_avx2',
     ['fmt-ops-avx2.c'],
     c_args : [avx2_args, '-O3', '-DHAVE_AVX2'],
-    include_directories : [spa_inc],
+    dependencies : [ spa_dep ],
     install : false
     )
   simd_cargs += ['-DHAVE_AVX2']
@@ -80,7 +80,7 @@ if have_neon
     ['resample-native-neon.c',
       'fmt-ops-neon.c' ],
     c_args : [neon_args, '-O3', '-DHAVE_NEON'],
-    include_directories : [spa_inc],
+    dependencies : [ spa_dep ],
     install : false
     )
   simd_cargs += ['-DHAVE_NEON']
@@ -100,7 +100,8 @@ audioconvert_lib = static_library('audioconvert',
     'volume-ops-c.c' ],
   c_args : [ simd_cargs, '-O3'],
   link_with : simd_dependencies,
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
+  dependencies : [ spa_dep ],
   install : false
   )
 audioconvert_dep = declare_dependency(link_with: audioconvert_lib)
@@ -108,8 +109,7 @@ audioconvert_dep = declare_dependency(link_with: audioconvert_lib)
 spa_audioconvert_lib = shared_library('spa-audioconvert',
   audioconvert_sources,
   c_args : simd_cargs,
-  include_directories : [spa_inc],
-  dependencies : [ mathlib, audioconvert_dep ],
+  dependencies : [ spa_dep, mathlib, audioconvert_dep ],
   install : true,
   install_dir : spa_plugindir / 'audioconvert')
 spa_audioconvert_dep = declare_dependency(link_with: spa_audioconvert_lib)
@@ -117,7 +117,7 @@ spa_audioconvert_dep = declare_dependency(link_with: spa_audioconvert_lib)
 test_lib = static_library('test_lib',
   ['test-source.c' ],
   c_args : ['-O3'],
-  include_directories : [spa_inc],
+  dependencies : [ spa_dep ],
   install : false
   )
 
@@ -132,8 +132,8 @@ test_apps = [
 foreach a : test_apps
   test(a,
     executable(a, a + '.c',
-      dependencies : [ dl_lib, pthread_lib, mathlib, audioconvert_dep, spa_audioconvert_dep ],
-      include_directories : [ configinc, spa_inc ],
+      dependencies : [ spa_dep, dl_lib, pthread_lib, mathlib, audioconvert_dep, spa_audioconvert_dep ],
+      include_directories : [ configinc ],
       link_with : [ test_lib ],
       install_rpath : spa_plugindir / 'audioconvert',
       c_args : [ simd_cargs ],
@@ -163,8 +163,8 @@ benchmark_apps = [
 foreach a : benchmark_apps
   benchmark(a,
     executable(a, a + '.c',
-      dependencies : [ dl_lib, pthread_lib, mathlib, audioconvert_dep, spa_audioconvert_dep ],
-      include_directories : [ configinc, spa_inc ],
+      dependencies : [ spa_dep, dl_lib, pthread_lib, mathlib, audioconvert_dep, spa_audioconvert_dep ],
+      include_directories : [ configinc ],
       c_args : [ simd_cargs ],
       install_rpath : spa_plugindir / 'audioconvert',
       install : installed_tests_enabled,
@@ -192,9 +192,8 @@ if sndfile_dep.found()
   executable('spa-resample',
     sparesample_sources,
     c_args : [ simd_cargs ],
-    include_directories : [spa_inc ],
     link_with : [ test_lib ],
-    dependencies : [sndfile_dep, mathlib, audioconvert_dep],
+    dependencies : [ spa_dep, sndfile_dep, mathlib, audioconvert_dep ],
     install : true,
     )
 endif

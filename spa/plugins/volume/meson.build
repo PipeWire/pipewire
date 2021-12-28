@@ -2,6 +2,6 @@ volume_sources = ['volume.c', 'plugin.c']
 
 volumelib = shared_library('spa-volume',
   volume_sources,
-  include_directories : [spa_inc],
+  dependencies : [ spa_dep ],
   install : true,
   install_dir : spa_plugindir / 'volume')

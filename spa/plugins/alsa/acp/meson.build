@@ -16,7 +16,7 @@ acp_lib = static_library(
   'acp',
   acp_sources,
   c_args : acp_c_args,
-  include_directories : [configinc, spa_inc, includes_inc ],
-  dependencies : [ alsa_dep, mathlib, ]
+  include_directories : [configinc, includes_inc ],
+  dependencies : [ spa_dep, alsa_dep, mathlib, ]
   )
 acp_dep = declare_dependency(link_with: acp_lib)

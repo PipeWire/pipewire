@@ -20,7 +20,7 @@ if find.found()
                           configuration: c)
       executable('spa-include-test-@0@'.format(spa_header.underscorify()),
                  src,
-                 include_directories: [spa_inc],
+                 dependencies: [ spa_dep ],
                  install: false)
     endif
   endforeach
@@ -35,8 +35,7 @@ benchmark_apps = [
 foreach a : benchmark_apps
   benchmark('spa-' + a,
     executable('spa-' + a, a + '.c',
-      dependencies : [dl_lib, pthread_lib, mathlib ],
-      include_directories : [spa_inc ],
+      dependencies : [ spa_dep, dl_lib, pthread_lib, mathlib ],
       install : installed_tests_enabled,
       install_dir : installed_tests_execdir,
     ),

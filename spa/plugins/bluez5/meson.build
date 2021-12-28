@@ -56,8 +56,8 @@ endif
 
 bluez5lib = shared_library('spa-bluez5',
   bluez5_sources,
-  include_directories : [ spa_inc, configinc ],
-  dependencies : bluez5_deps,
+  include_directories : [ configinc ],
+  dependencies : [ spa_dep, bluez5_deps ],
   install : true,
   install_dir : spa_plugindir / 'bluez5')
 
@@ -65,26 +65,26 @@ codec_args = [ '-DCODEC_PLUGIN' ]
 
 bluez_codec_sbc = shared_library('spa-codec-bluez5-sbc',
   [ 'a2dp-codec-sbc.c', 'a2dp-codecs.c' ],
-  include_directories : [ spa_inc, configinc ],
+  include_directories : [ configinc ],
   c_args : codec_args,
-  dependencies : sbc_dep,
+  dependencies : [ spa_dep, sbc_dep ],
   install : true,
   install_dir : spa_plugindir / 'bluez5')
 
 bluez_codec_faststream = shared_library('spa-codec-bluez5-faststream',
   [ 'a2dp-codec-faststream.c', 'a2dp-codecs.c' ],
-  include_directories : [ spa_inc, configinc ],
+  include_directories : [ configinc ],
   c_args : codec_args,
-  dependencies : sbc_dep,
+  dependencies : [ spa_dep, sbc_dep ],
   install : true,
   install_dir : spa_plugindir / 'bluez5')
 
 if fdk_aac_dep.found()
   bluez_codec_aac = shared_library('spa-codec-bluez5-aac',
     [ 'a2dp-codec-aac.c', 'a2dp-codecs.c' ],
-    include_directories : [ spa_inc, configinc ],
+    include_directories : [ configinc ],
     c_args : codec_args,
-    dependencies : fdk_aac_dep,
+    dependencies : [ spa_dep, fdk_aac_dep ],
     install : true,
     install_dir : spa_plugindir / 'bluez5')
 endif
@@ -92,9 +92,9 @@ endif
 if aptx_dep.found()
   bluez_codec_aptx = shared_library('spa-codec-bluez5-aptx',
     [ 'a2dp-codec-aptx.c', 'a2dp-codecs.c' ],
-    include_directories : [ spa_inc, configinc ],
+    include_directories : [ configinc ],
     c_args : codec_args,
-    dependencies : [ aptx_dep, sbc_dep ],
+    dependencies : [ spa_dep, aptx_dep, sbc_dep ],
     install : true,
     install_dir : spa_plugindir / 'bluez5')
 endif
@@ -108,9 +108,9 @@ if ldac_dep.found()
   endif
   bluez_codec_ldac = shared_library('spa-codec-bluez5-ldac',
     [ 'a2dp-codec-ldac.c', 'a2dp-codecs.c' ],
-    include_directories : [ spa_inc, configinc ],
+    include_directories : [ configinc ],
     c_args : ldac_args,
-    dependencies : ldac_dep,
+    dependencies : [ spa_dep, ldac_dep ],
     install : true,
     install_dir : spa_plugindir / 'bluez5')
 endif

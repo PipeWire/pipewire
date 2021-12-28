@@ -7,7 +7,6 @@ spa_jack_sources = [
 
 spa_jack = shared_library('spa-jack',
   spa_jack_sources,
-  include_directories : [spa_inc],
-  dependencies : [ jack_dep, mathlib ],
+  dependencies : [ spa_dep, jack_dep, mathlib ],
   install : true,
   install_dir : spa_plugindir / 'jack')

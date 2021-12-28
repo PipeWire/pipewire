@@ -30,20 +30,20 @@ module_sources = [
 ]
 
 pipewire_module_access = shared_library('pipewire-module-access', [ 'module-access.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
 
 pipewire_module_loopback = shared_library('pipewire-module-loopback',
   [ 'module-loopback.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
 
 simd_cargs = []
@@ -53,7 +53,7 @@ if have_sse
   pffft_sse = static_library('pffft_sse',
     ['module-filter-chain/pffft.c' ],
     c_args : [sse_args, '-O3', '-DHAVE_SSE'],
-    include_directories : [spa_inc],
+    dependencies : [ spa_dep ],
     install : false
     )
   simd_cargs += ['-DHAVE_SSE']
@@ -63,7 +63,7 @@ if have_neon
   pffft_neon = static_library('pffft_neon',
     ['module-filter-chain/pffft.c' ],
     c_args : [neon_args, '-O3', '-DHAVE_NEON'],
-    include_directories : [spa_inc],
+    dependencies : [ spa_dep ],
     install : false
     )
   simd_cargs += ['-DHAVE_NEON']
@@ -73,7 +73,7 @@ endif
 pffft_c = static_library('pffft_c',
   ['module-filter-chain/pffft.c' ],
   c_args : [simd_cargs, '-O3', '-DPFFFT_SIMD_DISABLE'],
-  include_directories : [spa_inc],
+  dependencies : [ spa_dep ],
   install : false
 )
 simd_dependencies += pffft_c
@@ -99,7 +99,7 @@ endif
 
 pipewire_module_filter_chain = shared_library('pipewire-module-filter-chain',
   filter_chain_sources,
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
@@ -120,7 +120,7 @@ endif
 
 pipewire_module_echo_cancel = shared_library('pipewire-module-echo-cancel',
   pipewire_module_echo_cancel_sources,
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
@@ -130,17 +130,17 @@ pipewire_module_echo_cancel = shared_library('pipewire-module-echo-cancel',
 pipewire_module_profiler = shared_library('pipewire-module-profiler',
   [ 'module-profiler.c',
     'module-profiler/protocol-native.c', ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
 
 build_module_rt = build_machine.system() == 'linux'
 if build_module_rt
 pipewire_module_rt = shared_library('pipewire-module-rt', [ 'module-rt.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
@@ -152,7 +152,7 @@ summary({'rt': build_module_rt}, bool_yn: true, section: 'Optional Modules')
 build_module_rtkit = dbus_dep.found()
 if build_module_rtkit
 pipewire_module_rtkit = shared_library('pipewire-module-rtkit', [ 'module-rtkit.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
@@ -164,7 +164,7 @@ summary({'rtkit': build_module_rtkit}, bool_yn: true, section: 'Optional Modules
 build_module_portal = dbus_dep.found()
 if build_module_portal
 pipewire_module_portal = shared_library('pipewire-module-portal', [ 'module-portal.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
@@ -178,20 +178,20 @@ pipewire_module_client_device = shared_library('pipewire-module-client-device',
     'module-client-device/resource-device.c',
     'module-client-device/proxy-device.c',
     'module-client-device/protocol-native.c', ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
 
 pipewire_module_link_factory = shared_library('pipewire-module-link-factory',
   [ 'module-link-factory.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
 
 pipewire_module_protocol_deps = [mathlib, dl_lib, pipewire_dep]
@@ -207,7 +207,7 @@ pipewire_module_protocol_native = shared_library('pipewire-module-protocol-nativ
     'module-protocol-native/protocol-native.c',
     'module-protocol-native/v0/protocol-native.c',
     'module-protocol-native/connection.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
@@ -290,7 +290,7 @@ endif
 
 pipewire_module_protocol_pulse = shared_library('pipewire-module-protocol-pulse',
   pipewire_module_protocol_pulse_sources,
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
@@ -302,7 +302,7 @@ if build_module_pulse_tunnel
   pipewire_module_pulse_tunnel = shared_library('pipewire-module-pulse-tunnel',
   [ 'module-pulse-tunnel.c',
     'module-protocol-pulse/format.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
@@ -313,7 +313,7 @@ summary({'pulse-tunnel': build_module_pulse_tunnel}, bool_yn: true, section: 'Op
 
 pipewire_module_protocol_simple = shared_library('pipewire-module-protocol-simple',
   [ 'module-protocol-simple.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
@@ -322,20 +322,20 @@ pipewire_module_protocol_simple = shared_library('pipewire-module-protocol-simpl
 
 pipewire_module_example_sink = shared_library('pipewire-module-example-sink',
   [ 'module-example-sink.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : false,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
 
 pipewire_module_example_sink = shared_library('pipewire-module-example-source',
   [ 'module-example-source.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : false,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
 
 pipewire_module_client_node = shared_library('pipewire-module-client-node',
@@ -347,12 +347,12 @@ pipewire_module_client_node = shared_library('pipewire-module-client-node',
     'module-client-node/v0/transport.c',
     'module-client-node/v0/protocol-native.c',
     'spa/spa-node.c', ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   link_with : pipewire_module_protocol_native,
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
 
 pipewire_module_metadata = shared_library('pipewire-module-metadata',
@@ -360,12 +360,12 @@ pipewire_module_metadata = shared_library('pipewire-module-metadata',
     'module-metadata/proxy-metadata.c',
     'module-metadata/metadata.c',
     'module-metadata/protocol-native.c'],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   link_with : pipewire_module_protocol_native,
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
 
 test('pw-test-protocol-native',
@@ -373,8 +373,8 @@ test('pw-test-protocol-native',
     [ 'module-protocol-native/test-connection.c',
       'module-protocol-native/connection.c' ],
     c_args : libpipewire_c_args,
-    include_directories : [configinc, spa_inc ],
-    dependencies : [pipewire_dep],
+    include_directories : [configinc ],
+    dependencies : [spa_dep, pipewire_dep],
     install : installed_tests_enabled,
     install_dir : installed_tests_execdir,
   ),
@@ -400,7 +400,7 @@ pipewire_module_adapter = shared_library('pipewire-module-adapter',
   [ 'module-adapter.c',
     'module-adapter/adapter.c',
     'spa/spa-node.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
@@ -422,11 +422,11 @@ pipewire_module_session_manager = shared_library('pipewire-module-session-manage
     'module-session-manager/proxy-session-manager.c',
     'module-session-manager/session.c',
   ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep],
+  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
 
 build_module_zeroconf_discover = avahi_dep.found()
@@ -435,7 +435,7 @@ pipewire_module_zeroconf_discover = shared_library('pipewire-module-zeroconf-dis
   [ 'module-zeroconf-discover.c',
     'module-protocol-pulse/format.c',
     'module-zeroconf-discover/avahi-poll.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
@@ -449,7 +449,7 @@ if build_module_raop_discover
 pipewire_module_raop_discover = shared_library('pipewire-module-raop-discover',
   [ 'module-raop-discover.c',
     'module-zeroconf-discover/avahi-poll.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
@@ -463,7 +463,7 @@ if build_module_raop
 pipewire_module_raop_sink = shared_library('pipewire-module-raop-sink',
   [ 'module-raop-sink.c',
     'module-raop/rtsp-client.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
@@ -476,7 +476,7 @@ build_module_roc = roc_lib.found()
 if build_module_roc
 pipewire_module_roc_sink = shared_library('pipewire-module-roc-sink',
   [ 'module-roc-sink.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
@@ -485,7 +485,7 @@ pipewire_module_roc_sink = shared_library('pipewire-module-roc-sink',
 
 pipewire_module_roc_source = shared_library('pipewire-module-roc-source',
   [ 'module-roc-source.c' ],
-  include_directories : [configinc, spa_inc],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,

@@ -6,7 +6,6 @@ spa_vulkan_sources = [
 
 spa_vulkan = shared_library('spa-vulkan',
   spa_vulkan_sources,
-  include_directories : [spa_inc],
-  dependencies : [ vulkan_dep, mathlib ],
+  dependencies : [ spa_dep, vulkan_dep, mathlib ],
   install : true,
   install_dir : spa_plugindir / 'vulkan')

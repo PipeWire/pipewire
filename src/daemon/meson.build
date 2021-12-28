@@ -86,16 +86,16 @@ pipewire_exec = executable('pipewire',
   pipewire_daemon_sources,
   install: true,
   c_args : pipewire_c_args,
-  include_directories : [configinc, spa_inc],
-  dependencies : [pipewire_dep, ],
+  include_directories : [ configinc ],
+  dependencies : [ spa_dep, pipewire_dep, ],
 )
 
 executable('pipewire-pulse',
   pipewire_daemon_sources,
   install: true,
   c_args : pipewire_c_args,
-  include_directories : [configinc, spa_inc],
-  dependencies : [pipewire_dep, ],
+  include_directories : [ configinc ],
+  dependencies : [ spa_dep, pipewire_dep, ],
 )
 
 ln = find_program('ln')

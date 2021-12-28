@@ -5,7 +5,25 @@
 #pthread_lib = dependencies('threads')
 #mathlib = cc.find_library('m', required : false)
 
-spa_inc = include_directories('include')
+spa_dep = declare_dependency(
+  include_directories : [
+    include_directories('include'),
+  ],
+  version : spaversion,
+  variables : { 'plugindir' : meson.current_build_dir() / 'plugins' }
+)
+
+meson.override_dependency('lib@0@'.format(spa_name), spa_dep)
+
+pkgconfig.generate(filebase : 'lib@0@'.format(spa_name),
+  name : 'libspa',
+  subdirs : spa_name,
+  description : 'Simple Plugin API',
+  version : spaversion,
+  extra_cflags : '-D_REENTRANT',
+  variables : ['plugindir=${libdir}/@0@'.format(spa_name)],
+  uninstalled_variables : ['plugindir=${prefix}/spa/plugins'],
+)
 
 subdir('include')
 
@@ -62,21 +80,3 @@ subdir('tests')
 if not get_option('examples').disabled()
   subdir('examples')
 endif
-
-spa_dep = declare_dependency(
-  include_directories : [spa_inc],
-  version : spaversion,
-  variables : { 'plugindir' : meson.current_build_dir() / 'plugins' }
-)
-
-pkgconfig.generate(filebase : 'lib@0@'.format(spa_name),
-  name : 'libspa',
-  subdirs : spa_name,
-  description : 'Simple Plugin API',
-  version : spaversion,
-  extra_cflags : '-D_REENTRANT',
-  variables : ['plugindir=${libdir}/@0@'.format(spa_name)],
-  uninstalled_variables : ['plugindir=${prefix}/spa/plugins'],
-)
-
-meson.override_dependency('lib@0@'.format(spa_name), spa_dep)

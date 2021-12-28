@@ -9,8 +9,7 @@ simd_dependencies = []
 videoconvertlib = shared_library('spa-videoconvert',
   videoconvert_sources,
   c_args : simd_cargs,
-  include_directories : [spa_inc],
-  dependencies : [ mathlib ],
+  dependencies : [ spa_dep, mathlib ],
   link_with : simd_dependencies,
   install : true,
   install_dir : spa_plugindir / 'videoconvert')

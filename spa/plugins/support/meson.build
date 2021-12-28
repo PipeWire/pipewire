@@ -17,13 +17,11 @@ endif
 
 spa_support_lib = shared_library('spa-support',
   spa_support_sources,
-  include_directories : [ spa_inc ],
   c_args : [ simd_cargs ],
-  dependencies : [ pthread_lib, epoll_shim_dep ],
+  dependencies : [ spa_dep, pthread_lib, epoll_shim_dep ],
   install : true,
   install_dir : spa_plugindir / 'support')
 spa_support_dep = declare_dependency(link_with: spa_support_lib)
-
 
 if not get_option('evl').disabled()
   evl_inc = include_directories('/usr/evl/include')
@@ -35,8 +33,8 @@ if not get_option('evl').disabled()
 
   spa_evl_lib = shared_library('spa-evl',
     spa_evl_sources,
-    include_directories : [ spa_inc, evl_inc],
-    dependencies : [ pthread_lib, evl_lib],
+    include_directories : [ evl_inc],
+    dependencies : [ spa_dep, pthread_lib, evl_lib ],
     install : true,
     install_dir : spa_plugindir / 'support')
 endif
@@ -46,8 +44,7 @@ if dbus_dep.found()
 
   spa_dbus_lib = shared_library('spa-dbus',
     spa_dbus_sources,
-    include_directories : [ spa_inc],
-    dependencies : [dbus_dep, ],
+    dependencies : [ spa_dep, dbus_dep ],
     install : true,
     install_dir : spa_plugindir / 'support')
   spa_dbus_dep = declare_dependency(link_with: spa_dbus_lib)
@@ -64,8 +61,7 @@ if systemd_dep.found()
 
   spa_journal_lib = shared_library('spa-journal',
     spa_journal_sources,
-    include_directories : spa_inc,
-    dependencies : systemd_dep,
+    dependencies : [ spa_dep, systemd_dep ],
     install : true,
     install_dir : spa_plugindir / 'support')
   spa_journal_dep = declare_dependency(link_with: spa_journal_lib)

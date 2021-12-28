@@ -16,8 +16,8 @@ spa_alsa = shared_library(
   'spa-alsa',
   [ spa_alsa_sources ],
   c_args : acp_c_args,
-  include_directories : [spa_inc, configinc],
-  dependencies : [ alsa_dep, libudev_dep, mathlib, epoll_shim_dep, libinotify_dep ],
+  include_directories : [configinc],
+  dependencies : [ spa_dep, alsa_dep, libudev_dep, mathlib, epoll_shim_dep, libinotify_dep ],
   link_with : [ acp_lib ],
   install : true,
   install_dir : spa_plugindir / 'alsa'
@@ -30,8 +30,7 @@ alsa_udevrules = [
 executable('spa-acp-tool',
   [ 'acp-tool.c' ],
   c_args : acp_c_args,
-  include_directories : [spa_inc ],
-  dependencies : [ alsa_dep, mathlib, acp_dep ],
+  dependencies : [ spa_dep, alsa_dep, mathlib, acp_dep ],
   install : true,
 )
 

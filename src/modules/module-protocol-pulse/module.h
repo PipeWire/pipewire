@@ -66,6 +66,7 @@ struct module {
 	struct spa_hook_list listener_list;
 	void *user_data;
 	unsigned int loaded:1;
+	unsigned int unloading:1;
 };
 
 #define module_emit_loaded(m,r) spa_hook_list_call(&m->listener_list, struct module_events, loaded, 0, r)

@@ -50,8 +50,11 @@ static void on_module_unload(void *obj, void *data, int res, uint32_t id)
 
 void module_schedule_unload(struct module *module)
 {
-	struct impl *impl = module->impl;
-	pw_work_queue_add(impl->work_queue, module, 0, on_module_unload, impl);
+	if (module->unloading)
+		return;
+
+	pw_work_queue_add(module->impl->work_queue, module, 0, on_module_unload, NULL);
+	module->unloading = true;
 }
 
 struct module *module_new(struct impl *impl, const struct module_methods *methods, size_t user_data)

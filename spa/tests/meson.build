@@ -40,7 +40,7 @@ foreach a : benchmark_apps
       install_dir : installed_tests_execdir,
     ),
     env : [
-      'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.project_build_root()),
+      'SPA_PLUGIN_DIR=@0@'.format(spa_dep.get_variable(internal: 'plugindir')),
     ]
   )
 

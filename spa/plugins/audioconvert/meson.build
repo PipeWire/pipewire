@@ -140,7 +140,7 @@ foreach a : test_apps
       install : installed_tests_enabled,
       install_dir : installed_tests_execdir / 'audioconvert'),
       env : [
-        'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.project_build_root()),
+        'SPA_PLUGIN_DIR=@0@'.format(spa_dep.get_variable(internal: 'plugindir')),
         ])
 
     if installed_tests_enabled
@@ -170,7 +170,7 @@ foreach a : benchmark_apps
       install : installed_tests_enabled,
       install_dir : installed_tests_execdir / 'audioconvert'),
       env : [
-        'SPA_PLUGIN_DIR=@0@/spa/plugins/'.format(meson.project_build_root()),
+        'SPA_PLUGIN_DIR=@0@'.format(spa_dep.get_variable(internal: 'plugindir')),
         ])
 
     if installed_tests_enabled

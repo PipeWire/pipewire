@@ -58,14 +58,7 @@ if not get_option('spa-plugins').disabled()
   vulkan_headers = cc.has_header('vulkan/vulkan.h', dependencies : vulkan_dep)
   #summary({'Vulkan': vulkan_headers}, bool_yn: true, section: 'Misc dependencies')
 
-  if not get_option('libcamera').disabled()
-    libcamera_dep = dependency('libcamera', required: false)
-    if not libcamera_dep.found()
-      libcamera_dep = dependency('camera', required: get_option('libcamera'))
-    endif
-  else
-    libcamera_dep = dependency('', required: false)
-  endif
+  libcamera_dep = dependency('libcamera', required: get_option('libcamera'))
   summary({'libcamera': libcamera_dep.found()}, bool_yn: true, section: 'Backend')
 
   # common dependencies

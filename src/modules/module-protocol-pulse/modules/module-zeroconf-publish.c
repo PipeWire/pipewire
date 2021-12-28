@@ -261,7 +261,8 @@ static struct service *create_service(struct module_zeroconf_publish_data *d, st
 	struct service *s;
 
 	s = pw_manager_object_add_data(o, SERVICE_DATA_ID, sizeof(*s));
-	spa_assert(s);
+	if (s == NULL)
+		return NULL;
 
 	s->userdata = d;
 	s->entry_group = NULL;
@@ -550,6 +551,8 @@ static void manager_added(void *d, struct pw_manager_object *o)
 		return;
 
 	s = create_service(d, o);
+	if (s == NULL)
+		return;
 
 	publish_service(s);
 }

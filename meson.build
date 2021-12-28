@@ -61,7 +61,6 @@ alsadatadir = pipewire_datadir / 'alsa-card-profile' / 'mixer'
 
 pipewire_headers_dir = pipewire_name / 'pipewire'
 
-gnome = import('gnome')
 pkgconfig = import('pkgconfig')
 
 cc = meson.get_compiler('c')

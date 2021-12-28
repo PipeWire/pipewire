@@ -320,7 +320,6 @@ static void service_entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupStat
 	case AVAHI_ENTRY_GROUP_ESTABLISHED:
 		pw_log_info("Successfully established service %s.", s->service_name);
 		break;
-
 	case AVAHI_ENTRY_GROUP_COLLISION:
 	{
 		char *t;

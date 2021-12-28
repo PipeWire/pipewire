@@ -505,8 +505,8 @@ run_target('pw-uninstalled',
 if meson.version().version_compare('>=0.58.0')
   devenv = environment()
 
-  builddir = meson.current_build_dir()
-  srcdir = meson.current_source_dir()
+  builddir = meson.project_build_root()
+  srcdir = meson.project_source_root()
 
   devenv.set('PIPEWIRE_CONFIG_DIR', builddir / 'src' / 'daemon')
   devenv.set('PIPEWIRE_MODULE_DIR', builddir / 'src' / 'modules')

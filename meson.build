@@ -512,7 +512,7 @@ if meson.version().version_compare('>=0.58.0')
   devenv.set('PIPEWIRE_MODULE_DIR', pipewire_dep.get_variable(internal: 'moduledir'))
 
   devenv.set('SPA_PLUGIN_DIR', spa_dep.get_variable(internal: 'plugindir'))
-  devenv.set('SPA_DATA_DIR', srcdir / 'spa' / 'plugins')
+  devenv.set('SPA_DATA_DIR', spa_dep.get_variable(internal: 'datadir'))
 
   devenv.set('GST_PLUGIN_PATH', builddir / 'src'/ 'gst')
 

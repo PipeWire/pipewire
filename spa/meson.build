@@ -10,7 +10,10 @@ spa_dep = declare_dependency(
     include_directories('include'),
   ],
   version : spaversion,
-  variables : { 'plugindir' : meson.current_build_dir() / 'plugins' }
+  variables : {
+    'plugindir' : meson.current_build_dir() / 'plugins',
+    'datadir' : meson.current_source_dir() / 'plugins',
+  },
 )
 
 meson.override_dependency('lib@0@'.format(spa_name), spa_dep)

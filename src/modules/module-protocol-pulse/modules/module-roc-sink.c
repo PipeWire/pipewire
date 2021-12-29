@@ -91,6 +91,9 @@ static int module_roc_sink_load(struct client *client, struct module *module)
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-roc-sink",
 			args, NULL);
+
+	free(args);
+
 	if (data->mod == NULL)
 		return -errno;
 
@@ -209,6 +212,8 @@ struct module *create_module_roc_sink(struct impl *impl, const char *argument)
 	return module;
 out:
 	pw_properties_free(props);
+	pw_properties_free(sink_props);
+	pw_properties_free(roc_props);
 	errno = -res;
 	return NULL;
 }

@@ -1258,6 +1258,8 @@ static void stream_process(void *data)
 				pd.underrun = true;
 			}
 			if ((stream->attr.prebuf == 0 || do_flush) && !stream->corked) {
+				pd.missing = size;
+				pd.playing_for = size;
 				if (avail > 0) {
 					spa_ringbuffer_read_data(&stream->ring,
 						stream->buffer, stream->attr.maxlength,
@@ -1265,11 +1267,6 @@ static void stream_process(void *data)
 						p, avail);
 					index += avail;
 					pd.read_inc = avail;
-					pd.missing = avail;
-					pd.playing_for = avail;
-				} else {
-					pd.missing = size;
-					pd.playing_for = size;
 				}
 				spa_ringbuffer_read_update(&stream->ring, index);
 			}

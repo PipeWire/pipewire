@@ -4842,168 +4842,170 @@ static SPA_UNUSED int do_error_not_implemented(struct client *client, uint32_t c
 	return -ENOSYS;
 }
 
+#define COMMAND(name, ...) [COMMAND_ ## name] = { #name, __VA_ARGS__ }
 const struct command commands[COMMAND_MAX] =
 {
-	[COMMAND_ERROR] = { "ERROR", },
-	[COMMAND_TIMEOUT] = { "TIMEOUT", }, /* pseudo command */
-	[COMMAND_REPLY] = { "REPLY", },
+	COMMAND(ERROR),
+	COMMAND(TIMEOUT), /* pseudo command */
+	COMMAND(REPLY),
 
 	/* CLIENT->SERVER */
-	[COMMAND_CREATE_PLAYBACK_STREAM] = { "CREATE_PLAYBACK_STREAM", do_create_playback_stream, },
-	[COMMAND_DELETE_PLAYBACK_STREAM] = { "DELETE_PLAYBACK_STREAM", do_delete_stream, },
-	[COMMAND_CREATE_RECORD_STREAM] = { "CREATE_RECORD_STREAM", do_create_record_stream, },
-	[COMMAND_DELETE_RECORD_STREAM] = { "DELETE_RECORD_STREAM", do_delete_stream, },
-	[COMMAND_EXIT] = { "EXIT", do_error_access },
-	[COMMAND_AUTH] = { "AUTH", do_command_auth, },
-	[COMMAND_SET_CLIENT_NAME] = { "SET_CLIENT_NAME", do_set_client_name, },
-	[COMMAND_LOOKUP_SINK] = { "LOOKUP_SINK", do_lookup, },
-	[COMMAND_LOOKUP_SOURCE] = { "LOOKUP_SOURCE", do_lookup, },
-	[COMMAND_DRAIN_PLAYBACK_STREAM] = { "DRAIN_PLAYBACK_STREAM", do_drain_stream, },
-	[COMMAND_STAT] = { "STAT", do_stat, },
-	[COMMAND_GET_PLAYBACK_LATENCY] = { "GET_PLAYBACK_LATENCY", do_get_playback_latency, },
-	[COMMAND_CREATE_UPLOAD_STREAM] = { "CREATE_UPLOAD_STREAM", do_create_upload_stream, },
-	[COMMAND_DELETE_UPLOAD_STREAM] = { "DELETE_UPLOAD_STREAM", do_delete_stream, },
-	[COMMAND_FINISH_UPLOAD_STREAM] = { "FINISH_UPLOAD_STREAM", do_finish_upload_stream, },
-	[COMMAND_PLAY_SAMPLE] = { "PLAY_SAMPLE", do_play_sample, },
-	[COMMAND_REMOVE_SAMPLE] = { "REMOVE_SAMPLE", do_remove_sample, },
+	COMMAND(CREATE_PLAYBACK_STREAM, do_create_playback_stream),
+	COMMAND(DELETE_PLAYBACK_STREAM, do_delete_stream),
+	COMMAND(CREATE_RECORD_STREAM, do_create_record_stream),
+	COMMAND(DELETE_RECORD_STREAM, do_delete_stream),
+	COMMAND(EXIT, do_error_access),
+	COMMAND(AUTH, do_command_auth),
+	COMMAND(SET_CLIENT_NAME, do_set_client_name),
+	COMMAND(LOOKUP_SINK, do_lookup),
+	COMMAND(LOOKUP_SOURCE, do_lookup),
+	COMMAND(DRAIN_PLAYBACK_STREAM, do_drain_stream),
+	COMMAND(STAT, do_stat),
+	COMMAND(GET_PLAYBACK_LATENCY, do_get_playback_latency),
+	COMMAND(CREATE_UPLOAD_STREAM, do_create_upload_stream),
+	COMMAND(DELETE_UPLOAD_STREAM, do_delete_stream),
+	COMMAND(FINISH_UPLOAD_STREAM, do_finish_upload_stream),
+	COMMAND(PLAY_SAMPLE, do_play_sample),
+	COMMAND(REMOVE_SAMPLE, do_remove_sample),
 
-	[COMMAND_GET_SERVER_INFO] = { "GET_SERVER_INFO", do_get_server_info },
-	[COMMAND_GET_SINK_INFO] = { "GET_SINK_INFO", do_get_info, },
-	[COMMAND_GET_SOURCE_INFO] = { "GET_SOURCE_INFO", do_get_info, },
-	[COMMAND_GET_MODULE_INFO] = { "GET_MODULE_INFO", do_get_info, },
-	[COMMAND_GET_CLIENT_INFO] = { "GET_CLIENT_INFO", do_get_info, },
-	[COMMAND_GET_SINK_INPUT_INFO] = { "GET_SINK_INPUT_INFO", do_get_info, },
-	[COMMAND_GET_SOURCE_OUTPUT_INFO] = { "GET_SOURCE_OUTPUT_INFO", do_get_info, },
-	[COMMAND_GET_SAMPLE_INFO] = { "GET_SAMPLE_INFO", do_get_sample_info, },
-	[COMMAND_GET_CARD_INFO] = { "GET_CARD_INFO", do_get_info, },
-	[COMMAND_SUBSCRIBE] = { "SUBSCRIBE", do_subscribe, },
+	COMMAND(GET_SERVER_INFO, do_get_server_info),
+	COMMAND(GET_SINK_INFO, do_get_info),
+	COMMAND(GET_SOURCE_INFO, do_get_info),
+	COMMAND(GET_MODULE_INFO, do_get_info),
+	COMMAND(GET_CLIENT_INFO, do_get_info),
+	COMMAND(GET_SINK_INPUT_INFO, do_get_info),
+	COMMAND(GET_SOURCE_OUTPUT_INFO, do_get_info),
+	COMMAND(GET_SAMPLE_INFO, do_get_sample_info),
+	COMMAND(GET_CARD_INFO, do_get_info),
+	COMMAND(SUBSCRIBE, do_subscribe),
 
-	[COMMAND_GET_SINK_INFO_LIST] = { "GET_SINK_INFO_LIST", do_get_info_list, },
-	[COMMAND_GET_SOURCE_INFO_LIST] = { "GET_SOURCE_INFO_LIST", do_get_info_list, },
-	[COMMAND_GET_MODULE_INFO_LIST] = { "GET_MODULE_INFO_LIST", do_get_info_list, },
-	[COMMAND_GET_CLIENT_INFO_LIST] = { "GET_CLIENT_INFO_LIST", do_get_info_list, },
-	[COMMAND_GET_SINK_INPUT_INFO_LIST] = { "GET_SINK_INPUT_INFO_LIST", do_get_info_list, },
-	[COMMAND_GET_SOURCE_OUTPUT_INFO_LIST] = { "GET_SOURCE_OUTPUT_INFO_LIST", do_get_info_list, },
-	[COMMAND_GET_SAMPLE_INFO_LIST] = { "GET_SAMPLE_INFO_LIST", do_get_sample_info_list, },
-	[COMMAND_GET_CARD_INFO_LIST] = { "GET_CARD_INFO_LIST", do_get_info_list, },
+	COMMAND(GET_SINK_INFO_LIST, do_get_info_list),
+	COMMAND(GET_SOURCE_INFO_LIST, do_get_info_list),
+	COMMAND(GET_MODULE_INFO_LIST, do_get_info_list),
+	COMMAND(GET_CLIENT_INFO_LIST, do_get_info_list),
+	COMMAND(GET_SINK_INPUT_INFO_LIST, do_get_info_list),
+	COMMAND(GET_SOURCE_OUTPUT_INFO_LIST, do_get_info_list),
+	COMMAND(GET_SAMPLE_INFO_LIST, do_get_sample_info_list),
+	COMMAND(GET_CARD_INFO_LIST, do_get_info_list),
 
-	[COMMAND_SET_SINK_VOLUME] = { "SET_SINK_VOLUME", do_set_volume, },
-	[COMMAND_SET_SINK_INPUT_VOLUME] = { "SET_SINK_INPUT_VOLUME", do_set_stream_volume, },
-	[COMMAND_SET_SOURCE_VOLUME] = { "SET_SOURCE_VOLUME", do_set_volume, },
+	COMMAND(SET_SINK_VOLUME, do_set_volume),
+	COMMAND(SET_SINK_INPUT_VOLUME, do_set_stream_volume),
+	COMMAND(SET_SOURCE_VOLUME, do_set_volume),
 
-	[COMMAND_SET_SINK_MUTE] = { "SET_SINK_MUTE", do_set_mute, },
-	[COMMAND_SET_SOURCE_MUTE] = { "SET_SOURCE_MUTE", do_set_mute, },
+	COMMAND(SET_SINK_MUTE, do_set_mute),
+	COMMAND(SET_SOURCE_MUTE, do_set_mute),
 
-	[COMMAND_CORK_PLAYBACK_STREAM] = { "CORK_PLAYBACK_STREAM", do_cork_stream, },
-	[COMMAND_FLUSH_PLAYBACK_STREAM] = { "FLUSH_PLAYBACK_STREAM", do_flush_trigger_prebuf_stream, },
-	[COMMAND_TRIGGER_PLAYBACK_STREAM] = { "TRIGGER_PLAYBACK_STREAM", do_flush_trigger_prebuf_stream, },
-	[COMMAND_PREBUF_PLAYBACK_STREAM] = { "PREBUF_PLAYBACK_STREAM", do_flush_trigger_prebuf_stream, },
+	COMMAND(CORK_PLAYBACK_STREAM, do_cork_stream),
+	COMMAND(FLUSH_PLAYBACK_STREAM, do_flush_trigger_prebuf_stream),
+	COMMAND(TRIGGER_PLAYBACK_STREAM, do_flush_trigger_prebuf_stream),
+	COMMAND(PREBUF_PLAYBACK_STREAM, do_flush_trigger_prebuf_stream),
 
-	[COMMAND_SET_DEFAULT_SINK] = { "SET_DEFAULT_SINK", do_set_default, },
-	[COMMAND_SET_DEFAULT_SOURCE] = { "SET_DEFAULT_SOURCE", do_set_default, },
+	COMMAND(SET_DEFAULT_SINK, do_set_default),
+	COMMAND(SET_DEFAULT_SOURCE, do_set_default),
 
-	[COMMAND_SET_PLAYBACK_STREAM_NAME] = { "SET_PLAYBACK_STREAM_NAME", do_set_stream_name, },
-	[COMMAND_SET_RECORD_STREAM_NAME] = { "SET_RECORD_STREAM_NAME", do_set_stream_name, },
+	COMMAND(SET_PLAYBACK_STREAM_NAME, do_set_stream_name),
+	COMMAND(SET_RECORD_STREAM_NAME, do_set_stream_name),
 
-	[COMMAND_KILL_CLIENT] = { "KILL_CLIENT", do_kill, },
-	[COMMAND_KILL_SINK_INPUT] = { "KILL_SINK_INPUT", do_kill, },
-	[COMMAND_KILL_SOURCE_OUTPUT] = { "KILL_SOURCE_OUTPUT", do_kill, },
+	COMMAND(KILL_CLIENT, do_kill),
+	COMMAND(KILL_SINK_INPUT, do_kill),
+	COMMAND(KILL_SOURCE_OUTPUT, do_kill),
 
-	[COMMAND_LOAD_MODULE] = { "LOAD_MODULE", do_load_module, },
-	[COMMAND_UNLOAD_MODULE] = { "UNLOAD_MODULE", do_unload_module, },
+	COMMAND(LOAD_MODULE, do_load_module),
+	COMMAND(UNLOAD_MODULE, do_unload_module),
 
 	/* Obsolete */
-	[COMMAND_ADD_AUTOLOAD___OBSOLETE] = { "ADD_AUTOLOAD___OBSOLETE", do_error_access, },
-	[COMMAND_REMOVE_AUTOLOAD___OBSOLETE] = { "REMOVE_AUTOLOAD___OBSOLETE", do_error_access, },
-	[COMMAND_GET_AUTOLOAD_INFO___OBSOLETE] = { "GET_AUTOLOAD_INFO___OBSOLETE", do_error_access, },
-	[COMMAND_GET_AUTOLOAD_INFO_LIST___OBSOLETE] = { "GET_AUTOLOAD_INFO_LIST___OBSOLETE", do_error_access, },
+	COMMAND(ADD_AUTOLOAD___OBSOLETE, do_error_access),
+	COMMAND(REMOVE_AUTOLOAD___OBSOLETE, do_error_access),
+	COMMAND(GET_AUTOLOAD_INFO___OBSOLETE, do_error_access),
+	COMMAND(GET_AUTOLOAD_INFO_LIST___OBSOLETE, do_error_access),
 
-	[COMMAND_GET_RECORD_LATENCY] = { "GET_RECORD_LATENCY", do_get_record_latency, },
-	[COMMAND_CORK_RECORD_STREAM] = { "CORK_RECORD_STREAM", do_cork_stream, },
-	[COMMAND_FLUSH_RECORD_STREAM] = { "FLUSH_RECORD_STREAM", do_flush_trigger_prebuf_stream, },
+	COMMAND(GET_RECORD_LATENCY, do_get_record_latency),
+	COMMAND(CORK_RECORD_STREAM, do_cork_stream),
+	COMMAND(FLUSH_RECORD_STREAM, do_flush_trigger_prebuf_stream),
 
 	/* SERVER->CLIENT */
-	[COMMAND_REQUEST] = { "REQUEST", },
-	[COMMAND_OVERFLOW] = { "OVERFLOW", },
-	[COMMAND_UNDERFLOW] = { "UNDERFLOW", },
-	[COMMAND_PLAYBACK_STREAM_KILLED] = { "PLAYBACK_STREAM_KILLED", },
-	[COMMAND_RECORD_STREAM_KILLED] = { "RECORD_STREAM_KILLED", },
-	[COMMAND_SUBSCRIBE_EVENT] = { "SUBSCRIBE_EVENT", },
+	COMMAND(REQUEST),
+	COMMAND(OVERFLOW),
+	COMMAND(UNDERFLOW),
+	COMMAND(PLAYBACK_STREAM_KILLED),
+	COMMAND(RECORD_STREAM_KILLED),
+	COMMAND(SUBSCRIBE_EVENT),
 
 	/* A few more client->server commands */
 
 	/* Supported since protocol v10 (0.9.5) */
-	[COMMAND_MOVE_SINK_INPUT] = { "MOVE_SINK_INPUT", do_move_stream, },
-	[COMMAND_MOVE_SOURCE_OUTPUT] = { "MOVE_SOURCE_OUTPUT", do_move_stream, },
+	COMMAND(MOVE_SINK_INPUT, do_move_stream),
+	COMMAND(MOVE_SOURCE_OUTPUT, do_move_stream),
 
 	/* Supported since protocol v11 (0.9.7) */
-	[COMMAND_SET_SINK_INPUT_MUTE] = { "SET_SINK_INPUT_MUTE", do_set_stream_mute, },
+	COMMAND(SET_SINK_INPUT_MUTE, do_set_stream_mute),
 
-	[COMMAND_SUSPEND_SINK] = { "SUSPEND_SINK", do_suspend, },
-	[COMMAND_SUSPEND_SOURCE] = { "SUSPEND_SOURCE", do_suspend, },
+	COMMAND(SUSPEND_SINK, do_suspend),
+	COMMAND(SUSPEND_SOURCE, do_suspend),
 
 	/* Supported since protocol v12 (0.9.8) */
-	[COMMAND_SET_PLAYBACK_STREAM_BUFFER_ATTR] = { "SET_PLAYBACK_STREAM_BUFFER_ATTR", do_set_stream_buffer_attr, },
-	[COMMAND_SET_RECORD_STREAM_BUFFER_ATTR] = { "SET_RECORD_STREAM_BUFFER_ATTR", do_set_stream_buffer_attr, },
+	COMMAND(SET_PLAYBACK_STREAM_BUFFER_ATTR, do_set_stream_buffer_attr),
+	COMMAND(SET_RECORD_STREAM_BUFFER_ATTR, do_set_stream_buffer_attr),
 
-	[COMMAND_UPDATE_PLAYBACK_STREAM_SAMPLE_RATE] = { "UPDATE_PLAYBACK_STREAM_SAMPLE_RATE", do_update_stream_sample_rate, },
-	[COMMAND_UPDATE_RECORD_STREAM_SAMPLE_RATE] = { "UPDATE_RECORD_STREAM_SAMPLE_RATE", do_update_stream_sample_rate, },
+	COMMAND(UPDATE_PLAYBACK_STREAM_SAMPLE_RATE, do_update_stream_sample_rate),
+	COMMAND(UPDATE_RECORD_STREAM_SAMPLE_RATE, do_update_stream_sample_rate),
 
 	/* SERVER->CLIENT */
-	[COMMAND_PLAYBACK_STREAM_SUSPENDED] = { "PLAYBACK_STREAM_SUSPENDED", },
-	[COMMAND_RECORD_STREAM_SUSPENDED] = { "RECORD_STREAM_SUSPENDED", },
-	[COMMAND_PLAYBACK_STREAM_MOVED] = { "PLAYBACK_STREAM_MOVED", },
-	[COMMAND_RECORD_STREAM_MOVED] = { "RECORD_STREAM_MOVED", },
+	COMMAND(PLAYBACK_STREAM_SUSPENDED),
+	COMMAND(RECORD_STREAM_SUSPENDED),
+	COMMAND(PLAYBACK_STREAM_MOVED),
+	COMMAND(RECORD_STREAM_MOVED),
 
 	/* Supported since protocol v13 (0.9.11) */
-	[COMMAND_UPDATE_RECORD_STREAM_PROPLIST] = { "UPDATE_RECORD_STREAM_PROPLIST", do_update_proplist, },
-	[COMMAND_UPDATE_PLAYBACK_STREAM_PROPLIST] = { "UPDATE_PLAYBACK_STREAM_PROPLIST", do_update_proplist, },
-	[COMMAND_UPDATE_CLIENT_PROPLIST] = { "UPDATE_CLIENT_PROPLIST", do_update_proplist, },
+	COMMAND(UPDATE_RECORD_STREAM_PROPLIST, do_update_proplist),
+	COMMAND(UPDATE_PLAYBACK_STREAM_PROPLIST, do_update_proplist),
+	COMMAND(UPDATE_CLIENT_PROPLIST, do_update_proplist),
 
-	[COMMAND_REMOVE_RECORD_STREAM_PROPLIST] = { "REMOVE_RECORD_STREAM_PROPLIST", do_remove_proplist, },
-	[COMMAND_REMOVE_PLAYBACK_STREAM_PROPLIST] = { "REMOVE_PLAYBACK_STREAM_PROPLIST", do_remove_proplist, },
-	[COMMAND_REMOVE_CLIENT_PROPLIST] = { "REMOVE_CLIENT_PROPLIST", do_remove_proplist, },
+	COMMAND(REMOVE_RECORD_STREAM_PROPLIST, do_remove_proplist),
+	COMMAND(REMOVE_PLAYBACK_STREAM_PROPLIST, do_remove_proplist),
+	COMMAND(REMOVE_CLIENT_PROPLIST, do_remove_proplist),
 
 	/* SERVER->CLIENT */
-	[COMMAND_STARTED] = { "STARTED", },
+	COMMAND(STARTED),
 
 	/* Supported since protocol v14 (0.9.12) */
-	[COMMAND_EXTENSION] = { "EXTENSION", do_extension, },
+	COMMAND(EXTENSION, do_extension),
 	/* Supported since protocol v15 (0.9.15) */
-	[COMMAND_SET_CARD_PROFILE] = { "SET_CARD_PROFILE", do_set_profile, },
+	COMMAND(SET_CARD_PROFILE, do_set_profile),
 
 	/* SERVER->CLIENT */
-	[COMMAND_CLIENT_EVENT] = { "CLIENT_EVENT", },
-	[COMMAND_PLAYBACK_STREAM_EVENT] = { "PLAYBACK_STREAM_EVENT", },
-	[COMMAND_RECORD_STREAM_EVENT] = { "RECORD_STREAM_EVENT", },
+	COMMAND(CLIENT_EVENT),
+	COMMAND(PLAYBACK_STREAM_EVENT),
+	COMMAND(RECORD_STREAM_EVENT),
 
 	/* SERVER->CLIENT */
-	[COMMAND_PLAYBACK_BUFFER_ATTR_CHANGED] = { "PLAYBACK_BUFFER_ATTR_CHANGED", },
-	[COMMAND_RECORD_BUFFER_ATTR_CHANGED] = { "RECORD_BUFFER_ATTR_CHANGED", },
+	COMMAND(PLAYBACK_BUFFER_ATTR_CHANGED),
+	COMMAND(RECORD_BUFFER_ATTR_CHANGED),
 
 	/* Supported since protocol v16 (0.9.16) */
-	[COMMAND_SET_SINK_PORT] = { "SET_SINK_PORT", do_set_port, },
-	[COMMAND_SET_SOURCE_PORT] = { "SET_SOURCE_PORT", do_set_port, },
+	COMMAND(SET_SINK_PORT, do_set_port),
+	COMMAND(SET_SOURCE_PORT, do_set_port),
 
 	/* Supported since protocol v22 (1.0) */
-	[COMMAND_SET_SOURCE_OUTPUT_VOLUME] = { "SET_SOURCE_OUTPUT_VOLUME",  do_set_stream_volume, },
-	[COMMAND_SET_SOURCE_OUTPUT_MUTE] = { "SET_SOURCE_OUTPUT_MUTE",  do_set_stream_mute, },
+	COMMAND(SET_SOURCE_OUTPUT_VOLUME,  do_set_stream_volume),
+	COMMAND(SET_SOURCE_OUTPUT_MUTE,  do_set_stream_mute),
 
 	/* Supported since protocol v27 (3.0) */
-	[COMMAND_SET_PORT_LATENCY_OFFSET] = { "SET_PORT_LATENCY_OFFSET", do_set_port_latency_offset, },
+	COMMAND(SET_PORT_LATENCY_OFFSET, do_set_port_latency_offset),
 
 	/* Supported since protocol v30 (6.0) */
 	/* BOTH DIRECTIONS */
-	[COMMAND_ENABLE_SRBCHANNEL] = { "ENABLE_SRBCHANNEL", do_error_access, },
-	[COMMAND_DISABLE_SRBCHANNEL] = { "DISABLE_SRBCHANNEL", do_error_access, },
+	COMMAND(ENABLE_SRBCHANNEL, do_error_access),
+	COMMAND(DISABLE_SRBCHANNEL, do_error_access),
 
 	/* Supported since protocol v31 (9.0)
 	 * BOTH DIRECTIONS */
-	[COMMAND_REGISTER_MEMFD_SHMID] = { "REGISTER_MEMFD_SHMID", do_error_access, },
+	COMMAND(REGISTER_MEMFD_SHMID, do_error_access),
 
 	/* Supported since protocol v35 (15.0) */
-	[COMMAND_SEND_OBJECT_MESSAGE] = { "SEND_OBJECT_MESSAGE", do_send_object_message, },
+	COMMAND(SEND_OBJECT_MESSAGE, do_send_object_message),
 };
+#undef COMMAND
 
 static int impl_free_sample(void *item, void *data)
 {

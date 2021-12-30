@@ -1233,6 +1233,7 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		SPA_PARAM_PROFILE_name, SPA_POD_String(name),
 		SPA_PARAM_PROFILE_description, SPA_POD_String(desc),
 		SPA_PARAM_PROFILE_available, SPA_POD_Id(SPA_PARAM_AVAILABILITY_yes),
+		SPA_PARAM_PROFILE_priority, SPA_POD_Int(codec),
 		0);
 	if (n_source > 0 || n_sink > 0) {
 		spa_pod_builder_prop(b, SPA_PARAM_PROFILE_classes, 0);

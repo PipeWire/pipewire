@@ -149,6 +149,7 @@ static int do_command_auth(struct client *client, uint32_t command, uint32_t tag
 		version &= PROTOCOL_VERSION_MASK;
 
 	client->version = version;
+	client->authenticated = true;
 
 	pw_log_info("client:%p AUTH tag:%u version:%d", client, tag, version);
 

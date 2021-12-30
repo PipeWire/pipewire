@@ -97,6 +97,7 @@ struct client {
 	unsigned int disconnect:1;
 	unsigned int disconnecting:1;
 	unsigned int new_msg_since_last_flush:1;
+	unsigned int authenticated:1;
 
 	struct pw_manager_object *prev_default_sink;
 	struct pw_manager_object *prev_default_source;

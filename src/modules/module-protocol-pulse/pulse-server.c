@@ -3146,12 +3146,11 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 {
 	struct impl *impl = client->impl;
 	struct pw_manager *manager = client->manager;
-	struct pw_core_info *info = manager->info;
+	struct pw_core_info *info = manager ? manager->info : NULL;
 	char name[256];
 	struct message *reply;
 
 	pw_log_info("[%s] GET_SERVER_INFO tag:%u", client->name, tag);
-
 
 	snprintf(name, sizeof(name), "PulseAudio (on PipeWire %s)", pw_get_library_version());
 
@@ -3162,8 +3161,8 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 		TAG_STRING, pw_get_user_name(),
 		TAG_STRING, pw_get_host_name(),
 		TAG_SAMPLE_SPEC, &impl->defs.sample_spec,
-		TAG_STRING, get_default(client, true),		/* default sink name */
-		TAG_STRING, get_default(client, false),		/* default source name */
+		TAG_STRING, manager ? get_default(client, true) : "",	/* default sink name */
+		TAG_STRING, manager ? get_default(client, false) : "",	/* default source name */
 		TAG_U32, info ? info->cookie : 0,			/* cookie */
 		TAG_INVALID);
 
@@ -4869,7 +4868,7 @@ const struct command commands[COMMAND_MAX] =
 	COMMAND(PLAY_SAMPLE, do_play_sample),
 	COMMAND(REMOVE_SAMPLE, do_remove_sample),
 
-	COMMAND(GET_SERVER_INFO, do_get_server_info),
+	COMMAND(GET_SERVER_INFO, do_get_server_info, COMMAND_ACCESS_WITHOUT_MANAGER),
 	COMMAND(GET_SINK_INFO, do_get_info),
 	COMMAND(GET_SOURCE_INFO, do_get_info),
 	COMMAND(GET_MODULE_INFO, do_get_info),

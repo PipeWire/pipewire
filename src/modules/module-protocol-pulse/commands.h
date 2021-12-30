@@ -192,9 +192,15 @@ enum pulseaudio_command {
 	COMMAND_MAX
 };
 
+enum command_access_flag {
+	COMMAND_ACCESS_WITHOUT_AUTH    = (1 << 0),
+	COMMAND_ACCESS_WITHOUT_MANAGER = (1 << 1),
+};
+
 struct command {
 	const char *name;
 	int (*run) (struct client *client, uint32_t command, uint32_t tag, struct message *msg);
+	uint32_t access;
 };
 
 extern const struct command commands[COMMAND_MAX];

@@ -91,12 +91,23 @@ static int handle_packet(struct client *client, struct message *msg)
 		message_dump(SPA_LOG_LEVEL_INFO, msg);
 	}
 
-	if (commands[command].run == NULL) {
+	const struct command *cmd = &commands[command];
+	if (cmd->run == NULL) {
 		res = -ENOTSUP;
 		goto finish;
 	}
 
-	res = commands[command].run(client, command, tag, msg);
+	if (!client->authenticated && !SPA_FLAG_IS_SET(cmd->access, COMMAND_ACCESS_WITHOUT_AUTH)) {
+		res = -EACCES;
+		goto finish;
+	}
+
+	if (client->manager == NULL && !SPA_FLAG_IS_SET(cmd->access, COMMAND_ACCESS_WITHOUT_MANAGER)) {
+		res = -EACCES;
+		goto finish;
+	}
+
+	res = cmd->run(client, command, tag, msg);
 
 finish:
 	message_free(impl, msg, false, false);

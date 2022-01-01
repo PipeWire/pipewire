@@ -86,7 +86,7 @@ struct impl {
 
 	uint32_t port_count;
 	uint32_t last_port;
-	struct port in_ports[MAX_PORTS];
+	struct port *in_ports[MAX_PORTS];
 	struct port out_ports[1];
 
 	int n_formats;
@@ -95,11 +95,12 @@ struct impl {
 	unsigned int started:1;
 };
 
-#define CHECK_FREE_IN_PORT(this,d,p) ((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS && !this->in_ports[(p)].valid)
-#define CHECK_IN_PORT(this,d,p)      ((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS && this->in_ports[(p)].valid)
+#define PORT_VALID(p)                ((p) != NULL && (p)->valid)
+#define CHECK_FREE_IN_PORT(this,d,p) ((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS && !PORT_VALID(this->in_ports[(p)]))
+#define CHECK_IN_PORT(this,d,p)      ((d) == SPA_DIRECTION_INPUT && (p) < MAX_PORTS && PORT_VALID(this->in_ports[(p)]))
 #define CHECK_OUT_PORT(this,d,p)     ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
 #define CHECK_PORT(this,d,p)         (CHECK_OUT_PORT(this,d,p) || CHECK_IN_PORT (this,d,p))
-#define GET_IN_PORT(this,p)          (&this->in_ports[p])
+#define GET_IN_PORT(this,p)          (this->in_ports[p])
 #define GET_OUT_PORT(this,p)         (&this->out_ports[p])
 #define GET_PORT(this,d,p)           (d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,p) : GET_OUT_PORT(this,p))
 
@@ -180,7 +181,7 @@ static int impl_node_add_listener(void *object,
 	emit_node_info(this, true);
 	emit_port_info(this, GET_OUT_PORT(this, 0), true);
 	for (i = 0; i < this->last_port; i++) {
-		if (this->in_ports[i].valid)
+		if (PORT_VALID(this->in_ports[i]))
 			emit_port_info(this, GET_IN_PORT(this, i), true);
 	}
 
@@ -207,6 +208,13 @@ static int impl_node_add_port(void *object, enum spa_direction direction, uint32
 	spa_return_val_if_fail(CHECK_FREE_IN_PORT(this, direction, port_id), -EINVAL);
 
 	port = GET_IN_PORT (this, port_id);
+	if (port == NULL) {
+		port = calloc(1, sizeof(struct port));
+		if (port == NULL)
+			return -errno;
+		this->in_ports[port_id] = port;
+	}
+
 	port->direction = direction;
 	port->id = port_id;
 
@@ -720,6 +728,15 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct impl *this;
+	uint32_t i;
+
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+
+	this = (struct impl *) handle;
+
+	for (i = 0; i < MAX_PORTS; i++)
+		free(this->in_ports[i]);
 	return 0;
 }
 

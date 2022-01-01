@@ -118,7 +118,7 @@ struct impl {
 	struct spa_hook_list hooks;
 
 	struct port in_ports[1];
-	struct port out_ports[MAX_PORTS];
+	struct port *out_ports[MAX_PORTS];
 	uint32_t port_count;
 
 	struct spa_audio_info format;
@@ -141,7 +141,7 @@ struct impl {
 #define CHECK_IN_PORT(this,d,p)		((d) == SPA_DIRECTION_INPUT && (p) == 0)
 #define CHECK_PORT(this,d,p)		(CHECK_OUT_PORT(this,d,p) || CHECK_IN_PORT (this,d,p))
 #define GET_IN_PORT(this,p)		(&this->in_ports[p])
-#define GET_OUT_PORT(this,p)		(&this->out_ports[p])
+#define GET_OUT_PORT(this,p)		(this->out_ports[p])
 #define GET_PORT(this,d,p)		(d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,p) : GET_OUT_PORT(this,p))
 
 static void emit_node_info(struct impl *this, bool full)
@@ -172,6 +172,12 @@ static int init_port(struct impl *this, enum spa_direction direction,
 	struct port *port = GET_OUT_PORT(this, port_id);
 	const char *name;
 
+	if (port == NULL) {
+		port = calloc(1, sizeof(struct port));
+		if (port == NULL)
+			return -errno;
+		this->out_ports[port_id] = port;
+	}
 	port->direction = direction;
 	port->id = port_id;
 
@@ -1101,6 +1107,15 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct impl *this;
+	uint32_t i;
+
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+
+	this = (struct impl *) handle;
+
+	for (i = 0; i < MAX_PORTS; i++)
+		free(this->out_ports[i]);
 	return 0;
 }
 

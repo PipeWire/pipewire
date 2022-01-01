@@ -160,8 +160,8 @@ struct impl {
 
 	uint32_t port_count;
 	uint32_t monitor_count;
-	struct port in_ports[MAX_PORTS];
-	struct port out_ports[MAX_PORTS + 1];
+	struct port *in_ports[MAX_PORTS];
+	struct port *out_ports[MAX_PORTS + 1];
 
 	struct spa_audio_info format;
 	unsigned int have_profile:1;
@@ -187,8 +187,8 @@ struct impl {
 #define CHECK_IN_PORT(this,d,p)		((d) == SPA_DIRECTION_INPUT && (p) < this->port_count)
 #define CHECK_OUT_PORT(this,d,p)	((d) == SPA_DIRECTION_OUTPUT && (p) <= this->monitor_count)
 #define CHECK_PORT(this,d,p)		(CHECK_OUT_PORT(this,d,p) || CHECK_IN_PORT (this,d,p))
-#define GET_IN_PORT(this,p)		(&this->in_ports[p])
-#define GET_OUT_PORT(this,p)		(&this->out_ports[p])
+#define GET_IN_PORT(this,p)		(this->in_ports[p])
+#define GET_OUT_PORT(this,p)		(this->out_ports[p])
 #define GET_PORT(this,d,p)		(d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,p) : GET_OUT_PORT(this,p))
 
 #define PORT_IS_DSP(d,p) (p != 0 || d != SPA_DIRECTION_OUTPUT)
@@ -232,6 +232,15 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	struct port *port = GET_PORT(this, direction, port_id);
 	const char *name;
 
+	if (port == NULL) {
+		port = calloc(1, sizeof(struct port));
+		if (port == NULL)
+			return -errno;
+		if (direction == SPA_DIRECTION_INPUT)
+			this->in_ports[port_id] = port;
+		else
+			this->out_ports[port_id] = port;
+	}
 	port->direction = direction;
 	port->id = port_id;
 
@@ -1500,6 +1509,17 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 static int impl_clear(struct spa_handle *handle)
 {
+	struct impl *this;
+	uint32_t i;
+
+	spa_return_val_if_fail(handle != NULL, -EINVAL);
+
+	this = (struct impl *) handle;
+
+	for (i = 0; i < MAX_PORTS; i++)
+		free(this->in_ports[i]);
+	for (i = 0; i < MAX_PORTS+1; i++)
+		free(this->out_ports[i]);
 	return 0;
 }
 
@@ -1518,7 +1538,6 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct impl *this;
-	struct port *port;
 	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
@@ -1564,22 +1583,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.params = this->params;
 	this->info.n_params = N_NODE_PARAMS;
 
-	port = GET_OUT_PORT(this, 0);
-	port->direction = SPA_DIRECTION_OUTPUT;
-	port->id = 0;
-	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
-			SPA_PORT_CHANGE_MASK_PARAMS;
-	port->info = SPA_PORT_INFO_INIT();
-	port->info.flags = SPA_PORT_FLAG_DYNAMIC_DATA;
-	port->params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-	port->params[IDX_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
-	port->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
-	port->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
-	port->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READWRITE);
-	port->info.params = port->params;
-	port->info.n_params = N_PORT_PARAMS;
-	spa_list_init(&port->queue);
+	init_port(this, SPA_DIRECTION_OUTPUT, 0, 0);
 
 	this->volume.cpu_flags = this->cpu_flags;
 	volume_init(&this->volume);

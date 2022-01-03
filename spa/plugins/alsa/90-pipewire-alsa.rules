@@ -114,6 +114,7 @@ ATTRS{idVendor}=="041e", ATTRS{idProduct}=="322c", ENV{ACP_PROFILE_SET}="sb-omni
 ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="4014", ENV{ACP_PROFILE_SET}="dell-dock-tb16-usb-audio.conf"
 ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="402e", ENV{ACP_PROFILE_SET}="dell-dock-tb16-usb-audio.conf"
 ATTRS{idVendor}=="1397", ATTRS{idProduct}=="0507", ENV{ACP_PROFILE_SET}="behringer-umc22.conf"
+ATTRS{idVendor}=="08bb", ATTRS{idProduct}=="2902", ENV{ACP_PROFILE_SET}="texas-instruments-pcm2902.conf"
 ATTRS{idVendor}=="03f0", ATTRS{idProduct}=="0269", ENV{ACP_PROFILE_SET}="hp-tbt-dock-120w-g2.conf"
 ATTRS{idVendor}=="03f0", ATTRS{idProduct}=="0567", ENV{ACP_PROFILE_SET}="hp-tbt-dock-audio-module.conf"
 

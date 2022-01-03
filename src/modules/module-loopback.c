@@ -487,12 +487,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if (pw_properties_get(impl->capture_props, PW_KEY_MEDIA_NAME) == NULL)
 		pw_properties_setf(impl->capture_props, PW_KEY_MEDIA_NAME,
-				"%s.loopback-capture",
+				"loopback input %s",
 				pw_properties_get(impl->capture_props, PW_KEY_NODE_NAME));
 
 	if (pw_properties_get(impl->playback_props, PW_KEY_MEDIA_NAME) == NULL)
 		pw_properties_setf(impl->playback_props, PW_KEY_MEDIA_NAME,
-				"%s.loopback-playback",
+				"loopback output %s",
 				pw_properties_get(impl->playback_props, PW_KEY_NODE_NAME));
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);

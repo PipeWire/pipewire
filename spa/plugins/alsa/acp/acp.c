@@ -255,10 +255,10 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 			pa_idxset_string_compare_func);
 	if (m->ucm_context.ucm) {
 		dev->ucm_context = &m->ucm_context;
-		if (impl->ucm.alibpref != NULL) {
+		if (impl->ucm.alib_prefix != NULL) {
 			for (d = m->device_strings; *d; d++) {
-				if (pa_startswith(*d, impl->ucm.alibpref)) {
-					size_t plen = strlen(impl->ucm.alibpref);
+				if (pa_startswith(*d, impl->ucm.alib_prefix)) {
+					size_t plen = strlen(impl->ucm.alib_prefix);
 					size_t len = strlen(*d);
 					memmove(*d, (*d) + plen, len - plen + 1);
 					dev->device.flags |= ACP_DEVICE_UCM_DEVICE;

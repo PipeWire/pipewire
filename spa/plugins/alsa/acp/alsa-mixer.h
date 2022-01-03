@@ -100,8 +100,8 @@ struct pa_alsa_setting {
 
 /* An entry for one ALSA mixer */
 struct pa_alsa_mixer {
+    struct pa_alsa_mixer *alias;
     snd_mixer_t *mixer_handle;
-    int card_index;
     bool used_for_poll:1;
     bool used_for_probe_only:1;
 };

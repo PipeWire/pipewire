@@ -1021,8 +1021,7 @@ static const struct spa_pod *get_buffers_param(struct stream *s,
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
 								size, size, maxsize),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(stride),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(stride));
 	return param;
 }
 

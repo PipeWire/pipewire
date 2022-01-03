@@ -369,8 +369,7 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(buffers, MIN_BUFFERS, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(pw->blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(size, size, INT_MAX),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(pw->stride),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(pw->stride));
 
 	pw_stream_update_params(pw->stream, params, n_params);
 }

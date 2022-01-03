@@ -1774,8 +1774,7 @@ static int param_buffers(struct client *c, struct port *p,
 								MAX_BUFFER_FRAMES * sizeof(float),
 								sizeof(float)),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(p->object->port.type_id == TYPE_ID_AUDIO ?
-									sizeof(float) : 1),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+									sizeof(float) : 1));
 		break;
 	case TYPE_ID_VIDEO:
 		*param = spa_pod_builder_add_object(b,
@@ -1786,8 +1785,7 @@ static int param_buffers(struct client *c, struct port *p,
 								320 * 240 * 4 * 4,
 								0,
 								INT32_MAX),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(4, 4, INT32_MAX),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(4, 4, INT32_MAX));
 		break;
 	default:
 		return -EINVAL;

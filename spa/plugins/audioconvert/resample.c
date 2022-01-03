@@ -509,8 +509,7 @@ impl_node_port_enum_params(void *object, int seq,
 							size * port->stride,
 							16 * port->stride,
 							INT32_MAX),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride));
 		break;
 	}
 	case SPA_PARAM_Meta:

@@ -403,8 +403,7 @@ next:
 								MAX_SAMPLES * this->stride,
 								16 * this->stride,
 								INT32_MAX),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(this->stride),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(this->stride));
 		break;
 
 	case SPA_PARAM_Meta:

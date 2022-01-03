@@ -906,8 +906,7 @@ impl_node_port_enum_params(void *object, int seq,
 							this->props.max_latency * port->frame_size,
 							this->props.min_latency * port->frame_size,
 							INT32_MAX),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->frame_size),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->frame_size));
 		break;
 
 	case SPA_PARAM_Meta:

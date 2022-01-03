@@ -971,8 +971,7 @@ impl_node_port_enum_params(void *object, int seq,
 								DEFAULT_CONTROL_BUFFER_SIZE,
 								1024,
 								INT32_MAX),
-				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(1),
-				SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(1));
 		} else {
 			if (other->n_buffers > 0) {
 				buffers = other->n_buffers;
@@ -990,8 +989,7 @@ impl_node_port_enum_params(void *object, int seq,
 								size * port->stride,
 								16 * port->stride,
 								INT32_MAX),
-				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride),
-				SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride));
 		}
 		break;
 	}

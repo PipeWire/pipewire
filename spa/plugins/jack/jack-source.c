@@ -567,8 +567,7 @@ impl_node_port_enum_params(void *object, int seq,
 							MAX_SAMPLES * port->stride,
 							16 * port->stride,
 							MAX_SAMPLES * port->stride),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride));
 		break;
 	}
 	case SPA_PARAM_IO:

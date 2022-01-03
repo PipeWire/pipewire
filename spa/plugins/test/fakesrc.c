@@ -494,8 +494,7 @@ impl_node_port_enum_params(void *object, int seq,
 				SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(32, 2, 32),
 				SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 				SPA_PARAM_BUFFERS_size,    SPA_POD_Int(128),
-				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(1),
-				SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(1));
 			break;
 		default:
 			return 0;

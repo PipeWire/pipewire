@@ -530,8 +530,7 @@ next:
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(n_buffers, n_buffers, n_buffers),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(port->streamConfig.frameSize),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->streamConfig.stride),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->streamConfig.stride));
 		break;
 	}
 	case SPA_PARAM_Meta:

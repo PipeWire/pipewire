@@ -38,6 +38,8 @@
 #include <spa/debug/format.h>
 #include <spa/debug/pod.h>
 
+#define DEFAULT_ALIGN	16
+
 #define NAME "videoadapter"
 
 /** \cond */
@@ -620,12 +622,14 @@ static int negotiate_buffers(struct impl *this)
 			follower_alloc = false;
 	}
 
+	align = DEFAULT_ALIGN;
+
 	if ((res = spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_ParamBuffers, NULL,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(&buffers),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(&blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(&size),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(&align))) < 0)
+			SPA_PARAM_BUFFERS_align,   SPA_POD_OPT_Int(&align))) < 0)
 		return res;
 
 	spa_log_debug(this->log, "%p: buffers %d, blocks %d, size %d, align %d %d:%d",

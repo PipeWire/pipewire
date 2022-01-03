@@ -244,8 +244,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
 		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(data->stride * data->format.size.height),
-		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(data->stride),
-		SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16));
+		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(data->stride));
 
 	params[1] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,

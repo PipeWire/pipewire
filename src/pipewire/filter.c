@@ -1606,8 +1606,7 @@ static void add_audio_dsp_port_params(struct filter *impl, struct port *port)
 								sizeof(float),
 								MAX_SAMPLES * sizeof(float),
 								sizeof(float)),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(4),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(16)));
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(4)));
 }
 
 static void add_video_dsp_port_params(struct filter *impl, struct port *port)

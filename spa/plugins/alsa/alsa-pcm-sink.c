@@ -181,19 +181,17 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(0LL, 0LL, INT64_MAX));
 			break;
 		case 6:
-			if (this->is_iec958 || this->is_hdmi) {
-				param = spa_pod_builder_add_object(&b,
-					SPA_TYPE_OBJECT_PropInfo, id,
-					SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_iec958Codecs),
-					SPA_PROP_INFO_name, SPA_POD_String("iec958.codecs"),
-					SPA_PROP_INFO_description, SPA_POD_String("Enabled IEC958 (S/PDIF) codecs"),
-					SPA_PROP_INFO_type, SPA_POD_Id(SPA_AUDIO_IEC958_CODEC_UNKNOWN),
-	                                SPA_PROP_INFO_params, SPA_POD_Bool(true),
-	                                SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
-
-				break;
-			}
-			SPA_FALLTHROUGH
+			if (!this->is_iec958 && !this->is_hdmi)
+				goto next;
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_iec958Codecs),
+				SPA_PROP_INFO_name, SPA_POD_String("iec958.codecs"),
+				SPA_PROP_INFO_description, SPA_POD_String("Enabled IEC958 (S/PDIF) codecs"),
+				SPA_PROP_INFO_type, SPA_POD_Id(SPA_AUDIO_IEC958_CODEC_UNKNOWN),
+                                SPA_PROP_INFO_params, SPA_POD_Bool(true),
+                                SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
+			break;
 		default:
 			param = spa_alsa_enum_propinfo(this, result.index - 7, &b);
 			if (param == NULL)

@@ -55,6 +55,8 @@ extern "C" {
 #define MIN_LATENCY	16
 #define MAX_LATENCY	8192
 
+#define MAX_RATES	16
+
 #define DEFAULT_PERIOD		1024u
 #define DEFAULT_RATE		48000u
 #define DEFAULT_CHANNELS	2u
@@ -140,6 +142,8 @@ struct state {
 	uint32_t default_format;
 	unsigned int default_channels;
 	unsigned int default_rate;
+	uint32_t allowed_rates[MAX_RATES];
+	uint32_t n_allowed_rates;
 	struct channel_map default_pos;
 	unsigned int disable_mmap;
 	unsigned int disable_batch;
@@ -283,6 +287,22 @@ static inline void spa_alsa_parse_position(struct channel_map *map, const char *
 	    map->channels < SPA_AUDIO_MAX_CHANNELS) {
 		map->pos[map->channels++] = spa_alsa_channel_from_name(v);
 	}
+}
+
+static inline uint32_t spa_alsa_parse_rates(uint32_t *rates, uint32_t max, const char *val, size_t len)
+{
+	struct spa_json it[2];
+	char v[256];
+	uint32_t count;
+
+	spa_json_init(&it[0], val, len);
+        if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+                spa_json_init(&it[1], val, len);
+
+	count = 0;
+	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 && count < max)
+		rates[count++] = atoi(v);
+	return count;
 }
 
 static inline uint32_t spa_alsa_iec958_codec_from_name(const char *name)

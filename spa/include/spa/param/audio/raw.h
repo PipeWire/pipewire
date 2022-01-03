@@ -304,6 +304,8 @@ struct spa_audio_info_raw {
 #define SPA_KEY_AUDIO_RATE		"audio.rate"		/**< an audio sample rate as int */
 #define SPA_KEY_AUDIO_POSITION		"audio.position"	/**< channel positions as comma separated list
 								  *  of channels ex. "FL,FR" */
+#define SPA_KEY_AUDIO_ALLOWED_RATES	"audio.allowed-rates"	/**< a list of allowed samplerates
+								  *  ex. "[ 44100 48000 ]" */
 
 struct spa_audio_info_dsp {
 	enum spa_audio_format format;		/*< format, one of the DSP formats in enum spa_audio_format_dsp */

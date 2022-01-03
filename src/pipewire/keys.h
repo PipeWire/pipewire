@@ -314,6 +314,8 @@ extern "C" {
 #define PW_KEY_AUDIO_RATE		"audio.rate"		/**< an audio samplerate */
 #define PW_KEY_AUDIO_CHANNELS		"audio.channels"	/**< number of audio channels */
 #define PW_KEY_AUDIO_FORMAT		"audio.format"		/**< an audio format. Ex: "S16LE" */
+#define PW_KEY_AUDIO_ALLOWED_RATES	"audio.allowed-rates"	/**< a list of allowed samplerates
+								  *  ex. "[ 44100 48000 ]" */
 
 /** video related properties */
 #define PW_KEY_VIDEO_RATE		"video.framerate"	/**< a video framerate */

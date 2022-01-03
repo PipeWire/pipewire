@@ -102,6 +102,10 @@ static int alsa_set_param(struct state *state, const char *k, const char *s)
 	} else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
 		spa_alsa_parse_position(&state->default_pos, s, strlen(s));
 		fmt_change++;
+	} else if (spa_streq(k, SPA_KEY_AUDIO_ALLOWED_RATES)) {
+		state->n_allowed_rates = spa_alsa_parse_rates(state->allowed_rates,
+				MAX_RATES, s, strlen(s));
+		fmt_change++;
 	} else if (spa_streq(k, "iec958.codecs")) {
 		spa_alsa_parse_iec958_codecs(&state->iec958_codecs, s, strlen(s));
 		fmt_change++;
@@ -143,6 +147,22 @@ static int position_to_string(struct channel_map *map, char *val, size_t len)
 		r = snprintf(val+o, len-o, "%s%s", i == 0 ? "" : ", ",
 				spa_debug_type_find_short_name(spa_type_audio_channel,
 					map->pos[i]));
+		if (r < 0 || o + r >= len)
+			return -ENOSPC;
+		o += r;
+	}
+	if (len > o)
+		o += snprintf(val+o, len-o, " ]");
+	return 0;
+}
+
+static int uint32_array_to_string(uint32_t *vals, uint32_t n_vals, char *val, size_t len)
+{
+	uint32_t i, o = 0;
+	int r;
+	o += snprintf(val, len, "[ ");
+	for (i = 0; i < n_vals; i++) {
+		r = snprintf(val+o, len-o, "%s%d", i == 0 ? "" : ", ", vals[i]);
 		if (r < 0 || o + r >= len)
 			return -ENOSPC;
 		o += r;
@@ -197,6 +217,18 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 		break;
 	}
 	case 4:
+	{
+		char buf[1024];
+		uint32_array_to_string(state->allowed_rates, state->n_allowed_rates, buf, sizeof(buf));
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String(SPA_KEY_AUDIO_ALLOWED_RATES),
+			SPA_PROP_INFO_description, SPA_POD_String("Audio Allowed Rates"),
+			SPA_PROP_INFO_type, SPA_POD_String(buf),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	}
+	case 5:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.period-size"),
@@ -204,7 +236,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_Int(state->default_period_size),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 5:
+	case 6:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.period-num"),
@@ -212,7 +244,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_Int(state->default_period_num),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 6:
+	case 7:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.headroom"),
@@ -220,7 +252,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_Int(state->default_headroom),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 7:
+	case 8:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.start-delay"),
@@ -228,7 +260,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_Int(state->default_start_delay),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 8:
+	case 9:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.disable-mmap"),
@@ -236,7 +268,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_Bool(state->disable_mmap),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 9:
+	case 10:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.disable-batch"),
@@ -244,7 +276,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_Bool(state->disable_batch),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 10:
+	case 11:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.use-chmap"),
@@ -252,7 +284,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_Bool(state->props.use_chmap),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 11:
+	case 12:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.multi-rate"),
@@ -260,7 +292,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_type, SPA_POD_Bool(state->multi_rate),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 12:
+	case 13:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("clock.name"),
@@ -295,6 +327,11 @@ int spa_alsa_add_prop_params(struct state *state, struct spa_pod_builder *b)
 
 	position_to_string(&state->default_pos, buf, sizeof(buf));
 	spa_pod_builder_string(b, SPA_KEY_AUDIO_POSITION);
+	spa_pod_builder_string(b, buf);
+
+	uint32_array_to_string(state->allowed_rates, state->n_allowed_rates,
+			buf, sizeof(buf));
+	spa_pod_builder_string(b, SPA_KEY_AUDIO_ALLOWED_RATES);
 	spa_pod_builder_string(b, buf);
 
 	spa_pod_builder_string(b, "api.alsa.period-size");
@@ -674,6 +711,15 @@ static void sanitize_map(snd_pcm_chmap_t* map)
 	}
 }
 
+static bool uint32_array_contains(uint32_t *vals, uint32_t n_vals, uint32_t val)
+{
+	uint32_t i;
+	for (i = 0; i < n_vals; i++)
+		if (vals[i] == val)
+			return true;
+	return false;
+}
+
 static int add_rate(struct state *state, uint32_t scale, bool all, uint32_t index, uint32_t *next,
 		snd_pcm_hw_params_t *params, struct spa_pod_builder *b)
 {
@@ -705,11 +751,35 @@ static int add_rate(struct state *state, uint32_t scale, bool all, uint32_t inde
 	if (rate == 0)
 		rate = state->position ? state->position->clock.rate.denom : DEFAULT_RATE;
 
-	spa_pod_builder_int(b, SPA_CLAMP(rate, min, max) * scale);
-	if (min != max) {
-		spa_pod_builder_int(b, min * scale);
-		spa_pod_builder_int(b, max * scale);
-		choice->body.type = SPA_CHOICE_Range;
+	if (state->n_allowed_rates > 0) {
+		uint32_t i, v, last = 0, count = 0;
+
+		v = SPA_CLAMP(rate, min, max);
+		if (uint32_array_contains(state->allowed_rates, state->n_allowed_rates, v)) {
+			spa_pod_builder_int(b, v * scale);
+			count++;
+		}
+		for (i = 0; i < state->n_allowed_rates; i++) {
+			v = SPA_CLAMP(state->allowed_rates[i], min, max);
+			if (v != last &&
+			    uint32_array_contains(state->allowed_rates, state->n_allowed_rates, v)) {
+				spa_pod_builder_int(b, v * scale);
+				if (count == 0)
+					spa_pod_builder_int(b, v * scale);
+				count++;
+			}
+			last = v;
+		}
+		if (count > 1)
+			choice->body.type = SPA_CHOICE_Enum;
+	} else {
+		spa_pod_builder_int(b, SPA_CLAMP(rate, min, max) * scale);
+
+		if (min != max) {
+			spa_pod_builder_int(b, min * scale);
+			spa_pod_builder_int(b, max * scale);
+			choice->body.type = SPA_CHOICE_Range;
+		}
 	}
 	spa_pod_builder_pop(b, &f[0]);
 

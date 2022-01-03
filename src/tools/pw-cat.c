@@ -90,6 +90,10 @@ typedef int (*fill_fn)(struct data *d, void *dest, unsigned int n_frames);
 struct target {
 	struct spa_list link;
 	uint32_t id;
+#define TARGET_TYPE_SINK	0
+#define TARGET_TYPE_SOURCE	1
+#define TARGET_TYPE_STREAM	2
+	uint32_t type;
 	char *name;
 	char *desc;
 	int prio;
@@ -619,7 +623,7 @@ target_destroy(struct target *target)
 }
 
 static struct target *
-target_create(uint32_t id, const char *name, const char *desc, int prio)
+target_create(uint32_t id, uint32_t type, const char *name, const char *desc, int prio)
 {
 	struct target *target;
 
@@ -627,6 +631,7 @@ target_create(uint32_t id, const char *name, const char *desc, int prio)
 	if (!target)
 		return NULL;
 	target->id = id;
+	target->type = type;
 	target->name = strdup(name);
 	target->desc = strdup(desc ? : "");
 	target->prio = prio;
@@ -737,8 +742,8 @@ static void registry_event_global(void *userdata, uint32_t id,
 	const struct spa_dict_item *item;
 	const char *name, *desc, *media_class, *prio_session;
 	int prio;
-	enum mode mode = mode_none;
 	struct target *target;
+	uint32_t ttype;
 
 	/* only once */
 	if (data->targets_listed)
@@ -773,15 +778,27 @@ static void registry_event_global(void *userdata, uint32_t id,
 		if (!name || !media_class)
 			return;
 
-		/* get allowed mode from the media class */
-		/* TODO extend to something else besides Audio/Source|Sink */
-		if (spa_streq(media_class, "Audio/Source"))
-			mode = mode_record;
-		else if (spa_streq(media_class, "Audio/Sink"))
-			mode = mode_playback;
+		if (desc == NULL)
+			desc = name;
 
-		/* modes must match */
-		if (mode != data->mode)
+		/* get allowed mode from the media class */
+		if (spa_streq(media_class, "Audio/Source")) {
+			if (data->mode != mode_record)
+				return;
+			ttype = TARGET_TYPE_SOURCE;
+		}
+		else if (spa_streq(media_class, "Stream/Output/Audio")) {
+			if (data->mode != mode_record)
+				return;
+			ttype = TARGET_TYPE_STREAM;
+		}
+		else if (spa_streq(media_class, "Audio/Sink")) {
+			if (data->mode != mode_playback &&
+			    data->mode != mode_record)
+				return;
+			ttype = TARGET_TYPE_SINK;
+		}
+		else
 			return;
 
 		prio = prio_session ? atoi(prio_session) : -1;
@@ -795,7 +812,7 @@ static void registry_event_global(void *userdata, uint32_t id,
 			}
 		}
 
-		target = target_create(id, name, desc, prio);
+		target = target_create(id, ttype, name, desc, prio);
 		if (target)
 			spa_list_append(&data->targets, &target->link);
 	}
@@ -1880,7 +1897,23 @@ int main(int argc, char *argv[])
 			}
 			printf("Available targets (\"*\" denotes default): %s\n", default_name);
 			spa_list_for_each(target, &data.targets, link) {
-				printf("%s\t%"PRIu32": description=\"%s\" prio=%d\n",
+				if (target->type != TARGET_TYPE_SOURCE)
+					continue;
+				printf("%s\t%"PRIu32": source description=\"%s\" prio=%d\n",
+				       target == target_default ? "*" : "",
+				       target->id, target->desc, target->prio);
+			}
+			spa_list_for_each(target, &data.targets, link) {
+				if (target->type != TARGET_TYPE_SINK)
+					continue;
+				printf("%s\t%"PRIu32": sink description=\"%s\" prio=%d\n",
+				       target == target_default ? "*" : "",
+				       target->id, target->desc, target->prio);
+			}
+			spa_list_for_each(target, &data.targets, link) {
+				if (target->type != TARGET_TYPE_STREAM)
+					continue;
+				printf("%s\t%"PRIu32": stream description=\"%s\" prio=%d\n",
 				       target == target_default ? "*" : "",
 				       target->id, target->desc, target->prio);
 			}

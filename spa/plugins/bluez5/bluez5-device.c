@@ -183,13 +183,17 @@ static void get_a2dp_codecs(struct impl *this, enum spa_bluetooth_audio_codec id
 	*codecs = NULL;
 }
 
-static const struct a2dp_codec *get_supported_a2dp_codec(struct impl *this, enum spa_bluetooth_audio_codec id)
+static const struct a2dp_codec *get_supported_a2dp_codec(struct impl *this, enum spa_bluetooth_audio_codec id, size_t *idx)
 {
 	const struct a2dp_codec *a2dp_codec = NULL;
 	size_t i;
-	for (i = 0; i < this->supported_codec_count; ++i)
-		if (this->supported_codecs[i]->id == id)
+	for (i = 0; i < this->supported_codec_count; ++i) {
+		if (this->supported_codecs[i]->id == id) {
 			a2dp_codec = this->supported_codecs[i];
+			if (idx)
+				*idx = i;
+		}
+	}
 	return a2dp_codec;
 }
 
@@ -684,7 +688,7 @@ static int emit_nodes(struct impl *this)
 			}
 		}
 
-		if (get_supported_a2dp_codec(this, this->props.codec) == NULL)
+		if (get_supported_a2dp_codec(this, this->props.codec, NULL) == NULL)
 			this->props.codec = 0;
 		break;
 	case DEVICE_PROFILE_HSP_HFP:
@@ -894,7 +898,7 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 			      nodes_changed);
 		break;
 	case DEVICE_PROFILE_A2DP:
-		if (get_supported_a2dp_codec(this, this->props.codec) == NULL)
+		if (get_supported_a2dp_codec(this, this->props.codec, NULL) == NULL)
 			this->props.codec = 0;
 		nodes_changed = (connected_change & (SPA_BT_PROFILE_A2DP_SINK |
 						     SPA_BT_PROFILE_A2DP_SOURCE));
@@ -990,7 +994,7 @@ static uint32_t profile_direction_mask(struct impl *this, uint32_t index, enum s
 		if (device->connected_profiles & SPA_BT_PROFILE_A2DP_SINK)
 			have_output = true;
 
-		a2dp_codec = get_supported_a2dp_codec(this, codec);
+		a2dp_codec = get_supported_a2dp_codec(this, codec, NULL);
 		if (a2dp_codec && a2dp_codec->duplex_codec)
 			have_input = true;
 		break;
@@ -1138,11 +1142,13 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 	char *desc_and_codec = NULL;
 	uint32_t n_source = 0, n_sink = 0;
 	uint32_t capture[1] = { DEVICE_ID_SOURCE }, playback[1] = { DEVICE_ID_SINK };
+	int priority;
 
 	switch (profile_index) {
 	case DEVICE_PROFILE_OFF:
 		name = "off";
 		desc = _("Off");
+		priority = 0;
 		break;
 	case DEVICE_PROFILE_AG:
 	{
@@ -1154,6 +1160,7 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 			name = "audio-gateway";
 			desc = _("Audio Gateway (A2DP Source & HSP/HFP AG)");
 		}
+		priority = 256;
 		break;
 	}
 	case DEVICE_PROFILE_A2DP:
@@ -1167,7 +1174,8 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		name = spa_bt_profile_name(profile);
 		n_sink++;
 		if (codec) {
-			const struct a2dp_codec *a2dp_codec = get_supported_a2dp_codec(this, codec);
+			size_t idx;
+			const struct a2dp_codec *a2dp_codec = get_supported_a2dp_codec(this, codec, &idx);
 			if (a2dp_codec == NULL) {
 				errno = EINVAL;
 				return NULL;
@@ -1183,12 +1191,14 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 
 			}
 			desc = desc_and_codec;
+			priority = 16 + this->supported_codec_count - idx;  /* order as in codec list */
 		} else {
 			if (profile == SPA_BT_PROFILE_A2DP_SINK) {
 				desc = _("High Fidelity Playback (A2DP Sink)");
 			} else {
 				desc = _("High Fidelity Duplex (A2DP Source/Sink)");
 			}
+			priority = 16;
 		}
 		break;
 	}
@@ -1217,8 +1227,10 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 			desc_and_codec = spa_aprintf(_("Headset Head Unit (HSP/HFP, codec %s)"),
 						get_hfp_codec_description(hfp_codec));
 			desc = desc_and_codec;
+			priority = 1 + hfp_codec;  /* prefer msbc over cvsd */
 		} else {
 			desc = _("Headset Head Unit (HSP/HFP)");
+			priority = 1;
 		}
 		break;
 	}
@@ -1233,7 +1245,7 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		SPA_PARAM_PROFILE_name, SPA_POD_String(name),
 		SPA_PARAM_PROFILE_description, SPA_POD_String(desc),
 		SPA_PARAM_PROFILE_available, SPA_POD_Id(SPA_PARAM_AVAILABILITY_yes),
-		SPA_PARAM_PROFILE_priority, SPA_POD_Int(codec),
+		SPA_PARAM_PROFILE_priority, SPA_POD_Int(priority),
 		0);
 	if (n_source > 0 || n_sink > 0) {
 		spa_pod_builder_prop(b, SPA_PARAM_PROFILE_classes, 0);

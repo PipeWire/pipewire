@@ -317,6 +317,7 @@ void spa_bt_player_destroy(struct spa_bt_player *player)
 	dbus_connection_unregister_object_path(impl->conn, impl->path);
 
 	dbus_connection_unref(impl->conn);
+	free(impl->path);
 	free(impl);
 }
 

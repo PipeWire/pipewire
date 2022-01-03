@@ -45,7 +45,9 @@ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.loop");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
-#define DATAS_SIZE (4096 * 8)
+#define MAX_ALIGN	8
+#define ITEM_ALIGN	8
+#define DATAS_SIZE	(4096*8)
 
 /** \cond */
 
@@ -83,7 +85,7 @@ struct impl {
 
 	struct spa_ringbuffer buffer;
 	uint8_t *buffer_data;
-	uint8_t buffer_mem[DATAS_SIZE + 8];
+	uint8_t buffer_mem[DATAS_SIZE + MAX_ALIGN];
 
 	unsigned int flushing:1;
 };
@@ -210,7 +212,7 @@ loop_invoke(void *object,
 	item->size = size;
 	item->block = block;
 	item->user_data = user_data;
-	item->item_size = SPA_ROUND_UP_N(sizeof(struct invoke_item) + size, 8);
+	item->item_size = SPA_ROUND_UP_N(sizeof(struct invoke_item) + size, ITEM_ALIGN);
 
 	spa_log_trace(impl->log, "%p: add item %p filled:%d", impl, item, filled);
 
@@ -226,7 +228,7 @@ loop_invoke(void *object,
 		/* item does not fit, place the invoke_item at idx and start the
 		 * data at the start of the ringbuffer */
 		item->data = impl->buffer_data;
-		item->item_size = SPA_ROUND_UP_N(l0 + size, 8);
+		item->item_size = SPA_ROUND_UP_N(l0 + size, ITEM_ALIGN);
 	}
 	if (avail < item->item_size) {
 		spa_log_warn(impl->log, "%p: queue full %d, need %zd", impl, avail,
@@ -823,7 +825,7 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&impl->destroy_list);
 	spa_hook_list_init(&impl->hooks_list);
 
-	impl->buffer_data = SPA_PTR_ALIGN(impl->buffer_mem, 8, uint8_t);
+	impl->buffer_data = SPA_PTR_ALIGN(impl->buffer_mem, MAX_ALIGN, uint8_t);
 	spa_ringbuffer_init(&impl->buffer);
 
 	impl->wakeup = loop_add_event(impl, wakeup_func, impl);

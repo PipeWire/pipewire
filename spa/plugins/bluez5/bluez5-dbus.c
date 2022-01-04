@@ -80,6 +80,8 @@ enum backend_selection {
  */
 #define BLUEZ_ACTION_RATE_MSEC	3000
 
+#define CODEC_SWITCH_RETRIES	1
+
 
 struct spa_bt_monitor {
 	struct spa_handle handle;
@@ -171,6 +173,7 @@ struct spa_bt_a2dp_codec_switch {
 	const struct a2dp_codec **codec_iter;	/**< outer iterator over codecs */
 	char **path_iter;			/**< inner iterator over endpoint paths */
 
+	uint16_t retries;
 	size_t num_paths;
 };
 
@@ -2411,6 +2414,8 @@ static void a2dp_codec_switch_next(struct spa_bt_a2dp_codec_switch *sw)
 		++sw->codec_iter;
 		sw->path_iter = sw->paths;
 	}
+
+	sw->retries = CODEC_SWITCH_RETRIES;
 }
 
 static bool a2dp_codec_switch_process_current(struct spa_bt_a2dp_codec_switch *sw)
@@ -2623,6 +2628,8 @@ static void a2dp_codec_switch_reply(DBusPendingCall *pending, void *user_data)
 	dbus_pending_call_unref(pending);
 	sw->pending = NULL;
 
+	device_update_last_bluez_action_time(device);
+
 	if (!a2dp_codec_switch_goto_active(sw)) {
 		if (r != NULL)
 			dbus_message_unref(r);
@@ -2654,7 +2661,11 @@ static void a2dp_codec_switch_reply(DBusPendingCall *pending, void *user_data)
 	return;
 
 next:
-	a2dp_codec_switch_next(sw);
+	if (sw->retries > 0)
+		--sw->retries;
+	else
+		a2dp_codec_switch_next(sw);
+
 	a2dp_codec_switch_process(sw);
 	return;
 }
@@ -2814,6 +2825,7 @@ int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a
 
 	sw->codec_iter = sw->codecs;
 	sw->path_iter = sw->paths;
+	sw->retries = CODEC_SWITCH_RETRIES;
 
 	sw->profile = device->connected_profiles;
 

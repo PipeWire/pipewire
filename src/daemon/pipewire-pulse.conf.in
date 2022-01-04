@@ -40,6 +40,12 @@ context.modules = [
                 #"tcp:4713"                         # IPv4 and IPv6 on all addresses
                 #"tcp:[::]:9999"                    # IPv6 on all addresses
                 #"tcp:127.0.0.1:8888"               # IPv4 on a single address
+                #
+                #{ address = "tcp:4713"             # address
+                #  max-clients = 64                 # maximume number of clients
+                #  listen-backlog = 32              # backlog in the server listen queue
+                #  client.access = "restricted"     # permissions for clients
+                #}
             ]
             #pulse.min.req          = 256/48000     # 5ms
             #pulse.default.req      = 960/48000     # 20 milliseconds

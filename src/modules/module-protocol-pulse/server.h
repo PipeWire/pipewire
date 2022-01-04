@@ -45,6 +45,10 @@ struct server {
 	struct spa_source *source;
 	struct spa_list clients;
 
+	uint32_t max_clients;
+	uint32_t listen_backlog;
+	char client_access[64];
+
 	uint32_t n_clients;
 	uint32_t wait_clients;
 	unsigned int activated:1;

@@ -46,7 +46,7 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
 		int match = 0, fail = 0;
 		int len;
 
-		while (spa_json_get_string(&it[0], key, sizeof(key)-1) > 0) {
+		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
 			bool success = false;
 
 			if ((len = spa_json_next(&it[0], &value)) <= 0)
@@ -103,7 +103,7 @@ int pw_jack_match_rules(const char *rules, size_t size, const struct spa_dict *p
 		char key[64];
 		bool have_match = false, have_actions = false;
 
-		while (spa_json_get_string(&it[2], key, sizeof(key)-1) > 0) {
+		while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
 			if (spa_streq(key, "matches")) {
 				if (spa_json_enter_array(&it[2], &it[3]) < 0)
 					break;
@@ -120,7 +120,7 @@ int pw_jack_match_rules(const char *rules, size_t size, const struct spa_dict *p
 		if (!have_match || !have_actions)
 			continue;
 
-		while (spa_json_get_string(&actions, key, sizeof(key)-1) > 0) {
+		while (spa_json_get_string(&actions, key, sizeof(key)) > 0) {
 			int res, len;
 			pw_log_debug("action %s", key);
 

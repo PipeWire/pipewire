@@ -90,7 +90,7 @@ static int dump(FILE *file, int indent, struct spa_json *it, const char *value, 
 	} else if (spa_json_is_object(value, len)) {
 		fprintf(file, "{");
 		spa_json_enter(it, &sub);
-		while (spa_json_get_string(&sub, key, sizeof(key)-1) > 0) {
+		while (spa_json_get_string(&sub, key, sizeof(key)) > 0) {
 			fprintf(file, "%s\n%*s",
 					count++ > 0 ? "," : "",
 					indent+2, "");

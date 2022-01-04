@@ -42,7 +42,7 @@ static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_man
 			return -EINVAL;
 
 		spa_json_init(&it, params, strlen(params));
-		if (spa_json_get_string(&it, codec, sizeof(codec)-1) <= 0)
+		if (spa_json_get_string(&it, codec, sizeof(codec)) <= 0)
 			return -EINVAL;
 
 		codec_id = atoi(codec);

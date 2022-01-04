@@ -787,7 +787,7 @@ static int parse_params(struct impl *impl)
 
         spa_json_init(&it[0], str, strlen(str));
         if (spa_json_enter_array(&it[0], &it[1]) > 0) {
-                while (spa_json_get_string(&it[1], value, sizeof(value)-1) > 0) {
+                while (spa_json_get_string(&it[1], value, sizeof(value)) > 0) {
                         if (create_server(impl, value) == NULL) {
 				pw_log_warn("%p: can't create server for %s: %m",
 					impl, value);

@@ -112,7 +112,7 @@ static uint32_t parse_uint32_array(const char *str, uint32_t *vals, uint32_t max
 	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
 		spa_json_init(&it[1], str, strlen(str));
 
-	while (spa_json_get_string(&it[1], v, sizeof(v)-1) > 0 &&
+	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
 	    count < max) {
 		if (spa_atou32(v, &r, 0))
 	                vals[count++] = r;

@@ -1562,7 +1562,7 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 		spa_pod_builder_push_object(b, &f[0], info->parent, id);
 
 		spa_json_enter(iter, &it[0]);
-		while (spa_json_get_string(&it[0], key, sizeof(key)-1) > 0) {
+		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
 			const struct spa_type_info *pi;
 			if ((l = spa_json_next(&it[0], &v)) <= 0)
 				break;

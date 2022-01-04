@@ -165,7 +165,7 @@ static int do_extension_stream_restore_read(struct client *client, uint32_t comm
 		if (spa_json_enter_object(&it[0], &it[1]) <= 0)
 			continue;
 
-		while (spa_json_get_string(&it[1], key, sizeof(key)-1) > 0) {
+		while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 			if (spa_streq(key, "volume")) {
 				if (spa_json_get_float(&it[1], &volume) <= 0)
 					continue;

@@ -942,7 +942,7 @@ int servers_create_and_start(struct impl *impl, const char *addresses, struct pw
 	if (spa_json_enter_array(&it[0], &it[1]) < 0)
 		return -EINVAL;
 
-	while (spa_json_get_string(&it[1], addr_str, sizeof(addr_str) - 1) > 0) {
+	while (spa_json_get_string(&it[1], addr_str, sizeof(addr_str)) > 0) {
 		res = parse_address(addr_str, &addrs);
 		if (res < 0) {
 			pw_log_warn("pulse-server %p: failed to parse address '%s': %s",

@@ -110,7 +110,7 @@ static int do_match(const char *rules, struct spa_dict *dict, uint32_t *no_featu
 		int match = true;
 		uint32_t no_features_cur = 0;
 
-		while (spa_json_get_string(&it[0], key, sizeof(key)-1) > 0) {
+		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
 			char val[4096];
 			const char *str, *value;
 			int len;
@@ -118,7 +118,7 @@ static int do_match(const char *rules, struct spa_dict *dict, uint32_t *no_featu
 
 			if (spa_streq(key, "no-features")) {
 				if (spa_json_enter_array(&it[0], &it[1]) > 0) {
-					while (spa_json_get_string(&it[1], val, sizeof(val)-1) > 0)
+					while (spa_json_get_string(&it[1], val, sizeof(val)) > 0)
 						no_features_cur |= parse_feature(val);
 				}
 				continue;
@@ -183,7 +183,7 @@ static void load_quirks(struct spa_bt_quirks *this, const char *str, size_t len)
 	if (spa_json_enter_object(&data, &rules) <= 0)
 		spa_json_init(&rules, str, len);
 
-	while (spa_json_get_string(&rules, key, sizeof(key)-1) > 0) {
+	while (spa_json_get_string(&rules, key, sizeof(key)) > 0) {
 		int sz;
 		const char *value;
 

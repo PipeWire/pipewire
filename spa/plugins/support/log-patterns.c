@@ -69,7 +69,7 @@ support_log_parse_patterns(struct spa_list *patterns, const char *jsonstr)
 	while (spa_json_enter_object(&array, &elem) > 0) {
 		char pattern[512] = {0};
 
-		while (spa_json_get_string(&elem, pattern, sizeof(pattern) - 1) > 0) {
+		while (spa_json_get_string(&elem, pattern, sizeof(pattern)) > 0) {
 			struct support_log_pattern *p;
 			const char *val;
 			int len;

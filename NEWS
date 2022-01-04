@@ -1,3 +1,90 @@
+# PipeWire 0.3.43 (2021-01-05)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Flatpak apps such as Ardour can now remove links again.
+  - Many fixes to pulse-server. Memory usage should be improved. Some
+    crashes are fixed. Underrun handling should work better. Better
+    compatibility with GStreamer based applications after seeking.
+  - Many of the samplerate and quantum changes bugs in previous releases
+    were fixed. This fixes some issues where the microphone would fail
+    to work.
+  - Many more small fixes and improvements all over the place.
+
+## PipeWire
+  - Quantum and rate changes are now applied immediately when the driver
+    is idle. This avoids setting the driver in the previous samplerate.
+    (#1913)
+  - Object destruction now does not need write permissions anymore. This
+    restriction needs some more work. (#1920)
+  - When we reposition, start a sync operation. This fixes a problem
+    in Ardour when seeking. (#1907)
+  - Require meson 0.56.0
+  - Make the align property in BUFFER_PARAM optional. We now only set this
+    if the plugin has specific requirements and we default to the CPU
+    largest alignment requirement.
+  - pw-record will now also list monitors and streams as possible targets.
+
+## modules
+  - Improve LV2 plugin support in filter-chain. Add support for Worker and
+    Options.
+  - The loopback module now has a unique media.name to make it possible
+    for the session manager to restore unique volume settings.
+
+## SPA
+  - Improve sample rate for EAC3 streams, some clients scale it while
+    others don't so use some heuristics to make things work better.
+    (#1902)
+  - Allocate ports dynamically in audioconvert. This avoids using larger
+    memory blocks of preallocated memory that confuses the allocator.
+    (#1840)
+
+## ALSA
+  - Merge the latest pulseaudio UCM improvements. (#1849)
+  - Fixes for selecting the sample rate. (#1892)
+  - Improve latency on USB devices by scaling the period size based on
+    the desired quantum when the device is opened.
+  - Add api.alsa.period-num to configure the amount of periods to use
+    in the device. Some devices have lower latency when a small value
+    is forced. (#1473)
+  - Allow multi-rate by default. In previous versions cards could only
+    be opened in one samplerate to avoid bugs in pre 5.16 kernels. This
+    however caused other problems so the default was removed.
+  - Fix a bug where a card was not freed correctly.
+  - Fix a bug in the alsa boundary check that could hang the alsa-plugin
+    for a long time.
+  - The ALSA plugin now has a parameter to configure the allowed
+    samplerates.
+
+## JACK
+  - Improve handling of monitor nodes.
+
+## Bluetooth
+  - Codecs now have a priority. This should improve codec selection.
+
+## pulse-server
+  - The stream FIX_ flags are now implemented. (#1912)
+  - Improve flushing and draining behaviour. Short samples will now
+    play correctly. (#1549)
+  - Fix a crash when enumerating the formats. (#1928)
+  - Track quantum changes and update the amount of required buffering
+    accordingly. This improves forced quantum handling. (#1930)
+  - Improve handling of channels > 32.
+  - Handle the case where a module is destroyed before it could be
+    completely loaded.
+  - Fixes some issues when samples were removed while they were playing.
+    (#1953)
+  - Fix some issues in module-zeroconf-publish.
+  - Fix some memory leaks in module-roc.
+  - Add command access control. This avoids execution of commands without
+    proper authentication.
+
+
+Older versions:
+
+
 # PipeWire 0.3.42 (2021-12-16)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -14,9 +101,6 @@ problems with the previous release.
   - Fix module-echo-cancel again.
   - Fix a bug where the bluetooth headset capture was producing
     noise.
-
-
-Older versions:
 
 
 # PipeWire 0.3.41 (2021-12-13)

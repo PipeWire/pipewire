@@ -166,7 +166,7 @@ int pw_properties_update_string(struct pw_properties *props, const char *str, si
 	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
 		spa_json_init(&it[1], str, size);
 
-	while (spa_json_get_string(&it[1], key, sizeof(key)-1)) {
+	while (spa_json_get_string(&it[1], key, sizeof(key)-1) > 0) {
 		int len;
 		const char *value;
 

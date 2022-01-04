@@ -57,7 +57,8 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
 			if (spa_json_is_null(value, len)) {
 				success = str == NULL;
 			} else {
-				spa_json_parse_string(value, SPA_MIN(len, 1023), val);
+				if (spa_json_parse_stringn(value, len, val, sizeof(val)) < 0)
+					continue;
 				value = val;
 				len = strlen(val);
 			}

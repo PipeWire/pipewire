@@ -180,7 +180,7 @@ int pw_properties_update_string(struct pw_properties *props, const char *str, si
 				len = spa_json_container_len(&it[1], value, len);
 
 			if ((val = malloc(len+1)) != NULL)
-				spa_json_parse_string(value, len, val);
+				spa_json_parse_stringn(value, len, val, len+1);
 		}
 		count += pw_properties_set(&impl->this, key, val);
 		free(val);

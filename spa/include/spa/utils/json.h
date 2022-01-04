@@ -314,9 +314,11 @@ static inline bool spa_json_is_string(const char *val, int len)
 	return len > 1 && *val == '"';
 }
 
-static inline int spa_json_parse_string(const char *val, int len, char *result)
+static inline int spa_json_parse_stringn(const char *val, int len, char *result, int maxlen)
 {
 	const char *p;
+	if (maxlen <= len)
+		return -1;
 	if (!spa_json_is_string(val, len)) {
 		if (result != val)
 			strncpy(result, val, len);
@@ -358,13 +360,18 @@ static inline int spa_json_parse_string(const char *val, int len, char *result)
 	return 1;
 }
 
+static inline int spa_json_parse_string(const char *val, int len, char *result)
+{
+	return spa_json_parse_stringn(val, len, result, len+1);
+}
+
 static inline int spa_json_get_string(struct spa_json *iter, char *res, int maxlen)
 {
 	const char *value;
 	int len;
-	if ((len = spa_json_next(iter, &value)) <= 0 || maxlen <= len)
+	if ((len = spa_json_next(iter, &value)) <= 0)
 		return -1;
-	return spa_json_parse_string(value, len, res);
+	return spa_json_parse_stringn(value, len, res, maxlen);
 }
 
 static inline int spa_json_encode_string(char *str, int size, const char *val)

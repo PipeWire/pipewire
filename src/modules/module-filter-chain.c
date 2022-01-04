@@ -907,7 +907,7 @@ static int parse_config(struct node *node, struct spa_json *config)
 		len = spa_json_container_len(config, val, len);
 
 	if ((node->config = malloc(len+1)) != NULL)
-		spa_json_parse_string(val, len, node->config);
+		spa_json_parse_stringn(val, len, node->config, len+1);
 
 	return 0;
 }

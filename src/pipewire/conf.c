@@ -454,18 +454,18 @@ static int parse_modules(struct pw_context *context, char *str)
 
 			if (spa_streq(key, "name")) {
 				name = (char*)val;
-				spa_json_parse_string(val, len, name);
+				spa_json_parse_stringn(val, len, name, len+1);
 			} else if (spa_streq(key, "args")) {
 				if (spa_json_is_container(val, len))
 					len = spa_json_container_len(&it[2], val, len);
 
 				args = (char*)val;
-				spa_json_parse_string(val, len, args);
+				spa_json_parse_stringn(val, len, args, len+1);
 			} else if (spa_streq(key, "flags")) {
 				if (spa_json_is_container(val, len))
 					len = spa_json_container_len(&it[2], val, len);
 				flags = (char*)val;
-				spa_json_parse_string(val, len, flags);
+				spa_json_parse_stringn(val, len, flags, len+1);
 			}
 		}
 		if (name != NULL)
@@ -538,19 +538,19 @@ static int parse_objects(struct pw_context *context, char *str)
 
 			if (spa_streq(key, "factory")) {
 				factory = (char*)val;
-				spa_json_parse_string(val, len, factory);
+				spa_json_parse_stringn(val, len, factory, len+1);
 			} else if (spa_streq(key, "args")) {
 				if (spa_json_is_container(val, len))
 					len = spa_json_container_len(&it[2], val, len);
 
 				args = (char*)val;
-				spa_json_parse_string(val, len, args);
+				spa_json_parse_stringn(val, len, args, len+1);
 			} else if (spa_streq(key, "flags")) {
 				if (spa_json_is_container(val, len))
 					len = spa_json_container_len(&it[2], val, len);
 
 				flags = (char*)val;
-				spa_json_parse_string(val, len, flags);
+				spa_json_parse_stringn(val, len, flags, len+1);
 			}
 		}
 		if (factory != NULL)
@@ -625,10 +625,10 @@ static int parse_exec(struct pw_context *context, char *str)
 
 			if (spa_streq(key, "path")) {
 				path = (char*)val;
-				spa_json_parse_string(val, len, path);
+				spa_json_parse_stringn(val, len, path, len+1);
 			} else if (spa_streq(key, "args")) {
 				args = (char*)val;
-				spa_json_parse_string(val, len, args);
+				spa_json_parse_stringn(val, len, args, len+1);
 			}
 		}
 		if (path != NULL)

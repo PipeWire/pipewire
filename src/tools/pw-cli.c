@@ -1632,7 +1632,7 @@ static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
 	}
 	else {
 		char *val = alloca(len+1);
-		spa_json_parse_string(value, len, val);
+		spa_json_parse_stringn(value, len, val, len+1);
 		switch (info ? info->parent : SPA_TYPE_Struct) {
 		case SPA_TYPE_Id:
 			if ((ti = find_type_info(info->values, val)) != NULL)

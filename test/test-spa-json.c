@@ -77,7 +77,7 @@ static void expect_string(struct spa_json *it, const char *str)
 	pwtest_int_gt((len = spa_json_next(it, &value)), 0);
 	check_type(TYPE_STRING, value, len);
 	s = alloca(len+1);
-	spa_json_parse_string(value, len, s);
+	spa_json_parse_stringn(value, len, s, len+1);
 	pwtest_str_eq(s, str);
 }
 static void expect_float(struct spa_json *it, float val)
@@ -158,7 +158,7 @@ PWTEST(json_parse)
 
 PWTEST(json_encode)
 {
-	char dst[1024];
+	char dst[128];
 	char dst4[4];
 	char dst6[6];
 	char result[1024];
@@ -172,7 +172,7 @@ PWTEST(json_encode)
 	pwtest_str_eq(dst, "\"test\\\"\\n\\r \\t\\b\\f'\"");
 	pwtest_int_eq(spa_json_encode_string(dst, sizeof(dst), "\x04\x05\x1f\x20\x01\x7f\x90"), 29);
 	pwtest_str_eq(dst, "\"\\u0004\\u0005\\u001f \\u0001\x7f\x90\"");
-	pwtest_int_eq(spa_json_parse_string(dst, sizeof(dst), result), 1);
+	pwtest_int_eq(spa_json_parse_stringn(dst, sizeof(dst), result, sizeof(result)), 1);
 	pwtest_str_eq(result, "\x04\x05\x1f\x20\x01\x7f\x90");
 
 	return PWTEST_PASS;

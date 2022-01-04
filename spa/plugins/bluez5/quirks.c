@@ -130,7 +130,8 @@ static int do_match(const char *rules, struct spa_dict *dict, uint32_t *no_featu
 			if (spa_json_is_null(value, len)) {
 				value = NULL;
 			} else {
-				spa_json_parse_string(value, SPA_MIN(len, (int)sizeof(val)-1), val);
+				if (spa_json_parse_stringn(value, len, val, sizeof(val)) < 0)
+					continue;
 				value = val;
 			}
 

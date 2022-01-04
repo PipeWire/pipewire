@@ -22,8 +22,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#define NAME "pulse-server"
-
 #include "config.h"
 
 #include <errno.h>

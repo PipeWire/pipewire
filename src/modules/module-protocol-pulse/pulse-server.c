@@ -23,7 +23,6 @@
  */
 
 #include "pipewire/core.h"
-#define NAME "pulse-server"
 
 #include "config.h"
 
@@ -89,10 +88,7 @@
 #define DEFAULT_FORMAT		"F32"
 #define DEFAULT_POSITION	"[ FL FR ]"
 
-#define LISTEN_BACKLOG 32
-
 #define MAX_FORMATS	32
-#define MAX_CLIENTS	64
 
 bool debug_messages = false;
 

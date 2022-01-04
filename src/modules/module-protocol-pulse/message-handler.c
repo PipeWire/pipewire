@@ -1,5 +1,3 @@
-#define NAME "pulse-server"
-
 #include <stdint.h>
 
 #include <regex.h>

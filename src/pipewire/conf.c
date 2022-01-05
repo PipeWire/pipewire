@@ -49,7 +49,7 @@
 PW_LOG_TOPIC_EXTERN(log_conf);
 #define PW_LOG_TOPIC_DEFAULT log_conf
 
-static int make_path(char *path, int size, const char *paths[])
+static int make_path(char *path, size_t size, const char *paths[])
 {
 	int i, len;
 	char *p = path;

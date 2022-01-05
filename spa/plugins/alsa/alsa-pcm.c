@@ -734,31 +734,32 @@ static int add_rate(struct state *state, uint32_t scale, bool all, uint32_t inde
 	CHECK(snd_pcm_hw_params_get_rate_min(params, &min, &dir), "get_rate_min");
 	CHECK(snd_pcm_hw_params_get_rate_max(params, &max, &dir), "get_rate_max");
 
-	rate = state->default_rate;
 	if (!state->multi_rate && state->card->format_ref > 0)
 		rate = state->card->rate;
+	else
+		rate = state->default_rate;
 
-	if (rate != 0 && !all) {
-		if (min < rate)
-			min = rate;
-		if (max > rate)
-			max = rate;
-	}
+	if (rate < min || rate > max)
+		rate = 0;
+
+	if (rate != 0 && !all)
+		min = max = rate;
+
+	if (rate == 0)
+		rate = state->position ? state->position->clock.rate.denom : DEFAULT_RATE;
+
+	rate = SPA_CLAMP(rate, min, max);
 
 	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_rate, 0);
 
 	spa_pod_builder_push_choice(b, &f[0], SPA_CHOICE_None, 0);
 	choice = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f[0]);
 
-	if (rate == 0)
-		rate = state->position ? state->position->clock.rate.denom : DEFAULT_RATE;
-
 	if (state->n_allowed_rates > 0) {
 		uint32_t i, v, last = 0, count = 0;
 
-		v = SPA_CLAMP(rate, min, max);
-		if (uint32_array_contains(state->allowed_rates, state->n_allowed_rates, v)) {
-			spa_pod_builder_int(b, v * scale);
+		if (uint32_array_contains(state->allowed_rates, state->n_allowed_rates, rate)) {
+			spa_pod_builder_int(b, rate * scale);
 			count++;
 		}
 		for (i = 0; i < state->n_allowed_rates; i++) {
@@ -775,7 +776,7 @@ static int add_rate(struct state *state, uint32_t scale, bool all, uint32_t inde
 		if (count > 1)
 			choice->body.type = SPA_CHOICE_Enum;
 	} else {
-		spa_pod_builder_int(b, SPA_CLAMP(rate, min, max) * scale);
+		spa_pod_builder_int(b, rate * scale);
 
 		if (min != max) {
 			spa_pod_builder_int(b, min * scale);

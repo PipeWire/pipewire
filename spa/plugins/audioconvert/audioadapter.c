@@ -118,19 +118,20 @@ static int follower_enum_params(struct impl *this,
 				 struct spa_pod_builder *builder)
 {
 	int res;
-	if (result->next < 0x10000) {
+	if (result->next < 0x100000) {
 		if ((res = spa_node_enum_params_sync(this->convert,
 				id, &result->next, filter, &result->param, builder)) == 1)
 			return res;
-		result->next = 0x10000;
+		result->next = 0x100000;
 	}
-	if (result->next >= 0x10000 && this->follower_params_flags[idx] & SPA_PARAM_INFO_READ) {
-		result->next &= 0xffff;
+	if (result->next < 0x200000 && this->follower_params_flags[idx] & SPA_PARAM_INFO_READ) {
+		result->next &= 0xfffff;
 		if ((res = spa_node_enum_params_sync(this->follower,
 				id, &result->next, filter, &result->param, builder)) == 1) {
-			result->next |= 0x10000;
+			result->next |= 0x100000;
 			return res;
 		}
+		result->next = 0x200000;
 	}
 	return 0;
 }

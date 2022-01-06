@@ -3670,6 +3670,27 @@ static int fill_sink_info(struct client *client, struct message *m,
 	return 0;
 }
 
+static int fill_source_info_proplist(struct message *m, struct pw_manager_object *o,
+		struct pw_node_info *info)
+{
+	struct pw_properties *props = NULL;
+	struct spa_dict *props_dict = info->props;
+
+	if (pw_manager_object_is_monitor(o)) {
+		props = pw_properties_new_dict(info->props);
+		if (props == NULL)
+			return -ENOMEM;
+
+		pw_properties_set(props, PW_KEY_DEVICE_CLASS, "monitor");
+		props_dict = &props->dict;
+	}
+
+	message_put(m, TAG_PROPLIST, props_dict, TAG_INVALID);
+	pw_properties_free(props);
+
+	return 0;
+}
+
 static int fill_source_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
@@ -3762,8 +3783,10 @@ static int fill_source_info(struct client *client, struct message *m,
 		TAG_INVALID);
 
 	if (client->version >= 13) {
+		int res;
+		if ((res = fill_source_info_proplist(m, o, info)) < 0)
+			return res;
 		message_put(m,
-			TAG_PROPLIST, info->props,
 			TAG_USEC, 0LL,			/* requested latency */
 			TAG_INVALID);
 	}

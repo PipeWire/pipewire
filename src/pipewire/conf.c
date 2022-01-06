@@ -57,7 +57,7 @@ static int make_path(char *path, size_t size, const char *paths[])
 		len = snprintf(p, size, "%s%s", i == 0 ? "" : "/", paths[i]);
 		if (len < 0)
 			return -errno;
-		if (len >= size)
+		if ((size_t)len >= size)
 			return -ENOSPC;
 		p += len;
 		size -= len;

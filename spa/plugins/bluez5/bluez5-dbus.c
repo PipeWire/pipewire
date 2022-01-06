@@ -1238,11 +1238,26 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 {
 	struct spa_bt_monitor *monitor = device->monitor;
 	uint32_t connected_profiles = device->connected_profiles;
+	uint32_t direction_masks[2] = {
+		SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_HEADSET_AUDIO,
+		SPA_BT_PROFILE_A2DP_SOURCE | SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY,
+	};
+	bool direction_connected = false;
+	bool all_connected;
+	size_t i;
 
 	if (connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT)
 		connected_profiles |= SPA_BT_PROFILE_HEADSET_HEAD_UNIT;
 	if (connected_profiles & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)
 		connected_profiles |= SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY;
+
+	for (i = 0; i < SPA_N_ELEMENTS(direction_masks); ++i) {
+		uint32_t mask = direction_masks[i] & device->profiles;
+		if (mask && (connected_profiles & mask) == mask)
+			direction_connected = true;
+	}
+
+	all_connected = (device->profiles & connected_profiles) == device->profiles;
 
 	spa_log_debug(monitor->log, "device %p: profiles %08x %08x %d",
 			device, device->profiles, connected_profiles, device->added);
@@ -1250,7 +1265,7 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 	if (connected_profiles == 0 && spa_list_is_empty(&device->codec_switch_list)) {
 		device_stop_timer(device);
 		device_connected(monitor, device, BT_DEVICE_DISCONNECTED);
-	} else if (force || (device->profiles & connected_profiles) == device->profiles) {
+	} else if (force || direction_connected || all_connected) {
 		device_stop_timer(device);
 		device_connected(monitor, device, BT_DEVICE_CONNECTED);
 	} else {

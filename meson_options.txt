@@ -179,6 +179,9 @@ option('udev',
 option('udevrulesdir',
        type : 'string',
        description : 'Directory for udev rules (defaults to /lib/udev/rules.d)')
+option('systemd-system-unit-dir',
+       type : 'string',
+       description : 'Directory for system systemd units (defaults to /usr/lib/systemd/system)')
 option('systemd-user-unit-dir',
        type : 'string',
        description : 'Directory for user systemd units (defaults to /usr/lib/systemd/user)')

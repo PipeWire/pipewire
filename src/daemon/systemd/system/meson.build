@@ -1,4 +1,7 @@
 systemd_system_services_dir = systemd.get_variable(pkgconfig: 'systemdsystemunitdir', pkgconfig_define : [ 'rootprefix', prefix])
+if get_option('systemd-system-unit-dir') != ''
+  systemd_system_services_dir = get_option('systemd-system-unit-dir')
+endif
 
 install_data(sources : 'pipewire.socket',
              install_dir : systemd_system_services_dir)

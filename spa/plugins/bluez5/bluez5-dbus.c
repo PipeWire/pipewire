@@ -1159,7 +1159,7 @@ static int reconnect_device_profiles(struct spa_bt_device *device)
 }
 
 #define DEVICE_RECONNECT_TIMEOUT_SEC 2
-#define DEVICE_PROFILE_TIMEOUT_SEC 3
+#define DEVICE_PROFILE_TIMEOUT_SEC 6
 
 static void device_timer_event(struct spa_source *source)
 {

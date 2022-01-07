@@ -84,11 +84,24 @@ static int module_ladspa_source_load(struct client *client, struct module *modul
 	fprintf(f, " type = ladspa ");
 	fprintf(f, " plugin = \"%s\" ", plugin);
 	fprintf(f, " label = \"%s\" ", label);
+	if ((str = pw_properties_get(module->props, "control")) != NULL) {
+		size_t len;
+		const char *s, *state = NULL;
+		int count = 0;
+
+		fprintf(f, " control = {");
+		while ((s = pw_split_walk(str, ", ", &len, &state))) {
+			fprintf(f, " \"%d\" = %.*s", count, (int)len, s);
+			count++;
+		}
+		fprintf(f, " }");
+	}
+	fprintf(f, " } ]");
 	if ((str = pw_properties_get(module->props, "inputs")) != NULL)
 		fprintf(f, " inputs = [ %s ] ", str);
 	if ((str = pw_properties_get(module->props, "outputs")) != NULL)
 		fprintf(f, " outputs = [ %s ] ", str);
-	fprintf(f, " } ] }");
+	fprintf(f, " }");
 	fprintf(f, " capture.props = {");
 	pw_properties_serialize_dict(f, &data->capture_props->dict, 0);
 	fprintf(f, " } playback.props = {");

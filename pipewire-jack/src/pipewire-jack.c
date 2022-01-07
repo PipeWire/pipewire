@@ -1227,7 +1227,8 @@ do_buffer_frames(struct spa_loop *loop,
 {
 	uint32_t buffer_frames = *((uint32_t*)data);
 	struct client *c = user_data;
-	do_callback_expr(c, c->buffer_frames = buffer_frames, bufsize_callback, buffer_frames, c->bufsize_arg);
+	if (c->buffer_frames != buffer_frames)
+		do_callback_expr(c, c->buffer_frames = buffer_frames, bufsize_callback, buffer_frames, c->bufsize_arg);
 	recompute_latencies(c);
 	return 0;
 }
@@ -3985,6 +3986,7 @@ jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 				res = c->position->clock.duration;
 		}
 	}
+	c->buffer_frames = res;
 	pw_log_debug("buffer_frames: %u", res);
 	return res;
 }

@@ -49,6 +49,7 @@ struct data {
 	int rate;
 	int format;
 	int quality;
+	int cpu_flags;
 
 	const char *iname;
 	SF_INFO iinfo;
@@ -61,7 +62,7 @@ struct data {
 
 #define STR_FMTS "(s8|s16|s32|f32|f64)"
 
-#define OPTIONS		"hvr:f:q:"
+#define OPTIONS		"hvr:f:q:c:"
 static const struct option long_options[] = {
 	{ "help",	no_argument,		NULL, 'h'},
 	{ "verbose",	no_argument,		NULL, 'v'},
@@ -69,6 +70,7 @@ static const struct option long_options[] = {
 	{ "rate",	required_argument,	NULL, 'r' },
 	{ "format",	required_argument,	NULL, 'f' },
 	{ "quality",	required_argument,	NULL, 'q' },
+	{ "cpuflags",	required_argument,	NULL, 'c' },
 
         { NULL, 0, NULL, 0 }
 };
@@ -88,6 +90,7 @@ static void show_usage(const char *name, bool is_error)
 		"  -r  --rate                            Output sample rate (default as input)\n"
 		"  -f  --format                          Output sample format %s (default as input)\n"
 		"  -q  --quality                         Resampler quality (default %u)\n"
+		"  -c  --cpuflags                        CPU flags (default 0)\n"
 		"\n",
 		STR_FMTS, DEFAULT_QUALITY);
 }
@@ -191,6 +194,7 @@ static int do_conversion(struct data *d)
 	bool flushing = false;
 
 	spa_zero(r);
+	r.cpu_flags = d->cpu_flags;
 	r.log = &logger.log;
 	r.channels = channels;
 	r.i_rate = d->iinfo.samplerate;
@@ -296,6 +300,9 @@ int main(int argc, char *argv[])
                                 goto error_usage;
 			}
 			data.quality = ret;
+			break;
+		case 'c':
+			data.cpu_flags = strtol(optarg, NULL, 0);
 			break;
                 default:
 			fprintf(stderr, "error: unknown option '%c'\n", c);

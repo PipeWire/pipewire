@@ -188,6 +188,14 @@ static int handle_memblock(struct client *client, struct message *msg)
 	spa_ringbuffer_write_update(&stream->ring, index);
 	stream->requested -= SPA_MIN(msg->length, stream->requested);
 
+	if (diff < 0) {
+		/* when we seek backwards, ask for the additional missing data
+		 * immediately so that we don't underrun in the next process */
+		pw_log_info("client %p [%s]: backwards seek of: %" PRIi64,
+			    client, client->name, diff);
+		stream_send_request(stream);
+	}
+
 finish:
 	message_free(impl, msg, false, false);
 	return res;

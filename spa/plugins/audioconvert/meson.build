@@ -191,7 +191,6 @@ if sndfile_dep.found()
     ]
   executable('spa-resample',
     sparesample_sources,
-    c_args : [ simd_cargs ],
     link_with : [ test_lib ],
     dependencies : [ spa_dep, sndfile_dep, mathlib, audioconvert_dep ],
     install : true,

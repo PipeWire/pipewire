@@ -343,7 +343,7 @@ static struct port *find_port(struct node *node, const char *name, int descripto
 	char *col, *node_name, *port_name, *str;
 	struct port *ports;
 	const struct fc_descriptor *d;
-	uint32_t i, n_ports;
+	uint32_t i, n_ports, port_id = SPA_ID_INVALID;
 
 	str = strdupa(name);
 	col = strchr(str, ':');
@@ -358,6 +358,9 @@ static struct port *find_port(struct node *node, const char *name, int descripto
 	}
 	if (node == NULL)
 		return NULL;
+
+	if (!spa_atou32(port_name, &port_id, 0))
+		port_id = SPA_ID_INVALID;
 
 	if (FC_IS_PORT_INPUT(descriptor)) {
 		if (FC_IS_PORT_CONTROL(descriptor)) {
@@ -381,7 +384,8 @@ static struct port *find_port(struct node *node, const char *name, int descripto
 	d = node->desc->desc;
 	for (i = 0; i < n_ports; i++) {
 		struct port *port = &ports[i];
-		if (spa_streq(d->ports[port->p].name, port_name))
+		if (i == port_id ||
+		    spa_streq(d->ports[port->p].name, port_name))
 			return port;
 	}
 	return NULL;

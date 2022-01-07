@@ -2485,6 +2485,7 @@ static int do_cork_stream(struct client *client, uint32_t command, uint32_t tag,
 	} else {
 		stream->playing_for = 0;
 		stream->underrun_for = -1;
+		stream_send_request(stream);
 	}
 
 	return reply_simple_ack(client, tag);

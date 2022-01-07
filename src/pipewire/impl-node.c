@@ -1654,6 +1654,16 @@ again:
 	if (SPA_UNLIKELY(node->driver && !node->driving))
 		return 0;
 
+	if (!node->driver) {
+		struct timespec ts;
+		struct pw_node_activation *a = node->rt.activation;
+		struct spa_system *data_system = node->context->data_system;
+
+		spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
+		a->status = PW_NODE_ACTIVATION_AWAKE;
+		a->signal_time = a->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
+	}
+
 	if (status & SPA_STATUS_HAVE_DATA) {
 		spa_list_for_each(p, &node->rt.output_mix, rt.node_link)
 			spa_node_process(p->mix);

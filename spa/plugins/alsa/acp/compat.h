@@ -34,6 +34,9 @@ extern "C" {
 #include <inttypes.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <math.h>
+
+#include <spa/utils/string.h>
 
 typedef struct pa_core pa_core;
 
@@ -545,25 +548,35 @@ static inline char *pa_strip(char *s)
 
 static inline int pa_atod(const char *s, double *ret_d)
 {
-	char *x;
-	*ret_d = strtod(s, &x);
-	return 0;
+	if (spa_atod(s, ret_d) && !isnan(*ret_d))
+		return 0;
+	errno = EINVAL;
+	return -1;
 }
 static inline int pa_atoi(const char *s, int32_t *ret_i)
 {
-	*ret_i = (int32_t) atoi(s);
-	return 0;
+	if (spa_atoi32(s, ret_i, 0))
+		return 0;
+	errno = EINVAL;
+	return -1;
 }
 static inline int pa_atou(const char *s, uint32_t *ret_u)
 {
-	*ret_u = (uint32_t) atoi(s);
-	return 0;
+	if (spa_atou32(s, ret_u, 0))
+		return 0;
+	errno = EINVAL;
+	return -1;
 }
 static inline int pa_atol(const char *s, long *ret_l)
 {
-	char *x;
-	*ret_l = strtol(s, &x, 0);
-	return 0;
+	int64_t res;
+	if (spa_atoi64(s, &res, 0)) {
+		*ret_l = res;
+		if (*ret_l == res)
+			return 0;
+	}
+	errno = EINVAL;
+	return -1;
 }
 
 static inline int pa_parse_boolean(const char *v)

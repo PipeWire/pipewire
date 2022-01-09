@@ -878,6 +878,11 @@ static int impl_node_process(void *object)
 	src_datas = alloca(sizeof(void*) * this->resample.channels);
 	dst_datas = alloca(sizeof(void*) * this->resample.channels);
 
+	if (inport->offset > size)
+		inport->offset = size;
+	if (outport->offset > maxsize)
+		outport->offset = maxsize;
+
 	if (size == 0) {
 		size = MAX_SAMPLES * sizeof(float);
 		for (i = 0; i < sb->n_datas; i++)

@@ -137,6 +137,8 @@ struct rfcomm {
 	unsigned int msbc_supported_by_hfp:1;
 	unsigned int hfp_ag_switching_codec:1;
 	unsigned int hfp_ag_initial_codec_setup:2;
+	unsigned int cind_call_active:1;
+	unsigned int cind_call_notify:1;
 	enum hfp_hf_state hf_state;
 	enum hsp_hs_state hs_state;
 	unsigned int codec;
@@ -676,6 +678,22 @@ static void process_hfp_hf_indicator(struct rfcomm *rfcomm, unsigned int indicat
 	}
 }
 
+static void rfcomm_hfp_ag_set_cind(struct rfcomm *rfcomm, bool call_active)
+{
+	if (rfcomm->profile != SPA_BT_PROFILE_HFP_HF)
+		return;
+
+	if (call_active == rfcomm->cind_call_active)
+		return;
+
+	rfcomm->cind_call_active = call_active;
+
+	if (!rfcomm->cind_call_notify)
+		return;
+
+	rfcomm_send_reply(rfcomm, "+CIEV: 2,%d", rfcomm->cind_call_active);
+}
+
 static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 {
 	struct impl *backend = rfcomm->backend;
@@ -762,11 +780,19 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		rfcomm_send_reply(rfcomm, "+CIND:(\"service\",(0-1)),(\"call\",(0-1)),(\"callsetup\",(0-3)),(\"callheld\",(0-2))");
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+CIND?")) {
-		rfcomm_send_reply(rfcomm, "+CIND: 0,0,0,0");
+		rfcomm_send_reply(rfcomm, "+CIND: 0,%d,0,0", rfcomm->cind_call_active);
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+CMER")) {
+		int mode, keyp, disp, ind;
+
 		rfcomm->slc_configured = true;
 		rfcomm_send_reply(rfcomm, "OK");
+
+		rfcomm->cind_call_active = false;
+		if (sscanf(buf, "AT+CMER= %d , %d , %d , %d", &mode, &keyp, &disp, &ind) == 4)
+			rfcomm->cind_call_notify = ind ? true : false;
+		else
+			rfcomm->cind_call_notify = false;
 
 		/* switch codec to mSBC by sending unsolicited +BCS message */
 		if (rfcomm->codec_negotiation_supported && rfcomm->msbc_supported_by_hfp) {
@@ -785,7 +811,6 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 				rfcomm_emit_volume_changed(rfcomm, -1, SPA_BT_VOLUME_INVALID);
 			}
 		}
-
 	} else if (!rfcomm->slc_configured) {
 		spa_log_warn(backend->log, "RFCOMM receive command before SLC completed: %s", buf);
 		rfcomm_send_reply(rfcomm, "ERROR");
@@ -829,6 +854,11 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		rfcomm_send_reply(rfcomm, "OK");
 		if (was_switching_codec)
 			spa_bt_device_emit_codec_switched(rfcomm->device, 0);
+	} else if (spa_strstartswith(buf, "AT+BIA=")) {
+		/* We only support 'call' indicator, which HFP 4.35.1 defines as
+		   always active (assuming CMER enabled it), so we don't need to
+		   parse anything here. */
+		rfcomm_send_reply(rfcomm, "OK");
 	} else if (sscanf(buf, "AT+VGM=%u", &gain) == 1) {
 		if (gain <= SPA_BT_VOLUME_HS_MAX) {
 			if (!rfcomm->broken_mic_hw_volume)
@@ -1172,11 +1202,16 @@ fail_close:
 static int sco_acquire_cb(void *data, bool optional)
 {
 	struct spa_bt_transport *t = data;
+	struct transport_data *td = t->user_data;
 	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
 	int sock;
 	socklen_t len;
 
 	spa_log_debug(backend->log, "transport %p: enter sco_acquire_cb", t);
+
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+	rfcomm_hfp_ag_set_cind(td->rfcomm, true);
+#endif
 
 	if (optional || t->fd > 0)
 		sock = t->fd;
@@ -1217,9 +1252,14 @@ fail:
 static int sco_release_cb(void *data)
 {
 	struct spa_bt_transport *t = data;
+	struct transport_data *td = t->user_data;
 	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
 
 	spa_log_info(backend->log, "Transport %s released", t->path);
+
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+	rfcomm_hfp_ag_set_cind(td->rfcomm, false);
+#endif
 
 	if (t->sco_io) {
 		spa_bt_sco_io_destroy(t->sco_io);

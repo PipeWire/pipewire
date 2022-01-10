@@ -136,9 +136,6 @@ void stream_flush(struct stream *stream)
 		stream->ring.writeindex = stream->ring.readindex;
 		stream->write_index = stream->read_index;
 
-		stream->missing = stream->attr.tlength -
-			SPA_MIN(stream->requested, stream->attr.tlength);
-
 		if (stream->attr.prebuf > 0)
 			stream->in_prebuf = true;
 
@@ -153,13 +150,8 @@ void stream_flush(struct stream *stream)
 	}
 }
 
-static bool stream_prebuf_active(struct stream *stream)
+static bool stream_prebuf_active(struct stream *stream, int32_t avail)
 {
-	uint32_t index;
-	int32_t avail;
-
-	avail = spa_ringbuffer_get_write_index(&stream->ring, &index);
-
 	if (stream->in_prebuf) {
 		if (avail >= (int32_t) stream->attr.prebuf)
 			stream->in_prebuf = false;
@@ -172,17 +164,21 @@ static bool stream_prebuf_active(struct stream *stream)
 
 uint32_t stream_pop_missing(struct stream *stream)
 {
-	uint32_t missing;
+	int64_t missing, avail;
 
-	if (stream->missing <= 0)
+	avail = stream->write_index - stream->read_index;
+
+	missing = stream->attr.tlength;
+	missing -= stream->requested;
+	missing -= avail;
+
+	if (missing <= 0)
 		return 0;
 
-	if (stream->missing < stream->attr.minreq && !stream_prebuf_active(stream))
+	if (missing < stream->attr.minreq && !stream_prebuf_active(stream, avail))
 		return 0;
 
-	missing = stream->missing;
 	stream->requested += missing;
-	stream->missing = 0;
 
 	return missing;
 }
@@ -314,7 +310,6 @@ int stream_update_minreq(struct stream *stream, uint32_t minreq)
 	if (new_tlength <= old_tlength)
 		return 0;
 
-	stream->missing += new_tlength - old_tlength;
 	stream->attr.tlength = new_tlength;
 
 	if (client->version >= 15) {

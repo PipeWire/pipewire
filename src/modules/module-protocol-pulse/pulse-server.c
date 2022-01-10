@@ -434,7 +434,6 @@ static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 		attr->prebuf = max_prebuf;
 	attr->prebuf -= attr->prebuf % frame_size;
 
-	s->missing = attr->tlength;
 	attr->fragsize = 0;
 
 	pw_log_info("[%s] maxlength:%u tlength:%u minreq:%u/%u prebuf:%u latency:%u %u",
@@ -1098,7 +1097,6 @@ struct process_data {
 	uint32_t write_inc;
 	uint32_t underrun_for;
 	uint32_t playing_for;
-	uint32_t missing;
 	uint32_t minreq;
 	uint32_t quantum;
 	unsigned int underrun:1;
@@ -1142,8 +1140,6 @@ do_process_done(struct spa_loop *loop,
 			else
 				stream_send_started(stream);
 		}
-		stream->missing += pd->missing;
-		stream->missing = SPA_MIN(stream->missing, (int64_t)stream->attr.tlength);
 		stream->playing_for += pd->playing_for;
 		if (stream->underrun_for != (uint64_t)-1)
 			stream->underrun_for += pd->underrun_for;
@@ -1254,7 +1250,6 @@ static void stream_process(void *data)
 				pd.underrun = true;
 			}
 			if ((stream->attr.prebuf == 0 || do_flush) && !stream->corked) {
-				pd.missing = size;
 				pd.playing_for = size;
 				if (avail > 0) {
 					spa_ringbuffer_read_data(&stream->ring,
@@ -1293,7 +1288,6 @@ static void stream_process(void *data)
 			spa_ringbuffer_read_update(&stream->ring, index);
 
 			pd.playing_for = size;
-			pd.missing = size;
 			pd.underrun = false;
 		}
 		buf->datas[0].chunk->offset = 0;

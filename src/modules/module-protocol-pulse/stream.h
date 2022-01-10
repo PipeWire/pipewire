@@ -83,7 +83,6 @@ struct stream {
 	int64_t delay;
 
 	uint32_t last_quantum;
-	int64_t missing;
 	int64_t requested;
 
 	struct sample_spec ss;

@@ -138,6 +138,13 @@ static struct conv_info conv_table[] =
 
 	{ SPA_AUDIO_FORMAT_S24_32_OE, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_s24_32s_to_f32d_c },
 
+	{ SPA_AUDIO_FORMAT_F64, SPA_AUDIO_FORMAT_F32, 0, 0, conv_f64_to_f32_c },
+	{ SPA_AUDIO_FORMAT_F64P, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_f64d_to_f32d_c },
+	{ SPA_AUDIO_FORMAT_F64, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_f64_to_f32d_c },
+	{ SPA_AUDIO_FORMAT_F64P, SPA_AUDIO_FORMAT_F32, 0, 0, conv_f64d_to_f32_c },
+
+	{ SPA_AUDIO_FORMAT_F64_OE, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_f64s_to_f32d_c },
+
 	/* from f32 */
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_U8, 0, 0, conv_f32_to_u8_c },
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_U8P, 0, 0, conv_f32d_to_u8d_c },
@@ -219,6 +226,13 @@ static struct conv_info conv_table[] =
 
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_S24_32_OE, 0, 0, conv_f32d_to_s24_32s_c },
 
+	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_F64, 0, 0, conv_f32_to_f64_c },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_F64P, 0, 0, conv_f32d_to_f64d_c },
+	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_F64P, 0, 0, conv_f32_to_f64d_c },
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_F64, 0, 0, conv_f32d_to_f64_c },
+
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_F64_OE, 0, 0, conv_f32d_to_f64s_c },
+
 	/* u8 */
 	{ SPA_AUDIO_FORMAT_U8, SPA_AUDIO_FORMAT_U8, 0, 0, conv_copy8_c },
 	{ SPA_AUDIO_FORMAT_U8P, SPA_AUDIO_FORMAT_U8P, 0, 0, conv_copy8d_c },
@@ -259,6 +273,12 @@ static struct conv_info conv_table[] =
 	{ SPA_AUDIO_FORMAT_S24_32P, SPA_AUDIO_FORMAT_S24_32P, 0, 0, conv_copy32d_c },
 	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_S24_32P, 0, 0, conv_deinterleave_32_c },
 	{ SPA_AUDIO_FORMAT_S24_32P, SPA_AUDIO_FORMAT_S24_32, 0, 0, conv_interleave_32_c },
+
+	/* F64 */
+	{ SPA_AUDIO_FORMAT_F64, SPA_AUDIO_FORMAT_F64, 0, 0, conv_copy64_c },
+	{ SPA_AUDIO_FORMAT_F64P, SPA_AUDIO_FORMAT_F64P, 0, 0, conv_copy64d_c },
+	{ SPA_AUDIO_FORMAT_F64, SPA_AUDIO_FORMAT_F64P, 0, 0, conv_deinterleave_64_c },
+	{ SPA_AUDIO_FORMAT_F64P, SPA_AUDIO_FORMAT_F64, 0, 0, conv_interleave_64_c },
 };
 
 #define MATCH_CHAN(a,b)		((a) == 0 || (a) == (b))

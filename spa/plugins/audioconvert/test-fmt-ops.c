@@ -41,10 +41,10 @@
 
 static uint32_t cpu_flags;
 
-static uint8_t samp_in[N_SAMPLES * 4];
-static uint8_t samp_out[N_SAMPLES * 4];
-static uint8_t temp_in[N_SAMPLES * N_CHANNELS * 4];
-static uint8_t temp_out[N_SAMPLES * N_CHANNELS * 4];
+static uint8_t samp_in[N_SAMPLES * 8];
+static uint8_t samp_out[N_SAMPLES * 8];
+static uint8_t temp_in[N_SAMPLES * N_CHANNELS * 8];
+static uint8_t temp_out[N_SAMPLES * N_CHANNELS * 8];
 
 static void compare_mem(int i, int j, const void *m1, const void *m2, size_t size)
 {
@@ -91,6 +91,9 @@ static void run_test(const char *name,
 			break;
 		case 4:
 			conv_interleave_32_c(&conv, tp, ip, N_SAMPLES);
+			break;
+		case 8:
+			conv_interleave_64_c(&conv, tp, ip, N_SAMPLES);
 			break;
 		default:
 			fprintf(stderr, "unknown size %zd\n", in_size);
@@ -430,6 +433,35 @@ static void test_s24_32_f32(void)
 			false, false, conv_s24_32d_to_f32d_c);
 }
 
+static void test_f64_f32(void)
+{
+	static const double in[] = { 0.0, 1.0, -1.0, 0.4999999404, -0.4999999404, };
+	static const float out[] = { 0.0f, 1.0f, -1.0f, 0.4999999404f, -0.4999999404f, };
+
+	run_test("test_f64_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			true, false, conv_f64_to_f32d_c);
+	run_test("test_f64d_f32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			false, true, conv_f64d_to_f32_c);
+	run_test("test_f64_f32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			true, true, conv_f64_to_f32_c);
+	run_test("test_f64d_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			false, false, conv_f64d_to_f32d_c);
+}
+
+static void test_f32_f64(void)
+{
+	static const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
+	static const double out[] = { 0.0, 1.0, -1.0, 0.5, -0.5, 1.1, -1.1 };
+
+	run_test("test_f32_f64", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			true, true, conv_f32_to_f64_c);
+	run_test("test_f32d_f64", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			false, true, conv_f32d_to_f64_c);
+	run_test("test_f32_f64d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			true, false, conv_f32_to_f64d_c);
+	run_test("test_f32d_f64d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			false, false, conv_f32d_to_f64d_c);
+}
 int main(int argc, char *argv[])
 {
 	cpu_flags = get_cpu_flags();
@@ -453,5 +485,7 @@ int main(int argc, char *argv[])
 	test_u24_32_f32();
 	test_f32_s24_32();
 	test_s24_32_f32();
+	test_f32_f64();
+	test_f64_f32();
 	return 0;
 }

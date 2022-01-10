@@ -400,11 +400,14 @@ static int port_enum_formats(void *object,
 			    info.info.raw.format == SPA_AUDIO_FORMAT_F32P ||
 			    info.info.raw.format == SPA_AUDIO_FORMAT_F32) {
 				spa_pod_builder_add(builder,
-					SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(26,
+					SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(29,
 								info.info.raw.format,
 								SPA_AUDIO_FORMAT_F32P,
 								SPA_AUDIO_FORMAT_F32,
 								SPA_AUDIO_FORMAT_F32_OE,
+								SPA_AUDIO_FORMAT_F64P,
+								SPA_AUDIO_FORMAT_F64,
+								SPA_AUDIO_FORMAT_F64_OE,
 								SPA_AUDIO_FORMAT_S32P,
 								SPA_AUDIO_FORMAT_S32,
 								SPA_AUDIO_FORMAT_S32_OE,
@@ -619,6 +622,10 @@ static int calc_width(struct spa_audio_info *info)
 	case SPA_AUDIO_FORMAT_S24_OE:
 	case SPA_AUDIO_FORMAT_U24:
 		return 3;
+	case SPA_AUDIO_FORMAT_F64P:
+	case SPA_AUDIO_FORMAT_F64:
+	case SPA_AUDIO_FORMAT_F64_OE:
+		return 8;
 	default:
 		return 4;
 	}

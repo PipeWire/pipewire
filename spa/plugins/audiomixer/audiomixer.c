@@ -520,6 +520,10 @@ static int calc_width(struct spa_audio_info *info)
 	case SPA_AUDIO_FORMAT_S24_OE:
 	case SPA_AUDIO_FORMAT_U24:
 		return 3;
+	case SPA_AUDIO_FORMAT_F64P:
+	case SPA_AUDIO_FORMAT_F64:
+	case SPA_AUDIO_FORMAT_F64_OE:
+		return 8;
 	default:
 		return 4;
 	}

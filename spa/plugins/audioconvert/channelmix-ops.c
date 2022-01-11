@@ -149,7 +149,7 @@ static int make_matrix(struct channelmix *mix)
 	float matrix[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS] = {{ 0.0f }};
 	uint64_t src_mask = mix->src_mask;
 	uint64_t dst_mask = mix->dst_mask;
-	uint64_t unassigned;
+	uint64_t unassigned, keep;
 	uint32_t i, j, ic, jc, matrix_encoding = MATRIX_NORMAL;
 	float clev = SQRT1_2;
 	float slev = SQRT1_2;
@@ -373,15 +373,19 @@ static int make_matrix(struct channelmix *mix)
 		}
 	}
 
-	unassigned = dst_mask & ~src_mask;
+	keep = unassigned = dst_mask & ~src_mask;
 
 	spa_log_debug(mix->log, "unassigned upmix %08"PRIx64" lfe:%f",
 			unassigned, mix->lfe_cutoff);
 
-	if (mix->lfe_cutoff == 0.0f)
-		unassigned &= ~_MASK(LFE);
 	if (!SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_UPMIX))
-		unassigned &= _MASK(LFE);
+		keep = 0;
+
+	keep |= FRONT;
+	if (mix->lfe_cutoff > 0.0f)
+		keep |= _MASK(LFE);
+
+	unassigned &= keep;
 
 	spa_log_debug(mix->log, "final unassigned upmix %08" PRIx64, unassigned);
 
@@ -460,6 +464,7 @@ done:
 	}
 	if (SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_NORMALIZE) &&
 	    maxsum > 1.0f) {
+		spa_log_debug(mix->log, "normalize %f", maxsum);
 		for (i = 0; i < ic; i++)
 			for (j = 0; j < jc; j++)
 		                mix->matrix_orig[i][j] /= maxsum;

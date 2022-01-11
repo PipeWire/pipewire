@@ -206,6 +206,14 @@ static int make_matrix(struct channelmix *mix)
 	}
 
 	unassigned = src_mask & ~dst_mask;
+	keep = dst_mask & ~src_mask;
+
+	if (!SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_UPMIX))
+		keep = 0;
+
+	keep |= FRONT;
+	if (mix->lfe_cutoff > 0.0f)
+		keep |= _MASK(LFE);
 
 	spa_log_debug(mix->log, "unassigned downmix %08" PRIx64, unassigned);
 
@@ -231,6 +239,7 @@ static int make_matrix(struct channelmix *mix)
 			_MATRIX(FC,FR) += SQRT1_2;
 			if (src_mask & FRONT)
 				_MATRIX(FC,FC) = clev * SQRT2;
+			keep &= ~FRONT;
 		} else {
 			spa_log_warn(mix->log, "can't assign STEREO");
 		}
@@ -373,21 +382,10 @@ static int make_matrix(struct channelmix *mix)
 		}
 	}
 
-	keep = unassigned = dst_mask & ~src_mask;
+	unassigned = dst_mask & ~src_mask & keep;
 
 	spa_log_debug(mix->log, "unassigned upmix %08"PRIx64" lfe:%f",
 			unassigned, mix->lfe_cutoff);
-
-	if (!SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_UPMIX))
-		keep = 0;
-
-	keep |= FRONT;
-	if (mix->lfe_cutoff > 0.0f)
-		keep |= _MASK(LFE);
-
-	unassigned &= keep;
-
-	spa_log_debug(mix->log, "final unassigned upmix %08" PRIx64, unassigned);
 
 	if (unassigned & FRONT) {
 		if ((src_mask & STEREO) == STEREO) {

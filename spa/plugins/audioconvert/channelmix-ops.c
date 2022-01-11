@@ -155,11 +155,10 @@ static int make_matrix(struct channelmix *mix)
 	float slev = SQRT1_2;
 	float llev = 0.5f;
 	float maxsum = 0.0f;
-	bool do_upmix = SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_UPMIX);
 #define _MATRIX(s,d)	matrix[_CH(s)][_CH(d)]
 
-	spa_log_debug(mix->log, "src-mask:%08"PRIx64" dst-mask:%08"PRIx64,
-			src_mask, dst_mask);
+	spa_log_debug(mix->log, "src-mask:%08"PRIx64" dst-mask:%08"PRIx64
+			" options:%08x", src_mask, dst_mask, mix->options);
 
 	/* move the MONO mask to FRONT so that the lower bits can be shifted
 	 * away. */
@@ -374,12 +373,17 @@ static int make_matrix(struct channelmix *mix)
 		}
 	}
 
-	if (!do_upmix)
-		goto done;
-
 	unassigned = dst_mask & ~src_mask;
 
-	spa_log_debug(mix->log, "unassigned upmix %08" PRIx64, unassigned);
+	spa_log_debug(mix->log, "unassigned upmix %08"PRIx64" lfe:%f",
+			unassigned, mix->lfe_cutoff);
+
+	if (mix->lfe_cutoff == 0.0f)
+		unassigned &= ~_MASK(LFE);
+	if (!SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_UPMIX))
+		unassigned &= _MASK(LFE);
+
+	spa_log_debug(mix->log, "final unassigned upmix %08" PRIx64, unassigned);
 
 	if (unassigned & FRONT) {
 		if ((src_mask & STEREO) == STEREO) {
@@ -390,7 +394,7 @@ static int make_matrix(struct channelmix *mix)
 			spa_log_warn(mix->log, "can't produce FC");
 		}
 	}
-	if (unassigned & _MASK(LFE) && mix->lfe_cutoff > 0.0f) {
+	if (unassigned & _MASK(LFE)) {
 		if ((src_mask & STEREO) == STEREO) {
 			spa_log_debug(mix->log, "produce LFE from STEREO");
 			_MATRIX(LFE,FL) += llev;
@@ -445,7 +449,7 @@ done:
 			sum += fabs(matrix[i][j]);
 		}
 		maxsum = SPA_MAX(maxsum, sum);
-		if (i == _CH(LFE) && do_upmix && mix->lfe_cutoff > 0.0f) {
+		if (i == _CH(LFE) && mix->lfe_cutoff > 0.0f) {
 			spa_log_debug(mix->log, "channel %d is LFE", ic);
 			lr4_set(&mix->lr4[ic], BQ_LOWPASS, mix->lfe_cutoff / mix->freq);
 			mix->lr4_info[ic] = 1;

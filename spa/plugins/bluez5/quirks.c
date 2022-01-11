@@ -332,7 +332,7 @@ int spa_bt_quirks_get_features(const struct spa_bt_quirks *this,
 	}
 
 	/* Adapter */
-	if (this->adapter_rules) {
+	if (this->adapter_rules && adapter) {
 		uint32_t no_features = 0;
 		int nitems = 0;
 		char vendor_id[64], product_id[64], address[64];
@@ -357,7 +357,7 @@ int spa_bt_quirks_get_features(const struct spa_bt_quirks *this,
 	}
 
 	/* Device */
-	if (this->device_rules) {
+	if (this->device_rules && device) {
 		uint32_t no_features = 0;
 		int nitems = 0;
 		char vendor_id[64], product_id[64], version_id[64], address[64];

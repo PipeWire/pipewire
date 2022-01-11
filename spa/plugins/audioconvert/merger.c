@@ -1031,7 +1031,11 @@ static int port_set_latency(void *object,
 	enum spa_direction other = SPA_DIRECTION_REVERSE(direction);
 	uint32_t i;
 
-	spa_log_debug(this->log, "%p: set latency direction:%d", this, direction);
+	spa_log_debug(this->log, "%p: set latency direction:%d id:%d",
+			this, direction, port_id);
+
+	if (direction == SPA_DIRECTION_OUTPUT && port_id != 0)
+		return 0;
 
 	if (latency == NULL) {
 		this->latency[other] = SPA_LATENCY_INFO(other);

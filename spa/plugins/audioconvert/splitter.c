@@ -134,7 +134,8 @@ struct impl {
 	uint32_t src_remap[SPA_AUDIO_MAX_CHANNELS];
 	uint32_t dst_remap[SPA_AUDIO_MAX_CHANNELS];
 
-	float empty[MAX_SAMPLES + MAX_ALIGN];
+	uint32_t empty_size;
+	float *empty;
 };
 
 #define CHECK_OUT_PORT(this,d,p)	((d) == SPA_DIRECTION_OUTPUT && (p) < this->port_count)
@@ -884,7 +885,7 @@ impl_node_port_use_buffers(void *object,
 {
 	struct impl *this = object;
 	struct port *port;
-	uint32_t i, j;
+	uint32_t i, j, maxsize;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(CHECK_PORT(this, direction, port_id), -EINVAL);
@@ -897,6 +898,7 @@ impl_node_port_use_buffers(void *object,
 
 	clear_buffers(this, port);
 
+	maxsize = 0;
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b;
 		uint32_t n_datas = buffers[i]->n_datas;
@@ -924,10 +926,18 @@ impl_node_port_use_buffers(void *object,
 
 			spa_log_debug(this->log, "%p: buffer %d data %d flags:%08x %p",
 					this, i, j, d[j].flags, b->datas[j]);
-		}
 
+			maxsize = SPA_MAX(maxsize, d[j].maxsize);
+		}
 		if (direction == SPA_DIRECTION_OUTPUT)
 			queue_buffer(this, port, i);
+	}
+	if (maxsize > this->empty_size) {
+		this->empty = realloc(this->empty, maxsize + MAX_ALIGN);
+		if (this->empty == NULL)
+			return -errno;
+		memset(this->empty, 0, maxsize + MAX_ALIGN);
+		this->empty_size = maxsize;
 	}
 	port->n_buffers = n_buffers;
 
@@ -1119,6 +1129,7 @@ static int impl_clear(struct spa_handle *handle)
 
 	for (i = 0; i < MAX_PORTS; i++)
 		free(this->out_ports[i]);
+	free(this->empty);
 	return 0;
 }
 

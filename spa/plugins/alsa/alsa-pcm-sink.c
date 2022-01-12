@@ -68,7 +68,7 @@ static void emit_node_info(struct state *this, bool full)
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Sink");
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, "true");
 		if (this->have_format) {
-			snprintf(latency, sizeof(latency), "%lu/%d", this->buffer_frames / 4, this->rate);
+			snprintf(latency, sizeof(latency), "%lu/%d", this->buffer_frames / 2, this->rate);
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_MAX_LATENCY, latency);
 		}
 		this->info.props = &SPA_DICT_INIT(items, n_items);

@@ -44,14 +44,10 @@
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_OUTPUT && (p) == 0)
 
 static const char default_device[] = "hw:0";
-static const uint32_t default_min_latency = MIN_LATENCY;
-static const uint32_t default_max_latency = MAX_LATENCY;
 
 static void reset_props(struct props *props)
 {
 	strncpy(props->device, default_device, 64);
-	props->min_latency = default_min_latency;
-	props->max_latency = default_max_latency;
 	props->use_chmap = DEFAULT_USE_CHMAP;
 }
 
@@ -162,26 +158,12 @@ static int impl_node_enum_params(void *object, int seq,
 		case 3:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_minLatency),
-				SPA_PROP_INFO_description, SPA_POD_String("The minimum latency"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->min_latency, 1, INT32_MAX));
-			break;
-		case 4:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_maxLatency),
-				SPA_PROP_INFO_description, SPA_POD_String("The maximum latency"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->max_latency, 1, INT32_MAX));
-			break;
-		case 5:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_latencyOffsetNsec),
 				SPA_PROP_INFO_description, SPA_POD_String("Latency offset (ns)"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(0LL, 0LL, INT64_MAX));
 			break;
 		default:
-			param = spa_alsa_enum_propinfo(this, result.index - 6, &b);
+			param = spa_alsa_enum_propinfo(this, result.index - 4, &b);
 			if (param == NULL)
 				return 0;
 		}
@@ -199,8 +181,6 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_device,       SPA_POD_Stringn(p->device, sizeof(p->device)),
 				SPA_PROP_deviceName,   SPA_POD_Stringn(p->device_name, sizeof(p->device_name)),
 				SPA_PROP_cardName,     SPA_POD_Stringn(p->card_name, sizeof(p->card_name)),
-				SPA_PROP_minLatency,   SPA_POD_Int(p->min_latency),
-				SPA_PROP_maxLatency,   SPA_POD_Int(p->max_latency),
 				SPA_PROP_latencyOffsetNsec,   SPA_POD_Long(this->process_latency.ns),
 				0);
 			spa_alsa_add_prop_params(this, &b);
@@ -323,8 +303,6 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_Props, NULL,
 			SPA_PROP_device,       SPA_POD_OPT_Stringn(p->device, sizeof(p->device)),
-			SPA_PROP_minLatency,   SPA_POD_OPT_Int(&p->min_latency),
-			SPA_PROP_maxLatency,   SPA_POD_OPT_Int(&p->max_latency),
 			SPA_PROP_latencyOffsetNsec,   SPA_POD_OPT_Long(&info.ns),
 			SPA_PROP_params,       SPA_POD_OPT_Pod(&params));
 

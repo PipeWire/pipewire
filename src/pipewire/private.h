@@ -51,7 +51,7 @@ struct ucred {
 
 #define MAX_RATES				16u
 #define CLOCK_MIN_QUANTUM			4u
-#define CLOCK_MAX_QUANTUM			8192u
+#define CLOCK_MAX_QUANTUM			65536u
 
 struct settings {
 	uint32_t log_level;

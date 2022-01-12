@@ -70,7 +70,6 @@ static void reset_props(struct props *props)
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_RATE		44100
 
-#define MAX_SAMPLES	8192
 #define MAX_BUFFERS	16
 #define MAX_PORTS	1
 
@@ -106,6 +105,8 @@ struct impl {
 	struct spa_log *log;
 	struct spa_loop *data_loop;
 	struct spa_system *data_system;
+
+	uint32_t quantum_limit;
 
 	struct props props;
 
@@ -538,7 +539,7 @@ impl_node_port_enum_params(void *object, int seq,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-							MAX_SAMPLES * port->bpf,
+							this->quantum_limit * port->bpf,
 							16 * port->bpf,
 							INT32_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->bpf));
@@ -856,7 +857,6 @@ impl_init(const struct spa_handle_factory *factory,
 		spa_log_error(this->log, "a data_system is needed");
 		return -EINVAL;
 	}
-
 	spa_hook_list_init(&this->hooks);
 
 	this->node.iface = SPA_INTERFACE_INIT(
@@ -904,7 +904,9 @@ impl_init(const struct spa_handle_factory *factory,
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
-		if (spa_streq(k, SPA_KEY_AUDIO_CHANNELS)) {
+		if (spa_streq(k, "clock.quantum-limit")) {
+			spa_atou32(s, &this->quantum_limit, 0);
+		} else if (spa_streq(k, SPA_KEY_AUDIO_CHANNELS)) {
 			this->props.channels = atoi(s);
 		} else if (spa_streq(k, SPA_KEY_AUDIO_RATE)) {
 			this->props.rate = atoi(s);

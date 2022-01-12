@@ -704,6 +704,8 @@ static void manager_added(void *data, struct pw_manager_object *o)
 				client->impl->defs.sample_spec.rate = atoi(str);
 			if ((str = spa_dict_lookup(info->props, "default.clock.max-quantum")) != NULL)
 				client->impl->defs.max_quantum = atoi(str);
+			if ((str = spa_dict_lookup(info->props, "default.clock.quantum-limit")) != NULL)
+				client->impl->defs.quantum_limit = atoi(str);
 		}
 	}
 
@@ -994,11 +996,12 @@ static const struct spa_pod *get_buffers_param(struct stream *s,
 {
 	const struct spa_pod *param;
 	uint32_t blocks, buffers, size, maxsize, stride;
+	struct defs *defs = &s->impl->defs;
 
 	blocks = 1;
 	stride = s->frame_size;
 
-	maxsize = 8192 * 32 * s->frame_size;
+	maxsize = defs->quantum_limit * 32 * s->frame_size;
 	if (s->direction == PW_DIRECTION_OUTPUT) {
 		size = attr->minreq;
 	} else {
@@ -5143,6 +5146,7 @@ static void load_defaults(struct defs *def, struct pw_properties *props)
 	parse_position(props, "pulse.default.position", DEFAULT_POSITION, &def->channel_map);
 	def->sample_spec.channels = def->channel_map.channels;
 	def->max_quantum = 8192;
+	def->quantum_limit = 8192;
 }
 
 struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,

@@ -52,7 +52,6 @@ static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.fmtconvert");
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 
-#define MAX_SAMPLES	8192
 #define MAX_BUFFERS	32
 #define MAX_ALIGN	16
 #define MAX_DATAS	SPA_AUDIO_MAX_CHANNELS
@@ -118,6 +117,8 @@ struct impl {
 
 	struct spa_log *log;
 	struct spa_cpu *cpu;
+	uint32_t cpu_flags;
+	uint32_t quantum_limit;
 
 	struct spa_io_position *io_position;
 
@@ -136,7 +137,6 @@ struct impl {
 
 	struct spa_latency_info latency[2];
 
-	uint32_t cpu_flags;
 	struct convert conv;
 	unsigned int started:1;
 	unsigned int is_passthrough:1;
@@ -545,7 +545,7 @@ impl_node_port_enum_params(void *object, int seq,
 				SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
 				SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
 				SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-								MAX_SAMPLES * 2 * port->stride,
+								this->quantum_limit * 2 * port->stride,
 								16 * port->stride,
 								INT32_MAX),
 				SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride));
@@ -1077,6 +1077,7 @@ impl_init(const struct spa_handle_factory *factory,
 	  uint32_t n_support)
 {
 	struct impl *this;
+	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -1092,6 +1093,13 @@ impl_init(const struct spa_handle_factory *factory,
 	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 	if (this->cpu)
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
+
+	for (i = 0; info && i < info->n_items; i++) {
+		const char *k = info->items[i].key;
+		const char *s = info->items[i].value;
+		if (spa_streq(k, "clock.quantum-limit"))
+			spa_atou32(s, &this->quantum_limit, 0);
+	}
 
 	this->node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,

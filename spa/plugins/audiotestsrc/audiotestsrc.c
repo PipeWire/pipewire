@@ -75,7 +75,6 @@ static void reset_props(struct props *props)
 	props->volume = DEFAULT_VOLUME;
 }
 
-#define MAX_SAMPLES	8192
 #define MAX_BUFFERS	16
 #define MAX_PORTS	1
 
@@ -118,6 +117,8 @@ struct impl {
 	struct spa_log *log;
 	struct spa_loop *data_loop;
 	struct spa_system *data_system;
+
+	uint32_t quantum_limit;
 
 	uint64_t info_all;
 	struct spa_node_info info;
@@ -646,7 +647,7 @@ impl_node_port_enum_params(void *object, int seq,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-							MAX_SAMPLES * port->bpf,
+							this->quantum_limit * port->bpf,
 							16 * port->bpf,
 							INT32_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->bpf));
@@ -1014,6 +1015,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	struct port *port;
+	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -1027,6 +1029,12 @@ impl_init(const struct spa_handle_factory *factory,
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
 
+	for (i = 0; info && i < info->n_items; i++) {
+		const char *k = info->items[i].key;
+		const char *s = info->items[i].value;
+		if (spa_streq(k, "clock.quantum-limit"))
+			spa_atou32(s, &this->quantum_limit, 0);
+	}
 	spa_hook_list_init(&this->hooks);
 
 	this->node.iface = SPA_INTERFACE_INIT(

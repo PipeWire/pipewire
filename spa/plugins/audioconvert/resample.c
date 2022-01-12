@@ -48,7 +48,6 @@ static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.resample");
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 
-#define MAX_SAMPLES	8192u
 #define MAX_ALIGN	16
 #define MAX_BUFFERS	32
 
@@ -103,6 +102,8 @@ struct impl {
 
 	struct spa_log *log;
 	struct spa_cpu *cpu;
+
+	uint32_t quantum_limit;
 
 	struct spa_io_position *io_position;
 	struct spa_io_rate_match *io_rate_match;
@@ -495,9 +496,9 @@ impl_node_port_enum_params(void *object, int seq,
 			size = (other->size / other->stride) * rate;
 		} else {
 			buffers = 1;
-			size = MAX_SAMPLES * rate;
+			size = this->quantum_limit * rate;
 		}
-		size = SPA_MAX(size, MAX_SAMPLES) * 2;
+		size = SPA_MAX(size, this->quantum_limit) * 2;
 
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
@@ -1025,7 +1026,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	struct port *port;
-	const char *str;
+	uint32_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -1044,20 +1045,25 @@ impl_init(const struct spa_handle_factory *factory,
 
 	props_reset(&this->props);
 
-	if (info != NULL) {
-		if ((str = spa_dict_lookup(info, "resample.quality")) != NULL)
-			this->props.quality = atoi(str);
-		if ((str = spa_dict_lookup(info, "resample.peaks")) != NULL)
-			this->peaks = spa_atob(str);
-		if ((str = spa_dict_lookup(info, "factory.mode")) != NULL) {
-			if (spa_streq(str, "split"))
+	for (i = 0; info && i < info->n_items; i++) {
+		const char *k = info->items[i].key;
+		const char *s = info->items[i].value;
+		if (spa_streq(k, "clock.quantum-limit"))
+			spa_atou32(s, &this->quantum_limit, 0);
+		else if (spa_streq(k, "resample.quality"))
+			this->props.quality = atoi(s);
+		else if (spa_streq(k, "resample.peaks"))
+			this->peaks = spa_atob(s);
+		else if (spa_streq(k, "factory.mode")) {
+			if (spa_streq(s, "split"))
 				this->mode = MODE_SPLIT;
-			else if (spa_streq(str, "merge"))
+			else if (spa_streq(s, "merge"))
 				this->mode = MODE_MERGE;
 			else
 				this->mode = MODE_CONVERT;
 		}
 	}
+
 	spa_log_debug(this->log, "mode:%d", this->mode);
 
 	this->node.iface = SPA_INTERFACE_INIT(

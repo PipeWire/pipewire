@@ -48,7 +48,6 @@
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 
-#define DEFAULT_SAMPLES	8192
 #define MAX_BUFFERS	32
 #define MAX_DATAS	SPA_AUDIO_MAX_CHANNELS
 
@@ -142,6 +141,7 @@ struct impl {
 
 	struct spa_log *log;
 	struct spa_cpu *cpu;
+	uint32_t quantum_limit;
 
 	struct spa_io_position *io_position;
 
@@ -978,7 +978,7 @@ impl_node_port_enum_params(void *object, int seq,
 				size = other->size / other->stride;
 			} else {
 				buffers = 1;
-				size = DEFAULT_SAMPLES;
+				size = this->quantum_limit;
 			}
 
 			param = spa_pod_builder_add_object(&b,
@@ -1546,6 +1546,8 @@ impl_init(const struct spa_handle_factory *factory,
 		const char *s = info->items[i].value;
 		if (spa_streq(k, SPA_KEY_AUDIO_POSITION))
 			this->props.n_channels = parse_position(this->props.channel_map, s, strlen(s));
+		else if (spa_streq(k, "clock.quantum-limit"))
+			spa_atou32(s, &this->quantum_limit, 0);
 		else
 			channelmix_set_param(this, k, s);
 

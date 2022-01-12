@@ -148,6 +148,7 @@ struct state {
 	unsigned int disable_mmap;
 	unsigned int disable_batch;
 	char clock_name[64];
+	uint32_t quantum_limit;
 
 	snd_pcm_uframes_t buffer_frames;
 	snd_pcm_uframes_t period_frames;

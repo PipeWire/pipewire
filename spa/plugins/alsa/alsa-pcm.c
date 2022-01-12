@@ -427,6 +427,8 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 			state->card_index = atoi(s);
 		} else if (spa_streq(k, SPA_KEY_API_ALSA_OPEN_UCM)) {
 			state->open_ucm = spa_atob(s);
+		} else if (spa_streq(k, "clock.quantum-limit")) {
+			spa_atou32(s, &state->quantum_limit, 0);
 		} else if (spa_streq(k, "latency.internal.rate")) {
 			state->process_latency.rate = atoi(s);
 		} else if (spa_streq(k, "latency.internal.ns")) {
@@ -2308,7 +2310,7 @@ int spa_alsa_start(struct state *state)
 	else {
 		spa_log_warn(state->log, "%s: no position set, using defaults",
 				state->props.device);
-		state->duration = state->props.min_latency;
+		state->duration = 1024;
 		state->rate_denom = state->rate;
 	}
 

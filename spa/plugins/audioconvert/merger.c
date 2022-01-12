@@ -55,7 +55,6 @@ static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.merger");
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 
-#define MAX_SAMPLES	8192
 #define MAX_ALIGN	16
 #define MAX_BUFFERS	32
 #define MAX_DATAS	SPA_AUDIO_MAX_CHANNELS
@@ -146,6 +145,9 @@ struct impl {
 	struct spa_log *log;
 	struct spa_cpu *cpu;
 
+	uint32_t cpu_flags;
+	uint32_t quantum_limit;
+
 	struct spa_io_position *io_position;
 
 	uint64_t info_all;
@@ -167,7 +169,6 @@ struct impl {
 	unsigned int have_profile:1;
 
 	struct convert conv;
-	uint32_t cpu_flags;
 	unsigned int is_passthrough:1;
 	unsigned int started:1;
 	unsigned int monitor:1;
@@ -873,7 +874,7 @@ impl_node_port_enum_params(void *object, int seq,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-								MAX_SAMPLES * port->stride,
+								this->quantum_limit * port->stride,
 								16 * port->stride,
 								INT32_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride));
@@ -1579,7 +1580,10 @@ impl_init(const struct spa_handle_factory *factory,
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
-		merger_set_param(this, k, s);
+		if (spa_streq(k, "clock.quantum-limit"))
+			spa_atou32(s, &this->quantum_limit, 0);
+		else
+			merger_set_param(this, k, s);
 	}
 
 	this->latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);

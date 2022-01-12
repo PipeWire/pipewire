@@ -555,7 +555,7 @@ impl_node_port_enum_params(void *object, int seq,
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
 							MAX_SAMPLES * port->stride,
 							16 * port->stride,
-							MAX_SAMPLES * port->stride),
+							INT32_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride));
 		break;
 
@@ -982,7 +982,6 @@ static int impl_node_process(void *object)
 	uint32_t n_src_datas, n_dst_datas;
 	const void **src_datas;
 	void **dst_datas;
-	int res = 0;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -1070,10 +1069,8 @@ static int impl_node_process(void *object)
 		convert_process(&this->conv, dst_datas, src_datas, n_samples);
 
 	inio->status = SPA_STATUS_NEED_DATA;
-	res |= SPA_STATUS_NEED_DATA;
-	res |= SPA_STATUS_HAVE_DATA;
 
-	return res;
+	return SPA_STATUS_NEED_DATA | SPA_STATUS_HAVE_DATA;
 }
 
 static const struct spa_node_methods impl_node = {

@@ -203,9 +203,12 @@ static int read_line(struct pw_rtsp_client *client, char **buf)
 		if (res == 0)
 			return -EPIPE;
 		if (res < 0) {
-			if (res == EAGAIN)
-				return 0;
-			return -errno;
+			res = -errno;
+			if (res == -EINTR)
+				continue;
+			if (res != -EAGAIN && res != -EWOULDBLOCK)
+				return res;
+			return 0;
 		}
 		if (c == '\n') {
 			client->line_buf[client->line_pos] = '\0';
@@ -435,9 +438,10 @@ int pw_rtsp_client_connect(struct pw_rtsp_client *client,
 			true, on_source_io, client);
 
 	if (client->source == NULL) {
+		res = -errno;
 		pw_log_error("%p: source create failed: %m", client);
 		close(fd);
-		return -errno;
+		return res;
 	}
 	client->connecting = true;
 	free(client->session_id);

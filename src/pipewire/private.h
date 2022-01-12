@@ -331,7 +331,6 @@ struct pw_global {
 
 	pw_global_bind_func_t func;	/**< bind function */
 	void *object;			/**< object associated with the interface */
-	uint64_t serial;		/**< increasing serial number */
 
 	struct spa_list resource_list;	/**< The list of resources of this global */
 
@@ -421,8 +420,6 @@ struct pw_context {
 	void *settings_impl;		/**< settings metadata */
 
 	struct pw_mempool *pool;		/**< global memory pool */
-
-	struct pw_map globals;			/**< map of globals */
 
 	struct spa_list core_impl_list;		/**< list of core_imp */
 	struct spa_list protocol_list;		/**< list of protocols */

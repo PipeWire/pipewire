@@ -247,8 +247,6 @@ pw_context_load_module(struct pw_context *context,
 
 	this->info.id = this->global->id;
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);
-	pw_properties_setf(this->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
-			pw_global_get_serial(this->global));
 	this->info.props = &this->properties->dict;
 
 	pw_impl_module_emit_initialized(this);

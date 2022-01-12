@@ -214,7 +214,6 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	pw_array_init(&this->factory_lib, 32);
 	pw_array_init(&this->objects, 32);
-	pw_map_init(&this->globals, 128, 32);
 
 	spa_list_init(&this->core_impl_list);
 	spa_list_init(&this->protocol_list);
@@ -482,8 +481,6 @@ void pw_context_destroy(struct pw_context *context)
 
 	pw_array_clear(&context->objects);
 
-	pw_map_clear(&context->globals);
-
 	spa_hook_list_clean(&context->listener_list);
 	spa_hook_list_clean(&context->driver_listener_list);
 
@@ -581,12 +578,23 @@ int pw_context_for_each_global(struct pw_context *context,
 	return 0;
 }
 
+static struct pw_global *find_global(struct pw_context *context, uint32_t id)
+{
+	struct pw_global *g;
+	spa_list_for_each(g, &context->global_list, link) {
+		if (g->id == id)
+			return g;
+	}
+	return NULL;
+}
+
 SPA_EXPORT
 struct pw_global *pw_context_find_global(struct pw_context *context, uint32_t id)
 {
 	struct pw_global *global;
 
-	global = pw_map_lookup(&context->globals, id);
+
+	global = find_global(context, id);
 	if (global == NULL || !global->registered) {
 		errno = ENOENT;
 		return NULL;

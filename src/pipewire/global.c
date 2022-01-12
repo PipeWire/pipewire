@@ -96,13 +96,9 @@ pw_global_new(struct pw_context *context,
 	this->func = func;
 	this->object = object;
 	this->properties = properties;
-	this->id = pw_map_insert_new(&context->globals, this);
-	if (this->id == SPA_ID_INVALID) {
-		res = -errno;
-		pw_log_error("%p: can't allocate new id: %m", this);
-		goto error_free;
-	}
-	this->serial = SPA_ID_INVALID;
+	this->id = serial++;
+	if ((uint32_t)this->id == SPA_ID_INVALID)
+		this->id = serial++;
 
 	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
@@ -111,22 +107,10 @@ pw_global_new(struct pw_context *context,
 
 	return this;
 
-error_free:
-	free(impl);
 error_cleanup:
 	pw_properties_free(properties);
 	errno = -res;
 	return NULL;
-}
-
-SPA_EXPORT
-uint64_t pw_global_get_serial(struct pw_global *global)
-{
-	if (global->serial == SPA_ID_INVALID)
-		global->serial = serial++;
-	if ((uint32_t)serial == SPA_ID_INVALID)
-		serial++;
-	return global->serial;
 }
 
 /** register a global to the context registry
@@ -149,8 +133,8 @@ int pw_global_register(struct pw_global *global)
 
 	spa_list_for_each(registry, &context->registry_resource_list, link) {
 		uint32_t permissions = pw_global_get_permissions(global, registry->client);
-		pw_log_debug("registry %p: global %d %08x serial:%"PRIu64,
-				registry, global->id, permissions, global->serial);
+		pw_log_debug("registry %p: global %d %08x",
+				registry, global->id, permissions);
 		if (PW_PERM_IS_R(permissions))
 			pw_registry_resource_global(registry,
 						    global->id,
@@ -183,7 +167,6 @@ static int global_unregister(struct pw_global *global)
 
 	spa_list_remove(&global->link);
 	global->registered = false;
-	global->serial = SPA_ID_INVALID;
 
 	pw_log_debug("%p: unregistered %u", global, global->id);
 	pw_context_emit_global_removed(context, global);
@@ -352,9 +335,8 @@ int pw_global_update_permissions(struct pw_global *global, struct pw_impl_client
 			pw_registry_resource_global_remove(resource, global->id);
 		}
 		else if (do_show) {
-			pw_log_debug("client %p: resource %p show global %d serial:%"PRIu64,
-					client, resource, global->id,
-					global->serial);
+			pw_log_debug("client %p: resource %p show global %d",
+					client, resource, global->id);
 			pw_registry_resource_global(resource,
 						    global->id,
 						    new_permissions,
@@ -386,7 +368,6 @@ SPA_EXPORT
 void pw_global_destroy(struct pw_global *global)
 {
 	struct pw_resource *resource;
-	struct pw_context *context = global->context;
 
 	global->destroyed = true;
 
@@ -401,7 +382,6 @@ void pw_global_destroy(struct pw_global *global)
 	pw_log_debug("%p: free", global);
 	pw_global_emit_free(global);
 
-	pw_map_remove(&context->globals, global->id);
 	spa_hook_list_clean(&global->listener_list);
 
 	pw_properties_free(global->properties);

@@ -475,7 +475,6 @@ int pw_impl_client_register(struct pw_impl_client *client,
 		       struct pw_properties *properties)
 {
 	static const char * const keys[] = {
-		PW_KEY_OBJECT_SERIAL,
 		PW_KEY_MODULE_ID,
 		PW_KEY_PROTOCOL,
 		PW_KEY_SEC_PID,
@@ -506,8 +505,6 @@ int pw_impl_client_register(struct pw_impl_client *client,
 
 	client->info.id = client->global->id;
 	pw_properties_setf(client->properties, PW_KEY_OBJECT_ID, "%d", client->info.id);
-	pw_properties_setf(client->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
-			pw_global_get_serial(client->global));
 	client->info.props = &client->properties->dict;
 	pw_global_add_listener(client->global, &client->global_listener, &global_events, client);
 

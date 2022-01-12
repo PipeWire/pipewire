@@ -52,7 +52,6 @@ PW_LOG_TOPIC_EXTERN(log_filter);
 #define MASK_BUFFERS	(MAX_BUFFERS-1)
 #define MAX_PORTS	1024
 
-static float empty[MAX_SAMPLES];
 static bool mlock_warned = false;
 
 static uint32_t mappable_dataTypes = (1<<SPA_DATA_MemFd);
@@ -1860,7 +1859,7 @@ void *pw_filter_get_dsp_buffer(void *port_data, uint32_t n_samples)
 	struct spa_data *d;
 
 	if ((buf = pw_filter_dequeue_buffer(port_data)) == NULL)
-		return empty;
+		return NULL;
 
 	d = &buf->buffer->datas[0];
 

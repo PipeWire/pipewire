@@ -44,6 +44,7 @@
 #define DEFAULT_CLOCK_QUANTUM			1024u
 #define DEFAULT_CLOCK_MIN_QUANTUM		32u
 #define DEFAULT_CLOCK_MAX_QUANTUM		8192u
+#define DEFAULT_CLOCK_QUANTUM_LIMIT		8192u
 #define DEFAULT_CLOCK_POWER_OF_TWO_QUANTUM	true
 #define DEFAULT_VIDEO_WIDTH			640
 #define DEFAULT_VIDEO_HEIGHT			480
@@ -188,7 +189,7 @@ static int metadata_property(void *data, uint32_t subject, const char *key,
 		recalc = true;
 	} else if (spa_streq(key, "clock.force-quantum")) {
 		v = value ? atoi(value) : 0;
-		s->clock_force_quantum = SPA_MIN(v, 8192u);
+		s->clock_force_quantum = v;
 		recalc = true;
 	}
 	if (recalc)
@@ -213,6 +214,7 @@ void pw_settings_init(struct pw_context *this)
 	d->clock_quantum = get_default_int(p, "default.clock.quantum", DEFAULT_CLOCK_QUANTUM);
 	d->clock_min_quantum = get_default_int(p, "default.clock.min-quantum", DEFAULT_CLOCK_MIN_QUANTUM);
 	d->clock_max_quantum = get_default_int(p, "default.clock.max-quantum", DEFAULT_CLOCK_MAX_QUANTUM);
+	d->clock_quantum_limit = get_default_int(p, "default.clock.quantum-limit", DEFAULT_CLOCK_QUANTUM_LIMIT);
 	d->video_size.width = get_default_int(p, "default.video.width", DEFAULT_VIDEO_WIDTH);
 	d->video_size.height = get_default_int(p, "default.video.height", DEFAULT_VIDEO_HEIGHT);
 	d->video_rate.num = get_default_int(p, "default.video.rate.num", DEFAULT_VIDEO_RATE_NUM);
@@ -225,8 +227,10 @@ void pw_settings_init(struct pw_context *this)
 	d->mem_warn_mlock = get_default_bool(p, "mem.warn-mlock", DEFAULT_MEM_WARN_MLOCK);
 	d->mem_allow_mlock = get_default_bool(p, "mem.allow-mlock", DEFAULT_MEM_ALLOW_MLOCK);
 
-	d->clock_max_quantum = SPA_CLAMP(d->clock_max_quantum,
+	d->clock_quantum_limit = SPA_CLAMP(d->clock_quantum_limit,
 			CLOCK_MIN_QUANTUM, CLOCK_MAX_QUANTUM);
+	d->clock_max_quantum = SPA_CLAMP(d->clock_max_quantum,
+			CLOCK_MIN_QUANTUM, d->clock_quantum_limit);
 	d->clock_min_quantum = SPA_CLAMP(d->clock_min_quantum,
 			CLOCK_MIN_QUANTUM, d->clock_max_quantum);
 	d->clock_quantum = SPA_CLAMP(d->clock_quantum,

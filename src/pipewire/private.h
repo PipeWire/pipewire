@@ -61,6 +61,7 @@ struct settings {
 	uint32_t clock_quantum;			/* default quantum */
 	uint32_t clock_min_quantum;		/* min quantum */
 	uint32_t clock_max_quantum;		/* max quantum */
+	uint32_t clock_quantum_limit;		/* quantum limit */
 	struct spa_rectangle video_size;
 	struct spa_fraction video_rate;
 	uint32_t link_max_buffers;

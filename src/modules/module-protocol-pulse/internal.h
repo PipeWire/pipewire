@@ -52,6 +52,7 @@ struct defs {
 	struct sample_spec sample_spec;
 	struct channel_map channel_map;
 	uint32_t max_quantum;
+	uint32_t quantum_limit;
 };
 
 struct stats {

@@ -1772,7 +1772,7 @@ static int param_buffers(struct client *c, struct port *p,
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_STEP_Int(
 								MAX_BUFFER_FRAMES * sizeof(float),
 								sizeof(float),
-								MAX_BUFFER_FRAMES * sizeof(float),
+								INT32_MAX,
 								sizeof(float)),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(p->object->port.type_id == TYPE_ID_AUDIO ?
 									sizeof(float) : 1));

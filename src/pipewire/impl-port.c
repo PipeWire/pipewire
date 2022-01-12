@@ -583,8 +583,10 @@ static int setup_mixer(struct pw_impl_port *port, const struct spa_pod *param)
 	int res;
 	const char *fallback_lib, *factory_name;
 	struct spa_handle *handle;
-	struct spa_dict_item items[1];
+	struct spa_dict_item items[2];
+	char quantum_limit[16];
 	void *iface;
+	struct pw_context *context = port->node->context;
 
 	if ((res = spa_format_parse(param, &media_type, &media_subtype)) < 0)
 		return res;
@@ -634,7 +636,11 @@ static int setup_mixer(struct pw_impl_port *port, const struct spa_pod *param)
 	}
 
 	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_LIBRARY_NAME, fallback_lib);
-	handle = pw_context_load_spa_handle(port->node->context, factory_name,
+	spa_scnprintf(quantum_limit, sizeof(quantum_limit), "%u",
+			context->settings.clock_quantum_limit);
+	items[1] = SPA_DICT_ITEM_INIT("clock.quantum-limit", quantum_limit);
+
+	handle = pw_context_load_spa_handle(context, factory_name,
 			&SPA_DICT_INIT_ARRAY(items));
 	if (handle == NULL)
 		return -errno;

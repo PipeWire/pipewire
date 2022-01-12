@@ -242,6 +242,13 @@ struct pw_impl_node *pw_spa_node_load(struct pw_context *context,
 	int res;
 	struct spa_handle *handle;
 	void *iface;
+	const struct pw_properties *p;
+
+	if (properties) {
+		p = pw_context_get_properties(context);
+		pw_properties_set(properties, "clock.quantum-limit",
+				pw_properties_get(p, "default.clock.quantum-limit"));
+	}
 
 	handle = pw_context_load_spa_handle(context,
 			factory_name,

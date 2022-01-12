@@ -127,8 +127,6 @@ struct impl {
 	struct resample resample;
 
 	double rate_scale;
-
-	float empty[MAX_SAMPLES + MAX_ALIGN];
 };
 
 #define CHECK_PORT(this,d,id)		(id == 0)
@@ -884,9 +882,10 @@ static int impl_node_process(void *object)
 		outport->offset = maxsize;
 
 	if (size == 0) {
-		size = MAX_SAMPLES * sizeof(float);
+		size = sb->datas[0].maxsize;
+		memset(sb->datas[0].data, 0, size);
 		for (i = 0; i < sb->n_datas; i++)
-			src_datas[i] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
+			src_datas[i] = sb->datas[0].data;
 		inport->offset = 0;
 		flush_in = draining = true;
 	} else {

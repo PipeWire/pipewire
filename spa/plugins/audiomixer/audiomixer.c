@@ -49,7 +49,6 @@ static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.audiomixer");
 #define MAX_BUFFERS     64
 #define MAX_PORTS       128
 #define MAX_CHANNELS    64
-#define MAX_BUFFER_SIZE    (MAX_SAMPLES * MAX_CHANNELS * 8)
 
 #define PORT_DEFAULT_VOLUME	1.0
 #define PORT_DEFAULT_MUTE	false
@@ -74,8 +73,6 @@ struct buffer {
 	struct spa_buffer *buffer;
 	struct spa_meta_header *h;
 	struct spa_buffer buf;
-	struct spa_data datas[1];
-	struct spa_chunk chunk[1];
 };
 
 struct port {
@@ -128,9 +125,6 @@ struct impl {
 	unsigned int started:1;
 	uint32_t stride;
 	uint32_t blocks;
-
-	uint8_t empty[MAX_BUFFER_SIZE];
-
 };
 
 #define PORT_VALID(p)                ((p) != NULL && (p)->valid)
@@ -657,6 +651,7 @@ impl_node_port_use_buffers(void *object,
 		b->flags = 0;
 		b->id = i;
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
+		b->buf = *buffers[i];
 
 		if (d[0].data == NULL) {
 			spa_log_error(this->log, "%p: invalid memory on buffer %p", this,
@@ -725,9 +720,9 @@ static int impl_node_process(void *object)
 	struct impl *this = object;
 	struct port *outport;
 	struct spa_io_buffers *outio;
-	uint32_t n_samples, n_buffers, i, maxsize;
+	uint32_t n_buffers, i, maxsize;
 	struct buffer **buffers;
-        struct buffer *outb;
+	struct buffer *outb;
 	const void **datas;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
@@ -752,7 +747,7 @@ static int impl_node_process(void *object)
         datas = alloca(MAX_PORTS * sizeof(void *));
         n_buffers = 0;
 
-	maxsize = MAX_SAMPLES * this->stride;
+	maxsize = UINT32_MAX;
 
 	for (i = 0; i < this->last_port; i++) {
 		struct port *inport = GET_IN_PORT(this, i);
@@ -789,22 +784,22 @@ static int impl_node_process(void *object)
                 return -EPIPE;
         }
 
-	n_samples = maxsize / this->stride;
-
 	if (n_buffers == 1) {
 		*outb->buffer = *buffers[0]->buffer;
 	}
 	else {
-		outb->buffer->n_datas = 1;
-		outb->buffer->datas = outb->datas;
-		outb->datas[0].data = this->empty;
-		outb->datas[0].chunk = outb->chunk;
-		outb->datas[0].chunk->offset = 0;
-		outb->datas[0].chunk->size = n_samples * this->stride;
-		outb->datas[0].chunk->stride = this->stride;
-		outb->datas[0].maxsize = maxsize;
+		struct spa_data *d = outb->buf.datas;
 
-		mix_ops_process(&this->ops, outb->datas[0].data, datas, n_buffers, n_samples);
+		*outb->buffer = outb->buf;
+
+		maxsize = SPA_MIN(maxsize, d[0].maxsize);
+
+		d[0].chunk->offset = 0;
+		d[0].chunk->size = maxsize;
+		d[0].chunk->stride = this->stride;
+
+		mix_ops_process(&this->ops, d[0].data,
+				datas, n_buffers, maxsize / this->stride);
 	}
 
 	outio->buffer_id = outb->id;

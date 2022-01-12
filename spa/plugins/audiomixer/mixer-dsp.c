@@ -73,8 +73,6 @@ struct buffer {
 	struct spa_buffer *buffer;
 	struct spa_meta_header *h;
 	struct spa_buffer buf;
-        struct spa_data datas[1];
-        struct spa_chunk chunk[1];
 };
 
 struct port {
@@ -126,8 +124,6 @@ struct impl {
 
 	unsigned int have_format:1;
 	unsigned int started:1;
-
-	float empty[MAX_SAMPLES + MAX_ALIGN];
 };
 
 #define PORT_VALID(p)                ((p) != NULL && (p)->valid)
@@ -601,12 +597,13 @@ impl_node_port_use_buffers(void *object,
 		b->flags = 0;
 		b->id = i;
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
+		b->buf = *buffers[i];
 
 		if (d[0].data == NULL) {
 			spa_log_error(this->log, "%p: invalid memory on buffer %d", this, i);
 			return -EINVAL;
 		}
-		if (!SPA_IS_ALIGNED(d[0].data, 16)) {
+		if (!SPA_IS_ALIGNED(d[0].data, 32)) {
 			spa_log_warn(this->log, "%p: memory on buffer %d not aligned", this, i);
 		}
 		if (direction == SPA_DIRECTION_OUTPUT)
@@ -668,9 +665,9 @@ static int impl_node_process(void *object)
 	struct impl *this = object;
 	struct port *outport;
 	struct spa_io_buffers *outio;
-	uint32_t n_samples, n_buffers, i, maxsize;
-        struct buffer **buffers;
-        struct buffer *outb;
+	uint32_t n_buffers, i, maxsize;
+	struct buffer **buffers;
+	struct buffer *outb;
 	const void **datas;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
@@ -695,7 +692,7 @@ static int impl_node_process(void *object)
         datas = alloca(MAX_PORTS * sizeof(void *));
         n_buffers = 0;
 
-	maxsize = MAX_SAMPLES * sizeof(float);
+	maxsize = UINT32_MAX;
 
 	for (i = 0; i < this->last_port; i++) {
 		struct port *inport = GET_IN_PORT(this, i);
@@ -732,21 +729,20 @@ static int impl_node_process(void *object)
                 return -EPIPE;
         }
 
-	n_samples = maxsize / sizeof(float);
-
 	if (n_buffers == 1) {
 		*outb->buffer = *buffers[0]->buffer;
-	}
-	else {
-		outb->buffer->n_datas = 1;
-		outb->buffer->datas = outb->datas;
-		outb->datas[0].data = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
-		outb->datas[0].chunk = outb->chunk;
-		outb->datas[0].chunk->offset = 0;
-		outb->datas[0].chunk->size = n_samples * sizeof(float);
-		outb->datas[0].chunk->stride = sizeof(float);
+	} else {
+		struct spa_data *d = outb->buf.datas;
+		*outb->buffer = outb->buf;
 
-		mix_ops_process(&this->ops, outb->datas[0].data, datas, n_buffers, n_samples);
+		maxsize = SPA_MIN(maxsize, d[0].maxsize);
+
+		d[0].chunk->offset = 0;
+		d[0].chunk->size = maxsize;
+		d[0].chunk->stride = sizeof(float);
+
+		mix_ops_process(&this->ops, d[0].data,
+				datas, n_buffers, maxsize / sizeof(float));
 	}
 
 	outio->buffer_id = outb->id;

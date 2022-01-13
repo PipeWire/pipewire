@@ -379,7 +379,7 @@ on_connect(void *data, int fd, uint32_t mask)
 		goto error;
 	}
 
-	if (server->n_clients >= MAX_CLIENTS) {
+	if (server->n_clients >= server->max_clients) {
 		close(client_fd);
 		errno = ECONNREFUSED;
 		goto error;

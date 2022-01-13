@@ -477,7 +477,7 @@ on_connect(void *data, int fd, uint32_t mask)
 {
 	struct server *server = data;
 	struct impl *impl = server->impl;
-	struct sockaddr addr;
+	struct sockaddr_in addr;
 	socklen_t addrlen;
 	int client_fd, val;
 	struct client *client = NULL;
@@ -503,7 +503,7 @@ on_connect(void *data, int fd, uint32_t mask)
 	spa_list_append(&server->client_list, &client->link);
 	server->n_clients++;
 
-	if (inet_ntop(addr.sa_family, addr.sa_data, client->name, sizeof(client->name)) == NULL)
+	if (inet_ntop(addr.sin_family, &addr.sin_addr.s_addr, client->name, sizeof(client->name)) == NULL)
 		snprintf(client->name, sizeof(client->name), "client %d", client_fd);
 
 	client->source = pw_loop_add_io(impl->loop,

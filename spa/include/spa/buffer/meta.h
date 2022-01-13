@@ -81,7 +81,7 @@ struct spa_meta_header {
 #define SPA_META_HEADER_FLAG_DELTA_UNIT	(1 << 5)	/**< cannot be decoded independently */
 	uint32_t flags;				/**< flags */
 	uint32_t offset;			/**< offset in current cycle */
-	int64_t pts;				/**< presentation timestamp */
+	int64_t pts;				/**< presentation timestamp in nanoseconds */
 	int64_t dts_offset;			/**< decoding timestamp as a difference with pts */
 	uint64_t seq;				/**< sequence number, increments with a
 						  *  media specific frequency */

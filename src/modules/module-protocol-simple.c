@@ -111,7 +111,7 @@ struct client {
         struct spa_hook core_proxy_listener;
 
 	struct spa_source *source;
-	char name[512];
+	char name[128];
 
 	struct pw_stream *capture;
 	struct spa_hook capture_listener;

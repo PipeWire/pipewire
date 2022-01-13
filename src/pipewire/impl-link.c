@@ -1133,7 +1133,7 @@ static void permissions_changed(struct pw_impl_link *this, struct pw_impl_port *
 
 	if (check_permission(this->context, this->output, this->input, this->properties) < 0) {
 		pw_impl_link_destroy(this);
-	} else {
+	} else if (this->global != NULL) {
 		pw_global_update_permissions(this->global, client, old, new);
 	}
 }

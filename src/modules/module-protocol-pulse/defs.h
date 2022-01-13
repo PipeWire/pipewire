@@ -56,7 +56,7 @@
 
 #define SCACHE_ENTRY_SIZE_MAX	(1024*1024*16)
 
-#define INDEX_MASK		0xffffu
+#define INDEX_MASK		0xffffffu
 #define MONITOR_FLAG		(1u << 24)
 #define EXTENSION_FLAG		(1u << 25)
 #define MODULE_FLAG		(1u << 26)

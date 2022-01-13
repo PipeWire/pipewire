@@ -450,6 +450,7 @@ struct pw_context {
 	uint32_t n_support;		/**< number of support items */
 	struct pw_array factory_lib;	/**< mapping of factory_name regexp to library */
 
+	uint32_t serial;
 	struct pw_array objects;	/**< objects */
 
 	struct pw_impl_client *current_client;	/**< client currently executing code in mainloop */
@@ -1114,6 +1115,9 @@ struct pw_control {
 
 	void *user_data;
 };
+
+uint32_t pw_context_add_global(struct pw_context *context, struct pw_global *global);
+void pw_context_remove_global(struct pw_context *context, struct pw_global *global);
 
 /** Find a good format between 2 ports */
 int pw_context_find_format(struct pw_context *context,

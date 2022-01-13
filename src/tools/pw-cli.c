@@ -68,6 +68,7 @@ struct data {
 };
 
 struct global {
+	struct spa_list link;
 	struct remote_data *rd;
 	uint32_t id;
 	uint32_t permissions;
@@ -93,7 +94,7 @@ struct remote_data {
 	struct pw_registry *registry;
 	struct spa_hook registry_listener;
 
-	struct pw_map globals;
+	struct spa_list globals;
 };
 
 struct proxy_data;
@@ -331,7 +332,6 @@ static void registry_event_global(void *data, uint32_t id,
 {
 	struct remote_data *rd = data;
 	struct global *global;
-	size_t size;
 	char *error;
 	bool ret;
 
@@ -348,10 +348,7 @@ static void registry_event_global(void *data, uint32_t id,
 		print_global(global, NULL);
 	}
 
-	size = pw_map_get_size(&rd->globals);
-	while (id > size)
-		pw_map_insert_at(&rd->globals, size++, NULL);
-	pw_map_insert_at(&rd->globals, id, global);
+	spa_list_append(&rd->globals, &global->link);
 
 	/* immediately bind the object always */
 	ret = bind_global(rd, global, &error);
@@ -362,7 +359,7 @@ static void registry_event_global(void *data, uint32_t id,
 	}
 }
 
-static int destroy_global(void *obj, void *data)
+static int destroy_global(void *obj)
 {
 	struct global *global = obj;
 
@@ -371,11 +368,21 @@ static int destroy_global(void *obj, void *data)
 
 	if (global->proxy)
 		pw_proxy_destroy(global->proxy);
-	pw_map_insert_at(&global->rd->globals, global->id, NULL);
+	spa_list_remove(&global->link);
 	pw_properties_free(global->properties);
 	free(global->type);
 	free(global);
 	return 0;
+}
+
+static struct global *find_global(struct remote_data *rd, uint32_t id)
+{
+	struct global *g;
+	spa_list_for_each(g, &rd->globals, link) {
+		if (g->id == id)
+			return g;
+	}
+	return NULL;
 }
 
 static void registry_event_global_remove(void *data, uint32_t id)
@@ -383,7 +390,7 @@ static void registry_event_global_remove(void *data, uint32_t id)
 	struct remote_data *rd = data;
 	struct global *global;
 
-	global = pw_map_lookup(&rd->globals, id);
+	global = find_global(rd, id);
 	if (global == NULL) {
 		fprintf(stdout, "remote %d removed unknown global %d\n", rd->id, id);
 		return;
@@ -394,7 +401,7 @@ static void registry_event_global_remove(void *data, uint32_t id)
 		print_global(global, NULL);
 	}
 
-	destroy_global(global, rd);
+	destroy_global(global);
 }
 
 static const struct pw_registry_events registry_events = {
@@ -426,6 +433,7 @@ static void on_core_destroy(void *_data)
 {
 	struct remote_data *rd = _data;
 	struct data *data = rd->data;
+	struct global *g;
 
 	spa_list_remove(&rd->link);
 
@@ -433,8 +441,8 @@ static void on_core_destroy(void *_data)
 	spa_hook_remove(&rd->proxy_core_listener);
 
 	pw_map_remove(&data->vars, rd->id);
-	pw_map_for_each(&rd->globals, destroy_global, rd);
-	pw_map_clear(&rd->globals);
+	spa_list_consume(g, &rd->globals, link)
+		destroy_global(g);
 
 	if (data->current == rd)
 		data->current = NULL;
@@ -474,7 +482,7 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 	rd = pw_proxy_get_user_data((struct pw_proxy*)core);
 	rd->core = core;
 	rd->data = data;
-	pw_map_init(&rd->globals, 64, 16);
+	spa_list_init(&rd->globals);
 	rd->id = pw_map_insert_new(&data->vars, rd);
 	spa_list_append(&data->remotes, &rd->link);
 
@@ -751,7 +759,7 @@ static void core_event_info(void *object, const struct pw_core_info *info)
 		fprintf(stdout, "remote %d core %d changed\n", rd->id, info->id);
 	pd->info = pw_core_info_update(pd->info, info);
 	if (pd->global == NULL)
-		pd->global = pw_map_lookup(&rd->globals, info->id);
+		pd->global = find_global(rd, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_core(pd);
 		pd->global->info_pending = false;
@@ -772,7 +780,7 @@ static void module_event_info(void *object, const struct pw_module_info *info)
 		fprintf(stdout, "remote %d module %d changed\n", rd->id, info->id);
 	pd->info = pw_module_info_update(pd->info, info);
 	if (pd->global == NULL)
-		pd->global = pw_map_lookup(&rd->globals, info->id);
+		pd->global = find_global(rd, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_module(pd);
 		pd->global->info_pending = false;
@@ -792,7 +800,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 		fprintf(stdout, "remote %d node %d changed\n", rd->id, info->id);
 	pd->info = pw_node_info_update(pd->info, info);
 	if (pd->global == NULL)
-		pd->global = pw_map_lookup(&rd->globals, info->id);
+		pd->global = find_global(rd, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_node(pd);
 		pd->global->info_pending = false;
@@ -827,7 +835,7 @@ static void port_event_info(void *object, const struct pw_port_info *info)
 		fprintf(stdout, "remote %d port %d changed\n", rd->id, info->id);
 	pd->info = pw_port_info_update(pd->info, info);
 	if (pd->global == NULL)
-		pd->global = pw_map_lookup(&rd->globals, info->id);
+		pd->global = find_global(rd, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_port(pd);
 		pd->global->info_pending = false;
@@ -848,7 +856,7 @@ static void factory_event_info(void *object, const struct pw_factory_info *info)
 		fprintf(stdout, "remote %d factory %d changed\n", rd->id, info->id);
 	pd->info = pw_factory_info_update(pd->info, info);
 	if (pd->global == NULL)
-		pd->global = pw_map_lookup(&rd->globals, info->id);
+		pd->global = find_global(rd, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_factory(pd);
 		pd->global->info_pending = false;
@@ -868,7 +876,7 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 		fprintf(stdout, "remote %d client %d changed\n", rd->id, info->id);
 	pd->info = pw_client_info_update(pd->info, info);
 	if (pd->global == NULL)
-		pd->global = pw_map_lookup(&rd->globals, info->id);
+		pd->global = find_global(rd, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_client(pd);
 		pd->global->info_pending = false;
@@ -909,7 +917,7 @@ static void link_event_info(void *object, const struct pw_link_info *info)
 		fprintf(stdout, "remote %d link %d changed\n", rd->id, info->id);
 	pd->info = pw_link_info_update(pd->info, info);
 	if (pd->global == NULL)
-		pd->global = pw_map_lookup(&rd->globals, info->id);
+		pd->global = find_global(rd, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_link(pd);
 		pd->global->info_pending = false;
@@ -930,7 +938,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 		fprintf(stdout, "remote %d device %d changed\n", rd->id, info->id);
 	pd->info = pw_device_info_update(pd->info, info);
 	if (pd->global == NULL)
-		pd->global = pw_map_lookup(&rd->globals, info->id);
+		pd->global = find_global(rd, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_device(pd);
 		pd->global->info_pending = false;
@@ -975,7 +983,7 @@ static void session_event_info(void *object,
 	}
 
 	if (pd->global == NULL)
-		pd->global = pw_map_lookup(&rd->globals, info->id);
+		pd->global = find_global(rd, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_session(pd);
 		pd->global->info_pending = false;
@@ -1030,7 +1038,7 @@ static void endpoint_event_info(void *object,
 	}
 
 	if (pd->global == NULL)
-		pd->global = pw_map_lookup(&rd->globals, info->id);
+		pd->global = find_global(rd, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_endpoint(pd);
 		pd->global->info_pending = false;
@@ -1078,7 +1086,7 @@ static void endpoint_stream_event_info(void *object,
 	}
 
 	if (pd->global == NULL)
-		pd->global = pw_map_lookup(&rd->globals, info->id);
+		pd->global = find_global(rd, info->id);
 	if (pd->global && pd->global->info_pending) {
 		info_endpoint_stream(pd);
 		pd->global->info_pending = false;
@@ -1126,7 +1134,9 @@ static const struct pw_proxy_events proxy_events = {
 static bool do_list_objects(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
-	pw_map_for_each(&rd->globals, print_global, args);
+	struct global *g;
+	spa_list_for_each(g, &rd->globals, link)
+		print_global(g, args);
 	return true;
 }
 
@@ -1266,11 +1276,12 @@ static bool do_info(struct data *data, const char *cmd, char *args, char **error
 		return false;
 	}
 	if (spa_streq(a[0], "all")) {
-		pw_map_for_each(&rd->globals, do_global_info_all, NULL);
+		spa_list_for_each(global, &rd->globals, link)
+			do_global_info_all(global, NULL);
 	}
 	else {
 		id = atoi(a[0]);
-		global = pw_map_lookup(&rd->globals, id);
+		global = find_global(rd, id);
 		if (global == NULL) {
 			*error = spa_aprintf("%s: unknown global %d", cmd, id);
 			return false;
@@ -1372,7 +1383,7 @@ static bool do_destroy(struct data *data, const char *cmd, char *args, char **er
 		return false;
 	}
 	id = atoi(a[0]);
-	global = pw_map_lookup(&rd->globals, id);
+	global = find_global(rd, id);
 	if (global == NULL) {
 		*error = spa_aprintf("%s: unknown global %d", cmd, id);
 		return false;
@@ -1514,7 +1525,7 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 	}
 	param_id = ti->type;
 
-	global = pw_map_lookup(&rd->globals, id);
+	global = find_global(rd, id);
 	if (global == NULL) {
 		*error = spa_aprintf("%s: unknown global %d", cmd, id);
 		return false;
@@ -1675,7 +1686,7 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 
 	id = atoi(a[0]);
 
-	global = pw_map_lookup(&rd->globals, id);
+	global = find_global(rd, id);
 	if (global == NULL) {
 		*error = spa_aprintf("%s: unknown global %d", cmd, id);
 		return false;
@@ -1740,7 +1751,7 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 	}
 
 	id = atoi(a[0]);
-	global = pw_map_lookup(&rd->globals, id);
+	global = find_global(rd, id);
 	if (global == NULL) {
 		*error = spa_aprintf("%s: unknown global %d", cmd, id);
 		return false;
@@ -1780,7 +1791,7 @@ static bool do_get_permissions(struct data *data, const char *cmd, char *args, c
 	}
 
 	id = atoi(a[0]);
-	global = pw_map_lookup(&rd->globals, id);
+	global = find_global(rd, id);
 	if (global == NULL) {
 		*error = spa_aprintf("%s: unknown global %d", cmd, id);
 		return false;
@@ -1822,7 +1833,7 @@ obj_global(struct remote_data *rd, uint32_t id)
 	if (!rd)
 		return NULL;
 
-	global = pw_map_lookup(&rd->globals, id);
+	global = find_global(rd, id);
 	if (!global)
 		return NULL;
 
@@ -1912,7 +1923,6 @@ children_of(struct remote_data *rd, uint32_t parent_id,
 	    const char *child_type, uint32_t **children)
 {
 	const char *parent_type;
-	union pw_map_item *item;
 	struct global *global;
 	struct proxy_data *pd;
 	const char *parent_key = NULL, *child_key = NULL;
@@ -1972,12 +1982,7 @@ children_of(struct remote_data *rd, uint32_t parent_id,
 				return -1;
 		}
 		i = 0;
-		pw_array_for_each(item, &rd->globals.items) {
-			if (pw_map_item_is_free(item) || item->data == NULL)
-				continue;
-
-			global = item->data;
-
+		spa_list_for_each(global, &rd->globals, link) {
 			if (!spa_streq(global->type, child_type))
 				continue;
 
@@ -2777,7 +2782,6 @@ dump(struct data *data, struct global *global,
 static bool do_dump(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
-	union pw_map_item *item;
 	struct global *global;
 	char *aa[32], **a;
 	char c;
@@ -2845,12 +2849,7 @@ static bool do_dump(struct data *data, const char *cmd, char *args, char **error
 			flags |= is_notype;
 	}
 
-	pw_array_for_each(item, &rd->globals.items) {
-		if (pw_map_item_is_free(item) || item->data == NULL)
-			continue;
-
-		global = item->data;
-
+	spa_list_for_each(global, &rd->globals, link) {
 		/* unknown type, ignore completely */
 		idx = dump_type_index(global->type);
 		if (idx < 0)

@@ -36,6 +36,8 @@
 PW_LOG_TOPIC_EXTERN(log_global);
 #define PW_LOG_TOPIC_DEFAULT log_global
 
+static uint32_t serial = 0;
+
 /** \cond */
 struct impl {
 	struct pw_global this;
@@ -94,11 +96,10 @@ pw_global_new(struct pw_context *context,
 	this->func = func;
 	this->object = object;
 	this->properties = properties;
+	this->id = serial++ & 0xffffff;
 
 	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
-
-	pw_context_add_global(context, this);
 
 	pw_log_debug("%p: new %s %d", this, this->type, this->id);
 
@@ -125,6 +126,7 @@ int pw_global_register(struct pw_global *global)
 	if (global->registered)
 		return -EEXIST;
 
+	spa_list_append(&context->global_list, &global->link);
 	global->registered = true;
 
 	spa_list_for_each(registry, &context->registry_resource_list, link) {
@@ -161,6 +163,7 @@ static int global_unregister(struct pw_global *global)
 			pw_registry_resource_global_remove(resource, global->id);
 	}
 
+	spa_list_remove(&global->link);
 	global->registered = false;
 
 	pw_log_debug("%p: unregistered %u", global, global->id);
@@ -365,7 +368,6 @@ void pw_global_destroy(struct pw_global *global)
 	struct pw_resource *resource;
 
 	global->destroyed = true;
-	pw_context_remove_global(global->context, global);
 
 	pw_log_debug("%p: destroy %u", global, global->id);
 	pw_global_emit_destroy(global);

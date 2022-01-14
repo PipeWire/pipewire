@@ -571,8 +571,6 @@ int pw_context_for_each_global(struct pw_context *context,
 	int res;
 
 	spa_list_for_each_safe(g, t, &context->global_list, link) {
-		if (!g->registered)
-			continue;
 		if (!global_can_read(context, g))
 			continue;
 		if ((res = callback(data, g)) != 0)
@@ -591,35 +589,11 @@ static struct pw_global *find_global(struct pw_context *context, uint32_t id)
 	return NULL;
 }
 
-static uint32_t next_global_id(struct pw_context *context)
-{
-	uint32_t id, retry = 0;
-
-	while (true) {
-		id = context->serial++ & 0xffffff;
-		if (find_global(context, id) == NULL)
-			return id;
-		if (retry++ > 4096)
-			break;
-	}
-	return SPA_ID_INVALID;
-}
-
-uint32_t pw_context_add_global(struct pw_context *context, struct pw_global *global)
-{
-	global->id = next_global_id(context);
-	spa_list_append(&context->global_list, &global->link);
-}
-
-void pw_context_remove_global(struct pw_context *context, struct pw_global *global)
-{
-	spa_list_remove(&global->link);
-}
-
 SPA_EXPORT
 struct pw_global *pw_context_find_global(struct pw_context *context, uint32_t id)
 {
 	struct pw_global *global;
+
 
 	global = find_global(context, id);
 	if (global == NULL || !global->registered) {

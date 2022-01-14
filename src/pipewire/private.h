@@ -321,7 +321,6 @@ struct pw_global {
 
 	struct spa_list link;		/**< link in context list of globals */
 	struct spa_list sorted_link;	/**< link in context list of sorted_globals */
-	struct spa_list map_link;	/**< link in context list of global_map */
 	uint32_t id;			/**< server id of the object */
 
 	struct pw_properties *properties;	/**< properties of the global */
@@ -453,8 +452,6 @@ struct pw_context {
 	struct pw_array factory_lib;	/**< mapping of factory_name regexp to library */
 
 	uint32_t serial;
-#define GLOBAL_HASH_SIZE	127
-	struct spa_list global_map[GLOBAL_HASH_SIZE];
 	struct spa_list sorted_globals;
 	struct pw_array objects;	/**< objects */
 

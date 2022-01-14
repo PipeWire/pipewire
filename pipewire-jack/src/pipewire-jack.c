@@ -122,6 +122,7 @@ struct object {
 #define INTERFACE_Link		2
 	uint32_t type;
 	uint32_t id;
+	uint32_t serial;
 
 	union {
 		struct {
@@ -133,6 +134,8 @@ struct object {
 		struct {
 			uint32_t src;
 			uint32_t dst;
+			uint32_t src_serial;
+			uint32_t dst_serial;
 			bool src_ours;
 			bool dst_ours;
 			bool is_complete;
@@ -449,7 +452,8 @@ static void recycle_objects(struct client *c, uint32_t remain)
 	pthread_mutex_lock(&globals.lock);
 	spa_list_for_each_safe(o, t, &c->context.objects, link) {
 		if (o->removed) {
-			pw_log_info("%p: recycle object:%p type:%d id:%u", c, o, o->type, o->id);
+			pw_log_info("%p: recycle object:%p type:%d id:%u/%u",
+					c, o, o->type, o->id, o->serial);
 			spa_list_remove(&o->link);
 			memset(o, 0, sizeof(struct object));
 			spa_list_append(&globals.free_objects, &o->link);
@@ -469,6 +473,7 @@ static void free_object(struct client *c, struct object *o)
 	pthread_mutex_lock(&c->context.lock);
 	spa_list_remove(&o->link);
 	o->removed = true;
+	o->id = SPA_ID_INVALID;
 	spa_list_append(&c->context.objects, &o->link);
 	if (++c->context.free_count > RECYCLE_THRESHOLD)
 		recycle_objects(c, RECYCLE_THRESHOLD / 2);
@@ -657,7 +662,7 @@ static bool is_port_default(struct client *c, struct object *o)
 	return false;
 }
 
-static struct object *find_port(struct client *c, const char *name)
+static struct object *find_port_by_name(struct client *c, const char *name)
 {
 	struct object *o;
 
@@ -674,7 +679,7 @@ static struct object *find_port(struct client *c, const char *name)
 	return NULL;
 }
 
-static struct object *find_object(struct client *c, uint32_t id)
+static struct object *find_by_id(struct client *c, uint32_t id)
 {
 	struct object *o;
 	spa_list_for_each(o, &c->context.objects, link) {
@@ -684,9 +689,22 @@ static struct object *find_object(struct client *c, uint32_t id)
 	return NULL;
 }
 
+static struct object *find_by_serial(struct client *c, uint32_t serial, uint32_t type)
+{
+	struct object *o;
+	spa_list_for_each(o, &c->context.objects, link) {
+		if (o->serial == serial) {
+			if (o->type == type)
+				return o;
+			return NULL;
+		}
+	}
+	return NULL;
+}
+
 static struct object *find_id(struct client *c, uint32_t id, bool valid)
 {
-	struct object *o = find_object(c, id);
+	struct object *o = find_by_id(c, id);
 	if (o != NULL && (!valid || o->client == c))
 		return o;
 	return NULL;
@@ -2427,10 +2445,11 @@ static int client_node_port_set_mix_info(void *object,
 
 		if (!l->port_link.is_complete) {
 			l->port_link.is_complete = true;
-			pw_log_info("%p: our link %d -> %d completed", c,
-					l->port_link.src, l->port_link.dst);
+			pw_log_info("%p: our link %u/%u -> %u/%u completed", c,
+					l->port_link.src, l->port_link.src_serial,
+					l->port_link.dst, l->port_link.dst_serial);
 			do_callback(c, connect_callback,
-					l->port_link.src, l->port_link.dst, 1, c->connect_arg);
+					l->port_link.src_serial, l->port_link.dst_serial, 1, c->connect_arg);
 			recompute_latencies(c);
 			do_callback(c, graph_callback, c->graph_arg);
 		}
@@ -2641,9 +2660,16 @@ static void registry_event_global(void *data, uint32_t id,
 	struct object *o, *ot, *op;
 	const char *str;
 	bool is_first = false, graph_changed = false;
+	uint32_t serial;
 
 	if (props == NULL)
 		return;
+
+	str = spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL);
+	if (!spa_atou32(str, &serial, 0))
+		serial = SPA_ID_INVALID;
+
+	pw_log_debug("new %s id:%u serial:%u", type, id, serial);
 
 	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
 		const char *app, *node_name;
@@ -2760,7 +2786,7 @@ static void registry_event_global(void *data, uint32_t id,
 		o = NULL;
 		if (node_id == c->node_id) {
 			snprintf(tmp, sizeof(tmp), "%s:%s", c->name, str);
-			o = find_port(c, tmp);
+			o = find_port_by_name(c, tmp);
 			if (o != NULL)
 				pw_log_info("%p: %s found our port %p", c, tmp, o);
 		}
@@ -2806,10 +2832,10 @@ static void registry_event_global(void *data, uint32_t id,
 			if (c->filter_name)
 				filter_name(tmp, FILTER_PORT);
 
-			op = find_port(c, tmp);
+			op = find_port_by_name(c, tmp);
 			if (op != NULL)
-				snprintf(o->port.name, sizeof(o->port.name), "%.*s-%d",
-						(int)(sizeof(tmp)-11), tmp, id);
+				snprintf(o->port.name, sizeof(o->port.name), "%.*s-%u",
+						(int)(sizeof(tmp)-11), tmp, serial);
 			else
 				snprintf(o->port.name, sizeof(o->port.name), "%s", tmp);
 		}
@@ -2851,6 +2877,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 		if ((p = find_type(c, o->port_link.src, INTERFACE_Port, true)) == NULL)
 			goto exit_free;
+		o->port_link.src_serial = p->serial;
 
 		o->port_link.src_ours = p->port.port != NULL &&
 			p->port.port->client == c;
@@ -2863,6 +2890,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 		if ((p = find_type(c, o->port_link.dst, INTERFACE_Port, true)) == NULL)
 			goto exit_free;
+		o->port_link.dst_serial = p->serial;
 
 		o->port_link.dst_ours = p->port.port != NULL &&
 			p->port.port->client == c;
@@ -2870,8 +2898,9 @@ static void registry_event_global(void *data, uint32_t id,
 			o->port_link.our_input = p->port.port;
 
 		o->port_link.is_complete = !o->port_link.src_ours && !o->port_link.dst_ours;
-		pw_log_debug("%p: add link %d %d->%d", c, id,
-				o->port_link.src, o->port_link.dst);
+		pw_log_debug("%p: add link %d %u/%u->%u/%u", c, id,
+				o->port_link.src, o->port_link.src_serial,
+				o->port_link.dst, o->port_link.dst_serial);
 	}
 	else if (spa_streq(type, PW_TYPE_INTERFACE_Metadata)) {
 		struct pw_proxy *proxy;
@@ -2900,6 +2929,7 @@ static void registry_event_global(void *data, uint32_t id,
 	}
 
 	o->id = id;
+	o->serial = serial;
 
 	switch (o->type) {
 	case INTERFACE_Node:
@@ -2912,19 +2942,21 @@ static void registry_event_global(void *data, uint32_t id,
 		break;
 
 	case INTERFACE_Port:
-		pw_log_info("%p: port added %d \"%s\"", c, o->id, o->port.name);
+		pw_log_info("%p: port added %u/%u \"%s\"", c, o->id, o->serial, o->port.name);
 		do_callback(c, portregistration_callback,
-				o->id, 1, c->portregistration_arg);
+				o->serial, 1, c->portregistration_arg);
 		graph_changed = true;
 		break;
 
 	case INTERFACE_Link:
-		pw_log_info("%p: link %u %d -> %d added complete:%d", c,
-				o->id, o->port_link.src, o->port_link.dst,
+		pw_log_info("%p: link %u %u/%u -> %u/%u added complete:%d", c,
+				o->id, o->port_link.src, o->port_link.src_serial,
+				o->port_link.dst, o->port_link.dst_serial,
 				o->port_link.is_complete);
 		if (o->port_link.is_complete) {
 			do_callback(c, connect_callback,
-					o->port_link.src, o->port_link.dst, 1, c->connect_arg);
+					o->port_link.src_serial,
+					o->port_link.dst_serial, 1, c->connect_arg);
 			graph_changed = true;
 		}
 		break;
@@ -2974,20 +3006,21 @@ static void registry_event_global_remove(void *object, uint32_t id)
 		}
 		break;
 	case INTERFACE_Port:
-		pw_log_info("%p: port %u removed \"%s\"", c, o->id, o->port.name);
+		pw_log_info("%p: port %u/%u removed \"%s\"", c, o->id, o->serial, o->port.name);
 		do_callback(c, portregistration_callback,
-				o->id, 0, c->portregistration_arg);
+				o->serial, 0, c->portregistration_arg);
 		graph_changed = true;
 		break;
 	case INTERFACE_Link:
 		if (o->port_link.is_complete &&
 		    find_type(c, o->port_link.src, INTERFACE_Port, true) != NULL &&
 		    find_type(c, o->port_link.dst, INTERFACE_Port, true) != NULL) {
-			pw_log_info("%p: link %u %d -> %d removed", c, o->id,
-					o->port_link.src, o->port_link.dst);
+			pw_log_info("%p: link %u %u/%u -> %u/%u removed", c, o->id,
+					o->port_link.src, o->port_link.src_serial,
+					o->port_link.dst, o->port_link.dst_serial);
 			o->port_link.is_complete = false;
 			do_callback(c, connect_callback,
-					o->port_link.src, o->port_link.dst, 0, c->connect_arg);
+					o->port_link.src_serial, o->port_link.dst_serial, 0, c->connect_arg);
 			graph_changed = true;
 		} else
 			pw_log_warn("unlink between unknown ports %d and %d",
@@ -3410,7 +3443,7 @@ char *jack_get_uuid_for_client_name (jack_client_t *client,
 		if (spa_streq(o->node.name, client_name) ||
 		    (monitor && spa_strneq(o->node.name, client_name,
 			    strlen(client_name) - strlen(MONITOR_EXT)))) {
-			uuid = spa_aprintf( "%" PRIu64, client_make_uuid(o->id, monitor));
+			uuid = spa_aprintf( "%" PRIu64, client_make_uuid(o->serial, monitor));
 			break;
 		}
 	}
@@ -3441,7 +3474,7 @@ char *jack_get_client_name_by_uuid (jack_client_t *client,
 	spa_list_for_each(o, &c->context.objects, link) {
 		if (o->type != INTERFACE_Node)
 			continue;
-		if (client_make_uuid(o->id, monitor) == uuid) {
+		if (client_make_uuid(o->serial, monitor) == uuid) {
 			pw_log_debug("%p: uuid %s (%"PRIu64")-> %s",
 					client, client_uuid, uuid, o->node.name);
 			name = spa_aprintf("%s%s", o->node.name, monitor ? MONITOR_EXT : "");
@@ -4350,7 +4383,7 @@ jack_uuid_t jack_port_uuid (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
 	spa_return_val_if_fail(o != NULL, 0);
-	return jack_port_uuid_generate(o->id);
+	return jack_port_uuid_generate(o->serial);
 }
 
 SPA_EXPORT
@@ -4423,13 +4456,13 @@ int jack_port_connected (const jack_port_t *port)
 			continue;
 		if (!l->port_link.is_complete)
 			continue;
-		if (l->port_link.src == o->id ||
-		    l->port_link.dst == o->id)
+		if (l->port_link.src_serial == o->serial ||
+		    l->port_link.dst_serial == o->serial)
 			res++;
 	}
 	pthread_mutex_unlock(&c->context.lock);
 
-	pw_log_debug("%p: id:%d res:%d", port, o->id, res);
+	pw_log_debug("%p: id:%u/%u res:%d", port, o->id, o->serial, res);
 
 	return res;
 }
@@ -4452,7 +4485,7 @@ int jack_port_connected_to (const jack_port_t *port,
 
 	pthread_mutex_lock(&c->context.lock);
 
-	p = find_port(c, port_name);
+	p = find_port_by_name(c, port_name);
 	if (p == NULL)
 		goto exit;
 
@@ -4470,7 +4503,8 @@ int jack_port_connected_to (const jack_port_t *port,
 
      exit:
 	pthread_mutex_unlock(&c->context.lock);
-	pw_log_debug("%p: id:%d name:%s res:%d", port, o->id, port_name, res);
+	pw_log_debug("%p: id:%u/%u name:%s res:%d", port, o->id,
+			o->serial, port_name, res);
 
 	return res;
 }
@@ -4506,9 +4540,9 @@ const char ** jack_port_get_all_connections (const jack_client_t *client,
 	spa_list_for_each(l, &c->context.objects, link) {
 		if (l->type != INTERFACE_Link || l->removed)
 			continue;
-		if (l->port_link.src == o->id)
+		if (l->port_link.src_serial == o->serial)
 			p = find_type(c, l->port_link.dst, INTERFACE_Port, true);
-		else if (l->port_link.dst == o->id)
+		else if (l->port_link.dst_serial == o->serial)
 			p = find_type(c, l->port_link.src, INTERFACE_Port, true);
 		else
 			continue;
@@ -4752,7 +4786,7 @@ int jack_port_request_monitor_by_name (jack_client_t *client,
 	spa_return_val_if_fail(port_name != NULL, -EINVAL);
 
 	pthread_mutex_lock(&c->context.lock);
-	p = find_port(c, port_name);
+	p = find_port_by_name(c, port_name);
 	pthread_mutex_unlock(&c->context.lock);
 
 	if (p == NULL) {
@@ -4851,8 +4885,8 @@ int jack_connect (jack_client_t *client,
 
 	pw_thread_loop_lock(c->context.loop);
 
-	src = find_port(c, source_port);
-	dst = find_port(c, destination_port);
+	src = find_port_by_name(c, source_port);
+	dst = find_port_by_name(c, destination_port);
 
 	if (src == NULL || dst == NULL ||
 	    !(src->port.flags & JackPortIsOutput) ||
@@ -4925,8 +4959,8 @@ int jack_disconnect (jack_client_t *client,
 
 	pw_thread_loop_lock(c->context.loop);
 
-	src = find_port(c, source_port);
-	dst = find_port(c, destination_port);
+	src = find_port_by_name(c, source_port);
+	dst = find_port_by_name(c, destination_port);
 
 	pw_log_debug("%p: %d %d", client, src->id, dst->id);
 
@@ -4973,8 +5007,8 @@ int jack_port_disconnect (jack_client_t *client, jack_port_t *port)
 	spa_list_for_each(l, &c->context.objects, link) {
 		if (l->type != INTERFACE_Link || l->removed)
 			continue;
-		if (l->port_link.src == o->id ||
-		    l->port_link.dst == o->id) {
+		if (l->port_link.src_serial == o->serial ||
+		    l->port_link.dst_serial == o->serial) {
 			pw_registry_destroy(c->registry, l->id);
 		}
 	}
@@ -5233,7 +5267,7 @@ static int port_compare_func(const void *v1, const void *v2)
 		if (res == 0)
 			res = (*o1)->port.system_id - (*o2)->port.system_id;
 		if (res == 0)
-			res = (*o1)->id - (*o2)->id;
+			res = (*o1)->serial - (*o2)->serial;
 	}
 
 
@@ -5242,7 +5276,7 @@ static int port_compare_func(const void *v1, const void *v2)
 			(*o1)->port.type_id, (*o2)->port.type_id,
 			is_def1, is_def2,
 			(*o1)->port.priority, (*o2)->port.priority,
-			(*o1)->id, (*o2)->id, res);
+			(*o1)->serial, (*o2)->serial, res);
 	return res;
 }
 
@@ -5348,7 +5382,7 @@ jack_port_t * jack_port_by_name (jack_client_t *client, const char *port_name)
 	spa_return_val_if_fail(c != NULL, NULL);
 
 	pthread_mutex_lock(&c->context.lock);
-	res = find_port(c, port_name);
+	res = find_port_by_name(c, port_name);
 	pthread_mutex_unlock(&c->context.lock);
 
 	if (res == NULL)
@@ -5367,7 +5401,7 @@ jack_port_t * jack_port_by_id (jack_client_t *client,
 	spa_return_val_if_fail(c != NULL, NULL);
 
 	pthread_mutex_lock(&c->context.lock);
-	res = find_type(c, port_id, INTERFACE_Port, false);
+	res = find_by_serial(c, port_id, INTERFACE_Port);
 	pw_log_debug("%p: port %d -> %p", c, port_id, res);
 	pthread_mutex_unlock(&c->context.lock);
 

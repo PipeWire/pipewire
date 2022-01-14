@@ -36,7 +36,7 @@
 PW_LOG_TOPIC_EXTERN(log_global);
 #define PW_LOG_TOPIC_DEFAULT log_global
 
-static uint32_t serial = 0;
+static uint64_t serial = 0;
 
 /** \cond */
 struct impl {
@@ -96,7 +96,9 @@ pw_global_new(struct pw_context *context,
 	this->func = func;
 	this->object = object;
 	this->properties = properties;
-	this->id = serial++ & 0xffffff;
+	this->id = serial++;
+	if ((uint32_t)this->id == SPA_ID_INVALID)
+		this->id = serial++;
 
 	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);

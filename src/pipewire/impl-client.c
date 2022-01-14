@@ -58,46 +58,36 @@ static struct pw_permission *
 find_permission(struct pw_impl_client *client, uint32_t id)
 {
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
-	struct pw_permission *p;
-	uint32_t idx = id + 1;
+	struct pw_permission *p, *def = NULL;
 
-	if (id == PW_ID_ANY)
-		goto do_default;
-
-	if (!pw_array_check_index(&impl->permissions, idx, struct pw_permission))
-		goto do_default;
-
-	p = pw_array_get_unchecked(&impl->permissions, idx, struct pw_permission);
-	if (p->permissions == PW_PERM_INVALID)
-		goto do_default;
-
-	return p;
-
-do_default:
-	return pw_array_get_unchecked(&impl->permissions, 0, struct pw_permission);
+	pw_array_for_each(p, &impl->permissions) {
+		if (p->id == id && p->permissions != PW_PERM_INVALID)
+			return p;
+		else if (def == NULL && p->id == PW_ID_ANY)
+			def = p;
+	}
+	return def;
 }
 
 static struct pw_permission *ensure_permissions(struct pw_impl_client *client, uint32_t id)
 {
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
-	struct pw_permission *p;
-	uint32_t idx = id + 1;
-	size_t len, i;
+	struct pw_permission *p, *free = NULL;
 
-	len = pw_array_get_len(&impl->permissions, struct pw_permission);
-	if (len <= idx) {
-		size_t diff = idx - len + 1;
-
-		p = pw_array_add(&impl->permissions, diff * sizeof(struct pw_permission));
-		if (p == NULL)
-			return NULL;
-
-		for (i = 0; i < diff; i++) {
-			p[i] = PW_PERMISSION_INIT(len + i - 1, PW_PERM_INVALID);
-		}
+	pw_array_for_each(p, &impl->permissions) {
+		if (p->id == id)
+			return p;
+		else if (free == NULL && p->permissions == PW_PERM_INVALID)
+			free = p;
 	}
-	p = pw_array_get_unchecked(&impl->permissions, idx, struct pw_permission);
-	return p;
+	if (free == NULL) {
+		if ((free = pw_array_add(&impl->permissions,
+						sizeof(struct pw_permission))) == NULL)
+			return NULL;
+	}
+	free->id = id;
+	free->permissions = PW_PERM_INVALID;
+	return free;
 }
 
 /** \endcond */
@@ -414,7 +404,7 @@ struct pw_impl_client *pw_context_create_client(struct pw_impl_core *core,
 		goto error_free;
 	}
 
-	pw_array_init(&impl->permissions, 1024);
+	pw_array_init(&impl->permissions, 64);
 	p = pw_array_add(&impl->permissions, sizeof(struct pw_permission));
 	if (p == NULL) {
 		res = -errno;
@@ -689,8 +679,7 @@ int pw_impl_client_update_permissions(struct pw_impl_client *client,
 				pw_log_warn("%p: invalid global %d", client, permissions[i].id);
 				continue;
 			}
-			p = ensure_permissions(client, permissions[i].id);
-			if (p == NULL) {
+			if ((p = ensure_permissions(client, permissions[i].id)) == NULL) {
 				pw_log_warn("%p: can't ensure permission: %m", client);
 				return -errno;
 			}

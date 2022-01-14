@@ -371,7 +371,7 @@ static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 
 	frame_size = s->frame_size;
 	minreq = frac_to_bytes_round_up(defs->min_req, &s->ss);
-	max_latency = defs->max_quantum * frame_size;
+	max_latency = defs->quantum_limit * frame_size;
 
 	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
 		attr->maxlength = MAXLENGTH;
@@ -702,8 +702,6 @@ static void manager_added(void *data, struct pw_manager_object *o)
 		if (info->props) {
 			if ((str = spa_dict_lookup(info->props, "default.clock.rate")) != NULL)
 				client->impl->defs.sample_spec.rate = atoi(str);
-			if ((str = spa_dict_lookup(info->props, "default.clock.max-quantum")) != NULL)
-				client->impl->defs.max_quantum = atoi(str);
 			if ((str = spa_dict_lookup(info->props, "default.clock.quantum-limit")) != NULL)
 				client->impl->defs.quantum_limit = atoi(str);
 		}
@@ -5145,7 +5143,6 @@ static void load_defaults(struct defs *def, struct pw_properties *props)
 	parse_format(props, "pulse.default.format", DEFAULT_FORMAT, &def->sample_spec);
 	parse_position(props, "pulse.default.position", DEFAULT_POSITION, &def->channel_map);
 	def->sample_spec.channels = def->channel_map.channels;
-	def->max_quantum = 8192;
 	def->quantum_limit = 8192;
 }
 

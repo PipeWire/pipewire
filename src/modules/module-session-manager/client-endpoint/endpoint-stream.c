@@ -304,6 +304,8 @@ int endpoint_stream_init(struct endpoint_stream *this,
 
 	pw_properties_setf(this->props, PW_KEY_OBJECT_ID, "%u",
 			pw_global_get_id(this->global));
+	pw_properties_setf(this->props, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
+			pw_global_get_serial(this->global));
 
 	this->info.version = PW_VERSION_ENDPOINT_STREAM_INFO;
 	this->info.id = pw_global_get_id(this->global);

@@ -556,6 +556,7 @@ int pw_impl_device_register(struct pw_impl_device *device,
 		       struct pw_properties *properties)
 {
 	static const char * const keys[] = {
+		PW_KEY_OBJECT_SERIAL,
 		PW_KEY_OBJECT_PATH,
 		PW_KEY_MODULE_ID,
 		PW_KEY_FACTORY_ID,
@@ -588,6 +589,8 @@ int pw_impl_device_register(struct pw_impl_device *device,
 
 	device->info.id = device->global->id;
 	pw_properties_setf(device->properties, PW_KEY_OBJECT_ID, "%d", device->info.id);
+	pw_properties_setf(device->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
+			pw_global_get_serial(device->global));
 	device->info.props = &device->properties->dict;
 
 	pw_global_update_keys(device->global, device->info.props, keys);

@@ -546,6 +546,9 @@ int pw_impl_metadata_register(struct pw_impl_metadata *metadata,
 	spa_list_append(&context->metadata_list, &metadata->link);
 	metadata->registered = true;
 
+	pw_properties_setf(metadata->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
+			pw_global_get_serial(metadata->global));
+
 	pw_global_update_keys(metadata->global, &metadata->properties->dict, keys);
 
 	pw_global_add_listener(metadata->global, &metadata->global_listener, &global_events, metadata);

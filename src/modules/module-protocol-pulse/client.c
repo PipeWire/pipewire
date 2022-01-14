@@ -129,11 +129,15 @@ void client_disconnect(struct client *client)
 
 	pw_map_for_each(&client->streams, client_free_stream, client);
 
-	if (client->source)
+	if (client->source) {
 		pw_loop_destroy_source(impl->loop, client->source);
+		client->source = NULL;
+	}
 
-	if (client->manager)
+	if (client->manager) {
 		pw_manager_destroy(client->manager);
+		client->manager = NULL;
+	}
 }
 
 void client_free(struct client *client)

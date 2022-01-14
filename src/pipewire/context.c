@@ -198,6 +198,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	struct pw_properties *pr, *conf;
 	struct spa_cpu *cpu;
 	int res = 0;
+	struct spa_list *m;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
 	if (impl == NULL) {
@@ -214,6 +215,9 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	pw_array_init(&this->factory_lib, 32);
 	pw_array_init(&this->objects, 32);
+
+	SPA_FOR_EACH_ELEMENT(this->global_map, m)
+		spa_list_init(m);
 
 	spa_list_init(&this->core_impl_list);
 	spa_list_init(&this->protocol_list);
@@ -479,7 +483,6 @@ void pw_context_destroy(struct pw_context *context)
 		free(entry->lib);
 	}
 	pw_array_clear(&context->factory_lib);
-
 	pw_array_clear(&context->objects);
 
 	spa_hook_list_clean(&context->listener_list);
@@ -584,7 +587,10 @@ int pw_context_for_each_global(struct pw_context *context,
 static struct pw_global *find_global(struct pw_context *context, uint32_t id)
 {
 	struct pw_global *g;
-	spa_list_for_each(g, &context->global_list, link) {
+	struct spa_list *l;
+
+	l = &context->global_map[id % GLOBAL_HASH_SIZE];
+	spa_list_for_each(g, l, map_link) {
 		if (g->id == id)
 			return g;
 	}
@@ -618,6 +624,7 @@ uint32_t pw_context_add_global(struct pw_context *context, struct pw_global *glo
 	global->id = context->serial;
 	context->serial = (context->serial+1) & PW_ID_MASK;
 
+	spa_list_prepend(&context->global_map[global->id % GLOBAL_HASH_SIZE], &global->map_link);
 	spa_list_append(&context->sorted_globals, &global->sorted_link);
 	spa_list_append(&context->global_list, &global->link);
 	return global->id;
@@ -627,6 +634,7 @@ void pw_context_remove_global(struct pw_context *context, struct pw_global *glob
 {
 	spa_list_remove(&global->link);
 	spa_list_remove(&global->sorted_link);
+	spa_list_remove(&global->map_link);
 }
 
 SPA_EXPORT

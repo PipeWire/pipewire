@@ -115,7 +115,7 @@ void stream_free(struct stream *stream);
 void stream_flush(struct stream *stream);
 uint32_t stream_pop_missing(struct stream *stream);
 
-int stream_send_underflow(struct stream *stream, int64_t offset, uint32_t underrun_for);
+int stream_send_underflow(struct stream *stream, int64_t offset);
 int stream_send_overflow(struct stream *stream);
 int stream_send_killed(struct stream *stream);
 int stream_send_started(struct stream *stream);

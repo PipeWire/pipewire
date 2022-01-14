@@ -1139,7 +1139,7 @@ do_process_done(struct spa_loop *loop,
 			stream->underrun_for = 0;
 			stream->playing_for = 0;
 			if (pd->underrun)
-				stream_send_underflow(stream, stream->read_index, pd->underrun_for);
+				stream_send_underflow(stream, stream->read_index);
 			else
 				stream_send_started(stream);
 		}

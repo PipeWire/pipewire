@@ -183,15 +183,15 @@ uint32_t stream_pop_missing(struct stream *stream)
 	return missing;
 }
 
-int stream_send_underflow(struct stream *stream, int64_t offset, uint32_t underrun_for)
+int stream_send_underflow(struct stream *stream, int64_t offset)
 {
 	struct client *client = stream->client;
 	struct impl *impl = client->impl;
 	struct message *reply;
 
 	if (ratelimit_test(&impl->rate_limit, stream->timestamp, SPA_LOG_LEVEL_INFO)) {
-		pw_log_info("[%s]: UNDERFLOW channel:%u offset:%" PRIi64 " underrun:%u",
-			    client->name, stream->channel, offset, underrun_for);
+		pw_log_info("[%s]: UNDERFLOW channel:%u offset:%" PRIi64,
+			    client->name, stream->channel, offset);
 	}
 
 	reply = message_alloc(impl, -1, 0);

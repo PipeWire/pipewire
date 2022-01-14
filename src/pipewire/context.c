@@ -221,7 +221,6 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	spa_list_init(&this->core_list);
 	spa_list_init(&this->registry_resource_list);
 	spa_list_init(&this->global_list);
-	spa_list_init(&this->sorted_globals);
 	spa_list_init(&this->module_list);
 	spa_list_init(&this->device_list);
 	spa_list_init(&this->client_list);
@@ -592,34 +591,23 @@ static struct pw_global *find_global(struct pw_context *context, uint32_t id)
 	return NULL;
 }
 
+static uint32_t next_global_id(struct pw_context *context)
+{
+	uint32_t id, start = context->serial;
+	while (true) {
+		id = context->serial;
+		context->serial = (context->serial+1) & 0xffffff;
+		if (find_global(context, id) == NULL)
+			return id;
+		if (context->serial == start)
+			break;
+	}
+	return SPA_ID_INVALID;
+}
+
 uint32_t pw_context_add_global(struct pw_context *context, struct pw_global *global)
 {
-	uint32_t count = 0;
-
-	while (true) {
-		struct pw_global *g;
-
-		if (spa_list_is_empty(&context->sorted_globals))
-			break;
-
-		g = spa_list_first(&context->sorted_globals, struct pw_global, sorted_link);
-		if (g->id != context->serial)
-			break;
-		context->serial = (context->serial+1) & PW_ID_MASK;
-
-		/* we have found a global with the next serial, move it to the back
-		 * of the sorted list */
-		spa_list_remove(&g->sorted_link);
-		spa_list_append(&context->sorted_globals, &g->sorted_link);
-
-		/* if we tried PW_ID_MASK times, we're out of ids */
-		if (++count == PW_ID_MASK)
-			return SPA_ID_INVALID;
-	}
-	global->id = context->serial;
-	context->serial = (context->serial+1) & PW_ID_MASK;
-
-	spa_list_append(&context->sorted_globals, &global->sorted_link);
+	global->id = next_global_id(context);
 	spa_list_append(&context->global_list, &global->link);
 	return global->id;
 }
@@ -627,7 +615,6 @@ uint32_t pw_context_add_global(struct pw_context *context, struct pw_global *glo
 void pw_context_remove_global(struct pw_context *context, struct pw_global *global)
 {
 	spa_list_remove(&global->link);
-	spa_list_remove(&global->sorted_link);
 }
 
 SPA_EXPORT

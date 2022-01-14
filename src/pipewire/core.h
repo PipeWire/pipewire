@@ -68,9 +68,6 @@ struct pw_registry;
 /* invalid ID that matches any object when used for permissions */
 #define PW_ID_ANY		(uint32_t)(0xffffffff)
 
-/* ID will only use these bits */
-#define PW_ID_MASK		(uint32_t)(0xffffff)
-
 /**  The core information. Extra information may be added in later versions,
  * clients must not assume a constant struct size */
 struct pw_core_info {

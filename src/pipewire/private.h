@@ -320,7 +320,6 @@ struct pw_global {
 	struct pw_context *context;		/**< the context */
 
 	struct spa_list link;		/**< link in context list of globals */
-	struct spa_list sorted_link;	/**< link in context list of sorted_globals */
 	uint32_t id;			/**< server id of the object */
 
 	struct pw_properties *properties;	/**< properties of the global */
@@ -452,7 +451,6 @@ struct pw_context {
 	struct pw_array factory_lib;	/**< mapping of factory_name regexp to library */
 
 	uint32_t serial;
-	struct spa_list sorted_globals;
 	struct pw_array objects;	/**< objects */
 
 	struct pw_impl_client *current_client;	/**< client currently executing code in mainloop */

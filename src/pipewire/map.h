@@ -189,7 +189,7 @@ static inline void pw_map_remove(struct pw_map *map, uint32_t id)
  * \param id the index to look at
  * \return the item at \a id or NULL when no such item exists
  */
-static inline void *pw_map_lookup(struct pw_map *map, uint32_t id)
+static inline void *pw_map_lookup(const struct pw_map *map, uint32_t id)
 {
 	if (SPA_LIKELY(pw_map_check_id(map, id))) {
 		union pw_map_item *item = pw_map_get_item(map, id);
@@ -207,8 +207,8 @@ static inline void *pw_map_lookup(struct pw_map *map, uint32_t id)
  * \param data data to pass to \a func
  * \return the result of the last call to \a func or 0 when all callbacks returned 0.
  */
-static inline int pw_map_for_each(struct pw_map *map,
-				   int (*func) (void *item_data, void *data), void *data)
+static inline int pw_map_for_each(const struct pw_map *map,
+				  int (*func) (void *item_data, void *data), void *data)
 {
 	union pw_map_item *item;
 	int res = 0;

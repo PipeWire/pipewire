@@ -98,17 +98,12 @@ pw_global_new(struct pw_context *context,
 	spa_list_init(&this->resource_list);
 	spa_hook_list_init(&this->listener_list);
 
-	if (pw_context_add_global(context, this) == SPA_ID_INVALID) {
-		res = -ENOMEM;
-		goto error_free;
-	}
+	pw_context_add_global(context, this);
 
 	pw_log_debug("%p: new %s %d", this, this->type, this->id);
 
 	return this;
 
-error_free:
-	free(this);
 error_cleanup:
 	pw_properties_free(properties);
 	errno = -res;

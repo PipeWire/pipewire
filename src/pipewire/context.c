@@ -593,13 +593,13 @@ static struct pw_global *find_global(struct pw_context *context, uint32_t id)
 
 static uint32_t next_global_id(struct pw_context *context)
 {
-	uint32_t id, start = context->serial;
+	uint32_t id, retry = 0;
+
 	while (true) {
-		id = context->serial;
-		context->serial = (context->serial+1) & 0xffffff;
+		id = context->serial++ & 0xffffff;
 		if (find_global(context, id) == NULL)
 			return id;
-		if (context->serial == start)
+		if (retry++ > 4096)
 			break;
 	}
 	return SPA_ID_INVALID;
@@ -609,7 +609,6 @@ uint32_t pw_context_add_global(struct pw_context *context, struct pw_global *glo
 {
 	global->id = next_global_id(context);
 	spa_list_append(&context->global_list, &global->link);
-	return global->id;
 }
 
 void pw_context_remove_global(struct pw_context *context, struct pw_global *global)

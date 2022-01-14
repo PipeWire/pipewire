@@ -24,7 +24,7 @@
 # DEALINGS IN THE SOFTWARE.
 #
 
-SAMPLERATE=48000
+DEFAULT_SAMPLERATE=48000
 
 while getopts 'hr:vs:p:' param ; do
 	case $param in
@@ -55,7 +55,7 @@ while getopts 'hr:vs:p:' param ; do
 			echo "	-h                  show brief help"
 			echo "	-r <remote>         remote daemon name"
 			echo "	-v                  verbose debug info"
-			echo "	-s                  samplerate (default \"$SAMPLERATE\")"
+			echo "	-s                  samplerate (default \"$DEFAULT_SAMPLERATE\")"
 			echo "	-p                  period in samples"
 			exit 0
 			;;
@@ -65,6 +65,12 @@ done
 shift $(( OPTIND - 1 ))
 
 if [ -n "$PERIOD" ]; then
+	if [ -n "$SAMPLERATE" ]; then
+		PIPEWIRE_RATE="1/$SAMPLERATE"
+		export PIPEWIRE_RATE
+	else
+		SAMPLERATE=$DEFAULT_SAMPLERATE
+	fi
 	PIPEWIRE_LATENCY="$PERIOD/$SAMPLERATE"
 	export PIPEWIRE_LATENCY
 fi

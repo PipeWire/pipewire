@@ -3183,6 +3183,8 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	if ((str = getenv("PIPEWIRE_LATENCY")) != NULL)
 		pw_properties_set(client->props, PW_KEY_NODE_LATENCY, str);
+	if ((str = getenv("PIPEWIRE_RATE")) != NULL)
+		pw_properties_set(client->props, PW_KEY_NODE_RATE, str);
 	if ((str = pw_properties_get(client->props, PW_KEY_NODE_LATENCY)) != NULL) {
 		uint32_t num, denom;
 		if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {

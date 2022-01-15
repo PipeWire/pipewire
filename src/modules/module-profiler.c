@@ -379,6 +379,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props;
 	struct impl *impl;
 	struct pw_loop *main_loop = pw_context_get_main_loop(context);
+	static const char * const keys[] = {
+		PW_KEY_OBJECT_SERIAL,
+		NULL
+	};
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -409,8 +413,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		free(impl);
 		return -errno;
 	}
+	pw_properties_setf(impl->properties, PW_KEY_OBJECT_ID, "%d", impl->global->id);
+	pw_properties_setf(impl->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
+			pw_global_get_serial(impl->global));
 
 	impl->flush_timeout = pw_loop_add_timer(main_loop, flush_timeout, impl);
+
+	pw_global_update_keys(impl->global, &impl->properties->dict, keys);
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 

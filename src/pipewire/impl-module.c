@@ -171,6 +171,11 @@ pw_context_load_module(struct pw_context *context,
 	const char *state = NULL, *p;
 	size_t len;
 	char path_part[PATH_MAX];
+	static const char * const keys[] = {
+		PW_KEY_OBJECT_SERIAL,
+		PW_KEY_MODULE_NAME,
+		NULL
+	};
 
 	module_dir = getenv("PIPEWIRE_MODULE_DIR");
 	if (module_dir == NULL) {
@@ -234,9 +239,7 @@ pw_context_load_module(struct pw_context *context,
 	this->global = pw_global_new(context,
 				     PW_TYPE_INTERFACE_Module,
 				     PW_VERSION_MODULE,
-				     pw_properties_new(
-					     PW_KEY_MODULE_NAME, name,
-					     NULL),
+				     NULL,
 				     global_bind,
 				     this);
 
@@ -250,6 +253,8 @@ pw_context_load_module(struct pw_context *context,
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(this->global));
 	this->info.props = &this->properties->dict;
+
+	pw_global_update_keys(this->global, &this->properties->dict, keys);
 
 	pw_impl_module_emit_initialized(this);
 

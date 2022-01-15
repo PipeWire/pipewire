@@ -45,9 +45,9 @@
 #include <pipewire/impl.h>
 #include <pipewire/thread.h>
 
-/** \page page_module_rtkit PipeWire Module: RTKit
+/** \page page_module_rt PipeWire Module: RT
  *
- * The `rtkit` module uses the operating system's scheduler to enable realtime
+ * The `rt` module uses the operating system's scheduler to enable realtime
  * scheduling for certain threads to assist with low latency audio processing.
  * This requires `RLIMIT_RTPRIO` to be set to a value that's equal to this
  * module's `rt.prio` parameter or higher. Most distros will come with some
@@ -55,8 +55,7 @@
  * up and DBus is available, then this module will fall back to using RTKit.
  */
 
-// TODO: Rename from rtkit/RTKit to rt/RT
-#define NAME "rtkit"
+#define NAME "rt"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic

@@ -68,10 +68,10 @@ context.modules = [
     # If nofail is given, module initialization failures are ignored.
     #
 
-    # Use realtime scheduling to boost the audio thread priorities. This uses
+    # Uses realtime scheduling to boost the audio thread priorities. This uses
     # RTKit if the user doesn't have permission to use regular realtime
     # scheduling.
-    { name = libpipewire-module-rtkit
+    { name = libpipewire-module-rt
         args = {
             #nice.level   = -11
             #rt.prio      = 88

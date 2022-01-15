@@ -34,8 +34,8 @@ context.modules = [
     # If ifexists is given, the module is ignored when it is not found.
     # If nofail is given, module initialization failures are ignored.
     #
-    # Uses RTKit to boost the data thread priority.
-    { name = libpipewire-module-rtkit
+    # Uses realtime scheduling to boost the audio thread priorities
+    { name = libpipewire-module-rt
         args = {
             #nice.level   = -11
             #rt.prio      = 88

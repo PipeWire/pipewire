@@ -323,7 +323,7 @@ rt_lib = cc.find_library('rt', required : false) # clock_gettime
 dl_lib = cc.find_library('dl', required : false)
 pthread_lib = dependency('threads')
 dbus_dep = dependency('dbus-1', required : get_option('dbus'))
-summary({'dbus (Bluetooth, rtkit, portal, pw-reserve)': dbus_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+summary({'dbus (Bluetooth, rt, portal, pw-reserve)': dbus_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 if dbus_dep.found()
   cdata.set('HAVE_DBUS', 1)
 endif

@@ -68,7 +68,9 @@ context.modules = [
     # If nofail is given, module initialization failures are ignored.
     #
 
-    # Uses RTKit to boost the data thread priority.
+    # Use realtime scheduling to boost the audio thread priorities. This uses
+    # RTKit if the user doesn't have permission to use regular realtime
+    # scheduling.
     { name = libpipewire-module-rtkit
         args = {
             #nice.level   = -11
@@ -78,17 +80,6 @@ context.modules = [
         }
         flags = [ ifexists nofail ]
     }
-
-    # Set thread priorities without using RTKit.
-    #{ name = libpipewire-module-rt
-    #    args = {
-    #        nice.level   = -11
-    #        rt.prio      = 88
-    #        rt.time.soft = 2000000
-    #        rt.time.hard = 2000000
-    #    }
-    #    flags = [ ifexists nofail ]
-    #}
 
     # The native communication protocol.
     { name = libpipewire-module-protocol-native }

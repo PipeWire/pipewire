@@ -20,7 +20,6 @@ module_sources = [
   'module-protocol-pulse.c',
   'module-protocol-simple.c',
   'module-pulse-tunnel.c',
-  'module-rt.c',
   'module-rtkit.c',
   'module-raop-discover.c',
   'module-session-manager.c',
@@ -136,18 +135,6 @@ pipewire_module_profiler = shared_library('pipewire-module-profiler',
   install_rpath: modules_install_dir,
   dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
 )
-
-build_module_rt = build_machine.system() == 'linux'
-if build_module_rt
-pipewire_module_rt = shared_library('pipewire-module-rt', [ 'module-rt.c' ],
-  include_directories : [configinc],
-  install : true,
-  install_dir : modules_install_dir,
-  install_rpath: modules_install_dir,
-  dependencies : [dl_lib, pipewire_dep],
-)
-endif
-summary({'rt': build_module_rt}, bool_yn: true, section: 'Optional Modules')
 
 build_module_rtkit = dbus_dep.found()
 if build_module_rtkit

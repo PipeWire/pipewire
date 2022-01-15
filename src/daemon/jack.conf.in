@@ -35,7 +35,7 @@ context.modules = [
     #
     #
     # Boost the data thread priority.
-    { name = libpipewire-module-rt
+    { name = libpipewire-module-rtkit
         args = {
             #nice.level   = -11
             #rt.prio      = 88

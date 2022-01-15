@@ -73,7 +73,6 @@ List of known modules:
 - \subpage page_module_raop_discover
 - \subpage page_module_roc_sink
 - \subpage page_module_roc_source
-- \subpage page_module_rt
 - \subpage page_module_rtkit
 - \subpage page_module_session_manager
 - \subpage page_module_zeroconf_discover

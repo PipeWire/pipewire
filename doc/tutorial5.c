@@ -83,19 +83,23 @@ int main(int argc, char *argv[])
 	const struct spa_pod *params[1];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct pw_properties *props;
 
 	pw_init(&argc, &argv);
 
 	data.loop = pw_main_loop_new(NULL);
 
+	props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Video",
+			PW_KEY_MEDIA_CATEGORY, "Capture",
+			PW_KEY_MEDIA_ROLE, "Camera",
+			NULL);
+	if (argc > 1)
+		pw_properties_set(props, PW_KEY_TARGET_OBJECT, argv[1]);
+
 	data.stream = pw_stream_new_simple(
 			pw_main_loop_get_loop(data.loop),
 			"video-capture",
-			pw_properties_new(
-				PW_KEY_MEDIA_TYPE, "Video",
-				PW_KEY_MEDIA_CATEGORY, "Capture",
-				PW_KEY_MEDIA_ROLE, "Camera",
-				NULL),
+			props,
 			&stream_events,
 			&data);
 
@@ -122,7 +126,7 @@ int main(int argc, char *argv[])
 
 	pw_stream_connect(data.stream,
 			  PW_DIRECTION_INPUT,
-			  argc > 1 ? (uint32_t)atoi(argv[1]) : PW_ID_ANY,
+			  PW_ID_ANY,
 			  PW_STREAM_FLAG_AUTOCONNECT |
 			  PW_STREAM_FLAG_MAP_BUFFERS,
 			  params, 1);

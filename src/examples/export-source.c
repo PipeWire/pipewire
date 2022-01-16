@@ -483,7 +483,7 @@ static void make_node(struct data *data)
 				  PW_KEY_MEDIA_ROLE, "Music",
 				  NULL);
 	if (data->path)
-		pw_properties_set(props, PW_KEY_NODE_TARGET, data->path);
+		pw_properties_set(props, PW_KEY_TARGET_OBJECT, data->path);
 
 	data->impl_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,

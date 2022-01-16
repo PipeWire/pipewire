@@ -118,8 +118,8 @@ Now we're ready to connect the stream and run the main loop:
 	pw_main_loop_run(data.loop);
 \endcode
 
-To connect we specify that we have a `PW_DIRECTION_OUTPUT` stream. `PW_ID_ANY`
-means that we are ok with connecting to any consumer. Next we set some flags:
+To connect we specify that we have a `PW_DIRECTION_OUTPUT` stream. The third argument
+is always `PW_ID_ANY`. Next we set some flags:
 
 - `PW_STREAM_FLAG_AUTOCONNECT`: Automatically connect this stream. This instructs
   the session manager to link us to some consumer.

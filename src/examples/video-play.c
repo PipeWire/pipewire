@@ -439,6 +439,7 @@ int main(int argc, char *argv[])
 	const struct spa_pod *params[2];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct pw_properties *props;
 	int res, n_params;
 
 	pw_init(&argc, &argv);
@@ -460,18 +461,20 @@ int main(int argc, char *argv[])
 	 * you need to listen to is the process event where you need to consume
 	 * the data provided to you.
 	 */
+	props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Video",
+			PW_KEY_MEDIA_CATEGORY, "Capture",
+			PW_KEY_MEDIA_ROLE, "Camera",
+			NULL),
+	data.path = argc > 1 ? argv[1] : NULL;
+	if (data.path)
+		pw_properties_set(props, PW_KEY_TARGET_OBJECT, data.path);
+
 	data.stream = pw_stream_new_simple(
 			pw_main_loop_get_loop(data.loop),
 			"video-play",
-			pw_properties_new(
-				PW_KEY_MEDIA_TYPE, "Video",
-				PW_KEY_MEDIA_CATEGORY, "Capture",
-				PW_KEY_MEDIA_ROLE, "Camera",
-				NULL),
+			props,
 			&stream_events,
 			&data);
-
-	data.path = argc > 1 ? argv[1] : NULL;
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		fprintf(stderr, "can't initialize SDL: %s\n", SDL_GetError());
@@ -494,7 +497,7 @@ int main(int argc, char *argv[])
 	 */
 	if ((res = pw_stream_connect(data.stream,
 			  PW_DIRECTION_INPUT,
-			  data.path ? (uint32_t)atoi(data.path) : PW_ID_ANY,
+			  PW_ID_ANY,
 			  PW_STREAM_FLAG_AUTOCONNECT |	/* try to automatically connect this stream */
 			  PW_STREAM_FLAG_INACTIVE |	/* we will activate ourselves */
 			  PW_STREAM_FLAG_MAP_BUFFERS,	/* mmap the buffer data for us */

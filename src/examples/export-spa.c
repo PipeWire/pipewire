@@ -93,7 +93,7 @@ static int make_node(struct data *data)
 
 	if (data->path) {
 		pw_properties_set(props, PW_KEY_NODE_AUTOCONNECT, "true");
-		pw_properties_set(props, PW_KEY_NODE_TARGET, data->path);
+		pw_properties_set(props, PW_KEY_TARGET_OBJECT, data->path);
 	}
 
 	data->proxy = pw_core_export(data->core,

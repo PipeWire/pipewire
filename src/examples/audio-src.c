@@ -120,6 +120,7 @@ int main(int argc, char *argv[])
 	struct data data = { 0, };
 	const struct spa_pod *params[1];
 	uint8_t buffer[1024];
+	struct pw_properties *props;
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
 	pw_init(&argc, &argv);
@@ -142,14 +143,17 @@ int main(int argc, char *argv[])
 	 * you need to listen to is the process event where you need to produce
 	 * the data.
 	 */
+	props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio",
+			PW_KEY_MEDIA_CATEGORY, "Playback",
+			PW_KEY_MEDIA_ROLE, "Music",
+			NULL);
+	if (argc > 1)
+		/* Set stream target if given on command line */
+		pw_properties_set(props, PW_KEY_TARGET_OBJECT, argv[1]);
 	data.stream = pw_stream_new_simple(
 			pw_main_loop_get_loop(data.loop),
 			"audio-src",
-			pw_properties_new(
-				PW_KEY_MEDIA_TYPE, "Audio",
-				PW_KEY_MEDIA_CATEGORY, "Playback",
-				PW_KEY_MEDIA_ROLE, "Music",
-				NULL),
+			props,
 			&stream_events,
 			&data);
 
@@ -165,7 +169,7 @@ int main(int argc, char *argv[])
 	 * called in a realtime thread. */
 	pw_stream_connect(data.stream,
 			  PW_DIRECTION_OUTPUT,
-			  argc > 1 ? (uint32_t)atoi(argv[1]) : PW_ID_ANY,
+			  PW_ID_ANY,
 			  PW_STREAM_FLAG_AUTOCONNECT |
 			  PW_STREAM_FLAG_MAP_BUFFERS |
 			  PW_STREAM_FLAG_RT_PROCESS,

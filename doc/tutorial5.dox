@@ -23,17 +23,24 @@ We create a stream object with different properties to make it a Camera
 Video Capture stream.
 
 \code{.c}
+	props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Video",
+			PW_KEY_MEDIA_CATEGORY, "Capture",
+			PW_KEY_MEDIA_ROLE, "Camera",
+			NULL);
+	if (argc > 1)
+		pw_properties_set(props, PW_KEY_TARGET_OBJECT, argv[1]);
+
 	data.stream = pw_stream_new_simple(
 			pw_main_loop_get_loop(data.loop),
 			"video-capture",
-			pw_properties_new(
-				PW_KEY_MEDIA_TYPE, "Video",
-				PW_KEY_MEDIA_CATEGORY, "Capture",
-				PW_KEY_MEDIA_ROLE, "Camera",
-				NULL),
+			props,
 			&stream_events,
 			&data);
 \endcode
+
+We also optionally allow the user to pass the name of the target node where the session
+manager is supposed to connect the node. The user may also give the value of the
+unique target node serial (`PW_KEY_OBJECT_SERIAL`) as the value.
 
 In addition to the `process` event, we are also going to listen to a new event,
 `param_changed`:
@@ -122,7 +129,7 @@ Now we're ready to connect the stream and run the main loop:
 \code{.c}
 	pw_stream_connect(data.stream,
 			  PW_DIRECTION_INPUT,
-			  argc > 1 ? (uint32_t)atoi(argv[1]) : PW_ID_ANY,
+			  PW_ID_ANY,
 			  PW_STREAM_FLAG_AUTOCONNECT |
 			  PW_STREAM_FLAG_MAP_BUFFERS,
 			  params, 1);
@@ -130,9 +137,8 @@ Now we're ready to connect the stream and run the main loop:
 	pw_main_loop_run(data.loop);
 \endcode
 
-To connect we specify that we have a `PW_DIRECTION_INPUT` stream. `PW_ID_ANY`
-means that we are ok with connecting to any producer. We also allow the user
-to pass an optional target id.
+To connect we specify that we have a `PW_DIRECTION_INPUT` stream. The third
+argument is always `PW_ID_ANY`.
 
 We're setting the `PW_STREAM_FLAG_AUTOCONNECT` flag to make an automatic
 connection to a suitable camera and `PW_STREAM_FLAG_MAP_BUFFERS` to let the

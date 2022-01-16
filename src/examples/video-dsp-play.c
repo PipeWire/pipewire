@@ -263,7 +263,7 @@ int main(int argc, char *argv[])
 				PW_KEY_MEDIA_CATEGORY, "Capture",
 				PW_KEY_MEDIA_ROLE, "DSP",
 				PW_KEY_NODE_AUTOCONNECT, data.target ? "true" : "false",
-				PW_KEY_NODE_TARGET, data.target,
+				PW_KEY_TARGET_OBJECT, data.target,
 				PW_KEY_MEDIA_CLASS, "Stream/Input/Video",
 				NULL),
 			&filter_events,

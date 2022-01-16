@@ -701,9 +701,9 @@ static int impl_acquire_rt(void *data, struct spa_thread *thread, int priority)
 		pid = impl_gettid(impl, pt);
 
 		if ((err = pw_rtkit_make_realtime(impl->system_bus, pid, priority)) < 0) {
-			pw_log_warn("could not make thread realtime: %s", spa_strerror(err));
+			pw_log_warn("could not make thread %d realtime using RTKit: %s", pid, spa_strerror(err));
 		} else {
-			pw_log_info("acquired realtime prio:%d", priority);
+			pw_log_info("acquired realtime priority %d for thread %d using RTKit", priority, pid);
 		}
 	} else {
 		if (priority < sched_get_priority_min(REALTIME_POLICY) ||
@@ -715,10 +715,10 @@ static int impl_acquire_rt(void *data, struct spa_thread *thread, int priority)
 		spa_zero(sp);
 		sp.sched_priority = priority;
 		if ((err = pthread_setschedparam(pt, REALTIME_POLICY | PW_SCHED_RESET_ON_FORK, &sp)) != 0) {
-			pw_log_warn("%p: could not make thread realtime: %s", thread, strerror(err));
+			pw_log_warn("could not make thread %p realtime: %s", thread, strerror(err));
 			return -err;
 		}
-		pw_log_info("thread %p has realtime priority %d", thread, priority);
+		pw_log_info("acquired realtime priority %d for thread %p", priority, thread);
 	}
 
 	return 0;

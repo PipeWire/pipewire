@@ -688,9 +688,12 @@ static int impl_acquire_rt(void *data, struct spa_thread *thread, int priority)
 	}
 
 	if (impl->use_rtkit) {
+		pid = impl_gettid(impl, pt);
 		rtprio_limit = pw_rtkit_get_max_realtime_priority(impl->system_bus);
-		if (rtprio_limit >= 0)
-			priority = SPA_MIN(rtprio_limit, priority);
+		if (rtprio_limit >= 0 && rtprio_limit < priority) {
+			pw_log_info("dropping requested priority %d for thread %d down to %d because of RTKit limits", priority, pid, rtprio_limit);
+			priority = rtprio_limit;
+		}
 
 		spa_zero(sp);
 		sp.sched_priority = priority;
@@ -698,8 +701,6 @@ static int impl_acquire_rt(void *data, struct spa_thread *thread, int priority)
 		if (pthread_setschedparam(pt, SCHED_OTHER | PW_SCHED_RESET_ON_FORK, &sp) == 0) {
 			pw_log_debug("SCHED_OTHER|SCHED_RESET_ON_FORK worked.");
 		}
-
-		pid = impl_gettid(impl, pt);
 
 		if ((err = pw_rtkit_make_realtime(impl->system_bus, pid, priority)) < 0) {
 			pw_log_warn("could not make thread %d realtime using RTKit: %s", pid, spa_strerror(err));

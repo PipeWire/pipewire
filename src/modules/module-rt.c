@@ -682,10 +682,6 @@ static int impl_acquire_rt(void *data, struct spa_thread *thread, int priority)
 	pthread_t pt = (pthread_t)thread;
 	pid_t pid;
 
-	// XXX: Why does the priority from the configuration override the passed
-	//      priority? The original `module-rt` just uses `priority`.
-	priority = impl->rt_prio;
-
 	if (impl->use_rtkit) {
 		rtprio_limit = pw_rtkit_get_max_realtime_priority(impl->system_bus);
 		if (rtprio_limit >= 0)

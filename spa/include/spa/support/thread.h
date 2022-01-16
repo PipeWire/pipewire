@@ -68,7 +68,9 @@ struct spa_thread_utils_methods {
 
 	/** get realtime priority range for threads created with \a props */
 	int (*get_rt_range) (void *data, const struct spa_dict *props, int *min, int *max);
-	/** acquire realtime priority */
+	/** acquire realtime priority, a priority of -1 refers to the priority
+	 * configured in the realtime module
+	 */
 	int (*acquire_rt) (void *data, struct spa_thread *thread, int priority);
 	/** drop realtime priority */
 	int (*drop_rt) (void *data, struct spa_thread *thread);

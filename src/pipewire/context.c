@@ -134,7 +134,8 @@ static int context_set_freewheel(struct pw_context *context, bool freewheel)
 		res = pw_thread_utils_drop_rt(thr);
 	} else {
 		pw_log_info("%p: exit freewheel", context);
-		res = pw_thread_utils_acquire_rt(thr, 88);
+		// Use the priority as configured within the realtime module
+		res = pw_thread_utils_acquire_rt(thr, -1);
 	}
 	if (res < 0)
 		pw_log_info("%p: freewheel error:%s", context, spa_strerror(res));

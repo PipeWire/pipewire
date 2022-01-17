@@ -109,6 +109,15 @@
  *
  */
 
+/**
+ * .--------.     .---------.     .--------.     .----------.     .-------.
+ * | source | --> | capture | --> |        | --> |  source  | --> |  app  |
+ * '--------'     '---------'     | echo   |     '----------'     '-------'
+ *                                | cancel |
+ * .--------.     .---------.     |        |     .----------.     .--------.
+ * |  app   | --> |  sink   | --> |        | --> | playback | --> |  sink  |
+ * '--------'     '---------'     '--------'     '----------'     '--------'
+ */
 #define NAME "echo-cancel"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -117,6 +126,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 /* Hopefully this is enough for any combination of AEC engine and resampler
  * input requirement for rate matching */
 #define MAX_BUFSIZE_MS 100
+#define DELAY_MS 0
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
@@ -126,6 +136,8 @@ static const struct spa_dict_item module_props[] = {
 				"[ audio.rate=<sample rate> ] "
 				"[ audio.channels=<number of channels> ] "
 				"[ audio.position=<channel map> ] "
+				"[ buffer.max_size=<max buffer size in ms> ] "
+				"[ buffer.play_delay=<play delay in ms> ] "
 				"[ aec.method=<aec method> ] "
 				"[ aec.args=<aec arguments> ] "
 				"[ source.props=<properties> ] "
@@ -166,6 +178,7 @@ struct impl {
 	void *play_buffer[SPA_AUDIO_MAX_CHANNELS];
 	uint32_t play_ringsize;
 	struct spa_ringbuffer play_ring;
+	struct spa_ringbuffer play_delayed_ring;
 	struct spa_io_rate_match *play_rate_match;
 
 	void *out_buffer[SPA_AUDIO_MAX_CHANNELS];
@@ -181,6 +194,9 @@ struct impl {
 
 	unsigned int do_disconnect:1;
 	unsigned int unloading:1;
+
+	uint32_t max_buffer_size;
+	uint32_t buffer_delay;
 };
 
 static void do_unload_module(void *obj, void *data, int res, uint32_t id)
@@ -202,13 +218,15 @@ static void process(struct impl *impl)
 	struct pw_buffer *pout;
 	float rec_buf[impl->info.channels][impl->aec_blocksize / sizeof(float)];
 	float play_buf[impl->info.channels][impl->aec_blocksize / sizeof(float)];
+	float play_delayed_buf[impl->info.channels][impl->aec_blocksize / sizeof(float)];
 	float out_buf[impl->info.channels][impl->aec_blocksize / sizeof(float)];
 	const float *rec[impl->info.channels];
 	const float *play[impl->info.channels];
+	const float *play_delayed[impl->info.channels];
 	float *out[impl->info.channels];
 	struct spa_data *dd;
 	uint32_t i, size;
-	uint32_t rindex, pindex, oindex, avail;
+	uint32_t rindex, pindex, oindex, pdindex, avail;
 	int32_t stride = 0;
 
 	if ((pout = pw_stream_dequeue_buffer(impl->playback)) == NULL) {
@@ -222,12 +240,15 @@ static void process(struct impl *impl)
 
 	spa_ringbuffer_get_read_index(&impl->rec_ring, &rindex);
 	spa_ringbuffer_get_read_index(&impl->play_ring, &pindex);
+	spa_ringbuffer_get_read_index(&impl->play_delayed_ring, &pdindex);
 
 	for (i = 0; i < impl->info.channels; i++) {
 		/* captured samples, with echo from sink */
 		rec[i] = &rec_buf[i][0];
 		/* echo from sink */
 		play[i] = &play_buf[i][0];
+		/* echo from sink delayed */
+		play_delayed[i] = &play_delayed_buf[i][0];
 		/* filtered samples, without echo from sink */
 		out[i] = &out_buf[i][0];
 
@@ -241,6 +262,11 @@ static void process(struct impl *impl)
 				impl->play_ringsize, pindex % impl->play_ringsize,
 				(void *)play[i], size);
 
+		stride = 0;
+		spa_ringbuffer_read_data(&impl->play_delayed_ring, impl->play_buffer[i],
+				impl->play_ringsize, pdindex % impl->play_ringsize,
+				(void *)play_delayed[i], size);
+
 		/* output to sink, just copy */
 		dd = &pout->buffer->datas[i];
 		memcpy(dd->data, play[i], size);
@@ -252,11 +278,12 @@ static void process(struct impl *impl)
 
 	spa_ringbuffer_read_update(&impl->rec_ring, rindex + size);
 	spa_ringbuffer_read_update(&impl->play_ring, pindex + size);
+	spa_ringbuffer_read_update(&impl->play_delayed_ring, pdindex + size);
 
 	pw_stream_queue_buffer(impl->playback, pout);
 
 	/* Now run the canceller */
-	echo_cancel_run(impl->aec_info, impl->aec, rec,	play, out, size / sizeof(float));
+	echo_cancel_run(impl->aec_info, impl->aec, rec,	play_delayed, out, size / sizeof(float));
 
 	/* Next, copy over the output to the output ringbuffer */
 	avail = spa_ringbuffer_get_write_index(&impl->out_ring, &oindex);
@@ -544,6 +571,9 @@ static void sink_process(void *data)
 		spa_ringbuffer_get_read_index(&impl->play_ring, &rindex);
 		spa_ringbuffer_read_update(&impl->play_ring, rindex + drop);
 
+		spa_ringbuffer_get_read_index(&impl->play_delayed_ring, &rindex);
+		spa_ringbuffer_read_update(&impl->play_delayed_ring, rindex + drop);
+
 		avail += drop;
 	}
 
@@ -604,6 +634,7 @@ static int setup_streams(struct impl *impl)
 	struct spa_pod_builder b;
 	struct pw_properties *props;
 	const char *str;
+	uint32_t index;
 
 	props = pw_properties_new(
 			PW_KEY_NODE_NAME, "echo-cancel-capture",
@@ -710,9 +741,9 @@ static int setup_streams(struct impl *impl)
 			params, n_params)) < 0)
 		return res;
 
-	impl->rec_ringsize = sizeof(float) * MAX_BUFSIZE_MS * impl->info.rate / 1000;
-	impl->play_ringsize = sizeof(float) * MAX_BUFSIZE_MS * impl->info.rate / 1000;
-	impl->out_ringsize = sizeof(float) * MAX_BUFSIZE_MS * impl->info.rate / 1000;
+	impl->rec_ringsize = sizeof(float) * impl->max_buffer_size * impl->info.rate / 1000;
+	impl->play_ringsize = sizeof(float) * (impl->max_buffer_size + impl->buffer_delay) * impl->info.rate / 1000;
+	impl->out_ringsize = sizeof(float) * impl->max_buffer_size * impl->info.rate / 1000;
 	for (i = 0; i < impl->info.channels; i++) {
 		impl->rec_buffer[i] = malloc(impl->rec_ringsize);
 		impl->play_buffer[i] = malloc(impl->play_ringsize);
@@ -720,7 +751,13 @@ static int setup_streams(struct impl *impl)
 	}
 	spa_ringbuffer_init(&impl->rec_ring);
 	spa_ringbuffer_init(&impl->play_ring);
+	spa_ringbuffer_init(&impl->play_delayed_ring);
 	spa_ringbuffer_init(&impl->out_ring);
+
+	spa_ringbuffer_get_write_index(&impl->play_ring, &index);
+	spa_ringbuffer_write_update(&impl->play_ring, index + (sizeof(float) * (impl->buffer_delay) * impl->info.rate / 1000));
+	spa_ringbuffer_get_read_index(&impl->play_ring, &index);
+	spa_ringbuffer_read_update(&impl->play_ring, index + (sizeof(float) * (impl->buffer_delay) * impl->info.rate / 1000));
 
 	return 0;
 }
@@ -996,6 +1033,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_LINK_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 	copy_props(impl, props, PW_KEY_NODE_LATENCY);
+
+	impl->max_buffer_size = pw_properties_get_uint32(props,"buffer.max_size", MAX_BUFSIZE_MS);
+	impl->buffer_delay = pw_properties_get_uint32(props,"buffer.play_delay", DELAY_MS);
 
 	pw_properties_free(props);
 

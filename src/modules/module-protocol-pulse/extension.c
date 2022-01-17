@@ -30,9 +30,9 @@
 #include "extensions/registry.h"
 
 static const struct extension extensions[] = {
-	{ "module-stream-restore", 0 | EXTENSION_FLAG, do_extension_stream_restore, },
-	{ "module-device-restore", 1 | EXTENSION_FLAG, do_extension_device_restore, },
-	{ "module-device-manager", 2 | EXTENSION_FLAG, do_extension_device_manager, },
+	{ "module-stream-restore", 0 | MODULE_EXTENSION_FLAG, do_extension_stream_restore, },
+	{ "module-device-restore", 1 | MODULE_EXTENSION_FLAG, do_extension_device_restore, },
+	{ "module-device-manager", 2 | MODULE_EXTENSION_FLAG, do_extension_device_manager, },
 };
 
 const struct extension *extension_find(uint32_t idx, const char *name)

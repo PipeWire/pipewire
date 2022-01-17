@@ -4015,7 +4015,7 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 
 	if (command == COMMAND_GET_MODULE_INFO && (sel.id & MODULE_FLAG) != 0) {
 		struct module *module;
-		module = pw_map_lookup(&impl->modules, sel.id & INDEX_MASK);
+		module = pw_map_lookup(&impl->modules, sel.id & MODULE_INDEX_MASK);
 		if (module == NULL)
 			goto error_noentity;
 		fill_ext_module_info(client, reply, module);
@@ -4772,7 +4772,7 @@ static int do_unload_module(struct client *client, uint32_t command, uint32_t ta
 	if ((module_idx & MODULE_FLAG) == 0)
 		return -EPERM;
 
-	module = pw_map_lookup(&impl->modules, module_idx & INDEX_MASK);
+	module = pw_map_lookup(&impl->modules, module_idx & MODULE_INDEX_MASK);
 	if (module == NULL)
 		return -ENOENT;
 

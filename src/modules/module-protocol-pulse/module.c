@@ -98,7 +98,7 @@ void module_free(struct module *module)
 	module_emit_destroy(module);
 
 	if (module->idx != SPA_ID_INVALID)
-		pw_map_remove(&impl->modules, module->idx & INDEX_MASK);
+		pw_map_remove(&impl->modules, module->idx & MODULE_INDEX_MASK);
 
 	spa_hook_list_clean(&module->listener_list);
 	pw_work_queue_cancel(impl->work_queue, module, SPA_ID_INVALID);

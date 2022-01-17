@@ -1906,9 +1906,10 @@ int main(int argc, char *argv[])
 			spa_list_for_each(target, &data.targets, link) {
 				if (target->type != TARGET_TYPE_SINK)
 					continue;
-				printf("%s\t%"PRIu32": sink description=\"%s\" prio=%d\n",
-				       target == target_default ? "*" : "",
-				       target->id, target->desc, target->prio);
+				printf("%s\t%"PRIu32": %s description=\"%s\" prio=%d\n",
+					target == target_default ? "*" : "",
+					target->id, data.mode == mode_record ? "monitor" : "sink",
+					target->desc, target->prio);
 			}
 			spa_list_for_each(target, &data.targets, link) {
 				if (target->type != TARGET_TYPE_STREAM)

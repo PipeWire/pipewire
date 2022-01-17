@@ -9,7 +9,8 @@ if find.found()
                             '-name', '*.h',
                             '-not', '-name', 'type-info.h',
                             '-type', 'f',
-                            '-printf', '%P\n')
+                            '-printf', '%P\n',
+                            check: false)
   foreach spa_header : spa_headers.stdout().split('\n')
     if spa_header.endswith('.h')  # skip empty lines
       ext = have_cpp ? 'cpp' : 'c'

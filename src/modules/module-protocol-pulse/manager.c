@@ -163,7 +163,7 @@ static bool has_param(struct spa_list *param_list, struct pw_manager_param *p)
 }
 
 
-static struct object *find_object(struct manager *m, uint32_t id)
+static struct object *find_object_by_id(struct manager *m, uint32_t id)
 {
 	struct object *o;
 	spa_list_for_each(o, &m->this.object_list, this.link) {
@@ -638,7 +638,7 @@ static void registry_event_global_remove(void *object, uint32_t id)
 	struct manager *m = object;
 	struct object *o;
 
-	if ((o = find_object(m, id)) == NULL)
+	if ((o = find_object_by_id(m, id)) == NULL)
 		return;
 
 	o->this.removing = true;
@@ -757,7 +757,7 @@ int pw_manager_set_metadata(struct pw_manager *manager,
 	char buf[1024];
 	char *value;
 
-	if ((s = find_object(m, subject)) == NULL)
+	if ((s = find_object_by_id(m, subject)) == NULL)
 		return -ENOENT;
 	if (!SPA_FLAG_IS_SET(s->this.permissions, PW_PERM_M))
 		return -EACCES;

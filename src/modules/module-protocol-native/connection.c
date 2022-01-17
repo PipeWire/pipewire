@@ -175,10 +175,37 @@ static void handle_connection_error(struct pw_protocol_native_connection *conn, 
 		pw_log_error("connection %p: could not recvmsg on fd:%d: %s", conn, conn->fd, strerror(res));
 }
 
+static size_t cmsg_data_length(const struct cmsghdr *cmsg)
+{
+	const void *begin = CMSG_DATA(cmsg);
+	const void *end = SPA_PTROFF(cmsg, cmsg->cmsg_len, void);
+
+	spa_assert(begin <= end);
+
+	return SPA_PTRDIFF(end, begin);
+}
+
+static void close_all_fds(struct msghdr *msg, struct cmsghdr *from)
+{
+	for (; from != NULL; from = CMSG_NXTHDR(msg, from)) {
+		if (from->cmsg_level != SOL_SOCKET || from->cmsg_type != SCM_RIGHTS)
+			continue;
+
+		size_t n_fds = cmsg_data_length(from) / sizeof(int);
+		for (size_t i = 0; i < n_fds; i++) {
+			const void *p = SPA_PTROFF(CMSG_DATA(from), sizeof(int) * i, void);
+			int fd;
+
+			memcpy(&fd, p, sizeof(fd));
+			close(fd);
+		}
+	}
+}
+
 static int refill_buffer(struct pw_protocol_native_connection *conn, struct buffer *buf)
 {
 	ssize_t len;
-	struct cmsghdr *cmsg;
+	struct cmsghdr *cmsg = NULL;
 	struct msghdr msg = { 0 };
 	struct iovec iov[1];
 	char cmsgbuf[CMSG_SPACE(MAX_FDS_MSG * sizeof(int))];
@@ -198,7 +225,7 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 	while (true) {
 		len = recvmsg(conn->fd, &msg, msg.msg_flags);
 		if (msg.msg_flags & MSG_CTRUNC)
-			return -EPROTO;
+			goto cmsgs_truncated;
 		if (len == 0 && avail != 0)
 			return -EPIPE;
 		else if (len < 0) {
@@ -218,10 +245,9 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 		if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS)
 			continue;
 
-		n_fds =
-		    (cmsg->cmsg_len - ((char *) CMSG_DATA(cmsg) - (char *) cmsg)) / sizeof(int);
+		n_fds = cmsg_data_length(cmsg) / sizeof(int);
 		if (n_fds + buf->n_fds > MAX_FDS)
-			return -EPROTO;
+			goto too_many_fds;
 		memcpy(&buf->fds[buf->n_fds], CMSG_DATA(cmsg), n_fds * sizeof(int));
 		buf->n_fds += n_fds;
 	}
@@ -234,6 +260,14 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 recv_error:
 	handle_connection_error(conn, errno);
 	return -errno;
+
+cmsgs_truncated:
+	close_all_fds(&msg, CMSG_FIRSTHDR(&msg));
+	return -EPROTO;
+
+too_many_fds:
+	close_all_fds(&msg, cmsg);
+	return -EPROTO;
 }
 
 static void clear_buffer(struct buffer *buf, bool fds)

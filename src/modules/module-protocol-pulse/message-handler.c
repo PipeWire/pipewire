@@ -122,7 +122,7 @@ void register_object_message_handlers(struct pw_manager_object *o)
 {
 	const char *str;
 
-	if (o->id == 0) {
+	if (o->id == PW_ID_CORE) {
 		free(o->message_object_path);
 		o->message_object_path = strdup("/core");
 		o->message_handler = core_object_message_handler;

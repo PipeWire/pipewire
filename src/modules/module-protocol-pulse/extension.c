@@ -35,12 +35,12 @@ static const struct extension extensions[] = {
 	{ "module-device-manager", 2 | MODULE_EXTENSION_FLAG, do_extension_device_manager, },
 };
 
-const struct extension *extension_find(uint32_t idx, const char *name)
+const struct extension *extension_find(uint32_t index, const char *name)
 {
 	const struct extension *ext;
 
 	SPA_FOR_EACH_ELEMENT(extensions, ext) {
-		if (idx == ext->idx || spa_streq(name, ext->name))
+		if (index == ext->index || spa_streq(name, ext->name))
 			return ext;
 	}
 

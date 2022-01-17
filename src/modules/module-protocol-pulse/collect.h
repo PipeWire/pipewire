@@ -44,6 +44,7 @@ struct pw_manager_object;
 struct selector {
 	bool (*type) (struct pw_manager_object *o);
 	uint32_t id;
+	uint32_t index;
 	const char *key;
 	const char *value;
 	void (*accumulate) (struct selector *sel, struct pw_manager_object *o);
@@ -52,6 +53,7 @@ struct selector {
 };
 
 struct pw_manager_object *select_object(struct pw_manager *m, struct selector *s);
+uint32_t id_to_index(struct pw_manager *m, uint32_t id);
 void select_best(struct selector *s, struct pw_manager_object *o);
 
 /* ========================================================================== */

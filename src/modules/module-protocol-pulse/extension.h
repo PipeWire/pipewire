@@ -38,10 +38,10 @@ struct extension_sub {
 
 struct extension {
 	const char *name;
-	uint32_t idx;
+	uint32_t index;
 	int (*process)(struct client *client, uint32_t tag, struct message *m);
 };
 
-const struct extension *extension_find(uint32_t idx, const char *name);
+const struct extension *extension_find(uint32_t index, const char *name);
 
 #endif /* PULSE_SERVER_EXTENSION_H */

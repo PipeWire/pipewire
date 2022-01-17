@@ -42,7 +42,7 @@
 #include "log.h"
 #include "module.h"
 
-static void on_module_unload(void *obj, void *data, int res, uint32_t id)
+static void on_module_unload(void *obj, void *data, int res, uint32_t index)
 {
 	struct module *module = obj;
 	module_unload(NULL, module);
@@ -83,7 +83,7 @@ void module_add_listener(struct module *module,
 
 int module_load(struct client *client, struct module *module)
 {
-	pw_log_info("load module id:%u name:%s", module->idx, module->name);
+	pw_log_info("load module index:%u name:%s", module->index, module->name);
 	if (module->methods->load == NULL)
 		return -ENOTSUP;
 	/* subscription event is sent when the module does a
@@ -97,8 +97,8 @@ void module_free(struct module *module)
 
 	module_emit_destroy(module);
 
-	if (module->idx != SPA_ID_INVALID)
-		pw_map_remove(&impl->modules, module->idx & MODULE_INDEX_MASK);
+	if (module->index != SPA_ID_INVALID)
+		pw_map_remove(&impl->modules, module->index & MODULE_INDEX_MASK);
 
 	spa_hook_list_clean(&module->listener_list);
 	pw_work_queue_cancel(impl->work_queue, module, SPA_ID_INVALID);
@@ -118,7 +118,7 @@ int module_unload(struct client *client, struct module *module)
 	/* Note that client can be NULL (when the module is being unloaded
 	 * internally and not by a client request */
 
-	pw_log_info("unload module id:%u name:%s", module->idx, module->name);
+	pw_log_info("unload module index:%u name:%s", module->index, module->name);
 
 	if (module->methods->unload)
 		res = module->methods->unload(client, module);
@@ -127,7 +127,7 @@ int module_unload(struct client *client, struct module *module)
 		broadcast_subscribe_event(impl,
 			SUBSCRIPTION_MASK_MODULE,
 			SUBSCRIPTION_EVENT_REMOVE | SUBSCRIPTION_EVENT_MODULE,
-			module->idx);
+			module->index);
 
 	module_free(module);
 
@@ -299,13 +299,13 @@ struct module *module_create(struct client *client, const char *name, const char
 	if (module == NULL)
 		return NULL;
 
-	module->idx = pw_map_insert_new(&impl->modules, module);
-	if (module->idx == SPA_ID_INVALID) {
+	module->index = pw_map_insert_new(&impl->modules, module);
+	if (module->index == SPA_ID_INVALID) {
 		module_unload(client, module);
 		return NULL;
 	}
 	module->name = strdup(name);
 	module->args = args ? strdup(args) : NULL;
-	module->idx |= MODULE_FLAG;
+	module->index |= MODULE_FLAG;
 	return module;
 }

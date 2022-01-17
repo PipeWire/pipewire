@@ -67,8 +67,8 @@ static int module_remap_source_load(struct client *client, struct module *module
 	char *args;
 	size_t size;
 
-	pw_properties_setf(data->capture_props, PW_KEY_NODE_GROUP, "remap-source-%u", module->idx);
-	pw_properties_setf(data->playback_props, PW_KEY_NODE_GROUP, "remap-source-%u", module->idx);
+	pw_properties_setf(data->capture_props, PW_KEY_NODE_GROUP, "remap-source-%u", module->index);
+	pw_properties_setf(data->playback_props, PW_KEY_NODE_GROUP, "remap-source-%u", module->index);
 
 	f = open_memstream(&args, &size);
 	fprintf(f, "{");

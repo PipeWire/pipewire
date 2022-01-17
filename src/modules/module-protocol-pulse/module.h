@@ -57,7 +57,7 @@ struct module_methods {
 };
 
 struct module {
-	uint32_t idx;
+	uint32_t index;
 	const char *name;
 	const char *args;
 	struct pw_properties *props;

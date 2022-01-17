@@ -73,8 +73,8 @@ static int module_ladspa_source_load(struct client *client, struct module *modul
 	if ((label = pw_properties_get(module->props, "label")) == NULL)
 		return -EINVAL;
 
-	pw_properties_setf(data->capture_props, PW_KEY_NODE_GROUP, "ladspa-source-%u", module->idx);
-	pw_properties_setf(data->playback_props, PW_KEY_NODE_GROUP, "ladspa-source-%u", module->idx);
+	pw_properties_setf(data->capture_props, PW_KEY_NODE_GROUP, "ladspa-source-%u", module->index);
+	pw_properties_setf(data->playback_props, PW_KEY_NODE_GROUP, "ladspa-source-%u", module->index);
 
 	f = open_memstream(&args, &size);
 	fprintf(f, "{");

@@ -58,6 +58,7 @@ struct stream {
 	uint32_t create_tag;
 	uint32_t channel;	/* index in map */
 	uint32_t id;		/* id of global */
+	uint32_t index;		/* index */
 
 	struct impl *impl;
 	struct client *client;

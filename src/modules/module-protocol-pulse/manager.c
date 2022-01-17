@@ -607,6 +607,7 @@ static void registry_event_global(void *data, uint32_t id,
 	o->this.permissions = permissions;
 	o->this.type = info->type;
 	o->this.version = version;
+	o->this.index = id;
 	o->this.props = props ? pw_properties_new_dict(props) : NULL;
 	o->this.proxy = proxy;
 	o->this.creating = true;
@@ -793,7 +794,7 @@ int pw_manager_for_each_object(struct pw_manager *manager,
 	int res;
 
 	spa_list_for_each(o, &m->this.object_list, this.link) {
-		if (o->this.creating)
+		if (o->this.creating || o->this.removing)
 			continue;
 		if ((res = callback(data, &o->this)) != 0)
 			return res;

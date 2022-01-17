@@ -58,16 +58,23 @@ struct pw_manager_object *select_object(struct pw_manager *m, struct selector *s
 			continue;
 		if (o->id == s->id)
 			return o;
+		if (o->index == s->index)
+			return o;
 		if (s->accumulate)
 			s->accumulate(s, o);
 		if (o->props && s->key != NULL && s->value != NULL &&
 		    (str = pw_properties_get(o->props, s->key)) != NULL &&
 		    spa_streq(str, s->value))
 			return o;
-		if (s->value != NULL && (uint32_t)atoi(s->value) == o->id)
+		if (s->value != NULL && (uint32_t)atoi(s->value) == o->index)
 			return o;
 	}
 	return s->best;
+}
+
+uint32_t id_to_index(struct pw_manager *m, uint32_t id)
+{
+	return id;
 }
 
 bool collect_is_linked(struct pw_manager *m, uint32_t id, enum pw_direction direction)

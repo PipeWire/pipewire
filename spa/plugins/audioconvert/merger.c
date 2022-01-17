@@ -624,7 +624,9 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 		info.info.raw.rate = 0;
 
-		if (this->have_profile && memcmp(&this->format, &info, sizeof(info)) == 0)
+		if (this->have_profile &&
+		    memcmp(&this->format, &info, sizeof(info)) == 0 &&
+		    this->monitor == monitor)
 			return 0;
 
 		spa_log_debug(this->log, "%p: port config %d/%d %d", this,

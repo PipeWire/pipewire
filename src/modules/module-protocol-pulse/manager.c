@@ -64,7 +64,7 @@ struct object_info {
 
 struct object_data {
 	struct spa_list link;
-	const char *id;
+	const char *key;
 	size_t size;
 };
 
@@ -820,22 +820,22 @@ void pw_manager_destroy(struct pw_manager *manager)
 	free(m);
 }
 
-static struct object_data *object_find_data(struct object *o, const char *id)
+static struct object_data *object_find_data(struct object *o, const char *key)
 {
 	struct object_data *d;
 	spa_list_for_each(d, &o->data_list, link) {
-		if (spa_streq(d->id, id))
+		if (spa_streq(d->key, key))
 			return d;
 	}
 	return NULL;
 }
 
-void *pw_manager_object_add_data(struct pw_manager_object *obj, const char *id, size_t size)
+void *pw_manager_object_add_data(struct pw_manager_object *obj, const char *key, size_t size)
 {
 	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
 	struct object_data *d;
 
-	d = object_find_data(o, id);
+	d = object_find_data(o, key);
 	if (d != NULL) {
 		if (d->size == size)
 			goto done;
@@ -844,7 +844,7 @@ void *pw_manager_object_add_data(struct pw_manager_object *obj, const char *id, 
 	}
 
 	d = calloc(1, sizeof(struct object_data) + size);
-	d->id = id;
+	d->key = key;
 	d->size = size;
 
 	spa_list_append(&o->data_list, &d->link);

@@ -586,6 +586,7 @@ static void registry_event_global(void *data, uint32_t id,
 	struct manager *m = data;
 	struct object *o;
 	const struct object_info *info;
+	const char *str;
 	struct pw_proxy *proxy;
 
 	info = find_info(type, version);
@@ -603,11 +604,13 @@ static void registry_event_global(void *data, uint32_t id,
 		pw_proxy_destroy(proxy);
 		return;
 	}
+	str = props ? spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL) : NULL;
+	spa_atou64(str, &o->this.serial, 0);
 	o->this.id = id;
 	o->this.permissions = permissions;
 	o->this.type = info->type;
 	o->this.version = version;
-	o->this.index = id;
+	o->this.index = o->this.serial < (1ULL<<32) ? o->this.serial : SPA_ID_INVALID;
 	o->this.props = props ? pw_properties_new_dict(props) : NULL;
 	o->this.proxy = proxy;
 	o->this.creating = true;

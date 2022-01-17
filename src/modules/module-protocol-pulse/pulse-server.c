@@ -1376,6 +1376,7 @@ static void log_format_info(struct impl *impl, enum spa_log_level level, struct 
 static int do_create_playback_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
+	struct pw_manager *manager = client->manager;
 	const char *name = NULL;
 	int res;
 	struct sample_spec ss;
@@ -1585,7 +1586,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 				PW_KEY_NODE_TARGET, sink_name);
 	else if (sink_index != SPA_ID_INVALID && sink_index != 0)
 		pw_properties_setf(props,
-				PW_KEY_NODE_TARGET, "%u", sink_index);
+				PW_KEY_NODE_TARGET, "%u",
+				index_to_id(manager, sink_index));
 
 	stream->stream = pw_stream_new(client->core, name, props);
 	props = NULL;
@@ -1632,6 +1634,7 @@ error:
 static int do_create_record_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
+	struct pw_manager *manager = client->manager;
 	const char *name = NULL;
 	int res;
 	struct sample_spec ss;
@@ -1841,7 +1844,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	}
 	if (source_index != SPA_ID_INVALID && source_index != 0) {
 		pw_properties_setf(props,
-				PW_KEY_NODE_TARGET, "%u", source_index);
+				PW_KEY_NODE_TARGET, "%u",
+				index_to_id(manager, source_index));
 	} else if (source_name != NULL) {
 		if (spa_strendswith(source_name, ".monitor")) {
 			pw_properties_setf(props,

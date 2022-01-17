@@ -74,7 +74,22 @@ struct pw_manager_object *select_object(struct pw_manager *m, struct selector *s
 
 uint32_t id_to_index(struct pw_manager *m, uint32_t id)
 {
-	return id;
+	struct pw_manager_object *o;
+	spa_list_for_each(o, &m->object_list, link) {
+		if (o->id == id)
+			return o->index;
+	}
+	return SPA_ID_INVALID;
+}
+
+uint32_t index_to_id(struct pw_manager *m, uint32_t index)
+{
+	struct pw_manager_object *o;
+	spa_list_for_each(o, &m->object_list, link) {
+		if (o->index == index)
+			return o->id;
+	}
+	return SPA_ID_INVALID;
 }
 
 bool collect_is_linked(struct pw_manager *m, uint32_t id, enum pw_direction direction)

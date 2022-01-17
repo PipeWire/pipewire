@@ -75,6 +75,7 @@ struct pw_manager_param {
 
 struct pw_manager_object {
 	struct spa_list link;           /**< link in manager object_list */
+	uint64_t serial;
 	uint32_t id;
 	uint32_t permissions;
 	const char *type;

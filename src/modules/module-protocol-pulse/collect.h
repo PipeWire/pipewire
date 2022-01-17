@@ -103,7 +103,7 @@ void collect_card_info(struct pw_manager_object *card, struct card_info *info);
 /* ========================================================================== */
 
 struct profile_info {
-	uint32_t id;
+	uint32_t index;
 	const char *name;
 	const char *description;
 	uint32_t priority;
@@ -118,7 +118,7 @@ uint32_t collect_profile_info(struct pw_manager_object *card, struct card_info *
 /* ========================================================================== */
 
 struct port_info {
-	uint32_t id;
+	uint32_t index;
 	uint32_t direction;
 	const char *name;
 	const char *description;
@@ -154,8 +154,8 @@ uint32_t collect_transport_codec_info(struct pw_manager_object *card,
 /* ========================================================================== */
 
 struct spa_dict *collect_props(struct spa_pod *info, struct spa_dict *dict);
-uint32_t find_profile_id(struct pw_manager_object *card, const char *name);
-uint32_t find_port_id(struct pw_manager_object *card, uint32_t direction, const char *port_name);
+uint32_t find_profile_index(struct pw_manager_object *card, const char *name);
+uint32_t find_port_index(struct pw_manager_object *card, uint32_t direction, const char *port_name);
 struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t obj_id, enum pw_direction direction);
 bool collect_is_linked(struct pw_manager *m, uint32_t obj_id, enum pw_direction direction);
 

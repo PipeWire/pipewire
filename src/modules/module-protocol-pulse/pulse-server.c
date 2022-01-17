@@ -2861,7 +2861,7 @@ static int do_set_port(struct client *client, uint32_t command, uint32_t tag, st
 	struct pw_manager *manager = client->manager;
 	struct pw_node_info *info;
 	uint32_t id, card_id = SPA_ID_INVALID, device_id = SPA_ID_INVALID;
-	uint32_t port_id = SPA_ID_INVALID;
+	uint32_t port_index = SPA_ID_INVALID;
 	const char *name, *str, *port_name;
 	struct pw_manager_object *o, *card = NULL;
 	int res;
@@ -2901,11 +2901,11 @@ static int do_set_port(struct client *client, uint32_t command, uint32_t tag, st
 	if (card == NULL || device_id == SPA_ID_INVALID)
 		return -ENOENT;
 
-	port_id = find_port_id(card, direction, port_name);
-	if (port_id == SPA_ID_INVALID)
+	port_index = find_port_index(card, direction, port_name);
+	if (port_index == SPA_ID_INVALID)
 		return -ENOENT;
 
-	if ((res = set_card_port(card, device_id, port_id)) < 0)
+	if ((res = set_card_port(card, device_id, port_index)) < 0)
 		return res;
 
 	return operation_new(client, tag);
@@ -2967,7 +2967,7 @@ static int do_set_port_latency_offset(struct client *client, uint32_t command, u
 
 		res = 0;
 		for (j = 0; j < pi->n_devices; ++j) {
-			res = set_card_volume_mute_delay(card, pi->id, pi->devices[j], NULL, NULL, &value);
+			res = set_card_volume_mute_delay(card, pi->index, pi->devices[j], NULL, NULL, &value);
 			if (res < 0)
 				break;
 		}
@@ -3460,7 +3460,7 @@ static int fill_card_info(struct client *client, struct message *m,
 				const char *name = "off";
 
 				for (j = 0; j < n_profiles; ++j) {
-					if (profile_info[j].id == pi->profiles[i]) {
+					if (profile_info[j].index == pi->profiles[i]) {
 						name = profile_info[j].name;
 						break;
 					}
@@ -4416,7 +4416,7 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 	struct pw_manager *manager = client->manager;
 	struct pw_manager_object *o;
 	const char *profile_name;
-	uint32_t profile_id = SPA_ID_INVALID;
+	uint32_t profile_index = SPA_ID_INVALID;
 	struct selector sel;
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
@@ -4444,7 +4444,7 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 	if ((o = select_object(manager, &sel)) == NULL)
 		return -ENOENT;
 
-	if ((profile_id = find_profile_id(o, profile_name)) == SPA_ID_INVALID)
+	if ((profile_index = find_profile_index(o, profile_name)) == SPA_ID_INVALID)
 		return -ENOENT;
 
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
@@ -4457,7 +4457,7 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 			SPA_PARAM_Profile, 0,
 			spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(profile_id),
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(profile_index),
 				SPA_PARAM_PROFILE_save, SPA_POD_Bool(true)));
 
 	return operation_new(client, tag);

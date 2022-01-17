@@ -157,7 +157,7 @@ uint32_t collect_profile_info(struct pw_manager_object *card, struct card_info *
 
 		if (spa_pod_parse_object(p->param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(&pi->id),
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&pi->index),
 				SPA_PARAM_PROFILE_name,  SPA_POD_String(&pi->name),
 				SPA_PARAM_PROFILE_description,  SPA_POD_OPT_String(&pi->description),
 				SPA_PARAM_PROFILE_priority,  SPA_POD_OPT_Int(&pi->priority),
@@ -167,7 +167,7 @@ uint32_t collect_profile_info(struct pw_manager_object *card, struct card_info *
 		}
 		if (pi->description == NULL)
 			pi->description = pi->name;
-		if (pi->id == card_info->active_profile)
+		if (pi->index == card_info->active_profile)
 			card_info->active_profile_name = pi->name;
 
 		if (classes != NULL) {
@@ -198,12 +198,12 @@ uint32_t collect_profile_info(struct pw_manager_object *card, struct card_info *
 	return n;
 }
 
-uint32_t find_profile_id(struct pw_manager_object *card, const char *name)
+uint32_t find_profile_index(struct pw_manager_object *card, const char *name)
 {
 	struct pw_manager_param *p;
 
 	spa_list_for_each(p, &card->param_list, link) {
-		uint32_t id;
+		uint32_t index;
 		const char *test_name;
 
 		if (p->id != SPA_PARAM_EnumProfile)
@@ -211,12 +211,12 @@ uint32_t find_profile_id(struct pw_manager_object *card, const char *name)
 
 		if (spa_pod_parse_object(p->param,
 				SPA_TYPE_OBJECT_ParamProfile, NULL,
-				SPA_PARAM_PROFILE_index, SPA_POD_Int(&id),
+				SPA_PARAM_PROFILE_index, SPA_POD_Int(&index),
 				SPA_PARAM_PROFILE_name,  SPA_POD_String(&test_name)) < 0)
 			continue;
 
 		if (spa_streq(test_name, name))
-			return id;
+			return index;
 
 	}
 	return SPA_ID_INVALID;
@@ -229,7 +229,7 @@ void collect_device_info(struct pw_manager_object *device, struct pw_manager_obj
 
 	if (card && !monitor) {
 		spa_list_for_each(p, &card->param_list, link) {
-			uint32_t id, dev;
+			uint32_t index, dev;
 			struct spa_pod *props;
 
 			if (p->id != SPA_PARAM_Route)
@@ -237,13 +237,13 @@ void collect_device_info(struct pw_manager_object *device, struct pw_manager_obj
 
 			if (spa_pod_parse_object(p->param,
 					SPA_TYPE_OBJECT_ParamRoute, NULL,
-					SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
+					SPA_PARAM_ROUTE_index, SPA_POD_Int(&index),
 					SPA_PARAM_ROUTE_device,  SPA_POD_Int(&dev),
 					SPA_PARAM_ROUTE_props,  SPA_POD_OPT_Pod(&props)) < 0)
 				continue;
 			if (dev != dev_info->device)
 				continue;
-			dev_info->active_port = id;
+			dev_info->active_port = index;
 			if (props) {
 				volume_parse_param(props, &dev_info->volume_info, monitor);
 				dev_info->have_volume = true;
@@ -316,7 +316,7 @@ uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *car
 
 		if (spa_pod_parse_object(p->param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
-				SPA_PARAM_ROUTE_index, SPA_POD_Int(&pi->id),
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&pi->index),
 				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&pi->direction),
 				SPA_PARAM_ROUTE_name,  SPA_POD_String(&pi->name),
 				SPA_PARAM_ROUTE_description,  SPA_POD_OPT_String(&pi->description),
@@ -341,7 +341,7 @@ uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *car
 				continue;
 			if (!array_contains(pi->devices, pi->n_devices, dev_info->device))
 				continue;
-			if (pi->id == dev_info->active_port)
+			if (pi->index == dev_info->active_port)
 				dev_info->active_port_name = pi->name;
 		}
 
@@ -377,12 +377,12 @@ uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *car
 	return n;
 }
 
-uint32_t find_port_id(struct pw_manager_object *card, uint32_t direction, const char *port_name)
+uint32_t find_port_index(struct pw_manager_object *card, uint32_t direction, const char *port_name)
 {
 	struct pw_manager_param *p;
 
 	spa_list_for_each(p, &card->param_list, link) {
-		uint32_t id, dir;
+		uint32_t index, dir;
 		const char *name;
 
 		if (p->id != SPA_PARAM_EnumRoute)
@@ -390,14 +390,14 @@ uint32_t find_port_id(struct pw_manager_object *card, uint32_t direction, const 
 
 		if (spa_pod_parse_object(p->param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
-				SPA_PARAM_ROUTE_index, SPA_POD_Int(&id),
+				SPA_PARAM_ROUTE_index, SPA_POD_Int(&index),
 				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&dir),
 				SPA_PARAM_ROUTE_name, SPA_POD_String(&name)) < 0)
 			continue;
 		if (dir != direction)
 			continue;
 		if (spa_streq(name, port_name))
-			return id;
+			return index;
 
 	}
 	return SPA_ID_INVALID;

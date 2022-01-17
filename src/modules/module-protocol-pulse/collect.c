@@ -70,7 +70,7 @@ struct pw_manager_object *select_object(struct pw_manager *m, struct selector *s
 	return s->best;
 }
 
-bool collect_is_linked(struct pw_manager *m, uint32_t obj_id, enum pw_direction direction)
+bool collect_is_linked(struct pw_manager *m, uint32_t id, enum pw_direction direction)
 {
 	struct pw_manager_object *o;
 	uint32_t in_node, out_node;
@@ -83,14 +83,14 @@ bool collect_is_linked(struct pw_manager *m, uint32_t obj_id, enum pw_direction 
                     pw_properties_fetch_uint32(o->props, PW_KEY_LINK_INPUT_NODE, &in_node) != 0)
                         continue;
 
-		if ((direction == PW_DIRECTION_OUTPUT && obj_id == out_node) ||
-		    (direction == PW_DIRECTION_INPUT && obj_id == in_node))
+		if ((direction == PW_DIRECTION_OUTPUT && id == out_node) ||
+		    (direction == PW_DIRECTION_INPUT && id == in_node))
 			return true;
 	}
 	return false;
 }
 
-struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t obj_id, enum pw_direction direction)
+struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t id, enum pw_direction direction)
 {
 	struct pw_manager_object *o, *p;
 	uint32_t in_node, out_node;
@@ -103,12 +103,12 @@ struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t obj_id, enu
                     pw_properties_fetch_uint32(o->props, PW_KEY_LINK_INPUT_NODE, &in_node) != 0)
                         continue;
 
-		if (direction == PW_DIRECTION_OUTPUT && obj_id == out_node) {
+		if (direction == PW_DIRECTION_OUTPUT && id == out_node) {
 			struct selector sel = { .id = in_node, .type = pw_manager_object_is_sink, };
 			if ((p = select_object(m, &sel)) != NULL)
 				return p;
 		}
-		if (direction == PW_DIRECTION_INPUT && obj_id == in_node) {
+		if (direction == PW_DIRECTION_INPUT && id == in_node) {
 			struct selector sel = { .id = out_node, .type = pw_manager_object_is_recordable, };
 			if ((p = select_object(m, &sel)) != NULL)
 				return p;

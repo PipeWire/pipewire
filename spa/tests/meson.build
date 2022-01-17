@@ -41,7 +41,7 @@ foreach a : benchmark_apps
       install_dir : installed_tests_execdir,
     ),
     env : [
-      'SPA_PLUGIN_DIR=@0@'.format(spa_dep.get_variable(internal: 'plugindir')),
+      'SPA_PLUGIN_DIR=@0@'.format(spa_dep.get_variable('plugindir')),
     ]
   )
 

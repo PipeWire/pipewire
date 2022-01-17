@@ -371,9 +371,9 @@ test('pw-test-protocol-native',
     install_dir : installed_tests_execdir,
   ),
   env : [
-    'SPA_PLUGIN_DIR=@0@'.format(spa_dep.get_variable(internal: 'plugindir')),
-    'PIPEWIRE_CONFIG_DIR=@0@'.format(pipewire_dep.get_variable(internal: 'confdatadir')),
-    'PIPEWIRE_MODULE_DIR=@0@'.format(pipewire_dep.get_variable(internal: 'moduledir')),
+    'SPA_PLUGIN_DIR=@0@'.format(spa_dep.get_variable('plugindir')),
+    'PIPEWIRE_CONFIG_DIR=@0@'.format(pipewire_dep.get_variable('confdatadir')),
+    'PIPEWIRE_MODULE_DIR=@0@'.format(pipewire_dep.get_variable('moduledir')),
   ]
 )
 

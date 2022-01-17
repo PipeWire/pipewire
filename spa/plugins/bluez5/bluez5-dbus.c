@@ -1470,6 +1470,15 @@ static int device_update_props(struct spa_bt_device *device,
 	return 0;
 }
 
+static bool device_props_ready(struct spa_bt_device *device)
+{
+	/*
+	 * In some cases, BlueZ device props may be missing part of
+	 * the information required when the interface first appears.
+	 */
+	return device->adapter && device->address;
+}
+
 bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec *codec)
 {
 	struct spa_bt_monitor *monitor = device->monitor;
@@ -3622,6 +3631,9 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		device_update_props(d, props_iter, NULL);
 		d->reconnect_state = BT_DEVICE_RECONNECT_INIT;
 
+		if (!device_props_ready(d))
+			return;
+
 		device_update_hw_volume_profiles(d);
 
 		/* Trigger bluez device creation before bluez profile negotiation started so that
@@ -3978,6 +3990,12 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 			spa_log_debug(monitor->log, "Properties changed in device %s", path);
 
 			device_update_props(d, &it[1], NULL);
+
+			if (!device_props_ready(d))
+				goto finish;
+
+			device_update_hw_volume_profiles(d);
+
 			spa_bt_device_add_profile(d, SPA_BT_PROFILE_NULL);
 		}
 		else if (spa_streq(iface, BLUEZ_MEDIA_ENDPOINT_INTERFACE)) {

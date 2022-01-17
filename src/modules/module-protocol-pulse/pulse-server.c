@@ -220,8 +220,6 @@ static int send_object_event(struct client *client, struct pw_manager_object *o,
 				res_id);
 	}
 	if (pw_manager_object_is_source_or_monitor(o)) {
-		if (!pw_manager_object_is_source(o))
-			res_id |= MONITOR_FLAG;
 		mask = SUBSCRIPTION_MASK_SOURCE;
 		event = SUBSCRIPTION_EVENT_SOURCE;
 	}
@@ -636,7 +634,7 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 		name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
 		if (!pw_manager_object_is_source(peer)) {
 			size_t len = (name ? strlen(name) : 5) + 10;
-			peer_id = peer->id | MONITOR_FLAG;
+			peer_id = peer->id;
 			peer_name = tmp = alloca(len);
 			snprintf(tmp, len, "%s.monitor", name ? name : "sink");
 		} else {
@@ -1835,8 +1833,6 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 			source_index = id;
 	}
 	if (source_index != SPA_ID_INVALID && source_index != 0) {
-		if (source_index & MONITOR_FLAG)
-			source_index &= INDEX_MASK;
 		pw_properties_setf(props,
 				PW_KEY_NODE_TARGET, "%u", source_index);
 	} else if (source_name != NULL) {
@@ -2232,6 +2228,7 @@ static struct pw_manager_object *find_device(struct client *client,
 {
 	struct selector sel;
 	bool monitor = false, find_default = false;
+	struct pw_manager_object *o;
 
 	if (name != NULL) {
 		if (spa_streq(name, DEFAULT_MONITOR)) {
@@ -2259,23 +2256,14 @@ static struct pw_manager_object *find_device(struct client *client,
 		id = SPA_ID_INVALID;
 	}
 
-	if (id != SPA_ID_INVALID) {
-		if (id & MONITOR_FLAG) {
-			if (sink)
-				return NULL;
-			monitor = true;
-			id &= ~MONITOR_FLAG;
-		}
-	} else if (name != NULL) {
+	if (name != NULL) {
 		if (spa_strendswith(name, ".monitor")) {
 			name = strndupa(name, strlen(name)-8);
 			monitor = true;
 		}
-	} else
+	} else if (id == SPA_ID_INVALID)
 		return NULL;
 
-	if (is_monitor)
-		*is_monitor = monitor;
 
 	spa_zero(sel);
 	sel.type = sink ?
@@ -2285,7 +2273,15 @@ static struct pw_manager_object *find_device(struct client *client,
 	sel.key = PW_KEY_NODE_NAME;
 	sel.value = name;
 
-	return select_object(client->manager, &sel);
+	o = select_object(client->manager, &sel);
+	if (o != NULL) {
+		if (!sink && pw_manager_object_is_monitor(o))
+			monitor = true;
+	}
+	if (is_monitor)
+		*is_monitor = monitor;
+
+	return o;
 }
 
 static void sample_play_ready(void *data, uint32_t index)
@@ -3204,7 +3200,7 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 
 	reply = reply_new(client, tag);
 	message_put(reply,
-		TAG_U32, is_monitor ? o->id | MONITOR_FLAG : o->id,
+		TAG_U32, o->id,
 		TAG_INVALID);
 
 	return client_queue_message(client, reply);
@@ -3568,7 +3564,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 		TAG_U32, module_id,			/* module index */
 		TAG_CVOLUME, &dev_info.volume_info.volume,
 		TAG_BOOLEAN, dev_info.volume_info.mute,
-		TAG_U32, o->id | MONITOR_FLAG,		/* monitor source */
+		TAG_U32, o->id,				/* monitor source index */
 		TAG_STRING, monitor_name,		/* monitor source name */
 		TAG_USEC, 0LL,				/* latency */
 		TAG_STRING, "PipeWire",			/* driver */
@@ -3763,7 +3759,7 @@ static int fill_source_info(struct client *client, struct message *m,
 		dev_info.ss.format = SPA_AUDIO_FORMAT_S16;
 
 	message_put(m,
-		TAG_U32, is_monitor ? o->id | MONITOR_FLAG: o->id,	/* source index */
+		TAG_U32, o->id,					/* source index */
 		TAG_STRING, is_monitor ? monitor_name : name,
 		TAG_STRING, is_monitor ? monitor_desc : desc,
 		TAG_SAMPLE_SPEC, &dev_info.ss,
@@ -3958,8 +3954,6 @@ static int fill_source_output_info(struct client *client, struct message *m,
 	peer = find_linked(manager, o->id, PW_DIRECTION_INPUT);
 	if (peer && pw_manager_object_is_source_or_monitor(peer)) {
 		peer_id = peer->id;
-		if (!pw_manager_object_is_source(peer))
-			peer_id |= MONITOR_FLAG;
 	} else {
 		peer_id = SPA_ID_INVALID;
 	}

@@ -41,7 +41,7 @@
 #include <spa/utils/string.h>
 #include <spa/debug/pod.h>
 #include <spa/utils/keys.h>
-#include <spa/utils/json.h>
+#include <spa/utils/json-pod.h>
 #include <spa/pod/builder.h>
 
 #include <pipewire/impl.h>
@@ -1544,126 +1544,15 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 	return true;
 }
 
-static int json_to_pod(struct spa_pod_builder *b, uint32_t id,
-		const struct spa_type_info *info, struct spa_json *iter, const char *value, int len)
-{
-	const struct spa_type_info *ti;
-	char key[256];
-	struct spa_pod_frame f[1];
-	struct spa_json it[1];
-	int l, res;
-	const char *v;
-	uint32_t type;
-
-	if (spa_json_is_object(value, len) && info != NULL) {
-		if ((ti = spa_debug_type_find(NULL, info->parent)) == NULL)
-			return -EINVAL;
-
-		spa_pod_builder_push_object(b, &f[0], info->parent, id);
-
-		spa_json_enter(iter, &it[0]);
-		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
-			const struct spa_type_info *pi;
-			if ((l = spa_json_next(&it[0], &v)) <= 0)
-				break;
-			if ((pi = find_type_info(ti->values, key)) != NULL)
-				type = pi->type;
-			else if ((type = atoi(key)) == 0)
-				continue;
-			spa_pod_builder_prop(b, type, 0);
-			if ((res = json_to_pod(b, id, pi, &it[0], v, l)) < 0)
-				return res;
-		}
-		spa_pod_builder_pop(b, &f[0]);
-	}
-	else if (spa_json_is_array(value, len)) {
-		if (info == NULL || info->parent == SPA_TYPE_Struct) {
-			spa_pod_builder_push_struct(b, &f[0]);
-		} else {
-			spa_pod_builder_push_array(b, &f[0]);
-			info = info->values;
-		}
-		spa_json_enter(iter, &it[0]);
-		while ((l = spa_json_next(&it[0], &v)) > 0)
-			if ((res = json_to_pod(b, id, info, &it[0], v, l)) < 0)
-				return res;
-		spa_pod_builder_pop(b, &f[0]);
-	}
-	else if (spa_json_is_float(value, len)) {
-		float val = 0.0f;
-		spa_json_parse_float(value, len, &val);
-		switch (info ? info->parent : SPA_TYPE_Struct) {
-		case SPA_TYPE_Bool:
-			spa_pod_builder_bool(b, val >= 0.5f);
-			break;
-		case SPA_TYPE_Id:
-			spa_pod_builder_id(b, val);
-			break;
-		case SPA_TYPE_Int:
-			spa_pod_builder_int(b, val);
-			break;
-		case SPA_TYPE_Long:
-			spa_pod_builder_long(b, val);
-			break;
-		case SPA_TYPE_Struct:
-			if (spa_json_is_int(value, len))
-				spa_pod_builder_int(b, val);
-			else
-				spa_pod_builder_float(b, val);
-			break;
-		case SPA_TYPE_Float:
-			spa_pod_builder_float(b, val);
-			break;
-		case SPA_TYPE_Double:
-			spa_pod_builder_double(b, val);
-			break;
-		default:
-			spa_pod_builder_none(b);
-			break;
-		}
-	}
-	else if (spa_json_is_bool(value, len)) {
-		bool val = false;
-		spa_json_parse_bool(value, len, &val);
-		spa_pod_builder_bool(b, val);
-	}
-	else if (spa_json_is_null(value, len)) {
-		spa_pod_builder_none(b);
-	}
-	else {
-		char *val = alloca(len+1);
-		spa_json_parse_stringn(value, len, val, len+1);
-		switch (info ? info->parent : SPA_TYPE_Struct) {
-		case SPA_TYPE_Id:
-			if ((ti = find_type_info(info->values, val)) != NULL)
-				type = ti->type;
-			else if ((type = atoi(val)) == 0)
-				return -EINVAL;
-			spa_pod_builder_id(b, type);
-			break;
-		case SPA_TYPE_Struct:
-		case SPA_TYPE_String:
-			spa_pod_builder_string(b, val);
-			break;
-		default:
-			spa_pod_builder_none(b);
-			break;
-		}
-	}
-	return 0;
-}
-
 static bool do_set_param(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	char *a[3];
-	const char *val;
-        int res, n, len;
+	int res, n;
 	uint32_t id, param_id;
 	struct global *global;
-	struct spa_json it[3];
 	uint8_t buffer[1024];
-        struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	const struct spa_type_info *ti;
 	struct spa_pod *pod;
 
@@ -1690,14 +1579,7 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 		*error = spa_aprintf("%s: unknown param type: %s", cmd, a[1]);
 		return false;
 	}
-	param_id = ti->type;
-
-	spa_json_init(&it[0], a[2], strlen(a[2]));
-	if ((len = spa_json_next(&it[0], &val)) <= 0) {
-		*error = spa_aprintf("%s: not a JSON object: %s", cmd, a[2]);
-		return false;
-	}
-	if ((res = json_to_pod(&b, param_id, ti, &it[0], val, len)) < 0) {
+	if ((res = spa_json_to_pod(&b, 0, ti, a[2], strlen(a[2]))) < 0) {
 		*error = spa_aprintf("%s: can't make pod: %s", cmd, spa_strerror(res));
 		return false;
 	}
@@ -1706,6 +1588,8 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 		return false;
 	}
 	spa_debug_pod(0, NULL, pod);
+
+	param_id = ti->type;
 
 	if (spa_streq(global->type, PW_TYPE_INTERFACE_Node))
 		pw_node_set_param((struct pw_node*)global->proxy,

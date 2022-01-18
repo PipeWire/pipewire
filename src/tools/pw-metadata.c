@@ -96,7 +96,8 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 	if (!spa_streq(type, PW_TYPE_INTERFACE_Metadata))
 		return;
 
-	if ((str = spa_dict_lookup(props, PW_KEY_METADATA_NAME)) != NULL &&
+	if (props != NULL &&
+	    (str = spa_dict_lookup(props, PW_KEY_METADATA_NAME)) != NULL &&
 	    !spa_streq(str, d->opt_name))
 		return;
 

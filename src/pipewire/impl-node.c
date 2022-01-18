@@ -868,7 +868,7 @@ static void check_properties(struct pw_impl_node *node)
 
 	impl->pause_on_idle = pw_properties_get_bool(node->properties, PW_KEY_NODE_PAUSE_ON_IDLE, true);
 	impl->cache_params =  pw_properties_get_bool(node->properties, PW_KEY_NODE_CACHE_PARAMS, true);
-	node->transport_sync = pw_properties_get_bool(node->properties, "node.transport.sync", false);
+	node->transport_sync = pw_properties_get_bool(node->properties, PW_KEY_NODE_TRANSPORT_SYNC, false);
 	driver = pw_properties_get_bool(node->properties, PW_KEY_NODE_DRIVER, false);
 
 	if (node->driver != driver) {

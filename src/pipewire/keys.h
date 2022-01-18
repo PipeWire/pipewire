@@ -172,6 +172,7 @@ extern "C" {
 								  *  node in order to schedule the graph. */
 #define PW_KEY_NODE_PAUSE_ON_IDLE	"node.pause-on-idle"	/**< pause the node when idle */
 #define PW_KEY_NODE_CACHE_PARAMS	"node.cache-params"	/**< cache the node params */
+#define PW_KEY_NODE_TRANSPORT_SYNC	"node.transport.sync"	/**< the node handles transport sync */
 #define PW_KEY_NODE_DRIVER		"node.driver"		/**< node can drive the graph */
 #define PW_KEY_NODE_STREAM		"node.stream"		/**< node is a stream, the server side should
 								  *  add a converter */

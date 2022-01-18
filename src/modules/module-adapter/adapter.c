@@ -173,6 +173,43 @@ static const struct pw_impl_node_events node_events = {
 	.port_init = node_port_init,
 };
 
+static const struct spa_type_info *find_type_info(const struct spa_type_info *info, const char *name)
+{
+	while (info && info->name) {
+                if (spa_streq(info->name, name))
+                        return info;
+                if (spa_streq(spa_debug_type_short_name(info->name), name))
+                        return info;
+                if (info->type != 0 && info->type == (uint32_t)atoi(name))
+                        return info;
+                info++;
+        }
+        return NULL;
+}
+
+static int handle_node_param(struct pw_impl_node *node, const char *key, const char *value)
+{
+	const struct spa_type_info *ti;
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct spa_pod *pod;
+	int res;
+
+	ti = find_type_info(spa_type_param, key);
+	if (ti == NULL)
+		return -ENOENT;
+
+	if ((res = spa_json_to_pod(&b, 0, ti, value, strlen(value))) < 0)
+		return res;
+
+	if ((pod = spa_pod_builder_deref(&b, 0)) == NULL)
+		return -ENOSPC;
+
+	if ((res = pw_impl_node_set_param(node, ti->type, 0, pod)) < 0)
+		return res;
+
+	return 0;
+}
 
 static int find_format(struct pw_impl_node *node, enum pw_direction direction,
 		uint32_t *media_type, uint32_t *media_subtype)
@@ -204,28 +241,6 @@ static int find_format(struct pw_impl_node *node, enum pw_direction direction,
 	return 0;
 }
 
-static int autoconfigure(struct node *n, const char *mode_str)
-{
-	char buf[4096];
-	struct spa_pod_builder b = { 0, };
-	int res;
-	const struct spa_type_info *info;
-	struct spa_pod *param;
-
-	info = spa_debug_type_find(spa_type_param, SPA_PARAM_PortConfig);
-
-	spa_pod_builder_init(&b, buf, sizeof(buf));
-	res = spa_json_to_pod(&b, 0, info, mode_str, strlen(mode_str));
-	if (res < 0)
-		return res;
-
-	if ((param = spa_pod_builder_deref(&b, 0)) == NULL)
-		return -EINVAL;
-
-	pw_impl_node_set_param(n->node, SPA_PARAM_PortConfig, 0, param);
-	return 0;
-}
-
 struct pw_impl_node *pw_adapter_new(struct pw_context *context,
 		struct pw_impl_node *follower,
 		struct pw_properties *props,
@@ -238,6 +253,8 @@ struct pw_impl_node *pw_adapter_new(struct pw_context *context,
 	enum pw_direction direction;
 	int res;
 	uint32_t media_type, media_subtype;
+	const struct spa_dict_item *it;
+	struct pw_properties *copy;
 
 	info = pw_impl_node_get_info(follower);
 	if (info == NULL) {
@@ -296,11 +313,16 @@ struct pw_impl_node *pw_adapter_new(struct pw_context *context,
 		goto error;
 	}
 
+	copy = pw_properties_new(NULL, NULL);
+	spa_dict_for_each(it, &props->dict) {
+		if (!spa_strstartswith(it->key, "node.param.") &&
+		    !spa_strstartswith(it->key, "port.param."))
+			pw_properties_set(copy, it->key, it->value);
+	}
 	node = pw_spa_node_load(context,
 				factory_name,
 				PW_SPA_NODE_FLAG_ACTIVATE | PW_SPA_NODE_FLAG_NO_REGISTER,
-				pw_properties_copy(props),
-				sizeof(struct node) + user_data_size);
+				copy, sizeof(struct node) + user_data_size);
         if (node == NULL) {
 		res = -errno;
 		pw_log_error("can't load spa node: %m");
@@ -322,10 +344,12 @@ struct pw_impl_node *pw_adapter_new(struct pw_context *context,
 
 	pw_impl_node_add_listener(node, &n->node_listener, &node_events, n);
 
-	if ((str = pw_properties_get(props, "adapter.port-config")) != NULL)
-		if ((res = autoconfigure(n, str)) < 0)
-			pw_log_error("can't autoconfigure: %s", spa_strerror(res));
-
+	spa_dict_for_each(it, &props->dict) {
+		if (spa_strstartswith(it->key, "node.param.")) {
+			if ((res = handle_node_param(node, &it->key[11], it->value)) < 0)
+				pw_log_warn("can't set node param: %s", spa_strerror(res));
+		}
+	}
 	return node;
 
 error:

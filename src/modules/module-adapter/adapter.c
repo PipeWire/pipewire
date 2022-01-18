@@ -40,8 +40,11 @@
 #include <spa/param/format.h>
 #include <spa/param/format-utils.h>
 #include <spa/debug/types.h>
+#include <spa/debug/pod.h>
+#include <spa/utils/json-pod.h>
 
 #include "pipewire/pipewire.h"
+#include "pipewire/private.h"
 
 #include "modules/spa/spa-node.h"
 
@@ -201,6 +204,27 @@ static int find_format(struct pw_impl_node *node, enum pw_direction direction,
 	return 0;
 }
 
+static int autoconfigure(struct node *n, const char *mode_str)
+{
+	char buf[4096];
+	struct spa_pod_builder b = { 0, };
+	int res;
+	const struct spa_type_info *info;
+	struct spa_pod *param;
+
+	info = spa_debug_type_find(spa_type_param, SPA_PARAM_PortConfig);
+
+	spa_pod_builder_init(&b, buf, sizeof(buf));
+	res = spa_json_to_pod(&b, 0, info, mode_str, strlen(mode_str));
+	if (res < 0)
+		return res;
+
+	if ((param = spa_pod_builder_deref(&b, 0)) == NULL)
+		return -EINVAL;
+
+	pw_impl_node_set_param(n->node, SPA_PARAM_PortConfig, 0, param);
+	return 0;
+}
 
 struct pw_impl_node *pw_adapter_new(struct pw_context *context,
 		struct pw_impl_node *follower,
@@ -297,6 +321,10 @@ struct pw_impl_node *pw_adapter_new(struct pw_context *context,
 		n->user_data = SPA_PTROFF(n, sizeof(struct node), void);
 
 	pw_impl_node_add_listener(node, &n->node_listener, &node_events, n);
+
+	if ((str = pw_properties_get(props, "adapter.port-config")) != NULL)
+		if ((res = autoconfigure(n, str)) < 0)
+			pw_log_error("can't autoconfigure: %s", spa_strerror(res));
 
 	return node;
 

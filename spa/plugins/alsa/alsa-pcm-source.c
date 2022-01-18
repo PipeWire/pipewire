@@ -306,8 +306,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			SPA_PROP_latencyOffsetNsec,   SPA_POD_OPT_Long(&info.ns),
 			SPA_PROP_params,       SPA_POD_OPT_Pod(&params));
 
-		handle_process_latency(this, &info);
 		spa_alsa_parse_prop_params(this, params);
+		handle_process_latency(this, &info);
 
 		emit_node_info(this, false);
 		emit_port_info(this, false);

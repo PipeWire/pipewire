@@ -341,8 +341,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 			this->port_params[PORT_EnumFormat].user++;
 		}
-		handle_process_latency(this, &info);
 		spa_alsa_parse_prop_params(this, params);
+		handle_process_latency(this, &info);
 
 		emit_node_info(this, false);
 		emit_port_info(this, false);

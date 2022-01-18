@@ -125,6 +125,10 @@ static int alsa_set_param(struct state *state, const char *k, const char *s)
 		state->props.use_chmap = spa_atob(s);
 	} else if (spa_streq(k, "api.alsa.multi-rate")) {
 		state->multi_rate = spa_atob(s);
+	} else if (spa_streq(k, "latency.internal.rate")) {
+		state->process_latency.rate = atoi(s);
+	} else if (spa_streq(k, "latency.internal.ns")) {
+		state->process_latency.ns = atoi(s);
 	} else if (spa_streq(k, "clock.name")) {
 		spa_scnprintf(state->clock_name,
 				sizeof(state->clock_name), "%s", s);
@@ -295,6 +299,22 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 	case 13:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String("latency.internal.rate"),
+			SPA_PROP_INFO_description, SPA_POD_String("Internal latency in samples"),
+			SPA_PROP_INFO_type, SPA_POD_Int(state->process_latency.rate),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 14:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String("latency.internal.ns"),
+			SPA_PROP_INFO_description, SPA_POD_String("Internal latency in nanoseconds"),
+			SPA_PROP_INFO_type, SPA_POD_Long(state->process_latency.ns),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 15:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("clock.name"),
 			SPA_PROP_INFO_description, SPA_POD_String("The name of the clock"),
 			SPA_PROP_INFO_type, SPA_POD_String(state->clock_name),
@@ -358,6 +378,12 @@ int spa_alsa_add_prop_params(struct state *state, struct spa_pod_builder *b)
 	spa_pod_builder_string(b, "api.alsa.multi-rate");
 	spa_pod_builder_bool(b, state->multi_rate);
 
+	spa_pod_builder_string(b, "latency.internal.rate");
+	spa_pod_builder_int(b, state->process_latency.rate);
+
+	spa_pod_builder_string(b, "latency.internal.ns");
+	spa_pod_builder_long(b, state->process_latency.ns);
+
 	spa_pod_builder_string(b, "clock.name");
 	spa_pod_builder_string(b, state->clock_name);
 
@@ -391,8 +417,11 @@ int spa_alsa_parse_prop_params(struct state *state, struct spa_pod *params)
 		if (spa_pod_is_string(pod)) {
 			spa_pod_copy_string(pod, sizeof(value), value);
 		} else if (spa_pod_is_int(pod)) {
-			snprintf(value, sizeof(value), "%u",
+			snprintf(value, sizeof(value), "%d",
 					SPA_POD_VALUE(struct spa_pod_int, pod));
+		} else if (spa_pod_is_long(pod)) {
+			snprintf(value, sizeof(value), "%"PRIi64,
+					SPA_POD_VALUE(struct spa_pod_long, pod));
 		} else if (spa_pod_is_bool(pod)) {
 			snprintf(value, sizeof(value), "%s",
 					SPA_POD_VALUE(struct spa_pod_bool, pod) ?
@@ -429,10 +458,6 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 			state->open_ucm = spa_atob(s);
 		} else if (spa_streq(k, "clock.quantum-limit")) {
 			spa_atou32(s, &state->quantum_limit, 0);
-		} else if (spa_streq(k, "latency.internal.rate")) {
-			state->process_latency.rate = atoi(s);
-		} else if (spa_streq(k, "latency.internal.ns")) {
-			state->process_latency.ns = atoi(s);
 		} else {
 			alsa_set_param(state, k, s);
 		}

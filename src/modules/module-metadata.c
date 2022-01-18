@@ -74,43 +74,70 @@ static void *create_object(void *_data,
 			   uint32_t new_id)
 {
 	struct factory_data *data = _data;
+	struct pw_context *context = pw_impl_module_get_context(data->module);
 	void *result;
-	struct pw_resource *metadata_resource;
-	struct pw_impl_client *client = pw_resource_get_client(resource);
+	struct pw_resource *metadata_resource = NULL;
+	struct pw_impl_client *client = resource ? pw_resource_get_client(resource) : NULL;
 	int res;
 
-	metadata_resource = pw_resource_new(client, new_id, PW_PERM_ALL, type, version, 0);
-	if (metadata_resource == NULL) {
-		res = -errno;
-		goto error_resource;
-	}
+	if (properties == NULL)
+		properties = pw_properties_new(NULL, NULL);
+	if (properties == NULL)
+		return NULL;
 
-	if (properties) {
-		pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
-				pw_impl_factory_get_info(data->this)->id);
+	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
+			pw_impl_factory_get_info(data->this)->id);
+	pw_properties_setf(properties, PW_KEY_MODULE_ID, "%d",
+			pw_impl_module_get_info(data->module)->id);
+
+	if (pw_properties_get(properties, PW_KEY_METADATA_NAME) == NULL)
+		pw_properties_set(properties, PW_KEY_METADATA_NAME, "default");
+
+	if (client) {
+		metadata_resource = pw_resource_new(client, new_id, PW_PERM_ALL, type, version, 0);
+		if (metadata_resource == NULL) {
+			res = -errno;
+			goto error_resource;
+		}
+
 		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
 				pw_impl_client_get_info(client)->id);
-	}
 
-	result = pw_metadata_new(pw_impl_client_get_context(client), metadata_resource, properties);
-	if (result == NULL) {
-		res = -errno;
-		goto error_node;
+		result = pw_metadata_new(context, metadata_resource, properties);
+		if (result == NULL) {
+			properties = NULL;
+			res = -errno;
+			goto error_node;
+		}
+	} else {
+		result = pw_context_create_metadata(context, NULL, properties, 0);
+		if (result == NULL) {
+			properties = NULL;
+			res = -errno;
+			goto error_node;
+		}
+		pw_impl_metadata_register(result, NULL);
 	}
 	return result;
 
 error_resource:
 	pw_log_error("can't create resource: %s", spa_strerror(res));
-	pw_resource_errorf_id(resource, new_id, res, "can't create resource: %s", spa_strerror(res));
+	if (resource)
+		pw_resource_errorf_id(resource, new_id, res,
+				"can't create resource: %s", spa_strerror(res));
 	goto error_exit;
 error_node:
 	pw_log_error("can't create metadata: %s", spa_strerror(res));
-	pw_resource_errorf_id(resource, new_id, res, "can't create metadata: %s", spa_strerror(res));
+	if (resource)
+		pw_resource_errorf_id(resource, new_id, res,
+				"can't create metadata: %s", spa_strerror(res));
 	goto error_exit_free;
 
 error_exit_free:
-	pw_resource_remove(metadata_resource);
+	if (metadata_resource)
+		pw_resource_remove(metadata_resource);
 error_exit:
+	pw_properties_free(properties);
 	errno = -res;
 	return NULL;
 }

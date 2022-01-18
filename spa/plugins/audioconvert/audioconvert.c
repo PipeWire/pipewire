@@ -472,11 +472,20 @@ static int enum_params(struct impl *this,
 		}
 		result->next = 0x1000;
 	}
-	if (result->next >= 0x1000) {
+	if (result->next < 0x2000) {
 		result->next &= 0xfff;
 		if ((res = spa_node_enum_params_sync(this->channelmix,
 				id, &result->next, filter, &result->param, builder)) == 1) {
 			result->next |= 0x1000;
+			return res;
+		}
+		result->next = 0x2000;
+	}
+	if (result->next >= 0x2000) {
+		result->next &= 0xfff;
+		if ((res = spa_node_enum_params_sync(this->resample,
+				id, &result->next, filter, &result->param, builder)) == 1) {
+			result->next |= 0x2000;
 			return res;
 		}
 	}
@@ -881,6 +890,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		if (this->fmt[SPA_DIRECTION_INPUT] == this->merger)
 			res = spa_node_set_param(this->merger, id, flags, param);
 		res = spa_node_set_param(this->channelmix, id, flags, param);
+		res = spa_node_set_param(this->resample, id, flags, param);
 		break;
 	}
 	default:

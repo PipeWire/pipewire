@@ -64,16 +64,18 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #ifdef SCHED_RESET_ON_FORK
 #define PW_SCHED_RESET_ON_FORK  SCHED_RESET_ON_FORK
 #else
-// FreeBSD compat
+/* FreeBSD compat */
 #define PW_SCHED_RESET_ON_FORK  0
 #endif
 
-#define DEFAULT_NICE_LEVEL	-11
+#define IS_VALID_NICE_LEVEL(l)	((l)>=-20 && (l)<=19)
+
+#define DEFAULT_NICE_LEVEL      20
 #define DEFAULT_RT_PRIO		88
 #define DEFAULT_RT_TIME_SOFT	-1
 #define DEFAULT_RT_TIME_HARD	-1
 
-#define MODULE_USAGE	"[nice.level=<priority: default "SPA_STRINGIFY(DEFAULT_NICE_LEVEL)">] "	\
+#define MODULE_USAGE	"[nice.level=<priority: default "SPA_STRINGIFY(DEFAULT_NICE_LEVEL)"(don't change)>] "	\
 			"[rt.prio=<priority: default "SPA_STRINGIFY(DEFAULT_RT_PRIO)">] "		\
 			"[rt.time.soft=<in usec: default "SPA_STRINGIFY(DEFAULT_RT_TIME_SOFT)"] "	\
 			"[rt.time.hard=<in usec: default "SPA_STRINGIFY(DEFAULT_RT_TIME_HARD)"] "
@@ -111,9 +113,9 @@ struct impl {
 	bool use_rtkit;
 	struct pw_rtkit_bus *system_bus;
 
-	// These are only for the RTKit implementation to fill in the `thread`
-	// struct. Since there's barely any overhead here we'll do this
-	// regardless of which backend is used.
+	/* These are only for the RTKit implementation to fill in the `thread`
+	 * struct. Since there's barely any overhead here we'll do this
+	 * regardless of which backend is used. */
 	pthread_mutex_t lock;
 	pthread_cond_t cond;
 	struct spa_list threads_list;
@@ -488,10 +490,10 @@ static bool check_rtprio_rlimit(rlim_t priority)
 		return false;
 	}
 #else
-	// The BSDs generally don't have RLIMIT_RTPRIO. In that case we can just
-	// try if setting realtime scheduling works so it can still be used when
-	// PipeWire is run as root. There's probably a cleaner way to check this
-	// on FreeBSD that I'm now aware of.
+	/* The BSDs generally don't have RLIMIT_RTPRIO. In that case we can just
+	 * try if setting realtime scheduling works so it can still be used when
+	 * PipeWire is run as root. There's probably a cleaner way to check this
+	 * on FreeBSD that I'm now aware of. */
 	int old_scheduler;
 	struct sched_param old_sched_params;
 	if ((old_scheduler = sched_getscheduler(0)) != 0 ||
@@ -609,7 +611,7 @@ static struct spa_thread *impl_create(void *data, const struct spa_dict *props,
 	this->start = start_routine;
 	this->arg = arg;
 
-	// This thread list is only used for the RTKit implementation
+	/* This thread list is only used for the RTKit implementation */
 	pthread_mutex_lock(&impl->lock);
 	err = pthread_create(&this->thread, NULL, custom_start, this);
 	if (err != 0)
@@ -687,7 +689,7 @@ static int impl_acquire_rt(void *data, struct spa_thread *thread, int priority)
 	pthread_t pt = (pthread_t)thread;
 	pid_t pid;
 
-	// See the docstring on `spa_thread_utils_methods::acquire_rt`
+	/* See the docstring on `spa_thread_utils_methods::acquire_rt` */
 	if (priority == -1) {
 		priority = impl->rt_prio;
 	}
@@ -797,8 +799,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->rt_time_soft = pw_properties_get_int32(props, "rt.time.soft", DEFAULT_RT_TIME_SOFT);
 	impl->rt_time_hard = pw_properties_get_int32(props, "rt.time.hard", DEFAULT_RT_TIME_HARD);
 
-	// If the user has permissions to use regular realtime scheduling, then
-	// we'll use that instead of RTKit
+	/* If the user has permissions to use regular realtime scheduling, then
+	 * we'll use that instead of RTKit */
 	if (check_rtprio_rlimit(impl->rt_prio)) {
 		use_rtkit = false;
 	} else {
@@ -808,7 +810,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			goto error;
 		}
 
-		// TODO: Should this be pw_log_warn or pw_log_debug instead?
+		/* TODO: Should this be pw_log_warn or pw_log_debug instead? */
 		pw_log_info("could not use realtime scheduling, falling back to using RTKit instead");
 	}
 
@@ -822,7 +824,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		}
 	}
 
-	set_nice(impl, impl->nice_level);
+	if (IS_VALID_NICE_LEVEL(impl->nice_level))
+		set_nice(impl, impl->nice_level);
 	set_rlimit(impl);
 
 	impl->thread_utils.iface = SPA_INTERFACE_INIT(

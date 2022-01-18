@@ -523,13 +523,14 @@ SPA_EXPORT
 int pw_impl_metadata_register(struct pw_impl_metadata *metadata,
 			 struct pw_properties *properties)
 {
+	struct pw_context *context = metadata->context;
 	static const char * const keys[] = {
+		PW_KEY_OBJECT_SERIAL,
 		PW_KEY_MODULE_ID,
+		PW_KEY_FACTORY_ID,
 		PW_KEY_METADATA_NAME,
 		NULL
 	};
-
-	struct pw_context *context = metadata->context;
 
 	if (metadata->registered)
 		goto error_existed;

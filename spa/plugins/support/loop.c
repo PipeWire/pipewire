@@ -187,7 +187,7 @@ loop_invoke(void *object,
 	int32_t filled;
 	uint32_t avail, idx, offset, l0;
 
-	if (pthread_equal(impl->thread, pthread_self()))
+	if (impl->thread == 0 || pthread_equal(impl->thread, pthread_self()))
 		return loop_invoke_inthread(impl, func, seq, data, size, block, user_data);
 
 	filled = spa_ringbuffer_get_write_index(&impl->buffer, &idx);

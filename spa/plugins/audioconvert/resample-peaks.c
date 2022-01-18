@@ -146,7 +146,7 @@ int resample_peaks_init(struct resample *r)
 	r->delay = impl_peaks_delay;
 	r->in_len = impl_peaks_in_len;
 
-	d = r->data = calloc(1, sizeof(struct peaks_data) * sizeof(float) * r->channels);
+	d = r->data = calloc(1, sizeof(struct peaks_data) + sizeof(float) * r->channels);
 	if (r->data == NULL)
 		return -errno;
 

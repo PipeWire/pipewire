@@ -31,7 +31,7 @@
 struct peaks_data {
 	uint32_t o_count;
 	uint32_t i_count;
-	float max_f[0];
+	float max_f[];
 };
 
 #if defined (HAVE_SSE)

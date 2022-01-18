@@ -281,7 +281,7 @@ static int resample_set_param(struct impl *this, const char *k, const char *s)
 {
 	if (spa_streq(k, "resample.quality"))
 		this->props.quality = atoi(s);
-	else if (spa_streq(k, "resample.disabled"))
+	else if (spa_streq(k, "resample.disable"))
 		this->props.disabled = spa_atob(s);
 	return 0;
 }
@@ -417,12 +417,16 @@ static void update_rate_match(struct impl *this, bool passthrough, uint32_t out_
 		resample_update_rate(&this->resample, this->rate_scale * this->props.rate);
 	}
 }
+static inline bool is_passthrough(struct impl *this)
+{
+	return this->resample.i_rate == this->resample.o_rate && this->rate_scale == 1.0 &&
+		(this->io_rate_match == NULL || this->props.disabled ||
+		 !SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE));
+}
 
 static void recalc_rate_match(struct impl *this)
 {
-	bool passthrough = this->resample.i_rate == this->resample.o_rate &&
-		(this->io_rate_match == NULL ||
-		 !SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE));
+	bool passthrough = is_passthrough(this);
 	uint32_t out_size = this->io_position ? this->io_position->clock.duration : 1024;
 	update_rate_match(this, passthrough, out_size, 0);
 }
@@ -538,20 +542,24 @@ static int port_enum_formats(void *object,
 	struct impl *this = object;
 	struct port *other;
 	struct spa_pod_frame f;
+	uint32_t rate, min = 1, max = INT32_MAX;
 
 	other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), 0);
 
 	switch (index) {
 	case 0:
 		if (other->have_format) {
+			rate = other->format.info.raw.rate;
+			if (this->props.disabled)
+				min = max = rate;
+
 			spa_pod_builder_push_object(builder, &f,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
 			spa_pod_builder_add(builder,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 				SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
-				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
-								other->format.info.raw.rate, 1, INT32_MAX),
+				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(rate, min, max),
 				SPA_FORMAT_AUDIO_channels, SPA_POD_Int(other->format.info.raw.channels),
 				0);
 			spa_pod_builder_prop(builder, SPA_FORMAT_AUDIO_position, 0);
@@ -559,15 +567,17 @@ static int port_enum_formats(void *object,
 					other->format.info.raw.channels, other->format.info.raw.position);
 			*param = spa_pod_builder_pop(builder, &f);
 		} else {
-			uint32_t rate = this->io_position ?
+			rate = this->io_position ?
 				this->io_position->clock.rate.denom : DEFAULT_RATE;
+			if (this->props.disabled)
+				min = max = rate;
 
 			*param = spa_pod_builder_add_object(builder,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 				SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_F32P),
-				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(rate, 1, INT32_MAX),
+				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(rate, min, max),
 				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(DEFAULT_CHANNELS, 1, INT32_MAX));
 		}
 		break;
@@ -1052,9 +1062,7 @@ static int impl_node_process(void *object)
 	pin_len = in_len;
 	pout_len = out_len;
 #endif
-	passthrough = this->resample.i_rate == this->resample.o_rate && this->rate_scale == 1.0 &&
-		(this->io_rate_match == NULL ||
-		 !SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE));
+	passthrough = is_passthrough(this);
 
 	if (passthrough) {
 		uint32_t len = SPA_MIN(in_len, out_len);

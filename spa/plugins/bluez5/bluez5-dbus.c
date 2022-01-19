@@ -2124,9 +2124,16 @@ static int transport_update_props(struct spa_bt_transport *transport,
 				spa_bt_transport_set_state(transport, spa_bt_transport_state_from_string(value));
 			}
 			else if (spa_streq(key, "Device")) {
-				transport->device = spa_bt_device_find(monitor, value);
-				if (transport->device == NULL)
-					spa_log_warn(monitor->log, "could not find device %s", value);
+				struct spa_bt_device *device = spa_bt_device_find(monitor, value);
+				if (transport->device != device) {
+					if (transport->device != NULL)
+						spa_list_remove(&transport->device_link);
+					transport->device = device;
+					if (device != NULL)
+						spa_list_append(&device->transport_list, &transport->device_link);
+					else
+						spa_log_warn(monitor->log, "could not find device %s", value);
+				}
 			}
 		}
 		else if (spa_streq(key, "Codec")) {
@@ -2907,7 +2914,6 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	DBusMessageIter it[2];
 	DBusMessage *r;
 	struct spa_bt_transport *transport;
-	bool is_new = false;
 	const struct a2dp_codec *codec;
 	int profile;
 
@@ -2930,9 +2936,8 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	dbus_message_iter_recurse(&it[0], &it[1]);
 
 	transport = spa_bt_transport_find(monitor, transport_path);
-	is_new = transport == NULL;
 
-	if (is_new) {
+	if (transport == NULL) {
 		char *tpath = strdup(transport_path);
 
 		transport = spa_bt_transport_create(monitor, tpath, 0);
@@ -2965,10 +2970,6 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		spa_log_warn(monitor->log, "no device found for transport");
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
-	spa_bt_device_add_profile(transport->device, transport->profile);
-
-	if (is_new)
-		spa_list_append(&transport->device->transport_list, &transport->device_link);
 
 	device_update_last_bluez_action_time(transport->device);
 
@@ -2998,6 +2999,8 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	}
 	spa_log_info(monitor->log, "%p: %s validate conf channels:%d",
 			monitor, path, transport->n_channels);
+
+	spa_bt_device_add_profile(transport->device, transport->profile);
 
 	spa_bt_device_connect_profile(transport->device, transport->profile);
 

@@ -480,20 +480,13 @@ static const struct pw_impl_module_events module_events = {
  * Check if the current user has permissions to use realtime scheduling at the
  * specified priority.
  */
-static bool check_rtprio_rlimit(rlim_t priority)
+static bool check_realtime_priviliges(rlim_t priority)
 {
-#ifdef RLIMIT_RTPRIO
-	struct rlimit limits;
-	if (getrlimit(RLIMIT_RTPRIO, &limits) == 0 && (limits.rlim_cur >= priority || limits.rlim_cur == RLIM_INFINITY)) {
-		return true;
-	} else {
-		return false;
-	}
-#else
-	/* The BSDs generally don't have RLIMIT_RTPRIO. In that case we can just
-	 * try if setting realtime scheduling works so it can still be used when
-	 * PipeWire is run as root. There's probably a cleaner way to check this
-	 * on FreeBSD that I'm now aware of. */
+	/* We could check `RLIMIT_RTPRIO`, but the BSDs generally don't have
+	 * that available, and there are also other ways to use realtime
+	 * scheduling without that rlimit being set such as `CAP_SYS_NICE` or
+	 * running as root. Instead of checking a bunch of preconditions, we
+	 * just try if setting realtime scheduling works or not. */
 	int old_scheduler;
 	struct sched_param old_sched_params;
 	if ((old_scheduler = sched_getscheduler(0)) != 0 ||
@@ -510,7 +503,6 @@ static bool check_rtprio_rlimit(rlim_t priority)
 	} else {
 		return false;
 	}
-#endif
 }
 
 static int set_nice(struct impl *impl, int nice_level)
@@ -801,7 +793,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	/* If the user has permissions to use regular realtime scheduling, then
 	 * we'll use that instead of RTKit */
-	if (check_rtprio_rlimit(impl->rt_prio)) {
+	if (check_realtime_priviliges(impl->rt_prio)) {
 		use_rtkit = false;
 	} else {
 		if (!use_rtkit) {

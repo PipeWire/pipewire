@@ -482,23 +482,34 @@ static const struct pw_impl_module_events module_events = {
  */
 static bool check_realtime_priviliges(rlim_t priority)
 {
+	int old_policy;
+	struct sched_param old_sched_params;
+	int new_policy = REALTIME_POLICY;
+	struct sched_param new_sched_params;
+
 	/* We could check `RLIMIT_RTPRIO`, but the BSDs generally don't have
 	 * that available, and there are also other ways to use realtime
 	 * scheduling without that rlimit being set such as `CAP_SYS_NICE` or
 	 * running as root. Instead of checking a bunch of preconditions, we
 	 * just try if setting realtime scheduling works or not. */
-	int old_scheduler;
-	struct sched_param old_sched_params;
-	if ((old_scheduler = sched_getscheduler(0)) != 0 ||
+	if ((old_policy = sched_getscheduler(0)) < 0 ||
 	    sched_getparam(0, &old_sched_params) != 0) {
 		return false;
 	}
 
-	struct sched_param new_sched_params;
+	/* If the current scheduling policy has `SCHED_RESET_ON_FORK` set, then
+	 * this also needs to be set here or `sched_setscheduler()` will return
+	 * an error code. Similarly, if it is not set, then we don't want to set
+	 * it here as it would irreversible change the current thread's
+	 * scheduling policy. */
 	spa_zero(new_sched_params);
 	new_sched_params.sched_priority = priority;
-	if (sched_setscheduler(0, REALTIME_POLICY, &new_sched_params) == 0) {
-		sched_setscheduler(0, old_scheduler, &old_sched_params);
+	if ((old_policy & PW_SCHED_RESET_ON_FORK) != 0) {
+		new_policy |= PW_SCHED_RESET_ON_FORK;
+	}
+
+	if (sched_setscheduler(0, new_policy, &new_sched_params) == 0) {
+		sched_setscheduler(0, old_policy, &old_sched_params);
 		return true;
 	} else {
 		return false;

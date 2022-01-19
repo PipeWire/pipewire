@@ -67,6 +67,7 @@ struct module *module_new(struct impl *impl, const struct module_methods *method
 	if (module == NULL)
 		return NULL;
 
+	module->index = SPA_ID_INVALID;
 	module->impl = impl;
 	module->methods = methods;
 	spa_hook_list_init(&module->listener_list);

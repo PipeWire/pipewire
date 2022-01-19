@@ -11,10 +11,9 @@ pipewire_jackserver_sources += [
   'control.c',
 ]
 
-pipewire_dummy_sources = [
-  'dummy.c',
+pipewire_net_sources = [
+  'net.c',
 ]
-
 pipewire_jack_c_args = [
   '-DPIC',
 ]
@@ -58,7 +57,7 @@ pipewire_jackserver = shared_library('jackserver',
 )
 
 pipewire_jacknet = shared_library('jacknet',
-    pipewire_dummy_sources,
+    pipewire_net_sources,
     soversion : soversion,
     version : libversion,
     c_args : pipewire_jack_c_args,

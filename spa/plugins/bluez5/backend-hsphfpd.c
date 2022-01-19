@@ -1088,7 +1088,7 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 	}
 
 	d = spa_bt_device_find_by_address(backend->monitor, endpoint->remote_address, endpoint->local_address);
-	if (!d) {
+	if (!d || !d->adapter) {
 		spa_log_debug(backend->log, "No device for %s", endpoint->path);
 		return DBUS_HANDLER_RESULT_HANDLED;
 	}

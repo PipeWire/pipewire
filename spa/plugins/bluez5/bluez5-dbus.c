@@ -785,10 +785,19 @@ static struct spa_bt_adapter *adapter_create(struct spa_bt_monitor *monitor, con
 	return d;
 }
 
+static void device_free(struct spa_bt_device *device);
+
 static void adapter_free(struct spa_bt_adapter *adapter)
 {
 	struct spa_bt_monitor *monitor = adapter->monitor;
+	struct spa_bt_device *d, *td;
+
 	spa_log_debug(monitor->log, "%p", adapter);
+
+	/* Devices should be destroyed before their assigned adapter */
+	spa_list_for_each_safe(d, td, &monitor->device_list, link)
+		if (d->adapter == adapter)
+			device_free(d);
 
 	spa_bt_player_destroy(adapter->dummy_player);
 
@@ -2952,7 +2961,7 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	transport->a2dp_codec = codec;
 	transport_update_props(transport, &it[1], NULL);
 
-	if (transport->device == NULL) {
+	if (transport->device == NULL || transport->device->adapter == NULL) {
 		spa_log_warn(monitor->log, "no device found for transport");
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}

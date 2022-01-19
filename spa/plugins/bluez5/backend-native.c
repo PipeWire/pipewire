@@ -1729,7 +1729,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	dbus_message_iter_get_basic(&it[0], &path);
 
 	d = spa_bt_device_find(backend->monitor, path);
-	if (d == NULL) {
+	if (d == NULL || d->adapter == NULL) {
 		spa_log_warn(backend->log, "unknown device for path %s", path);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
@@ -1856,7 +1856,7 @@ static DBusHandlerResult profile_request_disconnection(DBusConnection *conn, DBu
 	dbus_message_iter_get_basic(&it[0], &path);
 
 	d = spa_bt_device_find(backend->monitor, path);
-	if (d == NULL) {
+	if (d == NULL || d->adapter == NULL) {
 		spa_log_warn(backend->log, "unknown device for path %s", path);
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}

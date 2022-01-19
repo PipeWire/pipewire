@@ -53,6 +53,8 @@
 #define DEFAULT_LINK_MAX_BUFFERS		64u
 #define DEFAULT_MEM_WARN_MLOCK			false
 #define DEFAULT_MEM_ALLOW_MLOCK			true
+#define DEFAULT_CHECK_QUANTUM			false
+#define DEFAULT_CHECK_RATE			false
 
 struct impl {
 	struct pw_context *context;
@@ -185,12 +187,23 @@ static int metadata_property(void *data, uint32_t subject, const char *key,
 		recalc = true;
 	} else if (spa_streq(key, "clock.force-rate")) {
 		v = value ? atoi(value) : 0;
-		s->clock_force_rate = v;
-		recalc = true;
+		if (v != 0 && s->check_rate &&
+		    !uint32_array_contains(s->clock_rates, s->n_clock_rates, v)) {
+			pw_log_info("invalid %s: %d not in allowed rates", key, v);
+		} else {
+			s->clock_force_rate = v;
+			recalc = true;
+		}
 	} else if (spa_streq(key, "clock.force-quantum")) {
 		v = value ? atoi(value) : 0;
-		s->clock_force_quantum = v;
-		recalc = true;
+		if (v != 0 && s->check_quantum &&
+		    (v < s->clock_min_quantum || v > s->clock_max_quantum)) {
+			pw_log_info("invalid %s: %d not in (%d-%d)", key, v,
+					s->clock_min_quantum, s->clock_max_quantum);
+		} else {
+			s->clock_force_quantum = v;
+			recalc = true;
+		}
 	}
 	if (recalc)
 		pw_context_recalc_graph(context, "settings changed");
@@ -226,6 +239,9 @@ void pw_settings_init(struct pw_context *this)
 	d->link_max_buffers = get_default_int(p, "link.max-buffers", DEFAULT_LINK_MAX_BUFFERS);
 	d->mem_warn_mlock = get_default_bool(p, "mem.warn-mlock", DEFAULT_MEM_WARN_MLOCK);
 	d->mem_allow_mlock = get_default_bool(p, "mem.allow-mlock", DEFAULT_MEM_ALLOW_MLOCK);
+
+	d->check_quantum = get_default_bool(p, "settings.check-quantum", DEFAULT_CHECK_QUANTUM);
+	d->check_rate = get_default_bool(p, "settings.check-rate", DEFAULT_CHECK_RATE);
 
 	d->clock_quantum_limit = SPA_CLAMP(d->clock_quantum_limit,
 			CLOCK_MIN_QUANTUM, CLOCK_MAX_QUANTUM);

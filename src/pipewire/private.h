@@ -68,6 +68,8 @@ struct settings {
 	unsigned int mem_warn_mlock:1;
 	unsigned int mem_allow_mlock:1;
 	unsigned int clock_power_of_two_quantum:1;
+	unsigned int check_quantum:1;
+	unsigned int check_rate:1;
 #define CLOCK_RATE_UPDATE_MODE_HARD 0
 #define CLOCK_RATE_UPDATE_MODE_SOFT 1
 	int clock_rate_update_mode;

@@ -32,6 +32,9 @@ context.properties = {
     #default.video.rate.num      = 25
     #default.video.rate.denom    = 1
     #
+    settings.check-quantum      = true
+    settings.check-rate         = true
+    #
     # These overrides are only applied when running in a vm.
     vm.overrides = {
         default.clock.min-quantum = 1024

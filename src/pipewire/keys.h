@@ -328,6 +328,8 @@ extern "C" {
 #define PW_KEY_PRIORITY_MASTER		"priority.master"	/**< deprecated */
 #endif /* PW_ENABLE_DEPRECATED */
 
+#define PW_KEY_TARGET_OBJECT		"target.object"		/**< a target object to link to */
+
 /** \}
  */
 

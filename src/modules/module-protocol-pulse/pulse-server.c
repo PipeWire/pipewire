@@ -1581,13 +1581,18 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	if (no_move)
 		flags |= PW_STREAM_FLAG_DONT_RECONNECT;
 
-	if (sink_name != NULL)
+	if (sink_name != NULL) {
 		pw_properties_set(props,
 				PW_KEY_NODE_TARGET, sink_name);
-	else if (sink_index != SPA_ID_INVALID && sink_index != 0)
+		pw_properties_set(props,
+				PW_KEY_TARGET_OBJECT, sink_name);
+	} else if (sink_index != SPA_ID_INVALID && sink_index != 0) {
 		pw_properties_setf(props,
 				PW_KEY_NODE_TARGET, "%u",
 				index_to_id(manager, sink_index));
+		pw_properties_setf(props,
+				PW_KEY_TARGET_OBJECT, "%u", sink_index);
+	}
 
 	stream->stream = pw_stream_new(client->core, name, props);
 	props = NULL;
@@ -1846,16 +1851,23 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		pw_properties_setf(props,
 				PW_KEY_NODE_TARGET, "%u",
 				index_to_id(manager, source_index));
+		pw_properties_setf(props,
+				PW_KEY_TARGET_OBJECT, "%u", source_index);
 	} else if (source_name != NULL) {
 		if (spa_strendswith(source_name, ".monitor")) {
 			pw_properties_setf(props,
 					PW_KEY_NODE_TARGET,
+					"%.*s", (int)strlen(source_name)-8, source_name);
+			pw_properties_setf(props,
+					PW_KEY_TARGET_OBJECT,
 					"%.*s", (int)strlen(source_name)-8, source_name);
 			pw_properties_set(props,
 					PW_KEY_STREAM_CAPTURE_SINK, "true");
 		} else {
 			pw_properties_set(props,
 					PW_KEY_NODE_TARGET, source_name);
+			pw_properties_set(props,
+					PW_KEY_TARGET_OBJECT, source_name);
 		}
 	}
 
@@ -2392,6 +2404,7 @@ static int do_play_sample(struct client *client, uint32_t command, uint32_t tag,
 		goto error_noent;
 
 	pw_properties_setf(props, PW_KEY_NODE_TARGET, "%u", o->id);
+	pw_properties_setf(props, PW_KEY_TARGET_OBJECT, "%"PRIu64, o->serial);
 
 	play = sample_play_new(client->core, sample, props, sizeof(struct pending_sample));
 	props = NULL;

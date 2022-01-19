@@ -605,7 +605,9 @@ static void registry_event_global(void *data, uint32_t id,
 		return;
 	}
 	str = props ? spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL) : NULL;
-	spa_atou64(str, &o->this.serial, 0);
+	if (!spa_atou64(str, &o->this.serial, 0))
+		o->this.serial = SPA_ID_INVALID;
+
 	o->this.id = id;
 	o->this.permissions = permissions;
 	o->this.type = info->type;

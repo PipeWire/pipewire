@@ -812,6 +812,8 @@ void pw_manager_destroy(struct pw_manager *manager)
 	struct manager *m = SPA_CONTAINER_OF(manager, struct manager, this);
 	struct object *o;
 
+	spa_hook_list_clean(&m->hooks);
+
 	spa_hook_remove(&m->core_listener);
 
 	spa_list_consume(o, &m->this.object_list, this.link)

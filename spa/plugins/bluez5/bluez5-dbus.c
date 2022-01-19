@@ -229,7 +229,7 @@ static void battery_remove(struct spa_bt_device *device) {
 		device->battery_pending_call = NULL;
 	}
 
-	if (!device->adapter->has_battery_provider || !device->has_battery)
+	if (!device->adapter || !device->adapter->has_battery_provider || !device->has_battery)
 		return;
 
 	spa_log_debug(device->monitor->log, "Removing virtual battery: %s", device->battery_path);

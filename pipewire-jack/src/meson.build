@@ -57,7 +57,7 @@ pipewire_jackserver = shared_library('jackserver',
     install_dir : libjack_path,
 )
 
-pipewire_jackserver = shared_library('jacknet',
+pipewire_jacknet = shared_library('jacknet',
     pipewire_dummy_sources,
     soversion : soversion,
     version : libversion,

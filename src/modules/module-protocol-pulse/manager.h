@@ -16,6 +16,7 @@ extern "C" {
 
 #include <pipewire/pipewire.h>
 
+struct client;
 struct pw_manager_object;
 
 struct pw_manager_events {
@@ -70,7 +71,7 @@ struct pw_manager_object {
 	struct pw_properties *props;
 	struct pw_proxy *proxy;
 	char *message_object_path;
-	int (*message_handler)(struct pw_manager *m, struct pw_manager_object *o,
+	int (*message_handler)(struct client *client, struct pw_manager_object *o,
 	                       const char *message, const char *params, FILE *response);
 
 	void *info;

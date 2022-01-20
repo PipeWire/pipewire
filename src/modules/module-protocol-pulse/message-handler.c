@@ -16,12 +16,13 @@
 
 #include <pipewire/pipewire.h>
 
+#include "client.h"
 #include "collect.h"
 #include "log.h"
 #include "manager.h"
 #include "message-handler.h"
 
-static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_manager_object *o, const char *message, const char *params, FILE *response)
+static int bluez_card_object_message_handler(struct client *client, struct pw_manager_object *o, const char *message, const char *params, FILE *response)
 {
 	struct transport_codec_info codecs[64];
 	uint32_t n_codecs, active;
@@ -86,7 +87,7 @@ static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_man
 	return 0;
 }
 
-static int core_object_message_handler(struct pw_manager *m, struct pw_manager_object *o, const char *message, const char *params, FILE *response)
+static int core_object_message_handler(struct client *client, struct pw_manager_object *o, const char *message, const char *params, FILE *response)
 {
 	pw_log_debug(": core %p object message:'%s' params:'%s'", o, message, params);
 
@@ -94,7 +95,7 @@ static int core_object_message_handler(struct pw_manager *m, struct pw_manager_o
 		bool first = true;
 
 		fputc('[', response);
-		spa_list_for_each(o, &m->object_list, link) {
+		spa_list_for_each(o, &client->manager->object_list, link) {
 			if (o->message_object_path) {
 				fprintf(response, "%s{\"name\":\"%s\",\"description\":\"%s\"}",
 						first ? "" : ",",

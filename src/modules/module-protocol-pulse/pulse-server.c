@@ -5141,7 +5141,7 @@ static int do_send_object_message(struct client *client, uint32_t command, uint3
 	if (response == NULL)
 		return -errno;
 
-	res = o->message_handler(manager, o, message, params, response);
+	res = o->message_handler(client, o, message, params, response);
 
 	if (fclose(response))
 		return -errno;

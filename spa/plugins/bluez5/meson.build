@@ -20,6 +20,10 @@ if not get_option('bluez5-backend-hsphfpd').disabled()
   cdata.set('HAVE_BLUEZ_5_BACKEND_HSPHFPD', 1)
 endif
 
+if dependency('bluez', version: '< 6', required: false).found()
+  cdata.set('HAVE_BLUEZ_5_HCI', 1)
+endif
+
 bluez5_sources = [
   'plugin.c',
   'codec-loader.c',
@@ -32,7 +36,8 @@ bluez5_sources = [
   'quirks.c',
   'player.c',
   'bluez5-device.c',
-  'bluez5-dbus.c'
+  'bluez5-dbus.c',
+  'hci.c'
 ]
 
 bluez5_data = ['bluez-hardware.conf']

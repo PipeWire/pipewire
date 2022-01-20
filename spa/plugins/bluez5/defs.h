@@ -332,11 +332,13 @@ struct spa_bt_adapter {
 	uint32_t bluetooth_class;
 	uint32_t profiles;
 	int powered;
+	unsigned int has_msbc:1;
+	unsigned int msbc_probed:1;
 	unsigned int endpoints_registered:1;
 	unsigned int application_registered:1;
 	unsigned int player_registered:1;
-	unsigned int has_battery_provider;
-	unsigned int battery_provider_unavailable;
+	unsigned int has_battery_provider:1;
+	unsigned int battery_provider_unavailable:1;
 };
 
 enum spa_bt_form_factor {
@@ -695,6 +697,8 @@ int spa_bt_quirks_get_features(const struct spa_bt_quirks *quirks,
 		const struct spa_bt_device *device,
 		uint32_t *features);
 void spa_bt_quirks_destroy(struct spa_bt_quirks *quirks);
+
+int spa_bt_adapter_has_msbc(struct spa_bt_adapter *adapter);
 
 struct spa_bt_backend_implementation {
 #define SPA_VERSION_BT_BACKEND_IMPLEMENTATION	0

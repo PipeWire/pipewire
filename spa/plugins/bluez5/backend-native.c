@@ -550,11 +550,10 @@ fail:
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 
-static int sco_create_socket(struct impl *backend, struct spa_bt_adapter *adapter, bool msbc);
-
 static bool device_supports_required_mSBC_transport_modes(
-		struct impl *backend, struct spa_bt_device *device) {
-	int sock;
+		struct impl *backend, struct spa_bt_device *device)
+{
+	int res;
 	bool msbc_ok, msbc_alt1_ok;
 	uint32_t bt_features;
 
@@ -575,43 +574,20 @@ static bool device_supports_required_mSBC_transport_modes(
 	if (!msbc_ok && !msbc_alt1_ok)
 		return false;
 
-	/*
-	 * Check if adapter supports BT_VOICE_TRANSPARENT. Do this without
-	 * directly probing HCI properties.
-	 */
-	sock = sco_create_socket(backend, device->adapter, true);
-	if (sock < 0) {
+	res = spa_bt_adapter_has_msbc(device->adapter);
+	if (res < 0) {
+		spa_log_warn(backend->log,
+				"adapter %s: failed to determine msbc/esco capability (%d)",
+				device->adapter->path, res);
+	} else if (res == 0) {
+		spa_log_info(backend->log,
+				"adapter %s: no msbc/esco transport",
+				device->adapter->path);
 		return false;
 	} else {
-		struct sockaddr_sco addr;
-		socklen_t len;
-		int res;
-
-		/* Connect to non-existent address */
-		len = sizeof(addr);
-		memset(&addr, 0, len);
-		addr.sco_family = AF_BLUETOOTH;
-		bacpy(&addr.sco_bdaddr, BDADDR_LOCAL);
-
-		spa_log_debug(backend->log, "connect to determine adapter msbc support...");
-
-		/* Linux kernel code checks for features needed for BT_VOICE_TRANSPARENT
-		 * among the first checks it does, and fails with EOPNOTSUPP if not
-		 * supported. The connection generally timeouts, so set it
-		 * nonblocking since we are just checking.
-		 */
-		fcntl(sock, F_SETFL, O_NONBLOCK);
-		res = connect(sock, (struct sockaddr *) &addr, len);
-		if (res < 0)
-			res = errno;
-		else
-			res = 0;
-		close(sock);
-
-		spa_log_debug(backend->log, "determined adapter-msbc:%d res:%d",
-				(res != EOPNOTSUPP), res);
-		if (res == EOPNOTSUPP)
-			return false;
+		spa_log_debug(backend->log,
+				"adapter %s: has msbc/esco transport",
+				device->adapter->path);
 	}
 
 	/* Check if USB ALT6 is really available on the device */

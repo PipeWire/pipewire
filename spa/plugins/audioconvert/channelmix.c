@@ -649,6 +649,9 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	if (param == NULL)
 		return 0;
 
+	if (this->props.disabled)
+		return 0;
+
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_volume:
@@ -730,6 +733,9 @@ static int apply_midi(struct impl *this, const struct spa_pod *value)
 
 	if (size < 3)
 		return -EINVAL;
+
+	if (this->props.disabled)
+		return 0;
 
 	if ((val[0] & 0xf0) != 0xb0 || val[1] != 7)
 		return 0;

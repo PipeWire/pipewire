@@ -5132,7 +5132,7 @@ static int do_send_object_message(struct client *client, uint32_t command, uint3
 	int res = -ENOENT;
 
 	spa_list_for_each(o, &manager->object_list, link) {
-		if (o->message_object_path && spa_streq(o->message_object_path, path)) {
+		if (spa_streq(o->message_object_path, path)) {
 			if (o->message_handler)
 				res = o->message_handler(manager, o, message, params, &response);
 			else

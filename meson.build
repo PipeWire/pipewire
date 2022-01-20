@@ -479,20 +479,23 @@ if alsa_dep.found()
   subdir('pipewire-alsa/tests')
 endif
 
-doxygen = find_program('doxygen', required : get_option('docs'))
-if doxygen.found()
-  subdir('doc')
-endif
-
+generate_manpages = false
 if not get_option('man').disabled()
   rst2man = find_program('rst2man', required: false)
   if not rst2man.found()
     rst2man = find_program('rst2man.py', required: get_option('man'))
   endif
-  summary({'Manpage generation': rst2man.found()}, bool_yn: true)
   if rst2man.found()
-    subdir('man')
+    generate_manpages = true
   endif
+endif
+
+summary({'Manpage generation': generate_manpages}, bool_yn: true)
+subdir('man')
+
+doxygen = find_program('doxygen', required : get_option('docs'))
+if doxygen.found()
+  subdir('doc')
 endif
 
 setenv = find_program('pw-uninstalled.sh')

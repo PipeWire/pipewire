@@ -1,4 +1,7 @@
 /** \page page_tools PipeWire Tools
 
-*/
+Manual pages:
 
+@man_subpages@
+
+*/

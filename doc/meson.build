@@ -26,7 +26,6 @@ extra_docs = [
   'pipewire-daemon.dox',
   'pipewire-library.dox',
   'pipewire-modules.dox',
-  'pipewire-tools.dox',
   'pipewire-session-manager.dox',
   'pipewire-objects-design.dox',
   'pipewire-audio.dox',
@@ -115,6 +114,30 @@ examples_dox = configure_file(input: 'examples.dox.in',
 
 input_dirs += [ 'doc/examples.dox' ]
 
+man_doxygen = []
+man_subpages = []
+foreach m : manpages
+  manconf = configuration_data()
+  pagename = 'page_man_' + m.split('.rst.in').get(0).replace('.', '_').replace('-', '_')
+  filename = m.split('.rst.in').get(0) + '.dox'
+  manconf.set('pagename', pagename)
+  manconf.set('title', m.split('.rst.in').get(0).replace('.1','').replace('.5',''))
+  manconf.set('filename', meson.project_source_root() / 'man' / m)
+  manfile = configure_file(input: 'manpage.dox.in',
+                           output: filename,
+                           configuration: manconf)
+  man_doxygen += [manfile]
+  man_subpages += ['- \subpage ' + pagename]
+  input_dirs += [ 'doc/' + filename ]
+endforeach
+
+pw_tools_dox_conf = configuration_data()
+pw_tools_dox_conf.set('man_subpages', '\n'.join(man_subpages))
+pw_tools_dox = configure_file(input: 'pipewire-tools.dox.in',
+                          output: 'pipewire-tools.dox',
+                          configuration: pw_tools_dox_conf)
+input_dirs += [ 'doc/pipewire-tools.dox' ]
+
 doxyfile_conf.set('inputs', ' '.join(inputs + input_dirs))
 doxyfile_conf.set('cssfiles', ' '.join(cssfiles))
 doxyfile_conf.set('path_prefixes', ' '.join(path_prefixes))
@@ -131,7 +154,7 @@ if docdir == ''
 endif
 
 html_target = custom_target('pipewire-docs',
-                            input: [ doxyfile, examples_dox ] + inputs + cssfiles,
+                            input: [ doxyfile, examples_dox, pw_tools_dox ] + inputs + cssfiles + man_doxygen,
                             output: [ 'html' ],
                             command: [ doxygen, doxyfile ],
                             install: true,

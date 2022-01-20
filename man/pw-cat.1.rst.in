@@ -1,5 +1,3 @@
-.. This file is part of PipeWire.
-
 pw-cat
 ######
 
@@ -44,13 +42,16 @@ OPTIONS
   a connection is made to the default PipeWire instance.
 
 -p | --playback
-  Playback mode. Read data from the specified file, and play it back. If the tool is called under the name **pw-play** or **pw-midiplay** this is the default.
+  Playback mode. Read data from the specified file, and play it back. If the tool
+  is called under the name **pw-play** or **pw-midiplay** this is the default.
 
 -r | --record
-  Recording mode. Capture data and write it to the specified file. If the tool is called under the name **pw-record** or **pw-midirecord** this is the default.
+  Recording mode. Capture data and write it to the specified file. If the tool is
+  called under the name **pw-record** or **pw-midirecord** this is the default.
 
 -m | --midi
-  MIDI mode. *FILE* is a MIDI file. If the tool is called under the name **pw-midiplay** or **pw-midirecord** this is the default.
+  MIDI mode. *FILE* is a MIDI file. If the tool is called under the name
+  **pw-midiplay** or **pw-midirecord** this is the default.
 
 --media-type=VALUE
   Set the media type property (default Audio/Midi depending on mode).

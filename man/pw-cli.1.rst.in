@@ -1,5 +1,3 @@
-.. This file is part of PipeWire.
-
 pw-cli
 ######
 
@@ -45,7 +43,8 @@ quit
 MODULE MANAGEMENT
 =================
 
-| Modules are loaded and unloaded in the local instance and can add functionality or objects to the local instance.
+| Modules are loaded and unloaded in the local instance and can add
+| functionality or objects to the local instance.
 
 load-module *name* [*arguments...*]
   Load a module specified by its name and arguments. For most

@@ -23,6 +23,10 @@ if not get_option('pipewire-jack').disabled()
   manpages += 'pw-jack.1.rst.in'
 endif
 
+if not generate_manpages
+  subdir_done()
+endif
+
 foreach m : manpages
   file = m.split('.rst.in').get(0)
   rst = configure_file(input : m,

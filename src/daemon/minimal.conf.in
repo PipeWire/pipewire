@@ -207,18 +207,23 @@ context.objects = [
             #        audio.channels 6
             #    ]
             #}
-            node.param.PortConfig    = {
-                direction = Output
+            adapter.auto-port-config = {
                 mode = dsp
-                format = {
-                    mediaType = audio
-                    mediaSubtype = raw
-                    format = F32
-                    rate = 48000
-                    channels = 4
-	            #position = [ FL FR RL RR ]
-                }
+                monitor = false
+                position = unknown   # aux, preserve
             }
+            #node.param.PortConfig    = {
+            #    direction = Output
+            #    mode = dsp
+            #    format = {
+            #        mediaType = audio
+            #        mediaSubtype = raw
+            #        format = F32
+            #        rate = 48000
+            #        channels = 4
+            #        position = [ FL FR RL RR ]
+            #    }
+            #}
         }
     }
     { factory = adapter
@@ -257,18 +262,23 @@ context.objects = [
             #        audio.format  S16
             #    ]
             #}
-            node.param.PortConfig    = {
-                direction = Input
+            adapter.auto-port-config = {
                 mode = dsp
-                monitor = true
-                format = {
-                    mediaType = audio
-                    mediaSubtype = raw
-                    format = F32
-                    rate = 48000
-                    channels = 4
-                }
+                monitor = false
+                position = unknown   # aux, preserve
             }
+            #node.param.PortConfig    = {
+            #    direction = Input
+            #    mode = dsp
+            #    monitor = true
+            #    format = {
+            #        mediaType = audio
+            #        mediaSubtype = raw
+            #        format = F32
+            #        rate = 48000
+            #        channels = 4
+            #    }
+            #}
         }
     }
 ]

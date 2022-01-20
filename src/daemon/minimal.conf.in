@@ -188,20 +188,21 @@ context.objects = [
 	    #latency.internal.rate  = 0
 	    #latency.internal.ns    = 0
 	    #clock.name             = api.alsa.0
-            node.suspend-on-idle     = true
+            node.suspend-on-idle   = true
             #audio.format           = "S32"
             #audio.rate             = 48000
             #audio.allowed-rates    = [ ]
             #audio.channels         = 4
             #audio.position         = [ FL FR RL RR ]
-            #resample.quality      = 4
-            resample.disable      = true
+            #resample.quality       = 4
+            resample.disable       = true
             #monitor.channel-volumes = false
-            #channelmix.normalize  = true
-            #channelmix.mix-lfe    = false
-            #channelmix.upmix      = false
-            #channelmix.lfe-cutoff = 0
-            #node.param.Props    = {
+            #channelmix.normalize   = true
+            #channelmix.mix-lfe     = false
+            #channelmix.upmix       = false
+            #channelmix.lfe-cutoff  = 0
+            channelmix.disable     = true
+            #node.param.Props      = {
             #    params = [
             #        audio.channels 6
             #    ]
@@ -250,6 +251,12 @@ context.objects = [
             #channelmix.mix-lfe    = false
             #channelmix.upmix      = false
             #channelmix.lfe-cutoff = 0
+            channelmix.disable     = true
+            #node.param.Props      = {
+            #    params = [
+            #        audio.format  S16
+            #    ]
+            #}
             node.param.PortConfig    = {
                 direction = Input
                 mode = dsp

@@ -81,6 +81,7 @@ struct props {
 	struct volumes soft;
 	struct volumes monitor;
 	unsigned int have_soft_volume:1;
+	unsigned int disabled:1;
 };
 
 static void props_reset(struct props *props)
@@ -363,6 +364,8 @@ static int setup_convert(struct impl *this,
 	emit_props_changed(this);
 
 	this->is_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY);
+	if (!this->is_passthrough && this->props.disabled)
+		return -EINVAL;
 
 	spa_log_debug(this->log, "%p: got channelmix features %08x:%08x flags:%08x passthrough:%d",
 			this, this->cpu_flags, this->mix.cpu_flags,
@@ -495,6 +498,14 @@ static int impl_node_enum_params(void *object, int seq,
 					this->mix.lfe_cutoff, 0.0, 1000.0),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
+		case 12:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.disable"),
+				SPA_PROP_INFO_description, SPA_POD_String("Disable Channel mixing"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->disabled),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
 		default:
 			return 0;
 		}
@@ -544,6 +555,8 @@ static int impl_node_enum_params(void *object, int seq,
 						CHANNELMIX_OPTION_UPMIX));
 			spa_pod_builder_string(&b, "channelmix.lfe-cutoff");
 			spa_pod_builder_float(&b, this->mix.lfe_cutoff);
+			spa_pod_builder_string(&b, "channelmix.disable");
+			spa_pod_builder_bool(&b, this->props.disabled);
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
@@ -577,6 +590,8 @@ static int channelmix_set_param(struct impl *this, const char *k, const char *s)
 		SPA_FLAG_UPDATE(this->mix.options, CHANNELMIX_OPTION_UPMIX, spa_atob(s));
 	else if (spa_streq(k, "channelmix.lfe-cutoff"))
 		this->mix.lfe_cutoff = atoi(s);
+	else if (spa_streq(k, "channelmix.disable"))
+		this->props.disabled = spa_atob(s);
 	return 0;
 }
 
@@ -863,6 +878,7 @@ static int port_enum_formats(void *object,
 		} else {
 			struct spa_pod_frame f;
 			struct port *other;
+			int32_t channels, min = 1, max = INT32_MAX;
 
 			other = GET_PORT(this, SPA_DIRECTION_REVERSE(direction), 0);
 
@@ -875,19 +891,24 @@ static int port_enum_formats(void *object,
 				0);
 
 			if (other->have_format) {
+				channels = other->format.info.raw.channels;
+				if (this->props.disabled)
+					min = max = channels;
+
 				spa_pod_builder_add(builder,
 					SPA_FORMAT_AUDIO_rate, SPA_POD_Int(other->format.info.raw.rate),
 					SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
-						other->format.info.raw.channels, 1, INT32_MAX),
+						channels, min, max),
 					0);
 			} else {
 				uint32_t rate = this->io_position ?
 					this->io_position->clock.rate.denom : DEFAULT_RATE;
+				channels = DEFAULT_CHANNELS;
 
 				spa_pod_builder_add(builder,
 					SPA_FORMAT_AUDIO_rate, SPA_POD_CHOICE_RANGE_Int(rate, 0, INT32_MAX),
 					SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
-						DEFAULT_CHANNELS, 1, INT32_MAX),
+						channels, min, max),
 					0);
 			}
 			*param = spa_pod_builder_pop(builder, &f);

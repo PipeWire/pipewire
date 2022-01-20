@@ -103,8 +103,10 @@ void module_free(struct module *module)
 	if (module->index != SPA_ID_INVALID)
 		pw_map_remove(&impl->modules, module->index & MODULE_INDEX_MASK);
 
+	if (module->unloading)
+		pw_work_queue_cancel(impl->work_queue, module, SPA_ID_INVALID);
+
 	spa_hook_list_clean(&module->listener_list);
-	pw_work_queue_cancel(impl->work_queue, module, SPA_ID_INVALID);
 	pw_properties_free(module->props);
 
 	free((char*)module->name);

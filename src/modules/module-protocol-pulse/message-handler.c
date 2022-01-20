@@ -3,6 +3,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <stdint.h>
+#include <stdio.h>
 
 #include <regex.h>
 
@@ -20,7 +21,7 @@
 #include "manager.h"
 #include "message-handler.h"
 
-static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_manager_object *o, const char *message, const char *params, char **response)
+static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_manager_object *o, const char *message, const char *params, FILE *response)
 {
 	struct transport_codec_info codecs[64];
 	uint32_t n_codecs, active;
@@ -60,66 +61,53 @@ static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_man
 
 		pw_device_set_param((struct pw_device *)o->proxy,
 				SPA_PARAM_Props, 0, param);
-		return 0;
 	} else if (spa_streq(message, "list-codecs")) {
 		uint32_t i;
-		FILE *r;
-		size_t size;
 		bool first = true;
 
-		r = open_memstream(response, &size);
-		if (r == NULL)
-			return -errno;
-
-		fputc('[', r);
+		fputc('[', response);
 		for (i = 0; i < n_codecs; ++i) {
 			const char *desc = codecs[i].description;
-			fprintf(r, "%s{\"name\":\"%d\",\"description\":\"%s\"}",
+			fprintf(response, "%s{\"name\":\"%d\",\"description\":\"%s\"}",
 					first ? "" : ",",
 					(int)codecs[i].id, desc ? desc : "Unknown");
 			first = false;
 		}
-		fputc(']', r);
-
-		return fclose(r) ? -errno : 0;
+		fputc(']', response);
 	} else if (spa_streq(message, "get-codec")) {
 		if (active == SPA_ID_INVALID)
-			*response = strdup("null");
+			fputs("null", response);
 		else
-			*response = spa_aprintf("\"%d\"", (int)codecs[active].id);
-		return *response ? 0 : -ENOMEM;
+			fprintf(response, "\"%d\"", (int) codecs[active].id);
+	} else {
+		return -ENOSYS;
 	}
 
-	return -ENOSYS;
+	return 0;
 }
 
-static int core_object_message_handler(struct pw_manager *m, struct pw_manager_object *o, const char *message, const char *params, char **response)
+static int core_object_message_handler(struct pw_manager *m, struct pw_manager_object *o, const char *message, const char *params, FILE *response)
 {
 	pw_log_debug(": core %p object message:'%s' params:'%s'", o, message, params);
 
 	if (spa_streq(message, "list-handlers")) {
-		FILE *r;
-		size_t size;
 		bool first = true;
 
-		r = open_memstream(response, &size);
-		if (r == NULL)
-			return -errno;
-
-		fputc('[', r);
+		fputc('[', response);
 		spa_list_for_each(o, &m->object_list, link) {
 			if (o->message_object_path) {
-				fprintf(r, "%s{\"name\":\"%s\",\"description\":\"%s\"}",
+				fprintf(response, "%s{\"name\":\"%s\",\"description\":\"%s\"}",
 						first ? "" : ",",
 						o->message_object_path, o->type);
 				first = false;
 			}
 		}
-		fputc(']', r);
-		return fclose(r) ? -errno : 0;
+		fputc(']', response);
+	} else {
+		return -ENOSYS;
 	}
 
-	return -ENOSYS;
+	return 0;
 }
 
 void register_object_message_handlers(struct pw_manager_object *o)

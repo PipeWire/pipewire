@@ -9,6 +9,8 @@
 extern "C" {
 #endif
 
+#include <stdio.h>
+
 #include <spa/utils/defs.h>
 #include <spa/pod/pod.h>
 
@@ -69,7 +71,7 @@ struct pw_manager_object {
 	struct pw_proxy *proxy;
 	char *message_object_path;
 	int (*message_handler)(struct pw_manager *m, struct pw_manager_object *o,
-	                       const char *message, const char *params, char **response);
+	                       const char *message, const char *params, FILE *response);
 
 	void *info;
 	struct spa_param_info *params;

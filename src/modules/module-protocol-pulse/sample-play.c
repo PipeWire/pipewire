@@ -211,6 +211,8 @@ void sample_play_destroy(struct sample_play *p)
 	if (p->stream)
 		pw_stream_destroy(p->stream);
 
+	spa_hook_list_clean(&p->hooks);
+
 	free(p);
 }
 

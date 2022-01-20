@@ -166,8 +166,7 @@ static void capture_process(void *d)
 		pw_stream_queue_buffer(data->streams[i].stream, out);
 	}
 
-	if (in != NULL)
-		pw_stream_queue_buffer(data->sink, in);
+	pw_stream_queue_buffer(data->sink, in);
 }
 
 static void check_initialized(struct module_combine_sink_data *data)

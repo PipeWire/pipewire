@@ -694,6 +694,22 @@ static int adapter_update_props(struct spa_bt_adapter *adapter,
 	return 0;
 }
 
+static void adapter_update_devices(struct spa_bt_adapter *adapter)
+{
+	struct spa_bt_monitor *monitor = adapter->monitor;
+	struct spa_bt_device *device;
+
+	/*
+	 * Update devices when new adapter appears.
+	 * Devices may appear on DBus before or after the adapter does.
+	 */
+
+	spa_list_for_each(device, &monitor->device_list, link) {
+		if (device->adapter == NULL && spa_streq(device->adapter_path, adapter->path))
+			device->adapter = adapter;
+	}
+}
+
 static void adapter_register_player(struct spa_bt_adapter *adapter)
 {
 	if (adapter->player_registered || !adapter->monitor->dummy_avrcp_player)
@@ -1373,7 +1389,7 @@ static int device_update_props(struct spa_bt_device *device,
 
 				device->adapter = adapter_find(monitor, value);
 				if (device->adapter == NULL) {
-					spa_log_warn(monitor->log, "unknown adapter %s", value);
+					spa_log_info(monitor->log, "unknown adapter %s", value);
 				}
 			}
 			else if (spa_streq(key, "Icon")) {
@@ -3621,6 +3637,7 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		adapter_update_props(a, props_iter, NULL);
 		adapter_register_application(a);
 		adapter_register_player(a);
+		adapter_update_devices(a);
 	}
 	else if (spa_streq(interface_name, BLUEZ_PROFILE_MANAGER_INTERFACE)) {
 		if (monitor->backends[BACKEND_NATIVE])

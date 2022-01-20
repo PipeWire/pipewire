@@ -1477,20 +1477,6 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 	return false;
 }
 
-static const struct spa_type_info *find_type_info(const struct spa_type_info *info, const char *name)
-{
-	while (info && info->name) {
-                if (spa_streq(info->name, name))
-                        return info;
-                if (spa_streq(spa_debug_type_short_name(info->name), name))
-                        return info;
-                if (info->type != 0 && info->type == (uint32_t)atoi(name))
-                        return info;
-                info++;
-        }
-        return NULL;
-}
-
 static bool do_enum_params(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
@@ -1507,7 +1493,7 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 	}
 
 	id = atoi(a[0]);
-	ti = find_type_info(spa_type_param, a[1]);
+	ti = spa_debug_type_find_short(spa_type_param, a[1]);
 	if (ti == NULL) {
 		*error = spa_aprintf("%s: unknown param type: %s", cmd, a[1]);
 		return false;
@@ -1574,7 +1560,7 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 			return false;
 	}
 
-	ti = find_type_info(spa_type_param, a[1]);
+	ti = spa_debug_type_find_short(spa_type_param, a[1]);
 	if (ti == NULL) {
 		*error = spa_aprintf("%s: unknown param type: %s", cmd, a[1]);
 		return false;

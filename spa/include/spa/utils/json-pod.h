@@ -44,20 +44,6 @@ extern "C" {
  * \{
  */
 
-static inline const struct spa_type_info *spa_debug_type_info_short(const struct spa_type_info *info, const char *name)
-{
-	while (info && info->name) {
-                if (spa_streq(info->name, name))
-                        return info;
-                if (spa_streq(spa_debug_type_short_name(info->name), name))
-                        return info;
-                if (info->type != 0 && info->type == (uint32_t)atoi(name))
-                        return info;
-                info++;
-        }
-        return NULL;
-}
-
 static inline int spa_json_to_pod_part(struct spa_pod_builder *b, uint32_t flags, uint32_t id,
 		const struct spa_type_info *info, struct spa_json *iter, const char *value, int len)
 {
@@ -80,7 +66,7 @@ static inline int spa_json_to_pod_part(struct spa_pod_builder *b, uint32_t flags
 			const struct spa_type_info *pi;
 			if ((l = spa_json_next(&it[0], &v)) <= 0)
 				break;
-			if ((pi = spa_debug_type_info_short(ti->values, key)) != NULL)
+			if ((pi = spa_debug_type_find_short(ti->values, key)) != NULL)
 				type = pi->type;
 			else if (!spa_atou32(key, &type, 0))
 				continue;
@@ -149,7 +135,7 @@ static inline int spa_json_to_pod_part(struct spa_pod_builder *b, uint32_t flags
 		spa_json_parse_stringn(value, len, val, len+1);
 		switch (info ? info->parent : (uint32_t)SPA_TYPE_Struct) {
 		case SPA_TYPE_Id:
-			if ((ti = spa_debug_type_info_short(info->values, val)) != NULL)
+			if ((ti = spa_debug_type_find_short(info->values, val)) != NULL)
 				type = ti->type;
 			else if (!spa_atou32(val, &type, 0))
 				return -EINVAL;

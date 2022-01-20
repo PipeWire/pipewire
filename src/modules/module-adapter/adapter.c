@@ -173,20 +173,6 @@ static const struct pw_impl_node_events node_events = {
 	.port_init = node_port_init,
 };
 
-static const struct spa_type_info *find_type_info(const struct spa_type_info *info, const char *name)
-{
-	while (info && info->name) {
-                if (spa_streq(info->name, name))
-                        return info;
-                if (spa_streq(spa_debug_type_short_name(info->name), name))
-                        return info;
-                if (info->type != 0 && info->type == (uint32_t)atoi(name))
-                        return info;
-                info++;
-        }
-        return NULL;
-}
-
 static int handle_node_param(struct pw_impl_node *node, const char *key, const char *value)
 {
 	const struct spa_type_info *ti;
@@ -195,7 +181,7 @@ static int handle_node_param(struct pw_impl_node *node, const char *key, const c
 	struct spa_pod *pod;
 	int res;
 
-	ti = find_type_info(spa_type_param, key);
+	ti = spa_debug_type_find_short(spa_type_param, key);
 	if (ti == NULL)
 		return -ENOENT;
 

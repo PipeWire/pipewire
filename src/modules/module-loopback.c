@@ -461,11 +461,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 
-	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_NAME, "loopback-%u", id);
 	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
-		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION,
-				pw_properties_get(props, PW_KEY_NODE_NAME));
+		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
+				"loopback-%u", id);
 
 	if ((str = pw_properties_get(props, "capture.props")) != NULL)
 		pw_properties_update_string(impl->capture_props, str, strlen(str));
@@ -475,25 +473,29 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_AUDIO_RATE);
 	copy_props(impl, props, PW_KEY_AUDIO_CHANNELS);
 	copy_props(impl, props, SPA_KEY_AUDIO_POSITION);
-	copy_props(impl, props, PW_KEY_NODE_NAME);
 	copy_props(impl, props, PW_KEY_NODE_DESCRIPTION);
 	copy_props(impl, props, PW_KEY_NODE_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_LINK_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_LATENCY);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
+	copy_props(impl, props, PW_KEY_MEDIA_NAME);
+
+	if (pw_properties_get(impl->capture_props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_setf(impl->capture_props, PW_KEY_NODE_NAME,
+				"input.loopback-%u", id);
+	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_setf(impl->playback_props, PW_KEY_NODE_NAME,
+				"output.loopback-%u", id);
 
 	parse_audio_info(impl->capture_props, &impl->capture_info);
 	parse_audio_info(impl->playback_props, &impl->playback_info);
 
 	if (pw_properties_get(impl->capture_props, PW_KEY_MEDIA_NAME) == NULL)
-		pw_properties_setf(impl->capture_props, PW_KEY_MEDIA_NAME,
-				"loopback input %s",
-				pw_properties_get(impl->capture_props, PW_KEY_NODE_NAME));
-
+		pw_properties_setf(impl->capture_props, PW_KEY_MEDIA_NAME, "%s input",
+				pw_properties_get(impl->capture_props, PW_KEY_NODE_DESCRIPTION));
 	if (pw_properties_get(impl->playback_props, PW_KEY_MEDIA_NAME) == NULL)
-		pw_properties_setf(impl->playback_props, PW_KEY_MEDIA_NAME,
-				"loopback output %s",
-				pw_properties_get(impl->playback_props, PW_KEY_NODE_NAME));
+		pw_properties_setf(impl->playback_props, PW_KEY_MEDIA_NAME, "%s output",
+				pw_properties_get(impl->playback_props, PW_KEY_NODE_DESCRIPTION));
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

@@ -349,6 +349,14 @@ avahi_dep = dependency('avahi-client', required : get_option('avahi'))
 summary({'Avahi DNS-SD (Zeroconf)': avahi_dep.found()}, bool_yn: true,
   section: 'Streaming between daemons')
 
+x11_dep = dependency('x11-xcb', required : get_option('x11'))
+summary({'X11 (x11-bell)': x11_dep.found()}, bool_yn: true,
+  section: 'Misc dependencies')
+
+canberra_dep = dependency('libcanberra', required : get_option('libcanberra'))
+summary({'libcanberra (x11-bell)': canberra_dep.found()}, bool_yn: true,
+  section: 'Misc dependencies')
+
 libusb_dep = dependency('libusb-1.0', required : get_option('libusb'))
 summary({'libusb (Bluetooth quirks)': libusb_dep.found()}, bool_yn: true, section: 'Backend')
 if libusb_dep.found()

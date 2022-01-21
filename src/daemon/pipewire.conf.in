@@ -151,6 +151,16 @@ context.modules = [
 
     # Provides factories to make session manager objects.
     { name = libpipewire-module-session-manager }
+
+    # Use libcanberra to play X11 Bell
+    #{ name = libpipewire-module-x11-bell
+    #  args = {
+    #      #sink.name = "@DEFAULT_SINK@"
+    #      #sample.name = "bell-window-system"
+    #      #x11.display = null
+    #      #x11.xauthority = null
+    #  }
+    #}
 ]
 
 context.objects = [

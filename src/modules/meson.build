@@ -26,6 +26,7 @@ module_sources = [
   'module-zeroconf-discover.c',
   'module-roc-source.c',
   'module-roc-sink.c',
+  'module-x11-bell.c',
 ]
 
 pipewire_module_access = shared_library('pipewire-module-access', [ 'module-access.c' ],
@@ -489,3 +490,16 @@ pipewire_module_roc_source = shared_library('pipewire-module-roc-source',
 endif
 summary({'roc-sink': build_module_roc}, bool_yn: true, section: 'Optional Modules')
 summary({'roc-source': build_module_roc}, bool_yn: true, section: 'Optional Modules')
+
+build_module_x11_bell = x11_dep.found() and canberra_dep.found()
+if build_module_x11_bell
+pipewire_module_x11_bell = shared_library('pipewire-module-x11-bell',
+  [ 'module-x11-bell.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, x11_dep, canberra_dep],
+)
+endif
+summary({'x11-bell': build_module_x11_bell}, bool_yn: true, section: 'Optional Modules')

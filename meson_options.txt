@@ -225,3 +225,11 @@ option('lv2',
        description: 'Enable loading of LV2 plugins',
        type: 'feature',
        value: 'auto')
+option('x11',
+       description: 'Enable code that depends on X11',
+       type: 'feature',
+       value: 'auto')
+option('libcanberra',
+       description: 'Enable code that depends on libcanberra',
+       type: 'feature',
+       value: 'auto')

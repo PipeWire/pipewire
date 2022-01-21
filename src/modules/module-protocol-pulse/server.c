@@ -944,7 +944,7 @@ int servers_create_and_start(struct impl *impl, const char *addresses, struct pw
 	while ((len = spa_json_next(&it[1], &v)) > 0) {
 		char addr_str[FORMATTED_SOCKET_ADDR_STRLEN] = { 0 };
 		char key[128], client_access[64] = { 0 };
-		struct sockaddr_storage addr[2];
+		struct sockaddr_storage addrs[2];
 		int i, max_clients = MAX_CLIENTS, listen_backlog = LISTEN_BACKLOG, n_addr;
 
 		if (spa_json_is_object(v, len)) {
@@ -967,7 +967,7 @@ int servers_create_and_start(struct impl *impl, const char *addresses, struct pw
 			spa_json_parse_stringn(v, len, addr_str, sizeof(addr_str));
 		}
 
-		n_addr = parse_address(addr_str, addr, 2);
+		n_addr = parse_address(addr_str, addrs, SPA_N_ELEMENTS(addrs));
 		if (n_addr < 0) {
 			pw_log_warn("pulse-server %p: failed to parse address '%s': %s",
 				    impl, addr_str, spa_strerror(n_addr));
@@ -977,7 +977,9 @@ int servers_create_and_start(struct impl *impl, const char *addresses, struct pw
 
 		/* try to create sockets for each address in the list */
 		for (i = 0; i < n_addr; i++) {
+			const struct sockaddr_storage *addr = &addrs[i];
 			struct server * const server = server_new(impl);
+
 			if (server == NULL) {
 				UPDATE_ERR(-errno);
 				continue;

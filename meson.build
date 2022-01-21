@@ -328,7 +328,7 @@ if dbus_dep.found()
   cdata.set('HAVE_DBUS', 1)
 endif
 sdl_dep = dependency('sdl2', required : get_option('sdl2'))
-summary({'SDL 2': sdl_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+summary({'SDL2 (video examples)': sdl_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 drm_dep = dependency('libdrm', required : false)
 readline_dep = dependency('readline', required : false)
 

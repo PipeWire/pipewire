@@ -107,11 +107,13 @@ static int play_sample(struct impl *impl, const char *sample)
 		res = -EIO;
 		goto exit_destroy;
 	}
-	res = ca_context_play(ca, 0,
+	if ((res = ca_context_play(ca, 0,
 			CA_PROP_EVENT_ID, sample,
 			CA_PROP_MEDIA_NAME, "X11 bell event",
 			CA_PROP_CANBERRA_CACHE_CONTROL, "permanent",
-			NULL);
+			NULL)) < 0) {
+		pw_log_warn("can't play sample (%s): %s", sample, ca_strerror(res));
+	}
 
 exit_destroy:
 	ca_context_destroy(ca);
@@ -122,7 +124,7 @@ static void display_io(void *data, int fd, uint32_t mask)
 {
 	struct impl *impl = data;
 	XEvent e;
-	const char *sample;
+	const char *sample = NULL;
 
 	while (XPending(impl->display)) {
 		XNextEvent(impl->display, &e);
@@ -132,7 +134,7 @@ static void display_io(void *data, int fd, uint32_t mask)
 
 		if (impl->properties)
 			sample = pw_properties_get(impl->properties, "sample.name");
-		else
+		if (sample == NULL)
 			sample = "bell-window-system";
 
 		pw_log_debug("play sample %s", sample);

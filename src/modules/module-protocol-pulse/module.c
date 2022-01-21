@@ -270,6 +270,7 @@ static const struct module_info module_list[] = {
 #endif
 	{ "module-roc-sink", create_module_roc_sink, },
 	{ "module-roc-source", create_module_roc_source, },
+	{ "module-x11-bell", create_module_x11_bell, },
 };
 
 static const struct module_info *find_module_info(const char *name)

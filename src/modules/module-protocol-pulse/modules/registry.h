@@ -48,5 +48,6 @@ struct module *create_module_zeroconf_discover(struct impl *impl, const char *ar
 struct module *create_module_zeroconf_publish(struct impl *impl, const char *argument);
 struct module *create_module_roc_sink(struct impl *impl, const char *argument);
 struct module *create_module_roc_source(struct impl *impl, const char *argument);
+struct module *create_module_x11_bell(struct impl *impl, const char *argument);
 
 #endif

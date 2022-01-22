@@ -311,18 +311,17 @@ static int emit_object_info(struct impl *this, struct device *device)
 		}
 	}
 
-	str = udev_device_get_property_value(dev, "ID_V4L_PRODUCT");
+	str = udev_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE");
 	if (!(str && *str)) {
-		str = udev_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE");
+		str = udev_device_get_property_value(dev, "ID_MODEL_ENC");
 		if (!(str && *str)) {
-			str = udev_device_get_property_value(dev, "ID_MODEL_ENC");
-			if (!(str && *str)) {
-				str = udev_device_get_property_value(dev, "ID_MODEL");
-			} else {
-				char *t = alloca(strlen(str) + 1);
-				unescape(str, t);
-				str = t;
-			}
+			str = udev_device_get_property_value(dev, "ID_MODEL");
+			if (!(str && *str))
+				str = udev_device_get_property_value(dev, "ID_V4L_PRODUCT");
+		} else {
+			char *t = alloca(strlen(str) + 1);
+			unescape(str, t);
+			str = t;
 		}
 	}
 	if (str && *str)

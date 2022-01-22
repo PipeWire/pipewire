@@ -44,11 +44,25 @@
 #include "reply.h"
 #include "stream.h"
 
+static int parse_frac(struct pw_properties *props, const char *key,
+		const struct spa_fraction *def, struct spa_fraction *res)
+{
+	const char *str;
+	if (props == NULL ||
+	    (str = pw_properties_get(props, key)) == NULL ||
+	    sscanf(str, "%u/%u", &res->num, &res->denom) != 2 ||
+	     res->denom == 0) {
+		*res = *def;
+	}
+	return 0;
+}
+
 struct stream *stream_new(struct client *client, enum stream_type type, uint32_t create_tag,
 			  const struct sample_spec *ss, const struct channel_map *map,
 			  const struct buffer_attr *attr)
 {
 	int res;
+	struct defs *defs = &client->impl->defs;
 
 	struct stream *stream = calloc(1, sizeof(*stream));
 	if (stream == NULL)
@@ -66,6 +80,13 @@ struct stream *stream_new(struct client *client, enum stream_type type, uint32_t
 	stream->map = *map;
 	stream->attr = *attr;
 	spa_ringbuffer_init(&stream->ring);
+
+	parse_frac(client->props, "pulse.min.req", &defs->min_req, &stream->min_req);
+	parse_frac(client->props, "pulse.min.frag", &defs->min_frag, &stream->min_frag);
+	parse_frac(client->props, "pulse.min.quantum", &defs->min_quantum, &stream->min_quantum);
+	parse_frac(client->props, "pulse.default.req", &defs->default_req, &stream->default_req);
+	parse_frac(client->props, "pulse.default.frag", &defs->default_frag, &stream->default_frag);
+	parse_frac(client->props, "pulse.default.tlength", &defs->default_tlength, &stream->default_tlength);
 
 	switch (type) {
 	case STREAM_TYPE_RECORD:

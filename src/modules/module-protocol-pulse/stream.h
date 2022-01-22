@@ -86,6 +86,13 @@ struct stream {
 	uint32_t last_quantum;
 	int64_t requested;
 
+	struct spa_fraction min_req;
+	struct spa_fraction default_req;
+	struct spa_fraction min_frag;
+	struct spa_fraction default_frag;
+	struct spa_fraction default_tlength;
+	struct spa_fraction min_quantum;
+
 	struct sample_spec ss;
 	struct channel_map map;
 	struct buffer_attr attr;

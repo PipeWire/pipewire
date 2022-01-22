@@ -371,7 +371,7 @@ static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 	struct defs *defs = &s->impl->defs;
 
 	frame_size = s->frame_size;
-	minreq = frac_to_bytes_round_up(defs->min_req, &s->ss);
+	minreq = frac_to_bytes_round_up(s->min_req, &s->ss);
 	max_latency = defs->quantum_limit * frame_size;
 
 	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
@@ -380,7 +380,7 @@ static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 	attr->maxlength = SPA_MAX(attr->maxlength, frame_size);
 
 	if (attr->tlength == (uint32_t) -1)
-		attr->tlength = frac_to_bytes_round_up(defs->default_tlength, &s->ss);
+		attr->tlength = frac_to_bytes_round_up(s->default_tlength, &s->ss);
 	if (attr->tlength > attr->maxlength)
 		attr->tlength = attr->maxlength;
 	attr->tlength -= attr->tlength % frame_size;
@@ -388,7 +388,7 @@ static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 	attr->tlength = SPA_MAX(attr->tlength, minreq);
 
 	if (attr->minreq == (uint32_t) -1) {
-		uint32_t process = frac_to_bytes_round_up(defs->default_req, &s->ss);
+		uint32_t process = frac_to_bytes_round_up(s->default_req, &s->ss);
 		/* With low-latency, tlength/4 gives a decent default in all of traditional,
 		 * adjust latency and early request modes. */
 		uint32_t m = attr->tlength / 4;
@@ -459,7 +459,6 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 	const char *peer_name;
 	struct spa_fraction lat;
 	uint64_t lat_usec;
-	struct defs *defs = &stream->impl->defs;
 
 	lat.denom = stream->ss.rate;
 	lat.num = fix_playback_buffer_attr(stream, &stream->attr);
@@ -468,9 +467,9 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 	if (stream->buffer == NULL)
 		return -errno;
 
-	if (lat.num * defs->min_quantum.denom / lat.denom < defs->min_quantum.num)
-		lat.num = (defs->min_quantum.num * lat.denom +
-				(defs->min_quantum.denom -1)) / defs->min_quantum.denom;
+	if (lat.num * stream->min_quantum.denom / lat.denom < stream->min_quantum.num)
+		lat.num = (stream->min_quantum.num * lat.denom +
+				(stream->min_quantum.denom -1)) / stream->min_quantum.denom;
 	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
 
 	snprintf(latency, sizeof(latency), "%u/%u", lat.num, lat.denom);
@@ -549,7 +548,6 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
 {
 	uint32_t frame_size, minfrag, latency;
-	struct defs *defs = &s->impl->defs;
 
 	frame_size = s->frame_size;
 
@@ -558,10 +556,10 @@ static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *att
 	attr->maxlength -= attr->maxlength % frame_size;
 	attr->maxlength = SPA_MAX(attr->maxlength, frame_size);
 
-	minfrag = frac_to_bytes_round_up(defs->min_frag, &s->ss);
+	minfrag = frac_to_bytes_round_up(s->min_frag, &s->ss);
 
 	if (attr->fragsize == (uint32_t) -1 || attr->fragsize == 0)
-		attr->fragsize = frac_to_bytes_round_up(defs->default_frag, &s->ss);
+		attr->fragsize = frac_to_bytes_round_up(s->default_frag, &s->ss);
 	attr->fragsize -= attr->fragsize % frame_size;
 	attr->fragsize = SPA_MAX(attr->fragsize, minfrag);
 	attr->fragsize = SPA_MAX(attr->fragsize, frame_size);
@@ -599,7 +597,6 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 	uint32_t peer_index;
 	struct spa_fraction lat;
 	uint64_t lat_usec;
-	struct defs *defs = &stream->impl->defs;
 
 	lat.denom = stream->ss.rate;
 	lat.num = fix_record_buffer_attr(stream, &stream->attr);
@@ -608,9 +605,9 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 	if (stream->buffer == NULL)
 		return -errno;
 
-	if (lat.num * defs->min_quantum.denom / lat.denom < defs->min_quantum.num)
-		lat.num = (defs->min_quantum.num * lat.denom +
-				(defs->min_quantum.denom -1)) / defs->min_quantum.denom;
+	if (lat.num * stream->min_quantum.denom / lat.denom < stream->min_quantum.num)
+		lat.num = (stream->min_quantum.num * lat.denom +
+				(stream->min_quantum.denom -1)) / stream->min_quantum.denom;
 	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
 
 	snprintf(latency, sizeof(latency), "%u/%u", lat.num, lat.denom);

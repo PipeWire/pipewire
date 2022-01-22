@@ -89,7 +89,7 @@ pulse.rules = [
                 # all keys must match the value. ~ starts regex.
                 #client.name                = "Firefox"
                 #application.process.binary = "teams"
-                #application.name           = "~teams.*"
+                #application.name           = "~speech-dispatcher.*"
             }
         ]
         actions = {
@@ -103,6 +103,8 @@ pulse.rules = [
         }
     }
     {
+        # skype does not want to use devices that don't have an
+	# S16 sample format.
         matches = [
              { application.process.binary = "teams" }
              { application.process.binary = "skypeforlinux" }
@@ -110,9 +112,19 @@ pulse.rules = [
         actions = { quirks = [ force-s16-info ] }
     }
     {
-        matches = [
-             { application.process.binary = "firefox" }
-	]
+        # firefox marks the capture streams as don't move and then they
+	# can't be moved with pavucontrol or other tools.
+        matches = [ { application.process.binary = "firefox" } ]
         actions = { quirks = [ remove-capture-dont-move ] }
+    }
+    {
+        # speech dispatcher asks for too small latency and then underruns.
+        matches = [ { application.name = "~speech-dispatcher*" } ]
+        actions = {
+            update-props = {
+                pulse.min.req          = 1024/48000     # 21ms
+                pulse.min.quantum      = 1024/48000     # 21ms
+            }
+	}
     }
 ]

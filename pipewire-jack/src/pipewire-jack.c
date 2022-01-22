@@ -1022,7 +1022,7 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 		return NULL;
 
 	pw_log_trace_fp("%p: port %s %d get buffer %d n_buffers:%d",
-			c, p->object->port.name, p->id, frames, mix->n_buffers);
+			c, p->object->port.name, p->port_id, frames, mix->n_buffers);
 
 	if (SPA_UNLIKELY(mix->n_buffers == 0))
 		return NULL;
@@ -4250,7 +4250,7 @@ static void *get_buffer_input_float(struct port *p, jack_nframes_t frames)
 		void *np;
 
 		pw_log_trace_fp("%p: port %s mix %d.%d get buffer %d",
-				p->client, p->object->port.name, p->id, mix->id, frames);
+				p->client, p->object->port.name, p->port_id, mix->id, frames);
 
 		if ((b = get_mix_buffer(mix, frames)) == NULL)
 			continue;
@@ -4290,7 +4290,7 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 		void *pod;
 
 		pw_log_trace_fp("%p: port %p mix %d.%d get buffer %d",
-				p->client, p, p->id, mix->id, frames);
+				p->client, p, p->port_id, mix->id, frames);
 
 		if ((b = get_mix_buffer(mix, frames)) == NULL)
 			continue;

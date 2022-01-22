@@ -47,6 +47,9 @@
 
 #define MAX_DEVICES	64
 
+#define RETRY_COUNT	1
+#define RETRY_MSEC	2000
+
 #define ACTION_ADD	0
 #define ACTION_REMOVE	1
 #define ACTION_DISABLE	2
@@ -54,6 +57,7 @@
 struct device {
 	uint32_t id;
 	struct udev_device *dev;
+	uint8_t retry;
 	unsigned int accessible:1;
 	unsigned int ignored:1;
 	unsigned int emitted:1;
@@ -65,6 +69,7 @@ struct impl {
 
 	struct spa_log *log;
 	struct spa_loop *main_loop;
+	struct spa_system *main_system;
 
 	struct spa_hook_list hooks;
 
@@ -79,6 +84,7 @@ struct impl {
 
 	struct spa_source source;
 	struct spa_source notify;
+	struct spa_source retry_timer;
 	unsigned int use_acp:1;
 };
 
@@ -243,6 +249,39 @@ static void unescape(const char *src, char *dst)
 	*d = 0;
 }
 
+static int check_device_busy(struct impl *this, struct device *device, snd_ctl_t *ctl_hndl)
+{
+	int dev;
+
+	/* Check if some pcm devices of the card cannot be opened because they are busy */
+
+	for (dev = -1; snd_ctl_pcm_next_device(ctl_hndl, &dev) >= 0 && dev >= 0;) {
+		char devpath[64];
+		int i;
+
+		snprintf(devpath, sizeof(devpath), "hw:%u,%u", device->id, dev);
+
+		for (i = 0; i < 2; ++i) {
+			snd_pcm_t *handle;
+			int res;
+
+			res = snd_pcm_open(&handle, devpath,
+					(i == 0) ? SND_PCM_STREAM_PLAYBACK : SND_PCM_STREAM_CAPTURE,
+					SND_PCM_NONBLOCK | SND_PCM_NO_AUTO_RESAMPLE |
+					SND_PCM_NO_AUTO_CHANNELS | SND_PCM_NO_AUTO_FORMAT);
+			if (res == -EBUSY) {
+				spa_log_debug(this->log, "pcm device %s busy", devpath);
+				return -EBUSY;
+			} else if (res >= 0) {
+				snd_pcm_close(handle);
+			}
+		}
+		spa_log_debug(this->log, "pcm device %s free", devpath);
+	}
+
+	return 0;
+}
+
 static int emit_object_info(struct impl *this, struct device *device)
 {
 	struct spa_device_object_info info;
@@ -267,19 +306,23 @@ static int emit_object_info(struct impl *this, struct device *device)
 	pcm = -1;
 	res = snd_ctl_pcm_next_device(ctl_hndl, &pcm);
 
-	spa_log_debug(this->log, "close card %s", path);
-	snd_ctl_close(ctl_hndl);
-
 	if (res < 0) {
 		spa_log_error(this->log, "error iterating devices: %s", snd_strerror(res));
 		device->ignored = true;
-		return res;
-	}
-	if (pcm < 0) {
+	} else if (pcm < 0) {
 		spa_log_debug(this->log, "no pcm devices for %s", path);
 		device->ignored = true;
-		return 0;
+		res = 0;
+	} else if (device->retry > 0) {
+		/* Check if we can open all PCM devices (retry later if not) */
+		res = check_device_busy(this, device, ctl_hndl);
 	}
+
+	spa_log_debug(this->log, "close card %s", path);
+	snd_ctl_close(ctl_hndl);
+
+	if (res < 0 || device->ignored)
+		return res;
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 
@@ -393,6 +436,82 @@ static int emit_object_info(struct impl *this, struct device *device)
 	return 1;
 }
 
+static void start_retry(struct impl *this);
+
+static void stop_retry(struct impl *this);
+
+static void retry_timer_event(struct spa_source *source)
+{
+	struct impl *this = source->data;
+	bool have_retry = false;
+	size_t i;
+
+	stop_retry(this);
+
+	for (i = 0; i < this->n_devices; ++i) {
+		struct device *device = &this->devices[i];
+		if (device->ignored)
+			device->retry = 0;
+		if (device->retry > 0) {
+			--device->retry;
+
+			spa_log_debug(this->log, "retrying device %u", device->id);
+
+			if (emit_object_info(this, device) == -EBUSY) {
+				spa_log_debug(this->log, "device %u busy (remaining retries %u)",
+						device->id, device->retry);
+			} else {
+				device->retry = 0;
+			}
+		}
+		if (device->retry > 0)
+			have_retry = true;
+	}
+
+	if (have_retry)
+		start_retry(this);
+}
+
+static void start_retry(struct impl *this)
+{
+	struct itimerspec ts;
+
+	spa_log_debug(this->log, "start retry");
+
+	if (this->retry_timer.data == NULL) {
+		this->retry_timer.data = this;
+		this->retry_timer.func = retry_timer_event;
+		this->retry_timer.mask = SPA_IO_IN;
+		this->retry_timer.rmask = 0;
+		spa_loop_add_source(this->main_loop, &this->retry_timer);
+	}
+
+	ts.it_value.tv_sec = ((uint64_t)RETRY_MSEC * SPA_NSEC_PER_MSEC) / SPA_NSEC_PER_SEC;
+	ts.it_value.tv_nsec = ((uint64_t)RETRY_MSEC * SPA_NSEC_PER_MSEC) % SPA_NSEC_PER_SEC;
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
+	spa_system_timerfd_settime(this->main_system, this->retry_timer.fd, 0, &ts, NULL);
+}
+
+static void stop_retry(struct impl *this)
+{
+	struct itimerspec ts;
+
+	if (this->retry_timer.data == NULL)
+		return;
+
+	spa_log_debug(this->log, "stop retry");
+
+	spa_loop_remove_source(this->main_loop, &this->retry_timer);
+	this->retry_timer.data = NULL;
+
+	ts.it_value.tv_sec = 0;
+	ts.it_value.tv_nsec = 0;
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
+	spa_system_timerfd_settime(this->main_system, this->retry_timer.fd, 0, &ts, NULL);
+}
+
 static bool check_access(struct impl *this, struct device *device)
 {
 	char path[128];
@@ -425,7 +544,14 @@ static void process_device(struct impl *this, uint32_t action, struct udev_devic
 			return;
 		if (!check_access(this, device))
 			return;
-		emit_object_info(this, device);
+		device->retry = RETRY_COUNT;
+		if (emit_object_info(this, device) == -EBUSY) {
+			spa_log_debug(this->log, "device %u busy (remaining retries %u)",
+					device->id, device->retry);
+			start_retry(this);
+		} else {
+			device->retry = 0;
+		}
 		break;
 
 	case ACTION_REMOVE:
@@ -440,6 +566,7 @@ static void process_device(struct impl *this, uint32_t action, struct udev_devic
 	case ACTION_DISABLE:
 		if (device == NULL)
 			return;
+		device->retry = 0;
 		if (device->emitted) {
 			device->emitted = false;
 			spa_device_emit_object_info(&this->hooks, id, NULL);
@@ -728,6 +855,10 @@ static int impl_clear(struct spa_handle *handle)
 	struct impl *this = (struct impl *) handle;
 	stop_monitor(this);
 	impl_udev_close(this);
+	stop_retry(this);
+	if (this->retry_timer.fd >= 0)
+		spa_system_close(this->main_system, this->retry_timer.fd);
+	this->retry_timer.fd = -1;
 	return 0;
 }
 
@@ -756,13 +887,19 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this = (struct impl *) handle;
 	this->notify.fd = -1;
+	this->retry_timer.fd = -1;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	alsa_log_topic_init(this->log);
 	this->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
+	this->main_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_System);
 
 	if (this->main_loop == NULL) {
 		spa_log_error(this->log, "a main-loop is needed");
+		return -EINVAL;
+	}
+	if (this->main_system == NULL) {
+		spa_log_error(this->log, "a main-system is needed");
 		return -EINVAL;
 	}
 	spa_hook_list_init(&this->hooks);
@@ -781,6 +918,9 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, "alsa.use-acp")) != NULL)
 			this->use_acp = spa_atob(str);
 	}
+
+	this->retry_timer.fd = spa_system_timerfd_create(this->main_system,
+			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 
 	return 0;
 }

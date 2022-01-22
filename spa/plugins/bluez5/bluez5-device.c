@@ -1107,6 +1107,8 @@ static void set_initial_profile(struct impl *this)
 	/* If default profile is set to HSP/HFP, first try those and exit if found. */
 	if (this->bt_dev->settings != NULL) {
 		const char *str = spa_dict_lookup(this->bt_dev->settings, "bluez5.profile");
+		if (spa_streq(str, "off"))
+			goto off;
 		if (spa_streq(str, "headset-head-unit") && set_initial_hsp_hfp_profile(this))
 			return;
 	}
@@ -1129,6 +1131,7 @@ static void set_initial_profile(struct impl *this)
 	if (set_initial_hsp_hfp_profile(this))
 		return;
 
+off:
 	spa_log_debug(this->log, "initial profile off");
 
 	this->profile = DEVICE_PROFILE_OFF;

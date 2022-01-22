@@ -80,3 +80,39 @@ stream.properties = {
     #channelmix.upmix      = false
     #channelmix.lfe-cutoff = 0
 }
+
+# client/stream specific properties
+pulse.rules = [
+    {
+        matches = [
+            {
+                # all keys must match the value. ~ starts regex.
+                #client.name                = "Firefox"
+                #application.process.binary = "teams"
+                #application.name           = "~teams.*"
+            }
+        ]
+        actions = {
+            update-props = {
+                #node.latency = 512/48000
+            }
+            # Possible quirks:"
+            #    force-s16-info                 forces sink and source info as S16 format
+            #    remove-capture-dont-move       removes the capture DONT_MOVE flag
+            #quirks = [ ]
+        }
+    }
+    {
+        matches = [
+             { application.process.binary = "teams" }
+             { application.process.binary = "skypeforlinux" }
+	]
+        actions = { quirks = [ force-s16-info ] }
+    }
+    {
+        matches = [
+             { application.process.binary = "firefox" }
+	]
+        actions = { quirks = [ remove-capture-dont-move ] }
+    }
+]

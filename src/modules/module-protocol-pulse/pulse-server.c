@@ -888,6 +888,8 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 	pw_log_info("[%s] %s tag:%d", client->name,
 			commands[command].name, tag);
 
+	client_update_quirks(client);
+
 	if (client->core == NULL) {
 		client->core = pw_context_connect(impl->context,
 				pw_properties_copy(client->props), 0);
@@ -910,8 +912,6 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 		if (client->connect_tag == SPA_ID_INVALID)
 			res = reply_set_client_name(client, tag);
 	}
-
-	client_update_quirks(client);
 
 	return res;
 error:

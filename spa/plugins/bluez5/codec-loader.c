@@ -103,7 +103,7 @@ static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name, co
 	spa_log_debug(impl->log, "loading codecs from %s", factory_name);
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Bluez5CodecA2DP, &iface)) < 0) {
-		spa_log_info(impl->log, "Bluetooth codec plugin %s has no codec interface",
+		spa_log_warn(impl->log, "Bluetooth codec plugin %s has no codec interface",
 				factory_name);
 		goto fail;
 	}
@@ -111,7 +111,7 @@ static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name, co
 	bluez5_codec_a2dp = iface;
 
 	if (bluez5_codec_a2dp->iface.version != SPA_VERSION_BLUEZ5_CODEC_A2DP) {
-		spa_log_info(impl->log, "codec plugin %s has incompatible ABI version (%d != %d)",
+		spa_log_warn(impl->log, "codec plugin %s has incompatible ABI version (%d != %d)",
 				factory_name, bluez5_codec_a2dp->iface.version, SPA_VERSION_BLUEZ5_CODEC_A2DP);
 		res = -ENOENT;
 		goto fail;

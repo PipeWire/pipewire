@@ -4082,14 +4082,20 @@ jack_port_t * jack_port_register (jack_client_t *client,
 		direction = PW_DIRECTION_INPUT;
 	else if (flags & JackPortIsOutput)
 		direction = PW_DIRECTION_OUTPUT;
-	else
+	else {
+		pw_log_warn("invalid port flags %lu for %s", flags, port_name);
 		return NULL;
+	}
 
-	if ((type_id = string_to_type(port_type)) == SPA_ID_INVALID)
+	if ((type_id = string_to_type(port_type)) == SPA_ID_INVALID) {
+		pw_log_warn("unknown port type %s", port_type);
 		return NULL;
+	}
 
-	if ((p = alloc_port(c, direction)) == NULL)
+	if ((p = alloc_port(c, direction)) == NULL) {
+		pw_log_warn("can't allocate port %s: %m", port_name);
 		return NULL;
+	}
 
 	o = p->object;
 	o->port.flags = flags;
@@ -4178,8 +4184,11 @@ jack_port_t * jack_port_register (jack_client_t *client,
 
 	pw_thread_loop_unlock(c->context.loop);
 
-	if (res < 0)
+	if (res < 0) {
+		pw_log_warn("can't create port %s: %s", port_name,
+				spa_strerror(res));
 		return NULL;
+	}
 
 	return (jack_port_t *) o;
 }

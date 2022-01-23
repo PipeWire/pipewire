@@ -4381,7 +4381,7 @@ jack_uuid_t jack_port_uuid (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
 	spa_return_val_if_fail(o != NULL, 0);
-	return jack_port_uuid_generate(o->serial);
+	return jack_port_uuid_generate(o->id);
 }
 
 SPA_EXPORT

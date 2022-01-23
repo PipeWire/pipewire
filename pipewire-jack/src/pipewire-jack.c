@@ -4221,9 +4221,11 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 					 0, 0, NULL, NULL);
 
 	res = do_sync(c);
-
+	if (res < 0) {
+		pw_log_warn("can't unregister port %s: %s", o->port.name,
+				spa_strerror(res));
+	}
 	free_port(c, p);
-
 done:
 	pw_thread_loop_unlock(c->context.loop);
 

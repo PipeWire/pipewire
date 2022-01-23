@@ -1358,6 +1358,17 @@ stream_new(struct pw_context *context, const char *name,
 	}
 	if ((str = getenv("PIPEWIRE_LATENCY")) != NULL)
 		pw_properties_set(props, PW_KEY_NODE_LATENCY, str);
+	if ((str = getenv("PIPEWIRE_RATE")) != NULL)
+		pw_properties_set(props, PW_KEY_NODE_RATE, str);
+	if ((str = getenv("PIPEWIRE_QUANTUM")) != NULL) {
+		struct spa_fraction q;
+		if (sscanf(str, "%u/%u", &q.num, &q.denom) == 2 && q.denom != 0) {
+			pw_properties_setf(props, PW_KEY_NODE_RATE,
+					"1/%u", q.denom);
+			pw_properties_setf(props, PW_KEY_NODE_LATENCY,
+					"%u/%u", q.num, q.denom);
+		}
+	}
 
 	spa_hook_list_init(&impl->hooks);
 	this->properties = props;

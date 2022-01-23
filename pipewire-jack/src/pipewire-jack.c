@@ -3217,6 +3217,17 @@ jack_client_t * jack_client_open (const char *client_name,
 		pw_properties_set(client->props, PW_KEY_NODE_LATENCY, str);
 	if ((str = getenv("PIPEWIRE_RATE")) != NULL)
 		pw_properties_set(client->props, PW_KEY_NODE_RATE, str);
+	if ((str = getenv("PIPEWIRE_QUANTUM")) != NULL) {
+		struct spa_fraction q;
+		if (sscanf(str, "%u/%u", &q.num, &q.denom) == 2 && q.denom != 0) {
+			pw_properties_setf(client->props, PW_KEY_NODE_RATE,
+					"1/%u", q.denom);
+			pw_properties_setf(client->props, PW_KEY_NODE_LATENCY,
+					"%u/%u", q.num, q.denom);
+		} else {
+			pw_log_warn("invalid PIPEWIRE_QUANTUM: %s", str);
+		}
+	}
 	if ((str = pw_properties_get(client->props, PW_KEY_NODE_LATENCY)) != NULL) {
 		uint32_t num, denom;
 		if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {

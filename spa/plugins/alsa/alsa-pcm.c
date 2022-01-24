@@ -1447,6 +1447,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	if (is_batch) {
 		if (period_size == 0)
 			period_size = state->position ? state->position->clock.duration : DEFAULT_PERIOD;
+		if (period_size == 0)
+			period_size = DEFAULT_PERIOD;
 		/* batch devices get their hw pointers updated every period. Make
 		 * the period smaller and add one period of headroom. Limit the
 		 * period size to our default so that we don't create too much

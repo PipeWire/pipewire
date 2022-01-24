@@ -1,3 +1,141 @@
+# PipeWire 0.3.44 (2022-01-27)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - It is now possible to run a minimal PipeWire server without a session
+    manager, enough to run JACK clients.
+  - The maximum buffer size is now configurable and can be larger than
+    the previously hardcoded limit of 8192 samples. When using high sample
+    rates, the larger buffer size can avoid xruns.
+  - The default maximum latency was reduced from 170ms to 42ms. This should
+    improve overall latency for application that ask for a large latency,
+    such as notifications.
+  - Better JACK compatibility. Patchbays should now get less confused about
+    ports appearing and disappearing.
+  - Fix some bluetooth crashes.
+  - Fix some races in ALSA device detection.
+  - Many bug fixes and improvements all over the place.
+
+## PipeWire
+  - Bump the meson requirement to 0.59.0.
+  - pw-top now reports correct times for filter-chain and loopback.
+  - max-quantum is now also scaled with the rate. A new quantum-limit
+    property was added as a hard limit for the quantum. This makes it
+    possible to configure for larger than 8192 buffer sizes. Note
+    than many JACK applications have a hardcoded 8192 limit. (#1931)
+  - The max-quantum was reduced to 2048, This gives a 42ms default
+    latency. (#1908)
+  - pw-filter can now return a NULL buffer from _get_dsp_buffer().
+  - Add a PIPEWIRE_RATE and PIPEWIRE_QUANTUM env variable to set the
+    graph rate and the graph quantum and rate respectively.
+  - Fix a potential file descriptor leak in the connection.
+  - A new minimal.conf file was added to demonstrate a static setup
+    of a daemon that doesn't require a session manager and is able to
+    run JACK applicaions.
+  - Nice levels are now only changed on the servers, not the clients.
+  - Add an option to suspend nodes when idle.
+  - Make it possible to avoid quantum and rate changes with
+    pw-metadata. This is essential in a locked down system.
+  - Handle mixer port errors better and fail to create the link instead
+    of silently not working.
+  - Nodes that are moved to a driver now have all the linked nodes moved
+    as well. This makes it possible to run some graphs without a
+    driver, such as paplay -> zita-j2n.
+  - pw-cli and pw-dump can now also list objects by name, serial and
+    object.path using glob style pattern matching.
+
+
+## modules
+  - filter-chain can now also configure parameters by index.
+  - Fix the client name of module-protocol-simple. (#2017)
+  - module-rtkit was merged into module-rt. This makes it easier to
+    ship a default config that works on more systems by default.
+  - module-adapter can now configure the adapter node from the config.
+    Previously, this was a task only performed by the session manager.
+  - module-metadata can now also create metadata object from the
+    config file.
+  - The ROC module should now work again. (#2045)
+  - An X11-bell module was added to handle X11 bell events. (#1668)
+  - filter-chain and loopback modules now have better unique default
+    names for the streams, which makes it possible to save and restore
+    their volumes independently. (#1983)
+  - module-echo-cancel now has properties to control the delay and
+    buffer size.
+
+## ALSA
+  - The monitor names are now correctly parsed.
+  - The default period size for batch devices is limited now to avoid
+    large latency.
+  - The unused min/max-latency properties were removed.
+  - Internal latency is now also configurable with params at runtime.
+  - The udev rule for TI2902 was removed because it causes problems.
+  - Fix a race where some devices would sometimes be missing. (#2046)
+  - Add some more timeouts to work around a race in udev device
+    permission changes when switching VTs.
+
+## SPA
+  - Fix potential infinite loop in audioconvert.
+  - The spa-resample tools can now also use optimized implementations.
+  - Fix a potential crash in resampler. (#1994)
+  - audioconvert can now also handle F64 formats. (#1990)
+  - The channelmixer now does normalization by default to avoid clipping
+    when downmixing is active.
+  - The channelmixer will now generate LFE channels when the lfe_cutoff
+    frequency is set, even when upmix is disabled.
+  - The channelmixer will now always generate FC when the target has it.
+  - Adapter now reports latency correctly, even after linking the monitor
+    ports.
+  - Reduce memory usage and preallocated memory in some of the
+    audioconvert nodes.
+  - Many properties are now exposed in adapter, such as the resample
+    quality.
+  - The resampler and channelmixer can now be disabled.
+
+## V4L2
+  - pw-v4l2 now also works for ffplay. (#2029)
+  - Take product names from udev now that the kernel returns a generic
+    name.
+
+## JACK
+  - The jack pkgconfig file now has the `jack_implementation=pipewire`
+    variable to be able to distinguish jack implementations. (#1666)
+  - jconvolver now starts correctly again. (#1989)
+  - The object.serial is now used for the port_id. This makes it easier
+    to track old objects in the cache.
+  - Add a dummy jacknet implementation. (#2043)
+  - A bug in the port allocation was fixed that would make it impossible
+    to allocate ports at some point. (#1714)
+
+## Bluetooth
+  - Bluetooth profiles are now saved properly by the session manager.
+  - Improved profile detections, increased timeouts for slow devices.
+  - Implement HFP call indicator for improved compatibility.
+  - Handle the case where bluez does not set the adapter or address
+    properties on the device instead of crashing.
+  - Improved support for setting the profile from the session manager.
+
+## pulse-server
+  - Monitor sources now have the device.class=monitor for better
+    compatibility.
+  - Behaviour after seeking is improved. The algorithm for requesting
+    bytes from the client was simplified and improved. (#1981)
+  - module-ladspa-sink implements the control argument now. (#1987)
+  - A potential memory leak in the message queue was fixed. (#1840)
+  - Use the object.serial for the pulseaudio object index. The index is
+    not supposed to be reused and this would cause problems with some
+    clients.
+  - Servers should now again be able to listen in IPv4. (#2047)
+  - module-x11-bell was added. (#1668)
+  - There is now support for per-application quirks and properties in
+    the pipewire-pulse.conf file. Per-application latency and buffering
+    properties can also be configured.
+  - Fix a regression in telegram sounds not playing.
+
+
+Older versions:
+
 # PipeWire 0.3.43 (2022-01-05)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -80,10 +218,6 @@ This is a bugfix release that is API and ABI compatible with previous
   - Fix some memory leaks in module-roc.
   - Add command access control. This avoids execution of commands without
     proper authentication.
-
-
-Older versions:
-
 
 # PipeWire 0.3.42 (2021-12-16)
 

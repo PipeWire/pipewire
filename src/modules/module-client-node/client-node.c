@@ -219,6 +219,8 @@ static struct mix *find_mix(struct port *p, uint32_t mix_id)
 	if (mix_id >= len) {
 		size_t need = sizeof(struct mix) * (mix_id + 1 - len);
 		void *ptr = pw_array_add(&p->mix, need);
+		if (ptr == NULL)
+			return NULL;
 		memset(ptr, 0, need);
 	}
 	mix = pw_array_get_unchecked(&p->mix, mix_id, struct mix);

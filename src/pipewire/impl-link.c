@@ -451,7 +451,7 @@ static int port_set_io(struct pw_impl_link *this, struct pw_impl_port *port, uin
 	return res;
 }
 
-static int select_io(struct pw_impl_link *this)
+static void select_io(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	struct spa_io_buffers *io;
@@ -461,13 +461,9 @@ static int select_io(struct pw_impl_link *this)
 		io = this->rt.out_mix.io;
 	if (io == NULL)
 		io = &impl->io;
-	if (io == NULL)
-		return -EIO;
 
 	this->io = io;
 	*this->io = SPA_IO_BUFFERS_INIT;
-
-	return 0;
 }
 
 static int do_allocation(struct pw_impl_link *this)
@@ -1229,6 +1225,16 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	spa_hook_list_init(&this->listener_list);
 
 	impl->format_filter = format_filter;
+	this->info.format = NULL;
+	this->info.props = &this->properties->dict;
+
+	this->rt.out_mix.peer_id = input->global->id;
+	this->rt.in_mix.peer_id = output->global->id;
+
+	if ((res = pw_impl_port_init_mix(output, &this->rt.out_mix)) < 0)
+		goto error_output_mix;
+	if ((res = pw_impl_port_init_mix(input, &this->rt.in_mix)) < 0)
+		goto error_input_mix;
 
 	pw_impl_port_add_listener(input, &impl->input_port_listener, &input_port_events, impl);
 	pw_impl_node_add_listener(input_node, &impl->input_node_listener, &input_node_events, impl);
@@ -1245,19 +1251,9 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	spa_list_append(&output->links, &this->output_link);
 	spa_list_append(&input->links, &this->input_link);
 
-	this->info.format = NULL;
-	this->info.props = &this->properties->dict;
-
 	impl->io = SPA_IO_BUFFERS_INIT;
 
-	this->rt.out_mix.peer_id = input->global->id;
-	this->rt.in_mix.peer_id = output->global->id;
-
-	pw_impl_port_init_mix(output, &this->rt.out_mix);
-	pw_impl_port_init_mix(input, &this->rt.in_mix);
-
-	if ((res = select_io(this)) < 0)
-		goto error_no_io;
+	select_io(this);
 
 	if (this->feedback) {
 		impl->inode = output_node;
@@ -1317,8 +1313,12 @@ error_work_queue:
 	res = -errno;
 	pw_log_debug("work queue failed: %m");
 	goto error_free;
-error_no_io:
-	pw_log_debug("%p: can't set io %d (%s)", this, res, spa_strerror(res));
+error_output_mix:
+	pw_log_error("%p: can't get output mix %d (%s)", this, res, spa_strerror(res));
+	goto error_free;
+error_input_mix:
+	pw_log_error("%p: can't get input mix %d (%s)", this, res, spa_strerror(res));
+	pw_impl_port_release_mix(output, &this->rt.out_mix);
 	goto error_free;
 error_free:
 	free(impl);

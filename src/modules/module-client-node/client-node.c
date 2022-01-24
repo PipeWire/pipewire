@@ -1390,8 +1390,15 @@ static int port_init_mix(void *data, struct pw_impl_port_mix *mix)
 		return -ENOMEM;
 
 	mix->id = pw_map_insert_new(&impl->io_map, NULL);
-	if (mix->id == SPA_ID_INVALID)
+	if (mix->id == SPA_ID_INVALID) {
+		m->valid = false;
 		return -errno;
+	}
+	if (mix->id > MAX_AREAS) {
+		pw_map_remove(&impl->io_map, mix->id);
+		m->valid = false;
+		return -ENOMEM;
+	}
 
 	mix->io = SPA_PTROFF(impl->io_areas->map->ptr,
 			mix->id * sizeof(struct spa_io_buffers), void);

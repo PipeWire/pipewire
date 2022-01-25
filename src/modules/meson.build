@@ -148,17 +148,12 @@ pipewire_module_rt = shared_library('pipewire-module-rt', [ 'module-rt.c' ],
 )
 # TODO: This serves as a temporary alias to prevent breaking existing setups
 #       while `module-rtkit` is being migrated to `module-rt`
-fs = import('fs')
-custom_target('pipewire-module-rtkit',
-  # Basing this on the original output path makes sure we get the library
-  # prefixes and suffixes right
-  output : [fs.name(pipewire_module_rt.full_path()).replace('module-rt', 'module-rtkit')],
-  # Using the `input` parameter for this doesn't work on Meson 59, and on newer
-  # versions it will show a spurious warning
-  command : ['ln', '-sf', fs.name(pipewire_module_rt.full_path()), '@OUTPUT@'],
+pipewire_module_rtkit = shared_library('pipewire-module-rtkit', [ 'module-rt.c' ],
+  include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
-  depends : [pipewire_module_rt],
+  install_rpath: modules_install_dir,
+  dependencies : [dbus_dep, mathlib, dl_lib, pipewire_dep],
 )
 endif
 summary({'rt': build_module_rt}, bool_yn: true, section: 'Optional Modules')

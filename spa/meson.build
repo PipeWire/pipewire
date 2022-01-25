@@ -9,6 +9,7 @@ spa_dep = declare_dependency(
   include_directories : [
     include_directories('include'),
   ],
+  dependencies : [atomic_dep],
   version : spaversion,
   variables : {
     'plugindir' : meson.current_build_dir() / 'plugins',

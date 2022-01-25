@@ -44,7 +44,7 @@ context.modules = [
                 #"tcp:127.0.0.1:8888"               # IPv4 on a single address
                 #
                 #{ address = "tcp:4713"             # address
-                #  max-clients = 64                 # maximume number of clients
+                #  max-clients = 64                 # maximum number of clients
                 #  listen-backlog = 32              # backlog in the server listen queue
                 #  client.access = "restricted"     # permissions for clients
                 #}
@@ -103,17 +103,16 @@ pulse.rules = [
         }
     }
     {
-        # skype does not want to use devices that don't have an
-	# S16 sample format.
+        # skype does not want to use devices that don't have an S16 sample format.
         matches = [
              { application.process.binary = "teams" }
              { application.process.binary = "skypeforlinux" }
-	]
+        ]
         actions = { quirks = [ force-s16-info ] }
     }
     {
         # firefox marks the capture streams as don't move and then they
-	# can't be moved with pavucontrol or other tools.
+        # can't be moved with pavucontrol or other tools.
         matches = [ { application.process.binary = "firefox" } ]
         actions = { quirks = [ remove-capture-dont-move ] }
     }
@@ -125,6 +124,6 @@ pulse.rules = [
                 pulse.min.req          = 1024/48000     # 21ms
                 pulse.min.quantum      = 1024/48000     # 21ms
             }
-	}
+        }
     }
 ]

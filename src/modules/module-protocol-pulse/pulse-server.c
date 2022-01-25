@@ -1245,7 +1245,7 @@ static void stream_process(void *data)
 			size = SPA_MIN(buf->datas[0].maxsize, minreq);
 			memset(p, 0, size);
 
-			if (stream->draining) {
+			if (stream->draining && !stream->corked) {
 				stream->draining = false;
 				do_flush = true;
 			} else {

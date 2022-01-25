@@ -53,8 +53,8 @@ applications:
 * `PIPEWIRE_RATE=<num/denom>`      to configure a rate for the graph.
 * `PIPEWIRE_QUANTUM=<num/denom>`   to configure latency as a fraction and a
 				   samplerate. This function will attempt to change
-				   the graph samplerate and use the specified
-				   <num> as the buffer size.
+				   the graph samplerate to `denom` and use the
+				   specified `num` as the buffer size.
 * `PIPEWIRE_NODE=<id>`             to request a link to the specified node
 
 ### Using tools

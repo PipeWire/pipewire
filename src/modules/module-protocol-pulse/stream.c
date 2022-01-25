@@ -193,7 +193,7 @@ uint32_t stream_pop_missing(struct stream *stream)
 	missing -= stream->requested;
 	missing -= avail;
 
-	if (missing <= 0)
+	if (missing <= 0 || stream->corked)
 		return 0;
 
 	if (missing < stream->attr.minreq && !stream_prebuf_active(stream, avail))

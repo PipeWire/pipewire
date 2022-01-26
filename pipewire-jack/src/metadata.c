@@ -213,7 +213,8 @@ int jack_set_property(jack_client_t*client,
 		      const char* type)
 {
 	struct client *c = (struct client *) client;
-	uint32_t id;
+	struct object *o;
+	uint32_t serial;
 	int res = -1;
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
@@ -227,14 +228,16 @@ int jack_set_property(jack_client_t*client,
 	if (subject & (1<<30))
 		goto done;
 
-	id = jack_uuid_to_index(subject);
+	serial = jack_uuid_to_index(subject);
+	if ((o = find_by_serial(c, serial)) == NULL)
+		goto done;
 
 	if (type == NULL)
 		type = "";
 
-	pw_log_info("set id:%u (%"PRIu64") '%s' to '%s@%s'", id, subject, key, value, type);
+	pw_log_info("set id:%u (%"PRIu64") '%s' to '%s@%s'", o->id, subject, key, value, type);
 	if (update_property(c, subject, key, type, value))
-		pw_metadata_set_property(c->metadata->proxy, id, key, type, value);
+		pw_metadata_set_property(c->metadata->proxy, o->id, key, type, value);
 	res = 0;
 done:
 	pw_thread_loop_unlock(c->context.loop);

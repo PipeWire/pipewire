@@ -313,6 +313,7 @@ struct client {
 	struct metadata *metadata;
 
 	uint32_t node_id;
+	uint32_t serial;
 	struct spa_source *socket_source;
 
 	JackThreadCallback thread_callback;
@@ -402,6 +403,7 @@ struct client {
 };
 
 static int do_sync(struct client *client);
+static struct object *find_by_serial(struct client *c, uint32_t serial);
 
 #include "metadata.c"
 
@@ -672,15 +674,12 @@ static struct object *find_by_id(struct client *c, uint32_t id)
 	return NULL;
 }
 
-static struct object *find_by_serial(struct client *c, uint32_t serial, uint32_t type)
+static struct object *find_by_serial(struct client *c, uint32_t serial)
 {
 	struct object *o;
 	spa_list_for_each(o, &c->context.objects, link) {
-		if (o->serial == serial) {
-			if (o->type == type)
-				return o;
-			return NULL;
-		}
+		if (o->serial == serial)
+			return o;
 	}
 	return NULL;
 }
@@ -2575,10 +2574,10 @@ static int metadata_property(void *object, uint32_t id,
 
 		switch (o->type) {
 		case INTERFACE_Node:
-			uuid = client_make_uuid(id, false);
+			uuid = client_make_uuid(o->serial, false);
 			break;
 		case INTERFACE_Port:
-			uuid = jack_port_uuid_generate(id);
+			uuid = jack_port_uuid_generate(o->serial);
 			break;
 		default:
 			return -EINVAL;
@@ -2685,6 +2684,7 @@ static void registry_event_global(void *data, uint32_t id,
 			pw_log_debug("%p: add our node %d", c, id);
 			if (node_name != NULL)
 				snprintf(c->name, sizeof(c->name), "%s", node_name);
+			c->serial = serial;
 		}
 		snprintf(o->node.node_name, sizeof(o->node.node_name),
 				"%s", node_name);
@@ -3456,7 +3456,7 @@ char *jack_get_uuid_for_client_name (jack_client_t *client,
 		if (spa_streq(o->node.name, client_name) ||
 		    (monitor && spa_strneq(o->node.name, client_name,
 			    strlen(client_name) - strlen(MONITOR_EXT)))) {
-			uuid = spa_aprintf( "%" PRIu64, client_make_uuid(o->id, monitor));
+			uuid = spa_aprintf( "%" PRIu64, client_make_uuid(o->serial, monitor));
 			break;
 		}
 	}
@@ -3487,7 +3487,7 @@ char *jack_get_client_name_by_uuid (jack_client_t *client,
 	spa_list_for_each(o, &c->context.objects, link) {
 		if (o->type != INTERFACE_Node)
 			continue;
-		if (client_make_uuid(o->id, monitor) == uuid) {
+		if (client_make_uuid(o->serial, monitor) == uuid) {
 			pw_log_debug("%p: uuid %s (%"PRIu64")-> %s",
 					client, client_uuid, uuid, o->node.name);
 			name = spa_aprintf("%s%s", o->node.name, monitor ? MONITOR_EXT : "");
@@ -4403,7 +4403,7 @@ jack_uuid_t jack_port_uuid (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
 	spa_return_val_if_fail(o != NULL, 0);
-	return jack_port_uuid_generate(o->id);
+	return jack_port_uuid_generate(o->serial);
 }
 
 SPA_EXPORT
@@ -5419,7 +5419,9 @@ jack_port_t * jack_port_by_id (jack_client_t *client,
 	spa_return_val_if_fail(c != NULL, NULL);
 
 	pthread_mutex_lock(&c->context.lock);
-	res = find_by_serial(c, port_id, INTERFACE_Port);
+	res = find_by_serial(c, port_id);
+	if (res && res->type != INTERFACE_Port)
+		res = NULL;
 	pw_log_debug("%p: port %d -> %p", c, port_id, res);
 	pthread_mutex_unlock(&c->context.lock);
 
@@ -5849,7 +5851,7 @@ char *jack_client_get_uuid (jack_client_t *client)
 
 	spa_return_val_if_fail(c != NULL, NULL);
 
-	return spa_aprintf("%"PRIu64, client_make_uuid(c->node_id, false));
+	return spa_aprintf("%"PRIu64, client_make_uuid(c->serial, false));
 }
 
 SPA_EXPORT

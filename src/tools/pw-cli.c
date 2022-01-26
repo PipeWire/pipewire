@@ -32,6 +32,7 @@
 #include <alloca.h>
 #endif
 #include <getopt.h>
+#include <fnmatch.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 
@@ -53,6 +54,18 @@ static const char WHITESPACE[] = " \t";
 static char prompt[64];
 
 struct remote_data;
+struct proxy_data;
+
+typedef void (*info_func_t) (struct proxy_data *pd);
+
+struct class {
+	const char *type;
+	uint32_t version;
+	const void *events;
+	pw_destroy_t destroy;
+	info_func_t info;
+	const char *name_key;
+};
 
 struct data {
 	struct pw_main_loop *loop;
@@ -73,6 +86,7 @@ struct global {
 	uint32_t permissions;
 	uint32_t version;
 	char *type;
+	const struct class *class;
 	struct pw_proxy *proxy;
 	bool info_pending;
 	struct pw_properties *properties;
@@ -96,19 +110,15 @@ struct remote_data {
 	struct pw_map globals;
 };
 
-struct proxy_data;
-
-typedef void (*info_func_t) (struct proxy_data *pd);
 
 struct proxy_data {
 	struct remote_data *rd;
 	struct global *global;
 	struct pw_proxy *proxy;
-        void *info;
-	info_func_t info_func;
-        pw_destroy_t destroy;
-        struct spa_hook proxy_listener;
-        struct spa_hook object_listener;
+	void *info;
+	const struct class *class;
+	struct spa_hook proxy_listener;
+	struct spa_hook object_listener;
 };
 
 struct command {
@@ -303,6 +313,29 @@ static void on_core_done(void *_data, uint32_t id, int seq)
 	}
 }
 
+static bool global_matches(struct global *g, const char *pattern)
+{
+	const char *str;
+
+	if (g->properties == NULL)
+		return false;
+
+	if (strstr(g->type, pattern) != NULL)
+		return true;
+	if ((str = pw_properties_get(g->properties, PW_KEY_OBJECT_PATH)) != NULL &&
+	    fnmatch(pattern, str, FNM_EXTMATCH) == 0)
+		return true;
+	if ((str = pw_properties_get(g->properties, PW_KEY_OBJECT_SERIAL)) != NULL &&
+	    spa_streq(pattern, str))
+		return true;
+	if (g->class != NULL && g->class->name_key != NULL &&
+	    (str = pw_properties_get(g->properties, g->class->name_key)) != NULL &&
+	    fnmatch(pattern, str, FNM_EXTMATCH) == 0)
+		return true;
+
+	return false;
+}
+
 static int print_global(void *obj, void *data)
 {
 	struct global *global = obj;
@@ -311,7 +344,7 @@ static int print_global(void *obj, void *data)
 	if (global == NULL)
 		return 0;
 
-	if (filter && !strstr(global->type, filter))
+	if (filter && !global_matches(global, filter))
 		return 0;
 
 	fprintf(stdout, "\tid %d, type %s/%d\n", global->id,
@@ -403,61 +436,19 @@ static const struct pw_registry_events registry_events = {
 	.global_remove = registry_event_global_remove,
 };
 
-static bool global_is_named(struct global *g, const char *name)
-{
-	const char *str;
-
-	if (g->properties == NULL)
-		return false;
-
-	if ((str = pw_properties_get(g->properties, PW_KEY_OBJECT_PATH)) != NULL &&
-	    spa_streq(name, str))
-		return true;
-	if ((str = pw_properties_get(g->properties, PW_KEY_OBJECT_SERIAL)) != NULL &&
-	    spa_streq(name, str))
-		return true;
-
-	if (spa_streq(g->type, PW_TYPE_INTERFACE_Node)) {
-		if ((str = pw_properties_get(g->properties, PW_KEY_NODE_NAME)) != NULL &&
-		    spa_streq(name, str))
-			return true;
-	}
-	else if (spa_streq(g->type, PW_TYPE_INTERFACE_Port)) {
-		if ((str = pw_properties_get(g->properties, PW_KEY_PORT_NAME)) != NULL &&
-		    spa_streq(name, str))
-			return true;
-	}
-	else if (spa_streq(g->type, PW_TYPE_INTERFACE_Device)) {
-		if ((str = pw_properties_get(g->properties, PW_KEY_DEVICE_NAME)) != NULL &&
-		    spa_streq(name, str))
-			return true;
-	}
-	else if (spa_streq(g->type, PW_TYPE_INTERFACE_Factory)) {
-		if ((str = pw_properties_get(g->properties, PW_KEY_FACTORY_NAME)) != NULL &&
-		    spa_streq(name, str))
-			return true;
-	}
-	else if (spa_streq(g->type, PW_TYPE_INTERFACE_Module)) {
-		if ((str = pw_properties_get(g->properties, PW_KEY_MODULE_NAME)) != NULL &&
-		    spa_streq(name, str))
-			return true;
-	}
-	return false;
-}
-
-static struct global *find_global(struct remote_data *rd, const char *name)
+static struct global *find_global(struct remote_data *rd, const char *pattern)
 {
 	uint32_t id;
 	union pw_map_item *item;
 
-	if (spa_atou32(name, &id, 0))
+	if (spa_atou32(pattern, &id, 0))
 		return pw_map_lookup(&rd->globals, id);
 
 	pw_array_for_each(item, &rd->globals.items) {
 		struct global *g = item->data;
 		if (pw_map_item_is_free(item) || g == NULL)
 			continue;
-		if (global_is_named(g, name))
+		if (global_matches(g, pattern))
 			return g;
         }
 	return NULL;
@@ -1166,14 +1157,14 @@ destroy_proxy (void *data)
 	spa_hook_remove(&pd->proxy_listener);
 	spa_hook_remove(&pd->object_listener);
 
-	if (pd->info == NULL)
-		return;
-
 	if (pd->global)
 		pd->global->proxy = NULL;
 
-	if (pd->destroy)
-		pd->destroy(pd->info);
+	if (pd->info == NULL)
+		return;
+
+	if (pd->class->destroy)
+		pd->class->destroy(pd->info);
 	pd->info = NULL;
 }
 
@@ -1190,88 +1181,150 @@ static bool do_list_objects(struct data *data, const char *cmd, char *args, char
 	return true;
 }
 
+static const struct class core_class = {
+	.type = PW_TYPE_INTERFACE_Core,
+	.version = PW_VERSION_CORE,
+	.events = &core_events,
+	.destroy = (pw_destroy_t) pw_core_info_free,
+	.info = info_core,
+	.name_key = PW_KEY_CORE_NAME,
+};
+static const struct class module_class = {
+	.type = PW_TYPE_INTERFACE_Module,
+	.version = PW_VERSION_MODULE,
+	.events = &module_events,
+	.destroy = (pw_destroy_t) pw_module_info_free,
+	.info = info_module,
+	.name_key = PW_KEY_MODULE_NAME,
+};
+
+static const struct class factory_class = {
+	.type = PW_TYPE_INTERFACE_Factory,
+	.version = PW_VERSION_FACTORY,
+	.events = &factory_events,
+	.destroy = (pw_destroy_t) pw_factory_info_free,
+	.info = info_factory,
+	.name_key = PW_KEY_FACTORY_NAME,
+};
+
+static const struct class client_class = {
+	.type = PW_TYPE_INTERFACE_Client,
+	.version = PW_VERSION_CLIENT,
+	.events = &client_events,
+	.destroy = (pw_destroy_t) pw_client_info_free,
+	.info = info_client,
+	.name_key = PW_KEY_APP_NAME,
+};
+static const struct class device_class = {
+	.type = PW_TYPE_INTERFACE_Device,
+	.version = PW_VERSION_DEVICE,
+	.events = &device_events,
+	.destroy = (pw_destroy_t) pw_device_info_free,
+	.info = info_device,
+	.name_key = PW_KEY_DEVICE_NAME,
+};
+static const struct class node_class = {
+	.type = PW_TYPE_INTERFACE_Node,
+	.version = PW_VERSION_NODE,
+	.events = &node_events,
+	.destroy = (pw_destroy_t) pw_node_info_free,
+	.info = info_node,
+	.name_key = PW_KEY_NODE_NAME,
+};
+static const struct class port_class = {
+	.type = PW_TYPE_INTERFACE_Port,
+	.version = PW_VERSION_PORT,
+	.events = &port_events,
+	.destroy = (pw_destroy_t) pw_port_info_free,
+	.info = info_port,
+	.name_key = PW_KEY_PORT_NAME,
+};
+static const struct class link_class = {
+	.type = PW_TYPE_INTERFACE_Link,
+	.version = PW_VERSION_LINK,
+	.events = &link_events,
+	.destroy = (pw_destroy_t) pw_link_info_free,
+	.info = info_link,
+};
+static const struct class session_class = {
+	.type = PW_TYPE_INTERFACE_Session,
+	.version = PW_VERSION_SESSION,
+	.events = &session_events,
+	.destroy = (pw_destroy_t) session_info_free,
+	.info = info_session,
+};
+static const struct class endpoint_class = {
+	.type = PW_TYPE_INTERFACE_Endpoint,
+	.version = PW_VERSION_ENDPOINT,
+	.events = &endpoint_events,
+	.destroy = (pw_destroy_t) endpoint_info_free,
+	.info = info_endpoint,
+};
+static const struct class endpoint_stream_class = {
+	.type = PW_TYPE_INTERFACE_EndpointStream,
+	.version = PW_VERSION_ENDPOINT_STREAM,
+	.events = &endpoint_stream_events,
+	.destroy = (pw_destroy_t) endpoint_stream_info_free,
+	.info = info_endpoint_stream,
+};
+static const struct class metadata_class = {
+	.type = PW_TYPE_INTERFACE_Metadata,
+	.version = PW_VERSION_METADATA,
+	.name_key = PW_KEY_METADATA_NAME,
+};
+
+static const struct class *classes[] =
+{
+	&core_class,
+	&module_class,
+	&factory_class,
+	&client_class,
+	&device_class,
+	&node_class,
+	&port_class,
+	&link_class,
+	&session_class,
+	&endpoint_class,
+	&endpoint_stream_class,
+	&metadata_class,
+};
+
+static const struct class *find_class(const char *type, uint32_t version)
+{
+	size_t i;
+	for (i = 0; i < SPA_N_ELEMENTS(classes); i++) {
+		if (spa_streq(classes[i]->type, type) &&
+		    classes[i]->version <= version)
+			return classes[i];
+	}
+	return NULL;
+}
+
 static bool bind_global(struct remote_data *rd, struct global *global, char **error)
 {
-        const void *events;
-        uint32_t client_version;
-	info_func_t info_func;
-        pw_destroy_t destroy;
+	const struct class *class;
 	struct proxy_data *pd;
 	struct pw_proxy *proxy;
 
-	if (spa_streq(global->type, PW_TYPE_INTERFACE_Core)) {
-		events = &core_events;
-		client_version = PW_VERSION_CORE;
-		destroy = (pw_destroy_t) pw_core_info_free;
-		info_func = info_core;
-	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Module)) {
-		events = &module_events;
-		client_version = PW_VERSION_MODULE;
-		destroy = (pw_destroy_t) pw_module_info_free;
-		info_func = info_module;
-	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Device)) {
-		events = &device_events;
-		client_version = PW_VERSION_DEVICE;
-		destroy = (pw_destroy_t) pw_device_info_free;
-		info_func = info_device;
-	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Node)) {
-		events = &node_events;
-		client_version = PW_VERSION_NODE;
-		destroy = (pw_destroy_t) pw_node_info_free;
-		info_func = info_node;
-	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Port)) {
-		events = &port_events;
-		client_version = PW_VERSION_PORT;
-		destroy = (pw_destroy_t) pw_port_info_free;
-		info_func = info_port;
-	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Factory)) {
-		events = &factory_events;
-		client_version = PW_VERSION_FACTORY;
-		destroy = (pw_destroy_t) pw_factory_info_free;
-		info_func = info_factory;
-	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Client)) {
-		events = &client_events;
-		client_version = PW_VERSION_CLIENT;
-		destroy = (pw_destroy_t) pw_client_info_free;
-		info_func = info_client;
-	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Link)) {
-		events = &link_events;
-		client_version = PW_VERSION_LINK;
-		destroy = (pw_destroy_t) pw_link_info_free;
-		info_func = info_link;
-	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Session)) {
-		events = &session_events;
-		client_version = PW_VERSION_SESSION;
-		destroy = (pw_destroy_t) session_info_free;
-		info_func = info_session;
-	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Endpoint)) {
-		events = &endpoint_events;
-		client_version = PW_VERSION_ENDPOINT;
-		destroy = (pw_destroy_t) endpoint_info_free;
-		info_func = info_endpoint;
-	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_EndpointStream)) {
-		events = &endpoint_stream_events;
-		client_version = PW_VERSION_ENDPOINT_STREAM;
-		destroy = (pw_destroy_t) endpoint_stream_info_free;
-		info_func = info_endpoint_stream;
-	} else {
+	class = find_class(global->type, global->version);
+	if (class == NULL) {
 		*error = spa_aprintf("unsupported type %s", global->type);
 		return false;
 	}
+	global->class = class;
 
 	proxy = pw_registry_bind(rd->registry,
 				       global->id,
 				       global->type,
-				       client_version,
+				       class->version,
 				       sizeof(struct proxy_data));
 
 	pd = pw_proxy_get_user_data(proxy);
 	pd->rd = rd;
 	pd->global = global;
 	pd->proxy = proxy;
-	pd->info_func = info_func;
-	pd->destroy = destroy;
-	pw_proxy_add_object_listener(proxy, &pd->object_listener, events, pd);
+	pd->class = class;
+	pw_proxy_add_object_listener(proxy, &pd->object_listener, class->events, pd);
 	pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
 	global->proxy = proxy;
@@ -1292,8 +1345,8 @@ static bool do_global_info(struct global *global, char **error)
 		global->info_pending = true;
 	} else {
 		pd = pw_proxy_get_user_data(global->proxy);
-		if (pd->info_func)
-			pd->info_func(pd);
+		if (pd->class->info)
+			pd->class->info(pd);
 	}
 	return true;
 }
@@ -1367,7 +1420,7 @@ static bool do_create_device(struct data *data, const char *cmd, char *args, cha
 	pd = pw_proxy_get_user_data(proxy);
 	pd->rd = rd;
 	pd->proxy = proxy;
-	pd->destroy = (pw_destroy_t) pw_device_info_free;
+	pd->class = &device_class;
 	pw_proxy_add_object_listener(proxy, &pd->object_listener, &device_events, pd);
 	pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
@@ -1406,7 +1459,7 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 	pd = pw_proxy_get_user_data(proxy);
 	pd->rd = rd;
 	pd->proxy = proxy;
-        pd->destroy = (pw_destroy_t) pw_node_info_free;
+        pd->class = &node_class;
         pw_proxy_add_object_listener(proxy, &pd->object_listener, &node_events, pd);
         pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
@@ -1479,7 +1532,7 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 	pd = pw_proxy_get_user_data(proxy);
 	pd->rd = rd;
 	pd->proxy = proxy;
-        pd->destroy = (pw_destroy_t) pw_link_info_free;
+        pd->class = &link_class;
         pw_proxy_add_object_listener(proxy, &pd->object_listener, &link_events, pd);
         pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 

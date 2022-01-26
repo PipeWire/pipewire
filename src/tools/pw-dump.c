@@ -30,6 +30,7 @@
 #include <getopt.h>
 #include <limits.h>
 #include <math.h>
+#include <fnmatch.h>
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
@@ -37,6 +38,7 @@
 #include <spa/debug/types.h>
 #include <spa/utils/json.h>
 #include <spa/utils/ansi.h>
+#include <spa/utils/string.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/metadata.h>
@@ -65,7 +67,7 @@ struct data {
 
 	struct spa_list object_list;
 
-	uint32_t id;
+	const char *pattern;
 
 	FILE *out;
 	int level;
@@ -93,6 +95,7 @@ struct class {
 	const void *events;
 	void (*destroy) (struct object *object);
 	void (*dump) (struct object *object);
+	const char *name_key;
 };
 
 struct object {
@@ -552,6 +555,7 @@ static const struct class core_class = {
 	.type = PW_TYPE_INTERFACE_Core,
 	.version = PW_VERSION_CORE,
 	.dump = core_dump,
+	.name_key = PW_KEY_CORE_NAME,
 };
 
 /* client */
@@ -608,6 +612,7 @@ static const struct class client_class = {
 	.events = &client_events,
 	.destroy = client_destroy,
 	.dump = client_dump,
+	.name_key = PW_KEY_APP_NAME,
 };
 
 /* module */
@@ -667,6 +672,7 @@ static const struct class module_class = {
 	.events = &module_events,
 	.destroy = module_destroy,
 	.dump = module_dump,
+	.name_key = PW_KEY_MODULE_NAME,
 };
 
 /* factory */
@@ -726,6 +732,7 @@ static const struct class factory_class = {
 	.events = &factory_events,
 	.destroy = factory_destroy,
 	.dump = factory_dump,
+	.name_key = PW_KEY_FACTORY_NAME,
 };
 
 /* device */
@@ -810,6 +817,7 @@ static const struct class device_class = {
 	.events = &device_events,
 	.destroy = device_destroy,
 	.dump = device_dump,
+	.name_key = PW_KEY_DEVICE_NAME,
 };
 
 /* node */
@@ -906,6 +914,7 @@ static const struct class node_class = {
 	.events = &node_events,
 	.destroy = node_destroy,
 	.dump = node_dump,
+	.name_key = PW_KEY_NODE_NAME,
 };
 
 /* port */
@@ -991,6 +1000,7 @@ static const struct class port_class = {
 	.events = &port_events,
 	.destroy = port_destroy,
 	.dump = port_dump,
+	.name_key = PW_KEY_PORT_NAME,
 };
 
 /* link */
@@ -1206,6 +1216,7 @@ static const struct class metadata_class = {
 	.events = &metadata_events,
 	.destroy = metadata_destroy,
 	.dump = metadata_dump,
+	.name_key = PW_KEY_METADATA_NAME,
 };
 
 static const struct class *classes[] =
@@ -1331,6 +1342,32 @@ static const struct pw_registry_events registry_events = {
 	.global_remove = registry_event_global_remove,
 };
 
+static bool object_matches(struct object *o, const char *pattern)
+{
+	uint32_t id;
+	const char *str;
+
+	if (spa_atou32(pattern, &id, 0) && o->id == id)
+		return true;
+
+	if (o->props == NULL)
+		return false;
+
+	if (strstr(o->type, pattern) != NULL)
+		return true;
+	if ((str = pw_properties_get(o->props, PW_KEY_OBJECT_PATH)) != NULL &&
+	    fnmatch(pattern, str, FNM_EXTMATCH) == 0)
+		return true;
+	if ((str = pw_properties_get(o->props, PW_KEY_OBJECT_SERIAL)) != NULL &&
+	    spa_streq(pattern, str))
+		return true;
+	if (o->class != NULL && o->class->name_key != NULL &&
+	    (str = pw_properties_get(o->props, o->class->name_key)) != NULL &&
+	    fnmatch(pattern, str, FNM_EXTMATCH) == 0)
+		return true;
+	return false;
+}
+
 static void dump_objects(struct data *d)
 {
 	static const struct flags_info fl[] = {
@@ -1345,7 +1382,7 @@ static void dump_objects(struct data *d)
 
 	d->state = STATE_FIRST;
 	spa_list_for_each(o, &d->object_list, link) {
-		if (d->id != SPA_ID_INVALID && d->id != o->id)
+		if (d->pattern != NULL && !object_matches(o, d->pattern))
 			continue;
 		if (o->changed == 0)
 			continue;
@@ -1493,10 +1530,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	data.id = SPA_ID_INVALID;
-	if (optind < argc) {
-		spa_atou32(argv[optind++], &data.id, 0);
-	}
+	if (optind < argc)
+		data.pattern = argv[optind++];
 
 	data.loop = pw_main_loop_new(NULL);
 	if (data.loop == NULL) {

@@ -403,6 +403,66 @@ static const struct pw_registry_events registry_events = {
 	.global_remove = registry_event_global_remove,
 };
 
+static bool global_is_named(struct global *g, const char *name)
+{
+	const char *str;
+
+	if (g->properties == NULL)
+		return false;
+
+	if ((str = pw_properties_get(g->properties, PW_KEY_OBJECT_PATH)) != NULL &&
+	    spa_streq(name, str))
+		return true;
+	if ((str = pw_properties_get(g->properties, PW_KEY_OBJECT_SERIAL)) != NULL &&
+	    spa_streq(name, str))
+		return true;
+
+	if (spa_streq(g->type, PW_TYPE_INTERFACE_Node)) {
+		if ((str = pw_properties_get(g->properties, PW_KEY_NODE_NAME)) != NULL &&
+		    spa_streq(name, str))
+			return true;
+	}
+	else if (spa_streq(g->type, PW_TYPE_INTERFACE_Port)) {
+		if ((str = pw_properties_get(g->properties, PW_KEY_PORT_NAME)) != NULL &&
+		    spa_streq(name, str))
+			return true;
+	}
+	else if (spa_streq(g->type, PW_TYPE_INTERFACE_Device)) {
+		if ((str = pw_properties_get(g->properties, PW_KEY_DEVICE_NAME)) != NULL &&
+		    spa_streq(name, str))
+			return true;
+	}
+	else if (spa_streq(g->type, PW_TYPE_INTERFACE_Factory)) {
+		if ((str = pw_properties_get(g->properties, PW_KEY_FACTORY_NAME)) != NULL &&
+		    spa_streq(name, str))
+			return true;
+	}
+	else if (spa_streq(g->type, PW_TYPE_INTERFACE_Module)) {
+		if ((str = pw_properties_get(g->properties, PW_KEY_MODULE_NAME)) != NULL &&
+		    spa_streq(name, str))
+			return true;
+	}
+	return false;
+}
+
+static struct global *find_global(struct remote_data *rd, const char *name)
+{
+	uint32_t id;
+	union pw_map_item *item;
+
+	if (spa_atou32(name, &id, 0))
+		return pw_map_lookup(&rd->globals, id);
+
+	pw_array_for_each(item, &rd->globals.items) {
+		struct global *g = item->data;
+		if (pw_map_item_is_free(item) || g == NULL)
+			continue;
+		if (global_is_named(g, name))
+			return g;
+        }
+	return NULL;
+}
+
 static void on_core_error(void *_data, uint32_t id, int seq, int res, const char *message)
 {
 	struct remote_data *rd = _data;
@@ -1257,7 +1317,6 @@ static bool do_info(struct data *data, const char *cmd, char *args, char **error
 	struct remote_data *rd = data->current;
 	char *a[1];
         int n;
-	uint32_t id;
 	struct global *global;
 
 	n = pw_split_ip(args, WHITESPACE, 1, a);
@@ -1269,10 +1328,9 @@ static bool do_info(struct data *data, const char *cmd, char *args, char **error
 		pw_map_for_each(&rd->globals, do_global_info_all, NULL);
 	}
 	else {
-		id = atoi(a[0]);
-		global = pw_map_lookup(&rd->globals, id);
+		global = find_global(rd, a[0]);
 		if (global == NULL) {
-			*error = spa_aprintf("%s: unknown global %d", cmd, id);
+			*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
 			return false;
 		}
 		return do_global_info(global, error);
@@ -1363,7 +1421,6 @@ static bool do_destroy(struct data *data, const char *cmd, char *args, char **er
 	struct remote_data *rd = data->current;
 	char *a[1];
         int n;
-	uint32_t id;
 	struct global *global;
 
 	n = pw_split_ip(args, WHITESPACE, 1, a);
@@ -1371,13 +1428,12 @@ static bool do_destroy(struct data *data, const char *cmd, char *args, char **er
 		*error = spa_aprintf("%s <object-id>", cmd);
 		return false;
 	}
-	id = atoi(a[0]);
-	global = pw_map_lookup(&rd->globals, id);
+	global = find_global(rd, a[0]);
 	if (global == NULL) {
-		*error = spa_aprintf("%s: unknown global %d", cmd, id);
+		*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
 		return false;
 	}
-	pw_registry_destroy(rd->registry, id);
+	pw_registry_destroy(rd->registry, global->id);
 
 	return true;
 }
@@ -1482,7 +1538,7 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 	struct remote_data *rd = data->current;
 	char *a[2];
 	int n;
-	uint32_t id, param_id;
+	uint32_t param_id;
 	const struct spa_type_info *ti;
 	struct global *global;
 
@@ -1492,7 +1548,6 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 
-	id = atoi(a[0]);
 	ti = spa_debug_type_find_short(spa_type_param, a[1]);
 	if (ti == NULL) {
 		*error = spa_aprintf("%s: unknown param type: %s", cmd, a[1]);
@@ -1500,9 +1555,9 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 	}
 	param_id = ti->type;
 
-	global = pw_map_lookup(&rd->globals, id);
+	global = find_global(rd, a[0]);
 	if (global == NULL) {
-		*error = spa_aprintf("%s: unknown global %d", cmd, id);
+		*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
 		return false;
 	}
 	if (global->proxy == NULL) {
@@ -1535,7 +1590,7 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 	struct remote_data *rd = data->current;
 	char *a[3];
 	int res, n;
-	uint32_t id, param_id;
+	uint32_t param_id;
 	struct global *global;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -1548,11 +1603,9 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 		return false;
 	}
 
-	id = atoi(a[0]);
-
-	global = pw_map_lookup(&rd->globals, id);
+	global = find_global(rd, a[0]);
 	if (global == NULL) {
-		*error = spa_aprintf("%s: unknown global %d", cmd, id);
+		*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
 		return false;
 	}
 	if (global->proxy == NULL) {
@@ -1599,7 +1652,7 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 	struct remote_data *rd = data->current;
 	char *a[3];
 	int n;
-	uint32_t id, p;
+	uint32_t p;
 	struct global *global;
 	struct pw_permission permissions[1];
 
@@ -1609,10 +1662,9 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 
-	id = atoi(a[0]);
-	global = pw_map_lookup(&rd->globals, id);
+	global = find_global(rd, a[0]);
 	if (global == NULL) {
-		*error = spa_aprintf("%s: unknown global %d", cmd, id);
+		*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
 		return false;
 	}
 	if (!spa_streq(global->type, PW_TYPE_INTERFACE_Client)) {
@@ -1640,7 +1692,6 @@ static bool do_get_permissions(struct data *data, const char *cmd, char *args, c
 	struct remote_data *rd = data->current;
 	char *a[3];
         int n;
-	uint32_t id;
 	struct global *global;
 
 	n = pw_split_ip(args, WHITESPACE, 1, a);
@@ -1649,10 +1700,9 @@ static bool do_get_permissions(struct data *data, const char *cmd, char *args, c
 		return false;
 	}
 
-	id = atoi(a[0]);
-	global = pw_map_lookup(&rd->globals, id);
+	global = find_global(rd, a[0]);
 	if (global == NULL) {
-		*error = spa_aprintf("%s: unknown global %d", cmd, id);
+		*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
 		return false;
 	}
 	if (!spa_streq(global->type, PW_TYPE_INTERFACE_Client)) {

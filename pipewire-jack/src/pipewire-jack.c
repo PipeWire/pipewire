@@ -3456,7 +3456,7 @@ char *jack_get_uuid_for_client_name (jack_client_t *client,
 		if (spa_streq(o->node.name, client_name) ||
 		    (monitor && spa_strneq(o->node.name, client_name,
 			    strlen(client_name) - strlen(MONITOR_EXT)))) {
-			uuid = spa_aprintf( "%" PRIu64, client_make_uuid(o->serial, monitor));
+			uuid = spa_aprintf( "%" PRIu64, client_make_uuid(o->id, monitor));
 			break;
 		}
 	}
@@ -3487,7 +3487,7 @@ char *jack_get_client_name_by_uuid (jack_client_t *client,
 	spa_list_for_each(o, &c->context.objects, link) {
 		if (o->type != INTERFACE_Node)
 			continue;
-		if (client_make_uuid(o->serial, monitor) == uuid) {
+		if (client_make_uuid(o->id, monitor) == uuid) {
 			pw_log_debug("%p: uuid %s (%"PRIu64")-> %s",
 					client, client_uuid, uuid, o->node.name);
 			name = spa_aprintf("%s%s", o->node.name, monitor ? MONITOR_EXT : "");

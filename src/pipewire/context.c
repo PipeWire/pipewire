@@ -894,24 +894,31 @@ static int ensure_state(struct pw_impl_node *node, bool running)
 	return pw_impl_node_set_state(node, state);
 }
 
-static int collect_nodes(struct pw_context *context, struct pw_impl_node *driver)
+static int collect_nodes(struct pw_context *context, struct pw_impl_node *node)
 {
 	struct spa_list queue;
-	struct pw_impl_node *n, *t;
+	struct pw_impl_node *n, *t, *driver;
 	struct pw_impl_port *p;
 	struct pw_impl_link *l;
 
-	spa_list_consume(t, &driver->follower_list, follower_link) {
-		spa_list_remove(&t->follower_link);
-		spa_list_init(&t->follower_link);
+	pw_log_debug("node %p: '%s'", node, node->name);
+
+	if (node->driver) {
+		driver = node;
+		spa_list_consume(t, &driver->follower_list, follower_link) {
+			spa_list_remove(&t->follower_link);
+			spa_list_init(&t->follower_link);
+		}
+	} else {
+		driver = node->driver_node;
+		if (driver == NULL)
+			return -EINVAL;
 	}
 
-	pw_log_debug("driver %p: '%s'", driver, driver->name);
-
-	/* start with driver in the queue */
+	/* start with node in the queue */
 	spa_list_init(&queue);
-	spa_list_append(&queue, &driver->sort_link);
-	driver->visited = true;
+	spa_list_append(&queue, &node->sort_link);
+	node->visited = true;
 
 	/* now follow all the links from the nodes in the queue
 	 * and add the peers to the queue. */
@@ -1142,8 +1149,10 @@ again:
 			pw_impl_node_set_driver(n, t);
 			if (t == NULL)
 				ensure_state(n, false);
-			else
+			else {
 				t->passive = false;
+				collect_nodes(context, n);
+			}
 		}
 		n->visited = false;
 	}

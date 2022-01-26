@@ -27,6 +27,7 @@
 #include <sys/endian.h>
 #define bswap_16 bswap16
 #define bswap_32 bswap32
+#define bswap_64 bswap64
 #else
 #include <byteswap.h>
 #endif

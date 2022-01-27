@@ -29,11 +29,13 @@
 PW_LOG_TOPIC_EXTERN(log_main_loop);
 #define PW_LOG_TOPIC_DEFAULT log_main_loop
 
-static void do_stop(void *data, uint64_t count)
+static int do_stop(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
 {
-	struct pw_main_loop *this = data;
+	struct pw_main_loop *this = user_data;
 	pw_log_debug("%p: do stop", this);
 	this->running = false;
+	return 0;
 }
 
 static struct pw_main_loop *loop_new(struct pw_loop *loop, const struct spa_dict *props)
@@ -59,19 +61,10 @@ static struct pw_main_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 	}
 	this->loop = loop;
 
-        this->event = pw_loop_add_event(this->loop, do_stop, this);
-	if (this->event == NULL) {
-		res = -errno;
-		goto error_free_loop;
-	}
-
 	spa_hook_list_init(&this->listener_list);
 
 	return this;
 
-error_free_loop:
-	if (this->created && this->loop)
-		pw_loop_destroy(this->loop);
 error_free:
 	free(this);
 error_cleanup:
@@ -132,7 +125,7 @@ SPA_EXPORT
 int pw_main_loop_quit(struct pw_main_loop *loop)
 {
 	pw_log_debug("%p: quit", loop);
-	return pw_loop_signal_event(loop->loop, loop->event);
+	return pw_loop_invoke(loop->loop, do_stop, 1, NULL, 0, false, loop);
 }
 
 /** Start a main loop

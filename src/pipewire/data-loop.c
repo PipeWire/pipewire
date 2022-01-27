@@ -90,11 +90,13 @@ static void *do_loop(void *user_data)
 	return NULL;
 }
 
-static void do_stop(void *data, uint64_t count)
+static int do_stop(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
 {
-	struct pw_data_loop *this = data;
+	struct pw_data_loop *this = user_data;
 	pw_log_debug("%p: stopping", this);
 	this->running = false;
+	return 0;
 }
 
 static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict *props)
@@ -122,23 +124,14 @@ static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 	}
 	this->loop = loop;
 
-	if (props == NULL ||
-	    (str = spa_dict_lookup(props, "loop.cancel")) == NULL ||
-	    pw_properties_parse_bool(str) == false) {
-		this->event = pw_loop_add_event(this->loop, do_stop, this);
-		if (this->event == NULL) {
-			res = -errno;
-			pw_log_error("%p: can't add event: %m", this);
-			goto error_loop_destroy;
-		}
-	}
+	if (props != NULL &&
+	    (str = spa_dict_lookup(props, "loop.cancel")) != NULL)
+		this->cancel = pw_properties_parse_bool(str);
+
 	spa_hook_list_init(&this->listener_list);
 
 	return this;
 
-error_loop_destroy:
-	if (this->created && this->loop)
-		pw_loop_destroy(this->loop);
 error_free:
 	free(this);
 error_cleanup:
@@ -169,8 +162,6 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 
 	pw_data_loop_stop(loop);
 
-	if (loop->event)
-		pw_loop_destroy_source(loop->loop, loop->event);
 	if (loop->created)
 		pw_loop_destroy(loop->loop);
 
@@ -232,12 +223,12 @@ int pw_data_loop_stop(struct pw_data_loop *loop)
 {
 	pw_log_debug("%p stopping", loop);
 	if (loop->running) {
-		if (loop->event) {
-			pw_log_debug("%p signal", loop);
-			pw_loop_signal_event(loop->loop, loop->event);
-		} else {
+		if (loop->cancel) {
 			pw_log_debug("%p cancel", loop);
 			pthread_cancel(loop->thread);
+		} else {
+			pw_log_debug("%p signal", loop);
+			pw_loop_invoke(loop->loop, do_stop, 1, NULL, 0, false, loop);
 		}
 		pw_log_debug("%p join", loop);
 		pw_thread_utils_join((struct spa_thread*)loop->thread, NULL);

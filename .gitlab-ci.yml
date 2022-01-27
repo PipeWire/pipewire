@@ -22,14 +22,16 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2022-01-27.1'
+    FDO_DISTRIBUTION_TAG: '2022-01-28.0'
     FDO_DISTRIBUTION_VERSION: '35'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
+      avahi-devel
       bluez-libs-devel
       clang
       dbus-devel
       doxygen
+      fdk-aac-free-devel
       findutils
       gcc
       gcc-c++
@@ -39,10 +41,15 @@ include:
       gstreamer1-devel
       gstreamer1-plugins-base-devel
       jack-audio-connection-kit-devel
+      libcanberra-devel
+      libldac-devel
       libsndfile-devel
+      libusb-devel
+      lilv-devel
       libv4l-devel
       libva-devel
       libX11-devel
+      openssl-devel
       pulseaudio-libs-devel
       python3-docutils
       sbc-devel
@@ -201,6 +208,18 @@ build_on_fedora:
     paths:
       - build-*/meson-logs
       - prefix-*
+
+# build with all auto() options enabled
+build_all:
+  extends:
+    - .build_on_fedora
+  variables:
+    # Fedora doesn't have libfreeaptx or roc
+    # libcamera has no stable API, so let's not chase that target
+    MESON_OPTIONS: "-Dauto_features=enabled -Dbluez5-codec-aptx=disabled -Droc=disabled -Dlibcamera=disabled"
+  parallel:
+    matrix:
+      - CC: [gcc, clang]
 
 # build with all options on auto() or their default values
 build_with_no_commandline_options:

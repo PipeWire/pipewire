@@ -211,6 +211,7 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 static bool do_set_param(struct data *data, const char *cmd, char *args, char **error);
 static bool do_permissions(struct data *data, const char *cmd, char *args, char **error);
 static bool do_get_permissions(struct data *data, const char *cmd, char *args, char **error);
+static bool do_send_command(struct data *data, const char *cmd, char *args, char **error);
 static bool do_dump(struct data *data, const char *cmd, char *args, char **error);
 static bool do_quit(struct data *data, const char *cmd, char *args, char **error);
 
@@ -235,6 +236,7 @@ static const struct command command_list[] = {
 	{ "set-param", "s", "Set param of an object <object-id> <param-id> <param-json>", do_set_param },
 	{ "permissions", "sp", "Set permissions for a client <client-id> <object> <permission>", do_permissions },
 	{ "get-permissions", "gp", "Get permissions of a client <client-id>", do_get_permissions },
+	{ "send-command", "c", "Send a command <object-id>", do_send_command },
 	{ "dump", "D", "Dump objects in ways that are cleaner for humans to understand "
 		 "[short|deep|resolve|notype] [-sdrt] [all|"DUMP_NAMES"|<id>]", do_dump },
 	{ "quit", "q", "Quit", do_quit },
@@ -1769,6 +1771,59 @@ static bool do_get_permissions(struct data *data, const char *cmd, char *args, c
 	pw_client_get_permissions((struct pw_client*)global->proxy,
 			0, UINT32_MAX);
 
+	return true;
+}
+
+static bool do_send_command(struct data *data, const char *cmd, char *args, char **error)
+{
+	struct remote_data *rd = data->current;
+	char *a[3];
+	int res, n;
+	struct global *global;
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	const struct spa_type_info *ti;
+	struct spa_pod *pod;
+
+	n = pw_split_ip(args, WHITESPACE, 3, a);
+	if (n < 3) {
+		*error = spa_aprintf("%s <object-id> <command-id> <command-json>", cmd);
+		return false;
+	}
+
+	global = find_global(rd, a[0]);
+	if (global == NULL) {
+		*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
+		return false;
+	}
+	if (global->proxy == NULL) {
+		if (!bind_global(rd, global, error))
+			return false;
+	}
+
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Node)) {
+		ti = spa_debug_type_find_short(spa_type_node_command_id, a[1]);
+	} else {
+		*error = spa_aprintf("send-command not implemented on object %d type:%s",
+				atoi(a[0]), global->type);
+		return false;
+	}
+
+	if (ti == NULL) {
+		*error = spa_aprintf("%s: unknown node command type: %s", cmd, a[1]);
+		return false;
+	}
+	if ((res = spa_json_to_pod(&b, 0, ti, a[2], strlen(a[2]))) < 0) {
+		*error = spa_aprintf("%s: can't make pod: %s", cmd, spa_strerror(res));
+		return false;
+	}
+	if ((pod = spa_pod_builder_deref(&b, 0)) == NULL) {
+		*error = spa_aprintf("%s: can't make pod", cmd);
+		return false;
+	}
+	spa_debug_pod(0, NULL, pod);
+
+	pw_node_send_command((struct pw_node*)global->proxy, (struct spa_command*)pod);
 	return true;
 }
 

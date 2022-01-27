@@ -77,10 +77,12 @@ common_flags = [
   '-Wmissing-braces',
   '-Wtype-limits',
   '-Wvariadic-macros',
+  '-Wmaybe-uninitialized',
   '-Wno-missing-field-initializers',
   '-Wno-unused-parameter',
   '-Wno-pedantic',
   '-Wold-style-declaration',
+  '-Wdeprecated-declarations',
   '-Wunused-result',
 ]
 

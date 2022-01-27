@@ -169,7 +169,7 @@ static void unescape(const char *src, char *dst)
 {
 	const char *s;
 	char *d;
-	int h1, h2;
+	int h1 = 0, h2 = 0;
 	enum { TEXT, BACKSLASH, EX, FIRST } state = TEXT;
 
 	for (s = src, d = dst; *s; s++) {

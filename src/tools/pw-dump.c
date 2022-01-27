@@ -32,6 +32,10 @@
 #include <math.h>
 #include <fnmatch.h>
 
+#if !defined(FNM_EXTMATCH)
+#define FNM_EXTMATCH 0
+#endif
+
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/pod/iter.h>

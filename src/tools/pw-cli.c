@@ -36,6 +36,10 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+#if !defined(FNM_EXTMATCH)
+#define FNM_EXTMATCH 0
+#endif
+
 #define spa_debug(...) fprintf(stdout,__VA_ARGS__);fputc('\n', stdout)
 
 #include <spa/utils/result.h>

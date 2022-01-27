@@ -70,7 +70,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define MODULE_USAGE	"[ capture=<bool> ] "						\
 			"[ playback=<bool> ] "						\
-			"[ capture.node=<source-target> ] "				\
+			"[ capture.node=<source-target> [ stream.capture.sink=true ]] "	\
 			"[ playback.node=<sink-target> ] "				\
 			"[ audio.rate=<sample-rate, default:"DEFAULT_RATE"> ] "		\
 			"[ audio.format=<format, default:"DEFAULT_FORMAT"> ] "		\

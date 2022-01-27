@@ -36,9 +36,12 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 struct module_simple_protocol_tcp_data {
 	struct module *module;
-	struct pw_properties *module_props;
 	struct pw_impl_module *mod;
 	struct spa_hook mod_listener;
+
+	struct pw_properties *module_props;
+
+	struct spa_audio_info_raw info;
 };
 
 static void module_destroy(void *data)
@@ -61,29 +64,26 @@ static int module_simple_protocol_tcp_load(struct client *client, struct module 
 	struct module_simple_protocol_tcp_data *data = module->user_data;
 	struct impl *impl = client->impl;
 	char *args;
-	const char *str;
 	size_t size;
+	uint32_t i;
 	FILE *f;
 
 	f = open_memstream(&args, &size);
-	if ((str = pw_properties_get(data->module_props, "audio.format")) != NULL)
-		fprintf(f, "audio.format=%s ", str);
-	if ((str = pw_properties_get(data->module_props, "audio.rate")) != NULL)
-		fprintf(f, "audio.rate=%s ", str);
-	if ((str = pw_properties_get(data->module_props, "audio.channels")) != NULL)
-		fprintf(f, "audio.channels=%s ", str);
-	if ((str = pw_properties_get(data->module_props, "server.address")) != NULL)
-		fprintf(f, "server.address=%s ", str);
-	if ((str = pw_properties_get(data->module_props, "capture")) != NULL)
-		fprintf(f, "capture=%s ", str);
-	if ((str = pw_properties_get(data->module_props, "playback")) != NULL)
-		fprintf(f, "playback=%s ", str);
-	if ((str = pw_properties_get(data->module_props, "capture.node")) != NULL)
-		fprintf(f, "capture.node=\"%s\" ", str);
-	if ((str = pw_properties_get(data->module_props, "playback.node")) != NULL)
-		fprintf(f, "playback.node=\"%s\" ", str);
-	if ((str = pw_properties_get(data->module_props, PW_KEY_STREAM_CAPTURE_SINK)) != NULL)
-		fprintf(f, PW_KEY_STREAM_CAPTURE_SINK"=\"%s\" ", str);
+	fprintf(f, "{");
+	if (data->info.rate != 0)
+		fprintf(f, " \"audio.rate\": %u,", data->info.rate);
+	if (data->info.channels != 0) {
+		fprintf(f, " \"audio.channels\": %u,", data->info.channels);
+		if (!(data->info.flags & SPA_AUDIO_FLAG_UNPOSITIONED)) {
+			fprintf(f, " \"audio.position\": [ ");
+			for (i = 0; i < data->info.channels; i++)
+				fprintf(f, "%s\"%s\"", i == 0 ? "" : ",",
+					channel_id2name(data->info.position[i]));
+			fprintf(f, " ],");
+		}
+	}
+	pw_properties_serialize_dict(f, &data->module_props->dict, 0);
+	fprintf(f, "}");
 	fclose(f);
 
 	data->mod = pw_context_load_module(impl->context,
@@ -125,6 +125,7 @@ static const struct spa_dict_item module_simple_protocol_tcp_info[] = {
 	{ PW_KEY_MODULE_USAGE, "rate=<sample rate> "
 				"format=<sample format> "
 				"channels=<number of channels> "
+				"channel_map=<number of channels> "
 				"sink=<sink to connect to> "
 				"source=<source to connect to> "
 				"playback=<enable playback?> "
@@ -140,6 +141,7 @@ struct module *create_module_simple_protocol_tcp(struct impl *impl, const char *
 	struct module_simple_protocol_tcp_data *d;
 	struct pw_properties *props = NULL, *module_props = NULL;
 	const char *str, *port, *listen;
+	struct spa_audio_info_raw info = { 0 };
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -158,17 +160,14 @@ struct module *create_module_simple_protocol_tcp(struct impl *impl, const char *
 		goto out;
 	}
 
-	if ((str = pw_properties_get(props, "rate")) != NULL) {
-		pw_properties_set(module_props, "audio.rate", str);
-		pw_properties_set(props, "rate", NULL);
-	}
 	if ((str = pw_properties_get(props, "format")) != NULL) {
-		pw_properties_set(module_props, "audio.format", format_id2name(format_paname2id(str, strlen(str))));
+		pw_properties_set(module_props, "audio.format",
+				format_id2name(format_paname2id(str, strlen(str))));
 		pw_properties_set(props, "format", NULL);
 	}
-	if ((str = pw_properties_get(props, "channels")) != NULL) {
-		pw_properties_set(module_props, "audio.channels", str);
-		pw_properties_set(props, "channels", NULL);
+	if (module_args_to_audioinfo(impl, props, &info) < 0) {
+		res = -EINVAL;
+		goto out;
 	}
 	if ((str = pw_properties_get(props, "playback")) != NULL) {
 		pw_properties_set(module_props, "playback", str);
@@ -213,6 +212,7 @@ struct module *create_module_simple_protocol_tcp(struct impl *impl, const char *
 	d = module->user_data;
 	d->module = module;
 	d->module_props = module_props;
+	d->info = info;
 
 	return module;
 out:

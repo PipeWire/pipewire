@@ -45,7 +45,7 @@ extern "C" {
 #define SPA_TYPE_INFO_DEVICE_EVENT_ID_BASE	SPA_TYPE_INFO_DeviceEventId ":"
 
 static const struct spa_type_info spa_type_device_event_id[] = {
-	{ SPA_DEVICE_EVENT_ObjectConfig, SPA_TYPE_Int, SPA_TYPE_INFO_DEVICE_EVENT_ID_BASE "ObjectConfig", NULL },
+	{ SPA_DEVICE_EVENT_ObjectConfig, SPA_TYPE_EVENT_Device, SPA_TYPE_INFO_DEVICE_EVENT_ID_BASE "ObjectConfig", NULL },
 	{ 0, 0, NULL, NULL },
 };
 

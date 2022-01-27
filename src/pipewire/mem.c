@@ -508,6 +508,7 @@ struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_
 	}
 	unlink(filename);
 #endif
+	pw_log_debug("%p: new fd:%d", pool, b->this.fd);
 
 	if (ftruncate(b->this.fd, size) < 0) {
 		res = -errno;
@@ -535,7 +536,8 @@ struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_
 
 	b->this.id = pw_map_insert_new(&impl->map, b);
 	spa_list_append(&impl->blocks, &b->link);
-	pw_log_debug("%p: block:%p id:%d type:%u size:%zu", pool, &b->this, b->this.id, type, size);
+	pw_log_debug("%p: block:%p id:%d type:%u size:%zu", pool,
+			&b->this, b->this.id, type, size);
 
 	if (!SPA_FLAG_IS_SET(flags, PW_MEMBLOCK_FLAG_DONT_NOTIFY))
 		pw_mempool_emit_added(impl, &b->this);

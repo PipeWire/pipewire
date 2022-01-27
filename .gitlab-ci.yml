@@ -22,8 +22,8 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2022-01-27.0'
-    FDO_DISTRIBUTION_VERSION: '34'
+    FDO_DISTRIBUTION_TAG: '2022-01-27.1'
+    FDO_DISTRIBUTION_VERSION: '35'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
       bluez-libs-devel

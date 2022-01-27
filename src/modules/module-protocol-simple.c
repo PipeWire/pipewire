@@ -64,12 +64,14 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_RATE "44100"
 #define DEFAULT_CHANNELS 2
 #define DEFAULT_POSITION "[ FL FR ]"
-#define DEFAULT_LATENCY "1024/48000"
+#define DEFAULT_LATENCY "1024/44100"
 
 #define MAX_CLIENTS	10
 
 #define MODULE_USAGE	"[ capture=<bool> ] "						\
 			"[ playback=<bool> ] "						\
+			"[ node.latency=<num/denom, default:"DEFAULT_LATENCY"> ] "	\
+			"[ node.rate=<1/rate, default:1/"DEFAULT_RATE"> ] "	\
 			"[ capture.node=<source-target> [ stream.capture.sink=true ]] "	\
 			"[ playback.node=<sink-target> ] "				\
 			"[ audio.rate=<sample-rate, default:"DEFAULT_RATE"> ] "		\
@@ -384,12 +386,17 @@ static int create_streams(struct impl *impl, struct client *client)
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct pw_properties *props;
+	const char *latency;
 	int res;
+
+	if ((latency = pw_properties_get(impl->props, PW_KEY_NODE_LATENCY)) == NULL)
+		latency = DEFAULT_LATENCY;
 
 	if (impl->capture) {
 		props = pw_properties_new(
 			PW_KEY_NODE_GROUP, "pipewire.dummy",
-			PW_KEY_NODE_LATENCY, DEFAULT_LATENCY,
+			PW_KEY_NODE_LATENCY, latency,
+			PW_KEY_NODE_RATE, pw_properties_get(impl->props, PW_KEY_NODE_RATE),
 			PW_KEY_NODE_TARGET, pw_properties_get(impl->props, "capture.node"),
 			PW_KEY_STREAM_CAPTURE_SINK, pw_properties_get(impl->props,
 				PW_KEY_STREAM_CAPTURE_SINK),
@@ -412,7 +419,8 @@ static int create_streams(struct impl *impl, struct client *client)
 	if (impl->playback) {
 		props = pw_properties_new(
 			PW_KEY_NODE_GROUP, "pipewire.dummy",
-			PW_KEY_NODE_LATENCY, DEFAULT_LATENCY,
+			PW_KEY_NODE_LATENCY, latency,
+			PW_KEY_NODE_RATE, pw_properties_get(impl->props, PW_KEY_NODE_RATE),
 			PW_KEY_NODE_TARGET, pw_properties_get(impl->props, "playback.node"),
 			PW_KEY_NODE_NETWORK, "true",
 			NULL);

@@ -48,7 +48,6 @@ static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.resample");
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 
-#define MAX_ALIGN	16
 #define MAX_BUFFERS	32
 
 struct impl;

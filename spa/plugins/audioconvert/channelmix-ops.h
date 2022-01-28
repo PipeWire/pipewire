@@ -93,6 +93,8 @@ void channelmix_##name##_##arch(struct channelmix *mix,			\
 		uint32_t n_src, const void * SPA_RESTRICT src[n_src],	\
 		uint32_t n_samples);
 
+#define CHANNELMIX_OPS_MAX_ALIGN 16
+
 DEFINE_FUNCTION(copy, c);
 DEFINE_FUNCTION(f32_n_m, c);
 DEFINE_FUNCTION(f32_1_2, c);

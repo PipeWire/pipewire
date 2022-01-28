@@ -50,6 +50,7 @@
 
 #define MAX_BUFFERS	32
 #define MAX_DATAS	SPA_AUDIO_MAX_CHANNELS
+#define MAX_ALIGN	CHANNELMIX_OPS_MAX_ALIGN
 
 #define DEFAULT_CONTROL_BUFFER_SIZE	32768
 
@@ -164,6 +165,7 @@ struct impl {
 	unsigned int started:1;
 	unsigned int is_passthrough:1;
 	uint32_t cpu_flags;
+	uint32_t max_align;
 };
 
 #define IS_CONTROL_PORT(this,d,id)	(id == 1 && d == SPA_DIRECTION_INPUT)
@@ -1207,7 +1209,7 @@ impl_node_port_use_buffers(void *object,
 					      buffers[i]);
 				return -EINVAL;
 			}
-			if (!SPA_IS_ALIGNED(d[j].data, 16)) {
+			if (!SPA_IS_ALIGNED(d[j].data, this->max_align)) {
 				spa_log_warn(this->log, "%p: memory %d on buffer %d not aligned",
 						this, j, i);
 			}
@@ -1559,8 +1561,10 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_log_topic_init(this->log, log_topic);
 
 	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
-	if (this->cpu)
+	if (this->cpu) {
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
+		this->max_align = SPA_MIN(MAX_ALIGN, spa_cpu_get_max_align(this->cpu));
+	}
 
 	spa_hook_list_init(&this->hooks);
 

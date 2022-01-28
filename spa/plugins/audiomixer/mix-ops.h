@@ -125,6 +125,8 @@ void mix_##name##_##arch(struct mix_ops *ops, void * SPA_RESTRICT dst,	\
 		const void * SPA_RESTRICT src[], uint32_t n_src,		\
 		uint32_t n_samples)						\
 
+#define MIX_OPS_MAX_ALIGN	32
+
 DEFINE_FUNCTION(s8, c);
 DEFINE_FUNCTION(u8, c);
 DEFINE_FUNCTION(s16, c);

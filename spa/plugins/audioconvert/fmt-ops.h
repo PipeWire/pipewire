@@ -200,6 +200,8 @@ int convert_init(struct convert *conv);
 void conv_##name##_##arch(struct convert *conv, void * SPA_RESTRICT dst[],	\
 		const void * SPA_RESTRICT src[], uint32_t n_samples)		\
 
+#define FMT_OPS_MAX_ALIGN	32
+
 DEFINE_FUNCTION(copy8d, c);
 DEFINE_FUNCTION(copy8, c);
 DEFINE_FUNCTION(copy16d, c);

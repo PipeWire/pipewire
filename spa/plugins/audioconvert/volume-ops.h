@@ -56,6 +56,8 @@ void volume_##name##_##arch(struct volume *vol,		\
 		const void * SPA_RESTRICT src,		\
 		float volume, uint32_t n_samples);
 
+#define VOLUME_OPS_MAX_ALIGN	16
+
 DEFINE_FUNCTION(f32, c);
 
 #if defined (HAVE_SSE)

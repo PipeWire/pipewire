@@ -47,7 +47,7 @@ static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.mixer-dsp");
 
 #define MAX_BUFFERS	64
 #define MAX_PORTS	128
-#define MAX_ALIGN	64
+#define MAX_ALIGN	MIX_OPS_MAX_ALIGN
 
 #define PORT_DEFAULT_VOLUME	1.0
 #define PORT_DEFAULT_MUTE	false
@@ -103,6 +103,7 @@ struct impl {
 	struct spa_log *log;
 	struct spa_cpu *cpu;
 	uint32_t cpu_flags;
+	uint32_t max_align;
 
 	uint32_t quantum_limit;
 
@@ -604,7 +605,7 @@ impl_node_port_use_buffers(void *object,
 			spa_log_error(this->log, "%p: invalid memory on buffer %d", this, i);
 			return -EINVAL;
 		}
-		if (!SPA_IS_ALIGNED(d[0].data, 32)) {
+		if (!SPA_IS_ALIGNED(d[0].data, this->max_align)) {
 			spa_log_warn(this->log, "%p: memory on buffer %d not aligned", this, i);
 		}
 		if (direction == SPA_DIRECTION_OUTPUT)
@@ -831,8 +832,10 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_log_topic_init(this->log, log_topic);
 
 	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
-	if (this->cpu)
+	if (this->cpu) {
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
+		this->max_align = SPA_MIN(MAX_ALIGN, spa_cpu_get_max_align(this->cpu));
+	}
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;

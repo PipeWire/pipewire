@@ -70,6 +70,23 @@ do {												\
 	}											\
 } while(0)
 
+#define parse_param_info(prs,n_params,params)							\
+do {												\
+	uint32_t i;										\
+	if (spa_pod_parser_get(prs,								\
+			SPA_POD_Int(&(n_params)), NULL) < 0)					\
+		return -EINVAL;									\
+	if (n_params > 0) {									\
+		params = alloca(n_params * sizeof(struct spa_param_info));			\
+		for (i = 0; i < n_params; i++) {						\
+			if (spa_pod_parser_get(prs,						\
+					SPA_POD_Id(&(params[i]).id),				\
+					SPA_POD_Int(&(params[i]).flags), NULL) < 0)		\
+				return -EINVAL;							\
+		}										\
+	}											\
+} while(0)
+
 static int device_marshal_add_listener(void *object,
 			struct spa_hook *listener,
 			const struct spa_device_events *events,
@@ -246,7 +263,6 @@ static int device_demarshal_info(void *object,
 	struct spa_pod *ipod;
 	struct spa_device_info info = SPA_DEVICE_INFO_INIT(), *infop;
 	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
-	uint32_t i;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 
@@ -274,19 +290,7 @@ static int device_demarshal_info(void *object,
 		if (props.n_items > 0)
 			info.props = &props;
 
-		if (spa_pod_parser_get(&p2,
-				SPA_POD_Int(&info.n_params), NULL) < 0)
-			return -EINVAL;
-
-		if (info.n_params > 0) {
-			info.params = alloca(info.n_params * sizeof(struct spa_param_info));
-			for (i = 0; i < info.n_params; i++) {
-				if (spa_pod_parser_get(&p2,
-						SPA_POD_Id(&info.params[i].id),
-						SPA_POD_Int(&info.params[i].flags), NULL) < 0)
-					return -EINVAL;
-			}
-		}
+		parse_param_info(&p2, info.n_params, info.params);
 	}
 	else {
 		infop = NULL;

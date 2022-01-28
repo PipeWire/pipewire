@@ -112,6 +112,23 @@ do {											\
 	}										\
 } while(0)
 
+#define parse_param_info(prs,n_params,params)						\
+do {											\
+	uint32_t i;									\
+	if (spa_pod_parser_get(prs,							\
+			SPA_POD_Int(&(n_params)), NULL) < 0)				\
+		return -EINVAL;								\
+	if (n_params > 0) {								\
+		params = alloca(n_params * sizeof(struct spa_param_info));		\
+		for (i = 0; i < n_params; i++) {					\
+			if (spa_pod_parser_get(prs,					\
+					SPA_POD_Id(&(params[i]).id),			\
+					SPA_POD_Int(&(params[i]).flags), NULL) < 0)	\
+				return -EINVAL;						\
+		}									\
+	}										\
+} while(0)
+
 static int client_node_marshal_add_listener(void *object,
 			struct spa_hook *listener,
 			const struct pw_client_node_events *events,
@@ -942,7 +959,6 @@ static int client_node_demarshal_update(void *object, const struct pw_protocol_n
 	struct spa_node_info info = SPA_NODE_INFO_INIT(), *infop = NULL;
 	struct spa_pod *ipod;
 	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
-	uint32_t i;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
@@ -978,19 +994,7 @@ static int client_node_demarshal_update(void *object, const struct pw_protocol_n
 		if (props.n_items > 0)
 			info.props = &props;
 
-		if (spa_pod_parser_get(&p2,
-				SPA_POD_Int(&info.n_params), NULL) < 0)
-			return -EINVAL;
-
-		if (info.n_params > 0) {
-			info.params = alloca(info.n_params * sizeof(struct spa_param_info));
-			for (i = 0; i < info.n_params; i++) {
-				if (spa_pod_parser_get(&p2,
-						SPA_POD_Id(&info.params[i].id),
-						SPA_POD_Int(&info.params[i].flags), NULL) < 0)
-					return -EINVAL;
-			}
-		}
+		parse_param_info(&p2, info.n_params, info.params);
 	}
 
 	pw_resource_notify(resource, struct pw_client_node_methods, update, 0, change_mask,
@@ -1004,7 +1008,7 @@ static int client_node_demarshal_port_update(void *object, const struct pw_proto
 	struct pw_resource *resource = object;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f;
-	uint32_t i, direction, port_id, change_mask, n_params;
+	uint32_t direction, port_id, change_mask, n_params;
 	const struct spa_pod **params = NULL;
 	struct spa_port_info info = SPA_PORT_INFO_INIT(), *infop = NULL;
 	struct spa_pod *ipod;
@@ -1047,19 +1051,7 @@ static int client_node_demarshal_port_update(void *object, const struct pw_proto
 		if (props.n_items > 0)
 			info.props = &props;
 
-		if (spa_pod_parser_get(&p2,
-				SPA_POD_Int(&info.n_params), NULL) < 0)
-			return -EINVAL;
-
-		if (info.n_params > 0) {
-			info.params = alloca(info.n_params * sizeof(struct spa_param_info));
-			for (i = 0; i < info.n_params; i++) {
-				if (spa_pod_parser_get(&p2,
-						SPA_POD_Id(&info.params[i].id),
-						SPA_POD_Int(&info.params[i].flags), NULL) < 0)
-					return -EINVAL;
-			}
-		}
+		parse_param_info(&p2, info.n_params, info.params);
 	}
 
 	pw_resource_notify(resource, struct pw_client_node_methods, port_update, 0, direction,

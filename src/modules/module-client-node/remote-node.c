@@ -41,7 +41,8 @@
 #include "pipewire/extensions/protocol-native.h"
 #include "pipewire/extensions/client-node.h"
 
-#define MAX_MIX	4096
+#define MAX_BUFFERS	64
+#define MAX_MIX		4096
 
 PW_LOG_TOPIC_EXTERN(mod_topic);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
@@ -628,6 +629,9 @@ client_node_port_use_buffers(void *object,
 		res = -ENOENT;
 		goto error_exit;
 	}
+
+	if (n_buffers > MAX_BUFFERS)
+		return -ENOSPC;
 
 	prot = PW_MEMMAP_FLAG_READWRITE;
 

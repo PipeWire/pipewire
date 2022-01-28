@@ -755,6 +755,9 @@ do_port_use_buffers(struct impl *impl,
 	if (!CHECK_PORT(this, direction, port_id))
 		return n_buffers == 0 ? 0 : -EINVAL;
 
+	if (n_buffers > MAX_BUFFERS)
+		return -ENOSPC;
+
 	p = GET_PORT(this, direction, port_id);
 
 	spa_log_debug(this->log, "%p: %s port %d.%d use buffers %p %u flags:%08x", this,

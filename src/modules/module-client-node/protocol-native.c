@@ -33,6 +33,13 @@
 #include <pipewire/extensions/protocol-native.h>
 #include <pipewire/extensions/client-node.h>
 
+#define MAX_DICT	256
+#define MAX_PARAMS	128
+#define MAX_PARAM_INFO	128
+#define MAX_BUFFERS	64
+#define MAX_METAS	16u
+#define MAX_DATAS	64u
+
 PW_LOG_TOPIC_EXTERN(mod_topic);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
@@ -81,6 +88,8 @@ do {											\
 		return -EINVAL;								\
 	(d)->items = NULL;								\
 	if ((d)->n_items > 0) {								\
+		if ((d)->n_items > MAX_DICT) 						\
+			return -ENOSPC;							\
 		(d)->items = alloca((d)->n_items * sizeof(struct spa_dict_item));	\
 		for (i = 0; i < (d)->n_items; i++) {					\
 			if (parse_item(prs, (struct spa_dict_item *) &(d)->items[i]) < 0)	\
@@ -105,7 +114,9 @@ do {											\
 		return -EINVAL;								\
 	params = NULL;									\
 	if (n_params > 0) {								\
-		params = alloca(n_params * sizeof(struct spa_pos *));			\
+		if (n_params > MAX_PARAMS)						\
+			return -ENOSPC;							\
+		params = alloca(n_params * sizeof(struct spa_pod *));			\
 		for (i = 0; i < n_params; i++) {					\
 			if (spa_pod_parser_get(prs,					\
 					SPA_POD_PodObject(&params[i]), NULL) < 0)	\
@@ -122,6 +133,8 @@ do {											\
 		return -EINVAL;								\
 	params = NULL;									\
 	if (n_params > 0) {								\
+		if (n_params > MAX_PARAM_INFO)						\
+			return -ENOSPC;							\
 		params = alloca(n_params * sizeof(struct spa_param_info));		\
 		for (i = 0; i < n_params; i++) {					\
 			if (spa_pod_parser_get(prs,					\
@@ -518,6 +531,9 @@ static int client_node_demarshal_port_use_buffers(void *object, const struct pw_
 			SPA_POD_Int(&n_buffers), NULL) < 0)
 		return -EINVAL;
 
+	if (n_buffers > MAX_BUFFERS)
+		return -ENOSPC;
+
 	buffers = alloca(sizeof(struct pw_client_node_buffer) * n_buffers);
 	for (i = 0; i < n_buffers; i++) {
 		struct spa_buffer *buf = buffers[i].buffer = alloca(sizeof(struct spa_buffer));
@@ -528,6 +544,9 @@ static int client_node_demarshal_port_use_buffers(void *object, const struct pw_
 				      SPA_POD_Int(&buffers[i].size),
 				      SPA_POD_Int(&buf->n_metas), NULL) < 0)
 			return -EINVAL;
+
+		if (buf->n_metas > MAX_METAS)
+			return -ENOSPC;
 
 		buf->metas = alloca(sizeof(struct spa_meta) * buf->n_metas);
 		for (j = 0; j < buf->n_metas; j++) {
@@ -541,6 +560,9 @@ static int client_node_demarshal_port_use_buffers(void *object, const struct pw_
 		if (spa_pod_parser_get(&prs,
 					SPA_POD_Int(&buf->n_datas), NULL) < 0)
 			return -EINVAL;
+
+		if (buf->n_datas > MAX_DATAS)
+			return -ENOSPC;
 
 		buf->datas = alloca(sizeof(struct spa_data) * buf->n_datas);
 		for (j = 0; j < buf->n_datas; j++) {
@@ -1113,6 +1135,9 @@ static int client_node_demarshal_port_buffers(void *object, const struct pw_prot
 			SPA_POD_Int(&n_buffers), NULL) < 0)
 		return -EINVAL;
 
+	if (n_buffers > MAX_BUFFERS)
+		return -ENOSPC;
+
 	buffers = alloca(sizeof(struct spa_buffer*) * n_buffers);
 	for (i = 0; i < n_buffers; i++) {
 		struct spa_buffer *buf = buffers[i] = alloca(sizeof(struct spa_buffer));
@@ -1121,6 +1146,9 @@ static int client_node_demarshal_port_buffers(void *object, const struct pw_prot
 		if (spa_pod_parser_get(&prs,
 					SPA_POD_Int(&buf->n_datas), NULL) < 0)
 			return -EINVAL;
+
+		if (buf->n_datas > MAX_DATAS)
+			return -ENOSPC;
 
 		buf->datas = alloca(sizeof(struct spa_data) * buf->n_datas);
 		for (j = 0; j < buf->n_datas; j++) {

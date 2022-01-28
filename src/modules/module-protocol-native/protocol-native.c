@@ -34,6 +34,10 @@
 
 #include "connection.h"
 
+#define MAX_DICT	256
+#define MAX_PARAM_INFO	128
+#define MAX_PERMISSIONS	1024
+
 PW_LOG_TOPIC_EXTERN(mod_topic);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
@@ -175,6 +179,8 @@ do {												\
 	(d)->items = NULL;									\
 	if ((d)->n_items > 0) {									\
 		uint32_t i;									\
+		if ((d)->n_items > MAX_DICT)							\
+			return -ENOSPC;								\
 		(d)->items = alloca((d)->n_items * sizeof(struct spa_dict_item));		\
 		for (i = 0; i < (d)->n_items; i++) {						\
 			if (parse_item(prs, (struct spa_dict_item *) &(d)->items[i]) < 0)	\
@@ -216,6 +222,8 @@ do {											\
 	params = NULL;									\
 	if (n_params > 0) {								\
 		uint32_t i;								\
+		if (n_params > MAX_PARAM_INFO)						\
+			return -ENOSPC;							\
 		params = alloca(n_params * sizeof(struct spa_param_info));		\
 		for (i = 0; i < n_params; i++) {					\
 			if (spa_pod_parser_get(prs,					\
@@ -237,6 +245,8 @@ do {												\
 	permissions = NULL;									\
 	if (n_permissions > 0) {								\
 		uint32_t i;									\
+		if (n_permissions > MAX_PERMISSIONS)						\
+			return -ENOSPC;								\
 		permissions = alloca(n_permissions * sizeof(struct pw_permission));		\
 		for (i = 0; i < n_permissions; i++) {						\
 			if (spa_pod_parser_get(prs,						\

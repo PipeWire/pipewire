@@ -32,6 +32,9 @@
 
 #include <pipewire/extensions/protocol-native.h>
 
+#define MAX_DICT	256
+#define MAX_PARAM_INFO	128
+
 static inline void push_item(struct spa_pod_builder *b, const struct spa_dict_item *item)
 {
 	const char *str;
@@ -62,6 +65,8 @@ do {												\
 			 SPA_POD_Int(&(d)->n_items), NULL) < 0)					\
 		return -EINVAL;									\
 	if ((d)->n_items > 0) {									\
+		if ((d)->n_items > MAX_DICT) 							\
+			return -ENOSPC;								\
 		(d)->items = alloca((d)->n_items * sizeof(struct spa_dict_item));		\
 		for (i = 0; i < (d)->n_items; i++) {						\
 			if (parse_item(prs, (struct spa_dict_item *) &(d)->items[i]) < 0)	\
@@ -77,6 +82,8 @@ do {												\
 			SPA_POD_Int(&(n_params)), NULL) < 0)					\
 		return -EINVAL;									\
 	if (n_params > 0) {									\
+		if (n_params > MAX_PARAM_INFO)							\
+			return -ENOSPC;								\
 		params = alloca(n_params * sizeof(struct spa_param_info));			\
 		for (i = 0; i < n_params; i++) {						\
 			if (spa_pod_parser_get(prs,						\

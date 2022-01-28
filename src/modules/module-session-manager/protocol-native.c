@@ -32,6 +32,10 @@
 #include <pipewire/extensions/session-manager.h>
 #include <pipewire/extensions/protocol-native.h>
 
+#define MAX_DICT	256
+#define MAX_PARAMS	128
+#define MAX_PARAM_INFO	128
+
 static void push_dict(struct spa_pod_builder *b, const struct spa_dict *dict)
 {
 	struct spa_pod_frame f;
@@ -61,6 +65,8 @@ do { \
 		return -EINVAL; \
 	\
 	if ((dict)->n_items > 0) { \
+		if ((dict)->n_items > MAX_DICT) \
+			return -ENOSPC; \
 		(dict)->items = alloca((dict)->n_items * sizeof(struct spa_dict_item)); \
 		for (i = 0; i < (dict)->n_items; i++) { \
 			if (spa_pod_parser_get(p, \
@@ -100,6 +106,8 @@ do { \
 		return -EINVAL; \
 	\
 	if (*(n_params_p) > 0) { \
+		if (*(n_params_p) > MAX_PARAM_INFO) \
+			return -ENOSPC; \
 		*(params_p) = alloca(*(n_params_p) * sizeof(struct spa_param_info)); \
 		for (i = 0; i < *(n_params_p); i++) { \
 			if (spa_pod_parser_get(p, \
@@ -553,6 +561,8 @@ static int client_endpoint_demarshal_update(void *object,
 			SPA_POD_Int(&n_params), NULL) < 0)
 		return -EINVAL;
 
+	if (n_params > MAX_PARAMS)
+		return -ENOSPC;
 	if (n_params > 0)
 		params = alloca(n_params * sizeof(struct spa_pod *));
 	for (i = 0; i < n_params; i++)
@@ -593,6 +603,8 @@ static int client_endpoint_demarshal_stream_update(void *object,
 			SPA_POD_Int(&n_params), NULL) < 0)
 		return -EINVAL;
 
+	if (n_params > MAX_PARAMS)
+		return -ENOSPC;
 	if (n_params > 0)
 		params = alloca(n_params * sizeof(struct spa_pod *));
 	for (i = 0; i < n_params; i++)
@@ -867,6 +879,8 @@ static int client_session_demarshal_update(void *object,
 			SPA_POD_Int(&n_params), NULL) < 0)
 		return -EINVAL;
 
+	if (n_params > MAX_PARAMS)
+		return -ENOSPC;
 	if (n_params > 0)
 		params = alloca(n_params * sizeof(struct spa_pod *));
 	for (i = 0; i < n_params; i++)
@@ -907,6 +921,8 @@ static int client_session_demarshal_link_update(void *object,
 			SPA_POD_Int(&n_params), NULL) < 0)
 		return -EINVAL;
 
+	if (n_params > MAX_PARAMS)
+		return -ENOSPC;
 	if (n_params > 0)
 		params = alloca(n_params * sizeof(struct spa_pod *));
 	for (i = 0; i < n_params; i++)

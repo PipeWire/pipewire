@@ -96,6 +96,22 @@ do {										\
 	spa_pod_parser_pop(prs, f);						\
 } while(0)
 
+#define parse_params(prs,n_params,params)						\
+do {											\
+	uint32_t i;									\
+	if (spa_pod_parser_get(prs,							\
+			 SPA_POD_Int(&n_params), NULL) < 0)				\
+		return -EINVAL;								\
+	if (n_params > 0) {								\
+		params = alloca(n_params * sizeof(struct spa_pos *));			\
+		for (i = 0; i < n_params; i++) {					\
+			if (spa_pod_parser_get(prs,					\
+					SPA_POD_PodObject(&params[i]), NULL) < 0)	\
+				return -EINVAL;						\
+		}									\
+	}										\
+} while(0)
+
 static int client_node_marshal_add_listener(void *object,
 			struct spa_hook *listener,
 			const struct pw_client_node_events *events,
@@ -922,7 +938,7 @@ static int client_node_demarshal_update(void *object, const struct pw_protocol_n
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
 	uint32_t change_mask, n_params;
-	const struct spa_pod **params;
+	const struct spa_pod **params = NULL;
 	struct spa_node_info info = SPA_NODE_INFO_INIT(), *infop = NULL;
 	struct spa_pod *ipod;
 	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
@@ -931,15 +947,10 @@ static int client_node_demarshal_update(void *object, const struct pw_protocol_n
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
 	    spa_pod_parser_get(&prs,
-			SPA_POD_Int(&change_mask),
-			SPA_POD_Int(&n_params), NULL) < 0)
+			SPA_POD_Int(&change_mask), NULL) < 0)
 		return -EINVAL;
 
-	params = alloca(n_params * sizeof(struct spa_pod *));
-	for (i = 0; i < n_params; i++)
-		if (spa_pod_parser_get(&prs,
-					SPA_POD_PodObject(&params[i]), NULL) < 0)
-			return -EINVAL;
+	parse_params(&prs, n_params, params);
 
 	if (spa_pod_parser_get(&prs,
 				SPA_POD_PodStruct(&ipod), NULL) < 0)
@@ -1004,15 +1015,10 @@ static int client_node_demarshal_port_update(void *object, const struct pw_proto
 	    spa_pod_parser_get(&prs,
 			SPA_POD_Int(&direction),
 			SPA_POD_Int(&port_id),
-			SPA_POD_Int(&change_mask),
-			SPA_POD_Int(&n_params), NULL) < 0)
+			SPA_POD_Int(&change_mask), NULL) < 0)
 		return -EINVAL;
 
-	params = alloca(n_params * sizeof(struct spa_pod *));
-	for (i = 0; i < n_params; i++)
-		if (spa_pod_parser_get(&prs,
-					SPA_POD_PodObject(&params[i]), NULL) < 0)
-			return -EINVAL;
+	parse_params(&prs, n_params, params);
 
 	if (spa_pod_parser_get(&prs,
 				SPA_POD_PodStruct(&ipod), NULL) < 0)

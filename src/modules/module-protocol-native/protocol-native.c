@@ -190,7 +190,6 @@ do {										\
 	spa_pod_parser_pop(prs, f);						\
 } while(0)
 
-
 static void push_params(struct spa_pod_builder *b, uint32_t n_params,
 		const struct spa_param_info *params)
 {
@@ -205,6 +204,26 @@ static void push_params(struct spa_pod_builder *b, uint32_t n_params,
 	}
 	spa_pod_builder_pop(b, &f);
 }
+
+
+#define parse_params_struct(prs,f,params,n_params)					\
+do {											\
+	if (spa_pod_parser_push_struct(prs, f) < 0 ||					\
+	    spa_pod_parser_get(prs,							\
+			       SPA_POD_Int(&(n_params)), NULL) < 0)			\
+		return -EINVAL;								\
+	if (n_params > 0) {								\
+		uint32_t i;								\
+		params = alloca(n_params * sizeof(struct spa_param_info));		\
+		for (i = 0; i < n_params; i++) {					\
+			if (spa_pod_parser_get(prs,					\
+				       SPA_POD_Id(&(params)[i].id),			\
+				       SPA_POD_Int(&(params)[i].flags), NULL) < 0)	\
+				return -EINVAL;						\
+		}									\
+	}										\
+} while(0)
+
 
 static void *
 core_method_marshal_create_object(void *object,
@@ -260,8 +279,8 @@ static int core_event_demarshal_info(void *object, const struct pw_protocol_nati
 {
 	struct pw_proxy *proxy = object;
 	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
+	struct pw_core_info info = { .props = &props };
 	struct spa_pod_frame f[2];
-	struct pw_core_info info;
 	struct spa_pod_parser prs;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
@@ -279,8 +298,6 @@ static int core_event_demarshal_info(void *object, const struct pw_protocol_nati
 
 
 	parse_dict_struct(&prs, &f[1], &props);
-
-	info.props = &props;
 
 	return pw_proxy_notify(proxy, struct pw_core_events, info, 0, &info);
 }
@@ -769,7 +786,7 @@ static int module_demarshal_info(void *object, const struct pw_protocol_native_m
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
 	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
-	struct pw_module_info info;
+	struct pw_module_info info = { .props = &props };
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
@@ -782,8 +799,6 @@ static int module_demarshal_info(void *object, const struct pw_protocol_native_m
 		return -EINVAL;
 
 	parse_dict_struct(&prs, &f[1], &props);
-
-	info.props = &props;
 
 	return pw_proxy_notify(proxy, struct pw_module_events, info, 0, &info);
 }
@@ -824,8 +839,7 @@ static int device_demarshal_info(void *object, const struct pw_protocol_native_m
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
 	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
-	struct pw_device_info info;
-	uint32_t i;
+	struct pw_device_info info = { .props = &props };
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
@@ -835,22 +849,7 @@ static int device_demarshal_info(void *object, const struct pw_protocol_native_m
 		return -EINVAL;
 
 	parse_dict_struct(&prs, &f[1], &props);
-
-	info.props = &props;
-
-	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0 ||
-	    spa_pod_parser_get(&prs,
-			       SPA_POD_Int(&info.n_params),
-			       NULL) < 0)
-		return -EINVAL;
-
-	info.params = alloca(info.n_params * sizeof(struct spa_param_info));
-	for (i = 0; i < info.n_params; i++) {
-		if (spa_pod_parser_get(&prs,
-				       SPA_POD_Id(&info.params[i].id),
-				       SPA_POD_Int(&info.params[i].flags), NULL) < 0)
-			return -EINVAL;
-	}
+	parse_params_struct(&prs, &f[1], info.params, info.n_params);
 
 	return pw_proxy_notify(proxy, struct pw_device_events, info, 0, &info);
 }
@@ -1036,7 +1035,7 @@ static int factory_demarshal_info(void *object, const struct pw_protocol_native_
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
 	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
-	struct pw_factory_info info;
+	struct pw_factory_info info = { .props = &props };
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
@@ -1049,8 +1048,6 @@ static int factory_demarshal_info(void *object, const struct pw_protocol_native_
 		return -EINVAL;
 
 	parse_dict_struct(&prs, &f[1], &props);
-
-	info.props = &props;
 
 	return pw_proxy_notify(proxy, struct pw_factory_events, info, 0, &info);
 }
@@ -1097,8 +1094,7 @@ static int node_demarshal_info(void *object, const struct pw_protocol_native_mes
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
 	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
-	struct pw_node_info info;
-	uint32_t i;
+	struct pw_node_info info = { .props = &props };
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
@@ -1114,22 +1110,7 @@ static int node_demarshal_info(void *object, const struct pw_protocol_native_mes
 		return -EINVAL;
 
 	parse_dict_struct(&prs, &f[1], &props);
-
-	info.props = &props;
-
-	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0 ||
-	    spa_pod_parser_get(&prs,
-			       SPA_POD_Int(&info.n_params),
-			       NULL) < 0)
-		return -EINVAL;
-
-	info.params = alloca(info.n_params * sizeof(struct spa_param_info));
-	for (i = 0; i < info.n_params; i++) {
-		if (spa_pod_parser_get(&prs,
-				       SPA_POD_Id(&info.params[i].id),
-				       SPA_POD_Int(&info.params[i].flags), NULL) < 0)
-			return -EINVAL;
-	}
+	parse_params_struct(&prs, &f[1], info.params, info.n_params);
 
 	return pw_proxy_notify(proxy, struct pw_node_events, info, 0, &info);
 }
@@ -1339,8 +1320,7 @@ static int port_demarshal_info(void *object, const struct pw_protocol_native_mes
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
 	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
-	struct pw_port_info info;
-	uint32_t i;
+	struct pw_port_info info = { .props = &props };
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
@@ -1351,22 +1331,8 @@ static int port_demarshal_info(void *object, const struct pw_protocol_native_mes
 		return -EINVAL;
 
 	parse_dict_struct(&prs, &f[1], &props);
+	parse_params_struct(&prs, &f[1], info.params, info.n_params);
 
-	info.props = &props;
-
-	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0 ||
-	    spa_pod_parser_get(&prs,
-			       SPA_POD_Int(&info.n_params),
-			       NULL) < 0)
-		return -EINVAL;
-
-	info.params = alloca(info.n_params * sizeof(struct spa_param_info));
-	for (i = 0; i < info.n_params; i++) {
-		if (spa_pod_parser_get(&prs,
-				       SPA_POD_Id(&info.params[i].id),
-				       SPA_POD_Int(&info.params[i].flags), NULL) < 0)
-			return -EINVAL;
-	}
 	return pw_proxy_notify(proxy, struct pw_port_events, info, 0, &info);
 }
 
@@ -1516,7 +1482,7 @@ static int client_demarshal_info(void *object, const struct pw_protocol_native_m
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
 	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
-	struct pw_client_info info;
+	struct pw_client_info info = { .props = &props };
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
@@ -1526,8 +1492,6 @@ static int client_demarshal_info(void *object, const struct pw_protocol_native_m
 		return -EINVAL;
 
 	parse_dict_struct(&prs, &f[1], &props);
-
-	info.props = &props;
 
 	return pw_proxy_notify(proxy, struct pw_client_events, info, 0, &info);
 }
@@ -1772,7 +1736,7 @@ static int link_demarshal_info(void *object, const struct pw_protocol_native_mes
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
 	struct spa_dict props = SPA_DICT_INIT(NULL, 0);
-	struct pw_link_info info = { 0, };
+	struct pw_link_info info = { .props = &props };
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
@@ -1789,8 +1753,6 @@ static int link_demarshal_info(void *object, const struct pw_protocol_native_mes
 		return -EINVAL;
 
 	parse_dict_struct(&prs, &f[1], &props);
-
-	info.props = &props;
 
 	return pw_proxy_notify(proxy, struct pw_link_events, info, 0, &info);
 }
@@ -1816,8 +1778,7 @@ static int registry_demarshal_global(void *object, const struct pw_protocol_nati
 	parse_dict_struct(&prs, &f[1], &props);
 
 	return pw_proxy_notify(proxy, struct pw_registry_events,
-			global, 0, id, permissions, type, version,
-			props.n_items > 0 ? &props : NULL);
+			global, 0, id, permissions, type, version, &props);
 }
 
 static int registry_demarshal_global_remove(void *object, const struct pw_protocol_native_message *msg)

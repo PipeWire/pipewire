@@ -444,55 +444,66 @@ static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 	return latency / frame_size;
 }
 
-static int reply_create_playback_stream(struct stream *stream, struct pw_manager_object *peer)
+static uint64_t set_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
 {
-	struct client *client = stream->client;
-	struct pw_manager *manager = client->manager;
-	struct message *reply;
-	uint32_t missing, peer_index;
+	struct spa_fraction lat;
+	uint64_t lat_usec;
 	struct spa_dict_item items[5];
 	char latency[32];
 	char attr_maxlength[32];
 	char attr_tlength[32];
 	char attr_prebuf[32];
 	char attr_minreq[32];
-	const char *peer_name;
-	struct spa_fraction lat;
-	uint64_t lat_usec;
 
-	lat.denom = stream->ss.rate;
-	lat.num = fix_playback_buffer_attr(stream, &stream->attr);
+	lat.denom = s->ss.rate;
+	lat.num = fix_playback_buffer_attr(s, attr);
 
-	stream->buffer = calloc(1, MAXLENGTH);
-	if (stream->buffer == NULL)
-		return -errno;
+	s->attr = *attr;
 
-	if (lat.num * stream->min_quantum.denom / lat.denom < stream->min_quantum.num)
-		lat.num = (stream->min_quantum.num * lat.denom +
-				(stream->min_quantum.denom -1)) / stream->min_quantum.denom;
+	if (lat.num * s->min_quantum.denom / lat.denom < s->min_quantum.num)
+		lat.num = (s->min_quantum.num * lat.denom +
+				(s->min_quantum.denom -1)) / s->min_quantum.denom;
 	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
 
 	snprintf(latency, sizeof(latency), "%u/%u", lat.num, lat.denom);
-	snprintf(attr_maxlength, sizeof(attr_maxlength), "%u", stream->attr.maxlength);
-	snprintf(attr_tlength, sizeof(attr_tlength), "%u", stream->attr.tlength);
-	snprintf(attr_prebuf, sizeof(attr_prebuf), "%u", stream->attr.prebuf);
-	snprintf(attr_minreq, sizeof(attr_minreq), "%u", stream->attr.minreq);
+	snprintf(attr_maxlength, sizeof(attr_maxlength), "%u", s->attr.maxlength);
+	snprintf(attr_tlength, sizeof(attr_tlength), "%u", s->attr.tlength);
+	snprintf(attr_prebuf, sizeof(attr_prebuf), "%u", s->attr.prebuf);
+	snprintf(attr_minreq, sizeof(attr_minreq), "%u", s->attr.minreq);
 
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
 	items[1] = SPA_DICT_ITEM_INIT("pulse.attr.maxlength", attr_maxlength);
 	items[2] = SPA_DICT_ITEM_INIT("pulse.attr.tlength", attr_tlength);
 	items[3] = SPA_DICT_ITEM_INIT("pulse.attr.prebuf", attr_prebuf);
 	items[4] = SPA_DICT_ITEM_INIT("pulse.attr.minreq", attr_minreq);
-	pw_stream_update_properties(stream->stream, &SPA_DICT_INIT(items, 5));
+	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, 5));
 
-	if (stream->attr.prebuf > 0)
-		stream->in_prebuf = true;
+	if (s->attr.prebuf > 0)
+		s->in_prebuf = true;
+
+	return lat_usec;
+}
+
+static int reply_create_playback_stream(struct stream *stream, struct pw_manager_object *peer)
+{
+	struct client *client = stream->client;
+	struct pw_manager *manager = client->manager;
+	struct message *reply;
+	uint32_t missing, peer_index;
+	const char *peer_name;
+	uint64_t lat_usec;
+
+	stream->buffer = calloc(1, MAXLENGTH);
+	if (stream->buffer == NULL)
+		return -errno;
+
+	lat_usec = set_playback_buffer_attr(stream, &stream->attr);
 
 	missing = stream_pop_missing(stream);
 	stream->index = id_to_index(manager, stream->id);
 
-	pw_log_info("[%s] reply CREATE_PLAYBACK_STREAM tag:%u index:%u missing:%u latency:%s",
-			client->name, stream->create_tag, stream->index, missing, latency);
+	pw_log_info("[%s] reply CREATE_PLAYBACK_STREAM tag:%u index:%u missing:%u lat:%"PRIu64,
+			client->name, stream->create_tag, stream->index, missing, lat_usec);
 
 	reply = reply_new(client, stream->create_tag);
 	message_put(reply,
@@ -584,47 +595,56 @@ static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *att
 	return latency / frame_size;
 }
 
+static uint64_t set_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
+{
+	struct spa_dict_item items[3];
+	char latency[32];
+	char attr_maxlength[32];
+	char attr_fragsize[32];
+	struct spa_fraction lat;
+	uint64_t lat_usec;
+
+	lat.denom = s->ss.rate;
+	lat.num = fix_record_buffer_attr(s, &s->attr);
+
+	if (lat.num * s->min_quantum.denom / lat.denom < s->min_quantum.num)
+		lat.num = (s->min_quantum.num * lat.denom +
+				(s->min_quantum.denom -1)) / s->min_quantum.denom;
+	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
+
+	snprintf(latency, sizeof(latency), "%u/%u", lat.num, lat.denom);
+
+	snprintf(attr_maxlength, sizeof(attr_maxlength), "%u", s->attr.maxlength);
+	snprintf(attr_fragsize, sizeof(attr_fragsize), "%u", s->attr.fragsize);
+
+	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
+	items[1] = SPA_DICT_ITEM_INIT("pulse.attr.maxlength", attr_maxlength);
+	items[2] = SPA_DICT_ITEM_INIT("pulse.attr.fragsize", attr_fragsize);
+	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, 3));
+
+	return lat_usec;
+}
+
 static int reply_create_record_stream(struct stream *stream, struct pw_manager_object *peer)
 {
 	struct client *client = stream->client;
 	struct pw_manager *manager = client->manager;
+	char *tmp;
 	struct message *reply;
-	struct spa_dict_item items[3];
-	char latency[32], *tmp;
-	char attr_maxlength[32];
-	char attr_fragsize[32];
 	const char *peer_name, *name;
 	uint32_t peer_index;
-	struct spa_fraction lat;
 	uint64_t lat_usec;
-
-	lat.denom = stream->ss.rate;
-	lat.num = fix_record_buffer_attr(stream, &stream->attr);
 
 	stream->buffer = calloc(1, MAXLENGTH);
 	if (stream->buffer == NULL)
 		return -errno;
 
-	if (lat.num * stream->min_quantum.denom / lat.denom < stream->min_quantum.num)
-		lat.num = (stream->min_quantum.num * lat.denom +
-				(stream->min_quantum.denom -1)) / stream->min_quantum.denom;
-	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
-
-	snprintf(latency, sizeof(latency), "%u/%u", lat.num, lat.denom);
-
-	snprintf(attr_maxlength, sizeof(attr_maxlength), "%u", stream->attr.maxlength);
-	snprintf(attr_fragsize, sizeof(attr_fragsize), "%u", stream->attr.fragsize);
-
-	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
-	items[1] = SPA_DICT_ITEM_INIT("pulse.attr.maxlength", attr_maxlength);
-	items[2] = SPA_DICT_ITEM_INIT("pulse.attr.fragsize", attr_fragsize);
-	pw_stream_update_properties(stream->stream,
-			&SPA_DICT_INIT(items, 3));
+	lat_usec = set_record_buffer_attr(stream, &stream->attr);
 
 	stream->index = id_to_index(manager, stream->id);
 
-	pw_log_info("[%s] reply CREATE_RECORD_STREAM tag:%u index:%u latency:%s",
-			client->name, stream->create_tag, stream->index, latency);
+	pw_log_info("[%s] reply CREATE_RECORD_STREAM tag:%u index:%u latency:%"PRIu64,
+			client->name, stream->create_tag, stream->index, lat_usec);
 
 	reply = reply_new(client, stream->create_tag);
 	message_put(reply,
@@ -4299,6 +4319,7 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 	struct message *reply;
 	struct buffer_attr attr;
 	bool adjust_latency = false, early_requests = false;
+	uint64_t lat_usec;
 
 	if (message_get(m,
 			TAG_U32, &channel,
@@ -4348,7 +4369,12 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 
 	reply = reply_new(client, tag);
 
+	stream->adjust_latency = adjust_latency;
+	stream->early_requests = early_requests;
+
 	if (command == COMMAND_SET_PLAYBACK_STREAM_BUFFER_ATTR) {
+		lat_usec = set_playback_buffer_attr(stream, &attr);
+
 		message_put(reply,
 			TAG_U32, stream->attr.maxlength,
 			TAG_U32, stream->attr.tlength,
@@ -4357,17 +4383,19 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 			TAG_INVALID);
 		if (client->version >= 13) {
 			message_put(reply,
-				TAG_USEC, 0LL,		/* configured_sink_latency */
+				TAG_USEC, lat_usec,		/* configured_sink_latency */
 				TAG_INVALID);
 		}
 	} else {
+		lat_usec = set_record_buffer_attr(stream, &attr);
+
 		message_put(reply,
 			TAG_U32, stream->attr.maxlength,
 			TAG_U32, stream->attr.fragsize,
 			TAG_INVALID);
 		if (client->version >= 13) {
 			message_put(reply,
-				TAG_USEC, 0LL,		/* configured_source_latency */
+				TAG_USEC, lat_usec,		/* configured_source_latency */
 				TAG_INVALID);
 		}
 	}

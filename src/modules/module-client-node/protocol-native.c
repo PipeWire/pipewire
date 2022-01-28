@@ -73,16 +73,28 @@ static inline int parse_item(struct spa_pod_parser *prs, struct spa_dict_item *i
 	return 0;
 }
 
-static inline int parse_dict(struct spa_pod_parser *prs, struct spa_dict *dict)
-{
-	uint32_t i;
-	int res;
-	for (i = 0; i < dict->n_items; i++) {
-		if ((res = parse_item(prs, (struct spa_dict_item *) &dict->items[i])) < 0)
-			return res;
-	}
-	return 0;
-}
+#define parse_dict(prs,d)								\
+do {											\
+	uint32_t i;									\
+	if (spa_pod_parser_get(prs,							\
+			 SPA_POD_Int(&(d)->n_items), NULL) < 0)				\
+		return -EINVAL;								\
+	if ((d)->n_items > 0) {								\
+		(d)->items = alloca((d)->n_items * sizeof(struct spa_dict_item));	\
+		for (i = 0; i < (d)->n_items; i++) {					\
+			if (parse_item(prs, (struct spa_dict_item *) &(d)->items[i]) < 0)	\
+				return -EINVAL;						\
+		}									\
+	}										\
+} while(0)
+
+#define parse_dict_struct(prs,f,dict)						\
+do {										\
+	if (spa_pod_parser_push_struct(prs, f) < 0)				\
+		return -EINVAL;							\
+	parse_dict(prs, dict);							\
+	spa_pod_parser_pop(prs, f);						\
+} while(0)
 
 static int client_node_marshal_add_listener(void *object,
 			struct spa_hook *listener,
@@ -407,15 +419,7 @@ static int client_node_demarshal_add_port(void *object, const struct pw_protocol
 			SPA_POD_Int(&port_id), NULL) < 0)
 		return -EINVAL;
 
-	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0)
-		return -EINVAL;
-	if (spa_pod_parser_get(&prs,
-			 SPA_POD_Int(&props.n_items), NULL) < 0)
-		return -EINVAL;
-
-	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
-	if (parse_dict(&prs, &props) < 0)
-		return -EINVAL;
+	parse_dict_struct(&prs, &f[1], &props);
 
 	pw_proxy_notify(proxy, struct pw_client_node_events, add_port, 0, direction, port_id,
 			props.n_items ? &props : NULL);
@@ -594,15 +598,7 @@ static int client_node_demarshal_port_set_mix_info(void *object, const struct pw
 			SPA_POD_Int(&peer_id), NULL) < 0)
 		return -EINVAL;
 
-	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0)
-		return -EINVAL;
-	if (spa_pod_parser_get(&prs,
-			 SPA_POD_Int(&props.n_items), NULL) < 0)
-		return -EINVAL;
-
-	props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
-	if (parse_dict(&prs, &props) < 0)
-		return -EINVAL;
+	parse_dict_struct(&prs, &f[1], &props);
 
 	pw_proxy_notify(proxy, struct pw_client_node_events, port_set_mix_info, 1,
 							direction, port_id, mix_id,
@@ -960,21 +956,17 @@ static int client_node_demarshal_update(void *object, const struct pw_protocol_n
 				SPA_POD_Int(&info.max_input_ports),
 				SPA_POD_Int(&info.max_output_ports),
 				SPA_POD_Long(&info.change_mask),
-				SPA_POD_Long(&info.flags),
-				SPA_POD_Int(&props.n_items), NULL) < 0)
+				SPA_POD_Long(&info.flags), NULL) < 0)
 			return -EINVAL;
 
 		info.change_mask &= SPA_NODE_CHANGE_MASK_FLAGS |
 				SPA_NODE_CHANGE_MASK_PROPS |
 				SPA_NODE_CHANGE_MASK_PARAMS;
 
-		if (props.n_items > 0) {
+		parse_dict(&p2, &props);
+		if (props.n_items > 0)
 			info.props = &props;
 
-			props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
-			if (parse_dict(&p2, &props) < 0)
-				return -EINVAL;
-		}
 		if (spa_pod_parser_get(&p2,
 				SPA_POD_Int(&info.n_params), NULL) < 0)
 			return -EINVAL;
@@ -1037,8 +1029,7 @@ static int client_node_demarshal_port_update(void *object, const struct pw_proto
 				SPA_POD_Long(&info.change_mask),
 				SPA_POD_Long(&info.flags),
 				SPA_POD_Int(&info.rate.num),
-				SPA_POD_Int(&info.rate.denom),
-				SPA_POD_Int(&props.n_items), NULL) < 0)
+				SPA_POD_Int(&info.rate.denom), NULL) < 0)
 			return -EINVAL;
 
 		info.change_mask &= SPA_PORT_CHANGE_MASK_FLAGS |
@@ -1046,13 +1037,10 @@ static int client_node_demarshal_port_update(void *object, const struct pw_proto
 				SPA_PORT_CHANGE_MASK_PROPS |
 				SPA_PORT_CHANGE_MASK_PARAMS;
 
-		if (props.n_items > 0) {
+		parse_dict(&p2, &props);
+		if (props.n_items > 0)
 			info.props = &props;
 
-			props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
-			if (parse_dict(&p2, &props) < 0)
-				return -EINVAL;
-		}
 		if (spa_pod_parser_get(&p2,
 				SPA_POD_Int(&info.n_params), NULL) < 0)
 			return -EINVAL;

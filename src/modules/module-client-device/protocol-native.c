@@ -55,16 +55,20 @@ static inline int parse_item(struct spa_pod_parser *prs, struct spa_dict_item *i
 	return 0;
 }
 
-static inline int parse_dict(struct spa_pod_parser *prs, struct spa_dict *dict)
-{
-	uint32_t i;
-	int res;
-	for (i = 0; i < dict->n_items; i++) {
-		if ((res = parse_item(prs, (struct spa_dict_item *) &dict->items[i])) < 0)
-			return res;
-	}
-	return 0;
-}
+#define parse_dict(prs,d)									\
+do {												\
+	uint32_t i;										\
+	if (spa_pod_parser_get(prs,								\
+			 SPA_POD_Int(&(d)->n_items), NULL) < 0)					\
+		return -EINVAL;									\
+	if ((d)->n_items > 0) {									\
+		(d)->items = alloca((d)->n_items * sizeof(struct spa_dict_item));		\
+		for (i = 0; i < (d)->n_items; i++) {						\
+			if (parse_item(prs, (struct spa_dict_item *) &(d)->items[i]) < 0)	\
+				return -EINVAL;							\
+		}										\
+	}											\
+} while(0)
 
 static int device_marshal_add_listener(void *object,
 			struct spa_hook *listener,
@@ -259,21 +263,17 @@ static int device_demarshal_info(void *object,
 		if (spa_pod_parser_push_struct(&p2, &f2) < 0 ||
 		    spa_pod_parser_get(&p2,
 				SPA_POD_Long(&info.change_mask),
-				SPA_POD_Long(&info.flags),
-				SPA_POD_Int(&props.n_items), NULL) < 0)
+				SPA_POD_Long(&info.flags), NULL) < 0)
 			return -EINVAL;
 
 		info.change_mask &= SPA_DEVICE_CHANGE_MASK_FLAGS |
 				SPA_DEVICE_CHANGE_MASK_PROPS |
 				SPA_DEVICE_CHANGE_MASK_PARAMS;
 
-		if (props.n_items > 0) {
+		parse_dict(&p2, &props);
+		if (props.n_items > 0)
 			info.props = &props;
 
-			props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
-			if (parse_dict(&p2, &props) < 0)
-				return -EINVAL;
-		}
 		if (spa_pod_parser_get(&p2,
 				SPA_POD_Int(&info.n_params), NULL) < 0)
 			return -EINVAL;
@@ -467,20 +467,15 @@ static int device_demarshal_object_info(void *object,
 		    spa_pod_parser_get(&p2,
 				SPA_POD_String(&info.type),
 				SPA_POD_Long(&info.change_mask),
-				SPA_POD_Long(&info.flags),
-				SPA_POD_Int(&props.n_items), NULL) < 0)
+				SPA_POD_Long(&info.flags), NULL) < 0)
 			return -EINVAL;
 
 		info.change_mask &= SPA_DEVICE_OBJECT_CHANGE_MASK_FLAGS |
 				SPA_DEVICE_CHANGE_MASK_PROPS;
 
-		if (props.n_items > 0) {
+		parse_dict(&p2, &props);
+		if (props.n_items > 0)
 			info.props = &props;
-
-			props.items = alloca(props.n_items * sizeof(struct spa_dict_item));
-			if (parse_dict(&p2, &props) < 0)
-				return -EINVAL;
-		}
 	} else {
 		infop = NULL;
 	}

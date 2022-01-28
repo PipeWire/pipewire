@@ -38,6 +38,7 @@
 
 #include "client.h"
 #include "commands.h"
+#include "defs.h"
 #include "internal.h"
 #include "log.h"
 #include "message.h"
@@ -331,9 +332,12 @@ int stream_update_minreq(struct stream *stream, uint32_t minreq)
 	if (new_tlength <= old_tlength)
 		return 0;
 
+	if (new_tlength > MAXLENGTH)
+		new_tlength = MAXLENGTH;
+
 	stream->attr.tlength = new_tlength;
 	if (stream->attr.tlength > stream->attr.maxlength)
-		stream->attr.tlength = stream->attr.maxlength;
+		stream->attr.maxlength = stream->attr.tlength;
 
 	if (client->version >= 15) {
 		struct message *msg;

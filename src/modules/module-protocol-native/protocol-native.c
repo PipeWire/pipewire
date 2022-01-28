@@ -172,6 +172,7 @@ do {												\
 	if (spa_pod_parser_get(prs,								\
 			 SPA_POD_Int(&(d)->n_items), NULL) < 0)					\
 		return -EINVAL;									\
+	(d)->items = NULL;									\
 	if ((d)->n_items > 0) {									\
 		uint32_t i;									\
 		(d)->items = alloca((d)->n_items * sizeof(struct spa_dict_item));		\
@@ -212,6 +213,7 @@ do {											\
 	    spa_pod_parser_get(prs,							\
 			       SPA_POD_Int(&(n_params)), NULL) < 0)			\
 		return -EINVAL;								\
+	params = NULL;									\
 	if (n_params > 0) {								\
 		uint32_t i;								\
 		params = alloca(n_params * sizeof(struct spa_param_info));		\
@@ -222,8 +224,29 @@ do {											\
 				return -EINVAL;						\
 		}									\
 	}										\
+	spa_pod_parser_pop(prs, f);							\
 } while(0)
 
+
+#define parse_permissions_struct(prs,f,n_permissions,permissions)				\
+do {												\
+	if (spa_pod_parser_push_struct(prs, f) < 0 ||						\
+	    spa_pod_parser_get(prs,								\
+		    SPA_POD_Int(&n_permissions), NULL) < 0)					\
+		return -EINVAL;									\
+	permissions = NULL;									\
+	if (n_permissions > 0) {								\
+		uint32_t i;									\
+		permissions = alloca(n_permissions * sizeof(struct pw_permission));		\
+		for (i = 0; i < n_permissions; i++) {						\
+			if (spa_pod_parser_get(prs,						\
+					SPA_POD_Int(&permissions[i].id),			\
+					SPA_POD_Int(&permissions[i].permissions), NULL) < 0)	\
+				return -EINVAL;							\
+		}										\
+	}											\
+	spa_pod_parser_pop(prs, f);								\
+} while(0)
 
 static void *
 core_method_marshal_create_object(void *object,
@@ -1534,7 +1557,7 @@ static int client_demarshal_permissions(void *object, const struct pw_protocol_n
 	struct pw_permission *permissions;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[2];
-	uint32_t i, index, n_permissions;
+	uint32_t index, n_permissions;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
 	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
@@ -1542,18 +1565,8 @@ static int client_demarshal_permissions(void *object, const struct pw_protocol_n
 		    SPA_POD_Int(&index), NULL) < 0)
 		return -EINVAL;
 
-	if (spa_pod_parser_push_struct(&prs, &f[1]) < 0 ||
-	    spa_pod_parser_get(&prs,
-		    SPA_POD_Int(&n_permissions), NULL) < 0)
-		return -EINVAL;
+	parse_permissions_struct(&prs, &f[1], n_permissions, permissions);
 
-	permissions = alloca(n_permissions * sizeof(struct pw_permission));
-	for (i = 0; i < n_permissions; i++) {
-		if (spa_pod_parser_get(&prs,
-				SPA_POD_Int(&permissions[i].id),
-				SPA_POD_Int(&permissions[i].permissions), NULL) < 0)
-			return -EINVAL;
-	}
 	return pw_proxy_notify(proxy, struct pw_client_events, permissions, 0, index, n_permissions, permissions);
 }
 
@@ -1675,21 +1688,12 @@ static int client_demarshal_update_permissions(void *object, const struct pw_pro
 	struct pw_permission *permissions;
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[1];
-	uint32_t i, n_permissions;
+	uint32_t n_permissions;
 
 	spa_pod_parser_init(&prs, msg->data, msg->size);
-	if (spa_pod_parser_push_struct(&prs, &f[0]) < 0 ||
-	    spa_pod_parser_get(&prs,
-				SPA_POD_Int(&n_permissions), NULL) < 0)
-		return -EINVAL;
 
-	permissions = alloca(n_permissions * sizeof(struct pw_permission));
-	for (i = 0; i < n_permissions; i++) {
-		if (spa_pod_parser_get(&prs,
-				SPA_POD_Int(&permissions[i].id),
-				SPA_POD_Int(&permissions[i].permissions), NULL) < 0)
-			return -EINVAL;
-	}
+	parse_permissions_struct(&prs, &f[0], n_permissions, permissions);
+
 	return pw_resource_notify(resource, struct pw_client_methods, update_permissions, 0,
 			n_permissions, permissions);
 }

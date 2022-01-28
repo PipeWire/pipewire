@@ -79,6 +79,7 @@ do {											\
 	if (spa_pod_parser_get(prs,							\
 			 SPA_POD_Int(&(d)->n_items), NULL) < 0)				\
 		return -EINVAL;								\
+	(d)->items = NULL;								\
 	if ((d)->n_items > 0) {								\
 		(d)->items = alloca((d)->n_items * sizeof(struct spa_dict_item));	\
 		for (i = 0; i < (d)->n_items; i++) {					\
@@ -102,6 +103,7 @@ do {											\
 	if (spa_pod_parser_get(prs,							\
 			 SPA_POD_Int(&n_params), NULL) < 0)				\
 		return -EINVAL;								\
+	params = NULL;									\
 	if (n_params > 0) {								\
 		params = alloca(n_params * sizeof(struct spa_pos *));			\
 		for (i = 0; i < n_params; i++) {					\
@@ -118,6 +120,7 @@ do {											\
 	if (spa_pod_parser_get(prs,							\
 			SPA_POD_Int(&(n_params)), NULL) < 0)				\
 		return -EINVAL;								\
+	params = NULL;									\
 	if (n_params > 0) {								\
 		params = alloca(n_params * sizeof(struct spa_param_info));		\
 		for (i = 0; i < n_params; i++) {					\

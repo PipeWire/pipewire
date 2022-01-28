@@ -18,6 +18,9 @@ include:
   - project: 'freedesktop/ci-templates'
     ref: *templates_sha
     file: '/templates/ubuntu.yml'
+  - project: 'freedesktop/ci-templates'
+    ref: *templates_sha
+    file: '/templates/alpine.yml'
 
 .fedora:
   variables:
@@ -97,6 +100,39 @@ include:
     FDO_DISTRIBUTION_EXEC: >-
       pip3 install meson
 
+.alpine:
+  variables:
+    # Update this tag when you want to trigger a rebuild
+    FDO_DISTRIBUTION_TAG: '2022-01-28.2'
+    FDO_DISTRIBUTION_VERSION: '3.15'
+    FDO_DISTRIBUTION_PACKAGES: >-
+      alsa-lib-dev
+      avahi-dev
+      bash
+      bluez-dev
+      gcc
+      g++
+      dbus-dev
+      doxygen
+      eudev-dev
+      fdk-aac-dev
+      git
+      glib-dev
+      graphviz
+      gst-plugins-base-dev
+      gstreamer-dev
+      jack-dev
+      libfreeaptx-dev
+      libusb-dev
+      libx11-dev
+      meson
+      ncurses-dev
+      pulseaudio-dev
+      readline-dev
+      sbc-dev
+      vulkan-loader-dev
+      xmltoman
+
 .coverity:
   variables:
     FDO_REPO_SUFFIX: 'coverity'
@@ -161,6 +197,14 @@ container_fedora:
   variables:
     GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
 
+container_alpine:
+  extends:
+    - .alpine
+    - .fdo.container-build@alpine
+  stage: container
+  variables:
+    GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
+
 container_coverity:
   extends:
     - .fedora
@@ -208,6 +252,14 @@ build_on_fedora:
     paths:
       - build-*/meson-logs
       - prefix-*
+
+build_on_alpine:
+  extends:
+    - .alpine
+    - .not_coverity
+    - .fdo.distribution-image@alpine
+    - .build
+  stage: build
 
 # build with all auto() options enabled
 build_all:

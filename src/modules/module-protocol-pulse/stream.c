@@ -332,6 +332,8 @@ int stream_update_minreq(struct stream *stream, uint32_t minreq)
 		return 0;
 
 	stream->attr.tlength = new_tlength;
+	if (stream->attr.tlength > stream->attr.maxlength)
+		stream->attr.tlength = stream->attr.maxlength;
 
 	if (client->version >= 15) {
 		struct message *msg;

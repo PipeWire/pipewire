@@ -178,10 +178,10 @@ static int handle_memblock(struct client *client, struct message *msg)
 	/* always write data to ringbuffer, we expect the other side
 	 * to recover */
 	spa_ringbuffer_write_data(&stream->ring,
-			stream->buffer, stream->attr.maxlength,
-			index % stream->attr.maxlength,
+			stream->buffer, MAXLENGTH,
+			index % MAXLENGTH,
 			msg->data,
-			SPA_MIN(msg->length, stream->attr.maxlength));
+			SPA_MIN(msg->length, MAXLENGTH));
 	index += msg->length;
 	stream->write_index += msg->length;
 	spa_ringbuffer_write_update(&stream->ring, index);

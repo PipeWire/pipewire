@@ -463,7 +463,7 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 	lat.denom = stream->ss.rate;
 	lat.num = fix_playback_buffer_attr(stream, &stream->attr);
 
-	stream->buffer = calloc(1, stream->attr.maxlength);
+	stream->buffer = calloc(1, MAXLENGTH);
 	if (stream->buffer == NULL)
 		return -errno;
 
@@ -601,7 +601,7 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 	lat.denom = stream->ss.rate;
 	lat.num = fix_record_buffer_attr(stream, &stream->attr);
 
-	stream->buffer = calloc(1, stream->attr.maxlength);
+	stream->buffer = calloc(1, MAXLENGTH);
 	if (stream->buffer == NULL)
 		return -errno;
 
@@ -1186,8 +1186,8 @@ do_process_done(struct spa_loop *loop,
 					return -errno;
 
 				spa_ringbuffer_read_data(&stream->ring,
-						stream->buffer, stream->attr.maxlength,
-						index % stream->attr.maxlength,
+						stream->buffer, MAXLENGTH,
+						index % MAXLENGTH,
 						msg->data, towrite);
 
 				client_queue_message(client, msg);
@@ -1255,8 +1255,8 @@ static void stream_process(void *data)
 			if ((stream->attr.prebuf == 0 || do_flush) && !stream->corked) {
 				if (avail > 0) {
 					spa_ringbuffer_read_data(&stream->ring,
-						stream->buffer, stream->attr.maxlength,
-						index % stream->attr.maxlength,
+						stream->buffer, MAXLENGTH,
+						index % MAXLENGTH,
 						p, avail);
 				}
 				pd.playing_for = size;
@@ -1282,8 +1282,8 @@ static void stream_process(void *data)
 			size = SPA_MIN(size, minreq);
 
 			spa_ringbuffer_read_data(&stream->ring,
-					stream->buffer, stream->attr.maxlength,
-					index % stream->attr.maxlength,
+					stream->buffer, MAXLENGTH,
+					index % MAXLENGTH,
 					p, size);
 
 			index += size;
@@ -1315,10 +1315,10 @@ static void stream_process(void *data)
 		}
 
 		spa_ringbuffer_write_data(&stream->ring,
-				stream->buffer, stream->attr.maxlength,
-				index % stream->attr.maxlength,
+				stream->buffer, MAXLENGTH,
+				index % MAXLENGTH,
 				SPA_PTROFF(p, buf->datas[0].chunk->offset, void),
-				SPA_MIN(size, stream->attr.maxlength));
+				SPA_MIN(size, MAXLENGTH));
 
 		index += size;
 		pd.write_inc = size;
@@ -2080,7 +2080,7 @@ static int do_create_upload_stream(struct client *client, uint32_t command, uint
 
 	stream->props = props;
 
-	stream->buffer = calloc(1, stream->attr.maxlength);
+	stream->buffer = calloc(1, MAXLENGTH);
 	if (stream->buffer == NULL)
 		goto error_errno;
 

@@ -52,7 +52,7 @@
 #define MIN_BUFFERS     1u
 #define MAX_BUFFERS     4u
 
-#define MAXLENGTH		(4*1024*1024) /* 4MB */
+#define MAXLENGTH		(4u*1024*1024) /* 4MB */
 
 #define SCACHE_ENTRY_SIZE_MAX	(1024*1024*16)
 

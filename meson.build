@@ -426,10 +426,9 @@ libinotify_dep = (build_machine.system() == 'freebsd'
     : dependency('', required: false))
 
 # On FreeBSD, libintl library is required for gettext
-libintl_dep = dependency('intl', required: false)
-
+libintl_dep = cc.find_library('intl', required: false)
 if not libintl_dep.found()
-    libintl_dep = cc.find_library('intl', required: false)
+    libintl_dep = dependency('intl', required: false)
 endif
 summary({'intl support': libintl_dep.found()}, bool_yn: true)
 

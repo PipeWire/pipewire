@@ -178,6 +178,12 @@ struct module *create_module_remap_sink(struct impl *impl, const char *argument)
 	}
 	pw_properties_set(capture_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 
+	if (pw_properties_get(capture_props, PW_KEY_NODE_DESCRIPTION) == NULL) {
+		str = pw_properties_get(props, "master");
+		pw_properties_setf(capture_props,
+				PW_KEY_NODE_DESCRIPTION, "Remapped %s sink",
+					str ? str : "default");
+	}
 	if ((str = pw_properties_get(props, "master")) != NULL) {
 		pw_properties_set(playback_props, PW_KEY_NODE_TARGET, str);
 		pw_properties_set(props, "master", NULL);

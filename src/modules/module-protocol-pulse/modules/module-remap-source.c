@@ -178,6 +178,12 @@ struct module *create_module_remap_source(struct impl *impl, const char *argumen
 	}
 	pw_properties_set(playback_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 
+	if (pw_properties_get(playback_props, PW_KEY_NODE_DESCRIPTION) == NULL) {
+		str = pw_properties_get(props, "master");
+		pw_properties_setf(playback_props,
+				PW_KEY_NODE_DESCRIPTION, "Remapped %s source",
+					str ? str : "default");
+	}
 	if ((str = pw_properties_get(props, "master")) != NULL) {
 		pw_properties_set(capture_props, PW_KEY_NODE_TARGET, str);
 		pw_properties_set(props, "master", NULL);

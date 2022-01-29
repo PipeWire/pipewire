@@ -212,6 +212,8 @@ struct module *create_module_ladspa_sink(struct impl *impl, const char *argument
 	}
 	if (pw_properties_get(capture_props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(capture_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
+	if (pw_properties_get(capture_props, PW_KEY_DEVICE_CLASS) == NULL)
+		pw_properties_set(capture_props, PW_KEY_DEVICE_CLASS, "filter");
 
 	if ((str = pw_properties_get(props, "master")) != NULL ||
 	    (str = pw_properties_get(props, "sink_master")) != NULL) {

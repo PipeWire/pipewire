@@ -212,6 +212,8 @@ struct module *create_module_ladspa_source(struct impl *impl, const char *argume
 	}
 	if (pw_properties_get(playback_props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(playback_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
+	if (pw_properties_get(playback_props, PW_KEY_DEVICE_CLASS) == NULL)
+		pw_properties_set(playback_props, PW_KEY_DEVICE_CLASS, "filter");
 
 	if ((str = pw_properties_get(props, "master")) != NULL ||
 	    (str = pw_properties_get(props, "source_master")) != NULL) {

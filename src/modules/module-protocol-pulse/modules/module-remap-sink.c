@@ -176,7 +176,10 @@ struct module *create_module_remap_sink(struct impl *impl, const char *argument)
 		module_args_add_props(capture_props, str);
 		pw_properties_set(props, "sink_properties", NULL);
 	}
-	pw_properties_set(capture_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
+	if (pw_properties_get(capture_props, PW_KEY_MEDIA_CLASS) == NULL)
+		pw_properties_set(capture_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
+	if (pw_properties_get(capture_props, PW_KEY_DEVICE_CLASS) == NULL)
+		pw_properties_set(capture_props, PW_KEY_DEVICE_CLASS, "filter");
 
 	if (pw_properties_get(capture_props, PW_KEY_NODE_DESCRIPTION) == NULL) {
 		str = pw_properties_get(props, "master");

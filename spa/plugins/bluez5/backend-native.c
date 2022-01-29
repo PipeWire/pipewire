@@ -705,7 +705,6 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 	unsigned int indicator_value;
 	int xapl_vendor;
 	int xapl_product;
-	int xapl_version;
 	int xapl_features;
 
 	if (sscanf(buf, "AT+BRSF=%u", &features) == 1) {
@@ -889,7 +888,7 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (sscanf(buf, "AT+BIEV=%u,%u", &indicator, &indicator_value) == 2) {
 		process_hfp_hf_indicator(rfcomm, indicator, indicator_value);
-	} else if (sscanf(buf, "AT+XAPL=%04x-%04x-%04x,%u", &xapl_vendor, &xapl_product, &xapl_version, &xapl_features) == 4) {
+	} else if (sscanf(buf, "AT+XAPL=%04x-%04x-%*[^,],%u", &xapl_vendor, &xapl_product, &xapl_features) == 3) {
 		if (xapl_features & SPA_BT_HFP_HF_XAPL_FEATURE_BATTERY_REPORTING) {
 			/* claim, that we support battery status reports */
 			rfcomm_send_reply(rfcomm, "+XAPL=iPhone,%u", SPA_BT_HFP_HF_XAPL_FEATURE_BATTERY_REPORTING);

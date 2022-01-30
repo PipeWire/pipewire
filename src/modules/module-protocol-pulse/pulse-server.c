@@ -22,8 +22,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "pipewire/core.h"
-
 #include "config.h"
 
 #include <errno.h>

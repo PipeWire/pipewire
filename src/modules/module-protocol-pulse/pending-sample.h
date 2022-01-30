@@ -39,7 +39,6 @@ struct pending_sample {
 	struct sample_play *play;
 	struct spa_hook listener;
 	uint32_t tag;
-	unsigned int done:1;
 };
 
 void pending_sample_free(struct pending_sample *ps);

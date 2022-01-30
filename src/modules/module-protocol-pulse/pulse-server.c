@@ -2360,7 +2360,6 @@ static void sample_play_done(void *data, int res)
 	else
 		pw_log_info("[%s] PLAY_SAMPLE done tag:%u", client->name, ps->tag);
 
-	ps->done = true;
 	pw_work_queue_add(impl->work_queue, ps, 0,
 				on_sample_done, client);
 }

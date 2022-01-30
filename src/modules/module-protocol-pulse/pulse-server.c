@@ -973,10 +973,8 @@ static void stream_control_info(void *data, uint32_t id,
 static void do_destroy_stream(void *obj, void *data, int res, uint32_t id)
 {
 	struct stream *stream = obj;
-	struct client *client = stream->client;
+
 	stream_free(stream);
-	if (client->ref <= 0)
-		client_free(client);
 }
 
 static void stream_state_changed(void *data, enum pw_stream_state old,

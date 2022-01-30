@@ -1130,6 +1130,7 @@ static int sco_do_connect(struct spa_bt_transport *t)
 {
 	struct impl *backend = SPA_CONTAINER_OF(t->backend, struct impl, this);
 	struct spa_bt_device *d = t->device;
+	struct transport_data *td = t->user_data;
 	struct sockaddr_sco addr;
 	socklen_t len;
 	int err;
@@ -1164,6 +1165,21 @@ again:
 		goto again;
 	} else if (err < 0 && !(errno == EAGAIN || errno == EINPROGRESS)) {
 		spa_log_error(backend->log, "connect(): %s", strerror(errno));
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+		if (errno == EOPNOTSUPP && t->codec == HFP_AUDIO_CODEC_MSBC &&
+				td->rfcomm->msbc_supported_by_hfp) {
+			/* Adapter doesn't support msbc. Renegotiate. */
+			d->adapter->msbc_probed = true;
+			d->adapter->has_msbc = false;
+			td->rfcomm->msbc_supported_by_hfp = false;
+			if (t->profile == SPA_BT_PROFILE_HFP_HF) {
+				td->rfcomm->hfp_ag_switching_codec = true;
+				rfcomm_send_reply(td->rfcomm, "+BCS: 1");
+			} else if (t->profile == SPA_BT_PROFILE_HFP_AG) {
+				rfcomm_send_cmd(td->rfcomm, "AT+BAC=1");
+			}
+		}
+#endif
 		goto fail_close;
 	}
 
@@ -1184,10 +1200,6 @@ static int sco_acquire_cb(void *data, bool optional)
 
 	spa_log_debug(backend->log, "transport %p: enter sco_acquire_cb", t);
 
-#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
-	rfcomm_hfp_ag_set_cind(td->rfcomm, true);
-#endif
-
 	if (optional || t->fd > 0)
 		sock = t->fd;
 	else
@@ -1195,6 +1207,10 @@ static int sco_acquire_cb(void *data, bool optional)
 
 	if (sock < 0)
 		goto fail;
+
+#ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
+	rfcomm_hfp_ag_set_cind(td->rfcomm, true);
+#endif
 
 	t->fd = sock;
 

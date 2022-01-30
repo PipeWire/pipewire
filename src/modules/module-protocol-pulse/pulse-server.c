@@ -5074,10 +5074,10 @@ static int impl_free_sample(void *item, void *data)
 	return 0;
 }
 
-static int impl_free_module(void *item, void *data)
+static int impl_unload_module(void *item, void *data)
 {
 	struct module *m = item;
-	module_free(m);
+	module_unload(m);
 	return 0;
 }
 
@@ -5099,7 +5099,7 @@ static void impl_clear(struct impl *impl)
 	pw_map_for_each(&impl->samples, impl_free_sample, impl);
 	pw_map_clear(&impl->samples);
 
-	pw_map_for_each(&impl->modules, impl_free_module, impl);
+	pw_map_for_each(&impl->modules, impl_unload_module, impl);
 	pw_map_clear(&impl->modules);
 
 #if HAVE_DBUS

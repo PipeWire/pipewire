@@ -201,18 +201,20 @@ static struct spa_bt_transport *_transport_create(struct rfcomm *rfcomm)
 	td = t->user_data;
 	td->rfcomm = rfcomm;
 
-	for (int i = 0; i < SPA_BT_VOLUME_ID_TERM ; ++i) {
-		rfcomm->volumes[i].hw_volume = SPA_BT_VOLUME_INVALID;
-		t->volumes[i].active = rfcomm->volumes[i].active;
-		t->volumes[i].hw_volume_max = SPA_BT_VOLUME_HS_MAX;
-	}
-
 	if (t->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY) {
 		t->volumes[SPA_BT_VOLUME_ID_RX].volume = DEFAULT_AG_VOLUME;
 		t->volumes[SPA_BT_VOLUME_ID_TX].volume = DEFAULT_AG_VOLUME;
 	} else {
 		t->volumes[SPA_BT_VOLUME_ID_RX].volume = DEFAULT_RX_VOLUME;
 		t->volumes[SPA_BT_VOLUME_ID_TX].volume = DEFAULT_TX_VOLUME;
+	}
+
+	for (int i = 0; i < SPA_BT_VOLUME_ID_TERM ; ++i) {
+		t->volumes[i].active = rfcomm->volumes[i].active;
+		t->volumes[i].hw_volume_max = SPA_BT_VOLUME_HS_MAX;
+		if (rfcomm->volumes[i].active && rfcomm->volumes[i].hw_volume != SPA_BT_VOLUME_INVALID)
+			t->volumes[i].volume =
+				spa_bt_volume_hw_to_linear(rfcomm->volumes[i].hw_volume, t->volumes[i].hw_volume_max);
 	}
 
 	spa_bt_transport_add_listener(t, &rfcomm->transport_listener, &transport_events, rfcomm);

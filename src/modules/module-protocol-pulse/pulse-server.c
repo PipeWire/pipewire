@@ -5081,44 +5081,52 @@ static int impl_free_module(void *item, void *data)
 	return 0;
 }
 
-static void impl_free(struct impl *impl)
+static void impl_clear(struct impl *impl)
 {
+	struct message *msg;
 	struct server *s;
 	struct client *c;
-	struct message *msg;
 
-#if HAVE_DBUS
-	if (impl->dbus_name)
-		dbus_release_name(impl->dbus_name);
-#endif
+	spa_list_consume(s, &impl->servers, link)
+		server_free(s);
+
+	spa_list_consume(c, &impl->cleanup_clients, link)
+		client_free(c);
 
 	spa_list_consume(msg, &impl->free_messages, link)
 		message_free(impl, msg, true, true);
 
-	if (impl->context != NULL)
-		spa_hook_remove(&impl->context_listener);
-	spa_list_consume(c, &impl->cleanup_clients, link)
-		client_free(c);
-	spa_list_consume(s, &impl->servers, link)
-		server_free(s);
-
 	pw_map_for_each(&impl->samples, impl_free_sample, impl);
 	pw_map_clear(&impl->samples);
+
 	pw_map_for_each(&impl->modules, impl_free_module, impl);
 	pw_map_clear(&impl->modules);
 
+#if HAVE_DBUS
+	if (impl->dbus_name) {
+		dbus_release_name(impl->dbus_name);
+		impl->dbus_name = NULL;
+	}
+#endif
+
+	if (impl->context) {
+		spa_hook_remove(&impl->context_listener);
+		impl->context = NULL;
+	}
+
 	pw_properties_free(impl->props);
+	impl->props = NULL;
+}
+
+static void impl_free(struct impl *impl)
+{
+	impl_clear(impl);
 	free(impl);
 }
 
 static void context_destroy(void *data)
 {
-	struct impl *impl = data;
-	struct server *s;
-	spa_list_consume(s, &impl->servers, link)
-		server_free(s);
-	spa_hook_remove(&impl->context_listener);
-	impl->context = NULL;
+	impl_clear(data);
 }
 
 static const struct pw_context_events context_events = {

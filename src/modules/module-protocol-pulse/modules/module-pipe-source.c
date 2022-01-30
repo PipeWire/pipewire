@@ -206,7 +206,7 @@ static int module_pipesource_load(struct client *client, struct module *module)
 	return 0;
 }
 
-static int module_pipesource_unload(struct client *client, struct module *module)
+static int module_pipesource_unload(struct module *module)
 {
 	struct module_pipesrc_data *d = module->user_data;
 

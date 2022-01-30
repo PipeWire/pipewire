@@ -95,7 +95,7 @@ static int module_remap_source_load(struct client *client, struct module *module
 	return 0;
 }
 
-static int module_remap_source_unload(struct client *client, struct module *module)
+static int module_remap_source_unload(struct module *module)
 {
 	struct module_remap_source_data *d = module->user_data;
 

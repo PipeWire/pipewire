@@ -126,7 +126,7 @@ static int module_null_sink_load(struct client *client, struct module *module)
 	return SPA_RESULT_RETURN_ASYNC(0);
 }
 
-static int module_null_sink_unload(struct client *client, struct module *module)
+static int module_null_sink_unload(struct module *module)
 {
 	struct module_null_sink_data *d = module->user_data;
 

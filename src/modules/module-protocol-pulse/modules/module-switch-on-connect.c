@@ -209,7 +209,7 @@ error:
 	return res;
 }
 
-static int module_switch_on_connect_unload(struct client *client, struct module *module)
+static int module_switch_on_connect_unload(struct module *module)
 {
 	struct module_switch_on_connect_data *d = module->user_data;
 

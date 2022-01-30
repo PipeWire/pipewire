@@ -602,7 +602,7 @@ static int module_zeroconf_publish_load(struct client *client, struct module *mo
 	return 0;
 }
 
-static int module_zeroconf_publish_unload(struct client *client, struct module *module)
+static int module_zeroconf_publish_unload(struct module *module)
 {
 	struct module_zeroconf_publish_data *d = module->user_data;
 	struct service *s;

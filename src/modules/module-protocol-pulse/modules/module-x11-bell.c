@@ -86,7 +86,7 @@ static int module_x11_bell_load(struct client *client, struct module *module)
 	return 0;
 }
 
-static int module_x11_bell_unload(struct client *client, struct module *module)
+static int module_x11_bell_unload(struct module *module)
 {
 	struct module_x11_bell_data *d = module->user_data;
 

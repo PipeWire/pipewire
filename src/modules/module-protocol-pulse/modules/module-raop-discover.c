@@ -73,7 +73,7 @@ static int module_raop_discover_load(struct client *client, struct module *modul
 	return 0;
 }
 
-static int module_raop_discover_unload(struct client *client, struct module *module)
+static int module_raop_discover_unload(struct module *module)
 {
 	struct module_raop_discover_data *d = module->user_data;
 

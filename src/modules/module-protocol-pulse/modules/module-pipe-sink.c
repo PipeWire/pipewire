@@ -185,7 +185,7 @@ static int module_pipesink_load(struct client *client, struct module *module)
 	return 0;
 }
 
-static int module_pipesink_unload(struct client *client, struct module *module)
+static int module_pipesink_unload(struct module *module)
 {
 	struct module_pipesink_data *d = module->user_data;
 

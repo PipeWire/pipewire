@@ -390,7 +390,7 @@ static int module_combine_sink_load(struct client *client, struct module *module
 	return 0;
 }
 
-static int module_combine_sink_unload(struct client *client, struct module *module)
+static int module_combine_sink_unload(struct module *module)
 {
 	struct module_combine_sink_data *d = module->user_data;
 	int i;

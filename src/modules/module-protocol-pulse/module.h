@@ -53,7 +53,7 @@ struct module_methods {
 	uint32_t version;
 
 	int (*load) (struct client *client, struct module *module);
-	int (*unload) (struct client *client, struct module *module);
+	int (*unload) (struct module *module);
 };
 
 struct module {
@@ -76,7 +76,7 @@ struct module *module_create(struct client *client, const char *name, const char
 void module_free(struct module *module);
 struct module *module_new(struct impl *impl, const struct module_methods *methods, size_t user_data);
 int module_load(struct client *client, struct module *module);
-int module_unload(struct client *client, struct module *module);
+int module_unload(struct module *module);
 void module_schedule_unload(struct module *module);
 
 void module_add_listener(struct module *module,

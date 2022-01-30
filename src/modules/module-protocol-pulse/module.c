@@ -45,7 +45,7 @@
 static void on_module_unload(void *obj, void *data, int res, uint32_t index)
 {
 	struct module *module = obj;
-	module_unload(NULL, module);
+	module_unload(module);
 }
 
 void module_schedule_unload(struct module *module)
@@ -110,7 +110,7 @@ void module_free(struct module *module)
 	free(module);
 }
 
-int module_unload(struct client *client, struct module *module)
+int module_unload(struct module *module)
 {
 	struct impl *impl = module->impl;
 	int res = 0;
@@ -121,7 +121,7 @@ int module_unload(struct client *client, struct module *module)
 	pw_log_info("unload module index:%u name:%s", module->index, module->name);
 
 	if (module->methods->unload)
-		res = module->methods->unload(client, module);
+		res = module->methods->unload(module);
 
 	if (module->loaded)
 		broadcast_subscribe_event(impl,
@@ -302,7 +302,7 @@ struct module *module_create(struct client *client, const char *name, const char
 
 	module->index = pw_map_insert_new(&impl->modules, module);
 	if (module->index == SPA_ID_INVALID) {
-		module_unload(client, module);
+		module_unload(module);
 		return NULL;
 	}
 	module->name = strdup(name);

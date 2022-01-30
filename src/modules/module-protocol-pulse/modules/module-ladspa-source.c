@@ -124,7 +124,7 @@ static int module_ladspa_source_load(struct client *client, struct module *modul
 	return 0;
 }
 
-static int module_ladspa_source_unload(struct client *client, struct module *module)
+static int module_ladspa_source_unload(struct module *module)
 {
 	struct module_ladspa_source_data *d = module->user_data;
 

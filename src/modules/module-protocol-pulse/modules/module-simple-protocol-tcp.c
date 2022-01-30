@@ -99,7 +99,7 @@ static int module_simple_protocol_tcp_load(struct client *client, struct module 
 	return 0;
 }
 
-static int module_simple_protocol_tcp_unload(struct client *client, struct module *module)
+static int module_simple_protocol_tcp_unload(struct module *module)
 {
 	struct module_simple_protocol_tcp_data *d = module->user_data;
 

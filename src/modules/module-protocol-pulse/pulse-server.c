@@ -4828,7 +4828,7 @@ static int do_unload_module(struct client *client, uint32_t command, uint32_t ta
 	if (module == NULL)
 		return -ENOENT;
 
-	module_unload(client, module);
+	module_unload(module);
 
 	return reply_simple_ack(client, tag);
 }

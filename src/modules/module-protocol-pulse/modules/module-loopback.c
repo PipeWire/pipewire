@@ -107,7 +107,7 @@ static int module_loopback_load(struct client *client, struct module *module)
 	return 0;
 }
 
-static int module_loopback_unload(struct client *client, struct module *module)
+static int module_loopback_unload(struct module *module)
 {
 	struct module_loopback_data *d = module->user_data;
 

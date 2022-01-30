@@ -1823,6 +1823,8 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 
 	spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_IDLE);
 
+	spa_bt_transport_keepalive(transport, false);
+
 	spa_bt_transport_emit_destroy(transport);
 
 	spa_bt_transport_stop_volume_timer(transport);
@@ -1857,6 +1859,23 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 	free(transport);
 }
 
+int spa_bt_transport_keepalive(struct spa_bt_transport *t, bool keepalive)
+{
+	if (keepalive) {
+		t->keepalive = true;
+		return 0;
+	}
+
+	t->keepalive = false;
+
+	if (t->acquire_refcount == 0 && t->acquired) {
+		t->acquire_refcount = 1;
+		return spa_bt_transport_release(t);
+	}
+
+	return 0;
+}
+
 int spa_bt_transport_acquire(struct spa_bt_transport *transport, bool optional)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
@@ -1869,10 +1888,15 @@ int spa_bt_transport_acquire(struct spa_bt_transport *transport, bool optional)
 	}
 	spa_assert(transport->acquire_refcount == 0);
 
-	res = spa_bt_transport_impl(transport, acquire, 0, optional);
+	if (!transport->acquired)
+		res = spa_bt_transport_impl(transport, acquire, 0, optional);
+	else
+		res = 0;
 
-	if (res >= 0)
+	if (res >= 0) {
 		transport->acquire_refcount = 1;
+		transport->acquired = true;
+	}
 
 	return res;
 }
@@ -1892,14 +1916,22 @@ int spa_bt_transport_release(struct spa_bt_transport *transport)
 		return 0;
 	}
 	spa_assert(transport->acquire_refcount == 1);
+	spa_assert(transport->acquired);
 
 	if (SPA_BT_TRANSPORT_IS_SCO(transport)) {
 		/* Postpone SCO transport releases, since we might need it again soon */
 		res = spa_bt_transport_start_release_timer(transport);
+	} else if (transport->keepalive) {
+		res = 0;
+		transport->acquire_refcount = 0;
+		spa_log_debug(monitor->log, "transport %p: keepalive %s on release",
+				transport, transport->path);
 	} else {
 		res = spa_bt_transport_impl(transport, release, 0);
-		if (res >= 0)
+		if (res >= 0) {
 			transport->acquire_refcount = 0;
+			transport->acquired = false;
+		}
 	}
 
 	return res;
@@ -1909,13 +1941,15 @@ static int spa_bt_transport_release_now(struct spa_bt_transport *transport)
 {
 	int res;
 
-	if (transport->acquire_refcount == 0)
+	if (!transport->acquired)
 		return 0;
 
 	spa_bt_transport_stop_release_timer(transport);
 	res = spa_bt_transport_impl(transport, release, 0);
-	if (res >= 0)
+	if (res >= 0) {
 		transport->acquire_refcount = 0;
+		transport->acquired = false;
+	}
 
 	return res;
 }
@@ -1974,11 +2008,18 @@ static void spa_bt_transport_release_timer_event(struct spa_source *source)
 	struct spa_bt_monitor *monitor = transport->monitor;
 
 	spa_assert(transport->acquire_refcount >= 1);
+	spa_assert(transport->acquired);
 
 	spa_bt_transport_stop_release_timer(transport);
 
 	if (transport->acquire_refcount == 1) {
-		spa_bt_transport_impl(transport, release, 0);
+		if (!transport->keepalive) {
+			spa_bt_transport_impl(transport, release, 0);
+			transport->acquired = false;
+		} else {
+			spa_log_debug(monitor->log, "transport %p: keepalive %s on release",
+					transport, transport->path);
+		}
 	} else {
 		spa_log_debug(monitor->log, "transport %p: delayed decref %s", transport, transport->path);
 	}

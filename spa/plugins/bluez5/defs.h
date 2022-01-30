@@ -583,6 +583,8 @@ struct spa_bt_transport {
 	struct spa_bt_transport_volume volumes[SPA_BT_VOLUME_ID_TERM];
 
 	int acquire_refcount;
+	bool acquired;
+	bool keepalive;
 	int fd;
 	uint16_t read_mtu;
 	uint16_t write_mtu;
@@ -612,6 +614,7 @@ bool spa_bt_transport_volume_enabled(struct spa_bt_transport *transport);
 
 int spa_bt_transport_acquire(struct spa_bt_transport *t, bool optional);
 int spa_bt_transport_release(struct spa_bt_transport *t);
+int spa_bt_transport_keepalive(struct spa_bt_transport *t, bool keepalive);
 int spa_bt_transport_ensure_sco_io(struct spa_bt_transport *t, struct spa_loop *data_loop);
 
 #define spa_bt_transport_emit(t,m,v,...)		spa_hook_list_call(&(t)->listener_list, \

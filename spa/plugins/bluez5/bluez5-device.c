@@ -519,11 +519,13 @@ static void dynamic_node_transport_state_changed(void *data,
 	if (state >= SPA_BT_TRANSPORT_STATE_PENDING && old < SPA_BT_TRANSPORT_STATE_PENDING) {
 		if (!SPA_FLAG_IS_SET(this->id, DYNAMIC_NODE_ID_FLAG)) {
 			SPA_FLAG_SET(this->id, DYNAMIC_NODE_ID_FLAG);
+			spa_bt_transport_keepalive(t, true);
 			emit_node(impl, t, this->id, this->factory_name, this->a2dp_duplex);
 		}
 	} else if (state < SPA_BT_TRANSPORT_STATE_PENDING && old >= SPA_BT_TRANSPORT_STATE_PENDING) {
 		if (SPA_FLAG_IS_SET(this->id, DYNAMIC_NODE_ID_FLAG)) {
 			SPA_FLAG_CLEAR(this->id, DYNAMIC_NODE_ID_FLAG);
+			spa_bt_transport_keepalive(t, false);
 			spa_device_emit_object_info(&impl->hooks, this->id, NULL);
 		}
 	}

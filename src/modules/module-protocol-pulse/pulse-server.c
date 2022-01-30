@@ -5070,7 +5070,10 @@ const struct command commands[COMMAND_MAX] =
 static int impl_free_sample(void *item, void *data)
 {
 	struct sample *s = item;
-	sample_free(s);
+
+	spa_assert(s->ref == 1);
+	sample_unref(s);
+
 	return 0;
 }
 

@@ -167,10 +167,8 @@ void client_free(struct client *client)
 	spa_list_consume(o, &client->operations, link)
 		operation_free(o);
 
-	if (client->core) {
-		client->disconnecting = true;
+	if (client->core)
 		pw_core_disconnect(client->core);
-	}
 
 	pw_map_clear(&client->streams);
 

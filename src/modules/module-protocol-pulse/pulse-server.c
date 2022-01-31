@@ -994,7 +994,7 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 	case PW_STREAM_STATE_UNCONNECTED:
 		if (stream->create_tag != SPA_ID_INVALID)
 			reply_error(client, -1, stream->create_tag, -ENOENT);
-		else if (!client->disconnecting)
+		else
 			stream->killed = true;
 		stream->done = true;
 		break;

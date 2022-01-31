@@ -269,7 +269,7 @@ static int set_timers(struct impl *this)
 static uint64_t get_next_timeout(struct impl *this, uint64_t now_time, uint64_t processed_samples)
 {
 	struct port *port = &this->port;
-	uint64_t playback_time = 0, elapsed_time = 0, next_time = 1;
+	uint64_t playback_time = 0, elapsed_time = 0, next_time = 0;
 
 	this->total_samples += processed_samples;
 
@@ -380,7 +380,6 @@ static void flush_data(struct impl *this)
 {
 	struct port *port = &this->port;
 	struct spa_data *datas;
-	uint64_t next_timeout = 1;
 	const uint32_t min_in_size =
 		(this->transport->codec == HFP_AUDIO_CODEC_MSBC) ?
 		MSBC_DECODED_SIZE : this->transport->write_mtu;
@@ -391,7 +390,8 @@ static void flush_data(struct impl *this)
 	if (this->transport == NULL || this->transport->sco_io == NULL)
 		return;
 
-	if (!spa_list_is_empty(&port->ready)) {
+again:
+	while (!spa_list_is_empty(&port->ready) && port->write_buffer_size < min_in_size) {
 		/* get buffer */
 		if (!port->current_buffer) {
 			spa_return_if_fail(!spa_list_is_empty(&port->ready));
@@ -434,6 +434,7 @@ static void flush_data(struct impl *this)
 		int processed = 0;
 		ssize_t out_encoded;
 		int written;
+		uint64_t next_timeout;
 
 		spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &this->now);
 		now_time = SPA_TIMESPEC_TO_NSEC(&this->now);
@@ -468,7 +469,6 @@ static void flush_data(struct impl *this)
 						written, spa_strerror(written));
 				goto stop;
 			}
-			spa_log_trace(this->log, "wrote socket data %d", written);
 
 			this->buffer_head += written;
 
@@ -507,17 +507,29 @@ static void flush_data(struct impl *this)
 
 		next_timeout = get_next_timeout(this, now_time, processed / port->frame_size);
 
-		if (this->clock) {
+		if (!this->following && this->clock) {
 			this->clock->nsec = now_time;
 			this->clock->position = this->total_samples;
 			this->clock->delay = processed / port->frame_size;
 			this->clock->rate_diff = 1.0f;
-			this->clock->next_nsec = next_timeout;
+			this->clock->next_nsec = now_time + next_timeout;
 		}
+
+		if (next_timeout == 0)
+			goto again;
+
+		spa_log_trace(this->log, "timeout %"PRIu64" ns", next_timeout);
+		set_timeout(this, next_timeout);
+	} else {
+		/* As follower, driver will wake us up when there is data */
+		if (this->following)
+			return;
+
+		/* As driver, run timeout now to schedule data */
+		spa_log_trace(this->log, "timeout 1 ns (driver: schedule now)");
+		set_timeout(this, 1);
 	}
 
-	/* schedule next timeout */
-	set_timeout(this, next_timeout);
 	return;
 
 stop:

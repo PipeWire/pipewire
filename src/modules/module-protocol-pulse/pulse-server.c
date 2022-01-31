@@ -857,7 +857,7 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 
 static void do_free_client(void *obj, void *data, int res, uint32_t id)
 {
-	struct client *client = data;
+	struct client *client = obj;
 	client_free(client);
 }
 
@@ -865,8 +865,8 @@ static void manager_disconnect(void *data)
 {
 	struct client *client = data;
 	pw_log_debug("manager_disconnect()");
-	pw_work_queue_add(client->impl->work_queue, NULL, 0,
-				do_free_client, client);
+	pw_work_queue_add(client->impl->work_queue, client, 0,
+				do_free_client, NULL);
 }
 
 static const struct pw_manager_events manager_events = {

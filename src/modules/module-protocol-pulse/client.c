@@ -174,6 +174,8 @@ void client_free(struct client *client)
 
 	pw_map_clear(&client->streams);
 
+	pw_work_queue_cancel(impl->work_queue, client, SPA_ID_INVALID);
+
 	free(client->default_sink);
 	free(client->default_source);
 

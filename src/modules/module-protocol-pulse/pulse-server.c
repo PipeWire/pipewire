@@ -2344,9 +2344,9 @@ static void on_sample_done(void *obj, void *data, int res, uint32_t id)
 {
 	struct pending_sample *ps = obj;
 	struct client *client = ps->client;
+
 	pending_sample_free(ps);
-	if (client->ref <= 0)
-		client_free(client);
+	client_unref(client);
 }
 
 static void sample_play_done(void *data, int res)

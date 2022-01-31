@@ -41,7 +41,5 @@ void pending_sample_free(struct pending_sample *ps)
 	spa_hook_remove(&ps->listener);
 	pw_work_queue_cancel(impl->work_queue, ps, SPA_ID_INVALID);
 
-	client->ref--;
-
 	sample_play_destroy(ps->play);
 }

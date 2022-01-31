@@ -151,7 +151,7 @@ struct module *create_module_remap_source(struct impl *impl, const char *argumen
 	struct module *module;
 	struct module_remap_source_data *d;
 	struct pw_properties *props = NULL, *playback_props = NULL, *capture_props = NULL;
-	const char *str;
+	const char *str, *master;
 	struct spa_audio_info_raw capture_info = { 0 };
 	struct spa_audio_info_raw playback_info = { 0 };
 	int res;
@@ -168,6 +168,11 @@ struct module *create_module_remap_source(struct impl *impl, const char *argumen
 	if (argument)
 		module_args_add_props(props, argument);
 
+	master = pw_properties_get(props, "master");
+	if (pw_properties_get(props, "source_name") == NULL) {
+		pw_properties_setf(props, "source_name", "%s.remapped",
+				master ? master : "default");
+	}
 	if ((str = pw_properties_get(props, "source_name")) != NULL) {
 		pw_properties_set(playback_props, PW_KEY_NODE_NAME, str);
 		pw_properties_setf(capture_props, PW_KEY_NODE_NAME, "input.%s", str);
@@ -187,10 +192,15 @@ struct module *create_module_remap_source(struct impl *impl, const char *argumen
 	if ((str = pw_properties_get(playback_props, PW_KEY_NODE_DESCRIPTION)) != NULL) {
 		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, str);
 	} else {
-		if ((str = pw_properties_get(props, "master")) == NULL)
-			str = pw_properties_get(playback_props, PW_KEY_NODE_NAME);
-		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION, "Remapped %s source",
-					str ? str : "default");
+		str = pw_properties_get(playback_props, PW_KEY_NODE_NAME);
+		if (master != NULL || str == NULL) {
+			pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
+					"Remapped %s source",
+					master ? master : "default");
+		} else {
+			pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
+					"%s source", str);
+		}
 	}
 	if ((str = pw_properties_get(props, "master")) != NULL) {
 		pw_properties_set(capture_props, PW_KEY_NODE_TARGET, str);

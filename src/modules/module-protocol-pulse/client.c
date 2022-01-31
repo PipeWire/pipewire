@@ -99,6 +99,7 @@ bool client_detach(struct client *client)
 
 	/* remove from the `server->clients` list */
 	spa_list_remove(&client->link);
+	spa_list_append(&impl->cleanup_clients, &client->link);
 
 	server->n_clients--;
 	if (server->wait_clients > 0 && --server->wait_clients == 0) {
@@ -125,7 +126,6 @@ void client_disconnect(struct client *client)
 	spa_assert(client->server == NULL);
 
 	client->disconnect = true;
-	spa_list_append(&impl->cleanup_clients, &client->link);
 
 	pw_map_for_each(&client->streams, client_free_stream, client);
 

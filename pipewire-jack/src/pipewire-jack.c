@@ -274,6 +274,7 @@ struct context {
 
 struct metadata {
 	struct pw_metadata *proxy;
+	struct spa_hook proxy_listener;
 	struct spa_hook listener;
 
 	char default_audio_sink[1024];
@@ -2593,6 +2594,26 @@ static const struct pw_metadata_events metadata_events = {
 	.property = metadata_property
 };
 
+static void metadata_proxy_removed(void *data)
+{
+	struct client *c = data;
+	pw_proxy_destroy((struct pw_proxy*)c->metadata->proxy);
+}
+
+static void metadata_proxy_destroy(void *data)
+{
+	struct client *c = data;
+	spa_hook_remove(&c->metadata->proxy_listener);
+	spa_hook_remove(&c->metadata->listener);
+	c->metadata = NULL;
+}
+
+static const struct pw_proxy_events metadata_proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.removed = metadata_proxy_removed,
+	.destroy = metadata_proxy_destroy,
+};
+
 static void proxy_removed(void *data)
 {
 	struct object *o = data;
@@ -2917,6 +2938,9 @@ static void registry_event_global(void *data, uint32_t id,
 		c->metadata->default_audio_sink[0] = '\0';
 		c->metadata->default_audio_source[0] = '\0';
 
+		pw_proxy_add_listener(proxy,
+				&c->metadata->proxy_listener,
+				&metadata_proxy_events, c);
 		pw_metadata_add_listener(proxy,
 				&c->metadata->listener,
 				&metadata_events, c);

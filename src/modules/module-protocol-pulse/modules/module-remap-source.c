@@ -170,6 +170,7 @@ struct module *create_module_remap_source(struct impl *impl, const char *argumen
 
 	if ((str = pw_properties_get(props, "source_name")) != NULL) {
 		pw_properties_set(playback_props, PW_KEY_NODE_NAME, str);
+		pw_properties_setf(capture_props, PW_KEY_NODE_NAME, "input.%s", str);
 		pw_properties_set(props, "source_name", NULL);
 	}
 	if ((str = pw_properties_get(props, "source_properties")) != NULL) {
@@ -181,10 +182,14 @@ struct module *create_module_remap_source(struct impl *impl, const char *argumen
 	if (pw_properties_get(playback_props, PW_KEY_DEVICE_CLASS) == NULL)
 		pw_properties_set(playback_props, PW_KEY_DEVICE_CLASS, "filter");
 
-	if (pw_properties_get(playback_props, PW_KEY_NODE_DESCRIPTION) == NULL) {
-		str = pw_properties_get(props, "master");
-		pw_properties_setf(playback_props,
-				PW_KEY_NODE_DESCRIPTION, "Remapped %s source",
+	if ((str = pw_properties_get(playback_props, PW_KEY_MEDIA_NAME)) != NULL)
+		pw_properties_set(props, PW_KEY_MEDIA_NAME, str);
+	if ((str = pw_properties_get(playback_props, PW_KEY_NODE_DESCRIPTION)) != NULL) {
+		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, str);
+	} else {
+		if ((str = pw_properties_get(props, "master")) == NULL)
+			str = pw_properties_get(playback_props, PW_KEY_NODE_NAME);
+		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION, "Remapped %s source",
 					str ? str : "default");
 	}
 	if ((str = pw_properties_get(props, "master")) != NULL) {

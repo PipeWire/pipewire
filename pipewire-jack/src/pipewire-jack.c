@@ -3997,6 +3997,7 @@ int jack_set_buffer_size (jack_client_t *client, jack_nframes_t nframes)
 
 	pw_thread_loop_lock(c->context.loop);
 	pw_properties_set(c->props, PW_KEY_NODE_LATENCY, latency);
+	pw_properties_setf(c->props, PW_KEY_NODE_FORCE_QUANTUM, "%u", nframes);
 
 	c->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
 	c->info.props = &c->props->dict;

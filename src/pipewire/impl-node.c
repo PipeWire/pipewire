@@ -857,6 +857,7 @@ static void check_properties(struct pw_impl_node *node)
 	struct pw_context *context = node->context;
 	const char *str, *recalc_reason = NULL;
 	struct spa_fraction frac;
+	uint32_t value;
 	bool driver;
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_PRIORITY_DRIVER))) {
@@ -935,6 +936,15 @@ static void check_properties(struct pw_impl_node *node)
 	}
 	node->lock_quantum = pw_properties_get_bool(node->properties, PW_KEY_NODE_LOCK_QUANTUM, false);
 
+	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_FORCE_QUANTUM))) {
+		if (spa_atou32(str, &value, 0) &&
+		    node->force_quantum != value) {
+		        node->force_quantum = value;
+			node->stamp = ++context->stamp;
+			recalc_reason = "force quantum changed";
+		}
+	}
+
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_RATE))) {
                 if (sscanf(str, "%u/%u", &frac.num, &frac.denom) == 2 && frac.denom != 0) {
 			if (node->rate.num != frac.num || node->rate.denom != frac.denom) {
@@ -947,6 +957,15 @@ static void check_properties(struct pw_impl_node *node)
 		}
 	}
 	node->lock_rate = pw_properties_get_bool(node->properties, PW_KEY_NODE_LOCK_RATE, false);
+
+	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_FORCE_RATE))) {
+		if (spa_atou32(str, &value, 0) &&
+		    node->force_rate != value) {
+			node->force_rate = value;
+			node->stamp = ++context->stamp;
+			recalc_reason = "force rate changed";
+		}
+	}
 
 	pw_log_debug("%p: driver:%d recalc:%s active:%d", node, node->driver,
 			recalc_reason, node->active);
@@ -1787,6 +1806,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_impl_port *port;
 	struct pw_impl_node *follower;
+	struct pw_context *context = node->context;
 	bool active, had_driver;
 
 	active = node->active;
@@ -1836,7 +1856,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	}
 
 	if (active || had_driver)
-		pw_context_recalc_graph(node->context,
+		pw_context_recalc_graph(context,
 				"active node destroy");
 
 	pw_log_debug("%p: free", node);
@@ -1858,7 +1878,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 
 	clear_info(node);
 
-	spa_system_close(node->context->data_system, node->source.fd);
+	spa_system_close(context->data_system, node->source.fd);
 	free(impl);
 }
 

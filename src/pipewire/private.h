@@ -424,6 +424,7 @@ struct pw_context {
 
 	struct pw_mempool *pool;		/**< global memory pool */
 
+	uint64_t stamp;
 	uint64_t serial;
 	struct pw_map globals;			/**< map of globals */
 
@@ -713,6 +714,9 @@ struct pw_impl_node {
 	struct spa_fraction latency;		/**< requested latency */
 	struct spa_fraction max_latency;	/**< maximum latency */
 	struct spa_fraction rate;		/**< requested rate */
+	uint32_t force_quantum;			/**< forced quantum */
+	uint32_t force_rate;			/**< forced rate */
+	uint32_t stamp;				/**< stamp of last update */
 	struct spa_source source;		/**< source to remotely trigger this node */
 	struct pw_memblock *activation;
 	struct {

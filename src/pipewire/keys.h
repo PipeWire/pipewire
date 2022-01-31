@@ -161,10 +161,14 @@ extern "C" {
 								  *  node as a fraction. Ex: 1024/48000 */
 #define PW_KEY_NODE_LOCK_QUANTUM	"node.lock-quantum"	/**< don't change quantum when this node
 								  *  is active */
+#define PW_KEY_NODE_FORCE_QUANTUM	"node.force-quantum"	/**< force a quantum while the node is
+								  *  active */
 #define PW_KEY_NODE_RATE		"node.rate"		/**< the requested rate of the graph as
 								  *  a fraction. Ex: 1/48000 */
 #define PW_KEY_NODE_LOCK_RATE		"node.lock-rate"	/**< don't change rate when this node
 								  *  is active */
+#define PW_KEY_NODE_FORCE_RATE		"node.force-rate"	/**< force a rate while the node is
+								  *  active */
 
 #define PW_KEY_NODE_DONT_RECONNECT	"node.dont-reconnect"	/**< don't reconnect this node */
 #define PW_KEY_NODE_ALWAYS_PROCESS	"node.always-process"	/**< process even when unlinked */

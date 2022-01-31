@@ -111,7 +111,6 @@ struct stream {
 	unsigned int adjust_latency:1;
 	unsigned int is_underrun:1;
 	unsigned int in_prebuf:1;
-	unsigned int done:1;
 	unsigned int killed:1;
 	unsigned int pending:1;
 };

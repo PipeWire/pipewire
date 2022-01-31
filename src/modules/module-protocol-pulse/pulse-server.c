@@ -970,7 +970,7 @@ static void stream_control_info(void *data, uint32_t id,
 	}
 }
 
-static void on_stream_cleanup(void *obj, void *data, int res, uint32_t id)
+static void do_destroy_stream(void *obj, void *data, int res, uint32_t id)
 {
 	struct stream *stream = obj;
 	struct client *client = stream->client;
@@ -985,27 +985,29 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 	struct stream *stream = data;
 	struct client *client = stream->client;
 	struct impl *impl = client->impl;
+	bool destroy_stream = false;
 
 	switch (state) {
 	case PW_STREAM_STATE_ERROR:
 		reply_error(client, -1, stream->create_tag, -EIO);
-		stream->done = true;
+		destroy_stream = true;
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:
 		if (stream->create_tag != SPA_ID_INVALID)
 			reply_error(client, -1, stream->create_tag, -ENOENT);
 		else
 			stream->killed = true;
-		stream->done = true;
+		destroy_stream = true;
 		break;
 	case PW_STREAM_STATE_CONNECTING:
 	case PW_STREAM_STATE_PAUSED:
 	case PW_STREAM_STATE_STREAMING:
 		break;
 	}
-	if (stream->done) {
+
+	if (destroy_stream) {
 		pw_work_queue_add(impl->work_queue, stream, 0,
-				on_stream_cleanup, client);
+				do_destroy_stream, NULL);
 	}
 }
 

@@ -2159,7 +2159,7 @@ static int do_finish_upload_stream(struct client *client, uint32_t command, uint
 			channel, name);
 
 	struct sample *old = find_sample(impl, SPA_ID_INVALID, name);
-	if (old == NULL || (old != NULL && old->ref > 1)) {
+	if (old == NULL || old->ref > 1) {
 		sample = calloc(1, sizeof(*sample));
 		if (sample == NULL)
 			goto error_errno;

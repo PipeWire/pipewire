@@ -36,8 +36,6 @@
 PW_LOG_TOPIC_EXTERN(log_global);
 #define PW_LOG_TOPIC_DEFAULT log_global
 
-static uint64_t serial = 0;
-
 /** \cond */
 struct impl {
 	struct pw_global this;
@@ -122,10 +120,11 @@ error_cleanup:
 SPA_EXPORT
 uint64_t pw_global_get_serial(struct pw_global *global)
 {
+	struct pw_context *context = global->context;
 	if (global->serial == SPA_ID_INVALID)
-		global->serial = serial++;
-	if ((uint32_t)serial == SPA_ID_INVALID)
-		serial++;
+		global->serial = context->serial++;
+	if ((uint32_t)context->serial == SPA_ID_INVALID)
+		context->serial++;
 	return global->serial;
 }
 

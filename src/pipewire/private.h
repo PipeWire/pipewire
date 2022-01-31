@@ -424,6 +424,7 @@ struct pw_context {
 
 	struct pw_mempool *pool;		/**< global memory pool */
 
+	uint64_t serial;
 	struct pw_map globals;			/**< map of globals */
 
 	struct spa_list core_impl_list;		/**< list of core_imp */

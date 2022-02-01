@@ -77,21 +77,9 @@ static int get_abs_path(char *path, size_t size, const char *prefix, const char 
 	return 0;
 }
 
-static int get_config_path(char *path, size_t size, const char *prefix, const char *name)
+static int get_envconf_path(char *path, size_t size, const char *prefix, const char *name)
 {
 	const char *dir;
-	char buffer[4096];
-	int res;
-
-	if (prefix == NULL) {
-		prefix = name;
-		name = NULL;
-	}
-	if ((res = get_abs_path(path, size, prefix, name)) != 0)
-		return res;
-
-	if (pw_check_option("no-config", "true"))
-		goto no_config;
 
 	dir = getenv("PIPEWIRE_CONFIG_DIR");
 	if (dir != NULL) {
@@ -99,7 +87,15 @@ static int get_config_path(char *path, size_t size, const char *prefix, const ch
 		if (make_path(path, size, paths) == 0 &&
 		    access(path, R_OK) == 0)
 			return 1;
+		return -ENOENT;
 	}
+	return 0;
+}
+
+static int get_homeconf_path(char *path, size_t size, const char *prefix, const char *name)
+{
+	char buffer[4096];
+	const char *dir;
 
 	dir = getenv("XDG_CONFIG_HOME");
 	if (dir != NULL) {
@@ -120,7 +116,12 @@ static int get_config_path(char *path, size_t size, const char *prefix, const ch
 		    access(path, R_OK) == 0)
 			return 1;
 	}
+	return 0;
+}
 
+static int get_configdir_path(char *path, size_t size, const char *prefix, const char *name)
+{
+	const char *dir;
 	dir = PIPEWIRE_CONFIG_DIR;
 	if (dir != NULL) {
 		const char *paths[] = { dir, prefix, name, NULL };
@@ -128,7 +129,12 @@ static int get_config_path(char *path, size_t size, const char *prefix, const ch
 		    access(path, R_OK) == 0)
 			return 1;
 	}
-no_config:
+	return 0;
+}
+
+static int get_confdata_path(char *path, size_t size, const char *prefix, const char *name)
+{
+	const char *dir;
 	dir = PIPEWIRE_CONFDATADIR;
 	if (dir != NULL) {
 		const char *paths[] = { dir, prefix, name, NULL };
@@ -139,10 +145,8 @@ no_config:
 	return 0;
 }
 
-static int get_state_path(char *path, size_t size, const char *prefix, const char *name)
+static int get_config_path(char *path, size_t size, const char *prefix, const char *name)
 {
-	const char *dir;
-	char buffer[4096];
 	int res;
 
 	if (prefix == NULL) {
@@ -152,13 +156,41 @@ static int get_state_path(char *path, size_t size, const char *prefix, const cha
 	if ((res = get_abs_path(path, size, prefix, name)) != 0)
 		return res;
 
+	if (pw_check_option("no-config", "true"))
+		goto no_config;
+
+	if ((res = get_envconf_path(path, size, prefix, name)) != 0)
+		return res;
+
+	if ((res = get_homeconf_path(path, size, prefix, name)) != 0)
+		return res;
+
+	if ((res = get_configdir_path(path, size, prefix, name)) != 0)
+		return res;
+no_config:
+	if ((res = get_confdata_path(path, size, prefix, name)) != 0)
+		return res;
+	return 0;
+}
+
+static int get_envstate_path(char *path, size_t size, const char *prefix, const char *name)
+{
+	const char *dir;
 	dir = getenv("PIPEWIRE_STATE_DIR");
 	if (dir != NULL) {
 		const char *paths[] = { dir, prefix, name, NULL };
 		if (make_path(path, size, paths) == 0 &&
 		    access(path, R_OK) == 0)
 			return 1;
+		return -ENOENT;
 	}
+	return 0;
+}
+
+static int get_homestate_path(char *path, size_t size, const char *prefix, const char *name)
+{
+	const char *dir;
+	char buffer[4096];
 
 	dir = getenv("XDG_STATE_HOME");
 	if (dir != NULL) {
@@ -186,6 +218,25 @@ static int get_state_path(char *path, size_t size, const char *prefix, const cha
 		    access(path, R_OK) == 0)
 			return 1;
 	}
+	return 0;
+}
+
+static int get_state_path(char *path, size_t size, const char *prefix, const char *name)
+{
+	int res;
+
+	if (prefix == NULL) {
+		prefix = name;
+		name = NULL;
+	}
+	if ((res = get_abs_path(path, size, prefix, name)) != 0)
+		return res;
+
+	if ((res = get_envstate_path(path, size, prefix, name)) != 0)
+		return res;
+
+	if ((res = get_homestate_path(path, size, prefix, name)) != 0)
+		return res;
 
 	return 0;
 }

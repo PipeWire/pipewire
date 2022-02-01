@@ -110,6 +110,9 @@ int pw_context_update_properties(struct pw_context *context, const struct spa_di
 
 /** Get a config section for this context. Since 0.3.22 */
 const char *pw_context_get_conf_section(struct pw_context *context, const char *section);
+/** Parse a config section for this context. Since 0.3.22 */
+int pw_context_parse_conf_section(struct pw_context *context,
+		struct pw_properties *conf, const char *section);
 
 /** update properties from section into props. Since 0.3.45 */
 int pw_context_conf_update_props(struct pw_context *context, const char *section,

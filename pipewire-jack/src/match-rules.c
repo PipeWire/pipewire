@@ -89,7 +89,7 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
 }
 
 int pw_jack_match_rules(const char *rules, size_t size, const struct spa_dict *props,
-		int (*matched) (void *data, const char *action, const char *val, int len),
+		int (*matched) (void *data, const char *action, const char *val, size_t len),
 		void *data)
 {
 	const char *val;

@@ -45,6 +45,7 @@
 #include <spa/utils/json.h>
 
 #include <pipewire/impl.h>
+#include <pipewire/private.h>
 
 PW_LOG_TOPIC_EXTERN(log_conf);
 #define PW_LOG_TOPIC_DEFAULT log_conf
@@ -417,17 +418,25 @@ int pw_conf_load_state(const char *prefix, const char *name, struct pw_propertie
 	return conf_load(path, prefix, name, conf);
 }
 
+struct data {
+	struct pw_context *context;
+	struct pw_properties *props;
+	int count;
+};
+
 /* context.spa-libs = {
  *  <factory-name regex> = <library-name>
  * }
  */
-static int parse_spa_libs(struct pw_context *context, char *str)
+static int parse_spa_libs(void *user_data, const char *location,
+		const char *section, const char *str, size_t len)
 {
+	struct data *d = user_data;
+	struct pw_context *context = d->context;
 	struct spa_json it[2];
 	char key[512], value[512];
-	int count = 0;
 
-	spa_json_init(&it[0], str, strlen(str));
+	spa_json_init(&it[0], str, len);
 	if (spa_json_enter_object(&it[0], &it[1]) < 0) {
 		pw_log_error("config file error: context.spa-libs is not an object");
 		return -EINVAL;
@@ -436,10 +445,10 @@ static int parse_spa_libs(struct pw_context *context, char *str)
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 		if (spa_json_get_string(&it[1], value, sizeof(value)) > 0) {
 			pw_context_add_spa_lib(context, key, value);
-			count++;
+			d->count++;
 		}
 	}
-	return count;
+	return 0;
 }
 
 static int load_module(struct pw_context *context, const char *key, const char *args, const char *flags)
@@ -470,16 +479,21 @@ static int load_module(struct pw_context *context, const char *key, const char *
  *   }
  * ]
  */
-static int parse_modules(struct pw_context *context, char *str)
+static int parse_modules(void *user_data, const char *location,
+		const char *section, const char *str, size_t len)
 {
+	struct data *d = user_data;
+	struct pw_context *context = d->context;
 	struct spa_json it[3];
-	char key[512];
-	int res = 0, count = 0;
+	char key[512], *s;
+	int res = 0;
 
-	spa_json_init(&it[0], str, strlen(str));
+	s = strndup(str, len);
+	spa_json_init(&it[0], s, len);
 	if (spa_json_enter_array(&it[0], &it[1]) < 0) {
 		pw_log_error("config file error: context.modules is not an array");
-		return -EINVAL;
+		res = -EINVAL;
+		goto exit;
 	}
 
 	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
@@ -514,8 +528,10 @@ static int parse_modules(struct pw_context *context, char *str)
 		if (res < 0)
 			break;
 
-		res = ++count;
+		d->count++;
 	}
+exit:
+	free(s);
 	return res;
 }
 
@@ -554,16 +570,21 @@ static int create_object(struct pw_context *context, const char *key, const char
  *   }
  * ]
  */
-static int parse_objects(struct pw_context *context, char *str)
+static int parse_objects(void *user_data, const char *location,
+		const char *section, const char *str, size_t len)
 {
+	struct data *d = user_data;
+	struct pw_context *context = d->context;
 	struct spa_json it[3];
-	char key[512];
-	int res = 0, count = 0;
+	char key[512], *s;
+	int res = 0;
 
-	spa_json_init(&it[0], str, strlen(str));
+	s = strndup(str, len);
+	spa_json_init(&it[0], s, len);
 	if (spa_json_enter_array(&it[0], &it[1]) < 0) {
 		pw_log_error("config file error: context.objects is not an array");
-		return -EINVAL;
+		res = -EINVAL;
+		goto exit;
 	}
 
 	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
@@ -598,8 +619,10 @@ static int parse_objects(struct pw_context *context, char *str)
 
 		if (res < 0)
 			break;
-		res = ++count;
+		d->count++;
 	}
+exit:
+	free(s);
 	return res;
 }
 
@@ -641,16 +664,21 @@ static int do_exec(struct pw_context *context, const char *key, const char *args
  *   }
  * ]
  */
-static int parse_exec(struct pw_context *context, char *str)
+static int parse_exec(void *user_data, const char *location,
+		const char *section, const char *str, size_t len)
 {
+	struct data *d = user_data;
+	struct pw_context *context = d->context;
 	struct spa_json it[3];
-	char key[512];
-	int res = 0, count = 0;
+	char key[512], *s;
+	int res = 0;
 
-	spa_json_init(&it[0], str, strlen(str));
+	s = strndup(str, len);
+	spa_json_init(&it[0], s, len);
 	if (spa_json_enter_array(&it[0], &it[1]) < 0) {
 		pw_log_error("config file error: context.exec is not an array");
-		return -EINVAL;
+		res = -EINVAL;
+		goto exit;
 	}
 
 	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
@@ -677,8 +705,28 @@ static int parse_exec(struct pw_context *context, char *str)
 		if (res < 0)
 			break;
 
-		res = ++count;
+		d->count++;
 	}
+exit:
+	free(s);
+	return res;
+}
+
+SPA_EXPORT
+int pw_context_conf_section_for_each(struct pw_context *context, const char *section,
+		int (*callback) (void *data, const char *location, const char *section,
+			const char *str, size_t len),
+		void *data)
+{
+	struct pw_properties *conf = context->conf;
+	const char *str, *path;
+	int res;
+
+	if ((str = pw_properties_get(conf, section)) == NULL)
+		return 0;
+
+	path = pw_properties_get(conf, "config.path");
+	res = callback(data, path, section, str, strlen(str));
 	return res;
 }
 
@@ -686,27 +734,22 @@ SPA_EXPORT
 int pw_context_parse_conf_section(struct pw_context *context,
 		struct pw_properties *conf, const char *section)
 {
-	const char *str;
-	char *s;
-	int res;
-
-	if ((str = pw_properties_get(conf, section)) == NULL)
-		return 0;
-
-	s = strdup(str);
+	struct data data = { .context = context };
 
 	if (spa_streq(section, "context.spa-libs"))
-		res = parse_spa_libs(context, s);
+		pw_context_conf_section_for_each(context, section,
+				parse_spa_libs, &data);
 	else if (spa_streq(section, "context.modules"))
-		res = parse_modules(context, s);
+		pw_context_conf_section_for_each(context, section,
+				parse_modules, &data);
 	else if (spa_streq(section, "context.objects"))
-		res = parse_objects(context, s);
+		pw_context_conf_section_for_each(context, section,
+				parse_objects, &data);
 	else if (spa_streq(section, "context.exec"))
-		res = parse_exec(context, s);
+		pw_context_conf_section_for_each(context, section,
+				parse_exec, &data);
 	else
-		res = -EINVAL;
+		data.count = -EINVAL;
 
-	free(s);
-
-	return res;
+	return data.count;
 }

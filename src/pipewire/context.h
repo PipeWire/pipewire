@@ -114,6 +114,11 @@ const char *pw_context_get_conf_section(struct pw_context *context, const char *
 /** update properties from section into props. Since 0.3.45 */
 int pw_context_conf_update_props(struct pw_context *context, const char *section,
 		struct pw_properties *props);
+/** emit callback for all config sections. Since 0.3.45 */
+int pw_context_conf_section_for_each(struct pw_context *context, const char *section,
+		int (*callback) (void *data, const char *location, const char *section,
+			const char *str, size_t len),
+		void *data);
 
 /** Get the context support objects */
 const struct spa_support *pw_context_get_support(struct pw_context *context, uint32_t *n_support);

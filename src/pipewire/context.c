@@ -537,20 +537,6 @@ const char *pw_context_get_conf_section(struct pw_context *context, const char *
 	return pw_properties_get(context->conf, section);
 }
 
-SPA_EXPORT
-int pw_context_conf_update_props(struct pw_context *context,
-		const char *section, struct pw_properties *props)
-{
-	struct pw_properties *conf = context->conf;
-	const char *str;
-	int count = 0;
-
-	if ((str = pw_properties_get(conf, section)) != NULL)
-		count = pw_properties_update_string(props, str, strlen(str));
-
-	return count;
-}
-
 /** Update context properties
  *
  * \param context a context

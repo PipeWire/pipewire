@@ -753,3 +753,21 @@ int pw_context_parse_conf_section(struct pw_context *context,
 
 	return data.count;
 }
+
+static int update_props(void *user_data, const char *location, const char *key,
+			const char *val, size_t len)
+{
+	struct data *data = user_data;
+	data->count += pw_properties_update_string(data->props, val, len);
+	return 0;
+}
+
+SPA_EXPORT
+int pw_context_conf_update_props(struct pw_context *context,
+		const char *section, struct pw_properties *props)
+{
+	struct data data = { .context = context, .props = props };
+	pw_context_conf_section_for_each(context, section,
+				update_props, &data);
+	return data.count;
+}

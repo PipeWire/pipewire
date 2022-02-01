@@ -65,31 +65,30 @@ static int make_path(char *path, size_t size, const char *paths[])
 	return 0;
 }
 
-static int get_config_path(char *path, size_t size, const char *prefix, const char *name)
+static int get_abs_path(char *path, size_t size, const char *prefix, const char *name)
 {
-	const char *dir;
-	char buffer[4096];
-
-	if (name[0] == '/') {
-		const char *paths[] = { name, NULL };
-		if (make_path(path, size, paths) == 0 &&
-		    access(path, R_OK) == 0)
-			return 1;
-		return -ENOENT;
-	}
-
-	if (prefix && prefix[0] == '/') {
+	if (prefix[0] == '/') {
 		const char *paths[] = { prefix, name, NULL };
 		if (make_path(path, size, paths) == 0 &&
 		    access(path, R_OK) == 0)
 			return 1;
 		return -ENOENT;
 	}
+	return 0;
+}
+
+static int get_config_path(char *path, size_t size, const char *prefix, const char *name)
+{
+	const char *dir;
+	char buffer[4096];
+	int res;
 
 	if (prefix == NULL) {
 		prefix = name;
 		name = NULL;
 	}
+	if ((res = get_abs_path(path, size, prefix, name)) != 0)
+		return res;
 
 	if (pw_check_option("no-config", "true"))
 		goto no_config;
@@ -144,27 +143,14 @@ static int get_state_path(char *path, size_t size, const char *prefix, const cha
 {
 	const char *dir;
 	char buffer[4096];
-
-	if (name[0] == '/') {
-		const char *paths[] = { name, NULL };
-		if (make_path(path, size, paths) == 0 &&
-		    access(path, R_OK) == 0)
-			return 1;
-		return -ENOENT;
-	}
-
-	if (prefix && prefix[0] == '/') {
-		const char *paths[] = { prefix, name, NULL };
-		if (make_path(path, size, paths) == 0 &&
-		    access(path, R_OK) == 0)
-			return 1;
-		return -ENOENT;
-	}
+	int res;
 
 	if (prefix == NULL) {
 		prefix = name;
 		name = NULL;
 	}
+	if ((res = get_abs_path(path, size, prefix, name)) != 0)
+		return res;
 
 	dir = getenv("PIPEWIRE_STATE_DIR");
 	if (dir != NULL) {

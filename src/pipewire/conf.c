@@ -350,7 +350,8 @@ error:
 	return res;
 }
 
-static int conf_load(const char *path, struct pw_properties *conf)
+static int conf_load(const char *path, const char *prefix, const char *name,
+		struct pw_properties *conf)
 {
 	char *data;
 	struct stat sbuf;
@@ -370,6 +371,10 @@ static int conf_load(const char *path, struct pw_properties *conf)
 
 	pw_properties_update_string(conf, data, sbuf.st_size);
 	munmap(data, sbuf.st_size);
+
+	pw_properties_set(conf, "config.path", path);
+	pw_properties_set(conf, "config.prefix", prefix);
+	pw_properties_set(conf, "config.name", name);
 
 	return 0;
 
@@ -392,8 +397,7 @@ int pw_conf_load_conf(const char *prefix, const char *name, struct pw_properties
 		pw_log_debug("%p: can't load config '%s': %m", conf, path);
 		return -ENOENT;
 	}
-
-	return conf_load(path, conf);
+	return conf_load(path, prefix, name, conf);
 }
 
 SPA_EXPORT
@@ -410,8 +414,7 @@ int pw_conf_load_state(const char *prefix, const char *name, struct pw_propertie
 		pw_log_debug("%p: can't load config '%s': %m", conf, path);
 		return -ENOENT;
 	}
-
-	return conf_load(path, conf);
+	return conf_load(path, prefix, name, conf);
 }
 
 /* context.spa-libs = {

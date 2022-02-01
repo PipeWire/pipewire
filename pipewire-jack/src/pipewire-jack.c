@@ -3093,6 +3093,19 @@ static int execute_match(void *data, const char *action, const char *val, int le
 	return 1;
 }
 
+static int apply_jack_rules(void *data, const char *location, const char *section,
+		const char *str, size_t len)
+{
+	struct client *client = data;
+	const struct pw_properties *p =
+		pw_context_get_properties(client->context.context);
+
+	if (p != NULL)
+		pw_jack_match_rules(str, len, &p->dict, execute_match, client);
+
+	return 0;
+}
+
 SPA_EXPORT
 jack_client_t * jack_client_open (const char *client_name,
                                   jack_options_t options,
@@ -3157,14 +3170,8 @@ jack_client_t * jack_client_open (const char *client_name,
 		pw_properties_update_string(client->props, str, strlen(str));
 
 
-	if ((str = pw_context_get_conf_section(client->context.context,
-					"jack.rules")) != NULL) {
-		const struct pw_properties *p =
-			pw_context_get_properties(client->context.context);
-		if (p != NULL)
-			pw_jack_match_rules(str, strlen(str), &p->dict,
-				execute_match, client);
-	}
+	pw_context_conf_section_for_each(client->context.context, "jack.rules",
+			apply_jack_rules, client);
 
 	client->show_monitor = pw_properties_get_bool(client->props, "jack.show-monitor", true);
 	client->merge_monitor = pw_properties_get_bool(client->props, "jack.merge-monitor", false);

@@ -170,15 +170,19 @@ static int client_rule_matched(void *data, const char *action, const char *val, 
 	return 0;
 }
 
+static int apply_pulse_rules(void *data, const char *location, const char *section,
+		const char *str, size_t len)
+{
+	struct client *client = data;
+	pw_conf_match_rules(str, len, &client->props->dict,
+			client_rule_matched, client);
+	return 0;
+}
+
 int client_update_quirks(struct client *client)
 {
 	struct impl *impl = client->impl;
 	struct pw_context *context = impl->context;
-	const char *rules;
-
-	if ((rules = pw_context_get_conf_section(context, "pulse.rules")) == NULL)
-		return 0;
-
-	return pw_conf_match_rules(rules, strlen(rules), &client->props->dict,
-			client_rule_matched, client);
+	return pw_context_conf_section_for_each(context, "pulse.rules",
+			apply_pulse_rules, client);
 }

@@ -1209,8 +1209,7 @@ filter_new(struct pw_context *context, const char *name,
 		res = -errno;
 		goto error_properties;
 	}
-	if ((str = pw_context_get_conf_section(context, "filter.properties")) != NULL)
-		pw_properties_update_string(props, str, strlen(str));
+	pw_context_conf_update_props(context, "filter.properties", props);
 
 	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL && extra) {
 		str = pw_properties_get(extra, PW_KEY_APP_NAME);

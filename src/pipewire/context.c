@@ -273,10 +273,8 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	n_support = pw_get_support(this->support, SPA_N_ELEMENTS(this->support) - 6);
 	cpu = spa_support_find(this->support, n_support, SPA_TYPE_INTERFACE_CPU);
 
-	if ((str = pw_properties_get(conf, "context.properties")) != NULL) {
-		pw_properties_update_string(properties, str, strlen(str));
-		pw_log_info("%p: parsed context.properties section", this);
-	}
+	res = pw_context_conf_update_props(this, "context.properties", properties);
+	pw_log_info("%p: parsed %d context.properties items", this, res);
 
 	if ((str = getenv("PIPEWIRE_CORE"))) {
 		pw_log_info("using core.name from environment: %s", str);
@@ -537,6 +535,20 @@ SPA_EXPORT
 const char *pw_context_get_conf_section(struct pw_context *context, const char *section)
 {
 	return pw_properties_get(context->conf, section);
+}
+
+SPA_EXPORT
+int pw_context_conf_update_props(struct pw_context *context,
+		const char *section, struct pw_properties *props)
+{
+	struct pw_properties *conf = context->conf;
+	const char *str;
+	int count = 0;
+
+	if ((str = pw_properties_get(conf, section)) != NULL)
+		count = pw_properties_update_string(props, str, strlen(str));
+
+	return count;
 }
 
 /** Update context properties

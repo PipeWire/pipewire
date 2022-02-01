@@ -3150,9 +3150,8 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->allow_mlock = client->context.context->settings.mem_allow_mlock;
 	client->warn_mlock = client->context.context->settings.mem_warn_mlock;
 
-	if ((str = pw_context_get_conf_section(client->context.context,
-					"jack.properties")) != NULL)
-		pw_properties_update_string(client->props, str, strlen(str));
+	pw_context_conf_update_props(client->context.context,
+			"jack.properties", client->props);
 
         if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
 		pw_properties_update_string(client->props, str, strlen(str));

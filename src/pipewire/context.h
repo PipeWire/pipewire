@@ -111,6 +111,10 @@ int pw_context_update_properties(struct pw_context *context, const struct spa_di
 /** Get a config section for this context. Since 0.3.22 */
 const char *pw_context_get_conf_section(struct pw_context *context, const char *section);
 
+/** update properties from section into props. Since 0.3.45 */
+int pw_context_conf_update_props(struct pw_context *context, const char *section,
+		struct pw_properties *props);
+
 /** Get the context support objects */
 const struct spa_support *pw_context_get_support(struct pw_context *context, uint32_t *n_support);
 

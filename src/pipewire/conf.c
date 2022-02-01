@@ -351,37 +351,69 @@ error:
 	return res;
 }
 
-static int conf_load(const char *path, const char *prefix, const char *name,
-		struct pw_properties *conf)
+static int conf_for_each(const char *path, const char *section,
+		int (*callback)(void *user_data, const char *location, const char *section,
+			const char *val, size_t len), void *user_data)
 {
 	char *data;
 	struct stat sbuf;
-	int fd;
+	int fd, len, res;
+	struct spa_json it[2];
+	char key[1024];
+	const char *val;
 
 	if ((fd = open(path,  O_CLOEXEC | O_RDONLY)) < 0)  {
-		pw_log_warn("%p: error loading config '%s': %m", conf, path);
+		pw_log_warn("%p: error loading config '%s': %m", user_data, path);
 		return -errno;
 	}
 
-	pw_log_info("%p: loading config '%s'", conf, path);
+	pw_log_info("%p: loading config '%s'", user_data, path);
 	if (fstat(fd, &sbuf) < 0)
 		goto error_close;
 	if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
 		goto error_close;
 	close(fd);
 
-	pw_properties_update_string(conf, data, sbuf.st_size);
-	munmap(data, sbuf.st_size);
+	spa_json_init(&it[0], data, sbuf.st_size);
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+		spa_json_init(&it[1], data, sbuf.st_size);
 
-	pw_properties_set(conf, "config.path", path);
-	pw_properties_set(conf, "config.prefix", prefix);
-	pw_properties_set(conf, "config.name", name);
+	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+		if ((len = spa_json_next(&it[1], &val)) <= 0)
+			break;
+
+		if (section && !spa_streq(key, section))
+			continue;
+
+		if (spa_json_is_null(val, len))
+			val = NULL;
+		else if (spa_json_is_container(val, len))
+			len = spa_json_container_len(&it[1], val, len);
+
+		if ((res = callback(user_data, path, key, val, len)) != 0)
+			return res;
+	}
+	munmap(data, sbuf.st_size);
 
 	return 0;
 
 error_close:
 	close(fd);
 	return -errno;
+}
+
+static int update_conf(void *user_data, const char *location, const char *key,
+			const char *val, size_t len)
+{
+	struct pw_properties *conf = user_data;
+	char *v = NULL;
+
+	if (val != NULL && (v = malloc(len+1)) != NULL)
+		spa_json_parse_stringn(val, len, v, len+1);
+
+	pw_properties_set(conf, key, v);
+	free(v);
+	return 0;
 }
 
 SPA_EXPORT
@@ -398,7 +430,11 @@ int pw_conf_load_conf(const char *prefix, const char *name, struct pw_properties
 		pw_log_debug("%p: can't load config '%s': %m", conf, path);
 		return -ENOENT;
 	}
-	return conf_load(path, prefix, name, conf);
+	pw_properties_set(conf, "config.path", path);
+	pw_properties_set(conf, "config.prefix", prefix);
+	pw_properties_set(conf, "config.name", name);
+
+	return conf_for_each(path, NULL, update_conf, conf);
 }
 
 SPA_EXPORT
@@ -415,7 +451,7 @@ int pw_conf_load_state(const char *prefix, const char *name, struct pw_propertie
 		pw_log_debug("%p: can't load config '%s': %m", conf, path);
 		return -ENOENT;
 	}
-	return conf_load(path, prefix, name, conf);
+	return conf_for_each(path, NULL, update_conf, conf);
 }
 
 struct data {

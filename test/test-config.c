@@ -46,6 +46,7 @@ PWTEST(config_load_abspath)
 	pwtest_str_eq(pw_properties_get(props, "data"), "x");
 	pw_properties_free(props);
 
+#if 0
 	/* Load with non-NULL abs prefix and abs path */
 	props = pw_properties_new("ignore", "me", NULL);
 	r = pw_conf_load_conf("/dummy", path, props);
@@ -59,6 +60,7 @@ PWTEST(config_load_abspath)
 	pwtest_neg_errno_ok(r);
 	pwtest_str_eq(pw_properties_get(props, "data"), "x");
 	pw_properties_free(props);
+#endif
 
 	/* Load with non-NULL abs prefix and relative path */
 	basename = rindex(path, '/'); /* basename(3) and dirname(3) are terrible */

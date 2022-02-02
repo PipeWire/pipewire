@@ -493,9 +493,11 @@ int format_parse_param(const struct spa_pod *param, struct sample_spec *ss, stru
 		        ss->channels = info.info.raw.channels;
 	}
 	if (map) {
-		map->channels = info.info.raw.channels;
-		for (i = 0; i < map->channels; i++)
-			map->map[i] = info.info.raw.position[i];
+		if (info.info.raw.channels) {
+			map->channels = info.info.raw.channels;
+			for (i = 0; i < map->channels; i++)
+				map->map[i] = info.info.raw.position[i];
+		}
 	}
 	return 0;
 }

@@ -33,6 +33,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <dirent.h>
 #if HAVE_PWD_H
 #include <pwd.h>
 #endif
@@ -171,6 +172,47 @@ static int get_config_path(char *path, size_t size, const char *prefix, const ch
 no_config:
 	if ((res = get_confdata_path(path, size, prefix, name)) != 0)
 		return res;
+	return 0;
+}
+
+static int get_config_dir(char *path, size_t size, const char *prefix, const char *name, int *level)
+{
+	int res;
+
+	if (prefix == NULL) {
+		prefix = name;
+		name = NULL;
+	}
+	if ((res = get_abs_path(path, size, prefix, name)) != 0) {
+		if ((*level)++ == 0)
+			return res;
+		return -ENOENT;
+	}
+
+	if ((res = get_envconf_path(path, size, prefix, name)) != 0) {
+		if ((*level)++ == 0)
+			return res;
+		return -ENOENT;
+	}
+
+	if (*level == 0) {
+		(*level)++;
+		if ((res = get_confdata_path(path, size, prefix, name)) != 0)
+			return res;
+	}
+	if (pw_check_option("no-config", "true"))
+		return 0;
+
+	if (*level == 1) {
+		(*level)++;
+		if ((res = get_configdir_path(path, size, prefix, name)) != 0)
+			return res;
+	}
+	if (*level == 2) {
+		(*level)++;
+		if ((res = get_homeconf_path(path, size, prefix, name)) != 0)
+			return res;
+	}
 	return 0;
 }
 
@@ -380,10 +422,32 @@ error:
 	return -errno;
 }
 
+static void add_override(struct pw_properties *conf, struct pw_properties *override,
+		const char *path, int level, int index)
+{
+	const struct spa_dict_item *it;
+	char key[1024];
+	snprintf(key, sizeof(key), "override.%d.%d.config.path", level, index);
+	pw_properties_set(conf, key, path);
+	spa_dict_for_each(it, &override->dict) {
+		snprintf(key, sizeof(key), "override.%d.%d.%s", level, index, it->key);
+		pw_properties_set(conf, key, it->value);
+	}
+}
+
+static int conf_filter(const struct dirent *entry)
+{
+	return spa_strendswith(entry->d_name, ".conf");
+}
+
 SPA_EXPORT
 int pw_conf_load_conf(const char *prefix, const char *name, struct pw_properties *conf)
 {
 	char path[PATH_MAX];
+	char fname[PATH_MAX + 256];
+	int i, res, level = 0;
+	struct pw_properties *override = NULL;
+	const char *dname;
 
 	if (name == NULL) {
 		pw_log_debug("%p: config name must not be NULL", conf);
@@ -394,11 +458,45 @@ int pw_conf_load_conf(const char *prefix, const char *name, struct pw_properties
 		pw_log_debug("%p: can't load config '%s': %m", conf, path);
 		return -ENOENT;
 	}
-	pw_properties_set(conf, "config.path", path);
 	pw_properties_set(conf, "config.prefix", prefix);
 	pw_properties_set(conf, "config.name", name);
+	pw_properties_set(conf, "config.path", path);
 
-	return conf_load(path, conf);
+	if ((res = conf_load(path, conf)) < 0)
+		return res;
+
+	pw_properties_setf(conf, "config.name.d", "%s.d", name);
+	dname = pw_properties_get(conf, "config.name.d");
+
+	while (true) {
+		struct dirent **entries = NULL;
+		int n;
+
+		if (get_config_dir(path, sizeof(path), prefix, dname, &level) <= 0)
+			break;
+
+		n = scandir(path, &entries, conf_filter, alphasort);
+		if (n == 0)
+			continue;
+		if (n < 0) {
+			pw_log_warn("scandir %s failed: %m", path);
+			continue;
+		}
+		if (override == NULL &&
+		    (override = pw_properties_new(NULL, NULL)) == NULL)
+			return -errno;
+
+		for (i = 0; i < n; i++) {
+			snprintf(fname, sizeof(fname), "%s/%s", path, entries[i]->d_name);
+			if (conf_load(fname, override) >= 0)
+				add_override(conf, override, fname, level, i);
+			pw_properties_clear(override);
+			free(entries[i]);
+		}
+		free(entries);
+	}
+	pw_properties_free(override);
+	return 0;
 }
 
 SPA_EXPORT
@@ -719,15 +817,27 @@ int pw_context_conf_section_for_each(struct pw_context *context, const char *sec
 		void *data)
 {
 	struct pw_properties *conf = context->conf;
-	const char *str, *path;
+	const char *path = NULL;
+	const struct spa_dict_item *it;
 	int res;
 
-	if ((str = pw_properties_get(conf, section)) == NULL)
-		return 0;
+	spa_dict_for_each(it, &conf->dict) {
+		if (spa_strendswith(it->key, "config.path")) {
+			path = it->value;
+			continue;
 
-	path = pw_properties_get(conf, "config.path");
-	pw_log_info("handle config '%s' section '%s'", path, section);
-	res = callback(data, path, section, str, strlen(str));
+		} else if (spa_streq(it->key, section)) {
+			pw_log_info("handle config '%s' section '%s'", path, section);
+		} else if (spa_strstartswith(it->key, "override.") &&
+		    spa_strendswith(it->key, section)) {
+			pw_log_info("handle override '%s' section '%s'", path, section);
+		} else
+			continue;
+
+		res = callback(data, path, section, it->value, strlen(it->value));
+		if (res != 0)
+			break;
+	}
 	return res;
 }
 

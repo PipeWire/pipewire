@@ -355,27 +355,28 @@ static int conf_load(const char *path, struct pw_properties *conf)
 {
 	char *data;
 	struct stat sbuf;
-	int fd;
+	int fd, count;
 
-	if ((fd = open(path,  O_CLOEXEC | O_RDONLY)) < 0)  {
-		pw_log_warn("%p: error loading config '%s': %m", conf, path);
-		return -errno;
-	}
+	if ((fd = open(path,  O_CLOEXEC | O_RDONLY)) < 0)
+		goto error;
 
-	pw_log_info("%p: loading config '%s'", conf, path);
 	if (fstat(fd, &sbuf) < 0)
 		goto error_close;
 	if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
 		goto error_close;
 	close(fd);
 
-	pw_properties_update_string(conf, data, sbuf.st_size);
+	count = pw_properties_update_string(conf, data, sbuf.st_size);
 	munmap(data, sbuf.st_size);
+
+	pw_log_info("%p: loaded config '%s' with %d items", conf, path, count);
 
 	return 0;
 
 error_close:
 	close(fd);
+error:
+	pw_log_warn("%p: error loading config '%s': %m", conf, path);
 	return -errno;
 }
 
@@ -725,6 +726,7 @@ int pw_context_conf_section_for_each(struct pw_context *context, const char *sec
 		return 0;
 
 	path = pw_properties_get(conf, "config.path");
+	pw_log_info("handle config '%s' section '%s'", path, section);
 	res = callback(data, path, section, str, strlen(str));
 	return res;
 }

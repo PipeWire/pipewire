@@ -1,3 +1,70 @@
+# PipeWire 0.3.45 (2022-02-03)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Zoom, telegram and other apps should be able to play sound again.
+  - Implement a better way to force and lock JACK buffersize.
+  - Default sink and source names and properties are improved.
+  - The config loader can now load and merge fragments in conf.d directories
+    for easier user configuration of config files.
+  - Many small bug fixes and improvements.
+
+## PipeWire
+  - pw-cli can now also send Commands to nodes. This can be used to Suspend
+    a device, for example.
+  - The eventfd was removed from loops and invoke is now used to stop the loop,
+    this saves an fd.
+  - New Alpine CI target to test musl builds, various build fixes.
+  - Add force-quantum and force-rate properties.
+  - The config loader can now load and merge fragments in conf.d directories.
+    (#207)
+  - resource error methods can be called without a resource and then just
+    log an error message.
+  - link-factory can now also work from the config. (#2095)
+
+## modules
+  - module-simple-protocol has better argument parsing and can handle
+    channelmap now. (#2068) It's also possible to configure latency and
+    rate.
+  - The native protocol now does extra checks for invalid data. (#2070)
+
+## ALSA
+  - TI2902 chips as found in various Behringer cards should have inputs
+    again.
+  - Better handling of busy devices in udev, retry when the inotify close
+    event is emited.
+
+## SPA
+  - plugins now handle alignment properly and only expect the max alignment
+    required for the CPU. (#2074)
+
+## Bluetooth
+  - SBC-XQ is now enabled for the JBL Endurance RUN BT headset.
+  - Support for non-hexadecimal XAPL version strings to improve compatibility.
+  - Use HCI commands again to probe the adapter msbc capability. This improves
+    compatibility with some adapters. (#2030)
+  - Set the right startup volume.
+  - Better A2DP source idle handling.
+  - Fix a timer bug in SCO sink that could cause busy looping.
+
+## pulse-server
+  - A playback issue when the tlength > maxlength was fixed. (#2069) This
+    affected Zoom and other applications.
+  - The STREAM_BUFFER_ATTR command is now implemented.
+  - Module names are improved. (#2076)
+  - Many small fixes and improvements.
+  - Fix a pavucontrol crash with invalid channels. (#1442)
+
+## JACK
+  - Use the new force-quantum and force-rate properties in the JACK API to
+    switch quantum and ensure it can't change for the lifetime of the JACK
+    app. (#2079)
+
+Older versions:
+
+
 # PipeWire 0.3.44 (2022-01-27)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -132,9 +199,6 @@ This is a bugfix release that is API and ABI compatible with previous
     the pipewire-pulse.conf file. Per-application latency and buffering
     properties can also be configured.
   - Fix a regression in telegram sounds not playing.
-
-
-Older versions:
 
 # PipeWire 0.3.43 (2022-01-05)
 

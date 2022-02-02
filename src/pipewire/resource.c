@@ -228,10 +228,16 @@ uint32_t pw_resource_get_bound_id(struct pw_resource *resource)
 static void SPA_PRINTF_FUNC(4, 0)
 pw_resource_errorv_id(struct pw_resource *resource, uint32_t id, int res, const char *error, va_list ap)
 {
-	struct pw_impl_client *client = resource->client;
-	if (client->core_resource != NULL)
-		pw_core_resource_errorv(client->core_resource,
-				id, client->recv_seq, res, error, ap);
+	struct pw_impl_client *client;
+
+	if (resource) {
+		client = resource->client;
+		if (client->core_resource != NULL)
+			pw_core_resource_errorv(client->core_resource,
+					id, client->recv_seq, res, error, ap);
+	} else {
+		pw_logtv(SPA_LOG_LEVEL_ERROR, PW_LOG_TOPIC_DEFAULT, error, ap);
+	}
 }
 
 SPA_EXPORT
@@ -239,7 +245,10 @@ void pw_resource_errorf(struct pw_resource *resource, int res, const char *error
 {
 	va_list ap;
 	va_start(ap, error);
-	pw_resource_errorv_id(resource, resource->id, res, error, ap);
+	if (resource)
+		pw_resource_errorv_id(resource, resource->id, res, error, ap);
+	else
+		pw_logtv(SPA_LOG_LEVEL_ERROR, PW_LOG_TOPIC_DEFAULT, error, ap);
 	va_end(ap);
 }
 
@@ -248,17 +257,25 @@ void pw_resource_errorf_id(struct pw_resource *resource, uint32_t id, int res, c
 {
 	va_list ap;
 	va_start(ap, error);
-	pw_resource_errorv_id(resource, id, res, error, ap);
+	if (resource)
+		pw_resource_errorv_id(resource, id, res, error, ap);
+	else
+		pw_logtv(SPA_LOG_LEVEL_ERROR, PW_LOG_TOPIC_DEFAULT, error, ap);
 	va_end(ap);
 }
 
 SPA_EXPORT
 void pw_resource_error(struct pw_resource *resource, int res, const char *error)
 {
-	struct pw_impl_client *client = resource->client;
-	if (client->core_resource != NULL)
-		pw_core_resource_error(client->core_resource,
-				resource->id, client->recv_seq, res, error);
+	struct pw_impl_client *client;
+	if (resource) {
+		client = resource->client;
+		if (client->core_resource != NULL)
+			pw_core_resource_error(client->core_resource,
+					resource->id, client->recv_seq, res, error);
+	} else {
+		pw_log_error("%s: %s", error, spa_strerror(res));
+	}
 }
 
 SPA_EXPORT

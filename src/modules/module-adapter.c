@@ -243,21 +243,16 @@ static void *create_object(void *_data,
 
 error_properties:
 	res = -EINVAL;
-	pw_log_error("factory %p: usage: " FACTORY_USAGE, d->this);
-	if (resource)
-		pw_resource_errorf_id(resource, new_id, res, "usage: " FACTORY_USAGE);
+	pw_resource_errorf_id(resource, new_id, res, "usage: " FACTORY_USAGE);
 	goto error_cleanup;
 error_errno:
 	res = -errno;
-	pw_log_error("can't create node: %m");
-	if (resource)
-		pw_resource_errorf_id(resource, new_id, res, "can't create node: %s", spa_strerror(res));
+	pw_resource_errorf_id(resource, new_id, res, "can't create node: %s", spa_strerror(res));
 	goto error_cleanup;
 error_usage:
 	res = -EINVAL;
 	pw_log_error("usage: "ADAPTER_USAGE);
-	if (resource)
-		pw_resource_errorf_id(resource, new_id, res, "usage: "ADAPTER_USAGE);
+	pw_resource_errorf_id(resource, new_id, res, "usage: "ADAPTER_USAGE);
 	goto error_cleanup;
 error_cleanup:
 	pw_properties_free(properties);

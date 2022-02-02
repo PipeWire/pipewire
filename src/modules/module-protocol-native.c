@@ -264,8 +264,7 @@ done:
 	return res;
 
 error:
-	if (client->core_resource)
-		pw_resource_errorf(client->core_resource, res, "client error %d (%s)",
+	pw_resource_errorf(client->core_resource, res, "client error %d (%s)",
 				res, spa_strerror(res));
 	goto done;
 }

@@ -121,15 +121,11 @@ static void *create_object(void *_data,
 	return result;
 
 error_resource:
-	pw_log_error("can't create resource: %s", spa_strerror(res));
-	if (resource)
-		pw_resource_errorf_id(resource, new_id, res,
+	pw_resource_errorf_id(resource, new_id, res,
 				"can't create resource: %s", spa_strerror(res));
 	goto error_exit;
 error_node:
-	pw_log_error("can't create metadata: %s", spa_strerror(res));
-	if (resource)
-		pw_resource_errorf_id(resource, new_id, res,
+	pw_resource_errorf_id(resource, new_id, res,
 				"can't create metadata: %s", spa_strerror(res));
 	goto error_exit_free;
 

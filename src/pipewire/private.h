@@ -360,7 +360,11 @@ pw_core_resource_errorv(struct pw_resource *resource, uint32_t id, int seq,
 	buffer[1023] = '\0';
 	pw_log_debug("resource %p: id:%d seq:%d res:%d (%s) msg:\"%s\"",
 			resource, id, seq, res, spa_strerror(res), buffer);
-	pw_core_resource_error(resource, id, seq, res, buffer);
+	if (resource)
+		pw_core_resource_error(resource, id, seq, res, buffer);
+	else
+		pw_log_error("id:%d seq:%d res:%d (%s) msg:\"%s\"",
+				id, seq, res, spa_strerror(res), buffer);
 }
 
 static inline SPA_PRINTF_FUNC(5,6) void

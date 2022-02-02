@@ -165,15 +165,10 @@ static void *create_object(void *_data,
 
 error_properties:
 	res = -EINVAL;
-	pw_log_error("factory %p: usage: " FACTORY_USAGE, data->this);
-	if (resource)
-		pw_resource_errorf_id(resource, new_id, res,
-				"usage: "FACTORY_USAGE);
+	pw_resource_errorf_id(resource, new_id, res, "usage: "FACTORY_USAGE);
 	goto error_exit_cleanup;
 error_device:
-	pw_log_debug("can't create device %s: %s", factory_name, spa_strerror(res));
-	if (resource)
-		pw_resource_errorf_id(resource, new_id, res,
+	pw_resource_errorf_id(resource, new_id, res,
 				"can't create device %s: %s", factory_name,
 				spa_strerror(res));
 	goto error_exit;

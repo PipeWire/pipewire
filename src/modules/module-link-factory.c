@@ -57,6 +57,7 @@ static const struct spa_dict_item module_props[] = {
 
 struct factory_data {
 	struct pw_impl_module *module;
+	struct pw_context *context;
 	struct pw_impl_factory *this;
 
 	struct spa_list link_list;
@@ -125,9 +126,13 @@ static void link_destroy(void *data)
 static void link_initialized(void *data)
 {
 	struct link_data *ld = data;
-	struct pw_impl_client *client = pw_resource_get_client(ld->factory_resource);
+	struct pw_impl_client *client;
 	int res;
 
+	if (ld->factory_resource == NULL)
+		return;
+
+	client = pw_resource_get_client(ld->factory_resource);
 	ld->global = pw_impl_link_get_global(ld->link);
 	pw_global_add_listener(ld->global, &ld->global_listener, &global_events, ld);
 
@@ -364,16 +369,13 @@ static void *create_object(void *_data,
 	struct pw_impl_client *client = NULL;
 	struct pw_impl_node *output_node, *input_node;
 	struct pw_impl_port *outport = NULL, *inport = NULL;
-	struct pw_context *context;
+	struct pw_context *context = d->context;
 	struct pw_impl_link *link;
 	const char *output_node_str, *input_node_str;
 	const char *output_port_str, *input_port_str;
 	struct link_data *ld;
 	int res;
 	bool linger;
-
-	client = pw_resource_get_client(resource);
-	context = pw_impl_client_get_context(client);
 
 	if (properties == NULL)
 		goto error_properties;
@@ -406,7 +408,9 @@ static void *create_object(void *_data,
 
 	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
 			pw_impl_factory_get_info(d->this)->id);
-	if (!linger)
+
+	client = resource ? pw_resource_get_client(resource) : NULL;
+	if (client && !linger)
 		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
 				pw_impl_client_get_info(client)->id);
 
@@ -524,6 +528,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	data = pw_impl_factory_get_user_data(factory);
 	data->this = factory;
 	data->module = module;
+	data->context = context;
 	data->work = pw_context_get_work_queue(context);
 	if (data->work == NULL) {
 		res = -errno;

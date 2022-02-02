@@ -140,6 +140,11 @@ _pw_log_topic_new(struct spa_log_topic *topic);
 #define pw_log_level_enabled(lev) (pw_log_level >= (lev))
 #define pw_log_topic_enabled(lev,t) ((t) && (t)->has_custom_level ? (t)->level >= (lev) : pw_log_level_enabled((lev)))
 
+#define pw_logtv(lev,topic,fmt,ap)						\
+({										\
+	if (SPA_UNLIKELY(pw_log_topic_enabled(lev,topic)))			\
+		pw_log_logtv(lev,topic,__FILE__,__LINE__,__func__,fmt,ap);	\
+})
 
 #define pw_logt(lev,topic,...)							\
 ({										\

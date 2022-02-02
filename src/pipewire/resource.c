@@ -31,8 +31,8 @@
 
 #include <spa/debug/types.h>
 
-PW_LOG_TOPIC_EXTERN(log_device);
-#define PW_LOG_TOPIC_DEFAULT log_device
+PW_LOG_TOPIC_EXTERN(log_resource);
+#define PW_LOG_TOPIC_DEFAULT log_resource
 
 /** \cond */
 struct impl {

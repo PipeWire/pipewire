@@ -4701,8 +4701,8 @@ static void handle_module_loaded(struct module *module, struct client *client, u
 	spa_assert(!SPA_RESULT_IS_ASYNC(result));
 
 	if (SPA_RESULT_IS_OK(result)) {
-		pw_log_info("[%s] loaded module index:%u name:%s",
-				client_name, module->index, module->name);
+		pw_log_info("[%s] loaded module index:%u name:%s tag:%d",
+				client_name, module->index, module->name, tag);
 
 		module->loaded = true;
 
@@ -4721,9 +4721,9 @@ static void handle_module_loaded(struct module *module, struct client *client, u
 		}
 	}
 	else {
-		pw_log_warn("%p: [%s] failed to load module index:%u name:%s result:%d (%s)",
+		pw_log_warn("%p: [%s] failed to load module index:%u name:%s tag:%d result:%d (%s)",
 				impl, client_name,
-				module->index, module->name,
+				module->index, module->name, tag,
 				result, spa_strerror(result));
 
 		module_schedule_unload(module);
@@ -4740,34 +4740,92 @@ struct pending_module {
 	struct module *module;
 	struct spa_hook module_listener;
 
+	struct spa_hook manager_listener;
+
 	uint32_t tag;
+
+	int result;
+	bool wait_sync;
 };
+
+static void finish_pending_module(struct pending_module *pm)
+{
+	spa_hook_remove(&pm->module_listener);
+
+	if (pm->client != NULL) {
+		spa_hook_remove(&pm->client_listener);
+		spa_hook_remove(&pm->manager_listener);
+	}
+
+	handle_module_loaded(pm->module, pm->client, pm->tag, pm->result);
+	free(pm);
+}
+
+static void on_load_module_manager_sync(void *data)
+{
+	struct pending_module *pm = data;
+
+	pw_log_debug("pending module %p: manager sync wait_sync:%d tag:%d",
+			pm, pm->wait_sync, pm->tag);
+
+	if (!pm->wait_sync)
+		return;
+
+	finish_pending_module(pm);
+}
 
 static void on_module_loaded(void *data, int result)
 {
 	struct pending_module *pm = data;
 
-	if (pm->client != NULL)
-		spa_hook_remove(&pm->client_listener);
+	pw_log_debug("pending module %p: loaded, result:%d tag:%d",
+			pm, result, pm->tag);
 
-	spa_hook_remove(&pm->module_listener);
+	pm->result = result;
 
-	handle_module_loaded(pm->module, pm->client, pm->tag, result);
+	/*
+	 * Do manager sync first: the module may have its own core, so
+	 * although things are completed on the server, our client
+	 * might not yet see them.
+	 */
 
-	free(pm);
+	if (pm->client == NULL) {
+		finish_pending_module(pm);
+	} else {
+		pw_log_debug("pending module %p: wait manager sync tag:%d", pm, pm->tag);
+		pm->wait_sync = true;
+		pw_manager_sync(pm->client->manager);
+	}
 }
 
 static void on_module_destroy(void *data)
 {
-	on_module_loaded(data, -ECANCELED);
+	struct pending_module *pm = data;
+
+	pw_log_debug("pending module %p: destroyed, tag:%d",
+			pm, pm->tag);
+
+	pm->result = -ECANCELED;
+	finish_pending_module(pm);
 }
 
 static void on_client_disconnect(void *data)
 {
 	struct pending_module *pm = data;
 
+	pw_log_debug("pending module %p: client disconnect tag:%d", pm, pm->tag);
+
 	spa_hook_remove(&pm->client_listener);
+	spa_hook_remove(&pm->manager_listener);
 	pm->client = NULL;
+
+	if (pm->wait_sync)
+		finish_pending_module(pm);
+}
+
+static void on_load_module_manager_disconnect(void *data)
+{
+	on_client_disconnect(data);
 }
 
 static int do_load_module(struct client *client, uint32_t command, uint32_t tag, struct message *m)
@@ -4781,9 +4839,15 @@ static int do_load_module(struct client *client, uint32_t command, uint32_t tag,
 		VERSION_CLIENT_EVENTS,
 		.disconnect = on_client_disconnect,
 	};
+	static const struct pw_manager_events manager_events = {
+		PW_VERSION_MANAGER_EVENTS,
+		.disconnect = on_load_module_manager_disconnect,
+		.sync = on_load_module_manager_sync,
+	};
 
 	const char *name, *argument;
 	struct module *module;
+	struct pending_module *pm;
 	int r;
 
 	if (message_get(m,
@@ -4799,21 +4863,24 @@ static int do_load_module(struct client *client, uint32_t command, uint32_t tag,
 	if (module == NULL)
 		return -errno;
 
+	pm = calloc(1, sizeof(*pm));
+	if (pm == NULL)
+		return -errno;
+
+	pm->tag = tag;
+	pm->client = client;
+	pm->module = module;
+
+	pw_log_debug("pending module %p: start tag:%d", pm, tag);
+
 	r = module_load(client, module);
-	if (SPA_RESULT_IS_ASYNC(r)) {
-		struct pending_module *pm = calloc(1, sizeof(*pm));
-		if (pm == NULL)
-			return -errno;
 
-		pm->tag = tag;
-		pm->client = client;
-		pm->module = module;
+	module_add_listener(module, &pm->module_listener, &module_events, pm);
+	client_add_listener(client, &pm->client_listener, &client_events, pm);
+	pw_manager_add_listener(client->manager, &pm->manager_listener, &manager_events, pm);
 
-		module_add_listener(module, &pm->module_listener, &module_events, pm);
-		client_add_listener(client, &pm->client_listener, &client_events, pm);
-	} else {
-		handle_module_loaded(module, client, tag, r);
-	}
+	if (!SPA_RESULT_IS_ASYNC(r))
+		on_module_loaded(pm, r);
 
 	/*
 	 * return 0 to prevent `handle_packet()` from sending a reply

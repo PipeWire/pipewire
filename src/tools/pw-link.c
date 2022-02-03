@@ -567,7 +567,7 @@ static void show_help(struct data *data, const char *name)
 		"  -I, --id                              List IDs\n"
 		"  -v, --verbose                         Verbose port properties\n"
 		"Connect: %1$s [options] output input\n"
-		"  -L, --linger                          Linger (for use with -m)\n"
+		"  -L, --linger                          Linger (for use without -m)\n"
 		"  -P, --passive                         Passive link\n"
 		"  -p, --props=PROPS                     Properties as JSON object\n"
 		"Disconnect: %1$s -d [options] output input\n"

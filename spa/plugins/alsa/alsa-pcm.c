@@ -1516,8 +1516,10 @@ static int set_swparams(struct state *state)
 	/* get the current params */
 	CHECK(snd_pcm_sw_params_current(hndl, params), "sw_params_current");
 
-	CHECK(snd_pcm_sw_params_set_tstamp_mode(hndl, params, SND_PCM_TSTAMP_ENABLE), "sw_params_set_tstamp_mode");
-
+	CHECK(snd_pcm_sw_params_set_tstamp_mode(hndl, params, SND_PCM_TSTAMP_ENABLE),
+			"sw_params_set_tstamp_mode");
+	CHECK(snd_pcm_sw_params_set_tstamp_type(hndl, params, SND_PCM_TSTAMP_TYPE_MONOTONIC),
+			"sw_params_set_tstamp_type");
 #if 0
 	snd_pcm_uframes_t boundary;
 	CHECK(snd_pcm_sw_params_get_boundary(params, &boundary), "get_boundary");

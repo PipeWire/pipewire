@@ -563,7 +563,7 @@ static void show_help(struct data *data, const char *name)
 		"  -o, --output                          List output ports\n"
 		"  -i, --input                           List input ports\n"
 		"  -l, --links                           List links\n"
-		"  -m, --monitor                         Monitor links\n"
+		"  -m, --monitor                         Monitor links and ports\n"
 		"  -I, --id                              List IDs\n"
 		"  -v, --verbose                         Verbose port properties\n"
 		"Connect: %1$s [options] output input\n"
@@ -662,6 +662,11 @@ int main(int argc, char *argv[])
 	if (argc == 1)
 		show_help(&data, argv[0]);
 
+	if (data.opt_id && (data.opt_mode & MODE_LIST) == 0) {
+		fprintf(stderr, "-I option needs one or more of -l, -i or -o\n");
+		return -1;
+	}
+
 	if ((data.opt_mode & MODE_MONITOR) == 0)
 		pw_properties_set(data.props, PW_KEY_OBJECT_LINGER, "true");
 
@@ -729,7 +734,7 @@ int main(int argc, char *argv[])
 		do_list(&data);
 	} else if (data.opt_mode & MODE_DISCONNECT) {
 		if (data.opt_output == NULL) {
-			fprintf(stderr, "missing link-id or output and input port names\n");
+			fprintf(stderr, "missing link-id or output and input port names to disconnect\n");
 			return -1;
 		}
 		if ((res = do_unlink_ports(&data)) < 0) {
@@ -739,7 +744,7 @@ int main(int argc, char *argv[])
 	} else {
 		if (data.opt_output == NULL ||
 		    data.opt_input == NULL) {
-			fprintf(stderr, "missing output and input port names\n");
+			fprintf(stderr, "missing output and input port names to connect\n");
 			return -1;
 		}
 		if ((res = do_link_ports(&data)) < 0) {

@@ -211,31 +211,12 @@ if host_machine.endian() == 'big'
   cdata.set('WORDS_BIGENDIAN', 1)
 endif
 
-check_headers = [['dlfcn.h','HAVE_DLFCN_H'],
-  ['inttypes.h', 'HAVE_INTTYPES_H'],
-  ['memory.h', 'HAVE_MEMORY_H'],
-  ['poll.h', 'HAVE_POLL_H'],
-  ['stddef.h', 'HAVE_STDDEF_H'],
-  ['stdint.h', 'HAVE_STDINT_H'],
-  ['stdio_ext.h', 'HAVE_STDIO_EXT_H'],
-  ['strings.h', 'HAVE_STRINGS_H'],
-  ['string.h', 'HAVE_STRING_H'],
+check_headers = [
   ['sys/mount.h', 'HAVE_SYS_MOUNT_H'],
   ['sys/param.h', 'HAVE_SYS_PARAM_H'],
-  ['sys/poll.h', 'HAVE_SYS_POLL_H'],
-  ['sys/prctl.h', 'HAVE_SYS_PRCTL_H'],
   ['sys/random.h', 'HAVE_SYS_RANDOM_H'],
-  ['sys/socket.h', 'HAVE_SYS_SOCKET_H'],
-  ['sys/stat.h', 'HAVE_SYS_STAT_H'],
-  ['sys/times.h', 'HAVE_SYS_TIMES_H'],
-  ['sys/time.h', 'HAVE_SYS_TIME_H'],
-  ['sys/types.h', 'HAVE_SYS_TYPES_H'],
-  ['sys/utsname.h', 'HAVE_SYS_UTSNAME_H'],
   ['sys/vfs.h', 'HAVE_SYS_VFS_H'],
-  ['sys/wait.h', 'HAVE_SYS_WAIT_H'],
   ['pwd.h', 'HAVE_PWD_H'],
-  ['ucontext.h', 'HAVE_UCONTEXT_H'],
-  ['unistd.h', 'HAVE_UNISTD_H'],
 ]
 
 foreach h : check_headers
@@ -244,37 +225,8 @@ foreach h : check_headers
   endif
 endforeach
 
-if cc.has_function('poll', prefix : '#include<poll.h>')
-  cdata.set('HAVE_POLL', 1)
-endif
-if cc.has_function('pselect', prefix : '#include<sys/select.h>')
-  cdata.set('HAVE_PSELECT', 1)
-endif
-cdata.set('HAVE_MMAP', 1)
-
-if cc.has_function('posix_memalign', prefix : '#include<stdlib.h>')
-  cdata.set('HAVE_POSIX_MEMALIGN', 1)
-endif
-if cc.has_function('getpagesize', prefix : '#include<unistd.h>')
-  cdata.set('HAVE_GETPAGESIZE', 1)
-endif
 if cc.has_function('gettid', prefix : '#include<unistd.h>', args: [ '-D_GNU_SOURCE' ])
   cdata.set('HAVE_GETTID', 1)
-endif
-if cc.has_function('clock_gettime', prefix : '#include <time.h>')
-  cdata.set('HAVE_CLOCK_GETTIME', 1)
-endif
-
-if cc.has_type('ptrdiff_t', prefix : '#include <stddef.h>')
-  cdata.set('HAVE_PTRDIFF_T', 1)
-endif
-
-if cc.has_header_symbol('string.h', 'strndupa', args : [ '-D_GNU_SOURCE' ])
-  cdata.set('HAVE_STRNDUPA', 1)
-endif
-
-if cc.has_function('mkstemp', prefix : '#include <stdlib.h>')
-  cdata.set('HAVE_MKSTEMP', 1)
 endif
 
 if cc.has_function('memfd_create', prefix : '#include <sys/mman.h>', args : [ '-D_GNU_SOURCE' ])

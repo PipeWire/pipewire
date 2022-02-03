@@ -1,5 +1,6 @@
 conf_files = [
   [ 'demonic.conf', 'demonic.conf' ],
+  [ 'duplicate-FL.conf', 'duplicate-FL.conf' ],
   [ 'sink-virtual-surround-5.1-kemar.conf', 'sink-virtual-surround-5.1-kemar.conf' ],
   [ 'sink-virtual-surround-7.1-hesuvi.conf', 'sink-virtual-surround-7.1-hesuvi.conf' ],
   [ 'sink-dolby-surround.conf', 'sink-dolby-surround.conf' ],

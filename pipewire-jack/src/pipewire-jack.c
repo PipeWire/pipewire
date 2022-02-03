@@ -863,6 +863,8 @@ static int do_sync(struct client *client)
 		pw_log_warn("sync requested from callback");
 		return 0;
 	}
+	if (client->error)
+		return client->last_res;
 
 	client->pending_sync = pw_proxy_sync((struct pw_proxy*)client->core, client->pending_sync);
 

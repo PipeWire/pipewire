@@ -2,6 +2,11 @@
 #
 # Copy and edit this file in @PIPEWIRE_CONFIG_DIR@ for system-wide changes
 # or in ~/.config/pipewire for local changes.
+#
+# It is also possible to place a file with an updated section in
+# @PIPEWIRE_CONFIG_DIR@/pipewire.conf.d/ for system-wide changes or in
+# ~/.config/pipewire/pipewire.conf.d/ for local changes.
+#
 
 context.properties = {
     ## Configure properties in the system.
@@ -24,7 +29,7 @@ context.properties = {
     #default.clock.rate          = 48000
     #default.clock.allowed-rates = [ 48000 ]
     #default.clock.quantum       = 1024
-    #default.clock.min-quantum   = 32
+    default.clock.min-quantum   = 16
     #default.clock.max-quantum   = 2048
     #default.clock.quantum-limit = 8192
     #default.video.width         = 640

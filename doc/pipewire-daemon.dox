@@ -62,8 +62,18 @@ for configuration files are:
 - `$sysconfdir/pipewire/pipewire.conf` (usually `/etc/pipewire/pipewire.conf`)
 - `$datadir/pipewire/pipewire.conf` (usually `/usr/share/pipewire/pipewire.conf`)
 
-The first configuration file found is loaded, the PipeWire daemon does not
-currently combine configuration files.
+The first configuration file found is loaded as the base configuration.
+
+Next, configuration sections are collected in the directories in this
+order:
+
+- `$datadir/pipewire/pipewire.conf.d/` (usually `/usr/share/pipewire/pipewire.conf.d/`)
+- `$sysconfdir/pipewire/pipewire.conf.d/` (usually `/etc/pipewire/pipewire.conf.d/`)
+- `$XDG_CONFIG_HOME/pipewire/pipewire.conf.d/` (usually `$HOME/.config/pipewire/pipewire.conf.d/`)
+
+They are applied to the global configuration file. Properties are overwritten
+and array elements are appended. This makes it possible to make small custom customizations
+or additions to the main configuration file.
 
 The environment variables `PIPEWIRE_CONFIG_DIR`, `PIPEWIRE_CONFIG_PREFIX`
 and `PIPEWIRE_CONFIG_NAME` can be used to specify an alternative config

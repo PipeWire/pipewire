@@ -32,7 +32,7 @@
 
 PWTEST(compat_sigabbrev_np)
 {
-#if !HAVE_SIGABBREV_NP
+#ifndef HAVE_SIGABBREV_NP
 	pwtest_str_eq(sigabbrev_np(SIGABRT), "ABRT");
 	pwtest_str_eq(sigabbrev_np(SIGSEGV), "SEGV");
 	pwtest_str_eq(sigabbrev_np(SIGSTOP), "STOP");

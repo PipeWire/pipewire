@@ -218,38 +218,29 @@ check_headers = [
 ]
 
 foreach h : check_headers
-  if cc.has_header(h.get(0))
-    cdata.set(h.get(1), 1)
-  endif
+  cdata.set(h.get(1), cc.has_header(h.get(0)))
 endforeach
 
-if cc.has_function('gettid', prefix : '#include<unistd.h>', args: [ '-D_GNU_SOURCE' ])
-  cdata.set('HAVE_GETTID', 1)
-endif
+check_functions = [
+  ['gettid', '#include <unistd.h>', ['-D_GNU_SOURCE']],
+  ['memfd_create', '#include <sys/mman.h>', ['-D_GNU_SOURCE']],
+  ['getrandom', '#include <stddef.h>\n#include <sys/random.h>', ['-D_GNU_SOURCE']],
+  ['sigabbrev_np', '#include <string.h>', ['-D_GNU_SOURCE']],
+]
 
-if cc.has_function('memfd_create', prefix : '#include <sys/mman.h>', args : [ '-D_GNU_SOURCE' ])
-  cdata.set('HAVE_MEMFD_CREATE', 1)
-endif
+foreach f : check_functions
+  cdata.set('HAVE_' + f.get(0).to_upper(),
+            cc.has_function(f.get(0), prefix: f.get(1), args: f.get(2)))
+endforeach
 
-if cc.has_function('getrandom', prefix : '#include <stddef.h>\n#include <sys/random.h>', args : [ '-D_GNU_SOURCE' ])
-  cdata.set('HAVE_GETRANDOM', 1)
-endif
-
-if cc.has_function('sigabbrev_np', prefix : '#include <string.h>', args : [ '-D_GNU_SOURCE' ])
-  cdata.set('HAVE_SIGABBREV_NP', 1)
-endif
-
-if cc.get_define('SYS_pidfd_open', prefix : '#include <sys/syscall.h>') != ''
-  cdata.set('HAVE_PIDFD_OPEN', 1)
-endif
+cdata.set('HAVE_PIDFD_OPEN',
+          cc.get_define('SYS_pidfd_open', prefix: '#include <sys/syscall.h>') != '')
 
 systemd = dependency('systemd', required: get_option('systemd'))
 systemd_dep = dependency('libsystemd',required: get_option('systemd'))
 summary({'systemd conf data': systemd.found()}, bool_yn: true)
 summary({'libsystemd': systemd_dep.found()}, bool_yn: true)
-if systemd.found() and systemd_dep.found()
-  cdata.set('HAVE_SYSTEMD', 1)
-endif
+cdata.set('HAVE_SYSTEMD', systemd.found() and systemd_dep.found())
 
 configinc = include_directories('.')
 includes_inc = include_directories('include')
@@ -276,9 +267,7 @@ dl_lib = cc.find_library('dl', required : false)
 pthread_lib = dependency('threads')
 dbus_dep = dependency('dbus-1', required : get_option('dbus'))
 summary({'dbus (Bluetooth, rt, portal, pw-reserve)': dbus_dep.found()}, bool_yn: true, section: 'Misc dependencies')
-if dbus_dep.found()
-  cdata.set('HAVE_DBUS', 1)
-endif
+cdata.set('HAVE_DBUS', dbus_dep.found())
 sdl_dep = dependency('sdl2', required : get_option('sdl2'))
 summary({'SDL2 (video examples)': sdl_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 drm_dep = dependency('libdrm', required : false)
@@ -292,9 +281,7 @@ summary({'readline (for pw-cli)': readline_dep.found()}, bool_yn: true, section:
 ncurses_dep = dependency('ncursesw', required : false)
 sndfile_dep = dependency('sndfile', version : '>= 1.0.20', required : get_option('sndfile'))
 summary({'sndfile': sndfile_dep.found()}, bool_yn: true, section: 'pw-cat/pw-play/pw-dump/filter-chain')
-if sndfile_dep.found()
-  cdata.set('HAVE_SNDFILE', 1)
-endif
+cdata.set('HAVE_SNDFILE', sndfile_dep.found())
 pulseaudio_dep = dependency('libpulse', required : get_option('libpulse'))
 summary({'libpulse': pulseaudio_dep.found()}, bool_yn: true, section: 'Streaming between daemons')
 avahi_dep = dependency('avahi-client', required : get_option('avahi'))
@@ -311,14 +298,10 @@ summary({'libcanberra (x11-bell)': canberra_dep.found()}, bool_yn: true,
 
 libusb_dep = dependency('libusb-1.0', required : get_option('libusb'))
 summary({'libusb (Bluetooth quirks)': libusb_dep.found()}, bool_yn: true, section: 'Backend')
-if libusb_dep.found()
-  cdata.set('HAVE_LIBUSB', 1)
-endif
+cdata.set('HAVE_LIBUSB', libusb_dep.found())
 
 cap_lib = dependency('libcap', required : false)
-if cap_lib.found()
-  cdata.set('HAVE_LIBCAP', 1)
-endif
+cdata.set('HAVE_LIBCAP', cap_lib.found())
 
 gst_option = get_option('gstreamer')
 gst_deps_def = {
@@ -353,18 +336,13 @@ endforeach
 gst_dp_found = gst_dep.length() > 0
 summary({'gstreamer-device-provider': gst_dp_found}, bool_yn: true, section: 'Backend')
 
-if not get_option('gstreamer-device-provider').disabled()
-  cdata.set('HAVE_GSTREAMER_DEVICE_PROVIDER', 1)
-endif
+cdata.set('HAVE_GSTREAMER_DEVICE_PROVIDER', not get_option('gstreamer-device-provider').disabled())
 
 webrtc_dep = dependency('webrtc-audio-processing',
   version : ['>= 0.2', '< 1.0'],
   required : get_option('echo-cancel-webrtc'))
 summary({'WebRTC Echo Canceling': webrtc_dep.found()}, bool_yn: true, section: 'Misc dependencies')
-
-if webrtc_dep.found()
-  cdata.set('HAVE_WEBRTC', 1)
-endif
+cdata.set('HAVE_WEBRTC', webrtc_dep.found())
 
 # On FreeBSD, epoll-shim library is required for eventfd() and timerfd()
 epoll_shim_dep = (build_machine.system() == 'freebsd'
@@ -400,9 +378,7 @@ summary({'OpenSSL (for raop-sink)': openssl_lib.found()}, bool_yn: true)
 
 lilv_lib = dependency('lilv-0', required: get_option('lv2'))
 summary({'lilv (for lv2 plugins)': lilv_lib.found()}, bool_yn: true)
-if lilv_lib.found()
-  cdata.set('HAVE_LILV', 1)
-endif
+cdata.set('HAVE_LILV', lilv_lib.found())
 
 installed_tests_metadir = pipewire_datadir / 'installed-tests' / pipewire_name
 installed_tests_execdir = pipewire_libexecdir / 'installed-tests' / pipewire_name
@@ -411,7 +387,7 @@ installed_tests_template = files('template.test.in')
 
 if not get_option('tests').disabled()
   gstack = find_program('gstack', required : false)
-  cdata.set10('HAVE_GSTACK', gstack.found())
+  cdata.set('HAVE_GSTACK', gstack.found())
 endif
 
 subdir('po')

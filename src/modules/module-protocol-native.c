@@ -35,7 +35,7 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <ctype.h>
-#if HAVE_PWD_H
+#ifdef HAVE_PWD_H
 #include <pwd.h>
 #endif
 #if defined(__FreeBSD__)

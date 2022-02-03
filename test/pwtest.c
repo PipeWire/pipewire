@@ -36,10 +36,10 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
-#if HAVE_PIDFD_OPEN
+#ifdef HAVE_PIDFD_OPEN
 #include <sys/syscall.h>
 #endif
-#if HAVE_LIBCAP
+#ifdef HAVE_LIBCAP
 #include <sys/capability.h>
 #endif
 #include <sys/epoll.h>
@@ -177,7 +177,7 @@ static void restore_env(struct pwtest_test *t)
 
 static void pwtest_backtrace(pid_t p)
 {
-#if HAVE_GSTACK
+#ifdef HAVE_GSTACK
 	char pid[11];
 	pid_t parent, child;
 	int status;
@@ -820,7 +820,7 @@ static int monitor_test_forked(struct pwtest_test *t, pid_t pid, int read_fds[_F
 	size_t nevents = 0;
 	int r;
 
-#if HAVE_PIDFD_OPEN
+#ifdef HAVE_PIDFD_OPEN
 	pidfd = syscall(SYS_pidfd_open, pid, 0);
 #else
 	errno = ENOSYS;
@@ -1168,7 +1168,7 @@ static void list_tests(struct pwtest_context *ctx)
 static bool is_debugger_attached(void)
 {
 	bool rc = false;
-#if HAVE_LIBCAP
+#ifdef HAVE_LIBCAP
 	int status;
 	int pid = fork();
 

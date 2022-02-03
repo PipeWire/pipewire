@@ -34,7 +34,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <dirent.h>
-#if HAVE_PWD_H
+#ifdef HAVE_PWD_H
 #include <pwd.h>
 #endif
 #ifdef __FreeBSD__

@@ -35,7 +35,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/file.h>
-#if HAVE_PWD_H
+#ifdef HAVE_PWD_H
 #include <pwd.h>
 #endif
 

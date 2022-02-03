@@ -5,24 +5,14 @@ foreach dep: bluez5_deps
   endif
 endforeach
 
-if not get_option('bluez5-backend-hsp-native').disabled()
-  cdata.set('HAVE_BLUEZ_5_BACKEND_HSP_NATIVE', 1)
-  cdata.set('HAVE_BLUEZ_5_BACKEND_NATIVE', 1)
-endif
-if not get_option('bluez5-backend-hfp-native').disabled()
-  cdata.set('HAVE_BLUEZ_5_BACKEND_HFP_NATIVE', 1)
-  cdata.set('HAVE_BLUEZ_5_BACKEND_NATIVE', 1)
-endif
-if not get_option('bluez5-backend-ofono').disabled()
-  cdata.set('HAVE_BLUEZ_5_BACKEND_OFONO', 1)
-endif
-if not get_option('bluez5-backend-hsphfpd').disabled()
-  cdata.set('HAVE_BLUEZ_5_BACKEND_HSPHFPD', 1)
-endif
-
-if dependency('bluez', version: '< 6', required: false).found()
-  cdata.set('HAVE_BLUEZ_5_HCI', 1)
-endif
+cdata.set('HAVE_BLUEZ_5_BACKEND_NATIVE',
+          not get_option('bluez5-backend-hsp-native').disabled() or
+          not get_option('bluez5-backend-hfp-native').disabled())
+cdata.set('HAVE_BLUEZ_5_BACKEND_HSP_NATIVE', not get_option('bluez5-backend-hsp-native').disabled())
+cdata.set('HAVE_BLUEZ_5_BACKEND_HFP_NATIVE', not get_option('bluez5-backend-hfp-native').disabled())
+cdata.set('HAVE_BLUEZ_5_BACKEND_OFONO', not get_option('bluez5-backend-ofono').disabled())
+cdata.set('HAVE_BLUEZ_5_BACKEND_HSPHFPD', not get_option('bluez5-backend-hsphfpd').disabled())
+cdata.set('HAVE_BLUEZ_5_HCI', dependency('bluez', version: '< 6', required: false).found())
 
 bluez5_sources = [
   'plugin.c',

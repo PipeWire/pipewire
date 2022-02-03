@@ -594,7 +594,7 @@ static bool device_supports_required_mSBC_transport_modes(
 
 	/* Check if USB ALT6 is really available on the device */
 	if (device->adapter->bus_type == BUS_TYPE_USB && !msbc_alt1_ok && msbc_ok) {
-#if HAVE_LIBUSB
+#ifdef HAVE_LIBUSB
 		if (device->adapter->source_id == SOURCE_ID_USB) {
 			msbc_ok = check_usb_altsetting_6(backend, device->adapter->vendor_id,
 					device->adapter->product_id);

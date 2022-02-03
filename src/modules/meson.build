@@ -273,7 +273,7 @@ if avahi_dep.found()
     'module-zeroconf-discover/avahi-poll.c',
   ]
   pipewire_module_protocol_pulse_deps += avahi_dep
-  cdata.set('HAVE_AVAHI', 1)
+  cdata.set('HAVE_AVAHI', true)
 endif
 
 pipewire_module_protocol_pulse = shared_library('pipewire-module-protocol-pulse',

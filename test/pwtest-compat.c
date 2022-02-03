@@ -24,7 +24,7 @@
 
 #include "config.h"
 
-#if !HAVE_SIGABBREV_NP
+#ifndef HAVE_SIGABBREV_NP
 #include <stddef.h>
 #include <signal.h>
 

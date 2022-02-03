@@ -27,7 +27,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
-#if HAVE_SYS_RANDOM_H
+#ifdef HAVE_SYS_RANDOM_H
 #include <sys/random.h>
 #endif
 #include <string.h>

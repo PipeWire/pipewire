@@ -45,10 +45,12 @@ struct state {
 	unsigned int rate;
 	unsigned int channels;
 	snd_pcm_uframes_t period;
+	snd_pcm_uframes_t buffer_frames;
 
 	snd_pcm_t *hndl;
 	int timerfd;
 
+	double max_error;
 	float accumulator;
 
 	uint64_t next_time;
@@ -103,15 +105,36 @@ static int write_period(struct state *state)
 
 static int on_timer_wakeup(struct state *state)
 {
-	snd_pcm_sframes_t avail, delay;
+	snd_pcm_sframes_t delay;
 	double error, corr;
+#if 1
+	snd_pcm_sframes_t avail;
+        CHECK(snd_pcm_avail_delay(state->hndl, &avail, &delay), "delay");
+#else
+	snd_pcm_uframes_t avail;
+	snd_htimestamp_t tstamp;
+	uint64_t then;
 
-	/* check the delay in the device */
-	CHECK(snd_pcm_avail_delay(state->hndl, &avail, &delay), "delay");
+	CHECK(snd_pcm_htimestamp(state->hndl, &avail, &tstamp), "htimestamp");
+	delay = state->buffer_frames - avail;
+
+	then = TIMESPEC_TO_NSEC(&tstamp);
+	if (then != 0) {
+		if (then < state->next_time) {
+			delay -= (state->next_time - then) * state->rate / NSEC_PER_SEC;
+		} else {
+			delay += (then - state->next_time) * state->rate / NSEC_PER_SEC;
+		}
+	}
+#endif
 
 	/* calculate the error, we want to have exactly 1 period of
 	 * samples remaining in the device when we wakeup. */
 	error = (double)delay - (double)state->period;
+	if (error > state->max_error)
+		error = state->max_error;
+	else if (error < -state->max_error)
+		error = -state->max_error;
 
 	/* update the dll with the error, this gives a rate correction */
 	corr = spa_dll_update(&state->dll, error);
@@ -124,12 +147,6 @@ static int on_timer_wakeup(struct state *state)
 
 	if (state->next_time - state->prev_time > BW_PERIOD) {
 		state->prev_time = state->next_time;
-
-		/* reduce bandwidth and show some stats */
-		if (state->dll.bw > SPA_DLL_BW_MIN)
-			spa_dll_set_bw(&state->dll, state->dll.bw / 2.0,
-					state->period, state->rate);
-
 		fprintf(stdout, "corr:%f error:%f bw:%f\n",
 				corr, error, state->dll.bw);
 	}
@@ -144,6 +161,7 @@ int main(int argc, char *argv[])
 	struct state state = { 0, };
 	const char *device = DEFAULT_DEVICE;
 	snd_pcm_hw_params_t *hparams;
+	snd_pcm_sw_params_t *sparams;
 	struct timespec now;
 
 	CHECK(snd_pcm_open(&state.hndl, device, SND_PCM_STREAM_PLAYBACK, 0), "open %s failed", device);
@@ -165,12 +183,25 @@ int main(int argc, char *argv[])
 				&state.rate, 0), "set rate");
 	CHECK(snd_pcm_hw_params(state.hndl, hparams), "hw_params");
 
+	CHECK(snd_pcm_hw_params_get_buffer_size(hparams, &state.buffer_frames), "get_buffer_size_max");
+
 	fprintf(stdout, "opened format:%s rate:%u channels:%u\n",
 			snd_pcm_format_name(SND_PCM_FORMAT_S32_LE),
 			state.rate, state.channels);
 
+	snd_pcm_sw_params_alloca(&sparams);
+#if 0
+	CHECK(snd_pcm_sw_params_current(state.hndl, sparams), "sw_params_current");
+	CHECK(snd_pcm_sw_params_set_tstamp_mode(state.hndl, sparams, SND_PCM_TSTAMP_ENABLE),
+			"sw_params_set_tstamp_type");
+	CHECK(snd_pcm_sw_params_set_tstamp_type(state.hndl, sparams, SND_PCM_TSTAMP_TYPE_MONOTONIC),
+			"sw_params_set_tstamp_type");
+	CHECK(snd_pcm_sw_params(state.hndl, sparams), "sw_params");
+#endif
+
 	spa_dll_init(&state.dll);
 	spa_dll_set_bw(&state.dll, SPA_DLL_BW_MAX, state.period, state.rate);
+	state.max_error = 256.0;
 
 	if ((state.timerfd = timerfd_create(CLOCK_MONOTONIC, 0)) < 0)
 		perror("timerfd");

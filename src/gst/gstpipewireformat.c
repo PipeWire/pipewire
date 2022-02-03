@@ -445,6 +445,44 @@ handle_video_fields (ConvertData *d)
   return TRUE;
 }
 
+static void
+set_default_channels (struct spa_pod_builder *b, uint32_t channels)
+{
+  uint32_t position[SPA_AUDIO_MAX_CHANNELS] = {0};
+  gboolean ok = TRUE;
+
+  switch (channels) {
+  case 8:
+    position[6] = SPA_AUDIO_CHANNEL_SL;
+    position[7] = SPA_AUDIO_CHANNEL_SR;
+    SPA_FALLTHROUGH
+  case 6:
+    position[5] = SPA_AUDIO_CHANNEL_LFE;
+    SPA_FALLTHROUGH
+  case 5:
+    position[4] = SPA_AUDIO_CHANNEL_FC;
+    SPA_FALLTHROUGH
+  case 4:
+    position[2] = SPA_AUDIO_CHANNEL_RL;
+    position[3] = SPA_AUDIO_CHANNEL_RR;
+    SPA_FALLTHROUGH
+  case 2:
+    position[0] = SPA_AUDIO_CHANNEL_FL;
+    position[1] = SPA_AUDIO_CHANNEL_FR;
+    break;
+  case 1:
+    position[0] = SPA_AUDIO_CHANNEL_MONO;
+    break;
+  default:
+    ok = FALSE;
+    break;
+  }
+
+  if (ok)
+    spa_pod_builder_add (b, SPA_FORMAT_AUDIO_position,
+        SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id, channels, position), 0);
+}
+
 static gboolean
 handle_audio_fields (ConvertData *d)
 {
@@ -538,8 +576,10 @@ handle_audio_fields (ConvertData *d)
     }
     if (i > 0) {
       choice = spa_pod_builder_pop(&d->b, &f);
-      if (i == 1)
+      if (i == 1) {
         choice->body.type = SPA_CHOICE_None;
+        set_default_channels (&d->b, v);
+      }
     }
   }
   return TRUE;

@@ -265,7 +265,6 @@ if dbus_dep.found()
     'module-protocol-pulse/dbus-name.c',
   ]
   pipewire_module_protocol_pulse_deps += dbus_dep
-  cdata.set('HAVE_DBUS', 1)
 endif
 
 if avahi_dep.found()

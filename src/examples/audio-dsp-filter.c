@@ -79,6 +79,9 @@ static void on_process(void *userdata, struct spa_io_position *position)
 	in = pw_filter_get_dsp_buffer(data->in_port, n_samples);
 	out = pw_filter_get_dsp_buffer(data->out_port, n_samples);
 
+	if (in == NULL || out == NULL)
+		return;
+
 	memcpy(out, in, n_samples * sizeof(float));
 }
 

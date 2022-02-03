@@ -77,6 +77,8 @@ static void on_process(void *userdata, struct spa_io_position *position)
 	pw_log_trace("do process %d", n_samples);
 
 	out = pw_filter_get_dsp_buffer(out_port, n_samples);
+	if (out == NULL)
+		return;
 
 	for (i = 0; i < n_samples; i++) {
 		out_port->accumulator += M_PI_M2 * DEFAULT_FREQ / DEFAULT_RATE;

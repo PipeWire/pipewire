@@ -23,7 +23,7 @@ spa_support_lib = shared_library('spa-support',
   install_dir : spa_plugindir / 'support')
 spa_support_dep = declare_dependency(link_with: spa_support_lib)
 
-if not get_option('evl').disabled()
+if get_option('evl').allowed()
   evl_inc = include_directories('/usr/evl/include')
   evl_lib = cc.find_library('evl',
                             dirs: ['/usr/evl/lib/'],

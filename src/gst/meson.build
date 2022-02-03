@@ -8,7 +8,7 @@ pipewire_gst_sources = [
   'gstpipewiresrc.c',
 ]
 
-if not get_option('gstreamer-device-provider').disabled()
+if get_option('gstreamer-device-provider').allowed()
   pipewire_gst_sources += [ 'gstpipewiredeviceprovider.c' ]
 endif
 

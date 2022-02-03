@@ -336,7 +336,7 @@ endforeach
 gst_dp_found = gst_dep.length() > 0
 summary({'gstreamer-device-provider': gst_dp_found}, bool_yn: true, section: 'Backend')
 
-cdata.set('HAVE_GSTREAMER_DEVICE_PROVIDER', not get_option('gstreamer-device-provider').disabled())
+cdata.set('HAVE_GSTREAMER_DEVICE_PROVIDER', get_option('gstreamer-device-provider').allowed())
 
 webrtc_dep = dependency('webrtc-audio-processing',
   version : ['>= 0.2', '< 1.0'],
@@ -382,10 +382,10 @@ cdata.set('HAVE_LILV', lilv_lib.found())
 
 installed_tests_metadir = pipewire_datadir / 'installed-tests' / pipewire_name
 installed_tests_execdir = pipewire_libexecdir / 'installed-tests' / pipewire_name
-installed_tests_enabled = not get_option('installed_tests').disabled()
+installed_tests_enabled = get_option('installed_tests').allowed()
 installed_tests_template = files('template.test.in')
 
-if not get_option('tests').disabled()
+if get_option('tests').allowed()
   gstack = find_program('gstack', required : false)
   cdata.set('HAVE_GSTACK', gstack.found())
 endif
@@ -394,17 +394,17 @@ subdir('po')
 subdir('spa')
 subdir('src')
 
-if not get_option('tests').disabled()
+if get_option('tests').allowed()
   subdir('test')
 endif
 
 configure_file(output : 'config.h',
                configuration : cdata)
 
-if not get_option('pipewire-jack').disabled()
+if get_option('pipewire-jack').allowed()
   subdir('pipewire-jack')
 endif
-if not get_option('pipewire-v4l2').disabled()
+if get_option('pipewire-v4l2').allowed()
   subdir('pipewire-v4l2')
 endif
 
@@ -415,7 +415,7 @@ if alsa_dep.found()
 endif
 
 generate_manpages = false
-if not get_option('man').disabled()
+if get_option('man').allowed()
   rst2man = find_program('rst2man', required: false)
   if not rst2man.found()
     rst2man = find_program('rst2man.py', required: get_option('man'))

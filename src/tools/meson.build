@@ -34,7 +34,7 @@ if ncurses_dep.found()
 endif
 
 build_pw_cat = false
-if not get_option('pw-cat').disabled() and sndfile_dep.found()
+if get_option('pw-cat').allowed() and sndfile_dep.found()
   build_pw_cat = true
 
   pwcat_sources = [

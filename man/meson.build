@@ -19,7 +19,7 @@ manpages = [
   'pw-profiler.1.rst.in',
 ]
 
-if not get_option('pipewire-jack').disabled()
+if get_option('pipewire-jack').allowed()
   manpages += 'pw-jack.1.rst.in'
 endif
 

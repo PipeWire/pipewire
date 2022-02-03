@@ -3,10 +3,10 @@ subdir('pipewire')
 subdir('daemon')
 subdir('tools')
 subdir('modules')
-if not get_option('examples').disabled()
+if get_option('examples').allowed()
   subdir('examples')
 endif
-if not get_option('tests').disabled()
+if get_option('tests').allowed()
   subdir('tests')
 endif
 

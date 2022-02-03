@@ -31,7 +31,7 @@ pkgconfig.generate(filebase : 'lib@0@'.format(spa_name),
 
 subdir('include')
 
-if not get_option('spa-plugins').disabled()
+if get_option('spa-plugins').allowed()
   udevrulesdir = get_option('udevrulesdir')
   if udevrulesdir == ''
     # absolute path, otherwise meson prepends the prefix
@@ -74,6 +74,6 @@ endif
 
 subdir('tools')
 subdir('tests')
-if not get_option('examples').disabled()
+if get_option('examples').allowed()
   subdir('examples')
 endif

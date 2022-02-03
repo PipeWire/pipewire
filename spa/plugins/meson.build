@@ -1,16 +1,16 @@
 if alsa_dep.found()
   subdir('alsa')
 endif
-if not get_option('audioconvert').disabled()
+if get_option('audioconvert').allowed()
   subdir('audioconvert')
 endif
-if not get_option('audiomixer').disabled()
+if get_option('audiomixer').allowed()
   subdir('audiomixer')
 endif
-if not get_option('control').disabled()
+if get_option('control').allowed()
   subdir('control')
 endif
-if not get_option('audiotestsrc').disabled()
+if get_option('audiotestsrc').allowed()
   subdir('audiotestsrc')
 endif
 if bluez_dep.found()
@@ -22,19 +22,19 @@ endif
 if jack_dep.found()
   subdir('jack')
 endif
-if not get_option('support').disabled()
+if get_option('support').allowed()
   subdir('support')
 endif
-if not get_option('test').disabled()
+if get_option('test').allowed()
   subdir('test')
 endif
-if not get_option('videoconvert').disabled()
+if get_option('videoconvert').allowed()
   subdir('videoconvert')
 endif
-if not get_option('videotestsrc').disabled()
+if get_option('videotestsrc').allowed()
   subdir('videotestsrc')
 endif
-if not get_option('volume').disabled()
+if get_option('volume').allowed()
   subdir('volume')
 endif
 if vulkan_headers

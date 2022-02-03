@@ -202,8 +202,6 @@ cdata.set_quoted('MODULEDIR', modules_install_dir)
 cdata.set_quoted('PIPEWIRE_CONFIG_DIR', pipewire_configdir)
 cdata.set_quoted('PLUGINDIR', spa_plugindir)
 cdata.set_quoted('SPADATADIR', spa_datadir)
-# FIXME: --with-memory-alignment],[8,N,malloc,pagesize (default is 32)]) option
-cdata.set('MEMORY_ALIGNMENT_MALLOC', 1)
 cdata.set_quoted('PA_ALSA_PATHS_DIR', alsadatadir / 'paths')
 cdata.set_quoted('PA_ALSA_PROFILE_SETS_DIR', alsadatadir / 'profile-sets')
 

@@ -43,7 +43,6 @@
 #include "../extension.h"
 #include "../format.h"
 #include "../manager.h"
-#include "../media-roles.h"
 #include "../message.h"
 #include "../reply.h"
 #include "../volume.h"

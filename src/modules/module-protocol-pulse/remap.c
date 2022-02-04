@@ -22,29 +22,35 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef PULSE_SERVER_MEDIA_ROLES_H
-#define PULSE_SERVER_MEDIA_ROLES_H
-
 #include <stddef.h>
 
-#include <spa/utils/string.h>
+#include <pipewire/keys.h>
 
-struct str_map {
-	const char *pw_str;
-	const char *pa_str;
-	const struct str_map *child;
+#include "remap.h"
+
+const struct str_map media_role_map[] = {
+	{ "Movie", "video", },
+	{ "Music", "music", },
+	{ "Game", "game", },
+	{ "Notification", "event", },
+	{ "Communication", "phone", },
+	{ "Movie", "animation", },
+	{ "Production", "production", },
+	{ "Accessibility", "a11y", },
+	{ "Test", "test", },
+	{ NULL, NULL },
 };
 
-extern const struct str_map media_role_map[];
-
-static inline const struct str_map *str_map_find(const struct str_map *map, const char *pw, const char *pa)
-{
-	size_t i;
-	for (i = 0; map[i].pw_str; i++)
-		if ((pw && spa_streq(map[i].pw_str, pw)) ||
-		    (pa && spa_streq(map[i].pa_str, pa)))
-			return &map[i];
-	return NULL;
-}
-
-#endif /* PULSE_SERVER_MEDIA_ROLES_H */
+const struct str_map props_key_map[] = {
+	{ PW_KEY_DEVICE_BUS_PATH, "device.bus_path" },
+	{ PW_KEY_DEVICE_FORM_FACTOR, "device.form_factor" },
+	{ PW_KEY_DEVICE_ICON_NAME, "device.icon_name" },
+	{ PW_KEY_DEVICE_INTENDED_ROLES, "device.intended_roles" },
+	{ PW_KEY_NODE_DESCRIPTION, "device.description" },
+	{ PW_KEY_MEDIA_ICON_NAME, "media.icon_name" },
+	{ PW_KEY_APP_ICON_NAME, "application.icon_name" },
+	{ PW_KEY_APP_PROCESS_MACHINE_ID, "application.process.machine_id" },
+	{ PW_KEY_APP_PROCESS_SESSION_ID, "application.process.session_id" },
+	{ PW_KEY_MEDIA_ROLE, "media.role", media_role_map },
+	{ NULL, NULL },
+};

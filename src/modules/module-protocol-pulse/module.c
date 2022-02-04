@@ -41,6 +41,7 @@
 #include "internal.h"
 #include "log.h"
 #include "module.h"
+#include "remap.h"
 
 static void on_module_unload(void *obj, void *data, int res, uint32_t index)
 {
@@ -139,6 +140,7 @@ void module_args_add_props(struct pw_properties *props, const char *str)
 {
 	char *s = strdup(str), *p = s, *e, f;
 	const char *k, *v;
+	const struct str_map *map;
 
 	while (*p) {
 		e = strchr(p, '=');
@@ -168,6 +170,13 @@ void module_args_add_props(struct pw_properties *props, const char *str)
 		if (*e != '\0')
 			p++;
 		*e = '\0';
+
+		if ((map = str_map_find(props_key_map, NULL, k)) != NULL) {
+			k = map->pw_str;
+			if (map->child != NULL &&
+			    (map = str_map_find(map->child, NULL, v)) != NULL)
+				v = map->pw_str;
+		}
 		pw_properties_set(props, k, v);
 	}
 	free(s);

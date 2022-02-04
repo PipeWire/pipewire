@@ -28,15 +28,14 @@
 #include <spa/debug/buffer.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/string.h>
-#include <pipewire/keys.h>
 #include <pipewire/log.h>
 
 #include "defs.h"
 #include "format.h"
 #include "internal.h"
 #include "log.h"
-#include "media-roles.h"
 #include "message.h"
+#include "remap.h"
 #include "volume.h"
 
 #define MAX_SIZE	(256*1024)
@@ -64,20 +63,6 @@ static inline float volume_to_linear(uint32_t vol)
 	float v = ((float)vol) / VOLUME_NORM;
 	return v * v * v;
 }
-
-static const struct str_map key_table[] = {
-	{ PW_KEY_DEVICE_BUS_PATH, "device.bus_path" },
-	{ PW_KEY_DEVICE_FORM_FACTOR, "device.form_factor" },
-	{ PW_KEY_DEVICE_ICON_NAME, "device.icon_name" },
-	{ PW_KEY_DEVICE_INTENDED_ROLES, "device.intended_roles" },
-	{ PW_KEY_NODE_DESCRIPTION, "device.description" },
-	{ PW_KEY_MEDIA_ICON_NAME, "media.icon_name" },
-	{ PW_KEY_APP_ICON_NAME, "application.icon_name" },
-	{ PW_KEY_APP_PROCESS_MACHINE_ID, "application.process.machine_id" },
-	{ PW_KEY_APP_PROCESS_SESSION_ID, "application.process.session_id" },
-	{ PW_KEY_MEDIA_ROLE, "media.role", media_role_map },
-	{ NULL, NULL },
-};
 
 static int read_u8(struct message *m, uint8_t *val)
 {
@@ -153,7 +138,7 @@ static int read_props(struct message *m, struct pw_properties *props, bool remap
 				TAG_INVALID)) < 0)
 			return res;
 
-		if (remap && (map = str_map_find(key_table, NULL, key)) != NULL) {
+		if (remap && (map = str_map_find(props_key_map, NULL, key)) != NULL) {
 			key = map->pw_str;
 			if (map->child != NULL &&
 			    (map = str_map_find(map->child, NULL, data)) != NULL)
@@ -567,7 +552,7 @@ static void write_dict(struct message *m, struct spa_dict *dict, bool remap)
 			int l;
 			const struct str_map *map;
 
-			if (remap && (map = str_map_find(key_table, key, NULL)) != NULL) {
+			if (remap && (map = str_map_find(props_key_map, key, NULL)) != NULL) {
 				key = map->pa_str;
 				if (map->child != NULL &&
 				    (map = str_map_find(map->child, val, NULL)) != NULL)

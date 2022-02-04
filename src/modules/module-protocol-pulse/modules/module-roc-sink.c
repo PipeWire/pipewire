@@ -67,7 +67,6 @@ static int module_roc_sink_load(struct client *client, struct module *module)
 {
 	struct module_roc_sink_data *data = module->user_data;
 	FILE *f;
-	const char *str;
 	char *args;
 	size_t size;
 

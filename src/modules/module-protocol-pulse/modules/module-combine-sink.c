@@ -270,7 +270,7 @@ static void manager_added(void *d, struct pw_manager_object *o)
 	pw_properties_set(props, PW_KEY_NODE_DONT_RECONNECT, "true");
 	pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 	pw_properties_set(props, PW_KEY_NODE_PASSIVE, "true");
-	pw_properties_setf(props, "pulse.module.id", "%u", module->index);
+	pw_properties_setf(props, "pulse.module.id", "%u", data->module->index);
 
 	cstream->data = data;
 	cstream->stream = pw_stream_new(data->core, NULL, props);

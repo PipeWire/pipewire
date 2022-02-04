@@ -228,6 +228,9 @@ struct spa_fraction {
 #define SPA_RESTRICT
 #endif
 
+#define SPA_ROUND_DOWN(num,value)	((num) - ((num) % (value)))
+#define SPA_ROUND_UP(num,value)		((((num) + (value) - 1) / (value)) * (value))
+
 #define SPA_ROUND_DOWN_N(num,align)	((num) & ~((align) - 1))
 #define SPA_ROUND_UP_N(num,align)	SPA_ROUND_DOWN_N((num) + ((align) - 1),align)
 

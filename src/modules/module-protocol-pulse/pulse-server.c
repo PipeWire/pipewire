@@ -374,15 +374,14 @@ static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 
 	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
 		attr->maxlength = MAXLENGTH;
-	attr->maxlength -= attr->maxlength % frame_size;
-	attr->maxlength = SPA_MAX(attr->maxlength, frame_size);
+	attr->maxlength = SPA_ROUND_UP(attr->maxlength, frame_size);
+
+	minreq = SPA_MIN(minreq, attr->maxlength);
 
 	if (attr->tlength == (uint32_t) -1)
 		attr->tlength = frac_to_bytes_round_up(s->default_tlength, &s->ss);
-	if (attr->tlength > attr->maxlength)
-		attr->tlength = attr->maxlength;
-	attr->tlength -= attr->tlength % frame_size;
-	attr->tlength = SPA_MAX(attr->tlength, frame_size);
+	attr->tlength = SPA_MIN(attr->tlength, attr->maxlength);
+	attr->tlength = SPA_ROUND_UP(attr->tlength, frame_size);
 	attr->tlength = SPA_MAX(attr->tlength, minreq);
 
 	if (attr->minreq == (uint32_t) -1) {
@@ -390,13 +389,13 @@ static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 		/* With low-latency, tlength/4 gives a decent default in all of traditional,
 		 * adjust latency and early request modes. */
 		uint32_t m = attr->tlength / 4;
-		m -= m % frame_size;
+		m = SPA_ROUND_DOWN(m, frame_size);
 		attr->minreq = SPA_MIN(process, m);
 	}
 	attr->minreq = SPA_MAX(attr->minreq, minreq);
 
 	if (attr->tlength < attr->minreq+frame_size)
-		attr->tlength = attr->minreq + frame_size;
+		attr->tlength = SPA_MIN(attr->minreq + frame_size, attr->maxlength);
 
 	if (s->early_requests) {
 		latency = attr->minreq;
@@ -406,7 +405,7 @@ static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 		else
 			latency = attr->minreq;
 
-		latency -= latency % frame_size;
+		latency = SPA_ROUND_DOWN(latency, frame_size);
 
 		if (attr->tlength >= latency)
 			attr->tlength -= latency;
@@ -418,20 +417,20 @@ static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 	}
 
 	if (attr->tlength < latency + 2 * attr->minreq)
-		attr->tlength = latency + 2 * attr->minreq;
+		attr->tlength = SPA_MIN(latency + 2 * attr->minreq, attr->maxlength);
 
-	attr->minreq -= attr->minreq % frame_size;
+	attr->minreq = SPA_ROUND_DOWN(attr->minreq, frame_size);
 	if (attr->minreq <= 0) {
 		attr->minreq = frame_size;
 		attr->tlength += frame_size*2;
 	}
 	if (attr->tlength <= attr->minreq)
-		attr->tlength = attr->minreq*2 + frame_size;
+		attr->tlength = SPA_MIN(attr->minreq*2 + frame_size, attr->maxlength);
 
 	max_prebuf = attr->tlength + frame_size - attr->minreq;
 	if (attr->prebuf == (uint32_t) -1 || attr->prebuf > max_prebuf)
 		attr->prebuf = max_prebuf;
-	attr->prebuf -= attr->prebuf % frame_size;
+	attr->prebuf = SPA_ROUND_DOWN(attr->prebuf, frame_size);
 
 	attr->fragsize = 0;
 

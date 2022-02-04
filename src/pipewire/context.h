@@ -123,6 +123,12 @@ int pw_context_conf_section_for_each(struct pw_context *context, const char *sec
 		int (*callback) (void *data, const char *location, const char *section,
 			const char *str, size_t len),
 		void *data);
+/** emit callback for all matched properties. Since 0.3.46 */
+int pw_context_conf_section_match_rules(struct pw_context *context, const char *section,
+		struct spa_dict *props,
+		int (*callback) (void *data, const char *location, const char *action,
+			const char *str, size_t len),
+		void *data);
 
 /** Get the context support objects */
 const struct spa_support *pw_context_get_support(struct pw_context *context, uint32_t *n_support);

@@ -34,6 +34,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <dirent.h>
+#include <regex.h>
 #ifdef HAVE_PWD_H
 #include <pwd.h>
 #endif
@@ -810,6 +811,7 @@ exit:
 	return res;
 }
 
+
 SPA_EXPORT
 int pw_context_conf_section_for_each(struct pw_context *context, const char *section,
 		int (*callback) (void *data, const char *location, const char *section,
@@ -881,4 +883,154 @@ int pw_context_conf_update_props(struct pw_context *context,
 	pw_context_conf_section_for_each(context, section,
 				update_props, &data);
 	return data.count;
+}
+
+struct match {
+	const struct spa_dict *props;
+	int (*matched) (void *data, const char *location, const char *action,
+			const char *val, size_t len);
+	void *data;
+};
+
+/*
+ * {
+ *     # all keys must match the value. ~ in value starts regex.
+ *     <key> = <value>
+ *     ...
+ * }
+ */
+static bool find_match(struct spa_json *arr, const struct spa_dict *props)
+{
+	struct spa_json it[1];
+
+	while (spa_json_enter_object(arr, &it[0]) > 0) {
+		char key[256], val[1024];
+		const char *str, *value;
+		int match = 0, fail = 0;
+		int len;
+
+		while (spa_json_get_string(&it[0], key, sizeof(key)) > 0) {
+			bool success = false;
+
+			if ((len = spa_json_next(&it[0], &value)) <= 0)
+				break;
+
+			str = spa_dict_lookup(props, key);
+
+			if (spa_json_is_null(value, len)) {
+				success = str == NULL;
+			} else {
+				if (spa_json_parse_stringn(value, len, val, sizeof(val)) < 0)
+					continue;
+				value = val;
+				len = strlen(val);
+			}
+			if (str != NULL) {
+				if (value[0] == '~') {
+					regex_t preg;
+					if (regcomp(&preg, value+1, REG_EXTENDED | REG_NOSUB) == 0) {
+						if (regexec(&preg, str, 0, NULL, 0) == 0)
+							success = true;
+						regfree(&preg);
+					}
+				} else if (strncmp(str, value, len) == 0 &&
+				    strlen(str) == (size_t)len) {
+					success = true;
+				}
+			}
+			if (success) {
+				match++;
+				pw_log_debug("'%s' match '%s' < > '%.*s'", key, str, len, value);
+			}
+			else
+				fail++;
+		}
+		if (match > 0 && fail == 0)
+			return true;
+	}
+	return false;
+}
+
+/**
+ * rules = [
+ *     {
+ *         matches = [
+ *             # any of the items in matches needs to match, it one does,
+ *             # actions are emited.
+ *             {
+ *                 # all keys must match the value. ~ in value starts regex.
+ *                 <key> = <value>
+ *                 ...
+ *             }
+ *             ...
+ *         ]
+ *         actions = {
+ *             <action> = <value>
+ *             ...
+ *         }
+ *     }
+ * ]
+ */
+static int match_rules(void *data, const char *location, const char *section,
+		const char *str, size_t len)
+{
+	struct match *match = data;
+	const struct spa_dict *props = match->props;
+	const char *val;
+	struct spa_json it[4], actions;
+
+	spa_json_init(&it[0], str, len);
+	if (spa_json_enter_array(&it[0], &it[1]) < 0)
+		return 0;
+
+	while (spa_json_enter_object(&it[1], &it[2]) > 0) {
+		char key[64];
+		bool have_match = false, have_actions = false;
+
+		while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
+			if (spa_streq(key, "matches")) {
+				if (spa_json_enter_array(&it[2], &it[3]) < 0)
+					break;
+
+				have_match = find_match(&it[3], props);
+			}
+			else if (spa_streq(key, "actions")) {
+				if (spa_json_enter_object(&it[2], &actions) > 0)
+					have_actions = true;
+			}
+			else if (spa_json_next(&it[2], &val) <= 0)
+                                break;
+		}
+		if (!have_match || !have_actions)
+			continue;
+
+		while (spa_json_get_string(&actions, key, sizeof(key)) > 0) {
+			int res, len;
+			pw_log_debug("action %s", key);
+
+			if ((len = spa_json_next(&actions, &val)) <= 0)
+				break;
+
+			if (spa_json_is_container(val, len))
+				len = spa_json_container_len(&actions, val, len);
+
+			if ((res = match->matched(match->data, location, key, val, len)) < 0)
+				return res;
+		}
+	}
+	return 0;
+}
+
+SPA_EXPORT
+int pw_context_conf_section_match_rules(struct pw_context *context, const char *section,
+		struct spa_dict *props,
+		int (*callback) (void *data, const char *location, const char *action,
+			const char *str, size_t len),
+		void *data)
+{
+	struct match match = {
+		.props = props,
+		.matched = callback,
+		.data = data };
+	return pw_context_conf_section_for_each(context, section, match_rules, &match);
 }

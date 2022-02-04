@@ -3087,25 +3087,13 @@ static void varargs_parse (struct client *c, jack_options_t options, va_list ap)
 }
 
 
-static int execute_match(void *data, const char *action, const char *val, int len)
+static int execute_match(void *data, const char *location, const char *action,
+		const char *val, size_t len)
 {
 	struct client *client = data;
 	if (spa_streq(action, "update-props"))
 		pw_properties_update_string(client->props, val, len);
 	return 1;
-}
-
-static int apply_jack_rules(void *data, const char *location, const char *section,
-		const char *str, size_t len)
-{
-	struct client *client = data;
-	const struct pw_properties *p =
-		pw_context_get_properties(client->context.context);
-
-	if (p != NULL)
-		pw_jack_match_rules(str, len, &p->dict, execute_match, client);
-
-	return 0;
 }
 
 SPA_EXPORT
@@ -3171,9 +3159,8 @@ jack_client_t * jack_client_open (const char *client_name,
         if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
 		pw_properties_update_string(client->props, str, strlen(str));
 
-
-	pw_context_conf_section_for_each(client->context.context, "jack.rules",
-			apply_jack_rules, client);
+	pw_context_conf_section_match_rules(client->context.context, "jack.rules",
+			&client->props->dict, execute_match, client);
 
 	client->show_monitor = pw_properties_get_bool(client->props, "jack.show-monitor", true);
 	client->merge_monitor = pw_properties_get_bool(client->props, "jack.merge-monitor", false);

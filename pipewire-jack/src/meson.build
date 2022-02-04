@@ -1,7 +1,6 @@
 pipewire_jack_sources = [
   'export.c',
   'pipewire-jack.c',
-  'match-rules.c',
   'ringbuffer.c',
   'uuid.c',
 ]

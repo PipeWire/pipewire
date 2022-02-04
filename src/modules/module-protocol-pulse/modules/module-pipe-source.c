@@ -180,6 +180,9 @@ static int module_pipesource_load(struct client *client, struct module *module)
 			&data->core_listener,
 			&core_events, data);
 
+	pw_properties_setf(data->playback_props, "pulse.module.id",
+			"%u", module->index);
+
 	data->playback = pw_stream_new(data->core,
 			"pipesource playback", data->playback_props);
 	data->playback_props = NULL;

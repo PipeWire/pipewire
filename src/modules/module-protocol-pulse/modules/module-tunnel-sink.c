@@ -73,6 +73,9 @@ static int module_tunnel_sink_load(struct client *client, struct module *module)
 
 	server = pw_properties_get(module->props, "server");
 
+	pw_properties_setf(data->stream_props, "pulse.module.id",
+			"%u", module->index);
+
 	f = open_memstream(&args, &size);
 	fprintf(f, "{");
 	pw_properties_serialize_dict(f, &module->props->dict, 0);

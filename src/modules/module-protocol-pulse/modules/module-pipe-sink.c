@@ -159,6 +159,8 @@ static int module_pipesink_load(struct client *client, struct module *module)
 			&data->core_listener,
 			&core_events, data);
 
+	pw_properties_setf(data->capture_props, "pulse.module.id", "%u", module->index);
+
 	data->capture = pw_stream_new(data->core,
 			"pipesink capture", data->capture_props);
 	data->capture_props = NULL;

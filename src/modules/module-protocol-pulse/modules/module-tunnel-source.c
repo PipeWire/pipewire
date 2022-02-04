@@ -71,6 +71,9 @@ static int module_tunnel_source_load(struct client *client, struct module *modul
 	size_t size;
 	const char *server;
 
+	pw_properties_setf(data->stream_props, "pulse.module.id",
+			"%u", module->index);
+
 	server = pw_properties_get(module->props, "server");
 
 	f = open_memstream(&args, &size);

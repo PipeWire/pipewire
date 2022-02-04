@@ -3555,6 +3555,9 @@ static int fill_sink_info(struct client *client, struct message *m,
 		snprintf(monitor_name, size, "%s.monitor", name);
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+		module_id = id_to_index(manager, (uint32_t)atoi(str));
+	if (module_id == SPA_ID_INVALID &&
+	    (str = spa_dict_lookup(info->props, "pulse.module.id")) != NULL)
 		module_id = (uint32_t)atoi(str);
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
 		card_id = (uint32_t)atoi(str);
@@ -3600,7 +3603,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 		TAG_STRING, desc,
 		TAG_SAMPLE_SPEC, &dev_info.ss,
 		TAG_CHANNEL_MAP, &dev_info.map,
-		TAG_U32, id_to_index(manager, module_id),	/* module index */
+		TAG_U32, module_id,			/* module index */
 		TAG_CVOLUME, &dev_info.volume_info.volume,
 		TAG_BOOLEAN, dev_info.volume_info.mute,
 		TAG_U32, o->index,			/* monitor source index */
@@ -3759,6 +3762,9 @@ static int fill_source_info(struct client *client, struct message *m,
 	snprintf(monitor_desc, size, "Monitor of %s", desc);
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+		module_id = id_to_index(manager, (uint32_t)atoi(str));
+	if (module_id == SPA_ID_INVALID &&
+	    (str = spa_dict_lookup(info->props, "pulse.module.id")) != NULL)
 		module_id = (uint32_t)atoi(str);
 	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
 		card_id = (uint32_t)atoi(str);
@@ -3803,7 +3809,7 @@ static int fill_source_info(struct client *client, struct message *m,
 		TAG_STRING, is_monitor ? monitor_desc : desc,
 		TAG_SAMPLE_SPEC, &dev_info.ss,
 		TAG_CHANNEL_MAP, &dev_info.map,
-		TAG_U32, id_to_index(manager, module_id),	/* module index */
+		TAG_U32, module_id,				/* module index */
 		TAG_CVOLUME, &dev_info.volume_info.volume,
 		TAG_BOOLEAN, dev_info.volume_info.mute,
 		TAG_U32, is_monitor ? o->index : SPA_ID_INVALID,/* monitor of sink */
@@ -3907,7 +3913,11 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 		return -ENOENT;
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+		module_id = id_to_index(manager, (uint32_t)atoi(str));
+	if (module_id == SPA_ID_INVALID &&
+	    (str = spa_dict_lookup(info->props, "pulse.module.id")) != NULL)
 		module_id = (uint32_t)atoi(str);
+
 	if (!pw_manager_object_is_virtual(o) &&
 	    (str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
 		client_id = (uint32_t)atoi(str);
@@ -3928,7 +3938,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 	message_put(m,
 		TAG_U32, o->index,				/* sink_input index */
 		TAG_STRING, get_media_name(info),
-		TAG_U32, id_to_index(manager, module_id),	/* module index */
+		TAG_U32, module_id,				/* module index */
 		TAG_U32, id_to_index(manager, client_id),	/* client index */
 		TAG_U32, peer_index,				/* sink index */
 		TAG_SAMPLE_SPEC, &dev_info.ss,
@@ -3983,7 +3993,11 @@ static int fill_source_output_info(struct client *client, struct message *m,
 		return -ENOENT;
 
 	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+		module_id = id_to_index(manager, (uint32_t)atoi(str));
+	if (module_id == SPA_ID_INVALID &&
+	    (str = spa_dict_lookup(info->props, "pulse.module.id")) != NULL)
 		module_id = (uint32_t)atoi(str);
+
 	if (!pw_manager_object_is_virtual(o) &&
 	    (str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
 		client_id = (uint32_t)atoi(str);
@@ -4004,7 +4018,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 	message_put(m,
 		TAG_U32, o->index,				/* source_output index */
 		TAG_STRING, get_media_name(info),
-		TAG_U32, id_to_index(manager, module_id),	/* module index */
+		TAG_U32, module_id,				/* module index */
 		TAG_U32, id_to_index(manager, client_id),	/* client index */
 		TAG_U32, peer_index,				/* source index */
 		TAG_SAMPLE_SPEC, &dev_info.ss,

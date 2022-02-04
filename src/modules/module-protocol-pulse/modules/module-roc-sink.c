@@ -71,18 +71,12 @@ static int module_roc_sink_load(struct client *client, struct module *module)
 	char *args;
 	size_t size;
 
+	pw_properties_setf(data->sink_props, "pulse.module.id",
+			"%u", module->index);
+
 	f = open_memstream(&args, &size);
 	fprintf(f, "{");
-	/* Can't just serialise this dict because the "null" method gets
-	 * interpreted as a JSON null */
-	if ((str = pw_properties_get(data->roc_props, "local.ip")))
-		fprintf(f, " local.ip = \"%s\"", str);
-	if ((str = pw_properties_get(data->roc_props, "remote.ip")))
-		fprintf(f, " remote.ip = \"%s\"", str);
-	if ((str = pw_properties_get(data->roc_props, "remote.source.port")))
-		fprintf(f, " remote.source.port = \"%s\"", str);
-	if ((str = pw_properties_get(data->roc_props, "remote.repair.port")))
-		fprintf(f, " remote.repair.port = \"%s\"", str);
+	pw_properties_serialize_dict(f, &data->roc_props->dict, 0);
 	fprintf(f, " } sink.props = {");
 	pw_properties_serialize_dict(f, &data->sink_props->dict, 0);
 	fprintf(f, " } }");

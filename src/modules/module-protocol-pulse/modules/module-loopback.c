@@ -72,6 +72,8 @@ static int module_loopback_load(struct client *client, struct module *module)
 
 	pw_properties_setf(data->capture_props, PW_KEY_NODE_GROUP, "loopback-%u", module->index);
 	pw_properties_setf(data->playback_props, PW_KEY_NODE_GROUP, "loopback-%u", module->index);
+	pw_properties_setf(data->capture_props, "pulse.module.id", "%u", module->index);
+	pw_properties_setf(data->playback_props, "pulse.module.id", "%u", module->index);
 
 	f = open_memstream(&args, &size);
 	fprintf(f, "{");

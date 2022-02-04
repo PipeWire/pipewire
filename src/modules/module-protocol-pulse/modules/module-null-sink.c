@@ -115,6 +115,8 @@ static int module_null_sink_load(struct client *client, struct module *module)
 
 	pw_core_add_listener(d->core, &d->core_listener, &core_events, module);
 
+	pw_properties_setf(module->props, "pulse.module.id", "%u", module->index);
+
 	d->proxy = pw_core_create_object(d->core,
 					 "adapter", PW_TYPE_INTERFACE_Node, PW_VERSION_NODE,
 					 module->props ? &module->props->dict : NULL, 0);

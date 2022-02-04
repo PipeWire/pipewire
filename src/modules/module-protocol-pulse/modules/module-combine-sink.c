@@ -270,6 +270,7 @@ static void manager_added(void *d, struct pw_manager_object *o)
 	pw_properties_set(props, PW_KEY_NODE_DONT_RECONNECT, "true");
 	pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 	pw_properties_set(props, PW_KEY_NODE_PASSIVE, "true");
+	pw_properties_setf(props, "pulse.module.id", "%u", module->index);
 
 	cstream->data = data;
 	cstream->stream = pw_stream_new(data->core, NULL, props);
@@ -354,6 +355,7 @@ static int module_combine_sink_load(struct client *client, struct module *module
 	pw_properties_setf(props, PW_KEY_NODE_GROUP, "combine_sink-%u", data->module->index);
 	pw_properties_setf(props, PW_KEY_NODE_LINK_GROUP, "combine_sink-%u", data->module->index);
 	pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
+	pw_properties_setf(props, "pulse.module.id", "%u", module->index);
 
 	if ((str = pw_properties_get(module->props, "sink_properties")) != NULL)
 		module_args_add_props(props, str);

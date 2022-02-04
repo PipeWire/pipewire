@@ -71,20 +71,12 @@ static int module_roc_source_load(struct client *client, struct module *module)
 	char *args;
 	size_t size;
 
+	pw_properties_setf(data->source_props, "pulse.module.id",
+			"%u", module->index);
+
 	f = open_memstream(&args, &size);
 	fprintf(f, "{");
-	/* Can't just serialise this dict because the "null" method gets
-	 * interpreted as a JSON null */
-	if ((str = pw_properties_get(data->roc_props, "local.ip")))
-		fprintf(f, " local.ip = \"%s\"", str);
-	if ((str = pw_properties_get(data->roc_props, "local.source.port")))
-		fprintf(f, " local.source.port = \"%s\"", str);
-	if ((str = pw_properties_get(data->roc_props, "local.repair.port")))
-		fprintf(f, " local.repair.port = \"%s\"", str);
-	if ((str = pw_properties_get(data->roc_props, "sess.latency.msec")))
-		fprintf(f, " sess.latency.msec = \"%s\"", str);
-	if ((str = pw_properties_get(data->roc_props, "resampler.profile")))
-		fprintf(f, " resampler.profile = \"%s\"", str);
+	pw_properties_serialize_dict(f, &data->roc_props->dict, 0);
 	fprintf(f, " } source.props = {");
 	pw_properties_serialize_dict(f, &data->source_props->dict, 0);
 	fprintf(f, " } }");

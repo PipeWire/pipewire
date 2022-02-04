@@ -396,6 +396,7 @@ struct client {
 	unsigned int filter_name:1;
 	unsigned int freewheeling:1;
 	unsigned int locked_process:1;
+	unsigned int default_as_system:1;
 	int self_connect_mode;
 	int rt_max;
 
@@ -3167,6 +3168,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->short_name = pw_properties_get_bool(client->props, "jack.short-name", false);
 	client->filter_name = pw_properties_get_bool(client->props, "jack.filter-name", false);
 	client->locked_process = pw_properties_get_bool(client->props, "jack.locked-process", true);
+	client->default_as_system = pw_properties_get_bool(client->props, "jack.default-as-system", false);
 
 	client->self_connect_mode = SELF_CONNECT_ALLOW;
 	if ((str = pw_properties_get(client->props, "jack.self-connect-mode")) != NULL) {
@@ -4426,12 +4428,23 @@ jack_uuid_t jack_port_uuid (const jack_port_t *port)
 	return jack_port_uuid_generate(o->serial);
 }
 
+static const char *port_name(struct object *o)
+{
+	const char *name;
+	struct client *c = o->client;
+	if (c->default_as_system && is_port_default(c, o))
+		name = o->port.system;
+	else
+		name = o->port.name;
+	return name;
+}
+
 SPA_EXPORT
 const char * jack_port_name (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
 	spa_return_val_if_fail(o != NULL, NULL);
-	return o->port.name;
+	return port_name(o);
 }
 
 SPA_EXPORT
@@ -4439,7 +4452,7 @@ const char * jack_port_short_name (const jack_port_t *port)
 {
 	struct object *o = (struct object *) port;
 	spa_return_val_if_fail(o != NULL, NULL);
-	return strchr(o->port.name, ':') + 1;
+	return strchr(port_name(o), ':') + 1;
 }
 
 SPA_EXPORT
@@ -4590,7 +4603,7 @@ const char ** jack_port_get_all_connections (const jack_client_t *client,
 		if (p == NULL)
 			continue;
 
-		res[count++] = p->port.name;
+		res[count++] = port_name(p);
 		if (count == CONNECTION_NUM_FOR_PORT)
 			break;
 	}
@@ -5397,7 +5410,7 @@ const char ** jack_get_ports (jack_client_t *client,
 
 		res = malloc(sizeof(char*) * (count + 1));
 		for (i = 0; i < count; i++)
-			res[i] = tmp[i]->port.name;
+			res[i] = port_name(tmp[i]);
 		res[count] = NULL;
 	} else {
 		res = NULL;

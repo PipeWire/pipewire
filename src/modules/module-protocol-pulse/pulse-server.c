@@ -4914,7 +4914,7 @@ static int do_unload_module(struct client *client, uint32_t command, uint32_t ta
 
 	module_unload(module);
 
-	return reply_simple_ack(client, tag);
+	return operation_new(client, tag);
 }
 
 static int do_send_object_message(struct client *client, uint32_t command, uint32_t tag, struct message *m)

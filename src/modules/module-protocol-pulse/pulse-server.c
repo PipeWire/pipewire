@@ -946,6 +946,9 @@ static int do_subscribe(struct client *client, uint32_t command, uint32_t tag, s
 	pw_log_info("[%s] SUBSCRIBE tag:%u mask:%08x",
 			client->name, tag, mask);
 
+	if (mask & ~SUBSCRIPTION_MASK_ALL)
+		return -EINVAL;
+
 	client->subscribed = mask;
 
 	return reply_simple_ack(client, tag);

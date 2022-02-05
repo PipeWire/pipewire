@@ -1,0 +1,679 @@
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the pipewire package.
+#
+# Sergiu Bivol <sergiu@cip.md>, 2022.
+msgid ""
+msgstr ""
+"Project-Id-Version: pipewire\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/issues/"
+"new\n"
+"POT-Creation-Date: 2021-11-17 15:06+0100\n"
+"PO-Revision-Date: 2022-02-05 10:57+0000\n"
+"Last-Translator: Sergiu Bivol <sergiu@cip.md>\n"
+"Language-Team: Romanian\n"
+"Language: ro\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=n==1 ? 0 : (n==0 || (n%100 > 0 && n%100 <"
+" 20)) ? 1 : 2;\n"
+"X-Generator: Lokalize 21.12.2\n"
+
+#: src/daemon/pipewire.c:45
+#, c-format
+msgid ""
+"%s [options]\n"
+"  -h, --help                            Show this help\n"
+"      --version                         Show version\n"
+"  -c, --config                          Load config (Default %s)\n"
+msgstr ""
+"%s [opțiuni]\n"
+"  -h, --help                            Arată acest ajutor\n"
+"      --version                         Arată versiunea\n"
+"  -c, --config                          Încarcă configurare (implicit %s)\n"
+
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:185
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:185
+#, c-format
+msgid "Tunnel to %s/%s"
+msgstr "Tunelează spre %s/%s"
+
+#: src/modules/module-pulse-tunnel.c:536
+#, c-format
+msgid "Tunnel for %s@%s"
+msgstr "Tunelează pentru %s@%s"
+
+#: src/modules/module-zeroconf-discover.c:332
+msgid "Unknown device"
+msgstr "Dispozitiv necunoscut"
+
+#: src/modules/module-zeroconf-discover.c:344
+#, c-format
+msgid "%s on %s@%s"
+msgstr "%s pe %s@%s"
+
+#: src/modules/module-zeroconf-discover.c:348
+#, c-format
+msgid "%s on %s"
+msgstr "%s pe %s"
+
+#: src/tools/pw-cat.c:1058
+#, c-format
+msgid ""
+"%s [options] <file>\n"
+"  -h, --help                            Show this help\n"
+"      --version                         Show version\n"
+"  -v, --verbose                         Enable verbose operations\n"
+"\n"
+msgstr ""
+"%s [opțiuni] <fișier>\n"
+"  -h, --help                            Arată acest ajutor\n"
+"      --version                         Arată versiunea\n"
+"  -v, --verbose                         Activează operații verboase\n"
+"\n"
+
+#: src/tools/pw-cat.c:1065
+#, c-format
+msgid ""
+"  -R, --remote                          Remote daemon name\n"
+"      --media-type                      Set media type (default %s)\n"
+"      --media-category                  Set media category (default %s)\n"
+"      --media-role                      Set media role (default %s)\n"
+"      --target                          Set node target (default %s)\n"
+"                                          0 means don't link\n"
+"      --latency                         Set node latency (default %s)\n"
+"                                          Xunit (unit = s, ms, us, ns)\n"
+"                                          or direct samples (256)\n"
+"                                          the rate is the one of the source "
+"file\n"
+"      --list-targets                    List available targets for --target\n"
+"\n"
+msgstr ""
+"  -R, --remote                          Denumirea demonului distant\n"
+"      --media-type                      Stabilește tipul mediului (implicit "
+"%s)\n"
+"      --media-category                  Stabilește categoria mediului"
+" (implicit %s)\n"
+"      --media-role                      Stabilește rolul mediului (implicit "
+"%s)\n"
+"      --target                          Stabilește ținta nodului (implicit "
+"%s)\n"
+"                                          0 înseamnă „nu lega”\n"
+"      --latency                         Stabilește latența nodului (implicit "
+"%s)\n"
+"                                          Xunit (unitate = s, ms, us, ns)\n"
+"                                          sau mostre directe (256)\n"
+"                                          rata este cea a fișierului sursă\n"
+"      --list-targets                    Enumeră țintele disponibile pentru"
+" --target\n"
+"\n"
+
+#: src/tools/pw-cat.c:1083
+#, c-format
+msgid ""
+"      --rate                            Sample rate (req. for rec) (default "
+"%u)\n"
+"      --channels                        Number of channels (req. for rec) "
+"(default %u)\n"
+"      --channel-map                     Channel map\n"
+"                                            one of: \"stereo\", "
+"\"surround-51\",... or\n"
+"                                            comma separated list of channel "
+"names: eg. \"FL,FR\"\n"
+"      --format                          Sample format %s (req. for rec) "
+"(default %s)\n"
+"      --volume                          Stream volume 0-1.0 (default %.3f)\n"
+"  -q  --quality                         Resampler quality (0 - 15) (default "
+"%d)\n"
+"\n"
+msgstr ""
+"      --rate                            Rată de eșantionare (nec. pt."
+" înregistrare) (implicit %u)\n"
+"      --channels                        Număr de canale (nec. pt."
+" înregistrare) (implicit %u)\n"
+"      --channel-map                     Hartă canale\n"
+"                                            una dintre: \"stereo\","
+" \"surround-51\",... sau listă\n"
+"                                            separată prin virgulă cu denumiri"
+" de canale: de ex. \"FL,FR\"\n"
+"      --format                          Format de eșantionare %s (nec. pt."
+" înregistrare) (implicit %s)\n"
+"      --volume                          Volum flux 0-1.0 (implicit %.3f)\n"
+"  -q  --quality                         Calitate de re-eșantionare (0 - 15)"
+" (implicit %d)\n"
+"\n"
+
+#: src/tools/pw-cat.c:1100
+msgid ""
+"  -p, --playback                        Playback mode\n"
+"  -r, --record                          Recording mode\n"
+"  -m, --midi                            Midi mode\n"
+"  -d, --dsd                             DSD mode\n"
+"\n"
+msgstr ""
+"  -p, --playback                        Regim de redare\n"
+"  -r, --record                          Regim de înregistrare\n"
+"  -m, --midi                            Regim MIDI\n"
+"  -d, --dsd                             regim DSD\n"
+"\n"
+
+#: src/tools/pw-cli.c:3018
+#, c-format
+msgid ""
+"%s [options] [command]\n"
+"  -h, --help                            Show this help\n"
+"      --version                         Show version\n"
+"  -d, --daemon                          Start as daemon (Default false)\n"
+"  -r, --remote                          Remote daemon name\n"
+"\n"
+msgstr ""
+"%s [opțiuni] [comandă]\n"
+"  -h, --help                            Arată acest ajutor\n"
+"      --version                         Arată versiunea\n"
+"  -d, --daemon                          Pornește ca demon (implicit fals)\n"
+"  -r, --remote                          Denumire demon distant\n"
+"\n"
+
+#: spa/plugins/alsa/acp/acp.c:321
+msgid "Pro Audio"
+msgstr "Pro Audio"
+
+#: spa/plugins/alsa/acp/acp.c:444 spa/plugins/alsa/acp/alsa-mixer.c:4648
+#: spa/plugins/bluez5/bluez5-device.c:1145
+msgid "Off"
+msgstr "Oprit"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2652
+msgid "Input"
+msgstr "Intrare"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2653
+msgid "Docking Station Input"
+msgstr "Intrare stație de andocare"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2654
+msgid "Docking Station Microphone"
+msgstr "Microfon stație de andocare"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2655
+msgid "Docking Station Line In"
+msgstr "Linie de intrare stație de andocare"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2656
+#: spa/plugins/alsa/acp/alsa-mixer.c:2747
+msgid "Line In"
+msgstr "Linie de intrare"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2657
+#: spa/plugins/alsa/acp/alsa-mixer.c:2741
+#: spa/plugins/bluez5/bluez5-device.c:1302
+msgid "Microphone"
+msgstr "Microfon"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2658
+#: spa/plugins/alsa/acp/alsa-mixer.c:2742
+msgid "Front Microphone"
+msgstr "Microfon frontal"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2659
+#: spa/plugins/alsa/acp/alsa-mixer.c:2743
+msgid "Rear Microphone"
+msgstr "Microfon spate"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2660
+msgid "External Microphone"
+msgstr "Microfon extern"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2661
+#: spa/plugins/alsa/acp/alsa-mixer.c:2745
+msgid "Internal Microphone"
+msgstr "Microfon intern"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2662
+#: spa/plugins/alsa/acp/alsa-mixer.c:2748
+msgid "Radio"
+msgstr "Radio"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2663
+#: spa/plugins/alsa/acp/alsa-mixer.c:2749
+msgid "Video"
+msgstr "Video"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2664
+msgid "Automatic Gain Control"
+msgstr "Control automat al nivelului de intrare"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2665
+msgid "No Automatic Gain Control"
+msgstr "Fără control automat al nivelului de intrare"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2666
+msgid "Boost"
+msgstr "Stimulare"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2667
+msgid "No Boost"
+msgstr "Fără stimulare"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2668
+msgid "Amplifier"
+msgstr "Amplificator"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2669
+msgid "No Amplifier"
+msgstr "Fără amplificator"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2670
+msgid "Bass Boost"
+msgstr "Stimulare bas"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2671
+msgid "No Bass Boost"
+msgstr "Fără stimulare bas"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2672
+#: spa/plugins/bluez5/bluez5-device.c:1307
+msgid "Speaker"
+msgstr "Difuzor"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2673
+#: spa/plugins/alsa/acp/alsa-mixer.c:2751
+msgid "Headphones"
+msgstr "Căști"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2740
+msgid "Analog Input"
+msgstr "Intrare analogică"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2744
+msgid "Dock Microphone"
+msgstr "Microfon andocare"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2746
+msgid "Headset Microphone"
+msgstr "Microfon căști"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2750
+msgid "Analog Output"
+msgstr "Ieșire analogică"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2752
+msgid "Headphones 2"
+msgstr "Căști 2"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2753
+msgid "Headphones Mono Output"
+msgstr "Ieșire mono căști"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2754
+msgid "Line Out"
+msgstr "Linie de ieșire"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2755
+msgid "Analog Mono Output"
+msgstr "Ieșire mono analogică"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2756
+msgid "Speakers"
+msgstr "Difuzoare"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2757
+msgid "HDMI / DisplayPort"
+msgstr "HDMI / DisplayPort"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2758
+msgid "Digital Output (S/PDIF)"
+msgstr "Ieșire digitală (S/PDIF)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2759
+msgid "Digital Input (S/PDIF)"
+msgstr "Intrare digitală (S/PDIF)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2760
+msgid "Multichannel Input"
+msgstr "Intrare multicanal"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2761
+msgid "Multichannel Output"
+msgstr "Ieșire multicanal"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2762
+msgid "Game Output"
+msgstr "Ieșire joc"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2763
+#: spa/plugins/alsa/acp/alsa-mixer.c:2764
+msgid "Chat Output"
+msgstr "Ieșire discuție"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2765
+msgid "Chat Input"
+msgstr "Intrare discuție"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:2766
+msgid "Virtual Surround 7.1"
+msgstr "Surround virtual 7.1"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4471
+msgid "Analog Mono"
+msgstr "Mono analogic"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4472
+msgid "Analog Mono (Left)"
+msgstr "Mono analogic (stânga)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4473
+msgid "Analog Mono (Right)"
+msgstr "Mono analogic (dreapta)"
+
+#. Note: Not translated to "Analog Stereo Input", because the source
+#. * name gets "Input" appended to it automatically, so adding "Input"
+#. * here would lead to the source name to become "Analog Stereo Input
+#. * Input". The same logic applies to analog-stereo-output,
+#. * multichannel-input and multichannel-output.
+#: spa/plugins/alsa/acp/alsa-mixer.c:4474
+#: spa/plugins/alsa/acp/alsa-mixer.c:4482
+#: spa/plugins/alsa/acp/alsa-mixer.c:4483
+msgid "Analog Stereo"
+msgstr "stereo analogică"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4475
+msgid "Mono"
+msgstr "Mono"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4476
+msgid "Stereo"
+msgstr "Stereo"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4484
+#: spa/plugins/alsa/acp/alsa-mixer.c:4642
+#: spa/plugins/bluez5/bluez5-device.c:1292
+msgid "Headset"
+msgstr "Set cu cască"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4485
+#: spa/plugins/alsa/acp/alsa-mixer.c:4643
+msgid "Speakerphone"
+msgstr "Difuzor"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4486
+#: spa/plugins/alsa/acp/alsa-mixer.c:4487
+msgid "Multichannel"
+msgstr "multicanal"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4488
+msgid "Analog Surround 2.1"
+msgstr "surround analogică 2.1"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4489
+msgid "Analog Surround 3.0"
+msgstr "surround analogică 3.0"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4490
+msgid "Analog Surround 3.1"
+msgstr "surround analogică 3.1"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4491
+msgid "Analog Surround 4.0"
+msgstr "surround analogică 4.0"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4492
+msgid "Analog Surround 4.1"
+msgstr "surround analogică 4.1"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4493
+msgid "Analog Surround 5.0"
+msgstr "surround analogică 5.0"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4494
+msgid "Analog Surround 5.1"
+msgstr "surround analogică 5.1"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4495
+msgid "Analog Surround 6.0"
+msgstr "surround analogică 6.0"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4496
+msgid "Analog Surround 6.1"
+msgstr "surround analogică 6.1"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4497
+msgid "Analog Surround 7.0"
+msgstr "surround analogică 7.0"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4498
+msgid "Analog Surround 7.1"
+msgstr "surround analogică 7.1"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4499
+msgid "Digital Stereo (IEC958)"
+msgstr "stereo digitală (IEC958)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4500
+msgid "Digital Surround 4.0 (IEC958/AC3)"
+msgstr "surround digitală 4.0 (IEC958/AC3)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4501
+msgid "Digital Surround 5.1 (IEC958/AC3)"
+msgstr "surround digitală 5.1 (IEC958/AC3)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4502
+msgid "Digital Surround 5.1 (IEC958/DTS)"
+msgstr "surround digitală 5.1 (IEC958/DTS)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4503
+msgid "Digital Stereo (HDMI)"
+msgstr "stereo digitală (HDMI)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4504
+msgid "Digital Surround 5.1 (HDMI)"
+msgstr "surround digitală 5.1 (HDMI)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4505
+msgid "Chat"
+msgstr "Discuție"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4506
+msgid "Game"
+msgstr "joc"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4640
+msgid "Analog Mono Duplex"
+msgstr "Duplex mono analogic"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4641
+msgid "Analog Stereo Duplex"
+msgstr "Duplex stereo analogic"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4644
+msgid "Digital Stereo Duplex (IEC958)"
+msgstr "Duplex stereo digital (IEC958)"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4645
+msgid "Multichannel Duplex"
+msgstr "Duplex multicanal"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4646
+msgid "Stereo Duplex"
+msgstr "Duplex stereo"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4647
+msgid "Mono Chat + 7.1 Surround"
+msgstr "Discuție mono + Surround 7.1"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4750
+#, c-format
+msgid "%s Output"
+msgstr "Ieșire %s"
+
+#: spa/plugins/alsa/acp/alsa-mixer.c:4757
+#, c-format
+msgid "%s Input"
+msgstr "Intrare %s"
+
+#: spa/plugins/alsa/acp/alsa-util.c:1173
+#: spa/plugins/alsa/acp/alsa-util.c:1267
+#, c-format
+msgid ""
+"snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu "
+"ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
+"to the ALSA developers."
+msgid_plural ""
+"snd_pcm_avail() returned a value that is exceptionally large: %lu bytes (%lu "
+"ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
+"to the ALSA developers."
+msgstr[0] ""
+"snd_pcm_avail() a întors o valoare excepțional de mare: %lu octet (%lu ms).\n"
+"Cel mai probabil, acesta e un defect în driver-ul ALSA „%s”. Raportați"
+" această problemă dezvoltatorilor ALSA."
+msgstr[1] ""
+"snd_pcm_avail() a întors o valoare excepțional de mare: %lu octeți (%lu ms).\n"
+"Cel mai probabil, acesta e un defect în driver-ul ALSA „%s”. Raportați"
+" această problemă dezvoltatorilor ALSA."
+msgstr[2] ""
+"snd_pcm_avail() a întors o valoare excepțional de mare: %lu de octeți (%lu"
+" ms).\n"
+"Cel mai probabil, acesta e un defect în driver-ul ALSA „%s”. Raportați"
+" această problemă dezvoltatorilor ALSA."
+
+#: spa/plugins/alsa/acp/alsa-util.c:1239
+#, c-format
+msgid ""
+"snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s"
+"%lu ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
+"to the ALSA developers."
+msgid_plural ""
+"snd_pcm_delay() returned a value that is exceptionally large: %li bytes (%s"
+"%lu ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
+"to the ALSA developers."
+msgstr[0] ""
+"snd_pcm_delay() a întors o valoare excepțional de mare: %li octet (%s%lu"
+" ms).\n"
+"Cel mai probabil, acesta e un defect în driver-ul ALSA „%s”. Raportați"
+" această problemă dezvoltatorilor ALSA."
+msgstr[1] ""
+"snd_pcm_delay() a întors o valoare excepțional de mare: %li octeți (%s%lu"
+" ms).\n"
+"Cel mai probabil, acesta e un defect în driver-ul ALSA „%s”. Raportați"
+" această problemă dezvoltatorilor ALSA."
+msgstr[2] ""
+"snd_pcm_delay() a întors o valoare excepțional de mare: %li de octeți (%s%lu"
+" ms).\n"
+"Cel mai probabil, acesta e un defect în driver-ul ALSA „%s”. Raportați"
+" această problemă dezvoltatorilor ALSA."
+
+#: spa/plugins/alsa/acp/alsa-util.c:1286
+#, c-format
+msgid ""
+"snd_pcm_avail_delay() returned strange values: delay %lu is less than avail "
+"%lu.\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
+"to the ALSA developers."
+msgstr ""
+"snd_pcm_avail_delay() a întors valori stranii: întârzierea %lu e mai mică"
+" decât disponibilul %lu.\n"
+"Cel mai probabil, acesta e un defect în driver-ul ALSA „%s”. Raportați"
+" această problemă dezvoltatorilor ALSA."
+
+#: spa/plugins/alsa/acp/alsa-util.c:1329
+#, c-format
+msgid ""
+"snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte "
+"(%lu ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
+"to the ALSA developers."
+msgid_plural ""
+"snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu bytes "
+"(%lu ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
+"to the ALSA developers."
+msgstr[0] ""
+"snd_pcm_mmap_begin() a întors o valoare excepțional de mare: %lu octet (%lu"
+" ms).\n"
+"Cel mai probabil, acesta e un defect în driver-ul ALSA „%s”. Raportați"
+" această problemă dezvoltatorilor ALSA."
+msgstr[1] ""
+"snd_pcm_mmap_begin() a întors o valoare excepțional de mare: %lu octeți (%lu"
+" ms).\n"
+"Cel mai probabil, acesta e un defect în driver-ul ALSA „%s”. Raportați"
+" această problemă dezvoltatorilor ALSA."
+msgstr[2] ""
+"snd_pcm_mmap_begin() a întors o valoare excepțional de mare: %lu de octeți ("
+"%lu ms).\n"
+"Cel mai probabil, acesta e un defect în driver-ul ALSA „%s”. Raportați"
+" această problemă dezvoltatorilor ALSA."
+
+#: spa/plugins/alsa/acp/channelmap.h:464
+msgid "(invalid)"
+msgstr "(nevalid)"
+
+#: spa/plugins/alsa/acp/compat.c:189
+msgid "Built-in Audio"
+msgstr "Audio încorporat"
+
+#: spa/plugins/alsa/acp/compat.c:194
+msgid "Modem"
+msgstr "Modem"
+
+#: spa/plugins/bluez5/bluez5-device.c:1155
+msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
+msgstr "Poartă de acces audio (sursă A2DP și HSP/HFP AG)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1178
+#, c-format
+msgid "High Fidelity Playback (A2DP Sink, codec %s)"
+msgstr "Redare de fidelitate înaltă (chiuvetă A2DP, codec %s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1181
+#, c-format
+msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
+msgstr "Duplex de fidelitate înaltă (sursă/chiuvetă A2DP, codec %s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1188
+msgid "High Fidelity Playback (A2DP Sink)"
+msgstr "Redare de fidelitate înaltă (chiuvetă A2DP)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1190
+msgid "High Fidelity Duplex (A2DP Source/Sink)"
+msgstr "Duplex de fidelitate înaltă (sursă/chiuvetă A2DP)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1217
+#, c-format
+msgid "Headset Head Unit (HSP/HFP, codec %s)"
+msgstr "Bază pentru set cu cască (HSP/HFP, codec %s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1221
+msgid "Headset Head Unit (HSP/HFP)"
+msgstr "Bază pentru set cu cască (HSP/HFP)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1297
+msgid "Handsfree"
+msgstr "Mâini libere"
+
+#: spa/plugins/bluez5/bluez5-device.c:1312
+msgid "Headphone"
+msgstr "Cască"
+
+#: spa/plugins/bluez5/bluez5-device.c:1317
+msgid "Portable"
+msgstr "Portabil"
+
+#: spa/plugins/bluez5/bluez5-device.c:1322
+msgid "Car"
+msgstr "Mașină"
+
+#: spa/plugins/bluez5/bluez5-device.c:1327
+msgid "HiFi"
+msgstr "HiFi"
+
+#: spa/plugins/bluez5/bluez5-device.c:1332
+msgid "Phone"
+msgstr "Telefon"
+
+#: spa/plugins/bluez5/bluez5-device.c:1338
+msgid "Bluetooth"
+msgstr "Bluetooth"

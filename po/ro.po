@@ -8,7 +8,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/issues/"
 "new\n"
 "POT-Creation-Date: 2021-11-17 15:06+0100\n"
-"PO-Revision-Date: 2022-02-05 10:57+0000\n"
+"PO-Revision-Date: 2022-02-05 12:06+0000\n"
 "Last-Translator: Sergiu Bivol <sergiu@cip.md>\n"
 "Language-Team: Romanian\n"
 "Language: ro\n"
@@ -311,7 +311,7 @@ msgstr "Linie de ieșire"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2755
 msgid "Analog Mono Output"
-msgstr "Ieșire mono analogică"
+msgstr "Ieșire mono analogic"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2756
 msgid "Speakers"
@@ -352,19 +352,19 @@ msgstr "Intrare discuție"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2766
 msgid "Virtual Surround 7.1"
-msgstr "Surround virtual 7.1"
+msgstr "surround virtual 7.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4471
 msgid "Analog Mono"
-msgstr "Mono analogic"
+msgstr "mono analogic"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4472
 msgid "Analog Mono (Left)"
-msgstr "Mono analogic (stânga)"
+msgstr "mono analogic (stânga)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4473
 msgid "Analog Mono (Right)"
-msgstr "Mono analogic (dreapta)"
+msgstr "mono analogic (dreapta)"
 
 #. Note: Not translated to "Analog Stereo Input", because the source
 #. * name gets "Input" appended to it automatically, so adding "Input"
@@ -375,7 +375,7 @@ msgstr "Mono analogic (dreapta)"
 #: spa/plugins/alsa/acp/alsa-mixer.c:4482
 #: spa/plugins/alsa/acp/alsa-mixer.c:4483
 msgid "Analog Stereo"
-msgstr "stereo analogică"
+msgstr "stereo analogic"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4475
 msgid "Mono"
@@ -403,71 +403,71 @@ msgstr "multicanal"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4488
 msgid "Analog Surround 2.1"
-msgstr "surround analogică 2.1"
+msgstr "surround analogic 2.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4489
 msgid "Analog Surround 3.0"
-msgstr "surround analogică 3.0"
+msgstr "surround analogic 3.0"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4490
 msgid "Analog Surround 3.1"
-msgstr "surround analogică 3.1"
+msgstr "surround analogic 3.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4491
 msgid "Analog Surround 4.0"
-msgstr "surround analogică 4.0"
+msgstr "surround analogic 4.0"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4492
 msgid "Analog Surround 4.1"
-msgstr "surround analogică 4.1"
+msgstr "surround analogic 4.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4493
 msgid "Analog Surround 5.0"
-msgstr "surround analogică 5.0"
+msgstr "surround analogic 5.0"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4494
 msgid "Analog Surround 5.1"
-msgstr "surround analogică 5.1"
+msgstr "surround analogic 5.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4495
 msgid "Analog Surround 6.0"
-msgstr "surround analogică 6.0"
+msgstr "surround analogic 6.0"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4496
 msgid "Analog Surround 6.1"
-msgstr "surround analogică 6.1"
+msgstr "surround analogic 6.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4497
 msgid "Analog Surround 7.0"
-msgstr "surround analogică 7.0"
+msgstr "surround analogic 7.0"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4498
 msgid "Analog Surround 7.1"
-msgstr "surround analogică 7.1"
+msgstr "surround analogic 7.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4499
 msgid "Digital Stereo (IEC958)"
-msgstr "stereo digitală (IEC958)"
+msgstr "stereo digital (IEC958)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4500
 msgid "Digital Surround 4.0 (IEC958/AC3)"
-msgstr "surround digitală 4.0 (IEC958/AC3)"
+msgstr "surround digital 4.0 (IEC958/AC3)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4501
 msgid "Digital Surround 5.1 (IEC958/AC3)"
-msgstr "surround digitală 5.1 (IEC958/AC3)"
+msgstr "surround digital 5.1 (IEC958/AC3)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4502
 msgid "Digital Surround 5.1 (IEC958/DTS)"
-msgstr "surround digitală 5.1 (IEC958/DTS)"
+msgstr "surround digital 5.1 (IEC958/DTS)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4503
 msgid "Digital Stereo (HDMI)"
-msgstr "stereo digitală (HDMI)"
+msgstr "stereo digital (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4504
 msgid "Digital Surround 5.1 (HDMI)"
-msgstr "surround digitală 5.1 (HDMI)"
+msgstr "surround digital 5.1 (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4505
 msgid "Chat"

@@ -313,7 +313,7 @@ static bool drop_from_out_queue(struct client *client, struct message *m)
 }
 
 /* returns true if an event with the (mask, event, index) triplet should be dropped because it is redundant */
-static bool client_prune_subscribe_events(struct client *client, uint32_t mask, uint32_t event, uint32_t index)
+static bool client_prune_subscribe_events(struct client *client, uint32_t event, uint32_t index)
 {
 	struct message *m, *t;
 
@@ -376,7 +376,7 @@ int client_queue_subscribe_event(struct client *client, uint32_t mask, uint32_t 
 
 	pw_log_debug("client %p: SUBSCRIBE event:%08x index:%u", client, event, index);
 
-	if (client_prune_subscribe_events(client, mask, event, index))
+	if (client_prune_subscribe_events(client, event, index))
 		return 0;
 
 	struct message *reply = message_alloc(client->impl, -1, 0);

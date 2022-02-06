@@ -286,8 +286,8 @@ static int get_num_pcm_devices(unsigned int card_id)
 			continue;
 
 		res = check_device_pcm_class(entry->d_name);
-		if (res == 0 || res == -ENOENT) {
-			/* count device also if sysfs status file not there */
+		if (res != -ENXIO) {
+			/* count device also if sysfs status file not accessible */
 			++num_dev;
 		}
 	}
@@ -325,10 +325,12 @@ static int check_device_available(struct impl *this, struct device *device, int 
 	 * don't want to actually open any devices using alsa-lib (generates uncontrolled
 	 * number of inotify events), or replicate its subdevice logic.
 	 *
-	 * The pcmXX directories do not exist if kernel is compiled with
-	 * CONFIG_SND_VERBOSE_PROCFS=n. In that case, the busy check always
-	 * succeeds.
+	 * The /proc/asound directory might not exist if kernel is compiled with
+	 * CONFIG_SND_PROCFS=n, and the pcmXX directories may be missing if compiled
+	 * with CONFIG_SND_VERBOSE_PROCFS=n. In those cases, the busy check always succeeds.
 	 */
+
+	res = 0;
 
 	spa_scnprintf(path, sizeof(path), "/proc/asound/card%u", (unsigned int)device->id);
 
@@ -369,7 +371,7 @@ static int check_device_available(struct impl *this, struct device *device, int 
 			if (!spa_strstartswith(buf, "closed")) {
 				spa_log_debug(this->log, "card %u pcm device %s busy",
 						(unsigned int)device->id, entry->d_name);
-				errno = EBUSY;
+				res = -EBUSY;
 				goto done;
 			}
 			spa_log_debug(this->log, "card %u pcm device %s free",
@@ -385,7 +387,10 @@ static int check_device_available(struct impl *this, struct device *device, int 
 		goto done;
 
 done:
-	res = -errno;
+	if (errno != 0) {
+		spa_log_info(this->log, "card %u: failed to find busy status (%s)",
+				(unsigned int)device->id, spa_strerror(-errno));
+	}
 	if (card)
 		closedir(card);
 	if (pcm)

@@ -209,14 +209,14 @@ static struct stream *find_stream(struct client *client, uint32_t index)
 }
 
 static int send_object_event(struct client *client, struct pw_manager_object *o,
-		uint32_t facility)
+		uint32_t type)
 {
 	uint32_t event = 0, mask = 0, res_index = o->index;
 
 	if (pw_manager_object_is_sink(o)) {
 		client_queue_subscribe_event(client,
 				SUBSCRIPTION_MASK_SINK,
-				SUBSCRIPTION_EVENT_SINK | facility,
+				SUBSCRIPTION_EVENT_SINK | type,
 				res_index);
 	}
 	if (pw_manager_object_is_source_or_monitor(o)) {
@@ -248,7 +248,7 @@ static int send_object_event(struct client *client, struct pw_manager_object *o,
 	if (event != SPA_ID_INVALID)
 		client_queue_subscribe_event(client,
 				mask,
-				event | facility,
+				event | type,
 				res_index);
 	return 0;
 }

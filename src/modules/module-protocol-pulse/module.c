@@ -25,6 +25,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
@@ -143,6 +144,8 @@ void module_args_add_props(struct pw_properties *props, const char *str)
 	const struct str_map *map;
 
 	while (*p) {
+		while (*p && isspace(*p))
+			p++;
 		e = strchr(p, '=');
 		if (e == NULL)
 			break;

@@ -217,6 +217,14 @@ struct module *create_module_ladspa_source(struct impl *impl, const char *argume
 	if (pw_properties_get(playback_props, PW_KEY_DEVICE_CLASS) == NULL)
 		pw_properties_set(playback_props, PW_KEY_DEVICE_CLASS, "filter");
 
+	if ((str = pw_properties_get(playback_props, PW_KEY_NODE_DESCRIPTION)) == NULL) {
+		str = pw_properties_get(playback_props, PW_KEY_NODE_NAME);
+		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
+					"%s Source", str);
+	} else {
+		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, str);
+	}
+
 	if ((str = pw_properties_get(props, "master")) != NULL ||
 	    (str = pw_properties_get(props, "source_master")) != NULL) {
 		pw_properties_set(capture_props, PW_KEY_NODE_TARGET, str);

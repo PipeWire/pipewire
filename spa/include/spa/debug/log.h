@@ -1,6 +1,6 @@
 /* Simple Plugin API
  *
- * Copyright © 2018 Wim Taymans
+ * Copyright © 2022 Wim Taymans
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,30 +22,25 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef SPA_DEBUG_DICT_H
-#define SPA_DEBUG_DICT_H
+#ifndef SPA_DEBUG_LOG_H
+#define SPA_DEBUG_LOG_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#include <stdio.h>
 /**
  * \addtogroup spa_debug
  * \{
  */
 
-#include <spa/debug/log.h>
-#include <spa/utils/dict.h>
-
-static inline int spa_debug_dict(int indent, const struct spa_dict *dict)
-{
-	const struct spa_dict_item *item;
-	spa_debug("%*sflags:%08x n_items:%d", indent, "", dict->flags, dict->n_items);
-	spa_dict_for_each(item, dict) {
-		spa_debug("%*s  %s = \"%s\"", indent, "", item->key, item->value);
-	}
-	return 0;
-}
+#ifndef spa_debug
+#define spa_debug(fmt,...)	({ printf(fmt"\n", ## __VA_ARGS__); })
+#endif
+#ifndef spa_debugn
+#define spa_debugn(fmt,...)	({ printf(fmt, ## __VA_ARGS__); })
+#endif
 
 /**
  * \}
@@ -55,4 +50,4 @@ static inline int spa_debug_dict(int indent, const struct spa_dict *dict)
 }  /* extern "C" */
 #endif
 
-#endif /* SPA_DEBUG_DICT_H */
+#endif /* SPA_DEBUG_LOGH */

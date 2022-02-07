@@ -34,14 +34,11 @@ extern "C" {
  * \{
  */
 
+#include <spa/debug/log.h>
 #include <spa/debug/mem.h>
 #include <spa/debug/types.h>
 #include <spa/pod/pod.h>
 #include <spa/pod/iter.h>
-
-#ifndef spa_debug
-#define spa_debug(...)	({ fprintf(stderr, __VA_ARGS__);fputc('\n', stderr); })
-#endif
 
 static inline int
 spa_debug_pod_value(int indent, const struct spa_type_info *info,

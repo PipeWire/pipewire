@@ -38,13 +38,10 @@ extern "C" {
  * \{
  */
 
+#include <spa/debug/log.h>
 #include <spa/debug/mem.h>
 #include <spa/debug/types.h>
 #include <spa/buffer/type-info.h>
-
-#ifndef spa_debug
-#define spa_debug(...)	({ fprintf(stderr, __VA_ARGS__);fputc('\n', stderr); })
-#endif
 
 static inline int spa_debug_buffer(int indent, const struct spa_buffer *buffer)
 {

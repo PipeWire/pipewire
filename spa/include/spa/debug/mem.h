@@ -29,16 +29,14 @@
 extern "C" {
 #endif
 
+#include <inttypes.h>
+
 /**
  * \addtogroup spa_debug
  * \{
  */
 
-#include <spa/utils/dict.h>
-
-#ifndef spa_debug
-#define spa_debug(...)	({ fprintf(stderr, __VA_ARGS__);fputc('\n', stderr); })
-#endif
+#include <spa/debug/log.h>
 
 static inline int spa_debug_mem(int indent, const void *data, size_t size)
 {

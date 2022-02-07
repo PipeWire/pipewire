@@ -35,6 +35,7 @@ extern "C" {
  */
 
 #include <spa/pod/parser.h>
+#include <spa/debug/log.h>
 #include <spa/debug/types.h>
 #include <spa/param/type-info.h>
 #include <spa/param/format-utils.h>
@@ -45,7 +46,7 @@ spa_debug_format_value(const struct spa_type_info *info,
 {
 	switch (type) {
 	case SPA_TYPE_Bool:
-		fprintf(stderr, "%s", *(int32_t *) body ? "true" : "false");
+		spa_debugn("%s", *(int32_t *) body ? "true" : "false");
 		break;
 	case SPA_TYPE_Id:
 	{
@@ -55,41 +56,41 @@ spa_debug_format_value(const struct spa_type_info *info,
 			snprintf(tmp, sizeof(tmp), "%d", *(int32_t*)body);
 			str = tmp;
 		}
-		fprintf(stderr, "%s", str);
+		spa_debugn("%s", str);
 		break;
 	}
 	case SPA_TYPE_Int:
-		fprintf(stderr, "%d", *(int32_t *) body);
+		spa_debugn("%d", *(int32_t *) body);
 		break;
 	case SPA_TYPE_Long:
-		fprintf(stderr, "%" PRIi64, *(int64_t *) body);
+		spa_debugn("%" PRIi64, *(int64_t *) body);
 		break;
 	case SPA_TYPE_Float:
-		fprintf(stderr, "%f", *(float *) body);
+		spa_debugn("%f", *(float *) body);
 		break;
 	case SPA_TYPE_Double:
-		fprintf(stderr, "%g", *(double *) body);
+		spa_debugn("%g", *(double *) body);
 		break;
 	case SPA_TYPE_String:
-		fprintf(stderr, "%s", (char *) body);
+		spa_debugn("%s", (char *) body);
 		break;
 	case SPA_TYPE_Rectangle:
 	{
 		struct spa_rectangle *r = (struct spa_rectangle *)body;
-		fprintf(stderr, "%" PRIu32 "x%" PRIu32, r->width, r->height);
+		spa_debugn("%" PRIu32 "x%" PRIu32, r->width, r->height);
 		break;
 	}
 	case SPA_TYPE_Fraction:
 	{
 		struct spa_fraction *f = (struct spa_fraction *)body;
-		fprintf(stderr, "%" PRIu32 "/%" PRIu32, f->num, f->denom);
+		spa_debugn("%" PRIu32 "/%" PRIu32, f->num, f->denom);
 		break;
 	}
 	case SPA_TYPE_Bitmap:
-		fprintf(stderr, "Bitmap");
+		spa_debugn("Bitmap");
 		break;
 	case SPA_TYPE_Bytes:
-		fprintf(stderr, "Bytes");
+		spa_debugn("Bytes");
 		break;
 	case SPA_TYPE_Array:
 	{
@@ -97,17 +98,17 @@ spa_debug_format_value(const struct spa_type_info *info,
 		struct spa_pod_array_body *b = (struct spa_pod_array_body *)body;
 		int i = 0;
 		info = info && info->values ? info->values : info;
-		fprintf(stderr, "< ");
+		spa_debugn("< ");
 		SPA_POD_ARRAY_BODY_FOREACH(b, size, p) {
 			if (i++ > 0)
-				fprintf(stderr, ", ");
+				spa_debugn(", ");
 			spa_debug_format_value(info, b->child.type, p, b->child.size);
 		}
-		fprintf(stderr, " >");
+		spa_debugn(" >");
 		break;
 	}
 	default:
-		fprintf(stderr, "INVALID type %d", type);
+		spa_debugn("INVALID type %d", type);
 		break;
 	}
 	return 0;
@@ -133,7 +134,7 @@ static inline int spa_debug_format(int indent,
 	media_type = spa_debug_type_find_name(spa_type_media_type, mtype);
 	media_subtype = spa_debug_type_find_name(spa_type_media_subtype, mstype);
 
-	fprintf(stderr, "%*s %s/%s\n", indent, "",
+	spa_debug("%*s %s/%s", indent, "",
 		media_type ? spa_debug_type_short_name(media_type) : "unknown",
 		media_subtype ? spa_debug_type_short_name(media_subtype) : "unknown");
 
@@ -160,7 +161,7 @@ static inline int spa_debug_format(int indent,
 		ti = spa_debug_type_find(info, prop->key);
 		key = ti ? ti->name : NULL;
 
-		fprintf(stderr, "%*s %16s : (%s) ", indent, "",
+		spa_debugn("%*s %16s : (%s) ", indent, "",
 			key ? spa_debug_type_short_name(key) : "unknown",
 			spa_debug_type_short_name(spa_types[type].name));
 
@@ -185,17 +186,17 @@ static inline int spa_debug_format(int indent,
 				break;
 			}
 
-			fprintf(stderr, "%s", ssep);
+			spa_debugn("%s", ssep);
 
 			for (i = 1; i < n_vals; i++) {
 				vals = SPA_PTROFF(vals, size, void);
 				if (i > 1)
-					fprintf(stderr, "%s", sep);
+					spa_debugn("%s", sep);
 				spa_debug_format_value(ti ? ti->values : NULL, type, vals, size);
 			}
-			fprintf(stderr, "%s", esep);
+			spa_debugn("%s", esep);
 		}
-		fprintf(stderr, "\n");
+		spa_debugn("\n");
 	}
 	return 0;
 }

@@ -374,7 +374,7 @@ static void registry_event_global(void *data, uint32_t id,
 		}
 	} else if (spa_streq(type, PW_TYPE_INTERFACE_Profiler)) {
 		if (d->profiler != NULL) {
-			fprintf(stderr, "Ignoring profiler %d: already attached\n", id);
+			printf("Ignoring profiler %d: already attached\n", id);
 			return;
 		}
 
@@ -443,9 +443,9 @@ static void do_quit(void *data, int signal_number)
 	pw_main_loop_quit(d->loop);
 }
 
-static void show_help(const char *name)
+static void show_help(const char *name, bool error)
 {
-        fprintf(stdout, "%s [options]\n"
+        fprintf(error ? stderr : stdout, "%s [options]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n",
@@ -506,10 +506,10 @@ int main(int argc, char *argv[])
 	while ((c = getopt_long(argc, argv, "hVr:o:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			show_help(argv[0]);
+			show_help(argv[0], false);
 			return 0;
 		case 'V':
-			fprintf(stdout, "%s\n"
+			printf("%s\n"
 				"Compiled with libpipewire %s\n"
 				"Linked with libpipewire %s\n",
 				argv[0],
@@ -520,7 +520,7 @@ int main(int argc, char *argv[])
 			opt_remote = optarg;
 			break;
 		default:
-			show_help(argv[0]);
+			show_help(argv[0], true);
 			return -1;
 		}
 	}

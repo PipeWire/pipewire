@@ -113,7 +113,7 @@ static void on_process(void *userdata, struct spa_io_position *position)
 		ev.data = SPA_POD_BODY(&c->value),
 		ev.size = SPA_POD_BODY_SIZE(&c->value);
 
-		fprintf(stdout, "%4d: ", c->offset);
+		printf("%4d: ", c->offset);
 		midi_file_dump_event(stdout, &ev);
 	}
 
@@ -175,9 +175,9 @@ static int dump_filter(struct data *data)
 	return 0;
 }
 
-static void show_help(const char *name)
+static void show_help(const char *name, bool error)
 {
-        fprintf(stdout, "%s [options] [FILE]\n"
+        fprintf(error ? stderr : stdout, "%s [options] [FILE]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n",
@@ -197,13 +197,15 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
+	setlinebuf(stdout);
+
 	while ((c = getopt_long(argc, argv, "hVr:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			show_help(argv[0]);
+			show_help(argv[0], false);
 			return 0;
 		case 'V':
-			fprintf(stdout, "%s\n"
+			printf("%s\n"
 				"Compiled with libpipewire %s\n"
 				"Linked with libpipewire %s\n",
 				argv[0],
@@ -214,7 +216,7 @@ int main(int argc, char *argv[])
 			data.opt_remote = optarg;
 			break;
 		default:
-			show_help(argv[0]);
+			show_help(argv[0], true);
 			return -1;
 		}
 	}

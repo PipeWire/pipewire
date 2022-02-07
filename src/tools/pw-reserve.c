@@ -50,24 +50,24 @@ struct impl {
 
 static void reserve_acquired(void *data, struct rd_device *d)
 {
-	fprintf(stdout, "reserve acquired\n");
+	printf("reserve acquired\n");
 }
 
 static void reserve_release(void *data, struct rd_device *d, int forced)
 {
 	struct impl *impl = data;
-	fprintf(stdout, "reserve release\n");
+	printf("reserve release\n");
 	rd_device_complete_release(impl->device, true);
 }
 
 static void reserve_busy(void *data, struct rd_device *d, const char *name, int32_t prio)
 {
-	fprintf(stdout, "reserve busy %s, prio %d\n", name, prio);
+	printf("reserve busy %s, prio %d\n", name, prio);
 }
 
 static void reserve_available(void *data, struct rd_device *d, const char *name)
 {
-	fprintf(stdout, "reserve available %s\n", name);
+	printf("reserve available %s\n", name);
 }
 
 static const struct rd_device_callbacks reserve_callbacks = {
@@ -86,9 +86,9 @@ static void do_quit(void *data, int signal_number)
 #define DEFAULT_APPNAME		"pw-reserve"
 #define DEFAULT_PRIORITY	0
 
-static void show_help(const char *name)
+static void show_help(const char *name, bool error)
 {
-        fprintf(stdout, "%s [options]\n"
+        fprintf(error ? stderr : stdout, "%s [options]\n"
              "  -h, --help                            Show this help\n"
              "      --version                         Show version\n"
              "  -n, --name                            Name to reserve (Audio0, Midi0, Video0, ..)\n"
@@ -119,15 +119,17 @@ int main(int argc, char *argv[])
 		{ NULL, 0, NULL, 0}
 	};
 
+	setlinebuf(stdout);
+
 	pw_init(&argc, &argv);
 
 	while ((c = getopt_long(argc, argv, "hVn:a:p:m", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			show_help(argv[0]);
+			show_help(argv[0], false);
 			return 0;
 		case 'V':
-			fprintf(stdout, "%s\n"
+			printf("%s\n"
 				"Compiled with libpipewire %s\n"
 				"Linked with libpipewire %s\n",
 				argv[0],
@@ -147,7 +149,7 @@ int main(int argc, char *argv[])
 			opt_monitor = true;
 			break;
 		default:
-			fprintf(stderr, "invalid option '%c'\n", c);
+			show_help(argv[0], true);
 			return -1;
 		}
 	}

@@ -179,15 +179,15 @@ static void print_port(struct data *data, const char *prefix, struct object *n,
 		prefix2 = "     ";
 	}
 
-	fprintf(stdout, "%s%s%s%s\n", data->prefix, prefix,
+	printf("%s%s%s%s\n", data->prefix, prefix,
 			id, port_name(buffer, sizeof(buffer), n, p));
 	if (verbose) {
 		port_path(buffer, sizeof(buffer), n, p);
 		if (buffer[0] != '\0')
-			fprintf(stdout, "%s  %s%s%s\n", data->prefix, prefix2, prefix, buffer);
+			printf("%s  %s%s%s\n", data->prefix, prefix2, prefix, buffer);
 		port_alias(buffer, sizeof(buffer), n, p);
 		if (buffer[0] != '\0')
-			fprintf(stdout, "%s  %s%s%s\n", data->prefix, prefix2, prefix, buffer);
+			printf("%s  %s%s%s\n", data->prefix, prefix2, prefix, buffer);
 	}
 }
 
@@ -426,7 +426,7 @@ static int do_monitor_link(struct data *data, struct object *link)
 	if (data->opt_id)
 		snprintf(id, sizeof(id), "%4d ", link->id);
 
-	fprintf(stdout, "%s%s%s -> %s\n", data->prefix, id,
+	printf("%s%s%s -> %s\n", data->prefix, id,
 			port_name(buffer1, sizeof(buffer1), n1, p1),
 			port_name(buffer2, sizeof(buffer2), n2, p2));
 	return 0;
@@ -552,9 +552,9 @@ static void do_quit(void *userdata, int signal_number)
 	pw_main_loop_quit(data->loop);
 }
 
-static void show_help(struct data *data, const char *name)
+static void show_help(struct data *data, const char *name, bool error)
 {
-        fprintf(stdout, "%1$s : PipeWire port and link manager.\n"
+        fprintf(error ? stderr : stdout, "%1$s : PipeWire port and link manager.\n"
 		"Generic: %1$s [options]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
@@ -602,6 +602,8 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 	spa_list_init(&data.objects);
 
+	setlinebuf(stdout);
+
 	data.props = pw_properties_new(NULL, NULL);
 	if (data.props == NULL) {
 		fprintf(stderr, "can't create properties: %m\n");
@@ -611,10 +613,10 @@ int main(int argc, char *argv[])
 	while ((c = getopt_long(argc, argv, "hVr:oilmIvLPp:d", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			show_help(&data, argv[0]);
+			show_help(&data, argv[0], NULL);
 			return 0;
 		case 'V':
-			fprintf(stdout, "%s\n"
+			printf("%s\n"
 				"Compiled with libpipewire %s\n"
 				"Linked with libpipewire %s\n",
 				argv[0],
@@ -655,12 +657,12 @@ int main(int argc, char *argv[])
 			data.opt_mode |= MODE_DISCONNECT;
 			break;
 		default:
-			show_help(&data, argv[0]);
+			show_help(&data, argv[0], true);
 			return -1;
 		}
 	}
 	if (argc == 1)
-		show_help(&data, argv[0]);
+		show_help(&data, argv[0], true);
 
 	if (data.opt_id && (data.opt_mode & MODE_LIST) == 0) {
 		fprintf(stderr, "-I option needs one or more of -l, -i or -o\n");

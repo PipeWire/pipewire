@@ -131,7 +131,7 @@ static int process_driver_block(struct data *d, const struct spa_pod *pod, struc
 
 	if (d->driver_id == 0) {
 		d->driver_id = driver_id;
-		fprintf(stderr, "logging driver %u\n", driver_id);
+		printf("logging driver %u\n", driver_id);
 	}
 	else if (d->driver_id != driver_id)
 		return -1;
@@ -162,7 +162,7 @@ static int add_follower(struct data *d, uint32_t id, const char *name)
 	strncpy(d->followers[idx].name, name, MAX_NAME);
 	d->followers[idx].name[MAX_NAME-1] = '\0';
 	d->followers[idx].id = id;
-	fprintf(stderr, "logging follower %u (\"%s\")\n", id, name);
+	printf("logging follower %u (\"%s\")\n", id, name);
 
 	return idx;
 }
@@ -243,7 +243,7 @@ static void dump_point(struct data *d, struct point *point)
 		d->last_status = point->clock.nsec;
 	}
 	else if (point->clock.nsec - d->last_status > SPA_NSEC_PER_SEC) {
-		fprintf(stderr, "logging %"PRIi64" samples  %"PRIi64" seconds [CPU %f %f %f]\r",
+		printf("logging %"PRIi64" samples  %"PRIi64" seconds [CPU %f %f %f]\r",
 				d->count, (int64_t) ((d->last_status - d->start_status) / SPA_NSEC_PER_SEC),
 				point->cpu_load[0], point->cpu_load[1], point->cpu_load[2]);
 		d->last_status = point->clock.nsec;
@@ -259,7 +259,7 @@ static void dump_scripts(struct data *d)
 	if (d->driver_id == 0)
 		return;
 
-	fprintf(stderr, "\ndumping scripts for %d followers\n", d->n_followers);
+	printf("\ndumping scripts for %d followers\n", d->n_followers);
 
 	out = fopen("Timing1.plot", "w");
 	if (out == NULL) {
@@ -420,7 +420,7 @@ static void dump_scripts(struct data *d)
 			"gnuplot Timing5.plot\n");
 		fclose(out);
 	}
-	fprintf(stderr, "run 'sh generate_timings.sh' and load Timings.html in a browser\n");
+	printf("run 'sh generate_timings.sh' and load Timings.html in a browser\n");
 }
 
 static void profiler_profile(void *data, const struct spa_pod *pod)
@@ -487,7 +487,7 @@ static void registry_event_global(void *data, uint32_t id,
 	if (proxy == NULL)
 		goto error_proxy;
 
-	fprintf(stderr, "Attaching to Profiler id:%d\n", id);
+	printf("Attaching to Profiler id:%d\n", id);
 	d->profiler = proxy;
 	pw_proxy_add_object_listener(proxy, &d->profiler_listener, &profiler_events, d);
 
@@ -539,9 +539,9 @@ static void do_quit(void *data, int signal_number)
 	pw_main_loop_quit(d->loop);
 }
 
-static void show_help(const char *name)
+static void show_help(const char *name, bool error)
 {
-        fprintf(stdout, "%s [options]\n"
+        fprintf(error ? stderr : stdout, "%s [options]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n"
@@ -570,10 +570,10 @@ int main(int argc, char *argv[])
 	while ((c = getopt_long(argc, argv, "hVr:o:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			show_help(argv[0]);
+			show_help(argv[0], false);
 			return 0;
 		case 'V':
-			fprintf(stdout, "%s\n"
+			printf("%s\n"
 				"Compiled with libpipewire %s\n"
 				"Linked with libpipewire %s\n",
 				argv[0],
@@ -587,7 +587,7 @@ int main(int argc, char *argv[])
 			opt_remote = optarg;
 			break;
 		default:
-			show_help(argv[0]);
+			show_help(argv[0], true);
 			return -1;
 		}
 	}
@@ -628,7 +628,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	fprintf(stderr, "Logging to %s\n", data.filename);
+	printf("Logging to %s\n", data.filename);
 
 	pw_core_add_listener(data.core,
 				   &data.core_listener,

@@ -760,9 +760,9 @@ static void do_quit(void *data, int signal_number)
 	pw_main_loop_quit(d->loop);
 }
 
-static void show_help(const char *name)
+static void show_help(const char *name, bool error)
 {
-        fprintf(stdout, "%s [options]\n"
+        fprintf(error ? stderr : stdout, "%s [options]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -a, --all                             Show all object types\n"
@@ -801,10 +801,10 @@ int main(int argc, char *argv[])
 	while ((c = getopt_long(argc, argv, "hVasdr:o:L9", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h' :
-			show_help(argv[0]);
+			show_help(argv[0], false);
 			return 0;
 		case 'V' :
-			fprintf(stdout, "%s\n"
+			printf("%s\n"
 				"Compiled with libpipewire %s\n"
 				"Linked with libpipewire %s\n",
 				argv[0],
@@ -840,7 +840,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "orthogonal edges enabled\n");
 			break;
 		default:
-			show_help(argv[0]);
+			show_help(argv[0], true);
 			return -1;
 		}
 	}

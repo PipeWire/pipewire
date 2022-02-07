@@ -70,11 +70,11 @@ static int metadata_property(void *data, uint32_t id,
 	if ((d->opt_id == SPA_ID_INVALID || d->opt_id == id) &&
 	    (d->opt_key == NULL || spa_streq(d->opt_key, key))) {
 		if (key == NULL) {
-			fprintf(stdout, "remove: id:%u all keys\n", id);
+			printf("remove: id:%u all keys\n", id);
 		} else if (value == NULL) {
-			fprintf(stdout, "remove: id:%u key:'%s'\n", id, key);
+			printf("remove: id:%u key:'%s'\n", id, key);
 		} else {
-			fprintf(stdout, "update: id:%u key:'%s' value:'%s' type:'%s'\n", id, key, value, type);
+			printf("update: id:%u key:'%s' value:'%s' type:'%s'\n", id, key, value, type);
 		}
 	}
 
@@ -106,23 +106,23 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		return;
 	}
 
-	fprintf(stdout, "Found \"%s\" metadata %d\n", d->opt_name, id);
+	printf("Found \"%s\" metadata %d\n", d->opt_name, id);
 	d->metadata = pw_registry_bind(d->registry,
 			id, type, PW_VERSION_METADATA, 0);
 
 	if (d->opt_delete) {
 		if (d->opt_id != SPA_ID_INVALID) {
 			if (d->opt_key != NULL)
-				fprintf(stdout, "delete property: id:%u key:%s\n", d->opt_id, d->opt_key);
+				printf("delete property: id:%u key:%s\n", d->opt_id, d->opt_key);
 			else
-				fprintf(stdout, "delete properties: id:%u\n", d->opt_id);
+				printf("delete properties: id:%u\n", d->opt_id);
 			pw_metadata_set_property(d->metadata, d->opt_id, d->opt_key, NULL, NULL);
 		} else {
-			fprintf(stdout, "delete all properties\n");
+			printf("delete all properties\n");
 			pw_metadata_clear(d->metadata);
 		}
 	} else if (d->opt_id != SPA_ID_INVALID && d->opt_key != NULL && d->opt_value != NULL) {
-		fprintf(stdout, "set property: id:%u key:%s value:%s type:%s\n",
+		printf("set property: id:%u key:%s value:%s type:%s\n",
 				d->opt_id, d->opt_key, d->opt_value, d->opt_type);
 		pw_metadata_set_property(d->metadata, d->opt_id, d->opt_key, d->opt_type, d->opt_value);
 	} else {
@@ -170,9 +170,9 @@ static void do_quit(void *userdata, int signal_number)
 	pw_main_loop_quit(data->loop);
 }
 
-static void show_help(struct data *data, const char *name)
+static void show_help(struct data *data, const char *name, bool error)
 {
-        fprintf(stdout, "%s [options] [ id [ key [ value [ type ] ] ] ]\n"
+        fprintf(error ? stderr : stdout, "%s [options] [ id [ key [ value [ type ] ] ] ]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n"
@@ -196,6 +196,8 @@ int main(int argc, char *argv[])
 		{ NULL,	0, NULL, 0}
 	};
 
+	setlinebuf(stdout);
+
 	pw_init(&argc, &argv);
 
 	data.opt_name = "default";
@@ -203,10 +205,10 @@ int main(int argc, char *argv[])
 	while ((c = getopt_long(argc, argv, "hVr:mdn:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			show_help(&data, argv[0]);
+			show_help(&data, argv[0], false);
 			return 0;
 		case 'V':
-			fprintf(stdout, "%s\n"
+			printf("%s\n"
 				"Compiled with libpipewire %s\n"
 				"Linked with libpipewire %s\n",
 				argv[0],
@@ -226,7 +228,7 @@ int main(int argc, char *argv[])
 			data.opt_name = optarg;
 			break;
 		default:
-			show_help(&data, argv[0]);
+			show_help(&data, argv[0], true);
 			return -1;
 		}
 	}

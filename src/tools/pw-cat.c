@@ -648,7 +648,7 @@ static void on_core_info(void *userdata, const struct pw_core_info *info)
 	struct data *data = userdata;
 
 	if (data->verbose)
-		fprintf(stdout, "remote %"PRIu32" is named \"%s\"\n",
+		printf("remote %"PRIu32" is named \"%s\"\n",
 				info->id, info->name);
 }
 
@@ -808,7 +808,7 @@ static void registry_event_global(void *userdata, uint32_t id,
 					id, type, name, media_class, desc ? : "", prio);
 
 			spa_dict_for_each(item, props) {
-				fprintf(stdout, "\t\t%s = \"%s\"\n", item->key, item->value);
+				printf("\t\t%s = \"%s\"\n", item->key, item->value);
 			}
 		}
 
@@ -1533,7 +1533,7 @@ int main(int argc, char *argv[])
 			return EXIT_SUCCESS;
 
 		case OPT_VERSION:
-			fprintf(stdout, "%s\n"
+			printf("%s\n"
 				"Compiled with libpipewire %s\n"
 				"Linked with libpipewire %s\n",
 				prog,

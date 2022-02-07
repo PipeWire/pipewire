@@ -40,7 +40,7 @@
 #define FNM_EXTMATCH 0
 #endif
 
-#define spa_debug(...) fprintf(stdout,__VA_ARGS__);fputc('\n', stdout)
+#define spa_debug(fmt,...) printf(fmt, ## __VA_ARGS__)
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
@@ -157,15 +157,15 @@ static void print_properties(struct spa_dict *props, char mark, bool header)
 	const struct spa_dict_item *item;
 
 	if (header)
-		fprintf(stdout, "%c\tproperties:\n", mark);
+		printf("%c\tproperties:\n", mark);
 	if (props == NULL || props->n_items == 0) {
 		if (header)
-			fprintf(stdout, "\t\tnone\n");
+			printf("\t\tnone\n");
 		return;
 	}
 
 	spa_dict_for_each(item, props) {
-		fprintf(stdout, "%c\t\t%s = \"%s\"\n", mark, item->key, item->value);
+		printf("%c\t\t%s = \"%s\"\n", mark, item->key, item->value);
 	}
 }
 
@@ -174,16 +174,16 @@ static void print_params(struct spa_param_info *params, uint32_t n_params, char 
 	uint32_t i;
 
 	if (header)
-		fprintf(stdout, "%c\tparams: (%u)\n", mark, n_params);
+		printf("%c\tparams: (%u)\n", mark, n_params);
 	if (params == NULL || n_params == 0) {
 		if (header)
-			fprintf(stdout, "\t\tnone\n");
+			printf("\t\tnone\n");
 		return;
 	}
 	for (i = 0; i < n_params; i++) {
 		const struct spa_type_info *type_info = spa_type_param;
 
-		fprintf(stdout, "%c\t  %d (%s) %c%c\n",
+		printf("%c\t  %d (%s) %c%c\n",
 				params[i].user > 0 ? mark : ' ', params[i].id,
 				spa_debug_type_find_name(type_info, params[i].id),
 				params[i].flags & SPA_PARAM_INFO_READ ? 'r' : '-',
@@ -257,9 +257,9 @@ static bool do_help(struct data *data, const char *cmd, char *args, char **error
 {
 	size_t i;
 
-	fprintf(stdout, "Available commands:\n");
+	printf("Available commands:\n");
 	for (i = 0; i < SPA_N_ELEMENTS(command_list); i++) {
-		fprintf(stdout, "\t%-20.20s\t%s\n", command_list[i].name, command_list[i].description);
+		printf("\t%-20.20s\t%s\n", command_list[i].name, command_list[i].description);
 	}
 	return true;
 }
@@ -284,7 +284,7 @@ static bool do_load_module(struct data *data, const char *cmd, char *args, char 
 	}
 
 	id = pw_map_insert_new(&data->vars, module);
-	fprintf(stdout, "%d = @module:%d\n", id, pw_global_get_id(pw_impl_module_get_global(module)));
+	printf("%d = @module:%d\n", id, pw_global_get_id(pw_impl_module_get_global(module)));
 
 	return true;
 }
@@ -295,7 +295,7 @@ static void on_core_info(void *_data, const struct pw_core_info *info)
 	free(rd->name);
 	rd->name = info->name ? strdup(info->name) : NULL;
 	if (rd->data->interactive)
-		fprintf(stdout, "remote %d is named '%s'\n", rd->id, rd->name);
+		printf("remote %d is named '%s'\n", rd->id, rd->name);
 }
 
 static void set_prompt(struct remote_data *rd)
@@ -353,7 +353,7 @@ static int print_global(void *obj, void *data)
 	if (filter && !global_matches(global, filter))
 		return 0;
 
-	fprintf(stdout, "\tid %d, type %s/%d\n", global->id,
+	printf("\tid %d, type %s/%d\n", global->id,
 					global->type, global->version);
 	if (global->properties)
 		print_properties(&global->properties->dict, ' ', false);
@@ -383,7 +383,7 @@ static void registry_event_global(void *data, uint32_t id,
 	global->properties = props ? pw_properties_new_dict(props) : NULL;
 
 	if (rd->data->monitoring) {
-		fprintf(stdout, "remote %d added global: ", rd->id);
+		printf("remote %d added global: ", rd->id);
 		print_global(global, NULL);
 	}
 
@@ -396,7 +396,7 @@ static void registry_event_global(void *data, uint32_t id,
 	ret = bind_global(rd, global, &error);
 	if (!ret) {
 		if (rd->data->interactive)
-			fprintf(stdout, "Error: \"%s\"\n", error);
+			fprintf(stderr, "Error: \"%s\"\n", error);
 		free(error);
 	}
 }
@@ -424,12 +424,12 @@ static void registry_event_global_remove(void *data, uint32_t id)
 
 	global = pw_map_lookup(&rd->globals, id);
 	if (global == NULL) {
-		fprintf(stdout, "remote %d removed unknown global %d\n", rd->id, id);
+		fprintf(stderr, "remote %d removed unknown global %d\n", rd->id, id);
 		return;
 	}
 
 	if (rd->data->monitoring) {
-		fprintf(stdout, "remote %d removed global: ", rd->id);
+		printf("remote %d removed global: ", rd->id);
 		print_global(global, NULL);
 	}
 
@@ -536,7 +536,7 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 	spa_list_append(&data->remotes, &rd->link);
 
 	if (rd->data->interactive)
-		fprintf(stdout, "%d = @remote:%p\n", rd->id, rd->core);
+		printf("%d = @remote:%p\n", rd->id, rd->core);
 
 	data->current = rd;
 
@@ -592,7 +592,7 @@ static bool do_list_remotes(struct data *data, const char *cmd, char *args, char
 	struct remote_data *rd;
 
 	spa_list_for_each(rd, &data->remotes, link)
-		fprintf(stdout, "\t%d = @remote:%p '%s'\n", rd->id, rd->core, rd->name);
+		printf("\t%d = @remote:%p '%s'\n", rd->id, rd->core, rd->name);
 
 	return true;
 }
@@ -631,10 +631,10 @@ static void info_global(struct proxy_data *pd)
 	if (global == NULL)
 		return;
 
-	fprintf(stdout, "\tid: %d\n", global->id);
-	fprintf(stdout, "\tpermissions: "PW_PERMISSION_FORMAT"\n",
+	printf("\tid: %d\n", global->id);
+	printf("\tpermissions: "PW_PERMISSION_FORMAT"\n",
 			PW_PERMISSION_ARGS(global->permissions));
-	fprintf(stdout, "\ttype: %s/%d\n", global->type, global->version);
+	printf("\ttype: %s/%d\n", global->type, global->version);
 }
 
 static void info_core(struct proxy_data *pd)
@@ -642,11 +642,11 @@ static void info_core(struct proxy_data *pd)
 	struct pw_core_info *info = pd->info;
 
 	info_global(pd);
-	fprintf(stdout, "\tcookie: %u\n", info->cookie);
-	fprintf(stdout, "\tuser-name: \"%s\"\n", info->user_name);
-	fprintf(stdout, "\thost-name: \"%s\"\n", info->host_name);
-	fprintf(stdout, "\tversion: \"%s\"\n", info->version);
-	fprintf(stdout, "\tname: \"%s\"\n", info->name);
+	printf("\tcookie: %u\n", info->cookie);
+	printf("\tuser-name: \"%s\"\n", info->user_name);
+	printf("\thost-name: \"%s\"\n", info->host_name);
+	printf("\tversion: \"%s\"\n", info->version);
+	printf("\tname: \"%s\"\n", info->name);
 	print_properties(info->props, MARK_CHANGE(PW_CORE_CHANGE_MASK_PROPS), true);
 	info->change_mask = 0;
 }
@@ -656,9 +656,9 @@ static void info_module(struct proxy_data *pd)
 	struct pw_module_info *info = pd->info;
 
 	info_global(pd);
-	fprintf(stdout, "\tname: \"%s\"\n", info->name);
-	fprintf(stdout, "\tfilename: \"%s\"\n", info->filename);
-	fprintf(stdout, "\targs: \"%s\"\n", info->args);
+	printf("\tname: \"%s\"\n", info->name);
+	printf("\tfilename: \"%s\"\n", info->filename);
+	printf("\targs: \"%s\"\n", info->args);
 	print_properties(info->props, MARK_CHANGE(PW_MODULE_CHANGE_MASK_PROPS), true);
 	info->change_mask = 0;
 }
@@ -668,16 +668,16 @@ static void info_node(struct proxy_data *pd)
 	struct pw_node_info *info = pd->info;
 
 	info_global(pd);
-	fprintf(stdout, "%c\tinput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_INPUT_PORTS),
+	printf("%c\tinput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_INPUT_PORTS),
 			info->n_input_ports, info->max_input_ports);
-	fprintf(stdout, "%c\toutput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_OUTPUT_PORTS),
+	printf("%c\toutput ports: %u/%u\n", MARK_CHANGE(PW_NODE_CHANGE_MASK_OUTPUT_PORTS),
 			info->n_output_ports, info->max_output_ports);
-	fprintf(stdout, "%c\tstate: \"%s\"", MARK_CHANGE(PW_NODE_CHANGE_MASK_STATE),
+	printf("%c\tstate: \"%s\"", MARK_CHANGE(PW_NODE_CHANGE_MASK_STATE),
 			pw_node_state_as_string(info->state));
 	if (info->state == PW_NODE_STATE_ERROR && info->error)
-		fprintf(stdout, " \"%s\"\n", info->error);
+		printf(" \"%s\"\n", info->error);
 	else
-		fprintf(stdout, "\n");
+		printf("\n");
 	print_properties(info->props, MARK_CHANGE(PW_NODE_CHANGE_MASK_PROPS), true);
 	print_params(info->params, info->n_params, MARK_CHANGE(PW_NODE_CHANGE_MASK_PARAMS), true);
 	info->change_mask = 0;
@@ -688,7 +688,7 @@ static void info_port(struct proxy_data *pd)
 	struct pw_port_info *info = pd->info;
 
 	info_global(pd);
-	fprintf(stdout, "\tdirection: \"%s\"\n", pw_direction_as_string(info->direction));
+	printf("\tdirection: \"%s\"\n", pw_direction_as_string(info->direction));
 	print_properties(info->props, MARK_CHANGE(PW_PORT_CHANGE_MASK_PROPS), true);
 	print_params(info->params, info->n_params, MARK_CHANGE(PW_PORT_CHANGE_MASK_PARAMS), true);
 	info->change_mask = 0;
@@ -699,8 +699,8 @@ static void info_factory(struct proxy_data *pd)
 	struct pw_factory_info *info = pd->info;
 
 	info_global(pd);
-	fprintf(stdout, "\tname: \"%s\"\n", info->name);
-	fprintf(stdout, "\tobject-type: %s/%d\n", info->type, info->version);
+	printf("\tname: \"%s\"\n", info->name);
+	printf("\tobject-type: %s/%d\n", info->type, info->version);
 	print_properties(info->props, MARK_CHANGE(PW_FACTORY_CHANGE_MASK_PROPS), true);
 	info->change_mask = 0;
 }
@@ -719,22 +719,22 @@ static void info_link(struct proxy_data *pd)
 	struct pw_link_info *info = pd->info;
 
 	info_global(pd);
-	fprintf(stdout, "\toutput-node-id: %u\n", info->output_node_id);
-	fprintf(stdout, "\toutput-port-id: %u\n", info->output_port_id);
-	fprintf(stdout, "\tinput-node-id: %u\n", info->input_node_id);
-	fprintf(stdout, "\tinput-port-id: %u\n", info->input_port_id);
+	printf("\toutput-node-id: %u\n", info->output_node_id);
+	printf("\toutput-port-id: %u\n", info->output_port_id);
+	printf("\tinput-node-id: %u\n", info->input_node_id);
+	printf("\tinput-port-id: %u\n", info->input_port_id);
 
-	fprintf(stdout, "%c\tstate: \"%s\"", MARK_CHANGE(PW_LINK_CHANGE_MASK_STATE),
+	printf("%c\tstate: \"%s\"", MARK_CHANGE(PW_LINK_CHANGE_MASK_STATE),
 			pw_link_state_as_string(info->state));
 	if (info->state == PW_LINK_STATE_ERROR && info->error)
 		printf(" \"%s\"\n", info->error);
 	else
 		printf("\n");
-	fprintf(stdout, "%c\tformat:\n", MARK_CHANGE(PW_LINK_CHANGE_MASK_FORMAT));
+	printf("%c\tformat:\n", MARK_CHANGE(PW_LINK_CHANGE_MASK_FORMAT));
 	if (info->format)
 		spa_debug_pod(2, NULL, info->format);
 	else
-		fprintf(stdout, "\t\tnone\n");
+		printf("\t\tnone\n");
 	print_properties(info->props, MARK_CHANGE(PW_LINK_CHANGE_MASK_PROPS), true);
 	info->change_mask = 0;
 }
@@ -765,8 +765,8 @@ static void info_endpoint(struct proxy_data *pd)
 	const char *direction;
 
 	info_global(pd);
-	fprintf(stdout, "\tname: %s\n", info->name);
-	fprintf(stdout, "\tmedia-class: %s\n",  info->media_class);
+	printf("\tname: %s\n", info->name);
+	printf("\tmedia-class: %s\n",  info->media_class);
 	switch(info->direction) {
 	case PW_DIRECTION_OUTPUT:
 		direction = "source";
@@ -778,10 +778,10 @@ static void info_endpoint(struct proxy_data *pd)
 		direction = "invalid";
 		break;
 	}
-	fprintf(stdout, "\tdirection: %s\n", direction);
-	fprintf(stdout, "\tflags: 0x%x\n", info->flags);
-	fprintf(stdout, "%c\tstreams: %u\n", MARK_CHANGE(0), info->n_streams);
-	fprintf(stdout, "%c\tsession: %u\n", MARK_CHANGE(1), info->session_id);
+	printf("\tdirection: %s\n", direction);
+	printf("\tflags: 0x%x\n", info->flags);
+	printf("%c\tstreams: %u\n", MARK_CHANGE(0), info->n_streams);
+	printf("%c\tsession: %u\n", MARK_CHANGE(1), info->session_id);
 	print_properties(info->props, MARK_CHANGE(2), true);
 	print_params(info->params, info->n_params, MARK_CHANGE(3), true);
 	info->change_mask = 0;
@@ -792,9 +792,9 @@ static void info_endpoint_stream(struct proxy_data *pd)
 	struct pw_endpoint_stream_info *info = pd->info;
 
 	info_global(pd);
-	fprintf(stdout, "\tid: %u\n", info->id);
-	fprintf(stdout, "\tendpoint-id: %u\n", info->endpoint_id);
-	fprintf(stdout, "\tname: %s\n", info->name);
+	printf("\tid: %u\n", info->id);
+	printf("\tendpoint-id: %u\n", info->endpoint_id);
+	printf("\tname: %s\n", info->name);
 	print_properties(info->props, MARK_CHANGE(1), true);
 	print_params(info->params, info->n_params, MARK_CHANGE(2), true);
 	info->change_mask = 0;
@@ -805,7 +805,7 @@ static void core_event_info(void *object, const struct pw_core_info *info)
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
-		fprintf(stdout, "remote %d core %d changed\n", rd->id, info->id);
+		printf("remote %d core %d changed\n", rd->id, info->id);
 	pd->info = pw_core_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -826,7 +826,7 @@ static void module_event_info(void *object, const struct pw_module_info *info)
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
-		fprintf(stdout, "remote %d module %d changed\n", rd->id, info->id);
+		printf("remote %d module %d changed\n", rd->id, info->id);
 	pd->info = pw_module_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -846,7 +846,7 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
-		fprintf(stdout, "remote %d node %d changed\n", rd->id, info->id);
+		printf("remote %d node %d changed\n", rd->id, info->id);
 	pd->info = pw_node_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -863,7 +863,7 @@ static void event_param(void *object, int seq, uint32_t id,
 	struct remote_data *rd = data->rd;
 
 	if (rd->data->interactive)
-		fprintf(stdout, "remote %d object %d param %d index %d\n",
+		printf("remote %d object %d param %d index %d\n",
 				rd->id, data->global->id, id, index);
 
 	spa_debug_pod(2, NULL, param);
@@ -881,7 +881,7 @@ static void port_event_info(void *object, const struct pw_port_info *info)
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
-		fprintf(stdout, "remote %d port %d changed\n", rd->id, info->id);
+		printf("remote %d port %d changed\n", rd->id, info->id);
 	pd->info = pw_port_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -902,7 +902,7 @@ static void factory_event_info(void *object, const struct pw_factory_info *info)
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
-		fprintf(stdout, "remote %d factory %d changed\n", rd->id, info->id);
+		printf("remote %d factory %d changed\n", rd->id, info->id);
 	pd->info = pw_factory_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -922,7 +922,7 @@ static void client_event_info(void *object, const struct pw_client_info *info)
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
-		fprintf(stdout, "remote %d client %d changed\n", rd->id, info->id);
+		printf("remote %d client %d changed\n", rd->id, info->id);
 	pd->info = pw_client_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -939,15 +939,15 @@ static void client_event_permissions(void *object, uint32_t index,
 	struct remote_data *rd = data->rd;
 	uint32_t i;
 
-	fprintf(stdout, "remote %d node %d index %d\n",
+	printf("remote %d node %d index %d\n",
 			rd->id, data->global->id, index);
 
 	for (i = 0; i < n_permissions; i++) {
 		if (permissions[i].id == PW_ID_ANY)
-			fprintf(stdout, "  default:");
+			printf("  default:");
 		else
-			fprintf(stdout, "  %u:", permissions[i].id);
-		fprintf(stdout, " "PW_PERMISSION_FORMAT"\n",
+			printf("  %u:", permissions[i].id);
+		printf(" "PW_PERMISSION_FORMAT"\n",
 			PW_PERMISSION_ARGS(permissions[i].permissions));
 	}
 }
@@ -963,7 +963,7 @@ static void link_event_info(void *object, const struct pw_link_info *info)
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
-		fprintf(stdout, "remote %d link %d changed\n", rd->id, info->id);
+		printf("remote %d link %d changed\n", rd->id, info->id);
 	pd->info = pw_link_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -984,7 +984,7 @@ static void device_event_info(void *object, const struct pw_device_info *info)
 	struct proxy_data *pd = object;
 	struct remote_data *rd = pd->rd;
 	if (pd->info)
-		fprintf(stdout, "remote %d device %d changed\n", rd->id, info->id);
+		printf("remote %d device %d changed\n", rd->id, info->id);
 	pd->info = pw_device_info_update(pd->info, info);
 	if (pd->global == NULL)
 		pd->global = pw_map_lookup(&rd->globals, info->id);
@@ -1431,7 +1431,7 @@ static bool do_create_device(struct data *data, const char *cmd, char *args, cha
 	pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
 	id = pw_map_insert_new(&data->vars, proxy);
-	fprintf(stdout, "%d = @proxy:%d\n", id, pw_proxy_get_id(proxy));
+	printf("%d = @proxy:%d\n", id, pw_proxy_get_id(proxy));
 
 	return true;
 }
@@ -1470,7 +1470,7 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
         pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
 	id = pw_map_insert_new(&data->vars, proxy);
-	fprintf(stdout, "%d = @proxy:%d\n", id, pw_proxy_get_id(proxy));
+	printf("%d = @proxy:%d\n", id, pw_proxy_get_id(proxy));
 
 	return true;
 }
@@ -1543,7 +1543,7 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
         pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
 
 	id = pw_map_insert_new(&data->vars, proxy);
-	fprintf(stdout, "%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
+	printf("%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
 
 	return true;
 }
@@ -1583,7 +1583,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 	proxy = pw_core_export(rd->core, PW_TYPE_INTERFACE_Node, NULL, node, 0);
 
 	id = pw_map_insert_new(&data->vars, proxy);
-	fprintf(stdout, "%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
+	printf("%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
 
 	return true;
 
@@ -1736,7 +1736,7 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 	}
 
 	p = strtol(a[2], NULL, 0);
-	fprintf(stderr, "setting permissions: "PW_PERMISSION_FORMAT"\n",
+	printf("setting permissions: "PW_PERMISSION_FORMAT"\n",
 			PW_PERMISSION_ARGS(p));
 
 	permissions[0] = PW_PERMISSION_INIT(atoi(a[1]), p);
@@ -2131,7 +2131,7 @@ dump_properties(struct data *data, struct global *global,
 
 	ind = INDENT(level + 2);
 	spa_dict_for_each(item, props) {
-		fprintf(stdout, "%s%s = \"%s\"",
+		printf("%s%s = \"%s\"",
 				ind, item->key, item->value);
 
 		extra = NULL;
@@ -2154,9 +2154,9 @@ dump_properties(struct data *data, struct global *global,
 		}
 
 		if (extra)
-			fprintf(stdout, " (\"%s\")", extra);
+			printf(" (\"%s\")", extra);
 
-		fprintf(stdout, "\n");
+		printf("\n");
 	}
 }
 
@@ -2175,7 +2175,7 @@ dump_params(struct data *data, struct global *global,
 	for (i = 0; i < n_params; i++) {
 		const struct spa_type_info *type_info = spa_type_param;
 
-		fprintf(stdout, "%s  %d (%s) %c%c\n", ind,
+		printf("%s  %d (%s) %c%c\n", ind,
 			params[i].id,
 			spa_debug_type_find_name(type_info, params[i].id),
 			params[i].flags & SPA_PARAM_INFO_READ ? 'r' : '-',
@@ -2192,16 +2192,16 @@ dump_global_common(struct data *data, struct global *global,
 
 	if (!(flags & is_short)) {
 		ind = INDENT(level + 1);
-		fprintf(stdout, "%sid: %"PRIu32"\n", ind, global->id);
-		fprintf(stdout, "%spermissions: "PW_PERMISSION_FORMAT"\n", ind,
+		printf("%sid: %"PRIu32"\n", ind, global->id);
+		printf("%spermissions: "PW_PERMISSION_FORMAT"\n", ind,
 			PW_PERMISSION_ARGS(global->permissions));
-		fprintf(stdout, "%stype: %s/%d\n", ind,
+		printf("%stype: %s/%d\n", ind,
 				global->type, global->version);
 	} else {
 		ind = INDENT(level);
-		fprintf(stdout, "%s%"PRIu32":", ind, global->id);
+		printf("%s%"PRIu32":", ind, global->id);
 		if (!(flags & is_notype))
-			fprintf(stdout, " %s", pw_interface_short(global->type));
+			printf(" %s", pw_interface_short(global->type));
 	}
 }
 
@@ -2221,17 +2221,17 @@ dump_core(struct data *data, struct global *global,
 	info = pd->info;
 	if (!(flags & is_short)) {
 		ind = INDENT(level + 1);
-		fprintf(stdout, "%scookie: %u\n", ind, info->cookie);
-		fprintf(stdout, "%suser-name: \"%s\"\n", ind, info->user_name);
-		fprintf(stdout, "%shost-name: \"%s\"\n", ind, info->host_name);
-		fprintf(stdout, "%sversion: \"%s\"\n", ind, info->version);
-		fprintf(stdout, "%sname: \"%s\"\n", ind, info->name);
-		fprintf(stdout, "%sproperties:\n", ind);
+		printf("%scookie: %u\n", ind, info->cookie);
+		printf("%suser-name: \"%s\"\n", ind, info->user_name);
+		printf("%shost-name: \"%s\"\n", ind, info->host_name);
+		printf("%sversion: \"%s\"\n", ind, info->version);
+		printf("%sname: \"%s\"\n", ind, info->name);
+		printf("%sproperties:\n", ind);
 		dump_properties(data, global, flags, level);
 	} else {
-		fprintf(stdout, " u=\"%s\" h=\"%s\" v=\"%s\" n=\"%s\"",
+		printf(" u=\"%s\" h=\"%s\" v=\"%s\" n=\"%s\"",
 				info->user_name, info->host_name, info->version, info->name);
-		fprintf(stdout, "\n");
+		printf("\n");
 	}
 
 	return true;
@@ -2259,15 +2259,15 @@ dump_module(struct data *data, struct global *global,
 
 	if (!(flags & is_short)) {
 		ind = INDENT(level + 1);
-		fprintf(stdout, "%sname: \"%s\"\n", ind, info->name);
-		fprintf(stdout, "%sfilename: \"%s\"\n", ind, info->filename);
-		fprintf(stdout, "%sargs: \"%s\"\n", ind, info->args);
-		fprintf(stdout, "%sproperties:\n", ind);
+		printf("%sname: \"%s\"\n", ind, info->name);
+		printf("%sfilename: \"%s\"\n", ind, info->filename);
+		printf("%sargs: \"%s\"\n", ind, info->args);
+		printf("%sproperties:\n", ind);
 		dump_properties(data, global, flags, level);
 	} else {
 		desc = spa_dict_lookup(info->props, PW_KEY_MODULE_DESCRIPTION);
 		args = info->args && strcmp(info->args, "(null)") ? info->args : NULL;
-		fprintf(stdout, " n=\"%s\" f=\"%s\"" "%s%s%s" "%s%s%s",
+		printf(" n=\"%s\" f=\"%s\"" "%s%s%s" "%s%s%s",
 				info->name, info->filename,
 				args ? " a=\"" : "",
 				args ? args : "",
@@ -2275,7 +2275,7 @@ dump_module(struct data *data, struct global *global,
 				desc ? " d=\"" : "",
 				desc ? desc : "",
 				desc ? "\"" : "");
-		fprintf(stdout, "\n");
+		printf("\n");
 	}
 
 	if (!(flags & is_deep))
@@ -2284,7 +2284,7 @@ dump_module(struct data *data, struct global *global,
 	factory_count = children_of(rd, global->id, PW_TYPE_INTERFACE_Factory, &factories);
 	if (factory_count >= 0) {
 		ind = INDENT(level + 1);
-		fprintf(stdout, "%sfactories:\n", ind);
+		printf("%sfactories:\n", ind);
 		for (i = 0; i < factory_count; i++) {
 			global_factory = obj_global(rd, factories[i]);
 			if (!global_factory)
@@ -2320,9 +2320,9 @@ dump_device(struct data *data, struct global *global,
 
 	if (!(flags & is_short)) {
 		ind = INDENT(level + 1);
-		fprintf(stdout, "%sproperties:\n", ind);
+		printf("%sproperties:\n", ind);
 		dump_properties(data, global, flags, level);
-		fprintf(stdout, "%sparams:\n", ind);
+		printf("%sparams:\n", ind);
 		dump_params(data, global, info->params, info->n_params, flags, level);
 	} else {
 		media_class = spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS);
@@ -2330,7 +2330,7 @@ dump_device(struct data *data, struct global *global,
 		desc = spa_dict_lookup(info->props, PW_KEY_DEVICE_DESCRIPTION);
 		api = spa_dict_lookup(info->props, PW_KEY_DEVICE_API);
 
-		fprintf(stdout, "%s%s%s" "%s%s%s" "%s%s%s" "%s%s%s",
+		printf("%s%s%s" "%s%s%s" "%s%s%s" "%s%s%s",
 				media_class ? " c=\"" : "",
 				media_class ? media_class : "",
 				media_class ? "\"" : "",
@@ -2350,7 +2350,7 @@ dump_device(struct data *data, struct global *global,
 			alsa_path = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_PATH);
 			alsa_card_id = spa_dict_lookup(info->props, SPA_KEY_API_ALSA_CARD_ID);
 
-			fprintf(stdout, "%s%s%s" "%s%s%s",
+			printf("%s%s%s" "%s%s%s",
 					alsa_path ? " p=\"" : "",
 					alsa_path ? alsa_path : "",
 					alsa_path ? "\"" : "",
@@ -2359,7 +2359,7 @@ dump_device(struct data *data, struct global *global,
 					alsa_card_id ? "\"" : "");
 		}
 
-		fprintf(stdout, "\n");
+		printf("\n");
 	}
 
 	if (!(flags & is_deep))
@@ -2368,7 +2368,7 @@ dump_device(struct data *data, struct global *global,
 	node_count = children_of(rd, global->id, PW_TYPE_INTERFACE_Node, &nodes);
 	if (node_count >= 0) {
 		ind = INDENT(level + 1);
-		fprintf(stdout, "%snodes:\n", ind);
+		printf("%snodes:\n", ind);
 		for (i = 0; i < node_count; i++) {
 			global_node = obj_global(rd, nodes[i]);
 			if (!global_node)
@@ -2403,31 +2403,31 @@ dump_node(struct data *data, struct global *global,
 
 	if (!(flags & is_short)) {
 		ind = INDENT(level + 1);
-		fprintf(stdout, "%sinput ports: %u/%u\n", ind, info->n_input_ports, info->max_input_ports);
-		fprintf(stdout, "%soutput ports: %u/%u\n", ind, info->n_output_ports, info->max_output_ports);
-		fprintf(stdout, "%sstate: \"%s\"", ind, pw_node_state_as_string(info->state));
+		printf("%sinput ports: %u/%u\n", ind, info->n_input_ports, info->max_input_ports);
+		printf("%soutput ports: %u/%u\n", ind, info->n_output_ports, info->max_output_ports);
+		printf("%sstate: \"%s\"", ind, pw_node_state_as_string(info->state));
 		if (info->state == PW_NODE_STATE_ERROR && info->error)
-			fprintf(stdout, " \"%s\"\n", info->error);
+			printf(" \"%s\"\n", info->error);
 		else
-			fprintf(stdout, "\n");
-		fprintf(stdout, "%sproperties:\n", ind);
+			printf("\n");
+		printf("%sproperties:\n", ind);
 		dump_properties(data, global, flags, level);
-		fprintf(stdout, "%sparams:\n", ind);
+		printf("%sparams:\n", ind);
 		dump_params(data, global, info->params, info->n_params, flags, level);
 	} else {
 		name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
 		path = spa_dict_lookup(info->props, SPA_KEY_OBJECT_PATH);
 
-		fprintf(stdout, " s=\"%s\"", pw_node_state_as_string(info->state));
+		printf(" s=\"%s\"", pw_node_state_as_string(info->state));
 
 		if (info->max_input_ports) {
-			fprintf(stdout, " i=%u/%u", info->n_input_ports, info->max_input_ports);
+			printf(" i=%u/%u", info->n_input_ports, info->max_input_ports);
 		}
 		if (info->max_output_ports) {
-			fprintf(stdout, " o=%u/%u", info->n_output_ports, info->max_output_ports);
+			printf(" o=%u/%u", info->n_output_ports, info->max_output_ports);
 		}
 
-		fprintf(stdout, "%s%s%s" "%s%s%s",
+		printf("%s%s%s" "%s%s%s",
 				name ? " n=\"" : "",
 				name ? name : "",
 				name ? "\"" : "",
@@ -2435,7 +2435,7 @@ dump_node(struct data *data, struct global *global,
 				path ? path : "",
 				path ? "\"" : "");
 
-		fprintf(stdout, "\n");
+		printf("\n");
 	}
 
 	if (!(flags & is_deep))
@@ -2444,7 +2444,7 @@ dump_node(struct data *data, struct global *global,
 	port_count = children_of(rd, global->id, PW_TYPE_INTERFACE_Port, &ports);
 	if (port_count >= 0) {
 		ind = INDENT(level + 1);
-		fprintf(stdout, "%sports:\n", ind);
+		printf("%sports:\n", ind);
 		for (i = 0; i < port_count; i++) {
 			global_port = obj_global(rd, ports[i]);
 			if (!global_port)
@@ -2475,19 +2475,19 @@ dump_port(struct data *data, struct global *global,
 
 	if (!(flags & is_short)) {
 		ind = INDENT(level + 1);
-		fprintf(stdout, "%sdirection: \"%s\"\n", ind,
+		printf("%sdirection: \"%s\"\n", ind,
 				pw_direction_as_string(info->direction));
-		fprintf(stdout, "%sproperties:\n", ind);
+		printf("%sproperties:\n", ind);
 		dump_properties(data, global, flags, level);
-		fprintf(stdout, "%sparams:\n", ind);
+		printf("%sparams:\n", ind);
 		dump_params(data, global, info->params, info->n_params, flags, level);
 	} else {
-		fprintf(stdout, " d=\"%s\"", pw_direction_as_string(info->direction));
+		printf(" d=\"%s\"", pw_direction_as_string(info->direction));
 
 		name = spa_dict_lookup(info->props, PW_KEY_PORT_NAME);
 		format = spa_dict_lookup(info->props, PW_KEY_FORMAT_DSP);
 
-		fprintf(stdout, "%s%s%s" "%s%s%s",
+		printf("%s%s%s" "%s%s%s",
 				name ? " n=\"" : "",
 				name ? name : "",
 				name ? "\"" : "",
@@ -2495,7 +2495,7 @@ dump_port(struct data *data, struct global *global,
 				format ? format : "",
 				format ? "\"" : "");
 
-		fprintf(stdout, "\n");
+		printf("\n");
 	}
 
 	(void)rd;
@@ -2522,21 +2522,21 @@ dump_factory(struct data *data, struct global *global,
 
 	if (!(flags & is_short)) {
 		ind = INDENT(level + 1);
-		fprintf(stdout, "%sname: \"%s\"\n", ind, info->name);
-		fprintf(stdout, "%sproperties:\n", ind);
+		printf("%sname: \"%s\"\n", ind, info->name);
+		printf("%sproperties:\n", ind);
 		dump_properties(data, global, flags, level);
 	} else {
-		fprintf(stdout, " n=\"%s\"", info->name);
+		printf(" n=\"%s\"", info->name);
 
 		module_id = spa_dict_lookup(info->props, PW_KEY_MODULE_ID);
 		module_name = module_id ? obj_lookup(rd, atoi(module_id), PW_KEY_MODULE_NAME) : NULL;
 
-		fprintf(stdout, "%s%s%s",
+		printf("%s%s%s",
 				module_name ? " m=\"" : "",
 				module_name ? module_name : "",
 				module_name ? "\"" : "");
 
-		fprintf(stdout, "\n");
+		printf("\n");
 	}
 
 	return true;
@@ -2561,13 +2561,13 @@ dump_client(struct data *data, struct global *global,
 
 	if (!(flags & is_short)) {
 		ind = INDENT(level + 1);
-		fprintf(stdout, "%sproperties:\n", ind);
+		printf("%sproperties:\n", ind);
 		dump_properties(data, global, flags, level);
 	} else {
 		app_name = spa_dict_lookup(info->props, PW_KEY_APP_NAME);
 		app_pid = spa_dict_lookup(info->props, PW_KEY_APP_PROCESS_ID);
 
-		fprintf(stdout, "%s%s%s" "%s%s%s",
+		printf("%s%s%s" "%s%s%s",
 				app_name ? " ap=\"" : "",
 				app_name ? app_name : "",
 				app_name ? "\"" : "",
@@ -2575,7 +2575,7 @@ dump_client(struct data *data, struct global *global,
 				app_pid ? app_pid : "",
 				app_pid ? "\"" : "");
 
-		fprintf(stdout, "\n");
+		printf("\n");
 	}
 
 	(void)rd;
@@ -2603,24 +2603,24 @@ dump_link(struct data *data, struct global *global,
 
 	if (!(flags & is_short)) {
 		ind = INDENT(level + 1);
-		fprintf(stdout, "%soutput-node-id: %u\n", ind, info->output_node_id);
-		fprintf(stdout, "%soutput-port-id: %u\n", ind, info->output_port_id);
-		fprintf(stdout, "%sinput-node-id: %u\n", ind, info->input_node_id);
-		fprintf(stdout, "%sinput-port-id: %u\n", ind, info->input_port_id);
+		printf("%soutput-node-id: %u\n", ind, info->output_node_id);
+		printf("%soutput-port-id: %u\n", ind, info->output_port_id);
+		printf("%sinput-node-id: %u\n", ind, info->input_node_id);
+		printf("%sinput-port-id: %u\n", ind, info->input_port_id);
 
-		fprintf(stdout, "%sstate: \"%s\"", ind,
+		printf("%sstate: \"%s\"", ind,
 				pw_link_state_as_string(info->state));
 		if (info->state == PW_LINK_STATE_ERROR && info->error)
 			printf(" \"%s\"\n", info->error);
 		else
 			printf("\n");
-		fprintf(stdout, "%sformat:\n", ind);
+		printf("%sformat:\n", ind);
 		if (info->format)
 			spa_debug_pod(8 * (level + 1) + 2, NULL, info->format);
 		else
-			fprintf(stdout, "%s\tnone\n", ind);
+			printf("%s\tnone\n", ind);
 
-		fprintf(stdout, "%sproperties:\n", ind);
+		printf("%sproperties:\n", ind);
 		dump_properties(data, global, flags, level);
 	} else {
 		out_node_name = obj_lookup(rd, info->output_node_id, PW_KEY_NODE_NAME);
@@ -2628,16 +2628,16 @@ dump_link(struct data *data, struct global *global,
 		out_port_name = obj_lookup(rd, info->output_port_id, PW_KEY_PORT_NAME);
 		in_port_name = obj_lookup(rd, info->input_port_id, PW_KEY_PORT_NAME);
 
-		fprintf(stdout, " s=\"%s\"", pw_link_state_as_string(info->state));
+		printf(" s=\"%s\"", pw_link_state_as_string(info->state));
 
 		if (out_node_name && out_port_name)
-			fprintf(stdout, " on=\"%s\"" " op=\"%s\"",
+			printf(" on=\"%s\"" " op=\"%s\"",
 					out_node_name, out_port_name);
 		if (in_node_name && in_port_name)
-			fprintf(stdout, " in=\"%s\"" " ip=\"%s\"",
+			printf(" in=\"%s\"" " ip=\"%s\"",
 					in_node_name, in_port_name);
 
-		fprintf(stdout, "\n");
+		printf("\n");
 	}
 
 	(void)rd;
@@ -2663,12 +2663,12 @@ dump_session(struct data *data, struct global *global,
 
 	if (!(flags & is_short)) {
 		ind = INDENT(level + 1);
-		fprintf(stdout, "%sproperties:\n", ind);
+		printf("%sproperties:\n", ind);
 		dump_properties(data, global, flags, level);
-		fprintf(stdout, "%sparams:\n", ind);
+		printf("%sparams:\n", ind);
 		dump_params(data, global, info->params, info->n_params, flags, level);
 	} else {
-		fprintf(stdout, "\n");
+		printf("\n");
 	}
 
 	(void)rd;
@@ -2707,21 +2707,21 @@ dump_endpoint(struct data *data, struct global *global,
 
 	if (!(flags & is_short)) {
 		ind = INDENT(level + 1);
-		fprintf(stdout, "%sname: %s\n", ind, info->name);
-		fprintf(stdout, "%smedia-class: %s\n", ind, info->media_class);
-		fprintf(stdout, "%sdirection: %s\n", ind, direction);
-		fprintf(stdout, "%sflags: 0x%x\n", ind, info->flags);
-		fprintf(stdout, "%sstreams: %u\n", ind, info->n_streams);
-		fprintf(stdout, "%ssession: %u\n", ind, info->session_id);
-		fprintf(stdout, "%sproperties:\n", ind);
+		printf("%sname: %s\n", ind, info->name);
+		printf("%smedia-class: %s\n", ind, info->media_class);
+		printf("%sdirection: %s\n", ind, direction);
+		printf("%sflags: 0x%x\n", ind, info->flags);
+		printf("%sstreams: %u\n", ind, info->n_streams);
+		printf("%ssession: %u\n", ind, info->session_id);
+		printf("%sproperties:\n", ind);
 		dump_properties(data, global, flags, level);
-		fprintf(stdout, "%sparams:\n", ind);
+		printf("%sparams:\n", ind);
 		dump_params(data, global, info->params, info->n_params, flags, level);
 	} else {
-		fprintf(stdout, " n=\"%s\" c=\"%s\" d=\"%s\" s=%u si=%"PRIu32"",
+		printf(" n=\"%s\" c=\"%s\" d=\"%s\" s=%u si=%"PRIu32"",
 				info->name, info->media_class, direction,
 				info->n_streams, info->session_id);
-		fprintf(stdout, "\n");
+		printf("\n");
 	}
 
 	(void)rd;
@@ -2747,17 +2747,17 @@ dump_endpoint_stream(struct data *data, struct global *global,
 
 	if (!(flags & is_short)) {
 		ind = INDENT(level + 1);
-		fprintf(stdout, "%sid: %u\n", ind, info->id);
-		fprintf(stdout, "%sendpoint-id: %u\n", ind, info->endpoint_id);
-		fprintf(stdout, "%sname: %s\n", ind, info->name);
-		fprintf(stdout, "%sproperties:\n", ind);
+		printf("%sid: %u\n", ind, info->id);
+		printf("%sendpoint-id: %u\n", ind, info->endpoint_id);
+		printf("%sname: %s\n", ind, info->name);
+		printf("%sproperties:\n", ind);
 		dump_properties(data, global, flags, level);
-		fprintf(stdout, "%sparams:\n", ind);
+		printf("%sparams:\n", ind);
 		dump_params(data, global, info->params, info->n_params, flags, level);
 	} else {
-		fprintf(stdout, " n=\"%s\" i=%"PRIu32" ei=%"PRIu32"",
+		printf(" n=\"%s\" i=%"PRIu32" ei=%"PRIu32"",
 				info->name, info->id, info->endpoint_id);
-		fprintf(stdout, "\n");
+		printf("\n");
 	}
 
 	(void)rd;
@@ -2964,7 +2964,7 @@ static void readline_process_line(char *line)
 	if (line[0] != '\0') {
 		add_history(line);
 		if (!parse(d, line, &error)) {
-			fprintf(stdout, "Error: \"%s\"\n", error);
+			fprintf(stderr, "Error: \"%s\"\n", error);
 			free(error);
 		}
 	}
@@ -3045,9 +3045,9 @@ static void do_quit_on_signal(void *data, int signal_number)
 	pw_main_loop_quit(d->loop);
 }
 
-static void show_help(struct data *data, const char *name)
+static void show_help(struct data *data, const char *name, bool error)
 {
-        fprintf(stdout, _("%s [options] [command]\n"
+	fprintf(error ? stderr : stdout, _("%s [options] [command]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -d, --daemon                          Start as daemon (Default false)\n"
@@ -3074,15 +3074,17 @@ int main(int argc, char *argv[])
 	};
 	int c, i;
 
+	setlinebuf(stdout);
+
 	pw_init(&argc, &argv);
 
 	while ((c = getopt_long(argc, argv, "hVdr:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			show_help(&data, argv[0]);
+			show_help(&data, argv[0], false);
 			return 0;
 		case 'V':
-			fprintf(stdout, "%s\n"
+			printf("%s\n"
 				"Compiled with libpipewire %s\n"
 				"Linked with libpipewire %s\n",
 				argv[0],
@@ -3096,7 +3098,7 @@ int main(int argc, char *argv[])
 			opt_remote = optarg;
 			break;
 		default:
-			show_help(&data, argv[0]);
+			show_help(&data, argv[0], true);
 			return -1;
 		}
 	}
@@ -3133,7 +3135,7 @@ int main(int argc, char *argv[])
 	if (optind == argc) {
 		data.interactive = true;
 
-		fprintf(stdout, "Welcome to PipeWire version %s. Type 'help' for usage.\n",
+		printf("Welcome to PipeWire version %s. Type 'help' for usage.\n",
 				pw_get_library_version());
 
 		readline_init();
@@ -3155,7 +3157,7 @@ int main(int argc, char *argv[])
 		pw_main_loop_run(data.loop);
 
 		if (!parse(&data, buf, &error)) {
-			fprintf(stdout, "Error: \"%s\"\n", error);
+			fprintf(stderr, "Error: \"%s\"\n", error);
 			free(error);
 		}
 		if (!data.quit && data.current) {

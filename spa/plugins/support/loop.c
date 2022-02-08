@@ -79,6 +79,7 @@ struct impl {
 
 	int poll_fd;
 	pthread_t thread;
+	int enter_count;
 
 	struct spa_poll_event dispatching[MAX_EP];
 	uint32_t n_dispatching;
@@ -297,15 +298,32 @@ loop_add_hook(void *object,
 static void loop_enter(void *object)
 {
 	struct impl *impl = object;
-	impl->thread = pthread_self();
+	pthread_t thread_id = pthread_self();
+
+	if (impl->enter_count == 0) {
+		spa_return_if_fail(impl->thread == 0);
+		impl->thread = thread_id;
+		impl->enter_count = 1;
+	} else {
+		spa_return_if_fail(impl->enter_count > 0);
+		spa_return_if_fail(impl->thread == thread_id);
+		impl->enter_count++;
+	}
 	spa_log_trace(impl->log, "%p: enter %lu", impl, impl->thread);
 }
 
 static void loop_leave(void *object)
 {
 	struct impl *impl = object;
+	pthread_t thread_id = pthread_self();
+
+	spa_return_if_fail(impl->enter_count > 0);
+	spa_return_if_fail(impl->thread == thread_id);
+
 	spa_log_trace(impl->log, "%p: leave %lu", impl, impl->thread);
-	impl->thread = 0;
+
+	if (--impl->enter_count == 0)
+		impl->thread = 0;
 }
 
 static int loop_iterate(void *object, int timeout)
@@ -754,6 +772,10 @@ static int impl_clear(struct spa_handle *handle)
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
 	impl = (struct impl *) handle;
+
+	if (impl->enter_count != 0)
+		spa_log_warn(impl->log, "%p: loop is entered %d times",
+				impl, impl->enter_count);
 
 	spa_list_consume(source, &impl->source_list, link)
 		loop_destroy_source(impl, &source->source);

@@ -75,6 +75,14 @@ test('test-client',
                link_with: pwtest_lib)
 )
 
+test('test-loop',
+    executable('test-loop',
+               'test-loop.c',
+               include_directories: pwtest_inc,
+               dependencies: [ spa_dep ],
+               link_with: pwtest_lib)
+)
+
 test('test-context',
     executable('test-context',
                'test-context.c',

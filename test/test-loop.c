@@ -154,6 +154,9 @@ PWTEST(pwtest_loop_recurse1)
 
 	pw_deinit();
 
+	free(data.a);
+	free(data.b);
+
 	return PWTEST_PASS;
 }
 

@@ -48,6 +48,7 @@ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.loop");
 #define MAX_ALIGN	8
 #define ITEM_ALIGN	8
 #define DATAS_SIZE	(4096*8)
+#define MAX_EP		32
 
 /** \cond */
 
@@ -79,6 +80,9 @@ struct impl {
 
 	int poll_fd;
 	pthread_t thread;
+
+	struct spa_poll_event dispatching[MAX_EP];
+	uint32_t n_dispatching;
 
 	struct spa_source *wakeup;
 	int ack_fd;
@@ -125,6 +129,11 @@ static int loop_update_source(void *object, struct spa_source *source)
 static int loop_remove_source(void *object, struct spa_source *source)
 {
 	struct impl *impl = object;
+	uint32_t i;
+	for (i = 0; i < impl->n_dispatching; i++) {
+		if (impl->dispatching[i].data == source)
+			impl->dispatching[i].data = NULL;
+	}
 	source->loop = NULL;
 	return spa_system_pollfd_del(impl->system, impl->poll_fd, source->fd);
 }
@@ -311,13 +320,12 @@ static inline void process_destroy(struct impl *impl)
 static int loop_iterate(void *object, int timeout)
 {
 	struct impl *impl = object;
-	struct spa_loop *loop = &impl->loop;
-	struct spa_poll_event ep[32];
+	struct spa_poll_event *ep = impl->dispatching;
 	int i, nfds;
 
 	spa_loop_control_hook_before(&impl->hooks_list);
 
-	nfds = spa_system_pollfd_wait(impl->system, impl->poll_fd, ep, SPA_N_ELEMENTS(ep), timeout);
+	nfds = spa_system_pollfd_wait(impl->system, impl->poll_fd, ep, MAX_EP, timeout);
 
 	spa_loop_control_hook_after(&impl->hooks_list);
 
@@ -329,16 +337,19 @@ static int loop_iterate(void *object, int timeout)
 	 * can then reset the rmask to suppress the callback */
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data;
-		s->rmask = ep[i].events;
+		if (SPA_LIKELY(s))
+			s->rmask = ep[i].events;
 	}
+	impl->n_dispatching = nfds;
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data;
-		if (SPA_LIKELY(s->rmask && s->fd != -1 && s->loop == loop))
+		if (SPA_LIKELY(s && s->rmask))
 			s->func(s);
 	}
 	if (SPA_UNLIKELY(!spa_list_is_empty(&impl->destroy_list)))
 		process_destroy(impl);
 
+	impl->n_dispatching = 0;
 	return nfds;
 }
 

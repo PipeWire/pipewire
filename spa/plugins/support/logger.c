@@ -57,6 +57,7 @@ struct impl {
 	struct spa_log log;
 
 	FILE *file;
+	bool close_file;
 
 	struct spa_system *system;
 	struct spa_source source;
@@ -285,6 +286,9 @@ static int impl_clear(struct spa_handle *handle)
 
 	support_log_free_patterns(&this->patterns);
 
+	if (this->close_file && this->file != NULL)
+		fclose(this->file);
+
 	if (this->have_source) {
 		spa_loop_remove_source(this->source.loop, &this->source);
 		spa_system_close(this->system, this->source.fd);
@@ -356,6 +360,8 @@ impl_init(const struct spa_handle_factory *factory,
 			this->file = fopen(str, "w");
 			if (this->file == NULL)
 				fprintf(stderr, "Warning: failed to open file %s: (%m)", str);
+			else
+				this->close_file = true;
 		}
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_PATTERNS)) != NULL)
 			support_log_parse_patterns(&this->patterns, str);

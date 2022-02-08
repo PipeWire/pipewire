@@ -44,6 +44,8 @@ PWTEST(library_version)
 	pwtest_str_eq(headerversion, version_expected);
 	pwtest_str_eq(libversion, version_expected);
 
+	pw_deinit();
+
 	return PWTEST_PASS;
 }
 

@@ -1947,8 +1947,8 @@ again:
 					state->props.device, snd_strerror(commitres));
 			if (commitres != -EPIPE && commitres != -ESTRPIPE)
 				return res;
+			state->alsa_sync = true;
 		}
-
 		if (commitres > 0 && written != (snd_pcm_uframes_t) commitres) {
 			spa_log_warn(state->log, "%s: mmap_commit wrote %ld instead of %ld",
 				     state->props.device, commitres, written);
@@ -2133,8 +2133,8 @@ int spa_alsa_read(struct state *state)
 					state->props.device, snd_strerror(commitres));
 			if (commitres != -EPIPE && commitres != -ESTRPIPE)
 				return res;
+			state->alsa_sync = true;
 		}
-
 		if (commitres > 0 && read != (snd_pcm_uframes_t) commitres) {
 			spa_log_warn(state->log, "%s: mmap_commit read %ld instead of %ld",
 				     state->props.device, commitres, read);

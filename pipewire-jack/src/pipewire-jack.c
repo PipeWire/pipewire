@@ -3267,6 +3267,8 @@ jack_client_t * jack_client_open (const char *client_name,
 		pw_properties_set(client->props, PW_KEY_MEDIA_ROLE, "DSP");
 	if (pw_properties_get(client->props, PW_KEY_NODE_ALWAYS_PROCESS) == NULL)
 		pw_properties_set(client->props, PW_KEY_NODE_ALWAYS_PROCESS, "true");
+	if (pw_properties_get(client->props, PW_KEY_NODE_LOCK_QUANTUM) == NULL)
+		pw_properties_set(client->props, PW_KEY_NODE_LOCK_QUANTUM, "true");
 	pw_properties_set(client->props, PW_KEY_NODE_TRANSPORT_SYNC, "true");
 
 	client->node = pw_core_create_object(client->core,

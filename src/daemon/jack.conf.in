@@ -65,7 +65,10 @@ context.modules = [
 # global properties for all jack clients
 jack.properties = {
      #node.latency       = 1024/48000
-     #node.lock-quantum  = false
+     #node.rate          = 1/48000
+     #node.quantum       = 1024/48000
+     #node.lock-quantum  = true
+     #node.force-quantum = 0
      #jack.show-monitor  = true
      #jack.merge-monitor = false
      #jack.short-name    = false

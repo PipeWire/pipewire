@@ -1068,7 +1068,7 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 	struct pw_impl_node *n, *s, *target, *fallback;
 	uint32_t max_quantum, min_quantum, def_quantum, lim_quantum, rate_quantum;
 	uint32_t *rates, n_rates, def_rate;
-	bool freewheel = false, global_force_rate, force_rate, global_force_quantum;
+	bool freewheel = false, global_force_rate, force_rate, force_quantum, global_force_quantum;
 
 	pw_log_info("%p: busy:%d reason:%s", context, impl->recalc, reason);
 
@@ -1083,7 +1083,7 @@ again:
 	get_quantums(context, &def_quantum, &min_quantum, &max_quantum, &lim_quantum, &rate_quantum);
 	rates = get_rates(context, &def_rate, &n_rates, &global_force_rate);
 
-	global_force_quantum = rate_quantum == 0;
+	force_quantum = global_force_quantum = rate_quantum == 0;
 	force_rate = global_force_rate;
 
 	/* start from all drivers and group all nodes that are linked
@@ -1183,6 +1183,7 @@ again:
 				def_quantum = min_quantum = max_quantum = s->force_quantum;
 				rate_quantum = 0;
 				quantum_stamp = s->stamp;
+				force_quantum = true;
 			}
 			if (!global_force_rate && s->force_rate > 0 &&
 			    s->stamp > rate_stamp) {
@@ -1213,6 +1214,8 @@ again:
 				running = !n->passive;
 		}
 
+		if (force_quantum)
+			lock_quantum = false;
 		if (force_rate)
 			lock_rate = false;
 

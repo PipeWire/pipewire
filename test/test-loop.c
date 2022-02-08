@@ -41,6 +41,7 @@ struct data {
 	struct pw_main_loop *ml;
 	struct pw_loop *l;
 	struct obj *a, *b;
+	int count;
 };
 
 static void on_event(struct spa_source *source)
@@ -57,13 +58,13 @@ static void on_event(struct spa_source *source)
 	pw_main_loop_quit(d->ml);
 }
 
-
 PWTEST(pwtest_loop_destroy2)
 {
 	struct data data;
 
 	pw_init(0, NULL);
 
+	spa_zero(data);
 	data.ml = pw_main_loop_new(NULL);
 	pwtest_ptr_notnull(data.ml);
 
@@ -96,9 +97,138 @@ PWTEST(pwtest_loop_destroy2)
 	return PWTEST_PASS;
 }
 
+static void
+on_event_recurse1(struct spa_source *source)
+{
+	static bool first = true;
+	struct data *d = source->data;
+	uint64_t val;
+
+	++d->count;
+	pwtest_int_lt(d->count, 3);
+
+	read(source->fd, &val, sizeof(val));
+
+	if (first) {
+		first = false;
+		pw_loop_enter(d->l);
+		pw_loop_iterate(d->l, -1);
+		pw_loop_leave(d->l);
+	}
+	pw_main_loop_quit(d->ml);
+}
+
+PWTEST(pwtest_loop_recurse1)
+{
+	struct data data;
+
+	pw_init(0, NULL);
+
+	spa_zero(data);
+	data.ml = pw_main_loop_new(NULL);
+	pwtest_ptr_notnull(data.ml);
+
+	data.l = pw_main_loop_get_loop(data.ml);
+	pwtest_ptr_notnull(data.l);
+
+	data.a = calloc(1, sizeof(*data.a));
+	data.b = calloc(1, sizeof(*data.b));
+
+	data.a->source.func = on_event_recurse1;
+	data.a->source.fd = eventfd(0, 0);
+	data.a->source.mask = SPA_IO_IN;
+	data.a->source.data = &data;
+	data.b->source.func = on_event_recurse1;
+	data.b->source.fd = eventfd(0, 0);
+	data.b->source.mask = SPA_IO_IN;
+	data.b->source.data = &data;
+
+	pw_loop_add_source(data.l, &data.a->source);
+	pw_loop_add_source(data.l, &data.b->source);
+
+	write(data.a->source.fd, &(uint64_t){1}, sizeof(uint64_t));
+	write(data.b->source.fd, &(uint64_t){1}, sizeof(uint64_t));
+
+	pw_main_loop_run(data.ml);
+	pw_main_loop_destroy(data.ml);
+
+	pw_deinit();
+
+	return PWTEST_PASS;
+}
+
+static void
+on_event_recurse2(struct spa_source *source)
+{
+	static bool first = true;
+	struct data *d = source->data;
+	uint64_t val;
+
+	++d->count;
+	pwtest_int_lt(d->count, 3);
+
+	read(source->fd, &val, sizeof(val));
+
+	if (first) {
+		first = false;
+		pw_loop_enter(d->l);
+		pw_loop_iterate(d->l, -1);
+		pw_loop_leave(d->l);
+	} else {
+		pw_loop_remove_source(d->l, &d->a->source);
+		pw_loop_remove_source(d->l, &d->b->source);
+		close(d->a->source.fd);
+		close(d->b->source.fd);
+		free(d->a);
+		free(d->b);
+	}
+	pw_main_loop_quit(d->ml);
+}
+
+PWTEST(pwtest_loop_recurse2)
+{
+	struct data data;
+
+	pw_init(0, NULL);
+
+	spa_zero(data);
+	data.ml = pw_main_loop_new(NULL);
+	pwtest_ptr_notnull(data.ml);
+
+	data.l = pw_main_loop_get_loop(data.ml);
+	pwtest_ptr_notnull(data.l);
+
+	data.a = calloc(1, sizeof(*data.a));
+	data.b = calloc(1, sizeof(*data.b));
+
+	data.a->source.func = on_event_recurse2;
+	data.a->source.fd = eventfd(0, 0);
+	data.a->source.mask = SPA_IO_IN;
+	data.a->source.data = &data;
+	data.b->source.func = on_event_recurse2;
+	data.b->source.fd = eventfd(0, 0);
+	data.b->source.mask = SPA_IO_IN;
+	data.b->source.data = &data;
+
+	pw_loop_add_source(data.l, &data.a->source);
+	pw_loop_add_source(data.l, &data.b->source);
+
+	write(data.a->source.fd, &(uint64_t){1}, sizeof(uint64_t));
+	write(data.b->source.fd, &(uint64_t){1}, sizeof(uint64_t));
+
+	pw_main_loop_run(data.ml);
+	pw_main_loop_destroy(data.ml);
+
+	pw_deinit();
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(support)
 {
 	pwtest_add(pwtest_loop_destroy2, PWTEST_NOARG);
+	pwtest_add(pwtest_loop_recurse1, PWTEST_NOARG);
+	pwtest_add(pwtest_loop_recurse2, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

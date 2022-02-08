@@ -81,9 +81,6 @@ struct impl {
 	pthread_t thread;
 	int enter_count;
 
-	struct spa_poll_event dispatching[MAX_EP];
-	uint32_t n_dispatching;
-
 	struct spa_source *wakeup;
 	int ack_fd;
 
@@ -117,6 +114,7 @@ static int loop_add_source(void *object, struct spa_source *source)
 {
 	struct impl *impl = object;
 	source->loop = &impl->loop;
+	source->priv = NULL;
 	return spa_system_pollfd_add(impl->system, impl->poll_fd, source->fd, source->mask, source);
 }
 
@@ -129,10 +127,11 @@ static int loop_update_source(void *object, struct spa_source *source)
 static int loop_remove_source(void *object, struct spa_source *source)
 {
 	struct impl *impl = object;
-	uint32_t i;
-	for (i = 0; i < impl->n_dispatching; i++) {
-		if (impl->dispatching[i].data == source)
-			impl->dispatching[i].data = NULL;
+	struct spa_poll_event *e;
+	if ((e = source->priv)) {
+		/* active in an iteration of the loop, remove it from there */
+		e->data = NULL;
+		source->priv = NULL;
 	}
 	source->loop = NULL;
 	return spa_system_pollfd_del(impl->system, impl->poll_fd, source->fd);
@@ -329,7 +328,7 @@ static void loop_leave(void *object)
 static int loop_iterate(void *object, int timeout)
 {
 	struct impl *impl = object;
-	struct spa_poll_event *ep = impl->dispatching;
+	struct spa_poll_event ep[MAX_EP], *e;
 	int i, nfds;
 
 	spa_loop_control_hook_before(&impl->hooks_list);
@@ -346,16 +345,20 @@ static int loop_iterate(void *object, int timeout)
 	 * can then reset the rmask to suppress the callback */
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data;
-		if (SPA_LIKELY(s))
-			s->rmask = ep[i].events;
+		s->rmask = ep[i].events;
+		/* already active in another iteration of the loop,
+		 * remove it from that iteration */
+		if (SPA_UNLIKELY(e = s->priv))
+			e->data = NULL;
+		s->priv = &ep[i];
 	}
-	impl->n_dispatching = nfds;
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data;
-		if (SPA_LIKELY(s && s->rmask))
+		if (SPA_LIKELY(s && s->rmask)) {
+			s->priv = NULL;
 			s->func(s);
+		}
 	}
-	impl->n_dispatching = 0;
 	return nfds;
 }
 

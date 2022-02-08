@@ -66,6 +66,8 @@ struct spa_source {
 	int fd;
 	uint32_t mask;
 	uint32_t rmask;
+	/* private data for the loop implementer */
+	void *priv;
 };
 
 typedef int (*spa_invoke_func_t) (struct spa_loop *loop,

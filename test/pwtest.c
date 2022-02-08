@@ -305,12 +305,14 @@ pwtest_spa_plugin_destroy(struct pwtest_spa_plugin *plugin)
 	struct spa_handle **hnd;
 
 	SPA_FOR_EACH_ELEMENT(plugin->handles, hnd) {
-		if (*hnd)
+		if (*hnd) {
+			spa_handle_clear(*hnd);
 			free(*hnd);
+		}
 	}
 	SPA_FOR_EACH_ELEMENT(plugin->dlls, dll) {
 		if (*dll)
-			dlclose(dll);
+			dlclose(*dll);
 	}
 	free(plugin);
 }
@@ -362,12 +364,13 @@ pwtest_spa_plugin_try_load_interface(struct pwtest_spa_plugin *plugin,
 	r = spa_handle_factory_init(factory, handle, info, plugin->support, plugin->nsupport);
 	pwtest_neg_errno_ok(r);
 	if ((r = spa_handle_get_interface(handle, interface_name, &iface)) != 0) {
-		dlclose(hnd);
+		spa_handle_clear(handle);
 		free(handle);
+		dlclose(hnd);
 		return -ENOSYS;
 	}
 
-	plugin->handles[plugin->ndlls++] = hnd;
+	plugin->dlls[plugin->ndlls++] = hnd;
 	plugin->handles[plugin->nhandles++] = handle;
 	plugin->support[plugin->nsupport++] = SPA_SUPPORT_INIT(interface_name, iface);
 

@@ -584,8 +584,13 @@ int main(int argc, char *argv[])
 	spa_list_consume(n, &data.node_list, link)
 		remove_node(&data, n);
 
-	pw_proxy_destroy((struct pw_proxy*)data.profiler);
+	if (data.profiler) {
+		spa_hook_remove(&data.profiler_listener);
+		pw_proxy_destroy((struct pw_proxy*)data.profiler);
+	}
+	spa_hook_remove(&data.registry_listener);
 	pw_proxy_destroy((struct pw_proxy*)data.registry);
+	spa_hook_remove(&data.core_listener);
 	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
 

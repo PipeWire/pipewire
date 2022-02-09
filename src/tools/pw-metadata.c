@@ -283,7 +283,9 @@ int main(int argc, char *argv[])
 
 	if (data.metadata)
 		pw_proxy_destroy((struct pw_proxy*)data.metadata);
+	spa_hook_remove(&data.registry_listener);
 	pw_proxy_destroy((struct pw_proxy*)data.registry);
+	spa_hook_remove(&data.core_listener);
 	pw_core_disconnect(data.core);
 	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);

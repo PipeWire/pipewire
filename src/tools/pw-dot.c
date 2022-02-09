@@ -609,6 +609,8 @@ static void removed_proxy(void *user_data)
 static void destroy_proxy(void *user_data)
 {
 	struct global *g = user_data;
+	spa_hook_remove(&g->object_listener);
+	spa_hook_remove(&g->proxy_listener);
 	pw_properties_free(g->props);
 	if (g->info)
 		g->info_destroy(g->info);
@@ -891,7 +893,9 @@ int main(int argc, char *argv[])
 	draw_graph(&data, dot_path);
 
 	dot_str_clear(&data.dot_str);
+	spa_hook_remove(&data.registry_listener);
 	pw_proxy_destroy((struct pw_proxy*)data.registry);
+	spa_hook_remove(&data.core_listener);
 	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
 	pw_deinit();

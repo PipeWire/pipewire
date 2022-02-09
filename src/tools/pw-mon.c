@@ -587,6 +587,9 @@ destroy_proxy (void *data)
 
 	spa_list_remove(&pd->global_link);
 
+	spa_hook_remove(&pd->object_listener);
+	spa_hook_remove(&pd->proxy_listener);
+
 	clear_params(pd);
 	remove_pending(pd);
 	free(pd->type);
@@ -859,7 +862,9 @@ int main(int argc, char *argv[])
 
 	pw_main_loop_run(data.loop);
 
+	spa_hook_remove(&data.registry_listener);
 	pw_proxy_destroy((struct pw_proxy*)data.registry);
+	spa_hook_remove(&data.core_listener);
 	pw_context_destroy(data.context);
 	pw_main_loop_destroy(data.loop);
 	pw_deinit();

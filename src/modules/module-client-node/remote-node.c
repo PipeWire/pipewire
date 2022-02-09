@@ -42,7 +42,6 @@
 #include "pipewire/extensions/client-node.h"
 
 #define MAX_BUFFERS	64
-#define MAX_MIX		4096
 
 PW_LOG_TOPIC_EXTERN(mod_topic);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
@@ -74,7 +73,6 @@ struct node_data {
 	int rtwritefd;
 	struct pw_memmap *activation;
 
-	struct mix mix_pool[MAX_MIX];
 	struct spa_list mix[2];
 	struct spa_list free_mix;
 
@@ -241,15 +239,17 @@ static struct mix *ensure_mix(struct node_data *data,
 	if ((mix = find_mix(data, direction, port_id, mix_id)))
 		return mix;
 
-	if (spa_list_is_empty(&data->free_mix))
-		return NULL;
-
 	port = pw_impl_node_find_port(data->node, direction, port_id);
 	if (port == NULL)
 		return NULL;
 
-	mix = spa_list_first(&data->free_mix, struct mix, link);
-	spa_list_remove(&mix->link);
+	if (spa_list_is_empty(&data->free_mix)) {
+		if ((mix = calloc(1, sizeof(*mix))) == NULL)
+			return NULL;
+	} else {
+		mix = spa_list_first(&data->free_mix, struct mix, link);
+		spa_list_remove(&mix->link);
+	}
 
 	mix_init(mix, port, mix_id);
 	spa_list_append(&data->mix[direction], &mix->link);
@@ -992,13 +992,17 @@ static void clear_mix(struct node_data *data, struct mix *mix)
 
 static void clean_node(struct node_data *d)
 {
-	struct mix *mix, *tmp;
+	struct mix *mix;
 
 	if (d->have_transport) {
-		spa_list_for_each_safe(mix, tmp, &d->mix[SPA_DIRECTION_INPUT], link)
+		spa_list_consume(mix, &d->mix[SPA_DIRECTION_INPUT], link)
 			clear_mix(d, mix);
-		spa_list_for_each_safe(mix, tmp, &d->mix[SPA_DIRECTION_OUTPUT], link)
+		spa_list_consume(mix, &d->mix[SPA_DIRECTION_OUTPUT], link)
 			clear_mix(d, mix);
+	}
+	spa_list_consume(mix, &d->free_mix, link) {
+		spa_list_remove(&mix->link);
+		free(mix);
 	}
 	clean_transport(d);
 }
@@ -1219,7 +1223,6 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	struct pw_impl_node *node = object;
 	struct pw_proxy *client_node;
 	struct node_data *data;
-	int i;
 
 	user_data_size = SPA_ROUND_UP_N(user_data_size, __alignof__(struct node_data));
 
@@ -1253,8 +1256,6 @@ static struct pw_proxy *node_export(struct pw_core *core, void *object, bool do_
 	spa_list_init(&data->free_mix);
 	spa_list_init(&data->mix[0]);
 	spa_list_init(&data->mix[1]);
-	for (i = 0; i < MAX_MIX; i++)
-		spa_list_append(&data->free_mix, &data->mix_pool[i].link);
 
 	spa_list_init(&data->links);
 

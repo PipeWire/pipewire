@@ -1124,6 +1124,7 @@ static void client_node_removed(void *_data)
 	pw_log_debug("%p: removed", data);
 
 	spa_hook_remove(&data->proxy_client_node_listener);
+	spa_hook_remove(&data->client_node_listener);
 
 	if (data->node) {
 		spa_hook_remove(&data->node_listener);

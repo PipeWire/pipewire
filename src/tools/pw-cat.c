@@ -1930,14 +1930,21 @@ int main(int argc, char *argv[])
 	}
 
 error_connect_fail:
-	if (data.stream)
+	if (data.stream) {
+		spa_hook_remove(&data.stream_listener);
 		pw_stream_destroy(data.stream);
+	}
 error_no_stream:
-	if (data.metadata)
+	if (data.metadata) {
+		spa_hook_remove(&data.metadata_listener);
 		pw_proxy_destroy((struct pw_proxy*)data.metadata);
-	if (data.registry)
+	}
+	if (data.registry) {
+		spa_hook_remove(&data.registry_listener);
 		pw_proxy_destroy((struct pw_proxy*)data.registry);
+	}
 error_no_registry:
+	spa_hook_remove(&data.core_listener);
 	pw_core_disconnect(data.core);
 error_ctx_connect_failed:
 	pw_context_destroy(data.context);

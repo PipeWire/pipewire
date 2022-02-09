@@ -299,9 +299,11 @@ void pw_proxy_unref(struct pw_proxy *proxy)
 	assert(proxy->destroyed);
 
 	spa_list_for_each(h, &proxy->object_listener_list.list, link)
-		pw_log_debug("%p: leaked proxy object listener %p id:%d", proxy, h, proxy->id);
+		pw_log_warn("%p: proxy %u: leaked object listener %p",
+				proxy, proxy->id, h);
 	spa_list_for_each(h, &proxy->listener_list.list, link)
-		pw_log_debug("%p: leaked proxy listener %p id:%d", proxy, h, proxy->id);
+		pw_log_warn("%p: proxy %u: leaked listener %p",
+				proxy, proxy->id, h);
 
 	free(proxy);
 }

@@ -59,16 +59,17 @@ PW_LOG_TOPIC_EXTERN(mod_topic);
 #define CHECK_IN_PORT_ID(this,d,p)       ((d) == SPA_DIRECTION_INPUT && (p) < MAX_INPUTS)
 #define CHECK_OUT_PORT_ID(this,d,p)      ((d) == SPA_DIRECTION_OUTPUT && (p) < MAX_OUTPUTS)
 #define CHECK_PORT_ID(this,d,p)          (CHECK_IN_PORT_ID(this,d,p) || CHECK_OUT_PORT_ID(this,d,p))
-#define CHECK_FREE_IN_PORT(this,d,p)     (CHECK_IN_PORT_ID(this,d,p) && (this)->in_ports[p] == NULL)
-#define CHECK_FREE_OUT_PORT(this,d,p)    (CHECK_OUT_PORT_ID(this,d,p) && (this)->out_ports[p] == NULL)
+
+#define CHECK_FREE_IN_PORT(this,d,p)     (CHECK_IN_PORT_ID(this,d,p) && (this)->ports[d][p] == NULL)
+#define CHECK_FREE_OUT_PORT(this,d,p)    (CHECK_OUT_PORT_ID(this,d,p) && (this)->ports[d][p] == NULL)
 #define CHECK_FREE_PORT(this,d,p)        (CHECK_FREE_IN_PORT (this,d,p) || CHECK_FREE_OUT_PORT (this,d,p))
-#define CHECK_IN_PORT(this,d,p)          (CHECK_IN_PORT_ID(this,d,p) && (this)->in_ports[p])
-#define CHECK_OUT_PORT(this,d,p)         (CHECK_OUT_PORT_ID(this,d,p) && (this)->out_ports[p])
+#define CHECK_IN_PORT(this,d,p)          (CHECK_IN_PORT_ID(this,d,p) && (this)->ports[d][p])
+#define CHECK_OUT_PORT(this,d,p)         (CHECK_OUT_PORT_ID(this,d,p) && (this)->ports[d][p])
 #define CHECK_PORT(this,d,p)             (CHECK_IN_PORT (this,d,p) || CHECK_OUT_PORT (this,d,p))
 
-#define GET_IN_PORT(this,p)	(this->in_ports[p])
-#define GET_OUT_PORT(this,p)	(this->out_ports[p])
-#define GET_PORT(this,d,p)	(d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,p) : GET_OUT_PORT(this,p))
+#define GET_IN_PORT(this,p)	(this->ports[SPA_DIRECTION_INPUT][p])
+#define GET_OUT_PORT(this,p)	(this->ports[SPA_DIRECTION_OUTPUT][p])
+#define GET_PORT(this,d,p)	(this->ports[d][p])
 
 #define CHECK_PORT_BUFFER(this,b,p)      (b < p->n_buffers)
 
@@ -129,10 +130,8 @@ struct node {
 	struct spa_source data_source;
 	int writefd;
 
-	uint32_t n_inputs;
-	uint32_t n_outputs;
-	struct port *in_ports[MAX_INPUTS];
-	struct port *out_ports[MAX_OUTPUTS];
+	uint32_t n_ports[2];
+	struct port *ports[2][MAX_INPUTS];
 
 	struct port dummy;
 
@@ -439,12 +438,12 @@ static int impl_node_add_listener(void *object,
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
 	for (i = 0; i < MAX_INPUTS; i++) {
-		if (this->in_ports[i])
-			emit_port_info(this, this->in_ports[i]);
+		if (this->ports[SPA_DIRECTION_INPUT][i])
+			emit_port_info(this, this->ports[SPA_DIRECTION_INPUT][i]);
 	}
 	for (i = 0; i < MAX_OUTPUTS; i++) {
-		if (this->out_ports[i])
-			emit_port_info(this, this->out_ports[i]);
+		if (this->ports[SPA_DIRECTION_OUTPUT][i])
+			emit_port_info(this, this->ports[SPA_DIRECTION_OUTPUT][i]);
 	}
 	spa_hook_list_join(&this->hooks, &save);
 
@@ -537,17 +536,9 @@ clear_port(struct node *this, struct port *port)
 	pw_array_clear(&port->mix);
 	pw_array_init(&port->mix, sizeof(struct mix) * 2);
 
-	if (port->direction == SPA_DIRECTION_INPUT) {
-		if (this->in_ports[port->id] == port) {
-			this->in_ports[port->id] = NULL;
-			this->n_inputs--;
-		}
-	}
-	else {
-		if (this->out_ports[port->id] == port) {
-			this->out_ports[port->id] = NULL;
-			this->n_outputs--;
-		}
+	if (this->ports[port->direction][port->id] == port) {
+		this->ports[port->direction][port->id] = NULL;
+		this->n_ports[port->direction]--;
 	}
 	if (!port->removed)
 		spa_node_emit_port_info(&this->hooks, port->direction, port->id, NULL);
@@ -1565,13 +1556,8 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 			&impl_port_mix, p);
 	ensure_mix(impl, p, SPA_ID_INVALID);
 
-	if (p->direction == SPA_DIRECTION_INPUT) {
-		this->in_ports[p->id] = p;
-		this->n_inputs++;
-	} else {
-		this->out_ports[p->id] = p;
-		this->n_outputs++;
-	}
+	this->ports[p->direction][p->id] = p;
+	this->n_ports[p->direction]++;
 	return;
 }
 

@@ -51,7 +51,6 @@ PW_LOG_TOPIC_EXTERN(mod_topic);
 #define MAX_METAS	16u
 #define MAX_DATAS	64u
 #define MAX_AREAS	2048
-#define MAX_MIX		128
 
 #define CHECK_FREE_PORT(this,d,p)	(p <= pw_map_get_size(&this->ports[d]) && !CHECK_PORT(this,d,p))
 #define CHECK_PORT(this,d,p)		(pw_map_lookup(&this->ports[d], p) != NULL)
@@ -197,8 +196,7 @@ static struct mix *find_mix(struct port *p, uint32_t mix_id)
 		mix_id = 0;
 	else
 		mix_id++;
-	if (mix_id >= MAX_MIX)
-		return NULL;
+
 	len = pw_array_get_len(&p->mix, struct mix);
 	if (mix_id >= len) {
 		size_t need = sizeof(struct mix) * (mix_id + 1 - len);

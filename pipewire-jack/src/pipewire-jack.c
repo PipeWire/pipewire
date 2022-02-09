@@ -72,7 +72,6 @@
 #define MAX_BUFFER_FRAMES		8192
 
 #define MAX_ALIGN			16
-#define MAX_PORTS			1024
 #define MAX_BUFFERS			2
 #define MAX_BUFFER_DATAS		1u
 
@@ -3210,8 +3209,8 @@ jack_client_t * jack_client_open (const char *client_name,
         spa_list_init(&client->mix);
         spa_list_init(&client->free_mix);
 
-	pw_map_init(&client->ports[SPA_DIRECTION_INPUT], MAX_PORTS, 32);
-	pw_map_init(&client->ports[SPA_DIRECTION_OUTPUT], MAX_PORTS, 32);
+	pw_map_init(&client->ports[SPA_DIRECTION_INPUT], 32, 32);
+	pw_map_init(&client->ports[SPA_DIRECTION_OUTPUT], 32, 32);
 	spa_list_init(&client->free_ports);
 
 	pw_thread_loop_start(client->context.loop);
@@ -3286,8 +3285,8 @@ jack_client_t * jack_client_open (const char *client_name,
 			&client->proxy_listener, &node_proxy_events, client);
 
 	client->info = SPA_NODE_INFO_INIT();
-	client->info.max_input_ports = MAX_PORTS;
-	client->info.max_output_ports = MAX_PORTS;
+	client->info.max_input_ports = UINT32_MAX;
+	client->info.max_output_ports = UINT32_MAX;
 	client->info.change_mask = SPA_NODE_CHANGE_MASK_FLAGS |
 		SPA_NODE_CHANGE_MASK_PROPS;
 	client->info.flags = SPA_NODE_FLAG_RT;

@@ -986,7 +986,6 @@ static void clear_mix(struct node_data *data, struct mix *mix)
 	clear_buffers(data, mix);
 	pw_array_clear(&mix->buffers);
 
-	spa_list_remove(&mix->mix.link);
 	spa_list_append(&data->free_mix, &mix->link);
 	pw_impl_port_release_mix(mix->port, &mix->mix);
 }

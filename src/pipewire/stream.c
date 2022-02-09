@@ -48,7 +48,6 @@ PW_LOG_TOPIC_EXTERN(log_stream);
 #define MAX_BUFFERS	64
 
 #define MASK_BUFFERS	(MAX_BUFFERS-1)
-#define MAX_PORTS	1
 
 static bool mlock_warned = false;
 

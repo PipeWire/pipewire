@@ -890,6 +890,7 @@ static void on_node_destroy(void *data)
 	struct client *client = data;
 	client->node = NULL;
 	spa_hook_remove(&client->proxy_listener);
+	spa_hook_remove(&client->node_listener);
 }
 
 static void on_node_bound(void *data, uint32_t global_id)
@@ -3372,11 +3373,14 @@ int jack_client_close (jack_client_t *client)
 
 	pw_thread_loop_stop(c->context.loop);
 
-	if (c->registry)
+	if (c->registry) {
+		spa_hook_remove(&c->registry_listener);
 		pw_proxy_destroy((struct pw_proxy*)c->registry);
+	}
 	if (c->metadata && c->metadata->proxy) {
 		pw_proxy_destroy((struct pw_proxy*)c->metadata->proxy);
 	}
+	spa_hook_remove(&c->core_listener);
 	pw_core_disconnect(c->core);
 	pw_context_destroy(c->context.context);
 

@@ -142,7 +142,7 @@ struct filter {
 	} rt;
 
 	struct spa_list port_list;
-	struct port *ports[2][MAX_PORTS];
+	struct pw_map ports[2];
 
 	uint32_t change_mask_all;
 	struct spa_node_info info;
@@ -306,27 +306,17 @@ static struct port *alloc_port(struct filter *filter,
 		enum spa_direction direction, uint32_t user_data_size)
 {
 	struct port *p;
-	int i;
-
-	for (i = 0; i < MAX_PORTS; i++) {
-		if ((filter->ports[direction][i]) == NULL)
-			break;
-	}
-	if (i == MAX_PORTS)
-		return NULL;
 
 	p = calloc(1, sizeof(struct port) + user_data_size);
 	p->filter = filter;
 	p->direction = direction;
-	p->id = i;
 	p->latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
 	p->latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
 	spa_list_init(&p->param_list);
 	spa_ringbuffer_init(&p->dequeued.ring);
 	spa_ringbuffer_init(&p->queued.ring);
-
-	filter->ports[direction][i] = p;
+	p->id = pw_map_insert_new(&filter->ports[direction], p);
 	spa_list_append(&filter->port_list, &p->link);
 
 	return p;
@@ -334,10 +324,9 @@ static struct port *alloc_port(struct filter *filter,
 
 static inline struct port *get_port(struct filter *filter, enum spa_direction direction, uint32_t port_id)
 {
-	if ((direction != SPA_DIRECTION_INPUT && direction != SPA_DIRECTION_OUTPUT) ||
-	    port_id >= MAX_PORTS)
+	if ((direction != SPA_DIRECTION_INPUT && direction != SPA_DIRECTION_OUTPUT))
 		return NULL;
-	return filter->ports[direction][port_id];
+	return pw_map_lookup(&filter->ports[direction], port_id);
 }
 
 static inline int push_queue(struct port *port, struct queue *queue, struct buffer *buffer)
@@ -1241,6 +1230,8 @@ filter_new(struct pw_context *context, const char *name,
 
 	spa_list_init(&impl->param_list);
 	spa_list_init(&impl->port_list);
+	pw_map_init(&impl->ports[SPA_DIRECTION_INPUT], 32, 32);
+	pw_map_init(&impl->ports[SPA_DIRECTION_OUTPUT], 32, 32);
 
 	spa_hook_list_init(&this->listener_list);
 	spa_list_init(&this->controls);
@@ -1377,6 +1368,9 @@ void pw_filter_destroy(struct pw_filter *filter)
 	spa_hook_list_clean(&impl->hooks);
 	spa_hook_list_clean(&filter->listener_list);
 
+	pw_map_clear(&impl->ports[SPA_DIRECTION_INPUT]);
+	pw_map_clear(&impl->ports[SPA_DIRECTION_OUTPUT]);
+
 	free(filter->name);
 
 	if (impl->data.context)
@@ -1496,8 +1490,8 @@ pw_filter_connect(struct pw_filter *filter,
 		SPA_NODE_CHANGE_MASK_PARAMS;
 
 	impl->info = SPA_NODE_INFO_INIT();
-	impl->info.max_input_ports = MAX_PORTS;
-	impl->info.max_output_ports = MAX_PORTS;
+	impl->info.max_input_ports = UINT32_MAX;
+	impl->info.max_output_ports = UINT32_MAX;
 	impl->info.flags = impl->process_rt ? SPA_NODE_FLAG_RT : 0;
 	impl->info.props = &filter->properties->dict;
 	impl->params[IDX_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_WRITE);
@@ -1722,7 +1716,7 @@ int pw_filter_remove_port(void *port_data)
 	spa_node_emit_port_info(&impl->hooks, port->direction, port->id, NULL);
 
 	spa_list_remove(&port->link);
-	impl->ports[port->direction][port->id] = NULL;
+	pw_map_remove(&impl->ports[port->direction], port->id);
 
 	clear_buffers(port);
 	clear_params(impl, port, SPA_ID_INVALID);

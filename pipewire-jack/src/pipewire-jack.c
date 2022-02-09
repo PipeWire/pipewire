@@ -64,11 +64,10 @@
 
 #define JACK_CLIENT_NAME_SIZE		128
 #define JACK_PORT_NAME_SIZE		256
-#define JACK_PORT_MAX			4096
 #define JACK_PORT_TYPE_SIZE             32
-#define CONNECTION_NUM_FOR_PORT		1024
 #define MONITOR_EXT			" Monitor"
 
+#define MAX_MIDI_MIX			1024
 #define MAX_BUFFER_FRAMES		8192
 
 #define MAX_ALIGN			16
@@ -4324,7 +4323,7 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 {
 	struct mix *mix;
 	void *ptr = p->emptyptr;
-	struct spa_pod_sequence *seq[CONNECTION_NUM_FOR_PORT];
+	struct spa_pod_sequence *seq[MAX_MIDI_MIX];
 	uint32_t n_seq = 0;
 
 	jack_midi_clear_buffer(ptr);
@@ -4348,6 +4347,8 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 			continue;
 
 		seq[n_seq++] = pod;
+		if (n_seq == MAX_MIDI_MIX)
+			break;
 	}
 	convert_to_midi(seq, n_seq, ptr);
 
@@ -4584,11 +4585,12 @@ const char ** jack_port_get_all_connections (const jack_client_t *client,
 	struct object *p, *l;
 	const char **res;
 	int count = 0;
+	struct pw_array tmp;
 
 	spa_return_val_if_fail(c != NULL, NULL);
 	spa_return_val_if_fail(o != NULL, NULL);
 
-	res = malloc(sizeof(char*) * (CONNECTION_NUM_FOR_PORT + 1));
+	pw_array_init(&tmp, sizeof(void*) * 32);
 
 	pthread_mutex_lock(&c->context.lock);
 	spa_list_for_each(l, &c->context.objects, link) {
@@ -4604,18 +4606,18 @@ const char ** jack_port_get_all_connections (const jack_client_t *client,
 		if (p == NULL)
 			continue;
 
-		res[count++] = port_name(p);
-		if (count == CONNECTION_NUM_FOR_PORT)
-			break;
+		pw_array_add_ptr(&tmp, (void*)port_name(p));
+		count++;
 	}
 	pthread_mutex_unlock(&c->context.lock);
 
 	if (count == 0) {
-		free(res);
+		pw_array_clear(&tmp);
 		res = NULL;
-	} else
-		res[count] = NULL;
-
+	} else {
+		pw_array_add_ptr(&tmp, NULL);
+		res = tmp.data;
+	}
 	return res;
 }
 
@@ -5341,7 +5343,7 @@ const char ** jack_get_ports (jack_client_t *client,
 	struct client *c = (struct client *) client;
 	const char **res;
 	struct object *o;
-	struct object *tmp[JACK_PORT_MAX];
+	struct pw_array tmp;
 	const char *str;
 	uint32_t i, count, id;
 	int r;
@@ -5371,14 +5373,14 @@ const char ** jack_get_ports (jack_client_t *client,
 			port_name_pattern, type_name_pattern, flags);
 
 	pthread_mutex_lock(&c->context.lock);
+	pw_array_init(&tmp, sizeof(void*) * 32);
 	count = 0;
+
 	spa_list_for_each(o, &c->context.objects, link) {
 		if (o->type != INTERFACE_Port || o->removed)
 			continue;
 		pw_log_debug("%p: check port type:%d flags:%08lx name:\"%s\"", c,
 				o->port.type_id, o->port.flags, o->port.name);
-		if (count == JACK_PORT_MAX)
-			break;
 		if (o->port.type_id > TYPE_ID_VIDEO)
 			continue;
 		if (!SPA_FLAG_IS_SET(o->port.flags, flags))
@@ -5399,21 +5401,22 @@ const char ** jack_get_ports (jack_client_t *client,
 						0, NULL, 0) == REG_NOMATCH)
 				continue;
 		}
-
 		pw_log_debug("%p: port \"%s\" prio:%d matches (%d)",
 				c, o->port.name, o->port.priority, count);
-		tmp[count++] = o;
+
+		pw_array_add_ptr(&tmp, o);
+		count++;
 	}
 	pthread_mutex_unlock(&c->context.lock);
 
 	if (count > 0) {
-		qsort(tmp, count, sizeof(struct object *), port_compare_func);
-
-		res = malloc(sizeof(char*) * (count + 1));
+		qsort(tmp.data, count, sizeof(struct object *), port_compare_func);
+		pw_array_add_ptr(&tmp, NULL);
+		res = tmp.data;
 		for (i = 0; i < count; i++)
-			res[i] = port_name(tmp[i]);
-		res[count] = NULL;
+			res[i] = port_name((struct object*)res[i]);
 	} else {
+		pw_array_clear(&tmp);
 		res = NULL;
 	}
 

@@ -256,9 +256,6 @@ void pw_proxy_destroy(struct pw_proxy *proxy)
 		pw_proxy_emit_destroy(proxy);
 	}
 
-	spa_hook_list_clean(&proxy->listener_list);
-	spa_hook_list_clean(&proxy->object_listener_list);
-
 	pw_proxy_unref(proxy);
 }
 
@@ -291,6 +288,8 @@ void pw_proxy_remove(struct pw_proxy *proxy)
 SPA_EXPORT
 void pw_proxy_unref(struct pw_proxy *proxy)
 {
+	struct spa_hook *h;
+
 	assert(proxy->refcount > 0);
 	if (--proxy->refcount > 0)
 		return;
@@ -298,6 +297,12 @@ void pw_proxy_unref(struct pw_proxy *proxy)
 	pw_log_debug("%p: free %u", proxy, proxy->id);
 	/** client must explicitly destroy all proxies */
 	assert(proxy->destroyed);
+
+	spa_list_for_each(h, &proxy->object_listener_list.list, link)
+		pw_log_debug("%p: leaked proxy object listener %p id:%d", proxy, h, proxy->id);
+	spa_list_for_each(h, &proxy->listener_list.list, link)
+		pw_log_debug("%p: leaked proxy listener %p id:%d", proxy, h, proxy->id);
+
 	free(proxy);
 }
 

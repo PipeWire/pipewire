@@ -3,6 +3,7 @@ spa_sections = [
   'control',
   'debug',
   'graph',
+  'interfaces',
   'monitor',
   'node',
   'param',

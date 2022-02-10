@@ -82,6 +82,8 @@ extern "C" {
 #define SPA_NAME_AUDIO_ADAPT		"audio.adapt"			/**< combination of a node and an
 									  *  audio.convert. Does clock slaving */
 
+#define SPA_NAME_AEC				"audio.aec"				/**< Echo canceling */
+
 /** video processing */
 #define SPA_NAME_VIDEO_PROCESS_FORMAT	"video.process.format"		/**< processes raw video from one format
 									  *  to another */

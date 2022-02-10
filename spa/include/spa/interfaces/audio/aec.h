@@ -22,43 +22,23 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "echo-cancel.h"
 
-struct impl {
-	uint32_t channels;
+#include <spa/utils/dict.h>
+#include <spa/utils/hook.h>
+#include <spa/pod/pod.h>
+#include <spa/param/audio/raw.h>
+#include <spa/support/plugin.h>
+
+#define SPA_TYPE_INTERFACE_AEC SPA_TYPE_INFO_INTERFACE_BASE "AEC"
+#define SPA_VERSION_AUDIO_AEC   1
+
+struct echo_cancel_info {
+	struct spa_interface iface;
+	const char *name;
+	const struct spa_dict info;
+	const char *latency;
+	int (*create) (struct spa_handle *handle, const struct spa_dict *args, const struct spa_audio_info_raw *info);
+	int (*run) (struct spa_handle *handle, const float *rec[], const float *play[], float *out[], uint32_t n_samples);
+	struct spa_dict *(*get_properties) (struct spa_handle *handle);
+	int (*set_properties) (struct spa_handle *handle, const struct spa_dict *args);
 };
-
-static void *null_create(const struct pw_properties *args, const struct spa_audio_info_raw *info)
-{
-	struct impl *impl;
-	impl = calloc(1, sizeof(struct impl));
-	impl->channels = info->channels;
-	return impl;
-}
-
-static void null_destroy(void *ec)
-{
-	free(ec);
-}
-
-static int null_run(void *ec, const float *rec[], const float *play[], float *out[], uint32_t n_samples)
-{
-	struct impl *impl = ec;
-	uint32_t i;
-	for (i = 0; i < impl->channels; i++)
-		memcpy(out[i], rec[i], n_samples * sizeof(float));
-	return 0;
-}
-
-static const struct echo_cancel_info echo_cancel_null_impl = {
-	.name = "null",
-	.info = SPA_DICT_INIT(NULL, 0),
-	.latency = NULL,
-
-	.create = null_create,
-	.destroy = null_destroy,
-
-	.run = null_run,
-};
-
-const struct echo_cancel_info *echo_cancel_null = &echo_cancel_null_impl;

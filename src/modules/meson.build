@@ -110,14 +110,7 @@ pipewire_module_filter_chain = shared_library('pipewire-module-filter-chain',
 
 pipewire_module_echo_cancel_sources = [
   'module-echo-cancel.c',
-  'module-echo-cancel/aec-null.c',
 ]
-
-if webrtc_dep.found()
-  pipewire_module_echo_cancel_sources += [
-    'module-echo-cancel/aec-webrtc.cpp'
-  ]
-endif
 
 pipewire_module_echo_cancel = shared_library('pipewire-module-echo-cancel',
   pipewire_module_echo_cancel_sources,
@@ -125,7 +118,7 @@ pipewire_module_echo_cancel = shared_library('pipewire-module-echo-cancel',
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, pipewire_dep, webrtc_dep],
+  dependencies : [mathlib, dl_lib, pipewire_dep],
 )
 
 pipewire_module_profiler = shared_library('pipewire-module-profiler',

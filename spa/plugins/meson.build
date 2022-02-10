@@ -51,3 +51,5 @@ endif
 if libcamera_dep.found()
   subdir('libcamera')
 endif
+
+subdir('aec')

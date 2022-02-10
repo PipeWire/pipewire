@@ -425,12 +425,6 @@ static void register_battery_provider(struct spa_bt_device *device)
 	}
 }
 
-static inline void add_dict(struct spa_pod_builder *builder, const char *key, const char *val)
-{
-	spa_pod_builder_string(builder, key);
-	spa_pod_builder_string(builder, val);
-}
-
 static int a2dp_codec_to_endpoint(const struct a2dp_codec *codec,
 				   const char * endpoint,
 				   char** object_path)

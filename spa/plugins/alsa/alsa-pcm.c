@@ -1670,10 +1670,10 @@ recover:
 	return do_start(state);
 }
 
-static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_uframes_t *target)
+static int get_avail(struct state *state, uint64_t current_time)
 {
-	snd_pcm_sframes_t avail;
 	int res;
+	snd_pcm_sframes_t avail;
 
 	if (SPA_UNLIKELY((avail = snd_pcm_avail(state->hndl)) < 0)) {
 		if ((res = alsa_recover(state, avail)) < 0)
@@ -1686,6 +1686,48 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 	} else {
 		state->alsa_recovering = false;
 	}
+	return avail;
+}
+
+#if 0
+static int get_avail_htimestamp(struct state *state, uint64_t current_time)
+{
+	int res;
+	snd_pcm_uframes_t avail;
+	snd_htimestamp_t tstamp;
+	uint64_t then;
+
+	if ((res = snd_pcm_htimestamp(state->hndl, &avail, &tstamp)) < 0) {
+		if ((res = alsa_recover(state, avail)) < 0)
+			return res;
+		if ((res = snd_pcm_htimestamp(state->hndl, &avail, &tstamp)) < 0) {
+			spa_log_warn(state->log, "%s: snd_pcm_htimestamp error: %s",
+				state->props.device, snd_strerror(res));
+			avail = state->threshold * 2;
+		}
+	} else {
+		state->alsa_recovering = false;
+	}
+
+	if ((then = SPA_TIMESPEC_TO_NSEC(&tstamp)) != 0) {
+		if (then < current_time)
+			avail += (current_time - then) * state->rate / SPA_NSEC_PER_SEC;
+		else
+			avail -= (then - current_time) * state->rate / SPA_NSEC_PER_SEC;
+	}
+	return SPA_MIN(avail, state->buffer_frames);
+}
+#endif
+
+static int get_status(struct state *state, uint64_t current_time,
+		snd_pcm_uframes_t *delay, snd_pcm_uframes_t *target)
+{
+	int avail;
+
+	if ((avail = get_avail(state, current_time)) < 0)
+		return avail;
+
+	avail = SPA_MIN(avail, (int)state->buffer_frames);
 
 	*target = state->threshold + state->headroom;
 
@@ -1706,7 +1748,7 @@ static int get_status(struct state *state, snd_pcm_uframes_t *delay, snd_pcm_ufr
 	return 0;
 }
 
-static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t delay,
+static int update_time(struct state *state, uint64_t current_time, snd_pcm_sframes_t delay,
 		snd_pcm_sframes_t target, bool follower)
 {
 	double err, corr;
@@ -1719,8 +1761,8 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 
 	if (SPA_UNLIKELY(state->dll.bw == 0.0)) {
 		spa_dll_set_bw(&state->dll, SPA_DLL_BW_MAX, state->threshold, state->rate);
-		state->next_time = nsec;
-		state->base_time = nsec;
+		state->next_time = current_time;
+		state->base_time = current_time;
 	}
 	diff = (int32_t) (state->last_threshold - state->threshold);
 
@@ -1758,7 +1800,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 	state->next_time += state->threshold / corr * 1e9 / state->rate;
 
 	if (SPA_LIKELY(!follower && state->clock)) {
-		state->clock->nsec = nsec;
+		state->clock->nsec = current_time;
 		state->clock->position += state->duration;
 		state->clock->duration = state->duration;
 		state->clock->delay = delay + state->delay;
@@ -1767,7 +1809,7 @@ static int update_time(struct state *state, uint64_t nsec, snd_pcm_sframes_t del
 	}
 
 	spa_log_trace_fp(state->log, "%p: follower:%d %"PRIu64" %f %ld %f %f %u",
-			state, follower, nsec, corr, delay, err, state->threshold * corr,
+			state, follower, current_time, corr, delay, err, state->threshold * corr,
 			state->threshold);
 
 	return 0;
@@ -1820,10 +1862,12 @@ int spa_alsa_write(struct state *state)
 	check_position_config(state);
 
 	if (state->following && state->alsa_started) {
-		uint64_t nsec;
+		uint64_t current_time;
 		snd_pcm_uframes_t delay, target;
 
-		if (SPA_UNLIKELY((res = get_status(state, &delay, &target)) < 0))
+		current_time = state->position->clock.nsec;
+
+		if (SPA_UNLIKELY((res = get_status(state, current_time, &delay, &target)) < 0))
 			return res;
 
 		if (SPA_UNLIKELY(!state->alsa_recovering && delay > target + state->threshold)) {
@@ -1842,8 +1886,7 @@ int spa_alsa_write(struct state *state)
 			state->alsa_sync = false;
 		}
 
-		nsec = state->position->clock.nsec;
-		if (SPA_UNLIKELY((res = update_time(state, nsec, delay, target, true)) < 0))
+		if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, true)) < 0))
 			return res;
 	}
 
@@ -2075,11 +2118,13 @@ int spa_alsa_read(struct state *state)
 	}
 
 	if (state->following && state->alsa_started) {
-		uint64_t nsec;
+		uint64_t current_time;
 		snd_pcm_uframes_t delay, target;
 		uint32_t threshold = state->threshold;
 
-		if ((res = get_status(state, &delay, &target)) < 0)
+		current_time = state->position->clock.nsec;
+
+		if ((res = get_status(state, current_time, &delay, &target)) < 0)
 			return res;
 
 		if (!state->alsa_recovering && (delay < target / 2 || delay > target * 2)) {
@@ -2100,8 +2145,7 @@ int spa_alsa_read(struct state *state)
 			state->alsa_sync = false;
 		}
 
-		nsec = state->position->clock.nsec;
-		if ((res = update_time(state, nsec, delay, target, true)) < 0)
+		if ((res = update_time(state, current_time, delay, target, true)) < 0)
 			return res;
 	}
 
@@ -2180,7 +2224,7 @@ int spa_alsa_skip(struct state *state)
 }
 
 
-static int handle_play(struct state *state, uint64_t nsec,
+static int handle_play(struct state *state, uint64_t current_time,
 		snd_pcm_uframes_t delay, snd_pcm_uframes_t target)
 {
 	int res;
@@ -2189,11 +2233,11 @@ static int handle_play(struct state *state, uint64_t nsec,
 		spa_log_trace(state->log, "%p: early wakeup %lu %lu", state, delay, target);
 		if (delay > target * 3)
 			delay = target * 3;
-		state->next_time = nsec + (delay - target) * SPA_NSEC_PER_SEC / state->rate;
+		state->next_time = current_time + (delay - target) * SPA_NSEC_PER_SEC / state->rate;
 		return -EAGAIN;
 	}
 
-	if (SPA_UNLIKELY((res = update_time(state, nsec, delay, target, false)) < 0))
+	if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, false)) < 0))
 		return res;
 
 	if (spa_list_is_empty(&state->ready)) {
@@ -2211,7 +2255,7 @@ static int handle_play(struct state *state, uint64_t nsec,
 	return res;
 }
 
-static int handle_capture(struct state *state, uint64_t nsec,
+static int handle_capture(struct state *state, uint64_t current_time,
 		snd_pcm_uframes_t delay, snd_pcm_uframes_t target)
 {
 	int res;
@@ -2219,12 +2263,12 @@ static int handle_capture(struct state *state, uint64_t nsec,
 
 	if (SPA_UNLIKELY(delay < target)) {
 		spa_log_trace(state->log, "%p: early wakeup %ld %ld", state, delay, target);
-		state->next_time = nsec + (target - delay) * SPA_NSEC_PER_SEC /
+		state->next_time = current_time + (target - delay) * SPA_NSEC_PER_SEC /
 			state->rate;
 		return -EAGAIN;
 	}
 
-	if (SPA_UNLIKELY(res = update_time(state, nsec, delay, target, false)) < 0)
+	if (SPA_UNLIKELY(res = update_time(state, current_time, delay, target, false)) < 0)
 		return res;
 
 	if ((res = spa_alsa_read(state)) < 0)
@@ -2257,17 +2301,17 @@ static void alsa_on_timeout_event(struct spa_source *source)
 {
 	struct state *state = source->data;
 	snd_pcm_uframes_t delay, target;
-	uint64_t expire;
+	uint64_t expire, current_time;
 
 	if (SPA_UNLIKELY(state->started && spa_system_timerfd_read(state->data_system, state->timerfd, &expire) < 0))
 		spa_log_warn(state->log, "%p: error reading timerfd: %m", state);
 
 	check_position_config(state);
 
-	if (SPA_UNLIKELY(get_status(state, &delay, &target) < 0))
-		return;
+	current_time = state->next_time;
 
-	state->current_time = state->next_time;
+	if (SPA_UNLIKELY(get_status(state, current_time, &delay, &target) < 0))
+		return;
 
 #ifndef FASTPATH
 	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_TRACE))) {
@@ -2277,15 +2321,15 @@ static void alsa_on_timeout_event(struct spa_source *source)
 		    return;
 		nsec = SPA_TIMESPEC_TO_NSEC(&now);
 		spa_log_trace_fp(state->log, "%p: timeout %lu %lu %"PRIu64" %"PRIu64" %"PRIi64
-				" %d %"PRIi64, state, delay, target, nsec, state->current_time,
-				nsec - state->current_time, state->threshold, state->sample_count);
+				" %d %"PRIi64, state, delay, target, nsec, nsec,
+				nsec - current_time, state->threshold, state->sample_count);
 	}
 #endif
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK)
-		handle_play(state, state->current_time, delay, target);
+		handle_play(state, current_time, delay, target);
 	else
-		handle_capture(state, state->current_time, delay, target);
+		handle_capture(state, current_time, delay, target);
 
 	set_timeout(state, state->next_time);
 }

@@ -1646,6 +1646,9 @@ static int alsa_recover(struct state *state, int err)
 	case SND_PCM_STATE_SUSPENDED:
 		spa_log_info(state->log, "%s: recover from state %s",
 				state->props.device, snd_pcm_state_name(st));
+		res = snd_pcm_resume(state->hndl);
+		if (res >= 0)
+		        return res;
 		err = -ESTRPIPE;
 		break;
 	default:

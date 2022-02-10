@@ -378,6 +378,7 @@ struct client {
 	} rt;
 
 	pthread_mutex_t rt_lock;
+	unsigned int rt_locked:1;
 
 	unsigned int started:1;
 	unsigned int active:1;
@@ -807,7 +808,9 @@ void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto
 	int res = 0;						\
 	if (c->callback) {					\
 		if (pthread_mutex_trylock(&c->rt_lock) == 0) {	\
+			c->rt_locked = true;			\
 			res = c->callback(__VA_ARGS__);		\
+			c->rt_locked = false;			\
 			pthread_mutex_unlock(&c->rt_lock);	\
 		}						\
 	}							\
@@ -858,6 +861,8 @@ static const struct pw_core_events core_events = {
 
 static int do_sync(struct client *client)
 {
+	bool in_data_thread = pw_data_loop_in_thread(client->loop);
+
 	if (pw_thread_loop_in_thread(client->context.loop)) {
 		pw_log_warn("sync requested from callback");
 		return 0;
@@ -868,7 +873,13 @@ static int do_sync(struct client *client)
 	client->pending_sync = pw_proxy_sync((struct pw_proxy*)client->core, client->pending_sync);
 
 	while (true) {
+		if (in_data_thread && client->rt_locked)
+			pthread_mutex_unlock(&client->rt_lock);
+
 	        pw_thread_loop_wait(client->context.loop);
+
+		if (in_data_thread && client->rt_locked)
+			pthread_mutex_lock(&client->rt_lock);
 
 		if (client->error)
 			return client->last_res;

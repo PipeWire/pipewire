@@ -1873,18 +1873,18 @@ int spa_alsa_write(struct state *state)
 		if (SPA_UNLIKELY((res = get_status(state, current_time, &delay, &target)) < 0))
 			return res;
 
-		if (SPA_UNLIKELY(!state->alsa_recovering && delay > target + state->threshold)) {
-			spa_log_warn(state->log, "%s: follower delay:%ld target:%ld thr:%u, resync",
-					state->props.device, delay, target, state->threshold);
+		if (SPA_UNLIKELY(!state->alsa_recovering && delay > 2 * target)) {
 			spa_dll_init(&state->dll);
 			state->alsa_sync = true;
 		}
 		if (SPA_UNLIKELY(state->alsa_sync)) {
+			spa_log_warn(state->log, "%s: follower delay:%ld target:%ld thr:%u, resync",
+					state->props.device, delay, target, state->threshold);
+			target += state->threshold / 2;
 			if (delay > target)
 				snd_pcm_rewind(state->hndl, delay - target);
 			else
 				snd_pcm_forward(state->hndl, target - delay);
-
 			delay = target;
 			state->alsa_sync = false;
 		}
@@ -1993,7 +1993,6 @@ again:
 					state->props.device, snd_strerror(commitres));
 			if (commitres != -EPIPE && commitres != -ESTRPIPE)
 				return res;
-			state->alsa_sync = true;
 		}
 		if (commitres > 0 && written != (snd_pcm_uframes_t) commitres) {
 			spa_log_warn(state->log, "%s: mmap_commit wrote %ld instead of %ld",
@@ -2130,26 +2129,26 @@ int spa_alsa_read(struct state *state)
 		if ((res = get_status(state, current_time, &delay, &target)) < 0)
 			return res;
 
-		if (!state->alsa_recovering && (delay < target / 2 || delay > target * 2)) {
-			spa_log_warn(state->log, "%s: follower delay:%lu target:%lu thr:%u, resync",
-					state->props.device, delay, target, threshold);
+		if (!state->alsa_recovering && delay > target * 2) {
 			spa_dll_init(&state->dll);
 			state->alsa_sync = true;
 		}
 		if (state->alsa_sync) {
-			spa_log_warn(state->log, "%s: follower resync delay:%ld target:%ld thr:%u",
+			spa_log_warn(state->log, "%s: follower delay:%lu target:%lu thr:%u, resync",
 					state->props.device, delay, target, threshold);
+			target += threshold / 2;
 			if (delay < target)
 				snd_pcm_rewind(state->hndl, target - delay);
 			else if (delay > target)
 				snd_pcm_forward(state->hndl, delay - target);
-
 			delay = target;
 			state->alsa_sync = false;
 		}
 
 		if ((res = update_time(state, current_time, delay, target, true)) < 0)
 			return res;
+		if (delay < state->read_size)
+			state->read_size = 0;
 	}
 
 	frames = state->read_size;
@@ -2168,19 +2167,23 @@ int spa_alsa_read(struct state *state)
 		offset = 0;
 	}
 
-	read = push_frames(state, my_areas, offset, frames);
+	if (frames > 0) {
+		read = push_frames(state, my_areas, offset, frames);
+		total_read += read;
+	} else {
+		spa_alsa_skip(state);
+		total_read += state->read_size;
+		read = 0;
+	}
 
-	total_read += read;
-
-	if (state->use_mmap) {
+	if (state->use_mmap && read > 0) {
 		spa_log_trace_fp(state->log, "%p: commit offs:%ld read:%ld count:%"PRIi64, state,
 				offset, read, state->sample_count);
 		if ((commitres = snd_pcm_mmap_commit(hndl, offset, read)) < 0) {
-			spa_log_error(state->log, "%s: snd_pcm_mmap_commit error: %s",
-					state->props.device, snd_strerror(commitres));
+			spa_log_error(state->log, "%s: snd_pcm_mmap_commit error %lu %lu: %s",
+					state->props.device, frames, read, snd_strerror(commitres));
 			if (commitres != -EPIPE && commitres != -ESTRPIPE)
 				return res;
-			state->alsa_sync = true;
 		}
 		if (commitres > 0 && read != (snd_pcm_uframes_t) commitres) {
 			spa_log_warn(state->log, "%s: mmap_commit read %ld instead of %ld",

@@ -214,9 +214,16 @@ static void context_do_profile(void *data, struct pw_impl_node *node)
 	spa_list_for_each(t, &node->rt.target_list, link) {
 		struct pw_impl_node *n = t->node;
 		struct pw_node_activation *na;
+		struct spa_fraction latency;
 
 		if (n == NULL || n == node)
 			continue;
+
+		latency = n->latency;
+		if (n->force_quantum != 0)
+			latency.num = n->force_quantum;
+		if (n->force_rate != 0)
+			latency.denom = n->force_rate;
 
 		na = n->rt.activation;
 		spa_pod_builder_prop(&b, SPA_PROFILER_followerBlock, 0);
@@ -228,7 +235,7 @@ static void context_do_profile(void *data, struct pw_impl_node *node)
 			SPA_POD_Long(na->awake_time),
 			SPA_POD_Long(na->finish_time),
 			SPA_POD_Int(na->status),
-			SPA_POD_Fraction(&n->latency));
+			SPA_POD_Fraction(&latency));
 	}
 	spa_pod_builder_pop(&b, &f[0]);
 

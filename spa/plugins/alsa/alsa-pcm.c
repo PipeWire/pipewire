@@ -1873,7 +1873,7 @@ int spa_alsa_write(struct state *state)
 		if (SPA_UNLIKELY((res = get_status(state, current_time, &delay, &target)) < 0))
 			return res;
 
-		if (SPA_UNLIKELY(!state->alsa_recovering && delay > 2 * target)) {
+		if (SPA_UNLIKELY(!state->alsa_recovering && (delay < target / 2 || delay > 2 * target))) {
 			spa_dll_init(&state->dll);
 			state->alsa_sync = true;
 		}
@@ -1884,7 +1884,7 @@ int spa_alsa_write(struct state *state)
 			if (delay > target)
 				snd_pcm_rewind(state->hndl, delay - target);
 			else
-				snd_pcm_forward(state->hndl, target - delay);
+				spa_alsa_silence(state, target - delay);
 			delay = target;
 			state->alsa_sync = false;
 		}
@@ -1987,7 +1987,7 @@ again:
 			state, offset, written, state->sample_count);
 	total_written += written;
 
-	if (state->use_mmap) {
+	if (state->use_mmap && written > 0) {
 		if (SPA_UNLIKELY((commitres = snd_pcm_mmap_commit(hndl, offset, written)) < 0)) {
 			spa_log_error(state->log, "%s: snd_pcm_mmap_commit error: %s",
 					state->props.device, snd_strerror(commitres));

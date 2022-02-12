@@ -59,6 +59,7 @@ List of known modules:
 - \subpage page_module_echo_cancel
 - \subpage page_module_example_sink
 - \subpage page_module_example_source
+- \subpage page_module_fallback_sink
 - \subpage page_module_filter_chain
 - \subpage page_module_link_factory
 - \subpage page_module_loopback

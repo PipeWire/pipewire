@@ -68,6 +68,9 @@ context.modules = [
             }
         }
     }
+
+    # Pulseaudio shows a fallback null sink, if no other sinks are present
+    { name = libpipewire-module-fallback-sink, args = { sink.name = "auto_null" } }
 ]
 
 # Extra modules can be loaded here. Setup in default.pa can be moved here

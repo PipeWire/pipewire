@@ -10,6 +10,7 @@ module_sources = [
   'module-echo-cancel.c',
   'module-example-sink.c',
   'module-example-source.c',
+  'module-fallback-sink.c',
   'module-filter-chain.c',
   'module-link-factory.c',
   'module-loopback.c',
@@ -498,3 +499,12 @@ pipewire_module_x11_bell = shared_library('pipewire-module-x11-bell',
 )
 endif
 summary({'x11-bell': build_module_x11_bell}, bool_yn: true, section: 'Optional Modules')
+
+pipewire_module_fallback_sink = shared_library('pipewire-module-fallback-sink',
+  [ 'module-fallback-sink.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
+)

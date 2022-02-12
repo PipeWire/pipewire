@@ -2,6 +2,7 @@ src/daemon/pipewire.c
 src/daemon/pipewire.desktop.in
 src/modules/module-protocol-pulse/modules/module-tunnel-sink.c
 src/modules/module-protocol-pulse/modules/module-tunnel-source.c
+src/modules/module-fallback-sink.c
 src/modules/module-pulse-tunnel.c
 src/modules/module-zeroconf-discover.c
 src/tools/pw-cat.c

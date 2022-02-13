@@ -1,3 +1,96 @@
+# PipeWire 0.3.46 (2022-02-17)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Fix a critical bug in pipewire-pulse buffer size handling that made some
+    apps (MuseScore, ... ) stutter.
+  - Fix a critical bug where devices would not show when the kernel was
+    compiled without VERBOSE_PROCSFS.
+  - JACK clients will now use lock-quantum by default. This makes sure that
+    all dynamic quantum changes are disabled while a JACK app is running.
+    The only way to force a quantum chance is through a JACK app or with
+    the metadata.
+  - Almost all limits on number of ports, clients and nodes are removed.
+  - A Dummy fallback sink is now automatically created when there are no
+    other sinks. This avoids stalling browsers.
+  - Sound sharing with Zoom should work better. A new WirePlumber release
+    might be required.
+  - Many more fixes and improvements.
+
+
+## PipeWire
+  - Update docs with new config overrides.
+  - The rule matching logic was moved to config and code is now shared with
+    pulse-server and JACK.
+  - Add new Romanian translation.
+  - When a quantum is forced with metadata, any node that asked to lock-quantum
+    is ignored so that the quantum change can happen.
+  - Fix a bug where a mixer was removed twice, leading to potential memory
+    corruption.
+  - The port limits on nodes and filters are now removed. Some code was
+    simplified.
+  - Fix a potential leak because listeners where removed while they could be
+    emitted.
+  - Improve context.exec and avoid zombie processes.
+
+## Modules
+  - The RAOP module now has a default latency of 2 seconds, like PulseAudio.
+  - The echo-cancel module now uses the plugin loader to load the backends.
+    This makes it possible to add custom, out of tree, echo cancel plugins.
+
+## Tools
+  - Improve help of pw-link.
+  - Output to stdout and error to stderr. Use setlinebuf for stdout to improve
+    piping between apps. (#2110)
+
+## SPA
+  - Improve removing sources when dispatching. Also improve performance now
+    that a destroy loop can be removed. (#2114)
+  - Fix an fd leak in the logger when logging to a file.
+  - Improve loop enter/leave checks and support recursive loops.
+
+## pulse-server
+  - Clamp various buffer attributes to the max length. Fixes some issues
+    with various applications. (#2100)
+  - Module properties are now remapped correctly from their pulseaudio variant
+    to the PipeWire ones.
+  - Fix module index in introspect. Use the right index when loaded from our
+    internal modules. (#2101)
+  - Improve argument parsing and node.description. (#2086)
+  - The sink-index should now be filled in correctly when playing a sample.
+    (#2129)
+  - module-always-sink is now implemented and loaded by default. (#1838)
+  - Add support for loading some modules only once.
+  - Module load and unload now does extra sync to make it appear synchronous,
+    like in PulseAudio. This improves sounds sharing in Zoom.
+
+## ALSA
+  - Fix critial bug where alsa devices would not show when the kernel was
+    compiled without VERBOSE_PROCFS.
+  - Some corner cases were fixed in the ALSA timing code. When the capture node
+    is follower, it will now not try to read too much data and xrun but it will
+    instead produce a cycle of silence.
+  - Various fixes and improvements to make ALSA devices resync to the driver
+    more quickly and accurately.
+
+## JACK
+  - Add an option to name the defauld device as `system` to improve
+    compatibility with some applications,
+  - Use lock-quantum by default. This makes sure that all dynamic quantum
+    changes are disabled while a JACK app is running. The only way to force
+    a quantum chance is through a JACK app or with the metadata.
+  - It is now possible to do IPC calls from the data thread. Note that this
+    is a very bad idea but required for compatibility with JACK2.
+
+## GStreamer
+  - GStreamer sink will now set a default channelmap to make it possible to 
+    remap to the channel layout of the device.
+
+
+Older versions:
+
 # PipeWire 0.3.45 (2022-02-03)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -61,9 +154,6 @@ This is a bugfix release that is API and ABI compatible with previous
   - Use the new force-quantum and force-rate properties in the JACK API to
     switch quantum and ensure it can't change for the lifetime of the JACK
     app. (#2079)
-
-Older versions:
-
 
 # PipeWire 0.3.44 (2022-01-27)
 

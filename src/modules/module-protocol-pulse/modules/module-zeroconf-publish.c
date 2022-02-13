@@ -591,7 +591,7 @@ static int module_zeroconf_publish_load(struct client *client, struct module *mo
 	}
 
 	data->manager = pw_manager_new(data->core);
-	if (client->manager == NULL) {
+	if (data->manager == NULL) {
 		pw_log_error("failed to create pipewire manager: %m");
 		return -errno;
 	}

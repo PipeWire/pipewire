@@ -381,7 +381,7 @@ static int module_combine_sink_load(struct client *client, struct module *module
 		return res;
 
 	data->manager = pw_manager_new(data->core);
-	if (client->manager == NULL)
+	if (data->manager == NULL)
 		return -errno;
 
 	pw_manager_add_listener(data->manager, &data->manager_listener,

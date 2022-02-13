@@ -93,6 +93,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_CHANNELS "2"
 #define DEFAULT_POSITION "[ FL FR ]"
 
+#define DEFAULT_LATENCY (DEFAULT_RATE*2)
+
 #define MODULE_USAGE	"[ node.latency=<latency as fraction> ] "				\
 			"[ node.name=<name of the nodes> ] "					\
 			"[ node.description=<description of the nodes> ] "			\
@@ -687,7 +689,9 @@ static void rtsp_record_reply(void *data, int status, const struct spa_dict *hea
 
 	if ((str = spa_dict_lookup(headers, "Audio-Latency")) != NULL) {
 		if (!spa_atou32(str, &impl->latency, 0))
-			impl->latency = 0;
+			impl->latency = DEFAULT_LATENCY;
+	} else {
+		impl->latency = DEFAULT_LATENCY;
 	}
 
 	spa_zero(latency);

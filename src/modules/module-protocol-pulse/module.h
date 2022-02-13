@@ -37,6 +37,7 @@ struct pw_properties;
 
 struct module_info {
 	const char *name;
+	unsigned int load_once:1;
 	struct module *(*create) (struct impl *impl, const char *args);
 };
 

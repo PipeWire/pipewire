@@ -260,30 +260,30 @@ bool module_args_parse_bool(const char *v)
 #include "modules/registry.h"
 
 static const struct module_info module_list[] = {
-	{ "module-always-sink", create_module_always_sink, },
-	{ "module-combine-sink", create_module_combine_sink, },
-	{ "module-echo-cancel", create_module_echo_cancel, },
-	{ "module-ladspa-sink", create_module_ladspa_sink, },
-	{ "module-ladspa-source", create_module_ladspa_source, },
-	{ "module-loopback", create_module_loopback, },
-	{ "module-null-sink", create_module_null_sink, },
-	{ "module-native-protocol-tcp", create_module_native_protocol_tcp, },
-	{ "module-pipe-source", create_module_pipe_source, },
-	{ "module-pipe-sink", create_module_pipe_sink, },
-	{ "module-raop-discover", create_module_raop_discover, },
-	{ "module-remap-sink", create_module_remap_sink, },
-	{ "module-remap-source", create_module_remap_source, },
-	{ "module-simple-protocol-tcp", create_module_simple_protocol_tcp, },
-	{ "module-switch-on-connect", create_module_switch_on_connect, },
-	{ "module-tunnel-sink", create_module_tunnel_sink, },
-	{ "module-tunnel-source", create_module_tunnel_source, },
-	{ "module-zeroconf-discover", create_module_zeroconf_discover, },
+	{ "module-always-sink", 1, create_module_always_sink, },
+	{ "module-combine-sink", 0, create_module_combine_sink, },
+	{ "module-echo-cancel", 0, create_module_echo_cancel, },
+	{ "module-ladspa-sink", 0, create_module_ladspa_sink, },
+	{ "module-ladspa-source", 0, create_module_ladspa_source, },
+	{ "module-loopback", 0, create_module_loopback, },
+	{ "module-null-sink", 0, create_module_null_sink, },
+	{ "module-native-protocol-tcp", 0, create_module_native_protocol_tcp, },
+	{ "module-pipe-source", 0, create_module_pipe_source, },
+	{ "module-pipe-sink", 0, create_module_pipe_sink, },
+	{ "module-raop-discover", 1, create_module_raop_discover, },
+	{ "module-remap-sink", 0, create_module_remap_sink, },
+	{ "module-remap-source", 0, create_module_remap_source, },
+	{ "module-simple-protocol-tcp", 0, create_module_simple_protocol_tcp, },
+	{ "module-switch-on-connect", 1, create_module_switch_on_connect, },
+	{ "module-tunnel-sink", 0, create_module_tunnel_sink, },
+	{ "module-tunnel-source", 0, create_module_tunnel_source, },
+	{ "module-zeroconf-discover", 1, create_module_zeroconf_discover, },
 #ifdef HAVE_AVAHI
-	{ "module-zeroconf-publish", create_module_zeroconf_publish, },
+	{ "module-zeroconf-publish", 0, create_module_zeroconf_publish, },
 #endif
-	{ "module-roc-sink", create_module_roc_sink, },
-	{ "module-roc-source", create_module_roc_source, },
-	{ "module-x11-bell", create_module_x11_bell, },
+	{ "module-roc-sink", 0, create_module_roc_sink, },
+	{ "module-roc-source", 0, create_module_roc_source, },
+	{ "module-x11-bell", 0, create_module_x11_bell, },
 };
 
 static const struct module_info *find_module_info(const char *name)
@@ -298,6 +298,13 @@ static const struct module_info *find_module_info(const char *name)
 	return NULL;
 }
 
+static int find_module_by_name(void *item_data, void *data)
+{
+	const char *name = data;
+	const struct module *module = item_data;
+	return spa_streq(module->name, name) ? 1 : 0;
+}
+
 struct module *module_create(struct client *client, const char *name, const char *args)
 {
 	struct impl *impl = client->impl;
@@ -309,6 +316,17 @@ struct module *module_create(struct client *client, const char *name, const char
 		errno = ENOENT;
 		return NULL;
 	}
+
+	if (info->load_once) {
+		int exists;
+		exists = pw_map_for_each(&impl->modules, find_module_by_name,
+				(void *)name);
+		if (exists) {
+			errno = EEXIST;
+			return NULL;
+		}
+	}
+
 	module = info->create(impl, args);
 	if (module == NULL)
 		return NULL;

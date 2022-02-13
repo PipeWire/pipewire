@@ -2324,11 +2324,12 @@ static struct pw_manager_object *find_device(struct client *client,
 	return o;
 }
 
-static void sample_play_ready(void *data, uint32_t index)
+static void sample_play_ready(void *data, uint32_t id)
 {
 	struct pending_sample *ps = data;
 	struct client *client = ps->client;
 	struct message *reply;
+	uint32_t index = id_to_index(client->manager, id);
 
 	pw_log_info("[%s] PLAY_SAMPLE tag:%u index:%u",
 			client->name, ps->tag, index);

@@ -56,7 +56,7 @@ struct sample_play {
 	struct sample *sample;
 	struct pw_stream *stream;
 	struct spa_io_rate_match *rate_match;
-	uint32_t index;
+	uint32_t id;
 	struct spa_hook listener;
 	struct pw_context *context;
 	struct pw_loop *main_loop;

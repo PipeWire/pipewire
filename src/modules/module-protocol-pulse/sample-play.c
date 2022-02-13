@@ -53,8 +53,8 @@ static void sample_play_stream_state_changed(void *data, enum pw_stream_state ol
 		sample_play_emit_done(p, -EIO);
 		break;
 	case PW_STREAM_STATE_PAUSED:
-		p->index = pw_stream_get_node_id(p->stream);
-		sample_play_emit_ready(p, p->index);
+		p->id = pw_stream_get_node_id(p->stream);
+		sample_play_emit_ready(p, p->id);
 		break;
 	default:
 		break;

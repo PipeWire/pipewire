@@ -734,6 +734,16 @@ static int do_exec(struct pw_context *context, const char *key, const char *args
 	if (pid == 0) {
 		char *cmd, **argv;
 
+		/* Double fork to avoid zombies; we don't want to set SIGCHLD handler */
+		pid = fork();
+
+		if (pid < 0) {
+			pw_log_error("fork error: %m");
+			exit(1);
+		} else if (pid != 0) {
+			exit(0);
+		}
+
 		cmd = spa_aprintf("%s %s", key, args ? args : "");
 		argv = pw_split_strv(cmd, " \t", INT_MAX, &n_args);
 		free(cmd);
@@ -745,13 +755,18 @@ static int do_exec(struct pw_context *context, const char *key, const char *args
 		if (res == -1) {
 			res = -errno;
 			pw_log_error("execvp error '%s': %m", key);
-			return res;
 		}
-	}
-	else {
+
+		exit(1);
+	} else if (pid < 0) {
+		pw_log_error("fork error: %m");
+	} else {
 		int status = 0;
-		res = waitpid(pid, &status, WNOHANG);
-		pw_log_info("exec got pid %d res:%d status:%d", pid, res, status);
+		do {
+			errno = 0;
+			res = waitpid(pid, &status, 0);
+		} while (res < 0 && errno == EINTR);
+		pw_log_debug("exec got pid %d res:%d status:%d", (int)pid, res, status);
 	}
 	return 0;
 }

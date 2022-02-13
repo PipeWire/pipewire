@@ -68,13 +68,11 @@ context.modules = [
             }
         }
     }
-
-    # Pulseaudio shows a fallback null sink, if no other sinks are present
-    { name = libpipewire-module-fallback-sink, args = { sink.name = "auto_null" } }
 ]
 
 # Extra modules can be loaded here. Setup in default.pa can be moved here
 context.exec = [
+    { path = "pactl"        args = "load-module module-always-sink" }
     #{ path = "pactl"        args = "load-module module-switch-on-connect" }
     #{ path = "/usr/bin/sh"  args = "~/.config/pipewire/default.pw" }
 ]

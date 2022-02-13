@@ -260,6 +260,7 @@ bool module_args_parse_bool(const char *v)
 #include "modules/registry.h"
 
 static const struct module_info module_list[] = {
+	{ "module-always-sink", create_module_always_sink, },
 	{ "module-combine-sink", create_module_combine_sink, },
 	{ "module-echo-cancel", create_module_echo_cancel, },
 	{ "module-ladspa-sink", create_module_ladspa_sink, },

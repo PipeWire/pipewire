@@ -28,6 +28,7 @@
 
 struct impl;
 
+struct module *create_module_always_sink(struct impl *impl, const char *argument);
 struct module *create_module_combine_sink(struct impl *impl, const char *argument);
 struct module *create_module_echo_cancel(struct impl *impl, const char *argument);
 struct module *create_module_ladspa_sink(struct impl *impl, const char *argument);

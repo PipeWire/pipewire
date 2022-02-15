@@ -650,16 +650,25 @@ again:
 	}
 
 	written = flush_buffer(this);
+
 	if (written == -EAGAIN) {
-		spa_log_trace(this->log, "%p: delay flush", this);
+		spa_log_trace(this->log, "%p: fail flush", this);
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC / 2) {
+			spa_log_trace(this->log, "%p: reduce bitpool", this);
 			this->codec->reduce_bitpool(this->codec_data);
 			this->last_error = now_time;
 		}
-		this->need_flush = true;
-		enable_flush(this, true);
+
+		/*
+		 * The socket buffer is full, and the device is not processing data
+		 * fast enough, so should just skip this packet. There will be a sound
+		 * glitch in any case.
+		 */
+		written = this->buffer_used;
+		reset_buffer(this);
 	}
-	else if (written < 0) {
+
+	if (written < 0) {
 		spa_log_trace(this->log, "%p: error flushing %s", this,
 				spa_strerror(written));
 		reset_buffer(this);
@@ -669,7 +678,10 @@ again:
 	else if (written > 0) {
 		reset_buffer(this);
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC) {
-			this->codec->increase_bitpool(this->codec_data);
+			if (get_transport_unused_size(this) == (int)this->fd_buffer_size) {
+				spa_log_trace(this->log, "%p: increase bitpool", this);
+				this->codec->increase_bitpool(this->codec_data);
+			}
 			this->last_error = now_time;
 		}
 		if (!spa_list_is_empty(&port->ready))

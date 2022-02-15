@@ -836,7 +836,7 @@ int pw_context_conf_section_for_each(struct pw_context *context, const char *sec
 	struct pw_properties *conf = context->conf;
 	const char *path = NULL;
 	const struct spa_dict_item *it;
-	int res;
+	int res = 0;
 
 	spa_dict_for_each(it, &conf->dict) {
 		if (spa_strendswith(it->key, "config.path")) {

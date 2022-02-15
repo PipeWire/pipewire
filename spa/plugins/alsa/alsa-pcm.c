@@ -2320,8 +2320,11 @@ static void alsa_on_timeout_event(struct spa_source *source)
 
 	current_time = state->next_time;
 
-	if (SPA_UNLIKELY(get_status(state, current_time, &delay, &target) < 0))
-		return;
+	if (SPA_UNLIKELY(get_status(state, current_time, &delay, &target) < 0)) {
+		spa_log_error(state->log, "get_status error");
+		state->next_time += state->threshold * 1e9 / state->rate;
+		goto done;
+	}
 
 #ifndef FASTPATH
 	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_TRACE))) {
@@ -2341,6 +2344,7 @@ static void alsa_on_timeout_event(struct spa_source *source)
 	else
 		handle_capture(state, current_time, delay, target);
 
+done:
 	set_timeout(state, state->next_time);
 }
 

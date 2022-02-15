@@ -2345,6 +2345,13 @@ static void alsa_on_timeout_event(struct spa_source *source)
 		handle_capture(state, current_time, delay, target);
 
 done:
+	if (state->next_time > current_time + SPA_NSEC_PER_SEC ||
+	    current_time > state->next_time + SPA_NSEC_PER_SEC) {
+		spa_log_error(state->log, "%s: impossible timeout %lu %lu %"PRIu64" %"PRIu64" %"PRIi64
+				" %d %"PRIi64, state->props.device, delay, target, current_time, state->next_time,
+				state->next_time - current_time, state->threshold, state->sample_count);
+		state->next_time = current_time + state->threshold * 1e9 / state->rate;
+	}
 	set_timeout(state, state->next_time);
 }
 

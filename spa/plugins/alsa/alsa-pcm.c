@@ -1775,7 +1775,13 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 				state, follower, state->last_threshold, state->threshold, diff, err);
 		state->last_threshold = state->threshold;
 	}
-	err = SPA_CLAMP(err, -state->max_error, state->max_error);
+	if (err > state->max_error) {
+		err = state->max_error;
+		state->alsa_sync = true;
+	} else if (err < -state->max_error) {
+		err = -state->max_error;
+		state->alsa_sync = true;
+	}
 
 	if (!follower || state->matching)
 		corr = spa_dll_update(&state->dll, err);
@@ -1789,10 +1795,10 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 		state->base_time = state->next_time;
 
 		spa_log_debug(state->log, "%s: follower:%d match:%d rate:%f "
-				"bw:%f thr:%u del:%ld target:%ld err:%f",
+				"bw:%f thr:%u del:%ld target:%ld err:%f max:%f",
 				state->props.device, follower, state->matching,
 				corr, state->dll.bw, state->threshold, delay, target,
-				err);
+				err, state->max_error);
 	}
 
 	if (state->rate_match) {
@@ -1862,11 +1868,13 @@ int spa_alsa_write(struct state *state)
 {
 	snd_pcm_t *hndl = state->hndl;
 	const snd_pcm_channel_area_t *my_areas;
-	snd_pcm_uframes_t written, frames, offset, off, to_write, total_written;
+	snd_pcm_uframes_t written, frames, offset, off, to_write, total_written, max_write;
 	snd_pcm_sframes_t commitres;
 	int res = 0;
 
 	check_position_config(state);
+
+	max_write = state->buffer_frames;
 
 	if (state->following && state->alsa_started) {
 		uint64_t current_time;
@@ -1877,22 +1885,16 @@ int spa_alsa_write(struct state *state)
 		if (SPA_UNLIKELY((res = get_status(state, current_time, &delay, &target)) < 0))
 			return res;
 
-		if (SPA_UNLIKELY(!state->alsa_recovering && (delay < target / 2 || delay > 2 * target))) {
-			spa_dll_init(&state->dll);
-			state->alsa_sync = true;
-		}
 		if (SPA_UNLIKELY(state->alsa_sync)) {
 			spa_log_warn(state->log, "%s: follower delay:%ld target:%ld thr:%u, resync",
 					state->props.device, delay, target, state->threshold);
-			target += state->threshold / 2;
 			if (delay > target)
-				snd_pcm_rewind(state->hndl, delay - target);
-			else
+				max_write = delay - target;
+			else if (delay < target)
 				spa_alsa_silence(state, target - delay);
 			delay = target;
 			state->alsa_sync = false;
 		}
-
 		if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, true)) < 0))
 			return res;
 	}
@@ -1900,8 +1902,8 @@ int spa_alsa_write(struct state *state)
 	total_written = 0;
 again:
 
-	frames = state->buffer_frames;
-	if (state->use_mmap) {
+	frames = max_write;
+	if (state->use_mmap && frames > 0) {
 		if (SPA_UNLIKELY((res = snd_pcm_mmap_begin(hndl, &my_areas, &offset, &frames)) < 0)) {
 			spa_log_error(state->log, "%s: snd_pcm_mmap_begin error: %s",
 					state->props.device, snd_strerror(res));
@@ -2099,7 +2101,7 @@ push_frames(struct state *state,
 int spa_alsa_read(struct state *state)
 {
 	snd_pcm_t *hndl = state->hndl;
-	snd_pcm_uframes_t total_read = 0, to_read;
+	snd_pcm_uframes_t total_read = 0, to_read, max_read;
 	const snd_pcm_channel_area_t *my_areas;
 	snd_pcm_uframes_t read, frames, offset;
 	snd_pcm_sframes_t commitres;
@@ -2123,6 +2125,8 @@ int spa_alsa_read(struct state *state)
 		}
 	}
 
+	max_read = state->buffer_frames;
+
 	if (state->following && state->alsa_started) {
 		uint64_t current_time;
 		snd_pcm_uframes_t delay, target;
@@ -2133,16 +2137,11 @@ int spa_alsa_read(struct state *state)
 		if ((res = get_status(state, current_time, &delay, &target)) < 0)
 			return res;
 
-		if (!state->alsa_recovering && delay > target * 2) {
-			spa_dll_init(&state->dll);
-			state->alsa_sync = true;
-		}
 		if (state->alsa_sync) {
 			spa_log_warn(state->log, "%s: follower delay:%lu target:%lu thr:%u, resync",
 					state->props.device, delay, target, threshold);
-			target += threshold / 2;
 			if (delay < target)
-				snd_pcm_rewind(state->hndl, target - delay);
+				max_read = target - delay;
 			else if (delay > target)
 				snd_pcm_forward(state->hndl, delay - target);
 			delay = target;
@@ -2151,11 +2150,12 @@ int spa_alsa_read(struct state *state)
 
 		if ((res = update_time(state, current_time, delay, target, true)) < 0)
 			return res;
+
 		if (delay < state->read_size)
-			state->read_size = 0;
+			max_read = 0;
 	}
 
-	frames = state->read_size;
+	frames = SPA_MIN(max_read, state->read_size);
 
 	if (state->use_mmap) {
 		to_read = state->buffer_frames;

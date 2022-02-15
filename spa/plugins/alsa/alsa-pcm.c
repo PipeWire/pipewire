@@ -1776,7 +1776,11 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 		state->last_threshold = state->threshold;
 	}
 	err = SPA_CLAMP(err, -state->max_error, state->max_error);
-	corr = spa_dll_update(&state->dll, err);
+
+	if (!follower || state->matching)
+		corr = spa_dll_update(&state->dll, err);
+	else
+		corr = 1.0;
 
 	if (diff < 0)
 		state->next_time += diff / corr * 1e9 / state->rate;
@@ -1784,10 +1788,10 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 	if (SPA_UNLIKELY((state->next_time - state->base_time) > BW_PERIOD)) {
 		state->base_time = state->next_time;
 
-		spa_log_debug(state->log, "%p: follower:%d match:%d rate:%f "
+		spa_log_debug(state->log, "%s: follower:%d match:%d rate:%f "
 				"bw:%f thr:%u del:%ld target:%ld err:%f",
-				state, follower, state->matching, corr, state->dll.bw,
-				state->threshold, delay, target,
+				state->props.device, follower, state->matching,
+				corr, state->dll.bw, state->threshold, delay, target,
 				err);
 	}
 

@@ -189,8 +189,6 @@ struct state {
 	uint32_t start_delay;
 
 	uint32_t duration;
-	uint32_t last_duration;
-	uint64_t last_position;
 	unsigned int alsa_started:1;
 	unsigned int alsa_sync:1;
 	unsigned int alsa_recovering:1;

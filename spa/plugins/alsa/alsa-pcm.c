@@ -1861,6 +1861,7 @@ static inline void check_position_config(struct state *state)
 		state->rate_denom = state->position->clock.rate.denom;
 		state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
 		state->resample = ((uint32_t)state->rate != state->rate_denom) || state->matching;
+		state->alsa_sync = true;
 	}
 }
 
@@ -2107,23 +2108,7 @@ int spa_alsa_read(struct state *state)
 	snd_pcm_sframes_t commitres;
 	int res = 0;
 
-	if (state->position) {
-		check_position_config(state);
-
-		if (!state->following) {
-			uint64_t position;
-
-			position = state->position->clock.position;
-			if (state->last_position && state->last_position + state->last_duration != position) {
-				state->alsa_sync = true;
-				spa_log_info(state->log, "%s: discont, resync %"PRIu64" %"PRIu64" %d",
-						state->props.device, state->last_position,
-						position, state->last_duration);
-			}
-			state->last_position = position;
-			state->last_duration = state->duration;
-		}
-	}
+	check_position_config(state);
 
 	max_read = state->buffer_frames;
 

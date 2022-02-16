@@ -1774,6 +1774,7 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 		spa_log_trace(state->log, "%p: follower:%d quantum change %d -> %d (%d) %f",
 				state, follower, state->last_threshold, state->threshold, diff, err);
 		state->last_threshold = state->threshold;
+		state->alsa_sync = true;
 	}
 	if (err > state->max_error) {
 		err = state->max_error;

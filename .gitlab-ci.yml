@@ -25,7 +25,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2022-01-28.0'
+    FDO_DISTRIBUTION_TAG: '2022-02-16.0'
     FDO_DISTRIBUTION_VERSION: '35'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
@@ -142,7 +142,7 @@ include:
     FDO_DISTRIBUTION_EXEC: >-
       mkdir -p /opt ;
       cd /opt ;
-      curl -o /tmp/cov-analysis-linux64.tgz https://scan.coverity.com/download/linux64
+      curl -o /tmp/cov-analysis-linux64.tgz https://scan.coverity.com/download/cxx/linux64
       --form project=$COVERITY_SCAN_PROJECT_NAME --form token=$COVERITY_SCAN_TOKEN ;
       tar xf /tmp/cov-analysis-linux64.tgz ;
       mv cov-analysis-linux64-* coverity ;

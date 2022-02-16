@@ -1889,7 +1889,7 @@ int spa_alsa_write(struct state *state)
 			spa_log_warn(state->log, "%s: follower delay:%ld target:%ld thr:%u, resync",
 					state->props.device, delay, target, state->threshold);
 			if (delay > target)
-				max_write = delay - target;
+				snd_pcm_rewind(state->hndl, delay - target);
 			else if (delay < target)
 				spa_alsa_silence(state, target - delay);
 			delay = target;

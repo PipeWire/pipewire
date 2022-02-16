@@ -86,6 +86,7 @@ struct impl {
 
 	struct pw_properties *properties;
 
+	struct pw_impl_module *module;
 	struct spa_hook module_listener;
 
 	Display *display;
@@ -204,7 +205,8 @@ static void module_destroy(void *data)
 {
 	struct impl *impl = data;
 
-	spa_hook_remove(&impl->module_listener);
+	if (impl->module)
+		spa_hook_remove(&impl->module_listener);
 
 	if (impl->thread_loop)
 		pw_thread_loop_lock(impl->thread_loop);
@@ -261,6 +263,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->loop = pw_thread_loop_get_loop(impl->thread_loop);
 	impl->properties = args ? pw_properties_new_string(args) : NULL;
 
+	impl->module = module;
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_x11_bell_info));
 

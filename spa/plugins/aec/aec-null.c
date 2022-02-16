@@ -30,7 +30,11 @@
 
 struct impl {
 	struct spa_handle handle;
+	struct spa_audio_aec aec;
 	struct spa_log *log;
+
+	struct spa_hook_list hooks_list;
+
 	uint32_t channels;
 };
 
@@ -38,54 +42,38 @@ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.aec.null");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
-static int null_create(struct spa_handle *handle, const struct spa_dict *args, const struct spa_audio_info_raw *info)
+static int null_init(void *data, const struct spa_dict *args, const struct spa_audio_info_raw *info)
 {
-	struct impl *impl;
-	impl = (struct impl *) handle;
+	struct impl *impl = data;
 	impl->channels = info->channels;
-
 	return 0;
 }
 
-static int null_run(struct spa_handle *handle, const float *rec[], const float *play[], float *out[], uint32_t n_samples)
+static int null_run(void *data, const float *rec[], const float *play[], float *out[], uint32_t n_samples)
 {
-	struct impl *impl = (struct impl *) handle;
+	struct impl *impl = data;
 	uint32_t i;
 	for (i = 0; i < impl->channels; i++)
 		memcpy(out[i], rec[i], n_samples * sizeof(float));
 	return 0;
 }
 
-struct spa_dict *null_get_properties(SPA_UNUSED struct spa_handle *handle)
-{
-	/* Not supported */
-	return NULL;
-}
-
-int null_set_properties(SPA_UNUSED struct spa_handle *handle, SPA_UNUSED const struct spa_dict *args)
-{
-	/* Not supported */
-	return -1;
-}
-
-static struct echo_cancel_info echo_cancel_null_impl = {
-	.name = "null",
-	.info = SPA_DICT_INIT(NULL, 0),
-	.latency = NULL,
-	.create = null_create,
+static struct spa_audio_aec_methods impl_aec = {
+	.init = null_init,
 	.run = null_run,
-	.get_properties = null_get_properties,
-	.set_properties = null_set_properties,
 };
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
+	struct impl *impl;
 
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 	spa_return_val_if_fail(interface != NULL, -EINVAL);
 
-	if (spa_streq(type, SPA_TYPE_INTERFACE_AEC))
-		*interface = &echo_cancel_null_impl;
+	impl = (struct impl *) handle;
+
+	if (spa_streq(type, SPA_TYPE_INTERFACE_AUDIO_AEC))
+		*interface = &impl->aec;
 	else
 		return -ENOENT;
 
@@ -118,23 +106,29 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
-	echo_cancel_null_impl.iface = SPA_INTERFACE_INIT(
-		SPA_TYPE_INTERFACE_AEC,
-		SPA_VERSION_AUDIO_AEC,
-		NULL,
-		NULL);
-
 	handle->get_interface = impl_get_interface;
 	handle->clear = impl_clear;
+
 	impl = (struct impl *) handle;
+
+	impl->aec.iface = SPA_INTERFACE_INIT(
+		SPA_TYPE_INTERFACE_AUDIO_AEC,
+		SPA_VERSION_AUDIO_AEC,
+		&impl_aec, impl);
+	impl->aec.name = "null";
+	impl->aec.info = NULL;
+	impl->aec.latency = NULL;
+
 	impl->log = (struct spa_log*)spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	spa_log_topic_init(impl->log, &log_topic);
+
+	spa_hook_list_init(&impl->hooks_list);
 
 	return 0;
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_TYPE_INTERFACE_AEC,},
+	{SPA_TYPE_INTERFACE_AUDIO_AEC,},
 };
 
 static int

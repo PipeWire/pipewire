@@ -25,20 +25,71 @@
 
 #include <spa/utils/dict.h>
 #include <spa/utils/hook.h>
-#include <spa/pod/pod.h>
 #include <spa/param/audio/raw.h>
-#include <spa/support/plugin.h>
 
-#define SPA_TYPE_INTERFACE_AEC SPA_TYPE_INFO_INTERFACE_BASE "AEC"
-#define SPA_VERSION_AUDIO_AEC   1
+#ifndef SPA_AUDIO_AEC_H
+#define SPA_AUDIO_AEC_H
 
-struct echo_cancel_info {
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define SPA_TYPE_INTERFACE_AUDIO_AEC SPA_TYPE_INFO_INTERFACE_BASE "Audio:AEC"
+
+#define SPA_VERSION_AUDIO_AEC   0
+struct spa_audio_aec {
 	struct spa_interface iface;
 	const char *name;
-	const struct spa_dict info;
+	const struct spa_dict *info;
 	const char *latency;
-	int (*create) (struct spa_handle *handle, const struct spa_dict *args, const struct spa_audio_info_raw *info);
-	int (*run) (struct spa_handle *handle, const float *rec[], const float *play[], float *out[], uint32_t n_samples);
-	struct spa_dict *(*get_properties) (struct spa_handle *handle);
-	int (*set_properties) (struct spa_handle *handle, const struct spa_dict *args);
 };
+
+struct spa_audio_aec_info {
+#define SPA_AUDIO_AEC_CHANGE_MASK_PROPS	(1u<<0)
+        uint64_t change_mask;
+
+	const struct spa_dict *props;
+};
+
+struct spa_audio_aec_events {
+#define SPA_VERSION_AUDIO_AEC_EVENTS	0
+        uint32_t version;       /**< version of this structure */
+
+	/** Emitted when info changes */
+	void (*info) (void *data, const struct spa_audio_aec_info *info);
+};
+
+struct spa_audio_aec_methods {
+#define SPA_VERSION_AUDIO_AEC_METHODS	0
+        uint32_t version;
+
+	int (*add_listener) (void *object,
+			struct spa_hook *listener,
+			const struct spa_audio_aec_events *events,
+			void *data);
+
+	int (*init) (void *data, const struct spa_dict *args, const struct spa_audio_info_raw *info);
+	int (*run) (void *data, const float *rec[], const float *play[], float *out[], uint32_t n_samples);
+	int (*set_props) (void *data, const struct spa_dict *args);
+};
+
+#define spa_audio_aec_method(o,method,version,...)			\
+({									\
+	int _res = -ENOTSUP;						\
+	struct spa_audio_aec *_o = o;					\
+	spa_interface_call_res(&_o->iface,				\
+			struct spa_audio_aec_methods, _res,		\
+			method, version, ##__VA_ARGS__);		\
+	_res;								\
+})
+
+#define spa_audio_aec_add_listener(o,...)	spa_audio_aec_method(o, add_listener, 0, __VA_ARGS__)
+#define spa_audio_aec_init(o,...)		spa_audio_aec_method(o, init, 0, __VA_ARGS__)
+#define spa_audio_aec_run(o,...)		spa_audio_aec_method(o, run, 0, __VA_ARGS__)
+#define spa_audio_aec_set_props(o,...)		spa_audio_aec_method(o, set_props, 0, __VA_ARGS__)
+
+#ifdef __cplusplus
+}  /* extern "C" */
+#endif
+
+#endif /* SPA_AUDIO_AEC_H */

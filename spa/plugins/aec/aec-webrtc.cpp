@@ -38,6 +38,8 @@
 
 struct impl_data {
 	struct spa_handle handle;
+	struct spa_audio_aec aec;
+
 	struct spa_log *log;
 	std::unique_ptr<webrtc::AudioProcessing> apm;
 	spa_audio_info_raw info;
@@ -58,9 +60,9 @@ static bool webrtc_get_spa_bool(const struct spa_dict *args, const char *key, bo
 	return value;
 }
 
-static int webrtc_create(struct spa_handle *handle, const struct spa_dict *args, const struct spa_audio_info_raw *info)
+static int webrtc_init(void *data, const struct spa_dict *args, const struct spa_audio_info_raw *info)
 {
-	auto impl = reinterpret_cast<struct impl_data*>(handle);
+	auto impl = reinterpret_cast<struct impl_data*>(data);
 
 	bool extended_filter = webrtc_get_spa_bool(args, "webrtc.extended_filter", true);
 	bool delay_agnostic = webrtc_get_spa_bool(args, "webrtc.delay_agnostic", true);
@@ -120,9 +122,9 @@ static int webrtc_create(struct spa_handle *handle, const struct spa_dict *args,
 	return 0;
 }
 
-static int webrtc_run(struct spa_handle *handle, const float *rec[], const float *play[], float *out[], uint32_t n_samples)
+static int webrtc_run(void *data, const float *rec[], const float *play[], float *out[], uint32_t n_samples)
 {
-	auto impl = reinterpret_cast<struct impl_data*>(handle);
+	auto impl = reinterpret_cast<struct impl_data*>(data);
 	webrtc::StreamConfig config =
 		webrtc::StreamConfig(impl->info.rate, impl->info.channels, false);
 	unsigned int num_blocks = n_samples * 1000 / impl->info.rate / 10;
@@ -158,36 +160,20 @@ static int webrtc_run(struct spa_handle *handle, const float *rec[], const float
 	return 0;
 }
 
-struct spa_dict *webrtc_get_properties(SPA_UNUSED struct spa_handle *handle)
-{
-	/* Not supported */
-	return NULL;
-}
-
-int webrtc_set_properties(SPA_UNUSED struct spa_handle *handle, SPA_UNUSED const struct spa_dict *args)
-{
-	/* Not supported */
-	return -1;
-}
-
-static struct echo_cancel_info echo_cancel_webrtc_impl = {
-	.name = "webrtc",
-	.info = SPA_DICT_INIT(NULL, 0),
-	.latency = "480/48000",
-	.create = webrtc_create,
+static struct spa_audio_aec_methods impl_aec = {
+	.init = webrtc_init,
 	.run = webrtc_run,
-	.get_properties = webrtc_get_properties,
-	.set_properties = webrtc_set_properties,
 };
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
+	auto impl = reinterpret_cast<struct impl_data*>(handle);
 
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 	spa_return_val_if_fail(interface != NULL, -EINVAL);
 
-	if (spa_streq(type, SPA_TYPE_INTERFACE_AEC))
-		*interface = &echo_cancel_webrtc_impl;
+	if (spa_streq(type, SPA_TYPE_INTERFACE_AUDIO_AEC))
+		*interface = &impl->aec;
 	else
 		return -ENOENT;
 
@@ -219,15 +205,19 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
-	echo_cancel_webrtc_impl.iface = SPA_INTERFACE_INIT(
-		SPA_TYPE_INTERFACE_AEC,
-		SPA_VERSION_AUDIO_AEC,
-		NULL,
-		NULL);
-
 	auto impl = new (handle) impl_data();
+
 	impl->handle.get_interface = impl_get_interface;
 	impl->handle.clear = impl_clear;
+
+	impl->aec.iface = SPA_INTERFACE_INIT(
+		SPA_TYPE_INTERFACE_AUDIO_AEC,
+		SPA_VERSION_AUDIO_AEC,
+		&impl_aec, impl);
+	impl->aec.name = "webrtc",
+	impl->aec.info = NULL;
+	impl->aec.latency = "480/48000",
+
 	impl->log = (struct spa_log*)spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	spa_log_topic_init(impl->log, &log_topic);
 
@@ -235,7 +225,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-	{SPA_TYPE_INTERFACE_AEC,},
+	{SPA_TYPE_INTERFACE_AUDIO_AEC,},
 };
 
 static int

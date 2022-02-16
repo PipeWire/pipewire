@@ -24,7 +24,6 @@
  */
 
 #include "config.h"
-#include "module-echo-cancel/echo-cancel.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -188,7 +187,7 @@ struct impl {
 	uint32_t out_ringsize;
 	struct spa_ringbuffer out_ring;
 
-	const struct echo_cancel_info *aec_info;
+	struct spa_audio_aec *aec;
 	uint32_t aec_blocksize;
 
 	unsigned int capture_ready:1;
@@ -288,7 +287,7 @@ static void process(struct impl *impl)
 	pw_stream_queue_buffer(impl->playback, pout);
 
 	/* Now run the canceller */
-	echo_cancel_run(impl->aec_info, impl->spa_handle, rec,	play_delayed, out, size / sizeof(float));
+	spa_audio_aec_run(impl->aec, rec, play_delayed, out, size / sizeof(float));
 
 	/* Next, copy over the output to the output ringbuffer */
 	avail = spa_ringbuffer_get_write_index(&impl->out_ring, &oindex);
@@ -652,8 +651,8 @@ static int setup_streams(struct impl *impl)
 		pw_properties_set(props, PW_KEY_NODE_LINK_GROUP, str);
 	if ((str = pw_properties_get(impl->source_props, PW_KEY_NODE_LATENCY)) != NULL)
 		pw_properties_set(props, PW_KEY_NODE_LATENCY, str);
-	else if (impl->aec_info->latency)
-		pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec_info->latency);
+	else if (impl->aec->latency)
+		pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec->latency);
 
 	impl->capture = pw_stream_new(impl->core,
 			"Echo-Cancel Capture", props);
@@ -685,8 +684,8 @@ static int setup_streams(struct impl *impl)
 		pw_properties_set(props, PW_KEY_NODE_LINK_GROUP, str);
 	if ((str = pw_properties_get(impl->sink_props, PW_KEY_NODE_LATENCY)) != NULL)
 		pw_properties_set(props, PW_KEY_NODE_LATENCY, str);
-	else if (impl->aec_info->latency)
-		pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec_info->latency);
+	else if (impl->aec->latency)
+		pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec->latency);
 
 	impl->playback = pw_stream_new(impl->core,
 			"Echo-Cancel Playback", props);
@@ -999,42 +998,42 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		return -ENOENT;
 	}
 
-	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_AEC, &iface)) < 0) {
-		pw_log_error("can't get %s interface %d", SPA_TYPE_INTERFACE_AEC, res);
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_AUDIO_AEC, &iface)) < 0) {
+		pw_log_error("can't get %s interface %d", SPA_TYPE_INTERFACE_AUDIO_AEC, res);
 		return res;
 	}
-	impl->aec_info = iface;
+	impl->aec = iface;
 	impl->spa_handle = handle;
-	if (impl->aec_info->iface.version != SPA_VERSION_AUDIO_AEC) {
+	if (impl->aec->iface.version != SPA_VERSION_AUDIO_AEC) {
 		pw_log_error("codec plugin %s has incompatible ABI version (%d != %d)",
-			SPA_NAME_AEC, impl->aec_info->iface.version, SPA_VERSION_AUDIO_AEC);
+			SPA_NAME_AEC, impl->aec->iface.version, SPA_VERSION_AUDIO_AEC);
 		res = -ENOENT;
 		goto error;
 	}
 
-	(void)SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_AEC, (struct echo_cancel_info *)impl->aec_info);
+	(void)SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_AUDIO_AEC, (struct spa_audio_aec *)impl->aec);
 
-	pw_log_info("Using plugin AEC %s", impl->aec_info->name);
+	pw_log_info("Using plugin AEC %s", impl->aec->name);
 
 	if ((str = pw_properties_get(props, "aec.args")) != NULL)
 		aec_props = pw_properties_new_string(str);
 	else
 		aec_props = pw_properties_new(NULL, NULL);
 
-	if (echo_cancel_create(impl->aec_info, impl->spa_handle, &aec_props->dict, &impl->info)) {
-		pw_log_error("codec plugin %s create failed", impl->aec_info->name);
+	if (spa_audio_aec_init(impl->aec, &aec_props->dict, &impl->info)) {
+		pw_log_error("codec plugin %s create failed", impl->aec->name);
 		res = -ENOENT;
 		goto error;
 	}
 
 	pw_properties_free(aec_props);
 
-	if (impl->aec_info->latency) {
+	if (impl->aec->latency) {
 		unsigned int num, denom, req_num, req_denom;
 		unsigned int factor = 0;
 		unsigned int new_num = 0;
 
-		spa_assert_se(sscanf(impl->aec_info->latency, "%u/%u", &num, &denom) == 2);
+		spa_assert_se(sscanf(impl->aec->latency, "%u/%u", &num, &denom) == 2);
 
 		if ((str = pw_properties_get(props, PW_KEY_NODE_LATENCY)) != NULL) {
 			sscanf(str, "%u/%u", &req_num, &req_denom);
@@ -1043,8 +1042,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		}
 
 		if (factor == 0 || new_num == 0) {
-			pw_log_info("Setting node latency to %s", impl->aec_info->latency);
-			pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec_info->latency);
+			pw_log_info("Setting node latency to %s", impl->aec->latency);
+			pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec->latency);
 			impl->aec_blocksize = sizeof(float) * impl->info.rate * num / denom;
 		} else {
 			pw_log_info("Setting node latency to %u/%u", new_num, req_denom);

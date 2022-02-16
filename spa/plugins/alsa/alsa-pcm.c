@@ -2115,13 +2115,15 @@ int spa_alsa_read(struct state *state)
 
 	if (state->following && state->alsa_started) {
 		uint64_t current_time;
-		snd_pcm_uframes_t delay, target;
+		snd_pcm_uframes_t avail, delay, target;
 		uint32_t threshold = state->threshold;
 
 		current_time = state->position->clock.nsec;
 
 		if ((res = get_status(state, current_time, &delay, &target)) < 0)
 			return res;
+
+		avail = delay;
 
 		if (state->alsa_sync) {
 			spa_log_warn(state->log, "%s: follower delay:%lu target:%lu thr:%u, resync",
@@ -2137,7 +2139,7 @@ int spa_alsa_read(struct state *state)
 		if ((res = update_time(state, current_time, delay, target, true)) < 0)
 			return res;
 
-		if (delay < state->read_size)
+		if (avail < state->read_size)
 			max_read = 0;
 	}
 

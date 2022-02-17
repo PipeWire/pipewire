@@ -151,7 +151,6 @@ struct impl {
 	struct pw_context *context;
 
 	struct pw_impl_module *module;
-	struct pw_work_queue *work;
 	struct spa_hook module_listener;
 
 	uint32_t id;
@@ -194,7 +193,6 @@ struct impl {
 	unsigned int sink_ready:1;
 
 	unsigned int do_disconnect:1;
-	unsigned int unloading:1;
 
 	uint32_t max_buffer_size;
 	uint32_t buffer_delay;
@@ -202,19 +200,6 @@ struct impl {
 	struct spa_handle *spa_handle;
 	struct spa_plugin_loader *loader;
 };
-
-static void do_unload_module(void *obj, void *data, int res, uint32_t id)
-{
-	struct impl *impl = data;
-	pw_impl_module_destroy(impl->module);
-}
-static void unload_module(struct impl *impl)
-{
-	if (!impl->unloading) {
-		impl->unloading = true;
-		pw_work_queue_add(impl->work, impl, 0, do_unload_module, impl);
-	}
-}
 
 static void process(struct impl *impl)
 {
@@ -774,7 +759,7 @@ static void core_error(void *data, uint32_t id, int seq, int res, const char *me
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE && res == -EPIPE)
-		unload_module(impl);
+		pw_impl_module_schedule_destroy(impl->module);
 }
 
 static const struct pw_core_events core_events = {
@@ -787,7 +772,7 @@ static void core_destroy(void *d)
 	struct impl *impl = d;
 	spa_hook_remove(&impl->core_listener);
 	impl->core = NULL;
-	unload_module(impl);
+	pw_impl_module_schedule_destroy(impl->module);
 }
 
 static const struct pw_proxy_events core_proxy_events = {
@@ -812,9 +797,6 @@ static void impl_destroy(struct impl *impl)
 	pw_properties_free(impl->source_props);
 	pw_properties_free(impl->sink_props);
 
-	if (impl->work)
-		pw_work_queue_cancel(impl->work, impl, SPA_ID_INVALID);
-
 	for (i = 0; i < impl->info.channels; i++) {
 		if (impl->rec_buffer[i])
 			free(impl->rec_buffer[i]);
@@ -830,7 +812,6 @@ static void impl_destroy(struct impl *impl)
 static void module_destroy(void *data)
 {
 	struct impl *impl = data;
-	impl->unloading = true;
 	spa_hook_remove(&impl->module_listener);
 	impl_destroy(impl);
 }
@@ -931,7 +912,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->id = id;
 	impl->module = module;
 	impl->context = context;
-	impl->work = pw_context_get_work_queue(context);
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_GROUP, "echo-cancel-%u", id);

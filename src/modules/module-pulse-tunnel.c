@@ -48,6 +48,7 @@
 
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
+#include <pipewire/private.h>
 
 #include <pulse/pulseaudio.h>
 #include "module-protocol-pulse/format.h"
@@ -95,7 +96,6 @@ struct impl {
 	struct pw_properties *props;
 
 	struct pw_impl_module *module;
-	struct pw_work_queue *work;
 
 	struct spa_hook module_listener;
 
@@ -121,22 +121,7 @@ struct impl {
 	pa_stream *pa_stream;
 
 	unsigned int do_disconnect:1;
-	unsigned int unloading:1;
 };
-
-static void do_unload_module(void *obj, void *data, int res, uint32_t id)
-{
-	struct impl *impl = data;
-	pw_impl_module_destroy(impl->module);
-}
-
-static void unload_module(struct impl *impl)
-{
-	if (!impl->unloading) {
-		impl->unloading = true;
-		pw_work_queue_add(impl->work, impl, 0, do_unload_module, impl);
-	}
-}
 
 static void cork_stream(struct impl *impl, bool cork)
 {
@@ -174,7 +159,7 @@ static void stream_state_changed(void *d, enum pw_stream_state old,
 	switch (state) {
 	case PW_STREAM_STATE_ERROR:
 	case PW_STREAM_STATE_UNCONNECTED:
-		unload_module(impl);
+		pw_impl_module_schedule_destroy(impl->module);
 		break;
 	case PW_STREAM_STATE_PAUSED:
 		cork_stream(impl, true);
@@ -613,7 +598,7 @@ static void core_error(void *data, uint32_t id, int seq, int res, const char *me
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE && res == -EPIPE)
-		unload_module(impl);
+		pw_impl_module_schedule_destroy(impl->module);
 }
 
 static const struct pw_core_events core_events = {
@@ -626,7 +611,7 @@ static void core_destroy(void *d)
 	struct impl *impl = d;
 	spa_hook_remove(&impl->core_listener);
 	impl->core = NULL;
-	unload_module(impl);
+	pw_impl_module_schedule_destroy(impl->module);
 }
 
 static const struct pw_proxy_events core_proxy_events = {
@@ -655,8 +640,6 @@ static void impl_destroy(struct impl *impl)
 	pw_properties_free(impl->stream_props);
 	pw_properties_free(impl->props);
 
-	if (impl->work)
-		pw_work_queue_cancel(impl->work, impl, SPA_ID_INVALID);
 	free(impl->buffer);
 	free(impl);
 }
@@ -664,7 +647,6 @@ static void impl_destroy(struct impl *impl)
 static void module_destroy(void *data)
 {
 	struct impl *impl = data;
-	impl->unloading = true;
 	spa_hook_remove(&impl->module_listener);
 	impl_destroy(impl);
 }
@@ -779,7 +761,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->module = module;
 	impl->context = context;
-	impl->work = pw_context_get_work_queue(context);
 
 	spa_ringbuffer_init(&impl->ring);
 	impl->buffer = calloc(1, RINGBUFFER_SIZE);

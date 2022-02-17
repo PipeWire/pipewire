@@ -100,7 +100,6 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 struct module_roc_source_data {
 	struct pw_impl_module *module;
-	struct pw_work_queue *work;
 	struct spa_hook module_listener;
 	struct pw_properties *props;
 	struct pw_context *module_context;
@@ -114,7 +113,6 @@ struct module_roc_source_data {
 	struct pw_properties *playback_props;
 
 	unsigned int do_disconnect:1;
-	unsigned int unloading:1;
 
 	roc_address local_addr;
 	roc_address local_source_addr;
@@ -128,20 +126,6 @@ struct module_roc_source_data {
 	int local_repair_port;
 	int sess_latency_msec;
 };
-
-static void do_unload_module(void *obj, void *d, int res, uint32_t id)
-{
-	struct module_roc_source_data *data = d;
-	pw_impl_module_destroy(data->module);
-}
-
-static void unload_module(struct module_roc_source_data *data)
-{
-	if (!data->unloading) {
-		data->unloading = true;
-		pw_work_queue_add(data->work, data, 0, do_unload_module, data);
-	}
-}
 
 static void stream_destroy(void *d)
 {
@@ -202,7 +186,7 @@ static void playback_process(void *data)
 	if (roc_receiver_read(impl->receiver, &frame) != 0) {
 		/* Handle EOF and error */
 		pw_log_error("Failed to read from roc source");
-		unload_module(data);
+		pw_impl_module_schedule_destroy(impl->module);
 		return;
 	}
 
@@ -219,7 +203,7 @@ static void on_core_error(void *d, uint32_t id, int seq, int res, const char *me
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE && res == -EPIPE)
-		unload_module(data);
+		pw_impl_module_schedule_destroy(data->module);
 }
 
 static const struct pw_core_events core_events = {
@@ -235,7 +219,7 @@ static void on_stream_state_changed(void *d, enum pw_stream_state old,
 	switch (state) {
 	case PW_STREAM_STATE_UNCONNECTED:
 		pw_log_info("stream disconnected, unloading");
-		unload_module(data);
+		pw_impl_module_schedule_destroy(data->module);
 		break;
 	case PW_STREAM_STATE_ERROR:
 		pw_log_error("stream error: %s", error);
@@ -257,7 +241,7 @@ static void core_destroy(void *d)
 	struct module_roc_source_data *data = d;
 	spa_hook_remove(&data->core_listener);
 	data->core = NULL;
-	unload_module(data);
+	pw_impl_module_schedule_destroy(data->module);
 }
 
 static const struct pw_proxy_events core_proxy_events = {
@@ -274,8 +258,6 @@ static void impl_destroy(struct module_roc_source_data *data)
 	pw_properties_free(data->playback_props);
 	pw_properties_free(data->props);
 
-	if (data->work)
-		pw_work_queue_cancel(data->work, data, SPA_ID_INVALID);
 	if (data->receiver)
 		roc_receiver_close(data->receiver);
 	if (data->context)
@@ -289,7 +271,6 @@ static void impl_destroy(struct module_roc_source_data *data)
 static void module_destroy(void *d)
 {
 	struct module_roc_source_data *data = d;
-	data->unloading = true;
 	spa_hook_remove(&data->module_listener);
 	impl_destroy(data);
 }
@@ -461,7 +442,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	data->module = module;
 	data->module_context = context;
-	data->work = pw_context_get_work_queue(context);
 
 	if ((str = pw_properties_get(props, "source.name")) != NULL) {
 		pw_properties_set(playback_props, PW_KEY_NODE_NAME, str);

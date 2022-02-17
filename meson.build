@@ -280,6 +280,9 @@ x11_dep = dependency('x11-xcb', required : get_option('x11'))
 summary({'X11 (x11-bell)': x11_dep.found()}, bool_yn: true,
   section: 'Misc dependencies')
 
+xfixes_dep = dependency('xfixes', required : get_option('x11-xfixes'), version: '>= 6')
+cdata.set('HAVE_XFIXES_6', xfixes_dep.found())
+
 canberra_dep = dependency('libcanberra', required : get_option('libcanberra'))
 summary({'libcanberra (x11-bell)': canberra_dep.found()}, bool_yn: true,
   section: 'Misc dependencies')

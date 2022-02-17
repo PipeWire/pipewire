@@ -229,6 +229,10 @@ option('x11',
        description: 'Enable code that depends on X11',
        type: 'feature',
        value: 'auto')
+option('x11-xfixes',
+       description: 'Enable code that depends on XFixes',
+       type: 'feature',
+       value: 'auto')
 option('libcanberra',
        description: 'Enable code that depends on libcanberra',
        type: 'feature',

@@ -38,6 +38,10 @@
 #include <X11/Xlib-xcb.h>
 #include <X11/XKBlib.h>
 
+#ifdef HAVE_XFIXES_6
+#include <X11/extensions/Xfixes.h>
+#endif
+
 #include <canberra.h>
 
 #include <pipewire/pipewire.h>
@@ -188,6 +192,10 @@ static int x11_connect(struct impl *impl, const char *name)
 
 #ifdef HAVE_XSETIOERROREXITHANDLER
 	XSetIOErrorExitHandler(impl->display, x11_io_error_exit_handler, impl);
+#endif
+
+#ifdef HAVE_XFIXES_6
+	XFixesSetClientDisconnectMode(impl->display, XFixesClientDisconnectFlagTerminate);
 #endif
 
 	major = XkbMajorVersion;

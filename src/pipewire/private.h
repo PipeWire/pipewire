@@ -1279,6 +1279,8 @@ void pw_settings_init(struct pw_context *context);
 int pw_settings_expose(struct pw_context *context);
 void pw_settings_clean(struct pw_context *context);
 
+void pw_impl_module_schedule_destroy(struct pw_impl_module *module);
+
 /** \endcond */
 
 #ifdef __cplusplus

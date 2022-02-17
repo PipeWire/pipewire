@@ -44,6 +44,7 @@ PW_LOG_TOPIC_EXTERN(log_module);
 struct impl {
 	struct pw_impl_module this;
 	void *hnd;
+	uint32_t destroy_work_id;
 };
 
 #define pw_module_resource_info(r,...)	pw_resource_call(r,struct pw_module_events,info,0,__VA_ARGS__)
@@ -220,6 +221,7 @@ pw_context_load_module(struct pw_context *context,
 		goto error_no_mem;
 
 	impl->hnd = hnd;
+	impl->destroy_work_id = SPA_ID_INVALID;
 	hnd = NULL;
 
 	this = &impl->this;
@@ -336,6 +338,10 @@ void pw_impl_module_destroy(struct pw_impl_module *module)
 
 	spa_hook_list_clean(&module->listener_list);
 
+	if (impl->destroy_work_id != SPA_ID_INVALID)
+		pw_work_queue_cancel(pw_context_get_work_queue(module->context),
+				     module, SPA_ID_INVALID);
+
 	if (!pw_in_valgrind() && dlclose(impl->hnd) != 0)
 		pw_log_warn("%p: dlclose failed: %s", module, dlerror());
 	free(impl);
@@ -397,4 +403,21 @@ void pw_impl_module_add_listener(struct pw_impl_module *module,
 			    void *data)
 {
 	spa_hook_list_append(&module->listener_list, listener, events, data);
+}
+
+static void do_destroy_module(void *obj, void *data, int res, uint32_t id)
+{
+	pw_impl_module_destroy(obj);
+}
+
+SPA_EXPORT
+void pw_impl_module_schedule_destroy(struct pw_impl_module *module)
+{
+	struct impl *impl = SPA_CONTAINER_OF(module, struct impl, this);
+
+	if (impl->destroy_work_id != SPA_ID_INVALID)
+		return;
+
+	impl->destroy_work_id = pw_work_queue_add(pw_context_get_work_queue(module->context),
+						  module, 0, do_destroy_module, NULL);
 }

@@ -172,7 +172,7 @@ static int x11_connect(struct impl *impl, const char *name)
 	unsigned int auto_ctrls, auto_values;
 
 	if (!(impl->display = XOpenDisplay(name))) {
-		pw_log_warn("XOpenDisplay() failed");
+		pw_log_error("XOpenDisplay() failed");
 		res = -EIO;
 		goto error;
 	}
@@ -185,7 +185,7 @@ static int x11_connect(struct impl *impl, const char *name)
 	minor = XkbMinorVersion;
 
 	if (!XkbLibraryVersion(&major, &minor)) {
-		pw_log_warn("XkbLibraryVersion() failed");
+		pw_log_error("XkbLibraryVersion() failed");
 		res = -EIO;
 		goto error;
 	}
@@ -196,7 +196,7 @@ static int x11_connect(struct impl *impl, const char *name)
 	if (!XkbQueryExtension(impl->display, NULL, &impl->xkb_event_base,
 				NULL, &major, &minor)) {
 		res = -EIO;
-		pw_log_warn("XkbQueryExtension() failed");
+		pw_log_error("XkbQueryExtension() failed");
 		goto error;
 	}
 
@@ -290,7 +290,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	 * to pipewire eventually and will then block the mainloop. */
 	pw_thread_loop_start(impl->thread_loop);
 
-	x11_connect(impl, name);
+	res = x11_connect(impl, name);
+	if (res < 0)
+		goto error;
 
 	return 0;
 error:

@@ -81,6 +81,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 struct impl {
 	struct pw_context *context;
 	struct pw_thread_loop *thread_loop;
+	struct pw_loop *thread_loop_loop;
 	struct pw_loop *loop;
 	struct spa_source *source;
 
@@ -93,10 +94,18 @@ struct impl {
 	int xkb_event_base;
 };
 
-static int play_sample(struct impl *impl, const char *sample)
+static int play_sample(struct impl *impl)
 {
-	int res;
+	const char *sample = NULL;
 	ca_context *ca;
+	int res;
+
+	if (impl->properties)
+		sample = pw_properties_get(impl->properties, "sample.name");
+	if (sample == NULL)
+		sample = "bell-window-system";
+
+	pw_log_debug("play sample %s", sample);
 
 	if ((res = ca_context_create(&ca)) < 0) {
 		pw_log_error("canberra context create error: %s", ca_strerror(res));
@@ -114,6 +123,8 @@ static int play_sample(struct impl *impl, const char *sample)
 			CA_PROP_CANBERRA_CACHE_CONTROL, "permanent",
 			NULL)) < 0) {
 		pw_log_warn("can't play sample (%s): %s", sample, ca_strerror(res));
+		res = -EIO;
+		goto exit_destroy;
 	}
 
 exit_destroy:
@@ -121,11 +132,17 @@ exit_destroy:
 exit:
 	return res;
 }
+
+static int do_play_sample(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	play_sample(user_data);
+	return 0;
+}
+
 static void display_io(void *data, int fd, uint32_t mask)
 {
 	struct impl *impl = data;
 	XEvent e;
-	const char *sample = NULL;
 
 	while (XPending(impl->display)) {
 		XNextEvent(impl->display, &e);
@@ -133,13 +150,7 @@ static void display_io(void *data, int fd, uint32_t mask)
 		if (((XkbEvent*) &e)->any.xkb_type != XkbBellNotify)
 			continue;
 
-		if (impl->properties)
-			sample = pw_properties_get(impl->properties, "sample.name");
-		if (sample == NULL)
-			sample = "bell-window-system";
-
-		pw_log_debug("play sample %s", sample);
-		play_sample(impl, sample);
+		pw_loop_invoke(impl->thread_loop_loop, do_play_sample, 0, NULL, 0, false, impl);
 	}
 }
 
@@ -208,15 +219,10 @@ static void module_destroy(void *data)
 	if (impl->module)
 		spa_hook_remove(&impl->module_listener);
 
-	if (impl->thread_loop)
-		pw_thread_loop_lock(impl->thread_loop);
-
 	x11_close(impl);
 
-	if (impl->thread_loop) {
-		pw_thread_loop_unlock(impl->thread_loop);
+	if (impl->thread_loop)
 		pw_thread_loop_destroy(impl->thread_loop);
-	}
 
 	pw_properties_free(impl->properties);
 
@@ -254,13 +260,15 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_log_debug("module %p: new", impl);
 
 	impl->context = context;
+	impl->loop = pw_context_get_main_loop(context);
+
 	impl->thread_loop = pw_thread_loop_new("X11 Bell", NULL);
 	if (impl->thread_loop == NULL) {
 		res = -errno;
 		pw_log_error("can't create thread loop: %m");
 		goto error;
 	}
-	impl->loop = pw_thread_loop_get_loop(impl->thread_loop);
+	impl->thread_loop_loop = pw_thread_loop_get_loop(impl->thread_loop);
 	impl->properties = args ? pw_properties_new_string(args) : NULL;
 
 	impl->module = module;
@@ -282,9 +290,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	 * to pipewire eventually and will then block the mainloop. */
 	pw_thread_loop_start(impl->thread_loop);
 
-	pw_thread_loop_lock(impl->thread_loop);
 	x11_connect(impl, name);
-	pw_thread_loop_unlock(impl->thread_loop);
 
 	return 0;
 error:

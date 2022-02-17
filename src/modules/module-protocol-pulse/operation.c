@@ -33,7 +33,9 @@
 #include "operation.h"
 #include "reply.h"
 
-int operation_new(struct client *client, uint32_t tag)
+int operation_new_cb(struct client *client, uint32_t tag,
+		void (*callback)(void *data, struct client *client, uint32_t tag),
+		void *data)
 {
 	struct operation *o;
 
@@ -42,6 +44,8 @@ int operation_new(struct client *client, uint32_t tag)
 
 	o->client = client;
 	o->tag = tag;
+	o->callback = callback;
+	o->data = data;
 
 	spa_list_append(&client->operations, &o->link);
 	pw_manager_sync(client->manager);
@@ -49,6 +53,11 @@ int operation_new(struct client *client, uint32_t tag)
 	pw_log_debug("client %p [%s]: new operation tag:%u", client, client->name, tag);
 
 	return 0;
+}
+
+int operation_new(struct client *client, uint32_t tag)
+{
+	return operation_new_cb(client, tag, NULL, NULL);
 }
 
 void operation_free(struct operation *o)
@@ -63,6 +72,9 @@ void operation_complete(struct operation *o)
 
 	pw_log_info("[%s]: tag:%u complete", client->name, o->tag);
 
-	reply_simple_ack(client, o->tag);
+	if (o->callback)
+		o->callback(o->data, client, o->tag);
+	else
+		reply_simple_ack(client, o->tag);
 	operation_free(o);
 }

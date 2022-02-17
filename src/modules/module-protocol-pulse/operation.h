@@ -35,9 +35,14 @@ struct operation {
 	struct spa_list link;
 	struct client *client;
 	uint32_t tag;
+	void (*callback) (void *data, struct client *client, uint32_t tag);
+	void *data;
 };
 
 int operation_new(struct client *client, uint32_t tag);
+int operation_new_cb(struct client *client, uint32_t tag,
+		void (*callback) (void *data, struct client *client, uint32_t tag),
+		void *data);
 void operation_free(struct operation *o);
 void operation_complete(struct operation *o);
 

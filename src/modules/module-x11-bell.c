@@ -156,13 +156,12 @@ static void display_io(void *data, int fd, uint32_t mask)
 
 static int x11_connect(struct impl *impl, const char *name)
 {
-	int res, major, minor;
+	int major, minor;
 	unsigned int auto_ctrls, auto_values;
 
 	if (!(impl->display = XOpenDisplay(name))) {
 		pw_log_error("XOpenDisplay() failed");
-		res = -EIO;
-		goto error;
+		return -EIO;
 	}
 
 	impl->source = pw_loop_add_io(impl->loop,
@@ -176,8 +175,7 @@ static int x11_connect(struct impl *impl, const char *name)
 
 	if (!XkbLibraryVersion(&major, &minor)) {
 		pw_log_error("XkbLibraryVersion() failed");
-		res = -EIO;
-		goto error;
+		return -EIO;
 	}
 
 	major = XkbMajorVersion;
@@ -185,9 +183,8 @@ static int x11_connect(struct impl *impl, const char *name)
 
 	if (!XkbQueryExtension(impl->display, NULL, &impl->xkb_event_base,
 				NULL, &major, &minor)) {
-		res = -EIO;
 		pw_log_error("XkbQueryExtension() failed");
-		goto error;
+		return -EIO;
 	}
 
 	XkbSelectEvents(impl->display, XkbUseCoreKbd, XkbBellNotifyMask, XkbBellNotifyMask);
@@ -195,9 +192,7 @@ static int x11_connect(struct impl *impl, const char *name)
 	XkbSetAutoResetControls(impl->display, XkbAudibleBellMask, &auto_ctrls, &auto_values);
 	XkbChangeEnabledControls(impl->display, XkbUseCoreKbd, XkbAudibleBellMask, 0);
 
-	res = 0;
-error:
-	return res;
+	return 0;
 }
 
 static void module_destroy(void *data)

@@ -299,12 +299,16 @@ void pw_proxy_unref(struct pw_proxy *proxy)
 #if DEBUG_LISTENERS
 	{
 		struct spa_hook *h;
-		spa_list_for_each(h, &proxy->object_listener_list.list, link)
+		spa_list_for_each(h, &proxy->object_listener_list.list, link) {
 			pw_log_warn("%p: proxy %u: leaked object listener %p",
 					proxy, proxy->id, h);
-		spa_list_for_each(h, &proxy->listener_list.list, link)
+			break;
+		}
+		spa_list_for_each(h, &proxy->listener_list.list, link) {
 			pw_log_warn("%p: proxy %u: leaked listener %p",
 					proxy, proxy->id, h);
+			break;
+		}
 	}
 #endif
 	free(proxy);

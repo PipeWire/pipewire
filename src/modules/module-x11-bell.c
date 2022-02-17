@@ -180,6 +180,8 @@ static int x11_connect(struct impl *impl, const char *name)
 	impl->source = pw_loop_add_io(impl->loop,
 			ConnectionNumber(impl->display),
 			SPA_IO_IN, false, display_io, impl);
+	if (!impl->source)
+		return -errno;
 
 	major = XkbMajorVersion;
 	minor = XkbMinorVersion;

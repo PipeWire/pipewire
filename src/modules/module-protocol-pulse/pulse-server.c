@@ -2324,12 +2324,11 @@ static struct pw_manager_object *find_device(struct client *client,
 	return o;
 }
 
-static void sample_play_ready(void *data, uint32_t id)
+static void sample_play_ready_reply(void *data, struct client *client, uint32_t tag)
 {
 	struct pending_sample *ps = data;
-	struct client *client = ps->client;
 	struct message *reply;
-	uint32_t index = id_to_index(client->manager, id);
+	uint32_t index = id_to_index(client->manager, ps->play->id);
 
 	pw_log_info("[%s] PLAY_SAMPLE tag:%u index:%u",
 			client->name, ps->tag, index);
@@ -2341,6 +2340,13 @@ static void sample_play_ready(void *data, uint32_t id)
 			TAG_INVALID);
 
 	client_queue_message(client, reply);
+}
+
+static void sample_play_ready(void *data, uint32_t id)
+{
+	struct pending_sample *ps = data;
+	struct client *client = ps->client;
+	operation_new_cb(client, ps->tag, sample_play_ready_reply, ps);
 }
 
 static void on_sample_done(void *obj, void *data, int res, uint32_t id)

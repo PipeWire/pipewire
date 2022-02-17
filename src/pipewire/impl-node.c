@@ -1236,10 +1236,6 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	}
 
 	impl->work = pw_context_get_work_queue(this->context);
-	if (impl->work == NULL) {
-		res = -errno;
-		goto error_clean;
-	}
 	impl->pending_id = SPA_ID_INVALID;
 
 	this->data_loop = context->data_loop;

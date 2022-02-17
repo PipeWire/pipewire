@@ -5330,8 +5330,6 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 	impl->props = props;
 
 	impl->work_queue = pw_context_get_work_queue(context);
-	if (impl->work_queue == NULL)
-		goto error_free;
 
 	spa_list_init(&impl->servers);
 	impl->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;

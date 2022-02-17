@@ -399,11 +399,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->context = context;
 	impl->work = pw_context_get_work_queue(context);
-	if (impl->work == NULL) {
-		res = -errno;
-		pw_log_error( "can't get work queue: %m");
-		goto error;
-	}
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_GROUP, "pipewire.dummy");

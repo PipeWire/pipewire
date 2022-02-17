@@ -848,10 +848,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	impl->work_queue = pw_context_get_work_queue(context);
-	if (impl->work_queue == NULL) {
-		res = -errno;
-		goto error_free;
-	}
 
 	if ((res = parse_params(impl)) < 0)
 		goto error_free;

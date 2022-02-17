@@ -417,11 +417,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	data->module = module;
 	data->module_context = context;
 	data->work = pw_context_get_work_queue(context);
-	if (data->work == NULL) {
-		res = -errno;
-		pw_log_error( "can't get work queue: %m");
-		goto out;
-	}
 
 	if ((str = pw_properties_get(props, "sink.name")) != NULL) {
 		pw_properties_set(capture_props, PW_KEY_NODE_NAME, str);

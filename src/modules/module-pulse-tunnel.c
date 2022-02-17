@@ -780,11 +780,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->context = context;
 	impl->work = pw_context_get_work_queue(context);
-	if (impl->work == NULL) {
-		res = -errno;
-		pw_log_error( "can't get work queue: %m");
-		goto error;
-	}
 
 	spa_ringbuffer_init(&impl->ring);
 	impl->buffer = calloc(1, RINGBUFFER_SIZE);

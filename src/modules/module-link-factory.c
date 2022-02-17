@@ -530,12 +530,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	data->module = module;
 	data->context = context;
 	data->work = pw_context_get_work_queue(context);
-	if (data->work == NULL) {
-		res = -errno;
-		pw_log_error( "can't get work queue: %m");
-		pw_impl_factory_destroy(factory);
-		return res;
-	}
 
 	spa_list_init(&data->link_list);
 

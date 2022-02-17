@@ -1689,11 +1689,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->context = context;
 	impl->work = pw_context_get_work_queue(context);
-	if (impl->work == NULL) {
-		res = -errno;
-		pw_log_error( "can't create work queue: %m");
-		goto error;
-	}
+
 	impl->rate = 48000;
 	impl->graph.impl = impl;
 	spa_list_init(&impl->plugin_list);

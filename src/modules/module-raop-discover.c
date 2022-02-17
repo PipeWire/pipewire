@@ -522,8 +522,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->properties = props;
 
 	impl->work = pw_context_get_work_queue(context);
-	if (impl->work == NULL)
-		goto error_errno;
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 

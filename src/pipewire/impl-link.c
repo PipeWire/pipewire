@@ -1209,8 +1209,6 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
                 this->user_data = SPA_PTROFF(impl, sizeof(struct impl), void);
 
 	impl->work = pw_context_get_work_queue(context);
-	if (impl->work == NULL)
-		goto error_work_queue;
 
 	this->context = context;
 	this->properties = properties;
@@ -1309,10 +1307,6 @@ error_no_mem:
 	res = -errno;
 	pw_log_debug("alloc failed: %m");
 	goto error_exit;
-error_work_queue:
-	res = -errno;
-	pw_log_debug("work queue failed: %m");
-	goto error_free;
 error_output_mix:
 	pw_log_error("%p: can't get output mix %d (%s)", this, res, spa_strerror(res));
 	goto error_free;

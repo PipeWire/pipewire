@@ -91,7 +91,6 @@ struct impl {
 	struct spa_hook module_listener;
 
 	Display *display;
-	int xkb_event_base;
 };
 
 static int play_sample(struct impl *impl)
@@ -181,8 +180,7 @@ static int x11_connect(struct impl *impl, const char *name)
 	major = XkbMajorVersion;
 	minor = XkbMinorVersion;
 
-	if (!XkbQueryExtension(impl->display, NULL, &impl->xkb_event_base,
-				NULL, &major, &minor)) {
+	if (!XkbQueryExtension(impl->display, NULL, NULL, NULL, &major, &minor)) {
 		pw_log_error("XkbQueryExtension() failed");
 		return -EIO;
 	}

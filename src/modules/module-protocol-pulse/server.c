@@ -226,7 +226,8 @@ static int do_read(struct client *client)
 			if (errno == EINTR)
 				continue;
 			res = -errno;
-			if (res != -EAGAIN && res != -EWOULDBLOCK)
+			if (res != -EAGAIN && res != -EWOULDBLOCK &&
+			    res != -EPIPE && res != -ECONNRESET)
 				pw_log_warn("recv client:%p res %zd: %m", client, r);
 			goto exit;
 		}
@@ -327,6 +328,7 @@ done:
 error:
 	switch (res) {
 	case -EPIPE:
+	case -ECONNRESET
 		pw_log_info("server %p: client %p [%s] disconnected",
 			    client->server, client, client->name);
 		SPA_FALLTHROUGH;

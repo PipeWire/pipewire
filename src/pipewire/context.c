@@ -330,6 +330,12 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	this->data_system = this->data_loop->system;
 	this->main_loop = main_loop;
 
+	this->work_queue = pw_work_queue_new(this->main_loop);
+	if (this->work_queue == NULL) {
+		res = -errno;
+		goto error_free;
+	}
+
 	init_plugin_loader(impl);
 
 	this->support[n_support++] = SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_System, this->main_loop->system);
@@ -520,8 +526,6 @@ struct pw_loop *pw_context_get_main_loop(struct pw_context *context)
 SPA_EXPORT
 struct pw_work_queue *pw_context_get_work_queue(struct pw_context *context)
 {
-	if (context->work_queue == NULL)
-		context->work_queue = pw_work_queue_new(context->main_loop);
 	return context->work_queue;
 }
 

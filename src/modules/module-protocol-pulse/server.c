@@ -328,7 +328,7 @@ done:
 error:
 	switch (res) {
 	case -EPIPE:
-	case -ECONNRESET
+	case -ECONNRESET:
 		pw_log_info("server %p: client %p [%s] disconnected",
 			    client->server, client, client->name);
 		SPA_FALLTHROUGH;

@@ -161,7 +161,7 @@ static int webrtc_run(void *data, const float *rec[], const float *play[], float
 }
 
 static struct spa_audio_aec_methods impl_aec = {
-    .version = 0,
+	SPA_VERSION_AUDIO_AEC_METHODS,
 	.add_listener = NULL,
 	.init = webrtc_init,
 	.run = webrtc_run,

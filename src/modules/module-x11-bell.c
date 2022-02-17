@@ -154,18 +154,6 @@ static void display_io(void *data, int fd, uint32_t mask)
 	}
 }
 
-static void x11_close(struct impl *impl)
-{
-	if (impl->source) {
-		pw_loop_destroy_source(impl->loop, impl->source);
-		impl->source = NULL;
-	}
-	if (impl->display) {
-		XCloseDisplay(impl->display);
-		impl->display = NULL;
-	}
-}
-
 static int x11_connect(struct impl *impl, const char *name)
 {
 	int res, major, minor;
@@ -209,8 +197,6 @@ static int x11_connect(struct impl *impl, const char *name)
 
 	res = 0;
 error:
-	if (res < 0)
-		x11_close(impl);
 	return res;
 }
 
@@ -221,7 +207,11 @@ static void module_destroy(void *data)
 	if (impl->module)
 		spa_hook_remove(&impl->module_listener);
 
-	x11_close(impl);
+	if (impl->source)
+		pw_loop_destroy_source(impl->loop, impl->source);
+
+	if (impl->display)
+		XCloseDisplay(impl->display);
 
 	if (impl->thread_loop)
 		pw_thread_loop_destroy(impl->thread_loop);

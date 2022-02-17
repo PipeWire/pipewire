@@ -221,18 +221,6 @@ foreach h : check_headers
   cdata.set(h.get(1), cc.has_header(h.get(0)))
 endforeach
 
-check_functions = [
-  ['gettid', '#include <unistd.h>', ['-D_GNU_SOURCE']],
-  ['memfd_create', '#include <sys/mman.h>', ['-D_GNU_SOURCE']],
-  ['getrandom', '#include <stddef.h>\n#include <sys/random.h>', ['-D_GNU_SOURCE']],
-  ['sigabbrev_np', '#include <string.h>', ['-D_GNU_SOURCE']],
-]
-
-foreach f : check_functions
-  cdata.set('HAVE_' + f.get(0).to_upper(),
-            cc.has_function(f.get(0), prefix: f.get(1), args: f.get(2)))
-endforeach
-
 cdata.set('HAVE_PIDFD_OPEN',
           cc.get_define('SYS_pidfd_open', prefix: '#include <sys/syscall.h>') != '')
 
@@ -379,6 +367,22 @@ summary({'OpenSSL (for raop-sink)': openssl_lib.found()}, bool_yn: true)
 lilv_lib = dependency('lilv-0', required: get_option('lv2'))
 summary({'lilv (for lv2 plugins)': lilv_lib.found()}, bool_yn: true)
 cdata.set('HAVE_LILV', lilv_lib.found())
+
+check_functions = [
+  ['gettid', '#include <unistd.h>', ['-D_GNU_SOURCE'], []],
+  ['memfd_create', '#include <sys/mman.h>', ['-D_GNU_SOURCE'], []],
+  ['getrandom', '#include <stddef.h>\n#include <sys/random.h>', ['-D_GNU_SOURCE'], []],
+  ['sigabbrev_np', '#include <string.h>', ['-D_GNU_SOURCE'], []],
+  ['XSetIOErrorExitHandler', '#include <X11/Xlib.h>', [], [x11_dep]],
+]
+
+foreach f : check_functions
+  cdata.set('HAVE_' + f.get(0).to_upper(),
+            cc.has_function(f.get(0),
+                            prefix: f.get(1),
+                            args: f.get(2),
+                            dependencies: f.get(3)))
+endforeach
 
 installed_tests_metadir = pipewire_datadir / 'installed-tests' / pipewire_name
 installed_tests_execdir = pipewire_libexecdir / 'installed-tests' / pipewire_name

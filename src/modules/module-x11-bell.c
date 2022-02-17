@@ -40,8 +40,9 @@
 
 #include <canberra.h>
 
-#include "pipewire/pipewire.h"
-#include "pipewire/impl.h"
+#include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
+#include <pipewire/private.h>
 
 /** \page page_module_x11_bell PipeWire Module: X11 Bell
  *
@@ -153,6 +154,22 @@ static void display_io(void *data, int fd, uint32_t mask)
 	}
 }
 
+#ifdef HAVE_XSETIOERROREXITHANDLER
+static void x11_io_error_exit_handler(Display *display, void *data)
+{
+	struct impl *impl = data;
+
+	spa_assert(display == impl->display);
+
+	pw_log_warn("X11 display (%s) has encountered a fatal I/O error", DisplayString(display));
+
+	pw_loop_destroy_source(impl->loop, impl->source);
+	impl->source = NULL;
+
+	pw_impl_module_schedule_destroy(impl->module);
+}
+#endif
+
 static int x11_connect(struct impl *impl, const char *name)
 {
 	int major, minor;
@@ -168,6 +185,10 @@ static int x11_connect(struct impl *impl, const char *name)
 			SPA_IO_IN, false, display_io, impl);
 	if (!impl->source)
 		return -errno;
+
+#ifdef HAVE_XSETIOERROREXITHANDLER
+	XSetIOErrorExitHandler(impl->display, x11_io_error_exit_handler, impl);
+#endif
 
 	major = XkbMajorVersion;
 	minor = XkbMinorVersion;
@@ -284,4 +305,53 @@ error:
 	module_destroy(impl);
 	return res;
 
+}
+
+static int x11_error_handler(Display *display, XErrorEvent *error)
+{
+	pw_log_warn("X11 error handler called on display %s with error %d",
+		    DisplayString(display), error->error_code);
+	return 0;
+}
+
+static int x11_io_error_handler(Display *display)
+{
+	pw_log_warn("X11 I/O error handler called on display %s", DisplayString(display));
+	return 0;
+}
+
+__attribute__((constructor))
+static void set_x11_handlers(void)
+{
+	{
+		XErrorHandler prev = XSetErrorHandler(NULL);
+		XErrorHandler def = XSetErrorHandler(x11_error_handler);
+
+		if (prev != def)
+			XSetErrorHandler(prev);
+	}
+
+	{
+		XIOErrorHandler prev = XSetIOErrorHandler(NULL);
+		XIOErrorHandler def = XSetIOErrorHandler(x11_io_error_handler);
+
+		if (prev != def)
+			XSetIOErrorHandler(prev);
+	}
+}
+
+__attribute__((destructor))
+static void restore_x11_handlers(void)
+{
+	{
+		XErrorHandler prev = XSetErrorHandler(NULL);
+		if (prev != x11_error_handler)
+			XSetErrorHandler(prev);
+	}
+
+	{
+		XIOErrorHandler prev = XSetIOErrorHandler(NULL);
+		if (prev != x11_io_error_handler)
+			XSetIOErrorHandler(prev);
+	}
 }

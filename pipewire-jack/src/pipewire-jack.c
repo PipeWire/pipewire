@@ -5328,7 +5328,7 @@ static int port_compare_func(const void *v1, const void *v2)
 		res = is_def2 - is_def1;
 	else if ((*o1)->port.priority != (*o2)->port.priority)
 		res = (*o2)->port.priority - (*o1)->port.priority;
-	else if ((res = strcmp((*o1)->port.alias1, (*o2)->port.alias1) == 0)) {
+	else if ((res = strcmp((*o1)->port.alias1, (*o2)->port.alias1)) == 0) {
 		res = (*o1)->port.node_id - (*o2)->port.node_id;
 		if (res == 0)
 			res = (*o1)->port.system_id - (*o2)->port.system_id;

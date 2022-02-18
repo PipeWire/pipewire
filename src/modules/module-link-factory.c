@@ -510,7 +510,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_impl_factory *factory;
 	struct factory_data *data;
-	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 

@@ -227,11 +227,45 @@ PWTEST(pwtest_loop_recurse2)
 	return PWTEST_PASS;
 }
 
+PWTEST(thread_loop_destroy_between_poll_and_lock)
+{
+	pw_init(NULL, NULL);
+
+	struct pw_thread_loop *thread_loop = pw_thread_loop_new("uaf", NULL);
+	pwtest_ptr_notnull(thread_loop);
+
+	struct pw_loop *loop = pw_thread_loop_get_loop(thread_loop);
+	pwtest_ptr_notnull(loop);
+
+	int evfd = eventfd(0, 0);
+	pwtest_errno_ok(evfd);
+
+	struct spa_source *source = pw_loop_add_io(loop, evfd, SPA_IO_IN, true, NULL, NULL);
+	pwtest_ptr_notnull(source);
+
+	pw_thread_loop_start(thread_loop);
+
+	pw_thread_loop_lock(thread_loop);
+	{
+		write(evfd, &(uint64_t){1}, sizeof(uint64_t));
+		sleep(1);
+		pw_loop_destroy_source(loop, source);
+	}
+	pw_thread_loop_unlock(thread_loop);
+
+	pw_thread_loop_destroy(thread_loop);
+
+	pw_deinit();
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(support)
 {
 	pwtest_add(pwtest_loop_destroy2, PWTEST_NOARG);
 	pwtest_add(pwtest_loop_recurse1, PWTEST_NOARG);
 	pwtest_add(pwtest_loop_recurse2, PWTEST_NOARG);
+	pwtest_add(thread_loop_destroy_between_poll_and_lock, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

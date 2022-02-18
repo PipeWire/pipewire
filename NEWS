@@ -1,3 +1,20 @@
+# PipeWire 0.3.47 (2022-02-18)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+This is a quick emergency release to fix some severe
+problems with the previous release.
+
+## Highlights
+  - Fixes a bug in pulse-server that caused cached notifications
+    to play multiple times. (#2142)
+  - Removed check and warnings to catch leaked listeners on the
+    proxy. This might access invalid memory and cause infinite
+    loops in older wireplumber.
+
+Older versions:
+
 # PipeWire 0.3.46 (2022-02-17)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -87,9 +104,6 @@ This is a bugfix release that is API and ABI compatible with previous
 ## GStreamer
   - GStreamer sink will now set a default channelmap to make it possible to 
     remap to the channel layout of the device.
-
-
-Older versions:
 
 # PipeWire 0.3.45 (2022-02-03)
 

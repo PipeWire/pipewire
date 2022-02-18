@@ -75,6 +75,7 @@ struct impl {
         struct spa_system *system;
 
 	struct spa_list source_list;
+	struct spa_list destroy_list;
 	struct spa_hook_list hooks_list;
 
 	int poll_fd;
@@ -325,6 +326,14 @@ static void loop_leave(void *object)
 		impl->thread = 0;
 }
 
+static inline void process_destroy(struct impl *impl)
+{
+	struct source_impl *source, *tmp;
+	spa_list_for_each_safe(source, tmp, &impl->destroy_list, link)
+		free(source);
+	spa_list_init(&impl->destroy_list);
+}
+
 static int loop_iterate(void *object, int timeout)
 {
 	struct impl *impl = object;
@@ -354,11 +363,14 @@ static int loop_iterate(void *object, int timeout)
 	}
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data;
-		if (SPA_LIKELY(s && s->rmask)) {
+		if (SPA_LIKELY(s && s->rmask && s->loop)) {
 			s->priv = NULL;
 			s->func(s);
 		}
 	}
+	if (SPA_UNLIKELY(!spa_list_is_empty(&impl->destroy_list)))
+		process_destroy(impl);
+
 	return nfds;
 }
 
@@ -712,7 +724,7 @@ static void loop_destroy_source(void *object, struct spa_source *source)
 		spa_system_close(impl->impl->system, source->fd);
 		source->fd = -1;
 	}
-	free(source);
+	spa_list_insert(&impl->impl->destroy_list, &impl->link);
 }
 
 static const struct spa_loop_methods impl_loop = {
@@ -783,6 +795,8 @@ static int impl_clear(struct spa_handle *handle)
 	spa_list_consume(source, &impl->source_list, link)
 		loop_destroy_source(impl, &source->source);
 
+	process_destroy(impl);
+
 	spa_system_close(impl->system, impl->ack_fd);
 	spa_system_close(impl->system, impl->poll_fd);
 
@@ -844,6 +858,7 @@ impl_init(const struct spa_handle_factory *factory,
 	impl->poll_fd = res;
 
 	spa_list_init(&impl->source_list);
+	spa_list_init(&impl->destroy_list);
 	spa_hook_list_init(&impl->hooks_list);
 
 	impl->buffer_data = SPA_PTR_ALIGN(impl->buffer_mem, MAX_ALIGN, uint8_t);

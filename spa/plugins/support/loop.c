@@ -132,21 +132,33 @@ static int loop_update_source(void *object, struct spa_source *source)
 	return spa_system_pollfd_mod(impl->system, impl->poll_fd, source->fd, source->mask, source);
 }
 
-static int loop_remove_source(void *object, struct spa_source *source)
+static void detach_source(struct spa_source *source)
 {
-	struct impl *impl = object;
 	struct spa_poll_event *e;
 
-	spa_assert(source->loop == &impl->loop);
+	source->loop = NULL;
+	source->rmask = 0;
 
 	if ((e = source->priv)) {
 		/* active in an iteration of the loop, remove it from there */
 		e->data = NULL;
 		source->priv = NULL;
 	}
-	source->loop = NULL;
-	source->rmask = 0;
+}
+
+static int remove_from_poll(struct impl *impl, struct spa_source *source)
+{
+	spa_assert(source->loop == &impl->loop);
+
 	return spa_system_pollfd_del(impl->system, impl->poll_fd, source->fd);
+}
+
+static int loop_remove_source(void *object, struct spa_source *source)
+{
+	int res = remove_from_poll(object, source);
+	detach_source(source);
+
+	return res;
 }
 
 static void flush_items(struct impl *impl)
@@ -337,11 +349,19 @@ static void loop_leave(void *object)
 		impl->thread = 0;
 }
 
+static inline void free_source(struct source_impl *s)
+{
+	detach_source(&s->source);
+	free(s);
+}
+
 static inline void process_destroy(struct impl *impl)
 {
 	struct source_impl *source, *tmp;
+
 	spa_list_for_each_safe(source, tmp, &impl->destroy_list, link)
-		free(source);
+		free_source(source);
+
 	spa_list_init(&impl->destroy_list);
 }
 
@@ -371,11 +391,16 @@ static int loop_iterate(void *object, int timeout)
 			e->data = NULL;
 		s->priv = &ep[i];
 	}
+
+	if (SPA_UNLIKELY(!spa_list_is_empty(&impl->destroy_list)))
+		process_destroy(impl);
+
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data;
-		if (SPA_LIKELY(s && s->rmask && s->loop))
+		if (SPA_LIKELY(s && s->rmask))
 			s->func(s);
 	}
+
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data;
 		if (SPA_LIKELY(s)) {
@@ -383,8 +408,6 @@ static int loop_iterate(void *object, int timeout)
 			s->priv = NULL;
 		}
 	}
-	if (SPA_UNLIKELY(!spa_list_is_empty(&impl->destroy_list)))
-		process_destroy(impl);
 
 	return nfds;
 }
@@ -748,14 +771,18 @@ static void loop_destroy_source(void *object, struct spa_source *source)
 
 	if (s->fallback)
 		loop_destroy_source(s->impl, s->fallback);
-	else if (source->loop)
-		loop_remove_source(s->impl, source);
+	else
+		remove_from_poll(s->impl, source);
 
 	if (source->fd != -1 && s->close) {
 		spa_system_close(s->impl->system, source->fd);
 		source->fd = -1;
 	}
-	spa_list_insert(&s->impl->destroy_list, &s->link);
+
+	if (!s->impl->polling)
+		free_source(s);
+	else
+		spa_list_insert(&s->impl->destroy_list, &s->link);
 }
 
 static const struct spa_loop_methods impl_loop = {
@@ -825,8 +852,6 @@ static int impl_clear(struct spa_handle *handle)
 
 	spa_list_consume(source, &impl->source_list, link)
 		loop_destroy_source(impl, &source->source);
-
-	process_destroy(impl);
 
 	spa_system_close(impl->system, impl->ack_fd);
 	spa_system_close(impl->system, impl->poll_fd);

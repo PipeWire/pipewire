@@ -118,6 +118,7 @@ static int loop_add_source(void *object, struct spa_source *source)
 	struct impl *impl = object;
 	source->loop = &impl->loop;
 	source->priv = NULL;
+	source->rmask = 0;
 	return spa_system_pollfd_add(impl->system, impl->poll_fd, source->fd, source->mask, source);
 }
 
@@ -137,6 +138,7 @@ static int loop_remove_source(void *object, struct spa_source *source)
 		source->priv = NULL;
 	}
 	source->loop = NULL;
+	source->rmask = 0;
 	return spa_system_pollfd_del(impl->system, impl->poll_fd, source->fd);
 }
 

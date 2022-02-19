@@ -90,6 +90,7 @@ struct impl {
 	uint8_t buffer_mem[DATAS_SIZE + MAX_ALIGN];
 
 	unsigned int flushing:1;
+	unsigned int polling:1;
 };
 
 struct source_impl {
@@ -350,11 +351,13 @@ static int loop_iterate(void *object, int timeout)
 	struct spa_poll_event ep[MAX_EP], *e;
 	int i, nfds;
 
+	impl->polling = true;
 	spa_loop_control_hook_before(&impl->hooks_list);
 
 	nfds = spa_system_pollfd_wait(impl->system, impl->poll_fd, ep, SPA_N_ELEMENTS(ep), timeout);
 
 	spa_loop_control_hook_after(&impl->hooks_list);
+	impl->polling = false;
 
 	/* first we set all the rmasks, then call the callbacks. The reason is that
 	 * some callback might also want to look at other sources it manages and

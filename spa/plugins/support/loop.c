@@ -350,9 +350,6 @@ static int loop_iterate(void *object, int timeout)
 
 	spa_loop_control_hook_after(&impl->hooks_list);
 
-	if (SPA_UNLIKELY(nfds < 0))
-		return nfds;
-
 	/* first we set all the rmasks, then call the callbacks. The reason is that
 	 * some callback might also want to look at other sources it manages and
 	 * can then reset the rmask to suppress the callback */

@@ -98,7 +98,6 @@ struct source_impl {
 	struct impl *impl;
 	struct spa_list link;
 
-	bool close;
 	union {
 		spa_source_io_func_t io;
 		spa_source_idle_func_t idle;
@@ -106,8 +105,11 @@ struct source_impl {
 		spa_source_timer_func_t timer;
 		spa_source_signal_func_t signal;
 	} func;
-	bool enabled;
+
 	struct spa_source *fallback;
+
+	bool close;
+	bool enabled;
 };
 /** \endcond */
 

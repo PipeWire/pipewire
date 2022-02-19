@@ -448,6 +448,7 @@ static int loop_update_io(void *object, struct spa_source *source, uint32_t mask
 	int res;
 
 	spa_assert(s->impl == object);
+	spa_assert(source->func == source_io_func);
 
 	spa_log_trace(impl->log, "%p: update %08x -> %08x", s, source->mask, mask);
 	source->mask = mask;
@@ -472,6 +473,7 @@ static int loop_enable_idle(void *object, struct spa_source *source, bool enable
 	int res = 0;
 
 	spa_assert(s->impl == object);
+	spa_assert(source->func == source_idle_func);
 
 	if (enabled && !s->enabled) {
 		if ((res = spa_system_eventfd_write(s->impl->system, source->fd, 1)) < 0)
@@ -587,6 +589,7 @@ static int loop_signal_event(void *object, struct spa_source *source)
 	int res;
 
 	spa_assert(s->impl == object);
+	spa_assert(source->func == source_event_func);
 
 	if (SPA_UNLIKELY((res = spa_system_eventfd_write(s->impl->system, source->fd, 1)) < 0))
 		spa_log_warn(s->impl->log, "%p: failed to write event fd %d: %s",
@@ -657,6 +660,7 @@ loop_update_timer(void *object, struct spa_source *source,
 	int flags = 0, res;
 
 	spa_assert(s->impl == object);
+	spa_assert(source->func == source_timer_func);
 
 	spa_zero(its);
 	if (SPA_LIKELY(value)) {

@@ -4610,6 +4610,7 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	uint32_t index, index_device;
 	int target_id;
 	const char *name_device;
+	struct pw_node_info *info;
 	struct selector sel;
 	int res;
 	bool sink = command == COMMAND_MOVE_SINK_INPUT;
@@ -4635,6 +4636,12 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	o = select_object(manager, &sel);
 	if (o == NULL)
 		return -ENOENT;
+
+	info = o->info;
+	if (info == NULL || info->props == NULL)
+		return -EINVAL;
+	if (spa_atob(spa_dict_lookup(info->props, PW_KEY_NODE_DONT_RECONNECT)))
+		return -EINVAL;
 
 	if ((dev = find_device(client, index_device, name_device, sink, NULL)) == NULL)
 		return -ENOENT;

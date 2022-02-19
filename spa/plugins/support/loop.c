@@ -125,6 +125,9 @@ static int loop_add_source(void *object, struct spa_source *source)
 static int loop_update_source(void *object, struct spa_source *source)
 {
 	struct impl *impl = object;
+
+	spa_assert(source->loop == &impl->loop);
+
 	return spa_system_pollfd_mod(impl->system, impl->poll_fd, source->fd, source->mask, source);
 }
 
@@ -132,6 +135,9 @@ static int loop_remove_source(void *object, struct spa_source *source)
 {
 	struct impl *impl = object;
 	struct spa_poll_event *e;
+
+	spa_assert(source->loop == &impl->loop);
+
 	if ((e = source->priv)) {
 		/* active in an iteration of the loop, remove it from there */
 		e->data = NULL;
@@ -441,6 +447,8 @@ static int loop_update_io(void *object, struct spa_source *source, uint32_t mask
 	struct source_impl *s = SPA_CONTAINER_OF(source, struct source_impl, source);
 	int res;
 
+	spa_assert(s->impl == object);
+
 	spa_log_trace(impl->log, "%p: update %08x -> %08x", s, source->mask, mask);
 	source->mask = mask;
 
@@ -462,6 +470,8 @@ static int loop_enable_idle(void *object, struct spa_source *source, bool enable
 {
 	struct source_impl *s = SPA_CONTAINER_OF(source, struct source_impl, source);
 	int res = 0;
+
+	spa_assert(s->impl == object);
 
 	if (enabled && !s->enabled) {
 		if ((res = spa_system_eventfd_write(s->impl->system, source->fd, 1)) < 0)
@@ -576,6 +586,8 @@ static int loop_signal_event(void *object, struct spa_source *source)
 	struct source_impl *s = SPA_CONTAINER_OF(source, struct source_impl, source);
 	int res;
 
+	spa_assert(s->impl == object);
+
 	if (SPA_UNLIKELY((res = spa_system_eventfd_write(s->impl->system, source->fd, 1)) < 0))
 		spa_log_warn(s->impl->log, "%p: failed to write event fd %d: %s",
 				source, source->fd, spa_strerror(res));
@@ -640,9 +652,11 @@ static int
 loop_update_timer(void *object, struct spa_source *source,
 		  struct timespec *value, struct timespec *interval, bool absolute)
 {
-	struct impl *impl = object;
+	struct source_impl *s = SPA_CONTAINER_OF(source, struct source_impl, source);
 	struct itimerspec its;
 	int flags = 0, res;
+
+	spa_assert(s->impl == object);
 
 	spa_zero(its);
 	if (SPA_LIKELY(value)) {
@@ -656,7 +670,7 @@ loop_update_timer(void *object, struct spa_source *source,
 	if (SPA_LIKELY(absolute))
 		flags |= SPA_FD_TIMER_ABSTIME;
 
-	if (SPA_UNLIKELY((res = spa_system_timerfd_settime(impl->system, source->fd, flags, &its, NULL)) < 0))
+	if (SPA_UNLIKELY((res = spa_system_timerfd_settime(s->impl->system, source->fd, flags, &its, NULL)) < 0))
 		return res;
 
 	return 0;
@@ -718,6 +732,8 @@ error_exit:
 static void loop_destroy_source(void *object, struct spa_source *source)
 {
 	struct source_impl *s = SPA_CONTAINER_OF(source, struct source_impl, source);
+
+	spa_assert(s->impl == object);
 
 	spa_log_trace(s->impl->log, "%p ", s);
 

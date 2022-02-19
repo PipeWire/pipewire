@@ -443,8 +443,10 @@ static int loop_update_io(void *object, struct spa_source *source, uint32_t mask
 	struct impl *impl = object;
 	struct source_impl *s = SPA_CONTAINER_OF(source, struct source_impl, source);
 	int res;
+
+	spa_log_trace(impl->log, "%p: update %08x -> %08x", s, source->mask, mask);
 	source->mask = mask;
-	spa_log_trace(impl->log, "%p: update %08x", s, mask);
+
 	if (s->fallback)
 		res = spa_loop_utils_enable_idle(&impl->utils, s->fallback,
 				mask & (SPA_IO_IN | SPA_IO_OUT) ? true : false);

@@ -102,6 +102,9 @@ pw_protocol_native_connection_clear(struct pw_protocol_native_connection *conn);
 void pw_protocol_native_connection_enter(struct pw_protocol_native_connection *conn);
 void pw_protocol_native_connection_leave(struct pw_protocol_native_connection *conn);
 
+struct spa_pod *pw_protocol_native_connection_get_footer(struct pw_protocol_native_connection *conn,
+		const struct pw_protocol_native_message *msg);
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

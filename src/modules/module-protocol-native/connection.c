@@ -45,6 +45,7 @@ PW_LOG_TOPIC_EXTERN(mod_topic_connection);
 #include <spa/debug/pod.h>
 
 #include "connection.h"
+#include "defs.h"
 
 #define MAX_BUFFER_SIZE (1024 * 32)
 #define MAX_FDS 1024u
@@ -596,6 +597,38 @@ pw_protocol_native_connection_get_next(struct pw_protocol_native_connection *con
 	*msg = return_msg;
 
 	return 1;
+}
+
+/** Get footer data from the tail of the current packet.
+ *
+ * \param conn the connection
+ * \param msg current message
+ * \return footer POD, or NULL if no valid footer present
+ *
+ * \memberof pw_protocol_native_connection
+ */
+struct spa_pod *pw_protocol_native_connection_get_footer(struct pw_protocol_native_connection *conn,
+		const struct pw_protocol_native_message *msg)
+{
+	struct impl *impl = SPA_CONTAINER_OF(conn, struct impl, this);
+	struct spa_pod *pod;
+
+	if (impl->version != 3)
+		return NULL;
+
+	/*
+	 * Protocol version 3 footer: a single SPA POD
+	 */
+
+	/* Footer immediately follows the message POD, if it is present */
+	if ((pod = get_first_pod_from_data(msg->data, msg->size, 0)) == NULL)
+		return NULL;
+	pod = get_first_pod_from_data(msg->data, msg->size, SPA_POD_SIZE(pod));
+	if (pod == NULL)
+		return NULL;
+	pw_log_trace("connection %p: recv message footer, size:%zu",
+			conn, (size_t)SPA_POD_SIZE(pod));
+	return pod;
 }
 
 static inline void *begin_write(struct pw_protocol_native_connection *conn, uint32_t size)

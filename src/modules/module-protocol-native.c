@@ -57,6 +57,7 @@
 
 #include "modules/module-protocol-native/connection.h"
 #include "modules/module-protocol-native/defs.h"
+#include "modules/module-protocol-native/protocol-footer.h"
 
 
 #define NAME "protocol-native"
@@ -115,6 +116,8 @@ struct client {
 
 	int ref;
 
+	struct footer_proxy_global_state footer_state;
+
 	unsigned int connected:1;
 	unsigned int disconnecting:1;
 	unsigned int need_flush:1;
@@ -151,6 +154,8 @@ struct client_data {
 	struct pw_protocol_native_connection *connection;
 	struct spa_hook conn_listener;
 
+	struct footer_resource_global_state footer_state;
+
 	unsigned int busy:1;
 	unsigned int need_flush:1;
 
@@ -164,12 +169,55 @@ static void debug_msg(const char *prefix, const struct pw_protocol_native_messag
 		      "%s: id:%d op:%d size:%d seq:%d", prefix,
 		      msg->id, msg->opcode, msg->size, msg->seq);
 
-	if ((pod = spa_pod_from_data(msg->data, msg->size, 0, msg->size)) != NULL)
+	if ((pod = get_first_pod_from_data(msg->data, msg->size, 0)) != NULL)
 		spa_debug_pod(0, NULL, pod);
 	else
 		hex = true;
 	if (hex)
 		spa_debug_mem(0, msg->data, msg->size);
+}
+
+static void pre_demarshal(struct pw_protocol_native_connection *conn,
+		const struct pw_protocol_native_message *msg,
+		void *object, const struct footer_demarshal *opcodes, size_t n_opcodes)
+{
+	struct spa_pod *footer = NULL;
+	struct spa_pod_parser parser;
+	struct spa_pod_frame f[2];
+	uint32_t opcode;
+	int ret;
+
+	footer = pw_protocol_native_connection_get_footer(conn, msg);
+	if (footer == NULL)
+		return;   /* No valid footer. Ignore silently. */
+
+	/*
+	 * Version 3 footer
+	 *
+	 * spa_pod Struct { [Id opcode, Struct { ... }]* }
+	 */
+
+	spa_pod_parser_pod(&parser, footer);
+	if (spa_pod_parser_push_struct(&parser, &f[0]) < 0) {
+		pw_log_error("malformed message footer");
+		return;
+	}
+
+	while (1) {
+		if (spa_pod_parser_get_id(&parser, &opcode) < 0)
+			break;
+		if (spa_pod_parser_push_struct(&parser, &f[1]) < 0)
+			break;
+		if (opcode < n_opcodes) {
+			if ((ret = opcodes[opcode].demarshal(object, &parser)) < 0)
+				pw_log_error("failed processing message footer (opcode %u): %d (%s)",
+						opcode, ret, spa_strerror(ret));
+		} else {
+			/* Ignore (don't log errors), in case we need to extend this later. */
+			pw_log_debug("unknown message footer opcode %u", opcode);
+		}
+		spa_pod_parser_pop(&parser, &f[1]);
+	}
 }
 
 static int
@@ -249,6 +297,8 @@ process_messages(struct client_data *data)
 		}
 
 		pw_protocol_native_connection_enter(conn);
+		pre_demarshal(conn, msg, resource, footer_resource_demarshal,
+				SPA_N_ELEMENTS(footer_resource_demarshal));
 		res = demarshal[msg->opcode].func(resource, msg);
 		pw_protocol_native_connection_leave(conn);
 		if (res < 0) {
@@ -794,6 +844,8 @@ process_remote(struct client *impl)
 		}
 		proxy->refcount++;
 		pw_protocol_native_connection_enter(conn);
+		pre_demarshal(conn, msg, proxy, footer_proxy_demarshal,
+				SPA_N_ELEMENTS(footer_proxy_demarshal));
 		res = demarshal[msg->opcode].func(proxy, msg);
 		pw_protocol_native_connection_leave(conn);
 		pw_proxy_unref(proxy);
@@ -1230,6 +1282,7 @@ static int impl_ext_end_proxy(struct pw_proxy *proxy,
 {
 	struct pw_core *core = proxy->core;
 	struct client *impl = SPA_CONTAINER_OF(core->conn, struct client, this);
+	marshal_proxy_footers(&impl->footer_state, proxy, builder);
 	return core->send_seq = pw_protocol_native_connection_end(impl->connection, builder);
 }
 
@@ -1257,6 +1310,7 @@ static int impl_ext_end_resource(struct pw_resource *resource,
 {
 	struct client_data *data = resource->client->user_data;
 	struct pw_impl_client *client = resource->client;
+	marshal_resource_footers(&data->footer_state, resource, builder);
 	return client->send_seq = pw_protocol_native_connection_end(data->connection, builder);
 }
 static const struct pw_protocol_native_ext protocol_ext_impl = {

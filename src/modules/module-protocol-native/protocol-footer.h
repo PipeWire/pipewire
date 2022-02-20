@@ -22,22 +22,35 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-int pw_protocol_native_connect_local_socket(struct pw_protocol_client *client,
-					    const struct spa_dict *props,
-					    void (*done_callback) (void *data, int res),
-					    void *data);
-int pw_protocol_native_connect_portal_screencast(struct pw_protocol_client *client,
-					    const struct spa_dict *props,
-					    void (*done_callback) (void *data, int res),
-					    void *data);
+/*
+ * Protocol footer.
+ *
+ * For passing around general state data that is not associated with
+ * messages sent to objects.
+ */
 
-static inline void *get_first_pod_from_data(void *data, size_t maxsize, off_t offset)
-{
-	void *pod;
-	if (offset + sizeof(struct spa_pod) > maxsize)
-		return NULL;
-	pod = SPA_PTROFF(data, offset, void);
-	if (offset + SPA_POD_SIZE(pod) > maxsize)
-		return NULL;
-	return pod;
-}
+enum {
+	FOOTER_PROXY_OPCODE_LAST = 0,
+};
+
+enum {
+	FOOTER_RESOURCE_OPCODE_LAST = 0,
+};
+
+struct footer_proxy_global_state {
+};
+
+struct footer_resource_global_state {
+};
+
+struct footer_demarshal {
+	int (*demarshal)(void *object, struct spa_pod_parser *parser);
+};
+
+extern const struct footer_demarshal footer_proxy_demarshal[FOOTER_PROXY_OPCODE_LAST];
+extern const struct footer_demarshal footer_resource_demarshal[FOOTER_RESOURCE_OPCODE_LAST];
+
+void marshal_proxy_footers(struct footer_proxy_global_state *state, struct pw_proxy *proxy,
+		struct spa_pod_builder *builder);
+void marshal_resource_footers(struct footer_resource_global_state *state, struct pw_resource *resource,
+		struct spa_pod_builder *builder);

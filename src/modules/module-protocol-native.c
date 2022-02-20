@@ -1277,11 +1277,24 @@ static int impl_ext_get_proxy_fd(struct pw_proxy *proxy, uint32_t index)
 	return pw_protocol_native_connection_get_fd(impl->connection, index);
 }
 
+static void assert_single_pod(struct spa_pod_builder *builder)
+{
+	/*
+	 * Check the invariant that the message we just marshaled
+	 * consists of at most one POD.
+	 */
+	struct spa_pod *pod = builder->data;
+	spa_assert(builder->data == NULL ||
+			builder->state.offset < sizeof(struct spa_pod) ||
+			builder->state.offset == SPA_POD_SIZE(pod));
+}
+
 static int impl_ext_end_proxy(struct pw_proxy *proxy,
 			       struct spa_pod_builder *builder)
 {
 	struct pw_core *core = proxy->core;
 	struct client *impl = SPA_CONTAINER_OF(core->conn, struct client, this);
+	assert_single_pod(builder);
 	marshal_proxy_footers(&impl->footer_state, proxy, builder);
 	return core->send_seq = pw_protocol_native_connection_end(impl->connection, builder);
 }
@@ -1310,6 +1323,7 @@ static int impl_ext_end_resource(struct pw_resource *resource,
 {
 	struct client_data *data = resource->client->user_data;
 	struct pw_impl_client *client = resource->client;
+	assert_single_pod(builder);
 	marshal_resource_footers(&data->footer_state, resource, builder);
 	return client->send_seq = pw_protocol_native_connection_end(data->connection, builder);
 }

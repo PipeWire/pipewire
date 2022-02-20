@@ -66,6 +66,16 @@ void operation_free(struct operation *o)
 	free(o);
 }
 
+struct operation *operation_find(struct client *client, uint32_t tag)
+{
+	struct operation *o;
+	spa_list_for_each(o, &client->operations, link) {
+		if (o->tag == tag)
+			return o;
+	}
+	return NULL;
+}
+
 void operation_complete(struct operation *o)
 {
 	struct client *client = o->client;

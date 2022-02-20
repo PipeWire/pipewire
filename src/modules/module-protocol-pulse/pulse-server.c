@@ -2353,6 +2353,10 @@ static void on_sample_done(void *obj, void *data, int res, uint32_t id)
 {
 	struct pending_sample *ps = obj;
 	struct client *client = ps->client;
+	struct operation *o;
+
+	if ((o = operation_find(client, ps->tag)) != NULL)
+		operation_complete(o);
 
 	pending_sample_free(ps);
 	client_unref(client);

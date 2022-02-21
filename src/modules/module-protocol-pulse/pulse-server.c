@@ -1062,7 +1062,7 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 	if (id != SPA_PARAM_Format || param == NULL)
 		return;
 
-	if ((res = format_parse_param(param, &stream->ss, &stream->map, NULL, NULL)) < 0) {
+	if ((res = format_parse_param(param, false, &stream->ss, &stream->map, NULL, NULL)) < 0) {
 		pw_stream_set_error(stream->stream, res, "format not supported");
 		return;
 	}

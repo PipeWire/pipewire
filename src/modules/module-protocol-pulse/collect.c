@@ -279,13 +279,13 @@ void collect_device_info(struct pw_manager_object *device, struct pw_manager_obj
 		{
 			struct spa_pod *copy = spa_pod_copy(p->param);
 			spa_pod_fixate(copy);
-			format_parse_param(copy, &dev_info->ss, &dev_info->map,
+			format_parse_param(copy, true, &dev_info->ss, &dev_info->map,
 					&defs->sample_spec, &defs->channel_map);
 			free(copy);
 			break;
 		}
 		case SPA_PARAM_Format:
-			format_parse_param(p->param, &dev_info->ss, &dev_info->map,
+			format_parse_param(p->param, true, &dev_info->ss, &dev_info->map,
 					NULL, NULL);
 			break;
 

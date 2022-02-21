@@ -443,7 +443,8 @@ audio_raw_parse_opt(const struct spa_pod *format, struct spa_audio_info_raw *inf
 	return res;
 }
 
-int format_parse_param(const struct spa_pod *param, struct sample_spec *ss, struct channel_map *map,
+int format_parse_param(const struct spa_pod *param, bool collect,
+		struct sample_spec *ss, struct channel_map *map,
 		const struct sample_spec *def_ss, const struct channel_map *def_map)
 {
 	struct spa_audio_info info = { 0 };
@@ -471,11 +472,17 @@ int format_parse_param(const struct spa_pod *param, struct sample_spec *ss, stru
 	{
 		struct spa_audio_info_iec958 iec;
 
+		if (collect)
+			break;
+
 		if (spa_format_audio_iec958_parse(param, &iec) < 0)
 			return -ENOTSUP;
 
 		info.info.raw.format = SPA_AUDIO_FORMAT_S16;
 		info.info.raw.rate = iec.rate;
+		info.info.raw.channels = 2;
+		info.info.raw.position[0] = SPA_AUDIO_CHANNEL_FL;
+		info.info.raw.position[1] = SPA_AUDIO_CHANNEL_FR;
 		break;
 	}
 	default:

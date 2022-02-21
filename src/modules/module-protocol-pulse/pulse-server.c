@@ -192,8 +192,11 @@ static void manager_sync(void *data)
 		reply_set_client_name(client, client->connect_tag);
 		client->connect_tag = SPA_ID_INVALID;
 	}
+
+	client->ref++;
 	spa_list_consume(o, &client->operations, link)
 		operation_complete(o);
+	client_unref(client);
 }
 
 static struct stream *find_stream(struct client *client, uint32_t index)

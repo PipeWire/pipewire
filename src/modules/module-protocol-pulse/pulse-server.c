@@ -2327,6 +2327,12 @@ static struct pw_manager_object *find_device(struct client *client,
 	return o;
 }
 
+static void sample_play_finish(struct pending_sample *ps)
+{
+	pending_sample_free(ps);
+	client_unref(ps->client);
+}
+
 static void sample_play_ready_reply(void *data, struct client *client, uint32_t tag)
 {
 	struct pending_sample *ps = data;
@@ -2336,6 +2342,8 @@ static void sample_play_ready_reply(void *data, struct client *client, uint32_t 
 	pw_log_info("[%s] PLAY_SAMPLE tag:%u index:%u",
 			client->name, ps->tag, index);
 
+	ps->ready = true;
+
 	reply = reply_new(client, ps->tag);
 	if (client->version >= 13)
 		message_put(reply,
@@ -2343,6 +2351,9 @@ static void sample_play_ready_reply(void *data, struct client *client, uint32_t 
 			TAG_INVALID);
 
 	client_queue_message(client, reply);
+
+	if (ps->done)
+		sample_play_finish(ps);
 }
 
 static void sample_play_ready(void *data, uint32_t id)
@@ -2355,14 +2366,9 @@ static void sample_play_ready(void *data, uint32_t id)
 static void on_sample_done(void *obj, void *data, int res, uint32_t id)
 {
 	struct pending_sample *ps = obj;
-	struct client *client = ps->client;
-	struct operation *o;
-
-	if ((o = operation_find(client, ps->tag)) != NULL)
-		operation_complete(o);
-
-	pending_sample_free(ps);
-	client_unref(client);
+	ps->done = true;
+	if (ps->ready)
+		sample_play_finish(ps);
 }
 
 static void sample_play_done(void *data, int res)

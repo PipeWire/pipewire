@@ -448,8 +448,8 @@ static uint64_t set_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 {
 	struct spa_fraction lat;
 	uint64_t lat_usec;
-	struct spa_dict_item items[5];
-	char latency[32];
+	struct spa_dict_item items[6];
+	char latency[32], rate[32];
 	char attr_maxlength[32];
 	char attr_tlength[32];
 	char attr_prebuf[32];
@@ -466,17 +466,19 @@ static uint64_t set_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
 
 	snprintf(latency, sizeof(latency), "%u/%u", lat.num, lat.denom);
+	snprintf(rate, sizeof(rate), "1/%u", lat.denom);
 	snprintf(attr_maxlength, sizeof(attr_maxlength), "%u", s->attr.maxlength);
 	snprintf(attr_tlength, sizeof(attr_tlength), "%u", s->attr.tlength);
 	snprintf(attr_prebuf, sizeof(attr_prebuf), "%u", s->attr.prebuf);
 	snprintf(attr_minreq, sizeof(attr_minreq), "%u", s->attr.minreq);
 
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
-	items[1] = SPA_DICT_ITEM_INIT("pulse.attr.maxlength", attr_maxlength);
-	items[2] = SPA_DICT_ITEM_INIT("pulse.attr.tlength", attr_tlength);
-	items[3] = SPA_DICT_ITEM_INIT("pulse.attr.prebuf", attr_prebuf);
-	items[4] = SPA_DICT_ITEM_INIT("pulse.attr.minreq", attr_minreq);
-	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, 5));
+	items[1] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_RATE, rate);
+	items[2] = SPA_DICT_ITEM_INIT("pulse.attr.maxlength", attr_maxlength);
+	items[3] = SPA_DICT_ITEM_INIT("pulse.attr.tlength", attr_tlength);
+	items[4] = SPA_DICT_ITEM_INIT("pulse.attr.prebuf", attr_prebuf);
+	items[5] = SPA_DICT_ITEM_INIT("pulse.attr.minreq", attr_minreq);
+	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, 6));
 
 	if (s->attr.prebuf > 0)
 		s->in_prebuf = true;
@@ -597,8 +599,8 @@ static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *att
 
 static uint64_t set_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
 {
-	struct spa_dict_item items[3];
-	char latency[32];
+	struct spa_dict_item items[4];
+	char latency[32], rate[32];
 	char attr_maxlength[32];
 	char attr_fragsize[32];
 	struct spa_fraction lat;
@@ -613,14 +615,16 @@ static uint64_t set_record_buffer_attr(struct stream *s, struct buffer_attr *att
 	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
 
 	snprintf(latency, sizeof(latency), "%u/%u", lat.num, lat.denom);
+	snprintf(rate, sizeof(rate), "1/%u", lat.denom);
 
 	snprintf(attr_maxlength, sizeof(attr_maxlength), "%u", s->attr.maxlength);
 	snprintf(attr_fragsize, sizeof(attr_fragsize), "%u", s->attr.fragsize);
 
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
-	items[1] = SPA_DICT_ITEM_INIT("pulse.attr.maxlength", attr_maxlength);
-	items[2] = SPA_DICT_ITEM_INIT("pulse.attr.fragsize", attr_fragsize);
-	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, 3));
+	items[1] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_RATE, rate);
+	items[2] = SPA_DICT_ITEM_INIT("pulse.attr.maxlength", attr_maxlength);
+	items[3] = SPA_DICT_ITEM_INIT("pulse.attr.fragsize", attr_fragsize);
+	pw_stream_update_properties(s->stream, &SPA_DICT_INIT(items, 4));
 
 	return lat_usec;
 }

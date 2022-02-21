@@ -346,7 +346,7 @@ static int loop_iterate(void *object, int timeout)
 
 	spa_loop_control_hook_before(&impl->hooks_list);
 
-	nfds = spa_system_pollfd_wait(impl->system, impl->poll_fd, ep, MAX_EP, timeout);
+	nfds = spa_system_pollfd_wait(impl->system, impl->poll_fd, ep, SPA_N_ELEMENTS(ep), timeout);
 
 	spa_loop_control_hook_after(&impl->hooks_list);
 

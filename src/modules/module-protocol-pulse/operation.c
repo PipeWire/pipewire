@@ -82,9 +82,11 @@ void operation_complete(struct operation *o)
 
 	pw_log_info("[%s]: tag:%u complete", client->name, o->tag);
 
+	spa_list_remove(&o->link);
+
 	if (o->callback)
 		o->callback(o->data, client, o->tag);
 	else
 		reply_simple_ack(client, o->tag);
-	operation_free(o);
+	free(o);
 }

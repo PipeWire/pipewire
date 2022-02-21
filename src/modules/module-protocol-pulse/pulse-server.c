@@ -1563,7 +1563,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 				n_valid_formats++;
 			}
 		}
-		if (n_params < MAX_FORMATS &&
+		else if (n_params < MAX_FORMATS &&
 		    (params[n_params] = format_build_param(&b,
 				SPA_PARAM_EnumFormat, &ss,
 				ss.channels > 0 ? &map : NULL)) != NULL) {

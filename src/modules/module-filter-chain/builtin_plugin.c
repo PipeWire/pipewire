@@ -24,6 +24,7 @@
 
 #include "config.h"
 
+#include <float.h>
 #include <math.h>
 #ifdef HAVE_SNDFILE
 #include <sndfile.h>
@@ -303,10 +304,12 @@ static void bq_run(struct builtin *impl, unsigned long samples, int type)
 		y2 = y1;
 		y1 = y;
 	}
-	bq->x1 = x1;
-	bq->x2 = x2;
-	bq->y1 = y1;
-	bq->y2 = y2;
+#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
+	bq->x1 = F(x1);
+	bq->x2 = F(x2);
+	bq->y1 = F(y1);
+	bq->y2 = F(y2);
+#undef F
 }
 
 /** bq_lowpass */

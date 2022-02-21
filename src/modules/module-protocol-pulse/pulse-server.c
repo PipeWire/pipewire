@@ -2329,8 +2329,9 @@ static struct pw_manager_object *find_device(struct client *client,
 
 static void sample_play_finish(struct pending_sample *ps)
 {
+	struct client *client = ps->client;
 	pending_sample_free(ps);
-	client_unref(ps->client);
+	client_unref(client);
 }
 
 static void sample_play_ready_reply(void *data, struct client *client, uint32_t tag)

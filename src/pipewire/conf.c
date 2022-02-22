@@ -863,23 +863,24 @@ int pw_context_parse_conf_section(struct pw_context *context,
 		struct pw_properties *conf, const char *section)
 {
 	struct data data = { .context = context };
+	int res;
 
 	if (spa_streq(section, "context.spa-libs"))
-		pw_context_conf_section_for_each(context, section,
+		res = pw_context_conf_section_for_each(context, section,
 				parse_spa_libs, &data);
 	else if (spa_streq(section, "context.modules"))
-		pw_context_conf_section_for_each(context, section,
+		res = pw_context_conf_section_for_each(context, section,
 				parse_modules, &data);
 	else if (spa_streq(section, "context.objects"))
-		pw_context_conf_section_for_each(context, section,
+		res = pw_context_conf_section_for_each(context, section,
 				parse_objects, &data);
 	else if (spa_streq(section, "context.exec"))
-		pw_context_conf_section_for_each(context, section,
+		res = pw_context_conf_section_for_each(context, section,
 				parse_exec, &data);
 	else
-		data.count = -EINVAL;
+		res = -EINVAL;
 
-	return data.count;
+	return res == 0 ? data.count : res;
 }
 
 static int update_props(void *user_data, const char *location, const char *key,
@@ -895,9 +896,10 @@ int pw_context_conf_update_props(struct pw_context *context,
 		const char *section, struct pw_properties *props)
 {
 	struct data data = { .context = context, .props = props };
-	pw_context_conf_section_for_each(context, section,
+	int res;
+	res = pw_context_conf_section_for_each(context, section,
 				update_props, &data);
-	return data.count;
+	return res == 0 ? data.count : res;
 }
 
 struct match {

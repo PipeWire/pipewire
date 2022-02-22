@@ -228,6 +228,18 @@ static int finish_register(struct pw_impl_client *client)
 	pw_global_update_keys(client->global, client->info.props, keys);
 	pw_global_register(client->global);
 
+#ifdef OLD_MEDIA_SESSION_WORKAROUND
+	/*
+	 * XXX: temporary workaround for pipewire-media-session, see #2159
+	 */
+	if (spa_streq(spa_dict_lookup(client->info.props, PW_KEY_APP_NAME),
+					"pipewire-media-session")) {
+		client->recv_generation = UINT64_MAX;
+		pw_log_info("impl-client %p: enable old pipewire-media-session workaround",
+				client);
+	}
+#endif
+
 	return 0;
 }
 

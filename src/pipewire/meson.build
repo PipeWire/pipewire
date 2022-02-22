@@ -91,6 +91,7 @@ configure_file(input : 'version.h.in',
 install_headers(pipewire_headers, subdir : pipewire_headers_dir)
 
 libpipewire_c_args = [
+  '-DOLD_MEDIA_SESSION_WORKAROUND=1'
 ]
 
 if build_machine.system() != 'freebsd'

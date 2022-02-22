@@ -145,6 +145,7 @@ struct impl {
 	struct spa_cpu *cpu;
 	uint32_t quantum_limit;
 
+	enum spa_direction direction;
 	struct spa_io_position *io_position;
 
 	struct spa_hook_list hooks;
@@ -360,7 +361,7 @@ static int setup_convert(struct impl *this,
 	if ((res = channelmix_init(&this->mix)) < 0)
 		return res;
 
-	remap_volumes(this, src_info);
+	remap_volumes(this, this->direction == SPA_DIRECTION_INPUT ? src_info : dst_info);
 	set_volume(this);
 
 	emit_props_changed(this);
@@ -714,7 +715,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 		}
 	}
 	if (changed) {
-		struct port *port = GET_IN_PORT(this, 0);
+		struct port *port = GET_PORT(this, this->direction, 0);
 		if (have_soft_volume)
 			p->have_soft_volume = true;
 		else if (have_channel_volume)
@@ -1579,6 +1580,12 @@ impl_init(const struct spa_handle_factory *factory,
 			this->props.n_channels = parse_position(this->props.channel_map, s, strlen(s));
 		else if (spa_streq(k, "clock.quantum-limit"))
 			spa_atou32(s, &this->quantum_limit, 0);
+		else if (spa_streq(k, "factory.mode")) {
+			if (spa_streq(s, "merge"))
+				this->direction = SPA_DIRECTION_OUTPUT;
+			else
+				this->direction = SPA_DIRECTION_INPUT;
+		}
 		else
 			channelmix_set_param(this, k, s);
 

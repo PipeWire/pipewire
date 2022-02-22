@@ -386,10 +386,13 @@ static int impl_node_enum_params(void *object, int seq,
 
 	case SPA_PARAM_Props:
 	{
+#if 0
 		struct props *p = &this->props;
 		struct spa_pod_frame f[2];
+#endif
 
 		switch (result.index) {
+#if 0
 		case 0:
 			spa_pod_builder_push_object(&b, &f[0],
                                 SPA_TYPE_OBJECT_Props, id);
@@ -422,6 +425,7 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
+#endif
 		default:
 			return 0;
 		}

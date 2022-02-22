@@ -178,6 +178,22 @@ static void init_plugin_loader(struct impl *impl)
 		impl);
 }
 
+static int do_data_loop_setup(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct pw_context *this = user_data;
+	const char *str;
+	struct spa_cpu *cpu;
+
+	cpu = spa_support_find(this->support, this->n_support, SPA_TYPE_INTERFACE_CPU);
+
+	if ((str = pw_properties_get(this->properties, SPA_KEY_CPU_ZERO_DENORMALS)) != NULL &&
+	    cpu != NULL) {
+		pw_log_info("setting zero denormals: %s", str);
+		spa_cpu_zero_denormals(cpu, spa_atob(str));
+	}
+	return 0;
+}
 
 /** Create a new context object
  *
@@ -290,8 +306,6 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		if (pw_properties_get(properties, PW_KEY_CPU_MAX_ALIGN) == NULL)
 			pw_properties_setf(properties, PW_KEY_CPU_MAX_ALIGN,
 				"%u", spa_cpu_get_max_align(cpu));
-		if ((str = pw_properties_get(properties, SPA_KEY_CPU_ZERO_DENORMALS)) != NULL)
-			spa_cpu_zero_denormals(cpu, spa_atob(str));
 	}
 
 	if (getenv("PIPEWIRE_DEBUG") == NULL &&
@@ -393,6 +407,9 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 
 	if ((res = pw_data_loop_start(this->data_loop_impl)) < 0)
 		goto error_free;
+
+	pw_data_loop_invoke(this->data_loop_impl,
+			do_data_loop_setup, 0, NULL, 0, false, this);
 
 	context_set_freewheel(this, false);
 

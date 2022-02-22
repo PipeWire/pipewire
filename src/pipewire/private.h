@@ -300,6 +300,7 @@ struct pw_impl_client {
 	int recv_seq;			/**< last received sequence number */
 	int send_seq;			/**< last sender sequence number */
 	uint64_t recv_generation;	/**< last received registry generation */
+	uint64_t sent_generation;	/**< last sent registry generation */
 
 	void *user_data;		/**< extra user data */
 

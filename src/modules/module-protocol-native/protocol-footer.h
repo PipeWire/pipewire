@@ -44,7 +44,6 @@ struct footer_core_global_state {
 };
 
 struct footer_client_global_state {
-	uint64_t last_sent_generation;
 };
 
 struct footer_demarshal {

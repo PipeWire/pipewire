@@ -95,8 +95,8 @@ void marshal_client_footers(struct footer_client_global_state *state, struct pw_
 {
 	struct footer_builder fb = FOOTER_BUILDER_INIT(builder);
 
-	if (client->context->generation != state->last_sent_generation) {
-		state->last_sent_generation = client->context->generation;
+	if (client->context->generation != client->sent_generation) {
+		client->sent_generation = client->context->generation;
 
 		pw_log_trace("impl-client %p: send server registry generation:%"PRIu64,
 				client, client->context->generation);
@@ -117,10 +117,11 @@ int demarshal_core_generation(void *object, struct spa_pod_parser *parser)
 	if (spa_pod_parser_get_long(parser, &generation) < 0)
 		return -EINVAL;
 
-	core->recv_generation = (uint64_t)generation;
+	core->recv_generation = SPA_MAX(core->recv_generation,
+			(uint64_t)generation);
 
 	pw_log_trace("core %p: recv server registry generation:%"PRIu64,
-			core->core, generation);
+			core, generation);
 
 	return 0;
 }
@@ -133,7 +134,8 @@ int demarshal_client_generation(void *object, struct spa_pod_parser *parser)
 	if (spa_pod_parser_get_long(parser, &generation) < 0)
 		return -EINVAL;
 
-	client->recv_generation = (uint64_t)generation;
+	client->recv_generation = SPA_MAX(client->recv_generation,
+			(uint64_t)generation);
 
 	pw_log_trace("impl-client %p: recv client registry generation:%"PRIu64,
 			client, generation);

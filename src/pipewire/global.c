@@ -139,6 +139,7 @@ int pw_global_register(struct pw_global *global)
 {
 	struct pw_resource *registry;
 	struct pw_context *context = global->context;
+	struct pw_impl_client *client;
 
 	if (global->registered)
 		return -EEXIST;
@@ -150,8 +151,8 @@ int pw_global_register(struct pw_global *global)
 
 	spa_list_for_each(registry, &context->registry_resource_list, link) {
 		uint32_t permissions = pw_global_get_permissions(global, registry->client);
-		pw_log_debug("registry %p: global %d %08x serial:%"PRIu64,
-				registry, global->id, permissions, global->serial);
+		pw_log_debug("registry %p: global %d %08x serial:%"PRIu64" generation:%"PRIu64,
+				registry, global->id, permissions, global->serial, global->generation);
 		if (PW_PERM_IS_R(permissions))
 			pw_registry_resource_global(registry,
 						    global->id,
@@ -159,6 +160,25 @@ int pw_global_register(struct pw_global *global)
 						    global->type,
 						    global->version,
 						    &global->properties->dict);
+	}
+
+	/* Ensure a message is sent also to clients without registries, to force
+	 * generation number update. */
+	spa_list_for_each(client, &context->client_list, link) {
+		uint32_t permissions;
+
+		if (client->sent_generation >= context->generation)
+			continue;
+		if (!client->core_resource)
+			continue;
+
+		permissions = pw_global_get_permissions(global, client);
+		if (PW_PERM_IS_R(permissions)) {
+			pw_log_debug("impl-client %p: (no registry) global %d %08x serial:%"PRIu64
+					" generation:%"PRIu64, client, global->id, permissions, global->serial,
+					global->generation);
+			pw_core_resource_done(client->core_resource, global->id, 0);
+		}
 	}
 
 	pw_log_debug("%p: registered %u", global, global->id);

@@ -219,10 +219,7 @@ struct module *create_module_null_sink(struct impl *impl, const char *argument)
 	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 
-	if ((str = pw_properties_get(props, "device.description")) != NULL) {
-		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, str);
-		pw_properties_set(props, "device.description", NULL);
-	} else {
+	if ((str = pw_properties_get(props, PW_KEY_NODE_DESCRIPTION)) == NULL) {
 		const char *name, *class;
 
 		name = pw_properties_get(props, PW_KEY_NODE_NAME);

@@ -204,14 +204,12 @@ channelmix_f32_5p1_2_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 			ctr = _mm_mul_ps(_mm_load_ps(&sFC[n]), clev);
 			ctr = _mm_add_ps(ctr, _mm_mul_ps(_mm_load_ps(&sLFE[n]), llev));
 			in = _mm_mul_ps(_mm_load_ps(&sSL[n]), slev0);
-			in = _mm_add_ps(in, ctr);
-			in = _mm_add_ps(in, _mm_load_ps(&sFL[n]));
-			in = _mm_mul_ps(in, v0);
+			in = _mm_add_ss(in, ctr);
+			in = _mm_add_ps(in, _mm_mul_ps(_mm_load_ps(&sFL[n]), v0));
 			_mm_store_ps(&dFL[n], in);
 			in = _mm_mul_ps(_mm_load_ps(&sSR[n]), slev1);
 			in = _mm_add_ps(in, ctr);
-			in = _mm_add_ps(in, _mm_load_ps(&sFR[n]));
-			in = _mm_mul_ps(in, v1);
+			in = _mm_add_ps(in, _mm_mul_ps(_mm_load_ps(&sFR[n]), v1));
 			_mm_store_ps(&dFR[n], in);
 		}
 		for(; n < n_samples; n++) {
@@ -219,13 +217,11 @@ channelmix_f32_5p1_2_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 			ctr = _mm_add_ss(ctr, _mm_mul_ss(_mm_load_ss(&sLFE[n]), llev));
 			in = _mm_mul_ss(_mm_load_ss(&sSL[n]), slev0);
 			in = _mm_add_ss(in, ctr);
-			in = _mm_add_ss(in, _mm_load_ss(&sFL[n]));
-			in = _mm_mul_ss(in, v0);
+			in = _mm_add_ss(in, _mm_mul_ss(_mm_load_ss(&sFL[n]), v0));
 			_mm_store_ss(&dFL[n], in);
 			in = _mm_mul_ss(_mm_load_ss(&sSR[n]), slev1);
 			in = _mm_add_ss(in, ctr);
-			in = _mm_add_ss(in, _mm_load_ss(&sFR[n]));
-			in = _mm_mul_ss(in, v1);
+			in = _mm_add_ss(in, _mm_mul_ss(_mm_load_ss(&sFR[n]), v1));
 			_mm_store_ss(&dFR[n], in);
 		}
 	}

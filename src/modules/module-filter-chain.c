@@ -726,7 +726,6 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 {
 	struct fc_plugin *pl = NULL;
 	struct plugin *hndl;
-	int res = 0;
 	const struct spa_support *support;
 	uint32_t n_support;
 
@@ -750,6 +749,11 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 		pl = load_lv2_plugin(support, n_support, path, NULL);
 	}
 #endif
+	else {
+		pl = NULL;
+		errno = EINVAL;
+	}
+
 	if (pl == NULL)
 		goto exit;
 
@@ -769,9 +773,7 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 	spa_list_append(&impl->plugin_list, &hndl->link);
 
 	return hndl;
-
 exit:
-	errno = -res;
 	return NULL;
 }
 

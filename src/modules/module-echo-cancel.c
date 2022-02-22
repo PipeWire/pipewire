@@ -995,13 +995,15 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	else
 		aec_props = pw_properties_new(NULL, NULL);
 
-	if (spa_audio_aec_init(impl->aec, &aec_props->dict, &impl->info)) {
-		pw_log_error("codec plugin %s create failed", impl->aec->name);
-		res = -ENOENT;
-		goto error;
-	}
+	res = spa_audio_aec_init(impl->aec, &aec_props->dict, &impl->info);
 
 	pw_properties_free(aec_props);
+
+	if (res < 0) {
+		pw_log_error("codec plugin %s create failed: %s", impl->aec->name,
+				spa_strerror(res));
+		goto error;
+	}
 
 	if (impl->aec->latency) {
 		unsigned int num, denom, req_num, req_denom;

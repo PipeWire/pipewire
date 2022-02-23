@@ -227,6 +227,12 @@ PWTEST(pwtest_loop_recurse2)
 	return PWTEST_PASS;
 }
 
+static void
+on_event_fail_if_called(void *data, int fd, uint32_t mask)
+{
+	pwtest_fail_if_reached();
+}
+
 PWTEST(thread_loop_destroy_between_poll_and_lock)
 {
 	pw_init(NULL, NULL);
@@ -240,7 +246,7 @@ PWTEST(thread_loop_destroy_between_poll_and_lock)
 	int evfd = eventfd(0, 0);
 	pwtest_errno_ok(evfd);
 
-	struct spa_source *source = pw_loop_add_io(loop, evfd, SPA_IO_IN, true, NULL, NULL);
+	struct spa_source *source = pw_loop_add_io(loop, evfd, SPA_IO_IN, true, on_event_fail_if_called, NULL);
 	pwtest_ptr_notnull(source);
 
 	pw_thread_loop_start(thread_loop);

@@ -202,6 +202,8 @@ struct impl {
 
 	uint32_t empty_size;
 	float *empty;
+	float *scratch;
+	float *tmp;
 };
 
 #define CHECK_PORT(this,d,p)		((p) < this->dir[d].n_ports)
@@ -659,8 +661,8 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	    (info == NULL || memcmp(&dir->format, info, sizeof(*info)) == 0))
 		return 0;
 
-	spa_log_info(this->log, "%p: port config direction:%d monitor:%d mode:%d", this,
-			direction, monitor, mode);
+	spa_log_info(this->log, "%p: port config direction:%d monitor:%d mode:%d %d", this,
+			direction, monitor, mode, dir->n_ports);
 
 	for (i = 0; i < dir->n_ports; i++) {
 		spa_node_emit_port_info(&this->hooks, direction, i, NULL);
@@ -1577,6 +1579,8 @@ impl_node_port_use_buffers(void *object,
 	}
 	if (maxsize > this->empty_size) {
 		this->empty = realloc(this->empty, maxsize + MAX_ALIGN);
+		this->scratch = realloc(this->scratch, maxsize + MAX_ALIGN);
+		this->tmp = realloc(this->tmp, (4 * maxsize + MAX_ALIGN) * MAX_PORTS);
 		if (this->empty == NULL)
 			return -errno;
 		memset(this->empty, 0, maxsize + MAX_ALIGN);
@@ -1636,13 +1640,13 @@ static inline int get_in_buffer(struct impl *this, struct port *port, struct buf
 	struct spa_io_buffers *io;
 
 	if ((io = port->io) == NULL) {
-		spa_log_trace_fp(this->log, "%p: no io on port %d",
+		spa_log_debug(this->log, "%p: no io on port %d",
 				this, port->id);
 		return -EIO;
 	}
 	if (io->status != SPA_STATUS_HAVE_DATA ||
 	    io->buffer_id >= port->n_buffers) {
-		spa_log_trace_fp(this->log, "%p: empty port %d %p %d %d %d",
+		spa_log_debug(this->log, "%p: empty port %d %p %d %d %d",
 				this, port->id, io, io->status, io->buffer_id,
 				port->n_buffers);
 		return -EPIPE;
@@ -1677,8 +1681,74 @@ static inline int get_out_buffer(struct impl *this, struct port *port, struct bu
 static int impl_node_process(void *object)
 {
 	struct impl *this = object;
+	const void *src_datas[MAX_PORTS];
+	void *dst_datas[MAX_PORTS], *tmp_datas[MAX_PORTS];
+	uint32_t i, j, n_src_datas = 0, n_dst_datas = 0, n_samples;
+	struct port *port;
+	struct buffer *buf;
+	struct spa_data *bd;
+	int res, ready = 0;
 
-	spa_log_info(this->log, ".");
+	if (SPA_LIKELY(this->io_position))
+		n_samples = this->io_position->clock.duration;
+	else
+		n_samples = this->quantum_limit;
+
+	for (i = 0; i < this->dir[SPA_DIRECTION_INPUT].n_ports; i++) {
+		port = GET_IN_PORT(this, i);
+
+		if (port->rate_match)
+			port->rate_match->size = n_samples;
+
+		tmp_datas[i] = SPA_PTROFF(this->tmp, this->empty_size * i, void);
+		tmp_datas[i] = SPA_PTR_ALIGN(tmp_datas[i], MAX_ALIGN, void);
+
+		if (SPA_UNLIKELY(get_in_buffer(this, port, &buf) != 0)) {
+			src_datas[n_src_datas++] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
+			continue;
+		}
+
+		for (j = 0; j < buf->buf->n_datas; j++) {
+			bd = &buf->buf->datas[j];
+
+			src_datas[n_src_datas++] = SPA_PTROFF(bd->data, bd->chunk->offset, void);
+
+			n_samples = SPA_MIN(n_samples, bd->chunk->size / port->stride);
+
+			spa_log_trace_fp(this->log, "%p: %d %d", this, bd->chunk->size, n_samples);
+		}
+		ready++;
+	}
+	if (ready == 0 && this->dir[SPA_DIRECTION_INPUT].mode == SPA_PARAM_PORT_CONFIG_MODE_convert)
+		return SPA_STATUS_NEED_DATA;
+
+	for (i = 0; i < this->dir[SPA_DIRECTION_OUTPUT].n_ports; i++) {
+		port = GET_OUT_PORT(this, i);
+
+		tmp_datas[i] = SPA_PTROFF(this->tmp, this->empty_size * i, void);
+		tmp_datas[i] = SPA_PTR_ALIGN(tmp_datas[i], MAX_ALIGN, void);
+
+		if (SPA_UNLIKELY(get_out_buffer(this, port, &buf) != 0)) {
+			dst_datas[n_dst_datas++] = SPA_PTR_ALIGN(this->scratch, MAX_ALIGN, void);
+			continue;
+		}
+
+		for (j = 0; j < buf->buf->n_datas; j++) {
+			bd = &buf->buf->datas[j];
+
+			dst_datas[n_dst_datas++] = bd->data;
+
+			bd->chunk->offset = 0;
+			bd->chunk->size = n_samples * port->stride;
+
+			spa_log_trace_fp(this->log, "%p: %d %d", this, bd->chunk->size, n_samples);
+		}
+	}
+
+	convert_process(&this->dir[SPA_DIRECTION_INPUT].conv, tmp_datas, src_datas, n_samples);
+
+	convert_process(&this->dir[SPA_DIRECTION_OUTPUT].conv, dst_datas, (const void**)tmp_datas, n_samples);
+
 	return SPA_STATUS_NEED_DATA | SPA_STATUS_HAVE_DATA;
 }
 
@@ -1731,6 +1801,7 @@ static int impl_clear(struct spa_handle *handle)
 	for (i = 0; i < MAX_PORTS; i++)
 		free(this->dir[SPA_DIRECTION_OUTPUT].ports[i]);
 	free(this->empty);
+	free(this->scratch);
 	return 0;
 }
 
@@ -1806,8 +1877,8 @@ impl_init(const struct spa_handle_factory *factory,
 	volume_init(&this->volume);
 	props_reset(&this->props);
 
-	reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_convert, SPA_DIRECTION_OUTPUT, false, NULL);
 	reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_convert, SPA_DIRECTION_INPUT, false, NULL);
+	reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_convert, SPA_DIRECTION_OUTPUT, false, NULL);
 
 	return 0;
 }

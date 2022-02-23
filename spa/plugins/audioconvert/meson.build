@@ -1,5 +1,6 @@
 audioconvert_sources = ['audioadapter.c',
   'audioconvert.c',
+  'audioconvert2.c',
   'fmtconvert.c',
   'channelmix.c',
   'merger.c',

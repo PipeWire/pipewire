@@ -37,9 +37,6 @@
 #include "channelmix-ops.h"
 #include "hilbert.h"
 
-#undef SPA_LOG_TOPIC_DEFAULT
-#define SPA_LOG_TOPIC_DEFAULT log_topic
-struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.channelmix");
 
 #define _M(ch)		(1UL << SPA_AUDIO_CHANNEL_ ## ch)
 #define MASK_MONO	_M(FC)|_M(MONO)|_M(UNKNOWN)

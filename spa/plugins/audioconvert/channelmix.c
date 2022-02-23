@@ -44,6 +44,9 @@
 
 #include "channelmix-ops.h"
 
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT log_topic
+struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.channelmix");
 
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2

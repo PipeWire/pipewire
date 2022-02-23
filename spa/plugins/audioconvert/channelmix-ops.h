@@ -29,10 +29,6 @@
 #include <spa/utils/string.h>
 #include <spa/param/audio/raw.h>
 
-#undef SPA_LOG_TOPIC_DEFAULT
-#define SPA_LOG_TOPIC_DEFAULT log_topic
-extern struct spa_log_topic *log_topic;
-
 #include "crossover.h"
 #include "delay.h"
 

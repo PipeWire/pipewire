@@ -1469,9 +1469,17 @@ static int device_update_props(struct spa_bt_device *device,
 				dbus_message_iter_get_basic(&iter, &uuid);
 
 				profile = spa_bt_profile_from_uuid(uuid);
-				if (profile && (device->profiles & profile) == 0) {
-					spa_log_debug(monitor->log, "device %p: add UUID=%s", device, uuid);
-					device->profiles |= profile;
+
+				/* Only add A2DP profiles if HSP/HFP backed is none.
+				 * This allows BT device to connect instantly instead of waiting for
+				 * profile timeout, because all available profiles are connected.
+				 */
+				if (monitor->backend_selection != BACKEND_NONE || (monitor->backend_selection == BACKEND_NONE &&
+						profile & (SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_A2DP_SOURCE))) {
+					if (profile && (device->profiles & profile) == 0) {
+						spa_log_debug(monitor->log, "device %p: add UUID=%s", device, uuid);
+						device->profiles |= profile;
+					}
 				}
 				dbus_message_iter_next(&iter);
 			}

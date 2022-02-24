@@ -51,8 +51,8 @@ struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.channelmix");
 #define ANY	((uint32_t)-1)
 #define EQ	((uint32_t)-2)
 
-typedef void (*channelmix_func_t) (struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
-			uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples);
+typedef void (*channelmix_func_t) (struct channelmix *mix, void * SPA_RESTRICT dst[],
+			const void * SPA_RESTRICT src[], uint32_t n_samples);
 
 static const struct channelmix_info {
 	uint32_t src_chan;

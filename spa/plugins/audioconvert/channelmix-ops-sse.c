@@ -26,10 +26,10 @@
 
 #include <xmmintrin.h>
 
-void channelmix_copy_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
-		uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples)
+void channelmix_copy_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],
+		const void * SPA_RESTRICT src[], uint32_t n_samples)
 {
-	uint32_t i, n, unrolled;
+	uint32_t i, n, unrolled, n_dst = mix->dst_chan;
 	float **d = (float **)dst;
 	const float **s = (const float **)src;
 
@@ -71,10 +71,10 @@ void channelmix_copy_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 }
 
 void
-channelmix_f32_2_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
-		uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples)
+channelmix_f32_2_4_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],
+		const void * SPA_RESTRICT src[], uint32_t n_samples)
 {
-	uint32_t i, n, unrolled;
+	uint32_t i, n, unrolled, n_dst = mix->dst_chan;
 	float **d = (float **)dst;
 	const float **s = (const float **)src;
 	const float m00 = mix->matrix[0][0];
@@ -139,8 +139,8 @@ channelmix_f32_2_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRI
 
 /* FL+FR+FC+LFE+SL+SR -> FL+FR */
 void
-channelmix_f32_5p1_2_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
-		uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples)
+channelmix_f32_5p1_2_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],
+		const void * SPA_RESTRICT src[], uint32_t n_samples)
 {
 	uint32_t n, unrolled;
 	float **d = (float **) dst;
@@ -229,10 +229,10 @@ channelmix_f32_5p1_2_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_REST
 
 /* FL+FR+FC+LFE+SL+SR -> FL+FR+FC+LFE*/
 void
-channelmix_f32_5p1_3p1_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
-		uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples)
+channelmix_f32_5p1_3p1_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],
+		const void * SPA_RESTRICT src[], uint32_t n_samples)
 {
-	uint32_t i, n, unrolled;
+	uint32_t i, n, unrolled, n_dst = mix->dst_chan;
 	float **d = (float **) dst;
 	const float **s = (const float **) src;
 	const __m128 v0 = _mm_set1_ps(mix->matrix[0][0]);
@@ -307,10 +307,10 @@ channelmix_f32_5p1_3p1_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RE
 
 /* FL+FR+FC+LFE+SL+SR -> FL+FR+RL+RR*/
 void
-channelmix_f32_5p1_4_sse(struct channelmix *mix, uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
-		uint32_t n_src, const void * SPA_RESTRICT src[n_src], uint32_t n_samples)
+channelmix_f32_5p1_4_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],
+		const void * SPA_RESTRICT src[], uint32_t n_samples)
 {
-	uint32_t i, n, unrolled;
+	uint32_t i, n, unrolled, n_dst = mix->dst_chan;
 	float **d = (float **) dst;
 	const float **s = (const float **) src;
 	const __m128 clev = _mm_set1_ps(mix->matrix[0][2]);

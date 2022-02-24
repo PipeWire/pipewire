@@ -1293,8 +1293,7 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 }
 
 static int channelmix_process_control(struct impl *this, struct port *ctrlport,
-				      uint32_t n_dst, void * SPA_RESTRICT dst[n_dst],
-				      uint32_t n_src, const void * SPA_RESTRICT src[n_src],
+				      void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 				      uint32_t n_samples)
 {
 	struct spa_pod_control *c, *prev = NULL;
@@ -1337,10 +1336,10 @@ static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 		spa_log_trace_fp(this->log, "%p: process %d %d", this,
 				c->offset, chunk);
 
-		channelmix_process(&this->mix, n_dst, dst, n_src, src, chunk);
-		for (i = 0; i < n_src; i++)
+		channelmix_process(&this->mix, dst, src, chunk);
+		for (i = 0; i < this->mix.src_chan; i++)
 			s[i] += chunk;
-		for (i = 0; i < n_dst; i++)
+		for (i = 0; i < this->mix.dst_chan; i++)
 			d[i] += chunk;
 
 		avail_samples -= chunk;
@@ -1353,7 +1352,7 @@ static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 	 * remaining samples */
 	spa_log_trace_fp(this->log, "%p: remain %d", this, avail_samples);
 	if (avail_samples > 0)
-		channelmix_process(&this->mix, n_dst, dst, n_src, src, avail_samples);
+		channelmix_process(&this->mix, dst, src, avail_samples);
 
 	return 1;
 }
@@ -1445,14 +1444,14 @@ static int impl_node_process(void *object)
 		if (!is_passthrough) {
 			if (ctrlport->ctrl != NULL) {
 				/* if return value is 1, the sequence has been processed */
-				if (channelmix_process_control(this, ctrlport, n_dst_datas, dst_datas,
-						n_src_datas, src_datas, n_samples) == 1) {
+				if (channelmix_process_control(this, ctrlport, dst_datas,
+						src_datas, n_samples) == 1) {
 					ctrlio->status = SPA_STATUS_OK;
 					ctrlport->ctrl = NULL;
 				}
 			} else {
-				channelmix_process(&this->mix, n_dst_datas, dst_datas,
-						n_src_datas, src_datas, n_samples);
+				channelmix_process(&this->mix, dst_datas,
+						src_datas, n_samples);
 			}
 		}
 	}

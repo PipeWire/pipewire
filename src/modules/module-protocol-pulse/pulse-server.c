@@ -1006,8 +1006,10 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 			stream->killed = true;
 		destroy_stream = true;
 		break;
-	case PW_STREAM_STATE_CONNECTING:
 	case PW_STREAM_STATE_PAUSED:
+		stream->id = pw_stream_get_node_id(stream->stream);
+		break;
+	case PW_STREAM_STATE_CONNECTING:
 	case PW_STREAM_STATE_STREAMING:
 		break;
 	}
@@ -1080,7 +1082,6 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 
 	if (stream->create_tag != SPA_ID_INVALID) {
 		struct pw_manager_object *peer;
-		stream->id = pw_stream_get_node_id(stream->stream);
 
 		if (stream->volume_set) {
 			pw_stream_set_control(stream->stream,

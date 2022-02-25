@@ -325,8 +325,8 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	}
 	spa_list_init(&port->queue);
 
-	spa_log_info(this->log, "%p: add port %d:%d position:%s",
-			this, direction, port_id, port->position);
+	spa_log_info(this->log, "%p: add port %d:%d position:%s %d %d",
+			this, direction, port_id, port->position, is_dsp, is_monitor);
 	emit_port_info(this, port, true);
 
 	return 0;
@@ -806,7 +806,7 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 
 	dir = &this->dir[direction];
 
-	if (dir->have_profile && this->monitor == monitor &&
+	if (dir->have_profile && this->monitor == monitor && dir->mode == mode &&
 	    (info == NULL || memcmp(&dir->format, info, sizeof(*info)) == 0))
 		return 0;
 
@@ -876,8 +876,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	switch (id) {
 	case SPA_PARAM_PortConfig:
 	{
-		struct spa_audio_info info = { 0, };
-		struct spa_pod *format;
+		struct spa_audio_info info = { 0, }, *infop = NULL;
+		struct spa_pod *format = NULL;
 		enum spa_direction direction;
 		enum spa_param_port_config_mode mode;
 		bool monitor = false;
@@ -888,23 +888,27 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 				SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(&direction),
 				SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(&mode),
 				SPA_PARAM_PORT_CONFIG_monitor,		SPA_POD_OPT_Bool(&monitor),
-				SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(&format)) < 0)
+				SPA_PARAM_PORT_CONFIG_format,		SPA_POD_OPT_Pod(&format)) < 0)
 			return -EINVAL;
 
-		if (!spa_pod_is_object_type(format, SPA_TYPE_OBJECT_Format))
-			return -EINVAL;
+		if (format) {
+			if (!spa_pod_is_object_type(format, SPA_TYPE_OBJECT_Format))
+				return -EINVAL;
 
-		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
-			return res;
+			if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
+				return res;
 
-		if (info.media_type != SPA_MEDIA_TYPE_audio ||
-		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
-			return -EINVAL;
+			if (info.media_type != SPA_MEDIA_TYPE_audio ||
+			    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+				return -EINVAL;
 
-		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
-			return -EINVAL;
+			if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
+				return -EINVAL;
 
-		if ((res = reconfigure_mode(this, mode, direction, monitor, &info)) < 0)
+			infop = &info;
+		}
+
+		if ((res = reconfigure_mode(this, mode, direction, monitor, infop)) < 0)
 			return res;
 
 		emit_node_info(this, false);

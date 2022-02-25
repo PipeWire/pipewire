@@ -179,6 +179,7 @@ struct impl {
 	uint32_t cpu_flags;
 	uint32_t max_align;
 	uint32_t quantum_limit;
+	enum spa_direction direction;
 
 	struct props props;
 
@@ -718,6 +719,8 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	struct spa_pod_prop *prop;
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
 	struct props *p = &this->props;
+	bool have_channel_volume = false;
+	bool have_soft_volume = false;
 	int changed = 0;
 	uint32_t n;
 
@@ -728,12 +731,15 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 				changed++;
 			break;
 		case SPA_PROP_mute:
-			if (spa_pod_get_bool(&prop->value, &p->channel.mute) == 0)
+			if (spa_pod_get_bool(&prop->value, &p->channel.mute) == 0) {
+				have_channel_volume = true;
 				changed++;
+			}
 			break;
 		case SPA_PROP_channelVolumes:
 			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					p->channel.volumes, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+				have_channel_volume = true;
 				p->channel.n_volumes = n;
 				changed++;
 			}
@@ -746,12 +752,15 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			}
 			break;
 		case SPA_PROP_softMute:
-			if (spa_pod_get_bool(&prop->value, &p->soft.mute) == 0)
+			if (spa_pod_get_bool(&prop->value, &p->soft.mute) == 0) {
+				have_soft_volume = true;
 				changed++;
+			}
 			break;
 		case SPA_PROP_softVolumes:
 			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					p->soft.volumes, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+				have_soft_volume = true;
 				p->soft.n_volumes = n;
 				changed++;
 			}
@@ -773,6 +782,14 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 		default:
 			break;
 		}
+	}
+	if (changed) {
+		if (have_soft_volume)
+			p->have_soft_volume = true;
+		else if (have_channel_volume)
+			p->have_soft_volume = false;
+
+		set_volume(this);
 	}
 	return changed;
 }
@@ -1061,6 +1078,10 @@ static int remap_volumes(struct impl *this, const struct spa_audio_info *info)
 static void set_volume(struct impl *this)
 {
 	struct volumes *vol;
+	struct dir *dir = &this->dir[this->direction];
+
+	if (dir->have_format)
+		remap_volumes(this, &dir->format);
 
 	if (this->mix.set_volume == NULL)
 		return;
@@ -1119,7 +1140,6 @@ static int setup_channelmix(struct impl *this)
 	if ((res = channelmix_init(&this->mix)) < 0)
 		return res;
 
-	remap_volumes(this, &in->format);
 	set_volume(this);
 
 	spa_log_debug(this->log, "%p: got channelmix features %08x:%08x flags:%08x",
@@ -2132,6 +2152,12 @@ impl_init(const struct spa_handle_factory *factory,
 		const char *s = info->items[i].value;
 		if (spa_streq(k, "clock.quantum-limit"))
 			spa_atou32(s, &this->quantum_limit, 0);
+		else if (spa_streq(k, "factory.mode")) {
+			if (spa_streq(s, "merge"))
+				this->direction = SPA_DIRECTION_OUTPUT;
+			else
+				this->direction = SPA_DIRECTION_INPUT;
+		}
 		else
 			audioconvert_set_param(this, k, s);
 	}

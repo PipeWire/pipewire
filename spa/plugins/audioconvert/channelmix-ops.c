@@ -215,8 +215,10 @@ static int make_matrix(struct channelmix *mix)
 	keep |= FRONT;
 	if (mix->lfe_cutoff > 0.0f)
 		keep |= _MASK(LFE);
+	else
+		keep &= ~_MASK(LFE);
 
-	spa_log_debug(mix->log, "unassigned downmix %08" PRIx64, unassigned);
+	spa_log_debug(mix->log, "unassigned downmix %08" PRIx64 " %08" PRIx64, unassigned, keep);
 
 	if (unassigned & FRONT){
 		if ((dst_mask & STEREO) == STEREO){

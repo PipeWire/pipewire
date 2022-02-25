@@ -40,7 +40,7 @@
 #define FNM_EXTMATCH 0
 #endif
 
-#define spa_debug(fmt,...) printf(fmt, ## __VA_ARGS__)
+#define spa_debug(fmt,...) printf(fmt"\n", ## __VA_ARGS__)
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>

@@ -776,6 +776,10 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 				changed++;
 			}
 			break;
+		case SPA_PROP_rate:
+			if (spa_pod_get_double(&prop->value, &p->rate) == 0)
+				changed++;
+			break;
 		case SPA_PROP_params:
 			changed += parse_prop_params(this, &prop->value);
 			break;
@@ -1895,6 +1899,8 @@ static inline int get_out_buffer(struct impl *this, struct port *port, struct bu
 
 static void resample_update_rate_match(struct impl *this, bool passthrough, uint32_t out_size, uint32_t in_queued)
 {
+	double rate = this->rate_scale / this->props.rate;
+
 	if (this->io_rate_match) {
 		uint32_t match_size;
 
@@ -1903,9 +1909,9 @@ static void resample_update_rate_match(struct impl *this, bool passthrough, uint
 			match_size = out_size;
 		} else {
 			if (SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
-				resample_update_rate(&this->resample, this->rate_scale * this->io_rate_match->rate);
+				resample_update_rate(&this->resample, rate * this->io_rate_match->rate);
 			else
-				resample_update_rate(&this->resample, this->rate_scale);
+				resample_update_rate(&this->resample, rate);
 
 			this->io_rate_match->delay = resample_delay(&this->resample);
 			match_size = resample_in_len(&this->resample, out_size);
@@ -1914,21 +1920,21 @@ static void resample_update_rate_match(struct impl *this, bool passthrough, uint
 		this->io_rate_match->size = match_size;
 		spa_log_trace_fp(this->log, "%p: next match %u", this, match_size);
 	} else {
-		resample_update_rate(&this->resample, this->rate_scale * this->props.rate);
+		resample_update_rate(&this->resample, rate);
 	}
 }
 
 static inline bool resample_is_passthrough(struct impl *this)
 {
 	return this->resample.i_rate == this->resample.o_rate && this->rate_scale == 1.0 &&
+		this->props.rate == 1.0 &&
 		(this->io_rate_match == NULL ||
 		 !SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE));
 }
 
-static void resample_recalc_rate_match(struct impl *this)
+static void resample_recalc_rate_match(struct impl *this, bool passthrough)
 {
-	bool passthrough = resample_is_passthrough(this);
-	uint32_t out_size = this->io_position ? this->io_position->clock.duration : 1024;
+	uint32_t out_size = this->io_position ? this->io_position->clock.duration : this->quantum_limit;
 	resample_update_rate_match(this, passthrough, out_size, 0);
 }
 
@@ -1942,17 +1948,14 @@ static int impl_node_process(void *object)
 	struct buffer *buf;
 	struct spa_data *bd, *dst_bufs[MAX_PORTS];
 	struct dir *dir;
-	int ready = 0, tmp = 0;
+	int tmp = 0;
 	bool in_passthrough, mix_passthrough, resample_passthrough, out_passthrough, end_passthrough;
 	uint32_t in_len, out_len;
 
-	if (SPA_LIKELY(this->io_position))
-		n_samples = this->io_position->clock.duration;
-	else
-		n_samples = this->quantum_limit;
-
 	dir = &this->dir[SPA_DIRECTION_INPUT];
 	in_passthrough = dir->conv.is_passthrough;
+
+	n_samples = UINT32_MAX;
 
 	for (i = 0; i < dir->n_ports; i++) {
 		port = GET_IN_PORT(this, i);
@@ -1976,13 +1979,12 @@ static int impl_node_process(void *object)
 						bd->chunk->size, n_samples,
 						i * port->blocks + j, src_remap);
 			}
-			ready++;
 		}
 	}
 
 	resample_passthrough = resample_is_passthrough(this);
-	if (ready == 0) {
-		resample_recalc_rate_match(this);
+	if (n_samples == UINT32_MAX) {
+		resample_recalc_rate_match(this, resample_passthrough);
 		return SPA_STATUS_NEED_DATA;
 	}
 

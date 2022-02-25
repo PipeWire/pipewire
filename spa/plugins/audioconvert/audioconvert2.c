@@ -826,13 +826,14 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	switch (mode) {
 	case SPA_PARAM_PORT_CONFIG_MODE_dsp:
 	{
-		if (info == NULL)
-			return -EINVAL;
-
-		dir->n_ports = info->info.raw.channels;
-		dir->format = *info;
-		dir->format.info.raw.format = SPA_AUDIO_FORMAT_DSP_F32;
-		dir->have_format = true;
+		if (info) {
+			dir->n_ports = info->info.raw.channels;
+			dir->format = *info;
+			dir->format.info.raw.format = SPA_AUDIO_FORMAT_DSP_F32;
+			dir->have_format = true;
+		} else {
+			dir->n_ports = 0;
+		}
 
 		if (this->monitor && direction == SPA_DIRECTION_INPUT)
 			this->dir[SPA_DIRECTION_OUTPUT].n_ports = dir->n_ports + 1;

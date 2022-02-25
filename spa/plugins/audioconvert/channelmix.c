@@ -1576,6 +1576,7 @@ impl_init(const struct spa_handle_factory *factory,
 	props_reset(&this->props);
 
 	this->mix.options = CHANNELMIX_OPTION_NORMALIZE;
+	this->mix.log = this->log;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;

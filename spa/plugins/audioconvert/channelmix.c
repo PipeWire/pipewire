@@ -595,13 +595,16 @@ static int channelmix_set_param(struct impl *this, const char *k, const char *s)
 		this->mix.lfe_cutoff = atoi(s);
 	else if (spa_streq(k, "channelmix.disable"))
 		this->props.disabled = spa_atob(s);
-	return 0;
+	else
+		return 0;
+	return 1;
 }
 
 static int parse_prop_params(struct impl *this, struct spa_pod *params)
 {
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f;
+	int changed = 0;
 
 	spa_pod_parser_pod(&prs, params);
 	if (spa_pod_parser_push_struct(&prs, &f) < 0)
@@ -634,9 +637,11 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 			continue;
 
 		spa_log_info(this->log, "key:'%s' val:'%s'", name, value);
-		channelmix_set_param(this, name, value);
+		changed += channelmix_set_param(this, name, value);
 	}
-	return 0;
+	if (changed)
+		channelmix_init(&this->mix);
+	return changed;
 }
 
 static int apply_props(struct impl *this, const struct spa_pod *param)

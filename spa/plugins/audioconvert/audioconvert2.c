@@ -87,9 +87,11 @@ struct props {
 	struct volumes channel;
 	struct volumes soft;
 	struct volumes monitor;
-	int quality;
 	unsigned int have_soft_volume:1;
+	unsigned int mix_disabled:1;
 	double rate;
+	unsigned int resample_quality;
+	unsigned int resample_disabled:1;
 };
 
 static void props_reset(struct props *props)
@@ -102,7 +104,10 @@ static void props_reset(struct props *props)
 	init_volumes(&props->channel);
 	init_volumes(&props->soft);
 	init_volumes(&props->monitor);
+	props->mix_disabled = false;
 	props->rate = 1.0;
+	props->resample_quality = RESAMPLE_DEFAULT_QUALITY;
+	props->resample_disabled = false;
 }
 
 struct buffer {
@@ -219,6 +224,8 @@ struct impl {
 #define GET_OUT_PORT(this,p)		GET_PORT(this,SPA_DIRECTION_OUTPUT,p)
 
 #define PORT_IS_DSP(this,d,p) (GET_PORT(this,d,p)->is_dsp)
+
+static void set_volume(struct impl *this);
 
 static void emit_node_info(struct impl *this, bool full)
 {
@@ -470,6 +477,74 @@ static int impl_node_enum_params(void *object, int seq,
 					this->monitor_channel_volumes),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
+		case 9:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.normalize"),
+				SPA_PROP_INFO_description, SPA_POD_String("Normalize Volumes"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
+					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_NORMALIZE)),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 10:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.mix-lfe"),
+				SPA_PROP_INFO_description, SPA_POD_String("Mix LFE into channels"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
+					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_MIX_LFE)),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 11:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.upmix"),
+				SPA_PROP_INFO_description, SPA_POD_String("Enable upmixing"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
+					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_UPMIX)),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 12:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.lfe-cutoff"),
+				SPA_PROP_INFO_description, SPA_POD_String("LFE cutoff frequency"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+					this->mix.lfe_cutoff, 0.0, 1000.0),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 13:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.disable"),
+				SPA_PROP_INFO_description, SPA_POD_String("Disable Channel mixing"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->mix_disabled),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 14:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_rate),
+				SPA_PROP_INFO_description, SPA_POD_String("Rate scaler"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Double(p->rate, 0.0, 10.0));
+			break;
+		case 15:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_quality),
+				SPA_PROP_INFO_name, SPA_POD_String("resample.quality"),
+				SPA_PROP_INFO_description, SPA_POD_String("Resample Quality"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->resample_quality, 0, 14),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 16:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("resample.disable"),
+				SPA_PROP_INFO_description, SPA_POD_String("Disable Resampling"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->resample_disabled),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
 		default:
 			return 0;
 		}
@@ -511,6 +586,23 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_push_struct(&b, &f[1]);
 			spa_pod_builder_string(&b, "monitor.channel-volumes");
 			spa_pod_builder_bool(&b, this->monitor_channel_volumes);
+			spa_pod_builder_string(&b, "channelmix.normalize");
+			spa_pod_builder_bool(&b, SPA_FLAG_IS_SET(this->mix.options,
+						CHANNELMIX_OPTION_NORMALIZE));
+			spa_pod_builder_string(&b, "channelmix.mix-lfe");
+			spa_pod_builder_bool(&b, SPA_FLAG_IS_SET(this->mix.options,
+						CHANNELMIX_OPTION_MIX_LFE));
+			spa_pod_builder_string(&b, "channelmix.upmix");
+			spa_pod_builder_bool(&b, SPA_FLAG_IS_SET(this->mix.options,
+						CHANNELMIX_OPTION_UPMIX));
+			spa_pod_builder_string(&b, "channelmix.lfe-cutoff");
+			spa_pod_builder_float(&b, this->mix.lfe_cutoff);
+			spa_pod_builder_string(&b, "channelmix.disable");
+			spa_pod_builder_bool(&b, this->props.mix_disabled);
+			spa_pod_builder_string(&b, "resample.quality");
+			spa_pod_builder_int(&b, p->resample_quality);
+			spa_pod_builder_string(&b, "resample.disable");
+			spa_pod_builder_bool(&b, p->resample_disabled);
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
@@ -556,13 +648,30 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 {
 	if (spa_streq(k, "monitor.channel-volumes"))
 		this->monitor_channel_volumes = spa_atob(s);
-	return 0;
+	else if (spa_streq(k, "channelmix.normalize"))
+		SPA_FLAG_UPDATE(this->mix.options, CHANNELMIX_OPTION_NORMALIZE, spa_atob(s));
+	else if (spa_streq(k, "channelmix.mix-lfe"))
+		SPA_FLAG_UPDATE(this->mix.options, CHANNELMIX_OPTION_MIX_LFE, spa_atob(s));
+	else if (spa_streq(k, "channelmix.upmix"))
+		SPA_FLAG_UPDATE(this->mix.options, CHANNELMIX_OPTION_UPMIX, spa_atob(s));
+	else if (spa_streq(k, "channelmix.lfe-cutoff"))
+		spa_atof(s, &this->mix.lfe_cutoff);
+	else if (spa_streq(k, "channelmix.disable"))
+		this->props.mix_disabled = spa_atob(s);
+	else if (spa_streq(k, "resample.quality"))
+		this->props.resample_quality = atoi(s);
+	else if (spa_streq(k, "resample.disable"))
+		this->props.resample_disabled = spa_atob(s);
+	else
+		return 0;
+	return 1;
 }
 
 static int parse_prop_params(struct impl *this, struct spa_pod *params)
 {
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f;
+	int changed = 0;
 
 	spa_pod_parser_pod(&prs, params);
 	if (spa_pod_parser_push_struct(&prs, &f) < 0)
@@ -579,7 +688,15 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 		if (spa_pod_parser_get_pod(&prs, &pod) < 0)
 			break;
 
-		if (spa_pod_is_bool(pod)) {
+		if (spa_pod_is_string(pod)) {
+			spa_pod_copy_string(pod, sizeof(value), value);
+		} else if (spa_pod_is_float(pod)) {
+			snprintf(value, sizeof(value), "%f",
+					SPA_POD_VALUE(struct spa_pod_float, pod));
+		} else if (spa_pod_is_int(pod)) {
+			snprintf(value, sizeof(value), "%d",
+					SPA_POD_VALUE(struct spa_pod_int, pod));
+		} else if (spa_pod_is_bool(pod)) {
 			snprintf(value, sizeof(value), "%s",
 					SPA_POD_VALUE(struct spa_pod_bool, pod) ?
 					"true" : "false");
@@ -587,9 +704,13 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 			continue;
 
 		spa_log_info(this->log, "key:'%s' val:'%s'", name, value);
-		audioconvert_set_param(this, name, value);
+		changed += audioconvert_set_param(this, name, value);
 	}
-	return 0;
+	if (changed) {
+		channelmix_init(&this->mix);
+		set_volume(this);
+	}
+	return changed;
 }
 
 static int apply_props(struct impl *this, const struct spa_pod *param)
@@ -647,7 +768,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			}
 			break;
 		case SPA_PROP_params:
-			parse_prop_params(this, &prop->value);
+			changed += parse_prop_params(this, &prop->value);
 			break;
 		default:
 			break;
@@ -1029,7 +1150,7 @@ static int setup_resample(struct impl *this)
 	this->resample.i_rate = in->format.info.raw.rate;
 	this->resample.o_rate = out->format.info.raw.rate;
 	this->resample.log = this->log;
-	this->resample.quality = this->props.quality;
+	this->resample.quality = this->props.resample_quality;
 	this->resample.cpu_flags = this->cpu_flags;
 
 	if (this->peaks)
@@ -2003,6 +2124,8 @@ impl_init(const struct spa_handle_factory *factory,
 		this->cpu_flags = spa_cpu_get_flags(this->cpu);
 		this->max_align = SPA_MIN(MAX_ALIGN, spa_cpu_get_max_align(this->cpu));
 	}
+
+	this->mix.options = CHANNELMIX_OPTION_NORMALIZE;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;

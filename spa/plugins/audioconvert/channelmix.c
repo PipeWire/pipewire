@@ -592,7 +592,7 @@ static int channelmix_set_param(struct impl *this, const char *k, const char *s)
 	else if (spa_streq(k, "channelmix.upmix"))
 		SPA_FLAG_UPDATE(this->mix.options, CHANNELMIX_OPTION_UPMIX, spa_atob(s));
 	else if (spa_streq(k, "channelmix.lfe-cutoff"))
-		this->mix.lfe_cutoff = atoi(s);
+		spa_atof(s, &this->mix.lfe_cutoff);
 	else if (spa_streq(k, "channelmix.disable"))
 		this->props.disabled = spa_atob(s);
 	else

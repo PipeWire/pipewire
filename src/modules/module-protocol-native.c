@@ -116,7 +116,7 @@ struct client {
 
 	int ref;
 
-	struct footer_proxy_global_state footer_state;
+	struct footer_core_global_state footer_state;
 
 	unsigned int connected:1;
 	unsigned int disconnecting:1;
@@ -154,7 +154,7 @@ struct client_data {
 	struct pw_protocol_native_connection *connection;
 	struct spa_hook conn_listener;
 
-	struct footer_resource_global_state footer_state;
+	struct footer_client_global_state footer_state;
 
 	unsigned int busy:1;
 	unsigned int need_flush:1;
@@ -261,6 +261,9 @@ process_messages(struct client_data *data)
 		if (debug_messages)
 			debug_msg("<<<<<< in", msg, false);
 
+		pre_demarshal(conn, msg, client, footer_client_demarshal,
+				SPA_N_ELEMENTS(footer_client_demarshal));
+
 		resource = pw_impl_client_find_resource(client, msg->id);
 		if (resource == NULL) {
 			pw_resource_errorf(client->core_resource,
@@ -297,8 +300,6 @@ process_messages(struct client_data *data)
 		}
 
 		pw_protocol_native_connection_enter(conn);
-		pre_demarshal(conn, msg, resource, footer_resource_demarshal,
-				SPA_N_ELEMENTS(footer_resource_demarshal));
 		res = demarshal[msg->opcode].func(resource, msg);
 		pw_protocol_native_connection_leave(conn);
 		if (res < 0) {
@@ -817,6 +818,9 @@ process_remote(struct client *impl)
 		if (debug_messages)
 			debug_msg("<<<<<< in", msg, false);
 
+		pre_demarshal(conn, msg, this, footer_core_demarshal,
+				SPA_N_ELEMENTS(footer_core_demarshal));
+
 		proxy = pw_core_find_proxy(this, msg->id);
 		if (proxy == NULL || proxy->zombie) {
 			if (proxy == NULL)
@@ -844,8 +848,6 @@ process_remote(struct client *impl)
 		}
 		proxy->refcount++;
 		pw_protocol_native_connection_enter(conn);
-		pre_demarshal(conn, msg, proxy, footer_proxy_demarshal,
-				SPA_N_ELEMENTS(footer_proxy_demarshal));
 		res = demarshal[msg->opcode].func(proxy, msg);
 		pw_protocol_native_connection_leave(conn);
 		pw_proxy_unref(proxy);
@@ -1295,7 +1297,7 @@ static int impl_ext_end_proxy(struct pw_proxy *proxy,
 	struct pw_core *core = proxy->core;
 	struct client *impl = SPA_CONTAINER_OF(core->conn, struct client, this);
 	assert_single_pod(builder);
-	marshal_proxy_footers(&impl->footer_state, proxy, builder);
+	marshal_core_footers(&impl->footer_state, core, builder);
 	return core->send_seq = pw_protocol_native_connection_end(impl->connection, builder);
 }
 
@@ -1324,7 +1326,7 @@ static int impl_ext_end_resource(struct pw_resource *resource,
 	struct client_data *data = resource->client->user_data;
 	struct pw_impl_client *client = resource->client;
 	assert_single_pod(builder);
-	marshal_resource_footers(&data->footer_state, resource, builder);
+	marshal_client_footers(&data->footer_state, client, builder);
 	return client->send_seq = pw_protocol_native_connection_end(data->connection, builder);
 }
 static const struct pw_protocol_native_ext protocol_ext_impl = {

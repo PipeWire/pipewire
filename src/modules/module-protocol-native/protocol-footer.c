@@ -71,80 +71,80 @@ static void end_footer(struct footer_builder *fb)
 	spa_pod_builder_pop(fb->builder, &fb->outer);
 }
 
-void marshal_proxy_footers(struct footer_proxy_global_state *state, struct pw_proxy *proxy,
+void marshal_core_footers(struct footer_core_global_state *state, struct pw_core *core,
 		struct spa_pod_builder *builder)
 {
 	struct footer_builder fb = FOOTER_BUILDER_INIT(builder);
 
-	if (proxy->core->recv_generation != state->last_recv_generation) {
-		state->last_recv_generation = proxy->core->recv_generation;
+	if (core->recv_generation != state->last_recv_generation) {
+		state->last_recv_generation = core->recv_generation;
 
 		pw_log_trace("core %p: send client registry generation:%"PRIu64,
-				proxy->core, proxy->core->recv_generation);
+				core, core->recv_generation);
 
-		start_footer_entry(&fb, FOOTER_RESOURCE_OPCODE_GENERATION);
-		spa_pod_builder_long(fb.builder, proxy->core->recv_generation);
+		start_footer_entry(&fb, FOOTER_CLIENT_OPCODE_GENERATION);
+		spa_pod_builder_long(fb.builder, core->recv_generation);
 		end_footer_entry(&fb);
 	}
 
 	end_footer(&fb);
 }
 
-void marshal_resource_footers(struct footer_resource_global_state *state, struct pw_resource *resource,
+void marshal_client_footers(struct footer_client_global_state *state, struct pw_impl_client *client,
 		struct spa_pod_builder *builder)
 {
 	struct footer_builder fb = FOOTER_BUILDER_INIT(builder);
 
-	if (resource->context->generation != state->last_sent_generation) {
-		state->last_sent_generation = resource->context->generation;
+	if (client->context->generation != state->last_sent_generation) {
+		state->last_sent_generation = client->context->generation;
 
 		pw_log_trace("impl-client %p: send server registry generation:%"PRIu64,
-				resource->client, resource->context->generation);
+				client, client->context->generation);
 
-		start_footer_entry(&fb, FOOTER_RESOURCE_OPCODE_GENERATION);
-		spa_pod_builder_long(fb.builder, resource->context->generation);
+		start_footer_entry(&fb, FOOTER_CORE_OPCODE_GENERATION);
+		spa_pod_builder_long(fb.builder, client->context->generation);
 		end_footer_entry(&fb);
 	}
 
 	end_footer(&fb);
 }
 
-int demarshal_proxy_generation(void *object, struct spa_pod_parser *parser)
+int demarshal_core_generation(void *object, struct spa_pod_parser *parser)
 {
-	struct pw_proxy *proxy = object;
+	struct pw_core *core = object;
 	int64_t generation;
 
 	if (spa_pod_parser_get_long(parser, &generation) < 0)
 		return -EINVAL;
 
-	proxy->core->recv_generation = (uint64_t)generation;
+	core->recv_generation = (uint64_t)generation;
 
 	pw_log_trace("core %p: recv server registry generation:%"PRIu64,
-			proxy->core, generation);
+			core->core, generation);
 
 	return 0;
 }
 
-int demarshal_resource_generation(void *object, struct spa_pod_parser *parser)
+int demarshal_client_generation(void *object, struct spa_pod_parser *parser)
 {
-	struct pw_resource *resource = object;
+	struct pw_impl_client *client = object;
 	int64_t generation;
 
 	if (spa_pod_parser_get_long(parser, &generation) < 0)
 		return -EINVAL;
 
-	resource->client->recv_generation = (uint64_t)generation;
+	client->recv_generation = (uint64_t)generation;
 
 	pw_log_trace("impl-client %p: recv client registry generation:%"PRIu64,
-			resource->client, generation);
+			client, generation);
 
 	return 0;
 }
 
-const struct footer_demarshal footer_proxy_demarshal[FOOTER_PROXY_OPCODE_LAST] = {
-	[FOOTER_PROXY_OPCODE_GENERATION] = (struct footer_demarshal){ .demarshal = demarshal_proxy_generation },
+const struct footer_demarshal footer_core_demarshal[FOOTER_CORE_OPCODE_LAST] = {
+	[FOOTER_CORE_OPCODE_GENERATION] = (struct footer_demarshal){ .demarshal = demarshal_core_generation },
 };
 
-const struct footer_demarshal footer_resource_demarshal[FOOTER_RESOURCE_OPCODE_LAST] = {
-	[FOOTER_RESOURCE_OPCODE_GENERATION] = (struct footer_demarshal){ .demarshal = demarshal_resource_generation },
+const struct footer_demarshal footer_client_demarshal[FOOTER_CLIENT_OPCODE_LAST] = {
+	[FOOTER_CLIENT_OPCODE_GENERATION] = (struct footer_demarshal){ .demarshal = demarshal_client_generation },
 };

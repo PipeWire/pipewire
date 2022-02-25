@@ -30,20 +30,20 @@
  */
 
 enum {
-	FOOTER_PROXY_OPCODE_GENERATION = 0,
-	FOOTER_PROXY_OPCODE_LAST
+	FOOTER_CORE_OPCODE_GENERATION = 0,
+	FOOTER_CORE_OPCODE_LAST
 };
 
 enum {
-	FOOTER_RESOURCE_OPCODE_GENERATION = 0,
-	FOOTER_RESOURCE_OPCODE_LAST
+	FOOTER_CLIENT_OPCODE_GENERATION = 0,
+	FOOTER_CLIENT_OPCODE_LAST
 };
 
-struct footer_proxy_global_state {
+struct footer_core_global_state {
 	uint64_t last_recv_generation;
 };
 
-struct footer_resource_global_state {
+struct footer_client_global_state {
 	uint64_t last_sent_generation;
 };
 
@@ -51,10 +51,10 @@ struct footer_demarshal {
 	int (*demarshal)(void *object, struct spa_pod_parser *parser);
 };
 
-extern const struct footer_demarshal footer_proxy_demarshal[FOOTER_PROXY_OPCODE_LAST];
-extern const struct footer_demarshal footer_resource_demarshal[FOOTER_RESOURCE_OPCODE_LAST];
+extern const struct footer_demarshal footer_core_demarshal[FOOTER_CORE_OPCODE_LAST];
+extern const struct footer_demarshal footer_client_demarshal[FOOTER_CLIENT_OPCODE_LAST];
 
-void marshal_proxy_footers(struct footer_proxy_global_state *state, struct pw_proxy *proxy,
+void marshal_core_footers(struct footer_core_global_state *state, struct pw_core *core,
 		struct spa_pod_builder *builder);
-void marshal_resource_footers(struct footer_resource_global_state *state, struct pw_resource *resource,
+void marshal_client_footers(struct footer_client_global_state *state, struct pw_impl_client *client,
 		struct spa_pod_builder *builder);

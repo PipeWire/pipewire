@@ -957,8 +957,8 @@ static int setup_in_convert(struct impl *this)
 			if (src_info.info.raw.position[i] !=
 			    dst_info.info.raw.position[j])
 				continue;
-			in->src_remap[j] = i;
-			in->dst_remap[i] = j;
+			in->src_remap[i] = j;
+			in->dst_remap[j] = i;
 			spa_log_debug(this->log, "%p: channel %d -> %d (%s -> %s)", this,
 					i, j,
 					spa_debug_type_find_short_name(spa_type_audio_channel,
@@ -1941,6 +1941,7 @@ static int impl_node_process(void *object)
 	struct port *port;
 	struct buffer *buf;
 	struct spa_data *bd, *dst_bufs[MAX_PORTS];
+	struct dir *dir;
 	int ready = 0, tmp = 0;
 	bool in_passthrough, mix_passthrough, resample_passthrough, out_passthrough, end_passthrough;
 	uint32_t in_len, out_len;
@@ -1950,24 +1951,33 @@ static int impl_node_process(void *object)
 	else
 		n_samples = this->quantum_limit;
 
-	for (i = 0; i < this->dir[SPA_DIRECTION_INPUT].n_ports; i++) {
+	dir = &this->dir[SPA_DIRECTION_INPUT];
+	in_passthrough = dir->conv.is_passthrough;
+
+	for (i = 0; i < dir->n_ports; i++) {
 		port = GET_IN_PORT(this, i);
 
 		if (SPA_UNLIKELY(get_in_buffer(this, port, &buf) != 0)) {
-			src_datas[n_src_datas++] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
-			continue;
+			for (j = 0; j < port->blocks; j++) {
+				uint32_t src_remap = dir->src_remap[n_src_datas++];
+				src_datas[src_remap] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
+			}
+		} else {
+			for (j = 0; j < port->blocks; j++) {
+				uint32_t src_remap = dir->src_remap[n_src_datas++];
+
+				bd = &buf->buf->datas[j];
+
+				src_datas[src_remap] = SPA_PTROFF(bd->data, bd->chunk->offset, void);
+
+				n_samples = SPA_MIN(n_samples, bd->chunk->size / port->stride);
+
+				spa_log_trace_fp(this->log, "%p: %d %d %d->%d", this,
+						bd->chunk->size, n_samples,
+						i * port->blocks + j, src_remap);
+			}
+			ready++;
 		}
-
-		for (j = 0; j < buf->buf->n_datas; j++) {
-			bd = &buf->buf->datas[j];
-
-			src_datas[n_src_datas++] = SPA_PTROFF(bd->data, bd->chunk->offset, void);
-
-			n_samples = SPA_MIN(n_samples, bd->chunk->size / port->stride);
-
-			spa_log_trace_fp(this->log, "%p: %d %d", this, bd->chunk->size, n_samples);
-		}
-		ready++;
 	}
 
 	resample_passthrough = resample_is_passthrough(this);
@@ -1976,31 +1986,37 @@ static int impl_node_process(void *object)
 		return SPA_STATUS_NEED_DATA;
 	}
 
-	for (i = 0; i < this->dir[SPA_DIRECTION_OUTPUT].n_ports; i++) {
+	dir = &this->dir[SPA_DIRECTION_OUTPUT];
+	out_passthrough = dir->conv.is_passthrough;
+
+	for (i = 0; i < dir->n_ports; i++) {
 		port = GET_OUT_PORT(this, i);
 
 		if (SPA_UNLIKELY(get_out_buffer(this, port, &buf) != 0)) {
-			dst_bufs[n_dst_datas] = NULL;
-			dst_datas[n_dst_datas++] = SPA_PTR_ALIGN(this->scratch, MAX_ALIGN, void);
-			continue;
-		}
+			for (j = 0; j < port->blocks; j++) {
+				uint32_t dst_remap = dir->dst_remap[n_dst_datas++];
+				dst_bufs[dst_remap] = NULL;
+				dst_datas[dst_remap] = SPA_PTR_ALIGN(this->scratch, MAX_ALIGN, void);
+			}
+		} else {
+			for (j = 0; j < port->blocks; j++) {
+				uint32_t dst_remap = dir->dst_remap[n_dst_datas++];
+				bd = &buf->buf->datas[j];
 
-		for (j = 0; j < buf->buf->n_datas; j++) {
-			bd = &buf->buf->datas[j];
+				dst_bufs[dst_remap] = bd;
+				dst_datas[dst_remap] = bd->data;
 
-			dst_bufs[n_dst_datas] = bd;
-			dst_datas[n_dst_datas++] = bd->data;
+				bd->chunk->offset = 0;
+				bd->chunk->size = 0;
 
-			bd->chunk->offset = 0;
-			bd->chunk->size = 0;
-
-			spa_log_trace_fp(this->log, "%p: %d %d", this, bd->chunk->size, n_samples);
+				spa_log_trace_fp(this->log, "%p: %d %d %d->%d", this,
+						bd->chunk->size, n_samples,
+						i * port->blocks + j, dst_remap);
+			}
 		}
 	}
 
-	in_passthrough = this->dir[SPA_DIRECTION_INPUT].conv.is_passthrough;
 	mix_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY);
-	out_passthrough = this->dir[SPA_DIRECTION_OUTPUT].conv.is_passthrough;
 	end_passthrough = mix_passthrough && resample_passthrough && out_passthrough;
 
 	in_datas = (const void**)src_datas;

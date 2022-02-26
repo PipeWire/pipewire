@@ -1947,15 +1947,15 @@ static int impl_node_process(void *object)
 {
 	struct impl *this = object;
 	const void *src_datas[MAX_PORTS], **in_datas;
-	void *dst_datas[MAX_PORTS], **out_datas;
-	uint32_t i, j, n_src_datas = 0, n_dst_datas = 0, n_samples;
+	void *dst_datas[MAX_PORTS], *mon_datas[MAX_PORTS], **out_datas;
+	uint32_t i, j, n_src_datas = 0, n_dst_datas = 0, n_mon_datas = 0, n_samples;
 	struct port *port;
 	struct buffer *buf;
 	struct spa_data *bd, *dst_bufs[MAX_PORTS];
 	struct dir *dir;
 	int tmp = 0;
 	bool in_passthrough, mix_passthrough, resample_passthrough, out_passthrough, end_passthrough;
-	uint32_t in_len, out_len;
+	uint32_t in_len, out_len, remap;
 
 	dir = &this->dir[SPA_DIRECTION_INPUT];
 	in_passthrough = dir->conv.is_passthrough;
@@ -1967,22 +1967,24 @@ static int impl_node_process(void *object)
 
 		if (SPA_UNLIKELY(get_in_buffer(this, port, &buf) != 0)) {
 			for (j = 0; j < port->blocks; j++) {
-				uint32_t src_remap = dir->src_remap[n_src_datas++];
-				src_datas[src_remap] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
+				remap = dir->src_remap[n_src_datas++];
+				src_datas[remap] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
+				spa_log_trace_fp(this->log, "%p: %d->%d", this,
+						i * port->blocks + j, remap);
 			}
 		} else {
 			for (j = 0; j < port->blocks; j++) {
-				uint32_t src_remap = dir->src_remap[n_src_datas++];
+				remap = dir->src_remap[n_src_datas++];
 
 				bd = &buf->buf->datas[j];
 
-				src_datas[src_remap] = SPA_PTROFF(bd->data, bd->chunk->offset, void);
+				src_datas[remap] = SPA_PTROFF(bd->data, bd->chunk->offset, void);
 
 				n_samples = SPA_MIN(n_samples, bd->chunk->size / port->stride);
 
 				spa_log_trace_fp(this->log, "%p: %d %d %d->%d", this,
 						bd->chunk->size, n_samples,
-						i * port->blocks + j, src_remap);
+						i * port->blocks + j, remap);
 			}
 		}
 	}
@@ -2001,30 +2003,52 @@ static int impl_node_process(void *object)
 
 		if (SPA_UNLIKELY(get_out_buffer(this, port, &buf) != 0)) {
 			for (j = 0; j < port->blocks; j++) {
-				uint32_t dst_remap = dir->dst_remap[n_dst_datas++];
-				dst_bufs[dst_remap] = NULL;
-				dst_datas[dst_remap] = SPA_PTR_ALIGN(this->scratch, MAX_ALIGN, void);
+				if (port->is_monitor) {
+					mon_datas[n_mon_datas++] = SPA_PTR_ALIGN(this->scratch, MAX_ALIGN, void);
+				} else {
+					remap = dir->dst_remap[n_dst_datas++];
+					dst_bufs[remap] = NULL;
+					dst_datas[remap] = SPA_PTR_ALIGN(this->scratch, MAX_ALIGN, void);
+				}
+				spa_log_trace_fp(this->log, "%p: %d->%d %d", this,
+						i * port->blocks + j, remap, port->is_monitor);
 			}
 		} else {
 			for (j = 0; j < port->blocks; j++) {
-				uint32_t dst_remap = dir->dst_remap[n_dst_datas++];
 				bd = &buf->buf->datas[j];
 
-				dst_bufs[dst_remap] = bd;
-				dst_datas[dst_remap] = bd->data;
-
 				bd->chunk->offset = 0;
-				bd->chunk->size = 0;
-
+				if (port->is_monitor) {
+					mon_datas[n_mon_datas++] = bd->data;
+					bd->chunk->size = n_samples * port->stride;
+				} else {
+					remap = dir->dst_remap[n_dst_datas++];
+					dst_bufs[remap] = bd;
+					dst_datas[remap] = bd->data;
+					bd->chunk->size = 0;
+				}
 				spa_log_trace_fp(this->log, "%p: %d %d %d->%d", this,
 						bd->chunk->size, n_samples,
-						i * port->blocks + j, dst_remap);
+						i * port->blocks + j, remap);
 			}
 		}
 	}
 
 	mix_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY);
 	end_passthrough = mix_passthrough && resample_passthrough && out_passthrough;
+
+	for (i = 0; i < n_mon_datas; i++) {
+		float volume;
+
+		if (mon_datas[i] == NULL)
+			continue;
+
+		volume = this->props.monitor.mute ? 0.0f : this->props.monitor.volumes[i];
+		if (this->monitor_channel_volumes)
+			volume *= this->props.channel.mute ? 0.0f : this->props.channel.volumes[i];
+
+		volume_process(&this->volume, mon_datas[i], src_datas[i], volume, n_samples);
+	}
 
 	in_datas = (const void**)src_datas;
 	if (!in_passthrough || end_passthrough) {

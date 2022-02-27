@@ -233,33 +233,47 @@ on_event_fail_if_called(void *data, int fd, uint32_t mask)
 	pwtest_fail_if_reached();
 }
 
-PWTEST(thread_loop_destroy_between_poll_and_lock)
+struct dmsbd_data {
+	struct pw_loop *l;
+	struct pw_main_loop *ml;
+	struct spa_source *source;
+	struct spa_hook hook;
+};
+
+static void dmsbd_after(void *data)
+{
+	struct dmsbd_data *d = data;
+
+	pw_loop_destroy_source(d->l, d->source);
+	pw_main_loop_quit(d->ml);
+}
+
+static const struct spa_loop_control_hooks dmsbd_hooks = {
+	SPA_VERSION_LOOP_CONTROL_HOOKS,
+	.after = dmsbd_after,
+};
+
+PWTEST(destroy_managed_source_before_dispatch)
 {
 	pw_init(NULL, NULL);
 
-	struct pw_thread_loop *thread_loop = pw_thread_loop_new("uaf", NULL);
-	pwtest_ptr_notnull(thread_loop);
+	struct dmsbd_data data = {0};
 
-	struct pw_loop *loop = pw_thread_loop_get_loop(thread_loop);
-	pwtest_ptr_notnull(loop);
+	data.ml = pw_main_loop_new(NULL);
+	pwtest_ptr_notnull(data.ml);
 
-	int evfd = eventfd(0, 0);
-	pwtest_errno_ok(evfd);
+	data.l = pw_main_loop_get_loop(data.ml);
+	pwtest_ptr_notnull(data.l);
 
-	struct spa_source *source = pw_loop_add_io(loop, evfd, SPA_IO_IN, true, on_event_fail_if_called, NULL);
-	pwtest_ptr_notnull(source);
+	data.source = pw_loop_add_io(data.l, eventfd(0, 0), SPA_IO_IN, true, on_event_fail_if_called, NULL);
+	pwtest_ptr_notnull(data.source);
 
-	pw_thread_loop_start(thread_loop);
+	pw_loop_add_hook(data.l, &data.hook, &dmsbd_hooks, &data);
 
-	pw_thread_loop_lock(thread_loop);
-	{
-		write(evfd, &(uint64_t){1}, sizeof(uint64_t));
-		sleep(1);
-		pw_loop_destroy_source(loop, source);
-	}
-	pw_thread_loop_unlock(thread_loop);
+	pwtest_errno_ok(write(data.source->fd, &(uint64_t){1}, sizeof(uint64_t)));
 
-	pw_thread_loop_destroy(thread_loop);
+	pw_main_loop_run(data.ml);
+	pw_main_loop_destroy(data.ml);
 
 	pw_deinit();
 
@@ -271,7 +285,7 @@ PWTEST_SUITE(support)
 	pwtest_add(pwtest_loop_destroy2, PWTEST_NOARG);
 	pwtest_add(pwtest_loop_recurse1, PWTEST_NOARG);
 	pwtest_add(pwtest_loop_recurse2, PWTEST_NOARG);
-	pwtest_add(thread_loop_destroy_between_poll_and_lock, PWTEST_NOARG);
+	pwtest_add(destroy_managed_source_before_dispatch, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

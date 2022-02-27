@@ -259,6 +259,15 @@ pw_metadata_new(struct pw_context *context, struct pw_resource *resource,
 		   struct pw_properties *properties)
 {
 	struct impl *impl;
+	char serial_str[32];
+	struct spa_dict_item items[1] = {
+		SPA_DICT_ITEM_INIT(PW_KEY_OBJECT_SERIAL, serial_str),
+	};
+	struct spa_dict extra_props = SPA_DICT_INIT_ARRAY(items);
+	static const char * const keys[] = {
+		PW_KEY_OBJECT_SERIAL,
+		NULL
+	};
 
 	if (properties == NULL)
 		properties = pw_properties_new(NULL, NULL);
@@ -284,6 +293,10 @@ pw_metadata_new(struct pw_context *context, struct pw_resource *resource,
 	}
 	impl->resource = resource;
 	impl->metadata = (struct pw_metadata*)resource;
+
+	spa_scnprintf(serial_str, sizeof(serial_str), "%"PRIu64,
+			pw_global_get_serial(impl->global));
+	pw_global_update_keys(impl->global, &extra_props, keys);
 
 	pw_context_add_listener(context, &impl->context_listener,
 			&context_events, impl);

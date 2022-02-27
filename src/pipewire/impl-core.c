@@ -33,16 +33,17 @@ static void * registry_bind(void *object, uint32_t id,
 	struct pw_global *global;
 	uint32_t permissions, new_id = user_data_size;
 
-	if ((global = pw_context_find_global(context, id)) == NULL)
-		goto error_no_id;
+	if ((global = pw_context_find_global(context, id)) == NULL) {
+		if (errno == ESTALE)
+			goto error_stale_id;
+		else
+			goto error_no_id;
+	}
 
 	permissions = pw_global_get_permissions(global, client);
 
 	if (!PW_PERM_IS_R(permissions))
 		goto error_no_id;
-
-	if (resource->client->recv_generation != 0 && global->generation > resource->client->recv_generation)
-		goto error_stale_id;
 
 	if (!spa_streq(global->type, type))
 		goto error_wrong_interface;
@@ -57,8 +58,8 @@ static void * registry_bind(void *object, uint32_t id,
 
 error_stale_id:
 	pw_log_debug("registry %p: not binding stale global "
-			"id %u to %u, generation:%"PRIu64" recv-generation:%"PRIu64,
-			resource, id, new_id, global->generation, resource->client->recv_generation);
+			"id %u to %u recv-generation:%"PRIu64,
+			resource, id, new_id, resource->client->recv_generation);
 	pw_resource_errorf_id(resource, new_id, -ESTALE, "no global %u any more", id);
 	goto error_exit_clean;
 error_no_id:
@@ -88,16 +89,17 @@ static int registry_destroy(void *object, uint32_t id)
 	uint32_t permissions;
 	int res;
 
-	if ((global = pw_context_find_global(context, id)) == NULL)
-		goto error_no_id;
+	if ((global = pw_context_find_global(context, id)) == NULL) {
+		if (errno == ESTALE)
+			goto error_stale_id;
+		else
+			goto error_no_id;
+	}
 
 	permissions = pw_global_get_permissions(global, client);
 
 	if (!PW_PERM_IS_R(permissions))
 		goto error_no_id;
-
-	if (resource->client->recv_generation != 0 && global->generation > resource->client->recv_generation)
-		goto error_stale_id;
 
 	if (id == PW_ID_CORE || !PW_PERM_IS_X(permissions))
 		goto error_not_allowed;
@@ -109,8 +111,8 @@ static int registry_destroy(void *object, uint32_t id)
 
 error_stale_id:
 	pw_log_debug("registry %p: not destroying stale global "
-			"id %u, generation:%"PRIu64" recv-generation:%"PRIu64,
-			resource, id, global->generation, resource->client->recv_generation);
+			"id %u, recv-generation:%"PRIu64,
+			resource, id, resource->client->recv_generation);
 	pw_resource_errorf(resource, -ESTALE, "no global %u any more", id);
 	res = -ESTALE;
 	goto error_exit;

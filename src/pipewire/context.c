@@ -553,6 +553,19 @@ static bool global_can_read(struct pw_context *context, struct pw_global *global
 	return true;
 }
 
+static bool global_is_stale(struct pw_context *context, struct pw_global *global)
+{
+	struct pw_impl_client *client = context->current_client;
+
+	if (!client)
+		return false;
+
+	if (client->recv_generation != 0 && global->generation > client->recv_generation)
+		return true;
+
+	return false;
+}
+
 SPA_EXPORT
 int pw_context_for_each_global(struct pw_context *context,
 			    int (*callback) (void *data, struct pw_global *global),
@@ -562,7 +575,7 @@ int pw_context_for_each_global(struct pw_context *context,
 	int res;
 
 	spa_list_for_each_safe(g, t, &context->global_list, link) {
-		if (!global_can_read(context, g))
+		if (!global_can_read(context, g) || global_is_stale(context, g))
 			continue;
 		if ((res = callback(data, g)) != 0)
 			return res;
@@ -578,6 +591,11 @@ struct pw_global *pw_context_find_global(struct pw_context *context, uint32_t id
 	global = pw_map_lookup(&context->globals, id);
 	if (global == NULL || !global->registered) {
 		errno = ENOENT;
+		return NULL;
+	}
+
+	if (global_is_stale(context, global)) {
+		errno = global_can_read(context, global) ? ESTALE : ENOENT;
 		return NULL;
 	}
 

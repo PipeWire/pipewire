@@ -117,15 +117,16 @@ static int client_error(void *object, uint32_t id, int res, const char *error)
 	struct pw_impl_client *sender = resource->client;
 	struct pw_impl_client *client = data->client;
 	struct error_data d = { id, res, error };
-	struct pw_global *global;
 
 	/* Check the global id provided by sender refers to a registered global
 	 * known to the sender.
 	 */
-	if ((global = pw_context_find_global(resource->context, id)) == NULL)
-		goto error_no_id;
-	if (sender->recv_generation != 0 && global->generation > sender->recv_generation)
-		goto error_stale_id;
+	if (pw_context_find_global(resource->context, id) == NULL) {
+		if (errno == ESTALE)
+			goto error_stale_id;
+		else
+			goto error_no_id;
+	}
 
 	pw_log_debug("%p: sender %p: error for global %u", client, sender, id);
 	pw_map_for_each(&client->objects, error_resource, &d);
@@ -136,8 +137,8 @@ error_no_id:
 	pw_resource_errorf(resource, -ENOENT, "no global %u", id);
 	return -ENOENT;
 error_stale_id:
-	pw_log_debug("%p: sender %p: error for stale global %u generation:%"PRIu64" recv-generation:%"PRIu64,
-			client, sender, id, global->generation, sender->recv_generation);
+	pw_log_debug("%p: sender %p: error for stale global %u recv-generation:%"PRIu64,
+			client, sender, id, sender->recv_generation);
 	pw_resource_errorf(resource, -ESTALE, "no global %u any more", id);
 	return -ESTALE;
 }
@@ -804,10 +805,7 @@ int pw_impl_client_check_permissions(struct pw_impl_client *client,
 	uint32_t perms;
 
 	if ((global = pw_context_find_global(context, global_id)) == NULL)
-		return -ENOENT;
-
-	if (client->recv_generation != 0 && global->generation > client->recv_generation)
-		return -ESTALE;
+		return (errno == ESTALE) ? -ESTALE : -ENOENT;
 
 	perms = pw_global_get_permissions(global, client);
 	if ((perms & permissions) != permissions)

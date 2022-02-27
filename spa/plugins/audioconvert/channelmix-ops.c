@@ -457,9 +457,8 @@ done:
 		if (i == _CH(LFE) && mix->lfe_cutoff > 0.0f) {
 			spa_log_debug(mix->log, "channel %d is LFE", ic);
 			lr4_set(&mix->lr4[ic], BQ_LOWPASS, mix->lfe_cutoff / mix->freq);
-			mix->lr4_info[ic] = 1;
 		} else {
-			mix->lr4_info[ic] = 0;
+			mix->lr4[ic].active = false;
 		}
 		ic++;
 	}

@@ -6,6 +6,8 @@
 #ifndef CROSSOVER_H_
 #define CROSSOVER_H_
 
+#include <stdbool.h>
+
 #include "biquad.h"
 /* An LR4 filter is two biquads with the same parameters connected in series:
  *
@@ -19,10 +21,11 @@ struct lr4 {
 	float x1, x2;
 	float y1, y2;
 	float z1, z2;
+	bool active;
 };
 
 void lr4_set(struct lr4 *lr4, enum biquad_type type, float freq);
 
-void lr4_process(struct lr4 *lr4, float *data, int samples);
+void lr4_process(struct lr4 *lr4, float *dst, const float *src, const float vol, int samples);
 
 #endif /* CROSSOVER_H_ */

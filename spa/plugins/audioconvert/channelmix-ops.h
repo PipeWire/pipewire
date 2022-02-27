@@ -69,7 +69,6 @@ struct channelmix {
 
 	float freq;					/* sample frequency */
 	float lfe_cutoff;				/* in Hz, 0 is disabled */
-	uint32_t lr4_info[SPA_AUDIO_MAX_CHANNELS];
 	struct lr4 lr4[SPA_AUDIO_MAX_CHANNELS];
 
 	void (*process) (struct channelmix *mix, void * SPA_RESTRICT dst[],

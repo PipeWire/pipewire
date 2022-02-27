@@ -5,6 +5,9 @@
 
 #include "config.h"
 
+#include <float.h>
+#include <string.h>
+
 #include "crossover.h"
 
 void lr4_set(struct lr4 *lr4, enum biquad_type type, float freq)
@@ -16,9 +19,10 @@ void lr4_set(struct lr4 *lr4, enum biquad_type type, float freq)
 	lr4->y2 = 0;
 	lr4->z1 = 0;
 	lr4->z2 = 0;
+	lr4->active = true;
 }
 
-void lr4_process(struct lr4 *lr4, float *data, int samples)
+void lr4_process(struct lr4 *lr4, float *dst, const float *src, const float vol, int samples)
 {
 	float lx1 = lr4->x1;
 	float lx2 = lr4->x2;
@@ -31,11 +35,22 @@ void lr4_process(struct lr4 *lr4, float *data, int samples)
 	float lb2 = lr4->bq.b2;
 	float la1 = lr4->bq.a1;
 	float la2 = lr4->bq.a2;
-
 	int i;
+
+	if (vol == 0.0f) {
+		memset(dst, 0, samples * sizeof(float));
+		return;
+	} else if (!lr4->active) {
+		if (src != dst || vol != 1.0f) {
+			for (i = 0; i < samples; i++)
+				dst[i] = src[i] * vol;
+		}
+		return;
+	}
+
 	for (i = 0; i < samples; i++) {
 		float x, y, z;
-		x = data[i];
+		x = src[i];
 		y = lb0*x + lb1*lx1 + lb2*lx2 - la1*ly1 - la2*ly2;
 		z = lb0*y + lb1*ly1 + lb2*ly2 - la1*lz1 - la2*lz2;
 		lx2 = lx1;
@@ -44,13 +59,14 @@ void lr4_process(struct lr4 *lr4, float *data, int samples)
 		ly1 = y;
 		lz2 = lz1;
 		lz1 = z;
-		data[i] = z;
+		dst[i] = z * vol;
 	}
-
-	lr4->x1 = lx1;
-	lr4->x2 = lx2;
-	lr4->y1 = ly1;
-	lr4->y2 = ly2;
-	lr4->z1 = lz1;
-	lr4->z2 = lz2;
+#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
+	lr4->x1 = F(lx1);
+	lr4->x2 = F(lx2);
+	lr4->y1 = F(ly1);
+	lr4->y2 = F(ly2);
+	lr4->z1 = F(lz1);
+	lr4->z2 = F(lz2);
+#undef F
 }

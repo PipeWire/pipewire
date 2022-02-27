@@ -78,10 +78,8 @@ channelmix_f32_n_m_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 				d[i][n] = sum;
 			}
 		}
-		for (i = 0; i < n_dst; i++) {
-			if (mix->lr4_info[i] > 0)
-				lr4_process(&mix->lr4[i], d[i], n_samples);
-		}
+		for (i = 0; i < n_dst; i++)
+			lr4_process(&mix->lr4[i], d[i], d[i], 1.0f, n_samples);
 	}
 }
 
@@ -253,22 +251,20 @@ channelmix_f32_2_3p1_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 			float c = s[0][n] + s[1][n];
 			d[0][n] = s[0][n];
 			d[1][n] = s[1][n];
-			d[2][n] = c * v2;
-			d[3][n] = c * v3;
+			d[2][n] = c;
 		}
-		if (v3 > 0.0f)
-			lr4_process(&mix->lr4[3], d[3], n_samples);
+		lr4_process(&mix->lr4[3], d[3], d[2], v3, n_samples);
+		lr4_process(&mix->lr4[2], d[2], d[2], v2, n_samples);
 	}
 	else {
 		for (n = 0; n < n_samples; n++) {
 			float c = s[0][n] + s[1][n];
 			d[0][n] = s[0][n] * v0;
 			d[1][n] = s[1][n] * v1;
-			d[2][n] = c * v2;
-			d[3][n] = c * v3;
+			d[2][n] = c;
 		}
-		if (v3 > 0.0f)
-			lr4_process(&mix->lr4[3], d[3], n_samples);
+		lr4_process(&mix->lr4[3], d[3], d[2], v3, n_samples);
+		lr4_process(&mix->lr4[2], d[2], d[2], v2, n_samples);
 	}
 }
 
@@ -296,24 +292,22 @@ channelmix_f32_2_5p1_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 			float c = s[0][n] + s[1][n];
 			d[0][n] = d[4][n] = s[0][n];
 			d[1][n] = d[5][n] = s[1][n];
-			d[2][n] = c * v2;
-			d[3][n] = c * v3;
+			d[2][n] = c;
 		}
-		if (v3 > 0.0f)
-			lr4_process(&mix->lr4[3], d[3], n_samples);
+		lr4_process(&mix->lr4[3], d[3], d[2], v3, n_samples);
+		lr4_process(&mix->lr4[2], d[2], d[2], v2, n_samples);
 	}
 	else {
 		for (n = 0; n < n_samples; n++) {
 			float c = s[0][n] + s[1][n];
 			d[0][n] = s[0][n] * v0;
 			d[1][n] = s[1][n] * v1;
-			d[2][n] = c * v2;
-			d[3][n] = c * v3;
+			d[2][n] = c;
 			d[4][n] = s[0][n] * v4;
 			d[5][n] = s[1][n] * v5;
 		}
-		if (v3 > 0.0f)
-			lr4_process(&mix->lr4[3], d[3], n_samples);
+		lr4_process(&mix->lr4[3], d[3], d[2], v3, n_samples);
+		lr4_process(&mix->lr4[2], d[2], d[2], v2, n_samples);
 	}
 }
 
@@ -343,26 +337,24 @@ channelmix_f32_2_7p1_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 			float c = s[0][n] + s[1][n];
 			d[0][n] = d[4][n] = d[6][n] = s[0][n];
 			d[1][n] = d[5][n] = d[7][n] = s[1][n];
-			d[2][n] = c * v2;
-			d[3][n] = c * v3;
+			d[2][n] = c;
 		}
-		if (v3 > 0.0f)
-			lr4_process(&mix->lr4[3], d[3], n_samples);
+		lr4_process(&mix->lr4[3], d[3], d[2], v3, n_samples);
+		lr4_process(&mix->lr4[2], d[2], d[2], v2, n_samples);
 	}
 	else {
 		for (n = 0; n < n_samples; n++) {
 			float c = s[0][n] + s[1][n];
 			d[0][n] = s[0][n] * v0;
 			d[1][n] = s[1][n] * v1;
-			d[2][n] = c * v2;
-			d[3][n] = c * v3;
+			d[2][n] = c;
 			d[4][n] = s[0][n] * v4;
 			d[5][n] = s[1][n] * v5;
 			d[6][n] = s[0][n] * v6;
 			d[7][n] = s[1][n] * v7;
 		}
-		if (v3 > 0.0f)
-			lr4_process(&mix->lr4[3], d[3], n_samples);
+		lr4_process(&mix->lr4[3], d[3], d[2], v3, n_samples);
+		lr4_process(&mix->lr4[2], d[2], d[2], v2, n_samples);
 	}
 }
 

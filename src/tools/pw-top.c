@@ -241,9 +241,8 @@ static const char *print_perc(char *buf, size_t len, float val, float quantum)
 	return buf;
 }
 
-static void print_node(struct data *d, struct driver *i, struct node *n)
+static void print_node(struct data *d, struct driver *i, struct node *n, int y)
 {
-	char line[1024];
 	char buf1[64];
 	char buf2[64];
 	char buf3[64];
@@ -264,7 +263,7 @@ static void print_node(struct data *d, struct driver *i, struct node *n)
 	waiting = (n->measurement.awake - n->measurement.signal) / 1000000000.f,
 	busy = (n->measurement.finish - n->measurement.awake) / 1000000000.f,
 
-	snprintf(line, sizeof(line), "%s %4.1u %6.1u %6.1u %s %s %s %s  %3.1u  %s%s",
+	mvwprintw(d->win, y, 0, "%s %4.1u %6.1u %6.1u %s %s %s %s  %3.1u  %s%s",
 			n->measurement.status != 3 ? "!" : " ",
 			n->id,
 			frac.num, frac.denom,
@@ -275,13 +274,12 @@ static void print_node(struct data *d, struct driver *i, struct node *n)
 			i->xrun_count + n->errors,
 			n->driver == n ? "" : " + ",
 			n->name);
-
-	wprintw(d->win, "%.*s\n", COLS-1, line);
 }
 
 static void do_refresh(struct data *d)
 {
 	struct node *n, *t, *f;
+	int y = 1;
 
 	wclear(d->win);
 	wattron(d->win, A_REVERSE);
@@ -293,15 +291,25 @@ static void do_refresh(struct data *d)
 		if (n->driver != n)
 			continue;
 
-		print_node(d, &n->info, n);
+		print_node(d, &n->info, n, y++);
+		if(y > LINES)
+			break;
 
 		spa_list_for_each(f, &d->node_list, link) {
 			if (f->driver != n || f == n)
 				continue;
 
-			print_node(d, &n->info, f);
+			print_node(d, &n->info, f, y++);
+			if(y > LINES)
+				break;
+
 		}
 	}
+
+	// Clear from last line to the end of the window to hide text wrapping from the last node
+	wmove(d->win, y, 0);
+	wclrtobot(d->win);
+
 	wrefresh(d->win);
 }
 

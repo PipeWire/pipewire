@@ -260,5 +260,6 @@ static inline uint32_t port_type_value(const char *port_type)
 #define METADATA_CONFIG_DEFAULT_SINK    "default.configured.audio.sink"
 #define METADATA_CONFIG_DEFAULT_SOURCE  "default.configured.audio.source"
 #define METADATA_TARGET_NODE            "target.node"
+#define METADATA_TARGET_OBJECT          "target.object"
 
 #endif /* PULSE_SERVER_DEFS_H */

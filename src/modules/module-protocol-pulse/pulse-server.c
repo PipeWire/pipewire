@@ -4628,6 +4628,7 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	struct pw_manager_object *o, *dev, *dev_default;
 	uint32_t index, index_device;
 	int target_id;
+	int64_t target_serial;
 	const char *name_device;
 	struct pw_node_info *info;
 	struct selector sel;
@@ -4673,14 +4674,22 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 		 * forgetting target.node. Follow that behavior here.
 		 */
 		target_id = -1;
+		target_serial = -1;
 	} else {
 		target_id = dev->id;
+		target_serial = dev->serial;
 	}
 
 	if ((res = pw_manager_set_metadata(manager, client->metadata_default,
 			o->id,
 			METADATA_TARGET_NODE,
 			SPA_TYPE_INFO_BASE"Id", "%d", target_id)) < 0)
+		return res;
+
+	if ((res = pw_manager_set_metadata(manager, client->metadata_default,
+			o->id,
+			METADATA_TARGET_OBJECT,
+			SPA_TYPE_INFO_BASE"Id", "%"PRIi64, target_serial)) < 0)
 		return res;
 
 	return reply_simple_ack(client, tag);

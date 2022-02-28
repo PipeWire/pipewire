@@ -835,20 +835,44 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 			if (FC_IS_PORT_INPUT(fp->flags)) {
 				pw_log_info("using port %lu ('%s') as input %d", p,
 						fp->name, desc->n_input);
+				if (desc->n_input >= MAX_PORTS) {
+					pw_log_error("plugin has too many input ports %d >= %d",
+							desc->n_input, MAX_PORTS);
+					res = -ENOTSUP;
+					goto exit;
+				}
 				desc->input[desc->n_input++] = p;
 			}
 			else if (FC_IS_PORT_OUTPUT(fp->flags)) {
+				if (desc->n_output >= MAX_PORTS) {
+					pw_log_error("plugin has too many output ports %d >= %d",
+							desc->n_output, MAX_PORTS);
+					res = -ENOTSUP;
+					goto exit;
+				}
 				pw_log_info("using port %lu ('%s') as output %d", p,
 						fp->name, desc->n_output);
 				desc->output[desc->n_output++] = p;
 			}
 		} else if (FC_IS_PORT_CONTROL(fp->flags)) {
 			if (FC_IS_PORT_INPUT(fp->flags)) {
+				if (desc->n_control >= MAX_CONTROLS) {
+					pw_log_error("plugin has too many control ports %d >= %d",
+							desc->n_control, MAX_CONTROLS);
+					res = -ENOTSUP;
+					goto exit;
+				}
 				pw_log_info("using port %lu ('%s') as control %d", p,
 						fp->name, desc->n_control);
 				desc->control[desc->n_control++] = p;
 			}
 			else if (FC_IS_PORT_OUTPUT(fp->flags)) {
+				if (desc->n_notify >= MAX_CONTROLS) {
+					pw_log_error("plugin has too many notify ports %d >= %d",
+							desc->n_notify, MAX_CONTROLS);
+					res = -ENOTSUP;
+					goto exit;
+				}
 				pw_log_info("using port %lu ('%s') as notify %d", p,
 						fp->name, desc->n_notify);
 				desc->notify[desc->n_notify++] = p;

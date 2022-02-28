@@ -138,9 +138,9 @@ struct descriptor {
 	uint32_t n_notify;
 	unsigned long input[MAX_PORTS];
 	unsigned long output[MAX_PORTS];
-	unsigned long control[MAX_PORTS];
-	unsigned long notify[MAX_PORTS];
-	float default_control[MAX_PORTS];
+	unsigned long control[MAX_CONTROLS];
+	unsigned long notify[MAX_CONTROLS];
+	float default_control[MAX_CONTROLS];
 };
 
 struct port {
@@ -169,8 +169,8 @@ struct node {
 
 	struct port input_port[MAX_PORTS];
 	struct port output_port[MAX_PORTS];
-	struct port control_port[MAX_PORTS];
-	struct port notify_port[MAX_PORTS];
+	struct port control_port[MAX_CONTROLS];
+	struct port notify_port[MAX_CONTROLS];
 
 	uint32_t n_hndl;
 	void *hndl[MAX_HNDL];

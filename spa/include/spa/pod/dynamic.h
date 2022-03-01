@@ -40,7 +40,7 @@ struct spa_pod_dynamic_builder {
 
 static int spa_pod_dynamic_builder_overflow(void *data, uint32_t size)
 {
-	struct spa_pod_dynamic_builder *d = data;
+	struct spa_pod_dynamic_builder *d = (struct spa_pod_dynamic_builder*)data;
 	int32_t old_size = d->b.size;
 	int32_t new_size = SPA_ROUND_UP_N(size, d->extend);
 	void *old_data = d->b.data;

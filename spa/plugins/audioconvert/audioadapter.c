@@ -36,6 +36,7 @@
 #include <spa/buffer/alloc.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/filter.h>
+#include <spa/pod/dynamic.h>
 #include <spa/param/param.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/latency-utils.h>
@@ -142,8 +143,8 @@ static int impl_node_enum_params(void *object, int seq,
 				 const struct spa_pod *filter)
 {
 	struct impl *this = object;
-	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[4096];
+	struct spa_pod_dynamic_builder b;
 	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res;
@@ -158,7 +159,7 @@ next:
 
 	spa_log_debug(this->log, "%p: %d id:%u", this, seq, id);
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
 
 	switch (id) {
 	case SPA_PARAM_EnumPortConfig:
@@ -166,35 +167,38 @@ next:
 		res = spa_node_enum_params(this->convert, seq, id, start, num, filter);
 		return res;
 	case SPA_PARAM_PropInfo:
-		if ((res = follower_enum_params(this,
-				id, IDX_PropInfo, &result, filter, &b)) != 1)
-			return res;
+		res = follower_enum_params(this,
+				id, IDX_PropInfo, &result, filter, &b.b);
 		break;
 	case SPA_PARAM_Props:
-		if ((res = follower_enum_params(this,
-				id, IDX_Props, &result, filter, &b)) != 1)
-			return res;
+		res = follower_enum_params(this,
+				id, IDX_Props, &result, filter, &b.b);
 		break;
 	case SPA_PARAM_ProcessLatency:
-		if ((res = follower_enum_params(this,
-				id, IDX_ProcessLatency, &result, filter, &b)) != 1)
-			return res;
+		res = follower_enum_params(this,
+				id, IDX_ProcessLatency, &result, filter, &b.b);
 		break;
 	case SPA_PARAM_EnumFormat:
 	case SPA_PARAM_Format:
 	case SPA_PARAM_Latency:
-		if ((res = spa_node_port_enum_params_sync(this->follower,
+		res = spa_node_port_enum_params_sync(this->follower,
 				this->direction, 0,
-				id, &result.next, filter, &result.param, &b)) != 1)
-			return res;
+				id, &result.next, filter, &result.param, &b.b);
 		break;
 	default:
 		return -ENOENT;
 	}
 
-	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+	if (res == 1) {
+		spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+		count++;
+	}
+	spa_pod_dynamic_builder_clean(&b);
 
-	if (++count != num)
+	if (res != 1)
+		return res;
+
+	if (count != num)
 		goto next;
 
 	return 0;

@@ -33,6 +33,7 @@
 extern struct spa_log_topic *log_topic;
 
 #include "crossover.h"
+#include "delay.h"
 
 #define VOLUME_MIN 0.0f
 #define VOLUME_NORM 1.0f
@@ -45,6 +46,7 @@ extern struct spa_log_topic *log_topic;
 #define MASK_5_1	_M(FL)|_M(FR)|_M(FC)|_M(LFE)|_M(SL)|_M(SR)|_M(RL)|_M(RR)
 #define MASK_7_1	_M(FL)|_M(FR)|_M(FC)|_M(LFE)|_M(SL)|_M(SR)|_M(RL)|_M(RR)
 
+#define BUFFER_SIZE 4096
 
 struct channelmix {
 	uint32_t src_chan;
@@ -69,7 +71,12 @@ struct channelmix {
 
 	float freq;					/* sample frequency */
 	float lfe_cutoff;				/* in Hz, 0 is disabled */
+	float rear_delay;				/* in ms, 0 is disabled */
 	struct lr4 lr4[SPA_AUDIO_MAX_CHANNELS];
+
+	float buffer[2][BUFFER_SIZE];
+	uint32_t pos[2];
+	uint32_t delay;
 
 	void (*process) (struct channelmix *mix, void * SPA_RESTRICT dst[],
 			const void * SPA_RESTRICT src[], uint32_t n_samples);

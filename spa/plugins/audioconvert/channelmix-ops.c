@@ -544,11 +544,13 @@ int channelmix_init(struct channelmix *mix)
 	if (info == NULL)
 		return -ENOTSUP;
 
-	spa_log_debug(mix->log, "selected %s", info->name);
-
 	mix->free = impl_channelmix_free;
 	mix->process = info->process;
 	mix->set_volume = impl_channelmix_set_volume;
 	mix->cpu_flags = info->cpu_flags;
+	mix->delay = mix->rear_delay * mix->freq / 1000.0f;
+
+	spa_log_debug(mix->log, "selected %s delay:%d", info->name, mix->delay);
+
 	return make_matrix(mix);
 }

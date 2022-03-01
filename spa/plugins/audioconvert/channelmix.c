@@ -468,13 +468,21 @@ static int impl_node_enum_params(void *object, int seq,
 		case 8:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.disable"),
+				SPA_PROP_INFO_description, SPA_POD_String("Disable Channel mixing"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->disabled),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 9:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.normalize"),
 				SPA_PROP_INFO_description, SPA_POD_String("Normalize Volumes"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
 					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_NORMALIZE)),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 9:
+		case 10:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.mix-lfe"),
@@ -483,7 +491,7 @@ static int impl_node_enum_params(void *object, int seq,
 					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_MIX_LFE)),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 10:
+		case 11:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.upmix"),
@@ -492,21 +500,22 @@ static int impl_node_enum_params(void *object, int seq,
 					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_UPMIX)),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 11:
+		case 12:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.lfe-cutoff"),
-				SPA_PROP_INFO_description, SPA_POD_String("LFE cutoff frequency"),
+				SPA_PROP_INFO_description, SPA_POD_String("LFE cutoff frequency (Hz)"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
 					this->mix.lfe_cutoff, 0.0, 1000.0),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 12:
+		case 13:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("channelmix.disable"),
-				SPA_PROP_INFO_description, SPA_POD_String("Disable Channel mixing"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->disabled),
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.rear-delay"),
+				SPA_PROP_INFO_description, SPA_POD_String("Rear channels delay (ms)"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+					this->mix.rear_delay, 0.0, 1000.0),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
 		default:
@@ -547,6 +556,8 @@ static int impl_node_enum_params(void *object, int seq,
 				0);
 			spa_pod_builder_prop(&b, SPA_PROP_params, 0);
 			spa_pod_builder_push_struct(&b, &f[1]);
+			spa_pod_builder_string(&b, "channelmix.disable");
+			spa_pod_builder_bool(&b, this->props.disabled);
 			spa_pod_builder_string(&b, "channelmix.normalize");
 			spa_pod_builder_bool(&b, SPA_FLAG_IS_SET(this->mix.options,
 						CHANNELMIX_OPTION_NORMALIZE));
@@ -558,8 +569,8 @@ static int impl_node_enum_params(void *object, int seq,
 						CHANNELMIX_OPTION_UPMIX));
 			spa_pod_builder_string(&b, "channelmix.lfe-cutoff");
 			spa_pod_builder_float(&b, this->mix.lfe_cutoff);
-			spa_pod_builder_string(&b, "channelmix.disable");
-			spa_pod_builder_bool(&b, this->props.disabled);
+			spa_pod_builder_string(&b, "channelmix.rear-delay");
+			spa_pod_builder_float(&b, this->mix.rear_delay);
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
@@ -585,7 +596,9 @@ static int impl_node_enum_params(void *object, int seq,
 
 static int channelmix_set_param(struct impl *this, const char *k, const char *s)
 {
-	if (spa_streq(k, "channelmix.normalize"))
+	if (spa_streq(k, "channelmix.disable"))
+		this->props.disabled = spa_atob(s);
+	else if (spa_streq(k, "channelmix.normalize"))
 		SPA_FLAG_UPDATE(this->mix.options, CHANNELMIX_OPTION_NORMALIZE, spa_atob(s));
 	else if (spa_streq(k, "channelmix.mix-lfe"))
 		SPA_FLAG_UPDATE(this->mix.options, CHANNELMIX_OPTION_MIX_LFE, spa_atob(s));
@@ -593,8 +606,8 @@ static int channelmix_set_param(struct impl *this, const char *k, const char *s)
 		SPA_FLAG_UPDATE(this->mix.options, CHANNELMIX_OPTION_UPMIX, spa_atob(s));
 	else if (spa_streq(k, "channelmix.lfe-cutoff"))
 		spa_atof(s, &this->mix.lfe_cutoff);
-	else if (spa_streq(k, "channelmix.disable"))
-		this->props.disabled = spa_atob(s);
+	else if (spa_streq(k, "channelmix.rear-delay"))
+		spa_atof(s, &this->mix.rear_delay);
 	else
 		return 0;
 	return 1;
@@ -1577,6 +1590,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->mix.options = CHANNELMIX_OPTION_NORMALIZE;
 	this->mix.log = this->log;
+	this->mix.rear_delay = 12.0f;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;

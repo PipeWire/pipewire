@@ -85,4 +85,5 @@ stream.properties = {
     #channelmix.mix-lfe    = true
     #channelmix.upmix      = false
     #channelmix.lfe-cutoff = 0
+    #channelmix.rear-delay = 12.0
 }

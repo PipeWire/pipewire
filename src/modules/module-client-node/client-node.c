@@ -33,6 +33,7 @@
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/pod/filter.h>
+#include <spa/pod/dynamic.h>
 #include <spa/pod/parser.h>
 #include <spa/debug/types.h>
 
@@ -293,7 +294,7 @@ static int impl_node_enum_params(void *object, int seq,
 {
 	struct node *this = object;
 	uint8_t buffer[1024];
-	struct spa_pod_builder b = { 0 };
+	struct spa_pod_dynamic_builder b;
 	struct spa_result_node_params result;
 	uint32_t count = 0;
 	bool found = false;
@@ -321,14 +322,15 @@ static int impl_node_enum_params(void *object, int seq,
 		if (result.index < start)
 			continue;
 
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if (spa_pod_filter(&b, &result.param, param, filter) != 0)
-			continue;
+		spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+		if (spa_pod_filter(&b.b, &result.param, param, filter) == 0) {
+			pw_log_debug("%p: %d param %u", this, seq, result.index);
+			spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+			count++;
+		}
+		spa_pod_dynamic_builder_clean(&b);
 
-		pw_log_debug("%p: %d param %u", this, seq, result.index);
-		spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
-
-		if (++count == num)
+		if (count == num)
 			break;
 	}
 	return found ? 0 : -ENOENT;
@@ -563,7 +565,7 @@ impl_node_port_enum_params(void *object, int seq,
 	struct node *this = object;
 	struct port *port;
 	uint8_t buffer[1024];
-	struct spa_pod_builder b = { 0 };
+	struct spa_pod_dynamic_builder b;
 	struct spa_result_node_params result;
 	uint32_t count = 0;
 	bool found = false;
@@ -597,14 +599,15 @@ impl_node_port_enum_params(void *object, int seq,
 		if (result.index < start)
 			continue;
 
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if (spa_pod_filter(&b, &result.param, param, filter) < 0)
-			continue;
+		spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+		if (spa_pod_filter(&b.b, &result.param, param, filter) == 0) {
+			pw_log_debug("%p: %d param %u", this, seq, result.index);
+			spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+			count++;
+		}
+		spa_pod_dynamic_builder_clean(&b);
 
-		pw_log_debug("%p: %d param %u", this, seq, result.index);
-		spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
-
-		if (++count == num)
+		if (count == num)
 			break;
 	}
 	return found ? 0 : -ENOENT;

@@ -31,6 +31,7 @@
 #include <sys/mman.h>
 
 #include <spa/pod/parser.h>
+#include <spa/pod/dynamic.h>
 #include <spa/node/utils.h>
 #include <spa/utils/result.h>
 #include <spa/debug/types.h>
@@ -301,7 +302,7 @@ static int add_node_update(struct node_data *data, uint32_t change_mask, uint32_
 	if (change_mask & PW_CLIENT_NODE_UPDATE_PARAMS) {
 		uint32_t i, idx, id;
 		uint8_t buf[4096];
-		struct spa_pod_builder b = { 0 };
+		struct spa_pod_dynamic_builder b;
 
 		for (i = 0; i < node->info.n_params; i++) {
 			struct spa_pod *param;
@@ -311,14 +312,17 @@ static int add_node_update(struct node_data *data, uint32_t change_mask, uint32_
 				continue;
 
 			for (idx = 0;;) {
-				spa_pod_builder_init(&b, buf, sizeof(buf));
-	                        if (spa_node_enum_params_sync(node->node,
-							id, &idx,
-							NULL, &param, &b) != 1)
-	                                break;
+				spa_pod_dynamic_builder_init(&b, buf, sizeof(buf), 4096);
 
-				params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));
-				params[n_params++] = spa_pod_copy(param);
+	                        res = spa_node_enum_params_sync(node->node,
+							id, &idx, NULL, &param, &b.b);
+				if (res == 1) {
+					params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));
+					params[n_params++] = spa_pod_copy(param);
+				}
+				spa_pod_dynamic_builder_clean(&b);
+				if (res != 1)
+	                                break;
 			}
                 }
 	}
@@ -356,7 +360,7 @@ static int add_port_update(struct node_data *data, struct pw_impl_port *port, ui
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
 		uint32_t i, idx, id;
 		uint8_t buf[4096];
-		struct spa_pod_builder b = { 0 };
+		struct spa_pod_dynamic_builder b;
 
 		for (i = 0; i < port->info.n_params; i++) {
 			struct spa_pod *param;
@@ -366,15 +370,20 @@ static int add_port_update(struct node_data *data, struct pw_impl_port *port, ui
 				continue;
 
 			for (idx = 0;;) {
-				spa_pod_builder_init(&b, buf, sizeof(buf));
-	                        if (spa_node_port_enum_params_sync(port->node->node,
+				spa_pod_dynamic_builder_init(&b, buf, sizeof(buf), 4096);
+
+	                        res = spa_node_port_enum_params_sync(port->node->node,
 							port->direction, port->port_id,
-							id, &idx,
-							NULL, &param, &b) != 1)
+							id, &idx, NULL, &param, &b.b);
+				if (res == 1) {
+					params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));
+					params[n_params++] = spa_pod_copy(param);
+				}
+				spa_pod_dynamic_builder_clean(&b);
+
+				if (res != 1)
 	                                break;
 
-				params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));
-				params[n_params++] = spa_pod_copy(param);
 			}
                 }
 	}

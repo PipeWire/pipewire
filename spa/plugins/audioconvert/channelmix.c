@@ -512,13 +512,22 @@ static int impl_node_enum_params(void *object, int seq,
 		case 13:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.fc-cutoff"),
+				SPA_PROP_INFO_description, SPA_POD_String("FC cutoff frequency (Hz)"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+					this->mix.fc_cutoff, 0.0, 48000.0),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 14:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.rear-delay"),
 				SPA_PROP_INFO_description, SPA_POD_String("Rear channels delay (ms)"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
 					this->mix.rear_delay, 0.0, 1000.0),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 14:
+		case 15:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.stereo-widen"),
@@ -527,7 +536,7 @@ static int impl_node_enum_params(void *object, int seq,
 					this->mix.widen, 0.0, 1.0),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 15:
+		case 16:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.hilbert-taps"),
@@ -587,6 +596,8 @@ static int impl_node_enum_params(void *object, int seq,
 						CHANNELMIX_OPTION_UPMIX));
 			spa_pod_builder_string(&b, "channelmix.lfe-cutoff");
 			spa_pod_builder_float(&b, this->mix.lfe_cutoff);
+			spa_pod_builder_string(&b, "channelmix.fc-cutoff");
+			spa_pod_builder_float(&b, this->mix.fc_cutoff);
 			spa_pod_builder_string(&b, "channelmix.rear-delay");
 			spa_pod_builder_float(&b, this->mix.rear_delay);
 			spa_pod_builder_string(&b, "channelmix.stereo-widen");
@@ -628,6 +639,8 @@ static int channelmix_set_param(struct impl *this, const char *k, const char *s)
 		SPA_FLAG_UPDATE(this->mix.options, CHANNELMIX_OPTION_UPMIX, spa_atob(s));
 	else if (spa_streq(k, "channelmix.lfe-cutoff"))
 		spa_atof(s, &this->mix.lfe_cutoff);
+	else if (spa_streq(k, "channelmix.fc-cutoff"))
+		spa_atof(s, &this->mix.fc_cutoff);
 	else if (spa_streq(k, "channelmix.rear-delay"))
 		spa_atof(s, &this->mix.rear_delay);
 	else if (spa_streq(k, "channelmix.stereo-widen"))

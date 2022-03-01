@@ -456,8 +456,11 @@ done:
 		}
 		maxsum = SPA_MAX(maxsum, sum);
 		if (i == _CH(LFE) && mix->lfe_cutoff > 0.0f) {
-			spa_log_debug(mix->log, "channel %d is LFE", ic);
+			spa_log_debug(mix->log, "channel %d is LFE cutoff:%f", ic, mix->lfe_cutoff);
 			lr4_set(&mix->lr4[ic], BQ_LOWPASS, mix->lfe_cutoff / mix->freq);
+		} else if (i == _CH(FC) && mix->fc_cutoff > 0.0f) {
+			spa_log_debug(mix->log, "channel %d is FC cutoff:%f", ic, mix->fc_cutoff);
+			lr4_set(&mix->lr4[ic], BQ_LOWPASS, mix->fc_cutoff / mix->freq);
 		} else {
 			mix->lr4[ic].active = false;
 		}
@@ -556,7 +559,7 @@ int channelmix_init(struct channelmix *mix)
 			mix->options);
 
 	if (mix->hilbert_taps > 0) {
-		mix->n_taps = SPA_CLAMP(mix->hilbert_taps, 15, 255) | 1;
+		mix->n_taps = SPA_CLAMP(mix->hilbert_taps, 15u, 255u) | 1;
 		blackman_window(mix->taps, mix->n_taps);
 		hilbert_generate(mix->taps, mix->n_taps);
 	} else {

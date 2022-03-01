@@ -481,13 +481,21 @@ static int impl_node_enum_params(void *object, int seq,
 		case 9:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.disable"),
+				SPA_PROP_INFO_description, SPA_POD_String("Disable Channel mixing"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->mix_disabled),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 10:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.normalize"),
 				SPA_PROP_INFO_description, SPA_POD_String("Normalize Volumes"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
 					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_NORMALIZE)),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 10:
+		case 11:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.mix-lfe"),
@@ -496,7 +504,7 @@ static int impl_node_enum_params(void *object, int seq,
 					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_MIX_LFE)),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 11:
+		case 12:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.upmix"),
@@ -505,7 +513,7 @@ static int impl_node_enum_params(void *object, int seq,
 					SPA_FLAG_IS_SET(this->mix.options, CHANNELMIX_OPTION_UPMIX)),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 12:
+		case 13:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("channelmix.lfe-cutoff"),
@@ -514,22 +522,50 @@ static int impl_node_enum_params(void *object, int seq,
 					this->mix.lfe_cutoff, 0.0, 1000.0),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 13:
+		case 14:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("channelmix.disable"),
-				SPA_PROP_INFO_description, SPA_POD_String("Disable Channel mixing"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->mix_disabled),
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.fc-cutoff"),
+				SPA_PROP_INFO_description, SPA_POD_String("FC cutoff frequency (Hz)"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+					this->mix.fc_cutoff, 0.0, 48000.0),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 14:
+		case 15:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.rear-delay"),
+				SPA_PROP_INFO_description, SPA_POD_String("Rear channels delay (ms)"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+					this->mix.rear_delay, 0.0, 1000.0),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 16:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.stereo-widen"),
+				SPA_PROP_INFO_description, SPA_POD_String("Stereo widen"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+					this->mix.widen, 0.0, 1.0),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 17:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.hilbert-taps"),
+				SPA_PROP_INFO_description, SPA_POD_String("Taps for phase shift of rear"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(
+					this->mix.hilbert_taps, 0, MAX_TAPS),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
+		case 18:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_rate),
 				SPA_PROP_INFO_description, SPA_POD_String("Rate scaler"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Double(p->rate, 0.0, 10.0));
 			break;
-		case 15:
+		case 19:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_quality),
@@ -538,7 +574,7 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->resample_quality, 0, 14),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 16:
+		case 20:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("resample.disable"),
@@ -587,6 +623,8 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_push_struct(&b, &f[1]);
 			spa_pod_builder_string(&b, "monitor.channel-volumes");
 			spa_pod_builder_bool(&b, this->monitor_channel_volumes);
+			spa_pod_builder_string(&b, "channelmix.disable");
+			spa_pod_builder_bool(&b, this->props.mix_disabled);
 			spa_pod_builder_string(&b, "channelmix.normalize");
 			spa_pod_builder_bool(&b, SPA_FLAG_IS_SET(this->mix.options,
 						CHANNELMIX_OPTION_NORMALIZE));
@@ -598,8 +636,14 @@ static int impl_node_enum_params(void *object, int seq,
 						CHANNELMIX_OPTION_UPMIX));
 			spa_pod_builder_string(&b, "channelmix.lfe-cutoff");
 			spa_pod_builder_float(&b, this->mix.lfe_cutoff);
-			spa_pod_builder_string(&b, "channelmix.disable");
-			spa_pod_builder_bool(&b, this->props.mix_disabled);
+			spa_pod_builder_string(&b, "channelmix.fc-cutoff");
+			spa_pod_builder_float(&b, this->mix.fc_cutoff);
+			spa_pod_builder_string(&b, "channelmix.rear-delay");
+			spa_pod_builder_float(&b, this->mix.rear_delay);
+			spa_pod_builder_string(&b, "channelmix.stereo-widen");
+			spa_pod_builder_float(&b, this->mix.widen);
+			spa_pod_builder_string(&b, "channelmix.hilbert-taps");
+			spa_pod_builder_int(&b, this->mix.hilbert_taps);
 			spa_pod_builder_string(&b, "resample.quality");
 			spa_pod_builder_int(&b, p->resample_quality);
 			spa_pod_builder_string(&b, "resample.disable");
@@ -649,6 +693,8 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 {
 	if (spa_streq(k, "monitor.channel-volumes"))
 		this->monitor_channel_volumes = spa_atob(s);
+	else if (spa_streq(k, "channelmix.disable"))
+		this->props.mix_disabled = spa_atob(s);
 	else if (spa_streq(k, "channelmix.normalize"))
 		SPA_FLAG_UPDATE(this->mix.options, CHANNELMIX_OPTION_NORMALIZE, spa_atob(s));
 	else if (spa_streq(k, "channelmix.mix-lfe"))
@@ -657,8 +703,14 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 		SPA_FLAG_UPDATE(this->mix.options, CHANNELMIX_OPTION_UPMIX, spa_atob(s));
 	else if (spa_streq(k, "channelmix.lfe-cutoff"))
 		spa_atof(s, &this->mix.lfe_cutoff);
-	else if (spa_streq(k, "channelmix.disable"))
-		this->props.mix_disabled = spa_atob(s);
+	else if (spa_streq(k, "channelmix.fc-cutoff"))
+		spa_atof(s, &this->mix.fc_cutoff);
+	else if (spa_streq(k, "channelmix.rear-delay"))
+		spa_atof(s, &this->mix.rear_delay);
+	else if (spa_streq(k, "channelmix.stereo-widen"))
+		spa_atof(s, &this->mix.widen);
+	else if (spa_streq(k, "channelmix.hilbert-taps"))
+		spa_atou32(s, &this->mix.hilbert_taps, 0);
 	else if (spa_streq(k, "resample.quality"))
 		this->props.resample_quality = atoi(s);
 	else if (spa_streq(k, "resample.disable"))
@@ -2193,6 +2245,8 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 
 	this->mix.options = CHANNELMIX_OPTION_NORMALIZE;
+	this->mix.log = this->log;
+	this->mix.rear_delay = 12.0f;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;

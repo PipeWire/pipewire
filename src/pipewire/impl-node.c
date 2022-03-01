@@ -32,6 +32,7 @@
 #include <spa/support/system.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/filter.h>
+#include <spa/pod/dynamic.h>
 #include <spa/node/utils.h>
 #include <spa/debug/types.h>
 #include <spa/utils/string.h>
@@ -1967,7 +1968,7 @@ int pw_impl_node_for_each_param(struct pw_impl_node *node,
 	if (pi->user == 1) {
 		struct pw_param *p;
 		uint8_t buffer[4096];
-		struct spa_pod_builder b = { 0 };
+		struct spa_pod_dynamic_builder b;
 	        struct spa_result_node_params result;
 		uint32_t count = 0;
 
@@ -1982,14 +1983,16 @@ int pw_impl_node_for_each_param(struct pw_impl_node *node,
 			if (result.index < index)
 				continue;
 
-			spa_pod_builder_init(&b, buffer, sizeof(buffer));
-			if (spa_pod_filter(&b, &result.param, p->param, filter) != 0)
-				continue;
+			spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
 
-			pw_log_debug("%p: %d param %u", node, seq, result.index);
-			result_node_params(&user_data, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+			if (spa_pod_filter(&b.b, &result.param, p->param, filter) == 0)  {
+				pw_log_debug("%p: %d param %u", node, seq, result.index);
+				result_node_params(&user_data, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+				count++;
+			}
+			spa_pod_dynamic_builder_clean(&b);
 
-			if (++count == max)
+			if (count == max)
 				break;
 		}
 		res = 0;

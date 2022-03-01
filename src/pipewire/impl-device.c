@@ -27,6 +27,7 @@
 #include <spa/debug/types.h>
 #include <spa/monitor/utils.h>
 #include <spa/pod/filter.h>
+#include <spa/pod/dynamic.h>
 #include <spa/utils/string.h>
 
 #include "pipewire/impl.h"
@@ -324,7 +325,7 @@ int pw_impl_device_for_each_param(struct pw_impl_device *device,
 	if (pi->user == 1) {
 		struct pw_param *p;
 		uint8_t buffer[4096];
-		struct spa_pod_builder b = { 0 };
+		struct spa_pod_dynamic_builder b;
 	        struct spa_result_device_params result;
 		uint32_t count = 0;
 
@@ -339,14 +340,15 @@ int pw_impl_device_for_each_param(struct pw_impl_device *device,
 			if (result.index < index)
 				continue;
 
-			spa_pod_builder_init(&b, buffer, sizeof(buffer));
-			if (spa_pod_filter(&b, &result.param, p->param, filter) != 0)
-				continue;
+			spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+			if (spa_pod_filter(&b.b, &result.param, p->param, filter) == 0) {
+				pw_log_debug("%p: %d param %u", device, seq, result.index);
+				result_device_params(&user_data, seq, 0, SPA_RESULT_TYPE_DEVICE_PARAMS, &result);
+				count++;
+			}
+			spa_pod_dynamic_builder_clean(&b);
 
-			pw_log_debug("%p: %d param %u", device, seq, result.index);
-			result_device_params(&user_data, seq, 0, SPA_RESULT_TYPE_DEVICE_PARAMS, &result);
-
-			if (++count == max)
+			if (count == max)
 				break;
 		}
 		res = 0;

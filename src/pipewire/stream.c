@@ -34,6 +34,7 @@
 #include <spa/node/utils.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/pod/filter.h>
+#include <spa/pod/dynamic.h>
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
 #include <spa/debug/pod.h>
@@ -483,7 +484,7 @@ static int enum_params(void *object, bool is_port, int seq, uint32_t id, uint32_
 	struct stream *d = object;
 	struct spa_result_node_params result;
 	uint8_t buffer[1024];
-	struct spa_pod_builder b = { 0 };
+	struct spa_pod_dynamic_builder b;
 	uint32_t count = 0;
 	struct param *p;
 	bool found = false;
@@ -510,13 +511,14 @@ static int enum_params(void *object, bool is_port, int seq, uint32_t id, uint32_
 
 		found = true;
 
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		if (spa_pod_filter(&b, &result.param, param, filter) != 0)
-			continue;
+		spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+		if (spa_pod_filter(&b.b, &result.param, param, filter) == 0) {
+			spa_node_emit_result(&d->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+			count++;
+		}
+		spa_pod_dynamic_builder_clean(&b);
 
-		spa_node_emit_result(&d->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
-
-		if (++count == num)
+		if (count == num)
 			break;
 	}
 	return found ? 0 : -ENOENT;

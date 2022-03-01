@@ -34,6 +34,7 @@
 #include <spa/utils/string.h>
 #include <spa/debug/types.h>
 #include <spa/pod/filter.h>
+#include <spa/pod/dynamic.h>
 
 #include "pipewire/impl.h"
 #include "pipewire/private.h"
@@ -229,17 +230,19 @@ int pw_impl_port_init_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mi
 	{
 		uint32_t idx = 0;
 		uint8_t buffer[1024];
-		struct spa_pod_builder b;
+		struct spa_pod_dynamic_builder b;
 		struct spa_pod *param;
 
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+
 		if (spa_node_port_enum_params_sync(port->mix,
 				pw_direction_reverse(port->direction), 0,
-				SPA_PARAM_Format, &idx, NULL, &param, &b) == 1) {
+				SPA_PARAM_Format, &idx, NULL, &param, &b.b) == 1) {
 			spa_node_port_set_param(port->mix,
 				port->direction, port_id,
 				SPA_PARAM_Format, 0, param);
 		}
+		spa_pod_dynamic_builder_clean(&b);
 	}
 
 	spa_list_append(&port->mix_list, &mix->link);
@@ -1216,7 +1219,7 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 	if (pi->user == 1) {
 		struct pw_param *p;
 		uint8_t buffer[1024];
-		struct spa_pod_builder b = { 0 };
+		struct spa_pod_dynamic_builder b;
 	        struct spa_result_node_params result;
 		uint32_t count = 0;
 
@@ -1231,14 +1234,16 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 			if (result.index < index)
 				continue;
 
-			spa_pod_builder_init(&b, buffer, sizeof(buffer));
-			if (spa_pod_filter(&b, &result.param, p->param, filter) != 0)
-				continue;
+			spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
 
-			pw_log_debug("%p: %d param %u", port, seq, result.index);
-			result_port_params(&user_data, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+			if (spa_pod_filter(&b.b, &result.param, p->param, filter) >= 0) {
+				pw_log_debug("%p: %d param %u", port, seq, result.index);
+				result_port_params(&user_data, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+				count++;
+			}
+			spa_pod_dynamic_builder_clean(&b);
 
-			if (++count == max)
+			if (count == max)
 				break;
 		}
 		res = 0;

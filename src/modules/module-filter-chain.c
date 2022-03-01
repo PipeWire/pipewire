@@ -39,6 +39,7 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/param/profiler.h>
+#include <spa/pod/dynamic.h>
 #include <spa/debug/pod.h>
 
 #include <pipewire/utils.h>
@@ -613,26 +614,12 @@ static const struct pw_stream_events out_stream_events = {
 	.param_changed = param_changed
 };
 
-static int builder_overflow(void *data, uint32_t size)
-{
-	struct spa_pod_builder *b = data;
-	b->size = SPA_ROUND_UP_N(size, 4096);
-	if ((b->data = realloc(b->data, b->size)) == NULL)
-		return -errno;
-        return 0;
-}
-
-static const struct spa_pod_builder_callbacks builder_callbacks = {
-	SPA_VERSION_POD_BUILDER_CALLBACKS,
-	.overflow = builder_overflow
-};
-
 static int setup_streams(struct impl *impl)
 {
 	int res;
 	uint32_t i, n_params;
 	const struct spa_pod *params[256];
-	struct spa_pod_builder b;
+	struct spa_pod_dynamic_builder b;
 	struct graph *graph = &impl->graph;
 
 	impl->capture = pw_stream_new(impl->core,
@@ -656,16 +643,15 @@ static int setup_streams(struct impl *impl)
 			&out_stream_events, impl);
 
 	n_params = 0;
-	spa_pod_builder_init(&b, NULL, 0);
-	spa_pod_builder_set_callbacks(&b, &builder_callbacks, &b);
+	spa_pod_dynamic_builder_init(&b, NULL, 0, 4096);
 
-	params[n_params++] = spa_format_audio_raw_build(&b,
+	params[n_params++] = spa_format_audio_raw_build(&b.b,
 			SPA_PARAM_EnumFormat, &impl->capture_info);
 
 	for (i = 0; i < graph->n_control; i++)
-		params[n_params++] = get_prop_info(graph, &b, i);
+		params[n_params++] = get_prop_info(graph, &b.b, i);
 
-	params[n_params++] = get_props_param(graph, &b);
+	params[n_params++] = get_props_param(graph, &b.b);
 
 	res = pw_stream_connect(impl->capture,
 			PW_DIRECTION_INPUT,
@@ -674,14 +660,14 @@ static int setup_streams(struct impl *impl)
 			PW_STREAM_FLAG_MAP_BUFFERS |
 			PW_STREAM_FLAG_RT_PROCESS,
 			params, n_params);
-	free(b.data);
+
+	spa_pod_dynamic_builder_clean(&b);
 	if (res < 0)
 		return res;
 
 	n_params = 0;
-	spa_pod_builder_init(&b, NULL, 0);
-	spa_pod_builder_set_callbacks(&b, &builder_callbacks, &b);
-	params[n_params++] = spa_format_audio_raw_build(&b,
+	spa_pod_dynamic_builder_init(&b, NULL, 0, 4096);
+	params[n_params++] = spa_format_audio_raw_build(&b.b,
 			SPA_PARAM_EnumFormat, &impl->playback_info);
 
 	res = pw_stream_connect(impl->playback,
@@ -692,7 +678,7 @@ static int setup_streams(struct impl *impl)
 			PW_STREAM_FLAG_RT_PROCESS  |
 			PW_STREAM_FLAG_TRIGGER,
 			params, n_params);
-	free(b.data);
+	spa_pod_dynamic_builder_clean(&b);
 
 	if (res < 0)
 		return res;

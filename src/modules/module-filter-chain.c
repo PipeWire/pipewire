@@ -109,7 +109,7 @@ static const struct spa_dict_item module_props[] = {
 
 #define MAX_HNDL 64
 #define MAX_PORTS 64
-#define MAX_CONTROLS 256
+#define MAX_CONTROLS 512
 #define MAX_SAMPLES 8192
 
 static float silence_data[MAX_SAMPLES];
@@ -618,7 +618,8 @@ static int setup_streams(struct impl *impl)
 {
 	int res;
 	uint32_t i, n_params;
-	const struct spa_pod *params[256];
+	uint32_t offsets[512];
+	const struct spa_pod *params[512];
 	struct spa_pod_dynamic_builder b;
 	struct graph *graph = &impl->graph;
 
@@ -645,13 +646,20 @@ static int setup_streams(struct impl *impl)
 	n_params = 0;
 	spa_pod_dynamic_builder_init(&b, NULL, 0, 4096);
 
-	params[n_params++] = spa_format_audio_raw_build(&b.b,
+	offsets[n_params++] = b.b.state.offset;
+	spa_format_audio_raw_build(&b.b,
 			SPA_PARAM_EnumFormat, &impl->capture_info);
 
-	for (i = 0; i < graph->n_control; i++)
-		params[n_params++] = get_prop_info(graph, &b.b, i);
+	for (i = 0; i < graph->n_control; i++) {
+		offsets[n_params++] = b.b.state.offset;
+		get_prop_info(graph, &b.b, i);
+	}
 
-	params[n_params++] = get_props_param(graph, &b.b);
+	offsets[n_params++] = b.b.state.offset;
+	get_props_param(graph, &b.b);
+
+	for (i = 0; i < n_params; i++)
+		params[i] = spa_pod_builder_deref(&b.b, offsets[i]);
 
 	res = pw_stream_connect(impl->capture,
 			PW_DIRECTION_INPUT,

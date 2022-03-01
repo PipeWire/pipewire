@@ -72,6 +72,7 @@ struct channelmix {
 	float freq;					/* sample frequency */
 	float lfe_cutoff;				/* in Hz, 0 is disabled */
 	float rear_delay;				/* in ms, 0 is disabled */
+	float widen;					/* stereo widen. 0 is disabled */
 	struct lr4 lr4[SPA_AUDIO_MAX_CHANNELS];
 
 	float buffer[2][BUFFER_SIZE];

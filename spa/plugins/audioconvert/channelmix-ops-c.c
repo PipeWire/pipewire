@@ -290,32 +290,36 @@ channelmix_f32_2_5p1_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 	else if (v0 == 1.0f && v1 == 1.0f) {
 		for (n = 0; n < n_samples; n++) {
 			float c = s[0][n] + s[1][n];
+			float m = s[0][n] - s[1][n];
 			d[0][n] = s[0][n];
 			d[1][n] = s[1][n];
-			d[2][n] = c;
+			d[3][n] = c;
+			d[5][n] = m;
 		}
-		lr4_process(&mix->lr4[3], d[3], d[2], v3, n_samples);
-		lr4_process(&mix->lr4[2], d[2], d[2], v2, n_samples);
+		lr4_process(&mix->lr4[2], d[2], d[3], v2, n_samples);
+		lr4_process(&mix->lr4[3], d[3], d[3], v3, n_samples);
 
 		delay_run(mix->buffer[0], &mix->pos[0], BUFFER_SIZE, mix->delay,
-				d[4], s[0], v4, n_samples);
+				d[4], d[5], v4, n_samples);
 		delay_run(mix->buffer[1], &mix->pos[1], BUFFER_SIZE, mix->delay,
-				d[5], s[1], v5, n_samples);
+				d[5], d[5], v5, n_samples);
 	}
 	else {
 		for (n = 0; n < n_samples; n++) {
 			float c = s[0][n] + s[1][n];
+			float m = s[0][n] - s[1][n];
 			d[0][n] = s[0][n] * v0;
 			d[1][n] = s[1][n] * v1;
-			d[2][n] = c;
+			d[3][n] = c;
+			d[5][n] = m;
 		}
-		lr4_process(&mix->lr4[3], d[3], d[2], v3, n_samples);
-		lr4_process(&mix->lr4[2], d[2], d[2], v2, n_samples);
+		lr4_process(&mix->lr4[2], d[2], d[3], v2, n_samples);
+		lr4_process(&mix->lr4[3], d[3], d[3], v3, n_samples);
 
 		delay_run(mix->buffer[0], &mix->pos[0], BUFFER_SIZE, mix->delay,
-				d[4], s[0], v4, n_samples);
+				d[4], d[5], v4, n_samples);
 		delay_run(mix->buffer[1], &mix->pos[1], BUFFER_SIZE, mix->delay,
-				d[5], s[1], v5, n_samples);
+				d[5], d[5], v5, n_samples);
 	}
 }
 
@@ -342,34 +346,38 @@ channelmix_f32_2_7p1_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 	else if (v0 == 1.0f && v1 == 1.0f && v4 == 1.0f && v5 == 1.0f) {
 		for (n = 0; n < n_samples; n++) {
 			float c = s[0][n] + s[1][n];
+			float m = s[0][n] - s[1][n];
 			d[0][n] = d[4][n] = s[0][n];
 			d[1][n] = d[5][n] = s[1][n];
-			d[2][n] = c;
+			d[3][n] = c;
+			d[7][n] = m;
 		}
-		lr4_process(&mix->lr4[3], d[3], d[2], v3, n_samples);
-		lr4_process(&mix->lr4[2], d[2], d[2], v2, n_samples);
+		lr4_process(&mix->lr4[2], d[2], d[3], v2, n_samples);
+		lr4_process(&mix->lr4[3], d[3], d[3], v3, n_samples);
 
 		delay_run(mix->buffer[0], &mix->pos[0], BUFFER_SIZE, mix->delay,
-				d[6], s[0], v6, n_samples);
+				d[6], d[7], v6, n_samples);
 		delay_run(mix->buffer[1], &mix->pos[1], BUFFER_SIZE, mix->delay,
-				d[7], s[1], v7, n_samples);
+				d[7], d[7], v7, n_samples);
 	}
 	else {
 		for (n = 0; n < n_samples; n++) {
 			float c = s[0][n] + s[1][n];
+			float m = s[0][n] - s[1][n];
 			d[0][n] = s[0][n] * v0;
 			d[1][n] = s[1][n] * v1;
-			d[2][n] = c;
+			d[3][n] = c;
 			d[4][n] = s[0][n] * v4;
 			d[5][n] = s[1][n] * v5;
+			d[7][n] = m;
 		}
-		lr4_process(&mix->lr4[3], d[3], d[2], v3, n_samples);
-		lr4_process(&mix->lr4[2], d[2], d[2], v2, n_samples);
+		lr4_process(&mix->lr4[2], d[2], d[3], v2, n_samples);
+		lr4_process(&mix->lr4[3], d[3], d[3], v3, n_samples);
 
 		delay_run(mix->buffer[0], &mix->pos[0], BUFFER_SIZE, mix->delay,
-				d[6], s[0], v6, n_samples);
+				d[6], d[7], v6, n_samples);
 		delay_run(mix->buffer[1], &mix->pos[1], BUFFER_SIZE, mix->delay,
-				d[7], s[1], v7, n_samples);
+				d[7], d[7], v7, n_samples);
 	}
 }
 

@@ -59,7 +59,9 @@ static int module_always_sink_load(struct client *client, struct module *module)
 	const char *str;
 	size_t size;
 
-	f = open_memstream(&args, &size);
+	if ((f = open_memstream(&args, &size)) == NULL)
+		return -errno;
+
 	fprintf(f, "{");
 	if ((str = pw_properties_get(module->props, "sink_name")) != NULL)
 		fprintf(f, " sink.name = \"%s\"", str);

@@ -202,7 +202,11 @@ int main(int argc, char *argv[])
 	}
 
 
-        f = open_memstream(&args, &size);
+        if ((f = open_memstream(&args, &size)) == NULL) {
+		fprintf(stderr, "can't open memstream: %m\n");
+		goto exit;
+	}
+
 	fprintf(f, "{");
 
 	if (opt_remote != NULL)

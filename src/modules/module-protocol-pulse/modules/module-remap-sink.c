@@ -72,7 +72,9 @@ static int module_remap_sink_load(struct client *client, struct module *module)
 	pw_properties_setf(data->capture_props, "pulse.module.id", "%u", module->index);
 	pw_properties_setf(data->playback_props, "pulse.module.id", "%u", module->index);
 
-	f = open_memstream(&args, &size);
+	if ((f = open_memstream(&args, &size)) == NULL)
+		return -errno;
+
 	fprintf(f, "{");
 	pw_properties_serialize_dict(f, &module->props->dict, 0);
 	fprintf(f, " capture.props = {");

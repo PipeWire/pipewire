@@ -72,7 +72,9 @@ static int module_echo_cancel_load(struct client *client, struct module *module)
 	char *args;
 	size_t size;
 
-	f = open_memstream(&args, &size);
+	if ((f = open_memstream(&args, &size)) == NULL)
+		return -errno;
+
 	fprintf(f, "{");
 	/* Can't just serialise this dict because the "null" method gets
 	 * interpreted as a JSON null */

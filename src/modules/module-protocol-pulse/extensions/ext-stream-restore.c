@@ -252,7 +252,9 @@ static int do_extension_stream_restore_write(struct client *client, uint32_t com
 		if (name == NULL || name[0] == '\0')
 			return -EPROTO;
 
-		f = open_memstream(&ptr, &size);
+		if ((f = open_memstream(&ptr, &size)) == NULL)
+			return -errno;
+
 		fprintf(f, "{");
 		fprintf(f, " \"mute\": %s", mute ? "true" : "false");
 		if (vol.channels > 0) {

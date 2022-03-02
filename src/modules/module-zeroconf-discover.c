@@ -329,7 +329,11 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 				_("%s on %s"), desc, fqdn);
 	}
 
-	f = open_memstream(&args, &size);
+	if ((f = open_memstream(&args, &size)) == NULL) {
+		pw_log_error("Can't open memstream: %m");
+		goto done;
+	}
+
 	fprintf(f, "{");
 	pw_properties_serialize_dict(f, &props->dict, 0);
 	fprintf(f, " stream.props = {");

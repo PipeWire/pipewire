@@ -65,7 +65,7 @@ static int bluez_card_object_message_handler(struct pw_manager *m, struct pw_man
 
 		r = open_memstream(response, &size);
 		if (r == NULL)
-			return -ENOMEM;
+			return -errno;
 
 		fputc('[', r);
 		for (i = 0; i < n_codecs; ++i) {
@@ -100,7 +100,7 @@ static int core_object_message_handler(struct pw_manager *m, struct pw_manager_o
 
 		r = open_memstream(response, &size);
 		if (r == NULL)
-			return -ENOMEM;
+			return -errno;
 
 		fputc('[', r);
 		spa_list_for_each(o, &m->object_list, link) {

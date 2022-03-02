@@ -75,7 +75,9 @@ static int module_loopback_load(struct client *client, struct module *module)
 	pw_properties_setf(data->capture_props, "pulse.module.id", "%u", module->index);
 	pw_properties_setf(data->playback_props, "pulse.module.id", "%u", module->index);
 
-	f = open_memstream(&args, &size);
+	if ((f = open_memstream(&args, &size)) == NULL)
+		return -errno;
+
 	fprintf(f, "{");
 	if (data->info.channels != 0) {
 		fprintf(f, " audio.channels = %u", data->info.channels);

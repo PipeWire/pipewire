@@ -4742,6 +4742,10 @@ static int profile_verify(pa_alsa_profile *p) {
 	int count = 0;
 
 	f = open_memstream(&ptr, &size);
+	if (f == NULL) {
+            pa_log("failed to open memstream: %m");
+            return -1;
+	}
 
         if (p->output_mappings)
             PA_IDXSET_FOREACH(m, p->output_mappings, idx) {
@@ -4816,6 +4820,8 @@ void pa_alsa_decibel_fix_dump(pa_alsa_decibel_fix *db_fix) {
 	size_t size;
 
 	f = open_memstream(&ptr, &size);
+	if (f == NULL)
+		return;
 
         pa_assert(db_fix->min_step <= db_fix->max_step);
         nsteps = db_fix->max_step - db_fix->min_step + 1;

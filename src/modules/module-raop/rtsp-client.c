@@ -478,7 +478,8 @@ int pw_rtsp_client_send(struct pw_rtsp_client *client,
 	struct message *msg;
 	int cseq;
 
-	f = open_memstream((char**)&msg, &len);
+	if ((f = open_memstream((char**)&msg, &len)) == NULL)
+		return -errno;
 
 	fseek(f, sizeof(*msg), SEEK_SET);
 

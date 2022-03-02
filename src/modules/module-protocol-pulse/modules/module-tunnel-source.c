@@ -76,7 +76,9 @@ static int module_tunnel_source_load(struct client *client, struct module *modul
 
 	server = pw_properties_get(module->props, "server");
 
-	f = open_memstream(&args, &size);
+	if ((f = open_memstream(&args, &size)) == NULL)
+		return -errno;
+
 	fprintf(f, "{");
 	pw_properties_serialize_dict(f, &module->props->dict, 0);
 	fprintf(f, " pulse.server.address = \"%s\" ", server);

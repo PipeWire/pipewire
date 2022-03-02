@@ -73,7 +73,9 @@ static int module_roc_source_load(struct client *client, struct module *module)
 	pw_properties_setf(data->source_props, "pulse.module.id",
 			"%u", module->index);
 
-	f = open_memstream(&args, &size);
+	if ((f = open_memstream(&args, &size)) == NULL)
+		return -errno;
+
 	fprintf(f, "{");
 	pw_properties_serialize_dict(f, &data->roc_props->dict, 0);
 	fprintf(f, " } source.props = {");

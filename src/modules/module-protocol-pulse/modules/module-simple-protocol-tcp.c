@@ -68,7 +68,9 @@ static int module_simple_protocol_tcp_load(struct client *client, struct module 
 	uint32_t i;
 	FILE *f;
 
-	f = open_memstream(&args, &size);
+	if ((f = open_memstream(&args, &size)) == NULL)
+		return -errno;
+
 	fprintf(f, "{");
 	if (data->info.rate != 0)
 		fprintf(f, " \"audio.rate\": %u,", data->info.rate);

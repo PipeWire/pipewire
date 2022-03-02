@@ -619,7 +619,9 @@ static int add_int(struct format_info *info, const char *k, struct spa_pod *para
 		size_t size;
 		FILE *f;
 
-		f = open_memstream(&ptr, &size);
+		if ((f = open_memstream(&ptr, &size)) == NULL)
+			return -errno;
+
 		fprintf(f, "[");
 		for (i = 1; i < n_values; i++)
 			fprintf(f, "%s %d", i == 1 ? "" : ",", values[i]);

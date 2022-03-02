@@ -609,7 +609,7 @@ on_control_source_io(void *data, int fd, uint32_t mask)
 		uint32_t hdr;
 		uint16_t seq, num;
 
-		bytes = read(impl->timing_fd, packet, sizeof(packet));
+		bytes = read(impl->control_fd, packet, sizeof(packet));
 		if (bytes != sizeof(packet)) {
 			pw_log_warn("discarding short (%zd < %zd) control packet",
 					bytes, sizeof(bytes));

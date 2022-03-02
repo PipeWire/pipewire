@@ -1,3 +1,81 @@
+# PipeWire 0.3.48 (2022-03-03)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Fix IEC958 passthrough again.
+  - Fix pulse-server crashes when playing a sample.
+  - Support for more a more advanced upmixing algorithm.
+  - filter-chain now supports arbitrary many ports.
+  - Fix multichannel support in WINE. (with new WirePlumber).
+  - Many bugfixes and improvements.
+
+
+## PipeWire
+  - The work queue is now created in the context so we can fail early and
+    avoid further error checking in various places.
+  - Fix a potential use after free with threaded loops.
+  - The protocol now has a message footer. This is used to pass around
+    global state such as the last registered object serial number. This can
+    be used to detect when a client tries to bind to old (but reused)
+    object ids. This avoids some races in the session manager but also
+    when binding objects.
+  - The zero-denormals CPU flag is now not touched anymore unless explicitly
+    selected by the user. Denormals are avoided in filter-chain now in
+    software. If the zero-denormals are now only configured in the data
+    thread. This should fix issues with luajit. (#2160)
+  - Configuration parsing will not actually fail on errors.
+  - pw-top now correctly clips unicode characters.
+  - Many places now use a dynamic POD builder to support arbitrary large
+    property sets.
+  - pw-stream now support PropInfo parameters so that they can announce
+    custom properties.
+  - Serial number are now also set on metadata and session-manager objects.
+
+## SPA
+  - audioadapter is now smarter when trying to fixate the format. It will
+    use the PortConfig format to fill in any wildcards. This results in
+    the least amount of conversions when the stream can handle it. It also
+    is part of a fix (also requires a session manager fix) for WINE
+    multichannel support. (#876).
+  - Fix 5.1 to 2 channels mixing. It was using the volume of the stereo
+    pair on all channels.
+  - Fix some weird volume issues when a source is capturing and
+    channelmixing.
+  - Add stereo to 7.1 upmixing.
+  - The channelmix parameters can be changed at runtime now.
+  - Many improvements to the upmixing algorithms. Rear channels are now
+    constructed from the ambient sound and can have delay and phase shift
+    applied to them to improve spacialization. The stereo channels can
+    be filtered so that the dialog is more concentrated in the center
+    channel. (#861)
+
+## modules
+  - Module X11 bell received cleanups and improvements.
+  - The module now has a private method to schedule unload later. This
+    simplifies cleanup in many modules.
+  - module-filter-chain now handles arbitrary many ports and control
+    ports. (#2179)
+  - Fix a bug in RAOP where it was reading from the wrong port. (#2183)
+
+## pulse-server
+  - Nodes with the DONT_MOVE property should fail with -EINVAL when
+    they are moved.
+  - Fix a segfault when playing a sample. (#2151)
+  - The _FIX flags in pulse-server also now ignore the configured
+    sample format, just like pulseaudio does. (#876)
+  - Fix IEC958 passthrough again. It got accidentally broken since
+    0.3.45 with a fix for another issue. (#1442)
+  - Fix module-null-sink device.description. (#2166)
+
+## Bluetooth
+  - Don't try to connect HSP/HFP when no backend is available.
+
+
+Older versions:
+
+
 # PipeWire 0.3.47 (2022-02-18)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -12,8 +90,6 @@ problems with the previous release.
   - Removed check and warnings to catch leaked listeners on the
     proxy. This might access invalid memory and cause infinite
     loops in older wireplumber.
-
-Older versions:
 
 # PipeWire 0.3.46 (2022-02-17)
 

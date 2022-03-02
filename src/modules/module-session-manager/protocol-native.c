@@ -32,8 +32,8 @@
 #include <pipewire/extensions/session-manager.h>
 #include <pipewire/extensions/protocol-native.h>
 
-#define MAX_DICT	256
-#define MAX_PARAMS	128
+#define MAX_DICT	1024
+#define MAX_PARAMS	4096
 #define MAX_PARAM_INFO	128
 
 static void push_dict(struct spa_pod_builder *b, const struct spa_dict *dict)

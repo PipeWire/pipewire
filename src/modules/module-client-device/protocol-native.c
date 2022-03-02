@@ -32,7 +32,7 @@
 
 #include <pipewire/extensions/protocol-native.h>
 
-#define MAX_DICT	256
+#define MAX_DICT	1024
 #define MAX_PARAM_INFO	128
 
 static inline void push_item(struct spa_pod_builder *b, const struct spa_dict_item *item)

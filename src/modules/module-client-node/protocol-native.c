@@ -33,8 +33,8 @@
 #include <pipewire/extensions/protocol-native.h>
 #include <pipewire/extensions/client-node.h>
 
-#define MAX_DICT	256
-#define MAX_PARAMS	128
+#define MAX_DICT	1024
+#define MAX_PARAMS	4096
 #define MAX_PARAM_INFO	128
 #define MAX_BUFFERS	64
 #define MAX_METAS	16u

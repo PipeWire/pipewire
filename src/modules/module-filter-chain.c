@@ -108,8 +108,6 @@ static const struct spa_dict_item module_props[] = {
 #include <pipewire/pipewire.h>
 
 #define MAX_HNDL 64
-#define MAX_PORTS 64
-#define MAX_CONTROLS 512
 #define MAX_SAMPLES 8192
 
 static float silence_data[MAX_SAMPLES];
@@ -137,11 +135,11 @@ struct descriptor {
 	uint32_t n_output;
 	uint32_t n_control;
 	uint32_t n_notify;
-	unsigned long input[MAX_PORTS];
-	unsigned long output[MAX_PORTS];
-	unsigned long control[MAX_CONTROLS];
-	unsigned long notify[MAX_CONTROLS];
-	float default_control[MAX_CONTROLS];
+	unsigned long *input;
+	unsigned long *output;
+	unsigned long *control;
+	unsigned long *notify;
+	float *default_control;
 };
 
 struct port {
@@ -168,10 +166,10 @@ struct node {
 	char name[256];
 	char *config;
 
-	struct port input_port[MAX_PORTS];
-	struct port output_port[MAX_PORTS];
-	struct port control_port[MAX_CONTROLS];
-	struct port notify_port[MAX_CONTROLS];
+	struct port *input_port;
+	struct port *output_port;
+	struct port *control_port;
+	struct port *notify_port;
 
 	uint32_t n_hndl;
 	void *hndl[MAX_HNDL];
@@ -208,16 +206,16 @@ struct graph {
 	struct spa_list link_list;
 
 	uint32_t n_input;
-	struct graph_port input[MAX_PORTS];
+	struct graph_port *input;
 
 	uint32_t n_output;
-	struct graph_port output[MAX_PORTS];
+	struct graph_port *output;
 
 	uint32_t n_hndl;
-	struct graph_hndl hndl[MAX_HNDL];
+	struct graph_hndl *hndl;
 
 	uint32_t n_control;
-	struct port *control_port[MAX_CONTROLS];
+	struct port **control_port;
 };
 
 struct impl {
@@ -658,8 +656,10 @@ static int setup_streams(struct impl *impl)
 	offsets[n_params++] = b.b.state.offset;
 	get_props_param(graph, &b.b);
 
-	for (i = 0; i < n_params; i++)
+	for (i = 0; i < n_params; i++) {
 		params[i] = spa_pod_builder_deref(&b.b, offsets[i]);
+		spa_debug_pod(0, NULL, params[i]);
+	}
 
 	res = pw_stream_connect(impl->capture,
 			PW_DIRECTION_INPUT,
@@ -778,6 +778,11 @@ static void descriptor_unref(struct descriptor *desc)
 
 	spa_list_remove(&desc->link);
 	plugin_unref(desc->plugin);
+	free(desc->input);
+	free(desc->output);
+	free(desc->control);
+	free(desc->default_control);
+	free(desc->notify);
 	free(desc);
 }
 
@@ -787,7 +792,7 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 	struct plugin *hndl;
 	struct descriptor *desc;
 	const struct fc_descriptor *d;
-	uint32_t i;
+	uint32_t i, n_input, n_output, n_control, n_notify;
 	unsigned long p;
 	int res;
 
@@ -813,6 +818,7 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 	desc = calloc(1, sizeof(*desc));
 	desc->ref = 1;
 	desc->plugin = hndl;
+	spa_list_init(&desc->link);
 
 	if ((d = hndl->plugin->make_desc(hndl->plugin, label)) == NULL) {
 		pw_log_error("cannot find label %s", label);
@@ -822,6 +828,27 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 	desc->desc = d;
 	snprintf(desc->label, sizeof(desc->label), "%s", label);
 
+	n_input = n_output = n_control = n_notify = 0;
+	for (p = 0; p < d->n_ports; p++) {
+		struct fc_port *fp = &d->ports[p];
+		if (FC_IS_PORT_AUDIO(fp->flags)) {
+			if (FC_IS_PORT_INPUT(fp->flags))
+				n_input++;
+			else if (FC_IS_PORT_OUTPUT(fp->flags))
+				n_output++;
+		} else if (FC_IS_PORT_CONTROL(fp->flags)) {
+			if (FC_IS_PORT_INPUT(fp->flags))
+				n_control++;
+			else if (FC_IS_PORT_OUTPUT(fp->flags))
+				n_notify++;
+		}
+	}
+	desc->input = calloc(n_input, sizeof(unsigned long));
+	desc->output = calloc(n_output, sizeof(unsigned long));
+	desc->control = calloc(n_control, sizeof(unsigned long));
+	desc->default_control = calloc(n_control, sizeof(float));
+	desc->notify = calloc(n_notify, sizeof(unsigned long));
+
 	for (p = 0; p < d->n_ports; p++) {
 		struct fc_port *fp = &d->ports[p];
 
@@ -829,44 +856,20 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 			if (FC_IS_PORT_INPUT(fp->flags)) {
 				pw_log_info("using port %lu ('%s') as input %d", p,
 						fp->name, desc->n_input);
-				if (desc->n_input >= MAX_PORTS) {
-					pw_log_error("plugin has too many input ports %d >= %d",
-							desc->n_input, MAX_PORTS);
-					res = -ENOTSUP;
-					goto exit;
-				}
 				desc->input[desc->n_input++] = p;
 			}
 			else if (FC_IS_PORT_OUTPUT(fp->flags)) {
-				if (desc->n_output >= MAX_PORTS) {
-					pw_log_error("plugin has too many output ports %d >= %d",
-							desc->n_output, MAX_PORTS);
-					res = -ENOTSUP;
-					goto exit;
-				}
 				pw_log_info("using port %lu ('%s') as output %d", p,
 						fp->name, desc->n_output);
 				desc->output[desc->n_output++] = p;
 			}
 		} else if (FC_IS_PORT_CONTROL(fp->flags)) {
 			if (FC_IS_PORT_INPUT(fp->flags)) {
-				if (desc->n_control >= MAX_CONTROLS) {
-					pw_log_error("plugin has too many control ports %d >= %d",
-							desc->n_control, MAX_CONTROLS);
-					res = -ENOTSUP;
-					goto exit;
-				}
 				pw_log_info("using port %lu ('%s') as control %d", p,
 						fp->name, desc->n_control);
 				desc->control[desc->n_control++] = p;
 			}
 			else if (FC_IS_PORT_OUTPUT(fp->flags)) {
-				if (desc->n_notify >= MAX_CONTROLS) {
-					pw_log_error("plugin has too many notify ports %d >= %d",
-							desc->n_notify, MAX_CONTROLS);
-					res = -ENOTSUP;
-					goto exit;
-				}
 				pw_log_info("using port %lu ('%s') as notify %d", p,
 						fp->name, desc->n_notify);
 				desc->notify[desc->n_notify++] = p;
@@ -889,9 +892,7 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 	return desc;
 
 exit:
-	if (hndl != NULL)
-		plugin_unref(hndl);
-	free(desc);
+	descriptor_unref(desc);
 	errno = -res;
 	return NULL;
 }
@@ -1100,6 +1101,11 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	node->desc = desc;
 	snprintf(node->name, sizeof(node->name), "%s", name);
 
+	node->input_port = calloc(desc->n_input, sizeof(struct port));
+	node->output_port = calloc(desc->n_output, sizeof(struct port));
+	node->control_port = calloc(desc->n_control, sizeof(struct port));
+	node->notify_port = calloc(desc->n_notify, sizeof(struct port));
+
 	for (i = 0; i < desc->n_input; i++) {
 		struct port *port = &node->input_port[i];
 		port->node = node;
@@ -1159,6 +1165,10 @@ static void node_free(struct node *node)
 		d->cleanup(node->hndl[i]);
 	}
 	descriptor_unref(node->desc);
+	free(node->input_port);
+	free(node->output_port);
+	free(node->control_port);
+	free(node->notify_port);
 	free(node);
 }
 
@@ -1226,15 +1236,12 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 	struct port *port;
 	struct graph_port *gp;
 	struct graph_hndl *gh;
-	uint32_t i, j, n_input, n_output, n_hndl = 0;
+	uint32_t i, j, n_nodes, n_input, n_output, n_control, n_hndl = 0;
 	int res;
 	unsigned long p;
 	struct descriptor *desc;
 	const struct fc_descriptor *d;
 	char v[256];
-
-	graph->n_input = 0;
-	graph->n_output = 0;
 
 	first = spa_list_first(&graph->node_list, struct node, link);
 	last = spa_list_last(&graph->node_list, struct node, link);
@@ -1277,11 +1284,16 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		res = -EINVAL;
 		goto error;
 	}
+	if (n_hndl > MAX_HNDL) {
+		pw_log_error("too many channels");
+		res = -EINVAL;
+		goto error;
+	}
 	pw_log_info("using %d instances %d %d", n_hndl, n_input, n_output);
 
-	/* now go over all nodes and create instances. We can also link
-	 * the control and notify ports already */
-	graph->n_control = 0;
+	/* now go over all nodes and create instances. */
+	n_control = 0;
+	n_nodes = 0;
 	spa_list_for_each(node, &graph->node_list, link) {
 		float *sd = silence_data, *dd = discard_data;
 
@@ -1318,11 +1330,8 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 			if (d->activate)
 				d->activate(node->hndl[i]);
 		}
-		/* collect all control ports on the graph */
-		for (j = 0; j < desc->n_control; j++) {
-			graph->control_port[graph->n_control] = &node->control_port[j];
-			graph->n_control++;
-		}
+		n_control += desc->n_control;
+		n_nodes++;
 	}
 	pw_log_info("suggested rate:%lu capture:%d playback:%d", impl->rate,
 			impl->capture_info.rate, impl->playback_info.rate);
@@ -1331,6 +1340,11 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		impl->capture_info.rate = impl->rate;
 	if (impl->playback_info.rate == 0)
 		impl->playback_info.rate = impl->rate;
+
+	graph->n_input = 0;
+	graph->input = calloc(n_input * n_hndl, sizeof(struct graph_port));
+	graph->n_output = 0;
+	graph->output = calloc(n_output * n_hndl, sizeof(struct graph_port));
 
 	/* now collect all input and output ports for all the handles. */
 	for (i = 0; i < n_hndl; i++) {
@@ -1434,6 +1448,9 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 
 	/* order all nodes based on dependencies */
 	graph->n_hndl = 0;
+	graph->hndl = calloc(n_nodes * n_hndl, sizeof(struct graph_hndl));
+	graph->n_control = 0;
+	graph->control_port = calloc(n_control, sizeof(struct port *));
 	while (true) {
 		if ((node = find_next_node(graph)) == NULL)
 			break;
@@ -1452,6 +1469,12 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 
 		for (i = 0; i < desc->n_output; i++)
 			setup_output_port(graph, &node->output_port[i]);
+
+		/* collect all control ports on the graph */
+		for (i = 0; i < desc->n_control; i++) {
+			graph->control_port[graph->n_control] = &node->control_port[i];
+			graph->n_control++;
+		}
 	}
 	return 0;
 
@@ -1544,6 +1567,10 @@ static void graph_free(struct graph *graph)
 		link_free(link);
 	spa_list_consume(node, &graph->node_list, link)
 		node_free(node);
+	free(graph->input);
+	free(graph->output);
+	free(graph->hndl);
+	free(graph->control_port);
 }
 
 static void core_error(void *data, uint32_t id, int seq, int res, const char *message)

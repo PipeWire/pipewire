@@ -656,10 +656,8 @@ static int setup_streams(struct impl *impl)
 	offsets[n_params++] = b.b.state.offset;
 	get_props_param(graph, &b.b);
 
-	for (i = 0; i < n_params; i++) {
+	for (i = 0; i < n_params; i++)
 		params[i] = spa_pod_builder_deref(&b.b, offsets[i]);
-		spa_debug_pod(0, NULL, params[i]);
-	}
 
 	res = pw_stream_connect(impl->capture,
 			PW_DIRECTION_INPUT,

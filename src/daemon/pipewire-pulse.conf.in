@@ -40,32 +40,8 @@ context.modules = [
 
     { name = libpipewire-module-protocol-pulse
         args = {
-            # the addresses this server listens on
-            server.address = [
-                "unix:native"
-                #"unix:/tmp/something"              # absolute paths may be used
-                #"tcp:4713"                         # IPv4 and IPv6 on all addresses
-                #"tcp:[::]:9999"                    # IPv6 on all addresses
-                #"tcp:127.0.0.1:8888"               # IPv4 on a single address
-                #
-                #{ address = "tcp:4713"             # address
-                #  max-clients = 64                 # maximum number of clients
-                #  listen-backlog = 32              # backlog in the server listen queue
-                #  client.access = "restricted"     # permissions for clients
-                #}
-            ]
-            #pulse.min.req          = 256/48000     # 5ms
-            #pulse.default.req      = 960/48000     # 20 milliseconds
-            #pulse.min.frag         = 256/48000     # 5ms
-            #pulse.default.frag     = 96000/48000   # 2 seconds
-            #pulse.default.tlength  = 96000/48000   # 2 seconds
-            #pulse.min.quantum      = 256/48000     # 5ms
-            #pulse.default.format   = F32
-            #pulse.default.position = [ FL FR ]
-            # These overrides are only applied when running in a vm.
-            vm.overrides = {
-                pulse.min.quantum = 1024/48000      # 22ms
-            }
+	    # contents of pulse.properties can also be placed here
+	    # to have config per server.
         }
     }
 ]
@@ -89,6 +65,35 @@ stream.properties = {
     #channelmix.rear-delay = 12.0
     #channelmix.stereo-widen = 0.0
     #channelmix.hilbert-taps = 0
+}
+
+pulse.properties = {
+    # the addresses this server listens on
+    server.address = [
+        "unix:native"
+        #"unix:/tmp/something"              # absolute paths may be used
+        #"tcp:4713"                         # IPv4 and IPv6 on all addresses
+        #"tcp:[::]:9999"                    # IPv6 on all addresses
+        #"tcp:127.0.0.1:8888"               # IPv4 on a single address
+        #
+        #{ address = "tcp:4713"             # address
+        #  max-clients = 64                 # maximum number of clients
+        #  listen-backlog = 32              # backlog in the server listen queue
+        #  client.access = "restricted"     # permissions for clients
+        #}
+    ]
+    #pulse.min.req          = 256/48000     # 5ms
+    #pulse.default.req      = 960/48000     # 20 milliseconds
+    #pulse.min.frag         = 256/48000     # 5ms
+    #pulse.default.frag     = 96000/48000   # 2 seconds
+    #pulse.default.tlength  = 96000/48000   # 2 seconds
+    #pulse.min.quantum      = 256/48000     # 5ms
+    #pulse.default.format   = F32
+    #pulse.default.position = [ FL FR ]
+    # These overrides are only applied when running in a vm.
+    vm.overrides = {
+        pulse.min.quantum = 1024/48000      # 22ms
+    }
 }
 
 # client/stream specific properties

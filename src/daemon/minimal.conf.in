@@ -294,6 +294,42 @@ context.objects = [
             #}
         }
     }
+    # This creates a new Source node. It will have input ports
+    # that you can link, to provide audio for this source.
+    #{ factory = adapter
+    #    args = {
+    #        factory.name     = support.null-audio-sink
+    #        node.name        = "my-mic"
+    #        node.description = "Microphone"
+    #        media.class      = "Audio/Source/Virtual"
+    #        audio.position   = "FL,FR"
+    #        adapter.auto-port-config = {
+    #            mode = dsp
+    #            monitor = true
+    #            position = preserve   # unknown, aux, preserve
+    #        }
+    #    }
+    #}
+    # This creates a new link between the source and the virtual
+    # source ports.
+    #{ factory = link-factory
+    #    args = {
+    #        link.output.node = system
+    #        link.output.port = capture_1
+    #        link.input.node  = my-mic
+    #        link.input.port  = input_FL
+    #        link.passive     = true
+    #    }
+    #}
+    #{ factory = link-factory
+    #    args = {
+    #        link.output.node = system
+    #        link.output.port = capture_2
+    #        link.input.node  = my-mic
+    #        link.input.port  = input_FR
+    #        link.passive     = true
+    #    }
+    #}
 ]
 
 context.exec = [

@@ -584,6 +584,10 @@ on_timing_source_io(void *data, int fd, uint32_t mask)
 
 		received = ntp_now(CLOCK_MONOTONIC);
 		bytes = read(impl->timing_fd, packet, sizeof(packet));
+		if (bytes < 0) {
+			pw_log_debug("error reading timing packet: %m");
+			return;
+		}
 		if (bytes != sizeof(packet)) {
 			pw_log_warn("discarding short (%zd < %zd) timing packet",
 					bytes, sizeof(bytes));
@@ -610,6 +614,10 @@ on_control_source_io(void *data, int fd, uint32_t mask)
 		uint16_t seq, num;
 
 		bytes = read(impl->control_fd, packet, sizeof(packet));
+		if (bytes < 0) {
+			pw_log_debug("error reading control packet: %m");
+			return;
+		}
 		if (bytes != sizeof(packet)) {
 			pw_log_warn("discarding short (%zd < %zd) control packet",
 					bytes, sizeof(bytes));

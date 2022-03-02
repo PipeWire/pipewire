@@ -136,8 +136,9 @@ struct stream {
 
 	uint32_t change_mask_all;
 	struct spa_node_info info;
-#define IDX_Props	0
-#define N_NODE_PARAMS	1
+#define IDX_PropInfo	0
+#define IDX_Props	1
+#define N_NODE_PARAMS	2
 	struct spa_param_info params[N_NODE_PARAMS];
 
 	uint32_t media_type;
@@ -174,6 +175,8 @@ struct stream {
 static int get_param_index(uint32_t id)
 {
 	switch (id) {
+	case SPA_PARAM_PropInfo:
+		return IDX_PropInfo;
 	case SPA_PARAM_Props:
 		return IDX_Props;
 	default:
@@ -1726,6 +1729,7 @@ pw_stream_connect(struct pw_stream *stream,
 	if (!impl->process_rt)
 		impl->info.flags |= SPA_NODE_FLAG_ASYNC;
 	impl->info.props = &stream->properties->dict;
+	impl->params[IDX_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, 0);
 	impl->params[IDX_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_WRITE);
 	impl->info.params = impl->params;
 	impl->info.n_params = N_NODE_PARAMS;

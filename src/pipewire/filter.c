@@ -147,9 +147,10 @@ struct filter {
 	uint32_t change_mask_all;
 	struct spa_node_info info;
 	struct spa_list param_list;
-#define IDX_Props		0
-#define IDX_ProcessLatency	1
-#define N_NODE_PARAMS		2
+#define IDX_PropInfo		0
+#define IDX_Props		1
+#define IDX_ProcessLatency	2
+#define N_NODE_PARAMS		3
 	struct spa_param_info params[N_NODE_PARAMS];
 
 	struct spa_process_latency_info process_latency;
@@ -174,6 +175,8 @@ struct filter {
 static int get_param_index(uint32_t id)
 {
 	switch (id) {
+	case SPA_PARAM_PropInfo:
+		return IDX_PropInfo;
 	case SPA_PARAM_Props:
 		return IDX_Props;
 	case SPA_PARAM_ProcessLatency:
@@ -1495,6 +1498,7 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->info.max_output_ports = UINT32_MAX;
 	impl->info.flags = impl->process_rt ? SPA_NODE_FLAG_RT : 0;
 	impl->info.props = &filter->properties->dict;
+	impl->params[IDX_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, 0);
 	impl->params[IDX_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_WRITE);
 	impl->params[IDX_ProcessLatency] = SPA_PARAM_INFO(SPA_PARAM_ProcessLatency, 0);
 	impl->info.params = impl->params;

@@ -47,7 +47,9 @@ struct fc_port {
 #define FC_PORT_AUDIO	(1ULL << 3)
 	uint64_t flags;
 
+#define FC_HINT_BOOLEAN		(1ULL << 2)
 #define FC_HINT_SAMPLE_RATE	(1ULL << 3)
+#define FC_HINT_INTEGER		(1ULL << 5)
 	uint64_t hint;
 	float def;
 	float min;

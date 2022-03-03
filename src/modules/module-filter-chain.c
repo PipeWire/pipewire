@@ -524,13 +524,14 @@ static void param_props_changed(struct impl *impl, const struct spa_pod *param)
 	}
 	if (changed > 0) {
 		uint8_t buffer[1024];
-		struct spa_pod_builder b;
+		struct spa_pod_dynamic_builder b;
 		const struct spa_pod *params[1];
 
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
-		params[0] = get_props_param(graph, &b);
+		spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+		params[0] = get_props_param(graph, &b.b);
 
 		pw_stream_update_params(impl->capture, params, 1);
+		spa_pod_dynamic_builder_clean(&b);
 	}
 }
 

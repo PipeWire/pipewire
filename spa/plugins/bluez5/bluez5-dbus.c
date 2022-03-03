@@ -837,7 +837,7 @@ struct spa_bt_device *spa_bt_device_find_by_address(struct spa_bt_monitor *monit
 	return NULL;
 }
 
-static void device_update_last_bluez_action_time(struct spa_bt_device *device)
+void spa_bt_device_update_last_bluez_action_time(struct spa_bt_device *device)
 {
 	struct timespec ts;
 	spa_system_clock_gettime(device->monitor->main_system, CLOCK_MONOTONIC, &ts);
@@ -867,7 +867,7 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 
 	spa_list_prepend(&monitor->device_list, &d->link);
 
-	device_update_last_bluez_action_time(d);
+	spa_bt_device_update_last_bluez_action_time(d);
 
 	return d;
 }
@@ -2595,7 +2595,7 @@ static bool a2dp_codec_switch_process_current(struct spa_bt_a2dp_codec_switch *s
 		goto next;
 	}
 
-	device_update_last_bluez_action_time(sw->device);
+	spa_bt_device_update_last_bluez_action_time(sw->device);
 
 	spa_log_info(sw->device->monitor->log, "a2dp codec switch %p: trying codec %s for endpoint %s, local endpoint %s",
 	             sw, codec->name, ep->path, local_endpoint);
@@ -2727,7 +2727,7 @@ static void a2dp_codec_switch_reply(DBusPendingCall *pending, void *user_data)
 	dbus_pending_call_unref(pending);
 	sw->pending = NULL;
 
-	device_update_last_bluez_action_time(device);
+	spa_bt_device_update_last_bluez_action_time(device);
 
 	if (!a2dp_codec_switch_goto_active(sw)) {
 		if (r != NULL)
@@ -3030,7 +3030,7 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
-	device_update_last_bluez_action_time(transport->device);
+	spa_bt_device_update_last_bluez_action_time(transport->device);
 
 	if (profile & SPA_BT_PROFILE_A2DP_SOURCE) {
 		/* PW is the rendering device so it's responsible for reporting hardware volume. */

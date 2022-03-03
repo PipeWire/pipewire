@@ -642,7 +642,7 @@ static int update_params(struct filter *impl, struct port *port, uint32_t id,
 		clear_params(impl, port, id);
 	} else {
 		for (i = 0; i < n_params; i++) {
-			if (!spa_pod_is_object(params[i]))
+			if (params[i] == NULL || !spa_pod_is_object(params[i]))
 				continue;
 			clear_params(impl, port, SPA_POD_OBJECT_ID(params[i]));
 		}

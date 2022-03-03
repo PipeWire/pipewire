@@ -295,7 +295,7 @@ static int update_params(struct stream *impl, uint32_t id,
 		clear_params(impl, id);
 	} else {
 		for (i = 0; i < n_params; i++) {
-			if (!spa_pod_is_object(params[i]))
+			if (params[i] == NULL || !spa_pod_is_object(params[i]))
 				continue;
 			clear_params(impl, SPA_POD_OBJECT_ID(params[i]));
 		}

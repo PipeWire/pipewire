@@ -306,78 +306,7 @@ static int impl_node_enum_params(void *object, int seq,
 
 	case SPA_PARAM_PropInfo:
 	{
-		struct props *p = &this->props;
-
 		switch (result.index) {
-		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_volume),
-				SPA_PROP_INFO_name, SPA_POD_String("Volume"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume, 0.0, 10.0));
-			break;
-		case 1:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_mute),
-				SPA_PROP_INFO_name, SPA_POD_String("Mute"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->channel.mute));
-			break;
-		case 2:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_channelVolumes),
-				SPA_PROP_INFO_name, SPA_POD_String("Channel Volumes"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume, 0.0, 10.0),
-				SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
-			break;
-		case 3:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_channelMap),
-				SPA_PROP_INFO_name, SPA_POD_String("Channel Map"),
-				SPA_PROP_INFO_type, SPA_POD_Id(SPA_AUDIO_CHANNEL_UNKNOWN),
-				SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
-			break;
-		case 4:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_monitorMute),
-				SPA_PROP_INFO_name, SPA_POD_String("Monitor Mute"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->monitor.mute));
-			break;
-		case 5:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_monitorVolumes),
-				SPA_PROP_INFO_name, SPA_POD_String("Monitor Volumes"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume, 0.0, 10.0),
-				SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
-			break;
-		case 6:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_softMute),
-				SPA_PROP_INFO_name, SPA_POD_String("Soft Mute"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->soft.mute));
-			break;
-		case 7:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_softVolumes),
-				SPA_PROP_INFO_name, SPA_POD_String("Soft Volumes"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume, 0.0, 10.0),
-				SPA_PROP_INFO_container, SPA_POD_Id(SPA_TYPE_Array));
-			break;
-		case 8:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("monitor.channel-volumes"),
-				SPA_PROP_INFO_description, SPA_POD_String("Monitor channel volume"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
-					this->monitor_channel_volumes),
-				SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
 		default:
 			return 0;
 		}
@@ -386,46 +315,7 @@ static int impl_node_enum_params(void *object, int seq,
 
 	case SPA_PARAM_Props:
 	{
-#if 0
-		struct props *p = &this->props;
-		struct spa_pod_frame f[2];
-#endif
-
 		switch (result.index) {
-#if 0
-		case 0:
-			spa_pod_builder_push_object(&b, &f[0],
-                                SPA_TYPE_OBJECT_Props, id);
-			spa_pod_builder_add(&b,
-				SPA_PROP_volume,		SPA_POD_Float(p->volume),
-				SPA_PROP_mute,			SPA_POD_Bool(p->channel.mute),
-				SPA_PROP_channelVolumes,	SPA_POD_Array(sizeof(float),
-									SPA_TYPE_Float,
-									p->channel.n_volumes,
-									p->channel.volumes),
-				SPA_PROP_channelMap,		SPA_POD_Array(sizeof(uint32_t),
-									SPA_TYPE_Id,
-									p->n_channels,
-									p->channel_map),
-				SPA_PROP_softMute,		SPA_POD_Bool(p->soft.mute),
-				SPA_PROP_softVolumes,		SPA_POD_Array(sizeof(float),
-									SPA_TYPE_Float,
-									p->soft.n_volumes,
-									p->soft.volumes),
-				SPA_PROP_monitorMute,		SPA_POD_Bool(p->monitor.mute),
-				SPA_PROP_monitorVolumes,	SPA_POD_Array(sizeof(float),
-									SPA_TYPE_Float,
-									p->monitor.n_volumes,
-									p->monitor.volumes),
-				0);
-			spa_pod_builder_prop(&b, SPA_PROP_params, 0);
-			spa_pod_builder_push_struct(&b, &f[1]);
-			spa_pod_builder_string(&b, "monitor.channel-volumes");
-			spa_pod_builder_bool(&b, this->monitor_channel_volumes);
-			spa_pod_builder_pop(&b, &f[1]);
-			param = spa_pod_builder_pop(&b, &f[0]);
-			break;
-#endif
 		default:
 			return 0;
 		}

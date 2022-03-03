@@ -57,13 +57,13 @@ stream.properties = {
     #node.latency          = 1024/48000
     #node.autoconnect      = true
     #resample.quality      = 4
-    #channelmix.normalize  = true
+    #channelmix.normalize  = false
     #channelmix.mix-lfe    = false
-    #channelmix.upmix      = false
-    #channelmix.lfe-cutoff = 0
-    #channelmix.fc-cutoff  = 0
+    #channelmix.upmix      = true
+    #channelmix.lfe-cutoff = 120
+    #channelmix.fc-cutoff  = 6000
     #channelmix.rear-delay = 12.0
-    #channelmix.stereo-widen = 0.0
+    #channelmix.stereo-widen = 0.1
     #channelmix.hilbert-taps = 0
 }
 

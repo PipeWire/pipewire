@@ -214,32 +214,39 @@ ssize_t
 dsf_file_read(struct dsf_file *f, void *data, size_t samples, const struct dsf_layout *layout)
 {
 	uint8_t *d = data;
-	const uint8_t *s;
-	uint32_t i, j, k, total, stride, bytes, step = SPA_ABS(layout->interleave);
+	int step = SPA_ABS(layout->interleave);
 	bool rev = layout->lsb != f->info.lsb;
+	size_t total, block, offset, pos;
 
-	stride = layout->channels * step;
-	bytes = samples * stride;
-	bytes -= bytes % f->info.blocksize;
+	block = f->offset / f->info.blocksize;
+	offset = block * f->info.blocksize * f->info.channels;
+	pos = f->offset % f->info.blocksize;
 
-	for (total = 0; total < bytes; total += layout->channels * f->info.blocksize) {
-		s = f->p + f->offset;
+	for (total = 0; total < samples && offset + pos < f->info.length; total++) {
+		const uint8_t *s = f->p + offset + pos;
+		uint32_t i;
 
-		for (i = 0; i < f->info.blocksize; i += step)  {
-			for (j = 0; j < layout->channels; j++) {
-				const uint8_t *c = &s[f->info.blocksize * j + i];
-				if (layout->interleave > 0) {
-					for (k = 0; k < step; k++)
-						*d++ = rev ? bitrev[c[k]] : c[k];
-				} else {
-					for (k = step; k > 0; k--)
-						*d++ = rev ? bitrev[c[k-1]] : c[k-1];
-				}
+		for (i = 0; i < layout->channels; i++) {
+			const uint8_t *c = &s[f->info.blocksize * i];
+			int j;
+
+			if (layout->interleave > 0) {
+				for (j = 0; j < step; j++)
+					*d++ = rev ? bitrev[c[j]] : c[j];
+			} else {
+				for (j = step-1; j >= 0; j--)
+					*d++ = rev ? bitrev[c[j]] : c[j];
 			}
 		}
-		f->offset += f->info.channels * f->info.blocksize;
+		pos += step;
+		if (pos == f->info.blocksize) {
+			pos = 0;
+			offset += f->info.blocksize * f->info.channels;
+		}
 	}
-	return total / stride;
+	f->offset += total * step;
+
+	return total;
 }
 
 int dsf_file_close(struct dsf_file *f)

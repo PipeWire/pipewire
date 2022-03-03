@@ -1274,7 +1274,7 @@ static int setup_dsffile(struct data *data)
 				data->dsf.info.lsb ? "lsb" : "msb");
 
 	data->fill = dsf_play;
-;
+
 	return 0;
 }
 

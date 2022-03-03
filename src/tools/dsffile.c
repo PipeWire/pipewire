@@ -215,25 +215,24 @@ dsf_file_read(struct dsf_file *f, void *data, size_t samples, const struct dsf_l
 {
 	uint8_t *d = data;
 	const uint8_t *s;
-	uint32_t i, j, k, total, stride, bytes;
-	int32_t interleave = layout->interleave;
+	uint32_t i, j, k, total, stride, bytes, step = SPA_ABS(layout->interleave);
 	bool rev = layout->lsb != f->info.lsb;
 
-	stride = layout->channels * layout->interleave;
+	stride = layout->channels * step;
 	bytes = samples * stride;
 	bytes -= bytes % f->info.blocksize;
 
 	for (total = 0; total < bytes; total += layout->channels * f->info.blocksize) {
 		s = f->p + f->offset;
 
-		for (i = 0; i < f->info.blocksize; i += interleave)  {
+		for (i = 0; i < f->info.blocksize; i += step)  {
 			for (j = 0; j < layout->channels; j++) {
 				const uint8_t *c = &s[f->info.blocksize * j + i];
-				if (interleave > 0) {
-					for (k = 0; k < (uint32_t)interleave; k++)
+				if (layout->interleave > 0) {
+					for (k = 0; k < step; k++)
 						*d++ = rev ? bitrev[c[k]] : c[k];
 				} else {
-					for (k = -interleave; k > 0; k--)
+					for (k = step; k > 0; k--)
 						*d++ = rev ? bitrev[c[k-1]] : c[k-1];
 				}
 			}

@@ -237,7 +237,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.period-size"),
 			SPA_PROP_INFO_description, SPA_POD_String("Period Size"),
-			SPA_PROP_INFO_type, SPA_POD_Int(state->default_period_size),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(state->default_period_size, 0, 8192),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
 	case 6:
@@ -245,7 +245,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.period-num"),
 			SPA_PROP_INFO_description, SPA_POD_String("Number of Periods"),
-			SPA_PROP_INFO_type, SPA_POD_Int(state->default_period_num),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(state->default_period_num, 0, 1024),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
 	case 7:
@@ -253,7 +253,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.headroom"),
 			SPA_PROP_INFO_description, SPA_POD_String("Headroom"),
-			SPA_PROP_INFO_type, SPA_POD_Int(state->default_headroom),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(state->default_headroom, 0, 8192),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
 	case 8:
@@ -261,7 +261,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.start-delay"),
 			SPA_PROP_INFO_description, SPA_POD_String("Start Delay"),
-			SPA_PROP_INFO_type, SPA_POD_Int(state->default_start_delay),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(state->default_start_delay, 0, 8192),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
 	case 9:
@@ -269,7 +269,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.disable-mmap"),
 			SPA_PROP_INFO_description, SPA_POD_String("Disable MMAP"),
-			SPA_PROP_INFO_type, SPA_POD_Bool(state->disable_mmap),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(state->disable_mmap),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
 	case 10:
@@ -277,7 +277,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.disable-batch"),
 			SPA_PROP_INFO_description, SPA_POD_String("Disable Batch"),
-			SPA_PROP_INFO_type, SPA_POD_Bool(state->disable_batch),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(state->disable_batch),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
 	case 11:
@@ -285,7 +285,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.use-chmap"),
 			SPA_PROP_INFO_description, SPA_POD_String("Use the driver channelmap"),
-			SPA_PROP_INFO_type, SPA_POD_Bool(state->props.use_chmap),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(state->props.use_chmap),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
 	case 12:
@@ -293,7 +293,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("api.alsa.multi-rate"),
 			SPA_PROP_INFO_description, SPA_POD_String("Support multiple rates"),
-			SPA_PROP_INFO_type, SPA_POD_Bool(state->multi_rate),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(state->multi_rate),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
 	case 13:
@@ -301,7 +301,8 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("latency.internal.rate"),
 			SPA_PROP_INFO_description, SPA_POD_String("Internal latency in samples"),
-			SPA_PROP_INFO_type, SPA_POD_Int(state->process_latency.rate),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(state->process_latency.rate,
+				0, 65536),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
 	case 14:
@@ -309,7 +310,8 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_name, SPA_POD_String("latency.internal.ns"),
 			SPA_PROP_INFO_description, SPA_POD_String("Internal latency in nanoseconds"),
-			SPA_PROP_INFO_type, SPA_POD_Long(state->process_latency.ns),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(state->process_latency.ns,
+				0, 2 * SPA_NSEC_PER_SEC),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
 	case 15:
@@ -429,7 +431,7 @@ int spa_alsa_parse_prop_params(struct state *state, struct spa_pod *params)
 		} else
 			continue;
 
-		spa_log_debug(state->log, "key:'%s' val:'%s'", name, value);
+		spa_log_info(state->log, "key:'%s' val:'%s'", name, value);
 		alsa_set_param(state, name, value);
 		changed++;
 	}

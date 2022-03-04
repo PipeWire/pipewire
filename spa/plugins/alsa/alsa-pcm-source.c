@@ -160,7 +160,7 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_latencyOffsetNsec),
 				SPA_PROP_INFO_description, SPA_POD_String("Latency offset (ns)"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(0LL, 0LL, INT64_MAX));
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(0LL, 0LL, 2 * SPA_NSEC_PER_SEC));
 			break;
 		default:
 			param = spa_alsa_enum_propinfo(this, result.index - 4, &b);

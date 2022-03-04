@@ -292,7 +292,8 @@ static void set_volume(struct impl *this)
 {
 	struct volumes *vol;
 
-	if (this->mix.set_volume == NULL)
+	if (this->mix.set_volume == NULL ||
+	    this->props.disabled)
 		return;
 
 	if (this->props.have_soft_volume)
@@ -691,7 +692,7 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 		spa_log_info(this->log, "key:'%s' val:'%s'", name, value);
 		changed += channelmix_set_param(this, name, value);
 	}
-	if (changed)
+	if (changed && !this->props.disabled)
 		channelmix_init(&this->mix);
 	return changed;
 }
@@ -707,9 +708,6 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	uint32_t n;
 
 	if (param == NULL)
-		return 0;
-
-	if (this->props.disabled)
 		return 0;
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
@@ -771,6 +769,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			break;
 		}
 	}
+
 	if (changed) {
 		struct port *port = GET_PORT(this, this->direction, 0);
 		if (have_soft_volume)
@@ -780,6 +779,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 
 		if (port->have_format)
 			remap_volumes(this, &port->format);
+
 		set_volume(this);
 	}
 	return changed;
@@ -793,9 +793,6 @@ static int apply_midi(struct impl *this, const struct spa_pod *value)
 
 	if (size < 3)
 		return -EINVAL;
-
-	if (this->props.disabled)
-		return 0;
 
 	if ((val[0] & 0xf0) != 0xb0 || val[1] != 7)
 		return 0;

@@ -155,7 +155,10 @@ static int remove_from_poll(struct impl *impl, struct spa_source *source)
 
 static int loop_remove_source(void *object, struct spa_source *source)
 {
-	int res = remove_from_poll(object, source);
+	struct impl *impl = object;
+	spa_assert(!impl->polling);
+
+	int res = remove_from_poll(impl, source);
 	detach_source(source);
 
 	return res;

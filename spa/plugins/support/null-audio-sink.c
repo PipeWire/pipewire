@@ -779,6 +779,13 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 	return 0;
 }
 
+static int do_remove_timer(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct impl *this = user_data;
+	spa_loop_remove_source(this->data_loop, &this->timer_source);
+	return 0;
+}
+
 static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *this;
@@ -787,7 +794,7 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
-	spa_loop_remove_source(this->data_loop, &this->timer_source);
+	spa_loop_invoke(this->data_loop, do_remove_timer, 0, NULL, 0, true, this);
 	spa_system_close(this->data_system, this->timer_source.fd);
 
 	return 0;

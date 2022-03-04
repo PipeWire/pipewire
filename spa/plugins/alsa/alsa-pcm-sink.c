@@ -310,20 +310,18 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	case SPA_PARAM_Props:
 	{
 		struct props *p = &this->props;
-		struct spa_process_latency_info info;
 		struct spa_pod *iec958_codecs = NULL, *params = NULL;
+		int64_t lat_ns = -1;
 
 		if (param == NULL) {
 			reset_props(p);
 			return 0;
 		}
 
-		info = this->process_latency;
-
 		spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_Props, NULL,
 			SPA_PROP_device,       SPA_POD_OPT_Stringn(p->device, sizeof(p->device)),
-			SPA_PROP_latencyOffsetNsec,   SPA_POD_OPT_Long(&info.ns),
+			SPA_PROP_latencyOffsetNsec,   SPA_POD_OPT_Long(&lat_ns),
 			SPA_PROP_iec958Codecs, SPA_POD_OPT_Pod(&iec958_codecs),
 			SPA_PROP_params,       SPA_POD_OPT_Pod(&params));
 
@@ -342,8 +340,12 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			this->port_params[PORT_EnumFormat].user++;
 		}
 		spa_alsa_parse_prop_params(this, params);
-		handle_process_latency(this, &info);
-
+		if (lat_ns != -1) {
+			struct spa_process_latency_info info;
+			info = this->process_latency;
+			info.ns = lat_ns;
+			handle_process_latency(this, &info);
+		}
 		emit_node_info(this, false);
 		emit_port_info(this, false);
 		break;

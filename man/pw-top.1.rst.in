@@ -1,0 +1,82 @@
+pw-top
+######
+
+---------------------------
+The PipeWire process viewer
+---------------------------
+
+:Manual section: 1
+:Manual group: General Commands Manual
+
+SYNOPSIS
+========
+
+| **pw-top** [*options*]
+
+DESCRIPTION
+===========
+
+The *pw-top* program provides a dynamic real-time view of the pipewire
+node and device statistics.
+
+The columns presented are as follows:
+
+S
+  Measurement status.
+  ! representing inactive - no connections
+
+  Blank representing active
+
+ID
+  The ID of the pipewire node/device, as found in *pw-dump*
+
+QUANT
+  Current quantum at which the device/node is polled.
+  See https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/FAQ#pipewire-buffering-explained
+
+RATE
+  Sample rate used for communicating with this device/node.
+
+WAIT
+
+BUSY
+
+W/Q
+  Ratio of WAIT / QUANT.
+
+B/Q
+  Ratio of BUSY / QUANT
+
+ERR
+  Total of Xruns and Errors
+
+NAME
+  Name assigned to the device/node, as found in *pw-dump* node.name
+
+  Names are prefixed by *+* when they are linked to a driver (entry above with no +)
+
+
+OPTIONS
+=======
+
+-h | --help
+  Show help.
+
+-r | --remote=NAME
+  The name the *remote* instance to monitor. If left unspecified,
+  a connection is made to the default PipeWire instance.
+
+--version
+  Show version information.
+
+
+AUTHORS
+=======
+
+The PipeWire Developers <@PACKAGE_BUGREPORT@>; PipeWire is available from @PACKAGE_URL@
+
+SEE ALSO
+========
+
+``pipewire(1)``,
+

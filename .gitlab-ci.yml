@@ -25,7 +25,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2022-02-16.0'
+    FDO_DISTRIBUTION_TAG: '2022-03-05.0'
     FDO_DISTRIBUTION_VERSION: '35'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
@@ -66,6 +66,8 @@ include:
       ninja-build
       pkgconf
       python3-pip
+      pulseaudio-utils
+      openal-soft
     FDO_DISTRIBUTION_EXEC: >-
       pip3 install meson
 

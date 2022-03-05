@@ -684,8 +684,11 @@ static pid_t start_pwdaemon(struct pwtest_test *t, int stderr_fd, int log_fd)
 		setpgid(0, 0);
 
 		setenv("PIPEWIRE_CORE", pw_remote, 1);
+		setenv("PIPEWIRE_DEBUG", "4", 0);
+		setenv("WIREPLUMBER_DEBUG", "4", 0);
 
 		dup2(stderr_fd, STDERR_FILENO);
+		dup2(stderr_fd, STDOUT_FILENO);
 		setlinebuf(stderr);
 		execl(daemon, daemon, (char*)NULL);
 		return -errno;

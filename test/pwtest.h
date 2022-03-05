@@ -558,6 +558,11 @@ pwtest_spa_plugin_try_load_interface(struct pwtest_spa_plugin *plugin,
  */
 void pwtest_mkstemp(char path[PATH_MAX]);
 
+/**
+ * Run a command and wait for it to return.
+ */
+int pwtest_spawn(const char *file, char *const argv[]);
+
 
 /**
  * \}

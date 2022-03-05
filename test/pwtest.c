@@ -407,6 +407,34 @@ pwtest_mkstemp(char path[PATH_MAX])
 		pwtest_error_with_msg("Unable to create temporary file: %s", strerror(errno));
 }
 
+int
+pwtest_spawn(const char *file, char *const argv[])
+{
+	int r;
+	int status = -1;
+	pid_t pid;
+	const int fail_code = 121;
+
+	pid = fork();
+	if (pid == 0) {
+		/* child process */
+		setlinebuf(stderr);
+		setlinebuf(stdout);
+		execvp(file, (char **)argv);
+		exit(fail_code);
+	} else if (pid < 0)
+		pwtest_error_with_msg("Unable to fork: %s", strerror(errno));
+
+	r = waitpid(pid, &status, 0);
+	if (r <= 0)
+		pwtest_error_with_msg("waitpid failed: %s", strerror(errno));
+
+	if (WEXITSTATUS(status) == fail_code)
+		pwtest_error_with_msg("exec %s failed", file);
+
+	return status;
+}
+
 void _pwtest_add(struct pwtest_context *ctx, struct pwtest_suite *suite,
 		 const char *funcname, const void *func, ...)
 {

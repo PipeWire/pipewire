@@ -653,6 +653,8 @@ static pid_t start_pwdaemon(struct pwtest_test *t, int stderr_fd, int log_fd)
 	pid = fork();
 	if (pid == 0) {
 		/* child */
+		setpgid(0, 0);
+
 		setenv("PIPEWIRE_CORE", pw_remote, 1);
 
 		dup2(stderr_fd, STDERR_FILENO);
@@ -983,7 +985,7 @@ error:
 	if (pw_daemon > 0) {
 		int status;
 
-		kill(pw_daemon, SIGTERM);
+		kill(-pw_daemon, SIGTERM);
 		r = waitpid(pw_daemon, &status, 0);
 		if (r > 0) {
 			/* write_fds are closed in the parent process, so we append directly */

@@ -853,6 +853,8 @@ static int impl_clear(struct spa_handle *handle)
 		spa_log_warn(impl->log, "%p: loop is entered %d times",
 				impl, impl->enter_count);
 
+	spa_assert(!impl->polling);
+
 	spa_list_consume(source, &impl->source_list, link)
 		loop_destroy_source(impl, &source->source);
 

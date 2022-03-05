@@ -119,6 +119,28 @@ test('test-spa',
                link_with: pwtest_lib)
 )
 
+openal_info = find_program('openal-info', required: false)
+if openal_info.found()
+    cdata.set_quoted('OPENAL_INFO_PATH', openal_info.full_path())
+endif
+summary({'openal-info': openal_info.found()}, bool_yn: true, section: 'Functional test programs')
+
+pactl = find_program('pactl', required: false)
+if pactl.found()
+    cdata.set_quoted('PACTL_PATH', pactl.full_path())
+endif
+summary({'pactl': pactl.found()}, bool_yn: true, section: 'Functional test programs')
+
+if default_sm == 'media-session' or default_sm == 'wireplumber'
+  test('test-functional',
+    executable('test-functional',
+               'test-functional.c',
+               include_directories: pwtest_inc,
+               dependencies: [ spa_dep ],
+               link_with: pwtest_lib)
+  )
+endif
+
 valgrind = find_program('valgrind', required: false)
 summary({'valgrind (test setup)': valgrind.found()}, bool_yn: true, section: 'Optional programs')
 if valgrind.found()

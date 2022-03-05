@@ -128,11 +128,18 @@ struct pwtest_context {
 	struct spa_list suites;
 	unsigned int timeout;
 	bool no_fork;
+	bool terminate;
+	struct spa_list cleanup_pids;
 
 	const char *test_filter;
 	bool has_iteration_filter;
 	int iteration_filter;
 	char *xdg_dir;
+};
+
+struct cleanup_pid {
+	struct spa_list link;
+	pid_t pid;
 };
 
 struct pwtest_context *pwtest_get_context(struct pwtest_test *t)
@@ -172,6 +179,56 @@ static void restore_env(struct pwtest_test *t)
 			unsetenv(env);
 		else
 			setenv(env, value, 1);
+	}
+}
+
+static int add_cleanup_pid(struct pwtest_context *ctx, pid_t pid)
+{
+	struct cleanup_pid *cpid;
+
+	if (pid == 0)
+		return -EINVAL;
+
+	cpid = calloc(1, sizeof(struct cleanup_pid));
+	if (cpid == NULL)
+		return -errno;
+
+	cpid->pid = pid;
+	spa_list_append(&ctx->cleanup_pids, &cpid->link);
+
+	return 0;
+}
+
+static void remove_cleanup_pid(struct pwtest_context *ctx, pid_t pid)
+{
+	struct cleanup_pid *cpid, *t;
+
+	spa_list_for_each_safe(cpid, t, &ctx->cleanup_pids, link) {
+		if (cpid->pid == pid) {
+			spa_list_remove(&cpid->link);
+			free(cpid);
+		}
+	}
+}
+
+static void terminate_cleanup_pids(struct pwtest_context *ctx)
+{
+	struct cleanup_pid *cpid;
+	spa_list_for_each(cpid, &ctx->cleanup_pids, link) {
+		/* Don't free here, to be signal-safe */
+		if (cpid->pid != 0) {
+			kill(cpid->pid, SIGTERM);
+			cpid->pid = 0;
+		}
+	}
+}
+
+static void free_cleanup_pids(struct pwtest_context *ctx)
+{
+	struct cleanup_pid *cpid;
+	spa_list_consume(cpid, &ctx->cleanup_pids, link) {
+		spa_list_remove(&cpid->link);
+		free(cpid);
 	}
 }
 
@@ -425,7 +482,9 @@ pwtest_spawn(const char *file, char *const argv[])
 	} else if (pid < 0)
 		pwtest_error_with_msg("Unable to fork: %s", strerror(errno));
 
+	add_cleanup_pid(ctx, pid);
 	r = waitpid(pid, &status, 0);
+	remove_cleanup_pid(ctx, pid);
 	if (r <= 0)
 		pwtest_error_with_msg("waitpid failed: %s", strerror(errno));
 
@@ -596,6 +655,9 @@ static void cleanup(struct pwtest_context *ctx)
 {
 	struct pwtest_suite *c, *tmp;
 
+	terminate_cleanup_pids(ctx);
+	free_cleanup_pids(ctx);
+
 	spa_list_for_each_safe(c, tmp, &ctx->suites, link) {
 		free_suite(c);
 	}
@@ -613,6 +675,7 @@ static void sighandler(int signal)
 	sigaction(signal, &act, NULL);
 
 	pwtest_backtrace(0);
+	terminate_cleanup_pids(ctx);
 	raise(signal);
 }
 
@@ -693,7 +756,11 @@ static pid_t start_pwdaemon(struct pwtest_test *t, int stderr_fd, int log_fd)
 		execl(daemon, daemon, (char*)NULL);
 		return -errno;
 
+	} else if (pid < 0) {
+		return pid;
 	}
+
+	add_cleanup_pid(ctx, -pid);
 
 	/* parent */
 	sleep(1); /* FIXME how to wait for pw to be ready? */
@@ -816,6 +883,9 @@ static int start_test_forked(struct pwtest_test *t, int read_fds[_FD_LAST], int 
 	/* child */
 
 	close_pipes(read_fds);
+
+	/* Reset cleanup pid list */
+	free_cleanup_pids(ctx);
 
 	/* Catch any crashers so we can insert a backtrace */
 	sigemptyset(&act.sa_mask);
@@ -997,18 +1067,26 @@ static void run_test(struct pwtest_context *ctx, struct pwtest_suite *c, struct 
 			errno = -r;
 			goto error;
 		}
+		add_cleanup_pid(ctx, pid);
 
 		r = monitor_test_forked(t, pid, read_fds);
 		if (r < 0) {
 			errno = -r;
 			goto error;
 		}
+		remove_cleanup_pid(ctx, pid);
 	}
 
 	errno = 0;
 error:
 	if (errno)
 		t->sig_or_errno = -errno;
+
+	if (ctx->terminate) {
+		char *buf = pw_array_add(&t->logs[FD_LOG], 64);
+		spa_scnprintf(buf, 64, "pwtest: tests terminated by signal\n");
+		t->result = PWTEST_SYSTEM_ERROR;
+	}
 
 	for (size_t i = 0; i < SPA_N_ELEMENTS(read_fds); i++) {
 		log_append(&t->logs[i], read_fds[i]);
@@ -1018,6 +1096,7 @@ error:
 		int status;
 
 		kill(-pw_daemon, SIGTERM);
+		remove_cleanup_pid(ctx, -pw_daemon);
 		r = waitpid(pw_daemon, &status, 0);
 		if (r > 0) {
 			/* write_fds are closed in the parent process, so we append directly */
@@ -1181,6 +1260,11 @@ static int run_tests(struct pwtest_context *ctx)
 						r = EXIT_FAILURE;
 						break;
 				}
+
+				if (ctx->terminate) {
+					r = EXIT_FAILURE;
+					return r;
+				}
 			}
 		}
 	}
@@ -1257,6 +1341,17 @@ static void usage(FILE *fp, const char *progname)
 		progname);
 }
 
+static void sigterm_handler(int signo)
+{
+	terminate_cleanup_pids(ctx);
+	ctx->terminate = true;
+	if (ctx->no_fork) {
+		signal(SIGTERM, SIG_DFL);
+		signal(SIGINT, SIG_DFL);
+		raise(signo);
+	}
+}
+
 int main(int argc, char **argv)
 {
 	int r = EXIT_SUCCESS;
@@ -1291,6 +1386,8 @@ int main(int argc, char **argv)
 		MODE_LIST,
 	} mode = MODE_TEST;
 	const char *suite_filter = NULL;
+
+	spa_list_init(&test_ctx.cleanup_pids);
 
 	ctx = &test_ctx;
 
@@ -1349,6 +1446,8 @@ int main(int argc, char **argv)
 		break;
 	case MODE_TEST:
 		setrlimit(RLIMIT_CORE, &((struct rlimit){0, 0}));
+		signal(SIGTERM, sigterm_handler);
+		signal(SIGINT, sigterm_handler);
 		r = run_tests(ctx);
 		break;
 	}

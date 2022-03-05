@@ -548,6 +548,8 @@ void _pwtest_add(struct pwtest_context *ctx, struct pwtest_suite *suite,
 			pw_properties_set(t->args.env, key, value);
 			break;
 		case PWTEST_ARG_DAEMON:
+			if (RUNNING_ON_VALGRIND)
+				t->result = PWTEST_SKIP;
 			t->args.pw_daemon = true;
 			break;
 		}

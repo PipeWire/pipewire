@@ -475,8 +475,6 @@ pwtest_spawn(const char *file, char *const argv[])
 	pid = fork();
 	if (pid == 0) {
 		/* child process */
-		setlinebuf(stderr);
-		setlinebuf(stdout);
 		execvp(file, (char **)argv);
 		exit(fail_code);
 	} else if (pid < 0)
@@ -684,7 +682,7 @@ static void sighandler(int signal)
 static inline void log_append(struct pw_array *buffer, int fd)
 {
 	int r = 0;
-	const int sz = 1024;
+	const int sz = 65536;
 
 	while (true) {
 		r = pw_array_ensure_size(buffer, sz);
@@ -739,6 +737,7 @@ static pid_t start_pwdaemon(struct pwtest_test *t, int stderr_fd, int log_fd)
 	pid_t pid;
 	char pw_remote[64];
 	int status;
+	int r;
 
 	spa_scnprintf(pw_remote, sizeof(pw_remote), "pwtest-pw-%u\n", count++);
 	replace_env(t, "PIPEWIRE_REMOTE", pw_remote);
@@ -752,9 +751,11 @@ static pid_t start_pwdaemon(struct pwtest_test *t, int stderr_fd, int log_fd)
 		setenv("PIPEWIRE_DEBUG", "4", 0);
 		setenv("WIREPLUMBER_DEBUG", "4", 0);
 
-		dup2(stderr_fd, STDERR_FILENO);
-		dup2(stderr_fd, STDOUT_FILENO);
-		setlinebuf(stderr);
+		r = dup2(stderr_fd, STDERR_FILENO);
+		spa_assert_se(r != -1);
+		r = dup2(stderr_fd, STDOUT_FILENO);
+		spa_assert_se(r != -1);
+
 		execl(daemon, daemon, (char*)NULL);
 		return -errno;
 
@@ -814,7 +815,8 @@ static void set_test_env(struct pwtest_context *ctx, struct pwtest_test *t)
 static void close_pipes(int fds[_FD_LAST])
 {
 	for (int i = 0; i < _FD_LAST; i++) {
-		close(fds[i]);
+		if (fds[i] >= 0)
+			close(fds[i]);
 		fds[i] = -1;
 	}
 }
@@ -823,20 +825,40 @@ static int init_pipes(int read_fds[_FD_LAST], int write_fds[_FD_LAST])
 {
 	int r;
 	int i;
+	int pipe_max_size = 4194304;
 
 	for (i = 0; i < _FD_LAST; i++) {
 		read_fds[i] = -1;
 		write_fds[i] = -1;
 	}
 
+#ifdef __linux__
+	{
+		FILE *f;
+		f = fopen("/proc/sys/fs/pipe-max-size", "r");
+		if (f) {
+			if (fscanf(f, "%d", &r) == 1)
+				pipe_max_size = SPA_MIN(r, pipe_max_size);
+			fclose(f);
+		}
+	}
+#endif
+
 	for (i = 0; i < _FD_LAST; i++) {
 		int pipe[2];
 
-		r = pipe2(pipe, O_NONBLOCK);
+		r = pipe2(pipe, O_CLOEXEC | O_NONBLOCK);
 		if (r < 0)
 			goto error;
 		read_fds[i] = pipe[0];
 		write_fds[i] = pipe[1];
+#ifdef __linux__
+		/* Max pipe buffers, to avoid scrambling if reading lags.
+		 * Can't use blocking write fds, since reading too slow
+		 * then affects execution.
+		 */
+		fcntl(write_fds[i], F_SETPIPE_SZ, pipe_max_size);
+#endif
 	}
 
 	return 0;
@@ -1099,7 +1121,14 @@ error:
 
 		kill(-pw_daemon, SIGTERM);
 		remove_cleanup_pid(ctx, -pw_daemon);
-		r = waitpid(pw_daemon, &status, 0);
+
+		/* blocking read. the other end closes when done */
+		close_pipes(write_fds);
+		fcntl(read_fds[FD_DAEMON], F_SETFL, O_CLOEXEC);
+		do {
+			log_append(&t->logs[FD_DAEMON], read_fds[FD_DAEMON]);
+		} while ((r = waitpid(pw_daemon, &status, WNOHANG)) == 0);
+
 		if (r > 0) {
 			/* write_fds are closed in the parent process, so we append directly */
 			char *buf = pw_array_add(&t->logs[FD_DAEMON], 64);

@@ -17,6 +17,7 @@ manpages = [
   'pw-mididump.1.rst.in',
   'pw-mon.1.rst.in',
   'pw-profiler.1.rst.in',
+  'pw-top.1.rst.in',
 ]
 
 if get_option('pipewire-jack').allowed()

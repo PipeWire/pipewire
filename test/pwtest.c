@@ -1331,7 +1331,7 @@ static void usage(FILE *fp, const char *progname)
 		"  -h, --help		Show this help\n"
 		"  --verbose		Verbose output\n"
 		"  --list		List all available suites and tests\n"
-		"  --timeout=N		Set the test timeout to N seconds (default: 30)\n"
+		"  --timeout=N		Set the test timeout to N seconds (default: 15)\n"
 		"  --filter-test=glob	Run only tests matching the given glob\n"
 		"  --filter-suites=glob	Run only suites matching the given glob\n"
 		"  --filter-iteration=N	Run only iteration N\n"
@@ -1380,7 +1380,7 @@ int main(int argc, char **argv)
 	};
 	struct pwtest_context test_ctx = {
 		.suites = SPA_LIST_INIT(&test_ctx.suites),
-		.timeout = 30,
+		.timeout = 15,
 		.has_iteration_filter = false,
 	};
 	enum {

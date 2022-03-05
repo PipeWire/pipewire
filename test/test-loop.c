@@ -44,6 +44,22 @@ struct data {
 	int count;
 };
 
+static inline void write_eventfd(int evfd)
+{
+	uint64_t value = 1;
+	ssize_t r = write(evfd, &value, sizeof(value));
+	pwtest_errno_ok(r);
+	pwtest_int_eq(r, (ssize_t) sizeof(value));
+}
+
+static inline void read_eventfd(int evfd)
+{
+	uint64_t value = 0;
+	ssize_t r = read(evfd, &value, sizeof(value));
+	pwtest_errno_ok(r);
+	pwtest_int_eq(r, (ssize_t) sizeof(value));
+}
+
 static void on_event(struct spa_source *source)
 {
 	struct data *d = source->data;
@@ -86,8 +102,8 @@ PWTEST(pwtest_loop_destroy2)
 	pw_loop_add_source(data.l, &data.a->source);
 	pw_loop_add_source(data.l, &data.b->source);
 
-	write(data.a->source.fd, &(uint64_t){1}, sizeof(uint64_t));
-	write(data.b->source.fd, &(uint64_t){1}, sizeof(uint64_t));
+	write_eventfd(data.a->source.fd);
+	write_eventfd(data.b->source.fd);
 
 	pw_main_loop_run(data.ml);
 	pw_main_loop_destroy(data.ml);
@@ -102,12 +118,11 @@ on_event_recurse1(struct spa_source *source)
 {
 	static bool first = true;
 	struct data *d = source->data;
-	uint64_t val;
 
 	++d->count;
 	pwtest_int_lt(d->count, 3);
 
-	read(source->fd, &val, sizeof(val));
+	read_eventfd(source->fd);
 
 	if (first) {
 		first = false;
@@ -146,8 +161,8 @@ PWTEST(pwtest_loop_recurse1)
 	pw_loop_add_source(data.l, &data.a->source);
 	pw_loop_add_source(data.l, &data.b->source);
 
-	write(data.a->source.fd, &(uint64_t){1}, sizeof(uint64_t));
-	write(data.b->source.fd, &(uint64_t){1}, sizeof(uint64_t));
+	write_eventfd(data.a->source.fd);
+	write_eventfd(data.b->source.fd);
 
 	pw_main_loop_run(data.ml);
 	pw_main_loop_destroy(data.ml);
@@ -165,12 +180,11 @@ on_event_recurse2(struct spa_source *source)
 {
 	static bool first = true;
 	struct data *d = source->data;
-	uint64_t val;
 
 	++d->count;
 	pwtest_int_lt(d->count, 3);
 
-	read(source->fd, &val, sizeof(val));
+	read_eventfd(source->fd);
 
 	if (first) {
 		first = false;
@@ -216,8 +230,8 @@ PWTEST(pwtest_loop_recurse2)
 	pw_loop_add_source(data.l, &data.a->source);
 	pw_loop_add_source(data.l, &data.b->source);
 
-	write(data.a->source.fd, &(uint64_t){1}, sizeof(uint64_t));
-	write(data.b->source.fd, &(uint64_t){1}, sizeof(uint64_t));
+	write_eventfd(data.a->source.fd);
+	write_eventfd(data.b->source.fd);
 
 	pw_main_loop_run(data.ml);
 	pw_main_loop_destroy(data.ml);
@@ -270,7 +284,7 @@ PWTEST(destroy_managed_source_before_dispatch)
 
 	pw_loop_add_hook(data.l, &data.hook, &dmsbd_hooks, &data);
 
-	pwtest_errno_ok(write(data.source->fd, &(uint64_t){1}, sizeof(uint64_t)));
+	write_eventfd(data.source->fd);
 
 	pw_main_loop_run(data.ml);
 	pw_main_loop_destroy(data.ml);
@@ -292,7 +306,7 @@ static void dmsbd_recurse_on_event(void *data, int fd, uint32_t mask)
 {
 	struct dmsbd_recurse_data *d = data;
 
-	pwtest_errno_ok(read(fd, &(uint64_t){0}, sizeof(uint64_t)));
+	read_eventfd(fd);
 
 	pw_loop_enter(d->l);
 	pw_loop_iterate(d->l, 0);
@@ -306,8 +320,8 @@ static void dmswp_recurse_before(void *data)
 	struct dmsbd_recurse_data *d = data;
 
 	if (d->first) {
-		pwtest_errno_ok(write(d->a->fd, &(uint64_t){1}, sizeof(uint64_t)));
-		pwtest_errno_ok(write(d->b->fd, &(uint64_t){1}, sizeof(uint64_t)));
+		write_eventfd(d->a->fd);
+		write_eventfd(d->b->fd);
 	}
 }
 

@@ -438,7 +438,6 @@ static struct spa_source *loop_add_io(void *object,
 	if (source == NULL)
 		goto error_exit;
 
-	source->source.loop = &impl->loop;
 	source->source.func = source_io_func;
 	source->source.data = data;
 	source->source.fd = fd;
@@ -535,7 +534,6 @@ static struct spa_source *loop_add_idle(void *object,
 	if ((res = spa_system_eventfd_create(impl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
 		goto error_exit_free;
 
-	source->source.loop = &impl->loop;
 	source->source.func = source_idle_func;
 	source->source.data = data;
 	source->source.fd = res;
@@ -590,7 +588,6 @@ static struct spa_source *loop_add_event(void *object,
 	if ((res = spa_system_eventfd_create(impl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
 		goto error_exit_free;
 
-	source->source.loop = &impl->loop;
 	source->source.func = source_event_func;
 	source->source.data = data;
 	source->source.fd = res;
@@ -658,7 +655,6 @@ static struct spa_source *loop_add_timer(void *object,
 			SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
 		goto error_exit_free;
 
-	source->source.loop = &impl->loop;
 	source->source.func = source_timer_func;
 	source->source.data = data;
 	source->source.fd = res;
@@ -740,7 +736,6 @@ static struct spa_source *loop_add_signal(void *object,
 			signal_number, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
 		goto error_exit_free;
 
-	source->source.loop = &impl->loop;
 	source->source.func = source_signal_func;
 	source->source.data = data;
 	source->source.fd = res;

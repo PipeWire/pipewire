@@ -56,6 +56,7 @@ struct _GstPipeWireDevice {
 
   GstPipeWireDeviceType  type;
   uint32_t            id;
+  uint64_t            serial;
   const gchar        *element;
 };
 

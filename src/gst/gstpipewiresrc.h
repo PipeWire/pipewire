@@ -60,6 +60,7 @@ struct _GstPipeWireSrc {
 
   /*< private >*/
   gchar *path;
+  gchar *target_object;
   gchar *client_name;
   gboolean always_copy;
   gint min_buffers;

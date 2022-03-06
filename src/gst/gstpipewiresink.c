@@ -60,6 +60,7 @@ enum
 {
   PROP_0,
   PROP_PATH,
+  PROP_TARGET_OBJECT,
   PROP_CLIENT_NAME,
   PROP_STREAM_PROPERTIES,
   PROP_MODE,
@@ -124,6 +125,7 @@ gst_pipewire_sink_finalize (GObject * object)
   if (pwsink->properties)
     gst_structure_free (pwsink->properties);
   g_free (pwsink->path);
+  g_free (pwsink->target_object);
   g_free (pwsink->client_name);
 
   G_OBJECT_CLASS (parent_class)->finalize (object);
@@ -158,6 +160,16 @@ gst_pipewire_sink_class_init (GstPipeWireSinkClass * klass)
                                    g_param_spec_string ("path",
                                                         "Path",
                                                         "The sink path to connect to (NULL = default)",
+                                                        NULL,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_STATIC_STRINGS |
+                                                        G_PARAM_DEPRECATED));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_TARGET_OBJECT,
+                                   g_param_spec_string ("target-object",
+                                                        "Target object",
+                                                        "The sink name/serial to connect to (NULL = default)",
                                                         NULL,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
@@ -339,6 +351,11 @@ gst_pipewire_sink_set_property (GObject * object, guint prop_id,
       pwsink->path = g_value_dup_string (value);
       break;
 
+    case PROP_TARGET_OBJECT:
+      g_free (pwsink->target_object);
+      pwsink->target_object = g_value_dup_string (value);
+      break;
+
     case PROP_CLIENT_NAME:
       g_free (pwsink->client_name);
       pwsink->client_name = g_value_dup_string (value);
@@ -374,6 +391,10 @@ gst_pipewire_sink_get_property (GObject * object, guint prop_id,
   switch (prop_id) {
     case PROP_PATH:
       g_value_set_string (value, pwsink->path);
+      break;
+
+    case PROP_TARGET_OBJECT:
+      g_value_set_string (value, pwsink->target_object);
       break;
 
     case PROP_CLIENT_NAME:
@@ -522,15 +543,37 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 
   if (state == PW_STREAM_STATE_UNCONNECTED) {
     enum pw_stream_flags flags = 0;
+    uint32_t target_id;
 
     if (pwsink->mode != GST_PIPEWIRE_SINK_MODE_PROVIDE)
       flags |= PW_STREAM_FLAG_AUTOCONNECT;
     else
       flags |= PW_STREAM_FLAG_DRIVER;
 
+    target_id = pwsink->path ? (uint32_t)atoi(pwsink->path) : PW_ID_ANY;
+
+    if (pwsink->target_object) {
+      struct spa_dict_item items[2] = {
+        SPA_DICT_ITEM_INIT(PW_KEY_TARGET_OBJECT, pwsink->target_object),
+        SPA_DICT_ITEM_INIT(PW_KEY_NODE_TARGET, NULL),
+      };
+      struct spa_dict dict = SPA_DICT_INIT_ARRAY(items);
+      uint64_t serial;
+
+      /* If target.object is a name, set it also to node.target */
+      if (spa_atou64(pwsink->target_object, &serial, 0)) {
+        dict.n_items = 1;
+      } else {
+        target_id = PW_ID_ANY;
+        items[1].value = pwsink->target_object;
+      }
+
+      pw_stream_update_properties (pwsink->stream, &dict);
+    }
+
     pw_stream_connect (pwsink->stream,
                           PW_DIRECTION_OUTPUT,
-                          pwsink->path ? (uint32_t)atoi(pwsink->path) : PW_ID_ANY,
+                          target_id,
                           flags,
                           (const struct spa_pod **) possible->pdata,
                           possible->len);

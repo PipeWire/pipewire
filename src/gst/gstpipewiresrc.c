@@ -67,6 +67,7 @@ enum
 {
   PROP_0,
   PROP_PATH,
+  PROP_TARGET_OBJECT,
   PROP_CLIENT_NAME,
   PROP_STREAM_PROPERTIES,
   PROP_ALWAYS_COPY,
@@ -114,6 +115,11 @@ gst_pipewire_src_set_property (GObject * object, guint prop_id,
     case PROP_PATH:
       g_free (pwsrc->path);
       pwsrc->path = g_value_dup_string (value);
+      break;
+
+    case PROP_TARGET_OBJECT:
+      g_free (pwsrc->target_object);
+      pwsrc->target_object = g_value_dup_string (value);
       break;
 
     case PROP_CLIENT_NAME:
@@ -167,6 +173,10 @@ gst_pipewire_src_get_property (GObject * object, guint prop_id,
   switch (prop_id) {
     case PROP_PATH:
       g_value_set_string (value, pwsrc->path);
+      break;
+
+    case PROP_TARGET_OBJECT:
+      g_value_set_string (value, pwsrc->target_object);
       break;
 
     case PROP_CLIENT_NAME:
@@ -244,6 +254,7 @@ gst_pipewire_src_finalize (GObject * object)
   if (pwsrc->clock)
     gst_object_unref (pwsrc->clock);
   g_free (pwsrc->path);
+  g_free (pwsrc->target_object);
   g_free (pwsrc->client_name);
   g_object_unref(pwsrc->pool);
 
@@ -272,6 +283,16 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
                                    g_param_spec_string ("path",
                                                         "Path",
                                                         "The source path to connect to (NULL = default)",
+                                                        NULL,
+                                                        G_PARAM_READWRITE |
+                                                        G_PARAM_STATIC_STRINGS |
+                                                        G_PARAM_DEPRECATED));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_TARGET_OBJECT,
+                                   g_param_spec_string ("target-object",
+                                                        "Target object",
+                                                        "The source name/serial to connect to (NULL = default)",
                                                         NULL,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
@@ -675,6 +696,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   GPtrArray *possible;
   const char *error = NULL;
   struct timespec abstime;
+  uint32_t target_id;
 
   /* first see what is possible on our source pad */
   thiscaps = gst_pad_query_caps (GST_BASE_SRC_PAD (basesrc), NULL);
@@ -727,11 +749,33 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
     }
   }
 
-  GST_DEBUG_OBJECT (basesrc, "connect capture with path %s", pwsrc->path);
+  target_id = pwsrc->path ? (uint32_t)atoi(pwsrc->path) : PW_ID_ANY;
+
+  if (pwsrc->target_object) {
+      struct spa_dict_item items[2] = {
+        SPA_DICT_ITEM_INIT(PW_KEY_TARGET_OBJECT, pwsrc->target_object),
+        SPA_DICT_ITEM_INIT(PW_KEY_NODE_TARGET, NULL),
+      };
+      struct spa_dict dict = SPA_DICT_INIT_ARRAY(items);
+      uint64_t serial;
+
+      /* If target.object is a name, set it also to node.target */
+      if (spa_atou64(pwsrc->target_object, &serial, 0)) {
+        dict.n_items = 1;
+      } else {
+        target_id = PW_ID_ANY;
+        items[1].value = pwsrc->target_object;
+      }
+
+      pw_stream_update_properties (pwsrc->stream, &dict);
+  }
+
+  GST_DEBUG_OBJECT (basesrc, "connect capture with path %s, target-object %s",
+                    pwsrc->path, pwsrc->target_object);
   pwsrc->negotiated = FALSE;
   pw_stream_connect (pwsrc->stream,
                      PW_DIRECTION_INPUT,
-                     pwsrc->path ? (uint32_t)atoi(pwsrc->path) : PW_ID_ANY,
+                     target_id,
                      PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_DONT_RECONNECT,
                      (const struct spa_pod **)possible->pdata,
                      possible->len);

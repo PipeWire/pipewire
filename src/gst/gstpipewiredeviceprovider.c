@@ -44,6 +44,7 @@ G_DEFINE_TYPE (GstPipeWireDevice, gst_pipewire_device, GST_TYPE_DEVICE);
 enum
 {
   PROP_ID = 1,
+  PROP_SERIAL,
 };
 
 static GstElement *
@@ -51,12 +52,16 @@ gst_pipewire_device_create_element (GstDevice * device, const gchar * name)
 {
   GstPipeWireDevice *pipewire_dev = GST_PIPEWIRE_DEVICE (device);
   GstElement *elem;
-  gchar *str;
+  gchar *id_str, *serial_str;
 
   elem = gst_element_factory_make (pipewire_dev->element, name);
-  str = g_strdup_printf ("%u", pipewire_dev->id);
-  g_object_set (elem, "path", str, NULL);
-  g_free (str);
+
+  /* XXX: eventually only add target-object here */
+  id_str = g_strdup_printf ("%u", pipewire_dev->id);
+  serial_str = g_strdup_printf ("%"PRIu64, pipewire_dev->serial);
+  g_object_set (elem, "path", id_str, "target-object", serial_str, NULL);
+  g_free (id_str);
+  g_free (serial_str);
 
   return elem;
 }
@@ -65,7 +70,7 @@ static gboolean
 gst_pipewire_device_reconfigure_element (GstDevice * device, GstElement * element)
 {
   GstPipeWireDevice *pipewire_dev = GST_PIPEWIRE_DEVICE (device);
-  gchar *str;
+  gchar *id_str, *serial_str;
 
   if (spa_streq(pipewire_dev->element, "pipewiresrc")) {
     if (!GST_IS_PIPEWIRE_SRC (element))
@@ -77,9 +82,12 @@ gst_pipewire_device_reconfigure_element (GstDevice * device, GstElement * elemen
     g_assert_not_reached ();
   }
 
-  str = g_strdup_printf ("%u", pipewire_dev->id);
-  g_object_set (element, "path", str, NULL);
-  g_free (str);
+  /* XXX: eventually only add target-object here */
+  id_str = g_strdup_printf ("%u", pipewire_dev->id);
+  serial_str = g_strdup_printf ("%"PRIu64, pipewire_dev->serial);
+  g_object_set (element, "path", id_str, "target-object", serial_str, NULL);
+  g_free (id_str);
+  g_free (serial_str);
 
   return TRUE;
 }
@@ -96,6 +104,9 @@ gst_pipewire_device_get_property (GObject * object, guint prop_id,
   switch (prop_id) {
     case PROP_ID:
       g_value_set_uint (value, device->id);
+      break;
+    case PROP_SERIAL:
+      g_value_set_uint64 (value, device->serial);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -114,6 +125,9 @@ gst_pipewire_device_set_property (GObject * object, guint prop_id,
   switch (prop_id) {
     case PROP_ID:
       device->id = g_value_get_uint (value);
+      break;
+    case PROP_SERIAL:
+      device->serial = g_value_get_uint64 (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -143,6 +157,11 @@ gst_pipewire_device_class_init (GstPipeWireDeviceClass * klass)
   g_object_class_install_property (object_class, PROP_ID,
       g_param_spec_uint ("id", "Id",
           "The internal id of the PipeWire device", 0, G_MAXUINT32, SPA_ID_INVALID,
+          G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+
+  g_object_class_install_property (object_class, PROP_SERIAL,
+      g_param_spec_uint64 ("serial", "Serial",
+          "The internal serial of the PipeWire device", 0, G_MAXUINT64, SPA_ID_INVALID,
           G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 }
 
@@ -176,6 +195,7 @@ struct node_data {
   struct pw_node *proxy;
   struct spa_hook proxy_listener;
   uint32_t id;
+  uint64_t serial;
   struct spa_hook node_listener;
   struct pw_node_info *info;
   GstCaps *caps;
@@ -187,6 +207,7 @@ struct port_data {
   struct pw_port *proxy;
   struct spa_hook proxy_listener;
   uint32_t id;
+  uint64_t serial;
   struct spa_hook port_listener;
 };
 
@@ -236,9 +257,10 @@ new_node (GstPipeWireDeviceProvider *self, struct node_data *data)
 
   gstdev = g_object_new (GST_TYPE_PIPEWIRE_DEVICE,
       "display-name", name, "caps", data->caps, "device-class", klass,
-      "id", data->id, "properties", props, NULL);
+      "id", data->id, "serial", data->serial, "properties", props, NULL);
 
   gstdev->id = data->id;
+  gstdev->serial = data->serial;
   gstdev->type = type;
   gstdev->element = element;
   if (props)
@@ -476,6 +498,8 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     nd->self = self;
     nd->proxy = node;
     nd->id = id;
+    if (!props || !spa_atou64(spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL), &nd->serial, 0))
+      nd->serial = SPA_ID_INVALID;
     spa_list_append(&rd->nodes, &nd->link);
     pw_node_add_listener(node, &nd->node_listener, &node_events, nd);
     pw_proxy_add_listener((struct pw_proxy*)node, &nd->proxy_listener, &proxy_node_events, nd);
@@ -500,6 +524,8 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
     pd->node_data = nd;
     pd->proxy = port;
     pd->id = id;
+    if (!props || !spa_atou64(spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL), &pd->serial, 0))
+      pd->serial = SPA_ID_INVALID;
     pw_port_add_listener(port, &pd->port_listener, &port_events, pd);
     pw_proxy_add_listener((struct pw_proxy*)port, &pd->proxy_listener, &proxy_port_events, pd);
     resync(self);

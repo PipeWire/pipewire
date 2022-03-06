@@ -78,6 +78,7 @@ struct _GstPipeWireSink {
 
   /*< private >*/
   gchar *path;
+  gchar *target_object;
   gchar *client_name;
   int fd;
 

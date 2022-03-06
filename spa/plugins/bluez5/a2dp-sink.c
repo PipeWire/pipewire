@@ -579,6 +579,11 @@ static int flush_data(struct impl *this, uint64_t now_time)
 	uint32_t total_frames;
 	struct port *port = &this->port;
 
+	if (!this->flush_source.loop) {
+		/* I/O in error state */
+		return -EIO;
+	}
+
 	total_frames = 0;
 again:
 	written = 0;

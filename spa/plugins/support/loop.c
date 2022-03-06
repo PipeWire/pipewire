@@ -387,6 +387,9 @@ static int loop_iterate(void *object, int timeout)
 	 * can then reset the rmask to suppress the callback */
 	for (i = 0; i < nfds; i++) {
 		struct spa_source *s = ep[i].data;
+
+		spa_assert(s->loop == &impl->loop);
+
 		s->rmask = ep[i].events;
 		/* already active in another iteration of the loop,
 		 * remove it from that iteration */

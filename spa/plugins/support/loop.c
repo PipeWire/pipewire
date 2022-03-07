@@ -348,8 +348,10 @@ static void loop_leave(void *object)
 
 	spa_log_trace(impl->log, "%p: leave %lu", impl, impl->thread);
 
-	if (--impl->enter_count == 0)
+	if (--impl->enter_count == 0) {
 		impl->thread = 0;
+		impl->polling = false;
+	}
 }
 
 static inline void free_source(struct source_impl *s)

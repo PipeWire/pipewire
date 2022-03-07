@@ -1,6 +1,9 @@
 if alsa_dep.found()
   subdir('alsa')
 endif
+if get_option('avb').allowed()
+  subdir('avb')
+endif
 if get_option('audioconvert').allowed()
   subdir('audioconvert')
 endif

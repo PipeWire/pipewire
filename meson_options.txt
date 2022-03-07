@@ -245,3 +245,7 @@ option('legacy-rtkit',
        description: 'Build legacy rtkit module',
        type: 'boolean',
        value: 'true')
+option('avb',
+       description: 'Enable AVB code',
+       type: 'feature',
+       value: 'auto')

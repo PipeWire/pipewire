@@ -37,6 +37,7 @@ struct AvahiWatch {
 	AvahiWatchEvent events;
 	AvahiWatchCallback callback;
 	void *userdata;
+	unsigned int dispatching;
 };
 
 struct AvahiTimeout {
@@ -65,9 +66,14 @@ static void watch_callback(void *data, int fd, uint32_t mask)
 {
 	AvahiWatch *w = data;
 
+	w->dispatching += 1;
+
 	w->events = from_pw_events(mask);
 	w->callback(w, fd, w->events, w->userdata);
 	w->events = 0;
+
+	if (--w->dispatching == 0 && !w->source)
+		free(w);
 }
 
 static AvahiWatch* watch_new(const AvahiPoll *api, int fd, AvahiWatchEvent event,
@@ -103,9 +109,11 @@ static AvahiWatchEvent watch_get_events(AvahiWatch *w)
 
 static void watch_free(AvahiWatch *w)
 {
-	struct impl *impl = w->impl;
-	pw_loop_destroy_source(impl->loop, w->source);
-	free(w);
+	pw_loop_destroy_source(w->impl->loop, w->source);
+	w->source = NULL;
+
+	if (!w->dispatching)
+		free(w);
 }
 
 static void timeout_callback(void *data, uint64_t expirations)

@@ -542,7 +542,6 @@ static int format_audio_raw_parse_opt(const struct spa_pod *format, struct spa_a
 	res = spa_pod_parse_object(format,
 			SPA_TYPE_OBJECT_Format, NULL,
 			SPA_FORMAT_AUDIO_format, SPA_POD_OPT_Id(&info->format),
-			SPA_FORMAT_AUDIO_rate, SPA_POD_OPT_Int(&info->rate),
 			SPA_FORMAT_AUDIO_channels, SPA_POD_OPT_Int(&info->channels),
 			SPA_FORMAT_AUDIO_position, SPA_POD_OPT_Pod(&position));
 	if (position == NULL ||

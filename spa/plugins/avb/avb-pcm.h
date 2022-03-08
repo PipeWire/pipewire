@@ -49,6 +49,7 @@ extern "C" {
 #include <spa/node/utils.h>
 #include <spa/node/io.h>
 #include <spa/debug/types.h>
+#include <spa/utils/ringbuffer.h>
 #include <spa/param/param.h>
 #include <spa/param/latency-utils.h>
 #include <spa/param/audio/format-utils.h>
@@ -119,6 +120,7 @@ struct port {
 
 	struct spa_list free;
 	struct spa_list ready;
+	uint32_t ready_offset;
 };
 
 struct state {
@@ -165,19 +167,15 @@ struct state {
 	struct port ports[1];
 
 	uint32_t duration;
-	uint32_t threshold;
 	unsigned int following:1;
 	unsigned int matching:1;
 	unsigned int resample:1;
-	unsigned int opened:1;
 	unsigned int started:1;
 	unsigned int freewheel:1;
 
 	int timerfd;
 	struct spa_source timer_source;
-	uint64_t timer_starttime;
-	uint64_t timer_period;
-	uint64_t timer_expirations;
+	uint64_t next_time;
 
 	int sockfd;
 	struct spa_source sock_source;
@@ -186,10 +184,16 @@ struct state {
 	struct avtp_stream_pdu *pdu;
 	size_t pdu_size;
 	int64_t pdu_period;
+	uint8_t pdu_seq;
 
 	struct iovec iov;
 	struct msghdr msg;
 	char control[CMSG_SPACE(sizeof(__u64))];
+	struct cmsghdr *cmsg;
+
+	uint8_t *ringbuffer_data;
+	uint32_t ringbuffer_size;
+	struct spa_ringbuffer ring;
 
 	struct spa_dll dll;
 	double max_error;

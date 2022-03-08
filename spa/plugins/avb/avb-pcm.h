@@ -37,6 +37,9 @@ extern "C" {
 #include <limits.h>
 #include <net/if.h>
 
+#include <avtp.h>
+#include <avtp_aaf.h>
+
 #include <spa/support/plugin.h>
 #include <spa/support/loop.h>
 #include <spa/utils/list.h>
@@ -149,10 +152,11 @@ struct state {
 	char clock_name[64];
 	uint32_t quantum_limit;
 
-	int rate;
-	int channels;
-	size_t frame_size;
-	int blocks;
+	uint32_t format;
+	uint32_t rate;
+	uint32_t channels;
+	uint32_t stride;
+	uint32_t blocks;
 	uint32_t rate_denom;
 
 	struct spa_io_clock *clock;
@@ -171,8 +175,21 @@ struct state {
 
 	int timerfd;
 	struct spa_source timer_source;
+	uint64_t timer_starttime;
+	uint64_t timer_period;
+	uint64_t timer_expirations;
+
 	int sockfd;
 	struct spa_source sock_source;
+	struct sockaddr_ll sock_addr;
+
+	struct avtp_stream_pdu *pdu;
+	size_t pdu_size;
+	int64_t pdu_period;
+
+	struct iovec iov;
+	struct msghdr msg;
+	char control[CMSG_SPACE(sizeof(__u64))];
 
 	struct spa_dll dll;
 	double max_error;
@@ -190,16 +207,15 @@ int spa_avb_enum_format(struct state *state, int seq,
 		     uint32_t start, uint32_t num,
 		     const struct spa_pod *filter);
 
+int spa_avb_clear_format(struct state *state);
 int spa_avb_set_format(struct state *state, struct spa_audio_info *info, uint32_t flags);
 
 int spa_avb_init(struct state *state, const struct spa_dict *info);
 int spa_avb_clear(struct state *state);
 
-int spa_avb_open(struct state *state, const char *params);
 int spa_avb_start(struct state *state);
 int spa_avb_reassign_follower(struct state *state);
 int spa_avb_pause(struct state *state);
-int spa_avb_close(struct state *state);
 
 int spa_avb_write(struct state *state);
 int spa_avb_read(struct state *state);

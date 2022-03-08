@@ -1,3 +1,27 @@
+/* Spa AVB PCM
+ *
+ * Copyright © 2022 Wim Taymans
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,9 +31,9 @@
 #include <sys/time.h>
 #include <math.h>
 #include <limits.h>
-
-#include <avtp.h>
-#include <avtp_aaf.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <arpa/inet.h>
 
 #include <spa/pod/filter.h>
 #include <spa/utils/string.h>
@@ -17,6 +41,9 @@
 #include <spa/utils/keys.h>
 
 #include "avb-pcm.h"
+
+#define TAI_OFFSET    (37ULL * SPA_NSEC_PER_SEC)
+#define TAI_TO_UTC(t) (t - TAI_OFFSET)
 
 static int avb_set_param(struct state *state, const char *k, const char *s)
 {
@@ -323,56 +350,43 @@ int spa_avb_close(struct state *state)
 	return err;
 }
 
-struct format_info {
-	uint32_t spa_format;
-	int aaf_format;
-};
-
-static const struct format_info format_info[] = {
-	{ SPA_AUDIO_FORMAT_UNKNOWN, AVTP_AAF_FORMAT_USER},
-	{ SPA_AUDIO_FORMAT_F32_BE, AVTP_AAF_FORMAT_FLOAT_32BIT },
-	{ SPA_AUDIO_FORMAT_S32_BE, AVTP_AAF_FORMAT_INT_32BIT },
-	{ SPA_AUDIO_FORMAT_S24_BE, AVTP_AAF_FORMAT_INT_24BIT },
-	{ SPA_AUDIO_FORMAT_S16_BE, AVTP_AAF_FORMAT_INT_16BIT },
-};
-
-static int spa_format_to_avb(uint32_t format)
+static int spa_format_to_aaf(uint32_t format)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++) {
-		if (format_info[i].spa_format == format)
-			return format_info[i].aaf_format;
+	switch(format) {
+	case SPA_AUDIO_FORMAT_F32_BE: return AVTP_AAF_FORMAT_FLOAT_32BIT;
+	case SPA_AUDIO_FORMAT_S32_BE: return AVTP_AAF_FORMAT_INT_32BIT;
+	case SPA_AUDIO_FORMAT_S24_BE: return AVTP_AAF_FORMAT_INT_24BIT;
+	case SPA_AUDIO_FORMAT_S16_BE: return AVTP_AAF_FORMAT_INT_16BIT;
+	default: return AVTP_AAF_FORMAT_USER;
 	}
-	return AVTP_AAF_FORMAT_USER;
 }
 
-struct rate_info {
-	uint32_t spa_rate;
-	int aaf_rate;
-};
-
-static const struct rate_info rate_info[] = {
-	{ 0, AVTP_AAF_PCM_NSR_USER },
-	{ 8000, AVTP_AAF_PCM_NSR_8KHZ },
-	{ 16000, AVTP_AAF_PCM_NSR_16KHZ },
-	{ 24000, AVTP_AAF_PCM_NSR_24KHZ },
-	{ 32000, AVTP_AAF_PCM_NSR_32KHZ },
-	{ 44100, AVTP_AAF_PCM_NSR_44_1KHZ },
-	{ 48000, AVTP_AAF_PCM_NSR_48KHZ },
-	{ 88200, AVTP_AAF_PCM_NSR_88_2KHZ },
-	{ 96000, AVTP_AAF_PCM_NSR_96KHZ },
-	{ 176400, AVTP_AAF_PCM_NSR_176_4KHZ },
-	{ 192000, AVTP_AAF_PCM_NSR_192KHZ },
-};
-
-static int spa_rate_to_avb(uint32_t rate)
+static int frame_size(uint32_t format)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(rate_info); i++) {
-		if (rate_info[i].spa_rate == rate)
-			return rate_info[i].aaf_rate;
+	switch(format) {
+	case SPA_AUDIO_FORMAT_F32_BE:
+	case SPA_AUDIO_FORMAT_S32_BE: return 4;
+	case SPA_AUDIO_FORMAT_S24_BE: return 3;
+	case SPA_AUDIO_FORMAT_S16_BE: return 2;
+	default: return 0;
 	}
-	return AVTP_AAF_PCM_NSR_USER;
+}
+
+static int spa_rate_to_aaf(uint32_t rate)
+{
+	switch(rate) {
+	case 8000: return AVTP_AAF_PCM_NSR_8KHZ;
+	case 16000: return AVTP_AAF_PCM_NSR_16KHZ;
+	case 24000: return AVTP_AAF_PCM_NSR_24KHZ;
+	case 32000: return AVTP_AAF_PCM_NSR_32KHZ;
+	case 44100: return AVTP_AAF_PCM_NSR_44_1KHZ;
+	case 48000: return AVTP_AAF_PCM_NSR_48KHZ;
+	case 88200: return AVTP_AAF_PCM_NSR_88_2KHZ;
+	case 96000: return AVTP_AAF_PCM_NSR_96KHZ;
+	case 176400: return AVTP_AAF_PCM_NSR_176_4KHZ;
+	case 192000: return AVTP_AAF_PCM_NSR_192KHZ;
+	default: return AVTP_AAF_PCM_NSR_USER;
+	}
 }
 
 int
@@ -457,14 +471,183 @@ next:
 	return res;
 }
 
-int spa_avb_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t flags)
+static int setup_socket(struct state *state)
 {
+	int fd, res;
+	struct ifreq req;
+	struct props *p = &state->props;
 
+	fd = socket(AF_PACKET, SOCK_DGRAM|SOCK_NONBLOCK, htons(ETH_P_TSN));
+	if (fd < 0) {
+		spa_log_error(state->log, "socket() failed: %m");
+		return -errno;
+	}
 
+	snprintf(req.ifr_name, sizeof(req.ifr_name), "%s", p->ifname);
+	res = ioctl(fd, SIOCGIFINDEX, &req);
+	if (res < 0) {
+		spa_log_error(state->log, "SIOCGIFINDEX failed: %m");
+		res = -errno;
+		goto error_close;
+	}
 
+	state->sock_addr.sll_family = AF_PACKET;
+	state->sock_addr.sll_protocol = htons(ETH_P_TSN);
+	state->sock_addr.sll_halen = ETH_ALEN;
+	state->sock_addr.sll_ifindex = req.ifr_ifindex;
+	memcpy(&state->sock_addr.sll_addr, p->addr, ETH_ALEN);
 
+	if (state->ports[0].direction == SPA_DIRECTION_INPUT) {
+		struct sock_txtime txtime_cfg;
+
+		res = setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &p->prio,
+				sizeof(p->prio));
+		if (res < 0) {
+			spa_log_error(state->log, "setsockopt(SO_PRIORITY) failed: %m");
+			res = -errno;
+			goto error_close;
+		}
+
+		txtime_cfg.clockid = CLOCK_TAI;
+		txtime_cfg.flags = 0;
+		res = setsockopt(fd, SOL_SOCKET, SO_TXTIME, &txtime_cfg,
+				sizeof(txtime_cfg));
+		if (res < 0) {
+			spa_log_error(state->log, "setsockopt(SO_TXTIME) failed: %m");
+			res = -errno;
+			goto error_close;
+		}
+	} else {
+		struct packet_mreq mreq = { 0 };
+
+		res = bind(fd, (struct sockaddr *) &state->sock_addr,
+				sizeof(state->sock_addr));
+		if (res < 0) {
+			spa_log_error(state->log, "bind() failed: %m");
+			res = -errno;
+			goto error_close;
+		}
+
+		mreq.mr_ifindex = req.ifr_ifindex;
+		mreq.mr_type = PACKET_MR_MULTICAST;
+		mreq.mr_alen = ETH_ALEN;
+		memcpy(&mreq.mr_address, p->addr, ETH_ALEN);
+		res = setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP,
+				&mreq, sizeof(struct packet_mreq));
+		if (res < 0) {
+			spa_log_error(state->log, "setsockopt(ADD_MEMBERSHIP failed: %m");
+			res = -errno;
+			goto error_close;
+		}
+	}
+	state->sockfd = fd;
+	return 0;
+
+error_close:
+	close(fd);
+	return res;
+}
+
+static int setup_packet(struct state *state, struct spa_audio_info *fmt)
+{
+	int res;
+	struct avtp_stream_pdu *pdu;
+	struct props *p = &state->props;
+	ssize_t payload_size, pdu_size;
+
+	payload_size = state->stride * p->frames_per_pdu;
+	pdu_size = sizeof(*pdu) + payload_size;
+	if ((pdu = calloc(1, pdu_size)) == NULL)
+		return -errno;
+
+	if (state->ports[0].direction == SPA_DIRECTION_INPUT) {
+		if ((res = avtp_aaf_pdu_init(pdu)) < 0)
+			goto error;
+#define PDU_SET(f,v) if ((res = avtp_aaf_pdu_set(pdu, (f), (v))) < 0) goto error;
+		PDU_SET(AVTP_AAF_FIELD_TV, 1);
+		PDU_SET(AVTP_AAF_FIELD_STREAM_ID, p->streamid);
+		PDU_SET(AVTP_AAF_FIELD_FORMAT, spa_format_to_aaf(state->format));
+		PDU_SET(AVTP_AAF_FIELD_NSR, spa_rate_to_aaf(state->rate));
+		PDU_SET(AVTP_AAF_FIELD_CHAN_PER_FRAME, state->channels);
+		PDU_SET(AVTP_AAF_FIELD_BIT_DEPTH, frame_size(state->format)*8);
+		PDU_SET(AVTP_AAF_FIELD_STREAM_DATA_LEN, payload_size);
+		PDU_SET(AVTP_AAF_FIELD_SP, AVTP_AAF_PCM_SP_NORMAL);
+#undef PDU_SET
+	}
+	state->pdu = pdu;
+	state->pdu_size = pdu_size;
+	return 0;
+
+error:
+	free(pdu);
+	return res;
+
+}
+
+static int setup_msg(struct state *state)
+{
+	struct cmsghdr *cmsg;
+
+	state->iov.iov_base = state->pdu;
+	state->iov.iov_len = state->pdu_size;
+
+        state->msg.msg_name = &state->sock_addr;
+        state->msg.msg_namelen = sizeof(state->sock_addr);
+        state->msg.msg_iov = &state->iov;
+        state->msg.msg_iovlen = 1;
+        state->msg.msg_control = state->control;
+        state->msg.msg_controllen = sizeof(state->control);
+
+        cmsg = CMSG_FIRSTHDR(&state->msg);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_TXTIME;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(__u64));
 
 	return 0;
+}
+
+int spa_avb_clear_format(struct state *state)
+{
+	close(state->sockfd);
+	close(state->timerfd);
+	free(state->pdu);
+
+	return 0;
+}
+
+int spa_avb_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t flags)
+{
+	int res;
+	struct props *p = &state->props;
+
+	state->format = fmt->info.raw.format;
+	state->rate = fmt->info.raw.rate;
+	state->channels = fmt->info.raw.channels;
+	state->stride = state->channels * frame_size(state->format);
+
+	if ((res = setup_socket(state)) < 0)
+		return res;
+
+	if ((res = spa_system_timerfd_create(state->data_system,
+			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
+		goto error_close_sockfd;
+
+	state->timerfd = res;
+
+	if ((res = setup_packet(state, fmt)) < 0)
+		return res;
+
+	if ((res = setup_msg(state)) < 0)
+		return res;
+
+	state->pdu_period = SPA_NSEC_PER_SEC * p->frames_per_pdu /
+                          state->rate;
+
+	return 0;
+
+error_close_sockfd:
+	close(state->sockfd);
+	return res;
 }
 
 void spa_avb_recycle_buffer(struct state *this, struct port *port, uint32_t buffer_id)
@@ -497,9 +680,40 @@ static void reset_buffers(struct state *this, struct port *port)
 	}
 }
 
-static int set_timers(struct state *state)
+static int timer_start(struct state *state, uint64_t time, uint64_t period)
 {
-	return 0;
+	int res;
+	struct itimerspec ts;
+	uint64_t time_utc;
+
+	state->timer_expirations = 0;
+        state->timer_period = period;
+        state->timer_starttime = time;
+
+        time_utc = TAI_TO_UTC(time);
+        ts.it_value.tv_sec = time_utc / SPA_NSEC_PER_SEC;
+        ts.it_value.tv_nsec = time_utc % SPA_NSEC_PER_SEC;
+        ts.it_interval.tv_sec = 0;
+        ts.it_interval.tv_nsec = state->timer_period;
+	res = spa_system_timerfd_settime(state->data_system, state->timerfd,
+			SPA_FD_TIMER_ABSTIME, &ts, NULL);
+        return res;
+}
+
+static int timer_start_playback(struct state *state)
+{
+	int res;
+	struct timespec now;
+	uint64_t time, period;
+
+	if ((res = clock_gettime(CLOCK_TAI, &now)) < 0) {
+		spa_log_error(state->log, "clock_gettime(CLOCK_TAI) error: %m");
+		return -errno;
+	}
+
+	period = SPA_NSEC_PER_SEC * state->period_size / io->rate;
+	time = now.tv_sec * NSEC_PER_SEC + now.tv_nsec + period;
+	return timer_start(state, time, period);
 }
 
 static void avb_on_socket_event(struct spa_source *source)
@@ -544,8 +758,6 @@ int spa_avb_start(struct state *state)
 
 	reset_buffers(state, &state->ports[0]);
 
-	set_timers(state);
-
 	state->started = true;
 
 	return 0;
@@ -559,7 +771,6 @@ static int do_reassign_follower(struct spa_loop *loop,
 			    void *user_data)
 {
 	struct state *state = user_data;
-	set_timers(state);
 	spa_dll_init(&state->dll);
 	return 0;
 }
@@ -571,6 +782,7 @@ int spa_avb_reassign_follower(struct state *state)
 	if (!state->started)
 		return 0;
 
+	following = false;
 	if (following != state->following) {
 		spa_log_debug(state->log, "%p: reassign follower %d->%d", state, state->following, following);
 		state->following = following;

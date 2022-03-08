@@ -500,10 +500,10 @@ impl_node_port_enum_params(void *object, int seq,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(this->blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-							this->quantum_limit * this->frame_size,
-							16 * this->frame_size,
+							this->quantum_limit * this->stride,
+							16 * this->stride,
 							INT32_MAX),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(this->frame_size));
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(this->stride));
 		break;
 
 	case SPA_PARAM_Meta:
@@ -588,6 +588,7 @@ static int port_set_format(void *object, struct port *port,
 			return 0;
 
 		spa_log_debug(this->log, "clear format");
+		spa_avb_clear_format(this);
 		clear_buffers(this, port);
 	} else {
 		struct spa_audio_info info = { 0 };
@@ -833,7 +834,6 @@ static int impl_clear(struct spa_handle *handle)
 	struct state *this;
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 	this = (struct state *) handle;
-	spa_avb_close(this);
 	spa_avb_clear(this);
 	return 0;
 }

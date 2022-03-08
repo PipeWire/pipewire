@@ -77,6 +77,9 @@ if get_option('spa-plugins').allowed()
   libudev_dep = dependency('libudev', required: alsa_dep.found() or get_option('udev').enabled() or get_option('v4l2').enabled())
   summary({'Udev': libudev_dep.found()}, bool_yn: true, section: 'Backend')
 
+  libavtp_dep = dependency('avtp', required: get_option('avb'))
+  summary({'libavtp': libavtp_dep.found()}, bool_yn: true, section: 'Backend')
+
   subdir('plugins')
 endif
 

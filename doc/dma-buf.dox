@@ -138,6 +138,15 @@ because of the following issues:
   using a proper graphics API (such as EGL, Vulkan or VA-API) to process the
   DMA-BUFs.
 
+# Size of DMA-BUFs
+
+When importing a DMA-BUF with a proper graphics API the size of a single buffer plane
+is no relevant property since it will be derived by the driver from the other properties.
+Therefore consumers should ignore the field `maxsize` of a `spa_data` and the field
+`size` of a `spa_chunk` struct. Producers are allowed to set both to 0.
+In cases where mapping a single plane is required the size should be obtained locally
+via the filedescriptor.
+
 # v4l2
 
 Another use case for streaming via DMA-BUFs are exporting a camera feed from v4l2

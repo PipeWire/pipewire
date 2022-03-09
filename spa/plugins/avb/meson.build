@@ -1,6 +1,7 @@
 spa_avb_sources = ['avb.c',
                 'avb.h',
                 'avb-pcm-sink.c',
+                'avb-pcm-source.c',
                 'avb-pcm.c' ]
 
 spa_avb = shared_library(

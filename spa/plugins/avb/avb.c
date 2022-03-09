@@ -28,6 +28,7 @@
 #include <spa/support/log.h>
 
 extern const struct spa_handle_factory spa_avb_sink_factory;
+extern const struct spa_handle_factory spa_avb_source_factory;
 
 struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.avb");
 struct spa_log_topic *avb_log_topic = &log_topic;
@@ -41,6 +42,9 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 	switch (*index) {
 	case 0:
 		*factory = &spa_avb_sink_factory;
+		break;
+	case 1:
+		*factory = &spa_avb_source_factory;
 		break;
 	default:
 		return 0;

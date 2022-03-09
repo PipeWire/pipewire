@@ -757,6 +757,15 @@ static void reset_buffers(struct state *this, struct port *port)
 
 static bool is_pdu_valid(struct state *state)
 {
+	uint64_t val64;
+	if (avtp_aaf_pdu_get(state->pdu, AVTP_AAF_FIELD_SEQ_NUM, &val64) < 0)
+		return false;
+
+	if (state->prev_seq != 0 && (uint8_t)(state->prev_seq + 1) != val64) {
+		spa_log_warn(state->log, "dropped packets %d != %d", state->prev_seq + 1, (int)val64);
+	}
+	state->prev_seq = val64;
+
 	return true;
 }
 
@@ -853,6 +862,8 @@ int spa_avb_write(struct state *state)
 		avail = size - offs;
 
 		n_bytes = SPA_MIN(avail, to_write);
+		if (n_bytes == 0)
+			break;
 
 		spa_ringbuffer_write_data(&state->ring,
 				state->ringbuffer_data,
@@ -976,6 +987,7 @@ static int handle_capture(struct state *state, uint64_t current_time)
 		spa_list_append(&port->ready, &b->link);
 
 		index += n_bytes;
+		avail -= n_bytes;
 		spa_ringbuffer_read_update(&state->ring, index);
 	}
 

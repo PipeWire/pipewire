@@ -243,6 +243,7 @@ context.objects = [
             node.description      = "AVB Sink"
             media.class           = "Audio/Sink"
             audio.channels        = 8
+            #avb.ifname           = "eth0"
             avb.ifname            = "enp3s0"
             #avb.macaddr          = "01:AA:AA:AA:AA:AA"
             #avb.prio             = 0
@@ -250,6 +251,7 @@ context.objects = [
             #avb.mtt              = 50000000
             #avb.time-uncertainty = 1000000
             #avb.frames-per-pdu   = 8
+            avb.frames-per-pdu   = 32
             #avb.ptime-tolerance  = 100000
         }
     }
@@ -260,6 +262,7 @@ context.objects = [
             node.description      = "AVB Source"
             media.class           = "Audio/Source"
             audio.channels        = 8
+            #avb.ifname           = "eth0"
             avb.ifname            = "enp3s0"
             #avb.macaddr          = "01:AA:AA:AA:AA:AA"
             #avb.prio             = 0
@@ -267,6 +270,7 @@ context.objects = [
             #avb.mtt              = 50000000
             #avb.time-uncertainty = 1000000
             #avb.frames-per-pdu   = 8
+            avb.frames-per-pdu   = 32
             #avb.ptime-tolerance  = 100000
         }
     }

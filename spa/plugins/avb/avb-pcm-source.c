@@ -703,6 +703,7 @@ static int impl_node_process(void *object)
 	struct state *this = object;
 	struct port *port;
 	struct spa_io_buffers *io;
+	struct buffer *b;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -712,7 +713,29 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(io != NULL, -EIO);
 
 	spa_log_trace_fp(this->log, "%p: process %d %d/%d", this, io->status,
-			io->buffer_id, this->n_buffers);
+			io->buffer_id, port->n_buffers);
+
+	if (io->status == SPA_STATUS_HAVE_DATA)
+		return SPA_STATUS_HAVE_DATA;
+
+	if (io->buffer_id < port->n_buffers) {
+		spa_avb_recycle_buffer(this, port, io->buffer_id);
+		io->buffer_id = SPA_ID_INVALID;
+	}
+
+	if (spa_list_is_empty(&port->ready) && this->following) {
+	}
+	if (spa_list_is_empty(&port->ready) || !this->following)
+		return SPA_STATUS_OK;
+
+	b = spa_list_first(&port->ready, struct buffer, link);
+	spa_list_remove(&b->link);
+	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+
+	spa_log_trace_fp(this->log, "%p: dequeue buffer %d", this, b->id);
+
+	io->buffer_id = b->id;
+	io->status = SPA_STATUS_HAVE_DATA;
 
 	return SPA_STATUS_HAVE_DATA;
 }

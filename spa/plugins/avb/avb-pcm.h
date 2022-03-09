@@ -240,6 +240,7 @@ struct state {
 	size_t pdu_size;
 	int64_t pdu_period;
 	uint8_t pdu_seq;
+	uint8_t prev_seq;
 
 	struct iovec iov;
 	struct msghdr msg;

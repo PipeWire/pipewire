@@ -59,6 +59,14 @@ extern "C" {
 
 #define MAX_RATES	16
 
+#define DEFAULT_IFNAME		"eth0"
+#define DEFAULT_ADDR		"01:AA:AA:AA:AA:AA"
+#define DEFAULT_PRIO		0
+#define DEFAULT_STREAMID	"AA:BB:CC:DD:EE:FF:0000"
+#define DEFAULT_MTT		5000000
+#define DEFAULT_TU		1000000
+#define DEFAULT_FRAMES_PER_PDU	8
+
 #define DEFAULT_PERIOD		1024u
 #define DEFAULT_RATE		48000u
 #define DEFAULT_CHANNELS	8u
@@ -73,6 +81,53 @@ struct props {
 	uint32_t frames_per_pdu;
 	int ptime_tolerance;
 };
+
+static inline int parse_addr(unsigned char addr[ETH_ALEN], const char *str)
+{
+	unsigned char ad[ETH_ALEN];
+	if (sscanf(str, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+			&ad[0], &ad[1], &ad[2], &ad[3], &ad[4], &ad[5]) != 6)
+		return -EINVAL;
+	memcpy(addr, ad, sizeof(ad));
+	return 0;
+}
+static inline char *format_addr(char *str, size_t size, const unsigned char addr[ETH_ALEN])
+{
+	snprintf(str, size, "%02x:%02x:%02x:%02x:%02x:%02x",
+			addr[0], addr[1], addr[2],
+			addr[3], addr[4], addr[5]);
+	return str;
+}
+
+static inline int parse_streamid(uint64_t *streamid, const char *str)
+{
+	unsigned char addr[6];
+	unsigned short unique_id;
+	if (sscanf(str, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx:%hx",
+			&addr[0], &addr[1], &addr[2], &addr[3],
+			&addr[4], &addr[5], &unique_id) != 7)
+		return -EINVAL;
+	*streamid = (uint64_t) addr[0] << 56 |
+		    (uint64_t) addr[1] << 48 |
+		    (uint64_t) addr[2] << 40 |
+		    (uint64_t) addr[3] << 32 |
+		    (uint64_t) addr[4] << 24 |
+		    (uint64_t) addr[5] << 16 |
+		    unique_id;
+	return 0;
+}
+static inline char *format_streamid(char *str, size_t size, const uint64_t streamid)
+{
+	snprintf(str, size, "%02x:%02x:%02x:%02x:%02x:%02x:%04x",
+			(uint8_t)(streamid >> 56),
+			(uint8_t)(streamid >> 48),
+			(uint8_t)(streamid >> 40),
+			(uint8_t)(streamid >> 32),
+			(uint8_t)(streamid >> 24),
+			(uint8_t)(streamid >> 16),
+			(uint16_t)(streamid));
+	return str;
+}
 
 #define MAX_BUFFERS 32
 

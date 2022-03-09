@@ -45,6 +45,13 @@
 
 static void reset_props(struct props *props)
 {
+	snprintf(props->ifname, sizeof(props->ifname), "%s", DEFAULT_IFNAME);
+	parse_addr(props->addr, DEFAULT_ADDR);
+	props->prio = DEFAULT_PRIO;
+	parse_streamid(&props->streamid, DEFAULT_STREAMID);
+	props->mtt = DEFAULT_MTT;
+	props->t_uncertainty = DEFAULT_TU;
+	props->frames_per_pdu = DEFAULT_FRAMES_PER_PDU;
 }
 
 static void emit_node_info(struct state *this, bool full)
@@ -123,74 +130,10 @@ static int impl_node_enum_params(void *object, int seq,
 	switch (id) {
 	case SPA_PARAM_PropInfo:
 	{
-		struct props *p = &this->props;
-
 		switch (result.index) {
-		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("avb.ifname"),
-				SPA_PROP_INFO_description, SPA_POD_String("The AVB interface name"),
-				SPA_PROP_INFO_type, SPA_POD_Stringn(p->ifname, sizeof(p->ifname)),
-                                SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 1:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("avb.macaddr"),
-				SPA_PROP_INFO_description, SPA_POD_String("The AVB MAC address"),
-				SPA_PROP_INFO_type, SPA_POD_Stringn(p->addr, sizeof(p->addr)),
-                                SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 2:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("avb.prio"),
-				SPA_PROP_INFO_description, SPA_POD_String("The AVB stream priority"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->prio, 0, INT32_MAX),
-                                SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 3:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("avb.streamid"),
-				SPA_PROP_INFO_description, SPA_POD_String("The AVB stream id"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(p->streamid, 0LL, UINT64_MAX),
-                                SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 4:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("avb.mtt"),
-				SPA_PROP_INFO_description, SPA_POD_String("The AVB mtt"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->mtt, 0, INT32_MAX),
-                                SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 5:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("avb.time-uncertainty"),
-				SPA_PROP_INFO_description, SPA_POD_String("The AVB time uncertainty"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->t_uncertainty, 0, INT32_MAX),
-                                SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 6:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("avb.frames-per-pdu"),
-				SPA_PROP_INFO_description, SPA_POD_String("The AVB frames per packet"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->frames_per_pdu, 0, INT32_MAX),
-                                SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
-		case 7:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("avb.ptime-tolerance"),
-				SPA_PROP_INFO_description, SPA_POD_String("The AVB packet tolerance"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->ptime_tolerance, 0, INT32_MAX),
-                                SPA_PROP_INFO_params, SPA_POD_Bool(true));
-			break;
 		default:
+			param = spa_avb_enum_propinfo(this, result.index, &b);
+			if (param == NULL)
 				return 0;
 		}
 		break;
@@ -588,6 +531,7 @@ static int port_set_format(void *object, struct port *port,
 			return 0;
 
 		spa_log_debug(this->log, "clear format");
+		port->have_format = false;
 		spa_avb_clear_format(this);
 		clear_buffers(this, port);
 	} else {
@@ -607,6 +551,7 @@ static int port_set_format(void *object, struct port *port,
 			return err;
 
 		port->current_format = info;
+		port->have_format = true;
 	}
 
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;

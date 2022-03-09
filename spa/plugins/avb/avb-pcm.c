@@ -47,6 +47,7 @@
 
 static int avb_set_param(struct state *state, const char *k, const char *s)
 {
+	struct props *p = &state->props;
 	int fmt_change = 0;
 	if (spa_streq(k, SPA_KEY_AUDIO_CHANNELS)) {
 		state->default_channels = atoi(s);
@@ -64,6 +65,22 @@ static int avb_set_param(struct state *state, const char *k, const char *s)
 		state->n_allowed_rates = spa_avb_parse_rates(state->allowed_rates,
 				MAX_RATES, s, strlen(s));
 		fmt_change++;
+	} else if (spa_streq(k, "avb.ifname")) {
+		snprintf(p->ifname, sizeof(p->ifname), "%s", s);
+	} else if (spa_streq(k, "avb.macaddr")) {
+		parse_addr(p->addr, s);
+	} else if (spa_streq(k, "avb.prio")) {
+		p->prio = atoi(s);
+	} else if (spa_streq(k, "avb.streamid")) {
+		parse_streamid(&p->streamid, s);
+	} else if (spa_streq(k, "avb.mtt")) {
+		p->mtt = atoi(s);
+	} else if (spa_streq(k, "avb.time-uncertainty")) {
+		p->t_uncertainty = atoi(s);
+	} else if (spa_streq(k, "avb.frames-per-pdu")) {
+		p->frames_per_pdu = atoi(s);
+	} else if (spa_streq(k, "avb.ptime-tolerance")) {
+		p->ptime_tolerance = atoi(s);
 	} else if (spa_streq(k, "latency.internal.rate")) {
 		state->process_latency.rate = atoi(s);
 	} else if (spa_streq(k, "latency.internal.ns")) {
@@ -120,6 +137,8 @@ struct spa_pod *spa_avb_enum_propinfo(struct state *state,
 		uint32_t idx, struct spa_pod_builder *b)
 {
 	struct spa_pod *param;
+	struct props *p = &state->props;
+	char tmp[128];
 
 	switch (idx) {
 	case 0:
@@ -172,6 +191,72 @@ struct spa_pod *spa_avb_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
 	}
+	case 5:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String("avb.ifname"),
+			SPA_PROP_INFO_description, SPA_POD_String("The AVB interface name"),
+			SPA_PROP_INFO_type, SPA_POD_Stringn(p->ifname, sizeof(p->ifname)),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 6:
+		format_addr(tmp, sizeof(tmp), p->addr);
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String("avb.macaddr"),
+			SPA_PROP_INFO_description, SPA_POD_String("The AVB MAC address"),
+			SPA_PROP_INFO_type, SPA_POD_String(tmp),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 7:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String("avb.prio"),
+			SPA_PROP_INFO_description, SPA_POD_String("The AVB stream priority"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->prio, 0, INT32_MAX),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 8:
+		format_streamid(tmp, sizeof(tmp), p->streamid);
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String("avb.streamid"),
+			SPA_PROP_INFO_description, SPA_POD_String("The AVB stream id"),
+			SPA_PROP_INFO_type, SPA_POD_String(tmp),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 9:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String("avb.mtt"),
+			SPA_PROP_INFO_description, SPA_POD_String("The AVB mtt"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->mtt, 0, INT32_MAX),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 10:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String("avb.time-uncertainty"),
+			SPA_PROP_INFO_description, SPA_POD_String("The AVB time uncertainty"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->t_uncertainty, 0, INT32_MAX),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 11:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String("avb.frames-per-pdu"),
+			SPA_PROP_INFO_description, SPA_POD_String("The AVB frames per packet"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->frames_per_pdu, 0, INT32_MAX),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 12:
+		param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
+			SPA_PROP_INFO_name, SPA_POD_String("avb.ptime-tolerance"),
+			SPA_PROP_INFO_description, SPA_POD_String("The AVB packet tolerance"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->ptime_tolerance, 0, INT32_MAX),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
 	case 13:
 		param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
@@ -206,6 +291,7 @@ struct spa_pod *spa_avb_enum_propinfo(struct state *state,
 
 int spa_avb_add_prop_params(struct state *state, struct spa_pod_builder *b)
 {
+	struct props *p = &state->props;
 	struct spa_pod_frame f[1];
 	char buf[1024];
 
@@ -231,6 +317,28 @@ int spa_avb_add_prop_params(struct state *state, struct spa_pod_builder *b)
 			buf, sizeof(buf));
 	spa_pod_builder_string(b, SPA_KEY_AUDIO_ALLOWED_RATES);
 	spa_pod_builder_string(b, buf);
+
+	spa_pod_builder_string(b, "avb.ifname");
+	spa_pod_builder_string(b, p->ifname);
+
+	format_addr(buf, sizeof(buf), p->addr);
+	spa_pod_builder_string(b, "avb.macadr");
+	spa_pod_builder_string(b, buf);
+
+	spa_pod_builder_string(b, "avb.prio");
+	spa_pod_builder_int(b, p->prio);
+
+	format_streamid(buf, sizeof(buf), p->streamid);
+	spa_pod_builder_string(b, "avb.streamid");
+	spa_pod_builder_string(b, buf);
+	spa_pod_builder_string(b, "avb.mtt");
+	spa_pod_builder_int(b, p->mtt);
+	spa_pod_builder_string(b, "avb.time-uncertainty");
+	spa_pod_builder_int(b, p->t_uncertainty);
+	spa_pod_builder_string(b, "avb.frames-per-pdu");
+	spa_pod_builder_int(b, p->frames_per_pdu);
+	spa_pod_builder_string(b, "avb.ptime-tolerance");
+	spa_pod_builder_int(b, p->ptime_tolerance);
 
 	spa_pod_builder_string(b, "latency.internal.rate");
 	spa_pod_builder_int(b, state->process_latency.rate);
@@ -456,7 +564,7 @@ static int setup_socket(struct state *state)
 	snprintf(req.ifr_name, sizeof(req.ifr_name), "%s", p->ifname);
 	res = ioctl(fd, SIOCGIFINDEX, &req);
 	if (res < 0) {
-		spa_log_error(state->log, "SIOCGIFINDEX failed: %m");
+		spa_log_error(state->log, "SIOCGIFINDEX %s failed: %m", p->ifname);
 		res = -errno;
 		goto error_close;
 	}
@@ -473,7 +581,7 @@ static int setup_socket(struct state *state)
 		res = setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &p->prio,
 				sizeof(p->prio));
 		if (res < 0) {
-			spa_log_error(state->log, "setsockopt(SO_PRIORITY) failed: %m");
+			spa_log_error(state->log, "setsockopt(SO_PRIORITY %d) failed: %m", p->prio);
 			res = -errno;
 			goto error_close;
 		}
@@ -505,7 +613,7 @@ static int setup_socket(struct state *state)
 		res = setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP,
 				&mreq, sizeof(struct packet_mreq));
 		if (res < 0) {
-			spa_log_error(state->log, "setsockopt(ADD_MEMBERSHIP failed: %m");
+			spa_log_error(state->log, "setsockopt(ADD_MEMBERSHIP) failed: %m");
 			res = -errno;
 			goto error_close;
 		}
@@ -589,6 +697,7 @@ int spa_avb_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t
 	state->format = fmt->info.raw.format;
 	state->rate = fmt->info.raw.rate;
 	state->channels = fmt->info.raw.channels;
+	state->blocks = 1;
 	state->stride = state->channels * frame_size(state->format);
 
 	if ((res = setup_socket(state)) < 0)
@@ -785,6 +894,7 @@ static int handle_play(struct state *state, uint64_t current_time)
 	avail = spa_ringbuffer_get_read_index(&state->ring, &index);
 	if (avail < (int32_t) state->duration) {
 		spa_log_warn(state->log, "underrun %d", avail);
+		goto done;
 	}
 
 	pdu_count = state->duration / p->frames_per_pdu;
@@ -817,6 +927,7 @@ static int handle_play(struct state *state, uint64_t current_time)
 	}
 	spa_ringbuffer_read_update(&state->ring, index);
 
+done:
 	spa_node_call_ready(&state->callbacks, SPA_STATUS_NEED_DATA);
 
 	return 0;

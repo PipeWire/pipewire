@@ -237,12 +237,14 @@ struct state {
 	struct sockaddr_ll sock_addr;
 
 	struct avtp_stream_pdu *pdu;
+	size_t hdr_size;
+	size_t payload_size;
 	size_t pdu_size;
 	int64_t pdu_period;
 	uint8_t pdu_seq;
 	uint8_t prev_seq;
 
-	struct iovec iov;
+	struct iovec iov[3];
 	struct msghdr msg;
 	char control[CMSG_SPACE(sizeof(__u64))];
 	struct cmsghdr *cmsg;

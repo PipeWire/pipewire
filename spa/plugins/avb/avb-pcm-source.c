@@ -712,8 +712,8 @@ static int impl_node_process(void *object)
 	io = port->io;
 	spa_return_val_if_fail(io != NULL, -EIO);
 
-	spa_log_trace_fp(this->log, "%p: process %d %d/%d", this, io->status,
-			io->buffer_id, port->n_buffers);
+	spa_log_trace_fp(this->log, "%p: process %d %d/%d %d", this, io->status,
+			io->buffer_id, port->n_buffers, this->following);
 
 	if (io->status == SPA_STATUS_HAVE_DATA)
 		return SPA_STATUS_HAVE_DATA;
@@ -724,6 +724,7 @@ static int impl_node_process(void *object)
 	}
 
 	if (spa_list_is_empty(&port->ready) && this->following) {
+		spa_avb_read(this);
 	}
 	if (spa_list_is_empty(&port->ready) || !this->following)
 		return SPA_STATUS_OK;

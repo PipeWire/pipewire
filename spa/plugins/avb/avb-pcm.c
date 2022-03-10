@@ -945,20 +945,22 @@ done:
 	return 0;
 }
 
-static int handle_capture(struct state *state, uint64_t current_time)
+int spa_avb_read(struct state *state)
 {
 	int32_t avail, wanted;
 	uint32_t index;
 	struct port *port = &state->ports[0];
-	struct spa_io_buffers *io;
 	struct buffer *b;
+
+	if (state->position)
+		state->duration = state->position->clock.duration;
 
 	avail = spa_ringbuffer_get_read_index(&state->ring, &index);
 	wanted = state->duration * state->stride;
 
 	if (avail < wanted) {
 		spa_log_warn(state->log, "capture underrun %d < %d", avail, wanted);
-		goto done;
+		return 0;
 	}
 	while (avail >= wanted) {
 		struct spa_data *d;
@@ -990,6 +992,16 @@ static int handle_capture(struct state *state, uint64_t current_time)
 		avail -= n_bytes;
 		spa_ringbuffer_read_update(&state->ring, index);
 	}
+	return 0;
+}
+
+static int handle_capture(struct state *state, uint64_t current_time)
+{
+	struct port *port = &state->ports[0];
+	struct spa_io_buffers *io;
+	struct buffer *b;
+
+	spa_avb_read(state);
 
 	if (spa_list_is_empty(&port->ready))
 		return 0;
@@ -1009,7 +1021,6 @@ static int handle_capture(struct state *state, uint64_t current_time)
 		spa_log_trace_fp(state->log, "%p: output buffer:%d", state, b->id);
 	}
 	spa_node_call_ready(&state->callbacks, SPA_STATUS_HAVE_DATA);
-done:
 	return 0;
 }
 
@@ -1132,6 +1143,8 @@ int spa_avb_start(struct state *state)
 
 	spa_dll_init(&state->dll);
 	state->max_error = (256.0 * state->rate) / state->rate_denom;
+
+	state->following = is_following(state);
 
 	state->timer_source.func = avb_on_timeout_event;
 	state->timer_source.data = state;

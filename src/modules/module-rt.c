@@ -557,9 +557,6 @@ static int set_rlimit(struct impl *impl)
 {
 	struct rlimit rl;
 	int res = 0;
-#ifdef HAVE_DBUS
-	long long rttime;
-#endif
 
 	spa_zero(rl);
 	rl.rlim_cur = impl->rt_time_soft;
@@ -567,6 +564,7 @@ static int set_rlimit(struct impl *impl)
 
 #ifdef HAVE_DBUS
 	if (impl->use_rtkit) {
+		long long rttime;
 		rttime = pw_rtkit_get_rttime_usec_max(impl->system_bus);
 		if (rttime >= 0) {
 			if ((rlim_t)rttime < rl.rlim_cur) {

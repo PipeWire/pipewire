@@ -261,8 +261,10 @@ struct spa_interface {
  * The below (pseudo)code is a minimal example outlining the use of hooks:
  * \code{.c}
  * // the public interface
+ * #define VERSION_BAR_EVENTS 0 // version of the vtable
  * struct bar_events {
- *    uint32_t version;
+ *    uint32_t version; // NOTE: an integral member named `version`
+ *                      //       must be present in the vtable
  *    void (*boom)(void *data, const char *msg);
  * };
  *
@@ -272,17 +274,23 @@ struct spa_interface {
  * };
  *
  * void party_add_event_listener(struct party *p, struct spa_hook *listener,
- *                               struct bar_events *events, void *data)
+ *                               const struct bar_events *events, void *data)
  * {
  *    spa_hook_list_append(&p->bar_list, listener, events, data);
  * }
  *
  * static void party_on(struct party *p)
  * {
- *     spa_hook_list_call(&p->list, struct bar_events,
- *                        boom, // function name
- *                        0 // hardcoded version,
- *                        "party on, wayne");
+ *     // NOTE: this is a macro, it evaluates to an integer,
+ *     //       which is the number of hooks called
+ *     spa_hook_list_call(&p->list,
+ *                        struct bar_events, // vtable type
+ *                        boom,              // function name
+ *                        0,                 // hardcoded version,
+ *                                           //     usually the version in which `boom`
+ *                                           //     has been added to the vtable
+ *                        "party on, wayne"  // function argument(s)
+ *                        );
  * }
  * \endcode
  *
@@ -293,7 +301,8 @@ struct spa_interface {
  *      printf("%s", msg);
  * }
  *
- * static const struct bar_events {
+ * static const struct bar_events events = {
+ *    .version = VERSION_BAR_EVENTS, // version of the implemented interface
  *    .boom = boom_cb,
  * };
  *
@@ -302,7 +311,7 @@ struct spa_interface {
  *      struct spa_hook hook;
  *      struct party *p = start_the_party();
  *
- *      party_add_event_listener(p, &hook, boom_cb, userdata);
+ *      party_add_event_listener(p, &hook, &events, userdata);
  *
  *      mainloop();
  *      return 0;

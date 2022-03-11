@@ -78,7 +78,7 @@ static int module_roc_source_load(struct client *client, struct module *module)
 
 	fprintf(f, "{");
 	pw_properties_serialize_dict(f, &data->roc_props->dict, 0);
-	fprintf(f, " } source.props = {");
+	fprintf(f, " source.props = {");
 	pw_properties_serialize_dict(f, &data->source_props->dict, 0);
 	fprintf(f, " } }");
 	fclose(f);
@@ -125,6 +125,7 @@ static const struct spa_dict_item module_roc_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "roc source" },
 	{ PW_KEY_MODULE_USAGE, "source_name=<name for the source> "
+				"source_properties=<properties for the source> "
 				"resampler_profile=<empty>|disable|high|medium|low "
 				"sess_latency_msec=<target network latency in milliseconds> "
 				"local_ip=<local receiver ip> "
@@ -157,6 +158,10 @@ struct module *create_module_roc_source(struct impl *impl, const char *argument)
 	if ((str = pw_properties_get(props, "source_name")) != NULL) {
 		pw_properties_set(source_props, PW_KEY_NODE_NAME, str);
 		pw_properties_set(props, "source_name", NULL);
+	}
+	if ((str = pw_properties_get(props, "source_properties")) != NULL) {
+		module_args_add_props(source_props, str);
+		pw_properties_set(props, "source_properties", NULL);
 	}
 
 	if ((str = pw_properties_get(props, PW_KEY_MEDIA_CLASS)) == NULL) {

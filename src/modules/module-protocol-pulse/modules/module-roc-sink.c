@@ -78,7 +78,7 @@ static int module_roc_sink_load(struct client *client, struct module *module)
 
 	fprintf(f, "{");
 	pw_properties_serialize_dict(f, &data->roc_props->dict, 0);
-	fprintf(f, " } sink.props = {");
+	fprintf(f, " sink.props = {");
 	pw_properties_serialize_dict(f, &data->sink_props->dict, 0);
 	fprintf(f, " } }");
 	fclose(f);
@@ -125,6 +125,7 @@ static const struct spa_dict_item module_roc_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "roc sink" },
 	{ PW_KEY_MODULE_USAGE, "sink_name=<name for the sink> "
+				"sink_properties=<properties for the sink> "
 				"local_ip=<local sender ip> "
 				"remote_ip=<remote receiver ip> "
 				"remote_source_port=<remote receiver port for source packets> "
@@ -155,6 +156,10 @@ struct module *create_module_roc_sink(struct impl *impl, const char *argument)
 	if ((str = pw_properties_get(props, "sink_name")) != NULL) {
 		pw_properties_set(sink_props, PW_KEY_NODE_NAME, str);
 		pw_properties_set(props, "sink_name", NULL);
+	}
+	if ((str = pw_properties_get(props, "sink_properties")) != NULL) {
+		module_args_add_props(sink_props, str);
+		pw_properties_set(props, "sink_properties", NULL);
 	}
 
 	if ((str = pw_properties_get(props, PW_KEY_MEDIA_CLASS)) == NULL) {

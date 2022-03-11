@@ -895,7 +895,6 @@ static int flush_write(struct state *state, uint64_t current_time)
 		n = sendmsg(state->sockfd, &state->msg, 0);
 		if (n < 0 || n != (ssize_t)state->pdu_size) {
 			spa_log_error(state->log, "sendmdg() failed: %m");
-			return -errno;
 		}
 		txtime += state->pdu_period;
 		ptime += state->pdu_period;
@@ -988,23 +987,28 @@ int spa_avb_read(struct state *state)
 	avail = spa_ringbuffer_get_read_index(&state->ring, &index);
 	wanted = state->duration * state->stride;
 
-	if (avail < wanted) {
-		spa_log_warn(state->log, "capture underrun %d < %d", avail, wanted);
-		return 0;
+	if (spa_list_is_empty(&port->free)) {
+		spa_log_warn(state->log, "out of buffers");
+		return -EPIPE;
 	}
-	if (spa_list_is_empty(&port->free))
-		return 0;
 
 	b = spa_list_first(&port->free, struct buffer, link);
 	d = b->buf->datas;
 
 	n_bytes = SPA_MIN(d[0].maxsize, (uint32_t)wanted);
 
-	spa_ringbuffer_read_data(&state->ring,
-			state->ringbuffer_data,
-			state->ringbuffer_size,
-			index % state->ringbuffer_size,
-			d[0].data, n_bytes);
+	if (avail < wanted) {
+		spa_log_warn(state->log, "capture underrun %d < %d", avail, wanted);
+		memset(d[0].data, 0, n_bytes);
+	} else {
+		spa_ringbuffer_read_data(&state->ring,
+				state->ringbuffer_data,
+				state->ringbuffer_size,
+				index % state->ringbuffer_size,
+				d[0].data, n_bytes);
+		index += n_bytes;
+		spa_ringbuffer_read_update(&state->ring, index);
+	}
 
 	d[0].chunk->offset = 0;
 	d[0].chunk->size = n_bytes;
@@ -1014,9 +1018,6 @@ int spa_avb_read(struct state *state)
 	spa_list_remove(&b->link);
 	spa_list_append(&port->ready, &b->link);
 
-	index += n_bytes;
-	avail -= n_bytes;
-	spa_ringbuffer_read_update(&state->ring, index);
 	return 0;
 }
 

@@ -84,10 +84,22 @@ static struct conv_info conv_table[] =
 
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_F32, 0, 0, conv_copy32_c },
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_copy32d_c },
+#if defined (HAVE_SSE2)
+	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_deinterleave_32_sse2 },
+#endif
 	{ SPA_AUDIO_FORMAT_F32, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_deinterleave_32_c },
+#if defined (HAVE_SSE2)
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_F32, 0, 0, conv_interleave_32_sse2 },
+#endif
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_F32, 0, 0, conv_interleave_32_c },
 
+#if defined (HAVE_SSE2)
+	{ SPA_AUDIO_FORMAT_F32_OE, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_deinterleave_32s_sse2 },
+#endif
 	{ SPA_AUDIO_FORMAT_F32_OE, SPA_AUDIO_FORMAT_F32P, 0, 0, conv_deinterleave_32s_c },
+#if defined (HAVE_SSE2)
+	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_F32_OE, 0, 0, conv_interleave_32s_sse2 },
+#endif
 	{ SPA_AUDIO_FORMAT_F32P, SPA_AUDIO_FORMAT_F32_OE, 0, 0, conv_interleave_32s_c },
 
 	{ SPA_AUDIO_FORMAT_U32, SPA_AUDIO_FORMAT_F32, 0, 0, conv_u32_to_f32_c },
@@ -259,7 +271,13 @@ static struct conv_info conv_table[] =
 	/* s32 */
 	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_S32, 0, 0, conv_copy32_c },
 	{ SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_S32P, 0, 0, conv_copy32d_c },
+#if defined (HAVE_SSE2)
+	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_S32P, 0, 0, conv_deinterleave_32_sse2 },
+#endif
 	{ SPA_AUDIO_FORMAT_S32, SPA_AUDIO_FORMAT_S32P, 0, 0, conv_deinterleave_32_c },
+#if defined (HAVE_SSE2)
+	{ SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_S32, 0, 0, conv_interleave_32_sse2 },
+#endif
 	{ SPA_AUDIO_FORMAT_S32P, SPA_AUDIO_FORMAT_S32, 0, 0, conv_interleave_32_c },
 
 	/* s24 */
@@ -271,7 +289,13 @@ static struct conv_info conv_table[] =
 	/* s24_32 */
 	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_S24_32, 0, 0, conv_copy32_c },
 	{ SPA_AUDIO_FORMAT_S24_32P, SPA_AUDIO_FORMAT_S24_32P, 0, 0, conv_copy32d_c },
+#if defined (HAVE_SSE2)
+	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_S24_32P, 0, 0, conv_deinterleave_32_sse2 },
+#endif
 	{ SPA_AUDIO_FORMAT_S24_32, SPA_AUDIO_FORMAT_S24_32P, 0, 0, conv_deinterleave_32_c },
+#if defined (HAVE_SSE2)
+	{ SPA_AUDIO_FORMAT_S24_32P, SPA_AUDIO_FORMAT_S24_32, 0, 0, conv_interleave_32_sse2 },
+#endif
 	{ SPA_AUDIO_FORMAT_S24_32P, SPA_AUDIO_FORMAT_S24_32, 0, 0, conv_interleave_32_c },
 
 	/* F64 */

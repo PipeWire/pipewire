@@ -544,6 +544,354 @@ conv_f32d_to_s32_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 }
 
 static void
+conv_interleave_32_1s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
+		uint32_t n_channels, uint32_t n_samples)
+{
+	const int32_t *s0 = src[0];
+	int32_t *d = dst;
+	uint32_t n, unrolled;
+	__m128i out[4];
+
+	if (SPA_IS_ALIGNED(s0, 16))
+		unrolled = n_samples & ~3;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 4) {
+		out[0] = _mm_load_si128((__m128i*)&s0[n]);
+		out[1] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(0, 3, 2, 1));
+		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
+		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
+
+		d[0*n_channels] = _mm_cvtsi128_si32(out[0]);
+		d[1*n_channels] = _mm_cvtsi128_si32(out[1]);
+		d[2*n_channels] = _mm_cvtsi128_si32(out[2]);
+		d[3*n_channels] = _mm_cvtsi128_si32(out[3]);
+		d += 4*n_channels;
+	}
+	for(; n < n_samples; n++) {
+		*d = s0[n];
+		d += n_channels;
+	}
+}
+static void
+conv_interleave_32_4s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
+		uint32_t n_channels, uint32_t n_samples)
+{
+	const float *s0 = src[0], *s1 = src[1], *s2 = src[2], *s3 = src[3];
+	float *d = dst;
+	uint32_t n, unrolled;
+	__m128 out[4];
+
+	if (SPA_IS_ALIGNED(s0, 16) &&
+	    SPA_IS_ALIGNED(s1, 16) &&
+	    SPA_IS_ALIGNED(s2, 16) &&
+	    SPA_IS_ALIGNED(s3, 16))
+		unrolled = n_samples & ~3;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 4) {
+		out[0] = _mm_load_ps(&s0[n]);
+		out[1] = _mm_load_ps(&s1[n]);
+		out[2] = _mm_load_ps(&s2[n]);
+		out[3] = _mm_load_ps(&s3[n]);
+
+		_MM_TRANSPOSE4_PS(out[0], out[1], out[2], out[3]);
+
+		_mm_storeu_ps((d + 0*n_channels), out[0]);
+		_mm_storeu_ps((d + 1*n_channels), out[1]);
+		_mm_storeu_ps((d + 2*n_channels), out[2]);
+		_mm_storeu_ps((d + 3*n_channels), out[3]);
+		d += 4*n_channels;
+	}
+	for(; n < n_samples; n++) {
+		out[0] = _mm_setr_ps(s0[n], s1[n], s2[n], s3[n]);
+		_mm_storeu_ps(d, out[0]);
+		d += n_channels;
+	}
+}
+
+void
+conv_interleave_32_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	int32_t *d = dst[0];
+	uint32_t i = 0, n_channels = conv->n_channels;
+
+	for(; i + 3 < n_channels; i += 4)
+		conv_interleave_32_4s_sse2(conv, &d[i], &src[i], n_channels, n_samples);
+	for(; i < n_channels; i++)
+		conv_interleave_32_1s_sse2(conv, &d[i], &src[i], n_channels, n_samples);
+}
+
+#define _MM_BSWAP_EPI32(x)						\
+({									\
+	__m128i a = _mm_or_si128(					\
+		_mm_slli_epi16(x, 8),					\
+		_mm_srli_epi16(x, 8));					\
+	a = _mm_shufflelo_epi16(a, _MM_SHUFFLE(2, 3, 0, 1));		\
+	a = _mm_shufflehi_epi16(a, _MM_SHUFFLE(2, 3, 0, 1));		\
+})
+
+static void
+conv_interleave_32s_1s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
+		uint32_t n_channels, uint32_t n_samples)
+{
+	const int32_t *s0 = src[0];
+	int32_t *d = dst;
+	uint32_t n, unrolled;
+	__m128i out[4];
+
+	if (SPA_IS_ALIGNED(s0, 16))
+		unrolled = n_samples & ~3;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 4) {
+		out[0] = _mm_load_si128((__m128i*)&s0[n]);
+		out[0] = _MM_BSWAP_EPI32(out[0]);
+		out[1] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(0, 3, 2, 1));
+		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
+		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
+
+		d[0*n_channels] = _mm_cvtsi128_si32(out[0]);
+		d[1*n_channels] = _mm_cvtsi128_si32(out[1]);
+		d[2*n_channels] = _mm_cvtsi128_si32(out[2]);
+		d[3*n_channels] = _mm_cvtsi128_si32(out[3]);
+		d += 4*n_channels;
+	}
+	for(; n < n_samples; n++) {
+		*d = bswap_32(s0[n]);
+		d += n_channels;
+	}
+}
+static void
+conv_interleave_32s_4s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
+		uint32_t n_channels, uint32_t n_samples)
+{
+	const float *s0 = src[0], *s1 = src[1], *s2 = src[2], *s3 = src[3];
+	float *d = dst;
+	uint32_t n, unrolled;
+	__m128 out[4];
+
+	if (SPA_IS_ALIGNED(s0, 16) &&
+	    SPA_IS_ALIGNED(s1, 16) &&
+	    SPA_IS_ALIGNED(s2, 16) &&
+	    SPA_IS_ALIGNED(s3, 16))
+		unrolled = n_samples & ~3;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 4) {
+		out[0] = _mm_load_ps(&s0[n]);
+		out[1] = _mm_load_ps(&s1[n]);
+		out[2] = _mm_load_ps(&s2[n]);
+		out[3] = _mm_load_ps(&s3[n]);
+
+		_MM_TRANSPOSE4_PS(out[0], out[1], out[2], out[3]);
+
+		out[0] = (__m128) _MM_BSWAP_EPI32((__m128i)out[0]);
+		out[1] = (__m128) _MM_BSWAP_EPI32((__m128i)out[1]);
+		out[2] = (__m128) _MM_BSWAP_EPI32((__m128i)out[2]);
+		out[3] = (__m128) _MM_BSWAP_EPI32((__m128i)out[3]);
+
+		_mm_storeu_ps(&d[0*n_channels], out[0]);
+		_mm_storeu_ps(&d[1*n_channels], out[1]);
+		_mm_storeu_ps(&d[2*n_channels], out[2]);
+		_mm_storeu_ps(&d[3*n_channels], out[3]);
+		d += 4*n_channels;
+	}
+	for(; n < n_samples; n++) {
+		out[0] = _mm_setr_ps(s0[n], s1[n], s2[n], s3[n]);
+		out[0] = (__m128) _MM_BSWAP_EPI32((__m128i)out[0]);
+		_mm_storeu_ps(d, out[0]);
+		d += n_channels;
+	}
+}
+
+void
+conv_interleave_32s_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	int32_t *d = dst[0];
+	uint32_t i = 0, n_channels = conv->n_channels;
+
+	for(; i + 3 < n_channels; i += 4)
+		conv_interleave_32s_4s_sse2(conv, &d[i], &src[i], n_channels, n_samples);
+	for(; i < n_channels; i++)
+		conv_interleave_32s_1s_sse2(conv, &d[i], &src[i], n_channels, n_samples);
+}
+
+static void
+conv_deinterleave_32_1s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+		uint32_t n_channels, uint32_t n_samples)
+{
+	const float *s = src;
+	float *d0 = dst[0];
+	uint32_t n, unrolled;
+	__m128 out;
+
+	if (SPA_IS_ALIGNED(d0, 16))
+		unrolled = n_samples & ~3;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 4) {
+		out = _mm_setr_ps(s[0*n_channels],
+				  s[1*n_channels],
+				  s[2*n_channels],
+				  s[3*n_channels]);
+		_mm_store_ps(&d0[n], out);
+		s += 4*n_channels;
+	}
+	for(; n < n_samples; n++) {
+		d0[n] = *s;
+		s += n_channels;
+	}
+}
+
+static void
+conv_deinterleave_32_4s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+		uint32_t n_channels, uint32_t n_samples)
+{
+	const float *s = src;
+	float *d0 = dst[0], *d1 = dst[1], *d2 = dst[2], *d3 = dst[3];
+	uint32_t n, unrolled;
+	__m128 out[4];
+
+	if (SPA_IS_ALIGNED(d0, 16) &&
+	    SPA_IS_ALIGNED(d1, 16) &&
+	    SPA_IS_ALIGNED(d2, 16) &&
+	    SPA_IS_ALIGNED(d3, 16))
+		unrolled = n_samples & ~3;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 4) {
+		out[0] = _mm_load_ps(&s[0]);
+		out[1] = _mm_load_ps(&s[4]);
+		out[2] = _mm_load_ps(&s[8]);
+		out[3] = _mm_load_ps(&s[12]);
+
+		_MM_TRANSPOSE4_PS(out[0], out[1], out[2], out[3]);
+
+		_mm_store_ps(&d0[n], out[0]);
+		_mm_store_ps(&d1[n], out[1]);
+		_mm_store_ps(&d2[n], out[2]);
+		_mm_store_ps(&d3[n], out[3]);
+		s += 16 * n_channels;
+	}
+	for(; n < n_samples; n++) {
+		d0[n] = s[0];
+		d1[n] = s[1];
+		d2[n] = s[2];
+		d3[n] = s[3];
+		s += 4 * n_channels;
+	}
+}
+
+void
+conv_deinterleave_32_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const float *s = src[0];
+	uint32_t i = 0, n_channels = conv->n_channels;
+
+	for(; i + 3 < n_channels; i += 4)
+		conv_deinterleave_32_4s_sse2(conv, &dst[i], &s[i], n_channels, n_samples);
+	for(; i < n_channels; i++)
+		conv_deinterleave_32_1s_sse2(conv, &dst[i], &s[i], n_channels, n_samples);
+}
+
+static void
+conv_deinterleave_32s_1s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+		uint32_t n_channels, uint32_t n_samples)
+{
+	const float *s = src;
+	float *d0 = dst[0];
+	uint32_t n, unrolled;
+	__m128 out;
+
+	if (SPA_IS_ALIGNED(d0, 16))
+		unrolled = n_samples & ~3;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 4) {
+		out = _mm_setr_ps(s[0*n_channels],
+				  s[1*n_channels],
+				  s[2*n_channels],
+				  s[3*n_channels]);
+		out = (__m128) _MM_BSWAP_EPI32((__m128i)out);
+		_mm_store_ps(&d0[n], out);
+		s += 4*n_channels;
+	}
+	for(; n < n_samples; n++) {
+		d0[n] = bswap_32(*s);
+		s += n_channels;
+	}
+}
+
+static void
+conv_deinterleave_32s_4s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+		uint32_t n_channels, uint32_t n_samples)
+{
+	const float *s = src;
+	float *d0 = dst[0], *d1 = dst[1], *d2 = dst[2], *d3 = dst[3];
+	uint32_t n, unrolled;
+	__m128 out[4];
+
+	if (SPA_IS_ALIGNED(d0, 16) &&
+	    SPA_IS_ALIGNED(d1, 16) &&
+	    SPA_IS_ALIGNED(d2, 16) &&
+	    SPA_IS_ALIGNED(d3, 16))
+		unrolled = n_samples & ~3;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 4) {
+		out[0] = _mm_load_ps(&s[0 * n_channels]);
+		out[1] = _mm_load_ps(&s[1 * n_channels]);
+		out[2] = _mm_load_ps(&s[2 * n_channels]);
+		out[3] = _mm_load_ps(&s[3 * n_channels]);
+
+		_MM_TRANSPOSE4_PS(out[0], out[1], out[2], out[3]);
+
+		out[0] = (__m128) _MM_BSWAP_EPI32((__m128i)out[0]);
+		out[1] = (__m128) _MM_BSWAP_EPI32((__m128i)out[1]);
+		out[2] = (__m128) _MM_BSWAP_EPI32((__m128i)out[2]);
+		out[3] = (__m128) _MM_BSWAP_EPI32((__m128i)out[3]);
+
+		_mm_store_ps(&d0[n], out[0]);
+		_mm_store_ps(&d1[n], out[1]);
+		_mm_store_ps(&d2[n], out[2]);
+		_mm_store_ps(&d3[n], out[3]);
+		s += 4 * n_channels;
+	}
+	for(; n < n_samples; n++) {
+		d0[n] = bswap_32(s[0]);
+		d1[n] = bswap_32(s[1]);
+		d2[n] = bswap_32(s[2]);
+		d3[n] = bswap_32(s[3]);
+		s += n_channels;
+	}
+}
+
+void
+conv_deinterleave_32s_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const float *s = src[0];
+	uint32_t i = 0, n_channels = conv->n_channels;
+
+	for(; i + 3 < n_channels; i += 4)
+		conv_deinterleave_32s_4s_sse2(conv, &dst[i], &s[i], n_channels, n_samples);
+	for(; i < n_channels; i++)
+		conv_deinterleave_32s_1s_sse2(conv, &dst[i], &s[i], n_channels, n_samples);
+}
+
+static void
 conv_f32_to_s16_1_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src,
 		uint32_t n_samples)
 {

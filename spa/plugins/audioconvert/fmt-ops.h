@@ -328,6 +328,10 @@ DEFINE_FUNCTION(f32_to_s16, sse2);
 DEFINE_FUNCTION(f32d_to_s16_2, sse2);
 DEFINE_FUNCTION(f32d_to_s16, sse2);
 DEFINE_FUNCTION(f32d_to_s16d, sse2);
+DEFINE_FUNCTION(deinterleave_32, sse2);
+DEFINE_FUNCTION(deinterleave_32s, sse2);
+DEFINE_FUNCTION(interleave_32, sse2);
+DEFINE_FUNCTION(interleave_32s, sse2);
 #endif
 #if defined(HAVE_SSSE3)
 DEFINE_FUNCTION(s24_to_f32d, ssse3);

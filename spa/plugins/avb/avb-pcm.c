@@ -856,6 +856,55 @@ static void set_timeout(struct state *state, uint64_t next_time)
 			state->timer_source.fd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
 }
 
+static int flush_write(struct state *state, uint64_t current_time)
+{
+	int res;
+	int32_t avail, wanted;
+	uint32_t index;
+        uint64_t ptime, txtime;
+	int pdu_count;
+	struct props *p = &state->props;
+	struct avtp_stream_pdu *pdu = state->pdu;
+	ssize_t n;
+
+	avail = spa_ringbuffer_get_read_index(&state->ring, &index);
+	wanted = state->duration * state->stride;
+	if (avail < wanted) {
+		spa_log_warn(state->log, "underrun %d < %d", avail, wanted);
+		return -EPIPE;
+	}
+
+	pdu_count = state->duration / p->frames_per_pdu;
+
+	txtime = current_time + p->t_uncertainty;
+	ptime = txtime + p->mtt;
+
+	while (pdu_count--) {
+		*(__u64 *)CMSG_DATA(state->cmsg) = txtime;
+
+		set_iovec(&state->ring,
+			state->ringbuffer_data,
+			state->ringbuffer_size,
+			index % state->ringbuffer_size,
+			&state->iov[1], state->payload_size);
+
+#define PDU_SET(f,v) if ((res = avtp_aaf_pdu_set(pdu, (f), (v))) < 0) return res;
+		PDU_SET(AVTP_AAF_FIELD_SEQ_NUM, state->pdu_seq++);
+		PDU_SET(AVTP_AAF_FIELD_TIMESTAMP, ptime);
+#undef PDU_SET
+		n = sendmsg(state->sockfd, &state->msg, 0);
+		if (n < 0 || n != (ssize_t)state->pdu_size) {
+			spa_log_error(state->log, "sendmdg() failed: %m");
+			return -errno;
+		}
+		txtime += state->pdu_period;
+		ptime += state->pdu_period;
+		index += state->payload_size;
+	}
+	spa_ringbuffer_read_update(&state->ring, index);
+	return 0;
+}
+
 int spa_avb_write(struct state *state)
 {
 	int32_t filled;
@@ -910,58 +959,17 @@ int spa_avb_write(struct state *state)
 		index += n_bytes;
 	}
 	spa_ringbuffer_write_update(&state->ring, index);
+
+	if (state->following) {
+		flush_write(state, state->position->clock.nsec);
+	}
 	return 0;
 }
 
 static int handle_play(struct state *state, uint64_t current_time)
 {
-	int res;
-	int32_t avail, wanted;
-	uint32_t index;
-        uint64_t ptime, txtime;
-	int pdu_count;
-	struct props *p = &state->props;
-	struct avtp_stream_pdu *pdu = state->pdu;
-	ssize_t n;
-
-	avail = spa_ringbuffer_get_read_index(&state->ring, &index);
-	wanted = state->duration * state->stride;
-	if (avail < wanted) {
-		spa_log_warn(state->log, "underrun %d < %d", avail, wanted);
-		goto done;
-	}
-
-	pdu_count = state->duration / p->frames_per_pdu;
-
-	txtime = current_time + p->t_uncertainty;
-	ptime = txtime + p->mtt;
-
-	while (pdu_count--) {
-		*(__u64 *)CMSG_DATA(state->cmsg) = txtime;
-
-		set_iovec(&state->ring,
-			state->ringbuffer_data,
-			state->ringbuffer_size,
-			index % state->ringbuffer_size,
-			&state->iov[1], state->payload_size);
-
-#define PDU_SET(f,v) if ((res = avtp_aaf_pdu_set(pdu, (f), (v))) < 0) return res;
-		PDU_SET(AVTP_AAF_FIELD_SEQ_NUM, state->pdu_seq++);
-		PDU_SET(AVTP_AAF_FIELD_TIMESTAMP, ptime);
-#undef PDU_SET
-		n = sendmsg(state->sockfd, &state->msg, 0);
-		if (n < 0 || n != (ssize_t)state->pdu_size) {
-			spa_log_error(state->log, "sendmdg() failed: %m");
-			return -errno;
-		}
-		txtime += state->pdu_period;
-		ptime += state->pdu_period;
-		index += state->payload_size;
-	}
-	spa_ringbuffer_read_update(&state->ring, index);
-done:
+	flush_write(state, current_time);
 	spa_node_call_ready(&state->callbacks, SPA_STATUS_NEED_DATA);
-
 	return 0;
 }
 

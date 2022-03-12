@@ -7,8 +7,6 @@ ABOUT-NLS
 *.tar.gz
 *.tar.xz
 *.o
-build/
-builddir/
 config.h.meson
 cscope.out
 cscope.in.out

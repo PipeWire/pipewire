@@ -26,6 +26,7 @@
 #include <stdio.h>
 
 #include <spa/utils/defs.h>
+#include <spa/utils/string.h>
 #include <spa/param/audio/raw.h>
 
 #undef SPA_LOG_TOPIC_DEFAULT
@@ -61,6 +62,10 @@ struct channelmix {
 #define CHANNELMIX_OPTION_NORMALIZE	(1<<1)		/**< normalize volumes */
 #define CHANNELMIX_OPTION_UPMIX		(1<<2)		/**< do simple upmixing */
 	uint32_t options;
+#define CHANNELMIX_UPMIX_NONE		(0)		/**< disable upmixing */
+#define CHANNELMIX_UPMIX_SIMPLE		(1)		/**< simple upmixing */
+#define CHANNELMIX_UPMIX_PSD		(2)		/**< Passive Surround Decoding upmixing */
+	uint32_t upmix;
 
 	struct spa_log *log;
 
@@ -96,6 +101,26 @@ struct channelmix {
 };
 
 int channelmix_init(struct channelmix *mix);
+
+static const struct channelmix_upmix_info {
+	const char *label;
+	const char *description;
+	uint32_t upmix;
+} channelmix_upmix_info[] = {
+	[CHANNELMIX_UPMIX_NONE] = { "none", "Disabled", CHANNELMIX_UPMIX_NONE },
+	[CHANNELMIX_UPMIX_SIMPLE] = { "simple", "Simple upmixing", CHANNELMIX_UPMIX_SIMPLE },
+	[CHANNELMIX_UPMIX_PSD] = { "psd", "Passive Surround Decoding", CHANNELMIX_UPMIX_PSD }
+};
+
+static inline uint32_t channelmix_upmix_from_label(const char *label)
+{
+	uint32_t i;
+	for (i = 0; i < SPA_N_ELEMENTS(channelmix_upmix_info); i++) {
+		if (spa_streq(channelmix_upmix_info[i].label, label))
+			return channelmix_upmix_info[i].upmix;
+	}
+	return CHANNELMIX_UPMIX_NONE;
+}
 
 #define channelmix_process(mix,...)	(mix)->process(mix, __VA_ARGS__)
 #define channelmix_set_volume(mix,...)	(mix)->set_volume(mix, __VA_ARGS__)

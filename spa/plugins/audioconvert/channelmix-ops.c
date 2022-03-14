@@ -210,7 +210,8 @@ static int make_matrix(struct channelmix *mix)
 	unassigned = src_mask & ~dst_mask;
 	keep = dst_mask & ~src_mask;
 
-	if (!SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_UPMIX))
+	if (!SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_UPMIX) ||
+	    mix->upmix == CHANNELMIX_UPMIX_NONE)
 		keep = 0;
 
 	keep |= FRONT;

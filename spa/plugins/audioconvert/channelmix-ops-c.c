@@ -246,6 +246,16 @@ channelmix_f32_2_3p1_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 		for (i = 0; i < n_dst; i++)
 			memset(d[i], 0, n_samples * sizeof(float));
 	}
+	else if (mix->upmix == CHANNELMIX_UPMIX_SIMPLE) {
+		for (n = 0; n < n_samples; n++) {
+			float c = s[0][n] + s[1][n];
+			d[0][n] = s[0][n] * v0;
+			d[1][n] = s[1][n] * v1;
+			d[2][n] = c * v2;
+			d[3][n] = c;
+		}
+		lr4_process(&mix->lr4[3], d[3], d[3], v3, n_samples);
+	}
 	else if (v0 == 1.0f && v1 == 1.0f) {
 		for (n = 0; n < n_samples; n++) {
 			float c = s[0][n] + s[1][n];
@@ -288,6 +298,18 @@ channelmix_f32_2_5p1_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 	if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_ZERO)) {
 		for (i = 0; i < n_dst; i++)
 			memset(d[i], 0, n_samples * sizeof(float));
+	}
+	else if (mix->upmix == CHANNELMIX_UPMIX_SIMPLE) {
+		for (n = 0; n < n_samples; n++) {
+			float c = s[0][n] + s[1][n];
+			d[0][n] = s[0][n] * v0;
+			d[1][n] = s[1][n] * v1;
+			d[2][n] = c * v2;
+			d[3][n] = c;
+			d[4][n] = s[0][n] * v4;
+			d[5][n] = s[1][n] * v5;
+		}
+		lr4_process(&mix->lr4[3], d[3], d[3], v3, n_samples);
 	}
 	else if (v0 == 1.0f && v1 == 1.0f) {
 		for (n = 0; n < n_samples; n++) {
@@ -346,6 +368,20 @@ channelmix_f32_2_7p1_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 	if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_ZERO)) {
 		for (i = 0; i < n_dst; i++)
 			memset(d[i], 0, n_samples * sizeof(float));
+	}
+	else if (mix->upmix == CHANNELMIX_UPMIX_SIMPLE) {
+		for (n = 0; n < n_samples; n++) {
+			float c = s[0][n] + s[1][n];
+			d[0][n] = s[0][n] * v0;
+			d[1][n] = s[1][n] * v1;
+			d[2][n] = c * v2;
+			d[3][n] = c;
+			d[4][n] = s[0][n] * v4;
+			d[5][n] = s[1][n] * v5;
+			d[6][n] = s[0][n] * v6;
+			d[7][n] = s[1][n] * v7;
+		}
+		lr4_process(&mix->lr4[3], d[3], d[3], v3, n_samples);
 	}
 	else if (v0 == 1.0f && v1 == 1.0f && v4 == 1.0f && v5 == 1.0f) {
 		for (n = 0; n < n_samples; n++) {

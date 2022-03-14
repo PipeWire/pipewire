@@ -546,6 +546,31 @@ static int impl_node_enum_params(void *object, int seq,
 					this->mix.hilbert_taps, 0, MAX_TAPS),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
+		case 17:
+		{
+			struct spa_pod_frame f[2];
+			uint32_t i;
+			spa_pod_builder_push_object(&b, &f[0],
+				SPA_TYPE_OBJECT_PropInfo, id);
+			spa_pod_builder_add(&b,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.upmix-method"),
+				SPA_PROP_INFO_description, SPA_POD_String("Upmix Method to use"),
+				SPA_PROP_INFO_type, SPA_POD_String(
+					channelmix_upmix_info[this->mix.upmix].label),
+				0);
+			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
+			spa_pod_builder_push_struct(&b, &f[1]);
+			for (i = 0; i < SPA_N_ELEMENTS(channelmix_upmix_info); i++) {
+				spa_pod_builder_string(&b, channelmix_upmix_info[i].label);
+				spa_pod_builder_string(&b, channelmix_upmix_info[i].description);
+			}
+			spa_pod_builder_pop(&b, &f[1]);
+			spa_pod_builder_add(&b,
+				SPA_PROP_INFO_params, SPA_POD_Bool(true),
+				0);
+			param = spa_pod_builder_pop(&b, &f[0]);
+			break;
+		}
 		default:
 			return 0;
 		}
@@ -605,6 +630,8 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_float(&b, this->mix.widen);
 			spa_pod_builder_string(&b, "channelmix.hilbert-taps");
 			spa_pod_builder_int(&b, this->mix.hilbert_taps);
+			spa_pod_builder_string(&b, "channelmix.upmix-method");
+			spa_pod_builder_string(&b, channelmix_upmix_info[this->mix.upmix].label);
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
@@ -648,6 +675,8 @@ static int channelmix_set_param(struct impl *this, const char *k, const char *s)
 		spa_atof(s, &this->mix.widen);
 	else if (spa_streq(k, "channelmix.hilbert-taps"))
 		spa_atou32(s, &this->mix.hilbert_taps, 0);
+	else if (spa_streq(k, "channelmix.upmix-method"))
+		this->mix.upmix = channelmix_upmix_from_label(s);
 	else
 		return 0;
 	return 1;
@@ -1625,6 +1654,7 @@ impl_init(const struct spa_handle_factory *factory,
 	props_reset(&this->props);
 
 	this->mix.options = CHANNELMIX_OPTION_UPMIX;
+	this->mix.upmix = CHANNELMIX_UPMIX_PSD;
 	this->mix.log = this->log;
 	this->mix.lfe_cutoff = 120.0f;
 	this->mix.fc_cutoff = 6000.0f;

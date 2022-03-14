@@ -37,8 +37,7 @@ extern "C" {
 #include <limits.h>
 #include <net/if.h>
 
-#include <avtp.h>
-#include <avtp_aaf.h>
+#include <avbtp/packets.h>
 
 #include <spa/support/plugin.h>
 #include <spa/support/loop.h>
@@ -236,7 +235,7 @@ struct state {
 	struct spa_source sock_source;
 	struct sockaddr_ll sock_addr;
 
-	struct avtp_stream_pdu *pdu;
+	struct spa_avbtp_packet_aaf *pdu;
 	size_t hdr_size;
 	size_t payload_size;
 	size_t pdu_size;

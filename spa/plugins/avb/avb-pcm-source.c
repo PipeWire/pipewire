@@ -24,9 +24,6 @@
 
 #include <stddef.h>
 
-#include <avtp.h>
-#include <avtp_aaf.h>
-
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/node/keys.h>

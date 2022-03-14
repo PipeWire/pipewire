@@ -431,11 +431,11 @@ int spa_avb_clear(struct state *state)
 static int spa_format_to_aaf(uint32_t format)
 {
 	switch(format) {
-	case SPA_AUDIO_FORMAT_F32_BE: return AVTP_AAF_FORMAT_FLOAT_32BIT;
-	case SPA_AUDIO_FORMAT_S32_BE: return AVTP_AAF_FORMAT_INT_32BIT;
-	case SPA_AUDIO_FORMAT_S24_BE: return AVTP_AAF_FORMAT_INT_24BIT;
-	case SPA_AUDIO_FORMAT_S16_BE: return AVTP_AAF_FORMAT_INT_16BIT;
-	default: return AVTP_AAF_FORMAT_USER;
+	case SPA_AUDIO_FORMAT_F32_BE: return SPA_AVBTP_AAF_FORMAT_FLOAT_32BIT;
+	case SPA_AUDIO_FORMAT_S32_BE: return SPA_AVBTP_AAF_FORMAT_INT_32BIT;
+	case SPA_AUDIO_FORMAT_S24_BE: return SPA_AVBTP_AAF_FORMAT_INT_24BIT;
+	case SPA_AUDIO_FORMAT_S16_BE: return SPA_AVBTP_AAF_FORMAT_INT_16BIT;
+	default: return SPA_AVBTP_AAF_FORMAT_USER;
 	}
 }
 
@@ -453,17 +453,17 @@ static int frame_size(uint32_t format)
 static int spa_rate_to_aaf(uint32_t rate)
 {
 	switch(rate) {
-	case 8000: return AVTP_AAF_PCM_NSR_8KHZ;
-	case 16000: return AVTP_AAF_PCM_NSR_16KHZ;
-	case 24000: return AVTP_AAF_PCM_NSR_24KHZ;
-	case 32000: return AVTP_AAF_PCM_NSR_32KHZ;
-	case 44100: return AVTP_AAF_PCM_NSR_44_1KHZ;
-	case 48000: return AVTP_AAF_PCM_NSR_48KHZ;
-	case 88200: return AVTP_AAF_PCM_NSR_88_2KHZ;
-	case 96000: return AVTP_AAF_PCM_NSR_96KHZ;
-	case 176400: return AVTP_AAF_PCM_NSR_176_4KHZ;
-	case 192000: return AVTP_AAF_PCM_NSR_192KHZ;
-	default: return AVTP_AAF_PCM_NSR_USER;
+	case 8000: return SPA_AVBTP_AAF_PCM_NSR_8KHZ;
+	case 16000: return SPA_AVBTP_AAF_PCM_NSR_16KHZ;
+	case 24000: return SPA_AVBTP_AAF_PCM_NSR_24KHZ;
+	case 32000: return SPA_AVBTP_AAF_PCM_NSR_32KHZ;
+	case 44100: return SPA_AVBTP_AAF_PCM_NSR_44_1KHZ;
+	case 48000: return SPA_AVBTP_AAF_PCM_NSR_48KHZ;
+	case 88200: return SPA_AVBTP_AAF_PCM_NSR_88_2KHZ;
+	case 96000: return SPA_AVBTP_AAF_PCM_NSR_96KHZ;
+	case 176400: return SPA_AVBTP_AAF_PCM_NSR_176_4KHZ;
+	case 192000: return SPA_AVBTP_AAF_PCM_NSR_192KHZ;
+	default: return SPA_AVBTP_AAF_PCM_NSR_USER;
 	}
 }
 
@@ -628,8 +628,7 @@ error_close:
 
 static int setup_packet(struct state *state, struct spa_audio_info *fmt)
 {
-	int res;
-	struct avtp_stream_pdu *pdu;
+	struct spa_avbtp_packet_aaf *pdu;
 	struct props *p = &state->props;
 	ssize_t payload_size, hdr_size, pdu_size;
 
@@ -639,39 +638,33 @@ static int setup_packet(struct state *state, struct spa_audio_info *fmt)
 	if ((pdu = calloc(1, pdu_size)) == NULL)
 		return -errno;
 
+	SPA_AVBTP_PACKET_AAF_SET_SUBTYPE(pdu, SPA_AVBTP_SUBTYPE_AAF);
+
 	if (state->ports[0].direction == SPA_DIRECTION_INPUT) {
-		if ((res = avtp_aaf_pdu_init(pdu)) < 0)
-			goto error;
-#define PDU_SET(f,v) if ((res = avtp_aaf_pdu_set(pdu, (f), (v))) < 0) goto error;
-		PDU_SET(AVTP_AAF_FIELD_TV, 1);
-		PDU_SET(AVTP_AAF_FIELD_STREAM_ID, p->streamid);
-		PDU_SET(AVTP_AAF_FIELD_FORMAT, spa_format_to_aaf(state->format));
-		PDU_SET(AVTP_AAF_FIELD_NSR, spa_rate_to_aaf(state->rate));
-		PDU_SET(AVTP_AAF_FIELD_CHAN_PER_FRAME, state->channels);
-		PDU_SET(AVTP_AAF_FIELD_BIT_DEPTH, frame_size(state->format)*8);
-		PDU_SET(AVTP_AAF_FIELD_STREAM_DATA_LEN, payload_size);
-		PDU_SET(AVTP_AAF_FIELD_SP, AVTP_AAF_PCM_SP_NORMAL);
-#undef PDU_SET
+		SPA_AVBTP_PACKET_AAF_SET_SV(pdu, 1);
+		SPA_AVBTP_PACKET_AAF_SET_STREAM_ID(pdu, p->streamid);
+		SPA_AVBTP_PACKET_AAF_SET_TV(pdu, 1);
+		SPA_AVBTP_PACKET_AAF_SET_FORMAT(pdu, spa_format_to_aaf(state->format));
+		SPA_AVBTP_PACKET_AAF_SET_NSR(pdu, spa_rate_to_aaf(state->rate));
+		SPA_AVBTP_PACKET_AAF_SET_CHAN_PER_FRAME(pdu, state->channels);
+		SPA_AVBTP_PACKET_AAF_SET_BIT_DEPTH(pdu, frame_size(state->format)*8);
+		SPA_AVBTP_PACKET_AAF_SET_DATA_LEN(pdu, payload_size);
+		SPA_AVBTP_PACKET_AAF_SET_SP(pdu, SPA_AVBTP_AAF_PCM_SP_NORMAL);
 	}
 	state->pdu = pdu;
 	state->hdr_size = hdr_size;
 	state->payload_size = payload_size;
 	state->pdu_size = pdu_size;
 	return 0;
-
-error:
-	free(pdu);
-	return res;
-
 }
 
 static int setup_msg(struct state *state)
 {
 	state->iov[0].iov_base = state->pdu;
 	state->iov[0].iov_len = state->hdr_size;
-	state->iov[1].iov_base = state->pdu->avtp_payload;
+	state->iov[1].iov_base = state->pdu->payload;
 	state->iov[1].iov_len = state->payload_size;
-	state->iov[2].iov_base = state->pdu->avtp_payload;
+	state->iov[2].iov_base = state->pdu->payload;
 	state->iov[2].iov_len = 0;
 	state->msg.msg_name = &state->sock_addr;
 	state->msg.msg_namelen = sizeof(state->sock_addr);
@@ -761,17 +754,16 @@ static void reset_buffers(struct state *this, struct port *port)
 	}
 }
 
-static bool is_pdu_valid(struct state *state)
+static inline bool is_pdu_valid(struct state *state)
 {
-	uint64_t val64;
-	if (avtp_aaf_pdu_get(state->pdu, AVTP_AAF_FIELD_SEQ_NUM, &val64) < 0)
-		return false;
+	uint8_t seq_num;
 
-	if (state->prev_seq != 0 && (uint8_t)(state->prev_seq + 1) != val64) {
-		spa_log_warn(state->log, "dropped packets %d != %d", state->prev_seq + 1, (int)val64);
+	seq_num = SPA_AVBTP_PACKET_AAF_GET_SEQ_NUM(state->pdu);
+
+	if (state->prev_seq != 0 && (uint8_t)(state->prev_seq + 1) != seq_num) {
+		spa_log_warn(state->log, "dropped packets %d != %d", state->prev_seq + 1, seq_num);
 	}
-	state->prev_seq = val64;
-
+	state->prev_seq = seq_num;
 	return true;
 }
 
@@ -787,19 +779,17 @@ set_iovec(struct spa_ringbuffer *rbuf, void *buffer, uint32_t size,
 
 static void avb_on_socket_event(struct spa_source *source)
 {
-	int res;
 	struct state *state = source->data;
 	ssize_t n;
 	int32_t filled;
 	uint32_t subtype, index;
-	struct avtp_common_pdu *common;
-	struct avtp_stream_pdu *pdu = state->pdu;
+	struct spa_avbtp_packet_aaf *pdu = state->pdu;
 	bool overrun = false;
 
 	filled = spa_ringbuffer_get_write_index(&state->ring, &index);
 	overrun = filled > (int32_t) state->ringbuffer_size;
 	if (overrun) {
-		state->iov[1].iov_base = state->pdu->avtp_payload;
+		state->iov[1].iov_base = state->pdu->payload;
 		state->iov[1].iov_len = state->payload_size;
 		state->iov[2].iov_len = 0;
 	} else {
@@ -816,16 +806,13 @@ static void avb_on_socket_event(struct spa_source *source)
                 return;
         }
 	if (n != (ssize_t)state->pdu_size) {
-		spa_log_error(state->log, "AVTPDU dropped: Invalid size");
+		spa_log_error(state->log, "AVB packet dropped: Invalid size");
 		return;
 	}
 
-	common = (struct avtp_common_pdu *) pdu;
-
-	if ((res = avtp_pdu_get(common, AVTP_FIELD_SUBTYPE, &subtype)) < 0)
-		return;
-	if (subtype != AVTP_SUBTYPE_AAF) {
-		spa_log_error(state->log, "non supported subtype");
+	subtype = SPA_AVBTP_PACKET_AAF_GET_SUBTYPE(pdu);
+	if (subtype != SPA_AVBTP_SUBTYPE_AAF) {
+		spa_log_error(state->log, "non supported subtype %d", subtype);
 		return;
 	}
 	if (!is_pdu_valid(state)) {
@@ -858,13 +845,12 @@ static void set_timeout(struct state *state, uint64_t next_time)
 
 static int flush_write(struct state *state, uint64_t current_time)
 {
-	int res;
 	int32_t avail, wanted;
 	uint32_t index;
         uint64_t ptime, txtime;
 	int pdu_count;
 	struct props *p = &state->props;
-	struct avtp_stream_pdu *pdu = state->pdu;
+	struct spa_avbtp_packet_aaf *pdu = state->pdu;
 	ssize_t n;
 
 	avail = spa_ringbuffer_get_read_index(&state->ring, &index);
@@ -888,10 +874,9 @@ static int flush_write(struct state *state, uint64_t current_time)
 			index % state->ringbuffer_size,
 			&state->iov[1], state->payload_size);
 
-#define PDU_SET(f,v) if ((res = avtp_aaf_pdu_set(pdu, (f), (v))) < 0) return res;
-		PDU_SET(AVTP_AAF_FIELD_SEQ_NUM, state->pdu_seq++);
-		PDU_SET(AVTP_AAF_FIELD_TIMESTAMP, ptime);
-#undef PDU_SET
+		SPA_AVBTP_PACKET_AAF_SET_SEQ_NUM(pdu, state->pdu_seq++);
+		SPA_AVBTP_PACKET_AAF_SET_TIMESTAMP(pdu, ptime);
+
 		n = sendmsg(state->sockfd, &state->msg, 0);
 		if (n < 0 || n != (ssize_t)state->pdu_size) {
 			spa_log_error(state->log, "sendmdg() failed: %m");

@@ -5,6 +5,7 @@ subdir('spa')
 module_sources = [
   'module-access.c',
   'module-adapter.c',
+  'module-avbtp.c',
   'module-client-device.c',
   'module-client-node.c',
   'module-echo-cancel.c',
@@ -516,3 +517,20 @@ pipewire_module_fallback_sink = shared_library('pipewire-module-fallback-sink',
   install_rpath: modules_install_dir,
   dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
 )
+
+build_module_avbtp = get_option('avb').allowed()
+if build_module_avbtp
+pipewire_module_avbtp = shared_library('pipewire-module-avbtp',
+  [ 'module-avbtp.c',
+    'module-avbtp/avb.c',
+    'module-avbtp/adp.c',
+    'module-avbtp/avdecc.c',
+    'module-avbtp/maap.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
+)
+endif
+summary({'avbtp': build_module_avbtp}, bool_yn: true, section: 'Optional Modules')

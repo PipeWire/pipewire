@@ -1,0 +1,84 @@
+# PulseAudio config file for PipeWire version @VERSION@ #
+#
+# Copy and edit this file in @PIPEWIRE_CONFIG_DIR@ for system-wide changes
+# or in ~/.config/pipewire for local changes.
+#
+# It is also possible to place a file with an updated section in
+# @PIPEWIRE_CONFIG_DIR@/pipewire-pulse.conf.d/ for system-wide changes or in
+# ~/.config/pipewire/pipewire-pulse.conf.d/ for local changes.
+#
+
+context.properties = {
+    ## Configure properties in the system.
+    #mem.warn-mlock  = false
+    #mem.allow-mlock = true
+    #mem.mlock-all   = false
+    #log.level       = 2
+
+    #default.clock.quantum-limit = 8192
+}
+
+context.spa-libs = {
+    audio.convert.* = audioconvert/libspa-audioconvert
+    support.*       = support/libspa-support
+}
+
+context.modules = [
+    { name = libpipewire-module-rt
+        args = {
+            nice.level   = -11
+            #rt.prio      = 88
+            #rt.time.soft = -1
+            #rt.time.hard = -1
+        }
+        flags = [ ifexists nofail ]
+    }
+    { name = libpipewire-module-client-device }
+    { name = libpipewire-module-adapter }
+    { name = libpipewire-module-avbtp
+        args = {
+	    # contents of avb.properties can also be placed here
+	    # to have config per server.
+        }
+    }
+]
+
+# Extra modules can be loaded here. Setup in default.pa can be moved here
+context.exec = [
+    #{ path = "pactl"        args = "load-module module-always-sink" }
+]
+
+stream.properties = {
+    #node.latency          = 1024/48000
+    #node.autoconnect      = true
+    #resample.quality      = 4
+    #channelmix.normalize  = false
+    #channelmix.mix-lfe    = false
+    #channelmix.upmix      = true
+    #channelmix.lfe-cutoff = 120
+    #channelmix.fc-cutoff  = 6000
+    #channelmix.rear-delay = 12.0
+    #channelmix.stereo-widen = 0.1
+    #channelmix.hilbert-taps = 0
+}
+
+avb.properties = {
+    # the addresses this server listens on
+    ifname = "enp3s0"
+    server.address = [
+        "unix:native"
+        #"unix:/tmp/something"              # absolute paths may be used
+        #"tcp:4713"                         # IPv4 and IPv6 on all addresses
+        #"tcp:[::]:9999"                    # IPv6 on all addresses
+        #"tcp:127.0.0.1:8888"               # IPv4 on a single address
+        #
+        #{ address = "tcp:4713"             # address
+        #  max-clients = 64                 # maximum number of clients
+        #  listen-backlog = 32              # backlog in the server listen queue
+        #  client.access = "restricted"     # permissions for clients
+        #}
+    ]
+    # These overrides are only applied when running in a vm.
+    vm.overrides = {
+    }
+}

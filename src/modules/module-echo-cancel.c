@@ -139,7 +139,7 @@ static const struct spa_dict_item module_props[] = {
 				"[ audio.channels=<number of channels> ] "
 				"[ audio.position=<channel map> ] "
 				"[ buffer.max_size=<max buffer size in ms> ] "
-				"[ buffer.play_delay=<play delay in ms> ] "
+				"[ buffer.play_delay=<delay as fraction> ] "
 				"[ library.name =<library name> ] "
 				"[ aec.args=<aec arguments> ] "
 				"[ source.props=<properties> ] "
@@ -731,7 +731,7 @@ static int setup_streams(struct impl *impl)
 		return res;
 
 	impl->rec_ringsize = sizeof(float) * impl->max_buffer_size * impl->info.rate / 1000;
-	impl->play_ringsize = sizeof(float) * (impl->max_buffer_size + impl->buffer_delay) * impl->info.rate / 1000;
+	impl->play_ringsize = sizeof(float) * ((impl->max_buffer_size * impl->info.rate / 1000) + impl->buffer_delay);
 	impl->out_ringsize = sizeof(float) * impl->max_buffer_size * impl->info.rate / 1000;
 	for (i = 0; i < impl->info.channels; i++) {
 		impl->rec_buffer[i] = malloc(impl->rec_ringsize);
@@ -744,9 +744,9 @@ static int setup_streams(struct impl *impl)
 	spa_ringbuffer_init(&impl->out_ring);
 
 	spa_ringbuffer_get_write_index(&impl->play_ring, &index);
-	spa_ringbuffer_write_update(&impl->play_ring, index + (sizeof(float) * (impl->buffer_delay) * impl->info.rate / 1000));
+	spa_ringbuffer_write_update(&impl->play_ring, index + (sizeof(float) * (impl->buffer_delay)));
 	spa_ringbuffer_get_read_index(&impl->play_ring, &index);
-	spa_ringbuffer_read_update(&impl->play_ring, index + (sizeof(float) * (impl->buffer_delay) * impl->info.rate / 1000));
+	spa_ringbuffer_read_update(&impl->play_ring, index + (sizeof(float) * (impl->buffer_delay)));
 
 	return 0;
 }
@@ -1054,7 +1054,23 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_LATENCY);
 
 	impl->max_buffer_size = pw_properties_get_uint32(props,"buffer.max_size", MAX_BUFSIZE_MS);
-	impl->buffer_delay = pw_properties_get_uint32(props,"buffer.play_delay", DELAY_MS);
+
+	if ((str = pw_properties_get(props, "buffer.play_delay")) != NULL) {
+		int req_num, req_denom;
+		if (sscanf(str, "%u/%u", &req_num, &req_denom) == 2) {
+			if (req_denom != 0) {
+				impl->buffer_delay = (impl->info.rate*req_num)/req_denom;
+			} else {
+				impl->buffer_delay = DELAY_MS * impl->info.rate / 1000;
+				pw_log_warn("Sample rate for buffer.play_delay is 0 using default");
+			}
+		} else {
+			impl->buffer_delay = DELAY_MS * impl->info.rate / 1000;
+			pw_log_warn("Wrong value/format for buffer.play_delay using default");
+		}
+	} else {
+		impl->buffer_delay = DELAY_MS * impl->info.rate / 1000;
+	}
 
 	pw_properties_free(props);
 

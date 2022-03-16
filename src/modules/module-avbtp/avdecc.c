@@ -48,13 +48,12 @@
 #define server_emit_destroy(s)		server_emit(s, destroy, 0)
 #define server_emit_message(s,n,m,l)	server_emit(s, message, 0, n, m, l)
 #define server_emit_periodic(s,n)	server_emit(s, periodic, 0, n)
-#define server_emit_command(s,c,a)	server_emit(s, command, 0, c, a)
+#define server_emit_command(s,n,c,a)	server_emit(s, command, 0, n, c, a)
 
 static void on_timer_event(void *data, uint64_t expirations)
 {
 	struct server *server = data;
 	struct timespec now;
-
 	clock_gettime(CLOCK_REALTIME, &now);
 	server_emit_periodic(server, SPA_TIMESPEC_TO_NSEC(&now));
 }
@@ -165,6 +164,7 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 {
 	struct server *server;
 	int res = 0;
+	struct timespec now;
 
 	server = calloc(1, sizeof(*server));
 	if (server == NULL)
@@ -183,6 +183,24 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 	avbtp_adp_register(server);
 	avbtp_maap_register(server);
 
+	clock_gettime(CLOCK_REALTIME, &now);
+	server_emit_command(server, SPA_TIMESPEC_TO_NSEC(&now),
+			"/adp/advertise",
+			"{"
+			"  valid-time = 10 "
+			"  entity-id = \"00:01:02:03:04:05:0001\" "
+			"  entity-model-id = \"00:01:02:03:04:05:0600\" "
+			"  entity-capabilities = [ efu-mode aem-supported class-a-supported gptp-supported ] "
+			"  talker-stream-sources = 5 "
+			"  talker-capabilities = [ implemented audio-source ] "
+			"  listener-stream-sinks = 4 "
+			"  listener-capabilities = [ implemented audio-sink ] "
+			"  controller-capabilities = [ ] "
+			"  available-index = 10 "
+			"  gptp-grandmaster-id = \"10:20:30:40:50:60:0001\" "
+			"  gptp-domain-number = 6 "
+			"  association-id = 0001 "
+			"}");
 	return server;
 
 error_free:

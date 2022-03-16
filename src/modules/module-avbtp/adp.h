@@ -72,6 +72,8 @@
 #define AVBTP_ADP_CONTROLLER_CAPABILITY_IMPLEMENTED			(1u<<0)
 #define AVBTP_ADP_CONTROLLER_CAPABILITY_LAYER3_PROXY			(1u<<1)
 
+#define AVBTP_ADP_DATA_LENGTH	56
+
 struct avbtp_packet_adp {
 	uint8_t subtype;
 #if __BYTE_ORDER == __BIG_ENDIAN
@@ -100,10 +102,11 @@ struct avbtp_packet_adp {
 	uint32_t controller_capabilities;
 	uint32_t available_index;
 	uint64_t gptp_grandmaster_id;
-	uint32_t reserved0;
+	uint8_t gptp_domain_number;
+	uint8_t reserved0[3];
 	uint16_t identify_control_index;
 	uint16_t interface_index;
-	uint32_t association_id;
+	uint64_t association_id;
 	uint32_t reserved1;
 } __attribute__ ((__packed__));
 
@@ -123,7 +126,10 @@ struct avbtp_packet_adp {
 #define AVBTP_PACKET_ADP_SET_CONTROLLER_CAPABILITIES(p,v)	((p)->controller_capabilities = htonl(v))
 #define AVBTP_PACKET_ADP_SET_AVAILABLE_INDEX(p,v)	((p)->available_index = htonl(v))
 #define AVBTP_PACKET_ADP_SET_GPTP_GRANDMASTER_ID(p,v)	((p)->gptp_grandmaster_id = htobe64(v))
-#define AVBTP_PACKET_ADP_SET_ASSOCIATION_ID(p,v)	((p)->association_id = htonl(v))
+#define AVBTP_PACKET_ADP_SET_GPTP_DOMAIN_NUMBER(p,v)	((p)->gptp_domain_number = (v))
+#define AVBTP_PACKET_ADP_SET_IDENTIFY_CONTROL_INDEX(p,v)	((p)->identify_control_index = htons(v))
+#define AVBTP_PACKET_ADP_SET_INTERFACE_INDEX(p,v)	((p)->interface_index = htons(v))
+#define AVBTP_PACKET_ADP_SET_ASSOCIATION_ID(p,v)	((p)->association_id = htobe64(v))
 
 #define AVBTP_PACKET_ADP_GET_SUBTYPE(p)			((p)->subtype)
 #define AVBTP_PACKET_ADP_GET_SV(p)			((p)->sv)
@@ -141,7 +147,10 @@ struct avbtp_packet_adp {
 #define AVBTP_PACKET_ADP_GET_CONTROLLER_CAPABILITIES(p)	ntohl((p)->controller_capabilities)
 #define AVBTP_PACKET_ADP_GET_AVAILABLE_INDEX(p)		ntohl((p)->available_index)
 #define AVBTP_PACKET_ADP_GET_GPTP_GRANDMASTER_ID(p)	be64toh((p)->gptp_grandmaster_id)
-#define AVBTP_PACKET_ADP_GET_ASSOCIATION_ID(p)		ntohl((p)->association_id)
+#define AVBTP_PACKET_ADP_GET_GPTP_DOMAIN_NUMBER(p)	((p)->gptp_domain_number)
+#define AVBTP_PACKET_ADP_GET_IDENTIFY_CONTROL_INDEX(p)	ntohs((p)->identify_control_index)
+#define AVBTP_PACKET_ADP_GET_INTERFACE_INDEX(p)		ntohs((p)->interface_index)
+#define AVBTP_PACKET_ADP_GET_ASSOCIATION_ID(p)		be64toh((p)->association_id)
 
 struct avbtp_adp *avbtp_adp_register(struct server *server);
 

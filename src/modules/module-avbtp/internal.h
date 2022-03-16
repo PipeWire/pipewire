@@ -53,7 +53,7 @@ struct server_events {
 
 	void (*periodic) (void *data, uint64_t now);
 
-	int (*command) (void *data, const char *command, const char *args);
+	int (*command) (void *data, uint64_t now, const char *command, const char *args);
 };
 
 struct server {

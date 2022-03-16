@@ -42,6 +42,7 @@ struct adp {
 
 	struct spa_list entities;
 	uint64_t now;
+	uint32_t available_index;
 };
 
 static struct entity *find_entity_by_id(struct adp *adp, uint64_t id)
@@ -238,6 +239,8 @@ static void adp_destroy(void *data)
 
 static int send_advertise(struct adp *adp, uint64_t now, struct entity *e)
 {
+	AVBTP_PACKET_ADP_SET_AVAILABLE_INDEX(&e->packet, adp->available_index++);
+	avbtp_server_send_packet(adp->server, &e->packet, sizeof(e->packet));
 	e->last_time = now;
 	return 0;
 }
@@ -326,6 +329,7 @@ static int do_help(struct adp *adp, const char *args)
 
 static int do_advertise(struct adp *adp, const char *args)
 {
+	struct server *server = adp->server;
 	struct entity *e;
 	struct spa_json it[2];
 	char key[128];
@@ -340,6 +344,8 @@ static int do_advertise(struct adp *adp, const char *args)
 
 	p = &e->packet;
 	AVBTP_PACKET_ADP_SET_LENGTH(p, AVBTP_ADP_DATA_LENGTH);
+	AVBTP_PACKET_ADP_SET_SUBTYPE(p, AVBTP_SUBTYPE_ADP);
+	AVBTP_PACKET_ADP_SET_ENTITY_ID(p, server->entity_id);
 
 	spa_json_init(&it[0], args, strlen(args));
 	if (spa_json_enter_object(&it[0], &it[1]) <= 0)

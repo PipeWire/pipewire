@@ -61,8 +61,11 @@ struct server {
 	struct impl *impl;
 
 	char *ifname;
+	uint8_t mac_addr[6];
+	uint64_t entity_id;
+	int ifindex;
+
 	struct spa_source *source;
-	char mac_addr[6];
 	struct spa_source *timer;
 
 	struct spa_hook_list listener_list;
@@ -75,6 +78,7 @@ void avdecc_server_free(struct server *server);
 
 void avdecc_server_add_listener(struct server *server, struct spa_hook *listener,
 		const struct server_events *events, void *data);
+int avbtp_server_send_packet(struct server *server, void *data, size_t size);
 
 #ifdef __cplusplus
 }  /* extern "C" */

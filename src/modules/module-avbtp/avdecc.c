@@ -40,6 +40,7 @@
 #include "packets.h"
 #include "internal.h"
 #include "adp.h"
+#include "aecp.h"
 #include "maap.h"
 
 #define DEFAULT_INTERVAL	1
@@ -64,7 +65,7 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 	struct timespec now;
 
 	if (mask & SPA_IO_IN) {
-		int len;
+		int len, count;
 		uint8_t buffer[2048];
 
 		len = read(fd, buffer, sizeof(buffer));
@@ -82,10 +83,26 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 	}
 }
 
+int avbtp_server_send_packet(struct server *server, void *data, size_t size)
+{
+	struct sockaddr_ll sll;
+	uint8_t dest[ETH_ALEN] = { 0x91, 0xe0, 0xf0, 0x01, 0x00, 0x00 };
+
+	spa_zero(sll);
+	sll.sll_family = AF_PACKET;
+	sll.sll_protocol = htons(ETH_P_TSN);
+	sll.sll_ifindex = server->ifindex;
+	sll.sll_halen = ETH_ALEN;
+	memcpy(sll.sll_addr, dest, ETH_ALEN);
+
+	return sendto(server->source->fd, data, size, 0,
+                         (struct sockaddr *)&sll, sizeof(sll));
+}
+
 static int setup_socket(struct server *server)
 {
 	struct impl *impl = server->impl;
-	int fd, res, ifindex;
+	int fd, res;
 	struct ifreq req;
 	struct packet_mreq mreq;
 	struct sockaddr_ll sll;
@@ -104,7 +121,7 @@ static int setup_socket(struct server *server)
 		pw_log_error("SIOCGIFINDEX %s failed: %m", server->ifname);
 		goto error_close;
 	}
-	ifindex = req.ifr_ifindex;
+	server->ifindex = req.ifr_ifindex;
 
 	spa_zero(req);
 	snprintf(req.ifr_name, sizeof(req.ifr_name), "%s", server->ifname);
@@ -115,10 +132,21 @@ static int setup_socket(struct server *server)
 	}
 	memcpy(server->mac_addr, req.ifr_hwaddr.sa_data, sizeof(server->mac_addr));
 
+	server->entity_id = (uint64_t)server->mac_addr[0] << 56 |
+			(uint64_t)server->mac_addr[1] << 48 |
+			(uint64_t)server->mac_addr[2] << 40 |
+			(uint64_t)0xff << 32 |
+			(uint64_t)0xfe << 24 |
+			(uint64_t)server->mac_addr[3] << 16 |
+			(uint64_t)server->mac_addr[4] << 8 |
+			(uint64_t)server->mac_addr[5];
+
+	pw_log_info("%lx", server->entity_id);
+
 	spa_zero(sll);
 	sll.sll_family = AF_PACKET;
 	sll.sll_protocol = htons(ETH_P_TSN);
-	sll.sll_ifindex = ifindex;
+	sll.sll_ifindex = server->ifindex;
 	if (bind(fd, (struct sockaddr *) &sll, sizeof(sll)) < 0) {
 		res = -errno;
 		pw_log_error("bind() failed: %m");
@@ -126,7 +154,7 @@ static int setup_socket(struct server *server)
 	}
 
 	spa_zero(mreq);
-	mreq.mr_ifindex = ifindex;
+	mreq.mr_ifindex = server->ifindex;
 	mreq.mr_type = PACKET_MR_ALLMULTI;
 	if (setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP,
 				&mreq, sizeof(struct packet_mreq)) < 0) {
@@ -181,6 +209,7 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 		goto error_free;
 
 	avbtp_adp_register(server);
+	avbtp_aecp_register(server);
 	avbtp_maap_register(server);
 
 	clock_gettime(CLOCK_REALTIME, &now);
@@ -188,9 +217,13 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 			"/adp/advertise",
 			"{"
 			"  valid-time = 10 "
-			"  entity-id = \"00:01:02:03:04:05:0001\" "
 			"  entity-model-id = \"00:01:02:03:04:05:0600\" "
-			"  entity-capabilities = [ efu-mode aem-supported class-a-supported gptp-supported ] "
+			"  entity-capabilities = [ "
+			"                         aem-supported "
+			"                         class-a-supported "
+			"                         gptp-supported "
+			"                         aem-identify-control-index-valid "
+			"                         aem-interface-index-valid ] "
 			"  talker-stream-sources = 5 "
 			"  talker-capabilities = [ implemented audio-source ] "
 			"  listener-stream-sinks = 4 "

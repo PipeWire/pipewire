@@ -769,10 +769,10 @@ conv_deinterleave_32_4s_sse2(void *data, void * SPA_RESTRICT dst[], const void *
 		unrolled = 0;
 
 	for(n = 0; n < unrolled; n += 4) {
-		out[0] = _mm_load_ps(&s[0]);
-		out[1] = _mm_load_ps(&s[4]);
-		out[2] = _mm_load_ps(&s[8]);
-		out[3] = _mm_load_ps(&s[12]);
+		out[0] = _mm_load_ps(&s[0 * n_channels]);
+		out[1] = _mm_load_ps(&s[1 * n_channels]);
+		out[2] = _mm_load_ps(&s[2 * n_channels]);
+		out[3] = _mm_load_ps(&s[3 * n_channels]);
 
 		_MM_TRANSPOSE4_PS(out[0], out[1], out[2], out[3]);
 
@@ -780,14 +780,14 @@ conv_deinterleave_32_4s_sse2(void *data, void * SPA_RESTRICT dst[], const void *
 		_mm_store_ps(&d1[n], out[1]);
 		_mm_store_ps(&d2[n], out[2]);
 		_mm_store_ps(&d3[n], out[3]);
-		s += 16 * n_channels;
+		s += 4 * n_channels;
 	}
 	for(; n < n_samples; n++) {
 		d0[n] = s[0];
 		d1[n] = s[1];
 		d2[n] = s[2];
 		d3[n] = s[3];
-		s += 4 * n_channels;
+		s += n_channels;
 	}
 }
 

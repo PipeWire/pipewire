@@ -49,7 +49,7 @@ struct server_events {
 	/** the server is destroyed */
 	void (*destroy) (void *data);
 
-	int (*message) (void *data, uint64_t now, const void *message, int len);
+	int (*message) (void *data, uint64_t now, const uint8_t src[6], const void *message, int len);
 
 	void (*periodic) (void *data, uint64_t now);
 
@@ -78,7 +78,9 @@ void avdecc_server_free(struct server *server);
 
 void avdecc_server_add_listener(struct server *server, struct spa_hook *listener,
 		const struct server_events *events, void *data);
-int avbtp_server_send_packet(struct server *server, void *data, size_t size);
+
+int avbtp_server_broadcast_packet(struct server *server, void *data, size_t size);
+int avbtp_server_send_packet(struct server *server, const uint8_t dest[6], void *data, size_t size);
 
 #ifdef __cplusplus
 }  /* extern "C" */

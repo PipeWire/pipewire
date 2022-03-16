@@ -75,23 +75,7 @@
 #define AVBTP_ADP_DATA_LENGTH	56
 
 struct avbtp_packet_adp {
-	uint8_t subtype;
-#if __BYTE_ORDER == __BIG_ENDIAN
-	unsigned sv:1;
-	unsigned version:3;
-	unsigned message_type:4;
-
-	unsigned valid_time:5;
-	unsigned len1:3;
-#elif __BYTE_ORDER == __LITTLE_ENDIAN
-	unsigned message_type:4;
-	unsigned version:3;
-	unsigned sv:1;
-
-	unsigned len1:3;
-	unsigned valid_time:5;
-#endif
-	uint8_t len2:8;
+	struct avbtp_packet_header hdr;
 	uint64_t entity_id;
 	uint64_t entity_model_id;
 	uint32_t entity_capabilities;
@@ -110,12 +94,8 @@ struct avbtp_packet_adp {
 	uint32_t reserved1;
 } __attribute__ ((__packed__));
 
-#define AVBTP_PACKET_ADP_SET_SUBTYPE(p,v)		((p)->subtype = (v))
-#define AVBTP_PACKET_ADP_SET_SV(p,v)			((p)->sv = (v))
-#define AVBTP_PACKET_ADP_SET_VERSION(p,v)		((p)->version = (v))
-#define AVBTP_PACKET_ADP_SET_MESSAGE_TYPE(p,v)		((p)->message_type = (v))
-#define AVBTP_PACKET_ADP_SET_VALID_TIME(p,v)		((p)->valid_time = (v))
-#define AVBTP_PACKET_ADP_SET_LENGTH(p,v)		((p)->len1 = ((v) >> 8),(p)->len2 = (v))
+#define AVBTP_PACKET_ADP_SET_MESSAGE_TYPE(p,v)		AVBTP_PACKET_SET_SUB1(&(p)->hdr, v)
+#define AVBTP_PACKET_ADP_SET_VALID_TIME(p,v)		AVBTP_PACKET_SET_SUB2(&(p)->hdr, v)
 #define AVBTP_PACKET_ADP_SET_ENTITY_ID(p,v)		((p)->entity_id = htobe64(v))
 #define AVBTP_PACKET_ADP_SET_ENTITY_MODEL_ID(p,v)	((p)->entity_model_id = htobe64(v))
 #define AVBTP_PACKET_ADP_SET_ENTITY_CAPABILITIES(p,v)	((p)->entity_capabilities = htonl(v))
@@ -131,12 +111,8 @@ struct avbtp_packet_adp {
 #define AVBTP_PACKET_ADP_SET_INTERFACE_INDEX(p,v)	((p)->interface_index = htons(v))
 #define AVBTP_PACKET_ADP_SET_ASSOCIATION_ID(p,v)	((p)->association_id = htobe64(v))
 
-#define AVBTP_PACKET_ADP_GET_SUBTYPE(p)			((p)->subtype)
-#define AVBTP_PACKET_ADP_GET_SV(p)			((p)->sv)
-#define AVBTP_PACKET_ADP_GET_VERSION(p)			((p)->version)
-#define AVBTP_PACKET_ADP_GET_MESSAGE_TYPE(p)		((p)->message_type)
-#define AVBTP_PACKET_ADP_GET_VALID_TIME(p)		((p)->valid_time)
-#define AVBTP_PACKET_ADP_GET_LENGTH(p)			(((p)->len1 << 8) | (p)->len2)
+#define AVBTP_PACKET_ADP_GET_MESSAGE_TYPE(p)		AVBTP_PACKET_GET_SUB1(&(p)->hdr)
+#define AVBTP_PACKET_ADP_GET_VALID_TIME(p)		AVBTP_PACKET_GET_SUB2(&(p)->hdr)
 #define AVBTP_PACKET_ADP_GET_ENTITY_ID(p)		be64toh((p)->entity_id)
 #define AVBTP_PACKET_ADP_GET_ENTITY_MODEL_ID(p)		be64toh((p)->entity_model_id)
 #define AVBTP_PACKET_ADP_GET_ENTITY_CAPABILITIES(p)	ntohl((p)->entity_capabilities)

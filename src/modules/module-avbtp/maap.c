@@ -65,7 +65,7 @@ static void maap_message_debug(struct maap *maap, const struct avbtp_packet_maap
 	pw_log_info("  conflict-count: %d", AVBTP_PACKET_MAAP_GET_CONFLICT_COUNT(p));
 }
 
-static int maap_message(void *data, uint64_t now, const void *message, int len)
+static int maap_message(void *data, uint64_t now, const uint8_t src[6], const void *message, int len)
 {
 	struct maap *maap = data;
 	const struct avbtp_packet_maap *p = message;

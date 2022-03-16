@@ -37,20 +37,60 @@ struct aecp {
 	uint64_t now;
 };
 
-static void aecp_message_debug(struct aecp *aecp, const struct avbtp_packet_aecp *p)
+static void aecp_message_debug(struct aecp *aecp, const struct avbtp_packet_aecp_header *p)
 {
 }
 
-static int aecp_message(void *data, uint64_t now, const void *message, int len)
+static int reply_not_implemented(struct aecp *aecp, const uint8_t dest[6],
+		const struct avbtp_packet_aecp_header *p, int len)
+{
+	struct server *server = aecp->server;
+	uint8_t buf[len];
+	struct avbtp_packet_aecp_header *reply = (struct avbtp_packet_aecp_header*)buf;
+
+	pw_log_info("reply");
+	memcpy(reply, p, len);
+	AVBTP_PACKET_AECP_SET_MESSAGE_TYPE(reply, AVBTP_AECP_MESSAGE_TYPE_AEM_RESPONSE);
+	AVBTP_PACKET_AECP_SET_STATUS(reply, AVBTP_AECP_AEM_STATUS_NOT_IMPLEMENTED);
+
+	return avbtp_server_send_packet(server, dest, reply, len);
+}
+
+static int aecp_message(void *data, uint64_t now, const uint8_t src[6], const void *message, int len)
 {
 	struct aecp *aecp = data;
-	const struct avbtp_packet_aecp *p = message;
+	const struct avbtp_packet_aecp_header *p = message;
+	int message_type;
 
-	if (AVBTP_PACKET_GET_SUBTYPE(p) != AVBTP_SUBTYPE_AECP)
+	if (AVBTP_PACKET_GET_SUBTYPE(&p->hdr) != AVBTP_SUBTYPE_AECP)
 		return 0;
 
-	spa_debug_mem(0, p, len);
+	message_type = AVBTP_PACKET_AECP_GET_MESSAGE_TYPE(p);
+	pw_log_info("got AECP message %02x", message_type);
 
+	switch (message_type) {
+	case AVBTP_AECP_MESSAGE_TYPE_AEM_COMMAND:
+		reply_not_implemented(aecp, src, p, len);
+		break;
+	case AVBTP_AECP_MESSAGE_TYPE_AEM_RESPONSE:
+		break;
+	case AVBTP_AECP_MESSAGE_TYPE_ADDRESS_ACCESS_COMMAND:
+		break;
+	case AVBTP_AECP_MESSAGE_TYPE_ADDRESS_ACCESS_RESPONSE:
+		break;
+	case AVBTP_AECP_MESSAGE_TYPE_AVC_COMMAND:
+		break;
+	case AVBTP_AECP_MESSAGE_TYPE_AVC_RESPONSE:
+		break;
+	case AVBTP_AECP_MESSAGE_TYPE_VENDOR_UNIQUE_COMMAND:
+		break;
+	case AVBTP_AECP_MESSAGE_TYPE_VENDOR_UNIQUE_RESPONSE:
+		break;
+	case AVBTP_AECP_MESSAGE_TYPE_EXTENDED_COMMAND:
+		break;
+	case AVBTP_AECP_MESSAGE_TYPE_EXTENDED_RESPONSE:
+		break;
+	}
 	return 0;
 }
 

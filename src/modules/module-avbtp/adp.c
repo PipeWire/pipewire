@@ -166,6 +166,7 @@ static inline char *format_id(char *str, size_t size, const uint64_t id)
 			(uint16_t)(id));
 	return str;
 }
+
 static void adp_message_debug(struct adp *adp, const struct avbtp_packet_adp *p)
 {
 	uint32_t v;
@@ -173,7 +174,7 @@ static void adp_message_debug(struct adp *adp, const struct avbtp_packet_adp *p)
 
 	v = AVBTP_PACKET_ADP_GET_MESSAGE_TYPE(p);
 	pw_log_info("message-type: %d (%s)", v, message_type_as_string(v));
-	pw_log_info("  length: %d", AVBTP_PACKET_ADP_GET_LENGTH(p));
+	pw_log_info("  length: %d", AVBTP_PACKET_GET_LENGTH(&p->hdr));
 	pw_log_info("  "KEY_VALID_TIME": %d", AVBTP_PACKET_ADP_GET_VALID_TIME(p));
 	pw_log_info("  "KEY_ENTITY_ID": %s",
 			format_id(buf, sizeof(buf), AVBTP_PACKET_ADP_GET_ENTITY_ID(p)));
@@ -203,30 +204,80 @@ static void adp_message_debug(struct adp *adp, const struct avbtp_packet_adp *p)
 			format_id(buf, sizeof(buf), AVBTP_PACKET_ADP_GET_ASSOCIATION_ID(p)));
 }
 
-static int adp_message(void *data, uint64_t now, const void *message, int len)
+static int send_advertise(struct adp *adp, uint64_t now, struct entity *e)
+{
+	AVBTP_PACKET_ADP_SET_AVAILABLE_INDEX(&e->packet, adp->available_index++);
+	avbtp_server_broadcast_packet(adp->server, &e->packet, sizeof(e->packet));
+	e->last_time = now;
+	return 0;
+}
+
+static int send_discover(struct adp *adp, uint64_t entity_id)
+{
+	struct avbtp_packet_adp p;
+	spa_zero(p);
+	AVBTP_PACKET_SET_SUBTYPE(&p.hdr, AVBTP_SUBTYPE_ADP);
+	AVBTP_PACKET_SET_LENGTH(&p.hdr, AVBTP_ADP_DATA_LENGTH);
+	AVBTP_PACKET_ADP_SET_MESSAGE_TYPE(&p, AVBTP_ADP_MESSAGE_TYPE_ENTITY_DISCOVER);
+	AVBTP_PACKET_ADP_SET_ENTITY_ID(&p, entity_id);
+	avbtp_server_broadcast_packet(adp->server, &p, sizeof(p));
+	return 0;
+}
+
+static int adp_message(void *data, uint64_t now, const uint8_t mac[6], const void *message, int len)
 {
 	struct adp *adp = data;
 	const struct avbtp_packet_adp *p = message;
 	struct entity *e;
+	int message_type;
+	char buf[128];
+	uint64_t entity_id;
 
-	if (AVBTP_PACKET_GET_SUBTYPE(p) != AVBTP_SUBTYPE_ADP ||
-	    AVBTP_PACKET_ADP_GET_LENGTH(p) != AVBTP_ADP_DATA_LENGTH)
+	if (AVBTP_PACKET_GET_SUBTYPE(&p->hdr) != AVBTP_SUBTYPE_ADP ||
+	    AVBTP_PACKET_GET_LENGTH(&p->hdr) != AVBTP_ADP_DATA_LENGTH)
 		return 0;
 
-	e = find_entity_by_id(adp, AVBTP_PACKET_ADP_GET_ENTITY_ID(p));
-	if (e == NULL) {
-		e = calloc(1, sizeof(*e));
-		if (e == NULL)
-			return -errno;
+	if (adp->server->debug_messages)
+		adp_message_debug(adp, p);
 
-		e->packet = *p;
-		spa_list_append(&adp->entities, &e->link);
+	message_type = AVBTP_PACKET_ADP_GET_MESSAGE_TYPE(p);
+	entity_id = AVBTP_PACKET_ADP_GET_ENTITY_ID(p);
 
-		if (adp->server->debug_messages)
-			adp_message_debug(adp, p);
+	e = find_entity_by_id(adp, entity_id);
+
+	switch (message_type) {
+	case AVBTP_ADP_MESSAGE_TYPE_ENTITY_AVAILABLE:
+		if (e == NULL) {
+			e = calloc(1, sizeof(*e));
+			if (e == NULL)
+				return -errno;
+
+			e->packet = *p;
+			spa_list_append(&adp->entities, &e->link);
+			pw_log_info("entity %s available",
+				format_id(buf, sizeof(buf), entity_id));
+		}
+		e->last_time = adp->now = now;
+		break;
+	case AVBTP_ADP_MESSAGE_TYPE_ENTITY_DEPARTING:
+		if (e != NULL) {
+			pw_log_info("entity %s departing",
+				format_id(buf, sizeof(buf), entity_id));
+			entity_free(e);
+		}
+		break;
+	case AVBTP_ADP_MESSAGE_TYPE_ENTITY_DISCOVER:
+		if (entity_id == 0UL ||
+		    (e != NULL && e->advertise &&
+		     AVBTP_PACKET_ADP_GET_ENTITY_ID(&e->packet) == entity_id)) {
+			pw_log_info("entity %s discover",
+					format_id(buf, sizeof(buf), entity_id));
+			send_discover(adp, entity_id);
+		}
+		break;
+	default:
+		return -EINVAL;
 	}
-	e->last_time = adp->now = now;
-
 	return 0;
 }
 
@@ -235,14 +286,6 @@ static void adp_destroy(void *data)
 	struct adp *adp = data;
 	spa_hook_remove(&adp->server_listener);
 	free(adp);
-}
-
-static int send_advertise(struct adp *adp, uint64_t now, struct entity *e)
-{
-	AVBTP_PACKET_ADP_SET_AVAILABLE_INDEX(&e->packet, adp->available_index++);
-	avbtp_server_send_packet(adp->server, &e->packet, sizeof(e->packet));
-	e->last_time = now;
-	return 0;
 }
 
 static void check_entries(struct adp *adp, uint64_t now)
@@ -343,8 +386,8 @@ static int do_advertise(struct adp *adp, const char *args)
 	e->last_time = adp->now;
 
 	p = &e->packet;
-	AVBTP_PACKET_ADP_SET_LENGTH(p, AVBTP_ADP_DATA_LENGTH);
-	AVBTP_PACKET_ADP_SET_SUBTYPE(p, AVBTP_SUBTYPE_ADP);
+	AVBTP_PACKET_SET_LENGTH(&p->hdr, AVBTP_ADP_DATA_LENGTH);
+	AVBTP_PACKET_SET_SUBTYPE(&p->hdr, AVBTP_SUBTYPE_ADP);
 	AVBTP_PACKET_ADP_SET_ENTITY_ID(p, server->entity_id);
 
 	spa_json_init(&it[0], args, strlen(args));
@@ -428,6 +471,7 @@ static int do_depart(struct adp *adp, const char *args)
 
 static int do_discover(struct adp *adp, const char *args)
 {
+	send_discover(adp, 0UL);
 	return 0;
 }
 

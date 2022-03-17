@@ -147,9 +147,16 @@ struct avbtp_aem_desc_audio_unit {
 	struct avbtp_aem_desc_sampling_rate sampling_rates[0];
 } __attribute__ ((__packed__));
 
-#define AVBTP_AEM_DESC_STREAM_FLAG_SYNC_SOURCE	(1<<0)
-#define AVBTP_AEM_DESC_STREAM_FLAG_CLASS_A	(1<<1)
-#define AVBTP_AEM_DESC_STREAM_FLAG_CLASS_B	(1<<2)
+#define AVBTP_AEM_DESC_STREAM_FLAG_SYNC_SOURCE			(1u<<0)
+#define AVBTP_AEM_DESC_STREAM_FLAG_CLASS_A			(1u<<1)
+#define AVBTP_AEM_DESC_STREAM_FLAG_CLASS_B			(1u<<2)
+#define AVBTP_AEM_DESC_STREAM_FLAG_SUPPORTS_ENCRYPTED		(1u<<3)
+#define AVBTP_AEM_DESC_STREAM_FLAG_PRIMARY_BACKUP_SUPPORTED	(1u<<4)
+#define AVBTP_AEM_DESC_STREAM_FLAG_PRIMARY_BACKUP_VALID		(1u<<5)
+#define AVBTP_AEM_DESC_STREAM_FLAG_SECONDARY_BACKUP_SUPPORTED	(1u<<6)
+#define AVBTP_AEM_DESC_STREAM_FLAG_SECONDARY_BACKUP_VALID	(1u<<7)
+#define AVBTP_AEM_DESC_STREAM_FLAG_TERTIARY_BACKUP_SUPPORTED	(1u<<8)
+#define AVBTP_AEM_DESC_STREAM_FLAG_TERTIARY_BACKUP_VALID	(1u<<9)
 
 struct avbtp_aem_desc_stream {
 	char object_name[64];
@@ -172,6 +179,44 @@ struct avbtp_aem_desc_stream {
 	uint64_t stream_formats[0];
 } __attribute__ ((__packed__));
 
+#define AVBTP_AEM_DESC_AVB_INTERFACE_FLAG_GPTP_GRANDMASTER_SUPPORTED	(1<<0)
+#define AVBTP_AEM_DESC_AVB_INTERFACE_FLAG_GPTP_SUPPORTED		(1<<1)
+#define AVBTP_AEM_DESC_AVB_INTERFACE_FLAG_SRP_SUPPORTED			(1<<2)
+
+struct avbtp_aem_desc_avb_interface {
+	char object_name[64];
+	uint16_t localized_description;
+	uint8_t mac_address[6];
+	uint16_t interface_flags;
+	uint64_t clock_identity;
+	uint8_t priority1;
+	uint8_t clock_class;
+	uint16_t offset_scaled_log_variance;
+	uint8_t clock_accuracy;
+	uint8_t priority2;
+	uint8_t domain_number;
+	int8_t log_sync_interval;
+	int8_t log_announce_interval;
+	int8_t log_pdelay_interval;
+	uint16_t port_number;
+} __attribute__ ((__packed__));
+
+#define AVBTP_AEM_DESC_CLOCK_SOURCE_TYPE_INTERNAL		0x0000
+#define AVBTP_AEM_DESC_CLOCK_SOURCE_TYPE_EXTERNAL		0x0001
+#define AVBTP_AEM_DESC_CLOCK_SOURCE_TYPE_INPUT_STREAM		0x0002
+#define AVBTP_AEM_DESC_CLOCK_SOURCE_TYPE_MEDIA_CLOCK_STREAM	0x0003
+#define AVBTP_AEM_DESC_CLOCK_SOURCE_TYPE_EXPANSION		0xffff
+
+struct avbtp_aem_desc_clock_source {
+	char object_name[64];
+	uint16_t localized_description;
+	uint16_t clock_source_flags;
+	uint16_t clock_source_type;
+	uint64_t clock_source_identifier;
+	uint16_t clock_source_location_type;
+	uint16_t clock_source_location_index;
+} __attribute__ ((__packed__));
+
 struct avbtp_aem_desc_locale {
 	char locale_identifier[64];
 	uint16_t number_of_strings;
@@ -188,4 +233,14 @@ struct avbtp_aem_desc_strings {
 	char string_6[64];
 } __attribute__ ((__packed__));
 
+struct avbtp_aem_desc_stream_port {
+	uint16_t clock_domain_index;
+	uint16_t port_flags;
+	uint16_t number_of_controls;
+	uint16_t base_control;
+	uint16_t number_of_clusters;
+	uint16_t base_cluster;
+	uint16_t number_of_maps;
+	uint16_t base_map;
+} __attribute__ ((__packed__));
 #endif /* AVBTP_AECP_AEM_DESCRIPTORS_H */

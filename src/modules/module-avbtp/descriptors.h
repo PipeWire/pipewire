@@ -102,16 +102,14 @@ void init_descriptors(struct server *server)
 		.localized_description = htons(1),
 		.descriptor_counts_count = htons(8),
 		.descriptor_counts_offset = htons(
-			sizeof(struct avbtp_packet_aecp_aem) +
-			sizeof(struct avbtp_packet_aecp_aem_read_descriptor) +
-			sizeof(struct avbtp_aem_desc_configuration)),
+			4 + sizeof(struct avbtp_aem_desc_configuration)),
 		},
 		.descriptor_counts = {
 			{ htons(AVBTP_AEM_DESC_AUDIO_UNIT), htons(1) },
 			{ htons(AVBTP_AEM_DESC_STREAM_INPUT), htons(1) },
 			{ htons(AVBTP_AEM_DESC_STREAM_OUTPUT), htons(1) },
 			{ htons(AVBTP_AEM_DESC_AVB_INTERFACE), htons(1) },
-			{ htons(AVBTP_AEM_DESC_CLOCK_SOURCE), htons(13) },
+			{ htons(AVBTP_AEM_DESC_CLOCK_SOURCE), htons(1) },
 			{ htons(AVBTP_AEM_DESC_CONTROL), htons(2) },
 			{ htons(AVBTP_AEM_DESC_LOCALE), htons(1) },
 			{ htons(AVBTP_AEM_DESC_CLOCK_DOMAIN), htons(1) }
@@ -217,4 +215,75 @@ void init_descriptors(struct server *server)
 	add_descriptor(server, AVBTP_AEM_DESC_STREAM_INPUT, 0,
 			sizeof(stream_input_0), &stream_input_0);
 
+	struct {
+		struct avbtp_aem_desc_stream desc;
+		uint64_t stream_formats[6];
+	} __attribute__ ((__packed__)) stream_output_0 =
+	{
+		{
+		.object_name = "Stream Output 1",
+		.localized_description = htons(0xffff),
+		.clock_domain_index = htons(0),
+		.stream_flags = htons(
+				AVBTP_AEM_DESC_STREAM_FLAG_CLASS_A),
+		.current_format = htobe64(0x00a0020840000800ULL),
+		.formats_offset = htons(
+			4 + sizeof(struct avbtp_aem_desc_stream)),
+		.number_of_formats = htons(6),
+		.backup_talker_entity_id_0 = htobe64(0),
+		.backup_talker_unique_id_0 = htons(0),
+		.backup_talker_entity_id_1 = htobe64(0),
+		.backup_talker_unique_id_1 = htons(0),
+		.backup_talker_entity_id_2 = htobe64(0),
+		.backup_talker_unique_id_2 = htons(0),
+		.backedup_talker_entity_id = htobe64(0),
+		.backedup_talker_unique = htons(0),
+		.avb_interface_index = htons(0),
+		.buffer_length = htons(8)
+		},
+		.stream_formats = {
+			htobe64(0x00a0010860000800ULL),
+			htobe64(0x00a0020860000800ULL),
+			htobe64(0x00a0030860000800ULL),
+			htobe64(0x00a0040860000800ULL),
+			htobe64(0x00a0050860000800ULL),
+			htobe64(0x00a0060860000800ULL),
+		},
+	};
+	add_descriptor(server, AVBTP_AEM_DESC_STREAM_OUTPUT, 0,
+			sizeof(stream_output_0), &stream_output_0);
+
+	struct avbtp_aem_desc_avb_interface avb_interface = {
+		.localized_description = htons(0xffff),
+		.interface_flags = htons(
+				AVBTP_AEM_DESC_AVB_INTERFACE_FLAG_GPTP_GRANDMASTER_SUPPORTED),
+		.clock_identity = htobe64(0),
+		.priority1 = 0,
+		.clock_class = 0,
+		.offset_scaled_log_variance = htons(0),
+		.clock_accuracy = 0,
+		.priority2 = 0,
+		.domain_number = 0,
+		.log_sync_interval = 0,
+		.log_announce_interval = 0,
+		.log_pdelay_interval = 0,
+		.port_number = 0,
+	};
+	strncpy(avb_interface.object_name, server->ifname, 63);
+	memcpy(avb_interface.mac_address, server->mac_addr, 6);
+	add_descriptor(server, AVBTP_AEM_DESC_AVB_INTERFACE, 0,
+			sizeof(avb_interface), &avb_interface);
+
+	struct avbtp_aem_desc_clock_source clock_source = {
+		.object_name = "Stream Clock",
+		.localized_description = htons(0xffff),
+		.clock_source_flags = htons(0),
+		.clock_source_type = htons(
+				AVBTP_AEM_DESC_CLOCK_SOURCE_TYPE_INPUT_STREAM),
+		.clock_source_identifier = htobe64(0),
+		.clock_source_location_type = htons(AVBTP_AEM_DESC_STREAM_INPUT),
+		.clock_source_location_index = htons(0),
+	};
+	add_descriptor(server, AVBTP_AEM_DESC_CLOCK_SOURCE, 0,
+			sizeof(clock_source), &clock_source);
 }

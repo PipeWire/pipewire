@@ -243,15 +243,15 @@ struct avbtp_packet_aecp_aem {
 	union {
 		struct avbtp_packet_aecp_aem_acquire acquire_entity;
 		struct avbtp_packet_aecp_aem_lock lock_entity;
-		struct avbtp_packet_aecp_aem_read_descriptor_c read_descriptor_command;
-		struct avbtp_packet_aecp_aem_read_descriptor_r read_descriptor_response;
+		struct avbtp_packet_aecp_aem_read_descriptor_c read_descriptor_cmd;
+		struct avbtp_packet_aecp_aem_read_descriptor_r read_descriptor_rsp;
 		struct avbtp_packet_aecp_aem_setget_stream_format stream_format;
 		struct avbtp_packet_aecp_aem_setget_sampling_rate sampling_rate;
 		struct avbtp_packet_aecp_aem_setget_clock_source clock_source;
 		struct avbtp_packet_aecp_aem_setget_control control;
 		struct avbtp_packet_aecp_aem_startstop_streaming streaming;
-		struct avbtp_packet_aecp_aem_get_avb_info_c avb_info_command;
-		struct avbtp_packet_aecp_aem_get_avb_info_r avb_info_response;
+		struct avbtp_packet_aecp_aem_get_avb_info_c avb_info_cmd;
+		struct avbtp_packet_aecp_aem_get_avb_info_r avb_info_rsp;
 		struct avbtp_packet_aecp_aem_get_counters counters;
 		struct avbtp_packet_aecp_aem_start_operation start_operation;
 		struct avbtp_packet_aecp_aem_operation_status operation_status;

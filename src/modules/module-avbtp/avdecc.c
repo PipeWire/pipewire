@@ -242,15 +242,14 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 			"                         gptp-supported "
 			"                         aem-identify-control-index-valid "
 			"                         aem-interface-index-valid ] "
-			"  talker-stream-sources = 5 "
+			"  talker-stream-sources = 8 "
 			"  talker-capabilities = [ implemented audio-source ] "
-			"  listener-stream-sinks = 4 "
+			"  listener-stream-sinks = 8 "
 			"  listener-capabilities = [ implemented audio-sink ] "
 			"  controller-capabilities = [ ] "
-			"  available-index = 10 "
 			"  gptp-grandmaster-id = \"10:20:30:40:50:60:0001\" "
 			"  gptp-domain-number = 6 "
-			"  association-id = 0001 "
+			"  association-id = 0 "
 			"}");
 	return server;
 

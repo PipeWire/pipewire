@@ -30,7 +30,6 @@
 
 #include "../defs.h"
 #include "../module.h"
-#include "registry.h"
 
 #define NAME "remap-sink"
 
@@ -114,12 +113,6 @@ static int module_remap_source_unload(struct module *module)
 
 	return 0;
 }
-
-static const struct module_methods module_remap_source_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_remap_source_load,
-	.unload = module_remap_source_unload,
-};
 
 static const struct spa_dict_item module_remap_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
@@ -242,7 +235,7 @@ struct module *create_module_remap_source(struct impl *impl, const char *argumen
 	if (pw_properties_get(capture_props, PW_KEY_NODE_PASSIVE) == NULL)
 		pw_properties_set(capture_props, PW_KEY_NODE_PASSIVE, "true");
 
-	module = module_new(impl, &module_remap_source_methods, sizeof(*d));
+	module = module_new(impl, sizeof(*d));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -262,3 +255,10 @@ out:
 	errno = -res;
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_remap_source) = {
+	.name = "module-remap-source",
+	.create = create_module_remap_source,
+	.load = module_remap_source_load,
+	.unload = module_remap_source_unload,
+};

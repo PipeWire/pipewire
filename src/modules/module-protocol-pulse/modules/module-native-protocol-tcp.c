@@ -27,7 +27,6 @@
 #include "../module.h"
 #include "../pulse-server.h"
 #include "../server.h"
-#include "registry.h"
 
 #define NAME "protocol-tcp"
 
@@ -71,12 +70,6 @@ static int module_native_protocol_tcp_unload(struct module *module)
 	return 0;
 }
 
-static const struct module_methods module_native_protocol_tcp_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_native_protocol_tcp_load,
-	.unload = module_native_protocol_tcp_unload,
-};
-
 static const struct spa_dict_item module_native_protocol_tcp_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Native protocol (TCP sockets)" },
@@ -111,7 +104,7 @@ struct module *create_module_native_protocol_tcp(struct impl *impl, const char *
 	pw_properties_setf(props, "pulse.tcp", "[ \"tcp:%s%s%s\" ]",
 			   listen ? listen : "", listen ? ":" : "", port);
 
-	module = module_new(impl, &module_native_protocol_tcp_methods, sizeof(*d));
+	module = module_new(impl, sizeof(*d));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -127,3 +120,10 @@ out:
 	errno = -res;
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_native_protocol_tcp) = {
+	.name = "module-native-protocol-tcp",
+	.create = create_module_native_protocol_tcp,
+	.load = module_native_protocol_tcp_load,
+	.unload = module_native_protocol_tcp_unload,
+};

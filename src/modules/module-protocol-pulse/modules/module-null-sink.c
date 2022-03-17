@@ -26,7 +26,6 @@
 
 #include "../manager.h"
 #include "../module.h"
-#include "registry.h"
 
 #define NAME "null-sink"
 
@@ -147,12 +146,6 @@ static int module_null_sink_unload(struct module *module)
 	return 0;
 }
 
-static const struct module_methods module_null_sink_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_null_sink_load,
-	.unload = module_null_sink_unload,
-};
-
 static const struct spa_dict_item module_null_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "A NULL sink" },
@@ -234,7 +227,7 @@ struct module *create_module_null_sink(struct impl *impl, const char *argument)
 	if (pw_properties_get(props, "monitor.channel-volumes") == NULL)
 		pw_properties_set(props, "monitor.channel-volumes", "true");
 
-	module = module_new(impl, &module_null_sink_methods, sizeof(struct module_null_sink_data));
+	module = module_new(impl, sizeof(struct module_null_sink_data));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -247,3 +240,10 @@ out:
 	errno = -res;
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_null_sink) = {
+	.name = "module-null-sink",
+	.create = create_module_null_sink,
+	.load = module_null_sink_load,
+	.unload = module_null_sink_unload,
+};

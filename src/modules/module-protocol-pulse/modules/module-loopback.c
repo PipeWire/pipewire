@@ -31,7 +31,6 @@
 
 #include "../defs.h"
 #include "../module.h"
-#include "registry.h"
 
 #define NAME "loopback"
 
@@ -126,12 +125,6 @@ static int module_loopback_unload(struct module *module)
 
 	return 0;
 }
-
-static const struct module_methods module_loopback_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_loopback_load,
-	.unload = module_loopback_unload,
-};
 
 static const struct spa_dict_item module_loopback_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Arun Raghavan <arun@asymptotic.io>" },
@@ -234,7 +227,7 @@ struct module *create_module_loopback(struct impl *impl, const char *argument)
 		pw_properties_set(props, "source_output_properties", NULL);
 	}
 
-	module = module_new(impl, &module_loopback_methods, sizeof(*d));
+	module = module_new(impl, sizeof(*d));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -256,3 +249,10 @@ out:
 
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_loopback) = {
+	.name = "module-loopback",
+	.create = create_module_loopback,
+	.load = module_loopback_load,
+	.unload = module_loopback_unload,
+};

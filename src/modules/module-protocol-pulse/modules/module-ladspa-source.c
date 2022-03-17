@@ -30,7 +30,6 @@
 
 #include "../defs.h"
 #include "../module.h"
-#include "registry.h"
 
 #define NAME "ladspa-source"
 
@@ -144,12 +143,6 @@ static int module_ladspa_source_unload(struct module *module)
 	return 0;
 }
 
-static const struct module_methods module_ladspa_source_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_ladspa_source_load,
-	.unload = module_ladspa_source_unload,
-};
-
 static const struct spa_dict_item module_ladspa_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Virtual LADSPA source" },
@@ -245,7 +238,7 @@ struct module *create_module_ladspa_source(struct impl *impl, const char *argume
 	if (pw_properties_get(capture_props, PW_KEY_NODE_PASSIVE) == NULL)
 		pw_properties_set(capture_props, PW_KEY_NODE_PASSIVE, "true");
 
-	module = module_new(impl, &module_ladspa_source_methods, sizeof(*d));
+	module = module_new(impl, sizeof(*d));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -265,3 +258,10 @@ out:
 	errno = -res;
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_ladspa_source) = {
+	.name = "module-ladspa-source",
+	.create = create_module_ladspa_source,
+	.load = module_ladspa_source_load,
+	.unload = module_ladspa_source_unload,
+};

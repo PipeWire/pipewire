@@ -31,7 +31,6 @@
 
 #include "../defs.h"
 #include "../module.h"
-#include "registry.h"
 
 #define NAME "echo-cancel"
 
@@ -126,12 +125,6 @@ static int module_echo_cancel_unload(struct module *module)
 
 	return 0;
 }
-
-static const struct module_methods module_echo_cancel_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_echo_cancel_load,
-	.unload = module_echo_cancel_unload,
-};
 
 static const struct spa_dict_item module_echo_cancel_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Arun Raghavan <arun@asymptotic.io>" },
@@ -240,7 +233,7 @@ struct module *create_module_echo_cancel(struct impl *impl, const char *argument
 		pw_properties_set(props, "aec_args", NULL);
 	}
 
-	module = module_new(impl, &module_echo_cancel_methods, sizeof(*d));
+	module = module_new(impl, sizeof(*d));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -264,3 +257,10 @@ out:
 
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_echo_cancel) = {
+	.name = "module-echo-cancel",
+	.create = create_module_echo_cancel,
+	.load = module_echo_cancel_load,
+	.unload = module_echo_cancel_unload,
+};

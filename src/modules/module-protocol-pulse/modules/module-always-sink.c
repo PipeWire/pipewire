@@ -94,12 +94,6 @@ static int module_always_sink_unload(struct module *module)
 	return 0;
 }
 
-static const struct module_methods module_always_sink_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_always_sink_load,
-	.unload = module_always_sink_unload,
-};
-
 static const struct spa_dict_item module_always_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Pauli Virtanen <pav@iki.fi>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Always keeps at least one sink loaded even if it's a null one" },
@@ -123,7 +117,7 @@ struct module *create_module_always_sink(struct impl *impl, const char *argument
 	if (argument)
 		module_args_add_props(props, argument);
 
-	module = module_new(impl, &module_always_sink_methods, sizeof(struct module_always_sink_data));
+	module = module_new(impl, sizeof(struct module_always_sink_data));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -136,3 +130,11 @@ out:
 	errno = -res;
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_always_sink) = {
+	.name = "module-always-sink",
+	.load_once = true,
+	.create = create_module_always_sink,
+	.load = module_always_sink_load,
+	.unload = module_always_sink_unload,
+};

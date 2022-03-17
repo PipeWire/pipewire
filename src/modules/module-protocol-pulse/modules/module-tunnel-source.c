@@ -32,7 +32,6 @@
 
 #include "../defs.h"
 #include "../module.h"
-#include "registry.h"
 
 #define NAME "tunnel-source"
 
@@ -120,12 +119,6 @@ static int module_tunnel_source_unload(struct module *module)
 	return 0;
 }
 
-static const struct module_methods module_tunnel_source_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_tunnel_source_load,
-	.unload = module_tunnel_source_unload,
-};
-
 static const struct spa_dict_item module_tunnel_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Create a network source which connects to a remote PulseAudio server" },
@@ -209,7 +202,7 @@ struct module *create_module_tunnel_source(struct impl *impl, const char *argume
 
 	audio_info_to_props(&info, stream_props);
 
-	module = module_new(impl, &module_tunnel_source_methods, sizeof(*d));
+	module = module_new(impl, sizeof(*d));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -229,3 +222,10 @@ out:
 	errno = -res;
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_tunnel_source) = {
+	.name = "module-tunnel-source",
+	.create = create_module_tunnel_source,
+	.load = module_tunnel_source_load,
+	.unload = module_tunnel_source_unload,
+};

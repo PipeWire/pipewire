@@ -29,7 +29,6 @@
 
 #include "../defs.h"
 #include "../module.h"
-#include "registry.h"
 
 #define NAME "roc-source"
 
@@ -115,12 +114,6 @@ static int module_roc_source_unload(struct module *module)
 	return 0;
 }
 
-static const struct module_methods module_roc_source_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_roc_source_load,
-	.unload = module_roc_source_unload,
-};
-
 static const struct spa_dict_item module_roc_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "roc source" },
@@ -204,7 +197,7 @@ struct module *create_module_roc_source(struct impl *impl, const char *argument)
 		pw_properties_set(roc_props, "resampler.profile", ROC_DEFAULT_REPAIR_PORT);
 	}
 
-	module = module_new(impl, &module_roc_source_methods, sizeof(*d));
+	module = module_new(impl, sizeof(*d));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -224,3 +217,10 @@ out:
 	errno = -res;
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_roc_source) = {
+	.name = "module-roc-source",
+	.create = create_module_roc_source,
+	.load = module_roc_source_load,
+	.unload = module_roc_source_unload,
+};

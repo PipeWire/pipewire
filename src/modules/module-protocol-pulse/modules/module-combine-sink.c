@@ -30,7 +30,6 @@
 
 #include "../manager.h"
 #include "../module.h"
-#include "registry.h"
 
 #define NAME "combine-sink"
 
@@ -500,12 +499,6 @@ static int module_combine_sink_unload(struct module *module)
 	return 0;
 }
 
-static const struct module_methods module_combine_sink_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_combine_sink_load,
-	.unload = module_combine_sink_unload,
-};
-
 struct module *create_module_combine_sink(struct impl *impl, const char *argument)
 {
 	struct module *module;
@@ -554,7 +547,7 @@ struct module *create_module_combine_sink(struct impl *impl, const char *argumen
 		goto out;
 	}
 
-	module = module_new(impl, &module_combine_sink_methods, sizeof(*d));
+	module = module_new(impl, sizeof(*d));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -580,3 +573,10 @@ out:
 	errno = -res;
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_combine_sink) = {
+	.name = "module-combine-sink",
+	.create = create_module_combine_sink,
+	.load = module_combine_sink_load,
+	.unload = module_combine_sink_unload,
+};

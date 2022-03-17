@@ -100,12 +100,6 @@ static int module_x11_bell_unload(struct module *module)
 	return 0;
 }
 
-static const struct module_methods module_x11_bell_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_x11_bell_load,
-	.unload = module_x11_bell_unload,
-};
-
 static const struct spa_dict_item module_x11_bell_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "X11 bell interceptor" },
@@ -132,7 +126,7 @@ struct module *create_module_x11_bell(struct impl *impl, const char *argument)
 	if (argument)
 		module_args_add_props(props, argument);
 
-	module = module_new(impl, &module_x11_bell_methods, sizeof(struct module_x11_bell_data));
+	module = module_new(impl, sizeof(struct module_x11_bell_data));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -145,3 +139,10 @@ out:
 	errno = -res;
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_x11_bell) = {
+	.name = "module-x11-bell",
+	.create = create_module_x11_bell,
+	.load = module_x11_bell_load,
+	.unload = module_x11_bell_unload,
+};

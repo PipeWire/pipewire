@@ -28,7 +28,6 @@
 
 #include "../defs.h"
 #include "../module.h"
-#include "registry.h"
 
 #define NAME "raop-discover"
 
@@ -86,12 +85,6 @@ static int module_raop_discover_unload(struct module *module)
 	return 0;
 }
 
-static const struct module_methods module_raop_discover_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_raop_discover_load,
-	.unload = module_raop_discover_unload,
-};
-
 static const struct spa_dict_item module_raop_discover_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.con>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "mDNS/DNS-SD Service Discovery of RAOP devices" },
@@ -116,7 +109,7 @@ struct module *create_module_raop_discover(struct impl *impl, const char *argume
 	if (argument != NULL)
 		module_args_add_props(props, argument);
 
-	module = module_new(impl, &module_raop_discover_methods, sizeof(*d));
+	module = module_new(impl, sizeof(*d));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -132,3 +125,11 @@ out:
 	errno = -res;
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_raop_discover) = {
+	.name = "module-raop-discover",
+	.load_once = true,
+	.create = create_module_raop_discover,
+	.load = module_raop_discover_load,
+	.unload = module_raop_discover_unload,
+};

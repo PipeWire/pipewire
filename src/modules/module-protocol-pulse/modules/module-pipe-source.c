@@ -34,7 +34,6 @@
 
 #include "../defs.h"
 #include "../module.h"
-#include "registry.h"
 
 #define NAME "pipe-source"
 
@@ -161,7 +160,7 @@ static const struct pw_stream_events out_stream_events = {
 	.process = playback_process
 };
 
-static int module_pipesource_load(struct client *client, struct module *module)
+static int module_pipe_source_load(struct client *client, struct module *module)
 {
 	struct module_pipesrc_data *data = module->user_data;
 	int res;
@@ -209,7 +208,7 @@ static int module_pipesource_load(struct client *client, struct module *module)
 	return 0;
 }
 
-static int module_pipesource_unload(struct module *module)
+static int module_pipe_source_unload(struct module *module)
 {
 	struct module_pipesrc_data *d = module->user_data;
 
@@ -227,13 +226,7 @@ static int module_pipesource_unload(struct module *module)
 	return 0;
 }
 
-static const struct module_methods module_pipesource_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_pipesource_load,
-	.unload = module_pipesource_unload,
-};
-
-static const struct spa_dict_item module_pipesource_info[] = {
+static const struct spa_dict_item module_pipe_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Pipe source" },
 	{ PW_KEY_MODULE_USAGE, "file=<name of the FIFO special file to use> "
@@ -260,7 +253,7 @@ struct module *create_module_pipe_source(struct impl *impl, const char *argument
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
-	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_pipesource_info));
+	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_pipe_source_info));
 	playback_props = pw_properties_new(NULL, NULL);
 	if (!props || !playback_props) {
 		res = -errno;
@@ -370,7 +363,7 @@ struct module *create_module_pipe_source(struct impl *impl, const char *argument
 		pw_properties_set(playback_props, PW_KEY_NODE_VIRTUAL, "true");
 	pw_properties_set(playback_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 
-	module = module_new(impl, &module_pipesource_methods, sizeof(*d) + stride);
+	module = module_new(impl, sizeof(*d) + stride);
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -401,3 +394,10 @@ out:
 
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_pipe_source) = {
+	.name = "module-pipe-source",
+	.create = create_module_pipe_source,
+	.load = module_pipe_source_load,
+	.unload = module_pipe_source_unload,
+};

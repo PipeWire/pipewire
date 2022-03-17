@@ -37,9 +37,19 @@ struct pw_properties;
 
 struct module_info {
 	const char *name;
+
 	unsigned int load_once:1;
+
 	struct module *(*create) (struct impl *impl, const char *args);
+	int (*load) (struct client *client, struct module *module);
+	int (*unload) (struct module *module);
 };
+
+#define DEFINE_MODULE_INFO(name)					\
+	__attribute__((used))						\
+	__attribute__((section("pw_mod_pulse_modules")))		\
+	__attribute__((aligned(__alignof__(struct module_info))))	\
+	const struct module_info name
 
 struct module_events {
 #define VERSION_MODULE_EVENTS	0
@@ -49,21 +59,12 @@ struct module_events {
 	void (*destroy) (void *data);
 };
 
-struct module_methods {
-#define VERSION_MODULE_METHODS	0
-	uint32_t version;
-
-	int (*load) (struct client *client, struct module *module);
-	int (*unload) (struct module *module);
-};
-
 struct module {
 	uint32_t index;
-	const char *name;
 	const char *args;
 	struct pw_properties *props;
 	struct impl *impl;
-	const struct module_methods *methods;
+	const struct module_info *info;
 	struct spa_hook_list listener_list;
 	void *user_data;
 	unsigned int loaded:1;
@@ -75,7 +76,7 @@ struct module {
 
 struct module *module_create(struct client *client, const char *name, const char *args);
 void module_free(struct module *module);
-struct module *module_new(struct impl *impl, const struct module_methods *methods, size_t user_data);
+struct module *module_new(struct impl *impl, size_t user_data);
 int module_load(struct client *client, struct module *module);
 int module_unload(struct module *module);
 void module_schedule_unload(struct module *module);

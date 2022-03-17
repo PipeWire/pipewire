@@ -59,7 +59,7 @@ void module_schedule_unload(struct module *module)
 	module->unloading = true;
 }
 
-struct module *module_new(struct impl *impl, const struct module_methods *methods, size_t user_data)
+struct module *module_new(struct impl *impl, size_t user_data)
 {
 	struct module *module;
 
@@ -69,7 +69,6 @@ struct module *module_new(struct impl *impl, const struct module_methods *method
 
 	module->index = SPA_ID_INVALID;
 	module->impl = impl;
-	module->methods = methods;
 	spa_hook_list_init(&module->listener_list);
 	module->user_data = SPA_PTROFF(module, sizeof(*module), void);
 	module->loaded = false;
@@ -86,12 +85,12 @@ void module_add_listener(struct module *module,
 
 int module_load(struct client *client, struct module *module)
 {
-	pw_log_info("load module index:%u name:%s", module->index, module->name);
-	if (module->methods->load == NULL)
+	pw_log_info("load module index:%u name:%s", module->index, module->info->name);
+	if (module->info->load == NULL)
 		return -ENOTSUP;
 	/* subscription event is sent when the module does a
 	 * module_emit_loaded() */
-	return module->methods->load(client, module);
+	return module->info->load(client, module);
 }
 
 void module_free(struct module *module)
@@ -109,7 +108,6 @@ void module_free(struct module *module)
 	spa_hook_list_clean(&module->listener_list);
 	pw_properties_free(module->props);
 
-	free((char*)module->name);
 	free((char*)module->args);
 
 	free(module);
@@ -123,10 +121,10 @@ int module_unload(struct module *module)
 	/* Note that client can be NULL (when the module is being unloaded
 	 * internally and not by a client request */
 
-	pw_log_info("unload module index:%u name:%s", module->index, module->name);
+	pw_log_info("unload module index:%u name:%s", module->index, module->info->name);
 
-	if (module->methods->unload)
-		res = module->methods->unload(module);
+	if (module->info->unload)
+		res = module->info->unload(module);
 
 	if (module->loaded)
 		broadcast_subscribe_event(impl,
@@ -260,43 +258,19 @@ bool module_args_parse_bool(const char *v)
 	return false;
 }
 
-#include "modules/registry.h"
-
-static const struct module_info module_list[] = {
-	{ "module-always-sink", 1, create_module_always_sink, },
-	{ "module-combine-sink", 0, create_module_combine_sink, },
-	{ "module-echo-cancel", 0, create_module_echo_cancel, },
-	{ "module-ladspa-sink", 0, create_module_ladspa_sink, },
-	{ "module-ladspa-source", 0, create_module_ladspa_source, },
-	{ "module-loopback", 0, create_module_loopback, },
-	{ "module-null-sink", 0, create_module_null_sink, },
-	{ "module-native-protocol-tcp", 0, create_module_native_protocol_tcp, },
-	{ "module-pipe-source", 0, create_module_pipe_source, },
-	{ "module-pipe-sink", 0, create_module_pipe_sink, },
-	{ "module-raop-discover", 1, create_module_raop_discover, },
-	{ "module-remap-sink", 0, create_module_remap_sink, },
-	{ "module-remap-source", 0, create_module_remap_source, },
-	{ "module-simple-protocol-tcp", 0, create_module_simple_protocol_tcp, },
-	{ "module-switch-on-connect", 1, create_module_switch_on_connect, },
-	{ "module-tunnel-sink", 0, create_module_tunnel_sink, },
-	{ "module-tunnel-source", 0, create_module_tunnel_source, },
-	{ "module-zeroconf-discover", 1, create_module_zeroconf_discover, },
-#ifdef HAVE_AVAHI
-	{ "module-zeroconf-publish", 0, create_module_zeroconf_publish, },
-#endif
-	{ "module-roc-sink", 0, create_module_roc_sink, },
-	{ "module-roc-source", 0, create_module_roc_source, },
-	{ "module-x11-bell", 0, create_module_x11_bell, },
-};
-
 static const struct module_info *find_module_info(const char *name)
 {
-	const struct module_info *info;
+	extern const struct module_info __start_pw_mod_pulse_modules[];
+	extern const struct module_info __stop_pw_mod_pulse_modules[];
 
-	SPA_FOR_EACH_ELEMENT(module_list, info) {
+	const struct module_info *info = __start_pw_mod_pulse_modules;
+
+	for (; info < __stop_pw_mod_pulse_modules; info++) {
 		if (spa_streq(info->name, name))
 			return info;
 	}
+
+	spa_assert(info == __stop_pw_mod_pulse_modules);
 
 	return NULL;
 }
@@ -305,7 +279,7 @@ static int find_module_by_name(void *item_data, void *data)
 {
 	const char *name = data;
 	const struct module *module = item_data;
-	return spa_streq(module->name, name) ? 1 : 0;
+	return spa_streq(module->info->name, name) ? 1 : 0;
 }
 
 struct module *module_create(struct client *client, const char *name, const char *args)
@@ -334,12 +308,12 @@ struct module *module_create(struct client *client, const char *name, const char
 	if (module == NULL)
 		return NULL;
 
+	module->info = info;
 	module->index = pw_map_insert_new(&impl->modules, module);
 	if (module->index == SPA_ID_INVALID) {
 		module_unload(module);
 		return NULL;
 	}
-	module->name = strdup(name);
 	module->args = args ? strdup(args) : NULL;
 	module->index |= MODULE_FLAG;
 	return module;

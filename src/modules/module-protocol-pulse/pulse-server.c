@@ -3353,7 +3353,7 @@ static int fill_ext_module_info(struct client *client, struct message *m,
 {
 	message_put(m,
 		TAG_U32, module->index,			/* module index */
-		TAG_STRING, module->name,
+		TAG_STRING, module->info->name,
 		TAG_STRING, module->args,
 		TAG_U32, -1,				/* n_used */
 		TAG_INVALID);
@@ -4741,7 +4741,7 @@ static void handle_module_loaded(struct module *module, struct client *client, u
 
 	if (SPA_RESULT_IS_OK(result)) {
 		pw_log_info("[%s] loaded module index:%u name:%s tag:%d",
-				client_name, module->index, module->name, tag);
+				client_name, module->index, module->info->name, tag);
 
 		module->loaded = true;
 
@@ -4762,7 +4762,7 @@ static void handle_module_loaded(struct module *module, struct client *client, u
 	else {
 		pw_log_warn("%p: [%s] failed to load module index:%u name:%s tag:%d result:%d (%s)",
 				impl, client_name,
-				module->index, module->name, tag,
+				module->index, module->info->name, tag,
 				result, spa_strerror(result));
 
 		module_schedule_unload(module);

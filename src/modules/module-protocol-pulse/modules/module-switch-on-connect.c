@@ -31,7 +31,6 @@
 
 #include "../defs.h"
 #include "../module.h"
-#include "registry.h"
 
 #include "../manager.h"
 #include "../collect.h"
@@ -234,12 +233,6 @@ static int module_switch_on_connect_unload(struct module *module)
 	return 0;
 }
 
-static const struct module_methods module_switch_on_connect_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_switch_on_connect_load,
-	.unload = module_switch_on_connect_unload,
-};
-
 static const struct spa_dict_item module_switch_on_connect_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Pauli Virtanen <pav@iki.fi>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Switch to new devices on connect. "
@@ -299,7 +292,7 @@ struct module *create_module_switch_on_connect(struct impl *impl, const char *ar
 
 	pw_properties_set(props, "blocklist", NULL);
 
-	module = module_new(impl, &module_switch_on_connect_methods, sizeof(*d));
+	module = module_new(impl, sizeof(*d));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -329,3 +322,11 @@ out:
 
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_switch_on_connect) = {
+	.name = "module-switch-on-connect",
+	.load_once = true,
+	.create = create_module_switch_on_connect,
+	.load = module_switch_on_connect_load,
+	.unload = module_switch_on_connect_unload,
+};

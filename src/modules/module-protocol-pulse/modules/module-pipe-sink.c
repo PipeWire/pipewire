@@ -34,7 +34,6 @@
 
 #include "../defs.h"
 #include "../module.h"
-#include "registry.h"
 
 #define NAME "pipe-sink"
 
@@ -140,7 +139,7 @@ static const struct pw_stream_events in_stream_events = {
 	.process = capture_process
 };
 
-static int module_pipesink_load(struct client *client, struct module *module)
+static int module_pipe_sink_load(struct client *client, struct module *module)
 {
 	struct module_pipesink_data *data = module->user_data;
 	int res;
@@ -187,7 +186,7 @@ static int module_pipesink_load(struct client *client, struct module *module)
 	return 0;
 }
 
-static int module_pipesink_unload(struct module *module)
+static int module_pipe_sink_unload(struct module *module)
 {
 	struct module_pipesink_data *d = module->user_data;
 
@@ -207,13 +206,7 @@ static int module_pipesink_unload(struct module *module)
 	return 0;
 }
 
-static const struct module_methods module_pipesink_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_pipesink_load,
-	.unload = module_pipesink_unload,
-};
-
-static const struct spa_dict_item module_pipesink_info[] = {
+static const struct spa_dict_item module_pipe_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Pipe sink" },
 	{ PW_KEY_MODULE_USAGE, "file=<name of the FIFO special file to use> "
@@ -240,7 +233,7 @@ struct module *create_module_pipe_sink(struct impl *impl, const char *argument)
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
-	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_pipesink_info));
+	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_pipe_sink_info));
 	capture_props = pw_properties_new(NULL, NULL);
 	if (!props || !capture_props) {
 		res = -EINVAL;
@@ -311,7 +304,7 @@ struct module *create_module_pipe_sink(struct impl *impl, const char *argument)
 		pw_properties_set(capture_props, PW_KEY_NODE_VIRTUAL, "true");
 	pw_properties_set(capture_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 
-	module = module_new(impl, &module_pipesink_methods, sizeof(*d));
+	module = module_new(impl, sizeof(*d));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -343,3 +336,10 @@ out:
 
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_pipe_sink) = {
+	.name = "module-pipe-sink",
+	.create = create_module_pipe_sink,
+	.load = module_pipe_sink_load,
+	.unload = module_pipe_sink_unload,
+};

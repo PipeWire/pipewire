@@ -27,7 +27,6 @@
 
 #include "../defs.h"
 #include "../module.h"
-#include "registry.h"
 
 #define NAME "simple-protocol-tcp"
 
@@ -115,12 +114,6 @@ static int module_simple_protocol_tcp_unload(struct module *module)
 	return 0;
 }
 
-static const struct module_methods module_simple_protocol_tcp_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_simple_protocol_tcp_load,
-	.unload = module_simple_protocol_tcp_unload,
-};
-
 static const struct spa_dict_item module_simple_protocol_tcp_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Simple protocol (TCP sockets)" },
@@ -204,7 +197,7 @@ struct module *create_module_simple_protocol_tcp(struct impl *impl, const char *
 	pw_properties_setf(module_props, "server.address", "[ \"tcp:%s%s%s\" ]",
 			listen ? listen : "", listen ? ":" : "", port);
 
-	module = module_new(impl, &module_simple_protocol_tcp_methods, sizeof(*d));
+	module = module_new(impl, sizeof(*d));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -223,3 +216,10 @@ out:
 	errno = -res;
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_simple_protocol_tcp) = {
+	.name = "module-simple-protocol-tcp",
+	.create = create_module_simple_protocol_tcp,
+	.load = module_simple_protocol_tcp_load,
+	.unload = module_simple_protocol_tcp_unload,
+};

@@ -32,7 +32,6 @@
 
 #include "../defs.h"
 #include "../module.h"
-#include "registry.h"
 
 #define NAME "tunnel-sink"
 
@@ -119,12 +118,6 @@ static int module_tunnel_sink_unload(struct module *module)
 
 	return 0;
 }
-
-static const struct module_methods module_tunnel_sink_methods = {
-	VERSION_MODULE_METHODS,
-	.load = module_tunnel_sink_load,
-	.unload = module_tunnel_sink_unload,
-};
 
 static const struct spa_dict_item module_tunnel_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
@@ -219,7 +212,7 @@ struct module *create_module_tunnel_sink(struct impl *impl, const char *argument
 		pw_properties_set(stream_props, PW_KEY_AUDIO_FORMAT, format_id2name(id));
 	}
 
-	module = module_new(impl, &module_tunnel_sink_methods, sizeof(*d));
+	module = module_new(impl, sizeof(*d));
 	if (module == NULL) {
 		res = -errno;
 		goto out;
@@ -239,3 +232,10 @@ out:
 	errno = -res;
 	return NULL;
 }
+
+DEFINE_MODULE_INFO(module_tunnel_sink) = {
+	.name = "module-tunnel-sink",
+	.create = create_module_tunnel_sink,
+	.load = module_tunnel_sink_load,
+	.unload = module_tunnel_sink_unload,
+};

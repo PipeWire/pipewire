@@ -769,10 +769,10 @@ conv_deinterleave_32_4s_sse2(void *data, void * SPA_RESTRICT dst[], const void *
 		unrolled = 0;
 
 	for(n = 0; n < unrolled; n += 4) {
-		out[0] = _mm_load_ps(&s[0 * n_channels]);
-		out[1] = _mm_load_ps(&s[1 * n_channels]);
-		out[2] = _mm_load_ps(&s[2 * n_channels]);
-		out[3] = _mm_load_ps(&s[3 * n_channels]);
+		out[0] = _mm_loadu_ps(&s[0 * n_channels]);
+		out[1] = _mm_loadu_ps(&s[1 * n_channels]);
+		out[2] = _mm_loadu_ps(&s[2 * n_channels]);
+		out[3] = _mm_loadu_ps(&s[3 * n_channels]);
 
 		_MM_TRANSPOSE4_PS(out[0], out[1], out[2], out[3]);
 
@@ -851,10 +851,10 @@ conv_deinterleave_32s_4s_sse2(void *data, void * SPA_RESTRICT dst[], const void 
 		unrolled = 0;
 
 	for(n = 0; n < unrolled; n += 4) {
-		out[0] = _mm_load_ps(&s[0 * n_channels]);
-		out[1] = _mm_load_ps(&s[1 * n_channels]);
-		out[2] = _mm_load_ps(&s[2 * n_channels]);
-		out[3] = _mm_load_ps(&s[3 * n_channels]);
+		out[0] = _mm_loadu_ps(&s[0 * n_channels]);
+		out[1] = _mm_loadu_ps(&s[1 * n_channels]);
+		out[2] = _mm_loadu_ps(&s[2 * n_channels]);
+		out[3] = _mm_loadu_ps(&s[3 * n_channels]);
 
 		_MM_TRANSPOSE4_PS(out[0], out[1], out[2], out[3]);
 

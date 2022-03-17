@@ -48,13 +48,14 @@
 #define AVBTP_SUBTYPE_MAAP		0xFE
 #define AVBTP_SUBTYPE_EF_CONTROL	0xFF
 
-struct avbtp_ehternet_header {
+struct avbtp_ethernet_header {
 	uint8_t dest[6];
 	uint8_t src[6];
 	uint16_t type;
 } __attribute__ ((__packed__));
 
 struct avbtp_packet_header {
+	struct avbtp_ethernet_header eth;
 	uint8_t subtype;
 #if __BYTE_ORDER == __BIG_ENDIAN
 	unsigned sv:1;			/* stream_id valid */

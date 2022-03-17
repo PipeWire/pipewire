@@ -224,7 +224,7 @@ static int send_discover(struct adp *adp, uint64_t entity_id)
 	return 0;
 }
 
-static int adp_message(void *data, uint64_t now, const uint8_t mac[6], const void *message, int len)
+static int adp_message(void *data, uint64_t now, const void *message, int len)
 {
 	struct adp *adp = data;
 	const struct avbtp_packet_adp *p = message;

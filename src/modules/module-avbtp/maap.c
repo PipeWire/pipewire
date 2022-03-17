@@ -52,7 +52,7 @@ static void maap_message_debug(struct maap *maap, const struct avbtp_packet_maap
 	v = AVBTP_PACKET_MAAP_GET_MESSAGE_TYPE(p);
 	pw_log_info("message-type: %d (%s)", v, message_type_as_string(v));
 	pw_log_info("  maap-version: %d", AVBTP_PACKET_MAAP_GET_MAAP_VERSION(p));
-	pw_log_info("  length: %d", AVBTP_PACKET_MAAP_GET_LENGTH(p));
+	pw_log_info("  length: %d", AVBTP_PACKET_GET_LENGTH(&p->hdr));
 
 	pw_log_info("  stream-id: 0x%"PRIx64, AVBTP_PACKET_MAAP_GET_STREAM_ID(p));
 	addr = AVBTP_PACKET_MAAP_GET_REQUEST_START(p);
@@ -65,12 +65,12 @@ static void maap_message_debug(struct maap *maap, const struct avbtp_packet_maap
 	pw_log_info("  conflict-count: %d", AVBTP_PACKET_MAAP_GET_CONFLICT_COUNT(p));
 }
 
-static int maap_message(void *data, uint64_t now, const uint8_t src[6], const void *message, int len)
+static int maap_message(void *data, uint64_t now, const void *message, int len)
 {
 	struct maap *maap = data;
 	const struct avbtp_packet_maap *p = message;
 
-	if (AVBTP_PACKET_GET_SUBTYPE(p) != AVBTP_SUBTYPE_MAAP)
+	if (AVBTP_PACKET_GET_SUBTYPE(&p->hdr) != AVBTP_SUBTYPE_MAAP)
 		return 0;
 
 	if (maap->server->debug_messages)

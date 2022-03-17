@@ -49,11 +49,18 @@ struct server_events {
 	/** the server is destroyed */
 	void (*destroy) (void *data);
 
-	int (*message) (void *data, uint64_t now, const uint8_t src[6], const void *message, int len);
+	int (*message) (void *data, uint64_t now, const void *message, int len);
 
 	void (*periodic) (void *data, uint64_t now);
 
 	int (*command) (void *data, uint64_t now, const char *command, const char *args);
+};
+
+struct descriptor {
+	uint16_t type;
+	uint16_t index;
+	uint32_t size;
+	void *ptr;
 };
 
 struct server {
@@ -70,8 +77,22 @@ struct server {
 
 	struct spa_hook_list listener_list;
 
+	const struct descriptor *descriptors[512];
+	uint32_t n_descriptors;
+
 	unsigned debug_messages:1;
 };
+
+static inline const struct descriptor *find_descriptor(struct server *server, uint16_t type, uint16_t index)
+{
+	uint32_t i;
+	for (i = 0; i < server->n_descriptors; i++) {
+		if (server->descriptors[i]->type == type &&
+		    server->descriptors[i]->index == index)
+			return server->descriptors[i];
+	}
+	return NULL;
+}
 
 struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct spa_dict *props);
 void avdecc_server_free(struct server *server);
@@ -81,6 +102,14 @@ void avdecc_server_add_listener(struct server *server, struct spa_hook *listener
 
 int avbtp_server_broadcast_packet(struct server *server, void *data, size_t size);
 int avbtp_server_send_packet(struct server *server, const uint8_t dest[6], void *data, size_t size);
+
+struct aecp {
+	struct server *server;
+	struct spa_hook server_listener;
+
+	uint64_t now;
+};
+
 
 #ifdef __cplusplus
 }  /* extern "C" */

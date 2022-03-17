@@ -42,12 +42,15 @@
 #include "adp.h"
 #include "aecp.h"
 #include "maap.h"
+#include "descriptors.h"
 
 #define DEFAULT_INTERVAL	1
 
+static const uint8_t AVB_MAC_BROADCAST[6] = { 0x91, 0xe0, 0xf0, 0x01, 0x00, 0x00 };
+
 #define server_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct server_events, m, v, ##__VA_ARGS__)
 #define server_emit_destroy(s)		server_emit(s, destroy, 0)
-#define server_emit_message(s,n,mc,m,l)	server_emit(s, message, 0, n, mc, m, l)
+#define server_emit_message(s,n,m,l)	server_emit(s, message, 0, n, m, l)
 #define server_emit_periodic(s,n)	server_emit(s, periodic, 0, n)
 #define server_emit_command(s,n,c,a)	server_emit(s, command, 0, n, c, a)
 
@@ -65,17 +68,10 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 	struct timespec now;
 
 	if (mask & SPA_IO_IN) {
-		int len, count;
-		struct sockaddr_ll sll;
+		int len;
 		uint8_t buffer[2048];
-		socklen_t sl;
 
-		sl = sizeof(sll);
-		len = recvfrom(fd, buffer, sizeof(buffer), 0,
-				(struct sockaddr *)&sll, &sl);
-
-		if (sll.sll_protocol != htons(ETH_P_TSN))
-			return;
+		len = recv(fd, buffer, sizeof(buffer), 0);
 
 		if (len < 0) {
 			pw_log_warn("got recv error: %m");
@@ -84,27 +80,30 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 			pw_log_warn("short packet received (%d < %d)", len,
 					(int)sizeof(struct avbtp_packet_header));
 		} else {
+			struct avbtp_ethernet_header *hdr = (struct avbtp_ethernet_header*)buffer;
+
+			if (htons(hdr->type) != ETH_P_TSN)
+				return;
+			if (memcmp(hdr->dest, AVB_MAC_BROADCAST, ETH_ALEN) != 0 &&
+			    memcmp(hdr->dest, server->mac_addr, ETH_ALEN) != 0)
+				return;
+
 			clock_gettime(CLOCK_REALTIME, &now);
-			server_emit_message(server, SPA_TIMESPEC_TO_NSEC(&now),
-					sll.sll_addr, buffer, len);
+			server_emit_message(server, SPA_TIMESPEC_TO_NSEC(&now), buffer, len);
 		}
 	}
 }
 
 int avbtp_server_send_packet(struct server *server, const uint8_t dest[6], void *data, size_t size)
 {
-	struct sockaddr_ll sll;
+	struct avbtp_ethernet_header *hdr = (struct avbtp_ethernet_header*)data;
 	int res = 0;
 
-	spa_zero(sll);
-	sll.sll_family = AF_PACKET;
-	sll.sll_protocol = htons(ETH_P_TSN);
-        sll.sll_ifindex = server->ifindex;
-	sll.sll_halen = ETH_ALEN;
-	memcpy(sll.sll_addr, dest, ETH_ALEN);
+	memcpy(hdr->dest, dest, ETH_ALEN);
+	memcpy(hdr->src, server->mac_addr, ETH_ALEN);
+	hdr->type = htons(ETH_P_TSN);
 
-	if ((res = sendto(server->source->fd, data, size, 0,
-				(struct sockaddr *)&sll, sizeof(sll))) < 0) {
+	if (send(server->source->fd, data, size, 0) < 0) {
 		res = -errno;
 		pw_log_warn("got send error: %m");
 	}
@@ -113,8 +112,7 @@ int avbtp_server_send_packet(struct server *server, const uint8_t dest[6], void 
 
 int avbtp_server_broadcast_packet(struct server *server, void *data, size_t size)
 {
-	static const uint8_t dest[6] = { 0x91, 0xe0, 0xf0, 0x01, 0x00, 0x00 };
-	return avbtp_server_send_packet(server, dest, data, size);
+	return avbtp_server_send_packet(server, AVB_MAC_BROADCAST, data, size);
 }
 
 static int setup_socket(struct server *server)
@@ -126,7 +124,7 @@ static int setup_socket(struct server *server)
 	struct sockaddr_ll sll;
 	struct timespec value, interval;
 
-	fd = socket(AF_PACKET, SOCK_DGRAM|SOCK_NONBLOCK, htons(ETH_P_ALL));
+	fd = socket(AF_PACKET, SOCK_RAW|SOCK_NONBLOCK, htons(ETH_P_ALL));
 	if (fd < 0) {
 		pw_log_error("socket() failed: %m");
 		return -errno;
@@ -226,9 +224,12 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 	if ((res = setup_socket(server)) < 0)
 		goto error_free;
 
+	init_descriptors(server);
+
 	avbtp_adp_register(server);
 	avbtp_aecp_register(server);
 	avbtp_maap_register(server);
+
 
 	clock_gettime(CLOCK_REALTIME, &now);
 	server_emit_command(server, SPA_TIMESPEC_TO_NSEC(&now),

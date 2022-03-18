@@ -53,10 +53,11 @@ struct server_events {
 
 	void (*periodic) (void *data, uint64_t now);
 
-	int (*command) (void *data, uint64_t now, const char *command, const char *args);
+	int (*command) (void *data, uint64_t now, const char *command, const char *args, FILE *out);
 };
 
 struct descriptor {
+	struct spa_list link;
 	uint16_t type;
 	uint16_t index;
 	uint32_t size;
@@ -77,21 +78,37 @@ struct server {
 
 	struct spa_hook_list listener_list;
 
-	const struct descriptor *descriptors[512];
-	uint32_t n_descriptors;
+	struct spa_list descriptors;
 
 	unsigned debug_messages:1;
 };
 
-static inline const struct descriptor *find_descriptor(struct server *server, uint16_t type, uint16_t index)
+static inline const struct descriptor *server_find_descriptor(struct server *server,
+		uint16_t type, uint16_t index)
 {
-	uint32_t i;
-	for (i = 0; i < server->n_descriptors; i++) {
-		if (server->descriptors[i]->type == type &&
-		    server->descriptors[i]->index == index)
-			return server->descriptors[i];
+	struct descriptor *d;
+	spa_list_for_each(d, &server->descriptors, link) {
+		if (d->type == type &&
+		    d->index == index)
+			return d;
 	}
 	return NULL;
+}
+static inline const struct descriptor *server_add_descriptor(struct server *server,
+		uint16_t type, uint16_t index, size_t size, void *ptr)
+{
+	struct descriptor *d;
+
+	if ((d = calloc(1, sizeof(struct descriptor) + size)) == NULL)
+		return NULL;
+
+	d->type = type;
+	d->index = index;
+	d->size = size;
+	d->ptr = SPA_PTROFF(d, sizeof(struct descriptor), void);
+	memcpy(d->ptr, ptr, size);
+	spa_list_append(&server->descriptors, &d->link);
+	return d;
 }
 
 struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct spa_dict *props);
@@ -106,8 +123,6 @@ int avbtp_server_send_packet(struct server *server, const uint8_t dest[6], void 
 struct aecp {
 	struct server *server;
 	struct spa_hook server_listener;
-
-	uint64_t now;
 };
 
 

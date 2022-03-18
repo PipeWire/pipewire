@@ -34,7 +34,6 @@
 struct msg_info {
 	uint16_t type;
 	const char *name;
-	const char *description;
 	int (*handle) (struct aecp *aecp, const void *p, int len);
 };
 
@@ -51,16 +50,16 @@ static int reply_not_implemented(struct aecp *aecp, const void *p, int len)
 }
 
 static const struct msg_info msg_info[] = {
-	{ AVBTP_AECP_MESSAGE_TYPE_AEM_COMMAND, "aem-command", "AEM Command", avbtp_aecp_aem_handle_command, },
-	{ AVBTP_AECP_MESSAGE_TYPE_AEM_RESPONSE, "aem-response", "AEM Response", avbtp_aecp_aem_handle_response, },
-	{ AVBTP_AECP_MESSAGE_TYPE_ADDRESS_ACCESS_COMMAND, "address-access-command", "Address Access Command", NULL, },
-	{ AVBTP_AECP_MESSAGE_TYPE_ADDRESS_ACCESS_RESPONSE, "address-access-response", "Address Access Response", NULL, },
-	{ AVBTP_AECP_MESSAGE_TYPE_AVC_COMMAND, "avc-command", "AVC Command", NULL, },
-	{ AVBTP_AECP_MESSAGE_TYPE_AVC_RESPONSE, "avc-response", "AVC Response", NULL, },
-	{ AVBTP_AECP_MESSAGE_TYPE_VENDOR_UNIQUE_COMMAND, "vendor-unique-command", "Vendor Unique Command", NULL, },
-	{ AVBTP_AECP_MESSAGE_TYPE_VENDOR_UNIQUE_RESPONSE, "vendor-unique-response", "Vendor Unique Response", NULL, },
-	{ AVBTP_AECP_MESSAGE_TYPE_EXTENDED_COMMAND, "extended-command", "Extended Command", NULL, },
-	{ AVBTP_AECP_MESSAGE_TYPE_EXTENDED_RESPONSE, "extended-response", "Extended Response", NULL, },
+	{ AVBTP_AECP_MESSAGE_TYPE_AEM_COMMAND, "aem-command", avbtp_aecp_aem_handle_command, },
+	{ AVBTP_AECP_MESSAGE_TYPE_AEM_RESPONSE, "aem-response", avbtp_aecp_aem_handle_response, },
+	{ AVBTP_AECP_MESSAGE_TYPE_ADDRESS_ACCESS_COMMAND, "address-access-command", NULL, },
+	{ AVBTP_AECP_MESSAGE_TYPE_ADDRESS_ACCESS_RESPONSE, "address-access-response", NULL, },
+	{ AVBTP_AECP_MESSAGE_TYPE_AVC_COMMAND, "avc-command", NULL, },
+	{ AVBTP_AECP_MESSAGE_TYPE_AVC_RESPONSE, "avc-response", NULL, },
+	{ AVBTP_AECP_MESSAGE_TYPE_VENDOR_UNIQUE_COMMAND, "vendor-unique-command", NULL, },
+	{ AVBTP_AECP_MESSAGE_TYPE_VENDOR_UNIQUE_RESPONSE, "vendor-unique-response", NULL, },
+	{ AVBTP_AECP_MESSAGE_TYPE_EXTENDED_COMMAND, "extended-command", NULL, },
+	{ AVBTP_AECP_MESSAGE_TYPE_EXTENDED_RESPONSE, "extended-response", NULL, },
 };
 
 static inline const struct msg_info *find_msg_info(uint16_t type, const char *name)
@@ -90,7 +89,7 @@ static int aecp_message(void *data, uint64_t now, const void *message, int len)
 	if (info == NULL)
 		return reply_not_implemented(aecp, p, len);
 
-	pw_log_info("got AECP message %s", info->name);
+	pw_log_debug("got AECP message %s", info->name);
 
 	if (info->handle == NULL)
 		return reply_not_implemented(aecp, p, len);
@@ -105,16 +104,16 @@ static void aecp_destroy(void *data)
 	free(aecp);
 }
 
-static void aecp_periodic(void *data, uint64_t now)
+static int do_help(struct aecp *aecp, const char *args, FILE *out)
 {
-}
-
-static int do_help(struct aecp *aecp, const char *args)
-{
+	fprintf(out, "{ \"type\": \"help\","
+			"\"text\": \""
+			  "/adp/help: this help \\n"
+			"\" }");
 	return 0;
 }
 
-static int aecp_command(void *data, uint64_t now, const char *command, const char *args)
+static int aecp_command(void *data, uint64_t now, const char *command, const char *args, FILE *out)
 {
 	struct aecp *aecp = data;
 	int res;
@@ -123,10 +122,9 @@ static int aecp_command(void *data, uint64_t now, const char *command, const cha
 		return 0;
 
 	command += strlen("/aecp/");
-	aecp->now = now;
 
 	if (spa_streq(command, "help"))
-		res = do_help(aecp, args);
+		res = do_help(aecp, args, out);
 	else
 		res = -ENOTSUP;
 
@@ -137,7 +135,6 @@ static const struct server_events server_events = {
 	AVBTP_VERSION_SERVER_EVENTS,
 	.destroy = aecp_destroy,
 	.message = aecp_message,
-	.periodic = aecp_periodic,
 	.command = aecp_command
 };
 

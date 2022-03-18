@@ -51,15 +51,9 @@ struct avbtp_packet_aecp_header {
 
 #define AVBTP_PACKET_AECP_SET_MESSAGE_TYPE(p,v)		AVBTP_PACKET_SET_SUB1(&(p)->hdr, v)
 #define AVBTP_PACKET_AECP_SET_STATUS(p,v)		AVBTP_PACKET_SET_SUB2(&(p)->hdr, v)
-#define AVBTP_PACKET_AECP_SET_TARGET_GUID(p,v)		((p)->target_guid = htobe64(v))
-#define AVBTP_PACKET_AECP_SET_CONTROLLER_GUID(p,v)	((p)->controller_guid = htobe64(v))
-#define AVBTP_PACKET_AECP_SET_SEQUENCE_ID(p,v)		((p)->sequence_id = htons(v))
 
 #define AVBTP_PACKET_AECP_GET_MESSAGE_TYPE(p)		AVBTP_PACKET_GET_SUB1(&(p)->hdr)
 #define AVBTP_PACKET_AECP_GET_STATUS(p)			AVBTP_PACKET_GET_SUB2(&(p)->hdr)
-#define AVBTP_PACKET_AECP_GET_TARGET_GUID(p,v)		be64toh((p)->target_guid)
-#define AVBTP_PACKET_AECP_GET_CONTROLLER_GUID(p,v)	be64toh((p)->controller_guid)
-#define AVBTP_PACKET_AECP_GET_SEQUENCE_ID(p,v)		ntohs((p)->sequence_id)
 
 struct avbtp_aecp *avbtp_aecp_register(struct server *server);
 

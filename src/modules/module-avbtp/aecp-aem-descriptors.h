@@ -243,4 +243,5 @@ struct avbtp_aem_desc_stream_port {
 	uint16_t number_of_maps;
 	uint16_t base_map;
 } __attribute__ ((__packed__));
+
 #endif /* AVBTP_AECP_AEM_DESCRIPTORS_H */

@@ -270,6 +270,16 @@ struct avbtp_packet_aecp_aem_identify_notification {
 	uint16_t descriptor_id;
 } __attribute__ ((__packed__));
 
+struct avbtp_packet_aecp_aem_msrp_mapping {
+	uint8_t traffic_class;
+	uint8_t priority;
+	uint16_t vlan_id;
+} __attribute__ ((__packed__));
+
+#define AVBTP_AEM_AVB_INFO_FLAG_GPTP_GRANDMASTER_SUPPORTED	(1u<<0)
+#define AVBTP_AEM_AVB_INFO_FLAG_GPTP_ENABLED			(1u<<1)
+#define AVBTP_AEM_AVB_INFO_FLAG_SRP_ENABLED			(1u<<2)
+
 struct avbtp_packet_aecp_aem_get_avb_info {
 	uint16_t descriptor_type;
 	uint16_t descriptor_id;
@@ -278,7 +288,7 @@ struct avbtp_packet_aecp_aem_get_avb_info {
 	uint8_t gptp_domain_number;
 	uint8_t flags;
 	uint16_t msrp_mappings_count;
-	uint32_t msrp_mappings;
+	uint8_t msrp_mappings[0];
 } __attribute__ ((__packed__));
 
 struct avbtp_packet_aecp_aem_get_as_path {

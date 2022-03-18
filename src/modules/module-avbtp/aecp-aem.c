@@ -62,7 +62,7 @@ static int handle_acquire_entity(struct aecp *aecp, const void *m, int len)
 	desc_type = ntohs(ae->descriptor_type);
 	desc_id = ntohs(ae->descriptor_id);
 
-	desc = find_descriptor(server, desc_type, desc_id);
+	desc = server_find_descriptor(server, desc_type, desc_id);
 	if (desc == NULL)
 		return reply_status(aecp, AVBTP_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
 
@@ -86,7 +86,7 @@ static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 	desc_type = ntohs(ae->descriptor_type);
 	desc_id = ntohs(ae->descriptor_id);
 
-	desc = find_descriptor(server, desc_type, desc_id);
+	desc = server_find_descriptor(server, desc_type, desc_id);
 	if (desc == NULL)
 		return reply_status(aecp, AVBTP_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
 
@@ -97,16 +97,16 @@ static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 }
 
 /* READ_DESCRIPTOR */
-static int handle_read_descriptor(struct aecp *aecp, const void *h, int len)
+static int handle_read_descriptor(struct aecp *aecp, const void *m, int len)
 {
 	struct server *server = aecp->server;
-	const struct avbtp_packet_aecp_aem *p = h;
-	struct avbtp_packet_aecp_header *reply;
+	const struct avbtp_packet_aecp_aem *p = m;
+	struct avbtp_packet_aecp_aem *reply;
+	const struct avbtp_packet_aecp_aem_read_descriptor *rd;
 	uint16_t desc_type, desc_id;
 	const struct descriptor *desc;
-	const struct avbtp_packet_aecp_aem_read_descriptor *rd;
 	uint8_t buf[2048];
-	size_t size;
+	size_t size, psize;
 
 	rd = (struct avbtp_packet_aecp_aem_read_descriptor*)p->payload;
 
@@ -115,22 +115,72 @@ static int handle_read_descriptor(struct aecp *aecp, const void *h, int len)
 
 	pw_log_info("descriptor type:%04x index:%d", desc_type, desc_id);
 
-	desc = find_descriptor(server, desc_type, desc_id);
+	desc = server_find_descriptor(server, desc_type, desc_id);
 	if (desc == NULL)
 		return reply_status(aecp, AVBTP_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
 
-	size = sizeof(struct avbtp_packet_aecp_aem) + sizeof(*rd);
+	memcpy(buf, p, len);
 
-	memcpy(buf, p, size);
+	psize = sizeof(*rd);
+	size = sizeof(*reply) + psize;
+
 	memcpy(buf + size, desc->ptr, desc->size);
 	size += desc->size;
+	psize += desc->size;
 
-	reply = (struct avbtp_packet_aecp_header *)buf;
-	AVBTP_PACKET_SET_LENGTH(&reply->hdr, size - 26 );
-	AVBTP_PACKET_AECP_SET_MESSAGE_TYPE(reply, AVBTP_AECP_MESSAGE_TYPE_AEM_RESPONSE);
-	AVBTP_PACKET_AECP_SET_STATUS(reply, AVBTP_AECP_AEM_STATUS_SUCCESS);
+	reply = (struct avbtp_packet_aecp_aem*)buf;
+	AVBTP_PACKET_AECP_SET_MESSAGE_TYPE(&reply->aecp, AVBTP_AECP_MESSAGE_TYPE_AEM_RESPONSE);
+	AVBTP_PACKET_AECP_SET_STATUS(&reply->aecp, AVBTP_AECP_AEM_STATUS_SUCCESS);
+	AVBTP_PACKET_SET_LENGTH(&reply->aecp.hdr, psize + 12);
 
-	return avbtp_server_send_packet(server, reply->hdr.eth.src, reply, size);
+	return avbtp_server_send_packet(server, reply->aecp.hdr.eth.src, reply, size);
+}
+
+/* GET_AVB_INFO */
+static int handle_get_avb_info(struct aecp *aecp, const void *m, int len)
+{
+	struct server *server = aecp->server;
+	const struct avbtp_packet_aecp_aem *p = m;
+	struct avbtp_packet_aecp_aem *reply;
+	struct avbtp_packet_aecp_aem_get_avb_info *i;
+	struct avbtp_aem_desc_avb_interface *avb_interface;
+	uint16_t desc_type, desc_id;
+	const struct descriptor *desc;
+	uint8_t buf[2048];
+	size_t size, psize;
+
+	i = (struct avbtp_packet_aecp_aem_get_avb_info*)p->payload;
+
+	desc_type = ntohs(i->descriptor_type);
+	desc_id = ntohs(i->descriptor_id);
+
+	desc = server_find_descriptor(server, desc_type, desc_id);
+	if (desc == NULL)
+		return reply_status(aecp, AVBTP_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
+
+	if (desc_type != AVBTP_AEM_DESC_AVB_INTERFACE || desc_id != 0)
+		return reply_not_implemented(aecp, m, len);
+
+	avb_interface = desc->ptr;
+
+	memcpy(buf, p, len);
+
+	psize = sizeof(*i);
+	size = sizeof(*reply) + psize;
+
+	reply = (struct avbtp_packet_aecp_aem *)buf;
+	AVBTP_PACKET_AECP_SET_MESSAGE_TYPE(&reply->aecp, AVBTP_AECP_MESSAGE_TYPE_AEM_RESPONSE);
+	AVBTP_PACKET_AECP_SET_STATUS(&reply->aecp, AVBTP_AECP_AEM_STATUS_SUCCESS);
+	AVBTP_PACKET_SET_LENGTH(&reply->aecp.hdr, psize + 12);
+
+	i = (struct avbtp_packet_aecp_aem_get_avb_info*)reply->payload;
+	i->gptp_grandmaster_id = avb_interface->clock_identity;
+	i->propagation_delay = htonl(0);
+	i->gptp_domain_number = avb_interface->domain_number;
+	i->flags = 0;
+	i->msrp_mappings_count = htons(0);
+
+	return avbtp_server_send_packet(server, reply->aecp.hdr.eth.src, reply, size);
 }
 
 /* AEM_COMMAND */
@@ -180,7 +230,7 @@ static const struct cmd_info cmd_info[] = {
 	{ AVBTP_AECP_AEM_CMD_REGISTER_UNSOLICITED_NOTIFICATION, "register-unsolicited-notification", NULL, },
 	{ AVBTP_AECP_AEM_CMD_DEREGISTER_UNSOLICITED_NOTIFICATION, "deregister-unsolicited-notification", NULL, },
 	{ AVBTP_AECP_AEM_CMD_IDENTIFY_NOTIFICATION, "identify-notification", NULL, },
-	{ AVBTP_AECP_AEM_CMD_GET_AVB_INFO, "get-avb-info", NULL, },
+	{ AVBTP_AECP_AEM_CMD_GET_AVB_INFO, "get-avb-info", handle_get_avb_info, },
 	{ AVBTP_AECP_AEM_CMD_GET_AS_PATH, "get-as-path", NULL, },
 	{ AVBTP_AECP_AEM_CMD_GET_COUNTERS, "get-counters", NULL, },
 	{ AVBTP_AECP_AEM_CMD_REBOOT, "reboot", NULL, },

@@ -26,24 +26,9 @@
 #include "aecp-aem-descriptors.h"
 #include "internal.h"
 
-static void add_descriptor(struct server *server, uint16_t type, uint16_t index, size_t size, void *ptr)
-{
-	struct descriptor *d;
-
-	if ((d = calloc(1, sizeof(struct descriptor) + size)) == NULL)
-		return;
-
-	d->type = type;
-	d->index = index;
-	d->size = size;
-	d->ptr = SPA_PTROFF(d, sizeof(struct descriptor), void);
-	memcpy(d->ptr, ptr, size);
-	server->descriptors[server->n_descriptors++] = d;
-}
-
 void init_descriptors(struct server *server)
 {
-	add_descriptor(server, AVBTP_AEM_DESC_STRINGS, 0,
+	server_add_descriptor(server, AVBTP_AEM_DESC_STRINGS, 0,
 			sizeof(struct avbtp_aem_desc_strings),
 			&(struct avbtp_aem_desc_strings)
 	{
@@ -51,7 +36,7 @@ void init_descriptors(struct server *server)
 		.string_1 = "Configuration 1",
 		.string_2 = "Wim Taymans",
 	});
-	add_descriptor(server, AVBTP_AEM_DESC_LOCALE, 0,
+	server_add_descriptor(server, AVBTP_AEM_DESC_LOCALE, 0,
 			sizeof(struct avbtp_aem_desc_locale),
 			&(struct avbtp_aem_desc_locale)
 	{
@@ -59,7 +44,7 @@ void init_descriptors(struct server *server)
 		.number_of_strings = htons(1),
 		.base_strings = htons(0)
 	});
-	add_descriptor(server, AVBTP_AEM_DESC_ENTITY, 0,
+	server_add_descriptor(server, AVBTP_AEM_DESC_ENTITY, 0,
 			sizeof(struct avbtp_aem_desc_entity),
 			&(struct avbtp_aem_desc_entity)
 	{
@@ -115,7 +100,7 @@ void init_descriptors(struct server *server)
 			{ htons(AVBTP_AEM_DESC_CLOCK_DOMAIN), htons(1) }
 		}
 	};
-	add_descriptor(server, AVBTP_AEM_DESC_CONFIGURATION, 0,
+	server_add_descriptor(server, AVBTP_AEM_DESC_CONFIGURATION, 0,
 			sizeof(config), &config);
 
 	struct {
@@ -173,7 +158,7 @@ void init_descriptors(struct server *server)
 			{ .pull_frequency = htonl(192000) },
 		}
 	};
-	add_descriptor(server, AVBTP_AEM_DESC_AUDIO_UNIT, 0,
+	server_add_descriptor(server, AVBTP_AEM_DESC_AUDIO_UNIT, 0,
 			sizeof(audio_unit), &audio_unit);
 
 	struct {
@@ -212,7 +197,7 @@ void init_descriptors(struct server *server)
 			htobe64(0x00a0060860000800ULL),
 		},
 	};
-	add_descriptor(server, AVBTP_AEM_DESC_STREAM_INPUT, 0,
+	server_add_descriptor(server, AVBTP_AEM_DESC_STREAM_INPUT, 0,
 			sizeof(stream_input_0), &stream_input_0);
 
 	struct {
@@ -250,7 +235,7 @@ void init_descriptors(struct server *server)
 			htobe64(0x00a0060860000800ULL),
 		},
 	};
-	add_descriptor(server, AVBTP_AEM_DESC_STREAM_OUTPUT, 0,
+	server_add_descriptor(server, AVBTP_AEM_DESC_STREAM_OUTPUT, 0,
 			sizeof(stream_output_0), &stream_output_0);
 
 	struct avbtp_aem_desc_avb_interface avb_interface = {
@@ -271,7 +256,7 @@ void init_descriptors(struct server *server)
 	};
 	strncpy(avb_interface.object_name, server->ifname, 63);
 	memcpy(avb_interface.mac_address, server->mac_addr, 6);
-	add_descriptor(server, AVBTP_AEM_DESC_AVB_INTERFACE, 0,
+	server_add_descriptor(server, AVBTP_AEM_DESC_AVB_INTERFACE, 0,
 			sizeof(avb_interface), &avb_interface);
 
 	struct avbtp_aem_desc_clock_source clock_source = {
@@ -284,6 +269,6 @@ void init_descriptors(struct server *server)
 		.clock_source_location_type = htons(AVBTP_AEM_DESC_STREAM_INPUT),
 		.clock_source_location_index = htons(0),
 	};
-	add_descriptor(server, AVBTP_AEM_DESC_CLOCK_SOURCE, 0,
+	server_add_descriptor(server, AVBTP_AEM_DESC_CLOCK_SOURCE, 0,
 			sizeof(clock_source), &clock_source);
 }

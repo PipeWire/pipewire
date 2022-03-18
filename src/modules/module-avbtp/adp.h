@@ -72,7 +72,7 @@
 #define AVBTP_ADP_CONTROLLER_CAPABILITY_IMPLEMENTED			(1u<<0)
 #define AVBTP_ADP_CONTROLLER_CAPABILITY_LAYER3_PROXY			(1u<<1)
 
-#define AVBTP_ADP_DATA_LENGTH	56
+#define AVBTP_ADP_CONTROL_DATA_LENGTH		56
 
 struct avbtp_packet_adp {
 	struct avbtp_packet_header hdr;

@@ -83,7 +83,7 @@ static int send_discover(struct adp *adp, uint64_t entity_id)
 	struct avbtp_packet_adp p;
 	spa_zero(p);
 	AVBTP_PACKET_SET_SUBTYPE(&p.hdr, AVBTP_SUBTYPE_ADP);
-	AVBTP_PACKET_SET_LENGTH(&p.hdr, AVBTP_ADP_DATA_LENGTH);
+	AVBTP_PACKET_SET_LENGTH(&p.hdr, AVBTP_ADP_CONTROL_DATA_LENGTH);
 	AVBTP_PACKET_ADP_SET_MESSAGE_TYPE(&p, AVBTP_ADP_MESSAGE_TYPE_ENTITY_DISCOVER);
 	p.entity_id = htonl(entity_id);
 	avbtp_server_broadcast_packet(adp->server, &p, sizeof(p));
@@ -100,7 +100,7 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 	uint64_t entity_id;
 
 	if (AVBTP_PACKET_GET_SUBTYPE(&p->hdr) != AVBTP_SUBTYPE_ADP ||
-	    AVBTP_PACKET_GET_LENGTH(&p->hdr) != AVBTP_ADP_DATA_LENGTH)
+	    AVBTP_PACKET_GET_LENGTH(&p->hdr) < AVBTP_ADP_CONTROL_DATA_LENGTH)
 		return 0;
 
 	message_type = AVBTP_PACKET_ADP_GET_MESSAGE_TYPE(p);
@@ -228,7 +228,7 @@ static int check_advertise(struct adp *adp, uint64_t now)
 	e->last_time = now;
 
 	p = &e->packet;
-	AVBTP_PACKET_SET_LENGTH(&p->hdr, AVBTP_ADP_DATA_LENGTH);
+	AVBTP_PACKET_SET_LENGTH(&p->hdr, AVBTP_ADP_CONTROL_DATA_LENGTH);
 	AVBTP_PACKET_SET_SUBTYPE(&p->hdr, AVBTP_SUBTYPE_ADP);
 	AVBTP_PACKET_ADP_SET_MESSAGE_TYPE(p, AVBTP_ADP_MESSAGE_TYPE_ENTITY_AVAILABLE);
 	AVBTP_PACKET_ADP_SET_VALID_TIME(p, 10);

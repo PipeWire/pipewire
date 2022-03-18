@@ -94,7 +94,7 @@ static inline const struct descriptor *server_find_descriptor(struct server *ser
 	}
 	return NULL;
 }
-static inline const struct descriptor *server_add_descriptor(struct server *server,
+static inline void *server_add_descriptor(struct server *server,
 		uint16_t type, uint16_t index, size_t size, void *ptr)
 {
 	struct descriptor *d;
@@ -106,9 +106,10 @@ static inline const struct descriptor *server_add_descriptor(struct server *serv
 	d->index = index;
 	d->size = size;
 	d->ptr = SPA_PTROFF(d, sizeof(struct descriptor), void);
-	memcpy(d->ptr, ptr, size);
+	if (ptr)
+		memcpy(d->ptr, ptr, size);
 	spa_list_append(&server->descriptors, &d->link);
-	return d;
+	return d->ptr;
 }
 
 struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct spa_dict *props);

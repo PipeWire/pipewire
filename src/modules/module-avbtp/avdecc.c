@@ -39,6 +39,7 @@
 #include "avb.h"
 #include "packets.h"
 #include "internal.h"
+#include "acmp.h"
 #include "adp.h"
 #include "aecp.h"
 #include "maap.h"

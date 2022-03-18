@@ -262,14 +262,16 @@ struct spa_bt_quirks *spa_bt_quirks_create(const struct spa_dict *info, struct s
 	} else {
 		char path[PATH_MAX];
 		const char *dir = getenv("SPA_DATA_DIR");
+		int res;
 
 		if (dir == NULL)
 			dir = SPADATADIR;
 
 		if (spa_scnprintf(path, sizeof(path), "%s/bluez5/bluez-hardware.conf", dir) >= 0)
-			load_conf(this, path);
+			if ((res = load_conf(this, path)) < 0)
+				spa_log_warn(this->log, "failed to load '%s': %s", path,
+						spa_strerror(res));
 	}
-
 	if (!(this->kernel_rules && this->adapter_rules && this->device_rules))
 		spa_log_warn(this->log, "failed to load bluez-hardware.conf");
 

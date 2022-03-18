@@ -804,7 +804,7 @@ static void set_test_env(struct pwtest_context *ctx, struct pwtest_test *t)
 	replace_env(t, "TMPDIR", xdg_runtime_dir);
 
 	replace_env(t, "SPA_PLUGIN_DIR", BUILD_ROOT "/spa/plugins");
-	replace_env(t, "SPA_DATA_DIR", BUILD_ROOT "/spa/plugins");
+	replace_env(t, "SPA_DATA_DIR", SOURCE_ROOT "/spa/plugins");
 	replace_env(t, "PIPEWIRE_CONFIG_DIR", BUILD_ROOT "/src/daemon");
 	replace_env(t, "PIPEWIRE_MODULE_DIR", BUILD_ROOT "/src/modules");
 	replace_env(t, "ACP_PATHS_DIR", SOURCE_ROOT "/spa/plugins/alsa/mixer/paths");

@@ -278,13 +278,15 @@ static void put_int(struct data *d, const char *key, int64_t val)
 
 static void put_double(struct data *d, const char *key, double val)
 {
-	put_fmt(d, key, "%s%f%s", NUMBER, val, NORMAL);
+	char buf[128];
+	put_fmt(d, key, "%s%s%s", NUMBER,
+			spa_json_format_double(buf, sizeof(buf), val), NORMAL);
 }
 
 static void put_value(struct data *d, const char *key, const char *val)
 {
 	int64_t li;
-	double dv;
+	float fv;
 
 	if (val == NULL)
 		put_literal(d, key, "null");
@@ -292,8 +294,8 @@ static void put_value(struct data *d, const char *key, const char *val)
 		put_literal(d, key, val);
 	else if (spa_atoi64(val, &li, 10))
 		put_int(d, key, li);
-	else if (spa_atod(val, &dv))
-		put_double(d, key, dv);
+	else if (spa_json_parse_float(val, strlen(val), &fv))
+		put_double(d, key, fv);
 	else
 		put_string(d, key, val);
 }

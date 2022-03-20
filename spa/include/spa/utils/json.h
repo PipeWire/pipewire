@@ -34,6 +34,7 @@ extern "C" {
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <locale.h>
 
 #include <spa/utils/defs.h>
 
@@ -237,9 +238,16 @@ static inline bool spa_json_is_null(const char *val, int len)
 static inline int spa_json_parse_float(const char *val, int len, float *result)
 {
 	char *end;
-	*result = strtof(val, &end);
+	static locale_t locale = NULL;
+	if (SPA_UNLIKELY(locale == NULL))
+		locale = newlocale(LC_ALL_MASK, "C", NULL);
+	if (locale != NULL)
+		*result = strtof_l(val, &end, locale);
+	else
+		*result = strtof(val, &end);
 	return len > 0 && end == val + len;
 }
+
 static inline bool spa_json_is_float(const char *val, int len)
 {
 	float dummy;
@@ -252,6 +260,16 @@ static inline int spa_json_get_float(struct spa_json *iter, float *res)
 	if ((len = spa_json_next(iter, &value)) <= 0)
 		return -1;
 	return spa_json_parse_float(value, len, res);
+}
+
+static inline char *spa_json_format_double(char *str, int size, const double val)
+{
+	int i, l;
+	l = snprintf(str, size, "%f", val);
+	for (i = 0; i < l; i++)
+		if (str[i] == ',')
+			str[i] = '.';
+	return str;
 }
 
 /* int */

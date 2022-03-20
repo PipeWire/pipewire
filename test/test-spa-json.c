@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <locale.h>
+
 #include "pwtest.h"
 
 #include <spa/utils/defs.h>
@@ -225,8 +227,39 @@ PWTEST(json_overflow)
 
 PWTEST(json_float)
 {
+	struct {
+		const char *str;
+		double val;
+	} val[] = {
+		{ "0.0", 0.0f },
+		{ ".0", 0.0f },
+		{ ".0E0", 0.0E0f },
+		{ "1.0", 1.0f },
+		{ "1.011", 1.011f },
+		{ "176543.123456", 176543.123456f },
+		{ "-176543.123456", -176543.123456f },
+		{ "-5678.5432E10", -5678.5432E10f },
+		{ "-5678.5432e10", -5678.5432e10f },
+		{ "-5678.5432e-10", -5678.5432e-10f },
+		{ "5678.5432e+10", 5678.5432e+10f },
+		{ "00.000100", 00.000100f },
+		{ "-0.000100", -0.000100f },
+	};
 	float v;
+	unsigned i;
+
 	pwtest_int_eq(spa_json_parse_float("", 0, &v), 0);
+
+	setlocale(LC_NUMERIC, "C");
+	for (i = 0; i < SPA_N_ELEMENTS(val); i++) {
+		pwtest_int_gt(spa_json_parse_float(val[i].str, strlen(val[i].str), &v), 0);
+		pwtest_double_eq(v, val[i].val);
+	}
+	setlocale(LC_NUMERIC, "fr_FR");
+	for (i = 0; i < SPA_N_ELEMENTS(val); i++) {
+		pwtest_int_gt(spa_json_parse_float(val[i].str, strlen(val[i].str), &v), 0);
+		pwtest_double_eq(v, val[i].val);
+	}
 	return PWTEST_PASS;
 }
 

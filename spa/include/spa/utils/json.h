@@ -238,7 +238,7 @@ static inline int spa_json_parse_float(const char *val, int len, float *result)
 {
 	char *end;
 	*result = strtof(val, &end);
-	return end == val + len;
+	return len > 0 && end == val + len;
 }
 static inline bool spa_json_is_float(const char *val, int len)
 {
@@ -259,7 +259,7 @@ static inline int spa_json_parse_int(const char *val, int len, int *result)
 {
 	char *end;
 	*result = strtol(val, &end, 0);
-	return end == val + len;
+	return len > 0 && end == val + len;
 }
 static inline bool spa_json_is_int(const char *val, int len)
 {

@@ -223,6 +223,20 @@ PWTEST(json_overflow)
 	return PWTEST_PASS;
 }
 
+PWTEST(json_float)
+{
+	float v;
+	pwtest_int_eq(spa_json_parse_float("", 0, &v), 0);
+	return PWTEST_PASS;
+}
+
+PWTEST(json_int)
+{
+	int v;
+	pwtest_int_eq(spa_json_parse_int("", 0, &v), 0);
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(spa_json)
 {
 	pwtest_add(json_abi, PWTEST_NOARG);
@@ -230,6 +244,8 @@ PWTEST_SUITE(spa_json)
 	pwtest_add(json_encode, PWTEST_NOARG);
 	pwtest_add(json_array, PWTEST_NOARG);
 	pwtest_add(json_overflow, PWTEST_NOARG);
+	pwtest_add(json_float, PWTEST_NOARG);
+	pwtest_add(json_int, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

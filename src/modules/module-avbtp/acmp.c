@@ -118,7 +118,19 @@ static int retry_pending(struct acmp *acmp, uint64_t now, struct pending *p)
 
 static int handle_connect_tx_command(struct acmp *acmp, uint64_t now, const void *m, int len)
 {
-	return reply_not_supported(acmp, m, len);
+	struct server *server = acmp->server;
+	uint8_t buf[len];
+	const struct avbtp_packet_acmp *p = m;
+	struct avbtp_packet_acmp *reply = (struct avbtp_packet_acmp*)buf;
+
+	if (be64toh(p->talker_guid) != server->entity_id)
+		return 0;
+
+	memcpy(reply, m, len);
+	AVBTP_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVBTP_ACMP_MESSAGE_TYPE_CONNECT_TX_RESPONSE);
+	AVBTP_PACKET_ACMP_SET_STATUS(reply, AVBTP_ACMP_STATUS_SUCCESS);
+
+	return avbtp_server_send_packet(server, reply->hdr.eth.dest, reply, len);
 }
 
 static int handle_connect_tx_response(struct acmp *acmp, uint64_t now, const void *m, int len)
@@ -130,6 +142,9 @@ static int handle_connect_tx_response(struct acmp *acmp, uint64_t now, const voi
 	uint16_t sequence_id;
 	int res;
 
+	if (be64toh(resp->listener_guid) != server->entity_id)
+		return 0;
+
 	sequence_id = ntohs(resp->sequence_id);
 
 	pending = pending_find(acmp, PENDING_TALKER, sequence_id);
@@ -137,9 +152,9 @@ static int handle_connect_tx_response(struct acmp *acmp, uint64_t now, const voi
 		return 0;
 
 	reply = pending->ptr;
+	memcpy(reply, resp, SPA_MIN((int)pending->size, len));
 	reply->sequence_id = htons(pending->old_sequence_id);
 	AVBTP_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVBTP_ACMP_MESSAGE_TYPE_CONNECT_RX_RESPONSE);
-	AVBTP_PACKET_ACMP_SET_STATUS(reply, AVBTP_PACKET_ACMP_GET_STATUS(resp));
 
 	res = avbtp_server_send_packet(server, reply->hdr.eth.dest, reply, pending->size);
 
@@ -150,7 +165,19 @@ static int handle_connect_tx_response(struct acmp *acmp, uint64_t now, const voi
 
 static int handle_disconnect_tx_command(struct acmp *acmp, uint64_t now, const void *m, int len)
 {
-	return reply_not_supported(acmp, m, len);
+	struct server *server = acmp->server;
+	uint8_t buf[len];
+	const struct avbtp_packet_acmp *p = m;
+	struct avbtp_packet_acmp *reply = (struct avbtp_packet_acmp*)buf;
+
+	if (be64toh(p->talker_guid) != server->entity_id)
+		return 0;
+
+	memcpy(reply, m, len);
+	AVBTP_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVBTP_ACMP_MESSAGE_TYPE_DISCONNECT_TX_RESPONSE);
+	AVBTP_PACKET_ACMP_SET_STATUS(reply, AVBTP_ACMP_STATUS_SUCCESS);
+
+	return avbtp_server_send_packet(server, reply->hdr.eth.dest, reply, len);
 }
 
 static int handle_disconnect_tx_response(struct acmp *acmp, uint64_t now, const void *m, int len)
@@ -162,6 +189,9 @@ static int handle_disconnect_tx_response(struct acmp *acmp, uint64_t now, const 
 	uint16_t sequence_id;
 	int res;
 
+	if (be64toh(resp->listener_guid) != server->entity_id)
+		return 0;
+
 	sequence_id = ntohs(resp->sequence_id);
 
 	pending = pending_find(acmp, PENDING_TALKER, sequence_id);
@@ -169,9 +199,9 @@ static int handle_disconnect_tx_response(struct acmp *acmp, uint64_t now, const 
 		return 0;
 
 	reply = pending->ptr;
+	memcpy(reply, resp, SPA_MIN((int)pending->size, len));
 	reply->sequence_id = htons(pending->old_sequence_id);
 	AVBTP_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVBTP_ACMP_MESSAGE_TYPE_DISCONNECT_RX_RESPONSE);
-	AVBTP_PACKET_ACMP_SET_STATUS(reply, AVBTP_PACKET_ACMP_GET_STATUS(resp));
 
 	res = avbtp_server_send_packet(server, reply->hdr.eth.dest, reply, pending->size);
 
@@ -183,7 +213,11 @@ static int handle_disconnect_tx_response(struct acmp *acmp, uint64_t now, const 
 static int handle_connect_rx_command(struct acmp *acmp, uint64_t now, const void *m, int len)
 {
 	struct server *server = acmp->server;
+	const struct avbtp_packet_acmp *p = m;
 	struct avbtp_packet_acmp *cmd;
+
+	if (be64toh(p->listener_guid) != server->entity_id)
+		return 0;
 
 	cmd = pending_new(acmp, PENDING_TALKER, now,
 			AVBTP_ACMP_TIMEOUT_CONNECT_TX_COMMAND_MS, m, len);
@@ -196,15 +230,19 @@ static int handle_connect_rx_command(struct acmp *acmp, uint64_t now, const void
 	return avbtp_server_send_packet(server, cmd->hdr.eth.dest, cmd, len);
 }
 
-static int handle_connect_rx_response(struct acmp *acmp, uint64_t now, const void *p, int len)
+static int handle_connect_rx_response(struct acmp *acmp, uint64_t now, const void *m, int len)
 {
-	return reply_not_supported(acmp, p, len);
+	return 0;
 }
 
 static int handle_disconnect_rx_command(struct acmp *acmp, uint64_t now, const void *m, int len)
 {
 	struct server *server = acmp->server;
+	const struct avbtp_packet_acmp *p = m;
 	struct avbtp_packet_acmp *cmd;
+
+	if (be64toh(p->listener_guid) != server->entity_id)
+		return 0;
 
 	cmd = pending_new(acmp, PENDING_TALKER, now,
 			AVBTP_ACMP_TIMEOUT_DISCONNECT_TX_COMMAND_MS, m, len);
@@ -219,7 +257,7 @@ static int handle_disconnect_rx_command(struct acmp *acmp, uint64_t now, const v
 
 static int handle_disconnect_rx_response(struct acmp *acmp, uint64_t now, const void *p, int len)
 {
-	return reply_not_supported(acmp, p, len);
+	return 0;
 }
 
 static const struct msg_info msg_info[] = {

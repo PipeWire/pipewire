@@ -235,7 +235,7 @@ static int do_extension_stream_restore_write(struct client *client, uint32_t com
 		FILE *f;
 		char *ptr;
 		size_t size;
-		char key[1024];
+		char key[1024], buf[128];
 
 		spa_zero(map);
 		spa_zero(vol);
@@ -260,7 +260,8 @@ static int do_extension_stream_restore_write(struct client *client, uint32_t com
 		if (vol.channels > 0) {
 			fprintf(f, ", \"volumes\": [");
 			for (i = 0; i < vol.channels; i++)
-				fprintf(f, "%s%f", (i == 0 ? " ":", "), vol.values[i]);
+				fprintf(f, "%s%s", (i == 0 ? " ":", "),
+						spa_json_format_float(buf, sizeof(buf), vol.values[i]));
 			fprintf(f, " ]");
 		}
 		if (map.channels > 0) {

@@ -258,14 +258,17 @@ static inline int spa_json_get_float(struct spa_json *iter, float *res)
 	return spa_json_parse_float(value, len, res);
 }
 
-static inline char *spa_json_format_double(char *str, int size, const double val)
+static inline char *spa_json_format_float(char *str, int size, float val)
 {
-	int i, l;
-	l = snprintf(str, size, "%f", val);
-	for (i = 0; i < l; i++)
-		if (str[i] == ',')
-			str[i] = '.';
-	return str;
+	if (SPA_UNLIKELY(!isnormal(val))) {
+		if (val == INFINITY)
+			val = FLT_MAX;
+		else if (val == -INFINITY)
+			val = FLT_MIN;
+		else
+			val = 0.0f;
+	}
+	return spa_dtoa(str, size, val);
 }
 
 /* int */

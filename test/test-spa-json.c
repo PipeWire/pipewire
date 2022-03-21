@@ -247,6 +247,7 @@ PWTEST(json_float)
 	};
 	float v;
 	unsigned i;
+	char buf1[128], buf2[128], *b1 = buf1, *b2 = buf2;
 
 	pwtest_int_eq(spa_json_parse_float("", 0, &v), 0);
 
@@ -260,6 +261,17 @@ PWTEST(json_float)
 		pwtest_int_gt(spa_json_parse_float(val[i].str, strlen(val[i].str), &v), 0);
 		pwtest_double_eq(v, val[i].val);
 	}
+	pwtest_ptr_eq(spa_json_format_float(buf1, sizeof(buf1), 0.0f), b1);
+	pwtest_str_eq(buf1, "0.000000");
+	pwtest_ptr_eq(spa_json_format_float(buf1, sizeof(buf1), NAN), b1);
+	pwtest_str_eq(buf1, "0.000000");
+	pwtest_ptr_eq(spa_json_format_float(buf1, sizeof(buf1), INFINITY), b1);
+	pwtest_ptr_eq(spa_json_format_float(buf2, sizeof(buf2), FLT_MAX), b2);
+	pwtest_str_eq(buf1, buf2);
+	pwtest_ptr_eq(spa_json_format_float(buf1, sizeof(buf1), -INFINITY), b1);
+	pwtest_ptr_eq(spa_json_format_float(buf2, sizeof(buf2), FLT_MIN), b2);
+	pwtest_str_eq(buf1, buf2);
+
 	return PWTEST_PASS;
 }
 

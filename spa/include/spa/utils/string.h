@@ -354,6 +354,16 @@ static inline bool spa_atod(const char *str, double *val)
 	return true;
 }
 
+static inline char *spa_dtoa(char *str, size_t size, double val)
+{
+	int i, l;
+	l = spa_scnprintf(str, size, "%f", val);
+	for (i = 0; i < l; i++)
+		if (str[i] == ',')
+			str[i] = '.';
+	return str;
+}
+
 /**
  * \}
  */

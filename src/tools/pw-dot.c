@@ -25,9 +25,15 @@
 #include <stdio.h>
 #include <signal.h>
 #include <getopt.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
+#include <spa/utils/json.h>
 #include <spa/debug/pod.h>
 #include <spa/debug/format.h>
 #include <spa/debug/types.h>
@@ -77,7 +83,6 @@ struct global {
 #define INTERFACE_Module	5
 #define INTERFACE_Factory	6
 	uint32_t type;
-	struct pw_properties *props;
 	void *info;
 
 	pw_destroy_t info_destroy;
@@ -152,9 +157,8 @@ static void draw_dict(char **str, const char *title,
 	}
 }
 
-static SPA_PRINTF_FUNC(7,0) void draw_vlabel(char **str, const char *name, uint32_t id, bool detail,
-		       const struct spa_dict *info_p, const struct spa_dict *p,
-		       const char *fmt, va_list varargs)
+static SPA_PRINTF_FUNC(6,0) void draw_vlabel(char **str, const char *name, uint32_t id, bool detail,
+		       const struct spa_dict *props, const char *fmt, va_list varargs)
 {
 	/* draw the label header */
 	dot_str_add(str, "%s_%u [label=\"", name, id);
@@ -162,22 +166,19 @@ static SPA_PRINTF_FUNC(7,0) void draw_vlabel(char **str, const char *name, uint3
 	/* draw the label body */
 	dot_str_vadd(str, fmt, varargs);
 
-	if (detail) {
-		draw_dict(str, "info_props", info_p);
-		draw_dict(str, "properties", p);
-	}
+	if (detail)
+		draw_dict(str, "properties", props);
 
 	/*draw the label footer */
 	dot_str_add(str, "%s", "\"];\n");
 }
 
-static SPA_PRINTF_FUNC(7,8) void draw_label(char **str, const char *name, uint32_t id, bool detail,
-		       const struct spa_dict *info_p, const struct spa_dict *p,
-		       const char *fmt, ...)
+static SPA_PRINTF_FUNC(6,7) void draw_label(char **str, const char *name, uint32_t id, bool detail,
+		       const struct spa_dict *props, const char *fmt, ...)
 {
 	va_list varargs;
 	va_start(varargs, fmt);
-	draw_vlabel(str, name, id, detail, info_p, p, fmt, varargs);
+	draw_vlabel(str, name, id, detail, props, fmt, varargs);
 	va_end(varargs);
 }
 
@@ -199,7 +200,7 @@ static void draw_port(struct global *g)
 
 	/* draw the label */
 	draw_label(dot_str,
-		"port", g->id, g->data->show_detail, info->props, &g->props->dict,
+		"port", g->id, g->data->show_detail, info->props,
 		"port_id: %u\\lname: %s\\ldirection: %s\\l",
 		g->id,
 		spa_dict_lookup(info->props, PW_KEY_PORT_NAME),
@@ -237,10 +238,9 @@ static void draw_node(struct global *g)
 		g->id,
 		spa_dict_lookup(info->props, PW_KEY_NODE_NAME),
 		spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS));
-	if (g->data->show_detail) {
-		draw_dict(dot_str, "info_props", info->props);
-		draw_dict(dot_str, "properties", &g->props->dict);
-	}
+
+	if (g->data->show_detail)
+		draw_dict(dot_str, "properties", info->props);
 
 	/*draw the label footer */
 	dot_str_add(dot_str, "%s", "\"\n");
@@ -249,11 +249,13 @@ static void draw_node(struct global *g)
 	struct global *p;
 	const char *prop_node_id;
 	spa_list_for_each(p, &g->data->globals, link) {
+		struct pw_port_info *pinfo;
 		if (p->info == NULL)
 			continue;
 		if (p->type != INTERFACE_Port)
 			continue;
-		prop_node_id = pw_properties_get(p->props, PW_KEY_NODE_ID);
+		pinfo = p->info;
+		prop_node_id = spa_dict_lookup(pinfo->props, PW_KEY_NODE_ID);
 		if (!prop_node_id || (uint32_t)atoi(prop_node_id) != g->id)
 			continue;
 		if (p->draw)
@@ -290,7 +292,7 @@ static void draw_link(struct global *g)
 
 	/* draw the label */
 	draw_label(dot_str,
-		"link", g->id, g->data->show_detail, info->props, &g->props->dict,
+		"link", g->id, g->data->show_detail, info->props,
 		"link_id: %u\\loutput_node_id: %u\\linput_node_id: %u\\loutput_port_id: %u\\linput_port_id: %u\\lstate: %s\\l",
 		g->id,
 		info->output_node_id,
@@ -318,7 +320,7 @@ static void draw_client(struct global *g)
 
 	/* draw the label */
 	draw_label(dot_str,
-		"client", g->id, g->data->show_detail, info->props, &g->props->dict,
+		"client", g->id, g->data->show_detail, info->props,
 		"client_id: %u\\lname: %s\\lpid: %s\\l",
 		g->id,
 		spa_dict_lookup(info->props, PW_KEY_APP_NAME),
@@ -345,7 +347,7 @@ static void draw_device(struct global *g)
 
 	/* draw the label */
 	draw_label(dot_str,
-		"device", g->id, g->data->show_detail, info->props, &g->props->dict,
+		"device", g->id, g->data->show_detail, info->props,
 		"device_id: %u\\lname: %s\\lmedia_class: %s\\lapi: %s\\lpath: %s\\l",
 		g->id,
 		spa_dict_lookup(info->props, PW_KEY_DEVICE_NAME),
@@ -376,7 +378,7 @@ static void draw_factory(struct global *g)
 
 	/* draw the label */
 	draw_label(dot_str,
-		"factory", g->id, g->data->show_detail, info->props, &g->props->dict,
+		"factory", g->id, g->data->show_detail, info->props,
 		"factory_id: %u\\lname: %s\\lmodule_id: %u\\l",
 		g->id, info->name, module_id
 	);
@@ -399,7 +401,7 @@ static void draw_module(struct global *g)
 
 	/* draw the label */
 	draw_label(dot_str,
-		"module", g->id, g->data->show_detail, info->props, &g->props->dict,
+		"module", g->id, g->data->show_detail, info->props,
 		"module_id: %u\\lname: %s\\l",
 		g->id, info->name
 	);
@@ -611,9 +613,6 @@ static void destroy_proxy(void *user_data)
 	struct global *g = user_data;
 	spa_hook_remove(&g->object_listener);
 	spa_hook_remove(&g->proxy_listener);
-	pw_properties_free(g->props);
-	if (g->info)
-		g->info_destroy(g->info);
 }
 
 static const struct pw_proxy_events proxy_events = {
@@ -701,20 +700,17 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		return;
 	}
 
-        proxy = pw_registry_bind(d->registry, id, type,
-				       client_version,
-				       sizeof(struct global));
+	proxy = pw_registry_bind(d->registry, id, type, client_version, 0);
 	if (proxy == NULL)
 		return;
 
 	/* set the global data */
-	g = pw_proxy_get_user_data(proxy);
+	g = calloc(1, sizeof(struct global));
 	g->data = d;
 	g->proxy = proxy;
 
 	g->id = id;
 	g->type = object_type;
-	g->props = props ? pw_properties_new_dict(props) : NULL;
 	g->info = NULL;
 
 	g->info_destroy = info_destroy;
@@ -762,6 +758,300 @@ static void do_quit(void *data, int signal_number)
 	pw_main_loop_quit(d->loop);
 }
 
+static int get_data_from_pipewire(struct data *data, const char *opt_remote)
+{
+	struct pw_loop *l;
+	struct global *g;
+
+	data->loop = pw_main_loop_new(NULL);
+	if (data->loop == NULL) {
+		fprintf(stderr, "can't create main loop: %m\n");
+		return -1;
+	}
+
+	l = pw_main_loop_get_loop(data->loop);
+	pw_loop_add_signal(l, SIGINT, do_quit, &data);
+	pw_loop_add_signal(l, SIGTERM, do_quit, &data);
+
+	data->context = pw_context_new(l, NULL, 0);
+	if (data->context == NULL) {
+		fprintf(stderr, "can't create context: %m\n");
+		pw_main_loop_destroy(data->loop);
+		return -1;
+	}
+
+	data->core = pw_context_connect(data->context,
+			pw_properties_new(
+				PW_KEY_REMOTE_NAME, opt_remote,
+				NULL),
+			0);
+	if (data->core == NULL) {
+		fprintf(stderr, "can't connect: %m\n");
+		pw_context_destroy(data->context);
+		pw_main_loop_destroy(data->loop);
+		return -1;
+	}
+
+	pw_core_add_listener(data->core,
+			     &data->core_listener,
+			     &core_events, data);
+
+	data->registry = pw_core_get_registry(data->core,
+					      PW_VERSION_REGISTRY, 0);
+	pw_registry_add_listener(data->registry,
+				 &data->registry_listener,
+				 &registry_events, data);
+
+	pw_main_loop_run(data->loop);
+
+	spa_hook_remove(&data->registry_listener);
+	pw_proxy_destroy((struct pw_proxy*)data->registry);
+	spa_list_for_each(g, &data->globals, link)
+		pw_proxy_destroy(g->proxy);
+	spa_hook_remove(&data->core_listener);
+	pw_context_destroy(data->context);
+	pw_main_loop_destroy(data->loop);
+
+	return 0;
+}
+
+static void handle_json_obj(struct data *data, struct pw_properties *obj)
+{
+	struct global *g;
+	struct pw_properties *info, *props;
+	const char *str;
+
+	str = pw_properties_get(obj, "type");
+	if (!str) {
+		fprintf(stderr, "invalid object without type\n");
+		return;
+	}
+
+	g = calloc(1, sizeof (struct global));
+	g->data = data;
+
+	if (spa_streq(str, PW_TYPE_INTERFACE_Port)) {
+		g->info_destroy = (pw_destroy_t)pw_port_info_free;
+		g->draw = draw_port;
+		g->type = INTERFACE_Port;
+	}
+	else if (spa_streq(str, PW_TYPE_INTERFACE_Node)) {
+		g->info_destroy = (pw_destroy_t)pw_node_info_free;
+		g->draw = draw_node;
+		g->type = INTERFACE_Node;
+	}
+	else if (spa_streq(str, PW_TYPE_INTERFACE_Link)) {
+		g->info_destroy = (pw_destroy_t)pw_link_info_free;
+		g->draw = draw_link;
+		g->type = INTERFACE_Link;
+	}
+	else if (spa_streq(str, PW_TYPE_INTERFACE_Client)) {
+		g->info_destroy = (pw_destroy_t)pw_client_info_free;
+		g->draw = draw_client;
+		g->type = INTERFACE_Client;
+	}
+	else if (spa_streq(str, PW_TYPE_INTERFACE_Device)) {
+		g->info_destroy = (pw_destroy_t)pw_device_info_free;
+		g->draw = draw_device;
+		g->type = INTERFACE_Device;
+	}
+	else if (spa_streq(str, PW_TYPE_INTERFACE_Factory)) {
+		g->info_destroy = (pw_destroy_t)pw_factory_info_free;
+		g->draw = draw_factory;
+		g->type = INTERFACE_Factory;
+	}
+	else if (spa_streq(str, PW_TYPE_INTERFACE_Module)) {
+		g->info_destroy = (pw_destroy_t)pw_module_info_free;
+		g->draw = draw_module;
+		g->type = INTERFACE_Module;
+	}
+	else {
+		free(g);
+		return;
+	}
+
+	g->id = pw_properties_get_uint32(obj, "id", 0);
+
+	str = pw_properties_get(obj, "info");
+	info = pw_properties_new_string(str);
+
+	str = pw_properties_get(info, "props");
+	props = str ? pw_properties_new_string(str) : NULL;
+
+	switch (g->type) {
+		case INTERFACE_Port: {
+			struct pw_port_info pinfo = {0};
+			pinfo.id = g->id;
+			str = pw_properties_get(info, "direction");
+			pinfo.direction = spa_streq(str, "output") ?
+				PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
+			pinfo.props = props ? &props->dict : NULL;
+			pinfo.change_mask = PW_PORT_CHANGE_MASK_PROPS;
+			g->info = pw_port_info_update(NULL, &pinfo);
+			break;
+		}
+		case INTERFACE_Node: {
+			struct pw_node_info ninfo = {0};
+			ninfo.id = g->id;
+			ninfo.max_input_ports =
+				pw_properties_get_uint32(info, "max-input-ports", 0);
+			ninfo.max_output_ports =
+				pw_properties_get_uint32(info, "max-output-ports", 0);
+			ninfo.n_input_ports =
+				pw_properties_get_uint32(info, "n-input-ports", 0);
+			ninfo.n_output_ports =
+				pw_properties_get_uint32(info, "n-output-ports", 0);
+
+			str = pw_properties_get(info, "state");
+			if (spa_streq(str, "running"))
+				ninfo.state = PW_NODE_STATE_RUNNING;
+			else if (spa_streq(str, "idle"))
+				ninfo.state = PW_NODE_STATE_IDLE;
+			else if (spa_streq(str, "suspended"))
+				ninfo.state = PW_NODE_STATE_SUSPENDED;
+			else if (spa_streq(str, "creating"))
+				ninfo.state = PW_NODE_STATE_CREATING;
+			else
+				ninfo.state = PW_NODE_STATE_ERROR;
+			ninfo.error = pw_properties_get(info, "error");
+
+			ninfo.props = props ? &props->dict : NULL;
+			ninfo.change_mask = PW_NODE_CHANGE_MASK_INPUT_PORTS |
+					    PW_NODE_CHANGE_MASK_OUTPUT_PORTS |
+					    PW_NODE_CHANGE_MASK_STATE |
+					    PW_NODE_CHANGE_MASK_PROPS;
+			g->info = pw_node_info_update(NULL, &ninfo);
+			break;
+		}
+		case INTERFACE_Link: {
+			struct pw_link_info linfo = {0};
+			linfo.id = g->id;
+			linfo.output_node_id =
+				pw_properties_get_uint32(info, "output-node-id", 0);
+			linfo.output_port_id =
+				pw_properties_get_uint32(info, "output-port-id", 0);
+			linfo.input_node_id =
+				pw_properties_get_uint32(info, "input-node-id", 0);
+			linfo.input_port_id =
+				pw_properties_get_uint32(info, "input-port-id", 0);
+
+			str = pw_properties_get(info, "state");
+			if (spa_streq(str, "active"))
+				linfo.state = PW_LINK_STATE_ACTIVE;
+			else if (spa_streq(str, "paused"))
+				linfo.state = PW_LINK_STATE_PAUSED;
+			else if (spa_streq(str, "allocating"))
+				linfo.state = PW_LINK_STATE_ALLOCATING;
+			else if (spa_streq(str, "negotiating"))
+				linfo.state = PW_LINK_STATE_NEGOTIATING;
+			else if (spa_streq(str, "init"))
+				linfo.state = PW_LINK_STATE_INIT;
+			else if (spa_streq(str, "unlinked"))
+				linfo.state = PW_LINK_STATE_UNLINKED;
+			else
+				linfo.state = PW_LINK_STATE_ERROR;
+			linfo.error = pw_properties_get(info, "error");
+
+			linfo.props = props ? &props->dict : NULL;
+			linfo.change_mask = PW_LINK_CHANGE_MASK_STATE |
+					    PW_LINK_CHANGE_MASK_PROPS;
+			g->info = pw_link_info_update(NULL, &linfo);
+			break;
+		}
+		case INTERFACE_Client: {
+			struct pw_client_info cinfo = {0};
+			cinfo.id = g->id;
+			cinfo.props = props ? &props->dict : NULL;
+			cinfo.change_mask = PW_CLIENT_CHANGE_MASK_PROPS;
+			g->info = pw_client_info_update(NULL, &cinfo);
+			break;
+		}
+		case INTERFACE_Device: {
+			struct pw_device_info dinfo = {0};
+			dinfo.id = g->id;
+			dinfo.props = props ? &props->dict : NULL;
+			dinfo.change_mask = PW_DEVICE_CHANGE_MASK_PROPS;
+			g->info = pw_device_info_update(NULL, &dinfo);
+			break;
+		}
+		case INTERFACE_Factory: {
+			struct pw_factory_info finfo = {0};
+			finfo.id = g->id;
+			finfo.name = pw_properties_get(info, "name");
+			finfo.type = pw_properties_get(info, "type");
+			finfo.version = pw_properties_get_uint32(info, "version", 0);
+			finfo.props = props ? &props->dict : NULL;
+			finfo.change_mask = PW_FACTORY_CHANGE_MASK_PROPS;
+			g->info = pw_factory_info_update(NULL, &finfo);
+			break;
+		}
+		case INTERFACE_Module: {
+			struct pw_module_info minfo = {0};
+			minfo.id = g->id;
+			minfo.name = pw_properties_get(info, "name");
+			minfo.filename = pw_properties_get(info, "filename");
+			minfo.args = pw_properties_get(info, "args");
+			minfo.props = props ? &props->dict : NULL;
+			minfo.change_mask = PW_MODULE_CHANGE_MASK_PROPS;
+			g->info = pw_module_info_update(NULL, &minfo);
+			break;
+		}
+		default:
+			break;
+	}
+
+	pw_properties_free(info);
+	pw_properties_free(props);
+
+	/* add the global to the list */
+	spa_list_insert(&data->globals, &g->link);
+}
+
+static int get_data_from_json(struct data *data, const char *json_path)
+{
+	int fd, len;
+	void *json;
+	struct stat sbuf;
+	struct spa_json it[2];
+	const char *value;
+
+	if ((fd = open(json_path,  O_CLOEXEC | O_RDONLY)) < 0) {
+		fprintf(stderr, "error opening file '%s': %m\n", json_path);
+		return -1;
+	}
+	if (fstat(fd, &sbuf) < 0) {
+		fprintf(stderr, "error statting file '%s': %m\n", json_path);
+		close(fd);
+		return -1;
+	}
+	if ((json = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
+		fprintf(stderr, "error mmapping file '%s': %m\n", json_path);
+		close(fd);
+		return -1;
+	}
+
+	close(fd);
+	spa_json_init(&it[0], json, sbuf.st_size);
+
+	if (spa_json_enter_array(&it[0], &it[1]) <= 0) {
+		fprintf(stderr, "expected top-level array in JSON file '%s'\n", json_path);
+		munmap(json, sbuf.st_size);
+		return -1;
+	}
+
+	while ((len = spa_json_next(&it[1], &value)) > 0 && spa_json_is_object(value, len)) {
+		struct pw_properties *obj;
+		obj = pw_properties_new(NULL, NULL);
+		len = spa_json_container_len(&it[1], value, len);
+		pw_properties_update_string(obj, value, len);
+		handle_json_obj(data, obj);
+		pw_properties_free(obj);
+	}
+
+	munmap(json, sbuf.st_size);
+	return 0;
+}
+
 static void show_help(const char *name, bool error)
 {
         fprintf(error ? stderr : stdout, "%s [options]\n"
@@ -773,7 +1063,8 @@ static void show_help(const char *name, bool error)
 		"  -r, --remote                          Remote daemon name\n"
 		"  -o, --output                          Output file (Default %s)\n"
 		"  -L, --lr                              Use left-right rank direction\n"
-		"  -9, --90                              Use orthogonal edges\n",
+		"  -9, --90                              Use orthogonal edges\n"
+		"  -j, --json                            Read objects from pw-dump JSON file\n",
 		name,
 		DEFAULT_DOT_PATH);
 }
@@ -781,9 +1072,10 @@ static void show_help(const char *name, bool error)
 int main(int argc, char *argv[])
 {
 	struct data data = { 0 };
-	struct pw_loop *l;
+	struct global *g;
 	const char *opt_remote = NULL;
 	const char *dot_path = DEFAULT_DOT_PATH;
+	const char *json_path = NULL;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
@@ -794,13 +1086,14 @@ int main(int argc, char *argv[])
 		{ "output",	required_argument,	NULL, 'o' },
 		{ "lr",		no_argument,		NULL, 'L' },
 		{ "90",		no_argument,		NULL, '9' },
+		{ "json",	required_argument,	NULL, 'j' },
 		{ NULL, 0, NULL, 0}
 	};
 	int c;
 
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hVasdr:o:L9", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVasdr:o:L9j:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h' :
 			show_help(argv[0], false);
@@ -841,63 +1134,35 @@ int main(int argc, char *argv[])
 			data.dot_orthoedges = true;
 			fprintf(stderr, "orthogonal edges enabled\n");
 			break;
+		case 'j' :
+			json_path = optarg;
+			fprintf(stderr, "Using JSON file %s as input\n", json_path);
+			break;
 		default:
 			show_help(argv[0], true);
 			return -1;
 		}
 	}
 
-	data.loop = pw_main_loop_new(NULL);
-	if (data.loop == NULL) {
-		fprintf(stderr, "can't create main loop: %m\n");
-		return -1;
-	}
-
-	l = pw_main_loop_get_loop(data.loop);
-	pw_loop_add_signal(l, SIGINT, do_quit, &data);
-	pw_loop_add_signal(l, SIGTERM, do_quit, &data);
-
-	data.context = pw_context_new(l, NULL, 0);
-	if (data.context == NULL) {
-		fprintf(stderr, "can't create context: %m\n");
-		return -1;
-	}
-
-	data.core = pw_context_connect(data.context,
-			pw_properties_new(
-				PW_KEY_REMOTE_NAME, opt_remote,
-				NULL),
-			0);
-	if (data.core == NULL) {
-		fprintf(stderr, "can't connect: %m\n");
-		return -1;
-	}
-
-	data.dot_str = dot_str_new();
-	if (data.dot_str == NULL)
+	if (!(data.dot_str = dot_str_new()))
 		return -1;
 
 	spa_list_init(&data.globals);
 
-	pw_core_add_listener(data.core,
-				   &data.core_listener,
-				   &core_events, &data);
-	data.registry = pw_core_get_registry(data.core,
-					  PW_VERSION_REGISTRY, 0);
-	pw_registry_add_listener(data.registry,
-				       &data.registry_listener,
-				       &registry_events, &data);
-
-	pw_main_loop_run(data.loop);
+	if (!json_path && get_data_from_pipewire(&data, opt_remote) < 0)
+		return -1;
+	else if (json_path && get_data_from_json(&data, json_path) < 0)
+		return -1;
 
 	draw_graph(&data, dot_path);
 
 	dot_str_clear(&data.dot_str);
-	spa_hook_remove(&data.registry_listener);
-	pw_proxy_destroy((struct pw_proxy*)data.registry);
-	spa_hook_remove(&data.core_listener);
-	pw_context_destroy(data.context);
-	pw_main_loop_destroy(data.loop);
+	spa_list_consume(g, &data.globals, link) {
+		if (g->info && g->info_destroy)
+			g->info_destroy(g->info);
+		spa_list_remove(&g->link);
+		free(g);
+	}
 	pw_deinit();
 
 	return 0;

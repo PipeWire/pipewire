@@ -69,7 +69,7 @@ spa_debug_format_value(const struct spa_type_info *info,
 		spa_debugn("%f", *(float *) body);
 		break;
 	case SPA_TYPE_Double:
-		spa_debugn("%g", *(double *) body);
+		spa_debugn("%f", *(double *) body);
 		break;
 	case SPA_TYPE_String:
 		spa_debugn("%s", (char *) body);

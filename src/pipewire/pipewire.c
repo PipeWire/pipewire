@@ -415,9 +415,6 @@ static void init_i18n(struct support *support)
 {
 	/* Load locale from the environment. */
 	setlocale(LC_ALL, "");
-	/* Set LC_NUMERIC to C so that floating point strings are consistently
-	 * formatted and parsed across locales. */
-	setlocale(LC_NUMERIC, "C");
 	bindtextdomain(GETTEXT_PACKAGE, LOCALEDIR);
 	bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
 	pw_set_domain(GETTEXT_PACKAGE);

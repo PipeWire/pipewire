@@ -151,7 +151,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return 1;
 }
 
-const struct spa_handle_factory spa_aec_exaudio_factory = {
+const struct spa_handle_factory spa_aec_null_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	SPA_NAME_AEC,
 	NULL,
@@ -169,7 +169,7 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 
 	switch (*index) {
 	case 0:
-		*factory = &spa_aec_exaudio_factory;
+		*factory = &spa_aec_null_factory;
 		break;
 	default:
 		return 0;

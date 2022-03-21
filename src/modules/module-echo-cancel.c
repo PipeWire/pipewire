@@ -71,7 +71,7 @@
  * - `source.props = {}`: properties to be passed to the source stream
  * - `sink.props = {}`: properties to be passed to the sink stream
  * - `library.name = <str>`: the echo cancellation library  Currently supported:
- * `aec/libspa-aec-exaudio`. Leave unset to use the default method (`aec/libspa-aec-exaudio`).
+ * `aec/libspa-aec-webrtc`. Leave unset to use the default method (`aec/libspa-aec-webrtc`).
  * - `aec.args = <str>`: arguments to pass to the echo cancellation method
  *
  * ## General options
@@ -96,7 +96,7 @@
  * context.modules = [
  *  {   name = libpipewire-module-echo-cancel
  *      args = {
- *          # library.name  = aec/libspa-aec-exaudio
+ *          # library.name  = aec/libspa-aec-webrtc
  *          # node.latency = 1024/48000
  *          source.props = {
  *             node.name = "Echo Cancellation Source"

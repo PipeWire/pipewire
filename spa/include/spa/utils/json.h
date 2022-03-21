@@ -34,9 +34,11 @@ extern "C" {
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <locale.h>
+#include <math.h>
+#include <float.h>
 
 #include <spa/utils/defs.h>
+#include <spa/utils/string.h>
 
 /** \defgroup spa_json JSON
  * Relaxed JSON variant parsing
@@ -238,13 +240,7 @@ static inline bool spa_json_is_null(const char *val, int len)
 static inline int spa_json_parse_float(const char *val, int len, float *result)
 {
 	char *end;
-	static locale_t locale = NULL;
-	if (SPA_UNLIKELY(locale == NULL))
-		locale = newlocale(LC_ALL_MASK, "C", NULL);
-	if (locale != NULL)
-		*result = strtof_l(val, &end, locale);
-	else
-		*result = strtof(val, &end);
+	*result = spa_strtof(val, &end);
 	return len > 0 && end == val + len;
 }
 

@@ -32,6 +32,8 @@ extern "C" {
 #include <stdarg.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <stdlib.h>
+#include <locale.h>
 
 #include <spa/utils/defs.h>
 
@@ -264,6 +266,27 @@ static inline int spa_scnprintf(char *buffer, size_t size, const char *format, .
 }
 
 /**
+ * Convert \a str to a float in the C locale.
+ *
+ * If \a endptr is not NULL, a pointer to the character after the last character
+ * used in the conversion is stored in the location referenced by endptr.
+ *
+ * \return the result float.
+ */
+static inline float spa_strtof(const char *str, char **endptr)
+{
+	static locale_t locale = NULL;
+	float v;
+	if (SPA_UNLIKELY(locale == NULL))
+		locale = newlocale(LC_ALL_MASK, "C", NULL);
+	if (locale != NULL)
+		v = strtof_l(str, endptr, locale);
+	else
+		v = strtof(str, endptr);
+	return v;
+}
+
+/**
  * Convert \a str to a float and store the result in \a val.
  *
  * On failure, the value of \a val is unmodified.
@@ -277,14 +300,34 @@ static inline bool spa_atof(const char *str, float *val)
 
 	if (!str || *str =='\0')
 		return false;
-
 	errno = 0;
-	v = strtof(str, &endptr);
+	v = spa_strtof(str, &endptr);
 	if (errno != 0 || *endptr != '\0')
 		return false;
 
 	*val = v;
 	return true;
+}
+
+/**
+ * Convert \a str to a double in the C locale.
+ *
+ * If \a endptr is not NULL, a pointer to the character after the last character
+ * used in the conversion is stored in the location referenced by endptr.
+ *
+ * \return the result float.
+ */
+static inline double spa_strtod(const char *str, char **endptr)
+{
+	static locale_t locale = NULL;
+	double v;
+	if (SPA_UNLIKELY(locale == NULL))
+		locale = newlocale(LC_ALL_MASK, "C", NULL);
+	if (locale != NULL)
+		v = strtod_l(str, endptr, locale);
+	else
+		v = strtod(str, endptr);
+	return v;
 }
 
 /**
@@ -303,7 +346,7 @@ static inline bool spa_atod(const char *str, double *val)
 		return false;
 
 	errno = 0;
-	v = strtod(str, &endptr);
+	v = spa_strtod(str, &endptr);
 	if (errno != 0 || *endptr != '\0')
 		return false;
 

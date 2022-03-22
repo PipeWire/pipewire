@@ -29,6 +29,7 @@
 #include <getopt.h>
 #include <limits.h>
 #include <math.h>
+#include <locale.h>
 
 #include <spa/utils/result.h>
 #include <spa/pod/builder.h>
@@ -124,6 +125,7 @@ int main(int argc, char *argv[])
 	};
 	int c, res = -1;
 
+	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
 	data.channels = DEFAULT_CHANNELS;

@@ -26,6 +26,7 @@
 #include <signal.h>
 #include <math.h>
 #include <getopt.h>
+#include <locale.h>
 
 #include <spa/utils/result.h>
 #include <spa/utils/defs.h>
@@ -195,6 +196,7 @@ int main(int argc, char *argv[])
 		{ NULL,	0, NULL, 0}
 	};
 
+	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
 	setlinebuf(stdout);

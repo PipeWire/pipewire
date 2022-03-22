@@ -31,6 +31,7 @@
 #include <limits.h>
 #include <math.h>
 #include <fnmatch.h>
+#include <locale.h>
 
 #if !defined(FNM_EXTMATCH)
 #define FNM_EXTMATCH 0
@@ -1489,6 +1490,7 @@ int main(int argc, char *argv[])
 	};
 	int c;
 
+	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
 	data.out = stdout;

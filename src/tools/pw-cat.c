@@ -34,6 +34,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include <ctype.h>
+#include <locale.h>
 
 #include <sndfile.h>
 
@@ -1489,6 +1490,7 @@ int main(int argc, char *argv[])
 	int exit_code = EXIT_FAILURE, c, ret;
 	enum pw_stream_flags flags = 0;
 
+	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
 	flags |= PW_STREAM_FLAG_AUTOCONNECT;

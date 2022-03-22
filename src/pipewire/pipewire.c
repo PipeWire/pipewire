@@ -413,8 +413,9 @@ static const char *i18n_ntext(void *object, const char *msgid, const char *msgid
 
 static void init_i18n(struct support *support)
 {
-	/* Load locale from the environment. */
-	setlocale(LC_ALL, "");
+	/* XXX: we should remove this setlocale() call, after wireplumber
+	 * XXX: starts setting the locale */
+	setlocale(LC_MESSAGES, "");
 	bindtextdomain(GETTEXT_PACKAGE, LOCALEDIR);
 	bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
 	pw_set_domain(GETTEXT_PACKAGE);

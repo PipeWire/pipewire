@@ -35,6 +35,7 @@
 #include <fnmatch.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <locale.h>
 
 #if !defined(FNM_EXTMATCH)
 #define FNM_EXTMATCH 0
@@ -3076,6 +3077,7 @@ int main(int argc, char *argv[])
 
 	setlinebuf(stdout);
 
+	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
 	while ((c = getopt_long(argc, argv, "hVdr:", long_options, NULL)) != -1) {

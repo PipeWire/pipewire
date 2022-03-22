@@ -27,6 +27,7 @@
 #include <math.h>
 #include <getopt.h>
 #include <regex.h>
+#include <locale.h>
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
@@ -599,6 +600,7 @@ int main(int argc, char *argv[])
 		{ NULL,	0, NULL, 0}
 	};
 
+	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 	spa_list_init(&data.objects);
 

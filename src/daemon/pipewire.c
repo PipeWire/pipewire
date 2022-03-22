@@ -26,6 +26,7 @@
 #include <signal.h>
 #include <getopt.h>
 #include <libgen.h>
+#include <locale.h>
 
 #include <spa/utils/result.h>
 #include <pipewire/pipewire.h>
@@ -74,6 +75,7 @@ int main(int argc, char *argv[])
 	snprintf(path, sizeof(path), "%s.conf", argv[0]);
 	config_name = basename(path);
 
+	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
 	while ((c = getopt_long(argc, argv, "hVc:v", long_options, NULL)) != -1) {

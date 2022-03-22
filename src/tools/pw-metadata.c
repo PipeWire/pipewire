@@ -26,6 +26,7 @@
 #include <signal.h>
 #include <math.h>
 #include <getopt.h>
+#include <locale.h>
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
@@ -198,6 +199,7 @@ int main(int argc, char *argv[])
 
 	setlinebuf(stdout);
 
+	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
 	data.opt_name = "default";

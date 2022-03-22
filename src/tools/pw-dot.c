@@ -30,6 +30,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <locale.h>
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
@@ -1091,6 +1092,7 @@ int main(int argc, char *argv[])
 	};
 	int c;
 
+	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
 	while ((c = getopt_long(argc, argv, "hVasdr:o:L9j:", long_options, NULL)) != -1) {

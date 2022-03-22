@@ -26,6 +26,7 @@
 
 #include <getopt.h>
 #include <signal.h>
+#include <locale.h>
 
 #include <dbus/dbus.h>
 
@@ -121,6 +122,7 @@ int main(int argc, char *argv[])
 
 	setlinebuf(stdout);
 
+	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
 	while ((c = getopt_long(argc, argv, "hVn:a:p:m", long_options, NULL)) != -1) {

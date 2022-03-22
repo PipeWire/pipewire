@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <getopt.h>
+#include <locale.h>
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
@@ -565,6 +566,7 @@ int main(int argc, char *argv[])
 	};
 	int c;
 
+	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
 	while ((c = getopt_long(argc, argv, "hVr:o:", long_options, NULL)) != -1) {

@@ -26,6 +26,7 @@
 #include <signal.h>
 #include <getopt.h>
 #include <unistd.h>
+#include <locale.h>
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
@@ -771,6 +772,7 @@ int main(int argc, char *argv[])
 	int c;
 	bool colors = false;
 
+	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
 	setlinebuf(stdout);

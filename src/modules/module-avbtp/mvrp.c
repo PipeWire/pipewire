@@ -22,47 +22,55 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef AVBTP_UTILS_H
-#define AVBTP_UTILS_H
+#include <pipewire/pipewire.h>
 
-#include <spa/utils/json.h>
+#include "mvrp.h"
 
-#include "internal.h"
+static const uint8_t mac[6] = AVB_MVRP_MAC;
 
-static inline char *avbtp_utils_format_id(char *str, size_t size, const uint64_t id)
+struct mvrp {
+	struct server *server;
+	struct spa_hook server_listener;
+};
+
+static int mvrp_message(void *data, uint64_t now, const void *message, int len)
 {
-	snprintf(str, size, "%02x:%02x:%02x:%02x:%02x:%02x:%04x",
-			(uint8_t)(id >> 56),
-			(uint8_t)(id >> 48),
-			(uint8_t)(id >> 40),
-			(uint8_t)(id >> 32),
-			(uint8_t)(id >> 24),
-			(uint8_t)(id >> 16),
-			(uint16_t)(id));
-	return str;
-}
+	const struct avbtp_packet_mrp *p = message;
 
-static inline int avbtp_utils_parse_id(const char *str, int len, uint64_t *id)
-{
-	char s[64];
-	uint8_t v[6];
-	uint16_t unique_id;
-	if (spa_json_parse_stringn(str, len, s, sizeof(s)) <= 0)
-		return -EINVAL;
-	if (sscanf(s, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx:%hx",
-			&v[0], &v[1], &v[2], &v[3],
-			&v[4], &v[5], &unique_id) == 7) {
-		*id = (uint64_t) v[0] << 56 |
-			    (uint64_t) v[1] << 48 |
-			    (uint64_t) v[2] << 40 |
-			    (uint64_t) v[3] << 32 |
-			    (uint64_t) v[4] << 24 |
-			    (uint64_t) v[5] << 16 |
-			    unique_id;
-	} else if (!spa_atou64(str, id, 0))
-		return -EINVAL;
+	if (ntohs(p->eth.type) != AVB_MVRP_ETH)
+		return 0;
+	if (memcmp(p->eth.dest, mac, 6) != 0)
+		return 0;
+
+	pw_log_info("MVRP");
+
 	return 0;
 }
 
+static void mvrp_destroy(void *data)
+{
+	struct mvrp *mvrp = data;
+	spa_hook_remove(&mvrp->server_listener);
+	free(mvrp);
+}
 
-#endif /* AVBTP_UTILS_H */
+static const struct server_events server_events = {
+	AVBTP_VERSION_SERVER_EVENTS,
+	.destroy = mvrp_destroy,
+	.message = mvrp_message
+};
+
+int avbtp_mvrp_register(struct server *server)
+{
+	struct mvrp *mvrp;
+
+	mvrp = calloc(1, sizeof(*mvrp));
+	if (mvrp == NULL)
+		return -errno;
+
+	mvrp->server = server;
+
+	avdecc_server_add_listener(server, &mvrp->server_listener, &server_events, mvrp);
+
+	return 0;
+}

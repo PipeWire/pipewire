@@ -22,47 +22,21 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef AVBTP_UTILS_H
-#define AVBTP_UTILS_H
+#ifndef AVBTP_MMRP_H
+#define AVBTP_MMRP_H
 
-#include <spa/utils/json.h>
-
+#include "mrp.h"
 #include "internal.h"
 
-static inline char *avbtp_utils_format_id(char *str, size_t size, const uint64_t id)
-{
-	snprintf(str, size, "%02x:%02x:%02x:%02x:%02x:%02x:%04x",
-			(uint8_t)(id >> 56),
-			(uint8_t)(id >> 48),
-			(uint8_t)(id >> 40),
-			(uint8_t)(id >> 32),
-			(uint8_t)(id >> 24),
-			(uint8_t)(id >> 16),
-			(uint16_t)(id));
-	return str;
-}
+#define AVB_MMRP_ETH 0x88f6
+#define AVB_MMRP_MAC { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x20 }
 
-static inline int avbtp_utils_parse_id(const char *str, int len, uint64_t *id)
-{
-	char s[64];
-	uint8_t v[6];
-	uint16_t unique_id;
-	if (spa_json_parse_stringn(str, len, s, sizeof(s)) <= 0)
-		return -EINVAL;
-	if (sscanf(s, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx:%hx",
-			&v[0], &v[1], &v[2], &v[3],
-			&v[4], &v[5], &unique_id) == 7) {
-		*id = (uint64_t) v[0] << 56 |
-			    (uint64_t) v[1] << 48 |
-			    (uint64_t) v[2] << 40 |
-			    (uint64_t) v[3] << 32 |
-			    (uint64_t) v[4] << 24 |
-			    (uint64_t) v[5] << 16 |
-			    unique_id;
-	} else if (!spa_atou64(str, id, 0))
-		return -EINVAL;
-	return 0;
-}
+struct avbtp_packet_mmrp_msg {
+	uint8_t attribute_type;
+	uint8_t attribute_length;
+	uint8_t attribute_list[0];
+} __attribute__ ((__packed__));
 
+int avbtp_mmrp_register(struct server *server);
 
-#endif /* AVBTP_UTILS_H */
+#endif /* AVBTP_MMRP_H */

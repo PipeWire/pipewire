@@ -35,7 +35,8 @@ static int reply_status(struct aecp *aecp, int status, const void *m, int len)
 	AVBTP_PACKET_AECP_SET_MESSAGE_TYPE(reply, AVBTP_AECP_MESSAGE_TYPE_AEM_RESPONSE);
 	AVBTP_PACKET_AECP_SET_STATUS(reply, status);
 
-	return avbtp_server_send_packet(server, reply->hdr.eth.src, reply, len);
+	return avbtp_server_send_packet(server, reply->hdr.eth.src,
+			AVB_TSN_ETH, reply, len);
 }
 
 static int reply_not_implemented(struct aecp *aecp, const void *m, int len)
@@ -133,7 +134,8 @@ static int handle_read_descriptor(struct aecp *aecp, const void *m, int len)
 	AVBTP_PACKET_AECP_SET_STATUS(&reply->aecp, AVBTP_AECP_AEM_STATUS_SUCCESS);
 	AVBTP_PACKET_SET_LENGTH(&reply->aecp.hdr, psize + 12);
 
-	return avbtp_server_send_packet(server, reply->aecp.hdr.eth.src, reply, size);
+	return avbtp_server_send_packet(server, reply->aecp.hdr.eth.src,
+			AVB_TSN_ETH, reply, size);
 }
 
 /* GET_AVB_INFO */
@@ -180,7 +182,8 @@ static int handle_get_avb_info(struct aecp *aecp, const void *m, int len)
 	i->flags = 0;
 	i->msrp_mappings_count = htons(0);
 
-	return avbtp_server_send_packet(server, reply->aecp.hdr.eth.src, reply, size);
+	return avbtp_server_send_packet(server, reply->aecp.hdr.eth.src,
+			AVB_TSN_ETH, reply, size);
 }
 
 /* AEM_COMMAND */

@@ -26,6 +26,8 @@
 
 #include "maap.h"
 
+static const uint8_t mac[6] = AVB_BROADCAST_MAC;
+
 struct maap {
 	struct server *server;
 	struct spa_hook server_listener;
@@ -68,8 +70,14 @@ static void maap_message_debug(struct maap *maap, const struct avbtp_packet_maap
 static int maap_message(void *data, uint64_t now, const void *message, int len)
 {
 	struct maap *maap = data;
+	struct server *server = maap->server;
 	const struct avbtp_packet_maap *p = message;
 
+	if (ntohs(p->hdr.eth.type) != AVB_TSN_ETH)
+		return 0;
+	if (memcmp(p->hdr.eth.dest, mac, 6) != 0 &&
+	    memcmp(p->hdr.eth.dest, server->mac_addr, 6) != 0)
+		return 0;
 	if (AVBTP_PACKET_GET_SUBTYPE(&p->hdr) != AVBTP_SUBTYPE_MAAP)
 		return 0;
 

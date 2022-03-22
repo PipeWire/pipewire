@@ -30,6 +30,8 @@
 #include "acmp.h"
 #include "internal.h"
 
+static const uint8_t mac[6] = AVB_BROADCAST_MAC;
+
 struct pending {
 	struct spa_list link;
 	uint64_t last_time;
@@ -104,7 +106,8 @@ static int reply_not_supported(struct acmp *acmp, const void *m, int len)
 	memcpy(reply, m, len);
 	AVBTP_PACKET_ACMP_SET_STATUS(reply, AVBTP_ACMP_STATUS_NOT_SUPPORTED);
 
-	return avbtp_server_send_packet(server, reply->hdr.eth.src, reply, len);
+	return avbtp_server_send_packet(server, reply->hdr.eth.src,
+			AVB_TSN_ETH, reply, len);
 }
 
 static int retry_pending(struct acmp *acmp, uint64_t now, struct pending *p)
@@ -113,7 +116,8 @@ static int retry_pending(struct acmp *acmp, uint64_t now, struct pending *p)
 	struct avbtp_packet_acmp *cmd = p->ptr;
 	p->retry++;
 	p->last_time = now;
-	return avbtp_server_send_packet(server, cmd->hdr.eth.dest, cmd, p->size);
+	return avbtp_server_send_packet(server, cmd->hdr.eth.dest,
+			AVB_TSN_ETH, cmd, p->size);
 }
 
 static int handle_connect_tx_command(struct acmp *acmp, uint64_t now, const void *m, int len)
@@ -130,7 +134,8 @@ static int handle_connect_tx_command(struct acmp *acmp, uint64_t now, const void
 	AVBTP_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVBTP_ACMP_MESSAGE_TYPE_CONNECT_TX_RESPONSE);
 	AVBTP_PACKET_ACMP_SET_STATUS(reply, AVBTP_ACMP_STATUS_SUCCESS);
 
-	return avbtp_server_send_packet(server, reply->hdr.eth.dest, reply, len);
+	return avbtp_server_send_packet(server, reply->hdr.eth.dest,
+			AVB_TSN_ETH, reply, len);
 }
 
 static int handle_connect_tx_response(struct acmp *acmp, uint64_t now, const void *m, int len)
@@ -156,7 +161,8 @@ static int handle_connect_tx_response(struct acmp *acmp, uint64_t now, const voi
 	reply->sequence_id = htons(pending->old_sequence_id);
 	AVBTP_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVBTP_ACMP_MESSAGE_TYPE_CONNECT_RX_RESPONSE);
 
-	res = avbtp_server_send_packet(server, reply->hdr.eth.dest, reply, pending->size);
+	res = avbtp_server_send_packet(server, reply->hdr.eth.dest,
+			AVB_TSN_ETH, reply, pending->size);
 
 	pending_free(acmp, pending);
 
@@ -177,7 +183,8 @@ static int handle_disconnect_tx_command(struct acmp *acmp, uint64_t now, const v
 	AVBTP_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVBTP_ACMP_MESSAGE_TYPE_DISCONNECT_TX_RESPONSE);
 	AVBTP_PACKET_ACMP_SET_STATUS(reply, AVBTP_ACMP_STATUS_SUCCESS);
 
-	return avbtp_server_send_packet(server, reply->hdr.eth.dest, reply, len);
+	return avbtp_server_send_packet(server, reply->hdr.eth.dest,
+			AVB_TSN_ETH, reply, len);
 }
 
 static int handle_disconnect_tx_response(struct acmp *acmp, uint64_t now, const void *m, int len)
@@ -203,7 +210,8 @@ static int handle_disconnect_tx_response(struct acmp *acmp, uint64_t now, const 
 	reply->sequence_id = htons(pending->old_sequence_id);
 	AVBTP_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVBTP_ACMP_MESSAGE_TYPE_DISCONNECT_RX_RESPONSE);
 
-	res = avbtp_server_send_packet(server, reply->hdr.eth.dest, reply, pending->size);
+	res = avbtp_server_send_packet(server, reply->hdr.eth.dest,
+			AVB_TSN_ETH, reply, pending->size);
 
 	pending_free(acmp, pending);
 
@@ -227,7 +235,8 @@ static int handle_connect_rx_command(struct acmp *acmp, uint64_t now, const void
 	AVBTP_PACKET_ACMP_SET_MESSAGE_TYPE(cmd, AVBTP_ACMP_MESSAGE_TYPE_CONNECT_TX_COMMAND);
 	AVBTP_PACKET_ACMP_SET_STATUS(cmd, AVBTP_ACMP_STATUS_SUCCESS);
 
-	return avbtp_server_send_packet(server, cmd->hdr.eth.dest, cmd, len);
+	return avbtp_server_send_packet(server, cmd->hdr.eth.dest,
+			AVB_TSN_ETH, cmd, len);
 }
 
 static int handle_connect_rx_response(struct acmp *acmp, uint64_t now, const void *m, int len)
@@ -252,7 +261,8 @@ static int handle_disconnect_rx_command(struct acmp *acmp, uint64_t now, const v
 	AVBTP_PACKET_ACMP_SET_MESSAGE_TYPE(cmd, AVBTP_ACMP_MESSAGE_TYPE_DISCONNECT_TX_COMMAND);
 	AVBTP_PACKET_ACMP_SET_STATUS(cmd, AVBTP_ACMP_STATUS_SUCCESS);
 
-	return avbtp_server_send_packet(server, cmd->hdr.eth.dest, cmd, len);
+	return avbtp_server_send_packet(server, cmd->hdr.eth.dest,
+			AVB_TSN_ETH, cmd, len);
 }
 
 static int handle_disconnect_rx_response(struct acmp *acmp, uint64_t now, const void *p, int len)
@@ -291,9 +301,16 @@ static inline const struct msg_info *find_msg_info(uint16_t type, const char *na
 static int acmp_message(void *data, uint64_t now, const void *message, int len)
 {
 	struct acmp *acmp = data;
+	struct server *server = acmp->server;
 	const struct avbtp_packet_acmp *p = message;
 	const struct msg_info *info;
 	int message_type;
+
+	if (ntohs(p->hdr.eth.type) != AVB_TSN_ETH)
+		return 0;
+	if (memcmp(p->hdr.eth.dest, mac, 6) != 0 &&
+	    memcmp(p->hdr.eth.dest, server->mac_addr, 6) != 0)
+		return 0;
 
 	if (AVBTP_PACKET_GET_SUBTYPE(&p->hdr) != AVBTP_SUBTYPE_ACMP)
 		return 0;

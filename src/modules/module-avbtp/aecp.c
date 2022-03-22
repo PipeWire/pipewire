@@ -31,6 +31,8 @@
 #include "aecp-aem.h"
 #include "internal.h"
 
+static const uint8_t mac[6] = AVB_BROADCAST_MAC;
+
 struct msg_info {
 	uint16_t type;
 	const char *name;
@@ -46,7 +48,8 @@ static int reply_not_implemented(struct aecp *aecp, const void *p, int len)
 	memcpy(reply, p, len);
 	AVBTP_PACKET_AECP_SET_STATUS(reply, AVBTP_AECP_STATUS_NOT_IMPLEMENTED);
 
-	return avbtp_server_send_packet(server, reply->hdr.eth.src, reply, len);
+	return avbtp_server_send_packet(server, reply->hdr.eth.src,
+			AVB_TSN_ETH, reply, len);
 }
 
 static const struct msg_info msg_info[] = {
@@ -76,10 +79,16 @@ static inline const struct msg_info *find_msg_info(uint16_t type, const char *na
 static int aecp_message(void *data, uint64_t now, const void *message, int len)
 {
 	struct aecp *aecp = data;
+	struct server *server = aecp->server;
 	const struct avbtp_packet_aecp_header *p = message;
 	const struct msg_info *info;
 	int message_type;
 
+	if (ntohs(p->hdr.eth.type) != AVB_TSN_ETH)
+		return 0;
+	if (memcmp(p->hdr.eth.dest, mac, 6) != 0 &&
+	    memcmp(p->hdr.eth.dest, server->mac_addr, 6) != 0)
+		return 0;
 	if (AVBTP_PACKET_GET_SUBTYPE(&p->hdr) != AVBTP_SUBTYPE_AECP)
 		return 0;
 

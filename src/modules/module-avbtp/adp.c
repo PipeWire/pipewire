@@ -31,6 +31,8 @@
 #include "internal.h"
 #include "utils.h"
 
+static const uint8_t mac[6] = AVB_BROADCAST_MAC;
+
 struct entity {
 	struct spa_list link;
 	struct avbtp_packet_adp packet;
@@ -64,7 +66,7 @@ static int send_departing(struct adp *adp, uint64_t now, struct entity *e)
 {
 	AVBTP_PACKET_ADP_SET_MESSAGE_TYPE(&e->packet, AVBTP_ADP_MESSAGE_TYPE_ENTITY_DEPARTING);
 	e->packet.available_index = htonl(adp->available_index++);
-	avbtp_server_broadcast_packet(adp->server, &e->packet, sizeof(e->packet));
+	avbtp_server_send_packet(adp->server, mac, AVB_TSN_ETH, &e->packet, sizeof(e->packet));
 	e->last_time = now;
 	return 0;
 }
@@ -73,7 +75,7 @@ static int send_advertise(struct adp *adp, uint64_t now, struct entity *e)
 {
 	AVBTP_PACKET_ADP_SET_MESSAGE_TYPE(&e->packet, AVBTP_ADP_MESSAGE_TYPE_ENTITY_AVAILABLE);
 	e->packet.available_index = htonl(adp->available_index++);
-	avbtp_server_broadcast_packet(adp->server, &e->packet, sizeof(e->packet));
+	avbtp_server_send_packet(adp->server, mac, AVB_TSN_ETH, &e->packet, sizeof(e->packet));
 	e->last_time = now;
 	return 0;
 }
@@ -86,18 +88,25 @@ static int send_discover(struct adp *adp, uint64_t entity_id)
 	AVBTP_PACKET_SET_LENGTH(&p.hdr, AVBTP_ADP_CONTROL_DATA_LENGTH);
 	AVBTP_PACKET_ADP_SET_MESSAGE_TYPE(&p, AVBTP_ADP_MESSAGE_TYPE_ENTITY_DISCOVER);
 	p.entity_id = htonl(entity_id);
-	avbtp_server_broadcast_packet(adp->server, &p, sizeof(p));
+	avbtp_server_send_packet(adp->server, mac, AVB_TSN_ETH, &p, sizeof(p));
 	return 0;
 }
 
 static int adp_message(void *data, uint64_t now, const void *message, int len)
 {
 	struct adp *adp = data;
+	struct server *server = adp->server;
 	const struct avbtp_packet_adp *p = message;
 	struct entity *e;
 	int message_type;
 	char buf[128];
 	uint64_t entity_id;
+
+	if (ntohs(p->hdr.eth.type) != AVB_TSN_ETH)
+		return 0;
+	if (memcmp(p->hdr.eth.dest, mac, 6) != 0 &&
+	    memcmp(p->hdr.eth.dest, server->mac_addr, 6) != 0)
+		return 0;
 
 	if (AVBTP_PACKET_GET_SUBTYPE(&p->hdr) != AVBTP_SUBTYPE_ADP ||
 	    AVBTP_PACKET_GET_LENGTH(&p->hdr) < AVBTP_ADP_CONTROL_DATA_LENGTH)

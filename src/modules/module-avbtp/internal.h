@@ -31,6 +31,10 @@ extern "C" {
 
 #include <pipewire/pipewire.h>
 
+#define AVB_TSN_ETH 0x22f0
+#define AVB_BROADCAST_MAC { 0x91, 0xe0, 0xf0, 0x01, 0x00, 0x00 };
+
+
 struct impl {
 	struct pw_loop *loop;
 	struct pw_context *context;
@@ -64,6 +68,7 @@ struct descriptor {
 	void *ptr;
 };
 
+
 struct server {
 	struct spa_list link;
 	struct impl *impl;
@@ -81,6 +86,8 @@ struct server {
 	struct spa_list descriptors;
 
 	unsigned debug_messages:1;
+
+	struct avbtp_mrp *mrp;
 };
 
 static inline const struct descriptor *server_find_descriptor(struct server *server,
@@ -118,8 +125,8 @@ void avdecc_server_free(struct server *server);
 void avdecc_server_add_listener(struct server *server, struct spa_hook *listener,
 		const struct server_events *events, void *data);
 
-int avbtp_server_broadcast_packet(struct server *server, void *data, size_t size);
-int avbtp_server_send_packet(struct server *server, const uint8_t dest[6], void *data, size_t size);
+int avbtp_server_send_packet(struct server *server, const uint8_t dest[6],
+		uint16_t type, void *data, size_t size);
 
 struct aecp {
 	struct server *server;

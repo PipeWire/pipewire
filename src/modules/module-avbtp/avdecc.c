@@ -43,11 +43,12 @@
 #include "adp.h"
 #include "aecp.h"
 #include "maap.h"
+#include "mmrp.h"
+#include "msrp.h"
+#include "mvrp.h"
 #include "descriptors.h"
 
 #define DEFAULT_INTERVAL	1
-
-static const uint8_t AVB_MAC_BROADCAST[6] = { 0x91, 0xe0, 0xf0, 0x01, 0x00, 0x00 };
 
 #define server_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct server_events, m, v, ##__VA_ARGS__)
 #define server_emit_destroy(s)		server_emit(s, destroy, 0)
@@ -81,39 +82,27 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 			pw_log_warn("short packet received (%d < %d)", len,
 					(int)sizeof(struct avbtp_packet_header));
 		} else {
-			struct avbtp_ethernet_header *hdr = (struct avbtp_ethernet_header*)buffer;
-
-			if (htons(hdr->type) != ETH_P_TSN)
-				return;
-			if (memcmp(hdr->dest, AVB_MAC_BROADCAST, ETH_ALEN) != 0 &&
-			    memcmp(hdr->dest, server->mac_addr, ETH_ALEN) != 0)
-				return;
-
 			clock_gettime(CLOCK_REALTIME, &now);
 			server_emit_message(server, SPA_TIMESPEC_TO_NSEC(&now), buffer, len);
 		}
 	}
 }
 
-int avbtp_server_send_packet(struct server *server, const uint8_t dest[6], void *data, size_t size)
+int avbtp_server_send_packet(struct server *server, const uint8_t dest[6],
+		uint16_t type, void *data, size_t size)
 {
 	struct avbtp_ethernet_header *hdr = (struct avbtp_ethernet_header*)data;
 	int res = 0;
 
 	memcpy(hdr->dest, dest, ETH_ALEN);
 	memcpy(hdr->src, server->mac_addr, ETH_ALEN);
-	hdr->type = htons(ETH_P_TSN);
+	hdr->type = htons(type);
 
 	if (send(server->source->fd, data, size, 0) < 0) {
 		res = -errno;
 		pw_log_warn("got send error: %m");
 	}
 	return res;
-}
-
-int avbtp_server_broadcast_packet(struct server *server, void *data, size_t size)
-{
-	return avbtp_server_send_packet(server, AVB_MAC_BROADCAST, data, size);
 }
 
 static int setup_socket(struct server *server)
@@ -193,10 +182,10 @@ static int setup_socket(struct server *server)
 		goto error_close;
 	}
 	value.tv_sec = 0;
-        value.tv_nsec = 1;
+	value.tv_nsec = 1;
 	interval.tv_sec = DEFAULT_INTERVAL;
-        interval.tv_nsec = 0;
-        pw_loop_update_timer(impl->loop, server->timer, &value, &interval, false);
+	interval.tv_nsec = 0;
+	pw_loop_update_timer(impl->loop, server->timer, &value, &interval, false);
 
 	return 0;
 
@@ -227,8 +216,13 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 
 	init_descriptors(server);
 
+	server->mrp = avbtp_mrp_new(server);
+
 	avbtp_aecp_register(server);
 	avbtp_maap_register(server);
+	avbtp_mmrp_register(server);
+	avbtp_msrp_register(server);
+	avbtp_mvrp_register(server);
 	avbtp_adp_register(server);
 	avbtp_acmp_register(server);
 
@@ -241,10 +235,8 @@ error_free:
 	return NULL;
 }
 
-void avdecc_server_add_listener(struct server *server,
-			   struct spa_hook *listener,
-			   const struct server_events *events,
-			   void *data)
+void avdecc_server_add_listener(struct server *server, struct spa_hook *listener,
+		const struct server_events *events, void *data)
 {
 	spa_hook_list_append(&server->listener_list, listener, events, data);
 }

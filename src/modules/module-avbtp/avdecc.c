@@ -217,14 +217,25 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 	init_descriptors(server);
 
 	server->mrp = avbtp_mrp_new(server);
+	if (server->mrp == NULL)
+		goto error_free;
 
 	avbtp_aecp_register(server);
 	avbtp_maap_register(server);
-	avbtp_mmrp_register(server);
-	avbtp_msrp_register(server);
-	avbtp_mvrp_register(server);
+	server->mmrp = avbtp_mmrp_register(server);
+	server->msrp = avbtp_msrp_register(server);
+	server->mvrp = avbtp_mvrp_register(server);
 	avbtp_adp_register(server);
 	avbtp_acmp_register(server);
+
+	server->domain_attr = avbtp_msrp_attribute_new(server->msrp,
+			AVBTP_MSRP_ATTRIBUTE_TYPE_DOMAIN);
+	server->domain_attr->attr.domain.sr_class_id = 6;
+	server->domain_attr->attr.domain.sr_class_priority = 3;
+	server->domain_attr->attr.domain.sr_class_vid = 2;
+
+	avbtp_mrp_mad_begin(server->mrp, 0, server->domain_attr->mrp);
+	avbtp_mrp_mad_join(server->mrp, 0, server->domain_attr->mrp, true);
 
 	return server;
 

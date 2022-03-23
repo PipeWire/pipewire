@@ -26,18 +26,35 @@
 
 #include "mrp.h"
 
+#define MRP_JOINTIMER_MS	100
+#define MRP_LVTIMER_MS		1000
+#define MRP_LVATIMER_MS		10000
+#define MRP_PERIODTIMER_MS	1000
+
+#define mrp_emit(s,m,v,...)		spa_hook_list_call(&s->listener_list, struct avbtp_mrp_events, m, v, ##__VA_ARGS__)
+#define mrp_emit_tx_event(s,e,st)	mrp_emit(s, tx_event, 0, e, st)
+
 struct attribute {
 	struct avbtp_mrp_attribute attr;
 	struct spa_list link;
 	uint8_t applicant_state;
 	uint8_t registrar_state;
 	uint16_t pending_indications;
+	uint64_t leave_timeout;
 	struct spa_callbacks cb;
 };
 
 struct mrp {
 	struct server *server;
 	struct spa_hook server_listener;
+
+	struct spa_hook_list listener_list;
+
+	struct spa_list attributes;
+
+	uint64_t periodic_timeout;
+	uint64_t leave_all_timeout;
+	uint64_t join_timeout;
 };
 
 static void mrp_destroy(void *data)
@@ -47,39 +64,199 @@ static void mrp_destroy(void *data)
 	free(mrp);
 }
 
+static void global_event(struct mrp *mrp, uint64_t now, uint8_t event)
+{
+	struct attribute *a;
+	spa_list_for_each(a, &mrp->attributes, link)
+		avbtp_mrp_update_state((struct avbtp_mrp*)mrp, now, &a->attr, event);
+}
+
+static void mrp_periodic(void *data, uint64_t now)
+{
+	struct mrp *mrp = data;
+	bool leave_all = false;
+	struct attribute *a;
+
+	if (now > mrp->periodic_timeout) {
+		mrp->periodic_timeout = now + MRP_PERIODTIMER_MS * SPA_NSEC_PER_MSEC;
+
+		global_event(mrp, now, AVBTP_MRP_EVENT_PERIODIC);
+	}
+	if (now > mrp->leave_all_timeout) {
+		mrp->leave_all_timeout = now + MRP_LVATIMER_MS * SPA_NSEC_PER_MSEC;
+
+		global_event(mrp, now, AVBTP_MRP_EVENT_RX_LVA);
+		leave_all = true;
+	}
+
+	if (now > mrp->join_timeout) {
+		uint8_t event = leave_all ? AVBTP_MRP_EVENT_TX_LVA : AVBTP_MRP_EVENT_TX;
+
+		mrp->join_timeout = now + MRP_JOINTIMER_MS * SPA_NSEC_PER_MSEC;
+
+		mrp_emit_tx_event(mrp, event, true);
+
+		global_event(mrp, now, event);
+
+		mrp_emit_tx_event(mrp, event, false);
+	}
+
+	spa_list_for_each(a, &mrp->attributes, link) {
+		if (now > a->leave_timeout) {
+			a->leave_timeout = 0;
+			avbtp_mrp_update_state((struct avbtp_mrp*)mrp, now, &a->attr, AVBTP_MRP_EVENT_LV_TIMER);
+		}
+	}
+
+
+}
+
 static const struct server_events server_events = {
 	AVBTP_VERSION_SERVER_EVENTS,
 	.destroy = mrp_destroy,
+	.periodic = mrp_periodic,
 };
 
-struct avbtp_mrp_attribute *avbtp_mrp_attribute_new(struct avbtp_mrp *mrp,
-		uint8_t type, uint8_t param,
-		struct avbtp_mrp_attribute_methods *methods, void *data,
+int avbtp_mrp_parse_packet(struct avbtp_mrp *mrp, uint64_t now, const void *pkt, int len,
+		const struct avbtp_mrp_parse_info *info, void *data)
+{
+	uint8_t *e = SPA_PTROFF(pkt, len, uint8_t);
+	uint8_t *m = SPA_PTROFF(pkt, sizeof(struct avbtp_packet_mrp), uint8_t);
+
+	while (m < e && (m[0] != 0 || m[1] != 0)) {
+		const struct avbtp_packet_mrp_hdr *hdr = (const struct avbtp_packet_mrp_hdr*)m;
+		uint8_t attr_len = hdr->attribute_length;
+		uint8_t attr_type = hdr->attribute_type;
+		size_t hdr_size;
+		bool has_param;
+
+		if (!info->check_header(data, hdr, &hdr_size, &has_param))
+			return -EINVAL;
+
+		m += hdr_size;
+
+		while (m < e && (m[0] != 0 || m[1] != 0)) {
+			const struct avbtp_packet_mrp_vector *v =
+				(const struct avbtp_packet_mrp_vector*)m;
+			uint16_t i, num_values = AVBTP_MRP_VECTOR_GET_NUM_VALUES(v);
+			uint8_t event_len = (num_values+2)/3;
+			uint8_t param_len = has_param ? (num_values+3)/4 : 0;
+			int len = sizeof(*v) + attr_len + event_len + param_len;
+			const uint8_t *first = v->first_value;
+			uint8_t event[3], param[4] = { 0, };
+
+			if (m + len > e)
+				return -EPROTO;
+
+			if (v->lva)
+				info->attr_event(data, now, attr_type, AVBTP_MRP_EVENT_RX_LVA);
+
+			for (i = 0; i < num_values; i++) {
+				if (i % 3 == 0) {
+					uint8_t ep = first[attr_len + i/3];
+					event[2] = ep % 6; ep /= 6;
+					event[1] = ep % 6; ep /= 6;
+					event[0] = ep % 6;
+				}
+				if (has_param && (i % 4 == 0)) {
+					uint8_t ep = first[attr_len + event_len + i/4];
+					param[3] = ep % 4; ep /= 4;
+					param[2] = ep % 4; ep /= 4;
+					param[1] = ep % 4; ep /= 4;
+					param[0] = ep % 4;
+				}
+				info->process(data, now, attr_type, first,
+						event[i%3], param[i%4], i);
+			}
+			m += len;
+		}
+	}
+	return 0;
+}
+
+struct avbtp_mrp_attribute *avbtp_mrp_attribute_new(struct avbtp_mrp *m,
+		const struct avbtp_mrp_attribute_callbacks *cb, void *data,
 		size_t user_size)
 {
+	struct mrp *mrp = (struct mrp*)m;
 	struct attribute *a;
 
 	a = calloc(1, sizeof(*a) + user_size);
 	if (a == NULL)
 		return NULL;
 
-	a->attr.type = type;
-	a->attr.param = param;
 	a->attr.user_data = SPA_PTROFF(a, sizeof(*a), void);
-	a->cb = SPA_CALLBACKS_INIT(methods, data);
+	a->cb = SPA_CALLBACKS_INIT(cb, data);
+	spa_list_append(&mrp->attributes, &a->link);
 
 	return &a->attr;
 }
 
-static void stop_avb_timer(void)
+static uint8_t get_tx_event(struct avbtp_mrp *mrp, struct attribute *a,
+		int event, bool leave_all)
 {
-}
-static void start_avb_timer(void)
-{
+	uint8_t ev = 0;
+
+	switch (a->applicant_state) {
+	case AVBTP_MRP_VP:
+	case AVBTP_MRP_AA:
+	case AVBTP_MRP_AP:
+	case AVBTP_MRP_QA:
+	case AVBTP_MRP_QP:
+		if (leave_all && a->applicant_state == AVBTP_MRP_VP) {
+			switch (a->registrar_state) {
+			case AVBTP_MRP_IN:
+				ev = AVBTP_MRP_ATTRIBUTE_EVENT_IN;
+				break;
+			default:
+				ev = AVBTP_MRP_ATTRIBUTE_EVENT_MT;
+				break;
+			}
+		} else if (leave_all || a->applicant_state != AVBTP_MRP_QP) {
+			switch (a->registrar_state) {
+			case AVBTP_MRP_IN:
+				ev = AVBTP_MRP_ATTRIBUTE_EVENT_JOININ;
+				break;
+			default:
+				ev = AVBTP_MRP_ATTRIBUTE_EVENT_JOINMT;
+				break;
+			}
+		}
+		break;
+	case AVBTP_MRP_VN:
+	case AVBTP_MRP_AN:
+		ev = AVBTP_MRP_ATTRIBUTE_EVENT_NEW;
+		break;
+	case AVBTP_MRP_LA:
+		ev = AVBTP_MRP_ATTRIBUTE_EVENT_LV;
+		break;
+	case AVBTP_MRP_LO:
+		switch (a->registrar_state) {
+		case AVBTP_MRP_IN:
+			ev = AVBTP_MRP_ATTRIBUTE_EVENT_IN;
+			break;
+		default:
+			ev = AVBTP_MRP_ATTRIBUTE_EVENT_MT;
+			break;
+		}
+		break;
+	}
+	return ev;
 }
 
-void avbtp_mrp_update_state(struct avbtp_mrp *mrp,
-		struct avbtp_mrp_attribute *attr, int event, uint8_t param)
+static int do_tx(struct avbtp_mrp *mrp, struct attribute *a,
+		int event, bool leave_all)
+{
+	uint8_t ev = get_tx_event(mrp, a, event, leave_all);
+
+	spa_callbacks_call(&a->cb, struct avbtp_mrp_attribute_callbacks,
+			merge, 0, &a->attr, ev);
+
+	return 0;
+}
+
+void avbtp_mrp_update_state(struct avbtp_mrp *mrp, uint64_t now,
+		struct avbtp_mrp_attribute *attr, int event)
 {
 	struct attribute *a = SPA_CONTAINER_OF(attr, struct attribute, attr);
 	switch (event) {
@@ -88,18 +265,16 @@ void avbtp_mrp_update_state(struct avbtp_mrp *mrp,
 		break;
 	case AVBTP_MRP_EVENT_RX_NEW:
 		if (a->registrar_state == AVBTP_MRP_LV)
-			stop_avb_timer();
+			a->leave_timeout = 0;
 		a->registrar_state = AVBTP_MRP_IN;
 		a->pending_indications |= AVBTP_PENDING_JOIN_NEW;
-		a->attr.param = param;
 		break;
 	case AVBTP_MRP_EVENT_RX_JOININ:
 	case AVBTP_MRP_EVENT_RX_JOINMT:
 		if (a->registrar_state == AVBTP_MRP_LV)
-			stop_avb_timer();
+			a->leave_timeout = 0;
 		if (a->registrar_state == AVBTP_MRP_MT) {
 			a->pending_indications |= AVBTP_PENDING_JOIN;
-			a->attr.param = param;
 		}
 		a->registrar_state = AVBTP_MRP_IN;
 		break;
@@ -108,7 +283,7 @@ void avbtp_mrp_update_state(struct avbtp_mrp *mrp,
 	case AVBTP_MRP_EVENT_TX_LVA:
 	case AVBTP_MRP_EVENT_REDECLARE:
 		if (a->registrar_state == AVBTP_MRP_IN) {
-			start_avb_timer();
+			a->leave_timeout = now + MRP_LVTIMER_MS * SPA_NSEC_PER_MSEC;
 			a->registrar_state = AVBTP_MRP_LV;
 		}
 		break;
@@ -116,7 +291,6 @@ void avbtp_mrp_update_state(struct avbtp_mrp *mrp,
 	case AVBTP_MRP_EVENT_FLUSH:
 		if (a->registrar_state == AVBTP_MRP_LV) {
 			a->pending_indications |= AVBTP_PENDING_LEAVE;
-			a->attr.param = param;
 		}
 		a->registrar_state = AVBTP_MRP_MT;
 		break;
@@ -249,8 +423,7 @@ void avbtp_mrp_update_state(struct avbtp_mrp *mrp,
 		case AVBTP_MRP_LA:
 		case AVBTP_MRP_AP:
 		case AVBTP_MRP_LO:
-//			int vector = makeTxEvent(e, st, 0);
-//			doTx(st, vector);
+			do_tx(mrp, a, event, false);
 			break;
 		}
 		switch (a->applicant_state) {
@@ -282,8 +455,7 @@ void avbtp_mrp_update_state(struct avbtp_mrp *mrp,
 		case AVBTP_MRP_QA:
 		case AVBTP_MRP_AP:
 		case AVBTP_MRP_QP:
-//			int vector = makeTxEvent(e, st, 1);
-//			doTx(st, vector);
+			do_tx(mrp, a, event, true);
 		}
 		switch (a->applicant_state) {
 		case AVBTP_MRP_VO:
@@ -309,8 +481,8 @@ void avbtp_mrp_update_state(struct avbtp_mrp *mrp,
 	}
 }
 
-void avbtp_mrp_event(struct avbtp_mrp *mrp, struct avbtp_mrp_attribute *attr,
-		uint8_t event, uint8_t param)
+void avbtp_mrp_rx_event(struct avbtp_mrp *mrp, uint64_t now,
+		struct avbtp_mrp_attribute *attr, uint8_t event)
 {
 	static const int map[] = {
 		[AVBTP_MRP_ATTRIBUTE_EVENT_NEW] = AVBTP_MRP_EVENT_RX_NEW,
@@ -320,19 +492,27 @@ void avbtp_mrp_event(struct avbtp_mrp *mrp, struct avbtp_mrp_attribute *attr,
 		[AVBTP_MRP_ATTRIBUTE_EVENT_MT] = AVBTP_MRP_EVENT_RX_MT,
 		[AVBTP_MRP_ATTRIBUTE_EVENT_LV] = AVBTP_MRP_EVENT_RX_LV,
 	};
-	avbtp_mrp_update_state(mrp, attr, map[event], param);
+	avbtp_mrp_update_state(mrp, now, attr, map[event]);
 }
 
-void avbtp_mrp_mad_begin(struct avbtp_mrp *mrp, struct avbtp_mrp_attribute *attr)
+void avbtp_mrp_mad_begin(struct avbtp_mrp *mrp, uint64_t now, struct avbtp_mrp_attribute *attr)
 {
+	struct attribute *a = SPA_CONTAINER_OF(attr, struct attribute, attr);
+	a->leave_timeout = 0;
+	avbtp_mrp_update_state(mrp, now, attr, AVBTP_MRP_EVENT_BEGIN);
 }
 
-void avbtp_mrp_mad_join(struct avbtp_mrp *mrp, struct avbtp_mrp_attribute *attr, bool is_new)
+void avbtp_mrp_mad_join(struct avbtp_mrp *mrp, uint64_t now, struct avbtp_mrp_attribute *attr, bool is_new)
 {
+	if (is_new)
+		avbtp_mrp_update_state(mrp, now, attr, AVBTP_MRP_EVENT_NEW);
+	else
+		avbtp_mrp_update_state(mrp, now, attr, AVBTP_MRP_EVENT_JOIN);
 }
 
-void avbtp_mrp_mad_leave(struct avbtp_mrp *mrp, struct avbtp_mrp_attribute *attr)
+void avbtp_mrp_mad_leave(struct avbtp_mrp *mrp, uint64_t now, struct avbtp_mrp_attribute *attr)
 {
+	avbtp_mrp_update_state(mrp, now, attr, AVBTP_MRP_EVENT_LV);
 }
 
 void avbtp_mrp_destroy(struct avbtp_mrp *mrp)
@@ -349,8 +529,17 @@ struct avbtp_mrp *avbtp_mrp_new(struct server *server)
 		return NULL;
 
 	mrp->server = server;
+	spa_list_init(&mrp->attributes);
+	spa_hook_list_init(&mrp->listener_list);
 
 	avdecc_server_add_listener(server, &mrp->server_listener, &server_events, mrp);
 
 	return (struct avbtp_mrp*)mrp;
+}
+
+void avbtp_mrp_add_listener(struct avbtp_mrp *m, struct spa_hook *listener,
+		const struct avbtp_mrp_events *events, void *data)
+{
+	struct mrp *mrp = (struct mrp*)m;
+	spa_hook_list_append(&mrp->listener_list, listener, events, data);
 }

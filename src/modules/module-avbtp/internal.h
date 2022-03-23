@@ -88,6 +88,11 @@ struct server {
 	unsigned debug_messages:1;
 
 	struct avbtp_mrp *mrp;
+	struct avbtp_mmrp *mmrp;
+	struct avbtp_mvrp *mvrp;
+	struct avbtp_msrp *msrp;
+
+	struct avbtp_msrp_attribute *domain_attr;
 };
 
 static inline const struct descriptor *server_find_descriptor(struct server *server,

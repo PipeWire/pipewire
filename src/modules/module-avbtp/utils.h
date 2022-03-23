@@ -64,5 +64,11 @@ static inline int avbtp_utils_parse_id(const char *str, int len, uint64_t *id)
 	return 0;
 }
 
+static inline char *avbtp_utils_format_addr(char *str, size_t size, const uint8_t addr[6])
+{
+	snprintf(str, size, "%02x:%02x:%02x:%02x:%02x:%02x",
+			addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+	return str;
+}
 
 #endif /* AVBTP_UTILS_H */

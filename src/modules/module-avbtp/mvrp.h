@@ -37,6 +37,22 @@ struct avbtp_packet_mvrp_msg {
 	uint8_t attribute_list[0];
 } __attribute__ ((__packed__));
 
-int avbtp_mvrp_register(struct server *server);
+#define AVBTP_MVRP_ATTRIBUTE_TYPE_VID			1
+#define AVBTP_MVRP_ATTRIBUTE_TYPE_VALID(t)		((t)==1)
+
+struct avbtp_packet_mvrp_vid {
+	uint16_t vlan;
+} __attribute__ ((__packed__));
+
+struct avbtp_mvrp;
+
+struct avbtp_mvrp_attribute {
+	uint8_t type;
+	union {
+		struct avbtp_packet_mvrp_vid vid;
+	} attr;
+};
+
+struct avbtp_mvrp *avbtp_mvrp_register(struct server *server);
 
 #endif /* AVBTP_MVRP_H */

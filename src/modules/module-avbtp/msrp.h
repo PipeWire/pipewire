@@ -104,6 +104,24 @@ struct avbtp_packet_msrp_domain {
 	uint16_t sr_class_vid;
 } __attribute__ ((__packed__));
 
-int avbtp_msrp_register(struct server *server);
+
+struct avbtp_msrp_attribute {
+	struct avbtp_mrp_attribute *mrp;
+	uint8_t type;
+	uint8_t param;
+	union {
+		struct avbtp_packet_msrp_talker talker;
+		struct avbtp_packet_msrp_talker_fail talker_fail;
+		struct avbtp_packet_msrp_listener listener;
+		struct avbtp_packet_msrp_domain domain;
+	} attr;
+};
+
+struct avbtp_msrp;
+
+struct avbtp_msrp_attribute *avbtp_msrp_attribute_new(struct avbtp_msrp *msrp,
+		uint8_t type);
+
+struct avbtp_msrp *avbtp_msrp_register(struct server *server);
 
 #endif /* AVBTP_MSRP_H */

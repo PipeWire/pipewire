@@ -33,6 +33,11 @@ struct avbtp_packet_mrp {
 	uint8_t version;
 } __attribute__ ((__packed__));
 
+struct avbtp_packet_mrp_hdr {
+	uint8_t attribute_type;
+	uint8_t attribute_length;
+} __attribute__ ((__packed__));
+
 struct avbtp_packet_mrp_vector {
 #if __BYTE_ORDER == __BIG_ENDIAN
 	unsigned lva:3;
@@ -104,37 +109,63 @@ struct avbtp_packet_mrp_footer {
 #define AVBTP_PENDING_JOIN	(1u<<1)
 #define AVBTP_PENDING_LEAVE	(1u<<2)
 
+struct avbtp_mrp_events {
+#define AVBTP_VERSION_MRP_ATTRIBUTE_CALLBACKS	0
+	uint32_t version;
+
+	int (*tx_event) (void *data, uint8_t event, bool start);
+};
+
 struct avbtp_mrp_attribute {
+	uint16_t domain;
 	uint8_t type;
-	uint8_t param;
 	void *user_data;
 };
 
-struct avbtp_mrp_attribute_methods {
-#define AVBTP_VERSION_ATTRIBUTE_METHODS	0
+struct avbtp_mrp_attribute_callbacks {
+#define AVBTP_VERSION_MRP_ATTRIBUTE_CALLBACKS	0
 	uint32_t version;
 
 	int (*compare) (void *data, struct avbtp_mrp_attribute *a, struct avbtp_mrp_attribute *b);
 
-	int (*merge) (void *data, struct avbtp_mrp_attribute *a, uint8_t *msg, int vector);
+	int (*merge) (void *data, struct avbtp_mrp_attribute *a, int vector);
 };
 
+
+struct avbtp_mrp_parse_info {
+#define AVBTP_VERSION_MRP_PARSE_INFO	0
+	uint32_t version;
+
+	bool (*check_header) (void *data, const void *hdr, size_t *hdr_size, bool *has_params);
+
+	int (*attr_event) (void *data, uint64_t now, uint8_t attribute_type, uint8_t event);
+
+	int (*process) (void *data, uint64_t now, uint8_t attribute_type, const void *value,
+			uint8_t event, uint8_t param, int index);
+};
+
+
+int avbtp_mrp_parse_packet(struct avbtp_mrp *mrp, uint64_t now, const void *pkt, int size,
+		const struct avbtp_mrp_parse_info *cb, void *data);
+
 struct avbtp_mrp_attribute *avbtp_mrp_attribute_new(struct avbtp_mrp *mrp,
-		uint8_t type, uint8_t param,
-		struct avbtp_mrp_attribute_methods *methods, void *data,
+		const struct avbtp_mrp_attribute_callbacks *cb, void *data,
 		size_t user_size);
 
-void avbtp_mrp_update_state(struct avbtp_mrp *mrp,
-		struct avbtp_mrp_attribute *attr, int event, uint8_t param);
+void avbtp_mrp_update_state(struct avbtp_mrp *mrp, uint64_t now,
+		struct avbtp_mrp_attribute *attr, int event);
 
-void avbtp_mrp_event(struct avbtp_mrp *mrp, struct avbtp_mrp_attribute *attr,
-		uint8_t event, uint8_t param);
+void avbtp_mrp_rx_event(struct avbtp_mrp *mrp, uint64_t now,
+		struct avbtp_mrp_attribute *attr, uint8_t event);
 
-void avbtp_mrp_mad_begin(struct avbtp_mrp *mrp, struct avbtp_mrp_attribute *attr);
-void avbtp_mrp_mad_join(struct avbtp_mrp *mrp, struct avbtp_mrp_attribute *attr, bool is_new);
-void avbtp_mrp_mad_leave(struct avbtp_mrp *mrp, struct avbtp_mrp_attribute *attr);
+void avbtp_mrp_mad_begin(struct avbtp_mrp *mrp, uint64_t now, struct avbtp_mrp_attribute *attr);
+void avbtp_mrp_mad_join(struct avbtp_mrp *mrp, uint64_t now, struct avbtp_mrp_attribute *attr, bool is_new);
+void avbtp_mrp_mad_leave(struct avbtp_mrp *mrp, uint64_t now, struct avbtp_mrp_attribute *attr);
 
 struct avbtp_mrp *avbtp_mrp_new(struct server *server);
 void avbtp_mrp_destroy(struct avbtp_mrp *mrp);
+
+void avbtp_mrp_add_listener(struct avbtp_mrp *mrp, struct spa_hook *listener,
+		const struct avbtp_mrp_events *events, void *data);
 
 #endif /* AVBTP_MRP_H */

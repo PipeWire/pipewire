@@ -106,17 +106,23 @@ struct avbtp_packet_mrp_footer {
 
 struct avbtp_mrp_attribute {
 	uint8_t type;
-	uint8_t applicant_state;
-	uint8_t registrar_state;
-	uint16_t pending_indications;
 	uint8_t param;
-	struct avbtp_mrp_attribute *next;
-	void *attribute_info;
+	void *user_data;
 };
 
-void avbtp_mrp_attribute_init(struct avbtp_mrp *mrp,
-		struct avbtp_mrp_attribute *attr,
-		uint8_t type, void *info);
+struct avbtp_mrp_attribute_methods {
+#define AVBTP_VERSION_ATTRIBUTE_METHODS	0
+	uint32_t version;
+
+	int (*compare) (void *data, struct avbtp_mrp_attribute *a, struct avbtp_mrp_attribute *b);
+
+	int (*merge) (void *data, struct avbtp_mrp_attribute *a, uint8_t *msg, int vector);
+};
+
+struct avbtp_mrp_attribute *avbtp_mrp_attribute_new(struct avbtp_mrp *mrp,
+		uint8_t type, uint8_t param,
+		struct avbtp_mrp_attribute_methods *methods, void *data,
+		size_t user_size);
 
 void avbtp_mrp_update_state(struct avbtp_mrp *mrp,
 		struct avbtp_mrp_attribute *attr, int event, uint8_t param);

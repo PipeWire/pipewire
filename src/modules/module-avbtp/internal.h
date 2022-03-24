@@ -93,6 +93,7 @@ struct server {
 	struct avbtp_msrp *msrp;
 
 	struct avbtp_msrp_attribute *domain_attr;
+	struct avbtp_msrp_attribute *listener_attr;
 };
 
 static inline const struct descriptor *server_find_descriptor(struct server *server,

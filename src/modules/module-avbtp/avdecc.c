@@ -232,10 +232,15 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 			AVBTP_MSRP_ATTRIBUTE_TYPE_DOMAIN);
 	server->domain_attr->attr.domain.sr_class_id = 6;
 	server->domain_attr->attr.domain.sr_class_priority = 3;
-	server->domain_attr->attr.domain.sr_class_vid = 2;
+	server->domain_attr->attr.domain.sr_class_vid = htons(2);
 
 	avbtp_mrp_mad_begin(server->mrp, 0, server->domain_attr->mrp);
 	avbtp_mrp_mad_join(server->mrp, 0, server->domain_attr->mrp, true);
+
+	server->listener_attr = avbtp_msrp_attribute_new(server->msrp,
+			AVBTP_MSRP_ATTRIBUTE_TYPE_LISTENER);
+	server->listener_attr->attr.listener.stream_id = htobe64(0);
+	avbtp_mrp_mad_begin(server->mrp, 0, server->listener_attr->mrp);
 
 	return server;
 

@@ -31,8 +31,6 @@ static const uint8_t mac[6] = AVB_MVRP_MAC;
 struct attr {
 	struct avbtp_mvrp_attribute attr;
 	struct spa_list link;
-	struct avbtp_mrp_attribute *a;
-	uint16_t vlan;
 };
 
 struct mvrp {
@@ -41,15 +39,6 @@ struct mvrp {
 
 	struct spa_list attributes;
 };
-
-static struct attr *find_attr_by_vlan(struct mvrp *mvrp, uint16_t vlan)
-{
-	struct attr *a;
-	spa_list_for_each(a, &mvrp->attributes, link)
-		if (a->vlan == vlan)
-			return a;
-	return NULL;
-}
 
 static bool mvrp_check_header(void *data, const void *hdr, size_t *hdr_size, bool *has_params)
 {
@@ -68,34 +57,31 @@ static int mvrp_attr_event(void *data, uint64_t now, uint8_t attribute_type, uin
 {
 	struct mvrp *mvrp = data;
 	struct attr *a;
-	pw_log_info("leave all");
 	spa_list_for_each(a, &mvrp->attributes, link)
 		if (a->attr.type == attribute_type)
-			avbtp_mrp_update_state(mvrp->server->mrp, now, a->a, event);
+			avbtp_mrp_update_state(mvrp->server->mrp, now, a->attr.mrp, event);
 	return 0;
+}
+
+static void debug_vid(const void *p)
+{
+	const struct avbtp_packet_mvrp_vid *t = p;
+	pw_log_info("vid");
+	pw_log_info(" %d", ntohs(t->vlan));
 }
 
 static int process_vid(struct mvrp *mvrp, uint64_t now, uint8_t attr_type,
 		const void *m, uint8_t event, uint8_t param, int num)
 {
-	const struct avbtp_packet_mvrp_vid *t = m;
-	struct attr *a;
-	uint16_t vlan = ntohs(t->vlan);
-
-	pw_log_info("vid");
-	pw_log_info(" %d", vlan);
-
-	a = find_attr_by_vlan(mvrp, vlan);
-	if (a)
-		avbtp_mrp_rx_event(mvrp->server->mrp, now, a->a, event);
-	return 0;
+	return mvrp_attr_event(mvrp, now, attr_type, event);
 }
 
 static const struct {
+	void (*debug) (const void *p);
 	int (*dispatch) (struct mvrp *mvrp, uint64_t now, uint8_t attr_type,
 			const void *m, uint8_t event, uint8_t param, int num);
 } dispatch[] = {
-	[AVBTP_MVRP_ATTRIBUTE_TYPE_VID] = { process_vid, },
+	[AVBTP_MVRP_ATTRIBUTE_TYPE_VID] = { debug_vid, process_vid, },
 };
 
 static int mvrp_process(void *data, uint64_t now, uint8_t attribute_type, const void *value,
@@ -123,7 +109,7 @@ static int mvrp_message(void *data, uint64_t now, const void *message, int len)
 	if (memcmp(p->eth.dest, mac, 6) != 0)
 		return 0;
 
-	pw_log_info("MVRP");
+	pw_log_debug("MVRP");
 	return avbtp_mrp_parse_packet(mvrp->server->mrp,
 			now, message, len, &info, mvrp);
 }
@@ -140,6 +126,23 @@ static const struct server_events server_events = {
 	.destroy = mvrp_destroy,
 	.message = mvrp_message
 };
+
+struct avbtp_mvrp_attribute *avbtp_mvrp_attribute_new(struct avbtp_mvrp *m,
+		uint8_t type)
+{
+	struct mvrp *mvrp = (struct mvrp*)m;
+	struct avbtp_mrp_attribute *attr;
+	struct attr *a;
+
+	attr = avbtp_mrp_attribute_new(mvrp->server->mrp, sizeof(struct attr));
+
+	a = attr->user_data;
+	a->attr.mrp = attr;
+	a->attr.type = type;
+	spa_list_append(&mvrp->attributes, &a->link);
+
+	return &a->attr;
+}
 
 struct avbtp_mvrp *avbtp_mvrp_register(struct server *server)
 {

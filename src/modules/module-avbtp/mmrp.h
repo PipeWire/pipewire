@@ -52,6 +52,7 @@ struct avbtp_packet_mmrp_mac {
 struct avbtp_mmrp;
 
 struct avbtp_mmrp_attribute {
+	struct avbtp_mrp_attribute *mrp;
 	uint8_t type;
 	union {
 		struct avbtp_packet_mmrp_service_requirement service_requirement;

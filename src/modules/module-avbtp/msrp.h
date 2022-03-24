@@ -104,6 +104,10 @@ struct avbtp_packet_msrp_domain {
 	uint16_t sr_class_vid;
 } __attribute__ ((__packed__));
 
+#define AVBTP_MSRP_LISTENER_PARAM_IGNORE	0
+#define AVBTP_MSRP_LISTENER_PARAM_ASKING_FAILED	1
+#define AVBTP_MSRP_LISTENER_PARAM_READY		2
+#define AVBTP_MSRP_LISTENER_PARAM_READY_FAILED	3
 
 struct avbtp_msrp_attribute {
 	struct avbtp_mrp_attribute *mrp;

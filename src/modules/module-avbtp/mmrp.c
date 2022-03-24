@@ -32,8 +32,6 @@ static const uint8_t mac[6] = AVB_MMRP_MAC;
 struct attr {
 	struct avbtp_mmrp_attribute attr;
 	struct spa_list link;
-	struct avbtp_mrp_attribute *a;
-	uint8_t addr[6];
 };
 
 struct mmrp {
@@ -42,15 +40,6 @@ struct mmrp {
 
 	struct spa_list attributes;
 };
-
-static struct attr *find_attr_by_addr(struct mmrp *mmrp, const uint8_t addr[6])
-{
-	struct attr *a;
-	spa_list_for_each(a, &mmrp->attributes, link)
-		if (memcmp(a->addr, addr, 6) == 0)
-			return a;
-	return NULL;
-}
 
 static bool mmrp_check_header(void *data, const void *hdr, size_t *hdr_size, bool *has_params)
 {
@@ -69,42 +58,53 @@ static int mmrp_attr_event(void *data, uint64_t now, uint8_t attribute_type, uin
 {
 	struct mmrp *mmrp = data;
 	struct attr *a;
-	pw_log_info("leave all");
 	spa_list_for_each(a, &mmrp->attributes, link)
 		if (a->attr.type == attribute_type)
-			avbtp_mrp_update_state(mmrp->server->mrp, now, a->a, event);
+			avbtp_mrp_update_state(mmrp->server->mrp, now, a->attr.mrp, event);
 	return 0;
+}
+
+static void debug_service_requirement(const struct avbtp_packet_mmrp_service_requirement *t)
+{
+	char buf[128];
+	pw_log_info("service requirement");
+	pw_log_info(" %s", avbtp_utils_format_addr(buf, sizeof(buf), t->addr));
 }
 
 static int process_service_requirement(struct mmrp *mmrp, uint64_t now, uint8_t attr_type,
 		const void *m, uint8_t event, uint8_t param, int num)
 {
 	const struct avbtp_packet_mmrp_service_requirement *t = m;
-	char buf[128];
 	struct attr *a;
 
-	pw_log_info("service requirement");
-	pw_log_info(" %s", avbtp_utils_format_addr(buf, sizeof(buf), t->addr));
+	debug_service_requirement(t);
 
-	a = find_attr_by_addr(mmrp, t->addr);
-	if (a)
-		avbtp_mrp_rx_event(mmrp->server->mrp, now, a->a, event);
+	spa_list_for_each(a, &mmrp->attributes, link)
+		if (a->attr.type == attr_type &&
+		    memcmp(a->attr.attr.service_requirement.addr, t->addr, 6) == 0)
+			avbtp_mrp_rx_event(mmrp->server->mrp, now, a->attr.mrp, event);
 	return 0;
+}
+
+static void debug_process_mac(const struct avbtp_packet_mmrp_mac *t)
+{
+	char buf[128];
+	pw_log_info("mac");
+	pw_log_info(" %s", avbtp_utils_format_addr(buf, sizeof(buf), t->addr));
 }
 
 static int process_mac(struct mmrp *mmrp, uint64_t now, uint8_t attr_type,
 		const void *m, uint8_t event, uint8_t param, int num)
 {
 	const struct avbtp_packet_mmrp_mac *t = m;
-	char buf[128];
 	struct attr *a;
 
-	pw_log_info("mac");
-	pw_log_info(" %s", avbtp_utils_format_addr(buf, sizeof(buf), t->addr));
+	debug_process_mac(t);
 
-	a = find_attr_by_addr(mmrp, t->addr);
-	if (a)
-		avbtp_mrp_rx_event(mmrp->server->mrp, now, a->a, event);
+	spa_list_for_each(a, &mmrp->attributes, link)
+		if (a->attr.type == attr_type &&
+		    memcmp(a->attr.attr.mac.addr, t->addr, 6) == 0)
+			avbtp_mrp_rx_event(mmrp->server->mrp, now, a->attr.mrp, event);
 	return 0;
 }
 
@@ -141,7 +141,7 @@ static int mmrp_message(void *data, uint64_t now, const void *message, int len)
 	if (memcmp(p->eth.dest, mac, 6) != 0)
 		return 0;
 
-	pw_log_info("MMRP");
+	pw_log_debug("MMRP");
 	return avbtp_mrp_parse_packet(mmrp->server->mrp,
 			now, message, len, &info, mmrp);
 }
@@ -159,22 +159,6 @@ static const struct server_events server_events = {
 	.message = mmrp_message
 };
 
-static int mmrp_attr_compare(void *data, struct avbtp_mrp_attribute *a, struct avbtp_mrp_attribute *b)
-{
-	return 0;
-}
-
-static int mmrp_attr_merge(void *data, struct avbtp_mrp_attribute *a, int vector)
-{
-	return 0;
-}
-
-static const struct avbtp_mrp_attribute_callbacks attr_cb = {
-	AVBTP_VERSION_MRP_ATTRIBUTE_CALLBACKS,
-	.compare = mmrp_attr_compare,
-	.merge = mmrp_attr_merge
-};
-
 struct avbtp_mmrp_attribute *avbtp_mmrp_attribute_new(struct avbtp_mmrp *m,
 		uint8_t type)
 {
@@ -182,13 +166,11 @@ struct avbtp_mmrp_attribute *avbtp_mmrp_attribute_new(struct avbtp_mmrp *m,
 	struct avbtp_mrp_attribute *attr;
 	struct attr *a;
 
-	attr = avbtp_mrp_attribute_new(mmrp->server->mrp,
-		&attr_cb, mmrp, sizeof(struct attr));
+	attr = avbtp_mrp_attribute_new(mmrp->server->mrp, sizeof(struct attr));
 
 	a = attr->user_data;
-	a->a = attr;
+	a->attr.mrp = attr;
 	a->attr.type = type;
-
 	spa_list_append(&mmrp->attributes, &a->link);
 
 	return &a->attr;

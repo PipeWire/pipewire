@@ -28,6 +28,8 @@
 #include "packets.h"
 #include "internal.h"
 
+#define AVBTP_MRP_PROTOCOL_VERSION	0
+
 struct avbtp_packet_mrp {
 	struct avbtp_ethernet_header eth;
 	uint8_t version;
@@ -50,7 +52,7 @@ struct avbtp_packet_mrp_vector {
 	uint8_t first_value[0];
 } __attribute__ ((__packed__));
 
-#define AVBTP_MRP_VECTOR_SET_NUM_VALUES(a,v)	((a)->nv1 = ((v) >> 8),(p)->nv2 = (v))
+#define AVBTP_MRP_VECTOR_SET_NUM_VALUES(a,v)	((a)->nv1 = ((v) >> 8),(a)->nv2 = (v))
 #define AVBTP_MRP_VECTOR_GET_NUM_VALUES(a)	((a)->nv1 << 8 | (a)->nv2)
 
 struct avbtp_packet_mrp_footer {
@@ -105,32 +107,22 @@ struct avbtp_packet_mrp_footer {
 #define AVBTP_MRP_ATTRIBUTE_EVENT_MT		4
 #define AVBTP_MRP_ATTRIBUTE_EVENT_LV		5
 
-#define AVBTP_PENDING_JOIN_NEW	(1u<<0)
-#define AVBTP_PENDING_JOIN	(1u<<1)
-#define AVBTP_PENDING_LEAVE	(1u<<2)
+#define AVBTP_MRP_SEND_NEW		1
+#define AVBTP_MRP_SEND_JOININ		2
+#define AVBTP_MRP_SEND_IN		3
+#define AVBTP_MRP_SEND_JOINMT		4
+#define AVBTP_MRP_SEND_MT		5
+#define AVBTP_MRP_SEND_LV		6
 
-struct avbtp_mrp_events {
-#define AVBTP_VERSION_MRP_ATTRIBUTE_CALLBACKS	0
-	uint32_t version;
-
-	int (*tx_event) (void *data, uint8_t event, bool start);
-};
+#define AVBTP_MRP_NOTIFY_JOIN_NEW	(1u<<0)
+#define AVBTP_MRP_NOTIFY_JOIN		(1u<<1)
+#define AVBTP_MRP_NOTIFY_LEAVE		(1u<<2)
 
 struct avbtp_mrp_attribute {
-	uint16_t domain;
-	uint8_t type;
+	uint8_t pending_send;
+	uint8_t pending_notify;
 	void *user_data;
 };
-
-struct avbtp_mrp_attribute_callbacks {
-#define AVBTP_VERSION_MRP_ATTRIBUTE_CALLBACKS	0
-	uint32_t version;
-
-	int (*compare) (void *data, struct avbtp_mrp_attribute *a, struct avbtp_mrp_attribute *b);
-
-	int (*merge) (void *data, struct avbtp_mrp_attribute *a, int vector);
-};
-
 
 struct avbtp_mrp_parse_info {
 #define AVBTP_VERSION_MRP_PARSE_INFO	0
@@ -149,7 +141,6 @@ int avbtp_mrp_parse_packet(struct avbtp_mrp *mrp, uint64_t now, const void *pkt,
 		const struct avbtp_mrp_parse_info *cb, void *data);
 
 struct avbtp_mrp_attribute *avbtp_mrp_attribute_new(struct avbtp_mrp *mrp,
-		const struct avbtp_mrp_attribute_callbacks *cb, void *data,
 		size_t user_size);
 
 void avbtp_mrp_update_state(struct avbtp_mrp *mrp, uint64_t now,
@@ -161,6 +152,15 @@ void avbtp_mrp_rx_event(struct avbtp_mrp *mrp, uint64_t now,
 void avbtp_mrp_mad_begin(struct avbtp_mrp *mrp, uint64_t now, struct avbtp_mrp_attribute *attr);
 void avbtp_mrp_mad_join(struct avbtp_mrp *mrp, uint64_t now, struct avbtp_mrp_attribute *attr, bool is_new);
 void avbtp_mrp_mad_leave(struct avbtp_mrp *mrp, uint64_t now, struct avbtp_mrp_attribute *attr);
+
+struct avbtp_mrp_events {
+#define AVBTP_VERSION_MRP_ATTRIBUTE_CALLBACKS	0
+	uint32_t version;
+
+	void (*event) (void *data, uint64_t now, uint8_t event);
+
+	void (*notify) (void *data, uint64_t now, struct avbtp_mrp_attribute *attr, uint8_t notify);
+};
 
 struct avbtp_mrp *avbtp_mrp_new(struct server *server);
 void avbtp_mrp_destroy(struct avbtp_mrp *mrp);

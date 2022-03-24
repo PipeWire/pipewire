@@ -47,11 +47,15 @@ struct avbtp_packet_mvrp_vid {
 struct avbtp_mvrp;
 
 struct avbtp_mvrp_attribute {
+	struct avbtp_mrp_attribute *mrp;
 	uint8_t type;
 	union {
 		struct avbtp_packet_mvrp_vid vid;
 	} attr;
 };
+
+struct avbtp_mvrp_attribute *avbtp_mvrp_attribute_new(struct avbtp_mvrp *mvrp,
+		uint8_t type);
 
 struct avbtp_mvrp *avbtp_mvrp_register(struct server *server);
 

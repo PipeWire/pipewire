@@ -28,6 +28,7 @@
 #include <pipewire/pipewire.h>
 
 #include "acmp.h"
+#include "msrp.h"
 #include "internal.h"
 
 static const uint8_t mac[6] = AVB_BROADCAST_MAC;
@@ -52,6 +53,9 @@ struct acmp {
 #define PENDING_CONTROLLER	2
 	struct spa_list pending[3];
 	uint16_t sequence_id[3];
+
+	struct avbtp_msrp_attribute *listener_attr;
+	struct avbtp_msrp_attribute *talker_attr;
 };
 
 static void *pending_new(struct acmp *acmp, uint32_t type, uint64_t now, uint32_t timeout_ms,
@@ -161,6 +165,14 @@ static int handle_connect_tx_response(struct acmp *acmp, uint64_t now, const voi
 	reply->sequence_id = htons(pending->old_sequence_id);
 	AVBTP_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVBTP_ACMP_MESSAGE_TYPE_CONNECT_RX_RESPONSE);
 
+	acmp->listener_attr->attr.listener.stream_id = reply->stream_id;
+	acmp->listener_attr->param = AVBTP_MSRP_LISTENER_PARAM_READY;
+	avbtp_mrp_mad_begin(server->mrp, now, acmp->listener_attr->mrp);
+	avbtp_mrp_mad_join(server->mrp, now, acmp->listener_attr->mrp, true);
+
+	acmp->talker_attr->attr.talker.stream_id = reply->stream_id;
+	avbtp_mrp_mad_begin(server->mrp, now, acmp->talker_attr->mrp);
+
 	res = avbtp_server_send_packet(server, reply->hdr.eth.dest,
 			AVB_TSN_ETH, reply, pending->size);
 
@@ -209,6 +221,8 @@ static int handle_disconnect_tx_response(struct acmp *acmp, uint64_t now, const 
 	memcpy(reply, resp, SPA_MIN((int)pending->size, len));
 	reply->sequence_id = htons(pending->old_sequence_id);
 	AVBTP_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVBTP_ACMP_MESSAGE_TYPE_DISCONNECT_RX_RESPONSE);
+
+	avbtp_mrp_mad_leave(server->mrp, now, acmp->listener_attr->mrp);
 
 	res = avbtp_server_send_packet(server, reply->hdr.eth.dest,
 			AVB_TSN_ETH, reply, pending->size);
@@ -408,6 +422,11 @@ struct avbtp_acmp *avbtp_acmp_register(struct server *server)
 	spa_list_init(&acmp->pending[PENDING_TALKER]);
 	spa_list_init(&acmp->pending[PENDING_LISTENER]);
 	spa_list_init(&acmp->pending[PENDING_CONTROLLER]);
+
+	acmp->listener_attr = avbtp_msrp_attribute_new(server->msrp,
+			AVBTP_MSRP_ATTRIBUTE_TYPE_LISTENER);
+	acmp->talker_attr = avbtp_msrp_attribute_new(server->msrp,
+			AVBTP_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
 
 	avdecc_server_add_listener(server, &acmp->server_listener, &server_events, acmp);
 

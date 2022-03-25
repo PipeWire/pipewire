@@ -246,167 +246,207 @@ void avbtp_mrp_update_state(struct avbtp_mrp *mrp, uint64_t now,
 		struct avbtp_mrp_attribute *attr, int event)
 {
 	struct attribute *a = SPA_CONTAINER_OF(attr, struct attribute, attr);
-	uint8_t notify = 0;
+	uint8_t notify = 0, state;
 	uint8_t send = 0;
+
+	state = a->registrar_state;
 
 	switch (event) {
 	case AVBTP_MRP_EVENT_BEGIN:
-		a->registrar_state = AVBTP_MRP_MT;
+		state = AVBTP_MRP_MT;
 		break;
 	case AVBTP_MRP_EVENT_RX_NEW:
-		if (a->registrar_state == AVBTP_MRP_LV)
-			a->leave_timeout = 0;
-		a->registrar_state = AVBTP_MRP_IN;
 		notify = AVBTP_MRP_NOTIFY_JOIN_NEW;
+		switch (state) {
+		case AVBTP_MRP_LV:
+			a->leave_timeout = 0;
+			SPA_FALLTHROUGH;
+		case AVBTP_MRP_MT:
+		case AVBTP_MRP_IN:
+			state = AVBTP_MRP_IN;
+                        break;
+		}
 		break;
 	case AVBTP_MRP_EVENT_RX_JOININ:
 	case AVBTP_MRP_EVENT_RX_JOINMT:
-		if (a->registrar_state == AVBTP_MRP_LV)
+		switch (state) {
+		case AVBTP_MRP_LV:
 			a->leave_timeout = 0;
-		if (a->registrar_state == AVBTP_MRP_MT) {
+			SPA_FALLTHROUGH;
+		case AVBTP_MRP_MT:
 			notify = AVBTP_MRP_NOTIFY_JOIN;
+			SPA_FALLTHROUGH;
+		case AVBTP_MRP_IN:
+			state = AVBTP_MRP_IN;
+                        break;
 		}
-		a->registrar_state = AVBTP_MRP_IN;
 		break;
 	case AVBTP_MRP_EVENT_RX_LV:
+		notify = AVBTP_MRP_NOTIFY_LEAVE;
+		SPA_FALLTHROUGH;
 	case AVBTP_MRP_EVENT_RX_LVA:
 	case AVBTP_MRP_EVENT_TX_LVA:
 	case AVBTP_MRP_EVENT_REDECLARE:
-		if (a->registrar_state == AVBTP_MRP_IN) {
+		switch (state) {
+		case AVBTP_MRP_IN:
 			a->leave_timeout = now + MRP_LVTIMER_MS * SPA_NSEC_PER_MSEC;
-			a->registrar_state = AVBTP_MRP_LV;
+			state = AVBTP_MRP_LV;
+			break;
 		}
 		break;
 	case AVBTP_MRP_EVENT_LV_TIMER:
-	case AVBTP_MRP_EVENT_FLUSH:
-		if (a->registrar_state == AVBTP_MRP_LV) {
+		switch (state) {
+		case AVBTP_MRP_LV:
 			notify = AVBTP_MRP_NOTIFY_LEAVE;
+			break;
 		}
-		a->registrar_state = AVBTP_MRP_MT;
+		break;
+	case AVBTP_MRP_EVENT_FLUSH:
+		notify = AVBTP_MRP_NOTIFY_LEAVE;
+		switch (state) {
+		case AVBTP_MRP_LV:
+		case AVBTP_MRP_MT:
+		case AVBTP_MRP_IN:
+			state = AVBTP_MRP_MT;
+			break;
+		}
 		break;
 	default:
 		break;
 	}
 	a->attr.pending_notify |= notify;
+	if (a->registrar_state != state || notify) {
+		pw_log_info("attr %p: %d %d -> %d %d", a, event, a->registrar_state, state, notify);
+		a->registrar_state = state;
+	}
+
+	state = a->applicant_state;
 
 	switch (event) {
 	case AVBTP_MRP_EVENT_BEGIN:
-		a->applicant_state = AVBTP_MRP_VO;
+		state = AVBTP_MRP_VO;
 		break;
 	case AVBTP_MRP_EVENT_NEW:
-		a->applicant_state = AVBTP_MRP_VN;
+		switch (state) {
+		case AVBTP_MRP_VN:
+		case AVBTP_MRP_AN:
+			break;
+		default:
+			state = AVBTP_MRP_VN;
+			break;
+		}
 		break;
 	case AVBTP_MRP_EVENT_JOIN:
-		switch (a->applicant_state) {
+		switch (state) {
 		case AVBTP_MRP_VO:
 		case AVBTP_MRP_LO:
-			a->applicant_state = AVBTP_MRP_VP;
+			state = AVBTP_MRP_VP;
 			break;
 		case AVBTP_MRP_LA:
-			a->applicant_state = AVBTP_MRP_AA;
+			state = AVBTP_MRP_AA;
 			break;
 		case AVBTP_MRP_AO:
-			a->applicant_state = AVBTP_MRP_AP;
+			state = AVBTP_MRP_AP;
 			break;
 		case AVBTP_MRP_QO:
-			a->applicant_state = AVBTP_MRP_QP;
+			state = AVBTP_MRP_QP;
 			break;
 		}
 		break;
 	case AVBTP_MRP_EVENT_LV:
-		switch (a->applicant_state) {
+		switch (state) {
 		case AVBTP_MRP_QP:
-			a->applicant_state = AVBTP_MRP_QO;
+			state = AVBTP_MRP_QO;
 			break;
 		case AVBTP_MRP_AP:
-			a->applicant_state = AVBTP_MRP_AO;
+			state = AVBTP_MRP_AO;
 			break;
 		case AVBTP_MRP_VP:
-			a->applicant_state = AVBTP_MRP_VO;
+			state = AVBTP_MRP_VO;
 			break;
 		case AVBTP_MRP_VN:
 		case AVBTP_MRP_AN:
 		case AVBTP_MRP_AA:
 		case AVBTP_MRP_QA:
-			a->applicant_state = AVBTP_MRP_LA;
+			state = AVBTP_MRP_LA;
 			break;
 		}
 		break;
 	case AVBTP_MRP_EVENT_RX_JOININ:
-		switch (a->applicant_state) {
+		switch (state) {
 		case AVBTP_MRP_VO:
-			a->applicant_state = AVBTP_MRP_AO;
+			state = AVBTP_MRP_AO;
 			break;
 		case AVBTP_MRP_VP:
-			a->applicant_state = AVBTP_MRP_AP;
+			state = AVBTP_MRP_AP;
 			break;
 		case AVBTP_MRP_AA:
-			a->applicant_state = AVBTP_MRP_QA;
+			state = AVBTP_MRP_QA;
 			break;
 		case AVBTP_MRP_AO:
-			a->applicant_state = AVBTP_MRP_QO;
+			state = AVBTP_MRP_QO;
 			break;
 		case AVBTP_MRP_AP:
-			a->applicant_state = AVBTP_MRP_QP;
+			state = AVBTP_MRP_QP;
 			break;
 		}
 		SPA_FALLTHROUGH;
 	case AVBTP_MRP_EVENT_RX_IN:
-		switch (a->applicant_state) {
+		switch (state) {
 		case AVBTP_MRP_AA:
-			a->applicant_state = AVBTP_MRP_QA;
+			state = AVBTP_MRP_QA;
 			break;
 		}
 		SPA_FALLTHROUGH;
 	case AVBTP_MRP_EVENT_RX_JOINMT:
 	case AVBTP_MRP_EVENT_RX_MT:
-		switch (a->applicant_state) {
+		switch (state) {
 		case AVBTP_MRP_QA:
-			a->applicant_state = AVBTP_MRP_AA;
+			state = AVBTP_MRP_AA;
 			break;
 		case AVBTP_MRP_QO:
-			a->applicant_state = AVBTP_MRP_AO;
+			state = AVBTP_MRP_AO;
 			break;
 		case AVBTP_MRP_QP:
-			a->applicant_state = AVBTP_MRP_AP;
+			state = AVBTP_MRP_AP;
 			break;
 		case AVBTP_MRP_LO:
-			a->applicant_state = AVBTP_MRP_VO;
+			state = AVBTP_MRP_VO;
 			break;
 		}
 		break;
 	case AVBTP_MRP_EVENT_RX_LV:
 	case AVBTP_MRP_EVENT_RX_LVA:
 	case AVBTP_MRP_EVENT_REDECLARE:
-		switch (a->applicant_state) {
+		switch (state) {
 		case AVBTP_MRP_VO:
 		case AVBTP_MRP_AO:
 		case AVBTP_MRP_QO:
-			a->applicant_state = AVBTP_MRP_LO;
+			state = AVBTP_MRP_LO;
 			break;
 		case AVBTP_MRP_AN:
-			a->applicant_state = AVBTP_MRP_VN;
+			state = AVBTP_MRP_VN;
 			break;
 		case AVBTP_MRP_AA:
 		case AVBTP_MRP_QA:
 		case AVBTP_MRP_AP:
 		case AVBTP_MRP_QP:
-			a->applicant_state = AVBTP_MRP_VP;
+			state = AVBTP_MRP_VP;
 			break;
 		}
 		break;
 	case AVBTP_MRP_EVENT_PERIODIC:
-		switch (a->applicant_state) {
+		switch (state) {
 		case AVBTP_MRP_QA:
-			a->applicant_state = AVBTP_MRP_AA;
+			state = AVBTP_MRP_AA;
 			break;
 		case AVBTP_MRP_QP:
-			a->applicant_state = AVBTP_MRP_AP;
+			state = AVBTP_MRP_AP;
 			break;
 		}
 		break;
 	case AVBTP_MRP_EVENT_TX:
-		switch (a->applicant_state) {
+		switch (state) {
 		case AVBTP_MRP_VP:
 		case AVBTP_MRP_VN:
 		case AVBTP_MRP_AN:
@@ -415,29 +455,28 @@ void avbtp_mrp_update_state(struct avbtp_mrp *mrp, uint64_t now,
 		case AVBTP_MRP_AP:
 		case AVBTP_MRP_LO:
 			send = get_pending_send(mrp, a, false);
-			break;
 		}
-		switch (a->applicant_state) {
+		switch (state) {
 		case AVBTP_MRP_VP:
-			a->applicant_state = AVBTP_MRP_AA;
+			state = AVBTP_MRP_AA;
 			break;
 		case AVBTP_MRP_VN:
-			a->applicant_state = AVBTP_MRP_AN;
+			state = AVBTP_MRP_AN;
 			break;
 		case AVBTP_MRP_AN:
 		case AVBTP_MRP_AA:
 		case AVBTP_MRP_AP:
-			a->applicant_state = AVBTP_MRP_QA;
+			state = AVBTP_MRP_QA;
 			break;
 		case AVBTP_MRP_LA:
 		case AVBTP_MRP_LO:
-			a->applicant_state = AVBTP_MRP_VO;
+			state = AVBTP_MRP_VO;
 			break;
 		}
 		break;
 	case AVBTP_MRP_EVENT_TX_LVA:
 	{
-		switch (a->applicant_state) {
+		switch (state) {
 		case AVBTP_MRP_VP:
 		case AVBTP_MRP_VN:
 		case AVBTP_MRP_AN:
@@ -448,27 +487,31 @@ void avbtp_mrp_update_state(struct avbtp_mrp *mrp, uint64_t now,
 		case AVBTP_MRP_QP:
 			send = get_pending_send(mrp, a, true);
 		}
-		switch (a->applicant_state) {
+		switch (state) {
 		case AVBTP_MRP_VO:
 		case AVBTP_MRP_LA:
 		case AVBTP_MRP_AO:
 		case AVBTP_MRP_QO:
-			a->applicant_state = AVBTP_MRP_LO;
+			state = AVBTP_MRP_LO;
 			break;
 		case AVBTP_MRP_VN:
-			a->applicant_state = AVBTP_MRP_AN;
+			state = AVBTP_MRP_AN;
 			break;
 		case AVBTP_MRP_AN:
 		case AVBTP_MRP_AA:
 		case AVBTP_MRP_AP:
 		case AVBTP_MRP_QP:
-			a->applicant_state = AVBTP_MRP_QA;
+			state = AVBTP_MRP_QA;
 			break;
 		}
 		break;
 	}
 	default:
 		break;
+	}
+	if (a->applicant_state != state || send) {
+		pw_log_info("attr %p: %d %d -> %d %d", a, event, a->applicant_state, state, send);
+		a->applicant_state = state;
 	}
 	a->attr.pending_send = send;
 }

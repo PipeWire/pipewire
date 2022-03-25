@@ -59,7 +59,7 @@ static int mvrp_attr_event(void *data, uint64_t now, uint8_t attribute_type, uin
 	struct attr *a;
 	spa_list_for_each(a, &mvrp->attributes, link)
 		if (a->attr.type == attribute_type)
-			avb_mrp_update_state(mvrp->server->mrp, now, a->attr.mrp, event);
+			avb_mrp_attribute_rx_event(a->attr.mrp, now, event);
 	return 0;
 }
 

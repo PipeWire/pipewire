@@ -234,13 +234,13 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 	server->domain_attr->attr.domain.sr_class_priority = 3;
 	server->domain_attr->attr.domain.sr_class_vid = htons(2);
 
-	avb_mrp_mad_begin(server->mrp, 0, server->domain_attr->mrp);
-	avb_mrp_mad_join(server->mrp, 0, server->domain_attr->mrp, true);
+	avb_mrp_attribute_begin(server->domain_attr->mrp, 0);
+	avb_mrp_attribute_join(server->domain_attr->mrp, 0, true);
 
 	server->listener_attr = avb_msrp_attribute_new(server->msrp,
 			AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
 	server->listener_attr->attr.listener.stream_id = htobe64(0);
-	avb_mrp_mad_begin(server->mrp, 0, server->listener_attr->mrp);
+	avb_mrp_attribute_begin(server->listener_attr->mrp, 0);
 
 	return server;
 

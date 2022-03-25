@@ -60,7 +60,7 @@ static int mmrp_attr_event(void *data, uint64_t now, uint8_t attribute_type, uin
 	struct attr *a;
 	spa_list_for_each(a, &mmrp->attributes, link)
 		if (a->attr.type == attribute_type)
-			avb_mrp_update_state(mmrp->server->mrp, now, a->attr.mrp, event);
+			avb_mrp_attribute_update_state(a->attr.mrp, now, event);
 	return 0;
 }
 
@@ -82,7 +82,7 @@ static int process_service_requirement(struct mmrp *mmrp, uint64_t now, uint8_t 
 	spa_list_for_each(a, &mmrp->attributes, link)
 		if (a->attr.type == attr_type &&
 		    memcmp(a->attr.attr.service_requirement.addr, t->addr, 6) == 0)
-			avb_mrp_rx_event(mmrp->server->mrp, now, a->attr.mrp, event);
+			avb_mrp_attribute_rx_event(a->attr.mrp, now, event);
 	return 0;
 }
 
@@ -104,7 +104,7 @@ static int process_mac(struct mmrp *mmrp, uint64_t now, uint8_t attr_type,
 	spa_list_for_each(a, &mmrp->attributes, link)
 		if (a->attr.type == attr_type &&
 		    memcmp(a->attr.attr.mac.addr, t->addr, 6) == 0)
-			avb_mrp_rx_event(mmrp->server->mrp, now, a->attr.mrp, event);
+			avb_mrp_attribute_rx_event(a->attr.mrp, now, event);
 	return 0;
 }
 

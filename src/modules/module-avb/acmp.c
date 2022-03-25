@@ -167,11 +167,11 @@ static int handle_connect_tx_response(struct acmp *acmp, uint64_t now, const voi
 
 	acmp->listener_attr->attr.listener.stream_id = reply->stream_id;
 	acmp->listener_attr->param = AVB_MSRP_LISTENER_PARAM_READY;
-	avb_mrp_mad_begin(server->mrp, now, acmp->listener_attr->mrp);
-	avb_mrp_mad_join(server->mrp, now, acmp->listener_attr->mrp, true);
+	avb_mrp_attribute_begin(acmp->listener_attr->mrp, now);
+	avb_mrp_attribute_join(acmp->listener_attr->mrp, now, true);
 
 	acmp->talker_attr->attr.talker.stream_id = reply->stream_id;
-	avb_mrp_mad_begin(server->mrp, now, acmp->talker_attr->mrp);
+	avb_mrp_attribute_begin(acmp->talker_attr->mrp, now);
 
 	res = avb_server_send_packet(server, reply->hdr.eth.dest,
 			AVB_TSN_ETH, reply, pending->size);
@@ -222,7 +222,7 @@ static int handle_disconnect_tx_response(struct acmp *acmp, uint64_t now, const 
 	reply->sequence_id = htons(pending->old_sequence_id);
 	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_DISCONNECT_RX_RESPONSE);
 
-	avb_mrp_mad_leave(server->mrp, now, acmp->listener_attr->mrp);
+	avb_mrp_attribute_leave(acmp->listener_attr->mrp, now);
 
 	res = avb_server_send_packet(server, reply->hdr.eth.dest,
 			AVB_TSN_ETH, reply, pending->size);

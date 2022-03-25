@@ -114,15 +114,35 @@ struct avb_packet_mrp_footer {
 #define AVB_MRP_SEND_MT			5
 #define AVB_MRP_SEND_LV			6
 
-#define AVB_MRP_NOTIFY_JOIN_NEW		(1u<<0)
-#define AVB_MRP_NOTIFY_JOIN		(1u<<1)
-#define AVB_MRP_NOTIFY_LEAVE		(1u<<2)
+#define AVB_MRP_NOTIFY_NEW		0
+#define AVB_MRP_NOTIFY_JOIN		1
+#define AVB_MRP_NOTIFY_LEAVE		2
 
 struct avb_mrp_attribute {
 	uint8_t pending_send;
-	uint8_t pending_notify;
 	void *user_data;
 };
+
+struct avb_mrp_attribute_events {
+#define AVB_VERSION_MRP_ATTRIBUTE_EVENTS	0
+	uint32_t version;
+
+	void (*notify) (void *data, uint64_t now, uint8_t notify);
+};
+
+struct avb_mrp_attribute *avb_mrp_attribute_new(struct avb_mrp *mrp,
+		size_t user_size);
+
+void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now, int event);
+
+void avb_mrp_attribute_rx_event(struct avb_mrp_attribute *attr, uint64_t now, uint8_t event);
+
+void avb_mrp_attribute_begin(struct avb_mrp_attribute *attr, uint64_t now);
+void avb_mrp_attribute_join(struct avb_mrp_attribute *attr, uint64_t now, bool is_new);
+void avb_mrp_attribute_leave(struct avb_mrp_attribute *attr, uint64_t now);
+
+void avb_mrp_attribute_add_listener(struct avb_mrp_attribute *attr, struct spa_hook *listener,
+		const struct avb_mrp_attribute_events *events, void *data);
 
 struct avb_mrp_parse_info {
 #define AVB_VERSION_MRP_PARSE_INFO	0
@@ -136,25 +156,11 @@ struct avb_mrp_parse_info {
 			uint8_t event, uint8_t param, int index);
 };
 
-
 int avb_mrp_parse_packet(struct avb_mrp *mrp, uint64_t now, const void *pkt, int size,
 		const struct avb_mrp_parse_info *cb, void *data);
 
-struct avb_mrp_attribute *avb_mrp_attribute_new(struct avb_mrp *mrp,
-		size_t user_size);
-
-void avb_mrp_update_state(struct avb_mrp *mrp, uint64_t now,
-		struct avb_mrp_attribute *attr, int event);
-
-void avb_mrp_rx_event(struct avb_mrp *mrp, uint64_t now,
-		struct avb_mrp_attribute *attr, uint8_t event);
-
-void avb_mrp_mad_begin(struct avb_mrp *mrp, uint64_t now, struct avb_mrp_attribute *attr);
-void avb_mrp_mad_join(struct avb_mrp *mrp, uint64_t now, struct avb_mrp_attribute *attr, bool is_new);
-void avb_mrp_mad_leave(struct avb_mrp *mrp, uint64_t now, struct avb_mrp_attribute *attr);
-
 struct avb_mrp_events {
-#define AVB_VERSION_MRP_ATTRIBUTE_CALLBACKS	0
+#define AVB_VERSION_MRP_EVENTS	0
 	uint32_t version;
 
 	void (*event) (void *data, uint64_t now, uint8_t event);

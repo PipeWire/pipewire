@@ -31,12 +31,12 @@
 #define MRP_LVATIMER_MS		10000
 #define MRP_PERIODTIMER_MS	1000
 
-#define mrp_emit(s,m,v,...)		spa_hook_list_call(&s->listener_list, struct avbtp_mrp_events, m, v, ##__VA_ARGS__)
+#define mrp_emit(s,m,v,...)		spa_hook_list_call(&s->listener_list, struct avb_mrp_events, m, v, ##__VA_ARGS__)
 #define mrp_emit_event(s,n,e)		mrp_emit(s,event,0,n,e)
 #define mrp_emit_notify(s,n,a,e)	mrp_emit(s,notify,0,n,a,e)
 
 struct attribute {
-	struct avbtp_mrp_attribute attr;
+	struct avb_mrp_attribute attr;
 	struct spa_list link;
 	uint8_t applicant_state;
 	uint8_t registrar_state;
@@ -67,7 +67,7 @@ static void global_event(struct mrp *mrp, uint64_t now, uint8_t event)
 {
 	struct attribute *a;
 	spa_list_for_each(a, &mrp->attributes, link)
-		avbtp_mrp_update_state((struct avbtp_mrp*)mrp, now, &a->attr, event);
+		avb_mrp_update_state((struct avb_mrp*)mrp, now, &a->attr, event);
 	mrp_emit_event(mrp, now, event);
 }
 
@@ -79,12 +79,12 @@ static void mrp_periodic(void *data, uint64_t now)
 
 	if (now > mrp->periodic_timeout) {
 		if (mrp->periodic_timeout > 0)
-			global_event(mrp, now, AVBTP_MRP_EVENT_PERIODIC);
+			global_event(mrp, now, AVB_MRP_EVENT_PERIODIC);
 		mrp->periodic_timeout = now + MRP_PERIODTIMER_MS * SPA_NSEC_PER_MSEC;
 	}
 	if (now > mrp->leave_all_timeout) {
 		if (mrp->leave_all_timeout > 0) {
-			global_event(mrp, now, AVBTP_MRP_EVENT_RX_LVA);
+			global_event(mrp, now, AVB_MRP_EVENT_RX_LVA);
 			leave_all = true;
 		}
 		mrp->leave_all_timeout = now + (MRP_LVATIMER_MS + (random() % (MRP_LVATIMER_MS / 2)))
@@ -93,7 +93,7 @@ static void mrp_periodic(void *data, uint64_t now)
 
 	if (now > mrp->join_timeout) {
 		if (mrp->join_timeout > 0) {
-			uint8_t event = leave_all ? AVBTP_MRP_EVENT_TX_LVA : AVBTP_MRP_EVENT_TX;
+			uint8_t event = leave_all ? AVB_MRP_EVENT_TX_LVA : AVB_MRP_EVENT_TX;
 			global_event(mrp, now, event);
 		}
 		mrp->join_timeout = now + MRP_JOINTIMER_MS * SPA_NSEC_PER_MSEC;
@@ -102,7 +102,7 @@ static void mrp_periodic(void *data, uint64_t now)
 	spa_list_for_each(a, &mrp->attributes, link) {
 		if (a->leave_timeout > 0 && now > a->leave_timeout) {
 			a->leave_timeout = 0;
-			avbtp_mrp_update_state((struct avbtp_mrp*)mrp, now, &a->attr, AVBTP_MRP_EVENT_LV_TIMER);
+			avb_mrp_update_state((struct avb_mrp*)mrp, now, &a->attr, AVB_MRP_EVENT_LV_TIMER);
 		}
 		if (a->attr.pending_notify) {
 			mrp_emit_notify(mrp, now, &a->attr, a->attr.pending_notify);
@@ -112,19 +112,19 @@ static void mrp_periodic(void *data, uint64_t now)
 }
 
 static const struct server_events server_events = {
-	AVBTP_VERSION_SERVER_EVENTS,
+	AVB_VERSION_SERVER_EVENTS,
 	.destroy = mrp_destroy,
 	.periodic = mrp_periodic,
 };
 
-int avbtp_mrp_parse_packet(struct avbtp_mrp *mrp, uint64_t now, const void *pkt, int len,
-		const struct avbtp_mrp_parse_info *info, void *data)
+int avb_mrp_parse_packet(struct avb_mrp *mrp, uint64_t now, const void *pkt, int len,
+		const struct avb_mrp_parse_info *info, void *data)
 {
 	uint8_t *e = SPA_PTROFF(pkt, len, uint8_t);
-	uint8_t *m = SPA_PTROFF(pkt, sizeof(struct avbtp_packet_mrp), uint8_t);
+	uint8_t *m = SPA_PTROFF(pkt, sizeof(struct avb_packet_mrp), uint8_t);
 
 	while (m < e && (m[0] != 0 || m[1] != 0)) {
-		const struct avbtp_packet_mrp_hdr *hdr = (const struct avbtp_packet_mrp_hdr*)m;
+		const struct avb_packet_mrp_hdr *hdr = (const struct avb_packet_mrp_hdr*)m;
 		uint8_t attr_type = hdr->attribute_type;
 		uint8_t attr_len = hdr->attribute_length;
 		size_t hdr_size;
@@ -136,9 +136,9 @@ int avbtp_mrp_parse_packet(struct avbtp_mrp *mrp, uint64_t now, const void *pkt,
 		m += hdr_size;
 
 		while (m < e && (m[0] != 0 || m[1] != 0)) {
-			const struct avbtp_packet_mrp_vector *v =
-				(const struct avbtp_packet_mrp_vector*)m;
-			uint16_t i, num_values = AVBTP_MRP_VECTOR_GET_NUM_VALUES(v);
+			const struct avb_packet_mrp_vector *v =
+				(const struct avb_packet_mrp_vector*)m;
+			uint16_t i, num_values = AVB_MRP_VECTOR_GET_NUM_VALUES(v);
 			uint8_t event_len = (num_values+2)/3;
 			uint8_t param_len = has_param ? (num_values+3)/4 : 0;
 			int plen = sizeof(*v) + attr_len + event_len + param_len;
@@ -149,7 +149,7 @@ int avbtp_mrp_parse_packet(struct avbtp_mrp *mrp, uint64_t now, const void *pkt,
 				return -EPROTO;
 
 			if (v->lva)
-				info->attr_event(data, now, attr_type, AVBTP_MRP_EVENT_RX_LVA);
+				info->attr_event(data, now, attr_type, AVB_MRP_EVENT_RX_LVA);
 
 			for (i = 0; i < num_values; i++) {
 				if (i % 3 == 0) {
@@ -175,7 +175,7 @@ int avbtp_mrp_parse_packet(struct avbtp_mrp *mrp, uint64_t now, const void *pkt,
 	return 0;
 }
 
-struct avbtp_mrp_attribute *avbtp_mrp_attribute_new(struct avbtp_mrp *m,
+struct avb_mrp_attribute *avb_mrp_attribute_new(struct avb_mrp *m,
 		size_t user_size)
 {
 	struct mrp *mrp = (struct mrp*)m;
@@ -191,50 +191,50 @@ struct avbtp_mrp_attribute *avbtp_mrp_attribute_new(struct avbtp_mrp *m,
 	return &a->attr;
 }
 
-static uint8_t get_pending_send(struct avbtp_mrp *mrp, struct attribute *a, bool leave_all)
+static uint8_t get_pending_send(struct avb_mrp *mrp, struct attribute *a, bool leave_all)
 {
 	uint8_t send = 0;
 
 	switch (a->applicant_state) {
-	case AVBTP_MRP_VP:
-	case AVBTP_MRP_AA:
-	case AVBTP_MRP_AP:
-	case AVBTP_MRP_QA:
-	case AVBTP_MRP_QP:
-		if (leave_all && a->applicant_state == AVBTP_MRP_VP) {
+	case AVB_MRP_VP:
+	case AVB_MRP_AA:
+	case AVB_MRP_AP:
+	case AVB_MRP_QA:
+	case AVB_MRP_QP:
+		if (leave_all && a->applicant_state == AVB_MRP_VP) {
 			switch (a->registrar_state) {
-			case AVBTP_MRP_IN:
-				send = AVBTP_MRP_SEND_IN;
+			case AVB_MRP_IN:
+				send = AVB_MRP_SEND_IN;
 				break;
 			default:
-				send = AVBTP_MRP_SEND_MT;
+				send = AVB_MRP_SEND_MT;
 				break;
 			}
-		} else if (leave_all || a->applicant_state != AVBTP_MRP_QP) {
+		} else if (leave_all || a->applicant_state != AVB_MRP_QP) {
 			switch (a->registrar_state) {
-			case AVBTP_MRP_IN:
-				send = AVBTP_MRP_SEND_JOININ;
+			case AVB_MRP_IN:
+				send = AVB_MRP_SEND_JOININ;
 				break;
 			default:
-				send = AVBTP_MRP_SEND_JOINMT;
+				send = AVB_MRP_SEND_JOINMT;
 				break;
 			}
 		}
 		break;
-	case AVBTP_MRP_VN:
-	case AVBTP_MRP_AN:
-		send = AVBTP_MRP_SEND_NEW;
+	case AVB_MRP_VN:
+	case AVB_MRP_AN:
+		send = AVB_MRP_SEND_NEW;
 		break;
-	case AVBTP_MRP_LA:
-		send = AVBTP_MRP_SEND_LV;
+	case AVB_MRP_LA:
+		send = AVB_MRP_SEND_LV;
 		break;
-	case AVBTP_MRP_LO:
+	case AVB_MRP_LO:
 		switch (a->registrar_state) {
-		case AVBTP_MRP_IN:
-			send = AVBTP_MRP_SEND_IN;
+		case AVB_MRP_IN:
+			send = AVB_MRP_SEND_IN;
 			break;
 		default:
-			send = AVBTP_MRP_SEND_MT;
+			send = AVB_MRP_SEND_MT;
 			break;
 		}
 		break;
@@ -242,8 +242,8 @@ static uint8_t get_pending_send(struct avbtp_mrp *mrp, struct attribute *a, bool
 	return send;
 }
 
-void avbtp_mrp_update_state(struct avbtp_mrp *mrp, uint64_t now,
-		struct avbtp_mrp_attribute *attr, int event)
+void avb_mrp_update_state(struct avb_mrp *mrp, uint64_t now,
+		struct avb_mrp_attribute *attr, int event)
 {
 	struct attribute *a = SPA_CONTAINER_OF(attr, struct attribute, attr);
 	uint8_t notify = 0, state;
@@ -252,62 +252,62 @@ void avbtp_mrp_update_state(struct avbtp_mrp *mrp, uint64_t now,
 	state = a->registrar_state;
 
 	switch (event) {
-	case AVBTP_MRP_EVENT_BEGIN:
-		state = AVBTP_MRP_MT;
+	case AVB_MRP_EVENT_BEGIN:
+		state = AVB_MRP_MT;
 		break;
-	case AVBTP_MRP_EVENT_RX_NEW:
-		notify = AVBTP_MRP_NOTIFY_JOIN_NEW;
+	case AVB_MRP_EVENT_RX_NEW:
+		notify = AVB_MRP_NOTIFY_JOIN_NEW;
 		switch (state) {
-		case AVBTP_MRP_LV:
+		case AVB_MRP_LV:
 			a->leave_timeout = 0;
 			SPA_FALLTHROUGH;
-		case AVBTP_MRP_MT:
-		case AVBTP_MRP_IN:
-			state = AVBTP_MRP_IN;
+		case AVB_MRP_MT:
+		case AVB_MRP_IN:
+			state = AVB_MRP_IN;
                         break;
 		}
 		break;
-	case AVBTP_MRP_EVENT_RX_JOININ:
-	case AVBTP_MRP_EVENT_RX_JOINMT:
+	case AVB_MRP_EVENT_RX_JOININ:
+	case AVB_MRP_EVENT_RX_JOINMT:
 		switch (state) {
-		case AVBTP_MRP_LV:
+		case AVB_MRP_LV:
 			a->leave_timeout = 0;
 			SPA_FALLTHROUGH;
-		case AVBTP_MRP_MT:
-			notify = AVBTP_MRP_NOTIFY_JOIN;
+		case AVB_MRP_MT:
+			notify = AVB_MRP_NOTIFY_JOIN;
 			SPA_FALLTHROUGH;
-		case AVBTP_MRP_IN:
-			state = AVBTP_MRP_IN;
+		case AVB_MRP_IN:
+			state = AVB_MRP_IN;
                         break;
 		}
 		break;
-	case AVBTP_MRP_EVENT_RX_LV:
-		notify = AVBTP_MRP_NOTIFY_LEAVE;
+	case AVB_MRP_EVENT_RX_LV:
+		notify = AVB_MRP_NOTIFY_LEAVE;
 		SPA_FALLTHROUGH;
-	case AVBTP_MRP_EVENT_RX_LVA:
-	case AVBTP_MRP_EVENT_TX_LVA:
-	case AVBTP_MRP_EVENT_REDECLARE:
+	case AVB_MRP_EVENT_RX_LVA:
+	case AVB_MRP_EVENT_TX_LVA:
+	case AVB_MRP_EVENT_REDECLARE:
 		switch (state) {
-		case AVBTP_MRP_IN:
+		case AVB_MRP_IN:
 			a->leave_timeout = now + MRP_LVTIMER_MS * SPA_NSEC_PER_MSEC;
-			state = AVBTP_MRP_LV;
+			state = AVB_MRP_LV;
 			break;
 		}
 		break;
-	case AVBTP_MRP_EVENT_LV_TIMER:
+	case AVB_MRP_EVENT_LV_TIMER:
 		switch (state) {
-		case AVBTP_MRP_LV:
-			notify = AVBTP_MRP_NOTIFY_LEAVE;
+		case AVB_MRP_LV:
+			notify = AVB_MRP_NOTIFY_LEAVE;
 			break;
 		}
 		break;
-	case AVBTP_MRP_EVENT_FLUSH:
-		notify = AVBTP_MRP_NOTIFY_LEAVE;
+	case AVB_MRP_EVENT_FLUSH:
+		notify = AVB_MRP_NOTIFY_LEAVE;
 		switch (state) {
-		case AVBTP_MRP_LV:
-		case AVBTP_MRP_MT:
-		case AVBTP_MRP_IN:
-			state = AVBTP_MRP_MT;
+		case AVB_MRP_LV:
+		case AVB_MRP_MT:
+		case AVB_MRP_IN:
+			state = AVB_MRP_MT;
 			break;
 		}
 		break;
@@ -323,185 +323,185 @@ void avbtp_mrp_update_state(struct avbtp_mrp *mrp, uint64_t now,
 	state = a->applicant_state;
 
 	switch (event) {
-	case AVBTP_MRP_EVENT_BEGIN:
-		state = AVBTP_MRP_VO;
+	case AVB_MRP_EVENT_BEGIN:
+		state = AVB_MRP_VO;
 		break;
-	case AVBTP_MRP_EVENT_NEW:
+	case AVB_MRP_EVENT_NEW:
 		switch (state) {
-		case AVBTP_MRP_VN:
-		case AVBTP_MRP_AN:
+		case AVB_MRP_VN:
+		case AVB_MRP_AN:
 			break;
 		default:
-			state = AVBTP_MRP_VN;
+			state = AVB_MRP_VN;
 			break;
 		}
 		break;
-	case AVBTP_MRP_EVENT_JOIN:
+	case AVB_MRP_EVENT_JOIN:
 		switch (state) {
-		case AVBTP_MRP_VO:
-		case AVBTP_MRP_LO:
-			state = AVBTP_MRP_VP;
+		case AVB_MRP_VO:
+		case AVB_MRP_LO:
+			state = AVB_MRP_VP;
 			break;
-		case AVBTP_MRP_LA:
-			state = AVBTP_MRP_AA;
+		case AVB_MRP_LA:
+			state = AVB_MRP_AA;
 			break;
-		case AVBTP_MRP_AO:
-			state = AVBTP_MRP_AP;
+		case AVB_MRP_AO:
+			state = AVB_MRP_AP;
 			break;
-		case AVBTP_MRP_QO:
-			state = AVBTP_MRP_QP;
+		case AVB_MRP_QO:
+			state = AVB_MRP_QP;
 			break;
 		}
 		break;
-	case AVBTP_MRP_EVENT_LV:
+	case AVB_MRP_EVENT_LV:
 		switch (state) {
-		case AVBTP_MRP_QP:
-			state = AVBTP_MRP_QO;
+		case AVB_MRP_QP:
+			state = AVB_MRP_QO;
 			break;
-		case AVBTP_MRP_AP:
-			state = AVBTP_MRP_AO;
+		case AVB_MRP_AP:
+			state = AVB_MRP_AO;
 			break;
-		case AVBTP_MRP_VP:
-			state = AVBTP_MRP_VO;
+		case AVB_MRP_VP:
+			state = AVB_MRP_VO;
 			break;
-		case AVBTP_MRP_VN:
-		case AVBTP_MRP_AN:
-		case AVBTP_MRP_AA:
-		case AVBTP_MRP_QA:
-			state = AVBTP_MRP_LA;
+		case AVB_MRP_VN:
+		case AVB_MRP_AN:
+		case AVB_MRP_AA:
+		case AVB_MRP_QA:
+			state = AVB_MRP_LA;
 			break;
 		}
 		break;
-	case AVBTP_MRP_EVENT_RX_JOININ:
+	case AVB_MRP_EVENT_RX_JOININ:
 		switch (state) {
-		case AVBTP_MRP_VO:
-			state = AVBTP_MRP_AO;
+		case AVB_MRP_VO:
+			state = AVB_MRP_AO;
 			break;
-		case AVBTP_MRP_VP:
-			state = AVBTP_MRP_AP;
+		case AVB_MRP_VP:
+			state = AVB_MRP_AP;
 			break;
-		case AVBTP_MRP_AA:
-			state = AVBTP_MRP_QA;
+		case AVB_MRP_AA:
+			state = AVB_MRP_QA;
 			break;
-		case AVBTP_MRP_AO:
-			state = AVBTP_MRP_QO;
+		case AVB_MRP_AO:
+			state = AVB_MRP_QO;
 			break;
-		case AVBTP_MRP_AP:
-			state = AVBTP_MRP_QP;
+		case AVB_MRP_AP:
+			state = AVB_MRP_QP;
 			break;
 		}
 		SPA_FALLTHROUGH;
-	case AVBTP_MRP_EVENT_RX_IN:
+	case AVB_MRP_EVENT_RX_IN:
 		switch (state) {
-		case AVBTP_MRP_AA:
-			state = AVBTP_MRP_QA;
+		case AVB_MRP_AA:
+			state = AVB_MRP_QA;
 			break;
 		}
 		SPA_FALLTHROUGH;
-	case AVBTP_MRP_EVENT_RX_JOINMT:
-	case AVBTP_MRP_EVENT_RX_MT:
+	case AVB_MRP_EVENT_RX_JOINMT:
+	case AVB_MRP_EVENT_RX_MT:
 		switch (state) {
-		case AVBTP_MRP_QA:
-			state = AVBTP_MRP_AA;
+		case AVB_MRP_QA:
+			state = AVB_MRP_AA;
 			break;
-		case AVBTP_MRP_QO:
-			state = AVBTP_MRP_AO;
+		case AVB_MRP_QO:
+			state = AVB_MRP_AO;
 			break;
-		case AVBTP_MRP_QP:
-			state = AVBTP_MRP_AP;
+		case AVB_MRP_QP:
+			state = AVB_MRP_AP;
 			break;
-		case AVBTP_MRP_LO:
-			state = AVBTP_MRP_VO;
+		case AVB_MRP_LO:
+			state = AVB_MRP_VO;
 			break;
 		}
 		break;
-	case AVBTP_MRP_EVENT_RX_LV:
-	case AVBTP_MRP_EVENT_RX_LVA:
-	case AVBTP_MRP_EVENT_REDECLARE:
+	case AVB_MRP_EVENT_RX_LV:
+	case AVB_MRP_EVENT_RX_LVA:
+	case AVB_MRP_EVENT_REDECLARE:
 		switch (state) {
-		case AVBTP_MRP_VO:
-		case AVBTP_MRP_AO:
-		case AVBTP_MRP_QO:
-			state = AVBTP_MRP_LO;
+		case AVB_MRP_VO:
+		case AVB_MRP_AO:
+		case AVB_MRP_QO:
+			state = AVB_MRP_LO;
 			break;
-		case AVBTP_MRP_AN:
-			state = AVBTP_MRP_VN;
+		case AVB_MRP_AN:
+			state = AVB_MRP_VN;
 			break;
-		case AVBTP_MRP_AA:
-		case AVBTP_MRP_QA:
-		case AVBTP_MRP_AP:
-		case AVBTP_MRP_QP:
-			state = AVBTP_MRP_VP;
+		case AVB_MRP_AA:
+		case AVB_MRP_QA:
+		case AVB_MRP_AP:
+		case AVB_MRP_QP:
+			state = AVB_MRP_VP;
 			break;
 		}
 		break;
-	case AVBTP_MRP_EVENT_PERIODIC:
+	case AVB_MRP_EVENT_PERIODIC:
 		switch (state) {
-		case AVBTP_MRP_QA:
-			state = AVBTP_MRP_AA;
+		case AVB_MRP_QA:
+			state = AVB_MRP_AA;
 			break;
-		case AVBTP_MRP_QP:
-			state = AVBTP_MRP_AP;
+		case AVB_MRP_QP:
+			state = AVB_MRP_AP;
 			break;
 		}
 		break;
-	case AVBTP_MRP_EVENT_TX:
+	case AVB_MRP_EVENT_TX:
 		switch (state) {
-		case AVBTP_MRP_VP:
-		case AVBTP_MRP_VN:
-		case AVBTP_MRP_AN:
-		case AVBTP_MRP_AA:
-		case AVBTP_MRP_LA:
-		case AVBTP_MRP_AP:
-		case AVBTP_MRP_LO:
+		case AVB_MRP_VP:
+		case AVB_MRP_VN:
+		case AVB_MRP_AN:
+		case AVB_MRP_AA:
+		case AVB_MRP_LA:
+		case AVB_MRP_AP:
+		case AVB_MRP_LO:
 			send = get_pending_send(mrp, a, false);
 		}
 		switch (state) {
-		case AVBTP_MRP_VP:
-			state = AVBTP_MRP_AA;
+		case AVB_MRP_VP:
+			state = AVB_MRP_AA;
 			break;
-		case AVBTP_MRP_VN:
-			state = AVBTP_MRP_AN;
+		case AVB_MRP_VN:
+			state = AVB_MRP_AN;
 			break;
-		case AVBTP_MRP_AN:
-		case AVBTP_MRP_AA:
-		case AVBTP_MRP_AP:
-			state = AVBTP_MRP_QA;
+		case AVB_MRP_AN:
+		case AVB_MRP_AA:
+		case AVB_MRP_AP:
+			state = AVB_MRP_QA;
 			break;
-		case AVBTP_MRP_LA:
-		case AVBTP_MRP_LO:
-			state = AVBTP_MRP_VO;
+		case AVB_MRP_LA:
+		case AVB_MRP_LO:
+			state = AVB_MRP_VO;
 			break;
 		}
 		break;
-	case AVBTP_MRP_EVENT_TX_LVA:
+	case AVB_MRP_EVENT_TX_LVA:
 	{
 		switch (state) {
-		case AVBTP_MRP_VP:
-		case AVBTP_MRP_VN:
-		case AVBTP_MRP_AN:
-		case AVBTP_MRP_AA:
-		case AVBTP_MRP_LA:
-		case AVBTP_MRP_QA:
-		case AVBTP_MRP_AP:
-		case AVBTP_MRP_QP:
+		case AVB_MRP_VP:
+		case AVB_MRP_VN:
+		case AVB_MRP_AN:
+		case AVB_MRP_AA:
+		case AVB_MRP_LA:
+		case AVB_MRP_QA:
+		case AVB_MRP_AP:
+		case AVB_MRP_QP:
 			send = get_pending_send(mrp, a, true);
 		}
 		switch (state) {
-		case AVBTP_MRP_VO:
-		case AVBTP_MRP_LA:
-		case AVBTP_MRP_AO:
-		case AVBTP_MRP_QO:
-			state = AVBTP_MRP_LO;
+		case AVB_MRP_VO:
+		case AVB_MRP_LA:
+		case AVB_MRP_AO:
+		case AVB_MRP_QO:
+			state = AVB_MRP_LO;
 			break;
-		case AVBTP_MRP_VN:
-			state = AVBTP_MRP_AN;
+		case AVB_MRP_VN:
+			state = AVB_MRP_AN;
 			break;
-		case AVBTP_MRP_AN:
-		case AVBTP_MRP_AA:
-		case AVBTP_MRP_AP:
-		case AVBTP_MRP_QP:
-			state = AVBTP_MRP_QA;
+		case AVB_MRP_AN:
+		case AVB_MRP_AA:
+		case AVB_MRP_AP:
+		case AVB_MRP_QP:
+			state = AVB_MRP_QA;
 			break;
 		}
 		break;
@@ -516,46 +516,46 @@ void avbtp_mrp_update_state(struct avbtp_mrp *mrp, uint64_t now,
 	a->attr.pending_send = send;
 }
 
-void avbtp_mrp_rx_event(struct avbtp_mrp *mrp, uint64_t now,
-		struct avbtp_mrp_attribute *attr, uint8_t event)
+void avb_mrp_rx_event(struct avb_mrp *mrp, uint64_t now,
+		struct avb_mrp_attribute *attr, uint8_t event)
 {
 	static const int map[] = {
-		[AVBTP_MRP_ATTRIBUTE_EVENT_NEW] = AVBTP_MRP_EVENT_RX_NEW,
-		[AVBTP_MRP_ATTRIBUTE_EVENT_JOININ] = AVBTP_MRP_EVENT_RX_JOININ,
-		[AVBTP_MRP_ATTRIBUTE_EVENT_IN] = AVBTP_MRP_EVENT_RX_IN,
-		[AVBTP_MRP_ATTRIBUTE_EVENT_JOINMT] = AVBTP_MRP_EVENT_RX_JOINMT,
-		[AVBTP_MRP_ATTRIBUTE_EVENT_MT] = AVBTP_MRP_EVENT_RX_MT,
-		[AVBTP_MRP_ATTRIBUTE_EVENT_LV] = AVBTP_MRP_EVENT_RX_LV,
+		[AVB_MRP_ATTRIBUTE_EVENT_NEW] = AVB_MRP_EVENT_RX_NEW,
+		[AVB_MRP_ATTRIBUTE_EVENT_JOININ] = AVB_MRP_EVENT_RX_JOININ,
+		[AVB_MRP_ATTRIBUTE_EVENT_IN] = AVB_MRP_EVENT_RX_IN,
+		[AVB_MRP_ATTRIBUTE_EVENT_JOINMT] = AVB_MRP_EVENT_RX_JOINMT,
+		[AVB_MRP_ATTRIBUTE_EVENT_MT] = AVB_MRP_EVENT_RX_MT,
+		[AVB_MRP_ATTRIBUTE_EVENT_LV] = AVB_MRP_EVENT_RX_LV,
 	};
-	avbtp_mrp_update_state(mrp, now, attr, map[event]);
+	avb_mrp_update_state(mrp, now, attr, map[event]);
 }
 
-void avbtp_mrp_mad_begin(struct avbtp_mrp *mrp, uint64_t now, struct avbtp_mrp_attribute *attr)
+void avb_mrp_mad_begin(struct avb_mrp *mrp, uint64_t now, struct avb_mrp_attribute *attr)
 {
 	struct attribute *a = SPA_CONTAINER_OF(attr, struct attribute, attr);
 	a->leave_timeout = 0;
-	avbtp_mrp_update_state(mrp, now, attr, AVBTP_MRP_EVENT_BEGIN);
+	avb_mrp_update_state(mrp, now, attr, AVB_MRP_EVENT_BEGIN);
 }
 
-void avbtp_mrp_mad_join(struct avbtp_mrp *mrp, uint64_t now, struct avbtp_mrp_attribute *attr, bool is_new)
+void avb_mrp_mad_join(struct avb_mrp *mrp, uint64_t now, struct avb_mrp_attribute *attr, bool is_new)
 {
 	if (is_new)
-		avbtp_mrp_update_state(mrp, now, attr, AVBTP_MRP_EVENT_NEW);
+		avb_mrp_update_state(mrp, now, attr, AVB_MRP_EVENT_NEW);
 	else
-		avbtp_mrp_update_state(mrp, now, attr, AVBTP_MRP_EVENT_JOIN);
+		avb_mrp_update_state(mrp, now, attr, AVB_MRP_EVENT_JOIN);
 }
 
-void avbtp_mrp_mad_leave(struct avbtp_mrp *mrp, uint64_t now, struct avbtp_mrp_attribute *attr)
+void avb_mrp_mad_leave(struct avb_mrp *mrp, uint64_t now, struct avb_mrp_attribute *attr)
 {
-	avbtp_mrp_update_state(mrp, now, attr, AVBTP_MRP_EVENT_LV);
+	avb_mrp_update_state(mrp, now, attr, AVB_MRP_EVENT_LV);
 }
 
-void avbtp_mrp_destroy(struct avbtp_mrp *mrp)
+void avb_mrp_destroy(struct avb_mrp *mrp)
 {
 	mrp_destroy(mrp);
 }
 
-struct avbtp_mrp *avbtp_mrp_new(struct server *server)
+struct avb_mrp *avb_mrp_new(struct server *server)
 {
 	struct mrp *mrp;
 
@@ -569,11 +569,11 @@ struct avbtp_mrp *avbtp_mrp_new(struct server *server)
 
 	avdecc_server_add_listener(server, &mrp->server_listener, &server_events, mrp);
 
-	return (struct avbtp_mrp*)mrp;
+	return (struct avb_mrp*)mrp;
 }
 
-void avbtp_mrp_add_listener(struct avbtp_mrp *m, struct spa_hook *listener,
-		const struct avbtp_mrp_events *events, void *data)
+void avb_mrp_add_listener(struct avb_mrp *m, struct spa_hook *listener,
+		const struct avb_mrp_events *events, void *data)
 {
 	struct mrp *mrp = (struct mrp*)m;
 	spa_hook_list_append(&mrp->listener_list, listener, events, data);

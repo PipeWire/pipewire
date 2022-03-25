@@ -22,14 +22,14 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef AVBTP_UTILS_H
-#define AVBTP_UTILS_H
+#ifndef AVB_UTILS_H
+#define AVB_UTILS_H
 
 #include <spa/utils/json.h>
 
 #include "internal.h"
 
-static inline char *avbtp_utils_format_id(char *str, size_t size, const uint64_t id)
+static inline char *avb_utils_format_id(char *str, size_t size, const uint64_t id)
 {
 	snprintf(str, size, "%02x:%02x:%02x:%02x:%02x:%02x:%04x",
 			(uint8_t)(id >> 56),
@@ -42,7 +42,7 @@ static inline char *avbtp_utils_format_id(char *str, size_t size, const uint64_t
 	return str;
 }
 
-static inline int avbtp_utils_parse_id(const char *str, int len, uint64_t *id)
+static inline int avb_utils_parse_id(const char *str, int len, uint64_t *id)
 {
 	char s[64];
 	uint8_t v[6];
@@ -64,11 +64,11 @@ static inline int avbtp_utils_parse_id(const char *str, int len, uint64_t *id)
 	return 0;
 }
 
-static inline char *avbtp_utils_format_addr(char *str, size_t size, const uint8_t addr[6])
+static inline char *avb_utils_format_addr(char *str, size_t size, const uint8_t addr[6])
 {
 	snprintf(str, size, "%02x:%02x:%02x:%02x:%02x:%02x",
 			addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 	return str;
 }
 
-#endif /* AVBTP_UTILS_H */
+#endif /* AVB_UTILS_H */

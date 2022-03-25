@@ -47,7 +47,7 @@ struct impl {
 };
 
 struct server_events {
-#define AVBTP_VERSION_SERVER_EVENTS	0
+#define AVB_VERSION_SERVER_EVENTS	0
 	uint32_t version;
 
 	/** the server is destroyed */
@@ -87,13 +87,13 @@ struct server {
 
 	unsigned debug_messages:1;
 
-	struct avbtp_mrp *mrp;
-	struct avbtp_mmrp *mmrp;
-	struct avbtp_mvrp *mvrp;
-	struct avbtp_msrp *msrp;
+	struct avb_mrp *mrp;
+	struct avb_mmrp *mmrp;
+	struct avb_mvrp *mvrp;
+	struct avb_msrp *msrp;
 
-	struct avbtp_msrp_attribute *domain_attr;
-	struct avbtp_msrp_attribute *listener_attr;
+	struct avb_msrp_attribute *domain_attr;
+	struct avb_msrp_attribute *listener_attr;
 };
 
 static inline const struct descriptor *server_find_descriptor(struct server *server,
@@ -131,7 +131,7 @@ void avdecc_server_free(struct server *server);
 void avdecc_server_add_listener(struct server *server, struct spa_hook *listener,
 		const struct server_events *events, void *data);
 
-int avbtp_server_send_packet(struct server *server, const uint8_t dest[6],
+int avb_server_send_packet(struct server *server, const uint8_t dest[6],
 		uint16_t type, void *data, size_t size);
 
 struct aecp {

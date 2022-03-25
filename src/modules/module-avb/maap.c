@@ -36,49 +36,49 @@ struct maap {
 static const char *message_type_as_string(uint8_t message_type)
 {
 	switch (message_type) {
-	case AVBTP_MAAP_MESSAGE_TYPE_PROBE:
+	case AVB_MAAP_MESSAGE_TYPE_PROBE:
 		return "PROBE";
-	case AVBTP_MAAP_MESSAGE_TYPE_DEFEND:
+	case AVB_MAAP_MESSAGE_TYPE_DEFEND:
 		return "DEFEND";
-	case AVBTP_MAAP_MESSAGE_TYPE_ANNOUNCE:
+	case AVB_MAAP_MESSAGE_TYPE_ANNOUNCE:
 		return "ANNOUNCE";
 	}
 	return "INVALID";
 }
 
-static void maap_message_debug(struct maap *maap, const struct avbtp_packet_maap *p)
+static void maap_message_debug(struct maap *maap, const struct avb_packet_maap *p)
 {
 	uint32_t v;
 	const uint8_t *addr;
 
-	v = AVBTP_PACKET_MAAP_GET_MESSAGE_TYPE(p);
+	v = AVB_PACKET_MAAP_GET_MESSAGE_TYPE(p);
 	pw_log_info("message-type: %d (%s)", v, message_type_as_string(v));
-	pw_log_info("  maap-version: %d", AVBTP_PACKET_MAAP_GET_MAAP_VERSION(p));
-	pw_log_info("  length: %d", AVBTP_PACKET_GET_LENGTH(&p->hdr));
+	pw_log_info("  maap-version: %d", AVB_PACKET_MAAP_GET_MAAP_VERSION(p));
+	pw_log_info("  length: %d", AVB_PACKET_GET_LENGTH(&p->hdr));
 
-	pw_log_info("  stream-id: 0x%"PRIx64, AVBTP_PACKET_MAAP_GET_STREAM_ID(p));
-	addr = AVBTP_PACKET_MAAP_GET_REQUEST_START(p);
+	pw_log_info("  stream-id: 0x%"PRIx64, AVB_PACKET_MAAP_GET_STREAM_ID(p));
+	addr = AVB_PACKET_MAAP_GET_REQUEST_START(p);
 	pw_log_info("  request-start: %02x:%02x:%02x:%02x:%02x:%02x",
 			addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-	pw_log_info("  request-count: %d", AVBTP_PACKET_MAAP_GET_REQUEST_COUNT(p));
-	addr = AVBTP_PACKET_MAAP_GET_CONFLICT_START(p);
+	pw_log_info("  request-count: %d", AVB_PACKET_MAAP_GET_REQUEST_COUNT(p));
+	addr = AVB_PACKET_MAAP_GET_CONFLICT_START(p);
 	pw_log_info("  conflict-start: %02x:%02x:%02x:%02x:%02x:%02x",
 			addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-	pw_log_info("  conflict-count: %d", AVBTP_PACKET_MAAP_GET_CONFLICT_COUNT(p));
+	pw_log_info("  conflict-count: %d", AVB_PACKET_MAAP_GET_CONFLICT_COUNT(p));
 }
 
 static int maap_message(void *data, uint64_t now, const void *message, int len)
 {
 	struct maap *maap = data;
 	struct server *server = maap->server;
-	const struct avbtp_packet_maap *p = message;
+	const struct avb_packet_maap *p = message;
 
 	if (ntohs(p->hdr.eth.type) != AVB_TSN_ETH)
 		return 0;
 	if (memcmp(p->hdr.eth.dest, mac, 6) != 0 &&
 	    memcmp(p->hdr.eth.dest, server->mac_addr, 6) != 0)
 		return 0;
-	if (AVBTP_PACKET_GET_SUBTYPE(&p->hdr) != AVBTP_SUBTYPE_MAAP)
+	if (AVB_PACKET_GET_SUBTYPE(&p->hdr) != AVB_SUBTYPE_MAAP)
 		return 0;
 
 	if (maap->server->debug_messages)
@@ -95,12 +95,12 @@ static void maap_destroy(void *data)
 }
 
 static const struct server_events server_events = {
-	AVBTP_VERSION_SERVER_EVENTS,
+	AVB_VERSION_SERVER_EVENTS,
 	.destroy = maap_destroy,
 	.message = maap_message
 };
 
-int avbtp_maap_register(struct server *server)
+int avb_maap_register(struct server *server)
 {
 	struct maap *maap;
 

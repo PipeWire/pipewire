@@ -22,41 +22,47 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef AVBTP_MVRP_H
-#define AVBTP_MVRP_H
+#ifndef AVB_MMRP_H
+#define AVB_MMRP_H
 
 #include "mrp.h"
 #include "internal.h"
 
-#define AVB_MVRP_ETH 0x88f5
-#define AVB_MVRP_MAC { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x21 };
+#define AVB_MMRP_ETH 0x88f6
+#define AVB_MMRP_MAC { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x20 }
 
-struct avbtp_packet_mvrp_msg {
+#define AVB_MMRP_ATTRIBUTE_TYPE_SERVICE_REQUIREMENT	1
+#define AVB_MMRP_ATTRIBUTE_TYPE_MAC			2
+#define AVB_MMRP_ATTRIBUTE_TYPE_VALID(t)		((t)>=1 && (t)<=2)
+
+struct avb_packet_mmrp_msg {
 	uint8_t attribute_type;
 	uint8_t attribute_length;
 	uint8_t attribute_list[0];
 } __attribute__ ((__packed__));
 
-#define AVBTP_MVRP_ATTRIBUTE_TYPE_VID			1
-#define AVBTP_MVRP_ATTRIBUTE_TYPE_VALID(t)		((t)==1)
-
-struct avbtp_packet_mvrp_vid {
-	uint16_t vlan;
+struct avb_packet_mmrp_service_requirement {
+	unsigned char addr[6];
 } __attribute__ ((__packed__));
 
-struct avbtp_mvrp;
+struct avb_packet_mmrp_mac {
+	unsigned char addr[6];
+} __attribute__ ((__packed__));
 
-struct avbtp_mvrp_attribute {
-	struct avbtp_mrp_attribute *mrp;
+struct avb_mmrp;
+
+struct avb_mmrp_attribute {
+	struct avb_mrp_attribute *mrp;
 	uint8_t type;
 	union {
-		struct avbtp_packet_mvrp_vid vid;
+		struct avb_packet_mmrp_service_requirement service_requirement;
+		struct avb_packet_mmrp_mac mac;
 	} attr;
 };
 
-struct avbtp_mvrp_attribute *avbtp_mvrp_attribute_new(struct avbtp_mvrp *mvrp,
+struct avb_mmrp_attribute *avb_mmrp_attribute_new(struct avb_mmrp *mmrp,
 		uint8_t type);
 
-struct avbtp_mvrp *avbtp_mvrp_register(struct server *server);
+struct avb_mmrp *avb_mmrp_register(struct server *server);
 
-#endif /* AVBTP_MVRP_H */
+#endif /* AVB_MMRP_H */

@@ -22,40 +22,40 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef AVBTP_PACKETS_H
-#define AVBTP_PACKETS_H
+#ifndef AVB_PACKETS_H
+#define AVB_PACKETS_H
 
 #include <arpa/inet.h>
 
-#define AVBTP_SUBTYPE_61883_IIDC	0x00
-#define AVBTP_SUBTYPE_MMA_STREAM	0x01
-#define AVBTP_SUBTYPE_AAF		0x02
-#define AVBTP_SUBTYPE_CVF		0x03
-#define AVBTP_SUBTYPE_CRF		0x04
-#define AVBTP_SUBTYPE_TSCF		0x05
-#define AVBTP_SUBTYPE_SVF		0x06
-#define AVBTP_SUBTYPE_RVF		0x07
-#define AVBTP_SUBTYPE_AEF_CONTINUOUS	0x6E
-#define AVBTP_SUBTYPE_VSF_STREAM	0x6F
-#define AVBTP_SUBTYPE_EF_STREAM		0x7F
-#define AVBTP_SUBTYPE_NTSCF		0x82
-#define AVBTP_SUBTYPE_ESCF		0xEC
-#define AVBTP_SUBTYPE_EECF		0xED
-#define AVBTP_SUBTYPE_AEF_DISCRETE	0xEE
-#define AVBTP_SUBTYPE_ADP		0xFA
-#define AVBTP_SUBTYPE_AECP		0xFB
-#define AVBTP_SUBTYPE_ACMP		0xFC
-#define AVBTP_SUBTYPE_MAAP		0xFE
-#define AVBTP_SUBTYPE_EF_CONTROL	0xFF
+#define AVB_SUBTYPE_61883_IIDC		0x00
+#define AVB_SUBTYPE_MMA_STREAM		0x01
+#define AVB_SUBTYPE_AAF			0x02
+#define AVB_SUBTYPE_CVF			0x03
+#define AVB_SUBTYPE_CRF			0x04
+#define AVB_SUBTYPE_TSCF		0x05
+#define AVB_SUBTYPE_SVF			0x06
+#define AVB_SUBTYPE_RVF			0x07
+#define AVB_SUBTYPE_AEF_CONTINUOUS	0x6E
+#define AVB_SUBTYPE_VSF_STREAM		0x6F
+#define AVB_SUBTYPE_EF_STREAM		0x7F
+#define AVB_SUBTYPE_NTSCF		0x82
+#define AVB_SUBTYPE_ESCF		0xEC
+#define AVB_SUBTYPE_EECF		0xED
+#define AVB_SUBTYPE_AEF_DISCRETE	0xEE
+#define AVB_SUBTYPE_ADP			0xFA
+#define AVB_SUBTYPE_AECP		0xFB
+#define AVB_SUBTYPE_ACMP		0xFC
+#define AVB_SUBTYPE_MAAP		0xFE
+#define AVB_SUBTYPE_EF_CONTROL		0xFF
 
-struct avbtp_ethernet_header {
+struct avb_ethernet_header {
 	uint8_t dest[6];
 	uint8_t src[6];
 	uint16_t type;
 } __attribute__ ((__packed__));
 
-struct avbtp_packet_header {
-	struct avbtp_ethernet_header eth;
+struct avb_packet_header {
+	struct avb_ethernet_header eth;
 	uint8_t subtype;
 #if __BYTE_ORDER == __BIG_ENDIAN
 	unsigned sv:1;			/* stream_id valid */
@@ -77,18 +77,18 @@ struct avbtp_packet_header {
 	uint8_t len2:8;
 } __attribute__ ((__packed__));
 
-#define AVBTP_PACKET_SET_SUBTYPE(p,v)	((p)->subtype = (v))
-#define AVBTP_PACKET_SET_SV(p,v)	((p)->sv = (v))
-#define AVBTP_PACKET_SET_VERSION(p,v)	((p)->version = (v))
-#define AVBTP_PACKET_SET_SUB1(p,v)	((p)->subtype_data1 = (v))
-#define AVBTP_PACKET_SET_SUB2(p,v)	((p)->subtype_data2 = (v))
-#define AVBTP_PACKET_SET_LENGTH(p,v)	((p)->len1 = ((v) >> 8),(p)->len2 = (v))
+#define AVB_PACKET_SET_SUBTYPE(p,v)	((p)->subtype = (v))
+#define AVB_PACKET_SET_SV(p,v)		((p)->sv = (v))
+#define AVB_PACKET_SET_VERSION(p,v)	((p)->version = (v))
+#define AVB_PACKET_SET_SUB1(p,v)	((p)->subtype_data1 = (v))
+#define AVB_PACKET_SET_SUB2(p,v)	((p)->subtype_data2 = (v))
+#define AVB_PACKET_SET_LENGTH(p,v)	((p)->len1 = ((v) >> 8),(p)->len2 = (v))
 
-#define AVBTP_PACKET_GET_SUBTYPE(p)	((p)->subtype)
-#define AVBTP_PACKET_GET_SV(p)		((p)->sv)
-#define AVBTP_PACKET_GET_VERSION(p)	((p)->version)
-#define AVBTP_PACKET_GET_SUB1(p)	((p)->subtype_data1)
-#define AVBTP_PACKET_GET_SUB2(p)	((p)->subtype_data2)
-#define AVBTP_PACKET_GET_LENGTH(p)	((p)->len1 << 8 | (p)->len2)
+#define AVB_PACKET_GET_SUBTYPE(p)	((p)->subtype)
+#define AVB_PACKET_GET_SV(p)		((p)->sv)
+#define AVB_PACKET_GET_VERSION(p)	((p)->version)
+#define AVB_PACKET_GET_SUB1(p)		((p)->subtype_data1)
+#define AVB_PACKET_GET_SUB2(p)		((p)->subtype_data2)
+#define AVB_PACKET_GET_LENGTH(p)	((p)->len1 << 8 | (p)->len2)
 
-#endif /* AVBTP_PACKETS_H */
+#endif /* AVB_PACKETS_H */

@@ -32,7 +32,7 @@
 static const uint8_t mac[6] = AVB_MSRP_MAC;
 
 struct attr {
-	struct avbtp_msrp_attribute attr;
+	struct avb_msrp_attribute attr;
 	struct spa_list link;
 };
 
@@ -44,11 +44,11 @@ struct msrp {
 	struct spa_list attributes;
 };
 
-static void debug_msrp_talker_common(const struct avbtp_packet_msrp_talker *t)
+static void debug_msrp_talker_common(const struct avb_packet_msrp_talker *t)
 {
 	char buf[128];
-	pw_log_info(" stream-id: %s", avbtp_utils_format_id(buf, sizeof(buf), be64toh(t->stream_id)));
-	pw_log_info(" dest-addr: %s", avbtp_utils_format_addr(buf, sizeof(buf), t->dest_addr));
+	pw_log_info(" stream-id: %s", avb_utils_format_id(buf, sizeof(buf), be64toh(t->stream_id)));
+	pw_log_info(" dest-addr: %s", avb_utils_format_addr(buf, sizeof(buf), t->dest_addr));
 	pw_log_info(" vlan-id:   %d", ntohs(t->vlan_id));
 	pw_log_info(" tspec-max-frame-size: %d", ntohs(t->tspec_max_frame_size));
 	pw_log_info(" tspec-max-interval-frames: %d", ntohs(t->tspec_max_interval_frames));
@@ -57,7 +57,7 @@ static void debug_msrp_talker_common(const struct avbtp_packet_msrp_talker *t)
 	pw_log_info(" accumulated-latency: %d", ntohl(t->accumulated_latency));
 }
 
-static void debug_msrp_talker(const struct avbtp_packet_msrp_talker *t)
+static void debug_msrp_talker(const struct avb_packet_msrp_talker *t)
 {
 	pw_log_info("talker");
 	debug_msrp_talker_common(t);
@@ -72,30 +72,30 @@ static void notify_talker(struct msrp *msrp, uint64_t now, struct attr *attr, ui
 static int process_talker(struct msrp *msrp, uint64_t now, uint8_t attr_type,
 		const void *m, uint8_t event, uint8_t param, int num)
 {
-	const struct avbtp_packet_msrp_talker *t = m;
+	const struct avb_packet_msrp_talker *t = m;
 	struct attr *a;
 	spa_list_for_each(a, &msrp->attributes, link)
 		if (a->attr.type == attr_type &&
 		    a->attr.attr.talker.stream_id == t->stream_id) {
 			a->attr.attr.talker = *t;
-			avbtp_mrp_rx_event(msrp->server->mrp, now, a->attr.mrp, event);
+			avb_mrp_rx_event(msrp->server->mrp, now, a->attr.mrp, event);
 		}
 	return 0;
 }
 
-static void debug_msrp_talker_fail(const struct avbtp_packet_msrp_talker_fail *t)
+static void debug_msrp_talker_fail(const struct avb_packet_msrp_talker_fail *t)
 {
 	char buf[128];
 	pw_log_info("talker fail");
 	debug_msrp_talker_common(&t->talker);
-	pw_log_info(" bridge-id: %s", avbtp_utils_format_id(buf, sizeof(buf), be64toh(t->bridge_id)));
+	pw_log_info(" bridge-id: %s", avb_utils_format_id(buf, sizeof(buf), be64toh(t->bridge_id)));
 	pw_log_info(" failure-code: %d", t->failure_code);
 }
 
 static int process_talker_fail(struct msrp *msrp, uint64_t now, uint8_t attr_type,
 		const void *m, uint8_t event, uint8_t param, int num)
 {
-	const struct avbtp_packet_msrp_talker_fail *t = m;
+	const struct avb_packet_msrp_talker_fail *t = m;
 	struct attr *a;
 
 	debug_msrp_talker_fail(t);
@@ -103,15 +103,15 @@ static int process_talker_fail(struct msrp *msrp, uint64_t now, uint8_t attr_typ
 	spa_list_for_each(a, &msrp->attributes, link)
 		if (a->attr.type == attr_type &&
 		    a->attr.attr.talker_fail.talker.stream_id == t->talker.stream_id)
-			avbtp_mrp_rx_event(msrp->server->mrp, now, a->attr.mrp, event);
+			avb_mrp_rx_event(msrp->server->mrp, now, a->attr.mrp, event);
 	return 0;
 }
 
-static void debug_msrp_listener(const struct avbtp_packet_msrp_listener *l)
+static void debug_msrp_listener(const struct avb_packet_msrp_listener *l)
 {
 	char buf[128];
 	pw_log_info("listener");
-	pw_log_info(" %s", avbtp_utils_format_id(buf, sizeof(buf), be64toh(l->stream_id)));
+	pw_log_info(" %s", avb_utils_format_id(buf, sizeof(buf), be64toh(l->stream_id)));
 }
 
 static void notify_listener(struct msrp *msrp, uint64_t now, struct attr *attr, uint8_t notify)
@@ -123,32 +123,32 @@ static void notify_listener(struct msrp *msrp, uint64_t now, struct attr *attr, 
 static int process_listener(struct msrp *msrp, uint64_t now, uint8_t attr_type,
 		const void *m, uint8_t event, uint8_t param, int num)
 {
-	const struct avbtp_packet_msrp_listener *l = m;
+	const struct avb_packet_msrp_listener *l = m;
 	struct attr *a;
 	spa_list_for_each(a, &msrp->attributes, link)
 		if (a->attr.type == attr_type &&
 		    a->attr.attr.listener.stream_id == l->stream_id)
-			avbtp_mrp_rx_event(msrp->server->mrp, now, a->attr.mrp, event);
+			avb_mrp_rx_event(msrp->server->mrp, now, a->attr.mrp, event);
 	return 0;
 }
 static int encode_listener(struct msrp *msrp, struct attr *a, void *m)
 {
-	struct avbtp_packet_msrp_msg *msg = m;
-	struct avbtp_packet_mrp_vector *v;
-	struct avbtp_packet_msrp_listener *l;
-	struct avbtp_packet_mrp_footer *f;
+	struct avb_packet_msrp_msg *msg = m;
+	struct avb_packet_mrp_vector *v;
+	struct avb_packet_msrp_listener *l;
+	struct avb_packet_mrp_footer *f;
 	uint8_t *ev;
 	size_t attr_list_length = sizeof(*v) + sizeof(*l) + sizeof(*f) + 1 + 1;
 
-	msg->attribute_type = AVBTP_MSRP_ATTRIBUTE_TYPE_LISTENER;
+	msg->attribute_type = AVB_MSRP_ATTRIBUTE_TYPE_LISTENER;
 	msg->attribute_length = sizeof(*l);
 	msg->attribute_list_length = htons(attr_list_length);
 
-	v = (struct avbtp_packet_mrp_vector *)msg->attribute_list;
+	v = (struct avb_packet_mrp_vector *)msg->attribute_list;
 	v->lva = 0;
-	AVBTP_MRP_VECTOR_SET_NUM_VALUES(v, 1);
+	AVB_MRP_VECTOR_SET_NUM_VALUES(v, 1);
 
-	l = (struct avbtp_packet_msrp_listener *)v->first_value;
+	l = (struct avb_packet_msrp_listener *)v->first_value;
 	*l = a->attr.attr.listener;
 
 	ev = SPA_PTROFF(l, sizeof(*l), uint8_t);
@@ -157,14 +157,14 @@ static int encode_listener(struct msrp *msrp, struct attr *a, void *m)
 	ev = SPA_PTROFF(ev, sizeof(*ev), uint8_t);
 	*ev = a->attr.param * 4 * 4 * 4;
 
-	f = SPA_PTROFF(ev, sizeof(*ev), struct avbtp_packet_mrp_footer);
+	f = SPA_PTROFF(ev, sizeof(*ev), struct avb_packet_mrp_footer);
 	f->end_mark = 0;
 
 	return attr_list_length + sizeof(*msg);
 }
 
 
-static void debug_msrp_domain(const struct avbtp_packet_msrp_domain *d)
+static void debug_msrp_domain(const struct avb_packet_msrp_domain *d)
 {
 	pw_log_info("domain");
 	pw_log_info(" %d", d->sr_class_id);
@@ -184,34 +184,34 @@ static int process_domain(struct msrp *msrp, uint64_t now, uint8_t attr_type,
 	struct attr *a;
 	spa_list_for_each(a, &msrp->attributes, link)
 		if (a->attr.type == attr_type)
-			avbtp_mrp_rx_event(msrp->server->mrp, now, a->attr.mrp, event);
+			avb_mrp_rx_event(msrp->server->mrp, now, a->attr.mrp, event);
 	return 0;
 }
 
 static int encode_domain(struct msrp *msrp, struct attr *a, void *m)
 {
-	struct avbtp_packet_msrp_msg *msg = m;
-	struct avbtp_packet_mrp_vector *v;
-	struct avbtp_packet_msrp_domain *d;
-	struct avbtp_packet_mrp_footer *f;
+	struct avb_packet_msrp_msg *msg = m;
+	struct avb_packet_mrp_vector *v;
+	struct avb_packet_msrp_domain *d;
+	struct avb_packet_mrp_footer *f;
 	uint8_t *ev;
 	size_t attr_list_length = sizeof(*v) + sizeof(*d) + sizeof(*f) + 1;
 
-	msg->attribute_type = AVBTP_MSRP_ATTRIBUTE_TYPE_DOMAIN;
+	msg->attribute_type = AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN;
 	msg->attribute_length = sizeof(*d);
 	msg->attribute_list_length = htons(attr_list_length);
 
-	v = (struct avbtp_packet_mrp_vector *)msg->attribute_list;
+	v = (struct avb_packet_mrp_vector *)msg->attribute_list;
 	v->lva = 0;
-	AVBTP_MRP_VECTOR_SET_NUM_VALUES(v, 1);
+	AVB_MRP_VECTOR_SET_NUM_VALUES(v, 1);
 
-	d = (struct avbtp_packet_msrp_domain *)v->first_value;
+	d = (struct avb_packet_msrp_domain *)v->first_value;
 	*d = a->attr.attr.domain;
 
 	ev = SPA_PTROFF(d, sizeof(*d), uint8_t);
 	*ev = a->attr.mrp->pending_send * 36;
 
-	f = SPA_PTROFF(ev, sizeof(*ev), struct avbtp_packet_mrp_footer);
+	f = SPA_PTROFF(ev, sizeof(*ev), struct avb_packet_mrp_footer);
 	f->end_mark = 0;
 
 	return attr_list_length + sizeof(*msg);
@@ -223,22 +223,22 @@ static const struct {
 	int (*encode) (struct msrp *msrp, struct attr *attr, void *m);
 	void (*notify) (struct msrp *msrp, uint64_t now, struct attr *attr, uint8_t notify);
 } dispatch[] = {
-	[AVBTP_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE] = { process_talker, NULL, notify_talker, },
-	[AVBTP_MSRP_ATTRIBUTE_TYPE_TALKER_FAILED] = { process_talker_fail, NULL, NULL },
-	[AVBTP_MSRP_ATTRIBUTE_TYPE_LISTENER] = { process_listener, encode_listener, notify_listener },
-	[AVBTP_MSRP_ATTRIBUTE_TYPE_DOMAIN] = { process_domain, encode_domain, notify_domain, },
+	[AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE] = { process_talker, NULL, notify_talker, },
+	[AVB_MSRP_ATTRIBUTE_TYPE_TALKER_FAILED] = { process_talker_fail, NULL, NULL },
+	[AVB_MSRP_ATTRIBUTE_TYPE_LISTENER] = { process_listener, encode_listener, notify_listener },
+	[AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN] = { process_domain, encode_domain, notify_domain, },
 };
 
 static bool msrp_check_header(void *data, const void *hdr, size_t *hdr_size, bool *has_params)
 {
-	const struct avbtp_packet_msrp_msg *msg = hdr;
+	const struct avb_packet_msrp_msg *msg = hdr;
 	uint8_t attr_type = msg->attribute_type;
 
-	if (!AVBTP_MSRP_ATTRIBUTE_TYPE_VALID(attr_type))
+	if (!AVB_MSRP_ATTRIBUTE_TYPE_VALID(attr_type))
 		return false;
 
 	*hdr_size = sizeof(*msg);
-	*has_params = attr_type == AVBTP_MSRP_ATTRIBUTE_TYPE_LISTENER;
+	*has_params = attr_type == AVB_MSRP_ATTRIBUTE_TYPE_LISTENER;
 	return true;
 }
 
@@ -248,7 +248,7 @@ static int msrp_attr_event(void *data, uint64_t now, uint8_t attribute_type, uin
 	struct attr *a;
 	spa_list_for_each(a, &msrp->attributes, link)
 		if (a->attr.type == attribute_type)
-			avbtp_mrp_update_state(msrp->server->mrp, now, a->attr.mrp, event);
+			avb_mrp_update_state(msrp->server->mrp, now, a->attr.mrp, event);
 	return 0;
 }
 
@@ -260,8 +260,8 @@ static int msrp_process(void *data, uint64_t now, uint8_t attribute_type, const 
 				attribute_type, value, event, param, index);
 }
 
-static const struct avbtp_mrp_parse_info info = {
-	AVBTP_VERSION_MRP_PARSE_INFO,
+static const struct avb_mrp_parse_info info = {
+	AVB_VERSION_MRP_PARSE_INFO,
 	.check_header = msrp_check_header,
 	.attr_event = msrp_attr_event,
 	.process = msrp_process,
@@ -271,7 +271,7 @@ static const struct avbtp_mrp_parse_info info = {
 static int msrp_message(void *data, uint64_t now, const void *message, int len)
 {
 	struct msrp *msrp = data;
-	const struct avbtp_packet_mrp *p = message;
+	const struct avb_packet_mrp *p = message;
 
 	if (ntohs(p->eth.type) != AVB_MSRP_ETH)
 		return 0;
@@ -279,7 +279,7 @@ static int msrp_message(void *data, uint64_t now, const void *message, int len)
 		return 0;
 
 	pw_log_debug("MSRP");
-	return avbtp_mrp_parse_packet(msrp->server->mrp,
+	return avb_mrp_parse_packet(msrp->server->mrp,
 			now, message, len, &info, msrp);
 }
 
@@ -291,19 +291,19 @@ static void msrp_destroy(void *data)
 }
 
 static const struct server_events server_events = {
-	AVBTP_VERSION_SERVER_EVENTS,
+	AVB_VERSION_SERVER_EVENTS,
 	.destroy = msrp_destroy,
 	.message = msrp_message
 };
 
-struct avbtp_msrp_attribute *avbtp_msrp_attribute_new(struct avbtp_msrp *m,
+struct avb_msrp_attribute *avb_msrp_attribute_new(struct avb_msrp *m,
 		uint8_t type)
 {
 	struct msrp *msrp = (struct msrp*)m;
-	struct avbtp_mrp_attribute *attr;
+	struct avb_mrp_attribute *attr;
 	struct attr *a;
 
-	attr = avbtp_mrp_attribute_new(msrp->server->mrp, sizeof(struct attr));
+	attr = avb_mrp_attribute_new(msrp->server->mrp, sizeof(struct attr));
 
 	a = attr->user_data;
 	a->attr.mrp = attr;
@@ -317,14 +317,14 @@ static void msrp_event(void *data, uint64_t now, uint8_t event)
 {
 	struct msrp *msrp = data;
 	uint8_t buffer[2048];
-	struct avbtp_packet_mrp *p = (struct avbtp_packet_mrp*)buffer;
-	struct avbtp_packet_mrp_footer *f;
+	struct avb_packet_mrp *p = (struct avb_packet_mrp*)buffer;
+	struct avb_packet_mrp_footer *f;
 	void *msg = SPA_PTROFF(buffer, sizeof(*p), void);
 	struct attr *a;
 	int len, count = 0;
 	size_t total = sizeof(*p) + 2;
 
-	p->version = AVBTP_MRP_PROTOCOL_VERSION;
+	p->version = AVB_MRP_PROTOCOL_VERSION;
 
 	spa_list_for_each(a, &msrp->attributes, link) {
 		if (!a->attr.mrp->pending_send)
@@ -340,15 +340,15 @@ static void msrp_event(void *data, uint64_t now, uint8_t event)
 		msg = SPA_PTROFF(msg, len, void);
 		total += len;
 	}
-	f = (struct avbtp_packet_mrp_footer *)msg;
+	f = (struct avb_packet_mrp_footer *)msg;
 	f->end_mark = 0;
 
 	if (count > 0)
-		avbtp_server_send_packet(msrp->server, mac, AVB_MSRP_ETH,
+		avb_server_send_packet(msrp->server, mac, AVB_MSRP_ETH,
 				buffer, total);
 }
 
-static void msrp_notify(void *data, uint64_t now, struct avbtp_mrp_attribute *attr, uint8_t notify)
+static void msrp_notify(void *data, uint64_t now, struct avb_mrp_attribute *attr, uint8_t notify)
 {
 	struct msrp *msrp = data;
 	struct attr *a = attr->user_data;
@@ -356,13 +356,13 @@ static void msrp_notify(void *data, uint64_t now, struct avbtp_mrp_attribute *at
 		dispatch[a->attr.type].notify(msrp, now, a, notify);
 }
 
-static const struct avbtp_mrp_events mrp_events = {
-	AVBTP_VERSION_MRP_ATTRIBUTE_CALLBACKS,
+static const struct avb_mrp_events mrp_events = {
+	AVB_VERSION_MRP_ATTRIBUTE_CALLBACKS,
 	.event = msrp_event,
 	.notify = msrp_notify
 };
 
-struct avbtp_msrp *avbtp_msrp_register(struct server *server)
+struct avb_msrp *avb_msrp_register(struct server *server)
 {
 	struct msrp *msrp;
 
@@ -374,7 +374,7 @@ struct avbtp_msrp *avbtp_msrp_register(struct server *server)
 	spa_list_init(&msrp->attributes);
 
 	avdecc_server_add_listener(server, &msrp->server_listener, &server_events, msrp);
-	avbtp_mrp_add_listener(server->mrp, &msrp->mrp_listener, &mrp_events, msrp);
+	avb_mrp_add_listener(server->mrp, &msrp->mrp_listener, &mrp_events, msrp);
 
-	return (struct avbtp_msrp*)msrp;
+	return (struct avb_msrp*)msrp;
 }

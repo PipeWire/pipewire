@@ -43,26 +43,26 @@ static int reply_not_implemented(struct aecp *aecp, const void *p, int len)
 {
 	struct server *server = aecp->server;
 	uint8_t buf[len];
-	struct avbtp_packet_aecp_header *reply = (struct avbtp_packet_aecp_header*)buf;
+	struct avb_packet_aecp_header *reply = (struct avb_packet_aecp_header*)buf;
 
 	memcpy(reply, p, len);
-	AVBTP_PACKET_AECP_SET_STATUS(reply, AVBTP_AECP_STATUS_NOT_IMPLEMENTED);
+	AVB_PACKET_AECP_SET_STATUS(reply, AVB_AECP_STATUS_NOT_IMPLEMENTED);
 
-	return avbtp_server_send_packet(server, reply->hdr.eth.src,
+	return avb_server_send_packet(server, reply->hdr.eth.src,
 			AVB_TSN_ETH, reply, len);
 }
 
 static const struct msg_info msg_info[] = {
-	{ AVBTP_AECP_MESSAGE_TYPE_AEM_COMMAND, "aem-command", avbtp_aecp_aem_handle_command, },
-	{ AVBTP_AECP_MESSAGE_TYPE_AEM_RESPONSE, "aem-response", avbtp_aecp_aem_handle_response, },
-	{ AVBTP_AECP_MESSAGE_TYPE_ADDRESS_ACCESS_COMMAND, "address-access-command", NULL, },
-	{ AVBTP_AECP_MESSAGE_TYPE_ADDRESS_ACCESS_RESPONSE, "address-access-response", NULL, },
-	{ AVBTP_AECP_MESSAGE_TYPE_AVC_COMMAND, "avc-command", NULL, },
-	{ AVBTP_AECP_MESSAGE_TYPE_AVC_RESPONSE, "avc-response", NULL, },
-	{ AVBTP_AECP_MESSAGE_TYPE_VENDOR_UNIQUE_COMMAND, "vendor-unique-command", NULL, },
-	{ AVBTP_AECP_MESSAGE_TYPE_VENDOR_UNIQUE_RESPONSE, "vendor-unique-response", NULL, },
-	{ AVBTP_AECP_MESSAGE_TYPE_EXTENDED_COMMAND, "extended-command", NULL, },
-	{ AVBTP_AECP_MESSAGE_TYPE_EXTENDED_RESPONSE, "extended-response", NULL, },
+	{ AVB_AECP_MESSAGE_TYPE_AEM_COMMAND, "aem-command", avb_aecp_aem_handle_command, },
+	{ AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE, "aem-response", avb_aecp_aem_handle_response, },
+	{ AVB_AECP_MESSAGE_TYPE_ADDRESS_ACCESS_COMMAND, "address-access-command", NULL, },
+	{ AVB_AECP_MESSAGE_TYPE_ADDRESS_ACCESS_RESPONSE, "address-access-response", NULL, },
+	{ AVB_AECP_MESSAGE_TYPE_AVC_COMMAND, "avc-command", NULL, },
+	{ AVB_AECP_MESSAGE_TYPE_AVC_RESPONSE, "avc-response", NULL, },
+	{ AVB_AECP_MESSAGE_TYPE_VENDOR_UNIQUE_COMMAND, "vendor-unique-command", NULL, },
+	{ AVB_AECP_MESSAGE_TYPE_VENDOR_UNIQUE_RESPONSE, "vendor-unique-response", NULL, },
+	{ AVB_AECP_MESSAGE_TYPE_EXTENDED_COMMAND, "extended-command", NULL, },
+	{ AVB_AECP_MESSAGE_TYPE_EXTENDED_RESPONSE, "extended-response", NULL, },
 };
 
 static inline const struct msg_info *find_msg_info(uint16_t type, const char *name)
@@ -80,7 +80,7 @@ static int aecp_message(void *data, uint64_t now, const void *message, int len)
 {
 	struct aecp *aecp = data;
 	struct server *server = aecp->server;
-	const struct avbtp_packet_aecp_header *p = message;
+	const struct avb_packet_aecp_header *p = message;
 	const struct msg_info *info;
 	int message_type;
 
@@ -89,10 +89,10 @@ static int aecp_message(void *data, uint64_t now, const void *message, int len)
 	if (memcmp(p->hdr.eth.dest, mac, 6) != 0 &&
 	    memcmp(p->hdr.eth.dest, server->mac_addr, 6) != 0)
 		return 0;
-	if (AVBTP_PACKET_GET_SUBTYPE(&p->hdr) != AVBTP_SUBTYPE_AECP)
+	if (AVB_PACKET_GET_SUBTYPE(&p->hdr) != AVB_SUBTYPE_AECP)
 		return 0;
 
-	message_type = AVBTP_PACKET_AECP_GET_MESSAGE_TYPE(p);
+	message_type = AVB_PACKET_AECP_GET_MESSAGE_TYPE(p);
 
 	info = find_msg_info(message_type, NULL);
 	if (info == NULL)
@@ -141,13 +141,13 @@ static int aecp_command(void *data, uint64_t now, const char *command, const cha
 }
 
 static const struct server_events server_events = {
-	AVBTP_VERSION_SERVER_EVENTS,
+	AVB_VERSION_SERVER_EVENTS,
 	.destroy = aecp_destroy,
 	.message = aecp_message,
 	.command = aecp_command
 };
 
-struct avbtp_aecp *avbtp_aecp_register(struct server *server)
+struct avb_aecp *avb_aecp_register(struct server *server)
 {
 	struct aecp *aecp;
 
@@ -159,10 +159,10 @@ struct avbtp_aecp *avbtp_aecp_register(struct server *server)
 
 	avdecc_server_add_listener(server, &aecp->server_listener, &server_events, aecp);
 
-	return (struct avbtp_aecp*)aecp;
+	return (struct avb_aecp*)aecp;
 }
 
-void avbtp_aecp_unregister(struct avbtp_aecp *aecp)
+void avb_aecp_unregister(struct avb_aecp *aecp)
 {
 	aecp_destroy(aecp);
 }

@@ -29,7 +29,7 @@
 static const uint8_t mac[6] = AVB_MVRP_MAC;
 
 struct attr {
-	struct avbtp_mvrp_attribute attr;
+	struct avb_mvrp_attribute attr;
 	struct spa_list link;
 };
 
@@ -42,10 +42,10 @@ struct mvrp {
 
 static bool mvrp_check_header(void *data, const void *hdr, size_t *hdr_size, bool *has_params)
 {
-	const struct avbtp_packet_mvrp_msg *msg = hdr;
+	const struct avb_packet_mvrp_msg *msg = hdr;
 	uint8_t attr_type = msg->attribute_type;
 
-	if (!AVBTP_MVRP_ATTRIBUTE_TYPE_VALID(attr_type))
+	if (!AVB_MVRP_ATTRIBUTE_TYPE_VALID(attr_type))
 		return false;
 
 	*hdr_size = sizeof(*msg);
@@ -59,13 +59,13 @@ static int mvrp_attr_event(void *data, uint64_t now, uint8_t attribute_type, uin
 	struct attr *a;
 	spa_list_for_each(a, &mvrp->attributes, link)
 		if (a->attr.type == attribute_type)
-			avbtp_mrp_update_state(mvrp->server->mrp, now, a->attr.mrp, event);
+			avb_mrp_update_state(mvrp->server->mrp, now, a->attr.mrp, event);
 	return 0;
 }
 
 static void debug_vid(const void *p)
 {
-	const struct avbtp_packet_mvrp_vid *t = p;
+	const struct avb_packet_mvrp_vid *t = p;
 	pw_log_info("vid");
 	pw_log_info(" %d", ntohs(t->vlan));
 }
@@ -81,7 +81,7 @@ static const struct {
 	int (*dispatch) (struct mvrp *mvrp, uint64_t now, uint8_t attr_type,
 			const void *m, uint8_t event, uint8_t param, int num);
 } dispatch[] = {
-	[AVBTP_MVRP_ATTRIBUTE_TYPE_VID] = { debug_vid, process_vid, },
+	[AVB_MVRP_ATTRIBUTE_TYPE_VID] = { debug_vid, process_vid, },
 };
 
 static int mvrp_process(void *data, uint64_t now, uint8_t attribute_type, const void *value,
@@ -92,8 +92,8 @@ static int mvrp_process(void *data, uint64_t now, uint8_t attribute_type, const 
 				attribute_type, value, event, param, index);
 }
 
-static const struct avbtp_mrp_parse_info info = {
-	AVBTP_VERSION_MRP_PARSE_INFO,
+static const struct avb_mrp_parse_info info = {
+	AVB_VERSION_MRP_PARSE_INFO,
 	.check_header = mvrp_check_header,
 	.attr_event = mvrp_attr_event,
 	.process = mvrp_process,
@@ -102,7 +102,7 @@ static const struct avbtp_mrp_parse_info info = {
 static int mvrp_message(void *data, uint64_t now, const void *message, int len)
 {
 	struct mvrp *mvrp = data;
-	const struct avbtp_packet_mrp *p = message;
+	const struct avb_packet_mrp *p = message;
 
 	if (ntohs(p->eth.type) != AVB_MVRP_ETH)
 		return 0;
@@ -110,7 +110,7 @@ static int mvrp_message(void *data, uint64_t now, const void *message, int len)
 		return 0;
 
 	pw_log_debug("MVRP");
-	return avbtp_mrp_parse_packet(mvrp->server->mrp,
+	return avb_mrp_parse_packet(mvrp->server->mrp,
 			now, message, len, &info, mvrp);
 }
 
@@ -122,19 +122,19 @@ static void mvrp_destroy(void *data)
 }
 
 static const struct server_events server_events = {
-	AVBTP_VERSION_SERVER_EVENTS,
+	AVB_VERSION_SERVER_EVENTS,
 	.destroy = mvrp_destroy,
 	.message = mvrp_message
 };
 
-struct avbtp_mvrp_attribute *avbtp_mvrp_attribute_new(struct avbtp_mvrp *m,
+struct avb_mvrp_attribute *avb_mvrp_attribute_new(struct avb_mvrp *m,
 		uint8_t type)
 {
 	struct mvrp *mvrp = (struct mvrp*)m;
-	struct avbtp_mrp_attribute *attr;
+	struct avb_mrp_attribute *attr;
 	struct attr *a;
 
-	attr = avbtp_mrp_attribute_new(mvrp->server->mrp, sizeof(struct attr));
+	attr = avb_mrp_attribute_new(mvrp->server->mrp, sizeof(struct attr));
 
 	a = attr->user_data;
 	a->attr.mrp = attr;
@@ -144,7 +144,7 @@ struct avbtp_mvrp_attribute *avbtp_mvrp_attribute_new(struct avbtp_mvrp *m,
 	return &a->attr;
 }
 
-struct avbtp_mvrp *avbtp_mvrp_register(struct server *server)
+struct avb_mvrp *avb_mvrp_register(struct server *server)
 {
 	struct mvrp *mvrp;
 
@@ -157,5 +157,5 @@ struct avbtp_mvrp *avbtp_mvrp_register(struct server *server)
 
 	avdecc_server_add_listener(server, &mvrp->server_listener, &server_events, mvrp);
 
-	return (struct avbtp_mvrp*)mvrp;
+	return (struct avb_mvrp*)mvrp;
 }

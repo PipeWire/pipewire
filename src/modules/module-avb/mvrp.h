@@ -22,38 +22,41 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <pipewire/pipewire.h>
+#ifndef AVB_MVRP_H
+#define AVB_MVRP_H
 
-#include "srp.h"
+#include "mrp.h"
+#include "internal.h"
 
-struct srp {
-	struct server *server;
-	struct spa_hook server_listener;
+#define AVB_MVRP_ETH 0x88f5
+#define AVB_MVRP_MAC { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x21 };
+
+struct avb_packet_mvrp_msg {
+	uint8_t attribute_type;
+	uint8_t attribute_length;
+	uint8_t attribute_list[0];
+} __attribute__ ((__packed__));
+
+#define AVB_MVRP_ATTRIBUTE_TYPE_VID			1
+#define AVB_MVRP_ATTRIBUTE_TYPE_VALID(t)		((t)==1)
+
+struct avb_packet_mvrp_vid {
+	uint16_t vlan;
+} __attribute__ ((__packed__));
+
+struct avb_mvrp;
+
+struct avb_mvrp_attribute {
+	struct avb_mrp_attribute *mrp;
+	uint8_t type;
+	union {
+		struct avb_packet_mvrp_vid vid;
+	} attr;
 };
 
-static void srp_destroy(void *data)
-{
-	struct srp *srp = data;
-	spa_hook_remove(&srp->server_listener);
-	free(srp);
-}
+struct avb_mvrp_attribute *avb_mvrp_attribute_new(struct avb_mvrp *mvrp,
+		uint8_t type);
 
-static const struct server_events server_events = {
-	AVBTP_VERSION_SERVER_EVENTS,
-	.destroy = srp_destroy,
-};
+struct avb_mvrp *avb_mvrp_register(struct server *server);
 
-int avbtp_srp_register(struct server *server)
-{
-	struct srp *srp;
-
-	srp = calloc(1, sizeof(*srp));
-	if (srp == NULL)
-		return -errno;
-
-	srp->server = server;
-
-	avdecc_server_add_listener(server, &srp->server_listener, &server_events, srp);
-
-	return 0;
-}
+#endif /* AVB_MVRP_H */

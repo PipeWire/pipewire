@@ -30,7 +30,7 @@
 static const uint8_t mac[6] = AVB_MMRP_MAC;
 
 struct attr {
-	struct avbtp_mmrp_attribute attr;
+	struct avb_mmrp_attribute attr;
 	struct spa_list link;
 };
 
@@ -43,10 +43,10 @@ struct mmrp {
 
 static bool mmrp_check_header(void *data, const void *hdr, size_t *hdr_size, bool *has_params)
 {
-	const struct avbtp_packet_mmrp_msg *msg = hdr;
+	const struct avb_packet_mmrp_msg *msg = hdr;
 	uint8_t attr_type = msg->attribute_type;
 
-	if (!AVBTP_MMRP_ATTRIBUTE_TYPE_VALID(attr_type))
+	if (!AVB_MMRP_ATTRIBUTE_TYPE_VALID(attr_type))
 		return false;
 
 	*hdr_size = sizeof(*msg);
@@ -60,21 +60,21 @@ static int mmrp_attr_event(void *data, uint64_t now, uint8_t attribute_type, uin
 	struct attr *a;
 	spa_list_for_each(a, &mmrp->attributes, link)
 		if (a->attr.type == attribute_type)
-			avbtp_mrp_update_state(mmrp->server->mrp, now, a->attr.mrp, event);
+			avb_mrp_update_state(mmrp->server->mrp, now, a->attr.mrp, event);
 	return 0;
 }
 
-static void debug_service_requirement(const struct avbtp_packet_mmrp_service_requirement *t)
+static void debug_service_requirement(const struct avb_packet_mmrp_service_requirement *t)
 {
 	char buf[128];
 	pw_log_info("service requirement");
-	pw_log_info(" %s", avbtp_utils_format_addr(buf, sizeof(buf), t->addr));
+	pw_log_info(" %s", avb_utils_format_addr(buf, sizeof(buf), t->addr));
 }
 
 static int process_service_requirement(struct mmrp *mmrp, uint64_t now, uint8_t attr_type,
 		const void *m, uint8_t event, uint8_t param, int num)
 {
-	const struct avbtp_packet_mmrp_service_requirement *t = m;
+	const struct avb_packet_mmrp_service_requirement *t = m;
 	struct attr *a;
 
 	debug_service_requirement(t);
@@ -82,21 +82,21 @@ static int process_service_requirement(struct mmrp *mmrp, uint64_t now, uint8_t 
 	spa_list_for_each(a, &mmrp->attributes, link)
 		if (a->attr.type == attr_type &&
 		    memcmp(a->attr.attr.service_requirement.addr, t->addr, 6) == 0)
-			avbtp_mrp_rx_event(mmrp->server->mrp, now, a->attr.mrp, event);
+			avb_mrp_rx_event(mmrp->server->mrp, now, a->attr.mrp, event);
 	return 0;
 }
 
-static void debug_process_mac(const struct avbtp_packet_mmrp_mac *t)
+static void debug_process_mac(const struct avb_packet_mmrp_mac *t)
 {
 	char buf[128];
 	pw_log_info("mac");
-	pw_log_info(" %s", avbtp_utils_format_addr(buf, sizeof(buf), t->addr));
+	pw_log_info(" %s", avb_utils_format_addr(buf, sizeof(buf), t->addr));
 }
 
 static int process_mac(struct mmrp *mmrp, uint64_t now, uint8_t attr_type,
 		const void *m, uint8_t event, uint8_t param, int num)
 {
-	const struct avbtp_packet_mmrp_mac *t = m;
+	const struct avb_packet_mmrp_mac *t = m;
 	struct attr *a;
 
 	debug_process_mac(t);
@@ -104,7 +104,7 @@ static int process_mac(struct mmrp *mmrp, uint64_t now, uint8_t attr_type,
 	spa_list_for_each(a, &mmrp->attributes, link)
 		if (a->attr.type == attr_type &&
 		    memcmp(a->attr.attr.mac.addr, t->addr, 6) == 0)
-			avbtp_mrp_rx_event(mmrp->server->mrp, now, a->attr.mrp, event);
+			avb_mrp_rx_event(mmrp->server->mrp, now, a->attr.mrp, event);
 	return 0;
 }
 
@@ -112,8 +112,8 @@ static const struct {
 	int (*dispatch) (struct mmrp *mmrp, uint64_t now, uint8_t attr_type,
 			const void *m, uint8_t event, uint8_t param, int num);
 } dispatch[] = {
-	[AVBTP_MMRP_ATTRIBUTE_TYPE_SERVICE_REQUIREMENT] = { process_service_requirement, },
-	[AVBTP_MMRP_ATTRIBUTE_TYPE_MAC] = { process_mac, },
+	[AVB_MMRP_ATTRIBUTE_TYPE_SERVICE_REQUIREMENT] = { process_service_requirement, },
+	[AVB_MMRP_ATTRIBUTE_TYPE_MAC] = { process_mac, },
 };
 
 static int mmrp_process(void *data, uint64_t now, uint8_t attribute_type, const void *value,
@@ -124,8 +124,8 @@ static int mmrp_process(void *data, uint64_t now, uint8_t attribute_type, const 
 				attribute_type, value, event, param, index);
 }
 
-static const struct avbtp_mrp_parse_info info = {
-	AVBTP_VERSION_MRP_PARSE_INFO,
+static const struct avb_mrp_parse_info info = {
+	AVB_VERSION_MRP_PARSE_INFO,
 	.check_header = mmrp_check_header,
 	.attr_event = mmrp_attr_event,
 	.process = mmrp_process,
@@ -134,7 +134,7 @@ static const struct avbtp_mrp_parse_info info = {
 static int mmrp_message(void *data, uint64_t now, const void *message, int len)
 {
 	struct mmrp *mmrp = data;
-	const struct avbtp_packet_mrp *p = message;
+	const struct avb_packet_mrp *p = message;
 
 	if (ntohs(p->eth.type) != AVB_MMRP_ETH)
 		return 0;
@@ -142,7 +142,7 @@ static int mmrp_message(void *data, uint64_t now, const void *message, int len)
 		return 0;
 
 	pw_log_debug("MMRP");
-	return avbtp_mrp_parse_packet(mmrp->server->mrp,
+	return avb_mrp_parse_packet(mmrp->server->mrp,
 			now, message, len, &info, mmrp);
 }
 
@@ -154,19 +154,19 @@ static void mmrp_destroy(void *data)
 }
 
 static const struct server_events server_events = {
-	AVBTP_VERSION_SERVER_EVENTS,
+	AVB_VERSION_SERVER_EVENTS,
 	.destroy = mmrp_destroy,
 	.message = mmrp_message
 };
 
-struct avbtp_mmrp_attribute *avbtp_mmrp_attribute_new(struct avbtp_mmrp *m,
+struct avb_mmrp_attribute *avb_mmrp_attribute_new(struct avb_mmrp *m,
 		uint8_t type)
 {
 	struct mmrp *mmrp = (struct mmrp*)m;
-	struct avbtp_mrp_attribute *attr;
+	struct avb_mrp_attribute *attr;
 	struct attr *a;
 
-	attr = avbtp_mrp_attribute_new(mmrp->server->mrp, sizeof(struct attr));
+	attr = avb_mrp_attribute_new(mmrp->server->mrp, sizeof(struct attr));
 
 	a = attr->user_data;
 	a->attr.mrp = attr;
@@ -176,7 +176,7 @@ struct avbtp_mmrp_attribute *avbtp_mmrp_attribute_new(struct avbtp_mmrp *m,
 	return &a->attr;
 }
 
-struct avbtp_mmrp *avbtp_mmrp_register(struct server *server)
+struct avb_mmrp *avb_mmrp_register(struct server *server)
 {
 	struct mmrp *mmrp;
 
@@ -189,5 +189,5 @@ struct avbtp_mmrp *avbtp_mmrp_register(struct server *server)
 
 	avdecc_server_add_listener(server, &mmrp->server_listener, &server_events, mmrp);
 
-	return (struct avbtp_mmrp*)mmrp;
+	return (struct avb_mmrp*)mmrp;
 }

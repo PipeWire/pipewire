@@ -35,7 +35,7 @@ context.modules = [
     }
     { name = libpipewire-module-client-device }
     { name = libpipewire-module-adapter }
-    { name = libpipewire-module-avbtp
+    { name = libpipewire-module-avb
         args = {
 	    # contents of avb.properties can also be placed here
 	    # to have config per server.

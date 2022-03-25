@@ -78,9 +78,9 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 		if (len < 0) {
 			pw_log_warn("got recv error: %m");
 		}
-		else if (len < (int)sizeof(struct avbtp_packet_header)) {
+		else if (len < (int)sizeof(struct avb_packet_header)) {
 			pw_log_warn("short packet received (%d < %d)", len,
-					(int)sizeof(struct avbtp_packet_header));
+					(int)sizeof(struct avb_packet_header));
 		} else {
 			clock_gettime(CLOCK_REALTIME, &now);
 			server_emit_message(server, SPA_TIMESPEC_TO_NSEC(&now), buffer, len);
@@ -88,10 +88,10 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 	}
 }
 
-int avbtp_server_send_packet(struct server *server, const uint8_t dest[6],
+int avb_server_send_packet(struct server *server, const uint8_t dest[6],
 		uint16_t type, void *data, size_t size)
 {
-	struct avbtp_ethernet_header *hdr = (struct avbtp_ethernet_header*)data;
+	struct avb_ethernet_header *hdr = (struct avb_ethernet_header*)data;
 	int res = 0;
 
 	memcpy(hdr->dest, dest, ETH_ALEN);
@@ -216,31 +216,31 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 
 	init_descriptors(server);
 
-	server->mrp = avbtp_mrp_new(server);
+	server->mrp = avb_mrp_new(server);
 	if (server->mrp == NULL)
 		goto error_free;
 
-	avbtp_aecp_register(server);
-	avbtp_maap_register(server);
-	server->mmrp = avbtp_mmrp_register(server);
-	server->msrp = avbtp_msrp_register(server);
-	server->mvrp = avbtp_mvrp_register(server);
-	avbtp_adp_register(server);
-	avbtp_acmp_register(server);
+	avb_aecp_register(server);
+	avb_maap_register(server);
+	server->mmrp = avb_mmrp_register(server);
+	server->msrp = avb_msrp_register(server);
+	server->mvrp = avb_mvrp_register(server);
+	avb_adp_register(server);
+	avb_acmp_register(server);
 
-	server->domain_attr = avbtp_msrp_attribute_new(server->msrp,
-			AVBTP_MSRP_ATTRIBUTE_TYPE_DOMAIN);
+	server->domain_attr = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);
 	server->domain_attr->attr.domain.sr_class_id = 6;
 	server->domain_attr->attr.domain.sr_class_priority = 3;
 	server->domain_attr->attr.domain.sr_class_vid = htons(2);
 
-	avbtp_mrp_mad_begin(server->mrp, 0, server->domain_attr->mrp);
-	avbtp_mrp_mad_join(server->mrp, 0, server->domain_attr->mrp, true);
+	avb_mrp_mad_begin(server->mrp, 0, server->domain_attr->mrp);
+	avb_mrp_mad_join(server->mrp, 0, server->domain_attr->mrp, true);
 
-	server->listener_attr = avbtp_msrp_attribute_new(server->msrp,
-			AVBTP_MSRP_ATTRIBUTE_TYPE_LISTENER);
+	server->listener_attr = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
 	server->listener_attr->attr.listener.stream_id = htobe64(0);
-	avbtp_mrp_mad_begin(server->mrp, 0, server->listener_attr->mrp);
+	avb_mrp_mad_begin(server->mrp, 0, server->listener_attr->mrp);
 
 	return server;
 

@@ -22,11 +22,11 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef AVBTP_SRP_H
-#define AVBTP_SRP_H
+#ifndef AVB_SRP_H
+#define AVB_SRP_H
 
 #include "internal.h"
 
-int avbtp_srp_register(struct server *server);
+int avb_srp_register(struct server *server);
 
-#endif /* AVBTP_SRP_H */
+#endif /* AVB_SRP_H */

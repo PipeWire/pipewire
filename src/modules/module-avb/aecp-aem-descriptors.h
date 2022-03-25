@@ -22,52 +22,52 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef AVBTP_AECP_AEM_DESCRIPTORS_H
-#define AVBTP_AECP_AEM_DESCRIPTORS_H
+#ifndef AVB_AECP_AEM_DESCRIPTORS_H
+#define AVB_AECP_AEM_DESCRIPTORS_H
 
 #include "internal.h"
 
-#define AVBTP_AEM_DESC_ENTITY			0x0000
-#define AVBTP_AEM_DESC_CONFIGURATION		0x0001
-#define AVBTP_AEM_DESC_AUDIO_UNIT		0x0002
-#define AVBTP_AEM_DESC_VIDEO_UNIT		0x0003
-#define AVBTP_AEM_DESC_SENSOR_UNIT		0x0004
-#define AVBTP_AEM_DESC_STREAM_INPUT		0x0005
-#define AVBTP_AEM_DESC_STREAM_OUTPUT		0x0006
-#define AVBTP_AEM_DESC_JACK_INPUT		0x0007
-#define AVBTP_AEM_DESC_JACK_OUTPUT		0x0008
-#define AVBTP_AEM_DESC_AVB_INTERFACE		0x0009
-#define AVBTP_AEM_DESC_CLOCK_SOURCE		0x000a
-#define AVBTP_AEM_DESC_MEMORY_OBJECT		0x000b
-#define AVBTP_AEM_DESC_LOCALE			0x000c
-#define AVBTP_AEM_DESC_STRINGS			0x000d
-#define AVBTP_AEM_DESC_STREAM_PORT_INPUT	0x000e
-#define AVBTP_AEM_DESC_STREAM_PORT_OUTPUT	0x000f
-#define AVBTP_AEM_DESC_EXTERNAL_PORT_INPUT	0x0010
-#define AVBTP_AEM_DESC_EXTERNAL_PORT_OUTPUT	0x0011
-#define AVBTP_AEM_DESC_INTERNAL_PORT_INPUT	0x0012
-#define AVBTP_AEM_DESC_INTERNAL_PORT_OUTPUT	0x0013
-#define AVBTP_AEM_DESC_AUDIO_CLUSTER		0x0014
-#define AVBTP_AEM_DESC_VIDEO_CLUSTER		0x0015
-#define AVBTP_AEM_DESC_SENSOR_CLUSTER		0x0016
-#define AVBTP_AEM_DESC_AUDIO_MAP		0x0017
-#define AVBTP_AEM_DESC_VIDEO_MAP		0x0018
-#define AVBTP_AEM_DESC_SENSOR_MAP		0x0019
-#define AVBTP_AEM_DESC_CONTROL			0x001a
-#define AVBTP_AEM_DESC_SIGNAL_SELECTOR		0x001b
-#define AVBTP_AEM_DESC_MIXER			0x001c
-#define AVBTP_AEM_DESC_MATRIX			0x001d
-#define AVBTP_AEM_DESC_MATRIX_SIGNAL		0x001e
-#define AVBTP_AEM_DESC_SIGNAL_SPLITTER		0x001f
-#define AVBTP_AEM_DESC_SIGNAL_COMBINER		0x0020
-#define AVBTP_AEM_DESC_SIGNAL_DEMULTIPLEXER	0x0021
-#define AVBTP_AEM_DESC_SIGNAL_MULTIPLEXER	0x0022
-#define AVBTP_AEM_DESC_SIGNAL_TRANSCODER	0x0023
-#define AVBTP_AEM_DESC_CLOCK_DOMAIN		0x0024
-#define AVBTP_AEM_DESC_CONTROL_BLOCK		0x0025
-#define AVBTP_AEM_DESC_INVALID			0xffff
+#define AVB_AEM_DESC_ENTITY			0x0000
+#define AVB_AEM_DESC_CONFIGURATION		0x0001
+#define AVB_AEM_DESC_AUDIO_UNIT			0x0002
+#define AVB_AEM_DESC_VIDEO_UNIT			0x0003
+#define AVB_AEM_DESC_SENSOR_UNIT		0x0004
+#define AVB_AEM_DESC_STREAM_INPUT		0x0005
+#define AVB_AEM_DESC_STREAM_OUTPUT		0x0006
+#define AVB_AEM_DESC_JACK_INPUT			0x0007
+#define AVB_AEM_DESC_JACK_OUTPUT		0x0008
+#define AVB_AEM_DESC_AVB_INTERFACE		0x0009
+#define AVB_AEM_DESC_CLOCK_SOURCE		0x000a
+#define AVB_AEM_DESC_MEMORY_OBJECT		0x000b
+#define AVB_AEM_DESC_LOCALE			0x000c
+#define AVB_AEM_DESC_STRINGS			0x000d
+#define AVB_AEM_DESC_STREAM_PORT_INPUT		0x000e
+#define AVB_AEM_DESC_STREAM_PORT_OUTPUT		0x000f
+#define AVB_AEM_DESC_EXTERNAL_PORT_INPUT	0x0010
+#define AVB_AEM_DESC_EXTERNAL_PORT_OUTPUT	0x0011
+#define AVB_AEM_DESC_INTERNAL_PORT_INPUT	0x0012
+#define AVB_AEM_DESC_INTERNAL_PORT_OUTPUT	0x0013
+#define AVB_AEM_DESC_AUDIO_CLUSTER		0x0014
+#define AVB_AEM_DESC_VIDEO_CLUSTER		0x0015
+#define AVB_AEM_DESC_SENSOR_CLUSTER		0x0016
+#define AVB_AEM_DESC_AUDIO_MAP			0x0017
+#define AVB_AEM_DESC_VIDEO_MAP			0x0018
+#define AVB_AEM_DESC_SENSOR_MAP			0x0019
+#define AVB_AEM_DESC_CONTROL			0x001a
+#define AVB_AEM_DESC_SIGNAL_SELECTOR		0x001b
+#define AVB_AEM_DESC_MIXER			0x001c
+#define AVB_AEM_DESC_MATRIX			0x001d
+#define AVB_AEM_DESC_MATRIX_SIGNAL		0x001e
+#define AVB_AEM_DESC_SIGNAL_SPLITTER		0x001f
+#define AVB_AEM_DESC_SIGNAL_COMBINER		0x0020
+#define AVB_AEM_DESC_SIGNAL_DEMULTIPLEXER	0x0021
+#define AVB_AEM_DESC_SIGNAL_MULTIPLEXER		0x0022
+#define AVB_AEM_DESC_SIGNAL_TRANSCODER		0x0023
+#define AVB_AEM_DESC_CLOCK_DOMAIN		0x0024
+#define AVB_AEM_DESC_CONTROL_BLOCK		0x0025
+#define AVB_AEM_DESC_INVALID			0xffff
 
-struct avbtp_aem_desc_entity {
+struct avb_aem_desc_entity {
 	uint64_t entity_id;
 	uint64_t entity_model_id;
 	uint32_t entity_capabilities;
@@ -88,24 +88,24 @@ struct avbtp_aem_desc_entity {
 	uint16_t current_configuration;
 } __attribute__ ((__packed__));
 
-struct avbtp_aem_desc_descriptor_count {
+struct avb_aem_desc_descriptor_count {
 	uint16_t descriptor_type;
 	uint16_t descriptor_count;
 } __attribute__ ((__packed__));
 
-struct avbtp_aem_desc_configuration {
+struct avb_aem_desc_configuration {
 	char object_name[64];
 	uint16_t localized_description;
 	uint16_t descriptor_counts_count;
 	uint16_t descriptor_counts_offset;
-	struct avbtp_aem_desc_descriptor_count descriptor_counts[0];
+	struct avb_aem_desc_descriptor_count descriptor_counts[0];
 } __attribute__ ((__packed__));
 
-struct avbtp_aem_desc_sampling_rate {
+struct avb_aem_desc_sampling_rate {
 	uint32_t pull_frequency;
 } __attribute__ ((__packed__));
 
-struct avbtp_aem_desc_audio_unit {
+struct avb_aem_desc_audio_unit {
 	char object_name[64];
 	uint16_t localized_description;
 	uint16_t clock_domain_index;
@@ -144,21 +144,21 @@ struct avbtp_aem_desc_audio_unit {
 	uint32_t current_sampling_rate;
 	uint16_t sampling_rates_offset;
 	uint16_t sampling_rates_count;
-	struct avbtp_aem_desc_sampling_rate sampling_rates[0];
+	struct avb_aem_desc_sampling_rate sampling_rates[0];
 } __attribute__ ((__packed__));
 
-#define AVBTP_AEM_DESC_STREAM_FLAG_SYNC_SOURCE			(1u<<0)
-#define AVBTP_AEM_DESC_STREAM_FLAG_CLASS_A			(1u<<1)
-#define AVBTP_AEM_DESC_STREAM_FLAG_CLASS_B			(1u<<2)
-#define AVBTP_AEM_DESC_STREAM_FLAG_SUPPORTS_ENCRYPTED		(1u<<3)
-#define AVBTP_AEM_DESC_STREAM_FLAG_PRIMARY_BACKUP_SUPPORTED	(1u<<4)
-#define AVBTP_AEM_DESC_STREAM_FLAG_PRIMARY_BACKUP_VALID		(1u<<5)
-#define AVBTP_AEM_DESC_STREAM_FLAG_SECONDARY_BACKUP_SUPPORTED	(1u<<6)
-#define AVBTP_AEM_DESC_STREAM_FLAG_SECONDARY_BACKUP_VALID	(1u<<7)
-#define AVBTP_AEM_DESC_STREAM_FLAG_TERTIARY_BACKUP_SUPPORTED	(1u<<8)
-#define AVBTP_AEM_DESC_STREAM_FLAG_TERTIARY_BACKUP_VALID	(1u<<9)
+#define AVB_AEM_DESC_STREAM_FLAG_SYNC_SOURCE			(1u<<0)
+#define AVB_AEM_DESC_STREAM_FLAG_CLASS_A			(1u<<1)
+#define AVB_AEM_DESC_STREAM_FLAG_CLASS_B			(1u<<2)
+#define AVB_AEM_DESC_STREAM_FLAG_SUPPORTS_ENCRYPTED		(1u<<3)
+#define AVB_AEM_DESC_STREAM_FLAG_PRIMARY_BACKUP_SUPPORTED	(1u<<4)
+#define AVB_AEM_DESC_STREAM_FLAG_PRIMARY_BACKUP_VALID		(1u<<5)
+#define AVB_AEM_DESC_STREAM_FLAG_SECONDARY_BACKUP_SUPPORTED	(1u<<6)
+#define AVB_AEM_DESC_STREAM_FLAG_SECONDARY_BACKUP_VALID		(1u<<7)
+#define AVB_AEM_DESC_STREAM_FLAG_TERTIARY_BACKUP_SUPPORTED	(1u<<8)
+#define AVB_AEM_DESC_STREAM_FLAG_TERTIARY_BACKUP_VALID		(1u<<9)
 
-struct avbtp_aem_desc_stream {
+struct avb_aem_desc_stream {
 	char object_name[64];
 	uint16_t localized_description;
 	uint16_t clock_domain_index;
@@ -179,11 +179,11 @@ struct avbtp_aem_desc_stream {
 	uint64_t stream_formats[0];
 } __attribute__ ((__packed__));
 
-#define AVBTP_AEM_DESC_AVB_INTERFACE_FLAG_GPTP_GRANDMASTER_SUPPORTED	(1<<0)
-#define AVBTP_AEM_DESC_AVB_INTERFACE_FLAG_GPTP_SUPPORTED		(1<<1)
-#define AVBTP_AEM_DESC_AVB_INTERFACE_FLAG_SRP_SUPPORTED			(1<<2)
+#define AVB_AEM_DESC_AVB_INTERFACE_FLAG_GPTP_GRANDMASTER_SUPPORTED	(1<<0)
+#define AVB_AEM_DESC_AVB_INTERFACE_FLAG_GPTP_SUPPORTED			(1<<1)
+#define AVB_AEM_DESC_AVB_INTERFACE_FLAG_SRP_SUPPORTED			(1<<2)
 
-struct avbtp_aem_desc_avb_interface {
+struct avb_aem_desc_avb_interface {
 	char object_name[64];
 	uint16_t localized_description;
 	uint8_t mac_address[6];
@@ -201,13 +201,13 @@ struct avbtp_aem_desc_avb_interface {
 	uint16_t port_number;
 } __attribute__ ((__packed__));
 
-#define AVBTP_AEM_DESC_CLOCK_SOURCE_TYPE_INTERNAL		0x0000
-#define AVBTP_AEM_DESC_CLOCK_SOURCE_TYPE_EXTERNAL		0x0001
-#define AVBTP_AEM_DESC_CLOCK_SOURCE_TYPE_INPUT_STREAM		0x0002
-#define AVBTP_AEM_DESC_CLOCK_SOURCE_TYPE_MEDIA_CLOCK_STREAM	0x0003
-#define AVBTP_AEM_DESC_CLOCK_SOURCE_TYPE_EXPANSION		0xffff
+#define AVB_AEM_DESC_CLOCK_SOURCE_TYPE_INTERNAL			0x0000
+#define AVB_AEM_DESC_CLOCK_SOURCE_TYPE_EXTERNAL			0x0001
+#define AVB_AEM_DESC_CLOCK_SOURCE_TYPE_INPUT_STREAM		0x0002
+#define AVB_AEM_DESC_CLOCK_SOURCE_TYPE_MEDIA_CLOCK_STREAM	0x0003
+#define AVB_AEM_DESC_CLOCK_SOURCE_TYPE_EXPANSION		0xffff
 
-struct avbtp_aem_desc_clock_source {
+struct avb_aem_desc_clock_source {
 	char object_name[64];
 	uint16_t localized_description;
 	uint16_t clock_source_flags;
@@ -217,13 +217,13 @@ struct avbtp_aem_desc_clock_source {
 	uint16_t clock_source_location_index;
 } __attribute__ ((__packed__));
 
-struct avbtp_aem_desc_locale {
+struct avb_aem_desc_locale {
 	char locale_identifier[64];
 	uint16_t number_of_strings;
 	uint16_t base_strings;
 } __attribute__ ((__packed__));
 
-struct avbtp_aem_desc_strings {
+struct avb_aem_desc_strings {
 	char string_0[64];
 	char string_1[64];
 	char string_2[64];
@@ -233,7 +233,7 @@ struct avbtp_aem_desc_strings {
 	char string_6[64];
 } __attribute__ ((__packed__));
 
-struct avbtp_aem_desc_stream_port {
+struct avb_aem_desc_stream_port {
 	uint16_t clock_domain_index;
 	uint16_t port_flags;
 	uint16_t number_of_controls;
@@ -244,4 +244,4 @@ struct avbtp_aem_desc_stream_port {
 	uint16_t base_map;
 } __attribute__ ((__packed__));
 
-#endif /* AVBTP_AECP_AEM_DESCRIPTORS_H */
+#endif /* AVB_AECP_AEM_DESCRIPTORS_H */

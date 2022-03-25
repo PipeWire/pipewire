@@ -22,47 +22,38 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef AVBTP_MMRP_H
-#define AVBTP_MMRP_H
+#include <pipewire/pipewire.h>
 
-#include "mrp.h"
-#include "internal.h"
+#include "srp.h"
 
-#define AVB_MMRP_ETH 0x88f6
-#define AVB_MMRP_MAC { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x20 }
-
-#define AVBTP_MMRP_ATTRIBUTE_TYPE_SERVICE_REQUIREMENT	1
-#define AVBTP_MMRP_ATTRIBUTE_TYPE_MAC			2
-#define AVBTP_MMRP_ATTRIBUTE_TYPE_VALID(t)		((t)>=1 && (t)<=2)
-
-struct avbtp_packet_mmrp_msg {
-	uint8_t attribute_type;
-	uint8_t attribute_length;
-	uint8_t attribute_list[0];
-} __attribute__ ((__packed__));
-
-struct avbtp_packet_mmrp_service_requirement {
-	unsigned char addr[6];
-} __attribute__ ((__packed__));
-
-struct avbtp_packet_mmrp_mac {
-	unsigned char addr[6];
-} __attribute__ ((__packed__));
-
-struct avbtp_mmrp;
-
-struct avbtp_mmrp_attribute {
-	struct avbtp_mrp_attribute *mrp;
-	uint8_t type;
-	union {
-		struct avbtp_packet_mmrp_service_requirement service_requirement;
-		struct avbtp_packet_mmrp_mac mac;
-	} attr;
+struct srp {
+	struct server *server;
+	struct spa_hook server_listener;
 };
 
-struct avbtp_mmrp_attribute *avbtp_mmrp_attribute_new(struct avbtp_mmrp *mmrp,
-		uint8_t type);
+static void srp_destroy(void *data)
+{
+	struct srp *srp = data;
+	spa_hook_remove(&srp->server_listener);
+	free(srp);
+}
 
-struct avbtp_mmrp *avbtp_mmrp_register(struct server *server);
+static const struct server_events server_events = {
+	AVB_VERSION_SERVER_EVENTS,
+	.destroy = srp_destroy,
+};
 
-#endif /* AVBTP_MMRP_H */
+int avb_srp_register(struct server *server)
+{
+	struct srp *srp;
+
+	srp = calloc(1, sizeof(*srp));
+	if (srp == NULL)
+		return -errno;
+
+	srp->server = server;
+
+	avdecc_server_add_listener(server, &srp->server_listener, &server_events, srp);
+
+	return 0;
+}

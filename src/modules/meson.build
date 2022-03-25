@@ -5,7 +5,7 @@ subdir('spa')
 module_sources = [
   'module-access.c',
   'module-adapter.c',
-  'module-avbtp.c',
+  'module-avb.c',
   'module-client-device.c',
   'module-client-node.c',
   'module-echo-cancel.c',
@@ -518,22 +518,22 @@ pipewire_module_fallback_sink = shared_library('pipewire-module-fallback-sink',
   dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
 )
 
-build_module_avbtp = get_option('avb').allowed()
-if build_module_avbtp
-pipewire_module_avbtp = shared_library('pipewire-module-avbtp',
-  [ 'module-avbtp.c',
-    'module-avbtp/avb.c',
-    'module-avbtp/adp.c',
-    'module-avbtp/acmp.c',
-    'module-avbtp/aecp.c',
-    'module-avbtp/aecp-aem.c',
-    'module-avbtp/avdecc.c',
-    'module-avbtp/maap.c',
-    'module-avbtp/mmrp.c',
-    'module-avbtp/mrp.c',
-    'module-avbtp/msrp.c',
-    'module-avbtp/mvrp.c',
-    'module-avbtp/srp.c'
+build_module_avb = get_option('avb').allowed()
+if build_module_avb
+pipewire_module_avb = shared_library('pipewire-module-avb',
+  [ 'module-avb.c',
+    'module-avb/avb.c',
+    'module-avb/adp.c',
+    'module-avb/acmp.c',
+    'module-avb/aecp.c',
+    'module-avb/aecp-aem.c',
+    'module-avb/avdecc.c',
+    'module-avb/maap.c',
+    'module-avb/mmrp.c',
+    'module-avb/mrp.c',
+    'module-avb/msrp.c',
+    'module-avb/mvrp.c',
+    'module-avb/srp.c'
     ],
   include_directories : [configinc],
   install : true,
@@ -542,4 +542,4 @@ pipewire_module_avbtp = shared_library('pipewire-module-avbtp',
   dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
 )
 endif
-summary({'avbtp': build_module_avbtp}, bool_yn: true, section: 'Optional Modules')
+summary({'avb': build_module_avb}, bool_yn: true, section: 'Optional Modules')

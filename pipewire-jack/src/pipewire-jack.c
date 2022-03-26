@@ -298,7 +298,6 @@ struct client {
 	int pending_sync;
 	int last_sync;
 	int last_res;
-	bool error;
 
 	struct spa_node_info info;
 
@@ -845,7 +844,6 @@ static void on_error(void *data, uint32_t id, int seq, int res, const char *mess
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE) {
-		client->error = true;
 		client->last_res = res;
 		if (!client->destroyed)
 			do_callback(client, shutdown_callback, client->shutdown_arg);
@@ -867,9 +865,8 @@ static int do_sync(struct client *client)
 		pw_log_warn("sync requested from callback");
 		return 0;
 	}
-	if (client->error)
-		return client->last_res;
 
+	client->last_res = 0;
 	client->pending_sync = pw_proxy_sync((struct pw_proxy*)client->core, client->pending_sync);
 
 	while (true) {
@@ -881,7 +878,7 @@ static int do_sync(struct client *client)
 		if (in_data_thread && client->rt_locked)
 			pthread_mutex_lock(&client->rt_lock);
 
-		if (client->error)
+		if (client->last_res < 0)
 			return client->last_res;
 
 		if (client->pending_sync == client->last_sync)
@@ -3314,7 +3311,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	while (true) {
 	        pw_thread_loop_wait(client->context.loop);
 
-		if (client->error)
+		if (client->last_res < 0)
 			goto init_failed;
 
 		if (client->has_transport)

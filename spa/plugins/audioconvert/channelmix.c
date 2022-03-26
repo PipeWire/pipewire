@@ -1655,7 +1655,7 @@ impl_init(const struct spa_handle_factory *factory,
 	props_reset(&this->props);
 
 	this->mix.options = CHANNELMIX_OPTION_UPMIX;
-	this->mix.upmix = CHANNELMIX_UPMIX_PSD;
+	this->mix.upmix = CHANNELMIX_UPMIX_SIMPLE;
 	this->mix.log = this->log;
 	this->mix.lfe_cutoff = 120.0f;
 	this->mix.fc_cutoff = 6000.0f;

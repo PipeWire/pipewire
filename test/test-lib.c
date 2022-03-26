@@ -49,9 +49,21 @@ PWTEST(library_version)
 	return PWTEST_PASS;
 }
 
+PWTEST(init_deinit)
+{
+	pw_init(0, NULL);
+	pw_deinit();
+	pw_init(0, NULL);
+	pw_init(0, NULL);
+	pw_deinit();
+	pw_deinit();
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(properties)
 {
 	pwtest_add(library_version, PWTEST_NOARG);
+	pwtest_add(init_deinit, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

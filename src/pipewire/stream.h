@@ -193,13 +193,24 @@ struct pw_stream_control {
 
 /** A time structure */
 struct pw_time {
-	int64_t now;			/**< the monotonic time in nanoseconds */
-	struct spa_fraction rate;	/**< the rate of \a ticks and delay */
+	int64_t now;			/**< the monotonic time in nanoseconds. This is the time
+					  *  when this time report was updated. It is usually
+					  *  updated every graph cycle. You can use the current
+					  *  monotonic time to calculate the elapsed time between
+					  *  this report and the current state and calculate
+					  *  updated ticks and delay values. */
+	struct spa_fraction rate;	/**< the rate of \a ticks and delay. This is usually
+					  *  expressed in 1/<samplerate>. */
 	uint64_t ticks;			/**< the ticks at \a now. This is the current time that
 					  *  the remote end is reading/writing. */
-	int64_t delay;			/**< delay to device, add to ticks to get the time of the
-					  *  device. Positive for INPUT streams and
-					  *  negative for OUTPUT streams. */
+	int64_t delay;			/**< delay to device. This is the time it will take for
+					  *  the next sample in the stream to be presented by
+					  *  the playback device or the time a sample traveled
+					  *  from the capture device. This delay includes the
+					  *  delay introduced by all filters on the path between
+					  *  the stream and the device. The delay is normally
+					  *  constant in a graph and can change when the topology
+					  *  of the graph or the quantum changes. */
 	uint64_t queued;		/**< data queued in the stream, this is the sum
 					  *  of the size fields in the pw_buffer that are
 					  *  currently queued */

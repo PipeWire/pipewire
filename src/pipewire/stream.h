@@ -213,7 +213,10 @@ struct pw_time {
 					  *  of the graph or the quantum changes. */
 	uint64_t queued;		/**< data queued in the stream, this is the sum
 					  *  of the size fields in the pw_buffer that are
-					  *  currently queued */
+					  *  currently queued and, for audio streams, the extra
+					  *  data queued in the resampler. For audio streams, it
+					  *  is thus highly recommended to use the buffer size
+					  *  field as the sample count in the buffer. */
 };
 
 #include <pipewire/port.h>

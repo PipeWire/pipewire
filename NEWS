@@ -1,3 +1,77 @@
+# PipeWire 0.3.49 (2022-03-31)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Sample rate switching should work again.
+  - pw-dot can now use the output of pw-dump to render a graph.
+  - Bluetooth A2DP streaming was improved that would reduce stuttering on
+    some devices.
+  - A JACK bug was fixed that would sometimes make it impossible to add more
+    tracks in Ardour. (#1714)
+  - Many bugfixes and improvements.
+
+## PipeWire
+  - Fix a potential crash when NULL params were configured.
+  - Add some simple functional tests to avoid some recent regressions. Improve
+    the test framework for this as well.
+  - Improvements to the poll loop to avoid some use-after-free scenarios.
+  - Fix samplerate switching again.
+  - setlocale is not called anymore from the pipewire library. This should be
+    called by the application. (#2223)
+  - pw_init() and pw_deinit() can now be nested and called multiple times.
+  - pw_stream will now report the resampler delay in the pw_time.queued field.
+
+## modules
+  - module-filter-chain now supports arbitrary many properties and will use
+    property hints to assign them the right type.
+  - The ROC modules now accept a sink/source_properties parameter.
+  - The module-rt can now also be built without RT-Kit support.
+  - module-echo-cancel can now use a fraction to specify the delay for more
+    precise control.
+
+## SPA
+  - The channelmixer will now do upmixing by default and will not use
+    normalization. It will also use a simple upmixing algorithm that duplicates
+    channels by default. A more interesting upmix method is also available (PSD)
+    but needs to be enabled manually. (#861)
+  - Add SSE optimized (de)interleave functions for 32 bits samples with and
+    without byteswap.
+  - JSON parsing of empty strings will now give an invalid number instead of
+    0.
+  - JSON numbers are now parsed and serialized in a locale independent way so
+    that , and . are not mixed up.
+  - The resampler will now report the resample delay and queued samples as the
+    extra delay.
+
+## tools
+  - pw-cat will read more dsf files correctly and will not crash at the end.
+  - pw-top now has a man page.
+  - pw-dot can now use the output of pw-dump to render a graph.
+
+## bluetooth
+  - Improve interactions with oFono.
+  - Fix recovery with slow connections.
+  - Improve frame size of AptX-ll.
+  - A2DP can now use any quantum and will flush packets in smaller chunks
+    when needed to adapt. This improves stuttering in some cases.
+
+## pulse-server
+  - The server configuration can now be placed in pulse.properties section,
+    which also makes it possible to have custom overrides.
+  - Implement FIX_ flags for capture as well.
+  - Small fixes and improvements in module loading.
+
+## JACK
+  - Clear the last error before executing a new action or else we could end up
+    with error from a previous action. This causes some problems in Ardour where
+    adding a track would fail after some time. (#1714)
+
+
+Older versions:
+
+
 # PipeWire 0.3.48 (2022-03-03)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -71,9 +145,6 @@ This is a bugfix release that is API and ABI compatible with previous
 
 ## Bluetooth
   - Don't try to connect HSP/HFP when no backend is available.
-
-
-Older versions:
 
 
 # PipeWire 0.3.47 (2022-02-18)

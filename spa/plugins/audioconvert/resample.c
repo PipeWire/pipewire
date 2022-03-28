@@ -408,7 +408,8 @@ static void update_rate_match(struct impl *this, bool passthrough, uint32_t out_
 		}
 		match_size -= SPA_MIN(match_size, in_queued);
 		this->io_rate_match->size = match_size;
-		spa_log_trace_fp(this->log, "%p: next match %u", this, match_size);
+		spa_log_trace_fp(this->log, "%p: next match:%u queued:%u delay:%u", this, match_size,
+				in_queued, this->io_rate_match->delay);
 	} else {
 		resample_update_rate(&this->resample, this->rate_scale * this->props.rate);
 	}
@@ -994,7 +995,7 @@ static int impl_node_process(void *object)
 	if (SPA_LIKELY(this->io_position)) {
 		double r =  this->rate_scale;
 
-		max = this->io_position->clock.duration;
+		max = this->io_position->clock.duration * sizeof(float);
 		if (this->mode == MODE_SPLIT) {
 			if (this->io_position->clock.rate.denom != this->resample.o_rate)
 				r = (double) this->io_position->clock.rate.denom / this->resample.o_rate;
@@ -1012,13 +1013,13 @@ static int impl_node_process(void *object)
 		}
 	}
 	else
-		max = maxsize / sizeof(float);
+		max = maxsize;
 
 	switch (this->mode) {
 	case MODE_SPLIT:
 		/* in split mode we need to output exactly the size of the
 		 * duration so we don't try to flush early */
-		maxsize = SPA_MIN(maxsize, max * sizeof(float));
+		maxsize = SPA_MIN(maxsize, max);
 		flush_out = false;
 		break;
 	case MODE_MERGE:
@@ -1109,8 +1110,8 @@ static int impl_node_process(void *object)
 		spa_log_trace_fp(this->log, "%p: no output buffer", this);
 	}
 
-	update_rate_match(this, passthrough, max - outport->offset / sizeof(float),
-			size - inport->offset / sizeof(float));
+	update_rate_match(this, passthrough, (max - outport->offset) / sizeof(float),
+			(size - inport->offset) / sizeof(float));
 	return res;
 }
 

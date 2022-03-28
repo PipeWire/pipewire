@@ -843,9 +843,9 @@ static int link_signal_func(void *user_data)
 {
 	struct link *link = user_data;
 	struct spa_system *data_system = link->data->context->data_system;
-	struct timespec ts;
+	struct timespec ts = { 0, 0 };
 
-	pw_log_trace("link %p: signal", link);
+	pw_log_trace_fp("link %p: signal", link);
 
 	spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
 	link->target.activation->status = PW_NODE_ACTIVATION_TRIGGERED;

@@ -177,7 +177,7 @@ static void flush_items(struct impl *impl)
 		item = SPA_PTROFF(impl->buffer_data, index & (DATAS_SIZE - 1), struct invoke_item);
 		block = item->block;
 
-		spa_log_trace(impl->log, "%p: flush item %p", impl, item);
+		spa_log_trace_fp(impl->log, "%p: flush item %p", impl, item);
 		item->res = item->func ? item->func(&impl->loop,
 				true, item->seq, item->data, item->size,
 			   item->user_data) : 0;
@@ -249,7 +249,7 @@ loop_invoke(void *object,
 	item->user_data = user_data;
 	item->item_size = SPA_ROUND_UP_N(sizeof(struct invoke_item) + size, ITEM_ALIGN);
 
-	spa_log_trace(impl->log, "%p: add item %p filled:%d", impl, item, filled);
+	spa_log_trace_fp(impl->log, "%p: add item %p filled:%d", impl, item, filled);
 
 	if (l0 >= item->item_size) {
 		/* item + size fit in current ringbuffer idx */

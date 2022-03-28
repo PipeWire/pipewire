@@ -246,7 +246,7 @@ int pw_data_loop_stop(struct pw_data_loop *loop)
 SPA_EXPORT
 bool pw_data_loop_in_thread(struct pw_data_loop * loop)
 {
-	return pthread_equal(loop->thread, pthread_self());
+	return loop->running && pthread_equal(loop->thread, pthread_self());
 }
 
 /** Get the thread object.

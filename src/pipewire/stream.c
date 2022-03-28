@@ -987,16 +987,19 @@ static int impl_node_process_output(void *object)
 	struct buffer *b;
 	int res;
 	uint32_t index;
+	bool recycled;
 
 again:
 	pw_log_trace("%p: process out status:%d id:%d", stream,
 			io->status, io->buffer_id);
 
+	recycled = false;
 	if ((res = io->status) != SPA_STATUS_HAVE_DATA) {
 		/* recycle old buffer */
 		if ((b = get_buffer(stream, io->buffer_id)) != NULL) {
 			pw_log_trace("%p: recycle buffer %d", stream, b->id);
 			push_queue(impl, &impl->dequeued, b);
+			recycled = true;
 		}
 
 		/* pop new buffer */
@@ -1023,12 +1026,12 @@ again:
 	if (!impl->draining && !impl->driving) {
 		/* we're not draining, not a driver check if we need to get
 		 * more buffers */
-		if (!impl->process_rt) {
+		if (!impl->process_rt && (recycled || res == SPA_STATUS_NEED_DATA)) {
 			/* not realtime and we have a free buffer, trigger process so that we have
 			 * data in the next round. */
 			if (spa_ringbuffer_get_read_index(&impl->dequeued.ring, &index) > 0)
 				call_process(impl);
-		} else if (io->status == SPA_STATUS_NEED_DATA) {
+		} else if (res == SPA_STATUS_NEED_DATA) {
 			/* realtime and we don't have a buffer, trigger process and try
 			 * again when there is something in the queue now */
 			call_process(impl);

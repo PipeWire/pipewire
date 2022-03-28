@@ -392,10 +392,10 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 static void update_rate_match(struct impl *this, bool passthrough, uint32_t out_size, uint32_t in_queued)
 {
 	if (this->io_rate_match) {
-		uint32_t match_size;
+		uint32_t delay, match_size;
 
 		if (passthrough) {
-			this->io_rate_match->delay = 0;
+			delay = in_queued;
 			match_size = out_size;
 		} else {
 			if (SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
@@ -403,13 +403,14 @@ static void update_rate_match(struct impl *this, bool passthrough, uint32_t out_
 			else
 				resample_update_rate(&this->resample, this->rate_scale);
 
-			this->io_rate_match->delay = resample_delay(&this->resample);
+			delay = resample_delay(&this->resample) + in_queued;
 			match_size = resample_in_len(&this->resample, out_size);
 		}
 		match_size -= SPA_MIN(match_size, in_queued);
 		this->io_rate_match->size = match_size;
+		this->io_rate_match->delay = delay;
 		spa_log_trace_fp(this->log, "%p: next match:%u queued:%u delay:%u", this, match_size,
-				in_queued, this->io_rate_match->delay);
+				in_queued, delay);
 	} else {
 		resample_update_rate(&this->resample, this->rate_scale * this->props.rate);
 	}

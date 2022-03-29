@@ -197,10 +197,14 @@ SPA_EXPORT
 int pw_data_loop_start(struct pw_data_loop *loop)
 {
 	if (!loop->running) {
+		struct spa_thread_utils *utils;
 		struct spa_thread *thr;
 
 		loop->running = true;
-		thr = pw_thread_utils_create(NULL, do_loop, loop);
+
+		if ((utils = loop->thread_utils) == NULL)
+			utils = pw_thread_utils_get();
+		thr = spa_thread_utils_create(utils, NULL, do_loop, loop);
 		loop->thread = (pthread_t)thr;
 		if (thr == NULL) {
 			pw_log_error("%p: can't create thread: %m", loop);
@@ -223,6 +227,7 @@ int pw_data_loop_stop(struct pw_data_loop *loop)
 {
 	pw_log_debug("%p stopping", loop);
 	if (loop->running) {
+		struct spa_thread_utils *utils;
 		if (loop->cancel) {
 			pw_log_debug("%p cancel", loop);
 			pthread_cancel(loop->thread);
@@ -231,7 +236,9 @@ int pw_data_loop_stop(struct pw_data_loop *loop)
 			pw_loop_invoke(loop->loop, do_stop, 1, NULL, 0, false, loop);
 		}
 		pw_log_debug("%p join", loop);
-		pw_thread_utils_join((struct spa_thread*)loop->thread, NULL);
+		if ((utils = loop->thread_utils) == NULL)
+			utils = pw_thread_utils_get();
+		spa_thread_utils_join(utils, (struct spa_thread*)loop->thread, NULL);
 		pw_log_debug("%p joined", loop);
 	}
 	pw_log_debug("%p stopped", loop);
@@ -272,4 +279,18 @@ int pw_data_loop_invoke(struct pw_data_loop *loop,
 	else
 		res = func(loop->loop->loop, false, seq, data, size, user_data);
 	return res;
+}
+
+/** Set a thread utils implementation.
+ * \param loop the data loop to set the thread utils on
+ * \param impl the thread utils implementation
+ *
+ * This configures a custom spa_thread_utils implementation for this data
+ * loop. Use NULL to restore the system default implementation.
+ */
+SPA_EXPORT
+void pw_data_loop_set_thread_utils(struct pw_data_loop *loop,
+		struct spa_thread_utils *impl)
+{
+	loop->thread_utils = impl;
 }

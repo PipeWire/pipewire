@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 #include <spa/utils/hook.h>
+#include <spa/support/thread.h>
 
 /** \defgroup pw_data_loop Data Loop
  *
@@ -97,6 +98,10 @@ int pw_data_loop_invoke(struct pw_data_loop *loop,
 		spa_invoke_func_t func, uint32_t seq, const void *data, size_t size,
 		bool block, void *user_data);
 
+/** Set a custom spa_thread_utils for this loop. Setting NULL restores the
+ * system default implementation. Since 0.3.50 */
+void pw_data_loop_set_thread_utils(struct pw_data_loop *loop,
+		struct spa_thread_utils *impl);
 /**
  * \}
  */

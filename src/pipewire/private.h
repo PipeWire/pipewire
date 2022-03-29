@@ -483,6 +483,8 @@ struct pw_data_loop {
 
 	struct spa_hook_list listener_list;
 
+	struct spa_thread_utils *thread_utils;
+
 	pthread_t thread;
 	unsigned int cancel:1;
 	unsigned int created:1;

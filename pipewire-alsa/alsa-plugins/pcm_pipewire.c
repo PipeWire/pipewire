@@ -389,7 +389,7 @@ static void on_stream_process(void *data)
 	struct pw_buffer *b;
 	snd_pcm_uframes_t hw_avail, before, want, xfer;
 
-	pw_stream_get_time(pw->stream, &pw->time);
+	pw_stream_get_time_n(pw->stream, &pw->time, sizeof(pw->time));
 
 	if (pw->time.rate.num != 0) {
 		pw->time.delay = pw->time.delay * io->rate * pw->time.rate.num / pw->time.rate.denom;

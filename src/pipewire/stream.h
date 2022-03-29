@@ -202,7 +202,7 @@ struct pw_stream_control {
 
 /** A time structure.
  *
- * Use pw_stream_get_time() to get an updated time snapshot of the stream.
+ * Use pw_stream_get_time_n() to get an updated time snapshot of the stream.
  * The time snapshot can give information about the time in the driver of the
  * graph, the delay to the edge of the graph and the internal queuing in the
  * stream.
@@ -211,11 +211,7 @@ struct pw_stream_control {
  * driver. I can be used to generate a timetime to schedule samples as well
  * as detect discontinuities in the timeline caused by xruns.
  *
- * The total delay of data in a stream is the sum of the queued data (not yet
- * processed data) and the delay to the edge of the graph, usually a playback
- * or capture device.
- *
- * pw_time.delay is expressed as pw_time.ticks, the time domain of the graph. This
+ * pw_time.delay is expressed as pw_time.rate, the time domain of the graph. This
  * value, and pw_time.ticks, were captured at pw_time.now and can be extrapolated
  * to the current time like this:
  *
@@ -224,22 +220,50 @@ struct pw_stream_control {
  *    int64_t diff = SPA_TIMESPEC_TO_NSEC(&ts) - pw_time.now;
  *    int64_t elapsed = (pw_time.rate.denom * diff) / (pw_time.rate.num * SPA_NSEC_PER_SEC);
  *
- * pw_time.queued is expressed in the time domain of the stream, or the format
- * that is used for the buffers of this stream. The value depends on the specific
- * format used by the application and how the application manages the pw_buffer.size
- * field. For audio applications, it is recommended to use the number of samples in
- * the buffer as the pw_buffer.size field to get meaningful pw_time.queued values.
+ * pw_time.delay contains the total delay that a signal will travel through the
+ * graph. This includes the delay caused by filters in the graph as well as delays
+ * caused by the hardware. The delay is usually quite stable and should only change when
+ * the topology, quantum or samplerate of the graph changes.
+ *
+ * pw_time.queued and pw_time.buffered is expressed in the time domain of the stream,
+ * or the format that is used for the buffers of this stream.
+ *
+ * pw_time.queued is the sum of all the pw_buffer.size fields of the buffers that are
+ * currently queued in the stream but not yet processed. The application can choose
+ * the units of this value, for example, time, samples or bytes (below expressed
+ * as app.rate).
+ *
+ * pw_time.buffered is format dependent, for audio/raw it contains the number of samples
+ * that are buffered inside the resampler/converter.
+ *
+ * The total delay of data in a stream is the sum of the queued and buffered data
+ * (not yet processed data) and the delay to the edge of the graph, usually a
+ * playback or capture device.
  *
  * For an audio playback stream, if you were to queue a buffer, the total delay
- * in milliseconds for the first sample in the newly queued buffer to arrive in the
- * sink can be calculated as:
+ * in milliseconds for the first sample in the newly queued buffer to be played
+ * by the hardware can be calculated as:
  *
- *  (pw_time.queued * 1000 / stream.samplerate) +
- *    ((pw_time.delay - elapsed) * 1000 * pw_time.rate.num / pw_time.rate.denom)
+ *  (pw_time.buffered * 1000 / stream.samplerate) +
+ *    (pw_time.queued * 1000 / app.rate) +
+ *     ((pw_time.delay - elapsed) * 1000 * pw_time.rate.num / pw_time.rate.denom)
  *
  * The current extrapolated time (in ms) in the source or sink can be calculated as:
  *
  *  (pw_time.ticks + elapsed) * 1000 * pw_time.rate.num / pw_time.rate.denom
+ *
+ *
+ *           stream time domain           graph time domain
+ *         /-----------------------\/-----------------------------\
+ *
+ * queue     +-+ +-+  +-----------+                 +--------+
+ * ---->     | | | |->| converter | ->   graph  ->  | kernel | -> speaker
+ * <----     +-+ +-+  +-----------+                 +--------+
+ * dequeue   buffers                \-------------------/\--------/
+ *                                     graph              internal
+ *                                    latency             latency
+ *         \--------/\-------------/\-----------------------------/
+ *           queued      buffered            delay
  */
 struct pw_time {
 	int64_t now;			/**< the monotonic time in nanoseconds. This is the time
@@ -264,11 +288,10 @@ struct pw_time {
 					  *  not include the delay caused by queued buffers. */
 	uint64_t queued;		/**< data queued in the stream, this is the sum
 					  *  of the size fields in the pw_buffer that are
-					  *  currently queued and, for audio streams, the extra
-					  *  number of samples queued in the resampler. For audio
-					  *  streams, it is thus highly recommended to use the
-					  *  pw_buffer size field as the number of samples in
-					  *  the buffer. */
+					  *  currently queued */
+	uint64_t buffered;		/**< for audio/raw streams, this contains the extra
+					  *  number of samples buffered in the resampler.
+					  *  Since 0.3.50. */
 };
 
 #include <pipewire/port.h>
@@ -426,7 +449,12 @@ const struct pw_stream_control *pw_stream_get_control(struct pw_stream *stream, 
 /** Set control values */
 int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_values, float *values, ...);
 
-/** Query the time on the stream  */
+/** Query the time on the stream */
+int pw_stream_get_time_n(struct pw_stream *stream, struct pw_time *time, size_t size);
+
+/** Query the time on the stream, deprecated since 0.3.50,
+ * use pw_stream_get_time_n() to get the fields added since 0.3.50. */
+SPA_DEPRECATED
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time);
 
 /** Get a buffer that can be filled for playback streams or consumed

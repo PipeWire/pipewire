@@ -2095,17 +2095,32 @@ int pw_stream_set_active(struct pw_stream *stream, bool active)
 	return 0;
 }
 
+struct old_time {
+	int64_t now;
+	struct spa_fraction rate;
+	uint64_t ticks;
+	int64_t delay;
+	uint64_t queued;
+};
+
 SPA_EXPORT
 int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 {
+	return pw_stream_get_time_n(stream, time, sizeof(struct old_time));
+}
+
+SPA_EXPORT
+int pw_stream_get_time_n(struct pw_stream *stream, struct pw_time *time, size_t size)
+{
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	uintptr_t seq1, seq2;
-	uint32_t rate_queued;
+	uint32_t buffered, quantum;
 
 	do {
 		seq1 = SEQ_READ(impl->seq);
-		*time = impl->time;
-		rate_queued = impl->rate_queued;
+		memcpy(time, &impl->time, SPA_MIN(size, sizeof(struct pw_time)));
+		buffered = impl->rate_queued;
+		quantum = impl->quantum;
 		seq2 = SEQ_READ(impl->seq);
 	} while (!SEQ_READ_SUCCESS(seq1, seq2));
 
@@ -2114,11 +2129,12 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 	else
 		time->queued = (int64_t)(impl->queued.incount - time->queued);
 
-	time->queued += rate_queued;
-
-	time->delay += ((impl->latency.min_quantum + impl->latency.max_quantum) / 2) * impl->quantum;
+	time->delay += ((impl->latency.min_quantum + impl->latency.max_quantum) / 2) * quantum;
 	time->delay += (impl->latency.min_rate + impl->latency.max_rate) / 2;
 	time->delay += ((impl->latency.min_ns + impl->latency.max_ns) / 2) * time->rate.denom / SPA_NSEC_PER_SEC;
+
+	if (size >= sizeof(struct pw_time))
+		time->buffered = buffered;
 
 	pw_log_trace_fp("%p: %"PRIi64" %"PRIi64" %"PRIu64" %d/%d %"PRIu64" %"
 			PRIu64" %"PRIu64" %"PRIu64" %"PRIu64, stream,
@@ -2126,7 +2142,6 @@ int pw_stream_get_time(struct pw_stream *stream, struct pw_time *time)
 			time->rate.num, time->rate.denom, time->queued,
 			impl->dequeued.outcount, impl->dequeued.incount,
 			impl->queued.outcount, impl->queued.incount);
-
 	return 0;
 }
 

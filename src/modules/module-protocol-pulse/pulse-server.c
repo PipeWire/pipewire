@@ -1356,7 +1356,7 @@ static void stream_process(void *data)
 	if (do_flush)
 		pw_stream_flush(stream->stream, true);
 
-	pw_stream_get_time(stream->stream, &pd.pwt);
+	pw_stream_get_time_n(stream->stream, &pd.pwt, sizeof(pd.pwt));
 
 	pw_loop_invoke(impl->loop,
 			do_process_done, 1, &pd, sizeof(pd), false, stream);

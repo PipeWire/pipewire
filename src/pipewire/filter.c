@@ -974,7 +974,7 @@ static inline void copy_position(struct filter *impl)
 			impl->clock_id = p->clock.id;
 		}
 		impl->time.ticks = p->clock.position - impl->base_pos;
-		impl->time.delay = p->clock.delay;
+		impl->time.delay = 0;
 		SEQ_WRITE(impl->seq);
 	}
 }

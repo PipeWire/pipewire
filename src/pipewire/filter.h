@@ -217,17 +217,9 @@ pw_filter_update_params(struct pw_filter *filter,	/**< a \ref pw_filter */
 			uint32_t n_params		/**< number of elements in \a params */);
 
 
-#if 0
-/** A time structure  */
-struct pw_time {
-	int64_t now;			/**< the monotonic time */
-	struct spa_fraction rate;	/**< the rate of \a ticks and delay */
-	uint64_t ticks;			/**< the ticks at \a now. This is the current time that
-					  *  the remote end is reading/writing. */
-};
-#endif
-
-/** Query the time on the filter  */
+/** Query the time on the filter, deprecated, use the spa_io_position in the
+ * process() method for timing information. */
+SPA_DEPRECATED
 int pw_filter_get_time(struct pw_filter *filter, struct pw_time *time);
 
 /** Get a buffer that can be filled for output ports or consumed

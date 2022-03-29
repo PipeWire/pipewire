@@ -547,6 +547,22 @@ static int impl_set_param(void *object, uint32_t id, uint32_t flags, const struc
 	return 0;
 }
 
+static inline uint32_t update_requested(struct stream *impl)
+{
+	uint32_t index, id;
+	struct buffer *buffer;
+	struct spa_io_rate_match *r = impl->rate_match;
+
+	if (spa_ringbuffer_get_read_index(&impl->dequeued.ring, &index) < 1)
+		return 0;
+
+	id = impl->dequeued.ids[index & MASK_BUFFERS];
+	buffer = &impl->buffers[id];
+	buffer->this.requested = r ? r->size : 0;
+	pw_log_trace_fp("%p: update buffer:%u size:%u", impl, id, r->size);
+	return 1;
+}
+
 static int impl_send_command(void *object, const struct spa_command *command)
 {
 	struct stream *impl = object;
@@ -574,8 +590,10 @@ static int impl_send_command(void *object, const struct spa_command *command)
 
 			if (impl->direction == SPA_DIRECTION_INPUT)
 				impl->io->status = SPA_STATUS_NEED_DATA;
-			else if (!impl->process_rt && !impl->driving)
-				call_process(impl);
+			else if (!impl->process_rt && !impl->driving) {
+				if (update_requested(impl) > 0)
+					call_process(impl);
+			}
 
 			stream_set_state(stream, PW_STREAM_STATE_STREAMING, NULL);
 		}
@@ -1029,12 +1047,13 @@ again:
 		if (!impl->process_rt && (recycled || res == SPA_STATUS_NEED_DATA)) {
 			/* not realtime and we have a free buffer, trigger process so that we have
 			 * data in the next round. */
-			if (spa_ringbuffer_get_read_index(&impl->dequeued.ring, &index) > 0)
+			if (update_requested(impl) > 0)
 				call_process(impl);
 		} else if (res == SPA_STATUS_NEED_DATA) {
 			/* realtime and we don't have a buffer, trigger process and try
 			 * again when there is something in the queue now */
-			call_process(impl);
+			if (update_requested(impl) > 0)
+				call_process(impl);
 			if (impl->draining ||
 			    spa_ringbuffer_get_read_index(&impl->queued.ring, &index) > 0)
 				goto again;

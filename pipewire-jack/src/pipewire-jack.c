@@ -2486,6 +2486,77 @@ static const struct pw_client_node_events client_node_events = {
 	.port_set_mix_info = client_node_port_set_mix_info,
 };
 
+#define CHECK(expression,label)						\
+do {									\
+	if ((errno = expression) != 0) {				\
+		res = -errno;						\
+		pw_log_error(#expression ": %s", strerror(errno));	\
+		goto label;						\
+	}								\
+} while(false);
+
+static struct spa_thread *impl_create(void *data,
+			const struct spa_dict *props,
+			void *(*start)(void*), void *arg)
+{
+	struct spa_thread *thr;
+	int res = 0;
+
+	pw_log_info("create thread");
+	if (globals.creator != NULL) {
+		pthread_t pt;
+		pthread_attr_t attributes;
+
+		pthread_attr_init(&attributes);
+		CHECK(pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_JOINABLE), error);
+		CHECK(pthread_attr_setscope(&attributes, PTHREAD_SCOPE_SYSTEM), error);
+		CHECK(pthread_attr_setinheritsched(&attributes, PTHREAD_EXPLICIT_SCHED), error);
+		CHECK(pthread_attr_setstacksize(&attributes, THREAD_STACK), error);
+
+		res = -globals.creator(&pt, &attributes, start, arg);
+
+		pthread_attr_destroy(&attributes);
+		if (res != 0)
+			goto error;
+		thr = (struct spa_thread*)pt;
+	} else {
+		thr = pw_thread_utils_create(NULL, start, arg);
+	}
+	return thr;
+error:
+	pw_log_warn("create RT thread failed: %s", strerror(res));
+	errno = -res;
+	return NULL;
+
+}
+
+static int impl_join(void *d,
+		struct spa_thread *thread, void **retval)
+{
+	pw_log_info("join thread");
+	return pw_thread_utils_join(thread, retval);
+}
+
+static int impl_acquire_rt(void *data, struct spa_thread *thread, int priority)
+{
+	return pw_thread_utils_acquire_rt(thread, priority);
+}
+
+static struct {
+	struct spa_thread_utils utils;
+	struct spa_thread_utils_methods methods;
+} thread_utils_impl = {
+	{ { SPA_TYPE_INTERFACE_ThreadUtils,
+		SPA_VERSION_THREAD_UTILS,
+		SPA_CALLBACKS_INIT(&thread_utils_impl.methods,
+				&thread_utils_impl) } },
+	{ SPA_VERSION_THREAD_UTILS_METHODS,
+		.create = impl_create,
+		.join = impl_join,
+		.acquire_rt = impl_acquire_rt,
+	}
+};
+
 static jack_port_type_id_t string_to_type(const char *port_type)
 {
 	if (spa_streq(JACK_DEFAULT_AUDIO_TYPE, port_type))
@@ -3208,6 +3279,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->loop = client->context.context->data_loop_impl;
 
 	pw_data_loop_stop(client->loop);
+	pw_data_loop_set_thread_utils(client->loop, &thread_utils_impl.utils);
 
 	spa_list_init(&client->links);
 	spa_list_init(&client->rt.target_links);
@@ -5972,15 +6044,6 @@ int jack_client_max_real_time_priority (jack_client_t *client)
 	return SPA_MIN(max, c->rt_max) - 1;
 }
 
-#define CHECK(expression,label)						\
-do {									\
-	if ((errno = expression) != 0) {				\
-		res = -errno;						\
-		pw_log_error(#expression ": %s", strerror(errno));	\
-		goto label;						\
-	}								\
-} while(false);
-
 SPA_EXPORT
 int jack_acquire_real_time_scheduling (jack_native_thread_t thread, int priority)
 {
@@ -6020,41 +6083,27 @@ int jack_client_create_thread (jack_client_t* client,
                                void *arg)
 {
 	int res = 0;
+	struct spa_thread *thr;
 
 	spa_return_val_if_fail(client != NULL, -EINVAL);
+	spa_return_val_if_fail(thread != NULL, -EINVAL);
+	spa_return_val_if_fail(start_routine != NULL, -EINVAL);
 
 	pw_log_info("client %p: create thread rt:%d prio:%d", client, realtime, priority);
-	if (globals.creator != NULL) {
-		pthread_attr_t attributes;
 
-		pthread_attr_init(&attributes);
-		CHECK(pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_JOINABLE), error);
-		CHECK(pthread_attr_setscope(&attributes, PTHREAD_SCOPE_SYSTEM), error);
-		CHECK(pthread_attr_setinheritsched(&attributes, PTHREAD_EXPLICIT_SCHED), error);
-		CHECK(pthread_attr_setstacksize(&attributes, THREAD_STACK), error);
+	thr = spa_thread_utils_create(&thread_utils_impl.utils, NULL, start_routine, arg);
+	if (thr == NULL)
+		res = -errno;
+	*thread = (pthread_t)thr;
 
-		res = globals.creator(thread, &attributes, start_routine, arg);
-
-		pthread_attr_destroy(&attributes);
-	} else {
-		struct spa_thread *thr;
-
-		thr = pw_thread_utils_create(NULL, start_routine, arg);
-		if (thr == NULL)
-			res = -errno;
-		*thread = (pthread_t)thr;
-	}
-
-	if (res == 0 && realtime) {
+	if (res != 0) {
+		pw_log_warn("client %p: create RT thread failed: %s",
+				client, strerror(res));
+	} else if (realtime) {
 		/* Try to acquire RT scheduling, we don't fail here but the
 		 * function will emit a warning. Real JACK fails here. */
 		jack_acquire_real_time_scheduling(*thread, priority);
 	}
-
-error:
-	if (res != 0)
-		pw_log_warn("client %p: create RT thread failed: %s",
-				client, strerror(res));
 	return res;
 }
 

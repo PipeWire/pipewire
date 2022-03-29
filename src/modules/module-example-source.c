@@ -95,7 +95,6 @@ struct impl {
 	struct pw_properties *stream_props;
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
-	struct spa_io_rate_match *rate_match;
 	struct spa_audio_info_raw info;
 	uint32_t frame_size;
 
@@ -157,10 +156,7 @@ static void capture_stream_process(void *d)
 	bd = &buf->buffer->datas[0];
 
 	data = bd->data;
-	if (impl->rate_match)
-		size = SPA_MIN(impl->rate_match->size * impl->frame_size, bd->maxsize);
-	else
-		size = bd->maxsize;
+	size = buf->requested ? buf->requested * impl->frame_size : bd->maxsize;
 
 	/* fill buffer contents here */
 	pw_log_info("fill buffer data %p with up to %u bytes", data, size);
@@ -168,25 +164,15 @@ static void capture_stream_process(void *d)
 	bd->chunk->size = size;
 	bd->chunk->stride = impl->frame_size;
 	bd->chunk->offset = 0;
+	buf->size = size / impl->frame_size;
 
 	pw_stream_queue_buffer(impl->stream, buf);
-}
-
-static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
-{
-	struct impl *impl = data;
-	switch (id) {
-	case SPA_IO_RateMatch:
-		impl->rate_match = area;
-		break;
-	}
 }
 
 static const struct pw_stream_events capture_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = stream_destroy,
 	.state_changed = stream_state_changed,
-	.io_changed = stream_io_changed,
 	.process = capture_stream_process
 };
 

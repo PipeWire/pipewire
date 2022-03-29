@@ -61,17 +61,6 @@ static void sample_play_stream_state_changed(void *data, enum pw_stream_state ol
 	}
 }
 
-static void sample_play_stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
-{
-	struct sample_play *p = data;
-
-	switch (id) {
-	case SPA_IO_RateMatch:
-		p->rate_match = area;
-		break;
-	}
-}
-
 static void sample_play_stream_destroy(void *data)
 {
 	struct sample_play *p = data;
@@ -111,8 +100,8 @@ static void sample_play_stream_process(void *data)
 		return;
 
 	size = SPA_MIN(size, buf->datas[0].maxsize);
-	if (p->rate_match)
-		size = SPA_MIN(size, p->rate_match->size * p->stride);
+	if (b->requested)
+		size = SPA_MIN(size, b->requested * p->stride);
 
 	memcpy(d, s->buffer + p->offset, size);
 
@@ -135,7 +124,6 @@ static void sample_play_stream_drained(void *data)
 static const struct pw_stream_events sample_play_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = sample_play_stream_state_changed,
-	.io_changed = sample_play_stream_io_changed,
 	.destroy = sample_play_stream_destroy,
 	.process = sample_play_stream_process,
 	.drained = sample_play_stream_drained,

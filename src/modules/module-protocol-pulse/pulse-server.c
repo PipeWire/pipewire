@@ -1260,8 +1260,7 @@ static void stream_process(void *data)
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
 		int32_t avail = spa_ringbuffer_get_read_index(&stream->ring, &index);
 
-		if (stream->rate_match)
-			minreq = stream->rate_match->size * stream->frame_size;
+		minreq = buffer->requested * stream->frame_size;
 		if (minreq == 0)
 			minreq = stream->attr.minreq;
 

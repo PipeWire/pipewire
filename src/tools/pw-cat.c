@@ -162,7 +162,6 @@ struct data {
 	int sync;
 
 	struct spa_io_position *position;
-	struct spa_io_rate_match *rate_match;
 	bool drained;
 	uint64_t clock_time;
 
@@ -880,10 +879,6 @@ on_io_changed(void *userdata, uint32_t id, void *data, uint32_t size)
 	case SPA_IO_Position:
 		d->position = data;
 		break;
-	case SPA_IO_RateMatch:
-		if (d->data_type == TYPE_PCM)
-			d->rate_match = data;
-		break;
 	default:
 		break;
 	}
@@ -951,8 +946,7 @@ static void on_process(void *userdata)
 	if (data->mode == mode_playback) {
 
 		n_frames = d->maxsize / data->stride;
-		if (data->rate_match && data->rate_match->size > 0)
-			n_frames = SPA_MIN((uint32_t)n_frames, data->rate_match->size);
+		n_frames = SPA_MIN(n_frames, (int)b->requested);
 
 		n_fill_frames = data->fill(data, p, n_frames);
 

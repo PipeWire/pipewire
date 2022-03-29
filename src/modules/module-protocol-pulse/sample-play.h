@@ -37,7 +37,6 @@ struct pw_loop;
 struct pw_stream;
 struct pw_context;
 struct pw_properties;
-struct spa_io_rate_match;
 
 struct sample_play_events {
 #define VERSION_SAMPLE_PLAY_EVENTS	0
@@ -55,7 +54,6 @@ struct sample_play {
 	struct spa_list link;
 	struct sample *sample;
 	struct pw_stream *stream;
-	struct spa_io_rate_match *rate_match;
 	uint32_t id;
 	struct spa_hook listener;
 	struct pw_context *context;

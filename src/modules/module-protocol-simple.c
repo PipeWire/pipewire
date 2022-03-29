@@ -121,8 +121,6 @@ struct client {
 	struct pw_stream *playback;
 	struct spa_hook playback_listener;
 
-	struct spa_io_rate_match *rate_match;
-
 	unsigned int disconnect:1;
 	unsigned int disconnecting:1;
 	unsigned int cleanup:1;
@@ -282,12 +280,9 @@ static void playback_process(void *data)
 	}
 	d = &buf->buffer->datas[0];
 
-	if (client->rate_match) {
-		size = client->rate_match->size * impl->frame_size;
-		size = SPA_MIN(size, d->maxsize);
-	} else {
-		size = d->maxsize;
-	}
+	size = d->maxsize;
+	if (buf->requested)
+		size = SPA_MIN(size, buf->requested * impl->frame_size);
 
 	offset = 0;
 	while (size > 0) {
@@ -354,16 +349,6 @@ static void playback_destroy(void *data)
 	client->playback = NULL;
 }
 
-static void playback_io_changed(void *data, uint32_t id, void *area, uint32_t size)
-{
-	struct client *client = data;
-	switch (id) {
-	case SPA_IO_RateMatch:
-		client->rate_match = area;
-		break;
-	}
-}
-
 static const struct pw_stream_events capture_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = capture_destroy,
@@ -375,7 +360,6 @@ static const struct pw_stream_events playback_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = playback_destroy,
 	.state_changed = on_stream_state_changed,
-	.io_changed = playback_io_changed,
 	.process = playback_process
 };
 

@@ -3207,6 +3207,8 @@ jack_client_t * jack_client_open (const char *client_name,
 	}
 	client->loop = client->context.context->data_loop_impl;
 
+	pw_data_loop_stop(client->loop);
+
 	spa_list_init(&client->links);
 	spa_list_init(&client->rt.target_links);
 
@@ -3568,6 +3570,7 @@ int jack_activate (jack_client_t *client)
 		return 0;
 
 	pw_thread_loop_lock(c->context.loop);
+	pw_data_loop_start(c->loop);
 
 	if ((res = do_activate(c)) < 0)
 		goto done;
@@ -3575,15 +3578,17 @@ int jack_activate (jack_client_t *client)
 	c->activation->pending_new_pos = true;
 	c->activation->pending_sync = true;
 
-
 	c->active = true;
 
 	do_callback(c, graph_callback, c->graph_arg);
 
 done:
+	if (res < 0)
+		pw_data_loop_stop(c->loop);
+
 	pw_thread_loop_unlock(c->context.loop);
 
-	return 0;
+	return res;
 }
 
 SPA_EXPORT
@@ -3617,7 +3622,6 @@ int jack_deactivate (jack_client_t *client)
 
 	res = do_sync(c);
 
-	pw_data_loop_start(c->loop);
 	pw_thread_loop_unlock(c->context.loop);
 
 	if (res < 0)

@@ -549,7 +549,7 @@ static int impl_set_param(void *object, uint32_t id, uint32_t flags, const struc
 
 static inline uint32_t update_requested(struct stream *impl)
 {
-	uint32_t index, id;
+	uint32_t index, id, res = 0;
 	struct buffer *buffer;
 	struct spa_io_rate_match *r = impl->rate_match;
 
@@ -558,9 +558,15 @@ static inline uint32_t update_requested(struct stream *impl)
 
 	id = impl->dequeued.ids[index & MASK_BUFFERS];
 	buffer = &impl->buffers[id];
-	buffer->this.requested = r ? r->size : 0;
+	if (r) {
+		buffer->this.requested = r->size;
+		res = r->size > 0 ? 1 : 0;
+	} else {
+		buffer->this.requested = 0;
+		res = 1;
+	}
 	pw_log_trace_fp("%p: update buffer:%u size:%u", impl, id, r->size);
-	return 1;
+	return res;
 }
 
 static int impl_send_command(void *object, const struct spa_command *command)

@@ -211,6 +211,7 @@ int pw_data_loop_start(struct pw_data_loop *loop)
 			loop->running = false;
 			return -errno;
 		}
+		spa_thread_utils_acquire_rt(utils, thr, -1);
 	}
 	return 0;
 }

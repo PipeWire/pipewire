@@ -411,8 +411,6 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 	pw_data_loop_invoke(this->data_loop_impl,
 			do_data_loop_setup, 0, NULL, 0, false, this);
 
-	context_set_freewheel(this, false);
-
 	pw_settings_expose(this);
 
 	pw_log_debug("%p: created", this);

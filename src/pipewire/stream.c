@@ -1152,7 +1152,7 @@ static int node_event_param(void *object, int seq,
 		struct control *c;
 		const struct spa_pod *type, *pod;
 		uint32_t iid, choice, n_vals, container = SPA_ID_INVALID;
-		float *vals, bool_range[3] = { 1.0, 0.0, 1.0 };
+		float *vals, bool_range[3] = { 1.0, 0.0, 1.0 }, dbl[3];
 
 		if (spa_pod_parse_object(param,
 					SPA_TYPE_OBJECT_PropInfo, NULL,
@@ -1186,6 +1186,15 @@ static int node_event_param(void *object, int seq,
 		c->type = SPA_POD_TYPE(pod);
 		if (spa_pod_is_float(pod))
 			vals = SPA_POD_BODY(pod);
+		else if (spa_pod_is_double(pod)) {
+			double *v = SPA_POD_BODY(pod);
+			dbl[0] = v[0];
+			if (n_vals > 1)
+				dbl[1] = v[1];
+			if (n_vals > 2)
+				dbl[2] = v[2];
+			vals = dbl;
+		}
 		else if (spa_pod_is_bool(pod) && n_vals > 0) {
 			choice = SPA_CHOICE_Range;
 			vals = bool_range;
@@ -1231,6 +1240,7 @@ static int node_event_param(void *object, int seq,
 		struct spa_pod_object *obj = (struct spa_pod_object *) param;
 		union {
 			float f;
+			double d;
 			bool b;
 		} value;
 		float *values;
@@ -1248,6 +1258,13 @@ static int node_event_param(void *object, int seq,
 				if (spa_pod_get_float(&prop->value, &value.f) < 0)
 					continue;
 				n_values = 1;
+				values = &value.f;
+				break;
+			case SPA_TYPE_Double:
+				if (spa_pod_get_double(&prop->value, &value.d) < 0)
+					continue;
+				n_values = 1;
+				value.f = value.d;
 				values = &value.f;
 				break;
 			case SPA_TYPE_Bool:
@@ -2038,6 +2055,9 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 			switch (c->container) {
 			case SPA_TYPE_Float:
 				spa_pod_builder_float(&b, values[0]);
+				break;
+			case SPA_TYPE_Double:
+				spa_pod_builder_double(&b, values[0]);
 				break;
 			case SPA_TYPE_Bool:
 				spa_pod_builder_bool(&b, values[0] < 0.5 ? false : true);

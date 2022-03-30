@@ -1170,7 +1170,8 @@ again:
 			if (t == NULL)
 				ensure_state(n, false);
 			else {
-				t->passive = false;
+				if (n->always_process)
+					t->passive = false;
 				collect_nodes(context, n);
 			}
 		}

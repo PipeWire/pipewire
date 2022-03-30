@@ -197,18 +197,25 @@ static void playback_stream_process(void *d)
 	if (filled < 0) {
 		pw_log_warn("%p: underrun write:%u filled:%d",
 				impl, write_index, filled);
-	} else if ((uint32_t)filled + size > RINGBUFFER_SIZE) {
-		pw_log_warn("%p: overrun write:%u filled:%d size:%u max:%u",
-                                        impl, write_index, filled,
-                                        size, RINGBUFFER_SIZE);
 	} else {
 		float error, corr;
-		error = (float)filled - (float)impl->target_buffer;
-		error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
 
-		corr = spa_dll_update(&impl->dll, error);
-		pw_stream_set_control(impl->stream,
-				SPA_PROP_rate, 1, &corr, NULL);
+		if ((uint32_t)filled + size > impl->target_buffer * 2) {
+			pw_log_warn("%p: overrun write:%u filled:%d size:%u max:%u",
+	                                        impl, write_index, filled,
+	                                        size, RINGBUFFER_SIZE);
+			write_index -= impl->target_buffer;
+			filled -= impl->target_buffer;
+		} else {
+			error = (float)filled - (float)impl->target_buffer;
+			error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
+
+			pw_log_debug("filled:%u target:%u error:%f corr:%f", filled,
+					impl->target_buffer, error, corr);
+			corr = spa_dll_update(&impl->dll, error);
+			pw_stream_set_control(impl->stream,
+					SPA_PROP_rate, 1, &corr, NULL);
+		}
 	}
 	spa_ringbuffer_write_data(&impl->ring,
 				impl->buffer, RINGBUFFER_SIZE,
@@ -246,6 +253,21 @@ static void capture_stream_process(void *d)
 	} else {
 		float error, corr;
 
+		if (avail > (int32_t)impl->target_buffer * 2) {
+			avail -= impl->target_buffer;
+			read_index += impl->target_buffer;
+		} else {
+			error = (float)impl->target_buffer - (float)avail;
+			error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
+
+			corr = spa_dll_update(&impl->dll, error);
+
+			pw_log_debug("avail:%u target:%u error:%f corr:%f", avail,
+					impl->target_buffer, error, corr);
+			pw_stream_set_control(impl->stream,
+					SPA_PROP_rate, 1, &corr, NULL);
+		}
+
 		size = SPA_MIN(bd->maxsize, (uint32_t)avail);
 		size = SPA_MIN(size, req);
 
@@ -257,12 +279,6 @@ static void capture_stream_process(void *d)
 		read_index += size;
 		spa_ringbuffer_read_update(&impl->ring, read_index);
 
-		error = (float)impl->target_buffer - (float)avail;
-		error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
-
-		corr = spa_dll_update(&impl->dll, error);
-		pw_stream_set_control(impl->stream,
-				SPA_PROP_rate, 1, &corr, NULL);
 	}
 	bd->chunk->offset = 0;
 	bd->chunk->size = size;

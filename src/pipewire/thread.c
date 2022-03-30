@@ -83,9 +83,7 @@ static struct spa_thread_utils *global_impl = &default_impl.utils;
 SPA_EXPORT
 void pw_thread_utils_set(struct spa_thread_utils *impl)
 {
-	if (impl == NULL)
-		impl = &default_impl.utils;
-	global_impl = impl;
+	pw_log_warn("pw_thread_utils_set is deprecated and does nothing anymore");
 }
 
 SPA_EXPORT

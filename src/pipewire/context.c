@@ -124,18 +124,20 @@ static int try_load_conf(struct pw_context *this, const char *conf_prefix,
 static int context_set_freewheel(struct pw_context *context, bool freewheel)
 {
 	struct spa_thread *thr;
-	int res;
+	int res = 0;
 
 	if ((thr = pw_data_loop_get_thread(context->data_loop_impl)) == NULL)
 		return -EIO;
 
 	if (freewheel) {
 		pw_log_info("%p: enter freewheel", context);
-		res = pw_thread_utils_drop_rt(thr);
+		if (context->thread_utils)
+			res = spa_thread_utils_drop_rt(context->thread_utils, thr);
 	} else {
 		pw_log_info("%p: exit freewheel", context);
-		// Use the priority as configured within the realtime module
-		res = pw_thread_utils_acquire_rt(thr, -1);
+		/* Use the priority as configured within the realtime module */
+		if (context->thread_utils)
+			res = spa_thread_utils_acquire_rt(context->thread_utils, thr, -1);
 	}
 	if (res < 0)
 		pw_log_info("%p: freewheel error:%s", context, spa_strerror(res));
@@ -1454,6 +1456,12 @@ int pw_context_set_object(struct pw_context *context, const char *type, void *va
 			entry->type = type;
 		}
 		entry->value = value;
+	}
+	if (spa_streq(type, SPA_TYPE_INTERFACE_ThreadUtils)) {
+		context->thread_utils = value;
+		if (context->data_loop_impl)
+			pw_data_loop_set_thread_utils(context->data_loop_impl,
+					context->thread_utils);
 	}
 	return 0;
 }

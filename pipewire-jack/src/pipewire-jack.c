@@ -261,6 +261,8 @@ struct context {
 	struct pw_thread_loop *loop;	/* thread_lock protects all below */
 	struct pw_context *context;
 
+	struct spa_thread_utils *old_thread_utils;
+	struct spa_thread_utils thread_utils;
 	pthread_mutex_t lock;		/* protects map and lists below, in addition to thread_lock */
 	struct spa_list objects;
 	uint32_t free_count;
@@ -2499,6 +2501,7 @@ static struct spa_thread *impl_create(void *data,
 			const struct spa_dict *props,
 			void *(*start)(void*), void *arg)
 {
+	struct client *c = (struct client *) data;
 	struct spa_thread *thr;
 	int res = 0;
 
@@ -2520,7 +2523,7 @@ static struct spa_thread *impl_create(void *data,
 			goto error;
 		thr = (struct spa_thread*)pt;
 	} else {
-		thr = pw_thread_utils_create(NULL, start, arg);
+		thr = spa_thread_utils_create(c->context.old_thread_utils, NULL, start, arg);
 	}
 	return thr;
 error:
@@ -2530,31 +2533,25 @@ error:
 
 }
 
-static int impl_join(void *d,
+static int impl_join(void *data,
 		struct spa_thread *thread, void **retval)
 {
+	struct client *c = (struct client *) data;
 	pw_log_info("join thread");
-	return pw_thread_utils_join(thread, retval);
+	return spa_thread_utils_join(c->context.old_thread_utils, thread, retval);
 }
 
 static int impl_acquire_rt(void *data, struct spa_thread *thread, int priority)
 {
-	return pw_thread_utils_acquire_rt(thread, priority);
+	struct client *c = (struct client *) data;
+	return spa_thread_utils_acquire_rt(c->context.old_thread_utils, thread, priority);
 }
 
-static struct {
-	struct spa_thread_utils utils;
-	struct spa_thread_utils_methods methods;
-} thread_utils_impl = {
-	{ { SPA_TYPE_INTERFACE_ThreadUtils,
-		SPA_VERSION_THREAD_UTILS,
-		SPA_CALLBACKS_INIT(&thread_utils_impl.methods,
-				&thread_utils_impl) } },
-	{ SPA_VERSION_THREAD_UTILS_METHODS,
-		.create = impl_create,
-		.join = impl_join,
-		.acquire_rt = impl_acquire_rt,
-	}
+static struct spa_thread_utils_methods thread_utils_impl = {
+	SPA_VERSION_THREAD_UTILS_METHODS,
+	.create = impl_create,
+	.join = impl_join,
+	.acquire_rt = impl_acquire_rt,
 };
 
 static jack_port_type_id_t string_to_type(const char *port_type)
@@ -3276,10 +3273,23 @@ jack_client_t * jack_client_open (const char *client_name,
 			mix2 = mix2_sse;
 #endif
 	}
-	client->loop = client->context.context->data_loop_impl;
+	client->context.old_thread_utils =
+		pw_context_get_object(client->context.context,
+				SPA_TYPE_INTERFACE_ThreadUtils);
+	if (client->context.old_thread_utils == NULL)
+		client->context.old_thread_utils = pw_thread_utils_get();
 
+	client->context.thread_utils.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_ThreadUtils,
+			SPA_VERSION_THREAD_UTILS,
+			&thread_utils_impl, client);
+
+	client->loop = client->context.context->data_loop_impl;
 	pw_data_loop_stop(client->loop);
-	pw_data_loop_set_thread_utils(client->loop, &thread_utils_impl.utils);
+
+	pw_context_set_object(client->context.context,
+			SPA_TYPE_INTERFACE_ThreadUtils,
+			&client->context.thread_utils);
 
 	spa_list_init(&client->links);
 	spa_list_init(&client->rt.target_links);
@@ -6040,7 +6050,7 @@ int jack_client_max_real_time_priority (jack_client_t *client)
 
 	spa_return_val_if_fail(c != NULL, -1);
 
-	pw_thread_utils_get_rt_range(NULL, &min, &max);
+	spa_thread_utils_get_rt_range(&c->context.thread_utils, NULL, &min, &max);
 	return SPA_MIN(max, c->rt_max) - 1;
 }
 
@@ -6082,6 +6092,7 @@ int jack_client_create_thread (jack_client_t* client,
                                void *(*start_routine)(void*),
                                void *arg)
 {
+	struct client *c = (struct client *) client;
 	int res = 0;
 	struct spa_thread *thr;
 
@@ -6091,7 +6102,7 @@ int jack_client_create_thread (jack_client_t* client,
 
 	pw_log_info("client %p: create thread rt:%d prio:%d", client, realtime, priority);
 
-	thr = spa_thread_utils_create(&thread_utils_impl.utils, NULL, start_routine, arg);
+	thr = spa_thread_utils_create(&c->context.thread_utils, NULL, start_routine, arg);
 	if (thr == NULL)
 		res = -errno;
 	*thread = (pthread_t)thr;
@@ -6110,13 +6121,16 @@ int jack_client_create_thread (jack_client_t* client,
 SPA_EXPORT
 int jack_client_stop_thread(jack_client_t* client, jack_native_thread_t thread)
 {
+	struct client *c = (struct client *) client;
 	void* status;
 
 	if (thread == (jack_native_thread_t)NULL)
 		return -EINVAL;
 
+	spa_return_val_if_fail(client != NULL, -EINVAL);
+
 	pw_log_debug("join thread %lu", thread);
-	pw_thread_utils_join((struct spa_thread*)thread, &status);
+	spa_thread_utils_join(&c->context.thread_utils, (struct spa_thread*)thread, &status);
 	pw_log_debug("stopped thread %lu", thread);
 	return 0;
 }
@@ -6124,15 +6138,18 @@ int jack_client_stop_thread(jack_client_t* client, jack_native_thread_t thread)
 SPA_EXPORT
 int jack_client_kill_thread(jack_client_t* client, jack_native_thread_t thread)
 {
+	struct client *c = (struct client *) client;
 	void* status;
 
 	if (thread == (jack_native_thread_t)NULL)
 		return -EINVAL;
 
+	spa_return_val_if_fail(client != NULL, -EINVAL);
+
 	pw_log_debug("cancel thread %lu", thread);
 	pthread_cancel(thread);
 	pw_log_debug("join thread %lu", thread);
-	pw_thread_utils_join((struct spa_thread*)thread, &status);
+	spa_thread_utils_join(&c->context.thread_utils, (struct spa_thread*)thread, &status);
 	pw_log_debug("stopped thread %lu", thread);
 	return 0;
 }

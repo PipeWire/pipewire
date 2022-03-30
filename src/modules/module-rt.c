@@ -464,8 +464,7 @@ finish:
 static void module_destroy(void *data)
 {
 	struct impl *impl = data;
-
-	pw_thread_utils_set(NULL);
+	pw_context_set_object(impl->context, SPA_TYPE_INTERFACE_ThreadUtils, NULL);
 	spa_hook_remove(&impl->module_listener);
 
 #ifdef HAVE_DBUS
@@ -931,7 +930,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			SPA_TYPE_INTERFACE_ThreadUtils,
 			SPA_VERSION_THREAD_UTILS,
 			&impl_thread_utils, impl);
-	pw_thread_utils_set(&impl->thread_utils);
+
+	pw_context_set_object(context, SPA_TYPE_INTERFACE_ThreadUtils,
+			&impl->thread_utils);
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 

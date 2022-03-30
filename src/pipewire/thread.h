@@ -44,6 +44,7 @@ extern "C" {
  * \{
  */
 
+SPA_DEPRECATED
 void pw_thread_utils_set(struct spa_thread_utils *impl);
 struct spa_thread_utils *pw_thread_utils_get(void);
 

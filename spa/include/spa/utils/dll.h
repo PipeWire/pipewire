@@ -47,7 +47,7 @@ static inline void spa_dll_init(struct spa_dll *dll)
 	dll->z1 = dll->z2 = dll->z3 = 0.0;
 }
 
-static inline void spa_dll_set_bw(struct spa_dll *dll, double bw, uint32_t period, uint32_t rate)
+static inline void spa_dll_set_bw(struct spa_dll *dll, double bw, unsigned period, unsigned rate)
 {
 	double w = 2 * M_PI * bw * period / rate;
 	dll->w0 = 1.0 - exp (-20.0 * w);

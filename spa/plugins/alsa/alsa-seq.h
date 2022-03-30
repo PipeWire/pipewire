@@ -37,6 +37,7 @@ extern "C" {
 #include <spa/support/plugin.h>
 #include <spa/support/loop.h>
 #include <spa/utils/list.h>
+#include <spa/utils/dll.h>
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
@@ -47,7 +48,6 @@ extern "C" {
 
 #include "alsa.h"
 
-#include "dll.h"
 
 struct props {
 	char device[64];

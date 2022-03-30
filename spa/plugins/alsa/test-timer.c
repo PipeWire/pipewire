@@ -31,7 +31,7 @@
 
 #include <alsa/asoundlib.h>
 
-#include <dll.h>
+#include <spa/utils/dll.h>
 
 #define DEFAULT_DEVICE	"hw:0"
 

@@ -37,7 +37,7 @@ executable('spa-acp-tool',
 
 executable('test-timer',
   [ 'test-timer.c' ],
-  dependencies : [ alsa_dep, mathlib, epoll_shim_dep ],
+  dependencies : [ spa_dep, alsa_dep, mathlib, epoll_shim_dep ],
   install : false,
 )
 

@@ -39,6 +39,7 @@ extern "C" {
 #include <spa/support/loop.h>
 #include <spa/utils/list.h>
 #include <spa/utils/json.h>
+#include <spa/utils/dll.h>
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
@@ -50,7 +51,6 @@ extern "C" {
 
 #include "alsa.h"
 
-#include "dll.h"
 
 #define MAX_RATES	16
 

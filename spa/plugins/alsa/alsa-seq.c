@@ -39,7 +39,6 @@
 
 #include "alsa.h"
 
-#include "dll.h"
 #include "alsa-seq.h"
 
 #define CHECK(s,msg,...) if ((res = (s)) < 0) { spa_log_error(state->log, msg ": %s", ##__VA_ARGS__, snd_strerror(res)); return res; }

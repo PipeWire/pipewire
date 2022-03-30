@@ -617,6 +617,7 @@ static int calc_width(struct spa_audio_info *info)
 	case SPA_AUDIO_FORMAT_S16P:
 	case SPA_AUDIO_FORMAT_S16:
 	case SPA_AUDIO_FORMAT_S16_OE:
+	case SPA_AUDIO_FORMAT_U16:
 		return 2;
 	case SPA_AUDIO_FORMAT_S24P:
 	case SPA_AUDIO_FORMAT_S24:

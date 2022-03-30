@@ -237,3 +237,7 @@ option('libcanberra',
        description: 'Enable code that depends on libcanberra',
        type: 'feature',
        value: 'auto')
+option('legacy-rtkit',
+       description: 'Build legacy rtkit module',
+       type: 'boolean',
+       value: 'true')

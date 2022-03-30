@@ -139,7 +139,7 @@ pipewire_module_rt = shared_library('pipewire-module-rt', [ 'module-rt.c' ],
   dependencies : [dbus_dep, mathlib, dl_lib, pipewire_dep],
 )
 
-build_module_rtkit = dbus_dep.found()
+build_module_rtkit = dbus_dep.found() and (get_option('legacy-rtkit') == true)
 if build_module_rtkit
 # TODO: This serves as a temporary alias to prevent breaking existing setups
 #       while `module-rtkit` is being migrated to `module-rt`

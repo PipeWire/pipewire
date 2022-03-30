@@ -205,14 +205,14 @@ next:
 			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_device),
-				SPA_PROP_INFO_name, SPA_POD_String("The libcamera device"),
+				SPA_PROP_INFO_description, SPA_POD_String("The libcamera device"),
 				SPA_PROP_INFO_type, SPA_POD_String(p->device));
 			break;
 		case 1:
 			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_deviceName),
-				SPA_PROP_INFO_name, SPA_POD_String("The libcamera device name"),
+				SPA_PROP_INFO_description, SPA_POD_String("The libcamera device name"),
 				SPA_PROP_INFO_type, SPA_POD_String(p->device_name));
 			break;
 		default:

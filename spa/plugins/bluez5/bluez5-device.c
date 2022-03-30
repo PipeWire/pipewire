@@ -1523,7 +1523,7 @@ static struct spa_pod *build_prop_info(struct impl *this, struct spa_pod_builder
 	/* Transport codec */
 	spa_pod_builder_prop(b, SPA_PROP_INFO_id, 0);
 	spa_pod_builder_id(b, SPA_PROP_bluetoothAudioCodec);
-	spa_pod_builder_prop(b, SPA_PROP_INFO_name, 0);
+	spa_pod_builder_prop(b, SPA_PROP_INFO_description, 0);
 	spa_pod_builder_string(b, "Air codec");
 	spa_pod_builder_prop(b, SPA_PROP_INFO_type, 0);
 	spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Enum, 0);

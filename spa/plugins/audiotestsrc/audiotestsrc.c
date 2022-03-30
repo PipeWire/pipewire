@@ -177,14 +177,14 @@ static int impl_node_enum_params(void *object, int seq,
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_live),
-				SPA_PROP_INFO_name, SPA_POD_String("Configure live mode of the source"),
+				SPA_PROP_INFO_description, SPA_POD_String("Configure live mode of the source"),
 				SPA_PROP_INFO_type, SPA_POD_Bool(p->live));
 			break;
 		case 1:
 			spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
 			spa_pod_builder_add(&b,
 				SPA_PROP_INFO_id,     SPA_POD_Id(SPA_PROP_waveType),
-				SPA_PROP_INFO_name,   SPA_POD_String("Select the waveform"),
+				SPA_PROP_INFO_description,   SPA_POD_String("Select the waveform"),
 				SPA_PROP_INFO_type,   SPA_POD_Int(p->wave),
 				0);
 			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
@@ -200,14 +200,14 @@ static int impl_node_enum_params(void *object, int seq,
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_frequency),
-				SPA_PROP_INFO_name, SPA_POD_String("Select the frequency"),
+				SPA_PROP_INFO_description, SPA_POD_String("Select the frequency"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->freq, 0.0, 50000000.0));
 			break;
 		case 3:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_volume),
-				SPA_PROP_INFO_name, SPA_POD_String("Select the volume"),
+				SPA_PROP_INFO_description, SPA_POD_String("Select the volume"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume, 0.0, 10.0));
 			break;
 		default:

@@ -101,14 +101,14 @@ endpoint_enum_params (void *object, int seq,
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_volume),
-				SPA_PROP_INFO_name, SPA_POD_String("volume"),
+				SPA_PROP_INFO_description, SPA_POD_String("volume"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(p->volume, 0.0, 1.0));
 			break;
 		case 1:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_mute),
-				SPA_PROP_INFO_name, SPA_POD_String("mute"),
+				SPA_PROP_INFO_description, SPA_POD_String("mute"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->mute));
 			break;
 		default:

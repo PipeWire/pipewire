@@ -198,21 +198,21 @@ static int impl_node_enum_params(void *object, int seq,
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_device),
-				SPA_PROP_INFO_name, SPA_POD_String("The V4L2 device"),
+				SPA_PROP_INFO_description, SPA_POD_String("The V4L2 device"),
 				SPA_PROP_INFO_type, SPA_POD_String(p->device));
 			break;
 		case 1:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_deviceName),
-				SPA_PROP_INFO_name, SPA_POD_String("The V4L2 device name"),
+				SPA_PROP_INFO_description, SPA_POD_String("The V4L2 device name"),
 				SPA_PROP_INFO_type, SPA_POD_String(p->device_name));
 			break;
 		case 2:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_deviceFd),
-				SPA_PROP_INFO_name, SPA_POD_String("The V4L2 fd"),
+				SPA_PROP_INFO_description, SPA_POD_String("The V4L2 fd"),
 				SPA_PROP_INFO_type, SPA_POD_Int(p->device_fd));
 			break;
 		default:

@@ -1160,14 +1160,14 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 							queryctrl.minimum,
 							queryctrl.maximum,
 							queryctrl.step),
-			SPA_PROP_INFO_name, SPA_POD_String(queryctrl.name));
+			SPA_PROP_INFO_description, SPA_POD_String(queryctrl.name));
 		break;
 	case V4L2_CTRL_TYPE_BOOLEAN:
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 			SPA_PROP_INFO_id,   SPA_POD_Id(prop_id),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(queryctrl.default_value),
-			SPA_PROP_INFO_name, SPA_POD_String(queryctrl.name));
+			SPA_PROP_INFO_description, SPA_POD_String(queryctrl.name));
 		break;
 	case V4L2_CTRL_TYPE_MENU:
 	{
@@ -1178,7 +1178,7 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 		spa_pod_builder_add(&b,
 			SPA_PROP_INFO_id,    SPA_POD_Id(prop_id),
 			SPA_PROP_INFO_type,  SPA_POD_CHOICE_ENUM_Int(1, queryctrl.default_value),
-			SPA_PROP_INFO_name,  SPA_POD_String(queryctrl.name),
+			SPA_PROP_INFO_description,  SPA_POD_String(queryctrl.name),
 			0);
 
 		spa_zero(querymenu);

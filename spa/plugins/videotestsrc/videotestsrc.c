@@ -158,14 +158,14 @@ static int impl_node_enum_params(void *object, int seq,
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_live),
-				SPA_PROP_INFO_name, SPA_POD_String("Configure live mode of the source"),
+				SPA_PROP_INFO_description, SPA_POD_String("Configure live mode of the source"),
 				SPA_PROP_INFO_type, SPA_POD_Bool(p->live));
 			break;
 		case 1:
 			spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
 			spa_pod_builder_add(&b,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_patternType),
-				SPA_PROP_INFO_name, SPA_POD_String("The pattern"),
+				SPA_PROP_INFO_description, SPA_POD_String("The pattern"),
 				SPA_PROP_INFO_type, SPA_POD_Int(p->pattern),
 				0);
 			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0),

@@ -1610,7 +1610,7 @@ PWTEST(pod_overflow)
 	spa_pod_builder_add(&b,
 			SPA_PROP_INFO_id,    SPA_POD_Id(32567359),
 			SPA_PROP_INFO_type,  SPA_POD_CHOICE_ENUM_Int(1, 0),
-			SPA_PROP_INFO_name,  SPA_POD_String("DV Timings"),
+			SPA_PROP_INFO_description,  SPA_POD_String("DV Timings"),
 			0);
 
 	spa_pod_builder_get_state(&b, &state),

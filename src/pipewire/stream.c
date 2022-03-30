@@ -1172,7 +1172,7 @@ static int node_event_param(void *object, int seq,
 
 		if (spa_pod_parse_object(c->info,
 					SPA_TYPE_OBJECT_PropInfo, NULL,
-					SPA_PROP_INFO_name, SPA_POD_String(&c->control.name),
+					SPA_PROP_INFO_description, SPA_POD_OPT_String(&c->control.name),
 					SPA_PROP_INFO_type, SPA_POD_PodChoice(&type),
 					SPA_PROP_INFO_container, SPA_POD_OPT_Id(&container)) < 0) {
 			free(c);

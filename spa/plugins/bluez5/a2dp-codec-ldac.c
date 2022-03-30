@@ -317,7 +317,7 @@ static int codec_enum_props(void *props, const struct spa_dict *settings, uint32
 			spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
 			spa_pod_builder_prop(b, SPA_PROP_INFO_id, 0);
 			spa_pod_builder_id(b, SPA_PROP_quality);
-			spa_pod_builder_prop(b, SPA_PROP_INFO_name, 0);
+			spa_pod_builder_prop(b, SPA_PROP_INFO_description, 0);
 			spa_pod_builder_string(b, "LDAC quality");
 
 			spa_pod_builder_prop(b, SPA_PROP_INFO_type, 0);

@@ -378,7 +378,7 @@ static int create_streams(struct impl *impl, struct client *client)
 
 	if (impl->capture) {
 		props = pw_properties_new(
-			PW_KEY_NODE_GROUP, "pipewire.dummy",
+			PW_KEY_NODE_WANT_DRIVER, "true",
 			PW_KEY_NODE_LATENCY, latency,
 			PW_KEY_NODE_RATE, pw_properties_get(impl->props, PW_KEY_NODE_RATE),
 			PW_KEY_NODE_TARGET, pw_properties_get(impl->props, "capture.node"),
@@ -402,7 +402,7 @@ static int create_streams(struct impl *impl, struct client *client)
 	}
 	if (impl->playback) {
 		props = pw_properties_new(
-			PW_KEY_NODE_GROUP, "pipewire.dummy",
+			PW_KEY_NODE_WANT_DRIVER, "true",
 			PW_KEY_NODE_LATENCY, latency,
 			PW_KEY_NODE_RATE, pw_properties_get(impl->props, PW_KEY_NODE_RATE),
 			PW_KEY_NODE_TARGET, pw_properties_get(impl->props, "playback.node"),

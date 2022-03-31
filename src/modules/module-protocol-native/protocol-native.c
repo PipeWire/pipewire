@@ -347,6 +347,9 @@ static int core_event_demarshal_done(void *object, const struct pw_protocol_nati
 				SPA_POD_Int(&seq)) < 0)
 		return -EINVAL;
 
+	if (id == SPA_ID_INVALID)
+		return 0;
+
 	return pw_proxy_notify(proxy, struct pw_core_events, done, 0, id, seq);
 }
 

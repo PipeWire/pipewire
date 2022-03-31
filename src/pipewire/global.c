@@ -177,7 +177,7 @@ int pw_global_register(struct pw_global *global)
 			pw_log_debug("impl-client %p: (no registry) global %d %08x serial:%"PRIu64
 					" generation:%"PRIu64, client, global->id, permissions, global->serial,
 					global->generation);
-			pw_core_resource_done(client->core_resource, global->id, 0);
+			pw_core_resource_done(client->core_resource, SPA_ID_INVALID, 0);
 		}
 	}
 

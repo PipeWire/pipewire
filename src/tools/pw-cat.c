@@ -967,8 +967,10 @@ static void on_process(void *userdata)
 			d->chunk->stride = data->stride;
 			d->chunk->size = n_fill_frames * data->stride;
 			have_data = true;
-		} else if (n_fill_frames < 0)
+			b->size = n_frames;
+		} else if (n_fill_frames < 0) {
 			fprintf(stderr, "fill error %d\n", n_fill_frames);
+		}
 	} else {
 		offset = SPA_MIN(d->chunk->offset, d->maxsize);
 		size = SPA_MIN(d->chunk->size, d->maxsize - offset);

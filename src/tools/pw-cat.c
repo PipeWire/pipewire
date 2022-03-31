@@ -120,6 +120,8 @@ struct data {
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 
+	struct spa_source *timer;
+
 	enum mode mode;
 	bool verbose;
 #define TYPE_PCM	0
@@ -841,29 +843,41 @@ on_state_changed(void *userdata, enum pw_stream_state old,
 				pw_stream_state_as_string(old),
 				pw_stream_state_as_string(state));
 
-	if (state == PW_STREAM_STATE_STREAMING && !data->volume_is_set) {
+	switch (state) {
+	case PW_STREAM_STATE_STREAMING:
+		if (!data->volume_is_set) {
+			ret = pw_stream_set_control(data->stream,
+					SPA_PROP_volume, 1, &data->volume,
+					0);
+			if (data->verbose)
+				printf("stream set volume to %.3f - %s\n", data->volume,
+						ret == 0 ? "success" : "FAILED");
 
-		ret = pw_stream_set_control(data->stream,
-				SPA_PROP_volume, 1, &data->volume,
-				0);
-		if (data->verbose)
-			printf("stream set volume to %.3f - %s\n", data->volume,
-					ret == 0 ? "success" : "FAILED");
-
-		data->volume_is_set = true;
-
-	}
-
-	if (state == PW_STREAM_STATE_STREAMING) {
-		if (data->verbose)
+			data->volume_is_set = true;
+		}
+		if (data->verbose) {
+			struct timespec timeout = {0, 1}, interval = {1, 0};
+			struct pw_loop *l = pw_main_loop_get_loop(data->loop);
+			pw_loop_update_timer(l, data->timer, &timeout, &interval, false);
 			printf("stream node %"PRIu32"\n",
 				pw_stream_get_node_id(data->stream));
-	}
-	if (state == PW_STREAM_STATE_ERROR) {
+		}
+		break;
+	case PW_STREAM_STATE_PAUSED:
+		if (data->verbose) {
+			struct timespec timeout = {0, 0}, interval = {0, 0};
+			struct pw_loop *l = pw_main_loop_get_loop(data->loop);
+			pw_loop_update_timer(l, data->timer, &timeout, &interval, false);
+		}
+		break;
+	case PW_STREAM_STATE_ERROR:
 		printf("stream node %"PRIu32" error: %s\n",
 				pw_stream_get_node_id(data->stream),
 				error);
 		pw_main_loop_quit(data->loop);
+		break;
+	default:
+		break;
 	}
 }
 
@@ -1833,11 +1847,8 @@ int main(int argc, char *argv[])
 					data.mode == mode_playback ? "playback" : "record",
 					data.target_id);
 
-		if (data.verbose) {
-			struct timespec timeout = {0, 1}, interval = {1, 0};
-			struct spa_source *timer = pw_loop_add_timer(l, do_print_delay, &data);
-			pw_loop_update_timer(l, timer, &timeout, &interval, false);
-		}
+		if (data.verbose)
+			data.timer = pw_loop_add_timer(l, do_print_delay, &data);
 
 		ret = pw_stream_connect(data.stream,
 				  data.mode == mode_playback ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT,

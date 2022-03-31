@@ -1026,10 +1026,11 @@ static void do_print_delay(void *userdata, uint64_t expirations)
 	pw_stream_get_time_n(data->stream, &time, sizeof(time));
 	printf("stream time: now:%"PRIi64" rate:%u/%u ticks:%"PRIu64
 			" delay:%"PRIi64" queued:%"PRIu64
-			" buffered:%"PRIi64" \n",
+			" buffered:%"PRIi64" buffers:%u avail:%u\n",
 		time.now,
 		time.rate.num, time.rate.denom,
-		time.ticks, time.delay, time.queued, time.buffered);
+		time.ticks, time.delay, time.queued, time.buffered,
+		time.queued_buffers, time.avail_buffers);
 }
 
 enum {

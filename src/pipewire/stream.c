@@ -2134,7 +2134,7 @@ int pw_stream_get_time_n(struct pw_stream *stream, struct pw_time *time, size_t 
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	uintptr_t seq1, seq2;
-	uint32_t buffered, quantum;
+	uint32_t buffered, quantum, index;
 
 	do {
 		seq1 = SEQ_READ(impl->seq);
@@ -2153,8 +2153,12 @@ int pw_stream_get_time_n(struct pw_stream *stream, struct pw_time *time, size_t 
 	time->delay += (impl->latency.min_rate + impl->latency.max_rate) / 2;
 	time->delay += ((impl->latency.min_ns + impl->latency.max_ns) / 2) * time->rate.denom / SPA_NSEC_PER_SEC;
 
-	if (size >= sizeof(struct pw_time))
+	if (size >= offsetof(struct pw_time, queued_buffers))
 		time->buffered = buffered;
+	if (size >= offsetof(struct pw_time, avail_buffers))
+		time->queued_buffers = spa_ringbuffer_get_read_index(&impl->queued.ring, &index);
+	if (size >= sizeof(struct pw_time))
+		time->avail_buffers = spa_ringbuffer_get_read_index(&impl->dequeued.ring, &index);
 
 	pw_log_trace_fp("%p: %"PRIi64" %"PRIi64" %"PRIu64" %d/%d %"PRIu64" %"
 			PRIu64" %"PRIu64" %"PRIu64" %"PRIu64, stream,

@@ -292,6 +292,8 @@ struct pw_time {
 	uint64_t buffered;		/**< for audio/raw streams, this contains the extra
 					  *  number of samples buffered in the resampler.
 					  *  Since 0.3.50. */
+	uint32_t queued_buffers;	/**< The number of buffers that are queued. Since 0.3.50 */
+	uint32_t avail_buffers;		/**< The number of buffers that can be dequeued. Since 0.3.50 */
 };
 
 #include <pipewire/port.h>

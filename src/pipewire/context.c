@@ -464,7 +464,7 @@ void pw_context_destroy(struct pw_context *context)
 		pw_resource_destroy(resource);
 
 	if (context->data_loop_impl)
-		pw_data_loop_destroy(context->data_loop_impl);
+		pw_data_loop_stop(context->data_loop_impl);
 
 	spa_list_consume(module, &context->module_list, link)
 		pw_impl_module_destroy(module);
@@ -480,6 +480,9 @@ void pw_context_destroy(struct pw_context *context)
 
 	pw_log_debug("%p: free", context);
 	pw_context_emit_free(context);
+
+	if (context->data_loop_impl)
+		pw_data_loop_destroy(context->data_loop_impl);
 
 	if (context->pool)
 		pw_mempool_destroy(context->pool);

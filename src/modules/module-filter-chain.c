@@ -1725,6 +1725,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props;
 	struct impl *impl;
 	uint32_t id = pw_global_get_id(pw_impl_module_get_global(module));
+	uint32_t pid = getpid();
 	const char *str;
 	int res;
 
@@ -1763,14 +1764,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	spa_list_init(&impl->plugin_list);
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_GROUP, "filter-chain-%u", id);
+		pw_properties_setf(props, PW_KEY_NODE_GROUP, "filter-chain-%u-%u", pid, id);
 	if (pw_properties_get(props, PW_KEY_NODE_LINK_GROUP) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_LINK_GROUP, "filter-chain-%u", id);
+		pw_properties_setf(props, PW_KEY_NODE_LINK_GROUP, "filter-chain-%u-%u", pid, id);
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
-
 	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION, "filter-chain-%u", id);
+		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION, "filter-chain-%u-%u", pid, id);
 
 	if ((str = pw_properties_get(props, "capture.props")) != NULL)
 		pw_properties_update_string(impl->capture_props, str, strlen(str));
@@ -1792,10 +1792,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if (pw_properties_get(impl->capture_props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_setf(impl->capture_props, PW_KEY_NODE_NAME,
-				"input.filter-chain-%u", id);
+				"input.filter-chain-%u-%u", pid, id);
 	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_setf(impl->playback_props, PW_KEY_NODE_NAME,
-				"output.filter-chain-%u", id);
+				"output.filter-chain-%u-%u", pid, id);
 
 	if (pw_properties_get(impl->capture_props, PW_KEY_MEDIA_NAME) == NULL)
 		pw_properties_setf(impl->capture_props, PW_KEY_MEDIA_NAME, "%s input",

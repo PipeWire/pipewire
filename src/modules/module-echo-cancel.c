@@ -153,8 +153,6 @@ struct impl {
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
 
-	uint32_t id;
-
 	struct pw_core *core;
 	struct spa_hook core_proxy_listener;
 	struct spa_hook core_listener;
@@ -851,6 +849,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props, *aec_props;
 	struct impl *impl;
 	uint32_t id = pw_global_get_id(pw_impl_module_get_global(module));
+	uint32_t pid = getpid();
 	const char *str;
 	const char *path;
 	int res = 0;
@@ -883,14 +882,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 
-	impl->id = id;
 	impl->module = module;
 	impl->context = context;
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_GROUP, "echo-cancel-%u", id);
+		pw_properties_setf(props, PW_KEY_NODE_GROUP, "echo-cancel-%u-%u", pid, id);
 	if (pw_properties_get(props, PW_KEY_NODE_LINK_GROUP) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_LINK_GROUP, "echo-cancel-%u", id);
+		pw_properties_setf(props, PW_KEY_NODE_LINK_GROUP, "echo-cancel-%u-%u", pid, id);
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 

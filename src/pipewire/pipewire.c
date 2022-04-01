@@ -577,8 +577,7 @@ out:
  * Initialize the PipeWire system, parse and modify any parameters given
  * by \a argc and \a argv and set up debugging.
  *
- * The environment variable \a PIPEWIRE_DEBUG
- *
+ * This function can be called multiple times.
  */
 SPA_EXPORT
 void pw_init(int *argc, char **argv[])
@@ -670,6 +669,19 @@ done:
 	pthread_mutex_unlock(&init_lock);
 }
 
+/** Deinitialize PipeWire
+ *
+ * Deinitialize the PipeWire system and free up all resources allocated
+ * by pw_init().
+ *
+ * Before 0.3.49 this function can only be called once after which the pipewire
+ * library can not be used again. This is usually called by test programs to
+ * check for memory leaks.
+ *
+ * Since 0.3.49 this function must be paired with an equal amount of pw_init()
+ * calls to deinitialize the PipeWire library. The PipeWire library can be
+ * used again after being deinitialized with a new pw_init() call.
+ */
 SPA_EXPORT
 void pw_deinit(void)
 {
@@ -708,7 +720,6 @@ done:
  *
  * Debugging categories can be enabled by using the PIPEWIRE_DEBUG
  * environment variable
- *
  */
 SPA_EXPORT
 bool pw_debug_is_category_enabled(const char *name)

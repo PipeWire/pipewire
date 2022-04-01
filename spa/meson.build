@@ -24,7 +24,7 @@ pkgconfig.generate(filebase : 'lib@0@'.format(spa_name),
   subdirs : spa_name,
   description : 'Simple Plugin API',
   version : spaversion,
-  extra_cflags : '-D_REENTRANT',
+  extra_cflags : ['-D_REENTRANT', '-D_GNU_SOURCE'],
   variables : ['plugindir=${libdir}/@0@'.format(spa_name)],
   uninstalled_variables : ['plugindir=${prefix}/spa/plugins'],
 )

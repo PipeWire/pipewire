@@ -380,7 +380,7 @@ static void lv2_run(void *instance, unsigned long SampleCount)
 		i->work_iface->end_run(i->instance);
 }
 
-static void lv2_free(struct fc_descriptor *desc)
+static void lv2_free(const struct fc_descriptor *desc)
 {
 	struct descriptor *d = (struct descriptor*)desc;
 	free((char*)d->desc.name);

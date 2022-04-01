@@ -66,7 +66,7 @@ struct fc_descriptor {
 #define FC_DESCRIPTOR_SUPPORTS_NULL_DATA	(1ULL << 0)
 	uint64_t flags;
 
-	void (*free) (struct fc_descriptor *desc);
+	void (*free) (const struct fc_descriptor *desc);
 
 	uint32_t n_ports;
 	struct fc_port *ports;
@@ -90,7 +90,7 @@ static inline void fc_plugin_free(struct fc_plugin *plugin)
 		plugin->unload(plugin);
 }
 
-static inline void fc_descriptor_free(struct fc_descriptor *desc)
+static inline void fc_descriptor_free(const struct fc_descriptor *desc)
 {
 	if (desc->free)
 		desc->free(desc);

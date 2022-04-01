@@ -816,6 +816,8 @@ static void descriptor_unref(struct descriptor *desc)
 
 	spa_list_remove(&desc->link);
 	plugin_unref(desc->plugin);
+	if (desc->desc)
+		fc_descriptor_free(desc->desc);
 	free(desc->input);
 	free(desc->output);
 	free(desc->control);

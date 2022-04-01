@@ -136,7 +136,7 @@ static void ladspa_port_update_ranges(struct descriptor *dd, struct fc_port *por
 	port->max = upper;
 }
 
-static void ladspa_free(struct fc_descriptor *desc)
+static void ladspa_free(const struct fc_descriptor *desc)
 {
 	struct descriptor *d = (struct descriptor*)desc;
 	free(d->desc.ports);

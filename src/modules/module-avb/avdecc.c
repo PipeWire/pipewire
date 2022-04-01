@@ -24,6 +24,7 @@
 
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
+#include <linux/filter.h>
 #include <linux/net_tstamp.h>
 #include <limits.h>
 #include <net/if.h>
@@ -47,6 +48,7 @@
 #include "msrp.h"
 #include "mvrp.h"
 #include "descriptors.h"
+#include "utils.h"
 
 #define DEFAULT_INTERVAL	1
 
@@ -105,6 +107,41 @@ int avb_server_send_packet(struct server *server, const uint8_t dest[6],
 	return res;
 }
 
+static int load_filter(int fd, uint16_t eth, const uint8_t dest[6], const uint8_t mac[6])
+{
+	struct sock_fprog filter;
+	struct sock_filter bpf_code[] = {
+		BPF_STMT(BPF_LD|BPF_H|BPF_ABS,  12),
+		BPF_JUMP(BPF_JMP|BPF_JEQ,       eth,        0, 8),
+		BPF_STMT(BPF_LD|BPF_W|BPF_ABS,  2),
+		BPF_JUMP(BPF_JMP|BPF_JEQ,       (dest[2] << 24) |
+						(dest[3] << 16) |
+						(dest[4] <<  8) |
+						(dest[5]),  0, 2),
+		BPF_STMT(BPF_LD|BPF_H|BPF_ABS,  0),
+		BPF_JUMP(BPF_JMP|BPF_JEQ,       (dest[0] << 8) |
+						(dest[1]),  3, 4),
+		BPF_JUMP(BPF_JMP|BPF_JEQ,       (mac[2] << 24) |
+						(mac[3] << 16) |
+						(mac[4] <<  8) |
+						(mac[5]),   0, 3),
+		BPF_STMT(BPF_LD|BPF_H|BPF_ABS,  0),
+		BPF_JUMP(BPF_JMP|BPF_JEQ,       (mac[0] <<  8) |
+						(mac[1]), 0, 1),
+		BPF_STMT(BPF_RET,               0x00040000),
+		BPF_STMT(BPF_RET,               0x00000000),
+	};
+	filter.len = sizeof(bpf_code) / 8;
+	filter.filter = bpf_code;
+
+	if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER,
+				&filter, sizeof(filter)) < 0) {
+		pw_log_error("setsockopt(ATTACH_FILTER) failed: %m");
+		return -errno;
+	}
+	return 0;
+}
+
 static int setup_socket(struct server *server)
 {
 	struct impl *impl = server->impl;
@@ -113,6 +150,8 @@ static int setup_socket(struct server *server)
 	struct packet_mreq mreq;
 	struct sockaddr_ll sll;
 	struct timespec value, interval;
+	static const uint8_t bmac[6] = AVB_BROADCAST_MAC;
+
 
 	fd = socket(AF_PACKET, SOCK_RAW|SOCK_NONBLOCK, htons(ETH_P_ALL));
 	if (fd < 0) {
@@ -149,9 +188,24 @@ static int setup_socket(struct server *server)
 
 	pw_log_info("%lx %d", server->entity_id, server->ifindex);
 
+	spa_zero(sll);
+	sll.sll_family = AF_PACKET;
+	sll.sll_protocol = htons(ETH_P_ALL);
+	sll.sll_ifindex = server->ifindex;
+	sll.sll_halen = ETH_ALEN;
+	memcpy(sll.sll_addr, bmac, ETH_ALEN);
+	if (bind(fd, (struct sockaddr *) &sll, sizeof(sll)) < 0) {
+		res = -errno;
+		pw_log_error("bind() failed: %m");
+		goto error_close;
+	}
+
 	spa_zero(mreq);
 	mreq.mr_ifindex = server->ifindex;
-	mreq.mr_type = PACKET_MR_PROMISC;
+	mreq.mr_type = PACKET_MR_MULTICAST;
+	mreq.mr_alen = ETH_ALEN;
+	memcpy(mreq.mr_address, bmac, ETH_ALEN);
+
 	if (setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP,
 				&mreq, sizeof(mreq)) < 0) {
 		res = -errno;
@@ -159,15 +213,8 @@ static int setup_socket(struct server *server)
 		goto error_close;
 	}
 
-	spa_zero(sll);
-	sll.sll_family = AF_PACKET;
-	sll.sll_protocol = htons(ETH_P_ALL);
-	sll.sll_ifindex = server->ifindex;
-	if (bind(fd, (struct sockaddr *) &sll, sizeof(sll)) < 0) {
-		res = -errno;
-		pw_log_error("bind() failed: %m");
+	if ((res = load_filter(fd, AVB_TSN_ETH, bmac, server->mac_addr)) < 0)
 		goto error_close;
-	}
 
 	server->source = pw_loop_add_io(impl->loop, fd, SPA_IO_IN, true, on_socket_data, server);
 	if (server->source == NULL) {

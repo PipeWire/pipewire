@@ -26,7 +26,7 @@
 
 #include "maap.h"
 
-static const uint8_t mac[6] = AVB_BROADCAST_MAC;
+static const uint8_t mac[6] = AVB_MAAP_MAC;
 
 struct maap {
 	struct server *server;

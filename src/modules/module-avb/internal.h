@@ -34,7 +34,6 @@ extern "C" {
 #define AVB_TSN_ETH 0x22f0
 #define AVB_BROADCAST_MAC { 0x91, 0xe0, 0xf0, 0x01, 0x00, 0x00 };
 
-
 struct impl {
 	struct pw_loop *loop;
 	struct pw_context *context;

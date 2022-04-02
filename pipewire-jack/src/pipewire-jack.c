@@ -5411,14 +5411,14 @@ static int port_compare_func(const void *v1, const void *v2)
 		res = is_def2 - is_def1;
 	else if ((*o1)->port.priority != (*o2)->port.priority)
 		res = (*o2)->port.priority - (*o1)->port.priority;
-	else if ((res = (*o1)->port.node_id - (*o2)->port.node_id)) {
+	else if ((res = (*o1)->port.node_id - (*o2)->port.node_id) == 0) {
+		if ((*o1)->port.is_monitor != (*o2)->port.is_monitor)
+			res = (*o1)->port.is_monitor - (*o2)->port.is_monitor;
 		if (res == 0)
 			res = (*o1)->port.system_id - (*o2)->port.system_id;
 		if (res == 0)
 			res = (*o1)->serial - (*o2)->serial;
 	}
-
-
 	pw_log_debug("port %s<->%s type:%d<->%d def:%d<->%d prio:%d<->%d id:%d<->%d res:%d",
 			(*o1)->port.name, (*o2)->port.name,
 			(*o1)->port.type_id, (*o2)->port.type_id,

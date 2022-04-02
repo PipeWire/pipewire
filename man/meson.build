@@ -13,6 +13,7 @@ manpages = [
   'pw-cat.1.rst.in',
   'pw-cli.1.rst.in',
   'pw-dot.1.rst.in',
+  'pw-link.1.rst.in',
   'pw-metadata.1.rst.in',
   'pw-mididump.1.rst.in',
   'pw-mon.1.rst.in',

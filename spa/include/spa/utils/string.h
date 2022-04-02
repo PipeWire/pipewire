@@ -279,10 +279,9 @@ static inline float spa_strtof(const char *str, char **endptr)
 	float v;
 	if (SPA_UNLIKELY(locale == NULL))
 		locale = newlocale(LC_ALL_MASK, "C", NULL);
-	if (locale != NULL)
-		v = strtof_l(str, endptr, locale);
-	else
-		v = strtof(str, endptr);
+	locale_t prev = uselocale(locale);
+	v = strtof(str, endptr);
+	uselocale(prev);
 	return v;
 }
 
@@ -323,10 +322,9 @@ static inline double spa_strtod(const char *str, char **endptr)
 	double v;
 	if (SPA_UNLIKELY(locale == NULL))
 		locale = newlocale(LC_ALL_MASK, "C", NULL);
-	if (locale != NULL)
-		v = strtod_l(str, endptr, locale);
-	else
-		v = strtod(str, endptr);
+	locale_t prev = uselocale(locale);
+	v = strtod(str, endptr);
+	uselocale(prev);
 	return v;
 }
 

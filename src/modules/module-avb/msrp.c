@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <unistd.h>
+
 #include <spa/debug/mem.h>
 
 #include <pipewire/pipewire.h>

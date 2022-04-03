@@ -210,15 +210,17 @@ static int make_matrix(struct channelmix *mix)
 	unassigned = src_mask & ~dst_mask;
 	keep = dst_mask & ~src_mask;
 
-	if (!SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_UPMIX) ||
-	    mix->upmix == CHANNELMIX_UPMIX_NONE)
+	if (!SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_UPMIX)) {
 		keep = 0;
-
-	keep |= FRONT;
-	if (mix->lfe_cutoff > 0.0f)
-		keep |= _MASK(LFE);
-	else
-		keep &= ~_MASK(LFE);
+	} else {
+		if (mix->upmix == CHANNELMIX_UPMIX_NONE)
+			keep = 0;
+		keep |= FRONT;
+		if (mix->lfe_cutoff > 0.0f)
+			keep |= _MASK(LFE);
+		else
+			keep &= ~_MASK(LFE);
+	}
 
 	spa_log_debug(mix->log, "unassigned downmix %08" PRIx64 " %08" PRIx64, unassigned, keep);
 

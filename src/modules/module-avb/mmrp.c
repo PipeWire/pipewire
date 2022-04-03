@@ -27,7 +27,7 @@
 #include "utils.h"
 #include "mmrp.h"
 
-static const uint8_t mac[6] = AVB_MMRP_MAC;
+static const uint8_t mmrp_mac[6] = AVB_MMRP_MAC;
 
 struct attr {
 	struct avb_mmrp_attribute attr;
@@ -37,6 +37,8 @@ struct attr {
 struct mmrp {
 	struct server *server;
 	struct spa_hook server_listener;
+
+	struct spa_source *source;
 
 	struct spa_list attributes;
 };
@@ -131,32 +133,47 @@ static const struct avb_mrp_parse_info info = {
 	.process = mmrp_process,
 };
 
-static int mmrp_message(void *data, uint64_t now, const void *message, int len)
+static int mmrp_message(struct mmrp *mmrp, uint64_t now, const void *message, int len)
 {
-	struct mmrp *mmrp = data;
-	const struct avb_packet_mrp *p = message;
-
-	if (ntohs(p->eth.type) != AVB_MMRP_ETH)
-		return 0;
-	if (memcmp(p->eth.dest, mac, 6) != 0)
-		return 0;
-
 	pw_log_debug("MMRP");
 	return avb_mrp_parse_packet(mmrp->server->mrp,
 			now, message, len, &info, mmrp);
 }
 
+static void on_socket_data(void *data, int fd, uint32_t mask)
+{
+	struct mmrp *mmrp = data;
+	struct timespec now;
+
+	if (mask & SPA_IO_IN) {
+		int len;
+		uint8_t buffer[2048];
+
+		len = recv(fd, buffer, sizeof(buffer), 0);
+
+		if (len < 0) {
+			pw_log_warn("got recv error: %m");
+		}
+		else if (len < (int)sizeof(struct avb_packet_header)) {
+			pw_log_warn("short packet received (%d < %d)", len,
+					(int)sizeof(struct avb_packet_header));
+		} else {
+			clock_gettime(CLOCK_REALTIME, &now);
+			mmrp_message(mmrp, SPA_TIMESPEC_TO_NSEC(&now), buffer, len);
+		}
+	}
+}
 static void mmrp_destroy(void *data)
 {
 	struct mmrp *mmrp = data;
 	spa_hook_remove(&mmrp->server_listener);
+	pw_loop_destroy_source(mmrp->server->impl->loop, mmrp->source);
 	free(mmrp);
 }
 
 static const struct server_events server_events = {
 	AVB_VERSION_SERVER_EVENTS,
 	.destroy = mmrp_destroy,
-	.message = mmrp_message
 };
 
 struct avb_mmrp_attribute *avb_mmrp_attribute_new(struct avb_mmrp *m,
@@ -179,15 +196,36 @@ struct avb_mmrp_attribute *avb_mmrp_attribute_new(struct avb_mmrp *m,
 struct avb_mmrp *avb_mmrp_register(struct server *server)
 {
 	struct mmrp *mmrp;
+	int fd, res;
 
-	mmrp = calloc(1, sizeof(*mmrp));
-	if (mmrp == NULL)
+	fd = avb_server_make_socket(server, AVB_MMRP_ETH, mmrp_mac);
+	if (fd < 0) {
+		errno = -fd;
 		return NULL;
+	}
+	mmrp = calloc(1, sizeof(*mmrp));
+	if (mmrp == NULL) {
+		res = -errno;
+		goto error_close;
+	}
 
 	mmrp->server = server;
 	spa_list_init(&mmrp->attributes);
 
+	mmrp->source = pw_loop_add_io(server->impl->loop, fd, SPA_IO_IN, true, on_socket_data, mmrp);
+	if (mmrp->source == NULL) {
+		res = -errno;
+		pw_log_error("mmrp %p: can't create mmrp source: %m", mmrp);
+		goto error_no_source;
+	}
 	avdecc_server_add_listener(server, &mmrp->server_listener, &server_events, mmrp);
 
 	return (struct avb_mmrp*)mmrp;
+
+error_no_source:
+	free(mmrp);
+error_close:
+	close(fd);
+	errno = -res;
+	return NULL;
 }

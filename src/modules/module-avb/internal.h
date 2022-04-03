@@ -130,6 +130,8 @@ void avdecc_server_free(struct server *server);
 void avdecc_server_add_listener(struct server *server, struct spa_hook *listener,
 		const struct server_events *events, void *data);
 
+int avb_server_make_socket(struct server *server, uint16_t type, const uint8_t mac[6]);
+
 int avb_server_send_packet(struct server *server, const uint8_t dest[6],
 		uint16_t type, void *data, size_t size);
 

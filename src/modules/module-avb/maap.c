@@ -26,11 +26,11 @@
 
 #include "maap.h"
 
-static const uint8_t mac[6] = AVB_MAAP_MAC;
-
 struct maap {
 	struct server *server;
 	struct spa_hook server_listener;
+
+	struct spa_source *source;
 };
 
 static const char *message_type_as_string(uint8_t message_type)
@@ -67,29 +67,46 @@ static void maap_message_debug(struct maap *maap, const struct avb_packet_maap *
 	pw_log_info("  conflict-count: %d", AVB_PACKET_MAAP_GET_CONFLICT_COUNT(p));
 }
 
-static int maap_message(void *data, uint64_t now, const void *message, int len)
+static int maap_message(struct maap *maap, uint64_t now, const void *message, int len)
 {
-	struct maap *maap = data;
-	struct server *server = maap->server;
 	const struct avb_packet_maap *p = message;
 
-	if (ntohs(p->hdr.eth.type) != AVB_TSN_ETH)
-		return 0;
-	if (memcmp(p->hdr.eth.dest, mac, 6) != 0 &&
-	    memcmp(p->hdr.eth.dest, server->mac_addr, 6) != 0)
-		return 0;
 	if (AVB_PACKET_GET_SUBTYPE(&p->hdr) != AVB_SUBTYPE_MAAP)
 		return 0;
 
-	if (maap->server->debug_messages)
-		maap_message_debug(maap, p);
+	maap_message_debug(maap, p);
 
 	return 0;
+}
+
+static void on_socket_data(void *data, int fd, uint32_t mask)
+{
+	struct maap *maap = data;
+	struct timespec now;
+
+	if (mask & SPA_IO_IN) {
+		int len;
+		uint8_t buffer[2048];
+
+		len = recv(fd, buffer, sizeof(buffer), 0);
+
+		if (len < 0) {
+			pw_log_warn("got recv error: %m");
+		}
+		else if (len < (int)sizeof(struct avb_packet_header)) {
+			pw_log_warn("short packet received (%d < %d)", len,
+					(int)sizeof(struct avb_packet_header));
+		} else {
+			clock_gettime(CLOCK_REALTIME, &now);
+			maap_message(maap, SPA_TIMESPEC_TO_NSEC(&now), buffer, len);
+		}
+	}
 }
 
 static void maap_destroy(void *data)
 {
 	struct maap *maap = data;
+	pw_loop_destroy_source(maap->server->impl->loop, maap->source);
 	spa_hook_remove(&maap->server_listener);
 	free(maap);
 }
@@ -97,20 +114,41 @@ static void maap_destroy(void *data)
 static const struct server_events server_events = {
 	AVB_VERSION_SERVER_EVENTS,
 	.destroy = maap_destroy,
-	.message = maap_message
 };
 
 int avb_maap_register(struct server *server)
 {
 	struct maap *maap;
+	uint8_t bmac[6] = AVB_MAAP_MAC;
+	int res, fd;
+
+	fd = avb_server_make_socket(server, AVB_TSN_ETH, bmac);
+	if (fd < 0)
+		return fd;
 
 	maap = calloc(1, sizeof(*maap));
-	if (maap == NULL)
-		return -errno;
+	if (maap == NULL) {
+		res = -errno;
+		goto error_close;
+	}
 
 	maap->server = server;
 
+	pw_log_info("%lx %d", server->entity_id, server->ifindex);
+
+	maap->source = pw_loop_add_io(server->impl->loop, fd, SPA_IO_IN, true, on_socket_data, maap);
+	if (maap->source == NULL) {
+		res = -errno;
+		pw_log_error("maap %p: can't create maap source: %m", maap);
+		goto error_no_source;
+	}
 	avdecc_server_add_listener(server, &maap->server_listener, &server_events, maap);
 
 	return 0;
+
+error_no_source:
+	free(maap);
+error_close:
+	close(fd);
+	return res;
 }

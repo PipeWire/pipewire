@@ -29,7 +29,7 @@
 #include "utils.h"
 #include "msrp.h"
 
-static const uint8_t mac[6] = AVB_MSRP_MAC;
+static const uint8_t msrp_mac[6] = AVB_MSRP_MAC;
 
 struct attr {
 	struct avb_msrp_attribute attr;
@@ -40,6 +40,8 @@ struct msrp {
 	struct server *server;
 	struct spa_hook server_listener;
 	struct spa_hook mrp_listener;
+
+	struct spa_source *source;
 
 	struct spa_list attributes;
 };
@@ -269,32 +271,46 @@ static const struct avb_mrp_parse_info info = {
 };
 
 
-static int msrp_message(void *data, uint64_t now, const void *message, int len)
+static int msrp_message(struct msrp *msrp, uint64_t now, const void *message, int len)
 {
-	struct msrp *msrp = data;
-	const struct avb_packet_mrp *p = message;
-
-	if (ntohs(p->eth.type) != AVB_MSRP_ETH)
-		return 0;
-	if (memcmp(p->eth.dest, mac, 6) != 0)
-		return 0;
-
-	pw_log_debug("MSRP");
 	return avb_mrp_parse_packet(msrp->server->mrp,
 			now, message, len, &info, msrp);
+}
+static void on_socket_data(void *data, int fd, uint32_t mask)
+{
+	struct msrp *msrp = data;
+	struct timespec now;
+
+	if (mask & SPA_IO_IN) {
+		int len;
+		uint8_t buffer[2048];
+
+		len = recv(fd, buffer, sizeof(buffer), 0);
+
+		if (len < 0) {
+			pw_log_warn("got recv error: %m");
+		}
+		else if (len < (int)sizeof(struct avb_packet_header)) {
+			pw_log_warn("short packet received (%d < %d)", len,
+					(int)sizeof(struct avb_packet_header));
+		} else {
+			clock_gettime(CLOCK_REALTIME, &now);
+			msrp_message(msrp, SPA_TIMESPEC_TO_NSEC(&now), buffer, len);
+		}
+	}
 }
 
 static void msrp_destroy(void *data)
 {
 	struct msrp *msrp = data;
 	spa_hook_remove(&msrp->server_listener);
+	pw_loop_destroy_source(msrp->server->impl->loop, msrp->source);
 	free(msrp);
 }
 
 static const struct server_events server_events = {
 	AVB_VERSION_SERVER_EVENTS,
 	.destroy = msrp_destroy,
-	.message = msrp_message
 };
 
 struct avb_msrp_attribute *avb_msrp_attribute_new(struct avb_msrp *m,
@@ -348,7 +364,7 @@ static void msrp_event(void *data, uint64_t now, uint8_t event)
 	f->end_mark = 0;
 
 	if (count > 0)
-		avb_server_send_packet(msrp->server, mac, AVB_MSRP_ETH,
+		avb_server_send_packet(msrp->server, msrp_mac, AVB_MSRP_ETH,
 				buffer, total);
 }
 
@@ -369,16 +385,37 @@ static const struct avb_mrp_events mrp_events = {
 struct avb_msrp *avb_msrp_register(struct server *server)
 {
 	struct msrp *msrp;
+	int fd, res;
 
-	msrp = calloc(1, sizeof(*msrp));
-	if (msrp == NULL)
+	fd = avb_server_make_socket(server, AVB_MSRP_ETH, msrp_mac);
+	if (fd < 0) {
+		errno = -fd;
 		return NULL;
+	}
+	msrp = calloc(1, sizeof(*msrp));
+	if (msrp == NULL) {
+		res = -errno;
+		goto error_close;
+	}
 
 	msrp->server = server;
 	spa_list_init(&msrp->attributes);
 
+	msrp->source = pw_loop_add_io(server->impl->loop, fd, SPA_IO_IN, true, on_socket_data, msrp);
+	if (msrp->source == NULL) {
+		res = -errno;
+		pw_log_error("msrp %p: can't create msrp source: %m", msrp);
+		goto error_no_source;
+	}
 	avdecc_server_add_listener(server, &msrp->server_listener, &server_events, msrp);
 	avb_mrp_add_listener(server->mrp, &msrp->mrp_listener, &mrp_events, msrp);
 
 	return (struct avb_msrp*)msrp;
+
+error_no_source:
+	free(msrp);
+error_close:
+	close(fd);
+	errno = -res;
+	return NULL;
 }

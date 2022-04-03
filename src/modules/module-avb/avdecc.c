@@ -142,16 +142,12 @@ static int load_filter(int fd, uint16_t eth, const uint8_t dest[6], const uint8_
 	return 0;
 }
 
-static int setup_socket(struct server *server)
+int avb_server_make_socket(struct server *server, uint16_t type, const uint8_t mac[6])
 {
-	struct impl *impl = server->impl;
 	int fd, res;
 	struct ifreq req;
 	struct packet_mreq mreq;
 	struct sockaddr_ll sll;
-	struct timespec value, interval;
-	static const uint8_t bmac[6] = AVB_BROADCAST_MAC;
-
 
 	fd = socket(AF_PACKET, SOCK_RAW|SOCK_NONBLOCK, htons(ETH_P_ALL));
 	if (fd < 0) {
@@ -186,14 +182,10 @@ static int setup_socket(struct server *server)
 			(uint64_t)server->mac_addr[4] << 8 |
 			(uint64_t)server->mac_addr[5];
 
-	pw_log_info("%lx %d", server->entity_id, server->ifindex);
-
 	spa_zero(sll);
 	sll.sll_family = AF_PACKET;
 	sll.sll_protocol = htons(ETH_P_ALL);
 	sll.sll_ifindex = server->ifindex;
-	sll.sll_halen = ETH_ALEN;
-	memcpy(sll.sll_addr, bmac, ETH_ALEN);
 	if (bind(fd, (struct sockaddr *) &sll, sizeof(sll)) < 0) {
 		res = -errno;
 		pw_log_error("bind() failed: %m");
@@ -204,7 +196,7 @@ static int setup_socket(struct server *server)
 	mreq.mr_ifindex = server->ifindex;
 	mreq.mr_type = PACKET_MR_MULTICAST;
 	mreq.mr_alen = ETH_ALEN;
-	memcpy(mreq.mr_address, bmac, ETH_ALEN);
+	memcpy(mreq.mr_address, mac, ETH_ALEN);
 
 	if (setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP,
 				&mreq, sizeof(mreq)) < 0) {
@@ -213,20 +205,40 @@ static int setup_socket(struct server *server)
 		goto error_close;
 	}
 
-	if ((res = load_filter(fd, AVB_TSN_ETH, bmac, server->mac_addr)) < 0)
+	if ((res = load_filter(fd, type, mac, server->mac_addr)) < 0)
 		goto error_close;
+
+	return fd;
+
+error_close:
+	close(fd);
+	return res;
+}
+
+static int setup_socket(struct server *server)
+{
+	struct impl *impl = server->impl;
+	int fd, res;
+	static const uint8_t bmac[6] = AVB_BROADCAST_MAC;
+	struct timespec value, interval;
+
+	fd = avb_server_make_socket(server, AVB_TSN_ETH, bmac);
+	if (fd < 0)
+		return fd;
+
+	pw_log_info("%lx %d", server->entity_id, server->ifindex);
 
 	server->source = pw_loop_add_io(impl->loop, fd, SPA_IO_IN, true, on_socket_data, server);
 	if (server->source == NULL) {
 		res = -errno;
 		pw_log_error("server %p: can't create server source: %m", impl);
-		goto error_close;
+		goto error_no_source;
 	}
 	server->timer = pw_loop_add_timer(impl->loop, on_timer_event, server);
 	if (server->timer == NULL) {
 		res = -errno;
 		pw_log_error("server %p: can't create timer source: %m", impl);
-		goto error_close;
+		goto error_no_timer;
 	}
 	value.tv_sec = 0;
 	value.tv_nsec = 1;
@@ -236,7 +248,10 @@ static int setup_socket(struct server *server)
 
 	return 0;
 
-error_close:
+error_no_timer:
+	pw_loop_destroy_source(impl->loop, server->source);
+	server->source = NULL;
+error_no_source:
 	close(fd);
 	return res;
 }

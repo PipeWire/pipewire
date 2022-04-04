@@ -114,9 +114,9 @@ struct avb_packet_mrp_footer {
 #define AVB_MRP_SEND_MT			5
 #define AVB_MRP_SEND_LV			6
 
-#define AVB_MRP_NOTIFY_NEW		0
-#define AVB_MRP_NOTIFY_JOIN		1
-#define AVB_MRP_NOTIFY_LEAVE		2
+#define AVB_MRP_NOTIFY_NEW		1
+#define AVB_MRP_NOTIFY_JOIN		2
+#define AVB_MRP_NOTIFY_LEAVE		3
 
 struct avb_mrp_attribute {
 	uint8_t pending_send;

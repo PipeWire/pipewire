@@ -59,6 +59,21 @@ struct pw_avb *pw_avb_new(struct pw_context *context,
 	impl->context = context;
 	impl->loop = pw_context_get_main_loop(context);
 	impl->props = props;
+	impl->core = pw_context_get_object(context, PW_TYPE_INTERFACE_Core);
+	if (impl->core == NULL) {
+		str = pw_properties_get(props, PW_KEY_REMOTE_NAME);
+		impl->core = pw_context_connect(context,
+				pw_properties_new(
+					PW_KEY_REMOTE_NAME, str,
+					NULL),
+				0);
+		impl->do_disconnect = true;
+	}
+	if (impl->core == NULL) {
+		res = -errno;
+		pw_log_error("can't connect: %m");
+		goto error_free;
+	}
 
 	impl->work_queue = pw_context_get_work_queue(context);
 

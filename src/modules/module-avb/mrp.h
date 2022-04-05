@@ -118,6 +118,9 @@ struct avb_packet_mrp_footer {
 #define AVB_MRP_NOTIFY_JOIN		2
 #define AVB_MRP_NOTIFY_LEAVE		3
 
+const char *avb_mrp_notify_name(uint8_t notify);
+const char *avb_mrp_send_name(uint8_t send);
+
 struct avb_mrp_attribute {
 	uint8_t pending_send;
 	void *user_data;
@@ -132,6 +135,7 @@ struct avb_mrp_attribute_events {
 
 struct avb_mrp_attribute *avb_mrp_attribute_new(struct avb_mrp *mrp,
 		size_t user_size);
+void avb_mrp_attribute_destroy(struct avb_mrp_attribute *attr);
 
 void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now, int event);
 

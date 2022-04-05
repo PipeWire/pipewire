@@ -180,6 +180,38 @@ int avb_mrp_parse_packet(struct avb_mrp *mrp, uint64_t now, const void *pkt, int
 	return 0;
 }
 
+const char *avb_mrp_notify_name(uint8_t notify)
+{
+	switch(notify) {
+	case AVB_MRP_NOTIFY_NEW:
+		return "new";
+	case AVB_MRP_NOTIFY_JOIN:
+		return "join";
+	case AVB_MRP_NOTIFY_LEAVE:
+		return "leave";
+	}
+	return "unknown";
+}
+
+const char *avb_mrp_send_name(uint8_t send)
+{
+	switch(send) {
+	case AVB_MRP_SEND_NEW:
+		return "new";
+	case AVB_MRP_SEND_JOININ:
+		return "joinin";
+	case AVB_MRP_SEND_IN:
+		return "in";
+	case AVB_MRP_SEND_JOINMT:
+		return "joinmt";
+	case AVB_MRP_SEND_MT:
+		return "mt";
+	case AVB_MRP_SEND_LV:
+		return "leave";
+	}
+	return "unknown";
+}
+
 struct avb_mrp_attribute *avb_mrp_attribute_new(struct avb_mrp *m,
 		size_t user_size)
 {
@@ -196,6 +228,13 @@ struct avb_mrp_attribute *avb_mrp_attribute_new(struct avb_mrp *m,
 	spa_list_append(&mrp->attributes, &a->link);
 
 	return &a->attr;
+}
+
+void avb_mrp_attribute_destroy(struct avb_mrp_attribute *attr)
+{
+	struct attribute *a = SPA_CONTAINER_OF(attr, struct attribute, attr);
+	spa_list_remove(&a->link);
+	free(a);
 }
 
 void avb_mrp_attribute_add_listener(struct avb_mrp_attribute *attr, struct spa_hook *listener,
@@ -247,7 +286,7 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 		switch (state) {
 		case AVB_MRP_IN:
 			a->leave_timeout = now + MRP_LVTIMER_MS * SPA_NSEC_PER_MSEC;
-			state = AVB_MRP_LV;
+			//state = AVB_MRP_LV;
 			break;
 		}
 		break;
@@ -276,7 +315,7 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 	}
 
 	if (a->registrar_state != state || notify) {
-		pw_log_debug("attr %p: %d %d -> %d %d", a, event, a->registrar_state, state, notify);
+		pw_log_info("attr %p: %d %d -> %d %d", a, event, a->registrar_state, state, notify);
 		a->registrar_state = state;
 	}
 

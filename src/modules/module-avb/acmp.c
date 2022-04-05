@@ -30,6 +30,7 @@
 #include "acmp.h"
 #include "msrp.h"
 #include "internal.h"
+#include "stream.h"
 
 static const uint8_t mac[6] = AVB_BROADCAST_MAC;
 
@@ -53,9 +54,6 @@ struct acmp {
 #define PENDING_CONTROLLER	2
 	struct spa_list pending[3];
 	uint16_t sequence_id[3];
-
-	struct avb_msrp_attribute *listener_attr;
-	struct avb_msrp_attribute *talker_attr;
 };
 
 static void *pending_new(struct acmp *acmp, uint32_t type, uint64_t now, uint32_t timeout_ms,
@@ -130,14 +128,33 @@ static int handle_connect_tx_command(struct acmp *acmp, uint64_t now, const void
 	uint8_t buf[len];
 	const struct avb_packet_acmp *p = m;
 	struct avb_packet_acmp *reply = (struct avb_packet_acmp*)buf;
+	int status = AVB_ACMP_STATUS_SUCCESS;
+	uint8_t mac[6] = { 0x91, 0xe0, 0xf0, 0x00, 0x10, 0x00 };
+	struct stream *stream;
 
 	if (be64toh(p->talker_guid) != server->entity_id)
 		return 0;
 
 	memcpy(reply, m, len);
-	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_CONNECT_TX_RESPONSE);
-	AVB_PACKET_ACMP_SET_STATUS(reply, AVB_ACMP_STATUS_SUCCESS);
+	stream = server_find_stream(server, SPA_DIRECTION_OUTPUT,
+			reply->talker_unique_id);
+	if (stream == NULL) {
+		status = AVB_ACMP_STATUS_TALKER_NO_STREAM_INDEX;
+		goto done;
+	}
 
+	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_CONNECT_TX_RESPONSE);
+	reply->stream_id = htobe64(stream->id);
+
+	memcpy(stream->addr, mac, 6);
+
+	memcpy(reply->stream_dest_mac, stream->addr, 6);
+	reply->connection_count = htons(1);
+	reply->stream_vlan_id = htons(2);
+	stream_activate(stream, now);
+
+done:
+	AVB_PACKET_ACMP_SET_STATUS(reply, status);
 	return avb_server_send_packet(server, reply->hdr.eth.dest,
 			AVB_TSN_ETH, reply, len);
 }
@@ -149,6 +166,7 @@ static int handle_connect_tx_response(struct acmp *acmp, uint64_t now, const voi
 	struct avb_packet_acmp *reply;
 	struct pending *pending;
 	uint16_t sequence_id;
+	struct stream *stream;
 	int res;
 
 	if (be64toh(resp->listener_guid) != server->entity_id)
@@ -165,13 +183,14 @@ static int handle_connect_tx_response(struct acmp *acmp, uint64_t now, const voi
 	reply->sequence_id = htons(pending->old_sequence_id);
 	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_CONNECT_RX_RESPONSE);
 
-	acmp->listener_attr->attr.listener.stream_id = reply->stream_id;
-	acmp->listener_attr->param = AVB_MSRP_LISTENER_PARAM_READY;
-	avb_mrp_attribute_begin(acmp->listener_attr->mrp, now);
-	avb_mrp_attribute_join(acmp->listener_attr->mrp, now, true);
+	stream = server_find_stream(server, SPA_DIRECTION_INPUT,
+			reply->listener_unique_id);
+	if (stream == NULL)
+		return 0;
 
-	acmp->talker_attr->attr.talker.stream_id = reply->stream_id;
-	avb_mrp_attribute_begin(acmp->talker_attr->mrp, now);
+	stream->peer_id = be64toh(reply->stream_id);
+	memcpy(stream->addr, reply->stream_dest_mac, 6);
+	stream_activate(stream, now);
 
 	res = avb_server_send_packet(server, reply->hdr.eth.dest,
 			AVB_TSN_ETH, reply, pending->size);
@@ -187,14 +206,26 @@ static int handle_disconnect_tx_command(struct acmp *acmp, uint64_t now, const v
 	uint8_t buf[len];
 	const struct avb_packet_acmp *p = m;
 	struct avb_packet_acmp *reply = (struct avb_packet_acmp*)buf;
+	int status = AVB_ACMP_STATUS_SUCCESS;
+	struct stream *stream;
 
 	if (be64toh(p->talker_guid) != server->entity_id)
 		return 0;
 
 	memcpy(reply, m, len);
-	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_DISCONNECT_TX_RESPONSE);
-	AVB_PACKET_ACMP_SET_STATUS(reply, AVB_ACMP_STATUS_SUCCESS);
+	stream = server_find_stream(server, SPA_DIRECTION_OUTPUT,
+			reply->talker_unique_id);
+	if (stream == NULL) {
+		status = AVB_ACMP_STATUS_TALKER_NO_STREAM_INDEX;
+		goto done;
+	}
 
+	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_DISCONNECT_TX_RESPONSE);
+
+	stream_deactivate(stream, now);
+
+done:
+	AVB_PACKET_ACMP_SET_STATUS(reply, status);
 	return avb_server_send_packet(server, reply->hdr.eth.dest,
 			AVB_TSN_ETH, reply, len);
 }
@@ -206,6 +237,7 @@ static int handle_disconnect_tx_response(struct acmp *acmp, uint64_t now, const 
 	struct avb_packet_acmp *reply;
 	struct pending *pending;
 	uint16_t sequence_id;
+	struct stream *stream;
 	int res;
 
 	if (be64toh(resp->listener_guid) != server->entity_id)
@@ -222,7 +254,12 @@ static int handle_disconnect_tx_response(struct acmp *acmp, uint64_t now, const 
 	reply->sequence_id = htons(pending->old_sequence_id);
 	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_DISCONNECT_RX_RESPONSE);
 
-	avb_mrp_attribute_leave(acmp->listener_attr->mrp, now);
+	stream = server_find_stream(server, SPA_DIRECTION_INPUT,
+			reply->listener_unique_id);
+	if (stream == NULL)
+		return 0;
+
+	stream_deactivate(stream, now);
 
 	res = avb_server_send_packet(server, reply->hdr.eth.dest,
 			AVB_TSN_ETH, reply, pending->size);
@@ -422,11 +459,6 @@ struct avb_acmp *avb_acmp_register(struct server *server)
 	spa_list_init(&acmp->pending[PENDING_TALKER]);
 	spa_list_init(&acmp->pending[PENDING_LISTENER]);
 	spa_list_init(&acmp->pending[PENDING_CONTROLLER]);
-
-	acmp->listener_attr = avb_msrp_attribute_new(server->msrp,
-			AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
-	acmp->talker_attr = avb_msrp_attribute_new(server->msrp,
-			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
 
 	avdecc_server_add_listener(server, &acmp->server_listener, &server_events, acmp);
 

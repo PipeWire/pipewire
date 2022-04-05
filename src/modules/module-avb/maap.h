@@ -31,8 +31,8 @@
 #define AVB_TSN_ETH 0x22f0
 #define AVB_MAAP_MAC { 0x91, 0xe0, 0xf0, 0x00, 0xff, 0x00 };
 
-#define AVB_MAAP_MESSAGE_TYPE_PROBE			1
-#define AVB_MAAP_MESSAGE_TYPE_DEFEND			2
+#define AVB_MAAP_MESSAGE_TYPE_PROBE		1
+#define AVB_MAAP_MESSAGE_TYPE_DEFEND		2
 #define AVB_MAAP_MESSAGE_TYPE_ANNOUNCE		3
 
 struct avb_packet_maap {

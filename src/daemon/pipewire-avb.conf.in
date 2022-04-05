@@ -33,7 +33,8 @@ context.modules = [
         }
         flags = [ ifexists nofail ]
     }
-    { name = libpipewire-module-client-device }
+    { name = libpipewire-module-protocol-native }
+    { name = libpipewire-module-client-node }
     { name = libpipewire-module-adapter }
     { name = libpipewire-module-avb
         args = {

@@ -40,6 +40,7 @@
 #include "avb.h"
 #include "packets.h"
 #include "internal.h"
+#include "stream.h"
 #include "acmp.h"
 #include "adp.h"
 #include "aecp.h"
@@ -270,6 +271,7 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 	server->ifname = strdup(ifname);
 	spa_hook_list_init(&server->listener_list);
 	spa_list_init(&server->descriptors);
+	spa_list_init(&server->streams);
 
 	server->debug_messages = false;
 
@@ -299,10 +301,8 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 	avb_mrp_attribute_begin(server->domain_attr->mrp, 0);
 	avb_mrp_attribute_join(server->domain_attr->mrp, 0, true);
 
-	server->listener_attr = avb_msrp_attribute_new(server->msrp,
-			AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
-	server->listener_attr->attr.listener.stream_id = htobe64(0);
-	avb_mrp_attribute_begin(server->listener_attr->mrp, 0);
+	server_create_stream(server, SPA_DIRECTION_INPUT, 0);
+	server_create_stream(server, SPA_DIRECTION_OUTPUT, 0);
 
 	return server;
 

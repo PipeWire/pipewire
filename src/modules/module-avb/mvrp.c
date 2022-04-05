@@ -32,12 +32,15 @@ static const uint8_t mvrp_mac[6] = AVB_MVRP_MAC;
 
 struct attr {
 	struct avb_mvrp_attribute attr;
+	struct spa_hook listener;
 	struct spa_list link;
+	struct mvrp *mvrp;
 };
 
 struct mvrp {
 	struct server *server;
 	struct spa_hook server_listener;
+	struct spa_hook mrp_listener;
 
 	struct spa_source *source;
 
@@ -67,9 +70,8 @@ static int mvrp_attr_event(void *data, uint64_t now, uint8_t attribute_type, uin
 	return 0;
 }
 
-static void debug_vid(const void *p)
+static void debug_vid(const struct avb_packet_mvrp_vid *t)
 {
-	const struct avb_packet_mvrp_vid *t = p;
 	pw_log_info("vid");
 	pw_log_info(" %d", ntohs(t->vlan));
 }
@@ -80,19 +82,55 @@ static int process_vid(struct mvrp *mvrp, uint64_t now, uint8_t attr_type,
 	return mvrp_attr_event(mvrp, now, attr_type, event);
 }
 
+static int encode_vid(struct mvrp *mvrp, struct attr *a, void *m)
+{
+	struct avb_packet_mvrp_msg *msg = m;
+	struct avb_packet_mrp_vector *v;
+	struct avb_packet_mvrp_vid *d;
+	struct avb_packet_mrp_footer *f;
+	uint8_t *ev;
+	size_t attr_list_length = sizeof(*v) + sizeof(*d) + sizeof(*f) + 1;
+
+	msg->attribute_type = AVB_MVRP_ATTRIBUTE_TYPE_VID;
+	msg->attribute_length = sizeof(*d);
+
+	v = (struct avb_packet_mrp_vector *)msg->attribute_list;
+	v->lva = 0;
+	AVB_MRP_VECTOR_SET_NUM_VALUES(v, 1);
+
+	d = (struct avb_packet_mvrp_vid *)v->first_value;
+	*d = a->attr.attr.vid;
+
+	ev = SPA_PTROFF(d, sizeof(*d), uint8_t);
+	*ev = a->attr.mrp->pending_send * 36;
+
+	f = SPA_PTROFF(ev, sizeof(*ev), struct avb_packet_mrp_footer);
+	f->end_mark = 0;
+
+	return attr_list_length + sizeof(*msg);
+}
+
+static void notify_vid(struct mvrp *mvrp, uint64_t now, struct attr *attr, uint8_t notify)
+{
+	pw_log_info("> notify vid: %s", avb_mrp_notify_name(notify));
+	debug_vid(&attr->attr.attr.vid);
+}
+
 static const struct {
-	void (*debug) (const void *p);
-	int (*dispatch) (struct mvrp *mvrp, uint64_t now, uint8_t attr_type,
+	const char *name;
+	int (*process) (struct mvrp *mvrp, uint64_t now, uint8_t attr_type,
 			const void *m, uint8_t event, uint8_t param, int num);
+	int (*encode) (struct mvrp *mvrp, struct attr *attr, void *m);
+	void (*notify) (struct mvrp *mvrp, uint64_t now, struct attr *attr, uint8_t notify);
 } dispatch[] = {
-	[AVB_MVRP_ATTRIBUTE_TYPE_VID] = { debug_vid, process_vid, },
+	[AVB_MVRP_ATTRIBUTE_TYPE_VID] = { "vid", process_vid, encode_vid, notify_vid },
 };
 
 static int mvrp_process(void *data, uint64_t now, uint8_t attribute_type, const void *value,
 			uint8_t event, uint8_t param, int index)
 {
 	struct mvrp *mvrp = data;
-	return dispatch[attribute_type].dispatch(mvrp, now,
+	return dispatch[attribute_type].process(mvrp, now,
 				attribute_type, value, event, param, index);
 }
 
@@ -147,6 +185,18 @@ static const struct server_events server_events = {
 	.destroy = mvrp_destroy,
 };
 
+static void mvrp_notify(void *data, uint64_t now, uint8_t notify)
+{
+	struct attr *a = data;
+	struct mvrp *mvrp = a->mvrp;
+	return dispatch[a->attr.type].notify(mvrp, now, a, notify);
+}
+
+static const struct avb_mrp_attribute_events mrp_attr_events = {
+	AVB_VERSION_MRP_ATTRIBUTE_EVENTS,
+	.notify = mvrp_notify,
+};
+
 struct avb_mvrp_attribute *avb_mvrp_attribute_new(struct avb_mvrp *m,
 		uint8_t type)
 {
@@ -160,9 +210,53 @@ struct avb_mvrp_attribute *avb_mvrp_attribute_new(struct avb_mvrp *m,
 	a->attr.mrp = attr;
 	a->attr.type = type;
 	spa_list_append(&mvrp->attributes, &a->link);
+	avb_mrp_attribute_add_listener(attr, &a->listener, &mrp_attr_events, a);
 
 	return &a->attr;
 }
+
+static void mvrp_event(void *data, uint64_t now, uint8_t event)
+{
+	struct mvrp *mvrp = data;
+	uint8_t buffer[2048];
+	struct avb_packet_mrp *p = (struct avb_packet_mrp*)buffer;
+	struct avb_packet_mrp_footer *f;
+	void *msg = SPA_PTROFF(buffer, sizeof(*p), void);
+	struct attr *a;
+	int len, count = 0;
+	size_t total = sizeof(*p) + 2;
+
+	p->version = AVB_MRP_PROTOCOL_VERSION;
+
+	spa_list_for_each(a, &mvrp->attributes, link) {
+		if (!a->attr.mrp->pending_send)
+			continue;
+		if (dispatch[a->attr.type].encode == NULL)
+			continue;
+
+		pw_log_debug("send %s %s", dispatch[a->attr.type].name,
+				avb_mrp_send_name(a->attr.mrp->pending_send));
+
+		len = dispatch[a->attr.type].encode(mvrp, a, msg);
+		if (len < 0)
+			break;
+
+		count++;
+		msg = SPA_PTROFF(msg, len, void);
+		total += len;
+	}
+	f = (struct avb_packet_mrp_footer *)msg;
+	f->end_mark = 0;
+
+	if (count > 0)
+		avb_server_send_packet(mvrp->server, mvrp_mac, AVB_MVRP_ETH,
+				buffer, total);
+}
+
+static const struct avb_mrp_events mrp_events = {
+	AVB_VERSION_MRP_EVENTS,
+	.event = mvrp_event,
+};
 
 struct avb_mvrp *avb_mvrp_register(struct server *server)
 {
@@ -190,6 +284,7 @@ struct avb_mvrp *avb_mvrp_register(struct server *server)
 		goto error_no_source;
 	}
 	avdecc_server_add_listener(server, &mvrp->server_listener, &server_events, mvrp);
+	avb_mrp_add_listener(server->mrp, &mvrp->mrp_listener, &mrp_events, mvrp);
 
 	return (struct avb_mvrp*)mvrp;
 

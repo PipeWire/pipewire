@@ -533,7 +533,8 @@ pipewire_module_avb = shared_library('pipewire-module-avb',
     'module-avb/mrp.c',
     'module-avb/msrp.c',
     'module-avb/mvrp.c',
-    'module-avb/srp.c'
+    'module-avb/srp.c',
+    'module-avb/stream.c'
     ],
   include_directories : [configinc],
   install : true,

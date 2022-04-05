@@ -31,6 +31,9 @@ extern "C" {
 
 #include <pipewire/pipewire.h>
 
+struct server;
+struct avb_mrp;
+
 #define AVB_TSN_ETH 0x22f0
 #define AVB_BROADCAST_MAC { 0x91, 0xe0, 0xf0, 0x01, 0x00, 0x00 };
 
@@ -38,6 +41,8 @@ struct impl {
 	struct pw_loop *loop;
 	struct pw_context *context;
 	struct spa_hook context_listener;
+	struct pw_core *core;
+	unsigned do_disconnect:1;
 
 	struct pw_properties *props;
 	struct pw_work_queue *work_queue;
@@ -67,7 +72,6 @@ struct descriptor {
 	void *ptr;
 };
 
-
 struct server {
 	struct spa_list link;
 	struct impl *impl;
@@ -83,6 +87,7 @@ struct server {
 	struct spa_hook_list listener_list;
 
 	struct spa_list descriptors;
+	struct spa_list streams;
 
 	unsigned debug_messages:1;
 
@@ -92,8 +97,9 @@ struct server {
 	struct avb_msrp *msrp;
 
 	struct avb_msrp_attribute *domain_attr;
-	struct avb_msrp_attribute *listener_attr;
 };
+
+#include "stream.h"
 
 static inline const struct descriptor *server_find_descriptor(struct server *server,
 		uint16_t type, uint16_t index)
@@ -122,6 +128,18 @@ static inline void *server_add_descriptor(struct server *server,
 		memcpy(d->ptr, ptr, size);
 	spa_list_append(&server->descriptors, &d->link);
 	return d->ptr;
+}
+
+static inline struct stream *server_find_stream(struct server *server,
+		enum spa_direction direction, uint16_t index)
+{
+	struct stream *s;
+	spa_list_for_each(s, &server->streams, link) {
+		if (s->direction == direction &&
+		    s->index == index)
+			return s;
+	}
+	return NULL;
 }
 
 struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct spa_dict *props);

@@ -139,12 +139,15 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 		}
 		break;
 	case AVB_ADP_MESSAGE_TYPE_ENTITY_DISCOVER:
-		if (entity_id == 0UL ||
-		    (e != NULL && e->advertise &&
-		     be64toh(e->packet.entity_id) == entity_id)) {
-			pw_log_info("entity %s discover",
-					avb_utils_format_id(buf, sizeof(buf), entity_id));
-			send_discover(adp, entity_id);
+		pw_log_info("entity %s advertise",
+				avb_utils_format_id(buf, sizeof(buf), entity_id));
+		if (entity_id == 0UL) {
+			spa_list_for_each(e, &adp->entities, link)
+				if (e->advertise)
+					send_advertise(adp, now, e);
+		} else if (e != NULL && e->advertise &&
+		     be64toh(e->packet.entity_id) == entity_id) {
+			send_advertise(adp, now, e);
 		}
 		break;
 	default:

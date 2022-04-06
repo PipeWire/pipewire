@@ -285,7 +285,7 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 		goto error_free;
 
 	avb_aecp_register(server);
-	avb_maap_register(server);
+	server->maap = avb_maap_register(server);
 	server->mmrp = avb_mmrp_register(server);
 	server->msrp = avb_msrp_register(server);
 	server->mvrp = avb_mvrp_register(server);
@@ -303,6 +303,8 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 
 	server_create_stream(server, SPA_DIRECTION_INPUT, 0);
 	server_create_stream(server, SPA_DIRECTION_OUTPUT, 0);
+
+	avb_maap_reserve(server->maap, 1);
 
 	return server;
 

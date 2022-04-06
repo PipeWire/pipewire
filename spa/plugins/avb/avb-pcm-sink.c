@@ -709,7 +709,7 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(input != NULL, -EIO);
 
 	spa_log_trace_fp(this->log, "%p: process %d %d/%d", this, input->status,
-			input->buffer_id, this->n_buffers);
+			input->buffer_id, port->n_buffers);
 
 	if (this->position && this->position->clock.flags & SPA_IO_CLOCK_FLAG_FREEWHEEL) {
 		input->status = SPA_STATUS_NEED_DATA;

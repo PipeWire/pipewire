@@ -315,7 +315,7 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 	}
 
 	if (a->registrar_state != state || notify) {
-		pw_log_info("attr %p: %d %d -> %d %d", a, event, a->registrar_state, state, notify);
+		pw_log_debug("attr %p: %d %d -> %d %d", a, event, a->registrar_state, state, notify);
 		a->registrar_state = state;
 	}
 

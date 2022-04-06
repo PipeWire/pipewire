@@ -60,6 +60,11 @@ struct avb_packet_maap {
 #define AVB_PACKET_MAAP_GET_CONFLICT_START(p)		((p)->conflict_start)
 #define AVB_PACKET_MAAP_GET_CONFLICT_COUNT(p)		ntohs((p)->conflict_count)
 
-int avb_maap_register(struct server *server);
+struct avb_maap;
+
+struct avb_maap *avb_maap_register(struct server *server);
+
+int avb_maap_reserve(struct avb_maap *maap, uint32_t count);
+int avb_maap_get_address(struct avb_maap *maap, uint8_t addr[6], uint32_t index);
 
 #endif /* AVB_MAAP_H */

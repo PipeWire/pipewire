@@ -129,7 +129,6 @@ static int handle_connect_tx_command(struct acmp *acmp, uint64_t now, const void
 	const struct avb_packet_acmp *p = m;
 	struct avb_packet_acmp *reply = (struct avb_packet_acmp*)buf;
 	int status = AVB_ACMP_STATUS_SUCCESS;
-	uint8_t mac[6] = { 0x91, 0xe0, 0xf0, 0x00, 0x10, 0x00 };
 	struct stream *stream;
 
 	if (be64toh(p->talker_guid) != server->entity_id)
@@ -146,12 +145,11 @@ static int handle_connect_tx_command(struct acmp *acmp, uint64_t now, const void
 	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_CONNECT_TX_RESPONSE);
 	reply->stream_id = htobe64(stream->id);
 
-	memcpy(stream->addr, mac, 6);
+	stream_activate(stream, now);
 
 	memcpy(reply->stream_dest_mac, stream->addr, 6);
 	reply->connection_count = htons(1);
 	reply->stream_vlan_id = htons(2);
-	stream_activate(stream, now);
 
 done:
 	AVB_PACKET_ACMP_SET_STATUS(reply, status);

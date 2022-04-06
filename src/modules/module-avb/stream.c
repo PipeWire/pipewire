@@ -534,6 +534,9 @@ int stream_activate(struct stream *stream, uint64_t now)
 		stream->talker_attr->attr.talker.stream_id = htobe64(stream->peer_id);
 		avb_mrp_attribute_begin(stream->talker_attr->mrp, now);
 	} else {
+		if ((res = avb_maap_get_address(server->maap, stream->addr, stream->index)) < 0)
+			return res;
+
 		stream->listener_attr->attr.listener.stream_id = htobe64(stream->id);
 		stream->listener_attr->param = AVB_MSRP_LISTENER_PARAM_IGNORE;
 		avb_mrp_attribute_begin(stream->listener_attr->mrp, now);

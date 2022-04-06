@@ -70,5 +70,17 @@ static inline char *avb_utils_format_addr(char *str, size_t size, const uint8_t 
 			addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 	return str;
 }
+static inline int avb_utils_parse_addr(const char *str, int len, uint8_t addr[6])
+{
+	char s[64];
+	uint8_t v[6];
+	if (spa_json_parse_stringn(str, len, s, sizeof(s)) <= 0)
+		return -EINVAL;
+	if (sscanf(s, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+			&v[0], &v[1], &v[2], &v[3], &v[4], &v[5]) != 6)
+		return -EINVAL;
+	memcpy(addr, v, 6);
+	return 0;
+}
 
 #endif /* AVB_UTILS_H */

@@ -24,9 +24,12 @@
 
 #include <unistd.h>
 
+#include <spa/utils/json.h>
+
 #include <pipewire/pipewire.h>
 #include <pipewire/conf.h>
 
+#include "utils.h"
 #include "maap.h"
 
 #define MAAP_ALLOCATION_POOL_SIZE	0xFE00
@@ -170,8 +173,10 @@ static int send_packet(struct maap *maap, uint64_t now,
 		AVB_PACKET_MAAP_SET_CONFLICT_COUNT(&p, conflict_count);
 	}
 
-	pw_log_info("send: %d (%s)", type, message_type_as_string(type));
-	maap_message_debug(maap, &p);
+	if (maap->server->debug_messages) {
+		pw_log_info("send: %d (%s)", type, message_type_as_string(type));
+		maap_message_debug(maap, &p);
+	}
 
 	if (send(maap->source->fd, &p, sizeof(p), 0) < 0) {
 		res = -errno;
@@ -220,7 +225,8 @@ static int maap_message(struct maap *maap, uint64_t now, const void *message, in
 	if (AVB_PACKET_GET_SUBTYPE(&p->hdr) != AVB_SUBTYPE_MAAP)
 		return 0;
 
-	maap_message_debug(maap, p);
+	if (maap->server->debug_messages)
+		maap_message_debug(maap, p);
 
 	switch (AVB_PACKET_MAAP_GET_MESSAGE_TYPE(p)) {
 	case AVB_MAAP_MESSAGE_TYPE_PROBE:
@@ -258,6 +264,86 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 	}
 }
 
+static int load_state(struct maap *maap)
+{
+	const char *str;
+	char key[512];
+	struct spa_json it[3];
+	bool have_offset = false;
+	int count = 0, offset = 0;
+
+	snprintf(key, sizeof(key), "maap.%s", maap->server->ifname);
+	pw_conf_load_state("module-avb", key, maap->props);
+
+	if ((str = pw_properties_get(maap->props, "maap.addresses")) == NULL)
+		return 0;
+
+	spa_json_init(&it[0], str, strlen(str));
+	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+		return 0;
+
+	if (spa_json_enter_object(&it[1], &it[2]) <= 0)
+		return 0;
+
+	while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
+		const char *val;
+		int len;
+
+		if ((len = spa_json_next(&it[2], &val)) <= 0)
+			break;
+
+		if (spa_streq(key, "start")) {
+			uint8_t addr[6];
+			if (avb_utils_parse_addr(val, len, addr) >= 0 &&
+			    memcmp(addr, maap_base, 4) == 0) {
+				offset = addr[4] << 8 | addr[5];
+				have_offset = true;
+			}
+		}
+		else if (spa_streq(key, "count")) {
+			spa_json_parse_int(val, len, &count);
+		}
+	}
+	if (count > 0 && have_offset) {
+		maap->count = count;
+		maap->offset = offset;
+		maap->state = STATE_PROBE;
+		maap->probe_count = MAAP_PROBE_RETRANSMITS;
+		maap->timeout = PROBE_TIMEOUT(0);
+	}
+	return 0;
+}
+
+static int save_state(struct maap *maap)
+{
+	char *ptr;
+	size_t size;
+	FILE *f;
+	char key[512];
+	uint32_t count;
+
+	if ((f = open_memstream(&ptr, &size)) == NULL)
+		return -errno;
+
+	fprintf(f, "[ ");
+	fprintf(f, "{ \"start\": \"%02x:%02x:%02x:%02x:%02x:%02x\", ",
+			maap_base[0], maap_base[1], maap_base[2],
+			maap_base[3], (maap->offset >> 8) & 0xff,
+			maap->offset & 0xff);
+	fprintf(f, " \"count\": %u } ", maap->count);
+	fprintf(f, "]");
+	fclose(f);
+
+	count = pw_properties_set(maap->props, "maap.addresses", ptr);
+	free(ptr);
+
+	if (count > 0) {
+		snprintf(key, sizeof(key), "maap.%s", maap->server->ifname);
+		pw_conf_save_state("module-avb", key, maap->props);
+	}
+	return 0;
+}
+
 static void maap_periodic(void *data, uint64_t now)
 {
 	struct maap *maap = data;
@@ -270,8 +356,10 @@ static void maap_periodic(void *data, uint64_t now)
 		break;
 	case STATE_PROBE:
 		send_packet(maap, now, AVB_MAAP_MESSAGE_TYPE_PROBE, NULL, 0);
-		if (--maap->probe_count == 0)
+		if (--maap->probe_count == 0) {
 			maap->state = STATE_ANNOUNCE;
+			save_state(maap);
+		}
 		maap->timeout = PROBE_TIMEOUT(now);
 		break;
 	case STATE_ANNOUNCE:
@@ -324,13 +412,11 @@ struct avb_maap *avb_maap_register(struct server *server)
 		goto error_free;
 	}
 
-	pw_conf_load_state("module-avb", "maap", maap->props);
-
 	maap->server = server;
+	pw_log_info("%lx %d", server->entity_id, server->ifindex);
 
 	pw_getrandom(maap->xsubi, sizeof(maap->xsubi), 0);
-
-	pw_log_info("%lx %d", server->entity_id, server->ifindex);
+	load_state(maap);
 
 	maap->source = pw_loop_add_io(server->impl->loop, fd, SPA_IO_IN, true, on_socket_data, maap);
 	if (maap->source == NULL) {
@@ -354,7 +440,8 @@ error:
 int avb_maap_reserve(struct avb_maap *m, uint32_t count)
 {
 	struct maap *maap = (struct maap*)m;
-	make_new_address(maap, 0, count);
+	if (count > maap->count)
+		make_new_address(maap, 0, count);
 	return 0;
 }
 

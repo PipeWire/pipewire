@@ -99,13 +99,14 @@ struct msg_info {
 	int (*handle) (struct acmp *acmp, uint64_t now, const void *m, int len);
 };
 
-static int reply_not_supported(struct acmp *acmp, const void *m, int len)
+static int reply_not_supported(struct acmp *acmp, uint8_t type, const void *m, int len)
 {
 	struct server *server = acmp->server;
 	uint8_t buf[len];
 	struct avb_packet_acmp *reply = (struct avb_packet_acmp*)buf;
 
 	memcpy(reply, m, len);
+	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, type);
 	AVB_PACKET_ACMP_SET_STATUS(reply, AVB_ACMP_STATUS_NOT_SUPPORTED);
 
 	return avb_server_send_packet(server, reply->hdr.eth.src,
@@ -288,7 +289,7 @@ static int handle_connect_rx_command(struct acmp *acmp, uint64_t now, const void
 			AVB_TSN_ETH, cmd, len);
 }
 
-static int handle_connect_rx_response(struct acmp *acmp, uint64_t now, const void *m, int len)
+static int handle_ignore(struct acmp *acmp, uint64_t now, const void *m, int len)
 {
 	return 0;
 }
@@ -314,26 +315,21 @@ static int handle_disconnect_rx_command(struct acmp *acmp, uint64_t now, const v
 			AVB_TSN_ETH, cmd, len);
 }
 
-static int handle_disconnect_rx_response(struct acmp *acmp, uint64_t now, const void *p, int len)
-{
-	return 0;
-}
-
 static const struct msg_info msg_info[] = {
 	{ AVB_ACMP_MESSAGE_TYPE_CONNECT_TX_COMMAND, "connect-tx-command", handle_connect_tx_command, },
 	{ AVB_ACMP_MESSAGE_TYPE_CONNECT_TX_RESPONSE, "connect-tx-response", handle_connect_tx_response, },
 	{ AVB_ACMP_MESSAGE_TYPE_DISCONNECT_TX_COMMAND, "disconnect-tx-command", handle_disconnect_tx_command, },
 	{ AVB_ACMP_MESSAGE_TYPE_DISCONNECT_TX_RESPONSE, "disconnect-tx-response", handle_disconnect_tx_response, },
 	{ AVB_ACMP_MESSAGE_TYPE_GET_TX_STATE_COMMAND, "get-tx-state-command", NULL, },
-	{ AVB_ACMP_MESSAGE_TYPE_GET_TX_STATE_RESPONSE, "get-tx-state-response", NULL, },
+	{ AVB_ACMP_MESSAGE_TYPE_GET_TX_STATE_RESPONSE, "get-tx-state-response", handle_ignore, },
 	{ AVB_ACMP_MESSAGE_TYPE_CONNECT_RX_COMMAND, "connect-rx-command", handle_connect_rx_command, },
-	{ AVB_ACMP_MESSAGE_TYPE_CONNECT_RX_RESPONSE, "connect-rx-response", handle_connect_rx_response, },
+	{ AVB_ACMP_MESSAGE_TYPE_CONNECT_RX_RESPONSE, "connect-rx-response", handle_ignore, },
 	{ AVB_ACMP_MESSAGE_TYPE_DISCONNECT_RX_COMMAND, "disconnect-rx-command", handle_disconnect_rx_command, },
-	{ AVB_ACMP_MESSAGE_TYPE_DISCONNECT_RX_RESPONSE, "disconnect-rx-response", handle_disconnect_rx_response, },
+	{ AVB_ACMP_MESSAGE_TYPE_DISCONNECT_RX_RESPONSE, "disconnect-rx-response", handle_ignore, },
 	{ AVB_ACMP_MESSAGE_TYPE_GET_RX_STATE_COMMAND, "get-rx-state-command", NULL, },
-	{ AVB_ACMP_MESSAGE_TYPE_GET_RX_STATE_RESPONSE, "get-rx-state-response", NULL, },
+	{ AVB_ACMP_MESSAGE_TYPE_GET_RX_STATE_RESPONSE, "get-rx-state-response", handle_ignore, },
 	{ AVB_ACMP_MESSAGE_TYPE_GET_TX_CONNECTION_COMMAND, "get-tx-connection-command", NULL, },
-	{ AVB_ACMP_MESSAGE_TYPE_GET_TX_CONNECTION_RESPONSE, "get-tx-connection-response", NULL, },
+	{ AVB_ACMP_MESSAGE_TYPE_GET_TX_CONNECTION_RESPONSE, "get-tx-connection-response", handle_ignore, },
 };
 
 static inline const struct msg_info *find_msg_info(uint16_t type, const char *name)
@@ -368,12 +364,12 @@ static int acmp_message(void *data, uint64_t now, const void *message, int len)
 
 	info = find_msg_info(message_type, NULL);
 	if (info == NULL)
-		return reply_not_supported(acmp, p, len);
+		return 0;
 
 	pw_log_info("got ACMP message %s", info->name);
 
 	if (info->handle == NULL)
-		return reply_not_supported(acmp, p, len);
+		return reply_not_supported(acmp, message_type | 1, p, len);
 
 	return info->handle(acmp, now, p, len);
 }

@@ -2213,7 +2213,9 @@ int pw_impl_node_set_active(struct pw_impl_node *node, bool active)
 	bool old = node->active;
 
 	if (old != active) {
-		pw_log_debug("%p: %s", node, active ? "activate" : "deactivate");
+		pw_log_debug("%p: %s registered:%d", node,
+				active ? "activate" : "deactivate",
+				node->registered);
 
 		node->active = active;
 		pw_impl_node_emit_active_changed(node, active);
@@ -2221,6 +2223,8 @@ int pw_impl_node_set_active(struct pw_impl_node *node, bool active)
 		if (node->registered)
 			pw_context_recalc_graph(node->context,
 					active ? "node activate" : "node deactivate");
+		else if (!active && node->exported)
+			pw_loop_invoke(node->data_loop, do_node_remove, 1, NULL, 0, true, node);
 	}
 	return 0;
 }

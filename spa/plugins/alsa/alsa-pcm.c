@@ -1476,6 +1476,10 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		state->buffer_frames = period_size * periods;
 	} else {
 		CHECK(snd_pcm_hw_params_get_buffer_size_max(params, &state->buffer_frames), "get_buffer_size_max");
+
+		state->buffer_frames = SPA_MIN(state->buffer_frames, state->quantum_limit * 4);
+
+		CHECK(snd_pcm_hw_params_set_buffer_size_min(hndl, params, &state->buffer_frames), "set_buffer_size_min");
 		CHECK(snd_pcm_hw_params_set_buffer_size_near(hndl, params, &state->buffer_frames), "set_buffer_size_near");
 		periods = state->buffer_frames / period_size;
 	}

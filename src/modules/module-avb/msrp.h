@@ -98,6 +98,9 @@ struct avb_packet_msrp_listener {
 } __attribute__ ((__packed__));
 
 /* domain discovery */
+#define AVB_MSRP_CLASS_ID_DEFAULT	6
+#define AVB_DEFAULT_VLAN		2
+
 struct avb_packet_msrp_domain {
 	uint8_t sr_class_id;
 	uint8_t sr_class_priority;

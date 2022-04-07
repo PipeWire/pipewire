@@ -28,8 +28,6 @@
 #include "packets.h"
 
 struct avb_packet_iec61883 {
-	struct avb_ethernet_header eth;
-	uint32_t vlan;
 	uint8_t subtype;
 #if __BYTE_ORDER == __BIG_ENDIAN
 	unsigned sv:1;

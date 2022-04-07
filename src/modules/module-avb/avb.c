@@ -79,7 +79,7 @@ struct pw_avb *pw_avb_new(struct pw_context *context,
 
 	spa_list_init(&impl->servers);
 
-	avdecc_server_new(impl, pw_properties_get(props, "ifname"),  NULL);
+	avdecc_server_new(impl, &props->dict);
 
 	return (struct pw_avb*)impl;
 

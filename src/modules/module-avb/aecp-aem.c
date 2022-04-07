@@ -29,14 +29,14 @@ static int reply_status(struct aecp *aecp, int status, const void *m, int len)
 {
 	struct server *server = aecp->server;
 	uint8_t buf[len];
-	struct avb_packet_aecp_header *reply = (struct avb_packet_aecp_header*)buf;
+	struct avb_ethernet_header *h = (void*)buf;
+	struct avb_packet_aecp_header *reply = SPA_PTROFF(h, sizeof(*h), void);
 
-	memcpy(reply, m, len);
+	memcpy(buf, m, len);
 	AVB_PACKET_AECP_SET_MESSAGE_TYPE(reply, AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
 	AVB_PACKET_AECP_SET_STATUS(reply, status);
 
-	return avb_server_send_packet(server, reply->hdr.eth.src,
-			AVB_TSN_ETH, reply, len);
+	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, len);
 }
 
 static int reply_not_implemented(struct aecp *aecp, const void *m, int len)
@@ -101,7 +101,8 @@ static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 static int handle_read_descriptor(struct aecp *aecp, const void *m, int len)
 {
 	struct server *server = aecp->server;
-	const struct avb_packet_aecp_aem *p = m;
+	const struct avb_ethernet_header *h = m;
+	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
 	struct avb_packet_aecp_aem *reply;
 	const struct avb_packet_aecp_aem_read_descriptor *rd;
 	uint16_t desc_type, desc_id;
@@ -118,31 +119,32 @@ static int handle_read_descriptor(struct aecp *aecp, const void *m, int len)
 
 	desc = server_find_descriptor(server, desc_type, desc_id);
 	if (desc == NULL)
-		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
+		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
 
-	memcpy(buf, p, len);
+	memcpy(buf, m, len);
 
 	psize = sizeof(*rd);
-	size = sizeof(*reply) + psize;
+	size = sizeof(*h) + sizeof(*reply) + psize;
 
 	memcpy(buf + size, desc->ptr, desc->size);
 	size += desc->size;
 	psize += desc->size;
 
-	reply = (struct avb_packet_aecp_aem*)buf;
+	h = (void*)buf;
+	reply = SPA_PTROFF(h, sizeof(*h), void);
 	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&reply->aecp, AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
 	AVB_PACKET_AECP_SET_STATUS(&reply->aecp, AVB_AECP_AEM_STATUS_SUCCESS);
 	AVB_PACKET_SET_LENGTH(&reply->aecp.hdr, psize + 12);
 
-	return avb_server_send_packet(server, reply->aecp.hdr.eth.src,
-			AVB_TSN_ETH, reply, size);
+	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, size);
 }
 
 /* GET_AVB_INFO */
 static int handle_get_avb_info(struct aecp *aecp, const void *m, int len)
 {
 	struct server *server = aecp->server;
-	const struct avb_packet_aecp_aem *p = m;
+	const struct avb_ethernet_header *h = m;
+	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
 	struct avb_packet_aecp_aem *reply;
 	struct avb_packet_aecp_aem_get_avb_info *i;
 	struct avb_aem_desc_avb_interface *avb_interface;
@@ -158,19 +160,20 @@ static int handle_get_avb_info(struct aecp *aecp, const void *m, int len)
 
 	desc = server_find_descriptor(server, desc_type, desc_id);
 	if (desc == NULL)
-		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
+		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
 
 	if (desc_type != AVB_AEM_DESC_AVB_INTERFACE || desc_id != 0)
 		return reply_not_implemented(aecp, m, len);
 
 	avb_interface = desc->ptr;
 
-	memcpy(buf, p, len);
+	memcpy(buf, m, len);
 
 	psize = sizeof(*i);
-	size = sizeof(*reply) + psize;
+	size = sizeof(*h) + sizeof(*reply) + psize;
 
-	reply = (struct avb_packet_aecp_aem *)buf;
+	h = (void*)buf;
+	reply = SPA_PTROFF(h, sizeof(*h), void);
 	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&reply->aecp, AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
 	AVB_PACKET_AECP_SET_STATUS(&reply->aecp, AVB_AECP_AEM_STATUS_SUCCESS);
 	AVB_PACKET_SET_LENGTH(&reply->aecp.hdr, psize + 12);
@@ -182,8 +185,7 @@ static int handle_get_avb_info(struct aecp *aecp, const void *m, int len)
 	i->flags = 0;
 	i->msrp_mappings_count = htons(0);
 
-	return avb_server_send_packet(server, reply->aecp.hdr.eth.src,
-			AVB_TSN_ETH, reply, size);
+	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, size);
 }
 
 /* AEM_COMMAND */
@@ -259,7 +261,8 @@ static inline const struct cmd_info *find_cmd_info(uint16_t type, const char *na
 
 int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len)
 {
-	const struct avb_packet_aecp_aem *p = m;
+	const struct avb_ethernet_header *h = m;
+	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
 	uint16_t cmd_type;
 	const struct cmd_info *info;
 

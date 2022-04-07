@@ -55,6 +55,7 @@ struct stream {
 	uint8_t addr[6];
 	struct spa_source *source;
 	int prio;
+	int vlan_id;
 	int mtt;
 	int t_uncertainty;
 	uint32_t frames_per_pdu;

@@ -257,7 +257,7 @@ error_no_source:
 	return res;
 }
 
-struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct spa_dict *props)
+struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 {
 	struct server *server;
 	int res = 0;
@@ -268,7 +268,7 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 
 	server->impl = impl;
 	spa_list_append(&impl->servers, &server->link);
-	server->ifname = strdup(ifname);
+	server->ifname = strdup(spa_dict_lookup(props, "ifname"));
 	spa_hook_list_init(&server->listener_list);
 	spa_list_init(&server->descriptors);
 	spa_list_init(&server->streams);
@@ -294,9 +294,9 @@ struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct s
 
 	server->domain_attr = avb_msrp_attribute_new(server->msrp,
 			AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);
-	server->domain_attr->attr.domain.sr_class_id = 6;
-	server->domain_attr->attr.domain.sr_class_priority = 3;
-	server->domain_attr->attr.domain.sr_class_vid = htons(2);
+	server->domain_attr->attr.domain.sr_class_id = AVB_MSRP_CLASS_ID_DEFAULT;
+	server->domain_attr->attr.domain.sr_class_priority = AVB_MSRP_PRIORITY_DEFAULT;
+	server->domain_attr->attr.domain.sr_class_vid = htons(AVB_DEFAULT_VLAN);
 
 	avb_mrp_attribute_begin(server->domain_attr->mrp, 0);
 	avb_mrp_attribute_join(server->domain_attr->mrp, 0, true);

@@ -143,7 +143,7 @@ static inline struct stream *server_find_stream(struct server *server,
 	return NULL;
 }
 
-struct server *avdecc_server_new(struct impl *impl, const char *ifname, struct spa_dict *props);
+struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props);
 void avdecc_server_free(struct server *server);
 
 void avdecc_server_add_listener(struct server *server, struct spa_hook *listener,

@@ -202,9 +202,9 @@ static int encode_listener(struct msrp *msrp, struct attr *a, void *m)
 static void debug_msrp_domain(const struct avb_packet_msrp_domain *d)
 {
 	pw_log_info("domain");
-	pw_log_info(" %d", d->sr_class_id);
-	pw_log_info(" %d", d->sr_class_priority);
-	pw_log_info(" %d", ntohs(d->sr_class_vid));
+	pw_log_info(" id: %d", d->sr_class_id);
+	pw_log_info(" prio: %d", d->sr_class_priority);
+	pw_log_info(" vid: %d", ntohs(d->sr_class_vid));
 }
 
 static void notify_domain(struct msrp *msrp, uint64_t now, struct attr *attr, uint8_t notify)

@@ -148,37 +148,43 @@ static uint16_t maap_check_conflict(struct maap *maap, const uint8_t request_sta
 static int send_packet(struct maap *maap, uint64_t now,
 		uint8_t type, const uint8_t conflict_start[6], uint16_t conflict_count)
 {
-	struct avb_packet_maap p;
+	struct avb_ethernet_header *h;
+	struct avb_packet_maap *p;
+	uint8_t buf[1024];
 	uint8_t bmac[6] = AVB_MAAP_MAC;
 	int res = 0;
 	uint8_t start[6];
 
-	spa_zero(p);
-	memcpy(p.hdr.eth.dest, bmac, 6);
-	memcpy(p.hdr.eth.src, maap->server->mac_addr, 6);
-	p.hdr.eth.type = htons(AVB_TSN_ETH);
-	p.hdr.subtype = AVB_SUBTYPE_MAAP;
-	AVB_PACKET_SET_LENGTH(&p.hdr, sizeof(p) - sizeof(p.hdr.eth));
+	spa_memzero(buf, sizeof(buf));
+	h = (void*)buf;
+	p = SPA_PTROFF(h, sizeof(*h), void);
 
-	AVB_PACKET_MAAP_SET_MAAP_VERSION(&p, 1);
-	AVB_PACKET_MAAP_SET_MESSAGE_TYPE(&p, type);
+	memcpy(h->dest, bmac, 6);
+	memcpy(h->src, maap->server->mac_addr, 6);
+	h->type = htons(AVB_TSN_ETH);
+
+	p->hdr.subtype = AVB_SUBTYPE_MAAP;
+	AVB_PACKET_SET_LENGTH(&p->hdr, sizeof(*p));
+
+	AVB_PACKET_MAAP_SET_MAAP_VERSION(p, 1);
+	AVB_PACKET_MAAP_SET_MESSAGE_TYPE(p, type);
 
 	memcpy(start, maap_base, 4);
 	start[4] = maap->offset >> 8;
 	start[5] = maap->offset;
-	AVB_PACKET_MAAP_SET_REQUEST_START(&p, start);
-	AVB_PACKET_MAAP_SET_REQUEST_COUNT(&p, maap->count);
+	AVB_PACKET_MAAP_SET_REQUEST_START(p, start);
+	AVB_PACKET_MAAP_SET_REQUEST_COUNT(p, maap->count);
 	if (conflict_count) {
-		AVB_PACKET_MAAP_SET_CONFLICT_START(&p, conflict_start);
-		AVB_PACKET_MAAP_SET_CONFLICT_COUNT(&p, conflict_count);
+		AVB_PACKET_MAAP_SET_CONFLICT_START(p, conflict_start);
+		AVB_PACKET_MAAP_SET_CONFLICT_COUNT(p, conflict_count);
 	}
 
 	if (maap->server->debug_messages) {
 		pw_log_info("send: %d (%s)", type, message_type_as_string(type));
-		maap_message_debug(maap, &p);
+		maap_message_debug(maap, p);
 	}
 
-	if (send(maap->source->fd, &p, sizeof(p), 0) < 0) {
+	if (send(maap->source->fd, p, sizeof(*h) + sizeof(*p), 0) < 0) {
 		res = -errno;
 		pw_log_warn("got send error: %m");
 	}

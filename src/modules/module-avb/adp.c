@@ -35,9 +35,12 @@ static const uint8_t mac[6] = AVB_BROADCAST_MAC;
 
 struct entity {
 	struct spa_list link;
-	struct avb_packet_adp packet;
+	uint64_t entity_id;
 	uint64_t last_time;
+	int valid_time;
 	unsigned advertise:1;
+	size_t len;
+	uint8_t buf[128];
 };
 
 struct adp {
@@ -52,7 +55,7 @@ static struct entity *find_entity_by_id(struct adp *adp, uint64_t id)
 {
 	struct entity *e;
 	spa_list_for_each(e, &adp->entities, link)
-		if (be64toh(e->packet.entity_id) == id)
+		if (e->entity_id == id)
 			return e;
 	return NULL;
 }
@@ -64,31 +67,41 @@ static void entity_free(struct entity *e)
 
 static int send_departing(struct adp *adp, uint64_t now, struct entity *e)
 {
-	AVB_PACKET_ADP_SET_MESSAGE_TYPE(&e->packet, AVB_ADP_MESSAGE_TYPE_ENTITY_DEPARTING);
-	e->packet.available_index = htonl(adp->available_index++);
-	avb_server_send_packet(adp->server, mac, AVB_TSN_ETH, &e->packet, sizeof(e->packet));
+	struct avb_ethernet_header *h = (void*)e->buf;
+	struct avb_packet_adp *p = SPA_PTROFF(h, sizeof(*h), void);
+
+	AVB_PACKET_ADP_SET_MESSAGE_TYPE(p, AVB_ADP_MESSAGE_TYPE_ENTITY_DEPARTING);
+	p->available_index = htonl(adp->available_index++);
+	avb_server_send_packet(adp->server, mac, AVB_TSN_ETH, e->buf, e->len);
 	e->last_time = now;
 	return 0;
 }
 
 static int send_advertise(struct adp *adp, uint64_t now, struct entity *e)
 {
-	AVB_PACKET_ADP_SET_MESSAGE_TYPE(&e->packet, AVB_ADP_MESSAGE_TYPE_ENTITY_AVAILABLE);
-	e->packet.available_index = htonl(adp->available_index++);
-	avb_server_send_packet(adp->server, mac, AVB_TSN_ETH, &e->packet, sizeof(e->packet));
+	struct avb_ethernet_header *h = (void*)e->buf;
+	struct avb_packet_adp *p = SPA_PTROFF(h, sizeof(*h), void);
+
+	AVB_PACKET_ADP_SET_MESSAGE_TYPE(p, AVB_ADP_MESSAGE_TYPE_ENTITY_AVAILABLE);
+	p->available_index = htonl(adp->available_index++);
+	avb_server_send_packet(adp->server, mac, AVB_TSN_ETH, e->buf, e->len);
 	e->last_time = now;
 	return 0;
 }
 
 static int send_discover(struct adp *adp, uint64_t entity_id)
 {
-	struct avb_packet_adp p;
-	spa_zero(p);
-	AVB_PACKET_SET_SUBTYPE(&p.hdr, AVB_SUBTYPE_ADP);
-	AVB_PACKET_SET_LENGTH(&p.hdr, AVB_ADP_CONTROL_DATA_LENGTH);
-	AVB_PACKET_ADP_SET_MESSAGE_TYPE(&p, AVB_ADP_MESSAGE_TYPE_ENTITY_DISCOVER);
-	p.entity_id = htonl(entity_id);
-	avb_server_send_packet(adp->server, mac, AVB_TSN_ETH, &p, sizeof(p));
+	uint8_t buf[128];
+	struct avb_ethernet_header *h = (void*)buf;
+	struct avb_packet_adp *p = SPA_PTROFF(h, sizeof(*h), void);
+	size_t len = sizeof(*h) + sizeof(*p);
+
+	spa_memzero(buf, sizeof(buf));
+	AVB_PACKET_SET_SUBTYPE(&p->hdr, AVB_SUBTYPE_ADP);
+	AVB_PACKET_SET_LENGTH(&p->hdr, AVB_ADP_CONTROL_DATA_LENGTH);
+	AVB_PACKET_ADP_SET_MESSAGE_TYPE(p, AVB_ADP_MESSAGE_TYPE_ENTITY_DISCOVER);
+	p->entity_id = htonl(entity_id);
+	avb_server_send_packet(adp->server, mac, AVB_TSN_ETH, buf, len);
 	return 0;
 }
 
@@ -96,16 +109,17 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 {
 	struct adp *adp = data;
 	struct server *server = adp->server;
-	const struct avb_packet_adp *p = message;
+	const struct avb_ethernet_header *h = message;
+	const struct avb_packet_adp *p = SPA_PTROFF(h, sizeof(*h), void);
 	struct entity *e;
 	int message_type;
 	char buf[128];
 	uint64_t entity_id;
 
-	if (ntohs(p->hdr.eth.type) != AVB_TSN_ETH)
+	if (ntohs(h->type) != AVB_TSN_ETH)
 		return 0;
-	if (memcmp(p->hdr.eth.dest, mac, 6) != 0 &&
-	    memcmp(p->hdr.eth.dest, server->mac_addr, 6) != 0)
+	if (memcmp(h->dest, mac, 6) != 0 &&
+	    memcmp(h->dest, server->mac_addr, 6) != 0)
 		return 0;
 
 	if (AVB_PACKET_GET_SUBTYPE(&p->hdr) != AVB_SUBTYPE_ADP ||
@@ -124,7 +138,10 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 			if (e == NULL)
 				return -errno;
 
-			e->packet = *p;
+			memcpy(e->buf, message, len);
+			e->len = len;
+			e->valid_time = AVB_PACKET_ADP_GET_VALID_TIME(p);
+			e->entity_id = entity_id;
 			spa_list_append(&adp->entities, &e->link);
 			pw_log_info("entity %s available",
 				avb_utils_format_id(buf, sizeof(buf), entity_id));
@@ -145,8 +162,8 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 			spa_list_for_each(e, &adp->entities, link)
 				if (e->advertise)
 					send_advertise(adp, now, e);
-		} else if (e != NULL && e->advertise &&
-		     be64toh(e->packet.entity_id) == entity_id) {
+		} else if (e != NULL &&
+		    e->advertise && e->entity_id == entity_id) {
 			send_advertise(adp, now, e);
 		}
 		break;
@@ -169,14 +186,11 @@ static void check_timeout(struct adp *adp, uint64_t now)
 	char buf[128];
 
 	spa_list_for_each_safe(e, t, &adp->entities, link) {
-		int valid_time = AVB_PACKET_ADP_GET_VALID_TIME(&e->packet);
-
-		if (e->last_time + (valid_time + 2) * SPA_NSEC_PER_SEC > now)
+		if (e->last_time + (e->valid_time + 2) * SPA_NSEC_PER_SEC > now)
 			continue;
 
 		pw_log_info("entity %s timeout",
-			avb_utils_format_id(buf, sizeof(buf),
-				be64toh(e->packet.entity_id)));
+			avb_utils_format_id(buf, sizeof(buf), e->entity_id));
 
 		if (e->advertise)
 			send_departing(adp, now, e);
@@ -186,18 +200,16 @@ static void check_timeout(struct adp *adp, uint64_t now)
 }
 static void check_readvertize(struct adp *adp, uint64_t now, struct entity *e)
 {
-	int valid_time = AVB_PACKET_ADP_GET_VALID_TIME(&e->packet);
 	char buf[128];
 
 	if (!e->advertise)
 		return;
 
-	if (e->last_time + (valid_time / 2) * SPA_NSEC_PER_SEC > now)
+	if (e->last_time + (e->valid_time / 2) * SPA_NSEC_PER_SEC > now)
 		return;
 
 	pw_log_debug("entity %s readvertise",
-		avb_utils_format_id(buf, sizeof(buf),
-			be64toh(e->packet.entity_id)));
+		avb_utils_format_id(buf, sizeof(buf), e->entity_id));
 
 	send_advertise(adp, now, e);
 }
@@ -210,6 +222,7 @@ static int check_advertise(struct adp *adp, uint64_t now)
 	struct avb_aem_desc_avb_interface *avb_interface;
 	struct entity *e;
 	uint64_t entity_id;
+	struct avb_ethernet_header *h;
 	struct avb_packet_adp *p;
 	char buf[128];
 
@@ -237,13 +250,17 @@ static int check_advertise(struct adp *adp, uint64_t now)
 		return -errno;
 
 	e->advertise = true;
+	e->valid_time = 10;
 	e->last_time = now;
+	e->entity_id = entity_id;
+	e->len = sizeof(*h) + sizeof(*p);
 
-	p = &e->packet;
+	h = (void*)e->buf;
+	p = SPA_PTROFF(h, sizeof(*h), void);
 	AVB_PACKET_SET_LENGTH(&p->hdr, AVB_ADP_CONTROL_DATA_LENGTH);
 	AVB_PACKET_SET_SUBTYPE(&p->hdr, AVB_SUBTYPE_ADP);
 	AVB_PACKET_ADP_SET_MESSAGE_TYPE(p, AVB_ADP_MESSAGE_TYPE_ENTITY_AVAILABLE);
-	AVB_PACKET_ADP_SET_VALID_TIME(p, 10);
+	AVB_PACKET_ADP_SET_VALID_TIME(p, e->valid_time);
 
 	p->entity_id = entity->entity_id;
 	p->entity_model_id = entity->entity_model_id;

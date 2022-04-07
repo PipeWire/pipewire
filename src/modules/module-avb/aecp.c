@@ -43,13 +43,13 @@ static int reply_not_implemented(struct aecp *aecp, const void *p, int len)
 {
 	struct server *server = aecp->server;
 	uint8_t buf[len];
-	struct avb_packet_aecp_header *reply = (struct avb_packet_aecp_header*)buf;
+	struct avb_ethernet_header *h = (void*)buf;
+	struct avb_packet_aecp_header *reply = SPA_PTROFF(h, sizeof(*h), void);
 
-	memcpy(reply, p, len);
+	memcpy(h, p, len);
 	AVB_PACKET_AECP_SET_STATUS(reply, AVB_AECP_STATUS_NOT_IMPLEMENTED);
 
-	return avb_server_send_packet(server, reply->hdr.eth.src,
-			AVB_TSN_ETH, reply, len);
+	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, len);
 }
 
 static const struct msg_info msg_info[] = {
@@ -80,14 +80,15 @@ static int aecp_message(void *data, uint64_t now, const void *message, int len)
 {
 	struct aecp *aecp = data;
 	struct server *server = aecp->server;
-	const struct avb_packet_aecp_header *p = message;
+	const struct avb_ethernet_header *h = message;
+	const struct avb_packet_aecp_header *p = SPA_PTROFF(h, sizeof(*h), void);
 	const struct msg_info *info;
 	int message_type;
 
-	if (ntohs(p->hdr.eth.type) != AVB_TSN_ETH)
+	if (ntohs(h->type) != AVB_TSN_ETH)
 		return 0;
-	if (memcmp(p->hdr.eth.dest, mac, 6) != 0 &&
-	    memcmp(p->hdr.eth.dest, server->mac_addr, 6) != 0)
+	if (memcmp(h->dest, mac, 6) != 0 &&
+	    memcmp(h->dest, server->mac_addr, 6) != 0)
 		return 0;
 	if (AVB_PACKET_GET_SUBTYPE(&p->hdr) != AVB_SUBTYPE_AECP)
 		return 0;
@@ -96,14 +97,14 @@ static int aecp_message(void *data, uint64_t now, const void *message, int len)
 
 	info = find_msg_info(message_type, NULL);
 	if (info == NULL)
-		return reply_not_implemented(aecp, p, len);
+		return reply_not_implemented(aecp, message, len);
 
 	pw_log_debug("got AECP message %s", info->name);
 
 	if (info->handle == NULL)
-		return reply_not_implemented(aecp, p, len);
+		return reply_not_implemented(aecp, message, len);
 
-	return info->handle(aecp, p, len);
+	return info->handle(aecp, message, len);
 }
 
 static void aecp_destroy(void *data)

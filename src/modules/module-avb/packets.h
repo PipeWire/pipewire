@@ -54,8 +54,15 @@ struct avb_ethernet_header {
 	uint16_t type;
 } __attribute__ ((__packed__));
 
+struct avb_frame_header {
+	uint8_t dest[6];
+	uint8_t src[6];
+	uint16_t type;		/* 802.1Q Virtual Lan 0x8100 */
+	uint16_t prio_cfi_id;
+	uint16_t etype;
+} __attribute__ ((__packed__));
+
 struct avb_packet_header {
-	struct avb_ethernet_header eth;
 	uint8_t subtype;
 #if __BYTE_ORDER == __BIG_ENDIAN
 	unsigned sv:1;			/* stream_id valid */

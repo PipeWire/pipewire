@@ -67,7 +67,7 @@ static void on_source_stream_process(void *data)
 	avail = spa_ringbuffer_get_read_index(&stream->ring, &index);
 
 	if (avail < wanted) {
-		pw_log_warn("capture underrun %d < %d", avail, wanted);
+		pw_log_debug("capture underrun %d < %d", avail, wanted);
 		memset(d[0].data, 0, n_bytes);
 	} else {
 		spa_ringbuffer_read_data(&stream->ring,
@@ -110,7 +110,8 @@ static int flush_write(struct stream *stream, uint64_t current_time)
         uint64_t ptime, txtime;
 	int pdu_count;
 	ssize_t n;
-	struct avb_packet_iec61883 *p = (struct avb_packet_iec61883*)stream->pdu;
+	struct avb_frame_header *h = (void*)stream->pdu;
+	struct avb_packet_iec61883 *p = SPA_PTROFF(h, sizeof(*h), void);
 
 	avail = spa_ringbuffer_get_read_index(&stream->ring, &index);
 
@@ -186,16 +187,21 @@ static void on_sink_stream_process(void *data)
 
 static void setup_pdu(struct stream *stream)
 {
-	struct avb_packet_iec61883 *p = (struct avb_packet_iec61883*)stream->pdu;
+	struct avb_frame_header *h;
+	struct avb_packet_iec61883 *p;
 	ssize_t payload_size, hdr_size, pdu_size;
 
-	hdr_size = sizeof(*p);
+	spa_memzero(stream->pdu, sizeof(stream->pdu));
+	h = (struct avb_frame_header*)stream->pdu;
+	p = SPA_PTROFF(h, sizeof(*h), void);
+
+	hdr_size = sizeof(*h) + sizeof(*p);
 	payload_size = stream->stride * stream->frames_per_pdu;
 	pdu_size = hdr_size + payload_size;
 
-	spa_zero(stream->pdu);
-	p->eth.type = htons(0x8100);
-	p->vlan = htonl(0x600222f0);
+	h->type = htons(0x8100);
+	h->prio_cfi_id = htons((stream->prio << 13) | stream->vlan_id);
+	h->etype = htons(0x22f0);
 
 	if (stream->direction == SPA_DIRECTION_OUTPUT) {
 		p->subtype = AVB_SUBTYPE_61883_IIDC;
@@ -272,6 +278,9 @@ struct stream *server_create_stream(struct server *server,
 	stream->desc = desc;
 	spa_list_append(&server->streams, &stream->link);
 
+	stream->prio = AVB_MSRP_PRIORITY_DEFAULT;
+	stream->vlan_id = AVB_DEFAULT_VLAN;
+
 	stream->id = (uint64_t)server->mac_addr[0] << 56 |
 			(uint64_t)server->mac_addr[1] << 48 |
 			(uint64_t)server->mac_addr[2] << 40 |
@@ -284,16 +293,16 @@ struct stream *server_create_stream(struct server *server,
 			AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
 	stream->talker_attr = avb_msrp_attribute_new(server->msrp,
 			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
-	stream->talker_attr->attr.talker.vlan_id = htons(2);
+	stream->talker_attr->attr.talker.vlan_id = htons(stream->vlan_id);
 	stream->talker_attr->attr.talker.tspec_max_interval_frames =
 		htons(AVB_MSRP_TSPEC_MAX_INTERVAL_FRAMES_DEFAULT);
-	stream->talker_attr->attr.talker.priority = AVB_MSRP_PRIORITY_DEFAULT;
+	stream->talker_attr->attr.talker.priority = stream->prio;
 	stream->talker_attr->attr.talker.rank = AVB_MSRP_RANK_DEFAULT;
 	stream->talker_attr->attr.talker.accumulated_latency = 0;
 
 	stream->vlan_attr = avb_mvrp_attribute_new(server->mvrp,
 			AVB_MVRP_ATTRIBUTE_TYPE_VID);
-	stream->vlan_attr->attr.vid.vlan = htons(2);
+	stream->vlan_attr->attr.vid.vlan = htons(stream->vlan_id);
 
 	stream->buffer_data = calloc(1, BUFFER_SIZE);
 	stream->buffer_size = BUFFER_SIZE;
@@ -455,14 +464,13 @@ static void handle_iec61883_packet(struct stream *stream,
 {
 	uint32_t index, n_bytes;
 	int32_t filled;
-	bool overrun = false;
 
 	filled = spa_ringbuffer_get_write_index(&stream->ring, &index);
-	overrun = filled > (int32_t) stream->buffer_size;
-	if (overrun) {
-		pw_log_warn("capture overrun %zd < %d", stream->buffer_size, filled);
+	n_bytes = ntohs(p->data_len) - 8;
+
+	if (filled + n_bytes > stream->buffer_size) {
+		pw_log_debug("capture overrun");
 	} else {
-		n_bytes = ntohs(p->data_len) - 8;
 		spa_ringbuffer_write_data(&stream->ring,
 				stream->buffer_data,
 				stream->buffer_size,
@@ -471,7 +479,6 @@ static void handle_iec61883_packet(struct stream *stream,
 		index += n_bytes;
 		spa_ringbuffer_write_update(&stream->ring, index);
 	}
-
 }
 
 static void on_socket_data(void *data, int fd, uint32_t mask)
@@ -491,13 +498,14 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 			pw_log_warn("short packet received (%d < %d)", len,
 					(int)sizeof(struct avb_packet_header));
 		} else {
-			struct avb_packet_iec61883 *h = (struct avb_packet_iec61883*)buffer;
+			struct avb_frame_header *h = (void*)buffer;
+			struct avb_packet_iec61883 *p = SPA_PTROFF(h, sizeof(*h), void);
 
-			if (memcmp(h->eth.dest, stream->addr, 6) != 0 ||
-			    h->subtype != AVB_SUBTYPE_61883_IIDC)
+			if (memcmp(h->dest, stream->addr, 6) != 0 ||
+			    p->subtype != AVB_SUBTYPE_61883_IIDC)
 				return;
 
-			handle_iec61883_packet(stream, h, len);
+			handle_iec61883_packet(stream, p, len - sizeof(*h));
 		}
 	}
 }
@@ -505,7 +513,7 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 int stream_activate(struct stream *stream, uint64_t now)
 {
 	struct server *server = stream->server;
-	struct avb_ethernet_header *h = (struct avb_ethernet_header *)stream->pdu;
+	struct avb_frame_header *h = (void*)stream->pdu;
 	int fd, res;
 
 	if (stream->source == NULL) {

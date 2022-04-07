@@ -26,7 +26,6 @@
 #define AVB_AAF_H
 
 struct avb_packet_aaf {
-	struct avb_ethernet_header hdr;
 	uint8_t subtype;
 #if __BYTE_ORDER == __BIG_ENDIAN
 	unsigned sv:1;

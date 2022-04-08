@@ -30,6 +30,7 @@
 
 #include <dbus/dbus.h>
 
+#include <spa/utils/result.h>
 #include <spa/support/dbus.h>
 
 #include "pipewire/pipewire.h"
@@ -95,7 +96,8 @@ static void show_help(const char *name, bool error)
              "  -n, --name                            Name to reserve (Audio0, Midi0, Video0, ..)\n"
              "  -a, --appname                         Application Name (default %s)\n"
              "  -p, --priority                        Priority (default %d)\n"
-             "  -m, --monitor                         Monitor only, don't try to acquire\n",
+             "  -m, --monitor                         Monitor only, don't try to acquire\n"
+             "  -r, --release                         Request release when busy\n",
 	     name, DEFAULT_APPNAME, DEFAULT_PRIORITY);
 }
 
@@ -107,6 +109,7 @@ int main(int argc, char *argv[])
 	const char *opt_name = NULL;
 	const char *opt_appname = DEFAULT_APPNAME;
 	bool opt_monitor = false;
+	bool opt_release = false;
 	int opt_priority= DEFAULT_PRIORITY;
 
 	int res = 0, c;
@@ -117,6 +120,7 @@ int main(int argc, char *argv[])
 		{ "app",	required_argument,	NULL, 'a' },
 		{ "priority",	required_argument,	NULL, 'p' },
 		{ "monitor",	no_argument,		NULL, 'm' },
+		{ "release",	no_argument,		NULL, 'r' },
 		{ NULL, 0, NULL, 0}
 	};
 
@@ -125,7 +129,7 @@ int main(int argc, char *argv[])
 	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hVn:a:p:m", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVn:a:p:mr", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(argv[0], false);
@@ -149,6 +153,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'm':
 			opt_monitor = true;
+			break;
+		case 'r':
+			opt_release = true;
 			break;
 		default:
 			show_help(argv[0], true);
@@ -204,8 +211,19 @@ int main(int argc, char *argv[])
 			opt_priority,
 			&reserve_callbacks, &impl);
 
-	if (!opt_monitor)
-		rd_device_acquire(impl.device);
+	if (!opt_monitor) {
+		res = rd_device_acquire(impl.device);
+		if (res == -EBUSY) {
+			printf("device %s is busy, use -r to attempt to release\n", opt_name);
+			if (opt_release) {
+				printf("doing RequestRelease on %s\n", opt_name);
+				res = rd_device_request_release(impl.device);
+			}
+		} else {
+			printf("Device %s can not be acquired: %s\n", opt_name,
+					spa_strerror(res));
+		}
+	}
 
 	pw_main_loop_run(impl.mainloop);
 

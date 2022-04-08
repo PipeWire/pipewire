@@ -1,3 +1,94 @@
+# PipeWire 0.3.50 (2022-04-13)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - pw-stream can now report more timing information and can suggest
+    the optimal number of samples to queue for playback.
+  - pw-dot now works again..
+  - module-pulse-tunnel latency was improved.
+  - WINE applications using the JACK backend should no longer crash.
+  - The channelmixer defaults are improved and the muffled sound when
+    playing back 5.1 and 7.1 material has been fixed.
+  - Many fixes and improvements.
+
+
+## PipeWire
+  - pw-stream now places a suggested amount of samples in the pw-buffer
+    for playback. This allows you to remove some places where
+    spa_io_rate_match was needed to get this information.
+  - pw-stream has new API to request a timing update. New fields are
+    added in the timing info, such as number of buffered samples in
+    the resampler and the number of queued and dequeued buffers.
+  - pw-stream has support for double controls now. More controls are
+    exposed such as the Rate control to do adaptive resampling.
+  - The thread-utils object was moved to the context to avoid some
+    concurrent use cases that caused crashes. (#2252)
+  - Deactivating an exported node/stream will now remove the node from
+    the data-thread immediately so that the process function will not
+    be called anymore and resources can be safely freed. This could
+    fix some of the last remaining crashes when streams are stopped.
+  - PipeWire will now fail to load a module that tries to register
+    the same export type twice instead of silently doing the wrong
+    thing. (#2281)
+
+## Modules
+  - Many modules now use the NODE_WANT_DRIVER instead of the
+    pipewire.dummy NODE_GROUP property. This makes it possible to use
+    them with any other driver and can avoid resampling in some
+    cases.
+  - module-pulse-tunnel now uses an adaptive resampler to keep the
+    latency under control. Latency should be much better than before
+    and stay constant even when there are network delays.
+  - There is now an option for packages to disable building the RTKit
+    module, which is still built by default for backwards compatibility
+    reasons.
+  - A leak was fixed in filter-chain. (#2220)
+  - Module node names are now made more unique with the pid.
+
+## tools
+  - pw-cat verbose output has been improved.
+  - pw-link now has a man page. (#2263)
+  - pw-reserve now has an -r option to make it issue a RequestRelease
+    command on the owner of the device. This makes it possible to ask
+    WirePlumber to close and release a device.
+  - Fix pw-dot again. It didn't work anymore because of stray done
+    events that were emitted to notify the client of object serials.
+    (#2253)
+
+## SPA
+  - The channelmixer now has PSD upmixing enabled again. We used the
+    simple upmixing in the previous release but that just sounds too
+    aweful to be a good default. (#861) and (#2219)
+  - The channelmixer will not upmix FC and LFE anymore when upmixing is
+    explicitly disabled. (#2266)
+  - The channelmixer will only lowpass filter FC and LFE channels when
+    they were upmixed. (#2280)
+  - The defaults of the channelmixer were tweaked a little. There is now
+    a little bit more bass in the LFE channel and more high fequencies
+    in the FC channel when upmixing. Also the channel widening has been
+    disabled by default.
+  - Locale independent float parsing now uses a more portable solution
+    with uselocale.
+  - ALSA will now only allocate a buffer size big enough to hold 4
+    times the quantum limit instead of as large as possible.
+
+## pulse-server
+  - Internal cleanups in handling of modules.
+  - A quirk to force s16 sample formats for teams-insider has been added.
+
+## JACK
+  - The data-loop is now started in activate and stopped in deactivate.
+    This makes the data-loop respect any custom thread functions you
+    configure. This also makes WINE apps using the JACK backend work.
+    (#1495).
+  - Port sorting was improved/fixed. (#2260)
+
+
+Older versions:
+
+
 # PipeWire 0.3.49 (2022-03-29)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -67,9 +158,6 @@ This is a bugfix release that is API and ABI compatible with previous
   - Clear the last error before executing a new action or else we could end up
     with error from a previous action. This causes some problems in Ardour where
     adding a track would fail after some time. (#1714)
-
-
-Older versions:
 
 
 # PipeWire 0.3.48 (2022-03-03)

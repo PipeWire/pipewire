@@ -112,6 +112,7 @@ static int flush_write(struct stream *stream, uint64_t current_time)
 	ssize_t n;
 	struct avb_frame_header *h = (void*)stream->pdu;
 	struct avb_packet_iec61883 *p = SPA_PTROFF(h, sizeof(*h), void);
+	uint8_t dbc;
 
 	avail = spa_ringbuffer_get_read_index(&stream->ring, &index);
 
@@ -119,6 +120,7 @@ static int flush_write(struct stream *stream, uint64_t current_time)
 
 	txtime = current_time + stream->t_uncertainty;
 	ptime = txtime + stream->mtt;
+	dbc = stream->dbc;
 
 	while (pdu_count--) {
 		*(uint64_t*)CMSG_DATA(stream->cmsg) = txtime;
@@ -132,6 +134,7 @@ static int flush_write(struct stream *stream, uint64_t current_time)
 		p->seq_num = stream->pdu_seq++;
 		p->tv = 1;
 		p->timestamp = ptime;
+		p->dbc = dbc;
 
 		n = sendmsg(stream->source->fd, &stream->msg, 0);
 		if (n < 0 || n != (ssize_t)stream->pdu_size) {
@@ -141,7 +144,9 @@ static int flush_write(struct stream *stream, uint64_t current_time)
 		txtime += stream->pdu_period;
 		ptime += stream->pdu_period;
 		index += stream->payload_size;
+		dbc += stream->frames_per_pdu;
 	}
+	stream->dbc = dbc;
 	spa_ringbuffer_read_update(&stream->ring, index);
 	return 0;
 }
@@ -212,11 +217,11 @@ static void setup_pdu(struct stream *stream)
 		p->channel = 0x1f;
 		p->tcode = 0xa;
 		p->sid = 0x3f;
-		p->dbs = 0x8;
+		p->dbs = stream->info.info.raw.channels;
 		p->qi2 = 0x2;
 		p->format_id = 0x10;
 		p->fdf = 0x2;
-		p->syt = htons(0xffff);
+		p->syt = htons(0x0008);
 	}
 	stream->hdr_size = hdr_size;
 	stream->payload_size = payload_size;
@@ -289,17 +294,6 @@ struct stream *server_create_stream(struct server *server,
 			(uint64_t)server->mac_addr[5] << 16 |
 			htons(index);
 
-	stream->listener_attr = avb_msrp_attribute_new(server->msrp,
-			AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
-	stream->talker_attr = avb_msrp_attribute_new(server->msrp,
-			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
-	stream->talker_attr->attr.talker.vlan_id = htons(stream->vlan_id);
-	stream->talker_attr->attr.talker.tspec_max_interval_frames =
-		htons(AVB_MSRP_TSPEC_MAX_INTERVAL_FRAMES_DEFAULT);
-	stream->talker_attr->attr.talker.priority = stream->prio;
-	stream->talker_attr->attr.talker.rank = AVB_MSRP_RANK_DEFAULT;
-	stream->talker_attr->attr.talker.accumulated_latency = 0;
-
 	stream->vlan_attr = avb_mvrp_attribute_new(server->mvrp,
 			AVB_MVRP_ATTRIBUTE_TYPE_VID);
 	stream->vlan_attr->attr.vid.vlan = htons(stream->vlan_id);
@@ -339,7 +333,7 @@ struct stream *server_create_stream(struct server *server,
 	stream->info.info.raw.flags = SPA_AUDIO_FLAG_UNPOSITIONED;
 	stream->info.info.raw.rate = 48000;
 	stream->info.info.raw.channels = 8;
-	stream->stride = 8 * 4;
+	stream->stride = stream->info.info.raw.channels * 4;
 
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
@@ -361,6 +355,19 @@ struct stream *server_create_stream(struct server *server,
 
 	setup_pdu(stream);
 	setup_msg(stream);
+
+	stream->listener_attr = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
+	stream->talker_attr = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
+	stream->talker_attr->attr.talker.vlan_id = htons(stream->vlan_id);
+	stream->talker_attr->attr.talker.tspec_max_frame_size = htons(32 + stream->frames_per_pdu * stream->stride);
+		htons(AVB_MSRP_TSPEC_MAX_INTERVAL_FRAMES_DEFAULT);
+	stream->talker_attr->attr.talker.tspec_max_interval_frames =
+		htons(AVB_MSRP_TSPEC_MAX_INTERVAL_FRAMES_DEFAULT);
+	stream->talker_attr->attr.talker.priority = stream->prio;
+	stream->talker_attr->attr.talker.rank = AVB_MSRP_RANK_DEFAULT;
+	stream->talker_attr->attr.talker.accumulated_latency = htonl(95);
 
 	return stream;
 

@@ -68,6 +68,7 @@ struct stream {
 	int64_t pdu_period;
 	uint8_t pdu_seq;
 	uint8_t prev_seq;
+	uint8_t dbc;
 
 	struct iovec iov[3];
 	struct sockaddr_ll sock_addr;

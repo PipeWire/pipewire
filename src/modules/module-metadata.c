@@ -212,11 +212,15 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	data->export_metadata.type = PW_TYPE_INTERFACE_Metadata;
 	data->export_metadata.func = pw_core_metadata_export;
-	pw_context_register_export_type(context, &data->export_metadata);
+	if ((res = pw_context_register_export_type(context, &data->export_metadata)) < 0)
+		goto error;
 
 	pw_impl_module_add_listener(module, &data->module_listener, &module_events, data);
 
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
+error:
+	pw_impl_factory_destroy(data->this);
+	return res;
 }

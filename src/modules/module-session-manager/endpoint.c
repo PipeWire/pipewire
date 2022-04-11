@@ -540,6 +540,7 @@ int endpoint_factory_init(struct pw_impl_module *module)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_impl_factory *factory;
 	struct factory_data *data;
+	int res;
 
 	factory = pw_context_create_factory(context,
 				 "endpoint",
@@ -558,9 +559,13 @@ int endpoint_factory_init(struct pw_impl_module *module)
 
 	data->export.type = PW_TYPE_INTERFACE_Endpoint;
 	data->export.func = pw_core_endpoint_export;
-	pw_context_register_export_type(context, &data->export);
+	if ((res = pw_context_register_export_type(context, &data->export)) < 0)
+		goto error;
 
 	pw_impl_module_add_listener(module, &data->module_listener, &module_events, data);
 
 	return 0;
+error:
+	pw_impl_factory_destroy(data->this);
+	return res;
 }

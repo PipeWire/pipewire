@@ -175,6 +175,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_impl_factory *factory;
 	struct factory_data *data;
+	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 	factory = pw_context_create_factory(context,
@@ -198,15 +199,19 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				      &impl_factory,
 				      data);
 
-	pw_protocol_native_ext_client_device_init(context);
-
 	data->export_spadevice.type = SPA_TYPE_INTERFACE_Device;
 	data->export_spadevice.func = pw_core_spa_device_export;
-	pw_context_register_export_type(context, &data->export_spadevice);
+	if ((res = pw_context_register_export_type(context, &data->export_spadevice)) < 0)
+		goto error;
+
+	pw_protocol_native_ext_client_device_init(context);
 
 	pw_impl_module_add_listener(module, &data->module_listener, &module_events, data);
 
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	return 0;
+error:
+	pw_impl_factory_destroy(data->this);
+	return res;
 }

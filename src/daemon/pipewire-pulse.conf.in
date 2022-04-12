@@ -122,6 +122,7 @@ pulse.rules = [
         # skype does not want to use devices that don't have an S16 sample format.
         matches = [
              { application.process.binary = "teams" }
+             { application.process.binary = "teams-insiders" }
              { application.process.binary = "skypeforlinux" }
         ]
         actions = { quirks = [ force-s16-info ] }

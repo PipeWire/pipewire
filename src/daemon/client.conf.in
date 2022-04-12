@@ -74,10 +74,10 @@ stream.properties = {
     #channelmix.normalize  = false
     #channelmix.mix-lfe    = false
     #channelmix.upmix      = true
-    #channelmix.upmix-method = simple  # none, psd
-    #channelmix.lfe-cutoff = 120
-    #channelmix.fc-cutoff  = 6000
+    #channelmix.upmix-method = psd  # none, simple
+    #channelmix.lfe-cutoff = 150
+    #channelmix.fc-cutoff  = 12000
     #channelmix.rear-delay = 12.0
-    #channelmix.stereo-widen = 0.1
+    #channelmix.stereo-widen = 0.0
     #channelmix.hilbert-taps = 0
 }

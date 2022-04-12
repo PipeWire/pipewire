@@ -1657,10 +1657,10 @@ impl_init(const struct spa_handle_factory *factory,
 	this->mix.options = CHANNELMIX_OPTION_UPMIX;
 	this->mix.upmix = CHANNELMIX_UPMIX_PSD;
 	this->mix.log = this->log;
-	this->mix.lfe_cutoff = 120.0f;
-	this->mix.fc_cutoff = 6000.0f;
+	this->mix.lfe_cutoff = 150.0f;
+	this->mix.fc_cutoff = 12000.0f;
 	this->mix.rear_delay = 12.0f;
-	this->mix.widen = 0.02f;
+	this->mix.widen = 0.0f;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;

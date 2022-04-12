@@ -157,6 +157,7 @@ static int make_matrix(struct channelmix *mix)
 	float slev = SQRT1_2;
 	float llev = 0.5f;
 	float maxsum = 0.0f;
+	bool filter_fc = false, filter_lfe = false;
 #define _MATRIX(s,d)	matrix[_CH(s)][_CH(d)]
 
 	spa_log_debug(mix->log, "src-mask:%08"PRIx64" dst-mask:%08"PRIx64
@@ -399,6 +400,7 @@ static int make_matrix(struct channelmix *mix)
 			spa_log_debug(mix->log, "produce FC from STEREO");
 			_MATRIX(FC,FL) += clev;
 			_MATRIX(FC,FR) += clev;
+			filter_fc = true;
 		} else {
 			spa_log_warn(mix->log, "can't produce FC");
 		}
@@ -408,9 +410,11 @@ static int make_matrix(struct channelmix *mix)
 			spa_log_debug(mix->log, "produce LFE from STEREO");
 			_MATRIX(LFE,FL) += llev;
 			_MATRIX(LFE,FR) += llev;
+			filter_lfe = true;
 		} else if ((src_mask & FRONT) == FRONT) {
 			spa_log_debug(mix->log, "produce LFE from FC");
 			_MATRIX(LFE,FC) += llev;
+			filter_lfe = true;
 		} else {
 			spa_log_warn(mix->log, "can't produce LFE");
 		}
@@ -458,11 +462,11 @@ done:
 			sum += fabs(matrix[i][j]);
 		}
 		maxsum = SPA_MAX(maxsum, sum);
-		if (i == _CH(LFE) && mix->lfe_cutoff > 0.0f) {
-			spa_log_debug(mix->log, "channel %d is LFE cutoff:%f", ic, mix->lfe_cutoff);
+		if (i == _CH(LFE) && mix->lfe_cutoff > 0.0f && filter_lfe) {
+			spa_log_info(mix->log, "channel %d is LFE cutoff:%f", ic, mix->lfe_cutoff);
 			lr4_set(&mix->lr4[ic], BQ_LOWPASS, mix->lfe_cutoff / mix->freq);
-		} else if (i == _CH(FC) && mix->fc_cutoff > 0.0f) {
-			spa_log_debug(mix->log, "channel %d is FC cutoff:%f", ic, mix->fc_cutoff);
+		} else if (i == _CH(FC) && mix->fc_cutoff > 0.0f && filter_fc) {
+			spa_log_info(mix->log, "channel %d is FC cutoff:%f", ic, mix->fc_cutoff);
 			lr4_set(&mix->lr4[ic], BQ_LOWPASS, mix->fc_cutoff / mix->freq);
 		} else {
 			mix->lr4[ic].active = false;

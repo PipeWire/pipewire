@@ -78,7 +78,7 @@ static const struct channelmix_info {
 	{ 1, MASK_MONO, 2, MASK_STEREO, channelmix_f32_1_2_c, 0, "f32_1_2_c" },
 	{ 2, MASK_STEREO, 1, MASK_MONO, channelmix_f32_2_1_c, 0, "f32_2_1_c" },
 	{ 4, MASK_QUAD, 1, MASK_MONO, channelmix_f32_4_1_c, 0, "f32_4_1_c" },
-	{ 4, MASK_3_1, 1, MASK_MONO, channelmix_f32_3p1_1_c, 0, "f32_3p1_1_c" },
+	{ 4, MASK_3_1, 1, MASK_MONO, channelmix_f32_4_1_c, 0, "f32_4_1_c" },
 #if defined (HAVE_SSE)
 	{ 2, MASK_STEREO, 4, MASK_QUAD, channelmix_f32_2_4_sse, SPA_CPU_FLAG_SSE, "f32_2_4_sse" },
 #endif

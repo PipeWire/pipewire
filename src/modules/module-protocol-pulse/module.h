@@ -47,6 +47,7 @@ struct module_info {
 
 #define DEFINE_MODULE_INFO(name)					\
 	__attribute__((used))						\
+	__attribute__((retain))						\
 	__attribute__((section("pw_mod_pulse_modules")))		\
 	__attribute__((aligned(__alignof__(struct module_info))))	\
 	const struct module_info name

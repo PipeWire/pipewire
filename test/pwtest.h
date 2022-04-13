@@ -494,9 +494,11 @@ enum pwtest_arg {
  */
 #define PWTEST_SUITE(cname) \
 	static enum pwtest_result (cname##__setup)(struct pwtest_context *ctx, struct pwtest_suite *suite); \
-	static const struct pwtest_suite_decl _test_suite \
 	__attribute__((used)) \
-	__attribute((section("pwtest_suite_section"))) = { \
+	__attribute__((retain)) \
+	__attribute__((section("pwtest_suite_section"))) \
+	__attribute__((aligned(__alignof__(struct pwtest_suite_decl)))) \
+	static const struct pwtest_suite_decl _test_suite = { \
 	   .name = #cname, \
 	   .setup = cname##__setup, \
 	}; \

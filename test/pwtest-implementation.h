@@ -131,7 +131,7 @@ void _pwtest_add(struct pwtest_context *ctx,
 struct pwtest_suite_decl {
 	const char *name;
 	enum pwtest_result (*setup)(struct pwtest_context *, struct pwtest_suite *);
-} __attribute__((aligned(16)));
+};
 
 
 #endif /* PWTEST_IMPLEMENTATION_H */

@@ -88,18 +88,6 @@ struct data;
 
 typedef int (*fill_fn)(struct data *d, void *dest, unsigned int n_frames);
 
-struct target {
-	struct spa_list link;
-	uint32_t id;
-#define TARGET_TYPE_SINK	0
-#define TARGET_TYPE_SOURCE	1
-#define TARGET_TYPE_STREAM	2
-	uint32_t type;
-	char *name;
-	char *desc;
-	int prio;
-};
-
 struct channelmap {
 	int n_channels;
 	int channels[SPA_AUDIO_MAX_CHANNELS];
@@ -110,12 +98,6 @@ struct data {
 	struct pw_context *context;
 	struct pw_core *core;
 	struct spa_hook core_listener;
-	struct pw_registry *registry;
-	struct spa_hook registry_listener;
-	struct pw_metadata *metadata;
-	struct spa_hook metadata_listener;
-	char default_sink[1024];
-	char default_source[1024];
 
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
@@ -156,12 +138,6 @@ struct data {
 	bool volume_is_set;
 
 	fill_fn fill;
-
-	uint32_t target_id;
-	bool list_targets;
-	bool targets_listed;
-	struct spa_list targets;
-	int sync;
 
 	struct spa_io_position *position;
 	bool drained;
@@ -612,39 +588,6 @@ static void channelmap_print(struct channelmap *map)
 	}
 }
 
-static void
-target_destroy(struct target *target)
-{
-	if (!target)
-		return;
-	if (target->name)
-		free(target->name);
-	if (target->desc)
-		free(target->desc);
-	free(target);
-}
-
-static struct target *
-target_create(uint32_t id, uint32_t type, const char *name, const char *desc, int prio)
-{
-	struct target *target;
-
-	target = malloc(sizeof(*target));
-	if (!target)
-		return NULL;
-	target->id = id;
-	target->type = type;
-	target->name = strdup(name);
-	target->desc = strdup(desc ? : "");
-	target->prio = prio;
-
-	if (!target->name || !target->desc) {
-		target_destroy(target);
-		return NULL;
-	}
-	return target;
-}
-
 static void on_core_info(void *userdata, const struct pw_core_info *info)
 {
 	struct data *data = userdata;
@@ -652,17 +595,6 @@ static void on_core_info(void *userdata, const struct pw_core_info *info)
 	if (data->verbose)
 		printf("remote %"PRIu32" is named \"%s\"\n",
 				info->id, info->name);
-}
-
-static void on_core_done(void *userdata, uint32_t id, int seq)
-{
-	struct data *data = userdata;
-
-	/* if we're listing targets just exist */
-	if (data->sync == seq && data->list_targets) {
-		data->targets_listed = true;
-		pw_main_loop_quit(data->loop);
-	}
 }
 
 static void on_core_error(void *userdata, uint32_t id, int seq, int res, const char *message)
@@ -679,156 +611,7 @@ static void on_core_error(void *userdata, uint32_t id, int seq, int res, const c
 static const struct pw_core_events core_events = {
 	PW_VERSION_CORE_EVENTS,
 	.info = on_core_info,
-	.done = on_core_done,
 	.error = on_core_error,
-};
-
-static int json_object_find(const char *obj, const char *key, char *value, size_t len)
-{
-	struct spa_json it[2];
-	const char *v;
-	char k[128];
-
-	spa_json_init(&it[0], obj, strlen(obj));
-	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
-		return -EINVAL;
-
-	while (spa_json_get_string(&it[1], k, sizeof(k)) > 0) {
-		if (spa_streq(k, key)) {
-			if (spa_json_get_string(&it[1], value, len) <= 0)
-				continue;
-			return 0;
-		} else {
-			if (spa_json_next(&it[1], &v) <= 0)
-				break;
-		}
-	}
-	return -ENOENT;
-}
-
-static int metadata_property(void *object,
-		uint32_t subject, const char *key, const char *type, const char *value)
-{
-	struct data *data = object;
-
-	if (subject == PW_ID_CORE) {
-		if (key == NULL || spa_streq(key, "default.audio.sink")) {
-			if (value == NULL ||
-			    json_object_find(value, "name",
-					data->default_sink, sizeof(data->default_sink)) < 0)
-				data->default_sink[0] = '\0';
-		}
-		if (key == NULL || spa_streq(key, "default.audio.source")) {
-			if (value == NULL ||
-			    json_object_find(value, "name",
-					data->default_source, sizeof(data->default_source)) < 0)
-				data->default_source[0] = '\0';
-		}
-	}
-	return 0;
-}
-
-static const struct pw_metadata_events metadata_events = {
-	PW_VERSION_METADATA_EVENTS,
-	.property = metadata_property,
-};
-
-static void registry_event_global(void *userdata, uint32_t id,
-		uint32_t permissions, const char *type, uint32_t version,
-		const struct spa_dict *props)
-{
-	struct data *data = userdata;
-	const struct spa_dict_item *item;
-	const char *name, *desc, *media_class, *prio_session;
-	int prio;
-	struct target *target;
-	uint32_t ttype;
-
-	/* only once */
-	if (data->targets_listed)
-		return;
-
-	/* must be listing targets and interface must be a node */
-	if (!data->list_targets)
-		return;
-
-	if (spa_streq(type, PW_TYPE_INTERFACE_Metadata)) {
-		if (data->metadata != NULL)
-			return;
-		if ((name = spa_dict_lookup(props, PW_KEY_METADATA_NAME)) != NULL &&
-		    !spa_streq(name, "default"))
-			return;
-
-		data->metadata = pw_registry_bind(data->registry,
-				id, type, PW_VERSION_METADATA, 0);
-		pw_metadata_add_listener(data->metadata,
-				&data->metadata_listener,
-				&metadata_events, data);
-
-		data->sync = pw_core_sync(data->core, 0, data->sync);
-
-	} else if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
-		name = spa_dict_lookup(props, PW_KEY_NODE_NAME);
-		desc = spa_dict_lookup(props, PW_KEY_NODE_DESCRIPTION);
-		media_class = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS);
-		prio_session = spa_dict_lookup(props, PW_KEY_PRIORITY_SESSION);
-
-		/* name and media class must exist */
-		if (!name || !media_class)
-			return;
-
-		if (desc == NULL)
-			desc = name;
-
-		/* get allowed mode from the media class */
-		if (spa_streq(media_class, "Audio/Source")) {
-			if (data->mode != mode_record)
-				return;
-			ttype = TARGET_TYPE_SOURCE;
-		}
-		else if (spa_streq(media_class, "Stream/Output/Audio")) {
-			if (data->mode != mode_record)
-				return;
-			ttype = TARGET_TYPE_STREAM;
-		}
-		else if (spa_streq(media_class, "Audio/Sink")) {
-			if (data->mode != mode_playback &&
-			    data->mode != mode_record)
-				return;
-			ttype = TARGET_TYPE_SINK;
-		}
-		else
-			return;
-
-		prio = prio_session ? atoi(prio_session) : -1;
-
-		if (data->verbose) {
-			printf("registry: id=%"PRIu32" type=%s name=\"%s\" media_class=\"%s\" desc=\"%s\" prio=%d\n",
-					id, type, name, media_class, desc ? : "", prio);
-
-			spa_dict_for_each(item, props) {
-				printf("\t\t%s = \"%s\"\n", item->key, item->value);
-			}
-		}
-
-		target = target_create(id, ttype, name, desc, prio);
-		if (target)
-			spa_list_append(&data->targets, &target->link);
-	}
-}
-
-static void registry_event_global_remove(void *userdata, uint32_t id)
-{
-	struct data *data = userdata;
-
-	if (data->verbose)
-		printf("registry: remove id=%"PRIu32"\n", id);
-}
-
-static const struct pw_registry_events registry_events = {
-	PW_VERSION_REGISTRY_EVENTS,
-	.global = registry_event_global,
-	.global_remove = registry_event_global_remove,
 };
 
 static void
@@ -1045,7 +828,6 @@ enum {
 	OPT_CHANNELMAP,
 	OPT_FORMAT,
 	OPT_VOLUME,
-	OPT_LIST_TARGETS,
 };
 
 static const struct option long_options[] = {
@@ -1071,8 +853,6 @@ static const struct option long_options[] = {
 	{ "format",		required_argument, NULL, OPT_FORMAT },
 	{ "volume",		required_argument, NULL, OPT_VOLUME },
 	{ "quality",		required_argument, NULL, 'q' },
-
-	{ "list-targets",	no_argument, NULL, OPT_LIST_TARGETS },
 
 	{ NULL, 0, NULL, 0 }
 };
@@ -1101,7 +881,6 @@ static void show_usage(const char *name, bool is_error)
 	     "                                          Xunit (unit = s, ms, us, ns)\n"
 	     "                                          or direct samples (256)\n"
 	     "                                          the rate is the one of the source file\n"
-	     "      --list-targets                    List available targets for --target\n"
 	     "\n"),
 	     DEFAULT_MEDIA_TYPE,
 	     DEFAULT_MEDIA_CATEGORY_PLAYBACK,
@@ -1535,9 +1314,6 @@ int main(int argc, char *argv[])
 	data.volume = -1.0;
 	data.quality = -1;
 
-	/* initialize list every time */
-	spa_list_init(&data.targets);
-
 	while ((c = getopt_long(argc, argv, "hvprmdR:q:", long_options, NULL)) != -1) {
 
 		switch (c) {
@@ -1597,17 +1373,8 @@ int main(int argc, char *argv[])
 
 		case OPT_TARGET:
 			data.target = optarg;
-			if (spa_streq(optarg, "auto")) {
-				data.target_id = PW_ID_ANY;
-				break;
-			}
-			if (!isdigit(optarg[0])) {
-				fprintf(stderr, "error: bad target option \"%s\"\n", optarg);
-				goto error_usage;
-			}
-			data.target_id = atoi(optarg);
-			if (data.target_id == 0) {
-				data.target_id = PW_ID_ANY;
+			if (spa_streq(data.target, "0")) {
+				data.target = NULL;
 				flags &= ~PW_STREAM_FLAG_AUTOCONNECT;
 			}
 			break;
@@ -1646,10 +1413,6 @@ int main(int argc, char *argv[])
 			data.volume = atof(optarg);
 			break;
 
-		case OPT_LIST_TARGETS:
-			data.list_targets = true;
-			break;
-
 		default:
 			fprintf(stderr, "error: unknown option '%c'\n", c);
 			goto error_usage;
@@ -1677,10 +1440,7 @@ int main(int argc, char *argv[])
 					DEFAULT_MEDIA_CATEGORY_RECORD;
 	if (!data.media_role)
 		data.media_role = DEFAULT_MEDIA_ROLE;
-	if (!data.target) {
-		data.target = DEFAULT_TARGET;
-		data.target_id = PW_ID_ANY;
-	}
+
 	if (!data.latency)
 		data.latency = data.mode == mode_playback ?
 			DEFAULT_LATENCY_PLAY :
@@ -1701,7 +1461,7 @@ int main(int argc, char *argv[])
 	if (data.volume < 0)
 		data.volume = DEFAULT_VOLUME;
 
-	if (!data.list_targets && optind >= argc) {
+	if (optind >= argc) {
 		fprintf(stderr, "error: filename argument missing\n");
 		goto error_usage;
 	}
@@ -1715,6 +1475,7 @@ int main(int argc, char *argv[])
 			PW_KEY_MEDIA_FILENAME, data.filename,
 			PW_KEY_MEDIA_NAME, data.filename,
 			PW_KEY_NODE_NAME, prog,
+			PW_KEY_TARGET_OBJECT, data.target,
 			NULL);
 
 	if (data.props == NULL) {
@@ -1755,127 +1516,115 @@ int main(int argc, char *argv[])
 	}
 	pw_core_add_listener(data.core, &data.core_listener, &core_events, &data);
 
-	data.registry = pw_core_get_registry(data.core, PW_VERSION_REGISTRY, 0);
-	if (!data.registry) {
-		fprintf(stderr, "error: pw_core_get_registry() failed: %m\n");
-		goto error_no_registry;
+	switch (data.data_type) {
+	case TYPE_PCM:
+		ret = setup_sndfile(&data);
+		break;
+	case TYPE_MIDI:
+		ret = setup_midifile(&data);
+		break;
+	case TYPE_DSD:
+		ret = setup_dsffile(&data);
+		break;
+	default:
+		ret = -ENOTSUP;
+		break;
 	}
-	pw_registry_add_listener(data.registry, &data.registry_listener, &registry_events, &data);
 
-	data.sync = pw_core_sync(data.core, 0, data.sync);
-
-	if (!data.list_targets) {
-
-		switch (data.data_type) {
-		case TYPE_PCM:
-			ret = setup_sndfile(&data);
-			break;
-		case TYPE_MIDI:
-			ret = setup_midifile(&data);
-			break;
-		case TYPE_DSD:
-			ret = setup_dsffile(&data);
-			break;
+	if (ret < 0) {
+		fprintf(stderr, "error: open failed: %s\n", spa_strerror(ret));
+		switch (ret) {
+		case -EIO:
+			goto error_bad_file;
+		case -EINVAL:
 		default:
-			ret = -ENOTSUP;
-			break;
+			goto error_usage;
 		}
+	}
+	switch (data.data_type) {
+	case TYPE_PCM:
+	{
+		struct spa_audio_info_raw info;
+		info = SPA_AUDIO_INFO_RAW_INIT(
+			.flags = data.channelmap.n_channels ? 0 : SPA_AUDIO_FLAG_UNPOSITIONED,
+			.format = data.spa_format,
+			.rate = data.rate,
+			.channels = data.channels);
 
-		if (ret < 0) {
-			fprintf(stderr, "error: open failed: %s\n", spa_strerror(ret));
-			switch (ret) {
-			case -EIO:
-				goto error_bad_file;
-			case -EINVAL:
-			default:
-				goto error_usage;
-			}
+		if (data.channelmap.n_channels)
+			memcpy(info.position, data.channelmap.channels, data.channels * sizeof(int));
+
+		params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
+		break;
+	}
+	case TYPE_MIDI:
+		params[0] = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+				SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_application),
+				SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
+
+		pw_properties_set(data.props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
+		break;
+	case TYPE_DSD:
+	{
+		struct spa_audio_info_dsd info;
+		size_t i;
+
+		spa_zero(info);
+		info.channels = data.dsf.info.channels;
+		info.rate = data.dsf.info.rate / 8;
+
+		for (i = 0; i < SPA_N_ELEMENTS(dsd_layouts); i++) {
+			if (dsd_layouts[i].type != data.dsf.info.channel_type)
+				continue;
+			info.channels = dsd_layouts[i].info.n_channels;
+			memcpy(info.position, dsd_layouts[i].info.position,
+					info.channels * sizeof(uint32_t));
 		}
-		switch (data.data_type) {
-		case TYPE_PCM:
-		{
-			struct spa_audio_info_raw info;
-			info = SPA_AUDIO_INFO_RAW_INIT(
-				.flags = data.channelmap.n_channels ? 0 : SPA_AUDIO_FLAG_UNPOSITIONED,
-				.format = data.spa_format,
-				.rate = data.rate,
-				.channels = data.channels);
+		params[0] = spa_format_audio_dsd_build(&b, SPA_PARAM_EnumFormat, &info);
+		break;
+	}
+	}
 
-			if (data.channelmap.n_channels)
-				memcpy(info.position, data.channelmap.channels, data.channels * sizeof(int));
+	data.stream = pw_stream_new(data.core, prog, data.props);
+	data.props = NULL;
 
-			params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
-			break;
-		}
-		case TYPE_MIDI:
-			params[0] = spa_pod_builder_add_object(&b,
-					SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-					SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_application),
-					SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
+	if (data.stream == NULL) {
+		fprintf(stderr, "error: failed to create stream: %m\n");
+		goto error_no_stream;
+	}
+	pw_stream_add_listener(data.stream, &data.stream_listener, &stream_events, &data);
 
-			pw_properties_set(data.props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
-			break;
-		case TYPE_DSD:
-		{
-			struct spa_audio_info_dsd info;
-			size_t i;
+	if (data.verbose)
+		printf("connecting %s stream; target=%s\n",
+				data.mode == mode_playback ? "playback" : "record",
+				data.target);
 
-			spa_zero(info);
-			info.channels = data.dsf.info.channels;
-			info.rate = data.dsf.info.rate / 8;
+	if (data.verbose)
+		data.timer = pw_loop_add_timer(l, do_print_delay, &data);
 
-			for (i = 0; i < SPA_N_ELEMENTS(dsd_layouts); i++) {
-				if (dsd_layouts[i].type != data.dsf.info.channel_type)
-					continue;
-				info.channels = dsd_layouts[i].info.n_channels;
-				memcpy(info.position, dsd_layouts[i].info.position,
-						info.channels * sizeof(uint32_t));
-			}
-			params[0] = spa_format_audio_dsd_build(&b, SPA_PARAM_EnumFormat, &info);
-			break;
-		}
-		}
+	ret = pw_stream_connect(data.stream,
+			  data.mode == mode_playback ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT,
+			  PW_ID_ANY,
+			  flags |
+			  PW_STREAM_FLAG_MAP_BUFFERS,
+			  params, 1);
+	if (ret < 0) {
+		fprintf(stderr, "error: failed connect: %s\n", spa_strerror(ret));
+		goto error_connect_fail;
+	}
 
-		data.stream = pw_stream_new(data.core, prog, data.props);
-		data.props = NULL;
+	if (data.verbose) {
+		const struct pw_properties *props;
+		void *pstate;
+		const char *key, *val;
 
-		if (data.stream == NULL) {
-			fprintf(stderr, "error: failed to create stream: %m\n");
-			goto error_no_stream;
-		}
-		pw_stream_add_listener(data.stream, &data.stream_listener, &stream_events, &data);
-
-		if (data.verbose)
-			printf("connecting %s stream; target_id=%"PRIu32"\n",
-					data.mode == mode_playback ? "playback" : "record",
-					data.target_id);
-
-		if (data.verbose)
-			data.timer = pw_loop_add_timer(l, do_print_delay, &data);
-
-		ret = pw_stream_connect(data.stream,
-				  data.mode == mode_playback ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT,
-				  data.target_id,
-				  flags |
-				  PW_STREAM_FLAG_MAP_BUFFERS,
-				  params, 1);
-		if (ret < 0) {
-			fprintf(stderr, "error: failed connect: %s\n", spa_strerror(ret));
-			goto error_connect_fail;
-		}
-
-		if (data.verbose) {
-			const struct pw_properties *props;
-			void *pstate;
-			const char *key, *val;
-
-			if ((props = pw_stream_get_properties(data.stream)) != NULL) {
-				printf("stream properties:\n");
-				pstate = NULL;
-				while ((key = pw_properties_iterate(props, &pstate)) != NULL &&
-					(val = pw_properties_get(props, key)) != NULL) {
-					printf("\t%s = \"%s\"\n", key, val);
-				}
+		if ((props = pw_stream_get_properties(data.stream)) != NULL) {
+			printf("stream properties:\n");
+			pstate = NULL;
+			while ((key = pw_properties_iterate(props, &pstate)) != NULL &&
+				(val = pw_properties_get(props, key)) != NULL) {
+				printf("\t%s = \"%s\"\n", key, val);
 			}
 		}
 	}
@@ -1884,61 +1633,8 @@ int main(int argc, char *argv[])
 	pw_main_loop_run(data.loop);
 
 	/* we're returning OK only if got to the point to drain */
-	if (!data.list_targets) {
-		if (data.drained)
-			exit_code = EXIT_SUCCESS;
-	} else {
-		if (data.targets_listed) {
-			struct target *target, *target_default;
-			char *default_name;
-
-			default_name = (data.mode == mode_record) ?
-				data.default_source : data.default_sink;
-
-			exit_code = EXIT_SUCCESS;
-
-			/* first find the highest priority */
-			target_default = NULL;
-			spa_list_for_each(target, &data.targets, link) {
-				if (target_default == NULL ||
-				    spa_streq(default_name, target->name) ||
-				    (default_name[0] == '\0' &&
-				     target->prio > target_default->prio))
-					target_default = target;
-			}
-			printf("Available targets (\"*\" denotes default): %s\n", default_name);
-			spa_list_for_each(target, &data.targets, link) {
-				if (target->type != TARGET_TYPE_SOURCE)
-					continue;
-				printf("%s\t%"PRIu32": source description=\"%s\" prio=%d\n",
-				       target == target_default ? "*" : "",
-				       target->id, target->desc, target->prio);
-			}
-			spa_list_for_each(target, &data.targets, link) {
-				if (target->type != TARGET_TYPE_SINK)
-					continue;
-				printf("%s\t%"PRIu32": %s description=\"%s\" prio=%d\n",
-					target == target_default ? "*" : "",
-					target->id, data.mode == mode_record ? "monitor" : "sink",
-					target->desc, target->prio);
-			}
-			spa_list_for_each(target, &data.targets, link) {
-				if (target->type != TARGET_TYPE_STREAM)
-					continue;
-				printf("%s\t%"PRIu32": stream description=\"%s\" prio=%d\n",
-				       target == target_default ? "*" : "",
-				       target->id, target->desc, target->prio);
-			}
-		}
-	}
-
-	/* destroy targets */
-	while (!spa_list_is_empty(&data.targets)) {
-		struct target *target;
-		target = spa_list_last(&data.targets, struct target, link);
-		spa_list_remove(&target->link);
-		target_destroy(target);
-	}
+	if (data.drained)
+		exit_code = EXIT_SUCCESS;
 
 error_connect_fail:
 	if (data.stream) {
@@ -1946,15 +1642,6 @@ error_connect_fail:
 		pw_stream_destroy(data.stream);
 	}
 error_no_stream:
-	if (data.metadata) {
-		spa_hook_remove(&data.metadata_listener);
-		pw_proxy_destroy((struct pw_proxy*)data.metadata);
-	}
-	if (data.registry) {
-		spa_hook_remove(&data.registry_listener);
-		pw_proxy_destroy((struct pw_proxy*)data.registry);
-	}
-error_no_registry:
 	spa_hook_remove(&data.core_listener);
 	pw_core_disconnect(data.core);
 error_ctx_connect_failed:

@@ -276,10 +276,11 @@ static inline int spa_scnprintf(char *buffer, size_t size, const char *format, .
 static inline float spa_strtof(const char *str, char **endptr)
 {
 	static locale_t locale = NULL;
+	locale_t prev;
 	float v;
 	if (SPA_UNLIKELY(locale == NULL))
 		locale = newlocale(LC_ALL_MASK, "C", NULL);
-	locale_t prev = uselocale(locale);
+	prev = uselocale(locale);
 	v = strtof(str, endptr);
 	uselocale(prev);
 	return v;
@@ -319,10 +320,11 @@ static inline bool spa_atof(const char *str, float *val)
 static inline double spa_strtod(const char *str, char **endptr)
 {
 	static locale_t locale = NULL;
+	locale_t prev;
 	double v;
 	if (SPA_UNLIKELY(locale == NULL))
 		locale = newlocale(LC_ALL_MASK, "C", NULL);
-	locale_t prev = uselocale(locale);
+	prev = uselocale(locale);
 	v = strtod(str, endptr);
 	uselocale(prev);
 	return v;

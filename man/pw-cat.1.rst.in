@@ -78,7 +78,7 @@ OPTIONS
     Don't try to link this node
 
   <id>
-    The id of a target node
+    The object.serial or the node.name of a target node
 
 --latency=VALUE[*units*]
   Set the node latency (default 100ms)
@@ -96,9 +96,6 @@ OPTIONS
   **us** for microseconds, **ns** for nanoseconds.
   If no units are given, the latency value is samples with the samplerate
   of the file.
-
---list-targets
-  List the available targets for **--target**
 
 -q | --quality=VALUE
   Resampler quality. When the samplerate of the source or

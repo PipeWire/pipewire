@@ -610,6 +610,10 @@ static int setup_streams(struct impl *impl)
 		pw_properties_set(props, PW_KEY_NODE_LATENCY, str);
 	else if (impl->aec->latency)
 		pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec->latency);
+	if ((str = pw_properties_get(impl->source_props, SPA_KEY_AUDIO_CHANNELS)) != NULL)
+		pw_properties_set(props, SPA_KEY_AUDIO_CHANNELS, str);
+	if ((str = pw_properties_get(impl->source_props, SPA_KEY_AUDIO_POSITION)) != NULL)
+		pw_properties_set(props, SPA_KEY_AUDIO_POSITION, str);
 
 	impl->capture = pw_stream_new(impl->core,
 			"Echo-Cancel Capture", props);
@@ -643,6 +647,10 @@ static int setup_streams(struct impl *impl)
 		pw_properties_set(props, PW_KEY_NODE_LATENCY, str);
 	else if (impl->aec->latency)
 		pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec->latency);
+	if ((str = pw_properties_get(impl->sink_props, SPA_KEY_AUDIO_CHANNELS)) != NULL)
+		pw_properties_set(props, SPA_KEY_AUDIO_CHANNELS, str);
+	if ((str = pw_properties_get(impl->sink_props, SPA_KEY_AUDIO_POSITION)) != NULL)
+		pw_properties_set(props, SPA_KEY_AUDIO_POSITION, str);
 
 	impl->playback = pw_stream_new(impl->core,
 			"Echo-Cancel Playback", props);
@@ -1024,6 +1032,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_LINK_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 	copy_props(impl, props, PW_KEY_NODE_LATENCY);
+	copy_props(impl, props, SPA_KEY_AUDIO_CHANNELS);
+	copy_props(impl, props, SPA_KEY_AUDIO_POSITION);
 
 	impl->max_buffer_size = pw_properties_get_uint32(props,"buffer.max_size", MAX_BUFSIZE_MS);
 

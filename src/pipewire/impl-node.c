@@ -842,6 +842,7 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 			old->name, old->info.id, driver->name, driver->info.id);
 
 	node->driver_node = driver;
+	node->moved = true;
 
 	pw_loop_invoke(node->data_loop,
 		       do_move_nodes, SPA_ID_INVALID, &driver, sizeof(struct pw_impl_node *),

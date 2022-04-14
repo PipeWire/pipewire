@@ -1198,7 +1198,11 @@ again:
 		/* collect quantum and rate */
 		spa_list_for_each(s, &n->follower_list, follower_link) {
 
-			if (s->info.state > PW_NODE_STATE_SUSPENDED) {
+			if (!s->moved) {
+				/* We only try to enforce the lock flags for nodes that
+				 * are not recently moved between drivers. The nodes that
+				 * are moved should try to enforce their quantum on the
+				 * new driver. */
 				lock_quantum |= s->lock_quantum;
 				lock_rate |= s->lock_rate;
 			}
@@ -1236,6 +1240,8 @@ again:
 
 			if (s->active)
 				running = !n->passive;
+
+			s->moved = false;
 		}
 
 		if (force_quantum)

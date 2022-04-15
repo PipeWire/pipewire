@@ -19,8 +19,8 @@ msgstr ""
 "Project-Id-Version: pipewire\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
 "issues\n"
-"POT-Creation-Date: 2022-02-13 15:33+0000\n"
-"PO-Revision-Date: 2022-02-14 22:57+0100\n"
+"POT-Creation-Date: 2022-04-13 15:28+0000\n"
+"PO-Revision-Date: 2022-04-15 22:03+0200\n"
 "Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
 "Language-Team: Swedish <tp-sv@listor.tp-sv.se>\n"
 "Language: sv\n"
@@ -30,7 +30,7 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 "X-Generator: Poedit 3.0.1\n"
 
-#: src/daemon/pipewire.c:45
+#: src/daemon/pipewire.c:46
 #, c-format
 msgid ""
 "%s [options]\n"
@@ -51,8 +51,8 @@ msgstr "PipeWire mediasystem"
 msgid "Start the PipeWire Media System"
 msgstr "Starta mediasystemet PipeWire"
 
-#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:188
-#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:188
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:183
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:183
 #, c-format
 msgid "Tunnel to %s/%s"
 msgstr "Tunnel till %s/%s"
@@ -61,26 +61,26 @@ msgstr "Tunnel till %s/%s"
 msgid "Dummy Output"
 msgstr "Attrapputgång"
 
-#: src/modules/module-pulse-tunnel.c:536
+#: src/modules/module-pulse-tunnel.c:545
 #, c-format
 msgid "Tunnel for %s@%s"
 msgstr "Tunnel för %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:332
+#: src/modules/module-zeroconf-discover.c:313
 msgid "Unknown device"
 msgstr "Okänd enhet"
 
-#: src/modules/module-zeroconf-discover.c:344
+#: src/modules/module-zeroconf-discover.c:325
 #, c-format
 msgid "%s on %s@%s"
 msgstr "%s på %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:348
+#: src/modules/module-zeroconf-discover.c:329
 #, c-format
 msgid "%s on %s"
 msgstr "%s på %s"
 
-#: src/tools/pw-cat.c:1075
+#: src/tools/pw-cat.c:867
 #, c-format
 msgid ""
 "%s [options] <file>\n"
@@ -95,7 +95,7 @@ msgstr ""
 "  -v, --verbose                         Aktivera utförliga operationer\n"
 "\n"
 
-#: src/tools/pw-cat.c:1082
+#: src/tools/pw-cat.c:874
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
@@ -109,7 +109,6 @@ msgid ""
 "                                          or direct samples (256)\n"
 "                                          the rate is the one of the source "
 "file\n"
-"      --list-targets                    List available targets for --target\n"
 "\n"
 msgstr ""
 "  -R, --remote                          Fjärrdemonnamn\n"
@@ -122,10 +121,9 @@ msgstr ""
 "                                          Xenhet (enhet = s, ms, us, ns)\n"
 "                                          eller direkta samplar (256)\n"
 "                                          hastigheten är källfilens\n"
-"      --list-targets                    Lista tillgängliga mål för --target\n"
 "\n"
 
-#: src/tools/pw-cat.c:1100
+#: src/tools/pw-cat.c:891
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -160,7 +158,7 @@ msgstr ""
 "%d)\n"
 "\n"
 
-#: src/tools/pw-cat.c:1117
+#: src/tools/pw-cat.c:908
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
@@ -174,7 +172,7 @@ msgstr ""
 "  -d, --dsd                             DSD-läge\n"
 "\n"
 
-#: src/tools/pw-cli.c:3050
+#: src/tools/pw-cli.c:3051
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -518,12 +516,12 @@ msgstr "Stereo duplex"
 msgid "Mono Chat + 7.1 Surround"
 msgstr "Mono Chatt + 7.1 Surround"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4750
+#: spa/plugins/alsa/acp/alsa-mixer.c:4754
 #, c-format
 msgid "%s Output"
 msgstr "%s-utgång"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4757
+#: spa/plugins/alsa/acp/alsa-mixer.c:4761
 #, c-format
 msgid "%s Input"
 msgstr "%s-ingång"

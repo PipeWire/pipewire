@@ -42,16 +42,16 @@ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.aec.null");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
-static int null_init(void *data, const struct spa_dict *args, const struct spa_audio_info_raw *info)
+static int null_init(void *object, const struct spa_dict *args, const struct spa_audio_info_raw *info)
 {
-	struct impl *impl = data;
+	struct impl *impl = object;
 	impl->channels = info->channels;
 	return 0;
 }
 
-static int null_run(void *data, const float *rec[], const float *play[], float *out[], uint32_t n_samples)
+static int null_run(void *object, const float *rec[], const float *play[], float *out[], uint32_t n_samples)
 {
-	struct impl *impl = data;
+	struct impl *impl = object;
 	uint32_t i;
 	for (i = 0; i < impl->channels; i++)
 		memcpy(out[i], rec[i], n_samples * sizeof(float));

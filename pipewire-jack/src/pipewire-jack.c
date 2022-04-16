@@ -2497,11 +2497,11 @@ do {									\
 	}								\
 } while(false);
 
-static struct spa_thread *impl_create(void *data,
+static struct spa_thread *impl_create(void *object,
 			const struct spa_dict *props,
 			void *(*start)(void*), void *arg)
 {
-	struct client *c = (struct client *) data;
+	struct client *c = (struct client *) object;
 	struct spa_thread *thr;
 	int res = 0;
 
@@ -2533,17 +2533,17 @@ error:
 
 }
 
-static int impl_join(void *data,
+static int impl_join(void *object,
 		struct spa_thread *thread, void **retval)
 {
-	struct client *c = (struct client *) data;
+	struct client *c = (struct client *) object;
 	pw_log_info("join thread");
 	return spa_thread_utils_join(c->context.old_thread_utils, thread, retval);
 }
 
-static int impl_acquire_rt(void *data, struct spa_thread *thread, int priority)
+static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority)
 {
-	struct client *c = (struct client *) data;
+	struct client *c = (struct client *) object;
 	return spa_thread_utils_acquire_rt(c->context.old_thread_utils, thread, priority);
 }
 

@@ -653,10 +653,10 @@ static void *custom_start(void *data)
 	return this->start(this->arg);
 }
 
-static struct spa_thread *impl_create(void *data, const struct spa_dict *props,
+static struct spa_thread *impl_create(void *object, const struct spa_dict *props,
 		void *(*start_routine)(void*), void *arg)
 {
-	struct impl *impl = data;
+	struct impl *impl = object;
 	struct thread *this;
 	int err;
 
@@ -786,7 +786,7 @@ static const struct spa_thread_utils_methods impl_thread_utils = {
 
 #else /* HAVE_DBUS */
 
-static struct spa_thread *impl_create(void *data, const struct spa_dict *props,
+static struct spa_thread *impl_create(void *object, const struct spa_dict *props,
 		void *(*start_routine)(void*), void *arg)
 {
 	pthread_t pt;
@@ -800,12 +800,12 @@ static struct spa_thread *impl_create(void *data, const struct spa_dict *props,
 	return (struct spa_thread*)pt;
 }
 
-static int impl_join(void *data, struct spa_thread *thread, void **retval)
+static int impl_join(void *object, struct spa_thread *thread, void **retval)
 {
 	return pthread_join((pthread_t)thread, retval);
 }
 
-static int impl_get_rt_range(void *data, const struct spa_dict *props,
+static int impl_get_rt_range(void *object, const struct spa_dict *props,
 		int *min, int *max)
 {
 	if (min)
@@ -815,9 +815,9 @@ static int impl_get_rt_range(void *data, const struct spa_dict *props,
 	return 0;
 }
 
-static int impl_acquire_rt(void *data, struct spa_thread *thread, int priority)
+static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority)
 {
-	struct impl *impl = data;
+	struct impl *impl = object;
 
 	/* See the docstring on `spa_thread_utils_methods::acquire_rt` */
 	if (priority == -1) {

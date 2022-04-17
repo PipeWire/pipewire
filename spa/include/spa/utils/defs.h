@@ -174,7 +174,7 @@ struct spa_fraction {
 #define SPA_MEMBER(b,o,t) SPA_PTROFF(b,o,t)
 #define SPA_MEMBER_ALIGN(b,o,a,t) SPA_PTROFF_ALIGN(b,o,a,t)
 
-#define SPA_CONTAINER_OF(p,t,m) (t*)((uintptr_t)p - offsetof (t,m))
+#define SPA_CONTAINER_OF(p,t,m) ((t*)((uintptr_t)p - offsetof(t,m)))
 
 #define SPA_PTRDIFF(p1,p2) ((intptr_t)(p1) - (intptr_t)(p2))
 
@@ -236,7 +236,7 @@ struct spa_fraction {
 
 #define SPA_PTR_ALIGNMENT(p,align)	((intptr_t)(p) & ((align)-1))
 #define SPA_IS_ALIGNED(p,align)		(SPA_PTR_ALIGNMENT(p,align) == 0)
-#define SPA_PTR_ALIGN(p,align,type)	(type*)SPA_ROUND_UP_N((intptr_t)(p), (intptr_t)(align))
+#define SPA_PTR_ALIGN(p,align,type)	((type*)SPA_ROUND_UP_N((intptr_t)(p), (intptr_t)(align)))
 
 #ifndef SPA_LIKELY
 #ifdef __GNUC__

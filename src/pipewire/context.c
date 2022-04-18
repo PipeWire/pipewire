@@ -1191,11 +1191,21 @@ again:
 					context, n, n->name, n->active, n->want_driver, target);
 
 			t = n->want_driver && n->active ? target : NULL;
-
+			if (t != NULL && !n->always_process) {
+				/* first do a check without moving the node to
+				 * the target driver to see if we are passive */
+				collect_nodes(context, n);
+				if (n->passive)
+					t = NULL;
+			}
 			pw_impl_node_set_driver(n, t);
-			if (t == NULL)
+			if (t == NULL) {
+				/* no driver, make sure the node stops */
 				ensure_state(n, false);
+			}
 			else {
+				/* we configured a driver, move all linked
+				 * nodes to it as well */
 				if (n->always_process)
 					t->passive = false;
 				collect_nodes(context, n);

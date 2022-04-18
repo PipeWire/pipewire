@@ -2511,9 +2511,6 @@ static struct spa_thread *impl_create(void *object,
 		pthread_attr_t attributes;
 
 		pthread_attr_init(&attributes);
-		CHECK(pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_JOINABLE), error);
-		CHECK(pthread_attr_setscope(&attributes, PTHREAD_SCOPE_SYSTEM), error);
-		CHECK(pthread_attr_setinheritsched(&attributes, PTHREAD_EXPLICIT_SCHED), error);
 		CHECK(pthread_attr_setstacksize(&attributes, THREAD_STACK), error);
 
 		res = -globals.creator(&pt, &attributes, start, arg);
@@ -2523,7 +2520,7 @@ static struct spa_thread *impl_create(void *object,
 			goto error;
 		thr = (struct spa_thread*)pt;
 	} else {
-		thr = spa_thread_utils_create(c->context.old_thread_utils, NULL, start, arg);
+		thr = spa_thread_utils_create(c->context.old_thread_utils, props, start, arg);
 	}
 	return thr;
 error:

@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <pthread.h>
 
+#include <spa/utils/dict.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 
@@ -34,15 +35,68 @@
 
 #include "thread.h"
 
+#define CHECK(expression,label)						\
+do {									\
+	if ((errno = expression) != 0) {				\
+		res = -errno;						\
+		pw_log_error(#expression ": %s", strerror(errno));	\
+		goto label;						\
+	}								\
+} while(false);
+
+SPA_EXPORT
+pthread_attr_t *pw_thread_fill_attr(const struct spa_dict *props, pthread_attr_t *attr)
+{
+	const char *str;
+	int res;
+
+	if (props == NULL)
+		return NULL;
+
+	pthread_attr_init(attr);
+	if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_STACK_SIZE)) != NULL)
+		CHECK(pthread_attr_setstacksize(attr, atoi(str)), error);
+	return attr;
+error:
+	errno = -res;
+	return NULL;
+}
+
+#ifdef __FreeBSD__
+#include <sys/param.h>
+#if __FreeBSD_version < 1202000
+int pthread_setname_np(pthread_t thread, const char *name)
+{
+	pthread_set_name_np(thread, name);
+	return 0;
+}
+#endif
+#endif
+
 static struct spa_thread *impl_create(void *object,
 			const struct spa_dict *props,
 			void *(*start)(void*), void *arg)
 {
 	pthread_t pt;
+	pthread_attr_t *attr = NULL, attributes;
+	const char *str;
 	int err;
-	if ((err = pthread_create(&pt, NULL, start, arg)) != 0) {
+
+	attr = pw_thread_fill_attr(props, &attributes);
+
+	err = pthread_create(&pt, attr, start, arg);
+
+	if (attr)
+		pthread_attr_destroy(attr);
+
+	if (err != 0) {
 		errno = err;
 		return NULL;
+	}
+	if (props) {
+		if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_NAME)) != NULL &&
+		    (err = pthread_setname_np(pt, str)) != 0)
+			pw_log_warn("pthread_setname error: %s", strerror(err));
 	}
 	return (struct spa_thread*)pt;
 }

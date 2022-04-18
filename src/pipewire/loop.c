@@ -33,11 +33,8 @@
 #include <pipewire/log.h>
 #include <pipewire/type.h>
 
-#define DATAS_SIZE (4096 * 8)
-
 PW_LOG_TOPIC_EXTERN(log_loop);
 #define PW_LOG_TOPIC_DEFAULT log_loop
-
 
 /** \cond */
 

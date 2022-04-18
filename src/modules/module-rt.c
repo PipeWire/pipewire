@@ -658,7 +658,7 @@ static struct spa_thread *impl_create(void *object, const struct spa_dict *props
 {
 	struct impl *impl = object;
 	struct thread *this;
-	int err;
+	struct spa_thread *thread;
 
 	this = calloc(1, sizeof(*this));
 	this->impl = impl;
@@ -667,22 +667,22 @@ static struct spa_thread *impl_create(void *object, const struct spa_dict *props
 
 	/* This thread list is only used for the RTKit implementation */
 	pthread_mutex_lock(&impl->lock);
-	err = pthread_create(&this->thread, NULL, custom_start, this);
-	if (err != 0)
+	thread = pw_thread_utils_create(props, custom_start, this);
+	if (thread == NULL)
 		goto exit;
 
+	this->thread = (pthread_t)thread;
 	pthread_cond_wait(&impl->cond, &impl->lock);
 
 	spa_list_append(&impl->threads_list, &this->link);
 exit:
 	pthread_mutex_unlock(&impl->lock);
 
-	if (err != 0) {
-		errno = err;
+	if (thread == NULL) {
 		free(this);
 		return NULL;
 	}
-	return (struct spa_thread*)this->thread;
+	return thread;
 }
 
 static int impl_join(void *object, struct spa_thread *thread, void **retval)
@@ -789,20 +789,12 @@ static const struct spa_thread_utils_methods impl_thread_utils = {
 static struct spa_thread *impl_create(void *object, const struct spa_dict *props,
 		void *(*start_routine)(void*), void *arg)
 {
-	pthread_t pt;
-	int err;
-
-	err = pthread_create(&pt, NULL, start_routine, arg);
-	if (err != 0) {
-		errno = err;
-		return NULL;
-	}
-	return (struct spa_thread*)pt;
+	return pw_thread_utils_create(props, start_routine, arg);
 }
 
 static int impl_join(void *object, struct spa_thread *thread, void **retval)
 {
-	return pthread_join((pthread_t)thread, retval);
+	return pw_thread_utils_join(thread, retval);
 }
 
 static int impl_get_rt_range(void *object, const struct spa_dict *props,

@@ -2508,14 +2508,13 @@ static struct spa_thread *impl_create(void *object,
 	pw_log_info("create thread");
 	if (globals.creator != NULL) {
 		pthread_t pt;
-		pthread_attr_t attributes;
+		pthread_attr_t *attr = NULL, attributes;
 
-		pthread_attr_init(&attributes);
-		CHECK(pthread_attr_setstacksize(&attributes, THREAD_STACK), error);
+		attr = pw_thread_fill_attr(props, &attributes);
 
-		res = -globals.creator(&pt, &attributes, start, arg);
-
-		pthread_attr_destroy(&attributes);
+		res = -globals.creator(&pt, attr, start, arg);
+		if (attr)
+			pthread_attr_destroy(attr);
 		if (res != 0)
 			goto error;
 		thr = (struct spa_thread*)pt;

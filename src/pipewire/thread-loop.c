@@ -26,9 +26,11 @@
 #include <errno.h>
 #include <sys/time.h>
 
+#include <spa/support/thread.h>
 #include <spa/utils/result.h>
 
 #include "log.h"
+#include "thread.h"
 #include "thread-loop.h"
 
 PW_LOG_TOPIC_EXTERN(log_thread_loop);
@@ -37,17 +39,6 @@ PW_LOG_TOPIC_EXTERN(log_thread_loop);
 
 #define pw_thread_loop_events_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_thread_loop_events, m, v, ##__VA_ARGS__)
 #define pw_thread_loop_events_destroy(o)	pw_thread_loop_events_emit(o, destroy, 0)
-
-#ifdef __FreeBSD__
-#include <sys/param.h>
-#if __FreeBSD_version < 1202000
-int pthread_setname_np(pthread_t thread, const char *name)
-{
-	pthread_set_name_np(thread, name);
-	return 0;
-}
-#endif
-#endif
 
 /** \cond */
 struct pw_thread_loop {
@@ -282,20 +273,29 @@ static void *do_loop(void *user_data)
 SPA_EXPORT
 int pw_thread_loop_start(struct pw_thread_loop *loop)
 {
+	int err;
+
 	if (!loop->running) {
-		int err;
+		struct spa_thread *thr;
+		struct spa_dict_item items[1];
 
 		loop->running = true;
-		if ((err = pthread_create(&loop->thread, NULL, do_loop, loop)) != 0) {
-			pw_log_warn("%p: can't create thread: %s", loop,
-				    strerror(err));
-			loop->running = false;
-			return -err;
-		}
-		if ((err = pthread_setname_np(loop->thread, loop->name)) != 0)
-			pw_log_warn("%p: error: %s", loop, strerror(err));
+
+		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_THREAD_NAME, loop->name);
+		thr = pw_thread_utils_create(&SPA_DICT_INIT_ARRAY(items), do_loop, loop);
+		if (thr == NULL)
+			goto error;
+
+		loop->thread = (pthread_t)thr;
 	}
 	return 0;
+
+error:
+	err = errno;
+	pw_log_warn("%p: can't create thread: %s", loop,
+		    strerror(err));
+	loop->running = false;
+	return -err;
 }
 
 /** Quit the loop and stop its thread

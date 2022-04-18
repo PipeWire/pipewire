@@ -948,6 +948,9 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node)
 		pw_impl_node_set_driver(n, driver);
 		n->passive = true;
 
+		if (!n->active)
+			continue;
+
 		spa_list_for_each(p, &n->input_ports, link) {
 			spa_list_for_each(l, &p->links, input_link) {
 				t = l->output->node;
@@ -1187,7 +1190,7 @@ again:
 			pw_log_debug("%p: unassigned node %p: '%s' active:%d want_driver:%d target:%p",
 					context, n, n->name, n->active, n->want_driver, target);
 
-			t = n->want_driver ? target : NULL;
+			t = n->want_driver && n->active ? target : NULL;
 
 			pw_impl_node_set_driver(n, t);
 			if (t == NULL)

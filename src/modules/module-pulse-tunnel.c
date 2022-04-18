@@ -201,9 +201,9 @@ static void playback_stream_process(void *d)
 		float error, corr;
 
 		if ((uint32_t)filled + size > impl->target_buffer * 2) {
-			pw_log_warn("%p: overrun write:%u filled:%d size:%u max:%u",
+			pw_log_warn("%p: overrun write:%u filled:%d + size:%u > %u max:%u",
 	                                        impl, write_index, filled,
-	                                        size, RINGBUFFER_SIZE);
+	                                        size, impl->target_buffer * 2, RINGBUFFER_SIZE);
 			write_index -= impl->target_buffer;
 			filled -= impl->target_buffer;
 		} else {

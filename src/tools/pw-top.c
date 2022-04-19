@@ -230,7 +230,9 @@ static int process_follower_block(struct data *d, const struct spa_pod *pod, str
 
 static const char *print_time(char *buf, size_t len, uint64_t val)
 {
-	if (val < 1000000llu)
+	if (val == (uint64_t)-1)
+		snprintf(buf, len, "   *** ");
+	else if (val < 1000000llu)
 		snprintf(buf, len, "%5.1fµs", val/1000.f);
 	else if (val < 1000000000llu)
 		snprintf(buf, len, "%5.1fms", val/1000000.f);
@@ -239,9 +241,14 @@ static const char *print_time(char *buf, size_t len, uint64_t val)
 	return buf;
 }
 
-static const char *print_perc(char *buf, size_t len, float val, float quantum)
+static const char *print_perc(char *buf, size_t len, uint64_t val, float quantum)
 {
-	snprintf(buf, len, "%5.2f", quantum == 0.0f ? 0.0f : val/quantum);
+	if (val == (uint64_t)-1) {
+		snprintf(buf, len, " *** ");
+	} else {
+		float frac = val / 1000000000.f;
+		snprintf(buf, len, "%5.2f", quantum == 0.0f ? 0.0f : frac/quantum);
+	}
 	return buf;
 }
 
@@ -251,7 +258,8 @@ static void print_node(struct data *d, struct driver *i, struct node *n, int y)
 	char buf2[64];
 	char buf3[64];
 	char buf4[64];
-	float waiting, busy, quantum;
+	uint64_t waiting, busy;
+	float quantum;
 	struct spa_fraction frac;
 
 	if (n->driver == n)
@@ -264,15 +272,22 @@ static void print_node(struct data *d, struct driver *i, struct node *n, int y)
 	else
 		quantum = 0.0;
 
-	waiting = (n->measurement.awake - n->measurement.signal) / 1000000000.f,
-	busy = (n->measurement.finish - n->measurement.awake) / 1000000000.f,
+	if (n->measurement.awake >= n->measurement.signal)
+		waiting = n->measurement.awake - n->measurement.signal;
+	else
+		waiting = -1;
+
+	if (n->measurement.finish >= n->measurement.awake)
+		busy = n->measurement.finish - n->measurement.awake;
+	else
+		busy = -1;
 
 	mvwprintw(d->win, y, 0, "%s %4.1u %6.1u %6.1u %s %s %s %s  %3.1u  %s%s",
 			n->measurement.status != 3 ? "!" : " ",
 			n->id,
 			frac.num, frac.denom,
-			print_time(buf1, 64, n->measurement.awake - n->measurement.signal),
-			print_time(buf2, 64, n->measurement.finish - n->measurement.awake),
+			print_time(buf1, 64, waiting),
+			print_time(buf2, 64, busy),
 			print_perc(buf3, 64, waiting, quantum),
 			print_perc(buf4, 64, busy, quantum),
 			i->xrun_count + n->errors,

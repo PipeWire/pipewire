@@ -231,7 +231,9 @@ static int process_follower_block(struct data *d, const struct spa_pod *pod, str
 static const char *print_time(char *buf, size_t len, uint64_t val)
 {
 	if (val == (uint64_t)-1)
-		snprintf(buf, len, "   *** ");
+		snprintf(buf, len, "   --- ");
+	else if (val == (uint64_t)-2)
+		snprintf(buf, len, "   +++ ");
 	else if (val < 1000000llu)
 		snprintf(buf, len, "%5.1fµs", val/1000.f);
 	else if (val < 1000000000llu)
@@ -244,7 +246,9 @@ static const char *print_time(char *buf, size_t len, uint64_t val)
 static const char *print_perc(char *buf, size_t len, uint64_t val, float quantum)
 {
 	if (val == (uint64_t)-1) {
-		snprintf(buf, len, " *** ");
+		snprintf(buf, len, " --- ");
+	} else if (val == (uint64_t)-2) {
+		snprintf(buf, len, " +++ ");
 	} else {
 		float frac = val / 1000000000.f;
 		snprintf(buf, len, "%5.2f", quantum == 0.0f ? 0.0f : frac/quantum);
@@ -274,11 +278,15 @@ static void print_node(struct data *d, struct driver *i, struct node *n, int y)
 
 	if (n->measurement.awake >= n->measurement.signal)
 		waiting = n->measurement.awake - n->measurement.signal;
+	else if (n->measurement.signal > n->measurement.prev_signal)
+		waiting = -2;
 	else
 		waiting = -1;
 
 	if (n->measurement.finish >= n->measurement.awake)
 		busy = n->measurement.finish - n->measurement.awake;
+	else if (n->measurement.awake > n->measurement.prev_signal)
+		busy = -2;
 	else
 		busy = -1;
 

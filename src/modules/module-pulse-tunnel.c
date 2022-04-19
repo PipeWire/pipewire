@@ -136,7 +136,7 @@ static void cork_stream(struct impl *impl, bool cork)
 
 	pa_threaded_mainloop_lock(impl->pa_mainloop);
 
-	pw_log_info("corking: %d", cork);
+	pw_log_debug("corking: %d", cork);
 	if (cork && impl->mode == MODE_PLAYBACK) {
 		/* When the sink becomes suspended (which is the only case where we
 		 * cork the stream), we don't want to keep any old data around, because
@@ -216,7 +216,7 @@ static void playback_stream_process(void *d)
 		error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
 
 		corr = spa_dll_update(&impl->dll, error);
-		pw_log_info("filled:%u target:%u error:%f corr:%f %u %u", filled,
+		pw_log_debug("filled:%u target:%u error:%f corr:%f %u %u", filled,
 				impl->target_buffer, error, corr,
 				impl->current_latency, impl->target_latency);
 		pw_stream_set_control(impl->stream,
@@ -268,7 +268,7 @@ static void capture_stream_process(void *d)
 
 			corr = spa_dll_update(&impl->dll, error);
 
-			pw_log_info("avail:%u target:%u error:%f corr:%f %u %u", avail,
+			pw_log_debug("avail:%u target:%u error:%f corr:%f %u %u", avail,
 					impl->target_buffer, error, corr,
 					impl->current_latency, impl->target_latency);
 			pw_stream_set_control(impl->stream,
@@ -492,13 +492,13 @@ static void stream_write_request_cb(pa_stream *s, size_t length, void *userdata)
 static void stream_underflow_cb(pa_stream *s, void *userdata)
 {
 	struct impl *impl = userdata;
-	pw_log_info("underflow");
+	pw_log_warn("underflow");
 	impl->resync = true;
 }
 static void stream_overflow_cb(pa_stream *s, void *userdata)
 {
 	struct impl *impl = userdata;
-	pw_log_info("underflow");
+	pw_log_warn("overflow");
 	impl->resync = true;
 }
 

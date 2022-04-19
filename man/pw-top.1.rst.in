@@ -87,9 +87,15 @@ WAIT
   dependencies of the node are satisfied) and when processing starts. The
   WAIT time for follower nodes is thus mostly caused by context switching.
 
+  A value of --- means that the node was not signaled.  A value of +++
+  means that the node was signaled but not awake.
+
 BUSY
   The processing time is started when the node starts processing until it
   completes and wakes up the next nodes in the graph.
+
+  A value of --- means that the node was not started.  A value of +++
+  means that the node was started but did not complete.
 
 W/Q
   Ratio of WAIT / QUANT.
@@ -98,11 +104,15 @@ W/Q
   load. The running averages of the driver W/Q ratios are used as the DSP
   load in other (JACK) tools.
 
+  Values of --- and +++ are copied from the WAIT column.
+
 B/Q
   Ratio of BUSY / QUANT
 
   This is a good measure of the load of a particular driver or follower
   node.
+
+  Values of --- and +++ are copied from the BUSY column.
 
 ERR
   Total of Xruns and Errors

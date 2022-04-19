@@ -745,7 +745,7 @@ static void on_process(void *userdata)
 
 		n_fill_frames = data->fill(data, p, n_frames);
 
-		if (n_fill_frames > 0) {
+		if (n_fill_frames > 0 || n_frames == 0) {
 			d->chunk->offset = 0;
 			d->chunk->stride = data->stride;
 			d->chunk->size = n_fill_frames * data->stride;
@@ -753,6 +753,9 @@ static void on_process(void *userdata)
 			b->size = n_frames;
 		} else if (n_fill_frames < 0) {
 			fprintf(stderr, "fill error %d\n", n_fill_frames);
+		} else {
+			if (data->verbose)
+				printf("drain start\n");
 		}
 	} else {
 		offset = SPA_MIN(d->chunk->offset, d->maxsize);

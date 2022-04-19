@@ -65,6 +65,7 @@ struct node {
 	struct node *driver;
 	uint32_t errors;
 	int32_t last_error_status;
+	uint32_t generation;
 };
 
 struct data {
@@ -85,6 +86,7 @@ struct data {
 
 	int n_nodes;
 	struct spa_list node_list;
+	uint32_t generation;
 
 	WINDOW *win;
 };
@@ -182,6 +184,7 @@ static int process_driver_block(struct data *d, const struct spa_pod *pod, struc
 	n->measurement = m;
 	n->info = point->info;
 	point->driver = n;
+	n->generation = d->generation;
 
 	if (m.status != 3) {
 		n->errors++;
@@ -216,6 +219,7 @@ static int process_follower_block(struct data *d, const struct spa_pod *pod, str
 
 	n->measurement = m;
 	n->driver = point->driver;
+	n->generation = d->generation;
 	if (m.status != 3) {
 		n->errors++;
 		if (n->last_error_status == -1)
@@ -296,6 +300,9 @@ static void do_refresh(struct data *d)
 			break;
 
 		spa_list_for_each(f, &d->node_list, link) {
+			if (d->generation > f->generation + 2)
+				f->driver = f;
+
 			if (f->driver != n || f == n)
 				continue;
 
@@ -316,6 +323,7 @@ static void do_refresh(struct data *d)
 static void do_timeout(void *data, uint64_t expirations)
 {
 	struct data *d = data;
+	d->generation++;
 	do_refresh(d);
 }
 

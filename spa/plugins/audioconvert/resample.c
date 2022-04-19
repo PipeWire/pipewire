@@ -979,7 +979,7 @@ static int impl_node_process(void *object)
 			return outio->status = inio->status;
 		}
 		inio->buffer_id = 0;
-		inport->buffers[0].outbuf->datas[0].chunk->size = 0;
+		inport->buffers[0].outbuf->datas[0].chunk->size = -1;
 	}
 
 	if (SPA_UNLIKELY(inio->buffer_id >= inport->n_buffers))
@@ -993,7 +993,6 @@ static int impl_node_process(void *object)
 	sb = sbuf->outbuf;
 	db = dbuf->outbuf;
 
-	size = sb->datas[0].chunk->size;
 	maxsize = db->datas[0].maxsize;
 
 	if (SPA_LIKELY(this->io_position)) {
@@ -1036,12 +1035,11 @@ static int impl_node_process(void *object)
 	src_datas = alloca(sizeof(void*) * this->resample.channels);
 	dst_datas = alloca(sizeof(void*) * this->resample.channels);
 
-	if (inport->offset > size)
-		inport->offset = size;
 	if (outport->offset > maxsize)
 		outport->offset = maxsize;
 
-	if (size == 0) {
+	size = sb->datas[0].chunk->size;
+	if (size == (uint32_t)-1) {
 		size = sb->datas[0].maxsize;
 		memset(sb->datas[0].data, 0, size);
 		for (i = 0; i < sb->n_datas; i++)
@@ -1049,6 +1047,9 @@ static int impl_node_process(void *object)
 		inport->offset = 0;
 		flush_in = draining = true;
 	} else {
+		size = SPA_MIN(size, maxsize);
+		if (inport->offset > size)
+			inport->offset = size;
 		for (i = 0; i < sb->n_datas; i++)
 			src_datas[i] = SPA_PTROFF(sb->datas[i].data, inport->offset, void);
 	}
@@ -1057,7 +1058,6 @@ static int impl_node_process(void *object)
 
 	in_len = (size - inport->offset) / sizeof(float);
 	out_len = (maxsize - outport->offset) / sizeof(float);
-
 
 #ifndef FASTPATH
 	pin_len = in_len;

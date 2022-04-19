@@ -304,6 +304,8 @@ static void do_refresh(struct data *d)
 				f->driver = f;
 				spa_zero(f->measurement);
 				spa_zero(f->info);
+				f->errors = 0;
+				f->last_error_status = 0;
 			}
 
 			if (f->driver != n || f == n)

@@ -146,6 +146,7 @@ static void cork_stream(struct impl *impl, bool cork)
 			pa_operation_unref(operation);
 
 		spa_ringbuffer_init(&impl->ring);
+		memset(impl->buffer, 0, RINGBUFFER_SIZE);
 	}
 	if (!cork)
 		impl->resync = true;

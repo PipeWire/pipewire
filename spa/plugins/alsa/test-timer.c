@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
 	snd_pcm_hw_params_t *hparams;
 	snd_pcm_sw_params_t *sparams;
 	struct timespec now;
-	char c;
+	int c;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "device",	required_argument,	NULL, 'D' },

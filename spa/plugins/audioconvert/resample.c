@@ -1047,7 +1047,7 @@ static int impl_node_process(void *object)
 		inport->offset = 0;
 		flush_in = draining = true;
 	} else {
-		size = SPA_MIN(size, maxsize);
+		size = SPA_MIN(size, sb->datas[0].maxsize);
 		if (inport->offset > size)
 			inport->offset = size;
 		for (i = 0; i < sb->n_datas; i++)

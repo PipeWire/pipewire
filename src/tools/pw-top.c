@@ -300,8 +300,11 @@ static void do_refresh(struct data *d)
 			break;
 
 		spa_list_for_each(f, &d->node_list, link) {
-			if (d->generation > f->generation + 2)
+			if (d->generation > f->generation + 2) {
 				f->driver = f;
+				spa_zero(f->measurement);
+				spa_zero(f->info);
+			}
 
 			if (f->driver != n || f == n)
 				continue;

@@ -964,7 +964,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node)
 					continue;
 
 				if (!l->passive)
-					driver->passive = n->passive = false;
+					node->passive = driver->passive = n->passive = false;
 
 				if (!t->visited) {
 					t->visited = true;
@@ -985,7 +985,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node)
 					continue;
 
 				if (!l->passive)
-					driver->passive = n->passive = false;
+					node->passive = driver->passive = n->passive = false;
 
 				if (!t->visited) {
 					t->visited = true;

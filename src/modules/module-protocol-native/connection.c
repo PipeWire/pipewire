@@ -140,8 +140,13 @@ uint32_t pw_protocol_native_connection_add_fd(struct pw_protocol_native_connecti
 	}
 
 	buf->msg.fds[index] = fcntl(fd, F_DUPFD_CLOEXEC, 0);
+	if (buf->msg.fds[index] == -1) {
+		pw_log_error("connection %p: can't DUP fd:%d %m", conn, fd);
+		return SPA_IDX_INVALID;
+	}
 	buf->msg.n_fds++;
-	pw_log_debug("connection %p: add fd %d at index %d", conn, fd, index);
+	pw_log_debug("connection %p: add fd %d (new fd:%d) at index %d",
+			conn, fd, buf->msg.fds[index], index);
 
 	return index;
 }
@@ -198,6 +203,7 @@ static void close_all_fds(struct msghdr *msg, struct cmsghdr *from)
 			int fd;
 
 			memcpy(&fd, p, sizeof(fd));
+			pw_log_debug("%p: close fd:%d", msg, fd);
 			close(fd);
 		}
 	}
@@ -275,8 +281,10 @@ static void clear_buffer(struct buffer *buf, bool fds)
 {
 	uint32_t i;
 	if (fds) {
-		for (i = 0; i < buf->n_fds; i++)
+		for (i = 0; i < buf->n_fds; i++) {
+			pw_log_debug("%p: close fd:%d", buf, buf->fds[i]);
 			close(buf->fds[i]);
+		}
 	}
 	buf->n_fds = 0;
 	buf->buffer_size = 0;
@@ -813,8 +821,10 @@ exit:
 	if (size > 0)
 		memmove(buf->buffer_data, data, size);
 	buf->buffer_size = size;
-	for (i = 0; i < to_close; i++)
+	for (i = 0; i < to_close; i++) {
+		pw_log_debug("%p: close fd:%d", conn, buf->fds[i]);
 		close(buf->fds[i]);
+	}
 	if (n_fds > 0)
 		memmove(buf->fds, fds, n_fds * sizeof(int));
 	buf->n_fds = n_fds;

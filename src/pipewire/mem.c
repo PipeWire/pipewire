@@ -545,6 +545,7 @@ struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_
 	return &b->this;
 
 error_close:
+	pw_log_debug("%p: close fd:%d", pool, b->this.fd);
 	close(b->this.fd);
 error_free:
 	free(b);

@@ -1179,39 +1179,37 @@ again:
 
 	/* now go through all available nodes. The ones we didn't visit
 	 * in collect_nodes() are not linked to any driver. We assign them
-	 * to either an active driver of the first driver */
+	 * to either an active driver or the first driver */
 	spa_list_for_each(n, &context->node_list, link) {
-		if (n->exported)
+		struct pw_impl_node *t;
+		if (n->exported || n->visited)
 			continue;
 
-		if (!n->visited) {
-			struct pw_impl_node *t;
+		pw_log_debug("%p: unassigned node %p: '%s' active:%d want_driver:%d target:%p",
+				context, n, n->name, n->active, n->want_driver, target);
 
-			pw_log_debug("%p: unassigned node %p: '%s' active:%d want_driver:%d target:%p",
-					context, n, n->name, n->active, n->want_driver, target);
-
-			t = n->want_driver && n->active ? target : NULL;
-			if (t != NULL) {
-				pw_impl_node_set_driver(n, t);
-				/* we configured a driver, move all linked
-				 * nodes to it as well */
-				if (n->always_process)
-					t->passive = false;
-				collect_nodes(context, n);
-				if (!n->always_process && n->passive)
-					/* nothing active and node doesn't need to be
-					 * scheduled, remove from driver again and
-					 * stop */
-					t = NULL;
-			}
-			if (t == NULL) {
-				/* no driver, make sure the node stops */
-				pw_impl_node_set_driver(n, NULL);
-				ensure_state(n, false);
-			}
+		t = n->want_driver && n->active ? target : NULL;
+		if (t != NULL) {
+			pw_impl_node_set_driver(n, t);
+			/* we configured a driver, move all linked
+			 * nodes to it as well */
+			if (n->always_process)
+				t->passive = false;
+			collect_nodes(context, n);
+			if (!n->always_process && n->passive)
+				/* nothing active and node doesn't need to be
+				 * scheduled, remove from driver again and
+				 * stop */
+				t = NULL;
 		}
-		n->visited = false;
+		if (t == NULL) {
+			/* no driver, make sure the node stops */
+			pw_impl_node_set_driver(n, NULL);
+			ensure_state(n, false);
+		}
 	}
+	spa_list_for_each(n, &context->node_list, link)
+		n->visited = false;
 
 	/* assign final quantum and set state for followers and drivers */
 	spa_list_for_each(n, &context->driver_list, driver_link) {

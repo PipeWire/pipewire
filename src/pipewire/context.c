@@ -915,26 +915,14 @@ static int ensure_state(struct pw_impl_node *node, bool running)
 	return pw_impl_node_set_state(node, state);
 }
 
-static int collect_nodes(struct pw_context *context, struct pw_impl_node *node)
+static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, struct spa_list *collect)
 {
 	struct spa_list queue;
-	struct pw_impl_node *n, *t, *driver;
+	struct pw_impl_node *n, *t;
 	struct pw_impl_port *p;
 	struct pw_impl_link *l;
 
 	pw_log_debug("node %p: '%s'", node, node->name);
-
-	if (node->driver) {
-		driver = node;
-		spa_list_consume(t, &driver->follower_list, follower_link) {
-			spa_list_remove(&t->follower_link);
-			spa_list_init(&t->follower_link);
-		}
-	} else {
-		driver = node->driver_node;
-		if (driver == NULL)
-			return -EINVAL;
-	}
 
 	/* start with node in the queue */
 	spa_list_init(&queue);
@@ -944,8 +932,10 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node)
 	/* now follow all the links from the nodes in the queue
 	 * and add the peers to the queue. */
 	spa_list_consume(n, &queue, sort_link) {
+		pw_log_debug(" next node %p: '%s'", n, n->name);
+
 		spa_list_remove(&n->sort_link);
-		pw_impl_node_set_driver(n, driver);
+		spa_list_append(collect, &n->sort_link);
 		n->passive = true;
 
 		if (!n->active)
@@ -964,7 +954,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node)
 					continue;
 
 				if (!l->passive)
-					node->passive = driver->passive = n->passive = false;
+					node->passive = n->passive = false;
 
 				if (!t->visited) {
 					t->visited = true;
@@ -985,7 +975,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node)
 					continue;
 
 				if (!l->passive)
-					node->passive = driver->passive = n->passive = false;
+					node->passive = n->passive = false;
 
 				if (!t->visited) {
 					t->visited = true;
@@ -1009,6 +999,27 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node)
 		}
 	}
 	return 0;
+}
+
+static void move_to_driver(struct pw_context *context, struct spa_list *nodes,
+		struct pw_impl_node *driver)
+{
+	struct pw_impl_node *n;
+	pw_log_debug("driver: %p %s", driver, driver->name);
+	spa_list_consume(n, nodes, sort_link) {
+		spa_list_remove(&n->sort_link);
+		pw_log_debug(" follower: %p %s", n, n->name);
+		pw_impl_node_set_driver(n, driver);
+	}
+}
+static void remove_from_driver(struct pw_context *context, struct spa_list *nodes)
+{
+	struct pw_impl_node *n;
+	spa_list_consume(n, nodes, sort_link) {
+		spa_list_remove(&n->sort_link);
+		pw_impl_node_set_driver(n, NULL);
+		ensure_state(n, false);
+	}
 }
 
 static inline void get_quantums(struct pw_context *context, uint32_t *def,
@@ -1113,6 +1124,7 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 	uint32_t max_quantum, min_quantum, def_quantum, lim_quantum, rate_quantum;
 	uint32_t *rates, n_rates, def_rate;
 	bool freewheel = false, global_force_rate, force_rate, force_quantum, global_force_quantum;
+	struct spa_list collect;
 
 	pw_log_info("%p: busy:%d reason:%s", context, impl->recalc, reason);
 
@@ -1140,9 +1152,11 @@ again:
 		if (n->exported)
 			continue;
 
-		if (!n->visited)
-			collect_nodes(context, n);
-
+		if (!n->visited) {
+			spa_list_init(&collect);
+			collect_nodes(context, n, &collect);
+			move_to_driver(context, &collect, n);
+		}
 		/* from now on we are only interested in active driving nodes.
 		 * We're going to see if there are active followers. */
 		if (!n->driving || !n->active)
@@ -1179,35 +1193,39 @@ again:
 
 	/* now go through all available nodes. The ones we didn't visit
 	 * in collect_nodes() are not linked to any driver. We assign them
-	 * to either an active driver or the first driver */
+	 * to either an active driver or the first driver if they are in a
+	 * group that needs a driver. Else we remove them from a driver
+	 * and stop them. */
 	spa_list_for_each(n, &context->node_list, link) {
-		struct pw_impl_node *t;
+		struct pw_impl_node *t, *driver;
+
 		if (n->exported || n->visited)
 			continue;
 
 		pw_log_debug("%p: unassigned node %p: '%s' active:%d want_driver:%d target:%p",
 				context, n, n->name, n->active, n->want_driver, target);
 
-		t = n->want_driver && n->active ? target : NULL;
-		if (t != NULL) {
-			pw_impl_node_set_driver(n, t);
-			/* we configured a driver, move all linked
-			 * nodes to it as well */
-			if (n->always_process)
-				t->passive = false;
-			collect_nodes(context, n);
-			if (!n->always_process && n->passive)
-				/* nothing active and node doesn't need to be
-				 * scheduled, remove from driver again and
-				 * stop */
-				t = NULL;
+		/* collect all nodes in this group */
+		spa_list_init(&collect);
+		collect_nodes(context, n, &collect);
+
+		driver = NULL;
+		spa_list_for_each(t, &collect, sort_link) {
+			/* is any active and want a driver or it want process */
+			if ((t->want_driver && t->active && !n->passive) ||
+			    t->always_process)
+				driver = target;
 		}
-		if (t == NULL) {
-			/* no driver, make sure the node stops */
-			pw_impl_node_set_driver(n, NULL);
-			ensure_state(n, false);
+		if (driver != NULL) {
+			/* driver needed for this group */
+			driver->passive = false;
+			move_to_driver(context, &collect, driver);
+		} else {
+			/* no driver, make sure the nodes stops */
+			remove_from_driver(context, &collect);
 		}
 	}
+	/* clean up the visited flag now */
 	spa_list_for_each(n, &context->node_list, link)
 		n->visited = false;
 

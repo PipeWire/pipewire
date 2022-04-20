@@ -605,6 +605,14 @@ static void state_changed(void *data, enum pw_stream_state old,
 		pw_stream_flush(impl->capture, false);
 		graph_reset(graph);
 		break;
+	case PW_STREAM_STATE_UNCONNECTED:
+		pw_log_info("module %p: unconnected", impl);
+		pw_impl_module_schedule_destroy(impl->module);
+		break;
+	case PW_STREAM_STATE_ERROR:
+		pw_log_error("module %p: error: %s", impl, error);
+		pw_impl_module_schedule_destroy(impl->module);
+		break;
 	default:
 		break;
 	}

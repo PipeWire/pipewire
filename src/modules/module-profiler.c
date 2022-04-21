@@ -42,6 +42,28 @@
 #include <pipewire/extensions/profiler.h>
 
 /** \page page_module_profiler PipeWire Module: Profiler
+ *
+ * The profiler module provides a Profiler interface for applications that
+ * can be used to receive profiling information.
+ *
+ * Use tools like pw-top and pw-profiler to collect profiling information
+ * about the pipewire graph.
+ *
+ * ## Example configuration
+ *
+ * The module has no arguments and is usually added to the config file of
+ * the main pipewire daemon.
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ * { name = libpipewire-module-profiler }
+ * ]
+ *\endcode
+ *
+ * ## See also
+ *
+ * `pw-top`: a tool to display realtime profiler data
+ * `pw-profiler`: a tool to collect and render profiler data
  */
 
 #define NAME "profiler"

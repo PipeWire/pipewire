@@ -406,8 +406,7 @@ static void input_state_changed(void *data, enum pw_stream_state old,
 		pw_impl_module_schedule_destroy(impl->module);
 		break;
 	case PW_STREAM_STATE_ERROR:
-		pw_log_error("%p: input error: %s", impl, error);
-		pw_impl_module_schedule_destroy(impl->module);
+		pw_log_info("%p: input error: %s", impl, error);
 		break;
 	default:
 		break;
@@ -479,8 +478,7 @@ static void output_state_changed(void *data, enum pw_stream_state old,
 		pw_impl_module_schedule_destroy(impl->module);
 		break;
 	case PW_STREAM_STATE_ERROR:
-		pw_log_error("%p: output error: %s", impl, error);
-		pw_impl_module_schedule_destroy(impl->module);
+		pw_log_info("%p: output error: %s", impl, error);
 		break;
 	default:
 		break;

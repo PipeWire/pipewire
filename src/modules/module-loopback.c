@@ -185,8 +185,7 @@ static void stream_state_changed(void *data, enum pw_stream_state old,
 		pw_impl_module_schedule_destroy(impl->module);
 		break;
 	case PW_STREAM_STATE_ERROR:
-		pw_log_error("module %p: error: %s", impl, error);
-		pw_impl_module_schedule_destroy(impl->module);
+		pw_log_info("module %p: error: %s", impl, error);
 		break;
 	default:
 		break;

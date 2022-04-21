@@ -972,7 +972,7 @@ static bool find_match(struct spa_json *arr, const struct spa_dict *props)
  * rules = [
  *     {
  *         matches = [
- *             # any of the items in matches needs to match, it one does,
+ *             # any of the items in matches needs to match, if one does,
  *             # actions are emited.
  *             {
  *                 # all keys must match the value. ~ in value starts regex.

@@ -1513,6 +1513,11 @@ pw_filter_connect(struct pw_filter *filter,
 	impl->disconnecting = false;
 	filter_set_state(filter, PW_FILTER_STATE_CONNECTING, NULL);
 
+	if (flags & PW_FILTER_FLAG_DRIVER)
+		pw_properties_set(filter->properties, PW_KEY_NODE_DRIVER, "true");
+	if ((pw_properties_get(filter->properties, PW_KEY_NODE_WANT_DRIVER) == NULL))
+		pw_properties_set(filter->properties, PW_KEY_NODE_WANT_DRIVER, "true");
+
 	if (filter->core == NULL) {
 		filter->core = pw_context_connect(impl->context,
 				pw_properties_copy(filter->properties), 0);

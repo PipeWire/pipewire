@@ -455,8 +455,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(playback_props, PW_KEY_NODE_NAME, "roc-source");
 	if (pw_properties_get(playback_props, PW_KEY_NODE_DESCRIPTION) == NULL)
 		pw_properties_set(playback_props, PW_KEY_NODE_DESCRIPTION, "ROC Source");
-	if (pw_properties_get(playback_props, PW_KEY_NODE_WANT_DRIVER) == NULL)
-		pw_properties_set(playback_props, PW_KEY_NODE_WANT_DRIVER, "true");
 	if (pw_properties_get(playback_props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(playback_props, PW_KEY_NODE_VIRTUAL, "true");
 	if (pw_properties_get(playback_props, PW_KEY_NODE_NETWORK) == NULL)

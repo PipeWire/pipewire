@@ -1834,6 +1834,9 @@ pw_stream_connect(struct pw_stream *stream,
 	}
 	if (flags & PW_STREAM_FLAG_DRIVER)
 		pw_properties_set(stream->properties, PW_KEY_NODE_DRIVER, "true");
+	if ((pw_properties_get(stream->properties, PW_KEY_NODE_WANT_DRIVER) == NULL))
+		pw_properties_set(stream->properties, PW_KEY_NODE_WANT_DRIVER, "true");
+
 	if (flags & PW_STREAM_FLAG_EXCLUSIVE)
 		pw_properties_set(stream->properties, PW_KEY_NODE_EXCLUSIVE, "true");
 	if (flags & PW_STREAM_FLAG_DONT_RECONNECT)
@@ -1852,6 +1855,7 @@ pw_stream_connect(struct pw_stream *stream,
 				direction == PW_DIRECTION_INPUT ? "Input" : "Output",
 				media_type ? media_type : get_media_class(impl));
 	}
+
 	if ((str = pw_properties_get(stream->properties, PW_KEY_FORMAT_DSP)) != NULL)
 		pw_properties_set(impl->port_props, PW_KEY_FORMAT_DSP, str);
 	else if (impl->media_type == SPA_MEDIA_TYPE_application &&

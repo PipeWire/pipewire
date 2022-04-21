@@ -298,8 +298,6 @@ struct module *create_module_pipe_sink(struct impl *impl, const char *argument)
 		goto out;
 	}
 
-	if (pw_properties_get(capture_props, PW_KEY_NODE_WANT_DRIVER) == NULL)
-		pw_properties_set(capture_props, PW_KEY_NODE_WANT_DRIVER, "true");
 	if (pw_properties_get(capture_props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(capture_props, PW_KEY_NODE_VIRTUAL, "true");
 	pw_properties_set(capture_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");

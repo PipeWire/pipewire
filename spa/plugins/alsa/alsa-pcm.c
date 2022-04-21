@@ -311,7 +311,7 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 			SPA_PROP_INFO_name, SPA_POD_String("latency.internal.ns"),
 			SPA_PROP_INFO_description, SPA_POD_String("Internal latency in nanoseconds"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(state->process_latency.ns,
-				0, 2 * SPA_NSEC_PER_SEC),
+				0LL, 2 * SPA_NSEC_PER_SEC),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
 	case 15:

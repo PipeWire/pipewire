@@ -1175,6 +1175,15 @@ static const struct pw_core_events core_events = {
 	.error = on_core_error,
 };
 
+static int execute_match(void *data, const char *location, const char *action,
+		const char *val, size_t len)
+{
+	struct pw_filter *this = data;
+	if (spa_streq(action, "update-props"))
+		pw_properties_update_string(this->properties, val, len);
+	return 1;
+}
+
 static struct filter *
 filter_new(struct pw_context *context, const char *name,
 		struct pw_properties *props, const struct pw_properties *extra)
@@ -1228,6 +1237,9 @@ filter_new(struct pw_context *context, const char *name,
 
 	spa_hook_list_init(&impl->hooks);
 	this->properties = props;
+
+	pw_context_conf_section_match_rules(impl->context, "filter.rules",
+		&this->properties->dict, execute_match, this);
 
 	this->name = name ? strdup(name) : NULL;
 	this->node_id = SPA_ID_INVALID;
@@ -1455,6 +1467,10 @@ int pw_filter_update_properties(struct pw_filter *filter, void *port_data, const
 		}
 	} else {
 		changed = pw_properties_update(filter->properties, dict);
+
+		pw_context_conf_section_match_rules(impl->context, "filter.rules",
+			&filter->properties->dict, execute_match, filter);
+
 		impl->info.props = &filter->properties->dict;
 		if (changed > 0) {
 			impl->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;

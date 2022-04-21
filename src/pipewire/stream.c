@@ -1370,6 +1370,15 @@ static const struct pw_context_driver_events context_events = {
 	.drained = context_drained,
 };
 
+static int execute_match(void *data, const char *location, const char *action,
+		const char *val, size_t len)
+{
+	struct pw_stream *this = data;
+	if (spa_streq(action, "update-props"))
+		pw_properties_update_string(this->properties, val, len);
+	return 1;
+}
+
 static struct stream *
 stream_new(struct pw_context *context, const char *name,
 		struct pw_properties *props, const struct pw_properties *extra)
@@ -1428,9 +1437,11 @@ stream_new(struct pw_context *context, const char *name,
 					"%u/%u", q.num, q.denom);
 		}
 	}
-
 	spa_hook_list_init(&impl->hooks);
 	this->properties = props;
+
+	pw_context_conf_section_match_rules(context, "stream.rules",
+			&this->properties->dict, execute_match, this);
 
 	this->name = name ? strdup(name) : NULL;
 	this->node_id = SPA_ID_INVALID;
@@ -1642,9 +1653,11 @@ int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict 
 	int changed, res = 0;
 
 	changed = pw_properties_update(stream->properties, dict);
-
 	if (!changed)
 		return 0;
+
+	pw_context_conf_section_match_rules(impl->context, "stream.rules",
+			&stream->properties->dict, execute_match, stream);
 
 	if (impl->node)
 		res = pw_impl_node_update_properties(impl->node, dict);

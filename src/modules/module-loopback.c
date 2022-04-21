@@ -43,6 +43,66 @@
 #include <pipewire/extensions/profiler.h>
 
 /** \page page_module_loopback PipeWire Module: Loopback
+ *
+ * The loopback module passes the output of a capture stream unmodified to a playback stream.
+ * It can be used to construct a link between a source and sink but also to
+ * create new virtual sinks or sources or to remap channel between streams.
+ *
+ * Because both ends of the loopback are built with streams, the session manager can
+ * manage the configuration and connection with the sinks and sources.
+ *
+ * ## Module Options
+ *
+ * - `node.description`: a human readable name for the loopback streams
+ * - `capture.props = {}`: properties to be passed to the input stream
+ * - `playback.props = {}`: properties to be passed to the output stream
+ *
+ * ## General options
+ *
+ * Options with well-known behavior. Most options can be added to the global
+ * configuration or the individual streams:
+ *
+ * - \ref PW_KEY_REMOTE_NAME
+ * - \ref PW_KEY_AUDIO_RATE
+ * - \ref PW_KEY_AUDIO_CHANNELS
+ * - \ref SPA_KEY_AUDIO_POSITION
+ * - \ref PW_KEY_MEDIA_NAME
+ * - \ref PW_KEY_NODE_LATENCY
+ * - \ref PW_KEY_NODE_DESCRIPTION
+ * - \ref PW_KEY_NODE_GROUP
+ * - \ref PW_KEY_NODE_LINK_GROUP
+ * - \ref PW_KEY_NODE_VIRTUAL
+ *
+ * Stream only properties:
+ *
+ * - \ref PW_KEY_MEDIA_CLASS
+ * - \ref PW_KEY_NODE_NAME
+ *
+ * ## Example configuration of a virtual sink
+ *
+ * This Virtual sink routes stereo input to the rear channels of a 7.1 sink.
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ * {   name = libpipewire-module-loopback
+ *     args = {
+ *         node.description = "CM106 Stereo Pair 2"
+ *         capture.props = {
+ *             node.name = "CM106_stereo_pair_2"
+ *             media.class = "Audio/Sink"
+ *             audio.position = [ FL FR ]
+ *         }
+ *         playback.props = {
+ *             node.name = "playback.CM106_stereo_pair_2"
+ *             audio.position = [ RL RR ]
+ *             node.target = "alsa_output.usb-0d8c_USB_Sound_Device-00.analog-surround-71"
+ *             stream.dont-remix = true
+ *             node.passive = true
+ *         }
+ *     }
+ * }
+ * ]
+ *\endcode
  */
 
 #define NAME "loopback"
@@ -55,7 +115,6 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_DESCRIPTION, "Create loopback streams" },
 	{ PW_KEY_MODULE_USAGE, " [ remote.name=<remote> ] "
 				"[ node.latency=<latency as fraction> ] "
-				"[ node.name=<name of the nodes> ] "
 				"[ node.description=<description of the nodes> ] "
 				"[ audio.rate=<sample rate> ] "
 				"[ audio.channels=<number of channels> ] "

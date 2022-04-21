@@ -133,6 +133,11 @@ struct command {
 	bool (*func) (struct data *data, const char *cmd, char *args, char **error);
 };
 
+static struct spa_dict * global_props(struct global *global);
+static struct global * obj_global(struct remote_data *rd, uint32_t id);
+static int children_of(struct remote_data *rd, uint32_t parent_id,
+	const char *child_type, uint32_t **children);
+
 static int pw_split_ip(char *str, const char *delimiter, int max_tokens, char *tokens[])
 {
 	const char *state = NULL;
@@ -1498,15 +1503,68 @@ static bool do_destroy(struct data *data, const char *cmd, char *args, char **er
 	return true;
 }
 
+static struct global *
+obj_global_port(struct remote_data *rd, struct global *global, const char *port_direction, const char *port_id)
+{
+	struct global *global_port_found = NULL;
+	uint32_t *ports = NULL;
+	int port_count;
+
+	port_count = children_of(rd, global->id, PW_TYPE_INTERFACE_Port, &ports);
+
+	if (port_count <= 0)
+		return NULL;
+
+	for (int i = 0; i < port_count; i++) {
+		struct global *global_port = obj_global(rd, ports[i]);
+
+		if (!global_port)
+			continue;
+
+		struct spa_dict *props_port = global_props(global_port);
+
+		if (spa_streq(spa_dict_lookup(props_port, "port.direction"), port_direction)
+				&& spa_streq(spa_dict_lookup(props_port, "port.id"), port_id)) {
+			global_port_found = global_port;
+			break;
+		}
+	}
+
+	free(ports);
+	return global_port_found;
+}
+
+static void create_link_with_properties(struct data *data, struct pw_properties *props)
+{
+	struct remote_data *rd = data->current;
+	uint32_t id;
+	struct pw_proxy *proxy;
+	struct proxy_data *pd;
+
+	proxy = (struct pw_proxy*)pw_core_create_object(rd->core,
+					  "link-factory",
+					  PW_TYPE_INTERFACE_Link,
+					  PW_VERSION_LINK,
+					  props ? &props->dict : NULL,
+					  sizeof(struct proxy_data));
+
+	pd = pw_proxy_get_user_data(proxy);
+	pd->rd = rd;
+	pd->proxy = proxy;
+	pd->class = &link_class;
+	pw_proxy_add_object_listener(proxy, &pd->object_listener, &link_events, pd);
+	pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
+
+	id = pw_map_insert_new(&data->vars, proxy);
+	printf("%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
+}
+
 static bool do_create_link(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	char *a[5];
-        int n;
-	uint32_t id;
-	struct pw_proxy *proxy;
+	int n;
 	struct pw_properties *props = NULL;
-	struct proxy_data *pd;
 
 	n = pw_split_ip(args, WHITESPACE, 5, a);
 	if (n < 4) {
@@ -1527,24 +1585,54 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 	if (!spa_streq(a[3], "-"))
 		pw_properties_set(props, PW_KEY_LINK_INPUT_PORT, a[3]);
 
-	proxy = (struct pw_proxy*)pw_core_create_object(rd->core,
-					  "link-factory",
-					  PW_TYPE_INTERFACE_Link,
-					  PW_VERSION_LINK,
-					  props ? &props->dict : NULL,
-					  sizeof(struct proxy_data));
+	if (spa_streq(a[1], "*") && spa_streq(a[3], "*")) {
+		struct global *global_out, *global_in;
+		struct proxy_data *pd_out, *pd_in;
+		uint32_t n_output_ports, n_input_ports;
+
+		global_out = find_global(rd, a[0]);
+		if (global_out == NULL) {
+			*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
+			return false;
+		}
+		global_in = find_global(rd, a[2]);
+		if (global_in == NULL) {
+			*error = spa_aprintf("%s: unknown global '%s'", cmd, a[2]);
+			return false;
+		}
+
+		pd_out = pw_proxy_get_user_data(global_out->proxy);
+		pd_in = pw_proxy_get_user_data(global_in->proxy);
+
+		n_output_ports = ((struct pw_node_info *)pd_out->info)->n_output_ports;
+		n_input_ports = ((struct pw_node_info *)pd_in->info)->n_input_ports;
+
+		if (n_output_ports != n_input_ports) {
+			*error = spa_aprintf("%s: Number of ports don't match (%u != %u)", cmd, n_output_ports, n_input_ports);
+			return false;
+		}
+
+		for (uint32_t i = 0; i < n_output_ports; i++) {
+			char port_id[4];
+			struct global *global_port_out, *global_port_in;
+
+			snprintf(port_id, 4, "%d", i);
+
+			global_port_out = obj_global_port(rd, global_out, "out", port_id);
+			global_port_in = obj_global_port(rd, global_in, "in", port_id);
+
+			if (!global_port_out || !global_port_in)
+				continue;
+
+			pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", global_port_out->id);
+			pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", global_port_in->id);
+
+			create_link_with_properties(data, props);
+		}
+	} else
+		create_link_with_properties(data, props);
 
 	pw_properties_free(props);
-
-	pd = pw_proxy_get_user_data(proxy);
-	pd->rd = rd;
-	pd->proxy = proxy;
-        pd->class = &link_class;
-        pw_proxy_add_object_listener(proxy, &pd->object_listener, &link_events, pd);
-        pw_proxy_add_listener(proxy, &pd->proxy_listener, &proxy_events, pd);
-
-	id = pw_map_insert_new(&data->vars, proxy);
-	printf("%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
 
 	return true;
 }

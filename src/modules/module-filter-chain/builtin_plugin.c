@@ -264,7 +264,7 @@ static struct fc_port bq_ports[] = {
 	{ .index = 4,
 	  .name = "Gain",
 	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
-	  .def = 0.0f, .min = -120.0f, .max = 5.0f,
+	  .def = 0.0f, .min = -120.0f, .max = 20.0f,
 	},
 };
 

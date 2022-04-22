@@ -39,6 +39,251 @@
 #include "module-protocol-pulse/pulse-server.h"
 
 /** \page page_module_protocol_pulse PipeWire Module: Protocol Pulse
+ *
+ * ## Module Options
+ *
+ * The module arguments can be the contents of the pulse.properties but
+ * it is recommended to make a separate pulse.properties section in the
+ * config file so that overrides can be done.
+ *
+ * ## pulse.properties
+ *
+ * A config section with server properties can be given.
+ *
+ *\code{.unparsed}
+ * pulse.properties = {
+ *     # the addresses this server listens on
+ *     server.address = [
+ *         "unix:native"
+ *         #"unix:/tmp/something"              # absolute paths may be used
+ *         #"tcp:4713"                         # IPv4 and IPv6 on all addresses
+ *         #"tcp:[::]:9999"                    # IPv6 on all addresses
+ *         #"tcp:127.0.0.1:8888"               # IPv4 on a single address
+ *         #
+ *         #{ address = "tcp:4713"             # address
+ *         #  max-clients = 64                 # maximum number of clients
+ *         #  listen-backlog = 32              # backlog in the server listen queue
+ *         #  client.access = "restricted"     # permissions for clients
+ *         #}
+ *     ]
+ *     #pulse.min.req          = 256/48000     # 5ms
+ *     #pulse.default.req      = 960/48000     # 20 milliseconds
+ *     #pulse.min.frag         = 256/48000     # 5ms
+ *     #pulse.default.frag     = 96000/48000   # 2 seconds
+ *     #pulse.default.tlength  = 96000/48000   # 2 seconds
+ *     #pulse.min.quantum      = 256/48000     # 5ms
+ *     #pulse.default.format   = F32
+ *     #pulse.default.position = [ FL FR ]
+ *     # These overrides are only applied when running in a vm.
+ *     vm.overrides = {
+ *         pulse.min.quantum = 1024/48000      # 22ms
+ *     }
+ * }
+ *\endcode
+ *
+ * ### Connection options
+ *
+ *\code{.unparsed}
+ *     ...
+ *     server.address = [
+ *         "unix:native"
+ *         # "tcp:4713"
+ *     ]
+ *     ...
+ *\endcode
+ *
+ * The addresses the server listens on when starting. Uncomment the `tcp:4713` entry to also
+ * make the server listen on a tcp socket. This is equivalent to loading `module-native-protocol-tcp`.
+ *
+ * There is also a slightly more verbose syntax with more options:
+ *
+ *\code{.unparsed}
+ *     ....
+ *     server.address = [
+ *       {  address = "tcp:4713"             # address
+ *          max-clients = 64                 # maximum number of clients
+ *          listen-backlog = 32              # backlog in the server listen queue
+ *          client.access = "restricted"     # permissions for clients
+ *       }
+ *     ....
+ *\endcode
+ *
+ * Use `client.access` to use one of the access methods to restrict the permissions given to
+ * clients connected via this address.
+ *
+ * By default network access is given the "restricted" permissions. The session manager is responsible
+ * for assigning permission to clients with restricted permissions (usually read-only permissions).
+ *
+ * ### Playback buffering options
+ *
+ *\code{.unparsed}
+ *     pulse.min.req = 256/48000              # 5ms
+ *\endcode
+ *
+ * The minimum amount of data to request for clients. The client requested
+ * values will be clamped to this value. Lowering this value together with
+ * tlength can decrease latency if the client wants this, but increase CPU overhead.
+ *
+ *\code{.unparsed}
+ *     pulse.default.req = 960/48000          # 20 milliseconds
+ *\endcode
+ *
+ * The default amount of data to request for clients. If the client does not
+ * specify any particular value, this default will be used. Lowering this value
+ * together with tlength can decrease latency but increase CPU overhead.
+ *
+ *\code{.unparsed}
+ *     pulse.default.tlength = 96000/48000    # 2 seconds
+ *\endcode
+ *
+ * The target amount of data to buffer on the server side. If the client did not
+ * specify a value, this default will be used. Lower values can decrease the
+ * latency.
+ *
+ * ### Record buffering options
+ *
+ *\code{.unparsed}
+ *     pulse.min.frag = 256/48000             # 5ms
+ *\endcode
+ *
+ * The minimum allowed size of the capture buffer before it is sent to a client.
+ * The requested value of the client will be clamped to this. Lowering this value
+ * can reduce latency at the expense of more CPU usage.
+ *
+ *\code{.unparsed}
+ *     pulse.default.frag = 96000/48000       # 2 seconds
+ *\endcode
+ *
+ * The default size of the capture buffer before it is sent to a client. If the client
+ * did not specify any value, this default will be used. Lowering this value can
+ * reduce latency at the expense of more CPU usage.
+ *
+ * ### Scheduling options
+ *
+ *\code{.unparsed}
+ *     pulse.min.quantum = 256/48000          # 5ms
+ *\endcode
+ *
+ * The minimum quantum (buffer size in samples) to use for pulseaudio clients.
+ * This value is calculated based on the frag and req/tlength for record and
+ * playback streams respectively and then clamped to this value to ensure no
+ * pulseaudio client asks for too small quantums. Lowering this value might
+ * decrease latency at the expense of more CPU usage.
+ *
+ * ### Format options
+ *
+ *\code{.unparsed}
+ *     pulse.default.format = F32
+ *\endcode
+ *
+ * Some modules will default to this format when no other format was given. This
+ * is equivalent to the PulseAudio `default-sample-format` option in
+ * `/etc/pulse/daemon.conf`.
+ *
+ *\code{.unparsed}
+ *     pulse.default.position = [ FL FR ]
+ *\endcode
+ *
+ * Some modules will default to this channelmap (with its number of channels).
+ * This is equivalent to the PulseAudio `default-sample-channels` and
+ * `default-channel-map` options in `/etc/pulse/daemon.conf`.
+ *
+ * ### VM options
+ *
+ *\code{.unparsed}
+ *     vm.overrides = {
+ *         pulse.min.quantum = 1024/48000      # 22ms
+ *     }
+ *\endcode
+ *
+ * When running in a VM, the `vm.override` section will override the properties
+ * in pulse.properties with the given values. This might be interesting because
+ * VMs usually can't support the low latency settings that are possible on real
+ * hardware.
+ *
+ * ## Application settings (Rules)
+ *
+ * The pulse protocol module supports generic config rules. It provides a `quirks`
+ * and an `update-props` action.
+ *
+ * Streams created by module-protocol-pulse will use the stream.properties
+ * section and stream.rules sections as usual.
+ *
+ *\code{.unparsed}
+ * pulse.rules = [
+ *     {
+ *         # skype does not want to use devices that don't have an S16 sample format.
+ *         matches = [
+ *              { application.process.binary = "teams" }
+ *              { application.process.binary = "teams-insiders" }
+ *              { application.process.binary = "skypeforlinux" }
+ *         ]
+ *         actions = { quirks = [ force-s16-info ] }
+ *     }
+ *     {
+ *         # speech dispatcher asks for too small latency and then underruns.
+ *         matches = [ { application.name = "~speech-dispatcher*" } ]
+ *         actions = {
+ *             update-props = {
+ *                 pulse.min.req          = 1024/48000     # 21ms
+ *                 pulse.min.quantum      = 1024/48000     # 21ms
+ *             }
+ *         }
+ *     }
+ * ]
+ *\endcode
+ *
+ * ### Quirks
+ *
+ * The quirks action takes an array of quirks to apply for the client.
+ *
+ * * `force-s16-info` makes the sink and source introspect code pretend that the sample format
+ *                    is S16 (16 bits) samples.  Some application refuse the sink/source if this
+ *                    is not the case.
+ * * `remove-capture-dont-move` Removes the DONT_MOVE flag on capture streams. Some applications
+ *                    set this flag so that the stream can't be moved anymore with tools such as
+ *                    pavucontrol.
+ *
+ * ### update-props
+ *
+ * Takes an object with the properties to update on the client. Common actions are to
+ * tweak the quantum values.
+ *
+ * ## Example configuration
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ * {   name = libpipewire-module-protocol-pulse
+ *     args = { }
+ * }
+ * ]
+ *
+ * pulse.properties = {
+ *     server.address = [ "unix:native" ]
+ * }
+ *
+ * pulse.rules = [
+ *     {
+ *        # skype does not want to use devices that don't have an S16 sample format.
+ *        matches = [
+ *             { application.process.binary = "teams" }
+ *             { application.process.binary = "teams-insiders" }
+ *             { application.process.binary = "skypeforlinux" }
+ *        ]
+ *        actions = { quirks = [ force-s16-info ] }
+ *    }
+ *    {
+ *        # speech dispatcher asks for too small latency and then underruns.
+ *        matches = [ { application.name = "~speech-dispatcher*" } ]
+ *        actions = {
+ *            update-props = {
+ *                pulse.min.req          = 1024/48000     # 21ms
+ *                pulse.min.quantum      = 1024/48000     # 21ms
+ *            }
+ *        }
+ *    }
+ * ]
+ *\endcode
  */
 
 #define NAME "protocol-pulse"

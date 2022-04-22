@@ -62,8 +62,8 @@
  *
  * ## See also
  *
- * `pw-top`: a tool to display realtime profiler data
- * `pw-profiler`: a tool to collect and render profiler data
+ * - `pw-top`: a tool to display realtime profiler data
+ * - `pw-profiler`: a tool to collect and render profiler data
  */
 
 #define NAME "profiler"

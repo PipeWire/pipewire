@@ -48,6 +48,23 @@
 #include "module-zeroconf-discover/avahi-poll.h"
 
 /** \page page_module_zeroconf_discover PipeWire Module: Zeroconf Discover
+ *
+ * Use zeroconf to detect and load module-pulse-tunnel with the right
+ * parameters. This will automatically create sinks and sources to stream
+ * audio to/from remote PulseAudio servers. It also works with
+ * module-protocol-pulse.
+ *
+ * This module has no options.
+ *
+ * ## Example configuration
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ * {   name = libpipewire-module-zeroconf-discover
+ *     args = { }
+ * }
+ * ]
+ *\endcode
  */
 
 #define NAME "zeroconf-discover"
@@ -171,7 +188,9 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-static void pw_properties_from_avahi_string(const char *key, const char *value, struct pw_properties *props) {
+static void pw_properties_from_avahi_string(const char *key, const char *value,
+		struct pw_properties *props)
+{
 	if (spa_streq(key, "device")) {
 		pw_properties_set(props, PW_KEY_NODE_TARGET, value);
 	}

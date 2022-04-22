@@ -391,7 +391,7 @@ static int do_link_ports(struct data *data)
 
 	if (in_node && out_node) {
 		int i, ret;
-		char port_id[5];
+		char port_id[32];
 		bool all_links_exist = true;
 
 		for (i=0;; i++) {

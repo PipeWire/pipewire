@@ -473,7 +473,6 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	snd_pcm_pipewire_t *pw = io->private_data;
 	snd_pcm_sw_params_t *swparams;
 	const struct spa_pod *params[1];
-	const char *str;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct pw_properties *props;
@@ -504,11 +503,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 		pw->stream = NULL;
 	}
 
-	props = NULL;
-	if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
-		props = pw_properties_new_string(str);
-	if (props == NULL)
-		props = pw_properties_new(NULL, NULL);
+	props = pw_properties_new(NULL, NULL);
 	if (props == NULL)
 		goto error;
 

@@ -3228,9 +3228,6 @@ jack_client_t * jack_client_open (const char *client_name,
 	pw_context_conf_update_props(client->context.context,
 			"jack.properties", client->props);
 
-        if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
-		pw_properties_update_string(client->props, str, strlen(str));
-
 	pw_context_conf_section_match_rules(client->context.context, "jack.rules",
 			&client->props->dict, execute_match, client);
 
@@ -3321,10 +3318,8 @@ jack_client_t * jack_client_open (const char *client_name,
 			&client->registry_listener,
 			&registry_events, client);
 
-	if ((str = getenv("PIPEWIRE_LATENCY")) != NULL)
-		pw_properties_set(client->props, PW_KEY_NODE_LATENCY, str);
-	if ((str = getenv("PIPEWIRE_RATE")) != NULL)
-		pw_properties_set(client->props, PW_KEY_NODE_RATE, str);
+	if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
+		pw_properties_update_string(client->props, str, strlen(str));
 	if ((str = getenv("PIPEWIRE_QUANTUM")) != NULL) {
 		struct spa_fraction q;
 		if (sscanf(str, "%u/%u", &q.num, &q.denom) == 2 && q.denom != 0) {
@@ -3336,6 +3331,11 @@ jack_client_t * jack_client_open (const char *client_name,
 			pw_log_warn("invalid PIPEWIRE_QUANTUM: %s", str);
 		}
 	}
+	if ((str = getenv("PIPEWIRE_LATENCY")) != NULL)
+		pw_properties_set(client->props, PW_KEY_NODE_LATENCY, str);
+	if ((str = getenv("PIPEWIRE_RATE")) != NULL)
+		pw_properties_set(client->props, PW_KEY_NODE_RATE, str);
+
 	if ((str = pw_properties_get(client->props, PW_KEY_NODE_LATENCY)) != NULL) {
 		uint32_t num, denom;
 		if (sscanf(str, "%u/%u", &num, &denom) == 2 && denom != 0) {

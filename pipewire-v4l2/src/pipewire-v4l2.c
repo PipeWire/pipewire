@@ -1426,7 +1426,6 @@ static int connect_stream(struct file *file)
 {
 	int res;
 	struct global *g = file->node;
-	const char *str;
 	struct timespec abstime;
 	const char *error = NULL;
 	uint8_t buffer[1024];
@@ -1442,11 +1441,7 @@ static int connect_stream(struct file *file)
 
 	disconnect_stream(file);
 
-	props = NULL;
-	if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
-		props = pw_properties_new_string(str);
-	if (props == NULL)
-		props = pw_properties_new(NULL, NULL);
+	props = pw_properties_new(NULL, NULL);
 	if (props == NULL) {
 		res = -errno;
 		goto exit;
@@ -1469,6 +1464,7 @@ static int connect_stream(struct file *file)
 	pw_stream_add_listener(file->stream,
 			&file->stream_listener,
 			&stream_events, file);
+
 
 	file->error = 0;
 

@@ -1411,23 +1411,16 @@ stream_new(struct pw_context *context, const char *name,
 		res = -errno;
 		goto error_properties;
 	}
+	spa_hook_list_init(&impl->hooks);
+	this->properties = props;
+
 	pw_context_conf_update_props(context, "stream.properties", props);
 
-	if (pw_properties_get(props, PW_KEY_STREAM_IS_LIVE) == NULL)
-		pw_properties_set(props, PW_KEY_STREAM_IS_LIVE, "true");
+	pw_context_conf_section_match_rules(context, "stream.rules",
+			&this->properties->dict, execute_match, this);
 
-	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL && extra) {
-		str = pw_properties_get(extra, PW_KEY_APP_NAME);
-		if (str == NULL)
-			str = pw_properties_get(extra, PW_KEY_APP_PROCESS_BINARY);
-		if (str == NULL)
-			str = name;
-		pw_properties_set(props, PW_KEY_NODE_NAME, str);
-	}
-	if ((str = getenv("PIPEWIRE_LATENCY")) != NULL)
-		pw_properties_set(props, PW_KEY_NODE_LATENCY, str);
-	if ((str = getenv("PIPEWIRE_RATE")) != NULL)
-		pw_properties_set(props, PW_KEY_NODE_RATE, str);
+	if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
+		pw_properties_update_string(props, str, strlen(str));
 	if ((str = getenv("PIPEWIRE_QUANTUM")) != NULL) {
 		struct spa_fraction q;
 		if (sscanf(str, "%u/%u", &q.num, &q.denom) == 2 && q.denom != 0) {
@@ -1437,11 +1430,21 @@ stream_new(struct pw_context *context, const char *name,
 					"%u/%u", q.num, q.denom);
 		}
 	}
-	spa_hook_list_init(&impl->hooks);
-	this->properties = props;
+	if ((str = getenv("PIPEWIRE_LATENCY")) != NULL)
+		pw_properties_set(props, PW_KEY_NODE_LATENCY, str);
+	if ((str = getenv("PIPEWIRE_RATE")) != NULL)
+		pw_properties_set(props, PW_KEY_NODE_RATE, str);
 
-	pw_context_conf_section_match_rules(context, "stream.rules",
-			&this->properties->dict, execute_match, this);
+	if (pw_properties_get(props, PW_KEY_STREAM_IS_LIVE) == NULL)
+		pw_properties_set(props, PW_KEY_STREAM_IS_LIVE, "true");
+	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL && extra) {
+		str = pw_properties_get(extra, PW_KEY_APP_NAME);
+		if (str == NULL)
+			str = pw_properties_get(extra, PW_KEY_APP_PROCESS_BINARY);
+		if (str == NULL)
+			str = name;
+		pw_properties_set(props, PW_KEY_NODE_NAME, str);
+	}
 
 	this->name = name ? strdup(name) : NULL;
 	this->node_id = SPA_ID_INVALID;

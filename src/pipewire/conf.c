@@ -1040,7 +1040,7 @@ static int match_rules(void *data, const char *location, const char *section,
 
 SPA_EXPORT
 int pw_context_conf_section_match_rules(struct pw_context *context, const char *section,
-		struct spa_dict *props,
+		const struct spa_dict *props,
 		int (*callback) (void *data, const char *location, const char *action,
 			const char *str, size_t len),
 		void *data)

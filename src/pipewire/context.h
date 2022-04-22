@@ -125,7 +125,7 @@ int pw_context_conf_section_for_each(struct pw_context *context, const char *sec
 		void *data);
 /** emit callback for all matched properties. Since 0.3.46 */
 int pw_context_conf_section_match_rules(struct pw_context *context, const char *section,
-		struct spa_dict *props,
+		const struct spa_dict *props,
 		int (*callback) (void *data, const char *location, const char *action,
 			const char *str, size_t len),
 		void *data);

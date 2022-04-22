@@ -55,6 +55,62 @@
 #include "module-protocol-pulse/format.h"
 
 /** \page page_module_pulse_tunnel PipeWire Module: Pulse Tunnel
+ *
+ * The pulse-tunnel module provides a source or sink that tunnels all audio to
+ * a remote PulseAudio connection.
+ *
+ * It is usually used with the PulseAudio or module-protocol-pulse on the remote
+ * end to accept the connection.
+ *
+ * This module is usually used together with module-zeroconf-discover that will
+ * automatically load the tunnel with the right parameters based on zeroconf
+ * information.
+ *
+ * ## Module Options
+ *
+ * - `tunnel.mode`: the desired tunnel to create, must be `capture` or `playback`.
+ *                  (Default `playback`)
+ * - `pulse.server.address`: the address of the PulseAudio server to tunnel to.
+ * - `pulse.latency`: the latency to end-to-end latency in milliseconds to
+ *                    maintain (Default 200ms).
+ * - `stream.props`: Extra properties for the local stream.
+ *
+ * ## General options
+ *
+ * Options with well-known behavior.
+ *
+ * - \ref PW_KEY_REMOTE_NAME
+ * - \ref PW_KEY_AUDIO_RATE
+ * - \ref PW_KEY_AUDIO_CHANNELS
+ * - \ref SPA_KEY_AUDIO_POSITION
+ * - \ref PW_KEY_NODE_LATENCY
+ * - \ref PW_KEY_NODE_NAME
+ * - \ref PW_KEY_NODE_DESCRIPTION
+ * - \ref PW_KEY_NODE_GROUP
+ * - \ref PW_KEY_NODE_VIRTUAL
+ * - \ref PW_KEY_MEDIA_CLASS
+ * - \ref PW_KEY_NODE_TARGET to specify the remote name or id to link to
+ *
+ * ## Example configuration of a virtual sink
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ * {   name = libpipewire-module-pulse-tunnel
+ *     args = {
+ *         tunnel.mode = playback
+ *         # Set the remote address to tunnel to
+ *         pulse.server.address = "tcp:192.168.1.126"
+ *         #audio.rate=<sample rate>
+ *         #audio.channels=<number of channels>
+ *         #audio.position=<channel map>
+ *         #node.target=<remote target node>
+ *         stream.props = {
+ *             # extra sink properties
+ *         }
+ *     }
+ * }
+ * ]
+ *\endcode
  */
 
 #define NAME "pulse-tunnel"

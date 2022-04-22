@@ -76,12 +76,46 @@
 
 /** \page page_module_rt PipeWire Module: RT
  *
- * The `rt` module uses the operating system's scheduler to enable realtime
- * scheduling for certain threads to assist with low latency audio processing.
+ * The `rt` modules can give real-time priorities to processing threads.
+ *
+ * It uses the operating system's scheduler to enable realtime scheduling
+ * for certain threads to assist with low latency audio processing.
  * This requires `RLIMIT_RTPRIO` to be set to a value that's equal to this
  * module's `rt.prio` parameter or higher. Most distros will come with some
  * package that configures this for certain groups or users. If this is not set
  * up and DBus is available, then this module will fall back to using RTKit.
+ *
+ * ## Module Options
+ *
+ * - `nice.level`: The nice value set for the application thread. It improves
+ *                 performance of the communication with the pipewire daemon.
+ * - `rt.prio`: The realtime priority of the data thread. Higher values are
+ *              higher priority.
+ * - `rt.time.soft`, `rt.time.hard`: The amount of CPU time an RT thread can
+ *              consume without doing any blocking calls before the kernel kills
+ *              the thread. This is a safety measure to avoid lockups of the complete
+ *              system when some thread consumes 100%.
+
+ * The nice level is by default set to an invalid value so that clients don't
+ * automatically have the nice level raised.
+ *
+ * The PipeWire server processes are explicitly configured with a valid nice level.
+ *
+ * ## Example configuration
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ * {   name = libpipewire-module-rt
+ *     args = {
+ *         #nice.level   = 20
+ *         #rt.prio      = 88
+ *         #rt.time.soft = -1
+ *         #rt.time.hard = -1
+ *     }
+ *     flags = [ ifexists nofail ]
+ * }
+ * ]
+ *\endcode
  */
 
 #define NAME "rt"

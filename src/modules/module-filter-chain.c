@@ -1431,6 +1431,8 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		} else if (spa_streq("config", key)) {
 			config = SPA_JSON_SAVE(json);
 			have_config = true;
+			if (spa_json_next(json, &val) < 0)
+				break;
 		} else if (spa_json_next(json, &val) < 0)
 			break;
 	}
@@ -1657,8 +1659,8 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		for (i = 0; i < n_hndl; i++) {
 			pw_log_info("instantiate %s %d", d->name, i);
 			if ((node->hndl[i] = d->instantiate(d, &impl->rate, i, node->config)) == NULL) {
-				pw_log_error("cannot create plugin instance");
-				res = -ENOMEM;
+				pw_log_error("cannot create plugin instance: %m");
+				res = -errno;
 				goto error;
 			}
 			node->n_hndl = i + 1;

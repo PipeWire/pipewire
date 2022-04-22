@@ -107,10 +107,24 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * ### Nodes
  *
  * Nodes describe the processing filters in the graph. Use a tool like lv2ls
- * or listplugins to get a list of available plugins and their port names.
+ * or listplugins to get a list of available plugins, labels and the port names.
  *
- * Some plugins require a `config = {}` object, mostly the convolver builtin
- * plugin.
+ * - `type` is one of `ladspa`, `lv2` or `builtin`
+ * - `name` is the name for this node, you might need this later to refer to this node
+ *    and its ports when setting controls or making links.
+ * - `plugin` is the type specific plugin name.
+ *    - For LADSPA plugins it will append `.so` to find the shared object with that
+ *       name in the LADSPA plugin path.
+ *    - For LV2, this is the plugin URI obtained with lv2ls.
+ *    - For builtin this is ignored
+ * - `label` is the type specific filter inside the plugin.
+ *    - For LADSPA this is the label
+ *    - For LV2 this is unused
+ *    - For builtin this is the name of the filter to use
+ *
+ * - `config` contains a filter specific configuration section. The convolver
+ *            plugin needs this.
+ * - `control` contains the initial values for the control ports of the filter.
  *
  * ### Links
  *
@@ -142,11 +156,12 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *
  * ## Builtin filters
  *
- * There are some useful builtin filters available.
+ * There are some useful builtin filters available. You select them with the label
+ * of the filter node.
  *
  * ### Mixer
  *
- * Use this plugin if you have multiple input signals that need to be mixed together.
+ * Use the `mixer` plugin if you have multiple input signals that need to be mixed together.
  *
  * The mixer plugin has up to 8 input ports labeled "In 1" to "In 8" and each with
  * a gain control labeled "Gain 1" to "Gain 8". There is an output port labeled
@@ -154,7 +169,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *
  * ### Copy
  *
- * Use this plugin if you need to copy a stream input signal to multiple filters.
+ * Use the `copy` plugin if you need to copy a stream input signal to multiple filters.
  *
  * It has one input port "In" and one output port "Out".
  *
@@ -165,7 +180,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *
  * All biquad filters have an input port "In" and an output port "Out". They have
  * a "Freq", "Q" and "Gain" control. Their meaning depends on the particular biquad that
- * is used:
+ * is used. The following labels can be used:
  *
  * - `bq_lowpass` a lowpass filter.
  * - `bq_highpass` a highpass filter.

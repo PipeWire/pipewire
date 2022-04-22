@@ -63,6 +63,16 @@
 #include "module-raop/rtsp-client.h"
 
 /** \page page_module_raop_sink PipeWire Module: AirPlay Sink
+ *
+ * Creates a new Sink to stream to an Airplay device.
+ *
+ * ## Module Options
+ *
+ * ## Example configuration
+ *
+ * ## See also
+ *
+ * \ref page_module_raop_discover
  */
 
 #define NAME "raop-sink"

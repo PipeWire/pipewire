@@ -48,6 +48,31 @@
 #include "module-zeroconf-discover/avahi-poll.h"
 
 /** \page page_module_raop_discover PipeWire Module: RAOP Discover
+ *
+ * Automatically creates RAOP (Airplay) sink devices based on zeroconf
+ * information.
+ *
+ * This module will load module-raop-sink for each discovered sink
+ * with the right parameters.
+ *
+ * ## Module Options
+ *
+ * This module has no options.
+ *
+ * ## Example configuration
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ * {   name = libpipewire-raop-discover
+ *     args = { }
+ *     }
+ * }
+ * ]
+ *\endcode
+ *
+ * ## See also
+ *
+ * \ref page_module_raop_sink
  */
 
 #define NAME "raop-discover"

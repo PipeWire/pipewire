@@ -23,6 +23,7 @@ module_sources = [
   'module-pulse-tunnel.c',
   'module-rt.c',
   'module-raop-discover.c',
+  'module-raop-sink.c',
   'module-session-manager.c',
   'module-zeroconf-discover.c',
   'module-roc-source.c',

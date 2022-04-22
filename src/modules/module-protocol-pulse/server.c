@@ -402,6 +402,7 @@ on_connect(void *data, int fd, uint32_t mask)
 
 	client->props = pw_properties_new(
 			PW_KEY_CLIENT_API, "pipewire-pulse",
+			"config.ext", pw_properties_get(impl->props, "config.ext"),
 			NULL);
 	if (client->props == NULL)
 		goto error;

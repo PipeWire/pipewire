@@ -40,6 +40,19 @@
 
 /** \page page_module_protocol_pulse PipeWire Module: Protocol Pulse
  *
+ * This module implements a complete PulseAudio server on top of
+ * PipeWire.  This is only the server implementation, client are expected
+ * to use the original PulseAudio client library. This provides a
+ * high level of compatibility with existing applications; in fact,
+ * all usual PulseAudio tools such as pavucontrol, pactl, pamon, paplay
+ * should continue to work as they did before.
+ *
+ * This module is usually loaded as part of a standalone pipewire process,
+ * called pipewire-pulse, with the pipewire-pulse.conf config file.
+ *
+ * The pulse server implements a sample cache that is otherwise not
+ * available in PipeWire.
+ *
  * ## Module Options
  *
  * The module arguments can be the contents of the pulse.properties but

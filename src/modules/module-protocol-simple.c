@@ -50,6 +50,77 @@
 #include <pipewire/impl.h>
 
 /** \page page_module_protocol_simple PipeWire Module: Protocol Simple
+ *
+ * The simple protocol provides a bidirectional audio stream on a network
+ * socket.
+ *
+ * It is meant to be used with the `simple protocol player` app, available on
+ * Android to play and record a stream.
+ *
+ * Each client that connects will create a capture and/or playback stream,
+ * depending on the configuration options.
+ *
+ * ## Module Options
+ *
+ *  - `capture`: boolean if capture is enabled. This will create a capture stream
+ *               for each connected client.
+ *  - `playback`: boolean if playback is enabled. This will create a playback
+ *               stream for each connected client.
+ *  - `capture.node`: an optional node id or name to use for capture.
+ *  - `playback.node`: an optional node id or name to use for playback.
+ *  - `server.address = []`: an array of server addresses to listen on as
+ *                            tcp:<ip>:<port>.
+ *
+ * ## General options
+ *
+ * Options with well-known behavior.
+ *
+ * - \ref PW_KEY_REMOTE_NAME
+ * - \ref PW_KEY_AUDIO_RATE
+ * - \ref PW_KEY_AUDIO_FORMAT
+ * - \ref PW_KEY_AUDIO_CHANNELS
+ * - \ref SPA_KEY_AUDIO_POSITION
+ * - \ref PW_KEY_NODE_LATENCY
+ * - \ref PW_KEY_NODE_RATE
+ * - \ref PW_KEY_STREAM_CAPTURE_SINK
+ *
+ * By default the server will work with stereo 16 bits samples at 44.1KHz.
+ *
+ * ## Example configuration
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ * {   name = libpipewire-module-protocol-simple
+ *     args = {
+ *         # Provide capture stream, clients can capture data from PipeWire
+ *         capture = true
+ *         #
+ *         # Provide playback stream, client can send data to PipeWire for playback
+ *         playback = true
+ *         #
+ *         # The node name or id to use for capture.
+ *         #capture.node = null
+ *         #
+ *         # To make the capture stream capture the monitor ports
+ *         #stream.capture.sink = false
+ *         #
+ *         # The node name or id to use for playback.
+ *         #playback.node = null
+ *         #
+ *         #audio.rate = 44100
+ *         #audio.format = S16
+ *         #audio.channels = 2
+ *         #audio.position = [ FL FR ]
+ *         #
+ *         # The addresses this server listens on for new
+ *         # client connections
+ *         server.address = [
+ *             "tcp:4711"
+ *         ]
+ *     }
+ * }
+ * ]
+ *\endcode
  */
 
 #define NAME "protocol-simple"
@@ -70,6 +141,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define MODULE_USAGE	"[ capture=<bool> ] "						\
 			"[ playback=<bool> ] "						\
+			"[ remote.name=<remote> ] "					\
 			"[ node.latency=<num/denom, default:"DEFAULT_LATENCY"> ] "	\
 			"[ node.rate=<1/rate, default:1/"DEFAULT_RATE"> ] "	\
 			"[ capture.node=<source-target> [ stream.capture.sink=true ]] "	\
@@ -507,6 +579,8 @@ on_connect(void *data, int fd, uint32_t mask)
 
 	props = pw_properties_new(
 			PW_KEY_CLIENT_API, "protocol-simple",
+			PW_KEY_REMOTE_NAME,
+				pw_properties_get(impl->props, PW_KEY_REMOTE_NAME),
 			NULL);
 	if (props == NULL)
 		goto error;

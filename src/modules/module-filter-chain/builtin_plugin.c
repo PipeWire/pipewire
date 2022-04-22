@@ -730,6 +730,135 @@ static const struct fc_descriptor convolve_desc = {
 	.cleanup = convolver_cleanup,
 };
 
+/** delay */
+struct delay_impl {
+	unsigned long rate;
+	float *port[4];
+
+	float delay;
+	uint32_t delay_samples;
+	uint32_t buffer_samples;
+	float *buffer;
+	uint32_t ptr;
+};
+
+static void delay_cleanup(void * Instance)
+{
+	struct delay_impl *impl = Instance;
+	free(impl->buffer);
+	free(impl);
+}
+
+static void *delay_instantiate(const struct fc_descriptor * Descriptor,
+		unsigned long *SampleRate, int index, const char *config)
+{
+	struct delay_impl *impl;
+	struct spa_json it[2];
+	const char *val;
+	char key[256];
+	float max_delay = 1.0f;
+
+	if (config == NULL) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	spa_json_init(&it[0], config, strlen(config));
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+		return NULL;
+
+	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+		if (spa_streq(key, "max-delay")) {
+			if (spa_json_get_float(&it[1], &max_delay) <= 0)
+				return NULL;
+		}
+		else if (spa_json_next(&it[1], &val) < 0)
+			break;
+	}
+	if (max_delay <= 0.0f)
+		max_delay = 1.0f;
+
+	impl = calloc(1, sizeof(*impl));
+	if (impl == NULL)
+		return NULL;
+
+	impl->rate = *SampleRate;
+	impl->buffer_samples = max_delay * impl->rate;
+	pw_log_info("%lu %d", impl->rate, impl->buffer_samples);
+
+	impl->buffer = calloc(impl->buffer_samples, sizeof(float));
+	if (impl->buffer == NULL) {
+		delay_cleanup(impl);
+		return NULL;
+	}
+	return impl;
+}
+
+static void delay_connect_port(void * Instance, unsigned long Port,
+                        float * DataLocation)
+{
+	struct delay_impl *impl = Instance;
+	if (Port > 2)
+		return;
+	impl->port[Port] = DataLocation;
+}
+
+static void delay_run(void * Instance, unsigned long SampleCount)
+{
+	struct delay_impl *impl = Instance;
+	float *in = impl->port[1], *out = impl->port[0];
+	float delay = impl->port[2][0];
+	unsigned long n;
+	uint32_t r, w;
+
+	if (delay != impl->delay) {
+		impl->delay_samples = SPA_CLAMP(delay * impl->rate, 0, impl->buffer_samples-1);
+		impl->delay = delay;
+	}
+	r = impl->ptr;
+	w = impl->ptr + impl->delay_samples;
+	if (w >= impl->buffer_samples)
+		w -= impl->buffer_samples;
+
+	for (n = 0; n < SampleCount; n++) {
+		impl->buffer[w] = in[n];
+		out[n] = impl->buffer[r];
+		if (++r >= impl->buffer_samples)
+			r = 0;
+		if (++w >= impl->buffer_samples)
+			w = 0;
+	}
+	impl->ptr = r;
+}
+
+static struct fc_port delay_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "In",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "Delay (s)",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 0.0f, .min = 0.0f, .max = 100.0f
+	},
+};
+
+static const struct fc_descriptor delay_desc = {
+	.name = "delay",
+
+	.n_ports = 3,
+	.ports = delay_ports,
+
+	.instantiate = delay_instantiate,
+	.connect_port = delay_connect_port,
+	.run = delay_run,
+	.cleanup = delay_cleanup,
+};
+
 static const struct fc_descriptor * builtin_descriptor(unsigned long Index)
 {
 	switch(Index) {
@@ -755,6 +884,8 @@ static const struct fc_descriptor * builtin_descriptor(unsigned long Index)
 		return &copy_desc;
 	case 10:
 		return &convolve_desc;
+	case 11:
+		return &delay_desc;
 	}
 	return NULL;
 }

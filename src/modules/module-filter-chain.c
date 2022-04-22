@@ -191,7 +191,6 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * - `bq_notch` a notch filter.
  * - `bq_allpass` an allpass filter.
  *
- *
  * ### Convolver
  *
  * The convolver can be used to apply an impulse response to a signal. It is usually used
@@ -242,6 +241,37 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  * - `offset`  The sample offset in the file as the start of the IR.
  * - `length`  The number of samples to use as the IR.
  * - `channel` The channel to use from the file as the IR.
+ *
+ * ### Delay
+ *
+ * The delay can be used to delay a signal in time.
+ *
+ * The delay has an input port "In" and an output port "Out". It also has
+ * a "Delay (s)" control port. It requires a config section in the node declaration
+ * in this format:
+ *
+ *\code{.unparsed}
+ * filter.graph = {
+ *     nodes = [
+ *         {
+ *             type   = builtin
+ *             name   = ...
+ *             label  = delay
+ *             config = {
+ *                 "max-delay" = ...
+ *             }
+ *             control = {
+ *                 "Delay (s)" = ...
+ *             }
+ *             ...
+ *         }
+ *     }
+ *     ...
+ * }
+ *\endcode
+ *
+ * - `max-delay` the maximum delay in seconds. The "Delay (s)" parameter will
+ *              be clamped to this value.
  *
  * ## General options
  *

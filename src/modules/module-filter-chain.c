@@ -55,13 +55,293 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 /**
  * \page page_module_filter_chain PipeWire Module: Filter-Chain
  *
+ * The filter-chain allows you to create an arbitrary processing graph
+ * from LADSPA, LV2 and builtin filters. This filter can be made into a
+ * virtual sink/source or between any 2 nodes in the graph.
+ *
+ * The filter chain is built with 2 streams, a capture stream providing
+ * the input to the filter chain and a playback stream sending out the
+ * filtered stream to the next nodes in the graph.
+ *
+ * Because both ends of the filter-chain are built with streams, the session
+ * manager can manage the configuration and connection with the sinks and
+ * sources automatically.
+ *
+ * ## Module Options
+ *
+ * - `node.description`: a human readable name for the filter chain
+ * - `filter.graph = []`: a description of the filter graph to run, see below
+ * - `capture.props = {}`: properties to be passed to the input stream
+ * - `playback.props = {}`: properties to be passed to the output stream
+ *
+ * ## Filter graph description
+ *
+ * The general structure of the graph description is as follows:
+ *
+ *\code{.unparsed}
+ *     filter.graph = {
+ *         nodes = [
+ *             {
+ *                 type = <ladspa | lv2 | builtin>
+ *                 name = <name>
+ *                 plugin = <plugin>
+ *                 label = <label>
+ *                 config = {
+ *                     <configkey> = <value> ...
+ *                 }
+ *                 control = {
+ *                     <controlname|controlindex> = <value> ...
+ *                 }
+ *             }
+ *             ...
+ *         ]
+ *         links = [
+ *             { output = <portname> input = <portname> }
+ *             ...
+ *         ]
+ *         inputs = [ <portname> ... ]
+ *         outputs = [ <portname> ... ]
+ *    }
+ *\endcode
+ *
+ * ### Nodes
+ *
+ * Nodes describe the processing filters in the graph. Use a tool like lv2ls
+ * or listplugins to get a list of available plugins and their port names.
+ *
+ * Some plugins require a `config = {}` object, mostly the convolver builtin
+ * plugin.
+ *
+ * ### Links
+ *
+ * Links can be made between ports of nodes. The `portname` is given as
+ * `<node_name>:<port_name>`.
+ *
+ * You can tee the output of filters to multiple other filters. You need to
+ * use a mixer if you want the output of multiple filters to go into one
+ * filter input port.
+ *
+ * links can be omited when the graph has just 1 filter.
+ *
+ * ### Inputs and Outputs
+ *
+ * These are the entry and exit ports into the graph definition. Their number
+ * defines the number of channels used by the filter-chain.
+ *
+ * The `<portname>` can be `null` when a channel is to be ignored.
+ *
+ * Each input/output in the graph can only be linked to one filter input/output.
+ * You need to use the copy builtin filter if the stream signal needs to be routed
+ * to multiple filters. You need to use the mixer builtin plugin if multiple graph
+ * outputs need to go to one output stream.
+ *
+ * inputs and outputs can be omitted, in which case the filter-chain will use all
+ * inputs from the first filter and all outputs from the last filter node. The
+ * graph will then be duplicated as many times to match the number of input/output
+ * channels of the streams.
+ *
+ * ## Builtin filters
+ *
+ * There are some useful builtin filters available.
+ *
+ * ### Mixer
+ *
+ * Use this plugin if you have multiple input signals that need to be mixed together.
+ *
+ * The mixer plugin has up to 8 input ports labeled "In 1" to "In 8" and each with
+ * a gain control labeled "Gain 1" to "Gain 8". There is an output port labeled
+ * "Out". Unused input ports will be ignoded and not cause overhead.
+ *
+ * ### Copy
+ *
+ * Use this plugin if you need to copy a stream input signal to multiple filters.
+ *
+ * It has one input port "In" and one output port "Out".
+ *
+ * ### Biquads
+ *
+ * Biquads can be used to do all kinds of filtering. They are also used when creating
+ * equalizers.
+ *
+ * All biquad filters have an input port "In" and an output port "Out". They have
+ * a "Freq", "Q" and "Gain" control. Their meaning depends on the particular biquad that
+ * is used:
+ *
+ * - `bq_lowpass` a lowpass filter.
+ * - `bq_highpass` a highpass filter.
+ * - `bq_bandpass` a bandpass filter.
+ * - `bq_lowshelf` a low shelf filter.
+ * - `bq_highshelf` a high shelf filter.
+ * - `bq_peaking` a peaking filter.
+ * - `bq_notch` a notch filter.
+ * - `bq_allpass` an allpass filter.
+ *
+ *
+ * ### Convolver
+ *
+ * The convolver can be used to apply an impulse response to a signal. It is usually used
+ * for reverbs or virtual surround. The convolver is implemented with a fast FFT
+ * implementation.
+ *
+ * The convolver has an input port "In" and an output port "Out". It requires a config
+ * section in the node declaration in this format:
+ *
+ *\code{.unparsed}
+ * filter.graph = {
+ *     nodes = [
+ *         {
+ *             type   = builtin
+ *             name   = ...
+ *             label  = convolver
+ *             config = {
+ *                 blocksize = ...
+ *                 tailsize = ...
+ *                 gain = ...
+ *                 delay = ...
+ *                 filename = ...
+ *                 offset = ...
+ *                 length = ...
+ *                 channel = ...
+ *             }
+ *             ...
+ *         }
+ *     }
+ *     ...
+ * }
+ *\endcode
+ *
+ * - `blocksize` specifies the size of the blocks to use in the FFT. It is a value
+ *               between 64 and 256. When not specified, this value is
+ *               computed automatically from the number of samples in the file.
+ * - `tailsize` specifies the size of the tail blocks to use in the FFT.
+ * - `gain`     the overall gain to apply to the IR file.
+ * - `delay`    The extra delay (in samples) to add to the IR.
+ * - `filename` The IR to load or create. Possible values are:
+ *     - `/hilbert` creates a [hilbert function](https://en.wikipedia.org/wiki/Hilbert_transform)
+ *                that can be used to phase shift the signal by +/-90 degrees. The
+ *                `length` will be used as the number of coefficients.
+ *     - `/dirac` creates a [Dirac function](https://en.wikipedia.org/wiki/Dirac_delta_function) that
+ *                 can be used as gain.
+ *     - A filename to load as the IR. This needs to be a file format supported
+ *               by sndfile.
+ * - `offset`  The sample offset in the file as the start of the IR.
+ * - `length`  The number of samples to use as the IR.
+ * - `channel` The channel to use from the file as the IR.
+ *
+ * ## General options
+ *
+ * Options with well-known behavior. Most options can be added to the global
+ * configuration or the individual streams:
+ *
+ * - \ref PW_KEY_REMOTE_NAME
+ * - \ref PW_KEY_AUDIO_RATE
+ * - \ref PW_KEY_AUDIO_CHANNELS
+ * - \ref SPA_KEY_AUDIO_POSITION
+ * - \ref PW_KEY_MEDIA_NAME
+ * - \ref PW_KEY_NODE_LATENCY
+ * - \ref PW_KEY_NODE_DESCRIPTION
+ * - \ref PW_KEY_NODE_GROUP
+ * - \ref PW_KEY_NODE_LINK_GROUP
+ * - \ref PW_KEY_NODE_VIRTUAL
+ *
+ * Stream only properties:
+ *
+ * - \ref PW_KEY_MEDIA_CLASS
+ * - \ref PW_KEY_NODE_NAME
+ *
+ * ## Example configuration of a virtual source
+ *
+ * This example uses the rnnoise LADSPA plugin to create a new
+ * virtual source.
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ * {   name = libpipewire-module-filter-chain
+ *     args = {
+ *         node.description =  "Noise Canceling source"
+ *         media.name =  "Noise Canceling source"
+ *         filter.graph = {
+ *             nodes = [
+ *                 {
+ *                     type = ladspa
+ *                     name = rnnoise
+ *                     plugin = ladspa/librnnoise_ladspa
+ *                     label = noise_suppressor_stereo
+ *                     control = {
+ *                         "VAD Threshold (%)" 50.0
+ *                     }
+ *                 }
+ *             ]
+ *         }
+ *         capture.props = {
+ *             node.name =  "capture.rnnoise_source"
+ *             node.passive = true
+ *         }
+ *         playback.props = {
+ *             node.name =  "rnnoise_source"
+ *             media.class = Audio/Source
+ *         }
+ *     }
+ * }
+ * ]
+ *\endcode
+ *
+ * ## Example configuration of a Dolby Surround encoder virtual Sink
+ *
+ * This example uses the ladpsa surrounf encoder to encode a 5.1 signal
+ * to a stereo Dolby Surround signal.
+ *
+ *\code{.unparsed}
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ * {   name = libpipewire-module-filter-chain
+ *     args = {
+ *         node.description = "Dolby Surround Sink"
+ *         media.name       = "Dolby Surround Sink"
+ *         filter.graph = {
+ *             nodes = [
+ *                 {
+ *                     type  = builtin
+ *                     name  = mixer
+ *                     label = mixer
+ *                     control = { "Gain 1" = 0.5 "Gain 2" = 0.5 }
+ *                 }
+ *                 {
+ *                     type   = ladspa
+ *                     name   = enc
+ *                     plugin = surround_encoder_1401
+ *                     label  = surroundEncoder
+ *                 }
+ *             ]
+ *             links = [
+ *                 { output = "mixer:Out" input = "enc:S" }
+ *             ]
+ *             inputs  = [ "enc:L" "enc:R" "enc:C" null "mixer:In 1" "mixer:In 2" ]
+ *             outputs = [ "enc:Lt" "enc:Rt" ]
+ *         }
+ *         capture.props = {
+ *             node.name      = "effect_input.dolby_surround"
+ *             media.class    = Audio/Sink
+ *             audio.channels = 6
+ *             audio.position = [ FL FR FC LFE SL SR ]
+ *         }
+ *         playback.props = {
+ *             node.name      = "effect_output.dolby_surround"
+ *             node.passive   = true
+ *             audio.channels = 2
+ *             audio.position = [ FL FR ]
+ *         }
+ *     }
+ * }
+ * ]
+ *\endcode
  */
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Create filter chain streams" },
 	{ PW_KEY_MODULE_USAGE, " [ remote.name=<remote> ] "
 				"[ node.latency=<latency as fraction> ] "
-				"[ node.name=<name of the nodes> ] "
 				"[ node.description=<description of the nodes> ] "
 				"[ audio.rate=<sample rate> ] "
 				"[ audio.channels=<number of channels> ] "
@@ -69,7 +349,7 @@ static const struct spa_dict_item module_props[] = {
 				"filter.graph = [ "
 				"    nodes = [ "
 				"        { "
-				"          type = ladspa "
+				"          type = <ladspa | lv2 | builtin> "
 				"          name = <name> "
 				"          plugin = <plugin> "
 				"          label = <label> "
@@ -77,7 +357,7 @@ static const struct spa_dict_item module_props[] = {
 				"             <configkey> = <value> ... "
 				"          } "
 				"          control = { "
-				"             <controlname> = <value> ... "
+				"             <controlname|controlindex> = <value> ... "
 				"          } "
 				"        } "
 				"    ] "
@@ -322,6 +602,12 @@ static struct node *find_node(struct graph *graph, const char *name)
 	return NULL;
 }
 
+/* find a port by name. Valid syntax is:
+ *  "<node_name>:<port_name>"
+ *  "<node_name>:<port_id>"
+ *  "<port_name>"
+ *  "<port_id>"
+ *  When no node_name is given, the port is assumed in the current node.  */
 static struct port *find_port(struct node *node, const char *name, int descriptor)
 {
 	char *col, *node_name, *port_name, *str;

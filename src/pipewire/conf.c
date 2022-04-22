@@ -897,8 +897,16 @@ int pw_context_conf_update_props(struct pw_context *context,
 {
 	struct data data = { .context = context, .props = props };
 	int res;
+	const char *str = pw_properties_get(props, "config.ext");
+
 	res = pw_context_conf_section_for_each(context, section,
+			update_props, &data);
+	if (res == 0 && str != NULL) {
+		char key[128];
+		snprintf(key, sizeof(key), "%s.%s", section, str);
+		res = pw_context_conf_section_for_each(context, key,
 				update_props, &data);
+	}
 	return res == 0 ? data.count : res;
 }
 
@@ -1049,5 +1057,16 @@ int pw_context_conf_section_match_rules(struct pw_context *context, const char *
 		.props = props,
 		.matched = callback,
 		.data = data };
-	return pw_context_conf_section_for_each(context, section, match_rules, &match);
+	int res;
+	const char *str = spa_dict_lookup(props, "config.ext");
+
+	res = pw_context_conf_section_for_each(context, section,
+			match_rules, &match);
+	if (res == 0 && str != NULL) {
+		char key[128];
+		snprintf(key, sizeof(key), "%s.%s", section, str);
+		res = pw_context_conf_section_for_each(context, key,
+				match_rules, &match);
+	}
+	return res;
 }

@@ -801,12 +801,16 @@ static int parse_params(struct graph *graph, const struct spa_pod *pod)
 	while (true) {
 		const char *name;
 		float value, *val = NULL;
+		double dbl_val;
 		bool bool_val;
 		int32_t int_val;
 
 		if (spa_pod_parser_get_string(&prs, &name) < 0)
 			break;
 		if (spa_pod_parser_get_float(&prs, &value) >= 0) {
+			val = &value;
+		} else if (spa_pod_parser_get_double(&prs, &dbl_val) >= 0) {
+			value = dbl_val;
 			val = &value;
 		} else if (spa_pod_parser_get_int(&prs, &int_val) >= 0) {
 			value = int_val;

@@ -427,7 +427,24 @@ static int do_link_ports(struct data *data)
 static int do_unlink_ports(struct data *data)
 {
 	struct object *l, *n, *p;
-	uint32_t link_id = 0;
+	bool found_any = false;
+	struct object *in_node = NULL, *out_node = NULL;
+
+	if (data->opt_input != NULL) {
+		/* 2 args, check if they are node names */
+		spa_list_for_each(n, &data->objects, link) {
+			if (n->type != OBJECT_NODE)
+				continue;
+
+			if (out_node == NULL && node_matches(data, n, data->opt_output)) {
+				out_node = n;
+				continue;
+			} else if (in_node == NULL && node_matches(data, n, data->opt_input)) {
+				in_node = n;
+				continue;
+			}
+		}
+	}
 
 	spa_list_for_each(l, &data->objects, link) {
 		if (l->type != OBJECT_LINK)
@@ -436,6 +453,21 @@ static int do_unlink_ports(struct data *data)
 		if (data->opt_input == NULL) {
 			/* 1 arg, check link id */
 			if (l->id != (uint32_t)atoi(data->opt_output))
+				continue;
+		} else if (out_node && in_node) {
+			/* 2 args, check nodes */
+			if ((p = find_object(data, OBJECT_PORT, l->extra[0])) == NULL)
+				continue;
+			if ((n = find_object(data, OBJECT_NODE, p->extra[1])) == NULL)
+				continue;
+			if (n->id != out_node->id)
+				continue;
+
+			if ((p = find_object(data, OBJECT_PORT, l->extra[1])) == NULL)
+				continue;
+			if ((n = find_object(data, OBJECT_NODE, p->extra[1])) == NULL)
+				continue;
+			if (n->id != in_node->id)
 				continue;
 		} else {
 			/* 2 args, check port names */
@@ -453,13 +485,11 @@ static int do_unlink_ports(struct data *data)
 			if (!port_matches(data, n, p, data->opt_input))
 				continue;
 		}
-		link_id = l->id;
-		break;
+		pw_registry_destroy(data->registry, l->id);
+		found_any = true;
 	}
-	if (link_id == 0)
+	if (!found_any)
 		return -ENOENT;
-
-	pw_registry_destroy(data->registry, link_id);
 
 	core_sync(data);
 	pw_main_loop_run(data->loop);

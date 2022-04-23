@@ -1216,7 +1216,7 @@ filter_new(struct pw_context *context, const char *name,
 
 	pw_context_conf_update_props(context, "filter.properties", props);
 
-	pw_context_conf_section_match_rules(impl->context, "filter.rules",
+	pw_context_conf_section_match_rules(context, "filter.rules",
 		&this->properties->dict, execute_match, this);
 
 	if ((str = getenv("PIPEWIRE_PROPS")) != NULL)

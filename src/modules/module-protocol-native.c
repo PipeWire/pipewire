@@ -72,6 +72,54 @@ PW_LOG_TOPIC(mod_topic_connection, "conn." NAME);
 #include <spa/debug/types.h>
 
 /** \page page_module_protocol_native PipeWire Module: Protocol Native
+ *
+ * The native protocol module implements the PipeWire communication between
+ * a client and a server using unix local sockets.
+ *
+ * Normally this module is loaded in both client and server config files
+ * so that they cam communicate.
+ *
+ * ## Module Options
+ *
+ * The module has no options.
+ *
+ * ## General Options
+ *
+ * The name of the core is obtained as:
+ *
+ * - PIPEWIRE_CORE : the environment variable with the name of the core
+ * - \ref PW_KEY_CORE_NAME : in the context properties
+ * - a name based on the process id
+ *
+ * The context will also become a server if:
+ *
+ * - PIPEWIRE_DAEMON : the environment is true
+ * - \ref PW_KEY_CORE_DAEMON : in the context properties is true
+ *
+ * The socket will be located in the directory obtained by looking at the
+ * following environment variables:
+ *
+ * - PIPEWIRE_RUNTIME_DIR
+ * - XDG_RUNTIME_DIR
+ * - USERPROFILE
+ *
+ * When a client connect, the connection will be made to:
+ *
+ * - PIPEWIRE_REMOTE : the environment with the remote name
+ * - \ref PW_KEY_REMOTE_NAME : the property in the context.
+ * - The default remote named "pipewire-0"
+ *
+ * A Special remote named "internal" can be used to make a connection to the
+ * local context. This can be done even when the server is not a daemon. It can
+ * be used to treat a local context as if it was a server.
+ *
+ * ## Example configuration
+ *
+ *\code{.unparsed}
+ * context.modules = [
+   { name = libpipewire-module-protocol-native }
+ * ]
+ *\endcode
  */
 
 #ifndef UNIX_PATH_MAX

@@ -49,6 +49,47 @@
 #include <pipewire/i18n.h>
 
 /** \page page_module_example_source PipeWire Module: Example Source
+ *
+ * The example source is a good starting point for writing a custom
+ * source. We refer to the source code for more information.
+ *
+ * ## Module Options
+ *
+ * - `node.name`: a unique name for the stream
+ * - `node.description`: a human readable name for the stream
+ * - `stream.props = {}`: properties to be passed to the stream
+ *
+ * ## General options
+ *
+ * Options with well-known behavior.
+ *
+ * - \ref PW_KEY_REMOTE_NAME
+ * - \ref PW_KEY_AUDIO_RATE
+ * - \ref PW_KEY_AUDIO_CHANNELS
+ * - \ref SPA_KEY_AUDIO_POSITION
+ * - \ref PW_KEY_MEDIA_NAME
+ * - \ref PW_KEY_NODE_LATENCY
+ * - \ref PW_KEY_NODE_NAME
+ * - \ref PW_KEY_NODE_DESCRIPTION
+ * - \ref PW_KEY_NODE_GROUP
+ * - \ref PW_KEY_NODE_VIRTUAL
+ * - \ref PW_KEY_MEDIA_CLASS
+ *
+ * ## Example configuration
+ *
+ *\code{.unparsed}
+ * context.modules = [
+ * {   name = libpipewire-module-example-source
+ *     args = {
+ *         node.name = "example_source"
+ *         node.description = "My Example Source"
+ *         stream.props = {
+ *             audio.position = [ FL FR ]
+ *         }
+ *     }
+ * }
+ * ]
+ *\endcode
  */
 
 #define NAME "example-source"

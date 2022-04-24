@@ -530,8 +530,8 @@ static bool check_realtime_privileges(rlim_t priority)
 	 * scheduling without that rlimit being set such as `CAP_SYS_NICE` or
 	 * running as root. Instead of checking a bunch of preconditions, we
 	 * just try if setting realtime scheduling works or not. */
-	if ((old_policy = sched_getscheduler(0)) < 0 ||
-	    sched_getparam(0, &old_sched_params) != 0) {
+	if (pthread_getschedparam(pthread_self(),&old_policy,&old_sched_params) < 0 ) {
+		pw_log_warn("Failed to check RLIMIT_RTPRIO %i");
 		return false;
 	}
 
@@ -546,8 +546,8 @@ static bool check_realtime_privileges(rlim_t priority)
 		new_policy |= PW_SCHED_RESET_ON_FORK;
 	}
 
-	if (sched_setscheduler(0, new_policy, &new_sched_params) == 0) {
-		sched_setscheduler(0, old_policy, &old_sched_params);
+	if( pthread_setschedparam(pthread_self(), new_policy, &new_sched_params) == 0) {
+		pthread_setschedparam(pthread_self(), old_policy, &old_sched_params);
 		return true;
 	} else {
 		return false;

@@ -531,7 +531,7 @@ static bool check_realtime_privileges(rlim_t priority)
 	 * running as root. Instead of checking a bunch of preconditions, we
 	 * just try if setting realtime scheduling works or not. */
 	if (pthread_getschedparam(pthread_self(),&old_policy,&old_sched_params) < 0 ) {
-		pw_log_warn("Failed to check RLIMIT_RTPRIO %i");
+		pw_log_warn("Failed to check RLIMIT_RTPRIO %m");
 		return false;
 	}
 

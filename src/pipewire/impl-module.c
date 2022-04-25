@@ -197,6 +197,7 @@ pw_context_load_module(struct pw_context *context,
 				if (hnd != NULL)
 					break;
 
+				pw_log_debug("open failed: %s", dlerror());
 				free(filename);
 				filename = NULL;
 			}

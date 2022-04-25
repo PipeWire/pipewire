@@ -116,11 +116,27 @@ struct module_roc_sink_data {
 	roc_context *context;
 	roc_sender *sender;
 
+	roc_fec_code fec_code;
 	char *local_ip;
 	char *remote_ip;
 	int remote_source_port;
 	int remote_repair_port;
 };
+
+static int roc_parse_fec_code(roc_fec_code *out, const char *str)
+{
+	if (!str || !*str)
+		*out = ROC_FEC_DEFAULT;
+	else if (spa_streq(str, "disable"))
+		*out = ROC_FEC_DISABLE;
+	else if (spa_streq(str, "rs8m"))
+		*out = ROC_FEC_RS8M;
+	else if (spa_streq(str, "ldpc"))
+		*out = ROC_FEC_LDPC_STAIRCASE;
+	else
+		return -EINVAL;
+	return 0;
+}
 
 static void stream_destroy(void *d)
 {
@@ -260,6 +276,7 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 	uint32_t n_params;
 	uint8_t buffer[1024];
 	int res;
+	roc_protocol audio_proto, repair_proto;
 
 	if (roc_address_init(&data->local_addr, ROC_AF_AUTO, data->local_ip, 0)) {
 		pw_log_error("Invalid local IP address");
@@ -291,6 +308,7 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 	sender_config.frame_sample_rate = 44100;
 	sender_config.frame_channels = ROC_CHANNEL_SET_STEREO;
 	sender_config.frame_encoding = ROC_FRAME_ENCODING_PCM_FLOAT;
+	sender_config.fec_code = data->fec_code;
 
 	/* Fixed to be the same as ROC sender config above */
 	info.rate = 44100;
@@ -312,16 +330,34 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 		return -EINVAL;
 	}
 
-	if (roc_sender_connect(data->sender, ROC_PORT_AUDIO_SOURCE, ROC_PROTO_RTP_RS8M_SOURCE,
+	switch (data->fec_code) {
+	case ROC_FEC_DEFAULT:
+	case ROC_FEC_RS8M:
+		audio_proto = ROC_PROTO_RTP_RS8M_SOURCE;
+		repair_proto = ROC_PROTO_RS8M_REPAIR;
+		break;
+	case ROC_FEC_LDPC_STAIRCASE:
+		audio_proto = ROC_PROTO_RTP_LDPC_SOURCE;
+		repair_proto = ROC_PROTO_LDPC_REPAIR;
+		break;
+	default:
+		audio_proto = ROC_PROTO_RTP;
+		repair_proto = 0;
+		break;
+	}
+
+	if (roc_sender_connect(data->sender, ROC_PORT_AUDIO_SOURCE, audio_proto,
 				&data->remote_source_addr) != 0) {
 		pw_log_error("can't connect roc sender to remote source address");
 		return -EINVAL;
 	}
 
-	if (roc_sender_connect(data->sender, ROC_PORT_AUDIO_REPAIR, ROC_PROTO_RS8M_REPAIR,
-				&data->remote_repair_addr) != 0) {
-		pw_log_error("can't connect roc sender to remote repair address");
-		return -EINVAL;
+	if (repair_proto != 0) {
+		if (roc_sender_connect(data->sender, ROC_PORT_AUDIO_REPAIR, repair_proto,
+					&data->remote_repair_addr) != 0) {
+			pw_log_error("can't connect roc sender to remote repair address");
+			return -EINVAL;
+		}
 	}
 
 	data->capture = pw_stream_new(data->core,
@@ -369,8 +405,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct module_roc_sink_data *data;
 	struct pw_properties *props = NULL, *capture_props = NULL;
 	const char *str;
-	char *local_ip = NULL, *remote_ip = NULL;
-	int res = 0, remote_repair_port, remote_source_port;
+	int res = 0;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -420,7 +455,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(capture_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 
 	if ((str = pw_properties_get(props, "remote.ip")) != NULL) {
-		remote_ip = strdup(str);
+		data->remote_ip = strdup(str);
 		pw_properties_set(props, "remote.ip", NULL);
 	} else {
 		pw_log_error("Remote IP not specified");
@@ -429,24 +464,34 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 
 	if ((str = pw_properties_get(props, "local.ip")) != NULL) {
-		local_ip = strdup(str);
+		data->local_ip = strdup(str);
 		pw_properties_set(props, "local.ip", NULL);
 	} else {
-		local_ip = strdup(ROC_DEFAULT_IP);
+		data->local_ip = strdup(ROC_DEFAULT_IP);
 	}
 
 	if ((str = pw_properties_get(props, "remote.source.port")) != NULL) {
-		remote_source_port = pw_properties_parse_int(str);
+		data->remote_source_port = pw_properties_parse_int(str);
 		pw_properties_set(props, "remote.source.port", NULL);
 	} else {
-		remote_source_port = ROC_DEFAULT_SOURCE_PORT;
+		data->remote_source_port = ROC_DEFAULT_SOURCE_PORT;
 	}
 
 	if ((str = pw_properties_get(props, "remote.repair.port")) != NULL) {
-		remote_repair_port = pw_properties_parse_int(str);
+		data->remote_repair_port = pw_properties_parse_int(str);
 		pw_properties_set(props, "remote.repair.port", NULL);
 	} else {
-		remote_repair_port = ROC_DEFAULT_REPAIR_PORT;
+		data->remote_repair_port = ROC_DEFAULT_REPAIR_PORT;
+	}
+	if ((str = pw_properties_get(props, "fec.code")) != NULL) {
+		if (roc_parse_fec_code(&data->fec_code, str)) {
+			pw_log_error("Invalid fec code %s, using default", str);
+			data->fec_code = ROC_FEC_DEFAULT;
+		}
+		pw_log_info("using fec.code %s %d", str, data->fec_code);
+		pw_properties_set(props, "fec.code", NULL);
+	} else {
+		data->fec_code = ROC_FEC_DEFAULT;
 	}
 
 	data->core = pw_context_get_object(data->module_context, PW_TYPE_INTERFACE_Core);
@@ -471,12 +516,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_core_add_listener(data->core,
 			&data->core_listener,
 			&core_events, data);
-
-	data->capture_props = capture_props;
-	data->local_ip = local_ip;
-	data->remote_ip = remote_ip;
-	data->remote_source_port = remote_source_port;
-	data->remote_repair_port = remote_repair_port;
 
 	if ((res = roc_sink_setup(data)) < 0)
 		goto out;

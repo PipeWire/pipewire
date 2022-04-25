@@ -35,10 +35,6 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define ROC_DEFAULT_IP "0.0.0.0"
-#define ROC_DEFAULT_SOURCE_PORT "10001"
-#define ROC_DEFAULT_REPAIR_PORT "10002"
-
 struct module_roc_sink_data {
 	struct module *module;
 
@@ -119,6 +115,7 @@ static const struct spa_dict_item module_roc_sink_info[] = {
 	{ PW_KEY_MODULE_DESCRIPTION, "roc sink" },
 	{ PW_KEY_MODULE_USAGE, "sink_name=<name for the sink> "
 				"sink_properties=<properties for the sink> "
+				"fec_code=<empty>|disable|rs8m|ldpc "
 				"local_ip=<local sender ip> "
 				"remote_ip=<remote receiver ip> "
 				"remote_source_port=<remote receiver port for source packets> "
@@ -172,22 +169,20 @@ struct module *create_module_roc_sink(struct impl *impl, const char *argument)
 	if ((str = pw_properties_get(props, "local_ip")) != NULL) {
 		pw_properties_set(roc_props, "local.ip", str);
 		pw_properties_set(props, "local_ip", NULL);
-	} else {
-		pw_properties_set(roc_props, "local.ip", ROC_DEFAULT_IP);
 	}
 
 	if ((str = pw_properties_get(props, "remote_source_port")) != NULL) {
 		pw_properties_set(roc_props, "remote.source.port", str);
 		pw_properties_set(props, "remote_source_port", NULL);
-	} else {
-		pw_properties_set(roc_props, "remote.source.port", ROC_DEFAULT_SOURCE_PORT);
 	}
 
 	if ((str = pw_properties_get(props, "remote_repair_port")) != NULL) {
 		pw_properties_set(roc_props, "remote.repair.port", str);
 		pw_properties_set(props, "remote_repair_port", NULL);
-	} else {
-		pw_properties_set(roc_props, "remote.repair.port", ROC_DEFAULT_REPAIR_PORT);
+	}
+	if ((str = pw_properties_get(props, "fec_code")) != NULL) {
+		pw_properties_set(roc_props, "fec.code", str);
+		pw_properties_set(props, "fec_code", NULL);
 	}
 
 	module = module_new(impl, sizeof(*d));

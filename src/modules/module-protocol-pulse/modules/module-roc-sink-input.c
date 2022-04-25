@@ -116,6 +116,7 @@ static const struct spa_dict_item module_roc_sink_input_info[] = {
 	{ PW_KEY_MODULE_USAGE, "sink=<name for the sink> "
 				"sink_input_properties=<properties for the sink_input> "
 				"resampler_profile=<empty>|disable|high|medium|low "
+				"fec_code=<empty>|disable|rs8m|ldpc "
 				"sess_latency_msec=<target network latency in milliseconds> "
 				"local_ip=<local receiver ip> "
 				"local_source_port=<local receiver port for source packets> "
@@ -176,6 +177,11 @@ struct module *create_module_roc_sink_input(struct impl *impl, const char *argum
 	if ((str = pw_properties_get(props, "resampler_profile")) != NULL) {
 		pw_properties_set(roc_props, "resampler.profile", str);
 		pw_properties_set(props, "resampler_profile", NULL);
+	}
+
+	if ((str = pw_properties_get(props, "fec_code")) != NULL) {
+		pw_properties_set(roc_props, "fec.code", str);
+		pw_properties_set(props, "fec_code", NULL);
 	}
 
 	module = module_new(impl, sizeof(*d));

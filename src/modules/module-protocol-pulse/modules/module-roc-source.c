@@ -116,6 +116,7 @@ static const struct spa_dict_item module_roc_source_info[] = {
 	{ PW_KEY_MODULE_USAGE, "source_name=<name for the source> "
 				"source_properties=<properties for the source> "
 				"resampler_profile=<empty>|disable|high|medium|low "
+				"fec_code=<empty>|disable|rs8m|ldpc "
 				"sess_latency_msec=<target network latency in milliseconds> "
 				"local_ip=<local receiver ip> "
 				"local_source_port=<local receiver port for source packets> "
@@ -181,6 +182,11 @@ struct module *create_module_roc_source(struct impl *impl, const char *argument)
 	if ((str = pw_properties_get(props, "resampler_profile")) != NULL) {
 		pw_properties_set(roc_props, "resampler.profile", str);
 		pw_properties_set(props, "resampler_profile", NULL);
+	}
+
+	if ((str = pw_properties_get(props, "fec_code")) != NULL) {
+		pw_properties_set(roc_props, "fec.code", str);
+		pw_properties_set(props, "fec_code", NULL);
 	}
 
 	module = module_new(impl, sizeof(*d));

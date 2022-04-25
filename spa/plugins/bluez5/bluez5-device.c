@@ -1098,6 +1098,8 @@ static void set_initial_profile(struct impl *this)
 	struct spa_bt_transport *t;
 	int i;
 
+	this->switching_codec = false;
+
 	if (this->supported_codecs)
 		free(this->supported_codecs);
 	this->supported_codecs = spa_bt_device_get_supported_a2dp_codecs(

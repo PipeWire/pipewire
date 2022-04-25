@@ -113,6 +113,7 @@ struct module_roc_source_data {
 	struct pw_properties *playback_props;
 
 	unsigned int do_disconnect:1;
+	uint32_t stride;
 
 	roc_address local_addr;
 	roc_address local_source_addr;
@@ -175,22 +176,22 @@ static void playback_process(void *data)
 		return;
 
 	buf->datas[0].chunk->offset = 0;
-	buf->datas[0].chunk->stride = 8; /* channels = 2, format = F32LE */
+	buf->datas[0].chunk->stride = impl->stride;
 	buf->datas[0].chunk->size = 0;
 
-	memset(&frame, 0, sizeof(frame));
-
+	spa_zero(frame);
 	frame.samples = dst;
-	frame.samples_size = buf->datas[0].maxsize;
+	frame.samples_size = SPA_MIN(b->requested * impl->stride, buf->datas[0].maxsize);
 
 	if (roc_receiver_read(impl->receiver, &frame) != 0) {
 		/* Handle EOF and error */
 		pw_log_error("Failed to read from roc source");
 		pw_impl_module_schedule_destroy(impl->module);
-		return;
+		frame.samples_size = 0;
 	}
 
 	buf->datas[0].chunk->size = frame.samples_size;
+	b->size = frame.samples_size / impl->stride;
 
 	pw_stream_queue_buffer(impl->playback, b);
 }
@@ -328,6 +329,7 @@ static int roc_source_setup(struct module_roc_source_data *data)
 	info.format = SPA_AUDIO_FORMAT_F32_LE;
 	info.position[0] = SPA_AUDIO_CHANNEL_FL;
 	info.position[1] = SPA_AUDIO_CHANNEL_FR;
+	data->stride = info.channels * sizeof(float);
 
 	if (roc_parse_resampler_profile(&receiver_config.resampler_profile,
 				data->resampler_profile)) {
@@ -385,6 +387,7 @@ static int roc_source_setup(struct module_roc_source_data *data)
 			PW_DIRECTION_OUTPUT,
 			PW_ID_ANY,
 			PW_STREAM_FLAG_MAP_BUFFERS |
+			PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_RT_PROCESS,
 			params, n_params)) < 0)
 		return res;
@@ -459,8 +462,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(playback_props, PW_KEY_NODE_VIRTUAL, "true");
 	if (pw_properties_get(playback_props, PW_KEY_NODE_NETWORK) == NULL)
 		pw_properties_set(playback_props, PW_KEY_NODE_NETWORK, "true");
-	if ((str = pw_properties_get(playback_props, PW_KEY_MEDIA_CLASS)) == NULL)
-		pw_properties_set(playback_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 
 	if ((str = pw_properties_get(props, "local.ip")) != NULL) {
 		local_ip = strdup(str);

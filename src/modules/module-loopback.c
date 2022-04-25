@@ -106,7 +106,7 @@
  *
  * ## See also
  *
- * `pw-loopback` : a tools thats loads the loopback module with given parameters.
+ * `pw-loopback` : a tool that loads the loopback module with given parameters.
  */
 
 #define NAME "loopback"

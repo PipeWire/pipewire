@@ -249,6 +249,7 @@ pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse/modules/module-remap-sink.c',
   'module-protocol-pulse/modules/module-remap-source.c',
   'module-protocol-pulse/modules/module-roc-sink.c',
+  'module-protocol-pulse/modules/module-roc-sink-input.c',
   'module-protocol-pulse/modules/module-roc-source.c',
   'module-protocol-pulse/modules/module-simple-protocol-tcp.c',
   'module-protocol-pulse/modules/module-switch-on-connect.c',

@@ -1,3 +1,101 @@
+# PipeWire 0.3.51 (2022-04-28)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Improved graph reconfiguration.
+  - Extra configuration options for streams and filters with config
+    rules and environment variable.
+  - Improve module-pulse-tunnel latency, stability and error recovery.
+  - pw-top, pw-cli and pw-link improvements.
+  - Fix a channelmixer upmixing clipping issue.
+  - The ROC module has seen many improvements.
+  - Many more bugfixes and improvements.
+
+
+## PipeWire
+  - The graph reconfiguration code was reworked:
+    * Moved nodes will update the new driver quantum correctly. (#2293)
+    * Inactive nodes are ignored more.
+    * Nodes that require a driver are now not scheduled anymore when
+      they are passive (unused). (#2309)
+    * Improved performance, the graph is reconfigured with a minimal
+      amount of changes.
+  - Method and event argument names were improved.
+  - A linker garbage collection problem was fixed. (#2292)
+  - Properties on threads are now implemented. Use common code to
+    set thread name and add an option to set stack-size.
+  - Streams and filters always want a driver now. This makes it possible
+    to just link a playback stream to a capture stream without a driver
+    and have it work. (#1761).
+  - Streams and filters can now also have rules in the config file.
+  - Streams, filters, JACK, ALSA and v4l2 now support PIPEWIRE_PROPS
+    environment variable to override node properties.
+  - Add config section extensions. This provides a way for modules to
+    have specific config to override the default config.
+  - Handle realloc errors better.
+  - Improve stream and filter property updates.
+
+## Modules
+  - The pulse-tunnel modules has improved latency management and should
+    now work a lot better. (#2230)
+  - Module-loopback, module-echo-cancel, module-filter-chain unload the
+    module when a stream is destroyed. (#1754)
+  - Biquads in filter-chain now can have more gain (5->20 dB).
+  - Documentation updates. Most Wiki content was moved to the source code
+    inline comments.
+  - Filter-chain now has a builtin delay line filter. (#2320)
+  - Filter-chain can now parse the config key correctly in all cases.
+  - The ROC sink and source saw many improvements. roc-source is now a stream
+    by default that connects to the default sink. Both modules will try to set
+    a graph rate. Both modules have an option to select the FEC mode.
+    The ROC source has lower latency now. (#2331)
+  - Handle realloc errors better.
+
+## tools
+  - pw-cat does not have --list-targets anymore, use one of the more
+    advanced and less buggy tools such as wpctl or pw-cli to list
+    sinks and sources.
+  - pw-top has seen many improvements.
+    * It now has some timeouts to reset the node values to their default
+      state when unused.
+    * The man page was improved.
+    * Invalid timings and errors are displayed in a better way.
+  - pw-cli and pw-link can now create links between all ports of given nodes.
+  - pw-cat can now save to other file formats than wav, based on the extension
+    of the filename.
+
+## SPA
+  - The resampler now uses a different internal method for draining. It can
+    now also handle 0 size buffers as input without draining.
+  - The channelmixer now uses the front channel averages for FC and LFE.
+    This avoids clipping and results in much better upmixing.
+  - ALSA should now work again on 32 bits. (#2271)
+  - The JSON parser now converts escaped unicode correctly to UTF8.
+
+## bluetooth
+  - Codec switch improvements when the device is disconnected. (#2334)
+
+## pulse-server
+  - There is a new module-roc-sink-input module, the the PulseAudio equivalent.
+  - The ROC source and sink-input module now have a much lower latency.
+  - The ROC module now has an option to select FEC mode.
+  - Playback and record rate adjustements should work now. (#1159)
+
+## JACK
+  - Remove some useless pthread attributes. This makes JACK work in QEMU with
+    sandboxing enabled. (#2297)
+  - The buffer_size callback is now only called when something has changed
+    since the last process() callback or get_buffer_size() method. This
+    fixes a GStreamer issue and is more in line with what JACK does. (#2324)
+  - Fix a potential deadlock when the process thread is doing IPC and the
+    IPC thread is blocking on the data thread.
+  - Allocation errors in metadata are handled better.
+
+
+Older versions:
+
 # PipeWire 0.3.50 (2022-04-13)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -84,10 +182,6 @@ This is a bugfix release that is API and ABI compatible with previous
     configure. This also makes WINE apps using the JACK backend work.
     (#1495).
   - Port sorting was improved/fixed. (#2260)
-
-
-Older versions:
-
 
 # PipeWire 0.3.49 (2022-03-29)
 

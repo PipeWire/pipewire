@@ -58,6 +58,7 @@
  * - `sess.latency.msec = <str>`: target network latency in milliseconds
  * - `resampler.profile = <str>`: Possible values: `disable`, `high`,
  *   `medium`, `low`.
+ * - `fec.code = <str>`: Possible values: `disable`, `rs8m`, `ldpc`
  *
  * ## General options
  *
@@ -74,6 +75,7 @@
  *      args = {
  *          local.ip = 0.0.0.0
  *          resampler.profile = medium
+ *          fec.code = disable
  *          sess.latency.msec = 5000
  *          local.source.port = 10001
  *          local.repair.port = 10002

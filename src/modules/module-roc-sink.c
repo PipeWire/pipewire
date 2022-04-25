@@ -56,6 +56,7 @@
  * - `remote.ip = <str>`: remote receiver ip
  * - `remote.source.port = <str>`: remote receiver TCP/UDP port for source packets
  * - `remote.repair.port = <str>`: remote receiver TCP/UDP port for receiver packets
+ * - `fec.code = <str>`: Possible values: `disable`, `rs8m`, `ldpc`
  *
  * ## General options
  *
@@ -71,6 +72,7 @@
  *  {   name = libpipewire-module-roc-sink
  *      args = {
  *          local.ip = 0.0.0.0
+ *          fec.code = disable
  *          remote.ip = 192.168.0.244
  *          remote.source.port = 10001
  *          remote.repair.port = 10002
@@ -391,6 +393,7 @@ static const struct spa_dict_item module_roc_sink_info[] = {
 	{ PW_KEY_MODULE_DESCRIPTION, "roc sink" },
 	{ PW_KEY_MODULE_USAGE,	"sink.name=<name for the sink> "
 				"local.ip=<local sender ip> "
+				"fec.code=<empty>|disable|rs8m|ldpc "
 				"remote.ip=<remote receiver ip> "
 				"remote.source.port=<remote receiver port for source packets> "
 				"remote.repair.port=<remote receiver port for repair packets> "

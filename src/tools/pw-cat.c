@@ -1120,6 +1120,45 @@ static int fill_properties(struct data *data)
 
 	return 0;
 }
+static void format_from_filename(SF_INFO *info, const char *filename)
+{
+	int i, count = 0;
+	int format = -1;
+
+#if __BYTE_ORDER == __BIG_ENDIAN
+	info->format |= SF_ENDIAN_BIG;
+#else
+	info->format |= SF_ENDIAN_LITTLE;
+#endif
+
+	if (sf_command(NULL, SFC_GET_FORMAT_MAJOR_COUNT, &count, sizeof(int)) != 0)
+		count = 0;
+
+	for (i = 0; i < count; i++) {
+		SF_FORMAT_INFO fi;
+
+		spa_zero(fi);
+		fi.format = i;
+		if (sf_command(NULL, SFC_GET_FORMAT_MAJOR, &fi, sizeof(fi)) != 0)
+			continue;
+
+		if (spa_strendswith(filename, fi.extension)) {
+			format = fi.format;
+			break;
+		}
+	}
+	if (format == -1)
+		format = SF_FORMAT_WAV;
+	if (format == SF_FORMAT_WAV && info->channels > 2)
+		format = SF_FORMAT_WAVEX;
+
+	info->format |= format;
+
+	if (format == SF_FORMAT_OGG || format == SF_FORMAT_FLAC)
+		info->format = (info->format & ~SF_FORMAT_ENDMASK) | SF_ENDIAN_FILE;
+	if (format == SF_FORMAT_OGG)
+		info->format = (info->format & ~SF_FORMAT_SUBMASK) | SF_FORMAT_VORBIS;
+}
 
 static int setup_sndfile(struct data *data)
 {
@@ -1147,12 +1186,7 @@ static int setup_sndfile(struct data *data)
 			fprintf(stderr, "error: unknown format \"%s\"\n", data->format);
 			return -EINVAL;
 		}
-		info.format |= SF_FORMAT_WAV;
-#if __BYTE_ORDER == __BIG_ENDIAN
-		info.format |= SF_ENDIAN_BIG;
-#else
-		info.format |= SF_ENDIAN_LITTLE;
-#endif
+		format_from_filename(&info, data->filename);
 	}
 
 	data->file = sf_open(data->filename,

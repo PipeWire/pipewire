@@ -331,6 +331,8 @@ static int roc_source_setup(struct module_roc_source_data *data)
 	info.position[1] = SPA_AUDIO_CHANNEL_FR;
 	data->stride = info.channels * sizeof(float);
 
+	pw_properties_setf(data->playback_props, PW_KEY_NODE_RATE, "1/%d", info.rate);
+
 	if (roc_parse_resampler_profile(&receiver_config.resampler_profile,
 				data->resampler_profile)) {
 		pw_log_error("Invalid resampler profile");

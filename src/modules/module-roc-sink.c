@@ -299,6 +299,8 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 	info.position[0] = SPA_AUDIO_CHANNEL_FL;
 	info.position[1] = SPA_AUDIO_CHANNEL_FR;
 
+	pw_properties_setf(data->capture_props, PW_KEY_NODE_RATE, "1/%d", info.rate);
+
 	data->sender = roc_sender_open(data->context, &sender_config);
 	if (!data->sender) {
 		pw_log_error("Failed to create roc sender");

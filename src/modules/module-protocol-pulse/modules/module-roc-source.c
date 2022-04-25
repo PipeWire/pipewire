@@ -35,10 +35,6 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define ROC_DEFAULT_IP "0.0.0.0"
-#define ROC_DEFAULT_SOURCE_PORT "10001"
-#define ROC_DEFAULT_REPAIR_PORT "10002"
-
 struct module_roc_source_data {
 	struct module *module;
 
@@ -165,36 +161,26 @@ struct module *create_module_roc_source(struct impl *impl, const char *argument)
 	if ((str = pw_properties_get(props, "local_ip")) != NULL) {
 		pw_properties_set(roc_props, "local.ip", str);
 		pw_properties_set(props, "local_ip", NULL);
-	} else {
-		pw_properties_set(roc_props, "local.ip", ROC_DEFAULT_IP);
 	}
 
 	if ((str = pw_properties_get(props, "local_source_port")) != NULL) {
 		pw_properties_set(roc_props, "local.source.port", str);
 		pw_properties_set(props, "local_source_port", NULL);
-	} else {
-		pw_properties_set(roc_props, "local.source.port", ROC_DEFAULT_SOURCE_PORT);
 	}
 
 	if ((str = pw_properties_get(props, "local_repair_port")) != NULL) {
 		pw_properties_set(roc_props, "local.repair.port", str);
 		pw_properties_set(props, "local_repair_port", NULL);
-	} else {
-		pw_properties_set(roc_props, "local.repair.port", ROC_DEFAULT_REPAIR_PORT);
 	}
 
 	if ((str = pw_properties_get(props, "sess_latency_msec")) != NULL) {
 		pw_properties_set(roc_props, "sess.latency.msec", str);
 		pw_properties_set(props, "sess_latency_msec", NULL);
-	} else {
-		pw_properties_set(roc_props, "sess.latency.msec", ROC_DEFAULT_REPAIR_PORT);
 	}
 
 	if ((str = pw_properties_get(props, "resampler_profile")) != NULL) {
 		pw_properties_set(roc_props, "resampler.profile", str);
 		pw_properties_set(props, "resampler_profile", NULL);
-	} else {
-		pw_properties_set(roc_props, "resampler.profile", ROC_DEFAULT_REPAIR_PORT);
 	}
 
 	module = module_new(impl, sizeof(*d));

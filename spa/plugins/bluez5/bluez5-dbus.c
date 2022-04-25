@@ -1307,6 +1307,11 @@ static void device_set_connected(struct spa_bt_device *device, int connected)
 	if (connected)
 		spa_bt_device_check_profiles(device, false);
 	else {
+		/* Stop codec switch on disconnect */
+		struct spa_bt_a2dp_codec_switch *sw;
+		spa_list_consume(sw, &device->codec_switch_list, device_link)
+			a2dp_codec_switch_free(sw);
+
 		if (device->reconnect_state != BT_DEVICE_RECONNECT_INIT)
 			device_stop_timer(device);
 		device_connected(monitor, device, BT_DEVICE_DISCONNECTED);

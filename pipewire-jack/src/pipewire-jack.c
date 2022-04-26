@@ -1641,8 +1641,7 @@ static int update_driver_activation(struct client *c)
 	link = find_activation(&c->links, c->driver_id);
 	c->driver_activation = link ? link->activation : NULL;
 	pw_data_loop_invoke(c->loop,
-                       do_update_driver_activation, SPA_ID_INVALID, NULL, 0,
-		       !c->data_locked, c);
+                       do_update_driver_activation, SPA_ID_INVALID, NULL, 0, false, c);
 	install_timeowner(c);
 
 	return 0;

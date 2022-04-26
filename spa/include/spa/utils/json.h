@@ -355,16 +355,33 @@ static inline int spa_json_parse_stringn(const char *val, int len, char *result,
 				else if (*p == 'f')
 					*result++ = '\f';
 				else if (*p == 'u') {
-					uint8_t v[2];
+					uint8_t v[2], prefix[] = { 0, 0xc0, 0xe0, 0xf0 };
+					uint32_t idx, n, cp, enc[] = { 0x80, 0x800, 0x10000 };
 					if (p + 5 > val + len ||
 					    sscanf(p+1, "%02hhx%02hhx", &v[0], &v[1]) != 2) {
 						*result++ = *p;
-					} else {
-						p += 4;
-						if (v[0] != 0)
-							*result++ = v[0];
-						*result++ = v[1];
+						continue;
 					}
+					cp = v[0] << 8 |  v[1];
+					p += 4;
+
+					if (cp >= 0xd800 && cp <= 0xdbff) {
+						if (p + 7 > val + len ||
+						    sscanf(p+1, "\\u%02hhx%02hhx", &v[0], &v[1]) != 2 ||
+						    v[0] <= 0xdb || v[0] >= 0xe0)
+							continue;
+						p += 6;
+						cp = 0x010000 | ((cp & 0x3ff) << 10) | (((v[0] << 8 | v[1])) & 0x3ff);
+					} else if (cp >= 0xdc00 && cp <= 0xdfff)
+						continue;
+
+					for (idx = 0; idx < 3; idx++)
+						if (cp < enc[idx])
+							break;
+					for (n = idx; n > 0; n--, cp >>= 6)
+						result[n] = (cp | 0x80) & 0xbf;
+					*result++ = (cp | prefix[idx]) & 0xff;
+					result += idx;
 				} else
 					*result++ = *p;
 			} else if (*p == '\"') {

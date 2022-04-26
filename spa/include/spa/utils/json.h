@@ -355,15 +355,15 @@ static inline int spa_json_parse_stringn(const char *val, int len, char *result,
 				else if (*p == 'f')
 					*result++ = '\f';
 				else if (*p == 'u') {
-					char *end;
-					uint16_t v = strtol(p+1, &end, 16);
-					if (p+1 == end) {
+					uint8_t v[2];
+					if (p + 5 > val + len ||
+					    sscanf(p+1, "%02hhx%02hhx", &v[0], &v[1]) != 2) {
 						*result++ = *p;
 					} else {
-						p = end-1;
-						if (v > 0xff)
-							*result++ = (v >> 8) & 0xff;
-						*result++ = v & 0xff;
+						p += 4;
+						if (v[0] != 0)
+							*result++ = v[0];
+						*result++ = v[1];
 					}
 				} else
 					*result++ = *p;

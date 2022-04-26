@@ -380,6 +380,7 @@ struct client {
 
 	pthread_mutex_t rt_lock;
 	unsigned int rt_locked:1;
+	unsigned int data_locked:1;
 
 	unsigned int started:1;
 	unsigned int active:1;
@@ -872,13 +873,18 @@ static int do_sync(struct client *client)
 	client->pending_sync = pw_proxy_sync((struct pw_proxy*)client->core, client->pending_sync);
 
 	while (true) {
-		if (in_data_thread && client->rt_locked)
-			pthread_mutex_unlock(&client->rt_lock);
-
+		if (in_data_thread) {
+			if (client->rt_locked)
+				pthread_mutex_unlock(&client->rt_lock);
+			client->data_locked = true;
+		}
 	        pw_thread_loop_wait(client->context.loop);
 
-		if (in_data_thread && client->rt_locked)
-			pthread_mutex_lock(&client->rt_lock);
+		if (in_data_thread) {
+			client->data_locked = false;
+			if (client->rt_locked)
+				pthread_mutex_lock(&client->rt_lock);
+		}
 
 		if (client->last_res < 0)
 			return client->last_res;
@@ -927,23 +933,21 @@ static struct link *find_activation(struct spa_list *links, uint32_t node_id)
 	return NULL;
 }
 
+static void client_remove_source(struct client *c)
+{
+	if (c->socket_source) {
+		pw_loop_destroy_source(c->loop->loop, c->socket_source);
+		c->socket_source = NULL;
+	}
+}
+
 static int
 do_remove_sources(struct spa_loop *loop,
                   bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct client *c = user_data;
-
-	if (c->socket_source) {
-		pw_loop_destroy_source(c->loop->loop, c->socket_source);
-		c->socket_source = NULL;
-	}
+	client_remove_source(c);
 	return 0;
-}
-
-static void unhandle_socket(struct client *c)
-{
-	pw_data_loop_invoke(c->loop,
-			do_remove_sources, 1, NULL, 0, true, c);
 }
 
 static inline void reuse_buffer(struct client *c, struct mix *mix, uint32_t id)
@@ -1463,7 +1467,7 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 
 	if (SPA_UNLIKELY(mask & (SPA_IO_ERR | SPA_IO_HUP))) {
 		pw_log_warn("%p: got error", c);
-		unhandle_socket(c);
+		client_remove_source(c);
 		return;
 	}
 	if (SPA_UNLIKELY(c->thread_callback)) {
@@ -1496,7 +1500,7 @@ do_clear_link(struct spa_loop *loop,
 static void clear_link(struct client *c, struct link *link)
 {
 	pw_data_loop_invoke(c->loop,
-			do_clear_link, 1, NULL, 0, true, link);
+			do_clear_link, 1, NULL, 0, !c->data_locked, link);
 	pw_memmap_free(link->mem);
 	close(link->signalfd);
 	spa_list_remove(&link->link);
@@ -1510,7 +1514,8 @@ static void clean_transport(struct client *c)
 	if (!c->has_transport)
 		return;
 
-	unhandle_socket(c);
+	pw_data_loop_invoke(c->loop,
+			do_remove_sources, 1, NULL, 0, !c->data_locked, c);
 
 	spa_list_consume(l, &c->links, link)
 		clear_link(c, l);
@@ -1636,7 +1641,8 @@ static int update_driver_activation(struct client *c)
 	link = find_activation(&c->links, c->driver_id);
 	c->driver_activation = link ? link->activation : NULL;
 	pw_data_loop_invoke(c->loop,
-                       do_update_driver_activation, SPA_ID_INVALID, NULL, 0, true, c);
+                       do_update_driver_activation, SPA_ID_INVALID, NULL, 0,
+		       !c->data_locked, c);
 	install_timeowner(c);
 
 	return 0;

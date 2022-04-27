@@ -1370,12 +1370,19 @@ static const struct pw_context_driver_events context_events = {
 	.drained = context_drained,
 };
 
+struct match {
+	struct pw_stream *stream;
+	int count;
+};
+#define MATCH_INIT(s) (struct match){ .stream = s }
+
 static int execute_match(void *data, const char *location, const char *action,
 		const char *val, size_t len)
 {
-	struct pw_stream *this = data;
+	struct match *match = data;
+	struct pw_stream *this = match->stream;
 	if (spa_streq(action, "update-props"))
-		pw_properties_update_string(this->properties, val, len);
+		match->count += pw_properties_update_string(this->properties, val, len);
 	return 1;
 }
 
@@ -1386,6 +1393,7 @@ stream_new(struct pw_context *context, const char *name,
 	struct stream *impl;
 	struct pw_stream *this;
 	const char *str;
+	struct match match;
 	int res;
 
 	impl = calloc(1, sizeof(struct stream));
@@ -1416,8 +1424,9 @@ stream_new(struct pw_context *context, const char *name,
 
 	pw_context_conf_update_props(context, "stream.properties", props);
 
+	match = MATCH_INIT(this);
 	pw_context_conf_section_match_rules(context, "stream.rules",
-			&this->properties->dict, execute_match, this);
+			&this->properties->dict, execute_match, &match);
 
 	if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
 		pw_properties_update_string(props, str, strlen(str));
@@ -1654,16 +1663,21 @@ int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict 
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	int changed, res = 0;
+	struct match match;
 
 	changed = pw_properties_update(stream->properties, dict);
 	if (!changed)
 		return 0;
 
+	match = MATCH_INIT(stream);
 	pw_context_conf_section_match_rules(impl->context, "stream.rules",
-			&stream->properties->dict, execute_match, stream);
+			&stream->properties->dict, execute_match, &match);
 
 	if (impl->node)
-		res = pw_impl_node_update_properties(impl->node, dict);
+		res = pw_impl_node_update_properties(impl->node,
+				match.count == 0 ?
+					dict :
+					&stream->properties->dict);
 
 	return res;
 }

@@ -1175,12 +1175,19 @@ static const struct pw_core_events core_events = {
 	.error = on_core_error,
 };
 
+struct match {
+	struct pw_filter *filter;
+	int count;
+};
+#define MATCH_INIT(f) (struct match){ .filter = f }
+
 static int execute_match(void *data, const char *location, const char *action,
 		const char *val, size_t len)
 {
-	struct pw_filter *this = data;
+	struct match *match = data;
+	struct pw_filter *this = match->filter;
 	if (spa_streq(action, "update-props"))
-		pw_properties_update_string(this->properties, val, len);
+		match->count += pw_properties_update_string(this->properties, val, len);
 	return 1;
 }
 
@@ -1191,6 +1198,7 @@ filter_new(struct pw_context *context, const char *name,
 	struct filter *impl;
 	struct pw_filter *this;
 	const char *str;
+	struct match match;
 	int res;
 
 	impl = calloc(1, sizeof(struct filter));
@@ -1216,8 +1224,9 @@ filter_new(struct pw_context *context, const char *name,
 
 	pw_context_conf_update_props(context, "filter.properties", props);
 
+	match = MATCH_INIT(this);
 	pw_context_conf_section_match_rules(context, "filter.rules",
-		&this->properties->dict, execute_match, this);
+		&this->properties->dict, execute_match, &match);
 
 	if ((str = getenv("PIPEWIRE_PROPS")) != NULL)
 		pw_properties_update_string(props, str, strlen(str));
@@ -1469,13 +1478,16 @@ int pw_filter_update_properties(struct pw_filter *filter, void *port_data, const
 			emit_port_info(impl, port, false);
 		}
 	} else {
+		struct match match;
+
 		changed = pw_properties_update(filter->properties, dict);
 
+		match = MATCH_INIT(filter);
 		pw_context_conf_section_match_rules(impl->context, "filter.rules",
-			&filter->properties->dict, execute_match, filter);
+			&filter->properties->dict, execute_match, &match);
 
 		impl->info.props = &filter->properties->dict;
-		if (changed > 0) {
+		if (changed > 0 || match.count > 0) {
 			impl->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
 			emit_node_info(impl, false);
 		}

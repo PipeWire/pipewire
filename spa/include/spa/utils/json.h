@@ -331,6 +331,25 @@ static inline bool spa_json_is_string(const char *val, int len)
 	return len > 1 && *val == '"';
 }
 
+static inline int spa_json_parse_hex(const char *p, int num, uint32_t *res)
+{
+	int i;
+	*res = 0;
+	for (i = 0; i < num; i++) {
+		char v = p[i];
+		if (v >= '0' && v <= '9')
+			v = v - '0';
+		else if (v >= 'a' && v <= 'f')
+			v = v - 'a' + 10;
+		else if (v >= 'A' && v <= 'F')
+			v = v - 'A' + 10;
+		else
+			return -1;
+		*res = (*res << 4) | v;
+	}
+	return 1;
+}
+
 static inline int spa_json_parse_stringn(const char *val, int len, char *result, int maxlen)
 {
 	const char *p;
@@ -355,23 +374,23 @@ static inline int spa_json_parse_stringn(const char *val, int len, char *result,
 				else if (*p == 'f')
 					*result++ = '\f';
 				else if (*p == 'u') {
-					uint8_t v[2], prefix[] = { 0, 0xc0, 0xe0, 0xf0 };
-					uint32_t idx, n, cp, enc[] = { 0x80, 0x800, 0x10000 };
-					if (p + 5 > val + len ||
-					    sscanf(p+1, "%02hhx%02hhx", &v[0], &v[1]) != 2) {
+					uint8_t prefix[] = { 0, 0xc0, 0xe0, 0xf0 };
+					uint32_t idx, n, v, cp, enc[] = { 0x80, 0x800, 0x10000 };
+					if (val + len - p < 5 ||
+					    spa_json_parse_hex(p+1, 4, &cp) < 0) {
 						*result++ = *p;
 						continue;
 					}
-					cp = v[0] << 8 |  v[1];
 					p += 4;
 
 					if (cp >= 0xd800 && cp <= 0xdbff) {
-						if (p + 7 > val + len ||
-						    sscanf(p+1, "\\u%02hhx%02hhx", &v[0], &v[1]) != 2 ||
-						    v[0] <= 0xdb || v[0] >= 0xe0)
+						if (val + len - p < 7 ||
+						    p[1] != '\\' || p[2] != 'u' ||
+						    spa_json_parse_hex(p+3, 4, &v) < 0 ||
+						    v < 0xdc00 || v > 0xdfff)
 							continue;
 						p += 6;
-						cp = 0x010000 | ((cp & 0x3ff) << 10) | (((v[0] << 8 | v[1])) & 0x3ff);
+						cp = 0x010000 | ((cp & 0x3ff) << 10) | (v & 0x3ff);
 					} else if (cp >= 0xdc00 && cp <= 0xdfff)
 						continue;
 

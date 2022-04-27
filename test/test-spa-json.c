@@ -179,6 +179,9 @@ PWTEST(json_encode)
 	strcpy(dst, "\"\\u03b2a\"");
 	pwtest_int_eq(spa_json_parse_stringn(dst, sizeof(dst), result, sizeof(result)), 1);
 	pwtest_str_eq(result, "\316\262a");
+	strcpy(dst, "\"\\u 03b2a \"");
+	pwtest_int_eq(spa_json_parse_stringn(dst, sizeof(dst), result, sizeof(result)), 1);
+	pwtest_str_eq(result, "u 03b2a ");
 
 	return PWTEST_PASS;
 }

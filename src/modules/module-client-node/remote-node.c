@@ -317,8 +317,15 @@ static int add_node_update(struct node_data *data, uint32_t change_mask, uint32_
 	                        res = spa_node_enum_params_sync(node->node,
 							id, &idx, NULL, &param, &b.b);
 				if (res == 1) {
-					params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));
-					params[n_params++] = spa_pod_copy(param);
+					void *p;
+					p = reallocarray(params, n_params + 1, sizeof(struct spa_pod *));
+					if (p == NULL) {
+						res = -errno;
+						pw_log_error("realloc failed: %m");
+					} else {
+						params = p;
+						params[n_params++] = spa_pod_copy(param);
+					}
 				}
 				spa_pod_dynamic_builder_clean(&b);
 				if (res != 1)
@@ -376,8 +383,15 @@ static int add_port_update(struct node_data *data, struct pw_impl_port *port, ui
 							port->direction, port->port_id,
 							id, &idx, NULL, &param, &b.b);
 				if (res == 1) {
-					params = realloc(params, sizeof(struct spa_pod *) * (n_params + 1));
-					params[n_params++] = spa_pod_copy(param);
+					void *p;
+					p = reallocarray(params, n_params + 1, sizeof(struct spa_pod*));
+					if (p == NULL) {
+						res = -errno;
+						pw_log_error("realloc failed: %m");
+					} else {
+						params = p;
+						params[n_params++] = spa_pod_copy(param);
+					}
 				}
 				spa_pod_dynamic_builder_clean(&b);
 

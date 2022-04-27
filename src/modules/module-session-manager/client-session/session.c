@@ -185,19 +185,26 @@ int session_update(struct session *this,
 {
 	if (change_mask & PW_CLIENT_SESSION_UPDATE_PARAMS) {
 		uint32_t i;
-		size_t size = n_params * sizeof(struct spa_pod *);
 
 		pw_log_debug(NAME" %p: update %d params", this, n_params);
 
 		for (i = 0; i < this->n_params; i++)
 			free(this->params[i]);
-		this->params = realloc(this->params, size);
-		if (size > 0 && !this->params) {
-			this->n_params = 0;
-			goto no_mem;
-		}
 		this->n_params = n_params;
-
+		if (this->n_params == 0) {
+			free(this->params);
+			this->params = NULL;
+		} else {
+			void *p;
+			p = reallocarray(this->params, n_params, sizeof(struct spa_pod*));
+			if (p == NULL) {
+				free(this->params);
+				this->params = NULL;
+				this->n_params = 0;
+				goto no_mem;
+			}
+			this->params = p;
+		}
 		for (i = 0; i < this->n_params; i++) {
 			this->params[i] = params[i] ? spa_pod_copy(params[i]) : NULL;
 			session_notify_subscribed(this, i, i+1);
@@ -209,18 +216,23 @@ int session_update(struct session *this,
 			pw_properties_update(this->props, info->props);
 
 		if (info->change_mask & PW_SESSION_CHANGE_MASK_PARAMS) {
-			size_t size = info->n_params * sizeof(struct spa_param_info);
-
-			this->info.params = realloc(this->info.params, size);
-			if (size > 0 && !this->info.params) {
-				this->info.n_params = 0;
-				goto no_mem;
-			}
 			this->info.n_params = info->n_params;
-
-			memcpy(this->info.params, info->params, size);
+			if (info->n_params == 0) {
+				free(this->info.params);
+				this->info.params = NULL;
+			} else {
+				void *p;
+				p = reallocarray(this->info.params, info->n_params, sizeof(struct spa_param_info));
+				if (p == NULL) {
+					free(this->info.params);
+					this->info.params = NULL;
+					this->info.n_params = 0;
+					goto no_mem;
+				}
+				this->info.params = p;
+				memcpy(this->info.params, info->params, info->n_params * sizeof(struct spa_param_info));
+			}
 		}
-
 		this->info.change_mask = info->change_mask;
 		pw_global_for_each_resource(this->global, emit_info, this);
 		this->info.change_mask = 0;

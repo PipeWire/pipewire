@@ -156,17 +156,23 @@ static void *connection_ensure_size(struct pw_protocol_native_connection *conn, 
 	int res;
 
 	if (buf->buffer_size + size > buf->buffer_maxsize) {
-		buf->buffer_maxsize = SPA_ROUND_UP_N(buf->buffer_size + size, MAX_BUFFER_SIZE);
-		buf->buffer_data = realloc(buf->buffer_data, buf->buffer_maxsize);
-		if (buf->buffer_data == NULL) {
+		void *np;
+		size_t ns;
+
+		ns = SPA_ROUND_UP_N(buf->buffer_size + size, MAX_BUFFER_SIZE);
+		np = realloc(buf->buffer_data, ns);
+		if (np == NULL) {
 			res = -errno;
+			free(buf->buffer_data);
 			buf->buffer_maxsize = 0;
 			spa_hook_list_call(&conn->listener_list,
 					struct pw_protocol_native_connection_events,
-					error, 0, -res);
+					error, 0, res);
 			errno = -res;
 			return NULL;
 		}
+		buf->buffer_maxsize = ns;
+		buf->buffer_data = np;
 		pw_log_debug("connection %p: resize buffer to %zd %zd %zd",
 			    conn, buf->buffer_size, size, buf->buffer_maxsize);
 	}

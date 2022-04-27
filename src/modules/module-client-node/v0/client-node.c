@@ -471,8 +471,19 @@ do_update_port(struct node *this,
 		for (i = 0; i < port->n_params; i++)
 			free(port->params[i]);
 		port->n_params = n_params;
-		port->params = realloc(port->params, port->n_params * sizeof(struct spa_pod *));
-
+		if (port->n_params == 0) {
+			free(port->params);
+			port->params = NULL;
+		} else {
+			void *p;
+			p = reallocarray(port->params, port->n_params, sizeof(struct spa_pod *));
+			if (p == NULL) {
+				pw_log_error("%p: port %u can't realloc: %m", this, port_id);
+				free(port->params);
+				port->n_params = 0;
+			}
+			port->params = p;
+		}
 		for (i = 0; i < port->n_params; i++) {
 			port->params[i] = params[i] ?
 				pw_protocol_native0_pod_from_v2(this->resource->client, params[i]) : NULL;
@@ -1033,8 +1044,19 @@ client_node0_update(void *data,
 		for (i = 0; i < this->n_params; i++)
 			free(this->params[i]);
 		this->n_params = n_params;
-		this->params = realloc(this->params, this->n_params * sizeof(struct spa_pod *));
-
+		if (this->n_params == 0) {
+			free(this->params);
+			this->params = NULL;
+		} else {
+			void *p;
+			p = reallocarray(this->params, this->n_params, sizeof(struct spa_pod *));
+			if (p == NULL) {
+				pw_log_error("%p: can't realloc: %m", this);
+				free(this->params);
+				this->n_params = 0;
+			}
+			this->params = p;
+		}
 		for (i = 0; i < this->n_params; i++)
 			this->params[i] = params[i] ? spa_pod_copy(params[i]) : NULL;
 	}

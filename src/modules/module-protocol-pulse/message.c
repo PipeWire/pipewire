@@ -395,8 +395,12 @@ static int ensure_size(struct message *m, uint32_t size)
 
 	alloc = SPA_ROUND_UP_N(SPA_MAX(m->allocated + size, 4096u), 4096u);
 	diff = alloc - m->allocated;
-	if ((data = realloc(m->data, alloc)) == NULL)
+	if ((data = realloc(m->data, alloc)) == NULL) {
+		free(m->data);
+		m->stat->allocated -= m->allocated;
+		m->allocated = 0;
 		return -errno;
+	}
 	m->stat->allocated += diff;
 	m->stat->accumulated += diff;
 	m->data = data;

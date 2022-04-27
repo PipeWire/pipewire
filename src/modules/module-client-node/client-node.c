@@ -76,6 +76,11 @@ struct mix {
 	struct buffer buffers[MAX_BUFFERS];
 };
 
+struct params {
+	uint32_t n_params;
+	struct spa_pod **params;
+};
+
 struct port {
 	struct pw_impl_port *port;
 	struct node *node;
@@ -89,8 +94,7 @@ struct port {
 	struct spa_port_info info;
 	struct pw_properties *properties;
 
-	uint32_t n_params;
-	struct spa_pod **params;
+	struct params params;
 
 	unsigned int removed:1;
 	unsigned int destroyed:1;
@@ -120,8 +124,7 @@ struct node {
 
 	struct port dummy;
 
-	uint32_t n_params;
-	struct spa_pod **params;
+	struct params params;
 };
 
 struct impl {
@@ -176,6 +179,32 @@ struct impl {
 	pw_client_node_resource(r,set_activation,0,__VA_ARGS__)
 #define pw_client_node_resource_port_set_mix_info(r,...)	\
 	pw_client_node_resource(r,port_set_mix_info,1,__VA_ARGS__)
+
+static int update_params(struct params *p, uint32_t n_params, const struct spa_pod **params)
+{
+	uint32_t i;
+	for (i = 0; i < p->n_params; i++)
+		free(p->params[i]);
+	p->n_params = n_params;
+	if (p->n_params == 0) {
+		free(p->params);
+		p->params = NULL;
+	} else {
+		struct spa_pod **np;
+		np = reallocarray(p->params, p->n_params, sizeof(struct spa_pod *));
+		if (np == NULL) {
+			pw_log_error("%p: can't realloc: %m", p);
+			free(p->params);
+			p->params = NULL;
+			p->n_params = 0;
+			return -errno;
+		}
+		p->params = np;
+	}
+	for (i = 0; i < p->n_params; i++)
+		p->params[i] = params[i] ? spa_pod_copy(params[i]) : NULL;
+	return 0;
+}
 
 static int
 do_port_use_buffers(struct impl *impl,
@@ -309,10 +338,10 @@ static int impl_node_enum_params(void *object, int seq,
 		struct spa_pod *param;
 
 		result.index = result.next++;
-		if (result.index >= this->n_params)
+		if (result.index >= this->params.n_params)
 			break;
 
-		param = this->params[result.index];
+		param = this->params.params[result.index];
 
 		if (param == NULL || !spa_pod_is_object_id(param, id))
 			continue;
@@ -472,17 +501,9 @@ do_update_port(struct node *this,
 	       const struct spa_pod **params,
 	       const struct spa_port_info *info)
 {
-	uint32_t i;
-
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
 		spa_log_debug(this->log, "%p: port %u update %d params", this, port->id, n_params);
-		for (i = 0; i < port->n_params; i++)
-			free(port->params[i]);
-		port->n_params = n_params;
-		port->params = realloc(port->params, port->n_params * sizeof(struct spa_pod *));
-		for (i = 0; i < port->n_params; i++) {
-			port->params[i] = params[i] ? spa_pod_copy(params[i]) : NULL;
-		}
+		update_params(&port->params, n_params, params);
 	}
 
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_INFO) {
@@ -577,7 +598,7 @@ impl_node_port_enum_params(void *object, int seq,
 	spa_return_val_if_fail(port != NULL, -EINVAL);
 
 	pw_log_debug("%p: seq:%d port %d.%d id:%u start:%u num:%u n_params:%d",
-			this, seq, direction, port_id, id, start, num, port->n_params);
+			this, seq, direction, port_id, id, start, num, port->params.n_params);
 
 	result.id = id;
 	result.next = 0;
@@ -586,10 +607,10 @@ impl_node_port_enum_params(void *object, int seq,
 		struct spa_pod *param;
 
 		result.index = result.next++;
-		if (result.index >= port->n_params)
+		if (result.index >= port->params.n_params)
 			break;
 
-		param = port->params[result.index];
+		param = port->params.params[result.index];
 
 		if (param == NULL || !spa_pod_is_object_id(param, id))
 			continue;
@@ -951,16 +972,8 @@ client_node_update(void *data,
 	struct node *this = &impl->node;
 
 	if (change_mask & PW_CLIENT_NODE_UPDATE_PARAMS) {
-		uint32_t i;
 		pw_log_debug("%p: update %d params", this, n_params);
-
-		for (i = 0; i < this->n_params; i++)
-			free(this->params[i]);
-		this->n_params = n_params;
-		this->params = realloc(this->params, this->n_params * sizeof(struct spa_pod *));
-
-		for (i = 0; i < this->n_params; i++)
-			this->params[i] = params[i] ? spa_pod_copy(params[i]) : NULL;
+		update_params(&this->params, n_params, params);
 	}
 	if (change_mask & PW_CLIENT_NODE_UPDATE_INFO) {
 		spa_node_emit_info(&this->hooks, info);
@@ -1186,12 +1199,7 @@ node_init(struct node *this,
 
 static int node_clear(struct node *this)
 {
-	uint32_t i;
-
-	for (i = 0; i < this->n_params; i++)
-		free(this->params[i]);
-	free(this->params);
-
+	update_params(&this->params, 0, NULL);
 	return 0;
 }
 

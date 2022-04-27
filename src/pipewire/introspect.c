@@ -211,10 +211,15 @@ struct pw_node_info *pw_node_info_merge(struct pw_node_info *info,
 	}
 	if (update->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
 		uint32_t i, user, n_params = update->n_params;
+		void *np;
 
-		info->params = realloc(info->params, n_params * sizeof(struct spa_param_info));
-		if (info->params == NULL)
-			n_params = 0;
+		np = reallocarray(info->params, n_params, sizeof(struct spa_param_info));
+		if (np == NULL) {
+			free(info->params);
+			info->params = NULL;
+			info->n_params = n_params = 0;
+		}
+		info->params = np;
 
 		for (i = 0; i < SPA_MIN(info->n_params, n_params); i++) {
 			user = reset ? 0 : info->params[i].user;
@@ -276,10 +281,15 @@ struct pw_port_info *pw_port_info_merge(struct pw_port_info *info,
 	}
 	if (update->change_mask & PW_PORT_CHANGE_MASK_PARAMS) {
 		uint32_t i, user, n_params = update->n_params;
+		void *np;
 
-		info->params = realloc(info->params, n_params * sizeof(struct spa_param_info));
-		if (info->params == NULL)
-			n_params = 0;
+		np = reallocarray(info->params, n_params, sizeof(struct spa_param_info));
+		if (np == NULL) {
+			free(info->params);
+			info->params = NULL;
+			info->n_params = n_params = 0;
+		}
+		info->params = np;
 
 		for (i = 0; i < SPA_MIN(info->n_params, n_params); i++) {
 			user = reset ? 0 : info->params[i].user;
@@ -431,10 +441,15 @@ struct pw_device_info *pw_device_info_merge(struct pw_device_info *info,
 	}
 	if (update->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
 		uint32_t i, user, n_params = update->n_params;
+		void *np;
 
-		info->params = realloc(info->params, n_params * sizeof(struct spa_param_info));
-		if (info->params == NULL)
-			n_params = 0;
+		np = reallocarray(info->params, n_params, sizeof(struct spa_param_info));
+		if (np == NULL) {
+			free(info->params);
+			info->params = NULL;
+			info->n_params = n_params = 0;
+		}
+		info->params = np;
 
 		for (i = 0; i < SPA_MIN(info->n_params, n_params); i++) {
 			user = reset ? 0 : info->params[i].user;

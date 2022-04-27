@@ -53,6 +53,13 @@ static void set_property(jack_property_t *prop, const char *key, const char *val
 	prop->type = strdup(type);
 }
 
+static void clear_property(jack_property_t *prop)
+{
+	free((char*)prop->key);
+	free((char*)prop->data);
+	free((char*)prop->type);
+}
+
 static jack_property_t *copy_properties(jack_property_t *src, uint32_t cnt)
 {
 	jack_property_t *dst;
@@ -108,21 +115,20 @@ static jack_property_t *add_property(jack_description_t *desc, const char *key,
 		const char *value, const char *type)
 {
 	jack_property_t *prop;
+	void *np;
+	size_t ns;
 
 	if (desc->property_cnt == desc->property_size) {
-		desc->property_size = desc->property_size > 0 ? desc->property_size * 2 : 8;
-		desc->properties = realloc(desc->properties, sizeof(*prop) * desc->property_size);
+		ns = desc->property_size > 0 ? desc->property_size * 2 : 8;
+		np = reallocarray(desc->properties, ns, sizeof(*prop));
+		if (np == NULL)
+			return NULL;
+		desc->property_size = ns;
+		desc->properties = np;
 	}
 	prop = &desc->properties[desc->property_cnt++];
 	set_property(prop, key, value, type);
 	return prop;
-}
-
-static void clear_property(jack_property_t *prop)
-{
-	free((char*)prop->key);
-	free((char*)prop->data);
-	free((char*)prop->type);
 }
 
 static void remove_property(jack_description_t *desc, jack_property_t *prop)
@@ -186,9 +192,16 @@ static int update_property(struct client *c,
 		} else if (prop == NULL) {
 			if (desc == NULL)
 				desc = add_description(subject);
-			add_property(desc, key, value, type);
-			change = PropertyCreated;
-			changed++;
+			if (desc == NULL) {
+				changed = -errno;
+				pw_log_warn("add_description failed: %m");
+			} else if (add_property(desc, key, value, type) == NULL) {
+				changed = -errno;
+				pw_log_warn("add_property failed: %m");
+			} else {
+				change = PropertyCreated;
+				changed++;
+			}
 		} else {
 			changed = change_property(prop, value, type);
 			change = PropertyChanged;
@@ -196,11 +209,10 @@ static int update_property(struct client *c,
 	}
 	pthread_mutex_unlock(&globals.lock);
 
-	if (c->property_callback && changed) {
+	if (c->property_callback && changed > 0) {
 		pw_log_info("emit %lu %s", subject, key);
 		c->property_callback(subject, key, change, c->property_arg);
 	}
-
 	return changed;
 }
 

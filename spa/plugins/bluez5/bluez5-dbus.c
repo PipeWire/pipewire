@@ -1579,7 +1579,7 @@ const struct a2dp_codec **spa_bt_device_get_supported_a2dp_codecs(struct spa_bt_
 		if (j >= size) {
 			const struct a2dp_codec **p;
 			size = size * 2;
-			p = realloc(supported_codecs, size * sizeof(const struct a2dp_codec *));
+			p = reallocarray(supported_codecs, size, sizeof(const struct a2dp_codec *));
 			if (p == NULL) {
 				free(supported_codecs);
 				return NULL;

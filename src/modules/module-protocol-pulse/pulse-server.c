@@ -1113,9 +1113,6 @@ static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size
 {
 	struct stream *stream = data;
 	switch (id) {
-	case SPA_IO_RateMatch:
-		stream->rate_match = area;
-		break;
 	case SPA_IO_Position:
 		stream->position = area;
 		break;
@@ -4443,7 +4440,7 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 {
 	uint32_t channel, rate;
 	struct stream *stream;
-	bool match;
+	float corr;
 
 	if (message_get(m,
 			TAG_U32, &channel,
@@ -4458,15 +4455,10 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 	if (stream == NULL || stream->type == STREAM_TYPE_UPLOAD)
 		return -ENOENT;
 
-	if (stream->rate_match == NULL)
-		return -ENOTSUP;
-
-	match = rate != stream->ss.rate;
 	stream->rate = rate;
-	stream->rate_match->rate = match ?
-			(double)rate/(double)stream->ss.rate : 1.0;
-	SPA_FLAG_UPDATE(stream->rate_match->flags,
-			SPA_IO_RATE_MATCH_FLAG_ACTIVE, match);
+
+	corr = (double)rate/(double)stream->ss.rate;
+	pw_stream_set_control(stream->stream, SPA_PROP_rate, 1, &corr, NULL);
 
 	return reply_simple_ack(client, tag);
 }

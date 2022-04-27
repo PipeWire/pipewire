@@ -70,7 +70,6 @@ struct stream {
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 
-	struct spa_io_rate_match *rate_match;
 	struct spa_io_position *position;
 	struct spa_ringbuffer ring;
 	void *buffer;

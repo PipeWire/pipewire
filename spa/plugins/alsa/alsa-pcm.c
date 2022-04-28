@@ -1235,7 +1235,7 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 
 int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t flags)
 {
-	unsigned int rrate, rchannels, val;
+	unsigned int rrate, rchannels, val, rscale = 1;
 	snd_pcm_uframes_t period_size;
 	int err, dir;
 	snd_pcm_hw_params_t *params;
@@ -1322,21 +1322,26 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		case 4:
 			rformat = SND_PCM_FORMAT_DSD_U32_BE;
 			rrate /= 4;
+			rscale = 4;
 			break;
 		case -4:
 			rformat = SND_PCM_FORMAT_DSD_U32_LE;
 			rrate /= 4;
+			rscale = 4;
 			break;
 		case 2:
 			rformat = SND_PCM_FORMAT_DSD_U16_BE;
 			rrate /= 2;
+			rscale = 2;
 			break;
 		case -2:
 			rformat = SND_PCM_FORMAT_DSD_U16_LE;
 			rrate /= 2;
+			rscale = 2;
 			break;
 		case 1:
 			rformat = SND_PCM_FORMAT_DSD_U8;
+			rscale = 1;
 			break;
 		default:
 			return -ENOTSUP;
@@ -1430,6 +1435,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	state->channels = rchannels;
 	state->rate = rrate;
 	state->frame_size = snd_pcm_format_physical_width(rformat) / 8;
+	state->frame_scale = rscale;
 	state->planar = planar;
 	state->blocks = 1;
 	if (planar)

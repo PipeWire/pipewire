@@ -222,6 +222,8 @@ dsf_file_read(struct dsf_file *f, void *data, size_t samples, const struct dsf_l
 	offset = block * f->info.blocksize * f->info.channels;
 	pos = f->offset % f->info.blocksize;
 
+	samples *= step;
+
 	for (total = 0; total < samples && offset + pos < f->info.length; total++) {
 		const uint8_t *s = f->p + offset + pos;
 		uint32_t i;

@@ -709,10 +709,11 @@ on_param_changed(void *userdata, uint32_t id, const struct spa_pod *param)
 	data->stride = data->dsf.layout.channels * SPA_ABS(data->dsf.layout.interleave);
 
 	if (data->verbose) {
-		printf("DSD: channels:%d bitorder:%s interleave:%d\n",
+		printf("DSD: channels:%d bitorder:%s interleave:%d stride:%d\n",
 				data->dsf.layout.channels,
 				data->dsf.layout.lsb ? "lsb" : "msb",
-				data->dsf.layout.interleave);
+				data->dsf.layout.interleave,
+				data->stride);
 	}
 }
 

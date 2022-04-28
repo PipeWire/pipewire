@@ -531,8 +531,8 @@ impl_node_port_enum_params(void *object, int seq,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(this->blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-							this->quantum_limit * this->frame_size,
-							16 * this->frame_size,
+							this->quantum_limit * this->frame_size * this->frame_scale,
+							16 * this->frame_size * this->frame_scale,
 							INT32_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(this->frame_size));
 		break;

@@ -246,6 +246,8 @@ static void context_do_profile(void *data, struct pw_impl_node *node)
 			latency.num = n->force_quantum;
 		if (n->force_rate != 0)
 			latency.denom = n->force_rate;
+		else if (n->rate.denom != 0)
+			latency.denom = n->rate.denom;
 
 		na = n->rt.activation;
 		spa_pod_builder_prop(&b, SPA_PROFILER_followerBlock, 0);

@@ -322,6 +322,8 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 		port->format.media_type = SPA_MEDIA_TYPE_audio;
 		port->format.media_subtype = SPA_MEDIA_SUBTYPE_dsp;
 		port->format.info.dsp.format = SPA_AUDIO_FORMAT_DSP_F32;
+		port->blocks = 1;
+		port->stride = 4;
 	}
 	spa_list_init(&port->queue);
 

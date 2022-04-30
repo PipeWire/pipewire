@@ -268,9 +268,9 @@ build_all:
   extends:
     - .build_on_fedora
   variables:
-    # Fedora doesn't have libfreeaptx or roc
+    # Fedora doesn't have libfreeaptx, lc3plus, or roc
     # libcamera has no stable API, so let's not chase that target
-    MESON_OPTIONS: "-Dauto_features=enabled -Dbluez5-codec-aptx=disabled -Droc=disabled -Dlibcamera=disabled"
+    MESON_OPTIONS: "-Dauto_features=enabled -Dbluez5-codec-aptx=disabled -Dbluez5-codec-lc3plus=disabled -Droc=disabled -Dlibcamera=disabled"
   parallel:
     matrix:
       - CC: [gcc, clang]

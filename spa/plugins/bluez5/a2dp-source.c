@@ -154,6 +154,7 @@ struct impl {
 	struct spa_audio_info codec_format;
 
 	uint8_t buffer_read[4096];
+	uint8_t buffer_decoded[65536];
 	struct timespec now;
 	uint64_t sample_count;
 	uint64_t skip_count;
@@ -472,7 +473,6 @@ static void a2dp_on_ready_read(struct spa_source *source)
 	struct spa_data *datas;
 	struct buffer *buffer;
 	uint32_t min_data;
-	uint8_t read_decoded[4096];
 
 	/* make sure the source is an input */
 	if ((source->rmask & SPA_IO_IN) == 0) {
@@ -507,7 +507,7 @@ static void a2dp_on_ready_read(struct spa_source *source)
 
 	/* decode */
 	decoded = decode_data(this, this->buffer_read, size_read,
-			read_decoded, sizeof (read_decoded));
+			this->buffer_decoded, sizeof (this->buffer_decoded));
 	if (decoded < 0) {
 		spa_log_debug(this->log, "failed to decode data: %d", decoded);
 		return;
@@ -557,7 +557,7 @@ static void a2dp_on_ready_read(struct spa_source *source)
 	avail = SPA_MIN(decoded, (int32_t)(datas[0].maxsize - port->ready_offset));
 	if (avail < decoded)
 		spa_log_warn(this->log, "buffer too small (%d > %d)", decoded, avail);
-	memcpy ((uint8_t *)datas[0].data + port->ready_offset, read_decoded, avail);
+	memcpy ((uint8_t *)datas[0].data + port->ready_offset, this->buffer_decoded, avail);
 	port->ready_offset += avail;
 	this->sample_count += decoded / port->frame_size;
 

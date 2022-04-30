@@ -509,8 +509,8 @@ static void a2dp_on_ready_read(struct spa_source *source)
 	decoded = decode_data(this, this->buffer_read, size_read,
 			read_decoded, sizeof (read_decoded));
 	if (decoded < 0) {
-		spa_log_error(this->log, "failed to decode data: %d", decoded);
-		goto stop;
+		spa_log_debug(this->log, "failed to decode data: %d", decoded);
+		return;
 	}
 	if (decoded == 0)
 		return;

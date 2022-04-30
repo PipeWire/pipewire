@@ -66,6 +66,12 @@ extern const char *codec_plugin_factory_name;
 #define A2DP_CODEC_DEFAULT_RATE		48000
 #define A2DP_CODEC_DEFAULT_CHANNELS	2
 
+enum {
+	NEED_FLUSH_NO = 0,
+	NEED_FLUSH_ALL = 1,
+	NEED_FLUSH_FRAGMENT = 2,
+};
+
 struct a2dp_codec_audio_info {
 	uint32_t rate;
 	uint32_t channels;

@@ -605,7 +605,7 @@ static int codec_encode(void *data,
 	spa_assert(res == this->codesize);
 
 	this->payload->frame_count += res / this->codesize;
-	*need_flush = this->payload->frame_count >= this->max_frames;
+	*need_flush = (this->payload->frame_count >= this->max_frames) ? NEED_FLUSH_ALL : NEED_FLUSH_NO;
 	return res;
 }
 

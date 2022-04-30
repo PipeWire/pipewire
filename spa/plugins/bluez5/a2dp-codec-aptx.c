@@ -404,7 +404,7 @@ static int codec_encode(void *data,
 
 	avail_dst_size = (this->max_frames - this->frame_count) * this->frame_length;
 	if (SPA_UNLIKELY(dst_size < avail_dst_size)) {
-		*need_flush = 1;
+		*need_flush = NEED_FLUSH_ALL;
 		return 0;
 	}
 
@@ -414,7 +414,7 @@ static int codec_encode(void *data,
 		return -EINVAL;
 
 	this->frame_count += *dst_out / this->frame_length;
-	*need_flush = this->frame_count >= this->max_frames;
+	*need_flush = (this->frame_count >= this->max_frames) ? NEED_FLUSH_ALL : NEED_FLUSH_NO;
 	return res;
 }
 

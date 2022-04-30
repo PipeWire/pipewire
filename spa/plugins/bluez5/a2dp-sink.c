@@ -157,6 +157,8 @@ struct impl {
 	struct spa_audio_info codec_format;
 
 	int need_flush;
+	bool fragment;
+	uint64_t fragment_timeout;
 	uint32_t block_size;
 	uint8_t buffer[BUFFER_SIZE];
 	uint32_t buffer_used;
@@ -436,6 +438,7 @@ static int reset_buffer(struct impl *this)
 	}
 	this->need_flush = 0;
 	this->frame_count = 0;
+	this->fragment = false;
 	this->buffer_used = this->codec->start_encode(this->codec_data,
 			this->buffer, sizeof(this->buffer),
 			this->seqnum++, this->timestamp);
@@ -533,6 +536,37 @@ static int encode_buffer(struct impl *this, const void *data, uint32_t size)
 	return processed;
 }
 
+static int encode_fragment(struct impl *this)
+{
+	int res;
+	size_t out_encoded;
+	struct port *port = &this->port;
+
+	spa_log_trace(this->log, "%p: encode fragment used %d, %d %d %d",
+			this, this->buffer_used, port->frame_size, this->block_size,
+			this->frame_count);
+
+	if (this->need_flush)
+		return 0;
+
+	res = this->codec->encode(this->codec_data,
+				NULL, 0,
+				this->buffer + this->buffer_used,
+				sizeof(this->buffer) - this->buffer_used,
+				&out_encoded, &this->need_flush);
+	if (res < 0)
+		return res;
+	if (res != 0)
+		return -EINVAL;
+
+	this->buffer_used += out_encoded;
+
+	spa_log_trace(this->log, "%p: processed fragment %zd used %d",
+			this, out_encoded, this->buffer_used);
+
+	return 0;
+}
+
 static int flush_buffer(struct impl *this)
 {
 	spa_log_trace(this->log, "%p: used:%d block_size:%d", this,
@@ -596,6 +630,15 @@ static int flush_data(struct impl *this, uint64_t now_time)
 	total_frames = 0;
 again:
 	written = 0;
+	if (this->fragment && !this->need_flush) {
+		int res;
+		this->fragment = false;
+		if ((res = encode_fragment(this)) < 0) {
+			/* Error */
+			reset_buffer(this);
+			return res;
+		}
+	}
 	while (!spa_list_is_empty(&port->ready) && !this->need_flush) {
 		uint8_t *src;
 		uint32_t n_bytes, n_frames;
@@ -705,6 +748,17 @@ again:
 		uint64_t quantum = SPA_LIKELY(this->clock) ? this->clock->duration : 0;
 		uint64_t timeout = (quantum > max_excess) ?
 			(packet_time * (quantum - max_excess) / quantum) : 0;
+
+		if (this->need_flush == NEED_FLUSH_FRAGMENT) {
+			reset_buffer(this);
+			this->fragment = true;
+			this->fragment_timeout = (packet_samples > 0) ? timeout : this->fragment_timeout;
+			goto again;
+		}
+		if (this->fragment_timeout > 0) {
+			timeout = this->fragment_timeout;
+			this->fragment_timeout = 0;
+		}
 
 		reset_buffer(this);
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC) {

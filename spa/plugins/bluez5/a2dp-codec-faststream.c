@@ -316,7 +316,7 @@ static int codec_encode(void *data,
 	}
 
 	this->frame_count += res / this->codesize;
-	*need_flush = this->frame_count >= this->max_frames;
+	*need_flush = (this->frame_count >= this->max_frames) ? NEED_FLUSH_ALL : NEED_FLUSH_NO;
 	return res;
 }
 

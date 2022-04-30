@@ -493,7 +493,7 @@ static int codec_encode(void *data,
 		return -EINVAL;
 
 	*dst_out = out_args.numOutBytes;
-	*need_flush = 1;
+	*need_flush = NEED_FLUSH_ALL;
 
 	/* RFC6416: It is set to 1 to indicate that the RTP packet contains a complete
    	 * audioMuxElement or the last fragment of an audioMuxElement */

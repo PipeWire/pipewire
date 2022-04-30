@@ -565,7 +565,7 @@ static int codec_encode(void *data,
 	*dst_out = dst_used;
 
 	this->payload->frame_count += frame_num;
-	*need_flush = this->payload->frame_count > 0;
+	*need_flush = (this->payload->frame_count > 0) ? NEED_FLUSH_ALL : NEED_FLUSH_NO;
 
 	return src_used;
 }

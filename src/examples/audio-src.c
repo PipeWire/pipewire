@@ -93,7 +93,7 @@ static void on_process(void *userdata)
 		return;
 
 	stride = sizeof(float) * DEFAULT_CHANNELS;
-	n_frames = buf->datas[0].maxsize / stride;
+	n_frames = SPA_MIN(b->requested, buf->datas[0].maxsize / stride);
 
 	fill_f32(data, p, n_frames);
 

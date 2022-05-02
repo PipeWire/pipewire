@@ -435,6 +435,7 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	spa_assert(this->e.samples <= LC3PLUS_MAX_SAMPLES);
 
 	this->e.bitrate = this->bitrate;
+	this->e.next_bitrate = this->bitrate;
 
 	return this;
 

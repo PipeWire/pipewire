@@ -110,7 +110,7 @@ if ldac_dep.found()
     install_dir : spa_plugindir / 'bluez5')
 endif
 
-if lc3plus_dep.found()
+if get_option('bluez5-codec-lc3plus').allowed() and lc3plus_dep.found()
   lc3plus_args = codec_args
   lc3plus_dep = [ lc3plus_dep ]
   bluez_codec_lc3plus = shared_library('spa-codec-bluez5-lc3plus',

@@ -34,7 +34,11 @@
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/format-utils.h>
 
+#ifdef HAVE_LC3PLUS_H
+#include <lc3plus.h>
+#else
 #include <lc3.h>
+#endif
 
 #include "rtp.h"
 #include "a2dp-codecs.h"

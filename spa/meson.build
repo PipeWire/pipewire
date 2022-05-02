@@ -54,7 +54,13 @@ if get_option('spa-plugins').allowed()
     summary({'aptX': aptx_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
     fdk_aac_dep = dependency('fdk-aac', required : get_option('bluez5-codec-aac'))
     summary({'AAC': fdk_aac_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
-    lc3plus_dep = cc.find_library('LC3plus', has_headers: ['lc3.h'], required : get_option('bluez5-codec-lc3plus'))
+    lc3plus_dep = dependency('lc3plus', required : false)
+    if not lc3plus_dep.found()
+      lc3plus_lc3plus_h_dep = cc.find_library('LC3plus', has_headers: ['lc3plus.h'], required : get_option('bluez5-codec-lc3plus'))
+      if lc3plus_lc3plus_h_dep.found()
+        lc3plus_dep = declare_dependency(compile_args : '-DHAVE_LC3PLUS_H', dependencies : [ lc3plus_lc3plus_h_dep ])
+      endif
+    endif
     summary({'LC3plus': lc3plus_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
   endif
   avcodec_dep = dependency('libavcodec', required: get_option('ffmpeg'))

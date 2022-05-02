@@ -134,6 +134,8 @@ OPTIONS
 
 --volume=VALUE
   The stream volume, default 1.000.
+  Depending on the locale you have configured, "," or "." may be
+  used as a decimal seperator. Check with **locale** command.
 
 AUTHORS
 =======

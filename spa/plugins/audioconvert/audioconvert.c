@@ -1015,7 +1015,7 @@ impl_node_port_enum_params(void *object, int seq,
 	result.id = id;
 	result.next = start;
       next:
-	result.index = result.next++;
+	result.index = result.next;
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
@@ -1037,6 +1037,7 @@ impl_node_port_enum_params(void *object, int seq,
 		default:
 			return 0;
 		}
+		result.next++;
 		break;
 	default:
 	{
@@ -1049,7 +1050,7 @@ impl_node_port_enum_params(void *object, int seq,
 
 		res = spa_node_port_enum_params_sync(target,
 				       direction, port_id,
-				       id, &result.index,
+				       id, &result.next,
 				       NULL, &param, &b);
 		if (res != 1)
 			return res;

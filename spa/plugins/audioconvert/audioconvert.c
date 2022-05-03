@@ -614,13 +614,6 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	return res;
 }
 
-static void on_node_result(void *data, int seq, int res, uint32_t type, const void *result)
-{
-	struct impl *this = data;
-	spa_log_trace(this->log, "%p: result %d %d", this, seq, res);
-	spa_node_emit_result(&this->hooks, seq, res, type, result);
-}
-
 static void fmt_input_port_info(void *data,
 		enum spa_direction direction, uint32_t port,
 		const struct spa_port_info *info)
@@ -642,7 +635,6 @@ static void fmt_input_port_info(void *data,
 static const struct spa_node_events fmt_input_events = {
 	SPA_VERSION_NODE_EVENTS,
 	.port_info = fmt_input_port_info,
-	.result = on_node_result,
 };
 
 static void fmt_output_port_info(void *data,
@@ -663,7 +655,6 @@ static void fmt_output_port_info(void *data,
 static const struct spa_node_events fmt_output_events = {
 	SPA_VERSION_NODE_EVENTS,
 	.port_info = fmt_output_port_info,
-	.result = on_node_result,
 };
 
 static void on_channelmix_info(void *data, const struct spa_node_info *info)
@@ -706,12 +697,6 @@ static void on_channelmix_info(void *data, const struct spa_node_info *info)
 static const struct spa_node_events channelmix_events = {
 	SPA_VERSION_NODE_EVENTS,
 	.info = on_channelmix_info,
-	.result = on_node_result,
-};
-
-static const struct spa_node_events proxy_events = {
-	SPA_VERSION_NODE_EVENTS,
-	.result = on_node_result,
 };
 
 static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode mode,
@@ -1020,6 +1005,7 @@ impl_node_port_enum_params(void *object, int seq,
 	uint8_t buffer[4096];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
+	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
@@ -1061,8 +1047,12 @@ impl_node_port_enum_params(void *object, int seq,
 		else
 			target = this->fmt[direction];
 
-		return spa_node_port_enum_params(target, seq, direction, port_id,
-			id, start, num, filter);
+		res = spa_node_port_enum_params_sync(target,
+				       direction, port_id,
+				       id, &result.index,
+				       NULL, &param, &b);
+		if (res != 1)
+			return res;
 	}
 	}
 
@@ -1411,8 +1401,6 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_node_add_listener(this->channelmix,
 			&this->listener[0], &channelmix_events, this);
-	spa_node_add_listener(this->merger,
-			&this->listener[1], &proxy_events, this);
 
 	return 0;
 }

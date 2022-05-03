@@ -1034,19 +1034,6 @@ impl_node_port_enum_params(void *object, int seq,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_PARAM_PropInfo:
-		switch (result.index) {
-		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_volume),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(1.0, 0.0, 10.0));
-			break;
-		default:
-			return 0;
-		}
-		break;
-
 	case SPA_PARAM_IO:
 		switch (result.index) {
 		case 0:

@@ -3239,26 +3239,6 @@ jack_client_t * jack_client_open (const char *client_name,
 	pw_context_conf_section_match_rules(client->context.context, "jack.rules",
 			&client->props->dict, execute_match, client);
 
-	client->show_monitor = pw_properties_get_bool(client->props, "jack.show-monitor", true);
-	client->merge_monitor = pw_properties_get_bool(client->props, "jack.merge-monitor", false);
-	client->short_name = pw_properties_get_bool(client->props, "jack.short-name", false);
-	client->filter_name = pw_properties_get_bool(client->props, "jack.filter-name", false);
-	client->locked_process = pw_properties_get_bool(client->props, "jack.locked-process", true);
-	client->default_as_system = pw_properties_get_bool(client->props, "jack.default-as-system", false);
-
-	client->self_connect_mode = SELF_CONNECT_ALLOW;
-	if ((str = pw_properties_get(client->props, "jack.self-connect-mode")) != NULL) {
-		if (spa_streq(str, "fail-external"))
-			client->self_connect_mode = SELF_CONNECT_FAIL_EXT;
-		else if (spa_streq(str, "ignore-external"))
-			client->self_connect_mode = SELF_CONNECT_IGNORE_EXT;
-		else if (spa_streq(str, "fail-all"))
-			client->self_connect_mode = SELF_CONNECT_FAIL_ALL;
-		else if (spa_streq(str, "ignore-all"))
-			client->self_connect_mode = SELF_CONNECT_IGNORE_ALL;
-	}
-	client->rt_max = pw_properties_get_int32(client->props, "rt.prio", DEFAULT_RT_MAX);
-
 	pthread_mutex_init(&client->context.lock, NULL);
 	pthread_mutex_init(&client->rt_lock, NULL);
 	spa_list_init(&client->context.objects);
@@ -3374,6 +3354,26 @@ jack_client_t * jack_client_open (const char *client_name,
 				0);
 	if (client->node == NULL)
 		goto init_failed;
+
+	client->show_monitor = pw_properties_get_bool(client->props, "jack.show-monitor", true);
+	client->merge_monitor = pw_properties_get_bool(client->props, "jack.merge-monitor", false);
+	client->short_name = pw_properties_get_bool(client->props, "jack.short-name", false);
+	client->filter_name = pw_properties_get_bool(client->props, "jack.filter-name", false);
+	client->locked_process = pw_properties_get_bool(client->props, "jack.locked-process", true);
+	client->default_as_system = pw_properties_get_bool(client->props, "jack.default-as-system", false);
+
+	client->self_connect_mode = SELF_CONNECT_ALLOW;
+	if ((str = pw_properties_get(client->props, "jack.self-connect-mode")) != NULL) {
+		if (spa_streq(str, "fail-external"))
+			client->self_connect_mode = SELF_CONNECT_FAIL_EXT;
+		else if (spa_streq(str, "ignore-external"))
+			client->self_connect_mode = SELF_CONNECT_IGNORE_EXT;
+		else if (spa_streq(str, "fail-all"))
+			client->self_connect_mode = SELF_CONNECT_FAIL_ALL;
+		else if (spa_streq(str, "ignore-all"))
+			client->self_connect_mode = SELF_CONNECT_IGNORE_ALL;
+	}
+	client->rt_max = pw_properties_get_int32(client->props, "rt.prio", DEFAULT_RT_MAX);
 
 	pw_client_node_add_listener(client->node,
 			&client->node_listener, &client_node_events, client);

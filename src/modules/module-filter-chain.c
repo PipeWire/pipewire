@@ -333,7 +333,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
  *
  * ## Example configuration of a Dolby Surround encoder virtual Sink
  *
- * This example uses the ladpsa surrounf encoder to encode a 5.1 signal
+ * This example uses the ladpsa surround encoder to encode a 5.1 signal
  * to a stereo Dolby Surround signal.
  *
  *\code{.unparsed}
@@ -1661,7 +1661,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		impl->playback_info.channels = n_output;
 
 	/* compare to the requested number of channels and duplicate the
-	 * graph m_hndl times when needed. */
+	 * graph n_hndl times when needed. */
 	n_hndl = impl->capture_info.channels / n_input;
 	if (n_hndl != impl->playback_info.channels / n_output) {
 		pw_log_error("invalid channels");

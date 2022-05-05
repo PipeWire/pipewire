@@ -485,7 +485,7 @@ static float *read_samples(const char *filename, float gain, int delay, int offs
 	spa_zero(info);
 	f = sf_open(filename, SFM_READ, &info) ;
 	if (f == NULL) {
-		fprintf(stderr, "can't open %s", filename);
+		pw_log_error("can't open %s", filename);
 		return NULL;
 	}
 

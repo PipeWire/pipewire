@@ -1298,8 +1298,10 @@ static int parse_config(struct node *node, struct spa_json *config)
 	if (spa_json_is_container(val, len))
 		len = spa_json_container_len(config, val, len);
 
-	if ((node->config = malloc(len+1)) != NULL)
-		spa_json_parse_stringn(val, len, node->config, len+1);
+	if ((node->config = malloc(len+1)) == NULL)
+		return -errno;
+
+	spa_json_parse_stringn(val, len, node->config, len+1);
 
 	return 0;
 }
@@ -1316,9 +1318,16 @@ static int parse_control(struct node *node, struct spa_json *control)
 
 	while (spa_json_get_string(control, key, sizeof(key)) > 0) {
 		float fl;
-		if (spa_json_get_float(control, &fl) <= 0)
+		const char *val;
+		int len;
+
+		if ((len = spa_json_next(control, &val)) < 0)
 			break;
-		set_control_value(node, key, &fl);
+
+		if (spa_json_parse_float(val, len, &fl) <= 0)
+			pw_log_warn("control '%s' expects a number, ignoring", key);
+		else
+			set_control_value(node, key, &fl);
 	}
 	return 0;
 }
@@ -1430,6 +1439,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	bool have_control = false;
 	bool have_config = false;
 	uint32_t i;
+	int res;
 
 	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
 		if (spa_streq("type", key)) {
@@ -1524,7 +1534,8 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		spa_list_init(&port->link_list);
 	}
 	if (have_config)
-		parse_config(node, &config);
+		if ((res = parse_config(node, &config)) < 0)
+			pw_log_warn("error parsing config: %s", spa_strerror(res));
 	if (have_control)
 		parse_control(node, &control);
 
@@ -1911,7 +1922,7 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 		if (spa_streq("nodes", key)) {
 			if (spa_json_enter_array(&it[1], &it[2]) <= 0) {
-				pw_log_error("nodes expect an array");
+				pw_log_error("nodes expects an array");
 				return -EINVAL;
 			}
 			while (spa_json_enter_object(&it[2], &it[3]) > 0) {
@@ -1920,22 +1931,27 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 			}
 		}
 		else if (spa_streq("links", key)) {
-			if (spa_json_enter_array(&it[1], &it[2]) <= 0)
+			if (spa_json_enter_array(&it[1], &it[2]) <= 0) {
+				pw_log_error("links expects an array");
 				return -EINVAL;
-
+			}
 			while (spa_json_enter_object(&it[2], &it[3]) > 0) {
 				if ((res = parse_link(graph, &it[3])) < 0)
 					return res;
 			}
 		}
 		else if (spa_streq("inputs", key)) {
-			if (spa_json_enter_array(&it[1], &inputs) <= 0)
+			if (spa_json_enter_array(&it[1], &inputs) <= 0) {
+				pw_log_error("inputs expects an array");
 				return -EINVAL;
+			}
 			pinputs = &inputs;
 		}
 		else if (spa_streq("outputs", key)) {
-			if (spa_json_enter_array(&it[1], &outputs) <= 0)
+			if (spa_json_enter_array(&it[1], &outputs) <= 0) {
+				pw_log_error("outputs expects an array");
 				return -EINVAL;
+			}
 			poutputs = &outputs;
 		} else if (spa_json_next(&it[1], &val) < 0)
 			break;

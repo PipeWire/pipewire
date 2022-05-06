@@ -371,7 +371,11 @@ static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 	uint32_t frame_size, max_prebuf, minreq, latency, max_latency;
 	struct defs *defs = &s->impl->defs;
 
-	frame_size = s->frame_size;
+	if ((frame_size = s->frame_size) == 0)
+		frame_size = sample_spec_frame_size(&s->ss);
+	if (frame_size == 0)
+		frame_size = 4;
+
 	minreq = frac_to_bytes_round_up(s->min_req, &s->ss);
 	max_latency = defs->quantum_limit * frame_size;
 
@@ -562,7 +566,10 @@ static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *att
 {
 	uint32_t frame_size, minfrag, latency;
 
-	frame_size = s->frame_size;
+	if ((frame_size = s->frame_size) == 0)
+		frame_size = sample_spec_frame_size(&s->ss);
+	if (frame_size == 0)
+		frame_size = 4;
 
 	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
 		attr->maxlength = MAXLENGTH;
@@ -1593,8 +1600,11 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	stream->is_underrun = true;
 	stream->underrun_for = -1;
 
-	if (rate != 0)
+	if (rate != 0) {
 		pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", rate);
+		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u",
+				fix_playback_buffer_attr(stream, &attr), rate);
+	}
 	if (no_remix)
 		pw_properties_set(props, PW_KEY_STREAM_DONT_REMIX, "true");
 	flags = 0;
@@ -1851,8 +1861,11 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	if (client->quirks & QUIRK_REMOVE_CAPTURE_DONT_MOVE)
 		no_move = false;
 
-	if (rate != 0)
+	if (rate != 0) {
 		pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", rate);
+		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u",
+				fix_record_buffer_attr(stream, &attr), rate);
+	}
 	if (peak_detect)
 		pw_properties_set(props, PW_KEY_STREAM_MONITOR, "true");
 	if (no_remix)

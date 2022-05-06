@@ -51,6 +51,7 @@ struct data {
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
 
+	const char *opt_node_name;
 	const char *opt_group_name;
 	const char *opt_channel_map;
 
@@ -87,6 +88,7 @@ static void show_help(struct data *data, const char *name, bool error)
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n"
+		"  -n, --name                            Node name (default '%s')\n"
 		"  -g, --group                           Node group (default '%s')\n"
 		"  -c, --channels                        Number of channels (default %d)\n"
 		"  -m, --channel-map                     Channel map (default '%s')\n"
@@ -96,6 +98,7 @@ static void show_help(struct data *data, const char *name, bool error)
 		"  -P  --playback                        Playback sink to connect to\n"
 		"      --playback-props                  Playback stream properties\n",
 		name,
+		data->opt_node_name,
 		data->opt_group_name,
 		data->channels,
 		data->opt_channel_map);
@@ -115,6 +118,7 @@ int main(int argc, char *argv[])
 		{ "version",		no_argument,		NULL, 'V' },
 		{ "remote",		required_argument,	NULL, 'r' },
 		{ "group",		required_argument,	NULL, 'g' },
+		{ "name",		required_argument,	NULL, 'n' },
 		{ "channels",		required_argument,	NULL, 'c' },
 		{ "latency",		required_argument,	NULL, 'l' },
 		{ "capture",		required_argument,	NULL, 'C' },
@@ -133,6 +137,7 @@ int main(int argc, char *argv[])
 	data.opt_group_name = pw_get_client_name();
 	if (snprintf(cname, sizeof(cname), "%s-%zd", argv[0], (size_t) getpid()) > 0)
 		data.opt_group_name = cname;
+	data.opt_node_name = data.opt_group_name;
 
 	data.capture_props = pw_properties_new(NULL, NULL);
 	data.playback_props = pw_properties_new(NULL, NULL);
@@ -141,7 +146,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	while ((c = getopt_long(argc, argv, "hVr:g:c:m:l:C:P:i:o:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:n:g:c:m:l:C:P:i:o:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(&data, argv[0], false);
@@ -156,6 +161,9 @@ int main(int argc, char *argv[])
 			return 0;
 		case 'r':
 			opt_remote = optarg;
+			break;
+		case 'n':
+			data.opt_node_name = optarg;
 			break;
 		case 'g':
 			data.opt_group_name = optarg;
@@ -219,6 +227,8 @@ int main(int argc, char *argv[])
 		fprintf(f, " audio.channels = %u", data.channels);
 	if (data.opt_channel_map != NULL)
 		fprintf(f, " audio.position = %s", data.opt_channel_map);
+	if (data.opt_node_name != NULL)
+		fprintf(f, " node.name = %s", data.opt_node_name);
 
 	if (data.opt_group_name != NULL) {
 		pw_properties_set(data.capture_props, PW_KEY_NODE_GROUP, data.opt_group_name);

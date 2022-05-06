@@ -121,6 +121,10 @@ void pw_resource_add_object_listener(struct pw_resource *resource,
  * with the same \a sequence number in the return value. */
 int pw_resource_ping(struct pw_resource *resource, int seq);
 
+/** ref/unref a resource, Since 0.3.52 */
+void pw_resource_ref(struct pw_resource *resource);
+void pw_resource_unref(struct pw_resource *resource);
+
 /** Notify global id this resource is bound to */
 int pw_resource_set_bound_id(struct pw_resource *resource, uint32_t global_id);
 

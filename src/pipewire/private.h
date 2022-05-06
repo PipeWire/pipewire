@@ -308,6 +308,9 @@ struct pw_impl_client {
 	unsigned int registered:1;
 	unsigned int ucred_valid:1;	/**< if the ucred member is valid */
 	unsigned int busy:1;
+	unsigned int destroyed:1;
+
+	int refcount;
 
 	/* v2 compatibility data */
 	void *compat_v2;
@@ -945,8 +948,10 @@ struct pw_resource {
 	const char *type;		/**< type of the client interface */
 	uint32_t version;		/**< version of the client interface */
 	uint32_t bound_id;		/**< global id we are bound to */
+	int refcount;
 
 	unsigned int removed:1;		/**< resource was removed from server */
+	unsigned int destroyed:1;	/**< resource was destroyed */
 
 	struct spa_hook_list listener_list;
 	struct spa_hook_list object_listener_list;
@@ -1265,6 +1270,8 @@ int pw_control_add_link(struct pw_control *control, uint32_t cmix,
 int pw_control_remove_link(struct pw_control_link *link);
 
 void pw_control_destroy(struct pw_control *control);
+
+void pw_impl_client_unref(struct pw_impl_client *client);
 
 #define PW_LOG_OBJECT_POD	(1<<0)
 void pw_log_log_object(enum spa_log_level level, const char *file, int line,

@@ -347,9 +347,12 @@ process_messages(struct client_data *data)
 			continue;
 		}
 
+		resource->refcount++;
 		pw_protocol_native_connection_enter(conn);
 		res = demarshal[msg->opcode].func(resource, msg);
 		pw_protocol_native_connection_leave(conn);
+		pw_resource_unref(resource);
+
 		if (res < 0) {
 			pw_resource_errorf_id(resource, msg->id,
 					res, "invalid message id:%u op:%u (%s)",
@@ -360,6 +363,7 @@ process_messages(struct client_data *data)
 	res = 0;
 done:
 	context->current_client = NULL;
+
 	return res;
 
 error:
@@ -387,14 +391,15 @@ client_busy_changed(void *data, bool busy)
 		pw_loop_signal_event(s->loop, s->resume);
 }
 
-static void handle_client_error(struct pw_impl_client *client, int res)
+static void handle_client_error(struct pw_impl_client *client, int res, const char *msg)
 {
 	if (res == -EPIPE || res == -ECONNRESET)
-		pw_log_info("%p: client %p disconnected", client->protocol, client);
+		pw_log_info("%p: %s: client %p disconnected", client->protocol, msg, client);
 	else
-		pw_log_error("%p: client %p error %d (%s)", client->protocol,
+		pw_log_error("%p: %s: client %p error %d (%s)", client->protocol, msg,
 				client, res, spa_strerror(res));
-	pw_impl_client_destroy(client);
+	if (!client->destroyed)
+		pw_impl_client_destroy(client);
 }
 
 static void
@@ -403,6 +408,8 @@ connection_data(void *data, int fd, uint32_t mask)
 	struct client_data *this = data;
 	struct pw_impl_client *client = this->client;
 	int res;
+
+	client->refcount++;
 
 	if (mask & SPA_IO_HUP) {
 		res = -EPIPE;
@@ -425,9 +432,12 @@ connection_data(void *data, int fd, uint32_t mask)
 		} else if (res != -EAGAIN)
 			goto error;
 	}
+done:
+	pw_impl_client_unref(client);
 	return;
 error:
-	handle_client_error(client, res);
+	handle_client_error(client, res, "connection_data");
+	goto done;
 }
 
 static void client_free(void *data)
@@ -1215,12 +1225,12 @@ static void do_resume(void *_data, uint64_t count)
 	pw_log_debug("flush");
 
 	spa_list_for_each_safe(data, tmp, &this->client_list, protocol_link) {
+		data->client->refcount++;
 		if ((res = process_messages(data)) < 0)
-			goto error;
+			handle_client_error(data->client, res, "do_resume");
+		pw_impl_client_unref(data->client);
 	}
 	return;
-error:
-	handle_client_error(data->client, res);
 }
 
 static const char *

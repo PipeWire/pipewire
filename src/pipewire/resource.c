@@ -23,6 +23,7 @@
  */
 
 #include <string.h>
+#include <assert.h>
 
 #include "pipewire/private.h"
 #include "pipewire/protocol.h"
@@ -57,6 +58,7 @@ struct pw_resource *pw_resource_new(struct pw_impl_client *client,
 		return NULL;
 
 	this = &impl->this;
+	this->refcount = 1;
 	this->context = client->context;
 	this->client = client;
 	this->permissions = permissions;
@@ -279,16 +281,57 @@ void pw_resource_error(struct pw_resource *resource, int res, const char *error)
 }
 
 SPA_EXPORT
+void pw_resource_ref(struct pw_resource *resource)
+{
+	assert(resource->refcount > 0);
+	resource->refcount++;
+}
+
+SPA_EXPORT
+void pw_resource_unref(struct pw_resource *resource)
+{
+	assert(resource->refcount > 0);
+	if (--resource->refcount > 0)
+		return;
+
+	pw_log_debug("%p: free %u", resource, resource->id);
+	assert(resource->destroyed);
+
+#if DEBUG_LISTENERS
+	{
+		struct spa_hook *h;
+		spa_list_for_each(h, &resource->object_listener_list.list, link) {
+			pw_log_warn("%p: resource %u: leaked object listener %p",
+					resource, resource->id, h);
+			break;
+		}
+		spa_list_for_each(h, &resource->listener_list.list, link) {
+			pw_log_warn("%p: resource %u: leaked listener %p",
+					resource, resource->id, h);
+			break;
+		}
+	}
+#endif
+	spa_hook_list_clean(&resource->listener_list);
+	spa_hook_list_clean(&resource->object_listener_list);
+
+	free(resource);
+}
+
+SPA_EXPORT
 void pw_resource_destroy(struct pw_resource *resource)
 {
 	struct pw_impl_client *client = resource->client;
+
+	pw_log_debug("%p: destroy %u", resource, resource->id);
+	assert(!resource->destroyed);
+	resource->destroyed = true;
 
 	if (resource->global) {
 		spa_list_remove(&resource->link);
 		resource->global = NULL;
 	}
 
-	pw_log_debug("%p: destroy %u", resource, resource->id);
 	pw_resource_emit_destroy(resource);
 
 	pw_map_insert_at(&client->objects, resource->id, NULL);
@@ -297,12 +340,7 @@ void pw_resource_destroy(struct pw_resource *resource)
 	if (client->core_resource && !resource->removed)
 		pw_core_resource_remove_id(client->core_resource, resource->id);
 
-	pw_log_debug("%p: free %u", resource, resource->id);
-
-	spa_hook_list_clean(&resource->listener_list);
-	spa_hook_list_clean(&resource->object_listener_list);
-
-	free(resource);
+	pw_resource_unref(resource);
 }
 
 SPA_EXPORT

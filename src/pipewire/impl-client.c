@@ -24,6 +24,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <assert.h>
 
 #include <spa/utils/string.h>
 
@@ -415,6 +416,7 @@ struct pw_impl_client *pw_context_create_client(struct pw_impl_core *core,
 	this = &impl->this;
 	pw_log_debug("%p: new", this);
 
+	this->refcount = 1;
 	this->context = core->context;
 	this->core = core;
 	this->protocol = protocol;
@@ -584,6 +586,33 @@ static int destroy_resource(void *object, void *data)
 }
 
 
+SPA_EXPORT
+void pw_impl_client_unref(struct pw_impl_client *client)
+{
+	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
+
+	assert(client->refcount > 0);
+	if (--client->refcount > 0)
+		return;
+
+	pw_log_debug("%p: free", impl);
+	assert(client->destroyed);
+
+	pw_impl_client_emit_free(client);
+
+	spa_hook_list_clean(&client->listener_list);
+
+	pw_map_clear(&client->objects);
+	pw_array_clear(&impl->permissions);
+
+	spa_hook_remove(&impl->pool_listener);
+	pw_mempool_destroy(client->pool);
+
+	pw_properties_free(client->properties);
+
+	free(impl);
+}
+
 /** Destroy a client object
  *
  * \param client the client to destroy
@@ -595,6 +624,10 @@ void pw_impl_client_destroy(struct pw_impl_client *client)
 	struct impl *impl = SPA_CONTAINER_OF(client, struct impl, this);
 
 	pw_log_debug("%p: destroy", client);
+
+	assert(!client->destroyed);
+	client->destroyed = true;
+
 	pw_impl_client_emit_destroy(client);
 
 	spa_hook_remove(&impl->context_listener);
@@ -609,20 +642,7 @@ void pw_impl_client_destroy(struct pw_impl_client *client)
 		pw_global_destroy(client->global);
 	}
 
-	pw_log_debug("%p: free", impl);
-	pw_impl_client_emit_free(client);
-
-	spa_hook_list_clean(&client->listener_list);
-
-	pw_map_clear(&client->objects);
-	pw_array_clear(&impl->permissions);
-
-	spa_hook_remove(&impl->pool_listener);
-	pw_mempool_destroy(client->pool);
-
-	pw_properties_free(client->properties);
-
-	free(impl);
+	pw_impl_client_unref(client);
 }
 
 SPA_EXPORT

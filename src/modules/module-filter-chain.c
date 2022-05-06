@@ -2150,12 +2150,17 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	parse_audio_info(impl->capture_props, &impl->capture_info);
 	parse_audio_info(impl->playback_props, &impl->playback_info);
 
+	if ((str = pw_properties_get(props, PW_KEY_NODE_NAME)) == NULL) {
+		pw_properties_setf(props, PW_KEY_NODE_NAME,
+				"filter-chain-%u-%u", pid, id);
+		str = pw_properties_get(props, PW_KEY_NODE_NAME);
+	}
 	if (pw_properties_get(impl->capture_props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_setf(impl->capture_props, PW_KEY_NODE_NAME,
-				"input.filter-chain-%u-%u", pid, id);
+				"input.%s", str);
 	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_setf(impl->playback_props, PW_KEY_NODE_NAME,
-				"output.filter-chain-%u-%u", pid, id);
+				"output.%s", str);
 
 	if (pw_properties_get(impl->capture_props, PW_KEY_MEDIA_NAME) == NULL)
 		pw_properties_setf(impl->capture_props, PW_KEY_MEDIA_NAME, "%s input",

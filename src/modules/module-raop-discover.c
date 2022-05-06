@@ -65,7 +65,6 @@
  * context.modules = [
  * {   name = libpipewire-raop-discover
  *     args = { }
- *     }
  * }
  * ]
  *\endcode

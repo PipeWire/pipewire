@@ -38,9 +38,11 @@
 #define NAME "client-session"
 
 struct factory_data {
-	struct pw_impl_factory *factory;
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
+
+	struct pw_impl_factory *factory;
+	struct spa_hook factory_listener;
 };
 
 static struct endpoint_link *find_link(struct client_session *this, uint32_t id)
@@ -218,12 +220,27 @@ static const struct pw_impl_factory_implementation impl_factory = {
 	.create_object = create_object,
 };
 
+static void factory_destroy(void *data)
+{
+	struct factory_data *d = data;
+	spa_hook_remove(&d->factory_listener);
+	d->factory = NULL;
+	if (d->module)
+		pw_impl_module_destroy(d->module);
+}
+
+static const struct pw_impl_factory_events factory_events = {
+	PW_VERSION_IMPL_FACTORY_EVENTS,
+	.destroy = factory_destroy,
+};
+
 static void module_destroy(void *data)
 {
 	struct factory_data *d = data;
-
 	spa_hook_remove(&d->module_listener);
-	pw_impl_factory_destroy(d->factory);
+	d->module = NULL;
+	if (d->factory)
+		pw_impl_factory_destroy(d->factory);
 }
 
 static void module_registered(void *data)
@@ -270,6 +287,7 @@ int client_session_factory_init(struct pw_impl_module *module)
 	data->module = module;
 
 	pw_impl_factory_set_implementation(factory, &impl_factory, data);
+	pw_impl_factory_add_listener(factory, &data->factory_listener, &factory_events, data);
 
 	pw_impl_module_add_listener(module, &data->module_listener, &module_events, data);
 

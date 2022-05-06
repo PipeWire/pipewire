@@ -320,7 +320,7 @@ void pw_impl_module_destroy(struct pw_impl_module *module)
 {
 	struct impl *impl = SPA_CONTAINER_OF(module, struct impl, this);
 
-	pw_log_debug("%p: destroy", module);
+	pw_log_debug("%p: destroy %s", module, module->info.name);
 	pw_impl_module_emit_destroy(module);
 
 	spa_list_remove(&module->link);

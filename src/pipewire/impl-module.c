@@ -239,6 +239,8 @@ pw_context_load_module(struct pw_context *context,
 	filename = NULL;
 	this->info.args = args ? strdup(args) : NULL;
 
+	spa_list_prepend(&context->module_list, &this->link);
+
 	this->global = pw_global_new(context,
 				     PW_TYPE_INTERFACE_Module,
 				     PW_VERSION_MODULE,
@@ -248,8 +250,6 @@ pw_context_load_module(struct pw_context *context,
 
 	if (this->global == NULL)
 		goto error_no_global;
-
-	spa_list_prepend(&context->module_list, &this->link);
 
 	this->info.id = this->global->id;
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);
@@ -323,8 +323,9 @@ void pw_impl_module_destroy(struct pw_impl_module *module)
 	pw_log_debug("%p: destroy", module);
 	pw_impl_module_emit_destroy(module);
 
+	spa_list_remove(&module->link);
+
 	if (module->global) {
-		spa_list_remove(&module->link);
 		spa_hook_remove(&module->global_listener);
 		pw_global_destroy(module->global);
 	}

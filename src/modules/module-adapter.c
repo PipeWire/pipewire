@@ -56,7 +56,8 @@ static const struct spa_dict_item module_props[] = {
 };
 
 struct factory_data {
-	struct pw_impl_factory *this;
+	struct pw_impl_factory *factory;
+	struct spa_hook factory_listener;
 
 	struct spa_list node_list;
 
@@ -177,7 +178,7 @@ static void *create_object(void *_data,
 		goto error_properties;
 
 	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
-			pw_impl_factory_get_info(d->this)->id);
+			pw_impl_factory_get_info(d->factory)->id);
 
 	linger = pw_properties_get_bool(properties, PW_KEY_OBJECT_LINGER, false);
 	do_register = pw_properties_get_bool(properties, PW_KEY_OBJECT_REGISTER, true);
@@ -265,25 +266,43 @@ static const struct pw_impl_factory_implementation impl_factory = {
 	.create_object = create_object,
 };
 
-static void module_destroy(void *data)
+static void factory_destroy(void *data)
 {
 	struct factory_data *d = data;
 	struct node_data *nd;
 
-	pw_log_debug("%p: destroy", d);
-	spa_hook_remove(&d->module_listener);
+	spa_hook_remove(&d->factory_listener);
 
 	spa_list_consume(nd, &d->node_list, link)
 		pw_impl_node_destroy(nd->adapter);
 
-	pw_impl_factory_destroy(d->this);
+	d->factory = NULL;
+	if (d->module)
+		pw_impl_module_destroy(d->module);
+}
+
+static const struct pw_impl_factory_events factory_events = {
+	PW_VERSION_IMPL_FACTORY_EVENTS,
+	.destroy = factory_destroy,
+};
+
+static void module_destroy(void *data)
+{
+	struct factory_data *d = data;
+
+	pw_log_debug("%p: destroy", d);
+	spa_hook_remove(&d->module_listener);
+	d->module = NULL;
+
+	if (d->factory)
+		pw_impl_factory_destroy(d->factory);
 }
 
 static void module_registered(void *data)
 {
 	struct factory_data *d = data;
 	struct pw_impl_module *module = d->module;
-	struct pw_impl_factory *factory = d->this;
+	struct pw_impl_factory *factory = d->factory;
 	struct spa_dict_item items[1];
 	char id[16];
 	int res;
@@ -324,13 +343,15 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		return -errno;
 
 	data = pw_impl_factory_get_user_data(factory);
-	data->this = factory;
+	data->factory = factory;
 	data->context = context;
 	data->module = module;
 	spa_list_init(&data->node_list);
 
 	pw_log_debug("module %p: new", module);
 
+	pw_impl_factory_add_listener(factory, &data->factory_listener,
+			&factory_events, data);
 	pw_impl_factory_set_implementation(factory,
 				      &impl_factory,
 				      data);

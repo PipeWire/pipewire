@@ -1313,7 +1313,7 @@ impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 static int impl_node_process(void *object)
 {
 	struct impl *this = object;
-	int status = 0, fstatus;
+	int status = 0, fstatus, retry = 8;
 
 	spa_log_trace_fp(this->log, "%p: process convert:%p driver:%d",
 			this, this->convert, this->driver);
@@ -1328,7 +1328,7 @@ static int impl_node_process(void *object)
 		/* an input node (sink).
 		 * First we run the converter to process the input for the follower
 		 * then if it produced data, we run the follower. */
-		while (true) {
+		while (retry--) {
 			status = this->convert ? spa_node_process(this->convert) : 0;
 			/* schedule the follower when the converter needed
 			 * a recycled buffer */
@@ -1357,7 +1357,7 @@ static int impl_node_process(void *object)
 		}
 	} else if (!this->driver) {
 		bool done = false;
-		while (true) {
+		while (retry--) {
 			/* output node (source). First run the converter to make
 			 * sure we push out any queued data. Then when it needs
 			 * more data, schedule the follower. */

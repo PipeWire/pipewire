@@ -1903,8 +1903,9 @@ error:
  */
 static int load_graph(struct graph *graph, struct pw_properties *props)
 {
-	struct spa_json it[4];
+	struct spa_json it[3];
 	struct spa_json inputs, outputs, *pinputs = NULL, *poutputs = NULL;
+	struct spa_json nodes, *pnodes = NULL, links, *plinks = NULL;
 	const char *json, *val;
 	char key[256];
 	int res;
@@ -1925,24 +1926,18 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 		if (spa_streq("nodes", key)) {
-			if (spa_json_enter_array(&it[1], &it[2]) <= 0) {
+			if (spa_json_enter_array(&it[1], &nodes) <= 0) {
 				pw_log_error("nodes expects an array");
 				return -EINVAL;
 			}
-			while (spa_json_enter_object(&it[2], &it[3]) > 0) {
-				if ((res = load_node(graph, &it[3])) < 0)
-					return res;
-			}
+			pnodes = &nodes;
 		}
 		else if (spa_streq("links", key)) {
-			if (spa_json_enter_array(&it[1], &it[2]) <= 0) {
+			if (spa_json_enter_array(&it[1], &links) <= 0) {
 				pw_log_error("links expects an array");
 				return -EINVAL;
 			}
-			while (spa_json_enter_object(&it[2], &it[3]) > 0) {
-				if ((res = parse_link(graph, &it[3])) < 0)
-					return res;
-			}
+			plinks = &links;
 		}
 		else if (spa_streq("inputs", key)) {
 			if (spa_json_enter_array(&it[1], &inputs) <= 0) {
@@ -1959,6 +1954,20 @@ static int load_graph(struct graph *graph, struct pw_properties *props)
 			poutputs = &outputs;
 		} else if (spa_json_next(&it[1], &val) < 0)
 			break;
+	}
+	if (pnodes == NULL) {
+		pw_log_error("filter.graph is missing a nodes array");
+		return -EINVAL;
+	}
+	while (spa_json_enter_object(pnodes, &it[2]) > 0) {
+		if ((res = load_node(graph, &it[2])) < 0)
+			return res;
+	}
+	if (plinks != NULL) {
+		while (spa_json_enter_object(plinks, &it[2]) > 0) {
+			if ((res = parse_link(graph, &it[2])) < 0)
+				return res;
+		}
 	}
 	return setup_graph(graph, pinputs, poutputs);
 }

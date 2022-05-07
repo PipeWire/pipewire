@@ -1351,6 +1351,11 @@ static int parse_link(struct graph *graph, struct spa_json *json)
 	struct port *in_port, *out_port;
 	struct link *link;
 
+	if (spa_list_is_empty(&graph->node_list)) {
+		pw_log_error("can't make links in graph without nodes");
+		return -EINVAL;
+	}
+
 	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
 		if (spa_streq(key, "output")) {
 			if (spa_json_get_string(json, output, sizeof(output)) <= 0) {

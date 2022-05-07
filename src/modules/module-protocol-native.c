@@ -440,14 +440,19 @@ error:
 	goto done;
 }
 
+static void client_destroy(void *data)
+{
+	struct client_data *this = data;
+	pw_log_debug("%p: destroy", this);
+	spa_list_remove(&this->protocol_link);
+}
+
 static void client_free(void *data)
 {
 	struct client_data *this = data;
 	struct pw_impl_client *client = this->client;
 
 	pw_log_debug("%p: free", this);
-	spa_list_remove(&this->protocol_link);
-
 	spa_hook_remove(&this->client_listener);
 
 	if (this->source)
@@ -460,6 +465,7 @@ static void client_free(void *data)
 
 static const struct pw_impl_client_events client_events = {
 	PW_VERSION_IMPL_CLIENT_EVENTS,
+	.destroy = client_destroy,
 	.free = client_free,
 	.busy_changed = client_busy_changed,
 };

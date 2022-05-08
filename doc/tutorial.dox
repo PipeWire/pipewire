@@ -10,7 +10,8 @@ PipeWire API step-by-step with simple short examples.
 - \subpage page_tutorial5
 - \subpage page_tutorial6
 
-## More example programs
+
+# More Example Programs
 
 - \ref audio-src.c "": \snippet{doc} audio-src.c title
 - \ref audio-dsp-filter.c "": \snippet{doc} audio-dsp-filter.c title

@@ -5,30 +5,34 @@ plugins.
 
 It is inspired by many other plugin APIs, mostly LV2 and
 GStreamer. SPA provides two parts:
-- a header-only API with no external dependencies
-- a set of support libraries ("plugins") for commonly used functionality
+
+- A header-only API with no external dependencies.
+- A set of support libraries ("plugins") for commonly used functionality.
 
 The usual approach is that PipeWire and PipeWire clients can use the
 header-only functions to interact with the plugins. Those plugins are
-usually loaded at runtime (through `dlopen(3)`.
+usually loaded at runtime (through `dlopen(3)`).
 
-## Motivation
+
+# Motivation
 
 SPA was designed with the following goals in mind:
-- No dependencies, SPA is shipped as a set of header files that have no dependencies except for the standard c library.
+
+- No dependencies, SPA is shipped as a set of header files that have no dependencies except for the standard C library.
 - Very efficient both in space and in time.
 - Very configurable and usable in many different environments. All aspects
   of the plugin environment can be configured and changed, like logging,
-  poll loops, system calls etc.
-- Consistent API
-- Extensible, new API can be added with minimal effort, existing API can be updated and versioned.
+  poll loops, system calls, etc.
+- Consistent API.
+- Extensible; new API can be added with minimal effort, existing API can be updated and versioned.
 
 The original user of SPA is PipeWire, which uses SPA to implement the
 low-level multimedia processing plugins, device detection, mainloops, CPU
-detection and logging, among other things. SPA however can be used outside
+detection, logging, among other things. SPA however can be used outside
 of PipeWire with minimal problems.
 
-## The SPA header-only API
+
+# The SPA Header-Only API
 
 A very simple example on how SPA headers work are the \ref spa_utils, a set
 of utilities commonly required by C projects. SPA functions use the `spa_`
@@ -53,7 +57,7 @@ int main(int argc, char **argv) {
 \endcode
 
 
-## SPA Plugins
+# SPA Plugins
 
 SPA plugins are shared libraries (`.so` files) that can be loaded at
 runtime. Each library provides one or more "factories", each of which may
@@ -68,7 +72,7 @@ between the two logging facilities.
 Please see \ref page_spa_plugins for the details on how to use SPA plugins.
 
 
-## Further details
+# Further details
 
 - \ref api_spa
 - \subpage page_spa_design

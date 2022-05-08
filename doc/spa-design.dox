@@ -7,7 +7,7 @@
 Types are generally divided into two categories:
 
 - String types: They identify interfaces and highlevel object types.
-- integer types: These are enumerations used in the parts where high
+- Integer types: These are enumerations used in the parts where high
                  performance/ease of use/low space overhead is needed.
 
 The SPA type is system is statis and very simple but still allows you
@@ -15,7 +15,7 @@ to make and introspect complex object type hierarchies.
 
 See the type system docs for more info.
 
-## Error codes
+## Error Codes
 
 SPA uses negative integers as errno style error codes. Functions that return an
 int result code generated an error when < 0. `spa_strerror()` can be used to
@@ -27,9 +27,9 @@ in the lower bits. This result is normally identified as a positive success
 result code and the sequence number can later be matched to the completion
 event.
 
-## Useful macros
+## Useful Macros
 
 SPA comes with some useful macros defined in `<spa/utils/defs.h>` and a
-number of utility functions, see \ref spa_utils
+number of utility functions, see \ref spa_utils.
 
 */

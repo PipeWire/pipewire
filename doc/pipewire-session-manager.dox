@@ -6,38 +6,41 @@ applications to exchange data.
 It provides the mechanism to do so but the policy deciding which components
 can talk to each other and when is controlled by the session manager.  As
 outlined in \ref page_objects_design, PipeWire provides a media graph
-consistent of Devices, Nodes and Ports. The session manager is the one that
+consisting of devices, nodes and ports. The session manager is the one that
 decides on the links between those elements.
 
 Two prominent session managers currently exist:
+
 - [PipeWire Media Session](https://gitlab.freedesktop.org/pipewire/media-session), the
-example session manager
+example session manager.
 - [WirePlumber](https://gitlab.freedesktop.org/pipewire/wireplumber), a
-modular session manager based on GObject
+modular session manager based on GObject. 
+[Documentation](https://pipewire.pages.freedesktop.org/wireplumber/)
 
 This page describes some of the requirements for session managers in general.
 
-## Client management
+
+# Client Management
 
 PipeWire provides a \ref page_access "permission system" to limit client's
 access to resources but only \ref page_module_access "basic permission
 handling". The session manager is expected to decide whether clients may
 access specific resources.
 
-## Device management
+
+# Device Management
 
 PipeWire's responsibility is to open devices, however the decision on which
 devices should be opened is the job of a session manager, including the
 configuration of those devices.
 
 
-## Endpoint grouping
+# Endpoint Grouping
 
-An endpoint is, effectively, a group of Nodes that are a logical unit that can
+An endpoint is, effectively, a group of nodes that are a logical unit that can
 consume or produce media data. For example, a Bluetooth speaker may present as
-several Nodes but is only one logical unit to stream audio to.
+several nodes but is only one logical unit to stream audio to.
 
 See \ref page_objects_design for details on Endpoints.
 
 */
-

@@ -1,4 +1,4 @@
-/** \page page_tutorial4 Tutorial - Part 4: Playing a tone
+/** \page page_tutorial4 Tutorial - Part 4: Playing A Tone
 
 \ref page_tutorial3 | \ref page_tutorial "Index" | \ref page_tutorial5
 
@@ -57,13 +57,12 @@ and `struct pw_core` automatically.
 
 In the properties we need to give as much information about the stream as we
 can so that the session manager can make good decisions about how and where
-to route this stream. There are 3 important properties to configure:
+to route this stream. There are three important properties to configure:
 
-* `PW_KEY_MEDIA_TYPE`      The media type, like Audio, Video, Midi
-* `pw_KEY_MEDIA_CATEGORY`  The category, like Playback, Capture, Duplex, Monitor
-* `PW_KEY_MEDIA_ROLE`      The media role, like Movie, Music, Camera, Screen,
-					Communication, Game, Notification, DSP,
-					Production, Accessibility, Test
+- `PW_KEY_MEDIA_TYPE`: The media type; like Audio, Video, MIDI.
+- `PW_KEY_MEDIA_CATEGORY`: The category; like Playback, Capture, Duplex, Monitor.
+- `PW_KEY_MEDIA_ROLE`: The media role; like Movie, Music, Camera, Screen,
+  Communication, Game, Notification, DSP, Production, Accessibility, Test.
 
 The properties are owned by the stream and freed when the stream is destroyed
 later.
@@ -122,15 +121,14 @@ Now we're ready to connect the stream and run the main loop:
 To connect we specify that we have a `PW_DIRECTION_OUTPUT` stream. `PW_ID_ANY`
 means that we are ok with connecting to any consumer. Next we set some flags:
 
-* `PW_STREAM_FLAG_AUTOCONNECT`  automatically connect this stream. This instructs
-                                the session manager to link us to some consumer.
-* `PW_STREAM_FLAG_MAP_BUFFERS`	mmap the buffers for us so we can access the
-                                memory. If you don't set these flags you have
-				either work with the fd or mmap yourself.
-* `PW_STREAM_FLAG_RT_PROCESS` 	Run the process function in the realtime thread.
-		                Only use this if the process function only
-				uses functions that are realtime safe, this means
-				no allocation or file access or any locking.
+- `PW_STREAM_FLAG_AUTOCONNECT`: Automatically connect this stream. This instructs
+  the session manager to link us to some consumer.
+- `PW_STREAM_FLAG_MAP_BUFFERS`:	mmap the buffers for us so we can access the
+  memory. If you don't set these flags you have either work with the fd or mmap 
+  yourself.
+- `PW_STREAM_FLAG_RT_PROCESS`: Run the process function in the realtime thread.
+  Only use this if the process function only uses functions that are realtime 
+  safe, this means no allocation or file access or any locking.
 
 And last we pass the extra parameters for our stream. Here we only have the
 allowed formats (`SPA_PARAM_EnumFormat`).
@@ -140,11 +138,11 @@ Running the mainloop will then start processing and will result in our
 
 The main program flow of the process function is:
 
-* `pw_stream_dequeue_buffer()` to obtain a buffer to write into.
-* Get pointers in buffer memory to write to
-* write data into buffer
-* adjust buffer with number of written bytes, offset, stride,
-* `pw_stream_queue_buffer()` to queue the buffer for playback.
+- `pw_stream_dequeue_buffer()` to obtain a buffer to write into.
+- Get pointers in buffer memory to write to.
+- Write data into buffer.
+- Adjust buffer with number of written bytes, offset, stride.
+- `pw_stream_queue_buffer()` to queue the buffer for playback.
 
 \snippet tutorial4.c on_process
 

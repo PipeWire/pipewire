@@ -3,52 +3,54 @@
 \ref spa_pod (plain old data) is a sort of data container. It is comparable to
 DBus Variant or LV2 Atom.
 
-A POD can express nested structures of Objects (with properties), Vectors,
-Arrays, sequences and various primitives types. All information in the POD
+A POD can express nested structures of objects (with properties), vectors,
+arrays, sequences and various primitives types. All information in the POD
 is laid out sequentially in memory and can be written directly to
 storage or exchanged between processes or threads without additional
 marshalling.
 
 Each POD is made of a 32 bits size followed by a 32 bits type field,
-followed by the pod contents. This makes it possible to skip over unknown
+followed by the POD contents. This makes it possible to skip over unknown
 POD types. The POD start is always aligned to 8 bytes.
 
-PODs can be efficiently constructed and parsed in real-time threads without
+POD's can be efficiently constructed and parsed in real-time threads without
 requiring memory allocations.
 
-PODs use the SPA type system for the basic types and containers. See
+POD's use the SPA type system for the basic types and containers. See
 the SPA types for more info.
 
-## Types
 
-PODs can contain a number of basic SPA types:
+# Types
 
- - `SPA_TYPE_None`: no value or a NULL pointer.
- - `SPA_TYPE_Bool`: a boolean value
- - `SPA_TYPE_Id`: an enumerated value
- - `SPA_TYPE_Int`, `SPA_TYPE_Long`, `SPA_TYPE_Float`, `SPA_TYPE_Double`:
- -      	various numeral types, 32 and 64 bits.
- - `SPA_TYPE_String`: a string
- - `SPA_TYPE_Bytes`: a byte array
- - `SPA_TYPE_Rectangle`: a rectangle with width and height
- - `SPA_TYPE_Fraction`: a fraction with numerator and denominator
- - `SPA_TYPE_Bitmap`: an array of bits
+POD's can contain a number of basic SPA types:
 
-PODs can be grouped together in these container types:
+- `SPA_TYPE_None`: No value or a NULL pointer.
+- `SPA_TYPE_Bool`: A boolean value.
+- `SPA_TYPE_Id`: An enumerated value.
+- `SPA_TYPE_Int`, `SPA_TYPE_Long`, `SPA_TYPE_Float`, `SPA_TYPE_Double`:
+  various numeral types, 32 and 64 bits.
+- `SPA_TYPE_String`: A string.
+- `SPA_TYPE_Bytes`: A byte array.
+- `SPA_TYPE_Rectangle`: A rectangle with width and height.
+- `SPA_TYPE_Fraction`: A fraction with numerator and denominator.
+- `SPA_TYPE_Bitmap`: An array of bits.
 
- - `SPA_TYPE_Array`: an array of equal sized objects
- - `SPA_TYPE_Struct`: a collection of types and objects
- - `SPA_TYPE_Object`: an object with properties
- - `SPA_TYPE_Sequence`: a timed sequence of PODs
+POD's can be grouped together in these container types:
 
-PODs can also contain some extra types:
+- `SPA_TYPE_Array`: An array of equal sized objects.
+- `SPA_TYPE_Struct`: A collection of types and objects.
+- `SPA_TYPE_Object`: An object with properties.
+- `SPA_TYPE_Sequence`: A timed sequence of POD's.
 
- - `SPA_TYPE_Pointer`: a typed pointer in memory
- - `SPA_TYPE_Fd`: a file descriptor
- - `SPA_TYPE_Choice`: a choice of values
- - `SPA_TYPE_Pod`: a generic type for the POD itself
+POD's can also contain some extra types:
 
-# Constructing a POD
+- `SPA_TYPE_Pointer`: A typed pointer in memory.
+- `SPA_TYPE_Fd`: A file descriptor.
+- `SPA_TYPE_Choice`: A choice of values.
+- `SPA_TYPE_Pod`: A generic type for the POD itself.
+
+
+# Constructing A POD
 
 A POD is usually constructed with a `struct spa_pod_builder`. The builder
 needs to be initialized with a memory region to write into. It is
@@ -59,7 +61,7 @@ not require any memory allocations. The size of the POD can be
 estimated pretty easily and if the buffer is not large enough, an
 appropriate error will be generated.
 
-The code fragment below initializes a pod builder to write into
+The code fragment below initializes a POD builder to write into
 the stack allocated buffer.
 
 \code{.c}
@@ -96,7 +98,7 @@ pod = spa_pod_builder_pop(&b, &f);
 `spa_pod_builder_pop()` returns a reference to the object we completed
 on the stack.
 
-## Using varargs builder.
+## Using varargs Builder
 
 We can also use the following construct to make POD objects:
 
@@ -116,10 +118,10 @@ pod = spa_pod_builder_add_struct(&b,
 	SPA_POD_Float(3.1415f));
 \endcode
 
-It's not possible to use the varargs builder to make a Sequence or
-Array, use the normal builder methods for that.
+It's not possible to use the varargs builder to make a sequence or
+array, use the normal builder methods for that.
 
-## Making objects
+## Making Objects
 
 POD objects are containers for properties and are comparable to JSON
 objects.
@@ -131,7 +133,7 @@ spa_pod_builder_push_object(&b, &f, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 \endcode
 
 An object requires an object type (`SPA_TYPE_OBJECT_Props`) and a context
-id (`SPA_PARAM_Props`). The object type defines the properties that can be
+ID (`SPA_PARAM_Props`). The object type defines the properties that can be
 added to the object and their meaning. The SPA type system allows you to
 make this connection (See the type system).
 
@@ -163,23 +165,23 @@ pod = spa_pod_builder_add_object(&b,
 	SPA_PROP_frequency, SPA_POD_Float(440.0f));
 \endcode
 
-## Choice values
+## Choice Values
 
 It is possible to express ranges or enumerations of possible
 values for properties (and to some extend structs). This is achieved
-with Choice values.
+with choice values.
 
 Choice values are really just a choice type and an array of choice values
 (of the same type). Depending on the choice type, the array values are
 interpreted in different ways:
 
- * `SPA_CHOICE_None`:   no choice, first value is current
- * `SPA_CHOICE_Range`:  range: default, min, max
- * `SPA_CHOICE_Step`:   range with step: default, min, max, step
- * `SPA_CHOICE_Enum`:   enum: default, alternative,...
- * `SPA_CHOICE_Flags`:  bitmask of flags
+- `SPA_CHOICE_None`: No choice, first value is current.
+- `SPA_CHOICE_Range`: Range: default, min, max.
+- `SPA_CHOICE_Step`: Range with step: default, min, max, step.
+- `SPA_CHOICE_Enum`: Enum: default, alternative,...
+- `SPA_CHOICE_Flags`: Bitmask of flags.
 
-Let's illustrate this with a Props object that specifies a range of
+Let's illustrate this with a props object that specifies a range of
 possible values for the frequency:
 
 \code{.c}
@@ -195,8 +197,8 @@ pod = spa_pod_builder_pop(&b, &f2);
 pod = spa_pod_builder_pop(&b, &f);
 \endcode
 
-As you can see, first push the choice as a Range, then the values. A Range
-choice expects at least 3 values, the default value, minimum and maximum
+As you can see, first push the choice as a range, then the values. A range
+choice expects at least three values, the default value, minimum and maximum
 values. There is a shortcut for this as well using varargs:
 
 \code{.c}
@@ -205,7 +207,7 @@ pod = spa_pod_builder_add_object(&b,
 	SPA_PROP_frequency, SPA_POD_CHOICE_RANGE_Float(440.0f, 110.0f, 880.0f));
 \endcode
 
-## Choice examples
+## Choice Examples
 
 This is a description of a possible `SPA_TYPE_OBJECT_Format` as used when
 enumerating allowed formats (`SPA_PARAM_EnumFormat`) in SPA objects:
@@ -253,16 +255,17 @@ pod = spa_pod_builder_add_object(&b,
 	SPA_FORMAT_AUDIO_channels, SPA_POD_Int(2));
 \endcode
 
-# Parsing a POD
 
-Parsing a POD usually consists of
+# Parsing A POD
 
- * validating if raw bytes + size can contain a valid pod
- * inspecting the type of a pod
- * looping over the items in an object or struct
- * getting data out of PODs.
+Parsing a POD usually consists of:
 
-## Validating bytes
+- Validating if raw bytes + size can contain a valid POD.
+- Inspecting the type of a POD.
+- Looping over the items in an object or struct.
+- Getting data out of POD's.
+
+## Validating Bytes
 
 Use `spa_pod_from_data()` to check if maxsize of bytes in data contain
 a POD at the size bytes starting at offset. This function checks that
@@ -273,7 +276,7 @@ struct spa_pod *pod;
 pod = spa_pod_from_data(data, maxsize, offset, size);
 \endcode
 
-## Checking the type of POD
+## Checking The Type Of POD
 
 Use one of `spa_pod_is_bool()`, `spa_pod_is_int()`, etc to check
 for the type of the pod. For simple (non-container) types,
@@ -283,9 +286,9 @@ extract the value of the pod.
 `spa_pod_is_object_type()` can be used to check if the POD contains
 an object of the expected type.
 
-## Struct fields
+## Struct Fields
 
-To iterate over the fields of a Struct use:
+To iterate over the fields of a struct use:
 
 \code{.c}
 struct spa_pod *pod, *obj;
@@ -294,7 +297,7 @@ SPA_POD_STRUCT_FOREACH(obj, pod) {
 }
 \endcode
 
-For parsing Structs it is usually much easier to use the parser
+For parsing structs it is usually much easier to use the parser
 below.
 
 ## Object Properties
@@ -363,7 +366,7 @@ And finally exit the container again:
 spa_pod_parser_pop(&p, &f);
 \endcode
 
-## Parser with variable arguments
+## Parser With Variable Arguments
 
 In most cases, parsing objects is easier with the variable argument
 functions. The parse function look like the mirror image of the builder
@@ -408,15 +411,15 @@ spa_pod_parser_get_object(&p,
 	SPA_FORMAT_AUDIO_channels, SPA_POD_OPT_Int(&channels));
 \endcode
 
-It is not possible to parse a Sequence or Array with the parser.
+It is not possible to parse a sequence or array with the parser.
 Use the iterator for this.
 
-## Choice values
+## Choice Values
 
-The parser will handle Choice values as long as they are of type
-None. It will then parse the single value from the choice. When
+The parser will handle choice values as long as they are of type
+`none`. It will then parse the single value from the choice. When
 dealing with other choice values, it's possible to parse the
-property values into a `struct spa_pod` and then inspect the Choice
+property values into a `struct spa_pod` and then inspect the choice
 manually, if needed.
 
 Here is an example of parsing the format values as a POD:
@@ -432,9 +435,9 @@ spa_pod_parser_get_object(&p,
 \endcode
 
 `spa_pod_get_values()` is a useful function. It returns a
-`struct spa_pod*` with and array of values. For normal PODs
-and Choice None values, it simply returns the POD and 1 value.
-For other Choice values it returns the Choice type and an array
+`struct spa_pod*` with and array of values. For normal POD's
+and choice none values, it simply returns the POD and one value.
+For other choice values it returns the choice type and an array
 of values:
 
 \code{.c}
@@ -464,15 +467,16 @@ default:
 }
 \endcode
 
+
 # Filter
 
-Given 2 pod objects of the same type (Object, Struct, ..) one can
-run a filter and generate a new pod that only contains values that
-are compatible with both input pods.
+Given two POD objects of the same type (object, struct, ..) one can
+run a filter and generate a new POD that only contains values that
+are compatible with both input POD's.
 
 This is, for example, used to find a compatible format between two ports.
 
-As an example we can run a filter on two simple PODs:
+As an example we can run a filter on two simple POD's:
 
 \code{.c}
 pod = spa_pod_builder_add_object(&b,
@@ -511,7 +515,7 @@ result = spa_pod_builder_add_object(&b,
 	SPA_FORMAT_AUDIO_format,   SPA_AUDIO_FORMAT_S16);
 \endcode
 
-# POD layout
+# POD Layout
 
 Each POD has a 32 bits size field, followed by a 32 bits type field. The size
 field specifies the size following the type field.

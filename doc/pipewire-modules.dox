@@ -1,6 +1,4 @@
-/**
-
-\page page_pipewire_modules PipeWire Modules
+/** \page page_pipewire_modules PipeWire Modules
 
 A PipeWire module is effectively a PipeWire client in an `.so` file that
 shares the \ref pw_context with the loading entity. Usually modules are
@@ -28,7 +26,7 @@ context.modules = [
     ...
 ]
 ```
-And the matching libraries are:
+The matching libraries are:
 ```
 $ ls -1 /usr/lib64/pipewire-0.3/libpipewire-module*
 ...
@@ -48,7 +46,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args).`
 
 See the \ref page_module_example_sink and \ref page_module_example_source
 modules for a general oveview of how modules look like.
-
 
 List of known modules:
 
@@ -78,6 +75,5 @@ List of known modules:
 - \subpage page_module_session_manager
 - \subpage page_module_x11_bell
 - \subpage page_module_zeroconf_discover
-
 
 */

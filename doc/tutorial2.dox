@@ -1,4 +1,4 @@
-/** \page page_tutorial2 Tutorial - Part 2: Enumerating objects
+/** \page page_tutorial2 Tutorial - Part 2: Enumerating Objects
 
 \ref page_tutorial1 | \ref page_tutorial "Index" | \ref page_tutorial3
 
@@ -125,4 +125,5 @@ continue forever. In the next tutorial we'll see how we can nicely
 exit our application after we received all server objects.
 
 \ref page_tutorial1 | \ref page_tutorial "Index" | \ref page_tutorial3
+
 */

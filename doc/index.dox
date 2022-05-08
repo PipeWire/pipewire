@@ -1,37 +1,38 @@
 /** \mainpage PipeWire
 
 PipeWire is low-level multimedia framework that provides:
-  - Graph based processing
-  - Support for out-of-process processing graphs with minimal overhead
-  - Flexible and extensible media format negotiation and buffer allocation
-  - Hard real-time capable plugins
-  - Very low-latency for both audio and video processing
+
+- Graph based processing.
+- Support for out-of-process processing graphs with minimal overhead.
+- Flexible and extensible media format negotiation and buffer allocation.
+- Hard real-time capable plugins.
+- Very low-latency for both audio and video processing.
 
 See \ref page_overview for an overview of PipeWire and \ref page_design
 for the design principles guiding PipeWire.
 
-### Components
+# Components
 
 PipeWire ships with the following components:
 
-- a \ref page_daemon that implements the IPC and graph processing
-- an example \ref page_session_manager that manages objects in the \ref page_daemon
-- a set of \ref page_tools to introspect and use the \ref page_daemon
-- a \ref page_library to develop PipeWire applications and plugins (\ref
+- A \ref page_daemon that implements the IPC and graph processing.
+- An example \ref page_session_manager that manages objects in the \ref page_daemon.
+- A set of \ref page_tools to introspect and use the \ref page_daemon.
+- A \ref page_library to develop PipeWire applications and plugins (\ref
   page_tutorial "tutorial").
-- the \ref page_spa used by both the \ref page_daemon and in the \ref
+- The \ref page_spa used by both the \ref page_daemon and in the \ref
   page_library.
 
-### API Documentation
+# API Documentation
 
-See \ref page_api
+See \ref page_api.
 
-### More Documentation
+# More Documentation
 
 See our [Wiki](https://gitlab.freedesktop.org/pipewire/pipewire/-/wikis/home) for
 More information on how to configure and use PipeWire.
 
-### Resources
+# Resources
 
 - [PipeWire and AGL](https://wiki.automotivelinux.org/_media/pipewire_agl_20181206.pdf)
 - [LAC 2020 Paper](https://lac2020.sciencesconf.org/307881/document)
@@ -39,4 +40,5 @@ More information on how to configure and use PipeWire.
 - [PipeWire: The Linux audio/video bus (LWN)](https://lwn.net/Articles/847412)
 - [PipeWire Wikipedia](https://en.wikipedia.org/wiki/PipeWire)
 - [Bluetooth, PipeWire and Whatsapp calls](https://gjhenrique.com/pipewire.html)
+
 */

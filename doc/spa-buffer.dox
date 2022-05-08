@@ -6,7 +6,7 @@ A \ref spa_buffer "SPA Buffer" contains metadata and data. There can be many met
 
 > What is the `void*` data pointer in `spa_data`?
 
-The data information either has a file descriptor or a data pointer. The type of the `spa_data` tells you what to expect. For a file descriptor, the data pointer can optionally be set when the fd is mapped into memory. Otherwise the user has to mmap the data herself.
+The data information either has a file descriptor or a data pointer. The type of the `spa_data` tells you what to expect. For a file descriptor, the data pointer can optionally be set when the FD is mapped into memory. Otherwise the user has to mmap the data themselves.
 
 Also associated with each `spa_data` is a chunk, which is read/write and contains the valid region in the `spa_data` (offset, size, stride and some flags).
 

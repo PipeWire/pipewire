@@ -3,19 +3,21 @@
 \ref spa_handle "SPA plugins" are dynamically loadable objects that contain objects and interfaces that
 can be introspected and used at runtime in any application. This document
 introduces the basic concepts of SPA plugins. It first covers using the API
-and then talks about implementing new Plugins.
+and then talks about implementing new plugins.
 
 
-## Outline
+# Outline
 
 To use a plugin, the following steps are required:
-- **load** the shared library
-- **enumerate** the available factories
-- **enumerate** the interfaces in each factory
-- **instantiate** the desired interface
-- **use** the interface-specific functions
+
+- **Load** the shared library.
+- **Enumerate** the available factories.
+- **Enumerate** the interfaces in each factory.
+- **Instantiate** the desired interface.
+- **Use** the interface-specific functions.
 
 In pseudo-code, loading a logger interface looks like this:
+
 \code{.py}
 handle = dlopen("$SPA_PLUGIN_PATH/support/libspa-support.so")
 factory_enumeration_func = dlsym(handle, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)
@@ -71,18 +73,18 @@ factory interfaces:
 \endverbatim
 
 
-## Open a plugin
+# Open A Plugin
 
 A plugin is opened with a platform specific API. In this example we use
 `dlopen()` as the method used on Linux.
 
-A plugin always consists of 2 parts, the vendor path and then the .so file.
+A plugin always consists of two parts, the vendor path and then the .so file.
 
 As an example we will load the "support/libspa-support.so" plugin. You will
-usually use some mapping between functionality and plugin path, as we'll see
+usually use some mapping between functionality and plugin path as we'll see
 later, instead of hardcoding the plugin name.
 
-To dlopen a plugin we then need to prefix the plugin path like this:
+To `dlopen` a plugin we then need to prefix the plugin path like this:
 
 \code{.c}
 #define SPA_PLUGIN_PATH	/usr/lib64/spa-0.2/"
@@ -105,7 +107,8 @@ enum_func = dlsym(hnd, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME));
 
 If this symbol is not available, the library is not a valid SPA plugin.
 
-## Enumerating factories
+
+# Enumerating Factories
 
 With the `enum_func` we can now enumerate all the factories in the plugin:
 
@@ -126,7 +129,7 @@ actual new object from it.
 
 We can enumerate the interfaces that we will find on this new object with
 the `spa_handle_factory_enum_interface_info()` method. Interface types
-are simple strings that uniquely define the interface (See also the type
+are simple strings that uniquely define the interface (see also the type
 system).
 
 The name of the factory is a well-known name that describes the functionality
@@ -142,7 +145,8 @@ definitions for common functionality, for example:
 Usually the name will be mapped to a specific plugin. This way an
 alternative compatible implementation can be made in a different library.
 
-## Making a handle
+
+# Making A Handle
 
 Once we have a suitable factory, we need to allocate memory for the object
 it can create. SPA usually does not allocate memory itself but relies on
@@ -173,10 +177,11 @@ The info parameter should contain the same extra properties given in
 
 The support parameter is an array of `struct spa_support` items. They
 contain a string type and a pointer to extra support objects. This can
-be a logging API or a main loop API, for example. Some plugins require
+be a logging API or a main loop API for example. Some plugins require
 certain support libraries to function.
 
-## Retrieving an interface
+
+# Retrieving An Interface
 
 When a SPA handle is made, you can retrieve any of the interfaces that
 it provides:
@@ -195,7 +200,7 @@ spa_log_warn(log, "Hello World!\n");
 \endcode
 
 
-## Clearing an object
+# Clearing An Object
 
 After you are done with a handle you can clear it with
 `spa_handle_clear()` and you can unload the library with `dlclose()`.
@@ -215,7 +220,7 @@ will just call the appropriate method in the implementation.
 
 Interfaces are defined in a header file (for example see
 `<spa/support/log.h>` for the logger API). It is a self contained
-definition that you can just use in your application after you dlopen()
+definition that you can just use in your application after you `dlopen()`
 the plugin.
 
 Some interfaces also provide extra fields in the interface, like the
@@ -223,7 +228,8 @@ log interface above that has the log level as a read/write parameter.
 
 See \ref spa_interface for some implementation details on interfaces.
 
-## SPA Events
+
+# SPA Events
 
 Some interfaces will also allow you to register a callback (a hook or
 listener) to be notified of events. This is usually when something
@@ -270,7 +276,8 @@ You can remove your listener with:
 spa_hook_remove(&listener);
 \endcode
 
-## API results
+
+# API Results
 
 Some interfaces provide API that gives you a list or enumeration of
 objects/values. To avoid allocation overhead and ownership problems,
@@ -280,8 +287,7 @@ stack and push this to the application without allocation or ownership
 problems. The application can look at the pushed result and keep/copy
 only what it wants to keep.
 
-
-### Synchronous results
+## Synchronous Results
 
 Here is an example of enumerating parameters on a node interface.
 
@@ -319,8 +325,7 @@ supported format. After this completes, remove the listener again:
 spa_hook_remove(&listener);
 \endcode
 
-
-### Asynchronous results
+## Asynchronous Results
 
 Asynchronous results are pushed to the application in the same way as
 synchronous results, they are just pushed later. You can check that
@@ -342,9 +347,9 @@ sequence number of the async result code, which can be obtained with:
 expected_seq = SPA_RESULT_ASYNC_SEQ(res);
 \endcode
 
-# Implementing a new plugin
+# Implementing A New Plugin
 
-FIXME
+***FIXME***
 
 
 

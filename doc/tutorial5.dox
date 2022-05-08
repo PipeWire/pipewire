@@ -1,4 +1,4 @@
-/** \page page_tutorial5 Tutorial - Part 5: Capturing video frames
+/** \page page_tutorial5 Tutorial - Part 5: Capturing Video Frames
 
 \ref page_tutorial4 | \ref page_tutorial "Index" | \ref page_tutorial6
 
@@ -141,7 +141,6 @@ stream mmap the data for us.
 And last we pass the extra parameters for our stream. Here we only have the
 allowed formats (`SPA_PARAM_EnumFormat`).
 
-
 Running the mainloop will start the connection and negotiation process.
 First our `param_changed` event will be called with the format that was
 negotiated between our stream and the camera. This is always something that
@@ -160,7 +159,7 @@ static void on_param_changed(void *userdata, uint32_t id, const struct spa_pod *
 		return;
 \endcode
 
-First check if there is a param. A NULL param means that it is cleared. The id
+First check if there is a param. A NULL param means that it is cleared. The ID
 of the param tells you what param it is. We are only interested in Format
 param (`SPA_PARAM_Format`).
 

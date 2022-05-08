@@ -12,13 +12,14 @@ connects to PipeWire on behalf of the client, informing PipeWire that this
 client is a portal-managed client. PipeWire can detect and enforce
 extra permission checks on the portal managed clients.
 
-Once such portal is the [Camera
+Once such portal is the [camera
 portal](https://flatpak.github.io/xdg-desktop-portal/portal-docs.html#gdbus-org.freedesktop.portal.Camera)
 that provides a PipeWire session to stream video from a camera.
 
-# Use cases
 
-### new portal managed clients need device permissions configured
+# Use Cases
+
+## New Portal Managed Clients Need Device Permissions Configured
 
 When a new client is detected, the available objects need to be
 scanned and permissions configured for each of them.
@@ -26,7 +27,7 @@ scanned and permissions configured for each of them.
 Only the devices belonging to the media_roles given by the
 portal are considered.
 
-### new devices need to be made visible to portal managed clients
+## New Devices Need To Be Made Visible To Portal Managed Clients
 
 Newly created objects are made visible to a client when the client
 is allowed to interact with it.
@@ -34,7 +35,7 @@ is allowed to interact with it.
 Only the devices belonging to the media_roles given by the
 portal are considered.
 
-### permissions for a device need to be revoked
+## Permissions For A Device Need To Be Revoked
 
 The session manager listens to changes in the permissions of devices
 and will remove the client permissions accordingly.
@@ -46,7 +47,7 @@ where these permissions can be managed.
 
 # Design
 
-## The portal
+## The Portal
 
 A sandboxed client cannot connect to PipeWire directly. Instead, it connects
 to the sandbox side of the portal which then connects the PipeWire daemon to
@@ -59,7 +60,7 @@ client object:
 
 - `"pipewire.access.portal.is_portal" = true` for the connection of the
   portal itself (as opposed to a client managed by the portal).
-- `"pipewire.access.portal.app_id"` the [application id](https://docs.flatpak.org/en/latest/conventions.html#application-ids) of the client.
+- `"pipewire.access.portal.app_id"` the [application ID](https://docs.flatpak.org/en/latest/conventions.html#application-ids) of the client.
 - `"pipewire.access.portal.media_roles"` media roles of the client.
   Currently only `"Camera"` is defined.
 
@@ -69,9 +70,9 @@ the task of the \ref page_session_manager to make the objects in the graph
 visible, depending on the client's `media_roles` (see also \ref
 PW_KEY_MEDIA_ROLE).
 
-## The PipeWire portal module
+## The PipeWire Portal Module
 
-The pipewire daemon uses the \ref page_module_portal to find the PID of the
+The PipeWire daemon uses the \ref page_module_portal to find the PID of the
 processes that owns the DBus name `org.freedesktop.portal.Desktop`
 (see the [XDG Desktop Portal](https://github.com/flatpak/xdg-desktop-portal)).
 
@@ -99,7 +100,7 @@ digraph pw {
 }
 \enddot
 
-## The client
+## The Client
 
 A client can ask the portal for a connection to the PipeWire daemon.
 
@@ -145,7 +146,6 @@ digraph pw {
 }
 \enddot
 
-
 The file descriptor for this restricted connection is passed back to the
 client which can now make use of the resources it has been permitted to
 access.
@@ -169,7 +169,7 @@ digraph pw {
 }
 \enddot
 
-## The session manager
+## The Session Manager
 
 The session manager listens for new clients to appear. It will use the
 \ref PW_KEY_ACCESS property to find portal connections. For client connections

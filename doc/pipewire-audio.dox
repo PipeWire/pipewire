@@ -2,19 +2,19 @@
 
 This document explains how Audio is implemented.
 
-# Use cases
+# Use Cases
 
-## Audio devices are made available as processing nodes/ports
+## Audio Devices Are Made Available As Processing Nodes/Ports
 
 Applications need to be able to see a port for each stream of an
-Audio device.
+audio device.
 
-### Audio devices can be plugged and unplugged
+## Audio Devices Can Be Plugged and Unplugged
 
 When devices are plugged and unplugged the associated nodes/ports
 need to be created and removed.
 
-### Audio port in canonical format
+## Audio Port In Canonical Format
 
 It must be possible to make individual audio channels available
 as a single mono stream with a fixed format and samplerate.
@@ -22,7 +22,7 @@ as a single mono stream with a fixed format and samplerate.
 This makes it possible to link any of the audio ports together
 without doing conversions.
 
-### Applications can connect to audio devices
+## Applications Can Connect To Audio Devices
 
 Applications can create ports that can connect to the audio ports
 so that data can be provided to or consumed from them.
@@ -30,19 +30,19 @@ so that data can be provided to or consumed from them.
 It should be possible to automatically connect an application to
 a sink/source when it requests this.
 
-### Default audio sink and sources
+## Default Audio Sink and Sources
 
 It should be possible to mark a source or sink as the default source
 and sink so that applications are routed to them by default.
 
 It should be possible to change the default audio sink/source.
 
-### Application should be able to move between sinks/sources
+## Application Should Be Able To Move Between Sinks/Sources
 
 It should be possible to move an application from one device to
 another dynamically.
 
-### Exclusive access
+## Exclusive Access
 
 Application should be able to connect to a device in exclusive mode.
 This allows the application to negotiate a specific format with the
@@ -62,13 +62,13 @@ Audio devices are implemented with an \ref spa_device "SPA Device" object.
 This object is then responsible for controlling the \ref spa_node "SPA Nodes" that
 provide the audio ports to interface with the device.
 
-The Nodes operate on the native audio formats supported by the device.
+The nodes operate on the native audio formats supported by the device.
 This includes the sample rate as well as the number of channels and
 the audio format.
 
 ## Audio Adapter
 
-An SPA Node called the "adapter" is usually used with the SPA device Node as
+An SPA Node called the "adapter" is usually used with the SPA device node as
 the internal node.
 
 The function of the adapter is to convert the device native format to
@@ -80,14 +80,14 @@ as separate mono ports. This is called the DSP setup.
 
 The audio adapter can also be configured in passthrough mode when it
 will not do any conversions but simply pass through the port information
-of the internal Node. This can be used to implement exclusive access.
+of the internal node. This can be used to implement exclusive access.
 
 Setup of the different configurations of the adapter can be done with
 the PortConfig parameter.
 
-## The session manager
+## The Session Manager
 
-The session manager is responsible for creating Nodes and Ports for
+The session manager is responsible for creating nodes and ports for
 the various audio devices. It will need to wrap them into an audio
 adapter so that the specific configuration of the node can be
 decided by the policy mode.
@@ -96,33 +96,32 @@ The session manager should create name and description for the
 devices and nodes.
 
 The session manager is responsible for assigning priorities to the
-Nodes. At least \ref PW_KEY_PRIORITY_SESSION and \ref PW_KEY_PRIORITY_DRIVER
+nodes. At least \ref PW_KEY_PRIORITY_SESSION and \ref PW_KEY_PRIORITY_DRIVER
 need to be set.
 
 The session manager might need to work with other services to gain
-exclusive access to the device (e.g. DBus).
+exclusive access to the device (eg. DBus).
 
 
 # Implementation
 
-## pipewire-media-session (alsa-monitor)
+## PipeWire Media Session (alsa-monitor)
 
 PipeWire media session uses the \ref SPA_NAME_API_ALSA_ENUM_UDEV plugin
 for enumerating the ALSA devices. For each device it does:
 
 - Try to acquire the DBus device reservation object to gain exclusive
   access to the device.
-- Create an SPA Device instance for the device and monitor this device instance.
-- For each Node created by the device, create an adapter with
+- Create an SPA device instance for the device and monitor this device instance.
+- For each node created by the device, create an adapter with
   an ALSA PCM node in the context of the PipeWire daemon.
 
 The session manager will also create suitable names and descriptions
-for the Devices and Nodes that it creates as well as assign session
+for the devices and nodes that it creates as well as assign session
 and driver priorities.
 
 The session manager has the option to add extra properties on the
-Devices and Node that it creates to control their behavior. This
+devices and nodes that it creates to control their behavior. This
 is implemented with match rules.
-
 
 */

@@ -1,15 +1,15 @@
 /** \page page_library PipeWire Library
 
-There are 2 main components that make up the PipeWire library:
+There are two main components that make up the PipeWire library:
 
 1. An implementation of a graph based media processing engine.
 2. An asynchronous IPC mechanism to manipulate and introspect
-    a graph in another process.
+   a graph in another process.
 
 There is usually a daemon that implements the global graph and
 clients that operate on this graph.
 
-The IPC mechanism in PipeWire is inspired by wayland in that it
+The IPC mechanism in PipeWire is inspired by Wayland in that it
 follows the same design principles of objects and methods/events
 along with how this API is presented to the user.
 
@@ -18,7 +18,8 @@ be added (or removed) by the user. Plugins can hook into many
 aspects of PipeWire and change the behaviour or number of
 features dynamically.
 
-## Principles
+
+# Principles
 
 The PipeWire API is an object oriented asynchronous protocol.
 All requests and replies are method invocations on some object.
@@ -51,7 +52,8 @@ their state.
 State about objects can be obtained by binding to them and listening
 for state changes.
 
-## Versioning
+
+# Versioning
 
 All interfaces have a version number. The maximum supported version
 number of an interface is advertized in the registry global event.
@@ -64,7 +66,8 @@ Interfaces increase their version number when new methods or events
 are added. Methods or events should never be removed or changed for
 simplicity.
 
-## Proxies and resources
+
+# Proxies and Resources
 
 When a client connects to a PipeWire daemon, a new `struct pw_proxy`
 object is created with ID 0. The `struct pw_core` interface is
@@ -83,25 +86,22 @@ ID) becomes unused. The client is responsible for destroying the
 proxy when it no longer wants to use it.
 
 
-## Interfaces
+# Interfaces
 
-### `struct pw_loop`
+## struct pw_loop
 
 An abstraction for a `poll(2)` loop. It is usually part of one of:
 
-* `struct pw_main_loop`: a helper that can run and stop a `pw_loop`.
+- `struct pw_main_loop`: A helper that can run and stop a `pw_loop`.
+- `struct pw_thread_loop`: A helper that can run and stop a `pw_loop`
+  in a different thread. It also has some helper
+  functions for various thread related synchronization
+  issues.
+- `struct pw_data_loop`: A helper that can run and stop a `pw_loop`
+  in a real-time thread along with some useful helper
+  functions.
 
-* `struct pw_thread_loop`: a helper that can run and stop a `pw_loop`
-		in a different thread. It also has some helper
-		functions for various thread related synchronization
-		issues.
-
-* `struct pw_data_loop`: a helper that can run and stop a `pw_loop`
-		in a real-time thread along with some useful helper
-		functions.
-
-
-### `struct pw_context`
+## struct pw_context
 
 The main context for PipeWire resources. It keeps track of the mainloop,
 loaded modules, the processing graph and proxies to remote PipeWire
@@ -113,8 +113,7 @@ when creating a context.
 The context has methods to create the various objects you can use to
 build a server or client application.
 
-
-### `struct pw_core`
+## struct pw_core
 
 A proxy to a remote PipeWire instance. This is used to send messages
 to a remote PipeWire daemon and to receive events from it.
@@ -125,63 +124,63 @@ or to perform a roundtrip message to flush out pending requests.
 Other core methods and events are used internally for the object
 life cycle management.
 
-### `struct pw_registry`
+## struct pw_registry
 
 A proxy to a PipeWire registry object. It emits events about the
 available objects on the server and can be used to bind to those
 objects in order to call methods or receive events from them.
 
-### `struct pw_module`
+## struct pw_module
 
 A proxy to a loadable module. Modules implement functionality such
 as provide new objects or policy.
 
-### `struct pw_factory`
+## struct pw_factory
 
 A proxy to an object that can create other objects.
 
-### `struct pw_device`
+## struct pw_device
 
 A proxy to a device object. Device objects model a physical hardware
 or software device in the system and can create other objects
 such as nodes or other devices.
 
-### `struct pw_node`
+## struct pw_node
 
 A Proxy to a processing node in the graph. Nodes can have input and
 output ports and the ports can be linked together to form a graph.
 
-### `struct pw_port`
+## struct pw_port
 
-A Proxy to an input or output port of a node.  They can be linked
+A Proxy to an input or output port of a node. They can be linked
 together to form a processing graph.
 
-### `struct pw_link`
+## struct pw_link
 
 A proxy to a link between in output and input port. A link negotiates
 a format and buffers between ports. A port can be linked to many other
 ports and PipeWire will manage mixing and duplicating the buffers.
 
 
-## High level helper objects
+# High Level Helper Objects
 
 Some high level objects are implemented to make it easier to interface
 with a PipeWire graph.
 
-### `struct pw_filter`
+## struct pw_filter
 
 A `struct pw_filter` allows you implement a processing filter that can
 be added to a PipeWire graph. It is comparable to a JACK client.
 
-### `struct pw_stream`
+## struct pw_stream
 
-a `struct pw_stream` makes it easy to implement a playback or capture
+A `struct pw_stream` makes it easy to implement a playback or capture
 client for the graph. It takes care of format conversion and buffer
 sizes. It is comparable to Core Audio AudioQueue or a PulseAudio
 stream.
 
 
-## Security
+# Security
 
 With the default native protocol, clients connect to PipeWire using
 a named socket. This results in a client socket that is used to
@@ -215,13 +214,14 @@ PipeWire uses memfd (`memfd_create(2)`) or DMA-BUF for sharing media
 and data between clients. Clients can thus not look at other clients
 data unless they can see the objects and connect to them.
 
-## Implementation
+
+# Implementation
 
 PipeWire also exposes an API to implement the server side objects in
 a graph.
 
 
-## Error reporting
+# Error Reporting
 
 Functions return either NULL with errno set or a negative int error
 code when an error occurs. Error codes are used from the SPA plugin
@@ -237,6 +237,4 @@ signal the completion of the async operation (with, for example, a
 callback). The sequence number can be used to see which operation
 completed.
 
-
 */
-

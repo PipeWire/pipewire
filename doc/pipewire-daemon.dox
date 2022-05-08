@@ -7,7 +7,7 @@ Typically general, users run one PipeWire daemon that listens for incoming
 connections and manages devices. Clients (including the \ref
 page_session_manager) are separate processes that talk to the daemon using the
 PipeWire socket (default: `$XDG_RUNTIME_DIR/pipewire-0`). This approach
-provides provides address-space separation between the privileged daemon and
+provides address-space separation between the privileged daemon and
 non-privileged clients.
 
 \dot
@@ -52,7 +52,7 @@ As shown above, the protocol is handled by the \ref
 page_module_protocol_native. From PipeWire's point-of-view this module is just
 another module.
 
-\section sec_config Configuration Files
+# Configuration Files
 
 On startup, the daemon reads a configuration file to configure itself.
 It executes a series of commands listed in the config file. The lookup order
@@ -75,14 +75,14 @@ They are applied to the global configuration file. Properties are overwritten
 and array elements are appended. This makes it possible to make small custom customizations
 or additions to the main configuration file.
 
-The environment variables `PIPEWIRE_CONFIG_DIR`, `PIPEWIRE_CONFIG_PREFIX`
-and `PIPEWIRE_CONFIG_NAME` can be used to specify an alternative config
-directory, subdirectory and filename, respectively.
+The environment variables `PIPEWIRE_CONFIG_DIR`, `PIPEWIRE_CONFIG_PREFIX`, 
+and `PIPEWIRE_CONFIG_NAME`. Can be used to specify an alternative configuration
+directory, subdirectory, and filename respectively.
 
-\subsection sec_config_format Configuration File Format
+## Configuration File Format
 
-PipeWire's configuration file format is JSON. In addition to true JSON,
-PipeWire also understands a more compact JSON representation where
+PipeWire's configuration file format is JSON. In addition to true JSON 
+PipeWire also understands a more compact JSON representation. Where
 `"` can be omitted around strings, no trailing commas are required and
 `:` or `=` can be used to separate object keys from their values.
 Also, `#` can be used to start a comment until the end of the line.
@@ -117,63 +117,60 @@ Allowed configuration file sections are:
 
 - **context.properties**  (dictionary):   These   properties  configure  the
   pipewire instance.
-
 - **context.spa-libs** (dictionary): Maps plugin features with globs to a
   spa library.
-
 - **context.modules** (array): Each entry in the array is a dictionary with
   the name of the module to load, including optional args and flags. Most
   modules support being loaded multiple times.
-
 - **context.objects** (array):  Each entry in the array is a dictionary con‐
   taining the factory to create an object from and optional  extra  argu‐
   ments specific to that factory.
-
 - **context.exec**  (array): Each entry in the array is dictionary containing
   the path of a program to execute on startup and optional args. This ar‐
   ray usually contains an entry to start the session manager.
 
 
-\section sec_logging Logging
+# Logging
 
 The `PIPEWIRE_DEBUG` environment variable can be used to enable
 more debugging. This variable supports one of two formats:
 
-- `PIPEWIRE_DEBUG=<level>` where `<level>` is either a numerical log level or it's
+- `PIPEWIRE_DEBUG=<level>` where `<level>` is either a numerical log level or its
    respective key, see below.
 - `PIPEWIRE_DEBUG=<glob1>:<level1>,<glob2>:<level2>,...` where the globs are
-  shell-globs to match on log topics and the levels are the respective
-  log level to set for that topic. Globs are applied in-order and a matching
+  shell globs to match on log topics and the levels are the respective
+  log level to set for that topic. Globs are applied in order and a matching
   glob overrides an earlier glob for that category. For example,
-  `PIPEWIRE_DEBUG=*:E,mod.*:D,mod.foo:X" enables global error messages,
+  `PIPEWIRE_DEBUG=*:E,mod.*:D,mod.foo:X` enables global error messages,
   debugging on all modules but no messages on the foo module.
-
 - `<level>` specifies the log level:
-  + `X` or `0`: no logging is enabled
-  + `E` or `1`: Error logging is enabled
-  + `W` or `2`: Warnings are enabled
-  + `I` or `3`: Informational messages are enabled
-  + `D` or `4`: Debug messages are enabled
+
+  + `X` or `0`: No logging is enabled.
+  + `E` or `1`: Error logging is enabled.
+  + `W` or `2`: Warnings are enabled.
+  + `I` or `3`: Informational messages are enabled.
+  + `D` or `4`: Debug messages are enabled.
   + `T` or `5`: Trace messages are enabled. These messages can be logged
      	from the realtime threads.
 
-PipeWire uses a "category.topic" naming scheme, with the following categories:
-- `pw.*`: pipewire-internal topics
-- `mod.*`: module topics, for example `mod.foo` would usually refer to the
-  "foo" module
-- `ms.*`: media session topics
-- `ms.mod.*`: media session modules, for example `ms.foo` would usually refer
-   to the "media-session-foo" module
-- `conn.*`: connection-specific topics such as printing raw messages sent over
+PipeWire uses a `category.topic` naming scheme, with the following categories:
+
+- `pw.*`: PipeWire internal topics.
+- `mod.*`: Module topics, for example `mod.foo` would usually refer to the
+  `foo` module.
+- `ms.*`: Media session topics.
+- `ms.mod.*`: Media session modules, for example `ms.foo` would usually refer
+   to the `media-session-foo` module.
+- `conn.*`: Connection specific topics such as printing raw messages sent over
   a communication socket. These are in a separate namespace as they are
   usually vastly more verbose than the normal debugging topics.
   This namespace must be explicitly enabled with a `conn.<glob>` glob.
 
-
 The behavior of the logging can be further controlled with the following
 environment variables:
-- `PIPEWIRE_LOG_SYSTEMD=false`: disable logging to the systemd journal
-- `PIPEWIRE_LOG=<filename>`: redirect the log to the given filename
-- `PIPEWIRE_LOG_LINE=false`: don't log filename, function, and source code line
+
+- `PIPEWIRE_LOG_SYSTEMD=false`: Disable logging to the systemd journal.
+- `PIPEWIRE_LOG=<filename>`: Redirect the log to the given filename.
+- `PIPEWIRE_LOG_LINE=false`: Don't log filename, function, and source code line.
 
 */

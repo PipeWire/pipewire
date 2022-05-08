@@ -1,18 +1,18 @@
-/** \page page_pulseaudio  PulseAudio compatibility
+/** \page page_pulseaudio PulseAudio Compatibility
 
-# Internals - Mapping between ALSA and streams
+# Internals - Mapping Between ALSA and Streams
 
 This explains the mapping between alsa cards and streams and session manager
 objects.
 
-
 ## ALSA Cards
 
-An ALSA card is exposed as a PipeWire device
+An ALSA card is exposed as a PipeWire device.
 
 ## Streams
 
-Each alsa PCM is opened and a Node is created for each PCM stream.
+Each ALSA PCM is opened and a node is created for each PCM stream.
+
 
 # Session Manager
 
@@ -22,8 +22,8 @@ The mapping of the PipeWire object hierarchy to the ALSA object hierarchy is the
 
 One PipeWire device is created for every ALSA card.
 
-For each UCM verb, a Node is created for the associated PCM devices.
-For each UCM verb, an Endpoint is created.
+- For each UCM verb, a node is created for the associated PCM devices.
+- For each UCM verb, an endpoint is created.
 
 In a first step: For each available combination of UCM device and modifier,
 a stream is created. Streams are marked with compatible other streams.
@@ -31,26 +31,23 @@ a stream is created. Streams are marked with compatible other streams.
 Streams with the same modifier and mutually exclusive devices are grouped
 into one stream and the UCM devices are exposed on the endpoint as destinations.
 
-
-## ALSA fallback
+## ALSA Fallback
 
 Each PCM stream (node) becomes an endpoint. The endpoint references the
-alsa device id
+ALSA device ID.
 
-Each endpoint has 1 stream (for now) called HiFi Playback / HiFi Capture.
+Each endpoint has one stream (for now) called HiFi Playback / HiFi Capture.
 
 More streams can be created depending on the format of the node.
 
+## ALSA Pulse UCM
 
-## ALSA pulse UCM
+Using the ALSA backend of PulseAudio we can create the following streams.
 
-Using the alsa backend of pulseaudio we can create the following streams
+## ALSA Pulse Fallback
 
-
-## ALSA pulse fallback
-
-The pulse alsa backend will use the mixer controls and some probing to
-create the following nodes and endpoints
+The pulse ALSA backend will use the mixer controls and some probing to
+create the following nodes and endpoints.
 
 
 # PulseAudio
@@ -58,14 +55,14 @@ create the following nodes and endpoints
 PulseAudio uses the session manager API to construct cards with profiles
 and sink/source with ports.
 
-If an Endpoint references a Device, a card object is created for the device.
+If an endpoint references a device, a card object is created for the device.
 
-Each Endpoint becomes a sink/source.
+Each endpoint becomes a sink/source.
 
 Each Stream in the endpoint becomes a profile on the PulseAudio card. Because
-only one profile is selected on the device, only 1 stream is visible on
+only one profile is selected on the device, only one stream is visible on
 the endpoint. This clashes with the notion that multiple streams can be
-active at the same time but is a pulseaudio limitation.
+active at the same time but is a PulseAudio limitation.
 
 Each Endpoint destination becomes a port on the sink/source.
 

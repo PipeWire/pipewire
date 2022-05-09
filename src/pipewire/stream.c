@@ -172,6 +172,7 @@ struct stream {
 	unsigned int driving:1;
 	unsigned int using_trigger:1;
 	unsigned int trigger:1;
+	int in_set_control;
 };
 
 static int get_param_index(uint32_t id)
@@ -543,7 +544,9 @@ static int impl_set_param(void *object, uint32_t id, uint32_t flags, const struc
 	if (id != SPA_PARAM_Props)
 		return -ENOTSUP;
 
-	pw_stream_emit_param_changed(stream, id, param);
+	if (impl->in_set_control == 0)
+		pw_stream_emit_param_changed(stream, id, param);
+
 	return 0;
 }
 
@@ -2117,7 +2120,9 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 
 	va_end(varargs);
 
+	impl->in_set_control++;
 	pw_impl_node_set_param(impl->node, SPA_PARAM_Props, 0, pod);
+	impl->in_set_control--;
 
 	return 0;
 }

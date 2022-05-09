@@ -1,23 +1,25 @@
 # Copyright (C) 2009 Free Software Foundation, Inc.
 # This file is distributed under the same license as the pipewire package.
 #
-# Yuri Chornoivan <yurchor@ukr.net>, 2009-2021.
+# Yuri Chornoivan <yurchor@ukr.net>, 2009-2021, 2022.
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire\n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/issues\n"
-"POT-Creation-Date: 2021-09-21 15:31+0000\n"
-"PO-Revision-Date: 2021-09-23 12:37+0300\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/issue"
+"s\n"
+"POT-Creation-Date: 2022-05-05 03:28+0000\n"
+"PO-Revision-Date: 2022-05-05 21:06+0300\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <trans-uk@lists.fedoraproject.org>\n"
 "Language: uk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<"
+"=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
 "X-Generator: Lokalize 20.12.0\n"
 
-#: src/daemon/pipewire.c:45
+#: src/daemon/pipewire.c:46
 #, c-format
 msgid ""
 "%s [options]\n"
@@ -39,43 +41,37 @@ msgstr "Мультимедійна система PipeWire"
 msgid "Start the PipeWire Media System"
 msgstr "Запустити мультимедійну систему PipeWire"
 
-#: src/examples/media-session/alsa-monitor.c:656
-#: spa/plugins/alsa/acp/compat.c:189
-msgid "Built-in Audio"
-msgstr "Вбудоване аудіо"
-
-#: src/examples/media-session/alsa-monitor.c:660
-#: spa/plugins/alsa/acp/compat.c:194
-msgid "Modem"
-msgstr "Модем"
-
-#: src/examples/media-session/alsa-monitor.c:669
-#: src/modules/module-zeroconf-discover.c:296
-msgid "Unknown device"
-msgstr "Невідомий пристрій"
-
-#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:173
-#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:173
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:183
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:183
 #, c-format
 msgid "Tunnel to %s/%s"
 msgstr "Тунель до %s/%s"
 
-#: src/modules/module-pulse-tunnel.c:534
+#: src/modules/module-fallback-sink.c:51
+#| msgid "Game Output"
+msgid "Dummy Output"
+msgstr "Фіктивний вихід"
+
+#: src/modules/module-pulse-tunnel.c:639
 #, c-format
 msgid "Tunnel for %s@%s"
 msgstr "Тунель для %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:308
+#: src/modules/module-zeroconf-discover.c:332
+msgid "Unknown device"
+msgstr "Невідомий пристрій"
+
+#: src/modules/module-zeroconf-discover.c:344
 #, c-format
 msgid "%s on %s@%s"
 msgstr "%s на %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:312
+#: src/modules/module-zeroconf-discover.c:348
 #, c-format
 msgid "%s on %s"
 msgstr "%s на %s"
 
-#: src/tools/pw-cat.c:1055
+#: src/tools/pw-cat.c:871
 #, c-format
 msgid ""
 "%s [options] <file>\n"
@@ -91,8 +87,23 @@ msgstr ""
 "інформації\n"
 "\n"
 
-#: src/tools/pw-cat.c:1062
+#: src/tools/pw-cat.c:878
 #, c-format
+#| msgid ""
+#| "  -R, --remote                          Remote daemon name\n"
+#| "      --media-type                      Set media type (default %s)\n"
+#| "      --media-category                  Set media category (default %s)\n"
+#| "      --media-role                      Set media role (default %s)\n"
+#| "      --target                          Set node target (default %s)\n"
+#| "                                          0 means don't link\n"
+#| "      --latency                         Set node latency (default %s)\n"
+#| "                                          Xunit (unit = s, ms, us, ns)\n"
+#| "                                          or direct samples (256)\n"
+#| "                                          the rate is the one of the "
+#| "source file\n"
+#| "      --list-targets                    List available targets for --"
+#| "target\n"
+#| "\n"
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
 "      --media-type                      Set media type (default %s)\n"
@@ -105,7 +116,6 @@ msgid ""
 "                                          or direct samples (256)\n"
 "                                          the rate is the one of the source "
 "file\n"
-"      --list-targets                    List available targets for --target\n"
 "\n"
 msgstr ""
 "  -R, --remote                          назва віддаленої фонової служби\n"
@@ -123,11 +133,9 @@ msgstr ""
 "ns)\n"
 "                                          або безпосередні семпли (256)\n"
 "                                          частота — частота з файла джерела\n"
-"      --list-targets                    перерахувати доступні цілі для --"
-"target\n"
 "\n"
 
-#: src/tools/pw-cat.c:1080
+#: src/tools/pw-cat.c:895
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -163,12 +171,7 @@ msgstr ""
 "(типово, %d)\n"
 "\n"
 
-#: src/tools/pw-cat.c:1097
-#| msgid ""
-#| "  -p, --playback                        Playback mode\n"
-#| "  -r, --record                          Recording mode\n"
-#| "  -m, --midi                            Midi mode\n"
-#| "\n"
+#: src/tools/pw-cat.c:912
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
@@ -182,7 +185,7 @@ msgstr ""
 "  -d, --dsd                             режим DSD\n"
 "\n"
 
-#: src/tools/pw-cli.c:2954
+#: src/tools/pw-cli.c:3139
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -200,12 +203,12 @@ msgstr ""
 "  -r, --remote                          назва віддаленої фонової служби\n"
 "\n"
 
-#: spa/plugins/alsa/acp/acp.c:310
+#: spa/plugins/alsa/acp/acp.c:321
 msgid "Pro Audio"
 msgstr "Професійний звук"
 
-#: spa/plugins/alsa/acp/acp.c:433 spa/plugins/alsa/acp/alsa-mixer.c:4648
-#: spa/plugins/bluez5/bluez5-device.c:1135
+#: spa/plugins/alsa/acp/acp.c:444 spa/plugins/alsa/acp/alsa-mixer.c:4648
+#: spa/plugins/bluez5/bluez5-device.c:1161
 msgid "Off"
 msgstr "Вимкнено"
 
@@ -232,7 +235,7 @@ msgstr "Лінійний вхід"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2657
 #: spa/plugins/alsa/acp/alsa-mixer.c:2741
-#: spa/plugins/bluez5/bluez5-device.c:1292
+#: spa/plugins/bluez5/bluez5-device.c:1330
 msgid "Microphone"
 msgstr "Мікрофон"
 
@@ -298,7 +301,7 @@ msgid "No Bass Boost"
 msgstr "Без підсилення"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2672
-#: spa/plugins/bluez5/bluez5-device.c:1297
+#: spa/plugins/bluez5/bluez5-device.c:1335
 msgid "Speaker"
 msgstr "Динамік"
 
@@ -413,7 +416,7 @@ msgstr "Стерео"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4484
 #: spa/plugins/alsa/acp/alsa-mixer.c:4642
-#: spa/plugins/bluez5/bluez5-device.c:1282
+#: spa/plugins/bluez5/bluez5-device.c:1320
 msgid "Headset"
 msgstr "Гарнітура"
 
@@ -527,12 +530,12 @@ msgstr "Двобічне стерео"
 msgid "Mono Chat + 7.1 Surround"
 msgstr "Моно, спілкування + об'ємний 7.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4750
+#: spa/plugins/alsa/acp/alsa-mixer.c:4754
 #, c-format
 msgid "%s Output"
 msgstr "%s-вихід"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4757
+#: spa/plugins/alsa/acp/alsa-mixer.c:4761
 #, c-format
 msgid "%s Input"
 msgstr "%s-вхід"
@@ -634,65 +637,73 @@ msgstr[2] ""
 "Ймовірно, ви натрапили на помилку у драйвері ALSA «%s». Будь ласка, "
 "повідомте про цю помилку розробникам ALSA."
 
-#: spa/plugins/alsa/acp/channelmap.h:466
+#: spa/plugins/alsa/acp/channelmap.h:464
 msgid "(invalid)"
 msgstr "(некоректний)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1145
+#: spa/plugins/alsa/acp/compat.c:189
+msgid "Built-in Audio"
+msgstr "Вбудоване аудіо"
+
+#: spa/plugins/alsa/acp/compat.c:194
+msgid "Modem"
+msgstr "Модем"
+
+#: spa/plugins/bluez5/bluez5-device.c:1172
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "Звуковий шлюз (джерело A2DP і HSP/HFP AG)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1168
+#: spa/plugins/bluez5/bluez5-device.c:1197
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr "Високоточне відтворення (приймач A2DP, кодек %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1171
+#: spa/plugins/bluez5/bluez5-device.c:1200
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr "Двобічний високоточний обмін (джерело/приймач A2DP, кодек %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1178
+#: spa/plugins/bluez5/bluez5-device.c:1208
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr "Високоточне відтворення (приймач A2DP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1180
+#: spa/plugins/bluez5/bluez5-device.c:1210
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr "Двобічний високоточний обмін (джерело/приймач A2DP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1207
+#: spa/plugins/bluez5/bluez5-device.c:1238
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
 msgstr "Головний модуль гарнітури (HSP/HFP, кодек %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1211
+#: spa/plugins/bluez5/bluez5-device.c:1243
 msgid "Headset Head Unit (HSP/HFP)"
 msgstr "Головний модуль гарнітури (HSP/HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1287
+#: spa/plugins/bluez5/bluez5-device.c:1325
 msgid "Handsfree"
 msgstr "Hands-Free пристрій"
 
-#: spa/plugins/bluez5/bluez5-device.c:1302
+#: spa/plugins/bluez5/bluez5-device.c:1340
 msgid "Headphone"
 msgstr "Навушники"
 
-#: spa/plugins/bluez5/bluez5-device.c:1307
+#: spa/plugins/bluez5/bluez5-device.c:1345
 msgid "Portable"
 msgstr "Портативна акустика"
 
-#: spa/plugins/bluez5/bluez5-device.c:1312
+#: spa/plugins/bluez5/bluez5-device.c:1350
 msgid "Car"
 msgstr "Автомобільна акустика"
 
-#: spa/plugins/bluez5/bluez5-device.c:1317
+#: spa/plugins/bluez5/bluez5-device.c:1355
 msgid "HiFi"
 msgstr "Hi-Fi"
 
-#: spa/plugins/bluez5/bluez5-device.c:1322
+#: spa/plugins/bluez5/bluez5-device.c:1360
 msgid "Phone"
 msgstr "Телефон"
 
-#: spa/plugins/bluez5/bluez5-device.c:1328
+#: spa/plugins/bluez5/bluez5-device.c:1366
 msgid "Bluetooth"
 msgstr "Bluetooth"

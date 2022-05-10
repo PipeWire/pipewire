@@ -623,15 +623,21 @@ static void process_iphoneaccev_indicator(struct rfcomm *rfcomm, unsigned int ke
 
 	spa_log_debug(backend->log, "key:%u value:%u", key, value);
 
-	if (key == SPA_BT_HFP_HF_IPHONEACCEV_KEY_BATTERY_LEVEL) {
+	switch (key) {
+	case SPA_BT_HFP_HF_IPHONEACCEV_KEY_BATTERY_LEVEL: {
 		// Battery level is reported in range of 0-9, convert to 10-100%
 		uint8_t level = (SPA_CLAMP(value, 0u, 9u) + 1) * 10;
 		spa_log_debug(backend->log, "battery level: %d%%", (int) level);
 
 		// TODO: report without Battery Provider (using props)
 		spa_bt_device_report_battery_level(rfcomm->device, level);
-	} else {
+		break;
+	}
+	case SPA_BT_HFP_HF_IPHONEACCEV_KEY_DOCK_STATE:
+		break;
+	default:
 		spa_log_warn(backend->log, "unknown AT+IPHONEACCEV key:%u value:%u", key, value);
+		break;
 	}
 }
 
@@ -641,7 +647,10 @@ static void process_hfp_hf_indicator(struct rfcomm *rfcomm, unsigned int indicat
 
 	spa_log_debug(backend->log, "indicator:%u value:%u", indicator, value);
 
-	if (indicator == SPA_BT_HFP_HF_INDICATOR_BATTERY_LEVEL) {
+	switch (indicator) {
+	case SPA_BT_HFP_HF_INDICATOR_ENHANCED_SAFETY:
+		break;
+	case SPA_BT_HFP_HF_INDICATOR_BATTERY_LEVEL:
 		// Battery level is reported in range 0-100
 		spa_log_debug(backend->log, "battery level: %u%%", value);
 
@@ -651,8 +660,10 @@ static void process_hfp_hf_indicator(struct rfcomm *rfcomm, unsigned int indicat
 		} else {
 			spa_log_warn(backend->log, "battery HF indicator %u outside of range [0, 100]: %u", indicator, value);
 		}
-	} else {
+		break;
+	default:
 		spa_log_warn(backend->log, "unknown HF indicator:%u value:%u", indicator, value);
+		break;
 	}
 }
 

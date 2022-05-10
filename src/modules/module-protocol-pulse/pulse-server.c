@@ -1288,10 +1288,10 @@ static void stream_process(void *data)
 						stream->buffer, MAXLENGTH,
 						index % MAXLENGTH,
 						p, avail);
+					index += avail;
 				}
 				pd.playing_for = size;
 				pd.read_inc = size;
-				index += size;
 				spa_ringbuffer_read_update(&stream->ring, index);
 			}
 			pw_log_debug("%p: [%s] underrun read:%u avail:%d max:%u",

@@ -2081,6 +2081,9 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 	struct spa_pod *pod;
 	struct control *c;
 
+	if (impl->node == NULL)
+		return -EIO;
+
 	va_start(varargs, values);
 
 	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);

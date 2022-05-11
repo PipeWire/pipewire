@@ -74,7 +74,8 @@ static const struct spa_dict_item module_native_protocol_tcp_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Native protocol (TCP sockets)" },
 	{ PW_KEY_MODULE_USAGE, "port=<TCP port number> "
-				"listen=<address to listen on>" },
+				"listen=<address to listen on> "
+				"auth-anonymous=<don't check for cookies?>"},
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -83,7 +84,10 @@ struct module *create_module_native_protocol_tcp(struct impl *impl, const char *
 	struct module *module;
 	struct module_native_protocol_tcp_data *d;
 	struct pw_properties *props = NULL;
-	const char *port, *listen;
+	const char *port, *listen, *auth;
+	FILE *f;
+	char *args;
+	size_t size;
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -101,8 +105,24 @@ struct module *create_module_native_protocol_tcp(struct impl *impl, const char *
 
 	listen = pw_properties_get(props, "listen");
 
-	pw_properties_setf(props, "pulse.tcp", "[ \"tcp:%s%s%s\" ]",
+	auth = pw_properties_get(props, "auth-anonymous");
+
+	f = open_memstream(&args, &size);
+	if (f == NULL) {
+		res = -errno;
+		goto out;
+	}
+
+	fprintf(f, "[ { ");
+	fprintf(f, " \"address\": \"tcp:%s%s%s\" ",
 			   listen ? listen : "", listen ? ":" : "", port);
+	if (auth && pw_properties_parse_bool(auth))
+		fprintf(f, " \"client.access\": \"unrestricted\" ");
+	fprintf(f, "} ]");
+	fclose(f);
+
+	pw_properties_set(props, "pulse.tcp", args);
+	free(args);
 
 	module = module_new(impl, sizeof(*d));
 	if (module == NULL) {

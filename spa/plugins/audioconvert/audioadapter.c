@@ -964,6 +964,10 @@ static void follower_info(void *data, const struct spa_node_info *info)
 		}
 	}
 	emit_node_info(this, false);
+
+	spa_zero(this->info.props);
+	this->info.change_mask &= ~SPA_NODE_CHANGE_MASK_PROPS;
+
 }
 
 static int recalc_latency(struct impl *this, enum spa_direction direction, uint32_t port_id)

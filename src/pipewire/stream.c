@@ -1774,7 +1774,6 @@ pw_stream_connect(struct pw_stream *stream,
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct pw_impl_factory *factory;
 	struct pw_properties *props = NULL;
-	struct pw_impl_node *follower;
 	const char *str;
 	uint32_t i;
 	int res;
@@ -1923,14 +1922,6 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(props, "channelmix.normalize", "true");
 	}
 
-	follower = pw_context_create_node(impl->context, pw_properties_copy(props), 0);
-	if (follower == NULL) {
-		res = -errno;
-		goto error_node;
-	}
-
-	pw_impl_node_set_implementation(follower, &impl->impl_node);
-
 	if (impl->media_type == SPA_MEDIA_TYPE_audio) {
 		factory = pw_context_find_factory(impl->context, "adapter");
 		if (factory == NULL) {
@@ -1938,7 +1929,8 @@ pw_stream_connect(struct pw_stream *stream,
 			res = -ENOENT;
 			goto error_node;
 		}
-		pw_properties_setf(props, "adapt.follower.node", "pointer:%p", follower);
+		pw_properties_setf(props, "adapt.follower.spa-node", "pointer:%p",
+				&impl->impl_node);
 		pw_properties_set(props, "object.register", "false");
 		impl->node = pw_impl_factory_create_object(factory,
 				NULL,
@@ -1952,9 +1944,13 @@ pw_stream_connect(struct pw_stream *stream,
 			goto error_node;
 		}
 	} else {
-		impl->node = follower;
-		pw_properties_free(props);
+		impl->node = pw_context_create_node(impl->context, props, 0);
 		props = NULL;
+		if (impl->node == NULL) {
+			res = -errno;
+			goto error_node;
+		}
+		pw_impl_node_set_implementation(impl->node, &impl->impl_node);
 	}
 	pw_impl_node_set_active(impl->node,
 			!SPA_FLAG_IS_SET(impl->flags, PW_STREAM_FLAG_INACTIVE));

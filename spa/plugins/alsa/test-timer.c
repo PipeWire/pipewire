@@ -32,15 +32,13 @@
 #include <alsa/asoundlib.h>
 
 #include <spa/utils/dll.h>
+#include <spa/utils/defs.h>
 
 #define DEFAULT_DEVICE	"hw:0"
 
 #define M_PI_M2 (M_PI + M_PI)
 
-#define NSEC_PER_SEC	1000000000ll
-#define TIMESPEC_TO_NSEC(ts) ((ts)->tv_sec * NSEC_PER_SEC + (ts)->tv_nsec)
-
-#define BW_PERIOD	(NSEC_PER_SEC * 3)
+#define BW_PERIOD	(SPA_NSEC_PER_SEC * 3)
 
 struct state {
 	const char *device;
@@ -65,8 +63,8 @@ struct state {
 static int set_timeout(struct state *state, uint64_t time)
 {
 	struct itimerspec ts;
-	ts.it_value.tv_sec = time / NSEC_PER_SEC;
-	ts.it_value.tv_nsec = time % NSEC_PER_SEC;
+	ts.it_value.tv_sec = time / SPA_NSEC_PER_SEC;
+	ts.it_value.tv_nsec = time % SPA_NSEC_PER_SEC;
 	ts.it_interval.tv_sec = 0;
 	ts.it_interval.tv_nsec = 0;
 	return timerfd_settime(state->timerfd, TFD_TIMER_ABSTIME, &ts, NULL);
@@ -133,12 +131,12 @@ static int on_timer_wakeup(struct state *state)
 	CHECK(snd_pcm_htimestamp(state->hndl, &avail, &tstamp), "htimestamp");
 	delay = state->buffer_frames - avail;
 
-	then = TIMESPEC_TO_NSEC(&tstamp);
+	then = SPA_TIMESPEC_TO_NSEC(&tstamp);
 	if (then != 0) {
 		if (then < state->next_time) {
-			delay -= (state->next_time - then) * state->rate / NSEC_PER_SEC;
+			delay -= (state->next_time - then) * state->rate / SPA_NSEC_PER_SEC;
 		} else {
-			delay += (then - state->next_time) * state->rate / NSEC_PER_SEC;
+			delay += (then - state->next_time) * state->rate / SPA_NSEC_PER_SEC;
 		}
 	}
 #endif
@@ -278,7 +276,7 @@ int main(int argc, char *argv[])
 
 	spa_dll_init(&state.dll);
 	spa_dll_set_bw(&state.dll, SPA_DLL_BW_MAX, state.period, state.rate);
-	state.max_error = 256.0;
+	state.max_error = SPA_MAX(256.0, state.period / 2.0f);
 
 	if ((state.timerfd = timerfd_create(CLOCK_MONOTONIC, 0)) < 0)
 		perror("timerfd");
@@ -290,7 +288,7 @@ int main(int argc, char *argv[])
 
 	/* set our first timeout for now */
 	clock_gettime(CLOCK_MONOTONIC, &now);
-	state.prev_time = state.next_time = TIMESPEC_TO_NSEC(&now);
+	state.prev_time = state.next_time = SPA_TIMESPEC_TO_NSEC(&now);
 	set_timeout(&state, state.next_time);
 
 	/* and start playback */

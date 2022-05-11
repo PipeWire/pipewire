@@ -192,6 +192,7 @@ struct state {
 	uint32_t duration;
 	unsigned int alsa_started:1;
 	unsigned int alsa_sync:1;
+	unsigned int alsa_sync_warning:1;
 	unsigned int alsa_recovering:1;
 	unsigned int following:1;
 	unsigned int matching:1;

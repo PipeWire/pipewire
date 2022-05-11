@@ -1791,9 +1791,11 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 	if (err > state->max_error) {
 		err = state->max_error;
 		state->alsa_sync = true;
+		state->alsa_sync_warning = (diff == 0);
 	} else if (err < -state->max_error) {
 		err = -state->max_error;
 		state->alsa_sync = true;
+		state->alsa_sync_warning = (diff == 0);
 	}
 
 	if (!follower || state->matching)
@@ -1901,8 +1903,14 @@ int spa_alsa_write(struct state *state)
 			return res;
 
 		if (SPA_UNLIKELY(state->alsa_sync)) {
-			spa_log_warn(state->log, "%s: follower delay:%ld target:%ld thr:%u, resync",
-					state->props.device, delay, target, state->threshold);
+			if (SPA_UNLIKELY(state->alsa_sync_warning)) {
+				spa_log_warn(state->log, "%s: follower delay:%ld target:%ld thr:%u, resync",
+						state->props.device, delay, target, state->threshold);
+				state->alsa_sync_warning = false;
+			} else
+				spa_log_info(state->log, "%s: follower delay:%ld target:%ld thr:%u, resync",
+						state->props.device, delay, target, state->threshold);
+
 			if (delay > target)
 				snd_pcm_rewind(state->hndl, delay - target);
 			else if (delay < target)
@@ -2139,8 +2147,14 @@ int spa_alsa_read(struct state *state)
 		avail = delay;
 
 		if (state->alsa_sync) {
-			spa_log_warn(state->log, "%s: follower delay:%lu target:%lu thr:%u, resync",
-					state->props.device, delay, target, threshold);
+			if (SPA_UNLIKELY(state->alsa_sync_warning)) {
+				spa_log_warn(state->log, "%s: follower delay:%lu target:%lu thr:%u, resync",
+						state->props.device, delay, target, threshold);
+				state->alsa_sync_warning = false;
+			} else
+				spa_log_info(state->log, "%s: follower delay:%lu target:%lu thr:%u, resync",
+						state->props.device, delay, target, threshold);
+
 			if (delay < target)
 				max_read = target - delay;
 			else if (delay > target)

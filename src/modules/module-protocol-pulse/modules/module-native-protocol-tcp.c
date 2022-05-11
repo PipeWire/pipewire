@@ -116,7 +116,7 @@ struct module *create_module_native_protocol_tcp(struct impl *impl, const char *
 	fprintf(f, "[ { ");
 	fprintf(f, " \"address\": \"tcp:%s%s%s\" ",
 			   listen ? listen : "", listen ? ":" : "", port);
-	if (auth && pw_properties_parse_bool(auth))
+	if (auth && module_args_parse_bool(auth))
 		fprintf(f, " \"client.access\": \"unrestricted\" ");
 	fprintf(f, "} ]");
 	fclose(f);

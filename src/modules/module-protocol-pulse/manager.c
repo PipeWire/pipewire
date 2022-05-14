@@ -41,11 +41,14 @@
 #define manager_emit_removed(m,o) spa_hook_list_call(&m->hooks, struct pw_manager_events, removed, 0, o)
 #define manager_emit_metadata(m,o,s,k,t,v) spa_hook_list_call(&m->hooks, struct pw_manager_events, metadata,0,o,s,k,t,v)
 #define manager_emit_disconnect(m) spa_hook_list_call(&m->hooks, struct pw_manager_events, disconnect, 0)
+#define manager_emit_object_data_timeout(m,o,k) spa_hook_list_call(&m->hooks, struct pw_manager_events, object_data_timeout,0,o,k)
 
 struct object;
 
 struct manager {
 	struct pw_manager this;
+
+	struct pw_loop *loop;
 
 	struct spa_hook core_listener;
 	struct spa_hook registry_listener;
@@ -64,8 +67,10 @@ struct object_info {
 
 struct object_data {
 	struct spa_list link;
+	struct object *object;
 	const char *key;
 	size_t size;
+	struct spa_source *timer;
 };
 
 struct object {
@@ -188,6 +193,16 @@ static void object_update_params(struct object *o)
 	}
 }
 
+static void object_data_free(struct object_data *d)
+{
+	spa_list_remove(&d->link);
+	if (d->timer) {
+		pw_loop_destroy_source(d->object->manager->loop, d->timer);
+		d->timer = NULL;
+	}
+	free(d);
+}
+
 static void object_destroy(struct object *o)
 {
 	struct manager *m = o->manager;
@@ -201,10 +216,8 @@ static void object_destroy(struct object *o)
 		free(o->this.message_object_path);
 	clear_params(&o->this.param_list, SPA_ID_INVALID);
 	clear_params(&o->pending_list, SPA_ID_INVALID);
-	spa_list_consume(d, &o->data_list, link) {
-		spa_list_remove(&d->link);
-		free(d);
-	}
+	spa_list_consume(d, &o->data_list, link)
+		object_data_free(d);
 	free(o);
 }
 
@@ -716,6 +729,7 @@ static const struct pw_core_events core_events = {
 struct pw_manager *pw_manager_new(struct pw_core *core)
 {
 	struct manager *m;
+	struct pw_context *context;
 
 	m = calloc(1, sizeof(*m));
 	if (m == NULL)
@@ -728,6 +742,9 @@ struct pw_manager *pw_manager_new(struct pw_core *core)
 		free(m);
 		return NULL;
 	}
+
+	context = pw_core_get_context(core);
+	m->loop = pw_context_get_main_loop(context);
 
 	spa_hook_list_init(&m->hooks);
 
@@ -847,11 +864,14 @@ void *pw_manager_object_add_data(struct pw_manager_object *obj, const char *key,
 	if (d != NULL) {
 		if (d->size == size)
 			goto done;
-		spa_list_remove(&d->link);
-		free(d);
+		object_data_free(d);
 	}
 
 	d = calloc(1, sizeof(struct object_data) + size);
+	if (d == NULL)
+		return NULL;
+
+	d->object = o;
 	d->key = key;
 	d->size = size;
 
@@ -859,6 +879,49 @@ void *pw_manager_object_add_data(struct pw_manager_object *obj, const char *key,
 
 done:
 	return SPA_PTROFF(d, sizeof(struct object_data), void);
+}
+
+static void object_data_timeout(void *data, uint64_t count)
+{
+	struct object_data *d = data;
+	struct object *o = d->object;
+	struct manager *m = o->manager;
+
+	pw_log_debug("manager:%p object id:%d data '%s' lifetime ends",
+			m, o->this.id, d->key);
+
+	if (d->timer) {
+		pw_loop_destroy_source(m->loop, d->timer);
+		d->timer = NULL;
+	}
+
+	manager_emit_object_data_timeout(m, &o->this, d->key);
+}
+
+void *pw_manager_object_add_temporary_data(struct pw_manager_object *obj, const char *key,
+		size_t size, uint64_t lifetime_nsec)
+{
+	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
+	struct object_data *d;
+	void *data;
+	struct timespec timeout = {0}, interval = {0};
+
+	data = pw_manager_object_add_data(obj, key, size);
+	if (data == NULL)
+		return NULL;
+
+	d = SPA_PTROFF(data, -sizeof(struct object_data), void);
+
+	if (d->timer == NULL)
+		d->timer = pw_loop_add_timer(o->manager->loop, object_data_timeout, d);
+	if (d->timer == NULL)
+		return NULL;
+
+	timeout.tv_sec = lifetime_nsec / SPA_NSEC_PER_SEC;
+	timeout.tv_nsec = lifetime_nsec % SPA_NSEC_PER_SEC;
+	pw_loop_update_timer(o->manager->loop, d->timer, &timeout, &interval, false);
+
+	return data;
 }
 
 void *pw_manager_object_get_data(struct pw_manager_object *obj, const char *id)

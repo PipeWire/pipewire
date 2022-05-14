@@ -55,6 +55,9 @@ struct pw_manager_events {
 			const char *type, const char *value);
 
 	void (*disconnect) (void *data);
+
+	void (*object_data_timeout) (void *data, struct pw_manager_object *object,
+			const char *key);
 };
 
 struct pw_manager {
@@ -115,6 +118,8 @@ int pw_manager_for_each_object(struct pw_manager *manager,
 
 void *pw_manager_object_add_data(struct pw_manager_object *o, const char *key, size_t size);
 void *pw_manager_object_get_data(struct pw_manager_object *obj, const char *key);
+void *pw_manager_object_add_temporary_data(struct pw_manager_object *o, const char *key,
+		size_t size, uint64_t lifetime_nsec);
 
 bool pw_manager_object_is_client(struct pw_manager_object *o);
 bool pw_manager_object_is_module(struct pw_manager_object *o);

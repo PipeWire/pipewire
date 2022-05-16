@@ -731,18 +731,17 @@ static int snd_pcm_pipewire_sw_params(snd_pcm_ioplug_t * io,
 		snd_pcm_sw_params_get_avail_min( sw_params, &min_avail);
 		snd_pcm_sw_params_get_boundary(sw_params, &pw->boundary);
 		if (min_avail != pw->min_avail) {
-			char *latency;
+			char latency[64];
 			struct spa_dict_item item[1];
 			uint32_t min_period = (MIN_PERIOD * io->rate / 48000);
 
 			pw->min_avail = SPA_MAX(min_avail, min_period);
 
-			latency = spa_aprintf("%lu/%u", pw->min_avail, io->rate);
+			spa_scnprintf(latency, sizeof(latency), "%lu/%u", pw->min_avail, io->rate);
 			item[0] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LATENCY, latency);
 
 			pw_log_debug("%p: sw_params update props %p %ld", pw, pw->stream, pw->min_avail);
 			pw_stream_update_properties(pw->stream, &SPA_DICT_INIT(item, 1));
-			free(latency);
 		}
 	} else {
 		pw_log_debug("%p: sw_params pre-prepare noop", pw);

@@ -34,7 +34,7 @@ IGNORE_PREFIX          = pw_ \
                          spa_ \
                          SPA_
 GENERATE_TREEVIEW      = YES
-SEARCHENGINE           = NO
+SEARCHENGINE           = YES
 GENERATE_LATEX         = NO
 
 MACRO_EXPANSION        = YES

@@ -66,6 +66,7 @@ struct node_data {
 	struct spa_list link;
 	struct pw_impl_node *node;
 	struct spa_hook node_listener;
+	struct pw_resource *resource;
 	struct spa_hook resource_listener;
 	unsigned int linger:1;
 };
@@ -75,6 +76,7 @@ static void resource_destroy(void *data)
 	struct node_data *nd = data;
 	pw_log_debug("node %p", nd);
 	spa_hook_remove(&nd->resource_listener);
+	nd->resource = NULL;
 	if (nd->node && !nd->linger)
 		pw_impl_node_destroy(nd->node);
 }
@@ -91,6 +93,11 @@ static void node_destroy(void *data)
 	spa_list_remove(&nd->link);
 	spa_hook_remove(&nd->node_listener);
 	nd->node = NULL;
+
+	if (nd->resource) {
+		spa_hook_remove(&nd->resource_listener);
+		nd->resource = NULL;
+	}
 }
 
 static const struct pw_impl_node_events node_events = {
@@ -148,17 +155,15 @@ static void *create_object(void *_data,
 	pw_impl_node_add_listener(node, &nd->node_listener, &node_events, nd);
 
 	if (client) {
-		struct pw_resource *bound_resource;
-
 		res = pw_global_bind(pw_impl_node_get_global(node),
 			       client, PW_PERM_ALL, version, new_id);
 		if (res < 0)
 			goto error_bind;
 
-		if ((bound_resource = pw_impl_client_find_resource(client, new_id)) == NULL)
+		if ((nd->resource = pw_impl_client_find_resource(client, new_id)) == NULL)
 			goto error_bind;
 
-		pw_resource_add_listener(bound_resource, &nd->resource_listener, &resource_events, nd);
+		pw_resource_add_listener(nd->resource, &nd->resource_listener, &resource_events, nd);
 	}
 	return node;
 

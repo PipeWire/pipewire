@@ -690,9 +690,9 @@ static int impl_node_process(void *object)
 		outio->buffer_id = SPA_ID_INVALID;
 	}
 
-        buffers = alloca(MAX_PORTS * sizeof(struct buffer *));
-        datas = alloca(MAX_PORTS * sizeof(void *));
-        n_buffers = 0;
+	buffers = alloca(MAX_PORTS * sizeof(struct buffer *));
+	datas = alloca(MAX_PORTS * sizeof(void *));
+	n_buffers = 0;
 
 	maxsize = UINT32_MAX;
 
@@ -700,6 +700,8 @@ static int impl_node_process(void *object)
 		struct port *inport = GET_IN_PORT(this, i);
 		struct spa_io_buffers *inio = NULL;
 		struct buffer *inb;
+		struct spa_data *bd;
+		uint32_t size, offs;
 
 		if (SPA_UNLIKELY(!PORT_VALID(inport) ||
 		    (inio = inport->io) == NULL ||
@@ -715,21 +717,26 @@ static int impl_node_process(void *object)
 		}
 
 		inb = &inport->buffers[inio->buffer_id];
-		maxsize = SPA_MIN(inb->buffer->datas[0].chunk->size, maxsize);
+		bd = &inb->buffer->datas[0];
 
-		spa_log_trace_fp(this->log, "%p: mix input %d %p->%p %d %d %d", this,
-				i, inio, outio, inio->status, inio->buffer_id, maxsize);
+		offs = SPA_MIN(bd->chunk->offset, bd->maxsize);
+		size = SPA_MIN(bd->maxsize - offs, bd->chunk->size);
+		maxsize = SPA_MIN(maxsize, size);
 
-		datas[n_buffers] = inb->buffer->datas[0].data;
+		spa_log_trace_fp(this->log, "%p: mix input %d %p->%p %d %d %d:%d", this,
+				i, inio, outio, inio->status, inio->buffer_id,
+				offs, size);
+
+		datas[n_buffers] = SPA_PTROFF(bd->data, offs, void);
 		buffers[n_buffers++] = inb;
 		inio->status = SPA_STATUS_NEED_DATA;
 	}
 
 	outb = dequeue_buffer(this, outport);
-        if (SPA_UNLIKELY(outb == NULL)) {
-                spa_log_trace(this->log, "%p: out of buffers", this);
-                return -EPIPE;
-        }
+	if (SPA_UNLIKELY(outb == NULL)) {
+		spa_log_trace(this->log, "%p: out of buffers", this);
+		return -EPIPE;
+	}
 
 	if (n_buffers == 1) {
 		*outb->buffer = *buffers[0]->buffer;
@@ -742,6 +749,8 @@ static int impl_node_process(void *object)
 		d[0].chunk->offset = 0;
 		d[0].chunk->size = maxsize;
 		d[0].chunk->stride = sizeof(float);
+
+		spa_log_trace_fp(this->log, "%p: %d mix %d", this, n_buffers, maxsize);
 
 		mix_ops_process(&this->ops, d[0].data,
 				datas, n_buffers, maxsize / sizeof(float));

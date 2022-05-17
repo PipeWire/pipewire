@@ -713,6 +713,8 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 		spa_atof(s, &this->mix.widen);
 	else if (spa_streq(k, "channelmix.hilbert-taps"))
 		spa_atou32(s, &this->mix.hilbert_taps, 0);
+	else if (spa_streq(k, "channelmix.upmix-method"))
+		this->mix.upmix = channelmix_upmix_from_label(s);
 	else if (spa_streq(k, "resample.quality"))
 		this->props.resample_quality = atoi(s);
 	else if (spa_streq(k, "resample.disable"))
@@ -1994,12 +1996,12 @@ static int impl_node_process(void *object)
 		port = GET_IN_PORT(this, i);
 
 		if ((io = port->io) == NULL) {
-			spa_log_debug(this->log, "%p: no io on port %d",
+			spa_log_trace_fp(this->log, "%p: no io on input port %d",
 					this, port->id);
 			buf = NULL;
 		} else if (io->status != SPA_STATUS_HAVE_DATA ||
 		    io->buffer_id >= port->n_buffers) {
-			spa_log_debug(this->log, "%p: empty port %d %p %d %d %d",
+			spa_log_trace_fp(this->log, "%p: empty input port %d %p %d %d %d",
 					this, port->id, io, io->status, io->buffer_id,
 					port->n_buffers);
 			buf = NULL;
@@ -2220,7 +2222,7 @@ static int impl_node_process(void *object)
 			else
 				bd->chunk->size = n_samples * port->stride;
 
-			spa_log_debug(this->log, "%d %d %d", max_mon, n_samples, bd->chunk->size);
+			spa_log_trace_fp(this->log, "out: %d %d %d", max_mon, n_samples, bd->chunk->size);
 		}
 	}
 	return SPA_STATUS_NEED_DATA | SPA_STATUS_HAVE_DATA;
@@ -2315,15 +2317,21 @@ impl_init(const struct spa_handle_factory *factory,
 		this->max_align = SPA_MIN(MAX_ALIGN, spa_cpu_get_max_align(this->cpu));
 	}
 
-	this->mix.options = CHANNELMIX_OPTION_NORMALIZE;
+	this->mix.options = CHANNELMIX_OPTION_UPMIX;
+	this->mix.upmix = CHANNELMIX_UPMIX_PSD;
 	this->mix.log = this->log;
+	this->mix.lfe_cutoff = 150.0f;
+	this->mix.fc_cutoff = 12000.0f;
 	this->mix.rear_delay = 12.0f;
+	this->mix.widen = 0.0f;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
 		if (spa_streq(k, "clock.quantum-limit"))
 			spa_atou32(s, &this->quantum_limit, 0);
+		else if (spa_streq(k, "resample.peaks"))
+			this->peaks = spa_atob(s);
 		else if (spa_streq(k, "factory.mode")) {
 			if (spa_streq(s, "merge"))
 				this->direction = SPA_DIRECTION_OUTPUT;

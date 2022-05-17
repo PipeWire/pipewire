@@ -2018,14 +2018,19 @@ static int impl_node_process(void *object)
 			}
 		} else {
 			for (j = 0; j < port->blocks; j++) {
-				bd = &buf->buf->datas[j];
+				uint32_t offs, size;
+
 				remap = dir->src_remap[n_src_datas++];
-				src_datas[remap] = SPA_PTROFF(bd->data, bd->chunk->offset, void);
+				bd = &buf->buf->datas[j];
 
-				n_samples = SPA_MIN(n_samples, bd->chunk->size / port->stride);
+				offs = SPA_MIN(bd->chunk->offset, bd->maxsize);
+				size = SPA_MIN(bd->maxsize - offs, bd->chunk->size);
 
-				spa_log_trace_fp(this->log, "%p: %d %d %d->%d", this,
-						bd->chunk->size, n_samples,
+				src_datas[remap] = SPA_PTROFF(bd->data, offs, void);
+				n_samples = SPA_MIN(n_samples, size / port->stride);
+
+				spa_log_trace_fp(this->log, "%p: %d:%d %d %d->%d", this,
+						offs, size, n_samples,
 						i * port->blocks + j, remap);
 			}
 		}
@@ -2108,8 +2113,8 @@ static int impl_node_process(void *object)
 					dst_datas[remap] = bd->data;
 					max_out = SPA_MIN(max_out, bd->maxsize / port->stride);
 				}
-				spa_log_trace_fp(this->log, "%p: %d %d %d->%d", this,
-						bd->chunk->size, n_samples,
+				spa_log_trace_fp(this->log, "%p: %d:%d %d %d->%d", this,
+						max_mon, max_out, n_samples,
 						i * port->blocks + j, remap);
 			}
 		}

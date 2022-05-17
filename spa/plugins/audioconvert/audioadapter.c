@@ -282,38 +282,45 @@ static int debug_params(struct impl *this, struct spa_node *node,
                 enum spa_direction direction, uint32_t port_id, uint32_t id, struct spa_pod *filter,
 		const char *debug, int err)
 {
-        struct spa_pod_builder b = { 0 };
-        uint8_t buffer[4096];
-        uint32_t state;
-        struct spa_pod *param;
-        int res;
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[4096];
+	uint32_t state;
+	struct spa_pod *param;
+	int res, count = 0;
 
-        spa_log_error(this->log, "params %s: %d:%d (%s) %s",
+	spa_log_error(this->log, "params %s: %d:%d (%s) %s",
 			spa_debug_type_find_name(spa_type_param, id),
-			direction, port_id, debug, spa_strerror(err));
+			direction, port_id, debug, err ? spa_strerror(err) : "no matching params");
 	if (err == -EBUSY)
 		return 0;
 
-        state = 0;
-        while (true) {
-                spa_pod_builder_init(&b, buffer, sizeof(buffer));
-                res = spa_node_port_enum_params_sync(node,
-                                       direction, port_id,
-                                       id, &state,
-                                       NULL, &param, &b);
-                if (res != 1) {
+	if (filter) {
+		spa_log_error(this->log, "with this filter:");
+		spa_debug_pod(2, NULL, filter);
+	} else {
+		spa_log_error(this->log, "there was no filter");
+	}
+
+	state = 0;
+	while (true) {
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		res = spa_node_port_enum_params_sync(node,
+					direction, port_id,
+					id, &state,
+					NULL, &param, &b);
+		if (res != 1) {
 			if (res < 0)
 				spa_log_error(this->log, "  error: %s", spa_strerror(res));
-                        break;
+			break;
 		}
-                spa_debug_pod(2, NULL, param);
-        }
+		spa_log_error(this->log, "unmatched %s %d:", debug, count);
+		spa_debug_pod(2, NULL, param);
+		count++;
+	}
+	if (count == 0)
+		spa_log_error(this->log, "could not get any %s", debug);
 
-        spa_log_error(this->log, "failed filter:");
-        if (filter)
-                spa_debug_pod(2, NULL, filter);
-
-        return 0;
+	return 0;
 }
 
 static int negotiate_buffers(struct impl *this)

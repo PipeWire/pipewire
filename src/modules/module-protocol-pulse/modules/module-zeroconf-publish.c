@@ -545,8 +545,18 @@ static void manager_removed(void *d, struct pw_manager_object *o)
 static void manager_added(void *d, struct pw_manager_object *o)
 {
 	struct service *s;
+	struct pw_node_info *info;
+	const char *str;
 
 	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
+		return;
+
+	info = o->info;
+	if (info == NULL || info->props == NULL)
+		return;
+
+	if ((str = spa_dict_lookup(info->props, PW_KEY_NODE_NETWORK)) != NULL &&
+	    spa_atob(str))
 		return;
 
 	s = create_service(d, o);

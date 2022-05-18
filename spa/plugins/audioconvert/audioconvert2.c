@@ -1306,22 +1306,31 @@ static int setup_out_convert(struct impl *this)
 static int setup_convert(struct impl *this)
 {
 	struct dir *in, *out;
-	uint32_t i;
+	uint32_t i, rate;
 
 	in = &this->dir[SPA_DIRECTION_INPUT];
 	out = &this->dir[SPA_DIRECTION_OUTPUT];
 
 	if (!in->have_format || !out->have_format)
 		return -EINVAL;
-	if (in->format.info.raw.rate == 0 && out->format.info.raw.rate == 0)
-		return -EINVAL;
-	if (in->format.info.raw.channels == 0 && out->format.info.raw.channels == 0)
-		return -EINVAL;
+
+	rate = this->io_position ?  this->io_position->clock.rate.denom : DEFAULT_RATE;
+
+	if (in->format.info.raw.rate == 0 && in->mode == SPA_PARAM_PORT_CONFIG_MODE_dsp)
+		in->format.info.raw.rate = rate;
+	if (out->format.info.raw.rate == 0 && out->mode == SPA_PARAM_PORT_CONFIG_MODE_dsp)
+		out->format.info.raw.rate = rate;
 
 	if (in->format.info.raw.rate == 0)
 		in->format.info.raw.rate = out->format.info.raw.rate;
 	else if (out->format.info.raw.rate == 0)
 		out->format.info.raw.rate = in->format.info.raw.rate;
+
+	if (in->format.info.raw.rate == 0 && out->format.info.raw.rate == 0)
+		return -EINVAL;
+	if (in->format.info.raw.channels == 0 && out->format.info.raw.channels == 0)
+		return -EINVAL;
+
 	if (in->format.info.raw.channels == 0)
 		in->format.info.raw.channels = out->format.info.raw.channels;
 	else if (out->format.info.raw.channels == 0)
@@ -2245,7 +2254,7 @@ static int impl_node_process(void *object)
 	}
 
 	dir = &this->dir[SPA_DIRECTION_OUTPUT];
-	if (this->out_offset > 0 && (this->out_offset >= max_out || flush_out)) {
+	if (n_samples > 0 && (this->out_offset >= max_out || flush_out)) {
 		/* queue output buffers */
 		for (i = 0; i < dir->n_ports; i++) {
 			port = GET_OUT_PORT(this, i);

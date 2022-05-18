@@ -850,6 +850,7 @@ static const struct option long_options[] = {
 	{ "media-role",		required_argument, NULL, OPT_MEDIA_ROLE },
 	{ "target",		required_argument, NULL, OPT_TARGET },
 	{ "latency",		required_argument, NULL, OPT_LATENCY },
+	{ "properties",		required_argument, NULL, 'P' },
 
 	{ "rate",		required_argument, NULL, OPT_RATE },
 	{ "channels",		required_argument, NULL, OPT_CHANNELS },
@@ -885,6 +886,7 @@ static void show_usage(const char *name, bool is_error)
 	     "                                          Xunit (unit = s, ms, us, ns)\n"
 	     "                                          or direct samples (256)\n"
 	     "                                          the rate is the one of the source file\n"
+	     "  -P  --properties                      Set node properties\n"
 	     "\n"),
 	     DEFAULT_MEDIA_TYPE,
 	     DEFAULT_MEDIA_CATEGORY_PLAYBACK,
@@ -1351,8 +1353,17 @@ int main(int argc, char *argv[])
 	/* negative means no volume adjustment */
 	data.volume = -1.0;
 	data.quality = -1;
+	data.props = pw_properties_new(
+			PW_KEY_APP_NAME, prog,
+			PW_KEY_NODE_NAME, prog,
+			NULL);
 
-	while ((c = getopt_long(argc, argv, "hvprmdR:q:", long_options, NULL)) != -1) {
+	if (data.props == NULL) {
+		fprintf(stderr, "error: pw_properties_new() failed: %m\n");
+		goto error_no_props;
+	}
+
+	while ((c = getopt_long(argc, argv, "hvprmdR:q:P:", long_options, NULL)) != -1) {
 
 		switch (c) {
 
@@ -1407,6 +1418,10 @@ int main(int argc, char *argv[])
 
 		case OPT_MEDIA_ROLE:
 			data.media_role = optarg;
+			break;
+
+		case 'P':
+			pw_properties_update_string(data.props, optarg, strlen(optarg));
 			break;
 
 		case OPT_TARGET:
@@ -1505,21 +1520,12 @@ int main(int argc, char *argv[])
 	}
 	data.filename = argv[optind++];
 
-	data.props = pw_properties_new(
-			PW_KEY_MEDIA_TYPE, data.media_type,
-			PW_KEY_MEDIA_CATEGORY, data.media_category,
-			PW_KEY_MEDIA_ROLE, data.media_role,
-			PW_KEY_APP_NAME, prog,
-			PW_KEY_MEDIA_FILENAME, data.filename,
-			PW_KEY_MEDIA_NAME, data.filename,
-			PW_KEY_NODE_NAME, prog,
-			PW_KEY_TARGET_OBJECT, data.target,
-			NULL);
-
-	if (data.props == NULL) {
-		fprintf(stderr, "error: pw_properties_new() failed: %m\n");
-		goto error_no_props;
-	}
+	pw_properties_set(data.props, PW_KEY_MEDIA_TYPE, data.media_type);
+	pw_properties_set(data.props, PW_KEY_MEDIA_CATEGORY, data.media_category);
+	pw_properties_set(data.props, PW_KEY_MEDIA_ROLE, data.media_role);
+	pw_properties_set(data.props, PW_KEY_MEDIA_FILENAME, data.filename);
+	pw_properties_set(data.props, PW_KEY_MEDIA_NAME, data.filename);
+	pw_properties_set(data.props, PW_KEY_TARGET_OBJECT, data.target);
 
 	/* make a main loop. If you already have another main loop, you can add
 	 * the fd of this pipewire mainloop to it. */

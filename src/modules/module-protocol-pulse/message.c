@@ -825,12 +825,12 @@ struct message *message_alloc(struct impl *impl, uint32_t channel, uint32_t size
 	if (!spa_list_is_empty(&impl->free_messages)) {
 		msg = spa_list_first(&impl->free_messages, struct message, link);
 		spa_list_remove(&msg->link);
-		pw_log_trace("using recycled message %p", msg);
+		pw_log_trace("using recycled message %p size:%d", msg, size);
 	} else {
 		if ((msg = calloc(1, sizeof(*msg))) == NULL)
 			return NULL;
 
-		pw_log_trace("new message %p", msg);
+		pw_log_trace("new message %p size:%d", msg, size);
 		msg->stat = &impl->stat;
 		msg->stat->n_allocated++;
 		msg->stat->n_accumulated++;
@@ -864,7 +864,8 @@ void message_free(struct impl *impl, struct message *msg, bool dequeue, bool des
 		free(msg->data);
 		free(msg);
 	} else {
-		pw_log_trace("recycle message %p size:%d", msg, msg->allocated);
+		pw_log_trace("recycle message %p size:%d/%d", msg, msg->length, msg->allocated);
 		spa_list_append(&impl->free_messages, &msg->link);
+		msg->length = 0;
 	}
 }

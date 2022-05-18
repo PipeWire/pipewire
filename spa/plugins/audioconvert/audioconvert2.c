@@ -1537,7 +1537,7 @@ impl_node_port_enum_params(void *object, int seq,
 
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
-			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
 								this->quantum_limit * port->stride,
@@ -1937,31 +1937,31 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	return 0;
 }
 
-static void resample_update_rate_match(struct impl *this, bool passthrough, uint32_t out_size, uint32_t in_queued)
+static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, uint32_t out_size, uint32_t in_queued)
 {
 	double rate = this->rate_scale / this->props.rate;
+	uint32_t delay, match_size;
+
+	if (passthrough) {
+		delay = 0;
+		match_size = out_size;
+	} else {
+		if (this->io_rate_match &&
+		    SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
+			rate *= this->io_rate_match->rate;
+		resample_update_rate(&this->resample, rate);
+		delay = resample_delay(&this->resample);
+		match_size = resample_in_len(&this->resample, out_size);
+	}
+	match_size -= SPA_MIN(match_size, in_queued);
+
+	spa_log_trace_fp(this->log, "%p: next match %u", this, match_size);
 
 	if (this->io_rate_match) {
-		uint32_t match_size;
-
-		if (passthrough) {
-			this->io_rate_match->delay = 0;
-			match_size = out_size;
-		} else {
-			if (SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
-				resample_update_rate(&this->resample, rate * this->io_rate_match->rate);
-			else
-				resample_update_rate(&this->resample, rate);
-
-			this->io_rate_match->delay = resample_delay(&this->resample);
-			match_size = resample_in_len(&this->resample, out_size);
-		}
-		match_size -= SPA_MIN(match_size, in_queued);
+		this->io_rate_match->delay = delay;
 		this->io_rate_match->size = match_size;
-		spa_log_trace_fp(this->log, "%p: next match %u", this, match_size);
-	} else {
-		resample_update_rate(&this->resample, rate);
 	}
+	return match_size;
 }
 
 static inline bool resample_is_passthrough(struct impl *this)
@@ -1978,20 +1978,20 @@ static int impl_node_process(void *object)
 	const void *src_datas[MAX_PORTS], **in_datas;
 	void *dst_datas[MAX_PORTS], *mon_datas[MAX_PORTS], **out_datas;
 	uint32_t i, j, n_src_datas = 0, n_dst_datas = 0, n_mon_datas = 0, remap;
-	uint32_t n_samples, max_in, max_mon, max_out, quant_samples, n_empty;
+	uint32_t n_samples, max_in, max_out, max_mon, quant_samples;
 	struct port *port;
 	struct buffer *buf, *out_bufs[MAX_PORTS];
 	struct spa_data *bd;
 	struct dir *dir;
 	int tmp = 0, res;
 	bool in_passthrough, mix_passthrough, resample_passthrough, out_passthrough, end_passthrough;
-	bool flush_in = false, flush_out = false, draining = false;
+	bool in_avail = false, flush_in = false, flush_out = false, draining = false;
 	struct spa_io_buffers *io;
 
 	dir = &this->dir[SPA_DIRECTION_INPUT];
 	in_passthrough = dir->conv.is_passthrough;
 
-	n_samples = n_empty = max_in = UINT32_MAX;
+	max_in = UINT32_MAX;
 
 	/* collect input port data */
 	for (i = 0; i < dir->n_ports; i++) {
@@ -2004,7 +2004,7 @@ static int impl_node_process(void *object)
 		} else if (io->status != SPA_STATUS_HAVE_DATA) {
 			if (io->status & SPA_STATUS_DRAINED) {
 				spa_log_debug(this->log, "%p: port %d drained", this, port->id);
-				flush_in = draining = true;
+				in_avail = flush_in = draining = true;
 			} else {
 				spa_log_trace_fp(this->log, "%p: empty input port %d %p %d %d %d",
 						this, port->id, io, io->status, io->buffer_id,
@@ -2027,10 +2027,10 @@ static int impl_node_process(void *object)
 				src_datas[remap] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
 				spa_log_trace_fp(this->log, "%p: empty input %d->%d", this,
 						i * port->blocks + j, remap);
-				n_empty = SPA_MIN(n_empty, this->empty_size / port->stride);
 				max_in = SPA_MIN(max_in, this->empty_size / port->stride);
 			}
 		} else {
+			in_avail = true;
 			for (j = 0; j < port->blocks; j++) {
 				uint32_t offs, size;
 
@@ -2041,14 +2041,11 @@ static int impl_node_process(void *object)
 				size = SPA_MIN(bd->maxsize - offs, bd->chunk->size);
 				max_in = SPA_MIN(max_in, size / port->stride);
 
-				offs = SPA_MIN(offs + this->in_offset * port->stride, bd->maxsize);
-				size = SPA_MIN(bd->maxsize - offs, bd->chunk->size);
-
+				offs += this->in_offset * port->stride;
 				src_datas[remap] = SPA_PTROFF(bd->data, offs, void);
-				n_samples = SPA_MIN(n_samples, size / port->stride);
 
 				spa_log_trace_fp(this->log, "%p: input %d:%d:%d %d %d %d->%d", this,
-						offs, size, port->stride, max_in, n_samples,
+						offs, size, port->stride, this->in_offset, max_in,
 						i * port->blocks + j, remap);
 			}
 		}
@@ -2078,16 +2075,18 @@ static int impl_node_process(void *object)
 	else
 		quant_samples = this->quantum_limit;
 
-	if (draining)
-		n_samples = SPA_MIN(n_empty, this->quantum_limit);
-
 	resample_passthrough = resample_is_passthrough(this);
-	if (n_samples == UINT32_MAX || this->drained) {
-		spa_log_debug(this->log, "%p: %d %d", this, n_samples, this->drained);
+	if (!in_avail || this->drained) {
+		spa_log_debug(this->log, "%p: no input drained:%d", this, this->drained);
 		/* no input, ask for more */
 		resample_update_rate_match(this, resample_passthrough, quant_samples, 0);
 		return this->drained ? SPA_STATUS_DRAINED : SPA_STATUS_NEED_DATA;
 	}
+
+	if (draining)
+		n_samples = SPA_MIN(max_in, this->quantum_limit);
+	else
+		n_samples = max_in - this->in_offset;
 
 	dir = &this->dir[SPA_DIRECTION_OUTPUT];
 	out_passthrough = dir->conv.is_passthrough;
@@ -2130,8 +2129,7 @@ static int impl_node_process(void *object)
 				bd->chunk->size = 0;
 				if (port->is_monitor) {
 					remap = n_mon_datas++;
-					mon_datas[remap] = SPA_PTROFF(bd->data,
-							this->out_offset * port->stride, void);
+					mon_datas[remap] = bd->data;
 					max_mon = SPA_MIN(max_mon, bd->maxsize / port->stride);
 				} else {
 					remap = dir->dst_remap[n_dst_datas++];
@@ -2169,7 +2167,9 @@ static int impl_node_process(void *object)
 	if (this->direction == SPA_DIRECTION_INPUT) {
 		/* in split mode we need to output exactly the size of the
 		 * duration so we don't try to flush early */
-		n_samples = max_out = SPA_MIN(max_out, quant_samples);
+		n_samples = SPA_MIN(n_samples,
+				resample_update_rate_match(this, resample_passthrough, quant_samples, 0));
+		max_out = SPA_MIN(max_out, quant_samples);
 		flush_out = false;
 	} else {
 		/* in merge mode we consume one duration of samples and
@@ -2217,7 +2217,6 @@ static int impl_node_process(void *object)
 				n_samples, max_out, in_len, out_len, out_passthrough);
 		n_samples = out_len;
 	}
-	resample_update_rate_match(this, resample_passthrough, max_out, 0);
 	this->out_offset += n_samples;
 
 	if (!out_passthrough) {
@@ -2226,11 +2225,13 @@ static int impl_node_process(void *object)
 		convert_process(&this->dir[SPA_DIRECTION_OUTPUT].conv, dst_datas, in_datas, n_samples);
 	}
 
-	spa_log_trace_fp(this->log, "%d/%d  %d/%d", this->in_offset, max_in, this->out_offset, max_out);
+	spa_log_trace_fp(this->log, "%d/%d  %d/%d %d", this->in_offset, max_in,
+			this->out_offset, max_out, n_samples);
+
 	res = 0;
+	dir = &this->dir[SPA_DIRECTION_INPUT];
 	if (this->in_offset >= max_in || flush_in) {
 		/* return input buffers */
-		dir = &this->dir[SPA_DIRECTION_INPUT];
 		for (i = 0; i < dir->n_ports; i++) {
 			port = GET_IN_PORT(this, i);
 			if ((io = port->io) != NULL) {
@@ -2239,12 +2240,13 @@ static int impl_node_process(void *object)
 			}
 		}
 		this->in_offset = 0;
+		max_in = 0;
 		res |= SPA_STATUS_NEED_DATA;
 	}
 
+	dir = &this->dir[SPA_DIRECTION_OUTPUT];
 	if (this->out_offset > 0 && (this->out_offset >= max_out || flush_out)) {
 		/* queue output buffers */
-		dir = &this->dir[SPA_DIRECTION_OUTPUT];
 		for (i = 0; i < dir->n_ports; i++) {
 			port = GET_OUT_PORT(this, i);
 			buf = out_bufs[i];
@@ -2273,6 +2275,22 @@ static int impl_node_process(void *object)
 		this->drained = draining;
 		this->out_offset = 0;
 	}
+	if (n_samples == 0 && this->peaks) {
+		for (i = 0; i < dir->n_ports; i++) {
+			port = GET_OUT_PORT(this, i);
+			if (SPA_UNLIKELY((io = port->io) == NULL))
+				continue;
+
+			io->status = SPA_STATUS_HAVE_DATA;
+			io->buffer_id = SPA_ID_INVALID;
+			res |= SPA_STATUS_HAVE_DATA;
+			spa_log_trace_fp(this->log, "%p: no output buffer", this);
+		}
+	}
+	resample_update_rate_match(this, resample_passthrough,
+			quant_samples,
+			max_in - this->in_offset);
+
 	return res;
 }
 

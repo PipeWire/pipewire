@@ -126,7 +126,7 @@ mix_f32_avx(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_RESTR
 	if (n_src == 0)
 		memset(dst, 0, n_samples * ops->n_channels * sizeof(float));
 	else if (dst != src[0])
-		memcpy(dst, src[0], n_samples * ops->n_channels * sizeof(float));
+		spa_memcpy(dst, src[0], n_samples * ops->n_channels * sizeof(float));
 
 	for (i = 1; i + 2 < n_src; i += 3)
 		mix_4(dst, src[i], src[i + 1], src[i + 2], n_samples);

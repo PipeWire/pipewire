@@ -81,7 +81,7 @@ mix_f64_sse2(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_REST
 	if (n_src == 0)
 		memset(dst, 0, n_samples * ops->n_channels * sizeof(double));
 	else if (dst != src[0])
-		memcpy(dst, src[0], n_samples * ops->n_channels * sizeof(double));
+		spa_memcpy(dst, src[0], n_samples * ops->n_channels * sizeof(double));
 
 	for (i = 1; i < n_src; i++) {
 		mix_2(dst, src[i], n_samples * ops->n_channels);

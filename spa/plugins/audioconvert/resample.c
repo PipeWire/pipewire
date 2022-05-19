@@ -1068,7 +1068,7 @@ static int impl_node_process(void *object)
 	if (passthrough) {
 		uint32_t len = SPA_MIN(in_len, out_len);
 		for (i = 0; i < sb->n_datas; i++)
-			memcpy(dst_datas[i], src_datas[i], len * sizeof(float));
+			spa_memcpy(dst_datas[i], src_datas[i], len * sizeof(float));
 		out_len = in_len = len;
 	} else {
 		resample_process(&this->resample, src_datas, &in_len, dst_datas, &out_len);

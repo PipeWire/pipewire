@@ -1147,6 +1147,8 @@ static int remap_volumes(struct impl *this, const struct spa_audio_info *info)
 static void set_volume(struct impl *this)
 {
 	struct volumes *vol;
+	uint32_t i;
+	float volumes[SPA_AUDIO_MAX_CHANNELS];
 	struct dir *dir = &this->dir[this->direction];
 
 	if (dir->have_format)
@@ -1160,8 +1162,11 @@ static void set_volume(struct impl *this)
 	else
 		vol = &this->props.channel;
 
+	for (i = 0; i < vol->n_volumes; i++)
+		volumes[i] = vol->volumes[dir->src_remap[i]];
+
 	channelmix_set_volume(&this->mix, this->props.volume, vol->mute,
-			vol->n_volumes, vol->volumes);
+			vol->n_volumes, volumes);
 }
 
 static int setup_channelmix(struct impl *this)

@@ -1997,30 +1997,6 @@ static int impl_node_process(void *object)
 	bool in_avail = false, flush_in = false, flush_out = false, draining = false;
 	struct spa_io_buffers *io;
 
-	/* calculate quantum scale */
-	if (SPA_LIKELY(this->io_position)) {
-		double r =  this->rate_scale;
-
-		quant_samples = this->io_position->clock.duration;
-		if (this->direction == SPA_DIRECTION_INPUT) {
-			if (this->io_position->clock.rate.denom != this->resample.o_rate)
-				r = (double) this->io_position->clock.rate.denom / this->resample.o_rate;
-			else
-				r = 1.0;
-		} else {
-			if (this->io_position->clock.rate.denom != this->resample.i_rate)
-				r = (double) this->resample.i_rate / this->io_position->clock.rate.denom;
-			else
-				r = 1.0;
-		}
-		if (this->rate_scale != r) {
-			spa_log_info(this->log, "scale %f->%f", this->rate_scale, r);
-			this->rate_scale = r;
-		}
-	}
-	else
-		quant_samples = this->quantum_limit;
-
 	dir = &this->dir[SPA_DIRECTION_INPUT];
 	in_passthrough = dir->conv.is_passthrough;
 
@@ -2084,15 +2060,60 @@ static int impl_node_process(void *object)
 		}
 	}
 
+	/* calculate quantum scale */
+	if (SPA_LIKELY(this->io_position)) {
+		double r =  this->rate_scale;
+
+		quant_samples = this->io_position->clock.duration;
+		if (this->direction == SPA_DIRECTION_INPUT) {
+			if (this->io_position->clock.rate.denom != this->resample.o_rate)
+				r = (double) this->io_position->clock.rate.denom / this->resample.o_rate;
+			else
+				r = 1.0;
+		} else {
+			if (this->io_position->clock.rate.denom != this->resample.i_rate)
+				r = (double) this->resample.i_rate / this->io_position->clock.rate.denom;
+			else
+				r = 1.0;
+		}
+		if (this->rate_scale != r) {
+			spa_log_info(this->log, "scale %f->%f", this->rate_scale, r);
+			this->rate_scale = r;
+		}
+	}
+	else
+		quant_samples = this->quantum_limit;
+
 	if (draining)
 		n_samples = SPA_MIN(max_in, this->quantum_limit);
 	else
 		n_samples = max_in - this->in_offset;
 
+	resample_passthrough = resample_is_passthrough(this);
+
+	if (this->direction == SPA_DIRECTION_INPUT) {
+		uint32_t out = resample_update_rate_match(this, resample_passthrough, quant_samples, 0);
+		if (!in_avail || this->drained) {
+			spa_log_debug(this->log, "%p: no input drained:%d", this, this->drained);
+			/* no input, ask for more */
+			res |= this->drained ? SPA_STATUS_DRAINED : SPA_STATUS_NEED_DATA;
+			return res;
+		}
+		/* in split mode we need to output exactly the size of the
+		 * duration so we don't try to flush early */
+		n_samples = SPA_MIN(n_samples, out);
+		max_out = quant_samples;
+		flush_out = false;
+	} else {
+		/* in merge mode we consume one duration of samples and
+		 * always output the resulting data */
+		n_samples = SPA_MIN(n_samples, quant_samples);
+		max_out = this->quantum_limit;
+		in_avail = flush_out = true;
+	}
+
 	dir = &this->dir[SPA_DIRECTION_OUTPUT];
 	out_passthrough = dir->conv.is_passthrough;
-
-	max_out = UINT32_MAX;
 
 	/* collect output ports and monitor ports data */
 	for (i = 0; i < dir->n_ports; i++) {
@@ -2165,32 +2186,6 @@ static int impl_node_process(void *object)
 				}
 			}
 		}
-	}
-
-	resample_passthrough = resample_is_passthrough(this);
-
-	/* calculate in/out sizes */
-	if (this->direction == SPA_DIRECTION_INPUT) {
-		/* in split mode we need to output exactly the size of the
-		 * duration so we don't try to flush early */
-		n_samples = SPA_MIN(n_samples,
-				resample_update_rate_match(this, resample_passthrough, quant_samples, 0));
-		max_out = SPA_MIN(max_out, quant_samples);
-		flush_out = false;
-	} else {
-		/* in merge mode we consume one duration of samples and
-		 * always output the resulting data */
-		max_out = SPA_MIN(max_out, this->quantum_limit);
-		n_samples = SPA_MIN(n_samples, quant_samples);
-		in_avail = flush_out = true;
-	}
-
-	if (!in_avail || this->drained) {
-		spa_log_debug(this->log, "%p: no input drained:%d", this, this->drained);
-		/* no input, ask for more */
-		resample_update_rate_match(this, resample_passthrough, quant_samples, 0);
-		res |= this->drained ? SPA_STATUS_DRAINED : SPA_STATUS_NEED_DATA;
-		return res;
 	}
 
 	mix_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY);

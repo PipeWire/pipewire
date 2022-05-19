@@ -2168,16 +2168,6 @@ static int impl_node_process(void *object)
 	}
 
 	resample_passthrough = resample_is_passthrough(this);
-	if (!in_avail || this->drained) {
-		spa_log_debug(this->log, "%p: no input drained:%d", this, this->drained);
-		/* no input, ask for more */
-		resample_update_rate_match(this, resample_passthrough, quant_samples, 0);
-		res |= this->drained ? SPA_STATUS_DRAINED : SPA_STATUS_NEED_DATA;
-		return res;
-	}
-
-	mix_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY);
-	end_passthrough = mix_passthrough && resample_passthrough && out_passthrough;
 
 	/* calculate in/out sizes */
 	if (this->direction == SPA_DIRECTION_INPUT) {
@@ -2191,8 +2181,20 @@ static int impl_node_process(void *object)
 		/* in merge mode we consume one duration of samples and
 		 * always output the resulting data */
 		max_out = SPA_MIN(max_out, this->quantum_limit);
-		flush_out = true;
+		n_samples = SPA_MIN(n_samples, quant_samples);
+		in_avail = flush_out = true;
 	}
+
+	if (!in_avail || this->drained) {
+		spa_log_debug(this->log, "%p: no input drained:%d", this, this->drained);
+		/* no input, ask for more */
+		resample_update_rate_match(this, resample_passthrough, quant_samples, 0);
+		res |= this->drained ? SPA_STATUS_DRAINED : SPA_STATUS_NEED_DATA;
+		return res;
+	}
+
+	mix_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY);
+	end_passthrough = mix_passthrough && resample_passthrough && out_passthrough;
 
 	if (!in_passthrough || end_passthrough) {
 		if (end_passthrough)
@@ -2232,6 +2234,8 @@ static int impl_node_process(void *object)
 		spa_log_trace_fp(this->log, "%p: resample %d->%d %d->%d %d", this,
 				n_samples, max_out, in_len, out_len, out_passthrough);
 		n_samples = out_len;
+	} else {
+		n_samples = SPA_MIN(n_samples, max_out);
 	}
 	this->out_offset += n_samples;
 

@@ -1985,17 +1985,41 @@ static int impl_node_process(void *object)
 {
 	struct impl *this = object;
 	const void *src_datas[MAX_PORTS], **in_datas;
-	void *dst_datas[MAX_PORTS], *mon_datas[MAX_PORTS], **out_datas;
+	void *dst_datas[MAX_PORTS], **out_datas;
 	uint32_t i, j, n_src_datas = 0, n_dst_datas = 0, n_mon_datas = 0, remap;
-	uint32_t n_samples, max_in, max_out, max_mon, quant_samples;
+	uint32_t n_samples, max_in, max_out, quant_samples;
 	struct port *port;
 	struct buffer *buf, *out_bufs[MAX_PORTS];
 	struct spa_data *bd;
 	struct dir *dir;
-	int tmp = 0, res;
+	int tmp = 0, res = 0;
 	bool in_passthrough, mix_passthrough, resample_passthrough, out_passthrough, end_passthrough;
 	bool in_avail = false, flush_in = false, flush_out = false, draining = false;
 	struct spa_io_buffers *io;
+
+	/* calculate quantum scale */
+	if (SPA_LIKELY(this->io_position)) {
+		double r =  this->rate_scale;
+
+		quant_samples = this->io_position->clock.duration;
+		if (this->direction == SPA_DIRECTION_INPUT) {
+			if (this->io_position->clock.rate.denom != this->resample.o_rate)
+				r = (double) this->io_position->clock.rate.denom / this->resample.o_rate;
+			else
+				r = 1.0;
+		} else {
+			if (this->io_position->clock.rate.denom != this->resample.i_rate)
+				r = (double) this->resample.i_rate / this->io_position->clock.rate.denom;
+			else
+				r = 1.0;
+		}
+		if (this->rate_scale != r) {
+			spa_log_info(this->log, "scale %f->%f", this->rate_scale, r);
+			this->rate_scale = r;
+		}
+	}
+	else
+		quant_samples = this->quantum_limit;
 
 	dir = &this->dir[SPA_DIRECTION_INPUT];
 	in_passthrough = dir->conv.is_passthrough;
@@ -2060,38 +2084,6 @@ static int impl_node_process(void *object)
 		}
 	}
 
-	/* calculate quantum scale */
-	if (SPA_LIKELY(this->io_position)) {
-		double r =  this->rate_scale;
-
-		quant_samples = this->io_position->clock.duration;
-		if (this->direction == SPA_DIRECTION_INPUT) {
-			if (this->io_position->clock.rate.denom != this->resample.o_rate)
-				r = (double) this->io_position->clock.rate.denom / this->resample.o_rate;
-			else
-				r = 1.0;
-		} else {
-			if (this->io_position->clock.rate.denom != this->resample.i_rate)
-				r = (double) this->resample.i_rate / this->io_position->clock.rate.denom;
-			else
-				r = 1.0;
-		}
-		if (this->rate_scale != r) {
-			spa_log_info(this->log, "scale %f->%f", this->rate_scale, r);
-			this->rate_scale = r;
-		}
-	}
-	else
-		quant_samples = this->quantum_limit;
-
-	resample_passthrough = resample_is_passthrough(this);
-	if (!in_avail || this->drained) {
-		spa_log_debug(this->log, "%p: no input drained:%d", this, this->drained);
-		/* no input, ask for more */
-		resample_update_rate_match(this, resample_passthrough, quant_samples, 0);
-		return this->drained ? SPA_STATUS_DRAINED : SPA_STATUS_NEED_DATA;
-	}
-
 	if (draining)
 		n_samples = SPA_MIN(max_in, this->quantum_limit);
 	else
@@ -2100,7 +2092,7 @@ static int impl_node_process(void *object)
 	dir = &this->dir[SPA_DIRECTION_OUTPUT];
 	out_passthrough = dir->conv.is_passthrough;
 
-	max_out = max_mon = UINT32_MAX;
+	max_out = UINT32_MAX;
 
 	/* collect output ports and monitor ports data */
 	for (i = 0; i < dir->n_ports; i++) {
@@ -2122,13 +2114,14 @@ static int impl_node_process(void *object)
 			for (j = 0; j < port->blocks; j++) {
 				if (port->is_monitor) {
 					remap = n_mon_datas++;
-					mon_datas[remap] = NULL;
+					spa_log_trace_fp(this->log, "%p: empty monitor %d", this,
+						remap);
 				} else {
 					remap = dir->dst_remap[n_dst_datas++];
 					dst_datas[remap] = SPA_PTR_ALIGN(this->scratch, MAX_ALIGN, void);
+					spa_log_trace_fp(this->log, "%p: empty output %d->%d", this,
+						i * port->blocks + j, remap);
 				}
-				spa_log_trace_fp(this->log, "%p: empty output %d->%d %d", this,
-						i * port->blocks + j, remap, port->is_monitor);
 			}
 		} else {
 			for (j = 0; j < port->blocks; j++) {
@@ -2137,40 +2130,54 @@ static int impl_node_process(void *object)
 				bd->chunk->offset = 0;
 				bd->chunk->size = 0;
 				if (port->is_monitor) {
+					float volume;
+					uint32_t mon_max;
+
 					remap = n_mon_datas++;
-					mon_datas[remap] = bd->data;
-					max_mon = SPA_MIN(max_mon, bd->maxsize / port->stride);
+					volume = this->props.monitor.mute ? 0.0f : this->props.monitor.volumes[remap];
+					if (this->monitor_channel_volumes)
+						volume *= this->props.channel.mute ? 0.0f :
+							this->props.channel.volumes[remap];
+
+					mon_max = SPA_MIN(bd->maxsize / port->stride, n_samples);
+
+					volume_process(&this->volume, bd->data, src_datas[remap],
+							volume, mon_max);
+
+					bd->chunk->size = mon_max * port->stride;
+
+					spa_log_trace_fp(this->log, "%p: monitor %d %d", this,
+							remap, mon_max);
+
+					dequeue_buffer(this, port, buf);
+					io->status = SPA_STATUS_HAVE_DATA;
+					io->buffer_id = buf->id;
+					res |= SPA_STATUS_HAVE_DATA;
 				} else {
 					remap = dir->dst_remap[n_dst_datas++];
 					dst_datas[remap] = SPA_PTROFF(bd->data,
 							this->out_offset * port->stride, void);
 					max_out = SPA_MIN(max_out, bd->maxsize / port->stride);
+
+					spa_log_trace_fp(this->log, "%p: output %d offs:%d %d->%d", this,
+							max_out, this->out_offset,
+							i * port->blocks + j, remap);
 				}
-				spa_log_trace_fp(this->log, "%p: output %d:%d %d %d %d->%d", this,
-						max_mon, max_out, this->out_offset, n_samples,
-						i * port->blocks + j, remap);
 			}
 		}
 	}
 
+	resample_passthrough = resample_is_passthrough(this);
+	if (!in_avail || this->drained) {
+		spa_log_debug(this->log, "%p: no input drained:%d", this, this->drained);
+		/* no input, ask for more */
+		resample_update_rate_match(this, resample_passthrough, quant_samples, 0);
+		res |= this->drained ? SPA_STATUS_DRAINED : SPA_STATUS_NEED_DATA;
+		return res;
+	}
+
 	mix_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY);
 	end_passthrough = mix_passthrough && resample_passthrough && out_passthrough;
-
-	/* run monitors */
-	if (max_mon != UINT32_MAX) {
-		for (i = 0; i < n_mon_datas; i++) {
-			float volume;
-
-			if (mon_datas[i] == NULL)
-				continue;
-
-			volume = this->props.monitor.mute ? 0.0f : this->props.monitor.volumes[i];
-			if (this->monitor_channel_volumes)
-				volume *= this->props.channel.mute ? 0.0f : this->props.channel.volumes[i];
-
-			volume_process(&this->volume, mon_datas[i], src_datas[i], volume, max_mon);
-		}
-	}
 
 	/* calculate in/out sizes */
 	if (this->direction == SPA_DIRECTION_INPUT) {
@@ -2237,7 +2244,6 @@ static int impl_node_process(void *object)
 	spa_log_trace_fp(this->log, "%d/%d  %d/%d %d", this->in_offset, max_in,
 			this->out_offset, max_out, n_samples);
 
-	res = 0;
 	dir = &this->dir[SPA_DIRECTION_INPUT];
 	if (this->in_offset >= max_in || flush_in) {
 		/* return input buffers */
@@ -2258,27 +2264,25 @@ static int impl_node_process(void *object)
 		/* queue output buffers */
 		for (i = 0; i < dir->n_ports; i++) {
 			port = GET_OUT_PORT(this, i);
+			if (port->is_monitor)
+				continue;
+
 			buf = out_bufs[i];
+			if (buf == NULL)
+				continue;
 
 			if (SPA_UNLIKELY((io = port->io) == NULL))
 				continue;
 
-			if (buf == NULL)
-				continue;
-
-			io->status = SPA_STATUS_HAVE_DATA;
-			io->buffer_id = buf->id;
+			dequeue_buffer(this, port, buf);
 
 			for (j = 0; j < port->blocks; j++) {
 				bd = &buf->buf->datas[j];
-				if (port->is_monitor)
-					bd->chunk->size = max_mon * port->stride;
-				else
-					bd->chunk->size = n_samples * port->stride;
-
-				spa_log_trace_fp(this->log, "out: %d %d %d", max_mon, n_samples, bd->chunk->size);
+				bd->chunk->size = n_samples * port->stride;
+				spa_log_trace_fp(this->log, "out: %d %d", n_samples, bd->chunk->size);
 			}
-			dequeue_buffer(this, port, buf);
+			io->status = SPA_STATUS_HAVE_DATA;
+			io->buffer_id = buf->id;
 		}
 		res |= SPA_STATUS_HAVE_DATA;
 		this->drained = draining;
@@ -2287,6 +2291,8 @@ static int impl_node_process(void *object)
 	if (n_samples == 0 && this->peaks) {
 		for (i = 0; i < dir->n_ports; i++) {
 			port = GET_OUT_PORT(this, i);
+			if (port->is_monitor)
+				continue;
 			if (SPA_UNLIKELY((io = port->io) == NULL))
 				continue;
 

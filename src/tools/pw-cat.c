@@ -869,7 +869,7 @@ static void show_usage(const char *name, bool is_error)
 	fp = is_error ? stderr : stdout;
 
         fprintf(fp,
-	   _("%s [options] <file>\n"
+	   _("%s [options] [<file>|-]\n"
              "  -h, --help                            Show this help\n"
              "      --version                         Show version\n"
              "  -v, --verbose                         Enable verbose operations\n"
@@ -1073,6 +1073,62 @@ static int setup_dsffile(struct data *data)
 
 	data->fill = dsf_play;
 
+	return 0;
+}
+
+struct format_info {
+	const char *name;
+	uint32_t spa_format;
+	uint32_t width;
+} format_info[] = {
+	{  "s8", SPA_AUDIO_FORMAT_S8, 1 },
+	{  "u8", SPA_AUDIO_FORMAT_U8, 1 },
+	{  "s16", SPA_AUDIO_FORMAT_S16, 2 },
+	{  "s24", SPA_AUDIO_FORMAT_S24, 3 },
+	{  "s32", SPA_AUDIO_FORMAT_S32, 4 },
+	{  "f32", SPA_AUDIO_FORMAT_F32, 4 },
+	{  "f64", SPA_AUDIO_FORMAT_F32, 8 },
+};
+
+static struct format_info *format_info_by_name(const char *str)
+{
+	uint32_t i;
+	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++)
+		if (spa_streq(str, format_info[i].name))
+			return &format_info[i];
+	return NULL;
+}
+
+static int stdout_record(struct data *d, void *src, unsigned int n_frames)
+{
+	return fwrite(src, d->stride, n_frames, stdout);
+}
+
+static int stdin_play(struct data *d, void *src, unsigned int n_frames)
+{
+	return fread(src, d->stride, n_frames, stdin);
+}
+
+static int setup_pipe(struct data *data)
+{
+	struct format_info *info;
+
+	if (data->format == NULL)
+		data->format = DEFAULT_FORMAT;
+	if (data->channels == 0)
+		data->channels = DEFAULT_CHANNELS;
+	if (data->rate == 0)
+		data->rate = DEFAULT_RATE;
+	if (data->channelmap.n_channels == 0)
+		channelmap_default(&data->channelmap, data->channels);
+
+	info = format_info_by_name(data->format);
+	if (info == NULL)
+		return -EINVAL;
+
+	data->spa_format = info->spa_format;
+	data->stride = info->width * data->channels;
+	data->fill = data->mode == mode_playback ?  stdin_play : stdout_record;
 	return 0;
 }
 
@@ -1515,7 +1571,7 @@ int main(int argc, char *argv[])
 		data.volume = DEFAULT_VOLUME;
 
 	if (optind >= argc) {
-		fprintf(stderr, "error: filename argument missing\n");
+		fprintf(stderr, "error: filename or - argument missing\n");
 		goto error_usage;
 	}
 	data.filename = argv[optind++];
@@ -1560,19 +1616,23 @@ int main(int argc, char *argv[])
 	}
 	pw_core_add_listener(data.core, &data.core_listener, &core_events, &data);
 
-	switch (data.data_type) {
-	case TYPE_PCM:
-		ret = setup_sndfile(&data);
-		break;
-	case TYPE_MIDI:
-		ret = setup_midifile(&data);
-		break;
-	case TYPE_DSD:
-		ret = setup_dsffile(&data);
-		break;
-	default:
-		ret = -ENOTSUP;
-		break;
+	if (spa_streq(data.filename, "-")) {
+		ret = setup_pipe(&data);
+	} else {
+		switch (data.data_type) {
+		case TYPE_PCM:
+			ret = setup_sndfile(&data);
+			break;
+		case TYPE_MIDI:
+			ret = setup_midifile(&data);
+			break;
+		case TYPE_DSD:
+			ret = setup_dsffile(&data);
+			break;
+		default:
+			ret = -ENOTSUP;
+			break;
+		}
 	}
 
 	if (ret < 0) {

@@ -11,11 +11,12 @@ Play and record media with PipeWire
 SYNOPSIS
 ========
 
-| **pw-cat** [*options*] [*FILE*]
-| **pw-play** [*options*] [*FILE*]
-| **pw-record** [*options*] [*FILE*]
-| **pw-midiplay** [*options*] [*FILE*]
-| **pw-midirecord** [*options*] [*FILE*]
+| **pw-cat** [*options*] [*FILE*|-]
+| **pw-play** [*options*] [*FILE*|-]
+| **pw-record** [*options*] [*FILE*|-]
+| **pw-midiplay** [*options*] [*FILE*|-]
+| **pw-midirecord** [*options*] [*FILE*|-]
+| **pw-dsdplay** [*options*] [*FILE*|-]
 
 DESCRIPTION
 ===========
@@ -23,7 +24,14 @@ DESCRIPTION
 **pw-cat** is a simple tool for playing back or
 capturing raw or encoded media files on a PipeWire
 server. It understands all audio file formats supported by
-``libsndfile``.
+``libsndfile`` for PCM capture and playback.
+
+It understands standard MIDI files for playback and recording,
+
+DSD playback is supported with the DSF file format.
+
+When the *FILE* is - input and output will be from STDIN and
+STDOUT respectively.
 
 OPTIONS
 =======
@@ -52,6 +60,10 @@ OPTIONS
 -m | --midi
   MIDI mode. *FILE* is a MIDI file. If the tool is called under the name
   **pw-midiplay** or **pw-midirecord** this is the default.
+
+-d | --dsd
+  DSD mode. *FILE* is a DSF file. If the tool is called under the name
+  **pw-dsdplay** this is the default.
 
 --media-type=VALUE
   Set the media type property (default Audio/Midi depending on mode).
@@ -97,6 +109,9 @@ OPTIONS
   If no units are given, the latency value is samples with the samplerate
   of the file.
 
+-P | --properties=VALUE
+  Set extra stream properties as a JSON object.
+
 -q | --quality=VALUE
   Resampler quality. When the samplerate of the source or
   destination file does not match the samplerate of the server, the
@@ -129,7 +144,7 @@ OPTIONS
 
 --format=VALUE
   The sample format to use. One of:
-  **s8**, **s16** (default), **s24**, **s32**,
+  **u8**, **s8**, **s16** (default), **s24**, **s32**,
   **f32**, **f64**.
 
 --volume=VALUE

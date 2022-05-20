@@ -5768,17 +5768,21 @@ SPA_EXPORT
 int jack_set_sync_timeout (jack_client_t *client,
 			   jack_time_t timeout)
 {
+	int res = 0;
 	struct client *c = (struct client *) client;
 	struct pw_node_activation *a;
 
 	spa_return_val_if_fail(c != NULL, -EINVAL);
 
+	pw_thread_loop_lock(c->context.loop);
+
 	if ((a = c->activation) == NULL)
-		return -EIO;
+		res = -EIO;
+	else
+		a->sync_timeout = timeout;
+	pw_thread_loop_unlock(c->context.loop);
 
-	ATOMIC_STORE(a->sync_timeout, timeout);
-
-	return 0;
+	return res;
 }
 
 SPA_EXPORT

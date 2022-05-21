@@ -233,6 +233,54 @@
 #define LC3PLUS_HR_SAMPLING_FREQ_48000	(1 << 8)
 #define LC3PLUS_HR_SAMPLING_FREQ_96000	(1 << 7)
 
+#define OPUS_05_VENDOR_ID		0x000005f1
+#define OPUS_05_CODEC_ID		0x1005
+
+#define OPUS_05_MAPPING_FAMILY_0	(1 << 0)
+#define OPUS_05_MAPPING_FAMILY_1	(1 << 1)
+#define OPUS_05_MAPPING_FAMILY_255	(1 << 2)
+
+#define OPUS_05_FRAME_DURATION_25	(1 << 0)
+#define OPUS_05_FRAME_DURATION_50	(1 << 1)
+#define OPUS_05_FRAME_DURATION_100	(1 << 2)
+#define OPUS_05_FRAME_DURATION_200	(1 << 3)
+#define OPUS_05_FRAME_DURATION_400	(1 << 4)
+
+#define OPUS_05_GET_UINT16(a, field)			\
+	(((a).field ## 2 << 8) | (a).field ## 1)
+#define OPUS_05_INIT_UINT16(field, v)			\
+	.field ## 1 = ((v) & 0xff),			\
+	.field ## 2 = (((v) >> 8) & 0xff),
+#define OPUS_05_SET_UINT16(a, field, v)			\
+	do {						\
+		(a).field ## 1 = ((v) & 0xff);		\
+		(a).field ## 2 = (((v) >> 8) & 0xff);	\
+	} while (0)
+#define OPUS_05_GET_UINT32(a, field)				\
+	(((a).field ## 4 << 24) | ((a).field ## 3 << 16) |	\
+	((a).field ## 2 << 8) | (a).field ## 1)
+#define OPUS_05_INIT_UINT32(field, v)			\
+	.field ## 1 = ((v) & 0xff),			\
+	.field ## 2 = (((v) >> 8) & 0xff),		\
+	.field ## 3 = (((v) >> 16) & 0xff),		\
+	.field ## 4 = (((v) >> 24) & 0xff),
+#define OPUS_05_SET_UINT32(a, field, v)			\
+	do {						\
+		(a).field ## 1 = ((v) & 0xff);		\
+		(a).field ## 2 = (((v) >> 8) & 0xff);	\
+		(a).field ## 3 = (((v) >> 16) & 0xff);	\
+		(a).field ## 4 = (((v) >> 24) & 0xff);	\
+	} while (0)
+
+#define OPUS_05_GET_LOCATION(a) OPUS_05_GET_UINT32(a, location)
+#define OPUS_05_INIT_LOCATION(v) OPUS_05_INIT_UINT32(location, v)
+#define OPUS_05_SET_LOCATION(a, v) OPUS_05_SET_UINT32(a, location, v)
+
+#define OPUS_05_GET_BITRATE(a) OPUS_05_GET_UINT16(a, bitrate)
+#define OPUS_05_INIT_BITRATE(v) OPUS_05_INIT_UINT16(bitrate, v)
+#define OPUS_05_SET_BITRATE(a, v) OPUS_05_SET_UINT16(a, bitrate, v)
+
+
 typedef struct {
 	uint32_t vendor_id;
 	uint16_t codec_id;
@@ -390,5 +438,23 @@ typedef struct {
 	uint8_t frequency1;
 	uint8_t frequency2;
 } __attribute__ ((packed)) a2dp_lc3plus_hr_t;
+
+typedef struct {
+	uint8_t channels;
+	uint8_t coupled_streams;
+	uint8_t location1;
+	uint8_t location2;
+	uint8_t location3;
+	uint8_t location4;
+	uint8_t frame_duration;
+	uint8_t bitrate1;
+	uint8_t bitrate2;
+} __attribute__ ((packed)) a2dp_opus_05_direction_t;
+
+typedef struct {
+	a2dp_vendor_codec_t info;
+	a2dp_opus_05_direction_t main;
+	a2dp_opus_05_direction_t bidi;
+} __attribute__ ((packed)) a2dp_opus_05_t;
 
 #endif

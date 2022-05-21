@@ -275,14 +275,20 @@ static inline int spa_scnprintf(char *buffer, size_t size, const char *format, .
  */
 static inline float spa_strtof(const char *str, char **endptr)
 {
+#ifndef __LOCALE_C_ONLY
 	static locale_t locale = NULL;
 	locale_t prev;
+#endif
 	float v;
+#ifndef __LOCALE_C_ONLY
 	if (SPA_UNLIKELY(locale == NULL))
 		locale = newlocale(LC_ALL_MASK, "C", NULL);
 	prev = uselocale(locale);
+#endif
 	v = strtof(str, endptr);
+#ifndef __LOCALE_C_ONLY
 	uselocale(prev);
+#endif
 	return v;
 }
 
@@ -319,14 +325,20 @@ static inline bool spa_atof(const char *str, float *val)
  */
 static inline double spa_strtod(const char *str, char **endptr)
 {
+#ifndef __LOCALE_C_ONLY
 	static locale_t locale = NULL;
 	locale_t prev;
+#endif
 	double v;
+#ifndef __LOCALE_C_ONLY
 	if (SPA_UNLIKELY(locale == NULL))
 		locale = newlocale(LC_ALL_MASK, "C", NULL);
 	prev = uselocale(locale);
+#endif
 	v = strtod(str, endptr);
+#ifndef __LOCALE_C_ONLY
 	uselocale(prev);
+#endif
 	return v;
 }
 

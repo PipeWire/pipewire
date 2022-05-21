@@ -112,8 +112,9 @@ static const struct spa_dict_item module_x11_bell_info[] = {
 
 struct module *create_module_x11_bell(struct impl *impl, const char *argument)
 {
-	struct module *module;
 	struct pw_properties *props = NULL;
+	struct module_x11_bell_data *data;
+	struct module *module;
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -132,6 +133,9 @@ struct module *create_module_x11_bell(struct impl *impl, const char *argument)
 		goto out;
 	}
 	module->props = props;
+
+	data = module->user_data;
+	data->module = module;
 
 	return module;
 out:

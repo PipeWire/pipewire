@@ -62,6 +62,8 @@ if get_option('spa-plugins').allowed()
       endif
     endif
     summary({'LC3plus': lc3plus_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
+    opus_dep = dependency('opus', required : get_option('bluez5-codec-opus'))
+    summary({'Opus': opus_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
   endif
   avcodec_dep = dependency('libavcodec', required: get_option('ffmpeg'))
   jack_dep = dependency('jack', version : '>= 1.9.10', required: get_option('jack'))

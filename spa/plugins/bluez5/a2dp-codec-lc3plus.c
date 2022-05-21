@@ -150,7 +150,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	return sizeof(conf);
 }
 
-static int codec_caps_preference_cmp(const struct a2dp_codec *codec, const void *caps1, size_t caps1_size,
+static int codec_caps_preference_cmp(const struct a2dp_codec *codec, uint32_t flags, const void *caps1, size_t caps1_size,
 		const void *caps2, size_t caps2_size, const struct a2dp_codec_audio_info *info)
 {
 	a2dp_lc3plus_hr_t conf1, conf2;
@@ -160,7 +160,7 @@ static int codec_caps_preference_cmp(const struct a2dp_codec *codec, const void 
 
 	/* Order selected configurations by preference */
 	res1 = codec->select_config(codec, 0, caps1, caps1_size, info, NULL, (uint8_t *)&conf1);
-	res2 = codec->select_config(codec, 0, caps2, caps2_size, info , NULL, (uint8_t *)&conf2);
+	res2 = codec->select_config(codec, 0, caps2, caps2_size, info, NULL, (uint8_t *)&conf2);
 
 #define PREFER_EXPR(expr)			\
 		do {				\
@@ -190,7 +190,7 @@ static int codec_caps_preference_cmp(const struct a2dp_codec *codec, const void 
 #undef PREFER_BOOL
 }
 
-static int codec_enum_config(const struct a2dp_codec *codec,
+static int codec_enum_config(const struct a2dp_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {

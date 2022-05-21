@@ -129,7 +129,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	return sizeof(conf);
 }
 
-static int codec_enum_config(const struct a2dp_codec *codec,
+static int codec_enum_config(const struct a2dp_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {
@@ -372,7 +372,7 @@ static SPA_UNUSED int codec_decode(void *data,
  * When connected as SRC to SNK, FastStream sink may send back SBC data.
  */
 
-static int duplex_enum_config(const struct a2dp_codec *codec,
+static int duplex_enum_config(const struct a2dp_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {

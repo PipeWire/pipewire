@@ -630,7 +630,8 @@ static int transport_start(struct impl *this)
 
 	this->transport_acquired = true;
 
-	this->codec_data = this->codec->init(this->codec, 0,
+	this->codec_data = this->codec->init(this->codec,
+			this->is_duplex ? 0 : A2DP_CODEC_FLAG_SINK,
 			this->transport->configuration,
 			this->transport->configuration_len,
 			&port->current_format,
@@ -967,6 +968,7 @@ impl_node_port_enum_params(void *object, int seq,
 			return -EIO;
 
 		if ((res = this->codec->enum_config(this->codec,
+					this->is_duplex ? 0 : A2DP_CODEC_FLAG_SINK,
 					this->transport->configuration,
 					this->transport->configuration_len,
 					id, result.index, &b, &param)) != 1)
@@ -1581,6 +1583,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (this->codec->init_props != NULL)
 		this->codec_props = this->codec->init_props(this->codec,
+					this->is_duplex ? 0 : A2DP_CODEC_FLAG_SINK,
 					this->transport->device->settings);
 
 	spa_bt_transport_add_listener(this->transport,

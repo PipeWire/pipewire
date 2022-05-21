@@ -910,7 +910,8 @@ static int do_start(struct impl *this)
 	for (i = 0; i < size; i++)
 		spa_log_debug(this->log, "  %d: %02x", i, conf[i]);
 
-	this->codec_data = this->codec->init(this->codec, 0,
+	this->codec_data = this->codec->init(this->codec,
+			this->is_duplex ? A2DP_CODEC_FLAG_SINK : 0,
 			this->transport->configuration,
 			this->transport->configuration_len,
 			&port->current_format,
@@ -1197,6 +1198,7 @@ impl_node_port_enum_params(void *object, int seq,
 			return -EIO;
 
 		if ((res = this->codec->enum_config(this->codec,
+					this->is_duplex ? A2DP_CODEC_FLAG_SINK : 0,
 					this->transport->configuration,
 					this->transport->configuration_len,
 					id, result.index, &b, &param)) != 1)
@@ -1726,6 +1728,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (this->codec->init_props != NULL)
 		this->codec_props = this->codec->init_props(this->codec,
+					this->is_duplex ? A2DP_CODEC_FLAG_SINK : 0,
 					this->transport->device->settings);
 
 	reset_props(this, &this->props);

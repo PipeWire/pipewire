@@ -437,18 +437,21 @@ static int a2dp_codec_to_endpoint(const struct a2dp_codec *codec,
 	return 0;
 }
 
-static const struct a2dp_codec *a2dp_endpoint_to_codec(struct spa_bt_monitor *monitor, const char *endpoint)
+static const struct a2dp_codec *a2dp_endpoint_to_codec(struct spa_bt_monitor *monitor, const char *endpoint, bool *sink)
 {
 	const char *ep_name;
 	const struct a2dp_codec * const * const a2dp_codecs = monitor->a2dp_codecs;
 	int i;
 
-	if (spa_strstartswith(endpoint, A2DP_SINK_ENDPOINT "/"))
+	if (spa_strstartswith(endpoint, A2DP_SINK_ENDPOINT "/")) {
 		ep_name = endpoint + strlen(A2DP_SINK_ENDPOINT "/");
-	else if (spa_strstartswith(endpoint, A2DP_SOURCE_ENDPOINT "/"))
+		*sink = true;
+	} else if (spa_strstartswith(endpoint, A2DP_SOURCE_ENDPOINT "/")) {
 		ep_name = endpoint + strlen(A2DP_SOURCE_ENDPOINT "/");
-	else
+		*sink = false;
+	} else {
 		return NULL;
+	}
 
 	for (i = 0; a2dp_codecs[i]; i++) {
 		const struct a2dp_codec *codec = a2dp_codecs[i];
@@ -486,6 +489,7 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 	DBusError err;
 	int i, size, res;
 	const struct a2dp_codec *codec;
+	bool sink;
 
 	dbus_error_init(&err);
 
@@ -501,14 +505,14 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 	for (i = 0; i < size; i++)
 		spa_log_debug(monitor->log, "  %d: %02x", i, cap[i]);
 
-	codec = a2dp_endpoint_to_codec(monitor, path);
+	codec = a2dp_endpoint_to_codec(monitor, path, &sink);
 	if (codec != NULL)
 		/* FIXME: We can't determine which device the SelectConfiguration()
 		 * call is associated with, therefore device settings are not passed.
 		 * This causes inconsistency with SelectConfiguration() triggered
 		 * by codec switching.
 		  */
-		res = codec->select_config(codec, 0, cap, size, &monitor->default_audio_info, NULL, config);
+		res = codec->select_config(codec, sink ? A2DP_CODEC_FLAG_SINK : 0, cap, size, &monitor->default_audio_info, NULL, config);
 	else
 		res = -ENOTSUP;
 
@@ -2573,6 +2577,7 @@ static bool a2dp_codec_switch_process_current(struct spa_bt_a2dp_codec_switch *s
 	DBusMessage *m;
 	DBusMessageIter iter, d;
 	int i;
+	bool sink;
 
 	/* Try setting configuration for current codec on current endpoint in list */
 
@@ -2603,8 +2608,10 @@ static bool a2dp_codec_switch_process_current(struct spa_bt_a2dp_codec_switch *s
 
 	if (sw->profile & SPA_BT_PROFILE_A2DP_SINK) {
 		local_endpoint_base = A2DP_SOURCE_ENDPOINT;
+		sink = false;
 	} else if (sw->profile & SPA_BT_PROFILE_A2DP_SOURCE) {
 		local_endpoint_base = A2DP_SINK_ENDPOINT;
+		sink = true;
 	} else {
 		spa_log_debug(sw->device->monitor->log, "a2dp codec switch %p: bad profile (%d), try next",
 		              sw, sw->profile);
@@ -2630,7 +2637,7 @@ static bool a2dp_codec_switch_process_current(struct spa_bt_a2dp_codec_switch *s
 		}
 	}
 
-	res = codec->select_config(codec, 0, ep->capabilities, ep->capabilities_len,
+	res = codec->select_config(codec, sink ? A2DP_CODEC_FLAG_SINK : 0, ep->capabilities, ep->capabilities_len,
 				   &sw->device->monitor->default_audio_info,
 				   sw->device->settings, config);
 	if (res < 0) {
@@ -2878,6 +2885,7 @@ static int a2dp_codec_switch_cmp(const void *a, const void *b)
 	const struct a2dp_codec *codec = *sw->codec_iter;
 	const char *path1 = *(char **)a, *path2 = *(char **)b;
 	struct spa_bt_remote_endpoint *ep1, *ep2;
+	uint32_t flags;
 
 	ep1 = device_remote_endpoint_find(sw->device, path1);
 	ep2 = device_remote_endpoint_find(sw->device, path2);
@@ -2886,6 +2894,10 @@ static int a2dp_codec_switch_cmp(const void *a, const void *b)
 		ep1 = NULL;
 	if (ep2 != NULL && (ep2->uuid == NULL || ep2->codec != codec->codec_id || ep2->capabilities == NULL))
 		ep2 = NULL;
+	if (ep1 && ep2 && !spa_streq(ep1->uuid, ep2->uuid)) {
+		ep1 = NULL;
+		ep2 = NULL;
+	}
 
 	if (ep1 == NULL && ep2 == NULL)
 		return 0;
@@ -2894,7 +2906,9 @@ static int a2dp_codec_switch_cmp(const void *a, const void *b)
 	else if (ep2 == NULL)
 		return -1;
 
-	return codec->caps_preference_cmp(codec, ep1->capabilities, ep1->capabilities_len,
+	flags = spa_streq(ep1->uuid, SPA_BT_UUID_A2DP_SOURCE) ? A2DP_CODEC_FLAG_SINK : 0;
+
+	return codec->caps_preference_cmp(codec, flags, ep1->capabilities, ep1->capabilities_len,
 			ep2->capabilities, ep2->capabilities_len, &sw->device->monitor->default_audio_info);
 }
 
@@ -3031,6 +3045,7 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	struct spa_bt_transport *transport;
 	const struct a2dp_codec *codec;
 	int profile;
+	bool sink;
 
 	if (!dbus_message_has_signature(m, "oa{sv}")) {
 		spa_log_warn(monitor->log, "invalid SetConfiguration() signature");
@@ -3039,7 +3054,7 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	endpoint = dbus_message_get_path(m);
 
 	profile = a2dp_endpoint_to_profile(endpoint);
-	codec = a2dp_endpoint_to_codec(monitor, endpoint);
+	codec = a2dp_endpoint_to_codec(monitor, endpoint, &sink);
 	if (codec == NULL) {
 		spa_log_warn(monitor->log, "unknown SetConfiguration() codec");
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -3100,7 +3115,7 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 
 	if (codec->validate_config) {
 		struct spa_audio_info info;
-		if (codec->validate_config(codec, 0,
+		if (codec->validate_config(codec, sink ? A2DP_CODEC_FLAG_SINK : 0,
 					transport->configuration, transport->configuration_len,
 					&info) < 0) {
 			spa_log_error(monitor->log, "invalid transport configuration");
@@ -3290,12 +3305,15 @@ static int bluez_register_endpoint(struct spa_bt_monitor *monitor,
 	uint8_t caps[A2DP_MAX_CAPS_SIZE];
 	int ret, caps_size;
 	uint16_t codec_id = codec->codec_id;
+	bool sink;
 
 	ret = a2dp_codec_to_endpoint(codec, endpoint, &object_path);
 	if (ret < 0)
 		goto error;
 
-	ret = caps_size = codec->fill_caps(codec, 0, caps);
+	sink = spa_streq(endpoint, A2DP_SINK_ENDPOINT);
+
+	ret = caps_size = codec->fill_caps(codec, sink ? A2DP_CODEC_FLAG_SINK : 0, caps);
 	if (ret < 0)
 		goto error;
 
@@ -3501,11 +3519,11 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 			if (!is_a2dp_codec_enabled(monitor, codec))
 				continue;
 
-			caps_size = codec->fill_caps(codec, 0, caps);
-			if (caps_size < 0)
-				continue;
-
 			if (codec->decode != NULL) {
+				caps_size = codec->fill_caps(codec, A2DP_CODEC_FLAG_SINK, caps);
+				if (caps_size < 0)
+					continue;
+
 				ret = a2dp_codec_to_endpoint(codec, A2DP_SINK_ENDPOINT, &endpoint);
 				if (ret == 0) {
 					spa_log_info(monitor->log, "register A2DP sink codec %s: %s", a2dp_codecs[i]->name, endpoint);
@@ -3516,6 +3534,10 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 			}
 
 			if (codec->encode != NULL) {
+				caps_size = codec->fill_caps(codec, 0, caps);
+				if (caps_size < 0)
+					continue;
+
 				ret = a2dp_codec_to_endpoint(codec, A2DP_SOURCE_ENDPOINT, &endpoint);
 				if (ret == 0) {
 					spa_log_info(monitor->log, "register A2DP source codec %s: %s", a2dp_codecs[i]->name, endpoint);

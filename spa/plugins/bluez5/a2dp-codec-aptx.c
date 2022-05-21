@@ -218,7 +218,7 @@ static int codec_select_config_ll(const struct a2dp_codec *codec, uint32_t flags
 	return actual_conf_size;
 }
 
-static int codec_enum_config(const struct a2dp_codec *codec,
+static int codec_enum_config(const struct a2dp_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {
@@ -458,7 +458,7 @@ static int codec_decode(void *data,
  * When connected as SRC to SNK, aptX-LL sink may send back mSBC data.
  */
 
-static int msbc_enum_config(const struct a2dp_codec *codec,
+static int msbc_enum_config(const struct a2dp_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {

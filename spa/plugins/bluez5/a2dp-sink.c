@@ -1545,9 +1545,43 @@ static void transport_destroy(void *data)
 	spa_loop_invoke(this->data_loop, do_transport_destroy, 0, NULL, 0, true, this);
 }
 
+static void transport_state_changed(void *data,
+	enum spa_bt_transport_state old,
+	enum spa_bt_transport_state state)
+{
+	struct impl *this = data;
+
+	spa_log_debug(this->log, "%p: transport %p state %d->%d", this, this->transport, old, state);
+
+	if (state < SPA_BT_TRANSPORT_STATE_ACTIVE && old == SPA_BT_TRANSPORT_STATE_ACTIVE &&
+			this->started) {
+		uint8_t buffer[1024];
+		struct spa_pod_builder b = { 0 };
+
+		spa_log_debug(this->log, "%p: transport %p becomes inactive: stop and indicate error",
+				this, this->transport);
+
+		/*
+		 * If establishing connection fails due to remote end not activating
+		 * the transport, we won't get a write error, but instead see a transport
+		 * state change.
+		 *
+		 * Stop and emit a node error, to let upper levels handle it.
+		 */
+
+		do_stop(this);
+
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		spa_node_emit_event(&this->hooks,
+				spa_pod_builder_add_object(&b,
+						SPA_TYPE_EVENT_Node, SPA_NODE_EVENT_Error));
+	}
+}
+
 static const struct spa_bt_transport_events transport_events = {
 	SPA_VERSION_BT_TRANSPORT_EVENTS,
 	.delay_changed = transport_delay_changed,
+	.state_changed = transport_state_changed,
 	.destroy = transport_destroy,
 };
 

@@ -301,6 +301,8 @@ static void emit_info(struct impl *this, bool full);
 
 static float get_soft_volume_boost(struct node *node)
 {
+	const struct a2dp_codec *codec = node->transport ? node->transport->a2dp_codec : NULL;
+
 	/*
 	 * For A2DP duplex, the duplex microphone channel sometimes does not appear
 	 * to have hardware gain, and input volume is very low.
@@ -310,7 +312,8 @@ static float get_soft_volume_boost(struct node *node)
 	 * If this causes clipping, the user can just reduce the mic volume to
 	 * bring SW gain below 1.
 	 */
-	if (node->a2dp_duplex && node->transport &&
+	if (node->a2dp_duplex && node->transport && codec && codec->info &&
+			spa_atob(spa_dict_lookup(codec->info, "duplex.boost")) &&
 			node->id == DEVICE_ID_SOURCE &&
 			!node->transport->volumes[SPA_BT_VOLUME_ID_RX].active)
 		return 10.0f;	/* 20 dB boost */

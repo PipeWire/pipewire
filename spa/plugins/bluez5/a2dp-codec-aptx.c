@@ -710,6 +710,11 @@ static const struct a2dp_codec aptx_ll_msbc = {
 	.increase_bitpool = msbc_increase_bitpool,
 };
 
+static const struct spa_dict_item duplex_info_items[] = {
+	{ "duplex.boost", "true" },
+};
+static const struct spa_dict duplex_info = SPA_DICT_INIT_ARRAY(duplex_info_items);
+
 const struct a2dp_codec a2dp_codec_aptx_ll_duplex_0 = {
 	APTX_LL_COMMON_DEFS,
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL_DUPLEX,
@@ -718,6 +723,7 @@ const struct a2dp_codec a2dp_codec_aptx_ll_duplex_0 = {
 	.name = "aptx_ll_duplex",
 	.endpoint_name = "aptx_ll_duplex_0",
 	.duplex_codec = &aptx_ll_msbc,
+	.info = &duplex_info,
 };
 
 const struct a2dp_codec a2dp_codec_aptx_ll_duplex_1 = {
@@ -728,6 +734,7 @@ const struct a2dp_codec a2dp_codec_aptx_ll_duplex_1 = {
 	.name = "aptx_ll_duplex",
 	.endpoint_name = "aptx_ll_duplex_1",
 	.duplex_codec = &aptx_ll_msbc,
+	.info = &duplex_info,
 };
 
 A2DP_CODEC_EXPORT_DEF(

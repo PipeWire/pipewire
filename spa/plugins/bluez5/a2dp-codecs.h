@@ -43,7 +43,7 @@
 
 #define SPA_TYPE_INTERFACE_Bluez5CodecA2DP	SPA_TYPE_INFO_INTERFACE_BASE "Bluez5:Codec:A2DP:Private"
 
-#define SPA_VERSION_BLUEZ5_CODEC_A2DP		3
+#define SPA_VERSION_BLUEZ5_CODEC_A2DP		4
 
 struct spa_bluez5_codec_a2dp {
 	struct spa_interface iface;

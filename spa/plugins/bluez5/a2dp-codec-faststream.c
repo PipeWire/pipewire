@@ -614,17 +614,23 @@ static const struct a2dp_codec duplex_codec = {
 	.reduce_bitpool = codec_reduce_bitpool,		\
 	.increase_bitpool = codec_increase_bitpool
 
-const struct a2dp_codec a2dp_codec_faststream = {
+static const struct a2dp_codec a2dp_codec_faststream = {
 	FASTSTREAM_COMMON_DEFS,
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM,
 	.name = "faststream",
 };
+
+static const struct spa_dict_item duplex_info_items[] = {
+	{ "duplex.boost", "true" },
+};
+static const struct spa_dict duplex_info = SPA_DICT_INIT_ARRAY(duplex_info_items);
 
 const struct a2dp_codec a2dp_codec_faststream_duplex = {
 	FASTSTREAM_COMMON_DEFS,
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM_DUPLEX,
 	.name = "faststream_duplex",
 	.duplex_codec = &duplex_codec,
+	.info = &duplex_info,
 };
 
 A2DP_CODEC_EXPORT_DEF(

@@ -480,9 +480,23 @@ int format_parse_param(const struct spa_pod *param, bool collect,
 
 		info.info.raw.format = SPA_AUDIO_FORMAT_S16;
 		info.info.raw.rate = iec.rate;
-		info.info.raw.channels = 2;
 		info.info.raw.position[0] = SPA_AUDIO_CHANNEL_FL;
 		info.info.raw.position[1] = SPA_AUDIO_CHANNEL_FR;
+		switch (iec.codec) {
+		case SPA_AUDIO_IEC958_CODEC_TRUEHD:
+		case SPA_AUDIO_IEC958_CODEC_DTSHD:
+			info.info.raw.channels = 8;
+			info.info.raw.position[2] = SPA_AUDIO_CHANNEL_FC;
+			info.info.raw.position[3] = SPA_AUDIO_CHANNEL_LFE;
+			info.info.raw.position[4] = SPA_AUDIO_CHANNEL_SL;
+			info.info.raw.position[5] = SPA_AUDIO_CHANNEL_SR;
+			info.info.raw.position[6] = SPA_AUDIO_CHANNEL_RL;
+			info.info.raw.position[7] = SPA_AUDIO_CHANNEL_RR;
+			break;
+		default:
+			info.info.raw.channels = 2;
+			break;
+		}
 		break;
 	}
 	default:

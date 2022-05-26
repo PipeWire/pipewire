@@ -217,3 +217,13 @@ systemctl --user start pipewire-pulse.service pipewire-pulse.socket
 
 You can also start additional PulseAudio servers listening on other
 sockets with the -a option. See `pipewire-pulse -h` for more info.
+
+
+## Uninstalling
+
+To uninstall, in the `builddir` directory run:
+
+```
+sudo ninja uninstall
+```
+

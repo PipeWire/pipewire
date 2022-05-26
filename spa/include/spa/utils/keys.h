@@ -93,6 +93,8 @@ extern "C" {
 #define SPA_KEY_API_LIBCAMERA		"api.libcamera"			/**< key for the libcamera api */
 #define SPA_KEY_API_LIBCAMERA_PATH	"api.libcamera.path"	/**< libcamera device path as can be
 									  *  used in open() */
+#define SPA_KEY_API_LIBCAMERA_LOCATION	"api.libcamera.location"	/**< location of the camera:
+									  * "front", "back" or "external" */
 
 /** info from libcamera_capability */
 #define SPA_KEY_API_LIBCAMERA_CAP_DRIVER	"api.libcamera.cap.driver"	/**< driver from capbility */

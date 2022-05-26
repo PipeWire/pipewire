@@ -108,6 +108,25 @@ std::string cameraDesc(const Camera *camera)
         return name;
 }
 
+std::string cameraLoc(const Camera *camera)
+{
+	const ControlList &props = camera->properties();
+	std::string location;
+	if (props.contains(properties::Location)) {
+		switch (props.get(properties::Location)) {
+		case properties::CameraLocationFront:
+			location = "front";
+			break;
+		case properties::CameraLocationBack:
+			location = "back";
+			break;
+		case properties::CameraLocationExternal:
+			location = "external";
+			break;
+		}
+	}
+	return location;
+}
 
 static int emit_info(struct impl *impl, bool full)
 {
@@ -116,7 +135,7 @@ static int emit_info(struct impl *impl, bool full)
 	uint32_t n_items = 0;
 	struct spa_device_info info;
 	struct spa_param_info params[2];
-	char path[256], desc[256], name[256];
+	char path[256], location[10], desc[256], name[256];
 
 	info = SPA_DEVICE_INFO_INIT();
 
@@ -128,6 +147,8 @@ static int emit_info(struct impl *impl, bool full)
 	ADD_ITEM(SPA_KEY_DEVICE_API, "libcamera");
 	ADD_ITEM(SPA_KEY_MEDIA_CLASS, "Video/Device");
 	ADD_ITEM(SPA_KEY_API_LIBCAMERA_PATH, (char *)impl->props.device);
+	snprintf(location, sizeof(location), "%s", cameraLoc(impl->camera.get()).c_str());
+	ADD_ITEM(SPA_KEY_API_LIBCAMERA_LOCATION, location);
 	snprintf(desc, sizeof(desc), "%s", cameraDesc(impl->camera.get()).c_str());
 	ADD_ITEM(SPA_KEY_DEVICE_DESCRIPTION, desc);
 	snprintf(name, sizeof(name), "libcamera_device.%s", impl->props.device);

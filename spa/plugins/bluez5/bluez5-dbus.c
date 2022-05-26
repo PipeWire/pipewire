@@ -1867,6 +1867,7 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 	if (device && device->connected_profiles != prev_connected)
 		spa_bt_device_emit_profiles_changed(device, device->profiles, prev_connected);
 
+	free(transport->endpoint_path);
 	free(transport->path);
 	free(transport);
 }
@@ -2530,6 +2531,7 @@ static void a2dp_codec_switch_next(struct spa_bt_a2dp_codec_switch *sw)
 static bool a2dp_codec_switch_process_current(struct spa_bt_a2dp_codec_switch *sw)
 {
 	struct spa_bt_remote_endpoint *ep;
+	struct spa_bt_transport *t;
 	const struct a2dp_codec *codec;
 	uint8_t config[A2DP_MAX_CAPS_SIZE];
 	char *local_endpoint_base;
@@ -2582,6 +2584,19 @@ static bool a2dp_codec_switch_process_current(struct spa_bt_a2dp_codec_switch *s
 		spa_log_debug(sw->device->monitor->log, "a2dp codec switch %p: no endpoint for codec %s, try next",
 		              sw, codec->name);
 		goto next;
+	}
+
+	/* Each endpoint can be used by only one device at a time (on each adapter) */
+	spa_list_for_each(t, &sw->device->monitor->transport_list, link) {
+		if (t->device == sw->device)
+			continue;
+		if (t->device->adapter != sw->device->adapter)
+			continue;
+		if (spa_streq(t->endpoint_path, local_endpoint)) {
+			spa_log_debug(sw->device->monitor->log, "a2dp codec switch %p: endpoint %s in use, try next",
+					sw, local_endpoint);
+			goto next;
+		}
 	}
 
 	res = codec->select_config(codec, 0, ep->capabilities, ep->capabilities_len,
@@ -3031,6 +3046,8 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		transport->volumes[i].hw_volume_max = SPA_BT_VOLUME_A2DP_MAX;
 	}
 
+	free(transport->endpoint_path);
+	transport->endpoint_path = strdup(endpoint);
 	transport->profile = profile;
 	transport->a2dp_codec = codec;
 	transport_update_props(transport, &it[1], NULL);

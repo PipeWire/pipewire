@@ -181,6 +181,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	case SPA_PARAM_Props:
 	{
 		struct props *p = &this->props;
+		struct port *port = &this->port;
 
 		if (param == NULL) {
 			reset_props(this, p);
@@ -192,9 +193,9 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			SPA_PROP_patternType, SPA_POD_OPT_Id(&p->pattern));
 
 		if (p->live)
-			this->info.flags |= SPA_PORT_FLAG_LIVE;
+			port->info.flags |= SPA_PORT_FLAG_LIVE;
 		else
-			this->info.flags &= ~SPA_PORT_FLAG_LIVE;
+			port->info.flags &= ~SPA_PORT_FLAG_LIVE;
 		break;
 	}
 	default:

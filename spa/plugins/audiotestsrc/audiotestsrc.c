@@ -277,6 +277,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 	if (id == SPA_PARAM_Props) {
 		struct props *p = &this->props;
+		struct port *port = &this->port;
 
 		if (param == NULL) {
 			reset_props(p);
@@ -290,9 +291,9 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			SPA_PROP_volume,    SPA_POD_OPT_Float(&p->volume));
 
 		if (p->live)
-			this->info.flags |= SPA_PORT_FLAG_LIVE;
+			port->info.flags |= SPA_PORT_FLAG_LIVE;
 		else
-			this->info.flags &= ~SPA_PORT_FLAG_LIVE;
+			port->info.flags &= ~SPA_PORT_FLAG_LIVE;
 	}
 	else
 		return -ENOENT;
@@ -1081,7 +1082,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.flags = SPA_PORT_FLAG_NO_REF;
 	if (this->props.live)
-		this->info.flags |= SPA_PORT_FLAG_LIVE;
+		port->info.flags |= SPA_PORT_FLAG_LIVE;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);

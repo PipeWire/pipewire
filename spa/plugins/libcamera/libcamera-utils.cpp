@@ -440,7 +440,7 @@ spa_libcamera_enum_controls(struct impl *impl, struct port *port, int seq,
 		       uint32_t start, uint32_t num,
 		       const struct spa_pod *filter)
 {
-	return -ENOTSUP;
+	return 0;
 }
 
 static void libcamera_on_fd_events(struct spa_source *source)

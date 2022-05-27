@@ -1902,6 +1902,9 @@ int spa_alsa_write(struct state *state)
 		if (SPA_UNLIKELY((res = get_status(state, current_time, &delay, &target)) < 0))
 			return res;
 
+		if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, true)) < 0))
+			return res;
+
 		if (SPA_UNLIKELY(state->alsa_sync)) {
 			if (SPA_UNLIKELY(state->alsa_sync_warning)) {
 				spa_log_warn(state->log, "%s: follower delay:%ld target:%ld thr:%u, resync",
@@ -1918,8 +1921,6 @@ int spa_alsa_write(struct state *state)
 			delay = target;
 			state->alsa_sync = false;
 		}
-		if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, true)) < 0))
-			return res;
 	}
 
 	total_written = 0;
@@ -2146,6 +2147,9 @@ int spa_alsa_read(struct state *state)
 
 		avail = delay;
 
+		if (SPA_UNLIKELY((res = update_time(state, current_time, delay, target, true)) < 0))
+			return res;
+
 		if (state->alsa_sync) {
 			if (SPA_UNLIKELY(state->alsa_sync_warning)) {
 				spa_log_warn(state->log, "%s: follower delay:%lu target:%lu thr:%u, resync",
@@ -2162,9 +2166,6 @@ int spa_alsa_read(struct state *state)
 			delay = target;
 			state->alsa_sync = false;
 		}
-
-		if ((res = update_time(state, current_time, delay, target, true)) < 0)
-			return res;
 
 		if (avail < state->read_size)
 			max_read = 0;

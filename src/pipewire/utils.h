@@ -29,6 +29,7 @@
 extern "C" {
 #endif
 
+#include <stdlib.h>
 #include <string.h>
 #include <sys/un.h>
 #ifndef _POSIX_C_SOURCE
@@ -86,6 +87,10 @@ pw_strip(char *str, const char *whitespace);
 #endif
 
 ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags);
+
+#if !defined(reallocarray)
+# define reallocarray(ptr, nmemb, size)		realloc(ptr, nmemb * size)
+#endif
 /**
  * \}
  */

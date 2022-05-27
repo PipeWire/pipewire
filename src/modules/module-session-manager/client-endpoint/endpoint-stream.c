@@ -196,7 +196,7 @@ int endpoint_stream_update(struct endpoint_stream *this,
 			this->params = NULL;
 		} else {
 			void *p;
-			p = reallocarray(this->params, n_params, sizeof(struct spa_pod*));
+			p = pw_reallocarray(this->params, n_params, sizeof(struct spa_pod*));
 			if (p == NULL) {
 				free(this->params);
 				this->params = NULL;
@@ -227,7 +227,7 @@ int endpoint_stream_update(struct endpoint_stream *this,
 				this->info.params = NULL;
 			} else {
 				void *p;
-				p = reallocarray(this->info.params, info->n_params, sizeof(struct spa_param_info));
+				p = pw_reallocarray(this->info.params, info->n_params, sizeof(struct spa_param_info));
 				if (p == NULL) {
 					free(this->info.params);
 					this->info.params = NULL;

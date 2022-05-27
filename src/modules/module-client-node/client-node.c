@@ -191,7 +191,7 @@ static int update_params(struct params *p, uint32_t n_params, const struct spa_p
 		p->params = NULL;
 	} else {
 		struct spa_pod **np;
-		np = reallocarray(p->params, p->n_params, sizeof(struct spa_pod *));
+		np = pw_reallocarray(p->params, p->n_params, sizeof(struct spa_pod *));
 		if (np == NULL) {
 			pw_log_error("%p: can't realloc: %m", p);
 			free(p->params);

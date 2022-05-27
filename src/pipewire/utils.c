@@ -168,3 +168,13 @@ ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags)
 	close(fd);
 	return bytes;
 }
+
+SPA_EXPORT
+void* pw_reallocarray(void *ptr, size_t nmemb, size_t size)
+{
+#ifdef HAVE_REALLOCARRAY
+	return reallocarray(ptr, nmemb, size);
+#else
+	return realloc(ptr, nmemb * size);
+#endif
+}

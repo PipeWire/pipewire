@@ -375,6 +375,7 @@ check_functions = [
   ['gettid', '#include <unistd.h>', ['-D_GNU_SOURCE'], []],
   ['memfd_create', '#include <sys/mman.h>', ['-D_GNU_SOURCE'], []],
   ['getrandom', '#include <stddef.h>\n#include <sys/random.h>', ['-D_GNU_SOURCE'], []],
+  ['reallocarray', '#include <stdlib.h>', ['-D_GNU_SOURCE'], []],
   ['sigabbrev_np', '#include <string.h>', ['-D_GNU_SOURCE'], []],
   ['XSetIOErrorExitHandler', '#include <X11/Xlib.h>', [], [x11_dep]],
 ]

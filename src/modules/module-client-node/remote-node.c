@@ -318,7 +318,7 @@ static int add_node_update(struct node_data *data, uint32_t change_mask, uint32_
 							id, &idx, NULL, &param, &b.b);
 				if (res == 1) {
 					void *p;
-					p = reallocarray(params, n_params + 1, sizeof(struct spa_pod *));
+					p = pw_reallocarray(params, n_params + 1, sizeof(struct spa_pod *));
 					if (p == NULL) {
 						res = -errno;
 						pw_log_error("realloc failed: %m");
@@ -384,7 +384,7 @@ static int add_port_update(struct node_data *data, struct pw_impl_port *port, ui
 							id, &idx, NULL, &param, &b.b);
 				if (res == 1) {
 					void *p;
-					p = reallocarray(params, n_params + 1, sizeof(struct spa_pod*));
+					p = pw_reallocarray(params, n_params + 1, sizeof(struct spa_pod*));
 					if (p == NULL) {
 						res = -errno;
 						pw_log_error("realloc failed: %m");

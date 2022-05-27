@@ -476,7 +476,7 @@ do_update_port(struct node *this,
 			port->params = NULL;
 		} else {
 			void *p;
-			p = reallocarray(port->params, port->n_params, sizeof(struct spa_pod *));
+			p = pw_reallocarray(port->params, port->n_params, sizeof(struct spa_pod *));
 			if (p == NULL) {
 				pw_log_error("%p: port %u can't realloc: %m", this, port_id);
 				free(port->params);
@@ -1049,7 +1049,7 @@ client_node0_update(void *data,
 			this->params = NULL;
 		} else {
 			void *p;
-			p = reallocarray(this->params, this->n_params, sizeof(struct spa_pod *));
+			p = pw_reallocarray(this->params, this->n_params, sizeof(struct spa_pod *));
 			if (p == NULL) {
 				pw_log_error("%p: can't realloc: %m", this);
 				free(this->params);

@@ -213,7 +213,7 @@ struct pw_node_info *pw_node_info_merge(struct pw_node_info *info,
 		uint32_t i, user, n_params = update->n_params;
 		void *np;
 
-		np = reallocarray(info->params, n_params, sizeof(struct spa_param_info));
+		np = pw_reallocarray(info->params, n_params, sizeof(struct spa_param_info));
 		if (np == NULL) {
 			free(info->params);
 			info->params = NULL;
@@ -283,7 +283,7 @@ struct pw_port_info *pw_port_info_merge(struct pw_port_info *info,
 		uint32_t i, user, n_params = update->n_params;
 		void *np;
 
-		np = reallocarray(info->params, n_params, sizeof(struct spa_param_info));
+		np = pw_reallocarray(info->params, n_params, sizeof(struct spa_param_info));
 		if (np == NULL) {
 			free(info->params);
 			info->params = NULL;
@@ -443,7 +443,7 @@ struct pw_device_info *pw_device_info_merge(struct pw_device_info *info,
 		uint32_t i, user, n_params = update->n_params;
 		void *np;
 
-		np = reallocarray(info->params, n_params, sizeof(struct spa_param_info));
+		np = pw_reallocarray(info->params, n_params, sizeof(struct spa_param_info));
 		if (np == NULL) {
 			free(info->params);
 			info->params = NULL;

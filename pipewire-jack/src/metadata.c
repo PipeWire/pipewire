@@ -120,7 +120,7 @@ static jack_property_t *add_property(jack_description_t *desc, const char *key,
 
 	if (desc->property_cnt == desc->property_size) {
 		ns = desc->property_size > 0 ? desc->property_size * 2 : 8;
-		np = reallocarray(desc->properties, ns, sizeof(*prop));
+		np = pw_reallocarray(desc->properties, ns, sizeof(*prop));
 		if (np == NULL)
 			return NULL;
 		desc->property_size = ns;

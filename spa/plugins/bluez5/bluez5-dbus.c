@@ -50,6 +50,7 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 
+#include "config.h"
 #include "codec-loader.h"
 #include "player.h"
 #include "defs.h"
@@ -1579,7 +1580,11 @@ const struct a2dp_codec **spa_bt_device_get_supported_a2dp_codecs(struct spa_bt_
 		if (j >= size) {
 			const struct a2dp_codec **p;
 			size = size * 2;
+#ifdef HAVE_REALLOCARRRAY
 			p = reallocarray(supported_codecs, size, sizeof(const struct a2dp_codec *));
+#else
+			p = realloc(supported_codecs, size * sizeof(const struct a2dp_codec *));
+#endif
 			if (p == NULL) {
 				free(supported_codecs);
 				return NULL;

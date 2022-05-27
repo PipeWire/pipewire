@@ -88,9 +88,8 @@ pw_strip(char *str, const char *whitespace);
 
 ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags);
 
-#if !defined(reallocarray)
-# define reallocarray(ptr,nmemb,size)		realloc((ptr), (nmemb) * (size))
-#endif
+void* pw_reallocarray(void *ptr, size_t nmemb, size_t size);
+
 /**
  * \}
  */

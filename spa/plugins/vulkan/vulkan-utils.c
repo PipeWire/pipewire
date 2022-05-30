@@ -217,31 +217,36 @@ static uint32_t findMemoryType(struct vulkan_state *s,
 
 static int createDescriptors(struct vulkan_state *s)
 {
-	static const VkDescriptorPoolSize descriptorPoolSize = {
+	uint32_t i;
+
+	VkDescriptorPoolSize descriptorPoolSize = {
 		.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.descriptorCount = 1
+		.descriptorCount = s->n_streams,
 	};
-	static const VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
+	const VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 		.maxSets = 1,
 		.poolSizeCount = 1,
 		.pPoolSizes = &descriptorPoolSize,
 	};
+	VkDescriptorSetLayoutBinding descriptorSetLayoutBinding[s->n_streams];
 
         VK_CHECK_RESULT(vkCreateDescriptorPool(s->device,
 				&descriptorPoolCreateInfo, NULL,
 				&s->descriptorPool));
 
-	static const VkDescriptorSetLayoutBinding descriptorSetLayoutBinding = {
-		.binding = 0,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
+	for (i = 0; i < s->n_streams; i++) {
+		descriptorSetLayoutBinding[i] = (VkDescriptorSetLayoutBinding) {
+			.binding = i,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = 1,
+			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
+		};
 	};
-	static const VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
+	const VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-		.bindingCount = 1,
-		.pBindings = &descriptorSetLayoutBinding
+		.bindingCount = s->n_streams,
+		.pBindings = descriptorSetLayoutBinding
 	};
 	VK_CHECK_RESULT(vkCreateDescriptorSetLayout(s->device,
 				&descriptorSetLayoutCreateInfo, NULL,
@@ -256,63 +261,42 @@ static int createDescriptors(struct vulkan_state *s)
 
 	VK_CHECK_RESULT(vkAllocateDescriptorSets(s->device,
 				&descriptorSetAllocateInfo,
-				&s->descriptorSet));
+				s->descriptorSet));
 	return 0;
 }
 
-static int createBuffer(struct vulkan_state *s, uint32_t id)
+static int updateDescriptors(struct vulkan_state *s)
 {
-	const VkBufferCreateInfo bufferCreateInfo = {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.size = s->bufferSize,
-		.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-	};
-	VkMemoryRequirements memoryRequirements;
+	uint32_t i;
+	VkDescriptorBufferInfo descriptorBufferInfo[s->n_streams];
+	VkWriteDescriptorSet writeDescriptorSet[s->n_streams];
 
-	VK_CHECK_RESULT(vkCreateBuffer(s->device,
-				&bufferCreateInfo, NULL, &s->buffers[id].buffer));
+	for (i = 0; i < s->n_streams; i++) {
+		struct vulkan_stream *p = &s->streams[i];
 
-	vkGetBufferMemoryRequirements(s->device,
-			s->buffers[id].buffer, &memoryRequirements);
+		if (p->current_buffer_id == p->pending_buffer_id ||
+		    p->pending_buffer_id == SPA_ID_INVALID)
+			continue;
 
-	const VkMemoryAllocateInfo allocateInfo = {
-		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		.allocationSize = memoryRequirements.size,
-		.memoryTypeIndex = findMemoryType(s,
-						  memoryRequirements.memoryTypeBits,
-						  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
-						  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
-	};
+		p->current_buffer_id = p->pending_buffer_id;
+		p->busy_buffer_id = p->current_buffer_id;
+		p->pending_buffer_id = SPA_ID_INVALID;
 
-	VK_CHECK_RESULT(vkAllocateMemory(s->device,
-				&allocateInfo, NULL, &s->buffers[id].memory));
-	VK_CHECK_RESULT(vkBindBufferMemory(s->device,
-				s->buffers[id].buffer, s->buffers[id].memory, 0));
-
-	return 0;
-}
-
-static int updateDescriptors(struct vulkan_state *s, uint32_t buffer_id)
-{
-	if (s->current_buffer_id == buffer_id)
-		return 0;
-
-	const VkDescriptorBufferInfo descriptorBufferInfo = {
-		.buffer = s->buffers[buffer_id].buffer,
-		.offset = 0,
-		.range = s->bufferSize,
-	};
-	const VkWriteDescriptorSet writeDescriptorSet = {
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.dstSet = s->descriptorSet,
-		.dstBinding = 0,
-		.descriptorCount = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.pBufferInfo = &descriptorBufferInfo,
-	};
-	vkUpdateDescriptorSets(s->device, 1, &writeDescriptorSet, 0, NULL);
-	s->current_buffer_id = buffer_id;
+		descriptorBufferInfo[i] = (VkDescriptorBufferInfo) {
+			.buffer = p->buffers[p->current_buffer_id].buffer,
+			.offset = 0,
+			.range = p->bufferSize,
+		};
+		writeDescriptorSet[i] = (VkWriteDescriptorSet) {
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.dstSet = s->descriptorSet[i],
+			.dstBinding = i,
+			.descriptorCount = 1,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.pBufferInfo = &descriptorBufferInfo[i],
+		};
+	}
+	vkUpdateDescriptorSets(s->device, s->n_streams, writeDescriptorSet, 0, NULL);
 
 	return 0;
 }
@@ -432,7 +416,7 @@ static int runCommandBuffer(struct vulkan_state *s)
 			s->pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT,
 			0, sizeof(struct push_constants), (const void *) &s->constants);
 	vkCmdBindDescriptorSets(s->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-			s->pipelineLayout, 0, 1, &s->descriptorSet, 0, NULL);
+			s->pipelineLayout, 0, s->n_streams, s->descriptorSet, 0, NULL);
 
 	vkCmdDispatch(s->commandBuffer,
 			(uint32_t)ceil(s->constants.width / (float)WORKGROUP_SIZE),
@@ -448,55 +432,114 @@ static int runCommandBuffer(struct vulkan_state *s)
 		.pCommandBuffers = &s->commandBuffer,
 	};
         VK_CHECK_RESULT(vkQueueSubmit(s->queue, 1, &submitInfo, s->fence));
-	s->busy_buffer_id = s->current_buffer_id;
+	s->started = true;
 
 	return 0;
 }
 
-static void clear_buffers(struct vulkan_state *s)
+static void clear_buffers(struct vulkan_state *s, struct vulkan_stream *p)
 {
 	uint32_t i;
 
-	for (i = 0; i < s->n_buffers; i++) {
-		close(s->buffers[i].buf->datas[0].fd);
-		vkFreeMemory(s->device, s->buffers[i].memory, NULL);
-		vkDestroyBuffer(s->device, s->buffers[i].buffer, NULL);
+	for (i = 0; i < p->n_buffers; i++) {
+		if (p->buffers[i].fd != -1)
+			close(p->buffers[i].fd);
+		vkFreeMemory(s->device, p->buffers[i].memory, NULL);
+		vkDestroyBuffer(s->device, p->buffers[i].buffer, NULL);
 	}
-	s->n_buffers = 0;
+	p->n_buffers = 0;
 }
 
-int spa_vulkan_use_buffers(struct vulkan_state *s, uint32_t flags,
+static void clear_streams(struct vulkan_state *s)
+{
+	uint32_t i;
+	for (i = 0; i < s->n_streams; i++) {
+		struct vulkan_stream *p = &s->streams[i];
+		clear_buffers(s, p);
+	}
+}
+
+int spa_vulkan_use_buffers(struct vulkan_state *s, struct vulkan_stream *p, uint32_t flags,
 		uint32_t n_buffers, struct spa_buffer **buffers)
 {
 	uint32_t i;
 	VULKAN_INSTANCE_FUNCTION(vkGetMemoryFdKHR);
 
-	clear_buffers(s);
+	clear_buffers(s, p);
 
-	s->bufferSize = s->constants.width * s->constants.height * sizeof(struct pixel);
+	p->bufferSize = s->constants.width * s->constants.height * sizeof(struct pixel);
 
 	for (i = 0; i < n_buffers; i++) {
-		createBuffer(s, i);
-
-		const VkMemoryGetFdInfoKHR getFdInfo = {
-			.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
-			.memory = s->buffers[i].memory,
-			.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT
+		const VkBufferCreateInfo bufferCreateInfo = {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+			.size = p->bufferSize,
+			.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		};
-		int fd;
+		VK_CHECK_RESULT(vkCreateBuffer(s->device,
+					&bufferCreateInfo, NULL, &p->buffers[i].buffer));
 
-		s->buffers[i].buf = buffers[i];
+		VkMemoryRequirements memoryRequirements;
+		vkGetBufferMemoryRequirements(s->device,
+				p->buffers[i].buffer, &memoryRequirements);
 
-	        VK_CHECK_RESULT(vkGetMemoryFdKHR(s->device, &getFdInfo, &fd));
+		VkMemoryAllocateInfo allocateInfo = {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+			.allocationSize = memoryRequirements.size,
+			.memoryTypeIndex = findMemoryType(s,
+						  memoryRequirements.memoryTypeBits,
+						  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
+						  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT),
+		};
 
-		buffers[i]->datas[0].type = SPA_DATA_DmaBuf;
-		buffers[i]->datas[0].flags = SPA_DATA_FLAG_READABLE;
-		buffers[i]->datas[0].fd = fd;
-		buffers[i]->datas[0].mapoffset = 0;
-		buffers[i]->datas[0].maxsize = s->bufferSize;
+		if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC) {
+			VK_CHECK_RESULT(vkAllocateMemory(s->device,
+					&allocateInfo, NULL, &p->buffers[i].memory));
+
+			const VkMemoryGetFdInfoKHR getFdInfo = {
+				.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
+				.memory = p->buffers[i].memory,
+				.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT
+			};
+			int fd;
+
+		        VK_CHECK_RESULT(vkGetMemoryFdKHR(s->device, &getFdInfo, &fd));
+
+//			buffers[i]->datas[0].type = SPA_DATA_DmaBuf;
+			buffers[i]->datas[0].type = SPA_DATA_MemFd;
+			buffers[i]->datas[0].fd = fd;
+			buffers[i]->datas[0].flags = SPA_DATA_FLAG_READABLE;
+			buffers[i]->datas[0].mapoffset = 0;
+			buffers[i]->datas[0].maxsize = p->bufferSize;
+			p->buffers[i].fd = fd;
+		} else {
+			VkImportMemoryFdInfoKHR importInfo = {
+				.sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
+				.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
+				.fd = fcntl(buffers[i]->datas[0].fd, F_DUPFD_CLOEXEC, 0),
+			};
+			allocateInfo.pNext = &importInfo;
+			p->buffers[i].fd = -1;
+
+			VK_CHECK_RESULT(vkAllocateMemory(s->device,
+					&allocateInfo, NULL, &p->buffers[i].memory));
+		}
+		VK_CHECK_RESULT(vkBindBufferMemory(s->device,
+					p->buffers[i].buffer, p->buffers[i].memory, 0));
 	}
-	s->n_buffers = n_buffers;
+	p->n_buffers = n_buffers;
 
+	return 0;
+}
+
+int spa_vulkan_init_stream(struct vulkan_state *s, struct vulkan_stream *stream,
+		enum spa_direction direction, struct spa_dict *props)
+{
+	spa_zero(*stream);
+	stream->direction = direction;
+	stream->current_buffer_id = SPA_ID_INVALID;
+	stream->busy_buffer_id = SPA_ID_INVALID;
+	stream->ready_buffer_id = SPA_ID_INVALID;
 	return 0;
 }
 
@@ -532,23 +575,31 @@ int spa_vulkan_unprepare(struct vulkan_state *s)
 
 int spa_vulkan_start(struct vulkan_state *s)
 {
-	s->current_buffer_id = SPA_ID_INVALID;
-	s->busy_buffer_id = SPA_ID_INVALID;
-	s->ready_buffer_id = SPA_ID_INVALID;
+	uint32_t i;
+
+	for (i = 0; i < s->n_streams; i++) {
+		struct vulkan_stream *p = &s->streams[i];
+		p->current_buffer_id = SPA_ID_INVALID;
+		p->busy_buffer_id = SPA_ID_INVALID;
+		p->ready_buffer_id = SPA_ID_INVALID;
+	}
 	return 0;
 }
 
 int spa_vulkan_stop(struct vulkan_state *s)
 {
         VK_CHECK_RESULT(vkDeviceWaitIdle(s->device));
+	clear_streams(s);
+	s->started = false;
 	return 0;
 }
 
 int spa_vulkan_ready(struct vulkan_state *s)
 {
+	uint32_t i;
 	VkResult result;
 
-	if (s->busy_buffer_id == SPA_ID_INVALID)
+	if (!s->started)
 		return 0;
 
 	result = vkGetFenceStatus(s->device, s->fence);
@@ -556,15 +607,19 @@ int spa_vulkan_ready(struct vulkan_state *s)
 		return -EBUSY;
 	VK_CHECK_RESULT(result);
 
-	s->ready_buffer_id = s->busy_buffer_id;
-	s->busy_buffer_id = SPA_ID_INVALID;
+	s->started = false;
 
+	for (i = 0; i < s->n_streams; i++) {
+		struct vulkan_stream *p = &s->streams[i];
+		p->ready_buffer_id = p->busy_buffer_id;
+		p->busy_buffer_id = SPA_ID_INVALID;
+	}
 	return 0;
 }
 
-int spa_vulkan_process(struct vulkan_state *s, uint32_t buffer_id)
+int spa_vulkan_process(struct vulkan_state *s)
 {
-	updateDescriptors(s, buffer_id);
+	updateDescriptors(s);
 	runCommandBuffer(s);
 
 	return 0;

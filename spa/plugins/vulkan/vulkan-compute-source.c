@@ -61,8 +61,6 @@ static void reset_props(struct props *props)
 	props->live = DEFAULT_LIVE;
 }
 
-#define MAX_PORTS 1
-
 struct buffer {
 	uint32_t id;
 #define BUFFER_FLAG_OUT (1<<0)
@@ -122,7 +120,7 @@ struct impl {
 	struct port port;
 };
 
-#define CHECK_PORT(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) < MAX_PORTS)
+#define CHECK_PORT(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) < 1)
 
 static int impl_node_enum_params(void *object, int seq,
 				 uint32_t id, uint32_t start, uint32_t num,
@@ -308,12 +306,13 @@ static int make_buffer(struct impl *this)
 	this->state.constants.time = this->elapsed_time / (float) SPA_NSEC_PER_SEC;
 	this->state.constants.frame = this->frame_count;
 
-	spa_vulkan_process(&this->state, b->id);
+	this->state.streams[0].pending_buffer_id = b->id;
+	spa_vulkan_process(&this->state);
 
-	if (this->state.ready_buffer_id != SPA_ID_INVALID) {
-		struct buffer *b = &port->buffers[this->state.ready_buffer_id];
+	if (this->state.streams[0].ready_buffer_id != SPA_ID_INVALID) {
+		struct buffer *b = &port->buffers[this->state.streams[0].ready_buffer_id];
 
-		this->state.ready_buffer_id = SPA_ID_INVALID;
+		this->state.streams[0].ready_buffer_id = SPA_ID_INVALID;
 
 		spa_log_trace(this->log, NAME " %p: ready buffer %d", this, b->id);
 
@@ -636,7 +635,7 @@ static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
 		spa_log_debug(this->log, NAME " %p: clear buffers", this);
-		spa_vulkan_use_buffers(&this->state, 0, 0, NULL);
+		spa_vulkan_use_buffers(&this->state, &this->state.streams[0], 0, 0, NULL);
 		port->n_buffers = 0;
 		spa_list_init(&port->empty);
 		spa_list_init(&port->ready);
@@ -749,7 +748,7 @@ impl_node_port_use_buffers(void *object,
 
 		spa_list_append(&port->empty, &b->link);
 	}
-	spa_vulkan_use_buffers(&this->state, flags, n_buffers, buffers);
+	spa_vulkan_use_buffers(&this->state, &this->state.streams[0], flags, n_buffers, buffers);
 	port->n_buffers = n_buffers;
 
 	return 0;
@@ -958,6 +957,9 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&port->ready);
 
 	this->state.log = this->log;
+	spa_vulkan_init_stream(&this->state, &this->state.streams[0],
+			SPA_DIRECTION_OUTPUT, NULL);
+	this->state.n_streams = 1;
 
 	return 0;
 }

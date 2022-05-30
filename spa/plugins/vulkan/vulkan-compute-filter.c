@@ -47,8 +47,6 @@
 
 #define NAME "vulkan-compute-filter"
 
-#define MAX_PORTS 1
-
 struct buffer {
 	uint32_t id;
 #define BUFFER_FLAG_OUT (1<<0)
@@ -75,6 +73,7 @@ struct port {
 
 	struct spa_list empty;
 	struct spa_list ready;
+	uint32_t stream_id;
 };
 
 struct impl {
@@ -103,7 +102,7 @@ struct impl {
 	struct port port[2];
 };
 
-#define CHECK_PORT(this,d,p)  ((p) < MAX_PORTS)
+#define CHECK_PORT(this,d,p)  ((p) < 1)
 
 static int impl_node_enum_params(void *object, int seq,
 				 uint32_t id, uint32_t start, uint32_t num,
@@ -416,7 +415,7 @@ static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
 		spa_log_debug(this->log, NAME " %p: clear buffers", this);
-		spa_vulkan_use_buffers(&this->state, 0, 0, NULL);
+		spa_vulkan_use_buffers(&this->state, &this->state.streams[port->stream_id], 0, 0, NULL);
 		port->n_buffers = 0;
 		spa_list_init(&port->empty);
 		spa_list_init(&port->ready);
@@ -528,7 +527,7 @@ impl_node_port_use_buffers(void *object,
 
 		spa_list_append(&port->empty, &b->link);
 	}
-	spa_vulkan_use_buffers(&this->state, flags, n_buffers, buffers);
+	spa_vulkan_use_buffers(&this->state, &this->state.streams[port->stream_id], flags, n_buffers, buffers);
 	port->n_buffers = n_buffers;
 
 	return 0;
@@ -693,24 +692,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.params = this->params;
 	this->info.n_params = 2;
 
-	port = &this->port[SPA_DIRECTION_OUTPUT];
-	port->direction = SPA_DIRECTION_OUTPUT;
-	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
-			SPA_PORT_CHANGE_MASK_PARAMS |
-			SPA_PORT_CHANGE_MASK_PROPS;
-	port->info = SPA_PORT_INFO_INIT();
-	port->info.flags = SPA_PORT_FLAG_NO_REF | SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
-	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
-	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
-	port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
-	port->info.params = port->params;
-	port->info.n_params = 5;
-	spa_list_init(&port->empty);
-	spa_list_init(&port->ready);
-
-	port = &this->port[SPA_DIRECTION_INPUT];
+	port = &this->port[0];
+	port->stream_id = 0;
 	port->direction = SPA_DIRECTION_INPUT;
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PARAMS |
@@ -727,7 +710,30 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&port->empty);
 	spa_list_init(&port->ready);
 
+	port = &this->port[1];
+	port->stream_id = 1;
+	port->direction = SPA_DIRECTION_OUTPUT;
+	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
+			SPA_PORT_CHANGE_MASK_PARAMS |
+			SPA_PORT_CHANGE_MASK_PROPS;
+	port->info = SPA_PORT_INFO_INIT();
+	port->info.flags = SPA_PORT_FLAG_NO_REF | SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
+	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+	port->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	port->info.params = port->params;
+	port->info.n_params = 5;
+	spa_list_init(&port->empty);
+	spa_list_init(&port->ready);
+
 	this->state.log = this->log;
+	spa_vulkan_init_stream(&this->state, &this->state.streams[0],
+			SPA_DIRECTION_INPUT, NULL);
+	spa_vulkan_init_stream(&this->state, &this->state.streams[1],
+			SPA_DIRECTION_OUTPUT, NULL);
+	this->state.n_streams = 2;
 
 	return 0;
 }

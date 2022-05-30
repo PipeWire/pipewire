@@ -536,6 +536,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
     mem->offset = SPA_MIN(d->chunk->offset, d->maxsize);
     mem->size = SPA_MIN(d->chunk->size, d->maxsize - mem->offset);
     mem->offset += data->offset;
+    spa_assert_se(mem->size <= mem->maxsize);
     if (d->chunk->flags & SPA_CHUNK_FLAG_CORRUPTED)
       GST_BUFFER_FLAG_SET (buf, GST_BUFFER_FLAG_CORRUPTED);
   }

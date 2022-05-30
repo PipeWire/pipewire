@@ -1479,9 +1479,13 @@ static int impl_node_process(void *object)
 	}
 	if (!spa_list_is_empty(&port->ready)) {
 		if (this->following) {
-			struct timespec now;
-			spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &now);
-			this->current_time = SPA_TIMESPEC_TO_NSEC(&now);
+			if (this->position) {
+				this->current_time = this->position->clock.nsec;
+			} else {
+				struct timespec now;
+				spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &now);
+				this->current_time = SPA_TIMESPEC_TO_NSEC(&now);
+			}
 		}
 		if (this->need_flush)
 			reset_buffer(this);

@@ -1306,7 +1306,7 @@ int pw_impl_port_for_each_filtered_param(struct pw_impl_port *in_port,
 		return res;
 
 	if (fd.n_params == 0)
-		res = do_filter(&filter, seq, 0, 0, 0, NULL);
+		res = do_filter(&fd, seq, 0, 0, 0, NULL);
 
 	return res;
 }

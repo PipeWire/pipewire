@@ -144,6 +144,8 @@ extern "C" {
 /** keys for vulkan factory names */
 #define SPA_NAME_API_VULKAN_COMPUTE_SOURCE	\
 					"api.vulkan.compute.source"	/**< a vulkan compute source. */
+#define SPA_NAME_API_VULKAN_COMPUTE_FILTER	\
+					"api.vulkan.compute.filter"	/**< a vulkan compute filter. */
 
 /**
  * \}

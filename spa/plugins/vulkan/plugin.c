@@ -26,6 +26,7 @@
 
 #include <spa/support/plugin.h>
 
+extern const struct spa_handle_factory spa_vulkan_compute_filter_factory;
 extern const struct spa_handle_factory spa_vulkan_compute_source_factory;
 
 SPA_EXPORT
@@ -37,6 +38,9 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 	switch (*index) {
 	case 0:
 		*factory = &spa_vulkan_compute_source_factory;
+		break;
+	case 1:
+		*factory = &spa_vulkan_compute_filter_factory;
 		break;
 	default:
 		return 0;

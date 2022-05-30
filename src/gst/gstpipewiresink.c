@@ -495,7 +495,10 @@ on_state_changed (void *data, enum pw_stream_state old, enum pw_stream_state sta
     case PW_STREAM_STATE_UNCONNECTED:
     case PW_STREAM_STATE_CONNECTING:
     case PW_STREAM_STATE_PAUSED:
+      break;
     case PW_STREAM_STATE_STREAMING:
+      if (pw_stream_is_driving (pwsink->stream))
+        pw_stream_trigger_process (pwsink->stream);
       break;
     case PW_STREAM_STATE_ERROR:
       GST_ELEMENT_ERROR (pwsink, RESOURCE, FAILED,
@@ -678,6 +681,9 @@ gst_pipewire_sink_render (GstBaseSink * bsink, GstBuffer * buffer)
   do_send_buffer (pwsink, buffer);
   if (unref_buffer)
     gst_buffer_unref (buffer);
+
+  if (pw_stream_is_driving (pwsink->stream))
+    pw_stream_trigger_process (pwsink->stream);
 
 done_unlock:
   pw_thread_loop_unlock (pwsink->core->loop);

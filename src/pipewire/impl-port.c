@@ -1005,6 +1005,21 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 			pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s_%d", dir, port->port_id);
 		}
 	}
+	if (pw_properties_get(port->properties, PW_KEY_PORT_ALIAS) == NULL) {
+		const struct pw_properties *nprops;
+		const char *node_name;
+
+		nprops = pw_impl_node_get_properties(node);
+		if ((node_name = pw_properties_get(nprops, PW_KEY_NODE_NICK)) == NULL &&
+		    (node_name = pw_properties_get(nprops, PW_KEY_NODE_DESCRIPTION)) == NULL &&
+		    (node_name = pw_properties_get(nprops, PW_KEY_NODE_NAME)) == NULL)
+			node_name = "node";
+
+		pw_properties_setf(port->properties, PW_KEY_PORT_ALIAS, "%s:%s",
+				node_name,
+				pw_properties_get(port->properties, PW_KEY_PORT_NAME));
+	}
+
 	port->info.props = &port->properties->dict;
 
 	if (control) {

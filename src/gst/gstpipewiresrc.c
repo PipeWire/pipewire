@@ -605,7 +605,7 @@ gst_pipewire_src_stream_start (GstPipeWireSrc *pwsrc)
   GST_DEBUG_OBJECT (pwsrc, "doing stream start");
 
   pw_thread_loop_get_time (pwsrc->core->loop, &abstime,
-		  GST_PIPEWIRE_DEFAULT_TIMEOUT * SPA_NSEC_PER_SEC);
+                  GST_PIPEWIRE_DEFAULT_TIMEOUT * SPA_NSEC_PER_SEC);
 
   while (TRUE) {
     enum pw_stream_state state = pw_stream_get_state (pwsrc->stream, &error);
@@ -655,7 +655,7 @@ wait_started (GstPipeWireSrc *this)
   pw_thread_loop_lock (this->core->loop);
 
   pw_thread_loop_get_time (this->core->loop, &abstime,
-		  GST_PIPEWIRE_DEFAULT_TIMEOUT * SPA_NSEC_PER_SEC);
+                  GST_PIPEWIRE_DEFAULT_TIMEOUT * SPA_NSEC_PER_SEC);
 
   while (TRUE) {
     state = pw_stream_get_state (this->stream, &error);
@@ -680,7 +680,7 @@ wait_started (GstPipeWireSrc *this)
     }
   }
   GST_DEBUG_OBJECT (this, "got started signal: %s",
-		  pw_stream_state_as_string (state));
+                  pw_stream_state_as_string (state));
   pw_thread_loop_unlock (this->core->loop);
 
   return state;
@@ -783,7 +783,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   g_ptr_array_free (possible, TRUE);
 
   pw_thread_loop_get_time (pwsrc->core->loop, &abstime,
-		  GST_PIPEWIRE_DEFAULT_TIMEOUT * SPA_NSEC_PER_SEC);
+                  GST_PIPEWIRE_DEFAULT_TIMEOUT * SPA_NSEC_PER_SEC);
 
   while (TRUE) {
     enum pw_stream_state state = pw_stream_get_state (pwsrc->stream, &error);
@@ -861,7 +861,7 @@ on_param_changed (void *data, uint32_t id,
     return;
   }
   if (pwsrc->caps)
-	  gst_caps_unref(pwsrc->caps);
+          gst_caps_unref(pwsrc->caps);
   pwsrc->caps = gst_caps_from_format (param);
   GST_DEBUG_OBJECT (pwsrc, "we got format %" GST_PTR_FORMAT, pwsrc->caps);
 
@@ -883,8 +883,8 @@ on_param_changed (void *data, uint32_t id,
         SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
         SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
         SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(
-						(1<<SPA_DATA_MemFd) |
-						(1<<SPA_DATA_MemPtr)));
+                                                (1<<SPA_DATA_MemFd) |
+                                                (1<<SPA_DATA_MemPtr)));
 
     params[1] = spa_pod_builder_add_object (&b,
         SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
@@ -1032,7 +1032,7 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
       buf = dequeue_buffer (pwsrc);
       GST_LOG_OBJECT (pwsrc, "popped buffer %p", buf);
       if (buf != NULL) {
-	if (pwsrc->resend_last || pwsrc->keepalive_time > 0)
+        if (pwsrc->resend_last || pwsrc->keepalive_time > 0)
           gst_buffer_replace (&pwsrc->last_buffer, buf);
         break;
       }
@@ -1041,7 +1041,7 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     if (pwsrc->keepalive_time > 0) {
       struct timespec abstime;
       pw_thread_loop_get_time(pwsrc->core->loop, &abstime,
-		      pwsrc->keepalive_time * SPA_NSEC_PER_MSEC);
+                      pwsrc->keepalive_time * SPA_NSEC_PER_MSEC);
       if (pw_thread_loop_timed_wait_full (pwsrc->core->loop, &abstime) == -ETIMEDOUT)
         timeout = TRUE;
     } else {

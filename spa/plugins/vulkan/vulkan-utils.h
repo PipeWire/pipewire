@@ -64,6 +64,8 @@ struct vulkan_state {
 	VkDescriptorPool descriptorPool;
 	VkDescriptorSetLayout descriptorSetLayout;
 
+	VkSampler sampler;
+
 	uint32_t n_streams;
 	VkDescriptorSet descriptorSet;
 	struct vulkan_stream streams[MAX_STREAMS];

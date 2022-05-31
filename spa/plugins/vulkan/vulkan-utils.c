@@ -248,7 +248,7 @@ static int createDescriptors(struct vulkan_state *s)
 	uint32_t i;
 
 	VkDescriptorPoolSize descriptorPoolSize = {
-		.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		.descriptorCount = s->n_streams,
 	};
 	const VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
@@ -266,7 +266,7 @@ static int createDescriptors(struct vulkan_state *s)
 	for (i = 0; i < s->n_streams; i++) {
 		descriptorSetLayoutBinding[i] = (VkDescriptorSetLayoutBinding) {
 			.binding = i,
-			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			.descriptorCount = 1,
 			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
 		};
@@ -291,7 +291,23 @@ static int createDescriptors(struct vulkan_state *s)
 				&descriptorSetAllocateInfo,
 				&s->descriptorSet));
 
-
+	const VkSamplerCreateInfo samplerInfo = {
+		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+		.magFilter = VK_FILTER_LINEAR,
+		.minFilter = VK_FILTER_LINEAR,
+		.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+		.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+		.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+		.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+		.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK,
+		.unnormalizedCoordinates = VK_FALSE,
+		.compareEnable = VK_FALSE,
+		.compareOp = VK_COMPARE_OP_ALWAYS,
+		.mipLodBias = 0.0f,
+		.minLod = 0,
+		.maxLod = 5,
+	};
+	VK_CHECK_RESULT(vkCreateSampler(s->device, &samplerInfo, NULL, &s->sampler));
 
 	return 0;
 }
@@ -314,6 +330,7 @@ static int updateDescriptors(struct vulkan_state *s)
 		p->pending_buffer_id = SPA_ID_INVALID;
 
 		descriptorImageInfo[i] = (VkDescriptorImageInfo) {
+			.sampler = s->sampler,
 			.imageView = p->buffers[p->current_buffer_id].view,
 			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 		};
@@ -322,7 +339,7 @@ static int updateDescriptors(struct vulkan_state *s)
 			.dstSet = s->descriptorSet,
 			.dstBinding = i,
 			.descriptorCount = 1,
-			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			.pImageInfo = &descriptorImageInfo[i],
 		};
 	}
@@ -629,6 +646,7 @@ int spa_vulkan_unprepare(struct vulkan_state *s)
 {
 	if (s->prepared) {
 		vkDestroyShaderModule(s->device, s->computeShaderModule, NULL);
+		vkDestroySampler(s->device, s->sampler, NULL);
 		vkDestroyDescriptorPool(s->device, s->descriptorPool, NULL);
 		vkDestroyDescriptorSetLayout(s->device, s->descriptorSetLayout, NULL);
 		vkDestroyPipelineLayout(s->device, s->pipelineLayout, NULL);

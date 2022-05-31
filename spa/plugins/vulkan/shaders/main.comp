@@ -4,14 +4,7 @@
 #define WORKGROUP_SIZE 32
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1 ) in;
 
-struct Pixel{
-  vec4 value;
-};
-
-layout(std140, binding = 0) buffer buf
-{
-   Pixel imageData[];
-};
+layout(rgba32f, binding = 0) uniform image2D resultImage;
 
 layout( push_constant ) uniform Constants {
   float time;
@@ -42,8 +35,7 @@ void main()
 
 	mainImage(outColor, coord);
 
-	imageData[PushConstant.width * gl_GlobalInvocationID.y +
-			gl_GlobalInvocationID.x].value = outColor;
+	imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), outColor);
 }
 
 //#include "plasma-globe.comp"

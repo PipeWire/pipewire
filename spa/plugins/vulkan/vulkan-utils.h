@@ -20,7 +20,8 @@ struct push_constants {
 
 struct vulkan_buffer {
 	int fd;
-	VkBuffer buffer;
+	VkImage image;
+	VkImageView view;
 	VkDeviceMemory memory;
 };
 
@@ -32,7 +33,6 @@ struct vulkan_stream {
 	uint32_t busy_buffer_id;
 	uint32_t ready_buffer_id;
 
-	uint32_t bufferSize;
 	struct vulkan_buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
 };
@@ -49,6 +49,7 @@ struct vulkan_state {
 
 	VkPipeline pipeline;
 	VkPipelineLayout pipelineLayout;
+	const char *shaderName;
 	VkShaderModule computeShaderModule;
 
 	VkCommandPool commandPool;

@@ -16,6 +16,7 @@
 #include <time.h>
 
 #include <spa/utils/result.h>
+#include <spa/utils/string.h>
 #include <spa/support/log.h>
 #include <spa/debug/mem.h>
 
@@ -91,10 +92,10 @@ static int vkresult_to_errno(VkResult result)
 #define VK_CHECK_RESULT(f)								\
 {											\
 	VkResult _result = (f);								\
-	int _res = -vkresult_to_errno(_result);						\
+	int _r = -vkresult_to_errno(_result);						\
 	if (_result != VK_SUCCESS) {							\
-		spa_log_error(s->log, "error: %d (%s)", _result, spa_strerror(_res));	\
-		return _res;								\
+		spa_log_error(s->log, "error: %d (%d %s)", _result, _r, spa_strerror(_r));	\
+		return _r;								\
 	}										\
 }
 #define CHECK(f)									\
@@ -117,24 +118,32 @@ static int createInstance(struct vulkan_state *s)
 	static const char * const extensions[] = {
 		VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME
 	};
-	static const char * const layers[] = {
+	static const char * const checkLayers[] = {
+#ifdef ENABLE_VALIDATION
 		"VK_LAYER_KHRONOS_validation",
+#endif
+		NULL
 	};
-	uint32_t i, layerCount;
+	uint32_t i, j, layerCount, n_layers = 0;
+	const char *layers[1];
 	vkEnumerateInstanceLayerProperties(&layerCount, NULL);
 
 	VkLayerProperties availableLayers[layerCount];
 	vkEnumerateInstanceLayerProperties(&layerCount, availableLayers);
 
-	for (i = 0; i < layerCount; i++)
-		spa_log_info(s->log, "%s", availableLayers[i].layerName);
+	for (i = 0; i < layerCount; i++) {
+		for (j = 0; j < SPA_N_ELEMENTS(checkLayers); j++) {
+			if (spa_streq(availableLayers[i].layerName, checkLayers[j]))
+				layers[n_layers++] = checkLayers[j];
+		}
+	}
 
 	const VkInstanceCreateInfo createInfo = {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 		.pApplicationInfo = &applicationInfo,
 		.enabledExtensionCount = 1,
 		.ppEnabledExtensionNames = extensions,
-		.enabledLayerCount = 1,
+		.enabledLayerCount = n_layers,
 		.ppEnabledLayerNames = layers,
 	};
 
@@ -239,7 +248,7 @@ static int createDescriptors(struct vulkan_state *s)
 	uint32_t i;
 
 	VkDescriptorPoolSize descriptorPoolSize = {
-		.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 		.descriptorCount = s->n_streams,
 	};
 	const VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {
@@ -257,7 +266,7 @@ static int createDescriptors(struct vulkan_state *s)
 	for (i = 0; i < s->n_streams; i++) {
 		descriptorSetLayoutBinding[i] = (VkDescriptorSetLayoutBinding) {
 			.binding = i,
-			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 			.descriptorCount = 1,
 			.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
 		};
@@ -281,13 +290,16 @@ static int createDescriptors(struct vulkan_state *s)
 	VK_CHECK_RESULT(vkAllocateDescriptorSets(s->device,
 				&descriptorSetAllocateInfo,
 				&s->descriptorSet));
+
+
+
 	return 0;
 }
 
 static int updateDescriptors(struct vulkan_state *s)
 {
 	uint32_t i;
-	VkDescriptorBufferInfo descriptorBufferInfo[s->n_streams];
+	VkDescriptorImageInfo descriptorImageInfo[s->n_streams];
 	VkWriteDescriptorSet writeDescriptorSet[s->n_streams];
 
 	for (i = 0; i < s->n_streams; i++) {
@@ -301,18 +313,17 @@ static int updateDescriptors(struct vulkan_state *s)
 		p->busy_buffer_id = p->current_buffer_id;
 		p->pending_buffer_id = SPA_ID_INVALID;
 
-		descriptorBufferInfo[i] = (VkDescriptorBufferInfo) {
-			.buffer = p->buffers[p->current_buffer_id].buffer,
-			.offset = 0,
-			.range = p->bufferSize,
+		descriptorImageInfo[i] = (VkDescriptorImageInfo) {
+			.imageView = p->buffers[p->current_buffer_id].view,
+			.imageLayout = VK_IMAGE_LAYOUT_GENERAL,
 		};
 		writeDescriptorSet[i] = (VkWriteDescriptorSet) {
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			.dstSet = s->descriptorSet,
 			.dstBinding = i,
 			.descriptorCount = 1,
-			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			.pBufferInfo = &descriptorBufferInfo[i],
+			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			.pImageInfo = &descriptorImageInfo[i],
 		};
 	}
 	vkUpdateDescriptorSets(s->device, s->n_streams,
@@ -465,7 +476,8 @@ static void clear_buffers(struct vulkan_state *s, struct vulkan_stream *p)
 		if (p->buffers[i].fd != -1)
 			close(p->buffers[i].fd);
 		vkFreeMemory(s->device, p->buffers[i].memory, NULL);
-		vkDestroyBuffer(s->device, p->buffers[i].buffer, NULL);
+		vkDestroyImage(s->device, p->buffers[i].image, NULL);
+		vkDestroyImageView(s->device, p->buffers[i].view, NULL);
 	}
 	p->n_buffers = 0;
 }
@@ -487,30 +499,37 @@ int spa_vulkan_use_buffers(struct vulkan_state *s, struct vulkan_stream *p, uint
 
 	clear_buffers(s, p);
 
-	p->bufferSize = s->constants.width * s->constants.height * sizeof(struct pixel);
-
 	for (i = 0; i < n_buffers; i++) {
-		VkExternalMemoryBufferCreateInfo extInfo;
-		VkBufferCreateInfo bufferCreateInfo = {
-			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-			.size = p->bufferSize,
-			.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VkExternalMemoryImageCreateInfo extInfo;
+		VkImageCreateInfo imageCreateInfo = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+			.imageType = VK_IMAGE_TYPE_2D,
+			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+			.extent.width = s->constants.width,
+			.extent.height = s->constants.height,
+			.extent.depth = 1,
+			.mipLevels = 1,
+			.arrayLayers = 1,
+			.samples = VK_SAMPLE_COUNT_1_BIT,
+			.tiling = VK_IMAGE_TILING_LINEAR,
+			.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+			.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 		};
 		if (!(flags & SPA_NODE_BUFFERS_FLAG_ALLOC)) {
-			extInfo = (VkExternalMemoryBufferCreateInfo) {
-				.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+			extInfo = (VkExternalMemoryImageCreateInfo) {
+				.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
 				.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
 			};
-			bufferCreateInfo.pNext = &extInfo;
+			imageCreateInfo.pNext = &extInfo;
 		}
 
-		VK_CHECK_RESULT(vkCreateBuffer(s->device,
-					&bufferCreateInfo, NULL, &p->buffers[i].buffer));
+		VK_CHECK_RESULT(vkCreateImage(s->device,
+					&imageCreateInfo, NULL, &p->buffers[i].image));
 
 		VkMemoryRequirements memoryRequirements;
-		vkGetBufferMemoryRequirements(s->device,
-				p->buffers[i].buffer, &memoryRequirements);
+		vkGetImageMemoryRequirements(s->device,
+				p->buffers[i].image, &memoryRequirements);
 
 		VkMemoryAllocateInfo allocateInfo = {
 			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -534,12 +553,14 @@ int spa_vulkan_use_buffers(struct vulkan_state *s, struct vulkan_stream *p, uint
 
 		        VK_CHECK_RESULT(vkGetMemoryFdKHR(s->device, &getFdInfo, &fd));
 
+			spa_log_info(s->log, "export DMABUF %zd", memoryRequirements.size);
+
 //			buffers[i]->datas[0].type = SPA_DATA_DmaBuf;
 			buffers[i]->datas[0].type = SPA_DATA_MemFd;
 			buffers[i]->datas[0].fd = fd;
 			buffers[i]->datas[0].flags = SPA_DATA_FLAG_READABLE;
 			buffers[i]->datas[0].mapoffset = 0;
-			buffers[i]->datas[0].maxsize = p->bufferSize;
+			buffers[i]->datas[0].maxsize = memoryRequirements.size;
 			p->buffers[i].fd = fd;
 		} else {
 			VkImportMemoryFdInfoKHR importInfo = {
@@ -549,12 +570,30 @@ int spa_vulkan_use_buffers(struct vulkan_state *s, struct vulkan_stream *p, uint
 			};
 			allocateInfo.pNext = &importInfo;
 			p->buffers[i].fd = -1;
+			spa_log_info(s->log, "import DMABUF");
 
 			VK_CHECK_RESULT(vkAllocateMemory(s->device,
 					&allocateInfo, NULL, &p->buffers[i].memory));
 		}
-		VK_CHECK_RESULT(vkBindBufferMemory(s->device,
-					p->buffers[i].buffer, p->buffers[i].memory, 0));
+		VK_CHECK_RESULT(vkBindImageMemory(s->device,
+					p->buffers[i].image, p->buffers[i].memory, 0));
+
+		VkImageViewCreateInfo viewInfo = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.image = p->buffers[i].image,
+			.viewType = VK_IMAGE_VIEW_TYPE_2D,
+			.format = VK_FORMAT_R32G32B32A32_SFLOAT,
+			.components.r = VK_COMPONENT_SWIZZLE_R,
+			.components.g = VK_COMPONENT_SWIZZLE_G,
+			.components.b = VK_COMPONENT_SWIZZLE_B,
+			.components.a = VK_COMPONENT_SWIZZLE_A,
+			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.subresourceRange.levelCount = 1,
+			.subresourceRange.layerCount = 1,
+		};
+
+		VK_CHECK_RESULT(vkCreateImageView(s->device,
+					&viewInfo, NULL, &p->buffers[i].view));
 	}
 	p->n_buffers = n_buffers;
 
@@ -579,7 +618,7 @@ int spa_vulkan_prepare(struct vulkan_state *s)
 		CHECK(findPhysicalDevice(s));
 		CHECK(createDevice(s));
 		CHECK(createDescriptors(s));
-		CHECK(createComputePipeline(s, "spa/plugins/vulkan/shaders/main.spv"));
+		CHECK(createComputePipeline(s, s->shaderName));
 		CHECK(createCommandBuffer(s));
 		s->prepared = true;
 	}
@@ -651,6 +690,7 @@ int spa_vulkan_process(struct vulkan_state *s)
 {
 	CHECK(updateDescriptors(s));
 	CHECK(runCommandBuffer(s));
+        VK_CHECK_RESULT(vkDeviceWaitIdle(s->device));
 
 	return 0;
 }

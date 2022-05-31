@@ -91,12 +91,7 @@ struct impl {
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
 
-	bool async;
-	struct spa_source timer_source;
-	struct itimerspec timerspec;
-
 	bool started;
-	uint64_t frame_count;
 
 	struct vulkan_state state;
 	struct port port[2];
@@ -177,7 +172,7 @@ static inline void reuse_buffer(struct impl *this, struct port *port, uint32_t i
 	struct buffer *b = &port->buffers[id];
 
 	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
-		spa_log_info(this->log, NAME " %p: reuse buffer %d", this, id);
+		spa_log_debug(this->log, NAME " %p: reuse buffer %d", this, id);
 
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		spa_list_append(&port->empty, &b->link);
@@ -196,7 +191,6 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		if (this->started)
 			return 0;
 
-		this->frame_count = 0;
 		this->started = true;
 		spa_vulkan_start(&this->state);
 		break;
@@ -608,21 +602,31 @@ static int impl_node_process(void *object)
 	}
 
 	if (spa_list_is_empty(&outport->empty)) {
-		spa_log_error(this->log, NAME " %p: out of buffers", this);
+		spa_log_debug(this->log, NAME " %p: out of buffers", this);
 		return -EPIPE;
 	}
 	b = &inport->buffers[inio->buffer_id];
-	this->state.streams[0].pending_buffer_id = b->id;
+	this->state.streams[inport->stream_id].pending_buffer_id = b->id;
+	inio->status = SPA_STATUS_NEED_DATA;
 
 	b = spa_list_first(&outport->empty, struct buffer, link);
 	spa_list_remove(&b->link);
-	this->state.streams[1].pending_buffer_id = b->id;
+	SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
+	this->state.streams[outport->stream_id].pending_buffer_id = b->id;
+
+	this->state.constants.time += 0.025;
+	this->state.constants.frame++;
+
+	spa_log_debug(this->log, "filter into %d", b->id);
 
 	spa_vulkan_process(&this->state);
 
+	b->outbuf->datas[0].chunk->offset = 0;
+	b->outbuf->datas[0].chunk->size = b->outbuf->datas[0].maxsize;
+	b->outbuf->datas[0].chunk->stride = this->position->video.stride;
+
 	outio->buffer_id = b->id;
 	outio->status = SPA_STATUS_HAVE_DATA;
-	inio->status = SPA_STATUS_NEED_DATA;
 
 	return SPA_STATUS_NEED_DATA | SPA_STATUS_HAVE_DATA;
 }
@@ -694,6 +698,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	this->state.log = this->log;
+	this->state.shaderName = "spa/plugins/vulkan/shaders/filter.spv";
 
 	spa_hook_list_init(&this->hooks);
 
@@ -715,7 +720,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.n_params = 2;
 
 	port = &this->port[0];
-	port->stream_id = 0;
+	port->stream_id = 1;
 	port->direction = SPA_DIRECTION_INPUT;
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PARAMS |
@@ -729,13 +734,13 @@ impl_init(const struct spa_handle_factory *factory,
 	port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	port->info.params = port->params;
 	port->info.n_params = 5;
-	spa_vulkan_init_stream(&this->state, &this->state.streams[0],
+	spa_vulkan_init_stream(&this->state, &this->state.streams[port->stream_id],
 			SPA_DIRECTION_INPUT, NULL);
 	spa_list_init(&port->empty);
 	spa_list_init(&port->ready);
 
 	port = &this->port[1];
-	port->stream_id = 1;
+	port->stream_id = 0;
 	port->direction = SPA_DIRECTION_OUTPUT;
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PARAMS |
@@ -751,7 +756,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info.n_params = 5;
 	spa_list_init(&port->empty);
 	spa_list_init(&port->ready);
-	spa_vulkan_init_stream(&this->state, &this->state.streams[1],
+	spa_vulkan_init_stream(&this->state, &this->state.streams[port->stream_id],
 			SPA_DIRECTION_OUTPUT, NULL);
 
 	this->state.n_streams = 2;

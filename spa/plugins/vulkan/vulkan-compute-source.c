@@ -959,6 +959,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->state.log = this->log;
 	spa_vulkan_init_stream(&this->state, &this->state.streams[0],
 			SPA_DIRECTION_OUTPUT, NULL);
+	this->state.shaderName = "spa/plugins/vulkan/shaders/main.spv";
 	this->state.n_streams = 1;
 
 	return 0;

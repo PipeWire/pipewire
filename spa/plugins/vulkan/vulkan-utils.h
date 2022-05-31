@@ -64,7 +64,7 @@ struct vulkan_state {
 	VkDescriptorSetLayout descriptorSetLayout;
 
 	uint32_t n_streams;
-	VkDescriptorSet descriptorSet[MAX_STREAMS];
+	VkDescriptorSet descriptorSet;
 	struct vulkan_stream streams[MAX_STREAMS];
 };
 

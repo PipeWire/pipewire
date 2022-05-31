@@ -93,7 +93,7 @@ static int vkresult_to_errno(VkResult result)
 	VkResult _result = (f);								\
 	int _res = -vkresult_to_errno(_result);						\
 	if (_result != VK_SUCCESS) {							\
-		spa_log_debug(s->log, "error: %d (%s)", _result, spa_strerror(_res));	\
+		spa_log_error(s->log, "error: %d (%s)", _result, spa_strerror(_res));	\
 		return _res;								\
 	}										\
 }
@@ -111,12 +111,25 @@ static int createInstance(struct vulkan_state *s)
 	static const char * const extensions[] = {
 		VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME
 	};
+	static const char * const layers[] = {
+		"VK_LAYER_KHRONOS_validation",
+	};
+	uint32_t i, layerCount;
+	vkEnumerateInstanceLayerProperties(&layerCount, NULL);
+
+	VkLayerProperties availableLayers[layerCount];
+	vkEnumerateInstanceLayerProperties(&layerCount, availableLayers);
+
+	for (i = 0; i < layerCount; i++)
+		spa_log_info(s->log, "%s", availableLayers[i].layerName);
 
 	const VkInstanceCreateInfo createInfo = {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 		.pApplicationInfo = &applicationInfo,
 		.enabledExtensionCount = 1,
 		.ppEnabledExtensionNames = extensions,
+		.enabledLayerCount = 1,
+		.ppEnabledLayerNames = layers,
 	};
 
 	VK_CHECK_RESULT(vkCreateInstance(&createInfo, NULL, &s->instance));
@@ -229,12 +242,12 @@ static int createDescriptors(struct vulkan_state *s)
 		.poolSizeCount = 1,
 		.pPoolSizes = &descriptorPoolSize,
 	};
-	VkDescriptorSetLayoutBinding descriptorSetLayoutBinding[s->n_streams];
 
         VK_CHECK_RESULT(vkCreateDescriptorPool(s->device,
 				&descriptorPoolCreateInfo, NULL,
 				&s->descriptorPool));
 
+	VkDescriptorSetLayoutBinding descriptorSetLayoutBinding[s->n_streams];
 	for (i = 0; i < s->n_streams; i++) {
 		descriptorSetLayoutBinding[i] = (VkDescriptorSetLayoutBinding) {
 			.binding = i,
@@ -261,7 +274,7 @@ static int createDescriptors(struct vulkan_state *s)
 
 	VK_CHECK_RESULT(vkAllocateDescriptorSets(s->device,
 				&descriptorSetAllocateInfo,
-				s->descriptorSet));
+				&s->descriptorSet));
 	return 0;
 }
 
@@ -289,7 +302,7 @@ static int updateDescriptors(struct vulkan_state *s)
 		};
 		writeDescriptorSet[i] = (VkWriteDescriptorSet) {
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = s->descriptorSet[i],
+			.dstSet = s->descriptorSet,
 			.dstBinding = i,
 			.descriptorCount = 1,
 			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -342,7 +355,7 @@ static VkShaderModule createShaderModule(struct vulkan_state *s, const char* sha
 static int createComputePipeline(struct vulkan_state *s, const char *shader_file)
 {
 	static const VkPushConstantRange range = {
-		.stageFlags = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+		.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
 		.offset = 0,
 		.size = sizeof(struct push_constants)
 	};
@@ -416,7 +429,7 @@ static int runCommandBuffer(struct vulkan_state *s)
 			s->pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT,
 			0, sizeof(struct push_constants), (const void *) &s->constants);
 	vkCmdBindDescriptorSets(s->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-			s->pipelineLayout, 0, s->n_streams, s->descriptorSet, 0, NULL);
+			s->pipelineLayout, 0, 1, &s->descriptorSet, 0, NULL);
 
 	vkCmdDispatch(s->commandBuffer,
 			(uint32_t)ceil(s->constants.width / (float)WORKGROUP_SIZE),
@@ -470,12 +483,21 @@ int spa_vulkan_use_buffers(struct vulkan_state *s, struct vulkan_stream *p, uint
 	p->bufferSize = s->constants.width * s->constants.height * sizeof(struct pixel);
 
 	for (i = 0; i < n_buffers; i++) {
-		const VkBufferCreateInfo bufferCreateInfo = {
+		VkExternalMemoryBufferCreateInfo extInfo;
+		VkBufferCreateInfo bufferCreateInfo = {
 			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 			.size = p->bufferSize,
 			.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		};
+		if (!(flags & SPA_NODE_BUFFERS_FLAG_ALLOC)) {
+			extInfo = (VkExternalMemoryBufferCreateInfo) {
+				.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+				.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
+			};
+			bufferCreateInfo.pNext = &extInfo;
+		}
+
 		VK_CHECK_RESULT(vkCreateBuffer(s->device,
 					&bufferCreateInfo, NULL, &p->buffers[i].buffer));
 
@@ -566,6 +588,7 @@ int spa_vulkan_unprepare(struct vulkan_state *s)
 		vkDestroyPipelineLayout(s->device, s->pipelineLayout, NULL);
 		vkDestroyPipeline(s->device, s->pipeline, NULL);
 		vkDestroyCommandPool(s->device, s->commandPool, NULL);
+		vkDestroyFence(s->device, s->fence, NULL);
 		vkDestroyDevice(s->device, NULL);
 		vkDestroyInstance(s->instance, NULL);
 		s->prepared = false;

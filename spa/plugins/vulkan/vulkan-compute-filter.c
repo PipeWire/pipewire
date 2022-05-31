@@ -177,7 +177,7 @@ static inline void reuse_buffer(struct impl *this, struct port *port, uint32_t i
 	struct buffer *b = &port->buffers[id];
 
 	if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
-		spa_log_trace(this->log, NAME " %p: reuse buffer %d", this, id);
+		spa_log_info(this->log, NAME " %p: reuse buffer %d", this, id);
 
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		spa_list_append(&port->empty, &b->link);
@@ -415,6 +415,7 @@ static int clear_buffers(struct impl *this, struct port *port)
 {
 	if (port->n_buffers > 0) {
 		spa_log_debug(this->log, NAME " %p: clear buffers", this);
+		spa_vulkan_stop(&this->state);
 		spa_vulkan_use_buffers(&this->state, &this->state.streams[port->stream_id], 0, 0, NULL);
 		port->n_buffers = 0;
 		spa_list_init(&port->empty);
@@ -455,7 +456,6 @@ static int port_set_format(struct impl *this, struct port *port,
 
 		port->current_format = info;
 		port->have_format = true;
-		spa_vulkan_prepare(&this->state);
 	}
 
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
@@ -525,6 +525,7 @@ impl_node_port_use_buffers(void *object,
 		b->flags = 0;
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
+		spa_log_info(this->log, "%p: %d:%d add buffer %p", port, direction, port_id, b);
 		spa_list_append(&port->empty, &b->link);
 	}
 	spa_vulkan_use_buffers(&this->state, &this->state.streams[port->stream_id], flags, n_buffers, buffers);
@@ -578,8 +579,21 @@ static int impl_node_process(void *object)
 	struct impl *this = object;
 	struct port *inport, *outport;
 	struct spa_io_buffers *inio, *outio;
+	struct buffer *b;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
+
+	inport = &this->port[SPA_DIRECTION_INPUT];
+	inio = inport->io;
+	spa_return_val_if_fail(inio != NULL, -EIO);
+
+	if (inio->status != SPA_STATUS_HAVE_DATA)
+		return inio->status;
+
+	if (inio->buffer_id >= inport->n_buffers) {
+		inio->status = -EINVAL;
+		return -EINVAL;
+	}
 
 	outport = &this->port[SPA_DIRECTION_OUTPUT];
 	outio = outport->io;
@@ -593,17 +607,24 @@ static int impl_node_process(void *object)
 		outio->buffer_id = SPA_ID_INVALID;
 	}
 
-	inport = &this->port[SPA_DIRECTION_INPUT];
-	inio = inport->io;
+	if (spa_list_is_empty(&outport->empty)) {
+		spa_log_error(this->log, NAME " %p: out of buffers", this);
+		return -EPIPE;
+	}
+	b = &inport->buffers[inio->buffer_id];
+	this->state.streams[0].pending_buffer_id = b->id;
 
-	if (inio->status != SPA_STATUS_HAVE_DATA)
-		return inio->status;
+	b = spa_list_first(&outport->empty, struct buffer, link);
+	spa_list_remove(&b->link);
+	this->state.streams[1].pending_buffer_id = b->id;
 
-	outio->buffer_id = inio->buffer_id;
+	spa_vulkan_process(&this->state);
+
+	outio->buffer_id = b->id;
 	outio->status = SPA_STATUS_HAVE_DATA;
 	inio->status = SPA_STATUS_NEED_DATA;
 
-	return SPA_STATUS_HAVE_DATA;
+	return SPA_STATUS_NEED_DATA | SPA_STATUS_HAVE_DATA;
 }
 
 static const struct spa_node_methods impl_node = {
@@ -672,6 +693,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	this->state.log = this->log;
 
 	spa_hook_list_init(&this->hooks);
 
@@ -707,6 +729,8 @@ impl_init(const struct spa_handle_factory *factory,
 	port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	port->info.params = port->params;
 	port->info.n_params = 5;
+	spa_vulkan_init_stream(&this->state, &this->state.streams[0],
+			SPA_DIRECTION_INPUT, NULL);
 	spa_list_init(&port->empty);
 	spa_list_init(&port->ready);
 
@@ -727,13 +751,11 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info.n_params = 5;
 	spa_list_init(&port->empty);
 	spa_list_init(&port->ready);
-
-	this->state.log = this->log;
-	spa_vulkan_init_stream(&this->state, &this->state.streams[0],
-			SPA_DIRECTION_INPUT, NULL);
 	spa_vulkan_init_stream(&this->state, &this->state.streams[1],
 			SPA_DIRECTION_OUTPUT, NULL);
+
 	this->state.n_streams = 2;
+	spa_vulkan_prepare(&this->state);
 
 	return 0;
 }

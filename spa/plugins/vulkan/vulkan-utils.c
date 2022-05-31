@@ -97,6 +97,12 @@ static int vkresult_to_errno(VkResult result)
 		return _res;								\
 	}										\
 }
+#define CHECK(f)									\
+{											\
+	int _res = (f);									\
+	if (_res < 0) 									\
+		return _res;								\
+}
 
 static int createInstance(struct vulkan_state *s)
 {
@@ -309,7 +315,8 @@ static int updateDescriptors(struct vulkan_state *s)
 			.pBufferInfo = &descriptorBufferInfo[i],
 		};
 	}
-	vkUpdateDescriptorSets(s->device, s->n_streams, writeDescriptorSet, 0, NULL);
+	vkUpdateDescriptorSets(s->device, s->n_streams,
+				writeDescriptorSet, 0, NULL);
 
 	return 0;
 }
@@ -568,12 +575,12 @@ int spa_vulkan_init_stream(struct vulkan_state *s, struct vulkan_stream *stream,
 int spa_vulkan_prepare(struct vulkan_state *s)
 {
 	if (!s->prepared) {
-		createInstance(s);
-		findPhysicalDevice(s);
-		createDevice(s);
-		createDescriptors(s);
-		createComputePipeline(s, "spa/plugins/vulkan/shaders/main.spv");
-		createCommandBuffer(s);
+		CHECK(createInstance(s));
+		CHECK(findPhysicalDevice(s));
+		CHECK(createDevice(s));
+		CHECK(createDescriptors(s));
+		CHECK(createComputePipeline(s, "spa/plugins/vulkan/shaders/main.spv"));
+		CHECK(createCommandBuffer(s));
 		s->prepared = true;
 	}
 	return 0;
@@ -642,8 +649,8 @@ int spa_vulkan_ready(struct vulkan_state *s)
 
 int spa_vulkan_process(struct vulkan_state *s)
 {
-	updateDescriptors(s);
-	runCommandBuffer(s);
+	CHECK(updateDescriptors(s));
+	CHECK(runCommandBuffer(s));
 
 	return 0;
 }

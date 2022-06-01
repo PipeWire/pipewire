@@ -40,7 +40,7 @@ struct module_info {
 
 	unsigned int load_once:1;
 
-	int (*create) (struct module *module);
+	int (*prepare) (struct module *module);
 	int (*load) (struct client *client, struct module *module);
 	int (*unload) (struct module *module);
 

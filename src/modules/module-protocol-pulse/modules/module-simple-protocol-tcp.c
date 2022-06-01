@@ -130,7 +130,7 @@ static const struct spa_dict_item module_simple_protocol_tcp_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int create_module_simple_protocol_tcp(struct module * const module)
+int module_simple_protocol_tcp_prepare(struct module * const module)
 {
 	struct module_simple_protocol_tcp_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
@@ -202,7 +202,7 @@ out:
 
 DEFINE_MODULE_INFO(module_simple_protocol_tcp) = {
 	.name = "module-simple-protocol-tcp",
-	.create = create_module_simple_protocol_tcp,
+	.prepare = module_simple_protocol_tcp_prepare,
 	.load = module_simple_protocol_tcp_load,
 	.unload = module_simple_protocol_tcp_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_simple_protocol_tcp_info),

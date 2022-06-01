@@ -245,7 +245,7 @@ static const struct spa_dict_item module_switch_on_connect_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int create_module_switch_on_connect(struct module * const module)
+int module_switch_on_connect_prepare(struct module * const module)
 {
 	struct module_switch_on_connect_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
@@ -307,7 +307,7 @@ out:
 DEFINE_MODULE_INFO(module_switch_on_connect) = {
 	.name = "module-switch-on-connect",
 	.load_once = true,
-	.create = create_module_switch_on_connect,
+	.prepare = module_switch_on_connect_prepare,
 	.load = module_switch_on_connect_load,
 	.unload = module_switch_on_connect_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_switch_on_connect_info),

@@ -149,7 +149,7 @@ static void audio_info_to_props(struct spa_audio_info_raw *info, struct pw_prope
 	pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
 }
 
-int create_module_tunnel_sink(struct module * const module)
+int module_tunnel_sink_prepare(struct module * const module)
 {
 	struct module_tunnel_sink_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
@@ -223,7 +223,7 @@ out:
 
 DEFINE_MODULE_INFO(module_tunnel_sink) = {
 	.name = "module-tunnel-sink",
-	.create = create_module_tunnel_sink,
+	.prepare = module_tunnel_sink_prepare,
 	.load = module_tunnel_sink_load,
 	.unload = module_tunnel_sink_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_tunnel_sink_info),

@@ -79,7 +79,7 @@ static const struct spa_dict_item module_native_protocol_tcp_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int create_module_native_protocol_tcp(struct module * const module)
+int module_native_protocol_tcp_prepare(struct module * const module)
 {
 	struct module_native_protocol_tcp_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
@@ -119,7 +119,7 @@ int create_module_native_protocol_tcp(struct module * const module)
 
 DEFINE_MODULE_INFO(module_native_protocol_tcp) = {
 	.name = "module-native-protocol-tcp",
-	.create = create_module_native_protocol_tcp,
+	.prepare = module_native_protocol_tcp_prepare,
 	.load = module_native_protocol_tcp_load,
 	.unload = module_native_protocol_tcp_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_native_protocol_tcp_info),

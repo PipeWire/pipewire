@@ -100,6 +100,16 @@ static int module_x11_bell_unload(struct module *module)
 	return 0;
 }
 
+int module_x11_bell_prepare(struct module * const module)
+{
+	PW_LOG_TOPIC_INIT(mod_topic);
+
+	struct module_x11_bell_data * const data = module->user_data;
+	data->module = module;
+
+	return 0;
+}
+
 static const struct spa_dict_item module_x11_bell_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "X11 bell interceptor" },
@@ -110,19 +120,9 @@ static const struct spa_dict_item module_x11_bell_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int create_module_x11_bell(struct module * const module)
-{
-	PW_LOG_TOPIC_INIT(mod_topic);
-
-	struct module_x11_bell_data * const data = module->user_data;
-	data->module = module;
-
-	return 0;
-}
-
 DEFINE_MODULE_INFO(module_x11_bell) = {
 	.name = "module-x11-bell",
-	.create = create_module_x11_bell,
+	.prepare = module_x11_bell_prepare,
 	.load = module_x11_bell_load,
 	.unload = module_x11_bell_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_x11_bell_info),

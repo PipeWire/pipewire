@@ -149,7 +149,7 @@ static void audio_info_to_props(struct spa_audio_info_raw *info, struct pw_prope
 	pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
 }
 
-int create_module_tunnel_source(struct module * const module)
+int module_tunnel_source_prepare(struct module * const module)
 {
 	struct module_tunnel_source_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
@@ -213,7 +213,7 @@ out:
 
 DEFINE_MODULE_INFO(module_tunnel_source) = {
 	.name = "module-tunnel-source",
-	.create = create_module_tunnel_source,
+	.prepare = module_tunnel_source_prepare,
 	.load = module_tunnel_source_load,
 	.unload = module_tunnel_source_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_tunnel_source_info),

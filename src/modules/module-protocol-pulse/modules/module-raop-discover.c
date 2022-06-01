@@ -92,7 +92,7 @@ static const struct spa_dict_item module_raop_discover_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int create_module_raop_discover(struct module * const module)
+int module_raop_discover_prepare(struct module * const module)
 {
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -105,7 +105,7 @@ int create_module_raop_discover(struct module * const module)
 DEFINE_MODULE_INFO(module_raop_discover) = {
 	.name = "module-raop-discover",
 	.load_once = true,
-	.create = create_module_raop_discover,
+	.prepare = module_raop_discover_prepare,
 	.load = module_raop_discover_load,
 	.unload = module_raop_discover_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_raop_discover_info),

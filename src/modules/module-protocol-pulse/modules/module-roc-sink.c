@@ -123,7 +123,7 @@ static const struct spa_dict_item module_roc_sink_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int create_module_roc_sink(struct module * const module)
+int module_roc_sink_prepare(struct module * const module)
 {
 	struct module_roc_sink_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
@@ -196,7 +196,7 @@ out:
 
 DEFINE_MODULE_INFO(module_roc_sink) = {
 	.name = "module-roc-sink",
-	.create = create_module_roc_sink,
+	.prepare = module_roc_sink_prepare,
 	.load = module_roc_sink_load,
 	.unload = module_roc_sink_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_roc_sink_info),

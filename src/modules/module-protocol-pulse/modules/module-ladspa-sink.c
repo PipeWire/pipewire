@@ -177,7 +177,7 @@ static void position_to_props(struct spa_audio_info_raw *info, struct pw_propert
 	pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
 }
 
-int create_module_ladspa_sink(struct module * const module)
+int module_ladspa_sink_prepare(struct module * const module)
 {
 	struct module_ladspa_sink_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
@@ -249,7 +249,7 @@ out:
 
 DEFINE_MODULE_INFO(module_ladspa_sink) = {
 	.name = "module-ladspa-sink",
-	.create = create_module_ladspa_sink,
+	.prepare = module_ladspa_sink_prepare,
 	.load = module_ladspa_sink_load,
 	.unload = module_ladspa_sink_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_ladspa_sink_info),

@@ -143,7 +143,7 @@ static const struct spa_dict_item module_loopback_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int create_module_loopback(struct module * const module)
+int module_loopback_prepare(struct module * const module)
 {
 	struct module_loopback_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
@@ -239,7 +239,7 @@ out:
 
 DEFINE_MODULE_INFO(module_loopback) = {
 	.name = "module-loopback",
-	.create = create_module_loopback,
+	.prepare = module_loopback_prepare,
 	.load = module_loopback_load,
 	.unload = module_loopback_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_loopback_info),

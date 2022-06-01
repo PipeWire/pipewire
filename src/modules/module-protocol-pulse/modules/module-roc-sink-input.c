@@ -124,7 +124,7 @@ static const struct spa_dict_item module_roc_sink_input_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int create_module_roc_sink_input(struct module * const module)
+int module_roc_sink_input_prepare(struct module * const module)
 {
 	struct module_roc_sink_input_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
@@ -194,7 +194,7 @@ out:
 
 DEFINE_MODULE_INFO(module_roc_sink_input) = {
 	.name = "module-roc-sink-input",
-	.create = create_module_roc_sink_input,
+	.prepare = module_roc_sink_input_prepare,
 	.load = module_roc_sink_input_load,
 	.unload = module_roc_sink_input_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_roc_sink_input_info),

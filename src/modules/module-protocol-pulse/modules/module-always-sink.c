@@ -101,7 +101,7 @@ static const struct spa_dict_item module_always_sink_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int create_module_always_sink(struct module * const module)
+int module_always_sink_prepare(struct module * const module)
 {
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -114,7 +114,7 @@ int create_module_always_sink(struct module * const module)
 DEFINE_MODULE_INFO(module_always_sink) = {
 	.name = "module-always-sink",
 	.load_once = true,
-	.create = create_module_always_sink,
+	.prepare = module_always_sink_prepare,
 	.load = module_always_sink_load,
 	.unload = module_always_sink_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_always_sink_info),

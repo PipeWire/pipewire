@@ -143,7 +143,7 @@ static void position_to_props(struct spa_audio_info_raw *info, struct pw_propert
 	pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
 }
 
-int create_module_remap_source(struct module * const module)
+int module_remap_source_prepare(struct module * const module)
 {
 	struct module_remap_source_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
@@ -246,7 +246,7 @@ out:
 
 DEFINE_MODULE_INFO(module_remap_source) = {
 	.name = "module-remap-source",
-	.create = create_module_remap_source,
+	.prepare = module_remap_source_prepare,
 	.load = module_remap_source_load,
 	.unload = module_remap_source_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_remap_source_info),

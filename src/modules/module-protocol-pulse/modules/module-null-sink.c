@@ -158,7 +158,7 @@ static const struct spa_dict_item module_null_sink_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int create_module_null_sink(struct module * const module)
+int module_null_sink_prepare(struct module * const module)
 {
 	struct pw_properties * const props = module->props;
 	const char *str;
@@ -220,7 +220,7 @@ int create_module_null_sink(struct module * const module)
 
 DEFINE_MODULE_INFO(module_null_sink) = {
 	.name = "module-null-sink",
-	.create = create_module_null_sink,
+	.prepare = module_null_sink_prepare,
 	.load = module_null_sink_load,
 	.unload = module_null_sink_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_null_sink_info),

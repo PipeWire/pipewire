@@ -124,7 +124,7 @@ static const struct spa_dict_item module_roc_source_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int create_module_roc_source(struct module * const module)
+int module_roc_source_prepare(struct module * const module)
 {
 	struct module_roc_source_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
@@ -199,7 +199,7 @@ out:
 
 DEFINE_MODULE_INFO(module_roc_source) = {
 	.name = "module-roc-source",
-	.create = create_module_roc_source,
+	.prepare = module_roc_source_prepare,
 	.load = module_roc_source_load,
 	.unload = module_roc_source_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_roc_source_info),

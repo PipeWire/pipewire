@@ -218,7 +218,7 @@ static const struct spa_dict_item module_pipe_sink_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int create_module_pipe_sink(struct module * const module)
+int module_pipe_sink_prepare(struct module * const module)
 {
 	struct module_pipesink_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
@@ -324,7 +324,7 @@ out:
 
 DEFINE_MODULE_INFO(module_pipe_sink) = {
 	.name = "module-pipe-sink",
-	.create = create_module_pipe_sink,
+	.prepare = module_pipe_sink_prepare,
 	.load = module_pipe_sink_load,
 	.unload = module_pipe_sink_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_pipe_sink_info),

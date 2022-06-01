@@ -318,7 +318,7 @@ struct module *module_create(struct client *client, const char *name, const char
 	if (args)
 		module_args_add_props(module->props, args);
 
-	int res = module->info->create(module);
+	int res = module->info->prepare(module);
 	if (res < 0) {
 		module_free(module);
 		errno = -res;

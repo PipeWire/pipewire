@@ -87,6 +87,9 @@
 #define DEFAULT_POSITION	"[ FL FR ]"
 
 #define MAX_FORMATS	32
+/* The max amount of data we send in one block when capturing. In PulseAudio this
+ * size is derived from the mempool PA_MEMPOOL_SLOT_SIZE */
+#define MAX_FRAGSIZE	(64*1024)
 
 #define TEMPORARY_MOVE_TIMEOUT	(SPA_NSEC_PER_SEC)
 
@@ -1284,7 +1287,7 @@ do_process_done(struct spa_loop *loop,
 			pw_log_warn("%p: [%s] underrun read:%u avail:%d",
 					stream, client->name, index, avail);
 		} else {
-			if (avail > (int32_t)stream->attr.maxlength) {
+			if ((uint32_t)avail > stream->attr.maxlength) {
 				uint32_t skip = avail - stream->attr.fragsize;
 				/* overrun, catch up to latest fragment and send it */
 				pw_log_warn("%p: [%s] overrun recover read:%u avail:%d max:%u skip:%u",
@@ -1294,10 +1297,8 @@ do_process_done(struct spa_loop *loop,
 				avail = stream->attr.fragsize;
 			}
 
-			while (avail > 0) {
-				towrite = avail;
-				if (towrite > stream->attr.fragsize)
-					towrite = stream->attr.fragsize;
+			while ((uint32_t)avail >= stream->attr.fragsize) {
+				towrite = SPA_MIN(avail, MAX_FRAGSIZE);
 
 				msg = message_alloc(impl, stream->channel, towrite);
 				if (msg == NULL)

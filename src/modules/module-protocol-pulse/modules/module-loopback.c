@@ -143,26 +143,23 @@ static const struct spa_dict_item module_loopback_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-struct module *create_module_loopback(struct impl *impl, const char *argument)
+int create_module_loopback(struct module * const module)
 {
-	struct module *module;
-	struct module_loopback_data *d;
-	struct pw_properties *props = NULL, *playback_props = NULL, *capture_props = NULL;
+	struct module_loopback_data * const d = module->user_data;
+	struct pw_properties * const props = module->props;
+	struct pw_properties *playback_props = NULL, *capture_props = NULL;
 	const char *str;
 	struct spa_audio_info_raw info = { 0 };
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
-	props = pw_properties_new(NULL, NULL);
 	capture_props = pw_properties_new(NULL, NULL);
 	playback_props = pw_properties_new(NULL, NULL);
-	if (!props || !capture_props || !playback_props) {
+	if (!capture_props || !playback_props) {
 		res = -EINVAL;
 		goto out;
 	}
-	if (argument)
-		module_args_add_props(props, argument);
 
 	/* The following modargs are not implemented:
 	 * adjust_time, max_latency_msec, fast_adjust_threshold_msec: these are just not relevant
@@ -185,7 +182,7 @@ struct module *create_module_loopback(struct impl *impl, const char *argument)
 		pw_properties_set(props, "sink", NULL);
 	}
 
-	if (module_args_to_audioinfo(impl, props, &info) < 0) {
+	if (module_args_to_audioinfo(module->impl, props, &info) < 0) {
 		res = -EINVAL;
 		goto out;
 	}
@@ -227,27 +224,17 @@ struct module *create_module_loopback(struct impl *impl, const char *argument)
 		pw_properties_set(props, "source_output_properties", NULL);
 	}
 
-	module = module_new(impl, sizeof(*d));
-	if (module == NULL) {
-		res = -errno;
-		goto out;
-	}
-
-	module->props = props;
-	d = module->user_data;
 	d->module = module;
 	d->capture_props = capture_props;
 	d->playback_props = playback_props;
 	d->info = info;
 
-	return module;
+	return 0;
 out:
-	pw_properties_free(props);
 	pw_properties_free(playback_props);
 	pw_properties_free(capture_props);
-	errno = -res;
 
-	return NULL;
+	return res;
 }
 
 DEFINE_MODULE_INFO(module_loopback) = {
@@ -256,4 +243,5 @@ DEFINE_MODULE_INFO(module_loopback) = {
 	.load = module_loopback_load,
 	.unload = module_loopback_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_loopback_info),
+	.data_size = sizeof(struct module_loopback_data),
 };

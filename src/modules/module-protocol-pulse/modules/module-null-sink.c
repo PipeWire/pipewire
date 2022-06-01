@@ -158,24 +158,14 @@ static const struct spa_dict_item module_null_sink_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-struct module *create_module_null_sink(struct impl *impl, const char *argument)
+int create_module_null_sink(struct module * const module)
 {
-	struct module *module;
-	struct pw_properties *props = NULL;
+	struct pw_properties * const props = module->props;
 	const char *str;
 	struct spa_audio_info_raw info = { 0 };
 	uint32_t i;
-	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
-
-	props = pw_properties_new(NULL, NULL);
-	if (props == NULL) {
-		res = -EINVAL;
-		goto out;
-	}
-	if (argument)
-		module_args_add_props(props, argument);
 
 	if ((str = pw_properties_get(props, "sink_name")) != NULL) {
 		pw_properties_set(props, PW_KEY_NODE_NAME, str);
@@ -190,10 +180,8 @@ struct module *create_module_null_sink(struct impl *impl, const char *argument)
 		pw_properties_set(props, "sink_properties", NULL);
 	}
 
-	if (module_args_to_audioinfo(impl, props, &info) < 0) {
-		res = -EINVAL;
-		goto out;
-	}
+	if (module_args_to_audioinfo(module->impl, props, &info) < 0)
+		return -EINVAL;
 
 	if (info.rate)
 		pw_properties_setf(props, SPA_KEY_AUDIO_RATE, "%u", info.rate);
@@ -227,18 +215,7 @@ struct module *create_module_null_sink(struct impl *impl, const char *argument)
 	if (pw_properties_get(props, "monitor.channel-volumes") == NULL)
 		pw_properties_set(props, "monitor.channel-volumes", "true");
 
-	module = module_new(impl, sizeof(struct module_null_sink_data));
-	if (module == NULL) {
-		res = -errno;
-		goto out;
-	}
-	module->props = props;
-
-	return module;
-out:
-	pw_properties_free(props);
-	errno = -res;
-	return NULL;
+	return 0;
 }
 
 DEFINE_MODULE_INFO(module_null_sink) = {
@@ -247,4 +224,5 @@ DEFINE_MODULE_INFO(module_null_sink) = {
 	.load = module_null_sink_load,
 	.unload = module_null_sink_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_null_sink_info),
+	.data_size = sizeof(struct module_null_sink_data),
 };

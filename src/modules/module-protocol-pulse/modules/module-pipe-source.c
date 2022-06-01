@@ -238,11 +238,11 @@ static const struct spa_dict_item module_pipe_source_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-struct module *create_module_pipe_source(struct impl *impl, const char *argument)
+int create_module_pipe_source(struct module * const module)
 {
-	struct module *module;
-	struct module_pipesrc_data *d;
-	struct pw_properties *props = NULL, *playback_props = NULL;
+	struct module_pipesrc_data * const d = module->user_data;
+	struct pw_properties * const props = module->props;
+	struct pw_properties *playback_props = NULL;
 	struct spa_audio_info_raw info = { 0 };
 	struct stat st;
 	const char *str;
@@ -253,16 +253,13 @@ struct module *create_module_pipe_source(struct impl *impl, const char *argument
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
-	props = pw_properties_new(NULL, NULL);
 	playback_props = pw_properties_new(NULL, NULL);
-	if (!props || !playback_props) {
+	if (!playback_props) {
 		res = -errno;
 		goto out;
 	}
-	if (argument)
-		module_args_add_props(props, argument);
 
-	if (module_args_to_audioinfo(impl, props, &info) < 0) {
+	if (module_args_to_audioinfo(module->impl, props, &info) < 0) {
 		res = -EINVAL;
 		goto out;
 	}
@@ -361,14 +358,6 @@ struct module *create_module_pipe_source(struct impl *impl, const char *argument
 		pw_properties_set(playback_props, PW_KEY_NODE_VIRTUAL, "true");
 	pw_properties_set(playback_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 
-	module = module_new(impl, sizeof(*d) + stride);
-	if (module == NULL) {
-		res = -errno;
-		goto out;
-	}
-
-	module->props = props;
-	d = module->user_data;
 	d->module = module;
 	d->playback_props = playback_props;
 	d->info = info;
@@ -379,18 +368,16 @@ struct module *create_module_pipe_source(struct impl *impl, const char *argument
 
 	pw_log_info("Successfully loaded module-pipe-source");
 
-	return module;
+	return 0;
 out:
-	pw_properties_free(props);
 	pw_properties_free(playback_props);
 	if (do_unlink)
 		unlink(filename);
 	free(filename);
 	if (fd >= 0)
 		close(fd);
-	errno = -res;
 
-	return NULL;
+	return res;
 }
 
 DEFINE_MODULE_INFO(module_pipe_source) = {
@@ -399,4 +386,5 @@ DEFINE_MODULE_INFO(module_pipe_source) = {
 	.load = module_pipe_source_load,
 	.unload = module_pipe_source_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_pipe_source_info),
+	.data_size = sizeof(struct module_pipesrc_data),
 };

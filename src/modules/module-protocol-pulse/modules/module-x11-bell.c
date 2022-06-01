@@ -110,38 +110,14 @@ static const struct spa_dict_item module_x11_bell_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-struct module *create_module_x11_bell(struct impl *impl, const char *argument)
+int create_module_x11_bell(struct module * const module)
 {
-	struct pw_properties *props = NULL;
-	struct module_x11_bell_data *data;
-	struct module *module;
-	int res;
-
 	PW_LOG_TOPIC_INIT(mod_topic);
 
-	props = pw_properties_new(NULL, NULL);
-	if (props == NULL) {
-		res = -EINVAL;
-		goto out;
-	}
-	if (argument)
-		module_args_add_props(props, argument);
-
-	module = module_new(impl, sizeof(struct module_x11_bell_data));
-	if (module == NULL) {
-		res = -errno;
-		goto out;
-	}
-	module->props = props;
-
-	data = module->user_data;
+	struct module_x11_bell_data * const data = module->user_data;
 	data->module = module;
 
-	return module;
-out:
-	pw_properties_free(props);
-	errno = -res;
-	return NULL;
+	return 0;
 }
 
 DEFINE_MODULE_INFO(module_x11_bell) = {
@@ -150,4 +126,5 @@ DEFINE_MODULE_INFO(module_x11_bell) = {
 	.load = module_x11_bell_load,
 	.unload = module_x11_bell_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_x11_bell_info),
+	.data_size = sizeof(struct module_x11_bell_data),
 };

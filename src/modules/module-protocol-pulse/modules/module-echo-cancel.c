@@ -155,27 +155,24 @@ static const struct spa_dict_item module_echo_cancel_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-struct module *create_module_echo_cancel(struct impl *impl, const char *argument)
+int create_module_echo_cancel(struct module * const module)
 {
-	struct module *module;
-	struct module_echo_cancel_data *d;
-	struct pw_properties *props = NULL, *aec_props = NULL, *sink_props = NULL, *source_props = NULL;
+	struct module_echo_cancel_data * const d = module->user_data;
+	struct pw_properties * const props = module->props;
+	struct pw_properties *aec_props = NULL, *sink_props = NULL, *source_props = NULL;
 	const char *str;
 	struct spa_audio_info_raw info = { 0 };
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
-	props = pw_properties_new(NULL, NULL);
 	aec_props = pw_properties_new(NULL, NULL);
 	source_props = pw_properties_new(NULL, NULL);
 	sink_props = pw_properties_new(NULL, NULL);
-	if (!props ||!aec_props || !source_props || !sink_props) {
+	if (!aec_props || !source_props || !sink_props) {
 		res = -EINVAL;
 		goto out;
 	}
-	if (argument)
-		module_args_add_props(props, argument);
 
 	if ((str = pw_properties_get(props, "source_name")) != NULL) {
 		pw_properties_set(source_props, PW_KEY_NODE_NAME, str);
@@ -208,7 +205,7 @@ struct module *create_module_echo_cancel(struct impl *impl, const char *argument
 		pw_properties_set(props, "sink_master", NULL);
 	}
 
-	if (module_args_to_audioinfo(impl, props, &info) < 0) {
+	if (module_args_to_audioinfo(module->impl, props, &info) < 0) {
 		res = -EINVAL;
 		goto out;
 	}
@@ -233,29 +230,19 @@ struct module *create_module_echo_cancel(struct impl *impl, const char *argument
 		pw_properties_set(props, "aec_args", NULL);
 	}
 
-	module = module_new(impl, sizeof(*d));
-	if (module == NULL) {
-		res = -errno;
-		goto out;
-	}
-
-	module->props = props;
-	d = module->user_data;
 	d->module = module;
 	d->props = aec_props;
 	d->source_props = source_props;
 	d->sink_props = sink_props;
 	d->info = info;
 
-	return module;
+	return 0;
 out:
-	pw_properties_free(props);
 	pw_properties_free(aec_props);
 	pw_properties_free(sink_props);
 	pw_properties_free(source_props);
-	errno = -res;
 
-	return NULL;
+	return res;
 }
 
 DEFINE_MODULE_INFO(module_echo_cancel) = {
@@ -264,4 +251,5 @@ DEFINE_MODULE_INFO(module_echo_cancel) = {
 	.load = module_echo_cancel_load,
 	.unload = module_echo_cancel_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_echo_cancel_info),
+	.data_size = sizeof(struct module_echo_cancel_data),
 };

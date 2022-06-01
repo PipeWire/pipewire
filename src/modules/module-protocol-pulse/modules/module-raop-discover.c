@@ -92,38 +92,14 @@ static const struct spa_dict_item module_raop_discover_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-struct module *create_module_raop_discover(struct impl *impl, const char *argument)
+int create_module_raop_discover(struct module * const module)
 {
-	struct module *module;
-	struct module_raop_discover_data *d;
-	struct pw_properties *props = NULL;
-	int res;
-
 	PW_LOG_TOPIC_INIT(mod_topic);
 
-	props = pw_properties_new(NULL, NULL);
-	if (props == NULL) {
-		res = -errno;
-		goto out;
-	}
-	if (argument != NULL)
-		module_args_add_props(props, argument);
+	struct module_raop_discover_data * const data = module->user_data;
+	data->module = module;
 
-	module = module_new(impl, sizeof(*d));
-	if (module == NULL) {
-		res = -errno;
-		goto out;
-	}
-
-	module->props = props;
-	d = module->user_data;
-	d->module = module;
-
-	return module;
-out:
-	pw_properties_free(props);
-	errno = -res;
-	return NULL;
+	return 0;
 }
 
 DEFINE_MODULE_INFO(module_raop_discover) = {
@@ -133,4 +109,5 @@ DEFINE_MODULE_INFO(module_raop_discover) = {
 	.load = module_raop_discover_load,
 	.unload = module_raop_discover_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_raop_discover_info),
+	.data_size = sizeof(struct module_raop_discover_data),
 };

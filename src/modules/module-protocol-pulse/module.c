@@ -59,16 +59,17 @@ void module_schedule_unload(struct module *module)
 	module->unloading = true;
 }
 
-struct module *module_new(struct impl *impl, size_t user_data)
+static struct module *module_new(struct impl *impl, const struct module_info *info)
 {
 	struct module *module;
 
-	module = calloc(1, sizeof(struct module) + user_data);
+	module = calloc(1, sizeof(*module) + info->data_size);
 	if (module == NULL)
 		return NULL;
 
 	module->index = SPA_ID_INVALID;
 	module->impl = impl;
+	module->info = info;
 	spa_hook_list_init(&module->listener_list);
 	module->user_data = SPA_PTROFF(module, sizeof(*module), void);
 	module->loaded = false;
@@ -304,17 +305,34 @@ struct module *module_create(struct client *client, const char *name, const char
 		}
 	}
 
-	module = info->create(impl, args);
+	module = module_new(impl, info);
 	if (module == NULL)
 		return NULL;
 
-	module->info = info;
+	module->props = pw_properties_new(NULL, NULL);
+	if (module->props == NULL) {
+		module_free(module);
+		return NULL;
+	}
+
+	if (args)
+		module_args_add_props(module->props, args);
+
+	int res = module->info->create(module);
+	if (res < 0) {
+		module_free(module);
+		errno = -res;
+		return NULL;
+	}
+
 	module->index = pw_map_insert_new(&impl->modules, module);
 	if (module->index == SPA_ID_INVALID) {
 		module_unload(module);
 		return NULL;
 	}
+
 	module->args = args ? strdup(args) : NULL;
 	module->index |= MODULE_FLAG;
+
 	return module;
 }

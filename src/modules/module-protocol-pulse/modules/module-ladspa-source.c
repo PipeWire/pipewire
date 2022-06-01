@@ -177,11 +177,11 @@ static void position_to_props(struct spa_audio_info_raw *info, struct pw_propert
 	pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
 }
 
-struct module *create_module_ladspa_source(struct impl *impl, const char *argument)
+int create_module_ladspa_source(struct module * const module)
 {
-	struct module *module;
-	struct module_ladspa_source_data *d;
-	struct pw_properties *props = NULL, *playback_props = NULL, *capture_props = NULL;
+	struct module_ladspa_source_data * const d = module->user_data;
+	struct pw_properties * const props = module->props;
+	struct pw_properties *playback_props = NULL, *capture_props = NULL;
 	const char *str;
 	struct spa_audio_info_raw capture_info = { 0 };
 	struct spa_audio_info_raw playback_info = { 0 };
@@ -189,15 +189,12 @@ struct module *create_module_ladspa_source(struct impl *impl, const char *argume
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
-	props = pw_properties_new(NULL, NULL);
 	capture_props = pw_properties_new(NULL, NULL);
 	playback_props = pw_properties_new(NULL, NULL);
-	if (!props || !capture_props || !playback_props) {
+	if (!capture_props || !playback_props) {
 		res = -EINVAL;
 		goto out;
 	}
-	if (argument)
-		module_args_add_props(props, argument);
 
 	if ((str = pw_properties_get(props, "source_name")) != NULL) {
 		pw_properties_set(playback_props, PW_KEY_NODE_NAME, str);
@@ -226,7 +223,7 @@ struct module *create_module_ladspa_source(struct impl *impl, const char *argume
 		pw_properties_set(props, "master", NULL);
 	}
 
-	if (module_args_to_audioinfo(impl, props, &playback_info) < 0) {
+	if (module_args_to_audioinfo(module->impl, props, &playback_info) < 0) {
 		res = -EINVAL;
 		goto out;
 	}
@@ -238,25 +235,16 @@ struct module *create_module_ladspa_source(struct impl *impl, const char *argume
 	if (pw_properties_get(capture_props, PW_KEY_NODE_PASSIVE) == NULL)
 		pw_properties_set(capture_props, PW_KEY_NODE_PASSIVE, "true");
 
-	module = module_new(impl, sizeof(*d));
-	if (module == NULL) {
-		res = -errno;
-		goto out;
-	}
-
-	module->props = props;
-	d = module->user_data;
 	d->module = module;
 	d->capture_props = capture_props;
 	d->playback_props = playback_props;
 
-	return module;
+	return 0;
 out:
-	pw_properties_free(props);
 	pw_properties_free(playback_props);
 	pw_properties_free(capture_props);
-	errno = -res;
-	return NULL;
+
+	return res;
 }
 
 DEFINE_MODULE_INFO(module_ladspa_source) = {
@@ -265,4 +253,5 @@ DEFINE_MODULE_INFO(module_ladspa_source) = {
 	.load = module_ladspa_source_load,
 	.unload = module_ladspa_source_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_ladspa_source_info),
+	.data_size = sizeof(struct module_ladspa_source_data),
 };

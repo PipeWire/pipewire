@@ -40,11 +40,12 @@ struct module_info {
 
 	unsigned int load_once:1;
 
-	struct module *(*create) (struct impl *impl, const char *args);
+	int (*create) (struct module *module);
 	int (*load) (struct client *client, struct module *module);
 	int (*unload) (struct module *module);
 
 	const struct spa_dict *properties;
+	size_t data_size;
 };
 
 #define DEFINE_MODULE_INFO(name)					\
@@ -79,7 +80,6 @@ struct module {
 
 struct module *module_create(struct client *client, const char *name, const char *args);
 void module_free(struct module *module);
-struct module *module_new(struct impl *impl, size_t user_data);
 int module_load(struct client *client, struct module *module);
 int module_unload(struct module *module);
 void module_schedule_unload(struct module *module);

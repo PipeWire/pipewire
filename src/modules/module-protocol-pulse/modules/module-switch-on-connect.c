@@ -245,25 +245,16 @@ static const struct spa_dict_item module_switch_on_connect_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-struct module *create_module_switch_on_connect(struct impl *impl, const char *argument)
+int create_module_switch_on_connect(struct module * const module)
 {
-	struct module *module;
-	struct module_switch_on_connect_data *d;
-	struct pw_properties *props = NULL;
+	struct module_switch_on_connect_data * const d = module->user_data;
+	struct pw_properties * const props = module->props;
 	regex_t *blocklist = NULL;
 	bool only_from_unavailable = false, ignore_virtual = true;
 	const char *str;
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
-
-	props = pw_properties_new(NULL, NULL);
-	if (!props) {
-		res = -EINVAL;
-		goto out;
-	}
-	if (argument)
-		module_args_add_props(props, argument);
 
 	if ((str = pw_properties_get(props, "only_from_unavailable")) != NULL) {
 		only_from_unavailable = module_args_parse_bool(str);
@@ -292,14 +283,6 @@ struct module *create_module_switch_on_connect(struct impl *impl, const char *ar
 
 	pw_properties_set(props, "blocklist", NULL);
 
-	module = module_new(impl, sizeof(*d));
-	if (module == NULL) {
-		res = -errno;
-		goto out;
-	}
-
-	module->props = props;
-	d = module->user_data;
 	d->module = module;
 	d->blocklist = blocklist;
 	d->ignore_virtual = ignore_virtual;
@@ -310,17 +293,15 @@ struct module *create_module_switch_on_connect(struct impl *impl, const char *ar
 		pw_log_warn("only_from_unavailable is not implemented");
 	}
 
-	return module;
+	return 0;
 
 out:
-	pw_properties_free(props);
 	if (blocklist) {
 		regfree(blocklist);
 		free(blocklist);
 	}
-	errno = -res;
 
-	return NULL;
+	return res;
 }
 
 DEFINE_MODULE_INFO(module_switch_on_connect) = {
@@ -330,4 +311,5 @@ DEFINE_MODULE_INFO(module_switch_on_connect) = {
 	.load = module_switch_on_connect_load,
 	.unload = module_switch_on_connect_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_switch_on_connect_info),
+	.data_size = sizeof(struct module_switch_on_connect_data),
 };

@@ -130,24 +130,16 @@ static const struct spa_dict_item module_simple_protocol_tcp_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-struct module *create_module_simple_protocol_tcp(struct impl *impl, const char *argument)
+int create_module_simple_protocol_tcp(struct module * const module)
 {
-	struct module *module;
-	struct module_simple_protocol_tcp_data *d;
-	struct pw_properties *props = NULL, *module_props = NULL;
+	struct module_simple_protocol_tcp_data * const d = module->user_data;
+	struct pw_properties * const props = module->props;
+	struct pw_properties *module_props = NULL;
 	const char *str, *port, *listen;
 	struct spa_audio_info_raw info = { 0 };
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
-
-	props = pw_properties_new(NULL, NULL);
-	if (props == NULL) {
-		res = -errno;
-		goto out;
-	}
-	if (argument)
-		module_args_add_props(props, argument);
 
 	module_props = pw_properties_new(NULL, NULL);
 	if (module_props == NULL) {
@@ -160,7 +152,7 @@ struct module *create_module_simple_protocol_tcp(struct impl *impl, const char *
 				format_id2name(format_paname2id(str, strlen(str))));
 		pw_properties_set(props, "format", NULL);
 	}
-	if (module_args_to_audioinfo(impl, props, &info) < 0) {
+	if (module_args_to_audioinfo(module->impl, props, &info) < 0) {
 		res = -EINVAL;
 		goto out;
 	}
@@ -197,24 +189,15 @@ struct module *create_module_simple_protocol_tcp(struct impl *impl, const char *
 	pw_properties_setf(module_props, "server.address", "[ \"tcp:%s%s%s\" ]",
 			listen ? listen : "", listen ? ":" : "", port);
 
-	module = module_new(impl, sizeof(*d));
-	if (module == NULL) {
-		res = -errno;
-		goto out;
-	}
-
-	module->props = props;
-	d = module->user_data;
 	d->module = module;
 	d->module_props = module_props;
 	d->info = info;
 
-	return module;
+	return 0;
 out:
 	pw_properties_free(module_props);
-	pw_properties_free(props);
-	errno = -res;
-	return NULL;
+
+	return res;
 }
 
 DEFINE_MODULE_INFO(module_simple_protocol_tcp) = {
@@ -223,4 +206,5 @@ DEFINE_MODULE_INFO(module_simple_protocol_tcp) = {
 	.load = module_simple_protocol_tcp_load,
 	.unload = module_simple_protocol_tcp_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_simple_protocol_tcp_info),
+	.data_size = sizeof(struct module_simple_protocol_tcp_data),
 };

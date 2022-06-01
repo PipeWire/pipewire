@@ -124,26 +124,22 @@ static const struct spa_dict_item module_roc_source_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-struct module *create_module_roc_source(struct impl *impl, const char *argument)
+int create_module_roc_source(struct module * const module)
 {
-	struct module *module;
-	struct module_roc_source_data *d;
-	struct pw_properties *props = NULL, *source_props = NULL, *roc_props = NULL;
+	struct module_roc_source_data * const d = module->user_data;
+	struct pw_properties * const props = module->props;
+	struct pw_properties *source_props = NULL, *roc_props = NULL;
 	const char *str;
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
-	props = pw_properties_new(NULL, NULL);
 	source_props = pw_properties_new(NULL, NULL);
 	roc_props = pw_properties_new(NULL, NULL);
-	if (!props || !source_props || !roc_props) {
+	if (!source_props || !roc_props) {
 		res = -errno;
 		goto out;
 	}
-
-	if (argument != NULL)
-		module_args_add_props(props, argument);
 
 	if ((str = pw_properties_get(props, "source_name")) != NULL) {
 		pw_properties_set(source_props, PW_KEY_NODE_NAME, str);
@@ -189,25 +185,16 @@ struct module *create_module_roc_source(struct impl *impl, const char *argument)
 		pw_properties_set(props, "fec_code", NULL);
 	}
 
-	module = module_new(impl, sizeof(*d));
-	if (module == NULL) {
-		res = -errno;
-		goto out;
-	}
-
-	module->props = props;
-	d = module->user_data;
 	d->module = module;
 	d->source_props = source_props;
 	d->roc_props = roc_props;
 
-	return module;
+	return 0;
 out:
-	pw_properties_free(props);
 	pw_properties_free(source_props);
 	pw_properties_free(roc_props);
-	errno = -res;
-	return NULL;
+
+	return res;
 }
 
 DEFINE_MODULE_INFO(module_roc_source) = {
@@ -216,4 +203,5 @@ DEFINE_MODULE_INFO(module_roc_source) = {
 	.load = module_roc_source_load,
 	.unload = module_roc_source_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_roc_source_info),
+	.data_size = sizeof(struct module_roc_source_data),
 };

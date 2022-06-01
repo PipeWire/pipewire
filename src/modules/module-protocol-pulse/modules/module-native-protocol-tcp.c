@@ -79,26 +79,16 @@ static const struct spa_dict_item module_native_protocol_tcp_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-struct module *create_module_native_protocol_tcp(struct impl *impl, const char *argument)
+int create_module_native_protocol_tcp(struct module * const module)
 {
-	struct module *module;
-	struct module_native_protocol_tcp_data *d;
-	struct pw_properties *props = NULL;
+	struct module_native_protocol_tcp_data * const d = module->user_data;
+	struct pw_properties * const props = module->props;
 	const char *port, *listen, *auth;
 	FILE *f;
 	char *args;
 	size_t size;
-	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
-
-	props = pw_properties_new(NULL, NULL);
-	if (props == NULL) {
-		res = -errno;
-		goto out;
-	}
-	if (argument)
-		module_args_add_props(props, argument);
 
 	if ((port = pw_properties_get(props, "port")) == NULL)
 		port = SPA_STRINGIFY(PW_PROTOCOL_PULSE_DEFAULT_PORT);
@@ -108,10 +98,8 @@ struct module *create_module_native_protocol_tcp(struct impl *impl, const char *
 	auth = pw_properties_get(props, "auth-anonymous");
 
 	f = open_memstream(&args, &size);
-	if (f == NULL) {
-		res = -errno;
-		goto out;
-	}
+	if (f == NULL)
+		return -errno;
 
 	fprintf(f, "[ { ");
 	fprintf(f, " \"address\": \"tcp:%s%s%s\" ",
@@ -124,21 +112,9 @@ struct module *create_module_native_protocol_tcp(struct impl *impl, const char *
 	pw_properties_set(props, "pulse.tcp", args);
 	free(args);
 
-	module = module_new(impl, sizeof(*d));
-	if (module == NULL) {
-		res = -errno;
-		goto out;
-	}
-
-	module->props = props;
-	d = module->user_data;
 	d->module = module;
 
-	return module;
-out:
-	pw_properties_free(props);
-	errno = -res;
-	return NULL;
+	return 0;
 }
 
 DEFINE_MODULE_INFO(module_native_protocol_tcp) = {
@@ -147,4 +123,5 @@ DEFINE_MODULE_INFO(module_native_protocol_tcp) = {
 	.load = module_native_protocol_tcp_load,
 	.unload = module_native_protocol_tcp_unload,
 	.properties = &SPA_DICT_INIT_ARRAY(module_native_protocol_tcp_info),
+	.data_size = sizeof(struct module_native_protocol_tcp_data),
 };

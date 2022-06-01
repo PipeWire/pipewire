@@ -466,7 +466,7 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
   for (i = 0; i < b->n_datas; i++) {
     struct spa_data *d = &b->datas[i];
     GstMemory *mem = gst_buffer_peek_memory (buffer, i);
-    d->chunk->offset = mem->offset - data->offset;
+    d->chunk->offset = mem->offset;
     d->chunk->size = mem->size;
   }
 

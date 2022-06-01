@@ -497,14 +497,13 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
           return NULL;
 
   data = b->user_data;
-  buf = data->buf;
 
-  GST_LOG_OBJECT (pwsrc, "got new buffer %p", buf);
+  GST_LOG_OBJECT (pwsrc, "got new buffer %p", data->buf);
 
-  if (!data->queued) {
-    GST_WARNING_OBJECT (pwsrc, "buffer %p was not recycled", buf);
-    gst_buffer_ref (buf);
-  }
+  buf = gst_buffer_new ();
+
+  if (!data->queued)
+    GST_WARNING_OBJECT (pwsrc, "buffer %p was not recycled", data->buf);
   data->queued = FALSE;
   GST_BUFFER_PTS (buf) = GST_CLOCK_TIME_NONE;
   GST_BUFFER_DTS (buf) = GST_CLOCK_TIME_NONE;
@@ -530,13 +529,16 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
       meta->height = crop->region.size.height;
     }
   }
+  gst_buffer_add_parent_buffer_meta (buf, data->buf);
+  gst_buffer_unref (data->buf);
   for (i = 0; i < b->buffer->n_datas; i++) {
     struct spa_data *d = &b->buffer->datas[i];
-    GstMemory *mem = gst_buffer_peek_memory (buf, i);
-    mem->offset = SPA_MIN(d->chunk->offset, d->maxsize);
-    mem->size = SPA_MIN(d->chunk->size, d->maxsize - mem->offset);
-    mem->offset += data->offset;
-    spa_assert_se(mem->size <= mem->maxsize);
+    GstMemory *pmem = gst_buffer_peek_memory (data->buf, i);
+    if (pmem) {
+      GstMemory *mem = gst_memory_share (pmem, d->chunk->offset, d->chunk->size);
+      gst_buffer_insert_memory (buf, i, mem);
+      spa_assert_se(mem->size <= mem->maxsize);
+    }
     if (d->chunk->flags & SPA_CHUNK_FLAG_CORRUPTED)
       GST_BUFFER_FLAG_SET (buf, GST_BUFFER_FLAG_CORRUPTED);
   }

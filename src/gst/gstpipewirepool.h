@@ -53,7 +53,6 @@ struct _GstPipeWirePoolData {
   void *owner;
   struct spa_meta_header *header;
   guint flags;
-  goffset offset;
   struct pw_buffer *b;
   GstBuffer *buf;
   gboolean queued;

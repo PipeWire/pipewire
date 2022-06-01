@@ -374,6 +374,82 @@ PWTEST(destroy_managed_source_before_dispatch_recurse)
 	return PWTEST_PASS;
 }
 
+struct ctwd_data {
+	struct spa_source source;
+	int handler_running_barrier;
+};
+
+static void ctwd_event_handler(struct spa_source *source)
+{
+	struct ctwd_data *data = source->data;
+
+	write_eventfd(data->handler_running_barrier);
+
+	for (;;)
+		pause(); /* the purpose of this is to block the loop */
+}
+
+static int ctwd_add_source(struct spa_loop *loop, bool async, uint32_t seq,
+			   const void *d, size_t size, void *user_data)
+{
+	struct ctwd_data *data = user_data;
+
+	pwtest_neg_errno_ok(spa_loop_add_source(loop, &data->source));
+
+	return 0;
+}
+
+PWTEST(cancel_thread_while_dispatching)
+{
+	static const struct spa_dict_item data_loop_props_items[] = {
+		{ "loop.cancel", "true" },
+	};
+	static const struct spa_dict data_loop_props = SPA_DICT_INIT_ARRAY(data_loop_props_items);
+
+	struct ctwd_data data = {
+		.source = {
+			.data = &data,
+			.func = ctwd_event_handler,
+			.mask = SPA_IO_IN,
+			.fd = eventfd(0, 0),
+		},
+		.handler_running_barrier = eventfd(0, 0),
+	};
+
+	pw_init(NULL, NULL);
+
+	struct pw_data_loop *dl = pw_data_loop_new(&data_loop_props);
+	pwtest_ptr_notnull(dl);
+
+	struct pw_loop *l = pw_data_loop_get_loop(dl);
+	pwtest_ptr_notnull(l);
+
+	pwtest_neg_errno_ok(pw_data_loop_start(dl));
+
+	pw_loop_invoke(l, ctwd_add_source, 0, NULL, 0, true, &data);
+	pwtest_ptr_notnull(data.source.loop);
+
+	write_eventfd(data.source.fd);
+	read_eventfd(data.handler_running_barrier);
+
+	pwtest_neg_errno_ok(pw_data_loop_stop(dl));
+
+	/* these are the important checks */
+	pwtest_ptr_null(data.source.priv);
+	pwtest_int_eq(data.source.rmask, UINT32_C(0));
+
+	pw_loop_remove_source(l, &data.source);
+
+	pw_data_loop_destroy(dl);
+
+	close(data.source.fd);
+	close(data.handler_running_barrier);
+
+	pw_deinit();
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(support)
 {
 	pwtest_add(pwtest_loop_destroy2, PWTEST_NOARG);
@@ -381,6 +457,7 @@ PWTEST_SUITE(support)
 	pwtest_add(pwtest_loop_recurse2, PWTEST_NOARG);
 	pwtest_add(destroy_managed_source_before_dispatch, PWTEST_NOARG);
 	pwtest_add(destroy_managed_source_before_dispatch_recurse, PWTEST_NOARG);
+	pwtest_add(cancel_thread_while_dispatching, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

@@ -370,6 +370,24 @@ static inline void process_destroy(struct impl *impl)
 	spa_list_init(&impl->destroy_list);
 }
 
+struct cancellation_handler_data {
+	struct spa_poll_event *ep;
+	int ep_count;
+};
+
+static void cancellation_handler(void *closure)
+{
+	const struct cancellation_handler_data *data = closure;
+
+	for (int i = 0; i < data->ep_count; i++) {
+		struct spa_source *s = data->ep[i].data;
+		if (SPA_LIKELY(s)) {
+			s->rmask = 0;
+			s->priv = NULL;
+		}
+	}
+}
+
 static int loop_iterate(void *object, int timeout)
 {
 	struct impl *impl = object;
@@ -383,6 +401,9 @@ static int loop_iterate(void *object, int timeout)
 
 	spa_loop_control_hook_after(&impl->hooks_list);
 	impl->polling = false;
+
+	struct cancellation_handler_data cdata = { ep, nfds };
+	pthread_cleanup_push(cancellation_handler, &cdata);
 
 	/* first we set all the rmasks, then call the callbacks. The reason is that
 	 * some callback might also want to look at other sources it manages and
@@ -409,13 +430,7 @@ static int loop_iterate(void *object, int timeout)
 			s->func(s);
 	}
 
-	for (i = 0; i < nfds; i++) {
-		struct spa_source *s = ep[i].data;
-		if (SPA_LIKELY(s)) {
-			s->rmask = 0;
-			s->priv = NULL;
-		}
-	}
+	pthread_cleanup_pop(true);
 
 	return nfds;
 }

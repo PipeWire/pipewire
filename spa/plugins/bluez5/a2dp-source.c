@@ -142,6 +142,7 @@ struct impl {
 
 	unsigned int is_input:1;
 	unsigned int is_duplex:1;
+	unsigned int use_duplex_source:1;
 
 	int fd;
 	struct spa_source source;
@@ -668,7 +669,7 @@ static int transport_start(struct impl *this)
 
 	this->source.data = this;
 
-	if (!this->is_duplex) {
+	if (!this->use_duplex_source) {
 		this->source.fd = this->transport->fd;
 		this->source.func = a2dp_on_ready_read;
 		this->source.mask = SPA_IO_IN;
@@ -683,7 +684,8 @@ static int transport_start(struct impl *this)
 		 * XXX: The reason for this should be found and fixed.
 		 * XXX: To work around this, for now we just do the stupid thing and poll
 		 * XXX: on a timer, chosen so that it's fast enough for the aptX-LL codec
-		 * XXX: we currently support (which sends mSBC data).
+		 * XXX: we currently support (which sends mSBC data), and also for Opus
+		 * XXX: forward stream.
 		 */
 		this->source.fd = this->duplex_timerfd;
 		this->source.func = a2dp_on_duplex_timeout;
@@ -691,7 +693,7 @@ static int transport_start(struct impl *this)
 		this->source.rmask = 0;
 		spa_loop_add_source(this->data_loop, &this->source);
 
-		this->duplex_timeout = SPA_NSEC_PER_MSEC * 75/10;
+		this->duplex_timeout = SPA_NSEC_PER_MSEC * 25/10;
 		set_duplex_timeout(this, this->duplex_timeout);
 	}
 
@@ -1575,6 +1577,7 @@ impl_init(const struct spa_handle_factory *factory,
 		this->codec = this->codec->duplex_codec;
 		this->is_input = true;
 	}
+	this->use_duplex_source = this->is_duplex || (this->codec->duplex_codec != NULL);
 
 	if (this->codec->init_props != NULL)
 		this->codec_props = this->codec->init_props(this->codec,
@@ -1586,7 +1589,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->timerfd = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 
-	if (this->is_duplex) {
+	if (this->use_duplex_source) {
 		this->duplex_timerfd = spa_system_timerfd_create(this->data_system,
 				CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	} else {

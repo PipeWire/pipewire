@@ -149,4 +149,5 @@ DEFINE_MODULE_INFO(module_x11_bell) = {
 	.create = create_module_x11_bell,
 	.load = module_x11_bell_load,
 	.unload = module_x11_bell_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_x11_bell_info),
 };

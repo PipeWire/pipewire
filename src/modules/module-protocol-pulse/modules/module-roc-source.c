@@ -215,4 +215,5 @@ DEFINE_MODULE_INFO(module_roc_source) = {
 	.create = create_module_roc_source,
 	.load = module_roc_source_load,
 	.unload = module_roc_source_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_roc_source_info),
 };

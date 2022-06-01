@@ -146,4 +146,5 @@ DEFINE_MODULE_INFO(module_native_protocol_tcp) = {
 	.create = create_module_native_protocol_tcp,
 	.load = module_native_protocol_tcp_load,
 	.unload = module_native_protocol_tcp_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_native_protocol_tcp_info),
 };

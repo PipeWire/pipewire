@@ -263,4 +263,5 @@ DEFINE_MODULE_INFO(module_echo_cancel) = {
 	.create = create_module_echo_cancel,
 	.load = module_echo_cancel_load,
 	.unload = module_echo_cancel_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_echo_cancel_info),
 };

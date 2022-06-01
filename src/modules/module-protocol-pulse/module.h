@@ -43,6 +43,8 @@ struct module_info {
 	struct module *(*create) (struct impl *impl, const char *args);
 	int (*load) (struct client *client, struct module *module);
 	int (*unload) (struct module *module);
+
+	const struct spa_dict *properties;
 };
 
 #define DEFINE_MODULE_INFO(name)					\

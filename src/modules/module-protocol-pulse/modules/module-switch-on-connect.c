@@ -329,4 +329,5 @@ DEFINE_MODULE_INFO(module_switch_on_connect) = {
 	.create = create_module_switch_on_connect,
 	.load = module_switch_on_connect_load,
 	.unload = module_switch_on_connect_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_switch_on_connect_info),
 };

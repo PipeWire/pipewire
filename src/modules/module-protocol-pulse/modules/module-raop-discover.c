@@ -132,4 +132,5 @@ DEFINE_MODULE_INFO(module_raop_discover) = {
 	.create = create_module_raop_discover,
 	.load = module_raop_discover_load,
 	.unload = module_raop_discover_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_raop_discover_info),
 };

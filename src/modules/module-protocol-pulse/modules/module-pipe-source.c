@@ -398,4 +398,5 @@ DEFINE_MODULE_INFO(module_pipe_source) = {
 	.create = create_module_pipe_source,
 	.load = module_pipe_source_load,
 	.unload = module_pipe_source_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_pipe_source_info),
 };

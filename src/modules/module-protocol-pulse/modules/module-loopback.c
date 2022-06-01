@@ -255,4 +255,5 @@ DEFINE_MODULE_INFO(module_loopback) = {
 	.create = create_module_loopback,
 	.load = module_loopback_load,
 	.unload = module_loopback_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_loopback_info),
 };

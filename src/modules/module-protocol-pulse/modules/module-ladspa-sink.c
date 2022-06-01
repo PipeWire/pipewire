@@ -264,4 +264,5 @@ DEFINE_MODULE_INFO(module_ladspa_sink) = {
 	.create = create_module_ladspa_sink,
 	.load = module_ladspa_sink_load,
 	.unload = module_ladspa_sink_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_ladspa_sink_info),
 };

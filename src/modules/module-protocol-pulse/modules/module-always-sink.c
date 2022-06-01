@@ -137,4 +137,5 @@ DEFINE_MODULE_INFO(module_always_sink) = {
 	.create = create_module_always_sink,
 	.load = module_always_sink_load,
 	.unload = module_always_sink_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_always_sink_info),
 };

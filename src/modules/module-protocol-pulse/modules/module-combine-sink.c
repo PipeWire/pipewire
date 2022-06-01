@@ -579,4 +579,5 @@ DEFINE_MODULE_INFO(module_combine_sink) = {
 	.create = create_module_combine_sink,
 	.load = module_combine_sink_load,
 	.unload = module_combine_sink_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_combine_sink_info),
 };

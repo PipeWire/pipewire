@@ -238,4 +238,5 @@ DEFINE_MODULE_INFO(module_tunnel_sink) = {
 	.create = create_module_tunnel_sink,
 	.load = module_tunnel_sink_load,
 	.unload = module_tunnel_sink_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_tunnel_sink_info),
 };

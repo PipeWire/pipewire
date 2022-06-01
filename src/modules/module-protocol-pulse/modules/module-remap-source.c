@@ -261,4 +261,5 @@ DEFINE_MODULE_INFO(module_remap_source) = {
 	.create = create_module_remap_source,
 	.load = module_remap_source_load,
 	.unload = module_remap_source_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_remap_source_info),
 };

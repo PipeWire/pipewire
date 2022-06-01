@@ -264,4 +264,5 @@ DEFINE_MODULE_INFO(module_ladspa_source) = {
 	.create = create_module_ladspa_source,
 	.load = module_ladspa_source_load,
 	.unload = module_ladspa_source_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_ladspa_source_info),
 };

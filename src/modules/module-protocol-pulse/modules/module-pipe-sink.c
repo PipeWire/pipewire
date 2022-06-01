@@ -340,4 +340,5 @@ DEFINE_MODULE_INFO(module_pipe_sink) = {
 	.create = create_module_pipe_sink,
 	.load = module_pipe_sink_load,
 	.unload = module_pipe_sink_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_pipe_sink_info),
 };

@@ -689,4 +689,5 @@ DEFINE_MODULE_INFO(module_zeroconf_publish) = {
 	.create = create_module_zeroconf_publish,
 	.load = module_zeroconf_publish_load,
 	.unload = module_zeroconf_publish_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_zeroconf_publish_info),
 };

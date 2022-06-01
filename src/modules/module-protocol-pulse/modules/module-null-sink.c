@@ -246,4 +246,5 @@ DEFINE_MODULE_INFO(module_null_sink) = {
 	.create = create_module_null_sink,
 	.load = module_null_sink_load,
 	.unload = module_null_sink_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_null_sink_info),
 };

@@ -261,4 +261,5 @@ DEFINE_MODULE_INFO(module_remap_sink) = {
 	.create = create_module_remap_sink,
 	.load = module_remap_sink_load,
 	.unload = module_remap_sink_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_remap_sink_info),
 };

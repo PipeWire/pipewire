@@ -3464,7 +3464,7 @@ static int fill_ext_module_info(struct client *client, struct message *m,
 	}
 	if (client->version >= 15) {
 		message_put(m,
-			TAG_PROPLIST, module->props,
+			TAG_PROPLIST, module->info->properties,
 			TAG_INVALID);
 	}
 	return 0;

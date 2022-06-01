@@ -211,4 +211,5 @@ DEFINE_MODULE_INFO(module_roc_sink) = {
 	.create = create_module_roc_sink,
 	.load = module_roc_sink_load,
 	.unload = module_roc_sink_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_roc_sink_info),
 };

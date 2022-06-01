@@ -210,4 +210,5 @@ DEFINE_MODULE_INFO(module_roc_sink_input) = {
 	.create = create_module_roc_sink_input,
 	.load = module_roc_sink_input_load,
 	.unload = module_roc_sink_input_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_roc_sink_input_info),
 };

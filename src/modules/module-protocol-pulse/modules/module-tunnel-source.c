@@ -228,4 +228,5 @@ DEFINE_MODULE_INFO(module_tunnel_source) = {
 	.create = create_module_tunnel_source,
 	.load = module_tunnel_source_load,
 	.unload = module_tunnel_source_unload,
+	.properties = &SPA_DICT_INIT_ARRAY(module_tunnel_source_info),
 };

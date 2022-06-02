@@ -3359,6 +3359,24 @@ jack_client_t * jack_client_open (const char *client_name,
 	if (client->node == NULL)
 		goto init_failed;
 
+	pw_client_node_add_listener(client->node,
+			&client->node_listener, &client_node_events, client);
+        pw_proxy_add_listener((struct pw_proxy*)client->node,
+			&client->proxy_listener, &node_proxy_events, client);
+
+	client->info = SPA_NODE_INFO_INIT();
+	client->info.max_input_ports = UINT32_MAX;
+	client->info.max_output_ports = UINT32_MAX;
+	client->info.change_mask = SPA_NODE_CHANGE_MASK_FLAGS |
+		SPA_NODE_CHANGE_MASK_PROPS;
+	client->info.flags = SPA_NODE_FLAG_RT;
+	client->info.props = &client->props->dict;
+
+	pw_client_node_update(client->node,
+			PW_CLIENT_NODE_UPDATE_INFO,
+			0, NULL, &client->info);
+	client->info.change_mask = 0;
+
 	client->show_monitor = pw_properties_get_bool(client->props, "jack.show-monitor", true);
 	client->merge_monitor = pw_properties_get_bool(client->props, "jack.merge-monitor", false);
 	client->short_name = pw_properties_get_bool(client->props, "jack.short-name", false);
@@ -3378,24 +3396,6 @@ jack_client_t * jack_client_open (const char *client_name,
 			client->self_connect_mode = SELF_CONNECT_IGNORE_ALL;
 	}
 	client->rt_max = pw_properties_get_int32(client->props, "rt.prio", DEFAULT_RT_MAX);
-
-	pw_client_node_add_listener(client->node,
-			&client->node_listener, &client_node_events, client);
-        pw_proxy_add_listener((struct pw_proxy*)client->node,
-			&client->proxy_listener, &node_proxy_events, client);
-
-	client->info = SPA_NODE_INFO_INIT();
-	client->info.max_input_ports = UINT32_MAX;
-	client->info.max_output_ports = UINT32_MAX;
-	client->info.change_mask = SPA_NODE_CHANGE_MASK_FLAGS |
-		SPA_NODE_CHANGE_MASK_PROPS;
-	client->info.flags = SPA_NODE_FLAG_RT;
-	client->info.props = &client->props->dict;
-
-	pw_client_node_update(client->node,
-			PW_CLIENT_NODE_UPDATE_INFO,
-			0, NULL, &client->info);
-	client->info.change_mask = 0;
 
 	if (status)
 		*status = 0;

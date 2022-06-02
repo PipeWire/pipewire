@@ -50,6 +50,14 @@ extern "C" {
  * inputs and/or outputs you will need to use the pw_filter or make
  * a pw_node yourself and export it with \ref pw_core_export.
  *
+ * Streams can also be used to:
+ *
+ * \li Implement a Sink in PipeWire. This is a PW_DIRECTION_INPUT stream.
+ * \li Implement a Source in PipeWire. This is a PW_DIRECTION_OUTPUT stream
+ *
+ * In this case, the PW_KEY_MEDIA_CLASS property needs to be set to
+ * "Audio/Sink" or "Audio/Source" respectively.
+ *
  * \section sec_create Create
  *
  * Make a new stream with \ref pw_stream_new(). You will need to specify
@@ -63,6 +71,16 @@ extern "C" {
  *
  * The stream is initially unconnected. To connect the stream, use
  * \ref pw_stream_connect(). Pass the desired direction as an argument.
+ *
+ * The direction is:
+
+ * \li PW_DIRECTION_INPUT for a stream that *consumes* data. This can be a
+ * stream that captures from a Source or a when the stream is used to
+ * implement a Sink.
+ *
+ * \li PW_DIRECTION_OUTPUT for a stream that *produces* data. This can be a
+ * stream that plays to a Sink or when the stream is used to implement
+ * a Source.
  *
  * \subsection ssec_stream_target Stream target
  *

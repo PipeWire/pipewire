@@ -100,7 +100,7 @@ static int module_x11_bell_unload(struct module *module)
 	return 0;
 }
 
-int module_x11_bell_prepare(struct module * const module)
+static int module_x11_bell_prepare(struct module * const module)
 {
 	PW_LOG_TOPIC_INIT(mod_topic);
 

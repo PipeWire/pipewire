@@ -124,7 +124,7 @@ static const struct spa_dict_item module_roc_source_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int module_roc_source_prepare(struct module * const module)
+static int module_roc_source_prepare(struct module * const module)
 {
 	struct module_roc_source_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;

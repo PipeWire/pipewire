@@ -245,7 +245,7 @@ static const struct spa_dict_item module_switch_on_connect_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int module_switch_on_connect_prepare(struct module * const module)
+static int module_switch_on_connect_prepare(struct module * const module)
 {
 	struct module_switch_on_connect_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;

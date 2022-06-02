@@ -155,7 +155,7 @@ static const struct spa_dict_item module_echo_cancel_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int module_echo_cancel_prepare(struct module * const module)
+static int module_echo_cancel_prepare(struct module * const module)
 {
 	struct module_echo_cancel_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;

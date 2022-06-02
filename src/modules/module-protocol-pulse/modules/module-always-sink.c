@@ -101,7 +101,7 @@ static const struct spa_dict_item module_always_sink_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int module_always_sink_prepare(struct module * const module)
+static int module_always_sink_prepare(struct module * const module)
 {
 	PW_LOG_TOPIC_INIT(mod_topic);
 

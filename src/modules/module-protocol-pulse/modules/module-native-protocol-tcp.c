@@ -79,7 +79,7 @@ static const struct spa_dict_item module_native_protocol_tcp_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int module_native_protocol_tcp_prepare(struct module * const module)
+static int module_native_protocol_tcp_prepare(struct module * const module)
 {
 	struct module_native_protocol_tcp_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;

@@ -143,7 +143,7 @@ static void position_to_props(struct spa_audio_info_raw *info, struct pw_propert
 	pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
 }
 
-int module_remap_sink_prepare(struct module * const module)
+static int module_remap_sink_prepare(struct module * const module)
 {
 	struct module_remap_sink_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;

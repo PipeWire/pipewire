@@ -647,7 +647,7 @@ static const struct spa_dict_item module_zeroconf_publish_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int module_zeroconf_publish_prepare(struct module * const module)
+static int module_zeroconf_publish_prepare(struct module * const module)
 {
 	PW_LOG_TOPIC_INIT(mod_topic);
 

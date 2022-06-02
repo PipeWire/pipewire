@@ -158,7 +158,7 @@ static const struct spa_dict_item module_null_sink_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-int module_null_sink_prepare(struct module * const module)
+static int module_null_sink_prepare(struct module * const module)
 {
 	struct pw_properties * const props = module->props;
 	const char *str;

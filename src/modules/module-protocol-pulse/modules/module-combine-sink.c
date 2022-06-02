@@ -499,7 +499,7 @@ static int module_combine_sink_unload(struct module *module)
 	return 0;
 }
 
-int module_combine_sink_prepare(struct module * const module)
+static int module_combine_sink_prepare(struct module * const module)
 {
 	struct module_combine_sink_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;

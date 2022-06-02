@@ -3205,6 +3205,30 @@ jack_client_t * jack_client_open (const char *client_name,
 	varargs_parse(client, options, ap);
 	va_end(ap);
 
+	snprintf(client->name, sizeof(client->name), "pw-%s", client_name);
+
+	pthread_mutex_init(&client->context.lock, NULL);
+	spa_list_init(&client->context.objects);
+
+	client->node_id = SPA_ID_INVALID;
+
+	client->buffer_frames = (uint32_t)-1;
+	client->sample_rate = (uint32_t)-1;
+	client->latency = SPA_FRACTION(-1, -1);
+
+	spa_list_init(&client->mix);
+	spa_list_init(&client->free_mix);
+
+	spa_list_init(&client->free_ports);
+	pw_map_init(&client->ports[SPA_DIRECTION_INPUT], 32, 32);
+	pw_map_init(&client->ports[SPA_DIRECTION_OUTPUT], 32, 32);
+
+	spa_list_init(&client->links);
+	client->driver_id = SPA_ID_INVALID;
+
+	spa_list_init(&client->rt.target_links);
+	pthread_mutex_init(&client->rt_lock, NULL);
+
 	if (client->server_name != NULL &&
 	    spa_streq(client->server_name, "default"))
 		client->server_name = NULL;
@@ -3219,8 +3243,6 @@ jack_client_t * jack_client_open (const char *client_name,
 	if (client->props == NULL)
 		goto no_props;
 
-	client->node_id = SPA_ID_INVALID;
-	snprintf(client->name, sizeof(client->name), "pw-%s", client_name);
 	client->context.loop = pw_thread_loop_new(client->name, NULL);
 	client->context.l = pw_thread_loop_get_loop(client->context.loop);
 	client->context.context = pw_context_new(
@@ -3238,10 +3260,6 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	pw_context_conf_section_match_rules(client->context.context, "jack.rules",
 			&client->props->dict, execute_match, client);
-
-	pthread_mutex_init(&client->context.lock, NULL);
-	pthread_mutex_init(&client->rt_lock, NULL);
-	spa_list_init(&client->context.objects);
 
 	support = pw_context_get_support(client->context.context, &n_support);
 
@@ -3271,20 +3289,6 @@ jack_client_t * jack_client_open (const char *client_name,
 	pw_context_set_object(client->context.context,
 			SPA_TYPE_INTERFACE_ThreadUtils,
 			&client->context.thread_utils);
-
-	spa_list_init(&client->links);
-	spa_list_init(&client->rt.target_links);
-
-	client->buffer_frames = (uint32_t)-1;
-	client->sample_rate = (uint32_t)-1;
-	client->latency = SPA_FRACTION(-1, -1);
-
-        spa_list_init(&client->mix);
-        spa_list_init(&client->free_mix);
-
-	pw_map_init(&client->ports[SPA_DIRECTION_INPUT], 32, 32);
-	pw_map_init(&client->ports[SPA_DIRECTION_OUTPUT], 32, 32);
-	spa_list_init(&client->free_ports);
 
 	pw_thread_loop_start(client->context.loop);
 

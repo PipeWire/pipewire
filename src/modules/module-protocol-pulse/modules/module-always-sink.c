@@ -109,7 +109,7 @@ struct module *create_module_always_sink(struct impl *impl, const char *argument
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
-	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_always_sink_info));
+	props = pw_properties_new(NULL, NULL);
 	if (props == NULL) {
 		res = -EINVAL;
 		goto out;

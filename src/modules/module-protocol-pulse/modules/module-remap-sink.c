@@ -155,7 +155,7 @@ struct module *create_module_remap_sink(struct impl *impl, const char *argument)
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
-	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_remap_sink_info));
+	props = pw_properties_new(NULL, NULL);
 	capture_props = pw_properties_new(NULL, NULL);
 	playback_props = pw_properties_new(NULL, NULL);
 	if (!props || !capture_props || !playback_props) {

@@ -134,7 +134,7 @@ struct module *create_module_roc_sink_input(struct impl *impl, const char *argum
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
-	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_roc_sink_input_info));
+	props = pw_properties_new(NULL, NULL);
 	source_props = pw_properties_new(NULL, NULL);
 	roc_props = pw_properties_new(NULL, NULL);
 	if (!props || !source_props || !roc_props) {

@@ -656,7 +656,7 @@ struct module *create_module_zeroconf_publish(struct impl *impl, const char *arg
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
-	props = pw_properties_new_dict(&SPA_DICT_INIT_ARRAY(module_zeroconf_publish_info));
+	props = pw_properties_new(NULL, NULL);
 	if (!props) {
 		res = -errno;
 		goto out;

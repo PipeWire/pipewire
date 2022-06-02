@@ -3436,7 +3436,7 @@ server_failed:
 exit_unlock:
 	pw_thread_loop_unlock(client->context.loop);
 exit:
-	free(client);
+	jack_client_close((jack_client_t *) client);
 	return NULL;
 disabled:
 	if (status)

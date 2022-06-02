@@ -186,7 +186,7 @@ static inline pa_channel_map* pa_channel_map_init_auto(pa_channel_map *m, unsign
 	case PA_CHANNEL_MAP_AUX:
 	    for (i = 0; i < channels; i++)
 		m->map[i] = PA_CHANNEL_POSITION_AUX0 + (i & 31);
-	    break;
+	    return m;
 	default:
 	    break;
 	}

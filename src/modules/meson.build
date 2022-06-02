@@ -15,6 +15,7 @@ module_sources = [
   'module-link-factory.c',
   'module-loopback.c',
   'module-metadata.c',
+  'module-pipe-tunnel.c',
   'module-portal.c',
   'module-profiler.c',
   'module-protocol-native.c',
@@ -297,6 +298,15 @@ if build_module_pulse_tunnel
 )
 endif
 summary({'pulse-tunnel': build_module_pulse_tunnel}, bool_yn: true, section: 'Optional Modules')
+
+pipewire_module_pipe_tunnel = shared_library('pipewire-module-pipe-tunnel',
+  [ 'module-pipe-tunnel.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, pipewire_dep],
+)
 
 pipewire_module_protocol_simple = shared_library('pipewire-module-protocol-simple',
   [ 'module-protocol-simple.c' ],

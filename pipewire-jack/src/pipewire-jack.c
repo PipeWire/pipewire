@@ -3471,20 +3471,29 @@ int jack_client_close (jack_client_t *client)
 
 	res = jack_deactivate(client);
 
-	pw_thread_loop_stop(c->context.loop);
+	if (c->context.loop)
+		pw_thread_loop_stop(c->context.loop);
 
 	if (c->registry) {
 		spa_hook_remove(&c->registry_listener);
 		pw_proxy_destroy((struct pw_proxy*)c->registry);
 	}
 	if (c->metadata && c->metadata->proxy) {
+		spa_hook_remove(&c->metadata->listener);
+		spa_hook_remove(&c->metadata->proxy_listener);
 		pw_proxy_destroy((struct pw_proxy*)c->metadata->proxy);
 	}
-	spa_hook_remove(&c->core_listener);
-	pw_core_disconnect(c->core);
-	pw_context_destroy(c->context.context);
 
-	pw_thread_loop_destroy(c->context.loop);
+	if (c->core) {
+		spa_hook_remove(&c->core_listener);
+		pw_core_disconnect(c->core);
+	}
+
+	if (c->context.context)
+		pw_context_destroy(c->context.context);
+
+	if (c->context.loop)
+		pw_thread_loop_destroy(c->context.loop);
 
 	pw_log_debug("%p: free", client);
 

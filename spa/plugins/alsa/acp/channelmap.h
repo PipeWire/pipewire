@@ -196,17 +196,10 @@ static inline pa_channel_map* pa_channel_map_init_auto(pa_channel_map *m, unsign
 static inline pa_channel_map* pa_channel_map_init_extend(pa_channel_map *m,
 		unsigned channels, pa_channel_map_def_t def)
 {
-	unsigned i, c;
-	pa_channel_map_init(m);
-	for (c = channels; c > 0; c--) {
-		if (pa_channel_map_init_auto(m, c, def) == NULL)
-			continue;
-		for (i = 0; c < channels; c++, i++)
-			m->map[c] = PA_CHANNEL_POSITION_AUX0 + (i & 31);
-		m->channels = (uint8_t) channels;
-		return m;
-	}
-	return NULL;
+	pa_channel_map *r;
+	if ((r = pa_channel_map_init_auto(m, channels, def)) != NULL)
+		return r;
+	return pa_channel_map_init_auto(m, channels, PA_CHANNEL_MAP_AUX);
 }
 
 typedef uint64_t pa_channel_position_mask_t;

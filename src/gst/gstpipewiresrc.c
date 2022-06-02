@@ -498,12 +498,20 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
 
   data = b->user_data;
 
+  if (!GST_IS_BUFFER (data->buf)) {
+    GST_ERROR_OBJECT (pwsrc, "stream buffer %p is missing", data->buf);
+    return NULL;
+  }
+
+  if (!data->queued) {
+    GST_ERROR_OBJECT (pwsrc, "buffer %p was not recycled", data->buf);
+    return NULL;
+  }
+
   GST_LOG_OBJECT (pwsrc, "got new buffer %p", data->buf);
 
   buf = gst_buffer_new ();
 
-  if (!data->queued)
-    GST_WARNING_OBJECT (pwsrc, "buffer %p was not recycled", data->buf);
   data->queued = FALSE;
   GST_BUFFER_PTS (buf) = GST_CLOCK_TIME_NONE;
   GST_BUFFER_DTS (buf) = GST_CLOCK_TIME_NONE;

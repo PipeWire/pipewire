@@ -112,29 +112,41 @@ bool collect_is_linked(struct pw_manager *m, uint32_t id, enum pw_direction dire
 	return false;
 }
 
+struct pw_manager_object *find_peer_for_link(struct pw_manager *m,
+		struct pw_manager_object *o, uint32_t id, enum pw_direction direction)
+{
+	struct pw_manager_object *p;
+	uint32_t in_node, out_node;
+
+	if (o->props == NULL)
+		return NULL;
+
+	if (pw_properties_fetch_uint32(o->props, PW_KEY_LINK_OUTPUT_NODE, &out_node) != 0 ||
+	    pw_properties_fetch_uint32(o->props, PW_KEY_LINK_INPUT_NODE, &in_node) != 0)
+		return NULL;
+
+	if (direction == PW_DIRECTION_OUTPUT && id == out_node) {
+		struct selector sel = { .id = in_node, .type = pw_manager_object_is_sink, };
+		if ((p = select_object(m, &sel)) != NULL)
+			return p;
+	}
+	if (direction == PW_DIRECTION_INPUT && id == in_node) {
+		struct selector sel = { .id = out_node, .type = pw_manager_object_is_recordable, };
+		if ((p = select_object(m, &sel)) != NULL)
+			return p;
+	}
+	return NULL;
+}
+
 struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t id, enum pw_direction direction)
 {
 	struct pw_manager_object *o, *p;
-	uint32_t in_node, out_node;
 
 	spa_list_for_each(o, &m->object_list, link) {
-		if (o->props == NULL || !pw_manager_object_is_link(o))
+		if (!pw_manager_object_is_link(o))
 			continue;
-
-		if (pw_properties_fetch_uint32(o->props, PW_KEY_LINK_OUTPUT_NODE, &out_node) != 0 ||
-                    pw_properties_fetch_uint32(o->props, PW_KEY_LINK_INPUT_NODE, &in_node) != 0)
-                        continue;
-
-		if (direction == PW_DIRECTION_OUTPUT && id == out_node) {
-			struct selector sel = { .id = in_node, .type = pw_manager_object_is_sink, };
-			if ((p = select_object(m, &sel)) != NULL)
-				return p;
-		}
-		if (direction == PW_DIRECTION_INPUT && id == in_node) {
-			struct selector sel = { .id = out_node, .type = pw_manager_object_is_recordable, };
-			if ((p = select_object(m, &sel)) != NULL)
-				return p;
-		}
+		if ((p = find_peer_for_link(m, o, id, direction)) != NULL)
+			return p;
 	}
 	return NULL;
 }

@@ -159,6 +159,8 @@ uint32_t collect_transport_codec_info(struct pw_manager_object *card,
 struct spa_dict *collect_props(struct spa_pod *info, struct spa_dict *dict);
 uint32_t find_profile_index(struct pw_manager_object *card, const char *name);
 uint32_t find_port_index(struct pw_manager_object *card, uint32_t direction, const char *port_name);
+struct pw_manager_object *find_peer_for_link(struct pw_manager *m,
+		struct pw_manager_object *o, uint32_t id, enum pw_direction direction);
 struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t id, enum pw_direction direction);
 bool collect_is_linked(struct pw_manager *m, uint32_t id, enum pw_direction direction);
 

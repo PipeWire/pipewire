@@ -829,7 +829,7 @@ static void manager_added(void *data, struct pw_manager_object *o)
 		struct stream *s;
 		struct pw_manager_object *peer = NULL;
 		spa_list_for_each(s, &client->pending_streams, link) {
-			peer = find_linked(manager, s->id, s->direction);
+			peer = find_peer_for_link(manager, o, s->id, s->direction);
 			if (peer)
 				break;
 		}

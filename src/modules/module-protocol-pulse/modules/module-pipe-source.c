@@ -187,8 +187,6 @@ static int module_pipe_source_prepare(struct module * const module)
 	d->info = info;
 	d->filename = filename;
 
-	pw_log_info("Successfully loaded module-pipe-source");
-
 	return 0;
 out:
 	pw_properties_free(playback_props);

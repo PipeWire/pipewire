@@ -586,6 +586,7 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 
 	missing = stream_pop_missing(stream);
 	stream->index = id_to_index(manager, stream->id);
+	stream->lat_usec = lat_usec;
 
 	pw_log_info("[%s] reply CREATE_PLAYBACK_STREAM tag:%u index:%u missing:%u lat:%"PRIu64,
 			client->name, stream->create_tag, stream->index, missing, lat_usec);
@@ -732,6 +733,7 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 	lat_usec = set_record_buffer_attr(stream, &stream->attr);
 
 	stream->index = id_to_index(manager, stream->id);
+	stream->lat_usec = lat_usec;
 
 	pw_log_info("[%s] reply CREATE_RECORD_STREAM tag:%u index:%u latency:%"PRIu64,
 			client->name, stream->create_tag, stream->index, lat_usec);
@@ -4459,7 +4461,6 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 	struct message *reply;
 	struct buffer_attr attr;
 	bool adjust_latency = false, early_requests = false;
-	uint64_t lat_usec;
 
 	if (message_get(m,
 			TAG_U32, &channel,
@@ -4513,7 +4514,7 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 	stream->early_requests = early_requests;
 
 	if (command == COMMAND_SET_PLAYBACK_STREAM_BUFFER_ATTR) {
-		lat_usec = set_playback_buffer_attr(stream, &attr);
+		stream->lat_usec = set_playback_buffer_attr(stream, &attr);
 
 		message_put(reply,
 			TAG_U32, stream->attr.maxlength,
@@ -4523,11 +4524,11 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 			TAG_INVALID);
 		if (client->version >= 13) {
 			message_put(reply,
-				TAG_USEC, lat_usec,		/* configured_sink_latency */
+				TAG_USEC, stream->lat_usec,		/* configured_sink_latency */
 				TAG_INVALID);
 		}
 	} else {
-		lat_usec = set_record_buffer_attr(stream, &attr);
+		stream->lat_usec = set_record_buffer_attr(stream, &attr);
 
 		message_put(reply,
 			TAG_U32, stream->attr.maxlength,
@@ -4535,7 +4536,7 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 			TAG_INVALID);
 		if (client->version >= 13) {
 			message_put(reply,
-				TAG_USEC, lat_usec,		/* configured_source_latency */
+				TAG_USEC, stream->lat_usec,		/* configured_source_latency */
 				TAG_INVALID);
 		}
 	}

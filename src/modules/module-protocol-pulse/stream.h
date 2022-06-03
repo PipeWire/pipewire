@@ -97,6 +97,7 @@ struct stream {
 	struct buffer_attr attr;
 	uint32_t frame_size;
 	uint32_t rate;
+	uint64_t lat_usec;
 
 	struct volume volume;
 	bool muted;

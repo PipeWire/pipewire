@@ -798,6 +798,7 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 
 static int reply_create_stream(struct stream *stream, struct pw_manager_object *peer)
 {
+	stream->peer_index = peer->index;
 	return stream->direction == PW_DIRECTION_OUTPUT ?
 			reply_create_playback_stream(stream, peer) :
 			reply_create_record_stream(stream, peer);
@@ -830,6 +831,27 @@ static void manager_added(void *data, struct pw_manager_object *o)
 	if (spa_streq(o->type, PW_TYPE_INTERFACE_Link)) {
 		struct stream *s, *t;
 		struct pw_manager_object *peer = NULL;
+		union pw_map_item *item;
+		pw_array_for_each(item, &client->streams.items) {
+			struct stream *s = item->data;
+			const char *peer_name;
+
+			if (pw_map_item_is_free(item) || s->pending)
+				continue;
+			if (s->peer_index == SPA_ID_INVALID)
+				continue;
+
+			peer = find_peer_for_link(manager, o, s->id, s->direction);
+			if (peer == NULL || peer->props == NULL ||
+			    peer->index == s->peer_index)
+				continue;
+
+			s->peer_index = peer->index;
+
+			peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+			if (peer_name != NULL)
+				stream_send_moved(s, peer->index, peer_name);
+		}
 		spa_list_for_each_safe(s, t, &client->pending_streams, link) {
 			peer = find_peer_for_link(manager, o, s->id, s->direction);
 			if (peer) {

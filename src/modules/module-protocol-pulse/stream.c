@@ -82,6 +82,8 @@ struct stream *stream_new(struct client *client, enum stream_type type, uint32_t
 	stream->attr = *attr;
 	spa_ringbuffer_init(&stream->ring);
 
+	stream->peer_index = SPA_ID_INVALID;
+
 	parse_frac(client->props, "pulse.min.req", &defs->min_req, &stream->min_req);
 	parse_frac(client->props, "pulse.min.frag", &defs->min_frag, &stream->min_frag);
 	parse_frac(client->props, "pulse.min.quantum", &defs->min_quantum, &stream->min_quantum);
@@ -358,4 +360,52 @@ int stream_update_minreq(struct stream *stream, uint32_t minreq)
 		return client_queue_message(client, msg);
 	}
 	return 0;
+}
+
+int stream_send_moved(struct stream *stream, uint32_t peer_index, const char *peer_name)
+{
+	struct client *client = stream->client;
+	struct impl *impl = client->impl;
+	struct message *reply;
+	uint32_t command;
+
+	command = stream->direction == PW_DIRECTION_OUTPUT ?
+		COMMAND_PLAYBACK_STREAM_MOVED :
+		COMMAND_RECORD_STREAM_MOVED;
+
+	pw_log_info("client %p [%s]: stream %p %s channel:%u",
+			client, client->name, stream, commands[command].name,
+			stream->channel);
+
+	if (client->version < 12)
+		return 0;
+
+	reply = message_alloc(impl, -1, 0);
+	message_put(reply,
+		TAG_U32, command,
+		TAG_U32, -1,
+		TAG_U32, stream->channel,
+		TAG_U32, peer_index,
+		TAG_STRING, peer_name,
+		TAG_BOOLEAN, false,		/* suspended */
+		TAG_INVALID);
+
+	if (client->version >= 13) {
+		if (command == COMMAND_PLAYBACK_STREAM_MOVED) {
+			message_put(reply,
+				TAG_U32, stream->attr.maxlength,
+				TAG_U32, stream->attr.tlength,
+				TAG_U32, stream->attr.prebuf,
+				TAG_U32, stream->attr.minreq,
+				TAG_USEC, stream->lat_usec,
+				TAG_INVALID);
+		} else {
+			message_put(reply,
+				TAG_U32, stream->attr.maxlength,
+				TAG_U32, stream->attr.fragsize,
+				TAG_USEC, stream->lat_usec,
+				TAG_INVALID);
+		}
+	}
+	return client_queue_message(client, reply);
 }

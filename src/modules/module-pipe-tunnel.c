@@ -59,10 +59,25 @@
  *
  * ## Module Options
  *
- * - `tunnel.mode`: the desired tunnel to create, must be `capture` or `playback`.
- *                  (Default `playback`)
+ * - `tunnel.mode`: the desired tunnel to create. (Default `playback`)
  * - `pipe.filename`: the filename of the pipe.
  * - `stream.props`: Extra properties for the local stream.
+ *
+ * When `tunnel.mode` is `capture`, a capture stream on the default source is
+ * created. Samples read from the pipe will be the contents of the captured source.
+ *
+ * When `tunnel.mode` is `sink`, a sink node is created. Samples read from the
+ * pipe will be the samples played on the sink.
+ *
+ * When `tunnel.mode` is `playback`, a playback stream on the default sink is
+ * created. Samples written to the pipe will be played on the sink.
+ *
+ * When `tunnel.mode` is `source`, a source node is created. Samples written to
+ * the pipe will be made available to streams connected to the source.
+ *
+ * When `pipe.filename` is not given, a default fifo in `/tmp/fifo_input` or
+ * `/tmp/fifo_output` will be created that can be written and read respectively,
+ * depending on the selected `tunnel.mode`.
  *
  * ## General options
  *
@@ -80,7 +95,10 @@
  * - \ref PW_KEY_MEDIA_CLASS
  * - \ref PW_KEY_NODE_TARGET to specify the remote name or id to link to
  *
- * ## Example configuration of a virtual pipe sink
+ * When not otherwise specified, the pipe will accept or produce a
+ * 16 bits, stereo, 48KHz sample stream.
+ *
+ * ## Example configuration of a pipe playback stream
  *
  *\code{.unparsed}
  * context.modules = [
@@ -118,8 +136,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"[ audio.rate=<sample rate> ] "				\
 			"[ audio.channels=<number of channels> ] "		\
 			"[ audio.position=<channel map> ] "			\
-			"[ tunnel.mode=capture|playback "			\
-			"pipe.filename=<filename> "				\
+			"[ tunnel.mode=capture|playback|sink|source "		\
+			"[ pipe.filename=<filename> ]"				\
 			"[ stream.props=<properties> ] "
 
 
@@ -135,6 +153,8 @@ struct impl {
 
 #define MODE_PLAYBACK	0
 #define MODE_CAPTURE	1
+#define MODE_SINK	2
+#define MODE_SOURCE	3
 	uint32_t mode;
 	struct pw_properties *props;
 
@@ -151,6 +171,7 @@ struct impl {
 	int fd;
 
 	struct pw_properties *stream_props;
+	enum pw_direction direction;
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 	struct spa_audio_info_raw info;
@@ -299,7 +320,7 @@ static int create_stream(struct impl *impl)
 	if (impl->stream == NULL)
 		return -errno;
 
-	if (impl->mode == MODE_CAPTURE) {
+	if (impl->direction == PW_DIRECTION_OUTPUT) {
 		pw_stream_add_listener(impl->stream,
 				&impl->stream_listener,
 				&capture_stream_events, impl);
@@ -315,7 +336,7 @@ static int create_stream(struct impl *impl)
 			SPA_PARAM_EnumFormat, &impl->info);
 
 	if ((res = pw_stream_connect(impl->stream,
-			impl->mode == MODE_CAPTURE ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT,
+			impl->direction,
 			PW_ID_ANY,
 			PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_MAP_BUFFERS |
@@ -334,7 +355,7 @@ static int create_fifo(struct impl *impl)
 	int fd = -1, res;
 
 	if ((filename = pw_properties_get(impl->props, "pipe.filename")) == NULL)
-		filename = impl->mode == MODE_CAPTURE ?
+		filename = impl->direction == PW_DIRECTION_INPUT ?
 			DEFAULT_CAPTURE_FILENAME :
 			DEFAULT_PLAYBACK_FILENAME;
 
@@ -372,6 +393,8 @@ static int create_fifo(struct impl *impl)
 		pw_log_error("'%s' is not a FIFO.", filename);
 		goto error;
 	}
+	pw_log_info("opened fifo '%s' for %s", filename,
+			impl->direction == PW_DIRECTION_INPUT ? "writing" : "reading");
 	impl->filename = strdup(filename);
 	impl->unlink_fifo = do_unlink_fifo;
 	impl->fd = fd;
@@ -556,7 +579,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_properties *props = NULL;
 	struct impl *impl;
-	const char *str;
+	const char *str, *media_class = NULL;
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -564,6 +587,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
 		return -errno;
+
+	impl->fd = -1;
 
 	pw_log_debug("module %p: new %s", impl, args);
 
@@ -588,25 +613,33 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->context = context;
 
-	if ((str = pw_properties_get(props, "tunnel.mode")) != NULL) {
-		if (spa_streq(str, "capture")) {
-			impl->mode = MODE_CAPTURE;
-		} else if (spa_streq(str, "playback")) {
-			impl->mode = MODE_PLAYBACK;
-		} else {
-			pw_log_error("invalid tunnel.mode '%s'", str);
-			res = -EINVAL;
-			goto error;
-		}
+	if ((str = pw_properties_get(props, "tunnel.mode")) == NULL)
+		str = "playback";
+
+	if (spa_streq(str, "capture")) {
+		impl->mode = MODE_CAPTURE;
+		impl->direction = PW_DIRECTION_INPUT;
+	} else if (spa_streq(str, "playback")) {
+		impl->mode = MODE_PLAYBACK;
+		impl->direction = PW_DIRECTION_OUTPUT;
+	}else if (spa_streq(str, "sink")) {
+		impl->mode = MODE_SINK;
+		impl->direction = PW_DIRECTION_INPUT;
+		media_class = "Audio/Sink";
+	} else if (spa_streq(str, "source")) {
+		impl->mode = MODE_SOURCE;
+		impl->direction = PW_DIRECTION_OUTPUT;
+		media_class = "Audio/Source";
+	} else {
+		pw_log_error("invalid tunnel.mode '%s'", str);
+		res = -EINVAL;
+		goto error;
 	}
 
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
-
 	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
-		pw_properties_set(props, PW_KEY_MEDIA_CLASS,
-				impl->mode == MODE_PLAYBACK ?
-					"Audio/Sink" : "Audio/Source");
+		pw_properties_set(props, PW_KEY_MEDIA_CLASS, media_class);
 
 	if ((str = pw_properties_get(props, "stream.props")) != NULL)
 		pw_properties_update_string(impl->stream_props, str, strlen(str));

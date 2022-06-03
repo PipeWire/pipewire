@@ -311,7 +311,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		pw_properties_setf(props, PW_KEY_NODE_NAME,
 				"tunnel.%s", host_name);
 
-	str = strstr(type, "sink") ? "playback" : "capture";
+	str = strstr(type, "sink") ? "sink" : "source";
 	pw_properties_set(props, "tunnel.mode", str);
 
 	if (a->proto == AVAHI_PROTO_INET6 &&

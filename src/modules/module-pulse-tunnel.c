@@ -68,8 +68,8 @@
  *
  * ## Module Options
  *
- * - `tunnel.mode`: the desired tunnel to create, must be `capture` or `playback`.
- *                  (Default `playback`)
+ * - `tunnel.mode`: the desired tunnel to create, must be `source` or `sink`.
+ *                  (Default `sink`)
  * - `pulse.server.address`: the address of the PulseAudio server to tunnel to.
  * - `pulse.latency`: the latency to end-to-end latency in milliseconds to
  *                    maintain (Default 200ms).
@@ -97,7 +97,7 @@
  * context.modules = [
  * {   name = libpipewire-module-pulse-tunnel
  *     args = {
- *         tunnel.mode = playback
+ *         tunnel.mode = sink
  *         # Set the remote address to tunnel to
  *         pulse.server.address = "tcp:192.168.1.126"
  *         #audio.rate=<sample rate>
@@ -128,7 +128,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"[ audio.position=<channel map> ] "			\
 			"pulse.server.address=<address> "			\
 			"pulse.latency=<latency in msec> "			\
-			"[ tunnel.mode=capture|playback "			\
+			"[ tunnel.mode=source|sink "				\
 			"[ stream.props=<properties> ] "
 
 
@@ -147,8 +147,8 @@ static const struct spa_dict_item module_props[] = {
 struct impl {
 	struct pw_context *context;
 
-#define MODE_PLAYBACK	0
-#define MODE_CAPTURE	1
+#define MODE_SINK	0
+#define MODE_SOURCE	1
 	uint32_t mode;
 	struct pw_properties *props;
 
@@ -193,7 +193,7 @@ static void cork_stream(struct impl *impl, bool cork)
 	pa_threaded_mainloop_lock(impl->pa_mainloop);
 
 	pw_log_debug("corking: %d", cork);
-	if (cork && impl->mode == MODE_PLAYBACK) {
+	if (cork && impl->mode == MODE_SINK) {
 		/* When the sink becomes suspended (which is the only case where we
 		 * cork the stream), we don't want to keep any old data around, because
 		 * the old data is most likely unrelated to the audio that will be
@@ -376,7 +376,7 @@ static int create_stream(struct impl *impl)
 	if (impl->stream == NULL)
 		return -errno;
 
-	if (impl->mode == MODE_CAPTURE) {
+	if (impl->mode == MODE_SOURCE) {
 		pw_stream_add_listener(impl->stream,
 				&impl->stream_listener,
 				&capture_stream_events, impl);
@@ -392,14 +392,14 @@ static int create_stream(struct impl *impl)
 			SPA_PARAM_EnumFormat, &impl->info);
 
 	spa_zero(latency);
-	latency.direction = impl->mode == MODE_CAPTURE ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
+	latency.direction = impl->mode == MODE_SOURCE ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
 	latency.min_ns = latency.max_ns = impl->latency_msec * SPA_NSEC_PER_MSEC;
 
 	params[n_params++] = spa_latency_build(&b,
 			SPA_PARAM_Latency, &latency);
 
 	if ((res = pw_stream_connect(impl->stream,
-			impl->mode == MODE_CAPTURE ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT,
+			impl->mode == MODE_SOURCE ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT,
 			PW_ID_ANY,
 			PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_MAP_BUFFERS |
@@ -665,7 +665,7 @@ static int create_pulse_stream(struct impl *impl)
 	/* half in our buffer, half in the network + remote */
 	impl->target_buffer = latency_bytes / 2;
 
-	if (impl->mode == MODE_CAPTURE) {
+	if (impl->mode == MODE_SOURCE) {
 		bufferattr.fragsize = latency_bytes / 2;
 
 		res = pa_stream_connect_record(impl->pa_stream,
@@ -931,10 +931,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	spa_dll_init(&impl->dll);
 
 	if ((str = pw_properties_get(props, "tunnel.mode")) != NULL) {
-		if (spa_streq(str, "capture")) {
-			impl->mode = MODE_CAPTURE;
-		} else if (spa_streq(str, "playback")) {
-			impl->mode = MODE_PLAYBACK;
+		if (spa_streq(str, "source")) {
+			impl->mode = MODE_SOURCE;
+		} else if (spa_streq(str, "sink")) {
+			impl->mode = MODE_SINK;
 		} else {
 			pw_log_error("invalid tunnel.mode '%s'", str);
 			res = -EINVAL;
@@ -952,7 +952,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(props, PW_KEY_MEDIA_CLASS,
-				impl->mode == MODE_PLAYBACK ?
+				impl->mode == MODE_SINK ?
 					"Audio/Sink" : "Audio/Source");
 
 	if ((str = pw_properties_get(props, "stream.props")) != NULL)

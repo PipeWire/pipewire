@@ -81,7 +81,7 @@ static int module_tunnel_source_load(struct client *client, struct module *modul
 	fprintf(f, "{");
 	pw_properties_serialize_dict(f, &module->props->dict, 0);
 	fprintf(f, " pulse.server.address = \"%s\" ", server);
-	fprintf(f, " tunnel.mode = capture ");
+	fprintf(f, " tunnel.mode = source ");
 	if (data->latency_msec > 0)
 		fprintf(f, " pulse.latency = %u ", data->latency_msec);
 	fprintf(f, " stream.props = {");

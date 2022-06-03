@@ -826,17 +826,15 @@ static void manager_added(void *data, struct pw_manager_object *o)
 	}
 
 	if (spa_streq(o->type, PW_TYPE_INTERFACE_Link)) {
-		struct stream *s;
+		struct stream *s, *t;
 		struct pw_manager_object *peer = NULL;
-		spa_list_for_each(s, &client->pending_streams, link) {
+		spa_list_for_each_safe(s, t, &client->pending_streams, link) {
 			peer = find_peer_for_link(manager, o, s->id, s->direction);
-			if (peer)
-				break;
-		}
-		if (peer) {
-			reply_create_stream(s, peer);
-			spa_list_remove(&s->link);
-			s->pending = false;
+			if (peer) {
+				reply_create_stream(s, peer);
+				spa_list_remove(&s->link);
+				s->pending = false;
+			}
 		}
 	}
 

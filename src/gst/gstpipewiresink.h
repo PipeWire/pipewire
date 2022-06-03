@@ -87,11 +87,12 @@ struct _GstPipeWireSink {
 
   GstPipeWireCore *core;
   struct spa_hook core_listener;
+  GstStructure *client_properties;
 
   struct pw_stream *stream;
   struct spa_hook stream_listener;
 
-  GstStructure *properties;
+  GstStructure *stream_properties;
   GstPipeWireSinkMode mode;
 
   GstPipeWirePool *pool;

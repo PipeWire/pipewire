@@ -69,6 +69,7 @@ enum
   PROP_PATH,
   PROP_TARGET_OBJECT,
   PROP_CLIENT_NAME,
+  PROP_CLIENT_PROPERTIES,
   PROP_STREAM_PROPERTIES,
   PROP_ALWAYS_COPY,
   PROP_MIN_BUFFERS,
@@ -127,10 +128,17 @@ gst_pipewire_src_set_property (GObject * object, guint prop_id,
       pwsrc->client_name = g_value_dup_string (value);
       break;
 
+    case PROP_CLIENT_PROPERTIES:
+      if (pwsrc->client_properties)
+        gst_structure_free (pwsrc->client_properties);
+      pwsrc->client_properties =
+          gst_structure_copy (gst_value_get_structure (value));
+      break;
+
     case PROP_STREAM_PROPERTIES:
-      if (pwsrc->properties)
-        gst_structure_free (pwsrc->properties);
-      pwsrc->properties =
+      if (pwsrc->stream_properties)
+        gst_structure_free (pwsrc->stream_properties);
+      pwsrc->stream_properties =
           gst_structure_copy (gst_value_get_structure (value));
       break;
 
@@ -183,8 +191,12 @@ gst_pipewire_src_get_property (GObject * object, guint prop_id,
       g_value_set_string (value, pwsrc->client_name);
       break;
 
+    case PROP_CLIENT_PROPERTIES:
+      gst_value_set_structure (value, pwsrc->client_properties);
+      break;
+
     case PROP_STREAM_PROPERTIES:
-      gst_value_set_structure (value, pwsrc->properties);
+      gst_value_set_structure (value, pwsrc->stream_properties);
       break;
 
     case PROP_ALWAYS_COPY:
@@ -249,8 +261,10 @@ gst_pipewire_src_finalize (GObject * object)
 {
   GstPipeWireSrc *pwsrc = GST_PIPEWIRE_SRC (object);
 
-  if (pwsrc->properties)
-    gst_structure_free (pwsrc->properties);
+  if (pwsrc->stream_properties)
+    gst_structure_free (pwsrc->stream_properties);
+  if (pwsrc->client_properties)
+    gst_structure_free (pwsrc->client_properties);
   if (pwsrc->clock)
     gst_object_unref (pwsrc->clock);
   g_free (pwsrc->path);
@@ -305,6 +319,15 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
                                                         NULL,
                                                         G_PARAM_READWRITE |
                                                         G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
+                                   PROP_CLIENT_PROPERTIES,
+                                   g_param_spec_boxed ("client-properties",
+                                                       "client properties",
+                                                       "list of PipeWire client properties",
+                                                       GST_TYPE_STRUCTURE,
+                                                       G_PARAM_READWRITE |
+                                                       G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
                                    PROP_STREAM_PROPERTIES,
@@ -1187,12 +1210,17 @@ gst_pipewire_src_open (GstPipeWireSrc * pwsrc)
   pw_thread_loop_lock (pwsrc->core->loop);
 
   props = pw_properties_new (NULL, NULL);
+  if (pwsrc->client_properties) {
+    gst_structure_foreach (pwsrc->client_properties, copy_properties, props);
+    pw_core_update_properties (pwsrc->core->core, &props->dict);
+    pw_properties_clear(props);
+  }
   if (pwsrc->client_name) {
     pw_properties_set (props, PW_KEY_NODE_NAME, pwsrc->client_name);
     pw_properties_set (props, PW_KEY_NODE_DESCRIPTION, pwsrc->client_name);
   }
-  if (pwsrc->properties) {
-    gst_structure_foreach (pwsrc->properties, copy_properties, props);
+  if (pwsrc->stream_properties) {
+    gst_structure_foreach (pwsrc->stream_properties, copy_properties, props);
   }
 
   if ((pwsrc->stream = pw_stream_new (pwsrc->core->core,

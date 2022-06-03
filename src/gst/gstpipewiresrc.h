@@ -80,6 +80,7 @@ struct _GstPipeWireSrc {
   GstClockTime min_latency;
   GstClockTime max_latency;
 
+  GstStructure *client_properties;
   GstPipeWireCore *core;
   struct spa_hook core_listener;
   int last_seq;
@@ -89,7 +90,7 @@ struct _GstPipeWireSrc {
   struct spa_hook stream_listener;
 
   GstBuffer *last_buffer;
-  GstStructure *properties;
+  GstStructure *stream_properties;
 
   GstPipeWirePool *pool;
   GstClock *clock;

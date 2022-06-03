@@ -393,8 +393,12 @@ static int create_fifo(struct impl *impl)
 		pw_log_error("'%s' is not a FIFO.", filename);
 		goto error;
 	}
-	pw_log_info("opened fifo '%s' for %s", filename,
-			impl->direction == PW_DIRECTION_INPUT ? "writing" : "reading");
+	pw_log_info("%s fifo '%s' with format:%s channels:%d rate:%d",
+			impl->direction == PW_DIRECTION_OUTPUT ? "reading from" : "writing to",
+			filename,
+			spa_debug_type_find_name(spa_type_audio_format, impl->info.format),
+			impl->info.channels, impl->info.rate);
+
 	impl->filename = strdup(filename);
 	impl->unlink_fifo = do_unlink_fifo;
 	impl->fd = fd;

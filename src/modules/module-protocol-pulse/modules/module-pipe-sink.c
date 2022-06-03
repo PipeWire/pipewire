@@ -40,149 +40,78 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define DEFAULT_FILE_NAME "/tmp/music.output"
-
 struct module_pipesink_data {
 	struct module *module;
-	struct pw_core *core;
 
-	struct pw_stream *capture;
-
-	struct spa_hook core_listener;
-	struct spa_hook capture_listener;
+	struct spa_hook mod_listener;
+	struct pw_impl_module *mod;
 
 	struct pw_properties *capture_props;
-
 	struct spa_audio_info_raw info;
-
 	char *filename;
-	int fd;
-	bool do_unlink_fifo;
 };
 
-static void capture_process(void *data)
-{
-	struct module_pipesink_data *impl = data;
-	struct pw_buffer *in;
-	struct spa_data *d;
-	uint32_t i, size, offset;
-	int written;
-
-	if ((in = pw_stream_dequeue_buffer(impl->capture)) == NULL) {
-		pw_log_warn("Out of capture buffers: %m");
-		return;
-	}
-
-	for (i = 0; i < in->buffer->n_datas; i++) {
-		d = &in->buffer->datas[i];
-		size = d->chunk->size;
-		offset = d->chunk->offset;
-
-		while (size > 0) {
-			written = write(impl->fd, SPA_MEMBER(d->data, offset, void), size);
-			if (written < 0) {
-				if (errno == EINTR) {
-					/* retry if interrupted */
-					continue;
-				} else if (errno == EAGAIN || errno == EWOULDBLOCK) {
-					/* Don't continue writing */
-					break;
-				} else {
-					pw_log_warn("Failed to write to pipe sink");
-				}
-			}
-
-			offset += written;
-			size -= written;
-		}
-	}
-	pw_stream_queue_buffer(impl->capture, in);
-}
-
-static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
+static void module_destroy(void *data)
 {
 	struct module_pipesink_data *d = data;
-
-	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
-			id, seq, res, spa_strerror(res), message);
-
-	if (id == PW_ID_CORE && res == -EPIPE)
-		module_schedule_unload(d->module);
+	spa_hook_remove(&d->mod_listener);
+	d->mod = NULL;
+	module_schedule_unload(d->module);
 }
 
-static const struct pw_core_events core_events = {
-	PW_VERSION_CORE_EVENTS,
-	.error = on_core_error,
-};
-
-static void on_stream_state_changed(void *data, enum pw_stream_state old,
-		enum pw_stream_state state, const char *error)
-{
-	struct module_pipesink_data *d = data;
-
-	switch (state) {
-		case PW_STREAM_STATE_UNCONNECTED:
-			pw_log_info("stream disconnected, unloading");
-			module_schedule_unload(d->module);
-			break;
-		case PW_STREAM_STATE_ERROR:
-			pw_log_error("stream error: %s", error);
-			break;
-		default:
-			break;
-	}
-}
-
-static const struct pw_stream_events in_stream_events = {
-	PW_VERSION_STREAM_EVENTS,
-	.state_changed = on_stream_state_changed,
-	.process = capture_process
+static const struct pw_impl_module_events module_events = {
+	PW_VERSION_IMPL_MODULE_EVENTS,
+	.destroy = module_destroy
 };
 
 static int module_pipe_sink_load(struct client *client, struct module *module)
 {
 	struct module_pipesink_data *data = module->user_data;
-	int res;
-	uint32_t n_params;
-	const struct spa_pod *params[1];
-	uint8_t buffer[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	FILE *f;
+	char *args;
+	size_t size;
+	uint32_t i;
 
-	data->core = pw_context_connect(module->impl->context,
-			pw_properties_copy(client->props),
-			0);
-	if (data->core == NULL)
+	pw_properties_setf(data->capture_props, "pulse.module.id",
+			"%u", module->index);
+
+	if ((f = open_memstream(&args, &size)) == NULL)
 		return -errno;
 
-	pw_core_add_listener(data->core,
-			&data->core_listener,
-			&core_events, data);
+	fprintf(f, "{");
+	fprintf(f, " \"tunnel.mode\" = \"sink\" ");
+	if (data->filename != NULL)
+		fprintf(f, " \"pipe.filename\": \"%s\"", data->filename);
+	if (data->info.format != 0)
+		fprintf(f, " \"audio.format\": \"%s\"", format_id2name(data->info.format));
+	if (data->info.rate != 0)
+		fprintf(f, " \"audio.rate\": %u,", data->info.rate);
+	if (data->info.channels != 0) {
+		fprintf(f, " \"audio.channels\": %u,", data->info.channels);
+		if (!(data->info.flags & SPA_AUDIO_FLAG_UNPOSITIONED)) {
+			fprintf(f, " \"audio.position\": [ ");
+			for (i = 0; i < data->info.channels; i++)
+				fprintf(f, "%s\"%s\"", i == 0 ? "" : ",",
+					channel_id2name(data->info.position[i]));
+			fprintf(f, " ],");
+		}
+	}
+	pw_properties_serialize_dict(f, &data->capture_props->dict, 0);
+	fprintf(f, " }");
+	fclose(f);
 
-	pw_properties_setf(data->capture_props, "pulse.module.id", "%u", module->index);
+	data->mod = pw_context_load_module(module->impl->context,
+			"libpipewire-module-pipe-tunnel",
+			args, NULL);
 
-	data->capture = pw_stream_new(data->core,
-			"pipesink capture", data->capture_props);
-	data->capture_props = NULL;
-	if (data->capture == NULL)
+	free(args);
+
+	if (data->mod == NULL)
 		return -errno;
 
-	pw_stream_add_listener(data->capture,
-			&data->capture_listener,
-			&in_stream_events, data);
-
-	n_params = 0;
-	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&data->info);
-
-	if ((res = pw_stream_connect(data->capture,
-			PW_DIRECTION_INPUT,
-			PW_ID_ANY,
-			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS,
-			params, n_params)) < 0)
-		return res;
-
+	pw_impl_module_add_listener(data->mod,
+			&data->mod_listener,
+			&module_events, data);
 	return 0;
 }
 
@@ -190,19 +119,13 @@ static int module_pipe_sink_unload(struct module *module)
 {
 	struct module_pipesink_data *d = module->user_data;
 
-	pw_properties_free(d->capture_props);
-	if (d->capture != NULL)
-		pw_stream_destroy(d->capture);
-	if (d->core != NULL)
-		pw_core_disconnect(d->core);
-	if (d->filename) {
-		if (d->do_unlink_fifo)
-			unlink(d->filename);
-		free(d->filename);
+	if (d->mod) {
+		spa_hook_remove(&d->mod_listener);
+		pw_impl_module_destroy(d->mod);
+		d->mod = NULL;
 	}
-	if (d->fd >= 0)
-		close(d->fd);
-
+	pw_properties_free(d->capture_props);
+	free(d->filename);
 	return 0;
 }
 
@@ -211,6 +134,7 @@ static const struct spa_dict_item module_pipe_sink_info[] = {
 	{ PW_KEY_MODULE_DESCRIPTION, "Pipe sink" },
 	{ PW_KEY_MODULE_USAGE, "file=<name of the FIFO special file to use> "
 				"sink_name=<name for the sink> "
+				"sink_properties=<sink properties> "
 				"format=<sample format> "
 				"rate=<sample rate> "
 				"channels=<number of channels> "
@@ -224,12 +148,9 @@ static int module_pipe_sink_prepare(struct module * const module)
 	struct pw_properties * const props = module->props;
 	struct pw_properties *capture_props = NULL;
 	struct spa_audio_info_raw info = { 0 };
-	struct stat st;
 	const char *str;
 	char *filename = NULL;
-	bool do_unlink_fifo;
 	int res = 0;
-	int fd = -1;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -244,81 +165,34 @@ static int module_pipe_sink_prepare(struct module * const module)
 		goto out;
 	}
 
+	info.format = SPA_AUDIO_FORMAT_S16;
 	if ((str = pw_properties_get(props, "format")) != NULL) {
 		info.format = format_paname2id(str, strlen(str));
 		pw_properties_set(props, "format", NULL);
 	}
-
 	if ((str = pw_properties_get(props, "sink_name")) != NULL) {
 		pw_properties_set(capture_props, PW_KEY_NODE_NAME, str);
 		pw_properties_set(props, "sink_name", NULL);
 	}
+	if ((str = pw_properties_get(props, "sink_properties")) != NULL)
+		module_args_add_props(capture_props, str);
 
 	if ((str = pw_properties_get(props, "file")) != NULL) {
 		filename = strdup(str);
 		pw_properties_set(props, "file", NULL);
-	} else {
-		filename = strdup(DEFAULT_FILE_NAME);
 	}
-
-	do_unlink_fifo = false;
-	if (mkfifo(filename, 0666) < 0) {
-		if (errno != EEXIST) {
-			res = -errno;
-			pw_log_error("mkfifo('%s'): %s", filename, spa_strerror(res));
-			goto out;
-		}
-	} else {
-		do_unlink_fifo = true;
-		/*
-		 * Our umask is 077, so the pipe won't be created with the
-		 * requested permissions. Let's fix the permissions with chmod().
-		 */
-		if (chmod(filename, 0666) < 0)
-			pw_log_warn("chmod('%s'): %s", filename, spa_strerror(-errno));
-	}
-
-	if ((fd = open(filename, O_RDWR | O_CLOEXEC | O_NONBLOCK, 0)) <= 0) {
-		res = -errno;
-		pw_log_error("open('%s'): %s", filename, spa_strerror(res));
-		goto out;
-	}
-
-	if (fstat(fd, &st) < 0) {
-		res = -errno;
-		pw_log_error("fstat('%s'): %s", filename, spa_strerror(res));
-		goto out;
-	}
-
-	if (!S_ISFIFO(st.st_mode)) {
-		pw_log_error("'%s' is not a FIFO.", filename);
-		goto out;
-	}
-
-	if (pw_properties_get(capture_props, PW_KEY_NODE_VIRTUAL) == NULL)
-		pw_properties_set(capture_props, PW_KEY_NODE_VIRTUAL, "true");
-	pw_properties_set(capture_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
 
 	d->module = module;
 	d->capture_props = capture_props;
 	d->info = info;
-	d->fd = fd;
 	d->filename = filename;
-	d->do_unlink_fifo = do_unlink_fifo;
 
 	pw_log_info("Successfully loaded module-pipe-sink");
 
 	return 0;
 out:
 	pw_properties_free(capture_props);
-	if (filename) {
-		if (do_unlink_fifo)
-			unlink(filename);
-		free(filename);
-	}
-	if (fd >= 0)
-		close(fd);
-
+	free(filename);
 	return res;
 }
 

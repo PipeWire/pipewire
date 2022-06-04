@@ -3553,8 +3553,10 @@ static int register_media_application(struct spa_bt_monitor * monitor)
 		if (!is_a2dp_codec_enabled(monitor, codec))
 			continue;
 
-		register_a2dp_endpoint(monitor, codec, A2DP_SOURCE_ENDPOINT);
-		register_a2dp_endpoint(monitor, codec, A2DP_SINK_ENDPOINT);
+		if (codec->encode != NULL)
+			register_a2dp_endpoint(monitor, codec, A2DP_SOURCE_ENDPOINT);
+		if (codec->decode != NULL)
+			register_a2dp_endpoint(monitor, codec, A2DP_SINK_ENDPOINT);
 	}
 
 	return 0;

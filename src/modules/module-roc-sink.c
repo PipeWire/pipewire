@@ -162,11 +162,12 @@ static void capture_process(void *data)
 
 	for (i = 0; i < in->buffer->n_datas; i++) {
 		d = &in->buffer->datas[i];
-		size = d->chunk->size;
-		offset = d->chunk->offset;
+
+		offset = SPA_MIN(d->chunk->offset, d->maxsize);
+		size = SPA_MIN(d->maxsize - offset, d->chunk->size);
 
 		while (size > 0) {
-			memset(&frame, 0, sizeof(frame));
+			spa_zero(frame);
 
 			frame.samples = SPA_MEMBER(d->data, offset, void);
 			frame.samples_size = size;
@@ -176,8 +177,8 @@ static void capture_process(void *data)
 				break;
 			}
 
-			offset += size;
-			size -= size;
+			offset += frame.samples_size;
+			size -= frame.samples_size;
 		}
 	}
 	pw_stream_queue_buffer(impl->capture, in);

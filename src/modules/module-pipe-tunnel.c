@@ -211,7 +211,7 @@ static void playback_stream_process(void *data)
 {
 	struct impl *impl = data;
 	struct pw_buffer *buf;
-	uint32_t i, size, offset;
+	uint32_t i, size, offs;
 	ssize_t written;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
@@ -222,11 +222,12 @@ static void playback_stream_process(void *data)
 	for (i = 0; i < buf->buffer->n_datas; i++) {
 		struct spa_data *d;
 		d = &buf->buffer->datas[i];
-		size = d->chunk->size;
-		offset = d->chunk->offset;
+
+		offs = SPA_MIN(d->chunk->offset, d->maxsize);
+		size = SPA_MIN(d->chunk->size, d->maxsize - offs);
 
 		while (size > 0) {
-			written = write(impl->fd, SPA_MEMBER(d->data, offset, void), size);
+			written = write(impl->fd, SPA_MEMBER(d->data, offs, void), size);
 			if (written < 0) {
 				if (errno == EINTR) {
 					/* retry if interrupted */
@@ -238,7 +239,7 @@ static void playback_stream_process(void *data)
 					pw_log_warn("Failed to write to pipe sink");
 				}
 			}
-			offset += written;
+			offs += written;
 			size -= written;
 		}
 	}

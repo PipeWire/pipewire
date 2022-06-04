@@ -310,11 +310,8 @@ static void capture_process(void *data)
 	}
 	d = &buf->buffer->datas[0];
 
-	size = d->chunk->size;
-	offset = d->chunk->offset;
-
-	if (size + offset > d->maxsize)
-		size = d->maxsize - SPA_MIN(offset, d->maxsize);
+	offset = SPA_MIN(d->chunk->offset, d->maxsize);
+	size = SPA_MIN(d->chunk->size, d->maxsize - offset);
 
 	while (size > 0) {
 		res = send(client->source->fd,

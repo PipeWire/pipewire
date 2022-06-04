@@ -187,7 +187,7 @@ static void playback_stream_process(void *d)
 	struct pw_buffer *buf;
 	struct spa_data *bd;
 	void *data;
-	uint32_t size;
+	uint32_t offs, size;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
 		pw_log_debug("out of buffers: %m");
@@ -195,8 +195,10 @@ static void playback_stream_process(void *d)
 	}
 
 	bd = &buf->buffer->datas[0];
-	data = SPA_PTROFF(bd->data, bd->chunk->offset, void);
-	size = bd->chunk->size;
+
+	offs = SPA_MIN(bd->chunk->offset, bd->maxsize);
+	size = SPA_MIN(bd->chunk->size, bd->maxsize - offs);
+	data = SPA_PTROFF(bd->data, offs, void);
 
 	/* write buffer contents here */
 	pw_log_info("got buffer of size %d and data %p", size, data);

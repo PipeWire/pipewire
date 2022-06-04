@@ -188,28 +188,32 @@ static void capture_process(void *d)
 		pw_log_debug("out of playback buffers: %m");
 
 	if (in != NULL && out != NULL) {
-		uint32_t size = 0;
-		int32_t stride = 0;
 
 		for (i = 0; i < out->buffer->n_datas; i++) {
 			struct spa_data *ds, *dd;
+			uint32_t outsize = 0;
+			int32_t stride = 0;
 
 			dd = &out->buffer->datas[i];
 
 			if (i < in->buffer->n_datas) {
+				uint32_t offs, size;
+
 				ds = &in->buffer->datas[i];
 
-				memcpy(dd->data,
-					SPA_PTROFF(ds->data, ds->chunk->offset, void),
-					ds->chunk->size);
+				offs = SPA_MIN(ds->chunk->offset, ds->maxsize);
+				size = SPA_MIN(ds->chunk->size, ds->maxsize - offs);
+				stride = SPA_MAX(stride, stride);
 
-				size = SPA_MAX(size, ds->chunk->size);
-				stride = SPA_MAX(stride, ds->chunk->stride);
+				memcpy(dd->data,
+					SPA_PTROFF(ds->data, offs, void), size);
+
+				outsize = SPA_MAX(outsize, size);
 			} else {
-				memset(dd->data, 0, size);
+				memset(dd->data, 0, outsize);
 			}
 			dd->chunk->offset = 0;
-			dd->chunk->size = size;
+			dd->chunk->size = outsize;
 			dd->chunk->stride = stride;
 		}
 	}

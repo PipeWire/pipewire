@@ -124,8 +124,7 @@ static void capture_process(void *d)
 
 	for (i = 0; i < MAX_SINKS; i++) {
 		struct pw_buffer *out;
-		uint32_t j, size = 0;
-		int32_t stride = 0;
+		uint32_t j;
 
 		if (data->streams[i].stream == NULL || data->streams[i].cleanup)
 			continue;
@@ -142,23 +141,29 @@ static void capture_process(void *d)
 
 		for (j = 0; j < out->buffer->n_datas; j++) {
 			struct spa_data *ds, *dd;
+			uint32_t outsize = 0;
+			int32_t stride = 0;
 
 			dd = &out->buffer->datas[j];
 
 			if (j < in->buffer->n_datas) {
+				uint32_t offs, size;
+
 				ds = &in->buffer->datas[j];
 
-				memcpy(dd->data,
-					SPA_PTROFF(ds->data, ds->chunk->offset, void),
-					ds->chunk->size);
+				offs = SPA_MIN(ds->chunk->offset, ds->maxsize);
+				size = SPA_MIN(ds->chunk->size, ds->maxsize - offs);
 
-				size = SPA_MAX(size, ds->chunk->size);
+				memcpy(dd->data,
+					SPA_PTROFF(ds->data, offs, void), size);
+
+				outsize = SPA_MAX(outsize, size);
 				stride = SPA_MAX(stride, ds->chunk->stride);
 			} else {
-				memset(dd->data, 0, size);
+				memset(dd->data, 0, outsize);
 			}
 			dd->chunk->offset = 0;
-			dd->chunk->size = size;
+			dd->chunk->size = outsize;
 			dd->chunk->stride = stride;
 		}
 

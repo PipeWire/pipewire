@@ -1353,7 +1353,8 @@ static void stream_process(void *data)
 	void *p;
 	struct pw_buffer *buffer;
 	struct spa_buffer *buf;
-	uint32_t size, minreq = 0, index;
+	struct spa_data *d;
+	uint32_t offs, size, minreq = 0, index;
 	struct process_data pd;
 	bool do_flush = false;
 
@@ -1366,7 +1367,8 @@ static void stream_process(void *data)
 		return;
 
 	buf = buffer->buffer;
-	if ((p = buf->datas[0].data) == NULL)
+	d = &buf->datas[0];
+	if ((p = d->data) == NULL)
 		return;
 
 	spa_zero(pd);
@@ -1383,7 +1385,7 @@ static void stream_process(void *data)
 
 		if (avail < (int32_t)minreq || stream->corked) {
 			/* underrun, produce a silence buffer */
-			size = SPA_MIN(buf->datas[0].maxsize, minreq);
+			size = SPA_MIN(d->maxsize, minreq);
 			memset(p, 0, size);
 
 			if (stream->draining && !stream->corked) {
@@ -1419,7 +1421,7 @@ static void stream_process(void *data)
 				pd.read_inc = skip;
 				avail = stream->attr.maxlength;
 			}
-			size = SPA_MIN(buf->datas[0].maxsize, (uint32_t)avail);
+			size = SPA_MIN(d->maxsize, (uint32_t)avail);
 			size = SPA_MIN(size, minreq);
 
 			spa_ringbuffer_read_data(&stream->ring,
@@ -1434,13 +1436,16 @@ static void stream_process(void *data)
 			pd.playing_for = size;
 			pd.underrun = false;
 		}
-		buf->datas[0].chunk->offset = 0;
-		buf->datas[0].chunk->stride = stream->frame_size;
-		buf->datas[0].chunk->size = size;
+		d->chunk->offset = 0;
+		d->chunk->stride = stream->frame_size;
+		d->chunk->size = size;
 		buffer->size = size / stream->frame_size;
 	} else  {
 		int32_t filled = spa_ringbuffer_get_write_index(&stream->ring, &index);
-		size = buf->datas[0].chunk->size;
+
+		offs = SPA_MIN(d->chunk->offset, d->maxsize);
+		size = SPA_MIN(d->chunk->size, d->maxsize - offs);
+
 		if (filled < 0) {
 			/* underrun, can't really happen because we never read more
 			 * than what's available on the other side  */
@@ -1458,7 +1463,7 @@ static void stream_process(void *data)
 		spa_ringbuffer_write_data(&stream->ring,
 				stream->buffer, MAXLENGTH,
 				index % MAXLENGTH,
-				SPA_PTROFF(p, buf->datas[0].chunk->offset, void),
+				SPA_PTROFF(p, offs, void),
 				SPA_MIN(size, MAXLENGTH));
 
 		index += size;

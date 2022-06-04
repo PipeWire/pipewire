@@ -339,16 +339,20 @@ static void capture_process(void *data)
 	struct impl *impl = data;
 	struct pw_buffer *buf;
 	struct spa_data *d;
-	uint32_t i, index, size;
+	uint32_t i, index, offs, size;
 	int32_t avail;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->capture)) == NULL) {
 		pw_log_debug("out of capture buffers: %m");
 		return;
 	}
+	d = &buf->buffer->datas[0];
+
+	offs = SPA_MIN(d->chunk->offset, d->maxsize);
+	size = SPA_MIN(d->chunk->size, d->maxsize - offs);
 
 	avail = spa_ringbuffer_get_write_index(&impl->rec_ring, &index);
-	size = buf->buffer->datas[0].chunk->size;
+
 	if (avail + size > impl->rec_ringsize) {
 		uint32_t rindex, drop;
 
@@ -375,10 +379,12 @@ static void capture_process(void *data)
 		/* captured samples, with echo from sink */
 		d = &buf->buffer->datas[i];
 
+		offs = SPA_MIN(d->chunk->offset, d->maxsize);
+		size = SPA_MIN(d->chunk->size, d->maxsize - offs);
+
 		spa_ringbuffer_write_data(&impl->rec_ring, impl->rec_buffer[i],
 				impl->rec_ringsize, index % impl->rec_ringsize,
-				SPA_PTROFF(d->data, d->chunk->offset, void),
-				d->chunk->size);
+				SPA_PTROFF(d->data, offs, void), size);
 	}
 
 	spa_ringbuffer_write_update(&impl->rec_ring, index + size);
@@ -526,16 +532,20 @@ static void sink_process(void *data)
 	struct impl *impl = data;
 	struct pw_buffer *buf;
 	struct spa_data *d;
-	uint32_t i, index, size;
+	uint32_t i, index, offs, size;
 	int32_t avail;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->sink)) == NULL) {
 		pw_log_debug("out of sink buffers: %m");
 		return;
 	}
+	d = &buf->buffer->datas[0];
+
+	offs = SPA_MIN(d->chunk->offset, d->maxsize);
+	size = SPA_MIN(d->chunk->size, d->maxsize - offs);
 
 	avail = spa_ringbuffer_get_write_index(&impl->play_ring, &index);
-	size = buf->buffer->datas[0].chunk->size;
+
 	if (avail + size > impl->play_ringsize) {
 		uint32_t rindex, drop;
 
@@ -562,12 +572,13 @@ static void sink_process(void *data)
 		/* echo from sink */
 		d = &buf->buffer->datas[i];
 
+		offs = SPA_MIN(d->chunk->offset, d->maxsize);
+		size = SPA_MIN(d->chunk->size, d->maxsize - offs);
+
 		spa_ringbuffer_write_data(&impl->play_ring, impl->play_buffer[i],
 				impl->play_ringsize, index % impl->play_ringsize,
-				SPA_PTROFF(d->data, d->chunk->offset, void),
-				d->chunk->size);
+				SPA_PTROFF(d->data, offs, void), size);
 	}
-
 	spa_ringbuffer_write_update(&impl->play_ring, index + size);
 
 	if (avail + size >= impl->aec_blocksize) {

@@ -246,7 +246,7 @@ static void playback_stream_process(void *d)
 	struct pw_buffer *buf;
 	struct spa_data *bd;
 	int32_t filled;
-	uint32_t write_index, size;
+	uint32_t write_index, offs, size;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
 		pw_log_debug("out of buffers: %m");
@@ -254,7 +254,9 @@ static void playback_stream_process(void *d)
 	}
 
 	bd = &buf->buffer->datas[0];
-	size = SPA_MIN(bd->chunk->size, RINGBUFFER_SIZE);
+	offs = SPA_MIN(bd->chunk->offset, bd->maxsize);
+	size = SPA_MIN(bd->chunk->size, bd->maxsize - offs);
+	size = SPA_MIN(size, RINGBUFFER_SIZE);
 
 	filled = spa_ringbuffer_get_write_index(&impl->ring, &write_index);
 
@@ -281,8 +283,8 @@ static void playback_stream_process(void *d)
 	}
 	spa_ringbuffer_write_data(&impl->ring,
 				impl->buffer, RINGBUFFER_SIZE,
-                                write_index & RINGBUFFER_MASK,
-                                SPA_PTROFF(bd->data, bd->chunk->offset, void),
+				write_index & RINGBUFFER_MASK,
+				SPA_PTROFF(bd->data, offs, void),
 				size);
 	write_index += size;
 	spa_ringbuffer_write_update(&impl->ring, write_index);

@@ -589,7 +589,7 @@ static void capture_process(void *d)
 	struct impl *impl = d;
 	struct pw_buffer *in, *out;
 	struct graph *graph = &impl->graph;
-	uint32_t i, size = 0, n_hndl = graph->n_hndl;
+	uint32_t i, outsize = 0, n_hndl = graph->n_hndl;
 	int32_t stride = 0;
 
 	if ((in = pw_stream_dequeue_buffer(impl->capture)) == NULL)
@@ -604,10 +604,16 @@ static void capture_process(void *d)
 	for (i = 0; i < in->buffer->n_datas; i++) {
 		struct spa_data *ds = &in->buffer->datas[i];
 		struct graph_port *port = &graph->input[i];
+		uint32_t offs, size;
+
+		offs = SPA_MIN(ds->chunk->offset, ds->maxsize);
+		size = SPA_MIN(ds->chunk->size, ds->maxsize - offs);
+
 		if (port->desc)
 			port->desc->connect_port(port->hndl, port->port,
-				SPA_MEMBER(ds->data, ds->chunk->offset, void));
-		size = SPA_MAX(size, ds->chunk->size);
+				SPA_PTROFF(ds->data, offs, void));
+
+		outsize = SPA_MAX(outsize, size);
 		stride = SPA_MAX(stride, ds->chunk->stride);
 	}
 	for (i = 0; i < out->buffer->n_datas; i++) {
@@ -616,14 +622,14 @@ static void capture_process(void *d)
 		if (port->desc)
 			port->desc->connect_port(port->hndl, port->port, dd->data);
 		else
-			memset(dd->data, 0, size);
+			memset(dd->data, 0, outsize);
 		dd->chunk->offset = 0;
-		dd->chunk->size = size;
+		dd->chunk->size = outsize;
 		dd->chunk->stride = stride;
 	}
 	for (i = 0; i < n_hndl; i++) {
 		struct graph_hndl *hndl = &graph->hndl[i];
-		hndl->desc->run(hndl->hndl, size / sizeof(float));
+		hndl->desc->run(hndl->hndl, outsize / sizeof(float));
 	}
 
 done:

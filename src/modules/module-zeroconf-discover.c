@@ -195,10 +195,10 @@ static void pw_properties_from_avahi_string(const char *key, const char *value,
 		pw_properties_set(props, PW_KEY_NODE_TARGET, value);
 	}
 	else if (spa_streq(key, "rate")) {
-		pw_properties_setf(props, PW_KEY_AUDIO_RATE, "%u", atoi(value));
+		pw_properties_set(props, PW_KEY_AUDIO_RATE, value);
 	}
 	else if (spa_streq(key, "channels")) {
-		pw_properties_setf(props, PW_KEY_AUDIO_CHANNELS, "%u", atoi(value));
+		pw_properties_set(props, PW_KEY_AUDIO_CHANNELS, value);
 	}
 	else if (spa_streq(key, "channel_map")) {
 		struct channel_map channel_map;

@@ -99,15 +99,15 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define DEFAULT_FORMAT "S16"
 #define DEFAULT_RATE 48000
-#define DEFAULT_CHANNELS "2"
+#define DEFAULT_CHANNELS 2
 #define DEFAULT_POSITION "[ FL FR ]"
 
 #define MODULE_USAGE	"[ node.latency=<latency as fraction> ] "				\
 			"[ node.name=<name of the nodes> ] "					\
 			"[ node.description=<description of the nodes> ] "			\
 			"[ audio.format=<format, default:"DEFAULT_FORMAT"> ] "			\
-			"[ audio.rate=<sample rate, default: 48000> ] "				\
-			"[ audio.channels=<number of channels, default:"DEFAULT_CHANNELS"> ] "	\
+			"[ audio.rate=<sample rate, default: "SPA_STRINGIFY(DEFAULT_RATE)"> ] "			\
+			"[ audio.channels=<number of channels, default:"SPA_STRINGIFY(EFAULT_CHANNELS) "> ] "	\
 			"[ audio.position=<channel map, default:"DEFAULT_POSITION"> ] "		\
 			"[ stream.props=<properties> ] "
 
@@ -383,9 +383,7 @@ static int parse_audio_info(struct impl *impl)
 		pw_log_error("invalid rate '%s'", str);
 		return -EINVAL;
 	}
-	if ((str = pw_properties_get(props, PW_KEY_AUDIO_CHANNELS)) == NULL)
-		str = DEFAULT_CHANNELS;
-	info->channels = atoi(str);
+	info->channels = pw_properties_get_uint32(props, PW_KEY_AUDIO_CHANNELS, DEFAULT_CHANNELS);
 	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) == NULL)
 		str = DEFAULT_POSITION;
 	parse_position(info, str, strlen(str));

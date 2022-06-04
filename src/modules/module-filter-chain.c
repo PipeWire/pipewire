@@ -2083,10 +2083,8 @@ static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_
 
 	*info = SPA_AUDIO_INFO_RAW_INIT(
 			.format = SPA_AUDIO_FORMAT_F32P);
-	if ((str = pw_properties_get(props, PW_KEY_AUDIO_RATE)) != NULL)
-		info->rate = atoi(str);
-	if ((str = pw_properties_get(props, PW_KEY_AUDIO_CHANNELS)) != NULL)
-		info->channels = atoi(str);
+	info->rate = pw_properties_get_int32(props, PW_KEY_AUDIO_RATE, 0);
+	info->channels = pw_properties_get_int32(props, PW_KEY_AUDIO_CHANNELS, 0);
 	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL)
 		parse_position(info, str, strlen(str));
 }

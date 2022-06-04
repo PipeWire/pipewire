@@ -132,7 +132,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_SERVER "[ \"tcp:"SPA_STRINGIFY(DEFAULT_PORT)"\" ]"
 
 #define DEFAULT_FORMAT "S16"
-#define DEFAULT_RATE "44100"
+#define DEFAULT_RATE 44100
 #define DEFAULT_CHANNELS 2
 #define DEFAULT_POSITION "[ FL FR ]"
 #define DEFAULT_LATENCY "1024/44100"
@@ -143,12 +143,12 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"[ playback=<bool> ] "						\
 			"[ remote.name=<remote> ] "					\
 			"[ node.latency=<num/denom, default:"DEFAULT_LATENCY"> ] "	\
-			"[ node.rate=<1/rate, default:1/"DEFAULT_RATE"> ] "	\
+			"[ node.rate=<1/rate, default:1/"SPA_STRINGIFY(DEFAULT_RATE)"> ] "	\
 			"[ capture.node=<source-target> [ stream.capture.sink=true ]] "	\
 			"[ playback.node=<sink-target> ] "				\
-			"[ audio.rate=<sample-rate, default:"DEFAULT_RATE"> ] "		\
+			"[ audio.rate=<sample-rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> ] "		\
 			"[ audio.format=<format, default:"DEFAULT_FORMAT"> ] "		\
-			"[ audio.channels=<channels, default: 2> ] "	\
+			"[ audio.channels=<channels, default: "SPA_STRINGIFY(DEFAULT_CHANNELS)"> ] "	\
 			"[ audio.position=<position, default:"DEFAULT_POSITION"> ] "	\
 			"[ server.address=<[ tcp:[<ip>:]<port>[,...] ], default:"DEFAULT_SERVER">"	\
 
@@ -804,9 +804,7 @@ static int parse_params(struct impl *impl)
 		pw_log_error("invalid format '%s'", str);
 		return -EINVAL;
 	}
-	if ((str = pw_properties_get(impl->props, "audio.rate")) == NULL)
-		str = DEFAULT_RATE;
-	impl->info.rate = atoi(str);
+	impl->info.rate = pw_properties_get_uint32(impl->props, "audio.rate", DEFAULT_RATE);
 	if (impl->info.rate == 0) {
 		pw_log_error("invalid rate '%s'", str);
 		return -EINVAL;

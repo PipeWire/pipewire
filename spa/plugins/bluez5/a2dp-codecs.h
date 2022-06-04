@@ -43,7 +43,7 @@
 
 #define SPA_TYPE_INTERFACE_Bluez5CodecA2DP	SPA_TYPE_INFO_INTERFACE_BASE "Bluez5:Codec:A2DP:Private"
 
-#define SPA_VERSION_BLUEZ5_CODEC_A2DP		2
+#define SPA_VERSION_BLUEZ5_CODEC_A2DP		3
 
 struct spa_bluez5_codec_a2dp {
 	struct spa_interface iface;
@@ -97,7 +97,7 @@ struct a2dp_codec {
 	int (*select_config) (const struct a2dp_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
 			const struct a2dp_codec_audio_info *info,
-			const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE]);
+			const struct spa_dict *global_settings, uint8_t config[A2DP_MAX_CAPS_SIZE]);
 	int (*enum_config) (const struct a2dp_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 			struct spa_pod_builder *builder, struct spa_pod **param);
@@ -111,7 +111,8 @@ struct a2dp_codec {
 	 * otherwise not checked beforehand.
 	 */
 	int (*caps_preference_cmp) (const struct a2dp_codec *codec, uint32_t flags, const void *caps1, size_t caps1_size,
-			const void *caps2, size_t caps2_size, const struct a2dp_codec_audio_info *info);
+			const void *caps2, size_t caps2_size, const struct a2dp_codec_audio_info *info,
+			const struct spa_dict *global_settings);
 
 	void *(*init_props) (const struct a2dp_codec *codec, uint32_t flags, const struct spa_dict *settings);
 	void (*clear_props) (void *);
@@ -157,6 +158,7 @@ int a2dp_codec_select_config(const struct a2dp_codec_config configs[], size_t n,
 	uint32_t cap, int preferred_value);
 
 bool a2dp_codec_check_caps(const struct a2dp_codec *codec, unsigned int codec_id,
-	const void *caps, size_t caps_size, const struct a2dp_codec_audio_info *info);
+	const void *caps, size_t caps_size, const struct a2dp_codec_audio_info *info,
+	const struct spa_dict *global_settings);
 
 #endif

@@ -151,7 +151,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 }
 
 static int codec_caps_preference_cmp(const struct a2dp_codec *codec, uint32_t flags, const void *caps1, size_t caps1_size,
-		const void *caps2, size_t caps2_size, const struct a2dp_codec_audio_info *info)
+		const void *caps2, size_t caps2_size, const struct a2dp_codec_audio_info *info, const struct spa_dict *global_settings)
 {
 	a2dp_lc3plus_hr_t conf1, conf2;
 	a2dp_lc3plus_hr_t *conf;

@@ -62,7 +62,8 @@ int a2dp_codec_select_config(const struct a2dp_codec_config configs[], size_t n,
 
 bool a2dp_codec_check_caps(const struct a2dp_codec *codec, unsigned int codec_id,
 			   const void *caps, size_t caps_size,
-			   const struct a2dp_codec_audio_info *info)
+			   const struct a2dp_codec_audio_info *info,
+			   const struct spa_dict *global_settings)
 {
 	uint8_t config[A2DP_MAX_CAPS_SIZE];
 	int res;
@@ -73,7 +74,7 @@ bool a2dp_codec_check_caps(const struct a2dp_codec *codec, unsigned int codec_id
 	if (caps == NULL)
 		return false;
 
-	res = codec->select_config(codec, 0, caps, caps_size, info, NULL, config);
+	res = codec->select_config(codec, 0, caps, caps_size, info, global_settings, config);
 	if (res < 0)
 		return false;
 

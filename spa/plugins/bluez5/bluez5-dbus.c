@@ -125,6 +125,10 @@ struct spa_bt_monitor {
 
 	struct spa_bt_quirks *quirks;
 
+#define MAX_SETTINGS 128
+	struct spa_dict_item global_setting_items[MAX_SETTINGS];
+	struct spa_dict global_settings;
+
 	/* A reference audio info for A2DP codec configuration. */
 	struct a2dp_codec_audio_info default_audio_info;
 };
@@ -512,7 +516,8 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 		 * This causes inconsistency with SelectConfiguration() triggered
 		 * by codec switching.
 		  */
-		res = codec->select_config(codec, sink ? A2DP_CODEC_FLAG_SINK : 0, cap, size, &monitor->default_audio_info, NULL, config);
+		res = codec->select_config(codec, sink ? A2DP_CODEC_FLAG_SINK : 0, cap, size, &monitor->default_audio_info,
+				&monitor->global_settings, config);
 	else
 		res = -ENOTSUP;
 
@@ -1584,7 +1589,7 @@ bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struc
 
 	spa_list_for_each(ep, &device->remote_endpoint_list, device_link) {
 		if (a2dp_codec_check_caps(codec, ep->codec, ep->capabilities, ep->capabilities_len,
-					  &ep->monitor->default_audio_info))
+						&ep->monitor->default_audio_info, &monitor->global_settings))
 			return true;
 	}
 
@@ -2639,7 +2644,7 @@ static bool a2dp_codec_switch_process_current(struct spa_bt_a2dp_codec_switch *s
 
 	res = codec->select_config(codec, sink ? A2DP_CODEC_FLAG_SINK : 0, ep->capabilities, ep->capabilities_len,
 				   &sw->device->monitor->default_audio_info,
-				   sw->device->settings, config);
+				   &sw->device->monitor->global_settings, config);
 	if (res < 0) {
 		spa_log_debug(sw->device->monitor->log, "a2dp codec switch %p: incompatible capabilities (%d), try next",
 		              sw, res);
@@ -2909,7 +2914,8 @@ static int a2dp_codec_switch_cmp(const void *a, const void *b)
 	flags = spa_streq(ep1->uuid, SPA_BT_UUID_A2DP_SOURCE) ? A2DP_CODEC_FLAG_SINK : 0;
 
 	return codec->caps_preference_cmp(codec, flags, ep1->capabilities, ep1->capabilities_len,
-			ep2->capabilities, ep2->capabilities_len, &sw->device->monitor->default_audio_info);
+			ep2->capabilities, ep2->capabilities_len, &sw->device->monitor->default_audio_info,
+			&sw->device->monitor->global_settings);
 }
 
 /* Ensure there's a transport for at least one of the listed codecs */
@@ -4308,6 +4314,7 @@ static int impl_clear(struct spa_handle *handle)
 	struct spa_bt_device *d;
 	struct spa_bt_remote_endpoint *ep;
 	struct spa_bt_transport *t;
+	const struct spa_dict_item *it;
 	size_t i;
 
 	monitor = (struct spa_bt_monitor *) handle;
@@ -4337,6 +4344,11 @@ static int impl_clear(struct spa_handle *handle)
 	for (i = 0; i < SPA_N_ELEMENTS(monitor->backends); ++i) {
 		spa_bt_backend_free(monitor->backends[i]);
 		monitor->backends[i] = NULL;
+	}
+
+	spa_dict_for_each(it, &monitor->global_settings) {
+		free((void *)it->key);
+		free((void *)it->value);
 	}
 
 	free((void*)monitor->enabled_codecs.items);
@@ -4475,6 +4487,26 @@ fallback:
 	return 0;
 }
 
+static void get_global_settings(struct spa_bt_monitor *this, const struct spa_dict *dict)
+{
+	uint32_t n_items = 0;
+	uint32_t i;
+
+	if (dict == NULL) {
+		this->global_settings = SPA_DICT_INIT(this->global_setting_items, 0);
+		return;
+	}
+
+	for (i = 0; i < dict->n_items && n_items < SPA_N_ELEMENTS(this->global_setting_items); i++) {
+		const struct spa_dict_item *it = &dict->items[i];
+		if (spa_strstartswith(it->key, "bluez5.") && it->value != NULL)
+			this->global_setting_items[n_items++] =
+				SPA_DICT_ITEM_INIT(strdup(it->key), strdup(it->value));
+	}
+
+	this->global_settings = SPA_DICT_INIT(this->global_setting_items, n_items);
+}
+
 static int
 impl_init(const struct spa_handle_factory *factory,
 	  struct spa_handle *handle,
@@ -4567,6 +4599,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->default_audio_info.channels = A2DP_CODEC_DEFAULT_CHANNELS;
 
 	this->backend_selection = BACKEND_NATIVE;
+
+	get_global_settings(this, info);
 
 	if (info) {
 		const char *str;

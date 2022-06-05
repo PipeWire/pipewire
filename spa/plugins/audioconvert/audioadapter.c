@@ -1098,11 +1098,29 @@ static void follower_result(void *data, int seq, int res, uint32_t type, const v
 	spa_node_emit_result(&this->hooks, seq, res, type, result);
 }
 
+static void follower_event(void *data, const struct spa_event *event)
+{
+	struct impl *this = data;
+
+	spa_log_trace(this->log, "%p: event %d", this, SPA_EVENT_TYPE(event));
+
+	switch (SPA_NODE_EVENT_ID(event)) {
+	case SPA_NODE_EVENT_Error:
+		/* Forward errors */
+		spa_node_emit_event(&this->hooks, event);
+		break;
+	default:
+		/* Ignore other events */
+		break;
+	}
+}
+
 static const struct spa_node_events follower_node_events = {
 	SPA_VERSION_NODE_EVENTS,
 	.info = follower_info,
 	.port_info = follower_port_info,
 	.result = follower_result,
+	.event = follower_event,
 };
 
 static int follower_ready(void *data, int status)

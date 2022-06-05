@@ -52,7 +52,7 @@ struct module_switch_on_connect_data {
 	struct spa_hook manager_listener;
 	struct pw_manager_object *metadata_default;
 
-	regex_t *blocklist;
+	regex_t blocklist;
 
 	int sync_seq;
 
@@ -122,7 +122,7 @@ static void manager_added(void *data, struct pw_manager_object *o)
 		return;
 	}
 
-	if (d->blocklist && regexec(d->blocklist, name, 0, NULL, 0) == 0) {
+	if (regexec(&d->blocklist, name, 0, NULL, 0) == 0) {
 		pw_log_debug("not switching to blocklisted device");
 		return;
 	}
@@ -224,11 +224,7 @@ static int module_switch_on_connect_unload(struct module *module)
 		d->core = NULL;
 	}
 
-	if (d->blocklist) {
-		regfree(d->blocklist);
-		free(d->blocklist);
-		d->blocklist = NULL;
-	}
+	regfree(&d->blocklist);
 
 	return 0;
 }
@@ -249,10 +245,8 @@ static int module_switch_on_connect_prepare(struct module * const module)
 {
 	struct module_switch_on_connect_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
-	regex_t *blocklist = NULL;
 	bool only_from_unavailable = false, ignore_virtual = true;
 	const char *str;
-	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -266,25 +260,15 @@ static int module_switch_on_connect_prepare(struct module * const module)
 		pw_properties_set(props, "ignore_virtual", NULL);
 	}
 
-	if ((blocklist = malloc(sizeof(regex_t))) == NULL) {
-		res = -ENOMEM;
-		goto out;
-	}
-
 	if ((str = pw_properties_get(props, "blocklist")) == NULL)
 		str = DEFAULT_BLOCKLIST;
 
-	if ((res = regcomp(blocklist, str, REG_NOSUB | REG_EXTENDED)) != 0) {
-		free(blocklist);
-		blocklist = NULL;
-		res = -EINVAL;
-		goto out;
-	}
+	if (regcomp(&d->blocklist, str, REG_NOSUB | REG_EXTENDED) != 0)
+		return -EINVAL;
 
 	pw_properties_set(props, "blocklist", NULL);
 
 	d->module = module;
-	d->blocklist = blocklist;
 	d->ignore_virtual = ignore_virtual;
 	d->only_from_unavailable = only_from_unavailable;
 
@@ -294,14 +278,6 @@ static int module_switch_on_connect_prepare(struct module * const module)
 	}
 
 	return 0;
-
-out:
-	if (blocklist) {
-		regfree(blocklist);
-		free(blocklist);
-	}
-
-	return res;
 }
 
 DEFINE_MODULE_INFO(module_switch_on_connect) = {

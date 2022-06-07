@@ -109,7 +109,7 @@ static void init_modifiers(struct data *data)
 	data->mod_info[0].n_modifiers = 2;
 	data->mod_info[0].modifiers = (uint64_t*)malloc(2*sizeof(uint32_t));
 	data->mod_info[0].modifiers[0] = DRM_FORMAT_MOD_LINEAR;
-	data->mod_info[0].modifiers[0] = DRM_FORMAT_MOD_INVALID;
+	data->mod_info[0].modifiers[1] = DRM_FORMAT_MOD_INVALID;
 }
 
 static void destroy_modifiers(struct data *data)

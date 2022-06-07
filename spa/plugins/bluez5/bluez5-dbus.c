@@ -4572,7 +4572,7 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, "bluez5.dummy-avrcp-player")) != NULL)
 			this->dummy_avrcp_player = spa_atob(str);
 		else
-			this->dummy_avrcp_player = true;
+			this->dummy_avrcp_player = false;
 	}
 
 	register_media_application(this);

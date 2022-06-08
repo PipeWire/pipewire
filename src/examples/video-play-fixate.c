@@ -45,6 +45,7 @@
 #define HEIGHT  480
 
 #define MAX_BUFFERS	64
+#define MAX_MOD		8
 
 #include "sdl.h"
 
@@ -61,7 +62,7 @@ struct pw_version {
 struct modifier_info {
         uint32_t spa_format;
         uint32_t n_modifiers;
-        uint64_t *modifiers;
+        uint64_t modifiers[MAX_MOD];
 };
 
 struct data {
@@ -83,7 +84,7 @@ struct data {
 	struct spa_rectangle size;
 
 	uint32_t n_mod_info;
-	struct modifier_info mod_info[1];
+	struct modifier_info mod_info[2];
 
 	int counter;
 };
@@ -107,14 +108,12 @@ static void init_modifiers(struct data *data)
 	data->n_mod_info = 1;
 	data->mod_info[0].spa_format = SPA_VIDEO_FORMAT_RGB;
 	data->mod_info[0].n_modifiers = 2;
-	data->mod_info[0].modifiers = (uint64_t*)malloc(2*sizeof(uint32_t));
 	data->mod_info[0].modifiers[0] = DRM_FORMAT_MOD_LINEAR;
 	data->mod_info[0].modifiers[1] = DRM_FORMAT_MOD_INVALID;
 }
 
 static void destroy_modifiers(struct data *data)
 {
-	free(data->mod_info[0].modifiers);
 	data->mod_info[0].n_modifiers = 0;
 }
 

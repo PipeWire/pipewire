@@ -1332,23 +1332,6 @@ bind_failed:
 	return;
 }
 
-static void registry_event_global_remove(void *data, uint32_t id)
-{
-	struct data *d = data;
-	struct object *o;
-
-	if ((o = find_object(d, id)) == NULL)
-		return;
-
-	object_destroy(o);
-}
-
-static const struct pw_registry_events registry_events = {
-	PW_VERSION_REGISTRY_EVENTS,
-	.global = registry_event_global,
-	.global_remove = registry_event_global_remove,
-};
-
 static bool object_matches(struct object *o, const char *pattern)
 {
 	uint32_t id;
@@ -1374,6 +1357,38 @@ static bool object_matches(struct object *o, const char *pattern)
 		return true;
 	return false;
 }
+
+static void registry_event_global_remove(void *data, uint32_t id)
+{
+	struct data *d = data;
+	struct object *o;
+
+	if ((o = find_object(d, id)) == NULL)
+		return;
+
+	d->state = STATE_FIRST;
+	if (d->pattern != NULL && !object_matches(o, d->pattern))
+		return;
+	if (d->state == STATE_FIRST)
+		put_begin(d, NULL, "[", 0);
+	put_begin(d, NULL, "{", 0);
+	put_int(d, "id", o->id);
+	if (o->class && o->class->dump)
+		put_value(d, "info", NULL);
+	else if (o->props)
+		put_value(d, "props", NULL);
+	put_end(d, "}", 0);
+	if (d->state != STATE_FIRST)
+		put_end(d, "]\n", 0);
+
+	object_destroy(o);
+}
+
+static const struct pw_registry_events registry_events = {
+	PW_VERSION_REGISTRY_EVENTS,
+	.global = registry_event_global,
+	.global_remove = registry_event_global_remove,
+};
 
 static void dump_objects(struct data *d)
 {

@@ -12,18 +12,17 @@ corresponding paragraph.
 
 # Capability Negotiations
 
-The capability negotiation for DMA-BUFs is complicated by the fact, that a
+The capability negotiation for DMA-BUFs is complicated by the fact that a
 usable and preferred optimal modifier for a given format can only be
-determined by the allocator, which has to be invoked with the intersection
-of all supported modifiers of all clients. As a result the fixation of the
-modifier has to be delegated from PipeWire to the node responsible for
+determined by the allocator. This allocator has to be invoked with the intersection
+of all supported modifiers for every client. As a result, the fixation of the
+modifier is delegated from PipeWire to the node responsible for
 allocating the buffers.
 
 ## pw_stream_connect
 
 The stream parameters should contain two `SPA_PARAM_EnumFormat` objects for
-each format: the first one is used for DMA-BUFs, the second one for shared
-memory buffers as a fallback.
+each format: one for DMA-BUFs, one for shared memory buffers as a fallback.
 
 Query the list of all supported modifiers from your graphics API of choice.
 Add a `SPA_FORMAT_VIDEO_modifier` property to the first stream parameter with
@@ -72,13 +71,13 @@ modifier-aware one, or supporting both.
   In this case only the modifier `DRM_FORMAT_MOD_INVALID` was announced with
   the format.
   It is sufficient to check if the `SPA_PARAM_Format` contains the modifier
-  property as described above. Is that the case use DMA-BUFs for screen-sharing,
+  property as described above. If that is the case, use DMA-BUFs for screen-sharing,
   else fall back to SHM, if possible.
 - modifier-aware:
   In this case a list with all supported modifiers will be returned in the format.
   (using `DRM_FORMAT_MOD_INVALID` as the token for the modifier-less API).
   On the `param_changed` event check if the modifier key is present and has the flag
-  `SPA_POD_PROP_FLAG_DONT_FIXATE` attached to it. In this case extract all modifiers
+  `SPA_POD_PROP_FLAG_DONT_FIXATE` attached to it. In this case, extract all modifiers
   from the list and do a test allocation with your allocator to choose the preferred
   modifier. Fixate on that `EnumFormat` by announcing a `SPA_PARAM_EnumFormat` with
   only one modifier in the `SPA_CHOICE_Enum` and without the

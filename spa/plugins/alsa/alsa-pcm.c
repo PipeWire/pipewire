@@ -466,7 +466,9 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 	}
 	if (state->clock_name[0] == '\0')
 		snprintf(state->clock_name, sizeof(state->clock_name),
-				"api.alsa.%u", state->card_index);
+				"api.alsa.%s-%u",
+				state->stream == SND_PCM_STREAM_PLAYBACK ? "p" : "c",
+				state->card_index);
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		state->is_iec958 = spa_strstartswith(state->props.device, "iec958");
@@ -1862,6 +1864,11 @@ static int setup_matching(struct state *state)
 		state->matching = false;
 
 	state->resample = ((uint32_t)state->rate != state->rate_denom) || state->matching;
+
+	spa_log_info(state->log, "driver clock:'%s'@%d our clock:'%s'@%d matching:%d resample:%d",
+			state->position->clock.name, state->rate_denom,
+			state->clock_name, state->rate,
+			state->matching, state->resample);
 	return 0;
 }
 

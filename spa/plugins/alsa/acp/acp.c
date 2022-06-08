@@ -381,6 +381,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 							&try_period_size, &try_buffer_size,
 							0, NULL, NULL, false))) {
 				pa_alsa_init_proplist_pcm(NULL, m->output_proplist, m->output_pcm);
+				pa_proplist_setf(m->output_proplist, "clock.name", "api.alsa.%u", index);
 				snd_pcm_close(m->output_pcm);
 				m->output_pcm = NULL;
 				m->supported = true;
@@ -411,6 +412,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 							&try_period_size, &try_buffer_size,
 							0, NULL, NULL, false))) {
 				pa_alsa_init_proplist_pcm(NULL, m->input_proplist, m->input_pcm);
+				pa_proplist_setf(m->input_proplist, "clock.name", "api.alsa.%u", index);
 				snd_pcm_close(m->input_pcm);
 				m->input_pcm = NULL;
 				m->supported = true;

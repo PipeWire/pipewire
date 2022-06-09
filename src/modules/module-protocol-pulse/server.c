@@ -460,7 +460,7 @@ static int parse_unix_address(const char *address, struct sockaddr_storage *addr
 	if (address[0] != '/') {
 		char runtime_dir[PATH_MAX];
 
-		if ((res = get_runtime_dir(runtime_dir, sizeof(runtime_dir), "pulse")) < 0)
+		if ((res = get_runtime_dir(runtime_dir, sizeof(runtime_dir))) < 0)
 			return res;
 
 		res = snprintf(addr.sun_path, sizeof(addr.sun_path),

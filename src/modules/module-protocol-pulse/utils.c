@@ -50,27 +50,30 @@
 #include "log.h"
 #include "utils.h"
 
-int get_runtime_dir(char *buf, size_t buflen, const char *dir)
+int get_runtime_dir(char *buf, size_t buflen)
 {
-	const char *runtime_dir;
+	const char *runtime_dir, *dir = NULL;
 	struct stat stat_buf;
 	int res, size;
 
 	runtime_dir = getenv("PULSE_RUNTIME_PATH");
-	if (runtime_dir == NULL)
+	if (runtime_dir == NULL) {
 		runtime_dir = getenv("XDG_RUNTIME_DIR");
-
+		dir = "pulse";
+	}
 	if (runtime_dir == NULL) {
 		pw_log_error("could not find a suitable runtime directory in"
 				"$PULSE_RUNTIME_PATH and $XDG_RUNTIME_DIR");
 		return -ENOENT;
 	}
 
-	size = snprintf(buf, buflen, "%s/%s", runtime_dir, dir);
+	size = snprintf(buf, buflen, "%s%s%s", runtime_dir,
+			dir ? "/" : "", dir ? dir : "");
 	if (size < 0)
 		return -errno;
 	if ((size_t) size >= buflen) {
-		pw_log_error("path %s/%s too long", runtime_dir, dir);
+		pw_log_error("path %s%s%s too long", runtime_dir,
+				dir ? "/" : "", dir ? dir : "");
 		return -ENAMETOOLONG;
 	}
 
@@ -182,7 +185,7 @@ int create_pid_file(void) {
 	FILE *f;
 	int res;
 
-	if ((res = get_runtime_dir(pid_file, sizeof(pid_file), "pulse")) < 0)
+	if ((res = get_runtime_dir(pid_file, sizeof(pid_file))) < 0)
 		return res;
 
 	if (strlen(pid_file) > PATH_MAX - sizeof("/pid")) {

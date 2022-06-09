@@ -3152,13 +3152,14 @@ int main(int argc, char *argv[])
 	struct pw_loop *l;
 	char *opt_remote = NULL;
 	char *error;
-	bool daemon = false;
+	bool daemon = false, monitor = false;
 	struct remote_data *rd;
 	static const struct option long_options[] = {
-		{ "help",	no_argument,		 NULL, 'h' },
-		{ "version",	no_argument,		 NULL, 'V' },
-		{ "daemon",	no_argument,		 NULL, 'd' },
-		{ "remote",	required_argument,	 NULL, 'r' },
+		{ "help",	no_argument,		NULL, 'h' },
+		{ "version",	no_argument,		NULL, 'V' },
+		{ "monitor",	no_argument,		NULL, 'm' },
+		{ "daemon",	no_argument,		NULL, 'd' },
+		{ "remote",	required_argument,	NULL, 'r' },
 		{ NULL,	0, NULL, 0}
 	};
 	int c, i;
@@ -3168,7 +3169,7 @@ int main(int argc, char *argv[])
 	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hVdr:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVmdr:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(&data, argv[0], false);
@@ -3183,6 +3184,9 @@ int main(int argc, char *argv[])
 			return 0;
 		case 'd':
 			daemon = true;
+			break;
+		case 'm':
+			monitor = true;
 			break;
 		case 'r':
 			opt_remote = optarg;
@@ -3250,9 +3254,11 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "Error: \"%s\"\n", error);
 			free(error);
 		}
-		if (!data.quit && data.current) {
+		while (!data.quit && data.current) {
 			data.current->prompt_pending = pw_core_sync(data.current->core, 0, 0);
 			pw_main_loop_run(data.loop);
+			if (!monitor)
+				break;
 		}
 	}
 	spa_list_consume(rd, &data.remotes, link)

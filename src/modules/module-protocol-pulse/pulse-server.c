@@ -5343,6 +5343,9 @@ static void impl_clear(struct impl *impl)
 	struct server *s;
 	struct client *c;
 
+	pw_map_for_each(&impl->modules, impl_unload_module, impl);
+	pw_map_clear(&impl->modules);
+
 	spa_list_consume(s, &impl->servers, link)
 		server_free(s);
 
@@ -5354,9 +5357,6 @@ static void impl_clear(struct impl *impl)
 
 	pw_map_for_each(&impl->samples, impl_free_sample, impl);
 	pw_map_clear(&impl->samples);
-
-	pw_map_for_each(&impl->modules, impl_unload_module, impl);
-	pw_map_clear(&impl->modules);
 
 #ifdef HAVE_DBUS
 	if (impl->dbus_name) {

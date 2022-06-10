@@ -1182,8 +1182,6 @@ static int node_event_param(void *object, int seq,
 			return -EINVAL;
 		}
 
-		spa_list_append(&stream->controls, &c->link);
-
 		pod = spa_pod_get_values(type, &n_vals, &choice);
 
 		c->type = SPA_POD_TYPE(pod);
@@ -1204,22 +1202,28 @@ static int node_event_param(void *object, int seq,
 			vals[0] = SPA_POD_VALUE(struct spa_pod_bool, pod);
 			n_vals = 3;
 		}
-		else
+		else {
+			free(c);
 			return -ENOTSUP;
+		}
 
 		c->container = container != SPA_ID_INVALID ? container : c->type;
 
 		switch (choice) {
 		case SPA_CHOICE_None:
-			if (n_vals < 1)
+			if (n_vals < 1) {
+				free(c);
 				return -EINVAL;
+			}
 			c->control.n_values = 1;
 			c->control.max_values = 1;
 			c->control.values[0] = c->control.def = c->control.min = c->control.max = vals[0];
 			break;
 		case SPA_CHOICE_Range:
-			if (n_vals < 3)
+			if (n_vals < 3) {
+				free(c);
 				return -EINVAL;
+			}
 			c->control.n_values = 1;
 			c->control.max_values = 1;
 			c->control.values[0] = vals[0];
@@ -1228,10 +1232,12 @@ static int node_event_param(void *object, int seq,
 			c->control.max = vals[2];
 			break;
 		default:
+			free(c);
 			return -ENOTSUP;
 		}
 
 		c->id = iid;
+		spa_list_append(&stream->controls, &c->link);
 		pw_log_debug("%p: add control %d (%s) container:%d (def:%f min:%f max:%f)",
 				stream, c->id, c->control.name, c->container,
 				c->control.def, c->control.min, c->control.max);

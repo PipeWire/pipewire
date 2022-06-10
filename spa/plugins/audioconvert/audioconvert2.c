@@ -1992,7 +1992,7 @@ static int impl_node_process(void *object)
 	const void *src_datas[MAX_PORTS], **in_datas;
 	void *dst_datas[MAX_PORTS], **out_datas;
 	uint32_t i, j, n_src_datas = 0, n_dst_datas = 0, n_mon_datas = 0, remap;
-	uint32_t n_samples, max_in, max_out, quant_samples;
+	uint32_t n_samples, max_in, n_out, max_out, quant_samples;
 	struct port *port;
 	struct buffer *buf, *out_bufs[MAX_PORTS];
 	struct spa_data *bd;
@@ -2091,8 +2091,9 @@ static int impl_node_process(void *object)
 
 	if (draining)
 		n_samples = SPA_MIN(max_in, this->quantum_limit);
-	else
-		n_samples = max_in - this->in_offset;
+	else {
+		n_samples = max_in - SPA_MIN(max_in, this->in_offset);
+	}
 
 	resample_passthrough = resample_is_passthrough(this);
 
@@ -2193,12 +2194,16 @@ static int impl_node_process(void *object)
 		}
 	}
 
+	n_out = max_out - SPA_MIN(max_out, this->out_offset);
+
 	mix_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY);
 	end_passthrough = mix_passthrough && resample_passthrough && out_passthrough;
 
 	if (!in_passthrough || end_passthrough) {
-		if (end_passthrough)
+		if (end_passthrough) {
 			out_datas = (void **)dst_datas;
+			n_samples = SPA_MIN(n_samples, n_out);
+		}
 		else
 			out_datas = (void **)this->tmp_datas[(tmp++) & 1];
 		spa_log_trace_fp(this->log, "%p: convert %d %d", this, n_samples, end_passthrough);
@@ -2209,8 +2214,10 @@ static int impl_node_process(void *object)
 
 	if (!mix_passthrough) {
 		in_datas = (const void**)out_datas;
-		if (resample_passthrough && out_passthrough)
+		if (resample_passthrough && out_passthrough) {
 			out_datas = (void **)dst_datas;
+			n_samples = SPA_MIN(n_samples, n_out);
+		}
 		else
 			out_datas = (void **)this->tmp_datas[(tmp++) & 1];
 		spa_log_trace_fp(this->log, "%p: channelmix %d %d %d", this, n_samples,
@@ -2229,13 +2236,13 @@ static int impl_node_process(void *object)
 			out_datas = (void **)this->tmp_datas[(tmp++) & 1];
 
 		in_len = n_samples;
-		out_len = max_out;
+		out_len = n_out;
 		resample_process(&this->resample, in_datas, &in_len, out_datas, &out_len);
 		spa_log_trace_fp(this->log, "%p: resample %d->%d %d->%d %d", this,
-				n_samples, max_out, in_len, out_len, out_passthrough);
+				n_samples, n_out, in_len, out_len, out_passthrough);
 		n_samples = out_len;
 	} else {
-		n_samples = SPA_MIN(n_samples, max_out);
+		n_samples = SPA_MIN(n_samples, n_out);
 	}
 	this->out_offset += n_samples;
 
@@ -2245,8 +2252,8 @@ static int impl_node_process(void *object)
 		convert_process(&this->dir[SPA_DIRECTION_OUTPUT].conv, dst_datas, in_datas, n_samples);
 	}
 
-	spa_log_trace_fp(this->log, "%d/%d  %d/%d %d", this->in_offset, max_in,
-			this->out_offset, max_out, n_samples);
+	spa_log_trace_fp(this->log, "%d/%d  %d/%d %d->%d", this->in_offset, max_in,
+			this->out_offset, max_out, n_samples, n_out);
 
 	dir = &this->dir[SPA_DIRECTION_INPUT];
 	if (this->in_offset >= max_in || flush_in) {

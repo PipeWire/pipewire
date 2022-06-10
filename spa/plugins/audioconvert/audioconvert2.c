@@ -144,6 +144,7 @@ struct port {
 	unsigned int have_format:1;
 	unsigned int is_dsp:1;
 	unsigned int is_monitor:1;
+	unsigned int is_control:1;
 
 	uint32_t blocks;
 	uint32_t stride;
@@ -167,6 +168,7 @@ struct dir {
 
 	struct convert conv;
 	unsigned int is_passthrough:1;
+	unsigned int control:1;
 };
 
 struct impl {
@@ -227,7 +229,8 @@ struct impl {
 #define GET_IN_PORT(this,p)		GET_PORT(this,SPA_DIRECTION_INPUT,p)
 #define GET_OUT_PORT(this,p)		GET_PORT(this,SPA_DIRECTION_OUTPUT,p)
 
-#define PORT_IS_DSP(this,d,p) (GET_PORT(this,d,p)->is_dsp)
+#define PORT_IS_DSP(this,d,p)		(GET_PORT(this,d,p)->is_dsp)
+#define PORT_IS_CONTROL(this,d,p)	(GET_PORT(this,d,p)->is_control)
 
 static void set_volume(struct impl *this);
 
@@ -268,6 +271,9 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_CHANNEL, port->position);
 			if (port->is_monitor)
 				items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_MONITOR, "true");
+		} else if (PORT_IS_CONTROL(this, port->direction, port->id)) {
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_NAME, "control");
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_FORMAT_DSP, "8 bit raw midi");
 		}
 		port->info.props = &SPA_DICT_INIT(items, n_items);
 
@@ -285,7 +291,7 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 }
 
 static int init_port(struct impl *this, enum spa_direction direction, uint32_t port_id,
-		uint32_t position, bool is_dsp, bool is_monitor)
+		uint32_t position, bool is_dsp, bool is_monitor, bool is_control)
 {
 	struct port *port = GET_PORT(this, direction, port_id);
 	const char *name;
@@ -328,10 +334,17 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 		port->blocks = 1;
 		port->stride = 4;
 	}
+	port->is_control = is_control;
+	if (port->is_control) {
+		port->format.media_type = SPA_MEDIA_TYPE_application;
+		port->format.media_subtype = SPA_MEDIA_SUBTYPE_control;
+		port->blocks = 1;
+		port->stride = 1;
+	}
 	spa_list_init(&port->queue);
 
-	spa_log_info(this->log, "%p: add port %d:%d position:%s %d %d",
-			this, direction, port_id, port->position, is_dsp, is_monitor);
+	spa_log_info(this->log, "%p: add port %d:%d position:%s %d %d %d",
+			this, direction, port_id, port->position, is_dsp, is_monitor, is_control);
 	emit_port_info(this, port, true);
 
 	return 0;
@@ -858,7 +871,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 }
 
 static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode mode,
-		enum spa_direction direction, bool monitor, struct spa_audio_info *info)
+		enum spa_direction direction, bool monitor, bool control, struct spa_audio_info *info)
 {
 	struct dir *dir;
 	uint32_t i;
@@ -866,6 +879,7 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	dir = &this->dir[direction];
 
 	if (dir->have_profile && this->monitor == monitor && dir->mode == mode &&
+	    dir->control == control &&
 	    (info == NULL || memcmp(&dir->format, info, sizeof(*info)) == 0))
 		return 0;
 
@@ -879,6 +893,7 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	}
 
 	this->monitor = monitor;
+	dir->control = control;
 	dir->have_profile = true;
 	dir->mode = mode;
 
@@ -899,10 +914,10 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 			this->dir[SPA_DIRECTION_OUTPUT].n_ports = dir->n_ports + 1;
 
 		for (i = 0; i < dir->n_ports; i++) {
-			init_port(this, direction, i, info->info.raw.position[i], true, false);
+			init_port(this, direction, i, info->info.raw.position[i], true, false, false);
 			if (this->monitor && direction == SPA_DIRECTION_INPUT)
 				init_port(this, SPA_DIRECTION_OUTPUT, i+1,
-					info->info.raw.position[i], true, true);
+					info->info.raw.position[i], true, true, false);
 		}
 		break;
 	}
@@ -910,7 +925,7 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	{
 		dir->n_ports = 1;
 		dir->have_format = false;
-		init_port(this, direction, 0, 0, false, false);
+		init_port(this, direction, 0, 0, false, false, false);
 		break;
 	}
 	default:
@@ -941,7 +956,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		struct spa_pod *format = NULL;
 		enum spa_direction direction;
 		enum spa_param_port_config_mode mode;
-		bool monitor = false;
+		bool monitor = false, control = false;
 		int res;
 
 		if (spa_pod_parse_object(param,
@@ -949,6 +964,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 				SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(&direction),
 				SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(&mode),
 				SPA_PARAM_PORT_CONFIG_monitor,		SPA_POD_OPT_Bool(&monitor),
+				SPA_PARAM_PORT_CONFIG_control,		SPA_POD_OPT_Bool(&control),
 				SPA_PARAM_PORT_CONFIG_format,		SPA_POD_OPT_Pod(&format)) < 0)
 			return -EINVAL;
 
@@ -969,7 +985,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			infop = &info;
 		}
 
-		if ((res = reconfigure_mode(this, mode, direction, monitor, infop)) < 0)
+		if ((res = reconfigure_mode(this, mode, direction, monitor, control, infop)) < 0)
 			return res;
 
 		emit_node_info(this, false);
@@ -1456,6 +1472,11 @@ static int port_enum_formats(void *object,
 			info.format = SPA_AUDIO_FORMAT_DSP_F32;
 			*param = spa_format_audio_dsp_build(builder,
 				SPA_PARAM_EnumFormat, &info);
+		} else if (PORT_IS_CONTROL(this, direction, port_id)) {
+			*param = spa_pod_builder_add_object(builder,
+				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
+				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		} else if (port->have_format) {
 			*param = spa_format_audio_raw_build(builder,
 				SPA_PARAM_EnumFormat, &this->dir[direction].format.info.raw);
@@ -1551,6 +1572,11 @@ impl_node_port_enum_params(void *object, int seq,
 
 		if (PORT_IS_DSP(this, direction, port_id))
 			param = spa_format_audio_dsp_build(&b, id, &port->format.info.dsp);
+		else if (PORT_IS_CONTROL(this, direction, port_id))
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_Format,  id,
+				SPA_FORMAT_mediaType,    SPA_POD_Id(SPA_MEDIA_TYPE_application),
+				SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		else
 			param = spa_format_audio_raw_build(&b, id, &port->format.info.raw);
 		break;
@@ -1737,6 +1763,16 @@ static int port_set_format(void *object,
 			}
 			port->blocks = 1;
 			port->stride = 4;
+		}
+		else if (PORT_IS_CONTROL(this, direction, port_id)) {
+			if (info.media_type != SPA_MEDIA_TYPE_application ||
+			    info.media_subtype != SPA_MEDIA_SUBTYPE_control) {
+				spa_log_error(this->log, "unexpected types %d/%d",
+						info.media_type, info.media_subtype);
+				return -EINVAL;
+			}
+			port->blocks = 1;
+			port->stride = 1;
 		}
 		else {
 			if (info.media_type != SPA_MEDIA_TYPE_audio ||
@@ -2048,30 +2084,41 @@ static int impl_node_process(void *object)
 
 		if (buf == NULL) {
 			for (j = 0; j < port->blocks; j++) {
-				remap = dir->src_remap[n_src_datas++];
-				src_datas[remap] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
-				spa_log_trace_fp(this->log, "%p: empty input %d->%d", this,
-						i * port->blocks + j, remap);
-				max_in = SPA_MIN(max_in, this->empty_size / port->stride);
+				if (port->is_control) {
+					spa_log_trace_fp(this->log, "%p: empty control %d", this,
+							i * port->blocks + j);
+				} else {
+					remap = dir->src_remap[n_src_datas++];
+					src_datas[remap] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
+					spa_log_trace_fp(this->log, "%p: empty input %d->%d", this,
+							i * port->blocks + j, remap);
+					max_in = SPA_MIN(max_in, this->empty_size / port->stride);
+				}
 			}
 		} else {
 			in_avail = true;
 			for (j = 0; j < port->blocks; j++) {
 				uint32_t offs, size;
 
-				remap = dir->src_remap[n_src_datas++];
 				bd = &buf->buf->datas[j];
 
 				offs = SPA_MIN(bd->chunk->offset, bd->maxsize);
 				size = SPA_MIN(bd->maxsize - offs, bd->chunk->size);
-				max_in = SPA_MIN(max_in, size / port->stride);
 
-				offs += this->in_offset * port->stride;
-				src_datas[remap] = SPA_PTROFF(bd->data, offs, void);
+				if (port->is_control) {
+					spa_log_trace_fp(this->log, "%p: control %d", this,
+							i * port->blocks + j);
+				} else  {
+					max_in = SPA_MIN(max_in, size / port->stride);
 
-				spa_log_trace_fp(this->log, "%p: input %d:%d:%d %d %d %d->%d", this,
-						offs, size, port->stride, this->in_offset, max_in,
-						i * port->blocks + j, remap);
+					remap = dir->src_remap[n_src_datas++];
+					offs += this->in_offset * port->stride;
+					src_datas[remap] = SPA_PTROFF(bd->data, offs, void);
+
+					spa_log_trace_fp(this->log, "%p: input %d:%d:%d %d %d %d->%d", this,
+							offs, size, port->stride, this->in_offset, max_in,
+							i * port->blocks + j, remap);
+				}
 			}
 		}
 	}
@@ -2154,6 +2201,8 @@ static int impl_node_process(void *object)
 					remap = n_mon_datas++;
 					spa_log_trace_fp(this->log, "%p: empty monitor %d", this,
 						remap);
+				} else if (port->is_control) {
+					spa_log_trace_fp(this->log, "%p: empty control %d", this, j);
 				} else {
 					remap = dir->dst_remap[n_dst_datas++];
 					dst_datas[remap] = SPA_PTR_ALIGN(this->scratch, MAX_ALIGN, void);
@@ -2191,6 +2240,8 @@ static int impl_node_process(void *object)
 					io->status = SPA_STATUS_HAVE_DATA;
 					io->buffer_id = buf->id;
 					res |= SPA_STATUS_HAVE_DATA;
+				} else if (port->is_control) {
+					spa_log_trace_fp(this->log, "%p: control %d", this, j);
 				} else {
 					remap = dir->dst_remap[n_dst_datas++];
 					dst_datas[remap] = SPA_PTROFF(bd->data,
@@ -2271,10 +2322,12 @@ static int impl_node_process(void *object)
 		/* return input buffers */
 		for (i = 0; i < dir->n_ports; i++) {
 			port = GET_IN_PORT(this, i);
-			if ((io = port->io) != NULL) {
-				spa_log_trace_fp(this->log, "return: input %d %d", port->id, io->buffer_id);
-				io->status = SPA_STATUS_NEED_DATA;
-			}
+			if (port->is_control)
+				continue;
+			if (SPA_UNLIKELY((io = port->io) == NULL))
+				continue;
+			spa_log_trace_fp(this->log, "return: input %d %d", port->id, io->buffer_id);
+			io->status = SPA_STATUS_NEED_DATA;
 		}
 		this->in_offset = 0;
 		max_in = 0;
@@ -2286,14 +2339,12 @@ static int impl_node_process(void *object)
 		/* queue output buffers */
 		for (i = 0; i < dir->n_ports; i++) {
 			port = GET_OUT_PORT(this, i);
-			if (port->is_monitor)
+			if (port->is_monitor || port->is_control)
 				continue;
-
-			buf = out_bufs[i];
-			if (buf == NULL)
-				continue;
-
 			if (SPA_UNLIKELY((io = port->io) == NULL))
+				continue;
+
+			if ((buf = out_bufs[i]) == NULL)
 				continue;
 
 			dequeue_buffer(this, port, buf);
@@ -2313,7 +2364,7 @@ static int impl_node_process(void *object)
 	if (n_samples == 0 && this->peaks) {
 		for (i = 0; i < dir->n_ports; i++) {
 			port = GET_OUT_PORT(this, i);
-			if (port->is_monitor)
+			if (port->is_monitor || port->is_control)
 				continue;
 			if (SPA_UNLIKELY((io = port->io) == NULL))
 				continue;
@@ -2476,8 +2527,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->rate_scale = 1.0;
 
-	reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_convert, SPA_DIRECTION_INPUT, false, NULL);
-	reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_convert, SPA_DIRECTION_OUTPUT, false, NULL);
+	reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_convert, SPA_DIRECTION_INPUT, false, false, NULL);
+	reconfigure_mode(this, SPA_PARAM_PORT_CONFIG_MODE_convert, SPA_DIRECTION_OUTPUT, false, false, NULL);
 
 	return 0;
 }

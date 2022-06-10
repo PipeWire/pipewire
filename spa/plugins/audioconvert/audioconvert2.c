@@ -1355,6 +1355,14 @@ static int setup_convert(struct impl *this)
 	return 0;
 }
 
+static void reset_node(struct impl *this)
+{
+	if (this->resample.reset)
+		resample_reset(&this->resample);
+	this->in_offset = 0;
+	this->out_offset = 0;
+}
+
 static int impl_node_send_command(void *object, const struct spa_command *command)
 {
 	struct impl *this = object;
@@ -1372,7 +1380,10 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		this->started = true;
 		break;
 	case SPA_NODE_COMMAND_Suspend:
+		SPA_FALLTHROUGH;
 	case SPA_NODE_COMMAND_Flush:
+		reset_node(this);
+		SPA_FALLTHROUGH;
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
 		break;

@@ -177,6 +177,7 @@ void
 channelmix_f32_2_4_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 		   const void * SPA_RESTRICT src[], uint32_t n_samples)
 {
+	uint32_t i, n_dst = mix->dst_chan;
 	float **d = (float **)dst;
 	const float **s = (const float **)src;
 	const float v0 = mix->matrix[0][0];
@@ -184,10 +185,25 @@ channelmix_f32_2_4_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 	const float v2 = mix->matrix[2][0];
 	const float v3 = mix->matrix[3][1];
 
-	vol_c(d[0], s[0], v0, n_samples);
-	vol_c(d[1], s[1], v1, n_samples);
-	vol_c(d[2], s[0], v2, n_samples);
-	vol_c(d[3], s[1], v3, n_samples);
+	if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_ZERO)) {
+		for (i = 0; i < n_dst; i++)
+			clear_c(d[i], n_samples);
+	}
+	else {
+		vol_c(d[0], s[0], v0, n_samples);
+		vol_c(d[1], s[1], v1, n_samples);
+		if (mix->upmix != CHANNELMIX_UPMIX_PSD) {
+			vol_c(d[2], s[0], v2, n_samples);
+			vol_c(d[3], s[1], v3, n_samples);
+		} else {
+			sub_c(d[2], s[0], s[1], n_samples);
+
+			delay_convolve_run(mix->buffer[1], &mix->pos[1], BUFFER_SIZE, mix->delay,
+					   mix->taps, mix->n_taps, d[3], d[2], -v3, n_samples);
+			delay_convolve_run(mix->buffer[0], &mix->pos[0], BUFFER_SIZE, mix->delay,
+					   mix->taps, mix->n_taps, d[2], d[2], v2, n_samples);
+		}
+	}
 }
 
 #define MASK_3_1	_M(FL)|_M(FR)|_M(FC)|_M(LFE)

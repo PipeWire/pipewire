@@ -1552,7 +1552,7 @@ static bool device_props_ready(struct spa_bt_device *device)
 	return device->adapter && device->address;
 }
 
-bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec *codec)
+bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec *codec, bool sink)
 {
 	struct spa_bt_monitor *monitor = device->monitor;
 	struct spa_bt_remote_endpoint *ep;
@@ -1588,6 +1588,13 @@ bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struc
 	}
 
 	spa_list_for_each(ep, &device->remote_endpoint_list, device_link) {
+		const enum spa_bt_profile profile = spa_bt_profile_from_uuid(ep->uuid);
+		const enum spa_bt_profile expected = sink ?
+			SPA_BT_PROFILE_A2DP_SINK : SPA_BT_PROFILE_A2DP_SOURCE;
+
+		if (profile != expected)
+			continue;
+
 		if (a2dp_codec_check_caps(codec, ep->codec, ep->capabilities, ep->capabilities_len,
 						&ep->monitor->default_audio_info, &monitor->global_settings))
 			return true;
@@ -1596,7 +1603,7 @@ bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struc
 	return false;
 }
 
-const struct a2dp_codec **spa_bt_device_get_supported_a2dp_codecs(struct spa_bt_device *device, size_t *count)
+const struct a2dp_codec **spa_bt_device_get_supported_a2dp_codecs(struct spa_bt_device *device, size_t *count, bool sink)
 {
 	struct spa_bt_monitor *monitor = device->monitor;
 	const struct a2dp_codec * const * const a2dp_codecs = monitor->a2dp_codecs;
@@ -1612,7 +1619,7 @@ const struct a2dp_codec **spa_bt_device_get_supported_a2dp_codecs(struct spa_bt_
 
 	j = 0;
 	for (i = 0; a2dp_codecs[i] != NULL; ++i) {
-		if (spa_bt_device_supports_a2dp_codec(device, a2dp_codecs[i])) {
+		if (spa_bt_device_supports_a2dp_codec(device, a2dp_codecs[i], sink)) {
 			supported_codecs[j] = a2dp_codecs[i];
 			++j;
 		}
@@ -2933,7 +2940,7 @@ int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a
 	}
 
 	for (i = 0; codecs[i] != NULL; ++i) {
-		if (spa_bt_device_supports_a2dp_codec(device, codecs[i])) {
+		if (spa_bt_device_supports_a2dp_codec(device, codecs[i], true)) {
 			preferred_codec = codecs[i];
 			break;
 		}

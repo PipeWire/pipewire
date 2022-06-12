@@ -915,7 +915,7 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 	if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SINK) {
 		free(this->supported_codecs);
 		this->supported_codecs = spa_bt_device_get_supported_a2dp_codecs(
-			this->bt_dev, &this->supported_codec_count);
+			this->bt_dev, &this->supported_codec_count, true);
 	}
 
 	switch (this->profile) {
@@ -1130,7 +1130,7 @@ static void set_initial_profile(struct impl *this)
 	if (this->supported_codecs)
 		free(this->supported_codecs);
 	this->supported_codecs = spa_bt_device_get_supported_a2dp_codecs(
-					this->bt_dev, &this->supported_codec_count);
+		this->bt_dev, &this->supported_codec_count, true);
 
 	/* Prefer A2DP, then HFP, then null, but select AG if the device
 	   appears not to have A2DP_SINK or any HEAD_UNIT profile */

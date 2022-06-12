@@ -138,6 +138,9 @@ static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name, co
 
 		spa_log_debug(impl->log, "loaded A2DP codec %s from %s", c->name, factory_name);
 
+		if (c->set_log)
+			c->set_log(impl->log);
+
 		impl->codecs[impl->n_codecs++] = c;
 		++n_codecs;
 

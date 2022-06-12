@@ -33,6 +33,7 @@
 #include <spa/support/plugin.h>
 #include <spa/pod/pod.h>
 #include <spa/pod/builder.h>
+#include <spa/support/log.h>
 
 #include "a2dp-codec-caps.h"
 
@@ -43,7 +44,7 @@
 
 #define SPA_TYPE_INTERFACE_Bluez5CodecA2DP	SPA_TYPE_INFO_INTERFACE_BASE "Bluez5:Codec:A2DP:Private"
 
-#define SPA_VERSION_BLUEZ5_CODEC_A2DP		4
+#define SPA_VERSION_BLUEZ5_CODEC_A2DP		5
 
 struct spa_bluez5_codec_a2dp {
 	struct spa_interface iface;
@@ -146,6 +147,8 @@ struct a2dp_codec {
 
 	int (*reduce_bitpool) (void *data);
 	int (*increase_bitpool) (void *data);
+
+	void (*set_log) (struct spa_log *global_log);
 };
 
 struct a2dp_codec_config {

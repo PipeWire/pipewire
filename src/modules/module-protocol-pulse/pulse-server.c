@@ -748,13 +748,12 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 		peer = find_linked(manager, peer->id, PW_DIRECTION_OUTPUT);
 	if (peer && pw_manager_object_is_source_or_monitor(peer)) {
 		name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+		peer_index = peer->index;
 		if (!pw_manager_object_is_source(peer)) {
 			size_t len = (name ? strlen(name) : 5) + 10;
-			peer_index = peer->index;
 			peer_name = tmp = alloca(len);
 			snprintf(tmp, len, "%s.monitor", name ? name : "sink");
 		} else {
-			peer_index = peer->index;
 			peer_name = name;
 		}
 	} else {
@@ -849,6 +848,12 @@ static void manager_added(void *data, struct pw_manager_object *o)
 			s->peer_index = peer->index;
 
 			peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
+			if (peer_name && pw_manager_object_is_monitor(peer)) {
+				int len = strlen(peer_name) + 10;
+				char *tmp = alloca(len);
+				snprintf(tmp, len, "%s.monitor", peer_name);
+				peer_name = tmp;
+			}
 			if (peer_name != NULL)
 				stream_send_moved(s, peer->index, peer_name);
 		}

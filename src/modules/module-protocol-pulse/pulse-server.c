@@ -848,7 +848,8 @@ static void manager_added(void *data, struct pw_manager_object *o)
 			s->peer_index = peer->index;
 
 			peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
-			if (peer_name && pw_manager_object_is_monitor(peer)) {
+			if (peer_name && s->direction == PW_DIRECTION_INPUT &&
+			    pw_manager_object_is_monitor(peer)) {
 				int len = strlen(peer_name) + 10;
 				char *tmp = alloca(len);
 				snprintf(tmp, len, "%s.monitor", peer_name);

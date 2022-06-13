@@ -1398,21 +1398,17 @@ static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 			continue;
 		}
 
-		switch (c->type) {
-		case SPA_CONTROL_Midi:
-		{
-			if (prev)
+		if (prev) {
+			switch (prev->type) {
+			case SPA_CONTROL_Midi:
 				apply_midi(this, &prev->value);
-			break;
-		}
-		case SPA_CONTROL_Properties:
-		{
-			if (prev)
+				break;
+			case SPA_CONTROL_Properties:
 				apply_props(this, &prev->value);
-			break;
-		}
-		default:
-			continue;
+				break;
+			default:
+				continue;
+			}
 		}
 
 		chunk = SPA_MIN(avail_samples, c->offset - ctrlport->ctrl_offset);

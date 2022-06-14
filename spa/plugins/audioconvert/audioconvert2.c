@@ -2173,7 +2173,7 @@ static int impl_node_process(void *object)
 		 * always output the resulting data */
 		n_samples = SPA_MIN(n_samples, quant_samples);
 		max_out = this->quantum_limit;
-		in_avail = flush_out = true;
+		flush_out = true;
 	}
 
 	dir = &this->dir[SPA_DIRECTION_OUTPUT];
@@ -2376,7 +2376,7 @@ static int impl_node_process(void *object)
 		}
 	}
 	resample_update_rate_match(this, resample_passthrough,
-			quant_samples,
+			n_out - this->out_offset,
 			max_in - this->in_offset);
 
 	return res;

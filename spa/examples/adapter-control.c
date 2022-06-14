@@ -95,10 +95,10 @@ struct data {
 	struct spa_node *sink_follower_node;  // alsa-pcm-sink
 	struct spa_node *sink_node;  // adapter for alsa-pcm-sink
 
+	struct spa_io_position position;
 	struct spa_io_buffers source_sink_io[1];
 	struct spa_buffer *source_buffers[1];
 	struct buffer source_buffer[1];
-	uint8_t ctrl[1024];
 
 	bool running;
 	pthread_t thread;
@@ -277,26 +277,14 @@ exit_cleanup:
 static int on_sink_node_ready(void *_data, int status)
 {
 	struct data *data = _data;
-
 	spa_graph_node_process(&data->graph_source_node);
 	spa_graph_node_process(&data->graph_sink_node);
-	return 0;
-}
-
-static int
-on_sink_node_reuse_buffer(void *_data, uint32_t port_id, uint32_t buffer_id)
-{
-	struct data *data = _data;
-
-	printf ("reuse_buffer: port_id=%d\n", port_id);
-	data->source_sink_io[0].buffer_id = buffer_id;
 	return 0;
 }
 
 static const struct spa_node_callbacks sink_node_callbacks = {
 	SPA_VERSION_NODE_CALLBACKS,
 	.ready = on_sink_node_ready,
-	.reuse_buffer = on_sink_node_reuse_buffer
 };
 
 static int make_nodes(struct data *data, const char *device)
@@ -306,15 +294,17 @@ static int make_nodes(struct data *data, const char *device)
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
 	char value[32];
-	struct spa_dict_item items[1];
+	struct spa_dict_item items[2];
 	struct spa_audio_info_raw info;
 	struct spa_pod *param;
 
+	items[0] = SPA_DICT_ITEM_INIT("clock.quantum-limit", "8192");
+
 	/* make the source node (audiotestsrc) */
 	if ((res = make_node(data, &data->source_follower_node,
-				   "audiotestsrc/libspa-audiotestsrc.so",
-				   "audiotestsrc",
-				   NULL)) < 0) {
+					"audiotestsrc/libspa-audiotestsrc.so",
+					"audiotestsrc",
+					&SPA_DICT_INIT(items, 1))) < 0) {
 		printf("can't create source follower node (audiotestsrc): %d\n", res);
 		return res;
 	}
@@ -335,11 +325,11 @@ static int make_nodes(struct data *data, const char *device)
 
 	/* make the sink adapter node */
 	snprintf(value, sizeof(value), "pointer:%p", data->source_follower_node);
-	items[0] = SPA_DICT_ITEM_INIT("audio.adapt.follower", value);
+	items[1] = SPA_DICT_ITEM_INIT("audio.adapt.follower", value);
 	if ((res = make_node(data, &data->source_node,
-			     "audioconvert/libspa-audioconvert.so",
-			     SPA_NAME_AUDIO_ADAPT,
-			     &SPA_DICT_INIT(items, 1))) < 0) {
+					"audioconvert/libspa-audioconvert.so",
+					SPA_NAME_AUDIO_ADAPT,
+					&SPA_DICT_INIT(items, 2))) < 0) {
 		printf("can't create source adapter node: %d\n", res);
 		return res;
 	}
@@ -376,20 +366,20 @@ static int make_nodes(struct data *data, const char *device)
 
 	/* make the sink follower node (alsa-pcm-sink) */
 	if ((res = make_node(data, &data->sink_follower_node,
-				   "alsa/libspa-alsa.so",
-				   SPA_NAME_API_ALSA_PCM_SINK,
-				   NULL)) < 0) {
+					"alsa/libspa-alsa.so",
+					SPA_NAME_API_ALSA_PCM_SINK,
+					&SPA_DICT_INIT(items, 1))) < 0) {
 		printf("can't create sink follower node (alsa-pcm-sink): %d\n", res);
 		return res;
 	}
 
 	/* make the sink adapter node */
 	snprintf(value, sizeof(value), "pointer:%p", data->sink_follower_node);
-	items[0] = SPA_DICT_ITEM_INIT("audio.adapt.follower", value);
+	items[1] = SPA_DICT_ITEM_INIT("audio.adapt.follower", value);
 	if ((res = make_node(data, &data->sink_node,
-			     "audioconvert/libspa-audioconvert.so",
-			     SPA_NAME_AUDIO_ADAPT,
-			     &SPA_DICT_INIT(items, 1))) < 0) {
+					"audioconvert/libspa-audioconvert.so",
+					SPA_NAME_AUDIO_ADAPT,
+					&SPA_DICT_INIT(items, 2))) < 0) {
 		printf("can't create sink adapter node: %d\n", res);
 		return res;
 	}
@@ -440,6 +430,33 @@ static int make_nodes(struct data *data, const char *device)
 			  SPA_IO_Buffers,
 			  &data->source_sink_io[0], sizeof(data->source_sink_io[0]))) < 0) {
 		printf("can't set io buffers on port 0 of sink node: %d\n", res);
+		return res;
+	}
+	/* set io position and clock on source and sink nodes */
+	data->position.clock.rate = SPA_FRACTION(1, 48000);
+	data->position.clock.duration = 1024;
+	if ((res = spa_node_set_io(data->source_node,
+			SPA_IO_Position,
+			&data->position, sizeof(data->position))) < 0) {
+		printf("can't set io position on source node: %d\n", res);
+		return res;
+	}
+	if ((res = spa_node_set_io(data->sink_node,
+			  SPA_IO_Position,
+			  &data->position, sizeof(data->position))) < 0) {
+		printf("can't set io position on sink node: %d\n", res);
+		return res;
+	}
+	if ((res = spa_node_set_io(data->source_node,
+			SPA_IO_Clock,
+			&data->position.clock, sizeof(data->position.clock))) < 0) {
+		printf("can't set io clock on source node: %d\n", res);
+		return res;
+	}
+	if ((res = spa_node_set_io(data->sink_node,
+			  SPA_IO_Clock,
+			  &data->position.clock, sizeof(data->position.clock))) < 0) {
+		printf("can't set io clock on sink node: %d\n", res);
 		return res;
 	}
 
@@ -508,17 +525,6 @@ static int negotiate_formats(struct data *data)
 	uint32_t state = 0;
 	size_t buffer_size = 1024;
 
-	/* get the source follower node buffer size */
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	if (spa_node_port_enum_params_sync(data->source_follower_node,
-			SPA_DIRECTION_OUTPUT, 0,
-			SPA_PARAM_Buffers, &state, filter, &param, &b) != 1)
-		return -ENOTSUP;
-	spa_pod_fixate(param);
-	if ((res = spa_pod_parse_object(param, SPA_TYPE_OBJECT_ParamBuffers, NULL,
-		SPA_PARAM_BUFFERS_size, SPA_POD_Int(&buffer_size))) < 0)
-		return res;
-
 	/* set the sink and source formats */
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	param = spa_format_audio_dsp_build(&b, 0,
@@ -529,6 +535,17 @@ static int negotiate_formats(struct data *data)
 		return res;
 	if ((res = spa_node_port_set_param(data->sink_node,
 			SPA_DIRECTION_INPUT, 0, SPA_PARAM_Format, 0, param)) < 0)
+		return res;
+
+	/* get the source node buffer size */
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	if ((res = spa_node_port_enum_params_sync(data->source_node,
+			SPA_DIRECTION_OUTPUT, 0,
+			SPA_PARAM_Buffers, &state, filter, &param, &b)) != 1)
+		return res ? res : -ENOTSUP;
+	spa_pod_fixate(param);
+	if ((res = spa_pod_parse_object(param, SPA_TYPE_OBJECT_ParamBuffers, NULL,
+		SPA_PARAM_BUFFERS_size, SPA_POD_Int(&buffer_size))) < 0)
 		return res;
 
 	/* use buffers on the source and sink */

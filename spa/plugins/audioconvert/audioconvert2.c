@@ -2581,8 +2581,6 @@ impl_init(const struct spa_handle_factory *factory,
 	this->mix.rear_delay = 12.0f;
 	this->mix.widen = 0.0f;
 
-	this->quantum_limit = 8192;
-
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;

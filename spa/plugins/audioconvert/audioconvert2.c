@@ -149,6 +149,9 @@ struct port {
 	uint32_t blocks;
 	uint32_t stride;
 
+	const struct spa_pod_sequence *ctrl;
+	uint32_t ctrl_offset;
+
 	struct spa_list queue;
 };
 
@@ -870,6 +873,23 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	return changed;
 }
 
+static int apply_midi(struct impl *this, const struct spa_pod *value)
+{
+	const uint8_t *val = SPA_POD_BODY(value);
+	uint32_t size = SPA_POD_BODY_SIZE(value);
+	struct props *p = &this->props;
+
+	if (size < 3)
+		return -EINVAL;
+
+	if ((val[0] & 0xf0) != 0xb0 || val[1] != 7)
+		return 0;
+
+	p->volume = val[2] / 127.0;
+	set_volume(this);
+	return 1;
+}
+
 static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode mode,
 		enum spa_direction direction, bool monitor, bool control, struct spa_audio_info *info)
 {
@@ -883,8 +903,8 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	    (info == NULL || memcmp(&dir->format, info, sizeof(*info)) == 0))
 		return 0;
 
-	spa_log_info(this->log, "%p: port config direction:%d monitor:%d mode:%d %d", this,
-			direction, monitor, mode, dir->n_ports);
+	spa_log_info(this->log, "%p: port config direction:%d monitor:%d control:%d mode:%d %d", this,
+			direction, monitor, control, mode, dir->n_ports);
 
 	for (i = 0; i < dir->n_ports; i++) {
 		spa_node_emit_port_info(&this->hooks, direction, i, NULL);
@@ -1998,6 +2018,67 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	return 0;
 }
 
+static int channelmix_process_control(struct impl *this, struct port *ctrlport,
+				      void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+				      uint32_t n_samples)
+{
+	struct spa_pod_control *c, *prev = NULL;
+	uint32_t avail_samples = n_samples;
+	uint32_t i;
+	const float **s = (const float **)src;
+	float **d = (float **)dst;
+
+	SPA_POD_SEQUENCE_FOREACH(ctrlport->ctrl, c) {
+		uint32_t chunk;
+
+		if (avail_samples == 0)
+			return 0;
+
+		/* ignore old control offsets */
+		if (c->offset <= ctrlport->ctrl_offset) {
+			prev = c;
+			continue;
+		}
+
+		if (prev) {
+			switch (prev->type) {
+			case SPA_CONTROL_Midi:
+				apply_midi(this, &prev->value);
+				break;
+			case SPA_CONTROL_Properties:
+				apply_props(this, &prev->value);
+				break;
+			default:
+				continue;
+			}
+		}
+
+		chunk = SPA_MIN(avail_samples, c->offset - ctrlport->ctrl_offset);
+
+		spa_log_trace_fp(this->log, "%p: process %d %d", this,
+				c->offset, chunk);
+
+		channelmix_process(&this->mix, dst, src, chunk);
+		for (i = 0; i < this->mix.src_chan; i++)
+			s[i] += chunk;
+		for (i = 0; i < this->mix.dst_chan; i++)
+			d[i] += chunk;
+
+		avail_samples -= chunk;
+		ctrlport->ctrl_offset += chunk;
+
+		prev = c;
+	}
+
+	/* when we get here we run out of control points but still have some
+	 * remaining samples */
+	spa_log_trace_fp(this->log, "%p: remain %d", this, avail_samples);
+	if (avail_samples > 0)
+		channelmix_process(&this->mix, dst, src, avail_samples);
+
+	return 1;
+}
+
 static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, uint32_t out_size, uint32_t in_queued)
 {
 	double rate = this->rate_scale / this->props.rate;
@@ -2040,14 +2121,15 @@ static int impl_node_process(void *object)
 	void *dst_datas[MAX_PORTS], **out_datas;
 	uint32_t i, j, n_src_datas = 0, n_dst_datas = 0, n_mon_datas = 0, remap;
 	uint32_t n_samples, max_in, n_out, max_out, quant_samples;
-	struct port *port;
+	struct port *port, *ctrlport = NULL;
 	struct buffer *buf, *out_bufs[MAX_PORTS];
 	struct spa_data *bd;
 	struct dir *dir;
 	int tmp = 0, res = 0;
 	bool in_passthrough, mix_passthrough, resample_passthrough, out_passthrough, end_passthrough;
 	bool in_avail = false, flush_in = false, flush_out = false, draining = false;
-	struct spa_io_buffers *io;
+	struct spa_io_buffers *io, *ctrlio;
+	const struct spa_pod_sequence *ctrl = NULL;
 
 	dir = &this->dir[SPA_DIRECTION_INPUT];
 	in_passthrough = dir->conv.is_passthrough;
@@ -2108,6 +2190,16 @@ static int impl_node_process(void *object)
 				if (port->is_control) {
 					spa_log_trace_fp(this->log, "%p: control %d", this,
 							i * port->blocks + j);
+					ctrlport = port;
+					ctrlio = io;
+					ctrl = spa_pod_from_data(bd->data, bd->maxsize,
+							bd->chunk->offset, bd->chunk->size);
+					if (ctrl && !spa_pod_is_sequence(&ctrl->pod))
+						ctrl = NULL;
+					if (ctrl != ctrlport->ctrl) {
+						ctrlport->ctrl = ctrl;
+						ctrlport->ctrl_offset = 0;
+					}
 				} else  {
 					max_in = SPA_MIN(max_in, size / port->stride);
 
@@ -2258,7 +2350,8 @@ static int impl_node_process(void *object)
 
 	n_out = max_out - SPA_MIN(max_out, this->out_offset);
 
-	mix_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY);
+	mix_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY) &&
+		(ctrlport == NULL || ctrlport->ctrl == NULL);
 	end_passthrough = mix_passthrough && resample_passthrough && out_passthrough;
 
 	if (!in_passthrough || end_passthrough) {
@@ -2284,7 +2377,15 @@ static int impl_node_process(void *object)
 			out_datas = (void **)this->tmp_datas[(tmp++) & 1];
 		spa_log_trace_fp(this->log, "%p: channelmix %d %d %d", this, n_samples,
 				resample_passthrough, out_passthrough);
-		channelmix_process(&this->mix, out_datas, in_datas, n_samples);
+		if (ctrlport != NULL && ctrlport->ctrl != NULL) {
+			if (channelmix_process_control(this, ctrlport, out_datas,
+						in_datas, n_samples) == 1) {
+				ctrlio->status = SPA_STATUS_OK;
+				ctrlport->ctrl = NULL;
+			}
+		} else {
+			channelmix_process(&this->mix, out_datas, in_datas, n_samples);
+		}
 	}
 
 	this->in_offset += n_samples;
@@ -2352,7 +2453,8 @@ static int impl_node_process(void *object)
 			for (j = 0; j < port->blocks; j++) {
 				bd = &buf->buf->datas[j];
 				bd->chunk->size = n_samples * port->stride;
-				spa_log_trace_fp(this->log, "out: %d %d", n_samples, bd->chunk->size);
+				spa_log_trace_fp(this->log, "out: %d %d %d", n_samples,
+						port->stride, bd->chunk->size);
 			}
 			io->status = SPA_STATUS_HAVE_DATA;
 			io->buffer_id = buf->id;
@@ -2478,6 +2580,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->mix.fc_cutoff = 12000.0f;
 	this->mix.rear_delay = 12.0f;
 	this->mix.widen = 0.0f;
+
+	this->quantum_limit = 8192;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;

@@ -87,9 +87,6 @@
 #define DEFAULT_POSITION	"[ FL FR ]"
 
 #define MAX_FORMATS	32
-/* The max amount of data we send in one block when capturing. In PulseAudio this
- * size is derived from the mempool PA_MEMPOOL_SLOT_SIZE */
-#define MAX_FRAGSIZE	(64*1024)
 
 #define TEMPORARY_MOVE_TIMEOUT	(SPA_NSEC_PER_SEC)
 
@@ -1326,8 +1323,7 @@ do_process_done(struct spa_loop *loop,
 			}
 
 			while ((uint32_t)avail >= stream->attr.fragsize) {
-				towrite = SPA_MIN(avail, MAX_FRAGSIZE);
-				towrite = SPA_ROUND_DOWN(towrite, stream->frame_size);
+				towrite = SPA_MIN((uint32_t)avail, stream->attr.fragsize);
 
 				msg = message_alloc(impl, stream->channel, towrite);
 				if (msg == NULL)

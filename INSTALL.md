@@ -158,7 +158,7 @@ are in `/etc/alsa/conf.d/`:
 /etc/alsa/conf.d/99-pipewire-default.conf
 ```
 
-With this setup, `aplay -l` should list a pipewire: device that can be used as
+With this setup, `aplay -l` should list a pipewire device that can be used as
 a regular alsa device for playback and record.
 
 ### JACK emulation

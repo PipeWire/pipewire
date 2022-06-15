@@ -595,7 +595,6 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		enum spa_direction dir;
 		enum spa_param_port_config_mode mode;
 		struct spa_pod *format = NULL;
-		int monitor = false;
 
 		if (this->started) {
 			spa_log_error(this->log, "was started");
@@ -606,7 +605,6 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 				SPA_TYPE_OBJECT_ParamPortConfig, NULL,
 				SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(&dir),
 				SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(&mode),
-				SPA_PARAM_PORT_CONFIG_monitor,		SPA_POD_OPT_Bool(&monitor),
 				SPA_PARAM_PORT_CONFIG_format,		SPA_POD_OPT_Pod(&format)) < 0)
 			return -EINVAL;
 

@@ -109,6 +109,7 @@ struct data {
 	int buffer_count;
 	bool start_faid_in;
 	double volume_accum;
+	uint32_t volume_offs;
 
 	bool running;
 	pthread_t thread;
@@ -181,6 +182,7 @@ int init_data(struct data *data)
 	/* start not doing fade-in */
 	data->start_faid_in = true;
 	data->volume_accum = 0.0;
+	data->volume_offs = 0;
 
 	/* init the graph */
 	spa_graph_init(&data->graph, &data->graph_state);
@@ -300,12 +302,14 @@ static int fade_in(struct data *data)
 
 	spa_pod_builder_init(&b, buffer, buffer_size);
 	spa_pod_builder_push_sequence(&b, &f[0], 0);
+	data->volume_offs = 200;
 	do {
-		spa_pod_builder_control(&b, 200, SPA_CONTROL_Properties);
+		spa_pod_builder_control(&b, data->volume_offs, SPA_CONTROL_Properties);
 			spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, 0,
 			SPA_PROP_volume, SPA_POD_Float(data->volume_accum));
 		data->volume_accum += 0.003;
+		data->volume_offs += 200;
 	} while (data->volume_accum < 1.0);
 	spa_pod_builder_pop(&b, &f[0]);
 
@@ -324,12 +328,14 @@ static int fade_out(struct data *data)
 
 	spa_pod_builder_init(&b, buffer, buffer_size);
 	spa_pod_builder_push_sequence(&b, &f[0], 0);
+	data->volume_offs = 200;
 	do {
-		spa_pod_builder_control(&b, 200, SPA_CONTROL_Properties);
+		spa_pod_builder_control(&b, data->volume_offs, SPA_CONTROL_Properties);
 			spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, 0,
 			SPA_PROP_volume, SPA_POD_Float(data->volume_accum));
 		data->volume_accum -= 0.003;
+		data->volume_offs += 200;
 	} while (data->volume_accum > 0.0);
 	spa_pod_builder_pop(&b, &f[0]);
 
@@ -371,7 +377,7 @@ static int on_sink_node_ready(void *_data, int status)
 
 	/* update buffer count */
 	data->buffer_count++;
-	if (data->buffer_count > 16)
+	if (data->buffer_count > 64)
 		  data->buffer_count = 0;
 
 	spa_graph_node_process(&data->graph_source_node);
@@ -642,6 +648,15 @@ static int negotiate_formats(struct data *data)
 		return res;
 	if ((res = spa_node_port_set_param(data->sink_node,
 			SPA_DIRECTION_INPUT, 0, SPA_PARAM_Format, 0, param)) < 0)
+		return res;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	param = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
+			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
+	if ((res = spa_node_port_set_param(data->sink_node,
+			SPA_DIRECTION_INPUT, 1, SPA_PARAM_Format, 0, param)) < 0)
 		return res;
 
 	/* get the source node buffer size */

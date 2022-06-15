@@ -41,7 +41,7 @@
 #endif
 
 #include "rtp.h"
-#include "a2dp-codecs.h"
+#include "media-codecs.h"
 
 #define BITRATE_MIN 96000
 #define BITRATE_MAX 512000
@@ -86,7 +86,7 @@ struct impl {
 	int32_t buf[2][LC3PLUS_MAX_SAMPLES];
 };
 
-static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 		uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
 	const a2dp_lc3plus_hr_t a2dp_lc3plus_hr = {
@@ -102,9 +102,9 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 	return sizeof(a2dp_lc3plus_hr);
 }
 
-static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
-		const struct a2dp_codec_audio_info *info,
+		const struct media_codec_audio_info *info,
 		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_lc3plus_hr_t conf;
@@ -150,8 +150,8 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	return sizeof(conf);
 }
 
-static int codec_caps_preference_cmp(const struct a2dp_codec *codec, uint32_t flags, const void *caps1, size_t caps1_size,
-		const void *caps2, size_t caps2_size, const struct a2dp_codec_audio_info *info, const struct spa_dict *global_settings)
+static int codec_caps_preference_cmp(const struct media_codec *codec, uint32_t flags, const void *caps1, size_t caps1_size,
+		const void *caps2, size_t caps2_size, const struct media_codec_audio_info *info, const struct spa_dict *global_settings)
 {
 	a2dp_lc3plus_hr_t conf1, conf2;
 	a2dp_lc3plus_hr_t *conf;
@@ -160,7 +160,7 @@ static int codec_caps_preference_cmp(const struct a2dp_codec *codec, uint32_t fl
 
 	/* Order selected configurations by preference */
 	res1 = codec->select_config(codec, 0, caps1, caps1_size, info, NULL, (uint8_t *)&conf1);
-	res2 = codec->select_config(codec, 0, caps2, caps2_size, info, NULL, (uint8_t *)&conf2);
+	res2 = codec->select_config(codec, 0, caps2, caps2_size, info , NULL, (uint8_t *)&conf2);
 
 #define PREFER_EXPR(expr)			\
 		do {				\
@@ -190,7 +190,7 @@ static int codec_caps_preference_cmp(const struct a2dp_codec *codec, uint32_t fl
 #undef PREFER_BOOL
 }
 
-static int codec_enum_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {
@@ -263,7 +263,7 @@ static int codec_enum_config(const struct a2dp_codec *codec, uint32_t flags,
 	return *param == NULL ? -EIO : 1;
 }
 
-static int codec_validate_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_validate_config(const struct media_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
 			struct spa_audio_info *info)
 {
@@ -342,7 +342,7 @@ static bool check_mtu_vs_frame_dms(struct impl *this)
 	return (size_t)this->mtu >= header_size + ceildiv(payload_size, max_fragments);
 }
 
-static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
+static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info,
 		void *props, size_t mtu)
 {
@@ -758,7 +758,7 @@ static int codec_increase_bitpool(void *data)
 	return 0;
 }
 
-const struct a2dp_codec a2dp_codec_lc3plus_hr = {
+const struct media_codec a2dp_codec_lc3plus_hr = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_LC3PLUS_HR,
 	.name = "lc3plus_hr",
 	.codec_id = A2DP_CODEC_VENDOR,
@@ -782,7 +782,7 @@ const struct a2dp_codec a2dp_codec_lc3plus_hr = {
 	.increase_bitpool = codec_increase_bitpool
 };
 
-A2DP_CODEC_EXPORT_DEF(
+MEDIA_CODEC_EXPORT_DEF(
 	"lc3plus",
 	&a2dp_codec_lc3plus_hr
 );

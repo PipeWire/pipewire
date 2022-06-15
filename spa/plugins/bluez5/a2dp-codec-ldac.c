@@ -40,7 +40,7 @@
 #endif
 
 #include "rtp.h"
-#include "a2dp-codecs.h"
+#include "media-codecs.h"
 
 #define LDACBT_EQMID_AUTO -1
 
@@ -79,7 +79,7 @@ struct impl {
 	int frame_count;
 };
 
-static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags, uint8_t caps[A2DP_MAX_CAPS_SIZE])
+static int codec_fill_caps(const struct media_codec *codec, uint32_t flags, uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
 	static const a2dp_ldac_t a2dp_ldac = {
 		.info.vendor_id = LDAC_VENDOR_ID,
@@ -97,7 +97,7 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags, uint8
 	return sizeof(a2dp_ldac);
 }
 
-static const struct a2dp_codec_config
+static const struct media_codec_config
 ldac_frequencies[] = {
 	{ LDACBT_SAMPLING_FREQ_044100, 44100, 3 },
 	{ LDACBT_SAMPLING_FREQ_048000, 48000, 2 },
@@ -105,16 +105,16 @@ ldac_frequencies[] = {
 	{ LDACBT_SAMPLING_FREQ_096000, 96000, 0 },
 };
 
-static const struct a2dp_codec_config
+static const struct media_codec_config
 ldac_channel_modes[] = {
 	{ LDACBT_CHANNEL_MODE_STEREO,       2, 2 },
 	{ LDACBT_CHANNEL_MODE_DUAL_CHANNEL, 2, 1 },
 	{ LDACBT_CHANNEL_MODE_MONO,         1, 0 },
 };
 
-static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
-		const struct a2dp_codec_audio_info *info,
+		const struct media_codec_audio_info *info,
 		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_ldac_t conf;
@@ -129,7 +129,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	    codec->vendor.codec_id != conf.info.codec_id)
 		return -ENOTSUP;
 
-	if ((i = a2dp_codec_select_config(ldac_frequencies,
+	if ((i = media_codec_select_config(ldac_frequencies,
 					  SPA_N_ELEMENTS(ldac_frequencies),
 					  conf.frequency,
 				    	  info ? info->rate : A2DP_CODEC_DEFAULT_RATE
@@ -137,7 +137,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		return -ENOTSUP;
 	conf.frequency = ldac_frequencies[i].config;
 
-	if ((i = a2dp_codec_select_config(ldac_channel_modes,
+	if ((i = media_codec_select_config(ldac_channel_modes,
 					  SPA_N_ELEMENTS(ldac_channel_modes),
 				    	  conf.channel_mode,
 				    	  info ? info->channels : A2DP_CODEC_DEFAULT_CHANNELS
@@ -150,7 +150,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
         return sizeof(conf);
 }
 
-static int codec_enum_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {
@@ -284,7 +284,7 @@ static int string_to_eqmid(const char * eqmid)
 		return LDACBT_EQMID_AUTO;
 }
 
-static void *codec_init_props(const struct a2dp_codec *codec, uint32_t flags, const struct spa_dict *settings)
+static void *codec_init_props(const struct media_codec *codec, uint32_t flags, const struct spa_dict *settings)
 {
 	struct props *p = calloc(1, sizeof(struct props));
 	const char *str;
@@ -385,7 +385,7 @@ static int codec_set_props(void *props, const struct spa_pod *param)
 	return prev_eqmid != p->eqmid;
 }
 
-static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
+static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info,
 		void *props, size_t mtu)
 {
@@ -570,7 +570,7 @@ static int codec_encode(void *data,
 	return src_used;
 }
 
-const struct a2dp_codec a2dp_codec_ldac = {
+const struct media_codec a2dp_codec_ldac = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_LDAC,
 	.codec_id = A2DP_CODEC_VENDOR,
 	.vendor = { .vendor_id = LDAC_VENDOR_ID,
@@ -598,7 +598,7 @@ const struct a2dp_codec a2dp_codec_ldac = {
 	.increase_bitpool = codec_increase_bitpool,
 };
 
-A2DP_CODEC_EXPORT_DEF(
+MEDIA_CODEC_EXPORT_DEF(
 	"ldac",
 	&a2dp_codec_ldac
 );

@@ -17,9 +17,9 @@ cdata.set('HAVE_BLUEZ_5_HCI', dependency('bluez', version: '< 6', required: fals
 bluez5_sources = [
   'plugin.c',
   'codec-loader.c',
-  'a2dp-codecs.c',
-  'a2dp-sink.c',
-  'a2dp-source.c',
+  'media-codecs.c',
+  'media-sink.c',
+  'media-source.c',
   'sco-sink.c',
   'sco-source.c',
   'sco-io.c',
@@ -59,7 +59,7 @@ bluez5lib = shared_library('spa-bluez5',
 codec_args = [ '-DCODEC_PLUGIN' ]
 
 bluez_codec_sbc = shared_library('spa-codec-bluez5-sbc',
-  [ 'a2dp-codec-sbc.c', 'a2dp-codecs.c' ],
+  [ 'a2dp-codec-sbc.c', 'media-codecs.c' ],
   include_directories : [ configinc ],
   c_args : codec_args,
   dependencies : [ spa_dep, sbc_dep ],
@@ -67,7 +67,7 @@ bluez_codec_sbc = shared_library('spa-codec-bluez5-sbc',
   install_dir : spa_plugindir / 'bluez5')
 
 bluez_codec_faststream = shared_library('spa-codec-bluez5-faststream',
-  [ 'a2dp-codec-faststream.c', 'a2dp-codecs.c' ],
+  [ 'a2dp-codec-faststream.c', 'media-codecs.c' ],
   include_directories : [ configinc ],
   c_args : codec_args,
   dependencies : [ spa_dep, sbc_dep ],
@@ -76,7 +76,7 @@ bluez_codec_faststream = shared_library('spa-codec-bluez5-faststream',
 
 if fdk_aac_dep.found()
   bluez_codec_aac = shared_library('spa-codec-bluez5-aac',
-    [ 'a2dp-codec-aac.c', 'a2dp-codecs.c' ],
+    [ 'a2dp-codec-aac.c', 'media-codecs.c' ],
     include_directories : [ configinc ],
     c_args : codec_args,
     dependencies : [ spa_dep, fdk_aac_dep ],
@@ -86,7 +86,7 @@ endif
 
 if aptx_dep.found()
   bluez_codec_aptx = shared_library('spa-codec-bluez5-aptx',
-    [ 'a2dp-codec-aptx.c', 'a2dp-codecs.c' ],
+    [ 'a2dp-codec-aptx.c', 'media-codecs.c' ],
     include_directories : [ configinc ],
     c_args : codec_args,
     dependencies : [ spa_dep, aptx_dep, sbc_dep ],
@@ -102,7 +102,7 @@ if ldac_dep.found()
     ldac_dep += ldac_abr_dep
   endif
   bluez_codec_ldac = shared_library('spa-codec-bluez5-ldac',
-    [ 'a2dp-codec-ldac.c', 'a2dp-codecs.c' ],
+    [ 'a2dp-codec-ldac.c', 'media-codecs.c' ],
     include_directories : [ configinc ],
     c_args : ldac_args,
     dependencies : [ spa_dep, ldac_dep ],
@@ -112,7 +112,7 @@ endif
 
 if get_option('bluez5-codec-lc3plus').allowed() and lc3plus_dep.found()
   bluez_codec_lc3plus = shared_library('spa-codec-bluez5-lc3plus',
-    [ 'a2dp-codec-lc3plus.c', 'a2dp-codecs.c' ],
+    [ 'a2dp-codec-lc3plus.c', 'media-codecs.c' ],
     include_directories : [ configinc ],
     c_args : codec_args,
     dependencies : [ spa_dep, lc3plus_dep, mathlib ],
@@ -124,7 +124,7 @@ if get_option('bluez5-codec-opus').allowed() and opus_dep.found()
   opus_args = codec_args
   opus_dep = [ opus_dep ]
   bluez_codec_opus = shared_library('spa-codec-bluez5-opus',
-    [ 'a2dp-codec-opus.c', 'a2dp-codecs.c' ],
+    [ 'a2dp-codec-opus.c', 'media-codecs.c' ],
     include_directories : [ configinc ],
     c_args : opus_args,
     dependencies : [ spa_dep, opus_dep, mathlib ],

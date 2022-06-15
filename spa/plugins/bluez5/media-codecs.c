@@ -10,9 +10,9 @@
 
 #include <spa/utils/string.h>
 
-#include "a2dp-codecs.h"
+#include "media-codecs.h"
 
-int a2dp_codec_select_config(const struct a2dp_codec_config configs[], size_t n,
+int media_codec_select_config(const struct media_codec_config configs[], size_t n,
 			     uint32_t cap, int preferred_value)
 {
 	size_t i;
@@ -60,9 +60,9 @@ int a2dp_codec_select_config(const struct a2dp_codec_config configs[], size_t n,
 	return res;
 }
 
-bool a2dp_codec_check_caps(const struct a2dp_codec *codec, unsigned int codec_id,
+bool media_codec_check_caps(const struct media_codec *codec, unsigned int codec_id,
 			   const void *caps, size_t caps_size,
-			   const struct a2dp_codec_audio_info *info,
+			   const struct media_codec_audio_info *info,
 			   const struct spa_dict *global_settings)
 {
 	uint8_t config[A2DP_MAX_CAPS_SIZE];
@@ -98,7 +98,7 @@ impl_get_interface(struct spa_handle *handle, const char *type, void **interface
 
 	this = (struct impl *) handle;
 
-	if (spa_streq(type, SPA_TYPE_INTERFACE_Bluez5CodecA2DP))
+	if (spa_streq(type, SPA_TYPE_INTERFACE_Bluez5CodecMedia))
 		*interface = &this->bluez5_codec_a2dp;
 	else
 		return -ENOENT;
@@ -136,10 +136,10 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this = (struct impl *) handle;
 
-	this->bluez5_codec_a2dp.codecs = codec_plugin_a2dp_codecs;
+	this->bluez5_codec_a2dp.codecs = codec_plugin_media_codecs;
 	this->bluez5_codec_a2dp.iface = SPA_INTERFACE_INIT(
-		SPA_TYPE_INTERFACE_Bluez5CodecA2DP,
-		SPA_VERSION_BLUEZ5_CODEC_A2DP,
+		SPA_TYPE_INTERFACE_Bluez5CodecMedia,
+		SPA_VERSION_BLUEZ5_CODEC_MEDIA,
 		NULL,
 		this);
 
@@ -147,7 +147,7 @@ impl_init(const struct spa_handle_factory *factory,
 }
 
 static const struct spa_interface_info impl_interfaces[] = {
-        {SPA_TYPE_INTERFACE_Bluez5CodecA2DP,},
+        {SPA_TYPE_INTERFACE_Bluez5CodecMedia,},
 };
 
 static int

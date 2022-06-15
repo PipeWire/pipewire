@@ -1,4 +1,4 @@
-/* Spa A2DP Source
+/* Spa Media Source
  *
  * Copyright © 2018 Wim Taymans
  * Copyright © 2019 Collabora Ltd.
@@ -54,9 +54,9 @@
 
 #include "defs.h"
 #include "rtp.h"
-#include "a2dp-codecs.h"
+#include "media-codecs.h"
 
-static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.source.a2dp");
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.source.media");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
@@ -156,7 +156,7 @@ struct impl {
 	uint64_t current_time;
 	uint64_t next_time;
 
-	const struct a2dp_codec *codec;
+	const struct media_codec *codec;
 	bool codec_props_changed;
 	void *codec_props;
 	void *codec_data;
@@ -448,7 +448,7 @@ static int32_t decode_data(struct impl *this, uint8_t *src, uint32_t src_size,
 	return dst_size - avail;
 }
 
-static void a2dp_on_ready_read(struct spa_source *source)
+static void media_on_ready_read(struct spa_source *source)
 {
 	struct impl *this = source->data;
 	struct port *port = &this->port;
@@ -533,7 +533,7 @@ static int set_duplex_timeout(struct impl *this, uint64_t timeout)
 			this->duplex_timerfd, 0, &ts, NULL);
 }
 
-static void a2dp_on_duplex_timeout(struct spa_source *source)
+static void media_on_duplex_timeout(struct spa_source *source)
 {
 	struct impl *this = source->data;
 	uint64_t exp;
@@ -543,7 +543,7 @@ static void a2dp_on_duplex_timeout(struct spa_source *source)
 
 	set_duplex_timeout(this, this->duplex_timeout);
 
-	a2dp_on_ready_read(source);
+	media_on_ready_read(source);
 }
 
 static int setup_matching(struct impl *this)
@@ -567,7 +567,7 @@ static int setup_matching(struct impl *this)
 	return 0;
 }
 
-static void a2dp_on_timeout(struct spa_source *source)
+static void media_on_timeout(struct spa_source *source)
 {
 	struct impl *this = source->data;
 	struct port *port = &this->port;
@@ -631,7 +631,7 @@ static int transport_start(struct impl *this)
 	this->transport_acquired = true;
 
 	this->codec_data = this->codec->init(this->codec,
-			this->is_duplex ? 0 : A2DP_CODEC_FLAG_SINK,
+			this->is_duplex ? 0 : MEDIA_CODEC_FLAG_SINK,
 			this->transport->configuration,
 			this->transport->configuration_len,
 			&port->current_format,
@@ -640,7 +640,7 @@ static int transport_start(struct impl *this)
 	if (this->codec_data == NULL)
 		return -EIO;
 
-        spa_log_info(this->log, "%p: using A2DP codec %s", this, this->codec->description);
+	spa_log_info(this->log, "%p: using A2DP codec %s", this, this->codec->description);
 
 	val = fcntl(this->transport->fd, F_GETFL);
 	if (fcntl(this->transport->fd, F_SETFL, val | O_NONBLOCK) < 0)
@@ -672,7 +672,7 @@ static int transport_start(struct impl *this)
 
 	if (!this->use_duplex_source) {
 		this->source.fd = this->transport->fd;
-		this->source.func = a2dp_on_ready_read;
+		this->source.func = media_on_ready_read;
 		this->source.mask = SPA_IO_IN;
 		this->source.rmask = 0;
 		spa_loop_add_source(this->data_loop, &this->source);
@@ -689,7 +689,7 @@ static int transport_start(struct impl *this)
 		 * XXX: forward stream.
 		 */
 		this->source.fd = this->duplex_timerfd;
-		this->source.func = a2dp_on_duplex_timeout;
+		this->source.func = media_on_duplex_timeout;
 		this->source.mask = SPA_IO_IN;
 		this->source.rmask = 0;
 		spa_loop_add_source(this->data_loop, &this->source);
@@ -700,7 +700,7 @@ static int transport_start(struct impl *this)
 
 	this->timer_source.data = this;
 	this->timer_source.fd = this->timerfd;
-	this->timer_source.func = a2dp_on_timeout;
+	this->timer_source.func = media_on_timeout;
 	this->timer_source.mask = SPA_IO_IN;
 	this->timer_source.rmask = 0;
 	spa_loop_add_source(this->data_loop, &this->timer_source);
@@ -968,7 +968,7 @@ impl_node_port_enum_params(void *object, int seq,
 			return -EIO;
 
 		if ((res = this->codec->enum_config(this->codec,
-					this->is_duplex ? 0 : A2DP_CODEC_FLAG_SINK,
+					this->is_duplex ? 0 : MEDIA_CODEC_FLAG_SINK,
 					this->transport->configuration,
 					this->transport->configuration_len,
 					id, result.index, &b, &param)) != 1)
@@ -1555,7 +1555,7 @@ impl_init(const struct spa_handle_factory *factory,
 			spa_atou32(str, &this->quantum_limit, 0);
 		if ((str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_TRANSPORT)) != NULL)
 			sscanf(str, "pointer:%p", &this->transport);
-		if ((str = spa_dict_lookup(info, "bluez5.a2dp-source-role")) != NULL)
+		if ((str = spa_dict_lookup(info, "bluez5.media-source-role")) != NULL)
 			this->is_input = spa_streq(str, "input");
 		if ((str = spa_dict_lookup(info, "api.bluez5.a2dp-duplex")) != NULL)
 			this->is_duplex = spa_atob(str);
@@ -1565,11 +1565,11 @@ impl_init(const struct spa_handle_factory *factory,
 		spa_log_error(this->log, "a transport is needed");
 		return -EINVAL;
 	}
-	if (this->transport->a2dp_codec == NULL) {
+	if (this->transport->media_codec == NULL) {
 		spa_log_error(this->log, "a transport codec is needed");
 		return -EINVAL;
 	}
-	this->codec = this->transport->a2dp_codec;
+	this->codec = this->transport->media_codec;
 
 	if (this->is_duplex) {
 		if (!this->codec->duplex_codec) {
@@ -1583,7 +1583,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (this->codec->init_props != NULL)
 		this->codec_props = this->codec->init_props(this->codec,
-					this->is_duplex ? 0 : A2DP_CODEC_FLAG_SINK,
+					this->is_duplex ? 0 : MEDIA_CODEC_FLAG_SINK,
 					this->transport->device->settings);
 
 	spa_bt_transport_add_listener(this->transport,
@@ -1627,15 +1627,15 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 static const struct spa_dict_item info_items[] = {
 	{ SPA_KEY_FACTORY_AUTHOR, "Collabora Ltd. <contact@collabora.com>" },
-	{ SPA_KEY_FACTORY_DESCRIPTION, "Capture bluetooth audio with a2dp" },
+	{ SPA_KEY_FACTORY_DESCRIPTION, "Capture bluetooth audio with media" },
 	{ SPA_KEY_FACTORY_USAGE, SPA_KEY_API_BLUEZ5_TRANSPORT"=<transport>" },
 };
 
 static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
-const struct spa_handle_factory spa_a2dp_source_factory = {
+const struct spa_handle_factory spa_media_source_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	SPA_NAME_API_BLUEZ5_A2DP_SOURCE,
+	SPA_NAME_API_BLUEZ5_MEDIA_SOURCE,
 	&info,
 	impl_get_size,
 	impl_init,

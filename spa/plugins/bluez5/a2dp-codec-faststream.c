@@ -36,7 +36,7 @@
 
 #include <sbc/sbc.h>
 
-#include "a2dp-codecs.h"
+#include "media-codecs.h"
 
 struct impl {
 	sbc_t sbc;
@@ -51,7 +51,7 @@ struct duplex_impl {
 	sbc_t sbc;
 };
 
-static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 		uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
 	const a2dp_faststream_t a2dp_faststream = {
@@ -69,20 +69,20 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 	return sizeof(a2dp_faststream);
 }
 
-static const struct a2dp_codec_config
+static const struct media_codec_config
 frequencies[] = {
 	{ FASTSTREAM_SINK_SAMPLING_FREQ_48000, 48000, 1 },
 	{ FASTSTREAM_SINK_SAMPLING_FREQ_44100, 44100, 0 },
 };
 
-static const struct a2dp_codec_config
+static const struct media_codec_config
 duplex_frequencies[] = {
 	{ FASTSTREAM_SOURCE_SAMPLING_FREQ_16000, 16000, 0 },
 };
 
-static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
-		const struct a2dp_codec_audio_info *info,
+		const struct media_codec_audio_info *info,
 		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_faststream_t conf;
@@ -108,7 +108,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	if (codec->duplex_codec)
 		conf.direction |= FASTSTREAM_DIRECTION_SOURCE;
 
-	if ((i = a2dp_codec_select_config(frequencies,
+	if ((i = media_codec_select_config(frequencies,
 			SPA_N_ELEMENTS(frequencies),
 			conf.sink_frequency,
 			info ? info->rate : A2DP_CODEC_DEFAULT_RATE
@@ -116,7 +116,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		return -ENOTSUP;
 	conf.sink_frequency = frequencies[i].config;
 
-	if ((i = a2dp_codec_select_config(duplex_frequencies,
+	if ((i = media_codec_select_config(duplex_frequencies,
 			SPA_N_ELEMENTS(duplex_frequencies),
 			conf.source_frequency,
 			16000
@@ -129,7 +129,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	return sizeof(conf);
 }
 
-static int codec_enum_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {
@@ -209,7 +209,7 @@ static size_t ceil2(size_t v)
 	return v;
 }
 
-static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
+static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info,
 		void *props, size_t mtu)
 {
@@ -372,7 +372,7 @@ static SPA_UNUSED int codec_decode(void *data,
  * When connected as SRC to SNK, FastStream sink may send back SBC data.
  */
 
-static int duplex_enum_config(const struct a2dp_codec *codec, uint32_t flags,
+static int duplex_enum_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {
@@ -411,7 +411,7 @@ static int duplex_enum_config(const struct a2dp_codec *codec, uint32_t flags,
 	return *param == NULL ? -EIO : 1;
 }
 
-static int duplex_validate_config(const struct a2dp_codec *codec, uint32_t flags,
+static int duplex_validate_config(const struct media_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
 			struct spa_audio_info *info)
 {
@@ -441,7 +441,7 @@ static int duplex_get_block_size(void *data)
 	return 0;
 }
 
-static void *duplex_init(const struct a2dp_codec *codec, uint32_t flags,
+static void *duplex_init(const struct media_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info,
 		void *props, size_t mtu)
 {
@@ -577,7 +577,7 @@ static int duplex_decode(void *data,
 }
 
 /* Voice channel SBC, not a real A2DP codec */
-static const struct a2dp_codec duplex_codec = {
+static const struct media_codec duplex_codec = {
 	.codec_id = A2DP_CODEC_VENDOR,
 	.name = "faststream_sbc",
 	.description = "FastStream duplex SBC",
@@ -614,7 +614,7 @@ static const struct a2dp_codec duplex_codec = {
 	.reduce_bitpool = codec_reduce_bitpool,		\
 	.increase_bitpool = codec_increase_bitpool
 
-static const struct a2dp_codec a2dp_codec_faststream = {
+const struct media_codec a2dp_codec_faststream = {
 	FASTSTREAM_COMMON_DEFS,
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM,
 	.name = "faststream",
@@ -625,7 +625,7 @@ static const struct spa_dict_item duplex_info_items[] = {
 };
 static const struct spa_dict duplex_info = SPA_DICT_INIT_ARRAY(duplex_info_items);
 
-const struct a2dp_codec a2dp_codec_faststream_duplex = {
+const struct media_codec a2dp_codec_faststream_duplex = {
 	FASTSTREAM_COMMON_DEFS,
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM_DUPLEX,
 	.name = "faststream_duplex",
@@ -633,7 +633,7 @@ const struct a2dp_codec a2dp_codec_faststream_duplex = {
 	.info = &duplex_info,
 };
 
-A2DP_CODEC_EXPORT_DEF(
+MEDIA_CODEC_EXPORT_DEF(
 	"faststream",
 	&a2dp_codec_faststream,
 	&a2dp_codec_faststream_duplex

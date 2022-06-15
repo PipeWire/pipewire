@@ -31,9 +31,9 @@
 #include <spa/support/plugin-loader.h>
 
 #include "a2dp-codec-caps.h"
-#include "a2dp-codecs.h"
+#include "media-codecs.h"
 
-const struct a2dp_codec * const *load_a2dp_codecs(struct spa_plugin_loader *loader, struct spa_log *log);
-void free_a2dp_codecs(const struct a2dp_codec * const *a2dp_codecs);
+const struct media_codec * const *load_media_codecs(struct spa_plugin_loader *loader, struct spa_log *log);
+void free_media_codecs(const struct media_codec * const *media_codecs);
 
 #endif

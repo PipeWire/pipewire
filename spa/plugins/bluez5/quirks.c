@@ -56,7 +56,6 @@
 #include <spa/utils/json.h>
 #include <spa/utils/string.h>
 
-#include "a2dp-codecs.h"
 #include "defs.h"
 
 static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.quirks");

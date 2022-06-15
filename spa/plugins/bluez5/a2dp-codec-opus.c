@@ -44,7 +44,7 @@
 #include <opus_multistream.h>
 
 #include "rtp.h"
-#include "a2dp-codecs.h"
+#include "media-codecs.h"
 
 static struct spa_log *log;
 static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.codecs.opus");
@@ -395,7 +395,7 @@ static void parse_settings(struct props *props, const struct spa_dict *settings)
 		props->bidi_application = OPUS_APPLICATION_RESTRICTED_LOWDELAY;
 }
 
-static int set_channel_conf(const struct a2dp_codec *codec, a2dp_opus_05_t *caps, const struct props *props)
+static int set_channel_conf(const struct media_codec *codec, a2dp_opus_05_t *caps, const struct props *props)
 {
 	/*
 	 * Predefined codec profiles
@@ -469,7 +469,7 @@ static int set_channel_conf(const struct a2dp_codec *codec, a2dp_opus_05_t *caps
 	return 0;
 }
 
-static void get_default_bitrates(const struct a2dp_codec *codec, bool bidi, int *min, int *max, int *init)
+static void get_default_bitrates(const struct media_codec *codec, bool bidi, int *min, int *max, int *init)
 {
 	int tmp;
 
@@ -514,7 +514,7 @@ static void get_default_bitrates(const struct a2dp_codec *codec, bool bidi, int 
 	};
 }
 
-static int get_mapping(const struct a2dp_codec *codec, const a2dp_opus_05_direction_t *conf,
+static int get_mapping(const struct media_codec *codec, const a2dp_opus_05_direction_t *conf,
 		bool use_surround_encoder, uint8_t *streams_ret, uint8_t *coupled_streams_ret,
 		const uint8_t **surround_mapping, uint32_t *positions)
 {
@@ -576,7 +576,7 @@ static int get_mapping(const struct a2dp_codec *codec, const a2dp_opus_05_direct
 	return 0;
 }
 
-static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 		uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_opus_05_t a2dp_opus_05 = {
@@ -613,9 +613,9 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 	return sizeof(a2dp_opus_05);
 }
 
-static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
-		const struct a2dp_codec_audio_info *info,
+		const struct media_codec_audio_info *info,
 		const struct spa_dict *global_settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
 	struct props props;
@@ -715,8 +715,8 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	return sizeof(conf);
 }
 
-static int codec_caps_preference_cmp(const struct a2dp_codec *codec, uint32_t flags, const void *caps1, size_t caps1_size,
-		const void *caps2, size_t caps2_size, const struct a2dp_codec_audio_info *info,
+static int codec_caps_preference_cmp(const struct media_codec *codec, uint32_t flags, const void *caps1, size_t caps1_size,
+		const void *caps2, size_t caps2_size, const struct media_codec_audio_info *info,
 		const struct spa_dict *global_settings)
 {
 	a2dp_opus_05_t conf1, conf2, cap1, cap2;
@@ -768,12 +768,12 @@ static int codec_caps_preference_cmp(const struct a2dp_codec *codec, uint32_t fl
 #undef PREFER_BOOL
 }
 
-static bool is_duplex_codec(const struct a2dp_codec *codec)
+static bool is_duplex_codec(const struct media_codec *codec)
 {
 	return codec->id == 0;
 }
 
-static bool use_surround_encoder(const struct a2dp_codec *codec, bool is_sink)
+static bool use_surround_encoder(const struct media_codec *codec, bool is_sink)
 {
 	if (codec->id == SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_PRO)
 		return false;
@@ -784,11 +784,11 @@ static bool use_surround_encoder(const struct a2dp_codec *codec, bool is_sink)
 		return !is_sink;
 }
 
-static int codec_enum_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {
-	const bool surround_encoder = use_surround_encoder(codec, flags & A2DP_CODEC_FLAG_SINK);
+	const bool surround_encoder = use_surround_encoder(codec, flags & MEDIA_CODEC_FLAG_SINK);
 	a2dp_opus_05_t conf;
 	a2dp_opus_05_direction_t *dir;
 	struct spa_pod_frame f[1];
@@ -823,11 +823,11 @@ static int codec_enum_config(const struct a2dp_codec *codec, uint32_t flags,
 	return *param == NULL ? -EIO : 1;
 }
 
-static int codec_validate_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_validate_config(const struct media_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
 			struct spa_audio_info *info)
 {
-	const bool surround_encoder = use_surround_encoder(codec, flags & A2DP_CODEC_FLAG_SINK);
+	const bool surround_encoder = use_surround_encoder(codec, flags & MEDIA_CODEC_FLAG_SINK);
 	const a2dp_opus_05_direction_t *dir1, *dir2;
 	const a2dp_opus_05_t *conf;
 
@@ -898,7 +898,7 @@ static int parse_frame_dms(int bitfield)
 	}
 }
 
-static void *codec_init_props(const struct a2dp_codec *codec, uint32_t flags, const struct spa_dict *settings)
+static void *codec_init_props(const struct media_codec *codec, uint32_t flags, const struct spa_dict *settings)
 {
 	struct props *p;
 
@@ -919,11 +919,11 @@ static void codec_clear_props(void *props)
 	free(props);
 }
 
-static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
+static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info,
 		void *props, size_t mtu)
 {
-	const bool surround_encoder = use_surround_encoder(codec, flags & A2DP_CODEC_FLAG_SINK);
+	const bool surround_encoder = use_surround_encoder(codec, flags & MEDIA_CODEC_FLAG_SINK);
 	a2dp_opus_05_t *conf = config;
 	a2dp_opus_05_direction_t *dir;
 	struct impl *this = NULL;
@@ -1380,21 +1380,21 @@ static void codec_set_log(struct spa_log *global_log)
 	.start_decode = codec_start_decode,			\
 	.decode = codec_decode
 
-const struct a2dp_codec a2dp_codec_opus_05 = {
+const struct media_codec a2dp_codec_opus_05 = {
 	OPUS_05_COMMON_FULL_DEFS,
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05,
 	.name = "opus_05",
 	.description = "Opus",
 };
 
-const struct a2dp_codec a2dp_codec_opus_05_51 = {
+const struct media_codec a2dp_codec_opus_05_51 = {
 	OPUS_05_COMMON_DEFS,
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_51,
 	.name = "opus_05_51",
 	.description = "Opus 5.1 Surround",
 };
 
-const struct a2dp_codec a2dp_codec_opus_05_71 = {
+const struct media_codec a2dp_codec_opus_05_71 = {
 	OPUS_05_COMMON_DEFS,
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_71,
 	.name = "opus_05_71",
@@ -1402,14 +1402,14 @@ const struct a2dp_codec a2dp_codec_opus_05_71 = {
 };
 
 /* Bidi return channel codec: doesn't have endpoints */
-const struct a2dp_codec a2dp_codec_opus_05_return = {
+const struct media_codec a2dp_codec_opus_05_return = {
 	OPUS_05_COMMON_FULL_DEFS,
 	.id = 0,
 	.name = "opus_05_duplex_bidi",
 	.description = "Opus Duplex Bidi channel",
 };
 
-const struct a2dp_codec a2dp_codec_opus_05_duplex = {
+const struct media_codec a2dp_codec_opus_05_duplex = {
 	OPUS_05_COMMON_FULL_DEFS,
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_DUPLEX,
 	.name = "opus_05_duplex",
@@ -1417,7 +1417,7 @@ const struct a2dp_codec a2dp_codec_opus_05_duplex = {
 	.duplex_codec = &a2dp_codec_opus_05_return,
 };
 
-const struct a2dp_codec a2dp_codec_opus_05_pro = {
+const struct media_codec a2dp_codec_opus_05_pro = {
 	OPUS_05_COMMON_DEFS,
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_PRO,
 	.name = "opus_05_pro",
@@ -1427,7 +1427,7 @@ const struct a2dp_codec a2dp_codec_opus_05_pro = {
 	.duplex_codec = &a2dp_codec_opus_05_return,
 };
 
-A2DP_CODEC_EXPORT_DEF(
+MEDIA_CODEC_EXPORT_DEF(
 	"opus",
 	&a2dp_codec_opus_05,
 	&a2dp_codec_opus_05_51,

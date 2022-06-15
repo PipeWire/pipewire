@@ -158,9 +158,9 @@ extern "C" {
 #define HFP_AUDIO_CODEC_CVSD    0x01
 #define HFP_AUDIO_CODEC_MSBC    0x02
 
-#define A2DP_OBJECT_MANAGER_PATH "/MediaEndpoint"
-#define A2DP_SINK_ENDPOINT	A2DP_OBJECT_MANAGER_PATH "/A2DPSink"
-#define A2DP_SOURCE_ENDPOINT	A2DP_OBJECT_MANAGER_PATH "/A2DPSource"
+#define MEDIA_OBJECT_MANAGER_PATH "/MediaEndpoint"
+#define A2DP_SINK_ENDPOINT	MEDIA_OBJECT_MANAGER_PATH "/A2DPSink"
+#define A2DP_SOURCE_ENDPOINT	MEDIA_OBJECT_MANAGER_PATH "/A2DPSource"
 
 #define SPA_BT_UNKNOWN_DELAY			0
 
@@ -412,7 +412,7 @@ static inline enum spa_bt_form_factor spa_bt_form_factor_from_class(uint32_t blu
 	return SPA_BT_FORM_FACTOR_UNKNOWN;
 }
 
-struct spa_bt_a2dp_codec_switch;
+struct spa_bt_media_codec_switch;
 struct spa_bt_transport;
 
 struct spa_bt_device_events {
@@ -482,16 +482,16 @@ struct spa_bt_device {
 	DBusPendingCall *battery_pending_call;
 };
 
-struct a2dp_codec;
+struct media_codec;
 
 struct spa_bt_device *spa_bt_device_find(struct spa_bt_monitor *monitor, const char *path);
 struct spa_bt_device *spa_bt_device_find_by_address(struct spa_bt_monitor *monitor, const char *remote_address, const char *local_address);
 int spa_bt_device_add_profile(struct spa_bt_device *device, enum spa_bt_profile profile);
 int spa_bt_device_connect_profile(struct spa_bt_device *device, enum spa_bt_profile profile);
 int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force);
-int spa_bt_device_ensure_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec * const *codecs);
-bool spa_bt_device_supports_a2dp_codec(struct spa_bt_device *device, const struct a2dp_codec *codec, bool sink);
-const struct a2dp_codec **spa_bt_device_get_supported_a2dp_codecs(struct spa_bt_device *device, size_t *count, bool sink);
+int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct media_codec * const *codecs);
+bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const struct media_codec *codec, bool sink);
+const struct media_codec **spa_bt_device_get_supported_media_codecs(struct spa_bt_device *device, size_t *count, bool sink);
 int spa_bt_device_ensure_hfp_codec(struct spa_bt_device *device, unsigned int codec);
 int spa_bt_device_supports_hfp_codec(struct spa_bt_device *device, unsigned int codec);
 int spa_bt_device_release_transports(struct spa_bt_device *device);
@@ -570,7 +570,7 @@ struct spa_bt_transport {
 	struct spa_list device_link;
 	enum spa_bt_profile profile;
 	enum spa_bt_transport_state state;
-	const struct a2dp_codec *a2dp_codec;
+	const struct media_codec *media_codec;
 	unsigned int codec;
 	void *configuration;
 	int configuration_len;

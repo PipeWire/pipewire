@@ -42,28 +42,28 @@
  * when any of the structs or semantics change.
  */
 
-#define SPA_TYPE_INTERFACE_Bluez5CodecA2DP	SPA_TYPE_INFO_INTERFACE_BASE "Bluez5:Codec:A2DP:Private"
+#define SPA_TYPE_INTERFACE_Bluez5CodecMedia	SPA_TYPE_INFO_INTERFACE_BASE "Bluez5:Codec:Media:Private"
 
-#define SPA_VERSION_BLUEZ5_CODEC_A2DP		5
+#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		5
 
 struct spa_bluez5_codec_a2dp {
 	struct spa_interface iface;
-	const struct a2dp_codec * const *codecs;	/**< NULL terminated array */
+	const struct media_codec * const *codecs;	/**< NULL terminated array */
 };
 
-#define A2DP_CODEC_FACTORY_NAME(basename)		(SPA_NAME_API_CODEC_BLUEZ5_A2DP "." basename)
+#define MEDIA_CODEC_FACTORY_NAME(basename)		(SPA_NAME_API_CODEC_BLUEZ5_MEDIA "." basename)
 
 #ifdef CODEC_PLUGIN
-#define A2DP_CODEC_EXPORT_DEF(basename,...)	\
-	const char *codec_plugin_factory_name = A2DP_CODEC_FACTORY_NAME(basename); \
-	static const struct a2dp_codec * const codec_plugin_a2dp_codec_list[] = { __VA_ARGS__, NULL };	\
-	const struct a2dp_codec * const * const codec_plugin_a2dp_codecs = codec_plugin_a2dp_codec_list;
+#define MEDIA_CODEC_EXPORT_DEF(basename,...)	\
+	const char *codec_plugin_factory_name = MEDIA_CODEC_FACTORY_NAME(basename); \
+	static const struct media_codec * const codec_plugin_media_codec_list[] = { __VA_ARGS__, NULL };	\
+	const struct media_codec * const * const codec_plugin_media_codecs = codec_plugin_media_codec_list;
 
-extern const struct a2dp_codec * const * const codec_plugin_a2dp_codecs;
+extern const struct media_codec * const * const codec_plugin_media_codecs;
 extern const char *codec_plugin_factory_name;
 #endif
 
-#define A2DP_CODEC_FLAG_SINK		(1 << 0)
+#define MEDIA_CODEC_FLAG_SINK		(1 << 0)
 
 #define A2DP_CODEC_DEFAULT_RATE		48000
 #define A2DP_CODEC_DEFAULT_CHANNELS	2
@@ -74,12 +74,12 @@ enum {
 	NEED_FLUSH_FRAGMENT = 2,
 };
 
-struct a2dp_codec_audio_info {
+struct media_codec_audio_info {
 	uint32_t rate;
 	uint32_t channels;
 };
 
-struct a2dp_codec {
+struct media_codec {
 	enum spa_bluetooth_audio_codec id;
 	uint8_t codec_id;
 	a2dp_vendor_codec_t vendor;
@@ -91,18 +91,20 @@ struct a2dp_codec {
 
 	const size_t send_buf_size;
 
-	const struct a2dp_codec *duplex_codec;	/**< Codec for non-standard A2DP duplex channel */
+	const struct media_codec *duplex_codec;	/**< Codec for non-standard A2DP duplex channel */
 
-	int (*fill_caps) (const struct a2dp_codec *codec, uint32_t flags,
+	struct spa_log *log;
+
+	int (*fill_caps) (const struct media_codec *codec, uint32_t flags,
 			uint8_t caps[A2DP_MAX_CAPS_SIZE]);
-	int (*select_config) (const struct a2dp_codec *codec, uint32_t flags,
+	int (*select_config) (const struct media_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
-			const struct a2dp_codec_audio_info *info,
+			const struct media_codec_audio_info *info,
 			const struct spa_dict *global_settings, uint8_t config[A2DP_MAX_CAPS_SIZE]);
-	int (*enum_config) (const struct a2dp_codec *codec, uint32_t flags,
+	int (*enum_config) (const struct media_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 			struct spa_pod_builder *builder, struct spa_pod **param);
-	int (*validate_config) (const struct a2dp_codec *codec, uint32_t flags,
+	int (*validate_config) (const struct media_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
 			struct spa_audio_info *info);
 
@@ -111,17 +113,17 @@ struct a2dp_codec {
 	 * The caps handed in correspond to this codec_id, but are
 	 * otherwise not checked beforehand.
 	 */
-	int (*caps_preference_cmp) (const struct a2dp_codec *codec, uint32_t flags, const void *caps1, size_t caps1_size,
-			const void *caps2, size_t caps2_size, const struct a2dp_codec_audio_info *info,
+	int (*caps_preference_cmp) (const struct media_codec *codec, uint32_t flags, const void *caps1, size_t caps1_size,
+			const void *caps2, size_t caps2_size, const struct media_codec_audio_info *info,
 			const struct spa_dict *global_settings);
 
-	void *(*init_props) (const struct a2dp_codec *codec, uint32_t flags, const struct spa_dict *settings);
+	void *(*init_props) (const struct media_codec *codec, uint32_t flags, const struct spa_dict *settings);
 	void (*clear_props) (void *);
 	int (*enum_props) (void *props, const struct spa_dict *settings, uint32_t id, uint32_t idx,
 			struct spa_pod_builder *builder, struct spa_pod **param);
 	int (*set_props) (void *props, const struct spa_pod *param);
 
-	void *(*init) (const struct a2dp_codec *codec, uint32_t flags, void *config, size_t config_size,
+	void *(*init) (const struct media_codec *codec, uint32_t flags, void *config, size_t config_size,
 			const struct spa_audio_info *info, void *props, size_t mtu);
 	void (*deinit) (void *data);
 
@@ -151,17 +153,17 @@ struct a2dp_codec {
 	void (*set_log) (struct spa_log *global_log);
 };
 
-struct a2dp_codec_config {
+struct media_codec_config {
 	uint32_t config;
 	int value;
 	unsigned int priority;
 };
 
-int a2dp_codec_select_config(const struct a2dp_codec_config configs[], size_t n,
+int media_codec_select_config(const struct media_codec_config configs[], size_t n,
 	uint32_t cap, int preferred_value);
 
-bool a2dp_codec_check_caps(const struct a2dp_codec *codec, unsigned int codec_id,
-	const void *caps, size_t caps_size, const struct a2dp_codec_audio_info *info,
+bool media_codec_check_caps(const struct media_codec *codec, unsigned int codec_id,
+	const void *caps, size_t caps_size, const struct media_codec_audio_info *info,
 	const struct spa_dict *global_settings);
 
 #endif

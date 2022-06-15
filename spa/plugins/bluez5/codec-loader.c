@@ -29,7 +29,7 @@
 #include "defs.h"
 #include "codec-loader.h"
 
-#define A2DP_CODEC_LIB_BASE	"bluez5/libspa-codec-bluez5-"
+#define MEDIA_CODEC_LIB_BASE	"bluez5/libspa-codec-bluez5-"
 
 /* AVDTP allows 0x3E endpoints, can't have more codecs than that */
 #define MAX_CODECS	0x3E
@@ -40,7 +40,7 @@ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.codecs");
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 struct impl {
-	const struct a2dp_codec *codecs[MAX_CODECS + 1];
+	const struct media_codec *codecs[MAX_CODECS + 1];
 	struct spa_handle *handles[MAX_HANDLES];
 	size_t n_codecs;
 	size_t n_handles;
@@ -48,7 +48,7 @@ struct impl {
 	struct spa_log *log;
 };
 
-static int codec_order(const struct a2dp_codec *c)
+static int codec_order(const struct media_codec *c)
 {
 	static const enum spa_bluetooth_audio_codec order[] = {
 		SPA_BLUETOOTH_AUDIO_CODEC_LDAC,
@@ -78,8 +78,8 @@ static int codec_order(const struct a2dp_codec *c)
 
 static int codec_order_cmp(const void *a, const void *b)
 {
-	const struct a2dp_codec * const *ca = a;
-	const struct a2dp_codec * const *cb = b;
+	const struct media_codec * const *ca = a;
+	const struct media_codec * const *cb = b;
 	int ia = codec_order(*ca);
 	int ib = codec_order(*cb);
 	if (*ca == *cb)
@@ -87,7 +87,7 @@ static int codec_order_cmp(const void *a, const void *b)
 	return (ia == ib) ? (*ca < *cb ? -1 : 1) : ia - ib;
 }
 
-static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name, const char *libname)
+static int load_media_codecs_from(struct impl *impl, const char *factory_name, const char *libname)
 {
 	struct spa_handle *handle = NULL;
 	void *iface;
@@ -108,7 +108,7 @@ static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name, co
 
 	spa_log_debug(impl->log, "loading codecs from %s", factory_name);
 
-	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Bluez5CodecA2DP, &iface)) < 0) {
+	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Bluez5CodecMedia, &iface)) < 0) {
 		spa_log_warn(impl->log, "Bluetooth codec plugin %s has no codec interface",
 				factory_name);
 		goto fail;
@@ -116,15 +116,15 @@ static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name, co
 
 	bluez5_codec_a2dp = iface;
 
-	if (bluez5_codec_a2dp->iface.version != SPA_VERSION_BLUEZ5_CODEC_A2DP) {
+	if (bluez5_codec_a2dp->iface.version != SPA_VERSION_BLUEZ5_CODEC_MEDIA) {
 		spa_log_warn(impl->log, "codec plugin %s has incompatible ABI version (%d != %d)",
-				factory_name, bluez5_codec_a2dp->iface.version, SPA_VERSION_BLUEZ5_CODEC_A2DP);
+				factory_name, bluez5_codec_a2dp->iface.version, SPA_VERSION_BLUEZ5_CODEC_MEDIA);
 		res = -ENOENT;
 		goto fail;
 	}
 
 	for (i = 0; bluez5_codec_a2dp->codecs[i]; ++i) {
-		const struct a2dp_codec *c = bluez5_codec_a2dp->codecs[i];
+		const struct media_codec *c = bluez5_codec_a2dp->codecs[i];
 		size_t j;
 
 		if (impl->n_codecs >= MAX_CODECS) {
@@ -134,14 +134,14 @@ static int load_a2dp_codecs_from(struct impl *impl, const char *factory_name, co
 
 		/* Don't load duplicate endpoints */
 		for (j = 0; j < impl->n_codecs; ++j) {
-			const struct a2dp_codec *c2 = impl->codecs[j];
+			const struct media_codec *c2 = impl->codecs[j];
 			const char *ep1 = c->endpoint_name ? c->endpoint_name : c->name;
 			const char *ep2 = c2->endpoint_name ? c2->endpoint_name : c2->name;
 			if (spa_streq(ep1, ep2))
 				goto next_codec;
 		}
 
-		spa_log_debug(impl->log, "loaded A2DP codec %s from %s", c->name, factory_name);
+		spa_log_debug(impl->log, "loaded media codec %s from %s", c->name, factory_name);
 
 		if (c->set_log)
 			c->set_log(impl->log);
@@ -166,22 +166,22 @@ fail:
 	return res;
 }
 
-const struct a2dp_codec * const *load_a2dp_codecs(struct spa_plugin_loader *loader, struct spa_log *log)
+const struct media_codec * const *load_media_codecs(struct spa_plugin_loader *loader, struct spa_log *log)
 {
 	struct impl *impl;
 	bool has_sbc;
 	size_t i;
 	const struct { const char *factory; const char *lib; } plugins[] = {
-#define A2DP_CODEC_FACTORY_LIB(basename) \
-		{ A2DP_CODEC_FACTORY_NAME(basename), A2DP_CODEC_LIB_BASE basename }
-		A2DP_CODEC_FACTORY_LIB("aac"),
-		A2DP_CODEC_FACTORY_LIB("aptx"),
-		A2DP_CODEC_FACTORY_LIB("faststream"),
-		A2DP_CODEC_FACTORY_LIB("ldac"),
-		A2DP_CODEC_FACTORY_LIB("sbc"),
-		A2DP_CODEC_FACTORY_LIB("lc3plus"),
-		A2DP_CODEC_FACTORY_LIB("opus")
-#undef A2DP_CODEC_FACTORY_LIB
+#define MEDIA_CODEC_FACTORY_LIB(basename) \
+		{ MEDIA_CODEC_FACTORY_NAME(basename), MEDIA_CODEC_LIB_BASE basename }
+		MEDIA_CODEC_FACTORY_LIB("aac"),
+		MEDIA_CODEC_FACTORY_LIB("aptx"),
+		MEDIA_CODEC_FACTORY_LIB("faststream"),
+		MEDIA_CODEC_FACTORY_LIB("ldac"),
+		MEDIA_CODEC_FACTORY_LIB("sbc"),
+		MEDIA_CODEC_FACTORY_LIB("lc3plus"),
+		MEDIA_CODEC_FACTORY_LIB("opus")
+#undef MEDIA_CODEC_FACTORY_LIB
 	};
 
 	impl = calloc(sizeof(struct impl), 1);
@@ -194,7 +194,7 @@ const struct a2dp_codec * const *load_a2dp_codecs(struct spa_plugin_loader *load
 	spa_log_topic_init(impl->log, &log_topic);
 
 	for (i = 0; i < SPA_N_ELEMENTS(plugins); ++i)
-		load_a2dp_codecs_from(impl, plugins[i].factory, plugins[i].lib);
+		load_media_codecs_from(impl, plugins[i].factory, plugins[i].lib);
 
 	has_sbc = false;
 	for (i = 0; i < impl->n_codecs; ++i)
@@ -203,19 +203,19 @@ const struct a2dp_codec * const *load_a2dp_codecs(struct spa_plugin_loader *load
 
 	if (!has_sbc) {
 		spa_log_error(impl->log, "failed to load A2DP SBC codec from plugins");
-		free_a2dp_codecs(impl->codecs);
+		free_media_codecs(impl->codecs);
 		errno = ENOENT;
 		return NULL;
 	}
 
-	qsort(impl->codecs, impl->n_codecs, sizeof(const struct a2dp_codec *), codec_order_cmp);
+	qsort(impl->codecs, impl->n_codecs, sizeof(const struct media_codec *), codec_order_cmp);
 
 	return impl->codecs;
 }
 
-void free_a2dp_codecs(const struct a2dp_codec * const *a2dp_codecs)
+void free_media_codecs(const struct media_codec * const *media_codecs)
 {
-	struct impl *impl = SPA_CONTAINER_OF(a2dp_codecs, struct impl, codecs);
+	struct impl *impl = SPA_CONTAINER_OF(media_codecs, struct impl, codecs);
 	size_t i;
 
 	for (i = 0; i < impl->n_handles; ++i)

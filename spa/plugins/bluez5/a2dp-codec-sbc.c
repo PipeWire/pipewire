@@ -33,7 +33,7 @@
 #include <sbc/sbc.h>
 
 #include "rtp.h"
-#include "a2dp-codecs.h"
+#include "media-codecs.h"
 
 #define MAX_FRAME_COUNT 16
 
@@ -51,7 +51,7 @@ struct impl {
 	int max_bitpool;
 };
 
-static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 		uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
 	static const a2dp_sbc_t a2dp_sbc = {
@@ -121,7 +121,7 @@ static uint8_t default_bitpool(uint8_t freq, uint8_t mode, bool xq)
 }
 
 
-static const struct a2dp_codec_config
+static const struct media_codec_config
 sbc_frequencies[] = {
 	{ SBC_SAMPLING_FREQ_48000, 48000, 3 },
 	{ SBC_SAMPLING_FREQ_44100, 44100, 2 },
@@ -129,13 +129,13 @@ sbc_frequencies[] = {
 	{ SBC_SAMPLING_FREQ_16000, 16000, 0 },
 };
 
-static const struct a2dp_codec_config
+static const struct media_codec_config
 sbc_xq_frequencies[] = {
 	{ SBC_SAMPLING_FREQ_44100, 44100, 1 },
 	{ SBC_SAMPLING_FREQ_48000, 48000, 0 },
 };
 
-static const struct a2dp_codec_config
+static const struct media_codec_config
 sbc_channel_modes[] = {
 	{ SBC_CHANNEL_MODE_JOINT_STEREO, 2, 3 },
 	{ SBC_CHANNEL_MODE_STEREO,       2, 2 },
@@ -143,22 +143,22 @@ sbc_channel_modes[] = {
 	{ SBC_CHANNEL_MODE_MONO,         1, 0 },
 };
 
-static const struct a2dp_codec_config
+static const struct media_codec_config
 sbc_xq_channel_modes[] = {
 	{ SBC_CHANNEL_MODE_DUAL_CHANNEL, 2, 2 },
 	{ SBC_CHANNEL_MODE_JOINT_STEREO, 2, 1 },
 	{ SBC_CHANNEL_MODE_STEREO,       2, 0 },
 };
 
-static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
-		const struct a2dp_codec_audio_info *info,
+		const struct media_codec_audio_info *info,
 		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_sbc_t conf;
 	int bitpool, i;
 	size_t n;
-	const struct a2dp_codec_config *configs;
+	const struct media_codec_config *configs;
 	bool xq = false;
 
 
@@ -176,7 +176,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		configs = sbc_frequencies;
 		n = SPA_N_ELEMENTS(sbc_frequencies);
 	}
-	if ((i = a2dp_codec_select_config(configs, n, conf.frequency,
+	if ((i = media_codec_select_config(configs, n, conf.frequency,
 					  info ? info->rate : A2DP_CODEC_DEFAULT_RATE
 					  )) < 0)
 		return -ENOTSUP;
@@ -189,7 +189,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		configs = sbc_channel_modes;
 		n = SPA_N_ELEMENTS(sbc_channel_modes);
 	}
-	if ((i = a2dp_codec_select_config(configs, n, conf.channel_mode,
+	if ((i = media_codec_select_config(configs, n, conf.channel_mode,
 					  info ? info->channels : A2DP_CODEC_DEFAULT_CHANNELS
 					  )) < 0)
 		return -ENOTSUP;
@@ -229,8 +229,8 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	return sizeof(conf);
 }
 
-static int codec_caps_preference_cmp(const struct a2dp_codec *codec, uint32_t flags, const void *caps1, size_t caps1_size,
-		const void *caps2, size_t caps2_size, const struct a2dp_codec_audio_info *info, const struct spa_dict *global_settings)
+static int codec_caps_preference_cmp(const struct media_codec *codec, uint32_t flags, const void *caps1, size_t caps1_size,
+		const void *caps2, size_t caps2_size, const struct media_codec_audio_info *info, const struct spa_dict *global_settings)
 {
 	a2dp_sbc_t conf1, conf2;
 	a2dp_sbc_t *conf;
@@ -275,7 +275,7 @@ static int codec_caps_preference_cmp(const struct a2dp_codec *codec, uint32_t fl
 #undef PREFER_BOOL
 }
 
-static int codec_validate_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_validate_config(const struct media_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
 			struct spa_audio_info *info)
 {
@@ -356,7 +356,7 @@ static int codec_set_bitpool(struct impl *this, int bitpool)
 	return this->sbc.bitpool;
 }
 
-static int codec_enum_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {
@@ -453,7 +453,7 @@ static int codec_get_block_size(void *data)
 	return this->codesize;
 }
 
-static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
+static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info,
 		void *props, size_t mtu)
 {
@@ -638,7 +638,7 @@ static int codec_decode(void *data,
 	return res;
 }
 
-const struct a2dp_codec a2dp_codec_sbc = {
+const struct media_codec a2dp_codec_sbc = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_SBC,
 	.codec_id = A2DP_CODEC_SBC,
 	.name = "sbc",
@@ -660,7 +660,7 @@ const struct a2dp_codec a2dp_codec_sbc = {
 	.increase_bitpool = codec_increase_bitpool,
 };
 
-const struct a2dp_codec a2dp_codec_sbc_xq = {
+const struct media_codec a2dp_codec_sbc_xq = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_SBC_XQ,
 	.codec_id = A2DP_CODEC_SBC,
 	.name = "sbc_xq",
@@ -682,7 +682,7 @@ const struct a2dp_codec a2dp_codec_sbc_xq = {
 	.increase_bitpool = codec_increase_bitpool,
 };
 
-A2DP_CODEC_EXPORT_DEF(
+MEDIA_CODEC_EXPORT_DEF(
 	"sbc",
 	&a2dp_codec_sbc,
 	&a2dp_codec_sbc_xq

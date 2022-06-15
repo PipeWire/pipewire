@@ -34,7 +34,7 @@
 #include <fdk-aac/aacdecoder_lib.h>
 
 #include "rtp.h"
-#include "a2dp-codecs.h"
+#include "media-codecs.h"
 
 static struct spa_log *log;
 static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.codecs.aac");
@@ -65,7 +65,7 @@ struct impl {
 	int samplesize;
 };
 
-static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 		uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
 	static const a2dp_aac_t a2dp_aac = {
@@ -98,7 +98,7 @@ static int codec_fill_caps(const struct a2dp_codec *codec, uint32_t flags,
 	return sizeof(a2dp_aac);
 }
 
-static const struct a2dp_codec_config
+static const struct media_codec_config
 aac_frequencies[] = {
 	{ AAC_SAMPLING_FREQ_48000, 48000, 11 },
 	{ AAC_SAMPLING_FREQ_44100, 44100, 10 },
@@ -114,7 +114,7 @@ aac_frequencies[] = {
 	{ AAC_SAMPLING_FREQ_8000,  8000,  0 },
 };
 
-static const struct a2dp_codec_config
+static const struct media_codec_config
 aac_channel_modes[] = {
 	{ AAC_CHANNELS_2, 2, 1 },
 	{ AAC_CHANNELS_1, 1, 0 },
@@ -130,9 +130,9 @@ static int get_valid_aac_bitrate(a2dp_aac_t *conf)
 	}
 }
 
-static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
-		const struct a2dp_codec_audio_info *info,
+		const struct media_codec_audio_info *info,
 		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
 	a2dp_aac_t conf;
@@ -154,7 +154,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	else
 		return -ENOTSUP;
 
-	if ((i = a2dp_codec_select_config(aac_frequencies,
+	if ((i = media_codec_select_config(aac_frequencies,
 					  SPA_N_ELEMENTS(aac_frequencies),
 					  AAC_GET_FREQUENCY(conf),
 				    	  info ? info->rate : A2DP_CODEC_DEFAULT_RATE
@@ -162,7 +162,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		return -ENOTSUP;
 	AAC_SET_FREQUENCY(conf, aac_frequencies[i].config);
 
-	if ((i = a2dp_codec_select_config(aac_channel_modes,
+	if ((i = media_codec_select_config(aac_channel_modes,
 					  SPA_N_ELEMENTS(aac_channel_modes),
 					  conf.channels,
 				    	  info ? info->channels : A2DP_CODEC_DEFAULT_CHANNELS
@@ -177,7 +177,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 	return sizeof(conf);
 }
 
-static int codec_enum_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {
@@ -246,7 +246,7 @@ static int codec_enum_config(const struct a2dp_codec *codec, uint32_t flags,
 	return *param == NULL ? -EIO : 1;
 }
 
-static int codec_validate_config(const struct a2dp_codec *codec, uint32_t flags,
+static int codec_validate_config(const struct media_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
 			struct spa_audio_info *info)
 {
@@ -296,7 +296,7 @@ static int codec_validate_config(const struct a2dp_codec *codec, uint32_t flags,
 	return 0;
 }
 
-static void *codec_init_props(const struct a2dp_codec *codec, uint32_t flags, const struct spa_dict *settings)
+static void *codec_init_props(const struct media_codec *codec, uint32_t flags, const struct spa_dict *settings)
 {
 	struct props *p = calloc(1, sizeof(struct props));
 	const char *str;
@@ -316,7 +316,7 @@ static void codec_clear_props(void *props)
 	free(props);
 }
 
-static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
+static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info,
 		void *props, size_t mtu)
 {
@@ -630,7 +630,7 @@ static void codec_set_log(struct spa_log *global_log)
 	spa_log_topic_init(log, &log_topic);
 }
 
-const struct a2dp_codec a2dp_codec_aac = {
+const struct media_codec a2dp_codec_aac = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_AAC,
 	.codec_id = A2DP_CODEC_MPEG24,
 	.name = "aac",
@@ -654,7 +654,7 @@ const struct a2dp_codec a2dp_codec_aac = {
 	.set_log = codec_set_log,
 };
 
-A2DP_CODEC_EXPORT_DEF(
+MEDIA_CODEC_EXPORT_DEF(
 	"aac",
 	&a2dp_codec_aac
 );

@@ -51,7 +51,7 @@
 #include <spa/debug/pod.h>
 
 #include "defs.h"
-#include "a2dp-codecs.h"
+#include "media-codecs.h"
 
 static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.device");
 #undef SPA_LOG_TOPIC_DEFAULT
@@ -140,7 +140,7 @@ struct impl {
 	unsigned int save_profile:1;
 	uint32_t prev_bt_connected_profiles;
 
-	const struct a2dp_codec **supported_codecs;
+	const struct media_codec **supported_codecs;
 	size_t supported_codec_count;
 
 	struct dynamic_node dyn_a2dp_source;
@@ -167,9 +167,9 @@ static void init_node(struct impl *this, struct node *node, uint32_t id)
 	}
 }
 
-static void get_a2dp_codecs(struct impl *this, enum spa_bluetooth_audio_codec id, const struct a2dp_codec **codecs, size_t size)
+static void get_media_codecs(struct impl *this, enum spa_bluetooth_audio_codec id, const struct media_codec **codecs, size_t size)
 {
-	const struct a2dp_codec * const *c;
+	const struct media_codec * const *c;
 
 	spa_assert(size > 0);
 	spa_assert(this->supported_codecs);
@@ -184,18 +184,18 @@ static void get_a2dp_codecs(struct impl *this, enum spa_bluetooth_audio_codec id
 	*codecs = NULL;
 }
 
-static const struct a2dp_codec *get_supported_a2dp_codec(struct impl *this, enum spa_bluetooth_audio_codec id, size_t *idx)
+static const struct media_codec *get_supported_media_codec(struct impl *this, enum spa_bluetooth_audio_codec id, size_t *idx)
 {
-	const struct a2dp_codec *a2dp_codec = NULL;
+	const struct media_codec *media_codec = NULL;
 	size_t i;
 	for (i = 0; i < this->supported_codec_count; ++i) {
 		if (this->supported_codecs[i]->id == id) {
-			a2dp_codec = this->supported_codecs[i];
+			media_codec = this->supported_codecs[i];
 			if (idx)
 				*idx = i;
 		}
 	}
-	return a2dp_codec;
+	return media_codec;
 }
 
 static unsigned int get_hfp_codec(enum spa_bluetooth_audio_codec id)
@@ -245,10 +245,10 @@ static const char *get_hfp_codec_name(unsigned int codec)
 
 static const char *get_codec_name(struct spa_bt_transport *t, bool a2dp_duplex)
 {
-	if (t->a2dp_codec != NULL) {
-		if (a2dp_duplex && t->a2dp_codec->duplex_codec)
-			return t->a2dp_codec->duplex_codec->name;
-		return t->a2dp_codec->name;
+	if (t->media_codec != NULL) {
+		if (a2dp_duplex && t->media_codec->duplex_codec)
+			return t->media_codec->duplex_codec->name;
+		return t->media_codec->name;
 	}
 	return get_hfp_codec_name(t->codec);
 }
@@ -301,7 +301,7 @@ static void emit_info(struct impl *this, bool full);
 
 static float get_soft_volume_boost(struct node *node)
 {
-	const struct a2dp_codec *codec = node->transport ? node->transport->a2dp_codec : NULL;
+	const struct media_codec *codec = node->transport ? node->transport->media_codec : NULL;
 
 	/*
 	 * For A2DP duplex, the duplex microphone channel sometimes does not appear
@@ -406,16 +406,16 @@ static const struct spa_bt_transport_events transport_events = {
 
 static void get_channels(struct spa_bt_transport *t, bool a2dp_duplex, uint32_t *n_channels, uint32_t *channels)
 {
-	const struct a2dp_codec *codec;
+	const struct media_codec *codec;
 	struct spa_audio_info info = { 0 };
 
-	if (!a2dp_duplex || !t->a2dp_codec || !t->a2dp_codec->duplex_codec) {
+	if (!a2dp_duplex || !t->media_codec || !t->media_codec->duplex_codec) {
 		*n_channels = t->n_channels;
 		memcpy(channels, t->channels, t->n_channels * sizeof(uint32_t));
 		return;
 	}
 
-	codec = t->a2dp_codec->duplex_codec;
+	codec = t->media_codec->duplex_codec;
 
 	if (!codec->validate_config ||
 			codec->validate_config(codec, 0,
@@ -514,7 +514,7 @@ static struct spa_bt_transport *find_transport(struct impl *this, int profile, e
 
 	spa_list_for_each(t, &device->transport_list, device_link) {
 		bool codec_ok = codec == 0 ||
-			(t->a2dp_codec != NULL && t->a2dp_codec->id == codec) ||
+			(t->media_codec != NULL && t->media_codec->id == codec) ||
 			get_hfp_codec_id(t->codec) == codec;
 
 		if ((t->profile & device->connected_profiles) &&
@@ -679,13 +679,13 @@ static int emit_nodes(struct impl *this)
 		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE) {
 			t = find_transport(this, SPA_BT_PROFILE_A2DP_SOURCE, 0);
 			if (t) {
-				this->props.codec = t->a2dp_codec->id;
+				this->props.codec = t->media_codec->id;
 				emit_dynamic_node(&this->dyn_a2dp_source, this, t,
-						2, SPA_NAME_API_BLUEZ5_A2DP_SOURCE, false);
+						2, SPA_NAME_API_BLUEZ5_MEDIA_SOURCE, false);
 
-				if (t->a2dp_codec->duplex_codec) {
+				if (t->media_codec->duplex_codec) {
 					emit_dynamic_node(&this->dyn_a2dp_sink, this, t,
-						3, SPA_NAME_API_BLUEZ5_A2DP_SINK, true);
+						3, SPA_NAME_API_BLUEZ5_MEDIA_SINK, true);
 				}
 			}
 		}
@@ -694,13 +694,13 @@ static int emit_nodes(struct impl *this)
 		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE) {
 			t = find_transport(this, SPA_BT_PROFILE_A2DP_SOURCE, 0);
 			if (t) {
-				this->props.codec = t->a2dp_codec->id;
+				this->props.codec = t->media_codec->id;
 				emit_dynamic_node(&this->dyn_a2dp_source, this, t,
-					DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_A2DP_SOURCE, false);
+					DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_MEDIA_SOURCE, false);
 
-				if (t->a2dp_codec->duplex_codec) {
+				if (t->media_codec->duplex_codec) {
 					emit_node(this, t,
-						DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_A2DP_SINK, true);
+						DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_MEDIA_SINK, true);
 				}
 			}
 		}
@@ -708,17 +708,17 @@ static int emit_nodes(struct impl *this)
 		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SINK) {
 			t = find_transport(this, SPA_BT_PROFILE_A2DP_SINK, this->props.codec);
 			if (t) {
-				this->props.codec = t->a2dp_codec->id;
-				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_A2DP_SINK, false);
+				this->props.codec = t->media_codec->id;
+				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_MEDIA_SOURCE, false);
 
-				if (t->a2dp_codec->duplex_codec) {
+				if (t->media_codec->duplex_codec) {
 					emit_node(this, t,
-						DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_A2DP_SOURCE, true);
+						DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_MEDIA_SINK, true);
 				}
 			}
 		}
 
-		if (get_supported_a2dp_codec(this, this->props.codec, NULL) == NULL)
+		if (get_supported_media_codec(this, this->props.codec, NULL) == NULL)
 			this->props.codec = 0;
 		break;
 	case DEVICE_PROFILE_HSP_HFP:
@@ -818,13 +818,13 @@ static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_a
 	 */
 	if (profile == DEVICE_PROFILE_A2DP && !(this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE)) {
 		int ret;
-		const struct a2dp_codec *codecs[64];
+		const struct media_codec *codecs[64];
 
-		get_a2dp_codecs(this, codec, codecs, SPA_N_ELEMENTS(codecs));
+		get_media_codecs(this, codec, codecs, SPA_N_ELEMENTS(codecs));
 
 		this->switching_codec = true;
 
-		ret = spa_bt_device_ensure_a2dp_codec(this->bt_dev, codecs);
+		ret = spa_bt_device_ensure_media_codec(this->bt_dev, codecs);
 		if (ret < 0) {
 			if (ret != -ENOTSUP)
 				spa_log_error(this->log, "failed to switch codec (%d), setting basic profile", ret);
@@ -914,7 +914,7 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 
 	if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SINK) {
 		free(this->supported_codecs);
-		this->supported_codecs = spa_bt_device_get_supported_a2dp_codecs(
+		this->supported_codecs = spa_bt_device_get_supported_media_codecs(
 			this->bt_dev, &this->supported_codec_count, true);
 	}
 
@@ -930,7 +930,7 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 			      nodes_changed);
 		break;
 	case DEVICE_PROFILE_A2DP:
-		if (get_supported_a2dp_codec(this, this->props.codec, NULL) == NULL)
+		if (get_supported_media_codec(this, this->props.codec, NULL) == NULL)
 			this->props.codec = 0;
 		nodes_changed = (connected_change & (SPA_BT_PROFILE_A2DP_SINK |
 						     SPA_BT_PROFILE_A2DP_SOURCE));
@@ -1019,15 +1019,15 @@ static uint32_t profile_direction_mask(struct impl *this, uint32_t index, enum s
 	struct spa_bt_device *device = this->bt_dev;
 	uint32_t mask;
 	bool have_output = false, have_input = false;
-	const struct a2dp_codec *a2dp_codec;
+	const struct media_codec *media_codec;
 
 	switch (index) {
 	case DEVICE_PROFILE_A2DP:
 		if (device->connected_profiles & SPA_BT_PROFILE_A2DP_SINK)
 			have_output = true;
 
-		a2dp_codec = get_supported_a2dp_codec(this, codec, NULL);
-		if (a2dp_codec && a2dp_codec->duplex_codec)
+		media_codec = get_supported_media_codec(this, codec, NULL);
+		if (media_codec && media_codec->duplex_codec)
 			have_input = true;
 		break;
 	case DEVICE_PROFILE_HSP_HFP:
@@ -1129,7 +1129,7 @@ static void set_initial_profile(struct impl *this)
 
 	if (this->supported_codecs)
 		free(this->supported_codecs);
-	this->supported_codecs = spa_bt_device_get_supported_a2dp_codecs(
+	this->supported_codecs = spa_bt_device_get_supported_media_codecs(
 		this->bt_dev, &this->supported_codec_count, true);
 
 	/* Prefer A2DP, then HFP, then null, but select AG if the device
@@ -1152,7 +1152,7 @@ static void set_initial_profile(struct impl *this)
 		if (t) {
 			this->profile = (i == SPA_BT_PROFILE_A2DP_SOURCE) ?
 				DEVICE_PROFILE_AG : DEVICE_PROFILE_A2DP;
-			this->props.codec = t->a2dp_codec->id;
+			this->props.codec = t->media_codec->id;
 			spa_log_debug(this->log, "initial profile A2DP profile:%d codec:%d",
 					this->profile, this->props.codec);
 			return;
@@ -1213,19 +1213,19 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		n_sink++;
 		if (codec) {
 			size_t idx;
-			const struct a2dp_codec *a2dp_codec = get_supported_a2dp_codec(this, codec, &idx);
-			if (a2dp_codec == NULL) {
+			const struct media_codec *media_codec = get_supported_media_codec(this, codec, &idx);
+			if (media_codec == NULL) {
 				errno = EINVAL;
 				return NULL;
 			}
-			name_and_codec = spa_aprintf("%s-%s", name, a2dp_codec->name);
+			name_and_codec = spa_aprintf("%s-%s", name, media_codec->name);
 			name = name_and_codec;
-			if (profile == SPA_BT_PROFILE_A2DP_SINK && !a2dp_codec->duplex_codec) {
+			if (profile == SPA_BT_PROFILE_A2DP_SINK && !media_codec->duplex_codec) {
 				desc_and_codec = spa_aprintf(_("High Fidelity Playback (A2DP Sink, codec %s)"),
-							     a2dp_codec->description);
+							     media_codec->description);
 			} else {
 				desc_and_codec = spa_aprintf(_("High Fidelity Duplex (A2DP Source/Sink, codec %s)"),
-							     a2dp_codec->description);
+							     media_codec->description);
 
 			}
 			desc = desc_and_codec;
@@ -1560,7 +1560,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
-static bool iterate_supported_a2dp_codecs(struct impl *this, int *j, const struct a2dp_codec **codec)
+static bool iterate_supported_media_codecs(struct impl *this, int *j, const struct media_codec **codec)
 {
 	int i;
 
@@ -1582,12 +1582,12 @@ static struct spa_pod *build_prop_info(struct impl *this, struct spa_pod_builder
 {
 	struct spa_pod_frame f[2];
 	struct spa_pod_choice *choice;
-	const struct a2dp_codec *codec;
+	const struct media_codec *codec;
 	size_t n;
 	int j;
 
 #define FOR_EACH_A2DP_CODEC(j, codec) \
-		for (j = -1; iterate_supported_a2dp_codecs(this, &j, &codec);)
+		for (j = -1; iterate_supported_media_codecs(this, &j, &codec);)
 #define FOR_EACH_HFP_CODEC(j) \
 		for (j = HFP_AUDIO_CODEC_MSBC; j >= HFP_AUDIO_CODEC_CVSD; --j) \
 			if (spa_bt_device_supports_hfp_codec(this->bt_dev, j) == 1)

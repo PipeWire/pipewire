@@ -1,4 +1,4 @@
-/* Spa A2DP Sink
+/* Spa Media Sink
  *
  * Copyright © 2018 Wim Taymans
  *
@@ -53,9 +53,9 @@
 
 #include "defs.h"
 #include "rtp.h"
-#include "a2dp-codecs.h"
+#include "media-codecs.h"
 
-static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.sink.a2dp");
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.sink.media");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
@@ -152,7 +152,7 @@ struct impl {
 	uint64_t next_time;
 	uint64_t last_error;
 
-	const struct a2dp_codec *codec;
+	const struct media_codec *codec;
 	bool codec_props_changed;
 	void *codec_props;
 	void *codec_data;
@@ -788,7 +788,7 @@ again:
 	return 0;
 }
 
-static void a2dp_on_flush(struct spa_source *source)
+static void media_on_flush(struct spa_source *source)
 {
 	struct impl *this = source->data;
 
@@ -809,7 +809,7 @@ static void a2dp_on_flush(struct spa_source *source)
 	flush_data(this, this->current_time);
 }
 
-static void a2dp_on_flush_timeout(struct spa_source *source)
+static void media_on_flush_timeout(struct spa_source *source)
 {
 	struct impl *this = source->data;
 	uint64_t exp;
@@ -827,7 +827,7 @@ static void a2dp_on_flush_timeout(struct spa_source *source)
 	flush_data(this, this->current_time);
 }
 
-static void a2dp_on_timeout(struct spa_source *source)
+static void media_on_timeout(struct spa_source *source)
 {
 	struct impl *this = source->data;
 	struct port *port = &this->port;
@@ -897,7 +897,7 @@ static int do_start(struct impl *this)
 
 	this->following = is_following(this);
 
-        spa_log_debug(this->log, "%p: start following:%d", this, this->following);
+	spa_log_debug(this->log, "%p: start following:%d", this, this->following);
 
 	if ((res = spa_bt_transport_acquire(this->transport, false)) < 0)
 		return res;
@@ -911,7 +911,7 @@ static int do_start(struct impl *this)
 	spa_log_hexdump(this->log, SPA_LOG_LEVEL_DEBUG, 2, conf, (size_t)size);
 
 	this->codec_data = this->codec->init(this->codec,
-			this->is_duplex ? A2DP_CODEC_FLAG_SINK : 0,
+			this->is_duplex ? MEDIA_CODEC_FLAG_SINK : 0,
 			this->transport->configuration,
 			this->transport->configuration_len,
 			&port->current_format,
@@ -920,8 +920,8 @@ static int do_start(struct impl *this)
 	if (this->codec_data == NULL)
 		return -EIO;
 
-        spa_log_info(this->log, "%p: using A2DP codec %s, delay:%"PRIi64" ms", this, this->codec->description,
-                     (int64_t)(spa_bt_transport_get_delay_nsec(this->transport) / SPA_NSEC_PER_MSEC));
+	spa_log_info(this->log, "%p: using A2DP codec %s, delay:%"PRIi64" ms", this, this->codec->description,
+	             (int64_t)(spa_bt_transport_get_delay_nsec(this->transport) / SPA_NSEC_PER_MSEC));
 
 	this->seqnum = 0;
 
@@ -932,8 +932,7 @@ static int do_start(struct impl *this)
 		return -EIO;
 	}
 
-        spa_log_debug(this->log, "%p: block_size %d", this,
-			this->block_size);
+	spa_log_debug(this->log, "%p: block_size %d", this, this->block_size);
 
 	val = this->codec->send_buf_size > 0
 			/* The kernel doubles the SO_SNDBUF option value set by setsockopt(). */
@@ -963,21 +962,21 @@ static int do_start(struct impl *this)
 
 	this->source.data = this;
 	this->source.fd = this->timerfd;
-	this->source.func = a2dp_on_timeout;
+	this->source.func = media_on_timeout;
 	this->source.mask = SPA_IO_IN;
 	this->source.rmask = 0;
 	spa_loop_add_source(this->data_loop, &this->source);
 
 	this->flush_timer_source.data = this;
 	this->flush_timer_source.fd = this->flush_timerfd;
-	this->flush_timer_source.func = a2dp_on_flush_timeout;
+	this->flush_timer_source.func = media_on_flush_timeout;
 	this->flush_timer_source.mask = SPA_IO_IN;
 	this->flush_timer_source.rmask = 0;
 	spa_loop_add_source(this->data_loop, &this->flush_timer_source);
 
 	this->flush_source.data = this;
 	this->flush_source.fd = this->transport->fd;
-	this->flush_source.func = a2dp_on_flush;
+	this->flush_source.func = media_on_flush;
 	this->flush_source.mask = 0;
 	this->flush_source.rmask = 0;
 	spa_loop_add_source(this->data_loop, &this->flush_source);
@@ -1198,7 +1197,7 @@ impl_node_port_enum_params(void *object, int seq,
 			return -EIO;
 
 		if ((res = this->codec->enum_config(this->codec,
-					this->is_duplex ? A2DP_CODEC_FLAG_SINK : 0,
+					this->is_duplex ? MEDIA_CODEC_FLAG_SINK : 0,
 					this->transport->configuration,
 					this->transport->configuration_len,
 					id, result.index, &b, &param)) != 1)
@@ -1711,12 +1710,12 @@ impl_init(const struct spa_handle_factory *factory,
 		spa_log_error(this->log, "a transport is needed");
 		return -EINVAL;
 	}
-	if (this->transport->a2dp_codec == NULL) {
+	if (this->transport->media_codec == NULL) {
 		spa_log_error(this->log, "a transport codec is needed");
 		return -EINVAL;
 	}
 
-	this->codec = this->transport->a2dp_codec;
+	this->codec = this->transport->media_codec;
 
 	if (this->is_duplex) {
 		if (!this->codec->duplex_codec) {
@@ -1728,7 +1727,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (this->codec->init_props != NULL)
 		this->codec_props = this->codec->init_props(this->codec,
-					this->is_duplex ? A2DP_CODEC_FLAG_SINK : 0,
+					this->is_duplex ? MEDIA_CODEC_FLAG_SINK : 0,
 					this->transport->device->settings);
 
 	reset_props(this, &this->props);
@@ -1770,15 +1769,15 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 static const struct spa_dict_item info_items[] = {
 	{ SPA_KEY_FACTORY_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
-	{ SPA_KEY_FACTORY_DESCRIPTION, "Play audio with the a2dp" },
+	{ SPA_KEY_FACTORY_DESCRIPTION, "Play audio with the media" },
 	{ SPA_KEY_FACTORY_USAGE, SPA_KEY_API_BLUEZ5_TRANSPORT"=<transport>" },
 };
 
 static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
-const struct spa_handle_factory spa_a2dp_sink_factory = {
+const struct spa_handle_factory spa_media_sink_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	SPA_NAME_API_BLUEZ5_A2DP_SINK,
+	SPA_NAME_API_BLUEZ5_MEDIA_SINK,
 	&info,
 	impl_get_size,
 	impl_init,

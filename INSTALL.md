@@ -1,8 +1,8 @@
 ## Building
 
-PipeWire uses a build tool called *Meson* as a basis for its build
+PipeWire uses a build tool called [*Meson*](https://mesonbuild.com) as a basis for its build
 process.  It's a tool with some resemblance to Autotools and CMake. Meson
-again generates build files for a lower level build tool called *Ninja*,
+again generates build files for a lower level build tool called [*Ninja*](https://ninja-build.org/),
 working in about the same level of abstraction as more familiar GNU Make
 does.
 

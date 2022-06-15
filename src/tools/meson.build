@@ -17,13 +17,11 @@ foreach t : tools_sources
   )
 endforeach
 
-if readline_dep.found()
-  executable('pw-cli',
-    'pw-cli.c',
-    install: true,
-    dependencies: [pipewire_dep, readline_dep]
-  )
-endif
+executable('pw-cli',
+  'pw-cli.c',
+  install: true,
+  dependencies: [pipewire_dep, readline_dep]
+)
 
 if ncurses_dep.found()
   executable('pw-top',

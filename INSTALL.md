@@ -95,10 +95,12 @@ systemctl --user stop pipewire.service \
 PipeWire comes with quite a bit of libraries and tools, run:
 
 ```
-sudo meson install -C builddir
+meson install -C builddir
 ```
 
 to install everything onto the system into the specified prefix.
+Depending on the configured installation prefix, the above command
+may need to be run with elevated privileges (e.g. with `sudo`).
 Some additional steps will have to be performed to integrate
 with the distribution as shown below.
 
@@ -223,5 +225,8 @@ sockets with the `-a` option. See `pipewire-pulse -h` for more info.
 To uninstall, run:
 
 ```
-sudo ninja -C builddir uninstall
+ninja -C builddir uninstall
 ```
+
+Depending on the configured installation prefix, the above command
+may need to be run with elevated privileges (e.g. with `sudo`).

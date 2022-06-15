@@ -1012,11 +1012,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		break;
 	}
 	case SPA_PARAM_Props:
-		if (apply_props(this, param) > 0) {
-			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
-			this->params[IDX_Props].user++;
+		if (apply_props(this, param) > 0)
 			emit_node_info(this, false);
-		}
 		break;
 	default:
 		return -ENOENT;
@@ -1127,10 +1124,11 @@ static uint64_t default_mask(uint32_t channels)
 	return mask;
 }
 
-static void fix_volumes(struct volumes *vols, uint32_t channels)
+static void fix_volumes(struct impl *this, struct volumes *vols, uint32_t channels)
 {
 	float s;
 	uint32_t i;
+	spa_log_debug(this->log, "%p %d -> %d", this, vols->n_volumes, channels);
 	if (vols->n_volumes > 0) {
 		s = 0.0f;
 		for (i = 0; i < vols->n_volumes; i++)
@@ -1171,11 +1169,11 @@ static int remap_volumes(struct impl *this, const struct spa_audio_info *info)
 	if (target == 0)
 		return 0;
 	if (p->channel.n_volumes != target)
-		fix_volumes(&p->channel, target);
+		fix_volumes(this, &p->channel, target);
 	if (p->soft.n_volumes != target)
-		fix_volumes(&p->soft, target);
+		fix_volumes(this, &p->soft, target);
 	if (p->monitor.n_volumes != target)
-		fix_volumes(&p->monitor, target);
+		fix_volumes(this, &p->monitor, target);
 
 	return 1;
 }
@@ -1186,6 +1184,8 @@ static void set_volume(struct impl *this)
 	uint32_t i;
 	float volumes[SPA_AUDIO_MAX_CHANNELS];
 	struct dir *dir = &this->dir[this->direction];
+
+	spa_log_debug(this->log, "%p", this);
 
 	if (dir->have_format)
 		remap_volumes(this, &dir->format);
@@ -1203,6 +1203,9 @@ static void set_volume(struct impl *this)
 
 	channelmix_set_volume(&this->mix, this->props.volume, vol->mute,
 			vol->n_volumes, volumes);
+
+	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+	this->params[IDX_Props].user++;
 }
 
 static int setup_channelmix(struct impl *this)
@@ -1255,7 +1258,6 @@ static int setup_channelmix(struct impl *this)
 	spa_log_debug(this->log, "%p: got channelmix features %08x:%08x flags:%08x",
 			this, this->cpu_flags, this->mix.cpu_flags,
 			this->mix.flags);
-
 	return 0;
 }
 
@@ -1388,6 +1390,9 @@ static int setup_convert(struct impl *this)
 		this->tmp_datas[1][i] = SPA_PTROFF(this->tmp2, this->empty_size * i, void);
 		this->tmp_datas[1][i] = SPA_PTR_ALIGN(this->tmp_datas[1][i], MAX_ALIGN, void);
 	}
+
+	emit_node_info(this, false);
+
 	return 0;
 }
 

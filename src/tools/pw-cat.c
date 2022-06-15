@@ -126,7 +126,6 @@ struct data {
 	unsigned int rate;
 	int channels;
 	struct channelmap channelmap;
-	unsigned int samplesize;
 	unsigned int stride;
 	enum unit latency_unit;
 	unsigned int latency_value;
@@ -154,125 +153,42 @@ struct data {
 	} dsf;
 };
 
-static inline int
-sf_str_to_fmt(const char *str)
+#define STR_FMTS "(ulaw|alaw|u8|s8|s16|s32|f32|f64)"
+
+static const struct format_info {
+	const char *name;
+	int sf_format;
+	uint32_t spa_format;
+	uint32_t width;
+} format_info[] = {
+	{  "ulaw", SF_FORMAT_ULAW, SPA_AUDIO_FORMAT_ULAW, 1 },
+	{  "alaw", SF_FORMAT_ULAW, SPA_AUDIO_FORMAT_ALAW, 1 },
+	{  "s8", SF_FORMAT_PCM_S8, SPA_AUDIO_FORMAT_S8, 1 },
+	{  "u8", SF_FORMAT_PCM_U8, SPA_AUDIO_FORMAT_U8, 1 },
+	{  "s16", SF_FORMAT_PCM_16, SPA_AUDIO_FORMAT_S16, 2 },
+	{  "s24", SF_FORMAT_PCM_24, SPA_AUDIO_FORMAT_S24, 3 },
+	{  "s32", SF_FORMAT_PCM_32, SPA_AUDIO_FORMAT_S32, 4 },
+	{  "f32", SF_FORMAT_FLOAT, SPA_AUDIO_FORMAT_F32, 4 },
+	{  "f64", SF_FORMAT_DOUBLE, SPA_AUDIO_FORMAT_F32, 8 },
+};
+
+static const struct format_info *format_info_by_name(const char *str)
 {
-	if (!str)
-		return -1;
-
-	if (spa_streq(str, "s8"))
-		return SF_FORMAT_PCM_S8;
-	if (spa_streq(str, "u8"))
-		return SF_FORMAT_PCM_U8;
-	if (spa_streq(str, "s16"))
-		return SF_FORMAT_PCM_16;
-	if (spa_streq(str, "s24"))
-		return SF_FORMAT_PCM_24;
-	if (spa_streq(str, "s32"))
-		return SF_FORMAT_PCM_32;
-	if (spa_streq(str, "f32"))
-		return SF_FORMAT_FLOAT;
-	if (spa_streq(str, "f64"))
-		return SF_FORMAT_DOUBLE;
-
-	return -1;
+	uint32_t i;
+	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++)
+		if (spa_streq(str, format_info[i].name))
+			return &format_info[i];
+	return NULL;
 }
 
-static inline const char *
-sf_fmt_to_str(int format)
+static const struct format_info *format_info_by_sf_format(int format)
 {
+	uint32_t i;
 	int sub_type = (format & SF_FORMAT_SUBMASK);
-
-	if (sub_type == SF_FORMAT_PCM_U8)
-		return "u8";
-	if (sub_type == SF_FORMAT_PCM_S8)
-		return "s8";
-	if (sub_type == SF_FORMAT_PCM_16)
-		return "s16";
-	if (sub_type == SF_FORMAT_PCM_24)
-		return "s24";
-	if (sub_type == SF_FORMAT_PCM_32)
-		return "s32";
-	if (sub_type == SF_FORMAT_FLOAT)
-		return "f32";
-	if (sub_type == SF_FORMAT_DOUBLE)
-		return "f64";
-	return "(invalid)";
-}
-
-#define STR_FMTS "(u8|s8|s16|s32|f32|f64)"
-
-/* 0 = native, 1 = le, 2 = be */
-static inline int
-sf_format_endianess(int format)
-{
-	return 0;		/* native */
-}
-
-static inline enum spa_audio_format
-sf_format_to_pw(int format)
-{
-	int endianness;
-
-	endianness = sf_format_endianess(format);
-	if (endianness < 0)
-		return SPA_AUDIO_FORMAT_UNKNOWN;
-
-	switch (format & SF_FORMAT_SUBMASK) {
-	case SF_FORMAT_PCM_U8:
-		return SPA_AUDIO_FORMAT_U8;
-	case SF_FORMAT_PCM_S8:
-		return SPA_AUDIO_FORMAT_S8;
-	case SF_FORMAT_ULAW:
-		return SPA_AUDIO_FORMAT_ULAW;
-	case SF_FORMAT_ALAW:
-		return SPA_AUDIO_FORMAT_ALAW;
-	case SF_FORMAT_PCM_16:
-		return endianness == 1 ? SPA_AUDIO_FORMAT_S16_LE :
-		       endianness == 2 ? SPA_AUDIO_FORMAT_S16_BE :
-		                         SPA_AUDIO_FORMAT_S16;
-	case SF_FORMAT_PCM_24:
-	case SF_FORMAT_PCM_32:
-		return endianness == 1 ? SPA_AUDIO_FORMAT_S32_LE :
-		       endianness == 2 ? SPA_AUDIO_FORMAT_S32_BE :
-		                         SPA_AUDIO_FORMAT_S32;
-	case SF_FORMAT_DOUBLE:
-		return endianness == 1 ? SPA_AUDIO_FORMAT_F64_LE :
-		       endianness == 2 ? SPA_AUDIO_FORMAT_F64_BE :
-		                         SPA_AUDIO_FORMAT_F64;
-	case SF_FORMAT_FLOAT:
-	default:
-		return endianness == 1 ? SPA_AUDIO_FORMAT_F32_LE :
-		       endianness == 2 ? SPA_AUDIO_FORMAT_F32_BE :
-		                         SPA_AUDIO_FORMAT_F32;
-		break;
-	}
-
-	return SPA_AUDIO_FORMAT_UNKNOWN;
-}
-
-static inline int
-sf_format_samplesize(int format)
-{
-	int sub_type = (format & SF_FORMAT_SUBMASK);
-
-	switch (sub_type) {
-	case SF_FORMAT_PCM_S8:
-	case SF_FORMAT_PCM_U8:
-	case SF_FORMAT_ULAW:
-	case SF_FORMAT_ALAW:
-		return 1;
-	case SF_FORMAT_PCM_16:
-		return 2;
-	case SF_FORMAT_PCM_32:
-		return 4;
-	case SF_FORMAT_DOUBLE:
-		return 8;
-	case SF_FORMAT_FLOAT:
-	default:
-		return 4;
-	}
-	return -1;
+	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++)
+		if (format_info[i].sf_format == sub_type)
+			return &format_info[i];
+	return NULL;
 }
 
 static int sf_playback_fill_x8(struct data *d, void *dest, unsigned int n_frames)
@@ -320,10 +236,8 @@ static int sf_playback_fill_f64(struct data *d, void *dest, unsigned int n_frame
 }
 
 static inline fill_fn
-sf_fmt_playback_fill_fn(int format)
+playback_fill_fn(uint32_t fmt)
 {
-	enum spa_audio_format fmt = sf_format_to_pw(format);
-
 	switch (fmt) {
 	case SPA_AUDIO_FORMAT_S8:
 	case SPA_AUDIO_FORMAT_U8:
@@ -404,10 +318,8 @@ static int sf_record_fill_f64(struct data *d, void *src, unsigned int n_frames)
 }
 
 static inline fill_fn
-sf_fmt_record_fill_fn(int format)
+record_fill_fn(uint32_t fmt)
 {
-	enum spa_audio_format fmt = sf_format_to_pw(format);
-
 	switch (fmt) {
 	case SPA_AUDIO_FORMAT_S8:
 	case SPA_AUDIO_FORMAT_U8:
@@ -1076,29 +988,6 @@ static int setup_dsffile(struct data *data)
 	return 0;
 }
 
-struct format_info {
-	const char *name;
-	uint32_t spa_format;
-	uint32_t width;
-} format_info[] = {
-	{  "s8", SPA_AUDIO_FORMAT_S8, 1 },
-	{  "u8", SPA_AUDIO_FORMAT_U8, 1 },
-	{  "s16", SPA_AUDIO_FORMAT_S16, 2 },
-	{  "s24", SPA_AUDIO_FORMAT_S24, 3 },
-	{  "s32", SPA_AUDIO_FORMAT_S32, 4 },
-	{  "f32", SPA_AUDIO_FORMAT_F32, 4 },
-	{  "f64", SPA_AUDIO_FORMAT_F32, 8 },
-};
-
-static struct format_info *format_info_by_name(const char *str)
-{
-	uint32_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++)
-		if (spa_streq(str, format_info[i].name))
-			return &format_info[i];
-	return NULL;
-}
-
 static int stdout_record(struct data *d, void *src, unsigned int n_frames)
 {
 	return fwrite(src, d->stride, n_frames, stdout);
@@ -1111,7 +1000,7 @@ static int stdin_play(struct data *d, void *src, unsigned int n_frames)
 
 static int setup_pipe(struct data *data)
 {
-	struct format_info *info;
+	const struct format_info *info;
 
 	if (data->format == NULL)
 		data->format = DEFAULT_FORMAT;
@@ -1129,6 +1018,12 @@ static int setup_pipe(struct data *data)
 	data->spa_format = info->spa_format;
 	data->stride = info->width * data->channels;
 	data->fill = data->mode == mode_playback ?  stdin_play : stdout_record;
+
+	if (data->verbose)
+		printf("PIPE: rate=%u channels=%u fmt=%s samplesize=%u stride=%u\n",
+				data->rate, data->channels,
+				info->name, info->width, data->stride);
+
 	return 0;
 }
 
@@ -1221,9 +1116,8 @@ static void format_from_filename(SF_INFO *info, const char *filename)
 
 static int setup_sndfile(struct data *data)
 {
+	const struct format_info *fi = NULL;
 	SF_INFO info;
-	const char *s;
-	unsigned int nom = 0;
 
 	spa_zero(info);
 	/* for record, you fill in the info first */
@@ -1237,14 +1131,14 @@ static int setup_sndfile(struct data *data)
 		if (data->channelmap.n_channels == 0)
 			channelmap_default(&data->channelmap, data->channels);
 
-		memset(&info, 0, sizeof(info));
-		info.samplerate = data->rate;
-		info.channels = data->channels;
-		info.format = sf_str_to_fmt(data->format);
-		if (info.format == -1) {
+		if ((fi = format_info_by_name(data->format)) == NULL) {
 			fprintf(stderr, "error: unknown format \"%s\"\n", data->format);
 			return -EINVAL;
 		}
+		memset(&info, 0, sizeof(info));
+		info.samplerate = data->rate;
+		info.channels = data->channels;
+		info.format = fi->sf_format;
 		format_from_filename(&info, data->filename);
 	}
 
@@ -1291,13 +1185,46 @@ static int setup_sndfile(struct data *data)
 			}
 		}
 		fill_properties(data);
+
+		/* try native format first, else decode to float */
+		if ((fi = format_info_by_sf_format(info.format)) == NULL)
+			fi = format_info_by_sf_format(SF_FORMAT_FLOAT);
+
 	}
-	data->samplesize = sf_format_samplesize(info.format);
-	data->stride = data->samplesize * data->channels;
-	data->spa_format = sf_format_to_pw(info.format);
+	if (fi == NULL)
+		return -EIO;
+
+	if (data->verbose)
+		printf("PCM: fmt:%s rate:%u channels:%u width:%u\n",
+				fi->name, data->rate, data->channels, fi->width);
+
+	/* we read and write S24 as S32 with sndfile */
+	if (fi->spa_format == SPA_AUDIO_FORMAT_S24)
+		fi = format_info_by_sf_format(SF_FORMAT_PCM_32);
+
+	data->spa_format = fi->spa_format;
+	data->stride = fi->width * data->channels;
 	data->fill = data->mode == mode_playback ?
-			sf_fmt_playback_fill_fn(info.format) :
-			sf_fmt_record_fill_fn(info.format);
+			playback_fill_fn(data->spa_format) :
+			record_fill_fn(data->spa_format);
+
+	if (data->fill == NULL) {
+		fprintf(stderr, "PCM: unhandled format %d\n", data->spa_format);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int setup_properties(struct data *data)
+{
+	const char *s;
+	unsigned int nom = 0;
+
+	if (data->quality >= 0)
+		pw_properties_setf(data->props, "resample.quality", "%d", data->quality);
+
+	if (data->rate)
+		pw_properties_setf(data->props, PW_KEY_NODE_RATE, "1/%u", data->rate);
 
 	data->latency_unit = unit_none;
 
@@ -1348,19 +1275,10 @@ static int setup_sndfile(struct data *data)
 	}
 
 	if (data->verbose)
-		printf("PCM: rate=%u channels=%u fmt=%s samplesize=%u stride=%u latency=%u (%.3fs)\n",
-				data->rate, data->channels,
-				sf_fmt_to_str(info.format),
-				data->samplesize,
-				data->stride, nom, (double)nom/data->rate);
-
+		printf("rate:%d latency:%u (%.3fs)\n",
+				data->rate, nom, data->rate ? (double)nom/data->rate : 0.0f);
 	if (nom)
 		pw_properties_setf(data->props, PW_KEY_NODE_LATENCY, "%u/%u", nom, data->rate);
-
-	pw_properties_setf(data->props, PW_KEY_NODE_RATE, "1/%u", data->rate);
-
-	if (data->quality >= 0)
-		pw_properties_setf(data->props, "resample.quality", "%d", data->quality);
 
 	return 0;
 }
@@ -1634,7 +1552,6 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
-
 	if (ret < 0) {
 		fprintf(stderr, "error: open failed: %s\n", spa_strerror(ret));
 		switch (ret) {
@@ -1645,6 +1562,8 @@ int main(int argc, char *argv[])
 			goto error_usage;
 		}
 	}
+	ret = setup_properties(&data);
+
 	switch (data.data_type) {
 	case TYPE_PCM:
 	{

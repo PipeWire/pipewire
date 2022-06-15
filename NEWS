@@ -1,3 +1,81 @@
+# PipeWire 0.3.53 (2022-06-30)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - The 44.1KHz samplerate was removed again from the defaults, it caused
+    all kinds of problems with various hardware.
+  - The ALSA plugin should now be able to deal with unsupported samplerates
+    and fall back to the nearest supported one.
+  - The rlimits performance tuning wiki page was updated. Please check
+    you limits.conf file, the version on the wiki used to give all
+    processes a -19 nice level instead of just the pipewire daemon.
+  - The audioconvert plugin was rewritten to be more maintainable and
+    faster. It also gained support for control ports and dithering with
+    optional noise shaping.
+  - An impossible buffering situation is avoided in pulse-server that would
+    cause some applications (sunshine, ...) to stutter.
+
+
+## PipeWire
+  - 44.1KHz was removed from the allowed rates again. It caused all kinds
+    of regressions due to driver bugs and timing issues on HDMI.
+
+## modules
+  - filter-chain now does some more error checking and reporting to
+    avoid some crashes.
+  - filter-chain now supports more channel layouts for input and output
+    that does not need to match the plugin layout.
+  - Format parsing is now more consistent in the modules.
+
+## Tools
+  - pw-cli can now also work without readline support.
+  - pw-cat can now also read multichannel ulaw/alaw/u8/s8.
+
+## SPA
+  - The audioconvert plugin was rewritten. This should make it more
+    maintainable. It also fixed some issues such as CPU spikes in some
+    cases and crashes in others. The old plugins were removed, for a
+    code reduction of some 6000 lines.
+  - The audioconvert plugin now supports control ports, which can be
+    enabled on nodes in the session manager. This makes it possible to
+    control audioconvert properties using timed events or midi.
+  - NoteOn 0-velocity MIDI events are no longer filtered out. This is
+    a valid event, nodes that can't deal with it should fix it up
+    themselves. The JACK layer still filters out these events by default
+    but this can now be configured with a per-client property.
+  - The running status on midi events is now disabled to match what
+    JACK does.
+  - The ALSA plugin will now deal with driver bugs when a driver announces
+    support for a samplerate but then refuses to use it later.
+  - The ALSA plugin has been optimized a little for sample IO.
+  - V4L2 now doesn't error when there are no controls.
+  - Error handling was improved in the audio converter.
+  - The audioconvert plugin now supports rectangular dithering and
+    noise shaping.
+  - The audioconvert plugin can now insert additional inaudible noise
+    that can be used to keep some amplifiers alive. (#705)
+  - The audioconvert format conversion was changed so that it now produces
+    the full 32 bits range in the C fallback conversion code as well.
+  - The resampler window function was changed to a cosh() window
+    function. (#2483)
+  - Vendor and device id are now in hex.
+
+## pulse-server
+  - Tweak the record buffer attributes some more and make sure we don't
+    end up in impossible buffering situations. Fixes an issue with
+    distorted sound in sunshine. (#2447)
+  - Fix a potential crash when updating the client property list.
+  - Some properties on cards were aligned with pulseaudio.
+
+## Wiki
+  - Change "priority" to "nice" in the example limits.conf file. It was
+    giving a -19 nice level to all processes, not just the pipewire
+    daemon.
+
+Older versions:
+
 # PipeWire 0.3.52 (2022-06-09)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -111,9 +189,6 @@ This is a bugfix release that is API and ABI compatible with previous
   - Share memory into a new buffer in pipewiresrc to avoid buffer corruption.
   - Fixes to the source and fd use.
   - It is now possible to set client properties as well. (#1573)
-
-
-Older versions:
 
 # PipeWire 0.3.51 (2022-04-28)
 

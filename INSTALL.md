@@ -92,11 +92,10 @@ systemctl --user stop pipewire.service \
 
 ## Installing
 
-PipeWire comes with quite a bit of libraries and tools, run
-inside `builddir`:
+PipeWire comes with quite a bit of libraries and tools, run:
 
 ```
-sudo meson install
+sudo meson install -C builddir
 ```
 
 to install everything onto the system into the specified prefix.
@@ -221,8 +220,8 @@ sockets with the -a option. See `pipewire-pulse -h` for more info.
 
 ## Uninstalling
 
-To uninstall, in the `builddir` directory run:
+To uninstall, run:
 
 ```
-sudo ninja uninstall
+sudo ninja -C builddir uninstall
 ```

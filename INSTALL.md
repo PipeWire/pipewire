@@ -39,7 +39,7 @@ section. They are defined in `meson_options.txt`.
 Finally, invoke the build:
 
 ```
-$ ninja -C builddir
+$ meson compile -C builddir
 ```
 
 Just to avoid any confusion: `autogen.sh` is a script invoked by *Jhbuild*,
@@ -226,4 +226,3 @@ To uninstall, in the `builddir` directory run:
 ```
 sudo ninja uninstall
 ```
-

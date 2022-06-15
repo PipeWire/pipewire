@@ -230,3 +230,8 @@ ninja -C builddir uninstall
 
 Depending on the configured installation prefix, the above command
 may need to be run with elevated privileges (e.g. with `sudo`).
+
+Note that at the time of writing uninstallation only works with the
+same build directory that was used for installation. Meson stores the
+list of installed files in the build directory, and this list is
+necessary for uninstallation to work.

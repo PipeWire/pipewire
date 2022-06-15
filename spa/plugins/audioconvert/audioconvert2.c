@@ -885,7 +885,7 @@ static int apply_midi(struct impl *this, const struct spa_pod *value)
 	if ((val[0] & 0xf0) != 0xb0 || val[1] != 7)
 		return 0;
 
-	p->volume = val[2] / 127.0;
+	p->volume = val[2] / 127.0f;
 	set_volume(this);
 	return 1;
 }
@@ -950,6 +950,10 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	}
 	default:
 		return -ENOTSUP;
+	}
+	if (direction == SPA_DIRECTION_INPUT && dir->control) {
+		i = dir->n_ports++;
+		init_port(this, direction, i, 0, false, false, true);
 	}
 
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS | SPA_NODE_CHANGE_MASK_PARAMS;
@@ -2030,8 +2034,8 @@ static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 	struct spa_pod_control *c, *prev = NULL;
 	uint32_t avail_samples = n_samples;
 	uint32_t i;
-	const float **s = (const float **)src;
-	float **d = (float **)dst;
+	const float *s[MAX_PORTS], **ss = (const float**) src;
+	float *d[MAX_PORTS], **sd = (float **) dst;
 
 	SPA_POD_SEQUENCE_FOREACH(ctrlport->ctrl, c) {
 		uint32_t chunk;
@@ -2060,26 +2064,45 @@ static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 
 		chunk = SPA_MIN(avail_samples, c->offset - ctrlport->ctrl_offset);
 
-		spa_log_trace_fp(this->log, "%p: process %d %d", this,
-				c->offset, chunk);
+		spa_log_trace_fp(this->log, "%p: process %d-%d %d", this,
+				c->offset, ctrlport->ctrl_offset, chunk);
 
-		channelmix_process(&this->mix, dst, src, chunk);
+		if (ss == (const float**)src) {
+			for (i = 0; i < this->mix.src_chan; i++)
+				s[i] = ss[i];
+			for (i = 0; i < this->mix.dst_chan; i++)
+				d[i] = sd[i];
+			ss = s;
+			sd = d;
+		}
+
+		channelmix_process(&this->mix, (void**)sd, (const void**)ss, chunk);
+
 		for (i = 0; i < this->mix.src_chan; i++)
-			s[i] += chunk;
+			ss[i] += chunk;
 		for (i = 0; i < this->mix.dst_chan; i++)
-			d[i] += chunk;
+			sd[i] += chunk;
 
 		avail_samples -= chunk;
 		ctrlport->ctrl_offset += chunk;
 
 		prev = c;
 	}
-
+	if (prev) {
+		switch (prev->type) {
+		case SPA_CONTROL_Midi:
+			apply_midi(this, &prev->value);
+			break;
+		case SPA_CONTROL_Properties:
+			apply_props(this, &prev->value);
+			break;
+		}
+	}
 	/* when we get here we run out of control points but still have some
 	 * remaining samples */
 	spa_log_trace_fp(this->log, "%p: remain %d", this, avail_samples);
 	if (avail_samples > 0)
-		channelmix_process(&this->mix, dst, src, avail_samples);
+		channelmix_process(&this->mix, (void**)sd, (const void**)ss, avail_samples);
 
 	return 1;
 }

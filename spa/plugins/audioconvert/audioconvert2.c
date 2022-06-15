@@ -2452,8 +2452,8 @@ static int impl_node_process(void *object)
 
 			for (j = 0; j < port->blocks; j++) {
 				bd = &buf->buf->datas[j];
-				bd->chunk->size = n_samples * port->stride;
-				spa_log_trace_fp(this->log, "out: %d %d %d", n_samples,
+				bd->chunk->size = this->out_offset * port->stride;
+				spa_log_trace_fp(this->log, "out: %d %d %d", this->out_offset,
 						port->stride, bd->chunk->size);
 			}
 			io->status = SPA_STATUS_HAVE_DATA;
@@ -2478,7 +2478,7 @@ static int impl_node_process(void *object)
 		}
 	}
 	resample_update_rate_match(this, resample_passthrough,
-			n_out - this->out_offset,
+			max_out - this->out_offset,
 			max_in - this->in_offset);
 
 	return res;

@@ -68,10 +68,10 @@ make run
 ```
 
 This will use the default config file to configure and start the daemon.
-The default config will also start pipewire-media-session, a default
-example media session and pipewire-pulse, a PulseAudio compatible server.
+The default config will also start `pipewire-media-session`, a default
+example media session and `pipewire-pulse`, a PulseAudio compatible server.
 
-You can also enable more debugging with the PIPEWIRE_DEBUG environment
+You can also enable more debugging with the `PIPEWIRE_DEBUG` environment
 variable like so:
 
 ```
@@ -110,7 +110,7 @@ pipewire-pulse process running. PipeWire is usually started as a
 systemd unit using socket activation or as a service.
 
 Configuration of the PipeWire daemon can be found in
-/usr/share/pipewire/pipewire.conf. Please refer to the comments in the
+`/usr/share/pipewire/pipewire.conf`. Please refer to the comments in the
 config file for more information about the configuration options.
 
 The daemon is started with:
@@ -149,14 +149,14 @@ There is also a config file installed in:
 ```
 
 The plugin will be picked up by alsa when the following files
-are in /etc/alsa/conf.d/
+are in `/etc/alsa/conf.d/`:
 
 ```
 /etc/alsa/conf.d/50-pipewire.conf -> /usr/share/alsa/alsa.conf.d/50-pipewire.conf
 /etc/alsa/conf.d/99-pipewire-default.conf
 ```
 
-With this setup, aplay -l should list a pipewire: device that can be used as
+With this setup, `aplay -l` should list a pipewire: device that can be used as
 a regular alsa device for playback and record.
 
 ### JACK emulation
@@ -179,7 +179,7 @@ These libraries are found here:
 
 ```
 
-The provided pw-jack script uses LD_LIBRARY_PATH to set the library
+The provided `pw-jack` script uses `LD_LIBRARY_PATH` to set the library
 search path to these replacement libraries. This allows you to run
 jack apps on both the real JACK server or on PipeWire with the script.
 
@@ -192,7 +192,7 @@ contents like:
 ```
 
 Note that when JACK is replaced by PipeWire, the SPA JACK plugin (installed
-in /usr/lib64/spa-0.2/jack/libspa-jack.so) is not useful anymore and
+in `/usr/lib64/spa-0.2/jack/libspa-jack.so`) is not useful anymore and
 distributions should make them conflict.
 
 
@@ -215,7 +215,7 @@ systemctl --user start pipewire-pulse.service pipewire-pulse.socket
 ```
 
 You can also start additional PulseAudio servers listening on other
-sockets with the -a option. See `pipewire-pulse -h` for more info.
+sockets with the `-a` option. See `pipewire-pulse -h` for more info.
 
 
 ## Uninstalling

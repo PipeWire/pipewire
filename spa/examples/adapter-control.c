@@ -107,7 +107,7 @@ struct data {
 	struct buffer control_buffer[1];
 
 	int buffer_count;
-	bool start_faid_in;
+	bool start_fade_in;
 	double volume_accum;
 	uint32_t volume_offs;
 
@@ -180,7 +180,7 @@ int init_data(struct data *data)
 	data->plugin_dir = str;
 
 	/* start not doing fade-in */
-	data->start_faid_in = true;
+	data->start_fade_in = true;
 	data->volume_accum = 0.0;
 	data->volume_offs = 0;
 
@@ -302,7 +302,7 @@ static int fade_in(struct data *data)
 
 	spa_pod_builder_init(&b, buffer, buffer_size);
 	spa_pod_builder_push_sequence(&b, &f[0], 0);
-	data->volume_offs = 200;
+	data->volume_offs = 0;
 	do {
 		spa_pod_builder_control(&b, data->volume_offs, SPA_CONTROL_Properties);
 			spa_pod_builder_add_object(&b,
@@ -355,7 +355,7 @@ static void do_fade(struct data *data)
 	}
 
 	/* fade */
-	if (data->start_faid_in)
+	if (data->start_fade_in)
 		fade_in(data);
 	else
 		fade_out(data);
@@ -364,7 +364,7 @@ static void do_fade(struct data *data)
 	data->control_io.buffer_id = 0;
 
 	/* alternate */
-	data->start_faid_in = !data->start_faid_in;
+	data->start_fade_in = !data->start_fade_in;
 }
 
 static int on_sink_node_ready(void *_data, int status)

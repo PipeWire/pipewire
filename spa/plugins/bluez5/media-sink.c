@@ -920,7 +920,8 @@ static int do_start(struct impl *this)
 	if (this->codec_data == NULL)
 		return -EIO;
 
-	spa_log_info(this->log, "%p: using A2DP codec %s, delay:%"PRIi64" ms", this, this->codec->description,
+	spa_log_info(this->log, "%p: using %s codec %s, delay:%"PRIi64" ms", this,
+	             this->codec->bap ? "BAP" : "A2DP", this->codec->description,
 	             (int64_t)(spa_bt_transport_get_delay_nsec(this->transport) / SPA_NSEC_PER_MSEC));
 
 	this->seqnum = 0;

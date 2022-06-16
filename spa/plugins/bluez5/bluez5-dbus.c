@@ -431,9 +431,16 @@ static void register_battery_provider(struct spa_bt_device *device)
 }
 
 static int media_codec_to_endpoint(const struct media_codec *codec,
-				   const char * endpoint,
+				   enum spa_bt_media_direction direction,
 				   char** object_path)
 {
+	const char * endpoint;
+
+	if (direction == SPA_BT_MEDIA_SOURCE)
+		endpoint = codec->bap ? BAP_SOURCE_ENDPOINT : A2DP_SOURCE_ENDPOINT;
+	else
+		endpoint = codec->bap ? BAP_SINK_ENDPOINT : A2DP_SINK_ENDPOINT;
+
 	*object_path = spa_aprintf("%s/%s", endpoint,
 		codec->endpoint_name ? codec->endpoint_name : codec->name);
 	if (*object_path == NULL)
@@ -453,7 +460,14 @@ static const struct media_codec *media_endpoint_to_codec(struct spa_bt_monitor *
 	} else if (spa_strstartswith(endpoint, A2DP_SOURCE_ENDPOINT "/")) {
 		ep_name = endpoint + strlen(A2DP_SOURCE_ENDPOINT "/");
 		*sink = false;
+	} else if (spa_strstartswith(endpoint, BAP_SOURCE_ENDPOINT "/")) {
+		ep_name = endpoint + strlen(BAP_SOURCE_ENDPOINT "/");
+		*sink = false;
+	} else if (spa_strstartswith(endpoint, BAP_SINK_ENDPOINT "/")) {
+		ep_name = endpoint + strlen(BAP_SINK_ENDPOINT "/");
+		*sink = true;
 	} else {
+		*sink = true;
 		return NULL;
 	}
 
@@ -474,6 +488,10 @@ static int media_endpoint_to_profile(const char *endpoint)
 		return SPA_BT_PROFILE_A2DP_SOURCE;
 	else if (spa_strstartswith(endpoint, A2DP_SOURCE_ENDPOINT "/"))
 		return SPA_BT_PROFILE_A2DP_SINK;
+	else if (spa_strstartswith(endpoint, BAP_SINK_ENDPOINT "/"))
+		return SPA_BT_PROFILE_BAP_SOURCE;
+	else if (spa_strstartswith(endpoint, BAP_SOURCE_ENDPOINT "/"))
+		return SPA_BT_PROFILE_BAP_SINK;
 	else
 		return SPA_BT_PROFILE_NULL;
 }
@@ -836,6 +854,11 @@ static uint32_t adapter_connectable_profiles(struct spa_bt_adapter *adapter)
 		mask |= SPA_BT_PROFILE_A2DP_SOURCE;
 	if (profiles & SPA_BT_PROFILE_A2DP_SOURCE)
 		mask |= SPA_BT_PROFILE_A2DP_SINK;
+
+	if (profiles & SPA_BT_PROFILE_BAP_SINK)
+		mask |= SPA_BT_PROFILE_BAP_SOURCE;
+	if (profiles & SPA_BT_PROFILE_BAP_SOURCE)
+		mask |= SPA_BT_PROFILE_BAP_SINK;
 
 	if (profiles & SPA_BT_PROFILE_HSP_AG)
 		mask |= SPA_BT_PROFILE_HSP_HS;
@@ -1208,6 +1231,10 @@ static int reconnect_device_profiles(struct spa_bt_device *device)
 		device_try_connect_profile(device, SPA_BT_UUID_A2DP_SINK);
 	if (reconnect & SPA_BT_PROFILE_A2DP_SOURCE)
 		device_try_connect_profile(device, SPA_BT_UUID_A2DP_SOURCE);
+	if (reconnect & SPA_BT_PROFILE_BAP_SINK)
+		device_try_connect_profile(device, SPA_BT_UUID_BAP_SINK);
+	if (reconnect & SPA_BT_PROFILE_BAP_SOURCE)
+		device_try_connect_profile(device, SPA_BT_UUID_BAP_SOURCE);
 
 	return reconnect;
 }
@@ -1295,8 +1322,8 @@ int spa_bt_device_check_profiles(struct spa_bt_device *device, bool force)
 	uint32_t connectable_profiles =
 		device->adapter ? adapter_connectable_profiles(device->adapter) : 0;
 	uint32_t direction_masks[3] = {
-		SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_HEADSET_HEAD_UNIT,
-		SPA_BT_PROFILE_A2DP_SOURCE,
+		SPA_BT_PROFILE_MEDIA_SINK | SPA_BT_PROFILE_HEADSET_HEAD_UNIT,
+		SPA_BT_PROFILE_MEDIA_SOURCE,
 		SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY,
 	};
 	bool direction_connected = false;
@@ -1514,12 +1541,12 @@ static int device_update_props(struct spa_bt_device *device,
 
 				profile = spa_bt_profile_from_uuid(uuid);
 
-				/* Only add A2DP profiles if HSP/HFP backed is none.
+				/* Only add A2DP/BAP profiles if HSP/HFP backed is none.
 				 * This allows BT device to connect instantly instead of waiting for
 				 * profile timeout, because all available profiles are connected.
 				 */
 				if (monitor->backend_selection != BACKEND_NONE || (monitor->backend_selection == BACKEND_NONE &&
-						profile & (SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_A2DP_SOURCE))) {
+						profile & (SPA_BT_PROFILE_MEDIA_SINK | SPA_BT_PROFILE_MEDIA_SOURCE))) {
 					if (profile && (device->profiles & profile) == 0) {
 						spa_log_debug(monitor->log, "device %p: add UUID=%s", device, uuid);
 						device->profiles |= profile;
@@ -1587,8 +1614,12 @@ bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const stru
 
 	spa_list_for_each(ep, &device->remote_endpoint_list, device_link) {
 		const enum spa_bt_profile profile = spa_bt_profile_from_uuid(ep->uuid);
-		const enum spa_bt_profile expected = sink ?
-			SPA_BT_PROFILE_A2DP_SINK : SPA_BT_PROFILE_A2DP_SOURCE;
+		enum spa_bt_profile expected;
+
+		if (codec->bap)
+			expected = sink ? SPA_BT_PROFILE_BAP_SINK : SPA_BT_PROFILE_BAP_SOURCE;
+		else
+			expected = sink ? SPA_BT_PROFILE_A2DP_SINK : SPA_BT_PROFILE_A2DP_SOURCE;
 
 		if (profile != expected)
 			continue;
@@ -2229,6 +2260,12 @@ static int transport_update_props(struct spa_bt_transport *transport,
 				case SPA_BT_PROFILE_A2DP_SINK:
 					transport->profile = SPA_BT_PROFILE_A2DP_SOURCE;
 					break;
+				case SPA_BT_PROFILE_BAP_SOURCE:
+					transport->profile = SPA_BT_PROFILE_BAP_SINK;
+					break;
+				case SPA_BT_PROFILE_BAP_SINK:
+					transport->profile = SPA_BT_PROFILE_BAP_SOURCE;
+					break;
 				default:
 					spa_log_warn(monitor->log, "unknown profile %s", value);
 					break;
@@ -2577,7 +2614,7 @@ static bool media_codec_switch_process_current(struct spa_bt_media_codec_switch 
 	struct spa_bt_transport *t;
 	const struct media_codec *codec;
 	uint8_t config[A2DP_MAX_CAPS_SIZE];
-	char *local_endpoint_base;
+	enum spa_bt_media_direction direction;
 	char *local_endpoint = NULL;
 	int res, config_size;
 	dbus_bool_t dbus_ret;
@@ -2613,11 +2650,11 @@ static bool media_codec_switch_process_current(struct spa_bt_media_codec_switch 
 		goto next;
 	}
 
-	if (sw->profile & SPA_BT_PROFILE_A2DP_SINK) {
-		local_endpoint_base = A2DP_SOURCE_ENDPOINT;
+	if ((sw->profile & SPA_BT_PROFILE_A2DP_SINK) || (sw->profile & SPA_BT_PROFILE_BAP_SINK) ) {
+		direction = SPA_BT_MEDIA_SOURCE;
 		sink = false;
-	} else if (sw->profile & SPA_BT_PROFILE_A2DP_SOURCE) {
-		local_endpoint_base = A2DP_SINK_ENDPOINT;
+	} else if ((sw->profile & SPA_BT_PROFILE_A2DP_SOURCE) || (sw->profile & SPA_BT_PROFILE_BAP_SOURCE) ) {
+		direction = SPA_BT_MEDIA_SINK;
 		sink = true;
 	} else {
 		spa_log_debug(sw->device->monitor->log, "media codec switch %p: bad profile (%d), try next",
@@ -2625,7 +2662,7 @@ static bool media_codec_switch_process_current(struct spa_bt_media_codec_switch 
 		goto next;
 	}
 
-	if (media_codec_to_endpoint(codec, local_endpoint_base, &local_endpoint) < 0) {
+	if (media_codec_to_endpoint(codec, direction, &local_endpoint) < 0) {
 		spa_log_debug(sw->device->monitor->log, "media codec switch %p: no endpoint for codec %s, try next",
 		              sw, codec->name);
 		goto next;
@@ -2912,7 +2949,10 @@ static int media_codec_switch_cmp(const void *a, const void *b)
 	else if (ep2 == NULL)
 		return -1;
 
-	flags = spa_streq(ep1->uuid, SPA_BT_UUID_A2DP_SOURCE) ? MEDIA_CODEC_FLAG_SINK : 0;
+	if (codec->bap)
+		flags = spa_streq(ep1->uuid, SPA_BT_UUID_BAP_SOURCE) ? MEDIA_CODEC_FLAG_SINK : 0;
+	else
+		flags = spa_streq(ep1->uuid, SPA_BT_UUID_A2DP_SOURCE) ? MEDIA_CODEC_FLAG_SINK : 0;
 
 	return codec->caps_preference_cmp(codec, flags, ep1->capabilities, ep1->capabilities_len,
 			ep2->capabilities, ep2->capabilities_len, &sw->device->monitor->default_audio_info,
@@ -3303,7 +3343,7 @@ static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, const c
 }
 
 static int bluez_register_endpoint(struct spa_bt_monitor *monitor,
-                             const char *path, const char *endpoint,
+                             const char *path, enum spa_bt_media_direction direction,
 			     const char *uuid, const struct media_codec *codec) {
 	char  *object_path = NULL;
 	DBusMessage *m;
@@ -3312,13 +3352,11 @@ static int bluez_register_endpoint(struct spa_bt_monitor *monitor,
 	uint8_t caps[A2DP_MAX_CAPS_SIZE];
 	int ret, caps_size;
 	uint16_t codec_id = codec->codec_id;
-	bool sink;
+	bool sink = (direction == SPA_BT_MEDIA_SINK);
 
-	ret = media_codec_to_endpoint(codec, endpoint, &object_path);
+	ret = media_codec_to_endpoint(codec, direction, &object_path);
 	if (ret < 0)
 		goto error;
-
-	sink = spa_streq(endpoint, A2DP_SINK_ENDPOINT);
 
 	ret = caps_size = codec->fill_caps(codec, sink ? MEDIA_CODEC_FLAG_SINK : 0, caps);
 	if (ret < 0)
@@ -3358,7 +3396,7 @@ error:
 }
 
 static int register_media_endpoint(struct spa_bt_monitor *monitor,
-		const struct media_codec *codec, const char *endpoint)
+		const struct media_codec *codec, enum spa_bt_media_direction direction)
 {
 	int ret;
 	char* object_path = NULL;
@@ -3366,7 +3404,7 @@ static int register_media_endpoint(struct spa_bt_monitor *monitor,
 		.message_function = endpoint_handler,
 	};
 
-	ret = media_codec_to_endpoint(codec, endpoint, &object_path);
+	ret = media_codec_to_endpoint(codec, direction, &object_path);
 	if (ret < 0)
 		return ret;
 
@@ -3413,13 +3451,13 @@ static int adapter_register_endpoints(struct spa_bt_adapter *a)
 			continue;
 
 		if ((err = bluez_register_endpoint(monitor, a->path,
-						   A2DP_SOURCE_ENDPOINT,
+		                                   SPA_BT_MEDIA_SOURCE,
 		                                   SPA_BT_UUID_A2DP_SOURCE,
 		                                   codec)))
 			goto out;
 
 		if ((err = bluez_register_endpoint(monitor, a->path,
-						   A2DP_SINK_ENDPOINT,
+		                                   SPA_BT_MEDIA_SINK,
 		                                   SPA_BT_UUID_A2DP_SINK,
 		                                   codec)))
 			goto out;
@@ -3523,10 +3561,11 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 				if (caps_size < 0)
 					continue;
 
-				ret = media_codec_to_endpoint(codec, A2DP_SINK_ENDPOINT, &endpoint);
+				ret = media_codec_to_endpoint(codec, SPA_BT_MEDIA_SINK, &endpoint);
 				if (ret == 0) {
 					spa_log_info(monitor->log, "register media sink codec %s: %s", media_codecs[i]->name, endpoint);
-					append_media_object(&array, endpoint, SPA_BT_UUID_A2DP_SINK,
+					append_media_object(&array, endpoint,
+					        codec->bap ? SPA_BT_UUID_BAP_SINK : SPA_BT_UUID_A2DP_SINK,
 							codec_id, caps, caps_size);
 					free(endpoint);
 				}
@@ -3537,10 +3576,11 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 				if (caps_size < 0)
 					continue;
 
-				ret = media_codec_to_endpoint(codec, A2DP_SOURCE_ENDPOINT, &endpoint);
+				ret = media_codec_to_endpoint(codec, SPA_BT_MEDIA_SOURCE, &endpoint);
 				if (ret == 0) {
 					spa_log_info(monitor->log, "register media source codec %s: %s", media_codecs[i]->name, endpoint);
-					append_media_object(&array, endpoint, SPA_BT_UUID_A2DP_SOURCE,
+					append_media_object(&array, endpoint,
+					        codec->bap ? SPA_BT_UUID_BAP_SOURCE : SPA_BT_UUID_A2DP_SOURCE,
 							codec_id, caps, caps_size);
 					free(endpoint);
 				}
@@ -3612,9 +3652,9 @@ static int register_media_application(struct spa_bt_monitor * monitor)
 			continue;
 
 		if (codec->encode != NULL)
-			register_media_endpoint(monitor, codec, A2DP_SOURCE_ENDPOINT);
+			register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE);
 		if (codec->decode != NULL)
-			register_media_endpoint(monitor, codec, A2DP_SINK_ENDPOINT);
+			register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK);
 	}
 
 	return 0;
@@ -3632,13 +3672,13 @@ static void unregister_media_application(struct spa_bt_monitor * monitor)
 		if (!is_media_codec_enabled(monitor, codec))
 			continue;
 
-		ret = media_codec_to_endpoint(codec, A2DP_SOURCE_ENDPOINT, &object_path);
+		ret = media_codec_to_endpoint(codec, SPA_BT_MEDIA_SOURCE, &object_path);
 		if (ret == 0) {
 			dbus_connection_unregister_object_path(monitor->conn, object_path);
 			free(object_path);
 		}
 
-		ret = media_codec_to_endpoint(codec, A2DP_SINK_ENDPOINT, &object_path);
+		ret = media_codec_to_endpoint(codec, SPA_BT_MEDIA_SINK, &object_path);
 		if (ret == 0) {
 			dbus_connection_unregister_object_path(monitor->conn, object_path);
 			free(object_path);
@@ -4397,6 +4437,10 @@ int spa_bt_profiles_from_json_array(const char *str)
 			profiles |= SPA_BT_PROFILE_A2DP_SINK;
 		} else if (spa_streq(role_name, "a2dp_source")) {
 			profiles |= SPA_BT_PROFILE_A2DP_SOURCE;
+		} else if (spa_streq(role_name, "bap_sink")) {
+			profiles |= SPA_BT_PROFILE_BAP_SINK;
+		} else if (spa_streq(role_name, "bap_source")) {
+			profiles |= SPA_BT_PROFILE_BAP_SOURCE;
 		}
 	}
 

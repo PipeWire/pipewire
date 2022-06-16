@@ -640,7 +640,8 @@ static int transport_start(struct impl *this)
 	if (this->codec_data == NULL)
 		return -EIO;
 
-	spa_log_info(this->log, "%p: using A2DP codec %s", this, this->codec->description);
+	spa_log_info(this->log, "%p: using %s codec %s", this,
+	             this->codec->bap ? "BAP" : "A2DP", this->codec->description);
 
 	val = fcntl(this->transport->fd, F_GETFL);
 	if (fcntl(this->transport->fd, F_SETFL, val | O_NONBLOCK) < 0)
@@ -847,7 +848,7 @@ static void emit_node_info(struct impl *this, bool full)
 		{ SPA_KEY_MEDIA_CLASS, this->is_input ? "Audio/Source" : "Stream/Output/Audio" },
 		{ SPA_KEY_NODE_LATENCY, this->is_input ? "" : "512/48000" },
 		{ "media.name", ((this->transport && this->transport->device->name) ?
-					this->transport->device->name : "A2DP") },
+					this->transport->device->name : this->codec->bap ? "BAP" : "A2DP") },
 		{ SPA_KEY_NODE_DRIVER, this->is_input ? "true" : "false" },
 	};
 

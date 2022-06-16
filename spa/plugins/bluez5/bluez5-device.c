@@ -912,7 +912,7 @@ static void profiles_changed(void *userdata, uint32_t prev_profiles, uint32_t pr
 	if (this->switching_codec)
 		return;
 
-	if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SINK) {
+	if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_MEDIA_SINK) {
 		free(this->supported_codecs);
 		this->supported_codecs = spa_bt_device_get_supported_media_codecs(
 			this->bt_dev, &this->supported_codec_count, true);

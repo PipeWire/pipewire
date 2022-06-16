@@ -84,6 +84,8 @@ struct media_codec {
 	uint8_t codec_id;
 	a2dp_vendor_codec_t vendor;
 
+	bool bap;
+
 	const char *name;
 	const char *description;
 	const char *endpoint_name;	/**< Endpoint name. If NULL, same as name */

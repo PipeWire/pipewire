@@ -141,6 +141,8 @@ extern "C" {
 #define SPA_BT_UUID_HSP_AG      "00001112-0000-1000-8000-00805f9b34fb"
 #define SPA_BT_UUID_HFP_HF      "0000111e-0000-1000-8000-00805f9b34fb"
 #define SPA_BT_UUID_HFP_AG      "0000111f-0000-1000-8000-00805f9b34fb"
+#define SPA_BT_UUID_BAP_SINK    "00002bc9-0000-1000-8000-00805f9b34fb"
+#define SPA_BT_UUID_BAP_SOURCE  "00002bcb-0000-1000-8000-00805f9b34fb"
 
 #define PROFILE_HSP_AG	"/Profile/HSPAG"
 #define PROFILE_HSP_HS	"/Profile/HSPHS"
@@ -162,6 +164,9 @@ extern "C" {
 #define A2DP_SINK_ENDPOINT	MEDIA_OBJECT_MANAGER_PATH "/A2DPSink"
 #define A2DP_SOURCE_ENDPOINT	MEDIA_OBJECT_MANAGER_PATH "/A2DPSource"
 
+#define BAP_SINK_ENDPOINT	MEDIA_OBJECT_MANAGER_PATH "/BAPSink"
+#define BAP_SOURCE_ENDPOINT	MEDIA_OBJECT_MANAGER_PATH "/BAPSource"
+
 #define SPA_BT_UNKNOWN_DELAY			0
 
 #define SPA_BT_NO_BATTERY			((uint8_t)255)
@@ -172,6 +177,11 @@ extern "C" {
 #define MSBC_ENCODED_SIZE       60  /* 2 bytes header + 57 mSBC payload + 1 byte padding */
 #define MSBC_PAYLOAD_SIZE       57
 
+enum spa_bt_media_direction {
+	SPA_BT_MEDIA_SOURCE,
+	SPA_BT_MEDIA_SINK,
+};
+
 enum spa_bt_profile {
 	SPA_BT_PROFILE_NULL =		0,
 	SPA_BT_PROFILE_A2DP_SINK =	(1 << 0),
@@ -180,11 +190,16 @@ enum spa_bt_profile {
 	SPA_BT_PROFILE_HSP_AG =		(1 << 3),
 	SPA_BT_PROFILE_HFP_HF =		(1 << 4),
 	SPA_BT_PROFILE_HFP_AG =		(1 << 5),
+	SPA_BT_PROFILE_BAP_SINK =	(1 << 6),
+	SPA_BT_PROFILE_BAP_SOURCE =	(1 << 7),
 
 	SPA_BT_PROFILE_A2DP_DUPLEX =	(SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_A2DP_SOURCE),
 	SPA_BT_PROFILE_HEADSET_HEAD_UNIT = (SPA_BT_PROFILE_HSP_HS | SPA_BT_PROFILE_HFP_HF),
 	SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY = (SPA_BT_PROFILE_HSP_AG | SPA_BT_PROFILE_HFP_AG),
 	SPA_BT_PROFILE_HEADSET_AUDIO =  (SPA_BT_PROFILE_HEADSET_HEAD_UNIT | SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY),
+
+	SPA_BT_PROFILE_MEDIA_SINK =		(SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_BAP_SINK),
+	SPA_BT_PROFILE_MEDIA_SOURCE =	(SPA_BT_PROFILE_A2DP_SOURCE | SPA_BT_PROFILE_BAP_SOURCE),
 };
 
 static inline enum spa_bt_profile spa_bt_profile_from_uuid(const char *uuid)
@@ -203,6 +218,10 @@ static inline enum spa_bt_profile spa_bt_profile_from_uuid(const char *uuid)
 		return SPA_BT_PROFILE_HFP_HF;
 	else if (strcasecmp(uuid, SPA_BT_UUID_HFP_AG) == 0)
 		return SPA_BT_PROFILE_HFP_AG;
+	else if (strcasecmp(uuid, SPA_BT_UUID_BAP_SINK) == 0)
+		return SPA_BT_PROFILE_BAP_SINK;
+	else if (strcasecmp(uuid, SPA_BT_UUID_BAP_SOURCE) == 0)
+		return SPA_BT_PROFILE_BAP_SOURCE;
 	else
 		return 0;
 }

@@ -2036,17 +2036,35 @@ static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 	uint32_t i;
 	const float *s[MAX_PORTS], **ss = (const float**) src;
 	float *d[MAX_PORTS], **sd = (float **) dst;
+	const struct spa_pod_sequence_body *body = &(ctrlport->ctrl)->body;
+	uint32_t size = SPA_POD_BODY_SIZE(ctrlport->ctrl);
+	bool end = false;
 
-	SPA_POD_SEQUENCE_FOREACH(ctrlport->ctrl, c) {
+	c = spa_pod_control_first(body);
+	while (true) {
 		uint32_t chunk;
 
+		if (c == NULL || !spa_pod_control_is_inside(body, size, c)) {
+			c = NULL;
+			end = true;
+		}
 		if (avail_samples == 0)
-			return 0;
+			break;
 
 		/* ignore old control offsets */
-		if (c->offset <= ctrlport->ctrl_offset) {
-			prev = c;
-			continue;
+		if (c != NULL) {
+			if (c->offset <= ctrlport->ctrl_offset) {
+				prev = c;
+				if (c != NULL)
+					c = spa_pod_control_next(c);
+				continue;
+			}
+			chunk = SPA_MIN(avail_samples, c->offset - ctrlport->ctrl_offset);
+			spa_log_trace_fp(this->log, "%p: process %d-%d %d/%d", this,
+					ctrlport->ctrl_offset, c->offset, chunk, avail_samples);
+		} else {
+			chunk = avail_samples;
+			spa_log_trace_fp(this->log, "%p: process remain %d", this, chunk);
 		}
 
 		if (prev) {
@@ -2061,13 +2079,7 @@ static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 				continue;
 			}
 		}
-
-		chunk = SPA_MIN(avail_samples, c->offset - ctrlport->ctrl_offset);
-
-		spa_log_trace_fp(this->log, "%p: process %d-%d %d", this,
-				c->offset, ctrlport->ctrl_offset, chunk);
-
-		if (ss == (const float**)src) {
+		if (ss == (const float**)src && chunk != avail_samples) {
 			for (i = 0; i < this->mix.src_chan; i++)
 				s[i] = ss[i];
 			for (i = 0; i < this->mix.dst_chan; i++)
@@ -2078,33 +2090,16 @@ static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 
 		channelmix_process(&this->mix, (void**)sd, (const void**)ss, chunk);
 
-		for (i = 0; i < this->mix.src_chan; i++)
-			ss[i] += chunk;
-		for (i = 0; i < this->mix.dst_chan; i++)
-			sd[i] += chunk;
-
+		if (chunk != avail_samples) {
+			for (i = 0; i < this->mix.src_chan; i++)
+				ss[i] += chunk;
+			for (i = 0; i < this->mix.dst_chan; i++)
+				sd[i] += chunk;
+		}
 		avail_samples -= chunk;
 		ctrlport->ctrl_offset += chunk;
-
-		prev = c;
 	}
-	if (prev) {
-		switch (prev->type) {
-		case SPA_CONTROL_Midi:
-			apply_midi(this, &prev->value);
-			break;
-		case SPA_CONTROL_Properties:
-			apply_props(this, &prev->value);
-			break;
-		}
-	}
-	/* when we get here we run out of control points but still have some
-	 * remaining samples */
-	spa_log_trace_fp(this->log, "%p: remain %d", this, avail_samples);
-	if (avail_samples > 0)
-		channelmix_process(&this->mix, (void**)sd, (const void**)ss, avail_samples);
-
-	return 1;
+	return end ? 1 : 0;
 }
 
 static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, uint32_t out_size, uint32_t in_queued)
@@ -2156,7 +2151,7 @@ static int impl_node_process(void *object)
 	int tmp = 0, res = 0;
 	bool in_passthrough, mix_passthrough, resample_passthrough, out_passthrough, end_passthrough;
 	bool in_avail = false, flush_in = false, flush_out = false, draining = false;
-	struct spa_io_buffers *io, *ctrlio;
+	struct spa_io_buffers *io, *ctrlio = NULL;
 	const struct spa_pod_sequence *ctrl = NULL;
 
 	dir = &this->dir[SPA_DIRECTION_INPUT];

@@ -120,6 +120,10 @@ option('bluez5-codec-opus',
         description: 'Enable Opus open source codec implementation',
         type: 'feature',
         value: 'auto')
+option('bluez5-codec-lc3',
+        description: 'Enable LC3 open source codec implementation',
+        type: 'feature',
+        value: 'disabled')
 option('control',
        description: 'Enable control spa plugin integration',
        type: 'feature',

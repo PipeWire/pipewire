@@ -58,6 +58,9 @@ enum spa_bluetooth_audio_codec {
 	/* HFP */
 	SPA_BLUETOOTH_AUDIO_CODEC_CVSD = 0x100,
 	SPA_BLUETOOTH_AUDIO_CODEC_MSBC,
+
+	/* BAP */
+	SPA_BLUETOOTH_AUDIO_CODEC_LC3 = 0x200,
 };
 
 /**

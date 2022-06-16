@@ -51,6 +51,7 @@ struct impl {
 static int codec_order(const struct media_codec *c)
 {
 	static const enum spa_bluetooth_audio_codec order[] = {
+		SPA_BLUETOOTH_AUDIO_CODEC_LC3,
 		SPA_BLUETOOTH_AUDIO_CODEC_LDAC,
 		SPA_BLUETOOTH_AUDIO_CODEC_APTX_HD,
 		SPA_BLUETOOTH_AUDIO_CODEC_APTX,
@@ -180,7 +181,8 @@ const struct media_codec * const *load_media_codecs(struct spa_plugin_loader *lo
 		MEDIA_CODEC_FACTORY_LIB("ldac"),
 		MEDIA_CODEC_FACTORY_LIB("sbc"),
 		MEDIA_CODEC_FACTORY_LIB("lc3plus"),
-		MEDIA_CODEC_FACTORY_LIB("opus")
+		MEDIA_CODEC_FACTORY_LIB("opus"),
+		MEDIA_CODEC_FACTORY_LIB("lc3")
 #undef MEDIA_CODEC_FACTORY_LIB
 	};
 

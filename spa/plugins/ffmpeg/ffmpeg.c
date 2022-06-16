@@ -127,8 +127,12 @@ static const AVCodec *find_codec_by_index(uint32_t index)
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)
 {
-	static struct spa_handle_factory f;
 	static char name[128];
+	static struct spa_handle_factory f = {
+		SPA_VERSION_HANDLE_FACTORY,
+		.name = name,
+		.enum_interface_info = ffmpeg_enum_interface_info,
+	};
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 10, 100)
 	avcodec_register_all();
@@ -148,10 +152,6 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 		f.get_size = spa_ffmpeg_dec_get_size;
 		f.init = ffmpeg_dec_init;
 	}
-
-	f.name = name;
-	f.info = NULL;
-	f.enum_interface_info = ffmpeg_enum_interface_info;
 
 	*factory = &f;
 	(*index)++;

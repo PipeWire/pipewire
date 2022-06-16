@@ -1,5 +1,6 @@
-audioconvert_sources = ['audioadapter.c',
-  'audioconvert2.c',
+audioconvert_sources = [
+  'audioadapter.c',
+  'audioconvert.c',
   'plugin.c'
 ]
 

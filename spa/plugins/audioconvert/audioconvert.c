@@ -52,7 +52,7 @@
 
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT log_topic
-static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.audioconvert2");
+static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.audioconvert");
 
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
@@ -2687,7 +2687,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return 1;
 }
 
-const struct spa_handle_factory spa_audioconvert2_factory = {
+const struct spa_handle_factory spa_audioconvert_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	SPA_NAME_AUDIO_CONVERT,
 	NULL,

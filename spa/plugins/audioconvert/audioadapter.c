@@ -484,7 +484,7 @@ static int configure_convert(struct impl *this, uint32_t mode)
 	return spa_node_set_param(this->convert, SPA_PARAM_PortConfig, 0, param);
 }
 
-extern const struct spa_handle_factory spa_audioconvert2_factory;
+extern const struct spa_handle_factory spa_audioconvert_factory;
 
 static const struct spa_node_events follower_node_events;
 
@@ -1520,7 +1520,7 @@ impl_get_size(const struct spa_handle_factory *factory,
 {
 	size_t size;
 
-	size = spa_handle_factory_get_size(&spa_audioconvert2_factory, params);
+	size = spa_handle_factory_get_size(&spa_audioconvert_factory, params);
 	size += sizeof(struct impl);
 
 	return size;
@@ -1569,7 +1569,7 @@ impl_init(const struct spa_handle_factory *factory,
 			&impl_node, this);
 
 	this->hnd_convert = SPA_PTROFF(this, sizeof(struct impl), struct spa_handle);
-	spa_handle_factory_init(&spa_audioconvert2_factory,
+	spa_handle_factory_init(&spa_audioconvert_factory,
 				this->hnd_convert,
 				info, support, n_support);
 

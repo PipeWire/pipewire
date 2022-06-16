@@ -2559,6 +2559,10 @@ static int impl_clear(struct spa_handle *handle)
 	free(this->scratch);
 	free(this->tmp);
 	free(this->tmp2);
+
+	if (this->resample.free)
+		resample_free(&this->resample);
+
 	return 0;
 }
 

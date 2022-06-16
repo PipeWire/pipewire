@@ -377,7 +377,7 @@ static int create_fifo(struct impl *impl)
 		do_unlink_fifo = true;
 	}
 
-	if ((fd = open(filename, O_RDWR | O_CLOEXEC | O_NONBLOCK, 0)) <= 0) {
+	if ((fd = open(filename, O_RDWR | O_CLOEXEC | O_NONBLOCK, 0)) < 0) {
 		res = -errno;
 		pw_log_error("open('%s'): %s", filename, spa_strerror(res));
 		goto error;
@@ -408,7 +408,7 @@ static int create_fifo(struct impl *impl)
 error:
 	if (do_unlink_fifo)
 		unlink(filename);
-	if (fd > 0)
+	if (fd >= 0)
 		close(fd);
 	return res;
 }
@@ -453,7 +453,7 @@ static void impl_destroy(struct impl *impl)
 			unlink(impl->filename);
 		free(impl->filename);
 	}
-	if (impl->fd > 0)
+	if (impl->fd >= 0)
 		close(impl->fd);
 
 	pw_properties_free(impl->stream_props);

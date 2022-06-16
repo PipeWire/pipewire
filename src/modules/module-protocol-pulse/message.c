@@ -390,6 +390,9 @@ static int ensure_size(struct message *m, uint32_t size)
 	uint32_t alloc, diff;
 	void *data;
 
+	if (m->length > m->allocated)
+		return -ENOMEM;
+
 	if (m->length + size <= m->allocated)
 		return size;
 
@@ -397,6 +400,7 @@ static int ensure_size(struct message *m, uint32_t size)
 	diff = alloc - m->allocated;
 	if ((data = realloc(m->data, alloc)) == NULL) {
 		free(m->data);
+		m->data = NULL;
 		m->impl->stat.allocated -= m->allocated;
 		m->allocated = 0;
 		return -errno;

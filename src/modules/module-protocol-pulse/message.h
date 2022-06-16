@@ -32,7 +32,6 @@
 #include <spa/support/log.h>
 
 struct impl;
-struct client;
 struct stats;
 
 struct message {

@@ -30,10 +30,7 @@
 
 #include <libavcodec/avcodec.h>
 
-int spa_ffmpeg_dec_init(struct spa_handle *handle, const struct spa_dict *info,
-			const struct spa_support *support, uint32_t n_support);
-int spa_ffmpeg_enc_init(struct spa_handle *handle, const struct spa_dict *info,
-			const struct spa_support *support, uint32_t n_support);
+#include "ffmpeg.h"
 
 static int
 ffmpeg_dec_init(const struct spa_handle_factory *factory,

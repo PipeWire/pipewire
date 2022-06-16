@@ -38,6 +38,8 @@
 #include <spa/param/video/format.h>
 #include <spa/pod/filter.h>
 
+#include "ffmpeg.h"
+
 #define IS_VALID_PORT(this,d,id)	((id) == 0)
 #define GET_IN_PORT(this,p)		(&this->in_ports[p])
 #define GET_OUT_PORT(this,p)		(&this->out_ports[p])

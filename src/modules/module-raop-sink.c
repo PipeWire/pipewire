@@ -1143,7 +1143,7 @@ static int rtsp_do_auth(struct impl *impl, const struct spa_dict *headers)
 				DEFAULT_USER_NAME, realm, nonce, resp);
 	}
 	else
-		return -EINVAL;
+		goto error;
 
 	pw_properties_setf(impl->headers, "Authorization", "%s %s",
 			tokens[0], auth);

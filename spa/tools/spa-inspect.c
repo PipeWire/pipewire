@@ -232,7 +232,7 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 	if ((res =
 	     spa_handle_factory_init(factory, handle, NULL, data->support, data->n_support)) < 0) {
 		printf("can't make factory instance: %d\n", res);
-		return;
+		goto out;
 	}
 
 	printf("factory instance:\n");
@@ -256,6 +256,12 @@ static void inspect_factory(struct data *data, const struct spa_handle_factory *
 		else
 			printf("skipping unknown interface\n");
 	}
+
+	if ((res = spa_handle_clear(handle)) < 0)
+		printf("failed to clear handle: %s\n", spa_strerror(res));
+
+out:
+	free(handle);
 }
 
 static const struct spa_loop_methods impl_loop = {

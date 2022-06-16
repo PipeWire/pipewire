@@ -66,7 +66,6 @@
 
 static int handle_packet(struct client *client, struct message *msg)
 {
-	struct impl * const impl = client->impl;
 	uint32_t command, tag;
 	int res = 0;
 
@@ -110,7 +109,7 @@ static int handle_packet(struct client *client, struct message *msg)
 	res = cmd->run(client, command, tag, msg);
 
 finish:
-	message_free(impl, msg, false, false);
+	message_free(msg, false, false);
 	if (res < 0)
 		reply_error(client, command, tag, res);
 
@@ -119,7 +118,6 @@ finish:
 
 static int handle_memblock(struct client *client, struct message *msg)
 {
-	struct impl * const impl = client->impl;
 	struct stream *stream;
 	uint32_t channel, flags, index;
 	int64_t offset, diff;
@@ -190,7 +188,7 @@ static int handle_memblock(struct client *client, struct message *msg)
 	stream_send_request(stream);
 
 finish:
-	message_free(impl, msg, false, false);
+	message_free(msg, false, false);
 	return res;
 }
 
@@ -264,7 +262,7 @@ static int do_read(struct client *client)
 		}
 
 		if (client->message)
-			message_free(impl, client->message, false, false);
+			message_free(client->message, false, false);
 
 		client->message = message_alloc(impl, channel, length);
 	} else if (client->message &&

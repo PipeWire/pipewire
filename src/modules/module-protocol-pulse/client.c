@@ -159,10 +159,10 @@ void client_free(struct client *client)
 		pending_sample_free(p);
 
 	if (client->message)
-		message_free(impl, client->message, false, false);
+		message_free(client->message, false, false);
 
 	spa_list_consume(msg, &client->out_messages, link)
-		message_free(impl, msg, true, false);
+		message_free(msg, true, false);
 
 	spa_list_consume(o, &client->operations, link)
 		operation_free(o);
@@ -220,14 +220,12 @@ int client_queue_message(struct client *client, struct message *msg)
 	return 0;
 
 error:
-	message_free(impl, msg, false, false);
+	message_free(msg, false, false);
 	return res;
 }
 
 static int client_try_flush_messages(struct client *client)
 {
-	struct impl *impl = client->impl;
-
 	pw_log_trace("client %p: flushing", client);
 
 	spa_assert(!client->disconnect);
@@ -254,7 +252,7 @@ static int client_try_flush_messages(struct client *client)
 		} else {
 			if (debug_messages && m->channel == SPA_ID_INVALID)
 				message_dump(SPA_LOG_LEVEL_INFO, m);
-			message_free(impl, m, true, false);
+			message_free(m, true, false);
 			client->out_index = 0;
 			continue;
 		}
@@ -307,7 +305,7 @@ static bool drop_from_out_queue(struct client *client, struct message *m)
 	if (m == first && client->out_index > 0)
 		return false;
 
-	message_free(client->impl, m, true, false);
+	message_free(m, true, false);
 
 	return true;
 }

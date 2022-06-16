@@ -32,11 +32,10 @@
 #include <spa/support/log.h>
 
 struct impl;
-struct stats;
 
 struct message {
 	struct spa_list link;
-	struct stats *stat;
+	struct impl *impl;
 	uint32_t extra[4];
 	uint32_t channel;
 	uint32_t allocated;
@@ -68,7 +67,7 @@ enum {
 };
 
 struct message *message_alloc(struct impl *impl, uint32_t channel, uint32_t size);
-void message_free(struct impl *impl, struct message *msg, bool dequeue, bool destroy);
+void message_free(struct message *msg, bool dequeue, bool destroy);
 int message_get(struct message *m, ...);
 int message_put(struct message *m, ...);
 int message_dump(enum spa_log_level level, struct message *m);

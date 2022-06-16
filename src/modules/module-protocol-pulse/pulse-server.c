@@ -4315,7 +4315,7 @@ error_invalid:
 	goto error;
 error:
 	if (reply)
-		message_free(impl, reply, false, false);
+		message_free(reply, false, false);
 	return res;
 }
 
@@ -4391,7 +4391,7 @@ static int do_get_sample_info(struct client *client, uint32_t command, uint32_t 
 
 error:
 	if (reply)
-		message_free(impl, reply, false, false);
+		message_free(reply, false, false);
 	return res;
 }
 
@@ -5355,7 +5355,7 @@ static void impl_clear(struct impl *impl)
 		client_free(c);
 
 	spa_list_consume(msg, &impl->free_messages, link)
-		message_free(impl, msg, true, true);
+		message_free(msg, true, true);
 
 	pw_map_for_each(&impl->samples, impl_free_sample, impl);
 	pw_map_clear(&impl->samples);

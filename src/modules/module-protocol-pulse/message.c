@@ -397,12 +397,12 @@ static int ensure_size(struct message *m, uint32_t size)
 	diff = alloc - m->allocated;
 	if ((data = realloc(m->data, alloc)) == NULL) {
 		free(m->data);
-		m->stat->allocated -= m->allocated;
+		m->impl->stat.allocated -= m->allocated;
 		m->allocated = 0;
 		return -errno;
 	}
-	m->stat->allocated += diff;
-	m->stat->accumulated += diff;
+	m->impl->stat.allocated += diff;
+	m->impl->stat.accumulated += diff;
 	m->data = data;
 	m->allocated = alloc;
 	return size;
@@ -826,18 +826,20 @@ struct message *message_alloc(struct impl *impl, uint32_t channel, uint32_t size
 		msg = spa_list_first(&impl->free_messages, struct message, link);
 		spa_list_remove(&msg->link);
 		pw_log_trace("using recycled message %p size:%d", msg, size);
+
+		spa_assert(msg->impl == impl);
 	} else {
 		if ((msg = calloc(1, sizeof(*msg))) == NULL)
 			return NULL;
 
 		pw_log_trace("new message %p size:%d", msg, size);
-		msg->stat = &impl->stat;
-		msg->stat->n_allocated++;
-		msg->stat->n_accumulated++;
+		msg->impl = impl;
+		msg->impl->stat.n_allocated++;
+		msg->impl->stat.n_accumulated++;
 	}
 
 	if (ensure_size(msg, size) < 0) {
-		message_free(impl, msg, false, true);
+		message_free(msg, false, true);
 		return NULL;
 	}
 
@@ -849,23 +851,23 @@ struct message *message_alloc(struct impl *impl, uint32_t channel, uint32_t size
 	return msg;
 }
 
-void message_free(struct impl *impl, struct message *msg, bool dequeue, bool destroy)
+void message_free(struct message *msg, bool dequeue, bool destroy)
 {
 	if (dequeue)
 		spa_list_remove(&msg->link);
 
-	if (msg->stat->allocated > MAX_ALLOCATED || msg->allocated > MAX_SIZE)
+	if (msg->impl->stat.allocated > MAX_ALLOCATED || msg->allocated > MAX_SIZE)
 		destroy = true;
 
 	if (destroy) {
 		pw_log_trace("destroy message %p size:%d", msg, msg->allocated);
-		msg->stat->n_allocated--;
-		msg->stat->allocated -= msg->allocated;
+		msg->impl->stat.n_allocated--;
+		msg->impl->stat.allocated -= msg->allocated;
 		free(msg->data);
 		free(msg);
 	} else {
 		pw_log_trace("recycle message %p size:%d/%d", msg, msg->length, msg->allocated);
-		spa_list_append(&impl->free_messages, &msg->link);
+		spa_list_append(&msg->impl->free_messages, &msg->link);
 		msg->length = 0;
 	}
 }

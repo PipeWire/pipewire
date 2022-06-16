@@ -29,6 +29,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <poll.h>
 
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/sco.h>
@@ -73,6 +74,7 @@ struct impl {
 	struct spa_log *log;
 	struct spa_loop *main_loop;
 	struct spa_system *main_system;
+	struct spa_loop_utils *loop_utils;
 	struct spa_dbus *dbus;
 	DBusConnection *conn;
 
@@ -127,6 +129,7 @@ struct rfcomm {
 	struct spa_hook transport_listener;
 	enum spa_bt_profile profile;
 	struct spa_source timer;
+	struct spa_source *volume_sync_timer;
 	char* path;
 	bool has_volume;
 	struct rfcomm_volume volumes[SPA_BT_VOLUME_ID_TERM];
@@ -225,6 +228,8 @@ finish:
 
 static int codec_switch_stop_timer(struct rfcomm *rfcomm);
 
+static void volume_sync_stop_timer(struct rfcomm *rfcomm);
+
 static void rfcomm_free(struct rfcomm *rfcomm)
 {
 	codec_switch_stop_timer(rfcomm);
@@ -247,6 +252,8 @@ static void rfcomm_free(struct rfcomm *rfcomm)
 		close (rfcomm->source.fd);
 		rfcomm->source.fd = -1;
 	}
+	if (rfcomm->volume_sync_timer)
+		spa_loop_utils_destroy_source(rfcomm->backend->loop_utils, rfcomm->volume_sync_timer);
 	free(rfcomm);
 }
 
@@ -809,6 +816,7 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		rfcomm->hfp_ag_switching_codec = false;
 		rfcomm->hfp_ag_initial_codec_setup = HFP_AG_INITIAL_CODEC_SETUP_NONE;
 		codec_switch_stop_timer(rfcomm);
+		volume_sync_stop_timer(rfcomm);
 
 		if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC) {
 			spa_log_warn(backend->log, "unsupported codec negotiation: %d", selected_codec);
@@ -1203,6 +1211,18 @@ fail_close:
 	return -1;
 }
 
+static int rfcomm_ag_sync_volume(struct rfcomm *rfcomm, bool later);
+
+static void wait_for_socket(int fd)
+{
+	struct pollfd fds[1];
+	const int timeout_ms = 500;
+
+	fds[0].fd = fd;
+	fds[0].events = POLLIN | POLLERR | POLLHUP;
+	poll(fds, 1, timeout_ms);
+}
+
 static int sco_acquire_cb(void *data, bool optional)
 {
 	struct spa_bt_transport *t = data;
@@ -1224,6 +1244,25 @@ static int sco_acquire_cb(void *data, bool optional)
 #ifdef HAVE_BLUEZ_5_BACKEND_HFP_NATIVE
 	rfcomm_hfp_ag_set_cind(td->rfcomm, true);
 #endif
+
+	/*
+	 * Send RFCOMM volume after connection is ready, and also after
+	 * a timeout.
+	 *
+	 * Some headsets adjust their HFP volume when in A2DP mode
+	 * without reporting via RFCOMM to us, so the volume level can
+	 * be out of sync, and we can't know what it is. Moreover, they may
+	 * take the first +VGS command after connection only partially
+	 * into account, and need a long enough timeout.
+	 *
+	 * E.g. with Sennheiser HD-250BT, the first +VGS changes the
+	 * actual volume, but does not update the level in the hardware
+	 * volume buttons, which is updated by an +VGS event only after
+	 * sufficient time is elapsed from the connection.
+	 */
+	wait_for_socket(sock);
+	rfcomm_ag_sync_volume(td->rfcomm, false);
+	rfcomm_ag_sync_volume(td->rfcomm, true);
 
 	t->fd = sock;
 
@@ -1471,10 +1510,8 @@ fail_close:
 	return -1;
 }
 
-static int sco_set_volume_cb(void *data, int id, float volume)
+static int rfcomm_ag_set_volume(struct spa_bt_transport *t, int id)
 {
-	struct spa_bt_transport *t = data;
-	struct spa_bt_transport_volume *t_volume = &t->volumes[id];
 	struct transport_data *td = t->user_data;
 	struct rfcomm *rfcomm = td->rfcomm;
 	const char *format;
@@ -1485,12 +1522,7 @@ static int sco_set_volume_cb(void *data, int id, float volume)
 	    || !(rfcomm->has_volume && rfcomm->volumes[id].active))
 		return -ENOTSUP;
 
-	value = spa_bt_volume_linear_to_hw(volume, t_volume->hw_volume_max);
-	t_volume->volume = volume;
-
-	if (rfcomm->volumes[id].hw_volume == value)
-		return 0;
-	rfcomm->volumes[id].hw_volume = value;
+	value = rfcomm->volumes[id].hw_volume;
 
 	if (id == SPA_BT_VOLUME_ID_RX)
 		if (rfcomm->profile & SPA_BT_PROFILE_HFP_HF)
@@ -1509,6 +1541,29 @@ static int sco_set_volume_cb(void *data, int id, float volume)
 		rfcomm_send_reply(rfcomm, format, value);
 
 	return 0;
+}
+
+static int sco_set_volume_cb(void *data, int id, float volume)
+{
+	struct spa_bt_transport *t = data;
+	struct spa_bt_transport_volume *t_volume = &t->volumes[id];
+	struct transport_data *td = t->user_data;
+	struct rfcomm *rfcomm = td->rfcomm;
+	int value;
+
+	if (!rfcomm_volume_enabled(rfcomm)
+	    || !(rfcomm->profile & SPA_BT_PROFILE_HEADSET_HEAD_UNIT)
+	    || !(rfcomm->has_volume && rfcomm->volumes[id].active))
+		return -ENOTSUP;
+
+	value = spa_bt_volume_linear_to_hw(volume, t_volume->hw_volume_max);
+	t_volume->volume = volume;
+
+	if (rfcomm->volumes[id].hw_volume == value)
+		return 0;
+	rfcomm->volumes[id].hw_volume = value;
+
+	return rfcomm_ag_set_volume(t, id);
 }
 
 static const struct spa_bt_transport_implementation sco_transport_impl = {
@@ -1567,6 +1622,60 @@ static int codec_switch_stop_timer(struct rfcomm *rfcomm)
 	spa_system_timerfd_settime(backend->main_system, rfcomm->timer.fd, 0, &ts, NULL);
 	spa_system_close(backend->main_system, rfcomm->timer.fd);
 	rfcomm->timer.data = NULL;
+	return 0;
+}
+
+static void volume_sync_stop_timer(struct rfcomm *rfcomm)
+{
+	if (rfcomm->volume_sync_timer)
+		spa_loop_utils_update_timer(rfcomm->backend->loop_utils, rfcomm->volume_sync_timer,
+				NULL, NULL, false);
+}
+
+static void volume_sync_timer_event(void *data, uint64_t expirations)
+{
+	struct rfcomm *rfcomm = data;
+
+	volume_sync_stop_timer(rfcomm);
+
+	if (rfcomm->transport) {
+		rfcomm_ag_set_volume(rfcomm->transport, SPA_BT_VOLUME_ID_TX);
+		rfcomm_ag_set_volume(rfcomm->transport, SPA_BT_VOLUME_ID_RX);
+	}
+}
+
+static int volume_sync_start_timer(struct rfcomm *rfcomm)
+{
+	struct timespec ts;
+	const uint64_t timeout = 1500 * SPA_NSEC_PER_MSEC;
+
+	if (rfcomm->volume_sync_timer == NULL)
+		rfcomm->volume_sync_timer = spa_loop_utils_add_timer(rfcomm->backend->loop_utils,
+				volume_sync_timer_event, rfcomm);
+
+	if (rfcomm->volume_sync_timer == NULL)
+		return -EIO;
+
+	ts.tv_sec = timeout / SPA_NSEC_PER_SEC;
+	ts.tv_nsec = timeout % SPA_NSEC_PER_SEC;
+	spa_loop_utils_update_timer(rfcomm->backend->loop_utils, rfcomm->volume_sync_timer,
+			&ts, NULL, false);
+
+	return 0;
+}
+
+static int rfcomm_ag_sync_volume(struct rfcomm *rfcomm, bool later)
+{
+	if (rfcomm->transport == NULL)
+		return -ENOENT;
+
+	if (!later) {
+		rfcomm_ag_set_volume(rfcomm->transport, SPA_BT_VOLUME_ID_TX);
+		rfcomm_ag_set_volume(rfcomm->transport, SPA_BT_VOLUME_ID_RX);
+	} else {
+		volume_sync_start_timer(rfcomm);
+	}
+
 	return 0;
 }
 
@@ -2222,6 +2331,7 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 	backend->dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
 	backend->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	backend->main_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_System);
+	backend->loop_utils = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_LoopUtils);
 	backend->conn = dbus_connection;
 	backend->sco.fd = -1;
 

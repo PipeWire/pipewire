@@ -458,6 +458,12 @@ impl_get_interface(struct spa_handle *handle, const char *type, void **interface
 	return 0;
 }
 
+size_t
+spa_ffmpeg_dec_get_size(const struct spa_handle_factory *factory, const struct spa_dict *params)
+{
+	return sizeof(struct impl);
+}
+
 int
 spa_ffmpeg_dec_init(struct spa_handle *handle,
 		    const struct spa_dict *info,

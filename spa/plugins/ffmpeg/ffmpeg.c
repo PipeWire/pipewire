@@ -141,9 +141,11 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 
 	if (av_codec_is_encoder(c)) {
 		snprintf(name, sizeof(name), "encoder.%s", c->name);
+		f.get_size = spa_ffmpeg_enc_get_size;
 		f.init = ffmpeg_enc_init;
 	} else {
 		snprintf(name, sizeof(name), "decoder.%s", c->name);
+		f.get_size = spa_ffmpeg_dec_get_size;
 		f.init = ffmpeg_dec_init;
 	}
 

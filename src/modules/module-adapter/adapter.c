@@ -240,7 +240,7 @@ static int do_auto_port_config(struct node *n, const char *str)
 	int res, position = POSITION_PRESERVE;
 	struct spa_pod *param;
 	uint32_t media_type, media_subtype;
-	bool have_format = false, monitor = false;
+	bool have_format = false, monitor = false, control = false;
 	struct spa_audio_info format = { 0, };
 	enum spa_param_port_config_mode mode = SPA_PARAM_PORT_CONFIG_MODE_none;
 	struct spa_json it[2];
@@ -260,6 +260,8 @@ static int do_auto_port_config(struct node *n, const char *str)
 				mode = SPA_PARAM_PORT_CONFIG_MODE_none;
 		} else if (spa_streq(key, "monitor")) {
 			monitor = spa_atob(val);
+		} else if (spa_streq(key, "control")) {
+			control = spa_atob(val);
 		} else if (spa_streq(key, "position")) {
 			if (spa_streq(val, "unknown"))
 				position = POSITION_UNKNOWN;
@@ -331,6 +333,7 @@ static int do_auto_port_config(struct node *n, const char *str)
 		SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(n->direction),
 		SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(mode),
 		SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(monitor),
+		SPA_PARAM_PORT_CONFIG_control,   SPA_POD_Bool(control),
 		SPA_PARAM_PORT_CONFIG_format,    SPA_POD_Pod(param));
 	pw_impl_node_set_param(n->node, SPA_PARAM_PortConfig, 0, param);
 

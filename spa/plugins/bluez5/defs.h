@@ -184,16 +184,17 @@ enum spa_bt_media_direction {
 
 enum spa_bt_profile {
 	SPA_BT_PROFILE_NULL =		0,
-	SPA_BT_PROFILE_A2DP_SINK =	(1 << 0),
-	SPA_BT_PROFILE_A2DP_SOURCE =	(1 << 1),
-	SPA_BT_PROFILE_HSP_HS =		(1 << 2),
-	SPA_BT_PROFILE_HSP_AG =		(1 << 3),
-	SPA_BT_PROFILE_HFP_HF =		(1 << 4),
-	SPA_BT_PROFILE_HFP_AG =		(1 << 5),
-	SPA_BT_PROFILE_BAP_SINK =	(1 << 6),
-	SPA_BT_PROFILE_BAP_SOURCE =	(1 << 7),
+	SPA_BT_PROFILE_BAP_SINK =	(1 << 0),
+	SPA_BT_PROFILE_BAP_SOURCE =	(1 << 1),
+	SPA_BT_PROFILE_A2DP_SINK =	(1 << 2),
+	SPA_BT_PROFILE_A2DP_SOURCE =	(1 << 3),
+	SPA_BT_PROFILE_HSP_HS =		(1 << 4),
+	SPA_BT_PROFILE_HSP_AG =		(1 << 5),
+	SPA_BT_PROFILE_HFP_HF =		(1 << 6),
+	SPA_BT_PROFILE_HFP_AG =		(1 << 7),
 
 	SPA_BT_PROFILE_A2DP_DUPLEX =	(SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_A2DP_SOURCE),
+	SPA_BT_PROFILE_BAP_DUPLEX =     (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE),
 	SPA_BT_PROFILE_HEADSET_HEAD_UNIT = (SPA_BT_PROFILE_HSP_HS | SPA_BT_PROFILE_HFP_HF),
 	SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY = (SPA_BT_PROFILE_HSP_AG | SPA_BT_PROFILE_HFP_AG),
 	SPA_BT_PROFILE_HEADSET_AUDIO =  (SPA_BT_PROFILE_HEADSET_HEAD_UNIT | SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY),
@@ -322,6 +323,12 @@ static inline const char *spa_bt_profile_name (enum spa_bt_profile profile) {
 	return "headset-audio-gateway";
       case SPA_BT_PROFILE_HEADSET_AUDIO:
 	return "headset-audio";
+      case SPA_BT_PROFILE_BAP_SOURCE:
+        return "bap-source";
+      case SPA_BT_PROFILE_BAP_SINK:
+        return "bap-sink";
+      case SPA_BT_PROFILE_BAP_DUPLEX:
+        return "bap-duplex";
       default:
         break;
       }

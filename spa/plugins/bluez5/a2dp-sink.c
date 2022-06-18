@@ -843,7 +843,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 	prev_time = this->current_time;
 	now_time = this->current_time = this->next_time;
 
-	spa_log_debug(this->log, "%p: timeout %"PRIu64" %"PRIu64"", this,
+	spa_log_debug(this->log, "%p: timer %"PRIu64" %"PRIu64"", this,
 			now_time, now_time - prev_time);
 
 	if (SPA_LIKELY(this->position)) {

@@ -7,8 +7,8 @@ msgstr ""
 "Project-Id-Version: pipewire\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/issue"
 "s\n"
-"POT-Creation-Date: 2022-05-05 03:28+0000\n"
-"PO-Revision-Date: 2022-05-05 21:06+0300\n"
+"POT-Creation-Date: 2022-05-20 15:26+0000\n"
+"PO-Revision-Date: 2022-06-18 13:07+0300\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <trans-uk@lists.fedoraproject.org>\n"
 "Language: uk\n"
@@ -48,7 +48,6 @@ msgid "Tunnel to %s/%s"
 msgstr "Тунель до %s/%s"
 
 #: src/modules/module-fallback-sink.c:51
-#| msgid "Game Output"
 msgid "Dummy Output"
 msgstr "Фіктивний вихід"
 
@@ -71,23 +70,29 @@ msgstr "%s на %s@%s"
 msgid "%s on %s"
 msgstr "%s на %s"
 
-#: src/tools/pw-cat.c:871
+#: src/tools/pw-cat.c:872
 #, c-format
+#| msgid ""
+#| "%s [options] <file>\n"
+#| "  -h, --help                            Show this help\n"
+#| "      --version                         Show version\n"
+#| "  -v, --verbose                         Enable verbose operations\n"
+#| "\n"
 msgid ""
-"%s [options] <file>\n"
+"%s [options] [<file>|-]\n"
 "  -h, --help                            Show this help\n"
 "      --version                         Show version\n"
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
-"%s [параметри] <файл>\n"
+"%s [параметри] [<файл>|-]\n"
 "  -h, --help                            вивести довідку\n"
 "      --version                         вивести дані щодо версії\n"
 "  -v, --verbose                         ввімкнути відображення докладної "
 "інформації\n"
 "\n"
 
-#: src/tools/pw-cat.c:878
+#: src/tools/pw-cat.c:879
 #, c-format
 #| msgid ""
 #| "  -R, --remote                          Remote daemon name\n"
@@ -101,8 +106,6 @@ msgstr ""
 #| "                                          or direct samples (256)\n"
 #| "                                          the rate is the one of the "
 #| "source file\n"
-#| "      --list-targets                    List available targets for --"
-#| "target\n"
 #| "\n"
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
@@ -116,6 +119,7 @@ msgid ""
 "                                          or direct samples (256)\n"
 "                                          the rate is the one of the source "
 "file\n"
+"  -P  --properties                      Set node properties\n"
 "\n"
 msgstr ""
 "  -R, --remote                          назва віддаленої фонової служби\n"
@@ -133,9 +137,10 @@ msgstr ""
 "ns)\n"
 "                                          або безпосередні семпли (256)\n"
 "                                          частота — частота з файла джерела\n"
+"  -P  --properties                      встановити властивості вузла\n"
 "\n"
 
-#: src/tools/pw-cat.c:895
+#: src/tools/pw-cat.c:897
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -171,7 +176,7 @@ msgstr ""
 "(типово, %d)\n"
 "\n"
 
-#: src/tools/pw-cat.c:912
+#: src/tools/pw-cat.c:914
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"

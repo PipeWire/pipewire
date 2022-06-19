@@ -25,7 +25,7 @@
 #define __USE_GNU
 
 #include <limits.h>
-#ifndef __FreeBSD__
+#if !defined(__FreeBSD__) && !defined(__MidnightBSD__)
 #include <byteswap.h>
 #endif
 #include <sys/shm.h>

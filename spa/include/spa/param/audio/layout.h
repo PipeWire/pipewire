@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-#ifndef __FreeBSD__
+#if !defined(__FreeBSD__) && !defined(__MidnightBSD__)
 #include <endian.h>
 #endif
 

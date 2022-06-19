@@ -152,7 +152,7 @@ pid_t get_client_pid(struct client *client, int client_fd)
 		pw_log_warn("client %p: no peercred: %m", client);
 	} else
 		return ucred.pid;
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__MidnightBSD__)
 	struct xucred xucred;
 	len = sizeof(xucred);
 	if (getsockopt(client_fd, 0, LOCAL_PEERCRED, &xucred, &len) < 0) {

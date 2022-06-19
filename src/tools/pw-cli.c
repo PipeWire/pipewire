@@ -30,7 +30,7 @@
 #include <signal.h>
 #include <string.h>
 #include <ctype.h>
-#ifndef __FreeBSD__
+#if !defined(__FreeBSD__) && !defined(__MidnightBSD__)
 #include <alloca.h>
 #endif
 #include <getopt.h>

@@ -336,16 +336,16 @@ webrtc_dep = dependency('webrtc-audio-processing',
 summary({'WebRTC Echo Canceling': webrtc_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 cdata.set('HAVE_WEBRTC', webrtc_dep.found())
 
-# On FreeBSD, epoll-shim library is required for eventfd() and timerfd()
-epoll_shim_dep = (build_machine.system() == 'freebsd'
+# On FreeBSD and MidnightBSD, epoll-shim library is required for eventfd() and timerfd()
+epoll_shim_dep = (build_machine.system() == 'freebsd' or build_machine.system() == 'midnightbsd'
     ? dependency('epoll-shim', required: true)
     : dependency('', required: false))
 
-libinotify_dep = (build_machine.system() == 'freebsd'
+libinotify_dep = (build_machine.system() == 'freebsd' or build_machine.system() == 'midnightbsd'
     ? dependency('libinotify', required: true)
     : dependency('', required: false))
 
-# On FreeBSD, libintl library is required for gettext
+# On FreeBSD and MidnightBSD, libintl library is required for gettext
 libintl_dep = cc.find_library('intl', required: false)
 if not libintl_dep.found()
     libintl_dep = dependency('intl', required: false)
@@ -356,8 +356,8 @@ need_alsa = get_option('pipewire-alsa').enabled() or 'media-session' in get_opti
 alsa_dep = dependency('alsa', version : '>=1.1.7', required: need_alsa)
 summary({'pipewire-alsa': alsa_dep.found()}, bool_yn: true)
 
-if build_machine.system() == 'freebsd'
-# On FreeBSD the OpenSSL library may come from base or a package.
+if build_machine.system() == 'freebsd' or build_machine.system() == 'midnightbsd'
+# On FreeBSD and MidnightBSD the OpenSSL library may come from base or a package.
 # Check for a package first and fallback to the base library if we can't find it via pkgconfig
     openssl_lib = dependency('openssl', required: false)
     if not openssl_lib.found()

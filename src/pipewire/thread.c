@@ -62,9 +62,9 @@ error:
 	return NULL;
 }
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__MidnightBSD__)
 #include <sys/param.h>
-#if __FreeBSD_version < 1202000
+#if __FreeBSD_version < 1202000 || defined(__MidnightBSD__)
 int pthread_setname_np(pthread_t thread, const char *name)
 {
 	pthread_set_name_np(thread, name);

@@ -27,7 +27,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <stdio.h>
-#ifndef __FreeBSD__
+#if !defined(__FreeBSD__) && !defined(__MidnightBSD__)
 #include <sys/prctl.h>
 #endif
 #include <pwd.h>
@@ -746,7 +746,7 @@ static void init_prgname(void)
 	static char name[PATH_MAX];
 
 	spa_memzero(name, sizeof(name));
-#if defined(__linux__) || defined(__FreeBSD_kernel__)
+#if defined(__linux__) || defined(__FreeBSD_kernel__) || defined(__MidnightBSD_kernel__)
 	{
 		if (readlink("/proc/self/exe", name, sizeof(name)-1) > 0) {
 			prgname = strrchr(name, '/') + 1;
@@ -754,7 +754,7 @@ static void init_prgname(void)
 		}
 	}
 #endif
-#if defined __FreeBSD__
+#if defined __FreeBSD__ || defined(__MidnightBSD__)
 	{
 		ssize_t len;
 
@@ -764,7 +764,7 @@ static void init_prgname(void)
 		}
 	}
 #endif
-#ifndef __FreeBSD__
+#if !defined(__FreeBSD__) && !defined(__MidnightBSD__)
 	{
 		if (prctl(PR_GET_NAME, (unsigned long) name, 0, 0, 0) == 0) {
 			prgname = name;

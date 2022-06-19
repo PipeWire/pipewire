@@ -30,7 +30,7 @@
 #include <sched.h>
 #include <fcntl.h>
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__MidnightBSD__)
 #include <sys/sysctl.h>
 #endif
 

@@ -38,7 +38,7 @@
 #ifdef HAVE_PWD_H
 #include <pwd.h>
 #endif
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__MidnightBSD__)
 #include <sys/ucred.h>
 #endif
 
@@ -534,7 +534,7 @@ static struct client_data *client_new(struct server *s, int fd)
 	struct pw_impl_client *client;
 	struct pw_protocol *protocol = s->this.protocol;
 	socklen_t len;
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__MidnightBSD__)
 	struct xucred xucred;
 #else
 	struct ucred ucred;
@@ -583,7 +583,7 @@ static struct client_data *client_new(struct server *s, int fd)
 					(int)len, buffer);
 		}
 	}
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__MidnightBSD__)
 	len = sizeof(xucred);
 	if (getsockopt(fd, 0, LOCAL_PEERCRED, &xucred, &len) < 0) {
 		pw_log_warn("server %p: no peercred: %m", s);

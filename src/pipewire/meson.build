@@ -94,7 +94,7 @@ libpipewire_c_args = [
   '-DOLD_MEDIA_SESSION_WORKAROUND=1'
 ]
 
-if build_machine.system() != 'freebsd'
+if build_machine.system() != 'freebsd' and build_machine.system() != 'midnightbsd'
   libpipewire_c_args += [
     '-D_POSIX_C_SOURCE'
   ]

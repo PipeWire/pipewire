@@ -52,7 +52,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <sys/stat.h>
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__MidnightBSD__)
 #include <sys/thr.h>
 #endif
 #include <fcntl.h>
@@ -205,7 +205,7 @@ static pid_t _gettid(void)
 	return (pid_t) gettid();
 #elif defined(__linux__)
 	return syscall(SYS_gettid);
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__MidnightBSD__)
 	long pid;
 	thr_self(&pid);
 	return (pid_t)pid;

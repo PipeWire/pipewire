@@ -55,16 +55,12 @@
  * since kernel might not report it as the socket MTU, see
  * https://lore.kernel.org/linux-bluetooth/20201210003528.3pmaxvubiwegxmhl@pali/T/
  *
- * Since 24 is the packet size for the smallest setting (ALT1), we'll stop
- * reading when rx packet of at least this size is seen, and use its size as the
- * heuristic maximum write MTU. Of course, if we have a source connected, we'll
- * continue reading without stopping.
+ * We continue reading also when there's no source connected, to keep socket
+ * flushed.
  *
  * XXX: when the kernel/backends start giving the right values, the heuristic
  * XXX: can be removed
  */
-#define HEURISTIC_MIN_MTU 24
-
 #define MAX_MTU 1024
 
 
@@ -94,12 +90,6 @@ static void update_source(struct spa_bt_sco_io *io)
 	int enabled;
 	int changed = 0;
 
-	enabled = io->source_cb != NULL || io->read_size < HEURISTIC_MIN_MTU;
-	if (SPA_FLAG_IS_SET(io->source.mask, SPA_IO_IN) != enabled) {
-		SPA_FLAG_UPDATE(io->source.mask, SPA_IO_IN, enabled);
-		changed = 1;
-	}
-
 	enabled = io->sink_cb != NULL;
 	if (SPA_FLAG_IS_SET(io->source.mask, SPA_IO_OUT) != enabled) {
 		SPA_FLAG_UPDATE(io->source.mask, SPA_IO_OUT, enabled);
@@ -117,11 +107,6 @@ static void sco_io_on_ready(struct spa_source *source)
 
 	if (SPA_FLAG_IS_SET(source->rmask, SPA_IO_IN)) {
 		int res;
-
-		/*
-		 * Note that we will read from the socket for a few times even
-		 * when there is no source callback, to autodetect packet size.
-		 */
 
 	read_again:
 		res = read(io->fd, io->read_buffer, SPA_MIN(io->read_mtu, MAX_MTU));

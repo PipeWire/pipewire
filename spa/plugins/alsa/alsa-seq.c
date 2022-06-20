@@ -143,6 +143,7 @@ static int init_stream(struct seq_state *state, enum spa_direction direction)
 				snd_strerror(res));
 		return res;
 	}
+	snd_midi_event_no_status(stream->codec, 1);
 	memset(stream->ports, 0, sizeof(stream->ports));
 	return 0;
 }

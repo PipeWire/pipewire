@@ -1699,6 +1699,11 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		res = -EINVAL;
 		goto error;
 	}
+	if (n_hndl == 0) {
+		pw_log_error("not enough channels");
+		res = -EINVAL;
+		goto error;
+	}
 	pw_log_info("using %d instances %d %d", n_hndl, n_input, n_output);
 
 	/* now go over all nodes and create instances. */

@@ -56,7 +56,7 @@ struct client {
 	struct server *server;
 
 	int ref;
-	const char *name;
+	const char *name; /* owned by `client::props` */
 
 	struct spa_source *source;
 

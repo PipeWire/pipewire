@@ -3245,6 +3245,7 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 	} else {
 		if (pw_properties_update(client->props, &props->dict) > 0) {
 			client_update_quirks(client);
+			client->name = pw_properties_get(client->props, PW_KEY_APP_NAME);
 			pw_core_update_properties(client->core, &client->props->dict);
 		}
 	}

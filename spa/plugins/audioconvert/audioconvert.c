@@ -2411,7 +2411,6 @@ static int impl_node_process(void *object)
 		}
 	}
 
-	this->in_offset += n_samples;
 	if (!resample_passthrough) {
 		uint32_t in_len, out_len;
 
@@ -2424,10 +2423,12 @@ static int impl_node_process(void *object)
 		in_len = n_samples;
 		out_len = n_out;
 		resample_process(&this->resample, in_datas, &in_len, out_datas, &out_len);
-		spa_log_trace_fp(this->log, "%p: resample %d->%d %d->%d %d", this,
-				n_samples, n_out, in_len, out_len, out_passthrough);
+		spa_log_trace_fp(this->log, "%p: resample %d/%d -> %d/%d %d", this,
+				n_samples, in_len, n_out, out_len, out_passthrough);
+		this->in_offset += in_len;
 		n_samples = out_len;
 	} else {
+		this->in_offset += n_samples;
 		n_samples = SPA_MIN(n_samples, n_out);
 	}
 	this->out_offset += n_samples;

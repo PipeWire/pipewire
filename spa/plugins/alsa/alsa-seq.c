@@ -131,13 +131,18 @@ static int seq_close(struct seq_state *state, struct seq_conn *conn)
 static int init_stream(struct seq_state *state, enum spa_direction direction)
 {
 	struct seq_stream *stream = &state->streams[direction];
+	int res;
 	stream->direction = direction;
 	if (direction == SPA_DIRECTION_INPUT) {
 		stream->caps = SND_SEQ_PORT_CAP_SUBS_WRITE;
 	} else {
 		stream->caps = SND_SEQ_PORT_CAP_SUBS_READ;
 	}
-	snd_midi_event_new(MAX_EVENT_SIZE, &stream->codec);
+	if ((res = snd_midi_event_new(MAX_EVENT_SIZE, &stream->codec)) < 0) {
+		spa_log_error(state->log, "can make event decoder: %s",
+				snd_strerror(res));
+		return res;
+	}
 	memset(stream->ports, 0, sizeof(stream->ports));
 	return 0;
 }
@@ -145,7 +150,9 @@ static int init_stream(struct seq_state *state, enum spa_direction direction)
 static int uninit_stream(struct seq_state *state, enum spa_direction direction)
 {
 	struct seq_stream *stream = &state->streams[direction];
-	snd_midi_event_free(stream->codec);
+	if (stream->codec)
+		snd_midi_event_free(stream->codec);
+	stream->codec = NULL;
 	return 0;
 }
 

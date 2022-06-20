@@ -400,6 +400,7 @@ struct client {
 	unsigned int default_as_system:1;
 	int self_connect_mode;
 	int rt_max;
+	unsigned int fix_midi_events:1;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -985,10 +986,20 @@ static size_t convert_from_midi(void *midi, void *buffer, size_t size)
 	return b.state.offset;
 }
 
-static void convert_to_midi(struct spa_pod_sequence **seq, uint32_t n_seq, void *midi)
+static inline void fix_midi_event(uint8_t *data, size_t size)
+{
+	/* fixup NoteOn with vel 0 */
+	if (size > 2 && (data[0] & 0xF0) == 0x90 && data[2] == 0x00) {
+		data[0] = 0x80 + (data[0] & 0x0F);
+		data[2] = 0x40;
+	}
+}
+
+static void convert_to_midi(struct spa_pod_sequence **seq, uint32_t n_seq, void *midi, bool fix)
 {
 	struct spa_pod_control *c[n_seq];
 	uint32_t i;
+	int res;
 
 	for (i = 0; i < n_seq; i++)
 		c[i] = spa_pod_control_first(&seq[i]->body);
@@ -996,6 +1007,8 @@ static void convert_to_midi(struct spa_pod_sequence **seq, uint32_t n_seq, void 
 	while (true) {
 		struct spa_pod_control *next = NULL;
 		uint32_t next_index = 0;
+		uint8_t *data;
+		size_t size;
 
 		for (i = 0; i < n_seq; i++) {
 			if (!spa_pod_control_is_inside(&seq[i]->body,
@@ -1010,12 +1023,17 @@ static void convert_to_midi(struct spa_pod_sequence **seq, uint32_t n_seq, void 
 		if (SPA_UNLIKELY(next == NULL))
 			break;
 
+		data = SPA_POD_BODY(&next->value);
+		size = SPA_POD_BODY_SIZE(&next->value);
+
 		switch(next->type) {
 		case SPA_CONTROL_Midi:
-			jack_midi_event_write(midi,
-					next->offset,
-					SPA_POD_BODY(&next->value),
-					SPA_POD_BODY_SIZE(&next->value));
+			if (fix)
+				fix_midi_event(data, size);
+
+			if ((res = jack_midi_event_write(midi, next->offset, data, size)) < 0)
+				pw_log_warn("midi %p: can't write event: %s", midi,
+						spa_strerror(res));
 			break;
 		}
 		c[next_index] = spa_pod_control_next(c[next_index]);
@@ -3383,6 +3401,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->filter_name = pw_properties_get_bool(client->props, "jack.filter-name", false);
 	client->locked_process = pw_properties_get_bool(client->props, "jack.locked-process", true);
 	client->default_as_system = pw_properties_get_bool(client->props, "jack.default-as-system", false);
+	client->fix_midi_events = pw_properties_get_bool(client->props, "jack.fix-midi-events", true);
 
 	client->self_connect_mode = SELF_CONNECT_ALLOW;
 	if ((str = pw_properties_get(client->props, "jack.self-connect-mode")) != NULL) {
@@ -4462,7 +4481,7 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 		if (n_seq == MAX_MIDI_MIX)
 			break;
 	}
-	convert_to_midi(seq, n_seq, ptr);
+	convert_to_midi(seq, n_seq, ptr, p->client->fix_midi_events);
 
 	return ptr;
 }

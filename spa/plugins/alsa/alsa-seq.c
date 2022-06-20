@@ -543,12 +543,6 @@ static int process_read(struct seq_state *state)
 			continue;
 		}
 
-		/* fixup NoteOn with vel 0 */
-		if ((data[0] & 0xF0) == 0x90 && data[2] == 0x00) {
-			data[0] = 0x80 + (data[0] & 0x0F);
-			data[2] = 0x40;
-		}
-
 		/* queue_time is the estimated current time of the queue as calculated by
 		 * the DLL. Calculate the age of the event. */
 		ev_time = SPA_TIMESPEC_TO_NSEC(&ev->time.time);

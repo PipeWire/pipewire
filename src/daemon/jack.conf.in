@@ -81,7 +81,8 @@ jack.properties = {
      # ignore-all:      Ignore all self connect requests
      #jack.self-connect-mode = allow
      #jack.locked-process    = true
-     #jack.default-as-system    = false
+     #jack.default-as-system = false
+     #jack.fix-midi-events   = true
 }
 
 # client specific properties

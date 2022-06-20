@@ -1034,11 +1034,11 @@ static int do_set_client_name(struct client *client, uint32_t command, uint32_t 
 		changed++;
 	}
 
+	client_update_quirks(client);
+
 	client->name = pw_properties_get(client->props, PW_KEY_APP_NAME);
 	pw_log_info("[%s] %s tag:%d", client->name,
 			commands[command].name, tag);
-
-	client_update_quirks(client);
 
 	if (client->core == NULL) {
 		client->core = pw_context_connect(impl->context,

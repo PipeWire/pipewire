@@ -452,6 +452,10 @@ static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 	if (frame_size == 0)
 		frame_size = 4;
 
+	pw_log_info("[%s] maxlength:%u tlength:%u minreq:%u prebuf:%u",
+			s->client->name, attr->maxlength, attr->tlength,
+			attr->minreq, attr->prebuf);
+
 	minreq = frac_to_bytes_round_up(s->min_req, &s->ss);
 	max_latency = defs->quantum_limit * frame_size;
 
@@ -648,6 +652,9 @@ static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *att
 	if (frame_size == 0)
 		frame_size = 4;
 
+	pw_log_info("[%s] maxlength:%u fragsize:%u",
+			s->client->name, attr->maxlength, attr->fragsize);
+
 	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
 		attr->maxlength = MAXLENGTH;
 	attr->maxlength -= attr->maxlength % frame_size;
@@ -657,12 +664,9 @@ static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *att
 
 	if (attr->fragsize == (uint32_t) -1 || attr->fragsize == 0)
 		attr->fragsize = frac_to_bytes_round_up(s->default_frag, &s->ss);
-	attr->fragsize -= attr->fragsize % frame_size;
+	attr->fragsize = SPA_MIN(attr->fragsize, attr->maxlength);
+	attr->fragsize = SPA_ROUND_UP(attr->fragsize, frame_size);
 	attr->fragsize = SPA_MAX(attr->fragsize, minfrag);
-	attr->fragsize = SPA_MAX(attr->fragsize, frame_size);
-
-	if (attr->fragsize > attr->maxlength)
-		attr->fragsize = attr->maxlength;
 
 	attr->tlength = attr->minreq = attr->prebuf = 0;
 
@@ -673,6 +677,9 @@ static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *att
 	} else {
 		latency = attr->fragsize;
 	}
+	/* make sure can queue at least to fragsize without overruns */
+	if (attr->maxlength < attr->fragsize * 2)
+		attr->maxlength = attr->fragsize * 2;
 
 	pw_log_info("[%s] maxlength:%u fragsize:%u minfrag:%u latency:%u",
 			s->client->name, attr->maxlength, attr->fragsize, minfrag,

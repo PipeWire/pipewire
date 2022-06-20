@@ -563,6 +563,151 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
+static void append_basic_variant_dict_entry(DBusMessageIter *dict, const char* key, int variant_type_int, const char* variant_type_str, void* variant);
+static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, const char* key, const char* variant_type_str, const char* array_type_str, int array_type_int, void* data, int data_size);
+
+static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMessage *m, void *userdata)
+{
+	struct spa_bt_monitor *monitor = userdata;
+	const char *path;
+	DBusMessageIter args, props, iter;
+	DBusMessage *r = NULL;
+	int size, res;
+	const struct media_codec *codec;
+
+	if (!dbus_message_iter_init(m, &args) || !spa_streq(dbus_message_get_signature(m), "a{sv}")) {
+		spa_log_error(monitor->log, "Invalid signature for method SelectProperties()");
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+	}
+
+	dbus_message_iter_recurse(&args, &props);
+	if (dbus_message_iter_get_arg_type(&props) != DBUS_TYPE_DICT_ENTRY)
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+
+	path = dbus_message_get_path(m);
+
+	/* Read transport properties */
+	while (dbus_message_iter_get_arg_type(&props) == DBUS_TYPE_DICT_ENTRY) {
+		const char *key;
+		DBusMessageIter value, entry;
+		int var;
+
+		dbus_message_iter_recurse(&props, &entry);
+		dbus_message_iter_get_basic(&entry, &key);
+
+		dbus_message_iter_next(&entry);
+		dbus_message_iter_recurse(&entry, &value);
+
+		var = dbus_message_iter_get_arg_type(&value);
+
+		if (spa_streq(key, "Capabilities")) {
+			DBusMessageIter array, dict;
+			uint8_t config[A2DP_MAX_CAPS_SIZE], *cap;
+			uint8_t *pconf = (uint8_t *) config;
+			bool sink;
+
+			if (var != DBUS_TYPE_ARRAY) {
+				spa_log_error(monitor->log, "Property %s of wrong type %c", key, (char)var);
+				if ((r = dbus_message_new_error(m, "org.bluez.Error.InvalidArguments",
+						"Invalid property")) == NULL)
+					return DBUS_HANDLER_RESULT_NEED_MEMORY;
+				goto exit_send;
+			}
+
+			dbus_message_iter_recurse(&value, &array);
+			var = dbus_message_iter_get_arg_type(&array);
+			if (var != DBUS_TYPE_BYTE) {
+				spa_log_error(monitor->log, "%s is an array of wrong type %c", key, (char)var);
+				if ((r = dbus_message_new_error(m, "org.bluez.Error.InvalidArguments",
+						"Invalid property")) == NULL)
+					return DBUS_HANDLER_RESULT_NEED_MEMORY;
+				goto exit_send;
+			}
+
+			dbus_message_iter_get_fixed_array(&array, &cap, &size);
+			spa_log_info(monitor->log, "%p: %s select properties %d", monitor, path, size);
+			spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', cap, (size_t)size);
+
+			codec = media_endpoint_to_codec(monitor, path, &sink);
+			if (codec != NULL)
+				/* FIXME: We can't determine which device the SelectConfiguration()
+				* call is associated with, therefore device settings are not passed.
+				* This causes inconsistency with SelectConfiguration() triggered
+				* by codec switching.
+				*/
+				res = codec->select_config(codec, 0, cap, size, &monitor->default_audio_info, NULL, config);
+			else
+				res = -ENOTSUP;
+
+			if (res < 0 || res != size) {
+				spa_log_error(monitor->log, "can't select config: %d (%s)",
+						res, spa_strerror(res));
+				if ((r = dbus_message_new_error(m, "org.bluez.Error.InvalidArguments",
+						"Unable to select properties")) == NULL)
+					return DBUS_HANDLER_RESULT_NEED_MEMORY;
+				goto exit_send;
+			}
+			spa_log_info(monitor->log, "%p: selected conf %d", monitor, size);
+			spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', pconf, (size_t)size);
+
+			if ((r = dbus_message_new_method_return(m)) == NULL)
+				return DBUS_HANDLER_RESULT_NEED_MEMORY;
+			dbus_message_iter_init_append(r, &iter);
+
+			dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
+										DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING
+										DBUS_TYPE_STRING_AS_STRING
+										DBUS_TYPE_VARIANT_AS_STRING
+										DBUS_DICT_ENTRY_END_CHAR_AS_STRING,
+										&dict);
+			append_basic_array_variant_dict_entry(&dict, "Capabilities", "ay", "y", DBUS_TYPE_BYTE, &config, size);
+
+			{
+				/*TBD: QoS Params are not coming from BlueZ now. Hard code it
+				 * for now
+				 */
+				uint32_t interval = 10000U;
+				dbus_bool_t framing = FALSE;
+				char *phy = "2M";
+				uint16_t sdu = 120;
+				uint8_t retransmissions;
+				uint16_t latency = 20;
+				uint32_t delay = 40000U;
+				spa_log_debug(monitor->log, "packing interval");
+				append_basic_variant_dict_entry(&dict, "Interval", DBUS_TYPE_UINT32, "u", &interval);
+				spa_log_debug(monitor->log, "packing framing");
+				append_basic_variant_dict_entry(&dict, "Framing", DBUS_TYPE_BOOLEAN, "b", &framing);
+				spa_log_debug(monitor->log, "packing PHY");
+				append_basic_variant_dict_entry(&dict, "PHY", DBUS_TYPE_STRING, "s", &phy);
+				spa_log_debug(monitor->log, "packing SDU");
+				append_basic_variant_dict_entry(&dict, "SDU", DBUS_TYPE_UINT16, "q", &sdu);
+				spa_log_debug(monitor->log, "packing RTN");
+				append_basic_variant_dict_entry(&dict, "Retransmissions", DBUS_TYPE_BYTE, "y", &retransmissions);
+				spa_log_debug(monitor->log, "packing Lat");
+				append_basic_variant_dict_entry(&dict, "Latency", DBUS_TYPE_UINT16, "q", &latency);
+				spa_log_debug(monitor->log, "packing Delay");
+				append_basic_variant_dict_entry(&dict, "Delay", DBUS_TYPE_UINT32, "u", &delay);
+			}
+
+			dbus_message_iter_close_container(&iter, &dict);
+
+			goto exit_send;
+		}
+
+		dbus_message_iter_next(&props);
+	}
+
+exit_send:
+	if (r) {
+		if (!dbus_connection_send(conn, r, NULL))
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+
+		dbus_message_unref(r);
+	}
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
 static struct spa_bt_adapter *adapter_find(struct spa_bt_monitor *monitor, const char *path)
 {
 	struct spa_bt_adapter *d;
@@ -2560,8 +2705,6 @@ static const struct spa_bt_transport_implementation transport_impl = {
 	.set_volume = transport_set_volume,
 };
 
-static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, const char* key, const char* variant_type_str, const char* array_type_str, int array_type_int, void* data, int data_size);
-
 static void media_codec_switch_reply(DBusPendingCall *pending, void *userdata);
 
 static int media_codec_switch_cmp(const void *a, const void *b);
@@ -3284,6 +3427,8 @@ static DBusHandlerResult endpoint_handler(DBusConnection *c, DBusMessage *m, voi
 		res = endpoint_set_configuration(c, path, m, userdata);
 	else if (dbus_message_is_method_call(m, BLUEZ_MEDIA_ENDPOINT_INTERFACE, "SelectConfiguration"))
 		res = endpoint_select_configuration(c, m, userdata);
+	else if (dbus_message_is_method_call(m, BLUEZ_MEDIA_ENDPOINT_INTERFACE, "SelectProperties"))
+		res = endpoint_select_properties(c, m, userdata);
 	else if (dbus_message_is_method_call(m, BLUEZ_MEDIA_ENDPOINT_INTERFACE, "ClearConfiguration"))
 		res = endpoint_clear_configuration(c, m, userdata);
 	else if (dbus_message_is_method_call(m, BLUEZ_MEDIA_ENDPOINT_INTERFACE, "Release"))

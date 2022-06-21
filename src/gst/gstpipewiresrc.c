@@ -1026,10 +1026,10 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 
   pwsrc = GST_PIPEWIRE_SRC (psrc);
 
+  pw_thread_loop_lock (pwsrc->core->loop);
   if (!pwsrc->negotiated)
     goto not_negotiated;
 
-  pw_thread_loop_lock (pwsrc->core->loop);
   while (TRUE) {
     enum pw_stream_state state;
 
@@ -1126,6 +1126,7 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 
 not_negotiated:
   {
+    pw_thread_loop_unlock (pwsrc->core->loop);
     return GST_FLOW_NOT_NEGOTIATED;
   }
 streaming_eos:
@@ -1348,7 +1349,9 @@ gst_pipewire_src_change_state (GstElement * element, GstStateChange transition)
     case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
       break;
     case GST_STATE_CHANGE_PAUSED_TO_READY:
+      pw_thread_loop_lock (this->core->loop);
       this->negotiated = FALSE;
+      pw_thread_loop_unlock (this->core->loop);
       break;
     case GST_STATE_CHANGE_READY_TO_NULL:
       gst_pipewire_src_close (this);

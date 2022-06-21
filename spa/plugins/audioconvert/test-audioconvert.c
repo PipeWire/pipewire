@@ -43,7 +43,7 @@ SPA_LOG_IMPL(logger);
 
 extern const struct spa_handle_factory test_source_factory;
 
-#define MAX_PORTS SPA_AUDIO_MAX_CHANNELS
+#define MAX_PORTS (SPA_AUDIO_MAX_CHANNELS+1)
 
 struct context {
 	struct spa_handle *convert_handle;

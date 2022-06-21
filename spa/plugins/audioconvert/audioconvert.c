@@ -60,7 +60,7 @@ static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.audioconvert");
 #define MAX_ALIGN	FMT_OPS_MAX_ALIGN
 #define MAX_BUFFERS	32
 #define MAX_DATAS	SPA_AUDIO_MAX_CHANNELS
-#define MAX_PORTS	SPA_AUDIO_MAX_CHANNELS
+#define MAX_PORTS	(SPA_AUDIO_MAX_CHANNELS+1)
 
 #define DEFAULT_MUTE	false
 #define DEFAULT_VOLUME	VOLUME_NORM
@@ -298,6 +298,8 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 {
 	struct port *port = GET_PORT(this, direction, port_id);
 	const char *name;
+
+	spa_assert(port_id < MAX_PORTS);
 
 	if (port == NULL) {
 		port = calloc(1, sizeof(struct port));
@@ -1547,7 +1549,7 @@ static int port_enum_formats(void *object,
 				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
 					rate, 1, INT32_MAX),
 				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
-					DEFAULT_CHANNELS, 1, MAX_PORTS));
+					DEFAULT_CHANNELS, 1, SPA_AUDIO_MAX_CHANNELS));
 		}
 		break;
 	default:

@@ -167,7 +167,7 @@ static const struct fc_descriptor *ladspa_make_desc(struct fc_plugin *plugin, co
 	desc->desc.free = ladspa_free;
 
 	desc->desc.name = d->Label;
-	desc->desc.flags = d->Properties;
+	desc->desc.flags = 0;
 
 	desc->desc.n_ports = d->PortCount;
 	desc->desc.ports = calloc(desc->desc.n_ports, sizeof(struct fc_port));

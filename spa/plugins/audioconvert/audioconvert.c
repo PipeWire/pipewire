@@ -2288,7 +2288,7 @@ static int impl_node_process(void *object)
 		 * always output the resulting data */
 		n_samples = SPA_MIN(n_samples, quant_samples);
 		max_out = this->quantum_limit;
-		flush_out = true;
+		flush_out = flush_in = true;
 	}
 
 	dir = &this->dir[SPA_DIRECTION_OUTPUT];

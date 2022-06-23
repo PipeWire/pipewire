@@ -1008,6 +1008,9 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 				return -EINVAL;
 
+			if (info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
+				return -EINVAL;
+
 			infop = &info;
 		}
 
@@ -1815,6 +1818,11 @@ static int port_set_format(void *object,
 			if ((res = spa_format_audio_raw_parse(format, &info.info.raw)) < 0) {
 				spa_log_error(this->log, "can't parse format %s", spa_strerror(res));
 				return res;
+			}
+			if (info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS) {
+				spa_log_error(this->log, "too many channels %d > %d",
+						info.info.raw.channels, SPA_AUDIO_MAX_CHANNELS);
+				return -EINVAL;
 			}
 			port->stride = calc_width(&info);
 			if (SPA_AUDIO_FORMAT_IS_PLANAR(info.info.raw.format)) {

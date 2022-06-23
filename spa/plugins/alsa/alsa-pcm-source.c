@@ -566,7 +566,7 @@ static int port_set_format(void *object,
 			   uint32_t flags, const struct spa_pod *format)
 {
 	struct state *this = object;
-	int err;
+	int err = 0;
 
 	if (format == NULL) {
 		if (!this->have_format)
@@ -610,7 +610,7 @@ static int port_set_format(void *object,
 	}
 	emit_port_info(this, false);
 
-	return 0;
+	return err;
 }
 
 static int

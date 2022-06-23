@@ -442,6 +442,29 @@ static int configure_format(struct impl *this, uint32_t flags, const struct spa_
 	if (format && spa_log_level_enabled(this->log, SPA_LOG_LEVEL_DEBUG))
 		spa_debug_format(0, NULL, format);
 
+	if ((res = spa_node_port_set_param(this->follower,
+					   this->direction, 0,
+					   SPA_PARAM_Format, flags,
+					   format)) < 0)
+			return res;
+	if (res > 0) {
+		uint8_t buffer[4096];
+		struct spa_pod_builder b = { 0 };
+		uint32_t state = 0;
+		struct spa_pod *fmt;
+
+		/* format was changed to nearest compatible format */
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+		if ((res = spa_node_port_enum_params_sync(this->follower,
+					this->direction, 0,
+					SPA_PARAM_Format, &state,
+					NULL, &fmt, &b)) != 1)
+			return -EIO;
+
+		format = fmt;
+	}
+
 	if (this->target != this->follower && this->convert) {
 		if ((res = spa_node_port_set_param(this->convert,
 					   SPA_DIRECTION_REVERSE(this->direction), 0,
@@ -449,12 +472,6 @@ static int configure_format(struct impl *this, uint32_t flags, const struct spa_
 					   format)) < 0)
 				return res;
 	}
-
-	if ((res = spa_node_port_set_param(this->follower,
-					   this->direction, 0,
-					   SPA_PARAM_Format, flags,
-					   format)) < 0)
-			return res;
 
 	this->have_format = format != NULL;
 	if (format == NULL) {
@@ -513,7 +530,7 @@ static int reconfigure_mode(struct impl *this, bool passthrough,
 	/* set new target */
 	this->target = passthrough ? this->follower : this->convert;
 
-	if ((res = configure_format(this, 0, format)) < 0)
+	if ((res = configure_format(this, SPA_NODE_PARAM_FLAG_NEAREST, format)) < 0)
 		return res;
 
 	if (this->passthrough != passthrough) {
@@ -775,7 +792,7 @@ static int negotiate_format(struct impl *this)
 
 	spa_pod_fixate(format);
 
-	res = configure_format(this, 0, format);
+	res = configure_format(this, SPA_NODE_PARAM_FLAG_NEAREST, format);
 
 done:
 	spa_node_send_command(this->follower,

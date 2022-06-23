@@ -1409,7 +1409,10 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 				state->props.device, rchannels, val);
 		if (!SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_NEAREST))
 			return -EINVAL;
+		if (fmt->media_subtype != SPA_MEDIA_SUBTYPE_raw)
+			return -EINVAL;
 		rchannels = val;
+		fmt->info.raw.channels = rchannels;
 		match = false;
 	}
 
@@ -1429,7 +1432,10 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 				state->props.device, rrate, val);
 		if (!SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_NEAREST))
 			return -EINVAL;
+		if (fmt->media_subtype != SPA_MEDIA_SUBTYPE_raw)
+			return -EINVAL;
 		rrate = val;
+		fmt->info.raw.rate = rrate;
 		match = false;
 	}
 

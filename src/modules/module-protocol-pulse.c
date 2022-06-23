@@ -214,13 +214,15 @@
  * VMs usually can't support the low latency settings that are possible on real
  * hardware.
  *
- * ## Application settings (Rules)
- *
- * The pulse protocol module supports generic config rules. It provides a `quirks`
- * and an `update-props` action.
+ * ## Stream settings and rules
  *
  * Streams created by module-protocol-pulse will use the stream.properties
  * section and stream.rules sections as usual.
+ *
+ * ## Application settings (Rules)
+ *
+ * The pulse protocol module supports generic config rules. It supports a pulse.rules
+ * section with a `quirks` and an `update-props` action.
  *
  *\code{.unparsed}
  * pulse.rules = [

@@ -161,6 +161,15 @@ extern "C" {
  * \section sec_stream_disconnect Disconnect
  *
  * Use \ref pw_stream_disconnect() to disconnect a stream after use.
+ *
+ * \section sec_stream_configuration Configuration
+ *
+ * \subsection ssec_config_properties Stream Properties
+ *
+ * \subsection ssec_config_rules Stream Rules
+ *
+ * \section sec_stream_environment Environment Variables
+ *
  */
 /** \defgroup pw_stream Stream
  *

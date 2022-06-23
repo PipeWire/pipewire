@@ -1107,6 +1107,8 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 	spa_log_debug(this->log, "test control %08x", queryctrl.id);
 
 	if (query_ext_ctrl_ioctl(port, &queryctrl) != 0) {
+		if (errno == ENOTTY)
+			goto enum_end;
 		if (errno == EINVAL) {
 			if (queryctrl.id != next_fl)
 				goto enum_end;

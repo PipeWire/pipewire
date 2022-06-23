@@ -549,6 +549,10 @@ int channelmix_init(struct channelmix *mix)
 {
 	const struct channelmix_info *info;
 
+	if (mix->src_chan > SPA_AUDIO_MAX_CHANNELS ||
+	    mix->dst_chan > SPA_AUDIO_MAX_CHANNELS)
+		return -EINVAL;
+
 	info = find_channelmix_info(mix->src_chan, mix->src_mask, mix->dst_chan, mix->dst_mask,
 			mix->cpu_flags);
 	if (info == NULL)

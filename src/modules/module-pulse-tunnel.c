@@ -118,6 +118,11 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
+#define DEFAULT_FORMAT "S16"
+#define DEFAULT_RATE 48000
+#define DEFAULT_CHANNELS 2
+#define DEFAULT_POSITION "[ FL FR ]"
+
 #define MODULE_USAGE	"[ remote.name=<remote> ] "				\
 			"[ node.latency=<latency as fraction> ] "		\
 			"[ node.name=<name of the nodes> ] "			\
@@ -823,28 +828,25 @@ static inline uint32_t format_from_name(const char *name, size_t len)
 	return SPA_AUDIO_FORMAT_UNKNOWN;
 }
 
-static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_raw *info)
+static void parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info)
 {
 	const char *str;
 
-	*info = SPA_AUDIO_INFO_RAW_INIT(
-			.rate = 48000,
-			.channels = 2,
-			.format = SPA_AUDIO_FORMAT_S16);
-
-	if ((str = pw_properties_get(props, PW_KEY_AUDIO_FORMAT)) != NULL) {
-		uint32_t id;
-
-		id = format_from_name(str, strlen(str));
-		if (id != SPA_AUDIO_FORMAT_UNKNOWN)
-			info->format = id;
-	}
+	spa_zero(*info);
+	if ((str = pw_properties_get(props, PW_KEY_AUDIO_FORMAT)) == NULL)
+		str = DEFAULT_FORMAT;
+	info->format = format_from_name(str, strlen(str));
 
 	info->rate = pw_properties_get_uint32(props, PW_KEY_AUDIO_RATE, info->rate);
+	if (info->rate == 0)
+		info->rate = DEFAULT_RATE;
+
 	info->channels = pw_properties_get_uint32(props, PW_KEY_AUDIO_CHANNELS, info->channels);
+	info->channels = SPA_MIN(info->channels, SPA_AUDIO_MAX_CHANNELS);
 	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL)
 		parse_position(info, str, strlen(str));
-
+	if (info->channels == 0)
+		parse_position(info, DEFAULT_POSITION, strlen(DEFAULT_POSITION));
 }
 
 static int calc_frame_size(struct spa_audio_info_raw *info)

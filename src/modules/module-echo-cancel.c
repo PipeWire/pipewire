@@ -125,6 +125,10 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
+#define DEFAULT_RATE 48000
+#define DEFAULT_CHANNELS 2
+#define DEFAULT_POSITION "[ FL FR ]"
+
 /* Hopefully this is enough for any combination of AEC engine and resampler
  * input requirement for rate matching */
 #define MAX_BUFSIZE_MS 100
@@ -859,9 +863,15 @@ static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_
 	*info = SPA_AUDIO_INFO_RAW_INIT(
 			.format = SPA_AUDIO_FORMAT_F32P);
 	info->rate = pw_properties_get_uint32(props, PW_KEY_AUDIO_RATE, info->rate);
+	if (info->rate == 0)
+		info->rate = DEFAULT_RATE;
+
 	info->channels = pw_properties_get_uint32(props, PW_KEY_AUDIO_CHANNELS, info->channels);
+	info->channels = SPA_MIN(info->channels, SPA_AUDIO_MAX_CHANNELS);
 	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL)
 		parse_position(info, str, strlen(str));
+	if (info->channels == 0)
+		parse_position(info, DEFAULT_POSITION, strlen(DEFAULT_POSITION));
 }
 
 static void copy_props(struct impl *impl, struct pw_properties *props, const char *key)
@@ -926,14 +936,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 
 	parse_audio_info(props, &impl->info);
-
-	if (impl->info.channels == 0) {
-		impl->info.channels = 2;
-		impl->info.position[0] = SPA_AUDIO_CHANNEL_FL;
-		impl->info.position[1] = SPA_AUDIO_CHANNEL_FR;
-	}
-	if (impl->info.rate == 0)
-		impl->info.rate = 48000;
 
 	if ((str = pw_properties_get(props, "source.props")) != NULL)
 		pw_properties_update_string(impl->source_props, str, strlen(str));

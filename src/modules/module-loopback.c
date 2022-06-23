@@ -453,6 +453,7 @@ static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_
 			.format = SPA_AUDIO_FORMAT_F32P);
 	info->rate = pw_properties_get_int32(props, PW_KEY_AUDIO_RATE, 0);
 	info->channels = pw_properties_get_uint32(props, PW_KEY_AUDIO_CHANNELS, 0);
+	info->channels = SPA_MIN(info->channels, SPA_AUDIO_MAX_CHANNELS);
 	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL)
 		parse_position(info, str, strlen(str));
 }

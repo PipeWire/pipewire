@@ -316,7 +316,7 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 	/* Fixed to be the same as ROC sender config above */
 	info.rate = 44100;
 	info.channels = 2;
-	info.format = SPA_AUDIO_FORMAT_F32_LE;
+	info.format = SPA_AUDIO_FORMAT_F32;
 	info.position[0] = SPA_AUDIO_CHANNEL_FL;
 	info.position[1] = SPA_AUDIO_CHANNEL_FR;
 

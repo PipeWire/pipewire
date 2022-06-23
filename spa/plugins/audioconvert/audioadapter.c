@@ -49,7 +49,7 @@ static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.audioadapter");
 
 #define DEFAULT_ALIGN	16
 
-#define MAX_PORTS	SPA_AUDIO_MAX_CHANNELS
+#define MAX_PORTS	(SPA_AUDIO_MAX_CHANNELS+1)
 
 /** \cond */
 

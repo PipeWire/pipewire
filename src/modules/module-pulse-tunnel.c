@@ -80,6 +80,7 @@
  * Options with well-known behavior.
  *
  * - \ref PW_KEY_REMOTE_NAME
+ * - \ref PW_KEY_AUDIO_FORMAT
  * - \ref PW_KEY_AUDIO_RATE
  * - \ref PW_KEY_AUDIO_CHANNELS
  * - \ref SPA_KEY_AUDIO_POSITION
@@ -128,6 +129,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"[ node.name=<name of the nodes> ] "			\
 			"[ node.description=<description of the nodes> ] "	\
 			"[ node.target=<remote node target name> ] "		\
+			"[ audio.format=<sample format> ] "			\
 			"[ audio.rate=<sample rate> ] "				\
 			"[ audio.channels=<number of channels> ] "		\
 			"[ audio.position=<channel map> ] "			\

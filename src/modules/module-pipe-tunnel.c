@@ -84,6 +84,7 @@
  * Options with well-known behavior.
  *
  * - \ref PW_KEY_REMOTE_NAME
+ * - \ref PW_KEY_AUDIO_FORMAT
  * - \ref PW_KEY_AUDIO_RATE
  * - \ref PW_KEY_AUDIO_CHANNELS
  * - \ref SPA_KEY_AUDIO_POSITION

@@ -80,6 +80,7 @@
  *
  * - \ref PW_KEY_AUDIO_RATE
  * - \ref PW_KEY_AUDIO_CHANNELS
+ * - \ref SPA_KEY_AUDIO_POSITION
  * - \ref PW_KEY_MEDIA_CLASS
  * - \ref PW_KEY_NODE_LATENCY
  * - \ref PW_KEY_NODE_NAME
@@ -89,7 +90,6 @@
  * - \ref PW_KEY_NODE_VIRTUAL
  * - \ref PW_KEY_NODE_LATENCY
  * - \ref PW_KEY_REMOTE_NAME
- * - \ref SPA_KEY_AUDIO_POSITION
  *
  * ## Example configuration
  *\code{.unparsed}

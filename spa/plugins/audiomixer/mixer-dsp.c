@@ -744,8 +744,10 @@ static int impl_node_process(void *object)
 				i, inio, outio, inio->status, inio->buffer_id,
 				offs, size);
 
-		datas[n_buffers] = SPA_PTROFF(bd->data, offs, void);
-		buffers[n_buffers++] = inb;
+		if (!SPA_FLAG_IS_SET(bd->chunk->flags, SPA_CHUNK_FLAG_EMPTY)) {
+			datas[n_buffers] = SPA_PTROFF(bd->data, offs, void);
+			buffers[n_buffers++] = inb;
+		}
 		inio->status = SPA_STATUS_NEED_DATA;
 	}
 
@@ -759,6 +761,7 @@ static int impl_node_process(void *object)
 		*outb->buffer = *buffers[0]->buffer;
 	} else {
 		struct spa_data *d = outb->buf.datas;
+
 		*outb->buffer = outb->buf;
 
 		maxsize = SPA_MIN(maxsize, d[0].maxsize);
@@ -766,6 +769,7 @@ static int impl_node_process(void *object)
 		d[0].chunk->offset = 0;
 		d[0].chunk->size = maxsize;
 		d[0].chunk->stride = sizeof(float);
+		SPA_FLAG_UPDATE(d[0].chunk->flags, SPA_CHUNK_FLAG_EMPTY, n_buffers == 0);
 
 		spa_log_trace_fp(this->log, "%p: %d mix %d", this, n_buffers, maxsize);
 

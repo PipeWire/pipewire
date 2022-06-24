@@ -2160,7 +2160,7 @@ static int impl_node_process(void *object)
 	struct dir *dir;
 	int tmp = 0, res = 0;
 	bool in_passthrough, mix_passthrough, resample_passthrough, out_passthrough, end_passthrough;
-	bool in_avail = false, flush_in = false, flush_out = false, draining = false;
+	bool in_avail = false, flush_in = false, flush_out = false, draining = false, in_empty = true;
 	struct spa_io_buffers *io, *ctrlio = NULL;
 	const struct spa_pod_sequence *ctrl = NULL;
 
@@ -2219,6 +2219,8 @@ static int impl_node_process(void *object)
 
 				offs = SPA_MIN(bd->chunk->offset, bd->maxsize);
 				size = SPA_MIN(bd->maxsize - offs, bd->chunk->size);
+				if (!SPA_FLAG_IS_SET(bd->chunk->flags, SPA_CHUNK_FLAG_EMPTY))
+					in_empty = false;
 
 				if (port->is_control) {
 					spa_log_trace_fp(this->log, "%p: control %d", this,
@@ -2487,6 +2489,7 @@ static int impl_node_process(void *object)
 			for (j = 0; j < port->blocks; j++) {
 				bd = &buf->buf->datas[j];
 				bd->chunk->size = this->out_offset * port->stride;
+				SPA_FLAG_UPDATE(bd->chunk->flags, SPA_CHUNK_FLAG_EMPTY, in_empty);
 				spa_log_trace_fp(this->log, "out: %d %d %d", this->out_offset,
 						port->stride, bd->chunk->size);
 			}

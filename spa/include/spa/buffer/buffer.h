@@ -63,6 +63,9 @@ struct spa_chunk {
 	int32_t stride;			/**< stride of valid data */
 #define SPA_CHUNK_FLAG_NONE		0
 #define SPA_CHUNK_FLAG_CORRUPTED	(1u<<0)	/**< chunk data is corrupted in some way */
+#define SPA_CHUNK_FLAG_EMPTY		(1u<<1)	/**< chunk data is empty with media specific
+						  *  neutral data such as silence or black. This
+						  *  could be used to optimize processing. */
 	int32_t flags;			/**< chunk flags */
 };
 

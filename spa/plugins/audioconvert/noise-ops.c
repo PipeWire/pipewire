@@ -64,13 +64,13 @@ static void impl_noise_free(struct noise *ns)
 int noise_init(struct noise *ns)
 {
 	const struct noise_info *info;
-	int i;
+	size_t i;
 
 	info = find_noise_info(ns->cpu_flags);
 	if (info == NULL)
 		return -ENOTSUP;
 
-	for (i = 0; i < NOISE_SIZE; i++)
+	for (i = 0; i < SPA_N_ELEMENTS(ns->tab); i++)
 		ns->tab[i] = (drand48() - 0.5) / (1 << ns->intensity);
 
 	ns->free = impl_noise_free;

@@ -755,6 +755,8 @@ static int impl_node_process(void *object)
 		struct port *inport = GET_IN_PORT(this, i);
 		struct spa_io_buffers *inio = NULL;
 		struct buffer *inb;
+		struct spa_data *bd;
+		uint32_t size, offs;
 
 		if (SPA_UNLIKELY(!PORT_VALID(inport) ||
 		    (inio = inport->io) == NULL ||
@@ -770,12 +772,17 @@ static int impl_node_process(void *object)
 		}
 
 		inb = &inport->buffers[inio->buffer_id];
-		maxsize = SPA_MIN(inb->buffer->datas[0].chunk->size, maxsize);
+		bd = &inb->buffer->datas[0];
 
-		spa_log_trace_fp(this->log, "%p: mix input %d %p->%p %d %d %d", this,
-				i, inio, outio, inio->status, inio->buffer_id, maxsize);
+		offs = SPA_MIN(bd->chunk->offset, bd->maxsize);
+		size = SPA_MIN(bd->maxsize - offs, bd->chunk->size);
+		maxsize = SPA_MIN(size, maxsize);
 
-		datas[n_buffers] = inb->buffer->datas[0].data;
+		spa_log_trace_fp(this->log, "%p: mix input %d %p->%p %d %d %d:%d", this,
+				i, inio, outio, inio->status, inio->buffer_id,
+				offs, size);
+
+		datas[n_buffers] = SPA_PTROFF(bd->data, offs, void);
 		buffers[n_buffers++] = inb;
 		inio->status = SPA_STATUS_NEED_DATA;
 	}
@@ -788,8 +795,7 @@ static int impl_node_process(void *object)
 
 	if (n_buffers == 1) {
 		*outb->buffer = *buffers[0]->buffer;
-	}
-	else {
+	} else {
 		struct spa_data *d = outb->buf.datas;
 
 		*outb->buffer = outb->buf;

@@ -1901,6 +1901,7 @@ int spa_alsa_write(struct state *state)
 	snd_pcm_uframes_t written, frames, offset, off, to_write, total_written, max_write;
 	snd_pcm_sframes_t commitres;
 	int res = 0;
+	size_t frame_size = state->frame_size;
 
 	check_position_config(state);
 
@@ -1957,56 +1958,37 @@ again:
 	written = 0;
 
 	while (!spa_list_is_empty(&state->ready) && to_write > 0) {
-		uint8_t *dst, *src;
 		size_t n_bytes, n_frames;
 		struct buffer *b;
 		struct spa_data *d;
-		uint32_t i, index, offs, avail, size, maxsize, l0, l1;
+		uint32_t i, offs, size;
 
 		b = spa_list_first(&state->ready, struct buffer, link);
 		d = b->buf->datas;
 
-		size = d[0].chunk->size;
-		maxsize = d[0].maxsize;
+		offs = d[0].chunk->offset + state->ready_offset;
+		size = d[0].chunk->size - state->ready_offset;
 
-		index = d[0].chunk->offset + state->ready_offset;
-		avail = size - state->ready_offset;
-		avail /= state->frame_size;
+		offs = SPA_MIN(offs, d[0].maxsize);
+		size = SPA_MIN(d[0].maxsize - offs, size);
 
-		n_frames = SPA_MIN(avail, to_write);
-		n_bytes = n_frames * state->frame_size;
-
-		offs = index % maxsize;
-		l0 = SPA_MIN(n_bytes, maxsize - offs);
-		l1 = n_bytes - l0;
+		n_frames = SPA_MIN(size / frame_size, to_write);
+		n_bytes = n_frames * frame_size;
 
 		if (SPA_LIKELY(state->use_mmap)) {
 			for (i = 0; i < b->buf->n_datas; i++) {
-				dst = SPA_PTROFF(my_areas[i].addr, off * state->frame_size, uint8_t);
-				src = d[i].data;
-
-				spa_memcpy(dst, src + offs, l0);
-				if (SPA_UNLIKELY(l1 > 0))
-					spa_memcpy(dst + l0, src, l1);
+				spa_memcpy(SPA_PTROFF(my_areas[i].addr, off * frame_size, void),
+						SPA_PTROFF(d[i].data, offs, void), n_bytes);
 			}
 		} else {
-			if (state->planar) {
-				void *bufs[b->buf->n_datas];
+			void *bufs[b->buf->n_datas];
+			for (i = 0; i < b->buf->n_datas; i++)
+				bufs[i] = SPA_PTROFF(d[i].data, offs, void);
 
-				for (i = 0; i < b->buf->n_datas; i++)
-					bufs[i] = SPA_PTROFF(d[i].data, offs, void);
-				snd_pcm_writen(hndl, bufs, l0 / state->frame_size);
-				if (SPA_UNLIKELY(l1 > 0)) {
-					for (i = 0; i < b->buf->n_datas; i++)
-						bufs[i] = d[i].data;
-					snd_pcm_writen(hndl, bufs, l1 / state->frame_size);
-				}
-			} else {
-				src = d[0].data;
-				snd_pcm_writei(hndl, src + offs, l0 / state->frame_size);
-				if (SPA_UNLIKELY(l1 > 0))
-					snd_pcm_writei(hndl, src, l1 / state->frame_size);
-			}
+			if (state->planar)
+				snd_pcm_writen(hndl, bufs, n_frames);
+			else
+				snd_pcm_writei(hndl, bufs[0], n_frames);
 		}
 
 		state->ready_offset += n_bytes;
@@ -2077,8 +2059,7 @@ push_frames(struct state *state,
 		spa_log_warn(state->log, "%s: no more buffers", state->props.device);
 		total_frames = frames;
 	} else {
-		uint8_t *src;
-		size_t n_bytes, left;
+		size_t n_bytes, left, frame_size = state->frame_size;
 		struct buffer *b;
 		struct spa_data *d;
 		uint32_t i, avail, l0, l1;
@@ -2094,23 +2075,26 @@ push_frames(struct state *state,
 
 		d = b->buf->datas;
 
-		avail = d[0].maxsize / state->frame_size;
+		avail = d[0].maxsize / frame_size;
 		total_frames = SPA_MIN(avail, frames);
-		n_bytes = total_frames * state->frame_size;
+		n_bytes = total_frames * frame_size;
 
 		if (my_areas) {
 			left = state->buffer_frames - offset;
-			l0 = SPA_MIN(n_bytes, left * state->frame_size);
+			l0 = SPA_MIN(n_bytes, left * frame_size);
 			l1 = n_bytes - l0;
 
 			for (i = 0; i < b->buf->n_datas; i++) {
-				src = SPA_PTROFF(my_areas[i].addr, offset * state->frame_size, uint8_t);
-				spa_memcpy(d[i].data, src, l0);
-				if (l1 > 0)
-					spa_memcpy(SPA_PTROFF(d[i].data, l0, void), my_areas[i].addr, l1);
+				spa_memcpy(d[i].data,
+						SPA_PTROFF(my_areas[i].addr, offset * frame_size, void),
+						l0);
+				if (SPA_UNLIKELY(l1 > 0))
+					spa_memcpy(SPA_PTROFF(d[i].data, l0, void),
+							my_areas[i].addr,
+							l1);
 				d[i].chunk->offset = 0;
 				d[i].chunk->size = n_bytes;
-				d[i].chunk->stride = state->frame_size;
+				d[i].chunk->stride = frame_size;
 			}
 		} else {
 			void *bufs[b->buf->n_datas];
@@ -2118,7 +2102,7 @@ push_frames(struct state *state,
 				bufs[i] = d[i].data;
 				d[i].chunk->offset = 0;
 				d[i].chunk->size = n_bytes;
-				d[i].chunk->stride = state->frame_size;
+				d[i].chunk->stride = frame_size;
 			}
 			if (state->planar) {
 				snd_pcm_readn(state->hndl, bufs, total_frames);

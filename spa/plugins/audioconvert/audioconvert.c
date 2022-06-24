@@ -2614,6 +2614,8 @@ impl_init(const struct spa_handle_factory *factory,
 		this->max_align = SPA_MIN(MAX_ALIGN, spa_cpu_get_max_align(this->cpu));
 	}
 
+	props_reset(&this->props);
+
 	this->mix.options = CHANNELMIX_OPTION_UPMIX;
 	this->mix.upmix = CHANNELMIX_UPMIX_PSD;
 	this->mix.log = this->log;
@@ -2666,7 +2668,6 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->volume.cpu_flags = this->cpu_flags;
 	volume_init(&this->volume);
-	props_reset(&this->props);
 
 	this->rate_scale = 1.0;
 

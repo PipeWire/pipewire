@@ -44,6 +44,7 @@
 #include <unistd.h>
 
 #include <spa/pod/builder.h>
+#include <spa/utils/result.h>
 
 #include <gst/net/gstnetclientclock.h>
 #include <gst/allocators/gstfdmemory.h>
@@ -443,6 +444,7 @@ buffer_recycle (GstMiniObject *obj)
 {
   GstPipeWireSrc *src;
   GstPipeWirePoolData *data;
+  int res;
 
   data = gst_pipewire_pool_get_data (GST_BUFFER_CAST(obj));
 
@@ -466,8 +468,11 @@ buffer_recycle (GstMiniObject *obj)
 
   data->queued = TRUE;
 
-  GST_LOG_OBJECT (src, "recycle buffer %p", obj);
-  pw_stream_queue_buffer (src->stream, data->b);
+  if ((res = pw_stream_queue_buffer (src->stream, data->b)) < 0)
+    GST_WARNING_OBJECT (src, "can't queue recycled buffer %p, %s", obj, spa_strerror(res));
+  else
+    GST_LOG_OBJECT (src, "recycle buffer %p", obj);
+
   pw_thread_loop_unlock (src->core->loop);
 
   GST_OBJECT_UNLOCK (data->pool);
@@ -481,9 +486,9 @@ on_add_buffer (void *_data, struct pw_buffer *b)
   GstPipeWireSrc *pwsrc = _data;
   GstPipeWirePoolData *data;
 
-  GST_DEBUG_OBJECT (pwsrc, "add buffer");
   gst_pipewire_pool_wrap_buffer (pwsrc->pool, b);
   data = b->user_data;
+  GST_DEBUG_OBJECT (pwsrc, "add buffer %p", data->buf);
   data->owner = pwsrc;
   data->queued = TRUE;
   GST_MINI_OBJECT_CAST (data->buf)->dispose = buffer_recycle;
@@ -495,15 +500,18 @@ on_remove_buffer (void *_data, struct pw_buffer *b)
   GstPipeWireSrc *pwsrc = _data;
   GstPipeWirePoolData *data = b->user_data;
   GstBuffer *buf = data->buf;
+  int res;
 
   GST_DEBUG_OBJECT (pwsrc, "remove buffer %p", buf);
 
   GST_MINI_OBJECT_CAST (buf)->dispose = NULL;
 
-  if (data->queued)
+  if (data->queued) {
     gst_buffer_unref (buf);
-  else
-    pw_stream_queue_buffer (pwsrc->stream, b);
+  } else {
+    if ((res = pw_stream_queue_buffer (pwsrc->stream, b)) < 0)
+      GST_WARNING_OBJECT (pwsrc, "can't queue removed buffer %p, %s", buf, spa_strerror(res));
+  }
 }
 
 static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)

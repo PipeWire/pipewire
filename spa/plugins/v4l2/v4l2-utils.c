@@ -1123,6 +1123,7 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 		}
 		res = -errno;
 		spa_log_error(this->log, "'%s' VIDIOC_QUERYCTRL: %m", this->props.device);
+		spa_v4l2_close(dev);
 		return res;
 	}
 	if (result.next & next_fl)

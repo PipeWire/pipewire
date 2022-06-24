@@ -71,6 +71,9 @@ int noise_init(struct noise *ns)
 	if (info == NULL)
 		return -ENOTSUP;
 
+	if (ns->intensity >= 64)
+		return -EINVAL;
+
 	for (i = 0; i < SPA_N_ELEMENTS(ns->tab); i++)
 		ns->tab[i] = (drand48() - 0.5) / (UINT64_C(1) << ns->intensity);
 

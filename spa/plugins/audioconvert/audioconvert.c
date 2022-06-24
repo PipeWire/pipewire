@@ -49,6 +49,7 @@
 #include "fmt-ops.h"
 #include "channelmix-ops.h"
 #include "resample.h"
+#include "noise-ops.h"
 
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT log_topic
@@ -89,9 +90,10 @@ struct props {
 	struct volumes monitor;
 	unsigned int have_soft_volume:1;
 	unsigned int mix_disabled:1;
-	double rate;
 	unsigned int resample_quality;
 	unsigned int resample_disabled:1;
+	double rate;
+	uint32_t empty_noise;
 };
 
 static void props_reset(struct props *props)
@@ -108,6 +110,7 @@ static void props_reset(struct props *props)
 	props->rate = 1.0;
 	props->resample_quality = RESAMPLE_DEFAULT_QUALITY;
 	props->resample_disabled = false;
+	props->empty_noise = 0;
 }
 
 struct buffer {
@@ -209,6 +212,7 @@ struct impl {
 	struct channelmix mix;
 	struct resample resample;
 	struct volume volume;
+	struct noise noise;
 	double rate_scale;
 
 	uint32_t in_offset;
@@ -605,6 +609,14 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->resample_disabled),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
+		case 21:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("empty.noise"),
+				SPA_PROP_INFO_description, SPA_POD_String("Fill empty buffers with noise"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->empty_noise, 0, 16),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
 		default:
 			return 0;
 		}
@@ -671,6 +683,8 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_int(&b, p->resample_quality);
 			spa_pod_builder_string(&b, "resample.disable");
 			spa_pod_builder_bool(&b, p->resample_disabled);
+			spa_pod_builder_string(&b, "empty.noise");
+			spa_pod_builder_int(&b, p->empty_noise);
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
@@ -740,6 +754,8 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 		this->props.resample_quality = atoi(s);
 	else if (spa_streq(k, "resample.disable"))
 		this->props.resample_disabled = spa_atob(s);
+	else if (spa_streq(k, "empty.noise"))
+		spa_atou32(s, &this->props.empty_noise, 0);
 	else
 		return 0;
 	return 1;
@@ -1302,6 +1318,33 @@ static int setup_resample(struct impl *this)
 	return res;
 }
 
+static int calc_width(struct spa_audio_info *info)
+{
+	switch (info->info.raw.format) {
+	case SPA_AUDIO_FORMAT_U8:
+	case SPA_AUDIO_FORMAT_U8P:
+	case SPA_AUDIO_FORMAT_S8:
+	case SPA_AUDIO_FORMAT_S8P:
+	case SPA_AUDIO_FORMAT_ULAW:
+	case SPA_AUDIO_FORMAT_ALAW:
+		return 1;
+	case SPA_AUDIO_FORMAT_S16P:
+	case SPA_AUDIO_FORMAT_S16:
+	case SPA_AUDIO_FORMAT_S16_OE:
+		return 2;
+	case SPA_AUDIO_FORMAT_S24P:
+	case SPA_AUDIO_FORMAT_S24:
+	case SPA_AUDIO_FORMAT_S24_OE:
+		return 3;
+	case SPA_AUDIO_FORMAT_F64P:
+	case SPA_AUDIO_FORMAT_F64:
+	case SPA_AUDIO_FORMAT_F64_OE:
+		return 8;
+	default:
+		return 4;
+	}
+}
+
 static int setup_out_convert(struct impl *this)
 {
 	uint32_t i, j;
@@ -1351,6 +1394,17 @@ static int setup_out_convert(struct impl *this)
 
 	spa_log_debug(this->log, "%p: got converter features %08x:%08x passthrough:%d", this,
 			this->cpu_flags, out->conv.cpu_flags, out->conv.is_passthrough);
+
+	this->noise.intensity = (calc_width(&dst_info) * 8) - 1;
+	this->noise.intensity -= SPA_MIN(this->noise.intensity, this->props.empty_noise);
+	this->noise.n_channels = dst_info.info.raw.channels;
+	this->noise.cpu_flags = this->cpu_flags;
+
+	if ((res = noise_init(&this->noise)) < 0)
+		return res;
+
+	spa_log_debug(this->log, "%p: empty noise:%d intensity:%d", this,
+			this->props.empty_noise, this->noise.intensity);
 
 	return 0;
 }
@@ -1686,33 +1740,6 @@ static int clear_buffers(struct impl *this, struct port *port)
 		spa_list_init(&port->queue);
 	}
 	return 0;
-}
-
-static int calc_width(struct spa_audio_info *info)
-{
-	switch (info->info.raw.format) {
-	case SPA_AUDIO_FORMAT_U8:
-	case SPA_AUDIO_FORMAT_U8P:
-	case SPA_AUDIO_FORMAT_S8:
-	case SPA_AUDIO_FORMAT_S8P:
-	case SPA_AUDIO_FORMAT_ULAW:
-	case SPA_AUDIO_FORMAT_ALAW:
-		return 1;
-	case SPA_AUDIO_FORMAT_S16P:
-	case SPA_AUDIO_FORMAT_S16:
-	case SPA_AUDIO_FORMAT_S16_OE:
-		return 2;
-	case SPA_AUDIO_FORMAT_S24P:
-	case SPA_AUDIO_FORMAT_S24:
-	case SPA_AUDIO_FORMAT_S24_OE:
-		return 3;
-	case SPA_AUDIO_FORMAT_F64P:
-	case SPA_AUDIO_FORMAT_F64:
-	case SPA_AUDIO_FORMAT_F64_OE:
-		return 8;
-	default:
-		return 4;
-	}
 }
 
 static int port_set_latency(void *object,
@@ -2445,6 +2472,12 @@ static int impl_node_process(void *object)
 	}
 	this->out_offset += n_samples;
 
+	if (in_empty && this->props.empty_noise > 0) {
+		if (out_passthrough)
+			out_datas = dst_datas;
+		noise_process(&this->noise, out_datas, n_samples);
+		in_empty = false;
+	}
 	if (!out_passthrough) {
 		in_datas = (const void**)out_datas;
 		spa_log_trace_fp(this->log, "%p: convert %d", this, n_samples);

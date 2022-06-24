@@ -66,6 +66,7 @@ stream.properties = {
     #channelmix.rear-delay = 12.0
     #channelmix.stereo-widen = 0.0
     #channelmix.hilbert-taps = 0
+    #empty.noise = 0
 }
 
 pulse.properties = {

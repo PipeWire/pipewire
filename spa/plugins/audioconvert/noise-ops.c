@@ -24,6 +24,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <math.h>
 
 #include <spa/param/audio/format-utils.h>
@@ -71,7 +72,7 @@ int noise_init(struct noise *ns)
 		return -ENOTSUP;
 
 	for (i = 0; i < SPA_N_ELEMENTS(ns->tab); i++)
-		ns->tab[i] = (drand48() - 0.5) / (1 << ns->intensity);
+		ns->tab[i] = (drand48() - 0.5) / (UINT64_C(1) << ns->intensity);
 
 	ns->free = impl_noise_free;
 	ns->process = info->process;

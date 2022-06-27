@@ -40,11 +40,11 @@ int pw_data_loop_wait(struct pw_data_loop *this, int timeout)
 	int res;
 
 	while (true) {
-		if (!this->running) {
+		if (SPA_UNLIKELY(!this->running)) {
 			res = -ECANCELED;
 			break;
 		}
-		if ((res = pw_loop_iterate(this->loop, timeout)) < 0) {
+		if (SPA_UNLIKELY((res = pw_loop_iterate(this->loop, timeout)) < 0)) {
 			if (res == -EINTR)
 				continue;
 		}
@@ -77,8 +77,8 @@ static void *do_loop(void *user_data)
 
 	pthread_cleanup_push(thread_cleanup, this);
 
-	while (this->running) {
-		if ((res = pw_loop_iterate(this->loop, -1)) < 0) {
+	while (SPA_LIKELY(this->running)) {
+		if (SPA_UNLIKELY((res = pw_loop_iterate(this->loop, -1)) < 0)) {
 			if (res == -EINTR)
 				continue;
 			pw_log_error("%p: iterate error %d (%s)",

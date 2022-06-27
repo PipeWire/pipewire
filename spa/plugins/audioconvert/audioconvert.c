@@ -2200,11 +2200,11 @@ static int impl_node_process(void *object)
 	for (i = 0; i < dir->n_ports; i++) {
 		port = GET_IN_PORT(this, i);
 
-		if ((io = port->io) == NULL) {
+		if (SPA_UNLIKELY((io = port->io) == NULL)) {
 			spa_log_trace_fp(this->log, "%p: no io on input port %d",
 					this, port->id);
 			buf = NULL;
-		} else if (io->status != SPA_STATUS_HAVE_DATA) {
+		} else if (SPA_UNLIKELY(io->status != SPA_STATUS_HAVE_DATA)) {
 			if (io->status & SPA_STATUS_DRAINED) {
 				spa_log_debug(this->log, "%p: port %d drained", this, port->id);
 				in_avail = flush_in = draining = true;
@@ -2214,7 +2214,7 @@ static int impl_node_process(void *object)
 						port->n_buffers);
 			}
 			buf = NULL;
-		} else if (io->buffer_id >= port->n_buffers) {
+		} else if (SPA_UNLIKELY(io->buffer_id >= port->n_buffers)) {
 			spa_log_trace_fp(this->log, "%p: invalid input buffer port %d %p %d %d %d",
 					this, port->id, io, io->status, io->buffer_id,
 					port->n_buffers);
@@ -2224,7 +2224,7 @@ static int impl_node_process(void *object)
 			buf = &port->buffers[io->buffer_id];
 		}
 
-		if (buf == NULL) {
+		if (SPA_UNLIKELY(buf == NULL)) {
 			for (j = 0; j < port->blocks; j++) {
 				if (port->is_control) {
 					spa_log_trace_fp(this->log, "%p: empty control %d", this,
@@ -2249,7 +2249,7 @@ static int impl_node_process(void *object)
 				if (!SPA_FLAG_IS_SET(bd->chunk->flags, SPA_CHUNK_FLAG_EMPTY))
 					in_empty = false;
 
-				if (port->is_control) {
+				if (SPA_UNLIKELY(port->is_control)) {
 					spa_log_trace_fp(this->log, "%p: control %d", this,
 							i * port->blocks + j);
 					ctrlport = port;
@@ -2301,7 +2301,7 @@ static int impl_node_process(void *object)
 	else
 		quant_samples = this->quantum_limit;
 
-	if (draining)
+	if (SPA_UNLIKELY(draining))
 		n_samples = SPA_MIN(max_in, this->quantum_limit);
 	else {
 		n_samples = max_in - SPA_MIN(max_in, this->in_offset);
@@ -2394,7 +2394,7 @@ static int impl_node_process(void *object)
 					io->status = SPA_STATUS_HAVE_DATA;
 					io->buffer_id = buf->id;
 					res |= SPA_STATUS_HAVE_DATA;
-				} else if (port->is_control) {
+				} else if (SPA_UNLIKELY(port->is_control)) {
 					spa_log_trace_fp(this->log, "%p: control %d", this, j);
 				} else {
 					remap = dir->dst_remap[n_dst_datas++];
@@ -2488,7 +2488,7 @@ static int impl_node_process(void *object)
 			this->out_offset, max_out, n_samples, n_out);
 
 	dir = &this->dir[SPA_DIRECTION_INPUT];
-	if (this->in_offset >= max_in || flush_in) {
+	if (SPA_LIKELY(this->in_offset >= max_in || flush_in)) {
 		/* return input buffers */
 		for (i = 0; i < dir->n_ports; i++) {
 			port = GET_IN_PORT(this, i);
@@ -2505,16 +2505,16 @@ static int impl_node_process(void *object)
 	}
 
 	dir = &this->dir[SPA_DIRECTION_OUTPUT];
-	if (n_samples > 0 && (this->out_offset >= max_out || flush_out)) {
+	if (SPA_LIKELY(n_samples > 0 && (this->out_offset >= max_out || flush_out))) {
 		/* queue output buffers */
 		for (i = 0; i < dir->n_ports; i++) {
 			port = GET_OUT_PORT(this, i);
-			if (port->is_monitor || port->is_control)
+			if (SPA_UNLIKELY(port->is_monitor || port->is_control))
 				continue;
 			if (SPA_UNLIKELY((io = port->io) == NULL))
 				continue;
 
-			if ((buf = out_bufs[i]) == NULL)
+			if (SPA_UNLIKELY((buf = out_bufs[i]) == NULL))
 				continue;
 
 			dequeue_buffer(this, port, buf);
@@ -2533,7 +2533,7 @@ static int impl_node_process(void *object)
 		this->drained = draining;
 		this->out_offset = 0;
 	}
-	if (n_samples == 0 && this->peaks) {
+	else if (n_samples == 0 && this->peaks) {
 		for (i = 0; i < dir->n_ports; i++) {
 			port = GET_OUT_PORT(this, i);
 			if (port->is_monitor || port->is_control)

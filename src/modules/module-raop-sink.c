@@ -1638,6 +1638,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		impl->protocol = PROTO_TCP;
 	else {
 		pw_log_error( "can't handle transport %s", str);
+		res = -EINVAL;
 		goto error;
 	}
 
@@ -1649,6 +1650,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		impl->encryption = CRYPTO_RSA;
 	else {
 		pw_log_error( "can't handle encryption type %s", str);
+		res = -EINVAL;
 		goto error;
 	}
 
@@ -1658,6 +1660,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		impl->codec = CODEC_PCM;
 	else {
 		pw_log_error( "can't handle codec type %s", str);
+		res = -EINVAL;
 		goto error;
 	}
 	str = pw_properties_get(props, "raop.password");

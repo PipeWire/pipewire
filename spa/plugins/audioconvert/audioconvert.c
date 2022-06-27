@@ -2613,6 +2613,8 @@ static int impl_clear(struct spa_handle *handle)
 
 	if (this->resample.free)
 		resample_free(&this->resample);
+	if (this->dither.free)
+		dither_free(&this->dither);
 
 	return 0;
 }

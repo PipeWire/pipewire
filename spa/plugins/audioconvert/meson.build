@@ -22,7 +22,8 @@ if have_sse
 endif
 if have_sse2
   audioconvert_sse2 = static_library('audioconvert_sse2',
-    ['fmt-ops-sse2.c' ],
+    ['fmt-ops-sse2.c',
+     'dither-ops-sse2.c' ],
     c_args : [sse2_args, '-O3', '-DHAVE_SSE2'],
     dependencies : [ spa_dep ],
     install : false

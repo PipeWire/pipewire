@@ -29,9 +29,6 @@
 #include <spa/utils/string.h>
 #include <spa/param/audio/raw.h>
 
-#define DITHER_SIZE	(1<<8)
-#define DITHER_MOD	(DITHER_SIZE-1)
-
 struct dither {
 	uint32_t intensity;
 #define DITHER_METHOD_NONE 		0
@@ -48,8 +45,10 @@ struct dither {
 			const void * SPA_RESTRICT src[], uint32_t n_samples);
 	void (*free) (struct dither *d);
 
-	float tab[DITHER_SIZE];
-	int tab_idx;
+	uint32_t random[16];
+	float *dither;
+	uint32_t dither_size;
+	float scale;
 };
 
 int dither_init(struct dither *d);
@@ -87,5 +86,8 @@ void dither_##name##_##arch(struct dither *d,		\
 #define DITHER_OPS_MAX_ALIGN	16
 
 DEFINE_FUNCTION(f32, c);
+#if defined(HAVE_SSE2)
+DEFINE_FUNCTION(f32, sse2);
+#endif
 
 #undef DEFINE_FUNCTION

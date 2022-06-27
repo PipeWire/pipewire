@@ -24,35 +24,44 @@
 
 #include "dither-ops.h"
 
+#include <emmintrin.h>
 
-/* 32 bit xorshift PRNG, see https://en.wikipedia.org/wiki/Xorshift */
-static inline uint32_t
-xorshift(uint32_t *state)
-{
-  uint32_t x = *state;
-  x ^= x << 13;
-  x ^= x >> 17;
-  x ^= x << 5;
-  return (*state = x);
-}
-
-static inline void update_dither_c(struct dither *dt, uint32_t n_samples)
+static inline void update_dither_sse2(struct dither *dt, uint32_t n_samples)
 {
 	uint32_t n;
-	for (n = 0; n < n_samples; n++)
-		dt->dither[n] = ((int32_t)xorshift(&dt->random[0])) * dt->scale;
+	const uint32_t *r = dt->random;
+	__m128 scale = _mm_set1_ps(dt->scale), out[1];
+	__m128i in[1], t[1];
+
+	for (n = 0; n < n_samples; n += 4) {
+
+		/* 32 bit xorshift PRNG, see https://en.wikipedia.org/wiki/Xorshift */
+		in[0] = _mm_loadu_si128((__m128i*)r);
+		t[0] = _mm_slli_epi32(in[0], 13);
+		in[0] = _mm_xor_si128(in[0], t[0]);
+		t[0] = _mm_srli_epi32(in[0], 17);
+		in[0] = _mm_xor_si128(in[0], t[0]);
+		t[0] = _mm_slli_epi32(in[0], 5);
+		in[0] = _mm_xor_si128(in[0], t[0]);
+		_mm_storeu_si128((__m128i*)r, in[0]);
+
+		out[0] = _mm_cvtepi32_ps(in[0]);
+		out[0] = _mm_mul_ps(out[0], scale);
+		_mm_storeu_ps(&dt->dither[n], out[0]);
+	}
 }
 
-void dither_f32_c(struct dither *dt, void * SPA_RESTRICT dst[],
+void dither_f32_sse2(struct dither *dt, void * SPA_RESTRICT dst[],
 		const void * SPA_RESTRICT src[], uint32_t n_samples)
 {
-	uint32_t i, n, m, chunk;
+	uint32_t i, n, m, chunk, unrolled;
 	const float **s = (const float**)src;
 	float **d = (float**)dst;
 	float *t = dt->dither;
+	__m128 in[4];
 
 	chunk = SPA_MIN(n_samples, dt->dither_size);
-	update_dither_c(dt, chunk);
+	update_dither_sse2(dt, chunk);
 
 	for (n = 0; n < n_samples; n += chunk) {
 		chunk = SPA_MIN(n_samples - n, dt->dither_size);
@@ -61,7 +70,27 @@ void dither_f32_c(struct dither *dt, void * SPA_RESTRICT dst[],
 			float *di = &d[i][n];
 			const float *si = &s[i][n];
 
-			for (m = 0; m < chunk; m++)
+			if (SPA_IS_ALIGNED(di, 16) &&
+			    SPA_IS_ALIGNED(si, 16))
+				unrolled = chunk & ~15;
+			else
+				unrolled = 0;
+
+			for (m = 0; m < unrolled; m += 16) {
+				in[0] = _mm_load_ps(&si[m     ]);
+				in[1] = _mm_load_ps(&si[m +  4]);
+				in[2] = _mm_load_ps(&si[m +  8]);
+				in[3] = _mm_load_ps(&si[m + 12]);
+				in[0] = _mm_add_ps(in[0], _mm_load_ps(&t[m     ]));
+				in[1] = _mm_add_ps(in[1], _mm_load_ps(&t[m +  4]));
+				in[2] = _mm_add_ps(in[2], _mm_load_ps(&t[m +  8]));
+				in[3] = _mm_add_ps(in[3], _mm_load_ps(&t[m + 12]));
+				_mm_store_ps(&di[m     ], in[0]);
+				_mm_store_ps(&di[m +  4], in[1]);
+				_mm_store_ps(&di[m +  8], in[2]);
+				_mm_store_ps(&di[m + 12], in[3]);
+			}
+			for (; m < chunk; m++)
 				di[m] = si[m] + t[m];
 		}
 	}

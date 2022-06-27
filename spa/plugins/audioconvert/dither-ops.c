@@ -34,6 +34,8 @@
 
 #include "dither-ops.h"
 
+#define DITHER_SIZE	(1<<10)
+
 typedef void (*dither_func_t) (struct dither *d, void * SPA_RESTRICT dst[],
 		const void * SPA_RESTRICT src[], uint32_t n_samples);
 
@@ -42,6 +44,9 @@ static const struct dither_info {
 	uint32_t cpu_flags;
 } dither_table[] =
 {
+#if defined (HAVE_SSE2)
+	{ dither_f32_sse2, 0 },
+#endif
 	{ dither_f32_c, 0 },
 };
 
@@ -61,6 +66,8 @@ static const struct dither_info *find_dither_info(uint32_t cpu_flags)
 static void impl_dither_free(struct dither *d)
 {
 	d->process = NULL;
+	free(d->dither);
+	d->dither = NULL;
 }
 
 int dither_init(struct dither *d)
@@ -72,11 +79,19 @@ int dither_init(struct dither *d)
 	if (info == NULL)
 		return -ENOTSUP;
 
-	if (d->intensity >= 64)
+	if (d->intensity >= 32)
 		return -EINVAL;
 
-	for (i = 0; i < SPA_N_ELEMENTS(d->tab); i++)
-		d->tab[i] = (drand48() - 0.5) / (UINT64_C(1) << d->intensity);
+	d->scale = 1.0f / (1ULL << (31 + d->intensity));
+
+	d->dither_size = DITHER_SIZE;
+	d->dither = calloc(d->dither_size + 8, sizeof(float));
+	if (d->dither == NULL)
+		return -errno;
+
+	for (i = 0; i < SPA_N_ELEMENTS(d->random); i++)
+		d->random[i] = random();
+
 
 	d->free = impl_dither_free;
 	d->process = info->process;

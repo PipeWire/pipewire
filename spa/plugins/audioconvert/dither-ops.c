@@ -85,13 +85,13 @@ int dither_init(struct dither *d)
 	d->scale = 1.0f / (1ULL << (31 + d->intensity));
 
 	d->dither_size = DITHER_SIZE;
-	d->dither = calloc(d->dither_size + 8, sizeof(float));
+	d->dither = calloc(d->dither_size + DITHER_OPS_MAX_OVERREAD +
+			DITHER_OPS_MAX_ALIGN / sizeof(float), sizeof(float));
 	if (d->dither == NULL)
 		return -errno;
 
 	for (i = 0; i < SPA_N_ELEMENTS(d->random); i++)
 		d->random[i] = random();
-
 
 	d->free = impl_dither_free;
 	d->process = info->process;

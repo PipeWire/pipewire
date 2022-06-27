@@ -49,7 +49,7 @@ void dither_f32_c(struct dither *dt, void * SPA_RESTRICT dst[],
 	uint32_t i, n, m, chunk;
 	const float **s = (const float**)src;
 	float **d = (float**)dst;
-	float *t = dt->dither;
+	float *dither = dt->dither;
 
 	chunk = SPA_MIN(n_samples, dt->dither_size);
 	update_dither_c(dt, chunk);
@@ -62,7 +62,7 @@ void dither_f32_c(struct dither *dt, void * SPA_RESTRICT dst[],
 			const float *si = &s[i][n];
 
 			for (m = 0; m < chunk; m++)
-				di[m] = si[m] + t[m];
+				di[m] = si[m] + dither[m];
 		}
 	}
 }

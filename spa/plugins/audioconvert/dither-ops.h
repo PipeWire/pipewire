@@ -29,6 +29,9 @@
 #include <spa/utils/string.h>
 #include <spa/param/audio/raw.h>
 
+#define DITHER_OPS_MAX_ALIGN	16
+#define DITHER_OPS_MAX_OVERREAD	16
+
 struct dither {
 	uint32_t intensity;
 #define DITHER_METHOD_NONE 		0
@@ -45,7 +48,7 @@ struct dither {
 			const void * SPA_RESTRICT src[], uint32_t n_samples);
 	void (*free) (struct dither *d);
 
-	uint32_t random[16];
+	uint32_t random[16 + DITHER_OPS_MAX_ALIGN/sizeof(uint32_t)];
 	float *dither;
 	uint32_t dither_size;
 	float scale;
@@ -82,8 +85,6 @@ void dither_##name##_##arch(struct dither *d,		\
 		void * SPA_RESTRICT dst[],		\
 		const void * SPA_RESTRICT src[],	\
 		uint32_t n_samples);
-
-#define DITHER_OPS_MAX_ALIGN	16
 
 DEFINE_FUNCTION(f32, c);
 #if defined(HAVE_SSE2)

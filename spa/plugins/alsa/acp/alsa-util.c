@@ -1626,7 +1626,12 @@ static int mixer_class_event(snd_mixer_class_t *class, unsigned int mask,
 {
     int err;
     const char *name = snd_hctl_elem_get_name(helem);
-    if (mask & SND_CTL_EVENT_MASK_ADD) {
+    // NOTE: The remove event defined as '~0U`.
+    if (mask == SND_CTL_EVENT_MASK_REMOVE) {
+        // NOTE: unless remove pointer to melem from link-list at private_data of helem, hits
+	// assersion in alsa-lib since the list is not empty.
+        snd_mixer_elem_detach(melem, helem);
+    } else if (mask & SND_CTL_EVENT_MASK_ADD) {
         snd_ctl_elem_iface_t iface = snd_hctl_elem_get_interface(helem);
         if (iface == SND_CTL_ELEM_IFACE_CARD || iface == SND_CTL_ELEM_IFACE_PCM) {
             snd_mixer_elem_t *new_melem;

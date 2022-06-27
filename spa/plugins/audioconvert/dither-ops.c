@@ -79,10 +79,10 @@ int dither_init(struct dither *d)
 	if (info == NULL)
 		return -ENOTSUP;
 
-	if (d->intensity >= 32)
+	if (d->quantize >= 32)
 		return -EINVAL;
 
-	d->scale = 1.0f / (1ULL << (31 + d->intensity));
+	d->scale = 1.0f / (1ULL << (63 - d->quantize));
 
 	d->dither_size = DITHER_SIZE;
 	d->dither = calloc(d->dither_size + DITHER_OPS_MAX_OVERREAD +

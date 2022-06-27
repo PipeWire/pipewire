@@ -1396,16 +1396,16 @@ static int setup_out_convert(struct impl *this)
 			this->cpu_flags, out->conv.cpu_flags, out->conv.is_passthrough);
 
 	if (this->props.dither_noise > 0) {
-		this->dither.intensity = (calc_width(&dst_info) * 8) - 1;
-		this->dither.intensity -= SPA_MIN(this->dither.intensity, this->props.dither_noise);
+		this->dither.quantize = 32 - (calc_width(&dst_info) * 8);
+		this->dither.quantize += this->props.dither_noise;
 		this->dither.n_channels = dst_info.info.raw.channels;
 		this->dither.cpu_flags = this->cpu_flags;
 
 		if ((res = dither_init(&this->dither)) < 0)
 			return res;
 
-		spa_log_debug(this->log, "%p: dither noise:%d intensity:%d", this,
-				this->props.dither_noise, this->dither.intensity);
+		spa_log_info(this->log, "%p: dither noise:%d quantize:%d", this,
+				this->props.dither_noise, this->dither.quantize);
 	}
 	return 0;
 }

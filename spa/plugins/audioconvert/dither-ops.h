@@ -33,7 +33,7 @@
 #define DITHER_OPS_MAX_OVERREAD	16
 
 struct dither {
-	uint32_t intensity;
+	uint32_t quantize;
 #define DITHER_METHOD_NONE 		0
 #define DITHER_METHOD_RECTANGULAR 	2
 #define DITHER_METHOD_TRIANGULAR 	3

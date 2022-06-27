@@ -49,7 +49,7 @@
 #include "fmt-ops.h"
 #include "channelmix-ops.h"
 #include "resample.h"
-#include "noise-ops.h"
+#include "dither-ops.h"
 
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT log_topic
@@ -93,7 +93,7 @@ struct props {
 	unsigned int resample_quality;
 	unsigned int resample_disabled:1;
 	double rate;
-	uint32_t empty_noise;
+	uint32_t dither_noise;
 };
 
 static void props_reset(struct props *props)
@@ -110,7 +110,7 @@ static void props_reset(struct props *props)
 	props->rate = 1.0;
 	props->resample_quality = RESAMPLE_DEFAULT_QUALITY;
 	props->resample_disabled = false;
-	props->empty_noise = 0;
+	props->dither_noise = 0;
 }
 
 struct buffer {
@@ -212,7 +212,7 @@ struct impl {
 	struct channelmix mix;
 	struct resample resample;
 	struct volume volume;
-	struct noise noise;
+	struct dither dither;
 	double rate_scale;
 
 	uint32_t in_offset;
@@ -612,9 +612,9 @@ static int impl_node_enum_params(void *object, int seq,
 		case 21:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_name, SPA_POD_String("empty.noise"),
-				SPA_PROP_INFO_description, SPA_POD_String("Fill empty buffers with noise"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->empty_noise, 0, 16),
+				SPA_PROP_INFO_name, SPA_POD_String("dither.noise"),
+				SPA_PROP_INFO_description, SPA_POD_String("Add dithering noise"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->dither_noise, 0, 16),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
 		default:
@@ -683,8 +683,8 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_int(&b, p->resample_quality);
 			spa_pod_builder_string(&b, "resample.disable");
 			spa_pod_builder_bool(&b, p->resample_disabled);
-			spa_pod_builder_string(&b, "empty.noise");
-			spa_pod_builder_int(&b, p->empty_noise);
+			spa_pod_builder_string(&b, "dither.noise");
+			spa_pod_builder_int(&b, p->dither_noise);
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
@@ -754,8 +754,8 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 		this->props.resample_quality = atoi(s);
 	else if (spa_streq(k, "resample.disable"))
 		this->props.resample_disabled = spa_atob(s);
-	else if (spa_streq(k, "empty.noise"))
-		spa_atou32(s, &this->props.empty_noise, 0);
+	else if (spa_streq(k, "dither.noise"))
+		spa_atou32(s, &this->props.dither_noise, 0);
 	else
 		return 0;
 	return 1;
@@ -1395,17 +1395,18 @@ static int setup_out_convert(struct impl *this)
 	spa_log_debug(this->log, "%p: got converter features %08x:%08x passthrough:%d", this,
 			this->cpu_flags, out->conv.cpu_flags, out->conv.is_passthrough);
 
-	this->noise.intensity = (calc_width(&dst_info) * 8) - 1;
-	this->noise.intensity -= SPA_MIN(this->noise.intensity, this->props.empty_noise);
-	this->noise.n_channels = dst_info.info.raw.channels;
-	this->noise.cpu_flags = this->cpu_flags;
+	if (this->props.dither_noise > 0) {
+		this->dither.intensity = (calc_width(&dst_info) * 8) - 1;
+		this->dither.intensity -= SPA_MIN(this->dither.intensity, this->props.dither_noise);
+		this->dither.n_channels = dst_info.info.raw.channels;
+		this->dither.cpu_flags = this->cpu_flags;
 
-	if ((res = noise_init(&this->noise)) < 0)
-		return res;
+		if ((res = dither_init(&this->dither)) < 0)
+			return res;
 
-	spa_log_debug(this->log, "%p: empty noise:%d intensity:%d", this,
-			this->props.empty_noise, this->noise.intensity);
-
+		spa_log_debug(this->log, "%p: dither noise:%d intensity:%d", this,
+				this->props.dither_noise, this->dither.intensity);
+	}
 	return 0;
 }
 
@@ -2472,10 +2473,13 @@ static int impl_node_process(void *object)
 	}
 	this->out_offset += n_samples;
 
-	if (in_empty && this->props.empty_noise > 0) {
+	if (this->props.dither_noise > 0) {
+		in_datas = (const void**)out_datas;
 		if (out_passthrough)
 			out_datas = dst_datas;
-		noise_process(&this->noise, out_datas, n_samples);
+		else
+			out_datas = (void **)this->tmp_datas[(tmp++) & 1];
+		dither_process(&this->dither, out_datas, in_datas, n_samples);
 		in_empty = false;
 	}
 	if (!out_passthrough) {
@@ -2656,6 +2660,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->mix.fc_cutoff = 12000.0f;
 	this->mix.rear_delay = 12.0f;
 	this->mix.widen = 0.0f;
+
+	this->dither.log = this->log;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;

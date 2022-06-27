@@ -32,52 +32,53 @@
 #include <spa/support/log.h>
 #include <spa/utils/defs.h>
 
-#include "noise-ops.h"
+#include "dither-ops.h"
 
-typedef void (*noise_func_t) (struct noise *ns, void * SPA_RESTRICT dst[], uint32_t n_samples);
+typedef void (*dither_func_t) (struct dither *d, void * SPA_RESTRICT dst[],
+		const void * SPA_RESTRICT src[], uint32_t n_samples);
 
-static const struct noise_info {
-	noise_func_t process;
+static const struct dither_info {
+	dither_func_t process;
 	uint32_t cpu_flags;
-} noise_table[] =
+} dither_table[] =
 {
-	{ noise_f32_c, 0 },
+	{ dither_f32_c, 0 },
 };
 
 #define MATCH_CPU_FLAGS(a,b)	((a) == 0 || ((a) & (b)) == a)
 
-static const struct noise_info *find_noise_info(uint32_t cpu_flags)
+static const struct dither_info *find_dither_info(uint32_t cpu_flags)
 {
 	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(noise_table); i++) {
-		if (!MATCH_CPU_FLAGS(noise_table[i].cpu_flags, cpu_flags))
+	for (i = 0; i < SPA_N_ELEMENTS(dither_table); i++) {
+		if (!MATCH_CPU_FLAGS(dither_table[i].cpu_flags, cpu_flags))
 			continue;
-		return &noise_table[i];
+		return &dither_table[i];
 	}
 	return NULL;
 }
 
-static void impl_noise_free(struct noise *ns)
+static void impl_dither_free(struct dither *d)
 {
-	ns->process = NULL;
+	d->process = NULL;
 }
 
-int noise_init(struct noise *ns)
+int dither_init(struct dither *d)
 {
-	const struct noise_info *info;
+	const struct dither_info *info;
 	size_t i;
 
-	info = find_noise_info(ns->cpu_flags);
+	info = find_dither_info(d->cpu_flags);
 	if (info == NULL)
 		return -ENOTSUP;
 
-	if (ns->intensity >= 64)
+	if (d->intensity >= 64)
 		return -EINVAL;
 
-	for (i = 0; i < SPA_N_ELEMENTS(ns->tab); i++)
-		ns->tab[i] = (drand48() - 0.5) / (UINT64_C(1) << ns->intensity);
+	for (i = 0; i < SPA_N_ELEMENTS(d->tab); i++)
+		d->tab[i] = (drand48() - 0.5) / (UINT64_C(1) << d->intensity);
 
-	ns->free = impl_noise_free;
-	ns->process = info->process;
+	d->free = impl_dither_free;
+	d->process = info->process;
 	return 0;
 }

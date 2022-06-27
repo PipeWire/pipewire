@@ -26,36 +26,65 @@
 #include <stdio.h>
 
 #include <spa/utils/defs.h>
+#include <spa/utils/string.h>
 #include <spa/param/audio/raw.h>
 
-#define NOISE_SIZE	(1<<8)
-#define NOISE_MOD	(NOISE_SIZE-1)
+#define DITHER_SIZE	(1<<8)
+#define DITHER_MOD	(DITHER_SIZE-1)
 
-struct noise {
+struct dither {
 	uint32_t intensity;
+#define DITHER_METHOD_NONE 		0
+#define DITHER_METHOD_RECTANGULAR 	2
+#define DITHER_METHOD_TRIANGULAR 	3
+#define DITHER_METHOD_SHAPED_5	 	4
+	uint32_t method;
 	uint32_t n_channels;
 	uint32_t cpu_flags;
 
 	struct spa_log *log;
 
-	void (*process) (struct noise *ns, void * SPA_RESTRICT dst[], uint32_t n_samples);
-	void (*free) (struct noise *ns);
+	void (*process) (struct dither *d, void * SPA_RESTRICT dst[],
+			const void * SPA_RESTRICT src[], uint32_t n_samples);
+	void (*free) (struct dither *d);
 
-	float tab[NOISE_SIZE];
+	float tab[DITHER_SIZE];
 	int tab_idx;
 };
 
-int noise_init(struct noise *ns);
+int dither_init(struct dither *d);
 
-#define noise_process(ns,...)		(ns)->process(ns, __VA_ARGS__)
-#define noise_free(ns)			(ns)->free(ns)
+static const struct dither_method_info {
+	const char *label;
+	const char *description;
+	uint32_t method;
+} dither_method_info[] = {
+	[DITHER_METHOD_NONE] = { "none", "Disabled", DITHER_METHOD_NONE },
+	[DITHER_METHOD_RECTANGULAR] = { "rectangular", "Rectangular dithering", DITHER_METHOD_RECTANGULAR },
+	[DITHER_METHOD_TRIANGULAR] = { "triangular", "Triangular dithering", DITHER_METHOD_TRIANGULAR },
+	[DITHER_METHOD_SHAPED_5] = { "shaped5", "Shaped 5 dithering", DITHER_METHOD_SHAPED_5 }
+};
+
+static inline uint32_t dither_method_from_label(const char *label)
+{
+	uint32_t i;
+	for (i = 0; i < SPA_N_ELEMENTS(dither_method_info); i++) {
+		if (spa_streq(dither_method_info[i].label, label))
+			return dither_method_info[i].method;
+	}
+	return DITHER_METHOD_NONE;
+}
+
+#define dither_process(d,...)		(d)->process(d, __VA_ARGS__)
+#define dither_free(d)			(d)->free(d)
 
 #define DEFINE_FUNCTION(name,arch)			\
-void noise_##name##_##arch(struct noise *ns,		\
+void dither_##name##_##arch(struct dither *d,		\
 		void * SPA_RESTRICT dst[],		\
+		const void * SPA_RESTRICT src[],	\
 		uint32_t n_samples);
 
-#define NOISE_OPS_MAX_ALIGN	16
+#define DITHER_OPS_MAX_ALIGN	16
 
 DEFINE_FUNCTION(f32, c);
 

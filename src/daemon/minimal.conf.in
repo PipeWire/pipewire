@@ -212,7 +212,7 @@ context.objects = [
             #channelmix.stereo-widen = 0.0
             #channelmix.hilbert-taps = 0
             channelmix.disable     = true
-            #empty.noise = 0
+            #dither.noise = 0
             #node.param.Props      = {
             #    params = [
             #        audio.channels 6
@@ -274,7 +274,7 @@ context.objects = [
             #channelmix.stereo-widen = 0.0
             #channelmix.hilbert-taps = 0
             channelmix.disable     = true
-            #empty.noise = 0
+            #dither.noise = 0
             #node.param.Props      = {
             #    params = [
             #        audio.format  S16

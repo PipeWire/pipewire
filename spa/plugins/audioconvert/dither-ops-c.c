@@ -22,18 +22,21 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "noise-ops.h"
+#include "dither-ops.h"
 
-void
-noise_f32_c(struct noise *ns, void * SPA_RESTRICT dst[], uint32_t n_samples)
+void dither_f32_c(struct dither *dt, void * SPA_RESTRICT dst[],
+		const void * SPA_RESTRICT src[], uint32_t n_samples)
 {
 	uint32_t i, n;
+	const float **s = (const float**)src;
 	float **d = (float**)dst;
-	const float *t = ns->tab;
-	int tab_idx = ns->tab_idx;
+	const float *t = dt->tab;
+	int tab_idx = dt->tab_idx;
 
-	for (i = 0; i < ns->n_channels; i++)
+	for (i = 0; i < dt->n_channels; i++) {
 		for (n = 0; n < n_samples; n++)
-			d[i][n] = t[tab_idx++ & NOISE_MOD];
-	ns->tab_idx = (tab_idx + 23) & NOISE_MOD;
+			d[i][n] = s[i][n] + t[tab_idx++ & DITHER_MOD];
+		tab_idx += 61;
+	}
+	dt->tab_idx = tab_idx & DITHER_MOD;
 }

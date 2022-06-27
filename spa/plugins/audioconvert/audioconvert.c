@@ -1414,6 +1414,7 @@ static int setup_convert(struct impl *this)
 {
 	struct dir *in, *out;
 	uint32_t i, rate;
+	int res;
 
 	in = &this->dir[SPA_DIRECTION_INPUT];
 	out = &this->dir[SPA_DIRECTION_OUTPUT];
@@ -1443,10 +1444,14 @@ static int setup_convert(struct impl *this)
 	else if (out->format.info.raw.channels == 0)
 		out->format.info.raw.channels = in->format.info.raw.channels;
 
-	setup_in_convert(this);
-	setup_channelmix(this);
-	setup_resample(this);
-	setup_out_convert(this);
+	if ((res = setup_in_convert(this)) < 0)
+		return res;
+	if ((res = setup_channelmix(this)) < 0)
+		return res;
+	if ((res = setup_resample(this)) < 0)
+		return res;
+	if ((res = setup_out_convert(this)) < 0)
+		return res;
 
 	for (i = 0; i < MAX_PORTS; i++) {
 		this->tmp_datas[0][i] = SPA_PTROFF(this->tmp, this->empty_size * i, void);

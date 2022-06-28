@@ -45,7 +45,7 @@ static const struct dither_info {
 } dither_table[] =
 {
 #if defined (HAVE_SSE2)
-	{ dither_f32_sse2, 0 },
+	{ dither_f32_sse2, SPA_CPU_FLAG_SSE, },
 #endif
 	{ dither_f32_c, 0 },
 };
@@ -74,12 +74,16 @@ int dither_init(struct dither *d)
 {
 	const struct dither_info *info;
 	size_t i;
+	uint32_t scale;
 
 	info = find_dither_info(d->cpu_flags);
 	if (info == NULL)
 		return -ENOTSUP;
 
-	d->scale = 1.0f / powf(2.0f, 31 + d->quantize);
+	scale = d->quantize;
+	scale -= SPA_MIN(scale, d->noise);
+
+	d->scale = 1.0f / powf(2.0f, 31 + scale);
 
 	d->dither_size = DITHER_SIZE;
 	d->dither = calloc(d->dither_size + DITHER_OPS_MAX_OVERREAD +
@@ -89,6 +93,8 @@ int dither_init(struct dither *d)
 
 	for (i = 0; i < SPA_N_ELEMENTS(d->random); i++)
 		d->random[i] = random();
+
+	d->cpu_flags = info->cpu_flags;
 
 	d->free = impl_dither_free;
 	d->process = info->process;

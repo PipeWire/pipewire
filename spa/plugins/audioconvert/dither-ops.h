@@ -34,6 +34,7 @@
 
 struct dither {
 	uint32_t quantize;
+	uint32_t noise;
 #define DITHER_METHOD_NONE		0
 #define DITHER_METHOD_RECTANGULAR	2
 #define DITHER_METHOD_TRIANGULAR	3

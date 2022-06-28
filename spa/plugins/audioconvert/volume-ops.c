@@ -73,6 +73,7 @@ int volume_init(struct volume *vol)
 	if (info == NULL)
 		return -ENOTSUP;
 
+	vol->cpu_flags = info->cpu_flags;
 	vol->free = impl_volume_free;
 	vol->process = info->process;
 	return 0;

@@ -93,7 +93,6 @@ struct props {
 	unsigned int resample_quality;
 	unsigned int resample_disabled:1;
 	double rate;
-	uint32_t dither_noise;
 };
 
 static void props_reset(struct props *props)
@@ -110,7 +109,6 @@ static void props_reset(struct props *props)
 	props->rate = 1.0;
 	props->resample_quality = RESAMPLE_DEFAULT_QUALITY;
 	props->resample_disabled = false;
-	props->dither_noise = 0;
 }
 
 struct buffer {
@@ -614,7 +612,7 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("dither.noise"),
 				SPA_PROP_INFO_description, SPA_POD_String("Add dithering noise"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->dither_noise, 0, 16),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(this->dither.noise, 0, 16),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
 		default:
@@ -684,7 +682,7 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_string(&b, "resample.disable");
 			spa_pod_builder_bool(&b, p->resample_disabled);
 			spa_pod_builder_string(&b, "dither.noise");
-			spa_pod_builder_int(&b, p->dither_noise);
+			spa_pod_builder_int(&b, this->dither.noise);
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
@@ -755,7 +753,7 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 	else if (spa_streq(k, "resample.disable"))
 		this->props.resample_disabled = spa_atob(s);
 	else if (spa_streq(k, "dither.noise"))
-		spa_atou32(s, &this->props.dither_noise, 0);
+		spa_atou32(s, &this->dither.noise, 0);
 	else
 		return 0;
 	return 1;
@@ -1396,18 +1394,24 @@ static int setup_out_convert(struct impl *this)
 			this->cpu_flags, out->conv.cpu_flags, out->conv.is_passthrough);
 
 
-	if (this->props.dither_noise > 0) {
-		this->dither.quantize = calc_width(&dst_info) * 8;
-		this->dither.quantize -= SPA_MIN(this->dither.quantize, this->props.dither_noise);
-		this->dither.n_channels = dst_info.info.raw.channels;
-		this->dither.cpu_flags = this->cpu_flags;
+	return 0;
+}
 
-		if ((res = dither_init(&this->dither)) < 0)
-			return res;
+static int setup_dither(struct impl *this)
+{
+	struct dir *out = &this->dir[SPA_DIRECTION_OUTPUT];
+	int res;
 
-		spa_log_info(this->log, "%p: dither noise:%d quantize:%d", this,
-				this->props.dither_noise, this->dither.quantize);
-	}
+	this->dither.quantize = calc_width(&out->format) * 8;
+	this->dither.n_channels = out->format.info.raw.channels;
+	this->dither.cpu_flags = this->cpu_flags;
+
+	if ((res = dither_init(&this->dither)) < 0)
+		return res;
+
+	spa_log_info(this->log, "%p:got dither %08x:%08x noise:%d quantize:%d", this,
+			this->cpu_flags, this->dither.cpu_flags,
+			this->dither.noise, this->dither.quantize);
 	return 0;
 }
 
@@ -1452,6 +1456,8 @@ static int setup_convert(struct impl *this)
 	if ((res = setup_resample(this)) < 0)
 		return res;
 	if ((res = setup_out_convert(this)) < 0)
+		return res;
+	if ((res = setup_dither(this)) < 0)
 		return res;
 
 	for (i = 0; i < MAX_PORTS; i++) {

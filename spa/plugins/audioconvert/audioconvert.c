@@ -432,6 +432,7 @@ static int impl_node_enum_params(void *object, int seq,
 	case SPA_PARAM_PropInfo:
 	{
 		struct props *p = &this->props;
+		struct spa_pod_frame f[2];
 
 		switch (result.index) {
 		case 0:
@@ -584,13 +585,34 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
 		case 18:
+			spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
+			spa_pod_builder_add(&b,
+				SPA_PROP_INFO_name, SPA_POD_String("channelmix.upmix-method"),
+				SPA_PROP_INFO_description, SPA_POD_String("Upmix method to use"),
+				SPA_PROP_INFO_type, SPA_POD_String(
+					channelmix_upmix_info[this->mix.upmix].label),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true),
+				0);
+
+			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
+			spa_pod_builder_push_struct(&b, &f[1]);
+			spa_pod_builder_string(&b, channelmix_upmix_info[CHANNELMIX_UPMIX_NONE].label);
+			spa_pod_builder_string(&b, channelmix_upmix_info[CHANNELMIX_UPMIX_NONE].description);
+			spa_pod_builder_string(&b, channelmix_upmix_info[CHANNELMIX_UPMIX_SIMPLE].label);
+			spa_pod_builder_string(&b, channelmix_upmix_info[CHANNELMIX_UPMIX_SIMPLE].description);
+			spa_pod_builder_string(&b, channelmix_upmix_info[CHANNELMIX_UPMIX_PSD].label);
+			spa_pod_builder_string(&b, channelmix_upmix_info[CHANNELMIX_UPMIX_PSD].description);
+			spa_pod_builder_pop(&b, &f[1]);
+			param = spa_pod_builder_pop(&b, &f[0]);
+			break;
+		case 19:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_rate),
 				SPA_PROP_INFO_description, SPA_POD_String("Rate scaler"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Double(p->rate, 0.0, 10.0));
 			break;
-		case 19:
+		case 20:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_quality),
@@ -599,7 +621,7 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->resample_quality, 0, 14),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 20:
+		case 21:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("resample.disable"),
@@ -607,7 +629,7 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->resample_disabled),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
-		case 21:
+		case 22:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("dither.noise"),

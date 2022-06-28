@@ -56,9 +56,9 @@ struct channelmix {
 #define CHANNELMIX_OPTION_NORMALIZE	(1<<1)		/**< normalize volumes */
 #define CHANNELMIX_OPTION_UPMIX		(1<<2)		/**< do simple upmixing */
 	uint32_t options;
-#define CHANNELMIX_UPMIX_NONE		(0)		/**< disable upmixing */
-#define CHANNELMIX_UPMIX_SIMPLE		(1)		/**< simple upmixing */
-#define CHANNELMIX_UPMIX_PSD		(2)		/**< Passive Surround Decoding upmixing */
+#define CHANNELMIX_UPMIX_NONE		0		/**< disable upmixing */
+#define CHANNELMIX_UPMIX_SIMPLE		1		/**< simple upmixing */
+#define CHANNELMIX_UPMIX_PSD		2		/**< Passive Surround Decoding upmixing */
 	uint32_t upmix;
 
 	struct spa_log *log;

@@ -42,6 +42,7 @@ struct dither {
 	uint32_t method;
 	uint32_t n_channels;
 	uint32_t cpu_flags;
+	unsigned int is_passthrough:1;
 
 	struct spa_log *log;
 

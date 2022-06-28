@@ -1409,9 +1409,10 @@ static int setup_dither(struct impl *this)
 	if ((res = dither_init(&this->dither)) < 0)
 		return res;
 
-	spa_log_info(this->log, "%p:got dither %08x:%08x noise:%d quantize:%d", this,
+	spa_log_info(this->log, "%p: got dither %08x:%08x quantize:%d:%d passthrough:%d", this,
 			this->cpu_flags, this->dither.cpu_flags,
-			this->dither.noise, this->dither.quantize);
+			this->dither.quantize, this->dither.noise,
+			this->dither.is_passthrough);
 	return 0;
 }
 
@@ -2485,7 +2486,7 @@ static int impl_node_process(void *object)
 	}
 	this->out_offset += n_samples;
 
-	if (this->dither.process != NULL) {
+	if (!this->dither.is_passthrough) {
 		in_datas = (const void**)out_datas;
 		if (out_passthrough)
 			out_datas = dst_datas;

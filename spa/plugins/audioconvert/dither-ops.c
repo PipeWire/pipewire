@@ -98,5 +98,8 @@ int dither_init(struct dither *d)
 
 	d->free = impl_dither_free;
 	d->process = info->process;
+
+	d->is_passthrough = d->noise == 0 && d->method == DITHER_METHOD_NONE;
+
 	return 0;
 }

@@ -96,20 +96,20 @@ static struct conv_info conv_table[] =
 	MAKE(F32, F32, 0, conv_copy32_c),
 	MAKE(F32P, F32P, 0, conv_copy32d_c),
 #if defined (HAVE_SSE2)
-	MAKE(F32, F32P, 0, conv_deinterleave_32_sse2),
+	MAKE(F32, F32P, 0, conv_deinterleave_32_sse2, SPA_CPU_FLAG_SSE2),
 #endif
 	MAKE(F32, F32P, 0, conv_deinterleave_32_c),
 #if defined (HAVE_SSE2)
-	MAKE(F32P, F32, 0, conv_interleave_32_sse2),
+	MAKE(F32P, F32, 0, conv_interleave_32_sse2, SPA_CPU_FLAG_SSE2),
 #endif
 	MAKE(F32P, F32, 0, conv_interleave_32_c),
 
 #if defined (HAVE_SSE2)
-	MAKE(F32_OE, F32P, 0, conv_deinterleave_32s_sse2),
+	MAKE(F32_OE, F32P, 0, conv_deinterleave_32s_sse2, SPA_CPU_FLAG_SSE2),
 #endif
 	MAKE(F32_OE, F32P, 0, conv_deinterleave_32s_c),
 #if defined (HAVE_SSE2)
-	MAKE(F32P, F32_OE, 0, conv_interleave_32s_sse2),
+	MAKE(F32P, F32_OE, 0, conv_interleave_32s_sse2, SPA_CPU_FLAG_SSE2),
 #endif
 	MAKE(F32P, F32_OE, 0, conv_interleave_32s_c),
 
@@ -296,11 +296,11 @@ static struct conv_info conv_table[] =
 	MAKE(S32, S32, 0, conv_copy32_c),
 	MAKE(S32P, S32P, 0, conv_copy32d_c),
 #if defined (HAVE_SSE2)
-	MAKE(S32, S32P, 0, conv_deinterleave_32_sse2),
+	MAKE(S32, S32P, 0, conv_deinterleave_32_sse2, SPA_CPU_FLAG_SSE2),
 #endif
 	MAKE(S32, S32P, 0, conv_deinterleave_32_c),
 #if defined (HAVE_SSE2)
-	MAKE(S32P, S32, 0, conv_interleave_32_sse2),
+	MAKE(S32P, S32, 0, conv_interleave_32_sse2, SPA_CPU_FLAG_SSE2),
 #endif
 	MAKE(S32P, S32, 0, conv_interleave_32_c),
 

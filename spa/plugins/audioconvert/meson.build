@@ -22,8 +22,7 @@ if have_sse
 endif
 if have_sse2
   audioconvert_sse2 = static_library('audioconvert_sse2',
-    ['fmt-ops-sse2.c',
-     'dither-ops-sse2.c' ],
+    ['fmt-ops-sse2.c' ],
     c_args : [sse2_args, '-O3', '-DHAVE_SSE2'],
     dependencies : [ spa_dep ],
     install : false
@@ -95,9 +94,7 @@ audioconvert_lib = static_library('audioconvert',
     'resample-peaks.c',
     'fmt-ops-c.c',
     'volume-ops.c',
-    'volume-ops-c.c',
-    'dither-ops.c',
-    'dither-ops-c.c' ],
+    'volume-ops-c.c' ],
   c_args : [ simd_cargs, '-O3'],
   link_with : simd_dependencies,
   include_directories : [configinc],

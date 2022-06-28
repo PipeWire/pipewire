@@ -49,7 +49,6 @@
 #include "fmt-ops.h"
 #include "channelmix-ops.h"
 #include "resample.h"
-#include "dither-ops.h"
 
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT log_topic
@@ -210,7 +209,6 @@ struct impl {
 	struct channelmix mix;
 	struct resample resample;
 	struct volume volume;
-	struct dither dither;
 	double rate_scale;
 
 	uint32_t in_offset;
@@ -634,7 +632,7 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("dither.noise"),
 				SPA_PROP_INFO_description, SPA_POD_String("Add dithering noise"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(this->dither.noise, 0, 16),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(this->dir[1].conv.noise, 0, 16),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
 		default:
@@ -704,7 +702,7 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_string(&b, "resample.disable");
 			spa_pod_builder_bool(&b, p->resample_disabled);
 			spa_pod_builder_string(&b, "dither.noise");
-			spa_pod_builder_int(&b, this->dither.noise);
+			spa_pod_builder_int(&b, this->dir[1].conv.noise);
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
@@ -775,7 +773,7 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 	else if (spa_streq(k, "resample.disable"))
 		this->props.resample_disabled = spa_atob(s);
 	else if (spa_streq(k, "dither.noise"))
-		spa_atou32(s, &this->dither.noise, 0);
+		spa_atou32(s, &this->dir[1].conv.noise, 0);
 	else
 		return 0;
 	return 1;
@@ -1408,6 +1406,7 @@ static int setup_out_convert(struct impl *this)
 			break;
 		}
 	}
+	out->conv.quantize = calc_width(&dst_info) * 8;
 	out->conv.src_fmt = src_info.info.raw.format;
 	out->conv.dst_fmt = dst_info.info.raw.format;
 	out->conv.n_channels = dst_info.info.raw.channels;
@@ -1416,29 +1415,11 @@ static int setup_out_convert(struct impl *this)
 	if ((res = convert_init(&out->conv)) < 0)
 		return res;
 
-	spa_log_debug(this->log, "%p: got converter features %08x:%08x passthrough:%d", this,
-			this->cpu_flags, out->conv.cpu_flags, out->conv.is_passthrough);
+	spa_log_debug(this->log, "%p: got converter features %08x:%08x quant:%d:%d passthrough:%d %s", this,
+			this->cpu_flags, out->conv.cpu_flags,
+			out->conv.quantize, out->conv.noise,
+			out->conv.is_passthrough, out->conv.func_name);
 
-
-	return 0;
-}
-
-static int setup_dither(struct impl *this)
-{
-	struct dir *out = &this->dir[SPA_DIRECTION_OUTPUT];
-	int res;
-
-	this->dither.quantize = calc_width(&out->format) * 8;
-	this->dither.n_channels = out->format.info.raw.channels;
-	this->dither.cpu_flags = this->cpu_flags;
-
-	if ((res = dither_init(&this->dither)) < 0)
-		return res;
-
-	spa_log_info(this->log, "%p: got dither %08x:%08x quantize:%d:%d passthrough:%d", this,
-			this->cpu_flags, this->dither.cpu_flags,
-			this->dither.quantize, this->dither.noise,
-			this->dither.is_passthrough);
 	return 0;
 }
 
@@ -1483,8 +1464,6 @@ static int setup_convert(struct impl *this)
 	if ((res = setup_resample(this)) < 0)
 		return res;
 	if ((res = setup_out_convert(this)) < 0)
-		return res;
-	if ((res = setup_dither(this)) < 0)
 		return res;
 
 	for (i = 0; i < MAX_PORTS; i++) {
@@ -2512,15 +2491,6 @@ static int impl_node_process(void *object)
 	}
 	this->out_offset += n_samples;
 
-	if (!this->dither.is_passthrough) {
-		in_datas = (const void**)out_datas;
-		if (out_passthrough)
-			out_datas = dst_datas;
-		else
-			out_datas = (void **)this->tmp_datas[(tmp++) & 1];
-		dither_process(&this->dither, out_datas, in_datas, n_samples);
-		in_empty = false;
-	}
 	if (!out_passthrough) {
 		in_datas = (const void**)out_datas;
 		spa_log_trace_fp(this->log, "%p: convert %d", this, n_samples);
@@ -2652,8 +2622,6 @@ static int impl_clear(struct spa_handle *handle)
 
 	if (this->resample.free)
 		resample_free(&this->resample);
-	if (this->dither.free)
-		dither_free(&this->dither);
 
 	return 0;
 }
@@ -2701,8 +2669,6 @@ impl_init(const struct spa_handle_factory *factory,
 	this->mix.fc_cutoff = 12000.0f;
 	this->mix.rear_delay = 12.0f;
 	this->mix.widen = 0.0f;
-
-	this->dither.log = this->log;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;

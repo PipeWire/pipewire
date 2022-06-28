@@ -33,6 +33,9 @@
 #endif
 
 #include <spa/utils/defs.h>
+#include <spa/utils/string.h>
+
+#define FMT_OPS_MAX_ALIGN	32
 
 #define U8_MIN		0
 #define U8_MAX		255
@@ -176,12 +179,29 @@ static inline void write_s24s(void *dst, int32_t val)
 #define MAX_NS	64
 
 struct convert {
+	uint32_t quantize;
+	uint32_t noise;
+#define DITHER_METHOD_NONE		0
+#define DITHER_METHOD_RECTANGULAR	1
+#define DITHER_METHOD_TRIANGULAR	2
+#define DITHER_METHOD_SHAPED_5		3
+	uint32_t method;
+
 	uint32_t src_fmt;
 	uint32_t dst_fmt;
 	uint32_t n_channels;
 	uint32_t cpu_flags;
+	const char *func_name;
 
 	unsigned int is_passthrough:1;
+
+	int32_t bias;
+	int32_t offset;
+	uint32_t mask;
+	uint32_t random[16 + FMT_OPS_MAX_ALIGN/4];
+	int32_t *dither;
+	uint32_t dither_size;
+
 	float ns_data[MAX_NS];
 	uint32_t ns_idx;
 	uint32_t ns_size;
@@ -193,14 +213,33 @@ struct convert {
 
 int convert_init(struct convert *conv);
 
+static const struct dither_method_info {
+	const char *label;
+	const char *description;
+	uint32_t method;
+} dither_method_info[] = {
+	[DITHER_METHOD_NONE] = { "none", "Disabled", DITHER_METHOD_NONE },
+	[DITHER_METHOD_RECTANGULAR] = { "rectangular", "Rectangular dithering", DITHER_METHOD_RECTANGULAR },
+	[DITHER_METHOD_TRIANGULAR] = { "triangular", "Triangular dithering", DITHER_METHOD_TRIANGULAR },
+	[DITHER_METHOD_SHAPED_5] = { "shaped5", "Shaped 5 dithering", DITHER_METHOD_SHAPED_5 }
+};
+
+static inline uint32_t dither_method_from_label(const char *label)
+{
+	uint32_t i;
+	for (i = 0; i < SPA_N_ELEMENTS(dither_method_info); i++) {
+		if (spa_streq(dither_method_info[i].label, label))
+			return dither_method_info[i].method;
+	}
+	return DITHER_METHOD_NONE;
+}
+
 #define convert_process(conv,...)	(conv)->process(conv, __VA_ARGS__)
 #define convert_free(conv)		(conv)->free(conv)
 
 #define DEFINE_FUNCTION(name,arch) \
 void conv_##name##_##arch(struct convert *conv, void * SPA_RESTRICT dst[],	\
 		const void * SPA_RESTRICT src[], uint32_t n_samples)		\
-
-#define FMT_OPS_MAX_ALIGN	32
 
 DEFINE_FUNCTION(copy8d, c);
 DEFINE_FUNCTION(copy8, c);
@@ -268,31 +307,43 @@ DEFINE_FUNCTION(f32d_to_ulaw, c);
 DEFINE_FUNCTION(f32_to_u16, c);
 DEFINE_FUNCTION(f32d_to_u16, c);
 DEFINE_FUNCTION(f32d_to_s16d, c);
+DEFINE_FUNCTION(f32d_to_s16d_dither, c);
 DEFINE_FUNCTION(f32_to_s16, c);
 DEFINE_FUNCTION(f32_to_s16d, c);
 DEFINE_FUNCTION(f32d_to_s16, c);
+DEFINE_FUNCTION(f32d_to_s16_dither, c);
 DEFINE_FUNCTION(f32d_to_s16s, c);
+DEFINE_FUNCTION(f32d_to_s16s_dither, c);
 DEFINE_FUNCTION(f32_to_u32, c);
 DEFINE_FUNCTION(f32d_to_u32, c);
 DEFINE_FUNCTION(f32d_to_s32d, c);
+DEFINE_FUNCTION(f32d_to_s32d_dither, c);
 DEFINE_FUNCTION(f32_to_s32, c);
 DEFINE_FUNCTION(f32_to_s32d, c);
 DEFINE_FUNCTION(f32d_to_s32, c);
+DEFINE_FUNCTION(f32d_to_s32_dither, c);
 DEFINE_FUNCTION(f32d_to_s32s, c);
+DEFINE_FUNCTION(f32d_to_s32s_dither, c);
 DEFINE_FUNCTION(f32_to_u24, c);
 DEFINE_FUNCTION(f32d_to_u24, c);
 DEFINE_FUNCTION(f32d_to_s24d, c);
+DEFINE_FUNCTION(f32d_to_s24d_dither, c);
 DEFINE_FUNCTION(f32_to_s24, c);
 DEFINE_FUNCTION(f32_to_s24d, c);
 DEFINE_FUNCTION(f32d_to_s24, c);
+DEFINE_FUNCTION(f32d_to_s24_dither, c);
 DEFINE_FUNCTION(f32d_to_s24s, c);
+DEFINE_FUNCTION(f32d_to_s24s_dither, c);
 DEFINE_FUNCTION(f32_to_u24_32, c);
 DEFINE_FUNCTION(f32d_to_u24_32, c);
 DEFINE_FUNCTION(f32d_to_s24_32d, c);
+DEFINE_FUNCTION(f32d_to_s24_32d_dither, c);
 DEFINE_FUNCTION(f32_to_s24_32, c);
 DEFINE_FUNCTION(f32_to_s24_32d, c);
 DEFINE_FUNCTION(f32d_to_s24_32, c);
+DEFINE_FUNCTION(f32d_to_s24_32_dither, c);
 DEFINE_FUNCTION(f32d_to_s24_32s, c);
+DEFINE_FUNCTION(f32d_to_s24_32s_dither, c);
 DEFINE_FUNCTION(f32d_to_f64d, c);
 DEFINE_FUNCTION(f32_to_f64, c);
 DEFINE_FUNCTION(f32_to_f64d, c);

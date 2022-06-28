@@ -1395,9 +1395,10 @@ static int setup_out_convert(struct impl *this)
 	spa_log_debug(this->log, "%p: got converter features %08x:%08x passthrough:%d", this,
 			this->cpu_flags, out->conv.cpu_flags, out->conv.is_passthrough);
 
+
 	if (this->props.dither_noise > 0) {
-		this->dither.quantize = 32 - (calc_width(&dst_info) * 8);
-		this->dither.quantize += this->props.dither_noise;
+		this->dither.quantize = calc_width(&dst_info) * 8;
+		this->dither.quantize -= SPA_MIN(this->dither.quantize, this->props.dither_noise);
 		this->dither.n_channels = dst_info.info.raw.channels;
 		this->dither.cpu_flags = this->cpu_flags;
 
@@ -2478,7 +2479,7 @@ static int impl_node_process(void *object)
 	}
 	this->out_offset += n_samples;
 
-	if (this->props.dither_noise > 0) {
+	if (this->dither.process != NULL) {
 		in_datas = (const void**)out_datas;
 		if (out_passthrough)
 			out_datas = dst_datas;

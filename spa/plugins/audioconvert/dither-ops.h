@@ -34,10 +34,10 @@
 
 struct dither {
 	uint32_t quantize;
-#define DITHER_METHOD_NONE 		0
-#define DITHER_METHOD_RECTANGULAR 	2
-#define DITHER_METHOD_TRIANGULAR 	3
-#define DITHER_METHOD_SHAPED_5	 	4
+#define DITHER_METHOD_NONE		0
+#define DITHER_METHOD_RECTANGULAR	2
+#define DITHER_METHOD_TRIANGULAR	3
+#define DITHER_METHOD_SHAPED_5		4
 	uint32_t method;
 	uint32_t n_channels;
 	uint32_t cpu_flags;

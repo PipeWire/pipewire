@@ -52,6 +52,9 @@
 typedef void (*channelmix_func_t) (struct channelmix *mix, void * SPA_RESTRICT dst[],
 			const void * SPA_RESTRICT src[], uint32_t n_samples);
 
+#define MAKE(sc,sm,dc,dm,func,...) \
+	{ sc, sm, dc, dm, func, #func, __VA_ARGS__ }
+
 static const struct channelmix_info {
 	uint32_t src_chan;
 	uint64_t src_mask;
@@ -59,51 +62,53 @@ static const struct channelmix_info {
 	uint64_t dst_mask;
 
 	channelmix_func_t process;
-	uint32_t cpu_flags;
 	const char *name;
+
+	uint32_t cpu_flags;
 } channelmix_table[] =
 {
 #if defined (HAVE_SSE)
-	{ 2, MASK_MONO, 2, MASK_MONO, channelmix_copy_sse, SPA_CPU_FLAG_SSE, "copy_sse" },
-	{ 2, MASK_STEREO, 2, MASK_STEREO, channelmix_copy_sse, SPA_CPU_FLAG_SSE, "copy_sse" },
-	{ EQ, 0, EQ, 0, channelmix_copy_sse, SPA_CPU_FLAG_SSE, "copy_sse" },
+	MAKE(2, MASK_MONO, 2, MASK_MONO, channelmix_copy_sse, SPA_CPU_FLAG_SSE),
+	MAKE(2, MASK_STEREO, 2, MASK_STEREO, channelmix_copy_sse, SPA_CPU_FLAG_SSE),
+	MAKE(EQ, 0, EQ, 0, channelmix_copy_sse, SPA_CPU_FLAG_SSE),
 #endif
-	{ 2, MASK_MONO, 2, MASK_MONO, channelmix_copy_c, 0, "copy_c" },
-	{ 2, MASK_STEREO, 2, MASK_STEREO, channelmix_copy_c, 0, "copy_c" },
-	{ EQ, 0, EQ, 0, channelmix_copy_c, 0 },
+	MAKE(2, MASK_MONO, 2, MASK_MONO, channelmix_copy_c),
+	MAKE(2, MASK_STEREO, 2, MASK_STEREO, channelmix_copy_c),
+	MAKE(EQ, 0, EQ, 0, channelmix_copy_c),
 
-	{ 1, MASK_MONO, 2, MASK_STEREO, channelmix_f32_1_2_c, 0, "f32_1_2_c" },
-	{ 2, MASK_STEREO, 1, MASK_MONO, channelmix_f32_2_1_c, 0, "f32_2_1_c" },
-	{ 4, MASK_QUAD, 1, MASK_MONO, channelmix_f32_4_1_c, 0, "f32_4_1_c" },
-	{ 4, MASK_3_1, 1, MASK_MONO, channelmix_f32_4_1_c, 0, "f32_4_1_c" },
-	{ 2, MASK_STEREO, 4, MASK_QUAD, channelmix_f32_2_4_c, 0, "f32_2_4_c" },
-	{ 2, MASK_STEREO, 4, MASK_3_1, channelmix_f32_2_3p1_c, 0, "f32_2_3p1_c" },
-	{ 2, MASK_STEREO, 6, MASK_5_1, channelmix_f32_2_5p1_c, 0, "f32_2_5p1_c" },
-	{ 2, MASK_STEREO, 8, MASK_7_1, channelmix_f32_2_7p1_c, 0, "f32_2_7p1_c" },
+	MAKE(1, MASK_MONO, 2, MASK_STEREO, channelmix_f32_1_2_c),
+	MAKE(2, MASK_STEREO, 1, MASK_MONO, channelmix_f32_2_1_c),
+	MAKE(4, MASK_QUAD, 1, MASK_MONO, channelmix_f32_4_1_c),
+	MAKE(4, MASK_3_1, 1, MASK_MONO, channelmix_f32_4_1_c),
+	MAKE(2, MASK_STEREO, 4, MASK_QUAD, channelmix_f32_2_4_c),
+	MAKE(2, MASK_STEREO, 4, MASK_3_1, channelmix_f32_2_3p1_c),
+	MAKE(2, MASK_STEREO, 6, MASK_5_1, channelmix_f32_2_5p1_c),
+	MAKE(2, MASK_STEREO, 8, MASK_7_1, channelmix_f32_2_7p1_c),
 #if defined (HAVE_SSE)
-	{ 4, MASK_3_1, 2, MASK_STEREO, channelmix_f32_3p1_2_sse, 0, "f32_3p1_2_sse" },
+	MAKE(4, MASK_3_1, 2, MASK_STEREO, channelmix_f32_3p1_2_sse, SPA_CPU_FLAG_SSE),
 #endif
-	{ 4, MASK_3_1, 2, MASK_STEREO, channelmix_f32_3p1_2_c, 0, "f32_3p1_2_c" },
+	MAKE(4, MASK_3_1, 2, MASK_STEREO, channelmix_f32_3p1_2_c),
 #if defined (HAVE_SSE)
-	{ 6, MASK_5_1, 2, MASK_STEREO, channelmix_f32_5p1_2_sse, SPA_CPU_FLAG_SSE, "f32_5p1_2_sse" },
+	MAKE(6, MASK_5_1, 2, MASK_STEREO, channelmix_f32_5p1_2_sse, SPA_CPU_FLAG_SSE),
 #endif
-	{ 6, MASK_5_1, 2, MASK_STEREO, channelmix_f32_5p1_2_c, 0, "f32_5p1_2_c" },
+	MAKE(6, MASK_5_1, 2, MASK_STEREO, channelmix_f32_5p1_2_c),
 #if defined (HAVE_SSE)
-	{ 6, MASK_5_1, 4, MASK_QUAD, channelmix_f32_5p1_4_sse, SPA_CPU_FLAG_SSE, "f32_5p1_4_sse" },
+	MAKE(6, MASK_5_1, 4, MASK_QUAD, channelmix_f32_5p1_4_sse, SPA_CPU_FLAG_SSE),
 #endif
-	{ 6, MASK_5_1, 4, MASK_QUAD, channelmix_f32_5p1_4_c, 0, "f32_5p1_4_c" },
+	MAKE(6, MASK_5_1, 4, MASK_QUAD, channelmix_f32_5p1_4_c),
 
 #if defined (HAVE_SSE)
-	{ 6, MASK_5_1, 4, MASK_3_1, channelmix_f32_5p1_3p1_sse, SPA_CPU_FLAG_SSE, "f32_5p1_3p1_sse" },
+	MAKE(6, MASK_5_1, 4, MASK_3_1, channelmix_f32_5p1_3p1_sse, SPA_CPU_FLAG_SSE),
 #endif
-	{ 6, MASK_5_1, 4, MASK_3_1, channelmix_f32_5p1_3p1_c, 0, "f32_5p1_3p1_c" },
+	MAKE(6, MASK_5_1, 4, MASK_3_1, channelmix_f32_5p1_3p1_c),
 
-	{ 8, MASK_7_1, 2, MASK_STEREO, channelmix_f32_7p1_2_c, 0, "f32_7p1_2_c" },
-	{ 8, MASK_7_1, 4, MASK_QUAD, channelmix_f32_7p1_4_c, 0, "f32_7p1_4_c" },
-	{ 8, MASK_7_1, 4, MASK_3_1, channelmix_f32_7p1_3p1_c, 0, "f32_7p1_3p1_c" },
+	MAKE(8, MASK_7_1, 2, MASK_STEREO, channelmix_f32_7p1_2_c),
+	MAKE(8, MASK_7_1, 4, MASK_QUAD, channelmix_f32_7p1_4_c),
+	MAKE(8, MASK_7_1, 4, MASK_3_1, channelmix_f32_7p1_3p1_c),
 
-	{ ANY, 0, ANY, 0, channelmix_f32_n_m_c, 0, "f32_n_m_c" },
+	MAKE(ANY, 0, ANY, 0, channelmix_f32_n_m_c),
 };
+#undef MAKE
 
 #define MATCH_CHAN(a,b)		((a) == ANY || (a) == (b))
 #define MATCH_CPU_FLAGS(a,b)	((a) == 0 || ((a) & (b)) == a)
@@ -563,6 +568,7 @@ int channelmix_init(struct channelmix *mix)
 	mix->set_volume = impl_channelmix_set_volume;
 	mix->cpu_flags = info->cpu_flags;
 	mix->delay = mix->rear_delay * mix->freq / 1000.0f;
+	mix->func_name = info->name;
 
 	spa_log_debug(mix->log, "selected %s delay:%d options:%08x", info->name, mix->delay,
 			mix->options);

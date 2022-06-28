@@ -31,11 +31,13 @@
 #define RESAMPLE_DEFAULT_QUALITY	4
 
 struct resample {
+	struct spa_log *log;
 	uint32_t cpu_flags;
+	const char *func_name;
+
 	uint32_t channels;
 	uint32_t i_rate;
 	uint32_t o_rate;
-	struct spa_log *log;
 	double rate;
 	int quality;
 

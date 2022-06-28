@@ -36,16 +36,21 @@
 typedef void (*volume_func_t) (struct volume *vol, void * SPA_RESTRICT dst,
 			const void * SPA_RESTRICT src, float volume, uint32_t n_samples);
 
+#define MAKE(func,...) \
+	{ func, #func , __VA_ARGS__ }
+
 static const struct volume_info {
 	volume_func_t process;
+	const char *name;
 	uint32_t cpu_flags;
 } volume_table[] =
 {
 #if defined (HAVE_SSE)
-	{ volume_f32_sse, SPA_CPU_FLAG_SSE },
+	MAKE(volume_f32_sse, SPA_CPU_FLAG_SSE),
 #endif
-	{ volume_f32_c, 0 },
+	MAKE(volume_f32_c),
 };
+#undef MAKE
 
 #define MATCH_CPU_FLAGS(a,b)	((a) == 0 || ((a) & (b)) == a)
 
@@ -74,6 +79,7 @@ int volume_init(struct volume *vol)
 		return -ENOTSUP;
 
 	vol->cpu_flags = info->cpu_flags;
+	vol->func_name = info->name;
 	vol->free = impl_volume_free;
 	vol->process = info->process;
 	return 0;

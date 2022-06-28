@@ -33,6 +33,7 @@
 
 struct volume {
 	uint32_t cpu_flags;
+	const char *func_name;
 
 	struct spa_log *log;
 

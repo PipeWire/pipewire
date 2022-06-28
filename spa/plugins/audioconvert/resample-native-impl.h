@@ -34,10 +34,13 @@ typedef void (*resample_func_t)(struct resample *r,
 
 struct resample_info {
 	uint32_t format;
-	uint32_t cpu_flags;
 	resample_func_t process_copy;
+	const char *copy_name;
 	resample_func_t process_full;
+	const char *full_name;
 	resample_func_t process_inter;
+	const char *inter_name;
+	uint32_t cpu_flags;
 };
 
 struct native_data {

@@ -1124,8 +1124,9 @@ static int setup_in_convert(struct impl *this)
 	if ((res = convert_init(&in->conv)) < 0)
 		return res;
 
-	spa_log_debug(this->log, "%p: got converter features %08x:%08x passthrough:%d", this,
-			this->cpu_flags, in->conv.cpu_flags, in->conv.is_passthrough);
+	spa_log_debug(this->log, "%p: got converter features %08x:%08x passthrough:%d %s", this,
+			this->cpu_flags, in->conv.cpu_flags, in->conv.is_passthrough,
+			in->conv.func_name);
 
 	return 0;
 }
@@ -1300,9 +1301,9 @@ static int setup_channelmix(struct impl *this)
 
 	set_volume(this);
 
-	spa_log_debug(this->log, "%p: got channelmix features %08x:%08x flags:%08x",
+	spa_log_debug(this->log, "%p: got channelmix features %08x:%08x flags:%08x %s",
 			this, this->cpu_flags, this->mix.cpu_flags,
-			this->mix.flags);
+			this->mix.flags, this->mix.func_name);
 	return 0;
 }
 
@@ -1335,6 +1336,9 @@ static int setup_resample(struct impl *this)
 	else
 		res = resample_native_init(&this->resample);
 
+	spa_log_debug(this->log, "%p: got resample features %08x:%08x %s",
+			this, this->cpu_flags, this->resample.cpu_flags,
+			this->resample.func_name);
 	return res;
 }
 

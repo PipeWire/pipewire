@@ -62,6 +62,7 @@ struct channelmix {
 	uint32_t upmix;
 
 	struct spa_log *log;
+	const char *func_name;
 
 #define CHANNELMIX_FLAG_ZERO		(1<<0)		/**< all zero components */
 #define CHANNELMIX_FLAG_IDENTITY	(1<<1)		/**< identity matrix */

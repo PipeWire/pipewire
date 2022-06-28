@@ -71,6 +71,12 @@ int pw_rtsp_client_disconnect(struct pw_rtsp_client *client);
 int pw_rtsp_client_get_local_ip(struct pw_rtsp_client *client,
 		int *version, char *ip, size_t len);
 
+int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
+		const char *cmd, const struct spa_dict *headers,
+		const char *content_type, const char *content,
+		void (*reply) (void *user_data, int status, const struct spa_dict *headers),
+		void *user_data);
+
 int pw_rtsp_client_send(struct pw_rtsp_client *client,
 		const char *cmd, const struct spa_dict *headers,
 		const char *content_type, const char *content,

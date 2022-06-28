@@ -273,12 +273,30 @@ static int process_input(struct pw_rtsp_client *client)
 			int cseq;
 			struct message *msg;
 			const struct spa_dict_item *it;
+			const char *content_type;
+			unsigned int content_length;
 
 			spa_dict_for_each(it, &client->headers->dict)
 				pw_log_info(" %s: %s", it->key, it->value);
 
 			cseq = pw_properties_get_int32(client->headers, "CSeq", 0);
-
+			content_type = pw_properties_get(client->headers, "Content-Type");
+			if (content_type != NULL && strcmp(content_type, "application/octet-stream") == 0) {
+				pw_log_info("binary response received");
+				content_length = pw_properties_get_uint64(client->headers, "Content-Length", 0);
+				char content_buf[content_length];
+				res = read(client->source->fd, content_buf, content_length);
+				pw_log_debug("read %d bytes", res);
+				if (res == 0)
+					return -EPIPE;
+				if (res < 0) {
+					res = -errno;
+					if (res != -EAGAIN && res != -EWOULDBLOCK)
+						return res;
+					return 0;
+				}
+				pw_properties_set(client->headers, "body", content_buf);
+			}
 			if ((msg = find_pending(client, cseq)) != NULL) {
 				msg->reply(msg->user_data, client->status, &client->headers->dict);
 				spa_list_remove(&msg->link);
@@ -466,7 +484,7 @@ int pw_rtsp_client_disconnect(struct pw_rtsp_client *client)
 	return 0;
 }
 
-int pw_rtsp_client_send(struct pw_rtsp_client *client,
+int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 		const char *cmd, const struct spa_dict *headers,
 		const char *content_type, const char *content,
 		void (*reply) (void *user_data, int status, const struct spa_dict *headers),
@@ -485,7 +503,7 @@ int pw_rtsp_client_send(struct pw_rtsp_client *client,
 
 	cseq = ++client->cseq;
 
-	fprintf(f, "%s %s RTSP/1.0\r\n", cmd, client->url);
+	fprintf(f, "%s %s RTSP/1.0\r\n", cmd, url);
 	fprintf(f, "CSeq: %d\r\n", cseq);
 
 	if (headers != NULL) {
@@ -518,4 +536,13 @@ int pw_rtsp_client_send(struct pw_rtsp_client *client,
 				client->source->mask | SPA_IO_OUT);
         }
 	return 0;
+}
+
+int pw_rtsp_client_send(struct pw_rtsp_client *client,
+		const char *cmd, const struct spa_dict *headers,
+		const char *content_type, const char *content,
+		void (*reply) (void *user_data, int status, const struct spa_dict *headers),
+		void *user_data)
+{
+	return pw_rtsp_client_url_send(client, client->url, cmd, headers, content_type, content, reply, user_data);
 }

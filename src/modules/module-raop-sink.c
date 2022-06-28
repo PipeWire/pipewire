@@ -130,6 +130,7 @@ enum {
 enum {
 	CRYPTO_NONE,
 	CRYPTO_RSA,
+	CRYPTO_AUTH_SETUP,
 };
 enum {
 	CODEC_PCM,
@@ -988,7 +989,7 @@ static int rtsp_do_announce(struct impl *impl)
 	char iv[16*2];
 	int res, frames, i, ip_version;
 	char *sdp;
-        char local_ip[256];
+	char local_ip[256];
 
 	host = pw_properties_get(impl->props, "raop.hostname");
 
@@ -1044,6 +1045,32 @@ static int rtsp_do_announce(struct impl *impl)
 	res = pw_rtsp_client_send(impl->rtsp, "ANNOUNCE", &impl->headers->dict,
 			"application/sdp", sdp, rtsp_announce_reply, impl);
 	free(sdp);
+
+	return res;
+}
+
+static void rtsp_auth_setup_reply(void *data, int status, const struct spa_dict *headers)
+{
+	struct impl *impl = data;
+
+	pw_log_info("reply %d", status);
+
+	impl->encryption = CRYPTO_NONE;
+
+	rtsp_do_announce(impl);
+}
+
+static int rtsp_do_auth_setup(struct impl *impl)
+{
+	int res;
+
+	char output[] = 
+		"\x01"
+		"\x59\x02\xed\xe9\x0d\x4e\xf2\xbd\x4c\xb6\x8a\x63\x30\x03\x82\x07"
+		"\xa9\x4d\xbd\x50\xd8\xaa\x46\x5b\x5d\x8c\x01\x2a\x0c\x7e\x1d\x4e";
+
+	res = pw_rtsp_client_url_send(impl->rtsp, "/auth-setup", "POST", &impl->headers->dict,
+			"application/octet-stream", output, rtsp_auth_setup_reply, impl);
 
 	return res;
 }
@@ -1168,7 +1195,10 @@ static void rtsp_options_reply(void *data, int status, const struct spa_dict *he
 		rtsp_do_auth(impl, headers);
 		break;
 	case 200:
-		rtsp_do_announce(impl);
+		if (impl->encryption == CRYPTO_AUTH_SETUP)
+			rtsp_do_auth_setup(impl);
+		else
+			rtsp_do_announce(impl);
 		break;
 	}
 }
@@ -1648,6 +1678,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		impl->encryption = CRYPTO_NONE;
 	else if (spa_streq(str, "RSA"))
 		impl->encryption = CRYPTO_RSA;
+	else if (spa_streq(str, "auth_setup"))
+		impl->encryption = CRYPTO_AUTH_SETUP;
 	else {
 		pw_log_error( "can't handle encryption type %s", str);
 		res = -EINVAL;

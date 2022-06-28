@@ -223,6 +223,8 @@ static void pw_properties_from_avahi_string(const char *key, const char *value,
 		 *  4 = FairPlay SAPv2.5. */
 		if (str_in_list(value, ",", "1"))
 			value = "RSA";
+		else if (str_in_list(value, ",", "4"))
+			value = "auth_setup";
 		else
 			value = "none";
 		pw_properties_set(props, "raop.encryption.type", value);

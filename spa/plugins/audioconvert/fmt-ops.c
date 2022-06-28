@@ -362,7 +362,7 @@ int convert_init(struct convert *conv)
 	const struct conv_info *info;
 	uint32_t i, shift, dither_flags;
 
-	shift = 32u - SPA_MIN(conv->quantize, 32u);
+	shift = 24u - SPA_MIN(conv->quantize, 24u);
 	shift += conv->noise;
 
 	conv->mask = (1ULL << (shift + 1)) - 1;

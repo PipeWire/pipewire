@@ -956,8 +956,8 @@ conv_f32d_to_s16d_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], cons
 		for (j = 0; j < n_samples;) {
 			chunk = SPA_MIN(n_samples - j, conv->dither_size);
 			for (k = 0; k < chunk; k++, j++) {
-				v = F32_TO_S32(s[j]) + conv->dither[k];
-				d[j] = v >> 16;
+				v = F32_TO_S24(s[j]) + conv->dither[k];
+				d[j] = v >> 8;
 			}
 		}
 	}
@@ -1020,8 +1020,8 @@ conv_f32d_to_s16_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], const
 		chunk = SPA_MIN(n_samples - j, conv->dither_size);
 		for (k = 0; k < chunk; k++, j++) {
 			for (i = 0; i < n_channels; i++) {
-				v = F32_TO_S32(s[i][j]) + conv->dither[k];
-				*d++ = v >> 16;
+				v = F32_TO_S24(s[i][j]) + conv->dither[k];
+				*d++ = v >> 8;
 			}
 		}
 	}
@@ -1056,8 +1056,8 @@ conv_f32d_to_s16s_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], cons
 		chunk = SPA_MIN(n_samples - j, conv->dither_size);
 		for (k = 0; k < chunk; k++, j++) {
 			for (i = 0; i < n_channels; i++) {
-				v = F32_TO_S32(s[i][j]) + conv->dither[k];
-				*d++ = bswap_16(v >> 16);
+				v = F32_TO_S24(s[i][j]) + conv->dither[k];
+				*d++ = bswap_16(v >> 8);
 			}
 		}
 	}
@@ -1358,8 +1358,8 @@ conv_f32d_to_s24d_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], cons
 		for (j = 0; j < n_samples;) {
 			chunk = SPA_MIN(n_samples - j, conv->dither_size);
 			for (k = 0; k < chunk; k++, j++) {
-				v = F32_TO_S32(s[j]) + conv->dither[k];
-				write_s24(d, v >> 8);
+				v = F32_TO_S24(s[j]) + conv->dither[k];
+				write_s24(d, v);
 				d += 3;
 			}
 		}
@@ -1428,8 +1428,8 @@ conv_f32d_to_s24_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], const
 		chunk = SPA_MIN(n_samples - j, conv->dither_size);
 		for (k = 0; k < chunk; k++, j++) {
 			for (i = 0; i < n_channels; i++) {
-				v = F32_TO_S32(s[i][j]) + conv->dither[k];
-				write_s24(d, v >> 8);
+				v = F32_TO_S24(s[i][j]) + conv->dither[k];
+				write_s24(d, v);
 				d += 3;
 			}
 		}
@@ -1468,8 +1468,8 @@ conv_f32d_to_s24s_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], cons
 		chunk = SPA_MIN(n_samples - j, conv->dither_size);
 		for (k = 0; k < chunk; k++, j++) {
 			for (i = 0; i < n_channels; i++) {
-				v = F32_TO_S32(s[i][j]) + conv->dither[k];
-				write_s24s(d, v >> 8);
+				v = F32_TO_S24(s[i][j]) + conv->dither[k];
+				write_s24s(d, v);
 				d += 3;
 			}
 		}
@@ -1496,7 +1496,6 @@ conv_f32d_to_s24_32d_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], c
 		uint32_t n_samples)
 {
 	uint32_t i, j, k, chunk, n_channels = conv->n_channels;
-	int32_t v;
 
 	update_dither_c(conv, SPA_MIN(n_samples, conv->dither_size));
 
@@ -1506,10 +1505,8 @@ conv_f32d_to_s24_32d_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], c
 
 		for (j = 0; j < n_samples;) {
 			chunk = SPA_MIN(n_samples - j, conv->dither_size);
-			for (k = 0; k < chunk; k++, j++) {
-				v = F32_TO_S32(s[j]) + conv->dither[k];
-				d[j] = v >> 8;
-			}
+			for (k = 0; k < chunk; k++, j++)
+				d[j] = F32_TO_S24_32(s[j]) + conv->dither[k];
 		}
 	}
 }
@@ -1589,7 +1586,7 @@ conv_f32d_to_s24_32_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], co
 		uint32_t n_samples)
 {
 	const float **s = (const float **) src;
-	int32_t *d = dst[0], v;
+	int32_t *d = dst[0];
 	uint32_t i, j, k, chunk, n_channels = conv->n_channels;
 
 	update_dither_c(conv, SPA_MIN(n_samples, conv->dither_size));
@@ -1597,10 +1594,8 @@ conv_f32d_to_s24_32_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], co
 	for (j = 0; j < n_samples;) {
 		chunk = SPA_MIN(n_samples - j, conv->dither_size);
 		for (k = 0; k < chunk; k++, j++) {
-			for (i = 0; i < n_channels; i++) {
-				v = F32_TO_S32(s[i][j]) + conv->dither[k];
-				*d++ = v >> 8;
-			}
+			for (i = 0; i < n_channels; i++)
+				*d++ = F32_TO_S24_32(s[i][j]) + conv->dither[k];
 		}
 	}
 }
@@ -1633,8 +1628,8 @@ conv_f32d_to_s24_32s_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], c
 		chunk = SPA_MIN(n_samples - j, conv->dither_size);
 		for (k = 0; k < chunk; k++, j++) {
 			for (i = 0; i < n_channels; i++) {
-				v = F32_TO_S32(s[i][j]) + conv->dither[k];
-				*d++ = bswap_32(v >> 8);
+				v = F32_TO_S24_32(s[i][j]) + conv->dither[k];
+				*d++ = bswap_32(v);
 			}
 		}
 	}

@@ -196,7 +196,7 @@ static int sf_playback_fill_x8(struct data *d, void *dest, unsigned int n_frames
 	sf_count_t rn;
 
 	rn = sf_read_raw(d->file, dest, n_frames * d->stride);
-	return (int)rn;
+	return (int)rn / d->stride;
 }
 
 static int sf_playback_fill_s16(struct data *d, void *dest, unsigned int n_frames)
@@ -278,7 +278,7 @@ static int sf_record_fill_x8(struct data *d, void *src, unsigned int n_frames)
 	sf_count_t rn;
 
 	rn = sf_write_raw(d->file, src, n_frames * d->stride);
-	return (int)rn;
+	return (int)rn / d->stride;
 }
 
 static int sf_record_fill_s16(struct data *d, void *src, unsigned int n_frames)

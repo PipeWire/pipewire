@@ -634,6 +634,24 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(this->dir[1].conv.noise, 0, 16),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
+		case 23:
+			spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
+			spa_pod_builder_add(&b,
+				SPA_PROP_INFO_name, SPA_POD_String("dither.method"),
+				SPA_PROP_INFO_description, SPA_POD_String("The dithering method"),
+				SPA_PROP_INFO_type, SPA_POD_String(
+					dither_method_info[this->dir[1].conv.method].label),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true),
+				0);
+			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
+			spa_pod_builder_push_struct(&b, &f[1]);
+			for (i = 0; i < SPA_N_ELEMENTS(channelmix_upmix_info); i++) {
+				spa_pod_builder_string(&b, dither_method_info[i].label);
+				spa_pod_builder_string(&b, dither_method_info[i].description);
+			}
+			spa_pod_builder_pop(&b, &f[1]);
+			param = spa_pod_builder_pop(&b, &f[0]);
+			break;
 		default:
 			return 0;
 		}
@@ -704,6 +722,8 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_bool(&b, p->resample_disabled);
 			spa_pod_builder_string(&b, "dither.noise");
 			spa_pod_builder_int(&b, this->dir[1].conv.noise);
+			spa_pod_builder_string(&b, "dither.method");
+			spa_pod_builder_string(&b, dither_method_info[this->dir[1].conv.method].label);
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
@@ -775,6 +795,8 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 		this->props.resample_disabled = spa_atob(s);
 	else if (spa_streq(k, "dither.noise"))
 		spa_atou32(s, &this->dir[1].conv.noise, 0);
+	else if (spa_streq(k, "dither.method"))
+		this->dir[1].conv.method = dither_method_from_label(s);
 	else
 		return 0;
 	return 1;
@@ -1410,14 +1432,15 @@ static int setup_out_convert(struct impl *this)
 	out->conv.quantize = calc_width(&dst_info) * 8;
 	out->conv.src_fmt = src_info.info.raw.format;
 	out->conv.dst_fmt = dst_info.info.raw.format;
+	out->conv.rate = dst_info.info.raw.rate;
 	out->conv.n_channels = dst_info.info.raw.channels;
 	out->conv.cpu_flags = this->cpu_flags;
 
 	if ((res = convert_init(&out->conv)) < 0)
 		return res;
 
-	spa_log_debug(this->log, "%p: got converter features %08x:%08x quant:%d:%d passthrough:%d %s", this,
-			this->cpu_flags, out->conv.cpu_flags,
+	spa_log_debug(this->log, "%p: got converter features %08x:%08x quant:%d:%d:%d passthrough:%d %s", this,
+			this->cpu_flags, out->conv.cpu_flags, out->conv.method,
 			out->conv.quantize, out->conv.noise,
 			out->conv.is_passthrough, out->conv.func_name);
 

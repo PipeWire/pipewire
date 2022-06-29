@@ -737,23 +737,24 @@ conv_f64d_to_f32_c(struct convert *conv, void * SPA_RESTRICT dst[], const void *
 }
 
 /* 32 bit xorshift PRNG, see https://en.wikipedia.org/wiki/Xorshift */
-static inline uint32_t
+static inline int32_t
 xorshift(uint32_t *state)
 {
   uint32_t x = *state;
   x ^= x << 13;
   x ^= x >> 17;
   x ^= x << 5;
-  return (*state = x);
+  return (int32_t)(*state = x);
 }
 
 static inline void update_dither_c(struct convert *conv, uint32_t n_samples)
 {
-	uint32_t n, mask = conv->mask;
-	int32_t offset = conv->offset + conv->bias;
+	uint32_t n;
+	float *dither = conv->dither, scale = conv->scale;
+	uint32_t *state = &conv->random[0];
 
 	for (n = 0; n < n_samples; n++)
-		conv->dither[n] = offset + (int32_t)(xorshift(&conv->random[0]) & mask);
+		dither[n] = xorshift(state) * scale;
 }
 
 void
@@ -768,6 +769,27 @@ conv_f32d_to_u8d_c(struct convert *conv, void * SPA_RESTRICT dst[], const void *
 
 		for (j = 0; j < n_samples; j++)
 			d[j] = F32_TO_U8(s[j]);
+	}
+}
+
+void
+conv_f32d_to_u8d_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
+
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
+
+	for (i = 0; i < n_channels; i++) {
+		const float *s = src[i];
+		uint8_t *d = dst[i];
+
+		for (j = 0; j < n_samples;) {
+			chunk = SPA_MIN(n_samples - j, dither_size);
+			for (k = 0; k < chunk; k++, j++)
+				d[j] = F32_TO_U8_D(s[j], dither[k]);
+		}
 	}
 }
 
@@ -814,6 +836,26 @@ conv_f32d_to_u8_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * 
 }
 
 void
+conv_f32d_to_u8_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const float **s = (const float **) src;
+	uint8_t *d = dst[0];
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
+
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
+
+	for (j = 0; j < n_samples;) {
+		chunk = SPA_MIN(n_samples - j, dither_size);
+		for (k = 0; k < chunk; k++, j++) {
+			for (i = 0; i < n_channels; i++)
+				*d++ = F32_TO_U8_D(s[i][j], dither[k]);
+		}
+	}
+}
+
+void
 conv_f32d_to_s8d_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_samples)
 {
@@ -825,6 +867,27 @@ conv_f32d_to_s8d_c(struct convert *conv, void * SPA_RESTRICT dst[], const void *
 
 		for (j = 0; j < n_samples; j++)
 			d[j] = F32_TO_S8(s[j]);
+	}
+}
+
+void
+conv_f32d_to_s8d_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
+
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
+
+	for (i = 0; i < n_channels; i++) {
+		const float *s = src[i];
+		int8_t *d = dst[i];
+
+		for (j = 0; j < n_samples;) {
+			chunk = SPA_MIN(n_samples - j, dither_size);
+			for (k = 0; k < chunk; k++, j++)
+				d[j] = F32_TO_S8_D(s[j], dither[k]);
+		}
 	}
 }
 
@@ -867,6 +930,26 @@ conv_f32d_to_s8_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * 
 	for (j = 0; j < n_samples; j++) {
 		for (i = 0; i < n_channels; i++)
 			*d++ = F32_TO_S8(s[i][j]);
+	}
+}
+
+void
+conv_f32d_to_s8_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const float **s = (const float **) src;
+	int8_t *d = dst[0];
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
+
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
+
+	for (j = 0; j < n_samples;) {
+		chunk = SPA_MIN(n_samples - j, dither_size);
+		for (k = 0; k < chunk; k++, j++) {
+			for (i = 0; i < n_channels; i++)
+				*d++ = F32_TO_S8_D(s[i][j], dither[k]);
+		}
 	}
 }
 
@@ -944,21 +1027,19 @@ void
 conv_f32d_to_s16d_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_samples)
 {
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels;
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
 
-	update_dither_c(conv, SPA_MIN(n_samples, conv->dither_size));
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
 
 	for (i = 0; i < n_channels; i++) {
 		const float *s = src[i];
 		int16_t *d = dst[i];
-		int32_t v;
 
 		for (j = 0; j < n_samples;) {
-			chunk = SPA_MIN(n_samples - j, conv->dither_size);
-			for (k = 0; k < chunk; k++, j++) {
-				v = F32_TO_S24(s[j]) + conv->dither[k];
-				d[j] = v >> 8;
-			}
+			chunk = SPA_MIN(n_samples - j, dither_size);
+			for (k = 0; k < chunk; k++, j++)
+				d[j] = F32_TO_S16_D(s[j], dither[k]);
 		}
 	}
 }
@@ -1011,18 +1092,16 @@ conv_f32d_to_s16_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], const
 {
 	const float **s = (const float **) src;
 	int16_t *d = dst[0];
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels;
-	int32_t v;
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
 
-	update_dither_c(conv, SPA_MIN(n_samples, conv->dither_size));
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
 
 	for (j = 0; j < n_samples;) {
-		chunk = SPA_MIN(n_samples - j, conv->dither_size);
+		chunk = SPA_MIN(n_samples - j, dither_size);
 		for (k = 0; k < chunk; k++, j++) {
-			for (i = 0; i < n_channels; i++) {
-				v = F32_TO_S24(s[i][j]) + conv->dither[k];
-				*d++ = v >> 8;
-			}
+			for (i = 0; i < n_channels; i++)
+				*d++ = F32_TO_S16_D(s[i][j], dither[k]);
 		}
 	}
 }
@@ -1046,19 +1125,17 @@ conv_f32d_to_s16s_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], cons
 		uint32_t n_samples)
 {
 	const float **s = (const float **) src;
-	int16_t *d = dst[0];
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels;
-	int32_t v;
+	uint16_t *d = dst[0];
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
 
-	update_dither_c(conv, SPA_MIN(n_samples, conv->dither_size));
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
 
 	for (j = 0; j < n_samples;) {
-		chunk = SPA_MIN(n_samples - j, conv->dither_size);
+		chunk = SPA_MIN(n_samples - j, dither_size);
 		for (k = 0; k < chunk; k++, j++) {
-			for (i = 0; i < n_channels; i++) {
-				v = F32_TO_S24(s[i][j]) + conv->dither[k];
-				*d++ = bswap_16(v >> 8);
-			}
+			for (i = 0; i < n_channels; i++)
+				*d++ = F32_TO_S16S_D(s[i][j], dither[k]);
 		}
 	}
 }
@@ -1110,18 +1187,19 @@ void
 conv_f32d_to_s32d_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_samples)
 {
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels;
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
 
-	update_dither_c(conv, SPA_MIN(n_samples, conv->dither_size));
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
 
 	for (i = 0; i < n_channels; i++) {
 		const float *s = src[i];
 		int32_t *d = dst[i];
 
 		for (j = 0; j < n_samples;) {
-			chunk = SPA_MIN(n_samples - j, conv->dither_size);
+			chunk = SPA_MIN(n_samples - j, dither_size);
 			for (k = 0; k < chunk; k++, j++)
-				d[j] = F32_TO_S32(s[j]) + conv->dither[k];
+				d[j] = F32_TO_S32_D(s[j], dither[k]);
 		}
 	}
 }
@@ -1174,15 +1252,16 @@ conv_f32d_to_s32_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], const
 {
 	const float **s = (const float **) src;
 	int32_t *d = dst[0];
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels;
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
 
-	update_dither_c(conv, SPA_MIN(n_samples, conv->dither_size));
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
 
 	for (j = 0; j < n_samples;) {
-		chunk = SPA_MIN(n_samples - j, conv->dither_size);
+		chunk = SPA_MIN(n_samples - j, dither_size);
 		for (k = 0; k < chunk; k++, j++) {
 			for (i = 0; i < n_channels; i++)
-				*d++ = F32_TO_S32(s[i][j]) + conv->dither[k];
+				*d++ = F32_TO_S32_D(s[i][j], dither[k]);
 		}
 	}
 }
@@ -1192,7 +1271,7 @@ conv_f32d_to_s32s_c(struct convert *conv, void * SPA_RESTRICT dst[], const void 
 		uint32_t n_samples)
 {
 	const float **s = (const float **) src;
-	int32_t *d = dst[0];
+	uint32_t *d = dst[0];
 	uint32_t i, j, n_channels = conv->n_channels;
 
 	for (j = 0; j < n_samples; j++) {
@@ -1206,18 +1285,17 @@ conv_f32d_to_s32s_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], cons
 		uint32_t n_samples)
 {
 	const float **s = (const float **) src;
-	int32_t *d = dst[0], v;
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels;
+	uint32_t *d = dst[0];
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
 
-	update_dither_c(conv, SPA_MIN(n_samples, conv->dither_size));
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
 
 	for (j = 0; j < n_samples;) {
-		chunk = SPA_MIN(n_samples - j, conv->dither_size);
+		chunk = SPA_MIN(n_samples - j, dither_size);
 		for (k = 0; k < chunk; k++, j++) {
-			for (i = 0; i < n_channels; i++) {
-				v = F32_TO_S32(s[i][j]) + conv->dither[k];
-				*d++ = bswap_32(v);
-			}
+			for (i = 0; i < n_channels; i++)
+				*d++ = F32_TO_S32S_D(s[i][j], dither[k]);
 		}
 	}
 }
@@ -1346,20 +1424,19 @@ void
 conv_f32d_to_s24d_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_samples)
 {
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels;
-	int32_t v;
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
 
-	update_dither_c(conv, SPA_MIN(n_samples, conv->dither_size));
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
 
 	for (i = 0; i < n_channels; i++) {
 		const float *s = src[i];
 		uint8_t *d = dst[i];
 
 		for (j = 0; j < n_samples;) {
-			chunk = SPA_MIN(n_samples - j, conv->dither_size);
+			chunk = SPA_MIN(n_samples - j, dither_size);
 			for (k = 0; k < chunk; k++, j++) {
-				v = F32_TO_S24(s[j]) + conv->dither[k];
-				write_s24(d, v);
+				write_s24(d, F32_TO_S24_D(s[j], dither[k]));
 				d += 3;
 			}
 		}
@@ -1419,23 +1496,21 @@ conv_f32d_to_s24_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], const
 {
 	const float **s = (const float **) src;
 	uint8_t *d = dst[0];
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels;
-	int32_t v;
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
 
-	update_dither_c(conv, SPA_MIN(n_samples, conv->dither_size));
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
 
 	for (j = 0; j < n_samples;) {
-		chunk = SPA_MIN(n_samples - j, conv->dither_size);
+		chunk = SPA_MIN(n_samples - j, dither_size);
 		for (k = 0; k < chunk; k++, j++) {
 			for (i = 0; i < n_channels; i++) {
-				v = F32_TO_S24(s[i][j]) + conv->dither[k];
-				write_s24(d, v);
+				write_s24(d, F32_TO_S24_D(s[i][j], dither[k]));
 				d += 3;
 			}
 		}
 	}
 }
-
 
 void
 conv_f32d_to_s24s_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
@@ -1459,17 +1534,16 @@ conv_f32d_to_s24s_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], cons
 {
 	const float **s = (const float **) src;
 	uint8_t *d = dst[0];
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels;
-	int32_t v;
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
 
-	update_dither_c(conv, SPA_MIN(n_samples, conv->dither_size));
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
 
 	for (j = 0; j < n_samples;) {
-		chunk = SPA_MIN(n_samples - j, conv->dither_size);
+		chunk = SPA_MIN(n_samples - j, dither_size);
 		for (k = 0; k < chunk; k++, j++) {
 			for (i = 0; i < n_channels; i++) {
-				v = F32_TO_S24(s[i][j]) + conv->dither[k];
-				write_s24s(d, v);
+				write_s24s(d, F32_TO_S24_D(s[i][j], dither[k]));
 				d += 3;
 			}
 		}
@@ -1495,18 +1569,19 @@ void
 conv_f32d_to_s24_32d_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_samples)
 {
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels;
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
 
-	update_dither_c(conv, SPA_MIN(n_samples, conv->dither_size));
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
 
 	for (i = 0; i < n_channels; i++) {
 		const float *s = src[i];
 		int32_t *d = dst[i];
 
 		for (j = 0; j < n_samples;) {
-			chunk = SPA_MIN(n_samples - j, conv->dither_size);
+			chunk = SPA_MIN(n_samples - j, dither_size);
 			for (k = 0; k < chunk; k++, j++)
-				d[j] = F32_TO_S24_32(s[j]) + conv->dither[k];
+				d[j] = F32_TO_S24_32_D(s[j], dither[k]);
 		}
 	}
 }
@@ -1587,15 +1662,16 @@ conv_f32d_to_s24_32_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], co
 {
 	const float **s = (const float **) src;
 	int32_t *d = dst[0];
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels;
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
 
-	update_dither_c(conv, SPA_MIN(n_samples, conv->dither_size));
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
 
 	for (j = 0; j < n_samples;) {
-		chunk = SPA_MIN(n_samples - j, conv->dither_size);
+		chunk = SPA_MIN(n_samples - j, dither_size);
 		for (k = 0; k < chunk; k++, j++) {
 			for (i = 0; i < n_channels; i++)
-				*d++ = F32_TO_S24_32(s[i][j]) + conv->dither[k];
+				*d++ = F32_TO_S24_32_D(s[i][j], dither[k]);
 		}
 	}
 }
@@ -1619,18 +1695,17 @@ conv_f32d_to_s24_32s_dither_c(struct convert *conv, void * SPA_RESTRICT dst[], c
 		uint32_t n_samples)
 {
 	const float **s = (const float **) src;
-	int32_t *d = dst[0], v;
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels;
+	int32_t *d = dst[0];
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;
+	float *dither = conv->dither;
 
-	update_dither_c(conv, SPA_MIN(n_samples, conv->dither_size));
+	update_dither_c(conv, SPA_MIN(n_samples, dither_size));
 
 	for (j = 0; j < n_samples;) {
-		chunk = SPA_MIN(n_samples - j, conv->dither_size);
+		chunk = SPA_MIN(n_samples - j, dither_size);
 		for (k = 0; k < chunk; k++, j++) {
-			for (i = 0; i < n_channels; i++) {
-				v = F32_TO_S24_32(s[i][j]) + conv->dither[k];
-				*d++ = bswap_32(v);
-			}
+			for (i = 0; i < n_channels; i++)
+				*d++ = F32_TO_S24_32S_D(s[i][j], dither[k]);
 		}
 	}
 }

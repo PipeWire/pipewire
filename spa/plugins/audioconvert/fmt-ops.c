@@ -170,13 +170,17 @@ static struct conv_info conv_table[] =
 
 	/* from f32 */
 	MAKE(F32, U8, 0, conv_f32_to_u8_c),
+	MAKE(F32P, U8P, 0, conv_f32d_to_u8d_dither_c, 0, CONV_DITHER),
 	MAKE(F32P, U8P, 0, conv_f32d_to_u8d_c),
 	MAKE(F32, U8P, 0, conv_f32_to_u8d_c),
+	MAKE(F32P, U8, 0, conv_f32d_to_u8_dither_c, 0, CONV_DITHER),
 	MAKE(F32P, U8, 0, conv_f32d_to_u8_c),
 
 	MAKE(F32, S8, 0, conv_f32_to_s8_c),
+	MAKE(F32P, S8P, 0, conv_f32d_to_s8d_dither_c, 0, CONV_DITHER),
 	MAKE(F32P, S8P, 0, conv_f32d_to_s8d_c),
 	MAKE(F32, S8P, 0, conv_f32_to_s8d_c),
+	MAKE(F32P, S8, 0, conv_f32d_to_s8_dither_c, 0, CONV_DITHER),
 	MAKE(F32P, S8, 0, conv_f32d_to_s8_c),
 
 	MAKE(F32P, ALAW, 0, conv_f32d_to_alaw_c),
@@ -224,7 +228,11 @@ static struct conv_info conv_table[] =
 	MAKE(F32P, S32P, 0, conv_f32d_to_s32d_c),
 	MAKE(F32, S32P, 0, conv_f32_to_s32d_c),
 
+#if defined (HAVE_SSE2)
+	MAKE(F32P, S32, 0, conv_f32d_to_s32_dither_sse2, SPA_CPU_FLAG_SSE2, CONV_DITHER),
+#endif
 	MAKE(F32P, S32, 0, conv_f32d_to_s32_dither_c, 0, CONV_DITHER),
+
 #if defined (HAVE_AVX2)
 	MAKE(F32P, S32, 0, conv_f32d_to_s32_avx2, SPA_CPU_FLAG_AVX2),
 #endif
@@ -357,17 +365,38 @@ static void impl_convert_free(struct convert *conv)
 	conv->dither = NULL;
 }
 
+static bool need_dither(uint32_t format)
+{
+	switch (format) {
+	case SPA_AUDIO_FORMAT_U8:
+	case SPA_AUDIO_FORMAT_U8P:
+	case SPA_AUDIO_FORMAT_S8:
+	case SPA_AUDIO_FORMAT_S8P:
+	case SPA_AUDIO_FORMAT_ULAW:
+	case SPA_AUDIO_FORMAT_ALAW:
+	case SPA_AUDIO_FORMAT_S16P:
+	case SPA_AUDIO_FORMAT_S16:
+	case SPA_AUDIO_FORMAT_S16_OE:
+		return true;
+	}
+	return false;
+}
+
 int convert_init(struct convert *conv)
 {
 	const struct conv_info *info;
-	uint32_t i, shift, dither_flags;
+	uint32_t i, dither_flags;
 
-	shift = 24u - SPA_MIN(conv->quantize, 24u);
-	shift += conv->noise;
+	conv->scale = 1.0f / (float)(INT32_MAX >> conv->noise);
 
-	conv->mask = (1ULL << (shift + 1)) - 1;
-	conv->offset = shift < 32 ? -(1ULL << shift) : 0;
-	conv->bias = shift > 0 ? 1 << (shift - 1) : 0;
+	/* disable dither if not needed */
+	if (!need_dither(conv->dst_fmt))
+		conv->method = DITHER_METHOD_NONE;
+
+	/* don't use shaped for too low rates, it moves the noise to
+	 * audible ranges */
+	if (conv->method == DITHER_METHOD_SHAPED_5 && conv->rate < 32000)
+		conv->method = DITHER_METHOD_TRIANGULAR;
 
 	dither_flags = 0;
 	if (conv->method != DITHER_METHOD_NONE || conv->noise)

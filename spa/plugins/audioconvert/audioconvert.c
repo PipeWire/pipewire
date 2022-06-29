@@ -431,6 +431,7 @@ static int impl_node_enum_params(void *object, int seq,
 	{
 		struct props *p = &this->props;
 		struct spa_pod_frame f[2];
+		uint32_t i;
 
 		switch (result.index) {
 		case 0:
@@ -594,12 +595,10 @@ static int impl_node_enum_params(void *object, int seq,
 
 			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
 			spa_pod_builder_push_struct(&b, &f[1]);
-			spa_pod_builder_string(&b, channelmix_upmix_info[CHANNELMIX_UPMIX_NONE].label);
-			spa_pod_builder_string(&b, channelmix_upmix_info[CHANNELMIX_UPMIX_NONE].description);
-			spa_pod_builder_string(&b, channelmix_upmix_info[CHANNELMIX_UPMIX_SIMPLE].label);
-			spa_pod_builder_string(&b, channelmix_upmix_info[CHANNELMIX_UPMIX_SIMPLE].description);
-			spa_pod_builder_string(&b, channelmix_upmix_info[CHANNELMIX_UPMIX_PSD].label);
-			spa_pod_builder_string(&b, channelmix_upmix_info[CHANNELMIX_UPMIX_PSD].description);
+			for (i = 0; i < SPA_N_ELEMENTS(channelmix_upmix_info); i++) {
+				spa_pod_builder_string(&b, channelmix_upmix_info[i].label);
+				spa_pod_builder_string(&b, channelmix_upmix_info[i].description);
+			}
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
@@ -697,6 +696,8 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_float(&b, this->mix.widen);
 			spa_pod_builder_string(&b, "channelmix.hilbert-taps");
 			spa_pod_builder_int(&b, this->mix.hilbert_taps);
+			spa_pod_builder_string(&b, "channelmix.upmix-method");
+			spa_pod_builder_string(&b, channelmix_upmix_info[this->mix.upmix].label);
 			spa_pod_builder_string(&b, "resample.quality");
 			spa_pod_builder_int(&b, p->resample_quality);
 			spa_pod_builder_string(&b, "resample.disable");

@@ -736,15 +736,11 @@ conv_f64d_to_f32_c(struct convert *conv, void * SPA_RESTRICT dst[], const void *
 	}
 }
 
-/* 32 bit xorshift PRNG, see https://en.wikipedia.org/wiki/Xorshift */
 static inline int32_t
-xorshift(uint32_t *state)
+lcnoise(uint32_t *state)
 {
-  uint32_t x = *state;
-  x ^= x << 13;
-  x ^= x >> 17;
-  x ^= x << 5;
-  return (int32_t)(*state = x);
+        *state = (*state * 96314165) + 907633515;
+        return (int32_t)(*state);
 }
 
 static inline void update_dither_c(struct convert *conv, uint32_t n_samples)
@@ -754,7 +750,7 @@ static inline void update_dither_c(struct convert *conv, uint32_t n_samples)
 	uint32_t *state = &conv->random[0];
 
 	for (n = 0; n < n_samples; n++)
-		dither[n] = xorshift(state) * scale;
+		dither[n] = lcnoise(state) * scale;
 }
 
 void

@@ -41,7 +41,7 @@
 #define U8_MAX			255u
 #define U8_SCALE		127.5f
 #define U8_OFFS			128.f
-#define U8_TO_F32(v)		((((uint8_t)(v)) * (1.0f / U8_OFFS)) - 1.0)
+#define U8_TO_F32(v)		((((uint8_t)(v)) * (1.0f / U8_OFFS)) - 1.0f)
 #define F32_TO_U8(v)		(uint8_t)SPA_CLAMP((v) * U8_SCALE + U8_OFFS, U8_MIN, U8_MAX)
 #define F32_TO_U8_D(v,d)	(uint8_t)SPA_CLAMP((v) * U8_SCALE + U8_OFFS + (d), U8_MIN, U8_MAX)
 
@@ -196,7 +196,14 @@ static inline void write_s24s(void *dst, int32_t val)
 #endif
 }
 
-#define MAX_NS	64
+#define NS_MAX	8
+#define NS_MASK	(NS_MAX-1)
+
+struct shaper {
+	float e[NS_MAX];
+	uint32_t idx;
+	float r;
+};
 
 struct convert {
 	uint32_t quantize;
@@ -220,10 +227,7 @@ struct convert {
 	uint32_t random[16 + FMT_OPS_MAX_ALIGN/4];
 	float *dither;
 	uint32_t dither_size;
-
-	float ns_data[MAX_NS];
-	uint32_t ns_idx;
-	uint32_t ns_size;
+	struct shaper shaper[64];
 
 	void (*process) (struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 			uint32_t n_samples);
@@ -315,28 +319,35 @@ DEFINE_FUNCTION(f64s_to_f32d, c);
 DEFINE_FUNCTION(f64d_to_f32, c);
 DEFINE_FUNCTION(f32d_to_u8d, c);
 DEFINE_FUNCTION(f32d_to_u8d_dither, c);
+DEFINE_FUNCTION(f32d_to_u8d_shaped, c);
 DEFINE_FUNCTION(f32_to_u8, c);
 DEFINE_FUNCTION(f32_to_u8d, c);
 DEFINE_FUNCTION(f32d_to_u8, c);
 DEFINE_FUNCTION(f32d_to_u8_dither, c);
+DEFINE_FUNCTION(f32d_to_u8_shaped, c);
 DEFINE_FUNCTION(f32d_to_s8d, c);
 DEFINE_FUNCTION(f32d_to_s8d_dither, c);
+DEFINE_FUNCTION(f32d_to_s8d_shaped, c);
 DEFINE_FUNCTION(f32_to_s8, c);
 DEFINE_FUNCTION(f32_to_s8d, c);
 DEFINE_FUNCTION(f32d_to_s8, c);
 DEFINE_FUNCTION(f32d_to_s8_dither, c);
+DEFINE_FUNCTION(f32d_to_s8_shaped, c);
 DEFINE_FUNCTION(f32d_to_alaw, c);
 DEFINE_FUNCTION(f32d_to_ulaw, c);
 DEFINE_FUNCTION(f32_to_u16, c);
 DEFINE_FUNCTION(f32d_to_u16, c);
 DEFINE_FUNCTION(f32d_to_s16d, c);
 DEFINE_FUNCTION(f32d_to_s16d_dither, c);
+DEFINE_FUNCTION(f32d_to_s16d_shaped, c);
 DEFINE_FUNCTION(f32_to_s16, c);
 DEFINE_FUNCTION(f32_to_s16d, c);
 DEFINE_FUNCTION(f32d_to_s16, c);
 DEFINE_FUNCTION(f32d_to_s16_dither, c);
+DEFINE_FUNCTION(f32d_to_s16_shaped, c);
 DEFINE_FUNCTION(f32d_to_s16s, c);
 DEFINE_FUNCTION(f32d_to_s16s_dither, c);
+DEFINE_FUNCTION(f32d_to_s16s_shaped, c);
 DEFINE_FUNCTION(f32_to_u32, c);
 DEFINE_FUNCTION(f32d_to_u32, c);
 DEFINE_FUNCTION(f32d_to_s32d, c);

@@ -170,16 +170,20 @@ static struct conv_info conv_table[] =
 
 	/* from f32 */
 	MAKE(F32, U8, 0, conv_f32_to_u8_c),
+	MAKE(F32P, U8P, 0, conv_f32d_to_u8d_shaped_c, 0, CONV_SHAPE),
 	MAKE(F32P, U8P, 0, conv_f32d_to_u8d_dither_c, 0, CONV_DITHER),
 	MAKE(F32P, U8P, 0, conv_f32d_to_u8d_c),
 	MAKE(F32, U8P, 0, conv_f32_to_u8d_c),
+	MAKE(F32P, U8, 0, conv_f32d_to_u8_shaped_c, 0, CONV_SHAPE),
 	MAKE(F32P, U8, 0, conv_f32d_to_u8_dither_c, 0, CONV_DITHER),
 	MAKE(F32P, U8, 0, conv_f32d_to_u8_c),
 
 	MAKE(F32, S8, 0, conv_f32_to_s8_c),
+	MAKE(F32P, S8P, 0, conv_f32d_to_s8d_shaped_c, 0, CONV_SHAPE),
 	MAKE(F32P, S8P, 0, conv_f32d_to_s8d_dither_c, 0, CONV_DITHER),
 	MAKE(F32P, S8P, 0, conv_f32d_to_s8d_c),
 	MAKE(F32, S8P, 0, conv_f32_to_s8d_c),
+	MAKE(F32P, S8, 0, conv_f32d_to_s8_shaped_c, 0, CONV_SHAPE),
 	MAKE(F32P, S8, 0, conv_f32d_to_s8_dither_c, 0, CONV_DITHER),
 	MAKE(F32P, S8, 0, conv_f32d_to_s8_c),
 
@@ -194,6 +198,7 @@ static struct conv_info conv_table[] =
 #endif
 	MAKE(F32, S16, 0, conv_f32_to_s16_c),
 
+	MAKE(F32P, S16P, 0, conv_f32d_to_s16d_shaped_c, 0, CONV_SHAPE),
 	MAKE(F32P, S16P, 0, conv_f32d_to_s16d_dither_c, 0, CONV_DITHER),
 #if defined (HAVE_SSE2)
 	MAKE(F32P, S16P, 0, conv_f32d_to_s16d_sse2, SPA_CPU_FLAG_SSE2),
@@ -202,6 +207,7 @@ static struct conv_info conv_table[] =
 
 	MAKE(F32, S16P, 0, conv_f32_to_s16d_c),
 
+	MAKE(F32P, S16, 0, conv_f32d_to_s16_shaped_c, 0, CONV_SHAPE),
 	MAKE(F32P, S16, 0, conv_f32d_to_s16_dither_c, 0, CONV_DITHER),
 #if defined (HAVE_NEON)
 	MAKE(F32P, S16, 0, conv_f32d_to_s16_neon, SPA_CPU_FLAG_NEON),
@@ -217,6 +223,7 @@ static struct conv_info conv_table[] =
 #endif
 	MAKE(F32P, S16, 0, conv_f32d_to_s16_c),
 
+	MAKE(F32P, S16_OE, 0, conv_f32d_to_s16s_shaped_c, 0, CONV_SHAPE),
 	MAKE(F32P, S16_OE, 0, conv_f32d_to_s16s_dither_c, 0, CONV_DITHER),
 	MAKE(F32P, S16_OE, 0, conv_f32d_to_s16s_c),
 

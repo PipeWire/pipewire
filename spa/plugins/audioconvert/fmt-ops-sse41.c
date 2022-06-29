@@ -33,7 +33,7 @@ conv_s24_to_f32d_1s_sse41(void *data, void * SPA_RESTRICT dst[], const void * SP
 	const uint8_t *s = src;
 	float *d0 = dst[0];
 	uint32_t n, unrolled;
-	__m128i in;
+	__m128i in = _mm_setzero_si128();
 	__m128 out, factor = _mm_set1_ps(1.0f / S24_SCALE);
 
 	if (SPA_IS_ALIGNED(d0, 16))
@@ -54,7 +54,7 @@ conv_s24_to_f32d_1s_sse41(void *data, void * SPA_RESTRICT dst[], const void * SP
 		s += 12 * n_channels;
 	}
 	for(; n < n_samples; n++) {
-		out = _mm_cvtsi32_ss(out, read_s24(s));
+		out = _mm_cvtsi32_ss(factor, read_s24(s));
 		out = _mm_mul_ss(out, factor);
 		_mm_store_ss(&d0[n], out);
 		s += 3 * n_channels;

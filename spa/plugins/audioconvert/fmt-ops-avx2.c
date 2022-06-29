@@ -41,7 +41,7 @@ conv_s16_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	const int16_t *s = src;
 	float *d0 = dst[0];
 	uint32_t n, unrolled;
-	__m256i in;
+	__m256i in = _mm256_setzero_si256();
 	__m256 out, factor = _mm256_set1_ps(1.0f / S16_SCALE);
 
 	if (SPA_LIKELY(SPA_IS_ALIGNED(d0, 32)))
@@ -67,7 +67,7 @@ conv_s16_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	}
 	for(; n < n_samples; n++) {
 		__m128 out, factor = _mm_set1_ps(1.0f / S16_SCALE);
-		out = _mm_cvtsi32_ss(out, s[0]);
+		out = _mm_cvtsi32_ss(factor, s[0]);
 		out = _mm_mul_ss(out, factor);
 		_mm_store_ss(&d0[n], out);
 		s += n_channels;
@@ -133,9 +133,9 @@ conv_s16_to_f32d_2_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const v
 	}
 	for(; n < n_samples; n++) {
 		__m128 out[4], factor = _mm_set1_ps(1.0f / S16_SCALE);
-		out[0] = _mm_cvtsi32_ss(out[0], s[0]);
+		out[0] = _mm_cvtsi32_ss(factor, s[0]);
 		out[0] = _mm_mul_ss(out[0], factor);
-		out[1] = _mm_cvtsi32_ss(out[1], s[1]);
+		out[1] = _mm_cvtsi32_ss(factor, s[1]);
 		out[1] = _mm_mul_ss(out[1], factor);
 		_mm_store_ss(&d0[n], out[0]);
 		_mm_store_ss(&d1[n], out[1]);
@@ -175,7 +175,7 @@ conv_s24_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 		s += 12 * n_channels;
 	}
 	for(; n < n_samples; n++) {
-		out = _mm_cvtsi32_ss(out, read_s24(s));
+		out = _mm_cvtsi32_ss(factor, read_s24(s));
 		out = _mm_mul_ss(out, factor);
 		_mm_store_ss(&d0[n], out);
 		s += 3 * n_channels;
@@ -232,8 +232,8 @@ conv_s24_to_f32d_2s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 		s += 12 * n_channels;
 	}
 	for(; n < n_samples; n++) {
-		out[0] = _mm_cvtsi32_ss(out[0], read_s24(s));
-		out[1] = _mm_cvtsi32_ss(out[1], read_s24(s+3));
+		out[0] = _mm_cvtsi32_ss(factor, read_s24(s));
+		out[1] = _mm_cvtsi32_ss(factor, read_s24(s+3));
 		out[0] = _mm_mul_ss(out[0], factor);
 		out[1] = _mm_mul_ss(out[1], factor);
 		_mm_store_ss(&d0[n], out[0]);
@@ -313,10 +313,10 @@ conv_s24_to_f32d_4s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 		s += 12 * n_channels;
 	}
 	for(; n < n_samples; n++) {
-		out[0] = _mm_cvtsi32_ss(out[0], read_s24(s));
-		out[1] = _mm_cvtsi32_ss(out[1], read_s24(s+3));
-		out[2] = _mm_cvtsi32_ss(out[2], read_s24(s+6));
-		out[3] = _mm_cvtsi32_ss(out[3], read_s24(s+9));
+		out[0] = _mm_cvtsi32_ss(factor, read_s24(s));
+		out[1] = _mm_cvtsi32_ss(factor, read_s24(s+3));
+		out[2] = _mm_cvtsi32_ss(factor, read_s24(s+6));
+		out[3] = _mm_cvtsi32_ss(factor, read_s24(s+9));
 		out[0] = _mm_mul_ss(out[0], factor);
 		out[1] = _mm_mul_ss(out[1], factor);
 		out[2] = _mm_mul_ss(out[2], factor);
@@ -406,10 +406,10 @@ conv_s32_to_f32d_4s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	}
 	for(; n < n_samples; n++) {
 		__m128 out[4], factor = _mm_set1_ps(1.0f / S24_SCALE);
-		out[0] = _mm_cvtsi32_ss(out[0], s[0]>>8);
-		out[1] = _mm_cvtsi32_ss(out[1], s[1]>>8);
-		out[2] = _mm_cvtsi32_ss(out[2], s[2]>>8);
-		out[3] = _mm_cvtsi32_ss(out[3], s[3]>>8);
+		out[0] = _mm_cvtsi32_ss(factor, s[0]>>8);
+		out[1] = _mm_cvtsi32_ss(factor, s[1]>>8);
+		out[2] = _mm_cvtsi32_ss(factor, s[2]>>8);
+		out[3] = _mm_cvtsi32_ss(factor, s[3]>>8);
 		out[0] = _mm_mul_ss(out[0], factor);
 		out[1] = _mm_mul_ss(out[1], factor);
 		out[2] = _mm_mul_ss(out[2], factor);
@@ -467,8 +467,8 @@ conv_s32_to_f32d_2s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	}
 	for(; n < n_samples; n++) {
 		__m128 out[2], factor = _mm_set1_ps(1.0f / S24_SCALE);
-		out[0] = _mm_cvtsi32_ss(out[0], s[0]>>8);
-		out[1] = _mm_cvtsi32_ss(out[1], s[1]>>8);
+		out[0] = _mm_cvtsi32_ss(factor, s[0]>>8);
+		out[1] = _mm_cvtsi32_ss(factor, s[1]>>8);
 		out[0] = _mm_mul_ss(out[0], factor);
 		out[1] = _mm_mul_ss(out[1], factor);
 		_mm_store_ss(&d0[n], out[0]);
@@ -518,7 +518,7 @@ conv_s32_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	}
 	for(; n < n_samples; n++) {
 		__m128 out, factor = _mm_set1_ps(1.0f / S24_SCALE);
-		out = _mm_cvtsi32_ss(out, s[0]>>8);
+		out = _mm_cvtsi32_ss(factor, s[0]>>8);
 		out = _mm_mul_ss(out, factor);
 		_mm_store_ss(&d0[n], out);
 		s += n_channels;

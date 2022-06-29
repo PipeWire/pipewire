@@ -77,10 +77,10 @@ conv_s24_to_f32d_4s_ssse3(void *data, void * SPA_RESTRICT dst[], const void * SP
 		s += 12 * n_channels;
 	}
 	for(; n < n_samples; n++) {
-		out[0] = _mm_cvtsi32_ss(out[0], read_s24(s));
-		out[1] = _mm_cvtsi32_ss(out[1], read_s24(s+3));
-		out[2] = _mm_cvtsi32_ss(out[2], read_s24(s+6));
-		out[3] = _mm_cvtsi32_ss(out[3], read_s24(s+9));
+		out[0] = _mm_cvtsi32_ss(factor, read_s24(s));
+		out[1] = _mm_cvtsi32_ss(factor, read_s24(s+3));
+		out[2] = _mm_cvtsi32_ss(factor, read_s24(s+6));
+		out[3] = _mm_cvtsi32_ss(factor, read_s24(s+9));
 		out[0] = _mm_mul_ss(out[0], factor);
 		out[1] = _mm_mul_ss(out[1], factor);
 		out[2] = _mm_mul_ss(out[2], factor);

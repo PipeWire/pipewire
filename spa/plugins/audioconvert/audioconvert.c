@@ -2355,7 +2355,7 @@ static int impl_node_process(void *object)
 	if (this->direction == SPA_DIRECTION_INPUT) {
 		uint32_t out = resample_update_rate_match(this, resample_passthrough, quant_samples, 0);
 		if (!in_avail || this->drained) {
-			spa_log_debug(this->log, "%p: no input drained:%d", this, this->drained);
+			spa_log_trace_fp(this->log, "%p: no input drained:%d", this, this->drained);
 			/* no input, ask for more */
 			res |= this->drained ? SPA_STATUS_DRAINED : SPA_STATUS_NEED_DATA;
 			return res;

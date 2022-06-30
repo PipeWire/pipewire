@@ -249,6 +249,7 @@ extern "C" {
 								  *  "isa", "pci", "usb", "firewire",
 								  *  "bluetooth" */
 #define PW_KEY_DEVICE_SUBSYSTEM		"device.subsystem"	/**< device subsystem */
+#define PW_KEY_DEVICE_SYSFS_PATH	"device.sysfs.path"	/**< device sysfs path */
 #define PW_KEY_DEVICE_ICON		"device.icon"		/**< icon for the device. A base64 blob
 								  *  containing PNG image data */
 #define PW_KEY_DEVICE_ICON_NAME		"device.icon-name"	/**< an XDG icon name for the device.

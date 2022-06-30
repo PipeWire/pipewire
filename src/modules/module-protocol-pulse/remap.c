@@ -43,6 +43,7 @@ const struct str_map media_role_map[] = {
 
 const struct str_map props_key_map[] = {
 	{ PW_KEY_DEVICE_BUS_PATH, "device.bus_path" },
+	{ PW_KEY_DEVICE_SYSFS_PATH, "sysfs.path" },
 	{ PW_KEY_DEVICE_FORM_FACTOR, "device.form_factor" },
 	{ PW_KEY_DEVICE_ICON_NAME, "device.icon_name" },
 	{ PW_KEY_DEVICE_INTENDED_ROLES, "device.intended_roles" },

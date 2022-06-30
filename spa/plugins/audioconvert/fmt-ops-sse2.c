@@ -699,7 +699,7 @@ conv_interleave_32_4s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA
 }
 
 void
-conv_interleave_32_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+conv_32d_to_32_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_samples)
 {
 	int32_t *d = dst[0];
@@ -797,7 +797,7 @@ conv_interleave_32s_4s_sse2(void *data, void * SPA_RESTRICT dst, const void * SP
 }
 
 void
-conv_interleave_32s_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+conv_32sd_to_32s_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_samples)
 {
 	int32_t *d = dst[0];
@@ -878,7 +878,7 @@ conv_deinterleave_32_4s_sse2(void *data, void * SPA_RESTRICT dst[], const void *
 }
 
 void
-conv_deinterleave_32_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+conv_32_to_32d_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_samples)
 {
 	const float *s = src[0];
@@ -965,7 +965,7 @@ conv_deinterleave_32s_4s_sse2(void *data, void * SPA_RESTRICT dst[], const void 
 }
 
 void
-conv_deinterleave_32s_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+conv_32s_to_32sd_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_samples)
 {
 	const float *s = src[0];

@@ -96,22 +96,22 @@ static struct conv_info conv_table[] =
 	MAKE(F32, F32, 0, conv_copy32_c),
 	MAKE(F32P, F32P, 0, conv_copy32d_c),
 #if defined (HAVE_SSE2)
-	MAKE(F32, F32P, 0, conv_deinterleave_32_sse2, SPA_CPU_FLAG_SSE2),
+	MAKE(F32, F32P, 0, conv_32_to_32d_sse2, SPA_CPU_FLAG_SSE2),
 #endif
-	MAKE(F32, F32P, 0, conv_deinterleave_32_c),
+	MAKE(F32, F32P, 0, conv_32_to_32d_c),
 #if defined (HAVE_SSE2)
-	MAKE(F32P, F32, 0, conv_interleave_32_sse2, SPA_CPU_FLAG_SSE2),
+	MAKE(F32P, F32, 0, conv_32d_to_32_sse2, SPA_CPU_FLAG_SSE2),
 #endif
-	MAKE(F32P, F32, 0, conv_interleave_32_c),
+	MAKE(F32P, F32, 0, conv_32d_to_32_c),
 
 #if defined (HAVE_SSE2)
-	MAKE(F32_OE, F32P, 0, conv_deinterleave_32s_sse2, SPA_CPU_FLAG_SSE2),
+	MAKE(F32_OE, F32P, 0, conv_32s_to_32sd_sse2, SPA_CPU_FLAG_SSE2),
 #endif
-	MAKE(F32_OE, F32P, 0, conv_deinterleave_32s_c),
+	MAKE(F32_OE, F32P, 0, conv_32s_to_32sd_c),
 #if defined (HAVE_SSE2)
-	MAKE(F32P, F32_OE, 0, conv_interleave_32s_sse2, SPA_CPU_FLAG_SSE2),
+	MAKE(F32P, F32_OE, 0, conv_32sd_to_32s_sse2, SPA_CPU_FLAG_SSE2),
 #endif
-	MAKE(F32P, F32_OE, 0, conv_interleave_32s_c),
+	MAKE(F32P, F32_OE, 0, conv_32sd_to_32s_c),
 
 	MAKE(U32, F32, 0, conv_u32_to_f32_c),
 	MAKE(U32, F32P, 0, conv_u32_to_f32d_c),
@@ -287,14 +287,14 @@ static struct conv_info conv_table[] =
 	/* u8 */
 	MAKE(U8, U8, 0, conv_copy8_c),
 	MAKE(U8P, U8P, 0, conv_copy8d_c),
-	MAKE(U8, U8P, 0, conv_deinterleave_8_c),
-	MAKE(U8P, U8, 0, conv_interleave_8_c),
+	MAKE(U8, U8P, 0, conv_8_to_8d_c),
+	MAKE(U8P, U8, 0, conv_8d_to_8_c),
 
 	/* s8 */
 	MAKE(S8, S8, 0, conv_copy8_c),
 	MAKE(S8P, S8P, 0, conv_copy8d_c),
-	MAKE(S8, S8P, 0, conv_deinterleave_8_c),
-	MAKE(S8P, S8, 0, conv_interleave_8_c),
+	MAKE(S8, S8P, 0, conv_8_to_8d_c),
+	MAKE(S8P, S8, 0, conv_8d_to_8_c),
 
 	/* alaw */
 	MAKE(ALAW, ALAW, 0, conv_copy8_c),
@@ -304,44 +304,44 @@ static struct conv_info conv_table[] =
 	/* s16 */
 	MAKE(S16, S16, 0, conv_copy16_c),
 	MAKE(S16P, S16P, 0, conv_copy16d_c),
-	MAKE(S16, S16P, 0, conv_deinterleave_16_c),
-	MAKE(S16P, S16, 0, conv_interleave_16_c),
+	MAKE(S16, S16P, 0, conv_16_to_16d_c),
+	MAKE(S16P, S16, 0, conv_16d_to_16_c),
 
 	/* s32 */
 	MAKE(S32, S32, 0, conv_copy32_c),
 	MAKE(S32P, S32P, 0, conv_copy32d_c),
 #if defined (HAVE_SSE2)
-	MAKE(S32, S32P, 0, conv_deinterleave_32_sse2, SPA_CPU_FLAG_SSE2),
+	MAKE(S32, S32P, 0, conv_32_to_32d_sse2, SPA_CPU_FLAG_SSE2),
 #endif
-	MAKE(S32, S32P, 0, conv_deinterleave_32_c),
+	MAKE(S32, S32P, 0, conv_32_to_32d_c),
 #if defined (HAVE_SSE2)
-	MAKE(S32P, S32, 0, conv_interleave_32_sse2, SPA_CPU_FLAG_SSE2),
+	MAKE(S32P, S32, 0, conv_32d_to_32_sse2, SPA_CPU_FLAG_SSE2),
 #endif
-	MAKE(S32P, S32, 0, conv_interleave_32_c),
+	MAKE(S32P, S32, 0, conv_32d_to_32_c),
 
 	/* s24 */
 	MAKE(S24, S24, 0, conv_copy24_c),
 	MAKE(S24P, S24P, 0, conv_copy24d_c),
-	MAKE(S24, S24P, 0, conv_deinterleave_24_c),
-	MAKE(S24P, S24, 0, conv_interleave_24_c),
+	MAKE(S24, S24P, 0, conv_24_to_24d_c),
+	MAKE(S24P, S24, 0, conv_24d_to_24_c),
 
 	/* s24_32 */
 	MAKE(S24_32, S24_32, 0, conv_copy32_c),
 	MAKE(S24_32P, S24_32P, 0, conv_copy32d_c),
 #if defined (HAVE_SSE2)
-	MAKE(S24_32, S24_32P, 0, conv_deinterleave_32_sse2, SPA_CPU_FLAG_SSE2),
+	MAKE(S24_32, S24_32P, 0, conv_32_to_32d_sse2, SPA_CPU_FLAG_SSE2),
 #endif
-	MAKE(S24_32, S24_32P, 0, conv_deinterleave_32_c),
+	MAKE(S24_32, S24_32P, 0, conv_32_to_32d_c),
 #if defined (HAVE_SSE2)
-	MAKE(S24_32P, S24_32, 0, conv_interleave_32_sse2, SPA_CPU_FLAG_SSE2),
+	MAKE(S24_32P, S24_32, 0, conv_32d_to_32_sse2, SPA_CPU_FLAG_SSE2),
 #endif
-	MAKE(S24_32P, S24_32, 0, conv_interleave_32_c),
+	MAKE(S24_32P, S24_32, 0, conv_32d_to_32_c),
 
 	/* F64 */
 	MAKE(F64, F64, 0, conv_copy64_c),
 	MAKE(F64P, F64P, 0, conv_copy64d_c),
-	MAKE(F64, F64P, 0, conv_deinterleave_64_c),
-	MAKE(F64P, F64, 0, conv_interleave_64_c),
+	MAKE(F64, F64P, 0, conv_64_to_64d_c),
+	MAKE(F64P, F64, 0, conv_64d_to_64_c),
 };
 #undef MAKE
 

@@ -81,19 +81,19 @@ static void run_test(const char *name,
 		tp[0] = temp_in;
 		switch(in_size) {
 		case 1:
-			conv_interleave_8_c(&conv, tp, ip, N_SAMPLES);
+			conv_8d_to_8_c(&conv, tp, ip, N_SAMPLES);
 			break;
 		case 2:
-			conv_interleave_16_c(&conv, tp, ip, N_SAMPLES);
+			conv_16d_to_16_c(&conv, tp, ip, N_SAMPLES);
 			break;
 		case 3:
-			conv_interleave_24_c(&conv, tp, ip, N_SAMPLES);
+			conv_24d_to_24_c(&conv, tp, ip, N_SAMPLES);
 			break;
 		case 4:
-			conv_interleave_32_c(&conv, tp, ip, N_SAMPLES);
+			conv_32d_to_32_c(&conv, tp, ip, N_SAMPLES);
 			break;
 		case 8:
-			conv_interleave_64_c(&conv, tp, ip, N_SAMPLES);
+			conv_64d_to_64_c(&conv, tp, ip, N_SAMPLES);
 			break;
 		default:
 			fprintf(stderr, "unknown size %zd\n", in_size);

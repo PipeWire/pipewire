@@ -271,18 +271,18 @@ static void test_s24_32_f32(void)
 
 static void test_interleave(void)
 {
-	run_test("test_interleave_8", "c", false, true, conv_interleave_8_c);
-	run_test("test_interleave_16", "c", false, true, conv_interleave_16_c);
-	run_test("test_interleave_24", "c", false, true, conv_interleave_24_c);
-	run_test("test_interleave_32", "c", false, true, conv_interleave_32_c);
+	run_test("test_8d_to_8", "c", false, true, conv_8d_to_8_c);
+	run_test("test_16d_to_16", "c", false, true, conv_16d_to_16_c);
+	run_test("test_24d_to_24", "c", false, true, conv_24d_to_24_c);
+	run_test("test_32d_to_32", "c", false, true, conv_32d_to_32_c);
 }
 
 static void test_deinterleave(void)
 {
-	run_test("test_deinterleave_8", "c", true, false, conv_deinterleave_8_c);
-	run_test("test_deinterleave_16", "c", true, false, conv_deinterleave_16_c);
-	run_test("test_deinterleave_24", "c", true, false, conv_deinterleave_24_c);
-	run_test("test_deinterleave_32", "c", true, false, conv_deinterleave_32_c);
+	run_test("test_8_to_8d", "c", true, false, conv_8_to_8d_c);
+	run_test("test_16_to_16d", "c", true, false, conv_16_to_16d_c);
+	run_test("test_24_to_24d", "c", true, false, conv_24_to_24d_c);
+	run_test("test_32_to_32d", "c", true, false, conv_32_to_32d_c);
 }
 
 static int compare_func(const void *_a, const void *_b)

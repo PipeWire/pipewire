@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: pipewire\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/issues/new\n"
-"POT-Creation-Date: 2022-04-03 12:56+0200\n"
+"POT-Creation-Date: 2022-06-30 12:50+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -27,8 +27,8 @@ msgid ""
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
 
-#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:190
-#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:190
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:180
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:180
 #, c-format
 msgid "Tunnel to %s/%s"
 msgstr ""
@@ -37,36 +37,36 @@ msgstr ""
 msgid "Dummy Output"
 msgstr ""
 
-#: src/modules/module-pulse-tunnel.c:545
+#: src/modules/module-pulse-tunnel.c:648
 #, c-format
 msgid "Tunnel for %s@%s"
 msgstr ""
 
-#: src/modules/module-zeroconf-discover.c:313
+#: src/modules/module-zeroconf-discover.c:332
 msgid "Unknown device"
 msgstr ""
 
-#: src/modules/module-zeroconf-discover.c:325
+#: src/modules/module-zeroconf-discover.c:344
 #, c-format
 msgid "%s on %s@%s"
 msgstr ""
 
-#: src/modules/module-zeroconf-discover.c:329
+#: src/modules/module-zeroconf-discover.c:348
 #, c-format
 msgid "%s on %s"
 msgstr ""
 
-#: src/tools/pw-cat.c:1087
+#: src/tools/pw-cat.c:784
 #, c-format
 msgid ""
-"%s [options] <file>\n"
+"%s [options] [<file>|-]\n"
 "  -h, --help                            Show this help\n"
 "      --version                         Show version\n"
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
 
-#: src/tools/pw-cat.c:1094
+#: src/tools/pw-cat.c:791
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
@@ -80,11 +80,11 @@ msgid ""
 "                                          or direct samples (256)\n"
 "                                          the rate is the one of the source "
 "file\n"
-"      --list-targets                    List available targets for --target\n"
+"  -P  --properties                      Set node properties\n"
 "\n"
 msgstr ""
 
-#: src/tools/pw-cat.c:1112
+#: src/tools/pw-cat.c:809
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -104,7 +104,7 @@ msgid ""
 "\n"
 msgstr ""
 
-#: src/tools/pw-cat.c:1129
+#: src/tools/pw-cat.c:826
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
@@ -113,7 +113,7 @@ msgid ""
 "\n"
 msgstr ""
 
-#: src/tools/pw-cli.c:3051
+#: src/tools/pw-cli.c:3165
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -128,8 +128,8 @@ msgstr ""
 msgid "Pro Audio"
 msgstr ""
 
-#: spa/plugins/alsa/acp/acp.c:444 spa/plugins/alsa/acp/alsa-mixer.c:4648
-#: spa/plugins/bluez5/bluez5-device.c:1159
+#: spa/plugins/alsa/acp/acp.c:446 spa/plugins/alsa/acp/alsa-mixer.c:4648
+#: spa/plugins/bluez5/bluez5-device.c:1161
 msgid "Off"
 msgstr ""
 
@@ -156,7 +156,7 @@ msgstr ""
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2657
 #: spa/plugins/alsa/acp/alsa-mixer.c:2741
-#: spa/plugins/bluez5/bluez5-device.c:1328
+#: spa/plugins/bluez5/bluez5-device.c:1330
 msgid "Microphone"
 msgstr ""
 
@@ -222,7 +222,7 @@ msgid "No Bass Boost"
 msgstr ""
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2672
-#: spa/plugins/bluez5/bluez5-device.c:1333
+#: spa/plugins/bluez5/bluez5-device.c:1335
 msgid "Speaker"
 msgstr ""
 
@@ -337,7 +337,7 @@ msgstr ""
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4484
 #: spa/plugins/alsa/acp/alsa-mixer.c:4642
-#: spa/plugins/bluez5/bluez5-device.c:1318
+#: spa/plugins/bluez5/bluez5-device.c:1320
 msgid "Headset"
 msgstr ""
 
@@ -516,7 +516,7 @@ msgid_plural ""
 msgstr[0] ""
 msgstr[1] ""
 
-#: spa/plugins/alsa/acp/channelmap.h:464
+#: spa/plugins/alsa/acp/channelmap.h:457
 msgid "(invalid)"
 msgstr ""
 
@@ -528,61 +528,61 @@ msgstr ""
 msgid "Modem"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:1170
+#: spa/plugins/bluez5/bluez5-device.c:1172
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:1195
+#: spa/plugins/bluez5/bluez5-device.c:1197
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:1198
+#: spa/plugins/bluez5/bluez5-device.c:1200
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:1206
+#: spa/plugins/bluez5/bluez5-device.c:1208
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:1208
+#: spa/plugins/bluez5/bluez5-device.c:1210
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:1236
+#: spa/plugins/bluez5/bluez5-device.c:1238
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:1241
+#: spa/plugins/bluez5/bluez5-device.c:1243
 msgid "Headset Head Unit (HSP/HFP)"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:1323
+#: spa/plugins/bluez5/bluez5-device.c:1325
 msgid "Handsfree"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:1338
+#: spa/plugins/bluez5/bluez5-device.c:1340
 msgid "Headphone"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:1343
+#: spa/plugins/bluez5/bluez5-device.c:1345
 msgid "Portable"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:1348
+#: spa/plugins/bluez5/bluez5-device.c:1350
 msgid "Car"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:1353
+#: spa/plugins/bluez5/bluez5-device.c:1355
 msgid "HiFi"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:1358
+#: spa/plugins/bluez5/bluez5-device.c:1360
 msgid "Phone"
 msgstr ""
 
-#: spa/plugins/bluez5/bluez5-device.c:1364
+#: spa/plugins/bluez5/bluez5-device.c:1366
 msgid "Bluetooth"
 msgstr ""

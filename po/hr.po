@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: pipewire\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-04-03 12:56+0200\n"
-"PO-Revision-Date: 2022-04-03 12:57+0200\n"
+"POT-Creation-Date: 2022-06-30 12:50+0200\n"
+"PO-Revision-Date: 2022-06-30 13:14+0200\n"
 "Last-Translator: gogo <trebelnik2@gmail.com>\n"
 "Language-Team: Croatian <https://translate.fedoraproject.org/projects/"
 "pipewire/pipewire/hr/>\n"
@@ -34,8 +34,8 @@ msgstr ""
 "      --version                         Prikaži inačicu\n"
 "  -c, --config                          Učitaj podešavanje (Zadano %s)\n"
 
-#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:190
-#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:190
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:180
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:180
 #, c-format
 msgid "Tunnel to %s/%s"
 msgstr "Tunel do %s/%s"
@@ -44,41 +44,41 @@ msgstr "Tunel do %s/%s"
 msgid "Dummy Output"
 msgstr "Lažni izlaz"
 
-#: src/modules/module-pulse-tunnel.c:545
+#: src/modules/module-pulse-tunnel.c:648
 #, c-format
 msgid "Tunnel for %s@%s"
 msgstr "Tunel za %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:313
+#: src/modules/module-zeroconf-discover.c:332
 msgid "Unknown device"
 msgstr "Nepoznat uređaj"
 
-#: src/modules/module-zeroconf-discover.c:325
+#: src/modules/module-zeroconf-discover.c:344
 #, c-format
 msgid "%s on %s@%s"
 msgstr "%s na %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:329
+#: src/modules/module-zeroconf-discover.c:348
 #, c-format
 msgid "%s on %s"
 msgstr "%s na %s"
 
-#: src/tools/pw-cat.c:1087
+#: src/tools/pw-cat.c:784
 #, c-format
 msgid ""
-"%s [options] <file>\n"
+"%s [options] [<file>|-]\n"
 "  -h, --help                            Show this help\n"
 "      --version                         Show version\n"
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
-"%s [mogućnosti] <datoteka>\n"
+"%s [mogućnosti] [<datoteka>|-]\n"
 "  -h, --help                            Prikaži ovu pomoć\n"
 "      --version                         Prikaži inačicu\n"
 "  -v, --verbose                         Omogući opširnije radnje\n"
 "\n"
 
-#: src/tools/pw-cat.c:1094
+#: src/tools/pw-cat.c:791
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
@@ -92,7 +92,7 @@ msgid ""
 "                                          or direct samples (256)\n"
 "                                          the rate is the one of the source "
 "file\n"
-"      --list-targets                    List available targets for --target\n"
+"  -P  --properties                      Set node properties\n"
 "\n"
 msgstr ""
 "  -R, --remote                          Naziv udaljenog pozadinskog "
@@ -111,11 +111,10 @@ msgstr ""
 "                                          ili izravne uzorke (256)\n"
 "                                          frekvencija je jednaka izvornoj "
 "datoteci\n"
-"      --list-targets                    Prikaži dostupna odredišta za --"
-"target\n"
+"  -P  --properties                      Postavi svojstva čvora\n"
 "\n"
 
-#: src/tools/pw-cat.c:1112
+#: src/tools/pw-cat.c:809
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -151,7 +150,7 @@ msgstr ""
 "15) (zadano je %d)\n"
 "\n"
 
-#: src/tools/pw-cat.c:1129
+#: src/tools/pw-cat.c:826
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
@@ -165,7 +164,7 @@ msgstr ""
 "  -d, --dsd                             DSD način\n"
 "\n"
 
-#: src/tools/pw-cli.c:3051
+#: src/tools/pw-cli.c:3165
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -188,8 +187,8 @@ msgstr ""
 msgid "Pro Audio"
 msgstr "Pro Audio"
 
-#: spa/plugins/alsa/acp/acp.c:444 spa/plugins/alsa/acp/alsa-mixer.c:4648
-#: spa/plugins/bluez5/bluez5-device.c:1159
+#: spa/plugins/alsa/acp/acp.c:446 spa/plugins/alsa/acp/alsa-mixer.c:4648
+#: spa/plugins/bluez5/bluez5-device.c:1161
 msgid "Off"
 msgstr "Isključeno"
 
@@ -216,7 +215,7 @@ msgstr "Ulaz"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2657
 #: spa/plugins/alsa/acp/alsa-mixer.c:2741
-#: spa/plugins/bluez5/bluez5-device.c:1328
+#: spa/plugins/bluez5/bluez5-device.c:1330
 msgid "Microphone"
 msgstr "Mikrofon"
 
@@ -282,7 +281,7 @@ msgid "No Bass Boost"
 msgstr "Bez pojačanja basa"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2672
-#: spa/plugins/bluez5/bluez5-device.c:1333
+#: spa/plugins/bluez5/bluez5-device.c:1335
 msgid "Speaker"
 msgstr "Zvučnik"
 
@@ -397,7 +396,7 @@ msgstr "Stereo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4484
 #: spa/plugins/alsa/acp/alsa-mixer.c:4642
-#: spa/plugins/bluez5/bluez5-device.c:1318
+#: spa/plugins/bluez5/bluez5-device.c:1320
 msgid "Headset"
 msgstr "Slušalice s mikrofonom"
 
@@ -521,8 +520,7 @@ msgstr "%s izlaz"
 msgid "%s Input"
 msgstr "%s ulaz"
 
-#: spa/plugins/alsa/acp/alsa-util.c:1173
-#: spa/plugins/alsa/acp/alsa-util.c:1267
+#: spa/plugins/alsa/acp/alsa-util.c:1173 spa/plugins/alsa/acp/alsa-util.c:1267
 #, c-format
 msgid ""
 "snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu "
@@ -619,7 +617,7 @@ msgstr[2] ""
 "Najvjerojatnije je ovo greška ALSA upravljačkog programa '%s'. Prijavite "
 "problem ALSA razvijateljima."
 
-#: spa/plugins/alsa/acp/channelmap.h:464
+#: spa/plugins/alsa/acp/channelmap.h:457
 msgid "(invalid)"
 msgstr "(neispravno)"
 
@@ -631,62 +629,62 @@ msgstr "Ugrađeni zvuk"
 msgid "Modem"
 msgstr "Modem"
 
-#: spa/plugins/bluez5/bluez5-device.c:1170
+#: spa/plugins/bluez5/bluez5-device.c:1172
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "Zvučni pristupnik (A2DP izvor i HSP/HFP AG)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1195
+#: spa/plugins/bluez5/bluez5-device.c:1197
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr "Reprodukcija visoke autentičnosti (A2DP slivnik, kôdek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1198
+#: spa/plugins/bluez5/bluez5-device.c:1200
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr "Telefonija visoke autentičnosti (A2DP slivnik, kôdek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1206
+#: spa/plugins/bluez5/bluez5-device.c:1208
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr "Reprodukcija visoke autentičnosti (A2DP slivnik)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1208
+#: spa/plugins/bluez5/bluez5-device.c:1210
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr "Telefonija visoke autentičnosti (A2DP izvor/slivnik)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1236
+#: spa/plugins/bluez5/bluez5-device.c:1238
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
 msgstr "Jedinica slušalice s mikrofonom (HSP/HFP, kôdek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1241
+#: spa/plugins/bluez5/bluez5-device.c:1243
 msgid "Headset Head Unit (HSP/HFP)"
 msgstr "Jedinica slušalice s mikrofonom (HSP/HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1323
+#: spa/plugins/bluez5/bluez5-device.c:1325
 msgid "Handsfree"
 msgstr "Bez-ruku"
 
-#: spa/plugins/bluez5/bluez5-device.c:1338
+#: spa/plugins/bluez5/bluez5-device.c:1340
 msgid "Headphone"
 msgstr "Slušalice"
 
-#: spa/plugins/bluez5/bluez5-device.c:1343
+#: spa/plugins/bluez5/bluez5-device.c:1345
 msgid "Portable"
 msgstr "Prijenosnik"
 
-#: spa/plugins/bluez5/bluez5-device.c:1348
+#: spa/plugins/bluez5/bluez5-device.c:1350
 msgid "Car"
 msgstr "Automobil"
 
-#: spa/plugins/bluez5/bluez5-device.c:1353
+#: spa/plugins/bluez5/bluez5-device.c:1355
 msgid "HiFi"
 msgstr "HiFi"
 
-#: spa/plugins/bluez5/bluez5-device.c:1358
+#: spa/plugins/bluez5/bluez5-device.c:1360
 msgid "Phone"
 msgstr "Telefon"
 
-#: spa/plugins/bluez5/bluez5-device.c:1364
+#: spa/plugins/bluez5/bluez5-device.c:1366
 msgid "Bluetooth"
 msgstr "Bluetooth"
 

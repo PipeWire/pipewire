@@ -593,10 +593,14 @@ on_timing_source_io(void *data, int fd, uint32_t mask)
 	ssize_t bytes;
 
 	if (mask & SPA_IO_IN) {
-		uint64_t remote, received;
+		uint64_t remote, received, transmitted;
+		uint32_t pkt[8];
+		size_t pkt_size;
+		struct sockaddr_storage sender;
+		socklen_t sender_size = sizeof(sender);
 
 		received = ntp_now(CLOCK_MONOTONIC);
-		bytes = read(impl->timing_fd, packet, sizeof(packet));
+		bytes = recvfrom(impl->timing_fd, packet, sizeof(packet), 0, (struct sockaddr*)&sender, &sender_size);
 		if (bytes < 0) {
 			pw_log_debug("error reading timing packet: %m");
 			return;
@@ -610,7 +614,24 @@ on_timing_source_io(void *data, int fd, uint32_t mask)
 			return;
 
 		remote = ((uint64_t)ntohl(packet[6])) << 32 | ntohl(packet[7]);
-		send_udp_timing_packet(impl, remote, received);
+		pkt[0] = htonl(0x80d30007);
+		pkt[1] = 0x00000000;
+		pkt[2] = htonl(remote >> 32);
+		pkt[3] = htonl(remote & 0xffffffff);
+		pkt[4] = htonl(received >> 32);
+		pkt[5] = htonl(received & 0xffffffff);
+		transmitted = ntp_now(CLOCK_MONOTONIC);
+		pkt[6] = htonl(transmitted >> 32);
+		pkt[7] = htonl(transmitted & 0xffffffff);
+		pkt_size = sizeof(pkt);
+
+		if (sendto(impl->timing_fd, &pkt, pkt_size, 0, (struct sockaddr *)&sender, sender_size) < 0) {
+			pw_log_warn("error sending timing packet");
+			return;
+		}
+
+		pw_log_debug("sync: remote:%"PRIu64" received:%"PRIu64" transmitted:%"PRIu64,
+				remote, received, transmitted);
 	}
 }
 
@@ -836,8 +857,6 @@ static void rtsp_setup_reply(void *data, int status, const struct spa_dict *head
 		ntp = ntp_now(CLOCK_MONOTONIC);
 		send_udp_timing_packet(impl, ntp, ntp);
 
-		impl->timing_source = pw_loop_add_io(impl->loop, impl->timing_fd,
-				SPA_IO_IN, false, on_timing_source_io, impl);
 		impl->control_source = pw_loop_add_io(impl->loop, impl->control_fd,
 				SPA_IO_IN, false, on_control_source_io, impl);
 
@@ -868,6 +887,9 @@ static int rtsp_do_setup(struct impl *impl)
 		impl->timing_fd = create_udp_socket(impl, &impl->timing_port);
 		if (impl->control_fd < 0 || impl->timing_fd < 0)
 			goto error;
+
+		impl->timing_source = pw_loop_add_io(impl->loop, impl->timing_fd,
+				SPA_IO_IN, false, on_timing_source_io, impl);
 
 		pw_properties_setf(impl->headers, "Transport",
 				"RTP/AVP/UDP;unicast;interleaved=0-1;mode=record;"

@@ -221,9 +221,7 @@ struct impl {
 	uint32_t empty_size;
 	float *empty;
 	float *scratch;
-	float *tmp;
-	float *tmp2;
-
+	float *tmp[2];
 	float *tmp_datas[2][MAX_PORTS];
 };
 
@@ -1489,9 +1487,9 @@ static int setup_convert(struct impl *this)
 		return res;
 
 	for (i = 0; i < MAX_PORTS; i++) {
-		this->tmp_datas[0][i] = SPA_PTROFF(this->tmp, this->empty_size * i, void);
+		this->tmp_datas[0][i] = SPA_PTROFF(this->tmp[0], this->empty_size * i, void);
 		this->tmp_datas[0][i] = SPA_PTR_ALIGN(this->tmp_datas[0][i], MAX_ALIGN, void);
-		this->tmp_datas[1][i] = SPA_PTROFF(this->tmp2, this->empty_size * i, void);
+		this->tmp_datas[1][i] = SPA_PTROFF(this->tmp[1], this->empty_size * i, void);
 		this->tmp_datas[1][i] = SPA_PTR_ALIGN(this->tmp_datas[1][i], MAX_ALIGN, void);
 	}
 
@@ -2007,7 +2005,8 @@ impl_node_port_use_buffers(void *object,
 
 	clear_buffers(this, port);
 
-	maxsize = 0;
+	maxsize = this->quantum_limit * sizeof(float);
+
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b;
 		uint32_t n_datas = buffers[i]->n_datas;
@@ -2048,10 +2047,10 @@ impl_node_port_use_buffers(void *object,
 	if (maxsize > this->empty_size) {
 		this->empty = realloc(this->empty, maxsize + MAX_ALIGN);
 		this->scratch = realloc(this->scratch, maxsize + MAX_ALIGN);
-		this->tmp = realloc(this->tmp, (4 * maxsize + MAX_ALIGN) * MAX_PORTS);
-		this->tmp2 = realloc(this->tmp2, (4 * maxsize + MAX_ALIGN) * MAX_PORTS);
+		this->tmp[0] = realloc(this->tmp[0], (maxsize + MAX_ALIGN) * MAX_PORTS);
+		this->tmp[1] = realloc(this->tmp[1], (maxsize + MAX_ALIGN) * MAX_PORTS);
 		if (this->empty == NULL || this->scratch == NULL ||
-		    this->tmp == NULL || this->tmp2 == NULL)
+		    this->tmp[0] == NULL || this->tmp[1] == NULL)
 			return -errno;
 		memset(this->empty, 0, maxsize + MAX_ALIGN);
 		this->empty_size = maxsize;
@@ -2639,8 +2638,8 @@ static int impl_clear(struct spa_handle *handle)
 		free(this->dir[SPA_DIRECTION_OUTPUT].ports[i]);
 	free(this->empty);
 	free(this->scratch);
-	free(this->tmp);
-	free(this->tmp2);
+	free(this->tmp[0]);
+	free(this->tmp[1]);
 
 	if (this->resample.free)
 		resample_free(&this->resample);

@@ -30,7 +30,7 @@ static void
 conv_s24_to_f32d_1s_sse41(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)
 {
-	const uint8_t *s = src;
+	const int24_t *s = src;
 	float *d0 = dst[0];
 	uint32_t n, unrolled;
 	__m128i in = _mm_setzero_si128();
@@ -43,21 +43,21 @@ conv_s24_to_f32d_1s_sse41(void *data, void * SPA_RESTRICT dst[], const void * SP
 
 	for(n = 0; n < unrolled; n += 4) {
 		in = _mm_insert_epi32(in, *((uint32_t*)&s[0 * n_channels]), 0);
-		in = _mm_insert_epi32(in, *((uint32_t*)&s[3 * n_channels]), 1);
-		in = _mm_insert_epi32(in, *((uint32_t*)&s[6 * n_channels]), 2);
-		in = _mm_insert_epi32(in, *((uint32_t*)&s[9 * n_channels]), 3);
+		in = _mm_insert_epi32(in, *((uint32_t*)&s[1 * n_channels]), 1);
+		in = _mm_insert_epi32(in, *((uint32_t*)&s[2 * n_channels]), 2);
+		in = _mm_insert_epi32(in, *((uint32_t*)&s[3 * n_channels]), 3);
 		in = _mm_slli_epi32(in, 8);
 		in = _mm_srai_epi32(in, 8);
 		out = _mm_cvtepi32_ps(in);
 		out = _mm_mul_ps(out, factor);
 		_mm_store_ps(&d0[n], out);
-		s += 12 * n_channels;
+		s += 4 * n_channels;
 	}
 	for(; n < n_samples; n++) {
-		out = _mm_cvtsi32_ss(factor, read_s24(s));
+		out = _mm_cvtsi32_ss(factor, s24_to_s32(*s));
 		out = _mm_mul_ss(out, factor);
 		_mm_store_ss(&d0[n], out);
-		s += 3 * n_channels;
+		s += n_channels;
 	}
 }
 

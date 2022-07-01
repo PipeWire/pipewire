@@ -79,17 +79,19 @@
 #define U24_MAX			16777215u
 #define U24_SCALE		8388607.5f
 #define U24_OFFS		8388608.f
-#define U24_TO_F32(v)		((((uint32_t)(v)) * (1.0f / U24_OFFS)) - 1.0)
-#define F32_TO_U24(v)		(uint32_t)SPA_CLAMP((v) * U24_SCALE + U24_OFFS, U24_MIN, U24_MAX)
-#define F32_TO_U24_D(v,d)	(uint32_t)SPA_CLAMP((v) * U24_SCALE + U24_OFFS + (d), U24_MIN, U24_MAX)
+#define U24_TO_F32(v)		((u24_to_u32(v) * (1.0f / U24_OFFS)) - 1.0)
+#define F32_TO_U24(v)		u32_to_u24(SPA_CLAMP((v) * U24_SCALE + U24_OFFS, U24_MIN, U24_MAX))
+#define F32_TO_U24_D(v,d)	u32_to_u24(SPA_CLAMP((v) * U24_SCALE + U24_OFFS + (d), U24_MIN, U24_MAX))
 
 #define S24_MIN			-8388607
 #define S24_MAX			8388607
 #define S24_MAX_F		8388607.0f
 #define S24_SCALE		8388607.0f
-#define S24_TO_F32(v)		(((int32_t)(v)) * (1.0f / S24_SCALE))
-#define F32_TO_S24(v)		(int32_t)SPA_CLAMP((v) * S24_SCALE, S24_MIN, S24_MAX)
-#define F32_TO_S24_D(v,d)	(int32_t)SPA_CLAMP((v) * S24_SCALE + (d), S24_MIN, S24_MAX)
+#define S24_TO_F32(v)		(s24_to_s32(v) * (1.0f / S24_SCALE))
+#define S24S_TO_F32(v)		(s24_to_s32(bswap_s24(v)) * (1.0f / S24_SCALE))
+#define F32_TO_S24(v)		s32_to_s24(SPA_CLAMP((v) * S24_SCALE, S24_MIN, S24_MAX))
+#define F32_TO_S24S(v)		bswap_s24(F32_TO_S24(v))
+#define F32_TO_S24_D(v,d)	s32_to_s24(SPA_CLAMP((v) * S24_SCALE + (d), S24_MIN, S24_MAX))
 
 #define U32_MIN			0u
 #define U32_MAX			4294967040u
@@ -112,88 +114,69 @@
 
 #define U24_32_TO_F32(v)	U32_TO_F32((v)<<8)
 #define U24_32S_TO_F32(v)	U32_TO_F32(((int32_t)bswap_32(v))<<8)
-#define F32_TO_U24_32(v)	F32_TO_U24(v)
-#define F32_TO_U24_32S(v)	bswap_32(F32_TO_U24(v))
-#define F32_TO_U24_32_D(v,d)	F32_TO_U24_D(v,d)
-#define F32_TO_U24_32S_D(v,d)	bswap_32(F32_TO_U24_D(v,d))
+#define F32_TO_U24_32(v)	(uint32_t)SPA_CLAMP((v) * U24_SCALE + U24_OFFS, U24_MIN, U24_MAX)
+#define F32_TO_U24_32S(v)	bswap_32(F32_TO_U24_32(v))
+#define F32_TO_U24_32_D(v,d)	(uint32_t)SPA_CLAMP((v) * U24_SCALE + U24_OFFS + (d), U24_MIN, U24_MAX)
+#define F32_TO_U24_32S_D(v,d)	bswap_32(F32_TO_U24_32_D(v,d))
 
 #define S24_32_TO_F32(v)	S32_TO_F32((v)<<8)
 #define S24_32S_TO_F32(v)	S32_TO_F32(((int32_t)bswap_32(v))<<8)
-#define F32_TO_S24_32(v)	F32_TO_S24(v)
-#define F32_TO_S24_32S(v)	bswap_32(F32_TO_S24(v))
-#define F32_TO_S24_32_D(v,d)	F32_TO_S24_D(v,d)
-#define F32_TO_S24_32S_D(v,d)	bswap_32(F32_TO_S24_D(v,d))
+#define F32_TO_S24_32(v)	(int32_t)SPA_CLAMP((v) * S24_SCALE, S24_MIN, S24_MAX)
+#define F32_TO_S24_32S(v)	bswap_32(F32_TO_S24_32(v))
+#define F32_TO_S24_32_D(v,d)	(int32_t)SPA_CLAMP((v) * S24_SCALE + (d), S24_MIN, S24_MAX)
+#define F32_TO_S24_32S_D(v,d)	bswap_32(F32_TO_S24_32_D(v,d))
 
-static inline uint32_t read_u24(const void *src)
-{
-	const uint8_t *s = src;
+typedef struct {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-	return (((uint32_t)s[2] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[0]);
+	uint8_t v3;
+	uint8_t v2;
+	uint8_t v1;
 #else
-	return (((uint32_t)s[0] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[2]);
+	uint8_t v1;
+	uint8_t v2;
+	uint8_t v3;
 #endif
+} __attribute__ ((packed)) uint24_t;
+
+typedef struct {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	uint8_t v3;
+	uint8_t v2;
+	int8_t v1;
+#else
+	int8_t v1;
+	uint8_t v2;
+	uint8_t v3;
+#endif
+} __attribute__ ((packed)) int24_t;
+
+static inline uint32_t u24_to_u32(uint24_t src)
+{
+	return ((uint32_t)src.v1 << 16) | ((uint32_t)src.v2 << 8) | (uint32_t)src.v3;
 }
 
-static inline int32_t read_s24(const void *src)
+static inline uint24_t u32_to_u24(uint32_t src)
 {
-	const int8_t *s = src;
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	return (((int32_t)s[2] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[0]);
-#else
-	return (((int32_t)s[0] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[2]);
-#endif
+	return (uint24_t) { src >> 16, src >> 8, src };
 }
 
-static inline int32_t read_s24s(const void *src)
+static inline int32_t s24_to_s32(int24_t src)
 {
-	const int8_t *s = src;
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	return (((int32_t)s[0] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[2]);
-#else
-	return (((int32_t)s[2] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[0]);
-#endif
+	return ((int32_t)src.v1 << 16) | ((uint32_t)src.v2 << 8) | (uint32_t)src.v3;
 }
 
-static inline void write_u24(void *dst, uint32_t val)
+static inline int24_t s32_to_s24(int32_t src)
 {
-	uint8_t *d = dst;
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	d[0] = (uint8_t) (val);
-	d[1] = (uint8_t) (val >> 8);
-	d[2] = (uint8_t) (val >> 16);
-#else
-	d[0] = (uint8_t) (val >> 16);
-	d[1] = (uint8_t) (val >> 8);
-	d[2] = (uint8_t) (val);
-#endif
+	return (int24_t) { src >> 16, src >> 8, src };
 }
 
-static inline void write_s24(void *dst, int32_t val)
+static inline uint24_t bswap_u24(uint24_t src)
 {
-	uint8_t *d = dst;
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	d[0] = (uint8_t) (val);
-	d[1] = (uint8_t) (val >> 8);
-	d[2] = (uint8_t) (val >> 16);
-#else
-	d[0] = (uint8_t) (val >> 16);
-	d[1] = (uint8_t) (val >> 8);
-	d[2] = (uint8_t) (val);
-#endif
+	return (uint24_t) { src.v3, src.v2, src.v1 };
 }
-
-static inline void write_s24s(void *dst, int32_t val)
+static inline int24_t bswap_s24(int24_t src)
 {
-	uint8_t *d = dst;
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	d[0] = (uint8_t) (val >> 16);
-	d[1] = (uint8_t) (val >> 8);
-	d[2] = (uint8_t) (val);
-#else
-	d[0] = (uint8_t) (val);
-	d[1] = (uint8_t) (val >> 8);
-	d[2] = (uint8_t) (val >> 16);
-#endif
+	return (int24_t) { src.v3, src.v2, src.v1 };
 }
 
 #define NS_MAX	8

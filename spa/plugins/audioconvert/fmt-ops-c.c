@@ -55,7 +55,7 @@ MAKE_COPY(24);
 MAKE_COPY(32);
 MAKE_COPY(64);
 
-#define MAKE_D_TO_D_F(sname,stype,dname,dtype,func) 				\
+#define MAKE_D_TO_D(sname,stype,dname,dtype,func) 				\
 void conv_ ##sname## d_to_ ##dname## d_c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
@@ -64,15 +64,12 @@ void conv_ ##sname## d_to_ ##dname## d_c(struct convert *conv,			\
 	for (i = 0; i < n_channels; i++) {					\
 		const stype *s = src[i];					\
 		dtype *d = dst[i];						\
-		for (j = 0; j < n_samples; j++) {				\
-			func;							\
-		}								\
+		for (j = 0; j < n_samples; j++)					\
+			d[j] = func (s[j]);			 		\
 	}									\
 }
-#define MAKE_D_TO_D(sname,stype,dname,dtype,func) 				\
-	MAKE_D_TO_D_F(sname,stype,dname,dtype, d[j] = func (s[j])) 		\
 
-#define MAKE_I_TO_I_F(sname,stype,dname,dtype,func) 				\
+#define MAKE_I_TO_I(sname,stype,dname,dtype,func) 				\
 void conv_ ##sname## _to_ ##dname## _c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
@@ -81,14 +78,11 @@ void conv_ ##sname## _to_ ##dname## _c(struct convert *conv,			\
 	const stype *s = src[0];						\
 	dtype *d = dst[0];							\
 	n_samples *= conv->n_channels;						\
-	for (j = 0; j < n_samples; j++) {					\
-		func;								\
-	}									\
+	for (j = 0; j < n_samples; j++)						\
+		d[j] = func (s[j]);				 		\
 }
-#define MAKE_I_TO_I(sname,stype,dname,dtype,func) 				\
-	MAKE_I_TO_I_F(sname,stype,dname,dtype, d[j] = func (s[j])) 		\
 
-#define MAKE_I_TO_D_F(sname,stype,dname,dtype,func) 				\
+#define MAKE_I_TO_D(sname,stype,dname,dtype,func) 				\
 void conv_ ##sname## _to_ ##dname## d_c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
@@ -97,15 +91,12 @@ void conv_ ##sname## _to_ ##dname## d_c(struct convert *conv,			\
 	dtype **d = (dtype**)dst;						\
 	uint32_t i, j, n_channels = conv->n_channels;				\
 	for (j = 0; j < n_samples; j++) {					\
-		for (i = 0; i < n_channels; i++) {				\
-			func;							\
-		}								\
+		for (i = 0; i < n_channels; i++)				\
+			d[i][j] = func (*s++);			 		\
 	}									\
 }
-#define MAKE_I_TO_D(sname,stype,dname,dtype,func) 				\
-	MAKE_I_TO_D_F(sname,stype,dname,dtype, d[i][j] = func (*s++)) 		\
 
-#define MAKE_D_TO_I_F(sname,stype,dname,dtype,func) 				\
+#define MAKE_D_TO_I(sname,stype,dname,dtype,func) 				\
 void conv_ ##sname## d_to_ ##dname## _c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
@@ -114,13 +105,10 @@ void conv_ ##sname## d_to_ ##dname## _c(struct convert *conv,			\
 	dtype *d = dst[0];							\
 	uint32_t i, j, n_channels = conv->n_channels;				\
 	for (j = 0; j < n_samples; j++) {					\
-		for (i = 0; i < n_channels; i++) {				\
-			func;							\
-		}								\
+		for (i = 0; i < n_channels; i++)				\
+			*d++ = func (s[i][j]);			 		\
 	}									\
 }
-#define MAKE_D_TO_I(sname,stype,dname,dtype,func) 				\
-	MAKE_D_TO_I_F(sname,stype,dname,dtype, *d++ = func (s[i][j])) 		\
 
 /* to f32 */
 MAKE_D_TO_D(u8, uint8_t, f32, float, U8_TO_F32);
@@ -154,14 +142,14 @@ MAKE_I_TO_D(s32, int32_t, f32, float, S32_TO_F32);
 MAKE_D_TO_I(s32, int32_t, f32, float, S32_TO_F32);
 MAKE_I_TO_D(s32s, uint32_t, f32, float, S32S_TO_F32);
 
-MAKE_I_TO_I_F(u24, uint8_t, f32, float, d[j] = U24_TO_F32(read_u24(s)); s += 3);
-MAKE_I_TO_D_F(u24, uint8_t, f32, float, d[i][j] = U24_TO_F32(read_u24(s)); s += 3);
+MAKE_I_TO_I(u24, uint24_t, f32, float, U24_TO_F32);
+MAKE_I_TO_D(u24, uint24_t, f32, float, U24_TO_F32);
 
-MAKE_D_TO_D_F(s24, int8_t, f32, float, d[j] = S24_TO_F32(read_s24(s)); s += 3);
-MAKE_I_TO_I_F(s24, int8_t, f32, float, d[j] = S24_TO_F32(read_s24(s)); s += 3);
-MAKE_I_TO_D_F(s24, int8_t, f32, float, d[i][j] = S24_TO_F32(read_s24(s)); s += 3);
-MAKE_D_TO_I_F(s24, int8_t, f32, float, *d++ = S24_TO_F32(read_s24(&s[i][j*3])));
-MAKE_I_TO_D_F(s24s, int8_t, f32, float, d[i][j] = S24_TO_F32(read_s24s(s)); s += 3);
+MAKE_D_TO_D(s24, int24_t, f32, float, S24_TO_F32);
+MAKE_I_TO_I(s24, int24_t, f32, float, S24_TO_F32);
+MAKE_I_TO_D(s24, int24_t, f32, float, S24_TO_F32);
+MAKE_D_TO_I(s24, int24_t, f32, float, S24_TO_F32);
+MAKE_I_TO_D(s24s, int24_t, f32, float, S24S_TO_F32);
 
 MAKE_I_TO_I(u24_32, uint32_t, f32, float, U24_32_TO_F32);
 MAKE_I_TO_D(u24_32, uint32_t, f32, float, U24_32_TO_F32);
@@ -211,14 +199,14 @@ MAKE_I_TO_D(f32, float, s32, int32_t, F32_TO_S32);
 MAKE_D_TO_I(f32, float, s32, int32_t, F32_TO_S32);
 MAKE_D_TO_I(f32, float, s32s, uint32_t, F32_TO_S32S);
 
-MAKE_I_TO_I_F(f32, float, u24, uint8_t, write_u24(d, F32_TO_U24(s[j])); d += 3);
-MAKE_D_TO_I_F(f32, float, u24, uint8_t, write_u24(d, F32_TO_U24(s[i][j])); d += 3);
+MAKE_I_TO_I(f32, float, u24, uint24_t, F32_TO_U24);
+MAKE_D_TO_I(f32, float, u24, uint24_t, F32_TO_U24);
 
-MAKE_D_TO_D_F(f32, float, s24, uint8_t, write_s24(d, F32_TO_S24(s[j])); d += 3);
-MAKE_I_TO_I_F(f32, float, s24, uint8_t, write_s24(d, F32_TO_S24(s[j])); d += 3);
-MAKE_I_TO_D_F(f32, float, s24, uint8_t, write_s24(&d[i][j*3], F32_TO_S24(*s++)));
-MAKE_D_TO_I_F(f32, float, s24, uint8_t, write_s24(d, F32_TO_S24(s[i][j])); d += 3);
-MAKE_D_TO_I_F(f32, float, s24s, uint8_t, write_s24s(d, F32_TO_S24(s[i][j])); d += 3);
+MAKE_D_TO_D(f32, float, s24, int24_t, F32_TO_S24);
+MAKE_I_TO_I(f32, float, s24, int24_t, F32_TO_S24);
+MAKE_I_TO_D(f32, float, s24, int24_t, F32_TO_S24);
+MAKE_D_TO_I(f32, float, s24, int24_t, F32_TO_S24);
+MAKE_D_TO_I(f32, float, s24s, int24_t, F32_TO_S24S);
 
 MAKE_I_TO_I(f32, float, u24_32, uint32_t, F32_TO_U24_32);
 MAKE_D_TO_I(f32, float, u24_32, uint32_t, F32_TO_U24_32);
@@ -253,7 +241,7 @@ static inline void update_dither_c(struct convert *conv, uint32_t n_samples)
 		dither[n] = lcnoise(state) * scale;
 }
 
-#define MAKE_D_dither_F(dname,dtype,func) 					\
+#define MAKE_D_dither(dname,dtype,func) 					\
 void conv_f32d_to_ ##dname## d_dither_c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
@@ -266,16 +254,13 @@ void conv_f32d_to_ ##dname## d_dither_c(struct convert *conv,			\
 		dtype *d = dst[i];						\
 		for (j = 0; j < n_samples;) {					\
 			chunk = SPA_MIN(n_samples - j, dither_size);		\
-			for (k = 0; k < chunk; k++, j++) {			\
-				func;						\
-			}							\
+			for (k = 0; k < chunk; k++, j++)			\
+				d[j] = func (s[j], dither[k]);			\
 		}								\
 	}									\
 }
-#define MAKE_D_dither(dname,dtype,func) 					\
-	MAKE_D_dither_F(dname,dtype, d[j] = func (s[j], dither[k]))		\
 
-#define MAKE_I_dither_F(dname,dtype,func) 					\
+#define MAKE_I_dither(dname,dtype,func) 					\
 void conv_f32d_to_ ##dname## _dither_c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
@@ -288,14 +273,11 @@ void conv_f32d_to_ ##dname## _dither_c(struct convert *conv,			\
 	for (j = 0; j < n_samples;) {						\
 		chunk = SPA_MIN(n_samples - j, dither_size);			\
 		for (k = 0; k < chunk; k++, j++) {				\
-			for (i = 0; i < n_channels; i++) {			\
-				func;						\
-			}							\
+			for (i = 0; i < n_channels; i++)			\
+				*d++ = func (s[i][j], dither[k]);		\
 		}								\
 	}									\
 }
-#define MAKE_I_dither(dname,dtype,func) 					\
-	MAKE_I_dither_F(dname,dtype, *d++ = func (s[i][j], dither[k]))		\
 
 MAKE_D_dither(u8, uint8_t, F32_TO_U8_D);
 MAKE_I_dither(u8, uint8_t, F32_TO_U8_D);
@@ -307,9 +289,9 @@ MAKE_I_dither(s16s, uint16_t, F32_TO_S16S_D);
 MAKE_D_dither(s32, int32_t, F32_TO_S32_D);
 MAKE_I_dither(s32, int32_t, F32_TO_S32_D);
 MAKE_I_dither(s32s, uint32_t, F32_TO_S32S_D);
-MAKE_D_dither_F(s24, uint8_t, write_s24(d, F32_TO_S24_D(s[j], dither[k])); d += 3);
-MAKE_I_dither_F(s24, uint8_t, write_s24(d, F32_TO_S24_D(s[i][j], dither[k])); d += 3);
-MAKE_I_dither_F(s24s, uint8_t, write_s24s(d, F32_TO_S24_D(s[i][j], dither[k])); d += 3);
+MAKE_D_dither(s24, int24_t, F32_TO_S24_D);
+MAKE_I_dither(s24, int24_t, F32_TO_S24_D);
+MAKE_I_dither(s24s, int24_t, F32_TO_S24_D);
 MAKE_D_dither(s24_32, int32_t, F32_TO_S24_32_D);
 MAKE_I_dither(s24_32, int32_t, F32_TO_S24_32_D);
 MAKE_I_dither(s24_32s, int32_t, F32_TO_S24_32S_D);
@@ -335,7 +317,7 @@ MAKE_I_dither(s24_32s, int32_t, F32_TO_S24_32S_D);
 #define F32_TO_S16_SH(s,sh,d)	SHAPER5(int16_t, s, S16_SCALE, 0, sh, S16_MIN, S16_MAX, d)
 #define F32_TO_S16S_SH(s,sh,d)	bswap_16(F32_TO_S16_SH(s,sh,d))
 
-#define MAKE_D_shaped_F(dname,dtype,func) 					\
+#define MAKE_D_shaped(dname,dtype,func) 					\
 void conv_f32d_to_ ##dname## d_shaped_c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
@@ -350,17 +332,14 @@ void conv_f32d_to_ ##dname## d_shaped_c(struct convert *conv,			\
 		uint32_t idx = sh->idx;						\
 		for (j = 0; j < n_samples;) {					\
 			chunk = SPA_MIN(n_samples - j, dither_size);		\
-			for (k = 0; k < chunk; k++, j++) {			\
-				func;						\
-			}							\
+			for (k = 0; k < chunk; k++, j++)			\
+				d[j] = func (s[j], sh, dither[k]);		\
 		}								\
 		sh->idx = idx;							\
 	}									\
 }
-#define MAKE_D_shaped(dname,dtype,func) 					\
-	MAKE_D_shaped_F(dname,dtype, d[j] = func (s[j], sh, dither[k]))		\
 
-#define MAKE_I_shaped_F(dname,dtype,func) 					\
+#define MAKE_I_shaped(dname,dtype,func) 					\
 void conv_f32d_to_ ##dname## _shaped_c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
@@ -376,15 +355,12 @@ void conv_f32d_to_ ##dname## _shaped_c(struct convert *conv,			\
 		uint32_t idx = sh->idx;						\
 		for (j = 0; j < n_samples;) {					\
 			chunk = SPA_MIN(n_samples - j, dither_size);		\
-			for (k = 0; k < chunk; k++, j++) {			\
-				func;						\
-			}							\
+			for (k = 0; k < chunk; k++, j++)			\
+				d[j*n_channels] = func (s[j], sh, dither[k]);	\
 		}								\
 		sh->idx = idx;							\
 	}									\
 }
-#define MAKE_I_shaped(dname,dtype,func) 						\
-	MAKE_I_shaped_F(dname,dtype, d[j*n_channels] = func (s[j], sh, dither[k]))	\
 
 MAKE_D_shaped(u8, uint8_t, F32_TO_U8_SH);
 MAKE_I_shaped(u8, uint8_t, F32_TO_U8_SH);
@@ -395,23 +371,21 @@ MAKE_I_shaped(s16, int16_t, F32_TO_S16_SH);
 MAKE_I_shaped(s16s, uint16_t, F32_TO_S16S_SH);
 
 #define MAKE_DEINTERLEAVE(size,type,func)					\
-	MAKE_I_TO_D_F(size,type,size,type,func)
-#define DEINTERLEAVE_COPY	(d[i][j] = *s++)
+	MAKE_I_TO_D(size,type,size,type,func)
 
-MAKE_DEINTERLEAVE(8, uint8_t, DEINTERLEAVE_COPY);
-MAKE_DEINTERLEAVE(16, uint16_t, DEINTERLEAVE_COPY);
-MAKE_DEINTERLEAVE(24, uint8_t, write_s24(&d[i][j*3], read_s24(s)); s+=3);
-MAKE_DEINTERLEAVE(32, uint32_t, DEINTERLEAVE_COPY);
-MAKE_DEINTERLEAVE(32s, uint32_t, d[i][j] = bswap_32(*s++));
-MAKE_DEINTERLEAVE(64, uint64_t, DEINTERLEAVE_COPY);
+MAKE_DEINTERLEAVE(8, uint8_t, (uint8_t));
+MAKE_DEINTERLEAVE(16, uint16_t, (uint16_t));
+MAKE_DEINTERLEAVE(24, uint24_t, (uint24_t));
+MAKE_DEINTERLEAVE(32, uint32_t, (uint32_t));
+MAKE_DEINTERLEAVE(32s, uint32_t, bswap_32);
+MAKE_DEINTERLEAVE(64, uint64_t, (uint64_t));
 
 #define MAKE_INTERLEAVE(size,type,func)						\
-	MAKE_D_TO_I_F(size,type,size,type,func)
-#define INTERLEAVE_COPY		(*d++ = s[i][j])
+	MAKE_D_TO_I(size,type,size,type,func)
 
-MAKE_INTERLEAVE(8, uint8_t, INTERLEAVE_COPY);
-MAKE_INTERLEAVE(16, uint16_t, INTERLEAVE_COPY);
-MAKE_INTERLEAVE(24, uint8_t, write_s24(d, read_s24(&s[i][j*3])); d+=3);
-MAKE_INTERLEAVE(32, uint32_t, INTERLEAVE_COPY);
-MAKE_INTERLEAVE(32s, uint32_t, *d++ = bswap_32(s[i][j]));
-MAKE_INTERLEAVE(64, uint64_t, INTERLEAVE_COPY);
+MAKE_INTERLEAVE(8, uint8_t, (uint8_t));
+MAKE_INTERLEAVE(16, uint16_t, (uint16_t));
+MAKE_INTERLEAVE(24, uint24_t, (uint24_t));
+MAKE_INTERLEAVE(32, uint32_t, (uint32_t));
+MAKE_INTERLEAVE(32s, uint32_t, bswap_32);
+MAKE_INTERLEAVE(64, uint64_t, (uint64_t));

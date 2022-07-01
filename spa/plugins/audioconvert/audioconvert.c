@@ -2252,6 +2252,7 @@ static int impl_node_process(void *object)
 				spa_log_trace_fp(this->log, "%p: empty input port %d %p %d %d %d",
 						this, port->id, io, io->status, io->buffer_id,
 						port->n_buffers);
+				this->drained = false;
 			}
 			buf = NULL;
 		} else if (SPA_UNLIKELY(io->buffer_id >= port->n_buffers)) {
@@ -2531,7 +2532,8 @@ static int impl_node_process(void *object)
 			if (SPA_UNLIKELY((io = port->io) == NULL))
 				continue;
 			spa_log_trace_fp(this->log, "return: input %d %d", port->id, io->buffer_id);
-			io->status = SPA_STATUS_NEED_DATA;
+			if (!draining)
+				io->status = SPA_STATUS_NEED_DATA;
 		}
 		this->in_offset = 0;
 		max_in = 0;

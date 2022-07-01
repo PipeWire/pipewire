@@ -1429,7 +1429,6 @@ static int setup_out_convert(struct impl *this)
 			break;
 		}
 	}
-	out->conv.quantize = calc_width(&dst_info) * 8;
 	out->conv.src_fmt = src_info.info.raw.format;
 	out->conv.dst_fmt = dst_info.info.raw.format;
 	out->conv.rate = dst_info.info.raw.rate;
@@ -1439,10 +1438,9 @@ static int setup_out_convert(struct impl *this)
 	if ((res = convert_init(&out->conv)) < 0)
 		return res;
 
-	spa_log_debug(this->log, "%p: got converter features %08x:%08x quant:%d:%d:%d passthrough:%d %s", this,
+	spa_log_debug(this->log, "%p: got converter features %08x:%08x quant:%d:%d passthrough:%d %s", this,
 			this->cpu_flags, out->conv.cpu_flags, out->conv.method,
-			out->conv.quantize, out->conv.noise,
-			out->conv.is_passthrough, out->conv.func_name);
+			out->conv.noise, out->conv.is_passthrough, out->conv.func_name);
 
 	return 0;
 }

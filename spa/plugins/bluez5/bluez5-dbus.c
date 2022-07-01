@@ -131,6 +131,8 @@ struct spa_bt_monitor {
 
 	/* A reference audio info for A2DP codec configuration. */
 	struct media_codec_audio_info default_audio_info;
+
+	bool le_audio_supported;
 };
 
 /* Stream endpoints owned by BlueZ for each device */
@@ -3701,6 +3703,22 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 			if (!is_media_codec_enabled(monitor, codec))
 				continue;
 
+			caps_size = codec->fill_caps(codec, 0, caps);
+			if (caps_size < 0)
+				continue;
+
+			if (codec->bap && !monitor->le_audio_supported) {
+				/* The legacy bluez5 api doesn't support LE Audio
+				 * It doesn't make sense to register unsupported codecs as it prevents
+				 * registration of A2DP codecs
+				 * let's incentivize users to upgrade their bluez5 daemon
+				 * if they want proper media codec support
+				 * */
+				spa_log_warn(monitor->log, "Trying to use legacy bluez5 API for LE Audio - only A2DP will be supported. "
+										"Please upgrade bluez5.");
+				continue;
+			}
+
 			if (codec->decode != NULL) {
 				caps_size = codec->fill_caps(codec, MEDIA_CODEC_FLAG_SINK, caps);
 				if (caps_size < 0)
@@ -3930,6 +3948,48 @@ static void reselect_backend(struct spa_bt_monitor *monitor, bool silent)
 				backend ? backend->name : "none");
 }
 
+static int media_update_props(struct spa_bt_monitor *monitor,
+				DBusMessageIter *props_iter,
+				DBusMessageIter *invalidated_iter)
+{
+	while (dbus_message_iter_get_arg_type(props_iter) != DBUS_TYPE_INVALID) {
+		DBusMessageIter it[2];
+		const char *key;
+
+		dbus_message_iter_recurse(props_iter, &it[0]);
+		dbus_message_iter_get_basic(&it[0], &key);
+		dbus_message_iter_next(&it[0]);
+		dbus_message_iter_recurse(&it[0], &it[1]);
+
+		if (spa_streq(key, "SupportedUUIDs")) {
+			DBusMessageIter iter;
+
+			if (!check_iter_signature(&it[1], "as"))
+				goto next;
+
+			dbus_message_iter_recurse(&it[1], &iter);
+
+			while (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_INVALID) {
+				const char *uuid;
+
+				dbus_message_iter_get_basic(&iter, &uuid);
+
+				if (spa_streq(uuid, SPA_BT_UUID_BAP_SINK)) {
+					monitor->le_audio_supported = true;
+					spa_log_info(monitor->log, "LE Audio supported");
+				}
+				dbus_message_iter_next(&iter);
+			}
+		}
+		else
+			spa_log_debug(monitor->log, "media: unhandled key %s", key);
+
+	      next:
+		dbus_message_iter_next(props_iter);
+	}
+	return 0;
+}
+
 static void interface_added(struct spa_bt_monitor *monitor,
 			    DBusConnection *conn,
 			    const char *object_path,
@@ -4002,6 +4062,9 @@ static void interface_added(struct spa_bt_monitor *monitor,
 		d = ep->device;
 		if (d)
 			spa_bt_device_emit_profiles_changed(d, d->profiles, d->connected_profiles);
+	}
+	else if (spa_streq(interface_name, BLUEZ_MEDIA_INTERFACE)) {
+		media_update_props(monitor, props_iter, NULL);
 	}
 }
 

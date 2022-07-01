@@ -3685,6 +3685,25 @@ static int fill_card_info(struct client *client, struct message *m,
 	return 0;
 }
 
+static int fill_sink_info_proplist(struct message *m, const struct spa_dict *sink_props,
+		const struct pw_manager_object *card)
+{
+	struct pw_device_info *card_info = card ? card->info : NULL;
+
+	struct pw_properties *props = pw_properties_new_dict(sink_props);
+	if (props == NULL)
+		return -ENOMEM;
+
+	if (card_info && card_info->props)
+		pw_properties_add(props, card_info->props);
+
+	message_put(m, TAG_PROPLIST, &props->dict, TAG_INVALID);
+
+	pw_properties_free(props);
+
+	return 0;
+}
+
 static int fill_sink_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
@@ -3777,8 +3796,10 @@ static int fill_sink_info(struct client *client, struct message *m,
 		TAG_INVALID);
 
 	if (client->version >= 13) {
+		int res;
+		if ((res = fill_sink_info_proplist(m, info->props, card)) < 0)
+			return res;
 		message_put(m,
-			TAG_PROPLIST, info->props,
 			TAG_USEC, 0LL,			/* requested latency */
 			TAG_INVALID);
 	}
@@ -3867,22 +3888,23 @@ static int fill_sink_info(struct client *client, struct message *m,
 	return 0;
 }
 
-static int fill_source_info_proplist(struct message *m, struct pw_manager_object *o,
-		struct pw_node_info *info)
+static int fill_source_info_proplist(struct message *m, const struct spa_dict *source_props,
+		const struct pw_manager_object *card, const bool is_monitor)
 {
-	struct pw_properties *props = NULL;
-	struct spa_dict *props_dict = info->props;
+	struct pw_device_info *card_info = card ? card->info : NULL;
 
-	if (pw_manager_object_is_monitor(o)) {
-		props = pw_properties_new_dict(info->props);
-		if (props == NULL)
-			return -ENOMEM;
+	struct pw_properties *props = pw_properties_new_dict(source_props);
+	if (props == NULL)
+		return -ENOMEM;
 
+	if (card_info && card_info->props)
+		pw_properties_add(props, card_info->props);
+
+	if (is_monitor)
 		pw_properties_set(props, PW_KEY_DEVICE_CLASS, "monitor");
-		props_dict = &props->dict;
-	}
 
-	message_put(m, TAG_PROPLIST, props_dict, TAG_INVALID);
+	message_put(m, TAG_PROPLIST, &props->dict, TAG_INVALID);
+
 	pw_properties_free(props);
 
 	return 0;
@@ -3984,7 +4006,7 @@ static int fill_source_info(struct client *client, struct message *m,
 
 	if (client->version >= 13) {
 		int res;
-		if ((res = fill_source_info_proplist(m, o, info)) < 0)
+		if ((res = fill_source_info_proplist(m, info->props, card, is_monitor)) < 0)
 			return res;
 		message_put(m,
 			TAG_USEC, 0LL,			/* requested latency */

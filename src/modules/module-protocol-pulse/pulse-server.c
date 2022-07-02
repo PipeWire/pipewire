@@ -3689,15 +3689,17 @@ static int fill_sink_info_proplist(struct message *m, const struct spa_dict *sin
 		const struct pw_manager_object *card)
 {
 	struct pw_device_info *card_info = card ? card->info : NULL;
+	struct pw_properties *props = NULL;
 
-	struct pw_properties *props = pw_properties_new_dict(sink_props);
-	if (props == NULL)
-		return -ENOMEM;
+	if (card_info && card_info->props) {
+		props = pw_properties_new_dict(sink_props);
+		if (props == NULL)
+			return -ENOMEM;
 
-	if (card_info && card_info->props)
 		pw_properties_add(props, card_info->props);
-
-	message_put(m, TAG_PROPLIST, &props->dict, TAG_INVALID);
+		sink_props = &props->dict;
+	}
+	message_put(m, TAG_PROPLIST, sink_props, TAG_INVALID);
 
 	pw_properties_free(props);
 
@@ -3892,18 +3894,22 @@ static int fill_source_info_proplist(struct message *m, const struct spa_dict *s
 		const struct pw_manager_object *card, const bool is_monitor)
 {
 	struct pw_device_info *card_info = card ? card->info : NULL;
+	struct pw_properties *props = NULL;
 
-	struct pw_properties *props = pw_properties_new_dict(source_props);
-	if (props == NULL)
-		return -ENOMEM;
+	if ((card_info && card_info->props) || is_monitor) {
+		props = pw_properties_new_dict(source_props);
+		if (props == NULL)
+			return -ENOMEM;
 
-	if (card_info && card_info->props)
-		pw_properties_add(props, card_info->props);
+		if (card_info && card_info->props)
+			pw_properties_add(props, card_info->props);
 
-	if (is_monitor)
-		pw_properties_set(props, PW_KEY_DEVICE_CLASS, "monitor");
+		if (is_monitor)
+			pw_properties_set(props, PW_KEY_DEVICE_CLASS, "monitor");
 
-	message_put(m, TAG_PROPLIST, &props->dict, TAG_INVALID);
+		source_props = &props->dict;
+	}
+	message_put(m, TAG_PROPLIST, source_props, TAG_INVALID);
 
 	pw_properties_free(props);
 

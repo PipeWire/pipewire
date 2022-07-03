@@ -61,18 +61,20 @@ static inline double sinc(double x)
 #if 0
 static inline double window_blackman(double x, double n_taps)
 {
-	double alpha = 0.232;
+	double alpha = 0.232, r;
 	x =  2.0 * M_PI * x / n_taps;
-	return (1.0 - alpha) / 2.0 + (1.0 / 2.0) * cos(x) +
+	r = (1.0 - alpha) / 2.0 + (1.0 / 2.0) * cos(x) +
 		(alpha / 2.0) * cos(2 * x);
+	return r;
 }
 #else
 static inline double window_cosh(double x, double n_taps)
 {
-	double R = 95.0;
+	double R = 95.0, r;
 	double A = -325.1E-6 * (R * R) + 0.1677 * R - 3.149;
 	x =  2.0 * M_PI * x / n_taps;
-	return cosh(A * sqrt(1 - pow(x / M_PI, 2))) / cosh(A);
+	r = cosh(A * sqrt(1 - pow(x / M_PI, 2))) / cosh(A);
+	return isnan(r) ? 0.0 : r;
 }
 #endif
 

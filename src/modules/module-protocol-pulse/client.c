@@ -177,6 +177,9 @@ void client_free(struct client *client)
 	free(client->default_sink);
 	free(client->default_source);
 
+	free(client->temporary_default_sink);
+	free(client->temporary_default_source);
+
 	pw_properties_free(client->props);
 	pw_properties_free(client->routes);
 

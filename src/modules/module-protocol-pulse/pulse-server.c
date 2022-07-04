@@ -961,6 +961,8 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 				free(client->default_sink);
 				client->default_sink = value ? strdup(value) : NULL;
 			}
+			free(client->temporary_default_sink);
+			client->temporary_default_sink = NULL;
 		}
 		if (key == NULL || spa_streq(key, "default.audio.source")) {
 			if (value != NULL) {
@@ -974,6 +976,8 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 				free(client->default_source);
 				client->default_source = value ? strdup(value) : NULL;
 			}
+			free(client->temporary_default_source);
+			client->temporary_default_source = NULL;
 		}
 		if (changed)
 			send_default_change_subscribe_event(client, true, true);
@@ -4751,6 +4755,20 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 	if (res < 0)
 		return res;
 
+	/*
+	 * The metadata is not necessarily updated within one server sync.
+	 * Correct functioning of MOVE_* commands requires knowing the current
+	 * default target, so we need to stash temporary values here in case
+	 * the client emits them before metadata gets updated.
+	 */
+	if (sink) {
+		free(client->temporary_default_sink);
+		client->temporary_default_sink = name ? strdup(name) : NULL;
+	} else {
+		free(client->temporary_default_source);
+		client->temporary_default_source = name ? strdup(name) : NULL;
+	}
+
 	return operation_new(client, tag);
 }
 
@@ -4792,6 +4810,7 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	int target_id;
 	int64_t target_serial;
 	const char *name_device;
+	const char *name;
 	struct pw_node_info *info;
 	struct selector sel;
 	int res;
@@ -4828,7 +4847,13 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	if ((dev = find_device(client, index_device, name_device, sink, NULL)) == NULL)
 		return -ENOENT;
 
-	dev_default = find_device(client, SPA_ID_INVALID, NULL, sink, NULL);
+	/*
+	 * The client metadata is not necessarily yet updated after SET_DEFAULT command,
+	 * so use the temporary values if they are still set.
+	 */
+	name = sink ? client->temporary_default_sink : client->temporary_default_source;
+	dev_default = find_device(client, SPA_ID_INVALID, name, sink, NULL);
+
 	if (dev == dev_default) {
 		/*
 		 * When moving streams to a node that is equal to the default,
@@ -4853,6 +4878,11 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 			METADATA_TARGET_OBJECT,
 			SPA_TYPE_INFO_BASE"Id", "%"PRIi64, target_serial)) < 0)
 		return res;
+
+	name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
+	pw_log_debug("[%s] %s done tag:%u index:%u name:%s target:%d target-serial:%"PRIi64, client->name,
+			commands[command].name, tag, index, name ? name : "<null>",
+			target_id, target_serial);
 
 	/* We will temporarily claim the stream was already moved */
 	set_temporary_move_target(client, o, dev->index);

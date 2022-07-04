@@ -75,6 +75,8 @@ struct client {
 	struct pw_manager_object *metadata_default;
 	char *default_sink;
 	char *default_source;
+	char *temporary_default_sink;		/**< pending value, for MOVE_* commands */
+	char *temporary_default_source;		/**< pending value, for MOVE_* commands */
 	struct pw_manager_object *metadata_routes;
 	struct pw_properties *routes;
 

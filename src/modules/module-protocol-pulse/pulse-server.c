@@ -678,8 +678,8 @@ static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *att
 		latency = attr->fragsize;
 	}
 	/* make sure can queue at least to fragsize without overruns */
-	if (attr->maxlength < attr->fragsize * 2)
-		attr->maxlength = attr->fragsize * 2;
+	if (attr->maxlength < attr->fragsize * 4)
+		attr->maxlength = attr->fragsize * 4;
 
 	pw_log_info("[%s] maxlength:%u fragsize:%u minfrag:%u latency:%u",
 			s->client->name, attr->maxlength, attr->fragsize, minfrag,

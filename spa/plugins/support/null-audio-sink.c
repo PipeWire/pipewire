@@ -42,6 +42,7 @@
 #include <spa/node/keys.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/debug/types.h>
+#include <spa/debug/mem.h>
 #include <spa/param/audio/type-info.h>
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
@@ -57,6 +58,7 @@ struct props {
 	uint32_t n_pos;
 	uint32_t pos[SPA_AUDIO_MAX_CHANNELS];
 	char clock_name[64];
+	unsigned int debug:1;
 };
 
 static void reset_props(struct props *props)
@@ -65,6 +67,7 @@ static void reset_props(struct props *props)
 	props->rate = 0;
 	props->n_pos = 0;
 	strncpy(props->clock_name, DEFAULT_CLOCK_NAME, sizeof(props->clock_name));
+	props->debug = false;
 }
 
 #define DEFAULT_CHANNELS	2
@@ -743,6 +746,20 @@ static int impl_node_process(void *object)
 	if (io->buffer_id >= port->n_buffers) {
 		io->status = -EINVAL;
 		return io->status;
+	}
+	if (this->props.debug) {
+		struct buffer *b;
+		uint32_t i;
+
+		b = &port->buffers[io->buffer_id];
+		for (i = 0; i < b->outbuf->n_datas; i++) {
+			uint32_t offs, size;
+			struct spa_data *d = b->outbuf->datas;
+
+			offs = SPA_MIN(d->chunk->offset, d->maxsize);
+			size = SPA_MIN(d->maxsize - offs, d->chunk->size);
+			spa_debug_mem(i, SPA_PTROFF(d[i].data, offs, void), SPA_MIN(16u, size));;
+		}
 	}
 	io->status = SPA_STATUS_OK;
 	return SPA_STATUS_HAVE_DATA;

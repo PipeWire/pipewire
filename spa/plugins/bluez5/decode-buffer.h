@@ -56,12 +56,10 @@
 
 #include <stdlib.h>
 #include <spa/utils/defs.h>
-#include <spa/utils/dll.h>
 #include <spa/support/log.h>
 
-#define BUFFERING_LONG_MSEC		60000
+#define BUFFERING_LONG_MSEC		(2*60000)
 #define BUFFERING_SHORT_MSEC		1000
-#define BUFFERING_DLL_BW		0.03
 #define BUFFERING_RATE_DIFF_MAX		0.005
 
 /**
@@ -72,6 +70,132 @@
  */
 #define BUFFERING_TARGET(spike,packet_size)				\
 	SPA_CLAMP((spike)*3/2, (packet_size), 6*(packet_size))
+
+/**
+ * Rate controller.
+ *
+ * It's here in a form, where it operates on the running average
+ * so it's compatible with the level spike determination, and
+ * clamping the rate to a range is easy. The impulse response
+ * is similar to spa_dll, and step response does not have sign changes.
+ *
+ * The controller iterates as
+ *
+ *    avg(j+1) = (1 - beta) avg(j) + beta level(j)
+ *    corr(j+1) = corr(j) + a [avg(j+1) - avg(j)] / duration
+ *			  + b [avg(j) - target] / duration
+ *
+ * with beta = duration/avg_period < 0.5 is the moving average parameter,
+ * and a = beta/3 + ..., b = beta^2/27 + ....
+ *
+ * This choice results to c(j) being low-pass filtered, and buffer level(j)
+ * converging towards target with stable damped evolution with eigenvalues
+ * real and close to each other around (1 - beta)^(1/3).
+ *
+ * Derivation:
+ *
+ * The deviation from the buffer level target evolves as
+ *
+ *     delta(j) = level(j) - target
+ *     delta(j+1) = delta(j) + r(j) - c(j+1)
+ *
+ * where r is samples received in one duration, and c corrected rate
+ * (samples per duration).
+ *
+ * The rate correction is in general determined by linear filter f
+ *
+ *     c(j+1) = c(j) + \sum_{k=0}^\infty delta(j - k) f(k)
+ *
+ * If \sum_k f(k) is not zero, the only fixed point is c=r, delta=0,
+ * so this structure (if the filter is stable) rate matches and
+ * drives buffer level to target.
+ *
+ * The z-transform then is
+ *
+ *     delta(z) = G(z) r(z)
+ *     c(z) = F(z) delta(z)
+ *     G(z) = (z - 1) / [(z - 1)^2 + z f(z)]
+ *     F(z) = f(z) / (z - 1)
+ *
+ * We now want: poles of G(z) must be in |z|<1 for stability, F(z)
+ * should damp high frequencies, and f(z) is causal.
+ *
+ * To satisfy the conditions, take
+ *
+ *     (z - 1)^2 + z f(z) = p(z) / q(z)
+ *
+ * where p(z) is polynomial with leading term z^n with wanted root
+ * structure, and q(z) is any polynomial with leading term z^{n-2}.
+ * This guarantees f(z) is causal, and G(z) = (z-1) q(z) / p(z).
+ * We can choose p(z) and q(z) to improve low-pass properties of F(z).
+ *
+ * Simplest choice is p(z)=(z-x)^2 and q(z)=1, but that gives flat
+ * high frequency response in F(z). Better choice is p(z) = (z-u)*(z-v)*(z-w)
+ * and q(z) = z - r. To make F(z) better lowpass, one can cancel
+ * a resulting 1/z pole in F(z) by setting r=u*v*w. Then,
+ *
+ *     G(z) = (z - u*v*w)*(z - 1) / [(z - u)*(z - v)*(z - w)]
+ *     F(z) = (a z + b - a) / (z - 1) *	 H(z)
+ *     H(z) = beta / (z - 1 + beta)
+ *     beta = 1 - u*v*w
+ *     a = [(1-u) + (1-v) + (1-w) - beta] / beta
+ *     b = (1-u)*(1-v)*(1-w) / beta
+ *
+ * which corresponds to iteration for c(j):
+ *
+ *    avg(j+1) = (1 - beta) avg(j) + beta delta(j)
+ *    c(j+1) = c(j) + a [avg(j+1) - avg(j)] + b avg(j)
+ *
+ * So the controller operates on the running average,
+ * which gives the low-pass property for c(j).
+ *
+ * The simplest filter is obtained by putting the poles at
+ * u=v=w=(1-beta)**(1/3). Since beta << 1, computing the root
+ * can be avoided by expanding in series.
+ *
+ * Overshoot in impulse response could be reduced by moving one of the
+ * poles closer to z=1, but this increases the step response time.
+ */
+struct spa_bt_rate_control
+{
+	double avg;
+	double corr;
+};
+
+static void spa_bt_rate_control_init(struct spa_bt_rate_control *this, double level)
+{
+	this->avg = level;
+	this->corr = 1.0;
+}
+
+static double spa_bt_rate_control_update(struct spa_bt_rate_control *this, double level,
+		double target, double duration, double period)
+{
+	/*
+	 * u = (1 - beta)^(1/3)
+	 * x = a / beta
+	 * y = b / beta
+	 * a = (2 + u) * (1 - u)^2 / beta
+	 * b = (1 - u)^3 / beta
+	 * beta -> 0
+	 */
+	const double beta = SPA_CLAMP(duration / period, 0, 0.5);
+	const double x = 1.0/3;
+	const double y = beta/27;
+	double avg;
+
+	avg = beta * level + (1 - beta) * this->avg;
+	this->corr += x * (avg - this->avg) / period
+		+ y * (this->avg - target) / period;
+	this->avg = avg;
+
+	this->corr = SPA_CLAMP(this->corr,
+			1 - BUFFERING_RATE_DIFF_MAX,
+			1 + BUFFERING_RATE_DIFF_MAX);
+
+	return this->corr;
+}
+
 
 /** Windowed min/max */
 struct spa_bt_ptp
@@ -104,11 +228,7 @@ struct spa_bt_decode_buffer
 	struct spa_bt_ptp spike;	/**< spikes (long window) */
 	struct spa_bt_ptp packet_size;	/**< packet size (short window) */
 
-	int32_t target;
-	int32_t level;
-	double level_avg;
-
-	struct spa_dll dll;
+	struct spa_bt_rate_control ctl;
 	double corr;
 
 	uint32_t prev_consumed;
@@ -168,7 +288,7 @@ static int spa_bt_decode_buffer_init(struct spa_bt_decode_buffer *this, struct s
 	this->corr = 1.0;
 	this->buffering = true;
 
-	spa_dll_init(&this->dll);
+	spa_bt_rate_control_init(&this->ctl, 0);
 
 	spa_bt_ptp_init(&this->spike, (uint64_t)this->rate * BUFFERING_LONG_MSEC / 1000);
 	spa_bt_ptp_init(&this->packet_size, (uint64_t)this->rate * BUFFERING_SHORT_MSEC / 1000);
@@ -254,16 +374,16 @@ static void spa_bt_decode_buffer_read(struct spa_bt_decode_buffer *this, uint32_
 static void spa_bt_decode_buffer_recover(struct spa_bt_decode_buffer *this)
 {
 	int32_t size = (this->write_index - this->read_index) / this->frame_size;
+	int32_t level;
 
 	this->prev_avail = size * this->frame_size;
 	this->prev_consumed = this->prev_duration;
-	this->level = (int32_t)this->prev_avail/this->frame_size
+
+	level = (int32_t)this->prev_avail/this->frame_size
 		- (int32_t)this->prev_duration;
-	this->level_avg = this->level;
-	this->target = this->level;
 	this->corr = 1.0;
 
-	spa_dll_init(&this->dll);
+	spa_bt_rate_control_init(&this->ctl, level);
 }
 
 static void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint32_t samples, uint32_t duration)
@@ -294,12 +414,6 @@ static void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint
 		spa_bt_decode_buffer_recover(this);
 	}
 
-	if (SPA_UNLIKELY(this->dll.bw == 0.0)) {
-		spa_log_trace(this->log, "%p dll reset duration:%d rate:%d", this,
-				(int)duration, (int)this->rate);
-		spa_dll_set_bw(&this->dll, BUFFERING_DLL_BW, duration, (uint64_t)this->rate);
-	}
-
 	spa_bt_decode_buffer_get_read(this, &avail);
 
 	if (this->received) {
@@ -311,9 +425,7 @@ static void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint
 		level = SPA_MAX(level, -max_level);
 		this->prev_consumed = SPA_MIN(this->prev_consumed, avg_period);
 
-		this->level_avg = ((double)this->prev_consumed*level
-				+ ((double)avg_period - this->prev_consumed)*this->level_avg) / avg_period;
-		spa_bt_ptp_update(&this->spike, this->level_avg - level, this->prev_consumed);
+		spa_bt_ptp_update(&this->spike, this->ctl.avg - level, this->prev_consumed);
 
 		/* Update target level */
 		target = BUFFERING_TARGET(this->spike.max, this->packet_size.max);
@@ -337,7 +449,7 @@ static void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint
 			spa_log_debug(this->log,
 					"%p avg:%d target:%d level:%d buffer:%d spike:%d corr:%f",
 					this,
-					(int)this->level_avg,
+					(int)this->ctl.avg,
 					(int)target,
 					(int)level,
 					(int)(avail / this->frame_size),
@@ -346,23 +458,15 @@ static void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint
 			this->pos = 0;
 		}
 
+		this->corr = spa_bt_rate_control_update(&this->ctl,
+				level, target, this->prev_consumed, avg_period);
+
 		spa_bt_decode_buffer_get_read(this, &avail);
 
 		this->prev_consumed = 0;
 		this->prev_avail = avail;
 		this->underrun = 0;
 		this->received = false;
-		this->level = level;
-		this->target = target;
-	}
-
-	this->corr = spa_dll_update(&this->dll, this->target - this->level);
-
-	if (SPA_ABS(this->corr - 1.0) > BUFFERING_RATE_DIFF_MAX) {
-		spa_log_trace(this->log, "%p too big rate difference: clamp + reset", this);
-		spa_dll_init(&this->dll);
-		this->corr = SPA_CLAMP(this->corr, 1.0 - BUFFERING_RATE_DIFF_MAX,
-				1.0 + BUFFERING_RATE_DIFF_MAX);
 	}
 
 	if (avail < data_size) {

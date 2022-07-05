@@ -2273,6 +2273,9 @@ static int impl_node_process(void *object)
 			io->status = -EINVAL;
 			buf = NULL;
 		} else {
+			spa_log_trace_fp(this->log, "%p: input buffer port %d io:%p status:%d id:%d n:%d",
+					this, port->id, io, io->status, io->buffer_id,
+					port->n_buffers);
 			buf = &port->buffers[io->buffer_id];
 		}
 

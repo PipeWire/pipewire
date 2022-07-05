@@ -1153,8 +1153,21 @@ static int follower_ready(void *data, int status)
 	if (this->target != this->follower) {
 		this->driver = true;
 
-		if (this->direction == SPA_DIRECTION_OUTPUT)
-			status = spa_node_process(this->convert);
+		if (this->direction == SPA_DIRECTION_OUTPUT) {
+			int retry = 8;
+			while (retry--) {
+				status = spa_node_process(this->convert);
+				if (status & SPA_STATUS_HAVE_DATA)
+					break;
+
+				if (status & SPA_STATUS_NEED_DATA) {
+					status = spa_node_process(this->follower);
+					if (!(status & SPA_STATUS_HAVE_DATA))
+						break;
+				}
+			}
+
+		}
 	}
 
 	return spa_node_call_ready(&this->callbacks, status);

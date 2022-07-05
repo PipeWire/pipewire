@@ -174,11 +174,11 @@ static inline int24_t s32_to_s24(int32_t src)
 
 static inline uint24_t bswap_u24(uint24_t src)
 {
-	return (uint24_t) { src.v3, src.v2, src.v1 };
+	return (uint24_t) { .v1 = src.v3, .v2 = src.v2, .v3 = src.v1 };
 }
 static inline int24_t bswap_s24(int24_t src)
 {
-	return (int24_t) { src.v3, src.v2, src.v1 };
+	return (int24_t) { .v1 = src.v3, .v2 = src.v2, .v3 = src.v1 };
 }
 
 #define NS_MAX	8

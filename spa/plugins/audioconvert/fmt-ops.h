@@ -155,9 +155,12 @@ static inline uint32_t u24_to_u32(uint24_t src)
 	return ((uint32_t)src.v1 << 16) | ((uint32_t)src.v2 << 8) | (uint32_t)src.v3;
 }
 
+#define U32_TO_U24(s) (uint24_t) { .v1 = (uint8_t)(((uint32_t)s) >> 16), \
+	.v2 = (uint8_t)(((uint32_t)s) >> 8), .v3 = (uint8_t)((uint32_t)s) }
+
 static inline uint24_t u32_to_u24(uint32_t src)
 {
-	return (uint24_t) { src >> 16, src >> 8, src };
+	return U32_TO_U24(src);
 }
 
 static inline int32_t s24_to_s32(int24_t src)
@@ -165,9 +168,12 @@ static inline int32_t s24_to_s32(int24_t src)
 	return ((int32_t)src.v1 << 16) | ((uint32_t)src.v2 << 8) | (uint32_t)src.v3;
 }
 
+#define S32_TO_S24(s) (int24_t) { .v1 = (int8_t)(((int32_t)s) >> 16), \
+	.v2 = (uint8_t)(((uint32_t)s) >> 8), .v3 = (uint8_t)((uint32_t)s) }
+
 static inline int24_t s32_to_s24(int32_t src)
 {
-	return (int24_t) { src >> 16, src >> 8, src };
+	return S32_TO_S24(src);
 }
 
 static inline uint24_t bswap_u24(uint24_t src)

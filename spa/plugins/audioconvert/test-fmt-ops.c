@@ -604,6 +604,28 @@ static void test_lossless_u32(void)
 	}
 }
 
+static void test_swaps(void)
+{
+	{
+		uint24_t v = U32_TO_U24(0x123456);
+		uint24_t t = U32_TO_U24(0x563412);
+		uint24_t s = bswap_u24(v);
+		spa_assert_se(memcmp(&s, &t, sizeof(t)) == 0);
+	}
+	{
+		int24_t v = S32_TO_S24(0xfffe1dc0);
+		int24_t t = S32_TO_S24(0xffc01dfe);
+		int24_t s = bswap_s24(v);
+		spa_assert_se(memcmp(&s, &t, sizeof(t)) == 0);
+	}
+	{
+		int24_t v = S32_TO_S24(0x123456);
+		int24_t t = S32_TO_S24(0x563412);
+		int24_t s = bswap_s24(v);
+		spa_assert_se(memcmp(&s, &t, sizeof(t)) == 0);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	cpu_flags = get_cpu_flags();
@@ -640,5 +662,7 @@ int main(int argc, char *argv[])
 	test_lossless_u24();
 	test_lossless_s32();
 	test_lossless_u32();
+
+	test_swaps();
 	return 0;
 }

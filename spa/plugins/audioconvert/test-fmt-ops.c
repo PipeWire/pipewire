@@ -125,10 +125,40 @@ static void run_test(const char *name,
 	}
 }
 
+static void test_f32_s8(void)
+{
+	static const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
+	static const int8_t out[] = { 0, 127, -128, 64, 192, 127, -128 };
+
+	run_test("test_f32_s8", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			true, true, conv_f32_to_s8_c);
+	run_test("test_f32d_s8", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			false, true, conv_f32d_to_s8_c);
+	run_test("test_f32_s8d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			true, false, conv_f32_to_s8d_c);
+	run_test("test_f32d_s8d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			false, false, conv_f32d_to_s8d_c);
+}
+
+static void test_s8_f32(void)
+{
+	static const int8_t in[] = { 0, 127, -128, 64, 192, };
+	static const float out[] = { 0.0f, 0.9921875f, -1.0f, 0.5f, -0.5f, };
+
+	run_test("test_s8_f32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			true, true, conv_s8_to_f32_c);
+	run_test("test_s8d_f32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			false, true, conv_s8d_to_f32_c);
+	run_test("test_s8_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			true, false, conv_s8_to_f32d_c);
+	run_test("test_s8d_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			false, false, conv_s8d_to_f32d_c);
+}
+
 static void test_f32_u8(void)
 {
 	static const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
-	static const uint8_t out[] = { 128, 255, 0, 191, 64, 255, 0, };
+	static const uint8_t out[] = { 128, 255, 0, 192, 64, 255, 0, };
 
 	run_test("test_f32_u8", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, true, conv_f32_to_u8_c);
@@ -158,7 +188,7 @@ static void test_u8_f32(void)
 static void test_f32_u16(void)
 {
 	static const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
-	static const uint16_t out[] = { 32768, 65535, 0, 49151, 16384, 65535, 0 };
+	static const uint16_t out[] = { 32768, 65535, 0, 49152, 16384, 65535, 0 };
 
 	run_test("test_f32_u16", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, true, conv_f32_to_u16_c);
@@ -478,11 +508,109 @@ static void test_f32_f64(void)
 	run_test("test_f32d_f64d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			false, false, conv_f32d_to_f64d_c);
 }
+
+static void test_lossless_s8(void)
+{
+	int8_t i;
+
+	fprintf(stderr, "test %s:\n", __func__);
+	for (i = S8_MIN; i < S8_MAX; i+=1) {
+		float v = S8_TO_F32(i);
+		int8_t t = F32_TO_S8(v);
+		spa_assert_se(i == t);
+	}
+}
+
+static void test_lossless_u8(void)
+{
+	uint8_t i;
+
+	fprintf(stderr, "test %s:\n", __func__);
+	for (i = U8_MIN; i < U8_MAX; i+=1) {
+		float v = U8_TO_F32(i);
+		uint8_t t = F32_TO_U8(v);
+		spa_assert_se(i == t);
+	}
+}
+static void test_lossless_s16(void)
+{
+	int16_t i;
+
+	fprintf(stderr, "test %s:\n", __func__);
+	for (i = S16_MIN; i < S16_MAX; i+=3) {
+		float v = S16_TO_F32(i);
+		int16_t t = F32_TO_S16(v);
+		spa_assert_se(i == t);
+	}
+}
+
+static void test_lossless_u16(void)
+{
+	uint32_t i;
+
+	fprintf(stderr, "test %s:\n", __func__);
+	for (i = U16_MIN; i < U16_MAX; i+=3) {
+		float v = U16_TO_F32(i);
+		uint16_t t = F32_TO_U16(v);
+		spa_assert_se(i == t);
+	}
+}
+
+static void test_lossless_s24(void)
+{
+	int32_t i;
+
+	fprintf(stderr, "test %s:\n", __func__);
+	for (i = S24_MIN; i < S24_MAX; i+=13) {
+		float v = S24_TO_F32(s32_to_s24(i));
+		int32_t t = s24_to_s32(F32_TO_S24(v));
+		spa_assert_se(i == t);
+	}
+}
+
+static void test_lossless_u24(void)
+{
+	uint32_t i;
+
+	fprintf(stderr, "test %s:\n", __func__);
+	for (i = U24_MIN; i < U24_MAX; i+=11) {
+		float v = U24_TO_F32(u32_to_u24(i));
+		uint32_t t = u24_to_u32(F32_TO_U24(v));
+		spa_assert_se(i == t);
+	}
+}
+
+static void test_lossless_s32(void)
+{
+	int32_t i;
+
+	fprintf(stderr, "test %s:\n", __func__);
+	for (i = S32_MIN; i < S32_MAX; i+=255) {
+		float v = S32_TO_F32(i);
+		int32_t t = F32_TO_S32(v);
+		spa_assert_se(SPA_ABS(i - t) <= 128);
+	}
+}
+
+static void test_lossless_u32(void)
+{
+	uint32_t i;
+
+	fprintf(stderr, "test %s:\n", __func__);
+	for (i = U32_MIN; i < U32_MAX; i+=255) {
+		float v = U32_TO_F32(i);
+		uint32_t t = F32_TO_U32(v);
+		spa_assert_se(i > t ? (i - t) <= 128 : (t - i) <= 128);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	cpu_flags = get_cpu_flags();
 	printf("got get CPU flags %d\n", cpu_flags);
 
+	test_f32_s8();
+	test_s8_f32();
 	test_f32_u8();
 	test_u8_f32();
 	test_f32_u16();
@@ -503,5 +631,14 @@ int main(int argc, char *argv[])
 	test_s24_32_f32();
 	test_f32_f64();
 	test_f64_f32();
+
+	test_lossless_s8();
+	test_lossless_u8();
+	test_lossless_s16();
+	test_lossless_u16();
+	test_lossless_s24();
+	test_lossless_u24();
+	test_lossless_s32();
+	test_lossless_u32();
 	return 0;
 }

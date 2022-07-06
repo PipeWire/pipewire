@@ -216,13 +216,15 @@ dsf_file_read(struct dsf_file *f, void *data, size_t samples, const struct dsf_l
 	uint8_t *d = data;
 	int step = SPA_ABS(layout->interleave);
 	bool rev = layout->lsb != f->info.lsb;
-	size_t total, block, offset, pos;
+	size_t total, block, offset, pos, scale;
 
 	block = f->offset / f->info.blocksize;
 	offset = block * f->info.blocksize * f->info.channels;
 	pos = f->offset % f->info.blocksize;
+	scale = SPA_CLAMP(f->info.rate / (44100u * 64u), 1u, 4u);
 
 	samples *= step;
+	samples *= scale;
 
 	for (total = 0; total < samples && offset + pos < f->info.length; total++) {
 		const uint8_t *s = f->p + offset + pos;

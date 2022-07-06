@@ -209,6 +209,7 @@ SPA_EXPORT
 int pw_impl_port_init_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mix)
 {
 	uint32_t port_id;
+	struct pw_impl_node *node = port->node;
 	int res = 0;
 
 	port_id = pw_map_insert_new(&port->mix_port_map, mix);
@@ -252,6 +253,13 @@ int pw_impl_port_init_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mi
 			port->n_mix, port->port_id, mix->port.port_id,
 			mix->io, spa_strerror(res));
 
+	if (port->n_mix == 1) {
+		pw_log_debug("%p: setting port io", port);
+		spa_node_port_set_io(node->node,
+				     port->direction, port->port_id,
+				     SPA_IO_Buffers,
+				     &port->rt.io, sizeof(port->rt.io));
+	}
 	return res;
 
 error_remove_port:
@@ -266,6 +274,7 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 {
 	int res = 0;
 	uint32_t port_id = mix->port.port_id;
+	struct pw_impl_node *node = port->node;
 
 	pw_map_remove(&port->mix_port_map, port_id);
 	spa_list_remove(&mix->link);
@@ -280,6 +289,13 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 	pw_log_debug("%p: release mix %d %d.%d", port,
 			port->n_mix, port->port_id, mix->port.port_id);
 
+	if (port->n_mix == 0) {
+		pw_log_debug("%p: clearing port io", port);
+		spa_node_port_set_io(node->node,
+				     port->direction, port->port_id,
+				     SPA_IO_Buffers,
+				     NULL, sizeof(port->rt.io));
+	}
 	return res;
 }
 
@@ -1025,12 +1041,7 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 	if (control) {
 		pw_log_debug("%p: setting node control", port);
 	} else {
-		pw_log_debug("%p: setting node io", port);
-		spa_node_port_set_io(node->node,
-				     port->direction, port->port_id,
-				     SPA_IO_Buffers,
-				     &port->rt.io, sizeof(port->rt.io));
-
+		pw_log_debug("%p: setting mixer io", port);
 		spa_node_port_set_io(port->mix,
 			     pw_direction_reverse(port->direction), 0,
 			     SPA_IO_Buffers,

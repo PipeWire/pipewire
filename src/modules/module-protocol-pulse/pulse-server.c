@@ -1805,7 +1805,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	struct channel_map map;
 	uint32_t source_index;
 	const char *source_name;
-	struct buffer_attr attr;
+	struct buffer_attr attr = { 0 };
 	bool corked = false,
 		no_remap = false,
 		no_remix = false,

@@ -1137,6 +1137,9 @@ static int setup_in_convert(struct impl *this)
 			break;
 		}
 	}
+	if (in->conv.free)
+		convert_free(&in->conv);
+
 	in->conv.src_fmt = src_info.info.raw.format;
 	in->conv.dst_fmt = dst_info.info.raw.format;
 	in->conv.n_channels = dst_info.info.raw.channels;
@@ -1433,6 +1436,9 @@ static int setup_out_convert(struct impl *this)
 			break;
 		}
 	}
+	if (out->conv.free)
+		convert_free(&out->conv);
+
 	out->conv.src_fmt = src_info.info.raw.format;
 	out->conv.dst_fmt = dst_info.info.raw.format;
 	out->conv.rate = dst_info.info.raw.rate;
@@ -2682,6 +2688,10 @@ static int impl_clear(struct spa_handle *handle)
 
 	if (this->resample.free)
 		resample_free(&this->resample);
+	if (this->dir[0].conv.free)
+		convert_free(&this->dir[0].conv);
+	if (this->dir[1].conv.free)
+		convert_free(&this->dir[1].conv);
 
 	return 0;
 }

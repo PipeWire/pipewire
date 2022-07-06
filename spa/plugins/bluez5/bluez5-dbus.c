@@ -3293,18 +3293,20 @@ static int bluez_register_endpoint(struct spa_bt_monitor *monitor,
 
 	ret = a2dp_codec_to_endpoint(codec, endpoint, &object_path);
 	if (ret < 0)
-		return ret;
+		goto error;
 
-	caps_size = codec->fill_caps(codec, 0, caps);
-	if (caps_size < 0)
-		return caps_size;
+	ret = caps_size = codec->fill_caps(codec, 0, caps);
+	if (ret < 0)
+		goto error;
 
 	m = dbus_message_new_method_call(BLUEZ_SERVICE,
 	                                 path,
 	                                 BLUEZ_MEDIA_INTERFACE,
 	                                 "RegisterEndpoint");
-	if (m == NULL)
-		return -EIO;
+	if (m == NULL) {
+		ret = -EIO;
+		goto error;
+	}
 
 	dbus_message_iter_init_append(m, &object_it);
 	dbus_message_iter_append_basic(&object_it, DBUS_TYPE_OBJECT_PATH, &object_path);
@@ -3327,6 +3329,10 @@ static int bluez_register_endpoint(struct spa_bt_monitor *monitor,
 	free(object_path);
 
 	return 0;
+
+error:
+	free(object_path);
+	return ret;
 }
 
 static int register_a2dp_endpoint(struct spa_bt_monitor *monitor,

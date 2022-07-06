@@ -743,7 +743,7 @@ again:
 		 * => timeout = (quantum - max_excess)/quantum * packet_time
 		 */
 		uint64_t max_excess = 2*256;
-		uint64_t packet_samples = this->frame_count * this->block_size / port->frame_size;
+		uint64_t packet_samples = (uint64_t)this->frame_count * this->block_size / port->frame_size;
 		uint64_t packet_time = packet_samples * SPA_NSEC_PER_SEC / port->current_format.info.raw.rate;
 		uint64_t quantum = SPA_LIKELY(this->clock) ? this->clock->duration : 0;
 		uint64_t timeout = (quantum > max_excess) ?

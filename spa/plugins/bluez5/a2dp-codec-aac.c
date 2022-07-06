@@ -415,7 +415,7 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	return this;
 
 error:
-	if (this->aacenc)
+	if (this && this->aacenc)
 		aacEncClose(&this->aacenc);
 	free(this);
 	errno = -res;

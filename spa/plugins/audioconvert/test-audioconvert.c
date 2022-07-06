@@ -36,6 +36,7 @@
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/node/node.h>
+#include <spa/node/io.h>
 #include <spa/debug/mem.h>
 #include <spa/support/log-impl.h>
 
@@ -71,6 +72,7 @@ static int setup_context(struct context *ctx)
 	size_t size;
 	int res;
 	struct spa_support support[1];
+	struct spa_dict_item items[2];
 	const struct spa_handle_factory *factory;
 	void *iface;
 
@@ -86,9 +88,11 @@ static int setup_context(struct context *ctx)
 	ctx->convert_handle = calloc(1, size);
 	spa_assert_se(ctx->convert_handle != NULL);
 
+	items[0] = SPA_DICT_ITEM_INIT("clock.quantum-limit", "8192");
+
 	res = spa_handle_factory_init(factory,
 			ctx->convert_handle,
-			NULL,
+			&SPA_DICT_INIT(items, 1),
 			support, 1);
 	spa_assert_se(res >= 0);
 
@@ -510,6 +514,230 @@ static int test_set_in_format2(struct context *ctx)
 	return 0;
 }
 
+static int setup_direction(struct context *ctx, enum spa_direction direction, uint32_t mode,
+		struct spa_audio_info_raw *info)
+{
+	struct spa_pod_builder b = { 0 };
+	uint8_t buffer[1024];
+	struct spa_pod *param, *format;
+	int res;
+	uint32_t i;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	format = spa_format_audio_raw_build(&b, SPA_PARAM_Format, info);
+
+	switch (mode) {
+	case SPA_PARAM_PORT_CONFIG_MODE_dsp:
+		param = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
+			SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(direction),
+			SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(mode),
+			SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(format));
+		break;
+
+	case SPA_PARAM_PORT_CONFIG_MODE_convert:
+		param = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_ParamPortConfig, SPA_PARAM_PortConfig,
+			SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(direction),
+			SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(mode));
+		break;
+	default:
+		return -EINVAL;
+	}
+	res = spa_node_set_param(ctx->convert_node, SPA_PARAM_PortConfig, 0, param);
+	spa_assert_se(res == 0);
+
+	switch (mode) {
+	case SPA_PARAM_PORT_CONFIG_MODE_convert:
+		res = spa_node_port_set_param(ctx->convert_node, direction, 0,
+			SPA_PARAM_Format, 0, format);
+		spa_assert_se(res == 0);
+		break;
+	case SPA_PARAM_PORT_CONFIG_MODE_dsp:
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		format = spa_format_audio_dsp_build(&b, SPA_PARAM_Format,
+	                &SPA_AUDIO_INFO_DSP_INIT(
+				.format = SPA_AUDIO_FORMAT_F32P));
+		for (i = 0; i < info->channels; i++) {
+			res = spa_node_port_set_param(ctx->convert_node, direction, i,
+				SPA_PARAM_Format, 0, format);
+			spa_assert_se(res == 0);
+		}
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+struct buffer {
+	struct spa_buffer buffer;
+        struct spa_data datas[MAX_PORTS];
+        struct spa_chunk chunks[MAX_PORTS];
+};
+
+struct data {
+	uint32_t mode;
+	struct spa_audio_info_raw info;
+	uint32_t ports;
+	uint32_t planes;
+	const void *data[MAX_PORTS];
+	uint32_t size;
+};
+
+static int run_convert(struct context *ctx, struct data *in_data,
+		struct data *out_data)
+{
+	struct spa_command cmd;
+	int res;
+	uint32_t i, j;
+	struct buffer in_buffers[in_data->ports];
+	struct buffer out_buffers[out_data->ports];
+	struct spa_io_buffers in_io[in_data->ports];
+	struct spa_io_buffers out_io[out_data->ports];
+
+	setup_direction(ctx, SPA_DIRECTION_INPUT, in_data->mode, &in_data->info);
+	setup_direction(ctx, SPA_DIRECTION_OUTPUT, out_data->mode, &out_data->info);
+
+	cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start);
+	res = spa_node_send_command(ctx->convert_node, &cmd);
+	spa_assert_se(res == 0);
+
+	for (i = 0; i < in_data->ports; i++) {
+		struct buffer *b = &in_buffers[i];
+		struct spa_buffer *buffers[1];
+		spa_zero(*b);
+		b->buffer.datas = b->datas;
+                b->buffer.n_datas = in_data->planes;
+
+		for (j = 0; j < in_data->planes; j++) {
+			b->datas[j].type = SPA_DATA_MemPtr;
+			b->datas[j].flags = 0;
+			b->datas[j].fd = -1;
+			b->datas[j].mapoffset = 0;
+			b->datas[j].maxsize = in_data->size;
+			b->datas[j].data = (void *)in_data->data[i];
+			b->datas[j].chunk = &b->chunks[j];
+			b->datas[j].chunk->offset = 0;
+			b->datas[j].chunk->size = in_data->size;
+			b->datas[j].chunk->stride = 0;
+		}
+		buffers[0] = &b->buffer;
+		res = spa_node_port_use_buffers(ctx->convert_node, SPA_DIRECTION_INPUT, i,
+				0, buffers, 1);
+		spa_assert_se(res == 0);
+
+		in_io[i].status = SPA_STATUS_HAVE_DATA;
+		in_io[i].buffer_id = 0;
+
+		res = spa_node_port_set_io(ctx->convert_node, SPA_DIRECTION_INPUT, i,
+				SPA_IO_Buffers, &in_io[i], sizeof(in_io[i]));
+		spa_assert_se(res == 0);
+	}
+	for (i = 0; i < out_data->ports; i++) {
+		struct buffer *b = &out_buffers[i];
+		struct spa_buffer *buffers[1];
+		spa_zero(*b);
+		b->buffer.datas = b->datas;
+                b->buffer.n_datas = out_data->planes;
+
+		for (j = 0; j < out_data->planes; j++) {
+			b->datas[j].type = SPA_DATA_MemPtr;
+			b->datas[j].flags = 0;
+			b->datas[j].fd = -1;
+			b->datas[j].mapoffset = 0;
+			b->datas[j].maxsize = out_data->size;
+			b->datas[j].data = calloc(1, out_data->size);
+			b->datas[j].chunk = &b->chunks[j];
+			b->datas[j].chunk->offset = 0;
+			b->datas[j].chunk->size = 0;
+			b->datas[j].chunk->stride = 0;
+		}
+		buffers[0] = &b->buffer;
+		res = spa_node_port_use_buffers(ctx->convert_node,
+				SPA_DIRECTION_OUTPUT, i, 0, buffers, 1);
+		spa_assert_se(res == 0);
+
+		out_io[i].status = SPA_STATUS_NEED_DATA;
+		out_io[i].buffer_id = -1;
+
+		res = spa_node_port_set_io(ctx->convert_node, SPA_DIRECTION_OUTPUT, i,
+				SPA_IO_Buffers, &out_io[i], sizeof(out_io[i]));
+		spa_assert_se(res == 0);
+	}
+
+	res = spa_node_process(ctx->convert_node);
+	spa_assert_se(res == (SPA_STATUS_NEED_DATA | SPA_STATUS_HAVE_DATA));
+
+	for (i = 0; i < out_data->ports; i++) {
+		struct buffer *b = &out_buffers[i];
+
+		spa_assert_se(out_io[i].status == SPA_STATUS_HAVE_DATA);
+		spa_assert_se(out_io[i].buffer_id == 0);
+
+		for (j = 0; j < out_data->planes; j++) {
+			spa_assert_se(b->datas[j].chunk->offset == 0);
+			spa_assert_se(b->datas[j].chunk->size == out_data->size);
+
+			res = memcmp(b->datas[j].data, out_data->data[j], out_data->size);
+			if (res != 0) {
+				spa_debug_mem(0, b->datas[j].data, out_data->size);
+				spa_debug_mem(0, out_data->data[j], out_data->size);
+			}
+			spa_assert_se(res == 0);
+
+			free(b->datas[j].data);
+		}
+	}
+	cmd = SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Suspend);
+	res = spa_node_send_command(ctx->convert_node, &cmd);
+	spa_assert_se(res == 0);
+
+	return 0;
+}
+
+static int test_convert_dsp_pass(struct context *ctx)
+{
+	static const float fl_data[] = { 0.1f, 0.0f, 0.0f };
+	static const float fr_data[] = { 0.0f, 0.2f, 0.0f };
+	static const float lfe_data[] = { 0.0f, 0.0f, 0.3f };
+	static const float out_data[] = { 0.1f, 0.0f, 0.0f, 0.0f, 0.2f, 0.0f, 0.0f, 0.0f, 0.3f };
+
+	run_convert(ctx, &(struct data) {
+				.mode = SPA_PARAM_PORT_CONFIG_MODE_dsp,
+				.info = SPA_AUDIO_INFO_RAW_INIT(
+					.format = SPA_AUDIO_FORMAT_F32,
+					.rate = 48000,
+					.channels = 3,
+					.position = {
+						SPA_AUDIO_CHANNEL_FL,
+						SPA_AUDIO_CHANNEL_FR,
+						SPA_AUDIO_CHANNEL_LFE,
+					}),
+				.ports = 3,
+				.planes = 1,
+				.data = { fl_data, fr_data, lfe_data },
+				.size = sizeof(fl_data)
+			},
+			&(struct data) {
+				.mode = SPA_PARAM_PORT_CONFIG_MODE_convert,
+				.info = SPA_AUDIO_INFO_RAW_INIT(
+					.format = SPA_AUDIO_FORMAT_F32,
+					.rate = 48000,
+					.channels = 3,
+					.position = {
+						SPA_AUDIO_CHANNEL_FL,
+						SPA_AUDIO_CHANNEL_FR,
+						SPA_AUDIO_CHANNEL_LFE,
+					}),
+				.ports = 1,
+				.planes = 1,
+				.data = { out_data },
+				.size = sizeof(out_data)
+			});
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct context ctx;
@@ -530,6 +758,8 @@ int main(int argc, char *argv[])
 	test_convert_setup2(&ctx);
 	test_set_in_format2(&ctx);
 	test_set_out_format(&ctx);
+
+	test_convert_dsp_pass(&ctx);
 
 	clean_context(&ctx);
 

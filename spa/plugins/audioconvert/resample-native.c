@@ -58,7 +58,6 @@ static inline double sinc(double x)
 	return sin(x) / x;
 }
 
-#if 0
 static inline double window_blackman(double x, double n_taps)
 {
 	double alpha = 0.232, r;
@@ -67,16 +66,16 @@ static inline double window_blackman(double x, double n_taps)
 		(alpha / 2.0) * cos(2 * x);
 	return r;
 }
-#else
 static inline double window_cosh(double x, double n_taps)
 {
 	double R = 95.0, r;
 	double A = -325.1E-6 * (R * R) + 0.1677 * R - 3.149;
-	x =  2.0 * M_PI * x / n_taps;
-	r = cosh(A * sqrt(1 - pow(x / M_PI, 2))) / cosh(A);
-	return isnan(r) ? 0.0 : r;
+	x =  2.0 * x / n_taps;
+	r = cosh(A * sqrt(1 - pow(x, 2))) / cosh(A);
+	return r;
 }
-#endif
+
+#define window window_blackman
 
 static int build_filter(float *taps, uint32_t stride, uint32_t n_taps, uint32_t n_phases, double cutoff)
 {
@@ -88,7 +87,7 @@ static int build_filter(float *taps, uint32_t stride, uint32_t n_taps, uint32_t 
 			/* exploit symmetry in filter taps */
 			taps[(n_phases - i) * stride + n_taps12 + j] =
 				taps[i * stride + (n_taps12 - j - 1)] =
-					cutoff * sinc(t * cutoff) * window_cosh(t, n_taps);
+					cutoff * sinc(t * cutoff) * window(t, n_taps);
 		}
 	}
 	return 0;

@@ -726,6 +726,7 @@ static int snd_pcm_pipewire_sw_params(snd_pcm_ioplug_t * io,
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 
+	pw_thread_loop_lock(pw->main_loop);
 	if (pw->stream) {
 		snd_pcm_uframes_t min_avail;
 		snd_pcm_sw_params_get_avail_min( sw_params, &min_avail);
@@ -746,6 +747,7 @@ static int snd_pcm_pipewire_sw_params(snd_pcm_ioplug_t * io,
 	} else {
 		pw_log_debug("%p: sw_params pre-prepare noop", pw);
 	}
+	pw_thread_loop_unlock(pw->main_loop);
 
 	return 0;
 }

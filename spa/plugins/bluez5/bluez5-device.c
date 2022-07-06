@@ -337,34 +337,50 @@ static void node_update_soft_volumes(struct node *node, float hw_volume)
 	}
 }
 
-static void volume_changed(void *userdata)
+static bool node_update_volume_from_transport(struct node *node, bool reset)
 {
-	struct node *node = userdata;
 	struct impl *impl = node->impl;
 	struct spa_bt_transport_volume *t_volume;
 	float prev_hw_volume;
 
 	if (!node->transport || !spa_bt_transport_volume_enabled(node->transport))
-		return;
+		return false;
 
 	/* PW is the controller for remote device. */
 	if (impl->profile != DEVICE_PROFILE_A2DP
 	    && impl->profile !=  DEVICE_PROFILE_HSP_HFP)
-		return;
+		return false;
 
 	t_volume = &node->transport->volumes[node->id];
 
 	if (!t_volume->active)
-		return;
+		return false;
 
 	prev_hw_volume = node_get_hw_volume(node);
-	for (uint32_t i = 0; i < node->n_channels; ++i) {
-		node->volumes[i] = prev_hw_volume > 0.0f
-			? node->volumes[i] * t_volume->volume / prev_hw_volume
-			: t_volume->volume;
+
+	if (!reset) {
+		for (uint32_t i = 0; i < node->n_channels; ++i) {
+			node->volumes[i] = prev_hw_volume > 0.0f
+				? node->volumes[i] * t_volume->volume / prev_hw_volume
+				: t_volume->volume;
+		}
+	} else {
+		for (uint32_t i = 0; i < node->n_channels; ++i)
+			node->volumes[i] = t_volume->volume;
 	}
 
 	node_update_soft_volumes(node, t_volume->volume);
+
+	return true;
+}
+
+static void volume_changed(void *userdata)
+{
+	struct node *node = userdata;
+	struct impl *impl = node->impl;
+
+	if (!node_update_volume_from_transport(node, false))
+		return;
 
 	emit_volume(impl, node);
 
@@ -468,6 +484,8 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 			for (i = prev_channels; i < this->nodes[id].n_channels; ++i)
 				this->nodes[id].volumes[i] = this->nodes[id].volumes[i % prev_channels];
 		}
+
+		node_update_volume_from_transport(&this->nodes[id], true);
 
 		boost = get_soft_volume_boost(&this->nodes[id]);
 		if (boost != 1.0f) {

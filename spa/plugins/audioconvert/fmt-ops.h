@@ -91,20 +91,20 @@
 #define F32_TO_S24_D(v,d)	s32_to_s24(SPA_CLAMP((v) * S24_SCALE + (d), S24_MIN, S24_MAX))
 
 #define U32_MIN			0u
-#define U32_MAX			4294967295
+#define U32_MAX			4294967295u
 #define U32_SCALE		2147483648.f
 #define U32_OFFS		2147483648.f
-#define U32_TO_F32(v)		((((uint32_t)(v)) * (1.0f / U32_SCALE)) - 1.0f)
-#define F32_TO_U32(v)		(uint32_t)SPA_CLAMP((v) * U32_SCALE + U32_OFFS, U32_MIN, U32_MAX)
-#define F32_TO_U32_D(v,d)	(uint32_t)SPA_CLAMP((v) * U32_SCALE + U32_OFFS + (d), U32_MIN, U32_MAX)
+#define U32_TO_F32(v)		((((uint32_t)(v)>>8) * (1.0f / U24_SCALE)) - 1.0f)
+#define F32_TO_U32(v)		((uint32_t)SPA_CLAMP((v) * U24_SCALE + U24_OFFS, U24_MIN, U24_MAX) << 8)
+#define F32_TO_U32_D(v,d)	((uint32_t)SPA_CLAMP((v) * U24_SCALE + U24_OFFS + (d), U24_MIN, U24_MAX) << 8)
 
 #define S32_MIN			-2147483648
-#define S32_MAX			2147483520
+#define S32_MAX			2147483647
 #define S32_SCALE		2147483648.f
-#define S32_TO_F32(v)		(((int32_t)(v)) * (1.0f / S32_SCALE))
-#define S32S_TO_F32(v)		(((int32_t)bswap_32(v)) * (1.0f / S32_SCALE))
-#define F32_TO_S32(v)		(int32_t)SPA_CLAMP((v) * S32_SCALE, S32_MIN, S32_MAX)
-#define F32_TO_S32_D(v,d)	(int32_t)SPA_CLAMP((v) * S32_SCALE + (d), S32_MIN, S32_MAX)
+#define S32_TO_F32(v)		(((int32_t)(v)>>8) * (1.0f / S24_SCALE))
+#define S32S_TO_F32(v)		(((int32_t)bswap_32(v)>>8) * (1.0f / S24_SCALE))
+#define F32_TO_S32(v)		((int32_t)SPA_CLAMP((v) * S24_SCALE, S24_MIN, S24_MAX) << 8)
+#define F32_TO_S32_D(v,d)	((int32_t)SPA_CLAMP((v) * S24_SCALE + (d), S24_MIN>>1, S24_MAX<<2) << 8)
 #define F32_TO_S32S(v)		bswap_32(F32_TO_S32(v))
 #define F32_TO_S32S_D(v,d)	bswap_32(F32_TO_S32_D(v,d))
 

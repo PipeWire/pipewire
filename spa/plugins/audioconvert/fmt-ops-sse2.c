@@ -338,7 +338,7 @@ conv_s32_to_f32d_1s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	float *d0 = dst[0];
 	uint32_t n, unrolled;
 	__m128i in;
-	__m128 out, factor = _mm_set1_ps(1.0f / S32_SCALE);
+	__m128 out, factor = _mm_set1_ps(1.0f / S24_SCALE);
 
 	if (SPA_IS_ALIGNED(d0, 16))
 		unrolled = n_samples & ~3;
@@ -350,13 +350,14 @@ conv_s32_to_f32d_1s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 				    s[1*n_channels],
 				    s[2*n_channels],
 				    s[3*n_channels]);
+		in = _mm_srai_epi32(in, 8);
 		out = _mm_cvtepi32_ps(in);
 		out = _mm_mul_ps(out, factor);
 		_mm_store_ps(&d0[n], out);
 		s += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {
-		out = _mm_cvtsi32_ss(factor, s[0]);
+		out = _mm_cvtsi32_ss(factor, s[0]>>8);
 		out = _mm_mul_ss(out, factor);
 		_mm_store_ss(&d0[n], out);
 		s += n_channels;
@@ -383,8 +384,9 @@ conv_f32d_to_s32_1s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 	uint32_t n, unrolled;
 	__m128 in[1];
 	__m128i out[4];
-	__m128 scale = _mm_set1_ps(S32_SCALE);
-	__m128 int_max = _mm_set1_ps(S32_MAX);
+	__m128 scale = _mm_set1_ps(S24_SCALE);
+	__m128 int_min = _mm_set1_ps(S24_MIN);
+	__m128 int_max = _mm_set1_ps(S24_MAX);
 
 	if (SPA_IS_ALIGNED(s0, 16))
 		unrolled = n_samples & ~3;
@@ -394,7 +396,9 @@ conv_f32d_to_s32_1s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 	for(n = 0; n < unrolled; n += 4) {
 		in[0] = _mm_mul_ps(_mm_load_ps(&s0[n]), scale);
 		in[0] = _mm_min_ps(in[0], int_max);
+		in[0] = _mm_max_ps(in[0], int_min);
 		out[0] = _mm_cvttps_epi32(in[0]);
+		out[0] = _mm_slli_epi32(out[0], 8);
 		out[1] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(0, 3, 2, 1));
 		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
 		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
@@ -409,6 +413,7 @@ conv_f32d_to_s32_1s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		in[0] = _mm_load_ss(&s0[n]);
 		in[0] = _mm_mul_ss(in[0], scale);
 		in[0] = _mm_min_ss(in[0], int_max);
+		in[0] = _mm_max_ss(in[0], int_min);
 		*d = _mm_cvtss_si32(in[0]);
 		d += n_channels;
 	}
@@ -423,8 +428,9 @@ conv_f32d_to_s32_2s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 	uint32_t n, unrolled;
 	__m128 in[2];
 	__m128i out[2], t[2];
-	__m128 scale = _mm_set1_ps(S32_SCALE);
-	__m128 int_max = _mm_set1_ps(S32_MAX);
+	__m128 scale = _mm_set1_ps(S24_SCALE);
+	__m128 int_min = _mm_set1_ps(S24_MIN);
+	__m128 int_max = _mm_set1_ps(S24_MAX);
 
 	if (SPA_IS_ALIGNED(s0, 16) &&
 	    SPA_IS_ALIGNED(s1, 16))
@@ -437,10 +443,14 @@ conv_f32d_to_s32_2s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		in[1] = _mm_mul_ps(_mm_load_ps(&s1[n]), scale);
 
 		in[0] = _mm_min_ps(in[0], int_max);
+		in[0] = _mm_max_ps(in[0], int_min);
 		in[1] = _mm_min_ps(in[1], int_max);
+		in[1] = _mm_max_ps(in[1], int_min);
 
 		out[0] = _mm_cvttps_epi32(in[0]);
 		out[1] = _mm_cvttps_epi32(in[1]);
+		out[0] = _mm_slli_epi32(out[0], 8);
+		out[1] = _mm_slli_epi32(out[1], 8);
 
 		t[0] = _mm_unpacklo_epi32(out[0], out[1]);
 		t[1] = _mm_unpackhi_epi32(out[0], out[1]);
@@ -460,6 +470,7 @@ conv_f32d_to_s32_2s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		in[0] = _mm_mul_ps(in[0], scale);
 		in[0] = _mm_min_ps(in[0], int_max);
 		out[0] = _mm_cvttps_epi32(in[0]);
+		out[0] = _mm_slli_epi32(out[0], 8);
 		_mm_storel_epi64((__m128i*)d, out[0]);
 		d += n_channels;
 	}
@@ -474,8 +485,9 @@ conv_f32d_to_s32_4s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 	uint32_t n, unrolled;
 	__m128 in[4];
 	__m128i out[4];
-	__m128 scale = _mm_set1_ps(S32_SCALE);
-	__m128 int_max = _mm_set1_ps(S32_MAX);
+	__m128 scale = _mm_set1_ps(S24_SCALE);
+	__m128 int_min = _mm_set1_ps(S24_MIN);
+	__m128 int_max = _mm_set1_ps(S24_MAX);
 
 	if (SPA_IS_ALIGNED(s0, 16) &&
 	    SPA_IS_ALIGNED(s1, 16) &&
@@ -495,6 +507,10 @@ conv_f32d_to_s32_4s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		in[1] = _mm_min_ps(in[1], int_max);
 		in[2] = _mm_min_ps(in[2], int_max);
 		in[3] = _mm_min_ps(in[3], int_max);
+		in[0] = _mm_max_ps(in[0], int_min);
+		in[1] = _mm_max_ps(in[1], int_min);
+		in[2] = _mm_max_ps(in[2], int_min);
+		in[3] = _mm_max_ps(in[3], int_min);
 
 		_MM_TRANSPOSE4_PS(in[0], in[1], in[2], in[3]);
 
@@ -502,6 +518,10 @@ conv_f32d_to_s32_4s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		out[1] = _mm_cvttps_epi32(in[1]);
 		out[2] = _mm_cvttps_epi32(in[2]);
 		out[3] = _mm_cvttps_epi32(in[3]);
+		out[0] = _mm_slli_epi32(out[0], 8);
+		out[1] = _mm_slli_epi32(out[1], 8);
+		out[2] = _mm_slli_epi32(out[2], 8);
+		out[3] = _mm_slli_epi32(out[3], 8);
 
 		_mm_storeu_si128((__m128i*)(d + 0*n_channels), out[0]);
 		_mm_storeu_si128((__m128i*)(d + 1*n_channels), out[1]);
@@ -521,7 +541,9 @@ conv_f32d_to_s32_4s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 
 		in[0] = _mm_mul_ps(in[0], scale);
 		in[0] = _mm_min_ps(in[0], int_max);
+		in[0] = _mm_max_ps(in[0], int_min);
 		out[0] = _mm_cvttps_epi32(in[0]);
+		out[0] = _mm_slli_epi32(out[0], 8);
 		_mm_storeu_si128((__m128i*)d, out[0]);
 		d += n_channels;
 	}
@@ -577,8 +599,9 @@ conv_f32d_to_s32_1s_dither_sse2(struct convert *conv, void * SPA_RESTRICT dst, c
 	uint32_t n, unrolled;
 	__m128 in[1];
 	__m128i out[4];
-	__m128 scale = _mm_set1_ps(S32_SCALE);
-	__m128 int_max = _mm_set1_ps(S32_MAX);
+	__m128 scale = _mm_set1_ps(S24_SCALE);
+	__m128 int_min = _mm_set1_ps(S24_MIN);
+	__m128 int_max = _mm_set1_ps(S24_MAX);
 
 	if (SPA_IS_ALIGNED(s, 16))
 		unrolled = n_samples & ~3;
@@ -589,7 +612,9 @@ conv_f32d_to_s32_1s_dither_sse2(struct convert *conv, void * SPA_RESTRICT dst, c
 		in[0] = _mm_mul_ps(_mm_load_ps(&s[n]), scale);
 		in[0] = _mm_add_ps(in[0], _mm_load_ps(&dither[n]));
 		in[0] = _mm_min_ps(in[0], int_max);
+		in[0] = _mm_max_ps(in[0], int_min);
 		out[0] = _mm_cvttps_epi32(in[0]);
+		out[0] = _mm_slli_epi32(out[0], 8);
 		out[1] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(0, 3, 2, 1));
 		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
 		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
@@ -605,7 +630,8 @@ conv_f32d_to_s32_1s_dither_sse2(struct convert *conv, void * SPA_RESTRICT dst, c
 		in[0] = _mm_mul_ss(in[0], scale);
 		in[0] = _mm_add_ss(in[0], _mm_load_ss(&dither[n]));
 		in[0] = _mm_min_ss(in[0], int_max);
-		*d = _mm_cvtss_si32(in[0]);
+		in[0] = _mm_max_ss(in[0], int_min);
+		*d = _mm_cvtss_si32(in[0]) << 8;
 		d += n_channels;
 	}
 }

@@ -54,7 +54,7 @@ static void compare_mem(int i, int j, const void *m1, const void *m2, size_t siz
 		spa_debug_mem(0, m1, size);
 		spa_debug_mem(0, m2, size);
 	}
-//	spa_assert_se(res == 0);
+	spa_assert_se(res == 0);
 }
 
 static void run_test(const char *name,
@@ -268,8 +268,8 @@ static void test_s16_f32(void)
 static void test_f32_u32(void)
 {
 	static const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
-	static const uint32_t out[] = { 0x80000000, 0xffffffff, 0x0, 0xc0000000, 0x40000000,
-					0xffffffff, 0x0 };
+	static const uint32_t out[] = { 0x80000000, 0xffffff00, 0x0, 0xc0000000, 0x40000000,
+					0xffffff00, 0x0 };
 
 	run_test("test_f32_u32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, true, conv_f32_to_u32_c);
@@ -279,8 +279,8 @@ static void test_f32_u32(void)
 
 static void test_u32_f32(void)
 {
-	static const uint32_t in[] = { 0x80000000, 0xffffffff, 0x0, 0xc0000000, 0x40000000 };
-	static const float out[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, };
+	static const uint32_t in[] = { 0x80000000, 0xffffff00, 0x0, 0xc0000000, 0x40000000 };
+	static const float out[] = { 0.0f, 0.999999880791f, -1.0f, 0.5f, -0.5f, };
 
 	run_test("test_u32_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, false, conv_u32_to_f32d_c);
@@ -291,8 +291,8 @@ static void test_u32_f32(void)
 static void test_f32_s32(void)
 {
 	static const float in[] = { 0.0f, 1.0f, -1.0f, 0.5f, -0.5f, 1.1f, -1.1f };
-	static const int32_t out[] = { 0, 0x7fffff80, 0x80000000, 0x40000000, 0xc0000000,
-					0x7fffff80, 0x80000000 };
+	static const int32_t out[] = { 0, 0x7fffff00, 0x80000000, 0x40000000, 0xc0000000,
+					0x7fffff00, 0x80000000 };
 
 	run_test("test_f32_s32", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, true, conv_f32_to_s32_c);
@@ -318,8 +318,8 @@ static void test_f32_s32(void)
 
 static void test_s32_f32(void)
 {
-	static const int32_t in[] = { 0, 0x7fffff80, 0x80000000, 0x40000000, 0xc0000000 };
-	static const float out[] = { 0.0f, 0.999999940395f, -1.0f, 0.5, -0.5, };
+	static const int32_t in[] = { 0, 0x7fffff00, 0x80000000, 0x40000000, 0xc0000000 };
+	static const float out[] = { 0.0f, 0.999999880791, -1.0f, 0.5, -0.5, };
 
 	run_test("test_s32_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, false, conv_s32_to_f32d_c);
@@ -588,7 +588,7 @@ static void test_lossless_s32(void)
 	for (i = S32_MIN; i < S32_MAX; i+=255) {
 		float v = S32_TO_F32(i);
 		int32_t t = F32_TO_S32(v);
-		spa_assert_se(SPA_ABS(i - t) <= 128);
+		spa_assert_se(SPA_ABS(i - t) <= 256);
 	}
 }
 
@@ -600,7 +600,7 @@ static void test_lossless_u32(void)
 	for (i = U32_MIN; i < U32_MAX; i+=255) {
 		float v = U32_TO_F32(i);
 		uint32_t t = F32_TO_U32(v);
-		spa_assert_se(i > t ? (i - t) <= 128 : (t - i) <= 128);
+		spa_assert_se(i > t ? (i - t) <= 256 : (t - i) <= 256);
 	}
 }
 

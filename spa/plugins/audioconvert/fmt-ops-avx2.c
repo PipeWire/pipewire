@@ -538,8 +538,9 @@ conv_f32d_to_s32_1s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 	uint32_t n, unrolled;
 	__m128 in[1];
 	__m128i out[4];
-	__m128 scale = _mm_set1_ps(S32_SCALE);
-	__m128 int_max = _mm_set1_ps(S32_MAX);
+	__m128 scale = _mm_set1_ps(S24_SCALE);
+	__m128 int_max = _mm_set1_ps(S24_MAX);
+	__m128 int_min = _mm_set1_ps(S24_MIN);
 
 	if (SPA_IS_ALIGNED(s0, 16))
 		unrolled = n_samples & ~3;
@@ -549,7 +550,9 @@ conv_f32d_to_s32_1s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 	for(n = 0; n < unrolled; n += 4) {
 		in[0] = _mm_mul_ps(_mm_load_ps(&s0[n]), scale);
 		in[0] = _mm_min_ps(in[0], int_max);
+		in[0] = _mm_max_ps(in[0], int_min);
 		out[0] = _mm_cvttps_epi32(in[0]);
+		out[0] = _mm_slli_epi32(out[0], 8);
 		out[1] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(0, 3, 2, 1));
 		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
 		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
@@ -564,7 +567,8 @@ conv_f32d_to_s32_1s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		in[0] = _mm_load_ss(&s0[n]);
 		in[0] = _mm_mul_ss(in[0], scale);
 		in[0] = _mm_min_ss(in[0], int_max);
-		*d = _mm_cvtss_si32(in[0]);
+		in[0] = _mm_max_ss(in[0], int_min);
+		*d = _mm_cvtss_si32(in[0]) << 8;
 		d += n_channels;
 	}
 }
@@ -578,8 +582,9 @@ conv_f32d_to_s32_2s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 	uint32_t n, unrolled;
 	__m256 in[2];
 	__m256i out[2], t[2];
-	__m256 scale = _mm256_set1_ps(S32_SCALE);
-	__m256 int_max = _mm256_set1_ps(S32_MAX);
+	__m256 scale = _mm256_set1_ps(S24_SCALE);
+	__m256 int_min = _mm256_set1_ps(S24_MIN);
+	__m256 int_max = _mm256_set1_ps(S24_MAX);
 
 	if (SPA_IS_ALIGNED(s0, 32) &&
 	    SPA_IS_ALIGNED(s1, 32))
@@ -593,9 +598,13 @@ conv_f32d_to_s32_2s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 
 		in[0] = _mm256_min_ps(in[0], int_max);
 		in[1] = _mm256_min_ps(in[1], int_max);
+		in[0] = _mm256_max_ps(in[0], int_min);
+		in[1] = _mm256_max_ps(in[1], int_min);
 
 		out[0] = _mm256_cvttps_epi32(in[0]);	/* a0 a1 a2 a3 a4 a5 a6 a7 */
 		out[1] = _mm256_cvttps_epi32(in[1]);	/* b0 b1 b2 b3 b4 b5 b6 b7 */
+		out[0] = _mm256_slli_epi32(out[0], 8);
+		out[1] = _mm256_slli_epi32(out[1], 8);
 
 		t[0] = _mm256_unpacklo_epi32(out[0], out[1]); /* a0 b0 a1 b1 a4 b4 a5 b5 */
 		t[1] = _mm256_unpackhi_epi32(out[0], out[1]); /* a2 b2 a3 b3 a6 b6 a7 b7 */
@@ -624,8 +633,9 @@ conv_f32d_to_s32_2s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 	for(; n < n_samples; n++) {
 		__m128 in[2];
 		__m128i out[2];
-		__m128 scale = _mm_set1_ps(S32_SCALE);
-		__m128 int_max = _mm_set1_ps(S32_MAX);
+		__m128 scale = _mm_set1_ps(S24_SCALE);
+		__m128 int_min = _mm_set1_ps(S24_MIN);
+		__m128 int_max = _mm_set1_ps(S24_MAX);
 
 		in[0] = _mm_load_ss(&s0[n]);
 		in[1] = _mm_load_ss(&s1[n]);
@@ -634,7 +644,9 @@ conv_f32d_to_s32_2s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 
 		in[0] = _mm_mul_ps(in[0], scale);
 		in[0] = _mm_min_ps(in[0], int_max);
+		in[0] = _mm_max_ps(in[0], int_min);
 		out[0] = _mm_cvttps_epi32(in[0]);
+		out[0] = _mm_slli_epi32(out[0], 8);
 		_mm_storel_epi64((__m128i*)d, out[0]);
 		d += n_channels;
 	}
@@ -649,8 +661,9 @@ conv_f32d_to_s32_4s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 	uint32_t n, unrolled;
 	__m256 in[4];
 	__m256i out[4], t[4];
-	__m256 scale = _mm256_set1_ps(S32_SCALE);
-	__m256 int_max = _mm256_set1_ps(S32_MAX);
+	__m256 scale = _mm256_set1_ps(S24_SCALE);
+	__m256 int_min = _mm256_set1_ps(S24_MIN);
+	__m256 int_max = _mm256_set1_ps(S24_MAX);
 
 	if (SPA_IS_ALIGNED(s0, 32) &&
 	    SPA_IS_ALIGNED(s1, 32) &&
@@ -670,11 +683,19 @@ conv_f32d_to_s32_4s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		in[1] = _mm256_min_ps(in[1], int_max);
 		in[2] = _mm256_min_ps(in[2], int_max);
 		in[3] = _mm256_min_ps(in[3], int_max);
+		in[0] = _mm256_max_ps(in[0], int_min);
+		in[1] = _mm256_max_ps(in[1], int_min);
+		in[2] = _mm256_max_ps(in[2], int_min);
+		in[3] = _mm256_max_ps(in[3], int_min);
 
 		out[0] = _mm256_cvttps_epi32(in[0]); /* a0 a1 a2 a3 a4 a5 a6 a7 */
 		out[1] = _mm256_cvttps_epi32(in[1]); /* b0 b1 b2 b3 b4 b5 b6 b7 */
 		out[2] = _mm256_cvttps_epi32(in[2]); /* c0 c1 c2 c3 c4 c5 c6 c7 */
 		out[3] = _mm256_cvttps_epi32(in[3]); /* d0 d1 d2 d3 d4 d5 d6 d7 */
+		out[0] = _mm256_slli_epi32(out[0], 8);
+		out[1] = _mm256_slli_epi32(out[1], 8);
+		out[2] = _mm256_slli_epi32(out[2], 8);
+		out[3] = _mm256_slli_epi32(out[3], 8);
 
 		t[0] = _mm256_unpacklo_epi32(out[0], out[1]); /* a0 b0 a1 b1 a4 b4 a5 b5 */
 		t[1] = _mm256_unpackhi_epi32(out[0], out[1]); /* a2 b2 a3 b3 a6 b6 a7 b7 */
@@ -699,8 +720,9 @@ conv_f32d_to_s32_4s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 	for(; n < n_samples; n++) {
 		__m128 in[4];
 		__m128i out[4];
-		__m128 scale = _mm_set1_ps(S32_SCALE);
-		__m128 int_max = _mm_set1_ps(S32_MAX);
+		__m128 scale = _mm_set1_ps(S24_SCALE);
+		__m128 int_min = _mm_set1_ps(S24_MIN);
+		__m128 int_max = _mm_set1_ps(S24_MAX);
 
 		in[0] = _mm_load_ss(&s0[n]);
 		in[1] = _mm_load_ss(&s1[n]);
@@ -713,7 +735,9 @@ conv_f32d_to_s32_4s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 
 		in[0] = _mm_mul_ps(in[0], scale);
 		in[0] = _mm_min_ps(in[0], int_max);
+		in[0] = _mm_max_ps(in[0], int_min);
 		out[0] = _mm_cvttps_epi32(in[0]);
+		out[0] = _mm_slli_epi32(out[0], 8);
 		_mm_storeu_si128((__m128i*)d, out[0]);
 		d += n_channels;
 	}

@@ -24,79 +24,86 @@
 
 #include <spa/utils/defs.h>
 
-static inline uint32_t read_u24(const void *src)
-{
-	const uint8_t *s = src;
+typedef struct {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-	return (((uint32_t)s[2] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[0]);
+	uint8_t v3;
+	uint8_t v2;
+	uint8_t v1;
 #else
-	return (((uint32_t)s[0] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[2]);
+	uint8_t v1;
+	uint8_t v2;
+	uint8_t v3;
 #endif
+} __attribute__ ((packed)) uint24_t;
+
+typedef struct {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	uint8_t v3;
+	uint8_t v2;
+	int8_t v1;
+#else
+	int8_t v1;
+	uint8_t v2;
+	uint8_t v3;
+#endif
+} __attribute__ ((packed)) int24_t;
+
+static inline uint32_t u24_to_u32(uint24_t src)
+{
+	return ((uint32_t)src.v1 << 16) | ((uint32_t)src.v2 << 8) | (uint32_t)src.v3;
 }
 
-static inline int32_t read_s24(const void *src)
+#define U32_TO_U24(s) (uint24_t) { .v1 = (uint8_t)(((uint32_t)s) >> 16), \
+	.v2 = (uint8_t)(((uint32_t)s) >> 8), .v3 = (uint8_t)((uint32_t)s) }
+
+static inline uint24_t u32_to_u24(uint32_t src)
 {
-	const int8_t *s = src;
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	return (((int32_t)s[2] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[0]);
-#else
-	return (((int32_t)s[0] << 16) | ((uint32_t)(uint8_t)s[1] << 8) | (uint32_t)(uint8_t)s[2]);
-#endif
+	return U32_TO_U24(src);
 }
 
-static inline void write_u24(void *dst, uint32_t val)
+static inline int32_t s24_to_s32(int24_t src)
 {
-	uint8_t *d = dst;
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	d[0] = (uint8_t) (val);
-	d[1] = (uint8_t) (val >> 8);
-	d[2] = (uint8_t) (val >> 16);
-#else
-	d[0] = (uint8_t) (val >> 16);
-	d[1] = (uint8_t) (val >> 8);
-	d[2] = (uint8_t) (val);
-#endif
+	return ((int32_t)src.v1 << 16) | ((uint32_t)src.v2 << 8) | (uint32_t)src.v3;
 }
 
-static inline void write_s24(void *dst, int32_t val)
+#define S32_TO_S24(s) (int24_t) { .v1 = (int8_t)(((int32_t)s) >> 16), \
+	.v2 = (uint8_t)(((uint32_t)s) >> 8), .v3 = (uint8_t)((uint32_t)s) }
+
+static inline int24_t s32_to_s24(int32_t src)
 {
-	uint8_t *d = dst;
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	d[0] = (uint8_t) (val);
-	d[1] = (uint8_t) (val >> 8);
-	d[2] = (uint8_t) (val >> 16);
-#else
-	d[0] = (uint8_t) (val >> 16);
-	d[1] = (uint8_t) (val >> 8);
-	d[2] = (uint8_t) (val);
-#endif
+	return S32_TO_S24(src);
 }
 
-#define S8_MIN		-127
+
+#define S8_MIN		-128
 #define S8_MAX		127
-#define S8_MIX(a, b)    (int8_t)(SPA_CLAMP((int16_t)(a) + (int16_t)(b), S8_MIN, S8_MAX))
-#define U8_MIX(a, b)    (uint8_t)((int16_t)S8_MIX((int16_t)(a) - S8_MAX, (int16_t)(b) - S8_MAX) + S8_MAX)
+#define S8_MIX(a,b)	(int8_t)(SPA_CLAMP((int16_t)(a) + (int16_t)(b), S8_MIN, S8_MAX))
+#define U8_OFFS		128
+#define U8_MIX(a,b)	(uint8_t)((int16_t)S8_MIX((int16_t)(a) - U8_OFFS, (int16_t)(b) - U8_OFFS) + U8_OFFS)
 
-#define S16_MIN		-32767
+#define S16_MIN		-32768
 #define S16_MAX		32767
-#define S16_MIX(a, b)   (int16_t)(SPA_CLAMP((int32_t)(a) + (int32_t)(b), S16_MIN, S16_MAX))
-#define U16_MIX(a, b)   (uint16_t)((int32_t)S16_MIX((int32_t)(a) - S16_MAX, (int32_t)(b) - S16_MAX) + S16_MAX)
+#define S16_MIX(a,b)	(int16_t)(SPA_CLAMP((int32_t)(a) + (int32_t)(b), S16_MIN, S16_MAX))
+#define U16_OFFS	32768
+#define U16_MIX(a,b)	(uint16_t)((int32_t)S16_MIX((int32_t)(a) - U16_OFFS, (int32_t)(b) - U16_OFFS) + U16_OFFS)
 
-#define S24_MIN		-8388607
+#define S24_MIN		-8388608
 #define S24_MAX		8388607
-#define S24_MIX(a, b)   (int32_t)(SPA_CLAMP((int32_t)(a) + (int32_t)(b), S24_MIN, S24_MAX))
-#define U24_MIX(a, b)   (uint32_t)((int32_t)S24_MIX((int32_t)(a) - S24_MAX, (int32_t)(b) - S24_MAX) + S24_MAX)
+#define S24_MIX_32(a,b) (int32_t)(SPA_CLAMP((int32_t)(a) + (int32_t)(b), S24_MIN, S24_MAX))
+#define S24_MIX(a,b)	s32_to_s24(S24_MIX_32(s24_to_s32(a), s24_to_s32(b)))
+#define U24_OFFS	8388608
+#define U24_MIX(a,b)	u32_to_u24(S24_MIX_32((int32_t)u24_to_u32(a) - U24_OFFS, (int32_t)u24_to_u32(b) - U24_OFFS) + U24_OFFS)
 
-#define S32_MIN		-2147483647
+#define S32_MIN		-2147483648
 #define S32_MAX		2147483647
-#define S32_MIX(a, b)   (int32_t)(SPA_CLAMP((int64_t)(a) + (int64_t)(b), S32_MIN, S32_MAX))
-#define U32_MIX(a, b)   (uint32_t)((int64_t)S32_MIX((int64_t)(a) - S32_MAX, (int64_t)(b) - S32_MAX) + S32_MAX)
+#define S32_MIX(a,b)	(int32_t)(SPA_CLAMP((int64_t)(a) + (int64_t)(b), S32_MIN, S32_MAX))
+#define U32_OFFS	2147483648
+#define U32_MIX(a,b)	(uint32_t)((int64_t)S32_MIX((int64_t)(a) - U32_OFFS, (int64_t)(b) - U32_OFFS) + U32_OFFS)
 
-#define S24_32_MIX(a, b) S24_MIX (a, b)
-#define U24_32_MIX(a, b) U24_MIX (a, b)
+#define S24_32_MIX(a,b)	(int32_t)(SPA_CLAMP((int32_t)(a) + (int32_t)(b), S24_MIN, S24_MAX))
+#define U24_32_MIX(a,b)	(uint32_t)((int32_t)S24_32_MIX((int32_t)(a) - U24_OFFS, (int32_t)(b) - U24_OFFS) + U24_OFFS)
 
 #define F32_MIX(a, b)   (float)((float)(a) + (float)(b))
-
 #define F64_MIX(a, b)   (double)((double)(a) + (double)(b))
 
 struct mix_ops {

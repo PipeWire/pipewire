@@ -1626,20 +1626,29 @@ static int mixer_class_event(snd_mixer_class_t *class, unsigned int mask,
 {
     int err;
     const char *name = snd_hctl_elem_get_name(helem);
-    // NOTE: The remove event defined as '~0U`.
+    /* NOTE: The remove event is defined as '~0U`. */
     if (mask == SND_CTL_EVENT_MASK_REMOVE) {
-        // NOTE: unless remove pointer to melem from link-list at private_data of helem, hits
-	// assersion in alsa-lib since the list is not empty.
+        /* NOTE: Unless we remove the pointer to melem from the linked-list at
+         * private_data of helem, an assertion will be hit in alsa-lib since
+         * the list is not empty. */
         snd_mixer_elem_detach(melem, helem);
     } else if (mask & SND_CTL_EVENT_MASK_ADD) {
         snd_ctl_elem_iface_t iface = snd_hctl_elem_get_interface(helem);
         if (iface == SND_CTL_ELEM_IFACE_CARD || iface == SND_CTL_ELEM_IFACE_PCM) {
+            snd_mixer_t *mixer = snd_mixer_class_get_mixer(class);
+            snd_ctl_elem_iface_t iface = snd_hctl_elem_get_interface(helem);
+            const char *name = snd_hctl_elem_get_name(helem);
+            const int index = snd_hctl_elem_get_index(helem);
+            const int device = snd_hctl_elem_get_device(helem);
             snd_mixer_elem_t *new_melem;
-
-            /* Put the hctl pointer as our private data - it will be useful for callbacks */
-            if ((err = snd_mixer_elem_new(&new_melem, SND_MIXER_ELEM_PULSEAUDIO, 0, helem, NULL)) < 0) {
-                pa_log_warn("snd_mixer_elem_new failed: %s", pa_alsa_strerror(err));
-                return 0;
+ 
+            new_melem = pa_alsa_mixer_find(mixer, iface, name, index, device);
+            if (!new_melem) {
+                /* Put the hctl pointer as our private data - it will be useful for callbacks */
+                if ((err = snd_mixer_elem_new(&new_melem, SND_MIXER_ELEM_PULSEAUDIO, 0, helem, NULL)) < 0) {
+                    pa_log_warn("snd_mixer_elem_new failed: %s", pa_alsa_strerror(err));
+                    return 0;
+                }
             }
 
             if ((err = snd_mixer_elem_attach(new_melem, helem)) < 0) {

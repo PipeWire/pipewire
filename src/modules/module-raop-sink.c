@@ -258,7 +258,8 @@ static inline uint64_t ntp_now(int clockid)
 	return timespec_to_ntp(&now);
 }
 
-static int send_udp_sync_packet(struct impl *impl)
+static int send_udp_sync_packet(struct impl *impl,
+		struct sockaddr *dest_addr, socklen_t addrlen)
 {
 	uint32_t pkt[5];
 	uint32_t rtptime = impl->rtptime;
@@ -279,10 +280,11 @@ static int send_udp_sync_packet(struct impl *impl)
 	pw_log_debug("sync: delayed:%u now:%"PRIu64" rtptime:%u",
 			rtptime - delay, transmitted, rtptime);
 
-	return write(impl->control_fd, pkt, sizeof(pkt));
+	return sendto(impl->control_fd, pkt, sizeof(pkt), 0, dest_addr, addrlen);
 }
 
-static int send_udp_timing_packet(struct impl *impl, uint64_t remote, uint64_t received)
+static int send_udp_timing_packet(struct impl *impl, uint64_t remote, uint64_t received,
+		struct sockaddr *dest_addr, socklen_t addrlen)
 {
 	uint32_t pkt[8];
 	uint64_t transmitted;
@@ -300,7 +302,7 @@ static int send_udp_timing_packet(struct impl *impl, uint64_t remote, uint64_t r
 	pw_log_debug("sync: remote:%"PRIu64" received:%"PRIu64" transmitted:%"PRIu64,
 			remote, received, transmitted);
 
-	return write(impl->timing_fd, pkt, sizeof(pkt));
+	return sendto(impl->timing_fd, pkt, sizeof(pkt), 0, dest_addr, addrlen);
 }
 
 static int write_codec_pcm(void *dst, void *frames, uint32_t n_frames)
@@ -346,7 +348,7 @@ static int flush_to_udp_packet(struct impl *impl)
 	impl->sync++;
 	if (impl->first || impl->sync == impl->sync_period) {
 		impl->sync = 0;
-		send_udp_sync_packet(impl);
+		send_udp_sync_packet(impl, NULL, 0);
 	}
 	pkt[0] = htonl(0x80600000);
 	if (impl->first)
@@ -374,7 +376,7 @@ static int flush_to_udp_packet(struct impl *impl)
 	impl->seq = (impl->seq + 1) & 0xffff;
 
 	pw_log_debug("send %u", len + 12);
-	res = write(impl->server_fd, pkt, len + 12);
+	res = send(impl->server_fd, pkt, len + 12, 0);
 
 	impl->first = false;
 
@@ -418,7 +420,7 @@ static int flush_to_tcp_packet(struct impl *impl)
 	impl->seq = (impl->seq + 1) & 0xffff;
 
 	pw_log_debug("send %u", len + 16);
-	res = write(impl->server_fd, pkt, len + 16);
+	res = send(impl->server_fd, pkt, len + 16, 0);
 
 	impl->first = false;
 
@@ -600,7 +602,8 @@ on_timing_source_io(void *data, int fd, uint32_t mask)
 		socklen_t sender_size = sizeof(sender);
 
 		received = ntp_now(CLOCK_MONOTONIC);
-		bytes = recvfrom(impl->timing_fd, packet, sizeof(packet), 0, (struct sockaddr*)&sender, &sender_size);
+		bytes = recvfrom(impl->timing_fd, packet, sizeof(packet), 0,
+				(struct sockaddr*)&sender, &sender_size);
 		if (bytes < 0) {
 			pw_log_debug("error reading timing packet: %m");
 			return;
@@ -614,21 +617,10 @@ on_timing_source_io(void *data, int fd, uint32_t mask)
 			return;
 
 		remote = ((uint64_t)ntohl(packet[6])) << 32 | ntohl(packet[7]);
-		pkt[0] = htonl(0x80d30007);
-		pkt[1] = 0x00000000;
-		pkt[2] = htonl(remote >> 32);
-		pkt[3] = htonl(remote & 0xffffffff);
-		pkt[4] = htonl(received >> 32);
-		pkt[5] = htonl(received & 0xffffffff);
-		transmitted = ntp_now(CLOCK_MONOTONIC);
-		pkt[6] = htonl(transmitted >> 32);
-		pkt[7] = htonl(transmitted & 0xffffffff);
-		pkt_size = sizeof(pkt);
-
-		if (sendto(impl->timing_fd, &pkt, pkt_size, 0, (struct sockaddr *)&sender, sender_size) < 0) {
+		if (send_udp_timing_packet(impl, remote, received,
+				(struct sockaddr *)&sender, sender_size) < 0)
 			pw_log_warn("error sending timing packet");
 			return;
-		}
 
 		pw_log_debug("sync: remote:%"PRIu64" received:%"PRIu64" transmitted:%"PRIu64,
 				remote, received, transmitted);
@@ -855,7 +847,7 @@ static void rtsp_setup_reply(void *data, int status, const struct spa_dict *head
 			return;
 
 		ntp = ntp_now(CLOCK_MONOTONIC);
-		send_udp_timing_packet(impl, ntp, ntp);
+		send_udp_timing_packet(impl, ntp, ntp, NULL, 0);
 
 		impl->control_source = pw_loop_add_io(impl->loop, impl->control_fd,
 				SPA_IO_IN, false, on_control_source_io, impl);

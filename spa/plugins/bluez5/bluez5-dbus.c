@@ -848,6 +848,12 @@ static int adapter_update_props(struct spa_bt_adapter *adapter,
 				if (profile && (adapter->profiles & profile) == 0) {
 					spa_log_debug(monitor->log, "adapter %p: add UUID=%s", adapter, uuid);
 					adapter->profiles |= profile;
+				} else if (strcasecmp(uuid, SPA_BT_UUID_PACS) == 0 &&
+				           (adapter->profiles & SPA_BT_PROFILE_BAP_SINK) == 0) {
+					spa_log_debug(monitor->log, "adapter %p: add UUID=%s", adapter, SPA_BT_UUID_BAP_SINK);
+					adapter->profiles |= SPA_BT_PROFILE_BAP_SINK;
+					spa_log_debug(monitor->log, "adapter %p: add UUID=%s", adapter, SPA_BT_UUID_BAP_SOURCE);
+					adapter->profiles |= SPA_BT_PROFILE_BAP_SOURCE;
 				}
 				dbus_message_iter_next(&iter);
 			}

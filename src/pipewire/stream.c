@@ -568,7 +568,7 @@ static inline uint32_t update_requested(struct stream *impl)
 		buffer->this.requested = impl->quantum;
 		res = 1;
 	}
-	pw_log_trace_fp("%p: update buffer:%u size:%u", impl, id, r->size);
+	pw_log_trace_fp("%p: update buffer:%u size:%"PRIu64, impl, id, buffer->this.requested);
 	return res;
 }
 

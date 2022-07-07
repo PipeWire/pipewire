@@ -1,3 +1,55 @@
+# PipeWire 0.3.54 (2022-07-07)
+
+This is a quick bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Some critical bugs in the new audioconvert were fixed. The old
+    adapter had internal buffering that was abused in some places.
+  - The bluetooth sources were rewritten using a ringbuffer to make them
+    more reliable to jitter and remove old audioconvert behaviour.
+  - Many improvements to the audio converter.
+  - Native DSD128 and up is now supported by pw-dsdplay.
+
+
+## tools
+  - Support DSD128 to DSD512 as well by scaling the amount of samples
+    to read per time slice.
+
+## SPA
+  - Format conversion is now generated with macros to remove duplication
+    of code.
+  - 24bits conversions were rewritten to use the generic conversion
+    functions.
+  - Temporary buffers in audioconvert are now made large enough in all
+    cases.
+  - Fix draining in audioconvert. This fixes speaker-test.
+  - Fix the channel remapping. (#2502, #2490)
+  - Audio conversion constants were tweaked to handle the maximum ranges
+    and provide lossless conversion between 24bits and floats.
+  - Vector code and C code are aligned and the unit tests are activated
+    again. A new lossless conversion test was added.
+  - Fix an underrun case where the adapter would not ask for more data.
+  - Fix PROP_INFO for audioconvert. (#2488)
+  - Use the blackman window again for the resampler, the cosh window has
+    some bugs that can cause distortion in some cases. (#2483)
+  - Add more unit tests for audioconvert. Add end-to-end conversion tests.
+  - Don't leak memory in format converter.
+
+## pulse-server
+  - Card properties are now also added to sinks and sources, just like
+    in pulseaudio.
+  - Increase the maxlength size to at least 4 times the fragsize to avoid
+    xruns.
+  - Fix a race when setting default devices.
+
+## Bluetooth
+  - The source was rewritten to use a ringbuffer. This avoids regressions
+    caused by audioconvert. 
+
+Older versions:
+
+
 # PipeWire 0.3.53 (2022-06-30)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -73,8 +125,6 @@ This is a bugfix release that is API and ABI compatible with previous
   - Change "priority" to "nice" in the example limits.conf file. It was
     giving a -19 nice level to all processes, not just the pipewire
     daemon.
-
-Older versions:
 
 # PipeWire 0.3.52 (2022-06-09)
 

@@ -595,9 +595,7 @@ on_timing_source_io(void *data, int fd, uint32_t mask)
 	ssize_t bytes;
 
 	if (mask & SPA_IO_IN) {
-		uint64_t remote, received, transmitted;
-		uint32_t pkt[8];
-		size_t pkt_size;
+		uint64_t remote, received;
 		struct sockaddr_storage sender;
 		socklen_t sender_size = sizeof(sender);
 
@@ -618,12 +616,10 @@ on_timing_source_io(void *data, int fd, uint32_t mask)
 
 		remote = ((uint64_t)ntohl(packet[6])) << 32 | ntohl(packet[7]);
 		if (send_udp_timing_packet(impl, remote, received,
-				(struct sockaddr *)&sender, sender_size) < 0)
+				(struct sockaddr *)&sender, sender_size) < 0) {
 			pw_log_warn("error sending timing packet");
 			return;
-
-		pw_log_debug("sync: remote:%"PRIu64" received:%"PRIu64" transmitted:%"PRIu64,
-				remote, received, transmitted);
+		}
 	}
 }
 

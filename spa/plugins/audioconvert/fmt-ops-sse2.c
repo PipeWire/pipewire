@@ -414,7 +414,7 @@ conv_f32d_to_s32_1s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		in[0] = _mm_mul_ss(in[0], scale);
 		in[0] = _mm_min_ss(in[0], int_max);
 		in[0] = _mm_max_ss(in[0], int_min);
-		*d = _mm_cvtss_si32(in[0]);
+		*d = _mm_cvtss_si32(in[0]) << 8;
 		d += n_channels;
 	}
 }
@@ -469,6 +469,7 @@ conv_f32d_to_s32_2s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 
 		in[0] = _mm_mul_ps(in[0], scale);
 		in[0] = _mm_min_ps(in[0], int_max);
+		in[0] = _mm_max_ps(in[0], int_min);
 		out[0] = _mm_cvttps_epi32(in[0]);
 		out[0] = _mm_slli_epi32(out[0], 8);
 		_mm_storel_epi64((__m128i*)d, out[0]);

@@ -249,6 +249,7 @@ static int roundtrip(struct pw_core *core, struct pw_main_loop *loop)
         return 0;
 }
 
+static int node_count = 0;
 static int port_count = 0;
 static void registry_event_global(void *data, uint32_t id,
 		uint32_t permissions, const char *type, uint32_t version,
@@ -257,6 +258,8 @@ static void registry_event_global(void *data, uint32_t id,
 	printf("object: id:%u type:%s/%d\n", id, type, version);
 	if (spa_streq(type, PW_TYPE_INTERFACE_Port))
 		port_count++;
+	else if (spa_streq(type, PW_TYPE_INTERFACE_Node))
+		node_count++;
 
 }
 static void registry_event_global_remove(void *data, uint32_t id)
@@ -283,6 +286,7 @@ static void test_create_port(void)
 	};
 	int res;
 	struct port *port;
+	enum pw_filter_state state;
 
 	loop = pw_main_loop_new(NULL);
 	context = pw_context_new(pw_main_loop_get_loop(loop), NULL, 12);
@@ -297,11 +301,23 @@ static void test_create_port(void)
         pw_registry_add_listener(registry, &registry_listener,
                                        &registry_events, NULL);
 
+	state = pw_filter_get_state(filter, NULL);
+	printf("state %s\n", pw_filter_state_as_string(state));
 	res = pw_filter_connect(filter, PW_FILTER_FLAG_RT_PROCESS, NULL, 0);
 	spa_assert_se(res >= 0);
 
 	printf("wait connect\n");
-	roundtrip(core, loop);
+	while (true) {
+		state = pw_filter_get_state(filter, NULL);
+		printf("state %s\n", pw_filter_state_as_string(state));
+		spa_assert_se(state != PW_FILTER_STATE_ERROR);
+
+		if (state == PW_FILTER_STATE_PAUSED)
+			break;
+
+		roundtrip(core, loop);
+	}
+	spa_assert_se(node_count == 1);
 
 	printf("add port\n");
 	/* make an audio DSP output port */
@@ -319,6 +335,7 @@ static void test_create_port(void)
 	roundtrip(core, loop);
 
 	spa_assert_se(port_count == 1);
+	printf("port added\n");
 
 	printf("remove port\n");
 	pw_filter_remove_port(port);

@@ -2335,59 +2335,6 @@ static int impl_node_process(void *object)
 		}
 	}
 
-	/* calculate quantum scale */
-	if (SPA_LIKELY(this->io_position)) {
-		double r =  this->rate_scale;
-
-		quant_samples = this->io_position->clock.duration;
-		if (this->direction == SPA_DIRECTION_INPUT) {
-			if (this->io_position->clock.rate.denom != this->resample.o_rate)
-				r = (double) this->io_position->clock.rate.denom / this->resample.o_rate;
-			else
-				r = 1.0;
-		} else {
-			if (this->io_position->clock.rate.denom != this->resample.i_rate)
-				r = (double) this->resample.i_rate / this->io_position->clock.rate.denom;
-			else
-				r = 1.0;
-		}
-		if (this->rate_scale != r) {
-			spa_log_info(this->log, "scale %f->%f", this->rate_scale, r);
-			this->rate_scale = r;
-		}
-	}
-	else
-		quant_samples = this->quantum_limit;
-
-	if (SPA_UNLIKELY(draining))
-		n_samples = SPA_MIN(max_in, this->quantum_limit);
-	else {
-		n_samples = max_in - SPA_MIN(max_in, this->in_offset);
-	}
-
-	resample_passthrough = resample_is_passthrough(this);
-
-	if (this->direction == SPA_DIRECTION_INPUT) {
-		uint32_t out = resample_update_rate_match(this, resample_passthrough, quant_samples, 0);
-		if (!in_avail || this->drained) {
-			spa_log_trace_fp(this->log, "%p: no input drained:%d", this, this->drained);
-			/* no input, ask for more */
-			res |= this->drained ? SPA_STATUS_DRAINED : SPA_STATUS_NEED_DATA;
-			return res;
-		}
-		/* in split mode we need to output exactly the size of the
-		 * duration so we don't try to flush early */
-		n_samples = SPA_MIN(n_samples, out);
-		max_out = quant_samples;
-		flush_out = false;
-	} else {
-		/* in merge mode we consume one duration of samples and
-		 * always output the resulting data */
-		n_samples = SPA_MIN(n_samples, quant_samples);
-		max_out = this->quantum_limit;
-		flush_out = flush_in = true;
-	}
-
 	dir = &this->dir[SPA_DIRECTION_OUTPUT];
 	/* collect output ports and monitor ports data */
 	for (i = 0; i < dir->n_ports; i++) {
@@ -2418,6 +2365,7 @@ static int impl_node_process(void *object)
 					dst_datas[remap] = SPA_PTR_ALIGN(this->scratch, MAX_ALIGN, void);
 					spa_log_trace_fp(this->log, "%p: empty output %d->%d", this,
 						i * port->blocks + j, remap);
+					max_out = SPA_MIN(max_out, this->empty_size / port->stride);
 				}
 			}
 		} else {
@@ -2436,7 +2384,7 @@ static int impl_node_process(void *object)
 						volume *= this->props.channel.mute ? 0.0f :
 							this->props.channel.volumes[remap];
 
-					mon_max = SPA_MIN(bd->maxsize / port->stride, n_samples);
+					mon_max = SPA_MIN(bd->maxsize / port->stride, max_in);
 
 					volume_process(&this->volume, bd->data, src_datas[remap],
 							volume, mon_max);
@@ -2465,6 +2413,76 @@ static int impl_node_process(void *object)
 			}
 		}
 	}
+
+	/* calculate quantum scale, this is how many samples we need to produce or
+	 * consume. Also update the rate scale, this is sent to the resampler to adjust
+	 * the rate, either when the graph clock changed or when the user adjusted the
+	 * rate.  */
+	if (SPA_LIKELY(this->io_position)) {
+		double r =  this->rate_scale;
+
+		quant_samples = this->io_position->clock.duration;
+		if (this->direction == SPA_DIRECTION_INPUT) {
+			if (this->io_position->clock.rate.denom != this->resample.o_rate)
+				r = (double) this->io_position->clock.rate.denom / this->resample.o_rate;
+			else
+				r = 1.0;
+		} else {
+			if (this->io_position->clock.rate.denom != this->resample.i_rate)
+				r = (double) this->resample.i_rate / this->io_position->clock.rate.denom;
+			else
+				r = 1.0;
+		}
+		if (this->rate_scale != r) {
+			spa_log_info(this->log, "scale %f->%f", this->rate_scale, r);
+			this->rate_scale = r;
+		}
+	}
+	else
+		quant_samples = this->quantum_limit;
+
+
+	/* calculate how many samples at most we are going to consume. If we're
+	 * draining, we consume as much as we can. Otherwise we consume what is
+	 * left. */
+	if (SPA_UNLIKELY(draining))
+		n_samples = SPA_MIN(max_in, this->quantum_limit);
+	else {
+		n_samples = max_in - SPA_MIN(max_in, this->in_offset);
+	}
+
+	resample_passthrough = resample_is_passthrough(this);
+
+	/* calculate how many samples we are going to produce. */
+	if (this->direction == SPA_DIRECTION_INPUT) {
+		uint32_t n_in;
+
+		/* in split mode we need to output exactly the size of the
+		 * duration so we don't try to flush early */
+		max_out = SPA_MIN(max_out, quant_samples);
+		flush_out = false;
+
+		/* we only need to output the remaining of those samples */
+		n_out = max_out - SPA_MIN(max_out, this->out_offset);
+
+		/* then figure out how much input samples we need to consume */
+		n_in = resample_update_rate_match(this, resample_passthrough, n_out, 0);
+		if (!in_avail || this->drained) {
+			spa_log_trace_fp(this->log, "%p: no input drained:%d", this, this->drained);
+			/* no input, ask for more */
+			res |= this->drained ? SPA_STATUS_DRAINED : SPA_STATUS_NEED_DATA;
+			return res;
+		}
+		n_samples = SPA_MIN(n_samples, n_in);
+	} else {
+		/* in merge mode we consume one duration of samples and
+		 * always output the resulting data */
+		n_samples = SPA_MIN(n_samples, quant_samples);
+		max_out = SPA_MIN(max_out, this->quantum_limit);
+		n_out = max_out - SPA_MIN(max_out, this->out_offset);
+		flush_out = flush_in = true;
+	}
+
 	mix_passthrough = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY) &&
 		(ctrlport == NULL || ctrlport->ctrl == NULL);
 
@@ -2481,8 +2499,6 @@ static int impl_node_process(void *object)
 	} else {
 		dst_remap = (void **)dst_datas;
 	}
-
-	n_out = max_out - SPA_MIN(max_out, this->out_offset);
 
 	dir = &this->dir[SPA_DIRECTION_INPUT];
 	if (!in_passthrough) {

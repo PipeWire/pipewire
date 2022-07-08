@@ -219,34 +219,43 @@ static void test_properties(void)
 	pw_main_loop_destroy(loop);
 }
 
+struct roundtrip_data
+{
+	struct pw_main_loop *loop;
+	int pending;
+	int done;
+};
+
+static void core_event_done(void *object, uint32_t id, int seq)
+{
+	struct roundtrip_data *data = object;
+	if (id == PW_ID_CORE && seq == data->pending) {
+		data->done = 1;
+		printf("done %d\n", seq);
+		pw_main_loop_quit(data->loop);
+	}
+}
+
 static int roundtrip(struct pw_core *core, struct pw_main_loop *loop)
 {
-        struct spa_hook core_listener;
-        int pending, done = 0;
-        void core_event_done(void *object, uint32_t id, int seq) {
-                if (id == PW_ID_CORE && seq == pending) {
-                        done = 1;
-			printf("done %d\n", seq);
-                        pw_main_loop_quit(loop);
-                }
-        }
-        const struct pw_core_events core_events = {
-                PW_VERSION_CORE_EVENTS,
-                .done = core_event_done,
-        };
+	struct spa_hook core_listener;
+	struct roundtrip_data data = { .loop = loop };
+	const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
+		.done = core_event_done,
+	};
+	spa_zero(core_listener);
+	pw_core_add_listener(core, &core_listener,
+			&core_events, &data);
 
-        spa_zero(core_listener);
-        pw_core_add_listener(core, &core_listener,
-                                 &core_events, NULL);
+	data.pending = pw_core_sync(core, PW_ID_CORE, 0);
+	printf("sync %d\n", data.pending);
 
-        pending = pw_core_sync(core, PW_ID_CORE, 0);
-	printf("sync %d\n", pending);
-
-        while (!done) {
-                pw_main_loop_run(loop);
-        }
-        spa_hook_remove(&core_listener);
-        return 0;
+	while (!data.done) {
+		pw_main_loop_run(loop);
+	}
+	spa_hook_remove(&core_listener);
+	return 0;
 }
 
 static int node_count = 0;

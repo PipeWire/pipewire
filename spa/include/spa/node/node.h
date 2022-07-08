@@ -632,6 +632,12 @@ struct spa_node_methods {
 	 *
 	 * When the node can accept new input in the next cycle, the
 	 * SPA_STATUS_NEED_DATA bit will be set.
+	 *
+	 * Note that the node might return SPA_STATUS_NEED_DATA even when
+	 * no input ports have this status. This means that the amount of
+	 * data still available on the input ports is likely not going to
+	 * be enough for the next cycle and the host might need to prefetch
+	 * data for the next cycle.
 	 */
 	int (*process) (void *object);
 };

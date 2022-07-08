@@ -3,6 +3,7 @@ test_apps = [
   'test-interfaces',
   # 'test-remote',
   'test-stream',
+  'test-filter',
 ]
 
 foreach a : test_apps

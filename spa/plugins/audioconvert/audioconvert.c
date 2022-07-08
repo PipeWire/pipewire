@@ -2542,8 +2542,8 @@ static int impl_node_process(void *object)
 		this->in_offset += in_len;
 		n_samples = out_len;
 	} else {
-		this->in_offset += n_samples;
 		n_samples = SPA_MIN(n_samples, n_out);
+		this->in_offset += n_samples;
 	}
 	this->out_offset += n_samples;
 

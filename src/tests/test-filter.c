@@ -219,6 +219,121 @@ static void test_properties(void)
 	pw_main_loop_destroy(loop);
 }
 
+static int roundtrip(struct pw_core *core, struct pw_main_loop *loop)
+{
+        struct spa_hook core_listener;
+        int pending, done = 0;
+        void core_event_done(void *object, uint32_t id, int seq) {
+                if (id == PW_ID_CORE && seq == pending) {
+                        done = 1;
+			printf("done %d\n", seq);
+                        pw_main_loop_quit(loop);
+                }
+        }
+        const struct pw_core_events core_events = {
+                PW_VERSION_CORE_EVENTS,
+                .done = core_event_done,
+        };
+
+        spa_zero(core_listener);
+        pw_core_add_listener(core, &core_listener,
+                                 &core_events, NULL);
+
+        pending = pw_core_sync(core, PW_ID_CORE, 0);
+	printf("sync %d\n", pending);
+
+        while (!done) {
+                pw_main_loop_run(loop);
+        }
+        spa_hook_remove(&core_listener);
+        return 0;
+}
+
+static int port_count = 0;
+static void registry_event_global(void *data, uint32_t id,
+		uint32_t permissions, const char *type, uint32_t version,
+		const struct spa_dict *props)
+{
+	printf("object: id:%u type:%s/%d\n", id, type, version);
+	if (spa_streq(type, PW_TYPE_INTERFACE_Port))
+		port_count++;
+
+}
+static void registry_event_global_remove(void *data, uint32_t id)
+{
+	printf("object: id:%u\n", id);
+}
+
+struct port {
+	struct pw_filter *filter;
+};
+
+static void test_create_port(void)
+{
+	struct pw_main_loop *loop;
+	struct pw_context *context;
+	struct pw_core *core;
+	struct pw_registry *registry;
+	struct pw_filter *filter;
+	struct spa_hook registry_listener = { 0, };
+	static const struct pw_registry_events registry_events = {
+		PW_VERSION_REGISTRY_EVENTS,
+		.global = registry_event_global,
+		.global_remove = registry_event_global_remove,
+	};
+	int res;
+	struct port *port;
+
+	loop = pw_main_loop_new(NULL);
+	context = pw_context_new(pw_main_loop_get_loop(loop), NULL, 12);
+	spa_assert_se(context != NULL);
+	core = pw_context_connect_self(context, NULL, 0);
+	spa_assert_se(core != NULL);
+	filter = pw_filter_new(core, "test", NULL);
+	spa_assert_se(filter != NULL);
+
+	registry = pw_core_get_registry(core, PW_VERSION_REGISTRY, 0);
+	spa_assert_se(registry != NULL);
+        pw_registry_add_listener(registry, &registry_listener,
+                                       &registry_events, NULL);
+
+	res = pw_filter_connect(filter, PW_FILTER_FLAG_RT_PROCESS, NULL, 0);
+	spa_assert_se(res >= 0);
+
+	printf("wait connect\n");
+	roundtrip(core, loop);
+
+	printf("add port\n");
+	/* make an audio DSP output port */
+	port = pw_filter_add_port(filter,
+			PW_DIRECTION_OUTPUT,
+			PW_FILTER_PORT_FLAG_MAP_BUFFERS,
+			sizeof(struct port),
+			pw_properties_new(
+				PW_KEY_FORMAT_DSP, "32 bit float mono audio",
+				PW_KEY_PORT_NAME, "output",
+				NULL),
+			NULL, 0);
+
+	printf("wait port\n");
+	roundtrip(core, loop);
+
+	spa_assert_se(port_count == 1);
+
+	printf("remove port\n");
+	pw_filter_remove_port(port);
+	roundtrip(core, loop);
+
+	printf("destroy\n");
+	/* check destroy */
+	pw_filter_destroy(filter);
+
+	pw_proxy_destroy((struct pw_proxy*)registry);
+
+	pw_context_destroy(context);
+	pw_main_loop_destroy(loop);
+}
+
 int main(int argc, char *argv[])
 {
 	pw_init(&argc, &argv);
@@ -226,6 +341,7 @@ int main(int argc, char *argv[])
 	test_abi();
 	test_create();
 	test_properties();
+	test_create_port();
 
 	pw_deinit();
 

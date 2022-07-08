@@ -1061,6 +1061,10 @@ again:
 			pw_log_trace_fp("%p: no more buffers %p", stream, io);
 			ask_more = true;
 		}
+	} else {
+		ask_more = !impl->process_rt &&
+			queue_is_empty(impl, &impl->queued) &&
+			!queue_is_empty(impl, &impl->dequeued);
 	}
 
 	copy_position(impl, impl->queued.outcount);

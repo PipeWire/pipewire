@@ -2642,9 +2642,10 @@ static int impl_node_process(void *object)
 			spa_log_trace_fp(this->log, "%p: no output buffer", this);
 		}
 	}
-	resample_update_rate_match(this, resample_passthrough,
+	if (resample_update_rate_match(this, resample_passthrough,
 			max_out - this->out_offset,
-			max_in - this->in_offset);
+			max_in - this->in_offset) > 0)
+		res |= SPA_STATUS_NEED_DATA;
 
 	return res;
 }

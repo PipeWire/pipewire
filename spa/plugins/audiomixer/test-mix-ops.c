@@ -233,6 +233,13 @@ static void test_f32(void)
 	run_test("test_f32_0", NULL, 0, out, sizeof(out), SPA_N_ELEMENTS(out), mix_f32_c);
 	run_test("test_f32_1", src, 1, in_1, sizeof(in_1), SPA_N_ELEMENTS(in_1), mix_f32_c);
 	run_test("test_f32_4", src, 4, out_4, sizeof(out_4), SPA_N_ELEMENTS(out_4), mix_f32_c);
+#if defined(HAVE_SSE)
+	if (cpu_flags & SPA_CPU_FLAG_SSE) {
+		run_test("test_f32_0_sse", NULL, 0, out, sizeof(out), SPA_N_ELEMENTS(out), mix_f32_sse);
+		run_test("test_f32_1_sse", src, 1, in_1, sizeof(in_1), SPA_N_ELEMENTS(in_1), mix_f32_sse);
+		run_test("test_f32_4_sse", src, 4, out_4, sizeof(out_4), SPA_N_ELEMENTS(out_4), mix_f32_sse);
+	}
+#endif
 }
 
 static void test_f64(void)
@@ -248,6 +255,13 @@ static void test_f64(void)
 	run_test("test_f64_0", NULL, 0, out, sizeof(out), SPA_N_ELEMENTS(out), mix_f64_c);
 	run_test("test_f64_1", src, 1, in_1, sizeof(in_1), SPA_N_ELEMENTS(in_1), mix_f64_c);
 	run_test("test_f64_4", src, 4, out_4, sizeof(out_4), SPA_N_ELEMENTS(out_4), mix_f64_c);
+#if defined(HAVE_SSE2)
+	if (cpu_flags & SPA_CPU_FLAG_SSE2) {
+		run_test("test_f64_0_sse2", NULL, 0, out, sizeof(out), SPA_N_ELEMENTS(out), mix_f64_sse2);
+		run_test("test_f64_1_sse2", src, 1, in_1, sizeof(in_1), SPA_N_ELEMENTS(in_1), mix_f64_sse2);
+		run_test("test_f64_4_sse2", src, 4, out_4, sizeof(out_4), SPA_N_ELEMENTS(out_4), mix_f64_sse2);
+	}
+#endif
 }
 
 int main(int argc, char *argv[])

@@ -75,36 +75,47 @@ static inline int24_t s32_to_s24(int32_t src)
 }
 
 
-#define S8_MIN		-128
-#define S8_MAX		127
-#define S8_MIX(a,b)	(int8_t)(SPA_CLAMP((int16_t)(a) + (int16_t)(b), S8_MIN, S8_MAX))
-#define U8_OFFS		128
-#define U8_MIX(a,b)	(uint8_t)((int16_t)S8_MIX((int16_t)(a) - U8_OFFS, (int16_t)(b) - U8_OFFS) + U8_OFFS)
+#define S8_MIN			-128
+#define S8_MAX			127
+#define S8_ACCUM(a,b)		((a) + (int16_t)(b))
+#define S8_CLAMP(a)		(int8_t)(SPA_CLAMP((a), S8_MIN, S8_MAX))
+#define U8_OFFS			128
+#define U8_ACCUM(a,b)		((a) + ((int16_t)(b) - U8_OFFS))
+#define U8_CLAMP(a)		(uint8_t)(SPA_CLAMP((a), S8_MIN, S8_MAX) + U8_OFFS)
 
-#define S16_MIN		-32768
-#define S16_MAX		32767
-#define S16_MIX(a,b)	(int16_t)(SPA_CLAMP((int32_t)(a) + (int32_t)(b), S16_MIN, S16_MAX))
-#define U16_OFFS	32768
-#define U16_MIX(a,b)	(uint16_t)((int32_t)S16_MIX((int32_t)(a) - U16_OFFS, (int32_t)(b) - U16_OFFS) + U16_OFFS)
+#define S16_MIN			-32768
+#define S16_MAX			32767
+#define S16_ACCUM(a,b)		((a) + (int32_t)(b))
+#define S16_CLAMP(a)		(int16_t)(SPA_CLAMP((a), S16_MIN, S16_MAX))
+#define U16_OFFS		32768
+#define U16_ACCUM(a,b)		((a) + ((int32_t)(b) - U16_OFFS))
+#define U16_CLAMP(a)		(uint16_t)(SPA_CLAMP((a), S16_MIN, S16_MAX) + U16_OFFS)
 
-#define S24_MIN		-8388608
-#define S24_MAX		8388607
-#define S24_MIX_32(a,b) (int32_t)(SPA_CLAMP((int32_t)(a) + (int32_t)(b), S24_MIN, S24_MAX))
-#define S24_MIX(a,b)	s32_to_s24(S24_MIX_32(s24_to_s32(a), s24_to_s32(b)))
-#define U24_OFFS	8388608
-#define U24_MIX(a,b)	u32_to_u24(S24_MIX_32((int32_t)u24_to_u32(a) - U24_OFFS, (int32_t)u24_to_u32(b) - U24_OFFS) + U24_OFFS)
+#define S24_32_MIN		-8388608
+#define S24_32_MAX		8388607
+#define S24_32_ACCUM(a,b)	((a) + (int32_t)(b))
+#define S24_32_CLAMP(a)		(int32_t)(SPA_CLAMP((a), S24_32_MIN, S24_32_MAX))
+#define U24_32_OFFS		8388608
+#define U24_32_ACCUM(a,b)	((a) + ((int32_t)(b) - U24_32_OFFS))
+#define U24_32_CLAMP(a)		(uint32_t)(SPA_CLAMP((a), S24_32_MIN, S24_32_MAX) + U24_32_OFFS)
 
-#define S32_MIN		-2147483648
-#define S32_MAX		2147483647
-#define S32_MIX(a,b)	(int32_t)(SPA_CLAMP((int64_t)(a) + (int64_t)(b), S32_MIN, S32_MAX))
-#define U32_OFFS	2147483648
-#define U32_MIX(a,b)	(uint32_t)((int64_t)S32_MIX((int64_t)(a) - U32_OFFS, (int64_t)(b) - U32_OFFS) + U32_OFFS)
+#define S24_ACCUM(a,b)		S24_32_ACCUM(a, s24_to_s32(b))
+#define S24_CLAMP(a)		s32_to_s24(S24_32_CLAMP(a))
+#define U24_ACCUM(a,b)		U24_32_ACCUM(a, u24_to_u32(b))
+#define U24_CLAMP(a)		u32_to_u24(U24_32_CLAMP(a))
 
-#define S24_32_MIX(a,b)	(int32_t)(SPA_CLAMP((int32_t)(a) + (int32_t)(b), S24_MIN, S24_MAX))
-#define U24_32_MIX(a,b)	(uint32_t)((int32_t)S24_32_MIX((int32_t)(a) - U24_OFFS, (int32_t)(b) - U24_OFFS) + U24_OFFS)
+#define S32_MIN			-2147483648
+#define S32_MAX			2147483647
+#define S32_ACCUM(a,b)		((a) + (int64_t)(b))
+#define S32_CLAMP(a)		(int32_t)(SPA_CLAMP((a), S32_MIN, S32_MAX))
+#define U32_OFFS		2147483648
+#define U32_ACCUM(a,b)		((a) + ((int64_t)(b) - U32_OFFS))
+#define U32_CLAMP(a)		(uint32_t)(SPA_CLAMP((a), S32_MIN, S32_MAX) + U32_OFFS)
 
-#define F32_MIX(a, b)   (float)((float)(a) + (float)(b))
-#define F64_MIX(a, b)   (double)((double)(a) + (double)(b))
+#define F32_ACCUM(a,b)		((a) + (b))
+#define F32_CLAMP(a)		(a)
+#define F64_ACCUM(a,b)		((a) + (b))
+#define F64_CLAMP(a)		(a)
 
 struct mix_ops {
 	uint32_t fmt;

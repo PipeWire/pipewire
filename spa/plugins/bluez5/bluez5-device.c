@@ -371,6 +371,12 @@ static bool node_update_volume_from_transport(struct node *node, bool reset)
 
 	node_update_soft_volumes(node, t_volume->volume);
 
+	/*
+	 * Consider volume changes from the headset as requested
+	 * by the user, and to be saved by the SM.
+	 */
+	node->save = true;
+
 	return true;
 }
 

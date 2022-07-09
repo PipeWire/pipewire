@@ -439,8 +439,8 @@ static void test_f32_u24_32(void)
 
 static void test_u24_32_f32(void)
 {
-	static const uint32_t in[] = { 0x800000, 0xffffff, 0x0, 0xc00000, 0x400000 };
-	static const float out[] = { 0.0f, 0.999999880791f, -1.0f, 0.5f, -0.5f, };
+	static const uint32_t in[] = { 0x800000, 0xffffff, 0x0, 0xc00000, 0x400000, 0x11000000 };
+	static const float out[] = { 0.0f, 0.999999880791f, -1.0f, 0.5f, -0.5f, -1.0f };
 
 	run_test("test_u24_32_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, false, conv_u24_32_to_f32d_c);
@@ -466,8 +466,8 @@ static void test_f32_s24_32(void)
 
 static void test_s24_32_f32(void)
 {
-	static const int32_t in[] = { 0, 0x7fffff, 0xff800000, 0x400000, 0xffc00000 };
-	static const float out[] = { 0.0f, 0.999999880791f, -1.0f, 0.5f, -0.5f, };
+	static const int32_t in[] = { 0, 0x7fffff, 0xff800000, 0x400000, 0xffc00000, 0x66800000 };
+	static const float out[] = { 0.0f, 0.999999880791f, -1.0f, 0.5f, -0.5f, -1.0f };
 
 	run_test("test_s24_32_f32d", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, false, conv_s24_32_to_f32d_c);

@@ -95,3 +95,32 @@ foreach a : test_apps
         )
   endif
 endforeach
+
+benchmark_apps = [
+  'benchmark-mix-ops',
+  ]
+
+foreach a : benchmark_apps
+  benchmark(a,
+    executable(a, a + '.c',
+      dependencies : [ spa_dep, dl_lib, pthread_lib, mathlib, audiomixer_dep ],
+      include_directories : [ configinc ],
+      c_args : [ simd_cargs ],
+      install_rpath : spa_plugindir / 'audiomixer',
+      install : installed_tests_enabled,
+      install_dir : installed_tests_execdir / 'audiomixer'),
+      env : [
+        'SPA_PLUGIN_DIR=@0@'.format(spa_dep.get_variable('plugindir')),
+        ])
+
+    if installed_tests_enabled
+      test_conf = configuration_data()
+      test_conf.set('exec', installed_tests_execdir / 'audiomixer' / a)
+      configure_file(
+        input: installed_tests_template,
+        output: a + '.test',
+        install_dir: installed_tests_metadir / 'audiomixer',
+        configuration: test_conf
+        )
+  endif
+endforeach

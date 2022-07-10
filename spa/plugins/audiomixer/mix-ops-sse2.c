@@ -32,58 +32,57 @@
 
 #include <emmintrin.h>
 
-static inline void mix_2(double * dst, const double * SPA_RESTRICT src, uint32_t n_samples)
-{
-	uint32_t n, unrolled;
-	__m128d in1[4], in2[4];
-
-	if (SPA_IS_ALIGNED(src, 16) &&
-	    SPA_IS_ALIGNED(dst, 16))
-		unrolled = n_samples & ~7;
-	else
-		unrolled = 0;
-
-	for (n = 0; n < unrolled; n += 8) {
-		in1[0] = _mm_load_pd(&dst[n+ 0]);
-		in1[1] = _mm_load_pd(&dst[n+ 2]);
-		in1[2] = _mm_load_pd(&dst[n+ 4]);
-		in1[3] = _mm_load_pd(&dst[n+ 6]);
-
-		in2[0] = _mm_load_pd(&src[n+ 0]);
-		in2[1] = _mm_load_pd(&src[n+ 2]);
-		in2[2] = _mm_load_pd(&src[n+ 4]);
-		in2[3] = _mm_load_pd(&src[n+ 6]);
-
-		in1[0] = _mm_add_pd(in1[0], in2[0]);
-		in1[1] = _mm_add_pd(in1[1], in2[1]);
-		in1[2] = _mm_add_pd(in1[2], in2[2]);
-		in1[3] = _mm_add_pd(in1[3], in2[3]);
-
-		_mm_store_pd(&dst[n+ 0], in1[0]);
-		_mm_store_pd(&dst[n+ 2], in1[1]);
-		_mm_store_pd(&dst[n+ 4], in1[2]);
-		_mm_store_pd(&dst[n+ 6], in1[3]);
-	}
-	for (; n < n_samples; n++) {
-		in1[0] = _mm_load_sd(&dst[n]),
-		in2[0] = _mm_load_sd(&src[n]),
-		in1[0] = _mm_add_sd(in1[0], in2[0]);
-		_mm_store_sd(&dst[n], in1[0]);
-	}
-}
-
 void
 mix_f64_sse2(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
 		uint32_t n_src, uint32_t n_samples)
 {
-	uint32_t i;
+	n_samples *= ops->n_channels;
 
-	if (n_src == 0)
-		memset(dst, 0, n_samples * ops->n_channels * sizeof(double));
-	else if (dst != src[0])
-		spa_memcpy(dst, src[0], n_samples * ops->n_channels * sizeof(double));
+	if (n_src == 0) {
+		memset(dst, 0, n_samples * sizeof(double));
+	} else if (n_src == 1) {
+		if (dst != src[0])
+			spa_memcpy(dst, src[0], n_samples * sizeof(double));
+	} else {
+		uint32_t n, i, unrolled;
+		__m128d in[4];
+		const double **s = (const double **)src;
+		double *d = dst;
+		bool aligned = true;
 
-	for (i = 1; i < n_src; i++) {
-		mix_2(dst, src[i], n_samples * ops->n_channels);
+		if (SPA_UNLIKELY(!SPA_IS_ALIGNED(dst, 16)))
+			aligned = false;
+		else {
+			for (i = 0; i < n_src && aligned; i++) {
+				if (SPA_UNLIKELY(!SPA_IS_ALIGNED(src[i], 16)))
+					aligned = false;
+			}
+		}
+
+		unrolled = aligned ? n_samples & ~7 : 0;
+
+		for (n = 0; n < unrolled; n += 8) {
+			in[0] = _mm_load_pd(&s[0][n+0]);
+			in[1] = _mm_load_pd(&s[0][n+2]);
+			in[2] = _mm_load_pd(&s[0][n+4]);
+			in[3] = _mm_load_pd(&s[0][n+6]);
+
+			for (i = 1; i < n_src; i++) {
+				in[0] = _mm_add_pd(in[0], _mm_load_pd(&s[i][n+0]));
+				in[1] = _mm_add_pd(in[1], _mm_load_pd(&s[i][n+2]));
+				in[2] = _mm_add_pd(in[2], _mm_load_pd(&s[i][n+4]));
+				in[3] = _mm_add_pd(in[3], _mm_load_pd(&s[i][n+6]));
+			}
+			_mm_store_pd(&d[n+0], in[0]);
+			_mm_store_pd(&d[n+2], in[1]);
+			_mm_store_pd(&d[n+4], in[2]);
+			_mm_store_pd(&d[n+6], in[3]);
+		}
+		for (; n < n_samples; n++) {
+			in[0] = _mm_load_sd(&s[0][n]);
+			for (i = 1; i < n_src; i++)
+				in[0] = _mm_add_sd(in[0], _mm_load_sd(&s[i][n]));
+			_mm_store_sd(&d[n], in[0]);
+		}
 	}
 }

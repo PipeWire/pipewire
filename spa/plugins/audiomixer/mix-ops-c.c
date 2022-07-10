@@ -39,7 +39,7 @@ void mix_ ##name## _c(struct mix_ops *ops,					\
 	type *d = dst;								\
 	const type **s = (const type **)src;					\
 	n_samples *= ops->n_channels;						\
-	if (n_src == 0  && zero)						\
+	if (n_src == 0 && zero)							\
 		memset(dst, 0, n_samples * sizeof(type));			\
 	else if (n_src == 1) {							\
 		if (dst != src[0])						\

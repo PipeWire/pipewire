@@ -22,6 +22,16 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+
+/*
+ * We need to export open* etc., but _FORTIFY_SOURCE defines conflicting
+ * always_inline versions. Disable _FORTIFY_SOURCE for this file, so we
+ * can define our overrides.
+ */
+#ifdef _FORTIFY_SOURCE
+#undef _FORTIFY_SOURCE
+#endif
+
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>

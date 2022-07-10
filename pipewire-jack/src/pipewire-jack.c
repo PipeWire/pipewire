@@ -67,7 +67,7 @@
 #define JACK_PORT_TYPE_SIZE             32
 #define MONITOR_EXT			" Monitor"
 
-#define MAX_MIDI_MIX			1024
+#define MAX_MIX				1024
 #define MAX_BUFFER_FRAMES		8192
 
 #define MAX_ALIGN			16
@@ -106,9 +106,9 @@ static bool mlock_warned = false;
 #define OBJECT_CHUNK		8
 #define RECYCLE_THRESHOLD	128
 
-typedef void (*mix2_func) (float *dst, float *src1, float *src2, int n_samples);
+typedef void (*mix_func) (float *dst, float *src[], uint32_t n_src, bool aligned, uint32_t n_samples);
 
-static mix2_func mix2;
+static mix_func mix_function;
 
 struct object {
 	struct spa_list link;
@@ -736,38 +736,40 @@ static struct buffer *dequeue_buffer(struct client *c, struct mix *mix)
 
 #if defined (__SSE__)
 #include <xmmintrin.h>
-static void mix2_sse(float *dst, float *src1, float *src2, int n_samples)
+static void mix_sse(float *dst, float *src[], uint32_t n_src, bool aligned, uint32_t n_samples)
 {
-	int n, unrolled;
-	__m128 in[2];
+	uint32_t i, n, unrolled;
+	__m128 in[1];
 
-	if (SPA_IS_ALIGNED(src1, 16) &&
-	    SPA_IS_ALIGNED(src2, 16) &&
-	    SPA_IS_ALIGNED(dst, 16))
-		unrolled = n_samples / 4;
+	if (SPA_IS_ALIGNED(dst, 16) && aligned)
+		unrolled = n_samples & ~3;
 	else
 		unrolled = 0;
 
-	for (n = 0; unrolled--; n += 4) {
-		in[0] = _mm_load_ps(&src1[n]),
-		in[1] = _mm_load_ps(&src2[n]),
-		in[0] = _mm_add_ps(in[0], in[1]);
+	for (n = 0; n < unrolled; n += 4) {
+		in[0] = _mm_load_ps(&src[0][n]);
+		for (i = 1; i < n_src; i++)
+			in[0] = _mm_add_ps(in[0], _mm_load_ps(&src[i][n]));
 		_mm_store_ps(&dst[n], in[0]);
 	}
 	for (; n < n_samples; n++) {
-		in[0] = _mm_load_ss(&src1[n]),
-		in[1] = _mm_load_ss(&src2[n]),
-		in[0] = _mm_add_ss(in[0], in[1]);
+		in[0] = _mm_load_ss(&src[0][n]);
+		for (i = 1; i < n_src; i++)
+			in[0] = _mm_add_ss(in[0], _mm_load_ss(&src[i][n]));
 		_mm_store_ss(&dst[n], in[0]);
 	}
 }
 #endif
 
-static void mix2_c(float *dst, float *src1, float *src2, int n_samples)
+static void mix_c(float *dst, float *src[], uint32_t n_src, bool aligned, uint32_t n_samples)
 {
-	int i;
-	for (i = 0; i < n_samples; i++)
-		dst[i] = src1[i] + src2[i];
+	uint32_t n, i;
+	for (n = 0; n < n_samples; n++)  {
+		float t = src[0][n];
+		for (i = 1; i < n_src; i++)
+			t += src[i][n];
+		dst[n] = t;
+	}
 }
 
 SPA_EXPORT
@@ -3281,13 +3283,13 @@ jack_client_t * jack_client_open (const char *client_name,
 
 	support = pw_context_get_support(client->context.context, &n_support);
 
-	mix2 = mix2_c;
+	mix_function = mix_c;
 	cpu_iface = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 	if (cpu_iface) {
 #if defined (__SSE__)
 		uint32_t flags = spa_cpu_get_flags(cpu_iface);
 		if (flags & SPA_CPU_FLAG_SSE)
-			mix2 = mix2_sse;
+			mix_function = mix_sse;
 #endif
 	}
 	client->context.old_thread_utils =
@@ -4416,13 +4418,14 @@ static void *get_buffer_input_float(struct port *p, jack_nframes_t frames)
 {
 	struct mix *mix;
 	struct buffer *b;
-	int layer = 0;
 	void *ptr = NULL;
+	float *mix_ptr[MAX_MIX], *np;
+	uint32_t n_ptr = 0;
+	bool ptr_aligned = true;
 
 	spa_list_for_each(mix, &p->mix, port_link) {
 		struct spa_data *d;
 		uint32_t offset, size;
-		void *np;
 
 		pw_log_trace_fp("%p: port %s mix %d.%d get buffer %d",
 				p->client, p->object->port.name, p->port_id, mix->id, frames);
@@ -4436,14 +4439,20 @@ static void *get_buffer_input_float(struct port *p, jack_nframes_t frames)
 		if (size / sizeof(float) < frames)
 			continue;
 
-		np = SPA_PTROFF(d->data, offset, void);
-		if (layer++ == 0) {
-			ptr = np;
-		} else {
-			mix2(p->emptyptr, ptr, np, frames);
-			ptr = p->emptyptr;
-			p->zeroed = false;
-		}
+		np = SPA_PTROFF(d->data, offset, float);
+		if (!SPA_IS_ALIGNED(np, 16))
+			ptr_aligned = false;
+
+		mix_ptr[n_ptr++] = np;
+		if (n_ptr == MAX_MIX)
+			break;
+	}
+	if (n_ptr == 1) {
+		ptr = mix_ptr[0];
+	} else {
+		ptr = p->emptyptr;
+		mix_function(ptr, mix_ptr, n_ptr, ptr_aligned, frames);
+		p->zeroed = false;
 	}
 	if (ptr == NULL)
 		ptr = init_buffer(p);
@@ -4454,7 +4463,7 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 {
 	struct mix *mix;
 	void *ptr = p->emptyptr;
-	struct spa_pod_sequence *seq[MAX_MIDI_MIX];
+	struct spa_pod_sequence *seq[MAX_MIX];
 	uint32_t n_seq = 0;
 
 	jack_midi_clear_buffer(ptr);
@@ -4478,7 +4487,7 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 			continue;
 
 		seq[n_seq++] = pod;
-		if (n_seq == MAX_MIDI_MIX)
+		if (n_seq == MAX_MIX)
 			break;
 	}
 	convert_to_midi(seq, n_seq, ptr, p->client->fix_midi_events);

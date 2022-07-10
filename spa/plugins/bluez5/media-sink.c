@@ -68,7 +68,7 @@ struct props {
 	char clock_name[64];
 };
 
-#define FILL_FRAMES 2
+#define FILL_FRAMES 4
 #define MAX_BUFFERS 32
 #define MIN_LATENCY	128
 #define MAX_LATENCY	8192

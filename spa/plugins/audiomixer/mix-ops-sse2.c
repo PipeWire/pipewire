@@ -48,18 +48,17 @@ mix_f64_sse2(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_REST
 		__m128d in[4];
 		const double **s = (const double **)src;
 		double *d = dst;
-		bool aligned = true;
 
-		if (SPA_UNLIKELY(!SPA_IS_ALIGNED(dst, 16)))
-			aligned = false;
-		else {
-			for (i = 0; i < n_src && aligned; i++) {
-				if (SPA_UNLIKELY(!SPA_IS_ALIGNED(src[i], 16)))
-					aligned = false;
+		if (SPA_LIKELY(SPA_IS_ALIGNED(dst, 16))) {
+			unrolled = n_samples & ~15;
+			for (i = 0; i < n_src; i++) {
+				if (SPA_UNLIKELY(!SPA_IS_ALIGNED(src[i], 16))) {
+					unrolled = 0;
+					break;
+				}
 			}
-		}
-
-		unrolled = aligned ? n_samples & ~7 : 0;
+		} else
+			unrolled = 0;
 
 		for (n = 0; n < unrolled; n += 8) {
 			in[0] = _mm_load_pd(&s[0][n+0]);

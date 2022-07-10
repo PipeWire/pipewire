@@ -74,8 +74,8 @@ static void run_test1(const char *name, const char *impl, mix_func_t func, int n
 	mix.n_channels = 1;
 
 	for (j = 0; j < n_src; j++)
-		ip[j] = SPA_PTR_ALIGN(&samp_in[j * n_samples * 4], 16, void);
-	op = SPA_PTR_ALIGN(samp_out, 16, void);
+		ip[j] = SPA_PTR_ALIGN(&samp_in[j * n_samples * 4], 32, void);
+	op = SPA_PTR_ALIGN(samp_out, 32, void);
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	t1 = SPA_TIMESPEC_TO_NSEC(&ts);
@@ -161,6 +161,11 @@ static void test_f32(void)
 #if defined (HAVE_SSE)
 	if (cpu_flags & SPA_CPU_FLAG_SSE) {
 		run_test("test_f32", "sse", mix_f32_sse);
+	}
+#endif
+#if defined (HAVE_AVX)
+	if (cpu_flags & SPA_CPU_FLAG_AVX) {
+		run_test("test_f32", "avx", mix_f32_avx);
 	}
 #endif
 }

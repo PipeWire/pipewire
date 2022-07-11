@@ -67,6 +67,7 @@ conf_files = [
  'pipewire.conf',
  'client.conf',
  'client-rt.conf',
+ 'filter-chain.conf',
  'jack.conf',
  'minimal.conf',
  'pipewire-pulse.conf',

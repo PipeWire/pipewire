@@ -1,0 +1,62 @@
+# Filter-chain config file for PipeWire version @VERSION@ #
+#
+# This is a base config file for running filters.
+#
+# Place filter fragments in @PIPEWIRE_CONFIG_DIR@/filter-chain.conf.d/
+# for system-wide changes or in ~/.config/pipewire/filter-chain.conf.d/
+# for local changes.
+#
+# Run the filters with pipewire -c filter-chain.conf
+#
+
+context.properties = {
+    ## Configure properties in the system.
+    #mem.warn-mlock  = false
+    #mem.allow-mlock = true
+    #mem.mlock-all   = false
+    log.level        = 0
+}
+
+context.spa-libs = {
+    #<factory-name regex> = <library-name>
+    #
+    # Used to find spa factory names. It maps an spa factory name
+    # regular expression to a library name that should contain
+    # that factory.
+    #
+    audio.convert.* = audioconvert/libspa-audioconvert
+    support.*       = support/libspa-support
+}
+
+context.modules = [
+    #{ name = <module-name>
+    #    [ args  = { <key> = <value> ... } ]
+    #    [ flags = [ [ ifexists ] [ nofail ] ]
+    #}
+    #
+    # Loads a module with the given parameters.
+    # If ifexists is given, the module is ignored when it is not found.
+    # If nofail is given, module initialization failures are ignored.
+    #
+    # Uses realtime scheduling to boost the audio thread priorities
+    { name = libpipewire-module-rt
+        args = {
+            #rt.prio      = 88
+            #rt.time.soft = -1
+            #rt.time.hard = -1
+        }
+        flags = [ ifexists nofail ]
+    }
+
+    # The native communication protocol.
+    { name = libpipewire-module-protocol-native }
+
+    # Allows creating nodes that run in the context of the
+    # client. Is used by all clients that want to provide
+    # data to PipeWire.
+    { name = libpipewire-module-client-node }
+
+    # Makes a factory for wrapping nodes in an adapter with a
+    # converter and resampler.
+    { name = libpipewire-module-adapter }
+]

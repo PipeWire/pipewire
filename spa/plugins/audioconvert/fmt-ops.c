@@ -105,13 +105,13 @@ static struct conv_info conv_table[] =
 	MAKE(F32P, F32, 0, conv_32d_to_32_c),
 
 #if defined (HAVE_SSE2)
-	MAKE(F32_OE, F32P, 0, conv_32s_to_32sd_sse2, SPA_CPU_FLAG_SSE2),
+	MAKE(F32_OE, F32P, 0, conv_32s_to_32d_sse2, SPA_CPU_FLAG_SSE2),
 #endif
-	MAKE(F32_OE, F32P, 0, conv_32s_to_32sd_c),
+	MAKE(F32_OE, F32P, 0, conv_32s_to_32d_c),
 #if defined (HAVE_SSE2)
-	MAKE(F32P, F32_OE, 0, conv_32sd_to_32s_sse2, SPA_CPU_FLAG_SSE2),
+	MAKE(F32P, F32_OE, 0, conv_32d_to_32s_sse2, SPA_CPU_FLAG_SSE2),
 #endif
-	MAKE(F32P, F32_OE, 0, conv_32sd_to_32s_c),
+	MAKE(F32P, F32_OE, 0, conv_32d_to_32s_c),
 
 	MAKE(U32, F32, 0, conv_u32_to_f32_c),
 	MAKE(U32, F32P, 0, conv_u32_to_f32d_c),

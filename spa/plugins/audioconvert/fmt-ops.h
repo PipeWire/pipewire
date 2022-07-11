@@ -181,6 +181,16 @@ static inline int24_t bswap_s24(int24_t src)
 	return (int24_t) { .v1 = src.v3, .v2 = src.v2, .v3 = src.v1 };
 }
 
+#define F32_TO_F32S(v) \
+	bswap_32((union { uint32_t i; float f; }){ .f = (v) }.i)
+#define F32S_TO_F32(v) \
+	((union { uint32_t i; float f; }){ .i = bswap_32(v) }.f)
+
+#define F64_TO_F64S(v) \
+	bswap_32((union { uint64_t i; double d; }){ .d = (v) }.i)
+#define F64S_TO_F64(v) \
+	((union { uint64_t i; double d; }){ .i = bswap_32(v) }.d)
+
 #define NS_MAX	8
 #define NS_MASK	(NS_MAX-1)
 
@@ -371,14 +381,14 @@ DEFINE_FUNCTION(8_to_8d, c);
 DEFINE_FUNCTION(16_to_16d, c);
 DEFINE_FUNCTION(24_to_24d, c);
 DEFINE_FUNCTION(32_to_32d, c);
-DEFINE_FUNCTION(32s_to_32sd, c);
+DEFINE_FUNCTION(32s_to_32d, c);
 DEFINE_FUNCTION(64_to_64d, c);
 DEFINE_FUNCTION(64s_to_64sd, c);
 DEFINE_FUNCTION(8d_to_8, c);
 DEFINE_FUNCTION(16d_to_16, c);
 DEFINE_FUNCTION(24d_to_24, c);
 DEFINE_FUNCTION(32d_to_32, c);
-DEFINE_FUNCTION(32sd_to_32s, c);
+DEFINE_FUNCTION(32d_to_32s, c);
 DEFINE_FUNCTION(64d_to_64, c);
 DEFINE_FUNCTION(64sd_to_64s, c);
 
@@ -399,9 +409,9 @@ DEFINE_FUNCTION(f32d_to_s16_2, sse2);
 DEFINE_FUNCTION(f32d_to_s16, sse2);
 DEFINE_FUNCTION(f32d_to_s16d, sse2);
 DEFINE_FUNCTION(32_to_32d, sse2);
-DEFINE_FUNCTION(32s_to_32sd, sse2);
+DEFINE_FUNCTION(32s_to_32d, sse2);
 DEFINE_FUNCTION(32d_to_32, sse2);
-DEFINE_FUNCTION(32sd_to_32s, sse2);
+DEFINE_FUNCTION(32d_to_32s, sse2);
 #endif
 #if defined(HAVE_SSSE3)
 DEFINE_FUNCTION(s24_to_f32d, ssse3);

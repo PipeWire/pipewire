@@ -164,8 +164,7 @@ MAKE_D_TO_D(f64, double, f32, float, (float));
 MAKE_I_TO_I(f64, double, f32, float, (float));
 MAKE_I_TO_D(f64, double, f32, float, (float));
 MAKE_D_TO_I(f64, double, f32, float, (float));
-MAKE_I_TO_D(f64s, double, f32, float, bswap_64); /* FIXME */
-
+MAKE_I_TO_D(f64s, uint64_t, f32, float, (float)F64S_TO_F64);
 
 /* from f32 */
 MAKE_D_TO_D(f32, float, u8, uint8_t, F32_TO_U8);
@@ -221,7 +220,7 @@ MAKE_D_TO_D(f32, float, f64, double, (double));
 MAKE_I_TO_I(f32, float, f64, double, (double));
 MAKE_I_TO_D(f32, float, f64, double, (double));
 MAKE_D_TO_I(f32, float, f64, double, (double));
-MAKE_D_TO_I(f32, float, f64s, double, bswap_32); /* FIXME */
+MAKE_D_TO_I(f32, float, f64s, uint64_t, F64_TO_F64S);
 
 
 static inline int32_t
@@ -370,22 +369,22 @@ MAKE_D_shaped(s16, int16_t, F32_TO_S16_SH);
 MAKE_I_shaped(s16, int16_t, F32_TO_S16_SH);
 MAKE_I_shaped(s16s, uint16_t, F32_TO_S16S_SH);
 
-#define MAKE_DEINTERLEAVE(size,type,func)					\
-	MAKE_I_TO_D(size,type,size,type,func)
+#define MAKE_DEINTERLEAVE(size1,size2, type,func)					\
+	MAKE_I_TO_D(size1,type,size2,type,func)
 
-MAKE_DEINTERLEAVE(8, uint8_t, (uint8_t));
-MAKE_DEINTERLEAVE(16, uint16_t, (uint16_t));
-MAKE_DEINTERLEAVE(24, uint24_t, (uint24_t));
-MAKE_DEINTERLEAVE(32, uint32_t, (uint32_t));
-MAKE_DEINTERLEAVE(32s, uint32_t, bswap_32);
-MAKE_DEINTERLEAVE(64, uint64_t, (uint64_t));
+MAKE_DEINTERLEAVE(8, 8, uint8_t, (uint8_t));
+MAKE_DEINTERLEAVE(16, 16, uint16_t, (uint16_t));
+MAKE_DEINTERLEAVE(24, 24, uint24_t, (uint24_t));
+MAKE_DEINTERLEAVE(32, 32, uint32_t, (uint32_t));
+MAKE_DEINTERLEAVE(32s, 32, uint32_t, bswap_32);
+MAKE_DEINTERLEAVE(64, 64, uint64_t, (uint64_t));
 
-#define MAKE_INTERLEAVE(size,type,func)						\
-	MAKE_D_TO_I(size,type,size,type,func)
+#define MAKE_INTERLEAVE(size1,size2,type,func)						\
+	MAKE_D_TO_I(size1,type,size2,type,func)
 
-MAKE_INTERLEAVE(8, uint8_t, (uint8_t));
-MAKE_INTERLEAVE(16, uint16_t, (uint16_t));
-MAKE_INTERLEAVE(24, uint24_t, (uint24_t));
-MAKE_INTERLEAVE(32, uint32_t, (uint32_t));
-MAKE_INTERLEAVE(32s, uint32_t, bswap_32);
-MAKE_INTERLEAVE(64, uint64_t, (uint64_t));
+MAKE_INTERLEAVE(8, 8, uint8_t, (uint8_t));
+MAKE_INTERLEAVE(16, 16, uint16_t, (uint16_t));
+MAKE_INTERLEAVE(24, 24, uint24_t, (uint24_t));
+MAKE_INTERLEAVE(32, 32, uint32_t, (uint32_t));
+MAKE_INTERLEAVE(32, 32s, uint32_t, bswap_32);
+MAKE_INTERLEAVE(64, 64, uint64_t, (uint64_t));

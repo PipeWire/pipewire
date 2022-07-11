@@ -394,7 +394,10 @@ int convert_init(struct convert *conv)
 	const struct conv_info *info;
 	uint32_t i, dither_flags;
 
-	conv->scale = 1.0f / (float)(INT32_MAX >> conv->noise);
+	conv->scale = 1.0f / (float)(INT32_MAX);
+
+	if (conv->noise > 0)
+		conv->scale *= (1 << (conv->noise + 1));
 
 	/* disable dither if not needed */
 	if (!need_dither(conv->dst_fmt))

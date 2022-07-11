@@ -237,6 +237,7 @@ static inline void update_dither_c(struct convert *conv, uint32_t n_samples)
 	uint32_t *state = &conv->random[0];
 
 	if (conv->method < DITHER_METHOD_TRIANGULAR) {
+		scale *= 0.5f;
 		for (n = 0; n < n_samples; n++)
 			dither[n] = lcnoise(state) * scale;
 	} else {

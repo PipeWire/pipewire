@@ -632,6 +632,7 @@ static void run_test_noise(uint32_t fmt, uint32_t noise, uint32_t flags)
 	const void *ip[N_CHANNELS];
 	void *op[N_CHANNELS];
 	uint32_t i, range;
+	bool all_zero;
 
 	spa_zero(conv);
 
@@ -653,35 +654,47 @@ static void run_test_noise(uint32_t fmt, uint32_t noise, uint32_t flags)
 
 	range = (1 << conv.noise) - 1;
 
+	all_zero = true;
 	for (i = 0; i < conv.n_channels * N_SAMPLES; i++) {
 		switch (fmt) {
 		case SPA_AUDIO_FORMAT_S8:
 		{
 			int8_t *d = (int8_t *)samp_out;
+			if (d[i] != 0)
+				all_zero = false;
 			spa_assert_se(SPA_ABS(d[i] - 0) <= (int8_t)range);
 			break;
 		}
 		case SPA_AUDIO_FORMAT_U8:
 		{
 			uint8_t *d = (uint8_t *)samp_out;
+			if (d[i] != 0x80)
+				all_zero = false;
 			spa_assert_se((int8_t)SPA_ABS(d[i] - 0x80) <= (int8_t)(range<<1));
 			break;
 		}
 		case SPA_AUDIO_FORMAT_S16:
 		{
 			int16_t *d = (int16_t *)samp_out;
+			if (d[i] != 0)
+				all_zero = false;
 			spa_assert_se(SPA_ABS(d[i] - 0) <= (int16_t)range);
 			break;
 		}
 		case SPA_AUDIO_FORMAT_S24:
 		{
 			int24_t *d = (int24_t *)samp_out;
-			spa_assert_se(SPA_ABS(s24_to_s32(d[i]) - 0) <= (int32_t)range);
+			int32_t t = s24_to_s32(d[i]);
+			if (t != 0)
+				all_zero = false;
+			spa_assert_se(SPA_ABS(t - 0) <= (int32_t)range);
 			break;
 		}
 		case SPA_AUDIO_FORMAT_S32:
 		{
 			int32_t *d = (int32_t *)samp_out;
+			if (d[i] != 0)
+				all_zero = false;
 			spa_assert_se(SPA_ABS(d[i] - 0) <= (int32_t)(range << 8));
 			break;
 		}
@@ -690,6 +703,7 @@ static void run_test_noise(uint32_t fmt, uint32_t noise, uint32_t flags)
 			break;
 		}
 	}
+	spa_assert_se(all_zero == false);
 	convert_free(&conv);
 }
 

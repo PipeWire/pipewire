@@ -585,11 +585,12 @@ static inline void update_dither_sse2(struct convert *conv, uint32_t n_samples)
 {
 	uint32_t n;
 	const uint32_t *r = SPA_PTR_ALIGN(conv->random, 16, uint32_t);
+	__m128 out[1];
 	float *dither = SPA_PTR_ALIGN(conv->dither, 16, float);
-	__m128 scale = _mm_set1_ps(conv->scale), out[1];
 	__m128i in[2];
 
 	if (conv->method < DITHER_METHOD_TRIANGULAR) {
+		__m128 scale = _mm_set1_ps(conv->scale * 0.5f);
 		for (n = 0; n < n_samples; n += 4) {
 			in[0] = _MM_XORSHIFT_EPI32(r);
 			out[0] = _mm_cvtepi32_ps(_MM_XORSHIFT_EPI32(r));
@@ -597,6 +598,7 @@ static inline void update_dither_sse2(struct convert *conv, uint32_t n_samples)
 			_mm_store_ps(&dither[n], out[0]);
 		}
 	} else {
+		__m128 scale = _mm_set1_ps(conv->scale);
 		for (n = 0; n < n_samples; n += 4) {
 			in[0] = _mm_add_epi32( _MM_XORSHIFT_EPI32(r), _MM_XORSHIFT_EPI32(r));
 			out[0] = _mm_cvtepi32_ps(in[0]);

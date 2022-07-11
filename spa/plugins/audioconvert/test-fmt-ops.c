@@ -626,10 +626,91 @@ static void test_swaps(void)
 	}
 }
 
+static void run_test_noise(uint32_t fmt, uint32_t noise, uint32_t flags)
+{
+	struct convert conv;
+	const void *ip[N_CHANNELS];
+	void *op[N_CHANNELS];
+	uint32_t i, range;
+
+	spa_zero(conv);
+
+	conv.noise = noise;
+	conv.src_fmt = SPA_AUDIO_FORMAT_F32P;
+	conv.dst_fmt = fmt;
+	conv.n_channels = 2;
+	conv.rate = 44100;
+	conv.cpu_flags = flags;
+	spa_assert_se(convert_init(&conv) == 0);
+	fprintf(stderr, "test noise %s:\n", conv.func_name);
+
+	memset(samp_in, 0, sizeof(samp_in));
+	for (i = 0; i < conv.n_channels; i++) {
+		ip[i] = samp_in;
+		op[i] = samp_out;
+	}
+	convert_process(&conv, op, ip, N_SAMPLES);
+
+	range = (1 << conv.noise) - 1;
+
+	for (i = 0; i < conv.n_channels * N_SAMPLES; i++) {
+		switch (fmt) {
+		case SPA_AUDIO_FORMAT_S8:
+		{
+			int8_t *d = (int8_t *)samp_out;
+			spa_assert_se(SPA_ABS(d[i] - 0) <= (int8_t)range);
+			break;
+		}
+		case SPA_AUDIO_FORMAT_U8:
+		{
+			uint8_t *d = (uint8_t *)samp_out;
+			spa_assert_se((int8_t)SPA_ABS(d[i] - 0x80) <= (int8_t)(range<<1));
+			break;
+		}
+		case SPA_AUDIO_FORMAT_S16:
+		{
+			int16_t *d = (int16_t *)samp_out;
+			spa_assert_se(SPA_ABS(d[i] - 0) <= (int16_t)range);
+			break;
+		}
+		case SPA_AUDIO_FORMAT_S24:
+		{
+			int24_t *d = (int24_t *)samp_out;
+			spa_assert_se(SPA_ABS(s24_to_s32(d[i]) - 0) <= (int32_t)range);
+			break;
+		}
+		case SPA_AUDIO_FORMAT_S32:
+		{
+			int32_t *d = (int32_t *)samp_out;
+			spa_assert_se(SPA_ABS(d[i] - 0) <= (int32_t)(range << 8));
+			break;
+		}
+		default:
+			spa_assert_not_reached();
+			break;
+		}
+	}
+	convert_free(&conv);
+}
+
+static void test_noise(void)
+{
+	run_test_noise(SPA_AUDIO_FORMAT_S8, 1, 0);
+	run_test_noise(SPA_AUDIO_FORMAT_S8, 2, 0);
+	run_test_noise(SPA_AUDIO_FORMAT_U8, 1, 0);
+	run_test_noise(SPA_AUDIO_FORMAT_U8, 2, 0);
+	run_test_noise(SPA_AUDIO_FORMAT_S16, 1, 0);
+	run_test_noise(SPA_AUDIO_FORMAT_S16, 2, 0);
+	run_test_noise(SPA_AUDIO_FORMAT_S24, 1, 0);
+	run_test_noise(SPA_AUDIO_FORMAT_S24, 2, 0);
+	run_test_noise(SPA_AUDIO_FORMAT_S32, 1, 0);
+	run_test_noise(SPA_AUDIO_FORMAT_S32, 2, 0);
+}
+
 int main(int argc, char *argv[])
 {
 	cpu_flags = get_cpu_flags();
-	printf("got get CPU flags %d\n", cpu_flags);
+	printf("got CPU flags %d\n", cpu_flags);
 
 	test_f32_s8();
 	test_s8_f32();
@@ -664,5 +745,8 @@ int main(int argc, char *argv[])
 	test_lossless_u32();
 
 	test_swaps();
+
+	test_noise();
+
 	return 0;
 }

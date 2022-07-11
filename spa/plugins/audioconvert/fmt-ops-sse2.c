@@ -571,7 +571,7 @@ static inline void update_dither_sse2(struct convert *conv, uint32_t n_samples)
 	const uint32_t *r = SPA_PTR_ALIGN(conv->random, 16, uint32_t);
 	float *dither = SPA_PTR_ALIGN(conv->dither, 16, float);
 	__m128 scale = _mm_set1_ps(conv->scale), out[1];
-	__m128i in[1], t[1];
+	__m128i in[2], t[1];
 
 	for (n = 0; n < n_samples; n += 4) {
 		/* 32 bit xorshift PRNG, see https://en.wikipedia.org/wiki/Xorshift */
@@ -584,6 +584,18 @@ static inline void update_dither_sse2(struct convert *conv, uint32_t n_samples)
 		in[0] = _mm_xor_si128(in[0], t[0]);
 		_mm_store_si128((__m128i*)r, in[0]);
 
+		if (conv->method >= DITHER_METHOD_TRIANGULAR) {
+			in[1] = _mm_load_si128((__m128i*)r);
+			t[0] = _mm_slli_epi32(in[1], 13);
+			in[1] = _mm_xor_si128(in[1], t[0]);
+			t[0] = _mm_srli_epi32(in[1], 17);
+			in[1] = _mm_xor_si128(in[1], t[0]);
+			t[0] = _mm_slli_epi32(in[1], 5);
+			in[1] = _mm_xor_si128(in[1], t[0]);
+			_mm_store_si128((__m128i*)r, in[1]);
+
+			in[0] = _mm_add_epi32(in[0], in[1]);
+		}
 		out[0] = _mm_cvtepi32_ps(in[0]);
 		out[0] = _mm_mul_ps(out[0], scale);
 		_mm_store_ps(&dither[n], out[0]);

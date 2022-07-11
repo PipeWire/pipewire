@@ -236,8 +236,13 @@ static inline void update_dither_c(struct convert *conv, uint32_t n_samples)
 	float *dither = conv->dither, scale = conv->scale;
 	uint32_t *state = &conv->random[0];
 
-	for (n = 0; n < n_samples; n++)
-		dither[n] = lcnoise(state) * scale;
+	if (conv->method < DITHER_METHOD_TRIANGULAR) {
+		for (n = 0; n < n_samples; n++)
+			dither[n] = lcnoise(state) * scale;
+	} else {
+		for (n = 0; n < n_samples; n++)
+			dither[n] = (lcnoise(state) + lcnoise(state)) * scale;
+	}
 }
 
 #define MAKE_D_dither(dname,dtype,func) 					\

@@ -281,6 +281,33 @@ PWTEST(json_float)
 	return PWTEST_PASS;
 }
 
+PWTEST(json_float_check)
+{
+	struct {
+		const char *str;
+		int res;
+	} val[] = {
+		{ "0.0", 1 },
+		{ ".0", 1 },
+		{ "+.0E0", 1 },
+		{ "-.0e0", 1 },
+
+		{ "0,0", 0 },
+		{ "0.0.5", 0 },
+		{ "0x0", 0 },
+		{ "0x0.0", 0 },
+		{ "E10", 0 },
+		{ "e20", 0 },
+	};
+	unsigned i;
+	float v;
+
+	for (i = 0; i < SPA_N_ELEMENTS(val); i++) {
+		pwtest_int_eq(spa_json_parse_float(val[i].str, strlen(val[i].str), &v), val[i].res);
+	}
+	return PWTEST_PASS;
+}
+
 PWTEST(json_int)
 {
 	int v;
@@ -296,6 +323,7 @@ PWTEST_SUITE(spa_json)
 	pwtest_add(json_array, PWTEST_NOARG);
 	pwtest_add(json_overflow, PWTEST_NOARG);
 	pwtest_add(json_float, PWTEST_NOARG);
+	pwtest_add(json_float_check, PWTEST_NOARG);
 	pwtest_add(json_int, PWTEST_NOARG);
 
 	return PWTEST_PASS;

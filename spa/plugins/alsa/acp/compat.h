@@ -52,7 +52,6 @@ typedef void (*pa_free_cb_t)(void *p);
 #define PA_UNLIKELY(x) (x)
 #define PA_PRINTF_FUNC(fmt, arg1)
 #endif
-#define PA_UNUSED SPA_UNUSED
 
 #define PA_MIN(a,b)                    \
 ({                                     \

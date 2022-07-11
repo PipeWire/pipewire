@@ -1,3 +1,61 @@
+# PipeWire 0.3.55 (2022-07-12)
+
+This is a quick bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Fix some more critical bugs in the new audioconvert and the queueing
+    in pw-stream that causes stuttering and hickups.
+  - HFP hardware volumes are now saved and restored.
+  - Format conversions and mixing was improved.
+  - Small bug fixes and improvements.
+
+## PipeWire
+  - The queueing in pw-stream was improved with support for buffer prefetch
+    in async mode.
+  - Add a pw-filter unit test.
+
+## tools
+  - pw-midiplay should now work again after improvements in pw-stream.
+
+## modules
+  - The RAOP module was improved to support auth_setup.
+  - The RAOP module should now handle timing packets better.
+  - Add some more filter-chain examples.
+  - The filter-chain now has a separate config file with the boilerplate
+    settings. The examples are now just config snippets that can be dropped
+    in .conf.d/ directories, such as the filter-chain.conf.d/ one.
+  - Start suggesting to use target.object instead of node.target in docs
+    and examples.
+
+## SPA
+  - Use the cosh window again for the resampler. It should now
+    give better resampler quality. (#2483)
+  - Rework the mixer functions. They were rewritten for higher precision and
+    better performance. Add unit tests and benchmarks.
+  - Improve format conversion for 32bits for avoid errors in clang because
+    of undefined behaviour at extreme ranges.
+  - Fix a bug in audioconvert where it would not consume the right
+    amount of samples when the resampler was disabled. This could cause
+    skipping and hickups. (#2519)
+  - Fix bug in audioconvert where it would try to convert the input samples
+    multiple times, causing strange artifacts when upmixing.
+  - Be more strict about valid JSON floats.
+  - device.vendor.id and device.product.id should now always show up in
+    0xXXXX format and should not be converted to floats in pw-dump anymore.
+  - Add triangular dither, add unit tests for noise generation, add some
+    more optimizations.
+
+## Bluetooth
+  - HFP and A2DP now expose different routes and thus can have different
+    volumes.
+  - HW Volumes for HFP are now synced better. Volume changes from HW buttons
+    are now also saved.
+
+
+Older versions:
+
+
 # PipeWire 0.3.54 (2022-07-07)
 
 This is a quick bugfix release that is API and ABI compatible with previous
@@ -46,9 +104,6 @@ This is a quick bugfix release that is API and ABI compatible with previous
 ## Bluetooth
   - The source was rewritten to use a ringbuffer. This avoids regressions
     caused by audioconvert. 
-
-Older versions:
-
 
 # PipeWire 0.3.53 (2022-06-30)
 

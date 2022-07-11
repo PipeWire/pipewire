@@ -7,6 +7,7 @@
 # @PIPEWIRE_CONFIG_DIR@/client.conf.d/ for system-wide changes or in
 # ~/.config/pipewire/client.conf.d/ for local changes.
 #
+
 context.properties = {
     ## Configure properties in the system.
     #mem.warn-mlock  = false

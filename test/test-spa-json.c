@@ -298,6 +298,9 @@ PWTEST(json_float_check)
 		{ "0x0.0", 0 },
 		{ "E10", 0 },
 		{ "e20", 0 },
+		{ " 0.0", 0 },
+		{ "0.0 ", 0 },
+		{ " 0.0 ", 0 },
 	};
 	unsigned i;
 	float v;

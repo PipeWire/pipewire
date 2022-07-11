@@ -240,6 +240,8 @@ static inline bool spa_json_is_null(const char *val, int len)
 static inline int spa_json_parse_float(const char *val, int len, float *result)
 {
 	char *end;
+	if (strspn(val, "+-0123456789.Ee") < (size_t)len)
+		return 0;
 	*result = spa_strtof(val, &end);
 	return len > 0 && end == val + len;
 }

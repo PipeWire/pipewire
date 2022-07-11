@@ -86,7 +86,7 @@ static void expect_float(struct spa_json *it, float val)
 {
 	const char *value;
 	int len;
-	float f;
+	float f = 0.0f;
 	pwtest_int_gt((len = spa_json_next(it, &value)), 0);
 	check_type(TYPE_FLOAT, value, len);
 	pwtest_int_gt(spa_json_parse_float(value, len, &f), 0);

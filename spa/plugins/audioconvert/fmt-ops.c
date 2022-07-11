@@ -408,6 +408,9 @@ int convert_init(struct convert *conv)
 	if (conv->method == DITHER_METHOD_SHAPED_5 && conv->rate < 32000)
 		conv->method = DITHER_METHOD_TRIANGULAR;
 
+	if (conv->method < DITHER_METHOD_TRIANGULAR)
+		conv->scale *= 0.5f;
+
 	dither_flags = 0;
 	if (conv->method != DITHER_METHOD_NONE || conv->noise)
 		dither_flags |= CONV_DITHER;

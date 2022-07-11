@@ -99,7 +99,8 @@
  *         playback.props = {
  *             node.name = "playback.CM106_stereo_pair_2"
  *             audio.position = [ RL RR ]
- *             node.target = "alsa_output.usb-0d8c_USB_Sound_Device-00.analog-surround-71"
+ *             target.object = "alsa_output.usb-0d8c_USB_Sound_Device-00.analog-surround-71"
+ *             node.dont-reconnect = true
  *             stream.dont-remix = true
  *             node.passive = true
  *         }

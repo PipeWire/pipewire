@@ -94,7 +94,7 @@
  * - \ref PW_KEY_NODE_GROUP
  * - \ref PW_KEY_NODE_VIRTUAL
  * - \ref PW_KEY_MEDIA_CLASS
- * - \ref PW_KEY_NODE_TARGET to specify the remote name or id to link to
+ * - \ref PW_KEY_TARGET_OBJECT to specify the remote name or serial id to link to
  *
  * When not otherwise specified, the pipe will accept or produce a
  * 16 bits, stereo, 48KHz sample stream.
@@ -112,7 +112,7 @@
  *         #audio.rate=<sample rate>
  *         #audio.channels=<number of channels>
  *         #audio.position=<channel map>
- *         #node.target=<remote target node>
+ *         #target.object=<remote target node>
  *         stream.props = {
  *             # extra sink properties
  *         }
@@ -139,7 +139,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"[ node.latency=<latency as fraction> ] "		\
 			"[ node.name=<name of the nodes> ] "			\
 			"[ node.description=<description of the nodes> ] "	\
-			"[ node.target=<remote node target name> ] "		\
+			"[ target.object=<remote node target name> ] "		\
 			"[ audio.format=<sample format> ] "			\
 			"[ audio.rate=<sample rate> ] "				\
 			"[ audio.channels=<number of channels> ] "		\

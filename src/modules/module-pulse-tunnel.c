@@ -90,7 +90,7 @@
  * - \ref PW_KEY_NODE_GROUP
  * - \ref PW_KEY_NODE_VIRTUAL
  * - \ref PW_KEY_MEDIA_CLASS
- * - \ref PW_KEY_NODE_TARGET to specify the remote name or id to link to
+ * - \ref PW_KEY_TARGET_OBJECT to specify the remote node.name or serial.id to link to
  *
  * ## Example configuration of a virtual sink
  *
@@ -104,7 +104,7 @@
  *         #audio.rate=<sample rate>
  *         #audio.channels=<number of channels>
  *         #audio.position=<channel map>
- *         #node.target=<remote target node>
+ *         #target.object=<remote target name>
  *         stream.props = {
  *             # extra sink properties
  *         }
@@ -660,7 +660,9 @@ static int create_pulse_stream(struct impl *impl)
 	pa_stream_set_overflow_callback(impl->pa_stream, stream_overflow_cb, impl);
 	pa_stream_set_latency_update_callback(impl->pa_stream, stream_latency_update_cb, impl);
 
-	remote_node_target = pw_properties_get(impl->props, PW_KEY_NODE_TARGET);
+	remote_node_target = pw_properties_get(impl->props, PW_KEY_TARGET_OBJECT);
+	if (remote_node_target == NULL)
+		remote_node_target = pw_properties_get(impl->props, PW_KEY_NODE_TARGET);
 
 	bufferattr.fragsize = (uint32_t) -1;
 	bufferattr.minreq = (uint32_t) -1;

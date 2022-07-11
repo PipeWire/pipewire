@@ -279,11 +279,10 @@ static int emit_object_info(struct impl *this, struct device *device)
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_SUBSYSTEM, str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_VENDOR_ID")) && *str) {
-		char *dec = alloca(6); /* 65535 is max */
 		int32_t val;
-
 		if (spa_atoi32(str, &val, 16)) {
-			snprintf(dec, 6, "%d", val);
+			char *dec = alloca(12); /* 0xffff is max */
+			snprintf(dec, 12, "0x%04x", val);
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_VENDOR_ID, dec);
 		}
 	}
@@ -302,11 +301,10 @@ static int emit_object_info(struct impl *this, struct device *device)
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_VENDOR_NAME, str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_MODEL_ID")) && *str) {
-		char *dec = alloca(6); /* 65535 is max */
 		int32_t val;
-
 		if (spa_atoi32(str, &val, 16)) {
-			snprintf(dec, 6, "%d", val);
+			char *dec = alloca(12); /* 0xffff is max */
+			snprintf(dec, 12, "0x%04x", val);
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PRODUCT_ID, dec);
 		}
 	}

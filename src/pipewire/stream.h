@@ -436,9 +436,16 @@ int pw_stream_update_properties(struct pw_stream *stream, const struct spa_dict 
 int
 pw_stream_connect(struct pw_stream *stream,		/**< a \ref pw_stream */
 		  enum pw_direction direction,		/**< the stream direction */
-		  uint32_t target_id,			/**< the target object id to connect to or
-							  *  PW_ID_ANY to let the manager
-							  *  select a target. */
+		  uint32_t target_id,			/**< should have the value PW_ID_ANY.
+							  * To select a specific target
+							  * node, specify the
+							  * PW_KEY_OBJECT_SERIAL or the
+							  * PW_KEY_NODE_NAME value of the target
+							  * node in the PW_KEY_TARGET_OBJECT
+							  * property of the stream.
+							  * Specifying target nodes by
+							  * their id is deprecated.
+							  */
 		  enum pw_stream_flags flags,		/**< stream flags */
 		  const struct spa_pod **params,	/**< an array with params. The params
 							  *  should ideally contain supported

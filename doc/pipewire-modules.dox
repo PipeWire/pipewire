@@ -51,6 +51,7 @@ List of known modules:
 
 - \subpage page_module_access
 - \subpage page_module_adapter
+- \subpage page_module_avb
 - \subpage page_module_client_device
 - \subpage page_module_client_node
 - \subpage page_module_echo_cancel

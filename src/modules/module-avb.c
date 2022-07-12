@@ -66,14 +66,11 @@ struct impl {
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
 
-	struct pw_properties *properties;
-
 	struct pw_avb *avb;
 };
 
 static void impl_free(struct impl *impl)
 {
-	pw_properties_free(impl->properties);
 	free(impl);
 }
 
@@ -114,7 +111,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->module = module;
 	impl->context = context;
-	impl->properties = props;
 
 	impl->avb = pw_avb_new(context, props, 0);
 	if (impl->avb == NULL)

@@ -4449,7 +4449,7 @@ static void *get_buffer_input_float(struct port *p, jack_nframes_t frames)
 	}
 	if (n_ptr == 1) {
 		ptr = mix_ptr[0];
-	} else {
+	} else if (n_ptr > 1) {
 		ptr = p->emptyptr;
 		mix_function(ptr, mix_ptr, n_ptr, ptr_aligned, frames);
 		p->zeroed = false;

@@ -199,6 +199,9 @@ static struct conv_info conv_table[] =
 	MAKE(F32, S16, 0, conv_f32_to_s16_c),
 
 	MAKE(F32P, S16P, 0, conv_f32d_to_s16d_shaped_c, 0, CONV_SHAPE),
+#if defined (HAVE_SSE2)
+	MAKE(F32P, S16P, 0, conv_f32d_to_s16d_dither_sse2, SPA_CPU_FLAG_SSE2, CONV_DITHER),
+#endif
 	MAKE(F32P, S16P, 0, conv_f32d_to_s16d_dither_c, 0, CONV_DITHER),
 #if defined (HAVE_SSE2)
 	MAKE(F32P, S16P, 0, conv_f32d_to_s16d_sse2, SPA_CPU_FLAG_SSE2),
@@ -208,6 +211,9 @@ static struct conv_info conv_table[] =
 	MAKE(F32, S16P, 0, conv_f32_to_s16d_c),
 
 	MAKE(F32P, S16, 0, conv_f32d_to_s16_shaped_c, 0, CONV_SHAPE),
+#if defined (HAVE_SSE2)
+	MAKE(F32P, S16, 0, conv_f32d_to_s16_dither_sse2, SPA_CPU_FLAG_SSE2, CONV_DITHER),
+#endif
 	MAKE(F32P, S16, 0, conv_f32d_to_s16_dither_c, 0, CONV_DITHER),
 #if defined (HAVE_NEON)
 	MAKE(F32P, S16, 0, conv_f32d_to_s16_neon, SPA_CPU_FLAG_NEON),

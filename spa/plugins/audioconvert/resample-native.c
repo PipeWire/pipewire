@@ -375,7 +375,8 @@ int resample_native_init(struct resample *r)
 	in_rate = r->i_rate / gcd;
 	out_rate = r->o_rate / gcd;
 
-	scale = SPA_MIN(q->cutoff * out_rate / in_rate, 1.0);
+	scale = SPA_MIN(q->cutoff * out_rate / in_rate, q->cutoff);
+
 	/* multiple of 8 taps to ease simd optimizations */
 	n_taps = SPA_ROUND_UP_N((uint32_t)ceil(q->n_taps / scale), 8);
 	n_taps = SPA_MIN(n_taps, 1u << 18);

@@ -33,22 +33,22 @@ struct quality {
 	double cutoff;
 };
 
-static const struct quality blackman_qualities[] = {
-	{ 8, 0.5, },
-	{ 16, 0.70, },
-	{ 24, 0.76, },
-	{ 32, 0.8, },
+static const struct quality window_qualities[] = {
+	{ 8, 0.53, },
+	{ 16, 0.67, },
+	{ 24, 0.75, },
+	{ 32, 0.80, },
 	{ 48, 0.85, },                  /* default */
-	{ 64, 0.90, },
-	{ 80, 0.92, },
-	{ 96, 0.933, },
-	{ 128, 0.950, },
-	{ 144, 0.955, },
-	{ 160, 0.958, },
-	{ 192, 0.965, },
-	{ 256, 0.975, },
-	{ 896, 0.997, },
-	{ 1024, 0.998, },
+	{ 64, 0.88, },
+	{ 80, 0.895, },
+	{ 96, 0.910, },
+	{ 128, 0.936, },
+	{ 144, 0.945, },
+	{ 160, 0.950, },
+	{ 192, 0.960, },
+	{ 256, 0.970, },
+	{ 896, 0.990, },
+	{ 1024, 0.995, },
 };
 
 static inline double sinc(double x)
@@ -69,9 +69,13 @@ static inline double window_blackman(double x, double n_taps)
 static inline double window_cosh(double x, double n_taps)
 {
 	double R = 190.0, r;
-	double A = -325.1E-6 * (R * R) + 0.1677 * R - 3.149;
+	double A = (-325.1E-6 * R + 0.1677) * R - 3.149;
+	double x2;
 	x =  2.0 * x / n_taps;
-	r = cosh(A * sqrt(1 - pow(x, 2))) / cosh(A);
+	x2 = x * x;
+	if (x2 >= 1.0)
+		return 0.0;
+	r = cosh(A * sqrt(1 - x2)) / cosh(A);
 	return r;
 }
 
@@ -356,7 +360,7 @@ int resample_native_init(struct resample *r)
 	uint32_t c, n_taps, n_phases, filter_size, in_rate, out_rate, gcd, filter_stride;
 	uint32_t history_stride, history_size, oversample;
 
-	r->quality = SPA_CLAMP(r->quality, 0, (int) SPA_N_ELEMENTS(blackman_qualities) - 1);
+	r->quality = SPA_CLAMP(r->quality, 0, (int) SPA_N_ELEMENTS(window_qualities) - 1);
 	r->free = impl_native_free;
 	r->update_rate = impl_native_update_rate;
 	r->in_len = impl_native_in_len;
@@ -364,7 +368,7 @@ int resample_native_init(struct resample *r)
 	r->reset = impl_native_reset;
 	r->delay = impl_native_delay;
 
-	q = &blackman_qualities[r->quality];
+	q = &window_qualities[r->quality];
 
 	gcd = calc_gcd(r->i_rate, r->o_rate);
 

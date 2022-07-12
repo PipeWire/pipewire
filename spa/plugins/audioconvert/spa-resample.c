@@ -33,6 +33,7 @@
 #include <spa/support/log-impl.h>
 #include <spa/debug/mem.h>
 #include <spa/utils/string.h>
+#include <spa/utils/result.h>
 
 #include <sndfile.h>
 
@@ -190,7 +191,7 @@ static int do_conversion(struct data *d)
 	const void *src[channels];
 	void *dst[channels];
 	uint32_t i;
-	int j, k, queued;
+	int res, j, k, queued;
 	bool flushing = false;
 
 	spa_zero(r);
@@ -200,7 +201,11 @@ static int do_conversion(struct data *d)
 	r.i_rate = d->iinfo.samplerate;
 	r.o_rate = d->oinfo.samplerate;
 	r.quality = d->quality < 0 ? DEFAULT_QUALITY : d->quality;
-	resample_native_init(&r);
+	if ((res = resample_native_init(&r)) < 0) {
+		fprintf(stderr, "can't init converter: %s\n", spa_strerror(res));
+		return res;
+	}
+
 
 	for (j = 0; j < channels; j++)
 		src[j] = &in[MAX_SAMPLES * j];

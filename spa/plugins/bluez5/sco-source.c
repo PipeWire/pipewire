@@ -805,6 +805,7 @@ static void emit_node_info(struct impl *this, bool full)
 		{ SPA_KEY_MEDIA_CLASS, "Stream/Output/Audio" },
 		{ "media.name", ((this->transport && this->transport->device->name) ?
 					this->transport->device->name : "HSP/HFP") },
+		{ SPA_KEY_MEDIA_ROLE, "Communication" },
 	};
 	bool is_ag = this->transport && (this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
 	uint64_t old = full ? this->info.change_mask : 0;

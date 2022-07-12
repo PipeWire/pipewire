@@ -362,7 +362,6 @@ struct stream *server_create_stream(struct server *server,
 			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
 	stream->talker_attr->attr.talker.vlan_id = htons(stream->vlan_id);
 	stream->talker_attr->attr.talker.tspec_max_frame_size = htons(32 + stream->frames_per_pdu * stream->stride);
-		htons(AVB_MSRP_TSPEC_MAX_INTERVAL_FRAMES_DEFAULT);
 	stream->talker_attr->attr.talker.tspec_max_interval_frames =
 		htons(AVB_MSRP_TSPEC_MAX_INTERVAL_FRAMES_DEFAULT);
 	stream->talker_attr->attr.talker.priority = stream->prio;

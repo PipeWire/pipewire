@@ -136,6 +136,9 @@ const struct spa_support *pw_context_get_support(struct pw_context *context, uin
 /** get the context main loop */
 struct pw_loop *pw_context_get_main_loop(struct pw_context *context);
 
+/** get the context data loop. Since 0.3.56 */
+struct pw_data_loop *pw_context_get_data_loop(struct pw_context *context);
+
 /** Get the work queue from the context: Since 0.3.26 */
 struct pw_work_queue *pw_context_get_work_queue(struct pw_context *context);
 

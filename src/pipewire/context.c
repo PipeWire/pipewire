@@ -543,6 +543,12 @@ struct pw_loop *pw_context_get_main_loop(struct pw_context *context)
 }
 
 SPA_EXPORT
+struct pw_data_loop *pw_context_get_data_loop(struct pw_context *context)
+{
+	return context->data_loop_impl;
+}
+
+SPA_EXPORT
 struct pw_work_queue *pw_context_get_work_queue(struct pw_context *context)
 {
 	return context->work_queue;

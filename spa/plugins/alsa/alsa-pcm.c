@@ -1971,13 +1971,14 @@ again:
 		size_t n_bytes, n_frames;
 		struct buffer *b;
 		struct spa_data *d;
-		uint32_t i, offs, size;
+		uint32_t i, offs, size, last_offset;
 
 		b = spa_list_first(&state->ready, struct buffer, link);
 		d = b->buf->datas;
 
 		offs = d[0].chunk->offset + state->ready_offset;
-		size = d[0].chunk->size - state->ready_offset;
+		last_offset = d[0].chunk->size;
+		size = last_offset - state->ready_offset;
 
 		offs = SPA_MIN(offs, d[0].maxsize);
 		size = SPA_MIN(d[0].maxsize - offs, size);
@@ -2003,7 +2004,7 @@ again:
 
 		state->ready_offset += n_bytes;
 
-		if (state->ready_offset >= size) {
+		if (state->ready_offset >= last_offset) {
 			spa_list_remove(&b->link);
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUT);
 			state->io->buffer_id = b->id;

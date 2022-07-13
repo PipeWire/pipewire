@@ -520,9 +520,8 @@ static const struct pw_impl_module_events module_events = {
  */
 static bool check_realtime_privileges(rlim_t priority)
 {
-	int old_policy;
+	int err, old_policy, new_policy = REALTIME_POLICY;
 	struct sched_param old_sched_params;
-	int new_policy = REALTIME_POLICY;
 	struct sched_param new_sched_params;
 
 	/* We could check `RLIMIT_RTPRIO`, but the BSDs generally don't have
@@ -530,8 +529,8 @@ static bool check_realtime_privileges(rlim_t priority)
 	 * scheduling without that rlimit being set such as `CAP_SYS_NICE` or
 	 * running as root. Instead of checking a bunch of preconditions, we
 	 * just try if setting realtime scheduling works or not. */
-	if (pthread_getschedparam(pthread_self(),&old_policy,&old_sched_params) < 0) {
-		pw_log_warn("Failed to check RLIMIT_RTPRIO %m");
+	if ((err = pthread_getschedparam(pthread_self(),&old_policy,&old_sched_params)) != 0) {
+		pw_log_warn("Failed to check RLIMIT_RTPRIO: %s", strerror(err));
 		return false;
 	}
 

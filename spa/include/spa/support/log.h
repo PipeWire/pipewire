@@ -293,6 +293,24 @@ do {								\
 #define spa_log_trace_fp(l,...)
 #endif
 
+#define spa_log_hexdump(l,lev,indent,data,len)						\
+({											\
+	char str[512];									\
+	uint8_t *buf = (uint8_t *)data;							\
+	size_t i;									\
+	int pos;									\
+											\
+	for (i = 0; i < len; i++) {							\
+		if (i % 16 == 0)							\
+			pos = 0;							\
+		pos += sprintf(str + pos, "%02x ", buf[i]);				\
+		if (i % 16 == 15 || i == len - 1) {					\
+			spa_log_log(l,lev,__FILE__,__LINE__,__func__,			\
+			            "%*s" "%s",indent,"", str);				\
+		}									\
+	}										\
+})
+
 /** \fn spa_log_error */
 
 /** keys can be given when initializing the logger handle */

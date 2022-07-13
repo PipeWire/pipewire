@@ -613,16 +613,20 @@ static void capture_process(void *d)
 			port->desc->connect_port(port->hndl, port->port,
 				SPA_PTROFF(ds->data, offs, void));
 
-		outsize = SPA_MAX(outsize, size);
+		outsize = i == 0 ? size : SPA_MIN(outsize, size);
 		stride = SPA_MAX(stride, ds->chunk->stride);
 	}
 	for (i = 0; i < out->buffer->n_datas; i++) {
 		struct spa_data *dd = &out->buffer->datas[i];
 		struct graph_port *port = &graph->output[i];
+
+		outsize = SPA_MIN(outsize, dd->maxsize);
+
 		if (port->desc)
 			port->desc->connect_port(port->hndl, port->port, dd->data);
 		else
 			memset(dd->data, 0, outsize);
+
 		dd->chunk->offset = 0;
 		dd->chunk->size = outsize;
 		dd->chunk->stride = stride;

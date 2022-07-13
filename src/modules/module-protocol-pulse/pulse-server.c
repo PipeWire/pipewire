@@ -1277,7 +1277,7 @@ do_process_done(struct spa_loop *loop,
 	stream->timestamp = pd->pwt.now;
 	stream->delay = pd->pwt.buffered * SPA_USEC_PER_SEC / stream->ss.rate;
 	if (pd->pwt.rate.denom > 0)
-		stream->delay = pd->pwt.delay * SPA_USEC_PER_SEC / pd->pwt.rate.denom;
+		stream->delay += pd->pwt.delay * SPA_USEC_PER_SEC * pd->pwt.rate.num / pd->pwt.rate.denom;
 
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
 		if (pd->quantum != stream->last_quantum)

@@ -1169,7 +1169,7 @@ static int node_event_param(void *object, int seq,
 		struct control *c;
 		const struct spa_pod *type, *pod;
 		uint32_t iid, choice, n_vals, container = SPA_ID_INVALID;
-		float *vals, bool_range[3] = { 1.0, 0.0, 1.0 }, dbl[3];
+		float *vals, bool_range[3] = { 1.0f, 0.0f, 1.0f }, dbl[3];
 
 		if (spa_pod_parse_object(param,
 					SPA_TYPE_OBJECT_PropInfo, NULL,
@@ -1293,7 +1293,7 @@ static int node_event_param(void *object, int seq,
 			case SPA_TYPE_Bool:
 				if (spa_pod_get_bool(&prop->value, &value.b) < 0)
 					continue;
-				value.f = value.b ? 1.0 : 0.0;
+				value.f = value.b ? 1.0f : 0.0f;
 				n_values = 1;
 				values = &value.f;
 				break;

@@ -189,33 +189,35 @@ static void capture_process(void *d)
 		pw_log_debug("out of playback buffers: %m");
 
 	if (in != NULL && out != NULL) {
+		uint32_t outsize = UINT32_MAX;
+		int32_t stride = 0;
+		struct spa_data *d;
+		const void *src[in->buffer->n_datas];
 
+		for (i = 0; i < in->buffer->n_datas; i++) {
+			uint32_t offs, size;
+
+			d = &in->buffer->datas[i];
+			offs = SPA_MIN(d->chunk->offset, d->maxsize);
+			size = SPA_MIN(d->chunk->size, d->maxsize - offs);
+
+			src[i] = SPA_PTROFF(d->data, offs, void);
+			outsize = SPA_MIN(outsize, size);
+			stride = SPA_MAX(stride, d->chunk->stride);
+		}
 		for (i = 0; i < out->buffer->n_datas; i++) {
-			struct spa_data *ds, *dd;
-			uint32_t outsize = 0;
-			int32_t stride = 0;
+			d = &out->buffer->datas[i];
 
-			dd = &out->buffer->datas[i];
+			outsize = SPA_MIN(outsize, d->maxsize);
 
-			if (i < in->buffer->n_datas) {
-				uint32_t offs, size;
+			if (i < in->buffer->n_datas)
+				memcpy(d->data, src[i], outsize);
+			else
+				memset(d->data, 0, outsize);
 
-				ds = &in->buffer->datas[i];
-
-				offs = SPA_MIN(ds->chunk->offset, ds->maxsize);
-				size = SPA_MIN(ds->chunk->size, ds->maxsize - offs);
-				stride = SPA_MAX(stride, stride);
-
-				memcpy(dd->data,
-					SPA_PTROFF(ds->data, offs, void), size);
-
-				outsize = SPA_MAX(outsize, size);
-			} else {
-				memset(dd->data, 0, outsize);
-			}
-			dd->chunk->offset = 0;
-			dd->chunk->size = outsize;
-			dd->chunk->stride = stride;
+			d->chunk->offset = 0;
+			d->chunk->size = outsize;
+			d->chunk->stride = stride;
 		}
 	}
 

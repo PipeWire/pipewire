@@ -652,7 +652,7 @@ static void run_test_noise(uint32_t fmt, uint32_t noise, uint32_t flags)
 	}
 	convert_process(&conv, op, ip, N_SAMPLES);
 
-	range = (1 << conv.noise) - 1;
+	range = 1 << conv.noise;
 
 	all_zero = true;
 	for (i = 0; i < conv.n_channels * N_SAMPLES; i++) {

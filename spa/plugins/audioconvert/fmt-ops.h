@@ -35,12 +35,12 @@
 #include <spa/utils/defs.h>
 #include <spa/utils/string.h>
 
-#define ROUND(v)	(v)
+#define f32_round(a)	lrintf(a)
 
 #define ITOF(type,v,scale,offs) \
 	(((type)(v)) * (1.0f / (scale)) - (offs))
 #define FTOI(type,v,scale,offs,dither,min,max) \
-	(type)ROUND(SPA_CLAMP((v) * (scale) + (offs) + (dither), min, max))
+	(type)f32_round(SPA_CLAMP((v) * (scale) + (offs) + (dither), min, max))
 
 #define FMT_OPS_MAX_ALIGN	32
 

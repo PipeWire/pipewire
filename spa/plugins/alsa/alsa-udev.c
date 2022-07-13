@@ -538,11 +538,35 @@ static int emit_object_info(struct impl *this, struct device *device)
 
 static bool check_access(struct impl *this, struct device *device)
 {
-	char path[128];
-	bool accessible;
+	char path[128], prefix[32];
+	DIR *snd = NULL;
+	struct dirent *entry;
+	bool accessible = false;
 
 	snprintf(path, sizeof(path), "/dev/snd/controlC%u", device->id);
-	accessible = access(path, R_OK|W_OK) >= 0;
+	if (access(path, R_OK|W_OK) >= 0 && (snd = opendir("/dev/snd"))) {
+		/*
+		 * It's possible that controlCX is accessible before pcmCX* or
+		 * the other way around. Return true only if all devices are
+                 * accessible.
+		 */
+
+		accessible = true;
+		spa_scnprintf(prefix, sizeof(prefix), "pcmC%uD", device->id);
+		while ((entry = readdir(snd)) != NULL) {
+			if (!(entry->d_type == DT_CHR &&
+					spa_strstartswith(entry->d_name, prefix)))
+				continue;
+
+			snprintf(path, sizeof(path), "/dev/snd/%.32s", entry->d_name);
+			if (access(path, R_OK|W_OK) < 0) {
+				accessible = false;
+				break;
+			}
+		}
+		closedir(snd);
+	}
+
 	if (accessible != device->accessible)
 		spa_log_debug(this->log, "%s accessible:%u", path, accessible);
 	device->accessible = accessible;
@@ -655,10 +679,6 @@ static void impl_on_notify_events(struct spa_source *source)
 			/* Device becomes accessible or not busy */
 			if ((event->mask & (IN_ATTRIB | IN_CLOSE_WRITE))) {
 				bool access;
-
-				if ((event->mask & IN_ATTRIB) &&
-						spa_strstartswith(event->name, "pcm"))
-					continue;
 				if (sscanf(event->name, "controlC%u", &id) != 1 &&
 						sscanf(event->name, "pcmC%uD", &id) != 1)
 					continue;

@@ -166,8 +166,8 @@ param_filter(struct pw_buffers *this,
 	uint8_t ibuf[4096];
         struct spa_pod_builder ib = { 0 };
 	struct spa_pod *oparam, *iparam;
-	uint32_t iidx, oidx, num = 0;
-	int in_res = -EIO, out_res = -EIO;
+	uint32_t iidx, oidx;
+	int in_res = -EIO, out_res = -EIO, num = 0;
 
 	for (iidx = 0;;) {
 	        spa_pod_builder_init(&ib, ibuf, sizeof(ibuf));

@@ -185,14 +185,14 @@ static int do_conversion(struct data *d)
 	float out[MAX_SAMPLES * channels];
 	float ibuf[MAX_SAMPLES * channels];
 	float obuf[MAX_SAMPLES * channels];
-	uint32_t in_len, out_len;
-        uint32_t pin_len, pout_len;
+	uint32_t in_len, out_len, queued;
+	uint32_t pin_len, pout_len;
 	size_t read, written;
 	const void *src[channels];
 	void *dst[channels];
 	uint32_t i;
-	int res, j, k, queued;
-	bool flushing = false;
+	int res, j, k;
+	uint32_t flushing = UINT32_MAX;
 
 	spa_zero(r);
 	r.cpu_flags = d->cpu_flags;
@@ -206,7 +206,6 @@ static int do_conversion(struct data *d)
 		return res;
 	}
 
-
 	for (j = 0; j < channels; j++)
 		src[j] = &in[MAX_SAMPLES * j];
 	for (j = 0; j < channels; j++)
@@ -215,25 +214,29 @@ static int do_conversion(struct data *d)
 	read = written = queued = 0;
 	while (true) {
 		pout_len = out_len = MAX_SAMPLES;
-                in_len = SPA_MIN(MAX_SAMPLES, resample_in_len(&r, out_len)) - queued;
+		in_len = SPA_MIN(MAX_SAMPLES, resample_in_len(&r, out_len));
+		in_len -= SPA_MIN(queued, in_len);
 
-		pin_len = in_len = sf_readf_float(d->ifile, &ibuf[queued * channels], in_len);
+		if (in_len > 0) {
+			pin_len = in_len = sf_readf_float(d->ifile, &ibuf[queued * channels], in_len);
 
-		read += pin_len;
+			read += pin_len;
 
-		if (pin_len == 0) {
-			if (flushing)
-				break;
+			if (pin_len == 0) {
+				if (flushing == 0)
+					break;
+				if (flushing == UINT32_MAX)
+					flushing = resample_delay(&r);
 
-			flushing = true;
-			pin_len = in_len = resample_delay(&r);
+				pin_len = in_len = SPA_MIN(MAX_SAMPLES, flushing);
+				flushing -= in_len;
 
-			for (k = 0, i = 0; i < pin_len; i++) {
-				for (j = 0; j < channels; j++)
-					ibuf[k++] = 0.0;
+				for (k = 0, i = 0; i < pin_len; i++) {
+					for (j = 0; j < channels; j++)
+						ibuf[k++] = 0.0;
+				}
 			}
 		}
-
 		in_len += queued;
 		pin_len = in_len;
 
@@ -248,18 +251,20 @@ static int do_conversion(struct data *d)
 		if (queued)
 			memmove(ibuf, &ibuf[pin_len * channels], queued * channels * sizeof(float));
 
-		for (k = 0, i = 0; i < pout_len; i++) {
-			for (j = 0; j < channels; j++) {
-				obuf[k++] = out[MAX_SAMPLES * j + i];
+		if (pout_len > 0) {
+			for (k = 0, i = 0; i < pout_len; i++) {
+				for (j = 0; j < channels; j++) {
+					obuf[k++] = out[MAX_SAMPLES * j + i];
+				}
 			}
-		}
-		pout_len = sf_writef_float(d->ofile, obuf, pout_len);
+			pout_len = sf_writef_float(d->ofile, obuf, pout_len);
 
-		written += pout_len;
+			written += pout_len;
+		}
 	}
-	if (d->verbose) {
+	if (d->verbose)
 		fprintf(stdout, "read %zu samples, wrote %zu samples\n", read, written);
-	}
+
 	return 0;
 }
 

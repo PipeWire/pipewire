@@ -1332,6 +1332,7 @@ do_process_done(struct spa_loop *loop,
 				stream->read_index += skip;
 				avail = stream->attr.fragsize;
 			}
+			pw_log_trace("avail:%d index:%u", avail, index);
 
 			while ((uint32_t)avail >= stream->attr.fragsize) {
 				towrite = SPA_MIN((uint32_t)avail, stream->attr.fragsize);
@@ -2124,7 +2125,7 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 	if (stream == NULL || stream->type != STREAM_TYPE_PLAYBACK)
 		return -ENOENT;
 
-	pw_log_debug("read:%"PRIx64" write:%"PRIx64" queued:%"PRIi64" delay:%"PRIi64
+	pw_log_debug("read:0x%"PRIx64" write:0x%"PRIx64" queued:%"PRIi64" delay:%"PRIi64
 			" playing:%"PRIu64,
 			stream->read_index, stream->write_index,
 			stream->write_index - stream->read_index, stream->delay,
@@ -2172,6 +2173,11 @@ static int do_get_record_latency(struct client *client, uint32_t command, uint32
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL || stream->type != STREAM_TYPE_RECORD)
 		return -ENOENT;
+
+	pw_log_debug("read:0x%"PRIx64" write:0x%"PRIx64" queued:%"PRIi64" delay:%"PRIi64,
+			stream->read_index, stream->write_index,
+			stream->write_index - stream->read_index, stream->delay);
+
 
 	gettimeofday(&now, NULL);
 	reply = reply_new(client, tag);

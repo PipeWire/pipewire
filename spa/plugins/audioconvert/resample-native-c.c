@@ -1,6 +1,6 @@
 /* Spa
  *
- * Copyright © 2020 Wim Taymans
+ * Copyright © 2019 Wim Taymans
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,23 +22,44 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <math.h>
+#include "resample-native-impl.h"
 
-#include <spa/utils/defs.h>
-
-#include "resample.h"
-
-struct peaks_data {
-	uint32_t o_count;
-	uint32_t i_count;
-	float max_f[];
-};
-
-void resample_peaks_process_c(struct resample *r,
-	const void * SPA_RESTRICT src[], uint32_t *in_len,
-	void * SPA_RESTRICT dst[], uint32_t *out_len);
-#if defined (HAVE_SSE)
-void resample_peaks_process_sse(struct resample *r,
-	const void * SPA_RESTRICT src[], uint32_t *in_len,
-	void * SPA_RESTRICT dst[], uint32_t *out_len);
+static void inner_product_c(float *d, const float * SPA_RESTRICT s,
+		const float * SPA_RESTRICT taps, uint32_t n_taps)
+{
+	float sum = 0.0f;
+#if 1
+	uint32_t i, j, nt2 = n_taps/2;
+	for (i = 0, j = n_taps-1; i < nt2; i++, j--)
+		sum += s[i] * taps[i] + s[j] * taps[j];
+#else
+	uint32_t i;
+	for (i = 0; i < n_taps; i++)
+		sum += s[i] * taps[i];
 #endif
+	*d = sum;
+}
+
+static void inner_product_ip_c(float *d, const float * SPA_RESTRICT s,
+	const float * SPA_RESTRICT t0, const float * SPA_RESTRICT t1, float x,
+	uint32_t n_taps)
+{
+	float sum[2] = { 0.0f, 0.0f };
+	uint32_t i;
+#if 1
+	uint32_t j, nt2 = n_taps/2;
+	for (i = 0, j = n_taps-1; i < nt2; i++, j--) {
+		sum[0] += s[i] * t0[i] + s[j] * t0[j];
+		sum[1] += s[i] * t1[i] + s[j] * t1[j];
+	}
+#else
+	for (i = 0; i < n_taps; i++) {
+		sum[0] += s[i] * t0[i];
+		sum[1] += s[i] * t1[i];
+	}
+#endif
+	*d = (sum[1] - sum[0]) * x + sum[0];
+}
+
+MAKE_RESAMPLER_FULL(c);
+MAKE_RESAMPLER_INTER(c);

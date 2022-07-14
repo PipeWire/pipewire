@@ -29,52 +29,6 @@
 
 #include "resample-peaks-impl.h"
 
-static void resample_peaks_process_c(struct resample *r,
-			const void * SPA_RESTRICT src[], uint32_t *in_len,
-			void * SPA_RESTRICT dst[], uint32_t *out_len)
-{
-	struct peaks_data *pd = r->data;
-	uint32_t c, i, o, end, chunk, o_count, i_count;
-
-	if (SPA_UNLIKELY(r->channels == 0))
-		return;
-
-	for (c = 0; c < r->channels; c++) {
-		const float *s = src[c];
-		float *d = dst[c], m = pd->max_f[c];
-
-		o_count = pd->o_count;
-		i_count = pd->i_count;
-		o = i = 0;
-
-		while (i < *in_len && o < *out_len) {
-			end = ((uint64_t) (o_count + 1) * r->i_rate) / r->o_rate;
-			end = end > i_count ? end - i_count : 0;
-			chunk = SPA_MIN(end, *in_len);
-
-			for (; i < chunk; i++)
-				m = SPA_MAX(fabsf(s[i]), m);
-
-			if (i == end) {
-				d[o++] = m;
-				m = 0.0f;
-				o_count++;
-			}
-		}
-		pd->max_f[c] = m;
-	}
-
-	*out_len = o;
-	*in_len = i;
-	pd->o_count = o_count;
-	pd->i_count = i_count + i;
-
-	while (pd->i_count >= r->i_rate) {
-		pd->i_count -= r->i_rate;
-		pd->o_count -= r->o_rate;
-	}
-}
-
 struct resample_info {
 	uint32_t format;
 	uint32_t cpu_flags;

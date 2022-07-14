@@ -9,8 +9,6 @@
  */
 
 
-#include "config.h"
-
 #include <spa/utils/defs.h>
 
 #include <math.h>

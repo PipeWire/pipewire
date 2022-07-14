@@ -3,8 +3,6 @@
  * found in the LICENSE file.
  */
 
-#include "config.h"
-
 #include <float.h>
 #include <string.h>
 

@@ -591,6 +591,8 @@ static void capture_process(void *d)
 	struct graph *graph = &impl->graph;
 	uint32_t i, outsize = 0, n_hndl = graph->n_hndl;
 	int32_t stride = 0;
+	struct graph_port *port;
+	struct spa_data *bd;
 
 	if ((in = pw_stream_dequeue_buffer(impl->capture)) == NULL)
 		pw_log_debug("out of capture buffers: %m");
@@ -602,34 +604,37 @@ static void capture_process(void *d)
 		goto done;
 
 	for (i = 0; i < in->buffer->n_datas; i++) {
-		struct spa_data *ds = &in->buffer->datas[i];
-		struct graph_port *port = &graph->input[i];
 		uint32_t offs, size;
 
-		offs = SPA_MIN(ds->chunk->offset, ds->maxsize);
-		size = SPA_MIN(ds->chunk->size, ds->maxsize - offs);
+		bd = &in->buffer->datas[i];
 
-		if (port->desc)
+		offs = SPA_MIN(bd->chunk->offset, bd->maxsize);
+		size = SPA_MIN(bd->chunk->size, bd->maxsize - offs);
+
+		port = i < graph->n_input ? &graph->input[i] : NULL;
+
+		if (port && port->desc)
 			port->desc->connect_port(port->hndl, port->port,
-				SPA_PTROFF(ds->data, offs, void));
+				SPA_PTROFF(bd->data, offs, void));
 
 		outsize = i == 0 ? size : SPA_MIN(outsize, size);
-		stride = SPA_MAX(stride, ds->chunk->stride);
+		stride = SPA_MAX(stride, bd->chunk->stride);
 	}
 	for (i = 0; i < out->buffer->n_datas; i++) {
-		struct spa_data *dd = &out->buffer->datas[i];
-		struct graph_port *port = &graph->output[i];
+		bd = &out->buffer->datas[i];
 
-		outsize = SPA_MIN(outsize, dd->maxsize);
+		outsize = SPA_MIN(outsize, bd->maxsize);
 
-		if (port->desc)
-			port->desc->connect_port(port->hndl, port->port, dd->data);
+		port = i < graph->n_output ? &graph->output[i] : NULL;
+
+		if (port && port->desc)
+			port->desc->connect_port(port->hndl, port->port, bd->data);
 		else
-			memset(dd->data, 0, outsize);
+			memset(bd->data, 0, outsize);
 
-		dd->chunk->offset = 0;
-		dd->chunk->size = outsize;
-		dd->chunk->stride = stride;
+		bd->chunk->offset = 0;
+		bd->chunk->size = outsize;
+		bd->chunk->stride = stride;
 	}
 	for (i = 0; i < n_hndl; i++) {
 		struct graph_hndl *hndl = &graph->hndl[i];

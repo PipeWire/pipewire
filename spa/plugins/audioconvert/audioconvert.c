@@ -628,8 +628,8 @@ static int impl_node_enum_params(void *object, int seq,
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_PropInfo, id,
 				SPA_PROP_INFO_name, SPA_POD_String("dither.noise"),
-				SPA_PROP_INFO_description, SPA_POD_String("Add dithering noise"),
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(this->dir[1].conv.noise, 0, 16),
+				SPA_PROP_INFO_description, SPA_POD_String("Add noise bits"),
+				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(this->dir[1].conv.noise_bits, 0, 16),
 				SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
 		case 23:

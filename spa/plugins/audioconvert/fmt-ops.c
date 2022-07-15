@@ -46,9 +46,9 @@ struct conv_info {
 	const char *name;
 
 	uint32_t cpu_flags;
-#define CONV_DITHER	(1<<0)
+#define CONV_NOISE	(1<<0)
 #define CONV_SHAPE	(1<<1)
-	uint32_t dither_flags;
+	uint32_t conv_flags;
 };
 
 #define MAKE(fmt1,fmt2,chan,func,...) \
@@ -171,20 +171,20 @@ static struct conv_info conv_table[] =
 	/* from f32 */
 	MAKE(F32, U8, 0, conv_f32_to_u8_c),
 	MAKE(F32P, U8P, 0, conv_f32d_to_u8d_shaped_c, 0, CONV_SHAPE),
-	MAKE(F32P, U8P, 0, conv_f32d_to_u8d_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, U8P, 0, conv_f32d_to_u8d_noise_c, 0, CONV_NOISE),
 	MAKE(F32P, U8P, 0, conv_f32d_to_u8d_c),
 	MAKE(F32, U8P, 0, conv_f32_to_u8d_c),
 	MAKE(F32P, U8, 0, conv_f32d_to_u8_shaped_c, 0, CONV_SHAPE),
-	MAKE(F32P, U8, 0, conv_f32d_to_u8_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, U8, 0, conv_f32d_to_u8_noise_c, 0, CONV_NOISE),
 	MAKE(F32P, U8, 0, conv_f32d_to_u8_c),
 
 	MAKE(F32, S8, 0, conv_f32_to_s8_c),
 	MAKE(F32P, S8P, 0, conv_f32d_to_s8d_shaped_c, 0, CONV_SHAPE),
-	MAKE(F32P, S8P, 0, conv_f32d_to_s8d_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, S8P, 0, conv_f32d_to_s8d_noise_c, 0, CONV_NOISE),
 	MAKE(F32P, S8P, 0, conv_f32d_to_s8d_c),
 	MAKE(F32, S8P, 0, conv_f32_to_s8d_c),
 	MAKE(F32P, S8, 0, conv_f32d_to_s8_shaped_c, 0, CONV_SHAPE),
-	MAKE(F32P, S8, 0, conv_f32d_to_s8_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, S8, 0, conv_f32d_to_s8_noise_c, 0, CONV_NOISE),
 	MAKE(F32P, S8, 0, conv_f32d_to_s8_c),
 
 	MAKE(F32P, ALAW, 0, conv_f32d_to_alaw_c),
@@ -200,9 +200,9 @@ static struct conv_info conv_table[] =
 
 	MAKE(F32P, S16P, 0, conv_f32d_to_s16d_shaped_c, 0, CONV_SHAPE),
 #if defined (HAVE_SSE2)
-	MAKE(F32P, S16P, 0, conv_f32d_to_s16d_dither_sse2, SPA_CPU_FLAG_SSE2, CONV_DITHER),
+	MAKE(F32P, S16P, 0, conv_f32d_to_s16d_noise_sse2, SPA_CPU_FLAG_SSE2, CONV_NOISE),
 #endif
-	MAKE(F32P, S16P, 0, conv_f32d_to_s16d_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, S16P, 0, conv_f32d_to_s16d_noise_c, 0, CONV_NOISE),
 #if defined (HAVE_SSE2)
 	MAKE(F32P, S16P, 0, conv_f32d_to_s16d_sse2, SPA_CPU_FLAG_SSE2),
 #endif
@@ -212,9 +212,9 @@ static struct conv_info conv_table[] =
 
 	MAKE(F32P, S16, 0, conv_f32d_to_s16_shaped_c, 0, CONV_SHAPE),
 #if defined (HAVE_SSE2)
-	MAKE(F32P, S16, 0, conv_f32d_to_s16_dither_sse2, SPA_CPU_FLAG_SSE2, CONV_DITHER),
+	MAKE(F32P, S16, 0, conv_f32d_to_s16_noise_sse2, SPA_CPU_FLAG_SSE2, CONV_NOISE),
 #endif
-	MAKE(F32P, S16, 0, conv_f32d_to_s16_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, S16, 0, conv_f32d_to_s16_noise_c, 0, CONV_NOISE),
 #if defined (HAVE_NEON)
 	MAKE(F32P, S16, 0, conv_f32d_to_s16_neon, SPA_CPU_FLAG_NEON),
 #endif
@@ -230,21 +230,21 @@ static struct conv_info conv_table[] =
 	MAKE(F32P, S16, 0, conv_f32d_to_s16_c),
 
 	MAKE(F32P, S16_OE, 0, conv_f32d_to_s16s_shaped_c, 0, CONV_SHAPE),
-	MAKE(F32P, S16_OE, 0, conv_f32d_to_s16s_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, S16_OE, 0, conv_f32d_to_s16s_noise_c, 0, CONV_NOISE),
 	MAKE(F32P, S16_OE, 0, conv_f32d_to_s16s_c),
 
 	MAKE(F32, U32, 0, conv_f32_to_u32_c),
 	MAKE(F32P, U32, 0, conv_f32d_to_u32_c),
 
 	MAKE(F32, S32, 0, conv_f32_to_s32_c),
-	MAKE(F32P, S32P, 0, conv_f32d_to_s32d_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, S32P, 0, conv_f32d_to_s32d_noise_c, 0, CONV_NOISE),
 	MAKE(F32P, S32P, 0, conv_f32d_to_s32d_c),
 	MAKE(F32, S32P, 0, conv_f32_to_s32d_c),
 
 #if defined (HAVE_SSE2)
-	MAKE(F32P, S32, 0, conv_f32d_to_s32_dither_sse2, SPA_CPU_FLAG_SSE2, CONV_DITHER),
+	MAKE(F32P, S32, 0, conv_f32d_to_s32_noise_sse2, SPA_CPU_FLAG_SSE2, CONV_NOISE),
 #endif
-	MAKE(F32P, S32, 0, conv_f32d_to_s32_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, S32, 0, conv_f32d_to_s32_noise_c, 0, CONV_NOISE),
 
 #if defined (HAVE_AVX2)
 	MAKE(F32P, S32, 0, conv_f32d_to_s32_avx2, SPA_CPU_FLAG_AVX2),
@@ -254,33 +254,33 @@ static struct conv_info conv_table[] =
 #endif
 	MAKE(F32P, S32, 0, conv_f32d_to_s32_c),
 
-	MAKE(F32P, S32_OE, 0, conv_f32d_to_s32s_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, S32_OE, 0, conv_f32d_to_s32s_noise_c, 0, CONV_NOISE),
 	MAKE(F32P, S32_OE, 0, conv_f32d_to_s32s_c),
 
 	MAKE(F32, U24, 0, conv_f32_to_u24_c),
 	MAKE(F32P, U24, 0, conv_f32d_to_u24_c),
 
 	MAKE(F32, S24, 0, conv_f32_to_s24_c),
-	MAKE(F32P, S24P, 0, conv_f32d_to_s24d_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, S24P, 0, conv_f32d_to_s24d_noise_c, 0, CONV_NOISE),
 	MAKE(F32P, S24P, 0, conv_f32d_to_s24d_c),
 	MAKE(F32, S24P, 0, conv_f32_to_s24d_c),
-	MAKE(F32P, S24, 0, conv_f32d_to_s24_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, S24, 0, conv_f32d_to_s24_noise_c, 0, CONV_NOISE),
 	MAKE(F32P, S24, 0, conv_f32d_to_s24_c),
 
-	MAKE(F32P, S24_OE, 0, conv_f32d_to_s24s_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, S24_OE, 0, conv_f32d_to_s24s_noise_c, 0, CONV_NOISE),
 	MAKE(F32P, S24_OE, 0, conv_f32d_to_s24s_c),
 
 	MAKE(F32, U24_32, 0, conv_f32_to_u24_32_c),
 	MAKE(F32P, U24_32, 0, conv_f32d_to_u24_32_c),
 
 	MAKE(F32, S24_32, 0, conv_f32_to_s24_32_c),
-	MAKE(F32P, S24_32P, 0, conv_f32d_to_s24_32d_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, S24_32P, 0, conv_f32d_to_s24_32d_noise_c, 0, CONV_NOISE),
 	MAKE(F32P, S24_32P, 0, conv_f32d_to_s24_32d_c),
 	MAKE(F32, S24_32P, 0, conv_f32_to_s24_32d_c),
-	MAKE(F32P, S24_32, 0, conv_f32d_to_s24_32_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, S24_32, 0, conv_f32d_to_s24_32_noise_c, 0, CONV_NOISE),
 	MAKE(F32P, S24_32, 0, conv_f32d_to_s24_32_c),
 
-	MAKE(F32P, S24_32_OE, 0, conv_f32d_to_s24_32s_dither_c, 0, CONV_DITHER),
+	MAKE(F32P, S24_32_OE, 0, conv_f32d_to_s24_32s_noise_c, 0, CONV_NOISE),
 	MAKE(F32P, S24_32_OE, 0, conv_f32d_to_s24_32s_c),
 
 	MAKE(F32, F64, 0, conv_f32_to_f64_c),
@@ -356,7 +356,7 @@ static struct conv_info conv_table[] =
 #define MATCH_DITHER(a,b)	((a) == 0 || ((a) & (b)) == a)
 
 static const struct conv_info *find_conv_info(uint32_t src_fmt, uint32_t dst_fmt,
-		uint32_t n_channels, uint32_t cpu_flags, uint32_t dither_flags)
+		uint32_t n_channels, uint32_t cpu_flags, uint32_t conv_flags)
 {
 	size_t i;
 
@@ -365,7 +365,7 @@ static const struct conv_info *find_conv_info(uint32_t src_fmt, uint32_t dst_fmt
 		    conv_table[i].dst_fmt == dst_fmt &&
 		    MATCH_CHAN(conv_table[i].n_channels, n_channels) &&
 		    MATCH_CPU_FLAGS(conv_table[i].cpu_flags, cpu_flags) &&
-		    MATCH_DITHER(conv_table[i].dither_flags, dither_flags))
+		    MATCH_DITHER(conv_table[i].conv_flags, conv_flags))
 			return &conv_table[i];
 	}
 	return NULL;
@@ -374,8 +374,8 @@ static const struct conv_info *find_conv_info(uint32_t src_fmt, uint32_t dst_fmt
 static void impl_convert_free(struct convert *conv)
 {
 	conv->process = NULL;
-	free(conv->dither);
-	conv->dither = NULL;
+	free(conv->noise);
+	conv->noise = NULL;
 }
 
 static bool need_dither(uint32_t format)
@@ -395,43 +395,99 @@ static bool need_dither(uint32_t format)
 	return false;
 }
 
+/* filters based on F-weighted curves
+ * from 'Psychoacoustically Optimal Noise Shaping' (**)
+ * this filter is the "F-Weighted" noise filter described by Wannamaker
+ * It is designed to produce minimum audibility: */
+static const float wan3[] = { /* Table 3; 3 Coefficients */
+	1.623f, -0.982f, 0.109f
+};
+/* Noise shaping coefficients from[1], moves most power of the
+ * error noise into inaudible frequency ranges.
+ *
+ * [1]
+ * "Minimally Audible Noise Shaping", Stanley P. Lipshitz,
+ * John Vanderkooy, and Robert A. Wannamaker,
+ * J. Audio Eng. Soc., Vol. 39, No. 11, November 1991. */
+static const float lips44[] = { /* improved E-weighted (appendix: 5) */
+	2.033f, -2.165f, 1.959f, -1.590f, 0.6149f
+};
+
+static const struct dither_info {
+	uint32_t method;
+	uint32_t noise_method;
+	uint32_t rate;
+	const float *ns;
+	uint32_t n_ns;
+} dither_info[] = {
+	{ DITHER_METHOD_NONE, NOISE_METHOD_NONE, },
+	{ DITHER_METHOD_RECTANGULAR, NOISE_METHOD_RECTANGULAR, },
+	{ DITHER_METHOD_TRIANGULAR, NOISE_METHOD_TRIANGULAR, },
+	{ DITHER_METHOD_TRIANGULAR_HF, NOISE_METHOD_TRIANGULAR_HF, },
+	{ DITHER_METHOD_WANAMAKER_3, NOISE_METHOD_TRIANGULAR_HF, 44100, wan3, SPA_N_ELEMENTS(wan3) },
+	{ DITHER_METHOD_LIPSHITZ, NOISE_METHOD_TRIANGULAR, 44100, lips44, SPA_N_ELEMENTS(lips44) }
+};
+
+static const struct dither_info *find_dither_info(uint32_t method, uint32_t rate)
+{
+	size_t i;
+
+	for (i = 0; i < SPA_N_ELEMENTS(dither_info); i++) {
+		const struct dither_info *di = &dither_info[i];
+		if (di->method != method)
+			continue;
+		/* don't use shaped for too low rates, it moves the noise to
+		 * audible ranges */
+		if (di->ns != NULL && rate < di->rate * 3 / 4)
+			return find_dither_info(DITHER_METHOD_TRIANGULAR_HF, rate);
+		return &dither_info[i];
+	}
+	return NULL;
+}
+
 int convert_init(struct convert *conv)
 {
 	const struct conv_info *info;
-	uint32_t i, dither_flags;
+	const struct dither_info *dinfo;
+	uint32_t i, conv_flags;
 
 	conv->scale = 1.0f / (float)(INT32_MAX);
 
-	if (conv->noise > 0)
-		conv->scale *= (1 << (conv->noise + 1));
+	if (conv->noise_bits > 0)
+		conv->scale *= (1 << (conv->noise_bits + 1));
 
 	/* disable dither if not needed */
 	if (!need_dither(conv->dst_fmt))
 		conv->method = DITHER_METHOD_NONE;
 
-	/* don't use shaped for too low rates, it moves the noise to
-	 * audible ranges */
-	if (conv->method == DITHER_METHOD_SHAPED_5 && conv->rate < 32000)
-		conv->method = DITHER_METHOD_TRIANGULAR;
+	dinfo = find_dither_info(conv->method, conv->rate);
+	if (dinfo == NULL)
+		return -EINVAL;
 
-	if (conv->method < DITHER_METHOD_TRIANGULAR)
+	conv->noise_method = dinfo->noise_method;
+	if (conv->noise_bits && conv->noise_method == NOISE_METHOD_NONE)
+		conv->noise_method = NOISE_METHOD_RECTANGULAR;
+	if (conv->noise_method < NOISE_METHOD_TRIANGULAR)
 		conv->scale *= 0.5f;
 
-	dither_flags = 0;
-	if (conv->method != DITHER_METHOD_NONE || conv->noise)
-		dither_flags |= CONV_DITHER;
-	if (conv->method == DITHER_METHOD_SHAPED_5)
-		dither_flags |= CONV_SHAPE;
+	conv_flags = 0;
+	if (conv->noise_method != NOISE_METHOD_NONE)
+		conv_flags |= CONV_NOISE;
+	if (dinfo->n_ns > 0) {
+		conv_flags |= CONV_SHAPE;
+		conv->n_ns = dinfo->n_ns;
+		conv->ns = dinfo->ns;
+	}
 
 	info = find_conv_info(conv->src_fmt, conv->dst_fmt, conv->n_channels,
-			conv->cpu_flags, dither_flags);
+			conv->cpu_flags, conv_flags);
 	if (info == NULL)
 		return -ENOTSUP;
 
-	conv->dither_size = DITHER_SIZE;
-	conv->dither = calloc(conv->dither_size + 16 +
+	conv->noise_size = DITHER_SIZE;
+	conv->noise = calloc(conv->noise_size + 16 +
 			FMT_OPS_MAX_ALIGN / sizeof(float), sizeof(float));
-	if (conv->dither == NULL)
+	if (conv->noise == NULL)
 		return -errno;
 
 	for (i = 0; i < SPA_N_ELEMENTS(conv->random); i++)

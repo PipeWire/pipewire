@@ -230,95 +230,104 @@ lcnoise(uint32_t *state)
         return (int32_t)(*state);
 }
 
-static inline void update_dither_c(struct convert *conv, uint32_t n_samples)
+static inline void update_noise_c(struct convert *conv, uint32_t n_samples)
 {
 	uint32_t n;
-	float *dither = conv->dither, scale = conv->scale;
+	float *noise = conv->noise, scale = conv->scale;
 	uint32_t *state = &conv->random[0];
+	int32_t *prev = &conv->prev[0], old, new;
 
-	if (conv->method < DITHER_METHOD_TRIANGULAR) {
+	switch (conv->noise_method) {
+	case NOISE_METHOD_RECTANGULAR:
 		for (n = 0; n < n_samples; n++)
-			dither[n] = lcnoise(state) * scale;
-	} else {
+			noise[n] = lcnoise(state) * scale;
+		break;
+	case NOISE_METHOD_TRIANGULAR:
 		for (n = 0; n < n_samples; n++)
-			dither[n] = (lcnoise(state) + lcnoise(state)) * scale;
+			noise[n] = (lcnoise(state) - lcnoise(state)) * scale;
+		break;
+	case NOISE_METHOD_TRIANGULAR_HF:
+		old = *prev;
+		for (n = 0; n < n_samples; n++) {
+			new = lcnoise(state);
+			noise[n] = (new - old) * scale;
+			old = new;
+		}
+		*prev = old;
+		break;
 	}
 }
 
-#define MAKE_D_dither(dname,dtype,func) 					\
-void conv_f32d_to_ ##dname## d_dither_c(struct convert *conv,			\
+#define MAKE_D_noise(dname,dtype,func) 					\
+void conv_f32d_to_ ##dname## d_noise_c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
 {										\
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;	\
-	float *dither = conv->dither;						\
-	update_dither_c(conv, SPA_MIN(n_samples, dither_size));			\
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, noise_size = conv->noise_size;	\
+	float *noise = conv->noise;						\
+	update_noise_c(conv, SPA_MIN(n_samples, noise_size));			\
 	for (i = 0; i < n_channels; i++) {					\
 		const float *s = src[i];					\
 		dtype *d = dst[i];						\
 		for (j = 0; j < n_samples;) {					\
-			chunk = SPA_MIN(n_samples - j, dither_size);		\
+			chunk = SPA_MIN(n_samples - j, noise_size);		\
 			for (k = 0; k < chunk; k++, j++)			\
-				d[j] = func (s[j], dither[k]);			\
+				d[j] = func (s[j], noise[k]);			\
 		}								\
 	}									\
 }
 
-#define MAKE_I_dither(dname,dtype,func) 					\
-void conv_f32d_to_ ##dname## _dither_c(struct convert *conv,			\
+#define MAKE_I_noise(dname,dtype,func) 					\
+void conv_f32d_to_ ##dname## _noise_c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
 {										\
 	const float **s = (const float **) src;					\
 	dtype *d = dst[0];							\
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;	\
-	float *dither = conv->dither;						\
-	update_dither_c(conv, SPA_MIN(n_samples, dither_size));			\
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, noise_size = conv->noise_size;	\
+	float *noise = conv->noise;						\
+	update_noise_c(conv, SPA_MIN(n_samples, noise_size));			\
 	for (j = 0; j < n_samples;) {						\
-		chunk = SPA_MIN(n_samples - j, dither_size);			\
+		chunk = SPA_MIN(n_samples - j, noise_size);			\
 		for (k = 0; k < chunk; k++, j++) {				\
 			for (i = 0; i < n_channels; i++)			\
-				*d++ = func (s[i][j], dither[k]);		\
+				*d++ = func (s[i][j], noise[k]);		\
 		}								\
 	}									\
 }
 
-MAKE_D_dither(u8, uint8_t, F32_TO_U8_D);
-MAKE_I_dither(u8, uint8_t, F32_TO_U8_D);
-MAKE_D_dither(s8, int8_t, F32_TO_S8_D);
-MAKE_I_dither(s8, int8_t, F32_TO_S8_D);
-MAKE_D_dither(s16, int16_t, F32_TO_S16_D);
-MAKE_I_dither(s16, int16_t, F32_TO_S16_D);
-MAKE_I_dither(s16s, uint16_t, F32_TO_S16S_D);
-MAKE_D_dither(s32, int32_t, F32_TO_S32_D);
-MAKE_I_dither(s32, int32_t, F32_TO_S32_D);
-MAKE_I_dither(s32s, uint32_t, F32_TO_S32S_D);
-MAKE_D_dither(s24, int24_t, F32_TO_S24_D);
-MAKE_I_dither(s24, int24_t, F32_TO_S24_D);
-MAKE_I_dither(s24s, int24_t, F32_TO_S24_D);
-MAKE_D_dither(s24_32, int32_t, F32_TO_S24_32_D);
-MAKE_I_dither(s24_32, int32_t, F32_TO_S24_32_D);
-MAKE_I_dither(s24_32s, int32_t, F32_TO_S24_32S_D);
+MAKE_D_noise(u8, uint8_t, F32_TO_U8_D);
+MAKE_I_noise(u8, uint8_t, F32_TO_U8_D);
+MAKE_D_noise(s8, int8_t, F32_TO_S8_D);
+MAKE_I_noise(s8, int8_t, F32_TO_S8_D);
+MAKE_D_noise(s16, int16_t, F32_TO_S16_D);
+MAKE_I_noise(s16, int16_t, F32_TO_S16_D);
+MAKE_I_noise(s16s, uint16_t, F32_TO_S16S_D);
+MAKE_D_noise(s32, int32_t, F32_TO_S32_D);
+MAKE_I_noise(s32, int32_t, F32_TO_S32_D);
+MAKE_I_noise(s32s, uint32_t, F32_TO_S32S_D);
+MAKE_D_noise(s24, int24_t, F32_TO_S24_D);
+MAKE_I_noise(s24, int24_t, F32_TO_S24_D);
+MAKE_I_noise(s24s, int24_t, F32_TO_S24_D);
+MAKE_D_noise(s24_32, int32_t, F32_TO_S24_32_D);
+MAKE_I_noise(s24_32, int32_t, F32_TO_S24_32_D);
+MAKE_I_noise(s24_32s, int32_t, F32_TO_S24_32S_D);
 
-
-#define SHAPER5(type,s,scale,offs,sh,min,max,d)			\
+#define SHAPER(type,s,scale,offs,sh,min,max,d)			\
 ({								\
 	type t;							\
-	float v = s * scale + offs +				\
-		- sh->e[idx] * 2.033f				\
-		+ sh->e[(idx - 1) & NS_MASK] * 2.165f		\
-		- sh->e[(idx - 2) & NS_MASK] * 1.959f		\
-		+ sh->e[(idx - 3) & NS_MASK] * 1.590f		\
-		- sh->e[(idx - 4) & NS_MASK] * 0.6149f;		\
-	t = (type)SPA_CLAMP(v + d, min, max);			\
-	idx = (idx + 1) & NS_MASK;				\
-	sh->e[idx] = t - v;					\
+	float v = s * scale + offs; 				\
+	for (n = 0; n < n_ns; n++)				\
+		v += sh->e[idx + n] * ns[n];			\
+	t = FTOI(type, v, 1.0f, 0.0f, d, min, max);		\
+	idx = (idx - 1) & NS_MASK;				\
+	sh->e[idx] = sh->e[idx + NS_MAX] = v - t;		\
 	t;							\
 })
 
-#define F32_TO_U8_SH(s,sh,d)	SHAPER5(uint8_t, s, U8_SCALE, U8_OFFS, sh, U8_MIN, U8_MAX, d)
-#define F32_TO_S8_SH(s,sh,d)	SHAPER5(int8_t, s, S8_SCALE, 0, sh, S8_MIN, S8_MAX, d)
-#define F32_TO_S16_SH(s,sh,d)	SHAPER5(int16_t, s, S16_SCALE, 0, sh, S16_MIN, S16_MAX, d)
+#define F32_TO_U8_SH(s,sh,d)	SHAPER(uint8_t, s, U8_SCALE, U8_OFFS, sh, U8_MIN, U8_MAX, d)
+#define F32_TO_S8_SH(s,sh,d)	SHAPER(int8_t, s, S8_SCALE, 0, sh, S8_MIN, S8_MAX, d)
+#define F32_TO_S16_SH(s,sh,d)	SHAPER(int16_t, s, S16_SCALE, 0, sh, S16_MIN, S16_MAX, d)
 #define F32_TO_S16S_SH(s,sh,d)	bswap_16(F32_TO_S16_SH(s,sh,d))
 
 #define MAKE_D_shaped(dname,dtype,func) 					\
@@ -326,18 +335,19 @@ void conv_f32d_to_ ##dname## d_shaped_c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
 {										\
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;	\
-	float *dither = conv->dither;						\
-	update_dither_c(conv, SPA_MIN(n_samples, dither_size));			\
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, noise_size = conv->noise_size;	\
+	const float *noise = conv->noise, *ns = conv->ns;			\
+	uint32_t n, n_ns = conv->n_ns;						\
+	update_noise_c(conv, SPA_MIN(n_samples, noise_size));			\
 	for (i = 0; i < n_channels; i++) {					\
 		const float *s = src[i];					\
 		dtype *d = dst[i];						\
 		struct shaper *sh = &conv->shaper[i];				\
 		uint32_t idx = sh->idx;						\
 		for (j = 0; j < n_samples;) {					\
-			chunk = SPA_MIN(n_samples - j, dither_size);		\
+			chunk = SPA_MIN(n_samples - j, noise_size);		\
 			for (k = 0; k < chunk; k++, j++)			\
-				d[j] = func (s[j], sh, dither[k]);		\
+				d[j] = func (s[j], sh, noise[k]);		\
 		}								\
 		sh->idx = idx;							\
 	}									\
@@ -349,18 +359,19 @@ void conv_f32d_to_ ##dname## _shaped_c(struct convert *conv,			\
                 uint32_t n_samples)						\
 {										\
 	dtype *d0 = dst[0];							\
-	uint32_t i, j, k, chunk, n_channels = conv->n_channels, dither_size = conv->dither_size;	\
-	float *dither = conv->dither;						\
-	update_dither_c(conv, SPA_MIN(n_samples, dither_size));			\
+	uint32_t i, j, k, chunk, n_channels = conv->n_channels, noise_size = conv->noise_size;	\
+	const float *noise = conv->noise, *ns = conv->ns;			\
+	uint32_t n, n_ns = conv->n_ns;						\
+	update_noise_c(conv, SPA_MIN(n_samples, noise_size));			\
 	for (i = 0; i < n_channels; i++) {					\
 		const float *s = src[i];					\
 		dtype *d = &d0[i];						\
 		struct shaper *sh = &conv->shaper[i];				\
 		uint32_t idx = sh->idx;						\
 		for (j = 0; j < n_samples;) {					\
-			chunk = SPA_MIN(n_samples - j, dither_size);		\
+			chunk = SPA_MIN(n_samples - j, noise_size);		\
 			for (k = 0; k < chunk; k++, j++)			\
-				d[j*n_channels] = func (s[j], sh, dither[k]);	\
+				d[j*n_channels] = func (s[j], sh, noise[k]);	\
 		}								\
 		sh->idx = idx;							\
 	}									\

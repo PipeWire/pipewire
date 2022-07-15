@@ -656,7 +656,7 @@ static void run_test_noise(uint32_t fmt, uint32_t noise, uint32_t flags)
 
 	spa_zero(conv);
 
-	conv.noise = noise;
+	conv.noise_bits = noise;
 	conv.src_fmt = SPA_AUDIO_FORMAT_F32P;
 	conv.dst_fmt = fmt;
 	conv.n_channels = 2;
@@ -672,7 +672,7 @@ static void run_test_noise(uint32_t fmt, uint32_t noise, uint32_t flags)
 	}
 	convert_process(&conv, op, ip, N_SAMPLES);
 
-	range = 1 << conv.noise;
+	range = 1 << conv.noise_bits;
 
 	all_zero = true;
 	for (i = 0; i < conv.n_channels * N_SAMPLES; i++) {

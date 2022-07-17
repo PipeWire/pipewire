@@ -1439,9 +1439,7 @@ int main(int argc, char *argv[])
 		case OPT_VOLUME:
 			data.volume = atof(optarg);
 			break;
-
 		default:
-			fprintf(stderr, "error: unknown option '%c'\n", c);
 			goto error_usage;
 		}
 	}

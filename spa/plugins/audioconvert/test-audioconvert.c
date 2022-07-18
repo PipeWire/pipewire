@@ -782,6 +782,26 @@ struct data dsp_7p1_remapped = {
 	.size = sizeof(data_f32p_1)
 };
 
+struct data dsp_5p1_remapped_2 = {
+	.mode = SPA_PARAM_PORT_CONFIG_MODE_dsp,
+	.info = SPA_AUDIO_INFO_RAW_INIT(
+		.format = SPA_AUDIO_FORMAT_F32,
+		.rate = 48000,
+		.channels = 6,
+		.position = {
+			SPA_AUDIO_CHANNEL_FC,
+			SPA_AUDIO_CHANNEL_LFE,
+			SPA_AUDIO_CHANNEL_RL,
+			SPA_AUDIO_CHANNEL_RR,
+			SPA_AUDIO_CHANNEL_FR,
+			SPA_AUDIO_CHANNEL_FL,
+		}),
+	.ports = 6,
+	.planes = 1,
+	.data = { data_f32p_3, data_f32p_4, data_f32p_5, data_f32p_6, data_f32p_2, data_f32p_1, },
+	.size = sizeof(float) * 4
+};
+
 struct data conv_f32_48000_5p1 = {
 	.mode = SPA_PARAM_PORT_CONFIG_MODE_convert,
 	.info = SPA_AUDIO_INFO_RAW_INIT(
@@ -894,6 +914,10 @@ static int test_convert_remap_dsp(struct context *ctx)
 	run_convert(ctx, &dsp_5p1_remapped, &conv_f32p_48000_5p1);
 	run_convert(ctx, &dsp_5p1_remapped, &conv_f32_48000_5p1_remapped);
 	run_convert(ctx, &dsp_5p1_remapped, &conv_f32p_48000_5p1_remapped);
+	run_convert(ctx, &dsp_5p1_remapped_2, &conv_f32_48000_5p1);
+	run_convert(ctx, &dsp_5p1_remapped_2, &conv_f32p_48000_5p1);
+	run_convert(ctx, &dsp_5p1_remapped_2, &conv_f32_48000_5p1_remapped);
+	run_convert(ctx, &dsp_5p1_remapped_2, &conv_f32p_48000_5p1_remapped);
 	return 0;
 }
 
@@ -901,13 +925,17 @@ static int test_convert_remap_conv(struct context *ctx)
 {
 	run_convert(ctx, &conv_f32_48000_5p1, &dsp_5p1);
 	run_convert(ctx, &conv_f32_48000_5p1, &dsp_5p1_remapped);
+	run_convert(ctx, &conv_f32_48000_5p1, &dsp_5p1_remapped_2);
 	run_convert(ctx, &conv_f32p_48000_5p1, &dsp_5p1);
 	run_convert(ctx, &conv_f32p_48000_5p1, &dsp_5p1_remapped);
+	run_convert(ctx, &conv_f32p_48000_5p1, &dsp_5p1_remapped_2);
 	run_convert(ctx, &conv_f32_48000_5p1_remapped, &dsp_5p1);
 	run_convert(ctx, &conv_f32_48000_5p1_remapped, &dsp_5p1_remapped);
+	run_convert(ctx, &conv_f32_48000_5p1_remapped, &dsp_5p1_remapped_2);
 	run_convert(ctx, &conv_f32p_48000_5p1_remapped, &dsp_5p1);
 	run_convert(ctx, &conv_f32p_48000_5p1_remapped, &dsp_5p1_remapped);
 	run_convert(ctx, &conv_f32_48000_7p1_remapped, &dsp_7p1_remapped);
+	run_convert(ctx, &conv_f32p_48000_5p1_remapped, &dsp_5p1_remapped_2);
 	return 0;
 }
 

@@ -105,7 +105,6 @@ struct impl {
 	uint32_t cpu_flags;
 	uint32_t max_align;
 
-	struct spa_io_position *io_position;
 	uint32_t quantum_limit;
 
 	struct mix_ops ops;
@@ -153,20 +152,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
-	struct impl *this = object;
-
-	spa_return_val_if_fail(this != NULL, -EINVAL);
-
-	spa_log_debug(this->log, "%p: io %d %p/%zd", this, id, data, size);
-
-	switch (id) {
-	case SPA_IO_Position:
-		this->io_position = data;
-		break;
-	default:
-		return -ENOENT;
-	}
-	return 0;
+	return -ENOTSUP;
 }
 
 static int impl_node_send_command(void *object, const struct spa_command *command)
@@ -708,10 +694,7 @@ static int impl_node_process(void *object)
 	datas = alloca(MAX_PORTS * sizeof(void *));
 	n_buffers = 0;
 
-	if (SPA_LIKELY(this->io_position))
-		maxsize = this->io_position->clock.duration * sizeof(float);
-	else
-		maxsize = this->quantum_limit;
+	maxsize = UINT32_MAX;
 
 	for (i = 0; i < this->last_port; i++) {
 		struct port *inport = GET_IN_PORT(this, i);
@@ -867,7 +850,6 @@ impl_init(const struct spa_handle_factory *factory,
 		this->max_align = SPA_MIN(MAX_ALIGN, spa_cpu_get_max_align(this->cpu));
 	}
 
-	this->quantum_limit = 8192;
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;

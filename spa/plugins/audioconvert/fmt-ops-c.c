@@ -33,7 +33,7 @@
 #include "fmt-ops.h"
 #include "law.h"
 
-#define MAKE_COPY(size)	 							\
+#define MAKE_COPY(size)								\
 void conv_copy ##size## d_c(struct convert *conv,				\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
 		uint32_t n_samples)						\
@@ -55,7 +55,7 @@ MAKE_COPY(24);
 MAKE_COPY(32);
 MAKE_COPY(64);
 
-#define MAKE_D_TO_D(sname,stype,dname,dtype,func) 				\
+#define MAKE_D_TO_D(sname,stype,dname,dtype,func)				\
 void conv_ ##sname## d_to_ ##dname## d_c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
@@ -65,11 +65,11 @@ void conv_ ##sname## d_to_ ##dname## d_c(struct convert *conv,			\
 		const stype *s = src[i];					\
 		dtype *d = dst[i];						\
 		for (j = 0; j < n_samples; j++)					\
-			d[j] = func (s[j]);			 		\
+			d[j] = func (s[j]);					\
 	}									\
 }
 
-#define MAKE_I_TO_I(sname,stype,dname,dtype,func) 				\
+#define MAKE_I_TO_I(sname,stype,dname,dtype,func)				\
 void conv_ ##sname## _to_ ##dname## _c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
@@ -79,10 +79,10 @@ void conv_ ##sname## _to_ ##dname## _c(struct convert *conv,			\
 	dtype *d = dst[0];							\
 	n_samples *= conv->n_channels;						\
 	for (j = 0; j < n_samples; j++)						\
-		d[j] = func (s[j]);				 		\
+		d[j] = func (s[j]);						\
 }
 
-#define MAKE_I_TO_D(sname,stype,dname,dtype,func) 				\
+#define MAKE_I_TO_D(sname,stype,dname,dtype,func)				\
 void conv_ ##sname## _to_ ##dname## d_c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
@@ -92,11 +92,11 @@ void conv_ ##sname## _to_ ##dname## d_c(struct convert *conv,			\
 	uint32_t i, j, n_channels = conv->n_channels;				\
 	for (j = 0; j < n_samples; j++) {					\
 		for (i = 0; i < n_channels; i++)				\
-			d[i][j] = func (*s++);			 		\
+			d[i][j] = func (*s++);					\
 	}									\
 }
 
-#define MAKE_D_TO_I(sname,stype,dname,dtype,func) 				\
+#define MAKE_D_TO_I(sname,stype,dname,dtype,func)				\
 void conv_ ##sname## d_to_ ##dname## _c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
@@ -106,7 +106,7 @@ void conv_ ##sname## d_to_ ##dname## _c(struct convert *conv,			\
 	uint32_t i, j, n_channels = conv->n_channels;				\
 	for (j = 0; j < n_samples; j++) {					\
 		for (i = 0; i < n_channels; i++)				\
-			*d++ = func (s[i][j]);			 		\
+			*d++ = func (s[i][j]);					\
 	}									\
 }
 
@@ -255,10 +255,16 @@ static inline void update_noise_c(struct convert *conv, uint32_t n_samples)
 		}
 		*prev = old;
 		break;
+	case NOISE_METHOD_PATTERN:
+		old = *prev;
+		for (n = 0; n < n_samples; n++)
+			noise[n] = conv->scale * (1-((old++>>10)&1));
+		*prev = old;
+		break;
 	}
 }
 
-#define MAKE_D_noise(dname,dtype,func) 					\
+#define MAKE_D_noise(dname,dtype,func)						\
 void conv_f32d_to_ ##dname## d_noise_c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
@@ -277,7 +283,7 @@ void conv_f32d_to_ ##dname## d_noise_c(struct convert *conv,			\
 	}									\
 }
 
-#define MAKE_I_noise(dname,dtype,func) 					\
+#define MAKE_I_noise(dname,dtype,func)						\
 void conv_f32d_to_ ##dname## _noise_c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
@@ -316,7 +322,7 @@ MAKE_I_noise(s24_32s, int32_t, F32_TO_S24_32S_D);
 #define SHAPER(type,s,scale,offs,sh,min,max,d)			\
 ({								\
 	type t;							\
-	float v = s * scale + offs; 				\
+	float v = s * scale + offs;				\
 	for (n = 0; n < n_ns; n++)				\
 		v += sh->e[idx + n] * ns[n];			\
 	t = FTOI(type, v, 1.0f, 0.0f, d, min, max);		\
@@ -330,7 +336,7 @@ MAKE_I_noise(s24_32s, int32_t, F32_TO_S24_32S_D);
 #define F32_TO_S16_SH(s,sh,d)	SHAPER(int16_t, s, S16_SCALE, 0, sh, S16_MIN, S16_MAX, d)
 #define F32_TO_S16S_SH(s,sh,d)	bswap_16(F32_TO_S16_SH(s,sh,d))
 
-#define MAKE_D_shaped(dname,dtype,func) 					\
+#define MAKE_D_shaped(dname,dtype,func)						\
 void conv_f32d_to_ ##dname## d_shaped_c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\
@@ -353,7 +359,7 @@ void conv_f32d_to_ ##dname## d_shaped_c(struct convert *conv,			\
 	}									\
 }
 
-#define MAKE_I_shaped(dname,dtype,func) 					\
+#define MAKE_I_shaped(dname,dtype,func)						\
 void conv_f32d_to_ ##dname## _shaped_c(struct convert *conv,			\
 		void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],	\
                 uint32_t n_samples)						\

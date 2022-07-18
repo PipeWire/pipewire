@@ -453,9 +453,6 @@ int convert_init(struct convert *conv)
 
 	conv->scale = 1.0f / (float)(INT32_MAX);
 
-	if (conv->noise_bits > 0)
-		conv->scale *= (1 << (conv->noise_bits + 1));
-
 	/* disable dither if not needed */
 	if (!need_dither(conv->dst_fmt))
 		conv->method = DITHER_METHOD_NONE;
@@ -465,8 +462,21 @@ int convert_init(struct convert *conv)
 		return -EINVAL;
 
 	conv->noise_method = dinfo->noise_method;
-	if (conv->noise_bits && conv->noise_method == NOISE_METHOD_NONE)
-		conv->noise_method = NOISE_METHOD_RECTANGULAR;
+	if (conv->noise_bits > 0) {
+		switch (conv->noise_method) {
+		case NOISE_METHOD_NONE:
+			conv->noise_method = NOISE_METHOD_PATTERN;
+			conv->scale = -1.0f * (1 << (conv->noise_bits-1));
+			break;
+		case NOISE_METHOD_RECTANGULAR:
+			conv->noise_method = NOISE_METHOD_TRIANGULAR;
+			SPA_FALLTHROUGH;
+		case NOISE_METHOD_TRIANGULAR:
+		case NOISE_METHOD_TRIANGULAR_HF:
+			conv->scale *= (1 << (conv->noise_bits-1));
+			break;
+		}
+	}
 	if (conv->noise_method < NOISE_METHOD_TRIANGULAR)
 		conv->scale *= 0.5f;
 

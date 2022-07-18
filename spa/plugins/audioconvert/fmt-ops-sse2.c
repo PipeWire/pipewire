@@ -581,7 +581,7 @@ static inline void update_noise_sse2(struct convert *conv, uint32_t n_samples)
 {
 	uint32_t n;
 	const uint32_t *r = SPA_PTR_ALIGN(conv->random, 16, uint32_t);
-	const int32_t *p = SPA_PTR_ALIGN(conv->prev, 16, int32_t);
+	int32_t *p = SPA_PTR_ALIGN(conv->prev, 16, int32_t), op;
 	__m128 scale = _mm_set1_ps(conv->scale);
 	__m128 out[1];
 	float *noise = SPA_PTR_ALIGN(conv->noise, 16, float);
@@ -615,6 +615,12 @@ static inline void update_noise_sse2(struct convert *conv, uint32_t n_samples)
 			_mm_store_ps(&noise[n], out[0]);
 		}
 		_mm_store_si128((__m128i*)p, old[0]);
+		break;
+	case NOISE_METHOD_PATTERN:
+		op = *p;
+		for (n = 0; n < n_samples; n++)
+			noise[n] = conv->scale * (1-((op++>>10)&1));
+		*p = op;
 		break;
 	}
 }

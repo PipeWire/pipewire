@@ -233,6 +233,7 @@ struct convert {
 #define NOISE_METHOD_RECTANGULAR	1
 #define NOISE_METHOD_TRIANGULAR		2
 #define NOISE_METHOD_TRIANGULAR_HF	3
+#define NOISE_METHOD_PATTERN		4
 	uint32_t noise_method;
 	float *noise;
 	uint32_t noise_size;

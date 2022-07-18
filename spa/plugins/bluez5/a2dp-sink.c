@@ -885,7 +885,7 @@ static void a2dp_on_timeout(struct spa_source *source)
 
 static int do_start(struct impl *this)
 {
-	int i, res, val, size;
+	int res, val, size;
 	struct port *port;
 	socklen_t len;
 	uint8_t *conf;
@@ -907,8 +907,8 @@ static int do_start(struct impl *this)
 	conf = this->transport->configuration;
 	size = this->transport->configuration_len;
 
-	for (i = 0; i < size; i++)
-		spa_log_debug(this->log, "  %d: %02x", i, conf[i]);
+	spa_log_debug(this->log, "Transport configuration:");
+	spa_log_hexdump(this->log, SPA_LOG_LEVEL_DEBUG, 2, conf, (size_t)size);
 
 	this->codec_data = this->codec->init(this->codec,
 			this->is_duplex ? A2DP_CODEC_FLAG_SINK : 0,

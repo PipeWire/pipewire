@@ -491,7 +491,7 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 	uint8_t *pconf = (uint8_t *) config;
 	DBusMessage *r;
 	DBusError err;
-	int i, size, res;
+	int size, res;
 	const struct a2dp_codec *codec;
 	bool sink;
 
@@ -506,8 +506,7 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 	spa_log_info(monitor->log, "%p: %s select conf %d", monitor, path, size);
-	for (i = 0; i < size; i++)
-		spa_log_debug(monitor->log, "  %d: %02x", i, cap[i]);
+	spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, cap, (size_t)size);
 
 	codec = a2dp_endpoint_to_codec(monitor, path, &sink);
 	if (codec != NULL)
@@ -529,8 +528,7 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 		goto exit_send;
 	}
-	for (i = 0; i < size; i++)
-		spa_log_debug(monitor->log, "  %d: %02x", i, pconf[i]);
+	spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, pconf, (size_t)size);
 
 	if ((r = dbus_message_new_method_return(m)) == NULL)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -1734,7 +1732,7 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 		else if (spa_streq(key, "Capabilities")) {
 			DBusMessageIter iter;
 			uint8_t *value;
-			int i, len;
+			int len;
 
 			if (!check_iter_signature(&it[1], "ay"))
 				goto next;
@@ -1743,8 +1741,7 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 			dbus_message_iter_get_fixed_array(&iter, &value, &len);
 
 			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%d", remote_endpoint, key, len);
-			for (i = 0; i < len; i++)
-				spa_log_debug(monitor->log, "  %d: %02x", i, value[i]);
+			spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, value, (size_t)len);
 
 			free(remote_endpoint->capabilities);
 			remote_endpoint->capabilities_len = 0;
@@ -2267,7 +2264,7 @@ static int transport_update_props(struct spa_bt_transport *transport,
 		else if (spa_streq(key, "Configuration")) {
 			DBusMessageIter iter;
 			uint8_t *value;
-			int i, len;
+			int len;
 
 			if (!check_iter_signature(&it[1], "ay"))
 				goto next;
@@ -2276,8 +2273,7 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			dbus_message_iter_get_fixed_array(&iter, &value, &len);
 
 			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, len);
-			for (i = 0; i < len; i++)
-				spa_log_debug(monitor->log, "  %d: %02x", i, value[i]);
+			spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, value, (size_t)len);
 
 			free(transport->configuration);
 			transport->configuration_len = 0;

@@ -227,7 +227,7 @@ static int setup_socket(struct server *server)
 	if (fd < 0)
 		return fd;
 
-	pw_log_info("%lx %d", server->entity_id, server->ifindex);
+	pw_log_info("0x%"PRIx64" %d", server->entity_id, server->ifindex);
 
 	server->source = pw_loop_add_io(impl->loop, fd, SPA_IO_IN, true, on_socket_data, server);
 	if (server->source == NULL) {

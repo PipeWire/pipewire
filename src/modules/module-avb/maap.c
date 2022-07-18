@@ -419,7 +419,7 @@ struct avb_maap *avb_maap_register(struct server *server)
 	}
 
 	maap->server = server;
-	pw_log_info("%lx %d", server->entity_id, server->ifindex);
+	pw_log_info("0x%"PRIx64" %d", server->entity_id, server->ifindex);
 
 	pw_getrandom(maap->xsubi, sizeof(maap->xsubi), 0);
 	load_state(maap);

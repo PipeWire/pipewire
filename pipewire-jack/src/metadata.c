@@ -210,7 +210,7 @@ static int update_property(struct client *c,
 	pthread_mutex_unlock(&globals.lock);
 
 	if (c->property_callback && changed > 0) {
-		pw_log_info("emit %lu %s", subject, key);
+		pw_log_info("emit %"PRIu64" %s", (uint64_t)subject, key);
 		c->property_callback(subject, key, change, c->property_arg);
 	}
 	return changed;

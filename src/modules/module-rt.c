@@ -599,8 +599,8 @@ static int set_rlimit(struct impl *impl)
 		rttime = pw_rtkit_get_rttime_usec_max(impl->system_bus);
 		if (rttime >= 0) {
 			if ((rlim_t)rttime < rl.rlim_cur) {
-				pw_log_debug("clamping rt.time.soft from %ld to %lld because of RTKit",
-					     rl.rlim_cur, rttime);
+				pw_log_debug("clamping rt.time.soft from %llu to %lld because of RTKit",
+					     (long long)rl.rlim_cur, rttime);
 			}
 
 			rl.rlim_cur = SPA_MIN(rl.rlim_cur, (rlim_t)rttime);

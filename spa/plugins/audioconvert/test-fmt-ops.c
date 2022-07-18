@@ -242,6 +242,12 @@ static void test_f32_s16(void)
 			false, true, conv_f32d_to_s16_avx2);
 	}
 #endif
+#if defined(HAVE_NEON)
+	if (cpu_flags & SPA_CPU_FLAG_NEON) {
+		run_test("test_f32d_s16_neon", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			false, true, conv_f32d_to_s16_neon);
+	}
+#endif
 }
 
 static void test_s16_f32(void)
@@ -267,6 +273,12 @@ static void test_s16_f32(void)
 	if (cpu_flags & SPA_CPU_FLAG_AVX2) {
 		run_test("test_s16_f32d_avx2", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
 			true, false, conv_s16_to_f32d_avx2);
+	}
+#endif
+#if defined(HAVE_NEON)
+	if (cpu_flags & SPA_CPU_FLAG_NEON) {
+		run_test("test_s16_f32d_neon", in, sizeof(in[0]), out, sizeof(out[0]), SPA_N_ELEMENTS(out),
+			true, false, conv_s16_to_f32d_neon);
 	}
 #endif
 }

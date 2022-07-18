@@ -26,6 +26,8 @@
 #include <stdio.h>
 #include <math.h>
 
+#include <arm_neon.h>
+
 #include "fmt-ops.h"
 
 void
@@ -289,16 +291,19 @@ conv_f32d_to_s16_2s_neon(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 
 #ifdef __aarch64__
 	asm volatile(
+		"      dup v2.4s, %w[scale]\n"
 		"      cmp %[n_samples], #0\n"
 		"      beq 2f\n"
 		"1:"
 		"      ld1 { v0.4s }, [%[s0]], #16\n"
 		"      ld1 { v1.4s }, [%[s1]], #16\n"
 		"      subs %[n_samples], %[n_samples], #4\n"
-		"      fcvtzs v0.4s, v0.4s, #31\n"
-		"      fcvtzs v1.4s, v1.4s, #31\n"
-		"      sqrshrn v0.4h, v0.4s, #16\n"
-		"      sqrshrn v1.4h, v1.4s, #16\n"
+		"      sqadd  v0.4s, v0.4s, v2.4s\n"
+		"      sqadd  v1.4s, v1.4s, v2.4s\n"
+		"      fcvtns v0.4s, v0.4s\n"
+		"      fcvtns v1.4s, v1.4s\n"
+		"      sqxtn  v0.4h, v0.4s\n"
+		"      sqxtn  v1.4h, v1.4s\n"
 		"      st2 { v0.h, v1.h }[0], [%[d]], %[stride]\n"
 		"      st2 { v0.h, v1.h }[1], [%[d]], %[stride]\n"
 		"      st2 { v0.h, v1.h }[2], [%[d]], %[stride]\n"
@@ -311,29 +316,42 @@ conv_f32d_to_s16_2s_neon(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		"      ld1 { v0.s }[0], [%[s0]], #4\n"
 		"      ld1 { v2.s }[0], [%[s1]], #4\n"
 		"      subs %[remainder], %[remainder], #1\n"
-		"      fcvtzs v0.4s, v0.4s, #31\n"
-		"      fcvtzs v1.4s, v1.4s, #31\n"
-		"      sqrshrn v0.4h, v0.4s, #16\n"
-		"      sqrshrn v1.4h, v1.4s, #16\n"
+		"      sqadd  v0.4s, v0.4s, v2.4s\n"
+		"      sqadd  v1.4s, v1.4s, v2.4s\n"
+		"      fcvtns v0.4s, v0.4s\n"
+		"      fcvtns v1.4s, v1.4s\n"
+		"      sqxtn  v0.4h, v0.4s\n"
+		"      sqxtn  v1.4h, v1.4s\n"
 		"      st2 { v0.h, v1.h }[0], [%[d]], %[stride]\n"
 		"      bne 3b\n"
 		"4:"
 		: [d] "+r" (d), [s0] "+r" (s0), [s1] "+r" (s1), [n_samples] "+r" (n_samples),
 		  [remainder] "+r" (remainder)
-		: [stride] "r" (stride)
+		: [stride] "r" (stride),
+		  [scale] "r" (15 << 23)
 		: "cc", "v0", "v1");
 #else
+	float32x4_t pos = vdupq_n_f32(0.4999999f / S16_SCALE);
+	float32x4_t neg = vdupq_n_f32(-0.4999999f / S16_SCALE);
+
 	asm volatile(
+		"      veor q2, q2, q2\n"
 		"      cmp %[n_samples], #0\n"
 		"      beq 2f\n"
 		"1:"
 		"      vld1.32 { q0 }, [%[s0]]!\n"
 		"      vld1.32 { q1 }, [%[s1]]!\n"
 		"      subs %[n_samples], %[n_samples], #4\n"
-		"      vcvt.s32.f32 q0, q0, #31\n"
-		"      vcvt.s32.f32 q1, q1, #31\n"
-		"      vqrshrn.s32 d0, q0, #16\n"
-		"      vqrshrn.s32 d1, q1, #16\n"
+		"      vcgt.f32 q3, q0, q2\n"
+		"      vcgt.f32 q4, q0, q2\n"
+		"      vbsl q3, %q[pos], %q[neg]\n"
+		"      vbsl q4, %q[pos], %q[neg]\n"
+		"      vadd.f32 q0, q0, q3\n"
+		"      vadd.f32 q1, q1, q4\n"
+		"      vcvt.s32.f32 q0, q0, #15\n"
+		"      vcvt.s32.f32 q1, q1, #15\n"
+		"      vqmovn.s32 d0, q0\n"
+		"      vqmovn.s32 d1, q1\n"
 		"      vst2.16 { d0[0], d1[0] }, [%[d]], %[stride]\n"
 		"      vst2.16 { d0[1], d1[1] }, [%[d]], %[stride]\n"
 		"      vst2.16 { d0[2], d1[2] }, [%[d]], %[stride]\n"
@@ -346,17 +364,25 @@ conv_f32d_to_s16_2s_neon(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		"      vld1.32 { d0[0] }, [%[s0]]!\n"
 		"      vld1.32 { d2[0] }, [%[s1]]!\n"
 		"      subs %[remainder], %[remainder], #1\n"
-		"      vcvt.s32.f32 q0, q0, #31\n"
-		"      vcvt.s32.f32 q1, q1, #31\n"
-		"      vqrshrn.s32 d0, q0, #16\n"
-		"      vqrshrn.s32 d1, q1, #16\n"
+		"      vcgt.f32 q3, q0, q2\n"
+		"      vcgt.f32 q4, q0, q2\n"
+		"      vbsl q3, %q[pos], %q[neg]\n"
+		"      vbsl q4, %q[pos], %q[neg]\n"
+		"      vadd.f32 q0, q0, q3\n"
+		"      vadd.f32 q1, q1, q4\n"
+		"      vcvt.s32.f32 q0, q0, #15\n"
+		"      vcvt.s32.f32 q1, q1, #15\n"
+		"      vqmovn.s32 d0, q0\n"
+		"      vqmovn.s32 d1, q1\n"
 		"      vst2.16 { d0[0], d1[0] }, [%[d]], %[stride]\n"
 		"      bne 3b\n"
 		"4:"
 		: [d] "+r" (d), [s0] "+r" (s0), [s1] "+r" (s1), [n_samples] "+r" (n_samples),
 		  [remainder] "+r" (remainder)
-		: [stride] "r" (stride)
-		: "cc", "q0", "q1");
+		: [stride] "r" (stride),
+		  [pos]"w"(pos),
+		  [neg]"w"(neg)
+		: "cc", "q0", "q1", "q2", "q3", "q4");
 #endif
 }
 
@@ -372,13 +398,15 @@ conv_f32d_to_s16_1s_neon(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 
 #ifdef __aarch64__
 	asm volatile(
+		"      dup v2.4s, %w[scale]\n"
 		"      cmp %[n_samples], #0\n"
 		"      beq 2f\n"
 		"1:"
 		"      ld1 { v0.4s }, [%[s]], #16\n"
 		"      subs %[n_samples], %[n_samples], #4\n"
-		"      fcvtzs v0.4s, v0.4s, #31\n"
-		"      sqrshrn v0.4h, v0.4s, #16\n"
+		"      sqadd  v0.4s, v0.4s, v2.4s\n"
+		"      fcvtns v0.4s, v0.4s\n"
+		"      sqxtn  v0.4h, v0.4s\n"
 		"      st1 { v0.h }[0], [%[d]], %[stride]\n"
 		"      st1 { v0.h }[1], [%[d]], %[stride]\n"
 		"      st1 { v0.h }[2], [%[d]], %[stride]\n"
@@ -390,24 +418,33 @@ conv_f32d_to_s16_1s_neon(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		"3:"
 		"      ld1 { v0.s }[0], [%[s]], #4\n"
 		"      subs %[remainder], %[remainder], #1\n"
-		"      fcvtzs v0.4s, v0.4s, #31\n"
-		"      sqrshrn v0.4h, v0.4s, #16\n"
+		"      sqadd  v0.4s, v0.4s, v2.4s\n"
+		"      fcvtns v0.4s, v0.4s\n"
+		"      sqxtn  v0.4h, v0.4s\n"
 		"      st1 { v0.h }[0], [%[d]], %[stride]\n"
 		"      bne 3b\n"
 		"4:"
 		: [d] "+r" (d), [s] "+r" (s), [n_samples] "+r" (n_samples),
 		  [remainder] "+r" (remainder)
-		: [stride] "r" (stride)
+		: [stride] "r" (stride),
+		  [scale] "r" (15 << 23)
 		: "cc", "v0");
 #else
+	float32x4_t pos = vdupq_n_f32(0.4999999f / S16_SCALE);
+	float32x4_t neg = vdupq_n_f32(-0.4999999f / S16_SCALE);
+
 	asm volatile(
+		"      veor q1, q1, q1\n"
 		"      cmp %[n_samples], #0\n"
 		"      beq 2f\n"
 		"1:"
 		"      vld1.32 { q0 }, [%[s]]!\n"
 		"      subs %[n_samples], %[n_samples], #4\n"
-		"      vcvt.s32.f32 q0, q0, #31\n"
-		"      vqrshrn.s32 d0, q0, #16\n"
+		"      vcgt.f32 q2, q0, q1\n"
+		"      vbsl q2, %q[pos], %q[neg]\n"
+		"      vadd.f32 q0, q0, q2\n"
+		"      vcvt.s32.f32 q0, q0, #15\n"
+		"      vqmovn.s32 d0, q0\n"
 		"      vst1.16 { d0[0] }, [%[d]], %[stride]\n"
 		"      vst1.16 { d0[1] }, [%[d]], %[stride]\n"
 		"      vst1.16 { d0[2] }, [%[d]], %[stride]\n"
@@ -419,15 +456,20 @@ conv_f32d_to_s16_1s_neon(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		"3:"
 		"      vld1.32 { d0[0] }, [%[s]]!\n"
 		"      subs %[remainder], %[remainder], #1\n"
-		"      vcvt.s32.f32 q0, q0, #31\n"
-		"      vqrshrn.s32 d0, q0, #16\n"
+		"      vcgt.f32 q2, q0, q1\n"
+		"      vbsl q2, %q[pos], %q[neg]\n"
+		"      vadd.f32 q0, q0, q2\n"
+		"      vcvt.s32.f32 q0, q0, #15\n"
+		"      vqmovn.s32 d0, q0\n"
 		"      vst1.16 { d0[0] }, [%[d]], %[stride]\n"
 		"      bne 3b\n"
 		"4:"
 		: [d] "+r" (d), [s] "+r" (s), [n_samples] "+r" (n_samples),
 		  [remainder] "+r" (remainder)
-		: [stride] "r" (stride)
-		: "cc", "q0");
+		: [stride] "r" (stride),
+		  [pos]"w"(pos),
+		  [neg]"w"(neg)
+		: "cc", "q0", "q1", "q2");
 #endif
 }
 

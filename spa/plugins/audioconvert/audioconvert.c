@@ -2509,19 +2509,29 @@ static int impl_node_process(void *object)
 			out_datas = (void **)dst_remap;
 		else
 			out_datas = (void **)this->tmp_datas[(tmp++) & 1];
-	} else {
-		out_datas = (void **)src_datas;
-	}
-	if (dir->need_remap) {
-		for (i = 0; i < dir->conv.n_channels; i++) {
-			remap_src_datas[i] = out_datas[dir->remap[i]];
-			spa_log_trace_fp(this->log, "%p: input remap %d -> %d", this, dir->remap[i], i);
+
+		if (dir->need_remap) {
+			for (i = 0; i < dir->conv.n_channels; i++) {
+				remap_src_datas[i] = out_datas[dir->remap[i]];
+				spa_log_trace_fp(this->log, "%p: input remap %d -> %d", this, dir->remap[i], i);
+			}
+		} else {
+			for (i = 0; i < dir->conv.n_channels; i++)
+				remap_src_datas[i] = out_datas[i];
 		}
-		out_datas = (void **)remap_src_datas;
-	}
-	if (!in_passthrough) {
+
 		spa_log_trace_fp(this->log, "%p: input convert %d", this, n_samples);
-		convert_process(&dir->conv, out_datas, src_datas, n_samples);
+		convert_process(&dir->conv, remap_src_datas, src_datas, n_samples);
+	} else {
+		if (dir->need_remap) {
+			for (i = 0; i < dir->conv.n_channels; i++) {
+				remap_src_datas[dir->remap[i]] = (void *)src_datas[i];
+				spa_log_trace_fp(this->log, "%p: input remap %d -> %d", this, dir->remap[i], i);
+			}
+			out_datas = (void **)remap_src_datas;
+		} else {
+			out_datas = (void **)src_datas;
+		}
 	}
 
 	if (!mix_passthrough) {
@@ -2570,7 +2580,7 @@ static int impl_node_process(void *object)
 		dir = &this->dir[SPA_DIRECTION_OUTPUT];
 		if (dir->need_remap) {
 			for (i = 0; i < dir->conv.n_channels; i++) {
-				remap_dst_datas[i] = out_datas[dir->remap[i]];
+				remap_dst_datas[dir->remap[i]] = out_datas[i];
 				spa_log_trace_fp(this->log, "%p: output remap %d -> %d", this, i, dir->remap[i]);
 			}
 			in_datas = (const void**)remap_dst_datas;

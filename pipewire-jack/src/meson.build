@@ -78,7 +78,7 @@ if get_option('jack-devel') == true
   endif
 
   pkgconfig.generate(filebase : 'jack',
-  libraries : [pipewire_jack, pipewire_jackserver],
+  libraries : [pipewire_jack],
   name : 'jack',
   description : 'PipeWire JACK API',
   version : '1.9.17',

@@ -116,7 +116,7 @@ struct spa_avbtp_packet_aaf {
 	unsigned gv:1;
 	unsigned tv:1;
 
-	uint8_t seq_number;
+	uint8_t seq_num;
 
 	unsigned _r2:7;
 	unsigned tu:1;

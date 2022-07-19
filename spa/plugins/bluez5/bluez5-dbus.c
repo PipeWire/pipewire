@@ -664,31 +664,21 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 										&dict);
 			append_basic_array_variant_dict_entry(&dict, "Capabilities", "ay", "y", DBUS_TYPE_BYTE, &config, size);
 
+			if (codec->get_qos)
 			{
-				/*TBD: QoS Params are not coming from BlueZ now. Hard code it
-				 * for now
-				 */
-				uint32_t interval = 10000U;
-				dbus_bool_t framing = FALSE;
-				char *phy = "2M";
-				uint16_t sdu = 120;
-				uint8_t retransmissions;
-				uint16_t latency = 20;
-				uint32_t delay = 40000U;
-				spa_log_debug(monitor->log, "packing interval");
-				append_basic_variant_dict_entry(&dict, "Interval", DBUS_TYPE_UINT32, "u", &interval);
-				spa_log_debug(monitor->log, "packing framing");
+				struct codec_qos qos;
+				dbus_bool_t framing;
+
+				codec->get_qos(codec, config, size, &qos);
+
+				append_basic_variant_dict_entry(&dict, "Interval", DBUS_TYPE_UINT32, "u", &qos.interval);
+				framing = (qos.framing ? TRUE : FALSE);
 				append_basic_variant_dict_entry(&dict, "Framing", DBUS_TYPE_BOOLEAN, "b", &framing);
-				spa_log_debug(monitor->log, "packing PHY");
-				append_basic_variant_dict_entry(&dict, "PHY", DBUS_TYPE_STRING, "s", &phy);
-				spa_log_debug(monitor->log, "packing SDU");
-				append_basic_variant_dict_entry(&dict, "SDU", DBUS_TYPE_UINT16, "q", &sdu);
-				spa_log_debug(monitor->log, "packing RTN");
-				append_basic_variant_dict_entry(&dict, "Retransmissions", DBUS_TYPE_BYTE, "y", &retransmissions);
-				spa_log_debug(monitor->log, "packing Lat");
-				append_basic_variant_dict_entry(&dict, "Latency", DBUS_TYPE_UINT16, "q", &latency);
-				spa_log_debug(monitor->log, "packing Delay");
-				append_basic_variant_dict_entry(&dict, "Delay", DBUS_TYPE_UINT32, "u", &delay);
+				append_basic_variant_dict_entry(&dict, "PHY", DBUS_TYPE_STRING, "s", &qos.phy);
+				append_basic_variant_dict_entry(&dict, "SDU", DBUS_TYPE_UINT16, "q", &qos.sdu);
+				append_basic_variant_dict_entry(&dict, "Retransmissions", DBUS_TYPE_BYTE, "y", &qos.retransmission);
+				append_basic_variant_dict_entry(&dict, "Latency", DBUS_TYPE_UINT16, "q", &qos.latency);
+				append_basic_variant_dict_entry(&dict, "Delay", DBUS_TYPE_UINT32, "u", &qos.delay);
 			}
 
 			dbus_message_iter_close_container(&iter, &dict);

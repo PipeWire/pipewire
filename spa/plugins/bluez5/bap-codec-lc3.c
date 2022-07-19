@@ -475,6 +475,40 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 	return 0;
 }
 
+static void codec_get_qos(const struct media_codec *codec,
+			const void *config, size_t config_size,
+			struct codec_qos *qos)
+{
+	bap_lc3_t conf;
+
+	memset(qos, 0, sizeof(*qos));
+
+	if (!parse_conf(&conf, config, config_size))
+		return;
+
+	qos->framing = false;
+	qos->phy = "2M";
+	qos->retransmission = 2; /* default */
+	qos->sdu = conf.framelen * conf.n_blks;
+	qos->latency = 20; /* default */
+	qos->delay = 40000U;
+	qos->interval = (conf.frame_duration == LC3_CONFIG_DURATION_7_5 ? 7500 : 10000);
+
+	switch (conf.rate) {
+		case LC3_CONFIG_FREQ_8KHZ:
+		case LC3_CONFIG_FREQ_16KHZ:
+		case LC3_CONFIG_FREQ_24KHZ:
+		case LC3_CONFIG_FREQ_32KHZ:
+			qos->retransmission = 2;
+			qos->latency = (conf.frame_duration == LC3_CONFIG_DURATION_7_5 ? 8 : 10);
+			break;
+		case LC3_CONFIG_FREQ_48KHZ:
+			qos->retransmission = 5;
+			qos->latency = (conf.frame_duration == LC3_CONFIG_DURATION_7_5 ? 15 : 20);
+			break;
+	}
+}
+
 static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info,
 		void *props, size_t mtu)
@@ -688,6 +722,7 @@ const struct media_codec bap_codec_lc3 = {
 	.select_config = codec_select_config,
 	.enum_config = codec_enum_config,
 	.validate_config = codec_validate_config,
+	.get_qos = codec_get_qos,
 	.caps_preference_cmp = codec_caps_preference_cmp,
 	.init = codec_init,
 	.deinit = codec_deinit,

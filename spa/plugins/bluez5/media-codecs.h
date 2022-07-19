@@ -79,6 +79,16 @@ struct media_codec_audio_info {
 	uint32_t channels;
 };
 
+struct codec_qos {
+    uint32_t interval;
+    bool framing;
+    char *phy;
+    uint16_t sdu;
+    uint8_t retransmission;
+    uint16_t latency;
+    uint32_t delay;
+};
+
 struct media_codec {
 	enum spa_bluetooth_audio_codec id;
 	uint8_t codec_id;
@@ -109,6 +119,9 @@ struct media_codec {
 	int (*validate_config) (const struct media_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
 			struct spa_audio_info *info);
+	void (*get_qos)(const struct media_codec *codec,
+			const void *config, size_t config_size,
+			struct codec_qos *qos);
 
 	/** qsort comparison sorting caps in order of preference for the codec.
 	 * Used in codec switching to select best remote endpoints.

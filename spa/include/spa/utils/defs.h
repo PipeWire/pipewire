@@ -147,6 +147,12 @@ struct spa_fraction {
 	SPA_MIN(SPA_MAX(_v, _low), _high);		\
 })
 
+#define SPA_CLAMPF(v,low,high)				\
+({							\
+	fminf(fmaxf(v, low), high);			\
+})
+
+
 #define SPA_SWAP(a,b)					\
 ({							\
 	__typeof__(a) _t = (a);				\

@@ -40,7 +40,7 @@
 #define ITOF(type,v,scale,offs) \
 	(((type)(v)) * (1.0f / (scale)) - (offs))
 #define FTOI(type,v,scale,offs,noise,min,max) \
-	(type)f32_round(SPA_CLAMP((v) * (scale) + (offs) + (noise), min, max))
+	(type)f32_round(SPA_CLAMPF((v) * (scale) + (offs) + (noise), min, max))
 
 #define FMT_OPS_MAX_ALIGN	32
 

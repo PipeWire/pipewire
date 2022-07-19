@@ -1,3 +1,59 @@
+# PipeWire 0.3.56 (2022-07-19)
+
+This is a quick bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - A critical bug that could crash JACK apps was fixed.
+  - Some more regressions in audiomixer were fixed. This should fix crackling
+    and stuttering in some cases as well as some channel mapping regressions.
+  - A bug in the alsa plugin was fixed that could cause stuttering in VMs.
+  - Bluetooth sources should have improved latency and rate control.
+  - Many more bugfixes and improvements.
+
+
+## Modules
+  - An experimental AVB module was added. It can expose PipeWire as an AVB
+    entity and initiate (broken) streaming between entities.
+  - module-loopback now handles the cases where the input and output channels
+    are different without crashing or producing silence.
+  - The filter-chain module now correctly calculates the output size without
+    crashing in some cases. It also skips invalid ports instead of crashing.
+  - Handle and report pthread errors better.
+
+## SPA
+  - The resampler qualities were tweaked a little.
+  - A bug that would sometimes cut off the last part of a buffer was fixed in
+    the alsa plugin. This could cause broken audio in VMs. (#2536)
+  - Access to the alsa mixer and devices is now checked more thoroughly.
+    (#2534)
+  - The spa-resample tool can now also handle large downsampling rates without
+    crashing.
+  - Audioconverter now uses rounding for float to int conversions, which
+    reduces distortions. Compilation of the c functions was separated and uses
+    its own optimization flags now. Unit tests were added. (#2543)
+  - Noise shaping was improved in audioconvert. A new Wannamaker 3 tap shaper
+    was added.
+  - Audioconvert now uses a pattern for generating keep alive noise. This
+    should have much less energy and be even more inaudible. (#2540)
+  - A channel mapping bug was fixed in audioconvert. Unit tests were added.
+  - The dsp audio mixer would sometimes not mix enough and cause dropouts.
+    (#2525)
+
+## JACK
+  - A critical bug in the mixer was fixed. It would cause most JACK apps to
+    segfault at startup.
+
+## Bluetooth
+  - A new rate control algorithm was implemented for the sources.
+  - The media role on HSP/HFP streams is now fixed.
+
+## Pulse Server
+  - Add the resampler delay to delay reporting as well.
+
+
+Older versions:
+
 # PipeWire 0.3.55 (2022-07-12)
 
 This is a quick bugfix release that is API and ABI compatible with previous
@@ -51,10 +107,6 @@ This is a quick bugfix release that is API and ABI compatible with previous
     volumes.
   - HW Volumes for HFP are now synced better. Volume changes from HW buttons
     are now also saved.
-
-
-Older versions:
-
 
 # PipeWire 0.3.54 (2022-07-07)
 

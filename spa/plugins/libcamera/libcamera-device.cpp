@@ -78,7 +78,7 @@ struct impl {
 	std::shared_ptr<Camera> camera;
 };
 
-std::string cameraModel(const Camera *camera)
+static std::string cameraModel(const Camera *camera)
 {
 	const ControlList &props = camera->properties();
 
@@ -88,7 +88,7 @@ std::string cameraModel(const Camera *camera)
 	return camera->id();
 }
 
-std::string cameraLoc(const Camera *camera)
+static std::string cameraLoc(const Camera *camera)
 {
 	const ControlList &props = camera->properties();
 

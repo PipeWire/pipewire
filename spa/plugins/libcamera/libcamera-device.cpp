@@ -103,7 +103,7 @@ static const char *cameraLoc(const Camera *camera)
 		}
 	}
 
-	return "";
+	return nullptr;
 }
 
 static int emit_info(struct impl *impl, bool full)
@@ -113,7 +113,7 @@ static int emit_info(struct impl *impl, bool full)
 	uint32_t n_items = 0;
 	struct spa_device_info info;
 	struct spa_param_info params[2];
-	char path[256], location[10], model[256], name[256];
+	char path[256], model[256], name[256];
 
 	info = SPA_DEVICE_INFO_INIT();
 
@@ -125,8 +125,10 @@ static int emit_info(struct impl *impl, bool full)
 	ADD_ITEM(SPA_KEY_DEVICE_API, "libcamera");
 	ADD_ITEM(SPA_KEY_MEDIA_CLASS, "Video/Device");
 	ADD_ITEM(SPA_KEY_API_LIBCAMERA_PATH, (char *)impl->props.device);
-	snprintf(location, sizeof(location), "%s", cameraLoc(impl->camera.get()));
-	ADD_ITEM(SPA_KEY_API_LIBCAMERA_LOCATION, location);
+
+	if (auto location = cameraLoc(impl->camera.get()))
+		ADD_ITEM(SPA_KEY_API_LIBCAMERA_LOCATION, location);
+
 	snprintf(model, sizeof(model), "%s", cameraModel(impl->camera.get()).c_str());
 	ADD_ITEM(SPA_KEY_DEVICE_PRODUCT_NAME, model);
 	ADD_ITEM(SPA_KEY_DEVICE_DESCRIPTION, model);

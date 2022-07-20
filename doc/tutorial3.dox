@@ -15,9 +15,9 @@ Let's take the following small method first:
 Let's take a look at what this method does.
 
 \code{.c}
-        struct spa_hook core_listener;
-        spa_zero(core_listener);
-        pw_core_add_listener(core, &core_listener,
+	struct spa_hook core_listener;
+	spa_zero(core_listener);
+	pw_core_add_listener(core, &core_listener,
 			&core_events, NULL);
 \endcode
 
@@ -26,18 +26,18 @@ object. We are only interested in the `done` event in this
 tutorial. This is the event handler:
 
 \code{.c}
-        int pending, done = 0;
+	int pending, done = 0;
 
-        void core_event_done(void *data, uint32_t id, int seq) {
-                if (id == PW_ID_CORE && seq == pending) {
-                        done = 1;
-                        pw_main_loop_quit(loop);
-                }
-        }
-        const struct pw_core_events core_events = {
-                PW_VERSION_CORE_EVENTS,
-                .done = core_event_done,
-        };
+	void core_event_done(void *data, uint32_t id, int seq) {
+		if (id == PW_ID_CORE && seq == pending) {
+			done = 1;
+			pw_main_loop_quit(loop);
+		}
+	}
+	const struct pw_core_events core_events = {
+		PW_VERSION_CORE_EVENTS,
+		.done = core_event_done,
+	};
 \endcode
 
 When the done event is received for an object with id `PW_ID_CORE`
@@ -47,7 +47,7 @@ variable to 1 and call `pw_main_loop_quit()`.
 Next we do:
 
 \code{.c}
-        pending = pw_core_sync(core, PW_ID_CORE, 0);
+	pending = pw_core_sync(core, PW_ID_CORE, 0);
 \endcode
 
 This triggers the `sync` method on the core object with id
@@ -68,9 +68,9 @@ We then run the mainloop to send the messages to the server and
 receive the events:
 
 \code{.c}
-        while (!done) {
-                pw_main_loop_run(loop);
-        }
+	while (!done) {
+		pw_main_loop_run(loop);
+	}
 \endcode
 
 When we get the done event, we can compare it to the sync method
@@ -79,7 +79,7 @@ more pending methods on the server. We can quit the mainloop and
 remove the listener:
 
 \code{.c}
-        spa_hook_remove(&core_listener);
+	spa_hook_remove(&core_listener);
 \endcode
 
 If we add this roundtrip method to our code and call it instead of the
@@ -100,7 +100,7 @@ the objects we created. Let's destroy each of them in reverse order that we
 created them:
 
 \code{.c}
-        pw_proxy_destroy((struct pw_proxy*)registry);
+	pw_proxy_destroy((struct pw_proxy*)registry);
 \endcode
 
 The registry is a proxy and can be destroyed with the generic proxy destroy
@@ -110,7 +110,7 @@ an error to destroy an object more than once.
 We can disconnect from the server with:
 
 \code{.c}
-        pw_core_disconnect(core);
+	pw_core_disconnect(core);
 \endcode
 
 This will also destroy the core proxy object and will remove the proxies
@@ -119,8 +119,8 @@ that might have been created on this connection.
 We can finally destroy our context and mainloop to conclude this tutorial:
 
 \code{.c}
-        pw_context_destroy(context);
-        pw_main_loop_destroy(loop);
+	pw_context_destroy(context);
+	pw_main_loop_destroy(loop);
 \endcode
 
 \ref page_tutorial2 | \ref page_tutorial "Index" | \ref page_tutorial4

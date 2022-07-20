@@ -68,14 +68,15 @@ static inline double window_blackman(double x, double n_taps)
 }
 static inline double window_cosh(double x, double n_taps)
 {
-	double R = 190.0, r;
-	double A = (-325.1E-6 * R + 0.1677) * R - 3.149;
+	double r;
+	double A = 16.97789;
 	double x2;
 	x =  2.0 * x / n_taps;
 	x2 = x * x;
 	if (x2 >= 1.0)
 		return 0.0;
-	r = cosh(A * sqrt(1 - x2)) / cosh(A);
+	/* doi:10.1109/RME.2008.4595727 with tweak */
+	r = (exp(A * sqrt(1 - x2)) - 1) / (exp(A) - 1);
 	return r;
 }
 

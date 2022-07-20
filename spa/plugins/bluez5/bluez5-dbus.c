@@ -2363,6 +2363,7 @@ int64_t spa_bt_transport_get_delay_nsec(struct spa_bt_transport *t)
 	case SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL_DUPLEX:
 	case SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM:
 	case SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM_DUPLEX:
+	case SPA_BLUETOOTH_AUDIO_CODEC_LC3:
 		return 40 * SPA_NSEC_PER_MSEC;
 	default:
 		break;
@@ -2499,6 +2500,18 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			spa_log_debug(monitor->log, "transport %p: %s=%02x", transport, key, value);
 
 			transport->delay = value;
+			spa_bt_transport_emit_delay_changed(transport);
+		}
+		else if (spa_streq(key, "PresentationDelay")) {
+			uint32_t value;
+
+			if (type != DBUS_TYPE_UINT32)
+				goto next;
+			dbus_message_iter_get_basic(&it[1], &value);
+
+			spa_log_debug(monitor->log, "transport %p: %s=%02x", transport, key, value);
+
+			transport->delay = value / 100;
 			spa_bt_transport_emit_delay_changed(transport);
 		}
 	      next:

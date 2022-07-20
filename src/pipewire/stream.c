@@ -1261,11 +1261,9 @@ static int node_event_param(void *object, int seq,
 	{
 		struct spa_pod_prop *prop;
 		struct spa_pod_object *obj = (struct spa_pod_object *) param;
-		union {
-			float f;
-			double d;
-			bool b;
-		} value;
+		float value_f;
+		double value_d;
+		bool value_b;
 		float *values;
 		uint32_t i, n_values;
 
@@ -1278,24 +1276,24 @@ static int node_event_param(void *object, int seq,
 
 			switch (c->container) {
 			case SPA_TYPE_Float:
-				if (spa_pod_get_float(&prop->value, &value.f) < 0)
+				if (spa_pod_get_float(&prop->value, &value_f) < 0)
 					continue;
 				n_values = 1;
-				values = &value.f;
+				values = &value_f;
 				break;
 			case SPA_TYPE_Double:
-				if (spa_pod_get_double(&prop->value, &value.d) < 0)
+				if (spa_pod_get_double(&prop->value, &value_d) < 0)
 					continue;
 				n_values = 1;
-				value.f = value.d;
-				values = &value.f;
+				value_f = value_d;
+				values = &value_f;
 				break;
 			case SPA_TYPE_Bool:
-				if (spa_pod_get_bool(&prop->value, &value.b) < 0)
+				if (spa_pod_get_bool(&prop->value, &value_b) < 0)
 					continue;
-				value.f = value.b ? 1.0f : 0.0f;
+				value_f = value_b ? 1.0f : 0.0f;
 				n_values = 1;
-				values = &value.f;
+				values = &value_f;
 				break;
 			case SPA_TYPE_Array:
 				if ((values = spa_pod_get_array(&prop->value, &n_values)) == NULL ||

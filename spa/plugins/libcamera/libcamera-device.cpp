@@ -81,32 +81,29 @@ struct impl {
 std::string cameraModel(const Camera *camera)
 {
 	const ControlList &props = camera->properties();
-	std::string name;
-	if (props.contains(properties::Model))
-		name = props.get(properties::Model);
-	else
-		name = camera->id();
-        return name;
+
+	if (auto model = props.get(properties::Model))
+		return std::move(model.value());
+
+	return camera->id();
 }
 
 std::string cameraLoc(const Camera *camera)
 {
 	const ControlList &props = camera->properties();
-	std::string location;
-	if (props.contains(properties::Location)) {
-		switch (props.get(properties::Location)) {
+
+	if (auto location = props.get(properties::Location)) {
+		switch (location.value()) {
 		case properties::CameraLocationFront:
-			location = "front";
-			break;
+			return "front";
 		case properties::CameraLocationBack:
-			location = "back";
-			break;
+			return "back";
 		case properties::CameraLocationExternal:
-			location = "external";
-			break;
+			return "external";
 		}
 	}
-	return location;
+
+	return {};
 }
 
 static int emit_info(struct impl *impl, bool full)

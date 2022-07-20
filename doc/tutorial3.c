@@ -20,7 +20,7 @@ static void on_core_done(void *data, uint32_t id, int seq)
 		pw_main_loop_quit(d->loop);
 }
 
-static int roundtrip(struct pw_core *core, struct pw_main_loop *loop)
+static void roundtrip(struct pw_core *core, struct pw_main_loop *loop)
 {
 	static const struct pw_core_events core_events = {
 		PW_VERSION_CORE_EVENTS,
@@ -38,7 +38,6 @@ static int roundtrip(struct pw_core *core, struct pw_main_loop *loop)
 	pw_main_loop_run(loop);
 
 	spa_hook_remove(&core_listener);
-	return 0;
 }
 /* [roundtrip] */
 

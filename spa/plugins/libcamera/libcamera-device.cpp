@@ -88,7 +88,7 @@ static std::string cameraModel(const Camera *camera)
 	return camera->id();
 }
 
-static std::string cameraLoc(const Camera *camera)
+static const char *cameraLoc(const Camera *camera)
 {
 	const ControlList &props = camera->properties();
 
@@ -103,7 +103,7 @@ static std::string cameraLoc(const Camera *camera)
 		}
 	}
 
-	return {};
+	return "";
 }
 
 static int emit_info(struct impl *impl, bool full)
@@ -125,7 +125,7 @@ static int emit_info(struct impl *impl, bool full)
 	ADD_ITEM(SPA_KEY_DEVICE_API, "libcamera");
 	ADD_ITEM(SPA_KEY_MEDIA_CLASS, "Video/Device");
 	ADD_ITEM(SPA_KEY_API_LIBCAMERA_PATH, (char *)impl->props.device);
-	snprintf(location, sizeof(location), "%s", cameraLoc(impl->camera.get()).c_str());
+	snprintf(location, sizeof(location), "%s", cameraLoc(impl->camera.get()));
 	ADD_ITEM(SPA_KEY_API_LIBCAMERA_LOCATION, location);
 	snprintf(model, sizeof(model), "%s", cameraModel(impl->camera.get()).c_str());
 	ADD_ITEM(SPA_KEY_DEVICE_PRODUCT_NAME, model);

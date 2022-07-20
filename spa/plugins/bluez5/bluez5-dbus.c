@@ -2527,7 +2527,7 @@ static const struct spa_bt_transport_implementation transport_impl = {
 	.set_volume = transport_set_volume,
 };
 
-static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, int key_type_int, void* key, const char* variant_type_str, const char* array_type_str, int array_type_int, void* data, int data_size);
+static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, const char* key, const char* variant_type_str, const char* array_type_str, int array_type_int, void* data, int data_size);
 
 static void a2dp_codec_switch_reply(DBusPendingCall *pending, void *userdata);
 
@@ -2585,7 +2585,6 @@ static bool a2dp_codec_switch_process_current(struct spa_bt_a2dp_codec_switch *s
 	char *local_endpoint = NULL;
 	int res, config_size;
 	dbus_bool_t dbus_ret;
-	const char *str;
 	DBusMessage *m;
 	DBusMessageIter iter, d;
 	int i;
@@ -2678,8 +2677,7 @@ static bool a2dp_codec_switch_process_current(struct spa_bt_a2dp_codec_switch *s
 	dbus_message_iter_init_append(m, &iter);
 	dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &local_endpoint);
 	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sv}", &d);
-	str = "Capabilities";
-	append_basic_array_variant_dict_entry(&d, DBUS_TYPE_STRING, &str, "ay", "y", DBUS_TYPE_BYTE, config, config_size);
+	append_basic_array_variant_dict_entry(&d, "Capabilities", "ay", "y", DBUS_TYPE_BYTE, config, config_size);
 	dbus_message_iter_close_container(&iter, &d);
 
 	spa_assert(sw->pending == NULL);
@@ -3284,10 +3282,10 @@ static void bluez_register_endpoint_reply(DBusPendingCall *pending, void *user_d
 	dbus_pending_call_unref(pending);
 }
 
-static void append_basic_variant_dict_entry(DBusMessageIter *dict, int key_type_int, void* key, int variant_type_int, const char* variant_type_str, void* variant) {
+static void append_basic_variant_dict_entry(DBusMessageIter *dict, const char* key, int variant_type_int, const char* variant_type_str, void* variant) {
 	DBusMessageIter dict_entry_it, variant_it;
 	dbus_message_iter_open_container(dict, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry_it);
-	dbus_message_iter_append_basic(&dict_entry_it, key_type_int, key);
+	dbus_message_iter_append_basic(&dict_entry_it, DBUS_TYPE_STRING, key);
 
 	dbus_message_iter_open_container(&dict_entry_it, DBUS_TYPE_VARIANT, variant_type_str, &variant_it);
 	dbus_message_iter_append_basic(&variant_it, variant_type_int, variant);
@@ -3295,10 +3293,10 @@ static void append_basic_variant_dict_entry(DBusMessageIter *dict, int key_type_
 	dbus_message_iter_close_container(dict, &dict_entry_it);
 }
 
-static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, int key_type_int, void* key, const char* variant_type_str, const char* array_type_str, int array_type_int, void* data, int data_size) {
+static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, const char* key, const char* variant_type_str, const char* array_type_str, int array_type_int, void* data, int data_size) {
 	DBusMessageIter dict_entry_it, variant_it, array_it;
 	dbus_message_iter_open_container(dict, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry_it);
-	dbus_message_iter_append_basic(&dict_entry_it, key_type_int, key);
+	dbus_message_iter_append_basic(&dict_entry_it, DBUS_TYPE_STRING, key);
 
 	dbus_message_iter_open_container(&dict_entry_it, DBUS_TYPE_VARIANT, variant_type_str, &variant_it);
 	dbus_message_iter_open_container(&variant_it, DBUS_TYPE_ARRAY, array_type_str, &array_it);
@@ -3311,7 +3309,7 @@ static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, int key
 static int bluez_register_endpoint(struct spa_bt_monitor *monitor,
                              const char *path, const char *endpoint,
 			     const char *uuid, const struct a2dp_codec *codec) {
-	char *str, *object_path = NULL;
+	char *object_path = NULL;
 	DBusMessage *m;
 	DBusMessageIter object_it, dict_it;
 	DBusPendingCall *call;
@@ -3344,12 +3342,9 @@ static int bluez_register_endpoint(struct spa_bt_monitor *monitor,
 
 	dbus_message_iter_open_container(&object_it, DBUS_TYPE_ARRAY, "{sv}", &dict_it);
 
-	str = "UUID";
-	append_basic_variant_dict_entry(&dict_it, DBUS_TYPE_STRING, &str, DBUS_TYPE_STRING, "s", &uuid);
-	str = "Codec";
-	append_basic_variant_dict_entry(&dict_it, DBUS_TYPE_STRING, &str, DBUS_TYPE_BYTE, "y", &codec_id);
-	str = "Capabilities";
-	append_basic_array_variant_dict_entry(&dict_it, DBUS_TYPE_STRING, &str, "ay", "y", DBUS_TYPE_BYTE, caps, caps_size);
+	append_basic_variant_dict_entry(&dict_it,"UUID", DBUS_TYPE_STRING, "s", &uuid);
+	append_basic_variant_dict_entry(&dict_it, "Codec", DBUS_TYPE_BYTE, "y", &codec_id);
+	append_basic_array_variant_dict_entry(&dict_it, "Capabilities", "ay", "y", DBUS_TYPE_BYTE, caps, caps_size);
 
 	dbus_message_iter_close_container(&object_it, &dict_it);
 
@@ -3453,7 +3448,6 @@ static int adapter_register_endpoints(struct spa_bt_adapter *a)
 static void append_a2dp_object(DBusMessageIter *iter, const char *endpoint,
 		const char *uuid, uint8_t codec_id, uint8_t *caps, size_t caps_size)
 {
-	char* str;
 	const char *interface_name = BLUEZ_MEDIA_ENDPOINT_INTERFACE;
 	DBusMessageIter object, array, entry, dict;
 	dbus_bool_t delay_reporting;
@@ -3468,16 +3462,12 @@ static void append_a2dp_object(DBusMessageIter *iter, const char *endpoint,
 
 	dbus_message_iter_open_container(&entry, DBUS_TYPE_ARRAY, "{sv}", &dict);
 
-	str = "UUID";
-	append_basic_variant_dict_entry(&dict, DBUS_TYPE_STRING, &str, DBUS_TYPE_STRING, "s", &uuid);
-	str = "Codec";
-	append_basic_variant_dict_entry(&dict, DBUS_TYPE_STRING, &str, DBUS_TYPE_BYTE, "y", &codec_id);
-	str = "Capabilities";
-	append_basic_array_variant_dict_entry(&dict, DBUS_TYPE_STRING, &str, "ay", "y", DBUS_TYPE_BYTE, caps, caps_size);
+	append_basic_variant_dict_entry(&dict, "UUID", DBUS_TYPE_STRING, "s", &uuid);
+	append_basic_variant_dict_entry(&dict, "Codec", DBUS_TYPE_BYTE, "y", &codec_id);
+	append_basic_array_variant_dict_entry(&dict, "Capabilities", "ay", "y", DBUS_TYPE_BYTE, caps, caps_size);
 	if (spa_bt_profile_from_uuid(uuid) & SPA_BT_PROFILE_A2DP_SOURCE) {
-		str = "DelayReporting";
 		delay_reporting = TRUE;
-		append_basic_variant_dict_entry(&dict, DBUS_TYPE_STRING, &str, DBUS_TYPE_BOOLEAN, "b", &delay_reporting);
+		append_basic_variant_dict_entry(&dict, "DelayReporting", DBUS_TYPE_BOOLEAN, "b", &delay_reporting);
 	}
 
 	dbus_message_iter_close_container(&entry, &dict);

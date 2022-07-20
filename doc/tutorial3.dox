@@ -17,8 +17,7 @@ Let's take a look at what this method does.
 \code{.c}
 	struct spa_hook core_listener;
 
-	pw_core_add_listener(core, &core_listener,
-			&core_events, &d);
+	pw_core_add_listener(core, &core_listener, &core_events, &d);
 \endcode
 
 First of all we add a listener for the events of the core

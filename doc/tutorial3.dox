@@ -18,7 +18,7 @@ Let's take a look at what this method does.
 	struct spa_hook core_listener;
 
 	pw_core_add_listener(core, &core_listener,
-			&core_events, NULL);
+			&core_events, &d);
 \endcode
 
 First of all we add a listener for the events of the core
@@ -26,16 +26,13 @@ object. We are only interested in the `done` event in this
 tutorial. This is the event handler:
 
 \code{.c}
-	int pending;
+static void on_core_done(void *data, uint32_t id, int seq)
+{
+	struct roundtrip_data *d = data;
 
-	void core_event_done(void *data, uint32_t id, int seq) {
-		if (id == PW_ID_CORE && seq == pending)
-			pw_main_loop_quit(loop);
-	}
-	const struct pw_core_events core_events = {
-		PW_VERSION_CORE_EVENTS,
-		.done = core_event_done,
-	};
+	if (id == PW_ID_CORE && seq == d->pending)
+		pw_main_loop_quit(d->loop);
+}
 \endcode
 
 When the done event is received for an object with id `PW_ID_CORE` and
@@ -44,7 +41,7 @@ a certain sequence number `seq`, this function will call `pw_main_loop_quit()`.
 Next we do:
 
 \code{.c}
-	pending = pw_core_sync(core, PW_ID_CORE, 0);
+	d.pending = pw_core_sync(core, PW_ID_CORE, 0);
 \endcode
 
 This triggers the `sync` method on the core object with id

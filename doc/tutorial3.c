@@ -22,7 +22,6 @@ static int roundtrip(struct pw_core *core, struct pw_main_loop *loop)
 		.done = core_event_done,
 	};
 
-	spa_zero(core_listener);
 	pw_core_add_listener(core, &core_listener,
 				 &core_events, NULL);
 
@@ -70,7 +69,6 @@ int main(int argc, char *argv[])
 	registry = pw_core_get_registry(core, PW_VERSION_REGISTRY,
 			0 /* user_data size */);
 
-	spa_zero(registry_listener);
 	pw_registry_add_listener(registry, &registry_listener,
 				       &registry_events, NULL);
 

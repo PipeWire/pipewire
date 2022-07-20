@@ -479,6 +479,7 @@ static int get_mapping(const struct a2dp_codec *codec, const a2dp_opus_05_direct
 					m->coupled_streams == coupled_streams &&
 					m->location == location)
 			{
+				spa_assert(channels <= SPA_N_ELEMENTS(m->inv_mapping));
 				permutation = m->inv_mapping;
 				if (surround_mapping)
 					*surround_mapping = m->mapping;
@@ -960,7 +961,7 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	opus_multistream_encoder_ctl(this->enc, OPUS_SET_BITRATE(this->e.bitrate));
 
 	this->e.samples = this->e.frame_dms * this->samplerate / 10000;
-	this->e.codesize = this->e.samples * this->channels * sizeof(float);
+	this->e.codesize = this->e.samples * (int)this->channels * sizeof(float);
 
 
 	/*
@@ -1198,7 +1199,7 @@ static SPA_UNUSED int codec_decode(void *data,
 	res = opus_multistream_decode_float(this->dec, src, src_size, dst, dst_samples, 0);
 	if (res < 0)
 		return -EINVAL;
-	*dst_out = res * this->channels * sizeof(float);
+	*dst_out = (size_t)res * this->channels * sizeof(float);
 
 	return consumed;
 }

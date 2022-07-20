@@ -469,10 +469,10 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 error_errno:
 	res = -errno;
 error:
-	if (this->ldac)
+	if (this && this->ldac)
 		ldacBT_free_handle(this->ldac);
 #ifdef ENABLE_LDAC_ABR
-	if (this->ldac_abr)
+	if (this && this->ldac_abr)
 		ldac_ABR_free_handle(this->ldac_abr);
 #endif
 	free(this);

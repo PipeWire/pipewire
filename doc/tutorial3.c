@@ -10,12 +10,10 @@
 static int roundtrip(struct pw_core *core, struct pw_main_loop *loop)
 {
 	struct spa_hook core_listener;
-	int pending, done = 0;
+	int pending;
 	void core_event_done(void *object, uint32_t id, int seq) {
-		if (id == PW_ID_CORE && seq == pending) {
-			done = 1;
+		if (id == PW_ID_CORE && seq == pending)
 			pw_main_loop_quit(loop);
-		}
 	}
 	const struct pw_core_events core_events = {
 		PW_VERSION_CORE_EVENTS,
@@ -27,9 +25,8 @@ static int roundtrip(struct pw_core *core, struct pw_main_loop *loop)
 
 	pending = pw_core_sync(core, PW_ID_CORE, 0);
 
-	while (!done) {
-		pw_main_loop_run(loop);
-	}
+	pw_main_loop_run(loop);
+
 	spa_hook_remove(&core_listener);
 	return 0;
 }

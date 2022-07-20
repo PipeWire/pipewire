@@ -26,13 +26,11 @@ object. We are only interested in the `done` event in this
 tutorial. This is the event handler:
 
 \code{.c}
-	int pending, done = 0;
+	int pending;
 
 	void core_event_done(void *data, uint32_t id, int seq) {
-		if (id == PW_ID_CORE && seq == pending) {
-			done = 1;
+		if (id == PW_ID_CORE && seq == pending)
 			pw_main_loop_quit(loop);
-		}
 	}
 	const struct pw_core_events core_events = {
 		PW_VERSION_CORE_EVENTS,
@@ -40,9 +38,8 @@ tutorial. This is the event handler:
 	};
 \endcode
 
-When the done event is received for an object with id `PW_ID_CORE`
-and a certain sequence number `seq`, this function will set the done
-variable to 1 and call `pw_main_loop_quit()`.
+When the done event is received for an object with id `PW_ID_CORE` and
+a certain sequence number `seq`, this function will call `pw_main_loop_quit()`.
 
 Next we do:
 
@@ -68,9 +65,7 @@ We then run the mainloop to send the messages to the server and
 receive the events:
 
 \code{.c}
-	while (!done) {
-		pw_main_loop_run(loop);
-	}
+	pw_main_loop_run(loop);
 \endcode
 
 When we get the done event, we can compare it to the sync method

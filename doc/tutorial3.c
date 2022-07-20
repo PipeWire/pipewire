@@ -22,12 +22,13 @@ static void on_core_done(void *data, uint32_t id, int seq)
 
 static int roundtrip(struct pw_core *core, struct pw_main_loop *loop)
 {
-	struct roundtrip_data d = { .loop = loop };
-	struct spa_hook core_listener;
-	const struct pw_core_events core_events = {
+	static const struct pw_core_events core_events = {
 		PW_VERSION_CORE_EVENTS,
 		.done = on_core_done,
 	};
+
+	struct roundtrip_data d = { .loop = loop };
+	struct spa_hook core_listener;
 
 	pw_core_add_listener(core, &core_listener,
 				 &core_events, &d);

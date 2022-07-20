@@ -124,7 +124,7 @@ static int emit_info(struct impl *impl, bool full)
 	ADD_ITEM(SPA_KEY_OBJECT_PATH, path);
 	ADD_ITEM(SPA_KEY_DEVICE_API, "libcamera");
 	ADD_ITEM(SPA_KEY_MEDIA_CLASS, "Video/Device");
-	ADD_ITEM(SPA_KEY_API_LIBCAMERA_PATH, (char *)impl->props.device);
+	ADD_ITEM(SPA_KEY_API_LIBCAMERA_PATH, impl->props.device);
 
 	if (auto location = cameraLoc(impl->camera.get()))
 		ADD_ITEM(SPA_KEY_API_LIBCAMERA_LOCATION, location);

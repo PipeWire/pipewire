@@ -993,8 +993,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 
-	(void)SPA_SUPPORT_INIT(SPA_TYPE_INTERFACE_AUDIO_AEC, (struct spa_audio_aec *)impl->aec);
-
 	pw_log_info("Using plugin AEC %s", impl->aec->name);
 
 	if ((str = pw_properties_get(props, "aec.args")) != NULL)

@@ -58,9 +58,9 @@ static bool webrtc_get_spa_bool(const struct spa_dict *args, const char *key, bo
 	return default_value;
 }
 
-static int webrtc_init(void *data, const struct spa_dict *args, const struct spa_audio_info_raw *info)
+static int webrtc_init(void *object, const struct spa_dict *args, const struct spa_audio_info_raw *info)
 {
-	auto impl = static_cast<struct impl_data*>(data);
+	auto impl = static_cast<struct impl_data*>(object);
 
 	bool extended_filter = webrtc_get_spa_bool(args, "webrtc.extended_filter", true);
 	bool delay_agnostic = webrtc_get_spa_bool(args, "webrtc.delay_agnostic", true);
@@ -120,9 +120,9 @@ static int webrtc_init(void *data, const struct spa_dict *args, const struct spa
 	return 0;
 }
 
-static int webrtc_run(void *data, const float *rec[], const float *play[], float *out[], uint32_t n_samples)
+static int webrtc_run(void *object, const float *rec[], const float *play[], float *out[], uint32_t n_samples)
 {
-	auto impl = static_cast<struct impl_data*>(data);
+	auto impl = static_cast<struct impl_data*>(object);
 	webrtc::StreamConfig config =
 		webrtc::StreamConfig(impl->info.rate, impl->info.channels, false);
 	unsigned int num_blocks = n_samples * 1000 / impl->info.rate / 10;

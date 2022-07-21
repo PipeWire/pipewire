@@ -68,9 +68,9 @@ struct spa_audio_aec_methods {
 			const struct spa_audio_aec_events *events,
 			void *data);
 
-	int (*init) (void *data, const struct spa_dict *args, const struct spa_audio_info_raw *info);
-	int (*run) (void *data, const float *rec[], const float *play[], float *out[], uint32_t n_samples);
-	int (*set_props) (void *data, const struct spa_dict *args);
+	int (*init) (void *object, const struct spa_dict *args, const struct spa_audio_info_raw *info);
+	int (*run) (void *object, const float *rec[], const float *play[], float *out[], uint32_t n_samples);
+	int (*set_props) (void *object, const struct spa_dict *args);
 };
 
 #define spa_audio_aec_method(o,method,version,...)			\

@@ -59,6 +59,7 @@ static int null_run(void *object, const float *rec[], const float *play[], float
 }
 
 static struct spa_audio_aec_methods impl_aec = {
+	SPA_VERSION_AUDIO_AEC,
 	.init = null_init,
 	.run = null_run,
 };

@@ -116,7 +116,7 @@ impl_init(const struct spa_handle_factory *factory,
 	impl->aec.info = NULL;
 	impl->aec.latency = NULL;
 
-	impl->log = (struct spa_log*)spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	spa_log_topic_init(impl->log, &log_topic);
 
 	spa_hook_list_init(&impl->hooks_list);

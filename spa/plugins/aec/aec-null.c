@@ -66,12 +66,10 @@ static struct spa_audio_aec_methods impl_aec = {
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
-	struct impl *impl;
-
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 	spa_return_val_if_fail(interface != NULL, -EINVAL);
 
-	impl = (struct impl *) handle;
+	struct impl *impl = (struct impl *) handle;
 
 	if (spa_streq(type, SPA_TYPE_INTERFACE_AUDIO_AEC))
 		*interface = &impl->aec;
@@ -102,15 +100,13 @@ impl_init(const struct spa_handle_factory *factory,
 	  const struct spa_support *support,
 	  uint32_t n_support)
 {
-	struct impl *impl;
-
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
 	handle->get_interface = impl_get_interface;
 	handle->clear = impl_clear;
 
-	impl = (struct impl *) handle;
+	struct impl *impl = (struct impl *) handle;
 
 	impl->aec.iface = SPA_INTERFACE_INIT(
 		SPA_TYPE_INTERFACE_AUDIO_AEC,

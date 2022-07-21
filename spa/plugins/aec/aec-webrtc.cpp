@@ -248,7 +248,7 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 	return 1;
 }
 
-const struct spa_handle_factory spa_aec_webrtc_factory = {
+static const struct spa_handle_factory spa_aec_webrtc_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
 	SPA_NAME_AEC,
 	NULL,
@@ -256,7 +256,6 @@ const struct spa_handle_factory spa_aec_webrtc_factory = {
 	impl_init,
 	impl_enum_interface_info,
 };
-
 
 SPA_EXPORT
 int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t *index)

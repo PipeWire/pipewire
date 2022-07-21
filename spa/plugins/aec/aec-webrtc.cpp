@@ -60,7 +60,7 @@ static bool webrtc_get_spa_bool(const struct spa_dict *args, const char *key, bo
 
 static int webrtc_init(void *data, const struct spa_dict *args, const struct spa_audio_info_raw *info)
 {
-	auto impl = reinterpret_cast<struct impl_data*>(data);
+	auto impl = static_cast<struct impl_data*>(data);
 
 	bool extended_filter = webrtc_get_spa_bool(args, "webrtc.extended_filter", true);
 	bool delay_agnostic = webrtc_get_spa_bool(args, "webrtc.delay_agnostic", true);
@@ -122,7 +122,7 @@ static int webrtc_init(void *data, const struct spa_dict *args, const struct spa
 
 static int webrtc_run(void *data, const float *rec[], const float *play[], float *out[], uint32_t n_samples)
 {
-	auto impl = reinterpret_cast<struct impl_data*>(data);
+	auto impl = static_cast<struct impl_data*>(data);
 	webrtc::StreamConfig config =
 		webrtc::StreamConfig(impl->info.rate, impl->info.channels, false);
 	unsigned int num_blocks = n_samples * 1000 / impl->info.rate / 10;
@@ -218,7 +218,7 @@ impl_init(const struct spa_handle_factory *factory,
 	impl->aec.info = NULL;
 	impl->aec.latency = "480/48000",
 
-	impl->log = (struct spa_log*)spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	impl->log = static_cast<struct spa_log *>(spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log));
 	spa_log_topic_init(impl->log, &log_topic);
 
 	return 0;

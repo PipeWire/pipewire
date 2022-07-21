@@ -50,14 +50,12 @@ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.eac.webrtc");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
-static bool webrtc_get_spa_bool(const struct spa_dict *args, const char *key, bool default_value) {
-	const char *str_val;
-	bool value = default_value;
-	str_val = spa_dict_lookup(args, key);
-	if (str_val != NULL)
-		value =spa_atob(str_val);
+static bool webrtc_get_spa_bool(const struct spa_dict *args, const char *key, bool default_value)
+{
+	if (auto str = spa_dict_lookup(args, key))
+		return spa_atob(str);
 
-	return value;
+	return default_value;
 }
 
 static int webrtc_init(void *data, const struct spa_dict *args, const struct spa_audio_info_raw *info)

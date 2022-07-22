@@ -172,6 +172,10 @@ struct impl {
 	uint8_t tmp_buffer[BUFFER_SIZE];
 	uint32_t tmp_buffer_used;
 	uint32_t fd_buffer_size;
+
+	/* Times */
+	uint64_t start_time;
+	uint64_t total_samples;
 };
 
 #define CHECK_PORT(this,d,p)    ((d) == SPA_DIRECTION_INPUT && (p) == 0)
@@ -618,6 +622,27 @@ static void enable_flush(struct impl *this, bool enabled, uint64_t timeout)
 			this->flush_timerfd, 0, &ts, NULL);
 }
 
+static uint64_t get_next_bap_timeout(struct impl *this)
+{
+	struct port *port = &this->port;
+	uint64_t playback_time = 0, elapsed_time = 0, next_time = 0;
+	struct timespec now;
+	uint64_t now_time;
+
+	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &now);
+	now_time = SPA_TIMESPEC_TO_NSEC(&now);
+	if (this->start_time == 0)
+		this->start_time = now_time;
+
+	playback_time = (this->total_samples * SPA_NSEC_PER_SEC) / port->current_format.info.raw.rate;
+	if (now_time > this->start_time)
+		elapsed_time = now_time - this->start_time;
+	if (elapsed_time < playback_time)
+		next_time = playback_time - elapsed_time;
+
+	return next_time;
+}
+
 static int flush_data(struct impl *this, uint64_t now_time)
 {
 	int written;
@@ -694,6 +719,7 @@ again:
 			port->ready_offset = 0;
 		}
 		total_frames += n_frames;
+		this->total_samples += n_frames;
 
 		spa_log_trace(this->log, "%p: written %u frames", this, total_frames);
 	}
@@ -730,54 +756,69 @@ again:
 		return written;
 	}
 	else if (written > 0) {
-		/*
-		 * We cannot write all data we have at once, since this can exceed
-		 * device buffers.  We'll want a limited number of "excess"
-		 * samples. This is an issue for the "low-latency" A2DP codecs.
-		 *
-		 * Flushing the rest of the data (if any) is delayed after a timeout,
-		 * selected on an average-rate basis:
-		 *
-		 * npackets = quantum / packet_samples
-		 * write_end_time = npackets * timeout
-		 * max_excess = quantum - sample_rate * write_end_time
-		 * packet_time = packet_samples / sample_rate
-		 * => timeout = (quantum - max_excess)/quantum * packet_time
-		 */
-		uint64_t max_excess = 2*256;
-		uint64_t packet_samples = (uint64_t)this->frame_count * this->block_size / port->frame_size;
-		uint64_t packet_time = packet_samples * SPA_NSEC_PER_SEC / port->current_format.info.raw.rate;
-		uint64_t quantum = SPA_LIKELY(this->clock) ? this->clock->duration : 0;
-		uint64_t timeout = (quantum > max_excess) ?
-			(packet_time * (quantum - max_excess) / quantum) : 0;
+		if (this->codec->bap) {
+			uint64_t timeout = get_next_bap_timeout(this);
 
-		if (this->need_flush == NEED_FLUSH_FRAGMENT) {
 			reset_buffer(this);
-			this->fragment = true;
-			this->fragment_timeout = (packet_samples > 0) ? timeout : this->fragment_timeout;
-			goto again;
-		}
-		if (this->fragment_timeout > 0) {
-			timeout = this->fragment_timeout;
-			this->fragment_timeout = 0;
-		}
-
-		reset_buffer(this);
-		if (now_time - this->last_error > SPA_NSEC_PER_SEC) {
-			if (get_transport_unused_size(this) == (int)this->fd_buffer_size) {
-				spa_log_trace(this->log, "%p: increase bitpool", this);
-				this->codec->increase_bitpool(this->codec_data);
+			if (!spa_list_is_empty(&port->ready)) {
+				spa_log_debug(this->log, "%p: flush after %d ns", this, (unsigned int)timeout);
+				if (timeout == 0)
+					goto again;
+				else
+					enable_flush(this, true, timeout);
+			} else {
+				enable_flush(this, false, 0);
 			}
-			this->last_error = now_time;
-		}
-		if (!spa_list_is_empty(&port->ready)) {
-			spa_log_trace(this->log, "%p: flush after %d ns", this, (int)timeout);
-			if (timeout == 0)
-				goto again;
-			else
-				enable_flush(this, true, timeout);
 		} else {
-			enable_flush(this, false, 0);
+			/*
+			* We cannot write all data we have at once, since this can exceed
+			* device buffers.  We'll want a limited number of "excess"
+			* samples. This is an issue for the "low-latency" A2DP codecs.
+			*
+			* Flushing the rest of the data (if any) is delayed after a timeout,
+			* selected on an average-rate basis:
+			*
+			* npackets = quantum / packet_samples
+			* write_end_time = npackets * timeout
+			* max_excess = quantum - sample_rate * write_end_time
+			* packet_time = packet_samples / sample_rate
+			* => timeout = (quantum - max_excess)/quantum * packet_time
+			*/
+			uint64_t max_excess = 2*256;
+			uint64_t packet_samples = (uint64_t)this->frame_count * this->block_size / port->frame_size;
+			uint64_t packet_time = packet_samples * SPA_NSEC_PER_SEC / port->current_format.info.raw.rate;
+			uint64_t quantum = SPA_LIKELY(this->clock) ? this->clock->duration : 0;
+			uint64_t timeout = (quantum > max_excess) ?
+				(packet_time * (quantum - max_excess) / quantum) : 0;
+
+			if (this->need_flush == NEED_FLUSH_FRAGMENT) {
+				reset_buffer(this);
+				this->fragment = true;
+				this->fragment_timeout = (packet_samples > 0) ? timeout : this->fragment_timeout;
+				goto again;
+			}
+			if (this->fragment_timeout > 0) {
+				timeout = this->fragment_timeout;
+				this->fragment_timeout = 0;
+			}
+
+			reset_buffer(this);
+			if (now_time - this->last_error > SPA_NSEC_PER_SEC) {
+				if (get_transport_unused_size(this) == (int)this->fd_buffer_size) {
+					spa_log_trace(this->log, "%p: increase bitpool", this);
+					this->codec->increase_bitpool(this->codec_data);
+				}
+				this->last_error = now_time;
+			}
+			if (!spa_list_is_empty(&port->ready)) {
+				spa_log_trace(this->log, "%p: flush after %d ns", this, (int)timeout);
+				if (timeout == 0)
+					goto again;
+				else
+					enable_flush(this, true, timeout);
+			} else {
+				enable_flush(this, false, 0);
+			}
 		}
 	}
 	else {
@@ -997,6 +1038,9 @@ static int do_remove_source(struct spa_loop *loop,
 {
 	struct impl *this = user_data;
 	struct itimerspec ts;
+
+	this->start_time = 0;
+	this->total_samples = 0;
 
 	if (this->source.loop)
 		spa_loop_remove_source(this->data_loop, &this->source);

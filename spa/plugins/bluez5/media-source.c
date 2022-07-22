@@ -1582,6 +1582,9 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	this->use_duplex_source = this->is_duplex || (this->codec->duplex_codec != NULL);
 
+	if (this->codec->bap)
+		this->is_input = this->transport->bap_initiator;
+
 	if (this->codec->init_props != NULL)
 		this->codec_props = this->codec->init_props(this->codec,
 					this->is_duplex ? 0 : MEDIA_CODEC_FLAG_SINK,

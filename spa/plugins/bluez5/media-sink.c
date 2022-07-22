@@ -136,6 +136,7 @@ struct impl {
 
 	unsigned int started:1;
 	unsigned int following:1;
+	unsigned int is_output:1;
 
 	unsigned int is_duplex:1;
 
@@ -1123,8 +1124,10 @@ static void emit_node_info(struct impl *this, bool full)
 {
 	struct spa_dict_item node_info_items[] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
-		{ SPA_KEY_MEDIA_CLASS, "Audio/Sink" },
-		{ SPA_KEY_NODE_DRIVER, "true" },
+		{ SPA_KEY_MEDIA_CLASS, this->is_output ? "Audio/Sink" : "Stream/Input/Audio" },
+		{ "media.name", ((this->transport && this->transport->device->name) ?
+					this->transport->device->name : this->codec->bap ? "BAP" : "A2DP" ) },
+		{ SPA_KEY_NODE_DRIVER, this->is_output ? "true" : "false" },
 	};
 	uint64_t old = full ? this->info.change_mask : 0;
 	if (full)
@@ -1774,6 +1777,9 @@ impl_init(const struct spa_handle_factory *factory,
 		this->codec_props = this->codec->init_props(this->codec,
 					this->is_duplex ? MEDIA_CODEC_FLAG_SINK : 0,
 					this->transport->device->settings);
+
+	if (this->codec->bap)
+		this->is_output = this->transport->bap_initiator;
 
 	reset_props(this, &this->props);
 

@@ -678,11 +678,8 @@ static int emit_nodes(struct impl *this)
 						1, SPA_NAME_API_BLUEZ5_SCO_SINK, false);
 			}
 		}
-		if (this->bt_dev->connected_profiles & (SPA_BT_PROFILE_MEDIA_SOURCE)) {
-			if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_BAP_SOURCE)
-				t = find_transport(this, SPA_BT_PROFILE_BAP_SOURCE, 0);
-			else
-				t = find_transport(this, SPA_BT_PROFILE_A2DP_SOURCE, 0);
+		if (this->bt_dev->connected_profiles & (SPA_BT_PROFILE_A2DP_SOURCE)) {
+			t = find_transport(this, SPA_BT_PROFILE_A2DP_SOURCE, 0);
 			if (t) {
 				this->props.codec = t->media_codec->id;
 				emit_dynamic_node(&this->dyn_media_source, this, t,
@@ -731,8 +728,11 @@ static int emit_nodes(struct impl *this)
 			t = find_transport(this, SPA_BT_PROFILE_BAP_SOURCE, 0);
 			if (t) {
 				this->props.codec = t->media_codec->id;
-				emit_dynamic_node(&this->dyn_media_source, this, t,
-					DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_MEDIA_SOURCE, false);
+				if (t->bap_initiator)
+					emit_node(this, t, DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_MEDIA_SOURCE, false);
+				else
+					emit_dynamic_node(&this->dyn_media_source, this, t,
+						DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_MEDIA_SOURCE, false);
 			}
 		}
 
@@ -740,7 +740,11 @@ static int emit_nodes(struct impl *this)
 			t = find_transport(this, SPA_BT_PROFILE_BAP_SINK, this->props.codec);
 			if (t) {
 				this->props.codec = t->media_codec->id;
-				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_MEDIA_SINK, false);
+				if (t->bap_initiator)
+					emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_MEDIA_SINK, false);
+				else
+					emit_dynamic_node(&this->dyn_media_sink, this, t,
+						DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_MEDIA_SINK, false);
 			}
 		}
 

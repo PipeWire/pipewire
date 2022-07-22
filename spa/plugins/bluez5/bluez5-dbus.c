@@ -133,6 +133,7 @@ struct spa_bt_monitor {
 	struct media_codec_audio_info default_audio_info;
 
 	bool le_audio_supported;
+	bool bap_initiator;
 };
 
 /* Stream endpoints owned by BlueZ for each device */
@@ -640,6 +641,14 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 				res = codec->select_config(codec, 0, cap, size, &monitor->default_audio_info, NULL, config);
 			else
 				res = -ENOTSUP;
+
+			/* FIXME: We can't determine which remote endpoint or device the
+			 * SelectConfiguration() call is associated with. For LE Audio BAP,
+			 * as this method is called only for the Initiator we set the whole
+			 * instance as a Central/Initiator.
+			 */
+			if (codec->bap)
+				monitor->bap_initiator = true;
 
 			if (res < 0 || res != size) {
 				spa_log_error(monitor->log, "can't select config: %d (%s)",
@@ -2004,6 +2013,7 @@ struct spa_bt_transport *spa_bt_transport_create(struct spa_bt_monitor *monitor,
 	t->fd = -1;
 	t->sco_io = NULL;
 	t->delay = SPA_BT_UNKNOWN_DELAY;
+	t->bap_initiator = monitor->bap_initiator;
 	t->user_data = SPA_PTROFF(t, sizeof(struct spa_bt_transport), void);
 	spa_hook_list_init(&t->listener_list);
 
@@ -4133,6 +4143,17 @@ static void interfaces_removed(struct spa_bt_monitor *monitor, DBusMessageIter *
 			ep = remote_endpoint_find(monitor, object_path);
 			if (ep != NULL) {
 				struct spa_bt_device *d = ep->device;
+				/* FIXME: As we had been unabe to determine which remote endpoint or
+				 * device the SelectConfiguration() has been associated with, this
+				 * removes the general Central/Initiator flag on LE Audio BAP media
+				 * endpoint removal.
+				 */
+				int i;
+				for (i = 0; monitor->media_codecs[i]; i++) {
+					const struct media_codec *codec = monitor->media_codecs[i];
+					if (codec->codec_id == ep->codec && codec->bap)
+						monitor->bap_initiator = false;
+				}
 				remote_endpoint_free(ep);
 				if (d)
 					spa_bt_device_emit_profiles_changed(d, d->profiles, d->connected_profiles);
@@ -4446,7 +4467,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 
 			transport_update_props(transport, &it[1], NULL);
 		}
-        }
+	}
 
 fail:
 	dbus_error_free(&err);

@@ -3285,7 +3285,7 @@ static void bluez_register_endpoint_reply(DBusPendingCall *pending, void *user_d
 static void append_basic_variant_dict_entry(DBusMessageIter *dict, const char* key, int variant_type_int, const char* variant_type_str, void* variant) {
 	DBusMessageIter dict_entry_it, variant_it;
 	dbus_message_iter_open_container(dict, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry_it);
-	dbus_message_iter_append_basic(&dict_entry_it, DBUS_TYPE_STRING, key);
+	dbus_message_iter_append_basic(&dict_entry_it, DBUS_TYPE_STRING, &key);
 
 	dbus_message_iter_open_container(&dict_entry_it, DBUS_TYPE_VARIANT, variant_type_str, &variant_it);
 	dbus_message_iter_append_basic(&variant_it, variant_type_int, variant);
@@ -3296,7 +3296,7 @@ static void append_basic_variant_dict_entry(DBusMessageIter *dict, const char* k
 static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, const char* key, const char* variant_type_str, const char* array_type_str, int array_type_int, void* data, int data_size) {
 	DBusMessageIter dict_entry_it, variant_it, array_it;
 	dbus_message_iter_open_container(dict, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry_it);
-	dbus_message_iter_append_basic(&dict_entry_it, DBUS_TYPE_STRING, key);
+	dbus_message_iter_append_basic(&dict_entry_it, DBUS_TYPE_STRING, &key);
 
 	dbus_message_iter_open_container(&dict_entry_it, DBUS_TYPE_VARIANT, variant_type_str, &variant_it);
 	dbus_message_iter_open_container(&variant_it, DBUS_TYPE_ARRAY, array_type_str, &array_it);

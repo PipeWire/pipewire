@@ -53,11 +53,18 @@ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.codecs.opus
 
 #define BUFSIZE_FROM_BITRATE(frame_dms,bitrate)	((bitrate)/8 * (frame_dms) / 10000 * 5/4)  /* estimate */
 
-#define BITRATE_MAX			960000
-#define BITRATE_DEFAULT			192000
-#define BITRATE_MIN			1024
+#define BITRATE_DEFAULT			128000
+#define BITRATE_MAX			192000
+#define BITRATE_MIN			64000
 
-#define BITRATE_DUPLEX_MAX		320000
+#define BITRATE_DEFAULT_51		256000
+#define BITRATE_MAX_51			384000
+#define BITRATE_MIN_51			85000
+
+#define BITRATE_DEFAULT_71		450000
+#define BITRATE_MAX_71			675000
+#define BITRATE_MIN_71			170000
+
 #define BITRATE_DUPLEX_BIDI		160000
 
 #define OPUS_05_MAX_BYTES	(15 * 1024)
@@ -446,6 +453,51 @@ static int set_channel_conf(const struct a2dp_codec *codec, a2dp_opus_05_t *caps
 	return 0;
 }
 
+static void get_default_bitrates(const struct a2dp_codec *codec, bool bidi, int *min, int *max, int *def)
+{
+	int tmp;
+
+	if (min == NULL)
+		min = &tmp;
+	if (max == NULL)
+		max = &tmp;
+	if (def == NULL)
+		def = &tmp;
+
+	if (bidi) {
+		*min = SPA_MIN(BITRATE_MIN, BITRATE_DUPLEX_BIDI);
+		*max = BITRATE_DUPLEX_BIDI;
+		*def = BITRATE_DUPLEX_BIDI;
+		return;
+	}
+
+	switch (codec->id) {
+	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05:
+		*min = BITRATE_MIN;
+		*max = BITRATE_MAX;
+		*def = BITRATE_DEFAULT;
+		break;
+	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_51:
+		*min = BITRATE_MIN_51;
+		*max = BITRATE_MAX_51;
+		*def = BITRATE_DEFAULT_51;
+		break;
+	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_71:
+		*min = BITRATE_MIN_71;
+		*max = BITRATE_MAX_71;
+		*def = BITRATE_DEFAULT_71;
+		break;
+	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_DUPLEX:
+		*min = BITRATE_MIN;
+		*max = BITRATE_MAX;
+		*def = BITRATE_DEFAULT;
+		break;
+	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_PRO:
+	default:
+		spa_assert_not_reached();
+	};
+}
+
 static int get_mapping(const struct a2dp_codec *codec, const a2dp_opus_05_direction_t *conf,
 		bool use_surround_encoder, uint8_t *streams_ret, uint8_t *coupled_streams_ret,
 		const uint8_t **surround_mapping, uint32_t *positions)
@@ -550,7 +602,6 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		const struct a2dp_codec_audio_info *info,
 		const struct spa_dict *global_settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
 {
-	bool duplex = (codec->id == SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_DUPLEX);
 	struct props props;
 	a2dp_opus_05_t conf;
 	int res;
@@ -610,7 +661,7 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		else
 			return -EINVAL;
 
-		max = duplex ? BITRATE_DUPLEX_MAX : BITRATE_MAX;
+		get_default_bitrates(codec, false, NULL, &max, NULL);
 
 		if (OPUS_05_GET_BITRATE(conf.main) != 0)
 			OPUS_05_SET_BITRATE(conf.main, SPA_MIN(OPUS_05_GET_BITRATE(conf.main), max / 1024));
@@ -633,12 +684,14 @@ static int codec_select_config(const struct a2dp_codec *codec, uint32_t flags,
 		else
 			return -EINVAL;
 
+		get_default_bitrates(codec, true, NULL, &max, NULL);
+
 		if (conf.bidi.channels == 0)
 			true;
 		else if (OPUS_05_GET_BITRATE(conf.bidi) != 0)
-			OPUS_05_SET_BITRATE(conf.bidi, SPA_MIN(OPUS_05_GET_BITRATE(conf.bidi), BITRATE_DUPLEX_BIDI / 1024));
+			OPUS_05_SET_BITRATE(conf.bidi, SPA_MIN(OPUS_05_GET_BITRATE(conf.bidi), max / 1024));
 		else
-			OPUS_05_SET_BITRATE(conf.bidi, BITRATE_DUPLEX_BIDI / 1024);
+			OPUS_05_SET_BITRATE(conf.bidi, max / 1024);
 	}
 
 	memcpy(config, &conf, sizeof(conf));
@@ -941,21 +994,19 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 		goto error;
 	}
 
-	if (!this->is_bidi) {
-		if (codec->id != SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_PRO)
-			this->e.bitrate_max = SPA_MIN(BITRATE_MAX, OPUS_05_GET_BITRATE(*dir) * 1024);
-		else
-			this->e.bitrate_max = OPUS_05_GET_BITRATE(*dir) * 1024;
-		this->e.bitrate_min = SPA_MIN(BITRATE_MIN, this->e.bitrate_max);
-		this->e.bitrate = SPA_CLAMP(BITRATE_DEFAULT, this->e.bitrate_min, this->e.bitrate_max);
+	if (codec->id != SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_PRO) {
+		get_default_bitrates(codec, this->is_bidi, &this->e.bitrate_min,
+				&this->e.bitrate_max, &this->e.bitrate);
+		this->e.bitrate_max = SPA_MIN(this->e.bitrate_max,
+				OPUS_05_GET_BITRATE(*dir) * 1024);
 	} else {
-		if (codec->id != SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_PRO)
-			this->e.bitrate_max = SPA_MIN(BITRATE_DUPLEX_BIDI, OPUS_05_GET_BITRATE(*dir) * 1024);
-		else
-			this->e.bitrate_max = OPUS_05_GET_BITRATE(*dir) * 1024;
-		this->e.bitrate_min = SPA_MIN(BITRATE_MIN, this->e.bitrate_max);
-		this->e.bitrate = SPA_CLAMP(BITRATE_DUPLEX_BIDI, this->e.bitrate_min, this->e.bitrate_max);
+		this->e.bitrate_max = OPUS_05_GET_BITRATE(*dir) * 1024;
+		this->e.bitrate_min = BITRATE_MIN;
+		this->e.bitrate = BITRATE_DEFAULT;
 	}
+
+	this->e.bitrate_min = SPA_MIN(this->e.bitrate_min, this->e.bitrate_max);
+	this->e.bitrate = SPA_CLAMP(this->e.bitrate, this->e.bitrate_min, this->e.bitrate_max);
 
 	this->e.next_bitrate = this->e.bitrate;
 	opus_multistream_encoder_ctl(this->enc, OPUS_SET_BITRATE(this->e.bitrate));

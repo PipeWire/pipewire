@@ -1292,18 +1292,17 @@ static int codec_abr_process(void *data, size_t unsent)
 	if (level_bad) {
 		this->e.next_bitrate = this->e.bitrate * 7 / 8;
 		abr->last_change = abr->now;
-		abr->retry_interval = SPA_MIN(abr->retry_interval + 10 * interval,
+		abr->retry_interval = SPA_MIN(abr->retry_interval + 10*interval,
 				30 * interval);
+	} else if (!level_good) {
+		abr->last_change = abr->now;
 	} else if (abr->now < abr->last_change + abr->retry_interval) {
 		/* noop */
-	} else if (level_good) {
+	} else {
 		this->e.next_bitrate = this->e.bitrate + this->e.bitrate_max / 20;
 		abr->last_change = abr->now;
-		abr->retry_interval = (abr->retry_interval > 4*interval ?
-				abr->retry_interval - 4*interval :
-				0);
-	} else {
-		abr->last_change = abr->now;
+		abr->retry_interval = SPA_MAX(abr->retry_interval, (5+4)*interval)
+			- 4*interval;
 	}
 
 	abr->last_update = abr->now;

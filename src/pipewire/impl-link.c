@@ -281,8 +281,10 @@ static int do_negotiate(struct pw_impl_link *this)
 	/* find a common format for the ports */
 	if ((res = pw_context_find_format(context,
 					output, input, NULL, 0, NULL,
-					&format, &b, &error)) < 0)
+					&format, &b, &error)) < 0) {
+		format = NULL;
 		goto error;
+	}
 
 	format = spa_pod_copy(format);
 	spa_pod_fixate(format);

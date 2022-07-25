@@ -94,9 +94,9 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 	data += write_ltv_uint16(data, LC3_TYPE_FREQ,
 	                         htobs(LC3_FREQ_48KHZ | LC3_FREQ_24KHZ | LC3_FREQ_16KHZ | LC3_FREQ_8KHZ));
 	data += write_ltv_uint8(data, LC3_TYPE_DUR, LC3_DUR_ANY);
-	data += write_ltv_uint8(data, LC3_TYPE_CHAN, LC3_CHAN_1);
+	data += write_ltv_uint8(data, LC3_TYPE_CHAN, LC3_CHAN_1 | LC3_CHAN_2);
 	data += write_ltv(data, LC3_TYPE_FRAMELEN, framelen, sizeof(framelen));
-	data += write_ltv_uint8(data, LC3_TYPE_BLKS, 1);
+	data += write_ltv_uint8(data, LC3_TYPE_BLKS, 2);
 
 	return data - caps;
 }

@@ -730,7 +730,7 @@ static int do_start(struct impl *this)
 			this, this->transport->state, this->following);
 
 	if (this->transport->state >= SPA_BT_TRANSPORT_STATE_PENDING ||
-			this->is_duplex)
+			this->is_duplex || this->codec->bap)
 		res = transport_start(this);
 
 	this->started = true;

@@ -31,9 +31,15 @@
 #include <spa/utils/dict.h>
 
 #include <fdk-aac/aacenc_lib.h>
+#include <fdk-aac/aacdecoder_lib.h>
 
 #include "rtp.h"
 #include "a2dp-codecs.h"
+
+static struct spa_log *log;
+static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.codecs.aac");
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &log_topic
 
 #define DEFAULT_AAC_BITRATE	320000
 #define MIN_AAC_BITRATE		64000
@@ -44,6 +50,7 @@ struct props {
 
 struct impl {
 	HANDLE_AACENCODER aacenc;
+	HANDLE_AACDECODER aacdec;
 
 	struct rtp_header *header;
 
@@ -412,11 +419,39 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 
 	this->codesize = enc_info.frameLength * this->channels * this->samplesize;
 
+	this->aacdec = aacDecoder_Open(TT_MP4_LATM_MCP1, 1);
+	if (!this->aacdec) {
+		res = -EINVAL;
+		goto error;
+	}
+
+#ifdef AACDECODER_LIB_VL0
+	res = aacDecoder_SetParam(this->aacdec, AAC_PCM_MIN_OUTPUT_CHANNELS, this->channels);
+	if (res != AAC_DEC_OK) {
+		spa_log_debug(log, "Couldn't set min output channels: 0x%04X", res);
+		goto error;
+	}
+
+	res = aacDecoder_SetParam(this->aacdec, AAC_PCM_MAX_OUTPUT_CHANNELS, this->channels);
+	if (res != AAC_DEC_OK) {
+		spa_log_debug(log, "Couldn't set max output channels: 0x%04X", res);
+		goto error;
+	}
+#else
+	res = aacDecoder_SetParam(this->aacdec, AAC_PCM_OUTPUT_CHANNELS, this->channels);
+	if (res != AAC_DEC_OK) {
+		spa_log_debug(log, "Couldn't set output channels: 0x%04X", res);
+		goto error;
+	}
+#endif
+
 	return this;
 
 error:
 	if (this && this->aacenc)
 		aacEncClose(&this->aacenc);
+	if (this && this->aacdec)
+		aacDecoder_Close(this->aacdec);
 	free(this);
 	errno = -res;
 	return NULL;
@@ -427,6 +462,8 @@ static void codec_deinit(void *data)
 	struct impl *this = data;
 	if (this->aacenc)
 		aacEncClose(&this->aacenc);
+	if (this->aacdec)
+		aacDecoder_Close(this->aacdec);
 	free(this);
 }
 
@@ -502,6 +539,55 @@ static int codec_encode(void *data,
 	return out_args.numInSamples * this->samplesize;
 }
 
+static int codec_start_decode (void *data,
+		const void *src, size_t src_size, uint16_t *seqnum, uint32_t *timestamp)
+{
+	const struct rtp_header *header = src;
+	size_t header_size = sizeof(struct rtp_header);
+
+	spa_return_val_if_fail (src_size > header_size, -EINVAL);
+
+	if (seqnum)
+		*seqnum = ntohs(header->sequence_number);
+	if (timestamp)
+		*timestamp = ntohl(header->timestamp);
+
+	return header_size;
+}
+
+static int codec_decode(void *data,
+		const void *src, size_t src_size,
+		void *dst, size_t dst_size,
+		size_t *dst_out)
+{
+	struct impl *this = data;
+	uint data_size = (uint)src_size;
+	uint bytes_valid = data_size;
+	CStreamInfo *aacinf;
+	int res;
+
+	res = aacDecoder_Fill(this->aacdec, (UCHAR **)&src, &data_size, &bytes_valid);
+	if (res != AAC_DEC_OK) {
+		spa_log_debug(log, "AAC buffer fill error: 0x%04X", res);
+		return -EINVAL;
+	}
+
+	res = aacDecoder_DecodeFrame(this->aacdec, dst, dst_size, 0);
+	if (res != AAC_DEC_OK) {
+		spa_log_debug(log, "AAC decode frame error: 0x%04X", res);
+		return -EINVAL;
+	}
+
+	aacinf = aacDecoder_GetStreamInfo(this->aacdec);
+	if (!aacinf) {
+		spa_log_debug(log, "AAC get stream info failed");
+		return -EINVAL;
+	}
+	*dst_out = aacinf->frameSize * aacinf->numChannels * this->samplesize;
+
+	return src_size - bytes_valid;
+}
+
 static int codec_abr_process (void *data, size_t unsent)
 {
 	return -ENOTSUP;
@@ -538,6 +624,12 @@ static int codec_increase_bitpool(void *data)
 	return codec_change_bitrate(this, (this->cur_bitrate * 4) / 3);
 }
 
+static void codec_set_log(struct spa_log *global_log)
+{
+	log = global_log;
+	spa_log_topic_init(log, &log_topic);
+}
+
 const struct a2dp_codec a2dp_codec_aac = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_AAC,
 	.codec_id = A2DP_CODEC_MPEG24,
@@ -554,9 +646,12 @@ const struct a2dp_codec a2dp_codec_aac = {
 	.get_block_size = codec_get_block_size,
 	.start_encode = codec_start_encode,
 	.encode = codec_encode,
+	.start_decode = codec_start_decode,
+	.decode = codec_decode,
 	.abr_process = codec_abr_process,
 	.reduce_bitpool = codec_reduce_bitpool,
 	.increase_bitpool = codec_increase_bitpool,
+	.set_log = codec_set_log,
 };
 
 A2DP_CODEC_EXPORT_DEF(

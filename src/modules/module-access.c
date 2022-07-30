@@ -252,7 +252,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 	    (access = pw_properties_get(impl->properties, "access.force")) != NULL)
 		goto wait_permissions;
 
-	res = pw_check_flatpak(pid);
+	res = pw_check_flatpak(pid, NULL, NULL);
 	if (res != 0) {
 		if (res < 0) {
 			if (res == -EACCES) {

@@ -295,6 +295,11 @@ cdata.set('HAVE_LIBUSB', libusb_dep.found())
 cap_lib = dependency('libcap', required : false)
 cdata.set('HAVE_LIBCAP', cap_lib.found())
 
+glib2_dep = dependency('glib-2.0', required : get_option('flatpak'))
+summary({'GLib-2.0 (Flatpak support)': glib2_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+flatpak_support = glib2_dep.found()
+cdata.set('HAVE_GLIB2', flatpak_support)
+
 gst_option = get_option('gstreamer')
 gst_deps_def = {
   'glib-2.0': {'version': '>=2.32.0'},

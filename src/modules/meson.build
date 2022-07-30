@@ -33,12 +33,17 @@ module_sources = [
   'module-x11-bell.c',
 ]
 
+pipewire_module_access_deps = [spa_dep, mathlib, dl_lib, pipewire_dep]
+if flatpak_support
+  pipewire_module_access_deps += glib2_dep
+endif
+
 pipewire_module_access = shared_library('pipewire-module-access', [ 'module-access.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [spa_dep, mathlib, dl_lib, pipewire_dep],
+  dependencies : pipewire_module_access_deps
 )
 
 pipewire_module_loopback = shared_library('pipewire-module-loopback',
@@ -275,6 +280,10 @@ if avahi_dep.found()
   ]
   pipewire_module_protocol_pulse_deps += avahi_dep
   cdata.set('HAVE_AVAHI', true)
+endif
+
+if flatpak_support
+  pipewire_module_protocol_pulse_deps += glib2_dep
 endif
 
 pipewire_module_protocol_pulse = shared_library('pipewire-module-protocol-pulse',

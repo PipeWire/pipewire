@@ -253,3 +253,7 @@ option('avb',
        description: 'Enable AVB code',
        type: 'feature',
        value: 'auto')
+option('flatpak',
+       description: 'Enable Flatpak support',
+       type: 'feature',
+       value: 'enabled')

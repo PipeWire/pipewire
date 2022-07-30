@@ -77,6 +77,9 @@
  *       on an external actor to update that property once permission is
  *       granted or rejected.
  *
+ * For connections from applications running inside Flatpak not mediated
+ * by a portal, the `access` module itself sets the `pipewire.access.portal.app_id`
+ * property to the Flatpak application ID.
  *
  * ## Module Options
  *
@@ -194,6 +197,8 @@ context_check_access(void *data, struct pw_impl_client *client)
 	struct spa_dict_item items[2];
 	const struct pw_properties *props;
 	const char *str, *access;
+	char *flatpak_app_id = NULL;
+	int nitems = 0;
 	int pid, res;
 
 	pid = -EINVAL;
@@ -252,7 +257,7 @@ context_check_access(void *data, struct pw_impl_client *client)
 	    (access = pw_properties_get(impl->properties, "access.force")) != NULL)
 		goto wait_permissions;
 
-	res = pw_check_flatpak(pid, NULL, NULL);
+	res = pw_check_flatpak(pid, &flatpak_app_id, NULL);
 	if (res != 0) {
 		if (res < 0) {
 			if (res == -EACCES) {
@@ -266,6 +271,8 @@ context_check_access(void *data, struct pw_impl_client *client)
 			pw_log_debug(" %p: flatpak client %p added", impl, client);
 		}
 		access = "flatpak";
+		items[nitems++] = SPA_DICT_ITEM_INIT("pipewire.access.portal.app_id",
+				flatpak_app_id);
 		goto wait_permissions;
 	}
 
@@ -279,24 +286,28 @@ context_check_access(void *data, struct pw_impl_client *client)
 
 granted:
 	pw_log_info("%p: client %p '%s' access granted", impl, client, access);
-	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
-	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));
+	items[nitems++] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
+	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, nitems));
 
 	permissions[0] = PW_PERMISSION_INIT(PW_ID_ANY, PW_PERM_ALL);
 	pw_impl_client_update_permissions(client, 1, permissions);
-	return;
+	goto done;
 
 wait_permissions:
 	pw_log_info("%p: client %p wait for '%s' permissions",
 			impl, client, access);
-	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
-	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));
-	return;
+	items[nitems++] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
+	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, nitems));
+	goto done;
 
 rejected:
 	pw_resource_error(pw_impl_client_get_core_resource(client), res, access);
-	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
-	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, 1));
+	items[nitems++] = SPA_DICT_ITEM_INIT(PW_KEY_ACCESS, access);
+	pw_impl_client_update_properties(client, &SPA_DICT_INIT(items, nitems));
+	goto done;
+
+done:
+	free(flatpak_app_id);
 	return;
 }
 

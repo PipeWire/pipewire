@@ -418,14 +418,20 @@ on_connect(void *data, int fd, uint32_t mask)
 		client_access = server->client_access;
 
 	if (server->addr.ss_family == AF_UNIX) {
+		char *app_id = NULL;
+
 #ifdef SO_PRIORITY
 		val = 6;
 		if (setsockopt(client_fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
 			pw_log_warn("setsockopt(SO_PRIORITY) failed: %m");
 #endif
 		pid = get_client_pid(client, client_fd);
-		if (pid != 0 && pw_check_flatpak(pid, NULL, NULL) == 1)
+		if (pid != 0 && pw_check_flatpak(pid, &app_id, NULL) == 1) {
 			client_access = "flatpak";
+			pw_properties_set(client->props, "pipewire.access.portal.app_id",
+					app_id);
+		}
+		free(app_id);
 	}
 	else if (server->addr.ss_family == AF_INET || server->addr.ss_family == AF_INET6) {
 

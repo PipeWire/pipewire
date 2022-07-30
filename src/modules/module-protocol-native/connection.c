@@ -221,7 +221,10 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 	struct cmsghdr *cmsg = NULL;
 	struct msghdr msg = { 0 };
 	struct iovec iov[1];
-	char cmsgbuf[CMSG_SPACE(MAX_FDS_MSG * sizeof(int))];
+	union {
+		char cmsgbuf[CMSG_SPACE(MAX_FDS_MSG * sizeof(int))];
+		struct cmsghdr align;
+	} cmsgbuf;
 	int n_fds = 0;
 	size_t avail;
 
@@ -231,7 +234,7 @@ static int refill_buffer(struct pw_protocol_native_connection *conn, struct buff
 	iov[0].iov_len = avail;
 	msg.msg_iov = iov;
 	msg.msg_iovlen = 1;
-	msg.msg_control = cmsgbuf;
+	msg.msg_control = &cmsgbuf;
 	msg.msg_controllen = sizeof(cmsgbuf);
 	msg.msg_flags = MSG_CMSG_CLOEXEC | MSG_DONTWAIT;
 
@@ -755,7 +758,10 @@ int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *co
 	struct msghdr msg = { 0 };
 	struct iovec iov[1];
 	struct cmsghdr *cmsg;
-	char cmsgbuf[CMSG_SPACE(MAX_FDS_MSG * sizeof(int))];
+	union {
+		char cmsgbuf[CMSG_SPACE(MAX_FDS_MSG * sizeof(int))];
+		struct cmsghdr align;
+	} cmsgbuf;
 	int res = 0, *fds;
 	uint32_t fds_len, to_close, n_fds, outfds, i;
 	struct buffer *buf;
@@ -786,7 +792,7 @@ int pw_protocol_native_connection_flush(struct pw_protocol_native_connection *co
 		msg.msg_iovlen = 1;
 
 		if (outfds > 0) {
-			msg.msg_control = cmsgbuf;
+			msg.msg_control = &cmsgbuf;
 			msg.msg_controllen = CMSG_SPACE(fds_len);
 			cmsg = CMSG_FIRSTHDR(&msg);
 			cmsg->cmsg_level = SOL_SOCKET;

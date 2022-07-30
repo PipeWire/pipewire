@@ -136,7 +136,7 @@ static int flush_write(struct stream *stream, uint64_t current_time)
 		p->timestamp = ptime;
 		p->dbc = dbc;
 
-		n = sendmsg(stream->source->fd, &stream->msg, 0);
+		n = sendmsg(stream->source->fd, &stream->msg, MSG_NOSIGNAL);
 		if (n < 0 || n != (ssize_t)stream->pdu_size) {
 			pw_log_error("sendmsg() failed %zd != %zd: %m",
 					n, stream->pdu_size);

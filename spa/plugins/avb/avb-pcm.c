@@ -877,7 +877,7 @@ static int flush_write(struct state *state, uint64_t current_time)
 		SPA_AVBTP_PACKET_AAF_SET_SEQ_NUM(pdu, state->pdu_seq++);
 		SPA_AVBTP_PACKET_AAF_SET_TIMESTAMP(pdu, ptime);
 
-		n = sendmsg(state->sockfd, &state->msg, 0);
+		n = sendmsg(state->sockfd, &state->msg, MSG_NOSIGNAL);
 		if (n < 0 || n != (ssize_t)state->pdu_size) {
 			spa_log_error(state->log, "sendmdg() failed: %m");
 		}

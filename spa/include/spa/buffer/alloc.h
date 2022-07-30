@@ -161,8 +161,9 @@ static inline int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info *info,
 	*target += info->chunk_size;
 
 	for (i = 0, size = 0; i < n_datas; i++) {
+		int64_t align = data_aligns[i];
 		info->max_align = SPA_MAX(info->max_align, data_aligns[i]);
-		size = SPA_ROUND_UP_N(size, data_aligns[i]);
+		size = SPA_ROUND_UP_N(size, align);
 		size += datas[i].maxsize;
 	}
 	info->data_size = size;

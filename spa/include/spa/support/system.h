@@ -119,7 +119,7 @@ struct spa_system_methods {
 
 #define spa_system_method_r(o,method,version,...)			\
 ({									\
-	int _res = -ENOTSUP;						\
+	volatile int _res = -ENOTSUP;					\
 	struct spa_system *_o = o;					\
 	spa_interface_call_res(&_o->iface,				\
 			struct spa_system_methods, _res,		\

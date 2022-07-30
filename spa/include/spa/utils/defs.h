@@ -27,8 +27,18 @@
 
 #ifdef __cplusplus
 extern "C" {
+# if __cplusplus >= 201103L
+#  define SPA_STATIC_ASSERT static_assert
+# endif
 #else
-#include <stdbool.h>
+# include <stdbool.h>
+# if __STDC_VERSION__ >= 201112L
+#  define SPA_STATIC_ASSERT _Static_assert
+# endif
+#endif
+#ifndef SPA_STATIC_ASSERT
+#define SPA_STATIC_ASSERT(a, b)						\
+	((void)sizeof(struct { int spa_static_assertion_failed : 2 * !!(a) - 1; }))
 #endif
 #include <inttypes.h>
 #include <signal.h>
@@ -74,8 +84,16 @@ extern "C" {
 #define SPA_FLAG_MASK(field,mask,flag)	(((field) & (mask)) == (flag))
 #define SPA_FLAG_IS_SET(field,flag)	SPA_FLAG_MASK(field,flag,flag)
 #define SPA_FLAG_SET(field,flag)	((field) |= (flag))
-#define SPA_FLAG_CLEAR(field,flag)	((field) &= ~(flag))
-#define SPA_FLAG_UPDATE(field,flag,val)	((val) ? SPA_FLAG_SET(field,flag) : SPA_FLAG_CLEAR(field,flag))
+#define SPA_FLAG_CLEAR(field, flag)					\
+({									\
+	SPA_STATIC_ASSERT(__builtin_constant_p(flag) ?			\
+	              (__typeof__(flag))(__typeof__(field))(__typeof__(flag))(flag) == (flag) : \
+		      sizeof(field) >= sizeof(flag),			\
+			"truncation problem when masking " #field	\
+			" with ~" #flag);				\
+	((field) &= ~(__typeof__(field))(flag));			\
+})
+#define SPA_FLAG_UPDATE(field,flag,val)	((val) ? SPA_FLAG_SET((field),(flag)) : SPA_FLAG_CLEAR((field),(flag)))
 
 enum spa_direction {
 	SPA_DIRECTION_INPUT = 0,
@@ -239,7 +257,17 @@ struct spa_fraction {
 #define SPA_ROUND_DOWN(num,value)	((num) - ((num) % (value)))
 #define SPA_ROUND_UP(num,value)		((((num) + (value) - 1) / (value)) * (value))
 
-#define SPA_ROUND_DOWN_N(num,align)	((num) & ~((align) - 1))
+#define SPA_MASK_NEGATED(num1, num2)					\
+({									\
+	SPA_STATIC_ASSERT(__builtin_constant_p(num2) ?			\
+	              (__typeof__(num2))(__typeof__(num1))(__typeof__(num2))(num2) == (num2) : \
+		      sizeof(num1) >= sizeof(num2),			\
+			"truncation problem when masking " #num1	\
+			" with ~" #num2);				\
+	((num1) & ~(__typeof__(num1))(num2));				\
+})
+
+#define SPA_ROUND_DOWN_N(num,align)	SPA_MASK_NEGATED((num), (align) - 1)
 #define SPA_ROUND_UP_N(num,align)	SPA_ROUND_DOWN_N((num) + ((align) - 1),align)
 
 #define SPA_PTR_ALIGNMENT(p,align)	((intptr_t)(p) & ((align)-1))

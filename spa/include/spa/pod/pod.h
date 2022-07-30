@@ -39,7 +39,7 @@ extern "C" {
 
 #define SPA_POD_BODY_SIZE(pod)			(((struct spa_pod*)(pod))->size)
 #define SPA_POD_TYPE(pod)			(((struct spa_pod*)(pod))->type)
-#define SPA_POD_SIZE(pod)			(sizeof(struct spa_pod) + SPA_POD_BODY_SIZE(pod))
+#define SPA_POD_SIZE(pod)			((uint64_t)sizeof(struct spa_pod) + SPA_POD_BODY_SIZE(pod))
 #define SPA_POD_CONTENTS_SIZE(type,pod)		(SPA_POD_SIZE(pod)-sizeof(type))
 
 #define SPA_POD_CONTENTS(type,pod)		SPA_PTROFF((pod),sizeof(type),void)

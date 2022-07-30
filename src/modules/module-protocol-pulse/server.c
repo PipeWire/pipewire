@@ -60,6 +60,7 @@
 #include "server.h"
 #include "stream.h"
 #include "utils.h"
+#include "flatpak-utils.h"
 
 #define LISTEN_BACKLOG 32
 #define MAX_CLIENTS 64
@@ -423,7 +424,7 @@ on_connect(void *data, int fd, uint32_t mask)
 			pw_log_warn("setsockopt(SO_PRIORITY) failed: %m");
 #endif
 		pid = get_client_pid(client, client_fd);
-		if (pid != 0 && check_flatpak(client, pid) == 1)
+		if (pid != 0 && pw_check_flatpak(pid) == 1)
 			client_access = "flatpak";
 	}
 	else if (server->addr.ss_family == AF_INET || server->addr.ss_family == AF_INET6) {

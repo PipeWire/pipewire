@@ -1778,6 +1778,7 @@ static int get_status(struct state *state, uint64_t current_time,
 		*delay = avail;
 		*target = SPA_MAX(*target, state->read_size);
 	}
+	*target = SPA_MIN(*target, state->buffer_frames);
 	return 0;
 }
 

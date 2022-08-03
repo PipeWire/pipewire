@@ -1382,6 +1382,9 @@ again:
 			 * panding change. Apply the change to the position now so
 			 * that we have the right values when we change the node
 			 * states of the driver and followers to RUNNING below */
+			pw_log_debug("%p: apply duration:%"PRIu64" rate:%u/%u", context,
+					n->current_quantum, n->current_rate.num,
+					n->current_rate.denom);
 			n->rt.position->clock.duration = n->current_quantum;
 			n->rt.position->clock.rate = n->current_rate;
 			n->current_pending = false;

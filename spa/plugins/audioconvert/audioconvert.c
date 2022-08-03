@@ -1471,25 +1471,28 @@ static int setup_convert(struct impl *this)
 
 	rate = this->io_position ?  this->io_position->clock.rate.denom : DEFAULT_RATE;
 
-	if (in->format.info.raw.rate == 0 && in->mode == SPA_PARAM_PORT_CONFIG_MODE_dsp)
+	/* in DSP mode we always convert to the DSP rate */
+	if (in->mode == SPA_PARAM_PORT_CONFIG_MODE_dsp)
 		in->format.info.raw.rate = rate;
-	if (out->format.info.raw.rate == 0 && out->mode == SPA_PARAM_PORT_CONFIG_MODE_dsp)
+	if (out->mode == SPA_PARAM_PORT_CONFIG_MODE_dsp)
 		out->format.info.raw.rate = rate;
 
+	/* try to passthrough the rates */
 	if (in->format.info.raw.rate == 0)
 		in->format.info.raw.rate = out->format.info.raw.rate;
 	else if (out->format.info.raw.rate == 0)
 		out->format.info.raw.rate = in->format.info.raw.rate;
 
-	if (in->format.info.raw.rate == 0 && out->format.info.raw.rate == 0)
-		return -EINVAL;
-	if (in->format.info.raw.channels == 0 && out->format.info.raw.channels == 0)
-		return -EINVAL;
-
+	/* try to passthrough the channels */
 	if (in->format.info.raw.channels == 0)
 		in->format.info.raw.channels = out->format.info.raw.channels;
 	else if (out->format.info.raw.channels == 0)
 		out->format.info.raw.channels = in->format.info.raw.channels;
+
+	if (in->format.info.raw.rate == 0 || out->format.info.raw.rate == 0)
+		return -EINVAL;
+	if (in->format.info.raw.channels == 0 || out->format.info.raw.channels == 0)
+		return -EINVAL;
 
 	if ((res = setup_in_convert(this)) < 0)
 		return res;

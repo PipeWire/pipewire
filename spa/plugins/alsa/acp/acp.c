@@ -1735,7 +1735,8 @@ static void sync_mixer(pa_alsa_device *d, pa_device_port *port)
 		setting = data->setting;
 	}
 
-	pa_alsa_path_select(d->mixer_path, setting, d->mixer_handle, d->muted);
+	if (d->mixer_handle)
+		pa_alsa_path_select(d->mixer_path, setting, d->mixer_handle, d->muted);
 
 	if (d->set_mute)
 		d->set_mute(d, d->muted);

@@ -1725,21 +1725,51 @@ impl_node_port_enum_params(void *object, int seq,
 			param = spa_format_audio_raw_build(&b, id, &port->format.info.raw);
 		break;
 	case SPA_PARAM_Buffers:
+	{
+		uint32_t size;
+		struct dir *dir;
+
 		if (!port->have_format)
 			return -EIO;
 		if (result.index > 0)
 			return 0;
+
+		dir = &this->dir[direction];
+		if (dir->mode == SPA_PARAM_PORT_CONFIG_MODE_dsp) {
+			/* DSP ports always use the quantum_limit as the buffer
+			 * size. */
+			size = this->quantum_limit;
+		} else {
+			uint32_t irate, orate;
+			/* Convert ports are scaled so that they can always
+			 * provide one quantum of data */
+			irate = dir->format.info.raw.rate;
+
+			/* collect the other port rate */
+			dir = &this->dir[SPA_DIRECTION_REVERSE(direction)];
+			if (dir->mode == SPA_PARAM_PORT_CONFIG_MODE_dsp)
+				orate = this->io_position ?  this->io_position->clock.rate.denom : DEFAULT_RATE;
+			else
+				orate = dir->format.info.raw.rate;
+
+			/* always keep some extra room for adaptive resampling */
+			size = this->quantum_limit * 2;
+			/*  scale the buffer size when we can. */
+			if (irate != 0 && orate != 0)
+				size = size * (irate + orate - 1) / orate;
+		}
 
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(2, 1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->blocks),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(
-								this->quantum_limit * port->stride,
+								size * port->stride,
 								16 * port->stride,
 								INT32_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(port->stride));
 		break;
+	}
 	case SPA_PARAM_Meta:
 		switch (result.index) {
 		case 0:

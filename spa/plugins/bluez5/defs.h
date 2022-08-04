@@ -603,6 +603,7 @@ struct spa_bt_transport {
 	int configuration_len;
 	char *endpoint_path;
 	bool bap_initiator;
+	struct spa_list bap_transport_linked;
 
 	uint32_t n_channels;
 	uint32_t channels[64];

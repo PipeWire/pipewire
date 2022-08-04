@@ -2016,6 +2016,7 @@ struct spa_bt_transport *spa_bt_transport_create(struct spa_bt_monitor *monitor,
 	t->bap_initiator = monitor->bap_initiator;
 	t->user_data = SPA_PTROFF(t, sizeof(struct spa_bt_transport), void);
 	spa_hook_list_init(&t->listener_list);
+	spa_list_init(&t->bap_transport_linked);
 
 	spa_list_append(&monitor->transport_list, &t->link);
 
@@ -2094,6 +2095,8 @@ void spa_bt_transport_free(struct spa_bt_transport *transport)
 
 	if (device && device->connected_profiles != prev_connected)
 		spa_bt_device_emit_profiles_changed(device, device->profiles, prev_connected);
+
+	spa_list_remove(&transport->bap_transport_linked);
 
 	free(transport->endpoint_path);
 	free(transport->path);
@@ -2524,6 +2527,35 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			transport->delay = value / 100;
 			spa_bt_transport_emit_delay_changed(transport);
 		}
+		else if (spa_streq(key, "Links")) {
+			DBusMessageIter iter;
+
+			if (!check_iter_signature(&it[1], "ao"))
+				goto next;
+
+			dbus_message_iter_recurse(&it[1], &iter);
+			while (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_INVALID) {
+				const char *transport_path;
+				struct spa_bt_transport *t;
+
+				dbus_message_iter_get_basic(&iter, &transport_path);
+
+				spa_log_debug(monitor->log, "transport %p: Linked with=%s", transport, transport_path);
+				t = spa_bt_transport_find(monitor, transport_path);
+				if (!t) {
+					spa_log_warn(monitor->log, "Unable to find linked transport");
+					dbus_message_iter_next(&iter);
+					continue;
+				}
+
+				if (spa_list_is_empty(&t->bap_transport_linked))
+				    spa_list_append(&transport->bap_transport_linked, &t->bap_transport_linked);
+				else if (spa_list_is_empty(&transport->bap_transport_linked))
+				    spa_list_append(&t->bap_transport_linked, &transport->bap_transport_linked);
+
+				dbus_message_iter_next(&iter);
+			}
+		}
 	      next:
 		dbus_message_iter_next(props_iter);
 	}
@@ -2607,10 +2639,27 @@ static int transport_acquire(void *data, bool optional)
 {
 	struct spa_bt_transport *transport = data;
 	struct spa_bt_monitor *monitor = transport->monitor;
-	DBusMessage *m, *r;
+	DBusMessage *m, *r = NULL;
 	DBusError err;
 	int ret = 0;
 	const char *method = optional ? "TryAcquire" : "Acquire";
+	struct spa_bt_transport *t_linked;
+
+	/* For LE Audio, multiple transport from the same device may share the same
+	 * stream (CIS) and group (CIG) but for different direction, e.g. a speaker and
+	 * a microphone. In this case they are linked.
+	 * If one of them has already been acquired this function should not call Acquire
+	 * or TryAcquire but re-use values from the previously acquired transport.
+	 */
+	spa_list_for_each(t_linked, &transport->bap_transport_linked, bap_transport_linked) {
+		if (t_linked->acquired && t_linked->device == transport->device) {
+			transport->fd = t_linked->fd;
+			transport->read_mtu = t_linked->read_mtu;
+			transport->write_mtu = t_linked->write_mtu;
+			spa_log_debug(monitor->log, "transport %p: linked transport %s", transport, t_linked->path);
+			goto done;
+		}
+	}
 
 	m = dbus_message_new_method_call(BLUEZ_SERVICE,
 					 transport->path,
@@ -2654,6 +2703,7 @@ static int transport_acquire(void *data, bool optional)
 		ret = -EIO;
 		goto finish;
 	}
+done:
 	spa_log_debug(monitor->log, "transport %p: %s %s, fd %d MTU %d:%d", transport, method,
 			transport->path, transport->fd, transport->read_mtu, transport->write_mtu);
 
@@ -2662,7 +2712,8 @@ static int transport_acquire(void *data, bool optional)
 	transport_sync_volume(transport);
 
 finish:
-	dbus_message_unref(r);
+	if (r)
+		dbus_message_unref(r);
 	return ret;
 }
 
@@ -2673,11 +2724,29 @@ static int transport_release(void *data)
 	DBusMessage *m, *r;
 	DBusError err;
 	bool is_idle = (transport->state == SPA_BT_TRANSPORT_STATE_IDLE);
+	struct spa_bt_transport *t_linked;
+	bool linked = false;
 
 	spa_log_debug(monitor->log, "transport %p: Release %s",
 			transport, transport->path);
 
 	spa_bt_player_set_state(transport->device->adapter->dummy_player, SPA_BT_PLAYER_STOPPED);
+
+	/* For LE Audio, multiple transport stream (CIS) can be linked together (CIG).
+	 * If they are part of the same device they re-use the same fd, and call to
+	 * release should be done for the last one only.
+	 */
+	spa_list_for_each(t_linked, &transport->bap_transport_linked, bap_transport_linked) {
+		if (t_linked->acquired && t_linked->device == transport->device) {
+			linked = true;
+			break;
+		}
+	}
+	if (linked) {
+		spa_log_info(monitor->log, "Linked transport %s released", transport->path);
+		transport->fd = -1;
+		return 0;
+	}
 
 	close(transport->fd);
 	transport->fd = -1;

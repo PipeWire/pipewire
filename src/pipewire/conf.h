@@ -33,6 +33,7 @@
  * \{
  */
 
+int pw_conf_load_conf_for_context(struct pw_properties *props, struct pw_properties *conf);
 int pw_conf_load_conf(const char *prefix, const char *name, struct pw_properties *conf);
 int pw_conf_load_state(const char *prefix, const char *name, struct pw_properties *conf);
 int pw_conf_save_state(const char *prefix, const char *name, const struct pw_properties *conf);

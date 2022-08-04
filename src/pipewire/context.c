@@ -101,26 +101,6 @@ static void fill_properties(struct pw_context *context)
 	pw_properties_set(properties, PW_KEY_CORE_NAME, context->core->info.name);
 }
 
-static int try_load_conf(struct pw_context *this, const char *conf_prefix,
-		const char *conf_name, struct pw_properties *conf)
-{
-	int res;
-
-	if (conf_name == NULL)
-		return -EINVAL;
-	if (spa_streq(conf_name, "null"))
-		return 0;
-	if ((res = pw_conf_load_conf(conf_prefix, conf_name, conf)) < 0) {
-		bool skip_prefix = conf_prefix == NULL || conf_name[0] == '/';
-		pw_log_warn("%p: can't load config %s%s%s: %s",
-				this,
-				skip_prefix ? "" : conf_prefix,
-				skip_prefix ? "" : "/",
-				conf_name, spa_strerror(res));
-	}
-	return res;
-}
-
 static int context_set_freewheel(struct pw_context *context, bool freewheel)
 {
 	struct spa_thread *thr;
@@ -211,7 +191,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 {
 	struct impl *impl;
 	struct pw_context *this;
-	const char *lib, *str, *conf_prefix, *conf_name;
+	const char *lib, *str;
 	void *dbus_iface = NULL;
 	uint32_t n_support;
 	struct pw_properties *pr, *conf;
@@ -270,23 +250,8 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		goto error_free;
 	}
 	this->conf = conf;
-
-	conf_prefix = getenv("PIPEWIRE_CONFIG_PREFIX");
-	if (conf_prefix == NULL)
-		conf_prefix = pw_properties_get(properties, PW_KEY_CONFIG_PREFIX);
-
-	conf_name = getenv("PIPEWIRE_CONFIG_NAME");
-	if (try_load_conf(this, conf_prefix, conf_name, conf) < 0) {
-		conf_name = pw_properties_get(properties, PW_KEY_CONFIG_NAME);
-		if (try_load_conf(this, conf_prefix, conf_name, conf) < 0) {
-			conf_name = "client.conf";
-			if ((res = try_load_conf(this, conf_prefix, conf_name, conf)) < 0) {
-				pw_log_error("%p: can't load config %s: %s",
-					this, conf_name, spa_strerror(res));
-				goto error_free;
-			}
-		}
-	}
+	if ((res = pw_conf_load_conf_for_context (properties, conf)) < 0)
+		goto error_free;
 
 	n_support = pw_get_support(this->support, SPA_N_ELEMENTS(this->support) - 6);
 	cpu = spa_support_find(this->support, n_support, SPA_TYPE_INTERFACE_CPU);

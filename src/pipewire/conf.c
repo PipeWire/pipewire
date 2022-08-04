@@ -891,6 +891,51 @@ static int update_props(void *user_data, const char *location, const char *key,
 	return 0;
 }
 
+static int try_load_conf(const char *conf_prefix, const char *conf_name,
+			 struct pw_properties *conf)
+{
+	int res;
+
+	if (conf_name == NULL)
+		return -EINVAL;
+	if (spa_streq(conf_name, "null"))
+		return 0;
+	if ((res = pw_conf_load_conf(conf_prefix, conf_name, conf)) < 0) {
+		bool skip_prefix = conf_prefix == NULL || conf_name[0] == '/';
+		pw_log_warn("can't load config %s%s%s: %s",
+				skip_prefix ? "" : conf_prefix,
+				skip_prefix ? "" : "/",
+				conf_name, spa_strerror(res));
+	}
+	return res;
+}
+
+SPA_EXPORT
+int pw_conf_load_conf_for_context(struct pw_properties *props, struct pw_properties *conf)
+{
+	const char *conf_prefix, *conf_name;
+	int res;
+
+	conf_prefix = getenv("PIPEWIRE_CONFIG_PREFIX");
+	if (conf_prefix == NULL)
+		conf_prefix = pw_properties_get(props, PW_KEY_CONFIG_PREFIX);
+
+	conf_name = getenv("PIPEWIRE_CONFIG_NAME");
+	if ((res = try_load_conf(conf_prefix, conf_name, conf)) < 0) {
+		conf_name = pw_properties_get(props, PW_KEY_CONFIG_NAME);
+		if ((res = try_load_conf(conf_prefix, conf_name, conf)) < 0) {
+			conf_name = "client.conf";
+			if ((res = try_load_conf(conf_prefix, conf_name, conf)) < 0) {
+				pw_log_error("can't load default config %s: %s",
+					conf_name, spa_strerror(res));
+				return res;
+			}
+		}
+	}
+
+	return res;
+}
+
 SPA_EXPORT
 int pw_context_conf_update_props(struct pw_context *context,
 		const char *section, struct pw_properties *props)

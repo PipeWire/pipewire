@@ -1058,6 +1058,9 @@ static int read_volume(pa_alsa_device *dev)
 	uint32_t i;
 	int res;
 
+	if (!dev->mixer_handle)
+		return 0;
+
 	if ((res = pa_alsa_path_get_volume(dev->mixer_path, dev->mixer_handle, &dev->mapping->channel_map, &r)) < 0)
 		return res;
 
@@ -1088,6 +1091,9 @@ static void set_volume(pa_alsa_device *dev, const pa_cvolume *v)
 	pa_cvolume r;
 
 	dev->real_volume = *v;
+
+	if (!dev->mixer_handle)
+		return;
 
 	/* Shift up by the base volume */
 	pa_sw_cvolume_divide_scalar(&r, &dev->real_volume, dev->base_volume);
@@ -1139,6 +1145,9 @@ static int read_mute(pa_alsa_device *dev)
 	bool mute;
 	int res;
 
+	if (!dev->mixer_handle)
+		return 0;
+
 	if ((res = pa_alsa_path_get_mute(dev->mixer_path, dev->mixer_handle, &mute)) < 0)
 		return res;
 
@@ -1157,6 +1166,10 @@ static int read_mute(pa_alsa_device *dev)
 static void set_mute(pa_alsa_device *dev, bool mute)
 {
 	dev->muted = mute;
+
+	if (!dev->mixer_handle)
+		return;
+
 	pa_alsa_path_set_mute(dev->mixer_path, dev->mixer_handle, mute);
 }
 

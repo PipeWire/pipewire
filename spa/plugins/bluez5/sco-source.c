@@ -542,6 +542,15 @@ static int sco_source_cb(void *userdata, uint8_t *read_data, int size_read)
 			return 0;
 		}
 
+		if (size_read % port->frame_size != 0) {
+			/* Unaligned data: reception or adapter problem.
+			 * Consider the whole packet lost and report.
+			 */
+			spa_log_debug(this->log,
+					"received bad Bluetooth SCO CVSD packet");
+			return 0;
+		}
+
 		packet = spa_bt_decode_buffer_get_write(&port->buffer, &avail);
 		avail = SPA_MIN(avail, (uint32_t)size_read);
 		spa_memmove(packet, read_data, avail);

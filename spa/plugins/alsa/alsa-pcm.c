@@ -763,6 +763,9 @@ static int add_rate(struct state *state, uint32_t scale, bool all, uint32_t inde
 	CHECK(snd_pcm_hw_params_get_rate_min(params, &min, &dir), "get_rate_min");
 	CHECK(snd_pcm_hw_params_get_rate_max(params, &max, &dir), "get_rate_max");
 
+	spa_log_debug(state->log, "min:%u max:%u min-allowed:%u scale:%u all:%d",
+			min, max, min_allowed_rate, scale, all);
+
 	min_allowed_rate /= scale;
 	min = SPA_MAX(min_allowed_rate, min);
 
@@ -781,6 +784,9 @@ static int add_rate(struct state *state, uint32_t scale, bool all, uint32_t inde
 		rate = state->position ? state->position->clock.rate.denom : DEFAULT_RATE;
 
 	rate = SPA_CLAMP(rate, min, max);
+
+	spa_log_debug(state->log, "rate:%u multi:%d card:%d def:%d",
+			rate, state->multi_rate, state->card->rate, state->default_rate);
 
 	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_rate, 0);
 
@@ -833,7 +839,8 @@ static int add_channels(struct state *state, bool all, uint32_t index, uint32_t 
 
 	CHECK(snd_pcm_hw_params_get_channels_min(params, &min), "get_channels_min");
 	CHECK(snd_pcm_hw_params_get_channels_max(params, &max), "get_channels_max");
-	spa_log_debug(state->log, "channels (%d %d)", min, max);
+	spa_log_debug(state->log, "channels (%d %d) default:%d all:%d",
+			min, max, state->default_channels, all);
 
 	if (state->default_channels != 0 && !all) {
 		if (min < state->default_channels)

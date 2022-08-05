@@ -538,6 +538,7 @@ int spa_alsa_open(struct state *state, const char *params)
 	return 0;
 
 error_exit_close:
+	spa_log_info(state->log, "%p: Device '%s' closing", state, state->props.device);
 	snd_pcm_close(state->hndl);
 	return err;
 }
@@ -938,6 +939,9 @@ static int enum_pcm_formats(struct state *state, uint32_t index, uint32_t *next,
 	snd_pcm_hw_params_alloca(&params);
 	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration: no configurations available");
 
+	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_DEBUG)))
+		snd_pcm_hw_params_dump(params, state->output);
+
 	CHECK(snd_pcm_hw_params_set_rate_resample(hndl, params, 0), "set_rate_resample");
 
 	if (state->default_channels != 0) {
@@ -1084,6 +1088,9 @@ static int enum_iec958_formats(struct state *state, uint32_t index, uint32_t *ne
 	snd_pcm_hw_params_alloca(&params);
 	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration: no configurations available");
 
+	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_DEBUG)))
+		snd_pcm_hw_params_dump(params, state->output);
+
 	CHECK(snd_pcm_hw_params_set_rate_resample(hndl, params, 0), "set_rate_resample");
 
 	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
@@ -1144,6 +1151,9 @@ static int enum_dsd_formats(struct state *state, uint32_t index, uint32_t *next,
 	hndl = state->hndl;
 	snd_pcm_hw_params_alloca(&params);
 	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration: no configurations available");
+
+	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_DEBUG)))
+		snd_pcm_hw_params_dump(params, state->output);
 
 	snd_pcm_format_mask_alloca(&fmask);
 	snd_pcm_hw_params_get_format_mask(params, fmask);
@@ -1385,6 +1395,10 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	snd_pcm_hw_params_alloca(&params);
 	/* choose all parameters */
 	CHECK(snd_pcm_hw_params_any(hndl, params), "Broken configuration for playback: no configurations available");
+
+	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_DEBUG)))
+		snd_pcm_hw_params_dump(params, state->output);
+
 	/* set hardware resampling, no resample */
 	CHECK(snd_pcm_hw_params_set_rate_resample(hndl, params, 0), "set_rate_resample");
 

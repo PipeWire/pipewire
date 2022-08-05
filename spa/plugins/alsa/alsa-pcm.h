@@ -106,6 +106,8 @@ struct state {
 	struct spa_system *data_system;
 	struct spa_loop *data_loop;
 
+	FILE *log_file;
+
 	uint32_t card_index;
 	struct card *card;
 	snd_pcm_stream_t stream;

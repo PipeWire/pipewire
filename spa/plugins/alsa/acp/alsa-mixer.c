@@ -4966,8 +4966,7 @@ static void profile_finalize_probing(pa_alsa_profile *to_be_finalized, pa_alsa_p
                 continue;
 
             pa_alsa_init_proplist_pcm(NULL, m->output_proplist, m->output_pcm);
-            snd_pcm_close(m->output_pcm);
-            m->output_pcm = NULL;
+            pa_alsa_close(&m->output_pcm);
         }
 
     if (to_be_finalized->input_mappings)
@@ -4986,8 +4985,7 @@ static void profile_finalize_probing(pa_alsa_profile *to_be_finalized, pa_alsa_p
                 continue;
 
             pa_alsa_init_proplist_pcm(NULL, m->input_proplist, m->input_pcm);
-            snd_pcm_close(m->input_pcm);
-            m->input_pcm = NULL;
+            pa_alsa_close(&m->input_pcm);
         }
 }
 

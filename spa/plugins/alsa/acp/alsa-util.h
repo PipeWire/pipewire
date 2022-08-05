@@ -115,6 +115,7 @@ snd_pcm_t *pa_alsa_open_by_template(
 void pa_alsa_dump(pa_log_level_t level, snd_pcm_t *pcm);
 void pa_alsa_dump_status(snd_pcm_t *pcm);
 #endif
+int pa_alsa_close(snd_pcm_t **pcm);
 
 void pa_alsa_refcnt_inc(void);
 void pa_alsa_refcnt_dec(void);

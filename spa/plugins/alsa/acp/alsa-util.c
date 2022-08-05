@@ -656,6 +656,20 @@ snd_pcm_t *pa_alsa_open_by_device_id_mapping(
     return pcm_handle;
 }
 
+int pa_alsa_close(snd_pcm_t **pcm)
+{
+    int err;
+    pa_assert(pcm);
+    pa_log_info("ALSA device close %p", *pcm);
+    if (*pcm == NULL)
+	    return 0;
+    if ((err = snd_pcm_close(*pcm)) < 0) {
+        pa_log_warn("ALSA close failed: %s", snd_strerror(err));
+    }
+    *pcm = NULL;
+    return err;
+}
+
 snd_pcm_t *pa_alsa_open_by_device_string(
         const char *device,
         char **dev,
@@ -691,8 +705,8 @@ snd_pcm_t *pa_alsa_open_by_device_string(
             pa_log_info("Error opening PCM device %s: %s", d, pa_alsa_strerror(err));
             goto fail;
         }
-
-        pa_log_debug("Managed to open %s", d);
+        pa_log_info("ALSA device open '%s' %s: %p", d,
+			mode == SND_PCM_STREAM_CAPTURE ? "capture" : "playback", pcm_handle);
 
         if ((err = pa_alsa_set_hw_params(
                      pcm_handle,
@@ -707,7 +721,7 @@ snd_pcm_t *pa_alsa_open_by_device_string(
             if (!reformat) {
                 reformat = true;
 
-                snd_pcm_close(pcm_handle);
+                pa_alsa_close(&pcm_handle);
                 continue;
             }
 
@@ -721,12 +735,12 @@ snd_pcm_t *pa_alsa_open_by_device_string(
 
                 reformat = false;
 
-                snd_pcm_close(pcm_handle);
+                pa_alsa_close(&pcm_handle);
                 continue;
             }
 
             pa_log_info("Failed to set hardware parameters on %s: %s", d, pa_alsa_strerror(err));
-            snd_pcm_close(pcm_handle);
+            pa_alsa_close(&pcm_handle);
 
             goto fail;
         }
@@ -734,7 +748,7 @@ snd_pcm_t *pa_alsa_open_by_device_string(
         if (ss->channels > PA_CHANNELS_MAX) {
             pa_log("Device %s has %u channels, but PulseAudio supports only %u channels. Unable to use the device.",
                    d, ss->channels, PA_CHANNELS_MAX);
-            snd_pcm_close(pcm_handle);
+            pa_alsa_close(&pcm_handle);
             goto fail;
         }
 

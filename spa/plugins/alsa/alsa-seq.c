@@ -186,7 +186,7 @@ static void init_ports(struct seq_state *state)
 
 static void debug_event(struct seq_state *state, snd_seq_event_t *ev)
 {
-	if (SPA_LIKELY(!spa_log_level_enabled(state->log, SPA_LOG_LEVEL_TRACE)))
+	if (SPA_LIKELY(!spa_log_level_topic_enabled(state->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_TRACE)))
 		return;
 
 	spa_log_trace(state->log, "event type:%d flags:0x%x", ev->type, ev->flags);

@@ -954,7 +954,7 @@ skip_channels:
 
 static void debug_hw_params(struct state *state, const char *prefix, snd_pcm_hw_params_t *params)
 {
-	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_DEBUG))) {
+	if (SPA_UNLIKELY(spa_log_level_topic_enabled(state->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_DEBUG))) {
 		spa_log_debug(state->log, "%s:", prefix);
 		snd_pcm_hw_params_dump(params, state->output);
 		fflush(state->log_file);
@@ -1620,7 +1620,7 @@ static int set_swparams(struct state *state)
 	/* write the parameters to the playback device */
 	CHECK(snd_pcm_sw_params(hndl, params), "sw_params");
 
-	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_DEBUG))) {
+	if (SPA_UNLIKELY(spa_log_level_topic_enabled(state->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_DEBUG))) {
 		spa_log_debug(state->log, "state after sw_params:");
 		snd_pcm_dump(hndl, state->output);
 		fflush(state->log_file);
@@ -2413,7 +2413,7 @@ static void alsa_on_timeout_event(struct spa_source *source)
 	}
 
 #ifndef FASTPATH
-	if (SPA_UNLIKELY(spa_log_level_enabled(state->log, SPA_LOG_LEVEL_TRACE))) {
+	if (SPA_UNLIKELY(spa_log_level_topic_enabled(state->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_TRACE))) {
 		struct timespec now;
 		uint64_t nsec;
 		if (spa_system_clock_gettime(state->data_system, CLOCK_MONOTONIC, &now) < 0)

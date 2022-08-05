@@ -933,6 +933,28 @@ int pw_conf_load_conf_for_context(struct pw_properties *props, struct pw_propert
 		}
 	}
 
+	conf_name = pw_properties_get(props, PW_KEY_CONFIG_OVERRIDE_NAME);
+	if (conf_name != NULL) {
+		struct pw_properties *override;
+		const char *path;
+
+		override = pw_properties_new(NULL, NULL);
+		if (override == NULL) {
+			res = -errno;
+			return res;
+		}
+
+		conf_prefix = pw_properties_get(props, PW_KEY_CONFIG_OVERRIDE_PREFIX);
+		if ((res = try_load_conf(conf_prefix, conf_name, override)) < 0) {
+			pw_log_error("can't load default override config %s: %s",
+				conf_name, spa_strerror(res));
+			pw_properties_free (override);
+			return res;
+		}
+		path = pw_properties_get(override, "config.path");
+		add_override(conf, override, path, 0, 1);
+	}
+
 	return res;
 }
 

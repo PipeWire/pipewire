@@ -76,6 +76,8 @@ extern "C" {
 /* config */
 #define PW_KEY_CONFIG_PREFIX		"config.prefix"		/**< a config prefix directory */
 #define PW_KEY_CONFIG_NAME		"config.name"		/**< a config file name */
+#define PW_KEY_CONFIG_OVERRIDE_PREFIX	"config.override.prefix"	/**< a config override prefix directory */
+#define PW_KEY_CONFIG_OVERRIDE_NAME	"config.override.name"	/**< a config override file name */
 
 /* context */
 #define PW_KEY_CONTEXT_PROFILE_MODULES	"context.profile.modules"	/**< a context profile for modules, deprecated */

@@ -53,17 +53,33 @@ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.codecs.opus
 
 #define BUFSIZE_FROM_BITRATE(frame_dms,bitrate)	((bitrate)/8 * (frame_dms) / 10000 * 5/4)  /* estimate */
 
-#define BITRATE_DEFAULT			128000
-#define BITRATE_MAX			192000
-#define BITRATE_MIN			64000
+/*
+ * Opus CVBR target bitrate. When connecting, it is set to the INITIAL
+ * value, and after that adjusted according to link quality between the MIN and
+ * MAX values. The bitrate adjusts up to either MAX or the value at
+ * which the socket buffer starts filling up, whichever is lower.
+ *
+ * With perfect connection quality, the target bitrate converges to the MAX
+ * value. Under realistic conditions, the upper limit may often be as low as
+ * 300-500kbit/s, so the INITIAL values are not higher than this.
+ *
+ * The MAX is here set to 2-2.5x and INITIAL to 1.5x the upper Opus recommended
+ * values [1], to be safer quality-wise for CVBR, and MIN to the lower
+ * recommended value.
+ *
+ * [1] https://wiki.xiph.org/Opus_Recommended_Settings
+ */
+#define BITRATE_INITIAL			192000
+#define BITRATE_MAX			320000
+#define BITRATE_MIN			96000
 
-#define BITRATE_DEFAULT_51		256000
-#define BITRATE_MAX_51			384000
-#define BITRATE_MIN_51			85000
+#define BITRATE_INITIAL_51		384000
+#define BITRATE_MAX_51			600000
+#define BITRATE_MIN_51			128000
 
-#define BITRATE_DEFAULT_71		450000
-#define BITRATE_MAX_71			675000
-#define BITRATE_MIN_71			170000
+#define BITRATE_INITIAL_71		450000
+#define BITRATE_MAX_71			900000
+#define BITRATE_MIN_71			256000
 
 #define BITRATE_DUPLEX_BIDI		160000
 
@@ -453,7 +469,7 @@ static int set_channel_conf(const struct a2dp_codec *codec, a2dp_opus_05_t *caps
 	return 0;
 }
 
-static void get_default_bitrates(const struct a2dp_codec *codec, bool bidi, int *min, int *max, int *def)
+static void get_default_bitrates(const struct a2dp_codec *codec, bool bidi, int *min, int *max, int *init)
 {
 	int tmp;
 
@@ -461,13 +477,13 @@ static void get_default_bitrates(const struct a2dp_codec *codec, bool bidi, int 
 		min = &tmp;
 	if (max == NULL)
 		max = &tmp;
-	if (def == NULL)
-		def = &tmp;
+	if (init == NULL)
+		init = &tmp;
 
 	if (bidi) {
 		*min = SPA_MIN(BITRATE_MIN, BITRATE_DUPLEX_BIDI);
 		*max = BITRATE_DUPLEX_BIDI;
-		*def = BITRATE_DUPLEX_BIDI;
+		*init = BITRATE_DUPLEX_BIDI;
 		return;
 	}
 
@@ -475,22 +491,22 @@ static void get_default_bitrates(const struct a2dp_codec *codec, bool bidi, int 
 	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05:
 		*min = BITRATE_MIN;
 		*max = BITRATE_MAX;
-		*def = BITRATE_DEFAULT;
+		*init = BITRATE_INITIAL;
 		break;
 	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_51:
 		*min = BITRATE_MIN_51;
 		*max = BITRATE_MAX_51;
-		*def = BITRATE_DEFAULT_51;
+		*init = BITRATE_INITIAL_51;
 		break;
 	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_71:
 		*min = BITRATE_MIN_71;
 		*max = BITRATE_MAX_71;
-		*def = BITRATE_DEFAULT_71;
+		*init = BITRATE_INITIAL_71;
 		break;
 	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_DUPLEX:
 		*min = BITRATE_MIN;
 		*max = BITRATE_MAX;
-		*def = BITRATE_DEFAULT;
+		*init = BITRATE_INITIAL;
 		break;
 	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_PRO:
 	default:
@@ -1002,7 +1018,7 @@ static void *codec_init(const struct a2dp_codec *codec, uint32_t flags,
 	} else {
 		this->e.bitrate_max = OPUS_05_GET_BITRATE(*dir) * 1024;
 		this->e.bitrate_min = BITRATE_MIN;
-		this->e.bitrate = BITRATE_DEFAULT;
+		this->e.bitrate = BITRATE_INITIAL;
 	}
 
 	this->e.bitrate_min = SPA_MIN(this->e.bitrate_min, this->e.bitrate_max);

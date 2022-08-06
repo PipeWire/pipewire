@@ -953,6 +953,7 @@ int pw_conf_load_conf_for_context(struct pw_properties *props, struct pw_propert
 		}
 		path = pw_properties_get(override, "config.path");
 		add_override(conf, override, path, 0, 1);
+		pw_properties_free(override);
 	}
 
 	return res;

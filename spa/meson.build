@@ -70,6 +70,23 @@ if get_option('spa-plugins').allowed()
     summary({'LDAC': ldac_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
     ldac_abr_dep = dependency('ldacBT-abr', required : get_option('bluez5-codec-ldac'))
     summary({'LDAC ABR': ldac_abr_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
+
+    if get_option('bluez5-codec-ldac-dec').allowed()
+      ldac_dec_dep = dependency('ldacBT-dec', required : false)
+      if not ldac_dec_dep.found()
+        dep = cc.find_library('ldacBT_dec', required : false)
+        if dep.found() and cc.has_function('ldacBT_decode', dependencies : dep)
+          ldac_dec_dep = dep
+        endif
+      endif
+      if not ldac_dec_dep.found() and get_option('bluez5-codec-ldac-dec').enabled()
+        error('LDAC decoder library not found')
+      endif
+    else
+      ldac_dec_dep = dependency('', required: false)
+    endif
+    summary({'LDAC DEC': ldac_dec_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
+
     aptx_dep = dependency('libfreeaptx', required : get_option('bluez5-codec-aptx'))
     summary({'aptX': aptx_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
     fdk_aac_dep = dependency('fdk-aac', required : get_option('bluez5-codec-aac'))

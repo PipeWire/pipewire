@@ -125,6 +125,10 @@ if ldac_dep.found()
   if ldac_abr_dep.found()
     ldac_args += [ '-DENABLE_LDAC_ABR' ]
   endif
+  if get_option('bluez5-codec-ldac-dec').allowed() and ldac_dec_dep.found()
+    ldac_args += [ '-DENABLE_LDAC_DEC' ]
+    ldac_dep = [ldac_dep, ldac_dec_dep]
+  endif
   bluez_codec_ldac = shared_library('spa-codec-bluez5-ldac',
     [ 'a2dp-codec-ldac.c', 'media-codecs.c' ],
     include_directories : [ configinc ],

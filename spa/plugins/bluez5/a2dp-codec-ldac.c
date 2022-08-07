@@ -19,6 +19,13 @@
 #include <ldacBT_abr.h>
 #endif
 
+#if defined(ENABLE_LDAC_DEC)
+int ldacBT_decode(HANDLE_LDAC_BT handle, unsigned char *src, unsigned char *dst,
+		LDACBT_SMPL_FMT_T fmt, int src_size, int *consumed, int *dst_out);
+int ldacBT_init_handle_decode(HANDLE_LDAC_BT handle, int channel_mode, int frequency,
+		int dummy1, int dummy2, int dummy3);
+#endif
+
 #include "rtp.h"
 #include "media-codecs.h"
 
@@ -35,15 +42,25 @@
 
 #define LDAC_ABR_SOCK_BUFFER_SIZE (LDAC_ABR_THRESHOLD_CRITICAL * LDAC_ABR_MAX_PACKET_NBYTES)
 
+static struct spa_log *log_;
+
 
 struct props {
 	int eqmid;
+};
+
+struct dec_data {
+	int frames;
+	size_t max_frame_bytes;
 };
 
 struct impl {
 	HANDLE_LDAC_BT ldac;
 #ifdef ENABLE_LDAC_ABR
 	HANDLE_LDAC_ABR ldac_abr;
+#endif
+#ifdef ENABLE_LDAC_DEC
+	HANDLE_LDAC_BT ldac_dec;
 #endif
 	bool enable_abr;
 
@@ -57,6 +74,8 @@ struct impl {
 	int codesize;
 	int frame_length;
 	int frame_count;
+
+	struct dec_data d;
 };
 
 static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
@@ -367,6 +386,66 @@ static int codec_set_props(void *props, const struct spa_pod *param)
 	return prev_eqmid != p->eqmid;
 }
 
+static const char *ldac_strerror(int ldac_error)
+{
+#define LDAC_BT_ERROR_CASE(name) case name: return #name
+	switch (ldac_error) {
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_NONE);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_NON_FATAL);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_BIT_ALLOCATION);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_NOT_IMPLEMENTED);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_NON_FATAL_ENCODE);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_FATAL);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_SYNTAX_BAND);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_SYNTAX_GRAD_A);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_SYNTAX_GRAD_B);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_SYNTAX_GRAD_C);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_SYNTAX_GRAD_D);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_SYNTAX_GRAD_E);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_SYNTAX_IDSF);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_SYNTAX_SPEC);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_BIT_PACKING);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ALLOC_MEMORY);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_FATAL_HANDLE);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ILL_SYNCWORD);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ILL_SMPL_FORMAT);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ILL_PARAM);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ASSERT_SAMPLING_FREQ);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ASSERT_SUP_SAMPLING_FREQ);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_CHECK_SAMPLING_FREQ);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ASSERT_CHANNEL_CONFIG);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_CHECK_CHANNEL_CONFIG);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ASSERT_FRAME_LENGTH);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ASSERT_SUP_FRAME_LENGTH);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ASSERT_FRAME_STATUS);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ASSERT_NSHIFT);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ASSERT_CHANNEL_MODE);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ENC_INIT_ALLOC);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ENC_ILL_GRADMODE);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ENC_ILL_GRADPAR_A);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ENC_ILL_GRADPAR_B);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ENC_ILL_GRADPAR_C);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ENC_ILL_GRADPAR_D);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ENC_ILL_NBANDS);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_PACK_BLOCK_FAILED);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_DEC_INIT_ALLOC);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_INPUT_BUFFER_SIZE);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_UNPACK_BLOCK_FAILED);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_UNPACK_BLOCK_ALIGN);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_UNPACK_FRAME_ALIGN);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_FRAME_LENGTH_OVER);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_FRAME_ALIGN_OVER);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ALTER_EQMID_LIMITED);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_HANDLE_NOT_INIT);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ILL_EQMID);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ILL_SAMPLING_FREQ);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ILL_NUM_CHANNEL);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_ILL_MTU_SIZE);
+	LDAC_BT_ERROR_CASE(LDACBT_ERR_DEC_CONFIG_UPDATED);
+	default: return "other error";
+	}
+}
+
 static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		void *config, size_t config_len, const struct spa_audio_info *info,
 		void *props, size_t mtu)
@@ -383,6 +462,12 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	this->ldac = ldacBT_get_handle();
 	if (this->ldac == NULL)
 		goto error_errno;
+
+#ifdef ENABLE_LDAC_DEC
+	this->ldac_dec = ldacBT_get_handle();
+	if (this->ldac_dec == NULL)
+		goto error_errno;
+#endif
 
 #ifdef ENABLE_LDAC_ABR
 	this->ldac_abr = ldac_ABR_get_handle();
@@ -424,14 +509,34 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		goto error;
 	}
 
+	this->d.max_frame_bytes = (size_t)this->codesize * LDACBT_MAX_LSU / LDACBT_ENC_LSU;
+
 	res = ldacBT_init_handle_encode(this->ldac,
 			this->mtu,
 			this->eqmid,
 			conf->channel_mode,
 			this->fmt,
 			this->frequency);
-	if (res < 0)
+	if (res < 0) {
+		res = ldacBT_get_error_code(this->ldac);
+		spa_log_error(log_, "LDAC encoder initialization failed: %s (%d)",
+				ldac_strerror(LDACBT_API_ERR(res)), res);
+		res = -EIO;
 		goto error;
+	}
+
+#ifdef ENABLE_LDAC_DEC
+	res = ldacBT_init_handle_decode(this->ldac_dec,
+			conf->channel_mode,
+			this->frequency, 0, 0, 0);
+	if (res < 0) {
+		res = ldacBT_get_error_code(this->ldac_dec);
+		spa_log_error(log_, "LDAC decoder initialization failed: %s (%d)",
+				ldac_strerror(LDACBT_API_ERR(res)), res);
+		res = -EIO;
+		goto error;
+	}
+#endif
 
 #ifdef ENABLE_LDAC_ABR
 	res = ldac_ABR_Init(this->ldac_abr, LDAC_ABR_INTERVAL_MS);
@@ -552,6 +657,70 @@ static int codec_encode(void *data,
 	return src_used;
 }
 
+#ifdef ENABLE_LDAC_DEC
+
+static int codec_start_decode (void *data,
+		const void *src, size_t src_size, uint16_t *seqnum, uint32_t *timestamp)
+{
+	struct impl *this = data;
+	const struct rtp_header *header = src;
+	const struct rtp_payload *payload = SPA_PTROFF(src, sizeof(struct rtp_header), struct rtp_payload);
+	size_t header_size = sizeof(struct rtp_header) + sizeof(struct rtp_payload);
+
+	spa_return_val_if_fail (src_size > header_size, -EINVAL);
+
+	if (seqnum)
+		*seqnum = ntohs(header->sequence_number);
+	if (timestamp)
+		*timestamp = ntohl(header->timestamp);
+
+	this->d.frames = payload->frame_count;
+
+	return header_size;
+}
+
+static int codec_decode(void *data,
+		const void *src, size_t src_size,
+		void *dst, size_t dst_size,
+		size_t *dst_out)
+{
+	struct impl *this = data;
+	void *to = dst;
+	size_t avail = dst_size;
+	size_t processed = 0;
+
+	*dst_out = 0;
+
+	for (; this->d.frames > 0; --this->d.frames) {
+		int consumed;
+		int written;
+
+		if (avail < this->d.max_frame_bytes)
+			return -EINVAL;
+
+		if (ldacBT_decode(this->ldac_dec, (void *)src, to, this->fmt, src_size,
+						&consumed, &written) != 0) {
+			return -EINVAL;
+		}
+		if (consumed < 0 || (size_t)consumed > src_size)
+			return -EINVAL;
+		if (written < 0 || (size_t)written > avail)
+			return -EINVAL;
+
+		src = SPA_PTROFF(src, consumed, const void);
+		src_size -= consumed;
+		processed += consumed;
+
+		to = SPA_PTROFF(to, written, void);
+		avail -= written;
+		*dst_out += written;
+	}
+
+	return processed;
+}
+
+#endif
+
 static void codec_get_delay(void *data, uint32_t *encoder, uint32_t *decoder)
 {
 	struct impl *this = data;
@@ -569,6 +738,12 @@ static void codec_get_delay(void *data, uint32_t *encoder, uint32_t *decoder)
 	}
 	if (decoder)
 		*decoder = 0;
+}
+
+static void codec_set_log(struct spa_log *global_log)
+{
+	log_ = global_log;
+	spa_log_topic_init(log_, &codec_plugin_log_topic);
 }
 
 const struct media_codec a2dp_codec_ldac = {
@@ -595,9 +770,14 @@ const struct media_codec a2dp_codec_ldac = {
 	.abr_process = codec_abr_process,
 	.start_encode = codec_start_encode,
 	.encode = codec_encode,
+#ifdef ENABLE_LDAC_DEC
+	.start_decode = codec_start_decode,
+	.decode = codec_decode,
+#endif
 	.reduce_bitpool = codec_reduce_bitpool,
 	.increase_bitpool = codec_increase_bitpool,
 	.get_delay = codec_get_delay,
+	.set_log = codec_set_log,
 };
 
 MEDIA_CODEC_EXPORT_DEF(

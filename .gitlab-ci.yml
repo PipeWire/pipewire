@@ -375,6 +375,7 @@ build_all:
         -Dbluez5-codec-aptx=disabled
         -Dbluez5-codec-lc3plus=disabled
         -Dbluez5-codec-lc3=disabled
+        -Dbluez5-codec-ldac-dec=disabled
         -Droc=disabled
         -Dlibcamera=disabled
         -Dsession-managers=[]

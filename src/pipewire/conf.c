@@ -405,12 +405,17 @@ static int conf_load(const char *path, struct pw_properties *conf)
 
 	if (fstat(fd, &sbuf) < 0)
 		goto error_close;
-	if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
-		goto error_close;
-	close(fd);
 
-	count = pw_properties_update_string(conf, data, sbuf.st_size);
-	munmap(data, sbuf.st_size);
+	if (sbuf.st_size > 0) {
+		if ((data = mmap(NULL, sbuf.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
+			goto error_close;
+
+		count = pw_properties_update_string(conf, data, sbuf.st_size);
+		munmap(data, sbuf.st_size);
+	} else {
+		count = 0;
+	}
+	close(fd);
 
 	pw_log_info("%p: loaded config '%s' with %d items", conf, path, count);
 

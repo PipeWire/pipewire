@@ -800,7 +800,7 @@ void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto
 	} else {						\
 		if (c->active)					\
 			(expr);					\
-		pw_log_debug("skip " #callback 			\
+		pw_log_debug("skip " #callback			\
 			" cb:%p active:%d", c->callback,	\
 			c->active);				\
 	}							\
@@ -817,6 +817,9 @@ void jack_get_version(int *major_ptr, int *minor_ptr, int *micro_ptr, int *proto
 			res = c->callback(__VA_ARGS__);		\
 			c->rt_locked = false;			\
 			pthread_mutex_unlock(&c->rt_lock);	\
+		} else {					\
+			pw_log_debug("skip " #callback		\
+				" cb:%p", c->callback);		\
 		}						\
 	}							\
 	res;							\

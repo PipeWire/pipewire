@@ -485,7 +485,12 @@ struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_
 	spa_list_init(&b->memmaps);
 
 #ifdef HAVE_MEMFD_CREATE
-	b->this.fd = memfd_create("pipewire-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+	char name[128];
+	snprintf(name, sizeof(name),
+		 "pipewire-memfd:flags=0x%08x,type=%" PRIu32 ",size=%zu",
+		 (unsigned int) flags, type, size);
+
+	b->this.fd = memfd_create(name, MFD_CLOEXEC | MFD_ALLOW_SEALING);
 	if (b->this.fd == -1) {
 		res = -errno;
 		pw_log_error("%p: Failed to create memfd: %m", pool);
@@ -499,7 +504,11 @@ struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_
 		goto error_free;
 	}
 #else
-	char filename[] = "/dev/shm/pipewire-tmpfile.XXXXXX";
+	char filename[128];
+	snprintf(filename, sizeof(filename),
+		 "/dev/shm/pipewire-tmpfile:flags=0x%08x,type=%" PRIu32 ",size=%zu:XXXXXX",
+		 (unsigned int) flags, type, size);
+
 	b->this.fd = mkostemp(filename, O_CLOEXEC);
 	if (b->this.fd == -1) {
 		res = -errno;

@@ -3495,6 +3495,8 @@ int jack_client_close (jack_client_t *client)
 
 	res = jack_deactivate(client);
 
+	clean_transport(c);
+
 	if (c->context.loop)
 		pw_thread_loop_stop(c->context.loop);
 

@@ -350,6 +350,7 @@ static void loop_leave(void *object)
 
 	if (--impl->enter_count == 0) {
 		impl->thread = 0;
+		flush_items(impl);
 		impl->polling = false;
 	}
 }

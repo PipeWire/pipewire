@@ -49,11 +49,40 @@ struct state {
 	}				\
 }
 
+static const char *get_class(snd_pcm_class_t c)
+{
+	switch (c) {
+	case SND_PCM_CLASS_GENERIC:
+		return "generic";
+	case SND_PCM_CLASS_MULTI:
+		return "multichannel";
+	case SND_PCM_CLASS_MODEM:
+		return "modem";
+	case SND_PCM_CLASS_DIGITIZER:
+		return "digitizer";
+	default:
+		return "unknown";
+	}
+}
+
+static const char *get_subclass(snd_pcm_subclass_t c)
+{
+	switch (c) {
+	case SND_PCM_SUBCLASS_GENERIC_MIX:
+		return "generic-mix";
+	case SND_PCM_SUBCLASS_MULTI_MIX:
+		return "multichannel-mix";
+	default:
+		return "unknown";
+	}
+}
+
 static void show_help(const char *name, bool error)
 {
         fprintf(error ? stderr : stdout, "%s [options]\n"
 		"  -h, --help                            Show this help\n"
-		"  -D, --device                          device name (default %s)\n",
+		"  -D, --device                          device name (default '%s')\n"
+		"  -C, --capture                         capture mode (default playback)\n",
 		name, DEFAULT_DEVICE);
 }
 
@@ -63,21 +92,26 @@ int main(int argc, char *argv[])
 	snd_pcm_hw_params_t *hparams;
 	snd_pcm_info_t *info;
 	snd_pcm_sync_id_t sync;
+	snd_pcm_stream_t stream = SND_PCM_STREAM_PLAYBACK;
 	int c;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "device",	required_argument,	NULL, 'D' },
+		{ "capture",	no_argument,		NULL, 'C' },
 		{ NULL, 0, NULL, 0}
 	};
 	state.device = DEFAULT_DEVICE;
 
-	while ((c = getopt_long(argc, argv, "hD:f:r:c:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hD:C", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(argv[0], false);
 			return 0;
 		case 'D':
 			state.device = optarg;
+			break;
+		case 'C':
+			stream = SND_PCM_STREAM_CAPTURE;
 			break;
 		default:
 			show_help(argv[0], true);
@@ -89,7 +123,7 @@ int main(int argc, char *argv[])
 
 	fprintf(stdout, "opening device: '%s'\n", state.device);
 
-	CHECK(snd_pcm_open(&state.hndl, state.device, SND_PCM_STREAM_PLAYBACK, 0),
+	CHECK(snd_pcm_open(&state.hndl, state.device, stream, 0),
 			"open %s failed", state.device);
 
 	snd_pcm_info_alloca(&info);
@@ -98,13 +132,13 @@ int main(int argc, char *argv[])
 	fprintf(stdout, "info:\n");
 	fprintf(stdout, "  device: %u\n", snd_pcm_info_get_device(info));
 	fprintf(stdout, "  subdevice: %u\n", snd_pcm_info_get_subdevice(info));
-	fprintf(stdout, "  stream: %u\n", snd_pcm_info_get_stream(info));
+	fprintf(stdout, "  stream: %s\n", snd_pcm_stream_name(snd_pcm_info_get_stream(info)));
 	fprintf(stdout, "  card: %d\n", snd_pcm_info_get_card(info));
 	fprintf(stdout, "  id: '%s'\n", snd_pcm_info_get_id(info));
 	fprintf(stdout, "  name: '%s'\n", snd_pcm_info_get_name(info));
 	fprintf(stdout, "  subdevice name: '%s'\n", snd_pcm_info_get_subdevice_name(info));
-	fprintf(stdout, "  class: %d\n", snd_pcm_info_get_class(info));
-	fprintf(stdout, "  subclass: %d\n", snd_pcm_info_get_subclass(info));
+	fprintf(stdout, "  class: %s\n", get_class(snd_pcm_info_get_class(info)));
+	fprintf(stdout, "  subclass: %s\n", get_subclass(snd_pcm_info_get_subclass(info)));
 	fprintf(stdout, "  subdevice count: %u\n", snd_pcm_info_get_subdevices_count(info));
 	fprintf(stdout, "  subdevice avail: %u\n", snd_pcm_info_get_subdevices_avail(info));
 	sync = snd_pcm_info_get_sync(info);

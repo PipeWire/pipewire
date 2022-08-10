@@ -34,10 +34,11 @@ Use the 'help' command to list the available commands.
 GENERAL COMMANDS
 ================
 
-help
-  Show a quick help on the commands available.
+help | h
+  Show a quick help on the commands available. It also lists the aliases
+  for many commands.
 
-quit
+quit | q
   Exit from **pw-cli**
 
 MODULE MANAGEMENT

@@ -269,7 +269,10 @@ static bool do_help(struct data *data, const char *cmd, char *args, char **error
 
 	printf("Available commands:\n");
 	for (i = 0; i < SPA_N_ELEMENTS(command_list); i++) {
-		printf("\t%-20.20s\t%s\n", command_list[i].name, command_list[i].description);
+		char cmd[256];
+		snprintf(cmd, sizeof(cmd), "%s | %s",
+				command_list[i].name, command_list[i].alias);
+		printf("\t%-20.20s\t%s\n", cmd, command_list[i].description);
 	}
 	return true;
 }

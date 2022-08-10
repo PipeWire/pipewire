@@ -3282,7 +3282,7 @@ jack_client_t * jack_client_open (const char *client_name,
 			"jack.properties", client->props);
 
 	pw_context_conf_section_match_rules(client->context.context, "jack.rules",
-			&client->props->dict, execute_match, client);
+			&client->context.context->properties->dict, execute_match, client);
 
 	support = pw_context_get_support(client->context.context, &n_support);
 

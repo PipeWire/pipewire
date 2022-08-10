@@ -479,7 +479,7 @@ pipewire_module_raop_sink = shared_library('pipewire-module-raop-sink',
 endif
 summary({'raop-sink (requires OpenSSL)': build_module_raop}, bool_yn: true, section: 'Optional Modules')
 
-roc_lib = cc.find_library('roc', required: get_option('roc'))
+roc_lib = cc.find_library('roc', has_headers: ['roc/config.h' ], required: get_option('roc'))
 summary({'ROC': roc_lib.found()}, bool_yn: true, section: 'Streaming between daemons')
 
 build_module_roc = roc_lib.found()

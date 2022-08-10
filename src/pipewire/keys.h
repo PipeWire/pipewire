@@ -172,7 +172,10 @@ extern "C" {
 #define PW_KEY_NODE_FORCE_RATE		"node.force-rate"	/**< force a rate while the node is
 								  *  active */
 
-#define PW_KEY_NODE_DONT_RECONNECT	"node.dont-reconnect"	/**< don't reconnect this node */
+#define PW_KEY_NODE_DONT_RECONNECT	"node.dont-reconnect"	/**< don't reconnect this node. The node is
+								  *  initially linked to node.target or
+								  *  target.object or the default node. If the
+								  *  targets is removed, the node is destroyed */
 #define PW_KEY_NODE_ALWAYS_PROCESS	"node.always-process"	/**< process even when unlinked */
 #define PW_KEY_NODE_WANT_DRIVER		"node.want-driver"	/**< the node wants to be grouped with a driver
 								  *  node in order to schedule the graph. */

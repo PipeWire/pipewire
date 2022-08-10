@@ -20,3 +20,8 @@ configure_file(input : 'pipewire-pulse.service.in',
                output : 'pipewire-pulse.service',
                configuration : systemd_config,
                install_dir : systemd_user_services_dir)
+
+configure_file(input : 'filter-chain.service.in',
+               output : 'filter-chain.service',
+               configuration : systemd_config,
+               install_dir : systemd_user_services_dir)

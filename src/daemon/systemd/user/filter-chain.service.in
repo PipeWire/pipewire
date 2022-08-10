@@ -1,0 +1,21 @@
+[Unit]
+Description=PipeWire filter chain daemon
+
+After=pipewire.service pipewire-session-manager.service
+BindsTo=pipewire.service
+
+[Service]
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+Type=simple
+ExecStart=@PW_BINARY@ -c filter-chain.conf
+Restart=on-failure
+Slice=session.slice
+
+[Install]
+Also=pipewire.socket
+WantedBy=default.target

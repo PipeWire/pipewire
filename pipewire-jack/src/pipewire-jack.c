@@ -874,6 +874,8 @@ static int do_sync(struct client *client)
 		pw_log_warn("sync requested from callback");
 		return 0;
 	}
+	if (client->last_res == -EPIPE)
+		return -EPIPE;
 
 	client->last_res = 0;
 	client->pending_sync = pw_proxy_sync((struct pw_proxy*)client->core, client->pending_sync);

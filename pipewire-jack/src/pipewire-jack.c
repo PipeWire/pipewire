@@ -3772,7 +3772,7 @@ jack_native_thread_t jack_client_thread_id (jack_client_t *client)
 	struct client *c = (struct client *) client;
 	void *thr;
 
-	spa_return_val_if_fail(c != NULL, -EINVAL);
+	spa_return_val_if_fail(c != NULL, (pthread_t){0});
 
 	thr = pw_data_loop_get_thread(c->loop);
 	if (thr == NULL)

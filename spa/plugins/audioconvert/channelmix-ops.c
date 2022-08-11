@@ -200,6 +200,7 @@ static int make_matrix(struct channelmix *mix)
 				matrix[i][i]= 1.0f;
 		}
 		src_mask = dst_mask = ~0LU;
+		filter_fc = filter_lfe = true;
 		goto done;
 	} else {
 		spa_log_debug(mix->log, "matching channels");

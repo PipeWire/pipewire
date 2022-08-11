@@ -399,6 +399,15 @@ static int make_matrix(struct channelmix *mix)
 	spa_log_debug(mix->log, "unassigned upmix %08"PRIx64" lfe:%f",
 			unassigned, mix->lfe_cutoff);
 
+	if (unassigned & STEREO) {
+		if ((src_mask & FRONT) == FRONT) {
+			spa_log_debug(mix->log, "produce STEREO from FC");
+			_MATRIX(FL,FC) += clev;
+			_MATRIX(FR,FC) += clev;
+		} else {
+			spa_log_warn(mix->log, "can't produce STEREO");
+		}
+	}
 	if (unassigned & FRONT) {
 		if ((src_mask & STEREO) == STEREO) {
 			spa_log_debug(mix->log, "produce FC from STEREO");

@@ -3777,7 +3777,7 @@ jack_native_thread_t jack_client_thread_id (jack_client_t *client)
 	thr = pw_data_loop_get_thread(c->loop);
 	if (thr == NULL)
 		return pthread_self();
-	return *(pthread_t*)thr;
+	return (pthread_t) thr;
 }
 
 SPA_EXPORT

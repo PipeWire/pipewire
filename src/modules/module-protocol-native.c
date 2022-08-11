@@ -989,35 +989,9 @@ error:
 	goto done;
 }
 
-static void on_client_connection_destroy(void *data)
-{
-	struct client *impl = data;
-	spa_hook_remove(&impl->conn_listener);
-}
-
-static void on_client_need_flush(void *data)
-{
-        struct client *impl = data;
-
-	pw_log_trace("need flush");
-	impl->need_flush = true;
-
-	if (impl->source && !(impl->source->mask & SPA_IO_OUT)) {
-		pw_loop_update_io(impl->context->main_loop,
-				impl->source, impl->source->mask | SPA_IO_OUT);
-	}
-}
-
-static const struct pw_protocol_native_connection_events client_conn_events = {
-	PW_VERSION_PROTOCOL_NATIVE_CONNECTION_EVENTS,
-	.destroy = on_client_connection_destroy,
-	.need_flush = on_client_need_flush,
-};
-
 static int impl_connect_fd(struct pw_protocol_client *client, int fd, bool do_close)
 {
 	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
-	int res;
 
 	impl->connected = false;
 	impl->disconnecting = false;
@@ -1027,23 +1001,10 @@ static int impl_connect_fd(struct pw_protocol_client *client, int fd, bool do_cl
 					fd,
 					SPA_IO_IN | SPA_IO_OUT | SPA_IO_HUP | SPA_IO_ERR,
 					do_close, on_remote_data, impl);
-	if (impl->source == NULL) {
-		res = -errno;
-		goto error_cleanup;
-	}
+	if (impl->source == NULL)
+		return -errno;
 
-	pw_protocol_native_connection_add_listener(impl->connection,
-						   &impl->conn_listener,
-						   &client_conn_events,
-						   impl);
 	return 0;
-
-error_cleanup:
-	if (impl->connection) {
-		pw_protocol_native_connection_destroy(impl->connection);
-		impl->connection = NULL;
-	}
-	return res;
 }
 
 static void impl_disconnect(struct pw_protocol_client *client)
@@ -1056,9 +1017,7 @@ static void impl_disconnect(struct pw_protocol_client *client)
                 pw_loop_destroy_source(impl->context->main_loop, impl->source);
 	impl->source = NULL;
 
-	if (impl->connection)
-                pw_protocol_native_connection_destroy(impl->connection);
-	impl->connection = NULL;
+	pw_protocol_native_connection_set_fd(impl->connection, -1);
 }
 
 static void impl_destroy(struct pw_protocol_client *client)
@@ -1066,6 +1025,10 @@ static void impl_destroy(struct pw_protocol_client *client)
 	struct client *impl = SPA_CONTAINER_OF(client, struct client, this);
 
 	impl_disconnect(client);
+
+	if (impl->connection)
+                pw_protocol_native_connection_destroy(impl->connection);
+	impl->connection = NULL;
 
 	spa_list_remove(&client->link);
 	client_unref(impl);
@@ -1133,6 +1096,31 @@ error:
 	goto done;
 }
 
+static void on_client_connection_destroy(void *data)
+{
+	struct client *impl = data;
+	spa_hook_remove(&impl->conn_listener);
+}
+
+static void on_client_need_flush(void *data)
+{
+        struct client *impl = data;
+
+	pw_log_trace("need flush");
+	impl->need_flush = true;
+
+	if (impl->source && !(impl->source->mask & SPA_IO_OUT)) {
+		pw_loop_update_io(impl->context->main_loop,
+				impl->source, impl->source->mask | SPA_IO_OUT);
+	}
+}
+
+static const struct pw_protocol_native_connection_events client_conn_events = {
+	PW_VERSION_PROTOCOL_NATIVE_CONNECTION_EVENTS,
+	.destroy = on_client_connection_destroy,
+	.need_flush = on_client_need_flush,
+};
+
 static struct pw_protocol_client *
 impl_new_client(struct pw_protocol *protocol,
 		struct pw_core *core,
@@ -1159,6 +1147,10 @@ impl_new_client(struct pw_protocol *protocol,
 		res = -errno;
 		goto error_free;
 	}
+	pw_protocol_native_connection_add_listener(impl->connection,
+						   &impl->conn_listener,
+						   &client_conn_events,
+						   impl);
 
 	if (props) {
 		str = spa_dict_lookup(props, PW_KEY_REMOTE_INTENTION);

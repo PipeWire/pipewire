@@ -605,12 +605,15 @@ static struct client_data *client_new(struct server *s, int fd)
 	if (client == NULL)
 		goto exit;
 
-
 	this = pw_impl_client_get_user_data(client);
 	spa_list_append(&s->this.client_list, &this->protocol_link);
 
 	this->server = s;
 	this->client = client;
+	pw_map_init(&this->compat_v2.types, 0, 32);
+
+	pw_impl_client_add_listener(client, &this->client_listener, &client_events, this);
+
 	this->source = pw_loop_add_io(pw_context_get_main_loop(context),
 				      fd, SPA_IO_ERR | SPA_IO_HUP, true,
 				      connection_data, this);
@@ -625,14 +628,10 @@ static struct client_data *client_new(struct server *s, int fd)
 		goto cleanup_client;
 	}
 
-	pw_map_init(&this->compat_v2.types, 0, 32);
-
 	pw_protocol_native_connection_add_listener(this->connection,
 						   &this->conn_listener,
 						   &server_conn_events,
 						   this);
-
-	pw_impl_client_add_listener(client, &this->client_listener, &client_events, this);
 
 	if ((res = pw_impl_client_register(client, NULL)) < 0)
 		goto cleanup_client;

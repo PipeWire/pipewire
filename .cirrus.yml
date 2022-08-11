@@ -1,7 +1,7 @@
 task:
   freebsd_instance:
     matrix:
-      - image_family: freebsd-13-0-snap
+      - image_family: freebsd-13-1-snap
   env:
     # /usr/ports/Mk/Uses/localbase.mk localbase:ldflags
     LOCALBASE: /usr/local

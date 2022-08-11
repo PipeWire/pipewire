@@ -1264,7 +1264,7 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 		impl->inode = input_node;
 	}
 
-	this->rt.target.signal = impl->inode->rt.target.signal;
+	this->rt.target.signal_func = impl->inode->rt.target.signal_func;
 	this->rt.target.data = impl->inode->rt.target.data;
 
 	pw_log_debug("%p: constructed out:%p:%d.%d -> in:%p:%d.%d", impl,

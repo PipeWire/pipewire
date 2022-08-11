@@ -930,7 +930,7 @@ client_node_set_activation(void *_data,
 		link->map = mm;
 		link->target.activation = ptr;
 		link->signalfd = signalfd;
-		link->target.signal = link_signal_func;
+		link->target.signal_func = link_signal_func;
 		link->target.data = link;
 		link->target.node = NULL;
 		spa_list_append(&data->links, &link->link);

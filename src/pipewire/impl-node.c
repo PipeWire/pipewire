@@ -1047,7 +1047,7 @@ static inline int resume_node(struct pw_impl_node *this, int status)
 		if (pw_node_activation_state_dec(state, 1)) {
 			a->status = PW_NODE_ACTIVATION_TRIGGERED;
 			a->signal_time = nsec;
-			t->signal(t->data);
+			t->signal_func(t->data);
 		}
 	}
 	return 0;
@@ -1145,7 +1145,7 @@ static void node_on_fd_events(struct spa_source *source)
 				this->name, this->info.id, cmd - 1);
 
 		pw_log_trace_fp("%p: got process", this);
-		this->rt.target.signal(this->rt.target.data);
+		this->rt.target.signal_func(this->rt.target.data);
 	}
 }
 
@@ -1262,9 +1262,9 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 	this->rt.activation = this->activation->map->ptr;
 	this->rt.target.activation = this->rt.activation;
 	this->rt.target.node = this;
-	this->rt.target.signal = process_node;
+	this->rt.target.signal_func = process_node;
 	this->rt.target.data = this;
-	this->rt.driver_target.signal = process_node;
+	this->rt.driver_target.signal_func = process_node;
 
 	reset_position(this, &this->rt.activation->position);
 	this->rt.activation->sync_timeout = DEFAULT_SYNC_TIMEOUT;
@@ -1613,7 +1613,7 @@ static int node_ready(void *data, int status)
 						state->pending, state->required);
 				dump_states(node);
 			}
-			node->rt.target.signal(node->rt.target.data);
+			node->rt.target.signal_func(node->rt.target.data);
 		}
 
 		if (node->current_pending) {

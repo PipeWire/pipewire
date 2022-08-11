@@ -1,7 +1,7 @@
 if alsa_dep.found()
   subdir('alsa')
 endif
-if get_option('avb').allowed()
+if get_option('avb').require(build_machine.system() == 'linux', error_message: 'AVB support is only available on Linux').allowed()
   subdir('avb')
 endif
 if get_option('audioconvert').allowed()

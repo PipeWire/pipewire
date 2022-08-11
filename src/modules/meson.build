@@ -527,7 +527,7 @@ pipewire_module_fallback_sink = shared_library('pipewire-module-fallback-sink',
   dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
 )
 
-build_module_avb = get_option('avb').allowed()
+build_module_avb = get_option('avb').require(build_machine.system() == 'linux', error_message: 'AVB support is only available on Linux').allowed()
 if build_module_avb
 pipewire_module_avb = shared_library('pipewire-module-avb',
   [ 'module-avb.c',

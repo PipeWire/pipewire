@@ -931,6 +931,7 @@ static int do_start(struct impl *this)
 	struct port *port;
 	socklen_t len;
 	uint8_t *conf;
+	uint32_t flags;
 
 	if (this->started)
 		return 0;
@@ -952,8 +953,13 @@ static int do_start(struct impl *this)
 	spa_log_debug(this->log, "Transport configuration:");
 	spa_log_hexdump(this->log, SPA_LOG_LEVEL_DEBUG, 2, conf, (size_t)size);
 
+	if (this->codec->bap)
+		flags = MEDIA_CODEC_FLAG_SINK;
+	else
+		flags = this->is_duplex ? MEDIA_CODEC_FLAG_SINK : 0;
+
 	this->codec_data = this->codec->init(this->codec,
-			this->is_duplex ? MEDIA_CODEC_FLAG_SINK : 0,
+			flags,
 			this->transport->configuration,
 			this->transport->configuration_len,
 			&port->current_format,

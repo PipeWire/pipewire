@@ -263,17 +263,11 @@ context_check_access(void *data, struct pw_impl_client *client)
 
 	res = pw_check_flatpak(pid, &flatpak_app_id, NULL);
 	if (res != 0) {
-		if (res < 0) {
-			if (res == -EACCES) {
-				access = "unrestricted";
-				goto granted;
-			}
+		if (res < 0)
 			pw_log_warn("%p: client %p sandbox check failed: %s",
 				impl, client, spa_strerror(res));
-		}
-		else if (res > 0) {
+		else
 			pw_log_debug(" %p: flatpak client %p added", impl, client);
-		}
 		access = "flatpak";
 		items[nitems++] = SPA_DICT_ITEM_INIT("pipewire.access.portal.app_id",
 				flatpak_app_id);

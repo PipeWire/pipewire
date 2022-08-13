@@ -76,20 +76,20 @@ static int pw_check_flatpak(pid_t pid, char **app_id, char **devices)
 	spa_autoclose int root_fd = openat(AT_FDCWD, root_path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
 	if (root_fd < 0) {
 		res = -errno;
+		pw_log_info("failed to open \"%s\": %s", root_path, spa_strerror(res));
+
 		if (res == -EACCES) {
-			struct statfs buf;
-			/* Access to the root dir isn't allowed. This can happen if the root is on a fuse
-			 * filesystem, such as in a toolbox container. We will never have a fuse rootfs
-			 * in the flatpak case, so in that case its safe to ignore this and
-			 * continue to detect other types of apps. */
-			if (statfs(root_path, &buf) == 0 &&
-			    buf.f_type == 0x65735546) /* FUSE_SUPER_MAGIC */
-				return 0;
+			/* If we can't access the root filesystem, consider not sandboxed.
+			 * This should not happen but for now it is a workaround for selinux
+			 * where we can't access the gnome-shell root when it connects for
+			 * screen sharing.
+			 */
+			return 0;
 		}
+
 		/* Not able to open the root dir shouldn't happen. Probably the app died and
 		 * we're failing due to /proc/$pid not existing. In that case fail instead
 		 * of treating this as privileged. */
-		pw_log_info("failed to open \"%s\": %s", root_path, spa_strerror(res));
 		return res;
 	}
 

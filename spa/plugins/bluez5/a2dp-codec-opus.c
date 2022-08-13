@@ -113,12 +113,12 @@ struct abr {
 
 	uint32_t buffer_level;
 	uint32_t packet_size;
+	uint32_t total_size;
 	bool bad;
 
 	uint64_t last_change;
 	uint64_t retry_interval;
 
-	uint8_t skip;
 	bool prev_bad;
 };
 
@@ -1277,36 +1277,40 @@ static int codec_abr_process(void *data, size_t unsent)
 	struct impl *this = data;
 	struct abr *abr = &this->e.abr;
 	bool level_bad, level_good;
+	uint32_t actual_bitrate;
 
-	abr->now += this->e.frame_dms * SPA_NSEC_PER_MSEC / 10;
+	abr->total_size += this->e.packet_size;
 
 	if (this->e.payload->is_fragmented && !this->e.payload->is_first_fragment)
 		return 0;
 
+	abr->now += this->e.frame_dms * SPA_NSEC_PER_MSEC / 10;
+
 	abr->buffer_level = SPA_MAX(abr->buffer_level, unsent);
 	abr->packet_size = SPA_MAX(abr->packet_size, (uint32_t)this->e.packet_size);
-
-	if (abr->last_update + interval > abr->now)
-		return 0;
-	if (abr->skip > 0) {
-		--abr->skip;
-		return 0;
-	}
-
 	abr->packet_size = SPA_MAX(abr->packet_size, 128u);
 
 	level_bad = abr->buffer_level > 2 * (uint32_t)this->mtu || abr->bad;
 	level_good = abr->buffer_level == 0;
 
-	spa_log_debug(log, "opus ABR bitrate:%d level:%d (%s) bad:%d retry:%ds size:%d",
-			(int)this->e.bitrate, (int)abr->buffer_level,
+	if (!(abr->last_update + interval <= abr->now ||
+			(level_bad && abr->last_change + interval <= abr->now)))
+		return 0;
+
+	actual_bitrate = (uint64_t)abr->total_size*8*SPA_NSEC_PER_SEC
+		/ SPA_MAX(1u, abr->now - abr->last_update);
+
+	spa_log_debug(log, "opus ABR bitrate:%d actual:%d level:%d (%s) bad:%d retry:%ds size:%d",
+			(int)this->e.bitrate,
+			(int)actual_bitrate,
+			(int)abr->buffer_level,
 			level_bad ? "bad" : (level_good ? "good" : "-"),
 			(int)abr->bad,
 			(int)(abr->retry_interval / SPA_NSEC_PER_SEC),
 			(int)abr->packet_size);
 
 	if (level_bad) {
-		this->e.next_bitrate = this->e.bitrate * 7 / 8;
+		this->e.next_bitrate = this->e.bitrate * 11 / 12;
 		abr->last_change = abr->now;
 		abr->retry_interval = SPA_MIN(abr->retry_interval + 10*interval,
 				30 * interval);
@@ -1314,8 +1318,11 @@ static int codec_abr_process(void *data, size_t unsent)
 		abr->last_change = abr->now;
 	} else if (abr->now < abr->last_change + abr->retry_interval) {
 		/* noop */
+	} else if (actual_bitrate*3/2 < (uint32_t)this->e.bitrate) {
+		/* actual bitrate is small compared to target; probably silence */
 	} else {
-		this->e.next_bitrate = this->e.bitrate + this->e.bitrate_max / 20;
+		this->e.next_bitrate = this->e.bitrate
+			+ SPA_MAX(1, this->e.bitrate_max / 40);
 		abr->last_change = abr->now;
 		abr->retry_interval = SPA_MAX(abr->retry_interval, (5+4)*interval)
 			- 4*interval;
@@ -1325,6 +1332,7 @@ static int codec_abr_process(void *data, size_t unsent)
 	abr->buffer_level = 0;
 	abr->bad = false;
 	abr->packet_size = 0;
+	abr->total_size = 0;
 
 	return 0;
 }

@@ -907,31 +907,17 @@ static const struct spa_thread_utils_methods impl_thread_utils = {
 
 
 #ifdef HAVE_DBUS
-static int should_use_rtkit(struct impl *impl, struct pw_context *context, bool *use_rtkit)
+static int check_rtkit(struct impl *impl, struct pw_context *context, bool *could_use_rtkit)
 {
 	const struct pw_properties *context_props;
 	const char *str;
 
-	*use_rtkit = true;
+	*could_use_rtkit = true;
 
 	if ((context_props = pw_context_get_properties(context)) != NULL &&
 	    (str = pw_properties_get(context_props, "support.dbus")) != NULL &&
 	    !pw_properties_parse_bool(str))
-		*use_rtkit = false;
-
-	/* If the user has permissions to use regular realtime scheduling, then
-	 * we'll use that instead of RTKit */
-	if (check_realtime_privileges(impl->rt_prio)) {
-		*use_rtkit = false;
-	} else {
-		if (!(*use_rtkit)) {
-			pw_log_warn("neither regular realtime scheduling nor RTKit are available");
-			return -ENOTSUP;
-		}
-
-		/* TODO: Should this be pw_log_warn or pw_log_debug instead? */
-		pw_log_info("could not use realtime scheduling, falling back to using RTKit instead");
-	}
+		*could_use_rtkit = false;
 
 	return 0;
 }
@@ -965,15 +951,39 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->rt_time_soft = pw_properties_get_int32(props, "rt.time.soft", DEFAULT_RT_TIME_SOFT);
 	impl->rt_time_hard = pw_properties_get_int32(props, "rt.time.hard", DEFAULT_RT_TIME_HARD);
 
+	bool could_use_rtkit = false, use_rtkit = false;
+
 #ifdef HAVE_DBUS
 	spa_list_init(&impl->threads_list);
 	pthread_mutex_init(&impl->lock, NULL);
 	pthread_cond_init(&impl->cond, NULL);
 
-	if ((res = should_use_rtkit(impl, context, &impl->use_rtkit)) < 0) {
+	if ((res = check_rtkit(impl, context, &could_use_rtkit)) < 0) {
 		goto error;
 	}
+#endif
+	/* If the user has permissions to use regular realtime scheduling, as well as
+	 * the nice level we want, then we'll use that instead of RTKit */
+	if (!check_realtime_privileges(impl->rt_prio)) {
+		if (!could_use_rtkit) {
+			res = -ENOTSUP;
+			pw_log_warn("regular realtime scheduling not available (RTKit fallback disabled)");
+			goto error;
+		}
+		use_rtkit = true;
+	}
 
+	if (IS_VALID_NICE_LEVEL(impl->nice_level)) {
+		if (set_nice(impl, impl->nice_level) != 0 && could_use_rtkit) {
+			use_rtkit = true;
+		}
+	}
+	if (set_rlimit(impl) != 0 && could_use_rtkit) {
+		use_rtkit = true;
+	}
+
+#ifdef HAVE_DBUS
+	impl->use_rtkit = use_rtkit;
 	if (impl->use_rtkit) {
 		// Checking xdg-desktop-portal. It works fine in all situations.
 		impl->rtkit_bus = pw_rtkit_bus_get_session();
@@ -1002,17 +1012,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			}
 		}
 	}
-#else
-	if (!check_realtime_privileges(impl->rt_prio)) {
-		res = -ENOTSUP;
-		pw_log_warn("regular realtime scheduling not available (RTKit fallback disabled)");
-		goto error;
-	}
-#endif
 
+	// Retry set_nice and set_rlimit with rtkit
 	if (IS_VALID_NICE_LEVEL(impl->nice_level))
 		set_nice(impl, impl->nice_level);
 	set_rlimit(impl);
+#endif
 
 	impl->thread_utils.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_ThreadUtils,

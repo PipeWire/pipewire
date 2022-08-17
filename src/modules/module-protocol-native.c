@@ -103,6 +103,11 @@ PW_LOG_TOPIC(mod_topic_connection, "conn." NAME);
  * - XDG_RUNTIME_DIR
  * - USERPROFILE
  *
+ * The socket address will be written into the notification file descriptor
+ * if the following environment variable is set:
+ *
+ * - PIPEWIRE_NOTIFICATION_FD
+ *
  * When a client connect, the connection will be made to:
  *
  * - PIPEWIRE_REMOTE : the environment with the remote name
@@ -760,6 +765,42 @@ socket_data(void *data, int fd, uint32_t mask)
 	}
 }
 
+static int write_socket_address(struct server *s) {
+	long v;
+	int res = 0;
+	char *endptr;
+	const char *env = getenv("PIPEWIRE_NOTIFICATION_FD");
+
+	if (env == NULL || env[0] == '\0') {
+		return 0;
+	}
+
+	errno = 0;
+	v = strtol(env, &endptr, 10);
+	if (endptr[0] != '\0') {
+		errno = EINVAL;
+	}
+	if (errno != 0) {
+		res = -errno;
+		pw_log_error("server %p: strtol() failed with error: %m", s);
+		goto error;
+	}
+	if (v != (int)v)
+		return 0;
+
+	if (dprintf((int)v, "%s\n", s->addr.sun_path) < 0) {
+		res = -errno;
+		pw_log_error("server %p: dprintf() failed with error: %m", s);
+		goto error;
+	}
+	close((int)v);
+	unsetenv("PIPEWIRE_NOTIFICATION_FD");
+	return 0;
+
+error:
+	return res;
+}
+
 static int add_socket(struct pw_protocol *protocol, struct server *s)
 {
 	socklen_t size;
@@ -814,6 +855,11 @@ static int add_socket(struct pw_protocol *protocol, struct server *s)
 		}
 	}
 
+	res = write_socket_address(s);
+	if (res < 0) {
+		pw_log_error("server %p: failed to write socket address", s);
+		goto error_close;
+	}
 	s->activated = activated;
 	s->loop = pw_context_get_main_loop(protocol->context);
 	if (s->loop == NULL) {

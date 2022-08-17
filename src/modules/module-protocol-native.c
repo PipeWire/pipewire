@@ -765,35 +765,37 @@ socket_data(void *data, int fd, uint32_t mask)
 	}
 }
 
-static int write_socket_address(struct server *s) {
+static int write_socket_address(struct server *s)
+{
 	long v;
-	int res = 0;
+	int fd, res = 0;
 	char *endptr;
 	const char *env = getenv("PIPEWIRE_NOTIFICATION_FD");
 
-	if (env == NULL || env[0] == '\0') {
+	if (env == NULL || env[0] == '\0')
 		return 0;
-	}
 
 	errno = 0;
 	v = strtol(env, &endptr, 10);
-	if (endptr[0] != '\0') {
+	if (endptr[0] != '\0')
 		errno = EINVAL;
-	}
 	if (errno != 0) {
 		res = -errno;
 		pw_log_error("server %p: strtol() failed with error: %m", s);
 		goto error;
 	}
-	if (v != (int)v)
-		return 0;
-
-	if (dprintf((int)v, "%s\n", s->addr.sun_path) < 0) {
+	fd = (int)v;
+	if (v != fd) {
+		res = -ERANGE;
+		pw_log_error("server %p: invalid fd %ld: %s", s, v, spa_strerror(res));
+		goto error;
+	}
+	if (dprintf(fd, "%s\n", s->addr.sun_path) < 0) {
 		res = -errno;
 		pw_log_error("server %p: dprintf() failed with error: %m", s);
 		goto error;
 	}
-	close((int)v);
+	close(fd);
 	unsetenv("PIPEWIRE_NOTIFICATION_FD");
 	return 0;
 
@@ -857,7 +859,8 @@ static int add_socket(struct pw_protocol *protocol, struct server *s)
 
 	res = write_socket_address(s);
 	if (res < 0) {
-		pw_log_error("server %p: failed to write socket address", s);
+		pw_log_error("server %p: failed to write socket address: %s", s,
+				spa_strerror(res));
 		goto error_close;
 	}
 	s->activated = activated;

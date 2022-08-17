@@ -232,9 +232,12 @@ static void convolver1_free(struct convolver1 *conv)
 		fft_cpx_free(&conv->segments[i]);
 		fft_cpx_free(&conv->segmentsIr[i]);
 	}
-	fft_destroy(conv->fft);
-	fft_destroy(conv->ifft);
-	fft_free(conv->fft_buffer);
+	if (conv->fft)
+		fft_destroy(conv->fft);
+	if (conv->ifft)
+		fft_destroy(conv->ifft);
+	if (conv->fft_buffer)
+		fft_free(conv->fft_buffer);
 	free(conv->segments);
 	free(conv->segmentsIr);
 	fft_cpx_free(&conv->pre_mult);

@@ -721,12 +721,12 @@ static int do_start(struct impl *this)
 	if (this->started)
 		return 0;
 
+	spa_return_val_if_fail(this->transport != NULL, -EIO);
+
 	this->following = is_following(this);
 
 	spa_log_debug(this->log, "%p: start state:%d following:%d",
 			this, this->transport->state, this->following);
-
-	spa_return_val_if_fail(this->transport != NULL, -EIO);
 
 	if (this->transport->state >= SPA_BT_TRANSPORT_STATE_PENDING ||
 			this->is_duplex)

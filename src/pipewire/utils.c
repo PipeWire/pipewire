@@ -154,6 +154,7 @@ SPA_EXPORT
 ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags)
 {
 	ssize_t bytes;
+	int read_errno;
 
 #ifdef HAVE_GETRANDOM
 	bytes = getrandom(buf, buflen, flags);
@@ -165,7 +166,9 @@ ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags)
 	if (fd < 0)
 		return -1;
 	bytes = read(fd, buf, buflen);
+	read_errno = errno;
 	close(fd);
+	errno = read_errno;
 	return bytes;
 }
 

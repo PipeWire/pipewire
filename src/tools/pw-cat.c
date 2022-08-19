@@ -1663,6 +1663,7 @@ error_connect_fail:
 		pw_stream_destroy(data.stream);
 	}
 error_no_stream:
+error_bad_file:
 	spa_hook_remove(&data.core_listener);
 	pw_core_disconnect(data.core);
 error_ctx_connect_failed:
@@ -1671,7 +1672,6 @@ error_no_context:
 	pw_main_loop_destroy(data.loop);
 error_no_props:
 error_no_main_loop:
-error_bad_file:
 	pw_properties_free(data.props);
 	if (data.file)
 		sf_close(data.file);

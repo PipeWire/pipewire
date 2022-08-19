@@ -86,6 +86,7 @@ pw_strip(char *str, const char *whitespace);
 	})
 #endif
 
+SPA_WARN_UNUSED_RESULT
 ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags);
 
 void* pw_reallocarray(void *ptr, size_t nmemb, size_t size);

@@ -62,7 +62,7 @@
 
 #define DEFAULT_RT_MAX	88
 
-#define JACK_CLIENT_NAME_SIZE		128
+#define JACK_CLIENT_NAME_SIZE		256
 #define JACK_PORT_NAME_SIZE		256
 #define JACK_PORT_TYPE_SIZE             32
 #define MONITOR_EXT			" Monitor"

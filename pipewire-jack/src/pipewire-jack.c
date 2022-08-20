@@ -3584,8 +3584,9 @@ char *jack_get_internal_client_name (jack_client_t *client,
 SPA_EXPORT
 int jack_client_name_size (void)
 {
-	pw_log_trace("%d", JACK_CLIENT_NAME_SIZE);
-	return JACK_CLIENT_NAME_SIZE;
+	/* The JACK API specifies that this value includes the final NULL character. */
+	pw_log_trace("%d", JACK_CLIENT_NAME_SIZE+1);
+	return JACK_CLIENT_NAME_SIZE+1;
 }
 
 SPA_EXPORT

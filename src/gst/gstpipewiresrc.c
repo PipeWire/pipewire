@@ -568,19 +568,23 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
       meta->height = crop->region.size.height;
     }
   }
-  gst_buffer_add_parent_buffer_meta (buf, data->buf);
-  gst_buffer_unref (data->buf);
   for (i = 0; i < b->buffer->n_datas; i++) {
     struct spa_data *d = &b->buffer->datas[i];
     GstMemory *pmem = gst_buffer_peek_memory (data->buf, i);
     if (pmem) {
-      GstMemory *mem = gst_memory_share (pmem, d->chunk->offset, d->chunk->size);
+      GstMemory *mem;
+      if (!pwsrc->always_copy)
+        mem = gst_memory_share (pmem, d->chunk->offset, d->chunk->size);
+      else
+        mem = gst_memory_copy (pmem, d->chunk->offset, d->chunk->size);
       gst_buffer_insert_memory (buf, i, mem);
-      spa_assert_se(mem->size <= mem->maxsize);
     }
     if (d->chunk->flags & SPA_CHUNK_FLAG_CORRUPTED)
       GST_BUFFER_FLAG_SET (buf, GST_BUFFER_FLAG_CORRUPTED);
   }
+  if (!pwsrc->always_copy)
+    gst_buffer_add_parent_buffer_meta (buf, data->buf);
+  gst_buffer_unref (data->buf);
   return buf;
 }
 
@@ -1091,12 +1095,7 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
   }
   pw_thread_loop_unlock (pwsrc->core->loop);
 
-  if (pwsrc->always_copy) {
-    *buffer = gst_buffer_copy_deep (buf);
-    gst_buffer_unref (buf);
-  }
-  else
-    *buffer = buf;
+  *buffer = buf;
 
   if (pwsrc->is_live)
     base_time = GST_ELEMENT_CAST (psrc)->base_time;

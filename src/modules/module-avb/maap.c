@@ -423,7 +423,7 @@ struct avb_maap *avb_maap_register(struct server *server)
 
 	if (pw_getrandom(maap->xsubi, sizeof(maap->xsubi), 0) != sizeof(maap->xsubi)) {
 		res = -errno;
-		goto error;
+		goto error_free;
 	}
 	load_state(maap);
 

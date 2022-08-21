@@ -30,7 +30,9 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#ifdef HAVE_SYS_VFS_H
 #include <sys/vfs.h>
+#endif
 
 #include "config.h"
 

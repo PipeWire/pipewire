@@ -39,7 +39,9 @@
 #include <pwd.h>
 #endif
 #if defined(__FreeBSD__) || defined(__MidnightBSD__)
+#ifndef O_PATH
 #define O_PATH 0
+#endif
 #endif
 
 #include <spa/utils/result.h>

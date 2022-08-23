@@ -389,7 +389,8 @@ static void spa_bt_decode_buffer_recover(struct spa_bt_decode_buffer *this)
 static void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint32_t samples, uint32_t duration)
 {
 	const uint32_t data_size = samples * this->frame_size;
-	const int32_t max_level = SPA_MAX(8 * this->packet_size.max, (int32_t)duration);
+	const int32_t packet_size = SPA_CLAMP(this->packet_size.max, 0, INT32_MAX/8);
+	const int32_t max_level = SPA_MAX(8 * packet_size, (int32_t)duration);
 	uint32_t avail;
 
 	if (SPA_UNLIKELY(duration != this->prev_duration)) {
@@ -405,8 +406,8 @@ static void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint
 		spa_log_trace(this->log, "%p buffering size:%d", this, (int)size);
 
 		if (this->received &&
-				this->packet_size.max > 0 &&
-				size >= SPA_MAX(3*this->packet_size.max, (int32_t)duration))
+				packet_size > 0 &&
+				size >= SPA_MAX(3*packet_size, (int32_t)duration))
 			this->buffering = false;
 		else
 			return;
@@ -428,7 +429,7 @@ static void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint
 		spa_bt_ptp_update(&this->spike, this->ctl.avg - level, this->prev_consumed);
 
 		/* Update target level */
-		target = BUFFERING_TARGET(this->spike.max, this->packet_size.max);
+		target = BUFFERING_TARGET(this->spike.max, packet_size);
 
 		if (level > SPA_MAX(4 * target, 2*(int32_t)duration) &&
 				avail > data_size) {

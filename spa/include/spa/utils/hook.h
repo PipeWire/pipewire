@@ -382,7 +382,8 @@ static inline void spa_hook_list_prepend(struct spa_hook_list *list,
 /** Remove a hook */
 static inline void spa_hook_remove(struct spa_hook *hook)
 {
-	spa_list_remove(&hook->link);
+	if (spa_list_is_initialized(&hook->link))
+		spa_list_remove(&hook->link);
 	if (hook->removed)
 		hook->removed(hook);
 }

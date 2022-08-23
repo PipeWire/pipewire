@@ -419,6 +419,12 @@ PWTEST(utils_hook)
 	}
 	pwtest_int_eq(count, 4);
 	pwtest_int_eq(hook_free_count, 4);
+
+	/* remove a zeroed hook */
+	struct spa_hook hook;
+	spa_zero(hook);
+	spa_hook_remove(&hook);
+
 	return PWTEST_PASS;
 }
 

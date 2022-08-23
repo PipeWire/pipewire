@@ -51,6 +51,11 @@ static inline void spa_list_init(struct spa_list *list)
 	*list = SPA_LIST_INIT(list);
 }
 
+static inline int spa_list_is_initialized(struct spa_list *list)
+{
+	return !!list->prev;
+}
+
 #define spa_list_is_empty(l)  ((l)->next == (l))
 
 static inline void spa_list_insert(struct spa_list *list, struct spa_list *elem)

@@ -285,10 +285,15 @@ static inline bool spa_pod_parser_can_collect(const struct spa_pod *pod, char ty
 	if (pod == NULL)
 		return false;
 
-	if (spa_pod_is_choice(pod) &&
-	    SPA_POD_CHOICE_TYPE(pod) == SPA_CHOICE_None &&
-	    spa_pod_parser_can_collect(SPA_POD_CHOICE_CHILD(pod), type))
-		return true;
+	if (SPA_POD_TYPE(pod) == SPA_TYPE_Choice) {
+		if (!spa_pod_is_choice(pod))
+			return false;
+		if (type == 'V')
+			return true;
+		if (SPA_POD_CHOICE_TYPE(pod) != SPA_CHOICE_None)
+			return false;
+		pod = SPA_POD_CHOICE_CHILD(pod);
+	}
 
 	switch (type) {
 	case 'P':
@@ -328,7 +333,6 @@ static inline bool spa_pod_parser_can_collect(const struct spa_pod *pod, char ty
 	case 'O':
 		return spa_pod_is_object(pod) || spa_pod_is_none(pod);
 	case 'V':
-		return spa_pod_is_choice(pod);
 	default:
 		return false;
 	}
@@ -493,8 +497,7 @@ static inline int spa_pod_parser_getv(struct spa_pod_parser *parser, va_list arg
 			}
 			SPA_POD_PARSER_SKIP(*format, args);
 		} else {
-			if (pod->type == SPA_TYPE_Choice && *format != 'V' &&
-			    SPA_POD_CHOICE_TYPE(pod) == SPA_CHOICE_None)
+			if (pod->type == SPA_TYPE_Choice && *format != 'V')
 				pod = SPA_POD_CHOICE_CHILD(pod);
 
 			SPA_POD_PARSER_COLLECT(pod, *format, args);

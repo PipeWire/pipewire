@@ -93,7 +93,8 @@ int main(int argc, char *argv[])
 	snd_pcm_info_t *info;
 	snd_pcm_sync_id_t sync;
 	snd_pcm_stream_t stream = SND_PCM_STREAM_PLAYBACK;
-	int c;
+	snd_pcm_chmap_query_t **maps;
+	int c, i;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "device",	required_argument,	NULL, 'D' },
@@ -144,6 +145,21 @@ int main(int argc, char *argv[])
 	sync = snd_pcm_info_get_sync(info);
 	fprintf(stdout, "  sync: %08x:%08x:%08x:%08x\n",
 			sync.id32[0], sync.id32[1], sync.id32[2],sync.id32[3]);
+
+	/* channel maps */
+	if ((maps = snd_pcm_query_chmaps(state.hndl)) != NULL) {
+		fprintf(stdout, "channels:\n");
+
+		for (i = 0; maps[i]; i++) {
+			snd_pcm_chmap_t* map = &maps[i]->map;
+			char buf[2048];
+
+			snd_pcm_chmap_print(map, sizeof(buf), buf);
+
+			fprintf(stdout, "  %d: %s\n", map->channels, buf);
+		}
+		snd_pcm_free_chmaps(maps);
+	}
 
 	/* hw params */
 	snd_pcm_hw_params_alloca(&hparams);

@@ -278,7 +278,7 @@ static void playback_stream_process(void *d)
 	} else {
 		float error, corr;
 
-		error = (float)(impl->current_latency) - (float)impl->target_latency;
+		error = (float)impl->target_latency - (float)impl->current_latency;
 		error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
 
 		corr = spa_dll_update(&impl->dll, error);

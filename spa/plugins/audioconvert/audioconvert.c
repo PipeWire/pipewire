@@ -909,8 +909,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			}
 			break;
 		case SPA_PROP_rate:
-			if (spa_pod_get_double(&prop->value, &p->rate) == 0)
-				changed++;
+			spa_pod_get_double(&prop->value, &p->rate);
 			break;
 		case SPA_PROP_params:
 			changed += parse_prop_params(this, &prop->value);

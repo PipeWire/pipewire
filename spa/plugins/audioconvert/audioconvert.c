@@ -2226,15 +2226,22 @@ static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 	return end ? 1 : 0;
 }
 
+static uint32_t resample_get_in_size(struct impl *this, bool passthrough, uint32_t out_size)
+{
+	uint32_t match_size = passthrough ? out_size : resample_in_len(&this->resample, out_size);
+	spa_log_trace_fp(this->log, "%p: current match %u", this, match_size);
+	return match_size;
+}
+
 static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, uint32_t out_size, uint32_t in_queued)
 {
-	double rate = this->rate_scale / this->props.rate;
 	uint32_t delay, match_size;
 
 	if (passthrough) {
 		delay = 0;
 		match_size = out_size;
 	} else {
+		double rate = this->rate_scale / this->props.rate;
 		if (this->io_rate_match &&
 		    SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
 			rate *= this->io_rate_match->rate;
@@ -2503,16 +2510,16 @@ static int impl_node_process(void *object)
 
 	/* calculate how many samples we are going to consume. */
 	if (this->direction == SPA_DIRECTION_INPUT) {
-		uint32_t n_in;
-		/* then figure out how much input samples we need to consume */
-		n_in = resample_update_rate_match(this, resample_passthrough, n_out, 0);
 		if (!in_avail || this->drained) {
+			/* no input, ask for more, update rate-match first */
+			resample_update_rate_match(this, resample_passthrough, n_out, 0);
 			spa_log_trace_fp(this->log, "%p: no input drained:%d", this, this->drained);
-			/* no input, ask for more */
 			res |= this->drained ? SPA_STATUS_DRAINED : SPA_STATUS_NEED_DATA;
 			return res;
 		}
-		n_samples = SPA_MIN(n_samples, n_in);
+		/* else figure out how much input samples we need to consume */
+		n_samples = SPA_MIN(n_samples,
+				resample_get_in_size(this, resample_passthrough, n_out));
 	} else {
 		/* in merge mode we consume one duration of samples */
 		n_samples = SPA_MIN(n_samples, quant_samples);

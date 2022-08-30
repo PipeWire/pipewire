@@ -422,33 +422,47 @@ static int create_stream(struct impl *impl)
 static void context_state_cb(pa_context *c, void *userdata)
 {
 	struct impl *impl = userdata;
+	bool do_destroy = false;
 	switch (pa_context_get_state(c)) {
-	case PA_CONTEXT_READY:
 	case PA_CONTEXT_TERMINATED:
 	case PA_CONTEXT_FAILED:
+		do_destroy = true;
+		SPA_FALLTHROUGH;
+	case PA_CONTEXT_READY:
 		pa_threaded_mainloop_signal(impl->pa_mainloop, 0);
 		break;
 	case PA_CONTEXT_UNCONNECTED:
+		do_destroy = true;
+		break;
 	case PA_CONTEXT_CONNECTING:
 	case PA_CONTEXT_AUTHORIZING:
 	case PA_CONTEXT_SETTING_NAME:
 		break;
 	}
+	if (do_destroy)
+		pw_impl_module_schedule_destroy(impl->module);
 }
 
 static void stream_state_cb(pa_stream *s, void * userdata)
 {
 	struct impl *impl = userdata;
+	bool do_destroy = false;
 	switch (pa_stream_get_state(s)) {
-	case PA_STREAM_READY:
 	case PA_STREAM_FAILED:
 	case PA_STREAM_TERMINATED:
+		do_destroy = true;
+		SPA_FALLTHROUGH;
+	case PA_STREAM_READY:
 		pa_threaded_mainloop_signal(impl->pa_mainloop, 0);
 		break;
 	case PA_STREAM_UNCONNECTED:
+		do_destroy = true;
+		break;
 	case PA_STREAM_CREATING:
 		break;
 	}
+	if (do_destroy)
+		pw_impl_module_schedule_destroy(impl->module);
 }
 
 static void stream_read_request_cb(pa_stream *s, size_t length, void *userdata)

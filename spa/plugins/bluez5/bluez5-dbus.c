@@ -133,7 +133,6 @@ struct spa_bt_monitor {
 	struct media_codec_audio_info default_audio_info;
 
 	bool le_audio_supported;
-	bool bap_initiator;
 };
 
 /* Stream endpoints owned by BlueZ for each device */
@@ -149,6 +148,7 @@ struct spa_bt_remote_endpoint {
 	uint8_t *capabilities;
 	int capabilities_len;
 	bool delay_reporting;
+	bool acceptor;
 };
 
 /*
@@ -568,15 +568,18 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 
 static void append_basic_variant_dict_entry(DBusMessageIter *dict, const char* key, int variant_type_int, const char* variant_type_str, void* variant);
 static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, const char* key, const char* variant_type_str, const char* array_type_str, int array_type_int, void* data, int data_size);
+static struct spa_bt_remote_endpoint *remote_endpoint_find(struct spa_bt_monitor *monitor, const char *path);
 
 static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
 	struct spa_bt_monitor *monitor = userdata;
 	const char *path;
+	const char *object_path;
 	DBusMessageIter args, props, iter;
 	DBusMessage *r = NULL;
 	int size, res;
 	const struct media_codec *codec;
+	bool sink;
 
 	if (!dbus_message_iter_init(m, &args) || !spa_streq(dbus_message_get_signature(m), "a{sv}")) {
 		spa_log_error(monitor->log, "Invalid signature for method SelectProperties()");
@@ -588,6 +591,17 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
 	path = dbus_message_get_path(m);
+
+	codec = media_endpoint_to_codec(monitor, path, &sink);
+	if (!codec) {
+		res = -ENOTSUP;
+		spa_log_error(monitor->log, "Unsupported codec: %d (%s)",
+				res, spa_strerror(res));
+		if ((r = dbus_message_new_error(m, "org.bluez.Error.InvalidArguments",
+				"Unsupported codec")) == NULL)
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+		goto exit_send;
+	}
 
 	/* Read transport properties */
 	while (dbus_message_iter_get_arg_type(&props) == DBUS_TYPE_DICT_ENTRY) {
@@ -607,7 +621,11 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 			DBusMessageIter array, dict;
 			uint8_t config[A2DP_MAX_CAPS_SIZE], *cap;
 			uint8_t *pconf = (uint8_t *) config;
-			bool sink;
+
+			if (r) {
+				spa_log_warn(monitor->log, "Multiple Capabilities entries, skipped");
+				goto next_entry;
+			}
 
 			if (var != DBUS_TYPE_ARRAY) {
 				spa_log_error(monitor->log, "Property %s of wrong type %c", key, (char)var);
@@ -631,24 +649,12 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 			spa_log_info(monitor->log, "%p: %s select properties %d", monitor, path, size);
 			spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', cap, (size_t)size);
 
-			codec = media_endpoint_to_codec(monitor, path, &sink);
-			if (codec != NULL)
-				/* FIXME: We can't determine which device the SelectConfiguration()
-				* call is associated with, therefore device settings are not passed.
-				* This causes inconsistency with SelectConfiguration() triggered
-				* by codec switching.
-				*/
-				res = codec->select_config(codec, 0, cap, size, &monitor->default_audio_info, NULL, config);
-			else
-				res = -ENOTSUP;
-
-			/* FIXME: We can't determine which remote endpoint or device the
-			 * SelectConfiguration() call is associated with. For LE Audio BAP,
-			 * as this method is called only for the Initiator we set the whole
-			 * instance as a Central/Initiator.
-			 */
-			if (codec->bap)
-				monitor->bap_initiator = true;
+			/* FIXME: We can't determine which device the SelectConfiguration()
+			* call is associated with, therefore device settings are not passed.
+			* This causes inconsistency with SelectConfiguration() triggered
+			* by codec switching.
+			*/
+			res = codec->select_config(codec, 0, cap, size, &monitor->default_audio_info, NULL, config);
 
 			if (res < 0 || res != size) {
 				spa_log_error(monitor->log, "can't select config: %d (%s)",
@@ -691,10 +697,26 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 			}
 
 			dbus_message_iter_close_container(&iter, &dict);
+		} else if (spa_streq(key, "Endpoint")) {
+			dbus_message_iter_get_basic(&value, &object_path);
 
-			goto exit_send;
+			if (codec->bap) {
+				struct spa_bt_remote_endpoint *ep;
+
+				ep = remote_endpoint_find(monitor, object_path);
+				if (!ep) {
+					spa_log_warn(monitor->log, "Unable to find remote endpoint for %s", object_path);
+					goto next_entry;
+				}
+
+				/* Call of SelectProperties means that local device acts as an initiator
+				 * and therefor remote endpoint is an acceptor
+				 */
+				ep->acceptor = true;
+			}
 		}
 
+next_entry:
 		dbus_message_iter_next(&props);
 	}
 
@@ -2013,7 +2035,6 @@ struct spa_bt_transport *spa_bt_transport_create(struct spa_bt_monitor *monitor,
 	t->fd = -1;
 	t->sco_io = NULL;
 	t->delay = SPA_BT_UNKNOWN_DELAY;
-	t->bap_initiator = monitor->bap_initiator;
 	t->user_data = SPA_PTROFF(t, sizeof(struct spa_bt_transport), void);
 	spa_hook_list_init(&t->listener_list);
 	spa_list_init(&t->bap_transport_linked);
@@ -2442,6 +2463,16 @@ static int transport_update_props(struct spa_bt_transport *transport,
 					else
 						spa_log_warn(monitor->log, "could not find device %s", value);
 				}
+			}
+			else if (spa_streq(key, "Endpoint")) {
+				struct spa_bt_remote_endpoint *ep = remote_endpoint_find(monitor, value);
+				if (!ep) {
+					spa_log_warn(monitor->log, "Unable to find remote endpoint for %s", value);
+					goto next;
+				}
+
+				// If the remote endpoint is an acceptor this transport is an initiator
+				transport->bap_initiator = ep->acceptor;
 			}
 		}
 		else if (spa_streq(key, "Codec")) {
@@ -4212,17 +4243,6 @@ static void interfaces_removed(struct spa_bt_monitor *monitor, DBusMessageIter *
 			ep = remote_endpoint_find(monitor, object_path);
 			if (ep != NULL) {
 				struct spa_bt_device *d = ep->device;
-				/* FIXME: As we had been unabe to determine which remote endpoint or
-				 * device the SelectConfiguration() has been associated with, this
-				 * removes the general Central/Initiator flag on LE Audio BAP media
-				 * endpoint removal.
-				 */
-				int i;
-				for (i = 0; monitor->media_codecs[i]; i++) {
-					const struct media_codec *codec = monitor->media_codecs[i];
-					if (codec->codec_id == ep->codec && codec->bap)
-						monitor->bap_initiator = false;
-				}
 				remote_endpoint_free(ep);
 				if (d)
 					spa_bt_device_emit_profiles_changed(d, d->profiles, d->connected_profiles);

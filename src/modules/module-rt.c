@@ -604,7 +604,7 @@ static int sched_set_nice(int nice_level)
 		return -errno;
 }
 
-static int set_nice(struct impl *impl, int nice_level)
+static int set_nice(struct impl *impl, int nice_level, bool warn)
 {
 	int res = 0;
 
@@ -618,13 +618,13 @@ static int set_nice(struct impl *impl, int nice_level)
 #endif
 
 	if (res < 0) {
-		pw_log_warn("could not set nice-level to %d: %s",
-				nice_level, spa_strerror(res));
+		if (warn)
+			pw_log_warn("could not set nice-level to %d: %s",
+					nice_level, spa_strerror(res));
 	} else {
 		pw_log_info("main thread nice level set to %d",
 				nice_level);
 	}
-
 	return res;
 }
 
@@ -907,17 +907,17 @@ static const struct spa_thread_utils_methods impl_thread_utils = {
 
 
 #ifdef HAVE_DBUS
-static int check_rtkit(struct impl *impl, struct pw_context *context, bool *could_use_rtkit)
+static int check_rtkit(struct impl *impl, struct pw_context *context, bool *can_use_rtkit)
 {
 	const struct pw_properties *context_props;
 	const char *str;
 
-	*could_use_rtkit = true;
+	*can_use_rtkit = true;
 
 	if ((context_props = pw_context_get_properties(context)) != NULL &&
 	    (str = pw_properties_get(context_props, "support.dbus")) != NULL &&
 	    !pw_properties_parse_bool(str))
-		*could_use_rtkit = false;
+		*can_use_rtkit = false;
 
 	return 0;
 }
@@ -951,21 +951,20 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->rt_time_soft = pw_properties_get_int32(props, "rt.time.soft", DEFAULT_RT_TIME_SOFT);
 	impl->rt_time_hard = pw_properties_get_int32(props, "rt.time.hard", DEFAULT_RT_TIME_HARD);
 
-	bool could_use_rtkit = false, use_rtkit = false;
+	bool can_use_rtkit = false, use_rtkit = false;
 
 #ifdef HAVE_DBUS
 	spa_list_init(&impl->threads_list);
 	pthread_mutex_init(&impl->lock, NULL);
 	pthread_cond_init(&impl->cond, NULL);
 
-	if ((res = check_rtkit(impl, context, &could_use_rtkit)) < 0) {
+	if ((res = check_rtkit(impl, context, &can_use_rtkit)) < 0)
 		goto error;
-	}
 #endif
 	/* If the user has permissions to use regular realtime scheduling, as well as
 	 * the nice level we want, then we'll use that instead of RTKit */
 	if (!check_realtime_privileges(impl->rt_prio)) {
-		if (!could_use_rtkit) {
+		if (!can_use_rtkit) {
 			res = -ENOTSUP;
 			pw_log_warn("regular realtime scheduling not available (RTKit fallback disabled)");
 			goto error;
@@ -974,18 +973,15 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 
 	if (IS_VALID_NICE_LEVEL(impl->nice_level)) {
-		if (set_nice(impl, impl->nice_level) != 0 && could_use_rtkit) {
-			use_rtkit = true;
-		}
+		if (set_nice(impl, impl->nice_level, !can_use_rtkit) < 0)
+			use_rtkit = can_use_rtkit;
 	}
-	if (set_rlimit(impl) != 0 && could_use_rtkit) {
-		use_rtkit = true;
-	}
+	set_rlimit(impl);
 
 #ifdef HAVE_DBUS
 	impl->use_rtkit = use_rtkit;
 	if (impl->use_rtkit) {
-		// Checking xdg-desktop-portal. It works fine in all situations.
+		/* Checking xdg-desktop-portal. It works fine in all situations. */
 		impl->rtkit_bus = pw_rtkit_bus_get_session();
 		if (impl->rtkit_bus != NULL) {
 			if (pw_rtkit_check_xdg_portal(impl->rtkit_bus)) {
@@ -998,7 +994,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				impl->rtkit_bus = NULL;
 			}
 		}
-		// Failed to get xdg-desktop-portal, try to use rtkit.
+		/* Failed to get xdg-desktop-portal, try to use rtkit. */
 		if (impl->rtkit_bus == NULL) {
 			impl->rtkit_bus = pw_rtkit_bus_get_system();
 			if (impl->rtkit_bus != NULL) {
@@ -1011,12 +1007,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				goto error;
 			}
 		}
+		/* Retry set_nice with rtkit */
+		if (IS_VALID_NICE_LEVEL(impl->nice_level))
+			set_nice(impl, impl->nice_level, true);
 	}
-
-	// Retry set_nice and set_rlimit with rtkit
-	if (IS_VALID_NICE_LEVEL(impl->nice_level))
-		set_nice(impl, impl->nice_level);
-	set_rlimit(impl);
 #endif
 
 	impl->thread_utils.iface = SPA_INTERFACE_INIT(

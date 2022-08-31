@@ -3361,6 +3361,8 @@ jack_client_t * jack_client_open (const char *client_name,
 	}
 	if (pw_properties_get(client->props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_set(client->props, PW_KEY_NODE_NAME, client_name);
+	if (pw_properties_get(client->props, PW_KEY_NODE_GROUP) == NULL)
+		pw_properties_setf(client->props, PW_KEY_NODE_GROUP, "jack-%d", getpid());
 	if (pw_properties_get(client->props, PW_KEY_NODE_DESCRIPTION) == NULL)
 		pw_properties_set(client->props, PW_KEY_NODE_DESCRIPTION, client_name);
 	if (pw_properties_get(client->props, PW_KEY_MEDIA_TYPE) == NULL)

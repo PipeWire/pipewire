@@ -1,3 +1,93 @@
+# PipeWire 0.3.57 (2022-09-02)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+
+## PipeWire
+  - Support masking of conf.d/ files. (#2629)
+  - Add some more debug info to memfd.
+  - Improve data-loop invoke method. Also flush pending items. (#2631)
+  - Add a filter-chain systemd service file than can be used to start
+    custom filters placed in ~/.conf/pipewire/filter-chain.d/ (#2553)
+  - Improve triggered timestamps for remote nodes.
+  - Fix some potential cross compilation problems due to wrong
+    host_machine.
+  - Check return values of pw_getrandom().
+
+
+## Tools
+  - Updates to pw-cli manpages. (#2552)
+  - Remove the pw-cli dump command. It is mostly implemented as part of
+    wpctl status, pw-dump, pw-link, pw-top and others.
+  - Clean up resource in pw-cat correctly on errors. (#2651)
+
+## Modules
+  - Fix compilation of AVB on big-endian. Enable AVB only on Linux.
+  - Use org.freedesktop.portal.Realtime when available. This does the
+    correct PID/TID mappings to make realtime also work from flatpaks.
+  - Fix compilation of ROC module when headers are missing. (#2513)
+  - Improve some error cleanup paths in protocol-native. Improve connect
+    and disconnect.
+  - Fix a potential crash in FFT unload in filter-chain.
+  - Implement PIPEWIRE_NOTIFICATION_FD for notification when the socket
+    is ready.
+  - Try to use rtkit if set_nice() fails.
+  - Fix rate adjustement logic in pulse-tunnel. This would cause
+    increasing delays and hickups when using tunnels. (#2548)
+  - Handle disconnect in pulse-tunnel.
+
+## Bluetooth
+  - Add OPUS as a new vendor codec. Add OPUS-A2DP spec. PipeWire can now
+    send and reveive OPUS data over bluetooth.
+  - An AAC decoder was added so that PipeWire can now also function as
+    an A2DP AAC receiver.
+
+## SPA
+  - Tweak the resampler window function some more. (#2574)
+  - Improve format convert performance in some fallback cases.
+  - Fix rounding in format conversion on ARM NEON.
+  - Fix libcamera build error. (#2575)
+  - Fix some issues where the wrong samplerate was used. (#2614)
+  - Don't wait for more samples that can fit in the ringbuffer in ALSA.
+  - Improve buffer size handling in audioconvert, scale the buffers based
+    on the rate conversion and make things work with really large rate
+    conversions as well.
+  - Add more and better debug for ALSA devices.
+  - Improve channel mix: Filter FC and LFE when copying from a different
+    layout. Implement STEREO from FC. Avoid generating REAR from FC in PSD
+    mode.
+  - Fix rate match for sources. This fixes an error where follower sources
+    would generate many resync warnings.
+  - Improve ALSA format negotiation. If the ALSA node is not running and
+    there was a previously configured format, close and reopen the device
+    to enumerate and accept all possible formats again. (#2625).
+
+## ALSA
+  - The alsa plugin will now also save the volumes set with the control
+    API. This saves the volumes set with alsa-mixer, for example.
+
+## Pulse-server
+  - Flatpak apps with devices=all (Zoom) will now be granted Manager
+    permissions.
+  - Small tweaks to the amount of data sent to clients to work around an
+    issue in freerdp.
+
+## JACK
+  - Clean up the transport correctly when closing a client. (#2569)
+  - Match context properties in addition to node properties for the jack
+    client rules. (#2580)
+  - Make sure to return an error when disconnected from the server. (#2606)
+  - Fix thread cast problem in jack_client_thread_id().
+  - Increase jack_client_name_size() length and make sure we have space for
+    the \0 byte.
+  - JACK clients from the same application will be added to the same group
+    so that they share the quantum and rate.
+
+
+Older versions:
+
 # PipeWire 0.3.56 (2022-07-19)
 
 This is a quick bugfix release that is API and ABI compatible with previous
@@ -51,8 +141,6 @@ This is a quick bugfix release that is API and ABI compatible with previous
 ## Pulse Server
   - Add the resampler delay to delay reporting as well.
 
-
-Older versions:
 
 # PipeWire 0.3.55 (2022-07-12)
 

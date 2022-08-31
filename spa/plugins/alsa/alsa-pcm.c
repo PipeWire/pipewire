@@ -1249,7 +1249,12 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 	struct spa_result_node_params result;
 	uint32_t count = 0;
 
+	spa_log_debug(state->log, "opened:%d format:%d started:%d", state->opened,
+			state->have_format, state->started);
+
 	opened = state->opened;
+	if (!state->started && state->have_format)
+		spa_alsa_close(state);
 	if ((err = spa_alsa_open(state, NULL)) < 0)
 		return err;
 
@@ -1309,6 +1314,9 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	unsigned int periods;
 	bool match = true, planar = false, is_batch;
 	char spdif_params[128] = "";
+
+	spa_log_debug(state->log, "opened:%d format:%d started:%d", state->opened,
+			state->have_format, state->started);
 
 	state->use_mmap = !state->disable_mmap;
 
@@ -1422,6 +1430,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		return -EINVAL;
 	}
 
+	if (!state->started && state->have_format)
+		spa_alsa_close(state);
 	if ((err = spa_alsa_open(state, spdif_params)) < 0)
 		return err;
 

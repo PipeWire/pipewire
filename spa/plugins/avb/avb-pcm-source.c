@@ -705,9 +705,8 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
 	port = GET_PORT(this, SPA_DIRECTION_OUTPUT, 0);
-
-	io = port->io;
-	spa_return_val_if_fail(io != NULL, -EIO);
+	if ((io = port->io) == NULL)
+		return -EIO;
 
 	spa_log_trace_fp(this->log, "%p: process %d %d/%d %d", this, io->status,
 			io->buffer_id, port->n_buffers, this->following);

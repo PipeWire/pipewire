@@ -1295,8 +1295,8 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
 	port = &this->port;
-	io = port->io;
-	spa_return_val_if_fail(io != NULL, -EIO);
+	if ((io = port->io) == NULL)
+		return -EIO;
 
 	/* Return if we already have a buffer */
 	if (io->status == SPA_STATUS_HAVE_DATA)

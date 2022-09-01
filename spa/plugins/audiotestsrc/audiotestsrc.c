@@ -931,7 +931,8 @@ static int impl_node_process(void *object)
 	port = &this->port;
 
 	io = port->io;
-	spa_return_val_if_fail(io != NULL, -EIO);
+	if ((io = port->io) == NULL)
+		return -EIO;
 
 	if (port->io_control)
 		process_control(this, &port->io_control->sequence);

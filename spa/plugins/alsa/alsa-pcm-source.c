@@ -753,8 +753,8 @@ static int impl_node_process(void *object)
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	io = this->io;
-	spa_return_val_if_fail(io != NULL, -EIO);
+	if ((io = this->io) == NULL)
+		return -EIO;
 
 	spa_log_trace_fp(this->log, "%p; status %d", this, io->status);
 

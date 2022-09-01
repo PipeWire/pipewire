@@ -823,8 +823,8 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(impl != NULL, -EINVAL);
 
 	port = GET_OUT_PORT(impl, 0);
-	io = port->io;
-	spa_return_val_if_fail(io != NULL, -EIO);
+	if ((io = port->io) == NULL)
+		return -EIO;
 
 	if (port->control)
 		process_control(impl, &port->control->sequence);

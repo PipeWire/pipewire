@@ -142,7 +142,7 @@ struct spa_callbacks {
  * Initialize the set of functions \a funcs as a \ref spa_callbacks, together
  * with \a _data.
  */
-#define SPA_CALLBACKS_INIT(_funcs,_data) (struct spa_callbacks){ _funcs, _data, }
+#define SPA_CALLBACKS_INIT(_funcs,_data) ((struct spa_callbacks){ (_funcs), (_data), })
 
 /** \struct spa_interface
  */

@@ -53,7 +53,7 @@ struct spa_pod_parser {
 	struct spa_pod_parser_state state;
 };
 
-#define SPA_POD_PARSER_INIT(buffer,size)  (struct spa_pod_parser){ buffer, size, 0, {} }
+#define SPA_POD_PARSER_INIT(buffer,size)  ((struct spa_pod_parser){ (buffer), (size), 0, {} })
 
 static inline void spa_pod_parser_init(struct spa_pod_parser *parser,
 				       const void *data, uint32_t size)
@@ -355,7 +355,7 @@ do {											\
 		break;									\
 	case 's':									\
 		*va_arg(args, char**) =							\
-			(pod == NULL || (SPA_POD_TYPE(pod) == SPA_TYPE_None)		\
+			((pod) == NULL || (SPA_POD_TYPE(pod) == SPA_TYPE_None)		\
 				? NULL							\
 				: (char *)SPA_POD_CONTENTS(struct spa_pod_string, pod));	\
 		break;									\
@@ -407,8 +407,8 @@ do {											\
 	{										\
 		const struct spa_pod **d = va_arg(args, const struct spa_pod**);	\
 		if (d)									\
-			*d = (pod == NULL || (SPA_POD_TYPE(pod) == SPA_TYPE_None)	\
-				? NULL : pod);						\
+			*d = ((pod) == NULL || (SPA_POD_TYPE(pod) == SPA_TYPE_None)	\
+				? NULL : (pod));						\
 		break;									\
 	}										\
 	default:									\

@@ -84,25 +84,25 @@ enum spa_direction {
 
 #define SPA_DIRECTION_REVERSE(d)	((d) ^ 1)
 
-#define SPA_RECTANGLE(width,height) (struct spa_rectangle){ width, height }
+#define SPA_RECTANGLE(width,height) ((struct spa_rectangle){ (width), (height) })
 struct spa_rectangle {
 	uint32_t width;
 	uint32_t height;
 };
 
-#define SPA_POINT(x,y) (struct spa_point){ x, y }
+#define SPA_POINT(x,y) ((struct spa_point){ (x), (y) })
 struct spa_point {
 	int32_t x;
 	int32_t y;
 };
 
-#define SPA_REGION(x,y,width,height) (struct spa_region){ SPA_POINT(x,y), SPA_RECTANGLE(width,height) }
+#define SPA_REGION(x,y,width,height) ((struct spa_region){ SPA_POINT(x,y), SPA_RECTANGLE(width,height) })
 struct spa_region {
 	struct spa_point position;
 	struct spa_rectangle size;
 };
 
-#define SPA_FRACTION(num,denom) (struct spa_fraction){ num, denom }
+#define SPA_FRACTION(num,denom) ((struct spa_fraction){ (num), (denom) })
 struct spa_fraction {
 	uint32_t num;
 	uint32_t denom;
@@ -120,7 +120,7 @@ struct spa_fraction {
  * ```
  */
 #define SPA_FOR_EACH_ELEMENT(arr, ptr) \
-	for (ptr = arr; (void*)ptr < SPA_PTROFF(arr, sizeof(arr), void); ptr++)
+	for ((ptr) = arr; (void*)(ptr) < SPA_PTROFF(arr, sizeof(arr), void); (ptr)++)
 
 #define SPA_ABS(a)			\
 ({					\
@@ -156,7 +156,7 @@ struct spa_fraction {
 #define SPA_SWAP(a,b)					\
 ({							\
 	__typeof__(a) _t = (a);				\
-	a = b; b = _t;					\
+	(a) = b; (b) = _t;					\
 })
 
 #define SPA_TYPECHECK(type,x)		\
@@ -180,7 +180,7 @@ struct spa_fraction {
 #define SPA_MEMBER(b,o,t) SPA_PTROFF(b,o,t)
 #define SPA_MEMBER_ALIGN(b,o,a,t) SPA_PTROFF_ALIGN(b,o,a,t)
 
-#define SPA_CONTAINER_OF(p,t,m) ((t*)((uintptr_t)p - offsetof(t,m)))
+#define SPA_CONTAINER_OF(p,t,m) ((t*)((uintptr_t)(p) - offsetof(t,m)))
 
 #define SPA_PTRDIFF(p1,p2) ((intptr_t)(p1) - (intptr_t)(p2))
 
@@ -194,7 +194,7 @@ struct spa_fraction {
 #define SPA_IDX_INVALID  ((unsigned int)-1)
 #define SPA_ID_INVALID  ((uint32_t)0xffffffff)
 
-#define SPA_NSEC_PER_SEC  (1000000000ll)
+#define SPA_NSEC_PER_SEC  (1000000000LL)
 #define SPA_NSEC_PER_MSEC (1000000ll)
 #define SPA_NSEC_PER_USEC (1000ll)
 #define SPA_USEC_PER_SEC  (1000000ll)

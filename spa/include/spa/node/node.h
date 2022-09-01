@@ -85,7 +85,7 @@ struct spa_node_info {
 	uint32_t n_params;			/**< number of items in \a params */
 };
 
-#define SPA_NODE_INFO_INIT()	(struct spa_node_info) { 0, }
+#define SPA_NODE_INFO_INIT()	((struct spa_node_info) { 0, })
 
 /**
  * Port information structure
@@ -124,7 +124,7 @@ struct spa_port_info {
 	uint32_t n_params;			/**< number of items in \a params */
 };
 
-#define SPA_PORT_INFO_INIT()	(struct spa_port_info) { 0, }
+#define SPA_PORT_INFO_INIT()	((struct spa_port_info) { 0, })
 
 #define SPA_RESULT_TYPE_NODE_ERROR	1
 #define SPA_RESULT_TYPE_NODE_PARAMS	2

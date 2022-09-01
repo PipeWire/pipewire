@@ -140,9 +140,9 @@ struct pw_client_node0_message_port_reuse_buffer {
 
 #define PW_CLIENT_NODE0_MESSAGE_TYPE(message)	(((struct pw_client_node0_message*)(message))->body.type.value)
 
-#define PW_CLIENT_NODE0_MESSAGE_INIT(message) (struct pw_client_node0_message)			\
+#define PW_CLIENT_NODE0_MESSAGE_INIT(message) ((struct pw_client_node0_message)			\
 	{ { { sizeof(struct pw_client_node0_message_body), SPA_TYPE_Struct } },			\
-	  { SPA_POD_INIT_Int(message) } }
+	  { SPA_POD_INIT_Int(message) } })
 
 #define PW_CLIENT_NODE0_MESSAGE_INIT_FULL(type,size,message,...) (type)				\
 	{ { { size, SPA_TYPE_Struct } },							\

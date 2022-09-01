@@ -53,7 +53,7 @@ struct spa_ringbuffer {
 	uint32_t writeindex;	/*< the current write index */
 };
 
-#define SPA_RINGBUFFER_INIT()	(struct spa_ringbuffer) { 0, 0 }
+#define SPA_RINGBUFFER_INIT()	((struct spa_ringbuffer) { 0, 0 })
 
 /**
  * Initialize a spa_ringbuffer with \a size.

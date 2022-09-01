@@ -58,20 +58,20 @@ struct spa_json {
 	uint32_t depth;
 };
 
-#define SPA_JSON_INIT(data,size) (struct spa_json) { (data), (data)+(size), }
+#define SPA_JSON_INIT(data,size) ((struct spa_json) { (data), (data)+(size), })
 
 static inline void spa_json_init(struct spa_json * iter, const char *data, size_t size)
 {
 	*iter =  SPA_JSON_INIT(data, size);
 }
-#define SPA_JSON_ENTER(iter) (struct spa_json) { (iter)->cur, (iter)->end, (iter), }
+#define SPA_JSON_ENTER(iter) ((struct spa_json) { (iter)->cur, (iter)->end, (iter), })
 
 static inline void spa_json_enter(struct spa_json * iter, struct spa_json * sub)
 {
 	*sub = SPA_JSON_ENTER(iter);
 }
 
-#define SPA_JSON_SAVE(iter) (struct spa_json) { (iter)->cur, (iter)->end, }
+#define SPA_JSON_SAVE(iter) ((struct spa_json) { (iter)->cur, (iter)->end, })
 
 /** Get the next token. \a value points to the token and the return value
  * is the length. */

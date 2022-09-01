@@ -66,7 +66,7 @@ struct pw_permission {
 	uint32_t permissions;	/**< bitmask of above permissions */
 };
 
-#define PW_PERMISSION_INIT(id,p) (struct pw_permission){ (id), (p) }
+#define PW_PERMISSION_INIT(id,p) ((struct pw_permission){ (id), (p) })
 
 #define PW_PERMISSION_FORMAT "%c%c%c%c"
 #define PW_PERMISSION_ARGS(permission)		\

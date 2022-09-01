@@ -52,7 +52,7 @@ struct pw_array {
 	size_t extend;		/**< number of bytes to extend with */
 };
 
-#define PW_ARRAY_INIT(extend) (struct pw_array) { NULL, 0, 0, extend }
+#define PW_ARRAY_INIT(extend) ((struct pw_array) { NULL, 0, 0, (extend) })
 
 #define pw_array_get_len_s(a,s)			((a)->size / (s))
 #define pw_array_get_unchecked_s(a,idx,s,t)	SPA_PTROFF((a)->data,(idx)*(s),t)
@@ -67,17 +67,17 @@ struct pw_array {
 
 #define pw_array_first(a)	((a)->data)
 #define pw_array_end(a)		SPA_PTROFF((a)->data, (a)->size, void)
-#define pw_array_check(a,p)	(SPA_PTROFF(p,sizeof(*p),void) <= pw_array_end(a))
+#define pw_array_check(a,p)	(SPA_PTROFF(p,sizeof(*(p)),void) <= pw_array_end(a))
 
 #define pw_array_for_each(pos, array)					\
-	for (pos = (__typeof__(pos)) pw_array_first(array);		\
+	for ((pos) = (__typeof__(pos)) pw_array_first(array);		\
 	     pw_array_check(array, pos);				\
 	     (pos)++)
 
 #define pw_array_consume(pos, array)					\
-	for (pos = (__typeof__(pos)) pw_array_first(array);		\
+	for ((pos) = (__typeof__(pos)) pw_array_first(array);		\
 	     pw_array_check(array, pos);				\
-	     pos = (__typeof__(pos)) pw_array_first(array))
+	     (pos) = (__typeof__(pos)) pw_array_first(array))
 
 #define pw_array_remove(a,p)						\
 ({									\

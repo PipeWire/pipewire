@@ -46,7 +46,7 @@ struct spa_event {
 };
 
 #define SPA_EVENT_TYPE(ev)	((ev)->body.body.type)
-#define SPA_EVENT_ID(ev,type)	(SPA_EVENT_TYPE(ev) == type ? \
+#define SPA_EVENT_ID(ev,type)	(SPA_EVENT_TYPE(ev) == (type) ? \
 					(ev)->body.body.id : SPA_ID_INVALID)
 
 #define SPA_EVENT_INIT_FULL(t,size,type,id,...) (t)			\

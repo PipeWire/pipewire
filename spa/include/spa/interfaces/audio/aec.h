@@ -80,10 +80,10 @@ struct spa_audio_aec_methods {
 #define spa_audio_aec_method(o,method,version,...)			\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct spa_audio_aec *_o = o;					\
+	struct spa_audio_aec *_o = (o);					\
 	spa_interface_call_res(&_o->iface,				\
 			struct spa_audio_aec_methods, _res,		\
-			method, version, ##__VA_ARGS__);		\
+			method, (version), ##__VA_ARGS__);		\
 	_res;								\
 })
 

@@ -35,13 +35,13 @@
 
 #define MAX_PARAMS 32
 
-#define manager_emit_sync(m) spa_hook_list_call(&m->hooks, struct pw_manager_events, sync, 0)
-#define manager_emit_added(m,o) spa_hook_list_call(&m->hooks, struct pw_manager_events, added, 0, o)
-#define manager_emit_updated(m,o) spa_hook_list_call(&m->hooks, struct pw_manager_events, updated, 0, o)
-#define manager_emit_removed(m,o) spa_hook_list_call(&m->hooks, struct pw_manager_events, removed, 0, o)
-#define manager_emit_metadata(m,o,s,k,t,v) spa_hook_list_call(&m->hooks, struct pw_manager_events, metadata,0,o,s,k,t,v)
-#define manager_emit_disconnect(m) spa_hook_list_call(&m->hooks, struct pw_manager_events, disconnect, 0)
-#define manager_emit_object_data_timeout(m,o,k) spa_hook_list_call(&m->hooks, struct pw_manager_events, object_data_timeout,0,o,k)
+#define manager_emit_sync(m) spa_hook_list_call(&(m)->hooks, struct pw_manager_events, sync, 0)
+#define manager_emit_added(m,o) spa_hook_list_call(&(m)->hooks, struct pw_manager_events, added, 0, o)
+#define manager_emit_updated(m,o) spa_hook_list_call(&(m)->hooks, struct pw_manager_events, updated, 0, o)
+#define manager_emit_removed(m,o) spa_hook_list_call(&(m)->hooks, struct pw_manager_events, removed, 0, o)
+#define manager_emit_metadata(m,o,s,k,t,v) spa_hook_list_call(&(m)->hooks, struct pw_manager_events, metadata,0,o,s,k,t,v)
+#define manager_emit_disconnect(m) spa_hook_list_call(&(m)->hooks, struct pw_manager_events, disconnect, 0)
+#define manager_emit_object_data_timeout(m,o,k) spa_hook_list_call(&(m)->hooks, struct pw_manager_events, object_data_timeout,0,o,k)
 
 struct object;
 

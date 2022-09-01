@@ -71,7 +71,7 @@ struct spa_device_info {
 	uint32_t n_params;			/**< number of elements in params */
 };
 
-#define SPA_DEVICE_INFO_INIT()	(struct spa_device_info){ SPA_VERSION_DEVICE_INFO, }
+#define SPA_DEVICE_INFO_INIT()	((struct spa_device_info){ SPA_VERSION_DEVICE_INFO, })
 
 /**
  * Information about a device object
@@ -92,7 +92,7 @@ struct spa_device_object_info {
 	const struct spa_dict *props;		/**< extra object properties */
 };
 
-#define SPA_DEVICE_OBJECT_INFO_INIT()	(struct spa_device_object_info){ SPA_VERSION_DEVICE_OBJECT_INFO, }
+#define SPA_DEVICE_OBJECT_INFO_INIT()	((struct spa_device_object_info){ SPA_VERSION_DEVICE_OBJECT_INFO, })
 
 /** the result of spa_device_enum_params() */
 #define SPA_RESULT_TYPE_DEVICE_PARAMS	1
@@ -243,10 +243,10 @@ struct spa_device_methods {
 #define spa_device_method(o,method,version,...)				\
 ({									\
 	int _res = -ENOTSUP;						\
-	struct spa_device *_o = o;					\
+	struct spa_device *_o = (o);					\
 	spa_interface_call_res(&_o->iface,				\
 			struct spa_device_methods, _res,		\
-			method, version, ##__VA_ARGS__);		\
+			method, (version), ##__VA_ARGS__);		\
 	_res;								\
 })
 

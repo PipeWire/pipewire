@@ -212,7 +212,7 @@ struct spa_log_methods {
 
 
 #define SPA_LOG_TOPIC(v, t) \
-   (struct spa_log_topic){ .version = v, .topic = (t)}
+   (struct spa_log_topic){ .version = (v), .topic = (t)}
 
 #define spa_log_topic_init(l, topic)				\
 do {								\
@@ -231,10 +231,10 @@ do {								\
 ({								\
 	struct spa_log *_log = l;				\
 	enum spa_log_level _lev = _log ? _log->level : SPA_LOG_LEVEL_NONE;		\
-	struct spa_log_topic *_t = (struct spa_log_topic *)topic; \
+	struct spa_log_topic *_t = (struct spa_log_topic *)(topic); \
 	if (_t && _t->has_custom_level)							\
 		_lev = _t->level;				\
-	_lev >= lev;						\
+	_lev >= (lev);						\
 })
 
 /* Transparently calls to version 0 log if v1 is not supported */
@@ -302,15 +302,15 @@ do {								\
 #define spa_log_hexdump(l,lev,indent,data,len)						\
 ({											\
 	char str[512];									\
-	uint8_t *buf = (uint8_t *)data;							\
-	size_t i;									\
+	uint8_t *buf = (uint8_t *)(data);						\
+	size_t i, j = (len);								\
 	int pos = 0;									\
 											\
-	for (i = 0; i < len; i++) {							\
+	for (i = 0; i < j; i++) {							\
 		if (i % 16 == 0)							\
 			pos = 0;							\
 		pos += sprintf(str + pos, "%02x ", buf[i]);				\
-		if (i % 16 == 15 || i == len - 1)					\
+		if (i % 16 == 15 || i == j - 1)						\
 			spa_log_lev(l,lev, "%*s" "%s",indent,"", str);			\
 	}										\
 })

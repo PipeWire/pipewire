@@ -1179,7 +1179,7 @@ struct match {
 	struct pw_filter *filter;
 	int count;
 };
-#define MATCH_INIT(f) (struct match){ .filter = f }
+#define MATCH_INIT(f) ((struct match){ .filter = (f) })
 
 static int execute_match(void *data, const char *location, const char *action,
 		const char *val, size_t len)

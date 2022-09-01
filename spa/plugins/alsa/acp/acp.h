@@ -49,7 +49,7 @@ struct acp_dict_item {
 	const char *key;
 	const char *value;
 };
-#define ACP_DICT_ITEM_INIT(key,value) (struct acp_dict_item) { key, value }
+#define ACP_DICT_ITEM_INIT(key,value) ((struct acp_dict_item) { (key), (value) })
 
 struct acp_dict {
 	uint32_t flags;
@@ -115,8 +115,8 @@ struct acp_format {
 	uint32_t map[ACP_MAX_CHANNELS];
 };
 
-#define ACP_DICT_INIT(items,n_items) (struct acp_dict) { 0, n_items, items }
-#define ACP_DICT_INIT_ARRAY(items) (struct acp_dict) { 0, sizeof(items)/sizeof((items)[0]), items }
+#define ACP_DICT_INIT(items,n_items) ((struct acp_dict) { 0, (n_items), (items) })
+#define ACP_DICT_INIT_ARRAY(items) ((struct acp_dict) { 0, sizeof(items)/sizeof((items)[0]), (items) })
 
 #define acp_dict_for_each(item, dict)				\
 	for ((item) = (dict)->items;				\

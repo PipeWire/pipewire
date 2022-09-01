@@ -105,7 +105,7 @@ static inline void *spa_support_find(const struct spa_support *support,
 	return NULL;
 }
 
-#define SPA_SUPPORT_INIT(type,data) (struct spa_support) { (type), (data) }
+#define SPA_SUPPORT_INIT(type,data) ((struct spa_support) { (type), (data) })
 
 struct spa_handle_factory {
 	/** The version of this structure */

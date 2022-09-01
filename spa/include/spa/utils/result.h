@@ -55,7 +55,7 @@ extern "C" {
 
 #define spa_strerror(err)		\
 ({					\
-	int _err = -err;		\
+	int _err = -(err);		\
 	if (SPA_RESULT_IS_ASYNC(err))	\
 		_err = EINPROGRESS;	\
 	strerror(_err);			\

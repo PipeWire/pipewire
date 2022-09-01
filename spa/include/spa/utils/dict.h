@@ -48,7 +48,7 @@ struct spa_dict_item {
 	const char *value;
 };
 
-#define SPA_DICT_ITEM_INIT(key,value) (struct spa_dict_item) { key, value }
+#define SPA_DICT_ITEM_INIT(key,value) ((struct spa_dict_item) { (key), (value) })
 
 struct spa_dict {
 #define SPA_DICT_FLAG_SORTED	(1<<0)		/**< items are sorted */
@@ -57,8 +57,8 @@ struct spa_dict {
 	const struct spa_dict_item *items;
 };
 
-#define SPA_DICT_INIT(items,n_items) (struct spa_dict) { 0, n_items, items }
-#define SPA_DICT_INIT_ARRAY(items) (struct spa_dict) { 0, SPA_N_ELEMENTS(items), items }
+#define SPA_DICT_INIT(items,n_items) ((struct spa_dict) { 0, (n_items), (items) })
+#define SPA_DICT_INIT_ARRAY(items) ((struct spa_dict) { 0, SPA_N_ELEMENTS(items), (items) })
 
 #define spa_dict_for_each(item, dict)				\
 	for ((item) = (dict)->items;				\

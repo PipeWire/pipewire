@@ -219,13 +219,13 @@ do {											\
 	    spa_pod_parser_get(prs,							\
 			       SPA_POD_Int(&(n_params)), NULL) < 0)			\
 		return -EINVAL;								\
-	params = NULL;									\
-	if (n_params > 0) {								\
+	(params) = NULL;									\
+	if ((n_params) > 0) {								\
 		uint32_t i;								\
-		if (n_params > MAX_PARAM_INFO)						\
+		if ((n_params) > MAX_PARAM_INFO)						\
 			return -ENOSPC;							\
-		params = alloca(n_params * sizeof(struct spa_param_info));		\
-		for (i = 0; i < n_params; i++) {					\
+		(params) = alloca((n_params) * sizeof(struct spa_param_info));		\
+		for (i = 0; i < (n_params); i++) {					\
 			if (spa_pod_parser_get(prs,					\
 				       SPA_POD_Id(&(params)[i].id),			\
 				       SPA_POD_Int(&(params)[i].flags), NULL) < 0)	\
@@ -240,18 +240,18 @@ do {											\
 do {												\
 	if (spa_pod_parser_push_struct(prs, f) < 0 ||						\
 	    spa_pod_parser_get(prs,								\
-		    SPA_POD_Int(&n_permissions), NULL) < 0)					\
+		    SPA_POD_Int(&(n_permissions)), NULL) < 0)					\
 		return -EINVAL;									\
-	permissions = NULL;									\
-	if (n_permissions > 0) {								\
+	(permissions) = NULL;									\
+	if ((n_permissions) > 0) {								\
 		uint32_t i;									\
-		if (n_permissions > MAX_PERMISSIONS)						\
+		if ((n_permissions) > MAX_PERMISSIONS)						\
 			return -ENOSPC;								\
-		permissions = alloca(n_permissions * sizeof(struct pw_permission));		\
-		for (i = 0; i < n_permissions; i++) {						\
+		(permissions) = alloca((n_permissions) * sizeof(struct pw_permission));		\
+		for (i = 0; i < (n_permissions); i++) {						\
 			if (spa_pod_parser_get(prs,						\
-					SPA_POD_Int(&permissions[i].id),			\
-					SPA_POD_Int(&permissions[i].permissions), NULL) < 0)	\
+					SPA_POD_Int(&(permissions)[i].id),			\
+					SPA_POD_Int(&(permissions)[i].permissions), NULL) < 0)	\
 				return -EINVAL;							\
 		}										\
 	}											\

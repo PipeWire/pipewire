@@ -121,12 +121,12 @@ struct spa_graph_node {
 	int __res = 0;							\
 	spa_callbacks_call_res(&(n)->callbacks,				\
 			struct spa_graph_node_callbacks, __res,		\
-			method, version, ##__VA_ARGS__);		\
+			method, (version), ##__VA_ARGS__);		\
 	__res;								\
 })
 
-#define spa_graph_node_process(n)		spa_graph_node_call(n, process, 0, n)
-#define spa_graph_node_reuse_buffer(n,p,i)	spa_graph_node_call(n, reuse_buffer, 0, n, p, i)
+#define spa_graph_node_process(n)		spa_graph_node_call((n), process, 0, (n))
+#define spa_graph_node_reuse_buffer(n,p,i)	spa_graph_node_call((n), reuse_buffer, 0, (n), (p), (i))
 
 struct spa_graph_port {
 	struct spa_list link;		/**< link in node port list */

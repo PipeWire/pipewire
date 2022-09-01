@@ -50,7 +50,7 @@ struct spa_latency_info {
 	uint64_t max_ns;
 };
 
-#define SPA_LATENCY_INFO(dir,...) (struct spa_latency_info) { .direction = (dir), ## __VA_ARGS__ }
+#define SPA_LATENCY_INFO(dir,...) ((struct spa_latency_info) { .direction = (dir), ## __VA_ARGS__ })
 
 static inline int
 spa_latency_info_compare(const struct spa_latency_info *a, struct spa_latency_info *b)
@@ -146,7 +146,7 @@ struct spa_process_latency_info {
 	uint64_t ns;
 };
 
-#define SPA_PROCESS_LATENCY_INFO_INIT(...)	(struct spa_process_latency_info) { __VA_ARGS__ }
+#define SPA_PROCESS_LATENCY_INFO_INIT(...)	((struct spa_process_latency_info) { __VA_ARGS__ })
 
 static inline int
 spa_process_latency_parse(const struct spa_pod *latency, struct spa_process_latency_info *info)

@@ -415,7 +415,7 @@ struct spa_pod_prop_body0 {
              (iter) <= SPA_PTROFF((body), (_size)-(body)->value.size, __typeof__(*iter));       \
              (iter) = SPA_PTROFF((iter), (body)->value.size, __typeof__(*iter)))
 
-#define SPA0_POD_PROP_N_VALUES(b,size)     ((size - sizeof(struct spa_pod_prop_body0)) / (b)->value.size)
+#define SPA0_POD_PROP_N_VALUES(b,size)     (((size) - sizeof(struct spa_pod_prop_body0)) / (b)->value.size)
 
 static int remap_from_v2(uint32_t type, void *body, uint32_t size, struct pw_impl_client *client,
 		struct spa_pod_builder *builder)

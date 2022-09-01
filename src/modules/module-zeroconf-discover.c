@@ -109,7 +109,7 @@ struct tunnel_info {
 	const char *domain;
 };
 
-#define TUNNEL_INFO(...) (struct tunnel_info){ __VA_ARGS__ }
+#define TUNNEL_INFO(...) ((struct tunnel_info){ __VA_ARGS__ })
 
 struct tunnel {
 	struct spa_list link;

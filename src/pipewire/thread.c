@@ -37,7 +37,7 @@
 
 #define CHECK(expression,label)						\
 do {									\
-	if ((errno = expression) != 0) {				\
+	if ((errno = (expression)) != 0) {				\
 		res = -errno;						\
 		pw_log_error(#expression ": %s", strerror(errno));	\
 		goto label;						\

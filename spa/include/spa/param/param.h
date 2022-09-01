@@ -75,7 +75,7 @@ struct spa_param_info {
 	uint32_t padding[5];
 };
 
-#define SPA_PARAM_INFO(id,flags) (struct spa_param_info){ (id), (flags) }
+#define SPA_PARAM_INFO(id,flags) ((struct spa_param_info){ (id), (flags) })
 
 /** properties for SPA_TYPE_OBJECT_ParamBuffers */
 enum spa_param_buffers {

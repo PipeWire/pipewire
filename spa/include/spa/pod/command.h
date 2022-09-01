@@ -47,12 +47,12 @@ struct spa_command {
 };
 
 #define SPA_COMMAND_TYPE(cmd)		((cmd)->body.body.type)
-#define SPA_COMMAND_ID(cmd,type)	(SPA_COMMAND_TYPE(cmd) == type ? \
+#define SPA_COMMAND_ID(cmd,type)	(SPA_COMMAND_TYPE(cmd) == (type) ? \
 						(cmd)->body.body.id : SPA_ID_INVALID)
 
-#define SPA_COMMAND_INIT_FULL(t,size,type,id,...) (t)			\
-	{ { size, SPA_TYPE_Object },					\
-	  { { type, id }, ##__VA_ARGS__ } }				\
+#define SPA_COMMAND_INIT_FULL(t,size,type,id,...) ((t)			\
+	{ { (size), SPA_TYPE_Object },					\
+	  { { (type), (id) }, ##__VA_ARGS__ } })
 
 #define SPA_COMMAND_INIT(type,id)					\
 	SPA_COMMAND_INIT_FULL(struct spa_command,			\

@@ -68,7 +68,7 @@ struct spa_audio_info_dsd {
 	uint32_t position[SPA_AUDIO_MAX_CHANNELS];	/*< channel position from enum spa_audio_channel */
 };
 
-#define SPA_AUDIO_INFO_DSD_INIT(...)		(struct spa_audio_info_dsd) { __VA_ARGS__ }
+#define SPA_AUDIO_INFO_DSD_INIT(...)		((struct spa_audio_info_dsd) { __VA_ARGS__ })
 
 /**
  * \}

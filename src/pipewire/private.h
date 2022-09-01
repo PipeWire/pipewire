@@ -177,7 +177,7 @@ static inline struct spa_param_info *pw_param_info_find(struct spa_param_info in
 	return NULL;
 }
 
-#define pw_protocol_emit_destroy(p) spa_hook_list_call(&p->listener_list, struct pw_protocol_events, destroy, 0)
+#define pw_protocol_emit_destroy(p) spa_hook_list_call(&(p)->listener_list, struct pw_protocol_events, destroy, 0)
 
 struct pw_protocol {
 	struct spa_list link;                   /**< link in context protocol_list */
@@ -805,7 +805,7 @@ struct pw_impl_port_implementation {
 #define pw_impl_port_emit_param_changed(p,i)		pw_impl_port_emit(p, param_changed, 1, i)
 #define pw_impl_port_emit_latency_changed(p)		pw_impl_port_emit(p, latency_changed, 2)
 
-#define PW_IMPL_PORT_IS_CONTROL(port)	SPA_FLAG_MASK(port->flags, \
+#define PW_IMPL_PORT_IS_CONTROL(port)	SPA_FLAG_MASK((port)->flags, \
 						PW_IMPL_PORT_FLAG_BUFFERS|PW_IMPL_PORT_FLAG_CONTROL,\
 						PW_IMPL_PORT_FLAG_CONTROL)
 struct pw_impl_port {

@@ -85,7 +85,7 @@ struct pw_map {
 };
 
 /** \param extend the amount of bytes to grow the map with when needed */
-#define PW_MAP_INIT(extend) (struct pw_map) { PW_ARRAY_INIT(extend), SPA_ID_INVALID }
+#define PW_MAP_INIT(extend) ((struct pw_map) { PW_ARRAY_INIT(extend), SPA_ID_INVALID })
 
 /**
  * Get the number of currently allocated elements in the map.

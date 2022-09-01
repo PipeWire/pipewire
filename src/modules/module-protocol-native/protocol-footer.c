@@ -45,7 +45,7 @@ struct footer_builder {
 	unsigned int started:1;
 };
 
-#define FOOTER_BUILDER_INIT(builder) (struct footer_builder) { builder }
+#define FOOTER_BUILDER_INIT(builder) ((struct footer_builder) { (builder) })
 
 static void start_footer_entry(struct footer_builder *fb, uint32_t opcode)
 {

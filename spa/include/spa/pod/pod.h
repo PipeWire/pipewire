@@ -52,7 +52,7 @@ struct spa_pod {
 	uint32_t type;		/* a basic id of enum spa_type */
 };
 
-#define SPA_POD_VALUE(type,pod)			(((type*)pod)->value)
+#define SPA_POD_VALUE(type,pod)			(((type*)(pod))->value)
 
 struct spa_pod_bool {
 	struct spa_pod pod;

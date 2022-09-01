@@ -100,7 +100,7 @@ struct spa_io_buffers {
 	uint32_t buffer_id;		/**< a buffer id */
 };
 
-#define SPA_IO_BUFFERS_INIT  (struct spa_io_buffers) { SPA_STATUS_OK, SPA_ID_INVALID, }
+#define SPA_IO_BUFFERS_INIT  ((struct spa_io_buffers) { SPA_STATUS_OK, SPA_ID_INVALID, })
 
 /**
  * IO area to exchange a memory region
@@ -110,7 +110,7 @@ struct spa_io_memory {
 	uint32_t size;			/**< the size of \a data */
 	void *data;			/**< a memory pointer */
 };
-#define SPA_IO_MEMORY_INIT  (struct spa_io_memory) { SPA_STATUS_OK, 0, NULL, }
+#define SPA_IO_MEMORY_INIT  ((struct spa_io_memory) { SPA_STATUS_OK, 0, NULL, })
 
 /** A range, suitable for input ports that can suggest a range to output ports */
 struct spa_io_range {

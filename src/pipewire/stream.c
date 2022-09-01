@@ -1402,7 +1402,7 @@ struct match {
 	struct pw_stream *stream;
 	int count;
 };
-#define MATCH_INIT(s) (struct match){ .stream = s }
+#define MATCH_INIT(s) ((struct match){ .stream = (s) })
 
 static int execute_match(void *data, const char *location, const char *action,
 		const char *val, size_t len)

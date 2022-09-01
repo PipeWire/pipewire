@@ -39,7 +39,7 @@ typedef struct pa_array {
 	size_t extend;		/**< number of bytes to extend with */
 } pa_array;
 
-#define PW_ARRAY_INIT(extend) (struct pa_array) { NULL, 0, 0, extend }
+#define PW_ARRAY_INIT(extend) ((struct pa_array) { NULL, 0, 0, (extend) })
 
 #define pa_array_get_len_s(a,s)			((a)->size / (s))
 #define pa_array_get_unchecked_s(a,idx,s,t)	(t*)((uint8_t*)(a)->data + (int)((idx)*(s)))

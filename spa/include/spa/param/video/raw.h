@@ -206,14 +206,14 @@ struct spa_video_info_raw {
 	enum spa_video_color_primaries color_primaries;		/**< color primaries. used to convert between R'G'B' and CIE XYZ */
 };
 
-#define SPA_VIDEO_INFO_RAW_INIT(...)	(struct spa_video_info_raw) { __VA_ARGS__ }
+#define SPA_VIDEO_INFO_RAW_INIT(...)	((struct spa_video_info_raw) { __VA_ARGS__ })
 
 struct spa_video_info_dsp {
 	enum spa_video_format format;
 	int64_t modifier;
 };
 
-#define SPA_VIDEO_INFO_DSP_INIT(...)	(struct spa_video_info_dsp) { __VA_ARGS__ }
+#define SPA_VIDEO_INFO_DSP_INIT(...)	((struct spa_video_info_dsp) { __VA_ARGS__ })
 
 /**
  * \}

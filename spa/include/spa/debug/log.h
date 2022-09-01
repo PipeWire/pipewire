@@ -36,10 +36,10 @@ extern "C" {
  */
 
 #ifndef spa_debug
-#define spa_debug(fmt,...)	({ printf(fmt"\n", ## __VA_ARGS__); })
+#define spa_debug(fmt,...)	({ printf((fmt"\n"), ## __VA_ARGS__); })
 #endif
 #ifndef spa_debugn
-#define spa_debugn(fmt,...)	({ printf(fmt, ## __VA_ARGS__); })
+#define spa_debugn(fmt,...)	({ printf((fmt), ## __VA_ARGS__); })
 #endif
 
 /**

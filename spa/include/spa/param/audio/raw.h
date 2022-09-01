@@ -294,7 +294,7 @@ struct spa_audio_info_raw {
 	uint32_t position[SPA_AUDIO_MAX_CHANNELS];	/*< channel position from enum spa_audio_channel */
 };
 
-#define SPA_AUDIO_INFO_RAW_INIT(...)		(struct spa_audio_info_raw) { __VA_ARGS__ }
+#define SPA_AUDIO_INFO_RAW_INIT(...)		((struct spa_audio_info_raw) { __VA_ARGS__ })
 
 #define SPA_KEY_AUDIO_FORMAT		"audio.format"		/**< an audio format as string,
 								  *  Ex. "S16LE" */
@@ -311,7 +311,7 @@ struct spa_audio_info_dsp {
 	enum spa_audio_format format;		/*< format, one of the DSP formats in enum spa_audio_format_dsp */
 };
 
-#define SPA_AUDIO_INFO_DSP_INIT(...)		(struct spa_audio_info_dsp) { __VA_ARGS__ }
+#define SPA_AUDIO_INFO_DSP_INIT(...)		((struct spa_audio_info_dsp) { __VA_ARGS__ })
 
 /**
  * \}

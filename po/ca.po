@@ -5,6 +5,7 @@
 # Xavier Conde Rueda <xavi.conde@gmail.com>, 2008.
 # Agustí Grau <fletxa@gmail.com>, 2009.
 # Judith Pintó Subirada <judithp@gmail.com>
+# Jordi Mas i Herǹandez, <jmas@softcatala.org>, 2022
 #
 # This file is translated according to the glossary and style guide of
 # Softcatalà. If you plan to modify this file, please read first the page
@@ -26,11 +27,10 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire\n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
-"issues/new\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/issues/new\n"
 "POT-Creation-Date: 2021-04-18 16:54+0800\n"
-"PO-Revision-Date: 2012-01-30 09:52+0000\n"
-"Last-Translator: Josep Torné Llavall <josep.torne@gmail.com>\n"
+"PO-Revision-Date: 2022-09-01 19:24+0000\n"
+"Last-Translator: Jordi Mas i Herǹandez, <jmas@softcatala.org>,\n"
 "Language-Team: Catalan <fedora@softcatala.net>\n"
 "Language: ca\n"
 "MIME-Version: 1.0\n"
@@ -45,14 +45,18 @@ msgid ""
 "      --version                         Show version\n"
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
+"%s [opcions]\n"
+"  -h, --help                            Mostra aquesta ajuda\n"
+"      --version                         Mostra la versió\n"
+"  -c, --config                          Carrega la configuració (predeterminada %s)\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr ""
+msgstr "Sistema multimèdia PipeWire"
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr ""
+msgstr "Inicia el sistema multimèdia PipeWire"
 
 #: src/examples/media-session/alsa-monitor.c:526
 #: spa/plugins/alsa/acp/compat.c:187
@@ -66,7 +70,7 @@ msgstr "Mòdem"
 
 #: src/examples/media-session/alsa-monitor.c:539
 msgid "Unknown device"
-msgstr ""
+msgstr "Dispositiu desconegut"
 
 #: src/tools/pw-cat.c:991
 #, c-format
@@ -77,9 +81,13 @@ msgid ""
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
+"%s [opcions] <fitxer>\n"
+"  -h, --help                            Mostra aquesta ajuda\n"
+"      --version                         Mostra la versió\n"
+"  -v, --verbose                         Habilita les operacions detallades\n"
 
 #: src/tools/pw-cat.c:998
-#, c-format
+#, c-format, fuzzy
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
 "      --media-type                      Set media type (default %s)\n"
@@ -90,42 +98,58 @@ msgid ""
 "      --latency                         Set node latency (default %s)\n"
 "                                          Xunit (unit = s, ms, us, ns)\n"
 "                                          or direct samples (256)\n"
-"                                          the rate is the one of the source "
-"file\n"
+"                                          the rate is the one of the source file\n"
 "      --list-targets                    List available targets for --target\n"
 "\n"
 msgstr ""
+"-R, --remote Nom del dimoni remot\n"
+"      --media-type Estableix el tipus de mitjà (per defecte %s)\n"
+"      --media-category Estableix la categoria dels mitjans (per defecte %s)\n"
+"      --media-role Estableix el rol del mitjà (per defecte %s)\n"
+"      --target Estableix l'objectiu del node (per defecte %s)\n"
+"                                          0 vol dir que no enllaça\n"
+"      --latency Estableix latència del node (per defecte %s)\n"
+"                                          Xunit (unitat = s, ms, us, ns)\n"
+"                                          o mostres directes (256)\n"
+"                                          la taxa és la del fitxer d'origen\n"
+"      --list-targets Llista d'objectius disponibles per a --target"
 
 #: src/tools/pw-cat.c:1016
-#, c-format
+#, c-format, fuzzy
 msgid ""
-"      --rate                            Sample rate (req. for rec) (default "
-"%u)\n"
-"      --channels                        Number of channels (req. for rec) "
-"(default %u)\n"
+"      --rate                            Sample rate (req. for rec) (default %u)\n"
+"      --channels                        Number of channels (req. for rec) (default %u)\n"
 "      --channel-map                     Channel map\n"
-"                                            one of: \"stereo\", "
-"\"surround-51\",... or\n"
-"                                            comma separated list of channel "
-"names: eg. \"FL,FR\"\n"
-"      --format                          Sample format %s (req. for rec) "
-"(default %s)\n"
+"                                            one of: \"stereo\", \"surround-51\",... or\n"
+"                                            comma separated list of channel names: eg. \"FL,FR\"\n"
+"      --format                          Sample format %s (req. for rec) (default %s)\n"
 "      --volume                          Stream volume 0-1.0 (default %.3f)\n"
-"  -q  --quality                         Resampler quality (0 - 15) (default "
-"%d)\n"
+"  -q  --quality                         Resampler quality (0 - 15) (default %d)\n"
 "\n"
 msgstr ""
+"--rate Freqüència de mostreig (req. per rec) (predeterminat %u)\n"
+"      --channels Nombre de canals (req. per rec) (predeterminat %u)\n"
+"      --channel-map Mapa de canals\n"
+"                                            un dels següents: \"estèreo\", \"surround-51\",... o\n"
+"                                            Llista separada per comes dels noms dels canals: per exemple. \"FL,FR\"\n"
+"      --format Format de mostra %s (req. per a rec) (predeterminat %s)\n"
+"      --volume Volum de flux 0-1.0 (predeterminat %.3f)\n"
+"  -q --qualitat Remostrador de qualitat (0 - 15) (per defecte %d)"
 
 #: src/tools/pw-cat.c:1033
+#, fuzzy
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
 "  -m, --midi                            Midi mode\n"
 "\n"
 msgstr ""
+"-p, --playback Mode de reproducció\n"
+"  -r, --record mode d'enregistrament\n"
+"  -m, --midi Mode MIDI"
 
 #: src/tools/pw-cli.c:2932
-#, c-format
+#, c-format, fuzzy
 msgid ""
 "%s [options] [command]\n"
 "  -h, --help                            Show this help\n"
@@ -134,10 +158,15 @@ msgid ""
 "  -r, --remote                          Remote daemon name\n"
 "\n"
 msgstr ""
+"%s ]opcions] ]ordre]\n"
+"  -h, --help Mostra aquesta ajuda\n"
+"      --version Mostra la versió\n"
+"  -d, --daemon Inicia com a dimoni (fals predeterminat)\n"
+"  -r, --remote Nom del dimoni remot"
 
 #: spa/plugins/alsa/acp/acp.c:290
 msgid "Pro Audio"
-msgstr ""
+msgstr "Pro Audio"
 
 #: spa/plugins/alsa/acp/acp.c:411 spa/plugins/alsa/acp/alsa-mixer.c:4704
 #: spa/plugins/bluez5/bluez5-device.c:1000
@@ -252,25 +281,23 @@ msgstr "Entrada analògica"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2801
 msgid "Dock Microphone"
-msgstr ""
+msgstr "Micròfon de l'acoblador"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2803
 msgid "Headset Microphone"
-msgstr ""
+msgstr "Micròfon d'auriculars"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2807
 msgid "Analog Output"
 msgstr "Sortida analògica"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2809
-#, fuzzy
 msgid "Headphones 2"
-msgstr "Auriculars"
+msgstr "Auriculars 2"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2810
-#, fuzzy
 msgid "Headphones Mono Output"
-msgstr "Sortida mono analògica"
+msgstr "Sortida mono dels auriculars"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2811
 msgid "Line Out"
@@ -297,49 +324,41 @@ msgid "Digital Input (S/PDIF)"
 msgstr "Entrada digital (S/PDIF)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2817
-#, fuzzy
 msgid "Multichannel Input"
-msgstr "Multicanal"
+msgstr "Entrada multicanal"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2818
-#, fuzzy
 msgid "Multichannel Output"
-msgstr "Multicanal"
+msgstr "Sortida multicanal"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2819
-#, fuzzy
 msgid "Game Output"
-msgstr "Sortida %s"
+msgstr "Sortida del joc"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2820
 #: spa/plugins/alsa/acp/alsa-mixer.c:2821
-#, fuzzy
 msgid "Chat Output"
-msgstr "Sortida %s"
+msgstr "Sortida del xat"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2822
-#, fuzzy
 msgid "Chat Input"
-msgstr "Entrada %s"
+msgstr "Entrada del xat"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2823
-#, fuzzy
 msgid "Virtual Surround 7.1"
-msgstr "Envoltant analògic 7.1"
+msgstr "Envoltant virtual 7.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4527
 msgid "Analog Mono"
 msgstr "Mono analògic"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4528
-#, fuzzy
 msgid "Analog Mono (Left)"
-msgstr "Mono analògic"
+msgstr "Mono analògic (esquerra)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4529
-#, fuzzy
 msgid "Analog Mono (Right)"
-msgstr "Mono analògic"
+msgstr "Mono analògic (dreta)"
 
 #. Note: Not translated to "Analog Stereo Input", because the source
 #. * name gets "Input" appended to it automatically, so adding "Input"
@@ -364,13 +383,12 @@ msgstr "Estèreo"
 #: spa/plugins/alsa/acp/alsa-mixer.c:4698
 #: spa/plugins/bluez5/bluez5-device.c:1135
 msgid "Headset"
-msgstr "Auricular"
+msgstr "Auriculars"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4541
 #: spa/plugins/alsa/acp/alsa-mixer.c:4699
-#, fuzzy
 msgid "Speakerphone"
-msgstr "Altaveu"
+msgstr "Altaveu del telèfon"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4542
 #: spa/plugins/alsa/acp/alsa-mixer.c:4543
@@ -379,23 +397,23 @@ msgstr "Multicanal"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4544
 msgid "Analog Surround 2.1"
-msgstr "So envoltant analògic 2.1"
+msgstr "Envoltant analògic 2.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4545
 msgid "Analog Surround 3.0"
-msgstr "So envoltant analògic 3.0"
+msgstr "Envoltant analògic 3.0"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4546
 msgid "Analog Surround 3.1"
-msgstr "So envoltant analògic 4.1"
+msgstr "Envoltant analògic 3.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4547
 msgid "Analog Surround 4.0"
-msgstr "Envoltant analògic 4.0 "
+msgstr "Envoltant analògic 4.0"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4548
 msgid "Analog Surround 4.1"
-msgstr "Envoltant analògic 4.1 "
+msgstr "Envoltant analògic 4.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4549
 msgid "Analog Surround 5.0"
@@ -407,15 +425,15 @@ msgstr "Envoltant analògic 5.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4551
 msgid "Analog Surround 6.0"
-msgstr "So envoltant analògic 6.0"
+msgstr "Envoltant analògic 6.0"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4552
 msgid "Analog Surround 6.1"
-msgstr "So envoltant analògic 6.1"
+msgstr "Envoltant analògic 6.1"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4553
 msgid "Analog Surround 7.0"
-msgstr "So envoltant analògic 7.0"
+msgstr "Envoltant analògic 7.0"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4554
 msgid "Analog Surround 7.1"
@@ -431,11 +449,11 @@ msgstr "Envoltant digital 4.0 (IEC958/AC3)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4557
 msgid "Digital Surround 5.1 (IEC958/AC3)"
-msgstr "Envolvent digital 5.1 (IEC958/AC3)"
+msgstr "Envoltant digital 5.1 (IEC958/AC3)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4558
 msgid "Digital Surround 5.1 (IEC958/DTS)"
-msgstr "So envoltant digital 5.1 (IEC958/DTS)"
+msgstr "Envoltant digital 5.1 (IEC958/DTS)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4559
 msgid "Digital Stereo (HDMI)"
@@ -443,15 +461,15 @@ msgstr "Estèreo digital (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4560
 msgid "Digital Surround 5.1 (HDMI)"
-msgstr "So envoltant digital 5.1 (HDMI)"
+msgstr "Envoltant digital 5.1 (HDMI)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4561
 msgid "Chat"
-msgstr ""
+msgstr "Xat"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4562
 msgid "Game"
-msgstr ""
+msgstr "Joc"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4696
 msgid "Analog Mono Duplex"
@@ -466,18 +484,16 @@ msgid "Digital Stereo Duplex (IEC958)"
 msgstr "Dúplex estèreo digital (IEC958)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4701
-#, fuzzy
 msgid "Multichannel Duplex"
-msgstr "Multicanal"
+msgstr "Dúplex Multicanal"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4702
-#, fuzzy
 msgid "Stereo Duplex"
-msgstr "Dúplex estèreo analògic"
+msgstr "Dúplex estèreo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4703
 msgid "Mono Chat + 7.1 Surround"
-msgstr ""
+msgstr "Xat mono + 7.1 envoltant"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4806
 #, c-format
@@ -492,115 +508,87 @@ msgstr "Entrada %s"
 #: spa/plugins/alsa/acp/alsa-util.c:1175 spa/plugins/alsa/acp/alsa-util.c:1269
 #, fuzzy, c-format
 msgid ""
-"snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu "
-"ms).\n"
-"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
-"to the ALSA developers."
+"snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers."
 msgid_plural ""
-"snd_pcm_avail() returned a value that is exceptionally large: %lu bytes (%lu "
-"ms).\n"
-"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
-"to the ALSA developers."
+"snd_pcm_avail() returned a value that is exceptionally large: %lu bytes (%lu ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers."
 msgstr[0] ""
-"snd_pcm_avail() ha retornat un valor excepcionalment gran: %lu bytes (%lu "
-"ms).\n"
-"Probablement es tracta d'un error del controlador de l'ALSA '%s'. Informeu "
-"d'aquest incident als desenvolupadors de l'ALSA."
+"snd_pcm_avail() ha retornat un valor excepcionalment gran: %lu bytes (%lu ms).\n"
+"Probablement es tracta d'un error del controlador de l'ALSA '%s'. Informeu d'aquest incident als desenvolupadors de l'ALSA."
 msgstr[1] ""
-"snd_pcm_avail() ha retornat un valor excepcionalment gran: %lu bytes (%lu "
-"ms).\n"
-"Probablement es tracta d'un error del controlador de l'ALSA '%s'. Informeu "
-"d'aquest incident als desenvolupadors de l'ALSA."
+"snd_pcm_avail() ha retornat un valor excepcionalment gran: %lu bytes (%lu ms).\n"
+"Probablement es tracta d'un error del controlador de l'ALSA '%s'. Informeu d'aquest incident als desenvolupadors de l'ALSA."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1241
 #, fuzzy, c-format
 msgid ""
-"snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s"
-"%lu ms).\n"
-"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
-"to the ALSA developers."
+"snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s%lu ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers."
 msgid_plural ""
-"snd_pcm_delay() returned a value that is exceptionally large: %li bytes (%s"
-"%lu ms).\n"
-"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
-"to the ALSA developers."
+"snd_pcm_delay() returned a value that is exceptionally large: %li bytes (%s%lu ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers."
 msgstr[0] ""
-"snd_pcm_delay() ha retornat un valor excepcionalment gran: %li bytes (%s%lu "
-"ms).\n"
-"Probablement es tracta d'un error del controlador de l'ALSA '%s'. Informeu "
-"d'aquest incident als desenvolupadors de l'ALSA."
+"snd_pcm_delay() ha retornat un valor excepcionalment gran: %li bytes (%s%lu ms).\n"
+"Probablement es tracta d'un error del controlador de l'ALSA '%s'. Informeu d'aquest incident als desenvolupadors de l'ALSA."
 msgstr[1] ""
-"snd_pcm_delay() ha retornat un valor excepcionalment gran: %li bytes (%s%lu "
-"ms).\n"
-"Probablement es tracta d'un error del controlador de l'ALSA '%s'. Informeu "
-"d'aquest incident als desenvolupadors de l'ALSA."
+"snd_pcm_delay() ha retornat un valor excepcionalment gran: %li bytes (%s%lu ms).\n"
+"Probablement es tracta d'un error del controlador de l'ALSA '%s'. Informeu d'aquest incident als desenvolupadors de l'ALSA."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1288
 #, c-format
 msgid ""
-"snd_pcm_avail_delay() returned strange values: delay %lu is less than avail "
-"%lu.\n"
-"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
-"to the ALSA developers."
+"snd_pcm_avail_delay() returned strange values: delay %lu is less than avail %lu.\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers."
 msgstr ""
-"snd_pcm_avail() ha retornat un valor excepcionalment gran: %lu bytes (%lu "
-"ms).\n"
-"Probablement es tracta d'un error del controlador d'ALSA «%s». Informeu "
-"d'aquest problema als desenvolupadors d'ALSA."
+"snd_pcm_avail() ha retornat un valor excepcionalment gran: %lu bytes (%lu ms).\n"
+"Probablement es tracta d'un error del controlador d'ALSA «%s». Informeu d'aquest problema als desenvolupadors d'ALSA."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1331
 #, fuzzy, c-format
 msgid ""
-"snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte "
-"(%lu ms).\n"
-"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
-"to the ALSA developers."
+"snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte (%lu ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers."
 msgid_plural ""
-"snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu bytes "
-"(%lu ms).\n"
-"Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
-"to the ALSA developers."
+"snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu bytes (%lu ms).\n"
+"Most likely this is a bug in the ALSA driver '%s'. Please report this issue to the ALSA developers."
 msgstr[0] ""
-"snd_pcm_mmap_begin() ha retornat un valor excepcionalment gran: %lu bytes "
-"(%lu ms).\n"
-"Probablement es tracta d'un error del controlador de l'ALSA '%s'. Informeu "
-"d'aquest incident als desenvolupadors de l'ALSA."
+"snd_pcm_mmap_begin() ha retornat un valor excepcionalment gran: %lu bytes (%lu ms).\n"
+"Probablement es tracta d'un error del controlador de l'ALSA '%s'. Informeu d'aquest incident als desenvolupadors de l'ALSA."
 msgstr[1] ""
-"snd_pcm_mmap_begin() ha retornat un valor excepcionalment gran: %lu bytes "
-"(%lu ms).\n"
-"Probablement es tracta d'un error del controlador de l'ALSA '%s'. Informeu "
-"d'aquest incident als desenvolupadors de l'ALSA."
+"snd_pcm_mmap_begin() ha retornat un valor excepcionalment gran: %lu bytes (%lu ms).\n"
+"Probablement es tracta d'un error del controlador de l'ALSA '%s'. Informeu d'aquest incident als desenvolupadors de l'ALSA."
 
 #: spa/plugins/bluez5/bluez5-device.c:1010
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
-msgstr ""
+msgstr "Passarel·la d'àudio (A2DP Source & HSP/HFP AG)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1033
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
-msgstr ""
+msgstr "Reproducció d'alta fidelitat (Sink A2DP, còdec %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1035
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
-msgstr ""
+msgstr "Dúplex d'alta fidelitat (A2DP Source/Sink, còdec %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1041
 msgid "High Fidelity Playback (A2DP Sink)"
-msgstr ""
+msgstr "Reproducció d'alta fidelitat (A2DP Sink)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1043
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
-msgstr ""
+msgstr "Dúplex d'alta fidelitat (A2DP Source/Sink)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1070
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
-msgstr ""
+msgstr "Unitat d'ariculars pel cap (HSP/HFP, còdec %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1074
 msgid "Headset Head Unit (HSP/HFP)"
-msgstr ""
+msgstr "Unitat d'ariculars pel cap (HSP/HFP)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"
@@ -612,7 +600,7 @@ msgstr "Auricular"
 
 #: spa/plugins/bluez5/bluez5-device.c:1160
 msgid "Portable"
-msgstr ""
+msgstr "Portable"
 
 #: spa/plugins/bluez5/bluez5-device.c:1165
 msgid "Car"
@@ -620,13 +608,12 @@ msgstr "Cotxe"
 
 #: spa/plugins/bluez5/bluez5-device.c:1170
 msgid "HiFi"
-msgstr ""
+msgstr "HiFi"
 
 #: spa/plugins/bluez5/bluez5-device.c:1175
 msgid "Phone"
 msgstr "Telèfon"
 
 #: spa/plugins/bluez5/bluez5-device.c:1181
-#, fuzzy
 msgid "Bluetooth"
-msgstr "Entrada bluetooth"
+msgstr "Bluetooth"

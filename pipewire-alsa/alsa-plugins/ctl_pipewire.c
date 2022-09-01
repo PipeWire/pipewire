@@ -532,7 +532,7 @@ static int set_volume_mute(snd_ctl_pipewire_t *ctl, const char *name, struct vol
 		spa_pod_builder_add(&b,
 			SPA_PARAM_ROUTE_index, SPA_POD_Int(id),
 			SPA_PARAM_ROUTE_device, SPA_POD_Int(device_id),
-			SPA_PARAM_ROUTE_save, true,
+			SPA_PARAM_ROUTE_save, SPA_POD_Bool(true),
 			0);
 
 		spa_pod_builder_prop(&b, SPA_PARAM_ROUTE_props, 0);

@@ -679,8 +679,8 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
 	out_port = GET_OUT_PORT(this, 0);
-	output = out_port->io;
-	spa_return_val_if_fail(output != NULL, -EIO);
+	if ((output = out_port->io) == NULL)
+		return -EIO;
 
 	if (output->status == SPA_STATUS_HAVE_DATA)
 		return SPA_STATUS_HAVE_DATA;
@@ -692,8 +692,8 @@ static int impl_node_process(void *object)
 	}
 
 	in_port = GET_IN_PORT(this, 0);
-	input = in_port->io;
-	spa_return_val_if_fail(input != NULL, -EIO);
+	if ((input = in_port->io) == NULL)
+		return -EIO;
 
 	if (input->status != SPA_STATUS_HAVE_DATA)
 		return SPA_STATUS_NEED_DATA;

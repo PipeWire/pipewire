@@ -578,8 +578,8 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
 	inport = &this->port[SPA_DIRECTION_INPUT];
-	inio = inport->io;
-	spa_return_val_if_fail(inio != NULL, -EIO);
+	if ((inio = inport->io) == NULL)
+		return -EIO;
 
 	if (inio->status != SPA_STATUS_HAVE_DATA)
 		return inio->status;
@@ -590,8 +590,8 @@ static int impl_node_process(void *object)
 	}
 
 	outport = &this->port[SPA_DIRECTION_OUTPUT];
-	outio = outport->io;
-	spa_return_val_if_fail(outio != NULL, -EIO);
+	if ((outio = outport->io) == NULL)
+		return -EIO;
 
 	if (outio->status == SPA_STATUS_HAVE_DATA)
 		return SPA_STATUS_HAVE_DATA;

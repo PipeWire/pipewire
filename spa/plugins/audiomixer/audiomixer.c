@@ -730,8 +730,8 @@ static int impl_node_process(void *object)
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
 	outport = GET_OUT_PORT(this, 0);
-	outio = outport->io;
-	spa_return_val_if_fail(outio != NULL, -EIO);
+	if ((outio = outport->io) == NULL)
+		return -EIO;
 
 	spa_log_trace_fp(this->log, "%p: status %p %d %d",
 			this, outio, outio->status, outio->buffer_id);

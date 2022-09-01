@@ -798,38 +798,38 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 static int impl_node_process(void *object)
 {
 	struct state *this = object;
-	struct spa_io_buffers *input;
+	struct spa_io_buffers *io;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	input = this->io;
-	spa_return_val_if_fail(input != NULL, -EIO);
+	if ((io = this->io) == NULL)
+		return -EIO;
 
-	spa_log_trace_fp(this->log, "%p: process %d %d/%d", this, input->status,
-			input->buffer_id, this->n_buffers);
+	spa_log_trace_fp(this->log, "%p: process %d %d/%d", this, io->status,
+			io->buffer_id, this->n_buffers);
 
 	if (this->position && this->position->clock.flags & SPA_IO_CLOCK_FLAG_FREEWHEEL) {
-		input->status = SPA_STATUS_NEED_DATA;
+		io->status = SPA_STATUS_NEED_DATA;
 		return SPA_STATUS_HAVE_DATA;
 	}
-	if (input->status == SPA_STATUS_HAVE_DATA &&
-	    input->buffer_id < this->n_buffers) {
-		struct buffer *b = &this->buffers[input->buffer_id];
+	if (io->status == SPA_STATUS_HAVE_DATA &&
+	    io->buffer_id < this->n_buffers) {
+		struct buffer *b = &this->buffers[io->buffer_id];
 
 		if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUT)) {
 			spa_log_warn(this->log, "%p: buffer %u in use",
-					this, input->buffer_id);
-			input->status = -EINVAL;
+					this, io->buffer_id);
+			io->status = -EINVAL;
 			return -EINVAL;
 		}
-		spa_log_trace_fp(this->log, "%p: queue buffer %u", this, input->buffer_id);
+		spa_log_trace_fp(this->log, "%p: queue buffer %u", this, io->buffer_id);
 		spa_list_append(&this->ready, &b->link);
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
-		input->buffer_id = SPA_ID_INVALID;
+		io->buffer_id = SPA_ID_INVALID;
 
 		spa_alsa_write(this);
 
-		input->status = SPA_STATUS_OK;
+		io->status = SPA_STATUS_OK;
 	}
 	return SPA_STATUS_HAVE_DATA;
 }

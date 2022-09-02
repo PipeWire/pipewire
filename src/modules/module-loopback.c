@@ -519,10 +519,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 
-	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
-				"loopback-%u-%u", pid, id);
-
 	if ((str = pw_properties_get(props, "capture.props")) != NULL)
 		pw_properties_update_string(impl->capture_props, str, strlen(str));
 	if ((str = pw_properties_get(props, "playback.props")) != NULL)
@@ -549,6 +545,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_setf(impl->playback_props, PW_KEY_NODE_NAME,
 				"output.%s", str);
+	if (pw_properties_get(impl->capture_props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_set(impl->capture_props, PW_KEY_NODE_DESCRIPTION, str);
+	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_set(impl->playback_props, PW_KEY_NODE_DESCRIPTION, str);
 
 	parse_audio_info(impl->capture_props, &impl->capture_info);
 	parse_audio_info(impl->playback_props, &impl->playback_info);

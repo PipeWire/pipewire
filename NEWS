@@ -4,6 +4,20 @@ This is a bugfix release that is API and ABI compatible with previous
 0.3.x releases.
 
 ## Highlights
+  - Support masking of conf.d/ files. (#2629)
+  - Use org.freedesktop.portal.Realtime when available. This does the
+    correct PID/TID mappings to make realtime also work from flatpaks.
+  - Fix rate adjustement logic in pulse-tunnel. This would cause
+    increasing delays and hickups when using tunnels. (#2548)
+  - Add OPUS as a new vendor codec. Add OPUS-A2DP spec. PipeWire can now
+    send and reveive OPUS data over bluetooth.
+  - An AAC decoder was added so that PipeWire can now also function as
+    an A2DP AAC receiver.
+  - Fix some issues where the wrong samplerate was used. (#2614)
+  - Fix rate match for sources. This fixes an error where follower sources
+    would generate many resync warnings.
+  - Many more bugfixes and improvements.
+
 
 ## PipeWire
   - Support masking of conf.d/ files. (#2629)
@@ -15,7 +29,6 @@ This is a bugfix release that is API and ABI compatible with previous
   - Fix some potential cross compilation problems due to wrong
     host_machine.
   - Check return values of pw_getrandom().
-
 
 ## Tools
   - Updates to pw-cli manpages. (#2552)

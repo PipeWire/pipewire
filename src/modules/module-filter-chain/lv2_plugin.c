@@ -35,11 +35,11 @@
 #include <pipewire/array.h>
 
 #include <lilv/lilv.h>
-#include <lv2/lv2plug.in/ns/ext/atom/atom.h>
-#include <lv2/lv2plug.in/ns/ext/buf-size/buf-size.h>
-#include <lv2/lv2plug.in/ns/ext/worker/worker.h>
-#include <lv2/lv2plug.in/ns/ext/options/options.h>
-#include <lv2/lv2plug.in/ns/ext/parameters/parameters.h>
+#include <lv2/atom/atom.h>
+#include <lv2/buf-size/buf-size.h>
+#include <lv2/worker/worker.h>
+#include <lv2/options/options.h>
+#include <lv2/parameters/parameters.h>
 
 #include "plugin.h"
 

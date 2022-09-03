@@ -6,31 +6,18 @@ date: Jun 4, 2022
 
 # OPUS-A2DP-0.5 specification
 
-DRAFT
+In this file, a way to use Opus as an A2DP vendor codec is specified.
 
-In this file, we specify how to use Opus as an A2DP vendor codec. We
-will call this "OPUS-A2DP-0.5". There is no previous public
+We will call this "OPUS-A2DP-0.5". There is no previous public
 specification for using Opus as an A2DP vendor codec (to my
 knowledge), which is why we need this one.
 
 [[_TOC_]]
 
-# A2DP Codec Capabilities
+# Media Codec Capabilities
 
-The A2DP capability structure is as follows.
-
-Integer fields and multi-byte bitfields are laid out in **little
-endian** order.  All integer fields are unsigned.
-
-Each entry may have different meaning when present as a capability.
-Below, we indicate this by abbreviations CAP/SNK for sink capability,
-CAP/SRC for source capability, CAP for capability as either, and SEL
-for the selected value by SRC.
-
-Bits in fields marked RFA (Reserved For Additions) shall be set to
-zero.
-
-The capability and configuration structure is as follows:
+The Media Codec Specific Information Elements ([AVDTP v1.3], §8.21.5)
+capability and configuration structure is as follows:
 
 | Octet | Bits | Meaning                                       |
 |-------|------|-----------------------------------------------|
@@ -42,7 +29,19 @@ The capability and configuration structure is as follows:
 | 17-20 | 0-7  | Return Direction Audio Location Configuration |
 | 21-23 | 0-7  | Return Direction Limits Configuration         |
 
-See `a2dp-codec-caps.h` for definition as C structs.
+All integer fields and multi-byte bitfields are laid out in **little
+endian** order.  All integer fields are unsigned.
+
+Each entry may have different meaning when present as a capability.
+Below, we indicate this by abbreviations CAP for capability and SEL
+for the value selected by SRC.
+
+Bits in fields marked RFA (Reserved For Additions) shall be set to
+zero.
+
+> **Note**
+>
+> See `a2dp-codec-caps.h` for definition as C structs.
 
 ## Vendor ID Part
 
@@ -53,13 +52,16 @@ The fixed value
 | 0-3   | 0-7  | A2DP Vendor ID (0x05F1)       |
 | 4-5   | 0-7  | A2DP Vendor Codec ID (0x1005) |
 
-The Vendor ID is that of the Linux Foundation, and we are using it
-here unofficially.
+> **Note**
+>
+> The Vendor ID is that of the Linux Foundation, and we are using it
+> here unofficially.
 
 ## Channel Configuration
 
-The channel configuration consists of the channel count and a bitfield
-indicating which of them are encoded in coupled streams.
+The channel configuration consists of the channel count, and the count
+of coupled streams. The latter indicates which channels are encoded as
+left/right pairs, as defined in Sec. 5.1.1 of Opus Ogg Encapsulation [RFC7845].
 
 | Octet | Bits | Meaning                                                    |
 |-------|------|------------------------------------------------------------|
@@ -74,26 +76,23 @@ coupled (left & right) channel pair.  The count shall satisfy
 `(Channel Count) >= 2*(Coupled Stream Count)`.
 The Stream Count is `(Channel Count) - (Coupled Stream Count)`.
 
-Streams and Coupled Streams have the same meaning as in Sec. 5.1.1 of
-Opus Multistream [RFC7845].
-
 The logical Channels are identified by a Channel Index *j* such that `0 <= j
 < (Channel Count)`. The channels `0 <= j < 2*(Coupled Stream Count)`
 are encoded in the *k*-th stream of the payload, where `k = floor(j/2)` and
 `j mod 2` determines which of the two channels of the stream the logical
 channel is. The channels `2*(Coupled Stream Count) <= j < (Channel Count)`
 are encoded in the *k*-th stream of the payload, where `k = j - (Coupled Stream Count)`.
-The prescription here is identical to [RFC7845] with channel mapping
-`mapping[j] = j`.
 
-The semantic meaning for each channel is determined by their Audio
-Location.
+> **Note**
+>
+> The prescription here is identical to [RFC7845] with channel mapping
+> `mapping[j] = j`. We do not want to include the mapping table in the
+> A2DP capabilities, so it is assumed to be trivial.
 
 ## Audio Location Configuration
 
-The channel audio location specification is similar to the location
-bitfield of the `Audio_Channel_Allocation` LTV structure in Bluetooth
-SIG [Assigned Numbers, Generic Audio] used in the LE Audio.
+The semantic meaning for each channel is determined by their Audio
+Location bitfield.
 
 | Octet | Bits | Meaning                                              |
 |-------|------|------------------------------------------------------|
@@ -103,11 +102,9 @@ The values specified in CAP are informative, and SEL may contain bits
 that were not set in CAP. SNK shall handle unsupported audio
 locations. It may do this for example by ignoring unsupported channels
 or via suitable up/downmixing.  Hence, SRC may transmit channels with
-audio locations that are not marked supported by SNK. The maximum
-Channel Count however shall not be exceeded.
+audio locations that are not marked supported by SNK.
 
-The audio location bitfield values defined in [Assigned Numbers,
-Generic Audio] are:
+The audio location bit values are:
 
 | Channel Order | Bitmask    | Audio Location          |
 |---------------|------------|-------------------------|
@@ -144,8 +141,8 @@ Generic Audio] are:
 | 30            | 0x40000000 | RFA                     |
 | 31            | 0x80000000 | RFA                     |
 
-In addition, we define a specific Channel Order for each.  The bits
-set in the bitfield define audio locations for the streams present in the
+Each bit value is associated with a Channel Order.  The bits set in
+the bitfield define audio locations for the streams present in the
 payload. The set bit with the smallest Channel Order value defines the
 audio location for the Channel Index *j=0*, the bit with the next
 lowest Channel Order value defines the audio location for the Channel
@@ -154,46 +151,53 @@ Index *j=1*, and so forth.
 When the Channel Count is larger than the number of bits set in the
 Audio Location bitfield, the audio locations of the remaining channels
 are unspecified. Implementations may handle them as appropriate for
-their use case, considering them as AUX0-AUXN, or in the case of
+their use case, considering them as AUX0–AUXN, or in the case of
 Channel Count = 1, as the single mono audio channel.
 
 When the Channel Count is smaller than the number of bits set in the
 Audio Location bitfield, the audio locations for the channels are
 assigned as above, and remaining excess bits shall be ignored.
 
-The channel ordering defined here is compatible with the internal
-stream ordering in the reference Opus Multistream surround encoder
-Mapping Family 0 and 1 output. This allows making use of its surround
-masking and LFE handling capabilities.  The stream ordering of the
-reference Opus surround encoder, although being unchanged since its
-addition in 2013, is an internal detail of the
-encoder. Implementations using the surround encoder shall check that
-the mapping table used by the encoder corresponds to the above channel
-ordering.
-
-For reference, we list the Audio Location bitfield values
-corresponding to the different channel counts in Opus Mapping Family 0
-and 1 surround encoder output, and the expected mapping table:
-
-| Mapping Family | Channel Count | Audio Location Value | Stream Ordering                 | Mapping Table            |
-|----------------|---------------|----------------------|---------------------------------|--------------------------|
-| 0              | 1             | 0x00000000           | mono                            | {0}                      |
-| 0              | 2             | 0x00000003           | FL, FR                          | {0, 1}                   |
-| 1              | 1             | 0x00000000           | mono                            | {0}                      |
-| 1              | 2             | 0x00000003           | FL, FR                          | {0, 1}                   |
-| 1              | 3             | 0x00000007           | FL, FR, FC                      | {0, 2, 1}                |
-| 1              | 4             | 0x00000033           | FL, FR, BL, BR                  | {0, 1, 2, 3}             |
-| 1              | 5             | 0x00000037           | FL, FR, BL, BR, FC              | {0, 4, 1, 2, 3}          |
-| 1              | 6             | 0x0000003f           | FL, FR, BL, BR, FC, LFE         | {0, 4, 1, 2, 3, 5}       |
-| 1              | 7             | 0x00000d0f           | FL, FR, SL, SR, FC, BC, LFE     | {0, 4, 1, 2, 3, 5, 6}    |
-| 1              | 8             | 0x00000c3f           | FL, FR, SL, SR, BL, BR, FC, LFE | {0, 6, 1, 2, 3, 4, 5, 7} |
-
-The Mapping Table in the table indicates the mapping table selected by
-`opus_multistream_surround_encoder_create` (Opus 1.3.1). If the
-encoder outputs a different mapping table in a future Opus encoder
-release, the channel ordering will be incorrect, and the surround
-encoder can not be used. We expect that the probability of the Opus
-encoder authors making such changes is negligible.
+> **Note**
+>
+> The channel audio location specification is similar to the location
+> bitfield of the `Audio_Channel_Allocation` LTV structure in Bluetooth
+> SIG [Assigned Numbers, Generic Audio] used in the LE Audio, and the
+> bitmasks defined above are the same.
+>
+> The channel ordering differs from LE Audio, and is defined here to be
+> compatible with the internal stream ordering in the reference Opus
+> Multistream surround encoder Mapping Family 0 and 1 output. This
+> allows making use of its surround masking and LFE handling
+> capabilities.  The stream ordering of the reference Opus surround
+> encoder, although being unchanged since its addition in 2013, is an
+> internal detail of the encoder. Implementations using the surround
+> encoder need to check that the mapping table used by the encoder
+> corresponds to the above channel ordering.
+>
+> For reference, we list the Audio Location bitfield values
+> corresponding to the different channel counts in Opus Mapping Family 0
+> and 1 surround encoder output, and the expected mapping table:
+>
+> | Mapping Family | Channel Count | Audio Location Value | Stream Ordering                 | Mapping Table            |
+> |----------------|---------------|----------------------|---------------------------------|--------------------------|
+> | 0              | 1             | 0x00000000           | mono                            | {0}                      |
+> | 0              | 2             | 0x00000003           | FL, FR                          | {0, 1}                   |
+> | 1              | 1             | 0x00000000           | mono                            | {0}                      |
+> | 1              | 2             | 0x00000003           | FL, FR                          | {0, 1}                   |
+> | 1              | 3             | 0x00000007           | FL, FR, FC                      | {0, 2, 1}                |
+> | 1              | 4             | 0x00000033           | FL, FR, BL, BR                  | {0, 1, 2, 3}             |
+> | 1              | 5             | 0x00000037           | FL, FR, BL, BR, FC              | {0, 4, 1, 2, 3}          |
+> | 1              | 6             | 0x0000003f           | FL, FR, BL, BR, FC, LFE         | {0, 4, 1, 2, 3, 5}       |
+> | 1              | 7             | 0x00000d0f           | FL, FR, SL, SR, FC, BC, LFE     | {0, 4, 1, 2, 3, 5, 6}    |
+> | 1              | 8             | 0x00000c3f           | FL, FR, SL, SR, BL, BR, FC, LFE | {0, 6, 1, 2, 3, 4, 5, 7} |
+>
+> The Mapping Table in the table indicates the mapping table selected by
+> `opus_multistream_surround_encoder_create` (Opus 1.3.1). If the
+> encoder outputs a different mapping table in a future Opus encoder
+> release, the channel ordering will be incorrect, and the surround
+> encoder can not be used. We expect that the probability of the Opus
+> encoder authors making such changes is negligible.
 
 ## Limits Configuration
 
@@ -236,6 +240,12 @@ Namely:
 If no return channel is supported or selected, the number of channels
 is set to 0 in CAP or SEL.
 
+> **Note**
+>
+> This is a nonstandard extension to A2DP. The return direction audio
+> data is simply sent back via the underlying L2CAP connection, which
+> is bidirectional, in the same format as the forward direction audio.
+> This is similar to what aptX-LL and FastStream do.
 
 # Packet Structure
 
@@ -255,8 +265,9 @@ may be fragmented to several consecutive Bluetooth packets.
 The format of the Multistream data is the same as in the audio packets
 of [RFC7845], or, as produced/consumed by the Opus Multistream API.
 
-(Note that we DO NOT follow [RFC7587], as we want fragmentation and
-multichannel support.)
+> **Note**
+>
+> We DO NOT follow [RFC7587], as we want fragmentation and multichannel support.
 
 ## RTP Header
 
@@ -311,10 +322,13 @@ correction instead of PLC.
 
 # References
 
-1. IETF RFC 3550: [RFC3550]
-2. IETF RFC 7587: [RFC7587]
-3. IETF RFC 7845: [RFC7845]
+1. Bluetooth [AVDTP v1.3]
+2. IETF [RFC3550]
+3. IETF [RFC7587]
+4. IETF [RFC7845]
+5. Bluetooth [Assigned Numbers, Generic Audio]
 
+[AVDTP v1.3]: https://www.bluetooth.com/specifications/specs/a-v-distribution-transport-protocol-1-3/
 [RFC3550]: https://datatracker.ietf.org/doc/html/rfc3550
 [RFC7587]: https://datatracker.ietf.org/doc/html/rfc7587
 [RFC7845]: https://datatracker.ietf.org/doc/html/rfc7845

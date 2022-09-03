@@ -54,6 +54,8 @@ using namespace libcamera;
 
 #define MAX_DEVICES	64
 
+namespace {
+
 struct global {
 	int ref;
 	CameraManager *manager;
@@ -68,22 +70,26 @@ struct device {
 
 typedef struct impl {
 	struct spa_handle handle;
-	struct spa_device device;
+	struct spa_device device = {};
 
 	struct spa_log *log;
 
 	struct spa_hook_list hooks;
 
-	uint64_t info_all;
-	struct spa_device_info info;
+	static constexpr uint64_t info_all = SPA_DEVICE_CHANGE_MASK_FLAGS | SPA_DEVICE_CHANGE_MASK_PROPS;
+	struct spa_device_info info = SPA_DEVICE_INFO_INIT();
 
-	CameraManager *manager;
+	CameraManager *manager = nullptr;
 	void addCamera(std::shared_ptr<libcamera::Camera> camera);
 	void removeCamera(std::shared_ptr<libcamera::Camera> camera);
 
 	struct device devices[MAX_DEVICES];
-	uint32_t n_devices;
+	uint32_t n_devices = 0;
+
+	impl(spa_log *log);
 } Impl;
+
+}
 
 int libcamera_manager_release(CameraManager *manager)
 {
@@ -326,12 +332,30 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 static int impl_clear(struct spa_handle *handle)
 {
-	struct impl *impl = (struct impl *) handle;
+	auto impl = reinterpret_cast<struct impl *>(handle);
+	auto manager = impl->manager;
+
 	stop_monitor(impl);
-	if (impl->manager)
-		libcamera_manager_release(impl->manager);
-	impl->manager = NULL;
+	std::destroy_at(impl);
+
+	if (manager)
+		libcamera_manager_release(manager);
+
 	return 0;
+}
+
+impl::impl(spa_log *log)
+	: handle({ SPA_VERSION_HANDLE, impl_get_interface, impl_clear }),
+	  log(log)
+{
+	libcamera_log_topic_init(log);
+
+	spa_hook_list_init(&hooks);
+
+	device.iface = SPA_INTERFACE_INIT(
+			SPA_TYPE_INTERFACE_Device,
+			SPA_VERSION_DEVICE,
+			&impl_device, this);
 }
 
 static size_t
@@ -348,30 +372,12 @@ impl_init(const struct spa_handle_factory *factory,
 	  const struct spa_support *support,
 	  uint32_t n_support)
 {
-	struct impl *impl;
-
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
-	handle->get_interface = impl_get_interface;
-	handle->clear = impl_clear;
+	auto log = static_cast<spa_log *>(spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log));
 
-	impl = (struct impl *) handle;
-
-	impl->log = (struct spa_log*)spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	libcamera_log_topic_init(impl->log);
-
-	spa_hook_list_init(&impl->hooks);
-
-	impl->device.iface = SPA_INTERFACE_INIT(
-			SPA_TYPE_INTERFACE_Device,
-			SPA_VERSION_DEVICE,
-			&impl_device, impl);
-
-	impl->info = SPA_DEVICE_INFO_INIT();
-	impl->info_all = SPA_DEVICE_CHANGE_MASK_FLAGS |
-			SPA_DEVICE_CHANGE_MASK_PROPS;
-	impl->info.flags = 0;
+	new (handle) impl(log);
 
 	return 0;
 }

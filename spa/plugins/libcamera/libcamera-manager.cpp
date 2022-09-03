@@ -190,7 +190,7 @@ void Impl::addCamera(std::shared_ptr<Camera> camera)
 	struct impl *impl = this;
 	struct device *device;
 
-	spa_log_info(impl->log, "new camera");
+	spa_log_info(impl->log, "new camera: %s", camera->id().c_str());
 
 	if ((device = find_device(impl, camera.get())) != NULL)
 		return;
@@ -206,7 +206,7 @@ void Impl::removeCamera(std::shared_ptr<Camera> camera)
 	struct impl *impl = this;
 	struct device *device;
 
-	spa_log_info(impl->log, "camera removed");
+	spa_log_info(impl->log, "camera removed: %s", camera->id().c_str());
 	if ((device = find_device(impl, camera.get())) == NULL)
 		return;
 

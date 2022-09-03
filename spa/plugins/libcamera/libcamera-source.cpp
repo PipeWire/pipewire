@@ -120,10 +120,8 @@ struct port {
 	struct spa_param_info params[8];
 
 	uint32_t fmt_index;
-	bool next_fmt;
 	PixelFormat enum_fmt;
 	uint32_t size_index;
-	bool next_size;
 };
 
 struct impl {

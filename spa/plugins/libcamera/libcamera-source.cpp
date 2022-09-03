@@ -60,6 +60,8 @@
 #include "libcamera.h"
 #include "libcamera-manager.hpp"
 
+using namespace libcamera;
+
 namespace {
 
 #define MAX_BUFFERS	32
@@ -160,7 +162,7 @@ typedef struct impl {
 	struct spa_io_position *position = nullptr;
 	struct spa_io_clock *clock = nullptr;
 
-	CameraManager *manager;
+	std::shared_ptr<CameraManager> manager;
 	std::shared_ptr<Camera> camera;
 
 	FrameBufferAllocator *allocator = nullptr;
@@ -178,7 +180,7 @@ typedef struct impl {
 	bool acquired = false;
 
 	impl(spa_log *log, spa_loop *data_loop, spa_system *system,
-	     CameraManager *manager, std::shared_ptr<Camera> camera, std::string device_id);
+	     std::shared_ptr<CameraManager> manager, std::shared_ptr<Camera> camera, std::string device_id);
 } Impl;
 
 }
@@ -915,24 +917,19 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 static int impl_clear(struct spa_handle *handle)
 {
-	auto impl = reinterpret_cast<struct impl *>(handle);
-	auto manager = impl->manager;
-
-	std::destroy_at(impl);
-	libcamera_manager_release(manager);
-
+	std::destroy_at(reinterpret_cast<impl *>(handle));
 	return 0;
 }
 
 impl::impl(spa_log *log, spa_loop *data_loop, spa_system *system,
-	   CameraManager *manager, std::shared_ptr<Camera> camera, std::string device_id)
+	   std::shared_ptr<CameraManager> manager, std::shared_ptr<Camera> camera, std::string device_id)
 	: handle({ SPA_VERSION_HANDLE, impl_get_interface, impl_clear }),
 	  log(log),
 	  data_loop(data_loop),
 	  system(system),
 	  device_id(std::move(device_id)),
 	  out_ports{{this}},
-	  manager(manager),
+	  manager(std::move(manager)),
 	  camera(std::move(camera))
 {
 	libcamera_log_topic_init(log);
@@ -987,9 +984,8 @@ impl_init(const struct spa_handle_factory *factory,
 		return -EINVAL;
 	}
 
-	auto manager = libcamera_manager_acquire();
+	auto manager = libcamera_manager_acquire(res);
 	if (!manager) {
-		res = -errno;
 		spa_log_error(log, "can't start camera manager: %s", spa_strerror(res));
 		return res;
 	}
@@ -1001,12 +997,11 @@ impl_init(const struct spa_handle_factory *factory,
 	auto camera = manager->get(device_id);
 	if (!camera) {
 		spa_log_error(log, "unknown camera id %s", device_id.c_str());
-		libcamera_manager_release(manager);
 		return -ENOENT;
 	}
 
 	new (handle) impl(log, data_loop, system,
-			  manager, std::move(camera), std::move(device_id));
+			  std::move(manager), std::move(camera), std::move(device_id));
 
 	return 0;
 }

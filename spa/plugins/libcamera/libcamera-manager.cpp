@@ -56,13 +56,6 @@ using namespace libcamera;
 
 namespace {
 
-struct global {
-	int ref;
-	CameraManager *manager;
-};
-
-static struct global global;
-
 struct device {
 	uint32_t id;
 	std::shared_ptr<Camera> camera;
@@ -79,7 +72,7 @@ typedef struct impl {
 	static constexpr uint64_t info_all = SPA_DEVICE_CHANGE_MASK_FLAGS | SPA_DEVICE_CHANGE_MASK_PROPS;
 	struct spa_device_info info = SPA_DEVICE_INFO_INIT();
 
-	CameraManager *manager = nullptr;
+	std::shared_ptr<CameraManager> manager;
 	void addCamera(std::shared_ptr<libcamera::Camera> camera);
 	void removeCamera(std::shared_ptr<libcamera::Camera> camera);
 
@@ -91,35 +84,20 @@ typedef struct impl {
 
 }
 
-int libcamera_manager_release(CameraManager *manager)
+static std::weak_ptr<CameraManager> global_manager;
+
+std::shared_ptr<CameraManager> libcamera_manager_acquire(int& res)
 {
-	if (global.manager != manager)
-		return -EINVAL;
+	if (auto manager = global_manager.lock())
+		return manager;
 
-	if (--global.ref == 0) {
-		global.manager->stop();
-		delete global.manager;
-		global.manager = NULL;
-	}
-	return 0;
-}
+	auto manager = std::make_shared<CameraManager>();
+	if ((res = manager->start()) < 0)
+		return {};
 
-CameraManager *libcamera_manager_acquire(void)
-{
-	int res;
+	global_manager = manager;
 
-	if (global.ref++ == 0) {
-		global.manager = new CameraManager();
-		if (global.manager == NULL)
-			return NULL;
-
-		if ((res = global.manager->start()) < 0) {
-			libcamera_manager_release(global.manager);
-			errno = -res;
-			return NULL;
-		}
-	}
-	return global.manager;
+	return manager;
 }
 
 static struct device *add_device(struct impl *impl, std::shared_ptr<Camera> camera)
@@ -227,7 +205,7 @@ static int start_monitor(struct impl *impl)
 
 static int stop_monitor(struct impl *impl)
 {
-	if (impl->manager != NULL) {
+	if (impl->manager) {
 		impl->manager->cameraAdded.disconnect(impl, &Impl::addCamera);
 		impl->manager->cameraRemoved.disconnect(impl, &Impl::removeCamera);
 	}
@@ -269,9 +247,7 @@ static void impl_hook_removed(struct spa_hook *hook)
 	struct impl *impl = (struct impl*)hook->priv;
 	if (spa_hook_list_is_empty(&impl->hooks)) {
 		stop_monitor(impl);
-		if (impl->manager)
-			libcamera_manager_release(impl->manager);
-		impl->manager = NULL;
+		impl->manager.reset();
 	}
 }
 
@@ -286,9 +262,9 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 	spa_return_val_if_fail(impl != NULL, -EINVAL);
 	spa_return_val_if_fail(events != NULL, -EINVAL);
 
-	impl->manager = libcamera_manager_acquire();
-	if (impl->manager == NULL)
-		return -errno;
+	impl->manager = libcamera_manager_acquire(res);
+	if (!impl->manager)
+		return res;
 
 	spa_hook_list_isolate(&impl->hooks, &save, listener, events, data);
 
@@ -333,13 +309,9 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 static int impl_clear(struct spa_handle *handle)
 {
 	auto impl = reinterpret_cast<struct impl *>(handle);
-	auto manager = impl->manager;
 
 	stop_monitor(impl);
 	std::destroy_at(impl);
-
-	if (manager)
-		libcamera_manager_release(manager);
 
 	return 0;
 }

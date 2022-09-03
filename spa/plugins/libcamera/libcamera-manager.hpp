@@ -22,11 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <memory>
+
 #include <libcamera/camera_manager.h>
 
-#include <linux/media.h>
-
-using namespace libcamera;
-
-CameraManager *libcamera_manager_acquire(void);
-int libcamera_manager_release(CameraManager *manager);
+std::shared_ptr<libcamera::CameraManager> libcamera_manager_acquire(int& res);

@@ -66,11 +66,11 @@ struct impl {
 
 	struct spa_hook_list hooks;
 
-	CameraManager *manager;
+	std::shared_ptr<CameraManager> manager;
 	std::shared_ptr<Camera> camera;
 
 	impl(spa_log *log,
-	     CameraManager *manager,
+	     std::shared_ptr<CameraManager> manager,
 	     std::shared_ptr<Camera> camera,
 	     std::string device_id);
 };
@@ -234,20 +234,18 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 
 static int impl_clear(struct spa_handle *handle)
 {
-	auto impl = reinterpret_cast<struct impl *>(handle);
-	auto manager = impl->manager;
-
-	std::destroy_at(impl);
-	libcamera_manager_release(manager);
-
+	std::destroy_at(reinterpret_cast<impl *>(handle));
 	return 0;
 }
 
-impl::impl(spa_log *log, CameraManager *manager, std::shared_ptr<Camera> camera, std::string device_id)
+impl::impl(spa_log *log,
+	   std::shared_ptr<CameraManager> manager,
+	   std::shared_ptr<Camera> camera,
+	   std::string device_id)
 	: handle({ SPA_VERSION_HANDLE, impl_get_interface, impl_clear }),
 	  log(log),
 	  device_id(std::move(device_id)),
-	  manager(manager),
+	  manager(std::move(manager)),
 	  camera(std::move(camera))
 {
 	libcamera_log_topic_init(log);
@@ -282,9 +280,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	auto log = static_cast<spa_log *>(spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log));
 
-	auto manager = libcamera_manager_acquire();
+	auto manager = libcamera_manager_acquire(res);
 	if (!manager) {
-		res = -errno;
 		spa_log_error(log, "can't start camera manager: %s", spa_strerror(res));
 		return res;
 	}
@@ -296,11 +293,10 @@ impl_init(const struct spa_handle_factory *factory,
 	auto camera = manager->get(device_id);
 	if (!camera) {
 		spa_log_error(log, "unknown camera id %s", device_id.c_str());
-		libcamera_manager_release(manager);
 		return -ENOENT;
 	}
 
-	new (handle) impl(log, manager, std::move(camera), std::move(device_id));
+	new (handle) impl(log, std::move(manager), std::move(camera), std::move(device_id));
 
 	return 0;
 }

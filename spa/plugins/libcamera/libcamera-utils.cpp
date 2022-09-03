@@ -54,7 +54,7 @@ int spa_libcamera_close(struct impl *impl)
 	struct port *port = &impl->out_ports[0];
 	if (!impl->acquired)
 		return 0;
-	if (impl->active || port->have_format)
+	if (impl->active || port->current_format)
 		return 0;
 
 	spa_log_info(impl->log, "close camera %s", impl->device_id.c_str());
@@ -419,8 +419,6 @@ static int spa_libcamera_set_format(struct impl *impl, struct port *port,
 	if ((res = allocBuffers(impl, port, port->streamConfig.bufferCount)) < 0)
 		goto error;
 
-	port->have_format = true;
-
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS | SPA_PORT_CHANGE_MASK_RATE;
 	port->info.flags = SPA_PORT_FLAG_CAN_ALLOC_BUFFERS |
 		SPA_PORT_FLAG_LIVE |
@@ -664,7 +662,7 @@ static int spa_libcamera_stream_on(struct impl *impl)
 	struct port *port = &impl->out_ports[0];
 	int res;
 
-	if (!port->have_format) {
+	if (!port->current_format) {
 		spa_log_error(impl->log, "Exting %s with -EIO", __FUNCTION__);
 		return -EIO;
 	}

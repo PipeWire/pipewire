@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <deque>
+#include <optional>
 
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>
@@ -91,8 +92,7 @@ struct control {
 struct port {
 	struct impl *impl;
 
-	bool have_format = false;
-	struct spa_video_info current_format;
+	std::optional<spa_video_info> current_format;
 
 	struct spa_fraction rate = {};
 	StreamConfiguration streamConfig;
@@ -332,7 +332,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	{
 		struct port *port = GET_OUT_PORT(impl, 0);
 
-		if (!port->have_format)
+		if (!port->current_format)
 			return -EIO;
 		if (port->n_buffers == 0)
 			return -EIO;
@@ -453,36 +453,36 @@ static int port_get_format(struct impl *impl, struct port *port,
 {
 	struct spa_pod_frame f;
 
-	if (!port->have_format)
+	if (!port->current_format)
 		return -EIO;
 	if (index > 0)
 		return 0;
 
 	spa_pod_builder_push_object(builder, &f, SPA_TYPE_OBJECT_Format, SPA_PARAM_Format);
 	spa_pod_builder_add(builder,
-		SPA_FORMAT_mediaType,    SPA_POD_Id(port->current_format.media_type),
-		SPA_FORMAT_mediaSubtype, SPA_POD_Id(port->current_format.media_subtype),
+		SPA_FORMAT_mediaType,    SPA_POD_Id(port->current_format->media_type),
+		SPA_FORMAT_mediaSubtype, SPA_POD_Id(port->current_format->media_subtype),
 		0);
 
-	switch (port->current_format.media_subtype) {
+	switch (port->current_format->media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
 		spa_pod_builder_add(builder,
-			SPA_FORMAT_VIDEO_format,    SPA_POD_Id(port->current_format.info.raw.format),
-			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&port->current_format.info.raw.size),
-			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&port->current_format.info.raw.framerate),
+			SPA_FORMAT_VIDEO_format,    SPA_POD_Id(port->current_format->info.raw.format),
+			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&port->current_format->info.raw.size),
+			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&port->current_format->info.raw.framerate),
 			0);
 		break;
 	case SPA_MEDIA_SUBTYPE_mjpg:
 	case SPA_MEDIA_SUBTYPE_jpeg:
 		spa_pod_builder_add(builder,
-			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&port->current_format.info.mjpg.size),
-			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&port->current_format.info.mjpg.framerate),
+			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&port->current_format->info.mjpg.size),
+			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&port->current_format->info.mjpg.framerate),
 			0);
 		break;
 	case SPA_MEDIA_SUBTYPE_h264:
 		spa_pod_builder_add(builder,
-			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&port->current_format.info.h264.size),
-			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&port->current_format.info.h264.framerate),
+			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&port->current_format->info.h264.size),
+			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&port->current_format->info.h264.framerate),
 			0);
 		break;
 	default:
@@ -536,7 +536,7 @@ next:
 		break;
 	case SPA_PARAM_Buffers:
 	{
-		if (!port->have_format)
+		if (!port->current_format)
 			return -EIO;
 		if (result.index > 0)
 			return 0;
@@ -612,12 +612,12 @@ static int port_set_format(struct impl *impl, struct port *port,
 	int res;
 
 	if (format == NULL) {
-		if (!port->have_format)
+		if (!port->current_format)
 			return 0;
 
 		spa_libcamera_stream_off(impl);
 		spa_libcamera_clear_buffers(impl, port);
-		port->have_format = false;
+		port->current_format.reset();
 
 		spa_libcamera_close(impl);
 		goto done;
@@ -637,31 +637,31 @@ static int port_set_format(struct impl *impl, struct port *port,
 				return -EINVAL;
 			}
 
-			if (port->have_format && info.media_type == port->current_format.media_type &&
-			    info.media_subtype == port->current_format.media_subtype &&
-			    info.info.raw.format == port->current_format.info.raw.format &&
-			    info.info.raw.size.width == port->current_format.info.raw.size.width &&
-			    info.info.raw.size.height == port->current_format.info.raw.size.height)
+			if (port->current_format && info.media_type == port->current_format->media_type &&
+			    info.media_subtype == port->current_format->media_subtype &&
+			    info.info.raw.format == port->current_format->info.raw.format &&
+			    info.info.raw.size.width == port->current_format->info.raw.size.width &&
+			    info.info.raw.size.height == port->current_format->info.raw.size.height)
 				return 0;
 			break;
 		case SPA_MEDIA_SUBTYPE_mjpg:
 			if (spa_format_video_mjpg_parse(format, &info.info.mjpg) < 0)
 				return -EINVAL;
 
-			if (port->have_format && info.media_type == port->current_format.media_type &&
-			    info.media_subtype == port->current_format.media_subtype &&
-			    info.info.mjpg.size.width == port->current_format.info.mjpg.size.width &&
-			    info.info.mjpg.size.height == port->current_format.info.mjpg.size.height)
+			if (port->current_format && info.media_type == port->current_format->media_type &&
+			    info.media_subtype == port->current_format->media_subtype &&
+			    info.info.mjpg.size.width == port->current_format->info.mjpg.size.width &&
+			    info.info.mjpg.size.height == port->current_format->info.mjpg.size.height)
 				return 0;
 			break;
 		case SPA_MEDIA_SUBTYPE_h264:
 			if (spa_format_video_h264_parse(format, &info.info.h264) < 0)
 				return -EINVAL;
 
-			if (port->have_format && info.media_type == port->current_format.media_type &&
-			    info.media_subtype == port->current_format.media_subtype &&
-			    info.info.h264.size.width == port->current_format.info.h264.size.width &&
-			    info.info.h264.size.height == port->current_format.info.h264.size.height)
+			if (port->current_format && info.media_type == port->current_format->media_type &&
+			    info.media_subtype == port->current_format->media_subtype &&
+			    info.info.h264.size.width == port->current_format->info.h264.size.width &&
+			    info.info.h264.size.height == port->current_format->info.h264.size.height)
 				return 0;
 			break;
 		default:
@@ -669,9 +669,9 @@ static int port_set_format(struct impl *impl, struct port *port,
 		}
 	}
 
-	if (port->have_format && !(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
+	if (port->current_format && !(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
 		spa_libcamera_use_buffers(impl, port, NULL, 0);
-		port->have_format = false;
+		port->current_format.reset();
 	}
 
 	if (spa_libcamera_set_format(impl, port, &info, flags & SPA_NODE_PARAM_FLAG_TEST_ONLY) < 0)
@@ -679,12 +679,11 @@ static int port_set_format(struct impl *impl, struct port *port,
 
 	if (!(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
 		port->current_format = info;
-		port->have_format = true;
 	}
 
     done:
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-	if (port->have_format) {
+	if (port->current_format) {
 		port->params[4] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
 		port->params[5] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
 	} else {
@@ -736,7 +735,7 @@ static int impl_node_port_use_buffers(void *object,
 
 	port = GET_PORT(impl, direction, port_id);
 
-	if (!port->have_format)
+	if (!port->current_format)
 		return -EIO;
 
 	if (port->n_buffers) {

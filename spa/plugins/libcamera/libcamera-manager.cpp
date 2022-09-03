@@ -143,12 +143,14 @@ static struct device *find_device(struct impl *impl, const Camera *camera)
 
 static void remove_device(struct impl *impl, struct device *device)
 {
-	*device = impl->devices[--impl->n_devices];
+	device->camera.reset();
+	*device = std::move(impl->devices[--impl->n_devices]);
 }
 
 static void clear_devices(struct impl *impl)
 {
-	impl->n_devices = 0;
+	while (impl->n_devices > 0)
+		impl->devices[--impl->n_devices].camera.reset();
 }
 
 static int emit_object_info(struct impl *impl, struct device *device)

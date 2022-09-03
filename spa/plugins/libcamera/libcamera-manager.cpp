@@ -71,7 +71,6 @@ typedef struct impl {
 	struct spa_device device;
 
 	struct spa_log *log;
-	struct spa_loop *main_loop;
 
 	struct spa_hook_list hooks;
 
@@ -362,11 +361,6 @@ impl_init(const struct spa_handle_factory *factory,
 	impl->log = (struct spa_log*)spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	libcamera_log_topic_init(impl->log);
 
-	impl->main_loop = (struct spa_loop*)spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
-	if (impl->main_loop == NULL) {
-		spa_log_error(impl->log, "a main-loop is needed");
-		return -EINVAL;
-	}
 	spa_hook_list_init(&impl->hooks);
 
 	impl->device.iface = SPA_INTERFACE_INIT(

@@ -40,7 +40,7 @@ int spa_libcamera_open(struct impl *impl)
 	if (impl->acquired)
 		return 0;
 
-	spa_log_info(impl->log, "open camera %s", impl->props.device);
+	spa_log_info(impl->log, "open camera %s", impl->device_id.c_str());
 	impl->camera->acquire();
 
 	impl->allocator = new FrameBufferAllocator(impl->camera);
@@ -57,7 +57,7 @@ int spa_libcamera_close(struct impl *impl)
 	if (impl->active || port->have_format)
 		return 0;
 
-	spa_log_info(impl->log, "close camera %s", impl->props.device);
+	spa_log_info(impl->log, "close camera %s", impl->device_id.c_str());
 	delete impl->allocator;
 	impl->allocator = nullptr;
 
@@ -674,7 +674,7 @@ static int spa_libcamera_stream_on(struct impl *impl)
 
 	impl->camera->requestCompleted.connect(impl, &impl::requestComplete);
 
-	spa_log_info(impl->log, "starting camera %s", impl->props.device);
+	spa_log_info(impl->log, "starting camera %s", impl->device_id.c_str());
 	if ((res = impl->camera->start()) < 0)
 		return res == -EACCES ? -EBUSY : res;
 
@@ -724,7 +724,7 @@ static int spa_libcamera_stream_off(struct impl *impl)
 		return 0;
 	}
 
-	spa_log_info(impl->log, "stopping camera %s", impl->props.device);
+	spa_log_info(impl->log, "stopping camera %s", impl->device_id.c_str());
 	impl->pendingRequests.clear();
 
 	if ((res = impl->camera->stop()) < 0)

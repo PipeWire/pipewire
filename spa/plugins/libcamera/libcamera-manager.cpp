@@ -80,10 +80,10 @@ typedef struct impl {
 
 	CameraManager *manager;
 	void addCamera(std::shared_ptr<libcamera::Camera> camera);
-        void removeCamera(std::shared_ptr<libcamera::Camera> camera);
+	void removeCamera(std::shared_ptr<libcamera::Camera> camera);
 
 	struct device devices[MAX_DEVICES];
-        uint32_t n_devices;
+	uint32_t n_devices;
 } Impl;
 
 int libcamera_manager_release(CameraManager *manager)
@@ -176,9 +176,9 @@ static int emit_object_info(struct impl *impl, struct device *device)
 	ADD_ITEM(SPA_KEY_API_LIBCAMERA_PATH, path);
 #undef ADD_ITEM
 
-        dict = SPA_DICT_INIT(items, n_items);
-        info.props = &dict;
-        spa_device_emit_object_info(&impl->hooks, id, &info);
+	dict = SPA_DICT_INIT(items, n_items);
+	info.props = &dict;
+	spa_device_emit_object_info(&impl->hooks, id, &info);
 
 	return 1;
 }
@@ -214,7 +214,7 @@ void Impl::removeCamera(std::shared_ptr<Camera> camera)
 static int start_monitor(struct impl *impl)
 {
 	impl->manager->cameraAdded.connect(impl, &Impl::addCamera);
-        impl->manager->cameraRemoved.connect(impl, &Impl::removeCamera);
+	impl->manager->cameraRemoved.connect(impl, &Impl::removeCamera);
 	return 0;
 }
 
@@ -222,7 +222,7 @@ static int stop_monitor(struct impl *impl)
 {
 	if (impl->manager != NULL) {
 		impl->manager->cameraAdded.disconnect(impl, &Impl::addCamera);
-	        impl->manager->cameraRemoved.disconnect(impl, &Impl::removeCamera);
+		impl->manager->cameraRemoved.disconnect(impl, &Impl::removeCamera);
 	}
 	clear_devices (impl);
 	return 0;
@@ -233,7 +233,7 @@ static int enum_devices(struct impl *impl)
 	auto cameras = impl->manager->cameras();
 
 	for (const std::shared_ptr<Camera> &cam : cameras) {
-                impl->addCamera(cam);
+		impl->addCamera(cam);
 	}
 	return 0;
 }
@@ -274,7 +274,7 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 {
 	int res;
 	struct impl *impl = (struct impl*) object;
-        struct spa_hook_list save;
+	struct spa_hook_list save;
 
 	spa_return_val_if_fail(impl != NULL, -EINVAL);
 	spa_return_val_if_fail(events != NULL, -EINVAL);
@@ -283,7 +283,7 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 	if (impl->manager == NULL)
 		return -errno;
 
-        spa_hook_list_isolate(&impl->hooks, &save, listener, events, data);
+	spa_hook_list_isolate(&impl->hooks, &save, listener, events, data);
 
 	emit_device_info(impl, true);
 
@@ -293,7 +293,7 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 	if ((res = start_monitor(impl)) < 0)
 		return res;
 
-        spa_hook_list_join(&impl->hooks, &save);
+	spa_hook_list_join(&impl->hooks, &save);
 
 	listener->removed = impl_hook_removed;
 	listener->priv = impl;

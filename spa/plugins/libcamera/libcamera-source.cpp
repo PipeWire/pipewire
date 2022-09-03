@@ -989,7 +989,7 @@ impl_init(const struct spa_handle_factory *factory,
 	if (impl->manager == NULL) {
 		res = -errno;
 		spa_log_error(impl->log, "can't start camera manager: %s", spa_strerror(res));
-                return res;
+		return res;
 	}
 
 	impl->camera = impl->manager->get(impl->props.device);

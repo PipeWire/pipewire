@@ -91,10 +91,10 @@ static int spa_libcamera_buffer_recycle(struct impl *impl, struct port *port, ui
 	if (buffer_id >= impl->requestPool.size()) {
 		spa_log_warn(impl->log, "invalid buffer_id %u >= %zu",
 				buffer_id, impl->requestPool.size());
-                return -EINVAL;
-        }
+		return -EINVAL;
+	}
 	Request *request = impl->requestPool[buffer_id].get();
-        Stream *stream = port->streamConfig.stream();
+	Stream *stream = port->streamConfig.stream();
 	FrameBuffer *buffer = impl->allocator->buffers(stream)[buffer_id].get();
 	if ((res = request->addBuffer(stream, buffer)) < 0) {
 		spa_log_warn(impl->log, "can't add buffer %u for request: %s",
@@ -104,7 +104,7 @@ static int spa_libcamera_buffer_recycle(struct impl *impl, struct port *port, ui
 	if (!impl->active) {
 		impl->pendingRequests.push_back(request);
 		return 0;
-        } else {
+	} else {
 		if ((res = impl->camera->queueRequest(request)) < 0) {
 			spa_log_warn(impl->log, "can't queue buffer %u: %s",
 				buffer_id, spa_strerror(res));
@@ -119,7 +119,7 @@ static int allocBuffers(struct impl *impl, struct port *port, unsigned int count
 	int res;
 
 	if ((res = impl->allocator->allocate(port->streamConfig.stream())) < 0)
-                return res;
+		return res;
 
 	for (unsigned int i = 0; i < count; i++) {
 		std::unique_ptr<Request> request = impl->camera->createRequest(i);
@@ -129,7 +129,7 @@ static int allocBuffers(struct impl *impl, struct port *port, unsigned int count
 		}
 		impl->requestPool.push_back(std::move(request));
 	}
-        return res;
+	return res;
 }
 
 static void freeBuffers(struct impl *impl, struct port *port)
@@ -618,12 +618,12 @@ void Impl::requestComplete(libcamera::Request *request)
 	spa_log_debug(impl->log, "request complete");
 
 	if ((request->status() == Request::RequestCancelled)) {
-                spa_log_debug(impl->log, "Request was cancelled");
-                return;
-        }
+		spa_log_debug(impl->log, "Request was cancelled");
+		return;
+	}
 	FrameBuffer *buffer = request->findBuffer(stream);
 	if (buffer == nullptr) {
-                spa_log_warn(impl->log, "unknown buffer");
+		spa_log_warn(impl->log, "unknown buffer");
 		return;
 	}
 	const FrameMetadata &fmd = buffer->metadata();
@@ -679,10 +679,10 @@ static int spa_libcamera_stream_on(struct impl *impl)
 		return res == -EACCES ? -EBUSY : res;
 
 	for (Request *req : impl->pendingRequests) {
-                if ((res = impl->camera->queueRequest(req)) < 0)
+		if ((res = impl->camera->queueRequest(req)) < 0)
 			return res == -EACCES ? -EBUSY : res;
-        }
-        impl->pendingRequests.clear();
+	}
+	impl->pendingRequests.clear();
 
 	impl->source.func = libcamera_on_fd_events;
 	impl->source.data = impl;

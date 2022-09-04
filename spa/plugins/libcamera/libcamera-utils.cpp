@@ -69,13 +69,12 @@ int spa_libcamera_close(struct impl *impl)
 
 static void spa_libcamera_get_config(struct impl *impl)
 {
-	if (impl->have_config)
+	if (impl->config)
 		return;
 
 	StreamRoles roles;
 	roles.push_back(VideoRecording);
 	impl->config = impl->camera->generateConfiguration(roles);
-	impl->have_config = true;
 }
 
 static int spa_libcamera_buffer_recycle(struct impl *impl, struct port *port, uint32_t buffer_id)

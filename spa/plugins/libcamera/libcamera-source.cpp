@@ -171,7 +171,6 @@ typedef struct impl {
 
 	void requestComplete(libcamera::Request *request);
 
-	unsigned int have_config;
 	std::unique_ptr<CameraConfiguration> config;
 
 	struct spa_source source = {};

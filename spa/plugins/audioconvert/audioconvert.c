@@ -1255,7 +1255,7 @@ static void set_volume(struct impl *this)
 	float volumes[SPA_AUDIO_MAX_CHANNELS];
 	struct dir *dir = &this->dir[this->direction];
 
-	spa_log_debug(this->log, "%p", this);
+	spa_log_debug(this->log, "%p have_format:%d", this, dir->have_format);
 
 	if (dir->have_format)
 		remap_volumes(this, &dir->format);

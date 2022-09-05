@@ -199,8 +199,11 @@ static int make_matrix(struct channelmix *mix)
 			for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
 				matrix[i][i]= 1.0f;
 		}
+		if (dst_mask & FRONT)
+			filter_fc = true;
+		if (dst_mask & _MASK(LFE))
+			filter_lfe = true;
 		src_mask = dst_mask = ~0LU;
-		filter_fc = filter_lfe = true;
 		goto done;
 	} else {
 		spa_log_debug(mix->log, "matching channels");

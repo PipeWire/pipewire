@@ -839,10 +839,6 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 		spa_log_info(this->log, "key:'%s' val:'%s'", name, value);
 		changed += audioconvert_set_param(this, name, value);
 	}
-	if (changed) {
-		channelmix_init(&this->mix);
-		set_volume(this);
-	}
 	return changed;
 }
 
@@ -924,6 +920,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 		else if (have_channel_volume)
 			p->have_soft_volume = false;
 
+		channelmix_init(&this->mix);
 		set_volume(this);
 	}
 	return changed;

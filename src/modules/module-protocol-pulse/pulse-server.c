@@ -668,20 +668,14 @@ static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *att
 	attr->fragsize = SPA_ROUND_UP(attr->fragsize, frame_size);
 	attr->fragsize = SPA_MAX(attr->fragsize, minfrag);
 
-	/* pulseaudio configures the source to half of the fragsize. It also
-	 * immediately sends chunks to clients. We use the minreq field to
-	 * keep this info and use it to configure half the fragsize latency */
-	attr->minreq = attr->fragsize / 2;
-	attr->minreq = SPA_ROUND_UP(attr->minreq, frame_size);
-
-	attr->tlength = attr->prebuf = 0;
+	attr->tlength = attr->minreq = attr->prebuf = 0;
 
 	if (s->early_requests) {
-		latency = attr->minreq;
+		latency = attr->fragsize;
 	} else if (s->adjust_latency) {
-		latency = attr->minreq;
+		latency = attr->fragsize;
 	} else {
-		latency = attr->minreq;
+		latency = attr->fragsize;
 	}
 	/* make sure can queue at least to fragsize without overruns */
 	if (attr->maxlength < attr->fragsize * 4)
@@ -1330,18 +1324,18 @@ do_process_done(struct spa_loop *loop,
 					stream, client->name, index, avail);
 		} else {
 			if ((uint32_t)avail > stream->attr.maxlength) {
-				uint32_t skip = avail - stream->attr.minreq;
+				uint32_t skip = avail - stream->attr.fragsize;
 				/* overrun, catch up to latest fragment and send it */
 				pw_log_warn("%p: [%s] overrun recover read:%u avail:%d max:%u skip:%u",
 					stream, client->name, index, avail, stream->attr.maxlength, skip);
 				index += skip;
 				stream->read_index += skip;
-				avail = stream->attr.minreq;
+				avail = stream->attr.fragsize;
 			}
 			pw_log_trace("avail:%d index:%u", avail, index);
 
-			while ((uint32_t)avail >= stream->attr.minreq) {
-				towrite = SPA_MIN((uint32_t)avail, stream->attr.minreq);
+			while ((uint32_t)avail >= stream->attr.fragsize) {
+				towrite = SPA_MIN((uint32_t)avail, stream->attr.fragsize);
 
 				msg = message_alloc(impl, stream->channel, towrite);
 				if (msg == NULL)

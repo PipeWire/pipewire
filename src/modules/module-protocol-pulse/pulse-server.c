@@ -671,15 +671,18 @@ static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *att
 	/* pulseaudio configures the source to half of the fragsize. It also
 	 * immediately sends chunks to clients. We use the minreq field to
 	 * keep this info and use it to configure half the fragsize latency */
-	attr->minreq = attr->fragsize * 2 / 3;
+	attr->minreq = attr->fragsize / 2;
 	attr->minreq = SPA_ROUND_UP(attr->minreq, frame_size);
-	latency = attr->minreq;
-
-	if (s->adjust_latency)
-		attr->fragsize = latency;
 
 	attr->tlength = attr->prebuf = 0;
 
+	if (s->early_requests) {
+		latency = attr->minreq;
+	} else if (s->adjust_latency) {
+		latency = attr->minreq;
+	} else {
+		latency = attr->minreq;
+	}
 	/* make sure can queue at least to fragsize without overruns */
 	if (attr->maxlength < attr->fragsize * 4)
 		attr->maxlength = attr->fragsize * 4;

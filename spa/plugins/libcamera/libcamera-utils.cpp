@@ -417,7 +417,7 @@ static int spa_libcamera_set_format(struct impl *impl, struct port *port,
 	port->streamConfig = impl->config->at(0);
 
 	if ((res = allocBuffers(impl, port, port->streamConfig.bufferCount)) < 0)
-		return res;
+		goto error;
 
 	port->have_format = true;
 

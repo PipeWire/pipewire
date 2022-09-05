@@ -1546,7 +1546,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	}
 
 	impl->ucm.default_sample_spec.format = PA_SAMPLE_S16NE;
-	impl->ucm.default_sample_spec.rate = 44100;
+	impl->ucm.default_sample_spec.rate = 48000;
 	impl->ucm.default_sample_spec.channels = 2;
 	pa_channel_map_init_extend(&impl->ucm.default_channel_map,
 			impl->ucm.default_sample_spec.channels, PA_CHANNEL_MAP_ALSA);

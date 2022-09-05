@@ -55,6 +55,9 @@ enum wave_type {
 	WAVE_SQUARE,
 };
 
+#define DEFAULT_RATE		48000
+#define DEFAULT_CHANNELS	2
+
 #define DEFAULT_LIVE true
 #define DEFAULT_WAVE WAVE_SINE
 #define DEFAULT_FREQ 440.0
@@ -583,8 +586,10 @@ port_enum_formats(struct impl *this,
 							SPA_AUDIO_FORMAT_S32,
 							SPA_AUDIO_FORMAT_F32,
 							SPA_AUDIO_FORMAT_F64),
-			SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(44100, 1, INT32_MAX),
-			SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(2, 1, INT32_MAX));
+			SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
+							DEFAULT_RATE, 1, INT32_MAX),
+			SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
+							DEFAULT_CHANNELS, 1, INT32_MAX));
 		break;
 	default:
 		return 0;

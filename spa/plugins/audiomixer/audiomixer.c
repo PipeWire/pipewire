@@ -45,6 +45,9 @@
 #define SPA_LOG_TOPIC_DEFAULT log_topic
 static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.audiomixer");
 
+#define DEFAULT_RATE		48000
+#define DEFAULT_CHANNELS	2
+
 #define MAX_BUFFERS     64
 #define MAX_PORTS       128
 #define MAX_CHANNELS    64
@@ -353,8 +356,10 @@ static int port_enum_formats(void *object,
 								SPA_AUDIO_FORMAT_U24_32,
 								SPA_AUDIO_FORMAT_F32,
 								SPA_AUDIO_FORMAT_F64),
-				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(44100, 1, INT32_MAX),
-				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(2, 1, INT32_MAX));
+				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
+								DEFAULT_RATE, 1, INT32_MAX),
+				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
+								DEFAULT_CHANNELS, 1, INT32_MAX));
 		}
 		break;
 	default:

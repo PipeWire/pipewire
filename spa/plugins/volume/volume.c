@@ -39,6 +39,9 @@
 
 #define NAME "volume"
 
+#define DEFAULT_RATE		48000
+#define DEFAULT_CHANNELS	2
+
 #define DEFAULT_VOLUME 1.0
 #define DEFAULT_MUTE false
 
@@ -322,8 +325,10 @@ static int port_enum_formats(void *object,
 							SPA_AUDIO_FORMAT_S16,
 							SPA_AUDIO_FORMAT_S16,
 							SPA_AUDIO_FORMAT_S32),
-			SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(44100, 1, INT32_MAX),
-			SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(2, 1, INT32_MAX));
+			SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
+							DEFAULT_RATE, 1, INT32_MAX),
+			SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
+							DEFAULT_CHANNELS, 1, INT32_MAX));
 		break;
 	default:
 		return 0;

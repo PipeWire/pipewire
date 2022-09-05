@@ -71,7 +71,7 @@ static void reset_props(struct props *props)
 }
 
 #define DEFAULT_CHANNELS	2
-#define DEFAULT_RATE		44100
+#define DEFAULT_RATE		48000
 
 #define MAX_BUFFERS	16
 #define MAX_PORTS	1

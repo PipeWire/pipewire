@@ -32,6 +32,7 @@
 #include <spa/support/log.h>
 #include <spa/utils/result.h>
 #include <spa/utils/list.h>
+#include <spa/utils/json.h>
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
 #include <spa/node/node.h>
@@ -2769,6 +2770,34 @@ impl_get_size(const struct spa_handle_factory *factory,
 	return sizeof(struct impl);
 }
 
+static uint32_t channel_from_name(const char *name)
+{
+	int i;
+	for (i = 0; spa_type_audio_channel[i].name; i++) {
+		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_channel[i].name)))
+			return spa_type_audio_channel[i].type;
+	}
+	return SPA_AUDIO_CHANNEL_UNKNOWN;
+}
+
+static inline uint32_t parse_position(uint32_t *pos, const char *val, size_t len)
+{
+	struct spa_json it[2];
+	char v[256];
+	uint32_t i = 0;
+
+	spa_json_init(&it[0], val, len);
+	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+		spa_json_init(&it[1], val, len);
+
+	while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+			i < SPA_AUDIO_MAX_CHANNELS) {
+		pos[i++] = channel_from_name(v);
+	}
+	return i;
+}
+
+
 static int
 impl_init(const struct spa_handle_factory *factory,
 	  struct spa_handle *handle,
@@ -2819,9 +2848,15 @@ impl_init(const struct spa_handle_factory *factory,
 			else
 				this->direction = SPA_DIRECTION_INPUT;
 		}
+		else if (spa_streq(k, SPA_KEY_AUDIO_POSITION))
+                        this->props.n_channels = parse_position(this->props.channel_map, s, strlen(s));
 		else
 			audioconvert_set_param(this, k, s);
 	}
+
+	this->props.channel.n_volumes = this->props.n_channels;
+	this->props.soft.n_volumes = this->props.n_channels;
+	this->props.monitor.n_volumes = this->props.n_channels;
 
 	this->dir[SPA_DIRECTION_INPUT].latency = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
 	this->dir[SPA_DIRECTION_OUTPUT].latency = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);

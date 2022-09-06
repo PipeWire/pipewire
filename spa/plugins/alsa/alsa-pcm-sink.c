@@ -56,9 +56,9 @@ static void emit_node_info(struct state *this, bool full)
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
-		struct spa_dict_item items[4];
+		struct spa_dict_item items[7];
 		uint32_t i, n_items = 0;
-		char latency[64];
+		char latency[64], period[64], nperiods[64], headroom[64];
 
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "alsa");
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Audio/Sink");
@@ -66,6 +66,12 @@ static void emit_node_info(struct state *this, bool full)
 		if (this->have_format) {
 			snprintf(latency, sizeof(latency), "%lu/%d", this->buffer_frames / 2, this->rate);
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_MAX_LATENCY, latency);
+			snprintf(period, sizeof(period), "%lu", this->period_frames);
+			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-size", period);
+			snprintf(nperiods, sizeof(nperiods), "%lu", this->buffer_frames / this->period_frames);
+			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-num", nperiods);
+			snprintf(headroom, sizeof(headroom), "%u", this->headroom);
+			items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.headroom", headroom);
 		}
 		this->info.props = &SPA_DICT_INIT(items, n_items);
 

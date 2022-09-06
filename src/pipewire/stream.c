@@ -1940,7 +1940,8 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(props, "channelmix.normalize", "true");
 	}
 
-	if (impl->media_type == SPA_MEDIA_TYPE_audio) {
+	if (impl->media_type == SPA_MEDIA_TYPE_audio ||
+	    impl->media_type == SPA_MEDIA_TYPE_video) {
 		factory = pw_context_find_factory(impl->context, "adapter");
 		if (factory == NULL) {
 			pw_log_error("%p: no adapter factory found", stream);

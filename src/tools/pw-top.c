@@ -32,10 +32,14 @@
 #include <spa/utils/string.h>
 #include <spa/pod/parser.h>
 #include <spa/debug/pod.h>
+#include <spa/param/format-utils.h>
+#include <spa/param/audio/format-utils.h>
+#include <spa/param/video/format-utils.h>
 
 #include <pipewire/impl.h>
 #include <pipewire/extensions/profiler.h>
 
+#define MAX_FORMAT		16
 #define MAX_NAME		128
 
 struct driver {
@@ -59,13 +63,17 @@ struct measurement {
 struct node {
 	struct spa_list link;
 	uint32_t id;
-	char name[MAX_NAME];
+	char name[MAX_NAME+1];
 	struct measurement measurement;
 	struct driver info;
 	struct node *driver;
 	uint32_t errors;
 	int32_t last_error_status;
 	uint32_t generation;
+	char format[MAX_FORMAT+1];
+	struct pw_proxy *proxy;
+	struct spa_hook proxy_listener;
+	struct spa_hook object_listener;
 };
 
 struct data {
@@ -131,6 +139,91 @@ static struct node *find_node(struct data *d, uint32_t id)
 	return NULL;
 }
 
+static void on_node_removed(void *data)
+{
+	struct node *n = data;
+	pw_proxy_destroy(n->proxy);
+}
+
+static void on_node_destroy(void *data)
+{
+	struct node *n = data;
+	n->proxy = NULL;
+	spa_hook_remove(&n->proxy_listener);
+	spa_hook_remove(&n->object_listener);
+}
+
+static const struct pw_proxy_events proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.removed = on_node_removed,
+	.destroy = on_node_destroy,
+};
+
+static void node_param(void *data, int seq,
+			uint32_t id, uint32_t index, uint32_t next,
+			const struct spa_pod *param)
+{
+	struct node *n = data;
+
+	switch (id) {
+	case SPA_PARAM_Format:
+	{
+		uint32_t media_type, media_subtype;
+
+		spa_format_parse(param, &media_type, &media_subtype);
+
+		switch(media_type) {
+		case SPA_MEDIA_TYPE_audio:
+			switch(media_subtype) {
+			case SPA_MEDIA_SUBTYPE_raw:
+			{
+				struct spa_audio_info_raw info;
+				if (spa_format_audio_raw_parse(param, &info) >= 0) {
+					snprintf(n->format, sizeof(n->format), "%6.6s/%d %-6d",
+						spa_debug_type_find_short_name(spa_type_audio_format, info.format),
+						info.channels, info.rate);
+				}
+				break;
+			}
+			case SPA_MEDIA_SUBTYPE_dsd:
+			{
+				struct spa_audio_info_dsd info;
+				if (spa_format_audio_dsd_parse(param, &info) >= 0) {
+					snprintf(n->format, sizeof(n->format), "DSD%d/%2d ",
+						8 * info.rate / 44100, info.channels);
+
+				}
+				break;
+			}
+			}
+			break;
+		case SPA_MEDIA_TYPE_video:
+			switch(media_subtype) {
+			case SPA_MEDIA_SUBTYPE_raw:
+			{
+				struct spa_video_info_raw info;
+				if (spa_format_video_raw_parse(param, &info) >= 0) {
+					snprintf(n->format, sizeof(n->format), "%6.6s %dx%d",
+						spa_debug_type_find_short_name(spa_type_video_format, info.format),
+						info.size.width, info.size.height);
+				}
+				break;
+			}
+			}
+			break;
+		}
+		break;
+	}
+	default:
+		break;
+	}
+}
+
+static const struct pw_node_events node_events = {
+	PW_VERSION_NODE,
+	.param = node_param,
+};
+
 static struct node *add_node(struct data *d, uint32_t id, const char *name)
 {
 	struct node *n;
@@ -139,11 +232,23 @@ static struct node *add_node(struct data *d, uint32_t id, const char *name)
 		return NULL;
 
 	if (name)
-		strncpy(n->name, name, MAX_NAME-1);
+		strncpy(n->name, name, MAX_NAME);
 	else
 		snprintf(n->name, sizeof(n->name), "%u", id);
 	n->id = id;
 	n->driver = n;
+	n->proxy = pw_registry_bind(d->registry, id, PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
+	if (n->proxy) {
+		uint32_t ids[1] = { SPA_PARAM_Format };
+
+		pw_proxy_add_listener(n->proxy,
+				&n->proxy_listener, &proxy_events, n);
+		pw_proxy_add_object_listener(n->proxy,
+				&n->object_listener, &node_events, n);
+
+		pw_node_subscribe_params((struct pw_node*)n->proxy,
+						ids, 1);
+	}
 	spa_list_append(&d->node_list, &n->link);
 	d->n_nodes++;
 
@@ -152,6 +257,8 @@ static struct node *add_node(struct data *d, uint32_t id, const char *name)
 
 static void remove_node(struct data *d, struct node *n)
 {
+	if (n->proxy)
+		pw_proxy_destroy(n->proxy);
 	spa_list_remove(&n->link);
 	d->n_nodes--;
 	free(n);
@@ -290,7 +397,7 @@ static void print_node(struct data *d, struct driver *i, struct node *n, int y)
 	else
 		busy = -1;
 
-	mvwprintw(d->win, y, 0, "%s %4.1u %6.1u %6.1u %s %s %s %s  %3.1u  %s%s",
+	mvwprintw(d->win, y, 0, "%s %4.1u %6.1u %6.1u %s %s %s %s  %3.1u %16.16s %s%s",
 			n->measurement.status != 3 ? "!" : " ",
 			n->id,
 			frac.num, frac.denom,
@@ -299,6 +406,7 @@ static void print_node(struct data *d, struct driver *i, struct node *n, int y)
 			print_perc(buf3, 64, waiting, quantum),
 			print_perc(buf4, 64, busy, quantum),
 			i->xrun_count + n->errors,
+			n->measurement.status != 3 ? "" : n->format,
 			n->driver == n ? "" : " + ",
 			n->name);
 }
@@ -310,7 +418,7 @@ static void do_refresh(struct data *d)
 
 	wclear(d->win);
 	wattron(d->win, A_REVERSE);
-	wprintw(d->win, "%-*.*s", COLS, COLS, "S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR  NAME ");
+	wprintw(d->win, "%-*.*s", COLS, COLS, "S   ID  QUANT   RATE    WAIT    BUSY   W/Q   B/Q  ERR FORMAT           NAME ");
 	wattroff(d->win, A_REVERSE);
 	wprintw(d->win, "\n");
 
@@ -327,6 +435,7 @@ static void do_refresh(struct data *d)
 				f->driver = f;
 				spa_zero(f->measurement);
 				spa_zero(f->info);
+				spa_zero(f->format);
 				f->errors = 0;
 				f->last_error_status = 0;
 			}

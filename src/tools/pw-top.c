@@ -211,6 +211,13 @@ static void node_param(void *data, int seq,
 			}
 			}
 			break;
+		case SPA_MEDIA_TYPE_application:
+			switch(media_subtype) {
+			case SPA_MEDIA_SUBTYPE_control:
+				snprintf(n->format, sizeof(n->format), "%s", "CONTROL");
+				break;
+			}
+			break;
 		}
 		break;
 	}

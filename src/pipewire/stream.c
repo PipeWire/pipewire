@@ -125,12 +125,12 @@ struct stream {
 	uint32_t port_change_mask_all;
 	struct spa_port_info port_info;
 	struct pw_properties *port_props;
-#define IDX_EnumFormat	0
-#define IDX_Meta	1
-#define IDX_IO		2
-#define IDX_Format	3
-#define IDX_Buffers	4
-#define IDX_Latency	5
+#define PORT_EnumFormat	0
+#define PORT_Meta	1
+#define PORT_IO		2
+#define PORT_Format	3
+#define PORT_Buffers	4
+#define PORT_Latency	5
 #define N_PORT_PARAMS	6
 	struct spa_param_info port_params[N_PORT_PARAMS];
 
@@ -138,9 +138,11 @@ struct stream {
 
 	uint32_t change_mask_all;
 	struct spa_node_info info;
-#define IDX_PropInfo	0
-#define IDX_Props	1
-#define N_NODE_PARAMS	2
+#define NODE_PropInfo	0
+#define NODE_Props	1
+#define NODE_EnumFormat	2
+#define NODE_Format	3
+#define N_NODE_PARAMS	4
 	struct spa_param_info params[N_NODE_PARAMS];
 
 	uint32_t media_type;
@@ -179,9 +181,13 @@ static int get_param_index(uint32_t id)
 {
 	switch (id) {
 	case SPA_PARAM_PropInfo:
-		return IDX_PropInfo;
+		return NODE_PropInfo;
 	case SPA_PARAM_Props:
-		return IDX_Props;
+		return NODE_Props;
+	case SPA_PARAM_EnumFormat:
+		return NODE_EnumFormat;
+	case SPA_PARAM_Format:
+		return NODE_Format;
 	default:
 		return -1;
 	}
@@ -191,17 +197,17 @@ static int get_port_param_index(uint32_t id)
 {
 	switch (id) {
 	case SPA_PARAM_EnumFormat:
-		return IDX_EnumFormat;
+		return PORT_EnumFormat;
 	case SPA_PARAM_Meta:
-		return IDX_Meta;
+		return PORT_Meta;
 	case SPA_PARAM_IO:
-		return IDX_IO;
+		return PORT_IO;
 	case SPA_PARAM_Format:
-		return IDX_Format;
+		return PORT_Format;
 	case SPA_PARAM_Buffers:
-		return IDX_Buffers;
+		return PORT_Buffers;
 	case SPA_PARAM_Latency:
-		return IDX_Latency;
+		return PORT_Latency;
 	default:
 		return -1;
 	}
@@ -267,7 +273,8 @@ static struct param *add_param(struct stream *impl,
 		impl->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 		impl->params[idx].flags |= SPA_PARAM_INFO_READ;
 		impl->params[idx].user++;
-	} else if ((idx = get_port_param_index(id)) != -1) {
+	}
+	if ((idx = get_port_param_index(id)) != -1) {
 		impl->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 		impl->port_params[idx].flags |= SPA_PARAM_INFO_READ;
 		impl->port_params[idx].user++;
@@ -867,6 +874,7 @@ static int impl_port_set_param(void *object,
 	if (stream->state == PW_STREAM_STATE_ERROR)
 		return -EIO;
 
+	emit_node_info(impl, false);
 	emit_port_info(impl, false);
 
 	return 0;
@@ -1835,8 +1843,10 @@ pw_stream_connect(struct pw_stream *stream,
 	if (!impl->process_rt)
 		impl->info.flags |= SPA_NODE_FLAG_ASYNC;
 	impl->info.props = &stream->properties->dict;
-	impl->params[IDX_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, 0);
-	impl->params[IDX_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_WRITE);
+	impl->params[NODE_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, 0);
+	impl->params[NODE_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_WRITE);
+	impl->params[NODE_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
+	impl->params[NODE_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
 	impl->info.params = impl->params;
 	impl->info.n_params = N_NODE_PARAMS;
 	impl->info.change_mask = impl->change_mask_all;
@@ -1851,12 +1861,12 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->port_info.flags = 0;
 	if (SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_ALLOC_BUFFERS))
 		impl->port_info.flags |= SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
-	impl->port_params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
-	impl->port_params[IDX_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);
-	impl->port_params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
-	impl->port_params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-	impl->port_params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
-	impl->port_params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_WRITE);
+	impl->port_params[PORT_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, 0);
+	impl->port_params[PORT_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, 0);
+	impl->port_params[PORT_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
+	impl->port_params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	impl->port_params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	impl->port_params[PORT_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_WRITE);
 	impl->port_info.props = &impl->port_props->dict;
 	impl->port_info.params = impl->port_params;
 	impl->port_info.n_params = N_PORT_PARAMS;
@@ -1940,8 +1950,7 @@ pw_stream_connect(struct pw_stream *stream,
 		pw_properties_set(props, "channelmix.normalize", "true");
 	}
 
-	if (impl->media_type == SPA_MEDIA_TYPE_audio ||
-	    impl->media_type == SPA_MEDIA_TYPE_video) {
+	if (impl->media_type == SPA_MEDIA_TYPE_audio) {
 		factory = pw_context_find_factory(impl->context, "adapter");
 		if (factory == NULL) {
 			pw_log_error("%p: no adapter factory found", stream);

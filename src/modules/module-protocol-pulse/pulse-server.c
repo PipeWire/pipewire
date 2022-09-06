@@ -445,7 +445,15 @@ static uint32_t frac_to_bytes_round_up(struct spa_fraction val, const struct sam
 	return (uint32_t) u;
 }
 
-static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
+static void clamp_latency(struct stream *s, struct spa_fraction *lat)
+{
+	if (lat->num * s->min_quantum.denom / lat->denom < s->min_quantum.num)
+		lat->num = (s->min_quantum.num * lat->denom +
+				(s->min_quantum.denom -1)) / s->min_quantum.denom;
+}
+
+static uint64_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr,
+		uint32_t rate, struct spa_fraction *lat)
 {
 	uint32_t frame_size, max_prebuf, minreq, latency, max_latency;
 	struct defs *defs = &s->impl->defs;
@@ -524,11 +532,15 @@ static uint32_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 
 	attr->fragsize = 0;
 
-	pw_log_info("[%s] maxlength:%u tlength:%u minreq:%u/%u prebuf:%u latency:%u %u",
-			s->client->name, attr->maxlength, attr->tlength,
-			attr->minreq, minreq, attr->prebuf, latency, frame_size);
+	lat->num = latency / frame_size;
+	lat->denom = rate;
+	clamp_latency(s, lat);
 
-	return latency / frame_size;
+	pw_log_info("[%s] maxlength:%u tlength:%u minreq:%u/%u prebuf:%u latency:%u/%u %u",
+			s->client->name, attr->maxlength, attr->tlength,
+			attr->minreq, minreq, attr->prebuf, lat->num, lat->denom, frame_size);
+
+	return lat->num * SPA_USEC_PER_SEC / lat->denom;
 }
 
 static uint64_t set_playback_buffer_attr(struct stream *s, struct buffer_attr *attr)
@@ -542,15 +554,9 @@ static uint64_t set_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 	char attr_prebuf[32];
 	char attr_minreq[32];
 
-	lat.denom = s->ss.rate;
-	lat.num = fix_playback_buffer_attr(s, attr);
+	lat_usec = fix_playback_buffer_attr(s, attr, s->ss.rate, &lat);
 
 	s->attr = *attr;
-
-	if (lat.num * s->min_quantum.denom / lat.denom < s->min_quantum.num)
-		lat.num = (s->min_quantum.num * lat.denom +
-				(s->min_quantum.denom -1)) / s->min_quantum.denom;
-	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
 
 	snprintf(latency, sizeof(latency), "%u/%u", lat.num, lat.denom);
 	snprintf(rate, sizeof(rate), "1/%u", lat.denom);
@@ -646,7 +652,8 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 	return client_queue_message(client, reply);
 }
 
-static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
+static uint64_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr,
+		uint32_t rate, struct spa_fraction *lat)
 {
 	uint32_t frame_size, minfrag, latency;
 
@@ -655,8 +662,9 @@ static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *att
 	if (frame_size == 0)
 		frame_size = 4;
 
-	pw_log_info("[%s] maxlength:%u fragsize:%u",
-			s->client->name, attr->maxlength, attr->fragsize);
+	pw_log_info("[%s] maxlength:%u fragsize:%u framesize:%u",
+			s->client->name, attr->maxlength, attr->fragsize,
+			frame_size);
 
 	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
 		attr->maxlength = MAXLENGTH;
@@ -673,18 +681,21 @@ static uint32_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *att
 
 	attr->tlength = attr->minreq = attr->prebuf = 0;
 
-	/* pulseaudio configures half the fragsize as latency in the source. */
-	latency = attr->fragsize / 2;
-
 	/* make sure can queue at least to fragsize without overruns */
 	if (attr->maxlength < attr->fragsize * 4)
 		attr->maxlength = attr->fragsize * 4;
 
-	pw_log_info("[%s] maxlength:%u fragsize:%u minfrag:%u latency:%u",
-			s->client->name, attr->maxlength, attr->fragsize, minfrag,
-			latency);
+	latency = attr->fragsize / frame_size;
 
-	return latency / frame_size;
+	lat->num = latency;
+	lat->denom = rate;
+	clamp_latency(s, lat);
+
+	pw_log_info("[%s] maxlength:%u fragsize:%u minfrag:%u latency:%u/%u",
+			s->client->name, attr->maxlength, attr->fragsize, minfrag,
+			lat->num, lat->denom);
+
+	return lat->num * SPA_USEC_PER_SEC / lat->denom;
 }
 
 static uint64_t set_record_buffer_attr(struct stream *s, struct buffer_attr *attr)
@@ -696,13 +707,9 @@ static uint64_t set_record_buffer_attr(struct stream *s, struct buffer_attr *att
 	struct spa_fraction lat;
 	uint64_t lat_usec;
 
-	lat.denom = s->ss.rate;
-	lat.num = fix_record_buffer_attr(s, &s->attr);
+	lat_usec = fix_record_buffer_attr(s, attr, s->ss.rate, &lat);
 
-	if (lat.num * s->min_quantum.denom / lat.denom < s->min_quantum.num)
-		lat.num = (s->min_quantum.num * lat.denom +
-				(s->min_quantum.denom -1)) / s->min_quantum.denom;
-	lat_usec = lat.num * SPA_USEC_PER_SEC / lat.denom;
+	s->attr = *attr;
 
 	snprintf(latency, sizeof(latency), "%u/%u", lat.num, lat.denom);
 	snprintf(rate, sizeof(rate), "1/%u", lat.denom);
@@ -1731,9 +1738,11 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	stream->underrun_for = -1;
 
 	if (rate != 0) {
+		struct spa_fraction lat;
+		fix_playback_buffer_attr(stream, &attr, rate, &lat);
 		pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", rate);
 		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u",
-				fix_playback_buffer_attr(stream, &attr), rate);
+				lat.num, lat.denom);
 	}
 	if (no_remix)
 		pw_properties_set(props, PW_KEY_STREAM_DONT_REMIX, "true");
@@ -1992,9 +2001,11 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		no_move = false;
 
 	if (rate != 0) {
+		struct spa_fraction lat;
+		fix_record_buffer_attr(stream, &attr, rate, &lat);
 		pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", rate);
 		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%u/%u",
-				fix_record_buffer_attr(stream, &attr), rate);
+				lat.num, lat.denom);
 	}
 	if (peak_detect)
 		pw_properties_set(props, PW_KEY_STREAM_MONITOR, "true");

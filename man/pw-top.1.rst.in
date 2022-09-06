@@ -61,7 +61,7 @@ RATE
   The current rate (for drivers) and the suggested rate for follower
   nodes.
 
-  This is the rate at which the graph processes data and needs to be combined with
+  This is the rate at which the *graph* processes data and needs to be combined with
   the QUANT value to derive the duration of a processing cycle in the graph.
 
   Some nodes can have a 0 RATE, which means that they don't have any rate
@@ -72,7 +72,8 @@ RATE
   The RATE on (audio) driver nodes usually also translates directly to the
   samplerate used by the device. Although some devices might not be able to
   operate at the given samplerate, in which case resampling will need to be
-  done.
+  done. The negotiated samplerate with the device and stream can be found in
+  the FORMAT column.
 
 WAIT
   The waiting time of a node is the elapsed time between when the node
@@ -124,6 +125,13 @@ ERR
 
   Xruns for followers are incremented when the node started processing but
   did not complete before the end of the graph cycle deadline.
+
+FORMAT
+  The format used by the driver node or the stream. This is the hardware format
+  negotiated with the device or stream.
+
+  If the stream of driver has a different rate than the graph, resampling will
+  be done.
 
 NAME
   Name assigned to the device/node, as found in *pw-dump* node.name

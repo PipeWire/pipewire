@@ -133,6 +133,12 @@ FORMAT
   If the stream of driver has a different rate than the graph, resampling will
   be done.
 
+  For raw audio formats, the layout is <sampleformat> <channels> <samplerate>.
+
+  For DSD formats, the layout is <dsd-rate> <channels>.
+
+  For Video formats, the layout is <pixelformat> <width>x<height>.
+
 NAME
   Name assigned to the device/node, as found in *pw-dump* node.name
 

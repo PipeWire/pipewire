@@ -179,7 +179,7 @@ static void node_param(void *data, int seq,
 			{
 				struct spa_audio_info_raw info;
 				if (spa_format_audio_raw_parse(param, &info) >= 0) {
-					snprintf(n->format, sizeof(n->format), "%6.6s/%d %-6d",
+					snprintf(n->format, sizeof(n->format), "%6.6s %d %d",
 						spa_debug_type_find_short_name(spa_type_audio_format, info.format),
 						info.channels, info.rate);
 				}
@@ -189,7 +189,7 @@ static void node_param(void *data, int seq,
 			{
 				struct spa_audio_info_dsd info;
 				if (spa_format_audio_dsd_parse(param, &info) >= 0) {
-					snprintf(n->format, sizeof(n->format), "DSD%d/%2d ",
+					snprintf(n->format, sizeof(n->format), "DSD%d %d ",
 						8 * info.rate / 44100, info.channels);
 
 				}

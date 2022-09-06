@@ -26,9 +26,14 @@ capturing raw or encoded media files on a PipeWire
 server. It understands all audio file formats supported by
 ``libsndfile`` for PCM capture and playback.
 
-It understands standard MIDI files for playback and recording,
+It understands standard MIDI files for playback and recording. This tool
+will not render MIDI files, it will simply make the MIDI events available
+to the graph. You need a MIDI renderer such as qsynth, timidity or a hardware
+MIDI rendered to hear the MIDI.
 
-DSD playback is supported with the DSF file format.
+DSD playback is supported with the DSF file format. This tool will only work
+with native DSD capable hardware and will produce an error when no such
+hardware was found.
 
 When the *FILE* is - input and output will be from STDIN and
 STDOUT respectively.
@@ -60,10 +65,15 @@ OPTIONS
 -m | --midi
   MIDI mode. *FILE* is a MIDI file. If the tool is called under the name
   **pw-midiplay** or **pw-midirecord** this is the default.
+  Note that this program will *not* render the MIDI events into audible samples,
+  it will simply provide the MIDI events in the graph. You need a separate
+  MIDI renderer such as qsynth, timidity or a hardware renderer to hear the MIDI.
 
 -d | --dsd
   DSD mode. *FILE* is a DSF file. If the tool is called under the name
   **pw-dsdplay** this is the default.
+  Note that this program will *not* render the DSD audio. You need a DSD capable
+  device to play DSD content or this program will exit with an error.
 
 --media-type=VALUE
   Set the media type property (default Audio/Midi depending on mode).

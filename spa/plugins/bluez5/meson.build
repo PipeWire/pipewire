@@ -10,6 +10,7 @@ cdata.set('HAVE_BLUEZ_5_BACKEND_NATIVE',
           get_option('bluez5-backend-hfp-native').allowed())
 cdata.set('HAVE_BLUEZ_5_BACKEND_HSP_NATIVE', get_option('bluez5-backend-hsp-native').allowed())
 cdata.set('HAVE_BLUEZ_5_BACKEND_HFP_NATIVE', get_option('bluez5-backend-hfp-native').allowed())
+cdata.set('HAVE_BLUEZ_5_BACKEND_NATIVE_MM', get_option('bluez5-backend-native-mm').allowed())
 cdata.set('HAVE_BLUEZ_5_BACKEND_OFONO', get_option('bluez5-backend-ofono').allowed())
 cdata.set('HAVE_BLUEZ_5_BACKEND_HSPHFPD', get_option('bluez5-backend-hsphfpd').allowed())
 cdata.set('HAVE_BLUEZ_5_HCI', dependency('bluez', version: '< 6', required: false).found())
@@ -37,6 +38,9 @@ install_data(bluez5_data, install_dir : spa_datadir / 'bluez5')
 if get_option('bluez5-backend-hsp-native').allowed() or get_option('bluez5-backend-hfp-native').allowed()
   if libusb_dep.found()
     bluez5_deps += libusb_dep
+  endif
+  if mm_dep.found()
+    bluez5_deps += mm_dep
   endif
   bluez5_sources += ['backend-native.c']
 endif

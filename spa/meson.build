@@ -66,6 +66,10 @@ if get_option('spa-plugins').allowed()
     summary({'Opus': opus_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
     lc3_dep = dependency('lc3', required : get_option('bluez5-codec-lc3'))
     summary({'LC3': lc3_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
+    if get_option('bluez5-backend-hsp-native').allowed() or get_option('bluez5-backend-hfp-native').allowed()
+      mm_dep = dependency('ModemManager', version : '>= 1.10.0', required : get_option('bluez5-backend-native-mm'))
+      summary({'ModemManager': mm_dep.found()}, bool_yn: true, section: 'Bluetooth backends')
+    endif
   endif
   avcodec_dep = dependency('libavcodec', required: get_option('ffmpeg'))
   jack_dep = dependency('jack', version : '>= 1.9.10', required: get_option('jack'))

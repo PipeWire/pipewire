@@ -92,6 +92,10 @@ option('bluez5-backend-hfp-native',
        description: 'Enable HFP in native backend in bluez5 spa plugin',
        type: 'feature',
        value: 'enabled')
+option('bluez5-backend-native-mm',
+       description: 'Enable ModemManager in native backend in bluez5 spa plugin',
+       type: 'feature',
+       value: 'disabled')
 option('bluez5-backend-ofono',
        description: 'Enable oFono HFP backend in bluez5 spa plugin (no dependency on oFono)',
        type: 'feature',

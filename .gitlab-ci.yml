@@ -25,7 +25,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2022-03-05.0'
+    FDO_DISTRIBUTION_TAG: '2022-09-07.0'
     FDO_DISTRIBUTION_VERSION: '35'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
@@ -52,6 +52,7 @@ include:
       libv4l-devel
       libva-devel
       libX11-devel
+      ModemManager-devel
       openssl-devel
       pulseaudio-libs-devel
       python3-docutils
@@ -105,7 +106,7 @@ include:
 .alpine:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2022-01-28.2'
+    FDO_DISTRIBUTION_TAG: '2022-09-07.0'
     FDO_DISTRIBUTION_VERSION: '3.15'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-dev
@@ -128,6 +129,7 @@ include:
       libusb-dev
       libx11-dev
       meson
+      modemmanager-dev
       ncurses-dev
       pulseaudio-dev
       readline-dev

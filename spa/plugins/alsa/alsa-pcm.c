@@ -828,16 +828,16 @@ static int add_rate(struct state *state, uint32_t scale, bool all, uint32_t inde
 		uint32_t i, v, last = 0, count = 0;
 
 		if (uint32_array_contains(state->allowed_rates, state->n_allowed_rates, rate)) {
-			spa_pod_builder_int(b, rate * scale);
+			spa_pod_builder_int(b, rate * 8);
 			count++;
 		}
 		for (i = 0; i < state->n_allowed_rates; i++) {
 			v = SPA_CLAMP(state->allowed_rates[i], min, max);
 			if (v != last &&
 			    uint32_array_contains(state->allowed_rates, state->n_allowed_rates, v)) {
-				spa_pod_builder_int(b, v * scale);
+				spa_pod_builder_int(b, v * 8);
 				if (count == 0)
-					spa_pod_builder_int(b, v * scale);
+					spa_pod_builder_int(b, v * 8);
 				count++;
 			}
 			last = v;
@@ -845,11 +845,11 @@ static int add_rate(struct state *state, uint32_t scale, bool all, uint32_t inde
 		if (count > 1)
 			choice->body.type = SPA_CHOICE_Enum;
 	} else {
-		spa_pod_builder_int(b, rate * scale);
+		spa_pod_builder_int(b, rate * 8);
 
 		if (min != max) {
-			spa_pod_builder_int(b, min * scale);
-			spa_pod_builder_int(b, max * scale);
+			spa_pod_builder_int(b, min * 8);
+			spa_pod_builder_int(b, max * 8);
 			choice->body.type = SPA_CHOICE_Range;
 		}
 	}

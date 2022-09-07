@@ -26,7 +26,7 @@
 
 #include <xmmintrin.h>
 
-static void inner_product_sse(float *d, const float * SPA_RESTRICT s,
+static inline void inner_product_sse(float *d, const float * SPA_RESTRICT s,
 		const float * SPA_RESTRICT taps, uint32_t n_taps)
 {
 	__m128 sum = _mm_setzero_ps();
@@ -68,7 +68,7 @@ static void inner_product_sse(float *d, const float * SPA_RESTRICT s,
 	_mm_store_ss(d, sum);
 }
 
-static void inner_product_ip_sse(float *d, const float * SPA_RESTRICT s,
+static inline void inner_product_ip_sse(float *d, const float * SPA_RESTRICT s,
 	const float * SPA_RESTRICT t0, const float * SPA_RESTRICT t1, float x,
 	uint32_t n_taps)
 {

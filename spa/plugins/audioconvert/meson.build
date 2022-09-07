@@ -27,7 +27,7 @@ if have_sse
       'resample-peaks-sse.c',
       'volume-ops-sse.c',
       'channelmix-ops-sse.c' ],
-    c_args : [sse_args, '-O3', '-DHAVE_SSE'],
+    c_args : [sse_args, '-Ofast', '-DHAVE_SSE'],
     dependencies : [ spa_dep ],
     install : false
     )

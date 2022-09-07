@@ -27,7 +27,7 @@
 #include <assert.h>
 #include <immintrin.h>
 
-static void inner_product_avx(float *d, const float * SPA_RESTRICT s,
+static inline void inner_product_avx(float *d, const float * SPA_RESTRICT s,
 		const float * SPA_RESTRICT taps, uint32_t n_taps)
 {
 	__m256 sy[2] = { _mm256_setzero_ps(), _mm256_setzero_ps() }, ty;
@@ -56,7 +56,7 @@ static void inner_product_avx(float *d, const float * SPA_RESTRICT s,
 	_mm_store_ss(d, sx[0]);
 }
 
-static void inner_product_ip_avx(float *d, const float * SPA_RESTRICT s,
+static inline void inner_product_ip_avx(float *d, const float * SPA_RESTRICT s,
 	const float * SPA_RESTRICT t0, const float * SPA_RESTRICT t1, float x,
 	uint32_t n_taps)
 {

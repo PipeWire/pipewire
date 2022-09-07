@@ -26,7 +26,7 @@
 
 #include <arm_neon.h>
 
-static void inner_product_neon(float *d, const float * SPA_RESTRICT s,
+static inline void inner_product_neon(float *d, const float * SPA_RESTRICT s,
 		const float * SPA_RESTRICT taps, uint32_t n_taps)
 {
 	unsigned int remainder = n_taps % 16;
@@ -137,7 +137,7 @@ static void inner_product_neon(float *d, const float * SPA_RESTRICT s,
 #endif
 }
 
-static void inner_product_ip_neon(float *d, const float * SPA_RESTRICT s,
+static inline void inner_product_ip_neon(float *d, const float * SPA_RESTRICT s,
 	const float * SPA_RESTRICT t0, const float * SPA_RESTRICT t1, float x,
 	uint32_t n_taps)
 {

@@ -144,7 +144,7 @@ int pw_rtsp_client_get_local_ip(struct pw_rtsp_client *client,
 		if (ip)
 			inet_ntop(client->local_addr.sa.sa_family,
 				&client->local_addr.in.sin_addr, ip, len);
-        } else if (client->local_addr.sa.sa_family == AF_INET6) {
+	} else if (client->local_addr.sa.sa_family == AF_INET6) {
 		*version = 6;
 		if (ip)
 			inet_ntop(client->local_addr.sa.sa_family,
@@ -159,7 +159,7 @@ static int handle_connect(struct pw_rtsp_client *client, int fd)
 {
 	int res, ip_version;
 	socklen_t len;
-        char local_ip[INET6_ADDRSTRLEN];
+	char local_ip[INET6_ADDRSTRLEN];
 
 	len = sizeof(res);
 	if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &res, &len) < 0) {
@@ -179,7 +179,7 @@ static int handle_connect(struct pw_rtsp_client *client, int fd)
 
 	if (ip_version == 4)
 		asprintf(&client->url, "rtsp://%s/%s", local_ip, client->session_id);
-        else
+	else
 		asprintf(&client->url, "rtsp://[%s]/%s", local_ip, client->session_id);
 
 	pw_log_info("connected local ip %s", local_ip);
@@ -383,19 +383,19 @@ on_source_io(void *data, int fd, uint32_t mask)
 	if (mask & SPA_IO_IN) {
 		if ((res = process_input(client)) < 0)
 			goto error;
-        }
+	}
 	if (mask & SPA_IO_OUT || client->need_flush) {
 		if (client->connecting) {
 			if ((res = handle_connect(client, fd)) < 0)
 				goto error;
 		}
 		res = flush_output(client);
-                if (res >= 0) {
+		if (res >= 0) {
 			pw_loop_update_io(client->loop, client->source,
 				client->source->mask & ~SPA_IO_OUT);
 		} else if (res != -EAGAIN)
 			goto error;
-        }
+	}
 done:
 	return;
 error:
@@ -533,7 +533,7 @@ int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 	if (client->source && !(client->source->mask & SPA_IO_OUT)) {
 		pw_loop_update_io(client->loop, client->source,
 				client->source->mask | SPA_IO_OUT);
-        }
+	}
 	return 0;
 }
 

@@ -782,7 +782,7 @@ static bool uint32_array_contains(uint32_t *vals, uint32_t n_vals, uint32_t val)
 	return false;
 }
 
-static int add_rate(struct state *state, uint32_t scale, bool all, uint32_t index, uint32_t *next,
+static int add_rate(struct state *state, bool all, uint32_t index, uint32_t *next,
 		uint32_t min_allowed_rate, snd_pcm_hw_params_t *params, struct spa_pod_builder *b)
 {
 	struct spa_pod_frame f[1];
@@ -794,10 +794,9 @@ static int add_rate(struct state *state, uint32_t scale, bool all, uint32_t inde
 	CHECK(snd_pcm_hw_params_get_rate_min(params, &min, &dir), "get_rate_min");
 	CHECK(snd_pcm_hw_params_get_rate_max(params, &max, &dir), "get_rate_max");
 
-	spa_log_debug(state->log, "min:%u max:%u min-allowed:%u scale:%u all:%d",
-			min, max, min_allowed_rate, scale, all);
+	spa_log_debug(state->log, "min:%u max:%u min-allowed:%u all:%d",
+			min, max, min_allowed_rate, all);
 
-	min_allowed_rate /= scale;
 	min = SPA_MAX(min_allowed_rate, min);
 	if (max < min)
 		return 0;
@@ -1070,7 +1069,7 @@ static int enum_pcm_formats(struct state *state, uint32_t index, uint32_t *next,
 		choice->body.type = SPA_CHOICE_Enum;
 	spa_pod_builder_pop(b, &f[1]);
 
-	if ((res = add_rate(state, 1, false, index & 0xffff, next, 0, params, b)) != 1)
+	if ((res = add_rate(state, false, index & 0xffff, next, 0, params, b)) != 1)
 		return res;
 
 	if ((res = add_channels(state, false, index & 0xffff, next, params, b)) != 1)
@@ -1165,7 +1164,7 @@ static int enum_iec958_formats(struct state *state, uint32_t index, uint32_t *ne
 	}
 	spa_pod_builder_pop(b, &f[1]);
 
-	if ((res = add_rate(state, 1, true, index & 0xffff, next, 0, params, b)) != 1)
+	if ((res = add_rate(state, true, index & 0xffff, next, 0, params, b)) != 1)
 		return res;
 
 	(*next)++;
@@ -1229,7 +1228,7 @@ static int enum_dsd_formats(struct state *state, uint32_t index, uint32_t *next,
 	 * 176400. This would correspond to "DSD32" (which does not exist). Trying
 	 * to use such a rate with DSD hardware does not work and may cause undefined
 	 * behavior in said hardware. */
-	if ((res = add_rate(state, SPA_ABS(interleave), true, index & 0xffff, next, 44100 * 64 / 8, params, b)) != 1)
+	if ((res = add_rate(state, true, index & 0xffff, next, 44100, params, b)) != 1)
 		return res;
 
 	if ((res = add_channels(state, true, index & 0xffff, next, params, b)) != 1)

@@ -799,6 +799,8 @@ static int add_rate(struct state *state, uint32_t scale, bool all, uint32_t inde
 
 	min_allowed_rate /= scale;
 	min = SPA_MAX(min_allowed_rate, min);
+	if (max < min)
+		return 0;
 
 	if (!state->multi_rate && state->card->format_ref > 0)
 		rate = state->card->rate;

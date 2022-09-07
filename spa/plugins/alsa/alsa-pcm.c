@@ -782,7 +782,7 @@ static bool uint32_array_contains(uint32_t *vals, uint32_t n_vals, uint32_t val)
 	return false;
 }
 
-static int add_rate(struct state *state, bool all, uint32_t index, uint32_t *next,
+static int add_rate(struct state *state, uint32_t scale, uint32_t rate, bool all, uint32_t index, uint32_t *next,
 		uint32_t min_allowed_rate, snd_pcm_hw_params_t *params, struct spa_pod_builder *b)
 {
 	struct spa_pod_frame f[1];
@@ -829,16 +829,16 @@ static int add_rate(struct state *state, bool all, uint32_t index, uint32_t *nex
 		uint32_t i, v, last = 0, count = 0;
 
 		if (uint32_array_contains(state->allowed_rates, state->n_allowed_rates, rate)) {
-			spa_pod_builder_int(b, rate * 8);
+			spa_pod_builder_int(b, rate * scale);
 			count++;
 		}
 		for (i = 0; i < state->n_allowed_rates; i++) {
 			v = SPA_CLAMP(state->allowed_rates[i], min, max);
 			if (v != last &&
 			    uint32_array_contains(state->allowed_rates, state->n_allowed_rates, v)) {
-				spa_pod_builder_int(b, v * 8);
+				spa_pod_builder_int(b, v * scale);
 				if (count == 0)
-					spa_pod_builder_int(b, v * 8);
+					spa_pod_builder_int(b, v * scale);
 				count++;
 			}
 			last = v;
@@ -846,11 +846,11 @@ static int add_rate(struct state *state, bool all, uint32_t index, uint32_t *nex
 		if (count > 1)
 			choice->body.type = SPA_CHOICE_Enum;
 	} else {
-		spa_pod_builder_int(b, rate * 8);
+		spa_pod_builder_int(b, rate * scale);
 
 		if (min != max) {
-			spa_pod_builder_int(b, min * 8);
-			spa_pod_builder_int(b, max * 8);
+			spa_pod_builder_int(b, min * scale);
+			spa_pod_builder_int(b, max * scale);
 			choice->body.type = SPA_CHOICE_Range;
 		}
 	}
@@ -1069,7 +1069,7 @@ static int enum_pcm_formats(struct state *state, uint32_t index, uint32_t *next,
 		choice->body.type = SPA_CHOICE_Enum;
 	spa_pod_builder_pop(b, &f[1]);
 
-	if ((res = add_rate(state, false, index & 0xffff, next, 0, params, b)) != 1)
+	if ((res = add_rate(state, 1, false, index & 0xffff, next, 0, params, b)) != 1)
 		return res;
 
 	if ((res = add_channels(state, false, index & 0xffff, next, params, b)) != 1)
@@ -1164,7 +1164,7 @@ static int enum_iec958_formats(struct state *state, uint32_t index, uint32_t *ne
 	}
 	spa_pod_builder_pop(b, &f[1]);
 
-	if ((res = add_rate(state, true, index & 0xffff, next, 0, params, b)) != 1)
+	if ((res = add_rate(state, 1, true, index & 0xffff, next, 0, params, b)) != 1)
 		return res;
 
 	(*next)++;
@@ -1228,7 +1228,7 @@ static int enum_dsd_formats(struct state *state, uint32_t index, uint32_t *next,
 	 * 176400. This would correspond to "DSD32" (which does not exist). Trying
 	 * to use such a rate with DSD hardware does not work and may cause undefined
 	 * behavior in said hardware. */
-	if ((res = add_rate(state, true, index & 0xffff, next, 44100, params, b)) != 1)
+	if ((res = add_rate(state, 8, true, index & 0xffff, next, 44100, params, b)) != 1)
 		return res;
 
 	if ((res = add_channels(state, true, index & 0xffff, next, params, b)) != 1)

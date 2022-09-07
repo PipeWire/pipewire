@@ -74,7 +74,6 @@ struct pw_rtsp_client {
 	size_t line_pos;
 	struct pw_properties *headers;
 
-	char *session;
 	uint32_t cseq;
 
 	struct spa_list messages;

@@ -2727,11 +2727,17 @@ static int do_flush_trigger_prebuf_stream(struct client *client, uint32_t comman
 		break;
 	case COMMAND_TRIGGER_PLAYBACK_STREAM:
 	case COMMAND_PREBUF_PLAYBACK_STREAM:
+		if (stream->type != STREAM_TYPE_PLAYBACK)
+			return -ENOENT;
+		if (command == COMMAND_TRIGGER_PLAYBACK_STREAM)
+			stream->in_prebuf = false;
+		else if (stream->attr.prebuf > 0)
+			stream->in_prebuf = true;
+		stream_send_request(stream);
 		break;
 	default:
 		return -EINVAL;
 	}
-
 	return reply_simple_ack(client, tag);
 }
 

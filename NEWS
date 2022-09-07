@@ -1,3 +1,72 @@
+# PipeWire 0.3.58 (2022-09-15)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Fix a regression that could cause audio crackling.
+  - Fix a regression in RTKit because rlimit was not set correctly.
+  - JAVA sound applications will now alsa work with the pulseaudio-alsa plugin.
+  - pw-top will now show the negotiated formats of devices and streams.
+  - Fix some potential crashes when starting streams.
+  - The ALSA plugin has had improved timing reporting and poll descriptor
+    handling that should improve compatibility.
+  - Many more improvements and bugfixes.
+
+
+## PipeWire
+  - Avoid scheduling nodes before they are added to the graph. This could
+    avoid some crashes when scheduling nodes that were not completely
+    started yet. (#2677)
+
+## Tools
+  - pw-top now also shows the negotiated formats of streams and devices.
+    (#2566)
+  - pw-top prints microseconds as "us" now to avoid unicode problems.
+
+## Modules
+  - Fix compilation with newer lv2.
+  - Fix setting realtime priority with RTKit, it was not setting rlimit
+    correctly and RTKit would refuse to change the priority.
+  - Fix some playback problems with RAOP sink. (#2673)
+  - Filter chain will now warn when a non-existing control property is
+    used in the config file. (#2685)
+  - Filter chain can now handle control port names with ":" in the name.
+    (#2685)
+  - The echo-cancel module and interface now has activate/deactivate
+    functions to make it possible for plugins to reset their state.
+
+## SPA
+  - Make sure audioconvert uses the given channelmap and channels for the
+    volumes, even when not negotiated yet. This makes it possible to change
+    the volume before the node has been negotiated.
+  - Refactor the peaks resampler. Fix an error in the SSE code.
+  - Fix DSD min/max rates, avoid exposing impossible rates.
+  - Set monitor port buffer size correctly. This could cause some crackling
+    and hickups. (#2677)
+  - Make ALSA sequencer port names unique.
+
+## Pulse-server
+  - Rework the capture buffer attributes to better match pulseaudio. This
+    fixes a regression where opening pavucontrol could cause crackling.
+    (#2671)
+  - Implement TRIGGER and PREBUF methods.
+  - Handle clients that send more than the requested amount of data.
+    PipeWire will now also keep this as extra buffered data like PulseAudio.
+    This fixes JAVA sound applications when they are running on top of the
+    PulseAudio ALSA plugin. (#2626,#2674)
+  - Update the requested amount of bytes more like PulseAudio. Fixes
+    stuttering after resume with the GStreamer pulseaudio sink. (#2680)
+
+## ALSA Plugin
+  - More debug info was added. The time reporting was improved.
+  - The poll descriptor handling was improved, avoiding some spurious
+    wakeups. (#1697)
+
+
+Older versions:
+
+
 # PipeWire 0.3.57 (2022-09-02)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -97,9 +166,6 @@ This is a bugfix release that is API and ABI compatible with previous
     the \0 byte.
   - JACK clients from the same application will be added to the same group
     so that they share the quantum and rate.
-
-
-Older versions:
 
 # PipeWire 0.3.56 (2022-07-19)
 

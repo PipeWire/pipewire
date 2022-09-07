@@ -39,7 +39,7 @@ static inline float hmax_ps(__m128 val)
 
 static inline float find_abs_max_sse(const float *s, uint32_t n_samples, float m)
 {
-	__m128 in, max;
+	__m128 in[2], max;
 	uint32_t n, unrolled;
 	const __m128 mask = _mm_andnot_ps(
 				_mm_set_ps1(-0.0f),
@@ -47,12 +47,15 @@ static inline float find_abs_max_sse(const float *s, uint32_t n_samples, float m
 
 	max = _mm_set1_ps(m);
 
-	unrolled = n_samples & ~3;
+	unrolled = n_samples & ~7;
 
-	for (n = 0; n < unrolled; n+=4) {
-		in = _mm_loadu_ps(&s[n]);
-		in = _mm_and_ps(mask, in);
-		max = _mm_max_ps(in, max);
+	for (n = 0; n < unrolled; n += 8) {
+		in[0] = _mm_loadu_ps(&s[n + 0]);
+		in[1] = _mm_loadu_ps(&s[n + 4]);
+		in[0] = _mm_and_ps(mask, in[0]);
+		in[1] = _mm_and_ps(mask, in[1]);
+		max = _mm_max_ps(in[0], max);
+		max = _mm_max_ps(in[1], max);
 	}
 	for (; n < n_samples; n++)
 		m = fmaxf(fabsf(s[n]), m);

@@ -172,6 +172,10 @@ static int handle_memblock(struct client *client, struct message *msg)
 	} else if (filled + msg->length > stream->attr.maxlength) {
 		/* overrun */
 		stream_send_overflow(stream);
+	} else if (filled + msg->length > stream->attr.tlength) {
+		stream->extra_tlength = filled + msg->length - stream->attr.tlength;
+		pw_log_info("client %p [%s]: received %u more than asked for channel %d",
+			    client, client->name, stream->extra_tlength, channel);
 	}
 
 	/* always write data to ringbuffer, we expect the other side

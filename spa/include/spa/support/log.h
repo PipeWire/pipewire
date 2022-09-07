@@ -298,7 +298,7 @@ do {								\
 	char str[512];									\
 	uint8_t *buf = (uint8_t *)data;							\
 	size_t i;									\
-	int pos;									\
+	int pos = 0;									\
 											\
 	for (i = 0; i < len; i++) {							\
 		if (i % 16 == 0)							\

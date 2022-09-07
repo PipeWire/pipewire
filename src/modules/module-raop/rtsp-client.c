@@ -265,6 +265,8 @@ static int process_input(struct pw_rtsp_client *client)
 			goto error;
 
 		client->status = atoi(s);
+		if (client->status == 0)
+			goto error;
 
 		s = pw_split_walk(buf, " ", &len, &state);
 		if (s == NULL)

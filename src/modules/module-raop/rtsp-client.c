@@ -186,6 +186,11 @@ static int handle_connect(struct pw_rtsp_client *client, int fd)
 
 	client->connecting = false;
 	client->wait_status = true;
+
+	pw_properties_clear(client->headers);
+	client->status = 0;
+	client->line_pos = 0;
+
 	pw_rtsp_client_emit_connected(client);
 
 	return 0;

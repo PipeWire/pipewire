@@ -797,7 +797,7 @@ static int add_rate(struct state *state, uint32_t scale, uint32_t interleave, bo
 	spa_log_debug(state->log, "min:%u max:%u min-allowed:%u scale:%u interleave:%u all:%d",
 			min, max, min_allowed_rate, scale, interleave, all);
 
-	min = SPA_MAX(min_allowed_rate * scale / interleave, min);
+	min = SPA_MAX(min_allowed_rate * scale / interleave, min) * interleave / scale;
 	max = max * interleave / scale;
 	if (max < min)
 		return 0;

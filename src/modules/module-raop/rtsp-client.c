@@ -44,7 +44,7 @@ struct message {
 	void *data;
 	size_t len;
 	size_t offset;
-	int cseq;
+	uint32_t cseq;
 	void (*reply) (void *user_data, int status, const struct spa_dict *headers);
 	void *user_data;
 };
@@ -75,7 +75,7 @@ struct pw_rtsp_client {
 	struct pw_properties *headers;
 
 	char *session;
-	int cseq;
+	uint32_t cseq;
 
 	struct spa_list messages;
 	struct spa_list pending;
@@ -226,7 +226,7 @@ static int read_line(struct pw_rtsp_client *client, char **buf)
 	return 0;
 }
 
-static struct message *find_pending(struct pw_rtsp_client *client, int cseq)
+static struct message *find_pending(struct pw_rtsp_client *client, uint32_t cseq)
 {
 	struct message *msg;
 	spa_list_for_each(msg, &client->pending, link) {
@@ -270,7 +270,7 @@ static int process_input(struct pw_rtsp_client *client)
 		pw_properties_clear(client->headers);
 	} else {
 		if (strlen(buf) == 0) {
-			int cseq;
+			uint32_t cseq;
 			struct message *msg;
 			const struct spa_dict_item *it;
 			const char *content_type;
@@ -279,7 +279,7 @@ static int process_input(struct pw_rtsp_client *client)
 			spa_dict_for_each(it, &client->headers->dict)
 				pw_log_info(" %s: %s", it->key, it->value);
 
-			cseq = pw_properties_get_int32(client->headers, "CSeq", 0);
+			cseq = pw_properties_get_uint32(client->headers, "CSeq", 0);
 			content_type = pw_properties_get(client->headers, "Content-Type");
 			if (content_type != NULL && strcmp(content_type, "application/octet-stream") == 0) {
 				pw_log_info("binary response received");
@@ -494,7 +494,7 @@ int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 	size_t len;
 	const struct spa_dict_item *it;
 	struct message *msg;
-	int cseq;
+	uint32_t cseq;
 
 	if ((f = open_memstream((char**)&msg, &len)) == NULL)
 		return -errno;
@@ -504,7 +504,7 @@ int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 	cseq = ++client->cseq;
 
 	fprintf(f, "%s %s RTSP/1.0\r\n", cmd, url);
-	fprintf(f, "CSeq: %d\r\n", cseq);
+	fprintf(f, "CSeq: %" PRIu32 "\r\n", cseq);
 
 	if (headers != NULL) {
 		spa_dict_for_each(it, headers)

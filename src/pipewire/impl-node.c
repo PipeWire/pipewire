@@ -92,8 +92,6 @@ static void add_node(struct pw_impl_node *this, struct pw_impl_node *driver)
 	struct pw_node_activation_state *dstate, *nstate;
 	struct pw_node_target *t;
 
-	this->rt.added = true;
-
 	if (this->exported)
 		return;
 
@@ -129,8 +127,6 @@ static void remove_node(struct pw_impl_node *this)
 {
 	struct pw_node_activation_state *dstate, *nstate;
 	struct pw_node_target *t;
-
-	this->rt.added = false;
 
 	if (this->exported)
 		return;
@@ -171,6 +167,7 @@ do_node_remove(struct spa_loop *loop,
 		spa_loop_remove_source(loop, &this->source);
 		remove_node(this);
 	}
+	this->added = false;
 	return 0;
 }
 
@@ -214,7 +211,19 @@ static int pause_node(struct pw_impl_node *this)
 	return res;
 }
 
-static void node_activate(struct pw_impl_node *this)
+static void node_activate_outputs(struct pw_impl_node *this)
+{
+	struct pw_impl_port *port;
+
+	pw_log_debug("%p: activate", this);
+	spa_list_for_each(port, &this->output_ports, link) {
+		struct pw_impl_link *link;
+		spa_list_for_each(link, &port->links, output_link)
+			pw_impl_link_activate(link);
+	}
+}
+
+static void node_activate_inputs(struct pw_impl_node *this)
 {
 	struct pw_impl_port *port;
 
@@ -224,11 +233,6 @@ static void node_activate(struct pw_impl_node *this)
 		spa_list_for_each(link, &port->links, input_link)
 			pw_impl_link_activate(link);
 	}
-	spa_list_for_each(port, &this->output_ports, link) {
-		struct pw_impl_link *link;
-		spa_list_for_each(link, &port->links, output_link)
-			pw_impl_link_activate(link);
-	}
 }
 
 static int start_node(struct pw_impl_node *this)
@@ -236,7 +240,9 @@ static int start_node(struct pw_impl_node *this)
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = 0;
 
-	node_activate(this);
+	/* First activate the outputs so that when the node starts pushing,
+	 * we can process the outputs */
+	node_activate_outputs(this);
 
 	if (impl->pending_state >= PW_NODE_STATE_RUNNING)
 		return 0;
@@ -340,6 +346,7 @@ do_node_add(struct spa_loop *loop,
 		spa_loop_add_source(loop, &this->source);
 		add_node(this, driver);
 	}
+	this->added = true;
 	return 0;
 }
 
@@ -358,8 +365,11 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 				error = spa_aprintf("Start error: %s", spa_strerror(res));
 			}
 		}
-		if (res >= 0)
+		if (res >= 0) {
 			pw_loop_invoke(node->data_loop, do_node_add, 1, NULL, 0, true, node);
+			/* now activate the inputs */
+			node_activate_inputs(node);
+		}
 		break;
 	default:
 		break;
@@ -1082,12 +1092,10 @@ static inline int process_node(void *data)
 	a->status = PW_NODE_ACTIVATION_AWAKE;
 	a->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
-	if (!this->rt.added) {
-		/* FIXME we should try to avoid this by only activating the input
-		 * links after we add the node to the graph. Otherwise there is
-		 * no problem because the target (driver and peers) are not yet
-		 * waiting for our activation */
-		pw_log_debug("%p: scheduling non-active node", this);
+	if (!this->added) {
+		/* This should not happen here. We activate the input
+		 * links after we add the node to the graph. */
+		pw_log_warn("%p: scheduling non-active node", this);
 		return -EIO;
 	}
 	pw_log_trace_fp("%p: process %"PRIu64, this, a->awake_time);

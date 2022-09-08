@@ -1072,17 +1072,13 @@ static void rtsp_auth_setup_reply(void *data, int status, const struct spa_dict 
 
 static int rtsp_do_auth_setup(struct impl *impl)
 {
-	int res;
-
-	char output[] = 
+	static const char content[] =
 		"\x01"
 		"\x59\x02\xed\xe9\x0d\x4e\xf2\xbd\x4c\xb6\x8a\x63\x30\x03\x82\x07"
 		"\xa9\x4d\xbd\x50\xd8\xaa\x46\x5b\x5d\x8c\x01\x2a\x0c\x7e\x1d\x4e";
 
-	res = pw_rtsp_client_url_send(impl->rtsp, "/auth-setup", "POST", &impl->headers->dict,
-			"application/octet-stream", output, rtsp_auth_setup_reply, impl);
-
-	return res;
+	return pw_rtsp_client_url_send(impl->rtsp, "/auth-setup", "POST", &impl->headers->dict,
+			"application/octet-stream", content, rtsp_auth_setup_reply, impl);
 }
 
 static const char *find_attr(char **tokens, const char *key)

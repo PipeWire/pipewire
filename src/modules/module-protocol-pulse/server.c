@@ -166,6 +166,7 @@ static int handle_memblock(struct client *client, struct message *msg)
 	index += diff;
 	filled += diff;
 	stream->write_index += diff;
+	stream->requested -= diff;
 
 	if (filled < 0) {
 		/* underrun, reported on reader side */
@@ -182,9 +183,10 @@ static int handle_memblock(struct client *client, struct message *msg)
 			msg->data,
 			SPA_MIN(msg->length, MAXLENGTH));
 	index += msg->length;
-	stream->write_index += msg->length;
 	spa_ringbuffer_write_update(&stream->ring, index);
-	stream->requested -= SPA_MIN(msg->length, stream->requested);
+
+	stream->write_index += msg->length;
+	stream->requested -= msg->length;
 
 	stream_send_request(stream);
 

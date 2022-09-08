@@ -485,7 +485,7 @@ int pw_rtsp_client_disconnect(struct pw_rtsp_client *client)
 
 int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 		const char *cmd, const struct spa_dict *headers,
-		const char *content_type, const char *content,
+		const char *content_type, const void *content, size_t content_length,
 		void (*reply) (void *user_data, int status, const struct spa_dict *headers),
 		void *user_data)
 {
@@ -510,13 +510,13 @@ int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 			fprintf(f, "%s: %s\r\n", it->key, it->value);
 	}
 	if (content_type != NULL && content != NULL) {
-		fprintf(f, "Content-Type: %s\r\nContent-Length: %d\r\n",
-			content_type, (int)strlen(content));
+		fprintf(f, "Content-Type: %s\r\nContent-Length: %zu\r\n",
+			content_type, content_length);
 	}
 	fprintf(f, "\r\n");
 
 	if (content_type && content)
-		fprintf(f, "%s", content);
+		fwrite(content, 1, content_length, f);
 
 	fclose(f);
 
@@ -543,5 +543,9 @@ int pw_rtsp_client_send(struct pw_rtsp_client *client,
 		void (*reply) (void *user_data, int status, const struct spa_dict *headers),
 		void *user_data)
 {
-	return pw_rtsp_client_url_send(client, client->url, cmd, headers, content_type, content, reply, user_data);
+	const size_t content_length = content ? strlen(content) : 0;
+
+	return pw_rtsp_client_url_send(client, client->url, cmd, headers,
+				       content_type, content, content_length,
+				       reply, user_data);
 }

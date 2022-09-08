@@ -163,7 +163,6 @@ void stream_flush(struct stream *stream)
 		if (stream->attr.prebuf > 0)
 			stream->in_prebuf = true;
 
-		stream->extra_tlength = 0;
 		stream->playing_for = 0;
 		stream->underrun_for = -1;
 		stream->is_underrun = true;
@@ -194,7 +193,6 @@ uint32_t stream_pop_missing(struct stream *stream)
 	avail = stream->write_index - stream->read_index;
 
 	missing = stream->attr.tlength;
-	missing += stream->extra_tlength;
 	missing -= stream->requested;
 	missing -= avail;
 

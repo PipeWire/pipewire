@@ -97,7 +97,6 @@ struct stream {
 	struct sample_spec ss;
 	struct channel_map map;
 	struct buffer_attr attr;
-	uint32_t extra_tlength;
 	uint32_t frame_size;
 	uint32_t rate;
 	uint64_t lat_usec;

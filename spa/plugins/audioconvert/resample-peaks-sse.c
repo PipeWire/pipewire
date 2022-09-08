@@ -41,9 +41,7 @@ static inline float find_abs_max_sse(const float *s, uint32_t n_samples, float m
 {
 	__m128 in[2], max;
 	uint32_t n, unrolled;
-	const __m128 mask = _mm_andnot_ps(
-				_mm_set_ps1(-0.0f),
-				_mm_cmpeq_ps(_mm_setzero_ps(), _mm_setzero_ps()));
+	const __m128 mask = (__m128) _mm_set1_epi32(0x7fffffff);
 
 	max = _mm_set1_ps(m);
 

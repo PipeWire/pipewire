@@ -349,7 +349,7 @@ static const char *print_time(char *buf, size_t len, uint64_t val)
 	else if (val == (uint64_t)-2)
 		snprintf(buf, len, "   +++ ");
 	else if (val < 1000000llu)
-		snprintf(buf, len, "%5.1fµs", val/1000.f);
+		snprintf(buf, len, "%5.1fus", val/1000.f);
 	else if (val < 1000000000llu)
 		snprintf(buf, len, "%5.1fms", val/1000000.f);
 	else

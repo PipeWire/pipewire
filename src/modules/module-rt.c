@@ -1007,9 +1007,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				goto error;
 			}
 		}
-		/* Retry set_nice with rtkit */
+		/* Retry set_nice and set_rlimit with rtkit */
 		if (IS_VALID_NICE_LEVEL(impl->nice_level))
 			set_nice(impl, impl->nice_level, true);
+		set_rlimit(impl);
 	}
 #endif
 

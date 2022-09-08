@@ -92,6 +92,8 @@ static void add_node(struct pw_impl_node *this, struct pw_impl_node *driver)
 	struct pw_node_activation_state *dstate, *nstate;
 	struct pw_node_target *t;
 
+	this->rt.added = true;
+
 	if (this->exported)
 		return;
 
@@ -127,6 +129,8 @@ static void remove_node(struct pw_impl_node *this)
 {
 	struct pw_node_activation_state *dstate, *nstate;
 	struct pw_node_target *t;
+
+	this->rt.added = false;
 
 	if (this->exported)
 		return;
@@ -1078,6 +1082,14 @@ static inline int process_node(void *data)
 	a->status = PW_NODE_ACTIVATION_AWAKE;
 	a->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
+	if (!this->rt.added) {
+		/* FIXME we should try to avoid this by only activating the input
+		 * links after we add the node to the graph. Otherwise there is
+		 * no problem because the target (driver and peers) are not yet
+		 * waiting for our activation */
+		pw_log_debug("%p: scheduling non-active node", this);
+		return -EIO;
+	}
 	pw_log_trace_fp("%p: process %"PRIu64, this, a->awake_time);
 
 	/* when transport sync is not supported, just clear the flag */

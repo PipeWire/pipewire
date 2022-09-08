@@ -750,6 +750,7 @@ struct pw_impl_node {
 		struct spa_list driver_link;		/* our link in driver */
 
 		struct ratelimit rate_limit;
+		unsigned int added:1;			/**< the node was add to graph */
 	} rt;
 	struct spa_fraction current_rate;
 	uint64_t current_quantum;

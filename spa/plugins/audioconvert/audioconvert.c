@@ -1724,20 +1724,20 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_Buffers:
 	{
 		uint32_t size;
-		struct dir *dir;
 
 		if (!port->have_format)
 			return -EIO;
 		if (result.index > 0)
 			return 0;
 
-		dir = &this->dir[direction];
-		if (dir->mode == SPA_PARAM_PORT_CONFIG_MODE_dsp) {
+		if (PORT_IS_DSP(this, direction, port_id)) {
 			/* DSP ports always use the quantum_limit as the buffer
 			 * size. */
 			size = this->quantum_limit;
 		} else {
 			uint32_t irate, orate;
+			struct dir *dir = &this->dir[direction];
+
 			/* Convert ports are scaled so that they can always
 			 * provide one quantum of data */
 			irate = dir->format.info.raw.rate;

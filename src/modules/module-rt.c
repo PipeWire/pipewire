@@ -976,7 +976,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		if (set_nice(impl, impl->nice_level, !can_use_rtkit) < 0)
 			use_rtkit = can_use_rtkit;
 	}
-	set_rlimit(impl);
 
 #ifdef HAVE_DBUS
 	impl->use_rtkit = use_rtkit;
@@ -1007,12 +1006,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				goto error;
 			}
 		}
-		/* Retry set_nice and set_rlimit with rtkit */
+		/* Retry set_nice with rtkit */
 		if (IS_VALID_NICE_LEVEL(impl->nice_level))
 			set_nice(impl, impl->nice_level, true);
-		set_rlimit(impl);
 	}
 #endif
+	set_rlimit(impl);
 
 	impl->thread_utils.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_ThreadUtils,

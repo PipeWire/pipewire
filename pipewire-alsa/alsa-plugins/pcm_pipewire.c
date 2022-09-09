@@ -44,6 +44,15 @@
 
 #include <pipewire/pipewire.h>
 
+#define ATOMIC_INC(s)                   __atomic_add_fetch(&(s), 1, __ATOMIC_SEQ_CST)
+#define ATOMIC_LOAD(s)                  __atomic_load_n(&(s), __ATOMIC_SEQ_CST)
+
+#define SEQ_WRITE(s)                    ATOMIC_INC(s)
+#define SEQ_WRITE_SUCCESS(s1,s2)        ((s1) + 1 == (s2) && ((s2) & 1) == 0)
+
+#define SEQ_READ(s)                     ATOMIC_LOAD(s)
+#define SEQ_READ_SUCCESS(s1,s2)         ((s1) == (s2) && ((s2) & 1) == 0)
+
 PW_LOG_TOPIC_STATIC(alsa_log_topic, "alsa.pcm");
 #define PW_LOG_TOPIC_DEFAULT alsa_log_topic
 
@@ -89,7 +98,9 @@ typedef struct {
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 
-	struct pw_time time;
+	int64_t delay;
+	uint64_t now;
+	uintptr_t seq;
 
 	struct spa_audio_info_raw format;
 } snd_pcm_pipewire_t;
@@ -222,32 +233,37 @@ static snd_pcm_sframes_t snd_pcm_pipewire_pointer(snd_pcm_ioplug_t *io)
 static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delayp)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
-	int64_t elapsed = 0, filled, avail;
+	uintptr_t seq1, seq2;
+	int64_t elapsed, delay, now, avail;
+	struct timespec ts;
+	int64_t diff;
 
-	if (pw->time.rate.num != 0) {
-		struct timespec ts;
-		int64_t diff;
-		clock_gettime(CLOCK_MONOTONIC, &ts);
-		diff = SPA_TIMESPEC_TO_NSEC(&ts) - pw->time.now;
-	        elapsed = (io->rate * diff) / SPA_NSEC_PER_SEC;
-	}
+	do {
+		seq1 = SEQ_READ(pw->seq);
 
-	filled = pw->time.delay;
+		delay = pw->delay;
+		now = pw->now;
+		if (io->stream == SND_PCM_STREAM_PLAYBACK)
+			avail = snd_pcm_ioplug_hw_avail(io, pw->hw_ptr, io->appl_ptr);
+		else
+			avail = snd_pcm_ioplug_avail(io, pw->hw_ptr, io->appl_ptr);
+
+		seq2 = SEQ_READ(pw->seq);
+	} while (!SEQ_READ_SUCCESS(seq1, seq2));
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	diff = SPA_TIMESPEC_TO_NSEC(&ts) - now;
+	elapsed = (io->rate * diff) / SPA_NSEC_PER_SEC;
 
 	if (io->stream == SND_PCM_STREAM_PLAYBACK)
-		filled -= SPA_MIN(elapsed, filled);
+		delay -= SPA_MIN(elapsed, delay);
 	else
-		filled += elapsed;
+		delay += SPA_MIN(elapsed, (int64_t)io->buffer_size);
 
-	if (io->stream == SND_PCM_STREAM_PLAYBACK)
-		avail = snd_pcm_ioplug_hw_avail(io, pw->hw_ptr, io->appl_ptr);
-	else
-		avail = snd_pcm_ioplug_avail(io, pw->hw_ptr, io->appl_ptr);
-
-	*delayp = filled + avail;
+	*delayp = delay + avail;
 
 	pw_log_trace("avail:%"PRIi64" filled %"PRIi64" elapsed:%"PRIi64" delay:%ld hw:%lu appl:%lu",
-			avail, filled, elapsed, *delayp, pw->hw_ptr, io->appl_ptr);
+			avail, delay, elapsed, *delayp, pw->hw_ptr, io->appl_ptr);
 
 	return 0;
 }
@@ -400,11 +416,15 @@ static void on_stream_process(void *data)
 	snd_pcm_ioplug_t *io = &pw->io;
 	struct pw_buffer *b;
 	snd_pcm_uframes_t hw_avail, before, want, xfer;
+	struct pw_time pwt;
+	int64_t delay;
 
-	pw_stream_get_time_n(pw->stream, &pw->time, sizeof(pw->time));
+	pw_stream_get_time_n(pw->stream, &pwt, sizeof(pwt));
 
-	if (pw->time.rate.num != 0)
-		pw->time.delay = pw->time.delay * io->rate * pw->time.rate.num / pw->time.rate.denom;
+	delay = pwt.delay;
+	if (pwt.rate.num != 0) {
+		delay = delay * io->rate * pwt.rate.num / pwt.rate.denom;
+	}
 
 	before = hw_avail = snd_pcm_ioplug_hw_avail(io, pw->hw_ptr, io->appl_ptr);
 
@@ -419,15 +439,20 @@ static void on_stream_process(void *data)
 
 	want = b->requested ? b->requested : hw_avail;
 
+	SEQ_WRITE(pw->seq);
+
 	xfer = snd_pcm_pipewire_process(pw, b, &hw_avail, want);
+
+	pw->delay = delay;
+	/* the buffer is now queued in the stream and consumed */
+	if (io->stream == SND_PCM_STREAM_PLAYBACK)
+		pw->delay += xfer;
+
+	pw->now = pwt.now;
+	SEQ_WRITE(pw->seq);
 
 	pw_log_trace("%p: avail-before:%lu avail:%lu want:%lu xfer:%lu hw:%lu appl:%lu",
 			pw, before, hw_avail, want, xfer, pw->hw_ptr, io->appl_ptr);
-
-	if (io->stream == SND_PCM_STREAM_PLAYBACK)
-		pw->time.delay += xfer;
-	else
-		pw->time.delay -= SPA_MIN(pw->time.delay, (int64_t)xfer);
 
 	pw_stream_queue_buffer(pw->stream, b);
 

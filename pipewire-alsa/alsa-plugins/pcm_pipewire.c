@@ -143,7 +143,7 @@ static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
 	if (pw == NULL)
 		return;
 
-	pw_log_debug("%p:", pw);
+	pw_log_debug("%p: free", pw);
 	if (pw->main_loop)
 		pw_thread_loop_stop(pw->main_loop);
 	if (pw->stream)
@@ -162,7 +162,7 @@ static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
 static int snd_pcm_pipewire_close(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
-	pw_log_debug("%p:", pw);
+	pw_log_debug("%p: close", pw);
 	snd_pcm_pipewire_free(pw);
 	return 0;
 }
@@ -234,7 +234,7 @@ static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delay
 	else
 		*delayp = filled + elapsed;
 
-	pw_log_trace("avail:%"PRIi64" filled %"PRIi64" elapsed:%"PRIi64" delay:%ld %lu %lu",
+	pw_log_trace("avail:%"PRIi64" filled %"PRIi64" elapsed:%"PRIi64" delay:%ld hw:%lu appl:%lu",
 			avail, filled, elapsed, *delayp, pw->hw_ptr, io->appl_ptr);
 
 	return 0;
@@ -492,8 +492,10 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	min_period = (MIN_PERIOD * io->rate / 48000);
 	pw->min_avail = SPA_MAX(pw->min_avail, min_period);
 
-	pw_log_debug("%p: prepare %d %p %lu %ld", pw,
-			pw->error, pw->stream, io->period_size, pw->min_avail);
+	pw_log_debug("%p: prepare error:%d stream:%p buffer-size:%lu "
+			"period-size:%lu min-avail:%ld", pw, pw->error,
+			pw->stream, io->buffer_size, io->period_size, pw->min_avail);
+
 	if (pw->error >= 0 && pw->stream != NULL && !pw->hw_params_changed)
 		goto done;
 	pw->hw_params_changed = false;
@@ -568,7 +570,7 @@ static int snd_pcm_pipewire_start(snd_pcm_ioplug_t *io)
 	snd_pcm_pipewire_t *pw = io->private_data;
 
 	pw_thread_loop_lock(pw->main_loop);
-	pw_log_debug("%p:", pw);
+	pw_log_debug("%p: start", pw);
 	pipewire_start(pw);
 	block_check(io); /* unblock socket for polling if needed */
 	pw_thread_loop_unlock(pw->main_loop);
@@ -579,7 +581,7 @@ static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 
-	pw_log_debug("%p:", pw);
+	pw_log_debug("%p: stop", pw);
 	pcm_poll_unblock_check(io);
 
 	pw_thread_loop_lock(pw->main_loop);
@@ -593,7 +595,7 @@ static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io)
 
 static int snd_pcm_pipewire_pause(snd_pcm_ioplug_t * io, int enable)
 {
-	pw_log_debug("%p:", io);
+	pw_log_debug("%p: pause", io);
 
 	if (enable)
 		snd_pcm_pipewire_stop(io);
@@ -822,7 +824,10 @@ static int snd_pcm_pipewire_set_chmap(snd_pcm_ioplug_t * io,
 	pw->format.channels = map->channels;
 	for (i = 0; i < map->channels; i++) {
 		pw->format.position[i] = chmap_to_channel(map->pos[i]);
-		pw_log_debug("map %d: %d %d", i, map->pos[i], pw->format.position[i]);
+		pw_log_debug("map %d: %s / %s", i,
+				snd_pcm_chmap_name(map->pos[i]),
+				spa_debug_type_find_short_name(spa_type_audio_channel,
+					pw->format.position[i]));
 	}
 	return 1;
 }
@@ -1037,10 +1042,10 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 
 	str = getenv("PIPEWIRE_NODE");
 
-	pw_log_debug("%p: open %s %d %d %08x %d %s %d %d '%s'", pw, name,
-			stream, mode, flags, rate,
-			format != SND_PCM_FORMAT_UNKNOWN ? snd_pcm_format_name(format) : "none",
-			channels, period_bytes, str);
+	pw_log_debug("%p: open name:%s stream:%s mode:%d flags:%08x rate:%d format:%s "
+			"channels:%d period-bytes:%d target:'%s'", pw, name,
+			snd_pcm_stream_name(stream), mode, flags, rate,
+			snd_pcm_format_name(format), channels, period_bytes, str);
 
 	pw->fd = -1;
 	pw->io.poll_fd = -1;
@@ -1126,17 +1131,20 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	if ((err = snd_pcm_ioplug_create(&pw->io, name, stream, mode)) < 0)
 		goto error;
 
-	pw_log_debug("%p: open %s %d %d", pw, name, pw->io.stream, mode);
 
 	if ((err = pipewire_set_hw_constraint(pw, rate, format, channels,
 					period_bytes)) < 0)
 		goto error;
+
+	pw_log_debug("%p: opened name:%s stream:%s mode:%d", pw, name,
+			snd_pcm_stream_name(pw->io.stream), mode);
 
 	*pcmp = pw->io.pcm;
 
 	return 0;
 
 error:
+	pw_log_debug("%p: failed to open %s :%s", pw, name, spa_strerror(err));
 	pw_properties_free(props);
 	snd_pcm_pipewire_free(pw);
 	return err;

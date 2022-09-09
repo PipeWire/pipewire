@@ -336,8 +336,7 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 	spa_return_val_if_fail(impl != NULL, -EINVAL);
 	spa_return_val_if_fail(events != NULL, -EINVAL);
 
-	impl->manager = libcamera_manager_acquire(res);
-	if (!impl->manager)
+	if (!impl->manager && !(impl->manager = libcamera_manager_acquire(res)))
 		return res;
 
 	spa_hook_list_isolate(&impl->hooks, &save, listener, events, data);

@@ -249,7 +249,7 @@ static void emit_port_info(struct seq_state *this, struct seq_port *port, bool f
 		snd_seq_port_info_t *info;
 		snd_seq_client_info_t *client_info;
 		char card[8];
-		char name[128];
+		char name[256];
 		char path[128];
 		char alias[128];
 
@@ -261,11 +261,34 @@ static void emit_port_info(struct seq_state *this, struct seq_port *port, bool f
 		snd_seq_get_any_client_info(this->sys.hndl,
 				port->addr.client, client_info);
 
-		snprintf(name, sizeof(name), "%s:(%s_%d) %s",
-				snd_seq_client_info_get_name(client_info),
-				port->direction == SPA_DIRECTION_OUTPUT ? "capture" : "playback",
-				port->addr.port,
-				snd_seq_port_info_get_name(info));
+		int card_id = snd_seq_client_info_get_card(client_info);
+
+		// Failed to obtain card number (software device)
+		if (card_id < 0) {
+			snprintf(name, sizeof(name), "%s:(%s_%d) %s",
+					snd_seq_client_info_get_name(client_info),
+					port->direction == SPA_DIRECTION_OUTPUT ? "capture" : "playback",
+					port->addr.port,
+					snd_seq_port_info_get_name(info));
+		} else {
+			char *longname;
+			if (snd_card_get_longname(card_id, &longname) == 0) {
+				snprintf(name, sizeof(name), "%s:(%s_%d) %s",
+						longname,
+						port->direction == SPA_DIRECTION_OUTPUT ? "capture" : "playback",
+						port->addr.port,
+						snd_seq_port_info_get_name(info));
+				free(longname);
+			} else {
+				// At least add card number to be distinct
+				snprintf(name, sizeof(name), "%s %d:(%s_%d) %s",
+						snd_seq_client_info_get_name(client_info),
+						card_id,
+						port->direction == SPA_DIRECTION_OUTPUT ? "capture" : "playback",
+						port->addr.port,
+						snd_seq_port_info_get_name(info));
+			}
+		}
 		clean_name(name);
 
 		snprintf(path, sizeof(path), "alsa:seq:%s:client_%d:%s_%d",

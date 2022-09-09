@@ -29,7 +29,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
+#include <utility>
 
 #include <libcamera/camera.h>
 #include <libcamera/camera_manager.h>
@@ -127,7 +127,7 @@ static struct device *add_device(struct impl *impl, std::shared_ptr<Camera> came
 	id = impl->n_devices++;
 	device = &impl->devices[id];
 	device->id = id;
-	device->camera = camera;
+	device->camera = std::move(camera);
 	return device;
 }
 
@@ -193,7 +193,7 @@ void Impl::addCamera(std::shared_ptr<Camera> camera)
 	if ((device = find_device(impl, camera.get())) != NULL)
 		return;
 
-	if ((device = add_device(impl, camera)) == NULL)
+	if ((device = add_device(impl, std::move(camera))) == NULL)
 		return;
 
 	emit_object_info(impl, device);

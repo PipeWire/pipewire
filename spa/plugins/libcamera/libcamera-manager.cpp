@@ -270,11 +270,10 @@ void impl::removeCamera(std::shared_ptr<Camera> camera)
 	spa_loop_utils_signal_event(loop_utils, hotplug_event_source);
 }
 
-static int start_monitor(struct impl *impl)
+static void start_monitor(struct impl *impl)
 {
 	impl->manager->cameraAdded.connect(impl, &impl::addCamera);
 	impl->manager->cameraRemoved.connect(impl, &impl::removeCamera);
-	return 0;
 }
 
 static int stop_monitor(struct impl *impl)
@@ -287,14 +286,12 @@ static int stop_monitor(struct impl *impl)
 	return 0;
 }
 
-static int enum_devices(struct impl *impl)
+static void collect_existing_devices(struct impl *impl)
 {
 	auto cameras = impl->manager->cameras();
 
 	for (std::shared_ptr<Camera>& camera : cameras)
 		try_add_camera(impl, std::move(camera));
-
-	return 0;
 }
 
 static const struct spa_dict_item device_info_items[] = {
@@ -332,6 +329,7 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 	int res;
 	struct impl *impl = (struct impl*) object;
 	struct spa_hook_list save;
+	bool had_manager = !!impl->manager;
 
 	spa_return_val_if_fail(impl != NULL, -EINVAL);
 	spa_return_val_if_fail(events != NULL, -EINVAL);
@@ -343,11 +341,14 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 
 	emit_device_info(impl, true);
 
-	if ((res = enum_devices(impl)) < 0)
-		return res;
-
-	if ((res = start_monitor(impl)) < 0)
-		return res;
+	if (had_manager) {
+		for (std::size_t i = 0; i < impl->n_devices; i++)
+			emit_object_info(impl, &impl->devices[i]);
+	}
+	else {
+		collect_existing_devices(impl);
+		start_monitor(impl);
+	}
 
 	spa_hook_list_join(&impl->hooks, &save);
 

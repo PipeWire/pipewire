@@ -229,7 +229,7 @@ static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delay
 		int64_t diff;
 		clock_gettime(CLOCK_MONOTONIC, &ts);
 		diff = SPA_TIMESPEC_TO_NSEC(&ts) - pw->time.now;
-	        elapsed = (pw->time.rate.denom * diff) / (pw->time.rate.num * SPA_NSEC_PER_SEC);
+	        elapsed = (io->rate * diff) / SPA_NSEC_PER_SEC;
 	}
 	if (io->stream == SND_PCM_STREAM_PLAYBACK)
 		avail = snd_pcm_ioplug_hw_avail(io, pw->hw_ptr, io->appl_ptr);
@@ -400,11 +400,8 @@ static void on_stream_process(void *data)
 
 	pw_stream_get_time_n(pw->stream, &pw->time, sizeof(pw->time));
 
-	if (pw->time.rate.num != 0) {
+	if (pw->time.rate.num != 0)
 		pw->time.delay = pw->time.delay * io->rate * pw->time.rate.num / pw->time.rate.denom;
-		pw->time.rate.denom = io->rate;
-		pw->time.rate.num = 1;
-	}
 
 	before = hw_avail = snd_pcm_ioplug_hw_avail(io, pw->hw_ptr, io->appl_ptr);
 

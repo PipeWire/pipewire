@@ -30,6 +30,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <utility>
+#include <mutex>
+#include <optional>
+#include <queue>
 
 #include <libcamera/camera.h>
 #include <libcamera/camera_manager.h>
@@ -66,6 +69,7 @@ struct impl {
 	struct spa_device device = {};
 
 	struct spa_log *log;
+	struct spa_loop_utils *loop_utils;
 
 	struct spa_hook_list hooks;
 
@@ -79,7 +83,21 @@ struct impl {
 	struct device devices[MAX_DEVICES];
 	uint32_t n_devices = 0;
 
-	impl(spa_log *log);
+	struct hotplug_event {
+		enum class type { add, remove } type;
+		std::shared_ptr<Camera> camera;
+	};
+
+	std::mutex hotplug_events_lock;
+	std::queue<hotplug_event> hotplug_events;
+	struct spa_source *hotplug_event_source;
+
+	impl(spa_log *log, spa_loop_utils *loop_utils, spa_source *hotplug_event_source);
+
+	~impl()
+	{
+		spa_loop_utils_destroy_source(loop_utils, hotplug_event_source);
+	}
 };
 
 }
@@ -168,12 +186,9 @@ static int emit_object_info(struct impl *impl, struct device *device)
 	return 1;
 }
 
-void impl::addCamera(std::shared_ptr<Camera> camera)
+static void try_add_camera(struct impl *impl, std::shared_ptr<Camera> camera)
 {
-	struct impl *impl = this;
 	struct device *device;
-
-	spa_log_info(impl->log, "new camera: %s", camera->id().c_str());
 
 	if ((device = find_device(impl, camera.get())) != NULL)
 		return;
@@ -181,19 +196,78 @@ void impl::addCamera(std::shared_ptr<Camera> camera)
 	if ((device = add_device(impl, std::move(camera))) == NULL)
 		return;
 
+	spa_log_info(impl->log, "camera added: %s", device->camera->id().c_str());
 	emit_object_info(impl, device);
+}
+
+static void try_remove_camera(struct impl *impl, const Camera *camera)
+{
+	struct device *device;
+
+	if ((device = find_device(impl, camera)) == NULL)
+		return;
+
+	spa_log_info(impl->log, "camera removed: %s", device->camera->id().c_str());
+	remove_device(impl, device);
+}
+
+static void consume_hotplug_event(struct impl *impl, impl::hotplug_event& event)
+{
+	auto& [ type, camera ] = event;
+
+	switch (type) {
+	case impl::hotplug_event::type::add:
+		spa_log_info(impl->log, "camera appeared: %s", camera->id().c_str());
+		try_add_camera(impl, std::move(camera));
+		break;
+	case impl::hotplug_event::type::remove:
+		spa_log_info(impl->log, "camera disappeared: %s", camera->id().c_str());
+		try_remove_camera(impl, camera.get());
+		break;
+	}
+}
+
+static void on_hotplug_event(void *data, std::uint64_t)
+{
+	auto impl = static_cast<struct impl *>(data);
+
+	for (;;) {
+		std::optional<impl::hotplug_event> event;
+
+		{
+			std::unique_lock guard(impl->hotplug_events_lock);
+
+			if (!impl->hotplug_events.empty()) {
+				event = std::move(impl->hotplug_events.front());
+				impl->hotplug_events.pop();
+			}
+		}
+
+		if (!event)
+			break;
+
+		consume_hotplug_event(impl, *event);
+	}
+}
+
+void impl::addCamera(std::shared_ptr<Camera> camera)
+{
+	{
+		std::unique_lock guard(hotplug_events_lock);
+		hotplug_events.push({ hotplug_event::type::add, std::move(camera) });
+	}
+
+	spa_loop_utils_signal_event(loop_utils, hotplug_event_source);
 }
 
 void impl::removeCamera(std::shared_ptr<Camera> camera)
 {
-	struct impl *impl = this;
-	struct device *device;
+	{
+		std::unique_lock guard(hotplug_events_lock);
+		hotplug_events.push({ hotplug_event::type::remove, std::move(camera) });
+	}
 
-	spa_log_info(impl->log, "camera removed: %s", camera->id().c_str());
-	if ((device = find_device(impl, camera.get())) == NULL)
-		return;
-
-	remove_device(impl, device);
+	spa_loop_utils_signal_event(loop_utils, hotplug_event_source);
 }
 
 static int start_monitor(struct impl *impl)
@@ -217,9 +291,9 @@ static int enum_devices(struct impl *impl)
 {
 	auto cameras = impl->manager->cameras();
 
-	for (const std::shared_ptr<Camera> &cam : cameras) {
-		impl->addCamera(cam);
-	}
+	for (std::shared_ptr<Camera>& camera : cameras)
+		try_add_camera(impl, std::move(camera));
+
 	return 0;
 }
 
@@ -316,9 +390,11 @@ static int impl_clear(struct spa_handle *handle)
 	return 0;
 }
 
-impl::impl(spa_log *log)
+impl::impl(spa_log *log, spa_loop_utils *loop_utils, spa_source *hotplug_event_source)
 	: handle({ SPA_VERSION_HANDLE, impl_get_interface, impl_clear }),
-	  log(log)
+	  log(log),
+	  loop_utils(loop_utils),
+	  hotplug_event_source(hotplug_event_source)
 {
 	libcamera_log_topic_init(log);
 
@@ -349,7 +425,20 @@ impl_init(const struct spa_handle_factory *factory,
 
 	auto log = static_cast<spa_log *>(spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log));
 
-	new (handle) impl(log);
+	auto loop_utils = static_cast<spa_loop_utils *>(spa_support_find(support, n_support, SPA_TYPE_INTERFACE_LoopUtils));
+	if (!loop_utils) {
+		spa_log_error(log, "a " SPA_TYPE_INTERFACE_LoopUtils " is needed");
+		return -EINVAL;
+	}
+
+	auto hotplug_event_source = spa_loop_utils_add_event(loop_utils, on_hotplug_event, handle);
+	if (!hotplug_event_source) {
+		int res = -errno;
+		spa_log_error(log, "failed to create hotplug event: %m");
+		return res;
+	}
+
+	new (handle) impl(log, loop_utils, hotplug_event_source);
 
 	return 0;
 }

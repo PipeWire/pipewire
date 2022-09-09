@@ -251,7 +251,8 @@ static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delay
 		seq2 = SEQ_READ(pw->seq);
 	} while (!SEQ_READ_SUCCESS(seq1, seq2));
 
-	if (now != 0) {
+	if (now != 0 && (io->state == SND_PCM_STATE_RUNNING ||
+	    io->state == SND_PCM_STATE_DRAINING)) {
 		clock_gettime(CLOCK_MONOTONIC, &ts);
 		diff = SPA_TIMESPEC_TO_NSEC(&ts) - now;
 		elapsed = (io->rate * diff) / SPA_NSEC_PER_SEC;

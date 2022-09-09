@@ -234,7 +234,7 @@ static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delay
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 	uintptr_t seq1, seq2;
-	int64_t elapsed, delay, now, avail;
+	int64_t elapsed = 0, delay, now, avail;
 	struct timespec ts;
 	int64_t diff;
 
@@ -251,14 +251,16 @@ static int snd_pcm_pipewire_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delay
 		seq2 = SEQ_READ(pw->seq);
 	} while (!SEQ_READ_SUCCESS(seq1, seq2));
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	diff = SPA_TIMESPEC_TO_NSEC(&ts) - now;
-	elapsed = (io->rate * diff) / SPA_NSEC_PER_SEC;
+	if (now != 0) {
+		clock_gettime(CLOCK_MONOTONIC, &ts);
+		diff = SPA_TIMESPEC_TO_NSEC(&ts) - now;
+		elapsed = (io->rate * diff) / SPA_NSEC_PER_SEC;
 
-	if (io->stream == SND_PCM_STREAM_PLAYBACK)
-		delay -= SPA_MIN(elapsed, delay);
-	else
-		delay += SPA_MIN(elapsed, (int64_t)io->buffer_size);
+		if (io->stream == SND_PCM_STREAM_PLAYBACK)
+			delay -= SPA_MIN(elapsed, delay);
+		else
+			delay += SPA_MIN(elapsed, (int64_t)io->buffer_size);
+	}
 
 	*delayp = delay + avail;
 
@@ -586,6 +588,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 
 done:
 	pw->hw_ptr = 0;
+	pw->now = 0;
 	pw->xrun_detected = false;
 	pw->drained = false;
 	pw->draining = false;

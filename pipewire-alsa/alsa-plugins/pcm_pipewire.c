@@ -103,7 +103,11 @@ static int block_check(snd_pcm_ioplug_t *io)
 	uint64_t val;
 
 	avail = snd_pcm_ioplug_avail(io, pw->hw_ptr, io->appl_ptr);
+
 	if (avail >= 0 && avail < (snd_pcm_sframes_t)pw->min_avail) {
+		pw_log_trace("%p: block avail:%lu min-avail:%lu state:%s hw:%lu appl:%lu",
+				pw, avail, pw->min_avail, snd_pcm_state_name(io->state),
+				pw->hw_ptr, io->appl_ptr);
 		spa_system_eventfd_read(pw->system, io->poll_fd, &val);
 		return 1;
 	}
@@ -116,6 +120,7 @@ static int pcm_poll_block_check(snd_pcm_ioplug_t *io)
 
 	if (io->state == SND_PCM_STATE_DRAINING) {
 		uint64_t val;
+		pw_log_trace("%p: block state %s", pw, snd_pcm_state_name(io->state));
 		spa_system_eventfd_read(pw->system, io->poll_fd, &val);
 		return 0;
 	} else if (io->state == SND_PCM_STATE_RUNNING ||
@@ -131,7 +136,11 @@ static inline int pcm_poll_unblock_check(snd_pcm_ioplug_t *io)
 	snd_pcm_uframes_t avail;
 
 	avail = snd_pcm_ioplug_avail(io, pw->hw_ptr, io->appl_ptr);
+
 	if (avail >= pw->min_avail || io->state == SND_PCM_STATE_DRAINING) {
+		pw_log_trace("%p: unblock avail:%lu min-avail:%lu state:%s hw:%lu appl:%lu",
+				pw, avail, pw->min_avail, snd_pcm_state_name(io->state),
+				pw->hw_ptr, io->appl_ptr);
 		spa_system_eventfd_write(pw->system, pw->fd, 1);
 		return 1;
 	}
@@ -412,8 +421,8 @@ static void on_stream_process(void *data)
 
 	xfer = snd_pcm_pipewire_process(pw, b, &hw_avail, want);
 
-	pw_log_trace("%p: avail-before:%lu avail:%lu want:%lu xfer:%lu",
-			pw, before, hw_avail, want, xfer);
+	pw_log_trace("%p: avail-before:%lu avail:%lu want:%lu xfer:%lu hw:%lu appl:%lu",
+			pw, before, hw_avail, want, xfer, pw->hw_ptr, io->appl_ptr);
 
 	if (io->stream == SND_PCM_STREAM_PLAYBACK)
 		pw->time.delay += xfer;

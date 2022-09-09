@@ -604,7 +604,7 @@ spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 }
 
 
-void Impl::requestComplete(libcamera::Request *request)
+void impl::requestComplete(libcamera::Request *request)
 {
 	struct impl *impl = this;
 	struct port *port = &impl->out_ports[0];

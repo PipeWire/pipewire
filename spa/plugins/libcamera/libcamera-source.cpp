@@ -136,7 +136,7 @@ struct port {
 	}
 };
 
-typedef struct impl {
+struct impl {
 	struct spa_handle handle;
 	struct spa_node node = {};
 
@@ -180,7 +180,7 @@ typedef struct impl {
 
 	impl(spa_log *log, spa_loop *data_loop, spa_system *system,
 	     std::shared_ptr<CameraManager> manager, std::shared_ptr<Camera> camera, std::string device_id);
-} Impl;
+};
 
 }
 

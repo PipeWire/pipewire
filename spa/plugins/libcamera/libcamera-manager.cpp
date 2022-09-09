@@ -61,7 +61,7 @@ struct device {
 	std::shared_ptr<Camera> camera;
 };
 
-typedef struct impl {
+struct impl {
 	struct spa_handle handle;
 	struct spa_device device = {};
 
@@ -80,7 +80,7 @@ typedef struct impl {
 	uint32_t n_devices = 0;
 
 	impl(spa_log *log);
-} Impl;
+};
 
 }
 
@@ -168,7 +168,7 @@ static int emit_object_info(struct impl *impl, struct device *device)
 	return 1;
 }
 
-void Impl::addCamera(std::shared_ptr<Camera> camera)
+void impl::addCamera(std::shared_ptr<Camera> camera)
 {
 	struct impl *impl = this;
 	struct device *device;
@@ -184,7 +184,7 @@ void Impl::addCamera(std::shared_ptr<Camera> camera)
 	emit_object_info(impl, device);
 }
 
-void Impl::removeCamera(std::shared_ptr<Camera> camera)
+void impl::removeCamera(std::shared_ptr<Camera> camera)
 {
 	struct impl *impl = this;
 	struct device *device;
@@ -198,16 +198,16 @@ void Impl::removeCamera(std::shared_ptr<Camera> camera)
 
 static int start_monitor(struct impl *impl)
 {
-	impl->manager->cameraAdded.connect(impl, &Impl::addCamera);
-	impl->manager->cameraRemoved.connect(impl, &Impl::removeCamera);
+	impl->manager->cameraAdded.connect(impl, &impl::addCamera);
+	impl->manager->cameraRemoved.connect(impl, &impl::removeCamera);
 	return 0;
 }
 
 static int stop_monitor(struct impl *impl)
 {
 	if (impl->manager) {
-		impl->manager->cameraAdded.disconnect(impl, &Impl::addCamera);
-		impl->manager->cameraRemoved.disconnect(impl, &Impl::removeCamera);
+		impl->manager->cameraAdded.disconnect(impl, &impl::addCamera);
+		impl->manager->cameraRemoved.disconnect(impl, &impl::removeCamera);
 	}
 	clear_devices (impl);
 	return 0;

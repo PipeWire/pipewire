@@ -131,11 +131,11 @@ static struct device *add_device(struct impl *impl, std::shared_ptr<Camera> came
 	return device;
 }
 
-static struct device *find_device(struct impl *impl, std::shared_ptr<Camera> camera)
+static struct device *find_device(struct impl *impl, const Camera *camera)
 {
 	uint32_t i;
 	for (i = 0; i < impl->n_devices; i++) {
-		if (impl->devices[i].camera == camera)
+		if (impl->devices[i].camera.get() == camera)
 			return &impl->devices[i];
 	}
 	return NULL;
@@ -190,7 +190,7 @@ void Impl::addCamera(std::shared_ptr<Camera> camera)
 
 	spa_log_info(impl->log, "new camera");
 
-	if ((device = find_device(impl, camera)) != NULL)
+	if ((device = find_device(impl, camera.get())) != NULL)
 		return;
 
 	if ((device = add_device(impl, camera)) == NULL)
@@ -205,7 +205,7 @@ void Impl::removeCamera(std::shared_ptr<Camera> camera)
 	struct device *device;
 
 	spa_log_info(impl->log, "camera removed");
-	if ((device = find_device(impl, camera)) == NULL)
+	if ((device = find_device(impl, camera.get())) == NULL)
 		return;
 
 	remove_device(impl, device);

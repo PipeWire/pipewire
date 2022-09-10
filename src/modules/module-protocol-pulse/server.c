@@ -166,7 +166,8 @@ static int handle_memblock(struct client *client, struct message *msg)
 	index += diff;
 	filled += diff;
 	stream->write_index += diff;
-	stream->requested -= diff;
+	if ((flags & FLAG_SEEKMASK) == SEEK_RELATIVE)
+		stream->requested -= diff;
 
 	if (filled < 0) {
 		/* underrun, reported on reader side */

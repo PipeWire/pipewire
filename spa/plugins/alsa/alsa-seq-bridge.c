@@ -48,6 +48,7 @@ static void reset_props(struct props *props)
 {
 	strncpy(props->device, DEFAULT_DEVICE, sizeof(props->device));
 	strncpy(props->clock_name, DEFAULT_CLOCK_NAME, sizeof(props->clock_name));
+	props->disable_longname = 0;
 }
 
 static int impl_node_enum_params(void *object, int seq,
@@ -261,10 +262,10 @@ static void emit_port_info(struct seq_state *this, struct seq_port *port, bool f
 		snd_seq_get_any_client_info(this->sys.hndl,
 				port->addr.client, client_info);
 
-		int card_id = snd_seq_client_info_get_card(client_info);
+		int card_id;
 
-		// Failed to obtain card number (software device)
-		if (card_id < 0) {
+		// Failed to obtain card number (software device) or disabled
+		if (this->props.disable_longname || (card_id = snd_seq_client_info_get_card(client_info)) < 0) {
 			snprintf(name, sizeof(name), "%s:(%s_%d) %s",
 					snd_seq_client_info_get_name(client_info),
 					port->direction == SPA_DIRECTION_OUTPUT ? "capture" : "playback",
@@ -950,6 +951,8 @@ impl_init(const struct spa_handle_factory *factory,
 		} else if (spa_streq(k, "clock.name")) {
 			spa_scnprintf(this->props.clock_name,
 					sizeof(this->props.clock_name), "%s", s);
+		} else if (spa_streq(k, SPA_KEY_API_ALSA_DISABLE_LONGNAME)) {
+			this->props.disable_longname = spa_atob(s);
 		}
 	}
 

@@ -62,6 +62,8 @@ extern "C" {
 #define SPA_KEY_API_ALSA_USE_UCM	"api.alsa.use-ucm"		/**< if UCM should be used */
 #define SPA_KEY_API_ALSA_IGNORE_DB	"api.alsa.ignore-dB"		/**< if decibel info should be ignored */
 #define SPA_KEY_API_ALSA_OPEN_UCM	"api.alsa.open.ucm"		/**< if UCM should be opened card */
+#define SPA_KEY_API_ALSA_DISABLE_LONGNAME	\
+					"api.alsa.disable-longname"	/**< if card long name should not be passed to MIDI port */
 
 /** info from alsa card_info */
 #define SPA_KEY_API_ALSA_CARD_ID	"api.alsa.card.id"		/**< id from card_info */

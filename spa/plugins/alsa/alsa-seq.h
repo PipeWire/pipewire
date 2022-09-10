@@ -52,6 +52,7 @@ extern "C" {
 struct props {
 	char device[64];
 	char clock_name[64];
+	bool disable_longname;
 };
 
 #define MAX_EVENT_SIZE 1024

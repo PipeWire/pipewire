@@ -421,6 +421,7 @@ static int flush_to_udp_packet(struct impl *impl)
 
 	switch (impl->codec) {
 	case CODEC_PCM:
+	case CODEC_ALAC:
 		len = write_codec_pcm(dst, impl->buffer, n_frames);
 		break;
 	default:
@@ -463,6 +464,7 @@ static int flush_to_tcp_packet(struct impl *impl)
 
 	switch (impl->codec) {
 	case CODEC_PCM:
+	case CODEC_ALAC:
 		len = write_codec_pcm(dst, impl->buffer, n_frames);
 		break;
 	default:
@@ -1756,6 +1758,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		str = "PCM";
 	if (spa_streq(str, "PCM"))
 		impl->codec = CODEC_PCM;
+	else if (spa_streq(str, "ALAC"))
+		impl->codec = CODEC_ALAC;
 	else {
 		pw_log_error( "can't handle codec type %s", str);
 		res = -EINVAL;

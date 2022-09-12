@@ -314,7 +314,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_ParamBegin:
-		if ((res = spa_v4l2_open(&port->dev, NULL)) < 0)
+		if ((res = spa_v4l2_open(&port->dev, this->props.device)) < 0)
 			return res;
 		break;
 	case SPA_NODE_COMMAND_ParamEnd:

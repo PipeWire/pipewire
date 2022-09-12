@@ -67,6 +67,9 @@ PW_LOG_TOPIC_STATIC(alsa_log_topic, "alsa.pcm");
 typedef struct {
 	snd_pcm_ioplug_t io;
 
+	snd_output_t *output;
+	FILE *log_file;
+
 	char *node_name;
 	char *target;
 	char *role;
@@ -176,6 +179,8 @@ static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
 		pw_thread_loop_destroy(pw->main_loop);
 	free(pw->node_name);
 	free(pw->target);
+	snd_output_close(pw->output);
+	fclose(pw->log_file);
 	free(pw);
 }
 
@@ -521,6 +526,8 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	if (snd_pcm_sw_params_current(io->pcm, swparams) == 0) {
 		snd_pcm_sw_params_get_avail_min(swparams, &pw->min_avail);
 		snd_pcm_sw_params_get_boundary(swparams, &pw->boundary);
+		snd_pcm_sw_params_dump(swparams, pw->output);
+		fflush(pw->log_file);
 	} else {
 		pw->min_avail = io->period_size;
 		pw->boundary = io->buffer_size;
@@ -685,6 +692,9 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 	bool planar;
+
+	snd_pcm_hw_params_dump(params, pw->output);
+	fflush(pw->log_file);
 
 	pw_log_debug("%p: hw_params buffer_size:%lu period_size:%lu", pw, io->buffer_size, io->period_size);
 
@@ -1049,6 +1059,25 @@ static const struct pw_core_events core_events = {
 	.error = on_core_error,
 };
 
+
+static ssize_t log_write(void *cookie, const char *buf, size_t size)
+{
+	int len;
+
+	while (size > 0) {
+		len = strcspn(buf, "\n");
+		if (len > 0)
+			pw_log_debug("%.*s", (int)len, buf);
+		buf += len + 1;
+		size -= len + 1;
+	}
+	return size;
+}
+
+static cookie_io_functions_t io_funcs = {
+	.write = log_write,
+};
+
 static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 				const char *node_name,
 				const char *server_name,
@@ -1088,6 +1117,15 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	pw->fd = -1;
 	pw->io.poll_fd = -1;
 	pw->flags = flags;
+	pw->log_file = fopencookie(pw, "w", io_funcs);
+	if (pw->log_file == NULL) {
+		pw_log_error("can't create log file: %m");
+		return -errno;
+	}
+	if ((err = snd_output_stdio_attach(&pw->output, pw->log_file, 0)) < 0) {
+		pw_log_error("can't attach log file: %s", snd_strerror(err));
+		return err;
+	}
 
 	if (node_name == NULL)
 		pw->node_name = spa_aprintf("ALSA %s",

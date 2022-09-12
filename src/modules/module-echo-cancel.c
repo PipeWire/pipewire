@@ -402,7 +402,7 @@ static void capture_process(void *data)
 	pw_stream_queue_buffer(impl->capture, buf);
 }
 
-static void input_state_changed(void *data, enum pw_stream_state old,
+static void capture_state_changed(void *data, enum pw_stream_state old,
 		enum pw_stream_state state, const char *error)
 {
 	struct impl *impl = data;
@@ -410,6 +410,44 @@ static void input_state_changed(void *data, enum pw_stream_state old,
 	case PW_STREAM_STATE_PAUSED:
 		pw_stream_flush(impl->source, false);
 		pw_stream_flush(impl->capture, false);
+		break;
+	case PW_STREAM_STATE_UNCONNECTED:
+		pw_log_info("%p: input unconnected", impl);
+		pw_impl_module_schedule_destroy(impl->module);
+		break;
+	case PW_STREAM_STATE_ERROR:
+		pw_log_info("%p: input error: %s", impl, error);
+		break;
+	default:
+		break;
+	}
+}
+
+static void source_state_changed(void *data, enum pw_stream_state old,
+		enum pw_stream_state state, const char *error)
+{
+	struct impl *impl = data;
+	int res;
+
+	switch (state) {
+	case PW_STREAM_STATE_PAUSED:
+		pw_stream_flush(impl->source, false);
+		pw_stream_flush(impl->capture, false);
+
+		if (old == PW_STREAM_STATE_STREAMING) {
+			pw_log_debug("%p: deactivate %s", impl, impl->aec->name);
+			res = spa_audio_aec_deactivate(impl->aec);
+			if (res < 0 && res != -EOPNOTSUPP) {
+				pw_log_error("aec plugin %s deactivate failed: %s", impl->aec->name, spa_strerror(res));
+			}
+		}
+		break;
+	case PW_STREAM_STATE_STREAMING:
+		pw_log_debug("%p: activate %s", impl, impl->aec->name);
+		res = spa_audio_aec_activate(impl->aec);
+		if (res < 0 && res != -EOPNOTSUPP) {
+			pw_log_error("aec plugin %s activate failed: %s", impl->aec->name, spa_strerror(res));
+		}
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:
 		pw_log_info("%p: input unconnected", impl);
@@ -455,7 +493,7 @@ static void input_param_changed(void *data, uint32_t id, const struct spa_pod *p
 static const struct pw_stream_events capture_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = capture_destroy,
-	.state_changed = input_state_changed,
+	.state_changed = capture_state_changed,
 	.process = capture_process,
 	.param_changed = input_param_changed
 };
@@ -470,7 +508,7 @@ static void source_destroy(void *d)
 static const struct pw_stream_events source_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = source_destroy,
-	.state_changed = input_state_changed,
+	.state_changed = source_state_changed,
 	.param_changed = input_param_changed
 };
 
@@ -976,7 +1014,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	handle = spa_plugin_loader_load(impl->loader, SPA_NAME_AEC, &info);
 	if (handle == NULL) {
-		pw_log_error("AEC codec plugin %s not available library.name %s", SPA_NAME_AEC, path);
+		pw_log_error("aec plugin %s not available library.name %s", SPA_NAME_AEC, path);
 		return -ENOENT;
 	}
 
@@ -986,14 +1024,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 	impl->aec = iface;
 	impl->spa_handle = handle;
-	if (impl->aec->iface.version != SPA_VERSION_AUDIO_AEC) {
-		pw_log_error("codec plugin %s has incompatible ABI version (%d != %d)",
-			SPA_NAME_AEC, impl->aec->iface.version, SPA_VERSION_AUDIO_AEC);
-		res = -ENOENT;
-		goto error;
-	}
-
-	pw_log_info("Using plugin AEC %s", impl->aec->name);
+	pw_log_info("loaded aec plugin %s with interface version %d, using interface version %d",
+			impl->aec->name, impl->aec->iface.version, SPA_VERSION_AUDIO_AEC);
 
 	if ((str = pw_properties_get(props, "aec.args")) != NULL)
 		aec_props = pw_properties_new_string(str);
@@ -1005,7 +1037,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_properties_free(aec_props);
 
 	if (res < 0) {
-		pw_log_error("codec plugin %s create failed: %s", impl->aec->name,
+		pw_log_error("aec plugin %s create failed: %s", impl->aec->name,
 				spa_strerror(res));
 		goto error;
 	}

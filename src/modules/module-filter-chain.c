@@ -838,7 +838,7 @@ static int set_control_value(struct node *node, const char *name, float *value)
 
 	port = find_port(node, name, FC_PORT_INPUT | FC_PORT_CONTROL);
 	if (port == NULL)
-		return 0;
+		return -ENOENT;
 
 	node = port->node;
 	desc = node->desc;
@@ -853,7 +853,7 @@ static int parse_params(struct graph *graph, const struct spa_pod *pod)
 {
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f;
-	int changed = 0;
+	int res, changed = 0;
 	struct node *def_node;
 
 	def_node = spa_list_first(&graph->node_list, struct node, link);
@@ -886,7 +886,8 @@ static int parse_params(struct graph *graph, const struct spa_pod *pod)
 			struct spa_pod *pod;
 			spa_pod_parser_get_pod(&prs, &pod);
 		}
-		changed += set_control_value(def_node, name, val);
+		if ((res = set_control_value(def_node, name, val)) > 0)
+			changed += res;
 	}
 	return changed;
 }
@@ -1338,15 +1339,17 @@ static int parse_control(struct node *node, struct spa_json *control)
 	while (spa_json_get_string(control, key, sizeof(key)) > 0) {
 		float fl;
 		const char *val;
-		int len;
+		int res, len;
 
 		if ((len = spa_json_next(control, &val)) < 0)
 			break;
 
-		if (spa_json_parse_float(val, len, &fl) <= 0)
+		if (spa_json_parse_float(val, len, &fl) <= 0) {
 			pw_log_warn("control '%s' expects a number, ignoring", key);
-		else
-			set_control_value(node, key, &fl);
+		}
+		else if ((res = set_control_value(node, key, &fl)) < 0) {
+			pw_log_warn("control '%s' can not be set: %s", key, spa_strerror(res));
+		}
 	}
 	return 0;
 }

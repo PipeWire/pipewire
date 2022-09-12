@@ -682,11 +682,21 @@ static struct port *find_port(struct node *node, const char *name, int descripto
 	str = strdupa(name);
 	col = strchr(str, ':');
 	if (col != NULL) {
+		struct node *find;
 		node_name = str;
 		port_name = col + 1;
 		*col = '\0';
-		node = find_node(node->graph, node_name);
-	} else {
+		find = find_node(node->graph, node_name);
+		if (find == NULL) {
+			/* it's possible that the : is part of the port name,
+			 * try again without splitting things up. */
+			*col = ':';
+			col = NULL;
+		} else {
+			node = find;
+		}
+	}
+	if (col == NULL) {
 		node_name = node->name;
 		port_name = str;
 	}

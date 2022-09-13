@@ -81,6 +81,7 @@ typedef struct {
 	unsigned int draining:1;
 	unsigned int xrun_detected:1;
 	unsigned int hw_params_changed:1;
+	unsigned int active:1;
 
 	snd_pcm_uframes_t hw_ptr;
 	snd_pcm_uframes_t boundary;
@@ -110,55 +111,53 @@ typedef struct {
 
 static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io);
 
-static int block_check(snd_pcm_ioplug_t *io)
+static int check_active(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 	snd_pcm_sframes_t avail;
-	uint64_t val;
+	bool active;
 
 	avail = snd_pcm_ioplug_avail(io, pw->hw_ptr, io->appl_ptr);
-
-	if (avail >= 0 && avail < (snd_pcm_sframes_t)pw->min_avail) {
-		pw_log_trace("%p: block avail:%lu min-avail:%lu state:%s hw:%lu appl:%lu",
-				pw, avail, pw->min_avail, snd_pcm_state_name(io->state),
-				pw->hw_ptr, io->appl_ptr);
-		spa_system_eventfd_read(pw->system, io->poll_fd, &val);
-		return 1;
-	}
-	return 0;
-}
-
-static int pcm_poll_block_check(snd_pcm_ioplug_t *io)
-{
-	snd_pcm_pipewire_t *pw = io->private_data;
 
 	if (io->state == SND_PCM_STATE_DRAINING) {
-		uint64_t val;
-		pw_log_trace("%p: block state %s", pw, snd_pcm_state_name(io->state));
-		spa_system_eventfd_read(pw->system, io->poll_fd, &val);
-		return 0;
-	} else if (io->state == SND_PCM_STATE_RUNNING ||
-			   (io->state == SND_PCM_STATE_PREPARED && io->stream == SND_PCM_STREAM_CAPTURE)) {
-		return block_check(io);
+		active = pw->drained;
 	}
-	return 0;
+	else if (avail >= 0 && avail < (snd_pcm_sframes_t)pw->min_avail) {
+		active = false;
+	}
+	else if (avail >= (snd_pcm_sframes_t)pw->min_avail) {
+		active = true;
+	} else {
+		active = false;
+	}
+	if (pw->active != active) {
+		pw_log_trace("%p: avail:%lu min-avail:%lu state:%s hw:%lu appl:%lu active:%d->%d state:%s",
+			pw, avail, pw->min_avail, snd_pcm_state_name(io->state),
+			pw->hw_ptr, io->appl_ptr, pw->active, active,
+			snd_pcm_state_name(io->state));
+	}
+	return active;
 }
 
-static inline int pcm_poll_unblock_check(snd_pcm_ioplug_t *io)
+
+static int update_active(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
-	snd_pcm_uframes_t avail;
+	bool active;
 
-	avail = snd_pcm_ioplug_avail(io, pw->hw_ptr, io->appl_ptr);
+	active = check_active(io);
 
-	if (avail >= pw->min_avail || io->state == SND_PCM_STATE_DRAINING) {
-		pw_log_trace("%p: unblock avail:%lu min-avail:%lu state:%s hw:%lu appl:%lu",
-				pw, avail, pw->min_avail, snd_pcm_state_name(io->state),
-				pw->hw_ptr, io->appl_ptr);
-		spa_system_eventfd_write(pw->system, pw->fd, 1);
-		return 1;
+	if (pw->active != active) {
+		uint64_t val;
+
+		pw->active = active;
+
+		if (active)
+			spa_system_eventfd_write(pw->system, io->poll_fd, 1);
+		else
+			spa_system_eventfd_read(pw->system, io->poll_fd, &val);
 	}
-	return 0;
+	return active;
 }
 
 static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
@@ -195,7 +194,7 @@ static int snd_pcm_pipewire_close(snd_pcm_ioplug_t *io)
 static int snd_pcm_pipewire_poll_descriptors(snd_pcm_ioplug_t *io, struct pollfd *pfds, unsigned int space)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
-	pcm_poll_unblock_check(io); /* unblock socket for polling if needed */
+	update_active(io);
 	pfds->fd = pw->fd;
 	pfds->events = POLLIN | POLLERR | POLLNVAL;
 	return 1;
@@ -213,7 +212,7 @@ static int snd_pcm_pipewire_poll_revents(snd_pcm_ioplug_t *io,
 		return pw->error;
 
 	*revents = pfds[0].revents & ~(POLLIN | POLLOUT);
-	if (pfds[0].revents & POLLIN && !pcm_poll_block_check(io))
+	if (pfds[0].revents & POLLIN && check_active(io))
 		*revents |= (io->stream == SND_PCM_STREAM_PLAYBACK) ? POLLOUT : POLLIN;
 
 	return 0;
@@ -436,10 +435,8 @@ static void on_stream_process(void *data)
 
 	before = hw_avail = snd_pcm_ioplug_hw_avail(io, pw->hw_ptr, io->appl_ptr);
 
-	if (pw->drained) {
-		pcm_poll_unblock_check(io); /* unblock socket for polling if needed */
-		return;
-	}
+	if (pw->drained)
+		goto done;
 
 	b = pw_stream_dequeue_buffer(pw->stream);
 	if (b == NULL)
@@ -473,7 +470,8 @@ static void on_stream_process(void *data)
 			pw->drained = false;
 		}
 	}
-	pcm_poll_unblock_check(io); /* unblock socket for polling if needed */
+done:
+	update_active(io);
 }
 
 static const struct pw_stream_events stream_events = {
@@ -617,7 +615,6 @@ static int snd_pcm_pipewire_start(snd_pcm_ioplug_t *io)
 	pw_thread_loop_lock(pw->main_loop);
 	pw_log_debug("%p: start", pw);
 	pipewire_start(pw);
-	block_check(io); /* unblock socket for polling if needed */
 	pw_thread_loop_unlock(pw->main_loop);
 	return 0;
 }
@@ -627,7 +624,7 @@ static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io)
 	snd_pcm_pipewire_t *pw = io->private_data;
 
 	pw_log_debug("%p: stop", pw);
-	pcm_poll_unblock_check(io);
+	update_active(io);
 
 	pw_thread_loop_lock(pw->main_loop);
 	if (pw->activated && pw->stream != NULL) {
@@ -1049,7 +1046,7 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 	if (id == PW_ID_CORE) {
 		pw->error = res;
 		if (pw->fd != -1)
-			pcm_poll_unblock_check(&pw->io);
+			update_active(&pw->io);
 	}
 	pw_thread_loop_signal(pw->main_loop, false);
 }

@@ -71,7 +71,9 @@ struct spa_audio_aec_methods {
 	int (*init) (void *object, const struct spa_dict *args, const struct spa_audio_info_raw *info);
 	int (*run) (void *object, const float *rec[], const float *play[], float *out[], uint32_t n_samples);
 	int (*set_props) (void *object, const struct spa_dict *args);
+	/* since 0.3.58, version 1:1 */
 	int (*activate) (void *object);
+	/* since 0.3.58, version 1:1 */
 	int (*deactivate) (void *object);
 };
 

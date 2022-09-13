@@ -1024,8 +1024,16 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 	impl->aec = iface;
 	impl->spa_handle = handle;
-	pw_log_info("loaded aec plugin %s with interface version %d, using interface version %d",
-			impl->aec->name, impl->aec->iface.version, SPA_VERSION_AUDIO_AEC);
+
+	if (impl->aec->iface.version > SPA_VERSION_AUDIO_AEC) {
+		pw_log_error("codec plugin %s has incompatible ABI version (%d > %d)",
+			SPA_NAME_AEC, impl->aec->iface.version, SPA_VERSION_AUDIO_AEC);
+		res = -ENOENT;
+		goto error;
+	}
+
+	pw_log_info("Using plugin AEC %s with version %d", impl->aec->name,
+			impl->aec->iface.version);
 
 	if ((str = pw_properties_get(props, "aec.args")) != NULL)
 		aec_props = pw_properties_new_string(str);

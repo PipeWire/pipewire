@@ -32,7 +32,7 @@ static inline float hmax_ps(__m128 val)
 {
 	__m128 t = _mm_movehl_ps(val, val);
 	t = _mm_max_ps(t, val);
-	val = _mm_shuffle_ps(val, t, 0x55);
+	val = _mm_shuffle_ps(t, t, 0x55);
 	val = _mm_max_ss(t, val);
 	return _mm_cvtss_f32(val);
 }
@@ -41,7 +41,7 @@ static inline float find_abs_max_sse(const float *s, uint32_t n_samples, float m
 {
 	__m128 in[2], max;
 	uint32_t n, unrolled;
-	const __m128 mask = (__m128) _mm_set1_epi32(0x7fffffff);
+	const __m128 mask = _mm_set1_ps(-0.0f);
 
 	max = _mm_set1_ps(m);
 
@@ -50,10 +50,10 @@ static inline float find_abs_max_sse(const float *s, uint32_t n_samples, float m
 	for (n = 0; n < unrolled; n += 8) {
 		in[0] = _mm_loadu_ps(&s[n + 0]);
 		in[1] = _mm_loadu_ps(&s[n + 4]);
-		in[0] = _mm_and_ps(mask, in[0]);
-		in[1] = _mm_and_ps(mask, in[1]);
-		max = _mm_max_ps(in[0], max);
-		max = _mm_max_ps(in[1], max);
+		in[0] = _mm_andnot_ps(mask, in[0]);
+		in[1] = _mm_andnot_ps(mask, in[1]);
+		max = _mm_max_ps(max, in[0]);
+		max = _mm_max_ps(max, in[1]);
 	}
 	for (; n < n_samples; n++)
 		m = fmaxf(fabsf(s[n]), m);

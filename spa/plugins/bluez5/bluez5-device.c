@@ -711,11 +711,11 @@ static int emit_nodes(struct impl *this)
 			t = find_transport(this, SPA_BT_PROFILE_A2DP_SINK, this->props.codec);
 			if (t) {
 				this->props.codec = t->media_codec->id;
-				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_MEDIA_SOURCE, false);
+				emit_node(this, t, DEVICE_ID_SINK, SPA_NAME_API_BLUEZ5_MEDIA_SINK, false);
 
 				if (t->media_codec->duplex_codec) {
 					emit_node(this, t,
-						DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_MEDIA_SINK, true);
+						DEVICE_ID_SOURCE, SPA_NAME_API_BLUEZ5_MEDIA_SOURCE, true);
 				}
 			}
 		}

@@ -59,7 +59,7 @@ static void on_process(void *userdata)
 	struct pw_buffer *b;
 	struct spa_buffer *buf;
 	float *samples, max;
-	uint32_t c, n, n_channels, n_samples;
+	uint32_t c, n, n_channels, n_samples, peak;
 
 	if ((b = pw_stream_dequeue_buffer(data->stream)) == NULL) {
 		pw_log_warn("out of buffers: %m");
@@ -79,8 +79,10 @@ static void on_process(void *userdata)
 		for (n = c; n < n_samples; n += n_channels)
 			max = fmaxf(max, fabsf(samples[n]));
 
-		fprintf(stdout, "channel %d: peak:%f %*s %*s\n",
-				c, max, (int)(max * 30.0f), "*", 30, "");
+		peak = SPA_CLAMP(max * 30, 0, 39);
+
+		fprintf(stdout, "channel %d: |%*s%*s| peak:%f\n",
+				c, peak+1, "*", 40 - peak, "", max);
 	}
 	/* move cursor up */
 	fprintf(stdout, "%c[%dA", 0x1b, n_channels + 1);

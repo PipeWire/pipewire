@@ -3,6 +3,7 @@ examples = [
   'audio-src',
   'audio-dsp-src',
   'audio-dsp-filter',
+  'audio-capture',
   'video-play',
   'video-src',
   'video-dsp-play',

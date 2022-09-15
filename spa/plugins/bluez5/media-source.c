@@ -1651,3 +1651,13 @@ const struct spa_handle_factory spa_media_source_factory = {
 	impl_init,
 	impl_enum_interface_info,
 };
+
+/* Retained for backward compatibility */
+const struct spa_handle_factory spa_a2dp_source_factory = {
+	SPA_VERSION_HANDLE_FACTORY,
+	SPA_NAME_API_BLUEZ5_A2DP_SOURCE,
+	&info,
+	impl_get_size,
+	impl_init,
+	impl_enum_interface_info,
+};

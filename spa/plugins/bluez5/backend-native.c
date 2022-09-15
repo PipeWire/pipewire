@@ -809,7 +809,7 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 	} else if (!rfcomm->slc_configured) {
 		spa_log_warn(backend->log, "RFCOMM receive command before SLC completed: %s", buf);
 		rfcomm_send_reply(rfcomm, "ERROR");
-		return false;
+		return true;
 	} else if (sscanf(buf, "AT+BCS=%u", &selected_codec) == 1) {
 		/* parse BCS(=Bluetooth Codec Selection) reply */
 		bool was_switching_codec = rfcomm->hfp_ag_switching_codec && (rfcomm->device != NULL);

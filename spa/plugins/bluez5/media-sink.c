@@ -1786,6 +1786,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (this->codec->bap)
 		this->is_output = this->transport->bap_initiator;
+	else
+		this->is_output = true;
 
 	reset_props(this, &this->props);
 

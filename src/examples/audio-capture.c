@@ -166,6 +166,10 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		/* Set stream target if given on command line */
 		pw_properties_set(props, PW_KEY_TARGET_OBJECT, argv[1]);
+
+	/* uncomment if you want to capture from the sink monitor ports */
+	/* pw_properties_set(props, PW_KEY_STREAM_CAPTURE_SINK, "true"); */
+
 	data.stream = pw_stream_new_simple(
 			pw_main_loop_get_loop(data.loop),
 			"audio-capture",

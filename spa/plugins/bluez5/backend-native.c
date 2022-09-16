@@ -51,6 +51,8 @@
 #include <libusb.h>
 #endif
 
+#include "modemmanager.h"
+
 static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.native");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
@@ -64,6 +66,21 @@ enum {
 	HFP_AG_INITIAL_CODEC_SETUP_NONE = 0,
 	HFP_AG_INITIAL_CODEC_SETUP_SEND,
 	HFP_AG_INITIAL_CODEC_SETUP_WAIT
+};
+
+#define CIND_INDICATORS "(\"service\",(0-1)),(\"call\",(0-1)),(\"callsetup\",(0-3)),(\"callheld\",(0-2)),(\"signal\",(0-5))"
+enum {
+	CIND_SERVICE = 1,
+	CIND_CALL,
+	CIND_CALLSETUP,
+	CIND_CALLHELD,
+	CIND_SIGNAL,
+	CIND_MAX
+};
+
+struct modem {
+	bool network_has_service;
+	unsigned int signal_strength;
 };
 
 struct impl {
@@ -87,6 +104,10 @@ struct impl {
 
 	struct spa_list rfcomm_list;
 	unsigned int defer_setup_enabled:1;
+
+	struct modem modem;
+
+	void *modemmanager;
 };
 
 struct transport_data {
@@ -145,6 +166,7 @@ struct rfcomm {
 	enum hfp_hf_state hf_state;
 	enum hsp_hs_state hs_state;
 	unsigned int codec;
+	uint32_t cind_enabled_indicators;
 #endif
 };
 
@@ -788,10 +810,12 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+CIND=?")) {
-		rfcomm_send_reply(rfcomm, "+CIND:(\"service\",(0-1)),(\"call\",(0-1)),(\"callsetup\",(0-3)),(\"callheld\",(0-2))");
+		rfcomm_send_reply(rfcomm, "+CIND:%s", CIND_INDICATORS);
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+CIND?")) {
-		rfcomm_send_reply(rfcomm, "+CIND: 0,%d,0,0", rfcomm->cind_call_active);
+		rfcomm_send_reply(rfcomm, "+CIND: %d,%d,0,0,%d", backend->modem.network_has_service,
+		                  rfcomm->cind_call_active,
+		                  backend->modem.signal_strength);
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+CMER")) {
 		int mode, keyp, disp, ind;
@@ -826,6 +850,11 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		spa_log_warn(backend->log, "RFCOMM receive command before SLC completed: %s", buf);
 		rfcomm_send_reply(rfcomm, "ERROR");
 		return true;
+
+	/* *****
+	 * Following commands requires a Service Level Connection
+	 * ***** */
+
 	} else if (sscanf(buf, "AT+BCS=%u", &selected_codec) == 1) {
 		/* parse BCS(=Bluetooth Codec Selection) reply */
 		bool was_switching_codec = rfcomm->hfp_ag_switching_codec && (rfcomm->device != NULL);
@@ -867,9 +896,35 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		if (was_switching_codec)
 			spa_bt_device_emit_codec_switched(rfcomm->device, 0);
 	} else if (spa_strstartswith(buf, "AT+BIA=")) {
-		/* We only support 'call' indicator, which HFP 4.35.1 defines as
-		   always active (assuming CMER enabled it), so we don't need to
-		   parse anything here. */
+		/* retrieve indicators activation
+		 * form: AT+BIA=[indrep1],[indrep2],[indrepx] */
+		char *str = buf + 7;
+		unsigned int ind = 1;
+
+		while (*str && ind < CIND_MAX && *str != '\r' && *str != '\n') {
+			if (*str == ',') {
+				ind++;
+				goto next_indicator;
+			}
+
+			/* Ignore updates to mandantory indicators which are always ON */
+			if (ind == CIND_CALL || ind == CIND_CALLSETUP || ind == CIND_CALLHELD)
+				goto next_indicator;
+
+			switch (*str) {
+			case '0':
+				rfcomm->cind_enabled_indicators &= ~(1 << ind);
+				break;
+			case '1':
+				rfcomm->cind_enabled_indicators |= (1 << ind);
+				break;
+			default:
+				spa_log_warn(backend->log, "Unsupported entry in %s: %c", buf, *str);
+			}
+next_indicator:
+			str++;
+		}
+
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (sscanf(buf, "AT+VGM=%u", &gain) == 1) {
 		if (gain <= SPA_BT_VOLUME_HS_MAX) {
@@ -1858,6 +1913,8 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	rfcomm->source.fd = fd;
 	rfcomm->source.mask = SPA_IO_IN;
 	rfcomm->source.rmask = 0;
+	/* By default all indicators are enabled */
+	rfcomm->cind_enabled_indicators = 0xFFFFFFFF;
 
 	for (int i = 0; i < SPA_BT_VOLUME_ID_TERM; ++i) {
 		if (rfcomm->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)
@@ -2242,6 +2299,38 @@ static int backend_native_unregister_profiles(void *data)
 	return 0;
 }
 
+static void send_ciev_for_each_rfcomm(struct impl *backend, int indicator, int value)
+{
+	struct rfcomm *rfcomm;
+
+	spa_list_for_each(rfcomm, &backend->rfcomm_list, link) {
+		if (rfcomm->slc_configured &&
+		    ((indicator == CIND_CALL || indicator == CIND_CALLSETUP || indicator == CIND_CALLHELD) ||
+			(rfcomm->cind_call_notify && (rfcomm->cind_enabled_indicators & (1 << indicator)))))
+			rfcomm_send_reply(rfcomm, "+CIEV: %d,%d", indicator, value);
+	}
+}
+
+static void set_modem_service(bool available, void *user_data)
+{
+	struct impl *backend = user_data;
+
+	if (backend->modem.network_has_service != available) {
+		backend->modem.network_has_service = available;
+		send_ciev_for_each_rfcomm(backend, CIND_SERVICE, available);
+	}
+}
+
+static void set_modem_signal_strength(unsigned int strength, void *user_data)
+{
+	struct impl *backend = user_data;
+
+	if (backend->modem.signal_strength != strength) {
+		backend->modem.signal_strength = strength;
+		send_ciev_for_each_rfcomm(backend, CIND_SIGNAL, strength);
+	}
+}
+
 static int backend_native_free(void *data)
 {
 	struct impl *backend = data;
@@ -2249,6 +2338,11 @@ static int backend_native_free(void *data)
 	struct rfcomm *rfcomm;
 
 	sco_close(backend);
+
+	if (backend->modemmanager) {
+		mm_unregister(backend);
+		backend->modemmanager = NULL;
+	}
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_AG);
@@ -2295,6 +2389,11 @@ static const struct spa_bt_backend_implementation backend_impl = {
 	.unregister_profiles = backend_native_unregister_profiles,
 	.ensure_codec = backend_native_ensure_codec,
 	.supports_codec = backend_native_supports_codec,
+};
+
+static const struct mm_ops mm_ops = {
+	.set_modem_service = set_modem_service,
+	.set_modem_signal_strength = set_modem_signal_strength,
 };
 
 struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
@@ -2361,6 +2460,8 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 		goto fail3;
 	}
 #endif
+
+	backend->modemmanager = mm_register(backend->log, backend->conn, &mm_ops, backend);
 
 	return &backend->this;
 

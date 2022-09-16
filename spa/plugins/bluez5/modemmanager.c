@@ -608,6 +608,42 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 				call_free(call);
 		}
 		mm_call_state_changed(this);
+	} else if (dbus_message_is_signal(m, MM_DBUS_INTERFACE_CALL, MM_CALL_SIGNAL_STATECHANGED)) {
+		const char *path;
+		DBusMessageIter iface_i;
+		MMCallState old, new;
+		MMCallStateReason reason;
+		struct call *call = NULL, *call_tmp;
+
+		if (!dbus_message_iter_init(m, &iface_i) || !spa_streq(dbus_message_get_signature(m), "iiu")) {
+				spa_log_error(this->log, "Invalid signature found in %s", MM_CALL_SIGNAL_STATECHANGED);
+				goto finish;
+		}
+
+		path = dbus_message_get_path(m);
+
+		dbus_message_iter_get_basic(&iface_i, &old);
+		dbus_message_iter_next(&iface_i);
+		dbus_message_iter_get_basic(&iface_i, &new);
+		dbus_message_iter_next(&iface_i);
+		dbus_message_iter_get_basic(&iface_i, &reason);
+
+		spa_log_debug(this->log, "Call state %s changed to %d (old = %d, reason = %u)", path, new, old, reason);
+
+		spa_list_for_each(call_tmp, &this->call_list, link) {
+			if (spa_streq(call_tmp->path, path)) {
+				call = call_tmp;
+				break;
+			}
+		}
+
+		if (call == NULL) {
+			spa_log_warn(this->log, "No call reference for %s", path);
+			goto finish;
+		}
+
+		call->state = new;
+		mm_call_state_changed(this);
 	}
 
 finish:
@@ -646,6 +682,9 @@ static int add_filters(struct impl *this)
 	dbus_bus_add_match(this->conn,
 			"type='signal',sender='" MM_DBUS_SERVICE "',"
 			"interface='" MM_DBUS_INTERFACE_MODEM_VOICE "',member='" MM_MODEM_VOICE_SIGNAL_CALLDELETED "'", &err);
+	dbus_bus_add_match(this->conn,
+			"type='signal',sender='" MM_DBUS_SERVICE "',"
+			"interface='" MM_DBUS_INTERFACE_CALL "',member='" MM_CALL_SIGNAL_STATECHANGED "'", &err);
 
 	this->filters_added = true;
 

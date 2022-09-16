@@ -68,19 +68,22 @@ enum {
 	HFP_AG_INITIAL_CODEC_SETUP_WAIT
 };
 
-#define CIND_INDICATORS "(\"service\",(0-1)),(\"call\",(0-1)),(\"callsetup\",(0-3)),(\"callheld\",(0-2)),(\"signal\",(0-5))"
+#define CIND_INDICATORS "(\"service\",(0-1)),(\"call\",(0-1)),(\"callsetup\",(0-3)),(\"callheld\",(0-2)),(\"signal\",(0-5)),(\"roam\",(0-1))"
 enum {
 	CIND_SERVICE = 1,
 	CIND_CALL,
 	CIND_CALLSETUP,
 	CIND_CALLHELD,
 	CIND_SIGNAL,
+	CIND_ROAM,
 	CIND_MAX
 };
 
 struct modem {
 	bool network_has_service;
 	unsigned int signal_strength;
+	bool network_is_roaming;
+	char *operator_name;
 };
 
 struct impl {
@@ -813,9 +816,9 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		rfcomm_send_reply(rfcomm, "+CIND:%s", CIND_INDICATORS);
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+CIND?")) {
-		rfcomm_send_reply(rfcomm, "+CIND: %d,%d,0,0,%d", backend->modem.network_has_service,
+		rfcomm_send_reply(rfcomm, "+CIND: %d,%d,0,0,%d,%d", backend->modem.network_has_service,
 		                  rfcomm->cind_call_active,
-		                  backend->modem.signal_strength);
+		                  backend->modem.signal_strength, backend->modem.network_is_roaming);
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+CMER")) {
 		int mode, keyp, disp, ind;
@@ -926,6 +929,25 @@ next_indicator:
 		}
 
 		rfcomm_send_reply(rfcomm, "OK");
+	} else if (spa_strstartswith(buf, "AT+COPS=")) {
+		unsigned int mode, val;
+
+		if (sscanf(buf, "AT+COPS=%u,%u", &mode, &val) != 2 ||
+		      mode != 3 || val != 0) {
+			rfcomm_send_reply(rfcomm, "ERROR");
+		} else {
+			rfcomm_send_reply(rfcomm, "OK");
+		}
+	} else if (spa_strstartswith(buf, "AT+COPS?")) {
+		if (!backend->modem.network_has_service) {
+			rfcomm_send_reply(rfcomm, "ERROR");
+		} else {
+			if (backend->modem.operator_name)
+				rfcomm_send_reply(rfcomm, "+COPS: 0,0,\"%s\"", backend->modem.operator_name);
+			else
+				rfcomm_send_reply(rfcomm, "+COPS: 0,,");
+			rfcomm_send_reply(rfcomm, "OK");
+		}
 	} else if (sscanf(buf, "AT+VGM=%u", &gain) == 1) {
 		if (gain <= SPA_BT_VOLUME_HS_MAX) {
 			if (!rfcomm->broken_mic_hw_volume)
@@ -2311,6 +2333,29 @@ static void send_ciev_for_each_rfcomm(struct impl *backend, int indicator, int v
 	}
 }
 
+static void set_modem_operator_name(const char *name, void *user_data)
+{
+	struct impl *backend = user_data;
+
+	if (backend->modem.operator_name) {
+		free(backend->modem.operator_name);
+		backend->modem.operator_name = NULL;
+	}
+
+	if (name)
+		backend->modem.operator_name = strdup(name);
+}
+
+static void set_modem_roaming(bool is_roaming, void *user_data)
+{
+	struct impl *backend = user_data;
+
+	if (backend->modem.network_is_roaming != is_roaming) {
+		backend->modem.network_is_roaming = is_roaming;
+		send_ciev_for_each_rfcomm(backend, CIND_ROAM, is_roaming);
+	}
+}
+
 static void set_modem_service(bool available, void *user_data)
 {
 	struct impl *backend = user_data;
@@ -2357,6 +2402,8 @@ static int backend_native_free(void *data)
 	spa_list_consume(rfcomm, &backend->rfcomm_list, link)
 		rfcomm_free(rfcomm);
 
+	if (backend->modem.operator_name)
+		free(backend->modem.operator_name);
 	free(backend);
 
 	return 0;
@@ -2394,6 +2441,8 @@ static const struct spa_bt_backend_implementation backend_impl = {
 static const struct mm_ops mm_ops = {
 	.set_modem_service = set_modem_service,
 	.set_modem_signal_strength = set_modem_signal_strength,
+	.set_modem_operator_name = set_modem_operator_name,
+	.set_modem_roaming = set_modem_roaming,
 };
 
 struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,

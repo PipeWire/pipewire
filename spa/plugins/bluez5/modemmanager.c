@@ -77,6 +77,49 @@ static bool mm_dbus_connection_send_with_reply(struct impl *this, DBusMessage *m
 	return true;
 }
 
+static DBusHandlerResult mm_parse_modem3gpp_properties(struct impl *this, DBusMessageIter *props_i)
+{
+	while (dbus_message_iter_get_arg_type(props_i) != DBUS_TYPE_INVALID) {
+		DBusMessageIter i, value_i;
+		const char *key;
+
+		dbus_message_iter_recurse(props_i, &i);
+
+		dbus_message_iter_get_basic(&i, &key);
+		dbus_message_iter_next(&i);
+		dbus_message_iter_recurse(&i, &value_i);
+
+		if (spa_streq(key, MM_MODEM_MODEM3GPP_PROPERTY_OPERATORNAME)) {
+			char *operator_name;
+
+			dbus_message_iter_get_basic(&value_i, &operator_name);
+			spa_log_debug(this->log, "Network operator code: %s", operator_name);
+			if (this->ops->set_modem_operator_name)
+				this->ops->set_modem_operator_name(operator_name, this->user_data);
+		} else if (spa_streq(key, MM_MODEM_MODEM3GPP_PROPERTY_REGISTRATIONSTATE)) {
+			MMModem3gppRegistrationState state;
+			bool is_roaming;
+
+			dbus_message_iter_get_basic(&value_i, &state);
+			spa_log_debug(this->log, "Registration state: %d", state);
+
+			if (state == MM_MODEM_3GPP_REGISTRATION_STATE_ROAMING ||
+			      state == MM_MODEM_3GPP_REGISTRATION_STATE_ROAMING_CSFB_NOT_PREFERRED ||
+				  state == MM_MODEM_3GPP_REGISTRATION_STATE_ROAMING_SMS_ONLY)
+				is_roaming = true;
+			else
+				is_roaming = false;
+
+			if (this->ops->set_modem_roaming)
+				this->ops->set_modem_roaming(is_roaming, this->user_data);
+		}
+
+		dbus_message_iter_next(props_i);
+	}
+
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
 static DBusHandlerResult mm_parse_modem_properties(struct impl *this, DBusMessageIter *props_i)
 {
 	while (dbus_message_iter_get_arg_type(props_i) != DBUS_TYPE_INVALID) {
@@ -175,6 +218,9 @@ static DBusHandlerResult mm_parse_interfaces(struct impl *this, DBusMessageIter 
 			this->modem.path = strdup(path);
 			spa_log_debug(this->log, "Found Modem interface %s, path %s", interface, path);
 			mm_parse_modem_properties(this, &props_i);
+		} else if (spa_streq(interface, MM_DBUS_INTERFACE_MODEM_MODEM3GPP)) {
+			spa_log_debug(this->log, "Found Modem3GPP interface %s, path %s", interface, path);
+			mm_parse_modem3gpp_properties(this, &props_i);
 		}
 
 		dbus_message_iter_next(&element_i);
@@ -221,6 +267,14 @@ finish:
 	dbus_message_unref(r);
 }
 
+static void mm_clean_modem3gpp(struct impl *this)
+{
+	if (this->ops->set_modem_operator_name)
+		this->ops->set_modem_operator_name(NULL, this->user_data);
+	if (this->ops->set_modem_roaming)
+		this->ops->set_modem_roaming(false, this->user_data);
+}
+
 static void mm_clean_modem(struct impl *this)
 {
 	if (this->modem.path) {
@@ -258,6 +312,7 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 		if (spa_streq(name, MM_DBUS_SERVICE)) {
 			if (old_owner && *old_owner) {
 				spa_log_debug(this->log, "ModemManager daemon disappeared (%s)", old_owner);
+				mm_clean_modem3gpp(this);
 				mm_clean_modem(this);
 			}
 
@@ -297,6 +352,9 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 				if (spa_streq(iface, MM_DBUS_INTERFACE_MODEM)) {
 					spa_log_debug(this->log, "Modem interface %s removed, path %s", iface, path);
 					mm_clean_modem(this);
+				} else if (spa_streq(iface, MM_DBUS_INTERFACE_MODEM_MODEM3GPP)) {
+					spa_log_debug(this->log, "Modem3GPP interface %s removed, path %s", iface, path);
+					mm_clean_modem3gpp(this);
 				}
 
 				dbus_message_iter_next(&element_i);
@@ -322,6 +380,9 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 		if (spa_streq(interface, MM_DBUS_INTERFACE_MODEM)) {
 			spa_log_debug(this->log, "Properties changed on %s", path);
 			mm_parse_modem_properties(this, &props_i);
+		} else if (spa_streq(interface, MM_DBUS_INTERFACE_MODEM_MODEM3GPP)) {
+			spa_log_debug(this->log, "Properties changed on %s", path);
+			mm_parse_modem3gpp_properties(this, &props_i);
 		}
 	}
 
@@ -459,6 +520,7 @@ void mm_unregister(void *data)
 		dbus_pending_call_unref(this->pending);
 	}
 
+	mm_clean_modem3gpp(this);
 	mm_clean_modem(this);
 
 	if (this->filters_added) {

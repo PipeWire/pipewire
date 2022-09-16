@@ -1040,6 +1040,66 @@ bool mm_do_call(void *modemmanager, const char* number, void *user_data, enum cm
 	return true;
 }
 
+bool mm_send_dtmf(void *modemmanager, const char *dtmf, void *user_data, enum cmee_error *error)
+{
+	struct impl *this = modemmanager;
+	struct call *call_object, *call_tmp;
+	struct dbus_cmd_data *data;
+	DBusMessage *m;
+
+	call_object = NULL;
+	spa_list_for_each(call_tmp, &this->call_list, link) {
+		if (call_tmp->state == CLCC_ACTIVE) {
+			call_object = call_tmp;
+			break;
+		}
+	}
+	if (!call_object) {
+		spa_log_debug(this->log, "No active call");
+		if (error)
+			*error = CMEE_OPERATION_NOT_ALLOWED;
+		return false;
+	}
+
+	/* Allowed dtmf characters: 0-9, *, #, A-D */
+	if (!((dtmf[0] >= '0' && dtmf[0] <= '9')
+	    || (dtmf[0] == '*')
+	    || (dtmf[0] == '#')
+	    || (dtmf[0] >= 'A' && dtmf[0] <= 'D'))) {
+		spa_log_debug(this->log, "Invalid DTMF character: %s", dtmf);
+		if (error)
+			*error = CMEE_INVALID_CHARACTERS_TEXT_STRING;
+		return false;
+	}
+
+	data = malloc(sizeof(struct dbus_cmd_data));
+	if (!data) {
+		if (error)
+			*error = CMEE_AG_FAILURE;
+		return false;
+	}
+	data->this = this;
+	data->call = call_object;
+	data->user_data = user_data;
+
+	m = dbus_message_new_method_call(MM_DBUS_SERVICE, call_object->path, MM_DBUS_INTERFACE_CALL, MM_CALL_METHOD_SENDDTMF);
+	if (m == NULL) {
+		if (error)
+			*error = CMEE_AG_FAILURE;
+		return false;
+	}
+	dbus_message_append_args(m, DBUS_TYPE_STRING, &dtmf, DBUS_TYPE_INVALID);
+	if (!mm_dbus_connection_send_with_reply(this, m, &call_object->pending, mm_get_call_simple_reply, data)) {
+		spa_log_error(this->log, "dbus call failure");
+		dbus_message_unref(m);
+		if (error)
+			*error = CMEE_AG_FAILURE;
+		return false;
+	}
+
+	return true;
+}
+
 const char *mm_get_incoming_call_number(void *modemmanager)
 {
 	struct impl *this = modemmanager;

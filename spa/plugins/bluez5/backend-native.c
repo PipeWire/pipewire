@@ -1119,6 +1119,21 @@ next_indicator:
 			rfcomm_send_error(rfcomm, error);
 			return true;
 		}
+	} else if (spa_strstartswith(buf, "AT+VTS=")) {
+		char *dtmf;
+		enum cmee_error error;
+
+		dtmf = calloc(1, 2);
+		if (sscanf(buf, "AT+VTS=%1s", dtmf) != 1) {
+			spa_log_debug(backend->log, "Failed to parse AT+VTS: \"%s\"", buf);
+			rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);
+			return true;
+		}
+
+		if (!mm_send_dtmf(backend->modemmanager, dtmf, rfcomm, &error)) {
+			rfcomm_send_error(rfcomm, error);
+			return true;
+		}
 	} else {
 		return false;
 	}

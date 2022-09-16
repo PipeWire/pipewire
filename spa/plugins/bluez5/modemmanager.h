@@ -94,6 +94,7 @@ unsigned int mm_supported_features();
 bool mm_answer_call(void *modemmanager, void *user_data, enum cmee_error *error);
 bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error);
 bool mm_do_call(void *modemmanager, const char* number, void *user_data, enum cmee_error *error);
+bool mm_send_dtmf(void *modemmanager, const char *dtmf, void *user_data, enum cmee_error *error);
 const char *mm_get_incoming_call_number(void *modemmanager);
 struct spa_list *mm_get_calls(void *modemmanager);
 #else
@@ -131,6 +132,13 @@ bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error)
 }
 
 bool mm_do_call(void *modemmanager, const char* number, void *user_data, enum cmee_error *error)
+{
+	if (error)
+		*error = CMEE_OPERATION_NOT_SUPPORTED;
+	return false;
+}
+
+bool mm_send_dtmf(void *modemmanager, const char *dtmf, void *user_data, enum cmee_error *error)
 {
 	if (error)
 		*error = CMEE_OPERATION_NOT_SUPPORTED;

@@ -1087,6 +1087,20 @@ next_indicator:
 			rfcomm_send_error(rfcomm, error);
 			return true;
 		}
+	} else if (spa_strstartswith(buf, "ATD")) {
+		char number[30];
+		enum cmee_error error;
+
+		if (sscanf(buf, "ATD%30s;", number) != 1) {
+			spa_log_debug(backend->log, "Failed to parse ATD: \"%s\"", buf);
+			rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);
+			return true;
+		}
+
+		if (!mm_do_call(backend->modemmanager, number, rfcomm, &error)) {
+			rfcomm_send_error(rfcomm, error);
+			return true;
+		}
 	} else if (spa_strstartswith(buf, "AT+CHUP")) {
 		enum cmee_error error;
 

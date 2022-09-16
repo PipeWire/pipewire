@@ -45,6 +45,7 @@ struct impl {
 
 	bool filters_added;
 	DBusPendingCall *pending;
+	DBusPendingCall *voice_pending;
 
 	const struct mm_ops *ops;
 	void *user_data;
@@ -453,6 +454,12 @@ static void mm_clean_voice(struct impl *this)
 
 	spa_list_consume(call, &this->call_list, link)
 		call_free(call);
+
+	if (this->voice_pending != NULL) {
+		dbus_pending_call_cancel(this->voice_pending);
+		dbus_pending_call_unref(this->voice_pending);
+	}
+
 	if (this->ops->set_call_setup)
 		this->ops->set_call_setup(CIND_CALLSETUP_NONE, this->user_data);
 	if (this->ops->set_call_active)
@@ -816,6 +823,39 @@ finish:
 	this->ops->send_cmd_result(false, CMEE_AG_FAILURE, user_data);
 }
 
+static void mm_get_call_create_reply(DBusPendingCall *pending, void *data)
+{
+	struct dbus_cmd_data *dbus_cmd_data = data;
+	struct impl *this = dbus_cmd_data->this;
+	void *user_data = dbus_cmd_data->user_data;
+	DBusMessage *r;
+
+	free(data);
+
+	spa_assert(this->voice_pending == pending);
+	dbus_pending_call_unref(pending);
+	this->voice_pending = NULL;
+
+	r = dbus_pending_call_steal_reply(pending);
+	if (r == NULL)
+		return;
+
+	if (dbus_message_is_error(r, DBUS_ERROR_UNKNOWN_METHOD)) {
+		spa_log_warn(this->log, "ModemManager D-Bus method not available");
+		goto finish;
+	}
+	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
+		spa_log_error(this->log, "ModemManager method failed: %s", dbus_message_get_error_name(r));
+		goto finish;
+	}
+
+	this->ops->send_cmd_result(true, 0, user_data);
+	return;
+
+finish:
+	this->ops->send_cmd_result(false, CMEE_AG_FAILURE, user_data);
+}
+
 bool mm_answer_call(void *modemmanager, void *user_data, enum cmee_error *error)
 {
 	struct impl *this = modemmanager;
@@ -912,6 +952,82 @@ bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error)
 		return false;
 	}
 	if (!mm_dbus_connection_send_with_reply(this, m, &call_object->pending, mm_get_call_simple_reply, data)) {
+		spa_log_error(this->log, "dbus call failure");
+		dbus_message_unref(m);
+		if (error)
+			*error = CMEE_AG_FAILURE;
+		return false;
+	}
+
+	return true;
+}
+
+static void append_basic_variant_dict_entry(DBusMessageIter *dict, const char* key, int variant_type_int, const char* variant_type_str, void* variant) {
+	DBusMessageIter dict_entry_it, variant_it;
+	dbus_message_iter_open_container(dict, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry_it);
+	dbus_message_iter_append_basic(&dict_entry_it, DBUS_TYPE_STRING, &key);
+
+	dbus_message_iter_open_container(&dict_entry_it, DBUS_TYPE_VARIANT, variant_type_str, &variant_it);
+	dbus_message_iter_append_basic(&variant_it, variant_type_int, variant);
+	dbus_message_iter_close_container(&dict_entry_it, &variant_it);
+	dbus_message_iter_close_container(dict, &dict_entry_it);
+}
+
+bool mm_do_call(void *modemmanager, const char* number, void *user_data, enum cmee_error *error)
+{
+	struct impl *this = modemmanager;
+	unsigned int k, j;
+	char *number_filtered;
+	struct dbus_cmd_data *data;
+	DBusMessage *m;
+	DBusMessageIter iter, dict;
+
+	/* Filter extracted number from invalid characters
+		* Allowed characters: 0-9, *, #, +, A-C
+		*/
+	k=0;
+	number_filtered = calloc(1, 30);
+	for (j=0; j < 30; j++) {
+		if ((number[j] >= '0' && number[j] <= '9')
+			|| (number[j] == '*')
+			|| (number[j] == '#')
+			|| (number[j] == '+')
+			|| (number[j] >= 'A' && number[j] <= 'C')) {
+			number_filtered[k] = number[j];
+			k++;
+		}
+		/* ATD commands ends with ';' */
+		else if (number[j] == ';')
+			break;
+		/* Send error for invalid characters */
+		else {
+			spa_log_warn(this->log, "Call creation canceled, invalid character found in dial string: %c", number[j]);
+			if (error)
+				*error = CMEE_INVALID_CHARACTERS_DIAL_STRING;
+			return false;
+		}
+	}
+
+	data = malloc(sizeof(struct dbus_cmd_data));
+	if (!data) {
+		if (error)
+			*error = CMEE_AG_FAILURE;
+		return false;
+	}
+	data->this = this;
+	data->user_data = user_data;
+
+	m = dbus_message_new_method_call(MM_DBUS_SERVICE, this->modem.path, MM_DBUS_INTERFACE_MODEM_VOICE, MM_MODEM_VOICE_METHOD_CREATECALL);
+	if (m == NULL) {
+		if (error)
+			*error = CMEE_AG_FAILURE;
+		return false;
+	}
+	dbus_message_iter_init_append(m, &iter);
+	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sv}", &dict);
+	append_basic_variant_dict_entry(&dict, "number", DBUS_TYPE_STRING, "s", &number_filtered);
+	dbus_message_iter_close_container(&iter, &dict);
+	if (!mm_dbus_connection_send_with_reply(this, m, &this->voice_pending, mm_get_call_create_reply, data)) {
 		spa_log_error(this->log, "dbus call failure");
 		dbus_message_unref(m);
 		if (error)

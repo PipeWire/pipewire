@@ -65,6 +65,12 @@ struct impl {
 	struct spa_list call_list;
 };
 
+struct dbus_cmd_data {
+	struct impl *this;
+	struct call *call;
+	void *user_data;
+};
+
 static bool mm_dbus_connection_send_with_reply(struct impl *this, DBusMessage *m, DBusPendingCall **pending_return,
                                                DBusPendingCallNotifyFunction function, void *user_data)
 {
@@ -736,6 +742,161 @@ finish:
 		dbus_message_unref(r);
 
 	return success;
+}
+
+bool mm_is_available(void *modemmanager)
+{
+	struct impl *this = modemmanager;
+
+	if (this == NULL)
+		return false;
+
+	return this->modem.path != NULL;
+}
+
+unsigned int mm_supported_features()
+{
+	return SPA_BT_HFP_AG_FEATURE_REJECT_CALL;
+}
+
+static void mm_get_call_simple_reply(DBusPendingCall *pending, void *data)
+{
+	struct dbus_cmd_data *dbus_cmd_data = data;
+	struct impl *this = dbus_cmd_data->this;
+	struct call *call = dbus_cmd_data->call;
+	void *user_data = dbus_cmd_data->user_data;
+	DBusMessage *r;
+
+	free(data);
+
+	spa_assert(call->pending == pending);
+	dbus_pending_call_unref(pending);
+	call->pending = NULL;
+
+	r = dbus_pending_call_steal_reply(pending);
+	if (r == NULL)
+		return;
+
+	if (dbus_message_is_error(r, DBUS_ERROR_UNKNOWN_METHOD)) {
+		spa_log_warn(this->log, "ModemManager D-Bus method not available");
+		goto finish;
+	}
+	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
+		spa_log_error(this->log, "ModemManager method failed: %s", dbus_message_get_error_name(r));
+		goto finish;
+	}
+
+	this->ops->send_cmd_result(true, 0, user_data);
+	return;
+
+finish:
+	this->ops->send_cmd_result(false, CMEE_AG_FAILURE, user_data);
+}
+
+bool mm_answer_call(void *modemmanager, void *user_data, enum cmee_error *error)
+{
+	struct impl *this = modemmanager;
+	struct call *call_object, *call_tmp;
+	struct dbus_cmd_data *data;
+	DBusMessage *m;
+
+	call_object = NULL;
+	spa_list_for_each(call_tmp, &this->call_list, link) {
+		if (call_tmp->state == MM_CALL_STATE_RINGING_IN) {
+			call_object = call_tmp;
+			break;
+		}
+	}
+	if (!call_object) {
+		spa_log_debug(this->log, "No ringing in call");
+		if (error)
+			*error = CMEE_OPERATION_NOT_ALLOWED;
+		return false;
+	}
+
+	data = malloc(sizeof(struct dbus_cmd_data));
+	if (!data) {
+		if (error)
+			*error = CMEE_AG_FAILURE;
+		return false;
+	}
+	data->this = this;
+	data->call = call_object;
+	data->user_data = user_data;
+
+	m = dbus_message_new_method_call(MM_DBUS_SERVICE, call_object->path, MM_DBUS_INTERFACE_CALL, MM_CALL_METHOD_ACCEPT);
+	if (m == NULL) {
+		if (error)
+			*error = CMEE_AG_FAILURE;
+		return false;
+	}
+	if (!mm_dbus_connection_send_with_reply(this, m, &call_object->pending, mm_get_call_simple_reply, data)) {
+		spa_log_error(this->log, "dbus call failure");
+		dbus_message_unref(m);
+		if (error)
+			*error = CMEE_AG_FAILURE;
+		return false;
+	}
+
+	return true;
+}
+
+bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error)
+{
+	struct impl *this = modemmanager;
+	struct call *call_object, *call_tmp;
+	struct dbus_cmd_data *data;
+	DBusMessage *m;
+
+	call_object = NULL;
+	spa_list_for_each(call_tmp, &this->call_list, link) {
+		if (call_tmp->state == MM_CALL_STATE_ACTIVE) {
+			call_object = call_tmp;
+			break;
+		}
+	}
+	if (!call_object) {
+		spa_list_for_each(call_tmp, &this->call_list, link) {
+			if (call_tmp->state == MM_CALL_STATE_RINGING_OUT ||
+				call_tmp->state == MM_CALL_STATE_RINGING_IN ||
+				call_tmp->state == MM_CALL_STATE_DIALING) {
+				call_object = call_tmp;
+				break;
+			}
+		}
+	}
+	if (!call_object) {
+		spa_log_debug(this->log, "No call to reject or hang up");
+		if (error)
+			*error = CMEE_OPERATION_NOT_ALLOWED;
+		return false;
+	}
+
+	data = malloc(sizeof(struct dbus_cmd_data));
+	if (!data) {
+		if (error)
+			*error = CMEE_AG_FAILURE;
+		return false;
+	}
+	data->this = this;
+	data->call = call_object;
+	data->user_data = user_data;
+
+	m = dbus_message_new_method_call(MM_DBUS_SERVICE, call_object->path, MM_DBUS_INTERFACE_CALL, MM_CALL_METHOD_HANGUP);
+	if (m == NULL) {
+		if (error)
+			*error = CMEE_AG_FAILURE;
+		return false;
+	}
+	if (!mm_dbus_connection_send_with_reply(this, m, &call_object->pending, mm_get_call_simple_reply, data)) {
+		spa_log_error(this->log, "dbus call failure");
+		dbus_message_unref(m);
+		if (error)
+			*error = CMEE_AG_FAILURE;
+		return false;
+	}
+
+	return true;
 }
 
 void *mm_register(struct spa_log *log, void *dbus_connection, const struct mm_ops *ops, void *user_data)

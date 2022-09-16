@@ -799,6 +799,7 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		}
 
 		/* send reply to HF with the features supported by Audio Gateway (=computer) */
+		ag_features |= mm_supported_features();
 		ag_features |= SPA_BT_HFP_AG_FEATURE_HF_INDICATORS;
 		rfcomm_send_reply(rfcomm, "+BRSF: %u", ag_features);
 		rfcomm_send_reply(rfcomm, "OK");
@@ -1024,6 +1025,40 @@ next_indicator:
 	} else if (spa_strstartswith(buf, "AT+APLSIRI?")) {
 		// This command is sent when we activate Apple extensions
 		rfcomm_send_reply(rfcomm, "OK");
+	} else if (!mm_is_available(backend->modemmanager)) {
+		spa_log_warn(backend->log, "RFCOMM receive command but modem not available: %s", buf);
+		rfcomm_send_error(rfcomm, CMEE_NO_CONNECTION_TO_PHONE);
+		return true;
+
+	/* *****
+	 * Following commands requires a Service Level Connection
+	 * and acces to a modem
+	 * ***** */
+
+	} else if (!backend->modem.network_has_service) {
+		spa_log_warn(backend->log, "RFCOMM receive command but network not available: %s", buf);
+		rfcomm_send_error(rfcomm, CMEE_NO_NETWORK_SERVICE);
+		return true;
+
+	/* *****
+	 * Following commands requires a Service Level Connection,
+	 * acces to a modem and to the network
+	 * ***** */
+
+	} else if (spa_strstartswith(buf, "ATA")) {
+		enum cmee_error error;
+
+		if (!mm_answer_call(backend->modemmanager, rfcomm, &error)) {
+			rfcomm_send_error(rfcomm, error);
+			return true;
+		}
+	} else if (spa_strstartswith(buf, "AT+CHUP")) {
+		enum cmee_error error;
+
+		if (!mm_hangup_call(backend->modemmanager, rfcomm, &error)) {
+			rfcomm_send_error(rfcomm, error);
+			return true;
+		}
 	} else {
 		return false;
 	}
@@ -2450,6 +2485,18 @@ static void set_modem_signal_strength(unsigned int strength, void *user_data)
 	}
 }
 
+static void send_cmd_result(bool success, enum cmee_error error, void *user_data)
+{
+	struct rfcomm *rfcomm = user_data;
+
+	if (success) {
+		rfcomm_send_reply(rfcomm, "OK");
+		return;
+	}
+
+	rfcomm_send_error(rfcomm, error);
+}
+
 static int backend_native_free(void *data)
 {
 	struct impl *backend = data;
@@ -2516,6 +2563,7 @@ static const struct spa_bt_backend_implementation backend_impl = {
 };
 
 static const struct mm_ops mm_ops = {
+	.send_cmd_result = send_cmd_result,
 	.set_modem_service = set_modem_service,
 	.set_modem_signal_strength = set_modem_signal_strength,
 	.set_modem_operator_name = set_modem_operator_name,

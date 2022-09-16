@@ -45,6 +45,7 @@ enum call_setup {
 };
 
 struct mm_ops {
+	void (*send_cmd_result)(bool success, enum cmee_error error, void *user_data);
 	void (*set_modem_service)(bool available, void *user_data);
 	void (*set_modem_signal_strength)(unsigned int strength, void *user_data);
 	void (*set_modem_operator_name)(const char *name, void *user_data);
@@ -56,6 +57,10 @@ struct mm_ops {
 #ifdef HAVE_BLUEZ_5_BACKEND_NATIVE_MM
 void *mm_register(struct spa_log *log, void *dbus_connection, const struct mm_ops *ops, void *user_data);
 void mm_unregister(void *data);
+bool mm_is_available(void *modemmanager);
+unsigned int mm_supported_features();
+bool mm_answer_call(void *modemmanager, void *user_data, enum cmee_error *error);
+bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error);
 #else
 void *mm_register(struct spa_log *log, void *dbus_connection, const struct mm_ops *ops, void *user_data)
 {
@@ -64,6 +69,30 @@ void *mm_register(struct spa_log *log, void *dbus_connection, const struct mm_op
 
 void mm_unregister(void *data)
 {
+}
+
+bool mm_is_available(void *modemmanager)
+{
+	return false;
+}
+
+unsigned int mm_supported_features()
+{
+	return 0;
+}
+
+bool mm_answer_call(void *modemmanager, void *user_data, enum cmee_error *error)
+{
+	if (error)
+		*error = CMEE_OPERATION_NOT_SUPPORTED;
+	return false;
+}
+
+bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error)
+{
+	if (error)
+		*error = CMEE_OPERATION_NOT_SUPPORTED;
+	return false;
 }
 #endif
 

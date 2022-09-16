@@ -84,6 +84,8 @@ struct modem {
 	unsigned int signal_strength;
 	bool network_is_roaming;
 	char *operator_name;
+	bool active_call;
+	unsigned int call_setup;
 };
 
 struct impl {
@@ -111,6 +113,7 @@ struct impl {
 	struct modem modem;
 
 	void *modemmanager;
+	struct spa_source *ring_timer;
 };
 
 struct transport_data {
@@ -816,9 +819,9 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		rfcomm_send_reply(rfcomm, "+CIND:%s", CIND_INDICATORS);
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+CIND?")) {
-		rfcomm_send_reply(rfcomm, "+CIND: %d,%d,0,0,%d,%d", backend->modem.network_has_service,
-		                  rfcomm->cind_call_active,
-		                  backend->modem.signal_strength, backend->modem.network_is_roaming);
+		rfcomm_send_reply(rfcomm, "+CIND: %d,%d,%d,0,%d,%d", backend->modem.network_has_service,
+		                  backend->modem.active_call, backend->modem.call_setup, backend->modem.signal_strength,
+		                  backend->modem.network_is_roaming);
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+CMER")) {
 		int mode, keyp, disp, ind;
@@ -2333,6 +2336,58 @@ static void send_ciev_for_each_rfcomm(struct impl *backend, int indicator, int v
 	}
 }
 
+static void ring_timer_event(void *data, uint64_t expirations)
+{
+	struct impl *backend = data;
+	struct timespec ts;
+	const uint64_t timeout = 1 * SPA_NSEC_PER_SEC;
+	struct rfcomm *rfcomm;
+
+	ts.tv_sec = timeout / SPA_NSEC_PER_SEC;
+	ts.tv_nsec = timeout % SPA_NSEC_PER_SEC;
+	spa_loop_utils_update_timer(backend->loop_utils, backend->ring_timer, &ts, NULL, false);
+
+	spa_list_for_each(rfcomm, &backend->rfcomm_list, link) {
+		if (rfcomm->slc_configured)
+			rfcomm_send_reply(rfcomm, "RING");
+	}
+}
+
+static void set_call_active(bool active, void *user_data)
+{
+	struct impl *backend = user_data;
+
+	if (backend->modem.active_call != active) {
+		backend->modem.active_call = active;
+		send_ciev_for_each_rfcomm(backend, CIND_CALL, active);
+	}
+}
+
+static void set_call_setup(enum call_setup value, void *user_data)
+{
+	struct impl *backend = user_data;
+	enum call_setup old = backend->modem.call_setup;
+
+	if (backend->modem.call_setup != value) {
+		backend->modem.call_setup = value;
+		send_ciev_for_each_rfcomm(backend, CIND_CALLSETUP, value);
+	}
+
+	if (value == CIND_CALLSETUP_INCOMING) {
+		if (backend->ring_timer == NULL)
+			backend->ring_timer = spa_loop_utils_add_timer(backend->loop_utils, ring_timer_event, backend);
+
+		if (backend->ring_timer == NULL) {
+			spa_log_warn(backend->log, "Failed to create ring timer");
+			return;
+		}
+
+		ring_timer_event(backend, 0);
+	} else if (old == CIND_CALLSETUP_INCOMING) {
+		spa_loop_utils_update_timer(backend->loop_utils, backend->ring_timer, NULL, NULL, false);
+	}
+}
+
 static void set_modem_operator_name(const char *name, void *user_data)
 {
 	struct impl *backend = user_data;
@@ -2389,6 +2444,9 @@ static int backend_native_free(void *data)
 		backend->modemmanager = NULL;
 	}
 
+	if (backend->ring_timer)
+		spa_loop_utils_destroy_source(backend->loop_utils, backend->ring_timer);
+
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_AG);
 	dbus_connection_unregister_object_path(backend->conn, PROFILE_HSP_HS);
@@ -2443,6 +2501,8 @@ static const struct mm_ops mm_ops = {
 	.set_modem_signal_strength = set_modem_signal_strength,
 	.set_modem_operator_name = set_modem_operator_name,
 	.set_modem_roaming = set_modem_roaming,
+	.set_call_active = set_call_active,
+	.set_call_setup = set_call_setup,
 };
 
 struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,

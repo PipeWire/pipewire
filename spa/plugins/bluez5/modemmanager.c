@@ -31,6 +31,18 @@
 
 #define DBUS_INTERFACE_OBJECTMANAGER "org.freedesktop.DBus.ObjectManager"
 
+struct call {
+	struct spa_list link;
+	struct impl *this;
+	DBusPendingCall *pending;
+
+	char *path;
+	char *number;
+	bool call_indicator;
+	MMCallDirection direction;
+	MMCallState state;
+};
+
 struct modem {
 	char *path;
 	bool network_has_service;
@@ -50,6 +62,7 @@ struct impl {
 	void *user_data;
 
 	struct modem modem;
+	struct spa_list call_list;
 };
 
 static bool mm_dbus_connection_send_with_reply(struct impl *this, DBusMessage *m, DBusPendingCall **pending_return,
@@ -75,6 +88,132 @@ static bool mm_dbus_connection_send_with_reply(struct impl *this, DBusMessage *m
 	}
 
 	return true;
+}
+
+static void mm_call_state_changed(struct impl *this)
+{
+	struct call *call;
+	bool call_indicator = false;
+	enum call_setup call_setup_indicator = CIND_CALLSETUP_NONE;
+
+	spa_list_for_each(call, &this->call_list, link) {
+		call_indicator |= (call->state == MM_CALL_STATE_ACTIVE);
+
+		if (call->state == MM_CALL_STATE_RINGING_IN && call_setup_indicator < CIND_CALLSETUP_INCOMING)
+			call_setup_indicator = CIND_CALLSETUP_INCOMING;
+		else if (call->state == MM_CALL_STATE_DIALING && call_setup_indicator < CIND_CALLSETUP_DIALING)
+			call_setup_indicator = CIND_CALLSETUP_DIALING;
+		else if (call->state == MM_CALL_STATE_RINGING_OUT && call_setup_indicator < CIND_CALLSETUP_ALERTING)
+			call_setup_indicator = CIND_CALLSETUP_ALERTING;
+	}
+
+	if (this->ops->set_call_active)
+		this->ops->set_call_active(call_indicator, this->user_data);
+
+	if (this->ops->set_call_setup)
+		this->ops->set_call_setup(call_setup_indicator, this->user_data);
+}
+
+static void mm_get_call_properties_reply(DBusPendingCall *pending, void *user_data)
+{
+	struct call *call = user_data;
+	struct impl *this = call->this;
+	DBusMessage *r;
+	DBusMessageIter arg_i, element_i;
+	MMCallDirection direction;
+	MMCallState state;
+
+	spa_assert(call->pending == pending);
+	dbus_pending_call_unref(pending);
+	call->pending = NULL;
+
+	r = dbus_pending_call_steal_reply(pending);
+	if (r == NULL)
+		return;
+
+	if (dbus_message_is_error(r, DBUS_ERROR_UNKNOWN_METHOD)) {
+		spa_log_warn(this->log, "ModemManager D-Bus Call not available");
+		goto finish;
+	}
+	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
+		spa_log_error(this->log, "GetAll() failed: %s", dbus_message_get_error_name(r));
+		goto finish;
+	}
+
+	if (!dbus_message_iter_init(r, &arg_i) || !spa_streq(dbus_message_get_signature(r), "a{sv}")) {
+		spa_log_error(this->log, "Invalid arguments in GetAll() reply");
+		goto finish;
+	}
+
+	spa_log_debug(this->log, "Call path: %s", call->path);
+
+	dbus_message_iter_recurse(&arg_i, &element_i);
+	while (dbus_message_iter_get_arg_type(&element_i) != DBUS_TYPE_INVALID) {
+		DBusMessageIter i, value_i;
+		const char *key;
+
+		dbus_message_iter_recurse(&element_i, &i);
+
+		dbus_message_iter_get_basic(&i, &key);
+		dbus_message_iter_next(&i);
+		dbus_message_iter_recurse(&i, &value_i);
+
+		if (spa_streq(key, MM_CALL_PROPERTY_DIRECTION)) {
+			dbus_message_iter_get_basic(&value_i, &direction);
+			spa_log_debug(this->log, "Call direction: %u", direction);
+			call->direction = direction;
+		} else if (spa_streq(key, MM_CALL_PROPERTY_NUMBER)) {
+			char *number;
+
+			dbus_message_iter_get_basic(&value_i, &number);
+			spa_log_debug(this->log, "Call number: %s", number);
+			if (call->number)
+				free(call->number);
+			call->number = strdup(number);
+		} else if (spa_streq(key, MM_CALL_PROPERTY_STATE)) {
+			dbus_message_iter_get_basic(&value_i, &state);
+			spa_log_debug(this->log, "Call state: %u", state);
+			call->state = state;
+			mm_call_state_changed(this);
+		}
+
+		dbus_message_iter_next(&element_i);
+	}
+
+finish:
+	dbus_message_unref(r);
+}
+
+static DBusHandlerResult mm_parse_voice_properties(struct impl *this, DBusMessageIter *props_i)
+{
+	while (dbus_message_iter_get_arg_type(props_i) != DBUS_TYPE_INVALID) {
+		DBusMessageIter i, value_i, element_i;
+		const char *key;
+
+		dbus_message_iter_recurse(props_i, &i);
+
+		dbus_message_iter_get_basic(&i, &key);
+		dbus_message_iter_next(&i);
+		dbus_message_iter_recurse(&i, &value_i);
+
+		if (spa_streq(key, MM_MODEM_VOICE_PROPERTY_CALLS)) {
+			spa_log_debug(this->log, "Voice properties");
+			dbus_message_iter_recurse(&value_i, &element_i);
+
+			while (dbus_message_iter_get_arg_type(&element_i) == DBUS_TYPE_OBJECT_PATH) {
+				const char *call_object;
+
+				dbus_message_iter_get_basic(&element_i, &call_object);
+				spa_log_debug(this->log, "  Call: %s", call_object);
+
+				dbus_message_iter_next(&element_i);
+			}
+		}
+
+		dbus_message_iter_next(props_i);
+	}
+
+	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
 static DBusHandlerResult mm_parse_modem3gpp_properties(struct impl *this, DBusMessageIter *props_i)
@@ -221,6 +360,9 @@ static DBusHandlerResult mm_parse_interfaces(struct impl *this, DBusMessageIter 
 		} else if (spa_streq(interface, MM_DBUS_INTERFACE_MODEM_MODEM3GPP)) {
 			spa_log_debug(this->log, "Found Modem3GPP interface %s, path %s", interface, path);
 			mm_parse_modem3gpp_properties(this, &props_i);
+		} else if (spa_streq(interface, MM_DBUS_INTERFACE_MODEM_VOICE)) {
+			spa_log_debug(this->log, "Found Voice interface %s, path %s", interface, path);
+			mm_parse_voice_properties(this, &props_i);
 		}
 
 		dbus_message_iter_next(&element_i);
@@ -265,6 +407,33 @@ static void mm_get_managed_objects_reply(DBusPendingCall *pending, void *user_da
 
 finish:
 	dbus_message_unref(r);
+}
+
+static void call_free(struct call *call) {
+	spa_list_remove(&call->link);
+
+	if (call->pending != NULL) {
+		dbus_pending_call_cancel(call->pending);
+		dbus_pending_call_unref(call->pending);
+	}
+
+	if (call->number)
+		free(call->number);
+	if (call->path)
+		free(call->path);
+	free(call);
+}
+
+static void mm_clean_voice(struct impl *this)
+{
+	struct call *call;
+
+	spa_list_consume(call, &this->call_list, link)
+		call_free(call);
+	if (this->ops->set_call_setup)
+		this->ops->set_call_setup(CIND_CALLSETUP_NONE, this->user_data);
+	if (this->ops->set_call_active)
+		this->ops->set_call_active(false, this->user_data);
 }
 
 static void mm_clean_modem3gpp(struct impl *this)
@@ -312,6 +481,7 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 		if (spa_streq(name, MM_DBUS_SERVICE)) {
 			if (old_owner && *old_owner) {
 				spa_log_debug(this->log, "ModemManager daemon disappeared (%s)", old_owner);
+				mm_clean_voice(this);
 				mm_clean_modem3gpp(this);
 				mm_clean_modem(this);
 			}
@@ -355,6 +525,9 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 				} else if (spa_streq(iface, MM_DBUS_INTERFACE_MODEM_MODEM3GPP)) {
 					spa_log_debug(this->log, "Modem3GPP interface %s removed, path %s", iface, path);
 					mm_clean_modem3gpp(this);
+				} else if (spa_streq(iface, MM_DBUS_INTERFACE_MODEM_VOICE)) {
+					spa_log_debug(this->log, "Voice interface %s removed, path %s", iface, path);
+					mm_clean_voice(this);
 				}
 
 				dbus_message_iter_next(&element_i);
@@ -383,7 +556,58 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 		} else if (spa_streq(interface, MM_DBUS_INTERFACE_MODEM_MODEM3GPP)) {
 			spa_log_debug(this->log, "Properties changed on %s", path);
 			mm_parse_modem3gpp_properties(this, &props_i);
+		} else if (spa_streq(interface, MM_DBUS_INTERFACE_MODEM_VOICE)) {
+			spa_log_debug(this->log, "Properties changed on %s", path);
+			mm_parse_voice_properties(this, &props_i);
 		}
+	} else if (dbus_message_is_signal(m, MM_DBUS_INTERFACE_MODEM_VOICE, MM_MODEM_VOICE_SIGNAL_CALLADDED)) {
+		DBusMessageIter iface_i;
+		const char *path;
+		struct call *call_object;
+		const char *mm_call_interface = MM_DBUS_INTERFACE_CALL;
+
+		if (!dbus_message_iter_init(m, &iface_i) || !spa_streq(dbus_message_get_signature(m), "o")) {
+				spa_log_error(this->log, "Invalid signature found in %s", MM_MODEM_VOICE_SIGNAL_CALLADDED);
+				goto finish;
+		}
+
+		dbus_message_iter_get_basic(&iface_i, &path);
+		spa_log_debug(this->log, "New call: %s", path);
+
+		call_object = calloc(1, sizeof(struct call));
+		if (call_object == NULL)
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+		call_object->this = this;
+		call_object->path = strdup(path);
+		spa_list_append(&this->call_list, &call_object->link);
+
+		m = dbus_message_new_method_call(MM_DBUS_SERVICE, path, DBUS_INTERFACE_PROPERTIES, "GetAll");
+		if (m == NULL)
+			goto finish;
+		dbus_message_append_args(m, DBUS_TYPE_STRING, &mm_call_interface, DBUS_TYPE_INVALID);
+		if (!mm_dbus_connection_send_with_reply(this, m, &call_object->pending, mm_get_call_properties_reply, call_object)) {
+			spa_log_error(this->log, "dbus call failure");
+			dbus_message_unref(m);
+			goto finish;
+		}
+	} else if (dbus_message_is_signal(m, MM_DBUS_INTERFACE_MODEM_VOICE, MM_MODEM_VOICE_SIGNAL_CALLDELETED)) {
+		const char *path;
+		DBusMessageIter iface_i;
+		struct call *call, *call_tmp;
+
+		if (!dbus_message_iter_init(m, &iface_i) || !spa_streq(dbus_message_get_signature(m), "o")) {
+				spa_log_error(this->log, "Invalid signature found in %s", MM_MODEM_VOICE_SIGNAL_CALLDELETED);
+				goto finish;
+		}
+
+		dbus_message_iter_get_basic(&iface_i, &path);
+		spa_log_debug(this->log, "Call ended: %s", path);
+
+		spa_list_for_each_safe(call, call_tmp, &this->call_list, link) {
+			if (spa_streq(call->path, path))
+				call_free(call);
+		}
+		mm_call_state_changed(this);
 	}
 
 finish:
@@ -416,6 +640,12 @@ static int add_filters(struct impl *this)
 	dbus_bus_add_match(this->conn,
 			"type='signal',sender='" MM_DBUS_SERVICE "',"
 			"interface='" DBUS_INTERFACE_PROPERTIES "',member='" DBUS_SIGNAL_PROPERTIES_CHANGED "'", &err);
+	dbus_bus_add_match(this->conn,
+			"type='signal',sender='" MM_DBUS_SERVICE "',"
+			"interface='" MM_DBUS_INTERFACE_MODEM_VOICE "',member='" MM_MODEM_VOICE_SIGNAL_CALLADDED "'", &err);
+	dbus_bus_add_match(this->conn,
+			"type='signal',sender='" MM_DBUS_SERVICE "',"
+			"interface='" MM_DBUS_INTERFACE_MODEM_VOICE "',member='" MM_MODEM_VOICE_SIGNAL_CALLDELETED "'", &err);
 
 	this->filters_added = true;
 
@@ -484,6 +714,7 @@ void *mm_register(struct spa_log *log, void *dbus_connection, const struct mm_op
 	this->conn = dbus_connection;
 	this->ops = ops;
 	this->user_data = user_data;
+	spa_list_init(&this->call_list);
 
 	if (add_filters(this) < 0) {
 		goto fail;
@@ -520,6 +751,7 @@ void mm_unregister(void *data)
 		dbus_pending_call_unref(this->pending);
 	}
 
+	mm_clean_voice(this);
 	mm_clean_modem3gpp(this);
 	mm_clean_modem(this);
 

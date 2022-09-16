@@ -899,6 +899,26 @@ bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error)
 	return true;
 }
 
+const char *mm_get_incoming_call_number(void *modemmanager)
+{
+	struct impl *this = modemmanager;
+	struct call *call_object, *call_tmp;
+
+	call_object = NULL;
+	spa_list_for_each(call_tmp, &this->call_list, link) {
+		if (call_tmp->state == MM_CALL_STATE_RINGING_IN) {
+			call_object = call_tmp;
+			break;
+		}
+	}
+	if (!call_object) {
+		spa_log_debug(this->log, "No ringing in call");
+		return NULL;
+	}
+
+	return call_object->number;
+}
+
 void *mm_register(struct spa_log *log, void *dbus_connection, const struct mm_ops *ops, void *user_data)
 {
 	struct impl *this;

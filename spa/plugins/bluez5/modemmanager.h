@@ -61,6 +61,7 @@ bool mm_is_available(void *modemmanager);
 unsigned int mm_supported_features();
 bool mm_answer_call(void *modemmanager, void *user_data, enum cmee_error *error);
 bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error);
+const char *mm_get_incoming_call_number(void *modemmanager);
 #else
 void *mm_register(struct spa_log *log, void *dbus_connection, const struct mm_ops *ops, void *user_data)
 {
@@ -93,6 +94,11 @@ bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error)
 	if (error)
 		*error = CMEE_OPERATION_NOT_SUPPORTED;
 	return false;
+}
+
+const char *mm_get_incoming_call_number(void *modemmanager)
+{
+	return NULL;
 }
 #endif
 

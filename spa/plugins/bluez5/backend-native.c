@@ -62,6 +62,9 @@ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.native");
 #define HFP_CODEC_SWITCH_INITIAL_TIMEOUT_MSEC 5000
 #define HFP_CODEC_SWITCH_TIMEOUT_MSEC 20000
 
+#define INTERNATIONAL_NUMBER 145
+#define NATIONAL_NUMBER 129
+
 enum {
 	HFP_AG_INITIAL_CODEC_SETUP_NONE = 0,
 	HFP_AG_INITIAL_CODEC_SETUP_SEND,
@@ -170,6 +173,7 @@ struct rfcomm {
 	unsigned int cind_call_active:1;
 	unsigned int cind_call_notify:1;
 	unsigned int extended_error_reporting:1;
+	unsigned int clip_notify:1;
 	enum hfp_hf_state hf_state;
 	enum hsp_hs_state hs_state;
 	unsigned int codec;
@@ -942,6 +946,15 @@ next_indicator:
 			str++;
 		}
 
+		rfcomm_send_reply(rfcomm, "OK");
+	} else if (sscanf(buf, "AT+CLIP=%u", &value) == 1) {
+		if (value > 1) {
+			spa_log_debug(backend->log, "Unsupported AT+CLIP value: %u", value);
+			rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);
+			return true;
+		}
+
+		rfcomm->clip_notify = value;
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (sscanf(buf, "AT+CMEE=%u", &value) == 1) {
 		if (value > 1) {
@@ -2393,17 +2406,30 @@ static void send_ciev_for_each_rfcomm(struct impl *backend, int indicator, int v
 static void ring_timer_event(void *data, uint64_t expirations)
 {
 	struct impl *backend = data;
+	const char *number;
+	unsigned int type;
 	struct timespec ts;
 	const uint64_t timeout = 1 * SPA_NSEC_PER_SEC;
 	struct rfcomm *rfcomm;
+
+	number = mm_get_incoming_call_number(backend->modemmanager);
+	if (number) {
+		if (spa_strstartswith(number, "+"))
+			type = INTERNATIONAL_NUMBER;
+		else
+			type = NATIONAL_NUMBER;
+	}
 
 	ts.tv_sec = timeout / SPA_NSEC_PER_SEC;
 	ts.tv_nsec = timeout % SPA_NSEC_PER_SEC;
 	spa_loop_utils_update_timer(backend->loop_utils, backend->ring_timer, &ts, NULL, false);
 
 	spa_list_for_each(rfcomm, &backend->rfcomm_list, link) {
-		if (rfcomm->slc_configured)
+		if (rfcomm->slc_configured) {
 			rfcomm_send_reply(rfcomm, "RING");
+			if (rfcomm->clip_notify && number)
+				rfcomm_send_reply(rfcomm, "+CLIP: \"%s\",%u", number, type);
+		}
 	}
 }
 

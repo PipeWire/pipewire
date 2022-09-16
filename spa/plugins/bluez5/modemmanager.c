@@ -318,6 +318,8 @@ static DBusHandlerResult mm_parse_modem_properties(struct impl *this, DBusMessag
 			if (dbus_message_iter_get_arg_type(&array_i) == DBUS_TYPE_STRING) {
 				dbus_message_iter_get_basic(&array_i, &number);
 				spa_log_debug(this->log, "Modem own number: %s", number);
+				if (this->ops->set_modem_own_number)
+					this->ops->set_modem_own_number(number, this->user_data);
 			}
 		} else if(spa_streq(key, MM_MODEM_PROPERTY_REVISION)) {
 			char *revision;

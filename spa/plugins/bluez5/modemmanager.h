@@ -80,6 +80,7 @@ struct mm_ops {
 	void (*set_modem_service)(bool available, void *user_data);
 	void (*set_modem_signal_strength)(unsigned int strength, void *user_data);
 	void (*set_modem_operator_name)(const char *name, void *user_data);
+	void (*set_modem_own_number)(const char *number, void *user_data);
 	void (*set_modem_roaming)(bool is_roaming, void *user_data);
 	void (*set_call_active)(bool active, void *user_data);
 	void (*set_call_setup)(enum call_setup value, void *user_data);

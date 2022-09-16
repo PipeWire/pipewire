@@ -87,6 +87,7 @@ struct modem {
 	unsigned int signal_strength;
 	bool network_is_roaming;
 	char *operator_name;
+	char *own_number;
 	bool active_call;
 	unsigned int call_setup;
 };
@@ -986,6 +987,16 @@ next_indicator:
 		}
 
 		rfcomm->extended_error_reporting = value;
+		rfcomm_send_reply(rfcomm, "OK");
+	} else if (spa_strstartswith(buf, "AT+CNUM")) {
+		if (backend->modem.own_number) {
+			unsigned int type;
+			if (spa_strstartswith(backend->modem.own_number, "+"))
+				type = INTERNATIONAL_NUMBER;
+			else
+				type = NATIONAL_NUMBER;
+			rfcomm_send_reply(rfcomm, "+CNUM: ,\"%s\",%u", backend->modem.own_number, type);
+		}
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+COPS=")) {
 		unsigned int mode, val;
@@ -2527,6 +2538,19 @@ static void set_modem_roaming(bool is_roaming, void *user_data)
 	}
 }
 
+static void set_modem_own_number(const char *number, void *user_data)
+{
+	struct impl *backend = user_data;
+
+	if (backend->modem.own_number) {
+		free(backend->modem.own_number);
+		backend->modem.own_number = NULL;
+	}
+
+	if (number)
+		backend->modem.own_number = strdup(number);
+}
+
 static void set_modem_service(bool available, void *user_data)
 {
 	struct impl *backend = user_data;
@@ -2629,6 +2653,7 @@ static const struct mm_ops mm_ops = {
 	.set_modem_service = set_modem_service,
 	.set_modem_signal_strength = set_modem_signal_strength,
 	.set_modem_operator_name = set_modem_operator_name,
+	.set_modem_own_number = set_modem_own_number,
 	.set_modem_roaming = set_modem_roaming,
 	.set_call_active = set_call_active,
 	.set_call_setup = set_call_setup,

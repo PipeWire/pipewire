@@ -1010,7 +1010,7 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,
 						   min_period_bytes,
 						   max_period_bytes)) < 0 ||
 		(err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_PERIODS,
-						   MIN_BUFFERS, MAX_BUFFERS)) < 0) {
+						   MIN_BUFFERS, 1024)) < 0) {
 		pw_log_warn("Can't set param list: %s", snd_strerror(err));
 		return err;
 	}

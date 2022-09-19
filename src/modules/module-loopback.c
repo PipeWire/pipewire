@@ -179,6 +179,12 @@ static void capture_destroy(void *d)
 static void capture_process(void *d)
 {
 	struct impl *impl = d;
+	pw_stream_trigger_process(impl->playback);
+}
+
+static void playback_process(void *d)
+{
+	struct impl *impl = d;
 	struct pw_buffer *in, *out;
 	uint32_t i;
 
@@ -225,8 +231,6 @@ static void capture_process(void *d)
 		pw_stream_queue_buffer(impl->capture, in);
 	if (out != NULL)
 		pw_stream_queue_buffer(impl->playback, out);
-
-	pw_stream_trigger_process(impl->playback);
 }
 
 static void param_latency_changed(struct impl *impl, const struct spa_pod *param,
@@ -305,6 +309,7 @@ static void playback_param_changed(void *data, uint32_t id, const struct spa_pod
 static const struct pw_stream_events out_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = playback_destroy,
+	.process = playback_process,
 	.state_changed = stream_state_changed,
 	.param_changed = playback_param_changed,
 };

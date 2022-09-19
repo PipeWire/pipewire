@@ -52,6 +52,7 @@
 #endif
 
 #include "modemmanager.h"
+#include "upower.h"
 
 static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.native");
 #undef SPA_LOG_TOPIC_DEFAULT
@@ -71,7 +72,7 @@ enum {
 	HFP_AG_INITIAL_CODEC_SETUP_WAIT
 };
 
-#define CIND_INDICATORS "(\"service\",(0-1)),(\"call\",(0-1)),(\"callsetup\",(0-3)),(\"callheld\",(0-2)),(\"signal\",(0-5)),(\"roam\",(0-1))"
+#define CIND_INDICATORS "(\"service\",(0-1)),(\"call\",(0-1)),(\"callsetup\",(0-3)),(\"callheld\",(0-2)),(\"signal\",(0-5)),(\"roam\",(0-1)),\"battchg\",(0-5))"
 enum {
 	CIND_SERVICE = 1,
 	CIND_CALL,
@@ -79,6 +80,7 @@ enum {
 	CIND_CALLHELD,
 	CIND_SIGNAL,
 	CIND_ROAM,
+	CIND_BATTERY_LEVEL,
 	CIND_MAX
 };
 
@@ -115,9 +117,11 @@ struct impl {
 	unsigned int defer_setup_enabled:1;
 
 	struct modem modem;
+	unsigned int battery_level;
 
 	void *modemmanager;
 	struct spa_source *ring_timer;
+	void *upower;
 };
 
 struct transport_data {
@@ -835,9 +839,9 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		rfcomm_send_reply(rfcomm, "+CIND:%s", CIND_INDICATORS);
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+CIND?")) {
-		rfcomm_send_reply(rfcomm, "+CIND: %d,%d,%d,0,%d,%d", backend->modem.network_has_service,
+		rfcomm_send_reply(rfcomm, "+CIND: %d,%d,%d,0,%d,%d,%d", backend->modem.network_has_service,
 		                  backend->modem.active_call, backend->modem.call_setup, backend->modem.signal_strength,
-		                  backend->modem.network_is_roaming);
+		                  backend->modem.network_is_roaming, backend->battery_level);
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+CMER")) {
 		int mode, keyp, disp, ind;
@@ -2530,6 +2534,16 @@ static void set_call_setup(enum call_setup value, void *user_data)
 	}
 }
 
+void set_battery_level(unsigned int level, void *user_data)
+{
+	struct impl *backend = user_data;
+
+	if (backend->battery_level != level) {
+		backend->battery_level = level;
+		send_ciev_for_each_rfcomm(backend, CIND_BATTERY_LEVEL, level);
+	}
+}
+
 static void set_modem_operator_name(const char *name, void *user_data)
 {
 	struct impl *backend = user_data;
@@ -2609,6 +2623,11 @@ static int backend_native_free(void *data)
 	if (backend->modemmanager) {
 		mm_unregister(backend);
 		backend->modemmanager = NULL;
+	}
+
+	if (backend->upower) {
+		upower_unregister(backend->upower);
+		backend->upower = NULL;
 	}
 
 	if (backend->ring_timer)
@@ -2740,6 +2759,7 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 #endif
 
 	backend->modemmanager = mm_register(backend->log, backend->conn, &mm_ops, backend);
+	backend->upower = upower_register(backend->log, backend->conn, set_battery_level, backend);
 
 	return &backend->this;
 

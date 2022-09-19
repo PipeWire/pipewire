@@ -43,7 +43,7 @@ if get_option('bluez5-backend-hsp-native').allowed() or get_option('bluez5-backe
     bluez5_deps += mm_dep
     bluez5_sources += ['modemmanager.c']
   endif
-  bluez5_sources += ['backend-native.c']
+  bluez5_sources += ['backend-native.c', 'upower.c']
 endif
 
 if get_option('bluez5-backend-ofono').allowed()

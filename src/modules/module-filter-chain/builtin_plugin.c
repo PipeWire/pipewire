@@ -52,7 +52,7 @@ struct builtin {
 };
 
 static void *builtin_instantiate(const struct fc_descriptor * Descriptor,
-		unsigned long *SampleRate, int index, const char *config)
+		unsigned long SampleRate, int index, const char *config)
 {
 	struct builtin *impl;
 
@@ -60,7 +60,7 @@ static void *builtin_instantiate(const struct fc_descriptor * Descriptor,
 	if (impl == NULL)
 		return NULL;
 
-	impl->rate = *SampleRate;
+	impl->rate = SampleRate;
 
 	return impl;
 }
@@ -576,7 +576,7 @@ static float *create_dirac(const char *filename, float gain, int delay, int offs
 }
 
 static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
-		unsigned long *SampleRate, int index, const char *config)
+		unsigned long SampleRate, int index, const char *config)
 {
 	struct convolver_impl *impl;
 	float *samples;
@@ -588,6 +588,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	int blocksize = 0, tailsize = 0;
 	int delay = 0;
 	float gain = 1.0f;
+	unsigned long rate;
 
 	if (config == NULL)
 		return NULL;
@@ -647,8 +648,13 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 		samples = create_dirac(filename, gain, delay, offset,
 				length, &n_samples);
 	} else {
+		rate = SampleRate;
 		samples = read_samples(filename, gain, delay, offset,
-				length, channel, SampleRate, &n_samples);
+				length, channel, &rate, &n_samples);
+		if (rate != SampleRate) {
+			pw_log_warn("Convolver samplerate %lu doesn't match filter rate %lu. "
+					"Consider forcing a filter rate.", rate, SampleRate);
+		}
 	}
 	if (samples == NULL)
 		return NULL;
@@ -664,7 +670,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	if (impl == NULL)
 		goto error;
 
-	impl->rate = *SampleRate;
+	impl->rate = SampleRate;
 
 	impl->conv = convolver_new(blocksize, tailsize, samples, n_samples);
 	if (impl->conv == NULL)
@@ -750,7 +756,7 @@ static void delay_cleanup(void * Instance)
 }
 
 static void *delay_instantiate(const struct fc_descriptor * Descriptor,
-		unsigned long *SampleRate, int index, const char *config)
+		unsigned long SampleRate, int index, const char *config)
 {
 	struct delay_impl *impl;
 	struct spa_json it[2];
@@ -782,7 +788,7 @@ static void *delay_instantiate(const struct fc_descriptor * Descriptor,
 	if (impl == NULL)
 		return NULL;
 
-	impl->rate = *SampleRate;
+	impl->rate = SampleRate;
 	impl->buffer_samples = max_delay * impl->rate;
 	pw_log_info("%lu %d", impl->rate, impl->buffer_samples);
 

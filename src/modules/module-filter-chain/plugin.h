@@ -72,7 +72,7 @@ struct fc_descriptor {
 	struct fc_port *ports;
 
 	void *(*instantiate) (const struct fc_descriptor *desc,
-			unsigned long *SampleRate, int index, const char *config);
+			unsigned long SampleRate, int index, const char *config);
 
 	void (*cleanup) (void *instance);
 

@@ -577,6 +577,10 @@ struct impl {
 	struct graph graph;
 };
 
+static int graph_instantiate(struct graph *graph);
+static void graph_cleanup(struct graph *graph);
+
+
 static void capture_destroy(void *d)
 {
 	struct impl *impl = d;
@@ -919,13 +923,14 @@ static void graph_reset(struct graph *graph)
 	for (i = 0; i < graph->n_hndl; i++) {
 		struct graph_hndl *hndl = &graph->hndl[i];
 		const struct fc_descriptor *d = hndl->desc;
+		if (hndl->hndl == NULL || *hndl->hndl == NULL)
+			continue;
 		if (d->deactivate)
 			d->deactivate(*hndl->hndl);
 		if (d->activate)
 			d->activate(*hndl->hndl);
 	}
 }
-
 static void param_props_changed(struct impl *impl, const struct spa_pod *param)
 {
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
@@ -1000,8 +1005,15 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 
 	switch (id) {
 	case SPA_PARAM_Format:
-		if (param == NULL)
-			graph_reset(graph);
+		if (param == NULL) {
+			graph_cleanup(graph);
+		} else {
+			struct spa_audio_info_raw info;
+			spa_zero(info);
+			spa_format_audio_raw_parse(param, &info);
+			impl->rate = info.rate;
+			graph_instantiate(graph);
+		}
 		break;
 	case SPA_PARAM_Props:
 		if (param != NULL)
@@ -1489,6 +1501,7 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	bool have_config = false;
 	uint32_t i;
 	int res;
+	float *data;
 
 	while (spa_json_get_string(json, key, sizeof(key)) > 0) {
 		if (spa_streq("type", key)) {
@@ -1563,6 +1576,14 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		port->idx = i;
 		port->external = SPA_ID_INVALID;
 		port->p = desc->output[i];
+		if ((data = port->audio_data[i]) == NULL) {
+			data = calloc(1, MAX_SAMPLES * sizeof(float));
+			if (data == NULL) {
+				pw_log_error("cannot create port data: %m");
+				return -errno;
+			}
+		}
+		port->audio_data[i] = data;
 		spa_list_init(&port->link_list);
 	}
 	for (i = 0; i < desc->n_control; i++) {
@@ -1593,27 +1614,109 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	return 0;
 }
 
-static void node_free(struct node *node)
+static void node_cleanup(struct node *node)
 {
-	uint32_t i, j;
 	const struct fc_descriptor *d = node->desc->desc;
+	uint32_t i;
 
-	spa_list_remove(&node->link);
 	for (i = 0; i < node->n_hndl; i++) {
-		for (j = 0; j < node->desc->n_output; j++)
-			free(node->output_port[j].audio_data[i]);
 		if (node->hndl[i] == NULL)
 			continue;
 		if (d->deactivate)
 			d->deactivate(node->hndl[i]);
 		d->cleanup(node->hndl[i]);
+		node->hndl[i] = NULL;
 	}
+}
+
+static void node_free(struct node *node)
+{
+	uint32_t i, j;
+
+	spa_list_remove(&node->link);
+	for (i = 0; i < node->n_hndl; i++) {
+		for (j = 0; j < node->desc->n_output; j++)
+			free(node->output_port[j].audio_data[i]);
+	}
+	node_cleanup(node);
 	descriptor_unref(node->desc);
 	free(node->input_port);
 	free(node->output_port);
 	free(node->control_port);
 	free(node->notify_port);
 	free(node);
+}
+
+static void graph_cleanup(struct graph *graph)
+{
+	struct node *node;
+	spa_list_for_each(node, &graph->node_list, link)
+		node_cleanup(node);
+}
+
+static int graph_instantiate(struct graph *graph)
+{
+	struct impl *impl = graph->impl;
+	struct node *node;
+	struct port *port;
+	struct link *link;
+	struct descriptor *desc;
+	const struct fc_descriptor *d;
+	uint32_t i, j;
+	int res;
+
+	spa_list_for_each(node, &graph->node_list, link) {
+		float *sd = silence_data, *dd = discard_data;
+
+		node_cleanup(node);
+
+		desc = node->desc;
+		d = desc->desc;
+		if (d->flags & FC_DESCRIPTOR_SUPPORTS_NULL_DATA)
+			sd = dd = NULL;
+
+		for (i = 0; i < node->n_hndl; i++) {
+			pw_log_info("instantiate %s %d rate:%lu", d->name, i, impl->rate);
+			if ((node->hndl[i] = d->instantiate(d, impl->rate, i, node->config)) == NULL) {
+				pw_log_error("cannot create plugin instance: %m");
+				res = -errno;
+				goto error;
+			}
+			for (j = 0; j < desc->n_input; j++) {
+				port = &node->input_port[j];
+				d->connect_port(node->hndl[i], port->p, sd);
+
+				spa_list_for_each(link, &port->link_list, input_link) {
+					struct port *peer = link->output;
+					pw_log_info("connect input port %s[%d]:%s %p",
+							node->name, i, d->ports[port->p].name,
+							peer->audio_data[i]);
+					d->connect_port(node->hndl[i], port->p, peer->audio_data[i]);
+				}
+			}
+			for (j = 0; j < desc->n_output; j++) {
+				port = &node->output_port[j];
+				pw_log_info("connect output port %s[%d]:%s %p",
+						node->name, i, d->ports[port->p].name,
+						port->audio_data[i]);
+				d->connect_port(node->hndl[i], port->p, port->audio_data[i]);
+			}
+			for (j = 0; j < desc->n_control; j++) {
+				port = &node->control_port[j];
+				d->connect_port(node->hndl[i], port->p, &port->control_data);
+			}
+			for (j = 0; j < desc->n_notify; j++) {
+				port = &node->notify_port[j];
+				d->connect_port(node->hndl[i], port->p, &port->control_data);
+			}
+			if (d->activate)
+				d->activate(node->hndl[i]);
+		}
+	}
+	return 0;
+error:
+	graph_cleanup(graph);
+	return res;
 }
 
 static struct node *find_next_node(struct graph *graph)
@@ -1628,61 +1731,16 @@ static struct node *find_next_node(struct graph *graph)
 	return NULL;
 }
 
-static int setup_input_port(struct graph *graph, struct port *port)
-{
-	struct descriptor *desc = port->node->desc;
-	const struct fc_descriptor *d = desc->desc;
-	struct link *link;
-	uint32_t i, n_hndl = port->node->n_hndl;
-
-	spa_list_for_each(link, &port->link_list, input_link) {
-		struct port *peer = link->output;
-		for (i = 0; i < n_hndl; i++) {
-			pw_log_info("connect input port %s[%d]:%s %p",
-					port->node->name, i, d->ports[port->p].name,
-					peer->audio_data[i]);
-			d->connect_port(port->node->hndl[i], port->p, peer->audio_data[i]);
-		}
-	}
-	return 0;
-}
-
-static int setup_output_port(struct graph *graph, struct port *port)
-{
-	struct descriptor *desc = port->node->desc;
-	const struct fc_descriptor *d = desc->desc;
-	struct link *link;
-	uint32_t i, n_hndl = port->node->n_hndl;
-
-	for (i = 0; i < n_hndl; i++) {
-		float *data;
-		if ((data = port->audio_data[i]) == NULL) {
-			data = calloc(1, MAX_SAMPLES * sizeof(float));
-			if (data == NULL)
-				return -errno;
-		}
-		port->audio_data[i] = data;
-		pw_log_info("connect output port %s[%d]:%s %p",
-				port->node->name, i, d->ports[port->p].name,
-				port->audio_data[i]);
-		d->connect_port(port->node->hndl[i], port->p, data);
-	}
-	spa_list_for_each(link, &port->link_list, output_link)
-		link->input->node->n_deps--;
-
-	return 0;
-}
-
 static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_json *outputs)
 {
 	struct impl *impl = graph->impl;
 	struct node *node, *first, *last;
 	struct port *port;
+	struct link *link;
 	struct graph_port *gp;
 	struct graph_hndl *gh;
 	uint32_t i, j, n_nodes, n_input, n_output, n_control, n_hndl = 0;
 	int res;
-	unsigned long p;
 	struct descriptor *desc;
 	const struct fc_descriptor *d;
 	char v[256];
@@ -1753,52 +1811,11 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 	n_control = 0;
 	n_nodes = 0;
 	spa_list_for_each(node, &graph->node_list, link) {
-		float *sd = silence_data, *dd = discard_data;
-
+		node->n_hndl = n_hndl;
 		desc = node->desc;
-		d = desc->desc;
-		if (d->flags & FC_DESCRIPTOR_SUPPORTS_NULL_DATA)
-			sd = dd = NULL;
-
-		for (i = 0; i < n_hndl; i++) {
-			pw_log_info("instantiate %s %d", d->name, i);
-			if ((node->hndl[i] = d->instantiate(d, &impl->rate, i, node->config)) == NULL) {
-				pw_log_error("cannot create plugin instance: %m");
-				res = -errno;
-				goto error;
-			}
-			node->n_hndl = i + 1;
-
-			for (j = 0; j < desc->n_input; j++) {
-				p = desc->input[j];
-				d->connect_port(node->hndl[i], p, sd);
-			}
-			for (j = 0; j < desc->n_output; j++) {
-				p = desc->output[j];
-				d->connect_port(node->hndl[i], p, dd);
-			}
-			for (j = 0; j < desc->n_control; j++) {
-				port = &node->control_port[j];
-				d->connect_port(node->hndl[i], port->p, &port->control_data);
-			}
-			for (j = 0; j < desc->n_notify; j++) {
-				port = &node->notify_port[j];
-				d->connect_port(node->hndl[i], port->p, &port->control_data);
-			}
-			if (d->activate)
-				d->activate(node->hndl[i]);
-		}
 		n_control += desc->n_control;
 		n_nodes++;
 	}
-	pw_log_info("suggested rate:%lu capture:%d playback:%d", impl->rate,
-			impl->capture_info.rate, impl->playback_info.rate);
-
-	if (impl->capture_info.rate == 0)
-		impl->capture_info.rate = impl->rate;
-	if (impl->playback_info.rate == 0)
-		impl->playback_info.rate = impl->rate;
-
 	graph->n_input = 0;
 	graph->input = calloc(n_input * n_hndl, sizeof(struct graph_port));
 	graph->n_output = 0;
@@ -1916,17 +1933,14 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		desc = node->desc;
 		d = desc->desc;
 
-		for (i = 0; i < desc->n_input; i++)
-			setup_input_port(graph, &node->input_port[i]);
-
 		for (i = 0; i < n_hndl; i++) {
 			gh = &graph->hndl[graph->n_hndl++];
 			gh->hndl = &node->hndl[i];
 			gh->desc = d;
-		}
 
-		for (i = 0; i < desc->n_output; i++)
-			setup_output_port(graph, &node->output_port[i]);
+			spa_list_for_each(link, &node->output_port[i].link_list, output_link)
+				link->input->node->n_deps--;
+		}
 
 		/* collect all control ports on the graph */
 		for (i = 0; i < desc->n_control; i++) {
@@ -1934,17 +1948,8 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 			graph->n_control++;
 		}
 	}
-	return 0;
-
+	res = 0;
 error:
-	spa_list_for_each(node, &graph->node_list, link) {
-		for (i = 0; i < node->n_hndl; i++) {
-			if (node->hndl[i] != NULL)
-				node->desc->desc->cleanup(node->hndl[i]);
-			node->hndl[i] = NULL;
-		}
-		node->n_hndl = 0;
-	}
 	return res;
 }
 
@@ -2190,7 +2195,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->context = context;
 
-	impl->rate = 48000;
 	impl->graph.impl = impl;
 	spa_list_init(&impl->plugin_list);
 

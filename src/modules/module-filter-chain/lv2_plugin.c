@@ -298,7 +298,7 @@ work_schedule(LV2_Worker_Schedule_Handle handle, uint32_t size, const void *data
 }
 
 static void *lv2_instantiate(const struct fc_descriptor *desc,
-                        unsigned long *SampleRate, int index, const char *config)
+                        unsigned long SampleRate, int index, const char *config)
 {
 	struct descriptor *d = (struct descriptor*)desc;
 	struct plugin *p = d->p;
@@ -308,7 +308,7 @@ static void *lv2_instantiate(const struct fc_descriptor *desc,
 	static const int32_t min_block_length = 1;
 	static const int32_t max_block_length = 8192;
 	static const int32_t seq_size = 32768;
-	float fsample_rate = *SampleRate;
+	float fsample_rate = SampleRate;
 
 	i = calloc(1, sizeof(*i));
 	if (i == NULL)
@@ -350,7 +350,7 @@ static void *lv2_instantiate(const struct fc_descriptor *desc,
         i->options_feature.data = i->options;
         i->features[n_features++] = &i->options_feature;
 
-	i->instance = lilv_plugin_instantiate(p->p, *SampleRate, i->features);
+	i->instance = lilv_plugin_instantiate(p->p, SampleRate, i->features);
 	if (i->instance == NULL) {
 		free(i);
 		return NULL;

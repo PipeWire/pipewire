@@ -519,13 +519,13 @@ struct link {
 
 struct graph_port {
 	const struct fc_descriptor *desc;
-	void *hndl;
+	void **hndl;
 	uint32_t port;
 };
 
 struct graph_hndl {
 	const struct fc_descriptor *desc;
-	void *hndl;
+	void **hndl;
 };
 
 struct graph {
@@ -620,7 +620,7 @@ static void playback_process(void *d)
 		port = i < graph->n_input ? &graph->input[i] : NULL;
 
 		if (port && port->desc)
-			port->desc->connect_port(port->hndl, port->port,
+			port->desc->connect_port(*port->hndl, port->port,
 				SPA_PTROFF(bd->data, offs, void));
 
 		insize = i == 0 ? size : SPA_MIN(insize, size);
@@ -636,7 +636,7 @@ static void playback_process(void *d)
 		port = i < graph->n_output ? &graph->output[i] : NULL;
 
 		if (port && port->desc)
-			port->desc->connect_port(port->hndl, port->port, bd->data);
+			port->desc->connect_port(*port->hndl, port->port, bd->data);
 		else
 			memset(bd->data, 0, outsize);
 
@@ -650,7 +650,7 @@ static void playback_process(void *d)
 
 	for (i = 0; i < n_hndl; i++) {
 		struct graph_hndl *hndl = &graph->hndl[i];
-		hndl->desc->run(hndl->hndl, outsize / sizeof(float));
+		hndl->desc->run(*hndl->hndl, outsize / sizeof(float));
 	}
 
 done:
@@ -920,9 +920,9 @@ static void graph_reset(struct graph *graph)
 		struct graph_hndl *hndl = &graph->hndl[i];
 		const struct fc_descriptor *d = hndl->desc;
 		if (d->deactivate)
-			d->deactivate(hndl->hndl);
+			d->deactivate(*hndl->hndl);
 		if (d->activate)
-			d->activate(hndl->hndl);
+			d->activate(*hndl->hndl);
 	}
 }
 
@@ -1814,7 +1814,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 				pw_log_info("input port %s[%d]:%s",
 						first->name, i, d->ports[desc->input[j]].name);
 				gp->desc = d;
-				gp->hndl = first->hndl[i];
+				gp->hndl = &first->hndl[i];
 				gp->port = desc->input[j];
 			}
 		} else {
@@ -1848,7 +1848,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 							port->node->name, i, d->ports[port->p].name);
 					port->external = graph->n_input;
 					gp->desc = d;
-					gp->hndl = port->node->hndl[i];
+					gp->hndl = &port->node->hndl[i];
 					gp->port = port->p;
 				}
 				graph->n_input++;
@@ -1862,7 +1862,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 				pw_log_info("output port %s[%d]:%s",
 						last->name, i, d->ports[desc->output[j]].name);
 				gp->desc = d;
-				gp->hndl = last->hndl[i];
+				gp->hndl = &last->hndl[i];
 				gp->port = desc->output[j];
 			}
 		} else {
@@ -1896,7 +1896,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 							port->node->name, i, d->ports[port->p].name);
 					port->external = graph->n_output;
 					gp->desc = d;
-					gp->hndl = port->node->hndl[i];
+					gp->hndl = &port->node->hndl[i];
 					gp->port = port->p;
 				}
 				graph->n_output++;
@@ -1921,7 +1921,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 
 		for (i = 0; i < n_hndl; i++) {
 			gh = &graph->hndl[graph->n_hndl++];
-			gh->hndl = node->hndl[i];
+			gh->hndl = &node->hndl[i];
 			gh->desc = d;
 		}
 

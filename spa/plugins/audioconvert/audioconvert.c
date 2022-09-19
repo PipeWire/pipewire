@@ -2467,6 +2467,7 @@ static int impl_node_process(void *object)
 							volume, mon_max);
 
 					bd->chunk->size = mon_max * port->stride;
+					bd->chunk->stride = port->stride;
 
 					spa_log_trace_fp(this->log, "%p: monitor %d %d", this,
 							remap, mon_max);
@@ -2667,9 +2668,10 @@ static int impl_node_process(void *object)
 			for (j = 0; j < port->blocks; j++) {
 				bd = &buf->buf->datas[j];
 				bd->chunk->size = this->out_offset * port->stride;
+				bd->chunk->stride = port->stride;
 				SPA_FLAG_UPDATE(bd->chunk->flags, SPA_CHUNK_FLAG_EMPTY, in_empty);
-				spa_log_trace_fp(this->log, "out: %d %d %d", this->out_offset,
-						port->stride, bd->chunk->size);
+				spa_log_trace_fp(this->log, "out: offs:%d stride:%d size:%d",
+						this->out_offset, port->stride, bd->chunk->size);
 			}
 			io->status = SPA_STATUS_HAVE_DATA;
 			io->buffer_id = buf->id;

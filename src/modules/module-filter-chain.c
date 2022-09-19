@@ -2200,6 +2200,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_setf(props, PW_KEY_NODE_LINK_GROUP, "filter-chain-%u-%u", pid, id);
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
+	if (pw_properties_get(props, "resample.prefill") == NULL)
+		pw_properties_set(props, "resample.prefill", "true");
 	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION, "filter-chain-%u-%u", pid, id);
 
@@ -2217,6 +2219,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_LATENCY);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 	copy_props(impl, props, PW_KEY_MEDIA_NAME);
+	copy_props(impl, props, "resample.prefill");
 
 	parse_audio_info(impl->capture_props, &impl->capture_info);
 	parse_audio_info(impl->playback_props, &impl->playback_info);

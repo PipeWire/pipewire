@@ -523,6 +523,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_setf(props, PW_KEY_NODE_LINK_GROUP, "loopback-%u-%u", pid, id);
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
+	if (pw_properties_get(props, "resample.prefill") == NULL)
+		pw_properties_set(props, "resample.prefill", "true");
 
 	if ((str = pw_properties_get(props, "capture.props")) != NULL)
 		pw_properties_update_string(impl->capture_props, str, strlen(str));
@@ -538,6 +540,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_LATENCY);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 	copy_props(impl, props, PW_KEY_MEDIA_NAME);
+	copy_props(impl, props, "resample.prefill");
 
 	if ((str = pw_properties_get(props, PW_KEY_NODE_NAME)) == NULL) {
 		pw_properties_setf(props, PW_KEY_NODE_NAME,

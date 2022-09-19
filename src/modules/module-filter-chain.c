@@ -645,7 +645,7 @@ static void playback_process(void *d)
 		bd->chunk->stride = stride;
 	}
 
-	pw_log_trace("%p: stride:%d in:%d out:%d requested:%"PRIu64" (%"PRIu64")", impl,
+	pw_log_trace_fp("%p: stride:%d in:%d out:%d requested:%"PRIu64" (%"PRIu64")", impl,
 			stride, insize, outsize, out->requested, out->requested * stride);
 
 	for (i = 0; i < n_hndl; i++) {

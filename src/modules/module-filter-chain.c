@@ -587,18 +587,24 @@ static void capture_destroy(void *d)
 static void capture_process(void *d)
 {
 	struct impl *impl = d;
+	pw_stream_trigger_process(impl->playback);
+}
+
+static void playback_process(void *d)
+{
+	struct impl *impl = d;
 	struct pw_buffer *in, *out;
 	struct graph *graph = &impl->graph;
-	uint32_t i, outsize = 0, n_hndl = graph->n_hndl;
+	uint32_t i, insize = 0, outsize = 0, n_hndl = graph->n_hndl;
 	int32_t stride = 0;
 	struct graph_port *port;
 	struct spa_data *bd;
 
 	if ((in = pw_stream_dequeue_buffer(impl->capture)) == NULL)
-		pw_log_debug("out of capture buffers: %m");
+		pw_log_debug("%p: out of capture buffers: %m", impl);
 
 	if ((out = pw_stream_dequeue_buffer(impl->playback)) == NULL)
-		pw_log_debug("out of playback buffers: %m");
+		pw_log_debug("%p: out of playback buffers: %m", impl);
 
 	if (in == NULL || out == NULL)
 		goto done;
@@ -617,9 +623,11 @@ static void capture_process(void *d)
 			port->desc->connect_port(port->hndl, port->port,
 				SPA_PTROFF(bd->data, offs, void));
 
-		outsize = i == 0 ? size : SPA_MIN(outsize, size);
+		insize = i == 0 ? size : SPA_MIN(insize, size);
 		stride = SPA_MAX(stride, bd->chunk->stride);
 	}
+	outsize = insize;
+
 	for (i = 0; i < out->buffer->n_datas; i++) {
 		bd = &out->buffer->datas[i];
 
@@ -636,6 +644,10 @@ static void capture_process(void *d)
 		bd->chunk->size = outsize;
 		bd->chunk->stride = stride;
 	}
+
+	pw_log_trace("%p: stride:%d in:%d out:%d requested:%"PRIu64" (%"PRIu64")", impl,
+			stride, insize, outsize, out->requested, out->requested * stride);
+
 	for (i = 0; i < n_hndl; i++) {
 		struct graph_hndl *hndl = &graph->hndl[i];
 		hndl->desc->run(hndl->hndl, outsize / sizeof(float));
@@ -646,8 +658,6 @@ done:
 		pw_stream_queue_buffer(impl->capture, in);
 	if (out != NULL)
 		pw_stream_queue_buffer(impl->playback, out);
-
-	pw_stream_trigger_process(impl->playback);
 }
 
 static float get_default(struct impl *impl, struct descriptor *desc, uint32_t p)
@@ -746,11 +756,12 @@ static struct spa_pod *get_prop_info(struct graph *graph, struct spa_pod_builder
 	struct fc_port *p = &d->ports[port->p];
 	float def, min, max;
 	char name[512];
+	uint32_t rate = impl->rate ? impl->rate : 48000;
 
 	if (p->hint & FC_HINT_SAMPLE_RATE) {
-		def = p->def * impl->rate;
-		min = p->min * impl->rate;
-		max = p->max * impl->rate;
+		def = p->def * rate;
+		min = p->min * rate;
+		max = p->max * rate;
 	} else {
 		def = p->def;
 		min = p->min;
@@ -1020,6 +1031,7 @@ static void playback_destroy(void *d)
 static const struct pw_stream_events out_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = playback_destroy,
+	.process = playback_process,
 	.state_changed = state_changed,
 	.param_changed = param_changed
 };

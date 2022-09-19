@@ -1654,22 +1654,22 @@ static int setup_output_port(struct graph *graph, struct port *port)
 	struct link *link;
 	uint32_t i, n_hndl = port->node->n_hndl;
 
-	spa_list_for_each(link, &port->link_list, output_link) {
-		for (i = 0; i < n_hndl; i++) {
-			float *data;
-			if ((data = port->audio_data[i]) == NULL) {
-				data = calloc(1, MAX_SAMPLES * sizeof(float));
-				if (data == NULL)
-					return -errno;
-			}
-			port->audio_data[i] = data;
-			pw_log_info("connect output port %s[%d]:%s %p",
-					port->node->name, i, d->ports[port->p].name,
-					port->audio_data[i]);
-			d->connect_port(port->node->hndl[i], port->p, data);
+	for (i = 0; i < n_hndl; i++) {
+		float *data;
+		if ((data = port->audio_data[i]) == NULL) {
+			data = calloc(1, MAX_SAMPLES * sizeof(float));
+			if (data == NULL)
+				return -errno;
 		}
-		link->input->node->n_deps--;
+		port->audio_data[i] = data;
+		pw_log_info("connect output port %s[%d]:%s %p",
+				port->node->name, i, d->ports[port->p].name,
+				port->audio_data[i]);
+		d->connect_port(port->node->hndl[i], port->p, data);
 	}
+	spa_list_for_each(link, &port->link_list, output_link)
+		link->input->node->n_deps--;
+
 	return 0;
 }
 

@@ -32,6 +32,8 @@
 
 struct resample {
 	struct spa_log *log;
+#define RESAMPLE_OPTION_PREFILL		(1<<0)
+	uint32_t options;
 	uint32_t cpu_flags;
 	const char *func_name;
 

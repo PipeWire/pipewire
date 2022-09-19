@@ -304,7 +304,10 @@ static void impl_native_reset (struct resample *r)
 	if (d == NULL)
 		return;
 	memset(d->hist_mem, 0, r->channels * sizeof(float) * d->n_taps * 2);
-	d->hist = (d->n_taps / 2) - 1;
+	if (r->options & RESAMPLE_OPTION_PREFILL)
+		d->hist = d->n_taps - 1;
+	else
+		d->hist = (d->n_taps / 2) - 1;
 	d->phase = 0;
 }
 

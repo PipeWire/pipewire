@@ -2844,6 +2844,8 @@ impl_init(const struct spa_handle_factory *factory,
 			spa_atou32(s, &this->quantum_limit, 0);
 		else if (spa_streq(k, "resample.peaks"))
 			this->peaks = spa_atob(s);
+		else if (spa_streq(k, "resample.prefill"))
+			this->resample.options |= RESAMPLE_OPTION_PREFILL;
 		else if (spa_streq(k, "factory.mode")) {
 			if (spa_streq(s, "merge"))
 				this->direction = SPA_DIRECTION_OUTPUT;

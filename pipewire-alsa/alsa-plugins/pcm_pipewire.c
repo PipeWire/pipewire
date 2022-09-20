@@ -1282,6 +1282,7 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 
 	PW_LOG_TOPIC_INIT(alsa_log_topic);
 	spa_zero(params);
+	params.format = SND_PCM_FORMAT_UNKNOWN;
 
 	snd_config_for_each(i, next, conf) {
 		snd_config_t *n = snd_config_iterator_entry(i);

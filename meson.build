@@ -266,6 +266,15 @@ if not readline_dep.found()
   readline_dep = cc.find_library('readline', required : get_option('readline'))
 endif
 
+need_avcodec = get_option('ffmpeg').enabled() or get_option('pw-cat').enabled()
+avcodec_dep = dependency('libavcodec', required: need_avcodec)
+avformat_dep = dependency('libavformat', required: get_option('pw-cat'))
+summary({'Libav for pw-cat': avcodec_dep.found() and avformat_dep.found()}, bool_yn: true, section: 'Support for ALSA Compress-Offload API')
+tinycompress_dep = cc.find_library('tinycompress', has_headers: ['tinycompress/tinycompress.h' ], required: get_option('compressed-offload'))
+summary({'Compressed offload sink': tinycompress_dep.found()}, bool_yn: true, section: 'Support for ALSA Compress-Offload API')
+compressed_offload_enabled = avcodec_dep.found() and avformat_dep.found() and tinycompress_dep.found()
+cdata.set('HAVE_COMPRESSED_OFFLOAD', compressed_offload_enabled)
+
 summary({'readline (for pw-cli)': readline_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 cdata.set('HAVE_READLINE', readline_dep.found())
 ncurses_dep = dependency('ncursesw', required : false)

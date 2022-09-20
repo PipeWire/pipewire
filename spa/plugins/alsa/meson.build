@@ -1,6 +1,8 @@
 subdir('acp')
 subdir('mixer')
 
+spa_alsa_dependencies = [ spa_dep, alsa_dep, libudev_dep, mathlib, epoll_shim_dep, libinotify_dep ]
+
 spa_alsa_sources = ['alsa.c',
                 'alsa.h',
                 'alsa-udev.c',
@@ -12,12 +14,17 @@ spa_alsa_sources = ['alsa.c',
                 'alsa-seq-bridge.c',
                 'alsa-seq.c']
 
+if tinycompress_dep.found()
+  spa_alsa_sources += [ 'alsa-compressed-sink.c' ]
+  spa_alsa_dependencies += tinycompress_dep
+endif
+
 spa_alsa = shared_library(
   'spa-alsa',
   [ spa_alsa_sources ],
   c_args : acp_c_args,
   include_directories : [configinc],
-  dependencies : [ spa_dep, alsa_dep, libudev_dep, mathlib, epoll_shim_dep, libinotify_dep ],
+  dependencies : spa_alsa_dependencies,
   link_with : [ acp_lib ],
   install : true,
   install_dir : spa_plugindir / 'alsa'

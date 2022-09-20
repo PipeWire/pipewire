@@ -74,7 +74,6 @@ if get_option('spa-plugins').allowed()
       summary({'ModemManager': mm_dep.found()}, bool_yn: true, section: 'Bluetooth backends')
     endif
   endif
-  avcodec_dep = dependency('libavcodec', required: get_option('ffmpeg'))
   jack_dep = dependency('jack', version : '>= 1.9.10', required: get_option('jack'))
   summary({'JACK2': jack_dep.found()}, bool_yn: true, section: 'Backend')
   vulkan_dep = dependency('vulkan', disabler : true, version : '>= 1.1.69', required: get_option('vulkan'))

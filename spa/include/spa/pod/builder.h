@@ -143,8 +143,10 @@ static inline int spa_pod_builder_raw(struct spa_pod_builder *builder, const voi
 
 	if (offset + size > builder->size) {
 		res = -ENOSPC;
-		spa_callbacks_call_res(&builder->callbacks, struct spa_pod_builder_callbacks, res,
-				overflow, 0, offset + size);
+		if (offset <= builder->size)
+			spa_callbacks_call_res(&builder->callbacks,
+					struct spa_pod_builder_callbacks, res,
+					overflow, 0, offset + size);
 	}
 	if (res == 0 && data)
 		memcpy(SPA_PTROFF(builder->data, offset, void), data, size);

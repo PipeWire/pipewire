@@ -1639,6 +1639,54 @@ PWTEST(pod_overflow)
 	return PWTEST_PASS;
 }
 
+static int handle_overflow(void *data, uint32_t size)
+{
+	uint32_t *d = data;
+	(*d)++;
+	return -ENOSPC;
+}
+
+static struct spa_pod_builder_callbacks overflow_cb = {
+	SPA_VERSION_POD_BUILDER_CALLBACKS,
+	.overflow = handle_overflow
+};
+
+PWTEST(pod_overflow2)
+{
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = { 0 };
+	struct spa_pod_builder_state state;
+	struct spa_pod_frame f[2];
+	uint32_t idx, overflow_count = 0;
+	struct spa_pod *pod;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_builder_set_callbacks(&b, &overflow_cb, &overflow_count);
+
+	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
+	spa_pod_builder_add(&b,
+			SPA_PROP_INFO_id,    SPA_POD_Id(32567359),
+			SPA_PROP_INFO_type,  SPA_POD_CHOICE_ENUM_Int(1, 0),
+			SPA_PROP_INFO_description,  SPA_POD_String("DV Timings"),
+			0);
+
+	spa_pod_builder_get_state(&b, &state),
+
+	spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
+	spa_pod_builder_push_struct(&b, &f[1]);
+
+	for (idx = 0; idx < 512; idx++) {
+		spa_pod_builder_int(&b, idx);
+		spa_pod_builder_string(&b, "foo");
+	}
+	spa_assert_se(b.state.offset > sizeof(buffer));
+	pod = spa_pod_builder_pop(&b, &f[1]);
+	spa_assert_se(pod == NULL);
+	spa_assert_se(overflow_count == 1);
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(spa_pod)
 {
 	pwtest_add(pod_abi_sizes, PWTEST_NOARG);
@@ -1652,6 +1700,7 @@ PWTEST_SUITE(spa_pod)
 	pwtest_add(pod_parser2, PWTEST_NOARG);
 	pwtest_add(pod_static, PWTEST_NOARG);
 	pwtest_add(pod_overflow, PWTEST_NOARG);
+	pwtest_add(pod_overflow2, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

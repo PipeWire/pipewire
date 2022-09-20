@@ -1205,7 +1205,7 @@ again:
 				if (settings->clock_rate_update_mode == CLOCK_RATE_UPDATE_MODE_HARD)
 					suspend_driver(context, n);
 			} else {
-				if (n->info.state >= PW_NODE_STATE_IDLE)
+				if (n->info.state >= PW_NODE_STATE_SUSPENDED)
 					suspend_driver(context, n);
 			}
 			/* we're setting the pending rate. This will become the new

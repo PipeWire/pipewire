@@ -89,7 +89,7 @@
 #define MAX_FORMATS	32
 /* The max amount of data we send in one block when capturing. In PulseAudio this
  * size is derived from the mempool PA_MEMPOOL_SLOT_SIZE */
-#define MAX_FRAGSIZE	(64*1024)
+#define MAX_BLOCK	(64*1024)
 
 #define TEMPORARY_MOVE_TIMEOUT	(SPA_NSEC_PER_SEC)
 
@@ -681,12 +681,15 @@ static uint64_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *att
 
 	attr->tlength = attr->minreq = attr->prebuf = 0;
 
-	/* make sure can queue at least to fragsize without overruns */
+	/* make sure we can queue at least to fragsize without overruns */
 	if (attr->maxlength < attr->fragsize * 4)
 		attr->maxlength = attr->fragsize * 4;
 
 	/* pulseaudio configures half the fragsize as latency in the source. */
 	latency = attr->fragsize / 2;
+
+	if (s->adjust_latency)
+		attr->fragsize = SPA_ROUND_UP(latency, frame_size);
 
 	lat->num = latency / frame_size;
 	lat->denom = rate;
@@ -1342,7 +1345,7 @@ do_process_done(struct spa_loop *loop,
 			pw_log_trace("avail:%d index:%u", avail, index);
 
 			while ((uint32_t)avail >= stream->attr.fragsize) {
-				towrite = SPA_MIN(avail, MAX_FRAGSIZE);
+				towrite = SPA_MIN(avail, MAX_BLOCK);
 				towrite = SPA_ROUND_DOWN(towrite, stream->frame_size);
 
 				msg = message_alloc(impl, stream->channel, towrite);

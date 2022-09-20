@@ -64,6 +64,26 @@ PW_LOG_TOPIC_STATIC(alsa_log_topic, "alsa.pcm");
 
 #define MIN_PERIOD	64
 
+#define MIN_PERIOD_BYTES	(128)
+#define MAX_PERIOD_BYTES	(2*1024*1024)
+
+#define MIN_BUFFER_BYTES	(2*MIN_PERIOD_BYTES)
+#define MAX_BUFFER_BYTES	(2*MAX_PERIOD_BYTES)
+
+struct params {
+	const char *node_name;
+	const char *server_name;
+	const char *playback_node;
+	const char *capture_node;
+	const char *role;
+	snd_pcm_format_t format;
+	int rate;
+	int channels;
+	int period_bytes;
+	int buffer_bytes;
+	uint32_t flags;
+};
+
 typedef struct {
 	snd_pcm_ioplug_t io;
 
@@ -178,6 +198,7 @@ static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
 		pw_thread_loop_destroy(pw->main_loop);
 	free(pw->node_name);
 	free(pw->target);
+	free(pw->role);
 	snd_output_close(pw->output);
 	fclose(pw->log_file);
 	free(pw);
@@ -942,8 +963,7 @@ static snd_pcm_ioplug_callback_t pipewire_pcm_callback = {
 	.query_chmaps = snd_pcm_pipewire_query_chmaps,
 };
 
-static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,
-		snd_pcm_format_t format, int channels, int period_bytes)
+static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, struct params *p)
 {
 	unsigned int access_list[] = {
 		SND_PCM_ACCESS_MMAP_INTERLEAVED,
@@ -975,26 +995,38 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,
 	int max_channels;
 	int min_period_bytes;
 	int max_period_bytes;
+	int min_buffer_bytes;
+	int max_buffer_bytes;
 	int err;
 
-	if (rate > 0) {
-		min_rate = max_rate = rate;
+	if (p->rate > 0) {
+		min_rate = max_rate = SPA_CLAMP(p->rate, 1, MAX_RATE);
 	} else {
 		min_rate = 1;
 		max_rate = MAX_RATE;
 	}
-	if (channels > 0) {
-		min_channels = max_channels = channels;
+	if (p->channels > 0) {
+		min_channels = max_channels = SPA_CLAMP(p->channels, 1, MAX_CHANNELS);
 	} else {
 		min_channels = 1;
 		max_channels = MAX_CHANNELS;
 	}
-	if (period_bytes > 0) {
-		min_period_bytes = max_period_bytes = period_bytes;
+	if (p->period_bytes > 0) {
+		min_period_bytes = max_period_bytes = SPA_CLAMP(p->period_bytes,
+				MIN_PERIOD_BYTES, MAX_PERIOD_BYTES);
 	} else {
-		min_period_bytes = 128;
-		max_period_bytes = 2*1024*1024;
+		min_period_bytes = MIN_PERIOD_BYTES;
+		max_period_bytes = MAX_PERIOD_BYTES;
 	}
+	if (p->buffer_bytes > 0) {
+		min_buffer_bytes = max_buffer_bytes = SPA_CLAMP(p->buffer_bytes,
+				MIN_BUFFER_BYTES, MAX_BUFFER_BYTES);
+	} else {
+		min_buffer_bytes = MIN_BUFFER_BYTES;
+		max_buffer_bytes = MAX_BUFFER_BYTES;
+	}
+	if (min_period_bytes * 2 > max_buffer_bytes)
+		min_period_bytes = max_period_bytes = max_buffer_bytes / 2;
 
 	if ((err = snd_pcm_ioplug_set_param_list(&pw->io, SND_PCM_IOPLUG_HW_ACCESS,
 						   SPA_N_ELEMENTS(access_list), access_list)) < 0 ||
@@ -1003,8 +1035,8 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,
 		(err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_RATE,
 						   min_rate, max_rate)) < 0 ||
 		(err = snd_pcm_ioplug_set_param_minmax(&pw->io, SND_PCM_IOPLUG_HW_BUFFER_BYTES,
-						   MIN_BUFFERS*min_period_bytes,
-						   MIN_BUFFERS*max_period_bytes)) < 0 ||
+						   min_buffer_bytes,
+						   max_buffer_bytes)) < 0 ||
 		(err = snd_pcm_ioplug_set_param_minmax(&pw->io,
 						   SND_PCM_IOPLUG_HW_PERIOD_BYTES,
 						   min_period_bytes,
@@ -1015,10 +1047,10 @@ static int pipewire_set_hw_constraint(snd_pcm_pipewire_t *pw, int rate,
 		return err;
 	}
 
-	if (format != SND_PCM_FORMAT_UNKNOWN) {
+	if (p->format != SND_PCM_FORMAT_UNKNOWN) {
 		err = snd_pcm_ioplug_set_param_list(&pw->io,
 				SND_PCM_IOPLUG_HW_FORMAT,
-				1, (unsigned int *)&format);
+				1, (unsigned int *)&p->format);
 		if (err < 0) {
 			pw_log_warn("Can't set param list: %s", snd_strerror(err));
 			return err;
@@ -1075,60 +1107,77 @@ static cookie_io_functions_t io_funcs = {
 	.write = log_write,
 };
 
-static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
-				const char *node_name,
-				const char *server_name,
-				const char *playback_node,
-				const char *capture_node,
-				const char *role,
-				snd_pcm_stream_t stream,
-				int mode,
-				uint32_t flags,
-				int rate,
-				snd_pcm_format_t format,
-				int channels,
-				int period_bytes)
+static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
+		struct params *p, snd_pcm_stream_t stream, int mode)
 {
 	snd_pcm_pipewire_t *pw;
 	int err;
 	const char *str;
 	struct pw_properties *props = NULL;
 	struct pw_loop *loop;
+	uint32_t val;
 
 	assert(pcmp);
 	pw = calloc(1, sizeof(*pw));
 	if (!pw)
 		return -ENOMEM;
 
+	props = pw_properties_new(NULL, NULL);
+	if (props == NULL) {
+		err = -errno;
+		goto error;
+	}
+
+	str = getenv("PIPEWIRE_ALSA");
+	if (str != NULL) {
+		pw_properties_update_string(props, str, strlen(str));
+		if ((str = pw_properties_get(props, "alsa.format")))
+			p->format = snd_pcm_format_value(str);
+		if ((str = pw_properties_get(props, "alsa.rate")) &&
+		    spa_atou32(str, &val, 0))
+			p->rate = val;
+		if ((str = pw_properties_get(props, "alsa.channels")) &&
+		    spa_atou32(str, &val, 0))
+			p->channels = val;
+		if ((str = pw_properties_get(props, "alsa.period-bytes")) &&
+		    spa_atou32(str, &val, 0))
+			p->period_bytes = val;
+		if ((str = pw_properties_get(props, "alsa.buffer-bytes")) &&
+		    spa_atou32(str, &val, 0))
+			p->buffer_bytes = val;
+	}
+
 	str = getenv("PIPEWIRE_REMOTE");
 	if (str != NULL && str[0] != '\0')
-		server_name = str;
+		p->server_name = str;
 
 	str = getenv("PIPEWIRE_NODE");
 
 	pw_log_debug("%p: open name:%s stream:%s mode:%d flags:%08x rate:%d format:%s "
-			"channels:%d period-bytes:%d target:'%s'", pw, name,
-			snd_pcm_stream_name(stream), mode, flags, rate,
-			snd_pcm_format_name(format), channels, period_bytes, str);
+			"channels:%d period-bytes:%d buffer-bytes:%d target:'%s'", pw, p->node_name,
+			snd_pcm_stream_name(stream), mode, p->flags, p->rate,
+			snd_pcm_format_name(p->format), p->channels, p->period_bytes,
+			p->buffer_bytes, str);
 
 	pw->fd = -1;
 	pw->io.poll_fd = -1;
-	pw->flags = flags;
+	pw->flags = p->flags;
 	pw->log_file = fopencookie(pw, "w", io_funcs);
 	if (pw->log_file == NULL) {
 		pw_log_error("can't create log file: %m");
-		return -errno;
+		err = -errno;
+		goto error;
 	}
 	if ((err = snd_output_stdio_attach(&pw->output, pw->log_file, 0)) < 0) {
 		pw_log_error("can't attach log file: %s", snd_strerror(err));
-		return err;
+		goto error;
 	}
 
-	if (node_name == NULL)
+	if (p->node_name == NULL)
 		pw->node_name = spa_aprintf("ALSA %s",
 			       stream == SND_PCM_STREAM_PLAYBACK ? "Playback" : "Capture");
 	else
-		pw->node_name = strdup(node_name);
+		pw->node_name = strdup(p->node_name);
 
 	if (pw->node_name == NULL) {
 		err = -errno;
@@ -1140,12 +1189,12 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 		pw->target = strdup(str);
 	else {
 		if (stream == SND_PCM_STREAM_PLAYBACK)
-			pw->target = playback_node ? strdup(playback_node) : NULL;
+			pw->target = p->playback_node ? strdup(p->playback_node) : NULL;
 		else
-			pw->target = capture_node ? strdup(capture_node) : NULL;
+			pw->target = p->capture_node ? strdup(p->capture_node) : NULL;
 	}
 
-	pw->role = (role && *role) ? strdup(role) : NULL;
+	pw->role = (p->role && *p->role) ? strdup(p->role) : NULL;
 
 	pw->main_loop = pw_thread_loop_new("alsa-pipewire", NULL);
 	if (pw->main_loop == NULL) {
@@ -1163,13 +1212,11 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 		goto error;
 	}
 
-	props = pw_properties_new(NULL, NULL);
-
 	pw_properties_setf(props, PW_KEY_APP_NAME, "PipeWire ALSA [%s]",
 			pw_get_prgname());
 
-	if (server_name)
-		pw_properties_set(props, PW_KEY_REMOTE_NAME, server_name);
+	if (p->server_name)
+		pw_properties_set(props, PW_KEY_REMOTE_NAME, p->server_name);
 
 	if ((err = pw_thread_loop_start(pw->main_loop)) < 0)
 		goto error;
@@ -1201,15 +1248,13 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 #endif
 	pw->io.flags |= SND_PCM_IOPLUG_FLAG_MONOTONIC;
 
-	if ((err = snd_pcm_ioplug_create(&pw->io, name, stream, mode)) < 0)
+	if ((err = snd_pcm_ioplug_create(&pw->io, p->node_name, stream, mode)) < 0)
 		goto error;
 
-
-	if ((err = pipewire_set_hw_constraint(pw, rate, format, channels,
-					period_bytes)) < 0)
+	if ((err = pipewire_set_hw_constraint(pw, p)) < 0)
 		goto error;
 
-	pw_log_debug("%p: opened name:%s stream:%s mode:%d", pw, name,
+	pw_log_debug("%p: opened name:%s stream:%s mode:%d", pw, p->node_name,
 			snd_pcm_stream_name(pw->io.stream), mode);
 
 	*pcmp = pw->io.pcm;
@@ -1217,7 +1262,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp, const char *name,
 	return 0;
 
 error:
-	pw_log_debug("%p: failed to open %s :%s", pw, name, spa_strerror(err));
+	pw_log_debug("%p: failed to open %s :%s", pw, p->node_name, spa_strerror(err));
 	pw_properties_free(props);
 	snd_pcm_pipewire_free(pw);
 	return err;
@@ -1228,16 +1273,7 @@ SPA_EXPORT
 SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 {
 	snd_config_iterator_t i, next;
-	const char *node_name = NULL;
-	const char *server_name = NULL;
-	const char *playback_node = NULL;
-	const char *capture_node = NULL;
-	const char *role = NULL;
-	snd_pcm_format_t format = SND_PCM_FORMAT_UNKNOWN;
-	int rate = 0;
-	int channels = 0;
-	int period_bytes = 0;
-	uint32_t flags = 0;
+	struct params params;
 	int err;
 
 	pw_init(NULL, NULL);
@@ -1245,6 +1281,7 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 		return -ENOTSUP;
 
 	PW_LOG_TOPIC_INIT(alsa_log_topic);
+	spa_zero(params);
 
 	snd_config_for_each(i, next, conf) {
 		snd_config_t *n = snd_config_iterator_entry(i);
@@ -1254,35 +1291,35 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 		if (spa_streq(id, "comment") || spa_streq(id, "type") || spa_streq(id, "hint"))
 			continue;
 		if (spa_streq(id, "name")) {
-			snd_config_get_string(n, &node_name);
+			snd_config_get_string(n, &params.node_name);
 			continue;
 		}
 		if (spa_streq(id, "server")) {
-			snd_config_get_string(n, &server_name);
+			snd_config_get_string(n, &params.server_name);
 			continue;
 		}
 		if (spa_streq(id, "playback_node")) {
-			snd_config_get_string(n, &playback_node);
+			snd_config_get_string(n, &params.playback_node);
 			continue;
 		}
 		if (spa_streq(id, "capture_node")) {
-			snd_config_get_string(n, &capture_node);
+			snd_config_get_string(n, &params.capture_node);
 			continue;
 		}
 		if (spa_streq(id, "role")) {
-			snd_config_get_string(n, &role);
+			snd_config_get_string(n, &params.role);
 			continue;
 		}
 		if (spa_streq(id, "exclusive")) {
 			if (snd_config_get_bool(n))
-				flags |= PW_STREAM_FLAG_EXCLUSIVE;
+				params.flags |= PW_STREAM_FLAG_EXCLUSIVE;
 			continue;
 		}
 		if (spa_streq(id, "rate")) {
 			long val;
 
 			if (snd_config_get_integer(n, &val) == 0)
-				rate = val;
+				params.rate = val;
 			else
 				SNDERR("%s: invalid type", id);
 			continue;
@@ -1291,8 +1328,8 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 			const char *str;
 
 			if (snd_config_get_string(n, &str) == 0) {
-				format = snd_pcm_format_value(str);
-				if (format == SND_PCM_FORMAT_UNKNOWN)
+				params.format = snd_pcm_format_value(str);
+				if (*str && params.format == SND_PCM_FORMAT_UNKNOWN)
 					SNDERR("%s: invalid value %s", id, str);
 			} else {
 				SNDERR("%s: invalid type", id);
@@ -1303,7 +1340,7 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 			long val;
 
 			if (snd_config_get_integer(n, &val) == 0)
-				channels = val;
+				params.channels = val;
 			else
 				SNDERR("%s: invalid type", id);
 			continue;
@@ -1312,7 +1349,16 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 			long val;
 
 			if (snd_config_get_integer(n, &val) == 0)
-				period_bytes = val;
+				params.period_bytes = val;
+			else
+				SNDERR("%s: invalid type", id);
+			continue;
+		}
+		if (spa_streq(id, "buffer_bytes")) {
+			long val;
+
+			if (snd_config_get_integer(n, &val) == 0)
+				params.buffer_bytes = val;
 			else
 				SNDERR("%s: invalid type", id);
 			continue;
@@ -1321,9 +1367,7 @@ SND_PCM_PLUGIN_DEFINE_FUNC(pipewire)
 		return -EINVAL;
 	}
 
-	err = snd_pcm_pipewire_open(pcmp, name, node_name, server_name, playback_node,
-			capture_node, role, stream, mode, flags, rate, format,
-			channels, period_bytes);
+	err = snd_pcm_pipewire_open(pcmp, &params, stream, mode);
 
 	return err;
 }

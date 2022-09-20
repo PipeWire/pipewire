@@ -51,6 +51,13 @@
 #include <pipewire/i18n.h>
 #include <pipewire/extensions/metadata.h>
 
+#include "config.h"
+
+#ifdef HAVE_COMPRESSED_OFFLOAD
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#endif
+
 #include "midifile.h"
 #include "dsffile.h"
 
@@ -108,6 +115,9 @@ struct data {
 #define TYPE_PCM	0
 #define TYPE_MIDI	1
 #define TYPE_DSD	2
+#ifdef HAVE_COMPRESSED_OFFLOAD
+#define TYPE_ENCODED    3
+#endif
 	int data_type;
 	const char *remote_name;
 	const char *media_type;
@@ -122,6 +132,7 @@ struct data {
 	const char *filename;
 	SNDFILE *file;
 
+	unsigned int bitrate;
 	unsigned int rate;
 	int channels;
 	struct channelmap channelmap;
@@ -150,6 +161,14 @@ struct data {
 		struct dsf_file_info info;
 		struct dsf_layout layout;
 	} dsf;
+
+#ifdef HAVE_COMPRESSED_OFFLOAD
+	FILE *encoded_file;
+	AVFormatContext *fmt_context;
+	AVStream *astream;
+	AVCodecContext *ctx;
+	enum AVSampleFormat sfmt;
+#endif
 };
 
 #define STR_FMTS "(ulaw|alaw|u8|s8|s16|s32|f32|f64)"
@@ -232,6 +251,117 @@ static int sf_playback_fill_f64(struct data *d, void *dest, unsigned int n_frame
 	return (int)rn;
 }
 
+#ifdef HAVE_COMPRESSED_OFFLOAD
+static int encoded_playback_fill(struct data *d, void *dest, unsigned int n_frames)
+{
+	int ret, size = 0;
+	uint8_t buffer[16384] = { 0 };
+
+	ret = fread(buffer, 1, 16384, d->encoded_file);
+	if (ret > 0) {
+		memcpy(dest, buffer, ret);
+		size = ret;
+	}
+
+	return (int)size;
+}
+
+static int avcodec_ctx_to_info(struct data *data, AVCodecContext *ctx, struct spa_audio_info *info)
+{
+	int32_t profile;
+
+	switch (ctx->codec_id) {
+	case AV_CODEC_ID_VORBIS:
+		info->media_subtype = SPA_MEDIA_SUBTYPE_vorbis;
+		info->info.vorbis.rate = data->rate;
+		info->info.vorbis.channels = data->channels;
+		break;
+	case AV_CODEC_ID_MP3:
+		info->media_subtype = SPA_MEDIA_SUBTYPE_mp3;
+		info->info.mp3.rate = data->rate;
+		info->info.mp3.channels = data->channels;
+		break;
+	case AV_CODEC_ID_AAC:
+		info->media_subtype = SPA_MEDIA_SUBTYPE_aac;
+		info->info.aac.rate = data->rate;
+		info->info.aac.channels = data->channels;
+		info->info.aac.bitrate = data->bitrate;
+		info->info.aac.stream_format = SPA_AUDIO_AAC_STREAM_FORMAT_RAW;
+		break;
+	case AV_CODEC_ID_WMAV1:
+	case AV_CODEC_ID_WMAV2:
+	case AV_CODEC_ID_WMAPRO:
+	case AV_CODEC_ID_WMAVOICE:
+	case AV_CODEC_ID_WMALOSSLESS:
+		info->media_subtype = SPA_MEDIA_SUBTYPE_wma;
+		switch (ctx->codec_tag) {
+		/* TODO see if these hex constants can be replaced by named constants from FFmpeg */
+		case 0x161:
+			profile = SPA_AUDIO_WMA_PROFILE_WMA9;
+			break;
+		case 0x162:
+			profile = SPA_AUDIO_WMA_PROFILE_WMA9_PRO;
+			break;
+		case 0x163:
+			profile = SPA_AUDIO_WMA_PROFILE_WMA9_LOSSLESS;
+			break;
+		case 0x166:
+			profile = SPA_AUDIO_WMA_PROFILE_WMA10;
+			break;
+		case 0x167:
+			profile = SPA_AUDIO_WMA_PROFILE_WMA10_LOSSLESS;
+			break;
+		default:
+			fprintf(stderr, "error: invalid WMA profile\n");
+			return -EINVAL;
+		}
+		info->info.wma.rate = data->rate;
+		info->info.wma.channels = data->channels;
+		info->info.wma.bitrate = data->bitrate;
+		info->info.wma.block_align = ctx->block_align;
+		info->info.wma.profile = profile;
+		break;
+	case AV_CODEC_ID_FLAC:
+		info->media_subtype = SPA_MEDIA_SUBTYPE_flac;
+		info->info.flac.rate = data->rate;
+		info->info.flac.channels = data->channels;
+		break;
+	case AV_CODEC_ID_ALAC:
+		info->media_subtype = SPA_MEDIA_SUBTYPE_alac;
+		info->info.alac.rate = data->rate;
+		info->info.alac.channels = data->channels;
+		break;
+	case AV_CODEC_ID_APE:
+		info->media_subtype = SPA_MEDIA_SUBTYPE_ape;
+		info->info.ape.rate = data->rate;
+		info->info.ape.channels = data->channels;
+		break;
+	case AV_CODEC_ID_RA_144:
+	case AV_CODEC_ID_RA_288:
+		info->media_subtype = SPA_MEDIA_SUBTYPE_ra;
+		info->info.ra.rate = data->rate;
+		info->info.ra.channels = data->channels;
+		break;
+	case AV_CODEC_ID_AMR_NB:
+		info->media_subtype = SPA_MEDIA_SUBTYPE_amr;
+		info->info.amr.rate = data->rate;
+		info->info.amr.channels = data->channels;
+		info->info.amr.band_mode = SPA_AUDIO_AMR_BAND_MODE_NB;
+		break;
+	case AV_CODEC_ID_AMR_WB:
+		info->media_subtype = SPA_MEDIA_SUBTYPE_amr;
+		info->info.amr.rate = data->rate;
+		info->info.amr.channels = data->channels;
+		info->info.amr.band_mode = SPA_AUDIO_AMR_BAND_MODE_WB;
+		break;
+	default:
+		fprintf(stderr, "Unsupported encoded media subtype\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+#endif
+
 static inline fill_fn
 playback_fill_fn(uint32_t fmt)
 {
@@ -264,6 +394,10 @@ playback_fill_fn(uint32_t fmt)
 		if (sizeof(double) != 8)
 			return NULL;
 		return sf_playback_fill_f64;
+#ifdef HAVE_COMPRESSED_OFFLOAD
+	case SPA_AUDIO_FORMAT_ENCODED:
+		return encoded_playback_fill;
+#endif
 	default:
 		break;
 	}
@@ -649,10 +783,34 @@ static void on_process(void *userdata)
 		return;
 
 	if (data->mode == mode_playback) {
-
 		n_frames = d->maxsize / data->stride;
 		n_frames = SPA_MIN(n_frames, (int)b->requested);
 
+#ifdef HAVE_COMPRESSED_OFFLOAD
+		n_fill_frames = data->fill(data, p, n_frames);
+
+		if (n_fill_frames > 0 || n_frames == 0) {
+			d->chunk->offset = 0;
+			if (data->data_type == TYPE_ENCODED) {
+				d->chunk->stride = 0;
+				// encoded_playback_fill returns number of bytes
+				// read and not number of frames like other
+				// functions for raw audio.
+				d->chunk->size = n_fill_frames;
+				b->size = n_fill_frames;
+			} else {
+				d->chunk->stride = data->stride;
+				d->chunk->size = n_fill_frames * data->stride;
+				b->size = n_frames;
+			}
+			have_data = true;
+		} else if (n_fill_frames < 0) {
+			fprintf(stderr, "fill error %d\n", n_fill_frames);
+		} else {
+			if (data->verbose)
+				printf("drain start\n");
+		}
+#else
 		n_fill_frames = data->fill(data, p, n_frames);
 
 		if (n_fill_frames > 0 || n_frames == 0) {
@@ -667,6 +825,7 @@ static void on_process(void *userdata)
 			if (data->verbose)
 				printf("drain start\n");
 		}
+#endif
 	} else {
 		offset = SPA_MIN(d->chunk->offset, d->maxsize);
 		size = SPA_MIN(d->chunk->size, d->maxsize - offset);
@@ -824,6 +983,9 @@ static void show_usage(const char *name, bool is_error)
 		     "  -r, --record                          Recording mode\n"
 		     "  -m, --midi                            Midi mode\n"
 		     "  -d, --dsd                             DSD mode\n"
+#ifdef HAVE_COMPRESSED_OFFLOAD
+		     "  -o, --encoded			      Encoded mode\n"
+#endif
 		     "\n"), fp);
 	}
 }
@@ -1111,6 +1273,85 @@ static void format_from_filename(SF_INFO *info, const char *filename)
 		info->format = (info->format & ~SF_FORMAT_SUBMASK) | SF_FORMAT_VORBIS;
 }
 
+#ifdef HAVE_COMPRESSED_OFFLOAD
+static int setup_encodedfile(struct data *data)
+{
+	int ret;
+	int bits_per_sample;
+	char path[256] = { 0 };
+
+	/* We do not support record with encoded media */
+	if (data->mode == mode_record) {
+		return -EINVAL;
+	}
+
+	strcpy(path, "file:");
+	strcat(path, data->filename);
+
+	data->fmt_context = NULL;
+	ret = avformat_open_input(&data->fmt_context, path, NULL, NULL);
+	if (ret < 0) {
+		fprintf(stderr, "Failed to open input\n");
+		return -EINVAL;
+	}
+
+	avformat_find_stream_info (data->fmt_context, NULL);
+
+	data->ctx = avcodec_alloc_context3(NULL);
+	if (!data->ctx) {
+		fprintf(stderr, "Could not allocate audio codec context\n");
+		avformat_close_input(&data->fmt_context);
+		return -EINVAL;
+	}
+
+	// We expect only one stream with audio
+	data->astream = data->fmt_context->streams[0];
+	avcodec_parameters_to_context (data->ctx, data->astream->codecpar);
+
+	if (data->ctx->codec_type != AVMEDIA_TYPE_AUDIO) {
+		fprintf(stderr, "Not an audio file\n");
+		avformat_close_input(&data->fmt_context);
+		return -EINVAL;
+	}
+
+	printf("Number of streams: %d Codec id: %x\n", data->fmt_context->nb_streams,
+			data->ctx->codec_id);
+
+	data->rate = data->ctx->sample_rate;
+	data->channels = data->ctx->ch_layout.nb_channels;
+	data->sfmt = data->ctx->sample_fmt;
+	data->stride = 1; // Don't care
+
+	bits_per_sample = av_get_bits_per_sample(data->ctx->codec_id);
+	data->bitrate = bits_per_sample ?
+		data->ctx->sample_rate * data->ctx->ch_layout.nb_channels * bits_per_sample : data->ctx->bit_rate;
+
+	data->spa_format = SPA_AUDIO_FORMAT_ENCODED;
+	data->fill = playback_fill_fn(data->spa_format);
+
+	if (data->verbose)
+		printf("Opened file \"%s\" sample format %08x channels:%d rate:%d bitrate: %d\n",
+				data->filename, data->ctx->sample_fmt, data->channels,
+				data->rate, data->bitrate);
+
+	if (data->fill == NULL) {
+		fprintf(stderr, "Unhandled encoded format %d\n", data->spa_format);
+		avformat_close_input(&data->fmt_context);
+		return -EINVAL;
+	}
+
+	avformat_close_input(&data->fmt_context);
+
+	data->encoded_file = fopen(data->filename, "rb");
+	if (!data->encoded_file) {
+		fprintf(stderr, "Failed to open file\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+#endif
+
 static int setup_sndfile(struct data *data)
 {
 	const struct format_info *fi = NULL;
@@ -1334,7 +1575,11 @@ int main(int argc, char *argv[])
 		goto error_no_props;
 	}
 
+#ifdef HAVE_COMPRESSED_OFFLOAD
+	while ((c = getopt_long(argc, argv, "hvprmdoR:q:P:", long_options, NULL)) != -1) {
+#else
 	while ((c = getopt_long(argc, argv, "hvprmdR:q:P:", long_options, NULL)) != -1) {
+#endif
 
 		switch (c) {
 
@@ -1370,6 +1615,12 @@ int main(int argc, char *argv[])
 		case 'd':
 			data.data_type = TYPE_DSD;
 			break;
+
+#ifdef HAVE_COMPRESSED_OFFLOAD
+		case 'o':
+			data.data_type = TYPE_ENCODED;
+			break;
+#endif
 
 		case 'R':
 			data.remote_name = optarg;
@@ -1542,6 +1793,11 @@ int main(int argc, char *argv[])
 		case TYPE_DSD:
 			ret = setup_dsffile(&data);
 			break;
+#ifdef HAVE_COMPRESSED_OFFLOAD
+		case TYPE_ENCODED:
+			ret = setup_encodedfile(&data);
+			break;
+#endif
 		default:
 			ret = -ENOTSUP;
 			break;
@@ -1560,6 +1816,25 @@ int main(int argc, char *argv[])
 	ret = setup_properties(&data);
 
 	switch (data.data_type) {
+#ifdef HAVE_COMPRESSED_OFFLOAD
+	case TYPE_ENCODED:
+	{
+		struct spa_audio_info info;
+
+		spa_zero(info);
+		info.media_type = SPA_MEDIA_TYPE_audio;
+
+		ret = avcodec_ctx_to_info(&data, data.ctx, &info);
+		if (ret < 0) {
+			if (data.encoded_file) {
+				fclose(data.encoded_file);
+			}
+			goto error_bad_file;
+		}
+		params[0] = spa_format_audio_build(&b, SPA_PARAM_EnumFormat, &info);
+		break;
+	}
+#endif
 	case TYPE_PCM:
 	{
 		struct spa_audio_info_raw info;
@@ -1648,6 +1923,11 @@ int main(int argc, char *argv[])
 
 	/* and wait while we let things run */
 	pw_main_loop_run(data.loop);
+
+#ifdef HAVE_COMPRESSED_OFFLOAD
+	if (data.encoded_file)
+		fclose(data.encoded_file);
+#endif
 
 	/* we're returning OK only if got to the point to drain */
 	if (data.drained)

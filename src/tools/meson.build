@@ -32,6 +32,12 @@ if ncurses_dep.found()
 endif
 
 build_pw_cat = false
+pwcat_deps = [ sndfile_dep ]
+if avcodec_dep.found() and avformat_dep.found()
+  pwcat_deps += avcodec_dep
+  pwcat_deps += avformat_dep
+endif
+
 if get_option('pw-cat').allowed() and sndfile_dep.found()
   build_pw_cat = true
 
@@ -52,7 +58,7 @@ if get_option('pw-cat').allowed() and sndfile_dep.found()
   executable('pw-cat',
     pwcat_sources,
     install: true,
-    dependencies : [sndfile_dep, pipewire_dep, mathlib],
+    dependencies : [pwcat_deps, pipewire_dep, mathlib],
   )
 
   foreach alias : pwcat_aliases

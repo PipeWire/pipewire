@@ -269,26 +269,32 @@ do {								\
 	}								\
 })
 
+#define spa_logt_lev(l,lev,t,...)					\
+	spa_log_logt(l,lev,t,__FILE__,__LINE__,__func__,__VA_ARGS__)
+
+#define spa_log_lev(l,lev,...)					\
+	spa_logt_lev(l,lev,SPA_LOG_TOPIC_DEFAULT,__VA_ARGS__)
+
 #define spa_log_log(l,lev,...)					\
 	spa_log_logt(l,lev,SPA_LOG_TOPIC_DEFAULT,__VA_ARGS__)
 
 #define spa_log_logv(l,lev,...)					\
 	spa_log_logtv(l,lev,SPA_LOG_TOPIC_DEFAULT,__VA_ARGS__)
 
-#define spa_log_error(l,...)	spa_log_log(l,SPA_LOG_LEVEL_ERROR,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define spa_log_warn(l,...)	spa_log_log(l,SPA_LOG_LEVEL_WARN,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define spa_log_info(l,...)	spa_log_log(l,SPA_LOG_LEVEL_INFO,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define spa_log_debug(l,...)	spa_log_log(l,SPA_LOG_LEVEL_DEBUG,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define spa_log_trace(l,...)	spa_log_log(l,SPA_LOG_LEVEL_TRACE,__FILE__,__LINE__,__func__,__VA_ARGS__)
+#define spa_log_error(l,...)	spa_log_lev(l,SPA_LOG_LEVEL_ERROR,__VA_ARGS__)
+#define spa_log_warn(l,...)	spa_log_lev(l,SPA_LOG_LEVEL_WARN,__VA_ARGS__)
+#define spa_log_info(l,...)	spa_log_lev(l,SPA_LOG_LEVEL_INFO,__VA_ARGS__)
+#define spa_log_debug(l,...)	spa_log_lev(l,SPA_LOG_LEVEL_DEBUG,__VA_ARGS__)
+#define spa_log_trace(l,...)	spa_log_lev(l,SPA_LOG_LEVEL_TRACE,__VA_ARGS__)
 
-#define spa_logt_error(l,t,...)	spa_log_logt(l,SPA_LOG_LEVEL_ERROR,t,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define spa_logt_warn(l,t,...)	spa_log_logt(l,SPA_LOG_LEVEL_WARN,t,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define spa_logt_info(l,t,...)	spa_log_logt(l,SPA_LOG_LEVEL_INFO,t,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define spa_logt_debug(l,t,...)	spa_log_logt(l,SPA_LOG_LEVEL_DEBUG,t,__FILE__,__LINE__,__func__,__VA_ARGS__)
-#define spa_logt_trace(l,t,...)	spa_log_logt(l,SPA_LOG_LEVEL_TRACE,t,__FILE__,__LINE__,__func__,__VA_ARGS__)
+#define spa_logt_error(l,t,...)	spa_logt_lev(l,SPA_LOG_LEVEL_ERROR,t,__VA_ARGS__)
+#define spa_logt_warn(l,t,...)	spa_logt_lev(l,SPA_LOG_LEVEL_WARN,t,__VA_ARGS__)
+#define spa_logt_info(l,t,...)	spa_logt_lev(l,SPA_LOG_LEVEL_INFO,t,__VA_ARGS__)
+#define spa_logt_debug(l,t,...)	spa_logt_lev(l,SPA_LOG_LEVEL_DEBUG,t,__VA_ARGS__)
+#define spa_logt_trace(l,t,...)	spa_logt_lev(l,SPA_LOG_LEVEL_TRACE,t,__VA_ARGS__)
 
 #ifndef FASTPATH
-#define spa_log_trace_fp(l,...)	spa_log_log(l,SPA_LOG_LEVEL_TRACE,__FILE__,__LINE__,__func__,__VA_ARGS__)
+#define spa_log_trace_fp(l,...)	spa_log_lev(l,SPA_LOG_LEVEL_TRACE,__VA_ARGS__)
 #else
 #define spa_log_trace_fp(l,...)
 #endif
@@ -304,10 +310,8 @@ do {								\
 		if (i % 16 == 0)							\
 			pos = 0;							\
 		pos += sprintf(str + pos, "%02x ", buf[i]);				\
-		if (i % 16 == 15 || i == len - 1) {					\
-			spa_log_log(l,lev,__FILE__,__LINE__,__func__,			\
-			            "%*s" "%s",indent,"", str);				\
-		}									\
+		if (i % 16 == 15 || i == len - 1)					\
+			spa_log_lev(l,lev, "%*s" "%s",indent,"", str);			\
 	}										\
 })
 

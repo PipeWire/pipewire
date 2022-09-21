@@ -584,6 +584,9 @@ static int handle_input(struct data *data)
 		return -errno;
 	buf[r] = 0;
 
+	if (r == 0)
+		return -EPIPE;
+
 	if ((p = strchr(buf, '#')))
                 *p = '\0';
 
@@ -679,8 +682,12 @@ static int do_prompt(struct data *data)
 		if (err < 0)
 			return -errno;
 
-		if (pfds[0].revents & POLLIN)
-			handle_input(data);
+		if (pfds[0].revents & POLLIN) {
+			if ((err = handle_input(data)) < 0) {
+				if (err == -EPIPE)
+					break;
+			}
+		}
 
 		if (count < 2)
 			continue;

@@ -1343,6 +1343,7 @@ do_process_done(struct spa_loop *loop,
 
 			while ((uint32_t)avail >= stream->attr.fragsize) {
 				towrite = SPA_MIN(avail, MAX_BLOCK);
+				towrite = SPA_MIN((uint32_t)avail, stream->attr.fragsize);
 				towrite = SPA_ROUND_DOWN(towrite, stream->frame_size);
 
 				msg = message_alloc(impl, stream->channel, towrite);

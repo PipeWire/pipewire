@@ -1,3 +1,80 @@
+# PipeWire 0.3.59 (2022-09-30)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Fix possible wrong samplerate in loopback streams after suspend and
+    rate switch.
+  - module-filter-chain can now adapt to the graph samplerate.
+  - Fix some potential stuttering and crackling in pulse-server.
+  - Add Bluetooth LE support. This requires experimental kernel and bluez
+    support.
+  - The ALSA plugin has more options to control the buffer size. This can
+    be used to work around high latency in davinci resolve.
+  - Many bugfixes and improvements.
+
+
+## PipeWire
+  - Add audio capture example with volume meter.
+  - Fix a case where a rate switch would not suspend all the nodes of the
+    driver first. This could cause wrong samplerates in streams.
+  - Fix a case where a node would be Paused while still added to the
+    graph, causing potential crashes. (#2701)
+
+## Modules
+  - module-filter-chain and module-loopback now use the resample.prefill
+    option to avoid buffering extra samples and causing unwanted latency
+    when resampling is activated.
+  - module-filter-chain can now adapt to the graph samplerate.
+  - Improve module-raop to support the ALAC codec as raw PCM.
+  - Improve RTSP parsing to improve compatibility.
+
+## Tools
+  - Fix 100% CPU in pw-cli monitor mode. (#2709)
+  - spa-acp-tool can now be exited with ctrl-D.
+
+## SPA
+  - Various libcamera fixes and improvements.
+  - Set stride on audioconvert output buffers.
+  - Make sure we always place the last requested size from the resampler
+    on the buffers in pw-stream.
+  - Add resample.prefill option in the resampler to fill the history with
+    0 so that we don't have smaller buffers at the start.
+  - Make sure that when an overflow corrupts a POD, that it will always
+    stay corrupted.
+  - Rate limit some ALSA warnings and reduce some unwanted warnings.
+  - Don't recalculate the audioconverter state for each pause/play. (#2701)
+  - Fix some POD parsing inconsistencies and potential overflows.
+  - Add support for Asus Xonar SE.
+  - Fix Flush command handling. It should not stop playback. (#2726)
+  - Refactor the peaks function and add some unit tests and optimizations.
+  - The channelmix has an optimized nXm converter and new unit tests.
+  - Normalization in the channelmixer was fixed.
+
+## pulse-server
+  - The requested latency of record streams was reduced to fix some
+    stuttering in Teamspeak. (#2702)
+  - Tweak the max amount of bytes sent to a client. (#2711) (#2715)
+  - Improve maxlength calculations, this fixes some crackling noise with
+    high samplerate and channel counts in some players (audacious).
+
+## Bluetooth
+  - Merge Bluetooth LE support.
+  - Make sure we are backward compatible with WirePlumber.
+  - Fix some HFP and HSP AT command parsing. (#2463)
+  - Use HFP by default over HSP.
+
+## ALSA
+  - Increase max number of periods.
+  - The parameters handling was improved. There is now an option to set the
+    buffer-bytes of the ALSA plugin.
+  - PIPEWIRE_ALSA can now be used as an environment variable to restrict the
+    plugin formats and buffer size.
+
+Older versions:
+
+
 # PipeWire 0.3.58 (2022-09-15)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -62,9 +139,6 @@ This is a bugfix release that is API and ABI compatible with previous
   - More debug info was added. The time reporting was improved.
   - The poll descriptor handling was improved, avoiding some spurious
     wakeups. (#1697)
-
-
-Older versions:
 
 
 # PipeWire 0.3.57 (2022-09-02)

@@ -1887,15 +1887,14 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 				state, follower, state->last_threshold, state->threshold, diff, err);
 		state->last_threshold = state->threshold;
 		state->alsa_sync = true;
+		state->alsa_sync_warning = false;
 	}
 	if (err > state->max_error) {
 		err = state->max_error;
 		state->alsa_sync = true;
-		state->alsa_sync_warning = (diff == 0);
 	} else if (err < -state->max_error) {
 		err = -state->max_error;
 		state->alsa_sync = true;
-		state->alsa_sync_warning = (diff == 0);
 	}
 
 	if (!follower || state->matching)
@@ -2014,10 +2013,9 @@ int spa_alsa_write(struct state *state)
 		if (SPA_UNLIKELY(state->alsa_sync)) {
 			enum spa_log_level lev;
 
-			if (SPA_UNLIKELY(state->alsa_sync_warning)) {
+			if (SPA_UNLIKELY(state->alsa_sync_warning))
 				lev = SPA_LOG_LEVEL_WARN;
-				state->alsa_sync_warning = false;
-			} else
+			else
 				lev = SPA_LOG_LEVEL_INFO;
 
 			if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
@@ -2032,7 +2030,8 @@ int spa_alsa_write(struct state *state)
 				spa_alsa_silence(state, target - delay);
 			delay = target;
 			state->alsa_sync = false;
-		}
+		} else
+			state->alsa_sync_warning = true;
 	}
 
 	total_written = 0;
@@ -2248,10 +2247,9 @@ int spa_alsa_read(struct state *state)
 		if (state->alsa_sync) {
 			enum spa_log_level lev;
 
-			if (SPA_UNLIKELY(state->alsa_sync_warning)) {
+			if (SPA_UNLIKELY(state->alsa_sync_warning))
 				lev = SPA_LOG_LEVEL_WARN;
-				state->alsa_sync_warning = false;
-			} else
+			else
 				lev = SPA_LOG_LEVEL_INFO;
 
 			if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
@@ -2266,7 +2264,8 @@ int spa_alsa_read(struct state *state)
 				snd_pcm_forward(state->hndl, delay - target);
 			delay = target;
 			state->alsa_sync = false;
-		}
+		} else
+			state->alsa_sync_warning = true;
 
 		if (avail < state->read_size)
 			max_read = 0;
@@ -2555,6 +2554,7 @@ int spa_alsa_start(struct state *state)
 
 	reset_buffers(state);
 	state->alsa_sync = true;
+	state->alsa_sync_warning = false;
 	state->alsa_recovering = false;
 	state->alsa_started = false;
 

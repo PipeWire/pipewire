@@ -688,9 +688,6 @@ static uint64_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *att
 	/* pulseaudio configures half the fragsize as latency in the source. */
 	latency = attr->fragsize / 2;
 
-	if (s->adjust_latency)
-		attr->fragsize = SPA_ROUND_UP(latency, frame_size);
-
 	lat->num = latency / frame_size;
 	lat->denom = rate;
 	clamp_latency(s, lat);

@@ -87,7 +87,6 @@ struct channel_map {
 	uint32_t pos[SPA_AUDIO_MAX_CHANNELS];
 };
 
-
 struct card {
 	struct spa_list link;
 	int ref;
@@ -96,6 +95,13 @@ struct card {
 	char *ucm_prefix;
 	int format_ref;
 	uint32_t rate;
+};
+
+struct ratelimit {
+	uint64_t interval;
+	uint64_t begin;
+	unsigned burst;
+	unsigned n_printed, n_missed;
 };
 
 struct state {
@@ -107,6 +113,7 @@ struct state {
 	struct spa_loop *data_loop;
 
 	FILE *log_file;
+	struct ratelimit rate_limit;
 
 	uint32_t card_index;
 	struct card *card;
@@ -341,6 +348,23 @@ static inline uint32_t spa_alsa_get_iec958_codecs(struct state *state, uint32_t 
 	}
 	return i;
 }
+
+static inline int ratelimit_test(struct ratelimit *r, uint64_t now)
+{
+	unsigned missed = 0;
+	if (r->begin + r->interval < now) {
+		missed = r->n_missed;
+		r->begin = now;
+		r->n_printed = 0;
+		r->n_missed = 0;
+	} else if (r->n_printed >= r->burst) {
+		r->n_missed++;
+		return -1;
+	}
+	r->n_printed++;
+	return missed;
+}
+
 
 #ifdef __cplusplus
 } /* extern "C" */

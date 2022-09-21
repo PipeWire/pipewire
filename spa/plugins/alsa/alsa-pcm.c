@@ -511,6 +511,9 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 	}
 	CHECK(snd_output_stdio_attach(&state->output, state->log_file, 0), "attach failed");
 
+	state->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
+	state->rate_limit.burst = 1;
+
 	return 0;
 }
 
@@ -1779,15 +1782,17 @@ recover:
 
 static int get_avail(struct state *state, uint64_t current_time)
 {
-	int res;
+	int res, missed;
 	snd_pcm_sframes_t avail;
 
 	if (SPA_UNLIKELY((avail = snd_pcm_avail(state->hndl)) < 0)) {
 		if ((res = alsa_recover(state, avail)) < 0)
 			return res;
 		if ((avail = snd_pcm_avail(state->hndl)) < 0) {
-			spa_log_warn(state->log, "%s: snd_pcm_avail after recover: %s",
-					state->props.device, snd_strerror(avail));
+			if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+				spa_log_warn(state->log, "%s: (%d missed) snd_pcm_avail after recover: %s",
+						state->props.device, missed, snd_strerror(avail));
+			}
 			avail = state->threshold * 2;
 		}
 	} else {
@@ -1799,7 +1804,7 @@ static int get_avail(struct state *state, uint64_t current_time)
 #if 0
 static int get_avail_htimestamp(struct state *state, uint64_t current_time)
 {
-	int res;
+	int res, missed;
 	snd_pcm_uframes_t avail;
 	snd_htimestamp_t tstamp;
 	uint64_t then;
@@ -1808,8 +1813,10 @@ static int get_avail_htimestamp(struct state *state, uint64_t current_time)
 		if ((res = alsa_recover(state, avail)) < 0)
 			return res;
 		if ((res = snd_pcm_htimestamp(state->hndl, &avail, &tstamp)) < 0) {
-			spa_log_warn(state->log, "%s: snd_pcm_htimestamp error: %s",
-				state->props.device, snd_strerror(res));
+			if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+				spa_log_warn(state->log, "%s: (%d missed) snd_pcm_htimestamp error: %s",
+					state->props.device, missed, snd_strerror(res));
+			}
 			avail = state->threshold * 2;
 		}
 	} else {
@@ -1985,7 +1992,7 @@ int spa_alsa_write(struct state *state)
 	const snd_pcm_channel_area_t *my_areas;
 	snd_pcm_uframes_t written, frames, offset, off, to_write, total_written, max_write;
 	snd_pcm_sframes_t commitres;
-	int res = 0;
+	int res = 0, missed;
 	size_t frame_size = state->frame_size;
 
 	check_position_config(state);
@@ -2005,13 +2012,19 @@ int spa_alsa_write(struct state *state)
 			return res;
 
 		if (SPA_UNLIKELY(state->alsa_sync)) {
+			enum spa_log_level lev;
+
 			if (SPA_UNLIKELY(state->alsa_sync_warning)) {
-				spa_log_warn(state->log, "%s: follower delay:%ld target:%ld thr:%u, resync",
-						state->props.device, delay, target, state->threshold);
+				lev = SPA_LOG_LEVEL_WARN;
 				state->alsa_sync_warning = false;
 			} else
-				spa_log_info(state->log, "%s: follower delay:%ld target:%ld thr:%u, resync",
-						state->props.device, delay, target, state->threshold);
+				lev = SPA_LOG_LEVEL_INFO;
+
+			if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+				spa_log_lev(state->log, lev, "%s: follower delay:%ld target:%ld thr:%u, "
+						"resync (%d missed)", state->props.device, delay,
+						target, state->threshold, missed);
+			}
 
 			if (delay > target)
 				snd_pcm_rewind(state->hndl, delay - target);
@@ -2212,7 +2225,7 @@ int spa_alsa_read(struct state *state)
 	const snd_pcm_channel_area_t *my_areas;
 	snd_pcm_uframes_t read, frames, offset;
 	snd_pcm_sframes_t commitres;
-	int res = 0;
+	int res = 0, missed;
 
 	check_position_config(state);
 
@@ -2221,7 +2234,6 @@ int spa_alsa_read(struct state *state)
 	if (state->following && state->alsa_started) {
 		uint64_t current_time;
 		snd_pcm_uframes_t avail, delay, target;
-		uint32_t threshold = state->threshold;
 
 		current_time = state->position->clock.nsec;
 
@@ -2234,13 +2246,19 @@ int spa_alsa_read(struct state *state)
 			return res;
 
 		if (state->alsa_sync) {
+			enum spa_log_level lev;
+
 			if (SPA_UNLIKELY(state->alsa_sync_warning)) {
-				spa_log_warn(state->log, "%s: follower delay:%lu target:%lu thr:%u, resync",
-						state->props.device, delay, target, threshold);
+				lev = SPA_LOG_LEVEL_WARN;
 				state->alsa_sync_warning = false;
 			} else
-				spa_log_info(state->log, "%s: follower delay:%lu target:%lu thr:%u, resync",
-						state->props.device, delay, target, threshold);
+				lev = SPA_LOG_LEVEL_INFO;
+
+			if ((missed = ratelimit_test(&state->rate_limit, current_time)) >= 0) {
+				spa_log_lev(state->log, lev, "%s: follower delay:%ld target:%ld thr:%u, "
+						"resync (%d missed)", state->props.device, delay,
+						target, state->threshold, missed);
+			}
 
 			if (delay < target)
 				max_read = target - delay;

@@ -2222,8 +2222,8 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 			    state < PW_NODE_STATE_RUNNING &&
 			    impl->pending_play) {
 				impl->pending_play = false;
-				spa_node_send_command(node->node,
-					&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Pause));
+				if (impl->pause_on_idle)
+					pause_node(node);
 			}
 			pw_work_queue_cancel(impl->work, node, impl->pending_id);
 			node->info.state = impl->pending_state;

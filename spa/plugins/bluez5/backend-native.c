@@ -752,10 +752,10 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		int cntr = 0;
 
 		while ((token = strsep(&buf, "=,"))) {
+			unsigned int codec_id;
+
 			/* skip token 0 i.e. the "AT+BAC=" part */
-			if (cntr > 0) {
-				int codec_id;
-				sscanf (token, "%u", &codec_id);
+			if (cntr > 0 && sscanf(token, "%u", &codec_id) == 1) {
 				spa_log_debug(backend->log, "RFCOMM AT+BAC found codec %u", codec_id);
 				if (codec_id == HFP_AUDIO_CODEC_MSBC) {
 					rfcomm->msbc_supported_by_hfp = true;

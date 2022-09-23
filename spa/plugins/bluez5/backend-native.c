@@ -259,6 +259,7 @@ static void rfcomm_free(struct rfcomm *rfcomm)
 
 #define RFCOMM_MESSAGE_MAX_LENGTH 256
 
+/* from HF/HS to AG */
 SPA_PRINTF_FUNC(2, 3)
 static ssize_t rfcomm_send_cmd(const struct rfcomm *rfcomm, const char *format, ...)
 {
@@ -279,7 +280,14 @@ static ssize_t rfcomm_send_cmd(const struct rfcomm *rfcomm, const char *format, 
 
 	spa_log_debug(backend->log, "RFCOMM >> %s", message);
 
-	message[len] = '\n';
+	/*
+	 * The format of an AT command from the HF to the AG shall be: <AT command><cr>
+	 * - HFP 1.8, 4.34.1
+	 *
+	 * The format for a command from the HS to the AG is thus: AT<cmd>=<value><cr>
+	 * - HSP 1.2, 4.8.1
+	 */
+	message[len] = '\r';
 	/* `message` is no longer null-terminated */
 
 	len = write(rfcomm->source.fd, message, len + 1);
@@ -293,6 +301,7 @@ static ssize_t rfcomm_send_cmd(const struct rfcomm *rfcomm, const char *format, 
 	return len;
 }
 
+/* from AG to HF/HS */
 SPA_PRINTF_FUNC(2, 3)
 static ssize_t rfcomm_send_reply(const struct rfcomm *rfcomm, const char *format, ...)
 {
@@ -313,6 +322,18 @@ static ssize_t rfcomm_send_reply(const struct rfcomm *rfcomm, const char *format
 
 	spa_log_debug(backend->log, "RFCOMM >> %s", &message[2]);
 
+	/*
+	 * The format of the OK code from the AG to the HF shall be: <cr><lf>OK<cr><lf>
+	 * The format of the generic ERROR code from the AG to the HF shall be: <cr><lf>ERROR<cr><lf>
+	 * The format of an unsolicited result code from the AG to the HF shall be: <cr><lf><result code><cr><lf>
+	 * - HFP 1.8, 4.34.1
+	 *
+	 * If the command is processed successfully, the resulting response from the AG to the HS is: <cr><lf>OK<cr><lf>
+	 * If the command is not processed successfully, or is not recognized,
+	 * the resulting response from the AG to the HS is: <cr><lf>ERROR<cr><lf>
+	 * The format for an unsolicited result code (such as RING) from the AG to the HS is: <cr><lf><result code><cr><lf>
+	 * - HSP 1.2, 4.8.1
+	 */
 	message[0] = '\r';
 	message[1] = '\n';
 	message[len + 2] = '\r';

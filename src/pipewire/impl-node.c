@@ -188,17 +188,20 @@ static void node_deactivate(struct pw_impl_node *this)
 	pw_loop_invoke(this->data_loop, do_node_remove, 1, NULL, 0, true, this);
 }
 
-static int pause_node(struct pw_impl_node *this)
+static int idle_node(struct pw_impl_node *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = 0;
 
-	pw_log_debug("%p: pause node state:%s pending:%s pause-on-idle:%d", this,
+	pw_log_debug("%p: idle node state:%s pending:%s pause-on-idle:%d", this,
 			pw_node_state_as_string(this->info.state),
 			pw_node_state_as_string(impl->pending_state),
 			impl->pause_on_idle);
 
 	if (impl->pending_state <= PW_NODE_STATE_IDLE)
+		return 0;
+
+	if (!impl->pause_on_idle)
 		return 0;
 
 	node_deactivate(this);
@@ -2192,8 +2195,7 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 		break;
 
 	case PW_NODE_STATE_IDLE:
-		if (impl->pause_on_idle)
-			res = pause_node(node);
+		res = idle_node(node);
 		break;
 
 	case PW_NODE_STATE_RUNNING:
@@ -2222,8 +2224,7 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 			    state < PW_NODE_STATE_RUNNING &&
 			    impl->pending_play) {
 				impl->pending_play = false;
-				if (impl->pause_on_idle)
-					pause_node(node);
+				idle_node(node);
 			}
 			pw_work_queue_cancel(impl->work, node, impl->pending_id);
 			node->info.state = impl->pending_state;

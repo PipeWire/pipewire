@@ -913,27 +913,18 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 
 static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* buf)
 {
-	static const char separators[] = "\r\n:";
-
 	struct impl *backend = rfcomm->backend;
 	unsigned int features;
 	unsigned int gain;
 	unsigned int selected_codec;
 	char* token;
 
-	while ((token = strsep(&buf, separators))) {
-		if (spa_strstartswith(token, "+BRSF")) {
-			/* get next token */
-			token = strsep(&buf, separators);
-			features = atoi(token);
+	while ((token = strsep(&buf, "\r\n"))) {
+		if (sscanf(token, "+BRSF:%u", &features) == 1) {
 			if (((features & (SPA_BT_HFP_AG_FEATURE_CODEC_NEGOTIATION)) != 0) &&
 			    rfcomm->msbc_supported_by_hfp)
 				rfcomm->codec_negotiation_supported = true;
-		} else if (spa_strstartswith(token, "+BCS") && rfcomm->codec_negotiation_supported) {
-			/* get next token */
-			token = strsep(&buf, separators);
-			selected_codec = atoi(token);
-
+		} else if (sscanf(token, "+BCS:%u", &selected_codec) == 1 && rfcomm->codec_negotiation_supported) {
 			if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC) {
 				spa_log_warn(backend->log, "unsupported codec negotiation: %d", selected_codec);
 			} else {
@@ -958,24 +949,13 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* buf)
 					}
 				}
 			}
-		} else if (spa_strstartswith(token, "+CIND")) {
-			/* get next token and discard it */
-			token = strsep(&buf, separators);
-		} else if (spa_strstartswith(token, "+VGM")) {
-			/* get next token */
-			token = strsep(&buf, separators);
-			gain = atoi(token);
-
+		} else if (sscanf(token, "+VGM:%u", &gain) == 1) {
 			if (gain <= SPA_BT_VOLUME_HS_MAX) {
 				rfcomm_emit_volume_changed(rfcomm, SPA_BT_VOLUME_ID_TX, gain);
 			} else {
 				spa_log_debug(backend->log, "RFCOMM receive unsupported VGM gain: %s", token);
 			}
-		} else if (spa_strstartswith(token, "+VGS")) {
-			/* get next token */
-			token = strsep(&buf, separators);
-			gain = atoi(token);
-
+		} else if (sscanf(token, "+VGS:%u", &gain) == 1) {
 			if (gain <= SPA_BT_VOLUME_HS_MAX) {
 				rfcomm_emit_volume_changed(rfcomm, SPA_BT_VOLUME_ID_RX, gain);
 			} else {

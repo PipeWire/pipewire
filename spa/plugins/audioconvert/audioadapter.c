@@ -336,7 +336,7 @@ static int negotiate_buffers(struct impl *this)
 	struct spa_data *datas;
 	uint32_t follower_flags, conv_flags;
 
-	spa_log_debug(this->log, "%p: %d", this, this->n_buffers);
+	spa_log_debug(this->log, "%p: n_buffers:%d", this, this->n_buffers);
 
 	if (this->target == this->follower)
 		return 0;
@@ -738,6 +738,8 @@ static int negotiate_format(struct impl *this)
 	struct spa_pod_builder b = { 0 };
 	int res;
 
+	spa_log_debug(this->log, "%p: have_format:%d", this, this->have_format);
+
 	if (this->have_format)
 		return 0;
 
@@ -746,7 +748,6 @@ static int negotiate_format(struct impl *this)
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
-	spa_log_debug(this->log, "%p: negiotiate", this);
 
 	spa_node_send_command(this->follower,
 			&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamBegin));

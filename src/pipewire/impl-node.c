@@ -247,7 +247,7 @@ static int start_node(struct pw_impl_node *this)
 	if (impl->pending_state >= PW_NODE_STATE_RUNNING)
 		return 0;
 
-	pw_log_debug("%p: start node", this);
+	pw_log_debug("%p: start node driving:%d driver:%d", this, this->driving, this->driver);
 
 	if (!(this->driving && this->driver)) {
 		impl->pending_play = true;

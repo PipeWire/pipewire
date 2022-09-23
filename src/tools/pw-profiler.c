@@ -262,7 +262,7 @@ static void dump_scripts(struct data *d)
 
 	printf("\ndumping scripts for %d followers\n", d->n_followers);
 
-	out = fopen("Timing1.plot", "w");
+	out = fopen("Timing1.plot", "we");
 	if (out == NULL) {
 		pw_log_error("Can't open Timing1.plot: %m");
 	} else {
@@ -282,7 +282,7 @@ static void dump_scripts(struct data *d)
 		fclose(out);
 	}
 
-	out = fopen("Timing2.plot", "w");
+	out = fopen("Timing2.plot", "we");
 	if (out == NULL) {
 		pw_log_error("Can't open Timing2.plot: %m");
 	} else {
@@ -298,7 +298,7 @@ static void dump_scripts(struct data *d)
 		fclose(out);
 	}
 
-	out = fopen("Timing3.plot", "w");
+	out = fopen("Timing3.plot", "we");
 	if (out == NULL) {
 		pw_log_error("Can't open Timing3.plot: %m");
 	} else {
@@ -328,7 +328,7 @@ static void dump_scripts(struct data *d)
 		fclose(out);
 	}
 
-	out = fopen("Timing4.plot", "w");
+	out = fopen("Timing4.plot", "we");
 	if (out == NULL) {
 		pw_log_error("Can't open Timing4.plot: %m");
 	} else {
@@ -355,7 +355,7 @@ static void dump_scripts(struct data *d)
 		fclose(out);
 	}
 
-	out = fopen("Timing5.plot", "w");
+	out = fopen("Timing5.plot", "we");
 	if (out == NULL) {
 		pw_log_error("Can't open Timing5.plot: %m");
 	} else {
@@ -381,7 +381,7 @@ static void dump_scripts(struct data *d)
 			"unset output\n");
 		fclose(out);
 	}
-	out = fopen("Timings.html", "w");
+	out = fopen("Timings.html", "we");
 	if (out == NULL) {
 		pw_log_error("Can't open Timings.html: %m");
 	} else {
@@ -409,7 +409,7 @@ static void dump_scripts(struct data *d)
 		fclose(out);
 	}
 
-	out = fopen("generate_timings.sh", "w");
+	out = fopen("generate_timings.sh", "we");
 	if (out == NULL) {
 		pw_log_error("Can't open generate_timings.sh: %m");
 	} else {
@@ -624,7 +624,7 @@ int main(int argc, char *argv[])
 
 	data.filename = opt_output;
 
-	data.output = fopen(data.filename, "w");
+	data.output = fopen(data.filename, "we");
 	if (data.output == NULL) {
 		fprintf(stderr, "Can't open file %s: %m\n", data.filename);
 		return -1;

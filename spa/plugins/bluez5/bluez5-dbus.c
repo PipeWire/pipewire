@@ -949,7 +949,7 @@ static int adapter_init_modalias(struct spa_bt_monitor *monitor, struct spa_bt_a
 	if (str == NULL)
 		goto fail;
 	snprintf(path, sizeof(path), "/sys/class/bluetooth/%s/device/modalias", str);
-	if ((f = fopen(path, "rb")) == NULL) {
+	if ((f = fopen(path, "rbe")) == NULL) {
 		res = -errno;
 		goto fail;
 	}

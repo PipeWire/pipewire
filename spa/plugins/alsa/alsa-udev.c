@@ -256,7 +256,7 @@ static int check_device_pcm_class(const char *devname)
 	/* Check device class */
 	spa_scnprintf(path, sizeof(path), "/sys/class/sound/%s/pcm_class",
 			devname);
-	f = fopen(path, "r");
+	f = fopen(path, "re");
 	if (f == NULL)
 		return -errno;
 	sz = fread(buf, 1, sizeof(buf) - 1, f);
@@ -361,7 +361,7 @@ static int check_device_available(struct impl *this, struct device *device, int 
 			spa_scnprintf(path, sizeof(path), "/proc/asound/card%u/%s/%s/status",
 					(unsigned int)device->id, entry->d_name, entry_pcm->d_name);
 
-			f = fopen(path, "r");
+			f = fopen(path, "re");
 			if (f == NULL)
 				goto done;
 			sz = fread(buf, 1, 6, f);

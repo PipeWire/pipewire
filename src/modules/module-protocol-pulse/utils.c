@@ -195,7 +195,7 @@ int create_pid_file(void) {
 
 	strcat(pid_file, "/pid");
 
-	if ((f = fopen(pid_file, "w")) == NULL) {
+	if ((f = fopen(pid_file, "we")) == NULL) {
 		res = -errno;
 		pw_log_error("failed to open pid file: %m");
 		return res;

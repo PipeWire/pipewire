@@ -63,7 +63,7 @@ PWTEST(logger_truncate_long_lines)
 	/* Print a line expected to be truncated */
 	spa_log_error(iface, "MARK: %1100s", "foo");
 
-	fp = fopen(fname, "r");
+	fp = fopen(fname, "re");
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
 		if (strstr(buffer, "MARK:")) {
 			const char *suffix = ".. (truncated)\n";
@@ -110,7 +110,7 @@ PWTEST(logger_no_ansi)
 	 * tty so expect none despite colors being enabled */
 	spa_log_error(iface, "MARK\n");
 
-	fp = fopen(fname, "r");
+	fp = fopen(fname, "re");
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
 		if (strstr(buffer, "MARK")) {
 			mark_line_found = true;
@@ -157,7 +157,7 @@ test_log_levels(enum spa_log_level level)
 	if (level < SPA_LOG_LEVEL_TRACE)
 		pw_log(level + 1, "ABOVE");
 
-	fp = fopen(fname, "r");
+	fp = fopen(fname, "re");
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
 		if (strstr(buffer, "CURRENT"))
 			current_level_found = true;
@@ -427,7 +427,7 @@ PWTEST(logger_topics)
 
 	spa_logt_info(iface, &topic, "MARK\n");
 
-	fp = fopen(fname, "r");
+	fp = fopen(fname, "re");
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
 		if (strstr(buffer, "MARK")) {
 			mark_line_found = true;
@@ -602,7 +602,7 @@ PWTEST(logger_journal_chain)
 	/* Now check that the line is in the chained file logger too */
 	spa_memzero(buffer, sizeof(buffer));
 	mark_line_found = false;
-	fp = fopen(fname, "r");
+	fp = fopen(fname, "re");
 	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
 		if (strstr(buffer, token)) {
 			mark_line_found = true;

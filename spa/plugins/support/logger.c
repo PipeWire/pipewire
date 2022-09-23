@@ -357,7 +357,7 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_LEVEL)) != NULL)
 			this->log.level = atoi(str);
 		if ((str = spa_dict_lookup(info, SPA_KEY_LOG_FILE)) != NULL) {
-			this->file = fopen(str, "w");
+			this->file = fopen(str, "we");
 			if (this->file == NULL)
 				fprintf(stderr, "Warning: failed to open file %s: (%m)", str);
 			else

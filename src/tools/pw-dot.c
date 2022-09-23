@@ -514,7 +514,7 @@ static int draw_graph(struct data *d, const char *path)
 		fputs(d->dot_str, stdout);
 	} else {
 		/* open the file */
-		fp = fopen(path, "w");
+		fp = fopen(path, "we");
 		if (fp == NULL) {
 			printf("open error: could not open %s for writing\n", path);
 			return -1;

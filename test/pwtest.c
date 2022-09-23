@@ -835,7 +835,7 @@ static int init_pipes(int read_fds[_FD_LAST], int write_fds[_FD_LAST])
 #ifdef __linux__
 	{
 		FILE *f;
-		f = fopen("/proc/sys/fs/pipe-max-size", "r");
+		f = fopen("/proc/sys/fs/pipe-max-size", "re");
 		if (f) {
 			if (fscanf(f, "%d", &r) == 1)
 				pipe_max_size = SPA_MIN(r, pipe_max_size);
@@ -1244,7 +1244,7 @@ static char* make_xdg_runtime_dir(void)
 	/* Marker file to avoid removing a random directory during cleanup */
 	r = spa_scnprintf(path, sizeof(path), "%s/pwtest.dir", dir);
 	spa_assert_se((size_t)r == strlen(dir) + 11);
-	fp = fopen(path, "w");
+	fp = fopen(path, "we");
 	spa_assert_se(fp);
 	fprintf(fp, "pwtest\n");
 	fclose(fp);

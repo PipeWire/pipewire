@@ -484,7 +484,7 @@ PWTEST(properties_serialize_dict_stack_overflow)
 	dict = SPA_DICT_INIT(items, 2);
 
 	pwtest_mkstemp(tmpfile);
-	fp = fopen(tmpfile, "w");
+	fp = fopen(tmpfile, "we");
 	pwtest_ptr_notnull(fp);
 	r = pw_properties_serialize_dict(fp, &dict, 0);
 	pwtest_int_eq(r, 1);

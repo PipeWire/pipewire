@@ -35,7 +35,7 @@ PWTEST(config_load_abspath)
 	char *basename;
 
 	pwtest_mkstemp(path);
-	fp = fopen(path, "w");
+	fp = fopen(path, "we");
 	fputs("data = x", fp);
 	fclose(fp);
 

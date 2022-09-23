@@ -25,6 +25,7 @@
 
 #ifndef MODULE_SESSION_MANAGER_ENDPOINT_LINK_H
 #define MODULE_SESSION_MANAGER_ENDPOINT_LINK_H
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {

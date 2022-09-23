@@ -24,6 +24,7 @@
 
 #ifndef PIPEWIRE_JACK_EXTENSIONS_H
 #define PIPEWIRE_JACK_EXTENSIONS_H
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -64,8 +64,14 @@ struct spa_meta {
 	void *data;		/**< pointer to metadata */
 };
 
-#define spa_meta_first(m)	((m)->data)
-#define spa_meta_end(m)		SPA_PTROFF((m)->data,(m)->size,void)
+static inline void *spa_meta_first(const struct spa_meta *m) {
+	return m->data;
+}
+#define spa_meta_first spa_meta_first
+static inline void *spa_meta_end(const struct spa_meta *m) {
+	return SPA_PTROFF(m->data,m->size,void);
+}
+#define spa_meta_end spa_meta_end
 #define spa_meta_check(p,m)	(SPA_PTROFF(p,sizeof(*(p)),void) <= spa_meta_end(m))
 
 /**

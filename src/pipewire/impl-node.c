@@ -247,7 +247,8 @@ static int start_node(struct pw_impl_node *this)
 	if (impl->pending_state >= PW_NODE_STATE_RUNNING)
 		return 0;
 
-	pw_log_debug("%p: start node driving:%d driver:%d", this, this->driving, this->driver);
+	pw_log_debug("%p: start node driving:%d driver:%d added:%d", this,
+			this->driving, this->driver, this->added);
 
 	if (!(this->driving && this->driver)) {
 		impl->pending_play = true;
@@ -357,6 +358,9 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 
 	switch (state) {
 	case PW_NODE_STATE_RUNNING:
+		pw_log_debug("%p: start node driving:%d driver:%d added:%d", node,
+				node->driving, node->driver, node->added);
+
 		if (node->driving && node->driver) {
 			res = spa_node_send_command(node->node,
 				&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start));
@@ -437,6 +441,9 @@ static int suspend_node(struct pw_impl_node *this)
 		/* force CONFIGURE in case of async */
 		p->state = PW_IMPL_PORT_STATE_CONFIGURE;
 	}
+
+	pw_log_debug("%p: suspend node driving:%d driver:%d added:%d", this,
+			this->driving, this->driver, this->added);
 
 	res = spa_node_send_command(this->node,
 				    &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Suspend));

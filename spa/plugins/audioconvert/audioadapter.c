@@ -829,6 +829,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		SPA_FALLTHROUGH
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
+		spa_log_debug(this->log, "%p: stopped", this);
 		break;
 	default:
 		break;
@@ -852,6 +853,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
 		this->started = true;
+		spa_log_debug(this->log, "%p: started", this);
 		break;
 	}
 	return res;

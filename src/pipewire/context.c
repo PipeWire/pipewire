@@ -1263,7 +1263,7 @@ again:
 			n->current_pending = false;
 		}
 
-		pw_log_debug("%p: driving %p running:%d passive:%d quantum:%u '%s'",
+		pw_log_debug("%p: driver %p running:%d passive:%d quantum:%u '%s'",
 				context, n, running, n->passive, quantum, n->name);
 
 		/* first change the node states of the followers to the new target */

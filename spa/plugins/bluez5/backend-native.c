@@ -747,14 +747,11 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		/* retrieve supported codecs */
 		/* response has the form AT+BAC=<codecID1>,<codecID2>,<codecIDx>
 		   strategy: split the string into tokens */
-		static const char separators[] = "=,";
 
 		char* token;
 		int cntr = 0;
 
-		token = strtok (buf, separators);
-		while (token != NULL)
-		{
+		while ((token = strsep(&buf, "=,"))) {
 			/* skip token 0 i.e. the "AT+BAC=" part */
 			if (cntr > 0) {
 				int codec_id;
@@ -765,8 +762,6 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 					spa_log_debug(backend->log, "RFCOMM headset supports mSBC codec");
 				}
 			}
-			/* get next token */
-			token = strtok (NULL, separators);
 			cntr++;
 		}
 
@@ -926,19 +921,17 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* buf)
 	unsigned int selected_codec;
 	char* token;
 
-	token = strtok(buf, separators);
-	while (token != NULL)
-	{
+	while ((token = strsep(&buf, separators))) {
 		if (spa_strstartswith(token, "+BRSF")) {
 			/* get next token */
-			token = strtok(NULL, separators);
+			token = strsep(&buf, separators);
 			features = atoi(token);
 			if (((features & (SPA_BT_HFP_AG_FEATURE_CODEC_NEGOTIATION)) != 0) &&
 			    rfcomm->msbc_supported_by_hfp)
 				rfcomm->codec_negotiation_supported = true;
 		} else if (spa_strstartswith(token, "+BCS") && rfcomm->codec_negotiation_supported) {
 			/* get next token */
-			token = strtok(NULL, separators);
+			token = strsep(&buf, separators);
 			selected_codec = atoi(token);
 
 			if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC) {
@@ -967,10 +960,10 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* buf)
 			}
 		} else if (spa_strstartswith(token, "+CIND")) {
 			/* get next token and discard it */
-			token = strtok(NULL, separators);
+			token = strsep(&buf, separators);
 		} else if (spa_strstartswith(token, "+VGM")) {
 			/* get next token */
-			token = strtok(NULL, separators);
+			token = strsep(&buf, separators);
 			gain = atoi(token);
 
 			if (gain <= SPA_BT_VOLUME_HS_MAX) {
@@ -980,7 +973,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* buf)
 			}
 		} else if (spa_strstartswith(token, "+VGS")) {
 			/* get next token */
-			token = strtok(NULL, separators);
+			token = strsep(&buf, separators);
 			gain = atoi(token);
 
 			if (gain <= SPA_BT_VOLUME_HS_MAX) {
@@ -1041,8 +1034,6 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* buf)
 					break;
 			}
 		}
-		/* get next token */
-		token = strtok(NULL, separators);
 	}
 
 	return true;

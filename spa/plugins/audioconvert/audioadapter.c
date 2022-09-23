@@ -813,6 +813,8 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
+		if (this->started)
+			return 0;
 		if ((res = negotiate_format(this)) < 0)
 			return res;
 		if ((res = negotiate_buffers(this)) < 0)
@@ -1395,6 +1397,11 @@ static int impl_node_process(void *object)
 {
 	struct impl *this = object;
 	int status = 0, fstatus, retry = 8;
+
+	if (!this->started) {
+		spa_log_warn(this->log, "%p: scheduling stopped node", this);
+		return -EIO;
+	}
 
 	spa_log_trace_fp(this->log, "%p: process convert:%p driver:%d",
 			this, this->convert, this->driver);

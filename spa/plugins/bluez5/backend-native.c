@@ -169,6 +169,7 @@ struct rfcomm {
 	unsigned int hfp_ag_initial_codec_setup:2;
 	unsigned int cind_call_active:1;
 	unsigned int cind_call_notify:1;
+	unsigned int extended_error_reporting:1;
 	enum hfp_hf_state hf_state;
 	enum hsp_hs_state hs_state;
 	unsigned int codec;
@@ -377,6 +378,14 @@ static ssize_t rfcomm_send_reply(const struct rfcomm *rfcomm, const char *format
 	}
 
 	return len;
+}
+
+static void rfcomm_send_error(const struct rfcomm *rfcomm, enum cmee_error error)
+{
+	if (rfcomm->extended_error_reporting)
+		rfcomm_send_reply(rfcomm, "+CME ERROR: %d", error);
+	else
+		rfcomm_send_reply(rfcomm, "ERROR");
 }
 
 static bool rfcomm_volume_enabled(struct rfcomm *rfcomm)
@@ -748,6 +757,7 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 	unsigned int selected_codec;
 	unsigned int indicator;
 	unsigned int indicator_value;
+	unsigned int value;
 	int xapl_vendor;
 	int xapl_product;
 	int xapl_features;
@@ -854,7 +864,7 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		}
 	} else if (!rfcomm->slc_configured) {
 		spa_log_warn(backend->log, "RFCOMM receive command before SLC completed: %s", buf);
-		rfcomm_send_reply(rfcomm, "ERROR");
+		rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);
 		return true;
 
 	/* *****
@@ -871,7 +881,7 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 
 		if (selected_codec != HFP_AUDIO_CODEC_CVSD && selected_codec != HFP_AUDIO_CODEC_MSBC) {
 			spa_log_warn(backend->log, "unsupported codec negotiation: %d", selected_codec);
-			rfcomm_send_reply(rfcomm, "ERROR");
+			rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);
 			if (was_switching_codec)
 				spa_bt_device_emit_codec_switched(rfcomm->device, -EIO);
 			return true;
@@ -889,7 +899,7 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		if (rfcomm->transport == NULL) {
 			spa_log_warn(backend->log, "can't create transport: %m");
 			// TODO: We should manage the missing transport
-			rfcomm_send_reply(rfcomm, "ERROR");
+			rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);
 			if (was_switching_codec)
 				spa_bt_device_emit_codec_switched(rfcomm->device, -ENOMEM);
 			return true;
@@ -932,18 +942,27 @@ next_indicator:
 		}
 
 		rfcomm_send_reply(rfcomm, "OK");
+	} else if (sscanf(buf, "AT+CMEE=%u", &value) == 1) {
+		if (value > 1) {
+			spa_log_debug(backend->log, "Unsupported AT+CMEE value: %u", value);
+			rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);
+			return true;
+		}
+
+		rfcomm->extended_error_reporting = value;
+		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+COPS=")) {
 		unsigned int mode, val;
 
 		if (sscanf(buf, "AT+COPS=%u,%u", &mode, &val) != 2 ||
 		      mode != 3 || val != 0) {
-			rfcomm_send_reply(rfcomm, "ERROR");
+			rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);
 		} else {
 			rfcomm_send_reply(rfcomm, "OK");
 		}
 	} else if (spa_strstartswith(buf, "AT+COPS?")) {
 		if (!backend->modem.network_has_service) {
-			rfcomm_send_reply(rfcomm, "ERROR");
+			rfcomm_send_error(rfcomm, CMEE_NO_NETWORK_SERVICE);
 		} else {
 			if (backend->modem.operator_name)
 				rfcomm_send_reply(rfcomm, "+COPS: 0,0,\"%s\"", backend->modem.operator_name);
@@ -958,7 +977,7 @@ next_indicator:
 			rfcomm_send_reply(rfcomm, "OK");
 		} else {
 			spa_log_debug(backend->log, "RFCOMM receive unsupported VGM gain: %s", buf);
-			rfcomm_send_reply(rfcomm, "ERROR");
+			rfcomm_send_error(rfcomm, CMEE_OPERATION_NOT_ALLOWED);
 		}
 	} else if (sscanf(buf, "AT+VGS=%u", &gain) == 1) {
 		if (gain <= SPA_BT_VOLUME_HS_MAX) {
@@ -966,7 +985,7 @@ next_indicator:
 			rfcomm_send_reply(rfcomm, "OK");
 		} else {
 			spa_log_debug(backend->log, "RFCOMM receive unsupported VGS gain: %s", buf);
-			rfcomm_send_reply(rfcomm, "ERROR");
+			rfcomm_send_error(rfcomm, CMEE_OPERATION_NOT_ALLOWED);
 		}
 	} else if (spa_strstartswith(buf, "AT+BIND=?")) {
 		rfcomm_send_reply(rfcomm, "+BIND: (2)");
@@ -1169,7 +1188,7 @@ static void rfcomm_event(struct spa_source *source)
 
 		if (!res) {
 			spa_log_debug(backend->log, "RFCOMM received unsupported command: %s", buf);
-			rfcomm_send_reply(rfcomm, "ERROR");
+			rfcomm_send_error(rfcomm, CMEE_OPERATION_NOT_SUPPORTED);
 		}
 	}
 }

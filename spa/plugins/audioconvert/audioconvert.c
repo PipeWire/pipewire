@@ -215,6 +215,7 @@ struct impl {
 	uint32_t in_offset;
 	uint32_t out_offset;
 	unsigned int started:1;
+	unsigned int setup:1;
 	unsigned int peaks:1;
 	unsigned int is_passthrough:1;
 	unsigned int drained:1;
@@ -1463,6 +1464,12 @@ static int setup_convert(struct impl *this)
 	in = &this->dir[SPA_DIRECTION_INPUT];
 	out = &this->dir[SPA_DIRECTION_OUTPUT];
 
+	spa_log_debug(this->log, "%p: setup:%d in_format:%d out_format:%d", this,
+			this->setup, in->have_format, out->have_format);
+
+	if (this->setup)
+		return 0;
+
 	if (!in->have_format || !out->have_format)
 		return -EINVAL;
 
@@ -1506,6 +1513,7 @@ static int setup_convert(struct impl *this)
 		this->tmp_datas[1][i] = SPA_PTROFF(this->tmp[1], this->empty_size * i, void);
 		this->tmp_datas[1][i] = SPA_PTR_ALIGN(this->tmp_datas[1][i], MAX_ALIGN, void);
 	}
+	this->setup = true;
 
 	emit_node_info(this, false);
 
@@ -1537,6 +1545,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		this->started = true;
 		break;
 	case SPA_NODE_COMMAND_Suspend:
+		this->setup = false;
 		SPA_FALLTHROUGH;
 	case SPA_NODE_COMMAND_Flush:
 		reset_node(this);

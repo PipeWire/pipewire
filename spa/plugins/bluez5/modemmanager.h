@@ -25,6 +25,8 @@
 #ifndef SPA_BLUEZ5_MODEMMANAGER_H_
 #define SPA_BLUEZ5_MODEMMANAGER_H_
 
+#include <spa/utils/list.h>
+
 #include "defs.h"
 
 enum cmee_error {
@@ -42,6 +44,35 @@ enum call_setup {
 	CIND_CALLSETUP_INCOMING,
 	CIND_CALLSETUP_DIALING,
 	CIND_CALLSETUP_ALERTING
+};
+
+enum call_direction {
+	CALL_OUTGOING,
+	CALL_INCOMING
+};
+
+enum call_state {
+	CLCC_ACTIVE,
+	CLCC_HELD,
+	CLCC_DIALING,
+	CLCC_ALERTING,
+	CLCC_INCOMING,
+	CLCC_WAITING,
+	CLCC_RESPONSE_AND_HOLD
+};
+
+struct call {
+	struct spa_list link;
+	unsigned int index;
+	struct impl *this;
+	DBusPendingCall *pending;
+
+	char *path;
+	char *number;
+	bool call_indicator;
+	enum call_direction direction;
+	enum call_state state;
+	bool multiparty;
 };
 
 struct mm_ops {
@@ -62,6 +93,7 @@ unsigned int mm_supported_features();
 bool mm_answer_call(void *modemmanager, void *user_data, enum cmee_error *error);
 bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error);
 const char *mm_get_incoming_call_number(void *modemmanager);
+struct spa_list *mm_get_calls(void *modemmanager);
 #else
 void *mm_register(struct spa_log *log, void *dbus_connection, const struct mm_ops *ops, void *user_data)
 {
@@ -97,6 +129,11 @@ bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error)
 }
 
 const char *mm_get_incoming_call_number(void *modemmanager)
+{
+	return NULL;
+}
+
+struct spa_list *mm_get_calls(void *modemmanager)
 {
 	return NULL;
 }

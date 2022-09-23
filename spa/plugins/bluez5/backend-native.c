@@ -947,6 +947,28 @@ next_indicator:
 		}
 
 		rfcomm_send_reply(rfcomm, "OK");
+	} else if (spa_strstartswith(buf, "AT+CLCC")) {
+		struct spa_list *calls;
+		struct call *call;
+		unsigned int type;
+
+		if (backend->modemmanager) {
+			calls = mm_get_calls(backend->modemmanager);
+			spa_list_for_each(call, calls, link) {
+				if (!call->number) {
+					rfcomm_send_reply(rfcomm, "+CLCC: %u,%u,%u,0,%u", call->index, call->direction, call->state, call->multiparty);
+				} else {
+					if (spa_strstartswith(call->number, "+"))
+						type = INTERNATIONAL_NUMBER;
+					else
+						type = NATIONAL_NUMBER;
+					rfcomm_send_reply(rfcomm, "+CLCC: %u,%u,%u,0,%u,\"%s\",%d", call->index, call->direction, call->state,
+									call->multiparty, call->number, type);
+				}
+			}
+		}
+
+		rfcomm_send_reply(rfcomm, "OK");
 	} else if (sscanf(buf, "AT+CLIP=%u", &value) == 1) {
 		if (value > 1) {
 			spa_log_debug(backend->log, "Unsupported AT+CLIP value: %u", value);

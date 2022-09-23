@@ -31,18 +31,6 @@
 
 #define DBUS_INTERFACE_OBJECTMANAGER "org.freedesktop.DBus.ObjectManager"
 
-struct call {
-	struct spa_list link;
-	struct impl *this;
-	DBusPendingCall *pending;
-
-	char *path;
-	char *number;
-	bool call_indicator;
-	MMCallDirection direction;
-	MMCallState state;
-};
-
 struct modem {
 	char *path;
 	bool network_has_service;
@@ -96,6 +84,28 @@ static bool mm_dbus_connection_send_with_reply(struct impl *this, DBusMessage *m
 	return true;
 }
 
+static int mm_state_to_clcc(struct impl *this, MMCallState state)
+{
+	switch (state) {
+	case MM_CALL_STATE_DIALING:
+		return CLCC_DIALING;
+	case MM_CALL_STATE_RINGING_OUT:
+		return CLCC_ALERTING;
+	case MM_CALL_STATE_RINGING_IN:
+		return CLCC_INCOMING;
+	case MM_CALL_STATE_ACTIVE:
+		return CLCC_ACTIVE;
+	case MM_CALL_STATE_HELD:
+		return CLCC_HELD;
+	case MM_CALL_STATE_WAITING:
+		return CLCC_WAITING;
+	case MM_CALL_STATE_TERMINATED:
+	case MM_CALL_STATE_UNKNOWN:
+	default:
+		return -1;
+	}
+}
+
 static void mm_call_state_changed(struct impl *this)
 {
 	struct call *call;
@@ -103,13 +113,13 @@ static void mm_call_state_changed(struct impl *this)
 	enum call_setup call_setup_indicator = CIND_CALLSETUP_NONE;
 
 	spa_list_for_each(call, &this->call_list, link) {
-		call_indicator |= (call->state == MM_CALL_STATE_ACTIVE);
+		call_indicator |= (call->state == CLCC_ACTIVE);
 
-		if (call->state == MM_CALL_STATE_RINGING_IN && call_setup_indicator < CIND_CALLSETUP_INCOMING)
+		if (call->state == CLCC_INCOMING && call_setup_indicator < CIND_CALLSETUP_INCOMING)
 			call_setup_indicator = CIND_CALLSETUP_INCOMING;
-		else if (call->state == MM_CALL_STATE_DIALING && call_setup_indicator < CIND_CALLSETUP_DIALING)
+		else if (call->state == CLCC_DIALING && call_setup_indicator < CIND_CALLSETUP_DIALING)
 			call_setup_indicator = CIND_CALLSETUP_DIALING;
-		else if (call->state == MM_CALL_STATE_RINGING_OUT && call_setup_indicator < CIND_CALLSETUP_ALERTING)
+		else if (call->state == CLCC_ALERTING && call_setup_indicator < CIND_CALLSETUP_ALERTING)
 			call_setup_indicator = CIND_CALLSETUP_ALERTING;
 	}
 
@@ -167,7 +177,7 @@ static void mm_get_call_properties_reply(DBusPendingCall *pending, void *user_da
 		if (spa_streq(key, MM_CALL_PROPERTY_DIRECTION)) {
 			dbus_message_iter_get_basic(&value_i, &direction);
 			spa_log_debug(this->log, "Call direction: %u", direction);
-			call->direction = direction;
+			call->direction = (direction == MM_CALL_DIRECTION_INCOMING) ? CALL_INCOMING : CALL_OUTGOING;
 		} else if (spa_streq(key, MM_CALL_PROPERTY_NUMBER)) {
 			char *number;
 
@@ -177,10 +187,17 @@ static void mm_get_call_properties_reply(DBusPendingCall *pending, void *user_da
 				free(call->number);
 			call->number = strdup(number);
 		} else if (spa_streq(key, MM_CALL_PROPERTY_STATE)) {
+			int clcc_state;
+
 			dbus_message_iter_get_basic(&value_i, &state);
 			spa_log_debug(this->log, "Call state: %u", state);
-			call->state = state;
-			mm_call_state_changed(this);
+			clcc_state = mm_state_to_clcc(this, state);
+			if (clcc_state < 0) {
+				spa_log_debug(this->log, "Unsupported modem state: %s, state=%d", call->path, call->state);
+			} else {
+				call->state = clcc_state;
+				mm_call_state_changed(this);
+			}
 		}
 
 		dbus_message_iter_next(&element_i);
@@ -620,6 +637,7 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 		MMCallState old, new;
 		MMCallStateReason reason;
 		struct call *call = NULL, *call_tmp;
+		int clcc_state;
 
 		if (!dbus_message_iter_init(m, &iface_i) || !spa_streq(dbus_message_get_signature(m), "iiu")) {
 				spa_log_error(this->log, "Invalid signature found in %s", MM_CALL_SIGNAL_STATECHANGED);
@@ -648,8 +666,13 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 			goto finish;
 		}
 
-		call->state = new;
-		mm_call_state_changed(this);
+		clcc_state = mm_state_to_clcc(this, new);
+		if (clcc_state < 0) {
+			spa_log_debug(this->log, "Unsupported modem state: %s, state=%d", call->path, call->state);
+		} else {
+			call->state = clcc_state;
+			mm_call_state_changed(this);
+		}
 	}
 
 finish:
@@ -756,7 +779,7 @@ bool mm_is_available(void *modemmanager)
 
 unsigned int mm_supported_features()
 {
-	return SPA_BT_HFP_AG_FEATURE_REJECT_CALL;
+	return SPA_BT_HFP_AG_FEATURE_REJECT_CALL | SPA_BT_HFP_AG_FEATURE_ENHANCED_CALL_STATUS;
 }
 
 static void mm_get_call_simple_reply(DBusPendingCall *pending, void *data)
@@ -802,7 +825,7 @@ bool mm_answer_call(void *modemmanager, void *user_data, enum cmee_error *error)
 
 	call_object = NULL;
 	spa_list_for_each(call_tmp, &this->call_list, link) {
-		if (call_tmp->state == MM_CALL_STATE_RINGING_IN) {
+		if (call_tmp->state == CLCC_INCOMING) {
 			call_object = call_tmp;
 			break;
 		}
@@ -850,16 +873,16 @@ bool mm_hangup_call(void *modemmanager, void *user_data, enum cmee_error *error)
 
 	call_object = NULL;
 	spa_list_for_each(call_tmp, &this->call_list, link) {
-		if (call_tmp->state == MM_CALL_STATE_ACTIVE) {
+		if (call_tmp->state == CLCC_ACTIVE) {
 			call_object = call_tmp;
 			break;
 		}
 	}
 	if (!call_object) {
 		spa_list_for_each(call_tmp, &this->call_list, link) {
-			if (call_tmp->state == MM_CALL_STATE_RINGING_OUT ||
-				call_tmp->state == MM_CALL_STATE_RINGING_IN ||
-				call_tmp->state == MM_CALL_STATE_DIALING) {
+			if (call_tmp->state == CLCC_DIALING ||
+				call_tmp->state == CLCC_ALERTING ||
+				call_tmp->state == CLCC_INCOMING) {
 				call_object = call_tmp;
 				break;
 			}
@@ -906,7 +929,7 @@ const char *mm_get_incoming_call_number(void *modemmanager)
 
 	call_object = NULL;
 	spa_list_for_each(call_tmp, &this->call_list, link) {
-		if (call_tmp->state == MM_CALL_STATE_RINGING_IN) {
+		if (call_tmp->state == CLCC_INCOMING) {
 			call_object = call_tmp;
 			break;
 		}
@@ -917,6 +940,13 @@ const char *mm_get_incoming_call_number(void *modemmanager)
 	}
 
 	return call_object->number;
+}
+
+struct spa_list *mm_get_calls(void *modemmanager)
+{
+	struct impl *this = modemmanager;
+
+	return &this->call_list;
 }
 
 void *mm_register(struct spa_log *log, void *dbus_connection, const struct mm_ops *ops, void *user_data)

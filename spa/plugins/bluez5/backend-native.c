@@ -970,13 +970,13 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* buf)
 					}
 				}
 			}
-		} else if (sscanf(token, "+VGM:%u", &gain) == 1) {
+		} else if (sscanf(token, "+VGM%*1[:=]%u", &gain) == 1) {
 			if (gain <= SPA_BT_VOLUME_HS_MAX) {
 				rfcomm_emit_volume_changed(rfcomm, SPA_BT_VOLUME_ID_TX, gain);
 			} else {
 				spa_log_debug(backend->log, "RFCOMM receive unsupported VGM gain: %s", token);
 			}
-		} else if (sscanf(token, "+VGS:%u", &gain) == 1) {
+		} else if (sscanf(token, "+VGS%*1[:=]%u", &gain) == 1) {
 			if (gain <= SPA_BT_VOLUME_HS_MAX) {
 				rfcomm_emit_volume_changed(rfcomm, SPA_BT_VOLUME_ID_RX, gain);
 			} else {

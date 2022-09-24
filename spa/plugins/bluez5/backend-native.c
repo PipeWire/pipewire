@@ -78,7 +78,7 @@ struct impl {
 	struct spa_dbus *dbus;
 	DBusConnection *conn;
 
-#define DEFAULT_ENABLED_PROFILES (SPA_BT_PROFILE_HSP_HS | SPA_BT_PROFILE_HFP_AG)
+#define DEFAULT_ENABLED_PROFILES (SPA_BT_PROFILE_HFP_HF | SPA_BT_PROFILE_HFP_AG)
 	enum spa_bt_profile enabled_profiles;
 
 	struct spa_source sco;

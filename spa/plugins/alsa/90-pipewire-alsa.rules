@@ -181,6 +181,9 @@ ATTRS{idVendor}=="1395", ATTRS{idProduct}=="008a", ENV{ACP_PROFILE_SET}="usb-gam
 # have any digital outputs.
 ATTRS{idVendor}=="0a12", ATTRS{idProduct}=="4007", ENV{ACP_PROFILE_SET}="analog-only.conf"
 
+# Asus Xonar SE
+ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="189d", ENV{ACP_PROFILE_SET}="asus-xonar-se.conf"
+
 GOTO="pipewire_end"
 
 LABEL="pipewire_check_pci"

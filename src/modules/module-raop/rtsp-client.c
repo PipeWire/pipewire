@@ -307,23 +307,15 @@ static void process_received_message(struct pw_rtsp_client *client)
 static int process_header(struct pw_rtsp_client *client, char *buf)
 {
 	if (strlen(buf) > 0) {
-		char *key = buf, *value, *end;
-		size_t len;
+		char *key = buf, *value;
 
 		value = strstr(buf, ":");
 		if (value == NULL)
 			return -EPROTO;
 
 		*value++ = '\0';
-		while (*value == ' ')
-			value++;
 
-		len = strlen(value);
-		if (len > 0) {
-			end = value + len - 1;
-			while (*end == ' ')
-				*end-- = '\0';
-		}
+		value = pw_strip(value, " ");
 
 		pw_properties_set(client->headers, key, value);
 	}

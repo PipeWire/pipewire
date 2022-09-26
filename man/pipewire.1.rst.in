@@ -47,6 +47,8 @@ PipeWire is available from @PACKAGE_URL@
 SEE ALSO
 ========
 
+``pw-top(1)``,
+``pw-dump(1)``,
 ``pw-mon(1)``,
 ``pw-cat(1)``,
 ``pw-cli(1)``,

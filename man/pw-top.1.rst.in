@@ -168,4 +168,7 @@ SEE ALSO
 ========
 
 ``pipewire(1)``,
+``pw-dump(1)``,
+``pw-cli(1)``,
+``pw-profiler(1)``,
 

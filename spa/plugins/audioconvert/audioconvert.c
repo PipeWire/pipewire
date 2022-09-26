@@ -1547,11 +1547,11 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	case SPA_NODE_COMMAND_Suspend:
 		this->setup = false;
 		SPA_FALLTHROUGH;
-	case SPA_NODE_COMMAND_Flush:
-		reset_node(this);
-		SPA_FALLTHROUGH;
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
+		break;
+	case SPA_NODE_COMMAND_Flush:
+		reset_node(this);
 		break;
 	default:
 		return -ENOTSUP;

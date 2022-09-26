@@ -1422,7 +1422,7 @@ static void stream_process(void *data)
 					spa_ringbuffer_read_data(&stream->ring,
 						stream->buffer, MAXLENGTH,
 						index % MAXLENGTH,
-						p, avail);
+						p, SPA_MIN((uint32_t)avail, size));
 					index += avail;
 				}
 				pd.playing_for = size;

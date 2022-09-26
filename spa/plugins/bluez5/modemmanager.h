@@ -87,7 +87,8 @@ struct mm_ops {
 };
 
 #ifdef HAVE_BLUEZ_5_BACKEND_NATIVE_MM
-void *mm_register(struct spa_log *log, void *dbus_connection, const struct mm_ops *ops, void *user_data);
+void *mm_register(struct spa_log *log, void *dbus_connection, const struct spa_dict *info,
+                  const struct mm_ops *ops, void *user_data);
 void mm_unregister(void *data);
 bool mm_is_available(void *modemmanager);
 unsigned int mm_supported_features();
@@ -98,7 +99,8 @@ bool mm_send_dtmf(void *modemmanager, const char *dtmf, void *user_data, enum cm
 const char *mm_get_incoming_call_number(void *modemmanager);
 struct spa_list *mm_get_calls(void *modemmanager);
 #else
-void *mm_register(struct spa_log *log, void *dbus_connection, const struct mm_ops *ops, void *user_data)
+void *mm_register(struct spa_log *log, void *dbus_connection, const struct spa_dict *info,
+                  const struct mm_ops *ops, void *user_data)
 {
 	return NULL;
 }

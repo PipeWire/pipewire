@@ -43,6 +43,7 @@ struct impl {
 	struct spa_log *log;
 	DBusConnection *conn;
 
+	char *allowed_modem_device;
 	bool filters_added;
 	DBusPendingCall *pending;
 	DBusPendingCall *voice_pending;
@@ -382,6 +383,32 @@ static DBusHandlerResult mm_parse_interfaces(struct impl *this, DBusMessageIter 
 		if (spa_streq(interface, MM_DBUS_INTERFACE_MODEM)) {
 			spa_log_debug(this->log, "Found Modem interface %s, path %s", interface, path);
 			if (this->modem.path == NULL) {
+				if (this->allowed_modem_device) {
+					DBusMessageIter i;
+
+					dbus_message_iter_recurse(&iface_i, &i);
+					while (dbus_message_iter_get_arg_type(&i) != DBUS_TYPE_INVALID) {
+						DBusMessageIter key_i, value_i;
+						const char *key;
+
+						dbus_message_iter_recurse(&i, &key_i);
+
+						dbus_message_iter_get_basic(&key_i, &key);
+						dbus_message_iter_next(&key_i);
+						dbus_message_iter_recurse(&key_i, &value_i);
+
+						if (spa_streq(key, MM_MODEM_PROPERTY_DEVICE)) {
+							char *device;
+
+							dbus_message_iter_get_basic(&value_i, &device);
+							if (!spa_streq(this->allowed_modem_device, device)) {
+								spa_log_debug(this->log, "Modem not allowed: %s", device);
+								goto next;
+							}
+						}
+						dbus_message_iter_next(&i);
+					}
+				}
 				this->modem.path = strdup(path);
 			} else if (!spa_streq(this->modem.path, path)) {
 				spa_log_debug(this->log, "A modem is already registered");
@@ -1148,12 +1175,26 @@ struct spa_list *mm_get_calls(void *modemmanager)
 	return &this->call_list;
 }
 
-void *mm_register(struct spa_log *log, void *dbus_connection, const struct mm_ops *ops, void *user_data)
+void *mm_register(struct spa_log *log, void *dbus_connection, const struct spa_dict *info,
+                  const struct mm_ops *ops, void *user_data)
 {
 	struct impl *this;
+	const char *modem_device_str = NULL;
+	bool modem_device_found = false;
 
 	spa_assert(log);
 	spa_assert(dbus_connection);
+
+	if (info) {
+		if ((modem_device_str = spa_dict_lookup(info, "bluez5.hfphsp-backend-native-modem")) != NULL) {
+			if (!spa_streq(modem_device_str, "none"))
+				modem_device_found = true;
+		}
+	}
+	if (!modem_device_found) {
+		spa_log_info(log, "No modem allowed, doesn't link to ModemManager");
+		return NULL;
+	}
 
 	this = calloc(1, sizeof(struct impl));
 	if (this == NULL)
@@ -1163,6 +1204,8 @@ void *mm_register(struct spa_log *log, void *dbus_connection, const struct mm_op
 	this->conn = dbus_connection;
 	this->ops = ops;
 	this->user_data = user_data;
+	if (modem_device_str && !spa_streq(modem_device_str, "any"))
+		this->allowed_modem_device = strdup(modem_device_str);
 	spa_list_init(&this->call_list);
 
 	if (add_filters(this) < 0) {
@@ -1208,6 +1251,9 @@ void mm_unregister(void *data)
 		dbus_connection_remove_filter(this->conn, mm_filter_cb, this);
 		this->filters_added = false;
 	}
+
+	if (this->allowed_modem_device)
+		free(this->allowed_modem_device);
 
 	free(this);
 }

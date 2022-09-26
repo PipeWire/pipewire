@@ -2758,7 +2758,7 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 	}
 #endif
 
-	backend->modemmanager = mm_register(backend->log, backend->conn, &mm_ops, backend);
+	backend->modemmanager = mm_register(backend->log, backend->conn, info, &mm_ops, backend);
 	backend->upower = upower_register(backend->log, backend->conn, set_battery_level, backend);
 
 	return &backend->this;

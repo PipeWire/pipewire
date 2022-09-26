@@ -455,7 +455,7 @@ static void clamp_latency(struct stream *s, struct spa_fraction *lat)
 static uint64_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *attr,
 		uint32_t rate, struct spa_fraction *lat)
 {
-	uint32_t frame_size, max_prebuf, minreq, latency, max_latency;
+	uint32_t frame_size, max_prebuf, minreq, latency, max_latency, maxlength;
 	struct defs *defs = &s->impl->defs;
 
 	if ((frame_size = s->frame_size) == 0)
@@ -463,24 +463,26 @@ static uint64_t fix_playback_buffer_attr(struct stream *s, struct buffer_attr *a
 	if (frame_size == 0)
 		frame_size = 4;
 
-	pw_log_info("[%s] maxlength:%u tlength:%u minreq:%u prebuf:%u",
+	maxlength = SPA_ROUND_DOWN(MAXLENGTH, frame_size);
+
+	pw_log_info("[%s] maxlength:%u tlength:%u minreq:%u prebuf:%u max:%u",
 			s->client->name, attr->maxlength, attr->tlength,
-			attr->minreq, attr->prebuf);
+			attr->minreq, attr->prebuf, maxlength);
 
 	minreq = frac_to_bytes_round_up(s->min_req, &s->ss);
 	max_latency = defs->quantum_limit * frame_size;
 
-	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
-		attr->maxlength = MAXLENGTH;
-	attr->maxlength = SPA_ROUND_UP(attr->maxlength, frame_size);
+	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > maxlength)
+		attr->maxlength = maxlength;
+	else
+		attr->maxlength = SPA_ROUND_DOWN(attr->maxlength, frame_size);
 
 	minreq = SPA_MIN(minreq, attr->maxlength);
 
 	if (attr->tlength == (uint32_t) -1)
 		attr->tlength = frac_to_bytes_round_up(s->default_tlength, &s->ss);
-	attr->tlength = SPA_MIN(attr->tlength, attr->maxlength);
+	attr->tlength = SPA_CLAMP(attr->tlength, minreq, attr->maxlength);
 	attr->tlength = SPA_ROUND_UP(attr->tlength, frame_size);
-	attr->tlength = SPA_MAX(attr->tlength, minreq);
 
 	if (attr->minreq == (uint32_t) -1) {
 		uint32_t process = frac_to_bytes_round_up(s->default_req, &s->ss);
@@ -655,35 +657,42 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 static uint64_t fix_record_buffer_attr(struct stream *s, struct buffer_attr *attr,
 		uint32_t rate, struct spa_fraction *lat)
 {
-	uint32_t frame_size, minfrag, latency;
+	uint32_t frame_size, minfrag, latency, maxlength;
 
 	if ((frame_size = s->frame_size) == 0)
 		frame_size = sample_spec_frame_size(&s->ss);
 	if (frame_size == 0)
 		frame_size = 4;
 
+	maxlength = SPA_ROUND_DOWN(MAXLENGTH, frame_size);
+
 	pw_log_info("[%s] maxlength:%u fragsize:%u framesize:%u",
 			s->client->name, attr->maxlength, attr->fragsize,
 			frame_size);
 
-	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > MAXLENGTH)
-		attr->maxlength = MAXLENGTH;
-	attr->maxlength -= attr->maxlength % frame_size;
+	if (attr->maxlength == (uint32_t) -1 || attr->maxlength > maxlength)
+		attr->maxlength = maxlength;
+	else
+		attr->maxlength = SPA_ROUND_DOWN(attr->maxlength, frame_size);
 	attr->maxlength = SPA_MAX(attr->maxlength, frame_size);
 
 	minfrag = frac_to_bytes_round_up(s->min_frag, &s->ss);
 
 	if (attr->fragsize == (uint32_t) -1 || attr->fragsize == 0)
 		attr->fragsize = frac_to_bytes_round_up(s->default_frag, &s->ss);
-	attr->fragsize = SPA_MIN(attr->fragsize, attr->maxlength);
+	attr->fragsize = SPA_CLAMP(attr->fragsize, minfrag, attr->maxlength);
 	attr->fragsize = SPA_ROUND_UP(attr->fragsize, frame_size);
-	attr->fragsize = SPA_MAX(attr->fragsize, minfrag);
 
 	attr->tlength = attr->minreq = attr->prebuf = 0;
 
 	/* make sure we can queue at least to fragsize without overruns */
-	if (attr->maxlength < attr->fragsize * 4)
+	if (attr->maxlength < attr->fragsize * 4) {
 		attr->maxlength = attr->fragsize * 4;
+		if (attr->maxlength > maxlength) {
+			attr->maxlength = maxlength;
+			attr->fragsize = SPA_ROUND_DOWN(maxlength / 4, frame_size);
+		}
+	}
 
 	latency = attr->fragsize;
 

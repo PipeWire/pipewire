@@ -380,17 +380,27 @@ static DBusHandlerResult mm_parse_interfaces(struct impl *this, DBusMessageIter 
 		dbus_message_iter_recurse(&iface_i, &props_i);
 
 		if (spa_streq(interface, MM_DBUS_INTERFACE_MODEM)) {
-			this->modem.path = strdup(path);
 			spa_log_debug(this->log, "Found Modem interface %s, path %s", interface, path);
+			if (this->modem.path == NULL) {
+				this->modem.path = strdup(path);
+			} else if (!spa_streq(this->modem.path, path)) {
+				spa_log_debug(this->log, "A modem is already registered");
+				goto next;
+			}
 			mm_parse_modem_properties(this, &props_i);
 		} else if (spa_streq(interface, MM_DBUS_INTERFACE_MODEM_MODEM3GPP)) {
-			spa_log_debug(this->log, "Found Modem3GPP interface %s, path %s", interface, path);
-			mm_parse_modem3gpp_properties(this, &props_i);
+			if (spa_streq(this->modem.path, path)) {
+				spa_log_debug(this->log, "Found Modem3GPP interface %s, path %s", interface, path);
+				mm_parse_modem3gpp_properties(this, &props_i);
+			}
 		} else if (spa_streq(interface, MM_DBUS_INTERFACE_MODEM_VOICE)) {
-			spa_log_debug(this->log, "Found Voice interface %s, path %s", interface, path);
-			mm_parse_voice_properties(this, &props_i);
+			if (spa_streq(this->modem.path, path)) {
+				spa_log_debug(this->log, "Found Voice interface %s, path %s", interface, path);
+				mm_parse_voice_properties(this, &props_i);
+			}
 		}
 
+next:
 		dbus_message_iter_next(&element_i);
 	}
 
@@ -542,6 +552,9 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 		}
 
 		dbus_message_iter_get_basic(&arg_i, &path);
+		if (!spa_streq(this->modem.path, path))
+			goto finish;
+
 		dbus_message_iter_next(&arg_i);
 		dbus_message_iter_recurse(&arg_i, &element_i);
 
@@ -569,6 +582,10 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 		DBusMessageIter iface_i, props_i;
 		const char *interface;
 
+		path = dbus_message_get_path(m);
+		if (!spa_streq(this->modem.path, path))
+			goto finish;
+
 		if (!dbus_message_iter_init(m, &iface_i) || !spa_streq(dbus_message_get_signature(m), "sa{sv}as")) {
 				spa_log_error(this->log, "Invalid signature found in PropertiesChanged");
 				goto finish;
@@ -579,8 +596,6 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 		spa_assert(dbus_message_iter_get_arg_type(&iface_i) == DBUS_TYPE_ARRAY);
 
 		dbus_message_iter_recurse(&iface_i, &props_i);
-
-		path = dbus_message_get_path(m);
 
 		if (spa_streq(interface, MM_DBUS_INTERFACE_MODEM)) {
 			spa_log_debug(this->log, "Properties changed on %s", path);
@@ -597,6 +612,9 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 		const char *path;
 		struct call *call_object;
 		const char *mm_call_interface = MM_DBUS_INTERFACE_CALL;
+
+		if (!spa_streq(this->modem.path, dbus_message_get_path(m)))
+			goto finish;
 
 		if (!dbus_message_iter_init(m, &iface_i) || !spa_streq(dbus_message_get_signature(m), "o")) {
 				spa_log_error(this->log, "Invalid signature found in %s", MM_MODEM_VOICE_SIGNAL_CALLADDED);
@@ -626,6 +644,9 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 		const char *path;
 		DBusMessageIter iface_i;
 		struct call *call, *call_tmp;
+
+		if (!spa_streq(this->modem.path, dbus_message_get_path(m)))
+			goto finish;
 
 		if (!dbus_message_iter_init(m, &iface_i) || !spa_streq(dbus_message_get_signature(m), "o")) {
 				spa_log_error(this->log, "Invalid signature found in %s", MM_MODEM_VOICE_SIGNAL_CALLDELETED);

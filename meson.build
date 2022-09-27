@@ -67,6 +67,7 @@ cc = meson.get_compiler('c')
 
 common_flags = [
   '-fvisibility=hidden',
+  '-fno-strict-aliasing',
   '-Werror=suggest-attribute=format',
   '-Wsign-compare',
   '-Wpointer-arith',

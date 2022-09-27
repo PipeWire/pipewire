@@ -27,40 +27,70 @@
 
 #include <spa/param/audio/format.h>
 
-#include "resample-peaks-impl.h"
+#include "peaks-ops.h"
+#include "resample.h"
 
-struct resample_info {
-	uint32_t format;
-	uint32_t cpu_flags;
-	void (*process) (struct resample *r,
-			const void * SPA_RESTRICT src[], uint32_t *in_len,
-			void * SPA_RESTRICT dst[], uint32_t *out_len);
+struct peaks_data {
+	uint32_t o_count;
+	uint32_t i_count;
+	struct peaks peaks;
+	float max_f[];
 };
 
-static struct resample_info resample_table[] =
+static void resample_peaks_process(struct resample *r,
+	const void * SPA_RESTRICT src[], uint32_t *in_len,
+	void * SPA_RESTRICT dst[], uint32_t *out_len)
 {
-#if defined (HAVE_SSE)
-	{ SPA_AUDIO_FORMAT_F32, SPA_CPU_FLAG_SSE, resample_peaks_process_sse, },
-#endif
-	{ SPA_AUDIO_FORMAT_F32, 0, resample_peaks_process_c, },
-};
+	struct peaks_data *pd = r->data;
+	uint32_t c, i, o, end, chunk, i_count, o_count;
 
-#define MATCH_CPU_FLAGS(a,b)	((a) == 0 || ((a) & (b)) == a)
-static const struct resample_info *find_resample_info(uint32_t format, uint32_t cpu_flags)
-{
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(resample_table); i++) {
-		if (resample_table[i].format == format &&
-		    MATCH_CPU_FLAGS(resample_table[i].cpu_flags, cpu_flags)) {
-			return &resample_table[i];
+	if (SPA_UNLIKELY(r->channels == 0))
+		return;
+
+	for (c = 0; c < r->channels; c++) {
+		const float *s = src[c];
+		float *d = dst[c], m = pd->max_f[c];
+
+		o_count = pd->o_count;
+		i_count = pd->i_count;
+		o = i = 0;
+
+		while (i < *in_len && o < *out_len) {
+			end = ((uint64_t) (o_count + 1)
+				* r->i_rate) / r->o_rate;
+			end = end > i_count ? end - i_count : 0;
+			chunk = SPA_MIN(end, *in_len);
+
+			m = peaks_abs_max(&pd->peaks, &s[i], chunk - i, m);
+
+			i += chunk;
+
+			if (i == end) {
+				d[o++] = m;
+				m = 0.0f;
+				o_count++;
+			}
 		}
+		pd->max_f[c] = m;
 	}
-	return NULL;
+	*out_len = o;
+	*in_len = i;
+	pd->o_count = o_count;
+	pd->i_count = i_count + i;
+
+	while (pd->i_count >= r->i_rate) {
+		pd->i_count -= r->i_rate;
+		pd->o_count -= r->o_rate;
+	}
 }
 
 static void impl_peaks_free(struct resample *r)
 {
-	free(r->data);
+	struct peaks_data *d = r->data;
+	if (d != NULL) {
+		peaks_free(&d->peaks);
+		free(d);
+	}
 	r->data = NULL;
 }
 
@@ -87,27 +117,32 @@ static void impl_peaks_reset (struct resample *r)
 int resample_peaks_init(struct resample *r)
 {
 	struct peaks_data *d;
-	const struct resample_info *info;
+	int res;
 
 	r->free = impl_peaks_free;
 	r->update_rate = impl_peaks_update_rate;
 
-	if ((info = find_resample_info(SPA_AUDIO_FORMAT_F32, r->cpu_flags)) == NULL)
-		return -ENOTSUP;
+	d = calloc(1, sizeof(struct peaks_data) + sizeof(float) * r->channels);
+	if (d == NULL)
+		return -errno;
 
-	r->process = info->process;
+	d->peaks.log = r->log;
+	d->peaks.cpu_flags = r->cpu_flags;
+	if ((res = peaks_init(&d->peaks)) < 0) {
+		free(d);
+		return res;
+	}
+
+	r->data = d;
+	r->process = resample_peaks_process;
 	r->reset = impl_peaks_reset;
 	r->delay = impl_peaks_delay;
 	r->in_len = impl_peaks_in_len;
 
-	d = r->data = calloc(1, sizeof(struct peaks_data) + sizeof(float) * r->channels);
-	if (r->data == NULL)
-		return -errno;
-
 	spa_log_debug(r->log, "peaks %p: in:%d out:%d features:%08x:%08x", r,
-			r->i_rate, r->o_rate, r->cpu_flags, info->cpu_flags);
+			r->i_rate, r->o_rate, r->cpu_flags, d->peaks.cpu_flags);
 
-	r->cpu_flags = info->cpu_flags;
+	r->cpu_flags = d->peaks.cpu_flags;
 	d->i_count = d->o_count = 0;
 	return 0;
 }

@@ -216,7 +216,7 @@ struct impl {
 	uint32_t out_offset;
 	unsigned int started:1;
 	unsigned int setup:1;
-	unsigned int peaks:1;
+	unsigned int resample_peaks:1;
 	unsigned int is_passthrough:1;
 	unsigned int drained:1;
 
@@ -1354,7 +1354,7 @@ static int setup_resample(struct impl *this)
 	this->resample.quality = this->props.resample_quality;
 	this->resample.cpu_flags = this->cpu_flags;
 
-	if (this->peaks)
+	if (this->resample_peaks)
 		res = resample_peaks_init(&this->resample);
 	else
 		res = resample_native_init(&this->resample);
@@ -2689,7 +2689,7 @@ static int impl_node_process(void *object)
 		this->drained = draining;
 		this->out_offset = 0;
 	}
-	else if (n_samples == 0 && this->peaks) {
+	else if (n_samples == 0 && this->resample_peaks) {
 		for (i = 0; i < dir->n_ports; i++) {
 			port = GET_OUT_PORT(this, i);
 			if (port->is_monitor || port->is_control)
@@ -2852,7 +2852,7 @@ impl_init(const struct spa_handle_factory *factory,
 		if (spa_streq(k, "clock.quantum-limit"))
 			spa_atou32(s, &this->quantum_limit, 0);
 		else if (spa_streq(k, "resample.peaks"))
-			this->peaks = spa_atob(s);
+			this->resample_peaks = spa_atob(s);
 		else if (spa_streq(k, "resample.prefill"))
 			this->resample.options |= RESAMPLE_OPTION_PREFILL;
 		else if (spa_streq(k, "factory.mode")) {

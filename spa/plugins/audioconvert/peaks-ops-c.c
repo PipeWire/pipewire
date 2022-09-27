@@ -1,6 +1,6 @@
 /* Spa
  *
- * Copyright © 2018 Wim Taymans
+ * Copyright © 2022 Wim Taymans
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,14 +24,27 @@
 
 #include <math.h>
 
-#include "resample-peaks-impl.h"
+#include "peaks-ops.h"
 
-static inline float find_abs_max_c(const float *s, uint32_t n_samples, float m)
+void peaks_min_max_c(struct peaks *peaks, const float * SPA_RESTRICT src,
+		uint32_t n_samples, float *min, float *max)
+{
+	uint32_t n;
+	float t, mi = *min, ma = *max;
+	for (n = 0; n < n_samples; n++) {
+		t = src[n];
+		mi = fminf(mi, t);
+		ma = fmaxf(ma, t);
+	}
+	*min = mi;
+	*max = ma;
+}
+
+float peaks_abs_max_c(struct peaks *peaks, const float * SPA_RESTRICT src,
+		uint32_t n_samples, float max)
 {
 	uint32_t n;
 	for (n = 0; n < n_samples; n++)
-		m = fmaxf(fabsf(s[n]), m);
-	return m;
+		max = fmaxf(fabsf(src[n]), max);
+	return max;
 }
-
-MAKE_PEAKS(c);

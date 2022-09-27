@@ -133,6 +133,7 @@ test_apps = [
   'test-audioconvert',
   'test-channelmix',
   'test-fmt-ops',
+  'test-peaks',
   'test-resample',
   ]
 

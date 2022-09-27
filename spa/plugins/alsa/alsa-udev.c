@@ -651,9 +651,9 @@ static void impl_on_notify_events(struct spa_source *source)
 {
 	bool deleted = false;
 	struct impl *this = source->data;
-	struct {
+	union {
 		struct inotify_event e;
-		char name[NAME_MAX+1];
+		char name[NAME_MAX+1+sizeof(struct inotify_event)];
 	} buf;
 
 	while (true) {
@@ -670,17 +670,20 @@ static void impl_on_notify_events(struct spa_source *source)
 		e = SPA_PTROFF(&buf, len, void);
 
 		for (p = &buf; p < e;
-		    p = SPA_PTROFF(p, sizeof(struct inotify_event) + event->len, void)) {
+		     p = SPA_PTROFF(p, sizeof(struct inotify_event) + event->len, void)) {
 			unsigned int id;
 			struct device *device;
 
 			event = (const struct inotify_event *) p;
+			spa_assert_se(e - p >= (ptrdiff_t)sizeof(struct inotify_event) &&
+			              e - p - sizeof(struct inotify_event) >= event->len &&
+			              "bad event from kernel");
 
 			/* Device becomes accessible or not busy */
 			if ((event->mask & (IN_ATTRIB | IN_CLOSE_WRITE))) {
 				bool access;
 				if (sscanf(event->name, "controlC%u", &id) != 1 &&
-						sscanf(event->name, "pcmC%uD", &id) != 1)
+				    sscanf(event->name, "pcmC%uD", &id) != 1)
 					continue;
 				if ((device = find_device(this, id)) == NULL)
 					continue;

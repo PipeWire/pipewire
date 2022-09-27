@@ -29,10 +29,8 @@
 
 PWTEST(openal_info_test)
 {
-	int status;
-
 #ifdef OPENAL_INFO_PATH
-	status = pwtest_spawn(OPENAL_INFO_PATH, (char *[]){ "openal-info", NULL });
+	int status = pwtest_spawn(OPENAL_INFO_PATH, (char *[]){ "openal-info", NULL });
 	pwtest_int_eq(WEXITSTATUS(status), 0);
 	return PWTEST_PASS;
 #else
@@ -42,10 +40,8 @@ PWTEST(openal_info_test)
 
 PWTEST(pactl_test)
 {
-	int status;
-
 #ifdef PACTL_PATH
-	status = pwtest_spawn(PACTL_PATH, (char *[]){ "pactl", "info", NULL });
+	int status = pwtest_spawn(PACTL_PATH, (char *[]){ "pactl", "info", NULL });
 	pwtest_int_eq(WEXITSTATUS(status), 0);
 	return PWTEST_PASS;
 #else

@@ -56,6 +56,7 @@ x86_init(struct impl *impl)
 		} else if (family == 0x06)
 			model += extended_model;
 	}
+	(void)model;
 
 	flags = 0;
 	if (ecx & bit_SSE3)

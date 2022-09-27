@@ -32,62 +32,6 @@
 
 #include <immintrin.h>
 
-static inline void mix_4(float * dst,
-		const float * SPA_RESTRICT src0,
-		const float * SPA_RESTRICT src1,
-		const float * SPA_RESTRICT src2,
-		uint32_t n_samples)
-{
-	uint32_t n, unrolled;
-
-	if (SPA_IS_ALIGNED(src0, 32) &&
-	    SPA_IS_ALIGNED(src1, 32) &&
-	    SPA_IS_ALIGNED(src2, 32) &&
-	    SPA_IS_ALIGNED(dst, 32))
-		unrolled = n_samples & ~15;
-	else
-		unrolled = 0;
-
-	for (n = 0; n < unrolled; n += 16) {
-		__m256 in1[4], in2[4];
-
-		in1[0] = _mm256_load_ps(&dst[n + 0]);
-		in2[0] = _mm256_load_ps(&dst[n + 8]);
-		in1[1] = _mm256_load_ps(&src0[n + 0]);
-		in2[1] = _mm256_load_ps(&src0[n + 8]);
-		in1[2] = _mm256_load_ps(&src1[n + 0]);
-		in2[2] = _mm256_load_ps(&src1[n + 8]);
-		in1[3] = _mm256_load_ps(&src2[n + 0]);
-		in2[3] = _mm256_load_ps(&src2[n + 8]);
-
-		in1[0] = _mm256_add_ps(in1[0], in1[1]);
-		in2[0] = _mm256_add_ps(in2[0], in2[1]);
-		in1[2] = _mm256_add_ps(in1[2], in1[3]);
-		in2[2] = _mm256_add_ps(in2[2], in2[3]);
-		in1[0] = _mm256_add_ps(in1[0], in1[2]);
-		in2[0] = _mm256_add_ps(in2[0], in2[2]);
-
-		_mm256_store_ps(&dst[n + 0], in1[0]);
-		_mm256_store_ps(&dst[n + 8], in2[0]);
-	}
-	for (; n < n_samples; n++) {
-		__m128 in[4];
-		in[0] = _mm_load_ss(&dst[n]),
-		in[1] = _mm_load_ss(&src0[n]),
-		in[2] = _mm_load_ss(&src1[n]),
-		in[3] = _mm_load_ss(&src2[n]),
-		in[0] = _mm_add_ss(in[0], in[1]);
-		in[2] = _mm_add_ss(in[2], in[3]);
-		in[0] = _mm_add_ss(in[0], in[2]);
-		_mm_store_ss(&dst[n], in[0]);
-	}
-}
-
-
-static inline void mix_2(float * dst, const float * SPA_RESTRICT src, uint32_t n_samples)
-{
-}
-
 void
 mix_f32_avx(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
 		uint32_t n_src, uint32_t n_samples)

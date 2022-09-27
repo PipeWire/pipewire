@@ -66,6 +66,7 @@ static inline double window_blackman(double x, double n_taps)
 		(alpha / 2.0) * cos(2.0 * x);
 	return r;
 }
+
 static inline double window_cosh(double x, double n_taps)
 {
 	double r;
@@ -80,7 +81,7 @@ static inline double window_cosh(double x, double n_taps)
 	return r;
 }
 
-#define window window_cosh
+#define window (1 ? window_cosh : window_blackman)
 
 static int build_filter(float *taps, uint32_t stride, uint32_t n_taps, uint32_t n_phases, double cutoff)
 {

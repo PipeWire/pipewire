@@ -97,7 +97,7 @@ have_cpp = add_languages('cpp', native: false, required : false)
 
 if have_cpp
   cxx = meson.get_compiler('cpp')
-  cxx_flags = common_flags
+  cxx_flags = common_flags + [ '-Wno-c99-designator' ]
   add_project_arguments(cxx.get_supported_arguments(cxx_flags), language: 'cpp')
 endif
 

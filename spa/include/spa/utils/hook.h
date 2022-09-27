@@ -166,7 +166,7 @@ struct spa_interface {
  *
  */
 #define SPA_INTERFACE_INIT(_type,_version,_funcs,_data) \
-	(struct spa_interface){ _type, _version, SPA_CALLBACKS_INIT(_funcs,_data), }
+	((struct spa_interface){ (_type), (_version), SPA_CALLBACKS_INIT(_funcs,_data), })
 
 /**
  * Invoke method named \a method in the \a callbacks.

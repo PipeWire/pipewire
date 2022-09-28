@@ -90,8 +90,8 @@ struct props {
 	struct volumes monitor;
 	unsigned int have_soft_volume:1;
 	unsigned int mix_disabled:1;
-	unsigned int resample_quality;
 	unsigned int resample_disabled:1;
+	unsigned int resample_quality;
 	double rate;
 };
 
@@ -105,10 +105,11 @@ static void props_reset(struct props *props)
 	init_volumes(&props->channel);
 	init_volumes(&props->soft);
 	init_volumes(&props->monitor);
+	props->have_soft_volume = false;
 	props->mix_disabled = false;
-	props->rate = 1.0;
-	props->resample_quality = RESAMPLE_DEFAULT_QUALITY;
 	props->resample_disabled = false;
+	props->resample_quality = RESAMPLE_DEFAULT_QUALITY;
+	props->rate = 1.0;
 }
 
 struct buffer {
@@ -835,6 +836,8 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 			snprintf(value, sizeof(value), "%s",
 					SPA_POD_VALUE(struct spa_pod_bool, pod) ?
 					"true" : "false");
+		} else if (spa_pod_is_none(pod)) {
+			spa_zero(value);
 		} else
 			continue;
 
@@ -2854,15 +2857,18 @@ impl_init(const struct spa_handle_factory *factory,
 		else if (spa_streq(k, "resample.peaks"))
 			this->resample_peaks = spa_atob(s);
 		else if (spa_streq(k, "resample.prefill"))
-			this->resample.options |= RESAMPLE_OPTION_PREFILL;
+			SPA_FLAG_UPDATE(this->resample.options,
+				RESAMPLE_OPTION_PREFILL, spa_atob(s));
 		else if (spa_streq(k, "factory.mode")) {
 			if (spa_streq(s, "merge"))
 				this->direction = SPA_DIRECTION_OUTPUT;
 			else
 				this->direction = SPA_DIRECTION_INPUT;
 		}
-		else if (spa_streq(k, SPA_KEY_AUDIO_POSITION))
-                        this->props.n_channels = parse_position(this->props.channel_map, s, strlen(s));
+		else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
+			if (s != NULL)
+	                        this->props.n_channels = parse_position(this->props.channel_map, s, strlen(s));
+		}
 		else
 			audioconvert_set_param(this, k, s);
 	}

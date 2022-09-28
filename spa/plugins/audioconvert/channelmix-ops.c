@@ -94,6 +94,9 @@ static const struct channelmix_info {
 	MAKE(8, MASK_7_1, 4, MASK_QUAD, channelmix_f32_7p1_4_c),
 	MAKE(8, MASK_7_1, 4, MASK_3_1, channelmix_f32_7p1_3p1_c),
 
+#if defined (HAVE_SSE)
+	MAKE(ANY, 0, ANY, 0, channelmix_f32_n_m_sse),
+#endif
 	MAKE(ANY, 0, ANY, 0, channelmix_f32_n_m_c),
 };
 #undef MAKE

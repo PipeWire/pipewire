@@ -78,6 +78,50 @@ void channelmix_copy_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],
 		vol_sse(d[i], s[i], mix->matrix[i][i], n_samples);
 }
 
+void
+channelmix_f32_n_m_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],
+		   const void * SPA_RESTRICT src[], uint32_t n_samples)
+{
+	float **d = (float **) dst;
+	const float **s = (const float **) src;
+	uint32_t n, unrolled;
+	uint32_t i, j, n_dst = mix->dst_chan, n_src = mix->src_chan;
+	__m128 mi[n_src], sum[2];
+	bool aligned = true;
+
+	for (j = 0; j < n_src; j++)
+		aligned &= SPA_IS_ALIGNED(s[j], 16);
+
+	for (i = 0; i < n_dst; i++) {
+		float *di = d[i];
+
+		for (j = 0; j < n_src; j++)
+			mi[j] = _mm_set1_ps(mix->matrix[i][j]);
+
+		if (aligned && SPA_IS_ALIGNED(d[i], 16))
+			unrolled = n_samples & ~7;
+		else
+			unrolled = 0;
+
+		for (n = 0; n < unrolled; n += 8) {
+			sum[0] = sum[1] = _mm_setzero_ps();
+			for (j = 0; j < n_src; j++) {
+				sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(_mm_load_ps(&s[j][n + 0]), mi[j]));
+				sum[1] = _mm_add_ps(sum[1], _mm_mul_ps(_mm_load_ps(&s[j][n + 4]), mi[j]));
+			}
+			_mm_store_ps(&di[n + 0], sum[0]);
+			_mm_store_ps(&di[n + 4], sum[1]);
+		}
+		for (; n < n_samples; n++) {
+			sum[0] = _mm_setzero_ps();
+			for (j = 0; j < n_src; j++)
+				sum[0] = _mm_add_ss(sum[0], _mm_mul_ss(_mm_load_ss(&s[j][n]), mi[j]));
+			_mm_store_ss(&di[n], sum[0]);
+		}
+		lr4_process(&mix->lr4[i], d[i], d[i], 1.0f, n_samples);
+	}
+}
+
 /* FL+FR+FC+LFE -> FL+FR */
 void
 channelmix_f32_3p1_2_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],

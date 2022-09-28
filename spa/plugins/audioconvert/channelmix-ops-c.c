@@ -94,16 +94,16 @@ channelmix_f32_n_m_c(struct channelmix *mix, void * SPA_RESTRICT dst[],
 			clear_c(d[i], n_samples);
 	}
 	else {
-		for (n = 0; n < n_samples; n++) {
-			for (i = 0; i < n_dst; i++) {
+		for (i = 0; i < n_dst; i++) {
+			float *mi = mix->matrix[i], *di = d[i];
+			for (n = 0; n < n_samples; n++) {
 				float sum = 0.0f;
 				for (j = 0; j < n_src; j++)
-					sum += s[j][n] * mix->matrix[i][j];
-				d[i][n] = sum;
+					sum += s[j][n] * mi[j];
+				di[n] = sum;
 			}
-		}
-		for (i = 0; i < n_dst; i++)
 			lr4_process(&mix->lr4[i], d[i], d[i], 1.0f, n_samples);
+		}
 	}
 }
 

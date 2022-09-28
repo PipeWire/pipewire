@@ -29,6 +29,7 @@
 #include "fmt-ops.h"
 #include "channelmix-ops.h"
 #include "resample.h"
+#include "wavfile.h"
 
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT log_topic
@@ -72,6 +73,7 @@ struct props {
 	unsigned int resample_disabled:1;
 	unsigned int resample_quality;
 	double rate;
+	char wav_path[512];
 };
 
 static void props_reset(struct props *props)
@@ -89,6 +91,7 @@ static void props_reset(struct props *props)
 	props->resample_disabled = false;
 	props->resample_quality = RESAMPLE_DEFAULT_QUALITY;
 	props->rate = 1.0;
+	spa_zero(props->wav_path);
 }
 
 struct buffer {
@@ -207,6 +210,8 @@ struct impl {
 	float *scratch;
 	float *tmp[2];
 	float *tmp_datas[2][MAX_PORTS];
+
+	struct wav_file *wav_file;
 };
 
 #define CHECK_PORT(this,d,p)		((p) < this->dir[d].n_ports)
@@ -637,6 +642,14 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
+		case 24:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_name, SPA_POD_String("debug.wav-path"),
+				SPA_PROP_INFO_description, SPA_POD_String("Path to WAV file"),
+				SPA_PROP_INFO_type, SPA_POD_String(p->wav_path),
+				SPA_PROP_INFO_params, SPA_POD_Bool(true));
+			break;
 		default:
 			return 0;
 		}
@@ -709,6 +722,8 @@ static int impl_node_enum_params(void *object, int seq,
 			spa_pod_builder_int(&b, this->dir[1].conv.noise_bits);
 			spa_pod_builder_string(&b, "dither.method");
 			spa_pod_builder_string(&b, dither_method_info[this->dir[1].conv.method].label);
+			spa_pod_builder_string(&b, "debug.wav-path");
+			spa_pod_builder_string(&b, p->wav_path);
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
 			break;
@@ -782,6 +797,10 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 		spa_atou32(s, &this->dir[1].conv.noise_bits, 0);
 	else if (spa_streq(k, "dither.method"))
 		this->dir[1].conv.method = dither_method_from_label(s);
+	else if (spa_streq(k, "debug.wav-path")) {
+		spa_scnprintf(this->props.wav_path,
+				sizeof(this->props.wav_path), "%s", s ? s : "");
+	}
 	else
 		return 0;
 	return 1;
@@ -2140,6 +2159,30 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	return 0;
 }
 
+static void handle_wav(struct impl *this, void **src, uint32_t n_samples)
+{
+	if (SPA_UNLIKELY(this->props.wav_path[0])) {
+		if (this->wav_file == NULL) {
+			struct wav_file_info info;
+
+			info.info = this->dir[this->direction].format;
+
+			this->wav_file = wav_file_open(this->props.wav_path,
+					"w", &info);
+			if (this->wav_file == NULL)
+				spa_log_warn(this->log, "can't open wav path: %m");
+		}
+		if (this->wav_file) {
+			wav_file_write(this->wav_file, src, n_samples);
+		} else {
+			spa_zero(this->props.wav_path);
+		}
+	} else if (this->wav_file != NULL) {
+		wav_file_close(this->wav_file);
+		this->wav_file = NULL;
+	}
+}
+
 static int channelmix_process_control(struct impl *this, struct port *ctrlport,
 				      void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 				      uint32_t n_samples)
@@ -2532,6 +2575,9 @@ static int impl_node_process(void *object)
 		dst_remap = (void **)dst_datas;
 	}
 
+	if (this->direction == SPA_DIRECTION_INPUT)
+		handle_wav(this, (void**)src_datas, n_samples);
+
 	dir = &this->dir[SPA_DIRECTION_INPUT];
 	if (!in_passthrough) {
 		if (mix_passthrough && resample_passthrough && out_passthrough)
@@ -2619,6 +2665,8 @@ static int impl_node_process(void *object)
 		spa_log_trace_fp(this->log, "%p: output convert %d", this, n_samples);
 		convert_process(&dir->conv, dst_datas, in_datas, n_samples);
 	}
+	if (this->direction == SPA_DIRECTION_OUTPUT)
+		handle_wav(this, dst_datas, n_samples);
 
 	spa_log_trace_fp(this->log, "%d/%d  %d/%d %d->%d", this->in_offset, max_in,
 			this->out_offset, max_out, n_samples, n_out);
@@ -2752,7 +2800,8 @@ static int impl_clear(struct spa_handle *handle)
 		convert_free(&this->dir[0].conv);
 	if (this->dir[1].conv.free)
 		convert_free(&this->dir[1].conv);
-
+	if (this->wav_file != NULL)
+		wav_file_close(this->wav_file);
 	return 0;
 }
 

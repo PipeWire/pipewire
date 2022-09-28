@@ -1,6 +1,7 @@
 audioconvert_sources = [
   'audioadapter.c',
   'audioconvert.c',
+  'wavfile.c',
   'plugin.c'
 ]
 

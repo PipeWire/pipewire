@@ -591,7 +591,7 @@ static inline void update_noise_sse2(struct convert *conv, uint32_t n_samples)
 	case DITHER_METHOD_RECTANGULAR:
 		for (n = 0; n < n_samples; n += 4) {
 			in[0] = _MM_XORSHIFT_EPI32(r);
-			out[0] = _mm_cvtepi32_ps(_MM_XORSHIFT_EPI32(r));
+			out[0] = _mm_cvtepi32_ps(in[0]);
 			out[0] = _mm_mul_ps(out[0], scale);
 			_mm_store_ps(&noise[n], out[0]);
 		}

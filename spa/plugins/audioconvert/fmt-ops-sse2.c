@@ -576,51 +576,88 @@ conv_f32d_to_s32_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 	i;						\
 })
 
-
-static inline void update_noise_sse2(struct convert *conv, uint32_t n_samples)
+static inline void update_noise_rect_sse2(struct convert *conv, uint32_t n_samples)
 {
 	uint32_t n;
 	const uint32_t *r = SPA_PTR_ALIGN(conv->random, 16, uint32_t);
-	int32_t *p = SPA_PTR_ALIGN(conv->prev, 16, int32_t), op;
-	__m128 scale = _mm_set1_ps(conv->scale);
-	__m128 out[1];
 	float *noise = SPA_PTR_ALIGN(conv->noise, 16, float);
-	__m128i in[1], old[1], new[1];
+	__m128 scale = _mm_set1_ps(conv->scale);
+	__m128i in[1];
+	__m128 out[1];
 
+	for (n = 0; n < n_samples; n += 4) {
+		in[0] = _MM_XORSHIFT_EPI32(r);
+		out[0] = _mm_cvtepi32_ps(in[0]);
+		out[0] = _mm_mul_ps(out[0], scale);
+		_mm_store_ps(&noise[n], out[0]);
+	}
+}
+
+static inline void update_noise_tri_sse2(struct convert *conv, uint32_t n_samples)
+{
+	uint32_t n;
+	const uint32_t *r = SPA_PTR_ALIGN(conv->random, 16, uint32_t);
+	float *noise = SPA_PTR_ALIGN(conv->noise, 16, float);
+	__m128 scale = _mm_set1_ps(conv->scale);
+	__m128i in[1];
+	__m128 out[1];
+
+	for (n = 0; n < n_samples; n += 4) {
+		in[0] = _mm_sub_epi32( _MM_XORSHIFT_EPI32(r), _MM_XORSHIFT_EPI32(r));
+		out[0] = _mm_cvtepi32_ps(in[0]);
+		out[0] = _mm_mul_ps(out[0], scale);
+		_mm_store_ps(&noise[n], out[0]);
+	}
+}
+
+static inline void update_noise_tri_hf_sse2(struct convert *conv, uint32_t n_samples)
+{
+	uint32_t n;
+	int32_t *p = SPA_PTR_ALIGN(conv->prev, 16, int32_t);
+	const uint32_t *r = SPA_PTR_ALIGN(conv->random, 16, uint32_t);
+	float *noise = SPA_PTR_ALIGN(conv->noise, 16, float);
+	__m128 scale = _mm_set1_ps(conv->scale);
+	__m128i in[1], old[1], new[1];
+	__m128 out[1];
+
+	old[0] = _mm_load_si128((__m128i*)p);
+	for (n = 0; n < n_samples; n += 4) {
+		new[0] = _MM_XORSHIFT_EPI32(r);
+		in[0] = _mm_sub_epi32(old[0], new[0]);
+		old[0] = new[0];
+		out[0] = _mm_cvtepi32_ps(in[0]);
+		out[0] = _mm_mul_ps(out[0], scale);
+		_mm_store_ps(&noise[n], out[0]);
+	}
+	_mm_store_si128((__m128i*)p, old[0]);
+}
+
+static inline void update_noise_pattern_sse2(struct convert *conv, uint32_t n_samples)
+{
+	uint32_t n;
+	int32_t *p = SPA_PTR_ALIGN(conv->prev, 16, int32_t), op;
+	float *noise = SPA_PTR_ALIGN(conv->noise, 16, float);
+
+	op = *p;
+	for (n = 0; n < n_samples; n++)
+		noise[n] = conv->scale * (1-((op++>>10)&1));
+	*p = op;
+}
+
+static inline void update_noise_sse2(struct convert *conv, uint32_t n_samples)
+{
 	switch (conv->noise_method) {
 	case DITHER_METHOD_RECTANGULAR:
-		for (n = 0; n < n_samples; n += 4) {
-			in[0] = _MM_XORSHIFT_EPI32(r);
-			out[0] = _mm_cvtepi32_ps(in[0]);
-			out[0] = _mm_mul_ps(out[0], scale);
-			_mm_store_ps(&noise[n], out[0]);
-		}
+		update_noise_rect_sse2(conv, n_samples);
 		break;
 	case DITHER_METHOD_TRIANGULAR:
-		for (n = 0; n < n_samples; n += 4) {
-			in[0] = _mm_sub_epi32( _MM_XORSHIFT_EPI32(r), _MM_XORSHIFT_EPI32(r));
-			out[0] = _mm_cvtepi32_ps(in[0]);
-			out[0] = _mm_mul_ps(out[0], scale);
-			_mm_store_ps(&noise[n], out[0]);
-		}
+		update_noise_tri_sse2(conv, n_samples);
 		break;
 	case DITHER_METHOD_TRIANGULAR_HF:
-		old[0] = _mm_load_si128((__m128i*)p);
-		for (n = 0; n < n_samples; n += 4) {
-			new[0] = _MM_XORSHIFT_EPI32(r);
-			in[0] = _mm_sub_epi32(old[0], new[0]);
-			old[0] = new[0];
-			out[0] = _mm_cvtepi32_ps(in[0]);
-			out[0] = _mm_mul_ps(out[0], scale);
-			_mm_store_ps(&noise[n], out[0]);
-		}
-		_mm_store_si128((__m128i*)p, old[0]);
+		update_noise_tri_hf_sse2(conv, n_samples);
 		break;
 	case NOISE_METHOD_PATTERN:
-		op = *p;
-		for (n = 0; n < n_samples; n++)
-			noise[n] = conv->scale * (1-((op++>>10)&1));
-		*p = op;
+		update_noise_pattern_sse2(conv, n_samples);
 		break;
 	}
 }

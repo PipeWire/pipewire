@@ -71,7 +71,7 @@ static void test_mix(uint32_t src_chan, uint32_t src_mask, uint32_t dst_chan, ui
 	mix.dst_mask = dst_mask;
 	mix.log = &logger.log;
 
-	spa_assert(channelmix_init(&mix) == 0);
+	spa_assert_se(channelmix_init(&mix) == 0);
 	channelmix_set_volume(&mix, 1.0f, false, 0, NULL);
 	dump_matrix(&mix, coeff);
 }
@@ -246,7 +246,7 @@ static void run_n_m_impl(struct channelmix *mix, const void **src, uint32_t n_sa
 		channelmix_f32_n_m_sse(mix, dst_x, src, n_samples);
 		for (i = 0; i < mix->dst_chan; i++) {
 			for (j = 0; j < n_samples; j++) {
-				spa_assert(dst_c_data[i][j] == dst_x_data[i][j]);
+				spa_assert_se(dst_c_data[i][j] == dst_x_data[i][j]);
 			}
 		}
 	}
@@ -273,7 +273,7 @@ static void test_n_m_impl(void)
 	mix.dst_chan = 12;
 	mix.log = &logger.log;
 	mix.cpu_flags = cpu_flags;
-	spa_assert(channelmix_init(&mix) == 0);
+	spa_assert_se(channelmix_init(&mix) == 0);
 	channelmix_set_volume(&mix, 1.0f, false, 0, NULL);
 
 	/* identity matrix */

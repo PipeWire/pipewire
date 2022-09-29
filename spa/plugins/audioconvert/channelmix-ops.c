@@ -483,6 +483,8 @@ done:
 		for (jc = 0, j = 0; j < SPA_AUDIO_MAX_CHANNELS; j++) {
 			if ((src_mask & (1UL << j)) == 0)
 				continue;
+			if (ic >= dst_chan || jc >= src_chan)
+				continue;
 			mix->matrix_orig[ic][jc++] = matrix[i][j];
 			sum += fabs(matrix[i][j]);
 		}
@@ -501,11 +503,10 @@ done:
 	if (SPA_FLAG_IS_SET(mix->options, CHANNELMIX_OPTION_NORMALIZE) &&
 	    maxsum > 1.0f) {
 		spa_log_debug(mix->log, "normalize %f", maxsum);
-		for (i = 0; i < ic; i++)
-			for (j = 0; j < jc; j++)
+		for (i = 0; i < dst_chan; i++)
+			for (j = 0; j < src_chan; j++)
 		                mix->matrix_orig[i][j] /= maxsum;
 	}
-
 	return 0;
 }
 

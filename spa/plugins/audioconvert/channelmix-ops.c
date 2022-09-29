@@ -540,6 +540,12 @@ static void impl_channelmix_set_volume(struct channelmix *mix, float volume, boo
 				mix->matrix[i][j] = mix->matrix_orig[i][j] * volumes[i];
 			}
 		}
+	} else {
+		for (i = 0; i < dst_chan; i++) {
+			for (j = 0; j < src_chan; j++) {
+				mix->matrix[i][j] = mix->matrix_orig[i][j] * vol;
+			}
+		}
 	}
 
 	SPA_FLAG_SET(mix->flags, CHANNELMIX_FLAG_ZERO);

@@ -43,6 +43,8 @@ SPA_LOG_IMPL(logger);
 #include "test-helper.h"
 #include "channelmix-ops.c"
 
+#define CLOSE_ENOUGH(a,b)	(fabs((a)-(b)) < 0.000001f)
+
 static void dump_matrix(struct channelmix *mix, float *coeff)
 {
 	uint32_t i, j;
@@ -51,7 +53,7 @@ static void dump_matrix(struct channelmix *mix, float *coeff)
 		for (j = 0; j < mix->src_chan; j++) {
 			float v = mix->matrix[i][j];
 			spa_log_debug(mix->log, "%d %d: %f <-> %f", i, j, v, *coeff);
-			spa_assert_se(fabs(v - *coeff) < 0.000001);
+			spa_assert_se(CLOSE_ENOUGH(v, *coeff));
 			coeff++;
 		}
 	}
@@ -246,7 +248,7 @@ static void run_n_m_impl(struct channelmix *mix, const void **src, uint32_t n_sa
 		channelmix_f32_n_m_sse(mix, dst_x, src, n_samples);
 		for (i = 0; i < mix->dst_chan; i++) {
 			for (j = 0; j < n_samples; j++) {
-				spa_assert_se(dst_c_data[i][j] == dst_x_data[i][j]);
+				spa_assert_se(CLOSE_ENOUGH(dst_c_data[i][j], dst_x_data[i][j]));
 			}
 		}
 	}

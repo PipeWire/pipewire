@@ -34,11 +34,11 @@ msgstr ""
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr "Sistema Multimediale PipeWire"
+msgstr "Sistema multimediale PipeWire"
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr "Avvia il Sistema Multimediale PipeWire"
+msgstr "Avvia il sistema multimediale PipeWire"
 
 #: src/examples/media-session/alsa-monitor.c:526
 #: spa/plugins/alsa/acp/compat.c:187
@@ -144,16 +144,16 @@ msgstr "Ingresso docking station"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2711
 msgid "Docking Station Microphone"
-msgstr "Microfono docking station"
+msgstr "Microfono della docking station"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2712
 msgid "Docking Station Line In"
-msgstr "Linea in docking station"
+msgstr "Linea di ingresso nella docking station"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2713
 #: spa/plugins/alsa/acp/alsa-mixer.c:2804
 msgid "Line In"
-msgstr "Line-In"
+msgstr "Linea di ingresso"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2714
 #: spa/plugins/alsa/acp/alsa-mixer.c:2798
@@ -258,7 +258,7 @@ msgstr "Uscita mono cuffie"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2811
 msgid "Line Out"
-msgstr "Line-Out"
+msgstr "Linea di uscita"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2812
 msgid "Analog Mono Output"
@@ -350,7 +350,7 @@ msgstr "Vivavoce"
 #: spa/plugins/alsa/acp/alsa-mixer.c:4542
 #: spa/plugins/alsa/acp/alsa-mixer.c:4543
 msgid "Multichannel"
-msgstr "Multi canale"
+msgstr "Multicanale"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4544
 msgid "Analog Surround 2.1"
@@ -442,7 +442,7 @@ msgstr "Duplex stereo digitale (IEC958)"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4701
 msgid "Multichannel Duplex"
-msgstr "Duplex multi canale"
+msgstr "Duplex multicanale"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4702
 msgid "Stereo Duplex"
@@ -477,11 +477,11 @@ msgid_plural ""
 msgstr[0] ""
 "snd_pcm_avail() ha restituito un valore molto grande: %lu byte (%lu ms).\n"
 "Molto probabilmente si tratta di un bug nel driver ALSA «%s». Segnalare "
-"questo problema agli sviluppatori ALSA."
+"questo problema ai suoi sviluppatori."
 msgstr[1] ""
 "snd_pcm_avail() ha restituito un valore molto grande: %lu byte (%lu ms).\n"
 "Molto probabilmente si tratta di un bug nel driver ALSA «%s». Segnalare "
-"questo problema agli sviluppatori ALSA."
+"questo problema ai suoi sviluppatori."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1241
 #, c-format
@@ -498,11 +498,11 @@ msgid_plural ""
 msgstr[0] ""
 "snd_pcm_delay() ha restituito un valore molto grande: %li byte (%s%lu ms).\n"
 "Molto probabilmente si tratta di un bug nel driver ALSA «%s». Segnalare "
-"questo problema agli sviluppatori ALSA."
+"questo problema ai suoi sviluppatori."
 msgstr[1] ""
 "snd_pcm_delay() ha restituito un valore molto grande: %li byte (%s%lu ms).\n"
 "Molto probabilmente si tratta di un bug nel driver ALSA «%s». Segnalare "
-"questo problema agli sviluppatori ALSA."
+"questo problema ai suoi sviluppatori."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1288
 #, c-format
@@ -515,7 +515,7 @@ msgstr ""
 "snd_pcm_avail() ha restituito dei valori strani: delay %lu è minore di avail "
 "%lu.\n"
 "Molto probabilmente si tratta di un bug nel driver ALSA «%s». Segnalare "
-"questo problema agli sviluppatori ALSA."
+"questo problema ai suoi sviluppatori."
 
 #: spa/plugins/alsa/acp/alsa-util.c:1331
 #, c-format
@@ -533,12 +533,12 @@ msgstr[0] ""
 "snd_pcm_mmap_begin() ha restituito un valore molto grande: %lu byte (%lu "
 "ms).\n"
 "Molto probabilmente si tratta di un bug nel driver ALSA «%s». Segnalare "
-"questo problema agli sviluppatori ALSA."
+"questo problema ai suoi sviluppatori."
 msgstr[1] ""
 "snd_pcm_mmap_begin() ha restituito un valore molto grande: %lu byte (%lu "
 "ms).\n"
 "Molto probabilmente si tratta di un bug nel driver ALSA «%s». Segnalare "
-"questo problema agli sviluppatori ALSA."
+"questo problema ai suoi sviluppatori."
 
 #: spa/plugins/bluez5/bluez5-device.c:1010
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
@@ -547,20 +547,20 @@ msgstr "Gateway Audio (Sorgente A2DP & HSP/HFP AG)"
 #: spa/plugins/bluez5/bluez5-device.c:1033
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
-msgstr "Riproduzione ad Alta Fedeltà (A2DP Sink, codec %s)"
+msgstr "Riproduzione ad alta fedeltà (A2DP Sink, codec %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1035
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
-msgstr "Duplex ad Alta Fedeltà (Sorgente/Sink, A2DP codec %s)"
+msgstr "Duplex ad alta fedeltà (Sorgente/Sink, A2DP codec %s)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1041
 msgid "High Fidelity Playback (A2DP Sink)"
-msgstr "Riproduzione ad Alta Fedeltà (A2DP Sink)"
+msgstr "Riproduzione ad alta fedeltà (A2DP Sink)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1043
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
-msgstr "Duplex ad Alta Fedeltà (A2DP Source/Sink)"
+msgstr "Duplex ad alta fedeltà (A2DP Source/Sink)"
 
 #: spa/plugins/bluez5/bluez5-device.c:1070
 #, c-format
@@ -573,7 +573,7 @@ msgstr ""
 
 #: spa/plugins/bluez5/bluez5-device.c:1140
 msgid "Handsfree"
-msgstr "Sistema mani-libere"
+msgstr "Vivavoce"
 
 #: spa/plugins/bluez5/bluez5-device.c:1155
 msgid "Headphone"

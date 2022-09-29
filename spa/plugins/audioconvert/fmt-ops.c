@@ -32,7 +32,8 @@
 
 #include "fmt-ops.h"
 
-#define DITHER_SIZE	(1<<10)
+#define NOISE_SIZE	(1<<10)
+#define RANDOM_SIZE	(16)
 
 typedef void (*convert_func_t) (struct convert *conv, void * SPA_RESTRICT dst[],
 		const void * SPA_RESTRICT src[], uint32_t n_samples);
@@ -359,7 +360,6 @@ static const struct conv_info *find_conv_info(uint32_t src_fmt, uint32_t dst_fmt
 		uint32_t n_channels, uint32_t cpu_flags, uint32_t conv_flags)
 {
 	size_t i;
-
 	for (i = 0; i < SPA_N_ELEMENTS(conv_table); i++) {
 		if (conv_table[i].src_fmt == src_fmt &&
 		    conv_table[i].dst_fmt == dst_fmt &&
@@ -371,11 +371,52 @@ static const struct conv_info *find_conv_info(uint32_t src_fmt, uint32_t dst_fmt
 	return NULL;
 }
 
+typedef void (*noise_func_t) (struct convert *conv, float * noise, uint32_t n_samples);
+
+struct noise_info {
+	uint32_t method;
+
+	noise_func_t noise;
+	const char *name;
+
+	uint32_t cpu_flags;
+};
+
+#define MAKE(method,func,...) \
+	{  NOISE_METHOD_ ##method, func, #func , __VA_ARGS__ }
+
+static struct noise_info noise_table[] =
+{
+#if defined (HAVE_SSE2)
+	MAKE(RECTANGULAR, conv_noise_rect_sse2, SPA_CPU_FLAG_SSE2),
+	MAKE(TRIANGULAR, conv_noise_tri_sse2, SPA_CPU_FLAG_SSE2),
+	MAKE(TRIANGULAR_HF, conv_noise_tri_hf_sse2, SPA_CPU_FLAG_SSE2),
+#endif
+	MAKE(NONE, conv_noise_none_c),
+	MAKE(RECTANGULAR, conv_noise_rect_c),
+	MAKE(TRIANGULAR, conv_noise_tri_c),
+	MAKE(TRIANGULAR_HF, conv_noise_tri_hf_c),
+	MAKE(PATTERN, conv_noise_pattern_c),
+};
+#undef MAKE
+
+static const struct noise_info *find_noise_info(uint32_t method,
+		uint32_t cpu_flags)
+{
+	size_t i;
+	for (i = 0; i < SPA_N_ELEMENTS(noise_table); i++) {
+		if (noise_table[i].method == method &&
+		    MATCH_CPU_FLAGS(noise_table[i].cpu_flags, cpu_flags))
+			return &noise_table[i];
+	}
+	return NULL;
+}
+
 static void impl_convert_free(struct convert *conv)
 {
 	conv->process = NULL;
-	free(conv->noise);
-	conv->noise = NULL;
+	free(conv->data);
+	conv->data = NULL;
 }
 
 static bool need_dither(uint32_t format)
@@ -449,7 +490,8 @@ int convert_init(struct convert *conv)
 {
 	const struct conv_info *info;
 	const struct dither_info *dinfo;
-	uint32_t i, conv_flags;
+	const struct noise_info *ninfo;
+	uint32_t i, conv_flags, data_size[3];
 
 	conv->scale = 1.0f / (float)(INT32_MAX);
 
@@ -494,17 +536,31 @@ int convert_init(struct convert *conv)
 	if (info == NULL)
 		return -ENOTSUP;
 
-	conv->noise_size = DITHER_SIZE;
-	conv->noise = calloc(conv->noise_size + 16 +
-			FMT_OPS_MAX_ALIGN / sizeof(float), sizeof(float));
-	if (conv->noise == NULL)
+	ninfo = find_noise_info(conv->noise_method, conv->cpu_flags);
+	if (ninfo == NULL)
+		return -ENOTSUP;
+
+	conv->noise_size = NOISE_SIZE;
+
+	data_size[0] = SPA_ROUND_UP(conv->noise_size * sizeof(float), FMT_OPS_MAX_ALIGN);
+	data_size[1] = SPA_ROUND_UP(RANDOM_SIZE * sizeof(uint32_t), FMT_OPS_MAX_ALIGN);
+	data_size[2] = SPA_ROUND_UP(RANDOM_SIZE * sizeof(int32_t), FMT_OPS_MAX_ALIGN);
+
+	conv->data = calloc(FMT_OPS_MAX_ALIGN +
+			data_size[0] + data_size[1] + data_size[2], 1);
+	if (conv->data == NULL)
 		return -errno;
 
-	for (i = 0; i < SPA_N_ELEMENTS(conv->random); i++)
+	conv->noise = SPA_PTR_ALIGN(conv->data, FMT_OPS_MAX_ALIGN, float);
+	conv->random = SPA_PTROFF(conv->noise, data_size[0], uint32_t);
+	conv->prev = SPA_PTROFF(conv->random, data_size[1], int32_t);
+
+	for (i = 0; i < RANDOM_SIZE; i++)
 		conv->random[i] = random();
 
 	conv->is_passthrough = conv->src_fmt == conv->dst_fmt;
 	conv->cpu_flags = info->cpu_flags;
+	conv->update_noise = ninfo->noise;
 	conv->process = info->process;
 	conv->free = impl_convert_free;
 	conv->func_name = info->name;

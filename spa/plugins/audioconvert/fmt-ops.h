@@ -226,8 +226,8 @@ struct convert {
 	unsigned int is_passthrough:1;
 
 	float scale;
-	uint32_t random[16 + FMT_OPS_MAX_ALIGN/4];
-	int32_t prev[16 + FMT_OPS_MAX_ALIGN/4];
+	uint32_t *random;
+	int32_t *prev;
 #define NOISE_METHOD_NONE		0
 #define NOISE_METHOD_RECTANGULAR	1
 #define NOISE_METHOD_TRIANGULAR		2
@@ -240,9 +240,12 @@ struct convert {
 	uint32_t n_ns;
 	struct shaper shaper[64];
 
+	void (*update_noise) (struct convert *conv, float *noise, uint32_t n_samples);
 	void (*process) (struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 			uint32_t n_samples);
 	void (*free) (struct convert *conv);
+
+	void *data;
 };
 
 int convert_init(struct convert *conv);
@@ -276,12 +279,30 @@ static inline uint32_t dither_method_from_label(const char *label)
 	return DITHER_METHOD_NONE;
 }
 
+#define convert_update_noise(conv,...)	(conv)->update_noise(conv, __VA_ARGS__)
 #define convert_process(conv,...)	(conv)->process(conv, __VA_ARGS__)
 #define convert_free(conv)		(conv)->free(conv)
 
-#define DEFINE_FUNCTION(name,arch) \
+#define DEFINE_NOISE_FUNCTION(name,arch)				\
+void conv_noise_##name##_##arch(struct convert *conv, float *noise,	\
+					uint32_t n_samples)
+
+DEFINE_NOISE_FUNCTION(none, c);
+DEFINE_NOISE_FUNCTION(rect, c);
+DEFINE_NOISE_FUNCTION(tri, c);
+DEFINE_NOISE_FUNCTION(tri_hf, c);
+DEFINE_NOISE_FUNCTION(pattern, c);
+#if defined(HAVE_SSE2)
+DEFINE_NOISE_FUNCTION(rect, sse2);
+DEFINE_NOISE_FUNCTION(tri, sse2);
+DEFINE_NOISE_FUNCTION(tri_hf, sse2);
+#endif
+
+#undef DEFINE_NOISE_FUNCTION
+
+#define DEFINE_FUNCTION(name,arch)						\
 void conv_##name##_##arch(struct convert *conv, void * SPA_RESTRICT dst[],	\
-		const void * SPA_RESTRICT src[], uint32_t n_samples)		\
+		const void * SPA_RESTRICT src[], uint32_t n_samples)
 
 DEFINE_FUNCTION(copy8d, c);
 DEFINE_FUNCTION(copy8, c);

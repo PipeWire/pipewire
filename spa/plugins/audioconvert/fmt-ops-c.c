@@ -230,38 +230,57 @@ lcnoise(uint32_t *state)
         return (int32_t)(*state);
 }
 
-static inline void update_noise_c(struct convert *conv, uint32_t n_samples)
+void conv_noise_none_c(struct convert *conv, float *noise, uint32_t n_samples)
+{
+	memset(noise, 0, n_samples * sizeof(float));
+}
+
+void conv_noise_rect_c(struct convert *conv, float *noise, uint32_t n_samples)
 {
 	uint32_t n;
-	float *noise = conv->noise, scale = conv->scale;
+	uint32_t *state = &conv->random[0];
+	const float scale = conv->scale;
+
+	for (n = 0; n < n_samples; n++)
+		noise[n] = lcnoise(state) * scale;
+}
+
+void conv_noise_tri_c(struct convert *conv, float *noise, uint32_t n_samples)
+{
+	uint32_t n;
+	const float scale = conv->scale;
+	uint32_t *state = &conv->random[0];
+
+	for (n = 0; n < n_samples; n++)
+		noise[n] = (lcnoise(state) - lcnoise(state)) * scale;
+}
+
+void conv_noise_tri_hf_c(struct convert *conv, float *noise, uint32_t n_samples)
+{
+	uint32_t n;
+	const float scale = conv->scale;
 	uint32_t *state = &conv->random[0];
 	int32_t *prev = &conv->prev[0], old, new;
 
-	switch (conv->noise_method) {
-	case NOISE_METHOD_RECTANGULAR:
-		for (n = 0; n < n_samples; n++)
-			noise[n] = lcnoise(state) * scale;
-		break;
-	case NOISE_METHOD_TRIANGULAR:
-		for (n = 0; n < n_samples; n++)
-			noise[n] = (lcnoise(state) - lcnoise(state)) * scale;
-		break;
-	case NOISE_METHOD_TRIANGULAR_HF:
-		old = *prev;
-		for (n = 0; n < n_samples; n++) {
-			new = lcnoise(state);
-			noise[n] = (new - old) * scale;
-			old = new;
-		}
-		*prev = old;
-		break;
-	case NOISE_METHOD_PATTERN:
-		old = *prev;
-		for (n = 0; n < n_samples; n++)
-			noise[n] = conv->scale * (1-((old++>>10)&1));
-		*prev = old;
-		break;
+	old = *prev;
+	for (n = 0; n < n_samples; n++) {
+		new = lcnoise(state);
+		noise[n] = (new - old) * scale;
+		old = new;
 	}
+	*prev = old;
+}
+
+void conv_noise_pattern_c(struct convert *conv, float *noise, uint32_t n_samples)
+{
+	uint32_t n;
+	const float scale = conv->scale;
+	int32_t *prev = &conv->prev[0], old;
+
+	old = *prev;
+	for (n = 0; n < n_samples; n++)
+		noise[n] = scale * (1-((old++>>10)&1));
+	*prev = old;
 }
 
 #define MAKE_D_noise(dname,dtype,func)						\
@@ -271,7 +290,7 @@ void conv_f32d_to_ ##dname## d_noise_c(struct convert *conv,			\
 {										\
 	uint32_t i, j, k, chunk, n_channels = conv->n_channels, noise_size = conv->noise_size;	\
 	float *noise = conv->noise;						\
-	update_noise_c(conv, SPA_MIN(n_samples, noise_size));			\
+	convert_update_noise(conv, noise, SPA_MIN(n_samples, noise_size));	\
 	for (i = 0; i < n_channels; i++) {					\
 		const float *s = src[i];					\
 		dtype *d = dst[i];						\
@@ -292,7 +311,7 @@ void conv_f32d_to_ ##dname## _noise_c(struct convert *conv,			\
 	dtype *d = dst[0];							\
 	uint32_t i, j, k, chunk, n_channels = conv->n_channels, noise_size = conv->noise_size;	\
 	float *noise = conv->noise;						\
-	update_noise_c(conv, SPA_MIN(n_samples, noise_size));			\
+	convert_update_noise(conv, noise, SPA_MIN(n_samples, noise_size));	\
 	for (j = 0; j < n_samples;) {						\
 		chunk = SPA_MIN(n_samples - j, noise_size);			\
 		for (k = 0; k < chunk; k++, j++) {				\
@@ -342,9 +361,10 @@ void conv_f32d_to_ ##dname## d_shaped_c(struct convert *conv,			\
                 uint32_t n_samples)						\
 {										\
 	uint32_t i, j, k, chunk, n_channels = conv->n_channels, noise_size = conv->noise_size;	\
-	const float *noise = conv->noise, *ns = conv->ns;			\
+	float *noise = conv->noise;						\
+	const float *ns = conv->ns;						\
 	uint32_t n, n_ns = conv->n_ns;						\
-	update_noise_c(conv, SPA_MIN(n_samples, noise_size));			\
+	convert_update_noise(conv, noise, SPA_MIN(n_samples, noise_size));	\
 	for (i = 0; i < n_channels; i++) {					\
 		const float *s = src[i];					\
 		dtype *d = dst[i];						\
@@ -366,9 +386,10 @@ void conv_f32d_to_ ##dname## _shaped_c(struct convert *conv,			\
 {										\
 	dtype *d0 = dst[0];							\
 	uint32_t i, j, k, chunk, n_channels = conv->n_channels, noise_size = conv->noise_size;	\
-	const float *noise = conv->noise, *ns = conv->ns;			\
+	float *noise = conv->noise;						\
+	const float *ns = conv->ns;						\
 	uint32_t n, n_ns = conv->n_ns;						\
-	update_noise_c(conv, SPA_MIN(n_samples, noise_size));			\
+	convert_update_noise(conv, noise, SPA_MIN(n_samples, noise_size));	\
 	for (i = 0; i < n_channels; i++) {					\
 		const float *s = src[i];					\
 		dtype *d = &d0[i];						\

@@ -38,10 +38,9 @@ static uint64_t parse_quirks(const char *str)
 		{ "force-s16-info", QUIRK_FORCE_S16_FORMAT },
 		{ "remove-capture-dont-move", QUIRK_REMOVE_CAPTURE_DONT_MOVE },
 	};
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(quirk_keys); ++i) {
-		if (spa_streq(str, quirk_keys[i].key))
-			return quirk_keys[i].value;
+	SPA_FOR_EACH_ELEMENT_VAR(quirk_keys, i) {
+		if (spa_streq(str, i->key))
+			return i->value;
 	}
 	return 0;
 }

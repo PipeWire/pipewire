@@ -345,11 +345,10 @@ static const struct msg_info msg_info[] = {
 
 static inline const struct msg_info *find_msg_info(uint16_t type, const char *name)
 {
-	uint32_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(msg_info); i++) {
-		if ((name == NULL && type == msg_info[i].type) ||
-		    (name != NULL && spa_streq(name, msg_info[i].name)))
-			return &msg_info[i];
+	SPA_FOR_EACH_ELEMENT_VAR(msg_info, i) {
+		if ((name == NULL && type == i->type) ||
+		    (name != NULL && spa_streq(name, i->name)))
+			return i;
 	}
 	return NULL;
 }

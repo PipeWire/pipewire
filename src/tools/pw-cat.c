@@ -174,20 +174,18 @@ static const struct format_info {
 
 static const struct format_info *format_info_by_name(const char *str)
 {
-	uint32_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++)
-		if (spa_streq(str, format_info[i].name))
-			return &format_info[i];
+	SPA_FOR_EACH_ELEMENT_VAR(format_info, i)
+		if (spa_streq(str, i->name))
+			return i;
 	return NULL;
 }
 
 static const struct format_info *format_info_by_sf_format(int format)
 {
-	uint32_t i;
 	int sub_type = (format & SF_FORMAT_SUBMASK);
-	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++)
-		if (format_info[i].sf_format == sub_type)
-			return &format_info[i];
+	SPA_FOR_EACH_ELEMENT_VAR(format_info, i)
+		if (i->sf_format == sub_type)
+			return i;
 	return NULL;
 }
 
@@ -431,10 +429,10 @@ static int parse_channelmap(const char *channel_map, struct channelmap *map)
 	int i, nch;
 	char **ch;
 
-	for (i = 0; i < (int) SPA_N_ELEMENTS(maps); i++) {
-		if (spa_streq(maps[i].name, channel_map)) {
-			map->n_channels = maps[i].channels;
-			spa_memcpy(map->channels, &maps[i].values,
+	SPA_FOR_EACH_ELEMENT_VAR(maps, m) {
+		if (spa_streq(m->name, channel_map)) {
+			map->n_channels = m->channels;
+			spa_memcpy(map->channels, &m->values,
 					map->n_channels * sizeof(unsigned int));
 			return 0;
 		}
@@ -1589,17 +1587,16 @@ int main(int argc, char *argv[])
 	case TYPE_DSD:
 	{
 		struct spa_audio_info_dsd info;
-		size_t i;
 
 		spa_zero(info);
 		info.channels = data.dsf.info.channels;
 		info.rate = data.dsf.info.rate / 8;
 
-		for (i = 0; i < SPA_N_ELEMENTS(dsd_layouts); i++) {
-			if (dsd_layouts[i].type != data.dsf.info.channel_type)
+		SPA_FOR_EACH_ELEMENT_VAR(dsd_layouts, i) {
+			if (i->type != data.dsf.info.channel_type)
 				continue;
-			info.channels = dsd_layouts[i].info.n_channels;
-			memcpy(info.position, dsd_layouts[i].info.position,
+			info.channels = i->info.n_channels;
+			memcpy(info.position, i->info.position,
 					info.channels * sizeof(uint32_t));
 		}
 		params[0] = spa_format_audio_dsd_build(&b, SPA_PARAM_EnumFormat, &info);

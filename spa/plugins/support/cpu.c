@@ -171,19 +171,18 @@ impl_cpu_get_vm_type(void *object)
 		/* https://wiki.freebsd.org/bhyve */
 		{ "BHYVE",		SPA_CPU_VM_BHYVE },
         };
-	uint32_t i, j;
 
-	for (i = 0; i < SPA_N_ELEMENTS(dmi_vendors); i++) {
+	SPA_FOR_EACH_ELEMENT_VAR(dmi_vendors, dv) {
 		char buffer[256], *s;
 
-		if ((s = read_file(dmi_vendors[i], buffer, sizeof(buffer))) == NULL)
+		if ((s = read_file(*dv, buffer, sizeof(buffer))) == NULL)
 			continue;
 
-		for (j = 0; j < SPA_N_ELEMENTS(dmi_vendor_table); j++) {
-			if (spa_strstartswith(s, dmi_vendor_table[j].vendor)) {
+		SPA_FOR_EACH_ELEMENT_VAR(dmi_vendor_table, t) {
+			if (spa_strstartswith(s, t->vendor)) {
 				spa_log_debug(impl->log, "Virtualization %s found in DMI (%s)",
-						s, dmi_vendors[i]);
-				impl->vm_type = dmi_vendor_table[j].id;
+						s, *dv);
+				impl->vm_type = t->id;
 				goto done;
                         }
 		}

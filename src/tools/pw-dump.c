@@ -1241,11 +1241,10 @@ static const struct class *classes[] =
 
 static const struct class *find_class(const char *type, uint32_t version)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(classes); i++) {
-		if (spa_streq(classes[i]->type, type) &&
-		    classes[i]->version <= version)
-			return classes[i];
+	SPA_FOR_EACH_ELEMENT_VAR(classes, c) {
+		if (spa_streq((*c)->type, type) &&
+		    (*c)->version <= version)
+			return *c;
 	}
 	return NULL;
 }

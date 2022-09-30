@@ -88,10 +88,9 @@ static enum spa_bt_feature parse_feature(const char *str)
 		{ "faststream", SPA_BT_FEATURE_FASTSTREAM },
 		{ "a2dp-duplex", SPA_BT_FEATURE_A2DP_DUPLEX },
 	};
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(feature_keys); ++i) {
-		if (spa_streq(str, feature_keys[i].key))
-			return feature_keys[i].value;
+	SPA_FOR_EACH_ELEMENT_VAR(feature_keys, f) {
+		if (spa_streq(str, f->key))
+			return f->value;
 	}
 	return 0;
 }

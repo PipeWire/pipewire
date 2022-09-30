@@ -250,11 +250,10 @@ static const struct cmd_info cmd_info[] = {
 
 static inline const struct cmd_info *find_cmd_info(uint16_t type, const char *name)
 {
-	uint32_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(cmd_info); i++) {
-		if ((name == NULL && type == cmd_info[i].type) ||
-		    (name != NULL && spa_streq(name, cmd_info[i].name)))
-			return &cmd_info[i];
+	SPA_FOR_EACH_ELEMENT_VAR(cmd_info, i) {
+		if ((name == NULL && type == i->type) ||
+		    (name != NULL && spa_streq(name, i->name)))
+			return i;
 	}
 	return NULL;
 }

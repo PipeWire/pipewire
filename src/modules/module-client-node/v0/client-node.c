@@ -1333,13 +1333,12 @@ static void convert_properties(struct pw_properties *properties)
 		{ "pipewire.target.node", PW_KEY_NODE_TARGET, }
 	};
 
-	uint32_t i;
 	const char *str;
 
-	for(i = 0; i < SPA_N_ELEMENTS(props); i++) {
-		if ((str = pw_properties_get(properties, props[i].from)) != NULL) {
-			pw_properties_set(properties, props[i].to, str);
-			pw_properties_set(properties, props[i].from, NULL);
+	SPA_FOR_EACH_ELEMENT_VAR(props, p) {
+		if ((str = pw_properties_get(properties, p->from)) != NULL) {
+			pw_properties_set(properties, p->to, str);
+			pw_properties_set(properties, p->from, NULL);
 		}
 	}
 }

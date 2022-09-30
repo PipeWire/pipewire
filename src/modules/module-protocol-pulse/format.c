@@ -159,32 +159,28 @@ uint32_t format_name2id(const char *name)
 
 uint32_t format_paname2id(const char *name, size_t size)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
-		if (audio_formats[i].name != NULL &&
-		    strncmp(name, audio_formats[i].name, size) == 0)
-			return audio_formats[i].id;
+	SPA_FOR_EACH_ELEMENT_VAR(audio_formats, f) {
+		if (f->name != NULL &&
+		    strncmp(name, f->name, size) == 0)
+			return f->id;
 	}
 	return SPA_AUDIO_FORMAT_UNKNOWN;
 }
 
 enum sample_format format_id2pa(uint32_t id)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
-		if (id == audio_formats[i].id)
-			return audio_formats[i].pa;
+	SPA_FOR_EACH_ELEMENT_VAR(audio_formats, f) {
+		if (id == f->id)
+			return f->pa;
 	}
 	return SAMPLE_INVALID;
 }
 
 const char *format_id2paname(uint32_t id)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(audio_formats); i++) {
-		if (id == audio_formats[i].id &&
-		    audio_formats[i].name != NULL)
-			return audio_formats[i].name;
+	SPA_FOR_EACH_ELEMENT_VAR(audio_formats, f) {
+		if (id == f->id && f->name != NULL)
+			return f->name;
 	}
 	return "invalid";
 }
@@ -266,21 +262,18 @@ enum channel_position channel_id2pa(uint32_t id, uint32_t *aux)
 
 const char *channel_id2paname(uint32_t id, uint32_t *aux)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(audio_channels); i++) {
-		if (id == audio_channels[i].channel &&
-		    audio_channels[i].name != NULL)
-			return audio_channels[i].name;
+	SPA_FOR_EACH_ELEMENT_VAR(audio_channels, i) {
+		if (id == i->channel && i->name != NULL)
+			return i->name;
 	}
 	return audio_channels[CHANNEL_POSITION_AUX0 + ((*aux)++ & 31)].name;
 }
 
 uint32_t channel_paname2id(const char *name, size_t size)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(audio_channels); i++) {
-		if (strncmp(name, audio_channels[i].name, size) == 0)
-			return audio_channels[i].channel;
+	SPA_FOR_EACH_ELEMENT_VAR(audio_channels, i) {
+		if (strncmp(name, i->name, size) == 0)
+			return i->channel;
 	}
 	return SPA_AUDIO_CHANNEL_UNKNOWN;
 }

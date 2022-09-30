@@ -553,11 +553,10 @@ static const struct object_info *objects[] =
 
 static const struct object_info *find_info(const char *type, uint32_t version)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(objects); i++) {
-		if (spa_streq(objects[i]->type, type) &&
-		    objects[i]->version <= version)
-			return objects[i];
+	SPA_FOR_EACH_ELEMENT_VAR(objects, i) {
+		if (spa_streq((*i)->type, type) &&
+		    (*i)->version <= version)
+			return *i;
 	}
 	return NULL;
 }

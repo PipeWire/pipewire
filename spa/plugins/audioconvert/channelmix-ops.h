@@ -109,10 +109,9 @@ static const struct channelmix_upmix_info {
 
 static inline uint32_t channelmix_upmix_from_label(const char *label)
 {
-	uint32_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(channelmix_upmix_info); i++) {
-		if (spa_streq(channelmix_upmix_info[i].label, label))
-			return channelmix_upmix_info[i].upmix;
+	SPA_FOR_EACH_ELEMENT_VAR(channelmix_upmix_info, i) {
+		if (spa_streq(i->label, label))
+			return i->upmix;
 	}
 	return CHANNELMIX_UPMIX_NONE;
 }

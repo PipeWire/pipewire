@@ -351,11 +351,9 @@ static const struct format_info format_info[] = {
 
 static const struct format_info *fourcc_to_format_info(uint32_t fourcc)
 {
-	size_t i;
-
-	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++) {
-		if (format_info[i].fourcc == fourcc)
-			return &format_info[i];
+	SPA_FOR_EACH_ELEMENT_VAR(format_info, i) {
+		if (i->fourcc == fourcc)
+			return i;
 	}
 	return NULL;
 }
@@ -363,11 +361,9 @@ static const struct format_info *fourcc_to_format_info(uint32_t fourcc)
 #if 0
 static const struct format_info *video_format_to_format_info(uint32_t format)
 {
-	int i;
-
-	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++) {
-		if (format_info[i].format == format)
-			return &format_info[i];
+	SPA_FOR_EACH_ELEMENT_VAR(format_info, i) {
+		if (i->format == format)
+			return i;
 	}
 	return NULL;
 }
@@ -381,10 +377,11 @@ static const struct format_info *find_format_info_by_media_type(uint32_t type,
 	size_t i;
 
 	for (i = startidx; i < SPA_N_ELEMENTS(format_info); i++) {
-		if ((format_info[i].media_type == type) &&
-		    (format_info[i].media_subtype == subtype) &&
-		    (format == 0 || format_info[i].format == format))
-			return &format_info[i];
+		const struct format_info *fi = &format_info[i];
+		if ((fi->media_type == type) &&
+		    (fi->media_subtype == subtype) &&
+		    (format == 0 || fi->format == format))
+			return fi;
 	}
 	return NULL;
 }

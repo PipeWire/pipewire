@@ -184,9 +184,8 @@ PWTEST(utils_macros)
 
 #define check_traversal(array_) \
 	{ \
-		__typeof__(array_[0]) *it; \
 		int count = 0; \
-		SPA_FOR_EACH_ELEMENT(array_, it) \
+		SPA_FOR_EACH_ELEMENT_VAR(array_, it) \
 			*it = count++; \
 		for (size_t i = 0; i < SPA_N_ELEMENTS(array_); i++) \
 			pwtest_int_eq(array_[i], i); \

@@ -216,7 +216,7 @@ static int emit_info(struct impl *this, bool full)
 {
 	int err = 0;
 	struct spa_dict_item *items;
-	uint32_t i, n_items;
+	uint32_t n_items;
 	const struct acp_dict_item *it;
 	struct acp_card *card = this->card;
 	char path[128];
@@ -241,10 +241,10 @@ static int emit_info(struct impl *this, bool full)
 #undef ADD_ITEM
 
 		if (this->info.change_mask & SPA_DEVICE_CHANGE_MASK_PARAMS) {
-			for (i = 0; i < SPA_N_ELEMENTS(this->params); i++) {
-				if (this->params[i].user > 0) {
-					this->params[i].flags ^= SPA_PARAM_INFO_SERIAL;
-					this->params[i].user = 0;
+			SPA_FOR_EACH_ELEMENT_VAR(this->params, p) {
+				if (p->user > 0) {
+					p->flags ^= SPA_PARAM_INFO_SERIAL;
+					p->user = 0;
 				}
 			}
 		}

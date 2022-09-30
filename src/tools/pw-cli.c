@@ -262,14 +262,11 @@ static bool do_quit(struct data *data, const char *cmd, char *args, char **error
 
 static bool do_help(struct data *data, const char *cmd, char *args, char **error)
 {
-	size_t i;
-
 	printf("Available commands:\n");
-	for (i = 0; i < SPA_N_ELEMENTS(command_list); i++) {
+	SPA_FOR_EACH_ELEMENT_VAR(command_list, c) {
 		char cmd[256];
-		snprintf(cmd, sizeof(cmd), "%s | %s",
-				command_list[i].name, command_list[i].alias);
-		printf("\t%-20.20s\t%s\n", cmd, command_list[i].description);
+		snprintf(cmd, sizeof(cmd), "%s | %s", c->name, c->alias);
+		printf("\t%-20.20s\t%s\n", cmd, c->description);
 	}
 	return true;
 }
@@ -1312,11 +1309,10 @@ static const struct class *classes[] =
 
 static const struct class *find_class(const char *type, uint32_t version)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(classes); i++) {
-		if (spa_streq(classes[i]->type, type) &&
-		    classes[i]->version <= version)
-			return classes[i];
+	SPA_FOR_EACH_ELEMENT_VAR(classes, c) {
+		if (spa_streq((*c)->type, type) &&
+		    (*c)->version <= version)
+			return *c;
 	}
 	return NULL;
 }
@@ -2110,7 +2106,6 @@ static bool parse(struct data *data, char *buf, char **error)
 {
 	char *a[2];
 	int n;
-	size_t i;
 	char *p, *cmd, *args;
 
 	if ((p = strchr(buf, '#')))
@@ -2128,10 +2123,10 @@ static bool parse(struct data *data, char *buf, char **error)
 	cmd = a[0];
 	args = n > 1 ? a[1] : "";
 
-	for (i = 0; i < SPA_N_ELEMENTS(command_list); i++) {
-		if (spa_streq(command_list[i].name, cmd) ||
-		    spa_streq(command_list[i].alias, cmd)) {
-			return command_list[i].func(data, cmd, args, error);
+	SPA_FOR_EACH_ELEMENT_VAR(command_list, c) {
+		if (spa_streq(c->name, cmd) ||
+		    spa_streq(c->alias, cmd)) {
+			return c->func(data, cmd, args, error);
 		}
 	}
         *error = spa_aprintf("Command \"%s\" does not exist. Type 'help' for usage.", cmd);

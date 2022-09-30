@@ -638,12 +638,10 @@ static const struct format_info format_info[] = {
 
 static snd_pcm_format_t spa_format_to_alsa(uint32_t format, bool *planar)
 {
-	size_t i;
-
-	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++) {
-		*planar = format_info[i].spa_pformat == format;
-		if (format_info[i].spa_format == format || *planar)
-			return format_info[i].format;
+	SPA_FOR_EACH_ELEMENT_VAR(format_info, i) {
+		*planar = i->spa_pformat == format;
+		if (i->spa_format == format || *planar)
+			return i->format;
 	}
 	return SND_PCM_FORMAT_UNKNOWN;
 }
@@ -969,7 +967,7 @@ static int enum_pcm_formats(struct state *state, uint32_t index, uint32_t *next,
 		struct spa_pod **result, struct spa_pod_builder *b)
 {
 	int res, err;
-	size_t i, j;
+	size_t j;
 	snd_pcm_t *hndl;
 	snd_pcm_hw_params_t *params;
 	struct spa_pod_frame f[2];
@@ -1020,8 +1018,10 @@ static int enum_pcm_formats(struct state *state, uint32_t index, uint32_t *next,
 	spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_None, 0);
 	choice = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f[1]);
 
-	for (i = 1, j = 0; i < SPA_N_ELEMENTS(format_info); i++) {
-		const struct format_info *fi = &format_info[i];
+	j = 0;
+	SPA_FOR_EACH_ELEMENT_VAR(format_info, fi) {
+		if (fi->format == SND_PCM_FORMAT_UNKNOWN)
+			continue;
 
 		if (snd_pcm_format_mask_test(fmask, fi->format)) {
 			if ((snd_pcm_access_mask_test(amask, SND_PCM_ACCESS_MMAP_NONINTERLEAVED) ||

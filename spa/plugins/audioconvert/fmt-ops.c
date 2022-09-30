@@ -359,14 +359,13 @@ static struct conv_info conv_table[] =
 static const struct conv_info *find_conv_info(uint32_t src_fmt, uint32_t dst_fmt,
 		uint32_t n_channels, uint32_t cpu_flags, uint32_t conv_flags)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(conv_table); i++) {
-		if (conv_table[i].src_fmt == src_fmt &&
-		    conv_table[i].dst_fmt == dst_fmt &&
-		    MATCH_CHAN(conv_table[i].n_channels, n_channels) &&
-		    MATCH_CPU_FLAGS(conv_table[i].cpu_flags, cpu_flags) &&
-		    MATCH_DITHER(conv_table[i].conv_flags, conv_flags))
-			return &conv_table[i];
+	SPA_FOR_EACH_ELEMENT_VAR(conv_table, c) {
+		if (c->src_fmt == src_fmt &&
+		    c->dst_fmt == dst_fmt &&
+		    MATCH_CHAN(c->n_channels, n_channels) &&
+		    MATCH_CPU_FLAGS(c->cpu_flags, cpu_flags) &&
+		    MATCH_DITHER(c->conv_flags, conv_flags))
+			return c;
 	}
 	return NULL;
 }
@@ -403,11 +402,10 @@ static struct noise_info noise_table[] =
 static const struct noise_info *find_noise_info(uint32_t method,
 		uint32_t cpu_flags)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(noise_table); i++) {
-		if (noise_table[i].method == method &&
-		    MATCH_CPU_FLAGS(noise_table[i].cpu_flags, cpu_flags))
-			return &noise_table[i];
+	SPA_FOR_EACH_ELEMENT_VAR(noise_table, t) {
+		if (t->method == method &&
+		    MATCH_CPU_FLAGS(t->cpu_flags, cpu_flags))
+			return t;
 	}
 	return NULL;
 }
@@ -471,17 +469,14 @@ static const struct dither_info {
 
 static const struct dither_info *find_dither_info(uint32_t method, uint32_t rate)
 {
-	size_t i;
-
-	for (i = 0; i < SPA_N_ELEMENTS(dither_info); i++) {
-		const struct dither_info *di = &dither_info[i];
+	SPA_FOR_EACH_ELEMENT_VAR(dither_info, di) {
 		if (di->method != method)
 			continue;
 		/* don't use shaped for too low rates, it moves the noise to
 		 * audible ranges */
 		if (di->ns != NULL && rate < di->rate * 3 / 4)
 			return find_dither_info(DITHER_METHOD_TRIANGULAR_HF, rate);
-		return &dither_info[i];
+		return di;
 	}
 	return NULL;
 }

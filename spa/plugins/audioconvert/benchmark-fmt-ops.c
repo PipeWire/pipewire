@@ -105,21 +105,17 @@ static void run_test1(const char *name, const char *impl, bool in_packed, bool o
 static void run_testc(const char *name, const char *impl, bool in_packed, bool out_packed, convert_func_t func,
 		int channel_count)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(sample_sizes); i++) {
+	SPA_FOR_EACH_ELEMENT_VAR(sample_sizes, s) {
 		run_test1(name, impl, in_packed, out_packed, func, channel_count,
-				(sample_sizes[i] + (channel_count -1)) / channel_count);
+				(*s + (channel_count -1)) / channel_count);
 	}
 }
 
 static void run_test(const char *name, const char *impl, bool in_packed, bool out_packed, convert_func_t func)
 {
-	size_t i, j;
-
-	for (i = 0; i < SPA_N_ELEMENTS(sample_sizes); i++) {
-		for (j = 0; j < SPA_N_ELEMENTS(channel_counts); j++) {
-			run_test1(name, impl, in_packed, out_packed, func, channel_counts[j],
-				(sample_sizes[i] + (channel_counts[j] -1)) / channel_counts[j]);
+	SPA_FOR_EACH_ELEMENT_VAR(sample_sizes, s) {
+		SPA_FOR_EACH_ELEMENT_VAR(channel_counts, c) {
+			run_test1(name, impl, in_packed, out_packed, func, *c, (*s + (*c -1)) / *c);
 		}
 	}
 }

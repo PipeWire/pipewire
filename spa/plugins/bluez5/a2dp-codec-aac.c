@@ -206,11 +206,11 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 	spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_None, 0);
 	choice = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f[1]);
 	i = 0;
-	for (size_t j = 0; j < SPA_N_ELEMENTS(aac_frequencies); j++) {
-		if (AAC_GET_FREQUENCY(conf) & aac_frequencies[j].config) {
+	SPA_FOR_EACH_ELEMENT_VAR(aac_frequencies, f) {
+		if (AAC_GET_FREQUENCY(conf) & f->config) {
 			if (i++ == 0)
-				spa_pod_builder_int(b, aac_frequencies[j].value);
-			spa_pod_builder_int(b, aac_frequencies[j].value);
+				spa_pod_builder_int(b, f->value);
+			spa_pod_builder_int(b, f->value);
 		}
 	}
 	if (i == 0)
@@ -272,14 +272,15 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 	if (!(conf.object_type & (AAC_OBJECT_TYPE_MPEG2_AAC_LC |
 					AAC_OBJECT_TYPE_MPEG4_AAC_LC)))
 		return -EINVAL;
-
-	for (j = 0; j < SPA_N_ELEMENTS(aac_frequencies); ++j) {
-		if (AAC_GET_FREQUENCY(conf) & aac_frequencies[j].config) {
-			info->info.raw.rate = aac_frequencies[j].value;
+	j = 0;
+	SPA_FOR_EACH_ELEMENT_VAR(aac_frequencies, f) {
+		if (AAC_GET_FREQUENCY(conf) & f->config) {
+			info->info.raw.rate = f->value;
+			j++;
 			break;
 		}
 	}
-	if (j == SPA_N_ELEMENTS(aac_frequencies))
+	if (j == 0)
 		return -EINVAL;
 
 	if (conf.channels & AAC_CHANNELS_2) {

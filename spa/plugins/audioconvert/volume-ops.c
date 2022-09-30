@@ -56,11 +56,9 @@ static const struct volume_info {
 
 static const struct volume_info *find_volume_info(uint32_t cpu_flags)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(volume_table); i++) {
-		if (!MATCH_CPU_FLAGS(volume_table[i].cpu_flags, cpu_flags))
-			continue;
-		return &volume_table[i];
+	SPA_FOR_EACH_ELEMENT_VAR(volume_table, t) {
+		if (MATCH_CPU_FLAGS(t->cpu_flags, cpu_flags))
+			return t;
 	}
 	return NULL;
 }

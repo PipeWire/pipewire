@@ -913,23 +913,19 @@ static const struct format_info format_info[] = {
 static const struct format_info *format_info_from_media_type(uint32_t type,
 		uint32_t subtype, uint32_t format)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++) {
-		if ((format_info[i].media_type == type) &&
-		    (format_info[i].media_subtype == subtype) &&
-		    (format == 0 || format_info[i].format == format))
-			return &format_info[i];
-	}
+	SPA_FOR_EACH_ELEMENT_VAR(format_info, i)
+		if ((i->media_type == type) &&
+		    (i->media_subtype == subtype) &&
+		    (format == 0 || i->format == format))
+			return i;
 	return NULL;
 }
 
 static const struct format_info *format_info_from_fourcc(uint32_t fourcc)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(format_info); i++) {
-		if (format_info[i].fourcc == fourcc)
-			return &format_info[i];
-	}
+	SPA_FOR_EACH_ELEMENT_VAR(format_info, i)
+		if (i->fourcc == fourcc)
+			return i;
 	return NULL;
 }
 

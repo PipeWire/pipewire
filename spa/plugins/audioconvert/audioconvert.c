@@ -241,16 +241,15 @@ static void set_volume(struct impl *this);
 static void emit_node_info(struct impl *this, bool full)
 {
 	uint64_t old = full ? this->info.change_mask : 0;
-	uint32_t i;
 
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
 		if (this->info.change_mask & SPA_NODE_CHANGE_MASK_PARAMS) {
-			for (i = 0; i < SPA_N_ELEMENTS(this->params); i++) {
-				if (this->params[i].user > 0) {
-					this->params[i].flags ^= SPA_PARAM_INFO_SERIAL;
-					this->params[i].user = 0;
+			SPA_FOR_EACH_ELEMENT_VAR(this->params, p) {
+				if (p->user > 0) {
+					p->flags ^= SPA_PARAM_INFO_SERIAL;
+					p->user = 0;
 				}
 			}
 		}
@@ -262,7 +261,6 @@ static void emit_node_info(struct impl *this, bool full)
 static void emit_port_info(struct impl *this, struct port *port, bool full)
 {
 	uint64_t old = full ? port->info.change_mask : 0;
-	uint32_t i;
 
 	if (full)
 		port->info.change_mask = port->info_all;
@@ -282,10 +280,10 @@ static void emit_port_info(struct impl *this, struct port *port, bool full)
 		port->info.props = &SPA_DICT_INIT(items, n_items);
 
 		if (port->info.change_mask & SPA_PORT_CHANGE_MASK_PARAMS) {
-			for (i = 0; i < SPA_N_ELEMENTS(port->params); i++) {
-				if (port->params[i].user > 0) {
-					port->params[i].flags ^= SPA_PARAM_INFO_SERIAL;
-					port->params[i].user = 0;
+			SPA_FOR_EACH_ELEMENT_VAR(port->params, p) {
+				if (p->user > 0) {
+					p->flags ^= SPA_PARAM_INFO_SERIAL;
+					p->user = 0;
 				}
 			}
 		}
@@ -432,7 +430,6 @@ static int impl_node_enum_params(void *object, int seq,
 	{
 		struct props *p = &this->props;
 		struct spa_pod_frame f[2];
-		uint32_t i;
 
 		switch (result.index) {
 		case 0:
@@ -596,9 +593,9 @@ static int impl_node_enum_params(void *object, int seq,
 
 			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
 			spa_pod_builder_push_struct(&b, &f[1]);
-			for (i = 0; i < SPA_N_ELEMENTS(channelmix_upmix_info); i++) {
-				spa_pod_builder_string(&b, channelmix_upmix_info[i].label);
-				spa_pod_builder_string(&b, channelmix_upmix_info[i].description);
+			SPA_FOR_EACH_ELEMENT_VAR(channelmix_upmix_info, i) {
+				spa_pod_builder_string(&b, i->label);
+				spa_pod_builder_string(&b, i->description);
 			}
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);
@@ -646,9 +643,9 @@ static int impl_node_enum_params(void *object, int seq,
 				0);
 			spa_pod_builder_prop(&b, SPA_PROP_INFO_labels, 0);
 			spa_pod_builder_push_struct(&b, &f[1]);
-			for (i = 0; i < SPA_N_ELEMENTS(dither_method_info); i++) {
-				spa_pod_builder_string(&b, dither_method_info[i].label);
-				spa_pod_builder_string(&b, dither_method_info[i].description);
+			SPA_FOR_EACH_ELEMENT_VAR(dither_method_info, i) {
+				spa_pod_builder_string(&b, i->label);
+				spa_pod_builder_string(&b, i->description);
 			}
 			spa_pod_builder_pop(&b, &f[1]);
 			param = spa_pod_builder_pop(&b, &f[0]);

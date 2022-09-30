@@ -59,11 +59,9 @@ static const struct peaks_info {
 
 static const struct peaks_info *find_peaks_info(uint32_t cpu_flags)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(peaks_table); i++) {
-		if (!MATCH_CPU_FLAGS(peaks_table[i].cpu_flags, cpu_flags))
-			continue;
-		return &peaks_table[i];
+	SPA_FOR_EACH_ELEMENT_VAR(peaks_table, t) {
+		if (MATCH_CPU_FLAGS(t->cpu_flags, cpu_flags))
+			return t;
 	}
 	return NULL;
 }

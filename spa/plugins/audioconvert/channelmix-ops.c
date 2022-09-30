@@ -108,19 +108,18 @@ static const struct channelmix_info {
 static const struct channelmix_info *find_channelmix_info(uint32_t src_chan, uint64_t src_mask,
 		uint32_t dst_chan, uint64_t dst_mask, uint32_t cpu_flags)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(channelmix_table); i++) {
-		if (!MATCH_CPU_FLAGS(channelmix_table[i].cpu_flags, cpu_flags))
+	SPA_FOR_EACH_ELEMENT_VAR(channelmix_table, info) {
+		if (!MATCH_CPU_FLAGS(info->cpu_flags, cpu_flags))
 			continue;
 
 		if (src_chan == dst_chan && src_mask == dst_mask)
-			return &channelmix_table[i];
+			return info;
 
-		if (MATCH_CHAN(channelmix_table[i].src_chan, src_chan) &&
-		    MATCH_CHAN(channelmix_table[i].dst_chan, dst_chan) &&
-		    MATCH_MASK(channelmix_table[i].src_mask, src_mask) &&
-		    MATCH_MASK(channelmix_table[i].dst_mask, dst_mask))
-			return &channelmix_table[i];
+		if (MATCH_CHAN(info->src_chan, src_chan) &&
+		    MATCH_CHAN(info->dst_chan, dst_chan) &&
+		    MATCH_MASK(info->src_mask, src_mask) &&
+		    MATCH_MASK(info->dst_mask, dst_mask))
+			return info;
 	}
 	return NULL;
 }

@@ -271,10 +271,9 @@ static const struct dither_method_info {
 
 static inline uint32_t dither_method_from_label(const char *label)
 {
-	uint32_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(dither_method_info); i++) {
-		if (spa_streq(dither_method_info[i].label, label))
-			return dither_method_info[i].method;
+	SPA_FOR_EACH_ELEMENT_VAR(dither_method_info, i) {
+		if (spa_streq(i->label, label))
+			return i->method;
 	}
 	return DITHER_METHOD_NONE;
 }

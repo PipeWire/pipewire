@@ -37,12 +37,9 @@ static const struct extension extensions[] = {
 
 const struct extension *extension_find(uint32_t index, const char *name)
 {
-	const struct extension *ext;
-
-	SPA_FOR_EACH_ELEMENT(extensions, ext) {
+	SPA_FOR_EACH_ELEMENT_VAR(extensions, ext) {
 		if (index == ext->index || spa_streq(name, ext->name))
 			return ext;
 	}
-
 	return NULL;
 }

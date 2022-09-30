@@ -172,9 +172,7 @@ static void test__pw_split_walk(void)
 		},
 	};
 
-	const struct test_case *tc;
-
-	SPA_FOR_EACH_ELEMENT(test_cases, tc) {
+	SPA_FOR_EACH_ELEMENT_VAR(test_cases, tc) {
 		const char *str = tc->input, *s;
 		const char *state = NULL;
 		size_t j = 0, len;

@@ -867,10 +867,9 @@ static const struct chmap_info chmap_info[] = {
 
 static enum snd_pcm_chmap_position channel_to_chmap(enum spa_audio_channel channel)
 {
-	uint32_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(chmap_info); i++)
-		if (chmap_info[i].channel == channel)
-			return chmap_info[i].pos;
+	SPA_FOR_EACH_ELEMENT_VAR(chmap_info, info)
+		if (info->channel == channel)
+			return info->pos;
 	return SND_CHMAP_UNKNOWN;
 }
 

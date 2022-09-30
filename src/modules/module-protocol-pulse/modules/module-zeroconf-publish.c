@@ -380,8 +380,7 @@ static AvahiStringList *get_service_txt(const struct service *s)
 	txt = avahi_string_list_add_pair(txt, "channel_map", channel_map_snprint(cm, sizeof(cm), &s->cm));
 	txt = avahi_string_list_add_pair(txt, "subtype", subtype_text[s->subtype]);
 
-	const struct mapping *m;
-	SPA_FOR_EACH_ELEMENT(mappings, m) {
+	SPA_FOR_EACH_ELEMENT_VAR(mappings, m) {
 		const char *value = pw_properties_get(s->props, m->pw_key);
 		if (value != NULL)
 			txt = avahi_string_list_add_pair(txt, m->txt_key, value);

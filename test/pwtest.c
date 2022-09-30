@@ -358,16 +358,13 @@ pwtest_spa_plugin_new(void)
 void
 pwtest_spa_plugin_destroy(struct pwtest_spa_plugin *plugin)
 {
-	void **dll;
-	struct spa_handle **hnd;
-
-	SPA_FOR_EACH_ELEMENT(plugin->handles, hnd) {
+	SPA_FOR_EACH_ELEMENT_VAR(plugin->handles, hnd) {
 		if (*hnd) {
 			spa_handle_clear(*hnd);
 			free(*hnd);
 		}
 	}
-	SPA_FOR_EACH_ELEMENT(plugin->dlls, dll) {
+	SPA_FOR_EACH_ELEMENT_VAR(plugin->dlls, dll) {
 		if (*dll)
 			dlclose(*dll);
 	}

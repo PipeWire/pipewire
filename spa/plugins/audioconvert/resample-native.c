@@ -125,11 +125,10 @@ static struct resample_info resample_table[] =
 #define MATCH_CPU_FLAGS(a,b)	((a) == 0 || ((a) & (b)) == a)
 static const struct resample_info *find_resample_info(uint32_t format, uint32_t cpu_flags)
 {
-	size_t i;
-	for (i = 0; i < SPA_N_ELEMENTS(resample_table); i++) {
-		if (resample_table[i].format == format &&
-		    MATCH_CPU_FLAGS(resample_table[i].cpu_flags, cpu_flags))
-			return &resample_table[i];
+	SPA_FOR_EACH_ELEMENT_VAR(resample_table, t) {
+		if (t->format == format &&
+		    MATCH_CPU_FLAGS(t->cpu_flags, cpu_flags))
+			return t;
 	}
 	return NULL;
 }

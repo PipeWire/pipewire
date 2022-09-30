@@ -82,7 +82,8 @@ extern "C" {
 #endif
 
 #define SPA_FLAG_MASK(field,mask,flag)	(((field) & (mask)) == (flag))
-#define SPA_FLAG_IS_SET(field,flag)	SPA_FLAG_MASK(field,flag,flag)
+#define SPA_FLAG_IS_SET(field,flag)	SPA_FLAG_MASK(field, flag, flag)
+
 #define SPA_FLAG_SET(field,flag)	((field) |= (flag))
 #define SPA_FLAG_CLEAR(field, flag)					\
 ({									\
@@ -145,16 +146,16 @@ struct spa_fraction {
 	__typeof__(a) _a = (a);		\
 	SPA_LIKELY(_a >= 0) ? _a : -_a;	\
 })
-#define SPA_MIN(a,b)		\
-({				\
-	__typeof__(a) _min_a = (a);	\
-	__typeof__(b) _min_b = (b);	\
+#define SPA_MIN(a,b)					\
+({							\
+	__typeof__(a) _min_a = (a);			\
+	__typeof__(b) _min_b = (b);			\
 	SPA_LIKELY(_min_a <= _min_b) ? _min_a : _min_b;	\
 })
-#define SPA_MAX(a,b)		\
-({				\
-	__typeof__(a) _max_a = (a);	\
-	__typeof__(b) _max_b = (b);	\
+#define SPA_MAX(a,b)					\
+({							\
+	__typeof__(a) _max_a = (a);			\
+	__typeof__(b) _max_b = (b);			\
 	SPA_LIKELY(_max_a >= _max_b) ? _max_a : _max_b;	\
 })
 #define SPA_CLAMP(v,low,high)				\
@@ -174,7 +175,7 @@ struct spa_fraction {
 #define SPA_SWAP(a,b)					\
 ({							\
 	__typeof__(a) _t = (a);				\
-	(a) = b; (b) = _t;					\
+	(a) = b; (b) = _t;				\
 })
 
 #define SPA_TYPECHECK(type,x)		\
@@ -254,21 +255,21 @@ struct spa_fraction {
 #define SPA_RESTRICT
 #endif
 
-#define SPA_ROUND_DOWN(num,value)	((num) - ((num) % (value)))
-#define SPA_ROUND_UP(num,value)		((((num) + (value) - 1) / (value)) * (value))
-
-#define SPA_MASK_NEGATED(num1, num2)					\
-({									\
-	SPA_STATIC_ASSERT(__builtin_constant_p(num2) ?			\
-	              (__typeof__(num2))(__typeof__(num1))(__typeof__(num2))(num2) == (num2) : \
-		      sizeof(num1) >= sizeof(num2),			\
-			"truncation problem when masking " #num1	\
-			" with ~" #num2);				\
-	((num1) & ~(__typeof__(num1))(num2));				\
+#define SPA_ROUND_DOWN(num,value)		\
+({						\
+	__typeof__(num) _num = (num);		\
+	((_num) - ((_num) % (value)));		\
+})
+#define SPA_ROUND_UP(num,value)			\
+({						\
+	__typeof__(value) _v = (value);		\
+	((((num) + (_v) - 1) / (_v)) * (_v));	\
 })
 
-#define SPA_ROUND_DOWN_N(num,align)	SPA_MASK_NEGATED((num), (align) - 1)
-#define SPA_ROUND_UP_N(num,align)	SPA_ROUND_DOWN_N((num) + ((align) - 1),align)
+#define SPA_ROUND_MASK(num,mask)	((__typeof__(num))((mask)-1))
+
+#define SPA_ROUND_DOWN_N(num,align)	((num) & ~SPA_ROUND_MASK(num, align))
+#define SPA_ROUND_UP_N(num,align)	((((num)-1) | SPA_ROUND_MASK(num, align))+1)
 
 #define SPA_PTR_ALIGNMENT(p,align)	((intptr_t)(p) & ((align)-1))
 #define SPA_IS_ALIGNED(p,align)		(SPA_PTR_ALIGNMENT(p,align) == 0)

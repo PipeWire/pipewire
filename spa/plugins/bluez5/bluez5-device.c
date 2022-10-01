@@ -79,11 +79,13 @@ enum {
 
 struct props {
 	enum spa_bluetooth_audio_codec codec;
+	bool offload_active;
 };
 
 static void reset_props(struct props *props)
 {
 	props->codec = 0;
+	props->offload_active = false;
 }
 
 struct impl;
@@ -97,6 +99,7 @@ struct node {
 	unsigned int mute:1;
 	unsigned int save:1;
 	unsigned int a2dp_duplex:1;
+	unsigned int offload_acquired:1;
 	uint32_t n_channels;
 	int64_t latency_offset;
 	uint32_t channels[SPA_AUDIO_MAX_CHANNELS];
@@ -407,6 +410,24 @@ static const struct spa_bt_transport_events transport_events = {
 	.volume_changed = volume_changed,
 };
 
+static int node_offload_set_active(struct node *node, bool active)
+{
+	int res = 0;
+
+	if (node->transport == NULL || !node->active)
+		return -ENOTSUP;
+
+	if (active && !node->offload_acquired)
+		res = spa_bt_transport_acquire(node->transport, false);
+	else if (!active && node->offload_acquired)
+		res = spa_bt_transport_release(node->transport);
+
+	if (res >= 0)
+		node->offload_acquired = active;
+
+	return res;
+}
+
 static void get_channels(struct spa_bt_transport *t, bool a2dp_duplex, uint32_t *n_channels, uint32_t *channels)
 {
 	const struct media_codec *codec;
@@ -480,6 +501,7 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 
 		this->nodes[id].impl = this;
 		this->nodes[id].active = true;
+		this->nodes[id].offload_acquired = false;
 		this->nodes[id].a2dp_duplex = a2dp_duplex;
 		get_channels(t, a2dp_duplex, &this->nodes[id].n_channels, this->nodes[id].channels);
 		if (this->nodes[id].transport)
@@ -804,6 +826,7 @@ static void emit_remove_nodes(struct impl *this)
 
 	for (uint32_t i = 0; i < 2; i++) {
 		struct node * node = &this->nodes[i];
+		node_offload_set_active(node, false);
 		if (node->transport) {
 			spa_hook_remove(&node->transport_listener);
 			node->transport = NULL;
@@ -813,6 +836,8 @@ static void emit_remove_nodes(struct impl *this)
 			node->active = false;
 		}
 	}
+
+	this->props.offload_active = false;
 }
 
 static bool validate_profile(struct impl *this, uint32_t profile,
@@ -1674,7 +1699,7 @@ next:
 	return true;
 }
 
-static struct spa_pod *build_prop_info(struct impl *this, struct spa_pod_builder *b, uint32_t id)
+static struct spa_pod *build_prop_info_codec(struct impl *this, struct spa_pod_builder *b, uint32_t id)
 {
 	struct spa_pod_frame f[2];
 	struct spa_pod_choice *choice;
@@ -1748,7 +1773,8 @@ static struct spa_pod *build_props(struct impl *this, struct spa_pod_builder *b,
 
 	return spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_Props, id,
-			SPA_PROP_bluetoothAudioCodec, SPA_POD_Id(p->codec));
+			SPA_PROP_bluetoothAudioCodec, SPA_POD_Id(p->codec),
+			SPA_PROP_bluetoothOffloadActive, SPA_POD_Bool(p->offload_active));
 }
 
 static int impl_enum_params(void *object, int seq,
@@ -1841,7 +1867,14 @@ static int impl_enum_params(void *object, int seq,
 	{
 		switch (result.index) {
 		case 0:
-			param = build_prop_info(this, &b, id);
+			param = build_prop_info_codec(this, &b, id);
+			break;
+		case 1:
+			param = spa_pod_builder_add_object(&b,
+					SPA_TYPE_OBJECT_PropInfo, id,
+					SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_bluetoothOffloadActive),
+					SPA_PROP_INFO_description, SPA_POD_String("Bluetooth audio offload active"),
+					SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(false));
 			break;
 		default:
 			return 0;
@@ -2030,6 +2063,25 @@ static int apply_device_props(struct impl *this, struct node *node, struct spa_p
 	return changed;
 }
 
+static void apply_prop_offload_active(struct impl *this, bool active)
+{
+	bool old_value = this->props.offload_active;
+
+	this->props.offload_active = active;
+
+	for (int i = 0; i < 2; i++) {
+		node_offload_set_active(&this->nodes[i], active);
+		if (!this->nodes[i].offload_acquired)
+			this->props.offload_active = false;
+	}
+
+	if (this->props.offload_active != old_value) {
+		this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+		this->params[IDX_Props].flags ^= SPA_PARAM_INFO_SERIAL;
+		emit_info(this, false);
+	}
+}
+
 static int impl_set_param(void *object,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param)
@@ -2104,19 +2156,23 @@ static int impl_set_param(void *object,
 	case SPA_PARAM_Props:
 	{
 		uint32_t codec_id = SPA_ID_INVALID;
+		bool offload_active = this->props.offload_active;
 
 		if (param == NULL)
 			return 0;
 
 		if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_Props, NULL,
-				SPA_PROP_bluetoothAudioCodec, SPA_POD_OPT_Id(&codec_id))) < 0) {
+				SPA_PROP_bluetoothAudioCodec, SPA_POD_OPT_Id(&codec_id),
+				SPA_PROP_bluetoothOffloadActive, SPA_POD_OPT_Bool(&offload_active))) < 0) {
 			spa_log_warn(this->log, "can't parse props");
 			spa_debug_pod(0, NULL, param);
 			return res;
 		}
 
-		spa_log_debug(this->log, "setting props codec:%d", codec_id);
+		spa_log_debug(this->log, "setting props codec:%d offload:%d", (int)codec_id, (int)offload_active);
+
+		apply_prop_offload_active(this, offload_active);
 
 		if (codec_id == SPA_ID_INVALID)
 			return 0;

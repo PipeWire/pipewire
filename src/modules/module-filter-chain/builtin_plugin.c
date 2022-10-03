@@ -590,6 +590,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	float gain = 1.0f;
 	unsigned long rate;
 
+	errno = EINVAL;
 	if (config == NULL)
 		return NULL;
 
@@ -656,8 +657,10 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 					"Consider forcing a filter rate.", rate, SampleRate);
 		}
 	}
-	if (samples == NULL)
+	if (samples == NULL) {
+		errno = ENOENT;
 		return NULL;
+	}
 
 	if (blocksize <= 0)
 		blocksize = SPA_CLAMP(n_samples, 64, 256);

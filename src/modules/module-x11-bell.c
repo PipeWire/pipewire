@@ -109,7 +109,7 @@ static int play_sample(struct impl *impl)
 	if (sample == NULL)
 		sample = "bell-window-system";
 
-	pw_log_debug("play sample %s", sample);
+	pw_log_info("play sample %s", sample);
 
 	if ((res = ca_context_create(&ca)) < 0) {
 		pw_log_error("canberra context create error: %s", ca_strerror(res));

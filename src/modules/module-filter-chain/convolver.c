@@ -251,7 +251,7 @@ static int convolver1_run(struct convolver1 *conv, const float *input, float *ou
 {
 	int i, processed = 0;
 
-	if (conv->segCount == 0) {
+	if (conv == NULL || conv->segCount == 0) {
 		fft_clear(output, len);
 		return len;
 	}

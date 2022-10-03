@@ -665,7 +665,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	if (blocksize <= 0)
 		blocksize = SPA_CLAMP(n_samples, 64, 256);
 	if (tailsize <= 0)
-		tailsize = SPA_CLAMP(4096, blocksize, 4096);
+		tailsize = SPA_CLAMP(4096, blocksize, 32768);
 
 	pw_log_info("using n_samples:%u %d:%d blocksize ir:%s", n_samples,
 			blocksize, tailsize, filename);

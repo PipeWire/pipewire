@@ -1561,6 +1561,10 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	node->control_port = calloc(desc->n_control, sizeof(struct port));
 	node->notify_port = calloc(desc->n_notify, sizeof(struct port));
 
+	pw_log_info("loaded n_input:%d n_output:%d n_control:%d n_notify:%d",
+			desc->n_input, desc->n_output,
+			desc->n_control, desc->n_notify);
+
 	for (i = 0; i < desc->n_input; i++) {
 		struct port *port = &node->input_port[i];
 		port->node = node;
@@ -1953,6 +1957,8 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 			gh->hndl = &node->hndl[i];
 			gh->desc = d;
 
+		}
+		for (i = 0; i < desc->n_output; i++) {
 			spa_list_for_each(link, &node->output_port[i].link_list, output_link)
 				link->input->node->n_deps--;
 		}

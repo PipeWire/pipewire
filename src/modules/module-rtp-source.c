@@ -22,18 +22,24 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "config.h"
+
 #include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-#include "config.h"
+#include <spa/param/audio/format-utils.h>
+#include <spa/utils/hook.h>
+#include <spa/debug/mem.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/private.h>
-#include <spa/param/audio/format-utils.h>
-#include <spa/utils/hook.h>
+
+#include <module-rtp/sap.h>
+#include <module-rtp/rtp.h>
+
 
 /** \page page_module_rtp_source PipeWire Module: RTP source
  *
@@ -62,8 +68,8 @@
  * context.modules = [
  *  {   name = libpipewire-module-rtp-source
  *      args = {
- *          local.ip = 0.0.0.0
- *          sess.latency.msec = 5000
+ *          local.ip = 224.0.0.56
+ *          sess.latency.msec = 200
  *          source.name = "RTP Source"
  *          source.props = {
  *             node.name = "rtp-source"
@@ -80,7 +86,7 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define SAP_DEFAULT_IP		"0.0.0.0"
+#define SAP_DEFAULT_IP		"224.0.0.56"
 #define SAP_DEFAULT_PORT	9875
 #define DEFAULT_SESS_LATENCY	200
 
@@ -96,7 +102,6 @@ struct impl {
 	struct spa_hook core_listener;
 	struct spa_hook core_proxy_listener;
 
-	int sap_fd;
 	struct spa_source *sap_source;
 
 	struct pw_stream *playback;
@@ -269,17 +274,83 @@ static int rtp_source_setup(struct impl *data)
 	return 0;
 }
 
-static int make_mcast_socket(struct sockaddr *sa, socklen_t salen)
+static int parse_sdp(struct impl *impl, const char *sdp)
 {
+	pw_log_info("%s", sdp);
+	return 0;
+}
+
+static int parse_sap(struct impl *impl, const void *data, size_t len)
+{
+	struct sap_header *header;
+	const char *mime;
+	const char *sdp;
+
+	if (len < 8)
+		return -EINVAL;
+
+	header = (struct sap_header*) data;
+	if (header->v != 1)
+		return -EINVAL;
+
+	mime = SPA_PTROFF(data, 8, char);
+	if (spa_strstartswith(mime, "v=0"))
+		sdp = mime;
+	else if (spa_streq(mime, "application/sdp"))
+		sdp = SPA_PTROFF(mime, strlen(mime)+1, char);
+	else
+		return -EINVAL;
+
+	return parse_sdp(impl, sdp);
+}
+
+static void
+on_sap_io(void *data, int fd, uint32_t mask)
+{
+	struct impl *impl = data;
+
+	if (mask & SPA_IO_IN) {
+		uint8_t buffer[2048];
+		ssize_t len;
+
+		pw_log_info("got sap");
+		if ((len = recv(fd, buffer, sizeof(buffer), 0)) < 0) {
+			pw_log_warn("recv error: %m");
+			return;
+		}
+		if ((size_t)len >= sizeof(buffer))
+			return;
+
+		buffer[len] = 0;
+		parse_sap(impl, buffer, len);
+	}
+}
+
+static int start_sap_listener(struct impl *impl)
+{
+	struct sockaddr_in sa4;
+	struct sockaddr_in6 sa6;
+	struct sockaddr *sa;
+	socklen_t salen;
 	int af, fd, val, res;
 
-	af = sa->sa_family;
+	if (inet_pton(AF_INET, impl->local_ip, &sa4.sin_addr) > 0) {
+		af = sa4.sin_family = AF_INET;
+		sa4.sin_port = htons(impl->local_port);
+		sa = (struct sockaddr*) &sa4;
+		salen = sizeof(sa4);
+	} else if (inet_pton(AF_INET6, impl->local_ip, &sa6.sin6_addr) > 0) {
+		af = sa6.sin6_family = AF_INET6;
+		sa6.sin6_port = htons(impl->local_port);
+		sa = (struct sockaddr*) &sa6;
+		salen = sizeof(sa6);
+	} else
+		return -EINVAL;
 
 	if ((fd = socket(af, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
 		pw_log_error("socket failed: %m");
 		return -errno;
 	}
-
 #ifdef SO_TIMESTAMP
 	val = 1;
 	if (setsockopt(fd, SOL_SOCKET, SO_TIMESTAMP, &val, sizeof(val)) < 0) {
@@ -294,11 +365,9 @@ static int make_mcast_socket(struct sockaddr *sa, socklen_t salen)
 		pw_log_error("setsockopt failed: %m");
 		goto error;
 	}
-
 	res = 0;
 	if (af == AF_INET) {
 		static const uint32_t ipv4_mcast_mask = 0xe0000000;
-
 		if ((ntohl(((const struct sockaddr_in*) sa)->sin_addr.s_addr) &
 					ipv4_mcast_mask) == ipv4_mcast_mask) {
 			struct ip_mreq mr4;
@@ -324,57 +393,24 @@ static int make_mcast_socket(struct sockaddr *sa, socklen_t salen)
 		goto error;
 	}
 
-
 	if (bind(fd, sa, salen) < 0) {
 		res = -errno;
 		pw_log_warn("bind() failed: %m");
 		goto error;
 	}
-	return fd;
+
+	pw_log_info("starting SAP listener");
+	impl->sap_source = pw_loop_add_io(impl->loop, fd,
+				SPA_IO_IN, true, on_sap_io, impl);
+	if (impl->sap_source == NULL) {
+		res = -errno;
+		goto error;
+	}
+	return 0;
 error:
 	close(fd);
 	return res;
-}
 
-static void
-on_sap_io(void *data, int fd, uint32_t mask)
-{
-	struct impl *impl = data;
-
-	if (mask & SPA_IO_IN) {
-		pw_log_info("got sap");
-
-	}
-}
-
-static int start_sap_listener(struct impl *impl)
-{
-	struct sockaddr_in sa4;
-	struct sockaddr_in6 sa6;
-	struct sockaddr *sa;
-	socklen_t salen;
-	int fd;
-
-	if (inet_pton(AF_INET, impl->local_ip, &sa4.sin_addr) > 0) {
-		sa4.sin_family = AF_INET;
-		sa4.sin_port = htons(impl->local_port);
-		sa = (struct sockaddr*) &sa4;
-		salen = sizeof(sa4);
-	} else if (inet_pton(AF_INET6, impl->local_ip, &sa6.sin6_addr) > 0) {
-		sa6.sin6_family = AF_INET6;
-		sa6.sin6_port = htons(impl->local_port);
-		sa = (struct sockaddr*) &sa6;
-		salen = sizeof(sa6);
-	} else
-		return -EINVAL;
-
-	if ((fd = make_mcast_socket(sa, salen)) < 0)
-		return fd;
-
-	impl->sap_fd = fd;
-	impl->sap_source = pw_loop_add_io(impl->loop, impl->sap_fd,
-				SPA_IO_IN, false, on_sap_io, impl);
-	return 0;
 }
 
 static const struct spa_dict_item module_info[] = {

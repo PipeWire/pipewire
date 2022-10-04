@@ -236,7 +236,7 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 		uint32_t index;
 		int32_t filled;
 
-		pw_log_info("got rtp");
+		pw_log_debug("got rtp");
 		if ((len = recv(fd, buffer, sizeof(buffer), 0)) < 0) {
 			pw_log_warn("recv error: %m");
 			return;
@@ -355,6 +355,11 @@ static int session_new(struct impl *impl, struct sdp_info *sdp)
 		return -errno;
 
 	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", sdp->info.rate);
+	pw_properties_set(props, "rtp.origin", sdp->origin);
+	pw_properties_set(props, "rtp.session", sdp->session);
+	pw_properties_setf(props, "rtp.payload", "%u", sdp->payload);
+
+	pw_log_info("new session %s %s", sdp->origin, sdp->session);
 
 	session->playback = pw_stream_new(impl->core,
 			"rtp-source playback", props);
@@ -382,6 +387,7 @@ static int session_new(struct impl *impl, struct sdp_info *sdp)
 	if ((fd = make_multicast_socket((const struct sockaddr *)&sdp->sa, sdp->salen)) < 0)
 		return fd;
 
+	pw_log_info("starting RTP listener");
 	session->source = pw_loop_add_io(impl->loop, fd,
 				SPA_IO_IN, true, on_rtp_io, session);
 	if (session->source == NULL)
@@ -529,7 +535,7 @@ static int parse_sdp(struct impl *impl, char *sdp, struct sdp_info *info)
 			goto too_short;
 
 		s[l] = 0;
-		pw_log_info("%d: %s", count, s);
+		pw_log_debug("%d: %s", count, s);
 
 		if (count++ == 0 && strcmp(s, "v=0") != 0)
 			goto invalid_version;
@@ -592,7 +598,7 @@ static int parse_sap(struct impl *impl, void *data, size_t len)
 	else
 		return -EINVAL;
 
-	pw_log_info("got sap: %s", mime);
+	pw_log_debug("got sap: %s %s", mime, sdp);
 
 	spa_zero(info);
 	if ((res = parse_sdp(impl, sdp, &info)) < 0)

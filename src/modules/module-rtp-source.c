@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <ctype.h>
 
 #include <spa/param/audio/format-utils.h>
 #include <spa/utils/hook.h>
@@ -229,23 +230,30 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-static int rtp_source_setup(struct impl *data)
+struct sdp_info {
+	const char *origin;
+	const char *session;
+
+	struct sockaddr_storage sa;
+	socklen_t salen;
+
+	uint16_t port;
+	uint8_t payload;
+
+	struct spa_audio_info_raw info;
+};
+
+static int rtp_session_new(struct impl *data, struct sdp_info *sdp)
 {
-	struct spa_audio_info_raw info = { 0 };
 	const struct spa_pod *params[1];
 	struct spa_pod_builder b;
 	uint32_t n_params;
 	uint8_t buffer[1024];
 	int res;
 
-	info.rate = 44100;
-	info.channels = 2;
-	info.format = SPA_AUDIO_FORMAT_F32;
-	info.position[0] = SPA_AUDIO_CHANNEL_FL;
-	info.position[1] = SPA_AUDIO_CHANNEL_FR;
-	data->stride = info.channels * sizeof(float);
+	data->stride = sdp->info.channels * sizeof(float);
 
-	pw_properties_setf(data->playback_props, PW_KEY_NODE_RATE, "1/%d", info.rate);
+	pw_properties_setf(data->playback_props, PW_KEY_NODE_RATE, "1/%d", sdp->info.rate);
 
 	data->playback = pw_stream_new(data->core,
 			"rtp-source playback", data->playback_props);
@@ -260,7 +268,7 @@ static int rtp_source_setup(struct impl *data)
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&info);
+			&sdp->info);
 
 	if ((res = pw_stream_connect(data->playback,
 			PW_DIRECTION_OUTPUT,
@@ -274,17 +282,158 @@ static int rtp_source_setup(struct impl *data)
 	return 0;
 }
 
-static int parse_sdp(struct impl *impl, const char *sdp)
+static int parse_sdp_c(struct impl *impl, char *c, struct sdp_info *info)
 {
-	pw_log_info("%s", sdp);
+	int res;
+
+	c[strcspn(c, "/")] = 0;
+	if (spa_strstartswith(c, "c=IN IP4 ")) {
+		struct sockaddr_in *sa = (struct sockaddr_in*) &info->sa;
+
+		c += sizeof("c=IN IP4 ");
+		if (inet_pton(AF_INET, c, &sa->sin_addr) <= 0) {
+			res = -errno;
+			pw_log_warn("inet_pton(%s) failed: %m", c);
+			goto error;
+		}
+		sa->sin_family = AF_INET;
+		info->salen = sizeof(struct sockaddr_in);
+	}
+	else if (spa_strstartswith(c, "c=IN IP6 ")) {
+		struct sockaddr_in6 *sa = (struct sockaddr_in6*) &info->sa;
+
+		c += sizeof("c=IN IP6 ");
+		if (inet_pton(AF_INET6, c, &sa->sin6_addr) <= 0) {
+			res = -errno;
+			pw_log_warn("inet_pton(%s) failed: %m", c);
+			goto error;
+		}
+
+		sa->sin6_family = AF_INET6;
+		info->salen = sizeof(struct sockaddr_in6);
+	} else
+		return -EINVAL;
+
+
+	res= 0;
+error:
+	return res;
+}
+
+static int parse_sdp_m(struct impl *impl, char *c, struct sdp_info *info)
+{
+	int port, payload;
+
+	if (!spa_strstartswith(c, "m=audio "))
+		return -EINVAL;
+
+	c += sizeof("m=audio ");
+	if (sscanf(c, "%i RTP/AVP %i", &port, &payload) != 2)
+		return -EINVAL;
+
+	if (port <= 0 || port > 0xFFFF)
+		return -EINVAL;
+
+	if (payload < 0 || payload > 127)
+		return -EINVAL;
+
+	info->port = (uint16_t) port;
+	info->payload = (uint8_t) payload;
+
 	return 0;
 }
 
-static int parse_sap(struct impl *impl, const void *data, size_t len)
+static int parse_sdp_a(struct impl *impl, char *c, struct sdp_info *info)
+{
+	int payload, len, rate, channels;
+
+	if (!spa_strstartswith(c, "a=rtpmap:"))
+		return 0;
+
+	c += sizeof("a=rtpmap:");
+
+	if (sscanf(c, "%i %n", &payload, &len) != 1)
+		return -EINVAL;
+
+	if (payload < 0 || payload > 127)
+		return -EINVAL;
+
+	if (payload != info->payload)
+		return 0;
+
+	c += len;
+	if (spa_strstartswith(c, "L16/")) {
+		info->info.format = SPA_AUDIO_FORMAT_S16_BE;
+		c += 4;
+	} else
+		return -EINVAL;
+
+	if (sscanf(c, "%u/%u", &rate, &channels) == 2) {
+		info->info.rate = rate;
+		info->info.channels = channels;
+		if (channels == 2) {
+			info->info.position[0] = SPA_AUDIO_CHANNEL_FL;
+			info->info.position[1] = SPA_AUDIO_CHANNEL_FR;
+		}
+	} else if (sscanf(c, "%u", &rate) == 1) {
+		info->info.rate = rate;
+		info->info.channels = 1;
+	} else
+		return -EINVAL;
+
+	return 0;
+}
+
+static int parse_sdp(struct impl *impl, char *sdp, struct sdp_info *info)
+{
+	char *s = sdp;
+	int count = 0, res = 0;
+	size_t l;
+
+	while (*s) {
+		if ((l = strcspn(s, "\r\n")) < 2)
+			goto too_short;
+
+		s[l] = 0;
+		pw_log_info("%d: %s", count, s);
+
+		if (count++ == 0 && strcmp(s, "v=0") != 0)
+			goto invalid_version;
+
+		if (spa_strstartswith(s, "o="))
+            		info->origin = &s[2];
+		else if (spa_strstartswith(s, "s="))
+            		info->session = &s[2];
+		else if (spa_strstartswith(s, "c="))
+			res = parse_sdp_c(impl, s, info);
+		else if (spa_strstartswith(s, "m="))
+			res = parse_sdp_m(impl, s, info);
+		else if (spa_strstartswith(s, "a="))
+			res = parse_sdp_a(impl, s, info);
+
+		if (res < 0)
+			goto error;
+		s += l + 1;
+		while (isspace(*s))
+			s++;
+        }
+	return 0;
+too_short:
+	pw_log_warn("SDP: line starting with `%.6s...' too short", s);
+	return -EINVAL;
+invalid_version:
+	pw_log_warn("SDP: invalid first version line `%*s'", (int)l, s);
+	return -EINVAL;
+error:
+	return res;
+}
+
+static int parse_sap(struct impl *impl, void *data, size_t len)
 {
 	struct sap_header *header;
-	const char *mime;
-	const char *sdp;
+	char *mime, *sdp;
+	struct sdp_info info;
+	int res;
 
 	if (len < 8)
 		return -EINVAL;
@@ -301,7 +450,11 @@ static int parse_sap(struct impl *impl, const void *data, size_t len)
 	else
 		return -EINVAL;
 
-	return parse_sdp(impl, sdp);
+	spa_zero(info);
+	if ((res = parse_sdp(impl, sdp, &info)) < 0)
+		return res;
+
+	return res;
 }
 
 static void

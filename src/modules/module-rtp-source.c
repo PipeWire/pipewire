@@ -219,7 +219,7 @@ static void stream_process(void *data)
         if (avail < wanted || sess->buffering) {
                 memset(d[0].data, 0, wanted);
 		if (!sess->buffering)
-			pw_log_warn("underrun %u < %u", avail, wanted);
+			pw_log_warn("underrun %u/%u < %u", avail, sess->target_buffer, wanted);
         } else {
 		float error, corr;
 		if (avail > (int32_t)BUFFER_SIZE) {

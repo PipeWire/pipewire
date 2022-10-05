@@ -109,6 +109,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
 #define SAP_INTERVAL_SEC	5
+#define SAP_MIME_TYPE		"application/sdp"
 
 #define BUFFER_SIZE		(1u<<16)
 #define BUFFER_MASK		(BUFFER_SIZE-1)
@@ -164,6 +165,8 @@ struct impl {
 	struct sockaddr_storage sap_addr;
 	socklen_t sap_len;
 
+	uint16_t msg_id_hash;
+
 	struct spa_audio_info_raw info;
 	uint32_t frame_size;
 	int payload;
@@ -175,6 +178,7 @@ struct impl {
 	uint8_t buffer[BUFFER_SIZE];
 
 	int rtp_fd;
+	int sap_fd;
 };
 
 static void stream_destroy(void *d)
@@ -419,14 +423,37 @@ static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len)
 		return -EIO;
 	return 0;
 }
-static void on_timer_event(void *data, uint64_t expirations)
+static void send_sap(struct impl *impl, bool bye)
 {
-	struct impl *impl = data;
-	char buffer[1024], src_addr[64], dst_addr[64];
+	char buffer[2048], src_addr[64], dst_addr[64];
 	const char *user_name = "-", *af, *fmt;
 	uint32_t ntp;
+	struct sockaddr *sa = (struct sockaddr*)&impl->src_addr;
+	struct sap_header header;
+	struct iovec iov[4];
+	struct msghdr msg;
 
-	af = impl->src_addr.ss_family == AF_INET ? "IP4" : "IP6";
+	spa_zero(header);
+	header.v = 1;
+	header.t = bye;
+	header.msg_id_hash = impl->msg_id_hash;
+
+	iov[0].iov_base = &header;
+	iov[0].iov_len = sizeof(header);
+
+	if (sa->sa_family == AF_INET) {
+		iov[1].iov_base = &((struct sockaddr_in*) sa)->sin_addr;
+		iov[1].iov_len = 4U;
+		af = "IP4";
+	} else {
+		iov[1].iov_base = &((struct sockaddr_in6*) sa)->sin6_addr;
+		iov[1].iov_len = 16U;
+		header.a = 1;
+		af = "IP6";
+	}
+	iov[2].iov_base = SAP_MIME_TYPE;
+	iov[2].iov_len = sizeof(SAP_MIME_TYPE);
+
 	ntp = (uint32_t) time(NULL) + 2208988800U;
 
 	get_ip(&impl->src_addr, src_addr, sizeof(src_addr));
@@ -451,7 +478,24 @@ static void on_timer_event(void *data, uint64_t expirations)
 			impl->port, impl->payload,
 			impl->payload, fmt, impl->info.rate, impl->info.channels);
 
-	pw_log_info("%s", buffer);
+	iov[3].iov_base = buffer;
+	iov[3].iov_len = strlen(buffer);
+
+	msg.msg_name = NULL;
+	msg.msg_namelen = 0;
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 4;
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	msg.msg_flags = 0;
+
+	sendmsg(impl->sap_fd, &msg, MSG_NOSIGNAL);
+}
+
+static void on_timer_event(void *data, uint64_t expirations)
+{
+	struct impl *impl = data;
+	send_sap(impl, 0);
 }
 
 static int start_sap_announce(struct impl *impl)
@@ -463,6 +507,8 @@ static int start_sap_announce(struct impl *impl)
 					&impl->sap_addr, impl->sap_len,
 					impl->mcast_loop, impl->ttl)) < 0)
 		return fd;
+
+	impl->sap_fd = fd;
 
 	pw_log_info("starting SAP timer");
 	impl->timer = pw_loop_add_timer(impl->loop, on_timer_event, impl);
@@ -498,6 +544,8 @@ static const struct pw_proxy_events core_proxy_events = {
 
 static void impl_destroy(struct impl *impl)
 {
+	send_sap(impl, 1);
+
 	if (impl->stream)
 		pw_stream_destroy(impl->stream);
 
@@ -509,6 +557,8 @@ static void impl_destroy(struct impl *impl)
 
 	if (impl->rtp_fd != -1)
 		close(impl->rtp_fd);
+	if (impl->sap_fd != -1)
+		close(impl->sap_fd);
 
 	pw_properties_free(impl->stream_props);
 	pw_properties_free(impl->props);
@@ -663,6 +713,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		return -errno;
 
 	impl->rtp_fd = -1;
+	impl->sap_fd = -1;
 
 	if (args == NULL)
 		args = "";
@@ -730,6 +781,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->ssrc = rand();
 	impl->timestamp = rand();
 	impl->seq = rand();
+	impl->msg_id_hash = rand();
 
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;

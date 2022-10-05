@@ -400,8 +400,16 @@ static int do_link_ports(struct data *data)
 			struct object *port_out = find_node_port(data, out_node, PW_DIRECTION_OUTPUT, port_id);
 			struct object *port_in = find_node_port(data, in_node, PW_DIRECTION_INPUT, port_id);
 
-			if (!port_out || !port_in)
-				break;
+			if (!port_out && !port_in) {
+				fprintf(stderr, "Input & output port do not exist\n");
+				goto no_port;
+			} else if (!port_in) {
+				fprintf(stderr, "Input port does not exist\n");
+				goto no_port;
+			} else if (!port_out) {
+				fprintf(stderr, "Output port does not exist\n");
+				goto no_port;
+			}
 
 			pw_properties_setf(data->props, PW_KEY_LINK_OUTPUT_PORT, "%u", port_out->id);
 			pw_properties_setf(data->props, PW_KEY_LINK_INPUT_PORT, "%u", port_in->id);
@@ -422,6 +430,9 @@ static int do_link_ports(struct data *data)
 	pw_properties_setf(data->props, PW_KEY_LINK_INPUT_PORT, "%u", in_port);
 
 	return create_link(data);
+
+no_port:
+	return -ENOENT;
 }
 
 static int do_unlink_ports(struct data *data)

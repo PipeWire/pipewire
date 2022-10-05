@@ -56,9 +56,10 @@
  *
  * Options specific to the behavior of this module
  *
- * - `source.props = {}`: properties to be passed to the source stream
- * - `source.name = <str>`: node.name of the source
- * - `local.ip = <str>`: local sender ip
+ * - `stream.props = {}`: properties to be passed to the stream
+ * - `sap.ip = <str>`: IP address of the SAP messages
+ * - `sap.port = <str>`: port of the SAP messages
+ * - `local.ifname = <str>`: interface name to use
  * - `sess.latency.msec = <str>`: target network latency in milliseconds
  *
  * ## General options
@@ -74,7 +75,7 @@
  * context.modules = [
  *  {   name = libpipewire-module-rtp-source
  *      args = {
- *          #sap.address = 224.0.0.56
+ *          #sap.ip = 224.0.0.56
  *          #sap.port = 9875
  *          #local.ifname = eth0
  *          sess.latency.msec = 200
@@ -93,11 +94,11 @@
 static const struct spa_dict_item module_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "RTP Source" },
-	{ PW_KEY_MODULE_USAGE,	"sap.address=<SAP address to listen on> "
+	{ PW_KEY_MODULE_USAGE,	"sap.ip=<SAP IP address to listen on> "
 				"sap.port=<SAP port to listen on> "
 				"local.ifname=<local interface name to use> "
 				"sess.latency.msec=<target network latency in milliseconds> "
-				"source.props= { key=value ... }" },
+				"stream.props= { key=value ... }" },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -105,14 +106,14 @@ static const struct spa_dict_item module_info[] = {
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define SAP_DEFAULT_IP		"224.0.0.56"
-#define SAP_DEFAULT_PORT	9875
-#define DEFAULT_SESS_LATENCY	200
-
 #define ERROR_MSEC		2
 #define MAX_SESSIONS		16
-#define MTU			1500
+#define MTU			1280
 #define CLEANUP_INTERVAL_SEC	20
+
+#define DEFAULT_SAP_IP		"224.0.0.56"
+#define DEFAULT_SAP_PORT	9875
+#define DEFAULT_SESS_LATENCY	200
 
 struct impl {
 	struct pw_impl_module *module;
@@ -134,7 +135,7 @@ struct impl {
 	unsigned int do_disconnect:1;
 
 	char *ifname;
-	char *sap_address;
+	char *sap_ip;
 	int sap_port;
 	int sess_latency_msec;
 
@@ -336,8 +337,12 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 			sess->have_sync = true;
 			sess->buffering = true;
 			pw_log_info("sync to timestamp %u", index);
+
+			spa_dll_init(&sess->dll);
+			spa_dll_set_bw(&sess->dll, SPA_DLL_BW_MIN, 128, sess->info.info.rate);
+
 		} else if (expected_index != index) {
-			pw_log_warn("unexpected timestamp (%u != %u)",
+			pw_log_debug("unexpected timestamp (%u != %u)",
 					index / sess->info.stride,
 					expected_index / sess->info.stride);
 			index = expected_index;
@@ -818,12 +823,12 @@ static int start_sap_listener(struct impl *impl)
 	socklen_t salen;
 	int fd, res;
 
-	if (inet_pton(AF_INET, impl->sap_address, &sa4.sin_addr) > 0) {
+	if (inet_pton(AF_INET, impl->sap_ip, &sa4.sin_addr) > 0) {
 		sa4.sin_family = AF_INET;
 		sa4.sin_port = htons(impl->sap_port);
 		sa = (struct sockaddr*) &sa4;
 		salen = sizeof(sa4);
-	} else if (inet_pton(AF_INET6, impl->sap_address, &sa6.sin6_addr) > 0) {
+	} else if (inet_pton(AF_INET6, impl->sap_ip, &sa6.sin6_addr) > 0) {
 		sa6.sin6_family = AF_INET6;
 		sa6.sin6_port = htons(impl->sap_port);
 		sa = (struct sockaddr*) &sa6;
@@ -895,7 +900,7 @@ static void impl_destroy(struct impl *impl)
 	pw_properties_free(impl->props);
 
 	free(impl->ifname);
-	free(impl->sap_address);
+	free(impl->sap_ip);
 	free(impl);
 }
 
@@ -982,10 +987,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;
 
-	str = pw_properties_get(props, "sap.address");
-	impl->sap_address = strdup(str ? str : SAP_DEFAULT_IP);
+	str = pw_properties_get(props, "sap.ip");
+	impl->sap_ip = strdup(str ? str : DEFAULT_SAP_IP);
 	impl->sap_port = pw_properties_get_uint32(props,
-			"sap.port", SAP_DEFAULT_PORT);
+			"sap.port", DEFAULT_SAP_PORT);
 	impl->sess_latency_msec = pw_properties_get_uint32(props,
 			"sess.latency.msec", DEFAULT_SESS_LATENCY);
 

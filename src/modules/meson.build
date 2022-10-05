@@ -27,6 +27,7 @@ module_sources = [
   'module-raop-discover.c',
   'module-raop-sink.c',
   'module-rtp-source.c',
+  'module-rtp-sink.c',
   'module-session-manager.c',
   'module-zeroconf-discover.c',
   'module-roc-source.c',
@@ -485,6 +486,15 @@ summary({'ROC': roc_lib.found()}, bool_yn: true, section: 'Streaming between dae
 
 pipewire_module_rtp_source = shared_library('pipewire-module-rtp-source',
   [ 'module-rtp-source.c' ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
+)
+
+pipewire_module_rtp_sink = shared_library('pipewire-module-rtp-sink',
+  [ 'module-rtp-sink.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,

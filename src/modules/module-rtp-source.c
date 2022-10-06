@@ -150,6 +150,26 @@ struct impl {
 	uint32_t n_sessions;
 };
 
+static const struct format_info {
+	uint32_t format;
+	uint32_t size;
+	const char *mime;
+} format_info[] = {
+	{ SPA_AUDIO_FORMAT_U8, 1, "L8" },
+	{ SPA_AUDIO_FORMAT_ALAW, 1, "PCMA" },
+	{ SPA_AUDIO_FORMAT_ULAW, 1, "PCMU" },
+	{ SPA_AUDIO_FORMAT_S16_BE, 2, "L16" },
+	{ SPA_AUDIO_FORMAT_S24_BE, 2, "L24" },
+};
+
+static const struct format_info *find_format_info(const char *mime)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(format_info, f)
+		if (spa_streq(f->mime, mime))
+			return f;
+	return NULL;
+}
+
 struct sdp_info {
 	uint16_t hash;
 
@@ -162,6 +182,7 @@ struct sdp_info {
 	uint16_t port;
 	uint8_t payload;
 
+	const struct format_info *format_info;
 	struct spa_audio_info_raw info;
 	uint32_t stride;
 };
@@ -666,13 +687,16 @@ static int parse_sdp_a(struct impl *impl, char *c, struct sdp_info *info)
 		return 0;
 
 	c += len;
-	if (spa_strstartswith(c, "L16/")) {
-		info->info.format = SPA_AUDIO_FORMAT_S16_BE;
-		info->stride = 2;
-		c += 4;
-	} else
+	c[strcspn(c, "/")] = 0;
+
+	info->format_info = find_format_info(c);
+	if (info->format_info == NULL)
 		return -EINVAL;
 
+	info->info.format = info->format_info->format;
+	info->stride = info->format_info->size;
+
+	c += strlen(c) + 1;
 	if (sscanf(c, "%u/%u", &rate, &channels) == 2) {
 		info->info.rate = rate;
 		info->info.channels = channels;

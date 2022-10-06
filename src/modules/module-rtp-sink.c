@@ -165,6 +165,26 @@ static const struct spa_dict_item module_info[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
+static const struct format_info {
+	uint32_t format;
+	uint32_t size;
+	const char *mime;
+} format_info[] = {
+	{ SPA_AUDIO_FORMAT_U8, 1, "L8" },
+	{ SPA_AUDIO_FORMAT_ALAW, 1, "PCMA" },
+	{ SPA_AUDIO_FORMAT_ULAW, 1, "PCMU" },
+	{ SPA_AUDIO_FORMAT_S16_BE, 2, "L16" },
+	{ SPA_AUDIO_FORMAT_S24_BE, 2, "L24" },
+};
+
+static const struct format_info *find_format_info(uint32_t format)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(format_info, f)
+		if (f->format == format)
+			return f;
+	return NULL;
+}
+
 struct impl {
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
@@ -209,6 +229,7 @@ struct impl {
 	uint32_t ntp;
 
 	struct spa_audio_info_raw info;
+	const struct format_info *format_info;
 	uint32_t frame_size;
 	int payload;
 	uint16_t seq;
@@ -221,6 +242,7 @@ struct impl {
 	int rtp_fd;
 	int sap_fd;
 };
+
 
 static void stream_destroy(void *d)
 {
@@ -473,7 +495,7 @@ static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len)
 static void send_sap(struct impl *impl, bool bye)
 {
 	char buffer[2048], src_addr[64], dst_addr[64];
-	const char *user_name, *af, *fmt;
+	const char *user_name, *af;
 	struct sockaddr *sa = (struct sockaddr*)&impl->src_addr;
 	struct sap_header header;
 	struct iovec iov[4];
@@ -503,7 +525,6 @@ static void send_sap(struct impl *impl, bool bye)
 	get_ip(&impl->src_addr, src_addr, sizeof(src_addr));
 	get_ip(&impl->dst_addr, dst_addr, sizeof(dst_addr));
 
-	fmt = "L16";
 	if ((user_name = pw_get_user_name()) == NULL)
 		user_name = "-";
 
@@ -522,7 +543,8 @@ static void send_sap(struct impl *impl, bool bye)
 			af, dst_addr,
 			impl->ntp,
 			impl->port, impl->payload,
-			impl->payload, fmt, impl->info.rate, impl->info.channels);
+			impl->payload, impl->format_info->mime,
+			impl->info.rate, impl->info.channels);
 
 	iov[3].iov_base = buffer;
 	iov[3].iov_len = strlen(buffer);
@@ -699,40 +721,6 @@ static void parse_audio_info(const struct pw_properties *props, struct spa_audio
 		parse_position(info, DEFAULT_POSITION, strlen(DEFAULT_POSITION));
 }
 
-static int calc_frame_size(struct spa_audio_info_raw *info)
-{
-	int res = info->channels;
-	switch (info->format) {
-	case SPA_AUDIO_FORMAT_U8:
-	case SPA_AUDIO_FORMAT_S8:
-	case SPA_AUDIO_FORMAT_ALAW:
-	case SPA_AUDIO_FORMAT_ULAW:
-		return res;
-	case SPA_AUDIO_FORMAT_S16:
-	case SPA_AUDIO_FORMAT_S16_OE:
-	case SPA_AUDIO_FORMAT_U16:
-		return res * 2;
-	case SPA_AUDIO_FORMAT_S24:
-	case SPA_AUDIO_FORMAT_S24_OE:
-	case SPA_AUDIO_FORMAT_U24:
-		return res * 3;
-	case SPA_AUDIO_FORMAT_S24_32:
-	case SPA_AUDIO_FORMAT_S24_32_OE:
-	case SPA_AUDIO_FORMAT_S32:
-	case SPA_AUDIO_FORMAT_S32_OE:
-	case SPA_AUDIO_FORMAT_U32:
-	case SPA_AUDIO_FORMAT_U32_OE:
-	case SPA_AUDIO_FORMAT_F32:
-	case SPA_AUDIO_FORMAT_F32_OE:
-		return res * 4;
-	case SPA_AUDIO_FORMAT_F64:
-	case SPA_AUDIO_FORMAT_F64_OE:
-		return res * 8;
-	default:
-		return 0;
-	}
-}
-
 static void copy_props(struct impl *impl, struct pw_properties *props, const char *key)
 {
 	const char *str;
@@ -790,9 +778,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(stream_props, PW_KEY_NODE_NETWORK) == NULL)
 		pw_properties_set(stream_props, PW_KEY_NODE_NETWORK, "true");
 
-//	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL)
-//		pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
-
 	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_NAME, "rtp-sink-%u-%u", pid, id);
 	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
@@ -815,13 +800,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	parse_audio_info(impl->stream_props, &impl->info);
 
-	impl->frame_size = calc_frame_size(&impl->info);
-	if (impl->frame_size == 0) {
+	impl->format_info = find_format_info(impl->info.format);
+	if (impl->format_info == NULL) {
 		pw_log_error("unsupported audio format:%d channels:%d",
 				impl->info.format, impl->info.channels);
 		res = -EINVAL;
 		goto out;
 	}
+	impl->frame_size = impl->format_info->size * impl->info.channels;
 	impl->msg_id_hash = rand();
 	impl->ntp = (uint32_t) time(NULL) + 2208988800U;
 

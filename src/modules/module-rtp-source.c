@@ -159,7 +159,7 @@ static const struct format_info {
 	{ SPA_AUDIO_FORMAT_ALAW, 1, "PCMA" },
 	{ SPA_AUDIO_FORMAT_ULAW, 1, "PCMU" },
 	{ SPA_AUDIO_FORMAT_S16_BE, 2, "L16" },
-	{ SPA_AUDIO_FORMAT_S24_BE, 2, "L24" },
+	{ SPA_AUDIO_FORMAT_S24_BE, 3, "L24" },
 };
 
 static const struct format_info *find_format_info(const char *mime)

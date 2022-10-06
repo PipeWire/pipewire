@@ -113,7 +113,7 @@
  *         #raop.password = "****"
  *         #audio.format = "S16"
  *         #audio.rate = 44100
- *         #audio.channels = 22
+ *         #audio.channels = 2
  *         #audio.position = [ FL FR ]
  *         stream.props = {
  *             # extra sink properties

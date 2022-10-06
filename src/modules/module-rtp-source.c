@@ -56,11 +56,11 @@
  *
  * Options specific to the behavior of this module
  *
- * - `stream.props = {}`: properties to be passed to the stream
- * - `sap.ip = <str>`: IP address of the SAP messages
- * - `sap.port = <str>`: port of the SAP messages
+ * - `sap.ip = <str>`: IP address of the SAP messages, default "224.0.0.56"
+ * - `sap.port = <str>`: port of the SAP messages, default 9875
  * - `local.ifname = <str>`: interface name to use
- * - `sess.latency.msec = <str>`: target network latency in milliseconds
+ * - `sess.latency.msec = <str>`: target network latency in milliseconds, default 100
+ * - `stream.props = {}`: properties to be passed to the stream
  *
  * ## General options
  *
@@ -69,6 +69,7 @@
  * - \ref PW_KEY_NODE_NAME
  * - \ref PW_KEY_NODE_DESCRIPTION
  * - \ref PW_KEY_MEDIA_NAME
+ * - \ref PW_KEY_MEDIA_CLASS
  *
  * ## Example configuration
  *\code{.unparsed}
@@ -78,9 +79,10 @@
  *          #sap.ip = 224.0.0.56
  *          #sap.port = 9875
  *          #local.ifname = eth0
- *          sess.latency.msec = 200
+ *          sess.latency.msec = 100
  *          stream.props = {
  *             node.name = "rtp-source"
+ *             #media.class = "Audio/Source"
  *          }
  *      }
  *  }
@@ -91,29 +93,34 @@
 
 #define NAME "rtp-source"
 
-static const struct spa_dict_item module_info[] = {
-	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
-	{ PW_KEY_MODULE_DESCRIPTION, "RTP Source" },
-	{ PW_KEY_MODULE_USAGE,	"sap.ip=<SAP IP address to listen on> "
-				"sap.port=<SAP port to listen on> "
-				"local.ifname=<local interface name to use> "
-				"sess.latency.msec=<target network latency in milliseconds> "
-				"stream.props= { key=value ... }" },
-	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
-};
-
-
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
+#define SAP_MIME_TYPE		"application/sdp"
+
 #define ERROR_MSEC		2
 #define MAX_SESSIONS		16
-#define MTU			1280
 #define CLEANUP_INTERVAL_SEC	20
 
 #define DEFAULT_SAP_IP		"224.0.0.56"
 #define DEFAULT_SAP_PORT	9875
-#define DEFAULT_SESS_LATENCY	200
+#define DEFAULT_SESS_LATENCY	100
+
+#define BUFFER_SIZE		(1u<<22)
+#define BUFFER_MASK		(BUFFER_SIZE-1)
+
+#define USAGE	"sap.ip=<SAP IP address to listen on, default "DEFAULT_SAP_IP"> "				\
+		"sap.port=<SAP port to listen on, default "SPA_STRINGIFY(DEFAULT_SAP_PORT)"> "			\
+		"local.ifname=<local interface name to use> "							\
+		"sess.latency.msec=<target network latency, default "SPA_STRINGIFY(DEFAULT_SESS_LATENCY)"> "	\
+		"stream.props= { key=value ... }"
+
+static const struct spa_dict_item module_info[] = {
+	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
+	{ PW_KEY_MODULE_DESCRIPTION, "RTP Source" },
+	{ PW_KEY_MODULE_USAGE,	USAGE },
+	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
+};
 
 struct impl {
 	struct pw_impl_module *module;
@@ -158,9 +165,6 @@ struct sdp_info {
 	struct spa_audio_info_raw info;
 	uint32_t stride;
 };
-
-#define BUFFER_SIZE	(1u<<16)
-#define BUFFER_MASK	(BUFFER_SIZE-1)
 
 struct session {
 	struct impl *impl;
@@ -219,7 +223,7 @@ static void stream_process(void *data)
 
         if (avail < wanted || sess->buffering) {
                 memset(d[0].data, 0, wanted);
-		if (!sess->buffering)
+		if (!sess->buffering && sess->have_sync)
 			pw_log_warn("underrun %u/%u < %u", avail, sess->target_buffer, wanted);
         } else {
 		float error, corr;
@@ -767,8 +771,8 @@ static int parse_sap(struct impl *impl, void *data, size_t len)
 	mime = SPA_PTROFF(data, offs, char);
 	if (spa_strstartswith(mime, "v=0")) {
 		sdp = mime;
-		mime = "application/sdp";
-	} else if (spa_streq(mime, "application/sdp"))
+		mime = SAP_MIME_TYPE;
+	} else if (spa_streq(mime, SAP_MIME_TYPE))
 		sdp = SPA_PTROFF(mime, strlen(mime)+1, char);
 	else
 		return -EINVAL;

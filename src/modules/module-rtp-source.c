@@ -244,8 +244,11 @@ static void stream_process(void *data)
 
         if (avail < wanted || sess->buffering) {
                 memset(d[0].data, 0, wanted);
-		if (!sess->buffering && sess->have_sync)
-			pw_log_warn("underrun %u/%u < %u", avail, sess->target_buffer, wanted);
+		if (!sess->buffering && sess->have_sync) {
+			pw_log_info("underrun %u/%u < %u, buffering...",
+					avail, sess->target_buffer, wanted);
+			sess->buffering = true;
+		}
         } else {
 		float error, corr;
 		if (avail > (int32_t)BUFFER_SIZE) {
@@ -387,8 +390,11 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 			filled += len;
 			spa_ringbuffer_write_update(&sess->ring, index);
 
-			if ((uint32_t)filled > sess->target_buffer)
+			if (sess->buffering && (uint32_t)filled > sess->target_buffer) {
 				sess->buffering = false;
+				pw_log_info("buffering done %u > %u",
+					filled, sess->target_buffer);
+			}
 		}
 	}
 	return;

@@ -563,11 +563,6 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 		goto done;
 	pw->hw_params_changed = false;
 
-	if (pw->stream != NULL) {
-		pw_stream_destroy(pw->stream);
-		pw->stream = NULL;
-	}
-
 	props = pw_properties_new(NULL, NULL);
 	if (props == NULL)
 		goto error;
@@ -593,13 +588,20 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 		pw_properties_get(props, PW_KEY_MEDIA_ROLE) == NULL)
 		pw_properties_setf(props, PW_KEY_MEDIA_ROLE, "%s", pw->role);
 
+	params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &pw->format);
+
+	if (pw->stream != NULL) {
+		pw_stream_update_properties(pw->stream, &props->dict);
+		pw_stream_update_params(pw->stream, params, 1);
+		goto done;
+	}
+
 	pw->stream = pw_stream_new(pw->core, pw->node_name, props);
 	if (pw->stream == NULL)
 		goto error;
 
 	pw_stream_add_listener(pw->stream, &pw->stream_listener, &stream_events, pw);
 
-	params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &pw->format);
 	pw->error = 0;
 
 	pw_stream_connect(pw->stream,

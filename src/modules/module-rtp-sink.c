@@ -60,6 +60,7 @@
  * - `sap.port = <int>`: port of the SAP messages, default 9875
  * - `source.ip =<str>`: source IP address, default "0.0.0.0"
  * - `destination.ip =<str>`: destination IP address, default "224.0.0.56"
+ * - `destination.port =<int>`: destination port, default random beteen 46000 and 47024
  * - `local.ifname = <str>`: interface name to use
  * - `net.mtu = <int>`: MTU to use, default 1280
  * - `net.ttl = <int>`: TTL to use, default 1
@@ -93,6 +94,7 @@
  *         #sap.port = 9875
  *         #source.ip = "0.0.0.0"
  *         #destination.ip = "224.0.0.56"
+ *         #destination.port = 46000
  *         #local.ifname = "eth0"
  *         #net.mtu = 1280
  *         #net.ttl = 1

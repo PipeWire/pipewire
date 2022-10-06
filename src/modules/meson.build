@@ -260,6 +260,8 @@ pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse/modules/module-roc-sink.c',
   'module-protocol-pulse/modules/module-roc-sink-input.c',
   'module-protocol-pulse/modules/module-roc-source.c',
+  'module-protocol-pulse/modules/module-rtp-recv.c',
+  'module-protocol-pulse/modules/module-rtp-send.c',
   'module-protocol-pulse/modules/module-simple-protocol-tcp.c',
   'module-protocol-pulse/modules/module-switch-on-connect.c',
   'module-protocol-pulse/modules/module-tunnel-sink.c',

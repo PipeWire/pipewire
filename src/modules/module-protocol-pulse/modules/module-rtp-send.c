@@ -178,8 +178,14 @@ static int module_rtp_send_prepare(struct module * const module)
 		goto out;
 	}
 	info.format = 0;
-	if ((str = pw_properties_get(props, "format")) != NULL)
-		info.format = format_paname2id(str, strlen(str));
+	if ((str = pw_properties_get(props, "format")) != NULL) {
+		if ((info.format = format_paname2id(str, strlen(str))) ==
+				SPA_AUDIO_FORMAT_UNKNOWN) {
+			pw_log_error("unknown format %s", str);
+			res = -EINVAL;
+			goto out;
+		}
+	}
 
 	if ((str = pw_properties_get(props, "destination_ip")) != NULL)
 		pw_properties_set(global_props, "destination.ip", str);

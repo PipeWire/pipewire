@@ -675,8 +675,8 @@ static void impl_on_notify_events(struct spa_source *source)
 			struct device *device;
 
 			event = (const struct inotify_event *) p;
-			spa_assert_se(e - p >= (ptrdiff_t)sizeof(struct inotify_event) &&
-			              e - p - sizeof(struct inotify_event) >= event->len &&
+			spa_assert_se(SPA_PTRDIFF(e, p) >= (ptrdiff_t)sizeof(struct inotify_event) &&
+			              SPA_PTRDIFF(e, p) - sizeof(struct inotify_event) >= event->len &&
 			              "bad event from kernel");
 
 			/* Device becomes accessible or not busy */

@@ -799,7 +799,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION,
 				pw_properties_get(props, PW_KEY_NODE_NAME));
 	if (pw_properties_get(props, PW_KEY_MEDIA_NAME) == NULL)
-		pw_properties_set(props, PW_KEY_MEDIA_NAME, "RTP Stream");
+		pw_properties_set(props, PW_KEY_MEDIA_NAME, "RTP Sender Stream");
 
 	if ((str = pw_properties_get(props, "stream.props")) != NULL)
 		pw_properties_update_string(stream_props, str, strlen(str));

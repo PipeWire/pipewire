@@ -1029,17 +1029,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->loop = pw_context_get_main_loop(context);
 	impl->data_loop = pw_data_loop_get_loop(pw_context_get_data_loop(context));
 
-	if ((str = pw_properties_get(props, "stream.props")) != NULL)
-		pw_properties_update_string(stream_props, str, strlen(str));
-
-	if (pw_properties_get(stream_props, PW_KEY_NODE_NAME) == NULL)
-		pw_properties_set(stream_props, PW_KEY_NODE_NAME, "rtp-source");
-	if (pw_properties_get(stream_props, PW_KEY_NODE_DESCRIPTION) == NULL)
-		pw_properties_set(stream_props, PW_KEY_NODE_DESCRIPTION, "RTP Source");
 	if (pw_properties_get(stream_props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(stream_props, PW_KEY_NODE_VIRTUAL, "true");
 	if (pw_properties_get(stream_props, PW_KEY_NODE_NETWORK) == NULL)
 		pw_properties_set(stream_props, PW_KEY_NODE_NETWORK, "true");
+
+	if ((str = pw_properties_get(props, "stream.props")) != NULL)
+		pw_properties_update_string(stream_props, str, strlen(str));
 
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;

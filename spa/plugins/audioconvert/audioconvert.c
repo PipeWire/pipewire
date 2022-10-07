@@ -220,6 +220,7 @@ struct impl {
 	unsigned int resample_peaks:1;
 	unsigned int is_passthrough:1;
 	unsigned int drained:1;
+	unsigned int rate_adjust:1;
 
 	uint32_t empty_size;
 	float *empty;
@@ -908,6 +909,11 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			break;
 		case SPA_PROP_rate:
 			spa_pod_get_double(&prop->value, &p->rate);
+			if (!this->rate_adjust && p->rate != 1.0) {
+				this->rate_adjust = true;
+				spa_log_info(this->log, "%p: activating adaptive resampler",
+						this);
+			}
 			break;
 		case SPA_PROP_params:
 			changed += parse_prop_params(this, &prop->value);
@@ -1353,6 +1359,8 @@ static int setup_resample(struct impl *this)
 	this->resample.log = this->log;
 	this->resample.quality = this->props.resample_quality;
 	this->resample.cpu_flags = this->cpu_flags;
+
+	this->rate_adjust = this->props.rate != 1.0;
 
 	if (this->resample_peaks)
 		res = resample_peaks_init(&this->resample);
@@ -2269,8 +2277,7 @@ static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, 
 static inline bool resample_is_passthrough(struct impl *this)
 {
 	return this->resample.i_rate == this->resample.o_rate && this->rate_scale == 1.0 &&
-		this->props.rate == 1.0 &&
-		(this->io_rate_match == NULL ||
+		!this->rate_adjust && (this->io_rate_match == NULL ||
 		 !SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE));
 }
 

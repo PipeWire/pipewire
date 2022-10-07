@@ -559,6 +559,8 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 			session->target_buffer / (2 * info->stride), info->info.rate);
 	pw_properties_set(props, "rtp.origin", info->origin);
 	pw_properties_setf(props, "rtp.payload", "%u", info->payload);
+	pw_properties_setf(props, "rtp.fmt", "%s/%u/%u", info->format_info->mime,
+			info->info.rate, info->info.channels);
 	if (info->session[0]) {
 		pw_properties_set(props, "rtp.session", info->session);
 		pw_properties_setf(props, PW_KEY_MEDIA_NAME, "RTP Stream (%s)",

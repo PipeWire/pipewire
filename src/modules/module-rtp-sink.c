@@ -396,7 +396,20 @@ static int parse_address(const char *address, uint16_t port,
 	return 0;
 }
 
-static int make_multicast_socket(struct sockaddr_storage *src, socklen_t src_len,
+static bool is_multicast(struct sockaddr *sa, socklen_t salen)
+{
+	if (sa->sa_family == AF_INET) {
+		static const uint32_t ipv4_mcast_mask = 0xe0000000;
+		struct sockaddr_in *sa4 = (struct sockaddr_in*)sa;
+		return (ntohl(sa4->sin_addr.s_addr) & ipv4_mcast_mask) == ipv4_mcast_mask;
+	} else if (sa->sa_family == AF_INET6) {
+		struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)sa;
+		return sa6->sin6_addr.s6_addr[0] == 0xff;
+	}
+	return false;
+}
+
+static int make_socket(struct sockaddr_storage *src, socklen_t src_len,
 		struct sockaddr_storage *dst, socklen_t dst_len,
 		bool loop, int ttl)
 {
@@ -417,13 +430,14 @@ static int make_multicast_socket(struct sockaddr_storage *src, socklen_t src_len
 		pw_log_error("connect() failed: %m");
 		goto error;
 	}
-	val = loop;
-	if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &val, sizeof(val)) < 0)
-		pw_log_warn("setsockopt(IP_MULTICAST_LOOP) failed: %m");
+	if (is_multicast((struct sockaddr*)dst, dst_len)) {
+		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &val, sizeof(val)) < 0)
+			pw_log_warn("setsockopt(IP_MULTICAST_LOOP) failed: %m");
 
-	val = ttl;
-	if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &val, sizeof(val)) < 0)
-		pw_log_warn("setsockopt(IP_MULTICAST_TTL) failed: %m");
+		val = ttl;
+		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &val, sizeof(val)) < 0)
+			pw_log_warn("setsockopt(IP_MULTICAST_TTL) failed: %m");
+	}
 
 	val = 6;
 	if (setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
@@ -484,7 +498,7 @@ static int setup_stream(struct impl *impl)
 		return res;
 
 
-	if ((fd = make_multicast_socket(&impl->src_addr, impl->src_len,
+	if ((fd = make_socket(&impl->src_addr, impl->src_len,
 					&impl->dst_addr, impl->dst_len,
 					impl->mcast_loop, impl->ttl)) < 0)
 		return fd;
@@ -508,7 +522,7 @@ static int get_ip(const struct sockaddr_storage *sa, char *ip, size_t len)
 }
 static void send_sap(struct impl *impl, bool bye)
 {
-	char buffer[2048], src_addr[64], dst_addr[64];
+	char buffer[2048], src_addr[64], dst_addr[64], dst_ttl[8];
 	const char *user_name, *af;
 	struct sockaddr *sa = (struct sockaddr*)&impl->src_addr;
 	struct sap_header header;
@@ -542,11 +556,15 @@ static void send_sap(struct impl *impl, bool bye)
 	if ((user_name = pw_get_user_name()) == NULL)
 		user_name = "-";
 
+	spa_zero(dst_ttl);
+	if (is_multicast((struct sockaddr*)&impl->dst_addr, impl->dst_len))
+		snprintf(dst_ttl, sizeof(dst_ttl), "/%d", impl->ttl);
+
 	snprintf(buffer, sizeof(buffer),
 			"v=0\n"
 			"o=%s %u 0 IN %s %s\n"
 			"s=%s\n"
-			"c=IN %s %s\n"
+			"c=IN %s %s%s\n"
 			"t=%u 0\n"
 			"a=recvonly\n"
 			"m=audio %u RTP/AVP %i\n"
@@ -554,7 +572,7 @@ static void send_sap(struct impl *impl, bool bye)
 			"a=type:broadcast\n",
 			user_name, impl->ntp, af, src_addr,
 			impl->session_name,
-			af, dst_addr,
+			af, dst_addr, dst_ttl,
 			impl->ntp,
 			impl->port, impl->payload,
 			impl->payload, impl->format_info->mime,
@@ -585,7 +603,7 @@ static int start_sap_announce(struct impl *impl)
 	int fd, res;
 	struct timespec value, interval;
 
-	if ((fd = make_multicast_socket(&impl->src_addr, impl->src_len,
+	if ((fd = make_socket(&impl->src_addr, impl->src_len,
 					&impl->sap_addr, impl->sap_len,
 					impl->mcast_loop, impl->ttl)) < 0)
 		return fd;

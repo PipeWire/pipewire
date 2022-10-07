@@ -752,6 +752,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props = NULL, *stream_props = NULL;
 	uint32_t id = pw_global_get_id(pw_impl_module_get_global(module));
 	uint32_t pid = getpid(), port;
+	char addr[64];
 	const char *str;
 	int res = 0;
 
@@ -797,6 +798,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, PW_KEY_NODE_DESCRIPTION) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION,
 				pw_properties_get(props, PW_KEY_NODE_NAME));
+	if (pw_properties_get(props, PW_KEY_MEDIA_NAME) == NULL)
+		pw_properties_set(props, PW_KEY_MEDIA_NAME, "RTP Stream");
 
 	if ((str = pw_properties_get(props, "stream.props")) != NULL)
 		pw_properties_update_string(stream_props, str, strlen(str));
@@ -810,6 +813,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_LATENCY);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
+	copy_props(impl, props, PW_KEY_MEDIA_NAME);
 	copy_props(impl, props, PW_KEY_MEDIA_CLASS);
 
 	parse_audio_info(impl->stream_props, &impl->info);
@@ -856,6 +860,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_log_error("invalid destination.ip %s: %s", str, spa_strerror(res));
 		goto out;
 	}
+
 	impl->mtu = pw_properties_get_uint32(props, "net.mtu", DEFAULT_MTU);
 	impl->ttl = pw_properties_get_uint32(props, "net.ttl", DEFAULT_TTL);
 	impl->mcast_loop = pw_properties_get_bool(props, "net.loop", DEFAULT_LOOP);
@@ -868,6 +873,15 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				pw_get_host_name());
 	str = pw_properties_get(props, "sess.name");
 	impl->session_name = str ? strdup(str) : NULL;
+
+	pw_properties_set(stream_props, "rtp.session", impl->session_name);
+	get_ip(&impl->src_addr, addr, sizeof(addr));
+	pw_properties_set(stream_props, "rtp.source.ip", addr);
+	get_ip(&impl->dst_addr, addr, sizeof(addr));
+	pw_properties_set(stream_props, "rtp.destination.ip", addr);
+	pw_properties_setf(stream_props, "rtp.destination.port", "%u", impl->port);
+	pw_properties_setf(stream_props, "rtp.mtu", "%u", impl->mtu);
+	pw_properties_setf(stream_props, "rtp.ttl", "%u", impl->ttl);
 
 	impl->core = pw_context_get_object(impl->module_context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

@@ -1328,7 +1328,7 @@ int spa_bt_device_add_profile(struct spa_bt_device *device, enum spa_bt_profile 
 
 
 static int device_try_connect_profile(struct spa_bt_device *device,
-                                      const char *profile_uuid)
+				      const char *profile_uuid)
 {
 	struct spa_bt_monitor *monitor = device->monitor;
 	DBusMessage *m;
@@ -1339,9 +1339,9 @@ static int device_try_connect_profile(struct spa_bt_device *device,
 	/* Call org.bluez.Device1.ConnectProfile() on device, ignoring result */
 
 	m = dbus_message_new_method_call(BLUEZ_SERVICE,
-	                                 device->path,
-	                                 BLUEZ_DEVICE_INTERFACE,
-	                                 "ConnectProfile");
+					 device->path,
+					 BLUEZ_DEVICE_INTERFACE,
+					 "ConnectProfile");
 	if (m == NULL)
 		return -ENOMEM;
 	dbus_message_append_args(m, DBUS_TYPE_STRING, &profile_uuid, DBUS_TYPE_INVALID);
@@ -1424,7 +1424,7 @@ static void device_timer_event(struct spa_source *source)
 	uint64_t exp;
 
 	if (spa_system_timerfd_read(monitor->main_system, source->fd, &exp) < 0)
-                spa_log_warn(monitor->log, "error reading timerfd: %s", strerror(errno));
+		spa_log_warn(monitor->log, "error reading timerfd: %s", strerror(errno));
 
 	spa_log_debug(monitor->log, "device %p: timeout %08x %08x",
 			device, device->profiles, device->connected_profiles);
@@ -1480,11 +1480,11 @@ static int device_stop_timer(struct spa_bt_device *device)
 
 	spa_log_debug(monitor->log, "device %p: stop timer", device);
 	spa_loop_remove_source(monitor->main_loop, &device->timer);
-        ts.it_value.tv_sec = 0;
-        ts.it_value.tv_nsec = 0;
-        ts.it_interval.tv_sec = 0;
-        ts.it_interval.tv_nsec = 0;
-        spa_system_timerfd_settime(monitor->main_system, device->timer.fd, 0, &ts, NULL);
+	ts.it_value.tv_sec = 0;
+	ts.it_value.tv_nsec = 0;
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
+	spa_system_timerfd_settime(monitor->main_system, device->timer.fd, 0, &ts, NULL);
 	spa_system_close(monitor->main_system, device->timer.fd);
 	device->timer.data = NULL;
 	return 0;
@@ -2010,8 +2010,8 @@ struct spa_bt_transport *spa_bt_transport_find(struct spa_bt_monitor *monitor, c
 }
 
 struct spa_bt_transport *spa_bt_transport_find_full(struct spa_bt_monitor *monitor,
-                                                    bool (*callback) (struct spa_bt_transport *t, const void *data),
-                                                    const void *data)
+						    bool (*callback) (struct spa_bt_transport *t, const void *data),
+						    const void *data)
 {
 	struct spa_bt_transport *t;
 
@@ -2340,7 +2340,7 @@ static void spa_bt_transport_volume_timer_event(struct spa_source *source)
 	uint64_t exp;
 
 	if (spa_system_timerfd_read(monitor->main_system, source->fd, &exp) < 0)
-                spa_log_warn(monitor->log, "error reading timerfd: %s", strerror(errno));
+		spa_log_warn(monitor->log, "error reading timerfd: %s", strerror(errno));
 
 	spa_bt_transport_volume_changed(transport);
 }
@@ -3074,7 +3074,7 @@ static void media_codec_switch_timer_event(struct spa_source *source)
 	uint64_t exp;
 
 	if (spa_system_timerfd_read(monitor->main_system, source->fd, &exp) < 0)
-                spa_log_warn(monitor->log, "error reading timerfd: %s", strerror(errno));
+		spa_log_warn(monitor->log, "error reading timerfd: %s", strerror(errno));
 
 	spa_log_debug(monitor->log, "media codec switch %p: rate limit timer event", sw);
 
@@ -3507,8 +3507,9 @@ static DBusHandlerResult endpoint_release(DBusConnection *conn, DBusMessage *m, 
 {
 	DBusMessage *r;
 
-	r = dbus_message_new_error(m, BLUEZ_MEDIA_ENDPOINT_INTERFACE ".Error.NotImplemented",
-                                            "Method not implemented");
+	r = dbus_message_new_error(m,
+				   BLUEZ_MEDIA_ENDPOINT_INTERFACE ".Error.NotImplemented",
+				   "Method not implemented");
 	if (r == NULL)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 	if (!dbus_connection_send(conn, r, NULL))
@@ -3611,8 +3612,9 @@ static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, const c
 }
 
 static int bluez_register_endpoint(struct spa_bt_monitor *monitor,
-                             const char *path, enum spa_bt_media_direction direction,
-			     const char *uuid, const struct media_codec *codec) {
+				   const char *path, enum spa_bt_media_direction direction,
+				   const char *uuid, const struct media_codec *codec)
+{
 	char  *object_path = NULL;
 	DBusMessage *m;
 	DBusMessageIter object_it, dict_it;
@@ -3706,8 +3708,9 @@ static int adapter_register_endpoints(struct spa_bt_adapter *a)
 	 * let's incentivize users to upgrade their bluez5 daemon
 	 * if they want proper media codec support
 	 * */
-	spa_log_warn(monitor->log, "Using legacy bluez5 API for A2DP - only SBC will be supported. "
-                               "Please upgrade bluez5.");
+	spa_log_warn(monitor->log,
+		     "Using legacy bluez5 API for A2DP - only SBC will be supported. "
+		     "Please upgrade bluez5.");
 
 	for (i = 0; media_codecs[i]; i++) {
 		const struct media_codec *codec = media_codecs[i];
@@ -4324,7 +4327,7 @@ static void get_managed_objects(struct spa_bt_monitor *monitor)
 
 	dbus_connection_send_with_reply(monitor->conn, m, &call, -1);
 	dbus_pending_call_set_notify(call, get_managed_objects_reply, monitor, NULL);
-        dbus_message_unref(m);
+	dbus_message_unref(m);
 
 	monitor->get_managed_objects_call = call;
 }

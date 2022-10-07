@@ -129,6 +129,7 @@ struct impl {
 	struct pw_context *module_context;
 
 	struct pw_loop *loop;
+	struct pw_loop *data_loop;
 
 	struct pw_core *core;
 	struct spa_hook core_listener;
@@ -516,7 +517,7 @@ static void session_free(struct session *sess)
 	if (sess->stream)
 		pw_stream_destroy(sess->stream);
 	if (sess->source)
-		pw_loop_destroy_source(sess->impl->loop, sess->source);
+		pw_loop_destroy_source(sess->impl->data_loop, sess->source);
 	free(sess);
 }
 
@@ -602,7 +603,7 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 		goto error;
 	}
 
-	session->source = pw_loop_add_io(impl->loop, fd,
+	session->source = pw_loop_add_io(impl->data_loop, fd,
 				SPA_IO_IN, true, on_rtp_io, session);
 	if (session->source == NULL) {
 		res = -errno;
@@ -1026,6 +1027,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->module_context = context;
 	impl->loop = pw_context_get_main_loop(context);
+	impl->data_loop = pw_data_loop_get_loop(pw_context_get_data_loop(context));
 
 	if ((str = pw_properties_get(props, "stream.props")) != NULL)
 		pw_properties_update_string(stream_props, str, strlen(str));

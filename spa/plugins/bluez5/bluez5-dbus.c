@@ -4320,77 +4320,13 @@ static void get_managed_objects(struct spa_bt_monitor *monitor)
 					 "org.freedesktop.DBus.ObjectManager",
 					 "GetManagedObjects");
 
+	dbus_message_set_auto_start(m, false);
+
 	dbus_connection_send_with_reply(monitor->conn, m, &call, -1);
 	dbus_pending_call_set_notify(call, get_managed_objects_reply, monitor, NULL);
         dbus_message_unref(m);
 
 	monitor->get_managed_objects_call = call;
-}
-
-static void check_name_owner_reply(DBusPendingCall *pending, void *user_data)
-{
-	struct spa_bt_monitor *monitor = user_data;
-	DBusMessage *r;
-	DBusError error;
-	bool running;
-
-	r = dbus_pending_call_steal_reply(pending);
-	dbus_pending_call_unref(pending);
-
-	if (r == NULL)
-		return;
-
-	if (dbus_message_is_error(r, DBUS_ERROR_UNKNOWN_METHOD)) {
-		spa_log_warn(monitor->log, "BlueZ D-Bus ObjectManager not available");
-		goto finish;
-	}
-	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
-		spa_log_error(monitor->log, "NameHasOwner() failed: %s",
-				dbus_message_get_error_name(r));
-		goto finish;
-	}
-	if (!spa_streq(dbus_message_get_signature(r), "b")) {
-		spa_log_error(monitor->log, "Invalid reply signature for NameHasOwner()");
-		goto finish;
-	}
-
-	dbus_error_init(&error);
-	dbus_message_get_args(r, &error, DBUS_TYPE_BOOLEAN, &running, DBUS_TYPE_INVALID);
-
-	if (dbus_error_is_set(&error)) {
-                spa_log_error(monitor->log, "Could not check bluetooth service: %s", error.message);
-		dbus_error_free(&error);
-		goto finish;
-	}
-
-	spa_log_info(monitor->log, "bluetooth service running: %s",
-			running ? "yes" : "no");
-	if (running)
-		get_managed_objects(monitor);
-
-finish:
-	dbus_message_unref(r);
-	return;
-}
-
-static void check_name_owner(struct spa_bt_monitor *monitor)
-{
-	DBusMessage *m;
-	DBusPendingCall *call;
-	const char *service = BLUEZ_SERVICE;
-
-	m = dbus_message_new_method_call("org.freedesktop.DBus",
-					 "/org/freedesktop/DBus",
-					 "org.freedesktop.DBus",
-					 "NameHasOwner");
-	if (m == NULL)
-		return;
-
-	dbus_message_append_args(m, DBUS_TYPE_STRING, &service, DBUS_TYPE_INVALID);
-
-	dbus_connection_send_with_reply(monitor->conn, m, &call, -1);
-	dbus_pending_call_set_notify(call, check_name_owner_reply, monitor, NULL);
-	dbus_message_unref(m);
 }
 
 static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *user_data)
@@ -4651,7 +4587,7 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
 	add_filters(this);
-	check_name_owner(this);
+	get_managed_objects(this);
 
 	spa_hook_list_join(&this->hooks, &save);
 

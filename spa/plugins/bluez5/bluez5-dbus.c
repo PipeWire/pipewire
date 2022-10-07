@@ -757,9 +757,9 @@ static int parse_modalias(const char *modalias, uint16_t *source, uint16_t *vend
 	char *pos;
 	unsigned int src, i, j, k;
 
-	if (strncmp(modalias, "bluetooth:", strlen("bluetooth:")) == 0)
+	if (spa_strstartswith(modalias, "bluetooth:"))
 		src = SOURCE_ID_BLUETOOTH;
-	else if (strncmp(modalias, "usb:", strlen("usb:")) == 0)
+	else if (spa_strstartswith(modalias, "usb:"))
 		src = SOURCE_ID_USB;
 	else
 		return -EINVAL;

@@ -558,7 +558,7 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 			DBUS_TYPE_BYTE, &pconf, size, DBUS_TYPE_INVALID))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
-      exit_send:
+exit_send:
 	if (!dbus_connection_send(conn, r, NULL))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
@@ -883,7 +883,7 @@ static int adapter_update_props(struct spa_bt_adapter *adapter,
 		else
 			spa_log_debug(monitor->log, "adapter %p: unhandled key %s", adapter, key);
 
-	      next:
+next:
 		dbus_message_iter_next(props_iter);
 	}
 	return 0;
@@ -1737,7 +1737,7 @@ static int device_update_props(struct spa_bt_device *device,
 		else
 			spa_log_debug(monitor->log, "device %p: unhandled key %s type %d", device, key, type);
 
-	      next:
+next:
 		dbus_message_iter_next(props_iter);
 	}
 	return 0;
@@ -1961,7 +1961,7 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 		else
 			spa_log_debug(monitor->log, "remote_endpoint %p: unhandled key %s", remote_endpoint, key);
 
-	      next:
+next:
 		dbus_message_iter_next(props_iter);
 	}
 	return 0;
@@ -2588,7 +2588,7 @@ static int transport_update_props(struct spa_bt_transport *transport,
 				dbus_message_iter_next(&iter);
 			}
 		}
-	      next:
+next:
 		dbus_message_iter_next(props_iter);
 	}
 	return 0;
@@ -3583,7 +3583,7 @@ static void bluez_register_endpoint_reply(DBusPendingCall *pending, void *user_d
 		goto finish;
 	}
 
-	finish:
+finish:
 	dbus_message_unref(r);
 }
 
@@ -3743,7 +3743,7 @@ static int adapter_register_endpoints(struct spa_bt_adapter *a)
 		err = -ENOSYS;
 	}
 
-	out:
+out:
 	if (err) {
 		spa_log_error(monitor->log, "Failed to register bluez5 endpoints");
 	}
@@ -4109,7 +4109,7 @@ static int media_update_props(struct spa_bt_monitor *monitor,
 		else
 			spa_log_debug(monitor->log, "media: unhandled key %s", key);
 
-	      next:
+next:
 		dbus_message_iter_next(props_iter);
 	}
 	return 0;
@@ -4305,7 +4305,7 @@ static void get_managed_objects_reply(DBusPendingCall *pending, void *user_data)
 
 	monitor->objects_listed = true;
 
-      finish:
+finish:
 	dbus_message_unref(r);
 	return;
 }

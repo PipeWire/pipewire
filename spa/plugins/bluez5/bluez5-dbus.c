@@ -4302,6 +4302,9 @@ static void get_managed_objects_reply(DBusPendingCall *pending, void *user_data)
 
 static void get_managed_objects(struct spa_bt_monitor *monitor)
 {
+	if (monitor->objects_listed)
+		return;
+
 	DBusMessage *m;
 	DBusPendingCall *call;
 

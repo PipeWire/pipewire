@@ -417,7 +417,7 @@ unexpected_ssrc:
 	return;
 }
 
-static int make_multicast_socket(const struct sockaddr* sa, socklen_t salen, char *ifname)
+static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname)
 {
 	int af, fd, val, res;
 	struct ifreq req;
@@ -452,22 +452,26 @@ static int make_multicast_socket(const struct sockaddr* sa, socklen_t salen, cha
 	res = 0;
 	if (af == AF_INET) {
 		static const uint32_t ipv4_mcast_mask = 0xe0000000;
-		const struct sockaddr_in *sa4 = (struct sockaddr_in*)sa;
+		struct sockaddr_in *sa4 = (struct sockaddr_in*)sa;
 		if ((ntohl(sa4->sin_addr.s_addr) & ipv4_mcast_mask) == ipv4_mcast_mask) {
 			struct ip_mreqn mr4;
 			memset(&mr4, 0, sizeof(mr4));
 			mr4.imr_multiaddr = sa4->sin_addr;
 			mr4.imr_ifindex = req.ifr_ifindex;
 			res = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr4, sizeof(mr4));
+		} else {
+			sa4->sin_addr.s_addr = INADDR_ANY;
 		}
 	} else if (af == AF_INET6) {
-		const struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)sa;
+		struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)sa;
 		if (sa6->sin6_addr.s6_addr[0] == 0xff) {
 			struct ipv6_mreq mr6;
 			memset(&mr6, 0, sizeof(mr6));
 			mr6.ipv6mr_multiaddr = sa6->sin6_addr;
 			mr6.ipv6mr_interface = req.ifr_ifindex;
 			res = setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mr6, sizeof(mr6));
+		} else {
+		        sa6->sin6_addr = in6addr_any;
 		}
 	} else {
 		res = -EINVAL;
@@ -482,7 +486,7 @@ static int make_multicast_socket(const struct sockaddr* sa, socklen_t salen, cha
 
 	if (bind(fd, sa, salen) < 0) {
 		res = -errno;
-		pw_log_warn("bind() failed: %m");
+		pw_log_error("bind() failed: %m");
 		goto error;
 	}
 	return fd;
@@ -500,6 +504,20 @@ static void session_touch(struct session *sess)
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	sess->timestamp = SPA_TIMESPEC_TO_NSEC(&ts);
+}
+
+static void session_free(struct session *sess)
+{
+	pw_log_info("free session %s %s", sess->info.origin, sess->info.session);
+	if (sess->impl) {
+		sess->impl->n_sessions--;
+		spa_list_remove(&sess->link);
+	}
+	if (sess->stream)
+		pw_stream_destroy(sess->stream);
+	if (sess->source)
+		pw_loop_destroy_source(sess->impl->loop, sess->source);
+	free(sess);
 }
 
 static int session_new(struct impl *impl, struct sdp_info *info)
@@ -521,7 +539,6 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 	if (session == NULL)
 		return -errno;
 
-	session->impl = impl;
 	session->info = *info;
 
 	session->target_buffer = msec_to_bytes(info, impl->sess_latency_msec);
@@ -531,8 +548,10 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 	spa_dll_set_bw(&session->dll, SPA_DLL_BW_MIN, 128, session->info.info.rate);
 
 	props = pw_properties_copy(impl->stream_props);
-	if (props == NULL)
-		return -errno;
+	if (props == NULL) {
+		res = -errno;
+		goto error;
+	}
 
 	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", info->info.rate);
 	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%d/%d",
@@ -551,8 +570,11 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 
 	session->stream = pw_stream_new(impl->core,
 			"rtp-source playback", props);
-	if (session->stream == NULL)
-		return -errno;
+	if (session->stream == NULL) {
+		res = -errno;
+		pw_log_error("can't create stream: %m");
+		goto error;
+	}
 
 	pw_stream_add_listener(session->stream,
 			&session->stream_listener,
@@ -563,43 +585,42 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
 			&info->info);
 
-
 	if ((res = pw_stream_connect(session->stream,
 			PW_DIRECTION_OUTPUT,
 			PW_ID_ANY,
 			PW_STREAM_FLAG_MAP_BUFFERS |
 			PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_RT_PROCESS,
-			params, n_params)) < 0)
-		return res;
+			params, n_params)) < 0) {
+		pw_log_error("can't connect stream: %s", spa_strerror(res));
+		goto error;
+	}
 
-	if ((fd = make_multicast_socket((const struct sockaddr *)&info->sa,
-					info->salen, impl->ifname)) < 0)
-		return fd;
+	if ((fd = make_socket((const struct sockaddr *)&info->sa,
+					info->salen, impl->ifname)) < 0) {
+		res = fd;
+		goto error;
+	}
 
-	pw_log_info("starting RTP listener");
 	session->source = pw_loop_add_io(impl->loop, fd,
 				SPA_IO_IN, true, on_rtp_io, session);
-	if (session->source == NULL)
-		return -errno;
+	if (session->source == NULL) {
+		res = -errno;
+		pw_log_error("can't create io source: %m");
+		goto error;
+	}
 
+	pw_log_info("starting RTP listener");
 	session_touch(session);
+
+	session->impl = impl;
 	spa_list_append(&impl->sessions, &session->link);
 	impl->n_sessions++;
 
 	return 0;
-}
-
-static void session_free(struct session *sess)
-{
-	pw_log_info("free session %s %s", sess->info.origin, sess->info.session);
-	sess->impl->n_sessions--;
-	spa_list_remove(&sess->link);
-	if (sess->stream)
-		pw_stream_destroy(sess->stream);
-	if (sess->source)
-		pw_loop_destroy_source(sess->impl->loop, sess->source);
-	free(sess);
+error:
+	session_free(session);
+	return res;
 }
 
 static struct session *session_find(struct impl *impl, struct sdp_info *info)
@@ -870,7 +891,7 @@ static int start_sap_listener(struct impl *impl)
 	} else
 		return -EINVAL;
 
-	if ((fd = make_multicast_socket(sa, salen, impl->ifname)) < 0)
+	if ((fd = make_socket(sa, salen, impl->ifname)) < 0)
 		return fd;
 
 	pw_log_info("starting SAP listener");

@@ -453,6 +453,11 @@ static int setup_stream(struct impl *impl)
 	if (props == NULL)
 		return -errno;
 
+	if (pw_properties_get(props, PW_KEY_NODE_LATENCY) == NULL) {
+		pw_properties_setf(props, PW_KEY_NODE_LATENCY,
+				"%d/%d", impl->mtu / impl->frame_size,
+				impl->info.rate);
+	}
 	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", impl->info.rate);
 
 	impl->stream = pw_stream_new(impl->core,

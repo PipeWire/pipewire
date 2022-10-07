@@ -113,6 +113,7 @@ struct spa_bt_monitor {
 
 	unsigned int filters_added:1;
 	unsigned int objects_listed:1;
+	DBusPendingCall *get_managed_objects_call;
 
 	struct spa_bt_backend *backend;
 	struct spa_bt_backend *backends[BACKEND_NUM];
@@ -4259,6 +4260,9 @@ static void get_managed_objects_reply(DBusPendingCall *pending, void *user_data)
 	DBusMessage *r;
 	DBusMessageIter it[6];
 
+	spa_assert(pending == monitor->get_managed_objects_call);
+	monitor->get_managed_objects_call = NULL;
+
 	r = dbus_pending_call_steal_reply(pending);
 	if (r == NULL)
 		return;
@@ -4316,6 +4320,8 @@ static void get_managed_objects(struct spa_bt_monitor *monitor)
 	dbus_connection_send_with_reply(monitor->conn, m, &call, -1);
 	dbus_pending_call_set_notify(call, get_managed_objects_reply, monitor, NULL);
         dbus_message_unref(m);
+
+	monitor->get_managed_objects_call = call;
 }
 
 static void check_name_owner_reply(DBusPendingCall *pending, void *user_data)
@@ -4693,6 +4699,11 @@ static int impl_clear(struct spa_handle *handle)
 	if (monitor->filters_added) {
 		dbus_connection_remove_filter(monitor->conn, filter_cb, monitor);
 		monitor->filters_added = false;
+	}
+
+	if (monitor->get_managed_objects_call) {
+		dbus_pending_call_cancel(monitor->get_managed_objects_call);
+		dbus_pending_call_unref(monitor->get_managed_objects_call);
 	}
 
 	spa_list_consume(t, &monitor->transport_list, link)

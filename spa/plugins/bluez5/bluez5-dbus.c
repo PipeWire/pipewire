@@ -3567,6 +3567,8 @@ static void bluez_register_endpoint_reply(DBusPendingCall *pending, void *user_d
 	DBusMessage *r;
 
 	r = dbus_pending_call_steal_reply(pending);
+	dbus_pending_call_unref(pending);
+
 	if (r == NULL)
 		return;
 
@@ -3582,7 +3584,6 @@ static void bluez_register_endpoint_reply(DBusPendingCall *pending, void *user_d
 
 	finish:
 	dbus_message_unref(r);
-	dbus_pending_call_unref(pending);
 }
 
 static void append_basic_variant_dict_entry(DBusMessageIter *dict, const char* key, int variant_type_int, const char* variant_type_str, void* variant) {
@@ -3889,6 +3890,8 @@ static void bluez_register_application_reply(DBusPendingCall *pending, void *use
 	bool fallback = true;
 
 	r = dbus_pending_call_steal_reply(pending);
+	dbus_pending_call_unref(pending);
+
 	if (r == NULL)
 		return;
 
@@ -3908,7 +3911,6 @@ static void bluez_register_application_reply(DBusPendingCall *pending, void *use
 
 finish:
 	dbus_message_unref(r);
-	dbus_pending_call_unref(pending);
 
 	if (fallback)
 		adapter_register_endpoints(adapter);
@@ -4264,6 +4266,8 @@ static void get_managed_objects_reply(DBusPendingCall *pending, void *user_data)
 	monitor->get_managed_objects_call = NULL;
 
 	r = dbus_pending_call_steal_reply(pending);
+	dbus_pending_call_unref(pending);
+
 	if (r == NULL)
 		return;
 
@@ -4300,7 +4304,6 @@ static void get_managed_objects_reply(DBusPendingCall *pending, void *user_data)
 
       finish:
 	dbus_message_unref(r);
-        dbus_pending_call_unref(pending);
 	return;
 }
 
@@ -4332,6 +4335,8 @@ static void check_name_owner_reply(DBusPendingCall *pending, void *user_data)
 	bool running;
 
 	r = dbus_pending_call_steal_reply(pending);
+	dbus_pending_call_unref(pending);
+
 	if (r == NULL)
 		return;
 
@@ -4365,7 +4370,6 @@ static void check_name_owner_reply(DBusPendingCall *pending, void *user_data)
 
 finish:
 	dbus_message_unref(r);
-	dbus_pending_call_unref(pending);
 	return;
 }
 

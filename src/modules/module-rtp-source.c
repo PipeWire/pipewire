@@ -556,7 +556,7 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 
 	pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%d", info->info.rate);
 	pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%d/%d",
-			session->target_buffer / info->stride, info->info.rate);
+			session->target_buffer / (2 * info->stride), info->info.rate);
 	pw_properties_set(props, "rtp.origin", info->origin);
 	pw_properties_setf(props, "rtp.payload", "%u", info->payload);
 	if (info->session[0]) {

@@ -4592,6 +4592,12 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 	add_filters(this);
 	get_managed_objects(this);
 
+	struct spa_bt_device *device;
+	spa_list_for_each(device, &this->device_list, link) {
+		if (device->added)
+			emit_device_info(this, device, this->connection_info_supported);
+	}
+
 	spa_hook_list_join(&this->hooks, &save);
 
 	return 0;

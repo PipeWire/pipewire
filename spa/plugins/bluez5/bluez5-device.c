@@ -74,6 +74,7 @@ enum {
 	DEVICE_PROFILE_A2DP = 2,
 	DEVICE_PROFILE_HSP_HFP = 3,
 	DEVICE_PROFILE_BAP = 4,
+	DEVICE_PROFILE_LAST = DEVICE_PROFILE_BAP,
 };
 
 struct props {
@@ -1092,18 +1093,18 @@ static uint32_t get_profile_from_index(struct impl *this, uint32_t index, uint32
 	*codec = 0;
 	*next = index + 1;
 
-	if (index <= 3) {
+	if (index <= DEVICE_PROFILE_LAST) {
 		return index;
 	} else if (index != SPA_ID_INVALID) {
 		const struct spa_type_info *info;
 		uint32_t profile;
 
-		*codec = index - 3;
+		*codec = index - DEVICE_PROFILE_LAST;
 		*next = SPA_ID_INVALID;
 
 		for (info = spa_type_bluetooth_audio_codec; info->type; ++info)
 			if (info->type > *codec)
-				*next = SPA_MIN(info->type + 3, *next);
+				*next = SPA_MIN(info->type + DEVICE_PROFILE_LAST, *next);
 
 		if (get_hfp_codec(*codec))
 			profile = DEVICE_PROFILE_HSP_HFP;
@@ -1128,14 +1129,14 @@ static uint32_t get_index_from_profile(struct impl *this, uint32_t profile, enum
 		if (codec == 0 || (this->bt_dev->connected_profiles & SPA_BT_PROFILE_MEDIA_SOURCE))
 			return profile;
 
-		return codec + 3;
+		return codec + DEVICE_PROFILE_LAST;
 	}
 
 	if (profile == DEVICE_PROFILE_HSP_HFP) {
 		if (codec == 0 || (this->bt_dev->connected_profiles & SPA_BT_PROFILE_HFP_AG))
 			return profile;
 
-		return codec + 3;
+		return codec + DEVICE_PROFILE_LAST;
 	}
 
 	return SPA_ID_INVALID;

@@ -575,12 +575,21 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 {
 	struct spa_bt_monitor *monitor = userdata;
 	const char *path;
-	const char *object_path;
 	DBusMessageIter args, props, iter;
 	DBusMessage *r = NULL;
-	int size, res;
+	int res;
 	const struct media_codec *codec;
 	bool sink;
+	const char *err_msg = "Unknown error";
+
+	const char *endpoint_path;
+	uint8_t caps[A2DP_MAX_CAPS_SIZE];
+	uint8_t config[A2DP_MAX_CAPS_SIZE];
+	int caps_size = 0;
+	DBusMessageIter dict;
+	struct bap_endpoint_qos endpoint_qos;
+
+	spa_zero(endpoint_qos);
 
 	if (!dbus_message_iter_init(m, &args) || !spa_streq(dbus_message_get_signature(m), "a{sv}")) {
 		spa_log_error(monitor->log, "Invalid signature for method SelectProperties()");
@@ -595,20 +604,16 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 
 	codec = media_endpoint_to_codec(monitor, path, &sink);
 	if (!codec) {
-		res = -ENOTSUP;
-		spa_log_error(monitor->log, "Unsupported codec: %d (%s)",
-				res, spa_strerror(res));
-		if ((r = dbus_message_new_error(m, "org.bluez.Error.InvalidArguments",
-				"Unsupported codec")) == NULL)
-			return DBUS_HANDLER_RESULT_NEED_MEMORY;
-		goto exit_send;
+		spa_log_error(monitor->log, "Unsupported codec");
+		err_msg = "Unsupported codec";
+		goto error;
 	}
 
-	/* Read transport properties */
+	/* Parse transport properties */
 	while (dbus_message_iter_get_arg_type(&props) == DBUS_TYPE_DICT_ENTRY) {
 		const char *key;
 		DBusMessageIter value, entry;
-		int var;
+		int type;
 
 		dbus_message_iter_recurse(&props, &entry);
 		dbus_message_iter_get_basic(&entry, &key);
@@ -616,112 +621,156 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 		dbus_message_iter_next(&entry);
 		dbus_message_iter_recurse(&entry, &value);
 
-		var = dbus_message_iter_get_arg_type(&value);
+		type = dbus_message_iter_get_arg_type(&value);
 
 		if (spa_streq(key, "Capabilities")) {
-			DBusMessageIter array, dict;
-			uint8_t config[A2DP_MAX_CAPS_SIZE], *cap;
-			uint8_t *pconf = (uint8_t *) config;
+			DBusMessageIter array;
+			uint8_t *buf;
 
-			if (r) {
-				spa_log_warn(monitor->log, "Multiple Capabilities entries, skipped");
-				goto next_entry;
-			}
-
-			if (var != DBUS_TYPE_ARRAY) {
-				spa_log_error(monitor->log, "Property %s of wrong type %c", key, (char)var);
-				if ((r = dbus_message_new_error(m, "org.bluez.Error.InvalidArguments",
-						"Invalid property")) == NULL)
-					return DBUS_HANDLER_RESULT_NEED_MEMORY;
-				goto exit_send;
+			if (type != DBUS_TYPE_ARRAY) {
+				spa_log_error(monitor->log, "Property %s of wrong type %c", key, (char)type);
+				goto error_invalid;
 			}
 
 			dbus_message_iter_recurse(&value, &array);
-			var = dbus_message_iter_get_arg_type(&array);
-			if (var != DBUS_TYPE_BYTE) {
-				spa_log_error(monitor->log, "%s is an array of wrong type %c", key, (char)var);
-				if ((r = dbus_message_new_error(m, "org.bluez.Error.InvalidArguments",
-						"Invalid property")) == NULL)
-					return DBUS_HANDLER_RESULT_NEED_MEMORY;
-				goto exit_send;
+			type = dbus_message_iter_get_arg_type(&array);
+			if (type != DBUS_TYPE_BYTE) {
+				spa_log_error(monitor->log, "%s is an array of wrong type %c", key, (char)type);
+				goto error_invalid;
 			}
 
-			dbus_message_iter_get_fixed_array(&array, &cap, &size);
-			spa_log_info(monitor->log, "%p: %s select properties %d", monitor, path, size);
-			spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', cap, (size_t)size);
+			dbus_message_iter_get_fixed_array(&array, &buf, &caps_size);
+			memcpy(caps, buf, caps_size);
 
-			/* FIXME: We can't determine which device the SelectConfiguration()
-			* call is associated with, therefore device settings are not passed.
-			* This causes inconsistency with SelectConfiguration() triggered
-			* by codec switching.
-			*/
-			res = codec->select_config(codec, 0, cap, size, &monitor->default_audio_info, NULL, config);
-
-			if (res < 0 || res != size) {
-				spa_log_error(monitor->log, "can't select config: %d (%s)",
-						res, spa_strerror(res));
-				if ((r = dbus_message_new_error(m, "org.bluez.Error.InvalidArguments",
-						"Unable to select properties")) == NULL)
-					return DBUS_HANDLER_RESULT_NEED_MEMORY;
-				goto exit_send;
-			}
-			spa_log_info(monitor->log, "%p: selected conf %d", monitor, size);
-			spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', pconf, (size_t)size);
-
-			if ((r = dbus_message_new_method_return(m)) == NULL)
-				return DBUS_HANDLER_RESULT_NEED_MEMORY;
-			dbus_message_iter_init_append(r, &iter);
-
-			dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
-										DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING
-										DBUS_TYPE_STRING_AS_STRING
-										DBUS_TYPE_VARIANT_AS_STRING
-										DBUS_DICT_ENTRY_END_CHAR_AS_STRING,
-										&dict);
-			append_basic_array_variant_dict_entry(&dict, "Capabilities", "ay", "y", DBUS_TYPE_BYTE, &config, size);
-
-			if (codec->get_qos)
-			{
-				struct codec_qos qos;
-				dbus_bool_t framing;
-
-				codec->get_qos(codec, config, size, &qos);
-
-				append_basic_variant_dict_entry(&dict, "Interval", DBUS_TYPE_UINT32, "u", &qos.interval);
-				framing = (qos.framing ? TRUE : FALSE);
-				append_basic_variant_dict_entry(&dict, "Framing", DBUS_TYPE_BOOLEAN, "b", &framing);
-				append_basic_variant_dict_entry(&dict, "PHY", DBUS_TYPE_STRING, "s", &qos.phy);
-				append_basic_variant_dict_entry(&dict, "SDU", DBUS_TYPE_UINT16, "q", &qos.sdu);
-				append_basic_variant_dict_entry(&dict, "Retransmissions", DBUS_TYPE_BYTE, "y", &qos.retransmission);
-				append_basic_variant_dict_entry(&dict, "Latency", DBUS_TYPE_UINT16, "q", &qos.latency);
-				append_basic_variant_dict_entry(&dict, "Delay", DBUS_TYPE_UINT32, "u", &qos.delay);
-			}
-
-			dbus_message_iter_close_container(&iter, &dict);
+			spa_log_info(monitor->log, "%p: %s %s size:%d", monitor, path, key, caps_size);
+			spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', caps, (size_t)caps_size);
 		} else if (spa_streq(key, "Endpoint")) {
-			dbus_message_iter_get_basic(&value, &object_path);
-
-			if (codec->bap) {
-				struct spa_bt_remote_endpoint *ep;
-
-				ep = remote_endpoint_find(monitor, object_path);
-				if (!ep) {
-					spa_log_warn(monitor->log, "Unable to find remote endpoint for %s", object_path);
-					goto next_entry;
-				}
-
-				/* Call of SelectProperties means that local device acts as an initiator
-				 * and therefor remote endpoint is an acceptor
-				 */
-				ep->acceptor = true;
+			if (type != DBUS_TYPE_OBJECT_PATH) {
+				spa_log_error(monitor->log, "Property %s of wrong type %c", key, (char)type);
+				goto error_invalid;
 			}
+
+			dbus_message_iter_get_basic(&value, &endpoint_path);
+
+			spa_log_info(monitor->log, "%p: %s %s %s", monitor, path, key, endpoint_path);
+		} else if (type == DBUS_TYPE_BYTE) {
+			uint8_t v;
+			dbus_message_iter_get_basic(&value, &v);
+
+			spa_log_info(monitor->log, "%p: %s %s 0x%x", monitor, path, key, (unsigned int)v);
+
+			if (spa_streq(key, "Framing"))
+				endpoint_qos.framing = v;
+			else if (spa_streq(key, "PHY"))
+				endpoint_qos.phy = v;
+			else
+				spa_log_info(monitor->log, "Unknown property %s", key);
+		} else if (type == DBUS_TYPE_UINT16) {
+			dbus_uint16_t v;
+			dbus_message_iter_get_basic(&value, &v);
+
+			spa_log_info(monitor->log, "%p: %s %s 0x%x", monitor, path, key, (unsigned int)v);
+
+			if (spa_streq(key, "Latency"))
+				endpoint_qos.latency = v;
+			else
+				spa_log_info(monitor->log, "Unknown property %s", key);
+		} else if (type == DBUS_TYPE_UINT32) {
+			dbus_uint32_t v;
+			dbus_message_iter_get_basic(&value, &v);
+
+			spa_log_info(monitor->log, "%p: %s %s 0x%x", monitor, path, key, (unsigned int)v);
+
+			if (spa_streq(key, "MinimumDelay"))
+				endpoint_qos.delay_min = v;
+			else if (spa_streq(key, "MaximumDelay"))
+				endpoint_qos.delay_max = v;
+			else if (spa_streq(key, "PreferredMinimumDelay"))
+				endpoint_qos.preferred_delay_min = v;
+			else if (spa_streq(key, "PreferredMaximumDelay"))
+				endpoint_qos.preferred_delay_max = v;
+			else
+				spa_log_info(monitor->log, "Unknown property %s", key);
+		} else {
+			spa_log_info(monitor->log, "Unknown property %s", key);
 		}
 
-next_entry:
 		dbus_message_iter_next(&props);
 	}
 
-exit_send:
+	if (codec->bap) {
+		struct spa_bt_remote_endpoint *ep;
+
+		ep = remote_endpoint_find(monitor, endpoint_path);
+		if (!ep) {
+			spa_log_warn(monitor->log, "Unable to find remote endpoint for %s", endpoint_path);
+			goto error_invalid;
+		}
+
+		/* Call of SelectProperties means that local device acts as an initiator
+		 * and therefor remote endpoint is an acceptor
+		 */
+		ep->acceptor = true;
+	}
+
+	/* TODO: determine which device the SelectConfiguration() call is associated
+	 * with; it's known here based on the remote endpoint.
+	 */
+	res = codec->select_config(codec, 0, caps, caps_size, &monitor->default_audio_info, NULL, config);
+
+	if (res < 0 || res != caps_size) {
+		spa_log_error(monitor->log, "can't select config: %d (%s)",
+				res, spa_strerror(res));
+		goto error_invalid;
+	}
+	spa_log_info(monitor->log, "%p: selected conf %d", monitor, caps_size);
+	spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', (uint8_t *)config, (size_t)caps_size);
+
+	if ((r = dbus_message_new_method_return(m)) == NULL)
+		return DBUS_HANDLER_RESULT_NEED_MEMORY;
+	dbus_message_iter_init_append(r, &iter);
+
+	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
+			DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING
+			DBUS_TYPE_STRING_AS_STRING
+			DBUS_TYPE_VARIANT_AS_STRING
+			DBUS_DICT_ENTRY_END_CHAR_AS_STRING,
+			&dict);
+	append_basic_array_variant_dict_entry(&dict, "Capabilities", "ay", "y", DBUS_TYPE_BYTE, &config, caps_size);
+
+	if (codec->get_qos) {
+		struct bap_codec_qos qos;
+		dbus_bool_t framing;
+		const char *phy_str;
+
+		spa_zero(qos);
+
+		res = codec->get_qos(codec, config, caps_size, &endpoint_qos, &qos);
+		if (res < 0) {
+			spa_log_error(monitor->log, "can't select QOS config: %d (%s)",
+					res, spa_strerror(res));
+			goto error_invalid;
+		}
+
+		append_basic_variant_dict_entry(&dict, "Interval", DBUS_TYPE_UINT32, "u", &qos.interval);
+		framing = (qos.framing ? TRUE : FALSE);
+		append_basic_variant_dict_entry(&dict, "Framing", DBUS_TYPE_BOOLEAN, "b", &framing);
+		if (qos.phy == 0x1)
+			phy_str = "1M";
+		else if (qos.phy == 0x2)
+			phy_str = "2M";
+		else
+			spa_assert_not_reached();
+		append_basic_variant_dict_entry(&dict, "PHY", DBUS_TYPE_STRING, "s", &phy_str);
+		append_basic_variant_dict_entry(&dict, "SDU", DBUS_TYPE_UINT16, "q", &qos.sdu);
+		append_basic_variant_dict_entry(&dict, "Retransmissions", DBUS_TYPE_BYTE, "y", &qos.retransmission);
+		append_basic_variant_dict_entry(&dict, "Latency", DBUS_TYPE_UINT16, "q", &qos.latency);
+		append_basic_variant_dict_entry(&dict, "Delay", DBUS_TYPE_UINT32, "u", &qos.delay);
+		append_basic_variant_dict_entry(&dict, "TargetLatency", DBUS_TYPE_BYTE, "y", &qos.target_latency);
+	}
+
+	dbus_message_iter_close_container(&iter, &dict);
+
 	if (r) {
 		if (!dbus_connection_send(conn, r, NULL))
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -729,6 +778,22 @@ exit_send:
 		dbus_message_unref(r);
 	}
 
+	return DBUS_HANDLER_RESULT_HANDLED;
+
+error_invalid:
+	err_msg = "Invalid property";
+	goto error;
+
+error:
+	if (r)
+		dbus_message_unref(r);
+	if ((r = dbus_message_new_error(m, "org.bluez.Error.InvalidArguments", err_msg)) == NULL)
+		return DBUS_HANDLER_RESULT_NEED_MEMORY;
+	if (!dbus_connection_send(conn, r, NULL)) {
+		dbus_message_unref(r);
+		return DBUS_HANDLER_RESULT_NEED_MEMORY;
+	}
+	dbus_message_unref(r);
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 

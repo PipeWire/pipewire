@@ -110,4 +110,33 @@ typedef struct {
 	uint8_t n_blks;
 } __attribute__ ((packed)) bap_lc3_t;
 
+#define BT_ISO_QOS_CIG_UNSET    0xff
+#define BT_ISO_QOS_CIS_UNSET    0xff
+
+#define BT_ISO_QOS_TARGET_LATENCY_LOW		0x01
+#define BT_ISO_QOS_TARGET_LATENCY_BALANCED	0x02
+#define BT_ISO_QOS_TARGET_LATENCY_RELIABILITY	0x03
+
+struct bap_endpoint_qos {
+        uint8_t  framing;
+        uint8_t  phy;
+        uint8_t  retransmission;
+        uint16_t latency;
+        uint32_t delay_min;
+        uint32_t delay_max;
+        uint32_t preferred_delay_min;
+        uint32_t preferred_delay_max;
+};
+
+struct bap_codec_qos {
+	uint32_t interval;
+	uint8_t framing;
+	uint8_t phy;
+	uint16_t sdu;
+	uint8_t retransmission;
+	uint16_t latency;
+	uint32_t delay;
+	uint8_t target_latency;
+};
+
 #endif

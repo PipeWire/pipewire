@@ -501,24 +501,31 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 	return 0;
 }
 
-static void codec_get_qos(const struct media_codec *codec,
-			const void *config, size_t config_size,
-			struct codec_qos *qos)
+static int codec_get_qos(const struct media_codec *codec,
+		const void *config, size_t config_size,
+		const struct bap_endpoint_qos *endpoint_qos,
+		struct bap_codec_qos *qos)
 {
 	bap_lc3_t conf;
 
-	memset(qos, 0, sizeof(*qos));
+	spa_zero(*qos);
 
 	if (!parse_conf(&conf, config, config_size))
-		return;
+		return -EINVAL;
 
 	qos->framing = false;
-	qos->phy = "2M";
+	if (endpoint_qos->phy & 0x2)
+		qos->phy = 0x2;
+	else if (endpoint_qos->phy & 0x1)
+		qos->phy = 0x1;
+	else
+		qos->phy = 0x2;
 	qos->retransmission = 2; /* default */
 	qos->sdu = conf.framelen * conf.n_blks;
 	qos->latency = 20; /* default */
 	qos->delay = 40000U;
 	qos->interval = (conf.frame_duration == LC3_CONFIG_DURATION_7_5 ? 7500 : 10000);
+	qos->target_latency = BT_ISO_QOS_TARGET_LATENCY_BALANCED;
 
 	switch (conf.rate) {
 		case LC3_CONFIG_FREQ_8KHZ:
@@ -533,6 +540,18 @@ static void codec_get_qos(const struct media_codec *codec,
 			qos->latency = (conf.frame_duration == LC3_CONFIG_DURATION_7_5 ? 15 : 20);
 			break;
 	}
+
+	/* Clamp to ASE values */
+	if (endpoint_qos->latency >= 0x0005 && endpoint_qos->latency <= 0x0FA0)
+		/* Values outside the range are RFU */
+		qos->latency = SPA_MAX(qos->latency, endpoint_qos->latency);
+
+	if (endpoint_qos->delay_min)
+		qos->delay = SPA_MAX(qos->delay, endpoint_qos->delay_min);
+	if (endpoint_qos->delay_max)
+		qos->delay = SPA_MIN(qos->delay, endpoint_qos->delay_max);
+
+	return 0;
 }
 
 static void *codec_init(const struct media_codec *codec, uint32_t flags,

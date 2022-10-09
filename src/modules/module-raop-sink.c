@@ -157,7 +157,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_CHANNELS 2
 #define DEFAULT_POSITION "[ FL FR ]"
 
-#define DEFAULT_LATENCY (DEFAULT_RATE*2)
+#define DEFAULT_LATENCY 22050
 
 #define MODULE_USAGE	"[ raop.hostname=<name of host> ] "					\
 			"[ raop.port=<remote port> ] "						\
@@ -429,7 +429,7 @@ static int flush_to_udp_packet(struct impl *impl)
 		memset(dst, 0, len);
 		break;
 	}
-	if (impl->encryption != CRYPTO_NONE)
+	if (impl->encryption == CRYPTO_RSA)
 		aes_encrypt(impl, dst, len);
 
 	impl->rtptime += n_frames;
@@ -472,7 +472,7 @@ static int flush_to_tcp_packet(struct impl *impl)
 		memset(dst, 0, len);
 		break;
 	}
-	if (impl->encryption != CRYPTO_NONE)
+	if (impl->encryption == CRYPTO_RSA)
 		aes_encrypt(impl, dst, len);
 
 	pkt[0] |= htonl((uint32_t) len + 12);
@@ -784,6 +784,12 @@ static void rtsp_record_reply(void *data, int status, const struct spa_dict *hea
 	impl->sync = 0;
 	impl->sync_period = impl->info.rate / (impl->block_size / impl->frame_size);
 	impl->recording = true;
+    int res;
+    char *progress;
+    asprintf(&progress,"progress: %s/%s/%s\r\n", "0","0","0");
+    res = pw_rtsp_client_send(impl->rtsp, "SET_PARAMETER", NULL,
+			"text/parameters", progress, NULL, NULL);
+
 }
 
 static int rtsp_do_record(struct impl *impl)
@@ -1087,6 +1093,20 @@ static int rtsp_do_announce(struct impl *impl)
 				impl->session_id, ip_version, local_ip,
 				ip_version, host, frames);
 		break;
+       case CRYPTO_AUTH_SETUP:
+		int min_latency = DEFAULT_LATENCY;
+		asprintf(&sdp, "v=0\r\n"
+				"o=iTunes %s 0 IN IP%d %s\r\n"
+				"s=iTunes\r\n"
+				"c=IN IP%d %s\r\n"
+				"t=0 0\r\n"
+				"m=audio 0 RTP/AVP 96\r\n"
+				"a=rtpmap:96 AppleLossless\r\n"
+				"a=fmtp:96 %d 0 16 40 10 14 2 255 0 0 44100\r\n"
+				"a=min-latency:%d",
+				impl->session_id, ip_version, local_ip,
+				ip_version, host, frames,min_latency);
+		break;
 
 	case CRYPTO_RSA:
 		pw_getrandom(impl->key, sizeof(impl->key), 0);
@@ -1126,7 +1146,7 @@ static void rtsp_auth_setup_reply(void *data, int status, const struct spa_dict 
 
 	pw_log_info("reply %d", status);
 
-	impl->encryption = CRYPTO_NONE;
+
 
 	rtsp_do_announce(impl);
 }

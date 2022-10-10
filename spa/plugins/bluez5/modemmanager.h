@@ -114,7 +114,7 @@ bool mm_is_available(void *modemmanager)
 	return false;
 }
 
-unsigned int mm_supported_features()
+unsigned int mm_supported_features(void)
 {
 	return 0;
 }

@@ -2226,13 +2226,13 @@ readline_command_completion(const char *text, int start, int end)
 	return matches;
 }
 
-static void readline_init()
+static void readline_init(void)
 {
 	rl_attempted_completion_function = readline_command_completion;
 	rl_callback_handler_install(">> ", input_process_line);
 }
 
-static void readline_cleanup()
+static void readline_cleanup(void)
 {
 	rl_callback_handler_remove();
 }

@@ -39,7 +39,7 @@
 static struct spa_dict_item items[MAX_ITEMS];
 static char values[MAX_ITEMS][32];
 
-static void gen_values()
+static void gen_values(void)
 {
 	uint32_t i, j, idx;
 	static const char chars[] = "abcdefghijklmnopqrstuvwxyz.:*ABCDEFGHIJKLMNOPQRSTUVWXYZ";

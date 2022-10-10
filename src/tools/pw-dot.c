@@ -94,7 +94,7 @@ struct global {
 	struct spa_hook object_listener;
 };
 
-static char *dot_str_new()
+static char *dot_str_new(void)
 {
         return strdup("");
 }

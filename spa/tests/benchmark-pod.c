@@ -37,7 +37,7 @@
 
 #define MAX_COUNT 10000000
 
-static void test_builder()
+static void test_builder(void)
 {
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { NULL, };
@@ -90,7 +90,7 @@ static void test_builder()
 			t2 - t1, count, count * (uint64_t)SPA_NSEC_PER_SEC / (t2 - t1));
 }
 
-static void test_builder2()
+static void test_builder2(void)
 {
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { NULL, };
@@ -131,7 +131,7 @@ static void test_builder2()
 			t2 - t1, count, count * (uint64_t)SPA_NSEC_PER_SEC / (t2 - t1));
 }
 
-static void test_parse()
+static void test_parse(void)
 {
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { NULL, };
@@ -216,7 +216,7 @@ static void test_parse()
 			t2 - t1, count, count * (uint64_t)SPA_NSEC_PER_SEC / (t2 - t1));
 }
 
-static void test_parser()
+static void test_parser(void)
 {
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = { NULL, };

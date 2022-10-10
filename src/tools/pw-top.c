@@ -612,7 +612,7 @@ static void show_help(const char *name, bool error)
 		name);
 }
 
-static void terminal_start()
+static void terminal_start(void)
 {
 	initscr();
 	cbreak();
@@ -620,7 +620,7 @@ static void terminal_start()
 	refresh();
 }
 
-static void terminal_stop()
+static void terminal_stop(void)
 {
 	endwin();
 }

@@ -25,7 +25,7 @@
    Laboratory, the University Corporation for Atmospheric Research,
    nor the names of its sponsors or contributors may be used to
    endorse or promote products derived from this Software without
-   specific prior written permission.  
+   specific prior written permission.
 
    - Redistributions of source code must retain the above copyright
    notices, this list of conditions, and the disclaimer below.
@@ -52,7 +52,7 @@
 */
 
 /*
-  ChangeLog: 
+  ChangeLog:
   - 2011/10/02, version 1: This is the very first release of this file.
 */
 
@@ -243,7 +243,7 @@ typedef union v4sf_union {
 #define assertv4(v,f0,f1,f2,f3) assert(v.f[0] == (f0) && v.f[1] == (f1) && v.f[2] == (f2) && v.f[3] == (f3))
 
 /* detect bugs with the vector support macros */
-static void validate_pffft_simd()
+static void validate_pffft_simd(void)
 {
 	float f[16] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 	v4sf_union a0, a1, a2, a3, t, u;
@@ -301,7 +301,7 @@ static void validate_pffft_simd()
 	assertv4(a3, 3, 7, 11, 15);
 }
 #else
-static void validate_pffft_simd()
+static void validate_pffft_simd(void)
 {
 }				// allow test_pffft.c to call this function even when simd is not available..
 #endif				//!PFFFT_SIMD_DISABLE
@@ -1421,7 +1421,7 @@ static PFFFT_Setup *new_setup_simd(int N, pffft_transform_t transform)
 {
 	PFFFT_Setup *s = (PFFFT_Setup *) malloc(sizeof(PFFFT_Setup));
 	int k, m;
-	/* unfortunately, the fft size must be a multiple of 16 for complex FFTs 
+	/* unfortunately, the fft size must be a multiple of 16 for complex FFTs
 	   and 32 for real FFTs -- a lot of stuff would need to be rewritten to
 	   handle other cases (or maybe just switch to a scalar fft, I don't know..) */
 	if (transform == PFFFT_REAL) {
@@ -1615,7 +1615,7 @@ static void pffft_cplx_finalize(int Ncvec, const v4sf * in, v4sf * out, const v4
 		   [0   0   0   0   1   1   1   1] * [i0]
 		   [0   1   0  -1   1   0  -1   0]   [i1]
 		   [0   0   0   0   1  -1   1  -1]   [i2]
-		   [0  -1   0   1   1   0  -1   0]   [i3]    
+		   [0  -1   0   1   1   0  -1   0]   [i3]
 		 */
 
 		r0 = VADD(sr0, sr1);
@@ -1719,7 +1719,7 @@ static ALWAYS_INLINE(void) pffft_real_finalize_4x4(const v4sf * in0,
 	   [0   0   0   0   1   1   1   1] * [i0]
 	   [0  -1   0   1  -1   0   1   0]   [i1]
 	   [0  -1   0   1   1   0  -1   0]   [i2]
-	   [0   0   0   0  -1   1  -1   1]   [i3]    
+	   [0   0   0   0  -1   1  -1   1]   [i3]
 	 */
 
 	//cerr << "matrix initial, before e , REAL:\n 1: " << r0 << "\n 1: " << r1 << "\n 1: " << r2 << "\n 1: " << r3 << "\n";
@@ -1832,7 +1832,7 @@ static ALWAYS_INLINE(void) pffft_real_preprocess_4x4(const v4sf * in,
 	   [0   0   0   0   1  -1   1  -1] * [i0]
 	   [0  -1   1   0   1   0   0   1]   [i1]
 	   [0   0   0   0   1   1  -1  -1]   [i2]
-	   [0   1  -1   0   1   0   0   1]   [i3]    
+	   [0   1  -1   0   1   0   0   1]   [i3]
 	 */
 
 	v4sf sr0 = VADD(r0, r3), dr0 = VSUB(r0, r3);

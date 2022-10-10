@@ -33,7 +33,7 @@
 #include <pipewire/pipewire.h>
 
 SPA_EXPORT
-jack_uuid_t jack_client_uuid_generate ()
+jack_uuid_t jack_client_uuid_generate (void)
 {
 	static uint32_t uuid_cnt = 0;
 	jack_uuid_t uuid = 0x2; /* JackUUIDClient */;

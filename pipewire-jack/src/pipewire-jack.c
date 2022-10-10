@@ -5715,7 +5715,7 @@ jack_nframes_t jack_time_to_frames(const jack_client_t *client, jack_time_t usec
 }
 
 SPA_EXPORT
-jack_time_t jack_get_time()
+jack_time_t jack_get_time(void)
 {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);

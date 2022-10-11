@@ -1219,7 +1219,7 @@ static int rtsp_do_auth(struct impl *impl, const struct spa_dict *headers)
 		spa_scnprintf(auth, sizeof(auth), "Basic %s", enc);
 	}
 	else if (spa_streq(tokens[0], "Digest")) {
-		const char *realm, *nonce;
+		const char *realm, *nonce, *url;
 		char h1[MD5_HASH_LENGTH+1];
 		char h2[MD5_HASH_LENGTH+1];
 		char resp[MD5_HASH_LENGTH+1];
@@ -1229,13 +1229,15 @@ static int rtsp_do_auth(struct impl *impl, const struct spa_dict *headers)
 		if (realm == NULL || nonce == NULL)
 			goto error;
 
+		url = pw_rtsp_client_get_url(impl->rtsp);
+
 		MD5_hash(h1, "%s:%s:%s", DEFAULT_USER_NAME, realm, impl->password);
-		MD5_hash(h2, "OPTIONS:*");
+		MD5_hash(h2, "OPTIONS:%s", url);
 		MD5_hash(resp, "%s:%s:%s", h1, nonce, h2);
 
 		spa_scnprintf(auth, sizeof(auth),
-				"username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"*\", response=\"%s\"",
-				DEFAULT_USER_NAME, realm, nonce, resp);
+				"username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"",
+				DEFAULT_USER_NAME, realm, nonce, url, resp);
 	}
 	else
 		goto error;

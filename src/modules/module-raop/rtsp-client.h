@@ -57,6 +57,7 @@ struct pw_rtsp_client * pw_rtsp_client_new(struct pw_loop *main_loop,
 void pw_rtsp_client_destroy(struct pw_rtsp_client *client);
 
 void *pw_rtsp_client_get_user_data(struct pw_rtsp_client *client);
+const char *pw_rtsp_client_get_url(struct pw_rtsp_client *client);
 
 void pw_rtsp_client_add_listener(struct pw_rtsp_client *client,
 		struct spa_hook *listener,

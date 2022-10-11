@@ -133,6 +133,11 @@ void *pw_rtsp_client_get_user_data(struct pw_rtsp_client *client)
 	return client->user_data;
 }
 
+const char *pw_rtsp_client_get_url(struct pw_rtsp_client *client)
+{
+	return client->url;
+}
+
 void pw_rtsp_client_add_listener(struct pw_rtsp_client *client,
 		struct spa_hook *listener,
 		const struct pw_rtsp_client_events *events, void *data)

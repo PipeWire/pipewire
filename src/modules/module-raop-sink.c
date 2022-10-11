@@ -1234,7 +1234,7 @@ static int rtsp_do_auth(struct impl *impl, const struct spa_dict *headers)
 		MD5_hash(resp, "%s:%s:%s", h1, nonce, h2);
 
 		spa_scnprintf(auth, sizeof(auth),
-				"Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"*\", response=\"%s\"",
+				"username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"*\", response=\"%s\"",
 				DEFAULT_USER_NAME, realm, nonce, resp);
 	}
 	else

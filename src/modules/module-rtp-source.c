@@ -324,7 +324,7 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 		uint16_t seq;
 		int32_t filled;
 
-		pw_log_debug("got rtp");
+		pw_log_trace("got rtp");
 		if ((len = recv(fd, buffer, sizeof(buffer), 0)) < 0)
 			goto receive_error;
 

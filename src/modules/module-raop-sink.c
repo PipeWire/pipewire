@@ -1168,7 +1168,10 @@ static void rtsp_auth_reply(void *data, int status, const struct spa_dict *heade
 
 	switch (status) {
 	case 200:
-		rtsp_do_announce(impl);
+		if (impl->encryption == CRYPTO_AUTH_SETUP)
+			rtsp_do_auth_setup(impl);
+		else
+			rtsp_do_announce(impl);
 		break;
 	}
 }

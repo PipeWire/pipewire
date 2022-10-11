@@ -108,7 +108,7 @@
  *         raop.hostname = "my-raop-device"
  *         raop.port = 8190
  *         #raop.transport = "udp"
- *         raop.encryption = "RSA"
+ *         raop.encryption.type = "RSA"
  *         #raop.audio.codec = "PCM"
  *         #raop.password = "****"
  *         #audio.format = "S16"

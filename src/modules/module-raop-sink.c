@@ -1107,7 +1107,7 @@ static int rtsp_do_announce(struct impl *impl)
 				"a=fmtp:96 %d 0 16 40 10 14 2 255 0 0 44100\r\n"
 				"a=min-latency:%d",
 				impl->session_id, ip_version, local_ip,
-				ip_version, host, frames,min_latency);
+				ip_version, host, frames, min_latency);
 		break;
 
 	case CRYPTO_RSA:

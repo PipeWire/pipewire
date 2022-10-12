@@ -760,6 +760,8 @@ static void rtsp_record_reply(void *data, int status, const struct spa_dict *hea
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	struct spa_latency_info latency;
+ 	int res;
+    	char *progress;
 
 	pw_log_info("reply %d", status);
 
@@ -784,10 +786,9 @@ static void rtsp_record_reply(void *data, int status, const struct spa_dict *hea
 	impl->sync = 0;
 	impl->sync_period = impl->info.rate / (impl->block_size / impl->frame_size);
 	impl->recording = true;
-    int res;
-    char *progress;
-    asprintf(&progress,"progress: %s/%s/%s\r\n", "0","0","0");
-    res = pw_rtsp_client_send(impl->rtsp, "SET_PARAMETER", NULL,
+
+    	asprintf(&progress,"progress: %s/%s/%s\r\n", "0","0","0");
+    	res = pw_rtsp_client_send(impl->rtsp, "SET_PARAMETER", NULL,
 			"text/parameters", progress, NULL, NULL);
 
 }

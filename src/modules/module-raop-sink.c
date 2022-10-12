@@ -724,9 +724,10 @@ on_control_source_io(void *data, int fd, uint32_t mask)
 	}
 }
 
-static void rtsp_flush_reply(void *data, int status, const struct spa_dict *headers)
+static int rtsp_flush_reply(void *data, int status, const struct spa_dict *headers)
 {
 	pw_log_info("reply %d", status);
+	return 0;
 }
 
 static int rtsp_do_flush(struct impl *impl)
@@ -751,7 +752,7 @@ static int rtsp_do_flush(struct impl *impl)
 	return res;
 }
 
-static void rtsp_record_reply(void *data, int status, const struct spa_dict *headers)
+static int rtsp_record_reply(void *data, int status, const struct spa_dict *headers)
 {
 	struct impl *impl = data;
 	const char *str;
@@ -760,8 +761,7 @@ static void rtsp_record_reply(void *data, int status, const struct spa_dict *hea
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	struct spa_latency_info latency;
-	int res;
-	char *progress;
+	char progress[128];
 
 	pw_log_info("reply %d", status);
 
@@ -787,10 +787,9 @@ static void rtsp_record_reply(void *data, int status, const struct spa_dict *hea
 	impl->sync_period = impl->info.rate / (impl->block_size / impl->frame_size);
 	impl->recording = true;
 
-	asprintf(&progress,"progress: %s/%s/%s\r\n", "0","0","0");
-	res = pw_rtsp_client_send(impl->rtsp, "SET_PARAMETER", NULL,
+	snprintf(progress, sizeof(progress), "progress: %s/%s/%s\r\n", "0", "0", "0");
+	return pw_rtsp_client_send(impl->rtsp, "SET_PARAMETER", NULL,
 			"text/parameters", progress, NULL, NULL);
-
 }
 
 static int rtsp_do_record(struct impl *impl)
@@ -844,7 +843,7 @@ error:
 	pw_loop_update_io(impl->loop, impl->server_source, 0);
 }
 
-static void rtsp_setup_reply(void *data, int status, const struct spa_dict *headers)
+static int rtsp_setup_reply(void *data, int status, const struct spa_dict *headers)
 {
 	struct impl *impl = data;
 	const char *str, *state = NULL, *s;
@@ -856,13 +855,13 @@ static void rtsp_setup_reply(void *data, int status, const struct spa_dict *head
 
 	if ((str = spa_dict_lookup(headers, "Session")) == NULL) {
 		pw_log_error("missing Session header");
-		return;
+		return 0;
 	}
 	pw_properties_set(impl->headers, "Session", str);
 
 	if ((str = spa_dict_lookup(headers, "Transport")) == NULL) {
 		pw_log_error("missing Transport header");
-		return;
+		return 0;
 	}
 
 	impl->server_port = control_port = timing_port = 0;
@@ -879,18 +878,21 @@ static void rtsp_setup_reply(void *data, int status, const struct spa_dict *head
 	}
 	if (impl->server_port == 0) {
 		pw_log_error("missing server port in Transport");
-		return;
+		return 0;
 	}
 
-	pw_getrandom(&impl->seq, sizeof(impl->seq), 0);
-	pw_getrandom(&impl->rtptime, sizeof(impl->rtptime), 0);
+	if (pw_getrandom(&impl->seq, sizeof(impl->seq), 0) < 0 ||
+	    pw_getrandom(&impl->rtptime, sizeof(impl->rtptime), 0) <  0) {
+		pw_log_error("error generating random seq and rtptime: %m");
+		return 0;
+	}
 
 	pw_log_info("server port:%u", impl->server_port);
 
 	switch (impl->protocol) {
 	case PROTO_TCP:
-		if ((impl->server_fd = connect_socket(impl, SOCK_STREAM, -1, impl->server_port)) <= 0)
-			return;
+		if ((impl->server_fd = connect_socket(impl, SOCK_STREAM, -1, impl->server_port)) < 0)
+			return impl->server_fd;
 
 		impl->server_source = pw_loop_add_io(impl->loop, impl->server_fd,
 				SPA_IO_OUT, false, on_server_source_io, impl);
@@ -899,16 +901,16 @@ static void rtsp_setup_reply(void *data, int status, const struct spa_dict *head
 	case PROTO_UDP:
 		if (control_port == 0 || timing_port == 0) {
 			pw_log_error("missing UDP ports in Transport");
-			return;
+			return 0;
 		}
 		pw_log_info("control:%u timing:%u", control_port, timing_port);
 
-		if ((impl->server_fd = connect_socket(impl, SOCK_DGRAM, -1, impl->server_port)) <= 0)
-			return;
-		if ((impl->control_fd = connect_socket(impl, SOCK_DGRAM, impl->control_fd, control_port)) <= 0)
-			return;
-		if ((impl->timing_fd = connect_socket(impl, SOCK_DGRAM, impl->timing_fd, timing_port)) <= 0)
-			return;
+		if ((impl->server_fd = connect_socket(impl, SOCK_DGRAM, -1, impl->server_port)) < 0)
+			return impl->server_fd;
+		if ((impl->control_fd = connect_socket(impl, SOCK_DGRAM, impl->control_fd, control_port)) < 0)
+			return impl->control_fd;
+		if ((impl->timing_fd = connect_socket(impl, SOCK_DGRAM, impl->timing_fd, timing_port)) < 0)
+			return impl->timing_fd;
 
 		ntp = ntp_now(CLOCK_MONOTONIC);
 		send_udp_timing_packet(impl, ntp, ntp, NULL, 0);
@@ -921,8 +923,9 @@ static void rtsp_setup_reply(void *data, int status, const struct spa_dict *head
 			rtsp_do_record(impl);
 		break;
 	default:
-		return;
+		return 0;
 	}
+	return 0;
 }
 
 static int rtsp_do_setup(struct impl *impl)
@@ -973,7 +976,7 @@ error:
 	return -EIO;
 }
 
-static void rtsp_announce_reply(void *data, int status, const struct spa_dict *headers)
+static int rtsp_announce_reply(void *data, int status, const struct spa_dict *headers)
 {
 	struct impl *impl = data;
 
@@ -981,7 +984,7 @@ static void rtsp_announce_reply(void *data, int status, const struct spa_dict *h
 
 	pw_properties_set(impl->headers, "Apple-Challenge", NULL);
 
-	rtsp_do_setup(impl);
+	return rtsp_do_setup(impl);
 }
 
 static void base64_encode(const uint8_t *data, size_t len, char *enc, char pad)
@@ -1111,9 +1114,11 @@ static int rtsp_do_announce(struct impl *impl)
 		break;
 
 	case CRYPTO_RSA:
-		pw_getrandom(impl->key, sizeof(impl->key), 0);
+		if (pw_getrandom(impl->key, sizeof(impl->key), 0) < 0 ||
+		    pw_getrandom(impl->iv, sizeof(impl->iv), 0) < 0)
+			return -errno;
+
 		AES_set_encrypt_key(impl->key, 128, &impl->aes);
-		pw_getrandom(impl->iv, sizeof(impl->iv), 0);
 
 		i = rsa_encrypt(impl->key, 16, rsakey);
 	        base64_encode(rsakey, i, key, '=');
@@ -1142,13 +1147,13 @@ static int rtsp_do_announce(struct impl *impl)
 	return res;
 }
 
-static void rtsp_auth_setup_reply(void *data, int status, const struct spa_dict *headers)
+static int rtsp_auth_setup_reply(void *data, int status, const struct spa_dict *headers)
 {
 	struct impl *impl = data;
 
 	pw_log_info("reply %d", status);
 
-	rtsp_do_announce(impl);
+	return rtsp_do_announce(impl);
 }
 
 static int rtsp_do_auth_setup(struct impl *impl)
@@ -1181,19 +1186,22 @@ static const char *find_attr(char **tokens, const char *key)
 	return NULL;
 }
 
-static void rtsp_auth_reply(void *data, int status, const struct spa_dict *headers)
+static int rtsp_auth_reply(void *data, int status, const struct spa_dict *headers)
 {
 	struct impl *impl = data;
+	int res = 0;
+
 	pw_log_info("auth %d", status);
 
 	switch (status) {
 	case 200:
 		if (impl->encryption == CRYPTO_AUTH_SETUP)
-			rtsp_do_auth_setup(impl);
+			res = rtsp_do_auth_setup(impl);
 		else
-			rtsp_do_announce(impl);
+			res = rtsp_do_announce(impl);
 		break;
 	}
+	return res;
 }
 
 SPA_PRINTF_FUNC(2,3)
@@ -1278,22 +1286,25 @@ error:
 	return -EINVAL;
 }
 
-static void rtsp_options_reply(void *data, int status, const struct spa_dict *headers)
+static int rtsp_options_reply(void *data, int status, const struct spa_dict *headers)
 {
 	struct impl *impl = data;
+	int res = 0;
+
 	pw_log_info("options %d", status);
 
 	switch (status) {
 	case 401:
-		rtsp_do_auth(impl, headers);
+		res = rtsp_do_auth(impl, headers);
 		break;
 	case 200:
 		if (impl->encryption == CRYPTO_AUTH_SETUP)
-			rtsp_do_auth_setup(impl);
+			res = rtsp_do_auth_setup(impl);
 		else
-			rtsp_do_announce(impl);
+			res = rtsp_do_announce(impl);
 		break;
 	}
+	return res;
 }
 
 static void rtsp_connected(void *data)
@@ -1307,11 +1318,15 @@ static void rtsp_connected(void *data)
 
 	impl->connected = true;
 
-	pw_getrandom(sci, sizeof(sci), 0);
+	if (pw_getrandom(sci, sizeof(sci), 0) < 0 ||
+	    pw_getrandom(rac, sizeof(rac), 0) < 0) {
+		pw_log_error("error generating random data: %m");
+		return;
+	}
+
 	pw_properties_setf(impl->headers, "Client-Instance",
 			"%08x%08x", sci[0], sci[1]);
 
-	pw_getrandom(rac, sizeof(rac), 0);
 	base64_encode(rac, sizeof(rac), sac, '\0');
 	pw_properties_set(impl->headers, "Apple-Challenge", sac);
 
@@ -1324,29 +1339,29 @@ static void rtsp_connected(void *data)
 static void connection_cleanup(struct impl *impl)
 {
 	impl->ready = false;
-	if (impl->server_fd != -1) {
-		close(impl->server_fd);
-		impl->server_fd = -1;
-	}
-	if (impl->control_fd != -1) {
-		close(impl->control_fd);
-		impl->control_fd = -1;
-	}
-	if (impl->timing_fd != -1) {
-		close(impl->timing_fd);
-		impl->timing_fd = -1;
-	}
 	if (impl->server_source != NULL) {
 		pw_loop_destroy_source(impl->loop, impl->server_source);
 		impl->server_source = NULL;
+	}
+	if (impl->server_fd >= 0) {
+		close(impl->server_fd);
+		impl->server_fd = -1;
+	}
+	if (impl->control_source != NULL) {
+		pw_loop_destroy_source(impl->loop, impl->control_source);
+		impl->control_source = NULL;
+	}
+	if (impl->control_fd >= 0) {
+		close(impl->control_fd);
+		impl->control_fd = -1;
 	}
 	if (impl->timing_source != NULL) {
 		pw_loop_destroy_source(impl->loop, impl->timing_source);
 		impl->timing_source = NULL;
 	}
-	if (impl->control_source != NULL) {
-		pw_loop_destroy_source(impl->loop, impl->control_source);
-		impl->control_source = NULL;
+	if (impl->timing_fd >= 0) {
+		close(impl->timing_fd);
+		impl->timing_fd = -1;
 	}
 }
 
@@ -1417,13 +1432,15 @@ static int rtsp_do_connect(struct impl *impl)
 	if (hostname == NULL || port == NULL)
 		return -EINVAL;
 
-	pw_getrandom(&session_id, sizeof(session_id), 0);
+	if (pw_getrandom(&session_id, sizeof(session_id), 0) < 0)
+		return -errno;
+
 	spa_scnprintf(impl->session_id, sizeof(impl->session_id), "%u", session_id);
 
 	return pw_rtsp_client_connect(impl->rtsp, hostname, atoi(port), impl->session_id);
 }
 
-static void rtsp_teardown_reply(void *data, int status, const struct spa_dict *headers)
+static int rtsp_teardown_reply(void *data, int status, const struct spa_dict *headers)
 {
 	struct impl *impl = data;
 	const char *str;
@@ -1436,6 +1453,7 @@ static void rtsp_teardown_reply(void *data, int status, const struct spa_dict *h
 		if (spa_streq(str, "close"))
 			pw_rtsp_client_disconnect(impl->rtsp);
 	}
+	return 0;
 }
 
 static int rtsp_do_teardown(struct impl *impl)

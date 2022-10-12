@@ -45,7 +45,7 @@ struct message {
 	size_t len;
 	size_t offset;
 	uint32_t cseq;
-	void (*reply) (void *user_data, int status, const struct spa_dict *headers);
+	int (*reply) (void *user_data, int status, const struct spa_dict *headers);
 	void *user_data;
 };
 
@@ -287,16 +287,23 @@ static int process_status(struct pw_rtsp_client *client, char *buf)
 static void dispatch_handler(struct pw_rtsp_client *client)
 {
 	uint32_t cseq;
+	int res;
+	struct message *msg;
+
 	if (pw_properties_fetch_uint32(client->headers, "CSeq", &cseq) < 0)
 		return;
 
 	pw_log_info("received reply to request with cseq:%" PRIu32, cseq);
 
-	struct message *msg = find_pending(client, cseq);
+	msg = find_pending(client, cseq);
 	if (msg) {
-		msg->reply(msg->user_data, client->status, &client->headers->dict);
+		res = msg->reply(msg->user_data, client->status, &client->headers->dict);
 		spa_list_remove(&msg->link);
 		free(msg);
+
+		if (res < 0)
+			pw_log_warn("client %p: handle reply cseq:%u error: %s",
+					client, cseq, spa_strerror(res));
 	}
 	else {
 		pw_rtsp_client_emit_message(client, client->status, &client->headers->dict);
@@ -559,7 +566,7 @@ int pw_rtsp_client_disconnect(struct pw_rtsp_client *client)
 int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 		const char *cmd, const struct spa_dict *headers,
 		const char *content_type, const void *content, size_t content_length,
-		void (*reply) (void *user_data, int status, const struct spa_dict *headers),
+		int (*reply) (void *user_data, int status, const struct spa_dict *headers),
 		void *user_data)
 {
 	FILE *f;
@@ -613,7 +620,7 @@ int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 int pw_rtsp_client_send(struct pw_rtsp_client *client,
 		const char *cmd, const struct spa_dict *headers,
 		const char *content_type, const char *content,
-		void (*reply) (void *user_data, int status, const struct spa_dict *headers),
+		int (*reply) (void *user_data, int status, const struct spa_dict *headers),
 		void *user_data)
 {
 	const size_t content_length = content ? strlen(content) : 0;

@@ -54,7 +54,10 @@
  * audio to/from remote PulseAudio servers. It also works with
  * module-protocol-pulse.
  *
- * This module has no options.
+ * ## Module Options
+ *
+ * - `pulse.latency`: the latency to end-to-end latency in milliseconds to
+ *                    maintain (Default 200ms).
  *
  * ## Example configuration
  *
@@ -72,7 +75,7 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define MODULE_USAGE	" "
+#define MODULE_USAGE	"pulse.latency=<latency in msec> "
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
@@ -347,6 +350,9 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
 				_("%s on %s"), desc, fqdn);
 	}
+
+	if ((str = pw_properties_get(impl->properties, "pulse.latency")) != NULL)
+		pw_properties_set(props, "pulse.latency", str);
 
 	if ((f = open_memstream(&args, &size)) == NULL) {
 		pw_log_error("Can't open memstream: %m");

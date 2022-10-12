@@ -40,6 +40,8 @@ struct module_zeroconf_discover_data {
 
 	struct spa_hook mod_listener;
 	struct pw_impl_module *mod;
+
+	uint32_t latency_msec;
 };
 
 static void module_destroy(void *data)
@@ -58,10 +60,25 @@ static const struct pw_impl_module_events module_events = {
 static int module_zeroconf_discover_load(struct client *client, struct module *module)
 {
 	struct module_zeroconf_discover_data *data = module->user_data;
+	FILE *f;
+	char *args;
+	size_t size;
+
+	if ((f = open_memstream(&args, &size)) == NULL)
+		return -errno;
+
+	fprintf(f, "{");
+	if (data->latency_msec > 0)
+		fprintf(f, " pulse.latency = %u ", data->latency_msec);
+	fprintf(f, "}");
+	fclose(f);
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-zeroconf-discover",
-			NULL, NULL);
+			args, NULL);
+
+	free(args);
+
 	if (data->mod == NULL)
 		return -errno;
 
@@ -88,7 +105,8 @@ static int module_zeroconf_discover_unload(struct module *module)
 static const struct spa_dict_item module_zeroconf_discover_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.con>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "mDNS/DNS-SD Service Discovery" },
-	{ PW_KEY_MODULE_USAGE, "" },
+	{ PW_KEY_MODULE_USAGE,
+		"latency_msec=<fixed latency in ms> " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -96,8 +114,11 @@ static int module_zeroconf_discover_prepare(struct module * const module)
 {
 	PW_LOG_TOPIC_INIT(mod_topic);
 
+	struct pw_properties * const props = module->props;
 	struct module_zeroconf_discover_data * const data = module->user_data;
 	data->module = module;
+
+	pw_properties_fetch_uint32(props, "latency_msec", &data->latency_msec);
 
 	return 0;
 }

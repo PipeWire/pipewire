@@ -266,17 +266,12 @@ static int client_try_flush_messages(struct client *client)
 				int res = -errno;
 				if (res == -EINTR)
 					continue;
-				if (res != -EAGAIN && res != -EWOULDBLOCK)
-					pw_log_warn("client %p: send channel:%u %zu, error %d: %m",
-						    client, m->channel, size, res);
 				return res;
 			}
-
 			client->out_index += sent;
 			break;
 		}
 	}
-
 	return 0;
 }
 
@@ -296,7 +291,6 @@ int client_flush_messages(struct client *client)
 		if (res != -EAGAIN && res != -EWOULDBLOCK)
 			return res;
 	}
-
 	return 0;
 }
 

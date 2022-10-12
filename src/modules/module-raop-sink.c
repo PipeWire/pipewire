@@ -1095,6 +1095,7 @@ static int rtsp_do_announce(struct impl *impl)
 				impl->session_id, ip_version, local_ip,
 				ip_version, host, frames);
 		break;
+
 	case CRYPTO_AUTH_SETUP:
 		asprintf(&sdp, "v=0\r\n"
 				"o=iTunes %s 0 IN IP%d %s\r\n"

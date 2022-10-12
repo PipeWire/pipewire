@@ -760,8 +760,8 @@ static void rtsp_record_reply(void *data, int status, const struct spa_dict *hea
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	struct spa_latency_info latency;
- 	int res;
-    	char *progress;
+	int res;
+	char *progress;
 
 	pw_log_info("reply %d", status);
 
@@ -787,8 +787,8 @@ static void rtsp_record_reply(void *data, int status, const struct spa_dict *hea
 	impl->sync_period = impl->info.rate / (impl->block_size / impl->frame_size);
 	impl->recording = true;
 
-    	asprintf(&progress,"progress: %s/%s/%s\r\n", "0","0","0");
-    	res = pw_rtsp_client_send(impl->rtsp, "SET_PARAMETER", NULL,
+	asprintf(&progress,"progress: %s/%s/%s\r\n", "0","0","0");
+	res = pw_rtsp_client_send(impl->rtsp, "SET_PARAMETER", NULL,
 			"text/parameters", progress, NULL, NULL);
 
 }
@@ -1068,7 +1068,8 @@ static int rtsp_do_announce(struct impl *impl)
 	int res, frames, i, ip_version;
 	char *sdp;
 	char local_ip[256];
-
+	int min_latency;
+	min_latency = DEFAULT_LATENCY;
 	host = pw_properties_get(impl->props, "raop.hostname");
 
 	if (impl->protocol == PROTO_TCP)
@@ -1094,8 +1095,7 @@ static int rtsp_do_announce(struct impl *impl)
 				impl->session_id, ip_version, local_ip,
 				ip_version, host, frames);
 		break;
-       case CRYPTO_AUTH_SETUP:
-		int min_latency = DEFAULT_LATENCY;
+	case CRYPTO_AUTH_SETUP:
 		asprintf(&sdp, "v=0\r\n"
 				"o=iTunes %s 0 IN IP%d %s\r\n"
 				"s=iTunes\r\n"
@@ -1146,8 +1146,6 @@ static void rtsp_auth_setup_reply(void *data, int status, const struct spa_dict 
 	struct impl *impl = data;
 
 	pw_log_info("reply %d", status);
-
-
 
 	rtsp_do_announce(impl);
 }

@@ -701,6 +701,8 @@ static int create_pulse_stream(struct impl *impl)
 				PA_STREAM_AUTO_TIMING_UPDATE);
 	} else {
 		bufferattr.tlength = latency_bytes / 2;
+		bufferattr.minreq = bufferattr.tlength / 4;
+		bufferattr.prebuf = bufferattr.tlength;
 
 		res = pa_stream_connect_playback(impl->pa_stream,
 				remote_node_target, &bufferattr,

@@ -2576,11 +2576,18 @@ static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority
 	return spa_thread_utils_acquire_rt(c->context.old_thread_utils, thread, priority);
 }
 
+static int impl_drop_rt(void *object, struct spa_thread *thread)
+{
+	struct client *c = (struct client *) object;
+	return spa_thread_utils_drop_rt(c->context.old_thread_utils, thread);
+}
+
 static struct spa_thread_utils_methods thread_utils_impl = {
 	SPA_VERSION_THREAD_UTILS_METHODS,
 	.create = impl_create,
 	.join = impl_join,
 	.acquire_rt = impl_acquire_rt,
+	.drop_rt = impl_drop_rt,
 };
 
 static jack_port_type_id_t string_to_type(const char *port_type)

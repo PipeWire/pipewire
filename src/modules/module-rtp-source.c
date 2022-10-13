@@ -89,6 +89,7 @@
  *]
  *\endcode
  *
+ * \since 0.3.60
  */
 
 #define NAME "rtp-source"

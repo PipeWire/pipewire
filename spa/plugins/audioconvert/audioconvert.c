@@ -825,8 +825,11 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 		if (spa_pod_is_string(pod)) {
 			spa_pod_copy_string(pod, sizeof(value), value);
 		} else if (spa_pod_is_float(pod)) {
-			snprintf(value, sizeof(value), "%f",
+			spa_dtoa(value, sizeof(value),
 					SPA_POD_VALUE(struct spa_pod_float, pod));
+		} else if (spa_pod_is_double(pod)) {
+			spa_dtoa(value, sizeof(value),
+					SPA_POD_VALUE(struct spa_pod_double, pod));
 		} else if (spa_pod_is_int(pod)) {
 			snprintf(value, sizeof(value), "%d",
 					SPA_POD_VALUE(struct spa_pod_int, pod));

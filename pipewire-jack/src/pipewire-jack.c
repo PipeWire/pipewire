@@ -98,6 +98,7 @@ struct globals {
 	pthread_mutex_t lock;
 	struct pw_array descriptions;
 	struct spa_list free_objects;
+	struct spa_thread_utils *thread_utils;
 };
 
 static struct globals globals;
@@ -3310,6 +3311,8 @@ jack_client_t * jack_client_open (const char *client_name,
 	if (client->context.old_thread_utils == NULL)
 		client->context.old_thread_utils = pw_thread_utils_get();
 
+	globals.thread_utils = client->context.old_thread_utils;
+
 	client->context.thread_utils.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_ThreadUtils,
 			SPA_VERSION_THREAD_UTILS,
@@ -6118,15 +6121,21 @@ int jack_client_max_real_time_priority (jack_client_t *client)
 SPA_EXPORT
 int jack_acquire_real_time_scheduling (jack_native_thread_t thread, int priority)
 {
-	pw_log_info("acquire");
-	return pw_thread_utils_acquire_rt((struct spa_thread*)thread, priority);
+	struct spa_thread *t = (struct spa_thread*)thread;
+	pw_log_info("acquire %p", t);
+	spa_return_val_if_fail(globals.thread_utils != NULL, -1);
+	spa_return_val_if_fail(t != NULL, -1);
+	return spa_thread_utils_acquire_rt(globals.thread_utils, t, priority);
 }
 
 SPA_EXPORT
 int jack_drop_real_time_scheduling (jack_native_thread_t thread)
 {
-	pw_log_info("drop");
-	return pw_thread_utils_drop_rt((struct spa_thread*)thread);
+	struct spa_thread *t = (struct spa_thread*)thread;
+	pw_log_info("drop %p", t);
+	spa_return_val_if_fail(globals.thread_utils != NULL, -1);
+	spa_return_val_if_fail(t != NULL, -1);
+	return spa_thread_utils_drop_rt(globals.thread_utils, t);
 }
 
 /**

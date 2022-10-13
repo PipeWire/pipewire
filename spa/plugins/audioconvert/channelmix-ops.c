@@ -69,8 +69,17 @@ static const struct channelmix_info {
 	MAKE(4, MASK_QUAD, 1, MASK_MONO, channelmix_f32_4_1_c),
 	MAKE(4, MASK_3_1, 1, MASK_MONO, channelmix_f32_4_1_c),
 	MAKE(2, MASK_STEREO, 4, MASK_QUAD, channelmix_f32_2_4_c),
+#if defined (HAVE_SSE)
+	MAKE(2, MASK_STEREO, 4, MASK_3_1, channelmix_f32_2_3p1_sse, SPA_CPU_FLAG_SSE),
+#endif
 	MAKE(2, MASK_STEREO, 4, MASK_3_1, channelmix_f32_2_3p1_c),
+#if defined (HAVE_SSE)
+	MAKE(2, MASK_STEREO, 6, MASK_5_1, channelmix_f32_2_5p1_sse, SPA_CPU_FLAG_SSE),
+#endif
 	MAKE(2, MASK_STEREO, 6, MASK_5_1, channelmix_f32_2_5p1_c),
+#if defined (HAVE_SSE)
+	MAKE(2, MASK_STEREO, 8, MASK_7_1, channelmix_f32_2_7p1_sse, SPA_CPU_FLAG_SSE),
+#endif
 	MAKE(2, MASK_STEREO, 8, MASK_7_1, channelmix_f32_2_7p1_c),
 #if defined (HAVE_SSE)
 	MAKE(4, MASK_3_1, 2, MASK_STEREO, channelmix_f32_3p1_2_sse, SPA_CPU_FLAG_SSE),

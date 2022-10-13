@@ -101,6 +101,64 @@ static inline void conv_sse(float *d, const float **s, float *c, uint32_t n_c, u
 	}
 }
 
+static inline void avg_sse(float *d, const float *s0, const float *s1, uint32_t n_samples)
+{
+	uint32_t n, unrolled;
+	__m128 half = _mm_set1_ps(0.5f);
+
+	if (SPA_IS_ALIGNED(d, 16) &&
+	    SPA_IS_ALIGNED(s0, 16) &&
+	    SPA_IS_ALIGNED(s1, 16))
+		unrolled = n_samples & ~7;
+	else
+		unrolled = 0;
+
+	for (n = 0; n < unrolled; n += 8) {
+		_mm_store_ps(&d[n + 0],
+				_mm_mul_ps(
+					_mm_add_ps(
+						_mm_load_ps(&s0[n + 0]),
+						_mm_load_ps(&s1[n + 0])),
+					half));
+		_mm_store_ps(&d[n + 4],
+				_mm_mul_ps(
+					_mm_add_ps(
+						_mm_load_ps(&s0[n + 4]),
+						_mm_load_ps(&s1[n + 4])),
+					half));
+	}
+
+	for (; n < n_samples; n++)
+		_mm_store_ss(&d[n],
+				_mm_mul_ss(
+					_mm_add_ss(
+						_mm_load_ss(&s0[n]),
+						_mm_load_ss(&s1[n])),
+					half));
+}
+
+static inline void sub_sse(float *d, const float *s0, const float *s1, uint32_t n_samples)
+{
+	uint32_t n, unrolled;
+
+	if (SPA_IS_ALIGNED(d, 16) &&
+	    SPA_IS_ALIGNED(s0, 16) &&
+	    SPA_IS_ALIGNED(s1, 16))
+		unrolled = n_samples & ~7;
+	else
+		unrolled = 0;
+
+	for (n = 0; n < unrolled; n += 8) {
+		_mm_store_ps(&d[n + 0],
+			_mm_sub_ps(_mm_load_ps(&s0[n + 0]), _mm_load_ps(&s1[n + 0])));
+		_mm_store_ps(&d[n + 4],
+			_mm_sub_ps(_mm_load_ps(&s0[n + 4]), _mm_load_ps(&s1[n + 4])));
+	}
+	for (; n < n_samples; n++)
+		_mm_store_ss(&d[n],
+			_mm_sub_ss(_mm_load_ss(&s0[n]), _mm_load_ss(&s1[n])));
+}
+
 void channelmix_copy_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],
 		const void * SPA_RESTRICT src[], uint32_t n_samples)
 {
@@ -145,6 +203,133 @@ channelmix_f32_n_m_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],
 	}
 }
 
+void
+channelmix_f32_2_3p1_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],
+		   const void * SPA_RESTRICT src[], uint32_t n_samples)
+{
+	uint32_t i, n, unrolled, n_dst = mix->dst_chan;
+	float **d = (float **)dst;
+	const float **s = (const float **)src;
+	const float v0 = mix->matrix[0][0];
+	const float v1 = mix->matrix[1][1];
+	const float v2 = (mix->matrix[2][0] + mix->matrix[2][1]) * 0.5f;
+	const float v3 = (mix->matrix[3][0] + mix->matrix[3][1]) * 0.5f;
+
+	if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_ZERO)) {
+		for (i = 0; i < n_dst; i++)
+			clear_sse(d[i], n_samples);
+	}
+	else {
+		if (mix->widen == 0.0f) {
+			vol_sse(d[0], s[0], v0, n_samples);
+			vol_sse(d[1], s[1], v1, n_samples);
+			avg_sse(d[2], s[0], s[1], n_samples);
+		} else {
+			const __m128 mv0 = _mm_set1_ps(mix->matrix[0][0]);
+			const __m128 mv1 = _mm_set1_ps(mix->matrix[1][1]);
+			const __m128 mw = _mm_set1_ps(mix->widen);
+			const __m128 mh = _mm_set1_ps(0.5f);
+			__m128 t0[1], t1[1], w[1], c[1];
+
+			if (SPA_IS_ALIGNED(s[0], 16) &&
+			    SPA_IS_ALIGNED(s[1], 16) &&
+			    SPA_IS_ALIGNED(d[0], 16) &&
+			    SPA_IS_ALIGNED(d[1], 16) &&
+			    SPA_IS_ALIGNED(d[2], 16))
+				unrolled = n_samples & ~3;
+			else
+				unrolled = 0;
+
+			for(n = 0; n < unrolled; n += 4) {
+				t0[0] = _mm_load_ps(&s[0][n]);
+				t1[0] = _mm_load_ps(&s[1][n]);
+				c[0] = _mm_add_ps(t0[0], t1[0]);
+				w[0] = _mm_mul_ps(c[0], mw);
+				_mm_store_ps(&d[0][n], _mm_mul_ps(_mm_sub_ps(t0[0], w[0]), mv0));
+				_mm_store_ps(&d[1][n], _mm_mul_ps(_mm_sub_ps(t1[0], w[0]), mv1));
+				_mm_store_ps(&d[2][n], _mm_mul_ps(c[0], mh));
+			}
+			for (; n < n_samples; n++) {
+				t0[0] = _mm_load_ss(&s[0][n]);
+				t1[0] = _mm_load_ss(&s[1][n]);
+				c[0] = _mm_add_ss(t0[0], t1[0]);
+				w[0] = _mm_mul_ss(c[0], mw);
+				_mm_store_ss(&d[0][n], _mm_mul_ss(_mm_sub_ss(t0[0], w[0]), mv0));
+				_mm_store_ss(&d[1][n], _mm_mul_ss(_mm_sub_ss(t1[0], w[0]), mv1));
+				_mm_store_ss(&d[2][n], _mm_mul_ss(c[0], mh));
+			}
+		}
+		lr4_process(&mix->lr4[3], d[3], d[2], v3, n_samples);
+		lr4_process(&mix->lr4[2], d[2], d[2], v2, n_samples);
+	}
+}
+
+void
+channelmix_f32_2_5p1_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],
+		   const void * SPA_RESTRICT src[], uint32_t n_samples)
+{
+	uint32_t i, n_dst = mix->dst_chan;
+	float **d = (float **)dst;
+	const float **s = (const float **)src;
+	const float v4 = mix->matrix[4][0];
+	const float v5 = mix->matrix[5][1];
+
+	if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_ZERO)) {
+		for (i = 0; i < n_dst; i++)
+			clear_sse(d[i], n_samples);
+	}
+	else {
+		channelmix_f32_2_3p1_sse(mix, dst, src, n_samples);
+
+		if (mix->upmix != CHANNELMIX_UPMIX_PSD) {
+			vol_sse(d[4], s[0], v4, n_samples);
+			vol_sse(d[5], s[1], v5, n_samples);
+		} else {
+			sub_sse(d[4], s[0], s[1], n_samples);
+
+			delay_convolve_run(mix->buffer[1], &mix->pos[1], BUFFER_SIZE, mix->delay,
+					mix->taps, mix->n_taps, d[5], d[4], -v5, n_samples);
+			delay_convolve_run(mix->buffer[0], &mix->pos[0], BUFFER_SIZE, mix->delay,
+					mix->taps, mix->n_taps, d[4], d[4], v4, n_samples);
+		}
+	}
+}
+
+void
+channelmix_f32_2_7p1_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],
+		   const void * SPA_RESTRICT src[], uint32_t n_samples)
+{
+	uint32_t i, n_dst = mix->dst_chan;
+	float **d = (float **)dst;
+	const float **s = (const float **)src;
+	const float v4 = mix->matrix[4][0];
+	const float v5 = mix->matrix[5][1];
+	const float v6 = mix->matrix[6][0];
+	const float v7 = mix->matrix[7][1];
+
+	if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_ZERO)) {
+		for (i = 0; i < n_dst; i++)
+			clear_sse(d[i], n_samples);
+	}
+	else {
+		channelmix_f32_2_3p1_sse(mix, dst, src, n_samples);
+
+		vol_sse(d[4], s[0], v4, n_samples);
+		vol_sse(d[5], s[1], v5, n_samples);
+
+		if (mix->upmix != CHANNELMIX_UPMIX_PSD) {
+			vol_sse(d[6], s[0], v6, n_samples);
+			vol_sse(d[7], s[1], v7, n_samples);
+		} else {
+			sub_sse(d[6], s[0], s[1], n_samples);
+
+			delay_convolve_run(mix->buffer[1], &mix->pos[1], BUFFER_SIZE, mix->delay,
+					mix->taps, mix->n_taps, d[7], d[6], -v7, n_samples);
+			delay_convolve_run(mix->buffer[0], &mix->pos[0], BUFFER_SIZE, mix->delay,
+					mix->taps, mix->n_taps, d[6], d[6], v6, n_samples);
+		}
+	}
+}
 /* FL+FR+FC+LFE -> FL+FR */
 void
 channelmix_f32_3p1_2_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],

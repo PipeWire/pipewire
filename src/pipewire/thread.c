@@ -116,6 +116,17 @@ static int impl_get_rt_range(void *object, const struct spa_dict *props,
 		*max = sched_get_priority_max(SCHED_OTHER);
 	return 0;
 }
+static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority)
+{
+	pw_log_warn("acquire_rt thread:%p prio:%d not implemented", thread, priority);
+	return -ENOTSUP;
+}
+
+static int impl_drop_rt(void *object, struct spa_thread *thread)
+{
+	pw_log_warn("drop_rt thread:%p not implemented", thread);
+	return -ENOTSUP;
+}
 
 static struct {
 	struct spa_thread_utils utils;
@@ -128,7 +139,9 @@ static struct {
 	{ SPA_VERSION_THREAD_UTILS_METHODS,
 		.create = impl_create,
 		.join = impl_join,
-		.get_rt_range = impl_get_rt_range
+		.get_rt_range = impl_get_rt_range,
+		.acquire_rt = impl_acquire_rt,
+		.drop_rt = impl_drop_rt,
 	}
 };
 

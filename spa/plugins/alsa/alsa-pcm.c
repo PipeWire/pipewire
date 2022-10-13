@@ -1775,7 +1775,7 @@ recover:
 	state->alsa_started = false;
 
 	if (state->stream == SND_PCM_STREAM_PLAYBACK)
-		spa_alsa_silence(state, state->start_delay + state->threshold * 2 + state->headroom);
+		spa_alsa_silence(state, state->start_delay + state->threshold + state->headroom);
 
 	return do_start(state);
 }
@@ -2355,7 +2355,7 @@ static int handle_play(struct state *state, uint64_t current_time,
 {
 	int res;
 
-	if (SPA_UNLIKELY(delay > target + state->max_error)) {
+	if (state->alsa_started && SPA_UNLIKELY(delay > target + state->max_error)) {
 		spa_log_trace(state->log, "%p: early wakeup %lu %lu", state, delay, target);
 		if (delay > target * 3)
 			delay = target * 3;
@@ -2558,10 +2558,10 @@ int spa_alsa_start(struct state *state)
 	state->alsa_recovering = false;
 	state->alsa_started = false;
 
+	/* start capture now, playback will start after first write */
 	if (state->stream == SND_PCM_STREAM_PLAYBACK)
-		spa_alsa_silence(state, state->start_delay + state->threshold * 2 + state->headroom);
-
-	if ((err = do_start(state)) < 0)
+		spa_alsa_silence(state, state->start_delay + state->threshold + state->headroom);
+	else if ((err = do_start(state)) < 0)
 		return err;
 
 	set_timers(state);

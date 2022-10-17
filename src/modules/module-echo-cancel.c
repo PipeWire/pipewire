@@ -681,6 +681,8 @@ static int setup_streams(struct impl *impl)
 		pw_properties_set(props, SPA_KEY_AUDIO_CHANNELS, str);
 	if ((str = pw_properties_get(impl->source_props, SPA_KEY_AUDIO_POSITION)) != NULL)
 		pw_properties_set(props, SPA_KEY_AUDIO_POSITION, str);
+	if ((str = pw_properties_get(impl->source_props, "resample.prefill")) != NULL)
+		pw_properties_set(props, "resample.prefill", str);
 
 	impl->capture = pw_stream_new(impl->core,
 			"Echo-Cancel Capture", props);
@@ -718,6 +720,8 @@ static int setup_streams(struct impl *impl)
 		pw_properties_set(props, SPA_KEY_AUDIO_CHANNELS, str);
 	if ((str = pw_properties_get(impl->sink_props, SPA_KEY_AUDIO_POSITION)) != NULL)
 		pw_properties_set(props, SPA_KEY_AUDIO_POSITION, str);
+	if ((str = pw_properties_get(impl->sink_props, "resample.prefill")) != NULL)
+		pw_properties_set(props, "resample.prefill", str);
 
 	impl->playback = pw_stream_new(impl->core,
 			"Echo-Cancel Playback", props);
@@ -986,6 +990,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(impl->source_props, PW_KEY_NODE_DESCRIPTION, "Echo-Cancel Source");
 	if (pw_properties_get(impl->source_props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(impl->source_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
+	if (pw_properties_get(impl->source_props, "resample.prefill") == NULL)
+		pw_properties_set(impl->source_props, "resample.prefill", "true");
 
 	if (pw_properties_get(impl->sink_props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_set(impl->sink_props, PW_KEY_NODE_NAME, "echo-cancel-sink");
@@ -993,6 +999,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(impl->sink_props, PW_KEY_NODE_DESCRIPTION, "Echo-Cancel Sink");
 	if (pw_properties_get(impl->sink_props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(impl->sink_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
+	if (pw_properties_get(impl->sink_props, "resample.prefill") == NULL)
+		pw_properties_set(impl->sink_props, "resample.prefill", "true");
 
 	if ((str = pw_properties_get(props, "aec.method")) != NULL)
 		pw_log_warn("aec.method is not supported anymore use library.name");

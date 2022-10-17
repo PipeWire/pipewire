@@ -55,7 +55,7 @@
 /** \page page_module_pipe_tunnel PipeWire Module: Unix Pipe Tunnel
  *
  * The pipe-tunnel module provides a source or sink that tunnels all audio to
- * a unix pipe.
+ * or from a unix pipe respectively.
  *
  * ## Module Options
  *

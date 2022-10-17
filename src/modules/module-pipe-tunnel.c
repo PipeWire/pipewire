@@ -315,7 +315,7 @@ static const struct pw_stream_events capture_stream_events = {
 	.process = capture_stream_process
 };
 
-static int create_stream(struct impl *impl)
+static int  create_stream(struct impl *impl)
 {
 	int res;
 	uint32_t n_params;
@@ -664,6 +664,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_LATENCY);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 	copy_props(impl, props, PW_KEY_MEDIA_CLASS);
+	copy_props(impl, props, PW_KEY_TARGET_OBJECT);
 
 	parse_audio_info(impl->stream_props, &impl->info);
 

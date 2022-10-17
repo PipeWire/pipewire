@@ -606,13 +606,14 @@ static pa_proplist* tunnel_new_proplist(struct impl *impl)
 static int create_pulse_stream(struct impl *impl)
 {
 	pa_sample_spec ss;
+	pa_channel_map map;
 	const char *server_address, *remote_node_target;
 	pa_proplist *props = NULL;
 	pa_mainloop_api *api;
 	char stream_name[1024];
 	pa_buffer_attr bufferattr;
 	int res = -EIO;
-	uint32_t latency_bytes;
+	uint32_t latency_bytes, i, aux = 0;
 
 	if ((impl->pa_mainloop = pa_threaded_mainloop_new()) == NULL)
 		goto error;
@@ -659,10 +660,14 @@ static int create_pulse_stream(struct impl *impl)
 	ss.channels = impl->info.channels;
 	ss.rate = impl->info.rate;
 
+	map.channels = impl->info.channels;
+	for (i = 0; i < map.channels; i++)
+		map.map[i] = (pa_channel_position_t)channel_id2pa(impl->info.position[i], &aux);
+
 	snprintf(stream_name, sizeof(stream_name), _("Tunnel for %s@%s"),
 			pw_get_user_name(), pw_get_host_name());
 
-	if (!(impl->pa_stream = pa_stream_new(impl->pa_context, stream_name, &ss, NULL))) {
+	if (!(impl->pa_stream = pa_stream_new(impl->pa_context, stream_name, &ss, &map))) {
 		res = pa_context_errno(impl->pa_context);
 		goto error_unlock;
 	}

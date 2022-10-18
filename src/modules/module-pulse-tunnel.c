@@ -524,9 +524,10 @@ static void stream_write_request_cb(pa_stream *s, size_t length, void *userdata)
 {
 	struct impl *impl = userdata;
 	int32_t avail;
-	uint32_t index, len, offset, l0, l1;
+	uint32_t index;
+	size_t size;
 	pa_usec_t latency;
-	int negative;
+	int negative, res;
 
 	if (impl->resync) {
 		impl->resync = false;
@@ -542,30 +543,34 @@ static void stream_write_request_cb(pa_stream *s, size_t length, void *userdata)
 	impl->current_latency += avail / impl->frame_size;
 
 	while (avail < (int32_t)length) {
+		uint32_t maxsize = SPA_ROUND_DOWN(sizeof(impl->empty), impl->frame_size);
 		/* send silence for the data we don't have */
-		len = SPA_MIN(length - avail, sizeof(impl->empty));
-		pa_stream_write(impl->pa_stream,
-				impl->empty, len,
-				NULL, 0, PA_SEEK_RELATIVE);
-		length -= len;
+		size = SPA_MIN(length - avail, maxsize);
+		if ((res = pa_stream_write(impl->pa_stream,
+				impl->empty, size,
+				NULL, 0, PA_SEEK_RELATIVE)) != 0)
+			pw_log_warn("error writing stream: %s", pa_strerror(res));
+		length -= size;
 	}
-	if (length > 0 && avail >= (int32_t)length) {
-		/* always send as much as is requested */
-		len = length;
-		offset = index & RINGBUFFER_MASK;
-		l0 = SPA_MIN(len, RINGBUFFER_SIZE - offset);
-		l1 = len - l0;
+	while (length > 0 && avail >= (int32_t)length) {
+		void *data;
 
-		pa_stream_write(impl->pa_stream,
-				SPA_PTROFF(impl->buffer, offset, void), l0,
-				NULL, 0, PA_SEEK_RELATIVE);
+		size = length;
+		pa_stream_begin_write(impl->pa_stream, &data, &size);
 
-		if (SPA_UNLIKELY(l1 > 0)) {
-			pa_stream_write(impl->pa_stream,
-					impl->buffer, l1,
-					NULL, 0, PA_SEEK_RELATIVE);
-		}
-		index += len;
+		spa_ringbuffer_read_data(&impl->ring,
+				impl->buffer, RINGBUFFER_SIZE,
+				index & RINGBUFFER_MASK,
+				data, size);
+
+		if ((res = pa_stream_write(impl->pa_stream,
+			data, size, NULL, 0, PA_SEEK_RELATIVE)) != 0)
+			pw_log_warn("error writing stream: %zd %s", size,
+					pa_strerror(res));
+
+		index += size;
+		length -= size;
+		avail -= size;
 		spa_ringbuffer_read_update(&impl->ring, index);
 	}
 }

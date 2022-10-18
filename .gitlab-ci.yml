@@ -178,7 +178,6 @@ include:
     - ninja $NINJA_ARGS -C "$BUILD_DIR"
     - ninja $NINJA_ARGS -C "$BUILD_DIR" test
     - ninja $NINJA_ARGS -C "$BUILD_DIR" install
-    - ./check_missing_headers.sh
   artifacts:
     name: pipewire-$CI_COMMIT_SHA
     when: always
@@ -433,6 +432,18 @@ doccheck:
       for page in $(cat pipewire_module_pages); do
           git grep -q -e "\\\subpage $page" || (echo "\\page $page is missing \\subpage entry in doc/pipewire-modules.dox" && false)
       done
+
+check_missing_headers:
+  extends:
+    - .fedora
+    - .not_coverity
+    - .fdo.distribution-image@fedora
+  stage: analysis
+  dependencies:
+    - build_on_fedora
+  script:
+    - export PREFIX=`find -name prefix-*`
+    - ./.gitlab/ci/check_missing_headers.sh
 
 pages:
   extends:

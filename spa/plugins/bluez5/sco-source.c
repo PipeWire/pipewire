@@ -248,6 +248,7 @@ static int do_reassign_follower(struct spa_loop *loop,
 	struct impl *this = user_data;
 	struct port *port = &this->port;
 
+	set_timers(this);
 	spa_bt_decode_buffer_recover(&port->buffer);
 	return 0;
 }

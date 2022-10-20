@@ -43,6 +43,7 @@
 #include <spa/param/audio/raw.h>
 #include <spa/param/profiler.h>
 #include <spa/pod/builder.h>
+#include <spa/pod/dynamic.h>
 #include <spa/support/plugin.h>
 #include <spa/utils/json.h>
 #include <spa/utils/names.h>
@@ -504,13 +505,54 @@ static void input_param_latency_changed(struct impl *impl, const struct spa_pod 
 	else
 		pw_stream_update_params(impl->capture, params, 1);
 }
-
-static void input_param_changed(void *data, uint32_t id, const struct spa_pod *param)
+static struct spa_pod* get_props_param(struct impl* impl, struct spa_pod_builder* b)
 {
-	struct impl *impl = data;
+	if (spa_audio_aec_get_params(impl->aec, NULL) > 0) {
+		struct spa_pod_frame f[2];
+		spa_pod_builder_push_object(
+		    b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
+		spa_pod_builder_prop(b, SPA_PROP_params, 0);
+		spa_pod_builder_push_struct(b, &f[1]);
+
+		spa_audio_aec_get_params(impl->aec, b);
+
+		spa_pod_builder_pop(b, &f[1]);
+		return spa_pod_builder_pop(b, &f[0]);
+	}
+	return NULL;
+}
+
+static void input_param_changed(void *data, uint32_t id, const struct spa_pod* param)
+{
+	struct spa_pod_object* obj = (struct spa_pod_object*)param;
+	const struct spa_pod_prop* prop;
+	struct impl* impl = data;
 	switch (id) {
 	case SPA_PARAM_Latency:
 		input_param_latency_changed(impl, param);
+		break;
+	case SPA_PARAM_Props:
+		if (param != NULL) {
+			uint8_t buffer[1024];
+			struct spa_pod_dynamic_builder b;
+			const struct spa_pod* params[1];
+			SPA_POD_OBJECT_FOREACH(obj, prop)
+			{
+				if (prop->key == SPA_PROP_params) {
+					spa_audio_aec_set_params(impl->aec, &prop->value);
+				}
+			}
+
+			spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+			params[0] = get_props_param(impl, &b.b);
+			if (params[0]) {
+				pw_stream_update_params(impl->capture, params, 1);
+				pw_stream_update_params(impl->playback, params, 1);
+			}
+			spa_pod_dynamic_builder_clean(&b);
+		} else {
+			pw_log_warn("param is null");
+		}
 		break;
 	}
 }
@@ -582,10 +624,33 @@ static void output_param_latency_changed(struct impl *impl, const struct spa_pod
 
 static void output_param_changed(void *data, uint32_t id, const struct spa_pod *param)
 {
+	struct spa_pod_object *obj = (struct spa_pod_object *) param;
+	const struct spa_pod_prop *prop;
 	struct impl *impl = data;
 	switch (id) {
 	case SPA_PARAM_Latency:
 		output_param_latency_changed(impl, param);
+		break;
+	case SPA_PARAM_Props:
+		if (param != NULL) {
+			uint8_t buffer[1024];
+			struct spa_pod_dynamic_builder b;
+			const struct spa_pod* params[1];
+
+			SPA_POD_OBJECT_FOREACH(obj, prop)
+			{
+				if (prop->key == SPA_PROP_params) {
+					spa_audio_aec_set_params(impl->aec, &prop->value);
+				}
+			}
+			spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+			params[0] = get_props_param(impl, &b.b);
+			if (params[0] != NULL) {
+				pw_stream_update_params(impl->capture, params, 1);
+				pw_stream_update_params(impl->playback, params, 1);
+			}
+			spa_pod_dynamic_builder_clean(&b);
+		}
 		break;
 	}
 }
@@ -685,9 +750,9 @@ static int setup_streams(struct impl *impl)
 {
 	int res;
 	uint32_t n_params, i;
-	const struct spa_pod *params[1];
-	uint8_t buffer[1024];
-	struct spa_pod_builder b;
+	uint32_t offsets[512];
+	const struct spa_pod *params[512];
+	struct spa_pod_dynamic_builder b;
 	struct pw_properties *props;
 	const char *str;
 	uint32_t index;
@@ -771,9 +836,23 @@ static int setup_streams(struct impl *impl)
 			&sink_events, impl);
 
 	n_params = 0;
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&impl->info);
+	spa_pod_dynamic_builder_init(&b, NULL, 0, 4096);
+
+	offsets[n_params++] = b.b.state.offset;
+	spa_format_audio_raw_build(&b.b, SPA_PARAM_EnumFormat, &impl->info);
+
+	int nbr_of_external_props = spa_audio_aec_enum_props(impl->aec, 0, NULL);
+	if (nbr_of_external_props > 0) {
+		for (int i = 0; i < nbr_of_external_props; i++) {
+			offsets[n_params++] = b.b.state.offset;
+			spa_audio_aec_enum_props(impl->aec, i, &b.b);
+		}
+		get_props_param(impl, &b.b);
+	}
+
+	for (i = 0; i < n_params; i++) {
+		params[i] = spa_pod_builder_deref(&b.b, offsets[i]);
+	}
 
 	if ((res = pw_stream_connect(impl->capture,
 			PW_DIRECTION_INPUT,
@@ -781,24 +860,30 @@ static int setup_streams(struct impl *impl)
 			PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_MAP_BUFFERS |
 			PW_STREAM_FLAG_RT_PROCESS,
-			params, n_params)) < 0)
+			params, n_params)) < 0) {
+		spa_pod_dynamic_builder_clean(&b);
 		return res;
+	}
 
 	if ((res = pw_stream_connect(impl->source,
 			PW_DIRECTION_OUTPUT,
 			PW_ID_ANY,
 			PW_STREAM_FLAG_MAP_BUFFERS |
 			PW_STREAM_FLAG_RT_PROCESS,
-			params, n_params)) < 0)
+			params, n_params)) < 0) {
+		spa_pod_dynamic_builder_clean(&b);
 		return res;
+	}
 
 	if ((res = pw_stream_connect(impl->sink,
 			PW_DIRECTION_INPUT,
 			PW_ID_ANY,
 			PW_STREAM_FLAG_MAP_BUFFERS |
 			PW_STREAM_FLAG_RT_PROCESS,
-			params, n_params)) < 0)
+			params, n_params)) < 0) {
+		spa_pod_dynamic_builder_clean(&b);
 		return res;
+	}
 
 	if ((res = pw_stream_connect(impl->playback,
 			PW_DIRECTION_OUTPUT,
@@ -806,8 +891,12 @@ static int setup_streams(struct impl *impl)
 			PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_MAP_BUFFERS |
 			PW_STREAM_FLAG_RT_PROCESS,
-			params, n_params)) < 0)
+			params, n_params)) < 0) {
+		spa_pod_dynamic_builder_clean(&b);
 		return res;
+	}
+
+	spa_pod_dynamic_builder_clean(&b);
 
 	impl->rec_ringsize = sizeof(float) * impl->max_buffer_size * impl->info.rate / 1000;
 	impl->play_ringsize = sizeof(float) * ((impl->max_buffer_size * impl->info.rate / 1000) + impl->buffer_delay);

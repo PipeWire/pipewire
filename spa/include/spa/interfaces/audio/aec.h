@@ -23,6 +23,7 @@
  */
 
 
+#include <spa/pod/builder.h>
 #include <spa/utils/dict.h>
 #include <spa/utils/hook.h>
 #include <spa/param/audio/raw.h>
@@ -60,7 +61,7 @@ struct spa_audio_aec_events {
 };
 
 struct spa_audio_aec_methods {
-#define SPA_VERSION_AUDIO_AEC_METHODS	1
+#define SPA_VERSION_AUDIO_AEC_METHODS	2
         uint32_t version;
 
 	int (*add_listener) (void *object,
@@ -75,6 +76,11 @@ struct spa_audio_aec_methods {
 	int (*activate) (void *object);
 	/* since 0.3.58, version 1:1 */
 	int (*deactivate) (void *object);
+
+	/* version 1:2 */
+	int (*enum_props) (void* object, int index, struct spa_pod_builder* builder);
+	int (*get_params) (void* object, struct spa_pod_builder* builder);
+	int (*set_params) (void *object, const struct spa_pod *args);
 };
 
 #define spa_audio_aec_method(o,method,version,...)			\
@@ -93,6 +99,9 @@ struct spa_audio_aec_methods {
 #define spa_audio_aec_set_props(o,...)		spa_audio_aec_method(o, set_props, 0, __VA_ARGS__)
 #define spa_audio_aec_activate(o)		spa_audio_aec_method(o, activate, 1)
 #define spa_audio_aec_deactivate(o)		spa_audio_aec_method(o, deactivate, 1)
+#define spa_audio_aec_enum_props(o,...)		spa_audio_aec_method(o, enum_props, 2, __VA_ARGS__)
+#define spa_audio_aec_get_params(o,...)		spa_audio_aec_method(o, get_params, 2, __VA_ARGS__)
+#define spa_audio_aec_set_params(o,...)		spa_audio_aec_method(o, set_params, 2, __VA_ARGS__)
 
 #ifdef __cplusplus
 }  /* extern "C" */

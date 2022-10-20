@@ -57,6 +57,7 @@ struct data {
 
 	uint32_t channels;
 	uint32_t latency;
+	float delay;
 
 	struct pw_properties *capture_props;
 	struct pw_properties *playback_props;
@@ -93,6 +94,7 @@ static void show_help(struct data *data, const char *name, bool error)
 		"  -c, --channels                        Number of channels (default %d)\n"
 		"  -m, --channel-map                     Channel map (default '%s')\n"
 		"  -l, --latency                         Desired latency in ms\n"
+		"  -d, --delay                           Desired delay in float s\n"
 		"  -C  --capture                         Capture source to connect to\n"
 		"      --capture-props                   Capture stream properties\n"
 		"  -P  --playback                        Playback sink to connect to\n"
@@ -109,7 +111,7 @@ int main(int argc, char *argv[])
 	struct data data = { 0 };
 	struct pw_loop *l;
 	const char *opt_remote = NULL;
-	char cname[256];
+	char cname[256], value[256];
 	char *args;
 	size_t size;
 	FILE *f;
@@ -121,6 +123,7 @@ int main(int argc, char *argv[])
 		{ "name",		required_argument,	NULL, 'n' },
 		{ "channels",		required_argument,	NULL, 'c' },
 		{ "latency",		required_argument,	NULL, 'l' },
+		{ "delay",		required_argument,	NULL, 'd' },
 		{ "capture",		required_argument,	NULL, 'C' },
 		{ "playback",		required_argument,	NULL, 'P' },
 		{ "capture-props",	required_argument,	NULL, 'i' },
@@ -146,7 +149,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	while ((c = getopt_long(argc, argv, "hVr:n:g:c:m:l:C:P:i:o:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:n:g:c:m:l:d:C:P:i:o:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(&data, argv[0], false);
@@ -176,6 +179,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'l':
 			data.latency = atoi(optarg) * DEFAULT_RATE / SPA_MSEC_PER_SEC;
+			break;
+		case 'd':
+			data.delay = atof(optarg);
 			break;
 		case 'C':
 			pw_properties_set(data.capture_props, PW_KEY_NODE_TARGET, optarg);
@@ -223,6 +229,9 @@ int main(int argc, char *argv[])
 		fprintf(f, " remote.name = \"%s\"", opt_remote);
 	if (data.latency != 0)
 		fprintf(f, " node.latency = %u/%u", data.latency, DEFAULT_RATE);
+	if (data.delay != 0.0f)
+		fprintf(f, " target.delay.sec = %s",
+				spa_json_format_float(value, sizeof(value), data.delay));
 	if (data.channels != 0)
 		fprintf(f, " audio.channels = %u", data.channels);
 	if (data.opt_channel_map != NULL)

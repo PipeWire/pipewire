@@ -47,6 +47,7 @@ struct module_loopback_data {
 	struct pw_properties *playback_props;
 
 	struct spa_audio_info_raw info;
+	uint32_t latency_msec;
 };
 
 static void module_destroy(void *data)
@@ -68,6 +69,7 @@ static int module_loopback_load(struct client *client, struct module *module)
 	FILE *f;
 	char *args;
 	size_t size, i;
+	char val[256];
 
 	pw_properties_setf(data->capture_props, PW_KEY_NODE_GROUP, "loopback-%u", module->index);
 	pw_properties_setf(data->playback_props, PW_KEY_NODE_GROUP, "loopback-%u", module->index);
@@ -88,6 +90,10 @@ static int module_loopback_load(struct client *client, struct module *module)
 			fprintf(f, " ]");
 		}
 	}
+	if (data->latency_msec != 0)
+		fprintf(f, " target.delay.sec = %s",
+				spa_json_format_float(val, sizeof(val),
+					data->latency_msec / 1000.0f));
 	fprintf(f, " capture.props = {");
 	pw_properties_serialize_dict(f, &data->capture_props->dict, 0);
 	fprintf(f, " } playback.props = {");
@@ -204,15 +210,8 @@ static int module_loopback_prepare(struct module * const module)
 		pw_properties_set(props, "remix", NULL);
 	}
 
-	if ((str = pw_properties_get(props, "latency_msec")) != NULL) {
-		/* Half the latency on each of the playback and capture streams */
-		pw_properties_setf(capture_props, PW_KEY_NODE_LATENCY, "%s/2000", str);
-		pw_properties_setf(playback_props, PW_KEY_NODE_LATENCY, "%s/2000", str);
-		pw_properties_set(props, "latency_msec", NULL);
-	} else {
-		pw_properties_set(capture_props, PW_KEY_NODE_LATENCY, "100/1000");
-		pw_properties_set(playback_props, PW_KEY_NODE_LATENCY, "100/1000");
-	}
+	if ((str = pw_properties_get(props, "latency_msec")) != NULL)
+		d->latency_msec = atoi(str);
 
 	if ((str = pw_properties_get(props, "sink_input_properties")) != NULL) {
 		module_args_add_props(playback_props, str);

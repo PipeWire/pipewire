@@ -613,13 +613,9 @@ static void free_port(struct client *c, struct port *p)
 {
 	struct mix *m;
 
-	if (!p->valid)
-		return;
-
 	spa_list_consume(m, &p->mix, port_link)
 		free_mix(c, m);
 
-	p->valid = false;
 	pw_map_remove(&c->ports[p->direction], p->port_id);
 	free_object(c, p->object);
 	pw_properties_free(p->props);
@@ -1059,7 +1055,7 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 	struct buffer *b;
 	struct spa_data *d;
 
-	if (frames == 0)
+	if (frames == 0 || !p->valid)
 		return NULL;
 
 	if (SPA_UNLIKELY((mix = p->global_mix) == NULL))
@@ -4414,6 +4410,15 @@ jack_port_t * jack_port_register (jack_client_t *client,
 	return (jack_port_t *) o;
 }
 
+static int
+do_invalidate_port(struct spa_loop *loop,
+                  bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct port *p = user_data;
+	p->valid = false;
+	return 0;
+}
+
 SPA_EXPORT
 int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 {
@@ -4434,6 +4439,9 @@ int jack_port_unregister (jack_client_t *client, jack_port_t *port)
 		res = -EINVAL;
 		goto done;
 	}
+	pw_data_loop_invoke(c->loop,
+			do_invalidate_port, 1, NULL, 0, !c->data_locked, p);
+
 	pw_log_info("%p: port %p unregister \"%s\"", client, port, o->port.name);
 
 	pw_client_node_port_update(c->node,
@@ -4611,6 +4619,8 @@ void * jack_port_get_buffer (jack_port_t *port, jack_nframes_t frames)
 
 		return SPA_PTROFF(d->data, offset, void);
 	}
+	if (!p->valid)
+		return NULL;
 
 	ptr = p->get_buffer(p, frames);
 	pw_log_trace_fp("%p: port %p buffer %p empty:%u", p->client, p, ptr, p->empty_out);

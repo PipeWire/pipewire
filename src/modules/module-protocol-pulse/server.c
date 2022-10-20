@@ -616,13 +616,16 @@ static int start_unix_server(struct server *server, const struct sockaddr_storag
 			pw_log_warn("server %p: unlink('%s') failed: %m",
 				    server, addr_un->sun_path);
 	}
-
 	if (bind(fd, (const struct sockaddr *) addr_un, SUN_LEN(addr_un)) < 0) {
 		res = -errno;
 		pw_log_warn("server %p: bind() to '%s' failed: %m",
 			    server, addr_un->sun_path);
 		goto error_close;
 	}
+
+	if (chmod(addr_un->sun_path, 0777) < 0)
+		pw_log_warn("server %p: chmod('%s') failed: %m",
+				    server, addr_un->sun_path);
 
 	if (listen(fd, server->listen_backlog) < 0) {
 		res = -errno;

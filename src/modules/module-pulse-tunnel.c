@@ -183,6 +183,8 @@ struct impl {
 	pa_context *pa_context;
 	pa_stream *pa_stream;
 
+	struct ratelimit rate_limit;
+
 	uint32_t target_latency;
 	uint32_t current_latency;
 	uint32_t target_buffer;
@@ -577,13 +579,20 @@ static void stream_write_request_cb(pa_stream *s, size_t length, void *userdata)
 static void stream_underflow_cb(pa_stream *s, void *userdata)
 {
 	struct impl *impl = userdata;
-	pw_log_warn("underflow");
+	struct timespec ts;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	if (ratelimit_test(&impl->rate_limit, SPA_TIMESPEC_TO_NSEC(&ts), SPA_LOG_LEVEL_WARN))
+		pw_log_warn("underflow");
 	impl->resync = true;
 }
 static void stream_overflow_cb(pa_stream *s, void *userdata)
 {
 	struct impl *impl = userdata;
-	pw_log_warn("overflow");
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	if (ratelimit_test(&impl->rate_limit, SPA_TIMESPEC_TO_NSEC(&ts), SPA_LOG_LEVEL_WARN))
+		pw_log_warn("overflow");
 	impl->resync = true;
 }
 
@@ -963,6 +972,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	spa_ringbuffer_init(&impl->ring);
 	impl->buffer = calloc(1, RINGBUFFER_SIZE);
 	spa_dll_init(&impl->dll);
+	impl->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
+	impl->rate_limit.burst = 1;
 
 	if ((str = pw_properties_get(props, "tunnel.mode")) != NULL) {
 		if (spa_streq(str, "source")) {

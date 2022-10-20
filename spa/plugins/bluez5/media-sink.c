@@ -1645,8 +1645,7 @@ static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *this = (struct impl *) handle;
 
-	if (this->codec_data)
-		this->codec->deinit(this->codec_data);
+	do_stop(this);
 	if (this->codec_props && this->codec->clear_props)
 		this->codec->clear_props(this->codec_props);
 	if (this->transport)

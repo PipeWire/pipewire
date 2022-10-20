@@ -312,6 +312,7 @@ struct client {
         struct spa_hook proxy_listener;
 
 	struct metadata *metadata;
+	struct metadata *settings;
 
 	uint32_t node_id;
 	uint32_t serial;
@@ -402,6 +403,7 @@ struct client {
 	int self_connect_mode;
 	int rt_max;
 	unsigned int fix_midi_events:1;
+	unsigned int global_buffer_size:1;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -2729,6 +2731,24 @@ static const struct pw_proxy_events metadata_proxy_events = {
 	.destroy = metadata_proxy_destroy,
 };
 
+static void settings_proxy_removed(void *data)
+{
+	struct client *c = data;
+	pw_proxy_destroy((struct pw_proxy*)c->settings->proxy);
+}
+
+static void settings_proxy_destroy(void *data)
+{
+	struct client *c = data;
+	spa_hook_remove(&c->settings->proxy_listener);
+	c->settings = NULL;
+}
+
+static const struct pw_proxy_events settings_proxy_events = {
+	PW_VERSION_PROXY_EVENTS,
+	.removed = settings_proxy_removed,
+	.destroy = settings_proxy_destroy,
+};
 static void proxy_removed(void *data)
 {
 	struct object *o = data;
@@ -3041,24 +3061,34 @@ static void registry_event_global(void *data, uint32_t id,
 
 		if (c->metadata != NULL)
 			goto exit;
-		if ((str = spa_dict_lookup(props, PW_KEY_METADATA_NAME)) != NULL &&
-		    !spa_streq(str, "default"))
+		if ((str = spa_dict_lookup(props, PW_KEY_METADATA_NAME)) == NULL)
 			goto exit;
 
-		proxy = pw_registry_bind(c->registry,
-				id, type, PW_VERSION_METADATA, sizeof(struct metadata));
+		if (spa_streq(str, "default")) {
+			proxy = pw_registry_bind(c->registry,
+					id, type, PW_VERSION_METADATA, sizeof(struct metadata));
 
-		c->metadata = pw_proxy_get_user_data(proxy);
-		c->metadata->proxy = (struct pw_metadata*)proxy;
-		c->metadata->default_audio_sink[0] = '\0';
-		c->metadata->default_audio_source[0] = '\0';
+			c->metadata = pw_proxy_get_user_data(proxy);
+			c->metadata->proxy = (struct pw_metadata*)proxy;
+			c->metadata->default_audio_sink[0] = '\0';
+			c->metadata->default_audio_source[0] = '\0';
 
-		pw_proxy_add_listener(proxy,
-				&c->metadata->proxy_listener,
-				&metadata_proxy_events, c);
-		pw_metadata_add_listener(proxy,
-				&c->metadata->listener,
-				&metadata_events, c);
+			pw_proxy_add_listener(proxy,
+					&c->metadata->proxy_listener,
+					&metadata_proxy_events, c);
+			pw_metadata_add_listener(proxy,
+					&c->metadata->listener,
+					&metadata_events, c);
+		} else if (spa_streq(str, "settings")) {
+			proxy = pw_registry_bind(c->registry,
+					id, type, PW_VERSION_METADATA, sizeof(struct metadata));
+
+			c->settings = pw_proxy_get_user_data(proxy);
+			c->settings->proxy = (struct pw_metadata*)proxy;
+			pw_proxy_add_listener(proxy,
+					&c->settings->proxy_listener,
+					&settings_proxy_events, c);
+		}
 		goto exit;
 	}
 	else {
@@ -3421,6 +3451,7 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->locked_process = pw_properties_get_bool(client->props, "jack.locked-process", true);
 	client->default_as_system = pw_properties_get_bool(client->props, "jack.default-as-system", false);
 	client->fix_midi_events = pw_properties_get_bool(client->props, "jack.fix-midi-events", true);
+	client->global_buffer_size = pw_properties_get_bool(client->props, "jack.global-buffer-size", false);
 
 	client->self_connect_mode = SELF_CONNECT_ALLOW;
 	if ((str = pw_properties_get(client->props, "jack.self-connect-mode")) != NULL) {
@@ -3519,9 +3550,10 @@ int jack_client_close (jack_client_t *client)
 		pw_proxy_destroy((struct pw_proxy*)c->registry);
 	}
 	if (c->metadata && c->metadata->proxy) {
-		spa_hook_remove(&c->metadata->listener);
-		spa_hook_remove(&c->metadata->proxy_listener);
 		pw_proxy_destroy((struct pw_proxy*)c->metadata->proxy);
+	}
+	if (c->settings && c->settings->proxy) {
+		pw_proxy_destroy((struct pw_proxy*)c->settings->proxy);
 	}
 
 	if (c->core) {
@@ -4143,15 +4175,22 @@ int jack_set_buffer_size (jack_client_t *client, jack_nframes_t nframes)
 	pw_log_info("%p: buffer-size %u", client, nframes);
 
 	pw_thread_loop_lock(c->context.loop);
-	pw_properties_setf(c->props, PW_KEY_NODE_FORCE_QUANTUM, "%u", nframes);
+	if (c->global_buffer_size && c->settings && c->settings->proxy) {
+		char val[256];
+		snprintf(val, sizeof(val), "%u", nframes == 1 ? 0: nframes);
+		pw_metadata_set_property(c->settings->proxy, 0,
+				"clock.force-quantum", "", val);
+	} else {
+		pw_properties_setf(c->props, PW_KEY_NODE_FORCE_QUANTUM, "%u", nframes);
 
-	c->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
-	c->info.props = &c->props->dict;
+		c->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
+		c->info.props = &c->props->dict;
 
-	pw_client_node_update(c->node,
-                                    PW_CLIENT_NODE_UPDATE_INFO,
-				    0, NULL, &c->info);
-	c->info.change_mask = 0;
+		pw_client_node_update(c->node,
+	                                    PW_CLIENT_NODE_UPDATE_INFO,
+					    0, NULL, &c->info);
+		c->info.change_mask = 0;
+	}
 	pw_thread_loop_unlock(c->context.loop);
 
 	return 0;

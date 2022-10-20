@@ -83,6 +83,7 @@ jack.properties = {
      #jack.locked-process    = true
      #jack.default-as-system = false
      #jack.fix-midi-events   = true
+     #jack.global-buffer-size = false
 }
 
 # client specific properties
@@ -99,6 +100,18 @@ jack.rules = [
         actions = {
             update-props = {
                 #node.latency = 512/48000
+            }
+        }
+    }
+    {
+        matches = [
+            {
+                application.process.binary = "jack_bufsize"
+            }
+        ]
+        actions = {
+            update-props = {
+                jack.global-buffer-size = true
             }
         }
     }

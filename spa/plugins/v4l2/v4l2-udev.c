@@ -266,7 +266,7 @@ static int emit_object_info(struct impl *this, struct device *device)
 	if (str && *str) {
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_BUS_PATH, str);
 	}
-	if ((str = udev_device_get_syspath(dev)) && *str) {
+	if ((str = udev_device_get_devpath(dev)) && *str) {
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_SYSFS_PATH, str);
 	}
 	if ((str = udev_device_get_property_value(dev, "ID_ID")) && *str) {

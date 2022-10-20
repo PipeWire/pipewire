@@ -803,8 +803,8 @@ static void alsa_on_timeout_event(struct spa_source *source)
 	update_time(state, state->current_time, false);
 
 	res = process_read(state);
-	if (res > 0)
-		spa_node_call_ready(&state->callbacks, res);
+	if (res >= 0)
+		spa_node_call_ready(&state->callbacks, res | SPA_STATUS_NEED_DATA);
 
 	set_timeout(state, state->next_time);
 }

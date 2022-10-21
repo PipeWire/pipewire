@@ -196,6 +196,7 @@ struct impl {
 
 	uint32_t max_buffer_size;
 	uint32_t buffer_delay;
+	uint32_t current_delay;
 
 	struct spa_handle *spa_handle;
 	struct spa_plugin_loader *loader;
@@ -271,8 +272,22 @@ static void process(struct impl *impl)
 
 	pw_stream_queue_buffer(impl->playback, pout);
 
-	/* Now run the canceller */
-	spa_audio_aec_run(impl->aec, rec, play_delayed, out, size / sizeof(float));
+	if (SPA_UNLIKELY (impl->current_delay < impl->buffer_delay)) {
+		uint32_t delay_left = impl->buffer_delay - impl->current_delay;
+		uint32_t silence_size;
+
+		/* don't run the canceller until play_buffer has been filled,
+		 * copy silence to output in the meantime */
+		silence_size = SPA_MIN(size, delay_left * sizeof(float));
+		for (i = 0; i < impl->info.channels; i++) {
+			memset(out[i], 0, silence_size);
+		}
+		impl->current_delay += silence_size / sizeof(float);
+		pw_log_debug("current_delay %d", impl->current_delay);
+	} else {
+		/* run the canceller */
+		spa_audio_aec_run(impl->aec, rec, play_delayed, out, size / sizeof(float));
+	}
 
 	/* Next, copy over the output to the output ringbuffer */
 	avail = spa_ringbuffer_get_write_index(&impl->out_ring, &oindex);
@@ -520,6 +535,9 @@ static void output_state_changed(void *data, enum pw_stream_state old,
 	case PW_STREAM_STATE_PAUSED:
 		pw_stream_flush(impl->sink, false);
 		pw_stream_flush(impl->playback, false);
+		if (old == PW_STREAM_STATE_STREAMING) {
+			impl->current_delay = 0;
+		}
 		break;
 	case PW_STREAM_STATE_UNCONNECTED:
 		pw_log_info("%p: output unconnected", impl);

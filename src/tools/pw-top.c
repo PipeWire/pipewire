@@ -95,6 +95,7 @@ struct data {
 	int n_nodes;
 	struct spa_list node_list;
 	uint32_t generation;
+	unsigned have_data:1;
 
 	WINDOW *win;
 };
@@ -520,6 +521,10 @@ static void profiler_profile(void *data, const struct spa_pod *pod)
 		if (res < 0)
 			continue;
 	}
+	if (!d->have_data) {
+		d->have_data = true;
+		do_refresh(d);
+	}
 }
 
 static const struct pw_profiler_events profiler_events = {
@@ -599,8 +604,7 @@ static void on_core_done(void *_data, uint32_t id, int seq)
 		if (d->profiler == NULL) {
 			pw_log_error("no Profiler Interface found, please load one in the server");
 			pw_main_loop_quit(d->loop);
-		} else
-			do_refresh(d);
+		}
 	}
 }
 

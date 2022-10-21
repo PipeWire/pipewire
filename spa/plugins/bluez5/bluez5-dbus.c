@@ -3730,33 +3730,6 @@ error:
 	return ret;
 }
 
-static int register_media_endpoint(struct spa_bt_monitor *monitor,
-		const struct media_codec *codec, enum spa_bt_media_direction direction)
-{
-	int ret;
-	char* object_path = NULL;
-	const DBusObjectPathVTable vtable_endpoint = {
-		.message_function = endpoint_handler,
-	};
-
-	ret = media_codec_to_endpoint(codec, direction, &object_path);
-	if (ret < 0)
-		return ret;
-
-	spa_log_info(monitor->log, "Registering endpoint: %s", object_path);
-
-	if (!dbus_connection_register_object_path(monitor->conn,
-	                                          object_path,
-	                                          &vtable_endpoint, monitor)) {
-		free(object_path);
-		return -EIO;
-	}
-
-	free(object_path);
-	return 0;
-
-}
-
 static int adapter_register_endpoints(struct spa_bt_adapter *a)
 {
 	struct spa_bt_monitor *monitor = a->monitor;
@@ -3984,6 +3957,54 @@ finish:
 		adapter_register_endpoints(adapter);
 }
 
+static bool codec_has_direction(const struct media_codec *codec, enum spa_bt_media_direction direction)
+{
+	switch (direction) {
+	case SPA_BT_MEDIA_SOURCE:
+		return codec->encode;
+	case SPA_BT_MEDIA_SINK:
+		return codec->decode;
+	default:
+		spa_assert_not_reached();
+	}
+}
+
+static bool endpoint_should_be_registered(struct spa_bt_monitor *monitor,
+					  const struct media_codec *codec,
+					  enum spa_bt_media_direction direction)
+{
+	return is_media_codec_enabled(monitor, codec) && codec_has_direction(codec, direction);
+}
+
+static int register_media_endpoint(struct spa_bt_monitor *monitor,
+				   const struct media_codec *codec,
+				   enum spa_bt_media_direction direction)
+{
+	static const DBusObjectPathVTable vtable_endpoint = {
+		.message_function = endpoint_handler,
+	};
+
+	if (!endpoint_should_be_registered(monitor, codec, direction))
+		return 0;
+
+	char *object_path = NULL;
+	int ret = media_codec_to_endpoint(codec, direction, &object_path);
+	if (ret < 0)
+		return ret;
+
+	spa_log_info(monitor->log, "registering endpoint: %s", object_path);
+
+	if (!dbus_connection_register_object_path(monitor->conn,
+						  object_path,
+						  &vtable_endpoint, monitor))
+	{
+		ret = -EIO;
+	}
+
+	free(object_path);
+	return ret;
+}
+
 static int register_media_application(struct spa_bt_monitor * monitor)
 {
 	const struct media_codec * const * const media_codecs = monitor->media_codecs;
@@ -4001,41 +4022,42 @@ static int register_media_application(struct spa_bt_monitor * monitor)
 	for (int i = 0; media_codecs[i]; i++) {
 		const struct media_codec *codec = media_codecs[i];
 
-		if (!is_media_codec_enabled(monitor, codec))
-			continue;
-
-		if (codec->encode != NULL)
-			register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE);
-		if (codec->decode != NULL)
-			register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK);
+		register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE);
+		register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK);
 	}
 
 	return 0;
 }
 
+static void unregister_media_endpoint(struct spa_bt_monitor *monitor,
+				      const struct media_codec *codec,
+				      enum spa_bt_media_direction direction)
+{
+	if (!endpoint_should_be_registered(monitor, codec, direction))
+		return;
+
+	char *object_path = NULL;
+	int ret = media_codec_to_endpoint(codec, direction, &object_path);
+	if (ret < 0)
+		return;
+
+	spa_log_info(monitor->log, "unregistering endpoint: %s", object_path);
+
+	if (!dbus_connection_unregister_object_path(monitor->conn, object_path))
+		spa_log_warn(monitor->log, "failed to unregister %s\n", object_path);
+
+	free(object_path);
+}
+
 static void unregister_media_application(struct spa_bt_monitor * monitor)
 {
 	const struct media_codec * const * const media_codecs = monitor->media_codecs;
-	int ret;
-	char *object_path = NULL;
 
 	for (int i = 0; media_codecs[i]; i++) {
 		const struct media_codec *codec = media_codecs[i];
 
-		if (!is_media_codec_enabled(monitor, codec))
-			continue;
-
-		ret = media_codec_to_endpoint(codec, SPA_BT_MEDIA_SOURCE, &object_path);
-		if (ret == 0) {
-			dbus_connection_unregister_object_path(monitor->conn, object_path);
-			free(object_path);
-		}
-
-		ret = media_codec_to_endpoint(codec, SPA_BT_MEDIA_SINK, &object_path);
-		if (ret == 0) {
-			dbus_connection_unregister_object_path(monitor->conn, object_path);
-			free(object_path);
-		}
+		unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE);
+		unregister_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK);
 	}
 
 	dbus_connection_unregister_object_path(monitor->conn, MEDIA_OBJECT_MANAGER_PATH);

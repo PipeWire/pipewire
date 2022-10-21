@@ -279,11 +279,21 @@ static void process(struct impl *impl)
 		/* don't run the canceller until play_buffer has been filled,
 		 * copy silence to output in the meantime */
 		silence_size = SPA_MIN(size, delay_left * sizeof(float));
-		for (i = 0; i < impl->info.channels; i++) {
+		for (i = 0; i < impl->info.channels; i++)
 			memset(out[i], 0, silence_size);
-		}
 		impl->current_delay += silence_size / sizeof(float);
 		pw_log_debug("current_delay %d", impl->current_delay);
+
+		if (silence_size != size) {
+			const float *pd[impl->info.channels];
+			float *o[impl->info.channels];
+
+			for (i = 0; i < impl->info.channels; i++) {
+				pd[i] = play_delayed[i] + delay_left;
+				o[i] = out[i] + delay_left;
+			}
+			spa_audio_aec_run(impl->aec, rec, pd, o, delay_left);
+		}
 	} else {
 		/* run the canceller */
 		spa_audio_aec_run(impl->aec, rec, play_delayed, out, size / sizeof(float));

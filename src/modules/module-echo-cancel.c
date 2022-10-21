@@ -292,7 +292,7 @@ static void process(struct impl *impl)
 				pd[i] = play_delayed[i] + delay_left;
 				o[i] = out[i] + delay_left;
 			}
-			spa_audio_aec_run(impl->aec, rec, pd, o, delay_left);
+			spa_audio_aec_run(impl->aec, rec, pd, o, size / sizeof(float) - delay_left);
 		}
 	} else {
 		/* run the canceller */

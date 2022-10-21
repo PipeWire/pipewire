@@ -604,6 +604,8 @@ static void on_core_done(void *_data, uint32_t id, int seq)
 		if (d->profiler == NULL) {
 			pw_log_error("no Profiler Interface found, please load one in the server");
 			pw_main_loop_quit(d->loop);
+		} else {
+			do_refresh(d);
 		}
 	}
 }

@@ -1360,7 +1360,6 @@ static void codec_set_log(struct spa_log *global_log)
 	.codec_id = A2DP_CODEC_VENDOR,				\
 	.vendor = { .vendor_id = OPUS_05_VENDOR_ID,		\
 			.codec_id = OPUS_05_CODEC_ID },		\
-	.fill_caps = codec_fill_caps,				\
 	.select_config = codec_select_config,			\
 	.enum_config = codec_enum_config,			\
 	.validate_config = codec_validate_config,		\
@@ -1385,6 +1384,7 @@ const struct media_codec a2dp_codec_opus_05 = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05,
 	.name = "opus_05",
 	.description = "Opus",
+	.fill_caps = codec_fill_caps,
 };
 
 const struct media_codec a2dp_codec_opus_05_51 = {
@@ -1392,6 +1392,8 @@ const struct media_codec a2dp_codec_opus_05_51 = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_51,
 	.name = "opus_05_51",
 	.description = "Opus 5.1 Surround",
+	.endpoint_name = "opus_05",
+	.fill_caps = NULL,
 };
 
 const struct media_codec a2dp_codec_opus_05_71 = {
@@ -1399,6 +1401,8 @@ const struct media_codec a2dp_codec_opus_05_71 = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_71,
 	.name = "opus_05_71",
 	.description = "Opus 7.1 Surround",
+	.endpoint_name = "opus_05",
+	.fill_caps = NULL,
 };
 
 /* Bidi return channel codec: doesn't have endpoints */
@@ -1415,6 +1419,7 @@ const struct media_codec a2dp_codec_opus_05_duplex = {
 	.name = "opus_05_duplex",
 	.description = "Opus Duplex",
 	.duplex_codec = &a2dp_codec_opus_05_return,
+	.fill_caps = codec_fill_caps,
 };
 
 const struct media_codec a2dp_codec_opus_05_pro = {
@@ -1425,6 +1430,8 @@ const struct media_codec a2dp_codec_opus_05_pro = {
 	.init_props = codec_init_props,
 	.clear_props = codec_clear_props,
 	.duplex_codec = &a2dp_codec_opus_05_return,
+	.endpoint_name = "opus_05_duplex",
+	.fill_caps = NULL,
 };
 
 MEDIA_CODEC_EXPORT_DEF(

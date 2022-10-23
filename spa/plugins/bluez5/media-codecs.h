@@ -45,7 +45,7 @@
 
 #define SPA_TYPE_INTERFACE_Bluez5CodecMedia	SPA_TYPE_INFO_INTERFACE_BASE "Bluez5:Codec:Media:Private"
 
-#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		6
+#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		7
 
 struct spa_bluez5_codec_a2dp {
 	struct spa_interface iface;
@@ -98,8 +98,10 @@ struct media_codec {
 
 	struct spa_log *log;
 
+	/** If fill_caps is NULL, no endpoint is registered (for sharing with another codec). */
 	int (*fill_caps) (const struct media_codec *codec, uint32_t flags,
 			uint8_t caps[A2DP_MAX_CAPS_SIZE]);
+
 	int (*select_config) (const struct media_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
 			const struct media_codec_audio_info *info,

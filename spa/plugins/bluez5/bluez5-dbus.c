@@ -452,10 +452,11 @@ static int media_codec_to_endpoint(const struct media_codec *codec,
 	return 0;
 }
 
-static const struct media_codec *media_endpoint_to_codec(struct spa_bt_monitor *monitor, const char *endpoint, bool *sink)
+static const struct media_codec *media_endpoint_to_codec(struct spa_bt_monitor *monitor, const char *endpoint, bool *sink, const struct media_codec *preferred)
 {
 	const char *ep_name;
 	const struct media_codec * const * const media_codecs = monitor->media_codecs;
+	const struct media_codec *found = NULL;
 	int i;
 
 	if (spa_strstartswith(endpoint, A2DP_SINK_ENDPOINT "/")) {
@@ -479,10 +480,20 @@ static const struct media_codec *media_endpoint_to_codec(struct spa_bt_monitor *
 		const struct media_codec *codec = media_codecs[i];
 		const char *codec_ep_name =
 			codec->endpoint_name ? codec->endpoint_name : codec->name;
-		if (spa_streq(ep_name, codec_ep_name))
-			return codec;
+
+		if (!spa_streq(ep_name, codec_ep_name))
+			continue;
+		if ((*sink && !codec->decode) || (!*sink && !codec->encode))
+			continue;
+
+		/* Same endpoint may be shared with multiple codec objects,
+		 * which may e.g. correspond to different encoder settings.
+		 * Look up which one we selected.
+		 */
+		if ((preferred && codec == preferred) || found == NULL)
+			found = codec;
 	}
-	return NULL;
+	return found;
 }
 
 static int media_endpoint_to_profile(const char *endpoint)
@@ -503,6 +514,30 @@ static int media_endpoint_to_profile(const char *endpoint)
 static bool is_media_codec_enabled(struct spa_bt_monitor *monitor, const struct media_codec *codec)
 {
 	return spa_dict_lookup(&monitor->enabled_codecs, codec->name) != NULL;
+}
+
+static bool codec_has_direction(const struct media_codec *codec, enum spa_bt_media_direction direction)
+{
+	switch (direction) {
+	case SPA_BT_MEDIA_SOURCE:
+		return codec->encode;
+	case SPA_BT_MEDIA_SINK:
+		return codec->decode;
+	default:
+		spa_assert_not_reached();
+	}
+}
+
+static bool endpoint_should_be_registered(struct spa_bt_monitor *monitor,
+					  const struct media_codec *codec,
+					  enum spa_bt_media_direction direction)
+{
+	/* Codecs with fill_caps == NULL share endpoint with another codec,
+	 * and don't have their own endpoint
+	 */
+	return is_media_codec_enabled(monitor, codec) &&
+		codec_has_direction(codec, direction) &&
+		codec->fill_caps;
 }
 
 static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBusMessage *m, void *userdata)
@@ -530,7 +565,14 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 	spa_log_info(monitor->log, "%p: %s select conf %d", monitor, path, size);
 	spa_log_hexdump(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, cap, (size_t)size);
 
-	codec = media_endpoint_to_codec(monitor, path, &sink);
+	/* For codecs sharing the same endpoint, BlueZ-initiated connections
+	 * always pick the default one. The session manager will
+	 * switch the codec to a saved value after connection, so this generally
+	 * does not matter.
+	 */
+	codec = media_endpoint_to_codec(monitor, path, &sink, NULL);
+	spa_log_debug(monitor->log, "%p: %s codec:%s", monitor, path, codec ? codec->name : "<null>");
+
 	if (codec != NULL)
 		/* FIXME: We can't determine which device the SelectConfiguration()
 		 * call is associated with, therefore device settings are not passed.
@@ -602,7 +644,13 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 
 	path = dbus_message_get_path(m);
 
-	codec = media_endpoint_to_codec(monitor, path, &sink);
+	/* TODO: for codecs with shared endpoint, this currently always picks the default
+	 * one. However, currently we don't have BAP codecs with shared endpoint, so
+	 * this does not matter, but in case they are needed later we should pick the
+	 * right one here.
+	 */
+	codec = media_endpoint_to_codec(monitor, path, &sink, NULL);
+	spa_log_debug(monitor->log, "%p: %s codec:%s", monitor, path, codec ? codec->name : "<null>");
 	if (!codec) {
 		spa_log_error(monitor->log, "Unsupported codec");
 		err_msg = "Unsupported codec";
@@ -3025,6 +3073,9 @@ static bool media_codec_switch_process_current(struct spa_bt_media_codec_switch 
 	for (i = 0; i < config_size; i++)
 		spa_log_debug(sw->device->monitor->log, "media codec switch %p:     %d: %02x", sw, i, config[i]);
 
+	/* Codecs may share the same endpoint, so indicate which one we are using */
+	sw->device->preferred_codec = codec;
+
 	/* org.bluez.MediaEndpoint1.SetConfiguration on remote endpoint */
 	m = dbus_message_new_method_call(BLUEZ_SERVICE, ep->path, BLUEZ_MEDIA_ENDPOINT_INTERFACE, "SetConfiguration");
 	if (m == NULL) {
@@ -3431,7 +3482,7 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 	endpoint = dbus_message_get_path(m);
 
 	profile = media_endpoint_to_profile(endpoint);
-	codec = media_endpoint_to_codec(monitor, endpoint, &sink);
+	codec = media_endpoint_to_codec(monitor, endpoint, &sink, NULL);
 	if (codec == NULL) {
 		spa_log_warn(monitor->log, "unknown SetConfiguration() codec");
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -3479,6 +3530,12 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		spa_log_warn(monitor->log, "no device found for transport");
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
+
+	/* If multiple codecs share the endpoint, pick the one we wanted */
+	transport->media_codec = codec = media_endpoint_to_codec(monitor, endpoint, &sink,
+			transport->device->preferred_codec);
+	spa_assert(codec != NULL);
+	spa_log_debug(monitor->log, "%p: %s codec:%s", monitor, path, codec ? codec->name : "<null>");
 
 	spa_bt_device_update_last_bluez_action_time(transport->device);
 
@@ -3689,6 +3746,8 @@ static int bluez_register_endpoint(struct spa_bt_monitor *monitor,
 	uint16_t codec_id = codec->codec_id;
 	bool sink = (direction == SPA_BT_MEDIA_SINK);
 
+	spa_assert(codec->fill_caps);
+
 	ret = media_codec_to_endpoint(codec, direction, &object_path);
 	if (ret < 0)
 		goto error;
@@ -3753,23 +3812,24 @@ static int adapter_register_endpoints(struct spa_bt_adapter *a)
 	for (i = 0; media_codecs[i]; i++) {
 		const struct media_codec *codec = media_codecs[i];
 
-		if (!is_media_codec_enabled(monitor, codec))
+		if (codec->id != SPA_BLUETOOTH_AUDIO_CODEC_SBC)
 			continue;
 
-		if (!(codec->codec_id == A2DP_CODEC_SBC && spa_streq(codec->name, "sbc")))
-			continue;
+		if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE)) {
+			if ((err = bluez_register_endpoint(monitor, a->path,
+									SPA_BT_MEDIA_SOURCE,
+									SPA_BT_UUID_A2DP_SOURCE,
+									codec)))
+				goto out;
+		}
 
-		if ((err = bluez_register_endpoint(monitor, a->path,
-		                                   SPA_BT_MEDIA_SOURCE,
-		                                   SPA_BT_UUID_A2DP_SOURCE,
-		                                   codec)))
-			goto out;
-
-		if ((err = bluez_register_endpoint(monitor, a->path,
-		                                   SPA_BT_MEDIA_SINK,
-		                                   SPA_BT_UUID_A2DP_SINK,
-		                                   codec)))
-			goto out;
+		if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SINK)) {
+			if ((err = bluez_register_endpoint(monitor, a->path,
+									SPA_BT_MEDIA_SINK,
+									SPA_BT_UUID_A2DP_SINK,
+									codec)))
+				goto out;
+		}
 
 		a->endpoints_registered = true;
 		break;
@@ -3865,10 +3925,6 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 			if (!is_media_codec_enabled(monitor, codec))
 				continue;
 
-			caps_size = codec->fill_caps(codec, 0, caps);
-			if (caps_size < 0)
-				continue;
-
 			if (codec->bap && !monitor->le_audio_supported) {
 				/* The legacy bluez5 api doesn't support LE Audio
 				 * It doesn't make sense to register unsupported codecs as it prevents
@@ -3881,7 +3937,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 				continue;
 			}
 
-			if (codec->decode != NULL) {
+			if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SINK)) {
 				caps_size = codec->fill_caps(codec, MEDIA_CODEC_FLAG_SINK, caps);
 				if (caps_size < 0)
 					continue;
@@ -3896,7 +3952,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 				}
 			}
 
-			if (codec->encode != NULL) {
+			if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE)) {
 				caps_size = codec->fill_caps(codec, 0, caps);
 				if (caps_size < 0)
 					continue;
@@ -3955,25 +4011,6 @@ finish:
 
 	if (fallback)
 		adapter_register_endpoints(adapter);
-}
-
-static bool codec_has_direction(const struct media_codec *codec, enum spa_bt_media_direction direction)
-{
-	switch (direction) {
-	case SPA_BT_MEDIA_SOURCE:
-		return codec->encode;
-	case SPA_BT_MEDIA_SINK:
-		return codec->decode;
-	default:
-		spa_assert_not_reached();
-	}
-}
-
-static bool endpoint_should_be_registered(struct spa_bt_monitor *monitor,
-					  const struct media_codec *codec,
-					  enum spa_bt_media_direction direction)
-{
-	return is_media_codec_enabled(monitor, codec) && codec_has_direction(codec, direction);
 }
 
 static int register_media_endpoint(struct spa_bt_monitor *monitor,

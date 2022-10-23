@@ -126,7 +126,11 @@ static int load_media_codecs_from(struct impl *impl, const char *factory_name, c
 
 	for (i = 0; bluez5_codec_a2dp->codecs[i]; ++i) {
 		const struct media_codec *c = bluez5_codec_a2dp->codecs[i];
+		const char *ep = c->endpoint_name ? c->endpoint_name : c->name;
 		size_t j;
+
+		if (!ep)
+			goto next_codec;
 
 		if (impl->n_codecs >= MAX_CODECS) {
 			spa_log_error(impl->log, "too many A2DP codecs");
@@ -136,13 +140,16 @@ static int load_media_codecs_from(struct impl *impl, const char *factory_name, c
 		/* Don't load duplicate endpoints */
 		for (j = 0; j < impl->n_codecs; ++j) {
 			const struct media_codec *c2 = impl->codecs[j];
-			const char *ep1 = c->endpoint_name ? c->endpoint_name : c->name;
 			const char *ep2 = c2->endpoint_name ? c2->endpoint_name : c2->name;
-			if (spa_streq(ep1, ep2))
+			if (spa_streq(ep, ep2) && c->fill_caps && c2->fill_caps) {
+				spa_log_debug(impl->log, "media codec %s from %s duplicate endpoint %s",
+						c->name, factory_name, ep);
 				goto next_codec;
+			}
 		}
 
-		spa_log_debug(impl->log, "loaded media codec %s from %s", c->name, factory_name);
+		spa_log_debug(impl->log, "loaded media codec %s from %s, endpoint:%s",
+				c->name, factory_name, ep);
 
 		if (c->set_log)
 			c->set_log(impl->log);

@@ -459,6 +459,8 @@ struct spa_bt_device_events {
 	void (*destroy) (void *data);
 };
 
+struct media_codec;
+
 struct spa_bt_device {
 	struct spa_list link;
 	struct spa_bt_monitor *monitor;
@@ -507,9 +509,9 @@ struct spa_bt_device {
 	const struct spa_dict *settings;
 
 	DBusPendingCall *battery_pending_call;
-};
 
-struct media_codec;
+	const struct media_codec *preferred_codec;
+};
 
 struct spa_bt_device *spa_bt_device_find(struct spa_bt_monitor *monitor, const char *path);
 struct spa_bt_device *spa_bt_device_find_by_address(struct spa_bt_monitor *monitor, const char *remote_address, const char *local_address);

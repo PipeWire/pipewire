@@ -582,7 +582,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	bool sink;
 	const char *err_msg = "Unknown error";
 
-	const char *endpoint_path;
+	const char *endpoint_path = NULL;
 	uint8_t caps[A2DP_MAX_CAPS_SIZE];
 	uint8_t config[A2DP_MAX_CAPS_SIZE];
 	int caps_size = 0;

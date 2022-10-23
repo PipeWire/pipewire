@@ -47,7 +47,8 @@ PWTEST(buffer_abi_types)
 	pwtest_int_eq(SPA_META_Cursor, 5);
 	pwtest_int_eq(SPA_META_Control, 6);
 	pwtest_int_eq(SPA_META_Busy, 7);
-	pwtest_int_eq(_SPA_META_LAST, 8);
+	pwtest_int_eq(SPA_META_VideoTransform, 8);
+	pwtest_int_eq(_SPA_META_LAST, 9);
 
 	return PWTEST_PASS;
 }
@@ -64,6 +65,7 @@ PWTEST(buffer_abi_sizes)
 	pwtest_int_eq(sizeof(struct spa_meta_region), 16U);
 	pwtest_int_eq(sizeof(struct spa_meta_bitmap), 20U);
 	pwtest_int_eq(sizeof(struct spa_meta_cursor), 28U);
+	pwtest_int_eq(sizeof(struct spa_meta_videotransform), 4U);
 
 	return PWTEST_PASS;
 #else
@@ -75,6 +77,7 @@ PWTEST(buffer_abi_sizes)
 	fprintf(stderr, "%zd\n", sizeof(struct spa_meta_region));
 	fprintf(stderr, "%zd\n", sizeof(struct spa_meta_bitmap));
 	fprintf(stderr, "%zd\n", sizeof(struct spa_meta_cursor));
+	fprintf(stderr, "%zd\n", sizeof(struct spa_meta_videotransform));
 	return PWTEST_SKIP;
 #endif
 }

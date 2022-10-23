@@ -605,7 +605,7 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	}
 	this->codesize = this->samples * this->channels * sizeof(int32_t);
 
-	if (flags & MEDIA_CODEC_FLAG_SINK) {
+	if (!(flags & MEDIA_CODEC_FLAG_SINK)) {
 		for (ich = 0; ich < this->channels; ich++) {
 			this->enc[ich] = lc3_setup_encoder(this->frame_dus, this->samplerate, 0, calloc(1, lc3_encoder_size(this->frame_dus, this->samplerate)));
 			if (this->enc[ich] == NULL) {

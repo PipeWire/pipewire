@@ -636,10 +636,7 @@ static int transport_start(struct impl *this)
 
 	this->transport_acquired = true;
 
-	if (this->codec->bap)
-		flags = 0;
-	else
-		flags = this->is_duplex ? 0 : MEDIA_CODEC_FLAG_SINK;
+	flags = this->is_duplex ? 0 : MEDIA_CODEC_FLAG_SINK;
 
 	this->codec_data = this->codec->init(this->codec,
 			flags,

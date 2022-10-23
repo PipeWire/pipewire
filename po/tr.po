@@ -11,8 +11,8 @@ msgstr ""
 "Project-Id-Version: PipeWire master\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/"
 "issues/new\n"
-"POT-Creation-Date: 2022-04-03 12:56+0200\n"
-"PO-Revision-Date: 2022-05-14 18:35+0300\n"
+"POT-Creation-Date: 2022-06-30 12:50+0200\n"
+"PO-Revision-Date: 2022-10-23 10:40+0300\n"
 "Last-Translator: Oğuz Ersen <oguz@ersen.moe>\n"
 "Language-Team: Turkish <tr>\n"
 "Language: tr\n"
@@ -35,8 +35,8 @@ msgstr ""
 "      --version                         Sürümü göster\n"
 "  -c, --config                          Yapılandırmayı yükle (Öntanımlı %s)\n"
 
-#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:190
-#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:190
+#: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:180
+#: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:180
 #, c-format
 msgid "Tunnel to %s/%s"
 msgstr "%s/%s tüneli"
@@ -45,41 +45,41 @@ msgstr "%s/%s tüneli"
 msgid "Dummy Output"
 msgstr "Temsili Çıkış"
 
-#: src/modules/module-pulse-tunnel.c:545
+#: src/modules/module-pulse-tunnel.c:662
 #, c-format
 msgid "Tunnel for %s@%s"
 msgstr "%s@%s için tünel"
 
-#: src/modules/module-zeroconf-discover.c:313
+#: src/modules/module-zeroconf-discover.c:332
 msgid "Unknown device"
 msgstr "Bilinmeyen aygıt"
 
-#: src/modules/module-zeroconf-discover.c:325
+#: src/modules/module-zeroconf-discover.c:344
 #, c-format
 msgid "%s on %s@%s"
 msgstr "%s, %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:329
+#: src/modules/module-zeroconf-discover.c:348
 #, c-format
 msgid "%s on %s"
 msgstr "%s, %s"
 
-#: src/tools/pw-cat.c:1087
+#: src/tools/pw-cat.c:784
 #, c-format
 msgid ""
-"%s [options] <file>\n"
+"%s [options] [<file>|-]\n"
 "  -h, --help                            Show this help\n"
 "      --version                         Show version\n"
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
-"%s [seçenekler] <dosya>\n"
+"%s [seçenekler] [<dosya>|-]\n"
 "  -h, --help                            Bu yardımı göster\n"
 "      --version                         Sürümü göster\n"
 "  -v, --verbose                         Ayrıntılı işlemleri etkinleştir\n"
 "\n"
 
-#: src/tools/pw-cat.c:1094
+#: src/tools/pw-cat.c:791
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
@@ -93,7 +93,7 @@ msgid ""
 "                                          or direct samples (256)\n"
 "                                          the rate is the one of the source "
 "file\n"
-"      --list-targets                    List available targets for --target\n"
+"  -P  --properties                      Set node properties\n"
 "\n"
 msgstr ""
 "  -R, --remote                          Uzak arka plan programı adı\n"
@@ -109,11 +109,10 @@ msgstr ""
 "                                          Xbirim (birim = s, ms, us, ns)\n"
 "                                          veya doğrudan örneklemeler (256)\n"
 "                                          oran kaynak dosyadan biridir\n"
-"      --list-targets                    --target için kullanılabilir "
-"hedefleri listele\n"
+"  -P  --properties                      Düğüm özelliklerini ayarla\n"
 "\n"
 
-#: src/tools/pw-cat.c:1112
+#: src/tools/pw-cat.c:809
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -149,7 +148,7 @@ msgstr ""
 "15) (öntanımlı %d)\n"
 "\n"
 
-#: src/tools/pw-cat.c:1129
+#: src/tools/pw-cat.c:826
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
@@ -163,7 +162,7 @@ msgstr ""
 "  -d, --dsd                             DSD modu\n"
 "\n"
 
-#: src/tools/pw-cli.c:3051
+#: src/tools/pw-cli.c:2250
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -186,7 +185,7 @@ msgid "Pro Audio"
 msgstr "Profesyonel Ses"
 
 #: spa/plugins/alsa/acp/acp.c:444 spa/plugins/alsa/acp/alsa-mixer.c:4648
-#: spa/plugins/bluez5/bluez5-device.c:1159
+#: spa/plugins/bluez5/bluez5-device.c:1236
 msgid "Off"
 msgstr "Kapalı"
 
@@ -213,7 +212,7 @@ msgstr "Hat Girişi"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2657
 #: spa/plugins/alsa/acp/alsa-mixer.c:2741
-#: spa/plugins/bluez5/bluez5-device.c:1328
+#: spa/plugins/bluez5/bluez5-device.c:1454
 msgid "Microphone"
 msgstr "Mikrofon"
 
@@ -279,7 +278,7 @@ msgid "No Bass Boost"
 msgstr "Bas Artırma Yok"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2672
-#: spa/plugins/bluez5/bluez5-device.c:1333
+#: spa/plugins/bluez5/bluez5-device.c:1460
 msgid "Speaker"
 msgstr "Hoparlör"
 
@@ -394,7 +393,7 @@ msgstr "Stereo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4484
 #: spa/plugins/alsa/acp/alsa-mixer.c:4642
-#: spa/plugins/bluez5/bluez5-device.c:1318
+#: spa/plugins/bluez5/bluez5-device.c:1442
 msgid "Headset"
 msgstr "Kulaklık"
 
@@ -518,7 +517,7 @@ msgstr "%s Çıkışı"
 msgid "%s Input"
 msgstr "%s Girişi"
 
-#: spa/plugins/alsa/acp/alsa-util.c:1173 spa/plugins/alsa/acp/alsa-util.c:1267
+#: spa/plugins/alsa/acp/alsa-util.c:1187 spa/plugins/alsa/acp/alsa-util.c:1281
 #, c-format
 msgid ""
 "snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu "
@@ -535,7 +534,7 @@ msgstr[0] ""
 "Büyük ihtimalle bu bir ALSA sürücüsü '%s' hatasıdır. Lütfen bu sorunu ALSA "
 "geliştiricilerine bildirin."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1239
+#: spa/plugins/alsa/acp/alsa-util.c:1253
 #, c-format
 msgid ""
 "snd_pcm_delay() returned a value that is exceptionally large: %li byte "
@@ -552,7 +551,7 @@ msgstr[0] ""
 "Büyük ihtimalle bu bir ALSA sürücüsü '%s' hatasıdır. Lütfen bu sorunu ALSA "
 "geliştiricilerine bildirin."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1286
+#: spa/plugins/alsa/acp/alsa-util.c:1300
 #, c-format
 msgid ""
 "snd_pcm_avail_delay() returned strange values: delay %lu is less than avail "
@@ -565,7 +564,7 @@ msgstr ""
 "Büyük ihtimalle bu bir ALSA sürücüsü '%s' hatasıdır. Lütfen bu sorunu ALSA "
 "geliştiricilerine bildirin."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1329
+#: spa/plugins/alsa/acp/alsa-util.c:1343
 #, c-format
 msgid ""
 "snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte "
@@ -583,7 +582,7 @@ msgstr[0] ""
 "Büyük ihtimalle bu bir ALSA sürücüsü '%s' hatasıdır. Lütfen bu sorunu ALSA "
 "geliştiricilerine bildirin."
 
-#: spa/plugins/alsa/acp/channelmap.h:464
+#: spa/plugins/alsa/acp/channelmap.h:457
 msgid "(invalid)"
 msgstr "(geçersiz)"
 
@@ -595,64 +594,95 @@ msgstr "Dahili Ses"
 msgid "Modem"
 msgstr "Modem"
 
-#: spa/plugins/bluez5/bluez5-device.c:1170
+#: spa/plugins/bluez5/bluez5-device.c:1247
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "Ses Geçidi (A2DP Kaynak & HSP/HFP AG)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1195
+#: spa/plugins/bluez5/bluez5-device.c:1272
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr "Yüksek Kaliteli Çalma (A2DP Alıcı, çözücü %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1198
+#: spa/plugins/bluez5/bluez5-device.c:1275
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr "Yüksek Kaliteli İkili (A2DP Kaynak/Alıcı, çözücü %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1206
+#: spa/plugins/bluez5/bluez5-device.c:1283
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr "Yüksek Kaliteli Çalma (A2DP Alıcı)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1208
+#: spa/plugins/bluez5/bluez5-device.c:1285
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr "Yüksek Kaliteli İkili (A2DP Kaynak/Alıcı)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1236
+#: spa/plugins/bluez5/bluez5-device.c:1322
+#, c-format
+msgid "High Fidelity Playback (BAP Sink, codec %s)"
+msgstr "Yüksek Kaliteli Çalma (BAP Alıcı, çözücü %s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1326
+#, c-format
+msgid "High Fidelity Input (BAP Source, codec %s)"
+msgstr "Yüksek Kaliteli Giriş (BAP Kaynak, çözücü %s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1330
+#, c-format
+msgid "High Fidelity Duplex (BAP Source/Sink, codec %s)"
+msgstr "Yüksek Kaliteli İkili (BAP Kaynak/Alıcı, çözücü %s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1359
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
 msgstr "Kulaklık Ana Birimi (HSP/HFP, çözücü %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1241
+#: spa/plugins/bluez5/bluez5-device.c:1364
 msgid "Headset Head Unit (HSP/HFP)"
 msgstr "Kulaklık Ana Birimi (HSP/HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1323
+#: spa/plugins/bluez5/bluez5-device.c:1443
+#: spa/plugins/bluez5/bluez5-device.c:1448
+#: spa/plugins/bluez5/bluez5-device.c:1455
+#: spa/plugins/bluez5/bluez5-device.c:1461
+#: spa/plugins/bluez5/bluez5-device.c:1467
+#: spa/plugins/bluez5/bluez5-device.c:1473
+#: spa/plugins/bluez5/bluez5-device.c:1479
+#: spa/plugins/bluez5/bluez5-device.c:1485
+#: spa/plugins/bluez5/bluez5-device.c:1491
 msgid "Handsfree"
 msgstr "Ahizesiz"
 
-#: spa/plugins/bluez5/bluez5-device.c:1338
+#: spa/plugins/bluez5/bluez5-device.c:1449
+msgid "Handsfree (HFP)"
+msgstr "Ahizesiz (HFP)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1466
 msgid "Headphone"
 msgstr "Kulaklık"
 
-#: spa/plugins/bluez5/bluez5-device.c:1343
+#: spa/plugins/bluez5/bluez5-device.c:1472
 msgid "Portable"
 msgstr "Taşınabilir"
 
-#: spa/plugins/bluez5/bluez5-device.c:1348
+#: spa/plugins/bluez5/bluez5-device.c:1478
 msgid "Car"
 msgstr "Araba"
 
-#: spa/plugins/bluez5/bluez5-device.c:1353
+#: spa/plugins/bluez5/bluez5-device.c:1484
 msgid "HiFi"
 msgstr "Yüksek Kalite"
 
-#: spa/plugins/bluez5/bluez5-device.c:1358
+#: spa/plugins/bluez5/bluez5-device.c:1490
 msgid "Phone"
 msgstr "Telefon"
 
-#: spa/plugins/bluez5/bluez5-device.c:1364
+#: spa/plugins/bluez5/bluez5-device.c:1497
 msgid "Bluetooth"
 msgstr "Bluetooth"
+
+#: spa/plugins/bluez5/bluez5-device.c:1498
+msgid "Bluetooth (HFP)"
+msgstr "Bluetooth (HFP)"
 
 #~ msgid "PipeWire Media System"
 #~ msgstr "PipeWire Ortam Sistemi"

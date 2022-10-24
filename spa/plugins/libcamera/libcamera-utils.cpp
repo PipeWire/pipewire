@@ -477,7 +477,12 @@ static void libcamera_on_fd_events(struct spa_source *source)
 	spa_list_append(&port->queue, &b->link);
 
 	io = port->io;
-	if (io != NULL && io->status != SPA_STATUS_HAVE_DATA) {
+	if (io == NULL) {
+		b = spa_list_first(&port->queue, struct buffer, link);
+		spa_list_remove(&b->link);
+		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
+		spa_libcamera_buffer_recycle(impl, port, b->id);
+	} else if (io->status != SPA_STATUS_HAVE_DATA) {
 		if (io->buffer_id < port->n_buffers)
 			spa_libcamera_buffer_recycle(impl, port, io->buffer_id);
 

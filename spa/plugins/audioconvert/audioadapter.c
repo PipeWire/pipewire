@@ -1155,6 +1155,11 @@ static int follower_ready(void *data, int status)
 
 	spa_log_trace_fp(this->log, "%p: ready %d", this, status);
 
+	if (!this->started) {
+		spa_log_warn(this->log, "%p: ready stopped node", this);
+		return -EIO;
+	}
+
 	if (this->target != this->follower) {
 		this->driver = true;
 

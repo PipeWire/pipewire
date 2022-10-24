@@ -1624,8 +1624,13 @@ static int node_ready(void *data, int status)
 	struct pw_node_target *t;
 	struct pw_impl_port *p;
 
-	pw_log_trace_fp("%p: ready driver:%d exported:%d %p status:%d", node,
-			node->driver, node->exported, driver, status);
+	pw_log_trace_fp("%p: ready driver:%d exported:%d %p status:%d added:%d", node,
+			node->driver, node->exported, driver, status, node->added);
+
+	if (!node->added) {
+		pw_log_warn("%p: ready non-active node", node);
+		return -EIO;
+	}
 
 	if (SPA_UNLIKELY(node == driver)) {
 		struct pw_node_activation *a = node->rt.activation;

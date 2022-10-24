@@ -41,7 +41,6 @@ static int xioctl(int fd, int request, void *arg)
 	return err;
 }
 
-
 int spa_v4l2_open(struct spa_v4l2_device *dev, const char *path)
 {
 	struct stat st;
@@ -1305,7 +1304,13 @@ static void v4l2_on_fd_events(struct spa_source *source)
 		return;
 
 	io = port->io;
-	if (io != NULL && io->status != SPA_STATUS_HAVE_DATA) {
+	if (io == NULL) {
+		b = spa_list_first(&port->queue, struct buffer, link);
+		spa_list_remove(&b->link);
+		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
+		spa_v4l2_buffer_recycle(this, b->id);
+	}
+	else if (io->status != SPA_STATUS_HAVE_DATA) {
 		if (io->buffer_id < port->n_buffers)
 			spa_v4l2_buffer_recycle(this, io->buffer_id);
 

@@ -158,19 +158,6 @@ static void remove_node(struct pw_impl_node *this)
 	this->rt.driver_target.node = NULL;
 }
 
-static int
-do_node_remove(struct spa_loop *loop,
-	       bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct pw_impl_node *this = user_data;
-	if (this->source.loop != NULL) {
-		spa_loop_remove_source(loop, &this->source);
-		remove_node(this);
-	}
-	this->added = false;
-	return 0;
-}
-
 static void node_deactivate(struct pw_impl_node *this)
 {
 	struct pw_impl_port *port;
@@ -185,7 +172,6 @@ static void node_deactivate(struct pw_impl_node *this)
 		spa_list_for_each(link, &port->links, output_link)
 			pw_impl_link_deactivate(link);
 	}
-	pw_loop_invoke(this->data_loop, do_node_remove, 1, NULL, 0, true, this);
 }
 
 static int idle_node(struct pw_impl_node *this)
@@ -354,6 +340,19 @@ do_node_add(struct spa_loop *loop,
 	return 0;
 }
 
+static int
+do_node_remove(struct spa_loop *loop,
+	       bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct pw_impl_node *this = user_data;
+	if (this->source.loop != NULL) {
+		spa_loop_remove_source(loop, &this->source);
+		remove_node(this);
+	}
+	this->added = false;
+	return 0;
+}
+
 static void node_update_state(struct pw_impl_node *node, enum pw_node_state state, int res, char *error)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
@@ -364,19 +363,28 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 		pw_log_debug("%p: start node driving:%d driver:%d added:%d", node,
 				node->driving, node->driver, node->added);
 
+		if (res >= 0) {
+			pw_loop_invoke(node->data_loop, do_node_add, 1, NULL, 0, true, node);
+		}
 		if (node->driving && node->driver) {
 			res = spa_node_send_command(node->node,
 				&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start));
 			if (res < 0) {
 				state = PW_NODE_STATE_ERROR;
 				error = spa_aprintf("Start error: %s", spa_strerror(res));
+				pw_loop_invoke(node->data_loop, do_node_remove, 1, NULL, 0, true, node);
 			}
 		}
 		if (res >= 0) {
-			pw_loop_invoke(node->data_loop, do_node_add, 1, NULL, 0, true, node);
 			/* now activate the inputs */
 			node_activate_inputs(node);
 		}
+		break;
+	case PW_NODE_STATE_IDLE:
+	case PW_NODE_STATE_SUSPENDED:
+	case PW_NODE_STATE_ERROR:
+		if (state != PW_NODE_STATE_IDLE || impl->pause_on_idle)
+			pw_loop_invoke(node->data_loop, do_node_remove, 1, NULL, 0, true, node);
 		break;
 	default:
 		break;

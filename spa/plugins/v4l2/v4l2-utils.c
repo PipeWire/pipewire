@@ -30,8 +30,6 @@
 #include <sys/mman.h>
 #include <poll.h>
 
-static void v4l2_on_fd_events(struct spa_source *source);
-
 static int xioctl(int fd, int request, void *arg)
 {
 	int err;

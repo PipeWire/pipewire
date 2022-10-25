@@ -123,9 +123,9 @@ typedef struct {
 	struct spa_hook stream_listener;
 
 	int64_t delay;
-	int64_t transfered;
-	int64_t buffered;
-	uint64_t now;
+	uint64_t transfered;
+	uint64_t buffered;
+	int64_t now;
 	uintptr_t seq;
 
 	struct spa_audio_info_raw format;
@@ -448,9 +448,8 @@ static void on_stream_process(void *data)
 	pw_stream_get_time_n(pw->stream, &pwt, sizeof(pwt));
 
 	delay = pwt.delay;
-	if (pwt.rate.num != 0) {
+	if (pwt.rate.num != 0)
 		delay = delay * io->rate * pwt.rate.num / pwt.rate.denom;
-	}
 
 	before = hw_avail = snd_pcm_ioplug_hw_avail(io, pw->hw_ptr, io->appl_ptr);
 

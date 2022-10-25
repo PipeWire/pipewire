@@ -166,7 +166,7 @@ static int update_active(snd_pcm_ioplug_t *io)
 	pw->active = check_active(io);
 	uint64_t val;
 
-	if (pw->active)
+	if (pw->active || pw->error < 0)
 		spa_system_eventfd_write(pw->system, io->poll_fd, 1);
 	else
 		spa_system_eventfd_read(pw->system, io->poll_fd, &val);

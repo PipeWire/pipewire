@@ -19,8 +19,8 @@ msgstr ""
 "Project-Id-Version: pipewire\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
 "issues\n"
-"POT-Creation-Date: 2022-07-19 15:27+0000\n"
-"PO-Revision-Date: 2022-07-10 10:22+0200\n"
+"POT-Creation-Date: 2022-10-20 15:27+0000\n"
+"PO-Revision-Date: 2022-09-16 12:58+0200\n"
 "Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
 "Language-Team: Swedish <tp-sv@listor.tp-sv.se>\n"
 "Language: sv\n"
@@ -28,7 +28,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Poedit 3.1\n"
+"X-Generator: Poedit 3.1.1\n"
 
 #: src/daemon/pipewire.c:46
 #, c-format
@@ -61,26 +61,26 @@ msgstr "Tunnel till %s/%s"
 msgid "Dummy Output"
 msgstr "Attrapputgång"
 
-#: src/modules/module-pulse-tunnel.c:648
+#: src/modules/module-pulse-tunnel.c:681
 #, c-format
 msgid "Tunnel for %s@%s"
 msgstr "Tunnel för %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:332
+#: src/modules/module-zeroconf-discover.c:335
 msgid "Unknown device"
 msgstr "Okänd enhet"
 
-#: src/modules/module-zeroconf-discover.c:344
+#: src/modules/module-zeroconf-discover.c:347
 #, c-format
 msgid "%s on %s@%s"
 msgstr "%s på %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:348
+#: src/modules/module-zeroconf-discover.c:351
 #, c-format
 msgid "%s on %s"
 msgstr "%s på %s"
 
-#: src/tools/pw-cat.c:784
+#: src/tools/pw-cat.c:782
 #, c-format
 msgid ""
 "%s [options] [<file>|-]\n"
@@ -95,7 +95,7 @@ msgstr ""
 "  -v, --verbose                         Aktivera utförliga operationer\n"
 "\n"
 
-#: src/tools/pw-cat.c:791
+#: src/tools/pw-cat.c:789
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
@@ -125,7 +125,7 @@ msgstr ""
 "  -P  --properties                      Sätt nodegenskaper\n"
 "\n"
 
-#: src/tools/pw-cat.c:809
+#: src/tools/pw-cat.c:807
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -160,7 +160,7 @@ msgstr ""
 "%d)\n"
 "\n"
 
-#: src/tools/pw-cat.c:826
+#: src/tools/pw-cat.c:824
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
@@ -174,7 +174,7 @@ msgstr ""
 "  -d, --dsd                             DSD-läge\n"
 "\n"
 
-#: src/tools/pw-cli.c:3165
+#: src/tools/pw-cli.c:2250
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -195,8 +195,8 @@ msgstr ""
 msgid "Pro Audio"
 msgstr "Professionellt ljud"
 
-#: spa/plugins/alsa/acp/acp.c:446 spa/plugins/alsa/acp/alsa-mixer.c:4648
-#: spa/plugins/bluez5/bluez5-device.c:1188
+#: spa/plugins/alsa/acp/acp.c:444 spa/plugins/alsa/acp/alsa-mixer.c:4648
+#: spa/plugins/bluez5/bluez5-device.c:1237
 msgid "Off"
 msgstr "Av"
 
@@ -223,7 +223,7 @@ msgstr "Linje in"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2657
 #: spa/plugins/alsa/acp/alsa-mixer.c:2741
-#: spa/plugins/bluez5/bluez5-device.c:1360
+#: spa/plugins/bluez5/bluez5-device.c:1455
 msgid "Microphone"
 msgstr "Mikrofon"
 
@@ -289,7 +289,7 @@ msgid "No Bass Boost"
 msgstr "Ingen basökning"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2672
-#: spa/plugins/bluez5/bluez5-device.c:1366
+#: spa/plugins/bluez5/bluez5-device.c:1461
 msgid "Speaker"
 msgstr "Högtalare"
 
@@ -404,7 +404,7 @@ msgstr "Stereo"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4484
 #: spa/plugins/alsa/acp/alsa-mixer.c:4642
-#: spa/plugins/bluez5/bluez5-device.c:1348
+#: spa/plugins/bluez5/bluez5-device.c:1443
 msgid "Headset"
 msgstr "Headset"
 
@@ -528,7 +528,7 @@ msgstr "%s-utgång"
 msgid "%s Input"
 msgstr "%s-ingång"
 
-#: spa/plugins/alsa/acp/alsa-util.c:1173 spa/plugins/alsa/acp/alsa-util.c:1267
+#: spa/plugins/alsa/acp/alsa-util.c:1187 spa/plugins/alsa/acp/alsa-util.c:1281
 #, c-format
 msgid ""
 "snd_pcm_avail() returned a value that is exceptionally large: %lu byte (%lu "
@@ -551,7 +551,7 @@ msgstr[1] ""
 "Förmodligen är detta ett fel i ALSA-drivrutinen ”%s”. Vänligen rapportera "
 "problemet till ALSA-utvecklarna."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1239
+#: spa/plugins/alsa/acp/alsa-util.c:1253
 #, c-format
 msgid ""
 "snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s"
@@ -574,7 +574,7 @@ msgstr[1] ""
 "Förmodligen är detta ett fel i ALSA-drivrutinen ”%s”. Vänligen rapportera "
 "problemet till ALSA-utvecklarna."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1286
+#: spa/plugins/alsa/acp/alsa-util.c:1300
 #, c-format
 msgid ""
 "snd_pcm_avail_delay() returned strange values: delay %lu is less than avail "
@@ -587,7 +587,7 @@ msgstr ""
 "Förmodligen är detta ett fel i ALSA-drivrutinen ”%s”. Vänligen rapportera "
 "problemet till ALSA-utvecklarna."
 
-#: spa/plugins/alsa/acp/alsa-util.c:1329
+#: spa/plugins/alsa/acp/alsa-util.c:1343
 #, c-format
 msgid ""
 "snd_pcm_mmap_begin() returned a value that is exceptionally large: %lu byte "
@@ -622,77 +622,92 @@ msgstr "Inbyggt ljud"
 msgid "Modem"
 msgstr "Modem"
 
-#: spa/plugins/bluez5/bluez5-device.c:1199
+#: spa/plugins/bluez5/bluez5-device.c:1248
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "Audio gateway (A2DP-källa & HSP/HFP AG)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1224
+#: spa/plugins/bluez5/bluez5-device.c:1273
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr "High fidelity-uppspelning (A2DP-utgång, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1227
+#: spa/plugins/bluez5/bluez5-device.c:1276
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr "High fidelity duplex (A2DP-källa/utgång, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1235
+#: spa/plugins/bluez5/bluez5-device.c:1284
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr "High fidelity-uppspelning (A2DP-utgång)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1237
+#: spa/plugins/bluez5/bluez5-device.c:1286
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr "High fidelity duplex (A2DP-källa/utgång)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1265
+#: spa/plugins/bluez5/bluez5-device.c:1323
+#, c-format
+msgid "High Fidelity Playback (BAP Sink, codec %s)"
+msgstr "High fidelity-uppspelning (BAP-utgång, kodek %s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1327
+#, c-format
+msgid "High Fidelity Input (BAP Source, codec %s)"
+msgstr "High fidelity-ingång (BAP-källa, kodek %s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1331
+#, c-format
+msgid "High Fidelity Duplex (BAP Source/Sink, codec %s)"
+msgstr "High fidelity duplex (BAP-källa/utgång, kodek %s)"
+
+#: spa/plugins/bluez5/bluez5-device.c:1360
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
 msgstr "Headset-huvudenhet (HSP/HFP, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1270
+#: spa/plugins/bluez5/bluez5-device.c:1365
 msgid "Headset Head Unit (HSP/HFP)"
 msgstr "Headset-huvudenhet (HSP/HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1349
-#: spa/plugins/bluez5/bluez5-device.c:1354
-#: spa/plugins/bluez5/bluez5-device.c:1361
-#: spa/plugins/bluez5/bluez5-device.c:1367
-#: spa/plugins/bluez5/bluez5-device.c:1373
-#: spa/plugins/bluez5/bluez5-device.c:1379
-#: spa/plugins/bluez5/bluez5-device.c:1385
-#: spa/plugins/bluez5/bluez5-device.c:1391
-#: spa/plugins/bluez5/bluez5-device.c:1397
+#: spa/plugins/bluez5/bluez5-device.c:1444
+#: spa/plugins/bluez5/bluez5-device.c:1449
+#: spa/plugins/bluez5/bluez5-device.c:1456
+#: spa/plugins/bluez5/bluez5-device.c:1462
+#: spa/plugins/bluez5/bluez5-device.c:1468
+#: spa/plugins/bluez5/bluez5-device.c:1474
+#: spa/plugins/bluez5/bluez5-device.c:1480
+#: spa/plugins/bluez5/bluez5-device.c:1486
+#: spa/plugins/bluez5/bluez5-device.c:1492
 msgid "Handsfree"
 msgstr "Handsfree"
 
-#: spa/plugins/bluez5/bluez5-device.c:1355
+#: spa/plugins/bluez5/bluez5-device.c:1450
 msgid "Handsfree (HFP)"
 msgstr "Handsfree (HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1372
+#: spa/plugins/bluez5/bluez5-device.c:1467
 msgid "Headphone"
 msgstr "Hörlurar"
 
-#: spa/plugins/bluez5/bluez5-device.c:1378
+#: spa/plugins/bluez5/bluez5-device.c:1473
 msgid "Portable"
 msgstr "Bärbar"
 
-#: spa/plugins/bluez5/bluez5-device.c:1384
+#: spa/plugins/bluez5/bluez5-device.c:1479
 msgid "Car"
 msgstr "Bil"
 
-#: spa/plugins/bluez5/bluez5-device.c:1390
+#: spa/plugins/bluez5/bluez5-device.c:1485
 msgid "HiFi"
 msgstr "HiFi"
 
-#: spa/plugins/bluez5/bluez5-device.c:1396
+#: spa/plugins/bluez5/bluez5-device.c:1491
 msgid "Phone"
 msgstr "Telefon"
 
-#: spa/plugins/bluez5/bluez5-device.c:1403
+#: spa/plugins/bluez5/bluez5-device.c:1498
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
-#: spa/plugins/bluez5/bluez5-device.c:1404
+#: spa/plugins/bluez5/bluez5-device.c:1499
 msgid "Bluetooth (HFP)"
 msgstr "Bluetooth (HFP)"

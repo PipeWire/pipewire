@@ -163,21 +163,15 @@ static int check_active(snd_pcm_ioplug_t *io)
 static int update_active(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
-	bool active;
+	pw->active = check_active(io);
+	uint64_t val;
 
-	active = check_active(io);
+	if (pw->active)
+		spa_system_eventfd_write(pw->system, io->poll_fd, 1);
+	else
+		spa_system_eventfd_read(pw->system, io->poll_fd, &val);
 
-	if (pw->active != active) {
-		uint64_t val;
-
-		pw->active = active;
-
-		if (active)
-			spa_system_eventfd_write(pw->system, io->poll_fd, 1);
-		else
-			spa_system_eventfd_read(pw->system, io->poll_fd, &val);
-	}
-	return active;
+	return pw->active;
 }
 
 static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
@@ -233,8 +227,10 @@ static int snd_pcm_pipewire_poll_revents(snd_pcm_ioplug_t *io,
 		return pw->error;
 
 	*revents = pfds[0].revents & ~(POLLIN | POLLOUT);
-	if (pfds[0].revents & POLLIN && check_active(io))
+	if (pfds[0].revents & POLLIN && check_active(io)) {
 		*revents |= (io->stream == SND_PCM_STREAM_PLAYBACK) ? POLLOUT : POLLIN;
+		update_active(io);
+	}
 
 	return 0;
 }

@@ -32,6 +32,7 @@
 #include <errno.h>
 #include <sys/mman.h>
 #include <poll.h>
+#include <limits.h>
 
 #include <linux/media.h>
 
@@ -238,6 +239,14 @@ static const struct format_info *find_format_info_by_media_type(uint32_t type,
 	return NULL;
 }
 
+static int score_size(Size &a, Size &b)
+{
+	int x, y;
+	x = (int)a.width - (int)b.width;
+	y = (int)a.height - (int)b.height;
+	return x * x + y * y;
+}
+
 static int
 spa_libcamera_enum_format(struct impl *impl, struct port *port, int seq,
 		     uint32_t start, uint32_t num, const struct spa_pod *filter)
@@ -249,7 +258,7 @@ spa_libcamera_enum_format(struct impl *impl, struct port *port, int seq,
 	struct spa_pod_frame f[2];
 	struct spa_result_node_params result;
 	struct spa_pod *fmt;
-	uint32_t count = 0;
+	uint32_t i, count = 0, num_sizes;
 	PixelFormat format;
 	Size frameSize;
 	SizeRange sizeRange = SizeRange();
@@ -284,8 +293,23 @@ next_fmt:
 		goto next_fmt;
 	}
 
-	if (port->size_index < formats.sizes(format).size()) {
-		frameSize = formats.sizes(format)[port->size_index];
+	num_sizes = formats.sizes(format).size();
+	if (num_sizes > 0 && port->size_index <= num_sizes) {
+		if (port->size_index == 0) {
+			Size wanted = Size(640, 480), test;
+			int score, best = INT_MAX;
+			for (i = 0; i < num_sizes; i++) {
+				test = formats.sizes(format)[i];
+				score = score_size(wanted, test);
+				if (score < best) {
+					best = score;
+					frameSize = test;
+				}
+			}
+		}
+		else {
+			frameSize = formats.sizes(format)[port->size_index - 1];
+		}
 	} else if (port->size_index < 1) {
 		sizeRange = formats.range(format);
 		if (sizeRange.hStep == 0 || sizeRange.vStep == 0) {

@@ -27,13 +27,15 @@ a tree-like representation.
 The columns presented are as follows:
 
 S
-  Measurement status.
-  ! representing inactive - no connections
-
-  Blank representing active
+  Node status.
+    E = ERROR
+    C = CREATING
+    S = SUSPENDED
+    I = IDLE
+    R = RUNNING
 
 ID
-  The ID of the pipewire node/device, as found in *pw-dump*
+  The ID of the pipewire node/device, as found in *pw-dump* and *pw-cli*
 
 QUANT
   The current quantum (for drivers) and the suggested quantum for follower
@@ -134,6 +136,8 @@ FORMAT
   be done.
 
   For raw audio formats, the layout is <sampleformat> <channels> <samplerate>.
+
+  For IEC958 passthrough audio formats, the layout is IEC958 <codec> <samplerate>.
 
   For DSD formats, the layout is <dsd-rate> <channels>.
 

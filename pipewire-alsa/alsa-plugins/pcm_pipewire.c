@@ -477,7 +477,7 @@ static void on_stream_process(void *data)
 		pw->transfered += xfer;
 
 	/* more then requested data transfered, use them in next iteration */
-	pw->buffered = want == 0 || pw->transfered < want ? 0 : (pw->transfered % want);
+	pw->buffered = (want == 0 || pw->transfered < want) ?  0 : (pw->transfered % want);
 
 	pw->now = pwt.now;
 	SEQ_WRITE(pw->seq);

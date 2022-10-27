@@ -814,21 +814,23 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
+		spa_log_debug(this->log, "%p: starting %d", this, this->started);
 		if (this->started)
 			return 0;
 		if ((res = negotiate_format(this)) < 0)
 			return res;
 		if ((res = negotiate_buffers(this)) < 0)
 			return res;
+		this->started = true;
 		break;
 	case SPA_NODE_COMMAND_Suspend:
-		configure_format(this, 0, NULL);
-		SPA_FALLTHROUGH
+		spa_log_debug(this->log, "%p: suspending", this);
+		break;
 	case SPA_NODE_COMMAND_Pause:
-		this->started = false;
-		spa_log_debug(this->log, "%p: stopped", this);
+		spa_log_debug(this->log, "%p: pausing", this);
 		break;
 	case SPA_NODE_COMMAND_Flush:
+		spa_log_debug(this->log, "%p: flushing", this);
 		this->io_buffers.status = SPA_STATUS_OK;
 		break;
 	default:
@@ -852,8 +854,17 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	}
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
-		this->started = true;
 		spa_log_debug(this->log, "%p: started", this);
+		break;
+	case SPA_NODE_COMMAND_Suspend:
+		configure_format(this, 0, NULL);
+		SPA_FALLTHROUGH
+	case SPA_NODE_COMMAND_Pause:
+		this->started = false;
+		spa_log_debug(this->log, "%p: stopped", this);
+		break;
+	case SPA_NODE_COMMAND_Flush:
+		spa_log_debug(this->log, "%p: flushed", this);
 		break;
 	}
 	return res;

@@ -88,6 +88,7 @@ struct data {
 
 struct param {
 	uint32_t id;
+	int32_t seq;
 	struct spa_list link;
 	struct spa_pod *param;
 };
@@ -116,6 +117,8 @@ struct object {
 
 	const struct class *class;
 	void *info;
+	struct spa_param_info *params;
+	uint32_t n_params;
 
 	int changed;
 	struct spa_list param_list;
@@ -148,7 +151,8 @@ static uint32_t clear_params(struct spa_list *param_list, uint32_t id)
 	return count;
 }
 
-static struct param *add_param(struct spa_list *params, uint32_t id, const struct spa_pod *param)
+static struct param *add_param(struct spa_list *params, int seq,
+		uint32_t id, const struct spa_pod *param)
 {
 	struct param *p;
 
@@ -165,6 +169,7 @@ static struct param *add_param(struct spa_list *params, uint32_t id, const struc
 		return NULL;
 
 	p->id = id;
+	p->seq = seq;
 	if (param != NULL) {
 		p->param = SPA_PTROFF(p, sizeof(*p), struct spa_pod);
 		memcpy(p->param, param, SPA_POD_SIZE(param));
@@ -189,7 +194,19 @@ static struct object *find_object(struct data *d, uint32_t id)
 
 static void object_update_params(struct object *o)
 {
-	struct param *p;
+	struct param *p, *t;
+	uint32_t i;
+
+	for (i = 0; i < o->n_params; i++) {
+		spa_list_for_each_safe(p, t, &o->pending_list, link) {
+			if (p->id == o->params[i].id &&
+			    p->seq != o->params[i].seq &&
+			    p->param != NULL) {
+				spa_list_remove(&p->link);
+				free(p);
+			}
+		}
+	}
 
 	spa_list_consume(p, &o->pending_list, link) {
 		spa_list_remove(&p->link);
@@ -771,12 +788,16 @@ static void device_event_info(void *data, const struct pw_device_info *info)
 {
 	struct object *o = data;
 	uint32_t i, changed = 0;
+	int res;
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->id, info->change_mask);
 
 	info = o->info = pw_device_info_update(o->info, info);
 	if (info == NULL)
 		return;
+
+	o->params = info->params;
+	o->n_params = info->n_params;
 
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS)
 		changed++;
@@ -790,12 +811,14 @@ static void device_event_info(void *data, const struct pw_device_info *info)
 			info->params[i].user = 0;
 
 			changed++;
-			clear_params(&o->pending_list, id);
+			add_param(&o->pending_list, 0, id, NULL);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 
-			pw_device_enum_params((struct pw_device*)o->proxy,
-					0, id, 0, -1, NULL);
+			res = pw_device_enum_params((struct pw_device*)o->proxy,
+					++info->params[i].seq, id, 0, -1, NULL);
+			if (SPA_RESULT_IS_ASYNC(res))
+				info->params[i].seq = res;
 		}
 	}
 	if (changed) {
@@ -809,7 +832,7 @@ static void device_event_param(void *data, int seq,
 		const struct spa_pod *param)
 {
 	struct object *o = data;
-	add_param(&o->pending_list, id, param);
+	add_param(&o->pending_list, seq, id, param);
 }
 
 static const struct pw_device_events device_events = {
@@ -867,12 +890,16 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 {
 	struct object *o = data;
 	uint32_t i, changed = 0;
+	int res;
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->id, info->change_mask);
 
 	info = o->info = pw_node_info_update(o->info, info);
 	if (info == NULL)
 		return;
+
+	o->params = info->params;
+	o->n_params = info->n_params;
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_STATE)
 		changed++;
@@ -889,12 +916,14 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 			info->params[i].user = 0;
 
 			changed++;
-			add_param(&o->pending_list, id, NULL);
+			add_param(&o->pending_list, 0, id, NULL);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 
-			pw_node_enum_params((struct pw_node*)o->proxy,
-					0, id, 0, -1, NULL);
+			res = pw_node_enum_params((struct pw_node*)o->proxy,
+					++info->params[i].seq, id, 0, -1, NULL);
+			if (SPA_RESULT_IS_ASYNC(res))
+				info->params[i].seq = res;
 		}
 	}
 	if (changed) {
@@ -908,7 +937,7 @@ static void node_event_param(void *data, int seq,
 		const struct spa_pod *param)
 {
 	struct object *o = data;
-	add_param(&o->pending_list, id, param);
+	add_param(&o->pending_list, seq, id, param);
 }
 
 static const struct pw_node_events node_events = {
@@ -958,12 +987,16 @@ static void port_event_info(void *data, const struct pw_port_info *info)
 {
 	struct object *o = data;
 	uint32_t i, changed = 0;
+	int res;
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->id, info->change_mask);
 
 	info = o->info = pw_port_info_update(o->info, info);
 	if (info == NULL)
 		return;
+
+	o->params = info->params;
+	o->n_params = info->n_params;
 
 	if (info->change_mask & PW_PORT_CHANGE_MASK_PROPS)
 		changed++;
@@ -977,12 +1010,14 @@ static void port_event_info(void *data, const struct pw_port_info *info)
 			info->params[i].user = 0;
 
 			changed++;
-			add_param(&o->pending_list, id, NULL);
+			add_param(&o->pending_list, 0, id, NULL);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 
-			pw_port_enum_params((struct pw_port*)o->proxy,
-					0, id, 0, -1, NULL);
+			res = pw_port_enum_params((struct pw_port*)o->proxy,
+					++info->params[i].seq, id, 0, -1, NULL);
+			if (SPA_RESULT_IS_ASYNC(res))
+				info->params[i].seq = res;
 		}
 	}
 	if (changed) {
@@ -996,7 +1031,7 @@ static void port_event_param(void *data, int seq,
 		const struct spa_pod *param)
 {
 	struct object *o = data;
-	add_param(&o->pending_list, id, param);
+	add_param(&o->pending_list, seq, id, param);
 }
 
 static const struct pw_port_events port_events = {

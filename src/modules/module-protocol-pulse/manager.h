@@ -72,6 +72,7 @@ struct pw_manager {
 
 struct pw_manager_param {
 	uint32_t id;
+	int32_t seq;
 	struct spa_list link;           /**< link in manager_object param_list */
 	struct spa_pod *param;
 };
@@ -92,6 +93,9 @@ struct pw_manager_object {
 
 	int changed;
 	void *info;
+	struct spa_param_info *params;
+	uint32_t n_params;
+
 	struct spa_list param_list;
 	unsigned int creating:1;
 	unsigned int removing:1;

@@ -72,7 +72,9 @@ struct spa_param_info {
 	uint32_t flags;
 	uint32_t user;			/**< private user field. You can use this to keep
 					  *  state. */
-	uint32_t padding[5];
+	int32_t seq;			/**< private seq field. You can use this to keep
+					  *  state of a pending update. */
+	uint32_t padding[4];
 };
 
 #define SPA_PARAM_INFO(id,flags) ((struct spa_param_info){ (id), (flags) })

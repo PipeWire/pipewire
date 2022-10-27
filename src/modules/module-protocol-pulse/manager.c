@@ -236,6 +236,8 @@ static void client_event_info(void *data, const struct pw_client_info *info)
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
 	info = o->this.info = pw_client_info_merge(o->this.info, info, o->this.changed == 0);
+	if (info == NULL)
+		return;
 
 	if (info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS)
 		changed++;
@@ -275,6 +277,8 @@ static void module_event_info(void *data, const struct pw_module_info *info)
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
 	info = o->this.info = pw_module_info_merge(o->this.info, info, o->this.changed == 0);
+	if (info == NULL)
+		return;
 
 	if (info->change_mask & PW_MODULE_CHANGE_MASK_PROPS)
 		changed++;
@@ -314,6 +318,8 @@ static void device_event_info(void *data, const struct pw_device_info *info)
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
 	info = o->this.info = pw_device_info_merge(o->this.info, info, o->this.changed == 0);
+	if (info == NULL)
+		return;
 
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS)
 		changed++;
@@ -434,6 +440,8 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
 	info = o->this.info = pw_node_info_merge(o->this.info, info, o->this.changed == 0);
+	if (info == NULL)
+		return;
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_STATE)
 		changed++;

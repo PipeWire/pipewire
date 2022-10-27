@@ -485,6 +485,8 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 	uint32_t i;
 
 	info = g->info = pw_node_info_merge(g->info, info, g->changed == 0);
+	if (info == NULL)
+		return;
 
 	pw_log_debug("update %d %"PRIu64, g->id, info->change_mask);
 

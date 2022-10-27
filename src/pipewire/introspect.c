@@ -210,7 +210,7 @@ struct pw_node_info *pw_node_info_merge(struct pw_node_info *info,
 		info->props = pw_spa_dict_copy(update->props);
 	}
 	if (update->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
-		uint32_t i, user, n_params = update->n_params;
+		uint32_t i, n_params = update->n_params;
 		void *np;
 
 		np = pw_reallocarray(info->params, n_params, sizeof(struct spa_param_info));
@@ -222,15 +222,18 @@ struct pw_node_info *pw_node_info_merge(struct pw_node_info *info,
 		info->params = np;
 
 		for (i = 0; i < SPA_MIN(info->n_params, n_params); i++) {
-			user = reset ? 0 : info->params[i].user;
-			if (info->params[i].flags != update->params[i].flags)
-				user++;
-			info->params[i] = update->params[i];
-			info->params[i].user = user;
+			info->params[i].id = update->params[i].id;
+			if (reset)
+				info->params[i].user = 0;
+			if (info->params[i].flags != update->params[i].flags) {
+				info->params[i].flags = update->params[i].flags;
+				info->params[i].user++;
+			}
 		}
 		info->n_params = n_params;
 		for (; i < info->n_params; i++) {
-			info->params[i] = update->params[i];
+			info->params[i].id = update->params[i].id;
+			info->params[i].flags = update->params[i].flags;
 			info->params[i].user = 1;
 		}
 	}
@@ -280,7 +283,7 @@ struct pw_port_info *pw_port_info_merge(struct pw_port_info *info,
 		info->props = pw_spa_dict_copy(update->props);
 	}
 	if (update->change_mask & PW_PORT_CHANGE_MASK_PARAMS) {
-		uint32_t i, user, n_params = update->n_params;
+		uint32_t i, n_params = update->n_params;
 		void *np;
 
 		np = pw_reallocarray(info->params, n_params, sizeof(struct spa_param_info));
@@ -292,15 +295,18 @@ struct pw_port_info *pw_port_info_merge(struct pw_port_info *info,
 		info->params = np;
 
 		for (i = 0; i < SPA_MIN(info->n_params, n_params); i++) {
-			user = reset ? 0 : info->params[i].user;
-			if (info->params[i].flags != update->params[i].flags)
-				user++;
-			info->params[i] = update->params[i];
-			info->params[i].user = user;
+			info->params[i].id = update->params[i].id;
+			if (reset)
+				info->params[i].user = 0;
+			if (info->params[i].flags != update->params[i].flags) {
+				info->params[i].flags = update->params[i].flags;
+				info->params[i].user++;
+			}
 		}
 		info->n_params = n_params;
 		for (; i < info->n_params; i++) {
-			info->params[i] = update->params[i];
+			info->params[i].id = update->params[i].id;
+			info->params[i].flags = update->params[i].flags;
 			info->params[i].user = 1;
 		}
 	}
@@ -440,7 +446,7 @@ struct pw_device_info *pw_device_info_merge(struct pw_device_info *info,
 		info->props = pw_spa_dict_copy(update->props);
 	}
 	if (update->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
-		uint32_t i, user, n_params = update->n_params;
+		uint32_t i, n_params = update->n_params;
 		void *np;
 
 		np = pw_reallocarray(info->params, n_params, sizeof(struct spa_param_info));
@@ -452,15 +458,18 @@ struct pw_device_info *pw_device_info_merge(struct pw_device_info *info,
 		info->params = np;
 
 		for (i = 0; i < SPA_MIN(info->n_params, n_params); i++) {
-			user = reset ? 0 : info->params[i].user;
-			if (info->params[i].flags != update->params[i].flags)
-				user++;
-			info->params[i] = update->params[i];
-			info->params[i].user = user;
+			info->params[i].id = update->params[i].id;
+			if (reset)
+				info->params[i].user = 0;
+			if (info->params[i].flags != update->params[i].flags) {
+				info->params[i].flags = update->params[i].flags;
+				info->params[i].user++;
+			}
 		}
 		info->n_params = n_params;
 		for (; i < info->n_params; i++) {
-			info->params[i] = update->params[i];
+			info->params[i].id = update->params[i].id;
+			info->params[i].flags = update->params[i].flags;
 			info->params[i].user = 1;
 		}
 	}

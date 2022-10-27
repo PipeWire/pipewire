@@ -228,6 +228,9 @@ static void debug_msg(const char *prefix, const struct pw_protocol_native_messag
 		hex = true;
 	if (hex)
 		spa_debug_mem(0, msg->data, msg->size);
+
+	pw_logt_debug(mod_topic_connection, "%s ****", prefix);
+
 }
 
 static void pre_demarshal(struct pw_protocol_native_connection *conn,

@@ -728,9 +728,12 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 		buf->n_fds = buf->msg.n_fds;
 
 	if (mod_topic_connection->level >= SPA_LOG_LEVEL_DEBUG) {
-		pw_log_debug(">>>>>>>>> out: id:%d op:%d size:%d seq:%d",
+		pw_logt_debug(mod_topic_connection,
+			">>>>>>>>> out: id:%d op:%d size:%d seq:%d",
 				buf->msg.id, buf->msg.opcode, size, buf->msg.seq);
 	        spa_debug_pod(0, NULL, SPA_PTROFF(p, impl->hdr_size, struct spa_pod));
+		pw_logt_debug(mod_topic_connection,
+			">>>>>>>>> out: done");
 	}
 
 	buf->seq = (buf->seq + 1) & SPA_ASYNC_SEQ_MASK;

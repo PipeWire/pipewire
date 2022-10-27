@@ -328,15 +328,18 @@ int pw_impl_device_for_each_param(struct pw_impl_device *device,
 		struct spa_pod_dynamic_builder b;
 	        struct spa_result_device_params result;
 		uint32_t count = 0;
+		bool found = false;
 
 		result.id = param_id;
 		result.next = 0;
 
 		spa_list_for_each(p, &impl->param_list, link) {
-			result.index = result.next++;
 			if (p->id != param_id)
 				continue;
 
+			found = true;
+
+			result.index = result.next++;
 			if (result.index < index)
 				continue;
 
@@ -351,7 +354,7 @@ int pw_impl_device_for_each_param(struct pw_impl_device *device,
 			if (count == max)
 				break;
 		}
-		res = 0;
+		res = found ? 0 : -ENOENT;
 	} else {
 		user_data.cache = impl->cache_params &&
 			(filter == NULL && index == 0 && max == UINT32_MAX);

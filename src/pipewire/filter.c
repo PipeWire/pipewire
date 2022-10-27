@@ -419,15 +419,15 @@ static int enum_params(struct filter *d, struct spa_list *param_list, int seq,
 	spa_list_for_each(p, param_list, link) {
 		struct spa_pod *param;
 
-		result.index = result.next++;
-		if (result.index < start)
-			continue;
-
 		param = p->param;
 		if (param == NULL || p->id != id)
 			continue;
 
 		found = true;
+
+		result.index = result.next++;
+		if (result.index < start)
+			continue;
 
 		spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
 		if (spa_pod_filter(&b.b, &result.param, param, filter) == 0) {

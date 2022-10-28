@@ -1,3 +1,151 @@
+# PipeWire 0.3.60 (2022-11-10)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - The filter-chain now handles errors better and has fixes for many
+    crasher bugs.
+  - A new RTP module was added with a sender and receiver. It uses SAP
+    to announce and consume RTP streams and is compatible with the
+    PulseAudio RTP modules.
+  - Many small bluetooth improvements and fixes.
+  - The alsa plugin will now only start playback when there is data. This
+    results in better sync and lower latency between capture and playback.
+  - The v4l2 and libcamera plugins have seen a lot of improvements. They
+    support control properties now. Also pw-v4l2 has seen many improvements
+    and mostly passes the v4l2-compliance test now.
+  - Many more bugfixes and improvements.
+
+
+## PipeWire
+  - Code cleanups, compiler warning fixes.
+  - Add some extra checks to avoid scheduling an inactive node.
+  - Rework the sequence of events to start and stop nodes.
+  - Improve param enumeration.
+  - An option was added to give priority to the Buffer params of the
+    consumer. This makes it possible to use the default values of the
+    consumer (instead of the producer) when capturing from a source.
+  - The graph rate selection was improved to pick a rate closest to the
+    requested one (instead of picking the default).
+
+## Modules
+  - Fix some crashes in filter-chain. (#2737)
+  - X11 Bell module will now be loaded by default when available.
+  - A new RTP module was added with a sender and receiver. It uses SAP
+    to announce and consume RTP streams and is compatible with the
+    PulseAudio RTP modules.
+  - Improve RAOP compatibility.
+  - The echo-cancel module now uses the resampler prefill option to align
+    input and output samples without buffering. Better latency control
+    when starting and stopping has been implemented.
+  - The pulse tunnel will now write aligned samples to pulseaudio even
+    when the ringbuffer wraps around. This fixes playback issues with
+    multichannel sinks.
+  - Add a delay option to module-loopback using a ringbuffer.
+  - Implement echo-cancel params.
+  - The filter-chain module has better error reporting.
+  - The LADSPA search path was extended with some more common paths.
+  - The echo-canceler input can now also be a monitor of a sink. This
+    improves compatibility with some proton games that expect a real
+    sink instead of a virtual one.
+
+## Tools
+  - Better error reporting in pw-link.
+  - pw-top now also shows IEC958 passthrough formats and JPEG/H264 video
+    formats.
+  - pw-top refreshes the screen faster.
+  - pw-top now prints the state of the node and shows less info for
+    inactive nodes.
+  - pw-dump now uses the new seq field in the spa_param_info to discard
+    old param updates and avoid duplicate params in the output.
+
+## Bluetooth
+  - Add ModemManager support in the native backend.
+  - Clean up GetManagedObjects handling.
+  - Handle QoS from the endpoints in the codec.
+  - Increase the socket buffer to have more control over the rate and QoS.
+  - Simplify the packet flushing code.
+  - Stop processing nodes before destroying them.
+  - Fix timers when a source switches drivers.
+  - Codecs can now share endpoints. This reduces the amount of endpoints and
+    avoids problems with devices that can't handle a large amount of
+    codec endpoints.
+  - Report batery status to UPower for HFP AG.
+  - Fix bitpool increase.
+
+## SPA
+  - The audioresampler now avoids clicks and pops between activating and
+    deactivating the adaptive resampler when used by the stream API.
+  - Use default locale to parse float parameters.
+  - The upmix functions now have SSE optimizations.
+  - Avoid recalculating the complete channelmix setup when only the
+    volume changes.
+  - The alsa plugin will now only start playback when there is data. This
+    results in better sync and lower latency between capture and playback.
+  - The ALSA MIDI sequencer will now pull data from the graph even when it
+    did not output anything. Fixes some graph stalls with the sequencer in
+    some cases. (#2775)
+  - v4l2 and libcamera sources now recycle buffers when nothing is consuming
+    them. This avoids stalling the graph.
+  - libcamera now suggests a more appropriate frame size than the smallest
+    poster frame.
+  - Improve state changes in audioconvert. (#2764)
+  - A new seq field was added to spa_param_info to keep track of pending
+    param updates.
+  - Support speaker output only on RealTek ALC4080. (#2744)
+  - The v4l2 source now supports setting controls.
+  - The libcamera plugin now supports enumerating and setting controls.
+  - A new unit test for 6.1 channel mapping was added. (#2809) More debug
+    info was added to audioconvert for the channel matrix.
+  - Audioconvert will now also upmix a rear-center channel when needed.
+
+## pulse-server
+  - Add support for the RTP send and recv modules with the new native
+    RTP module.
+  - Add option to set latency for pulse-tunnel streams and
+    module-zeroconf-discover.
+  - The socket will now be given the same permissions as what pulseaudio
+    did (0777).
+  - Implement module-loopback latency_msec correctly with the new delay
+    parameter.
+  - sysfs.path is now filled with the same data as pulseaudio.
+  - The manager now uses the new seq field in the spa_param_info.
+  - Fix a bug where in some cases the read pointer would get out of sync
+    and cause too large requests. (#2799)
+
+## ALSA
+  - The alsa plugin now reuses the stream in prepare which results in
+    better performance.
+  - Some deadlocks have been fixed in the ALSA plugin.
+  - The ALSA plugin reports more accurate timing information in some cases.
+
+## V4l2
+  - The v4l2 compatibility layer has received a lot of updates.
+  - Improved node names and format enumeration.
+  - Support for multiple /dev/videoX devices, each mapped to a unique
+    PipeWire node.
+  - Passes the v4l2-compliance test now with both the v4l2 and libcamera
+    backend in PipeWire.
+  - Improved mmap support for inline buffer memory. This makes it possible to
+    consume PipeWire streams.
+  - Negotiation works more reliably now.
+
+## JACK
+  - Implement jack_acquire_real_time_scheduling() and
+    jack_drop_real_time_scheduling() by keeping the thread utils in a global
+    state.
+  - Fix jack_client_thread_id() to return NULL when the client is not active,
+    just like jack1 and jack2.
+  - An option was added to let the jack_set_buffer_size() function update the
+    global metadata. A quirk was added so that jack_bufsize uses this new feature
+    to make the buffer size settings persistent and global, just like jack.
+  - jack_port_register() and jack_port_unregister() can be called on an
+    active client so make this thread safe. (#2652)
+
+
+Older versions:
+
 # PipeWire 0.3.59 (2022-09-30)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -71,9 +219,6 @@ This is a bugfix release that is API and ABI compatible with previous
     buffer-bytes of the ALSA plugin.
   - PIPEWIRE_ALSA can now be used as an environment variable to restrict the
     plugin formats and buffer size.
-
-Older versions:
-
 
 # PipeWire 0.3.58 (2022-09-15)
 

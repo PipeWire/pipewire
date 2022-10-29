@@ -624,7 +624,7 @@ static int report_jack_state(snd_mixer_elem_t *melem, unsigned int mask)
 	pa_card *impl = snd_mixer_elem_get_callback_private(melem);
 	snd_hctl_elem_t *elem = snd_mixer_elem_get_private(melem);
 	snd_ctl_elem_value_t *elem_value;
-	bool plugged_in;
+	bool plugged_in, any_input_port_available;
 	void *state;
 	pa_alsa_jack *jack;
 	struct temp_port_avail *tp, *tports;
@@ -735,6 +735,31 @@ static int report_jack_state(snd_mixer_elem_t *melem, unsigned int mask)
 	if (impl->card.active_profile_index != ACP_INVALID_INDEX)
 		active_available = impl->card.profiles[impl->card.active_profile_index]->available;
 
+	/* First round - detect, if we have any input port available.
+	   If the hardware can report the state for all I/O jacks, only speakers
+	   may be plugged in. */
+	any_input_port_available = false;
+	PA_HASHMAP_FOREACH(profile, impl->profiles, state) {
+		pa_device_port *port;
+		void *state2;
+
+		if (profile->profile.flags & ACP_PROFILE_OFF)
+			continue;
+
+		PA_HASHMAP_FOREACH(port, impl->ports, state2) {
+			if (!pa_hashmap_get(port->profiles, profile->profile.name))
+				continue;
+
+			if (port->port.direction == ACP_DIRECTION_CAPTURE &&
+			    port->port.available != ACP_AVAILABLE_NO) {
+				any_input_port_available = true;
+				goto input_port_found;
+			}
+		}
+	}
+input_port_found:
+
+	/* Second round */
 	PA_HASHMAP_FOREACH(profile, impl->profiles, state) {
 		pa_device_port *port;
 		void *state2;
@@ -768,7 +793,7 @@ static int report_jack_state(snd_mixer_elem_t *melem, unsigned int mask)
 
 		if (has_input_port && !has_output_port && found_available_input_port)
 			available = ACP_AVAILABLE_YES;
-		if (has_output_port && !has_input_port && found_available_output_port)
+		if (has_output_port && (!has_input_port || !any_input_port_available) && found_available_output_port)
 			available = ACP_AVAILABLE_YES;
 		if (has_output_port && has_input_port && found_available_output_port && found_available_input_port)
 			available = ACP_AVAILABLE_YES;

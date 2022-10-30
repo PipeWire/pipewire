@@ -120,6 +120,8 @@ extern "C" {
 #define SPA_NAME_API_BLUEZ5_A2DP_SOURCE	"api.bluez5.a2dp.source"	/**< alias for media.source */
 #define SPA_NAME_API_BLUEZ5_SCO_SINK	"api.bluez5.sco.sink"		/**< a playback Node interface for HSP/HFP profiles */
 #define SPA_NAME_API_BLUEZ5_SCO_SOURCE	"api.bluez5.sco.source"		/**< a capture Node interface for HSP/HFP profiles */
+#define SPA_NAME_API_BLUEZ5_MIDI_ENUM	"api.bluez5.midi.enum"		/**< a dbus midi Device interface */
+#define SPA_NAME_API_BLUEZ5_MIDI_NODE	"api.bluez5.midi.node"		/**< a midi Node interface */
 
 /** keys for codec factory names */
 #define SPA_NAME_API_CODEC_BLUEZ5_MEDIA	"api.codec.bluez5.media"	/**< Bluez5 Media codec plugin */

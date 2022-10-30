@@ -33,6 +33,7 @@ bluez5_sources = [
   'dbus-monitor.c',
   'midi-enum.c',
   'midi-parser.c',
+  'midi-node.c',
 ]
 
 bluez5_data = ['bluez-hardware.conf']

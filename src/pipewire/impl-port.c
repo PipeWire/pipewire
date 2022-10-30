@@ -1199,8 +1199,8 @@ static void result_port_params(void *data, int seq, int res, uint32_t type, cons
 			d->callback(d->data, seq, r->id, r->index, r->next, r->param);
 			if (d->cache) {
 				if (d->count++ == 0)
-					pw_param_add(&impl->pending_list, r->id, NULL);
-				pw_param_add(&impl->pending_list, r->id, r->param);
+					pw_param_add(&impl->pending_list, seq, r->id, NULL);
+				pw_param_add(&impl->pending_list, seq, r->id, r->param);
 			}
 		}
 		break;
@@ -1289,7 +1289,7 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 		spa_hook_remove(&listener);
 
 		if (user_data.cache) {
-			pw_param_update(&impl->param_list, &impl->pending_list);
+			pw_param_update(&impl->param_list, &impl->pending_list, 0, NULL);
 			pi->user = 1;
 		}
 	}

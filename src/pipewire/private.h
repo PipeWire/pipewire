@@ -104,6 +104,7 @@ static inline bool ratelimit_test(struct ratelimit *r, uint64_t now, enum spa_lo
 
 struct pw_param {
 	uint32_t id;
+	int32_t seq;
 	struct spa_list link;
 	struct spa_pod *param;
 };
@@ -123,7 +124,7 @@ static inline uint32_t pw_param_clear(struct spa_list *param_list, uint32_t id)
 	return count;
 }
 
-static inline struct pw_param *pw_param_add(struct spa_list *params,
+static inline struct pw_param *pw_param_add(struct spa_list *params, int32_t seq,
 		uint32_t id, const struct spa_pod *param)
 {
 	struct pw_param *p;
@@ -140,6 +141,7 @@ static inline struct pw_param *pw_param_add(struct spa_list *params,
 		return NULL;
 
 	p->id = id;
+	p->seq = seq;
 	if (param != NULL) {
 		p->param = SPA_PTROFF(p, sizeof(*p), struct spa_pod);
 		memcpy(p->param, param, SPA_POD_SIZE(param));
@@ -151,10 +153,22 @@ static inline struct pw_param *pw_param_add(struct spa_list *params,
 	return p;
 }
 
-static inline void pw_param_update(struct spa_list *param_list, struct spa_list *pending_list)
+static inline void pw_param_update(struct spa_list *param_list, struct spa_list *pending_list,
+			uint32_t n_params, struct spa_param_info *params)
 {
-	struct pw_param *p;
+	struct pw_param *p, *t;
+	uint32_t i;
 
+	for (i = 0; i < n_params; i++) {
+		spa_list_for_each_safe(p, t, pending_list, link) {
+			if (p->id == params[i].id &&
+			    p->seq != params[i].seq &&
+			    p->param != NULL) {
+				spa_list_remove(&p->link);
+				free(p);
+			}
+		}
+	}
 	spa_list_consume(p, pending_list, link) {
 		spa_list_remove(&p->link);
 		if (p->param == NULL) {

@@ -192,15 +192,16 @@ static struct object *find_object(struct data *d, uint32_t id)
 	return NULL;
 }
 
-static void object_update_params(struct object *o)
+static void object_update_params(struct spa_list *param_list, struct spa_list *pending_list,
+		uint32_t n_params, struct spa_param_info *params)
 {
 	struct param *p, *t;
 	uint32_t i;
 
-	for (i = 0; i < o->n_params; i++) {
-		spa_list_for_each_safe(p, t, &o->pending_list, link) {
-			if (p->id == o->params[i].id &&
-			    p->seq != o->params[i].seq &&
+	for (i = 0; i < n_params; i++) {
+		spa_list_for_each_safe(p, t, pending_list, link) {
+			if (p->id == params[i].id &&
+			    p->seq != params[i].seq &&
 			    p->param != NULL) {
 				spa_list_remove(&p->link);
 				free(p);
@@ -208,13 +209,13 @@ static void object_update_params(struct object *o)
 		}
 	}
 
-	spa_list_consume(p, &o->pending_list, link) {
+	spa_list_consume(p, pending_list, link) {
 		spa_list_remove(&p->link);
 		if (p->param == NULL) {
-			clear_params(&o->param_list, p->id);
+			clear_params(param_list, p->id);
 			free(p);
 		} else {
-			spa_list_append(&o->param_list, &p->link);
+			spa_list_append(param_list, &p->link);
 		}
 	}
 }
@@ -1503,7 +1504,8 @@ static void on_core_done(void *data, uint32_t id, int seq)
 		pw_log_debug("sync end %u/%u", d->sync_seq, seq);
 
 		spa_list_for_each(o, &d->object_list, link)
-			object_update_params(o);
+			object_update_params(&o->param_list, &o->pending_list,
+					o->n_params, o->params);
 
 		dump_objects(d);
 		if (!d->monitor)

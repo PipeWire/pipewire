@@ -235,7 +235,7 @@ static void remove_busy_resource(struct resource_data *d)
 
 	if (d->end != -1) {
 		if (d->pi && d->data.cache) {
-			pw_param_update(&impl->param_list, &impl->pending_list);
+			pw_param_update(&impl->param_list, &impl->pending_list, 0, NULL);
 			d->pi->user = 1;
 			d->pi = NULL;
 		}
@@ -281,8 +281,8 @@ static void result_device_params(void *data, int seq, int res, uint32_t type, co
 		if (d->cache) {
 			pw_log_debug("%p: add param %d", impl, r->id);
 			if (d->count++ == 0)
-				pw_param_add(&impl->pending_list, r->id, NULL);
-			pw_param_add(&impl->pending_list, r->id, r->param);
+				pw_param_add(&impl->pending_list, seq, r->id, NULL);
+			pw_param_add(&impl->pending_list, seq, r->id, r->param);
 		}
 		break;
 	}
@@ -367,7 +367,7 @@ int pw_impl_device_for_each_param(struct pw_impl_device *device,
 		spa_hook_remove(&listener);
 
 		if (!SPA_RESULT_IS_ASYNC(res) && user_data.cache) {
-			pw_param_update(&impl->param_list, &impl->pending_list);
+			pw_param_update(&impl->param_list, &impl->pending_list, 0, NULL);
 			pi->user = 1;
 		}
 	}

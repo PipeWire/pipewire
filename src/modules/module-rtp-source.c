@@ -101,18 +101,18 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define SAP_MIME_TYPE		"application/sdp"
+#define SAP_MIME_TYPE			"application/sdp"
 
-#define ERROR_MSEC		2
-#define MAX_SESSIONS		16
-#define CLEANUP_INTERVAL_SEC	20
+#define ERROR_MSEC			2
+#define MAX_SESSIONS			16
 
-#define DEFAULT_SAP_IP		"224.0.0.56"
-#define DEFAULT_SAP_PORT	9875
-#define DEFAULT_SESS_LATENCY	100
+#define DEFAULT_CLEANUP_INTERVAL_SEC	20
+#define DEFAULT_SAP_IP			"224.0.0.56"
+#define DEFAULT_SAP_PORT		9875
+#define DEFAULT_SESS_LATENCY		100
 
-#define BUFFER_SIZE		(1u<<22)
-#define BUFFER_MASK		(BUFFER_SIZE-1)
+#define BUFFER_SIZE			(1u<<22)
+#define BUFFER_MASK			(BUFFER_SIZE-1)
 
 #define USAGE	"sap.ip=<SAP IP address to listen on, default "DEFAULT_SAP_IP"> "				\
 		"sap.port=<SAP port to listen on, default "SPA_STRINGIFY(DEFAULT_SAP_PORT)"> "			\
@@ -151,6 +151,7 @@ struct impl {
 	char *sap_ip;
 	int sap_port;
 	int sess_latency_msec;
+	uint32_t cleanup_interval;
 
 	struct spa_list sessions;
 	uint32_t n_sessions;
@@ -939,11 +940,14 @@ static void on_timer_event(void *data, uint64_t expirations)
 
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	timestamp = SPA_TIMESPEC_TO_NSEC(&now);
-	interval = CLEANUP_INTERVAL_SEC * SPA_NSEC_PER_SEC;
+	interval = impl->cleanup_interval * SPA_NSEC_PER_SEC;
 
 	spa_list_for_each_safe(sess, tmp, &impl->sessions, link) {
-		if (sess->timestamp + interval < timestamp)
+		if (sess->timestamp + interval < timestamp) {
+			pw_log_debug("More than %lu elapsed from last advertisement at %lu", interval, sess->timestamp);
+			pw_log_info("No advertisement packets found for timeout, closing RTP source");
 			session_free(sess);
+		}
 	}
 }
 
@@ -1067,6 +1071,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			"sap.port", DEFAULT_SAP_PORT);
 	impl->sess_latency_msec = pw_properties_get_uint32(props,
 			"sess.latency.msec", DEFAULT_SESS_LATENCY);
+	impl->cleanup_interval = pw_properties_get_uint32(props,
+			"sap.interval.sec", DEFAULT_CLEANUP_INTERVAL_SEC);
 
 	impl->core = pw_context_get_object(impl->module_context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {
@@ -1099,7 +1105,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 	value.tv_sec = 0;
 	value.tv_nsec = 1;
-	interval.tv_sec = CLEANUP_INTERVAL_SEC;
+	interval.tv_sec = impl->cleanup_interval;
 	interval.tv_nsec = 0;
 	pw_loop_update_timer(impl->loop, impl->timer, &value, &interval, false);
 

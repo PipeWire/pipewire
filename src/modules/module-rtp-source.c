@@ -585,6 +585,8 @@ static int session_new(struct impl *impl, struct sdp_info *info)
 		pw_properties_set(props, "rtp.session", info->session);
 		pw_properties_setf(props, PW_KEY_MEDIA_NAME, "RTP Stream (%s)",
 				info->session);
+		pw_properties_setf(props, PW_KEY_NODE_NAME, "%s",
+				info->session);
 	} else {
 		pw_properties_set(props, PW_KEY_MEDIA_NAME, "RTP Stream");
 	}

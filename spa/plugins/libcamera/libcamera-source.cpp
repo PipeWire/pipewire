@@ -175,6 +175,7 @@ struct impl {
 
 	struct spa_source source = {};
 
+	ControlList ctrls;
 	bool active = false;
 	bool acquired = false;
 
@@ -231,7 +232,9 @@ next:
 				SPA_PROP_INFO_type, SPA_POD_String(impl->device_name.c_str()));
 			break;
 		default:
-			return 0;
+			return spa_libcamera_enum_controls(impl,
+					GET_OUT_PORT(impl, 0),
+					seq, result.index - 2, num, filter);
 		}
 		break;
 	}
@@ -275,22 +278,28 @@ static int impl_node_set_param(void *object,
 	switch (id) {
 	case SPA_PARAM_Props:
 	{
+		struct spa_pod_object *obj = (struct spa_pod_object *) param;
+		struct spa_pod_prop *prop;
+
 		if (param == NULL) {
 			impl->device_id.clear();
 			impl->device_name.clear();
 			return 0;
 		}
+		SPA_POD_OBJECT_FOREACH(obj, prop) {
+			char device[128];
 
-		char device[128];
-		int res = spa_pod_parse_object(param,
-			SPA_TYPE_OBJECT_Props, NULL,
-			SPA_PROP_device, SPA_POD_OPT_Stringn(device, sizeof(device)));
-
-		if (res < 0)
-			return res;
-
-		impl->device_id = device;
-
+			switch (prop->key) {
+			case SPA_PROP_device:
+				strncpy(device, (char *)SPA_POD_CONTENTS(struct spa_pod_string, &prop->value),
+						sizeof(device)-1);
+				impl->device_id = device;
+				break;
+			default:
+				spa_libcamera_set_control(impl, prop);
+				break;
+			}
+		}
 		break;
 	}
 	default:

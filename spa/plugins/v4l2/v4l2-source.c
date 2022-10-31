@@ -216,9 +216,9 @@ static int impl_node_enum_params(void *object, int seq,
 				SPA_PROP_INFO_type, SPA_POD_Int(p->device_fd));
 			break;
 		default:
-			return 0;
+			return spa_v4l2_enum_controls(this, seq, result.index - 3, num, filter);
 		}
-		return spa_v4l2_enum_controls(this, seq, start, num, filter);
+		break;
 	}
 	case SPA_PARAM_Props:
 	{

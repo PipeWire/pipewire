@@ -30,6 +30,8 @@
 #include <sys/mman.h>
 #include <poll.h>
 
+#include <spa/utils/result.h>
+
 static int xioctl(int fd, int request, void *arg)
 {
 	int err;
@@ -1040,28 +1042,38 @@ static int query_ext_ctrl_ioctl(struct port *port, struct v4l2_query_ext_ctrl *q
 	return res;
 }
 
+static struct {
+	uint32_t v4l2_id;
+	uint32_t spa_id;
+} control_map[] = {
+	{ V4L2_CID_BRIGHTNESS, SPA_PROP_brightness },
+	{ V4L2_CID_CONTRAST, SPA_PROP_contrast },
+	{ V4L2_CID_SATURATION, SPA_PROP_saturation },
+	{ V4L2_CID_HUE, SPA_PROP_hue },
+	{ V4L2_CID_GAMMA, SPA_PROP_gamma },
+	{ V4L2_CID_EXPOSURE, SPA_PROP_exposure },
+	{ V4L2_CID_GAIN, SPA_PROP_gain },
+	{ V4L2_CID_SHARPNESS, SPA_PROP_sharpness },
+};
+
 static uint32_t control_to_prop_id(struct impl *impl, uint32_t control_id)
 {
-	switch (control_id) {
-	case V4L2_CID_BRIGHTNESS:
-		return SPA_PROP_brightness;
-	case V4L2_CID_CONTRAST:
-		return SPA_PROP_contrast;
-	case V4L2_CID_SATURATION:
-		return SPA_PROP_saturation;
-	case V4L2_CID_HUE:
-		return SPA_PROP_hue;
-	case V4L2_CID_GAMMA:
-		return SPA_PROP_gamma;
-	case V4L2_CID_EXPOSURE:
-		return SPA_PROP_exposure;
-	case V4L2_CID_GAIN:
-		return SPA_PROP_gain;
-	case V4L2_CID_SHARPNESS:
-		return SPA_PROP_sharpness;
-	default:
-		return SPA_PROP_START_CUSTOM + control_id;
+	SPA_FOR_EACH_ELEMENT_VAR(control_map, c) {
+		if (c->v4l2_id == control_id)
+			return c->spa_id;
 	}
+	return SPA_PROP_START_CUSTOM + control_id;
+}
+
+static uint32_t prop_id_to_control(struct impl *impl, uint32_t prop_id)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(control_map, c) {
+		if (c->spa_id == prop_id)
+			return c->v4l2_id;
+	}
+	if (prop_id >= SPA_PROP_START_CUSTOM)
+		return prop_id - SPA_PROP_START_CUSTOM;
+	return SPA_ID_INVALID;
 }
 
 static int
@@ -1221,6 +1233,56 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 
       enum_end:
 	res = 0;
+	spa_v4l2_close(dev);
+	return res;
+}
+
+static int
+spa_v4l2_set_control(struct impl *this, uint32_t id,
+		       const struct spa_pod_prop *prop)
+{
+	struct port *port = &this->out_ports[0];
+	struct spa_v4l2_device *dev = &port->dev;
+	struct v4l2_control control;
+	int res;
+
+	spa_zero(control);
+	control.id = prop_id_to_control(this, prop->key);
+	if (control.id == SPA_ID_INVALID)
+		return -ENOENT;
+
+	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
+		return res;
+
+	switch (SPA_POD_TYPE(&prop->value)) {
+	case SPA_TYPE_Bool:
+	{
+		bool val;
+		if ((res = spa_pod_get_bool(&prop->value, &val)) < 0)
+			goto done;
+		control.value = val;
+		break;
+	}
+	case SPA_TYPE_Int:
+	{
+		int32_t val;
+		if ((res = spa_pod_get_int(&prop->value, &val)) < 0)
+			goto done;
+		control.value = val;
+		break;
+	}
+	default:
+		res = -EINVAL;
+		goto done;
+	}
+	if (xioctl(dev->fd, VIDIOC_S_CTRL, &control) < 0) {
+		res = -errno;
+		goto done;
+	}
+
+	res = 0;
+
+done:
 	spa_v4l2_close(dev);
 	return res;
 }

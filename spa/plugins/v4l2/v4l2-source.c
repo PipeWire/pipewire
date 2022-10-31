@@ -266,14 +266,29 @@ static int impl_node_set_param(void *object,
 	case SPA_PARAM_Props:
 	{
 		struct props *p = &this->props;
+		struct spa_pod_object *obj = (struct spa_pod_object *) param;
+		struct spa_pod_prop *prop;
+		int res = 0;
 
 		if (param == NULL) {
 			reset_props(p);
 			return 0;
 		}
-		spa_pod_parse_object(param,
-			SPA_TYPE_OBJECT_Props, NULL,
-			SPA_PROP_device, SPA_POD_OPT_Stringn(p->device, sizeof(p->device)));
+		SPA_POD_OBJECT_FOREACH(obj, prop) {
+			switch (prop->key) {
+			case SPA_PROP_device:
+				strncpy(p->device,
+						(char *)SPA_POD_CONTENTS(struct spa_pod_string, &prop->value),
+						sizeof(p->device)-1);
+				break;
+			default:
+				res = spa_v4l2_set_control(this, prop->key, prop);
+				break;
+			}
+			if (res < 0)
+				return res;
+		}
+
 		break;
 	}
 	default:

@@ -42,4 +42,35 @@
 #define BT_MIDI_SERVICE_UUID		"03b80e5a-ede8-4b33-a751-6ce34ec4c700"
 #define BT_MIDI_CHR_UUID		"7772e5db-3868-4112-a1a9-f2669d106bf3"
 
+#define MIDI_BUF_SIZE	8192
+
+struct spa_bt_midi_parser {
+	unsigned int size;
+	unsigned int sysex:1;
+	uint8_t buf[MIDI_BUF_SIZE];
+};
+
+static inline void spa_bt_midi_parser_init(struct spa_bt_midi_parser *parser)
+{
+	parser->size = 0;
+	parser->sysex = 0;
+}
+
+static inline void spa_bt_midi_parser_dup(struct spa_bt_midi_parser *src, struct spa_bt_midi_parser *dst, bool only_time)
+{
+	dst->size = src->size;
+	dst->sysex = src->sysex;
+	if (!only_time)
+		memcpy(dst->buf, src->buf, src->size);
+}
+
+/**
+ * Parse a single BLE MIDI data packet to normalized MIDI events.
+ */
+int spa_bt_midi_parser_parse(struct spa_bt_midi_parser *parser,
+		const uint8_t *src, size_t src_size,
+		bool only_time,
+		void (*event)(void *user_data, uint16_t time, uint8_t *event, size_t event_size),
+		void *user_data);
+
 #endif

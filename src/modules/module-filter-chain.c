@@ -1002,6 +1002,7 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 {
 	struct impl *impl = data;
 	struct graph *graph = &impl->graph;
+	int res;
 
 	switch (id) {
 	case SPA_PARAM_Format:
@@ -1012,7 +1013,12 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 			spa_zero(info);
 			spa_format_audio_raw_parse(param, &info);
 			impl->rate = info.rate;
-			graph_instantiate(graph);
+			res = graph_instantiate(graph);
+			if (res < 0) {
+				pw_stream_set_error(impl->capture, res,
+						"can't start graph: %s",
+						spa_strerror(res));
+			}
 		}
 		break;
 	case SPA_PARAM_Props:

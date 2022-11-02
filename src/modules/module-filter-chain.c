@@ -1172,16 +1172,19 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 	else if (spa_streq(type, "ladspa")) {
 		pl = load_ladspa_plugin(support, n_support, path, NULL);
 	}
-#ifdef HAVE_LILV
 	else if (spa_streq(type, "lv2")) {
+#ifdef HAVE_LILV
 		pl = load_lv2_plugin(support, n_support, path, NULL);
-	}
+#else
+		pw_log_error("filter-chain is compiled without lv2 support");
+		pl = NULL;
+		errno = ENOTSUP;
 #endif
-	else {
+	} else {
+		pw_log_error("invalid plugin type '%s'", type);
 		pl = NULL;
 		errno = EINVAL;
 	}
-
 	if (pl == NULL)
 		goto exit;
 
@@ -1538,10 +1541,8 @@ static int load_node(struct graph *graph, struct spa_json *json)
 			break;
 	}
 
-	if (spa_streq(type, "builtin")) {
+	if (spa_streq(type, "builtin"))
 		snprintf(plugin, sizeof(plugin), "%s", "builtin");
-	} else if (!spa_streq(type, "ladspa") && !spa_streq(type, "lv2"))
-		return -ENOTSUP;
 
 	pw_log_info("loading type:%s plugin:%s label:%s", type, plugin, label);
 

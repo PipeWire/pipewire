@@ -600,42 +600,60 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 		if (spa_streq(key, "blocksize")) {
-			if (spa_json_get_int(&it[1], &blocksize) <= 0)
+			if (spa_json_get_int(&it[1], &blocksize) <= 0) {
+				pw_log_error("convolver:blocksize requires a number");
 				return NULL;
+			}
 		}
 		else if (spa_streq(key, "tailsize")) {
-			if (spa_json_get_int(&it[1], &tailsize) <= 0)
+			if (spa_json_get_int(&it[1], &tailsize) <= 0) {
+				pw_log_error("convolver:tailsize requires a number");
 				return NULL;
+			}
 		}
 		else if (spa_streq(key, "gain")) {
-			if (spa_json_get_float(&it[1], &gain) <= 0)
+			if (spa_json_get_float(&it[1], &gain) <= 0) {
+				pw_log_error("convolver:gain requires a number");
 				return NULL;
+			}
 		}
 		else if (spa_streq(key, "delay")) {
-			if (spa_json_get_int(&it[1], &delay) <= 0)
+			if (spa_json_get_int(&it[1], &delay) <= 0) {
+				pw_log_error("convolver:delay requires a number");
 				return NULL;
+			}
 		}
 		else if (spa_streq(key, "filename")) {
-			if (spa_json_get_string(&it[1], filename, sizeof(filename)) <= 0)
+			if (spa_json_get_string(&it[1], filename, sizeof(filename)) <= 0) {
+				pw_log_error("convolver:filename requires a string");
 				return NULL;
+			}
 		}
 		else if (spa_streq(key, "offset")) {
-			if (spa_json_get_int(&it[1], &offset) <= 0)
+			if (spa_json_get_int(&it[1], &offset) <= 0) {
+				pw_log_error("convolver:offset requires a number");
 				return NULL;
+			}
 		}
 		else if (spa_streq(key, "length")) {
-			if (spa_json_get_int(&it[1], &length) <= 0)
+			if (spa_json_get_int(&it[1], &length) <= 0) {
+				pw_log_error("convolver:length requires a number");
 				return NULL;
+			}
 		}
 		else if (spa_streq(key, "channel")) {
-			if (spa_json_get_int(&it[1], &channel) <= 0)
+			if (spa_json_get_int(&it[1], &channel) <= 0) {
+				pw_log_error("convolver:channel requires a number");
 				return NULL;
+			}
 		}
 		else if (spa_json_next(&it[1], &val) < 0)
 			break;
 	}
-	if (!filename[0])
+	if (!filename[0]) {
+		pw_log_error("convolver:filename was not given");
 		return NULL;
+	}
 
 	if (delay < 0)
 		delay = 0;
@@ -779,8 +797,10 @@ static void *delay_instantiate(const struct fc_descriptor * Descriptor,
 
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 		if (spa_streq(key, "max-delay")) {
-			if (spa_json_get_float(&it[1], &max_delay) <= 0)
+			if (spa_json_get_float(&it[1], &max_delay) <= 0) {
+				pw_log_error("delay:max-delay requires a number");
 				return NULL;
+			}
 		}
 		else if (spa_json_next(&it[1], &val) < 0)
 			break;
@@ -794,7 +814,7 @@ static void *delay_instantiate(const struct fc_descriptor * Descriptor,
 
 	impl->rate = SampleRate;
 	impl->buffer_samples = max_delay * impl->rate;
-	pw_log_info("%lu %d", impl->rate, impl->buffer_samples);
+	pw_log_info("max-delay:%f seconds rate:%lu samples:%d", max_delay, impl->rate, impl->buffer_samples);
 
 	impl->buffer = calloc(impl->buffer_samples, sizeof(float));
 	if (impl->buffer == NULL) {

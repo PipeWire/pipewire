@@ -112,7 +112,14 @@ struct port {
 	struct spa_port_info info = SPA_PORT_INFO_INIT();
 	struct spa_io_buffers *io = nullptr;
 	struct spa_io_sequence *control = nullptr;
-	struct spa_param_info params[8];
+#define PORT_PropInfo	0
+#define PORT_EnumFormat	1
+#define PORT_Meta	2
+#define PORT_IO		3
+#define PORT_Format	4
+#define PORT_Buffers	5
+#define N_PORT_PARAMS	6
+	struct spa_param_info params[N_PORT_PARAMS];
 
 	uint32_t fmt_index = 0;
 	PixelFormat enum_fmt;
@@ -123,16 +130,16 @@ struct port {
 	{
 		spa_list_init(&queue);
 
-		params[0] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
-		params[1] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
-		params[2] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
-		params[3] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
-		params[4] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-		params[5] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+		params[PORT_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
+		params[PORT_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
+		params[PORT_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
+		params[PORT_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);
+		params[PORT_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+		params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 
 		info.flags = SPA_PORT_FLAG_LIVE | SPA_PORT_FLAG_PHYSICAL | SPA_PORT_FLAG_TERMINAL;
 		info.params = params;
-		info.n_params = 6;
+		info.n_params = N_PORT_PARAMS;
 	}
 };
 
@@ -149,7 +156,11 @@ struct impl {
 		SPA_NODE_CHANGE_MASK_PROPS |
 		SPA_NODE_CHANGE_MASK_PARAMS;
 	struct spa_node_info info = SPA_NODE_INFO_INIT();
-	struct spa_param_info params[8];
+#define NODE_PropInfo	0
+#define NODE_Props	1
+#define NODE_EnumFormat	2
+#define N_NODE_PARAMS	3
+	struct spa_param_info params[N_NODE_PARAMS];
 
 	std::string device_id;
 	std::string device_name;
@@ -252,6 +263,9 @@ next:
 		}
 		break;
 	}
+	case SPA_PARAM_EnumFormat:
+		return spa_libcamera_enum_format(impl, GET_OUT_PORT(impl, 0),
+				seq, start, num, filter);
 	default:
 		return -ENOENT;
 	}
@@ -947,13 +961,14 @@ impl::impl(spa_log *log, spa_loop *data_loop, spa_system *system,
 			SPA_VERSION_NODE,
 			&impl_node, this);
 
-	params[0] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
-	params[1] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
+	params[NODE_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
+	params[NODE_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
+	params[NODE_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 
 	info.max_output_ports = 1;
 	info.flags = SPA_NODE_FLAG_RT;
 	info.params = params;
-	info.n_params = 2;
+	info.n_params = N_NODE_PARAMS;
 }
 
 static size_t

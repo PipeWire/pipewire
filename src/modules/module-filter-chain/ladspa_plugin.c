@@ -22,6 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "config.h"
+
 #include <dlfcn.h>
 #include <math.h>
 
@@ -238,7 +240,7 @@ struct fc_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t
 
 		search_dirs = getenv("LADSPA_PATH");
 		if (!search_dirs)
-			search_dirs = "/usr/lib64/ladspa";
+			search_dirs = "/usr/lib64/ladspa:/usr/lib/ladspa:" LIBDIR;
 
 		/*
 		 * set the errno for the case when `ladspa_handle_load_by_path()`

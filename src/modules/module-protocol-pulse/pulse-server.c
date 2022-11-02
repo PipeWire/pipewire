@@ -1428,15 +1428,16 @@ static void stream_process(void *data)
 			}
 			if ((stream->attr.prebuf == 0 || do_flush) && !stream->corked) {
 				if (avail > 0) {
+					avail = SPA_MIN((uint32_t)avail, size);
 					spa_ringbuffer_read_data(&stream->ring,
 						stream->buffer, MAXLENGTH,
 						index % MAXLENGTH,
-						p, SPA_MIN((uint32_t)avail, size));
+						p, avail);
 					index += avail;
+					pd.read_inc = avail;
+					spa_ringbuffer_read_update(&stream->ring, index);
 				}
 				pd.playing_for = size;
-				pd.read_inc = size;
-				spa_ringbuffer_read_update(&stream->ring, index);
 			}
 			pw_log_debug("%p: [%s] underrun read:%u avail:%d max:%u",
 					stream, client->name, index, avail, minreq);

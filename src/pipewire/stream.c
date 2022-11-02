@@ -2330,7 +2330,7 @@ int pw_stream_flush(struct pw_stream *stream, bool drain)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	pw_loop_invoke(impl->context->data_loop,
 			drain ? do_drain : do_flush, 1, NULL, 0, true, impl);
-	if (!drain)
+	if (!drain && impl->node != NULL)
 		spa_node_send_command(impl->node->node,
 				&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Flush));
 	return 0;

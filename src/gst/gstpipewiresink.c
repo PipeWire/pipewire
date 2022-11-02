@@ -346,6 +346,14 @@ gst_pipewire_sink_sink_fixate (GstBaseSink * bsink, GstCaps * caps)
     gst_structure_fixate_field_string (structure, "format", "S16LE");
     gst_structure_fixate_field_nearest_int (structure, "channels", 2);
     gst_structure_fixate_field_nearest_int (structure, "rate", 44100);
+  } else if (gst_structure_has_name (structure, "audio/mpeg")) {
+    gst_structure_fixate_field_string (structure, "format", "Encoded");
+    gst_structure_fixate_field_nearest_int (structure, "channels", 2);
+    gst_structure_fixate_field_nearest_int (structure, "rate", 44100);
+  } else if (gst_structure_has_name (structure, "audio/x-flac")) {
+    gst_structure_fixate_field_string (structure, "format", "Encoded");
+    gst_structure_fixate_field_nearest_int (structure, "channels", 2);
+    gst_structure_fixate_field_nearest_int (structure, "rate", 44100);
   }
 
   caps = GST_BASE_SINK_CLASS (parent_class)->fixate (bsink, caps);

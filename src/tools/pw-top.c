@@ -243,6 +243,24 @@ static void node_param(void *data, int seq,
 				}
 				break;
 			}
+			case SPA_MEDIA_SUBTYPE_mjpg:
+			{
+				struct spa_video_info_mjpg info;
+				if (spa_format_video_mjpg_parse(param, &info) >= 0) {
+					snprintf(n->format, sizeof(n->format), "MJPG %dx%d",
+						info.size.width, info.size.height);
+				}
+				break;
+			}
+			case SPA_MEDIA_SUBTYPE_h264:
+			{
+				struct spa_video_info_h264 info;
+				if (spa_format_video_h264_parse(param, &info) >= 0) {
+					snprintf(n->format, sizeof(n->format), "H264 %dx%d",
+						info.size.width, info.size.height);
+				}
+				break;
+			}
 			}
 			break;
 		case SPA_MEDIA_TYPE_application:

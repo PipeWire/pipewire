@@ -80,39 +80,39 @@ static float get_default(struct fc_port *port, LADSPA_PortRangeHintDescriptor hi
 		break;
 	case LADSPA_HINT_DEFAULT_LOW:
 		if (LADSPA_IS_HINT_LOGARITHMIC(hint))
-			def = (LADSPA_Data) exp(log(lower) * 0.75 + log(upper) * 0.25);
+			def = (LADSPA_Data) expf(logf(lower) * 0.75f + logf(upper) * 0.25f);
 		else
-			def = (LADSPA_Data) (lower * 0.75 + upper * 0.25);
+			def = (LADSPA_Data) (lower * 0.75f + upper * 0.25f);
 		break;
 	case LADSPA_HINT_DEFAULT_MIDDLE:
 		if (LADSPA_IS_HINT_LOGARITHMIC(hint))
-			def = (LADSPA_Data) exp(log(lower) * 0.5 + log(upper) * 0.5);
+			def = (LADSPA_Data) expf(logf(lower) * 0.5f + logf(upper) * 0.5f);
 		else
-			def = (LADSPA_Data) (lower * 0.5 + upper * 0.5);
+			def = (LADSPA_Data) (lower * 0.5f + upper * 0.5f);
 		break;
 	case LADSPA_HINT_DEFAULT_HIGH:
 		if (LADSPA_IS_HINT_LOGARITHMIC(hint))
-			def = (LADSPA_Data) exp(log(lower) * 0.25 + log(upper) * 0.75);
+			def = (LADSPA_Data) expf(logf(lower) * 0.25f + logf(upper) * 0.75f);
 		else
-			def = (LADSPA_Data) (lower * 0.25 + upper * 0.75);
+			def = (LADSPA_Data) (lower * 0.25f + upper * 0.75f);
 		break;
 	case LADSPA_HINT_DEFAULT_0:
-		def = 0;
+		def = 0.0f;
 		break;
 	case LADSPA_HINT_DEFAULT_1:
-		def = 1;
+		def = 1.0f;
 		break;
 	case LADSPA_HINT_DEFAULT_100:
-		def = 100;
+		def = 100.0f;
 		break;
 	case LADSPA_HINT_DEFAULT_440:
-		def = 440;
+		def = 440.0f;
 		break;
 	default:
 		if (upper == lower)
 			def = upper;
 		else
-			def = SPA_CLAMP(0.5 * upper, lower, upper);
+			def = SPA_CLAMPF(0.5f * upper, lower, upper);
 		break;
 	}
 	if (LADSPA_IS_HINT_INTEGER(hint))

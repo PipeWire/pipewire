@@ -785,10 +785,10 @@ static struct spa_pod *get_prop_info(struct graph *graph, struct spa_pod_builder
 	spa_pod_builder_prop(b, SPA_PROP_INFO_type, 0);
 	if (p->hint & FC_HINT_BOOLEAN) {
 		if (min == max) {
-			spa_pod_builder_bool(b, def <= 0.0 ? false : true);
+			spa_pod_builder_bool(b, def <= 0.0f ? false : true);
 		} else  {
 			spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Enum, 0);
-			spa_pod_builder_bool(b, def <= 0.0 ? false : true);
+			spa_pod_builder_bool(b, def <= 0.0f ? false : true);
 			spa_pod_builder_bool(b, false);
 			spa_pod_builder_bool(b, true);
 			spa_pod_builder_pop(b, &f[1]);
@@ -844,7 +844,7 @@ static struct spa_pod *get_props_param(struct graph *graph, struct spa_pod_build
 
 		spa_pod_builder_string(b, name);
 		if (p->hint & FC_HINT_BOOLEAN) {
-			spa_pod_builder_bool(b, port->control_data <= 0.0 ? false : true);
+			spa_pod_builder_bool(b, port->control_data <= 0.0f ? false : true);
 		} else if (p->hint & FC_HINT_INTEGER) {
 			spa_pod_builder_int(b, port->control_data);
 		} else {

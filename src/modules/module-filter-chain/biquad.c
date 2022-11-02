@@ -11,24 +11,6 @@
 #include <math.h>
 #include "biquad.h"
 
-#ifndef max
-#define max(a, b)                                                              \
-	({                                                                     \
-		__typeof__(a) _a = (a);                                        \
-		__typeof__(b) _b = (b);                                        \
-		_a > _b ? _a : _b;                                             \
-	})
-#endif
-
-#ifndef min
-#define min(a, b)                                                              \
-	({                                                                     \
-		__typeof__(a) _a = (a);                                        \
-		__typeof__(b) _b = (b);                                        \
-		_a < _b ? _a : _b;                                             \
-	})
-#endif
-
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -47,7 +29,7 @@ static void set_coefficient(struct biquad *bq, double b0, double b1, double b2,
 static void biquad_lowpass(struct biquad *bq, double cutoff, double resonance)
 {
 	/* Limit cutoff to 0 to 1. */
-	cutoff = max(0.0, min(cutoff, 1.0));
+	cutoff = fmax(0.0, fmin(cutoff, 1.0));
 
 	if (cutoff == 1 || cutoff == 0) {
 		/* When cutoff is 1, the z-transform is 1.
@@ -59,7 +41,7 @@ static void biquad_lowpass(struct biquad *bq, double cutoff, double resonance)
 	}
 
 	/* Compute biquad coefficients for lowpass filter */
-	resonance = max(0.0, resonance); /* can't go negative */
+	resonance = fmax(0.0, resonance); /* can't go negative */
 	double g = pow(10.0, 0.05 * resonance);
 	double d = sqrt((4 - sqrt(16 - 16 / (g * g))) / 2);
 
@@ -81,7 +63,7 @@ static void biquad_lowpass(struct biquad *bq, double cutoff, double resonance)
 static void biquad_highpass(struct biquad *bq, double cutoff, double resonance)
 {
 	/* Limit cutoff to 0 to 1. */
-	cutoff = max(0.0, min(cutoff, 1.0));
+	cutoff = fmax(0.0, fmin(cutoff, 1.0));
 
 	if (cutoff == 1 || cutoff == 0) {
 		/* When cutoff is one, the z-transform is 0. */
@@ -95,7 +77,7 @@ static void biquad_highpass(struct biquad *bq, double cutoff, double resonance)
 	}
 
 	/* Compute biquad coefficients for highpass filter */
-	resonance = max(0.0, resonance); /* can't go negative */
+	resonance = fmax(0.0, resonance); /* can't go negative */
 	double g = pow(10.0, 0.05 * resonance);
 	double d = sqrt((4 - sqrt(16 - 16 / (g * g))) / 2);
 
@@ -117,10 +99,10 @@ static void biquad_highpass(struct biquad *bq, double cutoff, double resonance)
 static void biquad_bandpass(struct biquad *bq, double frequency, double Q)
 {
 	/* No negative frequencies allowed. */
-	frequency = max(0.0, frequency);
+	frequency = fmax(0.0, frequency);
 
 	/* Don't let Q go negative, which causes an unstable filter. */
-	Q = max(0.0, Q);
+	Q = fmax(0.0, Q);
 
 	if (frequency <= 0 || frequency >= 1) {
 		/* When the cutoff is zero, the z-transform approaches 0, if Q
@@ -158,7 +140,7 @@ static void biquad_bandpass(struct biquad *bq, double frequency, double Q)
 static void biquad_lowshelf(struct biquad *bq, double frequency, double db_gain)
 {
 	/* Clip frequencies to between 0 and 1, inclusive. */
-	frequency = max(0.0, min(frequency, 1.0));
+	frequency = fmax(0.0, fmin(frequency, 1.0));
 
 	double A = pow(10.0, db_gain / 40);
 
@@ -195,7 +177,7 @@ static void biquad_highshelf(struct biquad *bq, double frequency,
 			     double db_gain)
 {
 	/* Clip frequencies to between 0 and 1, inclusive. */
-	frequency = max(0.0, min(frequency, 1.0));
+	frequency = fmax(0.0, fmin(frequency, 1.0));
 
 	double A = pow(10.0, db_gain / 40);
 
@@ -232,10 +214,10 @@ static void biquad_peaking(struct biquad *bq, double frequency, double Q,
 			   double db_gain)
 {
 	/* Clip frequencies to between 0 and 1, inclusive. */
-	frequency = max(0.0, min(frequency, 1.0));
+	frequency = fmax(0.0, fmin(frequency, 1.0));
 
 	/* Don't let Q go negative, which causes an unstable filter. */
-	Q = max(0.0, Q);
+	Q = fmax(0.0, Q);
 
 	double A = pow(10.0, db_gain / 40);
 
@@ -270,10 +252,10 @@ static void biquad_peaking(struct biquad *bq, double frequency, double Q,
 static void biquad_notch(struct biquad *bq, double frequency, double Q)
 {
 	/* Clip frequencies to between 0 and 1, inclusive. */
-	frequency = max(0.0, min(frequency, 1.0));
+	frequency = fmax(0.0, fmin(frequency, 1.0));
 
 	/* Don't let Q go negative, which causes an unstable filter. */
-	Q = max(0.0, Q);
+	Q = fmax(0.0, Q);
 
 	if (frequency <= 0 || frequency >= 1) {
 		/* When frequency is 0 or 1, the z-transform is 1. */
@@ -306,10 +288,10 @@ static void biquad_notch(struct biquad *bq, double frequency, double Q)
 static void biquad_allpass(struct biquad *bq, double frequency, double Q)
 {
 	/* Clip frequencies to between 0 and 1, inclusive. */
-	frequency = max(0.0, min(frequency, 1.0));
+	frequency = fmax(0.0, fmin(frequency, 1.0));
 
 	/* Don't let Q go negative, which causes an unstable filter. */
-	Q = max(0.0, Q);
+	Q = fmax(0.0, Q);
 
 	if (frequency <= 0 || frequency >= 1) {
 		/* When frequency is 0 or 1, the z-transform is 1. */

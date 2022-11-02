@@ -643,6 +643,7 @@ static int port_set_format(struct impl *impl, struct port *port,
 		spa_libcamera_close(impl);
 		goto done;
 	} else {
+		spa_zero(info);
 		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
 			return res;
 

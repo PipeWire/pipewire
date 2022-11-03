@@ -198,7 +198,7 @@ static void node_param(void *data, int seq,
 			switch(media_subtype) {
 			case SPA_MEDIA_SUBTYPE_raw:
 			{
-				struct spa_audio_info_raw info;
+				struct spa_audio_info_raw info = { 0 };
 				if (spa_format_audio_raw_parse(param, &info) >= 0) {
 					snprintf(n->format, sizeof(n->format), "%6.6s %d %d",
 						spa_debug_type_find_short_name(
@@ -209,7 +209,7 @@ static void node_param(void *data, int seq,
 			}
 			case SPA_MEDIA_SUBTYPE_dsd:
 			{
-				struct spa_audio_info_dsd info;
+				struct spa_audio_info_dsd info = { 0 };
 				if (spa_format_audio_dsd_parse(param, &info) >= 0) {
 					snprintf(n->format, sizeof(n->format), "DSD%d %d ",
 						8 * info.rate / 44100, info.channels);
@@ -219,7 +219,7 @@ static void node_param(void *data, int seq,
 			}
 			case SPA_MEDIA_SUBTYPE_iec958:
 			{
-				struct spa_audio_info_iec958 info;
+				struct spa_audio_info_iec958 info = { 0 };
 				if (spa_format_audio_iec958_parse(param, &info) >= 0) {
 					snprintf(n->format, sizeof(n->format), "IEC958 %s %d",
 						spa_debug_type_find_short_name(
@@ -235,7 +235,7 @@ static void node_param(void *data, int seq,
 			switch(media_subtype) {
 			case SPA_MEDIA_SUBTYPE_raw:
 			{
-				struct spa_video_info_raw info;
+				struct spa_video_info_raw info = { 0 };
 				if (spa_format_video_raw_parse(param, &info) >= 0) {
 					snprintf(n->format, sizeof(n->format), "%6.6s %dx%d",
 						spa_debug_type_find_short_name(spa_type_video_format, info.format),
@@ -245,7 +245,7 @@ static void node_param(void *data, int seq,
 			}
 			case SPA_MEDIA_SUBTYPE_mjpg:
 			{
-				struct spa_video_info_mjpg info;
+				struct spa_video_info_mjpg info = { 0 };
 				if (spa_format_video_mjpg_parse(param, &info) >= 0) {
 					snprintf(n->format, sizeof(n->format), "MJPG %dx%d",
 						info.size.width, info.size.height);
@@ -254,7 +254,7 @@ static void node_param(void *data, int seq,
 			}
 			case SPA_MEDIA_SUBTYPE_h264:
 			{
-				struct spa_video_info_h264 info;
+				struct spa_video_info_h264 info = { 0 };
 				if (spa_format_video_h264_parse(param, &info) >= 0) {
 					snprintf(n->format, sizeof(n->format), "H264 %dx%d",
 						info.size.width, info.size.height);

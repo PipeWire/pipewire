@@ -344,7 +344,6 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 		uint16_t seq;
 		int32_t filled;
 
-		pw_log_trace("got rtp");
 		if ((len = recv(fd, buffer, sizeof(buffer), 0)) < 0)
 			goto receive_error;
 
@@ -380,6 +379,7 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 		expected_index = timestamp * sess->info.stride;
 
 		if (!sess->have_sync) {
+			pw_log_trace("got rtp, no sync");
 			sess->ring.readindex = sess->ring.writeindex =
 				index = expected_index;
 			filled = 0;
@@ -391,6 +391,7 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 			spa_dll_set_bw(&sess->dll, SPA_DLL_BW_MIN, 128, sess->info.info.rate);
 
 		} else if (expected_index != index) {
+			pw_log_trace("got rtp, wrong timestamp");
 			pw_log_debug("unexpected timestamp (%u != %u)",
 					index / sess->info.stride,
 					expected_index / sess->info.stride);
@@ -399,9 +400,11 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 		}
 
 		if (filled + len > BUFFER_SIZE) {
+			pw_log_trace("got rtp, overrun");
 			pw_log_warn("capture overrun %u %zd", filled, len);
 			sess->have_sync = false;
 		} else {
+			pw_log_trace("got rtp, buffering");
 			spa_ringbuffer_write_data(&sess->ring,
 					sess->buffer,
 					BUFFER_SIZE,

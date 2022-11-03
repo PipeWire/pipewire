@@ -201,12 +201,14 @@ struct impl {
 
 	struct spa_handle *spa_handle;
 	struct spa_plugin_loader *loader;
+
+	bool monitor_mode;
 };
 
 static void process(struct impl *impl)
 {
 	struct pw_buffer *cout;
-	struct pw_buffer *pout;
+	struct pw_buffer *pout = NULL;
 	float rec_buf[impl->info.channels][impl->aec_blocksize / sizeof(float)];
 	float play_buf[impl->info.channels][impl->aec_blocksize / sizeof(float)];
 	float play_delayed_buf[impl->info.channels][impl->aec_blocksize / sizeof(float)];
@@ -220,7 +222,7 @@ static void process(struct impl *impl)
 	uint32_t rindex, pindex, oindex, pdindex, avail;
 	int32_t stride = 0;
 
-	if ((pout = pw_stream_dequeue_buffer(impl->playback)) == NULL) {
+	if (impl->playback != NULL && (pout = pw_stream_dequeue_buffer(impl->playback)) == NULL) {
 		pw_log_debug("out of playback buffers: %m");
 		goto done;
 	}
@@ -258,20 +260,23 @@ static void process(struct impl *impl)
 				impl->play_ringsize, pdindex % impl->play_ringsize,
 				(void *)play_delayed[i], size);
 
-		/* output to sink, just copy */
-		dd = &pout->buffer->datas[i];
-		memcpy(dd->data, play[i], size);
+		if (pout != NULL) {
+			/* output to sink, just copy */
+			dd = &pout->buffer->datas[i];
+			memcpy(dd->data, play[i], size);
 
-		dd->chunk->offset = 0;
-		dd->chunk->size = size;
-		dd->chunk->stride = stride;
+			dd->chunk->offset = 0;
+			dd->chunk->size = size;
+			dd->chunk->stride = stride;
+		}
 	}
 
 	spa_ringbuffer_read_update(&impl->rec_ring, rindex + size);
 	spa_ringbuffer_read_update(&impl->play_ring, pindex + size);
 	spa_ringbuffer_read_update(&impl->play_delayed_ring, pdindex + size);
 
-	pw_stream_queue_buffer(impl->playback, pout);
+	if (impl->playback != NULL)
+		pw_stream_queue_buffer(impl->playback, pout);
 
 	if (SPA_UNLIKELY (impl->current_delay < impl->buffer_delay)) {
 		uint32_t delay_left = impl->buffer_delay - impl->current_delay;
@@ -586,7 +591,8 @@ static void output_state_changed(void *data, enum pw_stream_state old,
 	switch (state) {
 	case PW_STREAM_STATE_PAUSED:
 		pw_stream_flush(impl->sink, false);
-		pw_stream_flush(impl->playback, false);
+		if (impl->playback != NULL)
+			pw_stream_flush(impl->playback, false);
 		if (old == PW_STREAM_STATE_STREAMING) {
 			impl->current_delay = 0;
 		}
@@ -618,7 +624,7 @@ static void output_param_latency_changed(struct impl *impl, const struct spa_pod
 
 	if (latency.direction == SPA_DIRECTION_INPUT)
 		pw_stream_update_params(impl->sink, params, 1);
-	else
+	else if (impl->playback != NULL)
 		pw_stream_update_params(impl->playback, params, 1);
 }
 
@@ -728,8 +734,10 @@ static void sink_process(void *data)
 static void playback_destroy(void *d)
 {
 	struct impl *impl = d;
-	spa_hook_remove(&impl->playback_listener);
-	impl->playback = NULL;
+	if (impl->playback != NULL) {
+		spa_hook_remove(&impl->playback_listener);
+		impl->playback = NULL;
+	}
 }
 
 static const struct pw_stream_events playback_events = {
@@ -796,34 +804,38 @@ static int setup_streams(struct impl *impl)
 			&impl->source_listener,
 			&source_events, impl);
 
-	props = pw_properties_new(
+	if (impl->monitor_mode) {
+		impl->playback = NULL;
+	} else {
+		props = pw_properties_new(
 			PW_KEY_NODE_NAME, "echo-cancel-playback",
 			PW_KEY_NODE_VIRTUAL, "true",
 			PW_KEY_NODE_PASSIVE, "true",
 			NULL);
-	if ((str = pw_properties_get(impl->sink_props, PW_KEY_NODE_GROUP)) != NULL)
-		pw_properties_set(props, PW_KEY_NODE_GROUP, str);
-	if ((str = pw_properties_get(impl->sink_props, PW_KEY_NODE_LINK_GROUP)) != NULL)
-		pw_properties_set(props, PW_KEY_NODE_LINK_GROUP, str);
-	if ((str = pw_properties_get(impl->sink_props, PW_KEY_NODE_LATENCY)) != NULL)
-		pw_properties_set(props, PW_KEY_NODE_LATENCY, str);
-	else if (impl->aec->latency)
-		pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec->latency);
-	if ((str = pw_properties_get(impl->sink_props, SPA_KEY_AUDIO_CHANNELS)) != NULL)
-		pw_properties_set(props, SPA_KEY_AUDIO_CHANNELS, str);
-	if ((str = pw_properties_get(impl->sink_props, SPA_KEY_AUDIO_POSITION)) != NULL)
-		pw_properties_set(props, SPA_KEY_AUDIO_POSITION, str);
-	if ((str = pw_properties_get(impl->sink_props, "resample.prefill")) != NULL)
-		pw_properties_set(props, "resample.prefill", str);
+		if ((str = pw_properties_get(impl->sink_props, PW_KEY_NODE_GROUP)) != NULL)
+			pw_properties_set(props, PW_KEY_NODE_GROUP, str);
+		if ((str = pw_properties_get(impl->sink_props, PW_KEY_NODE_LINK_GROUP)) != NULL)
+			pw_properties_set(props, PW_KEY_NODE_LINK_GROUP, str);
+		if ((str = pw_properties_get(impl->sink_props, PW_KEY_NODE_LATENCY)) != NULL)
+			pw_properties_set(props, PW_KEY_NODE_LATENCY, str);
+		else if (impl->aec->latency)
+			pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec->latency);
+		if ((str = pw_properties_get(impl->sink_props, SPA_KEY_AUDIO_CHANNELS)) != NULL)
+			pw_properties_set(props, SPA_KEY_AUDIO_CHANNELS, str);
+		if ((str = pw_properties_get(impl->sink_props, SPA_KEY_AUDIO_POSITION)) != NULL)
+			pw_properties_set(props, SPA_KEY_AUDIO_POSITION, str);
+		if ((str = pw_properties_get(impl->sink_props, "resample.prefill")) != NULL)
+			pw_properties_set(props, "resample.prefill", str);
 
-	impl->playback = pw_stream_new(impl->core,
-			"Echo-Cancel Playback", props);
-	if (impl->playback == NULL)
-		return -errno;
+		impl->playback = pw_stream_new(impl->core,
+				"Echo-Cancel Playback", props);
+		if (impl->playback == NULL)
+			return -errno;
 
-	pw_stream_add_listener(impl->playback,
-			&impl->playback_listener,
-			&playback_events, impl);
+		pw_stream_add_listener(impl->playback,
+				&impl->playback_listener,
+				&playback_events, impl);
+	}
 
 	impl->sink = pw_stream_new(impl->core,
 			"Echo-Cancel Sink", impl->sink_props);
@@ -878,14 +890,15 @@ static int setup_streams(struct impl *impl)
 	if ((res = pw_stream_connect(impl->sink,
 			PW_DIRECTION_INPUT,
 			PW_ID_ANY,
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS,
+			impl->playback != NULL ?
+				PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_RT_PROCESS :
+				PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS | PW_STREAM_FLAG_RT_PROCESS,
 			params, n_params)) < 0) {
 		spa_pod_dynamic_builder_clean(&b);
 		return res;
 	}
 
-	if ((res = pw_stream_connect(impl->playback,
+	if (impl->playback != NULL && (res = pw_stream_connect(impl->playback,
 			PW_DIRECTION_OUTPUT,
 			PW_ID_ANY,
 			PW_STREAM_FLAG_AUTOCONNECT |
@@ -1084,6 +1097,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 
+	impl->monitor_mode = false;
+	if ((str = pw_properties_get(props, "monitor.mode")) != NULL)
+		impl->monitor_mode = pw_properties_parse_bool(str);
+
 	impl->module = module;
 	impl->context = context;
 
@@ -1115,9 +1132,15 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(impl->sink_props, PW_KEY_NODE_DESCRIPTION) == NULL)
 		pw_properties_set(impl->sink_props, PW_KEY_NODE_DESCRIPTION, "Echo-Cancel Sink");
 	if (pw_properties_get(impl->sink_props, PW_KEY_MEDIA_CLASS) == NULL)
-		pw_properties_set(impl->sink_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
+		pw_properties_set(impl->sink_props, PW_KEY_MEDIA_CLASS,
+				impl->monitor_mode ? "Stream/Input/Audio" : "Audio/Sink");
 	if (pw_properties_get(impl->sink_props, "resample.prefill") == NULL)
 		pw_properties_set(impl->sink_props, "resample.prefill", "true");
+	if (impl->monitor_mode) {
+		pw_properties_set(impl->sink_props, PW_KEY_NODE_PASSIVE, "true");
+		pw_properties_set(impl->sink_props, PW_KEY_STREAM_MONITOR, "true");
+		pw_properties_set(impl->sink_props, PW_KEY_STREAM_CAPTURE_SINK, "true");
+	}
 
 	if ((str = pw_properties_get(props, "aec.method")) != NULL)
 		pw_log_warn("aec.method is not supported anymore use library.name");

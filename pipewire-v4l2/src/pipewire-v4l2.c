@@ -869,17 +869,17 @@ struct format_info {
 	const char *desc;
 };
 
-#define MAKE_FORMAT(fcc,mt,mst,bpp,fmt)	\
-	{ V4L2_PIX_FMT_ ## fcc, SPA_MEDIA_TYPE_ ## mt, SPA_MEDIA_SUBTYPE_ ## mst, SPA_VIDEO_FORMAT_ ## fmt, bpp, #fcc }
+#define MAKE_FORMAT(fcc,mt,mst,bpp,fmt,...)	\
+	{ V4L2_PIX_FMT_ ## fcc, SPA_MEDIA_TYPE_ ## mt, SPA_MEDIA_SUBTYPE_ ## mst, SPA_VIDEO_FORMAT_ ## fmt, bpp, __VA_ARGS__ }
 
 static const struct format_info format_info[] = {
 	/* RGB formats */
-	MAKE_FORMAT(RGB332, video, raw, 4, UNKNOWN),
+	MAKE_FORMAT(RGB332, video, raw, 4, UNKNOWN, "8-bit RGB 3-3-2"),
 	MAKE_FORMAT(ARGB555, video, raw, 4, UNKNOWN),
-	MAKE_FORMAT(XRGB555, video, raw, 4, RGB15),
+	MAKE_FORMAT(XRGB555, video, raw, 4, RGB15, "16-bit XRGB 1-5-5-5"),
 	MAKE_FORMAT(ARGB555X, video, raw, 4, UNKNOWN),
-	MAKE_FORMAT(XRGB555X, video, raw, 4, BGR15),
-	MAKE_FORMAT(RGB565, video, raw, 4, RGB16),
+	MAKE_FORMAT(XRGB555X, video, raw, 4, BGR15, "16-bit XRGB 1-5-5-5 BE"),
+	MAKE_FORMAT(RGB565, video, raw, 4, RGB16, "16-bit RGB 5-6-5"),
 	MAKE_FORMAT(RGB565X, video, raw, 4, UNKNOWN),
 	MAKE_FORMAT(BGR666, video, raw, 4, UNKNOWN),
 	MAKE_FORMAT(BGR24, video, raw, 4, BGR),
@@ -913,13 +913,13 @@ static const struct format_info format_info[] = {
 	MAKE_FORMAT(UV8, video, raw, 2, UNKNOWN),
 
 	/* Luminance+Chrominance formats */
-	MAKE_FORMAT(YVU410, video, raw, 1, YVU9),
-	MAKE_FORMAT(YVU420, video, raw, 1, YV12),
+	MAKE_FORMAT(YVU410, video, raw, 1, YVU9, "Planar YVU 4:1:0"),
+	MAKE_FORMAT(YVU420, video, raw, 1, YV12, "Planar YVU 4:2:0"),
 	MAKE_FORMAT(YVU420M, video, raw, 1, UNKNOWN),
-	MAKE_FORMAT(YUYV, video, raw, 2, YUY2),
+	MAKE_FORMAT(YUYV, video, raw, 2, YUY2, "YUYV 4:2:2"),
 	MAKE_FORMAT(YYUV, video, raw, 2, UNKNOWN),
-	MAKE_FORMAT(YVYU, video, raw, 2, YVYU),
-	MAKE_FORMAT(UYVY, video, raw, 2, UYVY),
+	MAKE_FORMAT(YVYU, video, raw, 2, YVYU, "YVYU 4:2:2"),
+	MAKE_FORMAT(UYVY, video, raw, 2, UYVY, "UYVY 4:2:2"),
 	MAKE_FORMAT(VYUY, video, raw, 2, UNKNOWN),
 	MAKE_FORMAT(YUV422P, video, raw, 1, Y42B),
 	MAKE_FORMAT(YUV411P, video, raw, 1, Y41B),
@@ -929,24 +929,24 @@ static const struct format_info format_info[] = {
 	MAKE_FORMAT(YUV565, video, raw, 1, UNKNOWN),
 	MAKE_FORMAT(YUV32, video, raw, 1, UNKNOWN),
 	MAKE_FORMAT(YUV410, video, raw, 1, YUV9),
-	MAKE_FORMAT(YUV420, video, raw, 1, I420),
-	MAKE_FORMAT(YUV420M, video, raw, 1, I420),
+	MAKE_FORMAT(YUV420, video, raw, 1, I420, "Planar YUV 4:2:0"),
+	MAKE_FORMAT(YUV420M, video, raw, 1, I420, "Planar YUV 4:2:0 (N-C)"),
 	MAKE_FORMAT(HI240, video, raw, 1, UNKNOWN),
 	MAKE_FORMAT(HM12, video, raw, 1, UNKNOWN),
 	MAKE_FORMAT(M420, video, raw, 1, UNKNOWN),
 
 	/* two planes -- one Y, one Cr + Cb interleaved  */
-	MAKE_FORMAT(NV12, video, raw, 1, NV12),
-	MAKE_FORMAT(NV12M, video, raw, 1,  NV12),
-	MAKE_FORMAT(NV12MT, video, raw, 1,  NV12_64Z32),
+	MAKE_FORMAT(NV12, video, raw, 1, NV12, "Y/CbCr 4:2:0"),
+	MAKE_FORMAT(NV12M, video, raw, 1,  NV12, "Y/CbCr 4:2:0 (N-C)"),
+	MAKE_FORMAT(NV12MT, video, raw, 1,  NV12_64Z32, "Y/CbCr 4:2:0 (64x32 MB, N-C)"),
 	MAKE_FORMAT(NV12MT_16X16, video, raw, 1, UNKNOWN),
-	MAKE_FORMAT(NV21, video, raw, 1, NV21),
-	MAKE_FORMAT(NV21M, video, raw, 1, NV21),
-	MAKE_FORMAT(NV16, video, raw, 1, NV16),
-	MAKE_FORMAT(NV16M, video, raw, 1, NV16),
-	MAKE_FORMAT(NV61, video, raw, 1, NV61),
-	MAKE_FORMAT(NV61M, video, raw, 1, NV61),
-	MAKE_FORMAT(NV24, video, raw, 1, NV24),
+	MAKE_FORMAT(NV21, video, raw, 1, NV21, "Y/CrCb 4:2:0"),
+	MAKE_FORMAT(NV21M, video, raw, 1, NV21, "Y/CrCb 4:2:0 (N-C)"),
+	MAKE_FORMAT(NV16, video, raw, 1, NV16, "Y/CbCr 4:2:2"),
+	MAKE_FORMAT(NV16M, video, raw, 1, NV16, "Y/CbCr 4:2:2 (N-C)"),
+	MAKE_FORMAT(NV61, video, raw, 1, NV61, "Y/CrCb 4:2:2"),
+	MAKE_FORMAT(NV61M, video, raw, 1, NV61, "Y/CrCb 4:2:2 (N-C)"),
+	MAKE_FORMAT(NV24, video, raw, 1, NV24, "Y/CbCr 4:4:4"),
 	MAKE_FORMAT(NV42, video, raw, 1, UNKNOWN),
 
 	/* Bayer formats - see http://www.siliconimaging.com/RGB%20Bayer.htm */
@@ -956,14 +956,14 @@ static const struct format_info format_info[] = {
 	MAKE_FORMAT(SRGGB8, video, bayer, 1, UNKNOWN),
 
 	/* compressed formats */
-	MAKE_FORMAT(MJPEG, video, mjpg, 1, ENCODED),
-	MAKE_FORMAT(JPEG, video, mjpg, 1, ENCODED),
-	MAKE_FORMAT(PJPG, video, mjpg, 1, ENCODED),
+	MAKE_FORMAT(MJPEG, video, mjpg, 1, ENCODED, "Motion-JPEG"),
+	MAKE_FORMAT(JPEG, video, mjpg, 1, ENCODED, "JFIF JPEG"),
+	MAKE_FORMAT(PJPG, video, mjpg, 1, ENCODED, "GSPCA PJPG"),
 	MAKE_FORMAT(DV, video, dv, 1, ENCODED),
 	MAKE_FORMAT(MPEG, video, mpegts, 1, ENCODED),
-	MAKE_FORMAT(H264, video, h264, 1, ENCODED),
-	MAKE_FORMAT(H264_NO_SC, video, h264, 1, ENCODED),
-	MAKE_FORMAT(H264_MVC, video, h264, 1, ENCODED),
+	MAKE_FORMAT(H264, video, h264, 1, ENCODED, "H.264"),
+	MAKE_FORMAT(H264_NO_SC, video, h264, 1, ENCODED, "H.264 (No Start Codes)"),
+	MAKE_FORMAT(H264_MVC, video, h264, 1, ENCODED, "H.264 MVC"),
 	MAKE_FORMAT(H263, video, h263, 1, ENCODED),
 	MAKE_FORMAT(MPEG1, video, mpeg1, 1, ENCODED),
 	MAKE_FORMAT(MPEG2, video, mpeg2, 1, ENCODED),
@@ -1402,6 +1402,8 @@ static int vidioc_enum_fmt(struct file *file, struct v4l2_fmtdesc *arg)
 
 		arg->flags = fi->format == SPA_VIDEO_FORMAT_ENCODED ? V4L2_FMT_FLAG_COMPRESSED : 0;
 		arg->pixelformat = fi->fourcc;
+		snprintf((char*)arg->description, sizeof(arg->description), "%s",
+				fi->desc ? fi->desc : "Unknown");
 		last_fourcc = fi->fourcc;
 		if (count == arg->index) {
 			found = true;

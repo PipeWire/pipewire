@@ -321,10 +321,9 @@ static int port_enum_formats(void *object,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(3,
+			SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(2,
 							SPA_AUDIO_FORMAT_S16,
-							SPA_AUDIO_FORMAT_S16,
-							SPA_AUDIO_FORMAT_S32),
+							SPA_AUDIO_FORMAT_S16),
 			SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
 							DEFAULT_RATE, 1, INT32_MAX),
 			SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
@@ -470,6 +469,11 @@ static int port_set_format(void *object,
 			return -EINVAL;
 
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
+			return -EINVAL;
+
+		if (info.info.raw.format != SPA_AUDIO_FORMAT_S16 ||
+		    info.info.raw.channels == 0 ||
+		    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
 			return -EINVAL;
 
 		this->bpf = 2 * info.info.raw.channels;

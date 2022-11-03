@@ -439,7 +439,7 @@ static int spa_format_to_aaf(uint32_t format)
 	}
 }
 
-static int frame_size(uint32_t format)
+static int calc_frame_size(uint32_t format)
 {
 	switch(format) {
 	case SPA_AUDIO_FORMAT_F32_BE:
@@ -647,7 +647,7 @@ static int setup_packet(struct state *state, struct spa_audio_info *fmt)
 		SPA_AVBTP_PACKET_AAF_SET_FORMAT(pdu, spa_format_to_aaf(state->format));
 		SPA_AVBTP_PACKET_AAF_SET_NSR(pdu, spa_rate_to_aaf(state->rate));
 		SPA_AVBTP_PACKET_AAF_SET_CHAN_PER_FRAME(pdu, state->channels);
-		SPA_AVBTP_PACKET_AAF_SET_BIT_DEPTH(pdu, frame_size(state->format)*8);
+		SPA_AVBTP_PACKET_AAF_SET_BIT_DEPTH(pdu, calc_frame_size(state->format)*8);
 		SPA_AVBTP_PACKET_AAF_SET_DATA_LEN(pdu, payload_size);
 		SPA_AVBTP_PACKET_AAF_SET_SP(pdu, SPA_AVBTP_AAF_PCM_SP_NORMAL);
 	}
@@ -690,14 +690,22 @@ int spa_avb_clear_format(struct state *state)
 
 int spa_avb_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t flags)
 {
-	int res;
+	int res, frame_size;
 	struct props *p = &state->props;
+
+	frame_size = calc_frame_size(fmt->info.raw.format);
+	if (frame_size == 0)
+		return -EINVAL;
+
+	if (fmt->info.raw.rate == 0 ||
+	    fmt->info.raw.channels == 0)
+		return -EINVAL;
 
 	state->format = fmt->info.raw.format;
 	state->rate = fmt->info.raw.rate;
 	state->channels = fmt->info.raw.channels;
 	state->blocks = 1;
-	state->stride = state->channels * frame_size(state->format);
+	state->stride = state->channels * frame_size;
 
 	if ((res = setup_socket(state)) < 0)
 		return res;

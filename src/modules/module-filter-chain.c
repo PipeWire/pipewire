@@ -1011,14 +1011,15 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 		} else {
 			struct spa_audio_info_raw info;
 			spa_zero(info);
-			spa_format_audio_raw_parse(param, &info);
-			impl->rate = info.rate;
-			res = graph_instantiate(graph);
-			if (res < 0) {
-				pw_stream_set_error(impl->capture, res,
-						"can't start graph: %s",
-						spa_strerror(res));
+			if ((res = spa_format_audio_raw_parse(param, &info)) < 0)
+				goto error;
+			if (info.rate == 0) {
+				res = -EINVAL;
+				goto error;
 			}
+			impl->rate = info.rate;
+			if ((res = graph_instantiate(graph)) < 0)
+				goto error;
 		}
 		break;
 	case SPA_PARAM_Props:
@@ -1029,6 +1030,11 @@ static void param_changed(void *data, uint32_t id, const struct spa_pod *param)
 		param_latency_changed(impl, param);
 		break;
 	}
+	return;
+
+error:
+	pw_stream_set_error(impl->capture, res, "can't start graph: %s",
+			spa_strerror(res));
 }
 
 static const struct pw_stream_events in_stream_events = {

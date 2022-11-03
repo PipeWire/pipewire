@@ -303,11 +303,10 @@ static int port_set_format(void *object,
 	Uint32 sdl_format;
 	void *dest;
 
-	d->info.change_mask = SPA_PORT_CHANGE_MASK_PARAMS;
 	if (format == NULL) {
+		spa_zero(d->format);
 		SDL_DestroyTexture(d->texture);
-		d->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-		d->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+		d->texture = NULL;
 	} else {
 		spa_debug_format(0, NULL, format);
 
@@ -315,6 +314,9 @@ static int port_set_format(void *object,
 
 		sdl_format = id_to_sdl_format(d->format.format);
 		if (sdl_format == SDL_PIXELFORMAT_UNKNOWN)
+			return -EINVAL;
+		if (d->format.size.width == 0 ||
+		    d->format.size.height == 0)
 			return -EINVAL;
 
 		d->texture = SDL_CreateTexture(d->renderer,
@@ -325,9 +327,16 @@ static int port_set_format(void *object,
 		SDL_LockTexture(d->texture, NULL, &dest, &d->stride);
 		SDL_UnlockTexture(d->texture);
 
+	}
+	d->info.change_mask = SPA_PORT_CHANGE_MASK_PARAMS;
+	if (format) {
 		d->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
 		d->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	} else {
+		d->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+		d->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	}
+
 	spa_node_emit_port_info(&d->hooks, direction, port_id, &d->info);
 	d->info.change_mask = 0;
 

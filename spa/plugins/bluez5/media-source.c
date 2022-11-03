@@ -1101,6 +1101,11 @@ static int port_set_format(struct impl *this, struct port *port,
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
 
+		if (info.info.raw.rate == 0 ||
+		    info.info.raw.channels == 0 ||
+		    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
+			return -EINVAL;
+
 		port->frame_size = info.info.raw.channels;
 
 		switch (info.info.raw.format) {

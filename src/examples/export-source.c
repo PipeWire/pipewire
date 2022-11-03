@@ -275,26 +275,31 @@ static int port_set_format(void *object,
 {
 	struct data *d = object;
 
-	d->info.change_mask = SPA_PORT_CHANGE_MASK_PARAMS;
 	if (format == NULL) {
-		d->format.format = 0;
-		d->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
-		d->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
-		spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_OUTPUT, 0, &d->info);
-		return 0;
+		spa_zero(d->format);
+	} else {
+		spa_debug_format(0, NULL, format);
+
+		if (spa_format_audio_raw_parse(format, &d->format) < 0)
+			return -EINVAL;
+
+		if (d->format.format != SPA_AUDIO_FORMAT_S16 &&
+		    d->format.format != SPA_AUDIO_FORMAT_F32)
+			return -EINVAL;
+		if (d->format.rate == 0 ||
+		    d->format.channels == 0 ||
+		    d->format.channels > SPA_AUDIO_MAX_CHANNELS)
+			return -EINVAL;
 	}
 
-	spa_debug_format(0, NULL, format);
-
-	if (spa_format_audio_raw_parse(format, &d->format) < 0)
-		return -EINVAL;
-
-	if (d->format.format != SPA_AUDIO_FORMAT_S16 &&
-	    d->format.format != SPA_AUDIO_FORMAT_F32)
-		return -EINVAL;
-
-	d->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
-	d->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	d->info.change_mask = SPA_PORT_CHANGE_MASK_PARAMS;
+	if (format) {
+		d->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
+		d->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	} else {
+		d->params[3] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+		d->params[4] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	}
 	spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_OUTPUT, 0, &d->info);
 
 	return 0;

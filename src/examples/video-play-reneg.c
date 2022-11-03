@@ -233,6 +233,10 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 		pw_stream_set_error(stream, -EINVAL, "unknown pixel format");
 		return;
 	}
+	if (data->size.width == 0 || data->size.height == 0) {
+		pw_stream_set_error(stream, -EINVAL, "invalid size");
+		return;
+	}
 
 	data->texture = SDL_CreateTexture(data->renderer,
 					  sdl_format,

@@ -1072,7 +1072,10 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 				return -EINVAL;
 
-			if (info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
+			if (info.info.raw.format == 0 ||
+			    info.info.raw.rate == 0 ||
+			    info.info.raw.channels == 0 ||
+			    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
 				return -EINVAL;
 
 			infop = &info;
@@ -1951,9 +1954,13 @@ static int port_set_format(void *object,
 				spa_log_error(this->log, "can't parse format %s", spa_strerror(res));
 				return res;
 			}
-			if (info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS) {
-				spa_log_error(this->log, "too many channels %d > %d",
-						info.info.raw.channels, SPA_AUDIO_MAX_CHANNELS);
+			if (info.info.raw.format == 0 ||
+			    info.info.raw.rate == 0 ||
+			    info.info.raw.channels == 0 ||
+			    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS) {
+				spa_log_error(this->log, "invalid format:%d rate:%d channels:%d",
+						info.info.raw.format, info.info.raw.rate,
+						info.info.raw.channels);
 				return -EINVAL;
 			}
 			port->stride = calc_width(&info);

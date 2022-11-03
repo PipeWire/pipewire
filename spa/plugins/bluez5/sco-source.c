@@ -1073,6 +1073,11 @@ static int port_set_format(struct impl *this, struct port *port,
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
 
+		if (info.info.raw.format != SPA_AUDIO_FORMAT_S16_LE ||
+		    info.info.raw.rate == 0 ||
+		    info.info.raw.channels != 1)
+			return -EINVAL;
+
 		port->frame_size = info.info.raw.channels * 2;
 		port->current_format = info;
 		port->have_format = true;

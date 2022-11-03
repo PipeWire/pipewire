@@ -207,28 +207,39 @@ static int port_set_format(void *object, enum spa_direction direction, uint32_t 
 	Uint32 sdl_format;
 	void *dest;
 
-	if (format == NULL)
-		return 0;
+	if (format == NULL) {
+		spa_zero(d->format);
+		SDL_DestroyTexture(d->texture);
+		d->texture = NULL;
+	} else {
+		spa_debug_format(0, NULL, format);
 
-	spa_debug_format(0, NULL, format);
+		spa_format_video_raw_parse(format, &d->format);
 
-	spa_format_video_raw_parse(format, &d->format);
+		sdl_format = id_to_sdl_format(d->format.format);
+		if (sdl_format == SDL_PIXELFORMAT_UNKNOWN)
+			return -EINVAL;
+		if (d->format.size.width == 0 ||
+		    d->format.size.height == 0)
+			return -EINVAL;
 
-	sdl_format = id_to_sdl_format(d->format.format);
-	if (sdl_format == SDL_PIXELFORMAT_UNKNOWN)
-		return -EINVAL;
-
-	d->texture = SDL_CreateTexture(d->renderer,
-				       sdl_format,
-				       SDL_TEXTUREACCESS_STREAMING,
-				       d->format.size.width,
-				       d->format.size.height);
-	SDL_LockTexture(d->texture, NULL, &dest, &d->stride);
-	SDL_UnlockTexture(d->texture);
+		d->texture = SDL_CreateTexture(d->renderer,
+					       sdl_format,
+					       SDL_TEXTUREACCESS_STREAMING,
+					       d->format.size.width,
+					       d->format.size.height);
+		SDL_LockTexture(d->texture, NULL, &dest, &d->stride);
+		SDL_UnlockTexture(d->texture);
+	}
 
 	d->info.change_mask = SPA_PORT_CHANGE_MASK_PARAMS;
-	d->params[1] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
-	d->params[2] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	if (format) {
+		d->params[1] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READWRITE);
+		d->params[2] = SPA_PARAM_INFO(SPA_PARAM_Buffers, SPA_PARAM_INFO_READ);
+	} else {
+		d->params[1] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+		d->params[2] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
+	}
 	spa_node_emit_port_info(&d->hooks, SPA_DIRECTION_INPUT, 0, &d->info);
 
 	return 0;

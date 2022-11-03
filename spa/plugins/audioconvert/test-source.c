@@ -535,8 +535,12 @@ static int calc_width(struct spa_audio_info *info)
 	case SPA_AUDIO_FORMAT_S24:
 	case SPA_AUDIO_FORMAT_S24_OE:
 		return 3;
-	default:
+	case SPA_AUDIO_FORMAT_S32P:
+	case SPA_AUDIO_FORMAT_S32:
+	case SPA_AUDIO_FORMAT_S32_OE:
 		return 4;
+	default:
+		return 0;
 	}
 }
 
@@ -571,6 +575,12 @@ static int port_set_format(void *object,
 			return res;
 
 		port->stride = calc_width(&info);
+		if (port->stride == 0)
+			return -EINVAL;
+		if (info.info.raw.rate == 0 ||
+		    info.info.raw.channels == 0)
+			return -EINVAL;
+
 		if (SPA_AUDIO_FORMAT_IS_PLANAR(info.info.raw.format)) {
 			port->blocks = info.info.raw.channels;
 		}

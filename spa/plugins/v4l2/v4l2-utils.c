@@ -925,7 +925,6 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 		return -EINVAL;
 	}
 
-
 	fmt.fmt.pix.pixelformat = info->fourcc;
 	fmt.fmt.pix.field = V4L2_FIELD_ANY;
 	fmt.fmt.pix.width = size->width;

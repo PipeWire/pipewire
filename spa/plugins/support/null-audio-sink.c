@@ -610,6 +610,11 @@ port_set_format(struct impl *this,
 		if (spa_format_audio_raw_parse(format, &info.info.raw) < 0)
 			return -EINVAL;
 
+		if (info.info.raw.rate == 0 ||
+		    info.info.raw.channels == 0 ||
+		    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
+			return -EINVAL;
+
 		if (info.info.raw.format == SPA_AUDIO_FORMAT_F32) {
 			port->bpf = 4 * info.info.raw.channels;
 			port->blocks = 1;

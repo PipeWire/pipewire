@@ -566,6 +566,10 @@ static int port_set_format(void *object,
 			if (memcmp(&info, &this->format, sizeof(struct spa_audio_info)))
 				return -EINVAL;
 		} else {
+			if (info.info.raw.format == 0 ||
+			    info.info.raw.channels == 0)
+				return -EINVAL;
+
 			this->ops.fmt = info.info.raw.format;
 			this->ops.n_channels = info.info.raw.channels;
 			this->ops.cpu_flags = this->cpu_flags;

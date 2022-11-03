@@ -643,6 +643,12 @@ static int port_set_format(struct impl *this, struct port *port,
 		else
 			return -EINVAL;
 
+		if (info.info.raw.size.width == 0 ||
+		    info.info.raw.size.height == 0 ||
+		    info.info.raw.framerate.num == 0 ||
+		    info.info.raw.framerate.denom == 0)
+			return -EINVAL;
+
 		port->current_format = info;
 		port->have_format = true;
 	}

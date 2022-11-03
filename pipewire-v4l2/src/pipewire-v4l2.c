@@ -779,9 +779,17 @@ static int v4l2_close(int fd)
 static int vidioc_querycap(struct file *file, struct v4l2_capability *arg)
 {
 	int res = 0;
+	const char *str = NULL;
+	struct pw_node_info *info = file->node ? file->node->info : NULL;
+
+	if (info != NULL && info->props != NULL) {
+		str = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION);
+	}
+	if (str == NULL)
+		str = DEFAULT_CARD;
 
 	spa_scnprintf((char*)arg->driver, sizeof(arg->driver), "%s", DEFAULT_DRIVER);
-	spa_scnprintf((char*)arg->card, sizeof(arg->card), "%s", DEFAULT_CARD);
+	spa_scnprintf((char*)arg->card, sizeof(arg->card), "%s", str);
 	spa_scnprintf((char*)arg->bus_info, sizeof(arg->bus_info), "%s:%d", DEFAULT_BUS_INFO, 1);
 
 	arg->version = KERNEL_VERSION(5, 2, 0);

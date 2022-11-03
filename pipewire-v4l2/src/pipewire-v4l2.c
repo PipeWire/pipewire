@@ -713,7 +713,7 @@ static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 		goto error_unlock;
 	}
 	if (file->node == NULL) {
-		errno = -ENOENT;
+		errno = ENOENT;
 		goto error_unlock;
 	}
 	pw_thread_loop_unlock(file->loop);
@@ -735,6 +735,9 @@ error_unlock:
 error:
 	if (file)
 		free_file(file);
+
+	pw_log_info("path:%s oflag:%d mode:%d -> %d (%s)", path, oflag, mode,
+			-1, strerror(errno));
 	return -1;
 }
 

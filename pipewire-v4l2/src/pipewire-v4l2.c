@@ -831,7 +831,12 @@ static int vidioc_querycap(struct file *file, struct v4l2_capability *arg)
 {
 	int res = 0;
 	const char *str = NULL;
-	struct pw_node_info *info = file->node ? file->node->info : NULL;
+	struct pw_node_info *info;
+
+	if (file->node == NULL)
+		return -EIO;
+
+	info = file->node->info;
 
 	if (info != NULL && info->props != NULL) {
 		str = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION);
@@ -841,7 +846,8 @@ static int vidioc_querycap(struct file *file, struct v4l2_capability *arg)
 
 	spa_scnprintf((char*)arg->driver, sizeof(arg->driver), "%s", DEFAULT_DRIVER);
 	spa_scnprintf((char*)arg->card, sizeof(arg->card), "%s", str);
-	spa_scnprintf((char*)arg->bus_info, sizeof(arg->bus_info), "%s:%d", DEFAULT_BUS_INFO, 1);
+	spa_scnprintf((char*)arg->bus_info, sizeof(arg->bus_info), "platform:%s-%d",
+			DEFAULT_BUS_INFO, file->node->id);
 
 	arg->version = KERNEL_VERSION(5, 2, 0);
 	arg->device_caps = V4L2_CAP_VIDEO_CAPTURE

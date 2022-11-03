@@ -764,10 +764,12 @@ static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 	}
 	pw_thread_loop_unlock(file->loop);
 
-	res = file->fd = spa_system_eventfd_create(file->l->system,
+	res = spa_system_eventfd_create(file->l->system,
 		SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	if (res < 0)
 		goto error;
+
+	file->fd = res;
 
 	pw_log_info("path:%s oflag:%d mode:%d -> %d (%s)", path, oflag, mode,
 			res, strerror(res < 0 ? errno : 0));
@@ -780,11 +782,13 @@ static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 error_unlock:
 	pw_thread_loop_unlock(file->loop);
 error:
+	res = -errno;
 	if (file)
 		free_file(file);
 
 	pw_log_info("path:%s oflag:%d mode:%d -> %d (%s)", path, oflag, mode,
-			-1, strerror(errno));
+			-1, spa_strerror(res));
+	errno = -res;
 	return -1;
 }
 

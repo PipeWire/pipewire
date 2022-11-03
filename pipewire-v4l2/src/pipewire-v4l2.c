@@ -57,6 +57,7 @@ PW_LOG_TOPIC_STATIC(v4l2_log_topic, "v4l2");
 #define DEFAULT_CARD		"PipeWire Camera"
 #define DEFAULT_BUS_INFO	"PipeWire"
 
+#define MAX_DEV		32
 struct file_map {
 	void *addr;
 	struct file *file;
@@ -73,6 +74,7 @@ struct globals {
 	pthread_mutex_t lock;
 	struct pw_array fd_maps;
 	struct pw_array file_maps;
+	uint32_t dev_map[MAX_DEV];
 };
 
 static struct globals globals;
@@ -92,6 +94,9 @@ struct buffer {
 
 struct file {
 	int ref;
+
+	uint32_t dev_id;
+	uint32_t serial;
 
 	struct pw_properties *props;
 	struct pw_thread_loop *loop;
@@ -298,6 +303,28 @@ static int add_fd_map(int fd, struct file *file)
 	}
 	pthread_mutex_unlock(&globals.lock);
 	return 0;
+}
+
+static uint32_t find_dev_for_serial(uint32_t serial)
+{
+	uint32_t i, res = SPA_ID_INVALID;
+	pthread_mutex_lock(&globals.lock);
+	for (i = 0; i < SPA_N_ELEMENTS(globals.dev_map); i++) {
+		if (globals.dev_map[i] == serial) {
+			res = i;
+			break;
+		}
+	}
+	pthread_mutex_unlock(&globals.lock);
+	return res;
+}
+
+static bool add_dev_for_serial(uint32_t dev, uint32_t serial)
+{
+	pthread_mutex_lock(&globals.lock);
+	globals.dev_map[dev] = serial;
+	pthread_mutex_unlock(&globals.lock);
+	return true;
 }
 
 /* must be called with `globals.lock` held */
@@ -584,20 +611,31 @@ static void registry_event_global(void *data, uint32_t id,
 	const struct global_info *info = NULL;
 	struct pw_proxy *proxy;
 	const char *str;
-
-	pw_log_debug("got %d %s", id, type);
+	uint32_t serial = SPA_ID_INVALID, dev;
 
 	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
+
 		if (file->node != NULL)
 			return;
 
-		if (props == NULL ||
-		    ((str = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS)) == NULL) ||
+		pw_log_info("got %d %s", id, type);
+
+		if (props == NULL)
+			return;
+		if (((str = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS)) == NULL) ||
 		    ((!spa_streq(str, "Video/Sink")) &&
 		     (!spa_streq(str, "Video/Source"))))
 			return;
 
-		pw_log_debug("found node %d type:%s", id, str);
+		if (((str = spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL)) == NULL) ||
+		    !spa_atou32(str, &serial, 10))
+			return;
+
+		dev = find_dev_for_serial(serial);
+		if (dev != SPA_ID_INVALID && dev != file->dev_id)
+			return;
+
+		pw_log_info("found node:%d serial:%d type:%s", id, serial, str);
 		info = &node_info;
 	}
 	if (info) {
@@ -629,6 +667,7 @@ static void registry_event_global(void *data, uint32_t id,
 		if (info->init)
 			info->init(g);
 
+		file->serial = serial;
 		file->node = g;
 
 		do_resync(file);
@@ -666,13 +705,20 @@ static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 {
 	int res;
 	struct file *file;
+	bool passthrough = true;
+	uint32_t dev_id = SPA_ID_INVALID;
 
-	if (!spa_strstartswith(path, "/dev/video0"))
+	if (spa_strstartswith(path, "/dev/video")) {
+		if (spa_atou32(path+10, &dev_id, 10) && dev_id < MAX_DEV)
+			passthrough = false;
+	}
+	if (passthrough)
 		return globals.old_fops.openat(dirfd, path, oflag, mode);
 
 	if ((file = make_file()) == NULL)
 		goto error;
 
+	file->dev_id = dev_id;
 	file->props = pw_properties_new(
 			PW_KEY_CLIENT_API, "v4l2",
 			NULL);
@@ -727,6 +773,7 @@ static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 			res, strerror(res < 0 ? errno : 0));
 
 	add_fd_map(res, file);
+	add_dev_for_serial(file->dev_id, file->serial);
 
 	return res;
 

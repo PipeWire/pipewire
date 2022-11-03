@@ -44,10 +44,10 @@ spa_format_video_raw_parse(const struct spa_pod *format,
 {
 	return spa_pod_parse_object(format,
 		SPA_TYPE_OBJECT_Format, NULL,
-		SPA_FORMAT_VIDEO_format,		SPA_POD_Id(&info->format),
+		SPA_FORMAT_VIDEO_format,		SPA_POD_OPT_Id(&info->format),
 		SPA_FORMAT_VIDEO_modifier,		SPA_POD_OPT_Long(&info->modifier),
-		SPA_FORMAT_VIDEO_size,			SPA_POD_Rectangle(&info->size),
-		SPA_FORMAT_VIDEO_framerate,		SPA_POD_Fraction(&info->framerate),
+		SPA_FORMAT_VIDEO_size,			SPA_POD_OPT_Rectangle(&info->size),
+		SPA_FORMAT_VIDEO_framerate,		SPA_POD_OPT_Fraction(&info->framerate),
 		SPA_FORMAT_VIDEO_maxFramerate,		SPA_POD_OPT_Fraction(&info->max_framerate),
 		SPA_FORMAT_VIDEO_views,			SPA_POD_OPT_Int(&info->views),
 		SPA_FORMAT_VIDEO_interlaceMode,		SPA_POD_OPT_Id(&info->interlace_mode),
@@ -67,7 +67,7 @@ spa_format_video_dsp_parse(const struct spa_pod *format,
 {
 	return spa_pod_parse_object(format,
 		SPA_TYPE_OBJECT_Format, NULL,
-		SPA_FORMAT_VIDEO_format,		SPA_POD_Id(&info->format),
+		SPA_FORMAT_VIDEO_format,		SPA_POD_OPT_Id(&info->format),
 		SPA_FORMAT_VIDEO_modifier,		SPA_POD_OPT_Long(&info->modifier));
 }
 

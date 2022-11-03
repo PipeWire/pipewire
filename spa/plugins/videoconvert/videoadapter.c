@@ -562,24 +562,6 @@ static int reconfigure_mode(struct impl *this, bool passthrough,
 	return 0;
 }
 
-static int format_video_raw_parse_opt(const struct spa_pod *format, struct spa_video_info_raw *info)
-{
-	uint32_t media_type, media_subtype;
-	int res;
-	if ((res = spa_format_parse(format, &media_type, &media_subtype)) < 0)
-		return res;
-	if (media_type != SPA_MEDIA_TYPE_video ||
-	    media_subtype != SPA_MEDIA_SUBTYPE_raw)
-		return -ENOTSUP;
-
-	spa_zero(*info);
-	res = spa_pod_parse_object(format,
-			SPA_TYPE_OBJECT_Format, NULL,
-			SPA_FORMAT_VIDEO_format, SPA_POD_OPT_Id(&info->format),
-			SPA_FORMAT_VIDEO_size, SPA_POD_OPT_Int(&info->size));
-	return res;
-}
-
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
@@ -628,7 +610,15 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 		if (format) {
 			struct spa_video_info info;
-			if (format_video_raw_parse_opt(format, &info.info.raw) >= 0)
+
+			spa_zero(info);
+			if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
+				return res;
+			if (info.media_type != SPA_MEDIA_TYPE_video ||
+			    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+				return -ENOTSUP;
+
+			if (spa_format_video_raw_parse(format, &info.info.raw) >= 0)
 				this->default_format = info;
 		}
 

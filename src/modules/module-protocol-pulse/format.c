@@ -417,25 +417,6 @@ static enum encoding format_encoding_from_id(uint32_t id)
 	return ENCODING_ANY;
 }
 
-static inline int
-audio_raw_parse_opt(const struct spa_pod *format, struct spa_audio_info_raw *info)
-{
-	struct spa_pod *position = NULL;
-	int res;
-	info->flags = 0;
-	res = spa_pod_parse_object(format,
-			SPA_TYPE_OBJECT_Format, NULL,
-			SPA_FORMAT_AUDIO_format,        SPA_POD_OPT_Id(&info->format),
-			SPA_FORMAT_AUDIO_rate,          SPA_POD_OPT_Int(&info->rate),
-			SPA_FORMAT_AUDIO_channels,      SPA_POD_OPT_Int(&info->channels),
-			SPA_FORMAT_AUDIO_position,      SPA_POD_OPT_Pod(&position));
-	if (position == NULL ||
-	    !spa_pod_copy_array(position, SPA_TYPE_Id, info->position, SPA_AUDIO_MAX_CHANNELS))
-		SPA_FLAG_SET(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
-
-	return res;
-}
-
 int format_parse_param(const struct spa_pod *param, bool collect,
 		struct sample_spec *ss, struct channel_map *map,
 		const struct sample_spec *def_ss, const struct channel_map *def_map)
@@ -451,14 +432,17 @@ int format_parse_param(const struct spa_pod *param, bool collect,
 
 	switch (info.media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
+		if (spa_format_audio_raw_parse(param, &info.info.raw) < 0)
+	                return -ENOTSUP;
 		if (def_ss != NULL) {
 			if (ss != NULL)
 				*ss = *def_ss;
-			if (audio_raw_parse_opt(param, &info.info.raw) < 0)
-		                return -ENOTSUP;
 		} else {
-			if (spa_format_audio_raw_parse(param, &info.info.raw) < 0)
-		                return -ENOTSUP;
+			if (info.info.raw.format == 0 ||
+			    info.info.raw.rate == 0 ||
+			    info.info.raw.channels == 0 ||
+			    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
+				return -ENOTSUP;
 		}
 		break;
 	case SPA_MEDIA_SUBTYPE_iec958:

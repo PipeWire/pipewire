@@ -556,30 +556,6 @@ static int reconfigure_mode(struct impl *this, bool passthrough,
 	return 0;
 }
 
-static int format_audio_raw_parse_opt(const struct spa_pod *format, struct spa_audio_info_raw *info)
-{
-	struct spa_pod *position = NULL;
-	uint32_t media_type, media_subtype;
-	int res;
-	if ((res = spa_format_parse(format, &media_type, &media_subtype)) < 0)
-		return res;
-	if (media_type != SPA_MEDIA_TYPE_audio ||
-	    media_subtype != SPA_MEDIA_SUBTYPE_raw)
-		return -ENOTSUP;
-
-	spa_zero(*info);
-	res = spa_pod_parse_object(format,
-			SPA_TYPE_OBJECT_Format, NULL,
-			SPA_FORMAT_AUDIO_format, SPA_POD_OPT_Id(&info->format),
-			SPA_FORMAT_AUDIO_channels, SPA_POD_OPT_Int(&info->channels),
-			SPA_FORMAT_AUDIO_position, SPA_POD_OPT_Pod(&position));
-	if (position == NULL ||
-	    !spa_pod_copy_array(position, SPA_TYPE_Id, info->position, SPA_AUDIO_MAX_CHANNELS))
-		SPA_FLAG_SET(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
-
-	return res;
-}
-
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
@@ -631,8 +607,18 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 		if (format) {
 			struct spa_audio_info info;
-			if (format_audio_raw_parse_opt(format, &info.info.raw) >= 0)
+
+			spa_zero(info);
+			if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
+				return res;
+			if (info.media_type != SPA_MEDIA_TYPE_audio ||
+			    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
+				return -ENOTSUP;
+
+			if (spa_format_audio_raw_parse(format, &info.info.raw) >= 0) {
+				info.info.raw.rate = 0;
 				this->default_format = info;
+			}
 		}
 
 		switch (mode) {

@@ -47,9 +47,9 @@ spa_format_audio_raw_parse(const struct spa_pod *format, struct spa_audio_info_r
 	info->flags = 0;
 	res = spa_pod_parse_object(format,
 			SPA_TYPE_OBJECT_Format, NULL,
-			SPA_FORMAT_AUDIO_format,	SPA_POD_Id(&info->format),
-			SPA_FORMAT_AUDIO_rate,		SPA_POD_Int(&info->rate),
-			SPA_FORMAT_AUDIO_channels,	SPA_POD_Int(&info->channels),
+			SPA_FORMAT_AUDIO_format,	SPA_POD_OPT_Id(&info->format),
+			SPA_FORMAT_AUDIO_rate,		SPA_POD_OPT_Int(&info->rate),
+			SPA_FORMAT_AUDIO_channels,	SPA_POD_OPT_Int(&info->channels),
 			SPA_FORMAT_AUDIO_position,	SPA_POD_OPT_Pod(&position));
 	if (position == NULL ||
 	    !spa_pod_copy_array(position, SPA_TYPE_Id, info->position, SPA_AUDIO_MAX_CHANNELS))
@@ -64,7 +64,7 @@ spa_format_audio_dsp_parse(const struct spa_pod *format, struct spa_audio_info_d
 	int res;
 	res = spa_pod_parse_object(format,
 			SPA_TYPE_OBJECT_Format, NULL,
-			SPA_FORMAT_AUDIO_format,	SPA_POD_Id(&info->format));
+			SPA_FORMAT_AUDIO_format,	SPA_POD_OPT_Id(&info->format));
 	return res;
 }
 
@@ -74,8 +74,8 @@ spa_format_audio_iec958_parse(const struct spa_pod *format, struct spa_audio_inf
 	int res;
 	res = spa_pod_parse_object(format,
 			SPA_TYPE_OBJECT_Format, NULL,
-			SPA_FORMAT_AUDIO_iec958Codec,	SPA_POD_Id(&info->codec),
-			SPA_FORMAT_AUDIO_rate,		SPA_POD_Int(&info->rate));
+			SPA_FORMAT_AUDIO_iec958Codec,	SPA_POD_OPT_Id(&info->codec),
+			SPA_FORMAT_AUDIO_rate,		SPA_POD_OPT_Int(&info->rate));
 	return res;
 }
 
@@ -87,10 +87,10 @@ spa_format_audio_dsd_parse(const struct spa_pod *format, struct spa_audio_info_d
 	info->flags = 0;
 	res = spa_pod_parse_object(format,
 			SPA_TYPE_OBJECT_Format, NULL,
-			SPA_FORMAT_AUDIO_bitorder,	SPA_POD_Id(&info->bitorder),
-			SPA_FORMAT_AUDIO_interleave,	SPA_POD_Int(&info->interleave),
-			SPA_FORMAT_AUDIO_rate,		SPA_POD_Int(&info->rate),
-			SPA_FORMAT_AUDIO_channels,	SPA_POD_Int(&info->channels),
+			SPA_FORMAT_AUDIO_bitorder,	SPA_POD_OPT_Id(&info->bitorder),
+			SPA_FORMAT_AUDIO_interleave,	SPA_POD_OPT_Int(&info->interleave),
+			SPA_FORMAT_AUDIO_rate,		SPA_POD_OPT_Int(&info->rate),
+			SPA_FORMAT_AUDIO_channels,	SPA_POD_OPT_Int(&info->channels),
 			SPA_FORMAT_AUDIO_position,	SPA_POD_OPT_Pod(&position));
 	if (position == NULL ||
 	    !spa_pod_copy_array(position, SPA_TYPE_Id, info->position, SPA_AUDIO_MAX_CHANNELS))

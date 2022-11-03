@@ -1086,6 +1086,10 @@ static int info_to_fmt(const struct spa_video_info *info, struct v4l2_format *fm
 	default:
 		return -EINVAL;
 	}
+	if (fmt->fmt.pix.width == 0 ||
+	    fmt->fmt.pix.height == 0)
+		return -EINVAL;
+
 	fmt->fmt.pix.bytesperline = SPA_ROUND_UP_N(fmt->fmt.pix.width, 4) * fi->bpp;
 	fmt->fmt.pix.sizeimage = fmt->fmt.pix.bytesperline *
 		SPA_ROUND_UP_N(fmt->fmt.pix.height, 2);
@@ -1371,12 +1375,12 @@ static int vidioc_g_fmt(struct file *file, struct v4l2_format *arg)
 
 static int score_diff(struct v4l2_format *fmt, struct v4l2_format *tmp)
 {
-	int score = 0;
+	int score = 0, w, h;
 	if (fmt->fmt.pix.pixelformat != tmp->fmt.pix.pixelformat)
 		score += 20000;
-	score += SPA_ABS((int)fmt->fmt.pix.width - (int)tmp->fmt.pix.width);
-	score += SPA_ABS((int)fmt->fmt.pix.height - (int)tmp->fmt.pix.height);
-	return score;
+	w = SPA_ABS((int)fmt->fmt.pix.width - (int)tmp->fmt.pix.width);
+	h = SPA_ABS((int)fmt->fmt.pix.height - (int)tmp->fmt.pix.height);
+	return score + (w*w) + (h*h);
 }
 
 static int try_format(struct file *file, struct v4l2_format *fmt)
@@ -1540,25 +1544,27 @@ static int vidioc_try_fmt(struct file *file, struct v4l2_format *arg)
 
 static int vidioc_enuminput(struct file *file, struct v4l2_input *arg)
 {
-	if (arg->index != 0)
-		return -EINVAL;
-
 	spa_zero(*arg);
-	spa_scnprintf((char*)arg->name, sizeof(arg->name), "%s", DEFAULT_CARD);
-        arg->type = V4L2_INPUT_TYPE_CAMERA;
-
-        return 0;
+	switch (arg->index) {
+	case 0:
+		spa_scnprintf((char*)arg->name, sizeof(arg->name), "%s", DEFAULT_CARD);
+	        arg->type = V4L2_INPUT_TYPE_CAMERA;
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
 }
 static int vidioc_g_input(struct file *file, int *arg)
 {
 	*arg = 0;
-        return 0;
+	return 0;
 }
 static int vidioc_s_input(struct file *file, int *arg)
 {
 	if (*arg != 0)
 		return -EINVAL;
-        return 0;
+	return 0;
 }
 
 static int vidioc_reqbufs(struct file *file, struct v4l2_requestbuffers *arg)

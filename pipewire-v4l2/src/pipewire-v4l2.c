@@ -949,7 +949,7 @@ static int format_to_info(const struct v4l2_format *arg, struct spa_video_info *
 	pw_log_info("type: %u", arg->type);
 	pw_log_info("width: %u", arg->fmt.pix.width);
 	pw_log_info("height: %u", arg->fmt.pix.height);
-	pw_log_info("fmt: %u", arg->fmt.pix.pixelformat);
+	pw_log_info("fmt: %.4s", (char*)&arg->fmt.pix.pixelformat);
 
 	if (arg->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
@@ -1260,7 +1260,7 @@ static int vidioc_enum_framesizes(struct file *file, struct v4l2_frmsizeenum *ar
 		arg->discrete.width = size.width;
 		arg->discrete.height = size.height;
 
-		pw_log_debug("count:%d %d %dx%d", count, fi->fourcc,
+		pw_log_debug("count:%d %.4s %dx%d", count, (char*)&fi->fourcc,
 				size.width, size.height);
 		if (count == arg->index) {
 			found = true;
@@ -1336,7 +1336,8 @@ static int vidioc_enum_fmt(struct file *file, struct v4l2_fmtdesc *arg)
 
 		if (fi->fourcc == last_fourcc)
 			continue;
-		pw_log_info("count:%d %d %d", count, fi->fourcc, last_fourcc);
+		pw_log_info("count:%d fourcc:%.4s last:%.4s", count,
+				(char*)&fi->fourcc, (char*)&last_fourcc);
 
 		arg->flags = fi->format == SPA_VIDEO_FORMAT_ENCODED ? V4L2_FMT_FLAG_COMPRESSED : 0;
 		arg->pixelformat = fi->fourcc;
@@ -1352,7 +1353,7 @@ static int vidioc_enum_fmt(struct file *file, struct v4l2_fmtdesc *arg)
 	if (!found)
 		return -EINVAL;
 
-	pw_log_info("format: %u", arg->pixelformat);
+	pw_log_info("format: %.4s", (char*)&arg->pixelformat);
 	pw_log_info("flags: %u", arg->type);
 	memset(arg->reserved, 0, sizeof(arg->reserved));
 

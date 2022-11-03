@@ -400,8 +400,7 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 		}
 
 		if (filled + len > BUFFER_SIZE) {
-			pw_log_trace("got rtp, overrun");
-			pw_log_warn("capture overrun %u %zd", filled, len);
+			pw_log_debug("got rtp, capture overrun %u %zd", filled, len);
 			sess->have_sync = false;
 		} else {
 			pw_log_trace("got rtp, buffering");

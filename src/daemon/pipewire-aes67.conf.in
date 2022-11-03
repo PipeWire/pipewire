@@ -1,0 +1,52 @@
+# AES67 config file for PipeWire version @VERSION@ #
+#
+# Copy and edit this file in @PIPEWIRE_CONFIG_DIR@ for system-wide changes
+# or in ~/.config/pipewire for local changes.
+#
+# It is also possible to place a file with an updated section in
+# @PIPEWIRE_CONFIG_DIR@/pipewire-aes67.conf.d/ for system-wide changes or in
+# ~/.config/pipewire/pipewire-aes67.conf.d/ for local changes.
+#
+
+context.properties = {
+    ## Configure properties in the system.
+    #mem.warn-mlock  = false
+    #mem.allow-mlock = true
+    #mem.mlock-all   = false
+    #log.level       = 2
+
+    #default.clock.quantum-limit = 8192
+}
+
+#context.spa-libs = {
+#    audio.convert.* = audioconvert/libspa-audioconvert
+#    support.*       = support/libspa-support
+#}
+
+context.modules = [
+    { name = libpipewire-module-rt
+        args = {
+            nice.level   = -11
+            #rt.prio      = 88
+            #rt.time.soft = -1
+            #rt.time.hard = -1
+        }
+        flags = [ ifexists nofail ]
+    }
+    { name = libpipewire-module-protocol-native }
+    { name = libpipewire-module-client-node }
+    { name = libpipewire-module-adapter }
+    { name = libpipewire-module-rtp-source
+        args = {
+            sap.ip = 239.255.255.255
+            sap.port = 9875
+            sess.latency.msec = 10
+            local.ifname = eth0
+            stream.props = {
+               media.class = "Audio/Source"
+               node.virtual = false
+               device.api = aes67
+            }
+        }
+    }
+]

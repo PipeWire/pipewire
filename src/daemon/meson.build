@@ -72,6 +72,7 @@ conf_files = [
  'minimal.conf',
  'pipewire-pulse.conf',
  'pipewire-avb.conf',
+ 'pipewire-aes67.conf',
 ]
 
 foreach c : conf_files
@@ -102,6 +103,14 @@ executable('pipewire-pulse',
 )
 
 executable('pipewire-avb',
+  pipewire_daemon_sources,
+  install: true,
+  c_args : pipewire_c_args,
+  include_directories : [ configinc ],
+  dependencies : [ spa_dep, pipewire_dep, ],
+)
+
+executable('pipewire-aes67',
   pipewire_daemon_sources,
   install: true,
   c_args : pipewire_c_args,

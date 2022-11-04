@@ -1466,11 +1466,40 @@ static int vidioc_enum_fmt(struct file *file, struct v4l2_fmtdesc *arg)
 
 static int vidioc_g_fmt(struct file *file, struct v4l2_format *arg)
 {
+	struct param *p;
+	struct global *g = file->node;
+	int res;
+
 	if (arg->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
 
-	*arg = file->v4l2_format;
-	return 0;
+	pw_thread_loop_lock(file->loop);
+	if (file->v4l2_format.fmt.pix.pixelformat != 0) {
+		*arg = file->v4l2_format;
+	} else {
+		struct v4l2_format tmp;
+		bool found = false;
+
+		spa_list_for_each(p, &g->param_list, link) {
+			if (p->id != SPA_PARAM_EnumFormat || p->param == NULL)
+				continue;
+
+			if (param_to_fmt(p->param, &tmp) < 0)
+				continue;
+
+			found = true;
+			break;
+		}
+		if (!found) {
+			res = -EINVAL;
+			goto exit_unlock;
+		}
+		*arg = file->v4l2_format = tmp;
+	}
+	res = 0;
+exit_unlock:
+	pw_thread_loop_unlock(file->loop);
+	return res;
 }
 
 static int score_diff(struct v4l2_format *fmt, struct v4l2_format *tmp)

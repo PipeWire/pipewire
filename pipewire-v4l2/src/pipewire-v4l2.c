@@ -1168,15 +1168,18 @@ static int info_to_fmt(const struct spa_video_info *info, struct v4l2_format *fm
 	case SPA_MEDIA_SUBTYPE_raw:
 		fmt->fmt.pix.width = info->info.raw.size.width;
 		fmt->fmt.pix.height = info->info.raw.size.height;
+		fmt->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
 		break;
 	case SPA_MEDIA_SUBTYPE_mjpg:
 	case SPA_MEDIA_SUBTYPE_jpeg:
 		fmt->fmt.pix.width = info->info.mjpg.size.width;
 		fmt->fmt.pix.height = info->info.mjpg.size.height;
+		fmt->fmt.pix.colorspace = V4L2_COLORSPACE_JPEG;
 		break;
 	case SPA_MEDIA_SUBTYPE_h264:
 		fmt->fmt.pix.width = info->info.h264.size.width;
 		fmt->fmt.pix.height = info->info.h264.size.height;
+		fmt->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
 		break;
 	default:
 		return -EINVAL;

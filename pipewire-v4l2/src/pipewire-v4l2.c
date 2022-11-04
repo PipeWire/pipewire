@@ -1743,6 +1743,8 @@ static int vidioc_reqbufs(struct file *file, struct v4l2_requestbuffers *arg)
 	pw_log_info("result count: %u", arg->count);
 
 exit_unlock:
+	if (res < 0)
+		pw_log_info("error : %s", spa_strerror(res));
 	pw_thread_loop_unlock(file->loop);
 	return res;
 }

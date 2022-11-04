@@ -255,6 +255,12 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	struct port input = { innode, SPA_DIRECTION_INPUT, in_port_id };
 	int res;
 
+	if (flags & PW_BUFFERS_FLAG_IN_PRIORITY) {
+		struct port tmp = output;
+		output = input;
+		input = tmp;
+	}
+
 	res = param_filter(result, &input, &output, SPA_PARAM_Buffers, &b);
 	if (res < 0) {
 		pw_context_debug_port_params(context, input.node, input.direction,

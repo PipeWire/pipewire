@@ -1742,7 +1742,9 @@ static int vidioc_reqbufs(struct file *file, int fd, struct v4l2_requestbuffers 
 	pw_log_info("count: %u", arg->count);
 	pw_log_info("type: %u", arg->type);
 	pw_log_info("memory: %u", arg->memory);
+#ifdef V4L2_MEMORY_FLAG_NON_COHERENT
 	pw_log_info("flags: %08x", arg->flags);
+#endif
 
 	if (arg->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;

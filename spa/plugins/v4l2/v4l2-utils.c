@@ -891,8 +891,9 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	bool match;
 
 	spa_zero(fmt);
-	spa_zero(streamparm);
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+	spa_zero(streamparm);
 	streamparm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
 	switch (format->media_subtype) {
@@ -1506,11 +1507,10 @@ mmap_init(struct impl *this,
 	}
 
 	spa_log_debug(this->log, "got %d buffers", reqbuf.count);
-	n_buffers = reqbuf.count;
 
-	if (n_buffers < 2) {
-		spa_log_error(this->log, "'%s' can't allocate enough buffers (%d)",
-				this->props.device, n_buffers);
+	if (reqbuf.count < n_buffers) {
+		spa_log_error(this->log, "'%s' can't allocate enough buffers (%d < %d)",
+				this->props.device, reqbuf.count, n_buffers);
 		return -ENOMEM;
 	}
 

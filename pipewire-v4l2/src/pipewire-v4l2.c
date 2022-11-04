@@ -259,6 +259,8 @@ static struct file *make_file(void)
 
 static void free_file(struct file *file)
 {
+	pw_log_info("fd:%d", file->fd);
+
 	if (file->loop)
 		pw_thread_loop_stop(file->loop);
 
@@ -287,6 +289,7 @@ static void free_file(struct file *file)
 
 static void unref_file(struct file *file)
 {
+	pw_log_debug("fd:%d ref:%d", file->fd, file->ref);
 	if (ATOMIC_DEC(file->ref) <= 0)
 		free_file(file);
 }
@@ -300,6 +303,7 @@ static int add_fd_map(int fd, struct file *file)
 		map->fd = fd;
 		map->file = file;
 		ATOMIC_INC(file->ref);
+		pw_log_debug("fd:%d (%d) ref:%d", fd, file->fd, file->ref);
 	}
 	pthread_mutex_unlock(&globals.lock);
 	return 0;
@@ -331,14 +335,13 @@ static bool add_dev_for_serial(uint32_t dev, uint32_t serial)
 static struct fd_map *find_fd_map_unlocked(int fd)
 {
 	struct fd_map *map;
-
 	pw_array_for_each(map, &globals.fd_maps) {
 		if (map->fd == fd) {
 			ATOMIC_INC(map->file->ref);
+			pw_log_debug("fd:%d find:%d ref:%d", map->fd, fd, map->file->ref);
 			return map;
 		}
 	}
-
 	return NULL;
 }
 
@@ -357,6 +360,30 @@ static struct file *find_file(int fd)
 	return file;
 }
 
+static struct file *find_file_by_dev(uint32_t dev)
+{
+	struct fd_map *map = NULL, *tmp;
+	struct file *file = NULL;
+
+	pthread_mutex_lock(&globals.lock);
+	pw_array_for_each(tmp, &globals.fd_maps) {
+		if (tmp->file->dev_id == dev) {
+			if (tmp->file->fd == -1)
+				tmp->file->fd = tmp->fd;
+			ATOMIC_INC(tmp->file->ref);
+			map = tmp;
+			pw_log_debug("dev:%d find:%d ref:%d",
+					tmp->file->dev_id, dev, tmp->file->ref);
+			break;
+		}
+	}
+	if (map != NULL)
+		file = map->file;
+	pthread_mutex_unlock(&globals.lock);
+
+	return file;
+}
+
 static struct file *remove_fd_map(int fd)
 {
 	pthread_mutex_lock(&globals.lock);
@@ -366,6 +393,7 @@ static struct file *remove_fd_map(int fd)
 
 	if (map != NULL) {
 		file = map->file;
+		pw_log_debug("fd:%d find:%d", map->fd, fd);
 		pw_array_remove(&globals.fd_maps, map);
 	}
 
@@ -701,6 +729,24 @@ static const struct pw_registry_events registry_events = {
 	.global_remove = registry_event_global_remove,
 };
 
+static int v4l2_dup(int oldfd)
+{
+	int res;
+	struct file *file;
+
+	res = globals.old_fops.dup(oldfd);
+	if (res < 0)
+		return res;
+
+	if ((file = find_file(oldfd)) != NULL) {
+		add_fd_map(res, file);
+		unref_file(file);
+		pw_log_info("fd:%d -> %d (%s)", oldfd,
+				res, strerror(res < 0 ? errno : 0));
+	}
+	return res;
+}
+
 static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 {
 	int res;
@@ -714,6 +760,12 @@ static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 	}
 	if (passthrough)
 		return globals.old_fops.openat(dirfd, path, oflag, mode);
+
+	if ((file = find_file_by_dev(dev_id)) != NULL) {
+		res = v4l2_dup(file->fd);
+		unref_file(file);
+		return res;
+	}
 
 	if ((file = make_file()) == NULL)
 		goto error;
@@ -792,24 +844,6 @@ error:
 	return -1;
 }
 
-static int v4l2_dup(int oldfd)
-{
-	int res;
-	struct file *file;
-
-	res = globals.old_fops.dup(oldfd);
-	if (res < 0)
-		return res;
-
-	if ((file = find_file(oldfd)) != NULL) {
-		add_fd_map(res, file);
-		unref_file(file);
-		pw_log_info("fd:%d -> %d (%s)", oldfd,
-				res, strerror(res < 0 ? errno : 0));
-	}
-	return res;
-}
-
 static int v4l2_close(int fd)
 {
 	struct file *file;
@@ -817,8 +851,12 @@ static int v4l2_close(int fd)
 	if ((file = remove_fd_map(fd)) == NULL)
 		return globals.old_fops.close(fd);
 
+	pw_log_info("fd:%d (%d)", fd, file->fd);
+
 	if (fd != file->fd)
 		spa_system_close(file->l->system, fd);
+	else
+		file->fd = -1;
 
 	unref_file(file);
 

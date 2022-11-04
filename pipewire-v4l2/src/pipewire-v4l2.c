@@ -1520,6 +1520,9 @@ static int try_format(struct file *file, struct v4l2_format *fmt)
 	int best = -1;
 
 	pw_log_info("in: type: %u", fmt->type);
+	if (fmt->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		return -EINVAL;
+
 	pw_log_info("in: format: %.4s", (char*)&fmt->fmt.pix.pixelformat);
 	pw_log_info("in: width: %u", fmt->fmt.pix.width);
 	pw_log_info("in: height: %u", fmt->fmt.pix.height);

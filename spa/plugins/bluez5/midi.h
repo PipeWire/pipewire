@@ -42,12 +42,26 @@
 #define BT_MIDI_SERVICE_UUID		"03b80e5a-ede8-4b33-a751-6ce34ec4c700"
 #define BT_MIDI_CHR_UUID		"7772e5db-3868-4112-a1a9-f2669d106bf3"
 
-#define MIDI_BUF_SIZE	8192
+#define MIDI_BUF_SIZE		8192
+#define MIDI_MAX_MTU		8192
+
+#define MIDI_CLOCK_PERIOD_MSEC	0x2000
+#define MIDI_CLOCK_PERIOD_NSEC	(MIDI_CLOCK_PERIOD_MSEC * SPA_NSEC_PER_MSEC)
 
 struct spa_bt_midi_parser {
 	unsigned int size;
 	unsigned int sysex:1;
 	uint8_t buf[MIDI_BUF_SIZE];
+};
+
+struct spa_bt_midi_writer {
+	unsigned int size;
+	unsigned int mtu;
+	unsigned int pos;
+	uint8_t running_status;
+	uint64_t running_time_msec;
+	unsigned int flush:1;
+	uint8_t buf[MIDI_MAX_MTU];
 };
 
 static inline void spa_bt_midi_parser_init(struct spa_bt_midi_parser *parser)
@@ -72,5 +86,35 @@ int spa_bt_midi_parser_parse(struct spa_bt_midi_parser *parser,
 		bool only_time,
 		void (*event)(void *user_data, uint16_t time, uint8_t *event, size_t event_size),
 		void *user_data);
+
+static inline void spa_bt_midi_writer_init(struct spa_bt_midi_writer *writer, unsigned int mtu)
+{
+	writer->size = 0;
+	writer->mtu = SPA_MIN(mtu, (unsigned int)MIDI_MAX_MTU);
+	writer->pos = 0;
+	writer->running_status = 0;
+	writer->running_time_msec = 0;
+	writer->flush = 0;
+}
+
+/**
+ * Add a new event to midi writer buffer.
+ *
+ * spa_bt_midi_writer_init(&writer, mtu);
+ * for (time, event, size) in midi events {
+ *     do {
+ *         res = spa_bt_midi_writer_write(&writer, time, event, size);
+ *         if (res < 0) {
+ *             fail with error
+ *         } else if (res) {
+ *             send_packet(writer->buf, writer->size);
+ *         }
+ *     } while (res);
+ * }
+ * if (writer.size > 0)
+ *     send_packet(writer->buf, writer->size);
+ */
+int spa_bt_midi_writer_write(struct spa_bt_midi_writer *writer,
+		uint64_t time, const uint8_t *event, size_t event_size);
 
 #endif

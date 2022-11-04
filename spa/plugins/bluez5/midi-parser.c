@@ -203,3 +203,93 @@ malformed:
 	/* Error (potentially recoverable) */
 	return -EINVAL;
 }
+
+
+int spa_bt_midi_writer_write(struct spa_bt_midi_writer *writer,
+		uint64_t time, const uint8_t *event, size_t event_size)
+{
+	/* BLE MIDI-1.0: maximum payload size is MTU - 3 */
+	const unsigned int max_size = writer->mtu - 3;
+	const uint64_t time_msec = (time / SPA_NSEC_PER_MSEC);
+	const uint16_t timestamp = time_msec & 0x1fff;
+
+#define PUT(byte) do { if (writer->size >= max_size) return -ENOSPC; \
+		writer->buf[writer->size++] = (byte); } while (0)
+
+	if (writer->mtu < 5+3)
+		return -ENOSPC;  /* all events must fit */
+
+	spa_assert(max_size <= sizeof(writer->buf));
+	spa_assert(writer->size <= max_size);
+
+	if (event_size == 0)
+		return 0;
+
+	if (writer->flush) {
+		writer->flush = false;
+		writer->size = 0;
+	}
+
+	if (writer->size == max_size)
+		goto flush;
+
+	/* Packet header */
+	if (writer->size == 0) {
+		PUT(0x80 | (timestamp >> 7));
+		writer->running_status = 0;
+		writer->running_time_msec = time_msec;
+	}
+
+	/* Timestamp low bits can wrap around, but not multiple times */
+	if (time_msec > writer->running_time_msec + 0x7f)
+		goto flush;
+
+	spa_assert(writer->pos < event_size);
+
+	for (; writer->pos < event_size; ++writer->pos) {
+		const unsigned int unused = max_size - writer->size;
+		const uint8_t byte = event[writer->pos];
+
+		if (byte & 0x80) {
+			enum midi_event_class class;
+			unsigned int expected_size;
+
+			class = midi_event_info(event[0], &expected_size);
+
+			if (class == MIDI_BASIC && expected_size > 1 &&
+					writer->running_status == byte &&
+					writer->running_time_msec == time_msec) {
+				/* Running status: continue with data */
+				continue;
+			}
+
+			if (unused < expected_size + 1)
+				goto flush;
+
+			/* Timestamp before status */
+			PUT(0x80 | (timestamp & 0x7f));
+			writer->running_time_msec = time_msec;
+
+			if (class == MIDI_BASIC && expected_size > 1)
+				writer->running_status = byte;
+			else
+				writer->running_status = 0;
+		} else if (unused == 0) {
+			break;
+		}
+
+		PUT(byte);
+	}
+
+	if (writer->pos < event_size)
+		goto flush;
+
+	writer->pos = 0;
+	return 0;
+
+flush:
+	writer->flush = true;
+	return 1;
+
+#undef PUT
+}

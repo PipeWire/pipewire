@@ -1236,13 +1236,13 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 
 	file->v4l2_format = fmt;
 
-	buffers = SPA_CLAMP(file->reqbufs, 2u, MAX_BUFFERS);
-	size = 0;
+	buffers = SPA_CLAMP(file->reqbufs, 1u, MAX_BUFFERS);
+	size = fmt.fmt.pix.sizeimage;
 
 	params[n_params++] = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(buffers,
-							2, MAX_BUFFERS),
+							1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(size, 0, INT_MAX),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT_MAX),

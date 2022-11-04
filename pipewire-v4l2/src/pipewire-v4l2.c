@@ -119,9 +119,12 @@ struct file {
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 
+	enum v4l2_priority priority;
+
 	struct v4l2_format v4l2_format;
 	uint32_t reqbufs;
 
+	int reqbufs_fd;
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
 	uint32_t size;
@@ -252,6 +255,8 @@ static struct file *make_file(void)
 
 	file->ref = 1;
 	file->fd = -1;
+	file->reqbufs_fd = -1;
+	file->priority = V4L2_PRIORITY_DEFAULT;
 	spa_list_init(&file->globals);
 	pw_array_init(&file->buffer_maps, sizeof(struct buffer_map) * MAX_BUFFERS);
 	return file;
@@ -1191,6 +1196,7 @@ static int info_to_fmt(const struct spa_video_info *info, struct v4l2_format *fm
 	fmt->fmt.pix.bytesperline = SPA_ROUND_UP_N(fmt->fmt.pix.width, 4) * fi->bpp;
 	fmt->fmt.pix.sizeimage = fmt->fmt.pix.bytesperline *
 		SPA_ROUND_UP_N(fmt->fmt.pix.height, 2);
+
 	return 0;
 }
 
@@ -1701,13 +1707,33 @@ static int vidioc_s_input(struct file *file, int *arg)
 	return 0;
 }
 
-static int vidioc_reqbufs(struct file *file, struct v4l2_requestbuffers *arg)
+static int vidioc_g_priority(struct file *file, enum v4l2_priority *arg)
+{
+	*arg = file->priority;
+	pw_log_info("fd:%d prio:%d", file->fd, *arg);
+	return 0;
+}
+static int vidioc_s_priority(struct file *file, int fd, enum v4l2_priority *arg)
+{
+	if (*arg > V4L2_PRIORITY_RECORD)
+		return -EINVAL;
+
+	if (file->fd != fd && file->priority > *arg)
+		return -EINVAL;
+
+	pw_log_info("fd:%d (%d) prio:%d", fd, file->fd, *arg);
+        file->priority = *arg;
+	return 0;
+}
+
+static int vidioc_reqbufs(struct file *file, int fd, struct v4l2_requestbuffers *arg)
 {
 	int res;
 
 	pw_log_info("count: %u", arg->count);
 	pw_log_info("type: %u", arg->type);
 	pw_log_info("memory: %u", arg->memory);
+	pw_log_info("flags: %08x", arg->flags);
 
 	if (arg->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
@@ -1716,6 +1742,10 @@ static int vidioc_reqbufs(struct file *file, struct v4l2_requestbuffers *arg)
 
 	pw_thread_loop_lock(file->loop);
 
+	if (file->n_buffers > 0 && file->reqbufs_fd != fd) {
+		res = -EBUSY;
+		goto exit_unlock;
+	}
 	if (arg->count == 0) {
 		if (pw_array_get_len(&file->buffer_maps, struct buffer_map) != 0) {
 			res = -EBUSY;
@@ -1725,8 +1755,9 @@ static int vidioc_reqbufs(struct file *file, struct v4l2_requestbuffers *arg)
 			res = -EBUSY;
 			goto exit_unlock;
 		}
-		file->reqbufs = 0;
 		res = disconnect_stream(file);
+		file->reqbufs = 0;
+		file->reqbufs_fd = -1;
 	} else {
 		file->reqbufs = arg->count;
 
@@ -1734,7 +1765,11 @@ static int vidioc_reqbufs(struct file *file, struct v4l2_requestbuffers *arg)
 			goto exit_unlock;
 
 		arg->count = file->n_buffers;
+		file->reqbufs_fd = fd;
 	}
+#ifdef V4L2_MEMORY_FLAG_NON_COHERENT
+	arg->flags = 0;
+#endif
 #ifdef V4L2_BUF_CAP_SUPPORTS_MMAP
 	arg->capabilities = V4L2_BUF_CAP_SUPPORTS_MMAP;
 #endif
@@ -1945,8 +1980,14 @@ static int v4l2_ioctl(int fd, unsigned long int request, void *arg)
 	case VIDIOC_S_INPUT:
 		res = vidioc_s_input(file, (int *)arg);
 		break;
+	case VIDIOC_G_PRIORITY:
+		res = vidioc_g_priority(file, (enum v4l2_priority *)arg);
+		break;
+	case VIDIOC_S_PRIORITY:
+		res = vidioc_s_priority(file, fd, (enum v4l2_priority *)arg);
+		break;
 	case VIDIOC_REQBUFS:
-		res = vidioc_reqbufs(file, (struct v4l2_requestbuffers *)arg);
+		res = vidioc_reqbufs(file, fd, (struct v4l2_requestbuffers *)arg);
 		break;
 	case VIDIOC_QUERYBUF:
 		res = vidioc_querybuf(file, (struct v4l2_buffer *)arg);

@@ -1676,7 +1676,9 @@ static int vidioc_try_fmt(struct file *file, struct v4l2_format *arg)
 
 static int vidioc_enuminput(struct file *file, struct v4l2_input *arg)
 {
+	uint32_t index = arg->index;
 	spa_zero(*arg);
+	arg->index = index;
 	switch (arg->index) {
 	case 0:
 		spa_scnprintf((char*)arg->name, sizeof(arg->name), "%s", DEFAULT_CARD);

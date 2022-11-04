@@ -129,6 +129,8 @@ struct file {
 	uint32_t n_buffers;
 	uint32_t size;
 
+	uint32_t sequence;
+
 	struct pw_array buffer_maps;
 
 	uint32_t last_fourcc;
@@ -410,7 +412,7 @@ static struct file *remove_fd_map(int fd)
 	return file;
 }
 
-static int add_file_map(void *addr, struct file *file)
+static int add_file_map(struct file *file, void *addr)
 {
 	struct file_map *map;
 	pthread_mutex_lock(&globals.lock);
@@ -516,7 +518,7 @@ static void on_error(void *data, uint32_t id, int seq, int res, const char *mess
 {
 	struct file *file = data;
 
-	pw_log_warn("%p: error id:%u seq:%d res:%d (%s): %s", file,
+	pw_log_warn("file:%d: error id:%u seq:%d res:%d (%s): %s", file->fd,
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE) {
@@ -754,7 +756,7 @@ static int v4l2_dup(int oldfd)
 
 static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 {
-	int res;
+	int res, flags;
 	struct file *file;
 	bool passthrough = true;
 	uint32_t dev_id = SPA_ID_INVALID;
@@ -769,6 +771,8 @@ static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 	if ((file = find_file_by_dev(dev_id)) != NULL) {
 		res = v4l2_dup(file->fd);
 		unref_file(file);
+		if (res >= 0)
+			fcntl(res, F_SETFL, oflag);
 		return res;
 	}
 
@@ -821,8 +825,11 @@ static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 	}
 	pw_thread_loop_unlock(file->loop);
 
-	res = spa_system_eventfd_create(file->l->system,
-		SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	flags = SPA_FD_CLOEXEC;
+	if (oflag & O_NONBLOCK)
+		flags |= SPA_FD_NONBLOCK;
+
+	res = spa_system_eventfd_create(file->l->system, flags);
 	if (res < 0)
 		goto error;
 
@@ -899,7 +906,7 @@ static int vidioc_querycap(struct file *file, struct v4l2_capability *arg)
 	arg->capabilities = arg->device_caps | V4L2_CAP_DEVICE_CAPS;
 	memset(arg->reserved, 0, sizeof(arg->reserved));
 
-	pw_log_info("file:%p -> %d (%s)", file, res, spa_strerror(res));
+	pw_log_info("file:%d -> %d (%s)", file->fd, res, spa_strerror(res));
 	return res;
 }
 
@@ -1257,7 +1264,7 @@ static void on_stream_state_changed(void *data, enum pw_stream_state old,
 {
 	struct file *file = data;
 
-	pw_log_info("%p: state %s", file, pw_stream_state_as_string(state));
+	pw_log_info("file:%d: state %s", file->fd, pw_stream_state_as_string(state));
 
 	switch (state) {
 	case PW_STREAM_STATE_ERROR:
@@ -1282,7 +1289,8 @@ static void on_stream_add_buffer(void *data, struct pw_buffer *b)
 
 	file->size = d->maxsize;
 
-	pw_log_info("%p: id:%d fd:%"PRIi64" size:%u", file, id, d->fd, file->size);
+	pw_log_info("file:%d: id:%d fd:%"PRIi64" size:%u", file->fd,
+			id, d->fd, file->size);
 
 	spa_zero(vb);
 	vb.index = id;
@@ -1309,6 +1317,7 @@ static void on_stream_remove_buffer(void *data, struct pw_buffer *b)
 static void on_stream_process(void *data)
 {
 	struct file *file = data;
+	pw_log_debug("fd:%d", file->fd);
         spa_system_eventfd_write(file->l->system, file->fd, 1);
 }
 
@@ -1832,20 +1841,20 @@ static int vidioc_qbuf(struct file *file, struct v4l2_buffer *arg)
 	arg->flags = buf->v4l2.flags;
 
 	pw_stream_queue_buffer(file->stream, buf->buf);
-	pw_log_debug("file:%p %d -> %d (%s)", file, arg->index, res, spa_strerror(res));
-
 exit:
+	pw_log_debug("file:%d %d -> %d (%s)", file->fd, arg->index, res, spa_strerror(res));
 	pw_thread_loop_unlock(file->loop);
 
 	return res;
 }
-static int vidioc_dqbuf(struct file *file, struct v4l2_buffer *arg)
+static int vidioc_dqbuf(struct file *file, int fd, struct v4l2_buffer *arg)
 {
 	int res = 0;
 	struct pw_buffer *b;
 	struct buffer *buf;
 	uint64_t val;
 	struct spa_data *d;
+	struct timespec ts;
 
 	if (arg->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
@@ -1857,17 +1866,24 @@ static int vidioc_dqbuf(struct file *file, struct v4l2_buffer *arg)
 		res = -EINVAL;
 		goto exit_unlock;
 	}
-	if (!file->running) {
-		res = -EINVAL;
-		goto exit_unlock;
+
+	while (true) {
+		if (!file->running) {
+			res = -EINVAL;
+			goto exit_unlock;
+		}
+
+		b = pw_stream_dequeue_buffer(file->stream);
+		if (b != NULL)
+			break;
+
+		pw_thread_loop_unlock(file->loop);
+		res = spa_system_eventfd_read(file->l->system, fd, &val);
+		pw_thread_loop_lock(file->loop);
+		if (res < 0)
+			goto exit_unlock;
 	}
 
-	b = pw_stream_dequeue_buffer(file->stream);
-	if (b == NULL) {
-		res = -EAGAIN;
-		goto exit_unlock;
-	}
-	spa_system_eventfd_read(file->l->system, file->fd, &val);
 
 	buf = b->user_data;
 	d = &buf->buf->buffer->datas[0];
@@ -1876,21 +1892,25 @@ static int vidioc_dqbuf(struct file *file, struct v4l2_buffer *arg)
 	SPA_FLAG_UPDATE(buf->v4l2.flags, V4L2_BUF_FLAG_ERROR,
 		SPA_FLAG_IS_SET(d->chunk->flags, SPA_CHUNK_FLAG_CORRUPTED));
 
+	SPA_FLAG_SET(buf->v4l2.flags, V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC);
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	buf->v4l2.timestamp.tv_sec = ts.tv_sec;
+	buf->v4l2.timestamp.tv_usec = ts.tv_nsec / 1000;
+
+	buf->v4l2.field = V4L2_FIELD_NONE;
 	buf->v4l2.bytesused = d->chunk->size;
+	buf->v4l2.sequence = file->sequence++;
 	*arg = buf->v4l2;
 
 exit_unlock:
+	pw_log_debug("file:%d %d -> %d (%s)", file->fd, arg->index, res, spa_strerror(res));
 	pw_thread_loop_unlock(file->loop);
-
-	pw_log_debug("file:%p %d -> %d (%s)", file, arg->index, res, spa_strerror(res));
 	return res;
 }
 
 static int vidioc_streamon(struct file *file, int *arg)
 {
 	int res;
-
-	pw_log_info("file:%p -> %d", file, *arg);
 
 	if (*arg != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
@@ -1910,28 +1930,34 @@ static int vidioc_streamon(struct file *file, int *arg)
 exit_unlock:
 	pw_thread_loop_unlock(file->loop);
 
-	pw_log_info("file:%p -> %d (%s)", file, res, spa_strerror(res));
+	pw_log_info("file:%d -> %d (%s)", file->fd, res, spa_strerror(res));
 	return res;
 }
 static int vidioc_streamoff(struct file *file, int *arg)
 {
 	int res;
+	uint32_t i;
 
 	if (*arg != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
 
 	pw_thread_loop_lock(file->loop);
+	for (i = 0; i < file->n_buffers; i++) {
+		struct buffer *buf = &file->buffers[i];
+		SPA_FLAG_CLEAR(buf->v4l2.flags, V4L2_BUF_FLAG_QUEUED);
+	}
 	if (!file->running) {
 		res = 0;
 		goto exit_unlock;
 	}
 	res = pw_stream_set_active(file->stream, false);
 	file->running = false;
+	file->sequence = 0;
 
 exit_unlock:
 	pw_thread_loop_unlock(file->loop);
 
-	pw_log_info("file:%p -> %d (%s)", file, res, spa_strerror(res));
+	pw_log_info("file:%d -> %d (%s)", file->fd, res, spa_strerror(res));
 	return res;
 }
 
@@ -1996,7 +2022,7 @@ static int v4l2_ioctl(int fd, unsigned long int request, void *arg)
 		res = vidioc_qbuf(file, (struct v4l2_buffer *)arg);
 		break;
 	case VIDIOC_DQBUF:
-		res = vidioc_dqbuf(file, (struct v4l2_buffer *)arg);
+		res = vidioc_dqbuf(file, fd, (struct v4l2_buffer *)arg);
 		break;
 	case VIDIOC_STREAMON:
 		res = vidioc_streamon(file, (int *)arg);
@@ -2059,8 +2085,8 @@ static void *v4l2_mmap(void *addr, size_t length, int prot,
 
 	res = globals.old_fops.mmap(addr, range.size, prot, flags, data->fd, range.offset);
 
-	add_file_map(file, addr);
-	add_buffer_map(file, addr, id);
+	add_file_map(file, res);
+	add_buffer_map(file, res, id);
 	SPA_FLAG_SET(buf->v4l2.flags, V4L2_BUF_FLAG_MAPPED);
 
 	pw_log_info("addr:%p length:%u prot:%d flags:%d fd:%"PRIi64" offset:%u -> %p (%s)" ,

@@ -1233,7 +1233,7 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 	uint32_t n_params = 0;
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	uint32_t buffers, size;
+	uint32_t buffers, size, stride;
 	struct v4l2_format fmt;
 
 	if (param == NULL || id != SPA_PARAM_Format)
@@ -1246,6 +1246,7 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 
 	buffers = SPA_CLAMP(file->reqbufs, 1u, MAX_BUFFERS);
 	size = fmt.fmt.pix.sizeimage;
+	stride = fmt.fmt.pix.bytesperline;
 
 	params[n_params++] = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
@@ -1253,7 +1254,7 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 							1, MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(size, 0, INT_MAX),
-			SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT_MAX),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(stride, 0, INT_MAX),
 			SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int((1<<SPA_DATA_MemFd)));
 
 	pw_stream_update_params(file->stream, params, n_params);

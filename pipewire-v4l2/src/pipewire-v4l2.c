@@ -166,8 +166,8 @@ struct global {
 
 	int changed;
 	void *info;
+	struct spa_list pending_list;
 	struct spa_list param_list;
-	int param_seq[MAX_PARAMS];
 
 	union {
 		struct {
@@ -183,6 +183,7 @@ struct global {
 struct param {
 	struct spa_list link;
 	uint32_t id;
+	int32_t seq;
 	struct spa_pod *param;
 };
 
@@ -202,7 +203,7 @@ static uint32_t clear_params(struct spa_list *param_list, uint32_t id)
 }
 
 static struct param *add_param(struct spa_list *params,
-		int seq, int *param_seq, uint32_t id, const struct spa_pod *param)
+		int seq, uint32_t id, const struct spa_pod *param)
 {
 	struct param *p;
 
@@ -214,24 +215,12 @@ static struct param *add_param(struct spa_list *params,
 		id = SPA_POD_OBJECT_ID(param);
 	}
 
-	if (id >= MAX_PARAMS) {
-		pw_log_error("too big param id %d", id);
-		errno = EINVAL;
-		return NULL;
-	}
-
-	if (seq != param_seq[id]) {
-		pw_log_debug("ignoring param %d, seq:%d != current_seq:%d",
-				id, seq, param_seq[id]);
-		errno = EBUSY;
-		return NULL;
-	}
-
 	p = malloc(sizeof(*p) + (param != NULL ? SPA_POD_SIZE(param) : 0));
 	if (p == NULL)
 		return NULL;
 
 	p->id = id;
+	p->seq = seq;
 	if (param != NULL) {
 		p->param = SPA_PTROFF(p, sizeof(*p), struct spa_pod);
 		memcpy(p->param, param, SPA_POD_SIZE(param));
@@ -244,6 +233,39 @@ static struct param *add_param(struct spa_list *params,
 	return p;
 }
 
+static void update_params(struct file *file)
+{
+	struct param *p, *t;
+	struct global *node;
+	struct pw_node_info *info;
+	uint32_t i;
+
+	if ((node = file->node) == NULL)
+		return;
+	if ((info = node->info) == NULL)
+		return;
+
+	for (i = 0; i < info->n_params; i++) {
+		spa_list_for_each_safe(p, t, &node->pending_list, link) {
+			if (p->id == info->params[i].id &&
+			    p->seq != info->params[i].seq &&
+			    p->param != NULL) {
+				spa_list_remove(&p->link);
+				free(p);
+			}
+		}
+	}
+
+	spa_list_consume(p, &node->pending_list, link) {
+		spa_list_remove(&p->link);
+		if (p->param == NULL) {
+			clear_params(&node->param_list, p->id);
+			free(p);
+		} else {
+			spa_list_append(&node->param_list, &p->link);
+		}
+	}
+}
 #define ATOMIC_DEC(s)                   __atomic_sub_fetch(&(s), 1, __ATOMIC_SEQ_CST)
 #define ATOMIC_INC(s)                   __atomic_add_fetch(&(s), 1, __ATOMIC_SEQ_CST)
 
@@ -510,8 +532,10 @@ static void on_sync_reply(void *data, uint32_t id, int seq)
 		return;
 
 	file->last_seq = seq;
-	if (file->pending_seq == seq)
+	if (file->pending_seq == seq) {
+		update_params(file);
 		pw_thread_loop_signal(file->loop, false);
+	}
 }
 
 static void on_error(void *data, uint32_t id, int seq, int res, const char *message)
@@ -576,21 +600,14 @@ static void node_event_info(void *object, const struct pw_node_info *info)
 				continue;
 			info->params[i].user = 0;
 
-			if (id >= MAX_PARAMS) {
-				pw_log_error("too big param id %d", id);
-				continue;
-			}
-
-			if (id != SPA_PARAM_EnumFormat)
-				continue;
-
+			add_param(&g->pending_list, info->params[i].seq, id, NULL);
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 
 			res = pw_node_enum_params((struct pw_node*)g->proxy,
-					++g->param_seq[id], id, 0, -1, NULL);
+					++info->params[i].seq, id, 0, -1, NULL);
 			if (SPA_RESULT_IS_ASYNC(res))
-				g->param_seq[id] = res;
+				info->params[i].seq = res;
 		}
 	}
 	do_resync(file);
@@ -602,8 +619,8 @@ static void node_event_param(void *object, int seq,
 {
 	struct global *g = object;
 
-	pw_log_debug("update param %d %d %d %d", g->id, id, seq, g->param_seq[id]);
-	add_param(&g->param_list, seq, g->param_seq, id, param);
+	pw_log_debug("update param %d %d %d", g->id, id, seq);
+	add_param(&g->pending_list, seq, id, param);
 }
 
 static const struct pw_node_events node_events = {
@@ -630,6 +647,10 @@ static void proxy_destroy(void *data)
 	struct global *g = data;
 	spa_list_remove(&g->link);
 	g->proxy = NULL;
+	if (g->file)
+		g->file->node = NULL;
+	clear_params(&g->param_list, SPA_ID_INVALID);
+	clear_params(&g->pending_list, SPA_ID_INVALID);
 }
 
 static const struct pw_proxy_events proxy_events = {
@@ -687,6 +708,7 @@ static void registry_event_global(void *data, uint32_t id,
 		g->permissions = permissions;
 		g->props = props ? pw_properties_new_dict(props) : NULL;
 		g->proxy = proxy;
+		spa_list_init(&g->pending_list);
 		spa_list_init(&g->param_list);
 		spa_list_append(&file->globals, &g->link);
 

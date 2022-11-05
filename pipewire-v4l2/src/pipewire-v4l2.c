@@ -266,7 +266,7 @@ static struct file *make_file(void)
 
 static void free_file(struct file *file)
 {
-	pw_log_info("fd:%d", file->fd);
+	pw_log_info("file:%d", file->fd);
 
 	if (file->loop)
 		pw_thread_loop_stop(file->loop);
@@ -296,7 +296,7 @@ static void free_file(struct file *file)
 
 static void unref_file(struct file *file)
 {
-	pw_log_debug("fd:%d ref:%d", file->fd, file->ref);
+	pw_log_debug("file:%d ref:%d", file->fd, file->ref);
 	if (ATOMIC_DEC(file->ref) <= 0)
 		free_file(file);
 }
@@ -310,7 +310,7 @@ static int add_fd_map(int fd, struct file *file)
 		map->fd = fd;
 		map->file = file;
 		ATOMIC_INC(file->ref);
-		pw_log_debug("fd:%d (%d) ref:%d", fd, file->fd, file->ref);
+		pw_log_debug("fd:%d -> file:%d ref:%d", fd, file->fd, file->ref);
 	}
 	pthread_mutex_unlock(&globals.lock);
 	return 0;
@@ -863,7 +863,7 @@ static int v4l2_close(int fd)
 	if ((file = remove_fd_map(fd)) == NULL)
 		return globals.old_fops.close(fd);
 
-	pw_log_info("fd:%d (%d)", fd, file->fd);
+	pw_log_info("fd:%d file:%d", fd, file->fd);
 
 	if (fd != file->fd)
 		spa_system_close(file->l->system, fd);
@@ -1317,8 +1317,8 @@ static void on_stream_remove_buffer(void *data, struct pw_buffer *b)
 static void on_stream_process(void *data)
 {
 	struct file *file = data;
-	pw_log_debug("fd:%d", file->fd);
-        spa_system_eventfd_write(file->l->system, file->fd, 1);
+	pw_log_debug("file:%d", file->fd);
+	spa_system_eventfd_write(file->l->system, file->fd, 1);
 }
 
 static const struct pw_stream_events stream_events = {
@@ -1576,6 +1576,7 @@ static int try_format(struct file *file, struct v4l2_format *fmt)
 static int disconnect_stream(struct file *file)
 {
 	if (file->stream != NULL) {
+		pw_log_info("file:%d disconnect", file->fd);
 		pw_stream_destroy(file->stream);
 		file->stream = NULL;
 		file->n_buffers = 0;
@@ -1719,7 +1720,7 @@ static int vidioc_s_input(struct file *file, int *arg)
 static int vidioc_g_priority(struct file *file, enum v4l2_priority *arg)
 {
 	*arg = file->priority;
-	pw_log_info("fd:%d prio:%d", file->fd, *arg);
+	pw_log_info("file:%d prio:%d", file->fd, *arg);
 	return 0;
 }
 static int vidioc_s_priority(struct file *file, int fd, enum v4l2_priority *arg)
@@ -1730,8 +1731,8 @@ static int vidioc_s_priority(struct file *file, int fd, enum v4l2_priority *arg)
 	if (file->fd != fd && file->priority > *arg)
 		return -EINVAL;
 
-	pw_log_info("fd:%d (%d) prio:%d", fd, file->fd, *arg);
-        file->priority = *arg;
+	pw_log_info("file:%d (%d) prio:%d", file->fd, fd, *arg);
+	file->priority = *arg;
 	return 0;
 }
 
@@ -1754,15 +1755,18 @@ static int vidioc_reqbufs(struct file *file, int fd, struct v4l2_requestbuffers 
 	pw_thread_loop_lock(file->loop);
 
 	if (file->n_buffers > 0 && file->reqbufs_fd != fd) {
+		pw_log_info("%u fd:%d != %d", file->n_buffers, file->reqbufs_fd, fd);
 		res = -EBUSY;
 		goto exit_unlock;
 	}
 	if (arg->count == 0) {
 		if (pw_array_get_len(&file->buffer_maps, struct buffer_map) != 0) {
+			pw_log_info("fd:%d have maps", fd);
 			res = -EBUSY;
 			goto exit_unlock;
 		}
 		if (file->running) {
+			pw_log_info("fd:%d running", fd);
 			res = -EBUSY;
 			goto exit_unlock;
 		}
@@ -1863,6 +1867,9 @@ static int vidioc_dqbuf(struct file *file, int fd, struct v4l2_buffer *arg)
 	if (arg->memory != V4L2_MEMORY_MMAP)
 		return -EINVAL;
 
+	pw_log_debug("file:%d (%d) %d", file->fd, fd,
+			arg->index);
+
 	pw_thread_loop_lock(file->loop);
 	if (arg->index >= file->n_buffers) {
 		res = -EINVAL;
@@ -1905,7 +1912,8 @@ static int vidioc_dqbuf(struct file *file, int fd, struct v4l2_buffer *arg)
 	*arg = buf->v4l2;
 
 exit_unlock:
-	pw_log_debug("file:%d %d -> %d (%s)", file->fd, arg->index, res, spa_strerror(res));
+	pw_log_debug("file:%d (%d) %d -> %d (%s)", file->fd, fd,
+			arg->index, res, spa_strerror(res));
 	pw_thread_loop_unlock(file->loop);
 	return res;
 }
@@ -2041,8 +2049,8 @@ done:
 		errno = -res;
 		res = -1;
 	}
-	pw_log_debug("fd:%d request:%lx nr:%d arg:%p -> %d (%s)",
-			fd, request, (int)_IOC_NR(request), arg,
+	pw_log_debug("file:%d fd:%d request:%lx nr:%d arg:%p -> %d (%s)",
+			file->fd, fd, request, (int)_IOC_NR(request), arg,
 			res, strerror(res < 0 ? errno : 0));
 
 	unref_file(file);
@@ -2091,8 +2099,8 @@ static void *v4l2_mmap(void *addr, size_t length, int prot,
 	add_buffer_map(file, res, id);
 	SPA_FLAG_SET(buf->v4l2.flags, V4L2_BUF_FLAG_MAPPED);
 
-	pw_log_info("addr:%p length:%u prot:%d flags:%d fd:%"PRIi64" offset:%u -> %p (%s)" ,
-			addr, range.size, prot, flags, data->fd, range.offset,
+	pw_log_info("file:%d addr:%p length:%u prot:%d flags:%d fd:%"PRIi64" offset:%u -> %p (%s)" ,
+			file->fd, addr, range.size, prot, flags, data->fd, range.offset,
 			res, strerror(res == MAP_FAILED ? errno : 0));
 
 error_unlock:

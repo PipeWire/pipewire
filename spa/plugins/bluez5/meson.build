@@ -34,6 +34,7 @@ bluez5_sources = [
   'midi-enum.c',
   'midi-parser.c',
   'midi-node.c',
+  'midi-server.c',
 ]
 
 bluez5_data = ['bluez-hardware.conf']
@@ -158,7 +159,7 @@ test_apps = [
 bluez5_test_lib = static_library('bluez5_test_lib',
   [ 'midi-parser.c' ],
   include_directories : [ configinc ],
-  dependencies : [ spa_dep ],
+  dependencies : [ spa_dep, dbus_dep ],
   install : false
 )
 

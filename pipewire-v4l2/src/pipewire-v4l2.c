@@ -840,6 +840,7 @@ static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 
 	add_fd_map(res, file);
 	add_dev_for_serial(file->dev_id, file->serial);
+	unref_file(file);
 
 	return res;
 

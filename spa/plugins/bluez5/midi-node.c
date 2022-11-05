@@ -74,6 +74,11 @@ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.midi.node")
 
 #define MIDI_RINGBUF_SIZE	(8192*4)
 
+enum node_role {
+	NODE_SERVER,
+	NODE_CLIENT,
+};
+
 struct props {
 	char clock_name[64];
 	int64_t latency_offset;
@@ -147,6 +152,8 @@ struct port {
 	unsigned int acquired:1;
 	DBusPendingCall *acquire_call;
 
+	struct spa_source source;
+
 	struct impl *impl;
 };
 
@@ -155,6 +162,7 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
+	struct spa_loop *main_loop;
 	struct spa_loop *data_loop;
 	struct spa_system *data_system;
 	struct spa_dbus *dbus;
@@ -184,7 +192,6 @@ struct impl {
 	unsigned int started:1;
 	unsigned int following:1;
 
-	struct spa_source source;
 	struct spa_source timer_source;
 
 	int timerfd;
@@ -205,6 +212,10 @@ struct impl {
 	uint8_t read_buffer[MIDI_MAX_MTU];
 
 	struct spa_bt_midi_writer writer;
+
+	enum node_role role;
+
+	struct spa_bt_midi_server *server;
 };
 
 #define CHECK_PORT(this,d,p)	((p) == 0 && ((d) == SPA_DIRECTION_INPUT || (d) == SPA_DIRECTION_OUTPUT))
@@ -474,12 +485,49 @@ static void midi_event_recv(void *user_data, uint16_t timestamp, uint8_t *data, 
 	}
 }
 
+static int unacquire_port(struct port *port)
+{
+	struct impl *this = port->impl;
+
+	if (!port->acquired)
+		return 0;
+
+	spa_log_debug(this->log, "%p: unacquire port:%d", this, port->direction);
+
+	shutdown(port->fd, SHUT_RDWR);
+	close(port->fd);
+	port->fd = -1;
+	port->acquired = false;
+
+	if (this->server)
+		spa_bt_midi_server_released(this->server,
+				(port->direction == SPA_DIRECTION_OUTPUT));
+
+	return 0;
+}
+
+static int do_unacquire_port(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct port *port = user_data;
+
+	/* in main thread */
+	unacquire_port(port);
+	return 0;
+}
+
 static void on_ready_read(struct spa_source *source)
 {
-	struct impl *this = source->data;
-	struct port *port = &this->ports[PORT_OUT];
+	struct port *port = source->data;
+	struct impl *this = port->impl;
 	struct timespec now;
 	int res, size, last_timestamp;
+
+	if (SPA_FLAG_IS_SET(source->rmask, SPA_IO_ERR) ||
+			SPA_FLAG_IS_SET(source->rmask, SPA_IO_HUP)) {
+		spa_log_debug(this->log, "%p: port:%d ERR/HUP", this, port->direction);
+		goto stop;
+	}
 
 	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &now);
 
@@ -499,6 +547,13 @@ again:
 	spa_log_trace(this->log, "%p: port:%d recv data size:%d", this, port->direction, size);
 	if (SPA_UNLIKELY(spa_log_level_topic_enabled(this->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_TRACE)))
 		spa_log_hexdump(this->log, SPA_LOG_LEVEL_DEBUG, 4, this->read_buffer, size);
+
+	if (port->direction != SPA_DIRECTION_OUTPUT) {
+		/* Just monitor errors for the input port */
+		spa_log_debug(this->log, "%p: port:%d is not RX port; ignoring data",
+				this, port->direction);
+		return;
+	}
 
 	/* prepare for producing events */
 	if (port->io == NULL || port->n_buffers == 0 || !this->started)
@@ -599,8 +654,13 @@ again:
 	return;
 
 stop:
-	if (this->source.loop)
-		spa_loop_remove_source(this->data_loop, &this->source);
+	spa_log_debug(this->log, "%p: port:%d stopping port", this, port->direction);
+
+	if (port->source.loop)
+		spa_loop_remove_source(this->data_loop, &port->source);
+
+	/* port->acquired is updated only from the main thread */
+	spa_loop_invoke(this->main_loop, do_unacquire_port, 0, NULL, 0, false, port);
 }
 
 static int process_output(struct impl *this)
@@ -870,6 +930,7 @@ static void acquire_reply(DBusPendingCall **call_ptr, DBusMessage *r)
 		spa_log_error(this->log, "%s.%s() failed for %s: %s",
 				BLUEZ_GATT_CHR_INTERFACE, method,
 				this->chr_path, dbus_message_get_error_name(r));
+		do_stop(this);
 		do_release(this);
 		return;
 	}
@@ -880,6 +941,7 @@ static void acquire_reply(DBusPendingCall **call_ptr, DBusMessage *r)
 					DBUS_TYPE_INVALID)) {
 		spa_log_error(this->log, "%s.%s for %s: invalid return value",
 				BLUEZ_GATT_CHR_INTERFACE, method, this->chr_path);
+		do_stop(this);
 		do_release(this);
 		return;
 	}
@@ -893,15 +955,13 @@ static void acquire_reply(DBusPendingCall **call_ptr, DBusMessage *r)
 	if (port->direction == SPA_DIRECTION_OUTPUT) {
 		spa_bt_midi_parser_init(&this->parser);
 
-		update_position(this);
-
 		/* Start source */
-		this->source.data = this;
-		this->source.fd = port->fd;
-		this->source.func = on_ready_read;
-		this->source.mask = SPA_IO_IN;
-		this->source.rmask = 0;
-		spa_loop_add_source(this->data_loop, &this->source);
+		port->source.data = port;
+		port->source.fd = port->fd;
+		port->source.func = on_ready_read;
+		port->source.mask = SPA_IO_IN | SPA_IO_HUP | SPA_IO_ERR;
+		port->source.rmask = 0;
+		spa_loop_add_source(this->data_loop, &port->source);
 	}
 }
 
@@ -918,9 +978,9 @@ static int do_acquire(struct port *port)
 	if (port->acquire_call)
 		return 0;
 
-	spa_log_debug(this->log,
-			"%p: acquiring BLE MIDI device characteristic %s",
-			this, this->chr_path);
+	spa_log_info(this->log,
+			"%p: port %d: client %s for BLE MIDI device characteristic %s",
+			this, port->direction, method, this->chr_path);
 
 	m = dbus_message_new_method_call(BLUEZ_SERVICE,
 			this->chr_path,
@@ -937,6 +997,78 @@ static int do_acquire(struct port *port)
 			acquire_reply);
 }
 
+static int server_do_acquire(struct port *port, int fd, uint16_t mtu)
+{
+	struct impl *this = port->impl;
+	const char *method = (port->direction == SPA_DIRECTION_OUTPUT) ?
+		"AcquireWrite" : "AcquireNotify";
+
+	spa_log_info(this->log,
+			"%p: port %d: server %s for BLE MIDI device characteristic %s",
+			this, port->direction, method, this->server->chr_path);
+
+	if (port->acquired) {
+		spa_log_info(this->log,
+				"%p: port %d: %s failed: already acquired",
+				this, port->direction, method);
+		return -EBUSY;
+	}
+
+	port->fd = fd;
+	port->mtu = mtu;
+
+	if (port->direction == SPA_DIRECTION_OUTPUT)
+		spa_bt_midi_parser_init(&this->parser);
+
+	/* Start source */
+	port->source.data = port;
+	port->source.fd = port->fd;
+	port->source.func = on_ready_read;
+	port->source.mask = SPA_IO_HUP | SPA_IO_ERR;
+	if (port->direction == SPA_DIRECTION_OUTPUT)
+		port->source.mask |= SPA_IO_IN;
+	port->source.rmask = 0;
+	spa_loop_add_source(this->data_loop, &port->source);
+
+	port->acquired = true;
+	return 0;
+}
+
+static int server_acquire_write(void *user_data, int fd, uint16_t mtu)
+{
+	struct impl *this = user_data;
+	return server_do_acquire(&this->ports[PORT_OUT], fd, mtu);
+}
+
+static int server_acquire_notify(void *user_data, int fd, uint16_t mtu)
+{
+	struct impl *this = user_data;
+	return server_do_acquire(&this->ports[PORT_IN], fd, mtu);
+}
+
+static int server_release(void *user_data)
+{
+	struct impl *this = user_data;
+	do_release(this);
+	return 0;
+}
+
+static int do_remove_port_source(struct spa_loop *loop,
+		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct impl *this = user_data;
+	int i;
+
+	for (i = 0; i < N_PORTS; ++i) {
+		struct port *port = &this->ports[i];
+
+		if (port->source.loop)
+			spa_loop_remove_source(this->data_loop, &port->source);
+	}
+
+	return 0;
+}
+
 static int do_remove_source(struct spa_loop *loop,
 		bool async,
 		uint32_t seq,
@@ -946,9 +1078,6 @@ static int do_remove_source(struct spa_loop *loop,
 {
 	struct impl *this = user_data;
 	struct itimerspec ts;
-
-	if (this->source.loop)
-		spa_loop_remove_source(this->data_loop, &this->source);
 
 	if (this->timer_source.loop)
 		spa_loop_remove_source(this->data_loop, &this->timer_source);
@@ -971,6 +1100,7 @@ static int do_stop(struct impl *this)
 	spa_loop_invoke(this->data_loop, do_remove_source, 0, NULL, 0, true, this);
 
 	this->started = false;
+
 	return res;
 }
 
@@ -981,19 +1111,14 @@ static int do_release(struct impl *this)
 
 	spa_log_debug(this->log, "%p: release", this);
 
-	do_stop(this);
+	spa_loop_invoke(this->data_loop, do_remove_port_source, 0, NULL, 0, true, this);
 
 	for (i = 0; i < N_PORTS; ++i) {
 		struct port *port = &this->ports[i];
 
 		spa_dbus_async_call_cancel(&port->acquire_call);
 
-		if (port->fd > 0) {
-			shutdown(port->fd, SHUT_RDWR);
-			close(port->fd);
-			port->fd = -1;
-			port->mtu = 0;
-		}
+		unacquire_port(port);
 	}
 
 	return res;
@@ -1017,10 +1142,23 @@ static int do_start(struct impl *this)
 	for (i = 0; i < N_PORTS; ++i) {
 		struct port *port = &this->ports[i];
 
-		/* Acquire Bluetooth I/O */
-		if ((res = do_acquire(port)) < 0) {
-			do_release(this);
-			return res;
+		switch (this->role) {
+		case NODE_CLIENT:
+			/* Acquire Bluetooth I/O */
+			if ((res = do_acquire(port)) < 0) {
+				do_stop(this);
+				do_release(this);
+				return res;
+			}
+			break;
+		case NODE_SERVER:
+			/*
+			 * In MIDI server role, the device/BlueZ invokes
+			 * the acquire asynchronously as available/needed.
+			 */
+			break;
+		default:
+			spa_assert_not_reached();
 		}
 
 		reset_buffers(port);
@@ -1223,7 +1361,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 static int impl_node_send_command(void *object, const struct spa_command *command)
 {
 	struct impl *this = object;
-	int res;
+	int res, res2;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(command != NULL, -EINVAL);
@@ -1234,9 +1372,19 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 			return res;
 		break;
 	case SPA_NODE_COMMAND_Pause:
-	case SPA_NODE_COMMAND_Suspend:
 		if ((res = do_stop(this)) < 0)
 			return res;
+		break;
+	case SPA_NODE_COMMAND_Suspend:
+		res = do_stop(this);
+		if (this->role == NODE_CLIENT)
+			res2 = do_release(this);
+		else
+			res2 = 0;
+		if (res < 0)
+			return res;
+		if (res2 < 0)
+			return res2;
 		break;
 	default:
 		return -ENOTSUP;
@@ -1662,6 +1810,12 @@ static const struct spa_node_methods impl_node = {
 	.process = impl_node_process,
 };
 
+static const struct spa_bt_midi_server_cb impl_server = {
+	.acquire_write = server_acquire_write,
+	.acquire_notify = server_acquire_notify,
+	.release = server_release,
+};
+
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
 {
 	struct impl *this;
@@ -1683,6 +1837,7 @@ static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *this = (struct impl *) handle;
 
+	do_stop(this);
 	do_release(this);
 
 	free(this->chr_path);
@@ -1692,6 +1847,8 @@ static int impl_clear(struct spa_handle *handle)
 		dbus_connection_unref(this->conn);
 	if (this->dbus_connection)
 		spa_dbus_connection_destroy(this->dbus_connection);
+	if (this->server)
+		spa_bt_midi_server_destroy(this->server);
 
 	spa_zero(*this);
 
@@ -1725,6 +1882,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	this->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
 	this->dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
@@ -1747,14 +1905,21 @@ impl_init(const struct spa_handle_factory *factory,
 		return -EINVAL;
 	}
 
+	this->role = NODE_CLIENT;
+
 	if (info) {
 		const char *str;
 
 		if ((str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_PATH)) != NULL)
 			this->chr_path = strdup(str);
+
+		if ((str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_ROLE)) != NULL) {
+			if (spa_streq(str, "server"))
+				this->role = NODE_SERVER;
+		}
 	}
 
-	if (this->chr_path == NULL) {
+	if (this->role == NODE_CLIENT && this->chr_path == NULL) {
 		spa_log_error(this->log, "missing MIDI service characteristic path");
 		res = -EINVAL;
 		goto fail;
@@ -1855,6 +2020,13 @@ impl_init(const struct spa_handle_factory *factory,
 	this->rate = 48000;
 
 	set_latency(this, false);
+
+	if (this->role == NODE_SERVER) {
+		this->server = spa_bt_midi_server_new(this->conn,
+				&impl_server, this->log, this);
+		if (this->server == NULL)
+			goto fail;
+	}
 
 	this->timerfd = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);

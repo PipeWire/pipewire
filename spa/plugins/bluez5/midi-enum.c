@@ -145,6 +145,7 @@ static void emit_chr_node(struct impl *impl, struct chr *chr, struct device *dev
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ADDRESS, device->address);
 	snprintf(class, sizeof(class), "0x%06x", device->class);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_CLASS, class);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ROLE, "client");
 
 	info.props = &SPA_DICT_INIT(items, n_items);
 	spa_device_emit_object_info(&impl->hooks, chr->id, &info);

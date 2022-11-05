@@ -129,6 +129,7 @@ extern "C" {
 #define SPA_KEY_API_BLUEZ5_CODEC	"api.bluez5.codec"		/**< a bluetooth codec */
 #define SPA_KEY_API_BLUEZ5_CLASS	"api.bluez5.class"		/**< a bluetooth class */
 #define SPA_KEY_API_BLUEZ5_ICON		"api.bluez5.icon"		/**< a bluetooth icon */
+#define SPA_KEY_API_BLUEZ5_ROLE		"api.bluez5.role"		/**< "client" or "server" */
 
 /** keys for jack api */
 #define SPA_KEY_API_JACK		"api.jack"			/**< key for the JACK api */

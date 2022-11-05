@@ -424,11 +424,7 @@ static void adapter_remove(struct spa_dbus_object *object)
 {
 	struct adapter *adapter = SPA_CONTAINER_OF(object, struct adapter, object);
 
-	if (adapter->register_call) {
-		dbus_pending_call_cancel(adapter->register_call);
-		dbus_pending_call_unref(adapter->register_call);
-		adapter->register_call = NULL;
-	}
+	spa_dbus_async_call_cancel(&adapter->register_call);
 }
 
 static void bluez_remove(struct spa_dbus_object *object)

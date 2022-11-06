@@ -139,8 +139,6 @@ struct file {
 	int fd;
 };
 
-#define MAX_PARAMS	32
-
 struct global_info {
 	const char *type;
 	uint32_t version;

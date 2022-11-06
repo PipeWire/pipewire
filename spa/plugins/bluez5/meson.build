@@ -150,3 +150,38 @@ if get_option('bluez5-codec-lc3').allowed() and lc3_dep.found()
     install : true,
     install_dir : spa_plugindir / 'bluez5')
 endif
+
+test_apps = [
+  'test-midi',
+]
+bluez5_test_lib = static_library('bluez5_test_lib',
+  [ 'midi-parser.c' ],
+  include_directories : [ configinc ],
+  dependencies : [ spa_dep ],
+  install : false
+)
+
+foreach a : test_apps
+  test(a,
+    executable(a, a + '.c',
+      dependencies : [ spa_dep, dl_lib, pthread_lib, mathlib, bluez5_deps ],
+      include_directories : [ configinc ],
+      link_with : [ bluez5_test_lib ],
+      install_rpath : spa_plugindir / 'bluez5',
+      install : installed_tests_enabled,
+      install_dir : installed_tests_execdir / 'bluez5'),
+      env : [
+        'SPA_PLUGIN_DIR=@0@'.format(spa_dep.get_variable('plugindir')),
+        ])
+
+    if installed_tests_enabled
+      test_conf = configuration_data()
+      test_conf.set('exec', installed_tests_execdir / 'bluez5' / a)
+      configure_file(
+        input: installed_tests_template,
+        output: a + '.test',
+        install_dir: installed_tests_metadir / 'bluez5',
+        configuration: test_conf
+        )
+  endif
+endforeach

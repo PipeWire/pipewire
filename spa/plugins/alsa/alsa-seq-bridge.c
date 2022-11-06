@@ -566,7 +566,7 @@ impl_node_port_enum_params(void *object, int seq,
 		if (result.index > 0)
 			return 0;
 		param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		break;

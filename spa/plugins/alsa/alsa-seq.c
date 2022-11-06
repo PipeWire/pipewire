@@ -586,10 +586,10 @@ static int process_read(struct seq_state *state)
 			continue;
 
 		if (prepare_buffer(state, port) >= 0) {
-			port->buffer->buf->datas[0].chunk->offset = 0;
-			port->buffer->buf->datas[0].chunk->size = port->builder.state.offset,
-
 			spa_pod_builder_pop(&port->builder, &port->frame);
+
+			port->buffer->buf->datas[0].chunk->offset = 0;
+			port->buffer->buf->datas[0].chunk->size = port->builder.state.offset;
 
 			/* move buffer to ready queue */
 			spa_list_remove(&port->buffer->link);

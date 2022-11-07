@@ -66,6 +66,8 @@ static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.native");
 #define INTERNATIONAL_NUMBER 145
 #define NATIONAL_NUMBER 129
 
+#define MAX_HF_INDICATORS 16
+
 enum {
 	HFP_AG_INITIAL_CODEC_SETUP_NONE = 0,
 	HFP_AG_INITIAL_CODEC_SETUP_SEND,
@@ -183,6 +185,7 @@ struct rfcomm {
 	enum hsp_hs_state hs_state;
 	unsigned int codec;
 	uint32_t cind_enabled_indicators;
+	char *hf_indicators[MAX_HF_INDICATORS];
 #endif
 };
 
@@ -271,6 +274,11 @@ static void volume_sync_stop_timer(struct rfcomm *rfcomm);
 static void rfcomm_free(struct rfcomm *rfcomm)
 {
 	codec_switch_stop_timer(rfcomm);
+	for (int i = 0; i < MAX_HF_INDICATORS; i++) {
+		if (rfcomm->hf_indicators[i]) {
+			free(rfcomm->hf_indicators[i]);
+		}
+	}
 	spa_list_remove(&rfcomm->link);
 	if (rfcomm->path)
 		free(rfcomm->path);
@@ -1148,9 +1156,7 @@ next_indicator:
 static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* buf)
 {
 	struct impl *backend = rfcomm->backend;
-	unsigned int features;
-	unsigned int gain;
-	unsigned int selected_codec;
+	unsigned int features, gain, selected_codec, indicator, value;
 	char* token;
 
 	while ((token = strsep(&buf, "\r\n"))) {
@@ -1195,6 +1201,47 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* buf)
 			} else {
 				spa_log_debug(backend->log, "RFCOMM receive unsupported VGS gain: %s", token);
 			}
+		} else if (spa_strstartswith(token, "+CIND: (")) {
+			uint8_t i = 1;
+			while (strstr(token, "\"")) {
+				token += strcspn(token, "\"") + 1;
+				token[strcspn(token, "\"")] = 0;
+				rfcomm->hf_indicators[i] = strdup(token);
+				token += strcspn(token, "\"") + 1;
+				i++;
+				if (i == MAX_HF_INDICATORS) {
+					break;
+				}
+			}
+		} else if (spa_strstartswith(token, "+CIND: ")) {
+			token[strcspn(token, "\r")] = 0;
+			token[strcspn(token, "\n")] = 0;
+			token += strlen("+CIND: ");
+			uint8_t i = 1;
+			while (strlen(token)) {
+				if (i >= MAX_HF_INDICATORS || !rfcomm->hf_indicators[i]) {
+					break;
+				}
+				token[strcspn(token, ",")] = 0;
+				spa_log_info(backend->log, "AG indicator state: %s = %i", rfcomm->hf_indicators[i], atoi(token));
+
+				if (spa_streq(rfcomm->hf_indicators[i], "battchg")) {
+					spa_bt_device_report_battery_level(rfcomm->device, atoi(token) * 100 / 5);
+				}
+
+				token += strcspn(token, "\0") + 1;
+				i++;
+			}
+		} else if (sscanf(token, "+CIEV: %u,%u", &indicator, &value) == 2) {
+			if (indicator >= MAX_HF_INDICATORS || !rfcomm->hf_indicators[indicator]) {
+				spa_log_warn(backend->log, "indicator %u has not been registered, ignoring", indicator);
+			} else {
+				spa_log_info(backend->log, "AG indicator update: %s = %u", rfcomm->hf_indicators[indicator], value);
+
+				if (spa_streq(rfcomm->hf_indicators[indicator], "battchg")) {
+					spa_bt_device_report_battery_level(rfcomm->device, value * 100 / 5);
+				}
+			}
 		} else if (spa_strstartswith(token, "OK")) {
 			switch(rfcomm->hf_state) {
 				case hfp_hf_brsf:
@@ -1215,7 +1262,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* buf)
 					rfcomm->hf_state = hfp_hf_cind2;
 					break;
 				case hfp_hf_cind2:
-					rfcomm_send_cmd(rfcomm, "AT+CMER=3,0,0,0");
+					rfcomm_send_cmd(rfcomm, "AT+CMER=3,0,0,1");
 					rfcomm->hf_state = hfp_hf_cmer;
 					break;
 				case hfp_hf_cmer:
@@ -2073,6 +2120,7 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	rfcomm->source.rmask = 0;
 	/* By default all indicators are enabled */
 	rfcomm->cind_enabled_indicators = 0xFFFFFFFF;
+	memset(rfcomm->hf_indicators, 0, sizeof rfcomm->hf_indicators);
 
 	for (int i = 0; i < SPA_BT_VOLUME_ID_TERM; ++i) {
 		if (rfcomm->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)

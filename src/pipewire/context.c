@@ -968,13 +968,15 @@ static int fraction_compare(const struct spa_fraction *a, const struct spa_fract
 	return fa < fb ? -1 : (fa > fb ? 1 : 0);
 }
 
-static bool rates_contains(uint32_t *rates, uint32_t n_rates, uint32_t rate)
+static uint32_t find_best_rate(uint32_t *rates, uint32_t n_rates, uint32_t rate, uint32_t best)
 {
 	uint32_t i;
-	for (i = 0; i < n_rates; i++)
-		if (rates[i] == rate)
-			return true;
-	return false;
+	for (i = 0; i < n_rates; i++) {
+		if (SPA_ABS((int32_t)rate - (int32_t)rates[i]) <
+		    SPA_ABS((int32_t)rate - (int32_t)best))
+			best = rates[i];
+	}
+	return best;
 }
 
 /* here we evaluate the complete state of the graph.
@@ -1187,10 +1189,9 @@ again:
 			 * Start with the default rate. If the desired rate is
 			 * allowed, switch to it */
 			target_rate = def_rate;
-			if (rate.denom != 0 && rate.num == 1) {
-				if (rates_contains(rates, n_rates, rate.denom))
-					target_rate = rate.denom;
-			}
+			if (rate.denom != 0 && rate.num == 1)
+				target_rate = find_best_rate(rates, n_rates,
+						rate.denom, target_rate);
 		}
 
 		if (target_rate != current_rate) {

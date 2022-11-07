@@ -265,3 +265,7 @@ option('flatpak',
        description: 'Enable Flatpak support',
        type: 'feature',
        value: 'enabled')
+option('readline',
+       description: 'Enable code that depends on libreadline',
+       type: 'feature',
+       value: 'auto')

@@ -610,7 +610,7 @@ static int codec_change_bitrate(struct impl *this, int new_bitrate)
 	if (res != AACENC_OK)
 		return -EINVAL;
 
-	return 0;
+	return this->cur_bitrate;
 }
 
 static int codec_reduce_bitpool(void *data)

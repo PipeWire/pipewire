@@ -747,15 +747,17 @@ static SPA_UNUSED int codec_decode(void *data,
 static int codec_reduce_bitpool(void *data)
 {
 	struct impl *this = data;
-	this->e.next_bitrate = this->bitrate * 3 / 4;
-	return 0;
+	this->e.next_bitrate = SPA_CLAMP(this->bitrate * 3 / 4,
+			BITRATE_MIN * this->channels, BITRATE_MAX * this->channels);
+	return this->e.next_bitrate;
 }
 
 static int codec_increase_bitpool(void *data)
 {
 	struct impl *this = data;
-	this->e.next_bitrate = this->bitrate * 5 / 4;
-	return 0;
+	this->e.next_bitrate = SPA_CLAMP(this->bitrate * 5 / 4,
+			BITRATE_MIN * this->channels, BITRATE_MAX * this->channels);
+	return this->e.next_bitrate;
 }
 
 const struct media_codec a2dp_codec_lc3plus_hr = {

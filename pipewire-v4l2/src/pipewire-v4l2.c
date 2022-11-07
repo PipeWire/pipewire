@@ -1290,6 +1290,7 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(stride, 0, INT_MAX),
 			SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int((1<<SPA_DATA_MemFd)));
 
+
 	pw_stream_update_params(file->stream, params, n_params);
 
 }
@@ -2133,7 +2134,10 @@ static void *v4l2_mmap(void *addr, size_t length, int prot,
 	if (!SPA_FLAG_IS_SET(data->flags, SPA_DATA_FLAG_WRITABLE))
 		prot &= ~PROT_WRITE;
 
-	res = globals.old_fops.mmap(addr, range.size, prot, flags, data->fd, range.offset);
+	if (data->data == NULL)
+		res = globals.old_fops.mmap(addr, range.size, prot, flags, data->fd, range.offset);
+	else
+		res = data->data;
 
 	add_file_map(file, res);
 	add_buffer_map(file, res, id);
@@ -2153,7 +2157,9 @@ static int v4l2_munmap(void *addr, size_t length)
 {
 	int res;
 	struct buffer_map *bmap;
+	struct buffer *buf;
 	struct file *file;
+	struct spa_data *data;
 
 	if ((file = remove_file_map(addr)) == NULL)
 		return globals.old_fops.munmap(addr, length);
@@ -2165,12 +2171,18 @@ static int v4l2_munmap(void *addr, size_t length)
 		res = -EINVAL;
 		goto exit_unlock;
 	}
-	res = globals.old_fops.munmap(addr, length);
+	buf = &file->buffers[bmap->id];
+	data = &buf->buf->buffer->datas[0];
+
+	if (data->data == NULL)
+		res = globals.old_fops.munmap(addr, length);
+	else
+		res = 0;
 
 	pw_log_info("addr:%p length:%zu -> %d (%s)", addr, length,
 			res, strerror(res < 0 ? errno : 0));
 
-	file->buffers[bmap->id].v4l2.flags &= ~V4L2_BUF_FLAG_MAPPED;
+	buf->v4l2.flags &= ~V4L2_BUF_FLAG_MAPPED;
 	remove_buffer_map(file, bmap);
 
 exit_unlock:

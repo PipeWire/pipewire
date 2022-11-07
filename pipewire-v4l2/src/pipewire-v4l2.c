@@ -1325,8 +1325,8 @@ static void on_stream_add_buffer(void *data, struct pw_buffer *b)
 
 	file->size = d->maxsize;
 
-	pw_log_info("file:%d: id:%d fd:%"PRIi64" size:%u", file->fd,
-			id, d->fd, file->size);
+	pw_log_info("file:%d: id:%d fd:%"PRIi64" size:%u offset:%u", file->fd,
+			id, d->fd, file->size, id * file->size);
 
 	spa_zero(vb);
 	vb.index = id;
@@ -2143,8 +2143,10 @@ static void *v4l2_mmap(void *addr, size_t length, int prot,
 	add_buffer_map(file, res, id);
 	SPA_FLAG_SET(buf->v4l2.flags, V4L2_BUF_FLAG_MAPPED);
 
-	pw_log_info("file:%d addr:%p length:%u prot:%d flags:%d fd:%"PRIi64" offset:%u -> %p (%s)" ,
-			file->fd, addr, range.size, prot, flags, data->fd, range.offset,
+	pw_log_info("file:%d addr:%p length:%zu prot:%d flags:%d fd:%"PRIi64
+			" offset:%"PRIi64" (%u - %u) -> %p (%s)" ,
+			file->fd, addr, length, prot, flags, data->fd, offset,
+			range.offset, range.size,
 			res, strerror(res == MAP_FAILED ? errno : 0));
 
 error_unlock:

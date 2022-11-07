@@ -718,13 +718,15 @@ again:
 		return 0;
 	}
 
+	// This should be the same as buffer size to increase bitpool
+	// Bitpool shouldn't be increased when data is left over in the buffer
+	int unused_buffer = get_transport_unused_size(this);
 	written = flush_buffer(this);
 
 	if (written == -EAGAIN) {
 		spa_log_trace(this->log, "%p: fail flush", this);
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC / 2) {
-			spa_log_trace(this->log, "%p: reduce bitpool", this);
-			this->codec->reduce_bitpool(this->codec_data);
+			spa_log_debug(this->log, "%p: reduce bitpool: %i", this, this->codec->reduce_bitpool(this->codec_data));
 			this->last_error = now_time;
 		}
 
@@ -791,9 +793,8 @@ again:
 		}
 
 		if (now_time - this->last_error > SPA_NSEC_PER_SEC) {
-			if (get_transport_unused_size(this) == (int)this->fd_buffer_size) {
-				spa_log_trace(this->log, "%p: increase bitpool", this);
-				this->codec->increase_bitpool(this->codec_data);
+			if (unused_buffer == (int)this->fd_buffer_size) {
+				spa_log_debug(this->log, "%p: increase bitpool: %i", this, this->codec->increase_bitpool(this->codec_data));
 			}
 			this->last_error = now_time;
 		}

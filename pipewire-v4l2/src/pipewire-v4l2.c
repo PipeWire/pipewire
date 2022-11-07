@@ -65,6 +65,8 @@ struct file_map {
 
 struct fd_map {
 	int fd;
+#define FD_MAP_DUP	(1<<0)
+	uint32_t flags;
 	struct file *file;
 };
 
@@ -321,13 +323,14 @@ static void unref_file(struct file *file)
 		free_file(file);
 }
 
-static int add_fd_map(int fd, struct file *file)
+static int add_fd_map(int fd, struct file *file, uint32_t flags)
 {
 	struct fd_map *map;
 	pthread_mutex_lock(&globals.lock);
 	map = pw_array_add(&globals.fd_maps, sizeof(*map));
 	if (map != NULL) {
 		map->fd = fd;
+		map->flags = flags;
 		map->file = file;
 		ATOMIC_INC(file->ref);
 		pw_log_debug("fd:%d -> file:%d ref:%d", fd, file->fd, file->ref);
@@ -372,15 +375,17 @@ static struct fd_map *find_fd_map_unlocked(int fd)
 	return NULL;
 }
 
-static struct file *find_file(int fd)
+static struct file *find_file(int fd, uint32_t *flags)
 {
 	pthread_mutex_lock(&globals.lock);
 
 	struct fd_map *map = find_fd_map_unlocked(fd);
 	struct file *file = NULL;
 
-	if (map != NULL)
+	if (map != NULL) {
 		file = map->file;
+		*flags = map->flags;
+	}
 
 	pthread_mutex_unlock(&globals.lock);
 
@@ -756,22 +761,28 @@ static const struct pw_registry_events registry_events = {
 	.global_remove = registry_event_global_remove,
 };
 
-static int v4l2_dup(int oldfd)
+static int do_dup(int oldfd, uint32_t flags)
 {
 	int res;
 	struct file *file;
+	uint32_t fl;
 
 	res = globals.old_fops.dup(oldfd);
 	if (res < 0)
 		return res;
 
-	if ((file = find_file(oldfd)) != NULL) {
-		add_fd_map(res, file);
+	if ((file = find_file(oldfd, &fl)) != NULL) {
+		add_fd_map(res, file, flags | fl);
 		unref_file(file);
-		pw_log_info("fd:%d -> %d (%s)", oldfd,
+		pw_log_info("fd:%d %08x -> %d (%s)", oldfd, flags,
 				res, strerror(res < 0 ? errno : 0));
 	}
 	return res;
+}
+
+static int v4l2_dup(int oldfd)
+{
+	return do_dup(oldfd, FD_MAP_DUP);
 }
 
 static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
@@ -788,8 +799,10 @@ static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 	if (passthrough)
 		return globals.old_fops.openat(dirfd, path, oflag, mode);
 
+	pw_log_info("path:%s oflag:%d mode:%d", path, oflag, mode);
+
 	if ((file = find_file_by_dev(dev_id)) != NULL) {
-		res = v4l2_dup(file->fd);
+		res = do_dup(file->fd, 0);
 		unref_file(file);
 		if (res >= 0)
 			fcntl(res, F_SETFL, oflag);
@@ -858,7 +871,7 @@ static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 	pw_log_info("path:%s oflag:%d mode:%d -> %d (%s)", path, oflag, mode,
 			res, strerror(res < 0 ? errno : 0));
 
-	add_fd_map(res, file);
+	add_fd_map(res, file, 0);
 	add_dev_for_serial(file->dev_id, file->serial);
 	unref_file(file);
 
@@ -1997,8 +2010,9 @@ static int v4l2_ioctl(int fd, unsigned long int request, void *arg)
 {
 	int res;
 	struct file *file;
+	uint32_t flags;
 
-	if ((file = find_file(fd)) == NULL)
+	if ((file = find_file(fd, &flags)) == NULL)
 		return globals.old_fops.ioctl(fd, request, arg);
 
 #if defined(__FreeBSD__) || defined(__MidnightBSD__)
@@ -2009,6 +2023,9 @@ static int v4l2_ioctl(int fd, unsigned long int request, void *arg)
 		res = -EFAULT;
 		goto done;
 	}
+
+	if (flags & FD_MAP_DUP)
+		fd = file->fd;
 
 	switch (request & 0xffffffff) {
 	case VIDIOC_QUERYCAP:
@@ -2089,8 +2106,9 @@ static void *v4l2_mmap(void *addr, size_t length, int prot,
 	struct pw_map_range range;
 	struct buffer *buf;
 	struct spa_data *data;
+	uint32_t fl;
 
-	if ((file = find_file(fd)) == NULL)
+	if ((file = find_file(fd, &fl)) == NULL)
 		return globals.old_fops.mmap(addr, length, prot, flags, fd, offset);
 
 	pw_thread_loop_lock(file->loop);

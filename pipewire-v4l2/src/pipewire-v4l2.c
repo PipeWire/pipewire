@@ -138,6 +138,7 @@ struct file {
 	uint32_t last_fourcc;
 
 	unsigned int running:1;
+	unsigned int closed:1;
 	int fd;
 };
 
@@ -400,7 +401,7 @@ static struct file *find_file_by_dev(uint32_t dev)
 	pthread_mutex_lock(&globals.lock);
 	pw_array_for_each(tmp, &globals.fd_maps) {
 		if (tmp->file->dev_id == dev) {
-			if (tmp->file->fd == -1)
+			if (tmp->file->closed)
 				tmp->file->fd = tmp->fd;
 			ATOMIC_INC(tmp->file->ref);
 			map = tmp;
@@ -901,9 +902,8 @@ static int v4l2_close(int fd)
 
 	if (fd != file->fd)
 		spa_system_close(file->l->system, fd);
-	else
-		file->fd = -1;
 
+	file->closed = true;
 	unref_file(file);
 
 	return 0;

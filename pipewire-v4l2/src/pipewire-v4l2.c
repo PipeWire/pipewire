@@ -1582,19 +1582,26 @@ static int try_format(struct file *file, struct v4l2_format *fmt)
 		struct v4l2_format tmp;
 		int score;
 
-		if (p->id != SPA_PARAM_EnumFormat || p->param == NULL)
+		if (p->param == NULL)
+			continue;
+
+		if (p->id != SPA_PARAM_EnumFormat && p->id != SPA_PARAM_Format)
 			continue;
 
 		if (param_to_fmt(p->param, &tmp) < 0)
 			continue;
 
 		score = score_diff(fmt, &tmp);
-		pw_log_debug("check: type: %u", tmp.type);
-		pw_log_debug("check: format: %.4s", (char*)&tmp.fmt.pix.pixelformat);
-		pw_log_debug("check: width: %u", tmp.fmt.pix.width);
-		pw_log_debug("check: height: %u", tmp.fmt.pix.height);
-		pw_log_debug("check: score: %d best:%d", score, best);
+		pw_log_info("check: type: %u", tmp.type);
+		pw_log_info("check: format: %.4s", (char*)&tmp.fmt.pix.pixelformat);
+		pw_log_info("check: width: %u", tmp.fmt.pix.width);
+		pw_log_info("check: height: %u", tmp.fmt.pix.height);
+		pw_log_info("check: score: %d best:%d", score, best);
 
+		if (p->id == SPA_PARAM_Format) {
+			best_fmt = tmp;
+			break;
+		}
 		if (best == -1 || score < best) {
 			best = score;
 			best_fmt = tmp;

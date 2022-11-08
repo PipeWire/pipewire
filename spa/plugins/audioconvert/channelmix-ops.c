@@ -482,6 +482,27 @@ static int make_matrix(struct channelmix *mix)
 			spa_log_debug(mix->log, "won't produce SIDE");
 		}
 	}
+	if (unassigned & _MASK(RC)) {
+		if ((src_mask & REAR) == REAR) {
+			spa_log_debug(mix->log, "produce RC from REAR (%f)", 0.5f);
+			_MATRIX(RC,RL) += 0.5f;
+			_MATRIX(RC,RR) += 0.5f;
+		} else if ((src_mask & SIDE) == SIDE) {
+			spa_log_debug(mix->log, "produce RC from SIDE (%f)", 0.5f);
+			_MATRIX(RC,SL) += 0.5f;
+			_MATRIX(RC,SR) += 0.5f;
+		} else if ((src_mask & STEREO) == STEREO) {
+			spa_log_debug(mix->log, "produce RC from STEREO (%f)", 0.5f);
+			_MATRIX(RC,FL) += 0.5f;
+			_MATRIX(RC,FR) += 0.5f;
+		} else if ((src_mask & FRONT) == FRONT &&
+			mix->upmix == CHANNELMIX_UPMIX_SIMPLE) {
+			spa_log_debug(mix->log, "produce RC from FC (%f)", slev);
+			_MATRIX(RC,FC) += slev;
+		} else {
+			spa_log_debug(mix->log, "won't produce RC");
+		}
+	}
 
 done:
 	for (jc = 0, ic = 0, i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++) {

@@ -30,6 +30,7 @@
 #include <spa/support/cpu.h>
 #include <spa/support/log.h>
 #include <spa/utils/defs.h>
+#include <spa/debug/types.h>
 
 #include "channelmix-ops.h"
 #include "hilbert.h"
@@ -507,6 +508,8 @@ static int make_matrix(struct channelmix *mix)
 done:
 	for (jc = 0, ic = 0, i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++) {
 		float sum = 0.0f;
+		char str[1024], str2[1024];
+		int idx = 0, idx2 = 0;
 		if ((dst_mask & (1UL << i)) == 0)
 			continue;
 		for (jc = 0, j = 0; j < SPA_AUDIO_MAX_CHANNELS; j++) {
@@ -514,9 +517,27 @@ done:
 				continue;
 			if (ic >= dst_chan || jc >= src_chan)
 				continue;
+
+			if (i == 0)
+				idx2 += snprintf(str2 + idx2, sizeof(str2) - idx2, "%-4.4s  ",
+						spa_debug_type_find_short_name(spa_type_audio_channel, j + 3));
+
 			mix->matrix_orig[ic][jc++] = matrix[i][j];
 			sum += fabs(matrix[i][j]);
+
+			if (matrix[i][j] == 0.0f)
+				idx += snprintf(str + idx, sizeof(str) - idx, "      ");
+			else
+				idx += snprintf(str + idx, sizeof(str) - idx, "%1.3f ", matrix[i][j]);
 		}
+		if (dst_mask != 0 && src_mask != 0 && sum > 0.0f) {
+			if (i == 0)
+				spa_log_info(mix->log, "     %s", str2);
+			spa_log_info(mix->log, "%-4.4s %s   %f",
+					spa_debug_type_find_short_name(spa_type_audio_channel, i + 3),
+					str, sum);
+		}
+
 		maxsum = SPA_MAX(maxsum, sum);
 		if (i == _CH(LFE) && mix->lfe_cutoff > 0.0f && filter_lfe) {
 			spa_log_info(mix->log, "channel %d is LFE cutoff:%f", ic, mix->lfe_cutoff);

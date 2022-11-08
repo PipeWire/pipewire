@@ -292,36 +292,26 @@ static void interfaces_removed(struct impl *impl, DBusMessageIter *arg_iter)
 	}
 }
 
-static void get_managed_objects_reply(DBusPendingCall *pending, void *user_data)
+static void get_managed_objects_reply(DBusPendingCall **call_ptr, DBusMessage *r)
 {
-	struct impl *impl = user_data;
-	DBusMessage *r;
+	struct impl *impl = SPA_CONTAINER_OF(call_ptr, struct impl, get_managed_objects_call);
 	DBusMessageIter it[6];
-
-	spa_assert(pending == impl->get_managed_objects_call);
-	impl->get_managed_objects_call = NULL;
-
-	r = dbus_pending_call_steal_reply(pending);
-	dbus_pending_call_unref(pending);
-
-	if (r == NULL)
-		return;
 
 	if (dbus_message_is_error(r, DBUS_ERROR_UNKNOWN_METHOD)) {
 		spa_log_warn(impl->log, "BlueZ D-Bus ObjectManager not available");
-		goto done;
+		return;
 	}
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(impl->log, "GetManagedObjects() failed: %s",
 				dbus_message_get_error_name(r));
-		goto done;
+		return;
 	}
 
 	if (!dbus_message_iter_init(r, &it[0]) ||
 			!spa_streq(dbus_message_get_signature(r), "a{oa{sa{sv}}}")) {
 		spa_log_error(impl->log, "Invalid reply signature for GetManagedObjects()");
-		goto done;
+		return;
 	}
 
 	/* Add fake object representing the service itself */
@@ -338,17 +328,11 @@ static void get_managed_objects_reply(DBusPendingCall *pending, void *user_data)
 	}
 
 	impl->objects_listed = true;
-
-done:
-	dbus_message_unref(r);
-	return;
 }
 
 static int get_managed_objects(struct impl *impl)
 {
-	DBusMessage *m = NULL;
-	DBusPendingCall *call;
-	int res = 0;
+	DBusMessage *m;
 
 	if (impl->objects_listed || impl->get_managed_objects_call)
 		return 0;
@@ -362,19 +346,8 @@ static int get_managed_objects(struct impl *impl)
 
 	dbus_message_set_auto_start(m, false);
 
-	if (!dbus_connection_send_with_reply(impl->conn, m, &call, -1)) {
-		res = -EIO;
-		goto done;
-	}
-
-	dbus_pending_call_set_notify(call, get_managed_objects_reply, impl, NULL);
-	impl->get_managed_objects_call = call;
-
-done:
-	if (m)
-		dbus_message_unref(m);
-
-	return res;
+	return spa_dbus_async_call(impl->conn, m, &impl->get_managed_objects_call,
+			get_managed_objects_reply);
 }
 
 
@@ -695,4 +668,73 @@ struct spa_list *spa_dbus_monitor_object_list(struct spa_dbus_monitor *this, con
 		return NULL;
 
 	return object_list;
+}
+
+typedef void (*pending_call_reply_t)(DBusPendingCall **, DBusMessage *);
+
+static dbus_int32_t async_call_reply_id = -1;
+
+static void async_call_reply(DBusPendingCall *pending, void *user_data)
+{
+	DBusPendingCall **call_ptr = user_data;
+	DBusMessage *r;
+	pending_call_reply_t reply;
+
+	spa_assert(pending == *call_ptr);
+	*call_ptr = NULL;
+
+	r = dbus_pending_call_steal_reply(pending);
+	reply = dbus_pending_call_get_data(pending, async_call_reply_id);
+	dbus_pending_call_unref(pending);
+
+	spa_assert(reply != NULL);
+
+	if (r == NULL)
+		return;
+
+	reply(call_ptr, r);
+	dbus_message_unref(r);
+}
+
+int spa_dbus_async_call(DBusConnection *conn, DBusMessage *msg,
+		DBusPendingCall **call_ptr,
+		pending_call_reply_t reply)
+{
+	int res = -EIO;
+	DBusPendingCall *pending;
+
+	spa_assert(msg);
+	spa_assert(call_ptr);
+
+	if (async_call_reply_id == -1) {
+		if (!dbus_pending_call_allocate_data_slot(&async_call_reply_id))
+			goto done;
+	}
+
+	if (*call_ptr) {
+		res = -EBUSY;
+		goto done;
+	}
+
+	if (!dbus_connection_send_with_reply(conn, msg, &pending, -1))
+		goto done;
+
+	if (!dbus_pending_call_set_data(pending, async_call_reply_id, reply, NULL)) {
+		dbus_pending_call_cancel(pending);
+		dbus_pending_call_unref(pending);
+		goto done;
+	}
+
+	if (!dbus_pending_call_set_notify(pending, async_call_reply, call_ptr, NULL)) {
+		dbus_pending_call_cancel(pending);
+		dbus_pending_call_unref(pending);
+		goto done;
+	}
+
+	*call_ptr = pending;
+	res = 0;
+
+done:
+	dbus_message_unref(msg);
+	return res;
 }

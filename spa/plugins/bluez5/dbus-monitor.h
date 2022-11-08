@@ -50,6 +50,7 @@ struct spa_dbus_interface {
 
 	/**
 	 * Interface at the object path removed.
+	 * No other hooks will be called after this.
 	 * The object will be deallocated after this, so any associated data,
 	 * for example in a custom object struct, can be freed in this hook.
 	 */
@@ -135,5 +136,31 @@ void spa_dbus_monitor_ignore_object(struct spa_dbus_monitor *monitor,
  */
 struct spa_list *spa_dbus_monitor_object_list(struct spa_dbus_monitor *monitor,
 		const char *interface);
+
+/**
+ * Make an asynchronous DBus call.
+ *
+ * On successful return, *call_ptr contains the pending call handle.
+ * The same address is passed to the reply function, and can be used
+ * to locate the address container object. The reply function does not
+ * need to unref the reply, or set *call_ptr to NULL itself.
+ *
+ * The msg passed in is stolen, and unref'd also on errors.
+ *
+ * \returns 0 on success, < 0 on error.
+ */
+int spa_dbus_async_call(DBusConnection *conn, DBusMessage *msg,
+		DBusPendingCall **call_ptr,
+		void (*reply)(DBusPendingCall **call_ptr, DBusMessage *reply));
+
+/** Convenience for pending call cancel + unref */
+static inline void spa_dbus_async_call_cancel(DBusPendingCall **call_ptr)
+{
+	if (*call_ptr) {
+		dbus_pending_call_cancel(*call_ptr);
+		dbus_pending_call_unref(*call_ptr);
+		*call_ptr = NULL;
+	}
+}
 
 #endif

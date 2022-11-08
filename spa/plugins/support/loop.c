@@ -186,8 +186,8 @@ static void flush_items(struct impl *impl)
 
 		if (block) {
 			if ((res = spa_system_eventfd_write(impl->system, impl->ack_fd, 1)) < 0)
-				spa_log_warn(impl->log, "%p: failed to write event fd: %s",
-						impl, spa_strerror(res));
+				spa_log_warn(impl->log, "%p: failed to write event fd:%d: %s",
+						impl, impl->ack_fd, spa_strerror(res));
 		}
 	}
 	impl->flushing = false;
@@ -283,8 +283,8 @@ loop_invoke(void *object,
 		spa_loop_control_hook_before(&impl->hooks_list);
 
 		if ((res = spa_system_eventfd_read(impl->system, impl->ack_fd, &count)) < 0)
-			spa_log_warn(impl->log, "%p: failed to read event fd: %s",
-					impl, spa_strerror(res));
+			spa_log_warn(impl->log, "%p: failed to read event fd:%d: %s",
+					impl, impl->ack_fd, spa_strerror(res));
 
 		spa_loop_control_hook_after(&impl->hooks_list);
 
@@ -526,12 +526,12 @@ static int loop_enable_idle(void *object, struct spa_source *source, bool enable
 
 	if (enabled && !s->enabled) {
 		if ((res = spa_system_eventfd_write(s->impl->system, source->fd, 1)) < 0)
-			spa_log_warn(s->impl->log, "%p: failed to write idle fd %d: %s",
+			spa_log_warn(s->impl->log, "%p: failed to write idle fd:%d: %s",
 					source, source->fd, spa_strerror(res));
 	} else if (!enabled && s->enabled) {
 		uint64_t count;
 		if ((res = spa_system_eventfd_read(s->impl->system, source->fd, &count)) < 0)
-			spa_log_warn(s->impl->log, "%p: failed to read idle fd %d: %s",
+			spa_log_warn(s->impl->log, "%p: failed to read idle fd:%d: %s",
 					source, source->fd, spa_strerror(res));
 	}
 	s->enabled = enabled;
@@ -586,7 +586,7 @@ static void source_event_func(struct spa_source *source)
 	int res;
 
 	if ((res = spa_system_eventfd_read(s->impl->system, source->fd, &count)) < 0)
-		spa_log_warn(s->impl->log, "%p: failed to read event fd %d: %s",
+		spa_log_warn(s->impl->log, "%p: failed to read event fd:%d: %s",
 				source, source->fd, spa_strerror(res));
 
 	s->func.event(source->data, count);
@@ -639,7 +639,7 @@ static int loop_signal_event(void *object, struct spa_source *source)
 	spa_assert(source->func == source_event_func);
 
 	if (SPA_UNLIKELY((res = spa_system_eventfd_write(s->impl->system, source->fd, 1)) < 0))
-		spa_log_warn(s->impl->log, "%p: failed to write event fd %d: %s",
+		spa_log_warn(s->impl->log, "%p: failed to write event fd:%d: %s",
 				source, source->fd, spa_strerror(res));
 	return res;
 }
@@ -652,7 +652,7 @@ static void source_timer_func(struct spa_source *source)
 
 	if (SPA_UNLIKELY((res = spa_system_timerfd_read(s->impl->system,
 				source->fd, &expirations)) < 0))
-		spa_log_warn(s->impl->log, "%p: failed to read timer fd %d: %s",
+		spa_log_warn(s->impl->log, "%p: failed to read timer fd:%d: %s",
 				source, source->fd, spa_strerror(res));
 
 	s->func.timer(source->data, expirations);
@@ -732,7 +732,7 @@ static void source_signal_func(struct spa_source *source)
 	int res, signal_number = 0;
 
 	if ((res = spa_system_signalfd_read(s->impl->system, source->fd, &signal_number)) < 0)
-		spa_log_warn(s->impl->log, "%p: failed to read signal fd %d: %s",
+		spa_log_warn(s->impl->log, "%p: failed to read signal fd:%d: %s",
 				source, source->fd, spa_strerror(res));
 
 	s->func.signal(source->data, signal_number);
@@ -865,11 +865,9 @@ static int impl_clear(struct spa_handle *handle)
 
 	impl = (struct impl *) handle;
 
-	if (impl->enter_count != 0)
-		spa_log_warn(impl->log, "%p: loop is entered %d times",
-				impl, impl->enter_count);
-
-	spa_assert(!impl->polling);
+	if (impl->enter_count != 0 || impl->polling)
+		spa_log_warn(impl->log, "%p: loop is entered %d times polling:%d",
+				impl, impl->enter_count, impl->polling);
 
 	spa_list_consume(source, &impl->source_list, link)
 		loop_destroy_source(impl, &source->source);

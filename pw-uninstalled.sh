@@ -41,7 +41,7 @@ export SPA_PLUGIN_DIR="${BUILDDIR}/spa/plugins"
 export SPA_DATA_DIR="${SCRIPT_DIR}/spa/plugins"
 # the directory with pipewire modules
 export PIPEWIRE_MODULE_DIR="${BUILDDIR}/src/modules"
-export PATH="${BUILDDIR}/src/daemon:${BUILDDIR}/src/tools:${BUILDDIR}/src/media-session:${BUILDDIR}/src/examples:${PATH}"
+export PATH="${BUILDDIR}/src/daemon:${BUILDDIR}/src/tools:${BUILDDIR}/src/media-session:${BUILDDIR}/src/examples:${BUILDDIR}/pipewire-v4l2/src:${PATH}"
 export LD_LIBRARY_PATH="${BUILDDIR}/src/pipewire/:${BUILDDIR}/pipewire-jack/src/${LD_LIBRARY_PATH+":$LD_LIBRARY_PATH"}"
 export GST_PLUGIN_PATH="${BUILDDIR}/src/gst/${GST_PLUGIN_PATH+":${GST_PLUGIN_PATH}"}"
 # the directory with card profiles and paths
@@ -50,6 +50,7 @@ export ACP_PROFILES_DIR="${SCRIPT_DIR}/spa/plugins/alsa/mixer/profile-sets"
 # ALSA plugin directory
 export ALSA_PLUGIN_DIR="${BUILDDIR}/pipewire-alsa/alsa-plugins"
 
+export PW_BUILDDIR=$BUILDDIR
 export PW_UNINSTALLED=1
 export PKG_CONFIG_PATH="${BUILDDIR}/meson-uninstalled/:${PKG_CONFIG_PATH}"
 

@@ -54,10 +54,16 @@ done
 
 shift $(( OPTIND - 1 ))
 
-if [ "$LD_PRELOAD" = "" ] ; then
-   LD_PRELOAD='@LIBV4L2_PATH@/libpw-v4l2.so'
+if [ "$PW_UNINSTALLED" = 1 ] ; then
+   PW_V4L2_LD_PRELOAD="$PW_BUILDDIR"'/pipewire-v4l2/src/libpw-v4l2.so'
 else
-   LD_PRELOAD="$LD_PRELOAD "'@LIBV4L2_PATH@/libpw-v4l2.so'
+   PW_V4L2_LD_PRELOAD='@LIBV4L2_PATH@/libpw-v4l2.so'
+fi
+
+if [ "$LD_PRELOAD" = "" ] ; then
+   LD_PRELOAD="$PW_V4L2_LD_PRELOAD"
+else
+   LD_PRELOAD="$LD_PRELOAD $PW_V4L2_LD_PRELOAD"
 fi
 
 export LD_PRELOAD

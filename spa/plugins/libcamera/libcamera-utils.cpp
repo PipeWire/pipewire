@@ -583,7 +583,7 @@ spa_libcamera_set_control(struct impl *impl, const struct spa_pod_prop *prop)
 	struct val d;
 
 	auto v = info.idmap().find(prop->key);
-	if (v == NULL)
+	if (v == info.idmap().end())
 		return -ENOENT;
 
 	ctrl_id = v->second;

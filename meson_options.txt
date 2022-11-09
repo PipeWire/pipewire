@@ -168,6 +168,8 @@ option('libcamera',
        description: 'Enable libcamera spa plugin integration',
        type: 'feature',
        value: 'auto')
+option('system-libcamera', type : 'boolean', value : 'true',
+       description : 'Use libcamera from the system instead of building from source')
 option('videoconvert',
        description: 'Enable videoconvert spa plugin integration',
        type: 'feature',

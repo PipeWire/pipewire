@@ -1,0 +1,3 @@
+[wrap-git]
+url = https://git.libcamera.org/libcamera/libcamera.git
+revision = head

@@ -15,6 +15,11 @@ subprojects/lua*
 subprojects/wireplumber
 subprojects/media-session
 subprojects/packagecache
+subprojects/googletest*
+subprojects/gtest.wrap
+subprojects/libyaml.wrap
+subprojects/libyaml
+subprojects/libcamera
 
 # Created by https://www.gitignore.io/api/vim
 

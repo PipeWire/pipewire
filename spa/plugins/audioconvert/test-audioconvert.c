@@ -716,6 +716,10 @@ static const float data_f32_6p1[] = { 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f,
 				      0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f,
 				      0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f,
 				      0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f };
+static const float data_f32_6p1_from_5p1[] = { 0.1f, 0.2f, 0.3f, 0.4f, 0.55f, 0.5f, 0.6f,
+				      0.1f, 0.2f, 0.3f, 0.4f, 0.55f, 0.5f, 0.6f,
+				      0.1f, 0.2f, 0.3f, 0.4f, 0.55f, 0.5f, 0.6f,
+				      0.1f, 0.2f, 0.3f, 0.4f, 0.55f, 0.5f, 0.6f };
 
 static const float data_f32_7p1_remapped[] = { 0.1f, 0.2f, 0.5f, 0.6f, 0.7f, 0.8f, 0.3f, 0.4f,
 				      0.1f, 0.2f, 0.5f, 0.6f, 0.7f, 0.8f, 0.3f, 0.4f,
@@ -801,6 +805,27 @@ struct data dsp_6p1 = {
 			SPA_AUDIO_CHANNEL_RC,
 			SPA_AUDIO_CHANNEL_RL,
 			SPA_AUDIO_CHANNEL_RR,
+		}),
+	.ports = 7,
+	.planes = 1,
+	.data = { data_f32p_1, data_f32p_2, data_f32p_3, data_f32p_4, data_f32p_5, data_f32p_6, data_f32p_7 },
+	.size = sizeof(float) * 4
+};
+
+struct data dsp_6p1_side = {
+	.mode = SPA_PARAM_PORT_CONFIG_MODE_dsp,
+	.info = SPA_AUDIO_INFO_RAW_INIT(
+		.format = SPA_AUDIO_FORMAT_F32,
+		.rate = 48000,
+		.channels = 7,
+		.position = {
+			SPA_AUDIO_CHANNEL_FL,
+			SPA_AUDIO_CHANNEL_FR,
+			SPA_AUDIO_CHANNEL_FC,
+			SPA_AUDIO_CHANNEL_LFE,
+			SPA_AUDIO_CHANNEL_RC,
+			SPA_AUDIO_CHANNEL_SL,
+			SPA_AUDIO_CHANNEL_SR,
 		}),
 	.ports = 7,
 	.planes = 1,
@@ -931,6 +956,48 @@ struct data conv_f32_48000_6p1 = {
 	.size = sizeof(data_f32_6p1)
 };
 
+struct data conv_f32_48000_6p1_from_5p1 = {
+	.mode = SPA_PARAM_PORT_CONFIG_MODE_convert,
+	.info = SPA_AUDIO_INFO_RAW_INIT(
+		.format = SPA_AUDIO_FORMAT_F32,
+		.rate = 48000,
+		.channels = 7,
+		.position = {
+			SPA_AUDIO_CHANNEL_FL,
+			SPA_AUDIO_CHANNEL_FR,
+			SPA_AUDIO_CHANNEL_FC,
+			SPA_AUDIO_CHANNEL_LFE,
+			SPA_AUDIO_CHANNEL_RC,
+			SPA_AUDIO_CHANNEL_RL,
+			SPA_AUDIO_CHANNEL_RR,
+		}),
+	.ports = 1,
+	.planes = 1,
+	.data = { data_f32_6p1_from_5p1 },
+	.size = sizeof(data_f32_6p1_from_5p1)
+};
+
+struct data conv_f32_48000_6p1_side = {
+	.mode = SPA_PARAM_PORT_CONFIG_MODE_convert,
+	.info = SPA_AUDIO_INFO_RAW_INIT(
+		.format = SPA_AUDIO_FORMAT_F32,
+		.rate = 48000,
+		.channels = 7,
+		.position = {
+			SPA_AUDIO_CHANNEL_FL,
+			SPA_AUDIO_CHANNEL_FR,
+			SPA_AUDIO_CHANNEL_FC,
+			SPA_AUDIO_CHANNEL_LFE,
+			SPA_AUDIO_CHANNEL_RC,
+			SPA_AUDIO_CHANNEL_SL,
+			SPA_AUDIO_CHANNEL_SR,
+		}),
+	.ports = 1,
+	.planes = 1,
+	.data = { data_f32_6p1 },
+	.size = sizeof(data_f32_6p1)
+};
+
 struct data conv_f32p_48000_6p1 = {
 	.mode = SPA_PARAM_PORT_CONFIG_MODE_convert,
 	.info = SPA_AUDIO_INFO_RAW_INIT(
@@ -1010,6 +1077,9 @@ static int test_convert_remap_dsp(struct context *ctx)
 	run_convert(ctx, &dsp_5p1_remapped_2, &conv_f32p_48000_5p1_remapped);
 	run_convert(ctx, &dsp_6p1, &conv_f32p_48000_6p1);
 	run_convert(ctx, &dsp_6p1, &conv_f32_48000_6p1);
+	run_convert(ctx, &dsp_6p1_side, &conv_f32_48000_6p1_side);
+
+	run_convert(ctx, &dsp_5p1, &conv_f32_48000_6p1_from_5p1);
 	return 0;
 }
 
@@ -1027,11 +1097,13 @@ static int test_convert_remap_conv(struct context *ctx)
 	run_convert(ctx, &conv_f32p_48000_5p1_remapped, &dsp_5p1);
 	run_convert(ctx, &conv_f32p_48000_6p1, &dsp_6p1);
 	run_convert(ctx, &conv_f32_48000_6p1, &dsp_6p1);
+	run_convert(ctx, &conv_f32_48000_6p1_side, &dsp_6p1_side);
 	run_convert(ctx, &conv_f32p_48000_5p1_remapped, &dsp_5p1_remapped);
 	run_convert(ctx, &conv_f32_48000_7p1_remapped, &dsp_7p1_remapped);
 	run_convert(ctx, &conv_f32p_48000_5p1_remapped, &dsp_5p1_remapped_2);
 
 	run_convert(ctx, &conv_f32_48000_6p1, &dsp_5p1_from_6p1);
+	run_convert(ctx, &conv_f32_48000_6p1_side, &dsp_5p1_from_6p1);
 	return 0;
 }
 

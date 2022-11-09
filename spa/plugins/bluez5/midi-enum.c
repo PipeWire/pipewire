@@ -111,18 +111,29 @@ struct chr
 {
 	struct spa_dbus_object object;
 	char *service_path;
+	char *description;
 	uint32_t id;
 	DBusPendingCall *read_call;
+	DBusPendingCall *dsc_call;
 	unsigned int node_emitted:1;
 	unsigned int valid_uuid:1;
 	unsigned int read_probed:1;
 	unsigned int read_done:1;
+	unsigned int dsc_probed:1;
+	unsigned int dsc_done:1;
+};
+
+struct dsc
+{
+	struct spa_dbus_object object;
+	char *chr_path;
+	unsigned int valid_uuid:1;
 };
 
 static void emit_chr_node(struct impl *impl, struct chr *chr, struct device *device)
 {
 	struct spa_device_object_info info;
-	char class[16];
+	char nick[512], class[16];
 	struct spa_dict_item items[23];
 	uint32_t n_items = 0;
 
@@ -140,6 +151,10 @@ static void emit_chr_node(struct impl *impl, struct chr *chr, struct device *dev
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Midi/Bridge");
 	items[n_items++] = SPA_DICT_ITEM_INIT("node.description",
 			device->alias ? device->alias : device->name);
+	if (chr->description && chr->description[0] != '\0') {
+		spa_scnprintf(nick, sizeof(nick), "%s (%s)", device->alias, chr->description);
+		items[n_items++] = SPA_DICT_ITEM_INIT("node.nick", nick);
+	}
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ICON, device->icon);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PATH, chr->object.path);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ADDRESS, device->address);
@@ -214,11 +229,109 @@ static int read_probe(struct impl *impl, struct chr *chr)
 			read_probe_reply);
 }
 
+struct dsc *find_dsc(struct impl *impl, struct chr *chr)
+{
+	struct dsc *dsc;
+	const struct spa_list *dscs = spa_dbus_monitor_object_list(
+		impl->dbus_monitor, BLUEZ_GATT_DSC_INTERFACE);
+
+	spa_assert(dscs);
+	spa_list_for_each(dsc, dscs, object.link) {
+		if (dsc->valid_uuid && spa_streq(dsc->chr_path, chr->object.path))
+			return dsc;
+	}
+	return NULL;
+}
+
+static void read_dsc_reply(DBusPendingCall **call_ptr, DBusMessage *r)
+{
+	struct chr *chr = SPA_CONTAINER_OF(call_ptr, struct chr, dsc_call);
+	struct impl *impl = chr->object.user_data;
+	DBusError err;
+	DBusMessageIter args, arr;
+	void *value = NULL;
+	int n = 0;
+
+	chr->dsc_done = true;
+
+	dbus_error_init(&err);
+	if (dbus_set_error_from_message(&err, r)) {
+		spa_log_error(impl->log, "%s.ReadValue() failed: %s (%s)",
+				BLUEZ_GATT_DSC_INTERFACE,
+				err.name ? err.name : "unknown",
+				err.message ? err.message : "");
+		dbus_error_free(&err);
+		return;
+	}
+	dbus_error_free(&err);
+	if (!dbus_message_has_signature(r, "ay")) {
+		spa_log_warn(impl->log, "invalid ReadValue() signature");
+		return;
+	}
+
+	dbus_message_iter_init(r, &args);
+	dbus_message_iter_recurse(&args, &arr);
+	dbus_message_iter_get_fixed_array(&arr, &value, &n);
+
+	free(chr->description);
+	if (n > 0)
+		chr->description = strndup(value, n);
+	else
+		chr->description = NULL;
+
+	spa_log_debug(impl->log, "MIDI GATT user descriptor value: '%s'",
+			chr->description);
+
+	check_chr_node(impl, chr);
+}
+
+static int read_dsc(struct impl *impl, struct chr *chr)
+{
+	DBusMessageIter i, d;
+	DBusMessage *m;
+	struct dsc *dsc;
+
+	if (chr->dsc_probed)
+		return 0;
+	if (chr->dsc_call)
+		return -EBUSY;
+
+	chr->dsc_probed = true;
+
+	dsc = find_dsc(impl, chr);
+	if (dsc == NULL) {
+		chr->dsc_done = true;
+		return -ENOENT;
+	}
+
+	spa_log_debug(impl->log, "MIDI GATT user descriptor read, path=%s",
+			dsc->object.path);
+
+	m = dbus_message_new_method_call(BLUEZ_SERVICE,
+			dsc->object.path,
+			BLUEZ_GATT_DSC_INTERFACE,
+			"ReadValue");
+	if (m == NULL) {
+		chr->dsc_done = true;
+		return -ENOMEM;
+	}
+
+	dbus_message_iter_init_append(m, &i);
+	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "{sv}", &d);
+	dbus_message_iter_close_container(&i, &d);
+
+	return spa_dbus_async_call(impl->conn, m, &chr->dsc_call,
+			read_dsc_reply);
+}
+
 static int read_probe_reset(struct impl *impl, struct chr *chr)
 {
 	spa_dbus_async_call_cancel(&chr->read_call);
+	spa_dbus_async_call_cancel(&chr->dsc_call);
 	chr->read_probed = false;
 	chr->read_done = false;
+	chr->dsc_probed = false;
+	chr->dsc_done = false;
 	return 0;
 }
 
@@ -253,6 +366,11 @@ static void check_chr_node(struct impl *impl, struct chr *chr)
 	if (available && !chr->read_done) {
 		read_probe(impl, chr);
 		available = false;
+	}
+
+	if (available && !chr->dsc_done) {
+		read_dsc(impl, chr);
+		available = chr->dsc_done;
 	}
 
 	if (chr->node_emitted && !available) {
@@ -477,6 +595,7 @@ static void chr_remove(struct spa_dbus_object *object)
 		remove_chr_node(impl, chr);
 
 	free(chr->service_path);
+	free(chr->description);
 }
 
 static void chr_property(struct spa_dbus_object *object, const char *key, DBusMessageIter *value)
@@ -487,6 +606,35 @@ static void chr_property(struct spa_dbus_object *object, const char *key, DBusMe
 		chr->valid_uuid = spa_streq(get_dbus_string(value), BT_MIDI_CHR_UUID);
 	else if (spa_streq(key, "Service"))
 		dup_dbus_string(value, &chr->service_path);
+}
+
+static void dsc_update(struct spa_dbus_object *object)
+{
+	struct impl *impl = object->user_data;
+	struct dsc *dsc = SPA_CONTAINER_OF(object, struct dsc, object);
+
+	if (!dsc->valid_uuid) {
+		spa_dbus_monitor_ignore_object(impl->dbus_monitor, object);
+		return;
+	}
+}
+
+static void dsc_property(struct spa_dbus_object *object, const char *key, DBusMessageIter *value)
+{
+	struct dsc *dsc = SPA_CONTAINER_OF(object, struct dsc, object);
+
+	if (spa_streq(key, "UUID"))
+		dsc->valid_uuid = spa_streq(get_dbus_string(value),
+				BT_GATT_CHARACTERISTIC_USER_DESCRIPTION_UUID);
+	else if (spa_streq(key, "Characteristic"))
+		dup_dbus_string(value, &dsc->chr_path);
+}
+
+static void dsc_remove(struct spa_dbus_object *object)
+{
+	struct dsc *dsc = SPA_CONTAINER_OF(object, struct dsc, object);
+
+	free(dsc->chr_path);
 }
 
 static const struct spa_dbus_interface monitor_interfaces[] = {
@@ -516,6 +664,13 @@ static const struct spa_dbus_interface monitor_interfaces[] = {
 		.remove = chr_remove,
 		.property = chr_property,
 		.object_size = sizeof(struct chr),
+	},
+	{
+		.name = BLUEZ_GATT_DSC_INTERFACE,
+		.update = dsc_update,
+		.remove = dsc_remove,
+		.property = dsc_property,
+		.object_size = sizeof(struct dsc),
 	},
 	{NULL}
 };

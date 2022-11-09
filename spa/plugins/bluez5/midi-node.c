@@ -81,6 +81,7 @@ enum node_role {
 
 struct props {
 	char clock_name[64];
+	char device_name[512];
 	int64_t latency_offset;
 };
 
@@ -311,6 +312,7 @@ static void reset_props(struct props *props)
 {
 	props->latency_offset = DEFAULT_LATENCY_OFFSET;
 	strncpy(props->clock_name, DEFAULT_CLOCK_NAME, sizeof(props->clock_name));
+	props->device_name[0] = '\0';
 }
 
 static bool is_following(struct impl *this)
@@ -1053,6 +1055,12 @@ static int server_release(void *user_data)
 	return 0;
 }
 
+static const char *server_description(void *user_data)
+{
+	struct impl *this = user_data;
+	return this->props.device_name;
+}
+
 static int do_remove_port_source(struct spa_loop *loop,
 		bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
@@ -1254,6 +1262,8 @@ next:
 	switch (id) {
 	case SPA_PARAM_PropInfo:
 	{
+		struct props *p = &this->props;
+
 		switch (result.index) {
 		case 0:
 			param = spa_pod_builder_add_object(&b,
@@ -1261,6 +1271,13 @@ next:
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_latencyOffsetNsec),
 				SPA_PROP_INFO_description, SPA_POD_String("Latency offset (ns)"),
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Long(0LL, INT64_MIN, INT64_MAX));
+			break;
+		case 1:
+			param = spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_PropInfo, id,
+				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_deviceName),
+				SPA_PROP_INFO_description, SPA_POD_String("Device name"),
+				SPA_PROP_INFO_type, SPA_POD_String(p->device_name));
 			break;
 		default:
 			return 0;
@@ -1275,7 +1292,8 @@ next:
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Props, id,
-				SPA_PROP_latencyOffsetNsec, SPA_POD_Long(p->latency_offset));
+				SPA_PROP_latencyOffsetNsec, SPA_POD_Long(p->latency_offset),
+				SPA_PROP_deviceName, SPA_POD_String(p->device_name));
 			break;
 		default:
 			return 0;
@@ -1322,7 +1340,9 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	} else {
 		spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_Props, NULL,
-				SPA_PROP_latencyOffsetNsec, SPA_POD_OPT_Long(&new_props.latency_offset));
+				SPA_PROP_latencyOffsetNsec, SPA_POD_OPT_Long(&new_props.latency_offset),
+				SPA_PROP_deviceName, SPA_POD_OPT_Stringn(new_props.device_name,
+						sizeof(new_props.device_name)));
 	}
 
 	changed = (memcmp(&new_props, &this->props, sizeof(struct props)) != 0);
@@ -1814,6 +1834,7 @@ static const struct spa_bt_midi_server_cb impl_server = {
 	.acquire_write = server_acquire_write,
 	.acquire_notify = server_acquire_notify,
 	.release = server_release,
+	.get_description = server_description,
 };
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)
@@ -1870,6 +1891,7 @@ impl_init(const struct spa_handle_factory *factory,
 		uint32_t n_support)
 {
 	struct impl *this;
+	const char *device_name = "";
 	int res = 0;
 	size_t i;
 
@@ -1917,6 +1939,11 @@ impl_init(const struct spa_handle_factory *factory,
 			if (spa_streq(str, "server"))
 				this->role = NODE_SERVER;
 		}
+
+		if ((str = spa_dict_lookup(info, "node.nick")) != NULL)
+			device_name = str;
+		else if ((str = spa_dict_lookup(info, "node.description")) != NULL)
+			device_name = str;
 	}
 
 	if (this->role == NODE_CLIENT && this->chr_path == NULL) {
@@ -1952,6 +1979,9 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_hook_list_init(&this->hooks);
 
 	reset_props(&this->props);
+
+	spa_scnprintf(this->props.device_name, sizeof(this->props.device_name),
+			"%s", device_name);
 
 	/* set the node info */
 	this->info_all = SPA_NODE_CHANGE_MASK_FLAGS |

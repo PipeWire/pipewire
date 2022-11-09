@@ -40,9 +40,11 @@
 #define BLUEZ_GATT_PROFILE_INTERFACE	BLUEZ_SERVICE ".GattProfile1"
 #define BLUEZ_GATT_SERVICE_INTERFACE	BLUEZ_SERVICE ".GattService1"
 #define BLUEZ_GATT_CHR_INTERFACE	BLUEZ_SERVICE ".GattCharacteristic1"
+#define BLUEZ_GATT_DSC_INTERFACE	BLUEZ_SERVICE ".GattDescriptor1"
 
 #define BT_MIDI_SERVICE_UUID		"03b80e5a-ede8-4b33-a751-6ce34ec4c700"
 #define BT_MIDI_CHR_UUID		"7772e5db-3868-4112-a1a9-f2669d106bf3"
+#define BT_GATT_CHARACTERISTIC_USER_DESCRIPTION_UUID	"00002901-0000-1000-8000-00805f9b34fb"
 
 #define MIDI_BUF_SIZE		8192
 #define MIDI_MAX_MTU		8192
@@ -76,6 +78,7 @@ struct spa_bt_midi_server_cb
 	int (*acquire_notify)(void *user_data, int fd, uint16_t mtu);
 	int (*acquire_write)(void *user_data, int fd, uint16_t mtu);
 	int (*release)(void *user_data);
+	const char *(*get_description)(void *user_data);
 };
 
 static inline void spa_bt_midi_parser_init(struct spa_bt_midi_parser *parser)

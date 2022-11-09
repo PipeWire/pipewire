@@ -42,6 +42,7 @@
 #define MIDI_SERVER_PATH	"/midiserver"
 #define MIDI_SERVICE_PATH	"/midiserver/service"
 #define MIDI_CHR_PATH		"/midiserver/service/chr"
+#define MIDI_DSC_PATH		"/midiserver/service/chr/dsc"
 
 #define BLE_DEFAULT_MTU		23
 
@@ -56,6 +57,7 @@ struct impl
 
 	struct spa_dbus_local_object *service;
 	struct spa_dbus_local_object *chr;
+	struct spa_dbus_local_object *dsc;
 
 	struct spa_dbus_monitor *dbus_monitor;
 	struct spa_dbus_object_manager *objects;
@@ -74,6 +76,118 @@ struct chr {
 	struct spa_dbus_local_object object;
 	unsigned int write_acquired:1;
 	unsigned int notify_acquired:1;
+};
+
+struct dsc {
+	struct spa_dbus_local_object object;
+};
+
+
+/*
+ * Characteristic user descriptor: not in BLE MIDI standard, but we
+ * put a device name here in case we have multiple MIDI endpoints.
+ */
+
+static DBusMessage *parse_options(struct impl *impl, DBusMessage *m, const char *out_key, uint16_t *out_value);
+
+static DBusMessage *dsc_read_value(struct spa_dbus_local_object *object, DBusMessage *m)
+{
+	struct dsc *dsc = SPA_CONTAINER_OF(object, struct dsc, object);
+	struct impl *impl = dsc->object.user_data;
+	DBusMessage *r;
+	DBusMessageIter i, a;
+	const char *description = NULL;
+	const uint8_t *ptr;
+	uint16_t offset = 0;
+	int len;
+
+	r = parse_options(impl, m, "offset", &offset);
+	if (r)
+		return r;
+
+	if (impl->cb->get_description)
+		description = impl->cb->get_description(impl->user_data);
+	if (!description)
+		description = "";
+
+	len = strlen(description);
+	if (offset > len)
+		return dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS,
+				"Invalid arguments");
+
+	r = dbus_message_new_method_return(m);
+	if (r == NULL)
+		return NULL;
+
+	ptr = SPA_PTROFF(description, offset, const uint8_t);
+	len -= offset;
+
+	dbus_message_iter_init_append(r, &i);
+	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "y", &a);
+	dbus_message_iter_append_fixed_array(&a, DBUS_TYPE_BYTE, &ptr, len);
+	dbus_message_iter_close_container(&i, &a);
+	return r;
+}
+
+static int dsc_prop_uuid_get(struct spa_dbus_local_object *object, DBusMessageIter *value)
+{
+	const char *uuid = BT_GATT_CHARACTERISTIC_USER_DESCRIPTION_UUID;
+	dbus_message_iter_append_basic(value, DBUS_TYPE_STRING, &uuid);
+	return 0;
+}
+
+static int dsc_prop_characteristic_get(struct spa_dbus_local_object *object, DBusMessageIter *value)
+{
+	struct dsc *dsc = SPA_CONTAINER_OF(object, struct dsc, object);
+	struct impl *impl = dsc->object.user_data;
+	dbus_message_iter_append_basic(value, DBUS_TYPE_OBJECT_PATH, &impl->chr->path);
+	return 0;
+}
+
+static int dsc_prop_flags_get(struct spa_dbus_local_object *object, DBusMessageIter *value)
+{
+	DBusMessageIter a;
+	const char *flags[] = {"encrypt-read", NULL };
+	const char **p;
+
+	dbus_message_iter_open_container(value, DBUS_TYPE_ARRAY, "s", &a);
+	for (p = &flags[0]; *p; ++p)
+		dbus_message_iter_append_basic(&a, DBUS_TYPE_STRING, p);
+	dbus_message_iter_close_container(value, &a);
+
+	return 0;
+}
+
+static const struct spa_dbus_local_interface midi_dsc_interfaces[] = {
+	{
+		.name = BLUEZ_GATT_DSC_INTERFACE,
+		.methods = (struct spa_dbus_method[]) {
+			{
+				.name = "ReadValue",
+				.call = dsc_read_value,
+			},
+			{NULL}
+		},
+		.properties = (struct spa_dbus_property[]) {
+			{
+				.name = "UUID",
+				.signature = "s",
+				.get = dsc_prop_uuid_get,
+			},
+			{
+				.name = "Characteristic",
+				.signature = "o",
+				.get = dsc_prop_characteristic_get,
+			},
+			{
+				.name = "Flags",
+				.signature = "as",
+				.get = dsc_prop_flags_get,
+			},
+			{NULL}
+		},
+	},
+	{NULL}
 };
 
 
@@ -122,7 +236,7 @@ static void chr_change_acquired(struct impl *impl, struct chr *chr, bool write, 
 	spa_dbus_object_manager_properties_changed(impl->objects, impl->chr, iface, changed);
 }
 
-static DBusMessage *parse_options(struct impl *impl, DBusMessage *m, uint16_t *mtu)
+static DBusMessage *parse_options(struct impl *impl, DBusMessage *m, const char *out_key, uint16_t *out_value)
 {
 	DBusMessageIter args, options;
 
@@ -146,8 +260,8 @@ static DBusMessage *parse_options(struct impl *impl, DBusMessage *m, uint16_t *m
 		dbus_message_iter_recurse(&entry, &value);
 		type = dbus_message_iter_get_arg_type(&value);
 
-		if (spa_streq(key, "mtu") && type == DBUS_TYPE_UINT16)
-			dbus_message_iter_get_basic(&value, mtu);
+		if (spa_streq(key, out_key) && type == DBUS_TYPE_UINT16)
+			dbus_message_iter_get_basic(&value, out_value);
 
 		dbus_message_iter_next(&options);
 	}
@@ -184,7 +298,7 @@ static DBusMessage *chr_acquire(struct spa_dbus_local_object *object, DBusMessag
 		goto fail;
 	}
 
-	r = parse_options(impl, m, &mtu);
+	r = parse_options(impl, m, "mtu", &mtu);
 	if (r)
 		return r;
 
@@ -270,7 +384,8 @@ static int chr_prop_write_acquired_get(struct spa_dbus_local_object *object, DBu
 static int chr_prop_flags_get(struct spa_dbus_local_object *object, DBusMessageIter *value)
 {
 	DBusMessageIter a;
-	const char *flags[] = {"read", "write-without-response", "notify", NULL };
+	const char *flags[] = {"encrypt-read", "write-without-response",
+		"encrypt-write", "encrypt-notify", NULL };
 	const char **p;
 
 	dbus_message_iter_open_container(value, DBUS_TYPE_ARRAY, "s", &a);
@@ -479,6 +594,14 @@ static int register_objects(struct impl *impl)
 			sizeof(struct chr),
 			impl);
 	if (impl->chr == NULL)
+		goto fail;
+
+	impl->dsc = spa_dbus_object_manager_register(impl->objects,
+			MIDI_DSC_PATH,
+			midi_dsc_interfaces,
+			sizeof(struct dsc),
+			impl);
+	if (impl->dsc == NULL)
 		goto fail;
 
 	impl->dbus_monitor = spa_dbus_monitor_new(impl->conn,

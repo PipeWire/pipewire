@@ -89,12 +89,7 @@ if get_option('spa-plugins').allowed()
   vulkan_headers = cc.has_header('vulkan/vulkan.h', dependencies : vulkan_dep)
   #summary({'Vulkan': vulkan_headers}, bool_yn: true, section: 'Misc dependencies')
 
-  if get_option('system-libcamera')
-    libcamera_dep = dependency('libcamera', required: get_option('libcamera'))
-  else
-    libcamera_proj = subproject('libcamera')
-    libcamera_dep = libcamera_proj.get_variable('libcamera_public')
-  endif
+  libcamera_dep = dependency('libcamera', required: get_option('libcamera'))
   summary({'libcamera': libcamera_dep.found()}, bool_yn: true, section: 'Backend')
 
   tinycompress_dep = cc.find_library('tinycompress', has_headers: ['tinycompress/tinycompress.h' ], required: get_option('compress-offload'))

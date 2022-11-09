@@ -311,6 +311,7 @@ static int make_matrix(struct channelmix *mix)
 				_MATRIX(SL,RL) += 1.0f;
 				_MATRIX(SR,RR) += 1.0f;
 			}
+			keep &= ~SIDE;
 		} else if (dst_mask & STEREO) {
 			spa_log_debug(mix->log, "assign RL+RR to FL+FR (%f)", slev);
 			if (matrix_encoding == MATRIX_DOLBY) {
@@ -348,6 +349,7 @@ static int make_matrix(struct channelmix *mix)
 				_MATRIX(RL,SL) += 1.0f;
 				_MATRIX(RR,SR) += 1.0f;
 			}
+			keep &= ~REAR;
 		} else if (dst_mask & _MASK(RC)) {
 			spa_log_debug(mix->log, "assign SL+SR to RC (%f)", SQRT1_2);
 			_MATRIX(RC,SL)+= SQRT1_2;

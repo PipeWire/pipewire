@@ -68,7 +68,6 @@ struct impl {
 	struct spa_node *follower;
 	struct spa_hook follower_listener;
 	uint32_t follower_flags;
-	struct spa_video_info follower_current_format;
 	struct spa_video_info default_format;
 
 	struct spa_handle *hnd_convert;
@@ -567,29 +566,10 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 {
 	int res = 0, res2 = 0;
 	struct impl *this = object;
-	struct spa_video_info info = { 0 };
 
 	spa_log_debug(this->log, "%p: set param %d", this, id);
 
 	switch (id) {
-	case SPA_PARAM_Format:
-		if (this->started)
-			return -EIO;
-		if (param == NULL)
-			return -EINVAL;
-
-		if ((res = spa_format_parse(param, &info.media_type, &info.media_subtype)) < 0)
-			return res;
-		if (info.media_type != SPA_MEDIA_TYPE_video ||
-		    info.media_subtype != SPA_MEDIA_SUBTYPE_raw)
-			return -EINVAL;
-
-		if (spa_format_video_raw_parse(param, &info.info.raw) < 0)
-			return -EINVAL;
-
-		this->follower_current_format = info;
-		break;
-
 	case SPA_PARAM_PortConfig:
 	{
 		enum spa_direction dir;
@@ -1614,7 +1594,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	this->params[IDX_PropInfo] = SPA_PARAM_INFO(SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
 	this->params[IDX_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
-	this->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);
+	this->params[IDX_Format] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_READ);
 	this->params[IDX_EnumPortConfig] = SPA_PARAM_INFO(SPA_PARAM_EnumPortConfig, SPA_PARAM_INFO_READ);
 	this->params[IDX_PortConfig] = SPA_PARAM_INFO(SPA_PARAM_PortConfig, SPA_PARAM_INFO_READWRITE);
 	this->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READWRITE);

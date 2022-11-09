@@ -1291,12 +1291,23 @@ static void set_volume(struct impl *this)
 	this->params[IDX_Props].user++;
 }
 
+static char *format_position(char *str, size_t len, uint32_t channels, uint32_t *position)
+{
+	uint32_t i, idx = 0;
+	for (i = 0; i < channels; i++)
+		idx += snprintf(str + idx, len - idx, "%s%s", i == 0 ? "" : " ",
+				spa_debug_type_find_short_name(spa_type_audio_channel,
+					position[i]));
+	return str;
+}
+
 static int setup_channelmix(struct impl *this)
 {
 	struct dir *in = &this->dir[SPA_DIRECTION_INPUT];
 	struct dir *out = &this->dir[SPA_DIRECTION_OUTPUT];
 	uint32_t i, src_chan, dst_chan, p;
 	uint64_t src_mask, dst_mask;
+	char str[1024];
 	int res;
 
 	src_chan = in->format.info.raw.channels;
@@ -1310,6 +1321,11 @@ static int setup_channelmix(struct impl *this)
 		p = out->format.info.raw.position[i];
 		dst_mask |= 1ULL << (p < 64 ? p : 0);
 	}
+
+	spa_log_info(this->log, "in  %s (%016"PRIx64")", format_position(str, sizeof(str),
+				src_chan, in->format.info.raw.position), src_mask);
+	spa_log_info(this->log, "out %s (%016"PRIx64")", format_position(str, sizeof(str),
+				dst_chan, out->format.info.raw.position), dst_mask);
 
 	if (src_mask & 1)
 		src_mask = default_mask(src_chan);

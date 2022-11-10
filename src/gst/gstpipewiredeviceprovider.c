@@ -491,6 +491,8 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
           gst_device_provider_hide_provider (provider, "pulsedeviceprovider");
 	else if (g_str_has_prefix(str, "v4l2:"))
           gst_device_provider_hide_provider (provider, "v4l2deviceprovider");
+	else if (g_str_has_prefix(str, "libcamera:"))
+          gst_device_provider_hide_provider (provider, "libcameraprovider");
       }
     }
 

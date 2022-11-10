@@ -151,7 +151,7 @@ struct port {
 	struct time_sync sync;
 
 	unsigned int acquired:1;
-	DBusPendingCall *acquire_call;
+	struct spa_dbus_async_call acquire_call;
 
 	struct spa_source source;
 
@@ -919,9 +919,9 @@ static int do_release(struct impl *this);
 
 static int do_stop(struct impl *this);
 
-static void acquire_reply(DBusPendingCall **call_ptr, DBusMessage *r)
+static void acquire_reply(struct spa_dbus_async_call *call, DBusMessage *r)
 {
-	struct port *port = SPA_CONTAINER_OF(call_ptr, struct port, acquire_call);
+	struct port *port = SPA_CONTAINER_OF(call, struct port, acquire_call);
 	struct impl *this = port->impl;
 	const char *method = (port->direction == SPA_DIRECTION_OUTPUT) ?
 		"AcquireNotify" : "AcquireWrite";
@@ -977,7 +977,7 @@ static int do_acquire(struct port *port)
 
 	if (port->acquired)
 		return 0;
-	if (port->acquire_call)
+	if (port->acquire_call.pending)
 		return 0;
 
 	spa_log_info(this->log,
@@ -995,7 +995,7 @@ static int do_acquire(struct port *port)
 	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "{sv}", &d);
 	dbus_message_iter_close_container(&i, &d);
 
-	return spa_dbus_async_call(this->conn, m, &port->acquire_call,
+	return spa_dbus_async_call_send(&port->acquire_call, this->conn, m,
 			acquire_reply);
 }
 

@@ -24,6 +24,7 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <stdalign.h>
 
 #include <dbus/dbus.h>
 
@@ -48,9 +49,8 @@ struct impl
 	struct spa_log_topic log_topic;
 	struct spa_log *log;
 
-	DBusPendingCall *get_managed_objects_call;
+	struct spa_dbus_async_call get_managed_objects_call;
 
-	unsigned int filters_added:1;
 	unsigned int objects_listed:1;
 
 	struct spa_list objects[];
@@ -60,11 +60,7 @@ struct object
 {
 	unsigned int removed:1;
 	unsigned int updating:1;
-	union {
-		struct spa_dbus_object this;
-		/* extra data follows 'this', force safer alignment */
-		long double _align;
-	};
+	struct spa_dbus_object alignas(max_align_t) this;
 };
 
 static void object_emit_update(struct object *o)
@@ -292,25 +288,27 @@ static void interfaces_removed(struct impl *impl, DBusMessageIter *arg_iter)
 	}
 }
 
-static void get_managed_objects_reply(DBusPendingCall **call_ptr, DBusMessage *r)
+static void get_managed_objects_reply(struct spa_dbus_async_call *call, DBusMessage *r)
 {
-	struct impl *impl = SPA_CONTAINER_OF(call_ptr, struct impl, get_managed_objects_call);
+	struct impl *impl = SPA_CONTAINER_OF(call, struct impl, get_managed_objects_call);
 	DBusMessageIter it[6];
 
 	if (dbus_message_is_error(r, DBUS_ERROR_UNKNOWN_METHOD)) {
-		spa_log_warn(impl->log, "BlueZ D-Bus ObjectManager not available");
+		spa_log_warn(impl->log, "ObjectManager not available at path=%s",
+			impl->this.path);
 		return;
 	}
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
-		spa_log_error(impl->log, "GetManagedObjects() failed: %s",
-				dbus_message_get_error_name(r));
+		spa_log_error(impl->log, "GetManagedObjects() at %s failed: %s",
+				impl->this.path, dbus_message_get_error_name(r));
 		return;
 	}
 
 	if (!dbus_message_iter_init(r, &it[0]) ||
-			!spa_streq(dbus_message_get_signature(r), "a{oa{sa{sv}}}")) {
-		spa_log_error(impl->log, "Invalid reply signature for GetManagedObjects()");
+			!dbus_message_has_signature(r, "a{oa{sa{sv}}}")) {
+		spa_log_error(impl->log, "Invalid reply signature for GetManagedObjects() at %s",
+				impl->this.path);
 		return;
 	}
 
@@ -334,7 +332,7 @@ static int get_managed_objects(struct impl *impl)
 {
 	DBusMessage *m;
 
-	if (impl->objects_listed || impl->get_managed_objects_call)
+	if (impl->objects_listed || impl->get_managed_objects_call.pending)
 		return 0;
 
 	m = dbus_message_new_method_call(impl->this.service,
@@ -346,7 +344,7 @@ static int get_managed_objects(struct impl *impl)
 
 	dbus_message_set_auto_start(m, false);
 
-	return spa_dbus_async_call(impl->conn, m, &impl->get_managed_objects_call,
+	return spa_dbus_async_call_send(&impl->get_managed_objects_call, impl->conn, m,
 			get_managed_objects_reply);
 }
 
@@ -354,9 +352,7 @@ static int get_managed_objects(struct impl *impl)
 static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *user_data)
 {
 	struct impl *impl = user_data;
-	DBusError err;
-
-	dbus_error_init(&err);
+	DBusError err = DBUS_ERROR_INIT;
 
 	if (dbus_message_is_signal(m, DBUS_INTERFACE_DBUS, "NameOwnerChanged")) {
 		const char *name, *old_owner, *new_owner;
@@ -413,7 +409,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 		if (!impl->objects_listed)
 			goto done;
 
-		if (!dbus_message_iter_init(m, &it) || !spa_streq(dbus_message_get_signature(m), "oa{sa{sv}}")) {
+		if (!dbus_message_iter_init(m, &it) || !dbus_message_has_signature(m, "oa{sa{sv}}")) {
 			spa_log_error(impl->log, "Invalid signature found in InterfacesAdded");
 			goto done;
 		}
@@ -427,7 +423,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 		if (!impl->objects_listed)
 			goto done;
 
-		if (!dbus_message_iter_init(m, &it) || !spa_streq(dbus_message_get_signature(m), "oas")) {
+		if (!dbus_message_iter_init(m, &it) || !dbus_message_has_signature(m, "oas")) {
 			spa_log_error(impl->log, "Invalid signature found in InterfacesRemoved");
 			goto done;
 		}
@@ -443,7 +439,7 @@ static DBusHandlerResult filter_cb(DBusConnection *bus, DBusMessage *m, void *us
 			goto done;
 
 		if (!dbus_message_iter_init(m, &args) ||
-				!spa_streq(dbus_message_get_signature(m), "sa{sv}as")) {
+				!dbus_message_has_signature(m, "sa{sv}as")) {
 			spa_log_error(impl->log, "Invalid signature found in PropertiesChanged");
 			goto done;
 		}
@@ -478,21 +474,14 @@ done:
 
 static int add_filters(struct impl *impl)
 {
-	DBusError err;
+	DBusError err = DBUS_ERROR_INIT;
 	char rule[1024];
 	const struct spa_dbus_interface *iface;
-
-	if (impl->filters_added)
-		return 0;
 
 	if (!dbus_connection_add_filter(impl->conn, filter_cb, impl, NULL)) {
 		spa_log_error(impl->log, "failed to add DBus filter");
 		return -EIO;
 	}
-
-	impl->filters_added = true;
-
-	dbus_error_init(&err);
 
 	spa_scnprintf(rule, sizeof(rule),
 			"type='signal',sender='org.freedesktop.DBus',"
@@ -538,6 +527,8 @@ static int add_filters(struct impl *impl)
 	return 0;
 
 fail:
+	dbus_connection_remove_filter(impl->conn, filter_cb, impl);
+
 	spa_log_error(impl->log, "failed to add DBus match: %s", err.message);
 	dbus_error_free(&err);
 	return -EIO;
@@ -553,6 +544,7 @@ struct spa_dbus_monitor *spa_dbus_monitor_new(DBusConnection *conn,
 	struct impl *impl;
 	const struct spa_dbus_interface *iface;
 	size_t num_interfaces = 0, i;
+	int res;
 
 	for (iface = interfaces; iface && iface->name; ++iface) {
 		spa_assert(iface->object_size >= sizeof(struct spa_dbus_object));
@@ -562,8 +554,6 @@ struct spa_dbus_monitor *spa_dbus_monitor_new(DBusConnection *conn,
 	impl = calloc(1, sizeof(struct impl) + sizeof(struct spa_list) * num_interfaces);
 	if (impl == NULL)
 		return NULL;
-
-	dbus_connection_ref(conn);
 
 	impl->conn = conn;
 	impl->this.service = strdup(service);
@@ -582,7 +572,16 @@ struct spa_dbus_monitor *spa_dbus_monitor_new(DBusConnection *conn,
 	spa_assert(impl->this.service);
 	spa_assert(impl->this.path);
 
-	add_filters(impl);
+	if ((res = add_filters(impl)) < 0) {
+		free((void *)impl->this.service);
+		free((void *)impl->this.path);
+		free(impl);
+		errno = -res;
+		return NULL;
+	}
+
+	dbus_connection_ref(conn);
+
 	get_managed_objects(impl);
 
 	return &impl->this;
@@ -595,16 +594,9 @@ void spa_dbus_monitor_destroy(struct spa_dbus_monitor *this)
 	struct spa_dbus_object *object;
 	size_t i;
 
-	if (impl->filters_added) {
-		dbus_connection_remove_filter(impl->conn, filter_cb, impl);
-		impl->filters_added = false;
-	}
+	dbus_connection_remove_filter(impl->conn, filter_cb, impl);
 
-	if (impl->get_managed_objects_call) {
-		dbus_pending_call_cancel(impl->get_managed_objects_call);
-		dbus_pending_call_unref(impl->get_managed_objects_call);
-		impl->get_managed_objects_call = NULL;
-	}
+	spa_dbus_async_call_cancel(&impl->get_managed_objects_call);
 
 	for (iface = impl->this.interfaces, i = 0; iface && iface->name; ++iface, ++i) {
 		spa_list_consume(object, &impl->objects[i], link) {
@@ -670,48 +662,38 @@ struct spa_list *spa_dbus_monitor_object_list(struct spa_dbus_monitor *this, con
 	return object_list;
 }
 
-typedef void (*pending_call_reply_t)(DBusPendingCall **, DBusMessage *);
-
-static dbus_int32_t async_call_reply_id = -1;
-
 static void async_call_reply(DBusPendingCall *pending, void *user_data)
 {
-	DBusPendingCall **call_ptr = user_data;
+	struct spa_dbus_async_call *call = user_data;
 	DBusMessage *r;
-	pending_call_reply_t reply;
 
-	spa_assert(pending == *call_ptr);
-	*call_ptr = NULL;
+	spa_assert(pending == call->pending);
+	call->pending = NULL;
 
 	r = dbus_pending_call_steal_reply(pending);
-	reply = dbus_pending_call_get_data(pending, async_call_reply_id);
 	dbus_pending_call_unref(pending);
 
-	spa_assert(reply != NULL);
+	spa_assert(call->reply != NULL);
 
 	if (r == NULL)
 		return;
 
-	reply(call_ptr, r);
+	call->reply(call, r);
 	dbus_message_unref(r);
 }
 
-int spa_dbus_async_call(DBusConnection *conn, DBusMessage *msg,
-		DBusPendingCall **call_ptr,
-		pending_call_reply_t reply)
+int spa_dbus_async_call_send(struct spa_dbus_async_call *call,
+		DBusConnection *conn, DBusMessage *msg,
+		void (*reply)(struct spa_dbus_async_call *call, DBusMessage *reply))
 {
 	int res = -EIO;
 	DBusPendingCall *pending;
 
 	spa_assert(msg);
-	spa_assert(call_ptr);
+	spa_assert(conn);
+	spa_assert(call);
 
-	if (async_call_reply_id == -1) {
-		if (!dbus_pending_call_allocate_data_slot(&async_call_reply_id))
-			goto done;
-	}
-
-	if (*call_ptr) {
+	if (call->pending) {
 		res = -EBUSY;
 		goto done;
 	}
@@ -719,19 +701,14 @@ int spa_dbus_async_call(DBusConnection *conn, DBusMessage *msg,
 	if (!dbus_connection_send_with_reply(conn, msg, &pending, -1))
 		goto done;
 
-	if (!dbus_pending_call_set_data(pending, async_call_reply_id, reply, NULL)) {
+	if (!dbus_pending_call_set_notify(pending, async_call_reply, call, NULL)) {
 		dbus_pending_call_cancel(pending);
 		dbus_pending_call_unref(pending);
 		goto done;
 	}
 
-	if (!dbus_pending_call_set_notify(pending, async_call_reply, call_ptr, NULL)) {
-		dbus_pending_call_cancel(pending);
-		dbus_pending_call_unref(pending);
-		goto done;
-	}
-
-	*call_ptr = pending;
+	call->reply = reply;
+	call->pending = pending;
 	res = 0;
 
 done:

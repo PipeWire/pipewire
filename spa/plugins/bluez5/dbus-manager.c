@@ -24,6 +24,7 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <stdalign.h>
 
 #include <dbus/dbus.h>
 
@@ -57,11 +58,7 @@ struct impl
 struct object
 {
 	struct impl *impl;
-	union {
-		struct spa_dbus_local_object this;
-		/* extra data follows 'this', force safer alignment */
-		long double _align;
-	};
+	struct spa_dbus_local_object alignas(max_align_t) this;
 };
 
 const struct spa_dbus_property *object_interface_get_property(struct object *o,
@@ -218,7 +215,8 @@ static DBusMessage *object_properties_set(struct object *o, DBusMessage *m)
 	int res;
 
 	if (!dbus_message_has_signature(m, "ssv"))
-		return NULL;
+		return dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS,
+				"Invalid arguments");
 
 	dbus_message_iter_init(m, &it);
 	dbus_message_iter_get_basic(&it, &interface);
@@ -298,10 +296,12 @@ static DBusHandlerResult object_handler(DBusConnection *c, DBusMessage *m, void 
 			return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
-	if (r != NULL && dbus_connection_send(impl->conn, r, NULL))
-		return DBUS_HANDLER_RESULT_HANDLED;
-	else if (r)
+	if (r != NULL && dbus_connection_send(impl->conn, r, NULL)) {
 		dbus_message_unref(r);
+		return DBUS_HANDLER_RESULT_HANDLED;
+	} else if (r) {
+		dbus_message_unref(r);
+	}
 	return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 

@@ -68,7 +68,7 @@ struct impl
 struct adapter
 {
 	struct spa_dbus_object object;
-	DBusPendingCall *register_call;
+	struct spa_dbus_async_call register_call;
 	unsigned int registered:1;
 };
 
@@ -147,11 +147,10 @@ static int dsc_prop_characteristic_get(struct spa_dbus_local_object *object, DBu
 static int dsc_prop_flags_get(struct spa_dbus_local_object *object, DBusMessageIter *value)
 {
 	DBusMessageIter a;
-	const char *flags[] = {"encrypt-read", NULL };
-	const char **p;
+	static const char * const flags[] = { "encrypt-read" };
 
 	dbus_message_iter_open_container(value, DBUS_TYPE_ARRAY, "s", &a);
-	for (p = &flags[0]; *p; ++p)
+	SPA_FOR_EACH_ELEMENT_VAR(flags, p)
 		dbus_message_iter_append_basic(&a, DBUS_TYPE_STRING, p);
 	dbus_message_iter_close_container(value, &a);
 
@@ -384,12 +383,11 @@ static int chr_prop_write_acquired_get(struct spa_dbus_local_object *object, DBu
 static int chr_prop_flags_get(struct spa_dbus_local_object *object, DBusMessageIter *value)
 {
 	DBusMessageIter a;
-	const char *flags[] = {"encrypt-read", "write-without-response",
-		"encrypt-write", "encrypt-notify", NULL };
-	const char **p;
+	static const char * const flags[] = {"encrypt-read", "write-without-response",
+		"encrypt-write", "encrypt-notify" };
 
 	dbus_message_iter_open_container(value, DBUS_TYPE_ARRAY, "s", &a);
-	for (p = &flags[0]; *p; ++p)
+	SPA_FOR_EACH_ELEMENT_VAR(flags, p)
 		dbus_message_iter_append_basic(&a, DBUS_TYPE_STRING, p);
 	dbus_message_iter_close_container(value, &a);
 
@@ -488,9 +486,9 @@ static const struct spa_dbus_local_interface midi_service_interfaces[] = {
  * Adapters
  */
 
-static void adapter_register_application_reply(DBusPendingCall **call_ptr, DBusMessage *r)
+static void adapter_register_application_reply(struct spa_dbus_async_call *call, DBusMessage *r)
 {
-	struct adapter *adapter = SPA_CONTAINER_OF(call_ptr, struct adapter, register_call);
+	struct adapter *adapter = SPA_CONTAINER_OF(call, struct adapter, register_call);
 	struct impl *impl = adapter->object.user_data;
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
@@ -521,7 +519,7 @@ static int adapter_register_application(struct adapter *adapter)
 	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "{sv}", &d);
 	dbus_message_iter_close_container(&i, &d);
 
-	return spa_dbus_async_call(impl->conn, m, &adapter->register_call,
+	return spa_dbus_async_call_send(&adapter->register_call, impl->conn, m,
 			adapter_register_application_reply);
 }
 
@@ -529,7 +527,7 @@ static void adapter_update(struct spa_dbus_object *object)
 {
 	struct adapter *adapter = SPA_CONTAINER_OF(object, struct adapter, object);
 
-	if (adapter->registered || adapter->register_call)
+	if (adapter->registered || adapter->register_call.pending)
 		return;
 
 	adapter_register_application(adapter);

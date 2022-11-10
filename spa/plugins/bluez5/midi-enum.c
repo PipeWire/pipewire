@@ -82,7 +82,7 @@ struct impl
 struct adapter
 {
 	struct spa_dbus_object object;
-	DBusPendingCall *register_call;
+	struct spa_dbus_async_call register_call;
 	unsigned int registered:1;
 };
 
@@ -113,8 +113,8 @@ struct chr
 	char *service_path;
 	char *description;
 	uint32_t id;
-	DBusPendingCall *read_call;
-	DBusPendingCall *dsc_call;
+	struct spa_dbus_async_call read_call;
+	struct spa_dbus_async_call dsc_call;
 	unsigned int node_emitted:1;
 	unsigned int valid_uuid:1;
 	unsigned int read_probed:1;
@@ -175,9 +175,9 @@ static void remove_chr_node(struct impl *impl, struct chr *chr)
 
 static void check_chr_node(struct impl *impl, struct chr *chr);
 
-static void read_probe_reply(DBusPendingCall **call_ptr, DBusMessage *r)
+static void read_probe_reply(struct spa_dbus_async_call *call, DBusMessage *r)
 {
-	struct chr *chr = SPA_CONTAINER_OF(call_ptr, struct chr, read_call);
+	struct chr *chr = SPA_CONTAINER_OF(call, struct chr, read_call);
 	struct impl *impl = chr->object.user_data;
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
@@ -206,7 +206,7 @@ static int read_probe(struct impl *impl, struct chr *chr)
 
 	if (chr->read_probed)
 		return 0;
-	if (chr->read_call)
+	if (chr->read_call.pending)
 		return -EBUSY;
 
 	chr->read_probed = true;
@@ -225,7 +225,7 @@ static int read_probe(struct impl *impl, struct chr *chr)
 	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "{sv}", &d);
 	dbus_message_iter_close_container(&i, &d);
 
-	return spa_dbus_async_call(impl->conn, m, &chr->read_call,
+	return spa_dbus_async_call_send(&chr->read_call, impl->conn, m,
 			read_probe_reply);
 }
 
@@ -243,9 +243,9 @@ struct dsc *find_dsc(struct impl *impl, struct chr *chr)
 	return NULL;
 }
 
-static void read_dsc_reply(DBusPendingCall **call_ptr, DBusMessage *r)
+static void read_dsc_reply(struct spa_dbus_async_call *call, DBusMessage *r)
 {
-	struct chr *chr = SPA_CONTAINER_OF(call_ptr, struct chr, dsc_call);
+	struct chr *chr = SPA_CONTAINER_OF(call, struct chr, dsc_call);
 	struct impl *impl = chr->object.user_data;
 	DBusError err;
 	DBusMessageIter args, arr;
@@ -293,7 +293,7 @@ static int read_dsc(struct impl *impl, struct chr *chr)
 
 	if (chr->dsc_probed)
 		return 0;
-	if (chr->dsc_call)
+	if (chr->dsc_call.pending)
 		return -EBUSY;
 
 	chr->dsc_probed = true;
@@ -320,7 +320,7 @@ static int read_dsc(struct impl *impl, struct chr *chr)
 	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "{sv}", &d);
 	dbus_message_iter_close_container(&i, &d);
 
-	return spa_dbus_async_call(impl->conn, m, &chr->dsc_call,
+	return spa_dbus_async_call_send(&chr->dsc_call, impl->conn, m,
 			read_dsc_reply);
 }
 
@@ -398,9 +398,9 @@ static void check_all_nodes(struct impl *impl)
 		check_chr_node(impl, chr);
 }
 
-static void adapter_register_application_reply(DBusPendingCall **call_ptr, DBusMessage *r)
+static void adapter_register_application_reply(struct spa_dbus_async_call *call, DBusMessage *r)
 {
-	struct adapter *adapter = SPA_CONTAINER_OF(call_ptr, struct adapter, register_call);
+	struct adapter *adapter = SPA_CONTAINER_OF(call, struct adapter, register_call);
 	struct impl *impl = adapter->object.user_data;
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
@@ -431,7 +431,7 @@ static int adapter_register_application(struct adapter *adapter)
 	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "{sv}", &d);
 	dbus_message_iter_close_container(&i, &d);
 
-	return spa_dbus_async_call(impl->conn, m, &adapter->register_call,
+	return spa_dbus_async_call_send(&adapter->register_call, impl->conn, m,
 			adapter_register_application_reply);
 }
 
@@ -483,7 +483,7 @@ static void adapter_update(struct spa_dbus_object *object)
 {
 	struct adapter *adapter = SPA_CONTAINER_OF(object, struct adapter, object);
 
-	if (adapter->registered || adapter->register_call)
+	if (adapter->registered || adapter->register_call.pending)
 		return;
 
 	adapter_register_application(adapter);

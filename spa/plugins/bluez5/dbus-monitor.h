@@ -137,29 +137,36 @@ void spa_dbus_monitor_ignore_object(struct spa_dbus_monitor *monitor,
 struct spa_list *spa_dbus_monitor_object_list(struct spa_dbus_monitor *monitor,
 		const char *interface);
 
+
+struct spa_dbus_async_call
+{
+	DBusPendingCall *pending;
+	void (*reply)(struct spa_dbus_async_call *call, DBusMessage *reply);
+};
+
 /**
  * Make an asynchronous DBus call.
  *
- * On successful return, *call_ptr contains the pending call handle.
+ * On successful return, call contains the pending call handle.
  * The same address is passed to the reply function, and can be used
- * to locate the address container object. The reply function does not
- * need to unref the reply, or set *call_ptr to NULL itself.
+ * to locate the address container object. The reply function shall not
+ * unref the reply.
  *
  * The msg passed in is stolen, and unref'd also on errors.
  *
  * \returns 0 on success, < 0 on error.
  */
-int spa_dbus_async_call(DBusConnection *conn, DBusMessage *msg,
-		DBusPendingCall **call_ptr,
-		void (*reply)(DBusPendingCall **call_ptr, DBusMessage *reply));
+int spa_dbus_async_call_send(struct spa_dbus_async_call *call,
+		DBusConnection *conn, DBusMessage *msg,
+		void (*reply)(struct spa_dbus_async_call *call, DBusMessage *reply));
 
 /** Convenience for pending call cancel + unref */
-static inline void spa_dbus_async_call_cancel(DBusPendingCall **call_ptr)
+static inline void spa_dbus_async_call_cancel(struct spa_dbus_async_call *call)
 {
-	if (*call_ptr) {
-		dbus_pending_call_cancel(*call_ptr);
-		dbus_pending_call_unref(*call_ptr);
-		*call_ptr = NULL;
+	if (call->pending) {
+		dbus_pending_call_cancel(call->pending);
+		dbus_pending_call_unref(call->pending);
+		spa_zero(*call);
 	}
 }
 

@@ -404,6 +404,7 @@ struct client {
 	int rt_max;
 	unsigned int fix_midi_events:1;
 	unsigned int global_buffer_size:1;
+	char filter_char;
 
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
@@ -2793,12 +2794,12 @@ static const struct pw_port_events port_events = {
 #define FILTER_NAME	" ()[].:*$"
 #define FILTER_PORT	" ()[].*$"
 
-static void filter_name(char *str, const char *filter)
+static void filter_name(char *str, const char *filter, char filter_char)
 {
 	char *p;
 	for (p = str; *p; p++) {
 		if (strchr(filter, *p) != NULL)
-			*p = ' ';
+			*p = filter_char;
 	}
 }
 
@@ -2863,7 +2864,7 @@ static void registry_event_global(void *data, uint32_t id,
 			snprintf(tmp, sizeof(tmp), "%s", str);
 
 		if (c->filter_name)
-			filter_name(tmp, FILTER_NAME);
+			filter_name(tmp, FILTER_NAME, c->filter_char);
 
 		ot = find_node(c, tmp);
 		if (ot != NULL && o->node.client_id != ot->node.client_id) {
@@ -2980,7 +2981,7 @@ static void registry_event_global(void *data, uint32_t id,
 				snprintf(tmp, sizeof(tmp), "%s:%s", ot->node.name, str);
 
 			if (c->filter_name)
-				filter_name(tmp, FILTER_PORT);
+				filter_name(tmp, FILTER_PORT, c->filter_char);
 
 			op = find_port_by_name(c, tmp);
 			if (op != NULL)
@@ -3444,6 +3445,9 @@ jack_client_t * jack_client_open (const char *client_name,
 	client->merge_monitor = pw_properties_get_bool(client->props, "jack.merge-monitor", false);
 	client->short_name = pw_properties_get_bool(client->props, "jack.short-name", false);
 	client->filter_name = pw_properties_get_bool(client->props, "jack.filter-name", false);
+	client->filter_char = ' ';
+	if ((str = pw_properties_get(client->props, "jack.filter-char")) != NULL && str[0] != '\0')
+		client->filter_char = str[0];
 	client->locked_process = pw_properties_get_bool(client->props, "jack.locked-process", true);
 	client->default_as_system = pw_properties_get_bool(client->props, "jack.default-as-system", false);
 	client->fix_midi_events = pw_properties_get_bool(client->props, "jack.fix-midi-events", true);

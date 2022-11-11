@@ -269,9 +269,19 @@ static void test_7p1_N(void)
 			       0.0, 1.0, 0.707107, 0.0, 0.0, 0.707107, 0.0, 0.707107));
 }
 
+static void check_samples(float **s1, float **s2, uint32_t n_s, uint32_t n_samples)
+{
+	uint32_t i, j;
+	for (i = 0; i < n_s; i++) {
+		for (j = 0; j < n_samples; j++) {
+			spa_assert_se(CLOSE_ENOUGH(s1[i][j], s2[i][j]));
+		}
+	}
+}
+
 static void run_n_m_impl(struct channelmix *mix, const void **src, uint32_t n_samples)
 {
-	uint32_t dst_chan = mix->dst_chan, i, j;
+	uint32_t dst_chan = mix->dst_chan, i;
 	float dst_c_data[dst_chan][n_samples];
 	float dst_x_data[dst_chan][n_samples];
 	void *dst_c[dst_chan], *dst_x[dst_chan];
@@ -283,14 +293,13 @@ static void run_n_m_impl(struct channelmix *mix, const void **src, uint32_t n_sa
 
 	channelmix_f32_n_m_c(mix, dst_c, src, n_samples);
 
+	channelmix_f32_n_m_c(mix, dst_x, src, n_samples);
+	check_samples((float**)dst_c, (float**)dst_x, dst_chan, n_samples);
+
 #if defined(HAVE_SSE)
 	if (cpu_flags & SPA_CPU_FLAG_SSE) {
 		channelmix_f32_n_m_sse(mix, dst_x, src, n_samples);
-		for (i = 0; i < mix->dst_chan; i++) {
-			for (j = 0; j < n_samples; j++) {
-				spa_assert_se(CLOSE_ENOUGH(dst_c_data[i][j], dst_x_data[i][j]));
-			}
-		}
+		check_samples((float**)dst_c, (float**)dst_x, dst_chan, n_samples);
 	}
 #endif
 }

@@ -1195,6 +1195,7 @@ again:
 		}
 
 		if (target_rate != current_rate) {
+			bool do_suspend = false;
 			/* we doing a rate switch */
 			pw_log_info("(%s-%u) state:%s new rate:%u->%u",
 					n->name, n->info.id,
@@ -1204,18 +1205,21 @@ again:
 
 			if (force_rate) {
 				if (settings->clock_rate_update_mode == CLOCK_RATE_UPDATE_MODE_HARD)
-					suspend_driver(context, n);
+					do_suspend = true;
 			} else {
 				if (n->info.state >= PW_NODE_STATE_SUSPENDED)
-					suspend_driver(context, n);
+					do_suspend = true;
 			}
+			if (do_suspend)
+				suspend_driver(context, n);
 			/* we're setting the pending rate. This will become the new
 			 * current rate in the next iteration of the graph. */
 			n->current_rate = SPA_FRACTION(1, target_rate);
 			n->current_pending = true;
 			current_rate = target_rate;
 			/* we might be suspended now and the links need to be prepared again */
-			goto again;
+			if (do_suspend)
+				goto again;
 		}
 
 		if (rate_quantum != 0 && current_rate != rate_quantum) {

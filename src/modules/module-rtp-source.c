@@ -253,7 +253,7 @@ static void stream_process(void *data)
         if (avail < wanted || sess->buffering) {
                 memset(d[0].data, 0, wanted);
 		if (!sess->buffering && sess->have_sync) {
-			pw_log_info("underrun %u/%u < %u, buffering...",
+			pw_log_debug("underrun %u/%u < %u, buffering...",
 					avail, sess->target_buffer, wanted);
 			sess->buffering = true;
 		}
@@ -385,7 +385,7 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 			filled = 0;
 			sess->have_sync = true;
 			sess->buffering = true;
-			pw_log_info("sync to timestamp %u", index);
+			pw_log_debug("sync to timestamp %u", index);
 
 			spa_dll_init(&sess->dll);
 			spa_dll_set_bw(&sess->dll, SPA_DLL_BW_MIN, 128, sess->info.info.rate);
@@ -415,7 +415,7 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 
 			if (sess->buffering && (uint32_t)filled > sess->target_buffer) {
 				sess->buffering = false;
-				pw_log_info("buffering done %u > %u",
+				pw_log_debug("buffering done %u > %u",
 					filled, sess->target_buffer);
 			}
 		}

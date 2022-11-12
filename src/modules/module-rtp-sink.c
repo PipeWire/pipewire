@@ -443,6 +443,7 @@ static int make_socket(struct sockaddr_storage *src, socklen_t src_len,
 		goto error;
 	}
 	if (is_multicast((struct sockaddr*)dst, dst_len)) {
+		val = loop;
 		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &val, sizeof(val)) < 0)
 			pw_log_warn("setsockopt(IP_MULTICAST_LOOP) failed: %m");
 

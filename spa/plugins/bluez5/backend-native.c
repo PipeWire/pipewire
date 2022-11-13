@@ -1111,7 +1111,7 @@ next_indicator:
 			return true;
 		}
 	} else if (spa_strstartswith(buf, "ATD")) {
-		char number[30];
+		char number[31];
 		enum cmee_error error;
 
 		if (sscanf(buf, "ATD%30s;", number) != 1) {

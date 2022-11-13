@@ -1,4 +1,6 @@
-bluez5_deps = [ mathlib, dbus_dep, sbc_dep, bluez_dep ]
+gnome = import('gnome')
+
+bluez5_deps = [ mathlib, dbus_dep, glib2_dep, sbc_dep, bluez_dep, gio_dep, gio_unix_dep ]
 foreach dep: bluez5_deps
   if not dep.found()
     subdir_done()
@@ -29,13 +31,24 @@ bluez5_sources = [
   'bluez5-device.c',
   'bluez5-dbus.c',
   'hci.c',
-  'dbus-manager.c',
   'dbus-monitor.c',
   'midi-enum.c',
   'midi-parser.c',
   'midi-node.c',
   'midi-server.c',
 ]
+
+bluez5_interface_src = gnome.gdbus_codegen('bluez5-interface-gen',
+  sources: 'org.bluez.xml',
+  interface_prefix : 'org.bluez.',
+  object_manager: true,
+  namespace : 'Bluez5',
+  annotations : [
+    ['org.bluez.GattCharacteristic1.AcquireNotify()', 'org.gtk.GDBus.C.UnixFD', 'true'],
+    ['org.bluez.GattCharacteristic1.AcquireWrite()', 'org.gtk.GDBus.C.UnixFD', 'true'],
+  ]
+)
+bluez5_sources += [ bluez5_interface_src ]
 
 bluez5_data = ['bluez-hardware.conf']
 
@@ -159,7 +172,7 @@ test_apps = [
 bluez5_test_lib = static_library('bluez5_test_lib',
   [ 'midi-parser.c' ],
   include_directories : [ configinc ],
-  dependencies : [ spa_dep, dbus_dep ],
+  dependencies : [ spa_dep, bluez5_deps ],
   install : false
 )
 

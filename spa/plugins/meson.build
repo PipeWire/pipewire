@@ -16,7 +16,7 @@ endif
 if get_option('audiotestsrc').allowed()
   subdir('audiotestsrc')
 endif
-if bluez_dep.found()
+if bluez_deps_found
   subdir('bluez5')
 endif
 if avcodec_dep.found()

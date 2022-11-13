@@ -49,7 +49,7 @@ struct ucred {
 #define spa_debug(...) pw_log_trace(__VA_ARGS__)
 #endif
 
-#define MAX_RATES				16u
+#define MAX_RATES				32u
 #define CLOCK_MIN_QUANTUM			4u
 #define CLOCK_MAX_QUANTUM			65536u
 

@@ -28,7 +28,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include <dbus/dbus.h>
+#include <gio/gio.h>
 
 #include <spa/utils/defs.h>
 #include <spa/support/log.h>
@@ -134,8 +134,8 @@ static inline void spa_bt_midi_writer_init(struct spa_bt_midi_writer *writer, un
 int spa_bt_midi_writer_write(struct spa_bt_midi_writer *writer,
 		uint64_t time, const uint8_t *event, size_t event_size);
 
-struct spa_bt_midi_server *spa_bt_midi_server_new(DBusConnection *conn,
-		const struct spa_bt_midi_server_cb *cb, struct spa_log *log, void *user_data);
+struct spa_bt_midi_server *spa_bt_midi_server_new(const struct spa_bt_midi_server_cb *cb,
+		GDBusConnection *conn, struct spa_log *log, void *user_data);
 void spa_bt_midi_server_released(struct spa_bt_midi_server *server, bool write);
 void spa_bt_midi_server_destroy(struct spa_bt_midi_server *server);
 

@@ -30,13 +30,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include <dbus/dbus.h>
-
 #include <spa/support/plugin.h>
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
 #include <spa/support/system.h>
-#include <spa/support/dbus.h>
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
@@ -57,8 +54,9 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/pod/filter.h>
 
-#include "dbus-monitor.h"
 #include "midi.h"
+
+#include "bluez5-interface-gen.h"
 
 static struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.bluez5.midi.node");
 #undef SPA_LOG_TOPIC_DEFAULT
@@ -151,7 +149,7 @@ struct port {
 	struct time_sync sync;
 
 	unsigned int acquired:1;
-	struct spa_dbus_async_call acquire_call;
+	GCancellable *acquire_call;
 
 	struct spa_source source;
 
@@ -166,10 +164,9 @@ struct impl {
 	struct spa_loop *main_loop;
 	struct spa_loop *data_loop;
 	struct spa_system *data_system;
-	struct spa_dbus *dbus;
-	struct spa_dbus_connection *dbus_connection;
 
-	DBusConnection *conn;
+	GDBusConnection *conn;
+	Bluez5GattCharacteristic1 *proxy;
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
@@ -919,33 +916,47 @@ static int do_release(struct impl *this);
 
 static int do_stop(struct impl *this);
 
-static void acquire_reply(struct spa_dbus_async_call *call, DBusMessage *r)
+static void acquire_reply(GObject *source_object, GAsyncResult *res, gpointer user_data, bool notify)
 {
-	struct port *port = SPA_CONTAINER_OF(call, struct port, acquire_call);
-	struct impl *this = port->impl;
-	const char *method = (port->direction == SPA_DIRECTION_OUTPUT) ?
-		"AcquireNotify" : "AcquireWrite";
+	struct port *port;
+	struct impl *this;
+	const char *method;
+	GError *err = NULL;
+	GUnixFDList *fd_list = NULL;
+	GVariant *fd_handle = NULL;
 	int fd;
-	uint16_t mtu;
+	guint16 mtu;
 
-	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
-		spa_log_error(this->log, "%s.%s() failed for %s: %s",
-				BLUEZ_GATT_CHR_INTERFACE, method,
-				this->chr_path, dbus_message_get_error_name(r));
-		do_stop(this);
-		do_release(this);
+	if (notify) {
+		bluez5_gatt_characteristic1_call_acquire_notify_finish(
+			BLUEZ5_GATT_CHARACTERISTIC1(source_object), &fd_handle, &mtu, &fd_list, res, &err);
+	} else {
+		bluez5_gatt_characteristic1_call_acquire_write_finish(
+			BLUEZ5_GATT_CHARACTERISTIC1(source_object), &fd_handle, &mtu, &fd_list, res, &err);
+	}
+
+	if (g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+		/* Operation canceled: user_data may be invalid by now. */
+		g_error_free(err);
 		return;
 	}
 
-	if (!dbus_message_get_args(r, NULL,
-					DBUS_TYPE_UNIX_FD, &fd,
-					DBUS_TYPE_UINT16, &mtu,
-					DBUS_TYPE_INVALID)) {
-		spa_log_error(this->log, "%s.%s for %s: invalid return value",
-				BLUEZ_GATT_CHR_INTERFACE, method, this->chr_path);
-		do_stop(this);
-		do_release(this);
-		return;
+	port = user_data;
+	this = port->impl;
+	method = notify ? "AcquireNotify" : "AcquireWrite";
+	if (err) {
+		spa_log_error(this->log, "%s.%s() for %s failed: %s",
+				BLUEZ_GATT_CHR_INTERFACE, method,
+				this->chr_path, err->message);
+		goto fail;
+	}
+
+	fd = g_unix_fd_list_get(fd_list, g_variant_get_handle(fd_handle), &err);
+	if (fd < 0) {
+		spa_log_error(this->log, "%s.%s() for %s failed to get fd: %s",
+				BLUEZ_GATT_CHR_INTERFACE, method,
+				this->chr_path, err->message);
+		goto fail;
 	}
 
 	spa_log_info(this->log, "%p: BLE MIDI %s %s success mtu:%d",
@@ -965,38 +976,67 @@ static void acquire_reply(struct spa_dbus_async_call *call, DBusMessage *r)
 		port->source.rmask = 0;
 		spa_loop_add_source(this->data_loop, &port->source);
 	}
+	return;
+
+fail:
+	g_error_free(err);
+	g_clear_object(&fd_list);
+	g_clear_object(&fd_handle);
+	do_stop(this);
+	do_release(this);
+}
+
+static void acquire_notify_reply(GObject *source_object, GAsyncResult *res, gpointer user_data)
+{
+	acquire_reply(source_object, res, user_data, true);
+}
+
+static void acquire_write_reply(GObject *source_object, GAsyncResult *res, gpointer user_data)
+{
+	acquire_reply(source_object, res, user_data, false);
 }
 
 static int do_acquire(struct port *port)
 {
 	struct impl *this = port->impl;
-	DBusMessageIter i, d;
-	DBusMessage *m;
 	const char *method = (port->direction == SPA_DIRECTION_OUTPUT) ?
 		"AcquireNotify" : "AcquireWrite";
+	GVariant *options;
+	GVariantBuilder builder;
 
 	if (port->acquired)
 		return 0;
-	if (port->acquire_call.pending)
+	if (port->acquire_call)
 		return 0;
 
 	spa_log_info(this->log,
 			"%p: port %d: client %s for BLE MIDI device characteristic %s",
 			this, port->direction, method, this->chr_path);
 
-	m = dbus_message_new_method_call(BLUEZ_SERVICE,
-			this->chr_path,
-			BLUEZ_GATT_CHR_INTERFACE,
-			method);
-	if (m == NULL)
-		return -EINVAL;
+	port->acquire_call = g_cancellable_new();
 
-	dbus_message_iter_init_append(m, &i);
-	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "{sv}", &d);
-	dbus_message_iter_close_container(&i, &d);
+	g_variant_builder_init(&builder, G_VARIANT_TYPE("a{sv}"));
+	options = g_variant_builder_end(&builder);
 
-	return spa_dbus_async_call_send(&port->acquire_call, this->conn, m,
-			acquire_reply);
+	if (port->direction == SPA_DIRECTION_OUTPUT) {
+		bluez5_gatt_characteristic1_call_acquire_notify(
+				BLUEZ5_GATT_CHARACTERISTIC1(this->proxy),
+				options,
+				NULL,
+				port->acquire_call,
+				acquire_notify_reply,
+				port);
+	} else {
+		bluez5_gatt_characteristic1_call_acquire_write(
+				BLUEZ5_GATT_CHARACTERISTIC1(this->proxy),
+				options,
+				NULL,
+				port->acquire_call,
+				acquire_write_reply,
+				port);
+	}
+
+	return 0;
 }
 
 static int server_do_acquire(struct port *port, int fd, uint16_t mtu)
@@ -1124,7 +1164,8 @@ static int do_release(struct impl *this)
 	for (i = 0; i < N_PORTS; ++i) {
 		struct port *port = &this->ports[i];
 
-		spa_dbus_async_call_cancel(&port->acquire_call);
+		g_cancellable_cancel(port->acquire_call);
+		g_clear_object(&port->acquire_call);
 
 		unacquire_port(port);
 	}
@@ -1864,12 +1905,10 @@ static int impl_clear(struct spa_handle *handle)
 	free(this->chr_path);
 	if (this->timerfd > 0)
 		spa_system_close(this->data_system, this->timerfd);
-	if (this->conn)
-		dbus_connection_unref(this->conn);
-	if (this->dbus_connection)
-		spa_dbus_connection_destroy(this->dbus_connection);
 	if (this->server)
 		spa_bt_midi_server_destroy(this->server);
+	g_clear_object(&this->proxy);
+	g_clear_object(&this->conn);
 
 	spa_zero(*this);
 
@@ -1893,6 +1932,7 @@ impl_init(const struct spa_handle_factory *factory,
 	struct impl *this;
 	const char *device_name = "";
 	int res = 0;
+	GError *err = NULL;
 	size_t i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
@@ -1907,7 +1947,6 @@ impl_init(const struct spa_handle_factory *factory,
 	this->main_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Loop);
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
-	this->dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
 
 	if (this->log == NULL)
 		return -EINVAL;
@@ -1920,10 +1959,6 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	if (this->data_system == NULL) {
 		spa_log_error(this->log, "a data system is needed");
-		return -EINVAL;
-	}
-	if (this->dbus == NULL) {
-		spa_log_error(this->log, "dbus is needed");
 		return -EINVAL;
 	}
 
@@ -1952,25 +1987,14 @@ impl_init(const struct spa_handle_factory *factory,
 		goto fail;
 	}
 
-	this->dbus_connection = spa_dbus_get_connection(this->dbus, SPA_DBUS_TYPE_SYSTEM);
-	if (this->dbus_connection == NULL) {
-		spa_log_error(this->log, "no dbus connection");
-		res = -EIO;
-		goto fail;
-	}
-
-	this->conn = spa_dbus_connection_get(this->dbus_connection);
+	this->conn = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &err);
 	if (this->conn == NULL) {
-		spa_log_error(this->log, "failed to get dbus connection");
+		spa_log_error(this->log, "failed to get dbus connection: %s",
+				err->message);
+		g_error_free(err);
 		res = -EIO;
 		goto fail;
 	}
-
-	/*
-	 * XXX: We should handle spa_dbus reconnecting, but we don't, so ref
-	 * XXX: the handle so that we can keep it if spa_dbus unrefs it.
-	 */
-	dbus_connection_ref(this->conn);
 
 	this->node.iface = SPA_INTERFACE_INIT(
 		SPA_TYPE_INTERFACE_Node,
@@ -2052,10 +2076,24 @@ impl_init(const struct spa_handle_factory *factory,
 	set_latency(this, false);
 
 	if (this->role == NODE_SERVER) {
-		this->server = spa_bt_midi_server_new(this->conn,
-				&impl_server, this->log, this);
+		this->server = spa_bt_midi_server_new(&impl_server, this->conn, this->log, this);
 		if (this->server == NULL)
 			goto fail;
+	} else {
+		this->proxy = bluez5_gatt_characteristic1_proxy_new_sync(this->conn,
+				G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
+				BLUEZ_SERVICE,
+				this->chr_path,
+				NULL,
+				&err);
+		if (this->proxy == NULL) {
+			spa_log_error(this->log,
+					"Failed to create BLE MIDI GATT proxy %s: %s",
+					this->chr_path, err->message);
+			g_error_free(err);
+			res = -EIO;
+			goto fail;
+		}
 	}
 
 	this->timerfd = spa_system_timerfd_create(this->data_system,

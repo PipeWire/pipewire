@@ -25,11 +25,8 @@
 #include <errno.h>
 #include <stddef.h>
 
-#include <dbus/dbus.h>
-
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
-#include <spa/support/dbus.h>
 #include <spa/support/plugin.h>
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
@@ -43,11 +40,11 @@
 #include <spa/node/node.h>
 #include <spa/node/keys.h>
 
-#include "dbus-monitor.h"
-#include "dbus-manager.h"
-
 #include "midi.h"
 #include "config.h"
+
+#include "bluez5-interface-gen.h"
+#include "dbus-monitor.h"
 
 #define MIDI_OBJECT_PATH	"/midi"
 #define MIDI_PROFILE_PATH	MIDI_OBJECT_PATH "/profile"
@@ -62,82 +59,62 @@ struct impl
 	struct spa_device device;
 
 	struct spa_log *log;
-	struct spa_dbus *dbus;
-	struct spa_dbus_connection *dbus_connection;
-	DBusConnection *conn;
 
-	struct spa_dbus_monitor *dbus_monitor;
-
-	struct spa_dbus_object_manager *object_manager;
-	struct spa_dbus_local_object *profile;
+	GDBusConnection *conn;
+	struct dbus_monitor monitor;
+	GDBusObjectManagerServer *manager;
 
 	struct spa_hook_list hooks;
 
 	uint32_t id;
-
-	unsigned int object_manager_registered:1;
-	unsigned int profile_registered:1;
 };
 
-struct adapter
+struct _MidiEnumCharacteristicProxy
 {
-	struct spa_dbus_object object;
-	struct spa_dbus_async_call register_call;
-	unsigned int registered:1;
-};
+	Bluez5GattCharacteristic1Proxy parent_instance;
 
-struct device
-{
-	struct spa_dbus_object object;
-	char *adapter_path;
-	char *name;
-	char *alias;
-	char *address;
-	char *icon;
-	uint32_t class;
-	uint16_t appearance;
-	unsigned int connected:1;
-	unsigned int services_resolved:1;
-};
+	struct impl *impl;
 
-struct service
-{
-	struct spa_dbus_object object;
-	char *device_path;
-	unsigned int valid_uuid:1;
-};
-
-struct chr
-{
-	struct spa_dbus_object object;
-	char *service_path;
-	char *description;
+	gchar *description;
 	uint32_t id;
-	struct spa_dbus_async_call read_call;
-	struct spa_dbus_async_call dsc_call;
+	GCancellable *read_call;
+	GCancellable *dsc_call;
 	unsigned int node_emitted:1;
-	unsigned int valid_uuid:1;
 	unsigned int read_probed:1;
 	unsigned int read_done:1;
 	unsigned int dsc_probed:1;
 	unsigned int dsc_done:1;
 };
 
-struct dsc
+G_DECLARE_FINAL_TYPE(MidiEnumCharacteristicProxy, midi_enum_characteristic_proxy, MIDI_ENUM,
+		CHARACTERISTIC_PROXY, Bluez5GattCharacteristic1Proxy)
+G_DEFINE_TYPE(MidiEnumCharacteristicProxy, midi_enum_characteristic_proxy, BLUEZ5_TYPE_GATT_CHARACTERISTIC1_PROXY)
+#define MIDI_ENUM_TYPE_CHARACTERISTIC_PROXY	(midi_enum_characteristic_proxy_get_type())
+
+struct _MidiEnumManagerProxy
 {
-	struct spa_dbus_object object;
-	char *chr_path;
-	unsigned int valid_uuid:1;
+	Bluez5GattManager1Proxy parent_instance;
+
+	GCancellable *register_call;
+	unsigned int registered:1;
 };
 
-static void emit_chr_node(struct impl *impl, struct chr *chr, struct device *device)
+G_DECLARE_FINAL_TYPE(MidiEnumManagerProxy, midi_enum_manager_proxy, MIDI_ENUM,
+		MANAGER_PROXY, Bluez5GattManager1Proxy)
+G_DEFINE_TYPE(MidiEnumManagerProxy, midi_enum_manager_proxy, BLUEZ5_TYPE_GATT_MANAGER1_PROXY)
+#define MIDI_ENUM_TYPE_MANAGER_PROXY	(midi_enum_manager_proxy_get_type())
+
+
+static void emit_chr_node(struct impl *impl, MidiEnumCharacteristicProxy *chr, Bluez5Device1 *device)
 {
 	struct spa_device_object_info info;
 	char nick[512], class[16];
 	struct spa_dict_item items[23];
 	uint32_t n_items = 0;
+	const char *path = g_dbus_proxy_get_object_path(G_DBUS_PROXY(chr));
+	const char *alias = bluez5_device1_get_alias(device);
 
-	spa_log_debug(impl->log, "emit node for path=%s", chr->object.path);
+	spa_log_debug(impl->log, "emit node for path=%s", path);
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Node;
@@ -150,15 +127,15 @@ static void emit_chr_node(struct impl *impl, struct chr *chr, struct device *dev
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_BUS, "bluetooth");
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Midi/Bridge");
 	items[n_items++] = SPA_DICT_ITEM_INIT("node.description",
-			device->alias ? device->alias : device->name);
+			alias ? alias : bluez5_device1_get_name(device));
 	if (chr->description && chr->description[0] != '\0') {
-		spa_scnprintf(nick, sizeof(nick), "%s (%s)", device->alias, chr->description);
+		spa_scnprintf(nick, sizeof(nick), "%s (%s)", alias, chr->description);
 		items[n_items++] = SPA_DICT_ITEM_INIT("node.nick", nick);
 	}
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ICON, device->icon);
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PATH, chr->object.path);
-	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ADDRESS, device->address);
-	snprintf(class, sizeof(class), "0x%06x", device->class);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ICON, bluez5_device1_get_icon(device));
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PATH, path);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ADDRESS, bluez5_device1_get_address(device));
+	snprintf(class, sizeof(class), "0x%06x", bluez5_device1_get_class(device));
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_CLASS, class);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ROLE, "client");
 
@@ -166,38 +143,55 @@ static void emit_chr_node(struct impl *impl, struct chr *chr, struct device *dev
 	spa_device_emit_object_info(&impl->hooks, chr->id, &info);
 }
 
-static void remove_chr_node(struct impl *impl, struct chr *chr)
+static void remove_chr_node(struct impl *impl, MidiEnumCharacteristicProxy *chr)
 {
-	spa_log_debug(impl->log, "remove node for path=%s", chr->object.path);
+	spa_log_debug(impl->log, "remove node for path=%s", g_dbus_proxy_get_object_path(G_DBUS_PROXY(chr)));
 
 	spa_device_emit_object_info(&impl->hooks, chr->id, NULL);
 }
 
-static void check_chr_node(struct impl *impl, struct chr *chr);
+static void check_chr_node(struct impl *impl, MidiEnumCharacteristicProxy *chr);
 
-static void read_probe_reply(struct spa_dbus_async_call *call, DBusMessage *r)
+static void read_probe_reply(GObject *source_object, GAsyncResult *res, gpointer user_data)
 {
-	struct chr *chr = SPA_CONTAINER_OF(call, struct chr, read_call);
-	struct impl *impl = chr->object.user_data;
+	MidiEnumCharacteristicProxy *chr = MIDI_ENUM_CHARACTERISTIC_PROXY(source_object);
+	struct impl *impl = user_data;
+	gchar *value = NULL;
+	GError *err = NULL;
 
-	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
+	bluez5_gatt_characteristic1_call_read_value_finish(
+		BLUEZ5_GATT_CHARACTERISTIC1(source_object), &value, res, &err);
+
+	if (g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+		/* Operation canceled: user_data may be invalid by now */
+		g_error_free(err);
+		goto done;
+	}
+	if (err) {
 		spa_log_error(impl->log, "%s.ReadValue() failed: %s",
 				BLUEZ_GATT_CHR_INTERFACE,
-				dbus_message_get_error_name(r));
-		return;
+				err->message);
+		g_error_free(err);
+		goto done;
 	}
 
-	spa_log_debug(impl->log, "MIDI GATT read probe done for path=%s", chr->object.path);
+	g_free(value);
+
+	spa_log_debug(impl->log, "MIDI GATT read probe done for path=%s",
+			g_dbus_proxy_get_object_path(G_DBUS_PROXY(chr)));
 
 	chr->read_done = true;
 
 	check_chr_node(impl, chr);
+
+done:
+	g_clear_object(&chr->read_call);
 }
 
-static int read_probe(struct impl *impl, struct chr *chr)
+static int read_probe(struct impl *impl, MidiEnumCharacteristicProxy *chr)
 {
-	DBusMessageIter i, d;
-	DBusMessage *m;
+	GVariantBuilder builder;
+	GVariant *options;
 
 	/*
 	 * BLE MIDI-1.0 §5: The Central shall read the MIDI I/O characteristic
@@ -206,94 +200,115 @@ static int read_probe(struct impl *impl, struct chr *chr)
 
 	if (chr->read_probed)
 		return 0;
-	if (chr->read_call.pending)
+	if (chr->read_call)
 		return -EBUSY;
 
 	chr->read_probed = true;
 
 	spa_log_debug(impl->log, "MIDI GATT read probe for path=%s",
-			chr->object.path);
+			g_dbus_proxy_get_object_path(G_DBUS_PROXY(chr)));
 
-	m = dbus_message_new_method_call(BLUEZ_SERVICE,
-			chr->object.path,
-			BLUEZ_GATT_CHR_INTERFACE,
-			"ReadValue");
-	if (m == NULL)
-		return -ENOMEM;
+	chr->read_call = g_cancellable_new();
 
-	dbus_message_iter_init_append(m, &i);
-	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "{sv}", &d);
-	dbus_message_iter_close_container(&i, &d);
+	g_variant_builder_init(&builder, G_VARIANT_TYPE("a{sv}"));
+	options = g_variant_builder_end(&builder);
 
-	return spa_dbus_async_call_send(&chr->read_call, impl->conn, m,
-			read_probe_reply);
+	bluez5_gatt_characteristic1_call_read_value(BLUEZ5_GATT_CHARACTERISTIC1(chr),
+			options,
+			chr->read_call,
+			read_probe_reply,
+			impl);
+
+	return 0;
 }
 
-struct dsc *find_dsc(struct impl *impl, struct chr *chr)
+Bluez5GattDescriptor1 *find_dsc(struct impl *impl, MidiEnumCharacteristicProxy *chr)
 {
-	struct dsc *dsc;
-	const struct spa_list *dscs = spa_dbus_monitor_object_list(
-		impl->dbus_monitor, BLUEZ_GATT_DSC_INTERFACE);
+	const char *path = g_dbus_proxy_get_object_path(G_DBUS_PROXY(chr));
+	Bluez5GattDescriptor1 *found = NULL;;
+	GList *objects;
 
-	spa_assert(dscs);
-	spa_list_for_each(dsc, dscs, object.link) {
-		if (dsc->valid_uuid && spa_streq(dsc->chr_path, chr->object.path))
-			return dsc;
+	objects = g_dbus_object_manager_get_objects(dbus_monitor_manager(&impl->monitor));
+
+	for (GList *llo = g_list_first(objects); llo; llo = llo->next) {
+		GList *interfaces = g_dbus_object_get_interfaces(G_DBUS_OBJECT(llo->data));
+
+		for (GList *lli = g_list_first(interfaces); lli; lli = lli->next) {
+			Bluez5GattDescriptor1 *dsc;
+
+			if (!BLUEZ5_IS_GATT_DESCRIPTOR1(lli->data))
+				continue;
+
+			dsc = BLUEZ5_GATT_DESCRIPTOR1(lli->data);
+
+			if (!spa_streq(bluez5_gatt_descriptor1_get_uuid(dsc),
+							BT_GATT_CHARACTERISTIC_USER_DESCRIPTION_UUID))
+				continue;
+
+			if (spa_streq(bluez5_gatt_descriptor1_get_characteristic(dsc), path)) {
+				found = dsc;
+				break;
+			}
+		}
+		g_list_free_full(interfaces, g_object_unref);
+
+		if (found)
+			break;
 	}
-	return NULL;
+	g_list_free_full(objects, g_object_unref);
+
+	return found;
 }
 
-static void read_dsc_reply(struct spa_dbus_async_call *call, DBusMessage *r)
+static void read_dsc_reply(GObject *source_object, GAsyncResult *res, gpointer user_data)
 {
-	struct chr *chr = SPA_CONTAINER_OF(call, struct chr, dsc_call);
-	struct impl *impl = chr->object.user_data;
-	DBusError err;
-	DBusMessageIter args, arr;
-	void *value = NULL;
-	int n = 0;
+	MidiEnumCharacteristicProxy *chr = MIDI_ENUM_CHARACTERISTIC_PROXY(user_data);
+	struct impl *impl = chr->impl;
+	gchar *value = NULL;
+	GError *err = NULL;
 
 	chr->dsc_done = true;
 
-	dbus_error_init(&err);
-	if (dbus_set_error_from_message(&err, r)) {
-		spa_log_error(impl->log, "%s.ReadValue() failed: %s (%s)",
+	bluez5_gatt_descriptor1_call_read_value_finish(
+		BLUEZ5_GATT_DESCRIPTOR1(source_object), &value, res, &err);
+
+	if (g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+		/* Operation canceled: user_data may be invalid by now */
+		g_error_free(err);
+		goto done;
+	}
+	if (err) {
+		spa_log_error(impl->log, "%s.ReadValue() failed: %s",
 				BLUEZ_GATT_DSC_INTERFACE,
-				err.name ? err.name : "unknown",
-				err.message ? err.message : "");
-		dbus_error_free(&err);
-		return;
-	}
-	dbus_error_free(&err);
-	if (!dbus_message_has_signature(r, "ay")) {
-		spa_log_warn(impl->log, "invalid ReadValue() signature");
-		return;
+				err->message);
+		g_error_free(err);
+		goto done;
 	}
 
-	dbus_message_iter_init(r, &args);
-	dbus_message_iter_recurse(&args, &arr);
-	dbus_message_iter_get_fixed_array(&arr, &value, &n);
+	spa_log_debug(impl->log, "MIDI GATT read probe done for path=%s",
+			g_dbus_proxy_get_object_path(G_DBUS_PROXY(chr)));
 
-	free(chr->description);
-	if (n > 0)
-		chr->description = strndup(value, n);
-	else
-		chr->description = NULL;
+	g_free(chr->description);
+	chr->description = value;
 
 	spa_log_debug(impl->log, "MIDI GATT user descriptor value: '%s'",
 			chr->description);
 
 	check_chr_node(impl, chr);
+
+done:
+	g_clear_object(&chr->dsc_call);
 }
 
-static int read_dsc(struct impl *impl, struct chr *chr)
+static int read_dsc(struct impl *impl, MidiEnumCharacteristicProxy *chr)
 {
-	DBusMessageIter i, d;
-	DBusMessage *m;
-	struct dsc *dsc;
+	Bluez5GattDescriptor1 *dsc;
+	GVariant *options;
+	GVariantBuilder builder;
 
 	if (chr->dsc_probed)
 		return 0;
-	if (chr->dsc_call.pending)
+	if (chr->dsc_call)
 		return -EBUSY;
 
 	chr->dsc_probed = true;
@@ -305,29 +320,30 @@ static int read_dsc(struct impl *impl, struct chr *chr)
 	}
 
 	spa_log_debug(impl->log, "MIDI GATT user descriptor read, path=%s",
-			dsc->object.path);
+			g_dbus_proxy_get_object_path(G_DBUS_PROXY(dsc)));
 
-	m = dbus_message_new_method_call(BLUEZ_SERVICE,
-			dsc->object.path,
-			BLUEZ_GATT_DSC_INTERFACE,
-			"ReadValue");
-	if (m == NULL) {
-		chr->dsc_done = true;
-		return -ENOMEM;
-	}
+	chr->dsc_call = g_cancellable_new();
 
-	dbus_message_iter_init_append(m, &i);
-	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "{sv}", &d);
-	dbus_message_iter_close_container(&i, &d);
+	g_variant_builder_init(&builder, G_VARIANT_TYPE("a{sv}"));
+	options = g_variant_builder_end(&builder);
 
-	return spa_dbus_async_call_send(&chr->dsc_call, impl->conn, m,
-			read_dsc_reply);
+	bluez5_gatt_descriptor1_call_read_value(BLUEZ5_GATT_DESCRIPTOR1(dsc),
+			options,
+			chr->dsc_call,
+			read_dsc_reply,
+			chr);
+
+	return 0;
 }
 
-static int read_probe_reset(struct impl *impl, struct chr *chr)
+static int read_probe_reset(struct impl *impl, MidiEnumCharacteristicProxy *chr)
 {
-	spa_dbus_async_call_cancel(&chr->read_call);
-	spa_dbus_async_call_cancel(&chr->dsc_call);
+	g_cancellable_cancel(chr->read_call);
+	g_clear_object(&chr->read_call);
+
+	g_cancellable_cancel(chr->dsc_call);
+	g_clear_object(&chr->dsc_call);
+
 	chr->read_probed = false;
 	chr->read_done = false;
 	chr->dsc_probed = false;
@@ -335,33 +351,65 @@ static int read_probe_reset(struct impl *impl, struct chr *chr)
 	return 0;
 }
 
-static void lookup_chr_node(struct impl *impl, struct chr *chr, struct service **service, struct device **device)
+static void lookup_chr_node(struct impl *impl, MidiEnumCharacteristicProxy *chr,
+		Bluez5GattService1 **service, Bluez5Device1 **device)
 {
-	*service = (struct service *)spa_dbus_monitor_find(impl->dbus_monitor,
-			chr->service_path, BLUEZ_GATT_SERVICE_INTERFACE);
-	if (*service)
-		*device = (struct device *)spa_dbus_monitor_find(impl->dbus_monitor,
-				(*service)->device_path, BLUEZ_DEVICE_INTERFACE);
-	else
-		*device = NULL;
+	GDBusObject *object;
+	const char *service_path;
+	const char *device_path;
+
+	*service = NULL;
+	*device = NULL;
+
+	service_path = bluez5_gatt_characteristic1_get_service(BLUEZ5_GATT_CHARACTERISTIC1(chr));
+	if (!service_path)
+		return;
+
+	object = g_dbus_object_manager_get_object(dbus_monitor_manager(&impl->monitor), service_path);
+	if (object) {
+		GDBusInterface *iface = g_dbus_object_get_interface(object, BLUEZ_GATT_SERVICE_INTERFACE);
+		*service = BLUEZ5_GATT_SERVICE1(iface);
+	}
+
+	if (!*service)
+		return;
+
+	device_path = bluez5_gatt_service1_get_device(*service);
+	if (!device_path)
+		return;
+
+	object = g_dbus_object_manager_get_object(dbus_monitor_manager(&impl->monitor), device_path);
+	if (object) {
+		GDBusInterface *iface = g_dbus_object_get_interface(object, BLUEZ_DEVICE_INTERFACE);
+		*device = BLUEZ5_DEVICE1(iface);
+	}
 }
 
-static void check_chr_node(struct impl *impl, struct chr *chr)
+static void check_chr_node(struct impl *impl, MidiEnumCharacteristicProxy *chr)
 {
-	struct service *service;
-	struct device *device;
+	Bluez5GattService1 *service;
+	Bluez5Device1 *device;
 	bool available;
 
 	lookup_chr_node(impl, chr, &service, &device);
 
-	if (!device || !device->connected) {
+	if (!device || !bluez5_device1_get_connected(device)) {
 		/* Retry read probe on each connection */
 		read_probe_reset(impl, chr);
 	}
 
-	available = service && device && device->connected &&
-		device->services_resolved && service->valid_uuid &&
-		chr->valid_uuid;
+	spa_log_debug(impl->log,
+			"At %s, connected:%d resolved:%d",
+			g_dbus_proxy_get_object_path(G_DBUS_PROXY(chr)),
+			bluez5_device1_get_connected(device),
+			bluez5_device1_get_services_resolved(device));
+
+	available = service && device &&
+			bluez5_device1_get_connected(device) &&
+			bluez5_device1_get_services_resolved(device) &&
+			spa_streq(bluez5_gatt_service1_get_uuid(service), BT_MIDI_SERVICE_UUID) &&
+			spa_streq(bluez5_gatt_characteristic1_get_uuid(BLUEZ5_GATT_CHARACTERISTIC1(chr)),
+					BT_MIDI_CHR_UUID);
 
 	if (available && !chr->read_done) {
 		read_probe(impl, chr);
@@ -382,342 +430,275 @@ static void check_chr_node(struct impl *impl, struct chr *chr)
 	}
 }
 
+static GList *get_all_valid_chr(struct impl *impl)
+{
+	GList *lst = NULL;
+	GList *objects;
+
+	if (!dbus_monitor_manager(&impl->monitor)) {
+		/* Still initializing (or it failed) */
+		return NULL;
+	}
+
+	objects = g_dbus_object_manager_get_objects(dbus_monitor_manager(&impl->monitor));
+	for (GList *p = g_list_first(objects); p; p = p->next) {
+		GList *interfaces = g_dbus_object_get_interfaces(G_DBUS_OBJECT(p->data));
+
+		for (GList *p2 = g_list_first(interfaces); p2; p2 = p2->next) {
+			MidiEnumCharacteristicProxy *chr;
+
+			if (!MIDI_ENUM_IS_CHARACTERISTIC_PROXY(p2->data))
+				continue;
+
+			chr = MIDI_ENUM_CHARACTERISTIC_PROXY(p2->data);
+			if (chr->impl == NULL)
+				continue;
+
+			lst = g_list_append(lst, g_object_ref(chr));
+		}
+		g_list_free_full(interfaces, g_object_unref);
+	}
+	g_list_free_full(objects, g_object_unref);
+
+	return lst;
+}
+
 static void check_all_nodes(struct impl *impl)
 {
 	/*
 	 * Check if the nodes we have emitted are in sync with connected devices.
 	 */
 
-	struct spa_list *chrs = spa_dbus_monitor_object_list(
-		impl->dbus_monitor, BLUEZ_GATT_CHR_INTERFACE);
-	struct chr *chr;
+	GList *chrs = get_all_valid_chr(impl);
 
-	spa_assert(chrs);
+	for (GList *p = chrs; p; p = p->next)
+		check_chr_node(impl, MIDI_ENUM_CHARACTERISTIC_PROXY(p->data));
 
-	spa_list_for_each(chr, chrs, object.link)
-		check_chr_node(impl, chr);
+	g_list_free_full(chrs, g_object_unref);
 }
 
-static void adapter_register_application_reply(struct spa_dbus_async_call *call, DBusMessage *r)
+static void manager_register_application_reply(GObject *source_object, GAsyncResult *res, gpointer user_data)
 {
-	struct adapter *adapter = SPA_CONTAINER_OF(call, struct adapter, register_call);
-	struct impl *impl = adapter->object.user_data;
+	MidiEnumManagerProxy *manager = MIDI_ENUM_MANAGER_PROXY(source_object);
+	struct impl *impl = user_data;
+	GError *err = NULL;
 
-	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
+	bluez5_gatt_manager1_call_register_application_finish(
+		BLUEZ5_GATT_MANAGER1(source_object), res, &err);
+
+	if (g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+		/* Operation canceled: user_data may be invalid by now */
+		g_error_free(err);
+		goto done;
+	}
+	if (err) {
 		spa_log_error(impl->log, "%s.RegisterApplication() failed: %s",
 				BLUEZ_GATT_MANAGER_INTERFACE,
-				dbus_message_get_error_name(r));
-		return;
+				err->message);
+		g_error_free(err);
+		goto done;
 	}
 
-	adapter->registered = true;
+	manager->registered = true;
+
+done:
+	g_clear_object(&manager->register_call);
 }
 
-static int adapter_register_application(struct adapter *adapter)
+static int manager_register_application(struct impl *impl, MidiEnumManagerProxy *manager)
 {
-	struct impl *impl = adapter->object.user_data;
-	DBusMessageIter i, d;
-	DBusMessage *m;
+	GVariantBuilder builder;
+	GVariant *options;
 
-	m = dbus_message_new_method_call(BLUEZ_SERVICE,
-			adapter->object.path,
+	if (manager->registered)
+		return 0;
+	if (manager->register_call)
+		return -EBUSY;
+
+	spa_log_debug(impl->log, "%s.RegisterApplication(%s) on %s",
 			BLUEZ_GATT_MANAGER_INTERFACE,
-			"RegisterApplication");
-	if (m == NULL)
-		return -ENOMEM;
+			g_dbus_object_manager_get_object_path(G_DBUS_OBJECT_MANAGER(impl->manager)),
+			g_dbus_proxy_get_object_path(G_DBUS_PROXY(manager)));
 
-	dbus_message_iter_init_append(m, &i);
-	dbus_message_iter_append_basic(&i, DBUS_TYPE_OBJECT_PATH, &impl->object_manager->path);
-	dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "{sv}", &d);
-	dbus_message_iter_close_container(&i, &d);
+	manager->register_call = g_cancellable_new();
 
-	return spa_dbus_async_call_send(&adapter->register_call, impl->conn, m,
-			adapter_register_application_reply);
+	g_variant_builder_init(&builder, G_VARIANT_TYPE("a{sv}"));
+	options = g_variant_builder_end(&builder);
+
+	bluez5_gatt_manager1_call_register_application(BLUEZ5_GATT_MANAGER1(manager),
+			g_dbus_object_manager_get_object_path(G_DBUS_OBJECT_MANAGER(impl->manager)),
+			options,
+			manager->register_call,
+			manager_register_application_reply,
+			impl);
+
+	return 0;
 }
 
 /*
- * DBus monitoring
+ * DBus monitoring (Glib)
  */
 
-static const char *get_dbus_string(DBusMessageIter *value)
+static void midi_enum_characteristic_proxy_init(MidiEnumCharacteristicProxy *chr)
 {
-	const char *v = NULL;
-	int type = dbus_message_iter_get_arg_type(value);
-	if (value && (type == DBUS_TYPE_STRING || type == DBUS_TYPE_OBJECT_PATH))
-		dbus_message_iter_get_basic(value, &v);
-	return v;
 }
 
-static void dup_dbus_string(DBusMessageIter *value, char **v)
+static void midi_enum_characteristic_proxy_finalize(GObject *object)
 {
-	const char *str = get_dbus_string(value);
-	free(*v);
-	*v = str ? strdup(str) : NULL;
+	MidiEnumCharacteristicProxy *chr = MIDI_ENUM_CHARACTERISTIC_PROXY(object);
+
+	g_cancellable_cancel(chr->read_call);
+	g_clear_object(&chr->read_call);
+
+	g_cancellable_cancel(chr->dsc_call);
+	g_clear_object(&chr->dsc_call);
+
+	if (chr->impl && chr->node_emitted)
+		remove_chr_node(chr->impl, chr);
+
+	chr->impl = NULL;
+
+	g_free(chr->description);
+	chr->description = NULL;
 }
 
-static bool get_dbus_bool(DBusMessageIter *value)
+static void midi_enum_characteristic_proxy_class_init(MidiEnumCharacteristicProxyClass *klass)
 {
-	dbus_bool_t v = FALSE;
-	if (value && dbus_message_iter_get_arg_type(value) == DBUS_TYPE_BOOLEAN)
-		dbus_message_iter_get_basic(value, &v);
-	return v ? true : false;
+	GObjectClass *object_class = (GObjectClass *) klass;
+
+	object_class->finalize = midi_enum_characteristic_proxy_finalize;
 }
 
-static uint32_t get_dbus_uint32(DBusMessageIter *value)
+static void midi_enum_manager_proxy_init(MidiEnumManagerProxy *manager)
 {
-	uint32_t v = 0;
-	if (value && dbus_message_iter_get_arg_type(value) == DBUS_TYPE_UINT32)
-		dbus_message_iter_get_basic(value, &v);
-	return v;
 }
 
-static uint16_t get_dbus_uint16(DBusMessageIter *value)
+static void midi_enum_manager_proxy_finalize(GObject *object)
 {
-	uint16_t v = 0;
-	if (value && dbus_message_iter_get_arg_type(value) == DBUS_TYPE_UINT16)
-		dbus_message_iter_get_basic(value, &v);
-	return v;
+	MidiEnumManagerProxy *manager = MIDI_ENUM_MANAGER_PROXY(object);
+
+	g_cancellable_cancel(manager->register_call);
+	g_clear_object(&manager->register_call);
 }
 
-static void adapter_update(struct spa_dbus_object *object)
+static void midi_enum_manager_proxy_class_init(MidiEnumManagerProxyClass *klass)
 {
-	struct adapter *adapter = SPA_CONTAINER_OF(object, struct adapter, object);
+	GObjectClass *object_class = (GObjectClass *) klass;
 
-	if (adapter->registered || adapter->register_call.pending)
-		return;
-
-	adapter_register_application(adapter);
+	object_class->finalize = midi_enum_manager_proxy_finalize;
 }
 
-static void adapter_remove(struct spa_dbus_object *object)
+static void manager_update(struct dbus_monitor *monitor, GDBusInterface *iface)
 {
-	struct adapter *adapter = SPA_CONTAINER_OF(object, struct adapter, object);
+	struct impl *impl = SPA_CONTAINER_OF(monitor, struct impl, monitor);
 
-	spa_dbus_async_call_cancel(&adapter->register_call);
+	manager_register_application(impl, MIDI_ENUM_MANAGER_PROXY(iface));
 }
 
-static void device_update(struct spa_dbus_object *object)
+static void manager_clear(struct dbus_monitor *monitor, GDBusInterface *iface)
 {
-	struct impl *impl = object->user_data;
+	midi_enum_manager_proxy_finalize(G_OBJECT(iface));
+}
+
+static void device_update(struct dbus_monitor *monitor, GDBusInterface *iface)
+{
+	struct impl *impl = SPA_CONTAINER_OF(monitor, struct impl, monitor);
 
 	check_all_nodes(impl);
 }
 
-static void device_remove(struct spa_dbus_object *object)
+static void service_update(struct dbus_monitor *monitor, GDBusInterface *iface)
 {
-	struct device *device = SPA_CONTAINER_OF(object, struct device, object);
+	struct impl *impl = SPA_CONTAINER_OF(monitor, struct impl, monitor);
+	Bluez5GattService1 *service = BLUEZ5_GATT_SERVICE1(iface);
 
-	free(device->adapter_path);
-	free(device->name);
-	free(device->alias);
-	free(device->address);
-	free(device->icon);
-}
-
-static void device_property(struct spa_dbus_object *object, const char *key, DBusMessageIter *value)
-{
-	struct device *device = SPA_CONTAINER_OF(object, struct device, object);
-
-	if (spa_streq(key, "Adapter"))
-		dup_dbus_string(value, &device->adapter_path);
-	else if (spa_streq(key, "Connected"))
-		device->connected = get_dbus_bool(value);
-	else if (spa_streq(key, "ServicesResolved"))
-		device->services_resolved = get_dbus_bool(value);
-	else if (spa_streq(key, "Name"))
-		dup_dbus_string(value, &device->name);
-	else if (spa_streq(key, "Alias"))
-		dup_dbus_string(value, &device->alias);
-	else if (spa_streq(key, "Address"))
-		dup_dbus_string(value, &device->address);
-	else if (spa_streq(key, "Icon"))
-		dup_dbus_string(value, &device->icon);
-	else if (spa_streq(key, "Class"))
-		device->class = get_dbus_uint32(value);
-	else if (spa_streq(key, "Appearance"))
-		device->appearance = get_dbus_uint16(value);
-}
-
-static void service_update(struct spa_dbus_object *object)
-{
-	struct service *service = SPA_CONTAINER_OF(object, struct service, object);
-	struct impl *impl = object->user_data;
-
-	if (!service->valid_uuid) {
-		spa_dbus_monitor_ignore_object(impl->dbus_monitor, object);
+	if (!spa_streq(bluez5_gatt_service1_get_uuid(service), BT_MIDI_SERVICE_UUID))
 		return;
-	}
 
 	check_all_nodes(impl);
 }
 
-static void service_remove(struct spa_dbus_object *object)
+static void chr_update(struct dbus_monitor *monitor, GDBusInterface *iface)
 {
-	struct service *service = SPA_CONTAINER_OF(object, struct service, object);
+	struct impl *impl = SPA_CONTAINER_OF(monitor, struct impl, monitor);
+	MidiEnumCharacteristicProxy *chr = MIDI_ENUM_CHARACTERISTIC_PROXY(iface);
 
-	free(service->device_path);
-}
-
-static void service_property(struct spa_dbus_object *object, const char *key, DBusMessageIter *value)
-{
-	struct service *service = SPA_CONTAINER_OF(object, struct service, object);
-
-	if (spa_streq(key, "UUID"))
-		service->valid_uuid = spa_streq(get_dbus_string(value), BT_MIDI_SERVICE_UUID);
-	else if (spa_streq(key, "Device"))
-		dup_dbus_string(value, &service->device_path);
-}
-
-static void chr_update(struct spa_dbus_object *object)
-{
-	struct impl *impl = object->user_data;
-	struct chr *chr = SPA_CONTAINER_OF(object, struct chr, object);
-
-	if (!chr->valid_uuid) {
-		spa_dbus_monitor_ignore_object(impl->dbus_monitor, object);
+	if (!spa_streq(bluez5_gatt_characteristic1_get_uuid(BLUEZ5_GATT_CHARACTERISTIC1(chr)),
+					BT_MIDI_CHR_UUID))
 		return;
-	}
 
-	if (chr->id == 0)
+	if (chr->impl == NULL) {
+		chr->impl = impl;
 		chr->id = ++impl->id;
+	}
 
 	check_chr_node(impl, chr);
 }
 
-static void chr_remove(struct spa_dbus_object *object)
+static void chr_clear(struct dbus_monitor *monitor, GDBusInterface *iface)
 {
-	struct impl *impl = object->user_data;
-	struct chr *chr = SPA_CONTAINER_OF(object, struct chr, object);
-
-	read_probe_reset(impl, chr);
-
-	if (chr->node_emitted)
-		remove_chr_node(impl, chr);
-
-	free(chr->service_path);
-	free(chr->description);
+	midi_enum_characteristic_proxy_finalize(G_OBJECT(iface));
 }
 
-static void chr_property(struct spa_dbus_object *object, const char *key, DBusMessageIter *value)
+static void monitor_start(struct impl *impl)
 {
-	struct chr *chr = SPA_CONTAINER_OF(object, struct chr, object);
+	struct dbus_monitor_proxy_type proxy_types[] = {
+		{ BLUEZ_DEVICE_INTERFACE, BLUEZ5_TYPE_DEVICE1_PROXY, device_update, NULL },
+		{ BLUEZ_GATT_MANAGER_INTERFACE, MIDI_ENUM_TYPE_MANAGER_PROXY, manager_update, manager_clear },
+		{ BLUEZ_GATT_SERVICE_INTERFACE, BLUEZ5_TYPE_GATT_SERVICE1_PROXY, service_update, NULL },
+		{ BLUEZ_GATT_CHR_INTERFACE, MIDI_ENUM_TYPE_CHARACTERISTIC_PROXY, chr_update, chr_clear },
+		{ BLUEZ_GATT_DSC_INTERFACE, BLUEZ5_TYPE_GATT_DESCRIPTOR1_PROXY, NULL, NULL },
+		{ NULL, BLUEZ5_TYPE_OBJECT_PROXY, NULL, NULL },
+		{ NULL, G_TYPE_INVALID, NULL, NULL }
+	};
 
-	if (spa_streq(key, "UUID"))
-		chr->valid_uuid = spa_streq(get_dbus_string(value), BT_MIDI_CHR_UUID);
-	else if (spa_streq(key, "Service"))
-		dup_dbus_string(value, &chr->service_path);
+	SPA_STATIC_ASSERT(SPA_N_ELEMENTS(proxy_types) <= DBUS_MONITOR_MAX_TYPES);
+
+	dbus_monitor_init(&impl->monitor, BLUEZ5_TYPE_OBJECT_MANAGER_CLIENT,
+			impl->log, impl->conn, BLUEZ_SERVICE, "/", proxy_types, NULL);
 }
-
-static void dsc_update(struct spa_dbus_object *object)
-{
-	struct impl *impl = object->user_data;
-	struct dsc *dsc = SPA_CONTAINER_OF(object, struct dsc, object);
-
-	if (!dsc->valid_uuid) {
-		spa_dbus_monitor_ignore_object(impl->dbus_monitor, object);
-		return;
-	}
-}
-
-static void dsc_property(struct spa_dbus_object *object, const char *key, DBusMessageIter *value)
-{
-	struct dsc *dsc = SPA_CONTAINER_OF(object, struct dsc, object);
-
-	if (spa_streq(key, "UUID"))
-		dsc->valid_uuid = spa_streq(get_dbus_string(value),
-				BT_GATT_CHARACTERISTIC_USER_DESCRIPTION_UUID);
-	else if (spa_streq(key, "Characteristic"))
-		dup_dbus_string(value, &dsc->chr_path);
-}
-
-static void dsc_remove(struct spa_dbus_object *object)
-{
-	struct dsc *dsc = SPA_CONTAINER_OF(object, struct dsc, object);
-
-	free(dsc->chr_path);
-}
-
-static const struct spa_dbus_interface monitor_interfaces[] = {
-	{
-		.name = BLUEZ_ADAPTER_INTERFACE,
-		.update = adapter_update,
-		.remove = adapter_remove,
-		.object_size = sizeof(struct adapter),
-	},
-	{
-		.name = BLUEZ_DEVICE_INTERFACE,
-		.update = device_update,
-		.remove = device_remove,
-		.property = device_property,
-		.object_size = sizeof(struct device),
-	},
-	{
-		.name = BLUEZ_GATT_SERVICE_INTERFACE,
-		.update = service_update,
-		.remove = service_remove,
-		.property = service_property,
-		.object_size = sizeof(struct service),
-	},
-	{
-		.name = BLUEZ_GATT_CHR_INTERFACE,
-		.update = chr_update,
-		.remove = chr_remove,
-		.property = chr_property,
-		.object_size = sizeof(struct chr),
-	},
-	{
-		.name = BLUEZ_GATT_DSC_INTERFACE,
-		.update = dsc_update,
-		.remove = dsc_remove,
-		.property = dsc_property,
-		.object_size = sizeof(struct dsc),
-	},
-	{NULL}
-};
 
 /*
  * DBus GATT profile, to enable BlueZ autoconnect
  */
 
-static DBusMessage *profile_release(struct spa_dbus_local_object *object, DBusMessage *m)
+static gboolean profile_handle_release(Bluez5GattProfile1 *iface, GDBusMethodInvocation *invocation)
 {
-	/* noop */
-	return dbus_message_new_method_return(m);
+	bluez5_gatt_profile1_complete_release(iface, invocation);
+	return TRUE;
 }
 
-static int profile_uuids_get(struct spa_dbus_local_object *object, DBusMessageIter *value)
+static int export_profile(struct impl *impl)
 {
-	DBusMessageIter a;
-	const char *uuid = BT_MIDI_SERVICE_UUID;
+	static const char *uuids[] = { BT_MIDI_SERVICE_UUID, NULL };
+	GDBusObjectSkeleton *skeleton = NULL;
+	Bluez5GattProfile1 *iface = NULL;
+	int res = -ENOMEM;
 
-	dbus_message_iter_open_container(value, DBUS_TYPE_ARRAY, "s", &a);
-	dbus_message_iter_append_basic(&a, DBUS_TYPE_STRING, &uuid);
-	dbus_message_iter_close_container(value, &a);
+	iface = bluez5_gatt_profile1_skeleton_new();
+	if (!iface)
+		goto done;
 
-	return 0;
+	skeleton = g_dbus_object_skeleton_new(MIDI_PROFILE_PATH);
+	if (!skeleton)
+		goto done;
+	g_dbus_object_skeleton_add_interface(skeleton, G_DBUS_INTERFACE_SKELETON(iface));
+
+	bluez5_gatt_profile1_set_uuids(iface, uuids);
+	g_signal_connect(iface, "handle-release", G_CALLBACK(profile_handle_release), NULL);
+
+	g_dbus_object_manager_server_export(impl->manager, skeleton);
+
+	spa_log_debug(impl->log, "MIDI GATT Profile exported, path=%s",
+			g_dbus_object_get_object_path(G_DBUS_OBJECT(skeleton)));
+
+	res = 0;
+
+done:
+	g_clear_object(&iface);
+	g_clear_object(&skeleton);
+	return res;
 }
-
-static const struct spa_dbus_local_interface profile_interfaces[] = {
-	{
-		.name = BLUEZ_GATT_PROFILE_INTERFACE,
-		.methods = (struct spa_dbus_method[]) {
-			{
-				.name = "Release",
-				.call = profile_release,
-			},
-			{NULL}
-		},
-		.properties = (struct spa_dbus_property[]) {
-			{
-				.name = "UUIDs",
-				.signature = "as",
-				.get = profile_uuids_get,
-			},
-			{NULL},
-		},
-	},
-	{NULL}
-};
 
 /*
  * Monitor impl
@@ -728,20 +709,19 @@ static int impl_device_add_listener(void *object, struct spa_hook *listener,
 {
 	struct impl *this = object;
 	struct spa_hook_list save;
-	struct spa_list *chrs;
-	struct chr *chr;
+	GList *chrs;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(events != NULL, -EINVAL);
 
-	chrs = spa_dbus_monitor_object_list(
-		this->dbus_monitor, BLUEZ_GATT_CHR_INTERFACE);
+	chrs = get_all_valid_chr(this);
 
 	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
-	spa_list_for_each(chr, chrs, object.link) {
-		struct service *service;
-		struct device *device;
+	for (GList *p = g_list_first(chrs); p; p = p->next) {
+		MidiEnumCharacteristicProxy *chr = MIDI_ENUM_CHARACTERISTIC_PROXY(p->data);
+		Bluez5Device1 *device;
+		Bluez5GattService1 *service;
 
 		if (!chr->node_emitted)
 			continue;
@@ -750,6 +730,7 @@ static int impl_device_add_listener(void *object, struct spa_hook *listener,
 		if (device)
 			emit_chr_node(this, chr, device);
 	}
+	g_list_free_full(chrs, g_object_unref);
 
 	spa_hook_list_join(&this->hooks, &save);
 
@@ -784,14 +765,9 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
-	if (this->object_manager)
-		spa_dbus_object_manager_destroy(this->object_manager);
-	if (this->dbus_monitor)
-		spa_dbus_monitor_destroy(this->dbus_monitor);
-	if (this->conn)
-		dbus_connection_unref(this->conn);
-	if (this->dbus_connection)
-		spa_dbus_connection_destroy(this->dbus_connection);
+	dbus_monitor_clear(&this->monitor);
+	g_clear_object(&this->manager);
+	g_clear_object(&this->conn);
 
 	spa_zero(*this);
 
@@ -813,6 +789,7 @@ impl_init(const struct spa_handle_factory *factory,
 		uint32_t n_support)
 {
 	struct impl *this;
+	GError *error = NULL;
 	int res = 0;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
@@ -824,40 +801,11 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	this->dbus = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DBus);
 
 	if (this->log == NULL)
 		return -EINVAL;
 
 	spa_log_topic_init(this->log, &log_topic);
-
-	if (this->dbus == NULL) {
-		spa_log_error(this->log, "a dbus is needed");
-		return -EINVAL;
-	}
-
-	this->conn = NULL;
-	this->dbus_connection = NULL;
-
-	this->dbus_connection = spa_dbus_get_connection(this->dbus, SPA_DBUS_TYPE_SYSTEM);
-	if (this->dbus_connection == NULL) {
-		spa_log_error(this->log, "no dbus connection");
-		res = -EIO;
-		goto fail;
-	}
-
-	this->conn = spa_dbus_connection_get(this->dbus_connection);
-	if (this->conn == NULL) {
-		spa_log_error(this->log, "failed to get dbus connection");
-		res = -EIO;
-		goto fail;
-	}
-
-	/*
-	 * XXX: We should handle spa_dbus reconnecting, but we don't, so ref
-	 * XXX: the handle so that we can keep it if spa_dbus unrefs it.
-	 */
-	dbus_connection_ref(this->conn);
 
 	spa_hook_list_init(&this->hooks);
 
@@ -866,24 +814,26 @@ impl_init(const struct spa_handle_factory *factory,
 				SPA_VERSION_DEVICE,
 				&impl_device, this);
 
-	this->dbus_monitor = spa_dbus_monitor_new(this->conn,
-			BLUEZ_SERVICE, "/", monitor_interfaces,
-			this->log, this);
-	if (!this->dbus_monitor)
+	this->conn = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &error);
+	if (!this->conn) {
+		spa_log_error(this->log, "Creating GDBus connection failed: %s",
+				error->message);
+		g_error_free(error);
+		goto fail;
+	}
+
+	this->manager = g_dbus_object_manager_server_new(MIDI_OBJECT_PATH);
+	if (!this->manager){
+		spa_log_error(this->log, "Creating GDBus object manager failed");
+		goto fail;
+	}
+
+	if ((res = export_profile(this)) < 0)
 		goto fail;
 
-	this->object_manager = spa_dbus_object_manager_new(this->conn,
-			MIDI_OBJECT_PATH, this->log);
-	if (!this->object_manager)
-		goto fail;
+	g_dbus_object_manager_server_set_connection(this->manager, this->conn);
 
-	this->profile = spa_dbus_object_manager_register(this->object_manager,
-			MIDI_PROFILE_PATH,
-			profile_interfaces,
-			sizeof(struct spa_dbus_local_object),
-			this);
-	if (!this->profile)
-		goto fail;
+	monitor_start(this);
 
 	return 0;
 

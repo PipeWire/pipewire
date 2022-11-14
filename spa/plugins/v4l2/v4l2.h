@@ -41,6 +41,7 @@ struct spa_v4l2_device {
 	struct v4l2_capability cap;
 	unsigned int active:1;
 	unsigned int have_format:1;
+	char path[64];
 };
 
 int spa_v4l2_open(struct spa_v4l2_device *dev, const char *path);

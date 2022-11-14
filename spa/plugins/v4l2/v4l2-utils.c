@@ -56,7 +56,7 @@ int spa_v4l2_open(struct spa_v4l2_device *dev, const char *path)
 		return -EIO;
 	}
 
-	spa_log_info(dev->log, "Playback device is '%s'", path);
+	spa_log_info(dev->log, "device is '%s'", path);
 
 	dev->fd = open(path, O_RDWR | O_NONBLOCK, 0);
 	if (dev->fd == -1) {
@@ -84,6 +84,7 @@ int spa_v4l2_open(struct spa_v4l2_device *dev, const char *path)
 		spa_log_error(dev->log, "'%s' QUERYCAP: %m", path);
 		goto error_close;
 	}
+	snprintf(dev->path, sizeof(dev->path), "%s", path);
 	return 0;
 
 error_close:
@@ -109,7 +110,7 @@ int spa_v4l2_close(struct spa_v4l2_device *dev)
 	if (dev->active || dev->have_format)
 		return 0;
 
-	spa_log_info(dev->log, "close");
+	spa_log_info(dev->log, "close '%s'", dev->path);
 
 	if (close(dev->fd))
 		spa_log_warn(dev->log, "close: %m");
@@ -972,7 +973,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 		return match ? 0 : 1;
 
 	spa_log_info(this->log, "'%s' got %.4s %dx%d %d/%d",
-			this->props.device, (char *)&fmt.fmt.pix.pixelformat,
+			dev->path, (char *)&fmt.fmt.pix.pixelformat,
 			fmt.fmt.pix.width, fmt.fmt.pix.height,
 			streamparm.parm.capture.timeperframe.denominator,
 			streamparm.parm.capture.timeperframe.numerator);
@@ -1610,7 +1611,7 @@ fallback:
 		}
 		spa_v4l2_buffer_recycle(this, i);
 	}
-	spa_log_info(this->log, "have %u buffers using %s", n_buffers,
+	spa_log_info(this->log, "%s: have %u buffers using %s", dev->path, n_buffers,
 			use_expbuf ? "EXPBUF" : "MMAP");
 
 	port->n_buffers = n_buffers;

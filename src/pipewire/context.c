@@ -1168,6 +1168,10 @@ again:
 			if (s->active)
 				running = !n->passive;
 
+			pw_log_debug("%p: follower %p running:%d passive:%d rate:%u/%u latency %u/%u '%s'",
+				context, s, running, s->passive, rate.num, rate.denom,
+				latency.num, latency.denom, s->name);
+
 			s->moved = false;
 		}
 

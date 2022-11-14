@@ -1023,35 +1023,25 @@ static void append_basic_variant_dict_entry(DBusMessageIter *dict, const char* k
 	dbus_message_iter_close_container(dict, &dict_entry_it);
 }
 
+static inline bool is_valid_dial_string_char(char c)
+{
+	return ('0' <= c && c <= '9')
+		|| ('A' <= c && c <= 'C')
+		|| c == '*'
+		|| c == '#'
+		|| c == '+';
+}
+
 bool mm_do_call(void *modemmanager, const char* number, void *user_data, enum cmee_error *error)
 {
 	struct impl *this = modemmanager;
-	unsigned int k, j;
-	char *number_filtered;
 	struct dbus_cmd_data *data;
 	DBusMessage *m;
 	DBusMessageIter iter, dict;
 
-	/* Filter extracted number from invalid characters
-		* Allowed characters: 0-9, *, #, +, A-C
-		*/
-	k=0;
-	number_filtered = calloc(1, 30);
-	for (j=0; j < 30; j++) {
-		if ((number[j] >= '0' && number[j] <= '9')
-			|| (number[j] == '*')
-			|| (number[j] == '#')
-			|| (number[j] == '+')
-			|| (number[j] >= 'A' && number[j] <= 'C')) {
-			number_filtered[k] = number[j];
-			k++;
-		}
-		/* ATD commands ends with ';' */
-		else if (number[j] == ';')
-			break;
-		/* Send error for invalid characters */
-		else {
-			spa_log_warn(this->log, "Call creation canceled, invalid character found in dial string: %c", number[j]);
+	for (size_t i = 0; number[i]; i++) {
+		if (!is_valid_dial_string_char(number[i])) {
+			spa_log_warn(this->log, "Call creation canceled, invalid character found in dial string: %c", number[i]);
 			if (error)
 				*error = CMEE_INVALID_CHARACTERS_DIAL_STRING;
 			return false;
@@ -1075,7 +1065,7 @@ bool mm_do_call(void *modemmanager, const char* number, void *user_data, enum cm
 	}
 	dbus_message_iter_init_append(m, &iter);
 	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sv}", &dict);
-	append_basic_variant_dict_entry(&dict, "number", DBUS_TYPE_STRING, "s", &number_filtered);
+	append_basic_variant_dict_entry(&dict, "number", DBUS_TYPE_STRING, "s", &number);
 	dbus_message_iter_close_container(&iter, &dict);
 	if (!mm_dbus_connection_send_with_reply(this, m, &this->voice_pending, mm_get_call_create_reply, data)) {
 		spa_log_error(this->log, "dbus call failure");

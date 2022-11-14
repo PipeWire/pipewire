@@ -1111,10 +1111,10 @@ next_indicator:
 			return true;
 		}
 	} else if (spa_strstartswith(buf, "ATD")) {
-		char number[31];
+		char number[31], sep;
 		enum cmee_error error;
 
-		if (sscanf(buf, "ATD%30s;", number) != 1) {
+		if (sscanf(buf, "ATD%30[^;]%c", number, &sep) != 2 || sep != ';') {
 			spa_log_debug(backend->log, "Failed to parse ATD: \"%s\"", buf);
 			rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);
 			return true;

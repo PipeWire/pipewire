@@ -857,11 +857,11 @@ static int spa_libcamera_stream_on(struct impl *impl)
 
 	spa_log_info(impl->log, "starting camera %s", impl->device_id.c_str());
 	if ((res = impl->camera->start()) < 0)
-		return res == -EACCES ? -EBUSY : res;
+		goto error;
 
 	for (Request *req : impl->pendingRequests) {
 		if ((res = impl->camera->queueRequest(req)) < 0)
-			return res == -EACCES ? -EBUSY : res;
+			goto error_stop;
 	}
 	impl->pendingRequests.clear();
 
@@ -872,13 +872,20 @@ static int spa_libcamera_stream_on(struct impl *impl)
 	impl->source.rmask = 0;
 	if (impl->source.fd < 0) {
 		spa_log_error(impl->log, "Failed to create eventfd: %s", spa_strerror(impl->source.fd));
-		return impl->source.fd;
+		res = impl->source.fd;
+		goto error_stop;
 	}
 	spa_loop_add_source(impl->data_loop, &impl->source);
 
 	impl->active = true;
 
 	return 0;
+
+error_stop:
+	impl->camera->stop();
+error:
+	impl->camera->requestCompleted.disconnect(impl, &impl::requestComplete);
+	return res == -EACCES ? -EBUSY : res;
 }
 
 static int do_remove_source(struct spa_loop *loop,

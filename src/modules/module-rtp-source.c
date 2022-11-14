@@ -46,6 +46,9 @@
 #include <module-rtp/sap.h>
 #include <module-rtp/rtp.h>
 
+#ifdef __FreeBSD__
+#define ifr_ifindex ifr_index
+#endif
 
 /** \page page_module_rtp_source PipeWire Module: RTP source
  *

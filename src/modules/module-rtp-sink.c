@@ -31,6 +31,7 @@
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
 #include <netinet/ip.h>
+#include <netinet/in.h>
 #include <net/if.h>
 #include <ctype.h>
 
@@ -439,11 +440,11 @@ static int make_socket(struct sockaddr_storage *src, socklen_t src_len,
 		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &val, sizeof(val)) < 0)
 			pw_log_warn("setsockopt(IP_MULTICAST_TTL) failed: %m");
 	}
-
+#ifdef SO_PRIORITY
 	val = 6;
 	if (setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
 		pw_log_warn("setsockopt(SO_PRIORITY) failed: %m");
-
+#endif
 	val = IPTOS_LOWDELAY;
 	if (setsockopt(fd, IPPROTO_IP, IP_TOS, &val, sizeof(val)) < 0)
 		pw_log_warn("setsockopt(IP_TOS) failed: %m");

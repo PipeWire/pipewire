@@ -579,10 +579,10 @@ static int create_udp_socket(struct impl *impl, uint16_t *port)
 
 		if (ip_version == 4) {
 			sa4.sin_port = htons(*port);
-			ret = bind(fd, &sa4, sizeof(sa4));
+			ret = bind(fd, (struct sockaddr*)&sa4, sizeof(sa4));
 		} else {
 			sa6.sin6_port = htons(*port);
-			ret = bind(fd, &sa6, sizeof(sa6));
+			ret = bind(fd, (struct sockaddr*)&sa6, sizeof(sa6));
 		}
 		if (ret == 0)
 			break;

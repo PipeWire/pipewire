@@ -833,15 +833,9 @@ static int impl_node_port_reuse_buffer(void *object,
 	return res;
 }
 
-static void set_control(struct impl *impl, struct port *port, uint32_t control_id, float value)
-{
-	spa_log_error(impl->log, "Failed to set control");
-}
-
 static int process_control(struct impl *impl, struct spa_pod_sequence *control)
 {
 	struct spa_pod_control *c;
-	struct port *port;
 
 	SPA_POD_SEQUENCE_FOREACH(control, c) {
 		switch (c->type) {
@@ -851,9 +845,7 @@ static int process_control(struct impl *impl, struct spa_pod_sequence *control)
 			struct spa_pod_object *obj = (struct spa_pod_object *) &c->value;
 
 			SPA_POD_OBJECT_FOREACH(obj, prop) {
-				port = GET_OUT_PORT(impl, 0);
-				set_control(impl, port, prop->key,
-						SPA_POD_VALUE(struct spa_pod_float, &prop->value));
+				spa_libcamera_set_control(impl, prop);
 			}
 			break;
 		}

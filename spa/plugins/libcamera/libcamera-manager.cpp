@@ -117,6 +117,13 @@ std::shared_ptr<CameraManager> libcamera_manager_acquire(int& res)
 
 	return manager;
 }
+static uint32_t get_free_id(struct impl *impl)
+{
+	for (std::size_t i = 0; i < MAX_DEVICES; i++)
+		if (impl->devices[i].camera == nullptr)
+			return i;
+	return 0;
+}
 
 static struct device *add_device(struct impl *impl, std::shared_ptr<Camera> camera)
 {
@@ -125,10 +132,11 @@ static struct device *add_device(struct impl *impl, std::shared_ptr<Camera> came
 
 	if (impl->n_devices >= MAX_DEVICES)
 		return NULL;
-	id = impl->n_devices++;
+	id = get_free_id(impl);;
 	device = &impl->devices[id];
-	device->id = id;
+	device->id = get_free_id(impl);;
 	device->camera = std::move(camera);
+	impl->n_devices++;
 	return device;
 }
 
@@ -144,8 +152,10 @@ static struct device *find_device(struct impl *impl, const Camera *camera)
 
 static void remove_device(struct impl *impl, struct device *device)
 {
+	uint32_t old = --impl->n_devices;
 	device->camera.reset();
-	*device = std::move(impl->devices[--impl->n_devices]);
+	*device = std::move(impl->devices[old]);
+	impl->devices[old].camera = nullptr;
 }
 
 static void clear_devices(struct impl *impl)
@@ -196,7 +206,8 @@ static void try_add_camera(struct impl *impl, std::shared_ptr<Camera> camera)
 	if ((device = add_device(impl, std::move(camera))) == NULL)
 		return;
 
-	spa_log_info(impl->log, "camera added: %s", device->camera->id().c_str());
+	spa_log_info(impl->log, "camera added: id:%d %s", device->id,
+			device->camera->id().c_str());
 	emit_object_info(impl, device);
 }
 
@@ -207,7 +218,8 @@ static void try_remove_camera(struct impl *impl, const Camera *camera)
 	if ((device = find_device(impl, camera)) == NULL)
 		return;
 
-	spa_log_info(impl->log, "camera removed: %s", device->camera->id().c_str());
+	spa_log_info(impl->log, "camera removed: id:%d %s", device->id,
+			device->camera->id().c_str());
 	spa_device_emit_object_info(&impl->hooks, device->id, NULL);
 	remove_device(impl, device);
 }

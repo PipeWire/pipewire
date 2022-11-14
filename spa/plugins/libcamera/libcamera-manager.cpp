@@ -208,6 +208,7 @@ static void try_remove_camera(struct impl *impl, const Camera *camera)
 		return;
 
 	spa_log_info(impl->log, "camera removed: %s", device->camera->id().c_str());
+	spa_device_emit_object_info(&impl->hooks, device->id, NULL);
 	remove_device(impl, device);
 }
 

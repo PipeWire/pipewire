@@ -77,8 +77,8 @@ static int emit_object_info(struct impl *this, uint32_t id)
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_API, "libcamera");
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, "Video/Device");
 
-    info.props = &SPA_DICT_INIT(items, n_items);
-    spa_device_emit_object_info(&this->hooks, id, &info);
+	info.props = &SPA_DICT_INIT(items, n_items);
+	spa_device_emit_object_info(&this->hooks, id, &info);
 
 	return 1;
 }
@@ -112,18 +112,18 @@ impl_device_add_listener(void *object, struct spa_hook *listener,
 		const struct spa_device_events *events, void *data)
 {
 	struct impl *this = object;
-    struct spa_hook_list save;
+	struct spa_hook_list save;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(events != NULL, -EINVAL);
 
-    spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
+	spa_hook_list_isolate(&this->hooks, &save, listener, events, data);
 
 	emit_device_info(this, true);
 
 	emit_object_info(this, 0);
 
-    spa_hook_list_join(&this->hooks, &save);
+	spa_hook_list_join(&this->hooks, &save);
 
 	listener->removed = impl_hook_removed;
 	listener->priv = this;

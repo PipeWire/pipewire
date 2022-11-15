@@ -979,6 +979,7 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 	}
 
 	this->monitor = monitor;
+	this->setup = false;
 	dir->control = control;
 	dir->have_profile = true;
 	dir->mode = mode;

@@ -278,10 +278,10 @@ pw_context_load_module(struct pw_context *context,
 
 error_not_found:
 	res = -ENOENT;
-	pw_log_error("No module \"%s\" was found", name);
+	pw_log_info("No module \"%s\" was found", name);
 	goto error_cleanup;
 error_open_failed:
-	res = -ENOENT;
+	res = -EIO;
 	pw_log_error("Failed to open module: \"%s\" %s", filename, dlerror());
 	goto error_free_filename;
 error_no_pw_module:

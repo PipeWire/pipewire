@@ -34,6 +34,8 @@ void *_acp_log_data;
 
 struct spa_i18n *acp_i18n;
 
+#define DEFAULT_RATE	44100
+
 #define VOLUME_ACCURACY (PA_VOLUME_NORM/100)  /* don't require volume adjustments to be perfectly correct. don't necessarily extend granularity in software unless the differences get greater than this level */
 
 static const uint32_t channel_table[PA_CHANNEL_POSITION_MAX] = {
@@ -312,7 +314,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 	snd_pcm_uframes_t try_period_size, try_buffer_size;
 
 	ss.format = PA_SAMPLE_S32LE;
-	ss.rate = 48000;
+	ss.rate = DEFAULT_RATE;
 	ss.channels = 64;
 
 	ap = pa_xnew0(pa_alsa_profile, 1);
@@ -1571,7 +1573,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	}
 
 	impl->ucm.default_sample_spec.format = PA_SAMPLE_S16NE;
-	impl->ucm.default_sample_spec.rate = 48000;
+	impl->ucm.default_sample_spec.rate = DEFAULT_RATE;
 	impl->ucm.default_sample_spec.channels = 2;
 	pa_channel_map_init_extend(&impl->ucm.default_channel_map,
 			impl->ucm.default_sample_spec.channels, PA_CHANNEL_MAP_ALSA);

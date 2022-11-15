@@ -1989,6 +1989,7 @@ static int port_set_format(void *object,
 			}
 			this->dir[direction].format = info;
 			this->dir[direction].have_format = true;
+			this->setup = false;
 		}
 		port->format = info;
 		port->have_format = true;

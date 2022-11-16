@@ -2128,7 +2128,7 @@ again:
 
 	state->sample_count += total_written;
 
-	if (SPA_UNLIKELY(!state->alsa_started && total_written > 0))
+	if (SPA_UNLIKELY(!state->alsa_started && (total_written > 0 || frames == 0)))
 		do_start(state);
 
 	return 0;

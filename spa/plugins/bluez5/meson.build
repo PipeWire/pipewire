@@ -73,10 +73,14 @@ if get_option('bluez5-backend-hsphfpd').allowed()
   bluez5_sources += ['backend-hsphfpd.c']
 endif
 
+# The library uses GObject, and cannot be unloaded
+bluez5_link_args = [ '-Wl,-z', '-Wl,nodelete' ]
+
 bluez5lib = shared_library('spa-bluez5',
   bluez5_sources,
   include_directories : [ configinc ],
   dependencies : [ spa_dep, bluez5_deps ],
+  link_args : bluez5_link_args,
   install : true,
   install_dir : spa_plugindir / 'bluez5')
 

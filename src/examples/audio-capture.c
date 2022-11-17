@@ -42,6 +42,7 @@ struct data {
 	struct pw_stream *stream;
 
 	struct spa_audio_info format;
+	unsigned move:1;
 };
 
 /* our data processing function is in general:
@@ -73,6 +74,9 @@ static void on_process(void *userdata)
 	n_channels = data->format.info.raw.channels;
 	n_samples = buf->datas[0].chunk->size / sizeof(float);
 
+	/* move cursor up */
+	if (data->move)
+		fprintf(stdout, "%c[%dA", 0x1b, n_channels + 1);
 	fprintf(stdout, "captured %d samples\n", n_samples / n_channels);
 	for (c = 0; c < data->format.info.raw.channels; c++) {
 		max = 0.0f;
@@ -84,8 +88,7 @@ static void on_process(void *userdata)
 		fprintf(stdout, "channel %d: |%*s%*s| peak:%f\n",
 				c, peak+1, "*", 40 - peak, "", max);
 	}
-	/* move cursor up */
-	fprintf(stdout, "%c[%dA", 0x1b, n_channels + 1);
+	data->move = true;
 	fflush(stdout);
 
 	pw_stream_queue_buffer(data->stream, b);

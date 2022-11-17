@@ -1098,6 +1098,7 @@ static void follower_port_info(void *data,
 			}
 			if (idx == IDX_EnumFormat) {
 				this->have_format = false;
+				this->n_buffers = 0;
 				spa_log_debug(this->log, "new formats");
 			}
 

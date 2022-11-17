@@ -72,7 +72,7 @@
  *                  (Default `sink`)
  * - `pulse.server.address`: the address of the PulseAudio server to tunnel to.
  * - `pulse.latency`: the latency to end-to-end latency in milliseconds to
- *                    maintain (Default 200ms).
+ *                    maintain (Default 200).
  * - `stream.props`: Extra properties for the local stream.
  *
  * ## General options
@@ -101,6 +101,7 @@
  *         tunnel.mode = sink
  *         # Set the remote address to tunnel to
  *         pulse.server.address = "tcp:192.168.1.126"
+ *         #pulse.latency = 200
  *         #audio.rate=<sample rate>
  *         #audio.channels=<number of channels>
  *         #audio.position=<channel map>

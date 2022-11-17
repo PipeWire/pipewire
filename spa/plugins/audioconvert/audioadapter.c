@@ -1096,6 +1096,10 @@ static void follower_port_info(void *data,
 				spa_log_debug(this->log, "latency: %d (%s)", res,
 						spa_strerror(res));
 			}
+			if (idx == IDX_EnumFormat) {
+				this->have_format = false;
+				spa_log_debug(this->log, "new formats");
+			}
 
 			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 			if (!this->add_listener) {

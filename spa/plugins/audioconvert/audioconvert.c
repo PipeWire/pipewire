@@ -1646,7 +1646,6 @@ static int port_enum_formats(void *object,
 			     struct spa_pod_builder *builder)
 {
 	struct impl *this = object;
-	struct port *port = GET_PORT(this, direction, port_id);
 
 	switch (index) {
 	case 0:
@@ -1660,11 +1659,7 @@ static int port_enum_formats(void *object,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
 				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
-		} else if (port->have_format) {
-			*param = spa_format_audio_raw_build(builder,
-				SPA_PARAM_EnumFormat, &this->dir[direction].format.info.raw);
-		}
-		else {
+		} else {
 			uint32_t rate = this->io_position ?
 				this->io_position->clock.rate.denom : DEFAULT_RATE;
 

@@ -36,6 +36,7 @@
 #include <pipewire/private.h>
 
 #include "format.h"
+#include "server.h"
 
 struct pw_loop;
 struct pw_context;
@@ -72,6 +73,7 @@ struct impl {
 
 	struct ratelimit rate_limit;
 
+	struct spa_hook_list hooks;
 	struct spa_list servers;
 
 	struct pw_work_queue *work_queue;
@@ -84,6 +86,19 @@ struct impl {
 	struct defs defs;
 	struct stats stat;
 };
+
+struct impl_events {
+#define VERSION_IMPL_EVENTS	0
+	uint32_t version;
+
+	void (*server_started) (void *data, struct server *server);
+
+	void (*server_stopped) (void *data, struct server *server);
+};
+
+void impl_add_listener(struct impl *impl,
+		struct spa_hook *listener,
+		const struct impl_events *events, void *data);
 
 extern bool debug_messages;
 

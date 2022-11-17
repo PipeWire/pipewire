@@ -5461,6 +5461,8 @@ static void impl_clear(struct impl *impl)
 	pw_map_for_each(&impl->samples, impl_free_sample, impl);
 	pw_map_clear(&impl->samples);
 
+	spa_hook_list_clean(&impl->hooks);
+
 #ifdef HAVE_DBUS
 	if (impl->dbus_name) {
 		dbus_release_name(impl->dbus_name);
@@ -5599,6 +5601,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 
 	impl->work_queue = pw_context_get_work_queue(context);
 
+	spa_hook_list_init(&impl->hooks);
 	spa_list_init(&impl->servers);
 	impl->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
 	impl->rate_limit.burst = 1;
@@ -5648,6 +5651,13 @@ error_exit:
 		errno = -res;
 
 	return NULL;
+}
+
+void impl_add_listener(struct impl *impl,
+		struct spa_hook *listener,
+		const struct impl_events *events, void *data)
+{
+	spa_hook_list_append(&impl->hooks, listener, events, data);
 }
 
 void *pw_protocol_pulse_get_user_data(struct pw_protocol_pulse *pulse)

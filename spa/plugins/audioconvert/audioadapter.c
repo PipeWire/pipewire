@@ -1094,22 +1094,23 @@ static void follower_port_info(void *data,
 				(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
 				(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
 
+			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+
+			if (this->add_listener)
+				continue;
+
 			if (idx == IDX_Latency) {
 				res = recalc_latency(this, direction, port_id);
 				spa_log_debug(this->log, "latency: %d (%s)", res,
 						spa_strerror(res));
 			}
 			if (idx == IDX_EnumFormat) {
-				this->have_format = false;
-				this->n_buffers = 0;
 				spa_log_debug(this->log, "new formats");
+				configure_format(this, 0, NULL);
 			}
 
-			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
-			if (!this->add_listener) {
-				this->params[idx].user++;
-				spa_log_debug(this->log, "param %d changed", info->params[i].id);
-			}
+			this->params[idx].user++;
+			spa_log_debug(this->log, "param %d changed", info->params[i].id);
 		}
 	}
 	emit_node_info(this, false);

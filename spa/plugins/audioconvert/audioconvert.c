@@ -1869,7 +1869,7 @@ static int port_set_latency(void *object,
 			   const struct spa_pod *latency)
 {
 	struct impl *this = object;
-	struct port *port;
+	struct port *port, *oport;
 	enum spa_direction other = SPA_DIRECTION_REVERSE(direction);
 	uint32_t i;
 
@@ -1891,10 +1891,10 @@ static int port_set_latency(void *object,
 	}
 
 	for (i = 0; i < this->dir[other].n_ports; i++) {
-		port = GET_PORT(this, other, i);
-		port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-		port->params[IDX_Latency].user++;
-		emit_port_info(this, port, false);
+		oport = GET_PORT(this, other, i);
+		oport->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+		oport->params[IDX_Latency].user++;
+		emit_port_info(this, oport, false);
 	}
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	port->params[IDX_Latency].user++;

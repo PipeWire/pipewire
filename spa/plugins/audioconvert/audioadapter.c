@@ -897,10 +897,11 @@ static void convert_node_info(void *data, const struct spa_node_info *info)
 				(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
 				(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
 
-			if (!this->add_listener) {
-				this->params[idx].user++;
-				spa_log_debug(this->log, "param %d changed", info->params[i].id);
-			}
+			if (this->add_listener)
+				continue;
+
+			this->params[idx].user++;
+			spa_log_debug(this->log, "param %d changed", info->params[i].id);
 		}
 	}
 	emit_node_info(this, false);
@@ -1005,10 +1006,11 @@ static void follower_info(void *data, const struct spa_node_info *info)
 				(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
 				(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
 
-			if (!this->add_listener) {
-				this->params[idx].user++;
-				spa_log_debug(this->log, "param %d changed", info->params[i].id);
-			}
+			if (this->add_listener)
+				continue;
+
+			this->params[idx].user++;
+			spa_log_debug(this->log, "param %d changed", info->params[i].id);
 		}
 	}
 	emit_node_info(this, false);
@@ -1085,16 +1087,16 @@ static void follower_port_info(void *data,
 			default:
 				continue;
 			}
+
 			if (!this->add_listener &&
 			    this->follower_params_flags[idx] == info->params[i].flags)
 				continue;
 
+			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 			this->follower_params_flags[idx] = info->params[i].flags;
 			this->params[idx].flags =
 				(this->params[idx].flags & SPA_PARAM_INFO_SERIAL) |
 				(info->params[i].flags & SPA_PARAM_INFO_READWRITE);
-
-			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 
 			if (this->add_listener)
 				continue;

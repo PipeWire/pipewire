@@ -95,7 +95,6 @@ struct port {
 	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
 
-	struct spa_list free;
 	struct spa_list ready;
 
 	struct buffer *current_buffer;

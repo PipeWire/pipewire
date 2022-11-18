@@ -438,6 +438,9 @@ static int configure_format(struct impl *this, uint32_t flags, const struct spa_
 {
 	int res;
 
+	if (format == NULL && !this->have_format)
+		return 0;
+
 	spa_log_debug(this->log, "%p: configure format:", this);
 	if (format && spa_log_level_enabled(this->log, SPA_LOG_LEVEL_DEBUG))
 		spa_debug_format(0, NULL, format);

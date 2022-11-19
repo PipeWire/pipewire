@@ -807,6 +807,12 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_log_topic_init(this->log, &log_topic);
 
+	if (!(info && spa_atob(spa_dict_lookup(info, SPA_KEY_API_GLIB_MAINLOOP)))) {
+		spa_log_error(this->log, "Glib mainloop is not usable: %s not set",
+				SPA_KEY_API_GLIB_MAINLOOP);
+		return -EINVAL;
+	}
+
 	spa_hook_list_init(&this->hooks);
 
 	this->device.iface = SPA_INTERFACE_INIT(

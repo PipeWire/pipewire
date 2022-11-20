@@ -5502,8 +5502,10 @@ static int parse_frac(struct pw_properties *props, const char *key, const char *
 	if (props == NULL ||
 	    (str = pw_properties_get(props, key)) == NULL)
 		str = def;
-	if (sscanf(str, "%u/%u", &res->num, &res->denom) != 2 || res->denom == 0)
-		return -EINVAL;
+	if (sscanf(str, "%u/%u", &res->num, &res->denom) != 2 || res->denom == 0) {
+		pw_log_warn(": invalid fraction %s, default to %s", str, def);
+		sscanf(def, "%u/%u", &res->num, &res->denom);
+	}
 	pw_log_info(": defaults: %s = %u/%u", key, res->num, res->denom);
 	return 0;
 }
@@ -5543,7 +5545,7 @@ static int parse_format(struct pw_properties *props, const char *key, const char
 		pw_log_warn(": unknown format %s, default to %s", str, def);
 		res->format = format_name2id(def);
 	}
-	pw_log_info(": defaults: %s = %s", key, str);
+	pw_log_info(": defaults: %s = %s", key, format_id2name(res->format));
 	return 0;
 }
 

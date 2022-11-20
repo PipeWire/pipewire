@@ -11,11 +11,10 @@ permit such access by creating a file `blemidi.te` with contents:
     require {
         type system_dbusd_t;
         type unconfined_t;
-        type unconfined_service_t;
         type bluetooth_t;
     }
 
-    allow system_dbusd_t unconfined_service_t:unix_stream_socket { read write };
+    allow bluetooth_t unconfined_t:unix_stream_socket { read write };
     allow system_dbusd_t bluetooth_t:unix_stream_socket { read write };
 
 Then having package `selinux-policy-devel` installed, running

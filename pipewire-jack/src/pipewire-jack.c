@@ -2484,7 +2484,7 @@ static int client_node_port_set_mix_info(void *data,
 		else
 			mix->peer_port = l->port_link.our_input;
 
-		pw_log_info("peer port %p %p %p", mix->peer_port,
+		pw_log_debug("peer port %p %p %p", mix->peer_port,
 				l->port_link.our_output, l->port_link.our_input);
 
 		if (!l->port_link.is_complete) {

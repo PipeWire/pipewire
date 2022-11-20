@@ -744,7 +744,7 @@ do_port_use_buffers(struct impl *impl,
 	struct node *this = &impl->node;
 	struct port *p;
 	struct mix *mix;
-	uint32_t i, j, peer_id;
+	uint32_t i, j;
 	struct pw_client_node_buffer *mb;
 
 	p = GET_PORT(this, direction, port_id);
@@ -761,8 +761,6 @@ do_port_use_buffers(struct impl *impl,
 
 	if ((mix = find_mix(p, mix_id)) == NULL || !mix->valid)
 		return -EINVAL;
-
-	peer_id = mix->peer_id;
 
 	if (direction == SPA_DIRECTION_OUTPUT) {
 		mix_id = SPA_ID_INVALID;
@@ -881,10 +879,6 @@ do_port_use_buffers(struct impl *impl,
 	}
 	mix->n_buffers = n_buffers;
 
-	if (this->resource->version >= 4)
-		pw_client_node_resource_port_set_mix_info(this->resource,
-						 direction, port_id, mix_id,
-						 peer_id, NULL);
 	return pw_client_node_resource_port_use_buffers(this->resource,
 						 direction, port_id, mix_id, flags,
 						 n_buffers, mb);
@@ -1486,6 +1480,7 @@ static int impl_mix_port_set_io(void *object,
 	struct port *p = object;
 	struct pw_impl_port *port = p->port;
 	struct impl *impl = port->owner_data;
+	struct node *this = &impl->node;
 	struct pw_impl_port_mix *mix;
 
 	mix = pw_map_lookup(&port->mix_port_map, mix_id);
@@ -1497,6 +1492,11 @@ static int impl_mix_port_set_io(void *object,
 			mix->io = data;
 		else
 			mix->io = NULL;
+
+		if (this->resource->version >= 4 && mix->io != NULL)
+			pw_client_node_resource_port_set_mix_info(this->resource,
+						 direction, port->port_id,
+						 mix->port.port_id, mix->peer_id, NULL);
 	}
 
 	return do_port_set_io(impl,

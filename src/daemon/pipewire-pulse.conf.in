@@ -90,6 +90,7 @@ pulse.properties = {
     #pulse.default.frag     = 96000/48000   # 2 seconds
     #pulse.default.tlength  = 96000/48000   # 2 seconds
     #pulse.min.quantum      = 256/48000     # 5ms
+    #pulse.idle.timeout     = 5             # pause after 5s of underruns
     #pulse.default.format   = F32
     #pulse.default.position = [ FL FR ]
     # These overrides are only applied when running in a vm.
@@ -141,6 +142,7 @@ pulse.rules = [
             update-props = {
                 pulse.min.req          = 1024/48000     # 21ms
                 pulse.min.quantum      = 1024/48000     # 21ms
+                #pulse.idle.timeout    = 0
             }
         }
     }

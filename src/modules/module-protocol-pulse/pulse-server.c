@@ -85,6 +85,7 @@
 #define DEFAULT_MIN_QUANTUM	"256/48000"
 #define DEFAULT_FORMAT		"F32"
 #define DEFAULT_POSITION	"[ FL FR ]"
+#define DEFAULT_IDLE_TIMEOUT	"5"
 
 #define MAX_FORMATS	32
 /* The max amount of data we send in one block when capturing. In PulseAudio this
@@ -1276,6 +1277,7 @@ struct process_data {
 	uint32_t minreq;
 	uint32_t quantum;
 	unsigned int underrun:1;
+	unsigned int idle:1;
 };
 
 static int
@@ -1315,6 +1317,17 @@ do_process_done(struct spa_loop *loop,
 			else
 				stream_send_started(stream);
 		}
+		if (pd->idle) {
+			if (!stream->is_idle) {
+				stream->idle_time = stream->timestamp;
+			} else if (!stream->is_paused &&
+			    stream->idle_timeout_sec > 0 &&
+			    stream->timestamp - stream->idle_time >
+					(stream->idle_timeout_sec * SPA_NSEC_PER_SEC)) {
+				stream_set_paused(stream, true, "long underrun");
+			}
+		}
+		stream->is_idle = pd->idle;
 		stream->playing_for += pd->playing_for;
 		if (stream->underrun_for != (uint64_t)-1)
 			stream->underrun_for += pd->underrun_for;
@@ -1440,6 +1453,7 @@ static void stream_process(void *data)
 
 				pd.playing_for = size;
 			}
+			pd.idle = true;
 			pw_log_debug("%p: [%s] underrun read:%u avail:%d max:%u",
 					stream, client->name, index, avail, minreq);
 		} else {
@@ -5548,6 +5562,20 @@ static int parse_format(struct pw_properties *props, const char *key, const char
 	pw_log_info(": defaults: %s = %s", key, format_id2name(res->format));
 	return 0;
 }
+static int parse_uint32(struct pw_properties *props, const char *key, const char *def,
+		uint32_t *res)
+{
+	const char *str;
+	if (props == NULL ||
+	    (str = pw_properties_get(props, key)) == NULL)
+		str = def;
+	if (!spa_atou32(str, res, 0)) {
+		pw_log_warn(": invalid uint32_t %s, default to %s", str, def);
+		spa_atou32(def, res, 0);
+	}
+	pw_log_info(": defaults: %s = %u", key, *res);
+	return 0;
+}
 
 static void load_defaults(struct defs *def, struct pw_properties *props)
 {
@@ -5559,6 +5587,7 @@ static void load_defaults(struct defs *def, struct pw_properties *props)
 	parse_frac(props, "pulse.min.quantum", DEFAULT_MIN_QUANTUM, &def->min_quantum);
 	parse_format(props, "pulse.default.format", DEFAULT_FORMAT, &def->sample_spec);
 	parse_position(props, "pulse.default.position", DEFAULT_POSITION, &def->channel_map);
+	parse_uint32(props, "pulse.idle.timeout", DEFAULT_IDLE_TIMEOUT, &def->idle_timeout);
 	def->sample_spec.channels = def->channel_map.channels;
 	def->quantum_limit = 8192;
 }

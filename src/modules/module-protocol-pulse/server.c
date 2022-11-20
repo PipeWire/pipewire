@@ -191,6 +191,9 @@ static int handle_memblock(struct client *client, struct message *msg)
 
 	stream_send_request(stream);
 
+	if (stream->is_paused && !stream->corked)
+		stream_set_paused(stream, false, "new data");
+
 finish:
 	message_free(msg, false, false);
 	return res;

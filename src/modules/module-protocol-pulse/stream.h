@@ -82,6 +82,7 @@ struct stream {
 	uint64_t playing_for;
 	uint64_t ticks_base;
 	uint64_t timestamp;
+	uint64_t idle_time;
 	int64_t delay;
 
 	uint32_t last_quantum;
@@ -93,6 +94,7 @@ struct stream {
 	struct spa_fraction default_frag;
 	struct spa_fraction default_tlength;
 	struct spa_fraction min_quantum;
+	uint32_t idle_timeout_sec;
 
 	struct sample_spec ss;
 	struct channel_map map;
@@ -115,6 +117,7 @@ struct stream {
 	unsigned int in_prebuf:1;
 	unsigned int killed:1;
 	unsigned int pending:1;
+	unsigned int is_idle:1;
 	unsigned int is_paused:1;
 };
 

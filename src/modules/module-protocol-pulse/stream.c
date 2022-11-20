@@ -207,6 +207,20 @@ uint32_t stream_pop_missing(struct stream *stream)
 	return missing;
 }
 
+void stream_set_paused(struct stream *stream, bool paused, const char *reason)
+{
+	if (stream->is_paused == paused)
+		return;
+
+	if (reason && stream->client)
+		pw_log_info("%p: [%s] %s because of %s",
+				stream, stream->client->name,
+				paused ? "paused" : "resumed", reason);
+
+	stream->is_paused = paused;
+	pw_stream_set_active(stream->stream, !paused);
+}
+
 int stream_send_underflow(struct stream *stream, int64_t offset)
 {
 	struct client *client = stream->client;

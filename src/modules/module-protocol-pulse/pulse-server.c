@@ -1241,7 +1241,7 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 				SPA_PROP_mute, 1, &val, 0);
 		}
 		if (stream->corked)
-			pw_stream_set_active(stream->stream, false);
+			stream_set_paused(stream, true, "cork after create");
 
 		/* if peer exists, reply immediately, otherwise reply when the link is created */
 		peer = find_linked(stream->client->manager, stream->id, stream->direction);
@@ -1524,7 +1524,7 @@ static void stream_drained(void *data)
 		reply_simple_ack(stream->client, stream->drain_tag);
 		stream->drain_tag = 0;
 
-		pw_stream_set_active(stream->stream, true);
+		stream_set_paused(stream, false, "complete drain");
 	}
 }
 
@@ -2702,7 +2702,7 @@ static int do_cork_stream(struct client *client, uint32_t command, uint32_t tag,
 		return -ENOENT;
 
 	stream->corked = cork;
-	pw_stream_set_active(stream->stream, !cork);
+	stream_set_paused(stream, cork, "cork request");
 	if (cork) {
 		stream->is_underrun = true;
 	} else {
@@ -3462,7 +3462,7 @@ static int do_drain_stream(struct client *client, uint32_t command, uint32_t tag
 
 	stream->drain_tag = tag;
 	stream->draining = true;
-	pw_stream_set_active(stream->stream, true);
+	stream_set_paused(stream, false, "drain start");
 
 	return 0;
 }

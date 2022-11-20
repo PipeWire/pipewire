@@ -94,6 +94,14 @@ DEFINE_RESAMPLER(copy,arch)							\
 	*out_len = ooffs;							\
 }
 
+#define INC(index,phase,n_phases) \
+	index += inc;						\
+	phase += frac;						\
+	if (phase >= n_phases) {				\
+		phase -= n_phases;				\
+		index += 1;					\
+	}
+
 #define MAKE_RESAMPLER_FULL(arch)						\
 DEFINE_RESAMPLER(full,arch)							\
 {										\
@@ -114,17 +122,10 @@ DEFINE_RESAMPLER(full,arch)							\
 		phase = data->phase;						\
 										\
 		for (o = ooffs; o < olen && index + n_taps <= ilen; o++) {	\
-			const float *ip, *taps;					\
-										\
-			ip = &s[index];						\
-			taps = &data->filter[phase * stride];			\
-			index += inc;						\
-			phase += frac;						\
-			if (phase >= n_phases) {				\
-				phase -= n_phases;				\
-				index += 1;					\
-			}							\
-			inner_product_##arch(&d[o], ip, taps, n_taps);		\
+			inner_product_##arch(&d[o], &s[index],			\
+					&data->filter[phase * stride],		\
+					n_taps);				\
+			INC(index, phase, n_phases);				\
 		}								\
 	}									\
 	*in_len = index;							\
@@ -153,24 +154,13 @@ DEFINE_RESAMPLER(inter,arch)							\
 		phase = data->phase;						\
 										\
 		for (o = ooffs; o < olen && index + n_taps <= ilen; o++) {	\
-			const float *ip, *t0, *t1;				\
-			float ph, x;						\
-			uint32_t offset;					\
-										\
-			ip = &s[index];						\
-			ph = (float)phase * n_phases / out_rate;		\
-			offset = floor(ph);					\
-			x = ph - (float)offset;					\
-										\
-			t0 = &data->filter[(offset + 0) * stride];		\
-			t1 = &data->filter[(offset + 1) * stride];		\
-			index += inc;						\
-			phase += frac;						\
-			if (phase >= out_rate) {				\
-				phase -= out_rate;				\
-				index += 1;					\
-			}							\
-			inner_product_ip_##arch(&d[o], ip, t0, t1, x, n_taps);	\
+			float ph = (float)phase * n_phases / out_rate;		\
+			uint32_t offset = floorf(ph);				\
+			inner_product_ip_##arch(&d[o], &s[index],		\
+					&data->filter[(offset + 0) * stride],	\
+					&data->filter[(offset + 1) * stride],	\
+					ph - offset, n_taps);			\
+			INC(index, phase, out_rate);				\
 		}								\
 	}									\
 	*in_len = index;							\

@@ -587,6 +587,28 @@ static int impl_set_param(void *object, uint32_t id, uint32_t flags, const struc
 	return 0;
 }
 
+static inline void copy_position(struct stream *impl, int64_t queued)
+{
+	struct spa_io_position *p = impl->rt.position;
+
+	SEQ_WRITE(impl->seq);
+	if (SPA_LIKELY(p != NULL)) {
+		impl->time.now = p->clock.nsec;
+		impl->time.rate = p->clock.rate;
+		if (SPA_UNLIKELY(impl->clock_id != p->clock.id)) {
+			impl->base_pos = p->clock.position - impl->time.ticks;
+			impl->clock_id = p->clock.id;
+		}
+		impl->time.ticks = p->clock.position - impl->base_pos;
+		impl->time.delay = 0;
+		impl->time.queued = queued;
+		impl->quantum = p->clock.duration;
+	}
+	if (SPA_LIKELY(impl->rate_match != NULL))
+		impl->rate_queued = impl->rate_match->delay;
+	SEQ_WRITE(impl->seq);
+}
+
 static int impl_send_command(void *object, const struct spa_command *command)
 {
 	struct stream *impl = object;
@@ -614,8 +636,10 @@ static int impl_send_command(void *object, const struct spa_command *command)
 
 			if (impl->direction == SPA_DIRECTION_INPUT)
 				impl->io->status = SPA_STATUS_NEED_DATA;
-			else if (!impl->process_rt && !impl->driving)
+			else if (!impl->process_rt && !impl->driving) {
+				copy_position(impl, impl->queued.incount);
 				call_process(impl);
+			}
 
 			stream_set_state(stream, PW_STREAM_STATE_STREAMING, NULL);
 		}
@@ -961,28 +985,6 @@ static int impl_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffe
 	if (buffer_id < d->n_buffers)
 		queue_push(d, &d->queued, &d->buffers[buffer_id]);
 	return 0;
-}
-
-static inline void copy_position(struct stream *impl, int64_t queued)
-{
-	struct spa_io_position *p = impl->rt.position;
-
-	SEQ_WRITE(impl->seq);
-	if (SPA_LIKELY(p != NULL)) {
-		impl->time.now = p->clock.nsec;
-		impl->time.rate = p->clock.rate;
-		if (SPA_UNLIKELY(impl->clock_id != p->clock.id)) {
-			impl->base_pos = p->clock.position - impl->time.ticks;
-			impl->clock_id = p->clock.id;
-		}
-		impl->time.ticks = p->clock.position - impl->base_pos;
-		impl->time.delay = 0;
-		impl->time.queued = queued;
-		impl->quantum = p->clock.duration;
-	}
-	if (SPA_LIKELY(impl->rate_match != NULL))
-		impl->rate_queued = impl->rate_match->delay;
-	SEQ_WRITE(impl->seq);
 }
 
 static int impl_node_process_input(void *object)

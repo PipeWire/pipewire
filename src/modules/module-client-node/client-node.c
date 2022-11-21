@@ -1493,7 +1493,7 @@ static int impl_mix_port_set_io(void *object,
 		else
 			mix->io = NULL;
 
-		if (this->resource->version >= 4 && mix->io != NULL)
+		if (mix->io != NULL && this->resource && this->resource->version >= 4)
 			pw_client_node_resource_port_set_mix_info(this->resource,
 						 direction, port->port_id,
 						 mix->port.port_id, mix->peer_id, NULL);

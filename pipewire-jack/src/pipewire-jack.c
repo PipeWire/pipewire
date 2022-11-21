@@ -3389,6 +3389,8 @@ jack_client_t * jack_client_open (const char *client_name,
 		pw_properties_set(client->props, PW_KEY_NODE_LATENCY, str);
 	if ((str = getenv("PIPEWIRE_RATE")) != NULL)
 		pw_properties_set(client->props, PW_KEY_NODE_RATE, str);
+	if ((str = getenv("PIPEWIRE_LINK_PASSIVE")) != NULL)
+		pw_properties_set(client->props, PW_KEY_NODE_PASSIVE, str);
 
 	if ((str = pw_properties_get(client->props, PW_KEY_NODE_LATENCY)) != NULL) {
 		uint32_t num, denom;
@@ -5172,7 +5174,7 @@ int jack_connect (jack_client_t *client,
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_INPUT_NODE, val[2]);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_INPUT_PORT, val[3]);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_OBJECT_LINGER, "true");
-	if ((str = getenv("PIPEWIRE_LINK_PASSIVE")) != NULL &&
+	if ((str = pw_properties_get(c->props, PW_KEY_NODE_PASSIVE)) != NULL &&
 	    pw_properties_parse_bool(str))
 		items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_PASSIVE, "true");
 

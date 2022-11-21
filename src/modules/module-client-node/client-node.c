@@ -1558,14 +1558,14 @@ static void node_port_added(void *data, struct pw_impl_port *port)
 	struct impl *impl = data;
 	struct port *p = pw_impl_port_get_user_data(port);
 
-	pw_impl_port_set_mix(port, &p->mix_node,
-			PW_IMPL_PORT_MIX_FLAG_MULTI |
-			PW_IMPL_PORT_MIX_FLAG_MIX_ONLY);
-
 	port->flags |= PW_IMPL_PORT_FLAG_NO_MIXER;
 
 	port->impl = SPA_CALLBACKS_INIT(&port_impl, p);
 	port->owner_data = impl;
+
+	pw_impl_port_set_mix(port, &p->mix_node,
+			PW_IMPL_PORT_MIX_FLAG_MULTI |
+			PW_IMPL_PORT_MIX_FLAG_MIX_ONLY);
 }
 
 static void node_port_removed(void *data, struct pw_impl_port *port)

@@ -1,3 +1,73 @@
+# PipeWire 0.3.61 (2022-11-24)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Fix a bug in audioadapter that could cause crashes when switching
+    bluetooth profiles.
+  - Fix sound in QEMU, deadbeef and openal again.
+  - libcamera plugin fixes, dynamic add and remove should now work with
+    the next wireplumber version.
+  - Fix a regression in pw-midiplay where the first buffer would not
+    play and some events would be missing.
+  - The network module now doesn't export other network sources
+    anymore.
+  - pulse-server now detects clients that keep underrunning for a long time
+    and will pause them to save power.
+  - Many more bugfixes and improvements.
+
+
+## PipeWire
+  - Optimize away some useless graph recalculations.
+  - Increase alternative sample rates from 16 to 32.
+  - FreeBSD and musl build fixes.
+  - Silence some module loading errors when the error can be ignored.
+  - Fix initial buffer requested size for pw-stream when operating in
+    async mode. This also indirectly fixes the first buffer in
+    pw-midiplay. (#2843)
+
+## Modules
+  - Set the network property on pulse-tunnel streams so that they are
+    not exported anymore. (#2384)
+  - Filter-chain has optimized mix functions now.
+
+## SPA
+  - Handle some errors in libcamera better.
+  - Fix libcamera remove events. Fix the id allocation for devices.
+  - Fix a bug in audioadapter where it would not renegotiate after
+    a port reconfiguration, leading to crashes, especially when
+    automatically switching profiles in bluetooth. (#2764)
+  - Do ALSA probing in 44100Hz again. Some devices seem to fail
+    otherwise for some unknown reason. (#2718)
+  - Force playback start when the ALSA buffer is full. This fixes sound
+    in QEMU. (#2830)
+  - Support Digital 5.1 AC3 for Asus Xonar SE.
+  - Improve format renegotiation in audioadapter. This makes the ALSA
+    plugin work again for deadbeef. (#2832)
+  - Fix latency reporting on adapter DSP ports.
+
+## pulse-server
+  - Fix a bug where openal based applications would hang. (#2821)
+  - Improve zeroconf publish. Only publish on the address of the first
+    running server. This avoids duplicate entries for IPv4 and IPv6.
+    Add support for republish entries when new servers are started.
+  - Add a pulse.idle.timeout option (default to 5 seconds) to pause
+    streams that have been underrunning for this amount of time. Badly
+    behaving clients will then not keep the graph and device busy so
+    that devices can be suspended to save battery. This should give
+    better default behaviour with speech-dispatcher. (#2839)
+
+## JACK
+  - Add an option to configure the filter character.
+  - Fix connect_callbacks. It was only called once for output ports.
+    (#2841)
+  - Add option to set node.passive on jack clients. Make some quirks
+    for qsynth to make it suspend and fade out better.
+
+
+Older versions:
+
 # PipeWire 0.3.60 (2022-11-10)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -142,9 +212,6 @@ This is a bugfix release that is API and ABI compatible with previous
     to make the buffer size settings persistent and global, just like jack.
   - jack_port_register() and jack_port_unregister() can be called on an
     active client so make this thread safe. (#2652)
-
-
-Older versions:
 
 # PipeWire 0.3.59 (2022-09-30)
 

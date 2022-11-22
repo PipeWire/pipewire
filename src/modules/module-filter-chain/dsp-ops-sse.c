@@ -1,0 +1,91 @@
+/* Spa
+ *
+ * Copyright © 2022 Wim Taymans
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+#include <string.h>
+#include <stdio.h>
+#include <math.h>
+
+#include <spa/utils/defs.h>
+
+#include "dsp-ops.h"
+
+#include <xmmintrin.h>
+
+void dsp_mix_gain_sse(struct dsp_ops *ops,
+		void * SPA_RESTRICT dst,
+		const void * SPA_RESTRICT src[],
+		float gain[], uint32_t n_src, uint32_t n_samples)
+{
+	if (n_src == 0) {
+		memset(dst, 0, n_samples * sizeof(float));
+	} else if (n_src == 1) {
+		if (dst != src[0])
+			spa_memcpy(dst, src[0], n_samples * sizeof(float));
+	} else {
+		uint32_t n, i, unrolled;
+		__m128 in[4], g;
+		const float **s = (const float **)src;
+		float *d = dst;
+
+		if (SPA_LIKELY(SPA_IS_ALIGNED(dst, 16))) {
+			unrolled = n_samples & ~15;
+			for (i = 0; i < n_src; i++) {
+				if (SPA_UNLIKELY(!SPA_IS_ALIGNED(src[i], 16))) {
+					unrolled = 0;
+					break;
+				}
+			}
+		} else
+			unrolled = 0;
+
+		for (n = 0; n < unrolled; n += 16) {
+			g = _mm_set1_ps(gain[0]);
+			in[0] = _mm_mul_ps(g, _mm_load_ps(&s[0][n+ 0]));
+			in[1] = _mm_mul_ps(g, _mm_load_ps(&s[0][n+ 4]));
+			in[2] = _mm_mul_ps(g, _mm_load_ps(&s[0][n+ 8]));
+			in[3] = _mm_mul_ps(g, _mm_load_ps(&s[0][n+12]));
+
+			for (i = 1; i < n_src; i++) {
+				g = _mm_set1_ps(gain[i]);
+				in[0] = _mm_add_ps(in[0], _mm_mul_ps(g, _mm_load_ps(&s[i][n+ 0])));
+				in[1] = _mm_add_ps(in[1], _mm_mul_ps(g, _mm_load_ps(&s[i][n+ 4])));
+				in[2] = _mm_add_ps(in[2], _mm_mul_ps(g, _mm_load_ps(&s[i][n+ 8])));
+				in[3] = _mm_add_ps(in[3], _mm_mul_ps(g, _mm_load_ps(&s[i][n+12])));
+			}
+			_mm_store_ps(&d[n+ 0], in[0]);
+			_mm_store_ps(&d[n+ 4], in[1]);
+			_mm_store_ps(&d[n+ 8], in[2]);
+			_mm_store_ps(&d[n+12], in[3]);
+		}
+		for (; n < n_samples; n++) {
+			g = _mm_set_ss(gain[0]);
+			in[0] = _mm_mul_ss(g, _mm_load_ss(&s[0][n]));
+			for (i = 1; i < n_src; i++) {
+				g = _mm_set_ss(gain[i]);
+				in[0] = _mm_add_ss(in[0], _mm_mul_ss(g, _mm_load_ss(&s[i][n])));
+			}
+			_mm_store_ss(&d[n], in[0]);
+		}
+	}
+}

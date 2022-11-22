@@ -40,6 +40,9 @@
 #include "biquad.h"
 #include "pffft.h"
 #include "convolver.h"
+#include "dsp-ops.h"
+
+static struct dsp_ops dsp_ops;
 
 struct builtin {
 	unsigned long rate;
@@ -82,7 +85,7 @@ static void copy_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
 	float *in = impl->port[1], *out = impl->port[0];
-	memcpy(out, in, SampleCount * sizeof(float));
+	dsp_ops_copy(&dsp_ops, out, in, SampleCount);
 }
 
 static struct fc_port copy_ports[] = {
@@ -112,10 +115,10 @@ static const struct fc_descriptor copy_desc = {
 static void mixer_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
-	int i;
-	unsigned long j;
+	int i, n_src = 0;
 	float *out = impl->port[0];
-	bool first = true;
+	const void *src[8];
+	float gains[8];
 
 	if (out == NULL)
 		return;
@@ -127,24 +130,10 @@ static void mixer_run(void * Instance, unsigned long SampleCount)
 		if (in == NULL || gain == 0.0f)
 			continue;
 
-		if (first) {
-			if (gain == 1.0f)
-				memcpy(out, in, SampleCount * sizeof(float));
-			else
-				for (j = 0; j < SampleCount; j++)
-					out[j] = in[j] * gain;
-			first = false;
-		} else {
-			if (gain == 1.0f)
-				for (j = 0; j < SampleCount; j++)
-					out[j] += in[j];
-			else
-				for (j = 0; j < SampleCount; j++)
-					out[j] += in[j] * gain;
-		}
+		src[n_src] = in;
+		gains[n_src++] = gain;
 	}
-	if (first)
-		memset(out, 0, SampleCount * sizeof(float));
+	dsp_ops_mix_gain(&dsp_ops, out, src, gains, n_src, SampleCount);
 }
 
 static struct fc_port mixer_ports[] = {
@@ -941,7 +930,11 @@ struct fc_plugin *load_builtin_plugin(const struct spa_support *support, uint32_
 		const char *plugin, const char *config)
 {
 	struct spa_cpu *cpu_iface;
+	uint32_t cpu_flags;
 	cpu_iface = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
-	pffft_select_cpu(cpu_iface ? spa_cpu_get_flags(cpu_iface) : 0);
+	cpu_flags = cpu_iface ? spa_cpu_get_flags(cpu_iface) : 0;
+	dsp_ops.cpu_flags = cpu_flags;
+	dsp_ops_init(&dsp_ops);
+	pffft_select_cpu(cpu_flags);
 	return &builtin_plugin;
 }

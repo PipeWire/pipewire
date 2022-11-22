@@ -61,33 +61,36 @@ simd_cargs = []
 simd_dependencies = []
 
 if have_sse
-  pffft_sse = static_library('pffft_sse',
-    ['module-filter-chain/pffft.c' ],
+  filter_chain_sse = static_library('filter_chain_sse',
+    ['module-filter-chain/pffft.c',
+     'module-filter-chain/dsp-ops-sse.c' ],
     c_args : [sse_args, '-O3', '-DHAVE_SSE'],
     dependencies : [ spa_dep ],
     install : false
     )
   simd_cargs += ['-DHAVE_SSE']
-  simd_dependencies += pffft_sse
+  simd_dependencies += filter_chain_sse
 endif
 if have_neon
-  pffft_neon = static_library('pffft_neon',
+  filter_chain_neon = static_library('filter_chain_neon',
     ['module-filter-chain/pffft.c' ],
     c_args : [neon_args, '-O3', '-DHAVE_NEON'],
     dependencies : [ spa_dep ],
     install : false
     )
   simd_cargs += ['-DHAVE_NEON']
-  simd_dependencies += pffft_neon
+  simd_dependencies += filter_chain_neon
 endif
 
-pffft_c = static_library('pffft_c',
-  ['module-filter-chain/pffft.c' ],
+filter_chain_c = static_library('filter_chain_c',
+  ['module-filter-chain/pffft.c',
+   'module-filter-chain/dsp-ops.c',
+   'module-filter-chain/dsp-ops-c.c' ],
   c_args : [simd_cargs, '-O3', '-DPFFFT_SIMD_DISABLE'],
   dependencies : [ spa_dep ],
   install : false
 )
-simd_dependencies += pffft_c
+simd_dependencies += filter_chain_c
 
 filter_chain_sources = [
   'module-filter-chain.c',

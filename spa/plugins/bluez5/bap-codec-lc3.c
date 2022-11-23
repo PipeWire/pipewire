@@ -24,7 +24,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <bits/stdint-uintn.h>
 #include <string.h>
 #include <unistd.h>
 #include <stddef.h>

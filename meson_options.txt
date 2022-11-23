@@ -273,7 +273,7 @@ option('gsettings',
        description: 'Enable code that depends on gsettings',
        type: 'feature',
        value: 'auto')
-option('compressed-offload',
-       description: 'Enable compressed offload support',
+option('compress-offload',
+       description: 'Enable ALSA Compress-Offload support',
        type: 'feature',
        value: 'auto')

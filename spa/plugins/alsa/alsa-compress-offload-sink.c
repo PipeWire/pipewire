@@ -1,4 +1,4 @@
-/* Spa
+/* Spa ALSA Compress-Offload sink
  *
  * Copyright © 2022 Wim Taymans
  *           © 2022 Asymptotic Inc.
@@ -38,6 +38,7 @@
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/json.h>
+#include <spa/utils/names.h>
 #include <spa/utils/string.h>
 #include <spa/utils/result.h>
 #include <spa/node/node.h>
@@ -52,16 +53,16 @@
 #include <spa/pod/filter.h>
 #include <spa/control/control.h>
 
-//#include <libavcodec/codec_id.h>
 #include <sound/compress_params.h>
 #include <tinycompress/tinycompress.h>
 
 /*
  * This creates a Pipewire sink node which uses the tinycompress user space
- * library to use the ALSA compressed APIs for writing compressed data like
- * MP3, FLAC etc. to an ALSA compressed device.
+ * library to use the ALSA Compress-Offload API for writing compressed data
+ * like MP3, FLAC etc. to an DSP that can handle such data directly.
  *
- * These show up differently under /dev/snd like comprCxDx.
+ * These show up under /dev/snd like comprCxDx, as opposed to regular
+ * ALSA PCM devices.
  *
  * root@dragonboard-845c:~# ls /dev/snd
  * by-path  comprC0D3  controlC0  pcmC0D0c  pcmC0D0p  pcmC0D1c  pcmC0D1p  pcmC0D2c  pcmC0D2p  timer
@@ -71,8 +72,8 @@
  * context.objects = [
  *  {   factory = spa-node-factory
  *      args = {
- *          factory.name   = api.alsa.compressed.sink
- *          node.name      = Compressed-Sink
+ *          factory.name   = api.alsa.compress.offload.sink
+ *          node.name      = Compress-Offload-Sink
  *          media.class    = "Audio/Sink"
  *          api.alsa.path  = "hw:0,3"
  *      }
@@ -88,7 +89,7 @@
  *
  */
 
-#define NAME                "compressed-audio-sink"
+#define NAME                "compress-offload-audio-sink"
 #define DEFAULT_CHANNELS    2
 #define DEFAULT_RATE        44100
 #define MAX_BUFFERS         4
@@ -675,7 +676,7 @@ compress_setup(struct impl *this, struct spa_audio_info *info, uint32_t *out_rat
 	case SPA_MEDIA_SUBTYPE_wma:
 		codec->id = SND_AUDIOCODEC_WMA;
 		/*
-		 * WMA does not work with compressed offload if codec profile
+		 * WMA does not work with Compress-Offload if codec profile
 		 * is not set.
 		 */
 		switch (info->info.wma.profile) {
@@ -1070,7 +1071,7 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str[0] == 'h') || (str[1] == 'w') || (str[2] == ':')) {
 			snprintf(this->props.device, sizeof(this->props.device), "%s", str);
 		} else {
-			spa_log_error(this->log, NAME " %p: Invalid compressed hw %s", this, str);
+			spa_log_error(this->log, NAME " %p: Invalid Compress-Offload hw %s", this, str);
 			return -EINVAL;
 		}
 	} else {
@@ -1093,7 +1094,7 @@ impl_init(const struct spa_handle_factory *factory,
 		this->codecs_supported[i] = codec_info[i].codec_id;
 	}
 
-	spa_log_info(this->log, NAME " %p: Initialized compressed sink %s",
+	spa_log_info(this->log, NAME " %p: Initialized Compress-Offload sink %s",
 			this, this->props.device);
 
 	return 0;
@@ -1126,15 +1127,15 @@ impl_enum_interface_info(const struct spa_handle_factory *factory,
 
 static const struct spa_dict_item info_items[] = {
 	{ SPA_KEY_FACTORY_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
-	{ SPA_KEY_FACTORY_DESCRIPTION, "Consume compressed audio" },
+	{ SPA_KEY_FACTORY_DESCRIPTION, "Play compressed audio (like MP3 or AAC) with the ALSA Compress-Offload API" },
 	{ SPA_KEY_FACTORY_USAGE, "["SPA_KEY_API_ALSA_PATH"=<path>]" },
 };
 
 static const struct spa_dict info = SPA_DICT_INIT_ARRAY(info_items);
 
-const struct spa_handle_factory spa_alsa_compressed_sink_factory = {
+const struct spa_handle_factory spa_alsa_compress_offload_sink_factory = {
 	SPA_VERSION_HANDLE_FACTORY,
-	"api.alsa.compressed.sink",
+	SPA_NAME_API_ALSA_COMPRESS_OFFLOAD_SINK,
 	&info,
 	impl_get_size,
 	impl_init,

@@ -35,8 +35,8 @@ extern const struct spa_handle_factory spa_alsa_udev_factory;
 extern const struct spa_handle_factory spa_alsa_device_factory;
 extern const struct spa_handle_factory spa_alsa_seq_bridge_factory;
 extern const struct spa_handle_factory spa_alsa_acp_device_factory;
-#ifdef HAVE_COMPRESSED_OFFLOAD
-extern const struct spa_handle_factory spa_alsa_compressed_sink_factory;
+#ifdef HAVE_ALSA_COMPRESS_OFFLOAD
+extern const struct spa_handle_factory spa_alsa_compress_offload_sink_factory;
 #endif
 
 struct spa_log_topic log_topic = SPA_LOG_TOPIC(0, "spa.alsa");
@@ -67,9 +67,9 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory, uint32_t 
 	case 5:
 		*factory = &spa_alsa_acp_device_factory;
 		break;
-#ifdef HAVE_COMPRESSED_OFFLOAD
+#ifdef HAVE_ALSA_COMPRESS_OFFLOAD
 	case 6:
-		*factory = &spa_alsa_compressed_sink_factory;
+		*factory = &spa_alsa_compress_offload_sink_factory;
 		break;
 #endif
 	default:

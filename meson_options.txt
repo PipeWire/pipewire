@@ -188,6 +188,10 @@ option('pw-cat',
        description: 'Build pw-cat/pw-play/pw-record',
        type: 'feature',
        value: 'auto')
+option('pw-cat-ffmpeg',
+       description: 'Enable FFmpeg integration in pw-cat/pw-play/pw-record',
+       type: 'feature',
+       value: 'disabled')
 option('udev',
        description: 'Enable Udev integration',
        type: 'feature',

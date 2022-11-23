@@ -32,14 +32,17 @@ if ncurses_dep.found()
 endif
 
 build_pw_cat = false
+build_pw_cat_with_ffmpeg = false
 pwcat_deps = [ sndfile_dep ]
-if avcodec_dep.found() and avformat_dep.found()
-  pwcat_deps += avcodec_dep
-  pwcat_deps += avformat_dep
-endif
 
 if get_option('pw-cat').allowed() and sndfile_dep.found()
   build_pw_cat = true
+
+  if pw_cat_ffmpeg.allowed() and avcodec_dep.found() and avformat_dep.found()
+    pwcat_deps += avcodec_dep
+    pwcat_deps += avformat_dep
+    build_pw_cat_with_ffmpeg = true
+  endif
 
   pwcat_sources = [
     'pw-cat.c',
@@ -70,6 +73,9 @@ elif not sndfile_dep.found() and get_option('pw-cat').enabled()
   error('pw-cat is enabled but required dependency `sndfile` was not found.')
 endif
 summary({'Build pw-cat tool': build_pw_cat}, bool_yn: true, section: 'pw-cat/pw-play/pw-dump tool')
+if build_pw_cat
+  summary({'Build pw-cat with FFmpeg integration': build_pw_cat_with_ffmpeg}, bool_yn: true, section: 'pw-cat/pw-play/pw-dump tool')
+endif
 
 if dbus_dep.found()
   executable('pw-reserve',

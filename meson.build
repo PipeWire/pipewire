@@ -266,14 +266,17 @@ if not readline_dep.found()
   readline_dep = cc.find_library('readline', required : get_option('readline'))
 endif
 
-need_avcodec = get_option('ffmpeg').enabled() or get_option('pw-cat').enabled()
-avcodec_dep = dependency('libavcodec', required: need_avcodec)
-avformat_dep = dependency('libavformat', required: get_option('pw-cat'))
-summary({'Libav for pw-cat': avcodec_dep.found() and avformat_dep.found()}, bool_yn: true, section: 'Support for ALSA Compress-Offload API')
-tinycompress_dep = cc.find_library('tinycompress', has_headers: ['tinycompress/tinycompress.h' ], required: get_option('compress-offload'))
-summary({'Compress-Offload sink': tinycompress_dep.found()}, bool_yn: true, section: 'Support for ALSA Compress-Offload API')
-compress_offload_enabled = avcodec_dep.found() and avformat_dep.found() and tinycompress_dep.found()
-cdata.set('HAVE_ALSA_COMPRESS_OFFLOAD', compress_offload_enabled)
+# Both the FFmpeg SPA plugin and the pw-cat FFmpeg integration use libavcodec.
+# But only the latter also needs libavformat.
+# Search for these libraries here, globally, so both of these subprojects can reuse the results.
+pw_cat_ffmpeg = get_option('pw-cat-ffmpeg')
+ffmpeg = get_option('ffmpeg')
+if pw_cat_ffmpeg.allowed() or ffmpeg.allowed()
+  avcodec_dep = dependency('libavcodec', required: pw_cat_ffmpeg.enabled() or ffmpeg.enabled())
+  avformat_dep = dependency('libavformat', required: pw_cat_ffmpeg.enabled())
+else
+  avcodec_dep = dependency('', required: false)
+endif
 
 summary({'readline (for pw-cli)': readline_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 cdata.set('HAVE_READLINE', readline_dep.found())

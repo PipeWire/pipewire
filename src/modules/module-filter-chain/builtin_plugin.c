@@ -260,14 +260,11 @@ static struct fc_port bq_ports[] = {
 static void bq_run(struct builtin *impl, unsigned long samples, int type)
 {
 	struct biquad *bq = &impl->bq;
-	unsigned long i;
 	float *out = impl->port[0];
 	float *in = impl->port[1];
 	float freq = impl->port[2][0];
 	float Q = impl->port[3][0];
 	float gain = impl->port[4][0];
-	float x1, x2, y1, y2;
-	float b0, b1, b2, a1, a2;
 
 	if (impl->freq != freq || impl->Q != Q || impl->gain != gain) {
 		impl->freq = freq;
@@ -275,30 +272,7 @@ static void bq_run(struct builtin *impl, unsigned long samples, int type)
 		impl->gain = gain;
 		biquad_set(bq, type, freq * 2 / impl->rate, Q, gain);
 	}
-	x1 = bq->x1;
-	x2 = bq->x2;
-	y1 = bq->y1;
-	y2 = bq->y2;
-	b0 = bq->b0;
-	b1 = bq->b1;
-	b2 = bq->b2;
-	a1 = bq->a1;
-	a2 = bq->a2;
-	for (i = 0; i < samples; i++) {
-		float x = in[i];
-		float y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
-		out[i] = y;
-		x2 = x1;
-		x1 = x;
-		y2 = y1;
-		y1 = y;
-	}
-#define F(x) (-FLT_MIN < (x) && (x) < FLT_MIN ? 0.0f : (x))
-	bq->x1 = F(x1);
-	bq->x2 = F(x2);
-	bq->y1 = F(y1);
-	bq->y2 = F(y2);
-#undef F
+	dsp_ops_biquad_run(&dsp_ops, bq, out, in, samples);
 }
 
 /** bq_lowpass */

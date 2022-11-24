@@ -42,6 +42,8 @@ struct dsp_info {
 			void * SPA_RESTRICT dst,
 			const void * SPA_RESTRICT src[],
 			float gain[], uint32_t n_src, uint32_t n_samples);
+	void (*biquad_run) (struct dsp_ops *ops, struct biquad *bq,
+			float *out, const float *in, uint32_t n_samples);
 };
 
 static struct dsp_info dsp_table[] =
@@ -50,11 +52,13 @@ static struct dsp_info dsp_table[] =
 	{ SPA_CPU_FLAG_SSE,
 		.copy = dsp_copy_c,
 		.mix_gain = dsp_mix_gain_sse,
+		.biquad_run = dsp_biquad_run_c,
 	},
 #endif
 	{ 0,
 		.copy = dsp_copy_c,
 		.mix_gain = dsp_mix_gain_c,
+		.biquad_run = dsp_biquad_run_c,
 	},
 };
 
@@ -86,6 +90,7 @@ int dsp_ops_init(struct dsp_ops *ops)
 	ops->cpu_flags = info->cpu_flags;
 	ops->copy = info->copy;
 	ops->mix_gain = info->mix_gain;
+	ops->biquad_run = info->biquad_run;
 	ops->free = impl_dsp_ops_free;
 
 	return 0;

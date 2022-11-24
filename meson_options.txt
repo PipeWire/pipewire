@@ -280,4 +280,4 @@ option('gsettings',
 option('compress-offload',
        description: 'Enable ALSA Compress-Offload support',
        type: 'feature',
-       value: 'auto')
+       value: 'disabled')

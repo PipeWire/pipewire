@@ -556,6 +556,8 @@ static int client_node_demarshal_port_use_buffers(void *data, const struct pw_pr
 					      SPA_POD_Id(&m->type),
 					      SPA_POD_Int(&m->size), NULL) < 0)
 				return -EINVAL;
+
+			m->data = NULL;
 		}
 		if (spa_pod_parser_get(&prs,
 					SPA_POD_Int(&buf->n_datas), NULL) < 0)
@@ -576,7 +578,9 @@ static int client_node_demarshal_port_use_buffers(void *data, const struct pw_pr
 					      SPA_POD_Int(&d->maxsize), NULL) < 0)
 				return -EINVAL;
 
+			d->fd = -1;
 			d->data = SPA_UINT32_TO_PTR(data_id);
+			d->chunk = NULL;
 		}
 	}
 	pw_proxy_notify(proxy, struct pw_client_node_events, port_use_buffers, 0,

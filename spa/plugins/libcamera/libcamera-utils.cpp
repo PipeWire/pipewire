@@ -500,28 +500,48 @@ next:
 			0);
 
 	switch (ctrl_id->type()) {
-	case ControlTypeBool:
+	case ControlTypeBool: {
+		bool def;
+		if (ctrl_info.def().isNone())
+			def = ctrl_info.min().get<bool>();
+		else
+			def = ctrl_info.def().get<bool>();
+
 		spa_pod_builder_add(&b,
-				SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
-						(bool)ctrl_info.def().get<bool>()),
-				0);
-		break;
-	case ControlTypeFloat:
+					SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(
+							def),
+					0);
+	} break;
+	case ControlTypeFloat: {
+		float min = ctrl_info.min().get<float>();
+		float max = ctrl_info.max().get<float>();
+		float def;
+
+		if (ctrl_info.def().isNone())
+			def = (min + max) / 2;
+		else
+			def = ctrl_info.def().get<float>();
+
 		spa_pod_builder_add(&b,
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
-						(float)ctrl_info.def().get<float>(),
-						(float)ctrl_info.min().get<float>(),
-						(float)ctrl_info.max().get<float>()),
+						def, min, max),
 				0);
-		break;
-	case ControlTypeInteger32:
+	} break;
+	case ControlTypeInteger32: {
+		int32_t min = ctrl_info.min().get<int32_t>();
+		int32_t max = ctrl_info.max().get<int32_t>();
+		int32_t def;
+
+		if (ctrl_info.def().isNone())
+			def = (min + max) / 2;
+		else
+			def = ctrl_info.def().get<int32_t>();
+
 		spa_pod_builder_add(&b,
 				SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(
-						(int32_t)ctrl_info.def().get<int32_t>(),
-						(int32_t)ctrl_info.min().get<int32_t>(),
-						(int32_t)ctrl_info.max().get<int32_t>()),
+						def, min, max),
 				0);
-		break;
+	} break;
 	default:
 		goto next;
 	}

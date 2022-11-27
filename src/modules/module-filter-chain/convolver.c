@@ -420,8 +420,6 @@ void convolver_free(struct convolver *conv)
 
 int convolver_run(struct convolver *conv, const float *input, float *output, int length)
 {
-	int i;
-
 	convolver1_run(conv->headConvolver, input, output, length);
 
 	if (conv->tailInput) {
@@ -431,24 +429,14 @@ int convolver_run(struct convolver *conv, const float *input, float *output, int
 			int remaining = length - processed;
 			int processing = SPA_MIN(remaining, conv->headBlockSize - (conv->tailInputFill % conv->headBlockSize));
 
-			const int sumBegin = processed;
-			const int sumEnd = processed + processing;
-
-			if (conv->tailPrecalculated0) {
-				int precalculatedPos = conv->precalculatedPos;
-				for (i = sumBegin; i < sumEnd; i++) {
-					output[i] += conv->tailPrecalculated0[precalculatedPos];
-					precalculatedPos++;
-				}
-			}
-
-			if (conv->tailPrecalculated) {
-				int precalculatedPos = conv->precalculatedPos;
-				for (i = sumBegin; i < sumEnd; i++) {
-					output[i] += conv->tailPrecalculated[precalculatedPos];
-					precalculatedPos++;
-				}
-			}
+			if (conv->tailPrecalculated0)
+				fft_sum(&output[processed], &output[processed],
+						&conv->tailPrecalculated0[conv->precalculatedPos],
+						processing);
+			if (conv->tailPrecalculated)
+				fft_sum(&output[processed], &output[processed],
+						&conv->tailPrecalculated[conv->precalculatedPos],
+						processing);
 			conv->precalculatedPos += processing;
 
 			fft_copy(conv->tailInput + conv->tailInputFill, input + processed, processing);
@@ -467,7 +455,8 @@ int convolver_run(struct convolver *conv, const float *input, float *output, int
 			if (conv->tailPrecalculated &&
 			    conv->tailInputFill == conv->tailBlockSize) {
 				SPA_SWAP(conv->tailPrecalculated, conv->tailOutput);
-				convolver1_run(conv->tailConvolver, conv->tailInput, conv->tailOutput, conv->tailBlockSize);
+				convolver1_run(conv->tailConvolver, conv->tailInput,
+						conv->tailOutput, conv->tailBlockSize);
 			}
 			if (conv->tailInputFill == conv->tailBlockSize) {
 				conv->tailInputFill = 0;

@@ -505,6 +505,7 @@ struct node {
 
 	unsigned int n_deps;
 	unsigned int visited:1;
+	unsigned int disabled:1;
 };
 
 struct link {
@@ -521,6 +522,7 @@ struct graph_port {
 	const struct fc_descriptor *desc;
 	void **hndl;
 	uint32_t port;
+	unsigned next:1;
 };
 
 struct graph_hndl {
@@ -599,7 +601,7 @@ static void playback_process(void *d)
 	struct impl *impl = d;
 	struct pw_buffer *in, *out;
 	struct graph *graph = &impl->graph;
-	uint32_t i, insize = 0, outsize = 0, n_hndl = graph->n_hndl;
+	uint32_t i, j, insize = 0, outsize = 0, n_hndl = graph->n_hndl;
 	int32_t stride = 0;
 	struct graph_port *port;
 	struct spa_data *bd;
@@ -613,7 +615,7 @@ static void playback_process(void *d)
 	if (in == NULL || out == NULL)
 		goto done;
 
-	for (i = 0; i < in->buffer->n_datas; i++) {
+	for (i = 0, j = 0; i < in->buffer->n_datas; i++) {
 		uint32_t offs, size;
 
 		bd = &in->buffer->datas[i];
@@ -621,12 +623,15 @@ static void playback_process(void *d)
 		offs = SPA_MIN(bd->chunk->offset, bd->maxsize);
 		size = SPA_MIN(bd->chunk->size, bd->maxsize - offs);
 
-		port = i < graph->n_input ? &graph->input[i] : NULL;
+		while (j < graph->n_input) {
+			port = &graph->input[j++];
+			if (port->desc)
+				port->desc->connect_port(*port->hndl, port->port,
+					SPA_PTROFF(bd->data, offs, void));
+			if (!port->next)
+				break;
 
-		if (port && port->desc)
-			port->desc->connect_port(*port->hndl, port->port,
-				SPA_PTROFF(bd->data, offs, void));
-
+		}
 		insize = i == 0 ? size : SPA_MIN(insize, size);
 		stride = SPA_MAX(stride, bd->chunk->stride);
 	}
@@ -1849,7 +1854,7 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		n_nodes++;
 	}
 	graph->n_input = 0;
-	graph->input = calloc(n_input * n_hndl, sizeof(struct graph_port));
+	graph->input = calloc(n_input * 16 * n_hndl, sizeof(struct graph_port));
 	graph->n_output = 0;
 	graph->output = calloc(n_output * n_hndl, sizeof(struct graph_port));
 
@@ -1869,8 +1874,8 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		} else {
 			struct spa_json it = *inputs;
 			while (spa_json_get_string(&it, v, sizeof(v)) > 0) {
-				gp = &graph->input[graph->n_input];
 				if (spa_streq(v, "null")) {
+					gp = &graph->input[graph->n_input++];
 					gp->desc = NULL;
 					pw_log_info("ignore input port %d", graph->n_input);
 				} else if ((port = find_port(first, v, FC_PORT_INPUT)) == NULL) {
@@ -1893,14 +1898,41 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 						res = -EBUSY;
 						goto error;
 					}
-					pw_log_info("input port %s[%d]:%s",
+
+					if (d->flags & FC_DESCRIPTOR_COPY) {
+						for (j = 0; j < desc->n_output; j++) {
+							struct port *p = &port->node->output_port[j];
+							struct link *link;
+
+							gp = NULL;
+							spa_list_for_each(link, &p->link_list, output_link) {
+								struct port *peer = link->input;
+
+								pw_log_info("copy input port %s[%d]:%s",
+									port->node->name, i,
+									d->ports[port->p].name);
+								peer->external = graph->n_input;
+								gp = &graph->input[graph->n_input++];
+								gp->desc = peer->node->desc->desc;
+								gp->hndl = &peer->node->hndl[i];
+								gp->port = peer->p;
+								gp->next = true;
+							}
+							if (gp != NULL)
+								gp->next = false;
+						}
+						port->node->disabled = true;
+					} else {
+						pw_log_info("input port %s[%d]:%s",
 							port->node->name, i, d->ports[port->p].name);
-					port->external = graph->n_input;
-					gp->desc = d;
-					gp->hndl = &port->node->hndl[i];
-					gp->port = port->p;
+						port->external = graph->n_input;
+						gp = &graph->input[graph->n_input++];
+						gp->desc = d;
+						gp->hndl = &port->node->hndl[i];
+						gp->port = port->p;
+						gp->next = false;
+					}
 				}
-				graph->n_input++;
 			}
 		}
 		if (outputs == NULL) {
@@ -1965,11 +1997,12 @@ static int setup_graph(struct graph *graph, struct spa_json *inputs, struct spa_
 		desc = node->desc;
 		d = desc->desc;
 
-		for (i = 0; i < n_hndl; i++) {
-			gh = &graph->hndl[graph->n_hndl++];
-			gh->hndl = &node->hndl[i];
-			gh->desc = d;
-
+		if (!node->disabled) {
+			for (i = 0; i < n_hndl; i++) {
+				gh = &graph->hndl[graph->n_hndl++];
+				gh->hndl = &node->hndl[i];
+				gh->desc = d;
+			}
 		}
 		for (i = 0; i < desc->n_output; i++) {
 			spa_list_for_each(link, &node->output_port[i].link_list, output_link)

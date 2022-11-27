@@ -64,6 +64,7 @@ struct fc_port {
 struct fc_descriptor {
 	const char *name;
 #define FC_DESCRIPTOR_SUPPORTS_NULL_DATA	(1ULL << 0)
+#define FC_DESCRIPTOR_COPY			(1ULL << 1)
 	uint64_t flags;
 
 	void (*free) (const struct fc_descriptor *desc);

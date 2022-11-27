@@ -101,6 +101,7 @@ static struct fc_port copy_ports[] = {
 
 static const struct fc_descriptor copy_desc = {
 	.name = "copy",
+	.flags = FC_DESCRIPTOR_COPY,
 
 	.n_ports = 2,
 	.ports = copy_ports,

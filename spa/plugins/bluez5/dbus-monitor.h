@@ -36,10 +36,17 @@ struct dbus_monitor;
 
 struct dbus_monitor_proxy_type
 {
+	/** Interface name to monitor, or NULL for object type */
 	const char *interface_name;
+
+	/** GObject type for the proxy */
 	GType proxy_type;
-	void (*on_object_update)(struct dbus_monitor *monitor, GDBusInterface *iface);
-	void (*on_clear)(struct dbus_monitor *monitor, GDBusInterface *iface);
+
+	/** Hook called when object added or properties changed */
+	void (*on_update)(struct dbus_monitor *monitor, GDBusInterface *iface);
+
+	/** Hook called when object is removed (or on monitor shutdown) */
+	void (*on_remove)(struct dbus_monitor *monitor, GDBusInterface *iface);
 };
 
 struct dbus_monitor

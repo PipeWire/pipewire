@@ -30,18 +30,6 @@
 #include "dbus-monitor.h"
 
 
-static void on_clear(struct dbus_monitor *monitor, GDBusProxy *proxy)
-{
-	const struct dbus_monitor_proxy_type *p;
-
-	for (p = monitor->proxy_types; p && p->proxy_type != G_TYPE_INVALID ; ++p) {
-		if (G_TYPE_CHECK_INSTANCE_TYPE(proxy, p->proxy_type)) {
-			if (p->on_clear)
-				p->on_clear(monitor, G_DBUS_INTERFACE(proxy));
-		}
-	}
-}
-
 static void on_g_properties_changed(GDBusProxy *proxy,
 		GVariant *changed_properties, char **invalidated_properties,
 		gpointer user_data)
@@ -56,11 +44,22 @@ static void on_g_properties_changed(GDBusProxy *proxy,
 
 	for (p = monitor->proxy_types; p && p->proxy_type != G_TYPE_INVALID ; ++p) {
 		if (G_TYPE_CHECK_INSTANCE_TYPE(proxy, p->proxy_type)) {
-			if (p->on_object_update)
-				p->on_object_update(monitor, G_DBUS_INTERFACE(proxy));
+			if (p->on_update)
+				p->on_update(monitor, G_DBUS_INTERFACE(proxy));
 		}
 	}
+}
 
+static void on_remove(struct dbus_monitor *monitor, GDBusProxy *proxy)
+{
+	const struct dbus_monitor_proxy_type *p;
+
+	for (p = monitor->proxy_types; p && p->proxy_type != G_TYPE_INVALID ; ++p) {
+		if (G_TYPE_CHECK_INSTANCE_TYPE(proxy, p->proxy_type)) {
+			if (p->on_remove)
+				p->on_remove(monitor, G_DBUS_INTERFACE(proxy));
+		}
+	}
 }
 
 static void on_interface_added(GDBusObjectManager *self, GDBusObject *object,
@@ -84,6 +83,26 @@ static void on_interface_added(GDBusObjectManager *self, GDBusObject *object,
 			NULL, NULL, monitor);
 }
 
+static void on_interface_removed(GDBusObjectManager *manager, GDBusObject *object,
+		GDBusInterface *iface, gpointer user_data)
+{
+	struct dbus_monitor *monitor = user_data;
+	GDBusInterfaceInfo *info = g_dbus_interface_get_info(iface);
+	const char *name = info ? info->name : NULL;
+
+	spa_log_trace(monitor->log, "%p: dbus interface removed path=%s, name=%s",
+			monitor, g_dbus_object_get_object_path(object), name ? name : "<null>");
+
+	if (g_object_get_data(G_OBJECT(iface), "dbus-monitor-signals-connected")) {
+		g_object_disconnect(G_OBJECT(iface), "g-properties-changed",
+				G_CALLBACK(on_g_properties_changed),
+				monitor, NULL);
+		g_object_set_data(G_OBJECT(iface), "dbus-monitor-signals-connected", NULL);
+	}
+
+	on_remove(monitor, G_DBUS_PROXY(iface));
+}
+
 static void on_object_added(GDBusObjectManager *self, GDBusObject *object,
 		gpointer user_data)
 {
@@ -96,6 +115,20 @@ static void on_object_added(GDBusObjectManager *self, GDBusObject *object,
 	 */
 	for (GList *lli = g_list_first(interfaces); lli; lli = lli->next) {
 		on_interface_added(dbus_monitor_manager(monitor),
+				object, G_DBUS_INTERFACE(lli->data), monitor);
+	}
+
+	g_list_free_full(interfaces, g_object_unref);
+}
+
+static void on_object_removed(GDBusObjectManager *manager, GDBusObject *object,
+		gpointer user_data)
+{
+	struct dbus_monitor *monitor = user_data;
+	GList *interfaces = g_dbus_object_get_interfaces(object);
+
+	for (GList *lli = g_list_first(interfaces); lli; lli = lli->next) {
+		on_interface_removed(dbus_monitor_manager(monitor),
 				object, G_DBUS_INTERFACE(lli->data), monitor);
 	}
 
@@ -146,8 +179,12 @@ static void init_done(GObject *source_object, GAsyncResult *res, gpointer user_d
 
 	g_signal_connect(monitor->manager, "interface-added",
 			G_CALLBACK(on_interface_added), monitor);
+	g_signal_connect(monitor->manager, "interface-removed",
+			G_CALLBACK(on_interface_removed), monitor);
 	g_signal_connect(monitor->manager, "object-added",
 			G_CALLBACK(on_object_added), monitor);
+	g_signal_connect(monitor->manager, "object-removed",
+			G_CALLBACK(on_object_removed), monitor);
 	g_signal_connect(monitor->manager, "notify",
 			G_CALLBACK(on_notify), monitor);
 
@@ -204,16 +241,20 @@ void dbus_monitor_clear(struct dbus_monitor *monitor)
 	g_clear_object(&monitor->call);
 
 	if (monitor->manager) {
-		/* Indicate all objects should stop now.
+		/*
+		 * Indicate all objects should stop now.
 		 *
-		 * We need a separate hook, because the proxy finalizers
+		 * This has to be a separate hook, because the proxy finalizers
 		 * may be called later asynchronously via e.g. DBus callbacks.
 		 */
 		GList *objects = g_dbus_object_manager_get_objects(dbus_monitor_manager(monitor));
 		for (GList *llo = g_list_first(objects); llo; llo = llo->next) {
 			GList *interfaces = g_dbus_object_get_interfaces(G_DBUS_OBJECT(llo->data));
-			for (GList *lli = g_list_first(interfaces); lli; lli = lli->next)
-				on_clear(monitor, G_DBUS_PROXY(lli->data));
+			for (GList *lli = g_list_first(interfaces); lli; lli = lli->next) {
+				on_interface_removed(dbus_monitor_manager(monitor),
+						G_DBUS_OBJECT(llo->data), G_DBUS_INTERFACE(lli->data),
+						monitor);
+			}
 			g_list_free_full(interfaces, g_object_unref);
 		}
 		g_list_free_full(objects, g_object_unref);

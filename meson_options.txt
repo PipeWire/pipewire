@@ -177,9 +177,9 @@ option('videotestsrc',
        type: 'feature',
        value: 'enabled')
 option('volume',
-       description: 'Enable volume spa plugin integration',
+       description: 'Build the legacy volume spa plugin',
        type: 'feature',
-       value: 'enabled')
+       value: 'disabled')
 option('vulkan',
        description: 'Enable vulkan spa plugin integration',
        type: 'feature',

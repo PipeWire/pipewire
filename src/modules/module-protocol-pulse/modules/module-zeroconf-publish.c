@@ -73,6 +73,7 @@ struct service {
 
 	AvahiEntryGroup *entry_group;
 	AvahiStringList *txt;
+	struct server *server;
 
 	const char *service_type;
 	enum service_subtype subtype;
@@ -154,6 +155,7 @@ static void unpublish_service(struct service *s)
 	spa_list_remove(&s->link);
 	spa_list_append(&s->userdata->pending, &s->link);
 	s->published = false;
+	s->server = NULL;
 }
 
 static void unpublish_all_services(struct module_zeroconf_publish_data *d)
@@ -397,7 +399,7 @@ static AvahiStringList *get_service_txt(const struct service *s)
 	return txt;
 }
 
-static int find_port(struct service *s, int *proto, uint16_t *port)
+static struct server *find_server(struct service *s, int *proto, uint16_t *port)
 {
 	struct module_zeroconf_publish_data *d = s->userdata;
 	struct impl *impl = d->module->impl;
@@ -407,14 +409,15 @@ static int find_port(struct service *s, int *proto, uint16_t *port)
 		if (server->addr.ss_family == AF_INET) {
 			*proto = AVAHI_PROTO_INET;
 			*port = ntohs(((struct sockaddr_in*) &server->addr)->sin_port);
-			return 0;
+			return server;
 		} else if (server->addr.ss_family == AF_INET6) {
 			*proto = AVAHI_PROTO_INET6;
 			*port = ntohs(((struct sockaddr_in6*) &server->addr)->sin6_port);
-			return 0;
+			return server;
 		}
 	}
-	return -ENODEV;
+
+	return NULL;
 }
 
 static void publish_service(struct service *s)
@@ -423,10 +426,11 @@ static void publish_service(struct service *s)
 	int proto;
 	uint16_t port;
 
-	if (find_port(s, &proto, &port) < 0)
+	struct server *server = find_server(s, &proto, &port);
+	if (!server)
 		return;
 
-	pw_log_debug("found proto:%d port:%d", proto, port);
+	pw_log_debug("found server:%p proto:%d port:%d", server, proto, port);
 
 	if (!d->client || avahi_client_get_state(d->client) != AVAHI_CLIENT_S_RUNNING)
 		return;
@@ -499,6 +503,7 @@ static void publish_service(struct service *s)
 
 	spa_list_remove(&s->link);
 	spa_list_append(&d->published, &s->link);
+	s->server = server;
 
 	pw_log_info("created service: %s", s->service_name);
 	return;
@@ -626,7 +631,13 @@ static void impl_server_stopped(void *data, struct server *server)
 {
 	struct module_zeroconf_publish_data *d = data;
 	pw_log_info("a server stopped, try republish");
-	unpublish_all_services(d);
+
+	struct service *s, *tmp;
+	spa_list_for_each_safe(s, tmp, &d->published, link) {
+		if (s->server == server)
+			unpublish_service(s);
+	}
+
 	publish_pending(d);
 }
 

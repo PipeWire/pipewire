@@ -53,7 +53,7 @@
 
 #include "config.h"
 
-#ifdef HAVE_ALSA_COMPRESS_OFFLOAD
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #endif
@@ -115,7 +115,7 @@ struct data {
 #define TYPE_PCM	0
 #define TYPE_MIDI	1
 #define TYPE_DSD	2
-#ifdef HAVE_ALSA_COMPRESS_OFFLOAD
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 #define TYPE_ENCODED    3
 #endif
 	int data_type;
@@ -162,7 +162,7 @@ struct data {
 		struct dsf_layout layout;
 	} dsf;
 
-#ifdef HAVE_ALSA_COMPRESS_OFFLOAD
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 	FILE *encoded_file;
 	AVFormatContext *fmt_context;
 	AVStream *astream;
@@ -251,7 +251,7 @@ static int sf_playback_fill_f64(struct data *d, void *dest, unsigned int n_frame
 	return (int)rn;
 }
 
-#ifdef HAVE_ALSA_COMPRESS_OFFLOAD
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 static int encoded_playback_fill(struct data *d, void *dest, unsigned int n_frames)
 {
 	int ret, size = 0;
@@ -394,7 +394,7 @@ playback_fill_fn(uint32_t fmt)
 		if (sizeof(double) != 8)
 			return NULL;
 		return sf_playback_fill_f64;
-#ifdef HAVE_ALSA_COMPRESS_OFFLOAD
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 	case SPA_AUDIO_FORMAT_ENCODED:
 		return encoded_playback_fill;
 #endif
@@ -786,7 +786,7 @@ static void on_process(void *userdata)
 		n_frames = d->maxsize / data->stride;
 		n_frames = SPA_MIN(n_frames, (int)b->requested);
 
-#ifdef HAVE_ALSA_COMPRESS_OFFLOAD
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 		n_fill_frames = data->fill(data, p, n_frames);
 
 		if (n_fill_frames > 0 || n_frames == 0) {
@@ -983,7 +983,7 @@ static void show_usage(const char *name, bool is_error)
 		     "  -r, --record                          Recording mode\n"
 		     "  -m, --midi                            Midi mode\n"
 		     "  -d, --dsd                             DSD mode\n"
-#ifdef HAVE_ALSA_COMPRESS_OFFLOAD
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 		     "  -o, --encoded			      Encoded mode\n"
 #endif
 		     "\n"), fp);
@@ -1273,7 +1273,7 @@ static void format_from_filename(SF_INFO *info, const char *filename)
 		info->format = (info->format & ~SF_FORMAT_SUBMASK) | SF_FORMAT_VORBIS;
 }
 
-#ifdef HAVE_ALSA_COMPRESS_OFFLOAD
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 static int setup_encodedfile(struct data *data)
 {
 	int ret;
@@ -1575,7 +1575,7 @@ int main(int argc, char *argv[])
 		goto error_no_props;
 	}
 
-#ifdef HAVE_ALSA_COMPRESS_OFFLOAD
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 	while ((c = getopt_long(argc, argv, "hvprmdoR:q:P:", long_options, NULL)) != -1) {
 #else
 	while ((c = getopt_long(argc, argv, "hvprmdR:q:P:", long_options, NULL)) != -1) {
@@ -1616,7 +1616,7 @@ int main(int argc, char *argv[])
 			data.data_type = TYPE_DSD;
 			break;
 
-#ifdef HAVE_ALSA_COMPRESS_OFFLOAD
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 		case 'o':
 			data.data_type = TYPE_ENCODED;
 			break;
@@ -1793,7 +1793,7 @@ int main(int argc, char *argv[])
 		case TYPE_DSD:
 			ret = setup_dsffile(&data);
 			break;
-#ifdef HAVE_ALSA_COMPRESS_OFFLOAD
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 		case TYPE_ENCODED:
 			ret = setup_encodedfile(&data);
 			break;
@@ -1816,7 +1816,7 @@ int main(int argc, char *argv[])
 	ret = setup_properties(&data);
 
 	switch (data.data_type) {
-#ifdef HAVE_ALSA_COMPRESS_OFFLOAD
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 	case TYPE_ENCODED:
 	{
 		struct spa_audio_info info;
@@ -1924,7 +1924,7 @@ int main(int argc, char *argv[])
 	/* and wait while we let things run */
 	pw_main_loop_run(data.loop);
 
-#ifdef HAVE_ALSA_COMPRESS_OFFLOAD
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 	if (data.encoded_file)
 		fclose(data.encoded_file);
 #endif

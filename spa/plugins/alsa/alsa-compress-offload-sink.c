@@ -57,7 +57,7 @@
 #include <tinycompress/tinycompress.h>
 
 /*
- * This creates a Pipewire sink node which uses the tinycompress user space
+ * This creates a PipeWire sink node which uses the tinycompress user space
  * library to use the ALSA Compress-Offload API for writing compressed data
  * like MP3, FLAC etc. to an DSP that can handle such data directly.
  *
@@ -463,7 +463,7 @@ port_enum_formats(struct impl *this,
 	struct spa_audio_info info;
 	uint32_t codec;
 
-	if (index > this->num_codecs)
+	if (index >= this->num_codecs)
 		return 0;
 
 	codec = this->codecs_supported[index];

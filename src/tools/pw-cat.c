@@ -1278,6 +1278,7 @@ static int setup_encodedfile(struct data *data)
 {
 	int ret;
 	int bits_per_sample;
+	int num_channels;
 	char path[256] = { 0 };
 
 	/* We do not support record with encoded media */
@@ -1317,14 +1318,22 @@ static int setup_encodedfile(struct data *data)
 	printf("Number of streams: %d Codec id: %x\n", data->fmt_context->nb_streams,
 			data->ctx->codec_id);
 
+	/* FFmpeg 5.1 (which contains libavcodec 59.37.100) introduced
+	 * a new channel layout API and deprecated the old one. */
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(59, 37, 100)
+	num_channels = data->ctx->ch_layout.nb_channels;
+#else
+	num_channels = data->ctx->channels;
+#endif
+
 	data->rate = data->ctx->sample_rate;
-	data->channels = data->ctx->ch_layout.nb_channels;
+	data->channels = num_channels;
 	data->sfmt = data->ctx->sample_fmt;
 	data->stride = 1; // Don't care
 
 	bits_per_sample = av_get_bits_per_sample(data->ctx->codec_id);
 	data->bitrate = bits_per_sample ?
-		data->ctx->sample_rate * data->ctx->ch_layout.nb_channels * bits_per_sample : data->ctx->bit_rate;
+		data->ctx->sample_rate * num_channels * bits_per_sample : data->ctx->bit_rate;
 
 	data->spa_format = SPA_AUDIO_FORMAT_ENCODED;
 	data->fill = playback_fill_fn(data->spa_format);

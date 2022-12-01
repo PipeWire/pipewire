@@ -198,10 +198,11 @@ static void node_deactivate(struct pw_impl_node *this)
 	struct pw_impl_port *port;
 	struct pw_impl_link *link;
 
+	pw_log_debug("%p: deactivate", this);
+
 	/* make sure the node doesn't get woken up while not active */
 	pw_loop_invoke(this->data_loop, do_node_remove, 1, NULL, 0, true, this);
 
-	pw_log_debug("%p: deactivate", this);
 	spa_list_for_each(port, &this->input_ports, link) {
 		spa_list_for_each(link, &port->links, input_link)
 			pw_impl_link_deactivate(link);
@@ -1120,28 +1121,30 @@ static inline int process_node(void *data)
 	a->status = PW_NODE_ACTIVATION_AWAKE;
 	a->awake_time = SPA_TIMESPEC_TO_NSEC(&ts);
 
-	if (!this->added) {
-		/* This should not happen here. We activate the input
-		 * links after we add the node to the graph. */
-		pw_log_warn("%p: scheduling non-active node", this);
-		return -EIO;
-	}
 	pw_log_trace_fp("%p: process %"PRIu64, this, a->awake_time);
 
 	/* when transport sync is not supported, just clear the flag */
 	if (!this->transport_sync)
 		a->pending_sync = false;
 
-	spa_list_for_each(p, &this->rt.input_mix, rt.node_link)
-		spa_node_process(p->mix);
-
-	status = spa_node_process(this->node);
-	a->state[0].status = status;
-
-	if (status & SPA_STATUS_HAVE_DATA) {
-		spa_list_for_each(p, &this->rt.output_mix, rt.node_link)
+	if (this->added) {
+		spa_list_for_each(p, &this->rt.input_mix, rt.node_link)
 			spa_node_process(p->mix);
+
+		status = spa_node_process(this->node);
+
+		if (status & SPA_STATUS_HAVE_DATA) {
+			spa_list_for_each(p, &this->rt.output_mix, rt.node_link)
+				spa_node_process(p->mix);
+		}
+	} else {
+		/* This can happen when we deactivated the node but some links are
+		 * still not shut down. We simply don't schedule the node and make
+		 * sure we trigger the peers in resume_node below. */
+		pw_log_debug("%p: scheduling non-active node %s", this, this->name);
+		status = SPA_STATUS_HAVE_DATA;
 	}
+	a->state[0].status = status;
 
 	if (SPA_UNLIKELY(this == this->driver_node && !this->exported)) {
 		spa_system_clock_gettime(data_system, CLOCK_MONOTONIC, &ts);
@@ -1646,7 +1649,11 @@ static int node_ready(void *data, int status)
 			node->driver, node->exported, driver, status, node->added);
 
 	if (!node->added) {
-		pw_log_warn("%p: ready non-active node %s in state %d", node, node->name, node->info.state);
+		/* This can happen when we are stopping a node and removed it from the
+		 * graph but we still have not completed the Pause/Suspend command on
+		 * the node. In that case, the node might still emit ready events,
+		 * which we should simply ignore here. */
+		pw_log_info("%p: ready non-active node %s in state %d", node, node->name, node->info.state);
 		return -EIO;
 	}
 

@@ -823,13 +823,14 @@ static int parse_ip_address(const char *address, struct sockaddr_storage *addrs,
 	if (len < 2)
 		return -ENOSPC;
 
-	snprintf(ip, sizeof(ip), "[::]:%d", res);
-	spa_assert_se(parse_ipv6_address(ip, (struct sockaddr_in6 *) &addr) == 0);
-	addrs[0] = addr;
-
 	snprintf(ip, sizeof(ip), "0.0.0.0:%d", res);
 	spa_assert_se(parse_ipv4_address(ip, (struct sockaddr_in *) &addr) == 0);
+	addrs[0] = addr;
+
+	snprintf(ip, sizeof(ip), "[::]:%d", res);
+	spa_assert_se(parse_ipv6_address(ip, (struct sockaddr_in6 *) &addr) == 0);
 	addrs[1] = addr;
+
 	return 2;
 }
 

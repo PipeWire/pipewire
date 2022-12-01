@@ -585,10 +585,12 @@ static void source_event_func(struct spa_source *source)
 	uint64_t count = 0;
 	int res;
 
-	if ((res = spa_system_eventfd_read(s->impl->system, source->fd, &count)) < 0)
-		spa_log_warn(s->impl->log, "%p: failed to read event fd:%d: %s",
-				source, source->fd, spa_strerror(res));
-
+	if ((res = spa_system_eventfd_read(s->impl->system, source->fd, &count)) < 0) {
+		if (res != -EAGAIN)
+			spa_log_warn(s->impl->log, "%p: failed to read event fd:%d: %s",
+					source, source->fd, spa_strerror(res));
+		return;
+	}
 	s->func.event(source->data, count);
 }
 
@@ -651,10 +653,12 @@ static void source_timer_func(struct spa_source *source)
 	int res;
 
 	if (SPA_UNLIKELY((res = spa_system_timerfd_read(s->impl->system,
-				source->fd, &expirations)) < 0))
-		spa_log_warn(s->impl->log, "%p: failed to read timer fd:%d: %s",
-				source, source->fd, spa_strerror(res));
-
+				source->fd, &expirations)) < 0)) {
+		if (res != -EAGAIN)
+			spa_log_warn(s->impl->log, "%p: failed to read timer fd:%d: %s",
+					source, source->fd, spa_strerror(res));
+		return;
+	}
 	s->func.timer(source->data, expirations);
 }
 
@@ -731,10 +735,12 @@ static void source_signal_func(struct spa_source *source)
 	struct source_impl *s = SPA_CONTAINER_OF(source, struct source_impl, source);
 	int res, signal_number = 0;
 
-	if ((res = spa_system_signalfd_read(s->impl->system, source->fd, &signal_number)) < 0)
-		spa_log_warn(s->impl->log, "%p: failed to read signal fd:%d: %s",
-				source, source->fd, spa_strerror(res));
-
+	if ((res = spa_system_signalfd_read(s->impl->system, source->fd, &signal_number)) < 0) {
+		if (res != -EAGAIN)
+			spa_log_warn(s->impl->log, "%p: failed to read signal fd:%d: %s",
+					source, source->fd, spa_strerror(res));
+		return;
+	}
 	s->func.signal(source->data, signal_number);
 }
 

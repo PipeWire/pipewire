@@ -324,7 +324,8 @@ static inline int queue_push(struct stream *stream, struct queue *queue, struct 
 {
 	uint32_t index;
 
-	if (SPA_FLAG_IS_SET(buffer->flags, BUFFER_FLAG_QUEUED))
+	if (SPA_FLAG_IS_SET(buffer->flags, BUFFER_FLAG_QUEUED) ||
+	    buffer->id >= stream->n_buffers)
 		return -EINVAL;
 
 	SPA_FLAG_SET(buffer->flags, BUFFER_FLAG_QUEUED);
@@ -921,6 +922,9 @@ static int impl_port_use_buffers(void *object,
 	if (impl->disconnecting && n_buffers > 0)
 		return -EIO;
 
+	if (n_buffers > MAX_BUFFERS)
+		return -EINVAL;
+
 	prot = PROT_READ | (direction == SPA_DIRECTION_OUTPUT ? PROT_WRITE : 0);
 
 	clear_buffers(stream);
@@ -956,6 +960,7 @@ static int impl_port_use_buffers(void *object,
 		pw_log_debug("%p: got buffer id:%d datas:%d, mapped size %d", stream, i,
 				buffers[i]->n_datas, size);
 	}
+	impl->n_buffers = n_buffers;
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &impl->buffers[i];
@@ -972,9 +977,6 @@ static int impl_port_use_buffers(void *object,
 
 		pw_stream_emit_add_buffer(stream, &b->this);
 	}
-
-	impl->n_buffers = n_buffers;
-
 	return 0;
 }
 

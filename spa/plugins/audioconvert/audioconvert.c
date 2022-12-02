@@ -161,6 +161,7 @@ struct dir {
 	struct port *ports[MAX_PORTS];
 	uint32_t n_ports;
 
+	enum spa_direction direction;
 	enum spa_param_port_config_mode mode;
 
 	struct spa_audio_info format;
@@ -378,55 +379,61 @@ static int impl_node_enum_params(void *object, int seq,
 
 	switch (id) {
 	case SPA_PARAM_EnumPortConfig:
+	{
+		struct dir *dir;
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamPortConfig, id,
-				SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(SPA_DIRECTION_INPUT),
-				SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp));
+			dir = &this->dir[SPA_DIRECTION_INPUT];;
 			break;
 		case 1:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamPortConfig, id,
-				SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(SPA_DIRECTION_OUTPUT),
-				SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp));
-			break;
-		case 2:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamPortConfig, id,
-				SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(SPA_DIRECTION_INPUT),
-				SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_convert));
-			break;
-		case 3:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamPortConfig, id,
-				SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(SPA_DIRECTION_OUTPUT),
-				SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_convert));
+			dir = &this->dir[SPA_DIRECTION_OUTPUT];;
 			break;
 		default:
 			return 0;
 		}
+		param = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_ParamPortConfig, id,
+			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(dir->direction),
+			SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_CHOICE_ENUM_Id(4,
+				SPA_PARAM_PORT_CONFIG_MODE_none,
+				SPA_PARAM_PORT_CONFIG_MODE_none,
+				SPA_PARAM_PORT_CONFIG_MODE_dsp,
+				SPA_PARAM_PORT_CONFIG_MODE_convert),
+			SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_CHOICE_Bool(false),
+			SPA_PARAM_PORT_CONFIG_control,   SPA_POD_CHOICE_Bool(false));
 		break;
-
+	}
 	case SPA_PARAM_PortConfig:
+	{
+		struct dir *dir;
+		struct spa_pod_frame f[1];
+
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamPortConfig, id,
-				SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(SPA_DIRECTION_INPUT),
-				SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(this->dir[SPA_DIRECTION_INPUT].mode));
+			dir = &this->dir[SPA_DIRECTION_INPUT];;
 			break;
 		case 1:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_ParamPortConfig, id,
-				SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(SPA_DIRECTION_OUTPUT),
-				SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(this->dir[SPA_DIRECTION_OUTPUT].mode));
+			dir = &this->dir[SPA_DIRECTION_OUTPUT];;
 			break;
 		default:
 			return 0;
 		}
-		break;
+		spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_ParamPortConfig, id);
+		spa_pod_builder_add(&b,
+			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(dir->direction),
+			SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(dir->mode),
+			SPA_PARAM_PORT_CONFIG_monitor,   SPA_POD_Bool(this->monitor),
+			SPA_PARAM_PORT_CONFIG_control,   SPA_POD_Bool(dir->control),
+			0);
 
+		if (dir->have_format) {
+			spa_pod_builder_prop(&b, SPA_PARAM_PORT_CONFIG_format, 0);
+			spa_format_audio_raw_build(&b, SPA_PARAM_PORT_CONFIG_format,
+					&dir->format.info.raw);
+		}
+		param = spa_pod_builder_pop(&b, &f[0]);
+		break;
+	}
 	case SPA_PARAM_PropInfo:
 	{
 		struct props *p = &this->props;
@@ -1015,6 +1022,8 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 		init_port(this, direction, 0, 0, false, false, false);
 		break;
 	}
+	case SPA_PARAM_PORT_CONFIG_MODE_none:
+		break;
 	default:
 		return -ENOTSUP;
 	}
@@ -2906,7 +2915,9 @@ impl_init(const struct spa_handle_factory *factory,
 	this->props.soft.n_volumes = this->props.n_channels;
 	this->props.monitor.n_volumes = this->props.n_channels;
 
+	this->dir[SPA_DIRECTION_INPUT].direction = SPA_DIRECTION_INPUT;
 	this->dir[SPA_DIRECTION_INPUT].latency = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
+	this->dir[SPA_DIRECTION_OUTPUT].direction = SPA_DIRECTION_OUTPUT;
 	this->dir[SPA_DIRECTION_OUTPUT].latency = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
 	this->node.iface = SPA_INTERFACE_INIT(

@@ -1144,6 +1144,8 @@ static void complete_process(struct client *c, uint32_t frames)
                 if (pw_map_item_is_free(item))
 			continue;
 		p = item->data;
+		if (!p->valid)
+			continue;
 		spa_list_for_each(mix, &p->mix, port_link) {
 			if (SPA_LIKELY(mix->io != NULL))
 				mix->io->status = SPA_STATUS_NEED_DATA;
@@ -1153,6 +1155,8 @@ static void complete_process(struct client *c, uint32_t frames)
                 if (pw_map_item_is_free(item))
 			continue;
 		p = item->data;
+		if (!p->valid)
+			continue;
 		prepare_output(p, frames);
 		p->io.status = SPA_STATUS_NEED_DATA;
 	}

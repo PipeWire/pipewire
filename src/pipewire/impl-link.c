@@ -622,8 +622,8 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 	pw_log_debug("%p: activate activated:%d state:%s", this, impl->activated,
 			pw_link_state_as_string(this->info.state));
 
-	if (impl->activated || !this->prepared || !impl->inode->active ||
-			!impl->inode->added || !impl->onode->active)
+	if (impl->activated || !this->prepared ||
+		!impl->inode->active || !impl->onode->active)
 		return 0;
 
 	if (!impl->io_set) {

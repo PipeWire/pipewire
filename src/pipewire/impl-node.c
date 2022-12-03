@@ -239,7 +239,7 @@ static int idle_node(struct pw_impl_node *this)
 	return res;
 }
 
-static void node_activate_outputs(struct pw_impl_node *this)
+static void node_activate(struct pw_impl_node *this)
 {
 	struct pw_impl_port *port;
 
@@ -249,13 +249,6 @@ static void node_activate_outputs(struct pw_impl_node *this)
 		spa_list_for_each(link, &port->links, output_link)
 			pw_impl_link_activate(link);
 	}
-}
-
-static void node_activate_inputs(struct pw_impl_node *this)
-{
-	struct pw_impl_port *port;
-
-	pw_log_debug("%p: activate", this);
 	spa_list_for_each(port, &this->input_ports, link) {
 		struct pw_impl_link *link;
 		spa_list_for_each(link, &port->links, input_link)
@@ -268,9 +261,7 @@ static int start_node(struct pw_impl_node *this)
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = 0;
 
-	/* First activate the outputs so that when the node starts pushing,
-	 * we can process the outputs */
-	node_activate_outputs(this);
+	node_activate(this);
 
 	if (impl->pending_state >= PW_NODE_STATE_RUNNING)
 		return 0;

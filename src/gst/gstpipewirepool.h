@@ -57,6 +57,7 @@ struct _GstPipeWirePoolData {
   GstBuffer *buf;
   gboolean queued;
   struct spa_meta_region *crop;
+  struct spa_meta_videotransform *videotransform;
 };
 
 struct _GstPipeWirePool {

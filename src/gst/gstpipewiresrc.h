@@ -95,6 +95,8 @@ struct _GstPipeWireSrc {
   GstPipeWirePool *pool;
   GstClock *clock;
   GstClockTime last_time;
+
+  enum spa_meta_videotransform_value transform_value;
 };
 
 struct _GstPipeWireSrcClass {

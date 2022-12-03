@@ -514,6 +514,25 @@ on_remove_buffer (void *_data, struct pw_buffer *b)
   }
 }
 
+static const char * const transform_map[] = {
+  [SPA_META_TRANSFORMATION_None] = "rotate-0",
+  [SPA_META_TRANSFORMATION_90] = "rotate-90",
+  [SPA_META_TRANSFORMATION_180] = "rotate-180",
+  [SPA_META_TRANSFORMATION_270] = "rotate-270",
+  [SPA_META_TRANSFORMATION_Flipped] = "flip-rotate-0",
+  [SPA_META_TRANSFORMATION_Flipped90] = "flip-rotate-270",
+  [SPA_META_TRANSFORMATION_Flipped180] = "flip-rotate-180",
+  [SPA_META_TRANSFORMATION_Flipped270] = "flip-rotate-90",
+};
+
+static const char *spa_transform_value_to_gst_image_orientation(uint32_t transform_value)
+{
+  if (transform_value >= SPA_N_ELEMENTS(transform_map))
+    transform_value = SPA_META_TRANSFORMATION_None;
+
+  return transform_map[transform_value];
+}
+
 static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
 {
   struct pw_buffer *b;
@@ -521,6 +540,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
   GstPipeWirePoolData *data;
   struct spa_meta_header *h;
   struct spa_meta_region *crop;
+  struct spa_meta_videotransform *videotransform;
   guint i;
 
   b = pw_stream_dequeue_buffer (pwsrc->stream);
@@ -568,6 +588,27 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
       meta->height = crop->region.size.height;
     }
   }
+
+  videotransform = data->videotransform;
+  if (videotransform) {
+    if (pwsrc->transform_value != videotransform->transform) {
+      GstEvent *tag_event;
+      const char* tag_string;
+
+      tag_string =
+          spa_transform_value_to_gst_image_orientation(videotransform->transform);
+
+      GST_LOG_OBJECT (pwsrc, "got new videotransform: %u / %s",
+          videotransform->transform, tag_string);
+
+      tag_event = gst_event_new_tag(gst_tag_list_new(GST_TAG_IMAGE_ORIENTATION,
+          tag_string, NULL));
+      gst_pad_push_event (GST_BASE_SRC_PAD (pwsrc), tag_event);
+
+      pwsrc->transform_value = videotransform->transform;
+    }
+  }
+
   for (i = 0; i < b->buffer->n_datas; i++) {
     struct spa_data *d = &b->buffer->datas[i];
     GstMemory *pmem = gst_buffer_peek_memory (data->buf, i);
@@ -913,7 +954,7 @@ on_param_changed (void *data, uint32_t id,
   pwsrc->negotiated = pwsrc->caps != NULL;
 
   if (pwsrc->negotiated) {
-    const struct spa_pod *params[3];
+    const struct spa_pod *params[4];
     struct spa_pod_builder b = { NULL };
     uint8_t buffer[512];
     uint32_t buffers = CLAMP (16, pwsrc->min_buffers, pwsrc->max_buffers);
@@ -939,9 +980,13 @@ on_param_changed (void *data, uint32_t id,
         SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
         SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoCrop),
         SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_region)));
+    params[3] = spa_pod_builder_add_object (&b,
+        SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
+        SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoTransform),
+        SPA_PARAM_META_size, SPA_POD_Int(sizeof (struct spa_meta_videotransform)));
 
     GST_DEBUG_OBJECT (pwsrc, "doing finish format");
-    pw_stream_update_params (pwsrc->stream, params, 3);
+    pw_stream_update_params (pwsrc->stream, params, SPA_N_ELEMENTS(params));
   } else {
     GST_WARNING_OBJECT (pwsrc, "finish format with error");
     pw_stream_set_error (pwsrc->stream, -EINVAL, "unhandled format");

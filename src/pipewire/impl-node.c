@@ -273,6 +273,10 @@ static int start_node(struct pw_impl_node *this)
 		impl->pending_play = true;
 		res = spa_node_send_command(this->node,
 			&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Start));
+	} else {
+		/* driver nodes will wait until all other nodes are started before
+		 * they are started */
+		res = EBUSY;
 	}
 
 	if (res < 0)
@@ -376,10 +380,6 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 				error = spa_aprintf("Start error: %s", spa_strerror(res));
 				pw_loop_invoke(node->data_loop, do_node_remove, 1, NULL, 0, true, node);
 			}
-		}
-		if (res >= 0) {
-			/* now activate the inputs */
-			node_activate_inputs(node);
 		}
 		break;
 	case PW_NODE_STATE_IDLE:
@@ -2163,6 +2163,10 @@ static void on_state_complete(void *obj, void *data, int res, uint32_t seq)
 	enum pw_node_state state = SPA_PTR_TO_INT(data);
 	char *error = NULL;
 
+	/* driver nodes added -EBUSY. This is then not an error */
+	if (res == -EBUSY)
+		res = 0;
+
 	impl->pending_id = SPA_ID_INVALID;
 	impl->pending_play = false;
 
@@ -2250,6 +2254,11 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 			pw_work_queue_cancel(impl->work, node, impl->pending_id);
 			node->info.state = impl->pending_state;
 		}
+		/* driver nodes return EBUSY to add a -EBUSY to the work queue. This
+		 * will wait until all previous items in the work queue are
+		 * completed */
+		if (res == EBUSY)
+			res = -res;
 		impl->pending_state = state;
 		impl->pending_id = pw_work_queue_add(impl->work,
 				node, res, on_state_complete, SPA_INT_TO_PTR(state));

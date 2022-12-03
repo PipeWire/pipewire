@@ -78,6 +78,7 @@ struct buffer {
 	struct spa_list link;
 	struct spa_buffer *outbuf;
 	struct spa_meta_header *h;
+	struct spa_meta_videotransform *videotransform;
 	void *ptr;
 };
 
@@ -588,6 +589,12 @@ next:
 				SPA_TYPE_OBJECT_ParamMeta, id,
 				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
 				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
+			break;
+		case 1:
+			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
+				SPA_TYPE_OBJECT_ParamMeta, id,
+				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoTransform),
+				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_videotransform)));
 			break;
 		default:
 			return 0;

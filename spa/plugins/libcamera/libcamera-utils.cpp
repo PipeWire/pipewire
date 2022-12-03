@@ -698,6 +698,31 @@ static int spa_libcamera_use_buffers(struct impl *impl, struct port *port,
 	return -ENOTSUP;
 }
 
+static const struct {
+	Transform libcamera_transform;
+	uint32_t spa_transform_value;
+} transform_map[] = {
+	{ Transform::Identity, SPA_META_TRANSFORMATION_None },
+	{ Transform::Rot0, SPA_META_TRANSFORMATION_None },
+	{ Transform::HFlip, SPA_META_TRANSFORMATION_Flipped },
+	{ Transform::VFlip, SPA_META_TRANSFORMATION_Flipped180 },
+	{ Transform::HVFlip, SPA_META_TRANSFORMATION_180 },
+	{ Transform::Rot180, SPA_META_TRANSFORMATION_180 },
+	{ Transform::Transpose, SPA_META_TRANSFORMATION_Flipped90 },
+	{ Transform::Rot90, SPA_META_TRANSFORMATION_270 },
+	{ Transform::Rot270, SPA_META_TRANSFORMATION_90 },
+	{ Transform::Rot180Transpose, SPA_META_TRANSFORMATION_Flipped270 },
+};
+
+static uint32_t libcamera_transform_to_spa_transform_value(Transform transform)
+{
+	for (const auto& t : transform_map) {
+		if (t.libcamera_transform == transform)
+			return t.spa_transform_value;
+	}
+	return SPA_META_TRANSFORMATION_None;
+}
+
 static int
 mmap_init(struct impl *impl, struct port *port,
 		struct spa_buffer **buffers, uint32_t n_buffers)
@@ -741,6 +766,15 @@ mmap_init(struct impl *impl, struct port *port,
 		b->outbuf = buffers[i];
 		b->flags = BUFFER_FLAG_OUTSTANDING;
 		b->h = (struct spa_meta_header*)spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
+
+		b->videotransform = (struct spa_meta_videotransform*)spa_buffer_find_meta_data(
+			buffers[i], SPA_META_VideoTransform, sizeof(*b->videotransform));
+		if (b->videotransform) {
+			b->videotransform->transform =
+				libcamera_transform_to_spa_transform_value(impl->config->transform);
+			spa_log_debug(impl->log, "Setting videotransform for buffer %d to %u",
+				i, b->videotransform->transform);
+		}
 
 		d = buffers[i]->datas;
 		for(j = 0; j < buffers[i]->n_datas; ++j) {

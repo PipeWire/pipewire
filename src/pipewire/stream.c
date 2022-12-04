@@ -1002,6 +1002,7 @@ static int impl_node_process_input(void *object)
 	if (io->status == SPA_STATUS_HAVE_DATA &&
 	    (b = get_buffer(stream, io->buffer_id)) != NULL) {
 		/* push new buffer */
+		pw_log_trace_fp("%p: push %d %p", stream, b->id, io);
 		if (queue_push(impl, &impl->dequeued, b) == 0) {
 			copy_position(impl, impl->dequeued.incount);
 			if (b->busy)
@@ -1009,13 +1010,15 @@ static int impl_node_process_input(void *object)
 			call_process(impl);
 		}
 	}
-	if (io->status != SPA_STATUS_NEED_DATA) {
+	if (io->status != SPA_STATUS_NEED_DATA || io->buffer_id == SPA_ID_INVALID) {
 		/* pop buffer to recycle */
 		if ((b = queue_pop(impl, &impl->queued))) {
 			pw_log_trace_fp("%p: recycle buffer %d", stream, b->id);
-		} else if (io->status == -EPIPE)
-			return io->status;
-		io->buffer_id = b ? b->id : SPA_ID_INVALID;
+			io->buffer_id = b->id;
+		} else {
+			pw_log_trace_fp("%p: no buffers to recycle", stream);
+			io->buffer_id = SPA_ID_INVALID;
+		}
 		io->status = SPA_STATUS_NEED_DATA;
 	}
 	if (impl->driving && impl->using_trigger)

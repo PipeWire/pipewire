@@ -100,7 +100,8 @@ static int webrtc_init(void *object, const struct spa_dict *args, const struct s
 	}
 
 	apm->high_pass_filter()->Enable(high_pass_filter);
-	// Always disable drift compensation since it requires drift sampling
+	// Always disable drift compensation since PipeWire will already do
+	// drift compensation on all sinks and sources linked to this echo-canceler
 	apm->echo_cancellation()->enable_drift_compensation(false);
 	apm->echo_cancellation()->Enable(true);
 	// TODO: wire up supression levels to args

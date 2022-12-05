@@ -138,6 +138,27 @@ static int follower_enum_params(struct impl *this,
 	return 0;
 }
 
+static int convert_enum_port_config(struct impl *this,
+		int seq, uint32_t id, uint32_t start, uint32_t num,
+		const struct spa_pod *filter, struct spa_pod_builder *builder)
+{
+	struct spa_pod *f1, *f2 = NULL;
+	int res;
+
+	f1 = spa_pod_builder_add_object(builder,
+		SPA_TYPE_OBJECT_ParamPortConfig, id,
+			SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(this->direction));
+
+	if (filter) {
+		if ((res = spa_pod_filter(builder, &f2, f1, filter)) < 0)
+			return res;
+	}
+	else {
+		f2 = f1;
+	}
+	return spa_node_enum_params(this->convert, seq, id, start, num, f2);
+}
+
 static int impl_node_enum_params(void *object, int seq,
 				 uint32_t id, uint32_t start, uint32_t num,
 				 const struct spa_pod *filter)
@@ -163,9 +184,25 @@ next:
 
 	switch (id) {
 	case SPA_PARAM_EnumPortConfig:
+		return convert_enum_port_config(this, seq, id, start, num, filter, &b.b);
 	case SPA_PARAM_PortConfig:
-		res = spa_node_enum_params(this->convert, seq, id, start, num, filter);
-		return res;
+		if (this->passthrough) {
+			switch (result.index) {
+			case 0:
+				result.param = spa_pod_builder_add_object(&b.b,
+					SPA_TYPE_OBJECT_ParamPortConfig, id,
+					SPA_PARAM_PORT_CONFIG_direction, SPA_POD_Id(this->direction),
+					SPA_PARAM_PORT_CONFIG_mode,      SPA_POD_Id(
+						SPA_PARAM_PORT_CONFIG_MODE_passthrough));
+				result.next++;
+				break;
+			default:
+				return 0;
+			}
+		} else {
+			return convert_enum_port_config(this, seq, id, start, num, filter, &b.b);
+		}
+		break;
 	case SPA_PARAM_PropInfo:
 		res = follower_enum_params(this,
 				id, IDX_PropInfo, &result, filter, &b.b);

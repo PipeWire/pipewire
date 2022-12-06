@@ -104,11 +104,11 @@ static const struct pw_core_events core_events = {
 	.error = module_null_sink_core_error,
 };
 
-static int module_null_sink_load(struct client *client, struct module *module)
+static int module_null_sink_load(struct module *module)
 {
 	struct module_null_sink_data *d = module->user_data;
 
-	d->core = pw_context_connect(module->impl->context, pw_properties_copy(client->props), 0);
+	d->core = pw_context_connect(module->impl->context, NULL, 0);
 	if (d->core == NULL)
 		return -errno;
 

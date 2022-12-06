@@ -29,7 +29,6 @@
 #include <spa/param/audio/raw.h>
 #include <spa/utils/hook.h>
 
-#include "client.h"
 #include "internal.h"
 
 struct module;
@@ -41,7 +40,7 @@ struct module_info {
 	unsigned int load_once:1;
 
 	int (*prepare) (struct module *module);
-	int (*load) (struct client *client, struct module *module);
+	int (*load) (struct module *module);
 	int (*unload) (struct module *module);
 
 	const struct spa_dict *properties;
@@ -78,9 +77,9 @@ struct module {
 #define module_emit_loaded(m,r) spa_hook_list_call(&m->listener_list, struct module_events, loaded, 0, r)
 #define module_emit_destroy(m) spa_hook_list_call(&(m)->listener_list, struct module_events, destroy, 0)
 
-struct module *module_create(struct client *client, const char *name, const char *args);
+struct module *module_create(struct impl *impl, const char *name, const char *args);
 void module_free(struct module *module);
-int module_load(struct client *client, struct module *module);
+int module_load(struct module *module);
 int module_unload(struct module *module);
 void module_schedule_unload(struct module *module);
 

@@ -38,10 +38,10 @@ struct module_native_protocol_tcp_data {
 	struct pw_array servers;
 };
 
-static int module_native_protocol_tcp_load(struct client *client, struct module *module)
+static int module_native_protocol_tcp_load(struct module *module)
 {
 	struct module_native_protocol_tcp_data *data = module->user_data;
-	struct impl *impl = client->impl;
+	struct impl *impl = module->impl;
 	const char *address;
 	int res;
 

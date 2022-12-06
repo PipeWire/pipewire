@@ -58,10 +58,10 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy
 };
 
-static int module_simple_protocol_tcp_load(struct client *client, struct module *module)
+static int module_simple_protocol_tcp_load(struct module *module)
 {
 	struct module_simple_protocol_tcp_data *data = module->user_data;
-	struct impl *impl = client->impl;
+	struct impl *impl = module->impl;
 	char *args;
 	size_t size;
 	uint32_t i;

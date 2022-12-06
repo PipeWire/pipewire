@@ -55,7 +55,7 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy
 };
 
-static int module_raop_discover_load(struct client *client, struct module *module)
+static int module_raop_discover_load(struct module *module)
 {
 	struct module_raop_discover_data *data = module->user_data;
 

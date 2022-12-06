@@ -63,7 +63,7 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy
 };
 
-static int module_loopback_load(struct client *client, struct module *module)
+static int module_loopback_load(struct module *module)
 {
 	struct module_loopback_data *data = module->user_data;
 	FILE *f;

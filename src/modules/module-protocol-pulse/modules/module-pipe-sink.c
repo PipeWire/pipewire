@@ -64,7 +64,7 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy
 };
 
-static int module_pipe_sink_load(struct client *client, struct module *module)
+static int module_pipe_sink_load(struct module *module)
 {
 	struct module_pipesink_data *data = module->user_data;
 	FILE *f;

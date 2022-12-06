@@ -647,14 +647,13 @@ static const struct impl_events impl_events = {
 	.server_stopped = impl_server_stopped,
 };
 
-static int module_zeroconf_publish_load(struct client *client, struct module *module)
+static int module_zeroconf_publish_load(struct module *module)
 {
 	struct module_zeroconf_publish_data *data = module->user_data;
 	struct pw_loop *loop;
 	int error;
 
-	data->core = pw_context_connect(module->impl->context,
-			pw_properties_copy(client->props), 0);
+	data->core = pw_context_connect(module->impl->context, NULL, 0);
 	if (data->core == NULL) {
 		pw_log_error("failed to connect to pipewire: %m");
 		return -errno;

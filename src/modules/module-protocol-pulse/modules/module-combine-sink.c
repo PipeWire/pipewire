@@ -391,7 +391,7 @@ static void on_sinks_timeout(void *d, uint64_t count)
 	check_initialized(data);
 }
 
-static int module_combine_sink_load(struct client *client, struct module *module)
+static int module_combine_sink_load(struct module *module)
 {
 	struct module_combine_sink_data *data = module->user_data;
 	struct pw_properties *props;
@@ -402,9 +402,7 @@ static int module_combine_sink_load(struct client *client, struct module *module
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	const char *str;
 
-	data->core = pw_context_connect(module->impl->context,
-			pw_properties_copy(client->props),
-			0);
+	data->core = pw_context_connect(module->impl->context, NULL, 0);
 	if (data->core == NULL)
 		return -errno;
 

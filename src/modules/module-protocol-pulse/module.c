@@ -36,7 +36,6 @@
 #include <pipewire/properties.h>
 #include <pipewire/work-queue.h>
 
-#include "client.h"
 #include "defs.h"
 #include "format.h"
 #include "internal.h"
@@ -84,14 +83,14 @@ void module_add_listener(struct module *module,
 	spa_hook_list_append(&module->listener_list, listener, events, data);
 }
 
-int module_load(struct client *client, struct module *module)
+int module_load(struct module *module)
 {
 	pw_log_info("load module index:%u name:%s", module->index, module->info->name);
 	if (module->info->load == NULL)
 		return -ENOTSUP;
 	/* subscription event is sent when the module does a
 	 * module_emit_loaded() */
-	return module->info->load(client, module);
+	return module->info->load(module);
 }
 
 void module_free(struct module *module)
@@ -118,9 +117,6 @@ int module_unload(struct module *module)
 {
 	struct impl *impl = module->impl;
 	int res = 0;
-
-	/* Note that client can be NULL (when the module is being unloaded
-	 * internally and not by a client request */
 
 	pw_log_info("unload module index:%u name:%s", module->index, module->info->name);
 
@@ -283,9 +279,8 @@ static int find_module_by_name(void *item_data, void *data)
 	return spa_streq(module->info->name, name) ? 1 : 0;
 }
 
-struct module *module_create(struct client *client, const char *name, const char *args)
+struct module *module_create(struct impl *impl, const char *name, const char *args)
 {
-	struct impl *impl = client->impl;
 	const struct module_info *info;
 	struct module *module;
 

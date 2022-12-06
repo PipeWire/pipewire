@@ -175,13 +175,13 @@ static const struct pw_core_events core_events = {
 	.done = on_core_done,
 };
 
-static int module_switch_on_connect_load(struct client *client, struct module *module)
+static int module_switch_on_connect_load(struct module *module)
 {
-	struct impl *impl = client->impl;
+	struct impl *impl = module->impl;
 	struct module_switch_on_connect_data *d = module->user_data;
 	int res;
 
-	d->core = pw_context_connect(impl->context, pw_properties_copy(client->props), 0);
+	d->core = pw_context_connect(impl->context, NULL, 0);
 	if (d->core == NULL) {
 		res = -errno;
 		goto error;

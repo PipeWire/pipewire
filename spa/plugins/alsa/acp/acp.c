@@ -1348,7 +1348,6 @@ static int device_disable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_devic
 static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device *dev)
 {
 	const char *mod_name;
-	bool ignore_dB = false;
 	uint32_t i, port_index;
 	int res;
 
@@ -1365,7 +1364,7 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 
 	dev->device.flags |= ACP_DEVICE_ACTIVE;
 
-	find_mixer(impl, dev, NULL, ignore_dB);
+	find_mixer(impl, dev, NULL, impl->ignore_dB);
 
 	/* Synchronize priority values, as it may have changed when setting the profile */
 	for (i = 0; i < impl->card.n_ports; i++) {
@@ -1386,7 +1385,7 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 	if (dev->active_port)
 		dev->active_port->port.flags |= ACP_PORT_ACTIVE;
 
-	if ((res = setup_mixer(impl, dev, ignore_dB)) < 0)
+	if ((res = setup_mixer(impl, dev, impl->ignore_dB)) < 0)
 		return res;
 
 	if (dev->read_volume)
@@ -1533,7 +1532,6 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	struct acp_card *card;
 	const char *s, *profile_set = NULL, *profile = NULL;
 	char device_id[16];
-	bool ignore_dB = false;
 	uint32_t profile_index;
 	int res;
 
@@ -1554,6 +1552,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	impl->use_ucm = true;
 	impl->auto_profile = true;
 	impl->auto_port = true;
+	impl->ignore_dB = false;
 
 	if (props) {
 		if ((s = acp_dict_lookup(props, "api.alsa.use-ucm")) != NULL)
@@ -1561,7 +1560,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 		if ((s = acp_dict_lookup(props, "api.alsa.soft-mixer")) != NULL)
 			impl->soft_mixer = spa_atob(s);
 		if ((s = acp_dict_lookup(props, "api.alsa.ignore-dB")) != NULL)
-			ignore_dB = spa_atob(s);
+			impl->ignore_dB = spa_atob(s);
 		if ((s = acp_dict_lookup(props, "device.profile-set")) != NULL)
 			profile_set = s;
 		if ((s = acp_dict_lookup(props, "device.profile")) != NULL)
@@ -1609,7 +1608,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 		goto error;
 	}
 
-	impl->profile_set->ignore_dB = ignore_dB;
+	impl->profile_set->ignore_dB = impl->ignore_dB;
 
 	pa_alsa_profile_set_probe(impl->profile_set, impl->ucm.mixers,
 			device_id,

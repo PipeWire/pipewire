@@ -1,3 +1,80 @@
+# PipeWire 0.3.62 (2022-12-09)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - A regression in screensharing was fixed. It was caused by a race when
+    activating links and driver nodes.
+  - Video transform metadata was added so that cameras and screen sharing
+    can report the video orientation and transformations.
+  - Support for the PulseAudio module-gsettings was added to make paprefs
+    work.
+  - Support for bluetooth offloading was added. This allows for the bluetooth
+    reception, decoding and playback to happen completely in hardware.
+    This also requires some support in WirePlumber.
+  - Many bugfixes and improvements.
+
+
+## PipeWire
+  - More work on stopping nodes in a more controlled way.
+  - Fix a race in starting nodes and drivers. In some cases the driver
+    node would already be started while the link to the peer node was not
+    ready yet. This caused regressions in screen sharing. The driver is
+    now only started after all the followers and links completed.
+  - Fix a case where a slow capture stream would not recycle buffers
+    anymore and stall. (#2874)
+  - Fix a subtle bug in pw_loop_invoke that could cause callbacks to be
+    delayed and cause crashes in some cases.
+  - Fix a case where IPC was done from the data-thread and could cause
+    crashes.
+
+## Tools
+  - Silence some expected errors in the pw-top output.
+
+## modules
+  - The filter-chain has seen some optimizations in the copy plugin and
+    the convolver.
+  - The zeroconf plugin will now only unpublish services from the server
+    that was removed.
+  - Fix a potential crash when stopping pw-loopback.
+  - Some harmless errors were turned into info messages.
+  - Fix some cases where pw_stream methods were called from the data-thread
+    that could cause segfaults. (#2633)
+
+## SPA
+  - There is now a video transform metadata that indicates how a video
+    frame was transformed (rotated/flipped). libcamera and the GStreamer
+    elements now have support for this metadata.
+  - The SPA volume plugin is now disabled from the default build.
+  - Handle missing control info in libcamera.
+  - Handle errors from loop better, don't call the callbacks on errors.
+  - Somewhat improve performance in some audioconvert AVX2 code for format
+    conversion.
+  - Fix PortConfig and EnumPortConfig params in audioconvert and
+    audioadapter to reflect what is actually going on instead of using
+    hardcoded values.
+  - Pass ignore-dB property correctly in all cases.
+  - Probing is now done in 48KHz again. (#2857)
+
+## Pulse-server
+  - IPv4 addresses are now added first to the list and exposed first with
+    zeroconf discover.
+  - module-gsettings was added to make paprefs work.
+  - The pulse.idle.timeout option was disabled by default and only enabled
+    for selected apps (speech-dispatcher) because it caused some problems
+    for other apps. (#2880)
+
+## JACK
+  - Only process valid ports. Could fix some crashes. (#2863)
+
+## Bluetooth
+  - Support was added for offloading bluetooth handling. Some hardware can
+    receive, decode and play the bluetooth audio directly in hardware.
+
+
+Older versions:
+
 # PipeWire 0.3.61 (2022-11-24)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -64,9 +141,6 @@ This is a bugfix release that is API and ABI compatible with previous
     (#2841)
   - Add option to set node.passive on jack clients. Make some quirks
     for qsynth to make it suspend and fade out better.
-
-
-Older versions:
 
 # PipeWire 0.3.60 (2022-11-10)
 

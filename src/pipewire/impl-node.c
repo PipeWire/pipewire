@@ -809,16 +809,8 @@ do_move_nodes(struct spa_loop *loop,
 	struct impl *impl = user_data;
 	struct pw_impl_node *driver = *(struct pw_impl_node **)data;
 	struct pw_impl_node *node = &impl->this;
-	int res;
 
 	pw_log_trace("%p: driver:%p->%p", node, node->driver_node, driver);
-
-	if ((res = spa_node_set_io(node->node,
-		    SPA_IO_Position,
-		    &driver->rt.activation->position,
-		    sizeof(struct spa_io_position))) < 0) {
-		pw_log_debug("%p: set position: %s", node, spa_strerror(res));
-	}
 
 	pw_log_trace("%p: set position %p", node, &driver->rt.activation->position);
 	node->rt.position = &driver->rt.activation->position;
@@ -845,6 +837,7 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_impl_node *old = node->driver_node;
+	int res;
 
 	if (driver == NULL)
 		driver = node;
@@ -877,6 +870,13 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 
 	node->driver_node = driver;
 	node->moved = true;
+
+	if ((res = spa_node_set_io(node->node,
+		    SPA_IO_Position,
+		    &driver->rt.activation->position,
+		    sizeof(struct spa_io_position))) < 0) {
+		pw_log_debug("%p: set position: %s", node, spa_strerror(res));
+	}
 
 	pw_loop_invoke(node->data_loop,
 		       do_move_nodes, SPA_ID_INVALID, &driver, sizeof(struct pw_impl_node *),

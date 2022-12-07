@@ -269,3 +269,7 @@ option('readline',
        description: 'Enable code that depends on libreadline',
        type: 'feature',
        value: 'auto')
+option('gsettings',
+       description: 'Enable code that depends on gsettings',
+       type: 'feature',
+       value: 'auto')

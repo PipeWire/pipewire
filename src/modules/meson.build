@@ -289,6 +289,14 @@ if avahi_dep.found()
   cdata.set('HAVE_AVAHI', true)
 endif
 
+if gio_dep.found()
+  pipewire_module_protocol_pulse_sources += [
+    'module-protocol-pulse/modules/module-gsettings.c',
+  ]
+  pipewire_module_protocol_pulse_deps += gio_dep
+  cdata.set('HAVE_GIO', true)
+endif
+
 if flatpak_support
   pipewire_module_protocol_pulse_deps += glib2_dep
 endif

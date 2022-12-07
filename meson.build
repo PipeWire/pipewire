@@ -301,6 +301,9 @@ summary({'GLib-2.0 (Flatpak support)': glib2_dep.found()}, bool_yn: true, sectio
 flatpak_support = glib2_dep.found()
 cdata.set('HAVE_GLIB2', flatpak_support)
 
+gio_dep = dependency('gio-2.0', version : '>= 2.26.0', required : get_option('gsettings'))
+summary({'GIO (GSettings)': gio_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+
 gst_option = get_option('gstreamer')
 gst_deps_def = {
   'glib-2.0': {'version': '>=2.32.0'},

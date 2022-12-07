@@ -852,9 +852,11 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		this->started = true;
 		break;
 	case SPA_NODE_COMMAND_Suspend:
+		this->started = false;
 		spa_log_debug(this->log, "%p: suspending", this);
 		break;
 	case SPA_NODE_COMMAND_Pause:
+		this->started = false;
 		spa_log_debug(this->log, "%p: pausing", this);
 		break;
 	case SPA_NODE_COMMAND_Flush:
@@ -886,10 +888,10 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		break;
 	case SPA_NODE_COMMAND_Suspend:
 		configure_format(this, 0, NULL);
-		SPA_FALLTHROUGH
+		spa_log_debug(this->log, "%p: suspended", this);
+		break;
 	case SPA_NODE_COMMAND_Pause:
-		this->started = false;
-		spa_log_debug(this->log, "%p: stopped", this);
+		spa_log_debug(this->log, "%p: paused", this);
 		break;
 	case SPA_NODE_COMMAND_Flush:
 		spa_log_debug(this->log, "%p: flushed", this);

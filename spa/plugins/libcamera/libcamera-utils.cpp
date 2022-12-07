@@ -709,8 +709,8 @@ static const struct {
 	{ Transform::HVFlip, SPA_META_TRANSFORMATION_180 },
 	{ Transform::Rot180, SPA_META_TRANSFORMATION_180 },
 	{ Transform::Transpose, SPA_META_TRANSFORMATION_Flipped90 },
-	{ Transform::Rot90, SPA_META_TRANSFORMATION_270 },
-	{ Transform::Rot270, SPA_META_TRANSFORMATION_90 },
+	{ Transform::Rot90, SPA_META_TRANSFORMATION_90 },
+	{ Transform::Rot270, SPA_META_TRANSFORMATION_270 },
 	{ Transform::Rot180Transpose, SPA_META_TRANSFORMATION_Flipped270 },
 };
 
@@ -772,8 +772,9 @@ mmap_init(struct impl *impl, struct port *port,
 		if (b->videotransform) {
 			b->videotransform->transform =
 				libcamera_transform_to_spa_transform_value(impl->config->transform);
-			spa_log_debug(impl->log, "Setting videotransform for buffer %d to %u",
-				i, b->videotransform->transform);
+			spa_log_debug(impl->log, "Setting videotransform for buffer %d to %u (from %s)",
+				i, b->videotransform->transform, transformToString(impl->config->transform));
+
 		}
 
 		d = buffers[i]->datas;

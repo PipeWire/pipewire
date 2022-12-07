@@ -812,7 +812,7 @@ do_deactivate_link(struct spa_loop *loop,
 	spa_list_remove(&this->rt.out_mix.rt_link);
 	spa_list_remove(&this->rt.in_mix.rt_link);
 
-	if (this->input->node != this->output->node) {
+	if (impl->inode != impl->onode) {
 		struct pw_node_activation_state *state;
 
 		spa_list_remove(&this->rt.target.link);

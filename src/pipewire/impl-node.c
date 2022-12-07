@@ -2272,9 +2272,9 @@ int pw_impl_node_set_active(struct pw_impl_node *node, bool active)
 	bool old = node->active;
 
 	if (old != active) {
-		pw_log_debug("%p: %s registered:%d", node,
+		pw_log_debug("%p: %s registered:%d exported:%d", node,
 				active ? "activate" : "deactivate",
-				node->registered);
+				node->registered, node->exported);
 
 		node->active = active;
 		pw_impl_node_emit_active_changed(node, active);

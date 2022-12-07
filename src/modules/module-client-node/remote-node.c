@@ -1186,7 +1186,7 @@ static int node_ready(void *d, int status)
 	struct timespec ts;
 	struct pw_impl_port *p;
 
-	pw_log_trace("node %p: ready driver:%d exported:%d status:%d", node,
+	pw_log_trace_fp("node %p: ready driver:%d exported:%d status:%d", node,
 			node->driver, node->exported, status);
 
 	if (status & SPA_STATUS_HAVE_DATA) {

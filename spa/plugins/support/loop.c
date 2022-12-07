@@ -167,10 +167,12 @@ static int loop_remove_source(void *object, struct spa_source *source)
 static void flush_items(struct impl *impl)
 {
 	uint32_t index;
+	int32_t avail;
 	int res;
 
 	impl->flushing = true;
-	while (spa_ringbuffer_get_read_index(&impl->buffer, &index) > 0) {
+	avail = spa_ringbuffer_get_read_index(&impl->buffer, &index);
+	while (avail > 0) {
 		struct invoke_item *item;
 		bool block;
 
@@ -182,7 +184,9 @@ static void flush_items(struct impl *impl)
 				true, item->seq, item->data, item->size,
 			   item->user_data) : 0;
 
-		spa_ringbuffer_read_update(&impl->buffer, index + item->item_size);
+		index += item->item_size;
+		avail -= item->item_size;
+		spa_ringbuffer_read_update(&impl->buffer, index);
 
 		if (block) {
 			if ((res = spa_system_eventfd_write(impl->system, impl->ack_fd, 1)) < 0)

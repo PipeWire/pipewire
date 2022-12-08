@@ -306,8 +306,17 @@ static void flush_packets(struct impl *impl)
 			&iov[1], tosend);
 
 		n = sendmsg(impl->rtp_fd, &msg, MSG_NOSIGNAL);
-		if (n < 0)
-			pw_log_warn("sendmsg() failed: %m");
+		if (n < 0) {
+			switch (errno) {
+			case ECONNREFUSED:
+			case ECONNRESET:
+				pw_log_debug("remote end not listening");
+				break;
+			default:
+				pw_log_warn("sendmsg() failed: %m");
+				break;
+			}
+		}
 
 		impl->seq++;
 		impl->timestamp += tosend / impl->frame_size;

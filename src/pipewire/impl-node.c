@@ -838,6 +838,7 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_impl_node *old = node->driver_node;
 	int res;
+	bool was_driving;
 
 	if (driver == NULL)
 		driver = node;
@@ -860,7 +861,15 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 				old->name, old->info.id,
 				driver->name, driver->info.id);
 	}
+	was_driving = node->driving;
 	node->driving = node->driver && driver == node;
+
+	/* When a node was driver (and is waiting for all nodes to complete
+	 * the Start command) cancel the pending state and let the new driver
+	 * calculate a new state so that the Start command is sent to the
+	 * node */
+	if (was_driving && !node->driving)
+		impl->pending_state = node->info.state;
 
 	pw_log_debug("%p: driver %p driving:%u", node,
 		driver, node->driving);

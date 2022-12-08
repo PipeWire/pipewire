@@ -214,6 +214,7 @@ struct session {
 	struct spa_ringbuffer ring;
 	uint8_t buffer[BUFFER_SIZE];
 
+	struct spa_io_rate_match *rate_match;
 	struct spa_dll dll;
 	uint32_t target_buffer;
 	float max_error;
@@ -269,8 +270,10 @@ static void stream_process(void *data)
 			pw_log_debug("avail:%u target:%u error:%f corr:%f", avail,
 					sess->target_buffer, error, corr);
 
-			pw_stream_set_control(sess->stream,
-					SPA_PROP_rate, 1, &corr, NULL);
+			if (sess->rate_match) {
+				SPA_FLAG_SET(sess->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE);
+				sess->rate_match->rate = corr;
+			}
 		}
 		spa_ringbuffer_read_data(&sess->ring,
 				sess->buffer,
@@ -308,10 +311,21 @@ static void on_stream_state_changed(void *d, enum pw_stream_state old,
 	}
 }
 
+static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
+{
+	struct session *sess = data;
+	switch (id) {
+	case SPA_IO_RateMatch:
+		sess->rate_match = area;
+		break;
+	}
+}
+
 static const struct pw_stream_events out_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = stream_destroy,
 	.state_changed = on_stream_state_changed,
+	.io_changed = stream_io_changed,
 	.process = stream_process
 };
 

@@ -189,6 +189,7 @@ struct impl {
 	uint32_t target_latency;
 	uint32_t current_latency;
 	uint32_t target_buffer;
+	struct spa_io_rate_match *rate_match;
 	struct spa_dll dll;
 	float max_error;
 	unsigned resync:1;
@@ -250,6 +251,28 @@ static void stream_state_changed(void *d, enum pw_stream_state old,
 	}
 }
 
+static void update_rate(struct impl *impl, bool playback)
+{
+	float error, corr;
+
+	if (impl->rate_match == NULL)
+		return;
+
+	if (playback)
+		error = (float)impl->target_latency - (float)impl->current_latency;
+	else
+		error = (float)impl->current_latency - (float)impl->target_latency;
+	error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
+
+	corr = spa_dll_update(&impl->dll, error);
+	pw_log_debug("error:%f corr:%f current:%u target:%u",
+			error, corr,
+			impl->current_latency, impl->target_latency);
+
+	SPA_FLAG_SET(impl->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE);
+	impl->rate_match->rate = corr;
+}
+
 static void playback_stream_process(void *d)
 {
 	struct impl *impl = d;
@@ -279,17 +302,7 @@ static void playback_stream_process(void *d)
                                         size, RINGBUFFER_SIZE);
 		impl->resync = true;
 	} else {
-		float error, corr;
-
-		error = (float)impl->target_latency - (float)impl->current_latency;
-		error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
-
-		corr = spa_dll_update(&impl->dll, error);
-		pw_log_debug("filled:%u target:%u error:%f corr:%f %u %u", filled,
-				impl->target_buffer, error, corr,
-				impl->current_latency, impl->target_latency);
-		pw_stream_set_control(impl->stream,
-				SPA_PROP_rate, 1, &corr, NULL);
+		update_rate(impl, true);
 	}
 	spa_ringbuffer_write_data(&impl->ring,
 				impl->buffer, RINGBUFFER_SIZE,
@@ -326,24 +339,12 @@ static void capture_stream_process(void *d)
 	if (avail < (int32_t)size) {
 		memset(bd->data, 0, size);
 	} else {
-		float error, corr;
-
 		if (avail > (int32_t)RINGBUFFER_SIZE) {
 			avail = impl->target_buffer;
 			index += avail - impl->target_buffer;
 		} else {
-			error = (float)(impl->current_latency) - (float)impl->target_latency;
-			error = SPA_CLAMP(error, -impl->max_error, impl->max_error);
-
-			corr = spa_dll_update(&impl->dll, error);
-
-			pw_log_debug("avail:%u target:%u error:%f corr:%f %u %u", avail,
-					impl->target_buffer, error, corr,
-					impl->current_latency, impl->target_latency);
-			pw_stream_set_control(impl->stream,
-					SPA_PROP_rate, 1, &corr, NULL);
+			update_rate(impl, false);
 		}
-
 		spa_ringbuffer_read_data(&impl->ring,
 				impl->buffer, RINGBUFFER_SIZE,
 				index & RINGBUFFER_MASK,
@@ -359,10 +360,21 @@ static void capture_stream_process(void *d)
 	pw_stream_queue_buffer(impl->stream, buf);
 }
 
+static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
+{
+	struct impl *impl = data;
+	switch (id) {
+	case SPA_IO_RateMatch:
+		impl->rate_match = area;
+		break;
+	}
+}
+
 static const struct pw_stream_events playback_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = stream_destroy,
 	.state_changed = stream_state_changed,
+	.io_changed = stream_io_changed,
 	.process = playback_stream_process
 };
 
@@ -370,6 +382,7 @@ static const struct pw_stream_events capture_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = stream_destroy,
 	.state_changed = stream_state_changed,
+	.io_changed = stream_io_changed,
 	.process = capture_stream_process
 };
 

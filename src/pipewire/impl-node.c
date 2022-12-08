@@ -2257,11 +2257,10 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 		/* driver nodes return EBUSY to add a -EBUSY to the work queue. This
 		 * will wait until all previous items in the work queue are
 		 * completed */
-		if (res == EBUSY)
-			res = -res;
 		impl->pending_state = state;
 		impl->pending_id = pw_work_queue_add(impl->work,
-				node, res, on_state_complete, SPA_INT_TO_PTR(state));
+				node, res == EBUSY ? -EBUSY : res,
+				on_state_complete, SPA_INT_TO_PTR(state));
 	}
 	return res;
 }

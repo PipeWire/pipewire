@@ -204,6 +204,8 @@ on_process(void *_data)
 		}
 
 		sstride = buf->datas[0].chunk->stride;
+		if (sstride == 0)
+			sstride = buf->datas[0].chunk->size / data->size.height;
 		ostride = SPA_MIN(sstride, dstride);
 
 		src = sdata;

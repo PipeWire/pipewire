@@ -139,6 +139,8 @@ on_process(void *_data, struct spa_io_position *position)
 
 	/* copy video image in texture */
 	sstride = buf->datas[0].chunk->stride;
+	if (sstride == 0)
+		sstride = buf->datas[0].chunk->size / data->position->video.size.height;
 
 	src = sdata;
 	dst = ddata;

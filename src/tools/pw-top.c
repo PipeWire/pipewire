@@ -663,11 +663,20 @@ static void on_core_error(void *_data, uint32_t id, int seq, int res, const char
 {
 	struct data *data = _data;
 
-	pw_log_error("error id:%u seq:%d res:%d (%s): %s",
-			id, seq, res, spa_strerror(res), message);
-
-	if (id == PW_ID_CORE && res == -EPIPE)
-		pw_main_loop_quit(data->loop);
+	if (id == PW_ID_CORE) {
+		switch (res) {
+		case -EPIPE:
+			pw_main_loop_quit(data->loop);
+			break;
+		default:
+			pw_log_error("error id:%u seq:%d res:%d (%s): %s",
+				id, seq, res, spa_strerror(res), message);
+			break;
+		}
+	} else {
+		pw_log_info("error id:%u seq:%d res:%d (%s): %s",
+				id, seq, res, spa_strerror(res), message);
+	}
 }
 
 static void on_core_done(void *_data, uint32_t id, int seq)

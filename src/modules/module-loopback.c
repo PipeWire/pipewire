@@ -451,25 +451,11 @@ static int setup_streams(struct impl *impl)
 			&impl->playback_listener,
 			&out_stream_events, impl);
 
-	n_params = 0;
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
-			&impl->capture_info);
-
-	if ((res = pw_stream_connect(impl->capture,
-			PW_DIRECTION_INPUT,
-			PW_ID_ANY,
-			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_MAP_BUFFERS |
-			PW_STREAM_FLAG_RT_PROCESS,
-			params, n_params)) < 0)
-		return res;
-
+	/* connect playback first to activate it before capture triggers it */
 	n_params = 0;
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
 			&impl->playback_info);
-
 	if ((res = pw_stream_connect(impl->playback,
 			PW_DIRECTION_OUTPUT,
 			PW_ID_ANY,
@@ -477,6 +463,19 @@ static int setup_streams(struct impl *impl)
 			PW_STREAM_FLAG_MAP_BUFFERS |
 			PW_STREAM_FLAG_RT_PROCESS |
 			PW_STREAM_FLAG_TRIGGER,
+			params, n_params)) < 0)
+		return res;
+
+	n_params = 0;
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
+			&impl->capture_info);
+	if ((res = pw_stream_connect(impl->capture,
+			PW_DIRECTION_INPUT,
+			PW_ID_ANY,
+			PW_STREAM_FLAG_AUTOCONNECT |
+			PW_STREAM_FLAG_MAP_BUFFERS |
+			PW_STREAM_FLAG_RT_PROCESS,
 			params, n_params)) < 0)
 		return res;
 

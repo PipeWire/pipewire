@@ -491,6 +491,7 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
     GstMemory *mem = gst_buffer_peek_memory (buffer, i);
     d->chunk->offset = mem->offset;
     d->chunk->size = mem->size;
+    d->chunk->stride = 0;
   }
 
   if ((res = pw_stream_queue_buffer (pwsink->stream, data->b)) < 0) {

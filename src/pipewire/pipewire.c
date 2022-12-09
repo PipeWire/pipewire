@@ -64,7 +64,6 @@ struct plugin {
 	char *filename;
 	void *hnd;
 	spa_handle_factory_enum_func_t enum_func;
-	struct spa_list handles;
 	int ref;
 };
 
@@ -78,6 +77,7 @@ struct handle {
 
 struct registry {
 	struct spa_list plugins;
+	struct spa_list handles; /* all handles across all plugins by age (youngest first) */
 };
 
 struct support {
@@ -149,7 +149,6 @@ open_plugin(struct registry *registry,
 	plugin->filename = strdup(filename);
 	plugin->hnd = hnd;
 	plugin->enum_func = enum_func;
-	spa_list_init(&plugin->handles);
 
 	spa_list_append(&registry->plugins, &plugin->link);
 
@@ -290,7 +289,7 @@ static struct spa_handle *load_spa_handle(const char *lib,
 	handle->ref = 1;
 	handle->plugin = plugin;
 	handle->factory_name = strdup(factory_name);
-	spa_list_append(&plugin->handles, &handle->link);
+	spa_list_prepend(&sup->registry.handles, &handle->link);
 
 	return &handle->handle;
 
@@ -321,15 +320,13 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 static struct handle *find_handle(struct spa_handle *handle)
 {
 	struct registry *registry = &global_support.registry;
-	struct plugin *p;
 	struct handle *h;
 
-	spa_list_for_each(p, &registry->plugins, link) {
-		spa_list_for_each(h, &p->handles, link) {
-			if (&h->handle == handle)
-				return h;
-		}
+	spa_list_for_each(h, &registry->handles, link) {
+		if (&h->handle == handle)
+			return h;
 	}
+
 	return NULL;
 }
 
@@ -611,6 +608,7 @@ void pw_init(int *argc, char **argv[])
 	support->support_lib = str;
 
 	spa_list_init(&support->registry.plugins);
+	spa_list_init(&support->registry.handles);
 
 	if (pw_log_is_default()) {
 		char *patterns = NULL;
@@ -684,7 +682,7 @@ void pw_deinit(void)
 {
 	struct support *support = &global_support;
 	struct registry *registry = &support->registry;
-	struct plugin *p;
+	struct handle *h;
 
 	pthread_mutex_lock(&init_lock);
 	if (support->init_count == 0)
@@ -694,13 +692,10 @@ void pw_deinit(void)
 
 	pthread_mutex_lock(&support_lock);
 	pw_log_set(NULL);
-	spa_list_consume(p, &registry->plugins, link) {
-		struct handle *h;
-		p->ref++;
-		spa_list_consume(h, &p->handles, link)
-			unref_handle(h);
-		unref_plugin(p);
-	}
+
+	spa_list_consume(h, &registry->handles, link)
+		unref_handle(h);
+
 	pw_free_strv(support->categories);
 	free(support->i18n_domain);
 	spa_zero(global_support);

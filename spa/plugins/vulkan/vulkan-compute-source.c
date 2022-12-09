@@ -34,6 +34,7 @@
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
+#include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/node/node.h>
 #include <spa/node/utils.h>

@@ -231,7 +231,7 @@ static void set_timer(struct impl *this, bool enabled)
 	}
 }
 
-static inline void read_timer(struct impl *this)
+static inline int read_timer(struct impl *this)
 {
 	uint64_t expirations;
 	int res = 0;

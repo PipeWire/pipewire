@@ -36,6 +36,7 @@
 #include <arpa/inet.h>
 
 #include <spa/pod/filter.h>
+#include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/support/system.h>
 #include <spa/utils/keys.h>
@@ -1048,14 +1049,15 @@ static void avb_on_timeout_event(struct spa_source *source)
 	struct state *state = source->data;
 	uint64_t expirations, current_time, duration;
 	uint32_t rate;
+	int res;
 
 	spa_log_trace(state->log, "timeout");
 
-	if (spa_system_timerfd_read(state->data_system,
-				state->timer_source.fd, &expirations) < 0) {
-		if (errno == EAGAIN)
-			return;
-		spa_log_error(state->log, "read timerfd: %m");
+	if ((res = spa_system_timerfd_read(state->data_system,
+				state->timer_source.fd, &expirations)) < 0) {
+		if (res != -EAGAIN)
+			spa_log_error(state->log, "read timerfd: %s", spa_strerror(res));
+		return;
 	}
 
 	current_time = state->next_time;

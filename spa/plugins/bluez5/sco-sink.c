@@ -567,16 +567,19 @@ stop:
 	enable_flush_timer(this, false);
 }
 
-
 static void sco_on_flush_timeout(struct spa_source *source)
 {
 	struct impl *this = source->data;
 	uint64_t exp;
+	int res;
 
 	spa_log_trace(this->log, "%p: flush on timeout", this);
 
-	if (spa_system_timerfd_read(this->data_system, this->flush_timerfd, &exp) < 0)
-		spa_log_warn(this->log, "error reading timerfd: %s", strerror(errno));
+	if ((res = spa_system_timerfd_read(this->data_system, this->flush_timerfd, &exp)) < 0) {
+		if (res != -EAGAIN)
+			spa_log_warn(this->log, "error reading timerfd: %s", spa_strerror(res));
+		return;
+	}
 
 	if (this->transport == NULL) {
 		enable_flush_timer(this, false);
@@ -597,12 +600,18 @@ static void sco_on_timeout(struct spa_source *source)
 	uint32_t rate;
 	struct spa_io_buffers *io = port->io;
 	uint64_t prev_time, now_time;
+	int res;
 
 	if (this->transport == NULL)
 		return;
 
-	if (this->started && spa_system_timerfd_read(this->data_system, this->timerfd, &exp) < 0)
-		spa_log_warn(this->log, "error reading timerfd: %s", strerror(errno));
+	if (this->started) {
+		if ((res = spa_system_timerfd_read(this->data_system, this->timerfd, &exp)) < 0) {
+			if (res != -EAGAIN)
+				spa_log_warn(this->log, "error reading timerfd: %s", spa_strerror(res));
+			return;
+		}
+	}
 
 	prev_time = this->current_time;
 	now_time = this->current_time = this->next_time;

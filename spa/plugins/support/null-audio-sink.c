@@ -35,6 +35,7 @@
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/json.h>
+#include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
@@ -282,14 +283,16 @@ static void on_timeout(struct spa_source *source)
 	struct impl *this = source->data;
 	uint64_t expirations, nsec, duration = 10;
 	uint32_t rate;
+	int res;
 
 	spa_log_trace(this->log, "timeout");
 
-	if (spa_system_timerfd_read(this->data_system,
-				this->timer_source.fd, &expirations) < 0) {
-		if (errno == EAGAIN)
-			return;
-		perror("read timerfd");
+	if ((res = spa_system_timerfd_read(this->data_system,
+				this->timer_source.fd, &expirations)) < 0) {
+		if (res != EAGAIN)
+			spa_log_error(this->log, NAME " %p: timerfd error: %s",
+					this, spa_strerror(res));
+		return;
 	}
 
 	nsec = this->next_time;

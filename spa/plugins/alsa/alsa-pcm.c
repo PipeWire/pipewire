@@ -2428,9 +2428,20 @@ static void alsa_on_timeout_event(struct spa_source *source)
 	struct state *state = source->data;
 	snd_pcm_uframes_t delay, target;
 	uint64_t expire, current_time;
+	int res;
 
-	if (SPA_UNLIKELY(state->started && spa_system_timerfd_read(state->data_system, state->timerfd, &expire) < 0))
-		spa_log_warn(state->log, "%p: error reading timerfd: %m", state);
+	if (SPA_LIKELY(state->started)) {
+		if (SPA_UNLIKELY((res = spa_system_timerfd_read(state->data_system,
+						state->timerfd, &expire)) < 0)) {
+			/* we can get here when the timer is changed since the last
+			 * timerfd wakeup, for example by do_reassign_follower() executed
+			 * in the same epoll wakeup cycle */
+			if (res != -EAGAIN)
+				spa_log_warn(state->log, "%p: error reading timerfd: %s",
+						state, spa_strerror(res));
+			return;
+		}
+	}
 
 	check_position_config(state);
 

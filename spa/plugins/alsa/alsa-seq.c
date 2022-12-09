@@ -800,8 +800,14 @@ static void alsa_on_timeout_event(struct spa_source *source)
 	uint64_t expire;
 	int res;
 
-	if (state->started && spa_system_timerfd_read(state->data_system, state->timerfd, &expire) < 0)
-		spa_log_warn(state->log, "error reading timerfd: %m");
+	if (state->started) {
+		if ((res = spa_system_timerfd_read(state->data_system, state->timerfd, &expire)) < 0) {
+			if (res != -EAGAIN)
+				spa_log_warn(state->log, "%p: error reading timerfd: %s",
+						state, spa_strerror(res));
+			return;
+		}
+	}
 
 	state->current_time = state->next_time;
 

@@ -538,9 +538,13 @@ static void media_on_duplex_timeout(struct spa_source *source)
 {
 	struct impl *this = source->data;
 	uint64_t exp;
+	int res;
 
-	if (spa_system_timerfd_read(this->data_system, this->duplex_timerfd, &exp) < 0)
-		spa_log_warn(this->log, "error reading timerfd: %s", strerror(errno));
+	if ((res = spa_system_timerfd_read(this->data_system, this->duplex_timerfd, &exp)) < 0) {
+		if (res != -EAGAIN)
+			spa_log_warn(this->log, "error reading timerfd: %s", spa_strerror(res));
+		return;
+	}
 
 	set_duplex_timeout(this, this->duplex_timeout);
 
@@ -577,12 +581,18 @@ static void media_on_timeout(struct spa_source *source)
 	uint64_t exp, duration;
 	uint32_t rate;
 	uint64_t prev_time, now_time;
+	int res;
 
 	if (this->transport == NULL)
 		return;
 
-	if (this->started && spa_system_timerfd_read(this->data_system, this->timerfd, &exp) < 0)
-		spa_log_warn(this->log, "error reading timerfd: %s", strerror(errno));
+	if (this->started) {
+		if ((res = spa_system_timerfd_read(this->data_system, this->timerfd, &exp)) < 0) {
+			if (res != -EAGAIN)
+				spa_log_warn(this->log, "error reading timerfd: %s", spa_strerror(res));
+			return;
+		}
+	}
 
 	prev_time = this->current_time;
 	now_time = this->current_time = this->next_time;

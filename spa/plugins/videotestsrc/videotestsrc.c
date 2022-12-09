@@ -33,6 +33,7 @@
 #include <spa/support/loop.h>
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
@@ -280,14 +281,20 @@ static void set_timer(struct impl *this, bool enabled)
 	}
 }
 
-static void read_timer(struct impl *this)
+static int read_timer(struct impl *this)
 {
 	uint64_t expirations;
+	int res = 0;
 
 	if (this->async || this->props.live) {
-		if (spa_system_timerfd_read(this->data_system, this->timer_source.fd, &expirations) < 0)
-			perror("read timerfd");
+		if ((res = spa_system_timerfd_read(this->data_system,
+						this->timer_source.fd, &expirations)) < 0) {
+			if (res != -EAGAIN)
+				spa_log_error(this->log, NAME " %p: timerfd error: %s",
+						this, spa_strerror(res));
+		}
 	}
+	return res;
 }
 
 static int make_buffer(struct impl *this)
@@ -297,7 +304,8 @@ static int make_buffer(struct impl *this)
 	struct spa_io_buffers *io = port->io;
 	uint32_t n_bytes;
 
-	read_timer(this);
+	if (read_timer(this) < 0)
+		return 0;
 
 	if (spa_list_is_empty(&port->empty)) {
 		set_timer(this, false);

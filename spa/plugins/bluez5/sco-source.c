@@ -34,6 +34,7 @@
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
 #include <spa/support/system.h>
+#include <spa/utils/result.h>
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
@@ -600,12 +601,19 @@ static void sco_on_timeout(struct spa_source *source)
 	uint64_t exp, duration;
 	uint32_t rate;
 	uint64_t prev_time, now_time;
+	int res;
 
 	if (this->transport == NULL)
 		return;
 
-	if (this->started && spa_system_timerfd_read(this->data_system, this->timerfd, &exp) < 0)
-		spa_log_warn(this->log, "error reading timerfd: %s", strerror(errno));
+	if (this->started) {
+		if ((res = spa_system_timerfd_read(this->data_system, this->timerfd, &exp)) < 0) {
+			if (res != -EAGAIN)
+				spa_log_warn(this->log, "error reading timerfd: %s",
+						spa_strerror(res));
+			return;
+		}
+	}
 
 	prev_time = this->current_time;
 	now_time = this->current_time = this->next_time;

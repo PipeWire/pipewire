@@ -641,9 +641,6 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 				SPA_PARAM_PORT_CONFIG_format,		SPA_POD_OPT_Pod(&format)) < 0)
 			return -EINVAL;
 
-		if (dir != this->direction)
-			return -EINVAL;
-
 		if (format) {
 			struct spa_audio_info info;
 
@@ -682,6 +679,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		}
 		break;
 	}
+
 	case SPA_PARAM_Props:
 		if (this->target != this->follower)
 			res = spa_node_set_param(this->target, id, flags, param);

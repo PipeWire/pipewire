@@ -85,7 +85,7 @@
 #define DEFAULT_MIN_QUANTUM	"256/48000"
 #define DEFAULT_FORMAT		"F32"
 #define DEFAULT_POSITION	"[ FL FR ]"
-#define DEFAULT_IDLE_TIMEOUT	"5"
+#define DEFAULT_IDLE_TIMEOUT	"0"
 
 #define MAX_FORMATS	32
 /* The max amount of data we send in one block when capturing. In PulseAudio this

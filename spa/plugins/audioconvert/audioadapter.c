@@ -473,6 +473,7 @@ static int negotiate_buffers(struct impl *this)
 
 static int configure_format(struct impl *this, uint32_t flags, const struct spa_pod *format)
 {
+	uint8_t buffer[4096];
 	int res;
 
 	if (format == NULL && !this->have_format)
@@ -487,14 +488,13 @@ static int configure_format(struct impl *this, uint32_t flags, const struct spa_
 					   SPA_PARAM_Format, flags,
 					   format)) < 0)
 			return res;
+
 	if (res > 0) {
-		uint8_t buffer[4096];
-		struct spa_pod_builder b = { 0 };
+		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 		uint32_t state = 0;
 		struct spa_pod *fmt;
 
 		/* format was changed to nearest compatible format */
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 		if ((res = spa_node_port_enum_params_sync(this->follower,
 					this->direction, 0,

@@ -339,7 +339,7 @@ conv_s32_to_f32d_4s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	__m256i in[4];
 	__m256 out[4], factor = _mm256_set1_ps(1.0f / S24_SCALE);
 	__m256i mask1 = _mm256_setr_epi32(0*n_channels, 1*n_channels, 2*n_channels, 3*n_channels,
-					  3*n_channels, 5*n_channels, 6*n_channels, 7*n_channels);
+					  4*n_channels, 5*n_channels, 6*n_channels, 7*n_channels);
 
 	if (SPA_IS_ALIGNED(d0, 32) &&
 	    SPA_IS_ALIGNED(d1, 32) &&
@@ -405,7 +405,7 @@ conv_s32_to_f32d_2s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	__m256i in[4];
 	__m256 out[4], factor = _mm256_set1_ps(1.0f / S24_SCALE);
 	__m256i mask1 = _mm256_setr_epi32(0*n_channels, 1*n_channels, 2*n_channels, 3*n_channels,
-					  3*n_channels, 5*n_channels, 6*n_channels, 7*n_channels);
+					  4*n_channels, 5*n_channels, 6*n_channels, 7*n_channels);
 
 	if (SPA_IS_ALIGNED(d0, 32) &&
 	    SPA_IS_ALIGNED(d1, 32))
@@ -453,7 +453,7 @@ conv_s32_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	__m256i in[2];
 	__m256 out[2], factor = _mm256_set1_ps(1.0f / S24_SCALE);
 	__m256i mask1 = _mm256_setr_epi32(0*n_channels, 1*n_channels, 2*n_channels, 3*n_channels,
-					  3*n_channels, 5*n_channels, 6*n_channels, 7*n_channels);
+					  4*n_channels, 5*n_channels, 6*n_channels, 7*n_channels);
 
 	if (SPA_IS_ALIGNED(d0, 32))
 		unrolled = n_samples & ~15;

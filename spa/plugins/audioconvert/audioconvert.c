@@ -1178,45 +1178,6 @@ static int setup_in_convert(struct impl *this)
 	return 0;
 }
 
-#define _MASK(ch)	(1ULL << SPA_AUDIO_CHANNEL_ ## ch)
-#define STEREO	(_MASK(FL)|_MASK(FR))
-
-static uint64_t default_mask(uint32_t channels)
-{
-	uint64_t mask = 0;
-	switch (channels) {
-	case 7:
-	case 8:
-		mask |= _MASK(RL);
-		mask |= _MASK(RR);
-		SPA_FALLTHROUGH
-	case 5:
-	case 6:
-		mask |= _MASK(SL);
-		mask |= _MASK(SR);
-		if ((channels & 1) == 0)
-			mask |= _MASK(LFE);
-		SPA_FALLTHROUGH
-	case 3:
-		mask |= _MASK(FC);
-		SPA_FALLTHROUGH
-	case 2:
-		mask |= _MASK(FL);
-		mask |= _MASK(FR);
-		break;
-	case 1:
-		mask |= _MASK(MONO);
-		break;
-	case 4:
-		mask |= _MASK(FL);
-		mask |= _MASK(FR);
-		mask |= _MASK(RL);
-		mask |= _MASK(RR);
-		break;
-	}
-	return mask;
-}
-
 static void fix_volumes(struct impl *this, struct volumes *vols, uint32_t channels)
 {
 	float s;
@@ -1336,11 +1297,6 @@ static int setup_channelmix(struct impl *this)
 				src_chan, in->format.info.raw.position), src_mask);
 	spa_log_info(this->log, "out %s (%016"PRIx64")", format_position(str, sizeof(str),
 				dst_chan, out->format.info.raw.position), dst_mask);
-
-	if (src_mask & 1)
-		src_mask = default_mask(src_chan);
-	if (dst_mask & 1)
-		dst_mask = default_mask(dst_chan);
 
 	spa_log_info(this->log, "%p: %s/%d@%d->%s/%d@%d %08"PRIx64":%08"PRIx64, this,
 			spa_debug_type_find_name(spa_type_audio_format, SPA_AUDIO_FORMAT_DSP_F32),

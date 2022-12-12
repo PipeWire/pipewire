@@ -46,11 +46,22 @@ context.modules = [
     }
 ]
 
-# Extra modules can be loaded here. Setup in default.pa can be moved here
+# Extra scripts can be started here. Setup in default.pa can be moved in
+# a script or in pulse.cmd below
 context.exec = [
-    { path = "pactl"        args = "load-module module-always-sink" }
-    #{ path = "pactl"        args = "load-module module-switch-on-connect" }
+    #{ path = "pactl"        args = "load-module module-always-sink" }
+    #{ path = "pactl"        args = "upload-sample my-sample.wav my-sample" }
     #{ path = "/usr/bin/sh"  args = "~/.config/pipewire/default.pw" }
+]
+
+# Extra commands can be executed here.
+#   load-module : loads a module with args and flags
+#      args = "<module-name> <module-args>"
+#      flags = [ "no-fail" ]
+pulse.cmd = [
+    { cmd = "load-module" args = "module-always-sink" flags = [ ] }
+    #{ cmd = "load-module" args = "module-switch-on-connect" }
+    #{ cmd = "load-module" args = "module-gsettings" flags = [ "nofail" ] }
 ]
 
 stream.properties = {

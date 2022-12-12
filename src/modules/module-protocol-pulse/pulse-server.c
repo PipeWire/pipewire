@@ -57,6 +57,7 @@
 #include "client.h"
 #include "collect.h"
 #include "commands.h"
+#include "cmd.h"
 #include "dbus-name.h"
 #include "defs.h"
 #include "extension.h"
@@ -5670,6 +5671,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 #ifdef HAVE_DBUS
 	impl->dbus_name = dbus_request_name(context, "org.pulseaudio.Server");
 #endif
+	cmd_run(impl);
 
 	return (struct pw_protocol_pulse *) impl;
 

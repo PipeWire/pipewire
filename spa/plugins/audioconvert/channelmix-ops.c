@@ -522,6 +522,7 @@ done:
 
 			if (i == 0)
 				idx2 += snprintf(str2 + idx2, sizeof(str2) - idx2, "%-4.4s  ",
+						src_mask == ~0LU ? "MONO" :
 						spa_debug_type_find_short_name(spa_type_audio_channel, j + 3));
 
 			mix->matrix_orig[ic][jc++] = matrix[i][j];
@@ -536,6 +537,7 @@ done:
 			if (i == 0)
 				spa_log_info(mix->log, "     %s", str2);
 			spa_log_info(mix->log, "%-4.4s %s   %f",
+					dst_mask == ~0LU ? "MONO" :
 					spa_debug_type_find_short_name(spa_type_audio_channel, i + 3),
 					str, sum);
 		}

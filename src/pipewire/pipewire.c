@@ -93,6 +93,7 @@ struct support {
 	unsigned int in_valgrind:1;
 	unsigned int no_color:1;
 	unsigned int no_config:1;
+	unsigned int do_dlclose:1;
 };
 
 static pthread_mutex_t init_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -167,7 +168,7 @@ unref_plugin(struct plugin *plugin)
 	if (--plugin->ref == 0) {
 		spa_list_remove(&plugin->link);
 		pw_log_debug("unloaded plugin:'%s'", plugin->filename);
-		if (!global_support.in_valgrind)
+		if (global_support.do_dlclose)
 			dlclose(plugin->hnd);
 		free(plugin->filename);
 		free(plugin);
@@ -591,6 +592,10 @@ void pw_init(int *argc, char **argv[])
 	pthread_mutex_lock(&support_lock);
 	support->in_valgrind = RUNNING_ON_VALGRIND;
 
+	support->do_dlclose = true;
+	if ((str = getenv("PIPEWIRE_DLCLOSE")) != NULL)
+		support->do_dlclose = pw_properties_parse_bool(str);
+
 	if (getenv("NO_COLOR") != NULL)
 		support->no_color = true;
 
@@ -821,6 +826,8 @@ bool pw_check_option(const char *option, const char *value)
 		return global_support.no_color == spa_atob(value);
 	else if (spa_streq(option, "no-config"))
 		return global_support.no_config == spa_atob(value);
+	else if (spa_streq(option, "do-dlclose"))
+		return global_support.do_dlclose == spa_atob(value);
 	return false;
 }
 

@@ -38,7 +38,7 @@ gdb:
 	$(MAKE) run DBG=gdb
 
 valgrind:
-	$(MAKE) run DBG="DISABLE_RTKIT=1 valgrind --trace-children=yes"
+	$(MAKE) run DBG="DISABLE_RTKIT=1 PIPEWIRE_DLCLOSE=false valgrind --trace-children=yes"
 
 test: all
 	ninja -C $(BUILD_ROOT) test

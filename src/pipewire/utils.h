@@ -58,6 +58,9 @@ pw_split_walk(const char *str, const char *delimiter, size_t *len, const char **
 char **
 pw_split_strv(const char *str, const char *delimiter, int max_tokens, int *n_tokens);
 
+int
+pw_split_ip(char *str, const char *delimiter, int max_tokens, char *tokens[]);
+
 void
 pw_free_strv(char **str);
 

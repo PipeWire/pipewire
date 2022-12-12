@@ -97,6 +97,37 @@ char **pw_split_strv(const char *str, const char *delimiter, int max_tokens, int
 	return arr.data;
 }
 
+/** Split a string in-place based on delimiters
+ * \param str a string to split
+ * \param delimiter delimiter characters to split on
+ * \param max_tokens the max number of tokens to split
+ * \param[out] tokens an array to hold up to \a max_tokens of strings
+ * \return the number of tokens in \a tokens
+ *
+ * \a str will be modified in-place so that \a tokens will contain zero terminated
+ * strings split at \a delimiter characters.
+ */
+SPA_EXPORT
+int pw_split_ip(char *str, const char *delimiter, int max_tokens, char *tokens[])
+{
+	const char *state = NULL;
+	char *s, *t;
+	size_t len, l2;
+	int n = 0;
+
+	s = (char *)pw_split_walk(str, delimiter, &len, &state);
+	while (s && n + 1 < max_tokens) {
+		t = (char*)pw_split_walk(str, delimiter, &l2, &state);
+		s[len] = '\0';
+		tokens[n++] = s;
+		s = t;
+		len = l2;
+	}
+	if (s)
+		tokens[n++] = s;
+	return n;
+}
+
 /** Free a NULL terminated array of strings
  * \param str a NULL terminated array of string
  *

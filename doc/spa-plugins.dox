@@ -19,7 +19,7 @@ To use a plugin, the following steps are required:
 In pseudo-code, loading a logger interface looks like this:
 
 \code{.py}
-handle = dlopen("$SPA_PLUGIN_PATH/support/libspa-support.so")
+handle = dlopen("$SPA_PLUGIN_DIR/support/libspa-support.so")
 factory_enumeration_func = dlsym(handle, SPA_HANDLE_FACTORY_ENUM_FUNC_NAME)
 spa_log *logger = NULL
 
@@ -49,8 +49,8 @@ are versioned and many versions can live on the same system.
 The `spa-inspect` tool provides a CLI interface to inspect SPA plugins:
 
 \verbatim
-$ export SPA_PLUGIN_PATH=$(pkg-config --variable plugindir libspa-0.2)
-$ spa-inspect ${SPA_PLUGIN_PATH}/support/libspa-support.so
+$ export SPA_PLUGIN_DIR=$(pkg-config --variable plugindir libspa-0.2)
+$ spa-inspect ${SPA_PLUGIN_DIR}/support/libspa-support.so
 ...
 factory version:		1
 factory name:		'support.cpu'
@@ -87,11 +87,11 @@ later, instead of hardcoding the plugin name.
 To `dlopen` a plugin we then need to prefix the plugin path like this:
 
 \code{.c}
-#define SPA_PLUGIN_PATH	/usr/lib64/spa-0.2/"
-void *hnd = dlopen(SPA_PLUGIN_PATH"/support/libspa-support.so", RTLD_NOW);
+#define SPA_PLUGIN_DIR	/usr/lib64/spa-0.2/"
+void *hnd = dlopen(SPA_PLUGIN_DIR"/support/libspa-support.so", RTLD_NOW);
 \endcode
 
-The environment variable `SPA_PLUGIN_PATH` and `pkg-config` variable
+The environment variable `SPA_PLUGIN_DIR` and `pkg-config` variable
 `plugindir` are usually used to find the location of the plugins. You will
 have to do some more work to construct the shared object path.
 

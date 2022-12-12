@@ -32,6 +32,7 @@
 
 #include <spa/utils/json.h>
 #include <spa/support/cpu.h>
+#include <spa/plugins/audioconvert/resample.h>
 
 #include <pipewire/log.h>
 
@@ -635,8 +636,29 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 		samples = read_samples(filename, gain, delay, offset,
 				length, channel, &rate, &n_samples);
 		if (rate != SampleRate) {
-			pw_log_warn("Convolver samplerate %lu doesn't match filter rate %lu. "
-					"Consider forcing a filter rate.", rate, SampleRate);
+			pw_log_info("Convolver running rate %lu doesn't match filter file rate %lu, "
+					"resampling filter (len: %d)", SampleRate, rate, n_samples);
+			float *samples_original = samples;
+			uint32_t in_len = n_samples;
+			uint32_t out_len = in_len * SampleRate / rate;
+			samples = calloc(out_len, sizeof(float));
+
+			struct resample r;
+			spa_zero(r);
+			r.channels = 1;
+			r.i_rate = rate;
+			r.o_rate = SampleRate;
+			r.quality = RESAMPLE_DEFAULT_QUALITY;
+			if (resample_native_init(&r) < 0) {
+				pw_log_error("resampling failed");
+				return NULL;
+			}
+
+			resample_process(&r, (void *)&samples_original, &in_len, (void *)&samples, &out_len);
+
+			free(samples_original);
+			n_samples = out_len;
+			rate = SampleRate;
 		}
 	}
 	if (samples == NULL) {

@@ -100,7 +100,7 @@ filter_chain_sources = [
   'module-filter-chain/convolver.c'
 ]
 filter_chain_dependencies = [
-  mathlib, dl_lib, pipewire_dep, sndfile_dep
+  mathlib, dl_lib, pipewire_dep, sndfile_dep, audioconvert_dep
 ]
 
 if lilv_lib.found()

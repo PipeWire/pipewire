@@ -37,6 +37,7 @@
 #include <spa/node/io.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>
+#include <spa/control/control.h>
 #include <spa/pod/filter.h>
 
 #define NAME "control-mixer"
@@ -571,6 +572,38 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	return queue_buffer(this, port, &port->buffers[buffer_id]);
 }
 
+static inline int event_sort(struct spa_pod_control *a, struct spa_pod_control *b)
+{
+	if (a->offset < b->offset)
+		return -1;
+	if (a->offset > b->offset)
+		return 1;
+	if (a->type != b->type)
+		return 0;
+	switch(a->type) {
+	case SPA_CONTROL_Midi:
+	{
+		/* 11 (controller) > 12 (program change) >
+		 * 8 (note off) > 9 (note on) > 10 (aftertouch) >
+		 * 13 (channel pressure) > 14 (pitch bend) */
+		static int priotab[] = { 5,4,3,7,6,2,1,0 };
+		uint8_t *da, *db;
+
+		if (SPA_POD_BODY_SIZE(&a->value) < 1 ||
+		    SPA_POD_BODY_SIZE(&b->value) < 1)
+			return 0;
+
+		da = SPA_POD_BODY(&a->value);
+		db = SPA_POD_BODY(&b->value);
+		if ((da[0] & 0xf) != (db[0] & 0xf))
+			return 0;
+		return priotab[db[0] >> 5] - priotab[da[0] >> 5];
+	}
+	default:
+		return 0;
+	}
+}
+
 static int impl_node_process(void *object)
 {
 	struct impl *this = object;
@@ -664,7 +697,7 @@ static int impl_node_process(void *object)
 					SPA_POD_BODY_SIZE(seq[i]), ctrl[i]))
 				continue;
 
-			if (next == NULL || ctrl[i]->offset < next->offset) {
+			if (next == NULL || event_sort(ctrl[i], next) <= 0) {
 				next = ctrl[i];
 				next_index = i;
 			}

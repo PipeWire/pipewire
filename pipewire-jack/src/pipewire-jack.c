@@ -1002,6 +1002,38 @@ static inline void fix_midi_event(uint8_t *data, size_t size)
 	}
 }
 
+static inline int event_sort(struct spa_pod_control *a, struct spa_pod_control *b)
+{
+	if (a->offset < b->offset)
+		return -1;
+	if (a->offset > b->offset)
+		return 1;
+	if (a->type != b->type)
+		return 0;
+	switch(a->type) {
+	case SPA_CONTROL_Midi:
+	{
+		/* 11 (controller) > 12 (program change) >
+		 * 8 (note off) > 9 (note on) > 10 (aftertouch) >
+		 * 13 (channel pressure) > 14 (pitch bend) */
+		static int priotab[] = { 5,4,3,7,6,2,1,0 };
+		uint8_t *da, *db;
+
+		if (SPA_POD_BODY_SIZE(&a->value) < 1 ||
+		    SPA_POD_BODY_SIZE(&b->value) < 1)
+			return 0;
+
+		da = SPA_POD_BODY(&a->value);
+		db = SPA_POD_BODY(&b->value);
+		if ((da[0] & 0xf) != (db[0] & 0xf))
+			return 0;
+		return priotab[db[0] >> 5] - priotab[da[0] >> 5];
+	}
+	default:
+		return 0;
+	}
+}
+
 static void convert_to_midi(struct spa_pod_sequence **seq, uint32_t n_seq, void *midi, bool fix)
 {
 	struct spa_pod_control *c[n_seq];
@@ -1014,15 +1046,13 @@ static void convert_to_midi(struct spa_pod_sequence **seq, uint32_t n_seq, void 
 	while (true) {
 		struct spa_pod_control *next = NULL;
 		uint32_t next_index = 0;
-		uint8_t *data;
-		size_t size;
 
 		for (i = 0; i < n_seq; i++) {
 			if (!spa_pod_control_is_inside(&seq[i]->body,
 						SPA_POD_BODY_SIZE(seq[i]), c[i]))
 				continue;
 
-			if (next == NULL || c[i]->offset < next->offset) {
+			if (next == NULL || event_sort(c[i], next) <= 0) {
 				next = c[i];
 				next_index = i;
 			}
@@ -1030,11 +1060,12 @@ static void convert_to_midi(struct spa_pod_sequence **seq, uint32_t n_seq, void 
 		if (SPA_UNLIKELY(next == NULL))
 			break;
 
-		data = SPA_POD_BODY(&next->value);
-		size = SPA_POD_BODY_SIZE(&next->value);
-
 		switch(next->type) {
 		case SPA_CONTROL_Midi:
+		{
+			uint8_t *data = SPA_POD_BODY(&next->value);
+			size_t size = SPA_POD_BODY_SIZE(&next->value);
+
 			if (fix)
 				fix_midi_event(data, size);
 
@@ -1042,6 +1073,7 @@ static void convert_to_midi(struct spa_pod_sequence **seq, uint32_t n_seq, void 
 				pw_log_warn("midi %p: can't write event: %s", midi,
 						spa_strerror(res));
 			break;
+		}
 		}
 		c[next_index] = spa_pod_control_next(c[next_index]);
 	}

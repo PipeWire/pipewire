@@ -2621,6 +2621,8 @@ int spa_alsa_reassign_follower(struct state *state)
 		else
 			snd_pcm_pause(state->hndl, 0);
 	}
+
+	state->alsa_sync_warning = false;
 	return 0;
 }
 

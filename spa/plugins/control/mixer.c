@@ -597,7 +597,7 @@ static inline int event_sort(struct spa_pod_control *a, struct spa_pod_control *
 		db = SPA_POD_BODY(&b->value);
 		if ((da[0] & 0xf) != (db[0] & 0xf))
 			return 0;
-		return priotab[db[0] >> 5] - priotab[da[0] >> 5];
+		return priotab[(db[0]>>4) & 7] - priotab[(da[0]>>4) & 7];
 	}
 	default:
 		return 0;

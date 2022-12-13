@@ -95,6 +95,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define ROC_DEFAULT_IP "0.0.0.0"
 #define ROC_DEFAULT_SOURCE_PORT 10001
 #define ROC_DEFAULT_REPAIR_PORT 10002
+#define ROC_DEFAULT_RATE 44100
 
 struct module_roc_sink_data {
 	struct pw_impl_module *module;
@@ -119,6 +120,7 @@ struct module_roc_sink_data {
 	roc_sender *sender;
 
 	roc_fec_code fec_code;
+	uint32_t rate;
 	char *local_ip;
 	char *remote_ip;
 	int remote_source_port;
@@ -308,13 +310,13 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 
 	memset(&sender_config, 0, sizeof(sender_config));
 
-	sender_config.frame_sample_rate = 44100;
+	sender_config.frame_sample_rate = data->rate;
 	sender_config.frame_channels = ROC_CHANNEL_SET_STEREO;
 	sender_config.frame_encoding = ROC_FRAME_ENCODING_PCM_FLOAT;
 	sender_config.fec_code = data->fec_code;
 
 	/* Fixed to be the same as ROC sender config above */
-	info.rate = 44100;
+	info.rate = data->rate;
 	info.channels = 2;
 	info.format = SPA_AUDIO_FORMAT_F32;
 	info.position[0] = SPA_AUDIO_CHANNEL_FL;
@@ -457,6 +459,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(capture_props, PW_KEY_NODE_NETWORK, "true");
 	if ((str = pw_properties_get(capture_props, PW_KEY_MEDIA_CLASS)) == NULL)
 		pw_properties_set(capture_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
+
+	data->rate = pw_properties_get_uint32(capture_props, PW_KEY_AUDIO_RATE, data->rate);
+	if (data->rate == 0)
+		data->rate = ROC_DEFAULT_RATE;
 
 	if ((str = pw_properties_get(props, "remote.ip")) != NULL) {
 		data->remote_ip = strdup(str);

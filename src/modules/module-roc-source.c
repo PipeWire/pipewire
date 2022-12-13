@@ -99,6 +99,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define ROC_DEFAULT_SOURCE_PORT  10001
 #define ROC_DEFAULT_REPAIR_PORT  10002
 #define ROC_DEFAULT_SESS_LATENCY 200
+#define ROC_DEFAULT_RATE 44100
 
 struct module_roc_source_data {
 	struct pw_impl_module *module;
@@ -125,6 +126,7 @@ struct module_roc_source_data {
 
 	roc_resampler_profile resampler_profile;
 	roc_fec_code fec_code;
+	uint32_t rate;
 	char *local_ip;
 	int local_source_port;
 	int local_repair_port;
@@ -329,13 +331,13 @@ static int roc_source_setup(struct module_roc_source_data *data)
 	}
 
 	spa_zero(receiver_config);
-	receiver_config.frame_sample_rate = 44100;
+	receiver_config.frame_sample_rate = data->rate;
 	receiver_config.frame_channels = ROC_CHANNEL_SET_STEREO;
 	receiver_config.frame_encoding = ROC_FRAME_ENCODING_PCM_FLOAT;
 	receiver_config.resampler_profile = data->resampler_profile;
 
 	/* Fixed to be the same as ROC receiver config above */
-	info.rate = 44100;
+	info.rate = data->rate;
 	info.channels = 2;
 	info.format = SPA_AUDIO_FORMAT_F32;
 	info.position[0] = SPA_AUDIO_CHANNEL_FL;
@@ -486,6 +488,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(playback_props, PW_KEY_NODE_VIRTUAL, "true");
 	if (pw_properties_get(playback_props, PW_KEY_NODE_NETWORK) == NULL)
 		pw_properties_set(playback_props, PW_KEY_NODE_NETWORK, "true");
+
+	data->rate = pw_properties_get_uint32(playback_props, PW_KEY_AUDIO_RATE, data->rate);
+	if (data->rate == 0)
+		data->rate = ROC_DEFAULT_RATE;
 
 	if ((str = pw_properties_get(props, "local.ip")) != NULL) {
 		data->local_ip = strdup(str);

@@ -552,6 +552,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	char filename[PATH_MAX] = "";
 	int blocksize = 0, tailsize = 0;
 	int delay = 0;
+	int resample_quality = RESAMPLE_DEFAULT_QUALITY;
 	float gain = 1.0f;
 	unsigned long rate;
 
@@ -612,6 +613,12 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 				return NULL;
 			}
 		}
+		else if (spa_streq(key, "resample_quality")) {
+			if (spa_json_get_int(&it[1], &resample_quality) <= 0) {
+				pw_log_error("convolver:resample_quality requires a number");
+				return NULL;
+			}
+		}
 		else if (spa_json_next(&it[1], &val) < 0)
 			break;
 	}
@@ -636,29 +643,45 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 		samples = read_samples(filename, gain, delay, offset,
 				length, channel, &rate, &n_samples);
 		if (rate != SampleRate) {
-			pw_log_info("Convolver running rate %lu doesn't match filter file rate %lu, "
-					"resampling filter (len: %d)", SampleRate, rate, n_samples);
-			float *samples_original = samples;
+			float *in_buffer = samples;
 			uint32_t in_len = n_samples;
-			uint32_t out_len = in_len * SampleRate / rate;
+			uint32_t out_len = SPA_ROUND_UP(in_len * SampleRate, rate) / rate;
 			samples = calloc(out_len, sizeof(float));
+
+			pw_log_info(
+				"Resampling filter: rate: %lu => %lu, n_samples: %d => %d, q: %d",
+				    rate, SampleRate, n_samples, out_len, resample_quality
+			);
 
 			struct resample r;
 			spa_zero(r);
 			r.channels = 1;
 			r.i_rate = rate;
 			r.o_rate = SampleRate;
-			r.quality = RESAMPLE_DEFAULT_QUALITY;
+			r.quality = resample_quality;
 			if (resample_native_init(&r) < 0) {
 				pw_log_error("resampling failed");
 				return NULL;
 			}
 
-			resample_process(&r, (void *)&samples_original, &in_len, (void *)&samples, &out_len);
-
-			free(samples_original);
 			n_samples = out_len;
 			rate = SampleRate;
+
+			resample_process(&r, (void *)&in_buffer, &in_len, (void *)&samples, &out_len);
+			pw_log_debug("resampled: %u samples out", out_len);
+
+			free(in_buffer);
+
+			in_len = resample_delay(&r);
+			in_buffer = calloc(in_len, sizeof(float));
+
+			void *out_padded = samples + out_len;
+			out_len = n_samples - out_len; // Available space in buffer
+			pw_log_debug("flushing resampler: %u in %u out", in_len, out_len);
+			resample_process(&r, (void *)&in_buffer, &in_len, &out_padded, &out_len);
+
+			free(in_buffer);
+			r.free(&r);
 		}
 	}
 	if (samples == NULL) {

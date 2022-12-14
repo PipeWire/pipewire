@@ -81,7 +81,6 @@ struct registry {
 };
 
 struct support {
-	char **categories;
 	const char *plugin_dir;
 	const char *support_lib;
 	struct registry registry;
@@ -701,7 +700,6 @@ void pw_deinit(void)
 	spa_list_consume(h, &registry->handles, link)
 		unref_handle(h);
 
-	pw_free_strv(support->categories);
 	free(support->i18n_domain);
 	spa_zero(global_support);
 	pthread_mutex_unlock(&support_lock);
@@ -721,16 +719,9 @@ done:
 SPA_EXPORT
 bool pw_debug_is_category_enabled(const char *name)
 {
-	int i;
-
-	if (global_support.categories == NULL)
-		return false;
-
-	for (i = 0; global_support.categories[i]; i++) {
-		if (spa_streq(global_support.categories[i], name))
-			return true;
-	}
-	return false;
+	struct spa_log_topic t = SPA_LOG_TOPIC(0, name);
+	PW_LOG_TOPIC_INIT(&t);
+	return t.has_custom_level;
 }
 
 /** Get the application name */

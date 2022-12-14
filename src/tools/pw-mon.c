@@ -780,7 +780,7 @@ int main(int argc, char *argv[])
 	if (isatty(STDERR_FILENO) && getenv("NO_COLOR") == NULL)
 		colors = true;
 
-	while ((c = getopt_long(argc, argv, "hVr:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:NC", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(argv[0], false);

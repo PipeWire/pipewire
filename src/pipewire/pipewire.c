@@ -536,14 +536,6 @@ parse_pw_debug_env(void)
 	 */
 	pos += spa_scnprintf(pos, end - pos, "[ { conn.* = %d },", SPA_LOG_LEVEL_NONE);
 
-	/* We only have single-digit log levels, so any single-character
-	 * string is of the form PIPEWIRE_DEBUG=<N> */
-	if (slen == 1) {
-		if (parse_log_level(str, &lvl))
-			pw_log_set_level(lvl);
-		goto out;
-	}
-
 	tokens = pw_split_strv(str, ",", INT_MAX, &n_tokens);
 	if (n_tokens > 0) {
 		int i;
@@ -560,14 +552,14 @@ parse_pw_debug_env(void)
 			} else if (n_tok == 1 && parse_log_level(tok[0], &lvl)) {
 				pw_log_set_level(lvl);
 			} else {
-				pw_log_warn("Ignoring invalid format in PIPEWIRE_DEBUG: '%s'\n", tokens[i]);
+				pw_log_warn("Ignoring invalid format in PIPEWIRE_DEBUG: '%s'",
+						tokens[i]);
 			}
 
 			pw_free_strv(tok);
 		}
 	}
 	pw_free_strv(tokens);
-out:
 	pos += spa_scnprintf(pos, end - pos, "]");
 	return strdup(json);
 }

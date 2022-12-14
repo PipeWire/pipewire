@@ -487,22 +487,30 @@ static struct spa_log *load_journal_logger(struct support *support,
 }
 #endif
 
-static enum spa_log_level
-parse_log_level(const char *str)
+static bool
+parse_log_level(const char *str, enum spa_log_level *l)
 {
-	enum spa_log_level l = SPA_LOG_LEVEL_NONE;
-	switch(str[0]) {
-		case 'X': l = SPA_LOG_LEVEL_NONE; break;
-		case 'E': l = SPA_LOG_LEVEL_ERROR; break;
-		case 'W': l = SPA_LOG_LEVEL_WARN; break;
-		case 'I': l = SPA_LOG_LEVEL_INFO; break;
-		case 'D': l = SPA_LOG_LEVEL_DEBUG; break;
-		case 'T': l = SPA_LOG_LEVEL_TRACE; break;
+	uint32_t lvl;
+	if (strlen(str) == 1) {
+		switch(str[0]) {
+		case 'X': lvl = SPA_LOG_LEVEL_NONE; break;
+		case 'E': lvl = SPA_LOG_LEVEL_ERROR; break;
+		case 'W': lvl = SPA_LOG_LEVEL_WARN; break;
+		case 'I': lvl = SPA_LOG_LEVEL_INFO; break;
+		case 'D': lvl = SPA_LOG_LEVEL_DEBUG; break;
+		case 'T': lvl = SPA_LOG_LEVEL_TRACE; break;
 		default:
-			  l = atoi(str);
-			  break;
+			  goto check_int;
+		}
+	} else {
+check_int:
+		  if (!spa_atou32(str, &lvl, 0))
+			  return false;
+		  if (lvl > SPA_LOG_LEVEL_TRACE)
+			  return false;
 	}
-	return l;
+	*l = lvl;
+	return true;
 }
 
 static char *
@@ -515,6 +523,7 @@ parse_pw_debug_env(void)
 	char json[1024] = {0};
 	char *pos = json;
 	char *end = pos + sizeof(json) - 1;
+	enum spa_log_level lvl;
 
 	str = getenv("PIPEWIRE_DEBUG");
 
@@ -530,7 +539,8 @@ parse_pw_debug_env(void)
 	/* We only have single-digit log levels, so any single-character
 	 * string is of the form PIPEWIRE_DEBUG=<N> */
 	if (slen == 1) {
-		pw_log_set_level(parse_log_level(str));
+		if (parse_log_level(str, &lvl))
+			pw_log_set_level(lvl);
 		goto out;
 	}
 
@@ -541,15 +551,14 @@ parse_pw_debug_env(void)
 			int n_tok;
 			char **tok;
 			char *pattern;
-			enum spa_log_level lvl;
 
 			tok = pw_split_strv(tokens[i], ":", 2, &n_tok);
-			if (n_tok == 2) {
+			if (n_tok == 2 && parse_log_level(tok[1], &lvl)) {
 				pattern = tok[0];
-				lvl = parse_log_level(tok[1]);
-
 				pos += spa_scnprintf(pos, end - pos, "{ %s = %d },",
 						     pattern, lvl);
+			} else if (n_tok == 1 && parse_log_level(tok[0], &lvl)) {
+				pw_log_set_level(lvl);
 			} else {
 				pw_log_warn("Ignoring invalid format in PIPEWIRE_DEBUG: '%s'\n", tokens[i]);
 			}

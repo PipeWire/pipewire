@@ -350,8 +350,10 @@ PWTEST(logger_debug_env_invalid)
 		"invalid value",
 		"*:5,some invalid value",
 		"*:W,foo.bar:3,invalid:",
-		"*:W,1,foo.bar:D",
-		"*:W,D,foo.bar:3",
+		"*:W,2,foo.bar:Q",
+		"*:W,7,foo.bar:D",
+		"*:W,Q,foo.bar:5",
+		"*:W,D,foo.bar:8",
 	};
 
 	pwtest_int_lt(which, SPA_N_ELEMENTS(envvars));
@@ -644,7 +646,7 @@ PWTEST_SUITE(logger)
 		   PWTEST_ARG_RANGE, SPA_LOG_LEVEL_NONE, SPA_LOG_LEVEL_TRACE + 1,
 		   PWTEST_NOARG);
 	pwtest_add(logger_debug_env_invalid,
-		   PWTEST_ARG_RANGE, 0, 5, /* see the test */
+		   PWTEST_ARG_RANGE, 0, 7, /* see the test */
 		   PWTEST_NOARG);
 	pwtest_add(logger_topics, PWTEST_NOARG);
 	pwtest_add(logger_journal, PWTEST_NOARG);

@@ -197,6 +197,7 @@ struct state {
 	uint32_t last_threshold;
 	uint32_t headroom;
 	uint32_t start_delay;
+	uint32_t min_delay;
 
 	uint32_t duration;
 	unsigned int alsa_started:1;

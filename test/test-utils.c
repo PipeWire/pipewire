@@ -193,6 +193,8 @@ static void test__pw_split_strv(void)
 {
 	const char *test1 = "a \n test string  \n \r ";
 	const char *del = "\n\r ";
+	const char *test2 = "a:";
+	const char *del2 = ":";
 	int n_tokens;
 	char **res;
 
@@ -211,6 +213,13 @@ static void test__pw_split_strv(void)
 	pwtest_str_eq(res[0], "a");
 	pwtest_str_eq(res[1], "test string  \n \r ");
 	pwtest_ptr_null(res[2]);
+	pw_free_strv(res);
+
+	res = pw_split_strv(test2, del2, 2, &n_tokens);
+	pwtest_ptr_notnull(res);
+	pwtest_int_eq(n_tokens, 1);
+	pwtest_str_eq(res[0], "a");
+	pwtest_ptr_null(res[1]);
 	pw_free_strv(res);
 }
 

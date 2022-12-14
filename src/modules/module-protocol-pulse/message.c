@@ -33,7 +33,6 @@
 #include "defs.h"
 #include "format.h"
 #include "internal.h"
-#include "log.h"
 #include "message.h"
 #include "remap.h"
 #include "volume.h"
@@ -46,6 +45,9 @@
 #define VOLUME_MAX ((uint32_t) UINT32_MAX/2)
 
 #define PA_CHANNELS_MAX	(32u)
+
+PW_LOG_TOPIC_EXTERN(pulse_conn);
+#define PW_LOG_TOPIC_DEFAULT pulse_conn
 
 static inline uint32_t volume_from_linear(float vol)
 {

@@ -95,6 +95,8 @@
 
 #define TEMPORARY_MOVE_TIMEOUT	(SPA_NSEC_PER_SEC)
 
+PW_LOG_TOPIC_EXTERN(pulse_conn);
+
 bool debug_messages = false;
 
 struct latency_offset_data {
@@ -5626,7 +5628,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 
 	load_defaults(&impl->defs, props);
 
-	debug_messages = pw_debug_is_category_enabled("connection");
+	debug_messages = pw_log_topic_enabled(SPA_LOG_LEVEL_INFO, pulse_conn);
 
 	impl->context = context;
 	impl->loop = pw_context_get_main_loop(context);

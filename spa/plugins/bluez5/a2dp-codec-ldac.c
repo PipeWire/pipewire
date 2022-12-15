@@ -243,7 +243,7 @@ static int codec_reduce_bitpool(void *data)
 #else
 	struct impl *this = data;
 	int res;
-	if (this->eqmid == LDACBT_EQMID_BITRATE_330000 || !this->enable_abr)
+	if (this->eqmid == LDACBT_EQMID_MQ || !this->enable_abr)
 		return this->eqmid;
 	res = ldacBT_alter_eqmid_priority(this->ldac, LDACBT_EQMID_INC_CONNECTION);
 	return res;

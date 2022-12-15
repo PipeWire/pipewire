@@ -38,4 +38,4 @@ wav_file_open(const char *filename, const char *mode, struct wav_file_info *info
 
 int wav_file_close(struct wav_file *wf);
 
-ssize_t wav_file_write(struct wav_file *wf, void **data, size_t size);
+ssize_t wav_file_write(struct wav_file *wf, const void **data, size_t size);

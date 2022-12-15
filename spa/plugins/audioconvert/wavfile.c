@@ -51,7 +51,7 @@ static inline ssize_t write_data(struct wav_file *wf, const void *data, size_t s
 	return len;
 }
 
-static ssize_t writei(struct wav_file *wf, void **data, size_t samples)
+static ssize_t writei(struct wav_file *wf, const void **data, size_t samples)
 {
 	return write_data(wf, data[0], samples * wf->stride);
 }
@@ -61,7 +61,7 @@ typedef struct {
 } __attribute__ ((packed)) uint24_t;
 
 #define MAKE_WRITEN_FUNC(name, type)						\
-static ssize_t name (struct wav_file *wf, void **data, size_t samples)	\
+static ssize_t name (struct wav_file *wf, const void **data, size_t samples)	\
 {										\
 	uint32_t b, n, k, blocks = wf->blocks, chunk;				\
 	uint8_t buf[BLOCK_SIZE];						\
@@ -114,7 +114,7 @@ static struct format_info {
 	uint32_t bits;
 	bool planar;
 	uint32_t fmt;
-	ssize_t (*write) (struct wav_file *wf, void **data, size_t samples);
+	ssize_t (*write) (struct wav_file *wf, const void **data, size_t samples);
 } format_info[] = {
 	MAKE_AUDIO_RAW(SPA_AUDIO_FORMAT_U8P,		 8, true, 1, writen_8),
 	MAKE_AUDIO_RAW(SPA_AUDIO_FORMAT_U8,		 8, false, 1, writei),
@@ -243,7 +243,7 @@ int wav_file_close(struct wav_file *wf)
 	return 0;
 }
 
-ssize_t wav_file_write(struct wav_file *wf, void **data, size_t samples)
+ssize_t wav_file_write(struct wav_file *wf, const void **data, size_t samples)
 {
 	return wf->fi->write(wf, data, samples);
 }

@@ -1,7 +1,6 @@
 audioconvert_sources = [
   'audioadapter.c',
   'audioconvert.c',
-  'wavfile.c',
   'plugin.c'
 ]
 
@@ -105,6 +104,7 @@ audioconvert_lib = static_library('audioconvert',
     'peaks-ops.c',
     'resample-native.c',
     'resample-peaks.c',
+    'wavfile.c',
     'volume-ops.c' ],
   c_args : [ simd_cargs, '-O3'],
   link_with : simd_dependencies,

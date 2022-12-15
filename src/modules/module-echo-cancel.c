@@ -33,6 +33,8 @@
 #include <spa/support/plugin-loader.h>
 #include <spa/interfaces/audio/aec.h>
 
+#include <spa/plugins/audioconvert/wavfile.h>
+
 #include <pipewire/impl.h>
 #include <pipewire/pipewire.h>
 
@@ -231,7 +233,49 @@ struct impl {
 	struct spa_plugin_loader *loader;
 
 	bool monitor_mode;
+
+	char wav_path[512];
+	struct wav_file *wav_file;
 };
+
+static inline void aec_run(struct impl *impl, const float *rec[], const float *play[],
+		float *out[], uint32_t n_samples)
+{
+	spa_audio_aec_run(impl->aec, rec, play, out, n_samples);
+
+	if (SPA_UNLIKELY(impl->wav_path[0])) {
+		if (impl->wav_file == NULL) {
+			struct wav_file_info info;
+
+			info.info.info.raw = impl->info;
+			info.info.info.raw.channels *= 3;
+			info.info.media_type = SPA_MEDIA_TYPE_audio;
+			info.info.media_subtype = SPA_MEDIA_SUBTYPE_raw;
+
+			impl->wav_file = wav_file_open(impl->wav_path,
+					"w", &info);
+			if (impl->wav_file == NULL)
+				pw_log_warn("can't open wav path '%s': %m",
+						impl->wav_path);
+		}
+		if (impl->wav_file) {
+			uint32_t i, c = impl->info.channels;
+			const float *data[c * 3];
+
+			for (i = 0; i < c; i++) {
+				data[i      ] = play[i];
+				data[i +   c] = rec[i];
+				data[i + 2*c] = out[i];
+			}
+			wav_file_write(impl->wav_file, (void*)data, n_samples);
+		} else {
+			spa_zero(impl->wav_path);
+		}
+	} else if (impl->wav_file != NULL) {
+		wav_file_close(impl->wav_file);
+		impl->wav_file = NULL;
+	}
+}
 
 static void process(struct impl *impl)
 {
@@ -326,11 +370,11 @@ static void process(struct impl *impl)
 				pd[i] = play_delayed[i] + delay_left;
 				o[i] = out[i] + delay_left;
 			}
-			spa_audio_aec_run(impl->aec, rec, pd, o, size / sizeof(float) - delay_left);
+			aec_run(impl, rec, pd, o, size / sizeof(float) - delay_left);
 		}
 	} else {
 		/* run the canceller */
-		spa_audio_aec_run(impl->aec, rec, play_delayed, out, size / sizeof(float));
+		aec_run(impl, rec, play_delayed, out, size / sizeof(float));
 	}
 
 	/* Next, copy over the output to the output ringbuffer */
@@ -538,21 +582,64 @@ static void input_param_latency_changed(struct impl *impl, const struct spa_pod 
 	else
 		pw_stream_update_params(impl->capture, params, 1);
 }
+
 static struct spa_pod* get_props_param(struct impl* impl, struct spa_pod_builder* b)
 {
-	if (spa_audio_aec_get_params(impl->aec, NULL) > 0) {
-		struct spa_pod_frame f[2];
-		spa_pod_builder_push_object(
-		    b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
-		spa_pod_builder_prop(b, SPA_PROP_params, 0);
-		spa_pod_builder_push_struct(b, &f[1]);
+	struct spa_pod_frame f[2];
 
+	spa_pod_builder_push_object(
+	    b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
+	spa_pod_builder_prop(b, SPA_PROP_params, 0);
+	spa_pod_builder_push_struct(b, &f[1]);
+
+	spa_pod_builder_string(b, "debug.aec.wav-path");
+	spa_pod_builder_string(b, impl->wav_path);
+
+	if (spa_audio_aec_get_params(impl->aec, NULL) > 0)
 		spa_audio_aec_get_params(impl->aec, b);
 
-		spa_pod_builder_pop(b, &f[1]);
-		return spa_pod_builder_pop(b, &f[0]);
+	spa_pod_builder_pop(b, &f[1]);
+	return spa_pod_builder_pop(b, &f[0]);
+}
+
+static int set_params(struct impl* impl, const struct spa_pod *params)
+{
+	struct spa_pod_parser prs;
+	struct spa_pod_frame f;
+	int changed = 0;
+
+	spa_pod_parser_pod(&prs, params);
+	if (spa_pod_parser_push_struct(&prs, &f) < 0)
+		return 0;
+
+	while (true) {
+		const char *name;
+		struct spa_pod *pod;
+		char value[512];
+
+		if (spa_pod_parser_get_string(&prs, &name) < 0)
+			break;
+
+		if (spa_pod_parser_get_pod(&prs, &pod) < 0)
+			break;
+
+		if (spa_pod_is_string(pod)) {
+			spa_pod_copy_string(pod, sizeof(value), value);
+		} else if (spa_pod_is_none(pod)) {
+			spa_zero(value);
+		} else
+			continue;
+
+		pw_log_info("key:'%s' val:'%s'", name, value);
+
+		if (spa_streq(name, "debug.aec.wav-path")) {
+			spa_scnprintf(impl->wav_path,
+				sizeof(impl->wav_path), "%s", value);
+			changed++;
+		}
 	}
-	return NULL;
+	spa_audio_aec_set_params(impl->aec, params);
+	return 1;
 }
 
 static void input_param_changed(void *data, uint32_t id, const struct spa_pod* param)
@@ -569,11 +656,10 @@ static void input_param_changed(void *data, uint32_t id, const struct spa_pod* p
 			uint8_t buffer[1024];
 			struct spa_pod_dynamic_builder b;
 			const struct spa_pod* params[1];
-			SPA_POD_OBJECT_FOREACH(obj, prop)
-			{
-				if (prop->key == SPA_PROP_params) {
-					spa_audio_aec_set_params(impl->aec, &prop->value);
-				}
+
+			SPA_POD_OBJECT_FOREACH(obj, prop) {
+				if (prop->key == SPA_PROP_params)
+					set_params(impl, &prop->value);
 			}
 
 			spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);

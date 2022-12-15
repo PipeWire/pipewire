@@ -2159,7 +2159,7 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	return 0;
 }
 
-static void handle_wav(struct impl *this, void **src, uint32_t n_samples)
+static void handle_wav(struct impl *this, const void **src, uint32_t n_samples)
 {
 	if (SPA_UNLIKELY(this->props.wav_path[0])) {
 		if (this->wav_file == NULL) {
@@ -2576,7 +2576,7 @@ static int impl_node_process(void *object)
 	}
 
 	if (this->direction == SPA_DIRECTION_INPUT)
-		handle_wav(this, (void**)src_datas, n_samples);
+		handle_wav(this, src_datas, n_samples);
 
 	dir = &this->dir[SPA_DIRECTION_INPUT];
 	if (!in_passthrough) {
@@ -2666,7 +2666,7 @@ static int impl_node_process(void *object)
 		convert_process(&dir->conv, dst_datas, in_datas, n_samples);
 	}
 	if (this->direction == SPA_DIRECTION_OUTPUT)
-		handle_wav(this, dst_datas, n_samples);
+		handle_wav(this, (const void**)dst_datas, n_samples);
 
 	spa_log_trace_fp(this->log, "%d/%d  %d/%d %d->%d", this->in_offset, max_in,
 			this->out_offset, max_out, n_samples, n_out);

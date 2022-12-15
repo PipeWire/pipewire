@@ -70,6 +70,7 @@ static int module_echo_cancel_load(struct module *module)
 	const char *str;
 	char *args;
 	size_t size;
+	uint32_t i;
 
 	if ((f = open_memstream(&args, &size)) == NULL)
 		return -errno;
@@ -85,7 +86,13 @@ static int module_echo_cancel_load(struct module *module)
 		fprintf(f, " audio.rate = %u", data->info.rate);
 	if (data->info.channels != 0) {
 		fprintf(f, " audio.channels = %u", data->info.channels);
-		/* TODO: convert channel positions to string */
+		if (!(data->info.flags & SPA_AUDIO_FLAG_UNPOSITIONED)) {
+			fprintf(f, " audio.position = [ ");
+			for (i = 0; i < data->info.channels; i++)
+				fprintf(f, "%s%s", i == 0 ? "" : ",",
+					channel_id2name(data->info.position[i]));
+			fprintf(f, " ]");
+		}
 	}
 	fprintf(f, " source.props = {");
 	pw_properties_serialize_dict(f, &data->source_props->dict, 0);

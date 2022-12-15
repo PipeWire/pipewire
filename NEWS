@@ -1,3 +1,47 @@
+# PipeWire 0.3.63 (2022-12-15)
+
+This is a quick bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Fix a critical bug that causes audio distortion in some cases when using
+    AVX2.
+  - Fix a crash in mpv caused by deinit of PipeWire.
+  - Resample the convolver IR to match the graph samplerate for better
+    results.
+  - Many more small bugfixes and improvements.
+
+
+## PipeWire
+  - Fix a segfault in the PipeWire deinit code triggered by mpv in some
+    cases. (#2881)
+  - Fix docs about SPA_PLUGIN_DIR.
+  - Always dlclose by default (even under valgrind). Add an option with
+    PIPEWIRE_DLCLOSE to select alternative behaviour.
+  - Improve PIPEWIRE_DEBUG category handling.
+
+## modules
+  - Resample the IR for the convolver when the IR samplerate and graph rate
+    don't match.
+
+## SPA
+  - Handle spurious reads from timerfd gracefully.
+  - Fix potential stack-use-after-scope when starting Audacity.
+  - Fix distorted audio when using AVX2. (#2885)
+  - Remove fallback to default channel map in channelmix.
+  - Improve sorting of MIDI events, use the same order as Ardour. (#1816)
+  - Enable LFE downmixing by default. (#2425)
+  - Make IEC958/AC3 and IEC958/DTS work better by enforcing a fixed minimal
+    buffering for the encoder to avoid stuttering. (#2650)
+
+## Pulse-Server
+  - Add a new pulse.cmd config section to execute pulse commands, currently
+    only for loading modules. This removes the dependency on pactl.
+  - Improve debug of messages.
+
+
+Older versions:
+
 # PipeWire 0.3.62 (2022-12-09)
 
 This is a bugfix release that is API and ABI compatible with previous
@@ -71,9 +115,6 @@ This is a bugfix release that is API and ABI compatible with previous
 ## Bluetooth
   - Support was added for offloading bluetooth handling. Some hardware can
     receive, decode and play the bluetooth audio directly in hardware.
-
-
-Older versions:
 
 # PipeWire 0.3.61 (2022-11-24)
 

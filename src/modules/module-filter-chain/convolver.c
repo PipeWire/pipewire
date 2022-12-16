@@ -34,26 +34,22 @@
 
 static struct dsp_ops *dsp;
 
-struct fft_cpx {
-	float *v;
-};
-
 struct convolver1 {
 	int blockSize;
 	int segSize;
 	int segCount;
 	int fftComplexSize;
 
-	struct fft_cpx *segments;
-	struct fft_cpx *segmentsIr;
+	float **segments;
+	float **segmentsIr;
 
 	float *fft_buffer;
 
 	void *fft;
 	void *ifft;
 
-	struct fft_cpx pre_mult;
-	struct fft_cpx conv;
+	float *pre_mult;
+	float *conv;
 	float *overlap;
 
 	float *inputBuffer;
@@ -65,25 +61,33 @@ struct convolver1 {
 
 static void *fft_alloc(int size)
 {
-	return pffft_aligned_malloc(size * sizeof(float));
+	size_t nb_bytes = size * sizeof(float);
+#define ALIGNMENT 64
+	void *p, *p0 = malloc(nb_bytes + ALIGNMENT);
+	if (!p0)
+		return (void *)0;
+	p = (void *)(((size_t)p0 + ALIGNMENT) & (~((size_t)(ALIGNMENT - 1))));
+	*((void **)p - 1) = p0;
+	return p;
 }
-static void fft_free(void *data)
+static void fft_free(void *p)
 {
-	pffft_aligned_free(data);
+	if (p)
+		free(*((void **)p - 1));
 }
 
-static inline void fft_cpx_clear(struct fft_cpx *cpx, int size)
+static inline void fft_cpx_clear(float *v, int size)
 {
-	dsp_ops_clear(dsp, cpx->v, size * 2);
+	dsp_ops_clear(dsp, v, size * 2);
 }
-static void fft_cpx_init(struct fft_cpx *cpx, int size)
+static float *fft_cpx_alloc(int size)
 {
-	cpx->v = fft_alloc(size * 2);
+	return fft_alloc(size * 2);
 }
 
-static void fft_cpx_free(struct fft_cpx *cpx)
+static void fft_cpx_free(float *cpx)
 {
-	fft_free(cpx->v);
+	fft_free(cpx);
 }
 
 static int next_power_of_two(int val)
@@ -109,36 +113,36 @@ static inline void fft_destroy(void *fft)
 	pffft_destroy_setup(fft);
 }
 
-static inline void fft_run(void *fft, float *in, struct fft_cpx *out)
+static inline void fft_run(void *fft, const float *in, float *out)
 {
-	pffft_transform(fft, in, out->v, NULL, PFFFT_FORWARD);
+	pffft_transform(fft, in, out, NULL, PFFFT_FORWARD);
 }
 
-static inline void ifft_run(void *ifft, struct fft_cpx *in, float *out)
+static inline void ifft_run(void *ifft, const float *in, float *out)
 {
-	pffft_transform(ifft, in->v, out, NULL, PFFFT_BACKWARD);
+	pffft_transform(ifft, in, out, NULL, PFFFT_BACKWARD);
 }
 
-static inline void fft_convolve(void *fft, struct fft_cpx *r,
-		const struct fft_cpx *a, const struct fft_cpx *b, int len, float scale)
+static inline void fft_convolve(void *fft, float *r,
+		const float *a, const float *b, int len, float scale)
 {
-	pffft_zconvolve(fft, a->v, b->v, r->v, scale);
+	pffft_zconvolve(fft, a, b, r, scale);
 }
-static inline void fft_convolve_accum(void *fft, struct fft_cpx *r,
-		const struct fft_cpx *c, const struct fft_cpx *a, const struct fft_cpx *b, int len, float scale)
+static inline void fft_convolve_accum(void *fft, float *r,
+		const float *c, const float *a, const float *b, int len, float scale)
 {
-	pffft_zconvolve_accumulate(fft, a->v, b->v, c->v, r->v, scale);
+	pffft_zconvolve_accumulate(fft, a, b, c, r, scale);
 }
 
 static void convolver1_reset(struct convolver1 *conv)
 {
 	int i;
 	for (i = 0; i < conv->segCount; i++)
-		fft_cpx_clear(&conv->segments[i], conv->fftComplexSize);
+		fft_cpx_clear(conv->segments[i], conv->fftComplexSize);
 	dsp_ops_clear(dsp, conv->overlap, conv->blockSize);
 	dsp_ops_clear(dsp, conv->inputBuffer, conv->segSize);
-	fft_cpx_clear(&conv->pre_mult, conv->fftComplexSize);
-	fft_cpx_clear(&conv->conv, conv->fftComplexSize);
+	fft_cpx_clear(conv->pre_mult, conv->fftComplexSize);
+	fft_cpx_clear(conv->conv, conv->fftComplexSize);
 	conv->inputBufferFill = 0;
 	conv->current = 0;
 }
@@ -177,24 +181,24 @@ static struct convolver1 *convolver1_new(int block, const float *ir, int irlen)
 	if (conv->fft_buffer == NULL)
 		goto error;
 
-	conv->segments = calloc(sizeof(struct fft_cpx), conv->segCount);
-	conv->segmentsIr = calloc(sizeof(struct fft_cpx), conv->segCount);
+	conv->segments = calloc(sizeof(float*), conv->segCount);
+	conv->segmentsIr = calloc(sizeof(float*), conv->segCount);
 
 	for (i = 0; i < conv->segCount; i++) {
 		int left = irlen - (i * conv->blockSize);
 		int copy = SPA_MIN(conv->blockSize, left);
 
-		fft_cpx_init(&conv->segments[i], conv->fftComplexSize);
-		fft_cpx_init(&conv->segmentsIr[i], conv->fftComplexSize);
+		conv->segments[i] = fft_cpx_alloc(conv->fftComplexSize);
+		conv->segmentsIr[i] = fft_cpx_alloc(conv->fftComplexSize);
 
 		dsp_ops_copy(dsp, conv->fft_buffer, &ir[i * conv->blockSize], copy);
 		if (copy < conv->segSize)
 			dsp_ops_clear(dsp, conv->fft_buffer + copy, conv->segSize - copy);
 
-	        fft_run(conv->fft, conv->fft_buffer, &conv->segmentsIr[i]);
+	        fft_run(conv->fft, conv->fft_buffer, conv->segmentsIr[i]);
 	}
-	fft_cpx_init(&conv->pre_mult, conv->fftComplexSize);
-	fft_cpx_init(&conv->conv, conv->fftComplexSize);
+	conv->pre_mult = fft_cpx_alloc(conv->fftComplexSize);
+	conv->conv = fft_cpx_alloc(conv->fftComplexSize);
 	conv->overlap = fft_alloc(conv->blockSize);
 	conv->inputBuffer = fft_alloc(conv->segSize);
 	conv->scale = 1.0f / conv->segSize;
@@ -216,8 +220,8 @@ static void convolver1_free(struct convolver1 *conv)
 {
 	int i;
 	for (i = 0; i < conv->segCount; i++) {
-		fft_cpx_free(&conv->segments[i]);
-		fft_cpx_free(&conv->segmentsIr[i]);
+		fft_cpx_free(conv->segments[i]);
+		fft_cpx_free(conv->segmentsIr[i]);
 	}
 	if (conv->fft)
 		fft_destroy(conv->fft);
@@ -227,8 +231,8 @@ static void convolver1_free(struct convolver1 *conv)
 		fft_free(conv->fft_buffer);
 	free(conv->segments);
 	free(conv->segmentsIr);
-	fft_cpx_free(&conv->pre_mult);
-	fft_cpx_free(&conv->conv);
+	fft_cpx_free(conv->pre_mult);
+	fft_cpx_free(conv->conv);
 	fft_free(conv->overlap);
 	fft_free(conv->inputBuffer);
 	free(conv);
@@ -251,42 +255,42 @@ static int convolver1_run(struct convolver1 *conv, const float *input, float *ou
 		if (inputBufferPos == 0 && processing < conv->blockSize)
 			dsp_ops_clear(dsp, conv->inputBuffer + processing, conv->blockSize - processing);
 
-		fft_run(conv->fft, conv->inputBuffer, &conv->segments[conv->current]);
+		fft_run(conv->fft, conv->inputBuffer, conv->segments[conv->current]);
 
 		if (conv->segCount > 1) {
 			if (conv->inputBufferFill == 0) {
 				int indexAudio = (conv->current + 1) % conv->segCount;
 
-				fft_convolve(conv->fft, &conv->pre_mult,
-						&conv->segmentsIr[1],
-						&conv->segments[indexAudio],
+				fft_convolve(conv->fft, conv->pre_mult,
+						conv->segmentsIr[1],
+						conv->segments[indexAudio],
 						conv->fftComplexSize, conv->scale);
 
 				for (i = 2; i < conv->segCount; i++) {
 					indexAudio = (conv->current + i) % conv->segCount;
 
 					fft_convolve_accum(conv->fft,
-							&conv->pre_mult,
-							&conv->pre_mult,
-							&conv->segmentsIr[i],
-							&conv->segments[indexAudio],
+							conv->pre_mult,
+							conv->pre_mult,
+							conv->segmentsIr[i],
+							conv->segments[indexAudio],
 							conv->fftComplexSize, conv->scale);
 				}
 			}
 			fft_convolve_accum(conv->fft,
-					&conv->conv,
-					&conv->pre_mult,
-					&conv->segments[conv->current],
-					&conv->segmentsIr[0],
+					conv->conv,
+					conv->pre_mult,
+					conv->segments[conv->current],
+					conv->segmentsIr[0],
 					conv->fftComplexSize, conv->scale);
 		} else {
-			fft_convolve(conv->fft, &conv->conv,
-					&conv->segments[conv->current],
-					&conv->segmentsIr[0],
+			fft_convolve(conv->fft, conv->conv,
+					conv->segments[conv->current],
+					conv->segmentsIr[0],
 					conv->fftComplexSize, conv->scale);
 		}
 
-		ifft_run(conv->ifft, &conv->conv, conv->fft_buffer);
+		ifft_run(conv->ifft, conv->conv, conv->fft_buffer);
 
 		dsp_ops_sum(dsp, output + processed, conv->fft_buffer + inputBufferPos,
 				conv->overlap + inputBufferPos, processing);

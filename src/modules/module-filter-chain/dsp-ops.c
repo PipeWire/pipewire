@@ -92,7 +92,6 @@ int dsp_ops_init(struct dsp_ops *ops)
 		return -ENOTSUP;
 
 	ops->priv = info;
-	ops->cpu_flags = info->cpu_flags;
 	ops->free = impl_dsp_ops_free;
 	ops->funcs = info->funcs;
 

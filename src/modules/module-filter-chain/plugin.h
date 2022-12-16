@@ -22,6 +22,9 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#ifndef PLUGIN_H
+#define PLUGIN_H
+
 #include <stdint.h>
 #include <stddef.h>
 #include <errno.h>
@@ -32,6 +35,8 @@
 #include <spa/utils/defs.h>
 #include <spa/utils/list.h>
 #include <spa/utils/string.h>
+
+#include "dsp-ops.h"
 
 struct fc_plugin {
 	const struct fc_descriptor *(*make_desc)(struct fc_plugin *plugin, const char *name);
@@ -98,8 +103,10 @@ static inline void fc_descriptor_free(const struct fc_descriptor *desc)
 }
 
 struct fc_plugin *load_ladspa_plugin(const struct spa_support *support, uint32_t n_support,
-		const char *path, const char *config);
+		struct dsp_ops *dsp, const char *path, const char *config);
 struct fc_plugin *load_lv2_plugin(const struct spa_support *support, uint32_t n_support,
-		const char *path, const char *config);
+		struct dsp_ops *dsp, const char *path, const char *config);
 struct fc_plugin *load_builtin_plugin(const struct spa_support *support, uint32_t n_support,
-		const char *path, const char *config);
+		struct dsp_ops *dsp, const char *path, const char *config);
+
+#endif /* PLUGIN_H */

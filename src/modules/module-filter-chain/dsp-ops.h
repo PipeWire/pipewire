@@ -22,6 +22,9 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#ifndef DSP_OPS_H
+#define DSP_OPS_H
+
 #include <spa/utils/defs.h>
 
 #include "biquad.h"
@@ -69,3 +72,5 @@ MAKE_BIQUAD_RUN_FUNC(c);
 #if defined (HAVE_SSE)
 MAKE_MIX_GAIN_FUNC(sse);
 #endif
+
+#endif /* DSP_OPS_H */

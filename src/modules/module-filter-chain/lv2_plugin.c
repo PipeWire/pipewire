@@ -472,7 +472,7 @@ static void lv2_unload(struct fc_plugin *plugin)
 }
 
 struct fc_plugin *load_lv2_plugin(const struct spa_support *support, uint32_t n_support,
-		const char *plugin_uri, const char *config)
+		struct dsp_ops *ops, const char *plugin_uri, const char *config)
 {
 	struct context *c;
 	const LilvPlugins *plugins;

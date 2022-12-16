@@ -38,6 +38,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
+#include <spa/support/cpu.h>
 #include <spa/param/profiler.h>
 #include <spa/pod/dynamic.h>
 #include <spa/debug/pod.h>
@@ -559,6 +560,8 @@ struct impl {
 	struct pw_core *core;
 	struct spa_hook core_proxy_listener;
 	struct spa_hook core_listener;
+
+	struct dsp_ops dsp;
 
 	struct spa_list plugin_list;
 
@@ -1184,14 +1187,14 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 	support = pw_context_get_support(impl->context, &n_support);
 
 	if (spa_streq(type, "builtin")) {
-		pl = load_builtin_plugin(support, n_support, path, NULL);
+		pl = load_builtin_plugin(support, n_support, &impl->dsp, path, NULL);
 	}
 	else if (spa_streq(type, "ladspa")) {
-		pl = load_ladspa_plugin(support, n_support, path, NULL);
+		pl = load_ladspa_plugin(support, n_support, &impl->dsp, path, NULL);
 	}
 	else if (spa_streq(type, "lv2")) {
 #ifdef HAVE_LILV
-		pl = load_lv2_plugin(support, n_support, path, NULL);
+		pl = load_lv2_plugin(support, n_support, &impl->dsp, path, NULL);
 #else
 		pw_log_error("filter-chain is compiled without lv2 support");
 		pl = NULL;
@@ -2244,6 +2247,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	uint32_t pid = getpid();
 	const char *str;
 	int res;
+	const struct spa_support *support;
+	uint32_t n_support;
+	struct spa_cpu *cpu_iface;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -2274,9 +2280,15 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->module = module;
 	impl->context = context;
-
 	impl->graph.impl = impl;
+
 	spa_list_init(&impl->plugin_list);
+
+	support = pw_context_get_support(impl->context, &n_support);
+
+	cpu_iface = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
+	impl->dsp.cpu_flags = cpu_iface ? spa_cpu_get_flags(cpu_iface) : 0;
+	dsp_ops_init(&impl->dsp);
 
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_GROUP, "filter-chain-%u-%u", pid, id);

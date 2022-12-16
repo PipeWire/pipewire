@@ -520,7 +520,7 @@ done:
 			if (ic >= dst_chan || jc >= src_chan)
 				continue;
 
-			if (i == 0)
+			if (ic == 0)
 				idx2 += snprintf(str2 + idx2, sizeof(str2) - idx2, "%-4.4s  ",
 						src_mask == ~0LU ? "MONO" :
 						spa_debug_type_find_short_name(spa_type_audio_channel, j + 3));
@@ -533,9 +533,9 @@ done:
 			else
 				idx += snprintf(str + idx, sizeof(str) - idx, "%1.3f ", matrix[i][j]);
 		}
-		if (dst_mask != 0 && src_mask != 0 && sum > 0.0f) {
-			if (i == 0)
-				spa_log_info(mix->log, "     %s", str2);
+		if (idx2 > 0)
+			spa_log_info(mix->log, "     %s", str2);
+		if (idx > 0) {
 			spa_log_info(mix->log, "%-4.4s %s   %f",
 					dst_mask == ~0LU ? "MONO" :
 					spa_debug_type_find_short_name(spa_type_audio_channel, i + 3),

@@ -45,6 +45,18 @@ struct dsp_ops_funcs {
 	void (*sum) (struct dsp_ops *ops,
 			float * dst, const float * SPA_RESTRICT a,
 			const float * SPA_RESTRICT b, uint32_t n_samples);
+
+	void *(*fft_new) (struct dsp_ops *ops, int32_t size, bool real);
+	void (*fft_free) (struct dsp_ops *ops, void *fft);
+	void (*fft_run) (struct dsp_ops *ops, void *fft, int direction,
+			const float * SPA_RESTRICT src, float * SPA_RESTRICT dst);
+	void (*fft_cmul) (struct dsp_ops *ops, void *fft,
+			float * SPA_RESTRICT dst, const float * SPA_RESTRICT a,
+			const float * SPA_RESTRICT b, uint32_t len, const float scale);
+	void (*fft_cmuladd) (struct dsp_ops *ops, void *fft,
+			float * dst, const float * src,
+			const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,
+			uint32_t len, const float scale);
 };
 
 struct dsp_ops {
@@ -67,6 +79,12 @@ int dsp_ops_init(struct dsp_ops *ops);
 #define dsp_ops_biquad_run(ops,...)	(ops)->funcs.biquad_run(ops, __VA_ARGS__)
 #define dsp_ops_sum(ops,...)		(ops)->funcs.sum(ops, __VA_ARGS__)
 
+#define dsp_ops_fft_new(ops,...)	(ops)->funcs.fft_new(ops, __VA_ARGS__)
+#define dsp_ops_fft_free(ops,...)	(ops)->funcs.fft_free(ops, __VA_ARGS__)
+#define dsp_ops_fft_run(ops,...)	(ops)->funcs.fft_run(ops, __VA_ARGS__)
+#define dsp_ops_fft_cmul(ops,...)	(ops)->funcs.fft_cmul(ops, __VA_ARGS__)
+#define dsp_ops_fft_cmuladd(ops,...)	(ops)->funcs.fft_cmuladd(ops, __VA_ARGS__)
+
 #define MAKE_CLEAR_FUNC(arch) \
 void dsp_clear_##arch(struct dsp_ops *ops, void * SPA_RESTRICT dst, uint32_t n_samples)
 #define MAKE_COPY_FUNC(arch) \
@@ -80,14 +98,37 @@ void dsp_biquad_run_##arch (struct dsp_ops *ops, struct biquad *bq,	\
 	float *out, const float *in, uint32_t n_samples)
 #define MAKE_SUM_FUNC(arch) \
 void dsp_sum_##arch (struct dsp_ops *ops, float * SPA_RESTRICT dst, \
-	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b, uint32_t n_samples);
+	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b, uint32_t n_samples)
 
+#define MAKE_FFT_NEW_FUNC(arch) \
+void *dsp_fft_new_##arch(struct dsp_ops *ops, int32_t size, bool real)
+#define MAKE_FFT_FREE_FUNC(arch) \
+void dsp_fft_free_##arch(struct dsp_ops *ops, void *fft)
+#define MAKE_FFT_RUN_FUNC(arch) \
+void dsp_fft_run_##arch(struct dsp_ops *ops, void *fft, int direction, \
+	const float * SPA_RESTRICT src, float * SPA_RESTRICT dst)
+#define MAKE_FFT_CMUL_FUNC(arch) \
+void dsp_fft_cmul_##arch(struct dsp_ops *ops, void *fft, \
+	float * SPA_RESTRICT dst, const float * SPA_RESTRICT a, \
+	const float * SPA_RESTRICT b, uint32_t len, const float scale)
+#define MAKE_FFT_CMULADD_FUNC(arch) \
+void dsp_fft_cmuladd_##arch(struct dsp_ops *ops, void *fft,		\
+	float * dst, const float * src,					\
+	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,	\
+	uint32_t len, const float scale)
 
 MAKE_CLEAR_FUNC(c);
 MAKE_COPY_FUNC(c);
 MAKE_MIX_GAIN_FUNC(c);
 MAKE_BIQUAD_RUN_FUNC(c);
 MAKE_SUM_FUNC(c);
+
+MAKE_FFT_NEW_FUNC(c);
+MAKE_FFT_FREE_FUNC(c);
+MAKE_FFT_RUN_FUNC(c);
+MAKE_FFT_CMUL_FUNC(c);
+MAKE_FFT_CMULADD_FUNC(c);
+
 #if defined (HAVE_SSE)
 MAKE_MIX_GAIN_FUNC(sse);
 MAKE_SUM_FUNC(sse);

@@ -47,6 +47,11 @@ static struct dsp_info dsp_table[] =
 		.funcs.mix_gain = dsp_mix_gain_sse,
 		.funcs.biquad_run = dsp_biquad_run_c,
 		.funcs.sum = dsp_sum_avx,
+		.funcs.fft_new = dsp_fft_new_c,
+		.funcs.fft_free = dsp_fft_free_c,
+		.funcs.fft_run = dsp_fft_run_c,
+		.funcs.fft_cmul = dsp_fft_cmul_c,
+		.funcs.fft_cmuladd = dsp_fft_cmuladd_c,
 	},
 #endif
 #if defined (HAVE_SSE)
@@ -56,6 +61,11 @@ static struct dsp_info dsp_table[] =
 		.funcs.mix_gain = dsp_mix_gain_sse,
 		.funcs.biquad_run = dsp_biquad_run_c,
 		.funcs.sum = dsp_sum_sse,
+		.funcs.fft_new = dsp_fft_new_c,
+		.funcs.fft_free = dsp_fft_free_c,
+		.funcs.fft_run = dsp_fft_run_c,
+		.funcs.fft_cmul = dsp_fft_cmul_c,
+		.funcs.fft_cmuladd = dsp_fft_cmuladd_c,
 	},
 #endif
 	{ 0,
@@ -64,6 +74,11 @@ static struct dsp_info dsp_table[] =
 		.funcs.mix_gain = dsp_mix_gain_c,
 		.funcs.biquad_run = dsp_biquad_run_c,
 		.funcs.sum = dsp_sum_c,
+		.funcs.fft_new = dsp_fft_new_c,
+		.funcs.fft_free = dsp_fft_free_c,
+		.funcs.fft_run = dsp_fft_run_c,
+		.funcs.fft_cmul = dsp_fft_cmul_c,
+		.funcs.fft_cmuladd = dsp_fft_cmuladd_c,
 	},
 };
 

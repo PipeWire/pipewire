@@ -30,8 +30,6 @@
 
 #include <math.h>
 
-#include "pffft.h"
-
 static struct dsp_ops *dsp;
 
 struct convolver1 {
@@ -98,42 +96,6 @@ static int next_power_of_two(int val)
 	return r;
 }
 
-static inline void *fft_new(int size)
-{
-	return pffft_new_setup(size, PFFFT_REAL);
-}
-
-static inline void *ifft_new(int size)
-{
-	return pffft_new_setup(size, PFFFT_REAL);
-}
-
-static inline void fft_destroy(void *fft)
-{
-	pffft_destroy_setup(fft);
-}
-
-static inline void fft_run(void *fft, const float *in, float *out)
-{
-	pffft_transform(fft, in, out, NULL, PFFFT_FORWARD);
-}
-
-static inline void ifft_run(void *ifft, const float *in, float *out)
-{
-	pffft_transform(ifft, in, out, NULL, PFFFT_BACKWARD);
-}
-
-static inline void fft_convolve(void *fft, float *r,
-		const float *a, const float *b, int len, float scale)
-{
-	pffft_zconvolve(fft, a, b, r, scale);
-}
-static inline void fft_convolve_accum(void *fft, float *r,
-		const float *c, const float *a, const float *b, int len, float scale)
-{
-	pffft_zconvolve_accumulate(fft, a, b, c, r, scale);
-}
-
 static void convolver1_reset(struct convolver1 *conv)
 {
 	int i;
@@ -170,10 +132,10 @@ static struct convolver1 *convolver1_new(int block, const float *ir, int irlen)
 	conv->segCount = (irlen + conv->blockSize-1) / conv->blockSize;
 	conv->fftComplexSize = (conv->segSize / 2) + 1;
 
-	conv->fft = fft_new(conv->segSize);
+	conv->fft = dsp_ops_fft_new(dsp, conv->segSize, true);
 	if (conv->fft == NULL)
 		goto error;
-	conv->ifft = ifft_new(conv->segSize);
+	conv->ifft = dsp_ops_fft_new(dsp, conv->segSize, true);
 	if (conv->ifft == NULL)
 		goto error;
 
@@ -195,7 +157,7 @@ static struct convolver1 *convolver1_new(int block, const float *ir, int irlen)
 		if (copy < conv->segSize)
 			dsp_ops_clear(dsp, conv->fft_buffer + copy, conv->segSize - copy);
 
-	        fft_run(conv->fft, conv->fft_buffer, conv->segmentsIr[i]);
+	        dsp_ops_fft_run(dsp, conv->fft, 1, conv->fft_buffer, conv->segmentsIr[i]);
 	}
 	conv->pre_mult = fft_cpx_alloc(conv->fftComplexSize);
 	conv->conv = fft_cpx_alloc(conv->fftComplexSize);
@@ -207,9 +169,9 @@ static struct convolver1 *convolver1_new(int block, const float *ir, int irlen)
 	return conv;
 error:
 	if (conv->fft)
-		fft_destroy(conv->fft);
+		dsp_ops_fft_free(dsp, conv->fft);
 	if (conv->ifft)
-		fft_destroy(conv->ifft);
+		dsp_ops_fft_free(dsp, conv->ifft);
 	if (conv->fft_buffer)
 		fft_free(conv->fft_buffer);
 	free(conv);
@@ -224,9 +186,9 @@ static void convolver1_free(struct convolver1 *conv)
 		fft_cpx_free(conv->segmentsIr[i]);
 	}
 	if (conv->fft)
-		fft_destroy(conv->fft);
+		dsp_ops_fft_free(dsp, conv->fft);
 	if (conv->ifft)
-		fft_destroy(conv->ifft);
+		dsp_ops_fft_free(dsp, conv->ifft);
 	if (conv->fft_buffer)
 		fft_free(conv->fft_buffer);
 	free(conv->segments);
@@ -255,13 +217,13 @@ static int convolver1_run(struct convolver1 *conv, const float *input, float *ou
 		if (inputBufferPos == 0 && processing < conv->blockSize)
 			dsp_ops_clear(dsp, conv->inputBuffer + processing, conv->blockSize - processing);
 
-		fft_run(conv->fft, conv->inputBuffer, conv->segments[conv->current]);
+		dsp_ops_fft_run(dsp, conv->fft, 1, conv->inputBuffer, conv->segments[conv->current]);
 
 		if (conv->segCount > 1) {
 			if (conv->inputBufferFill == 0) {
 				int indexAudio = (conv->current + 1) % conv->segCount;
 
-				fft_convolve(conv->fft, conv->pre_mult,
+				dsp_ops_fft_cmul(dsp, conv->fft, conv->pre_mult,
 						conv->segmentsIr[1],
 						conv->segments[indexAudio],
 						conv->fftComplexSize, conv->scale);
@@ -269,7 +231,7 @@ static int convolver1_run(struct convolver1 *conv, const float *input, float *ou
 				for (i = 2; i < conv->segCount; i++) {
 					indexAudio = (conv->current + i) % conv->segCount;
 
-					fft_convolve_accum(conv->fft,
+					dsp_ops_fft_cmuladd(dsp, conv->fft,
 							conv->pre_mult,
 							conv->pre_mult,
 							conv->segmentsIr[i],
@@ -277,20 +239,21 @@ static int convolver1_run(struct convolver1 *conv, const float *input, float *ou
 							conv->fftComplexSize, conv->scale);
 				}
 			}
-			fft_convolve_accum(conv->fft,
+			dsp_ops_fft_cmuladd(dsp, conv->fft,
 					conv->conv,
 					conv->pre_mult,
 					conv->segments[conv->current],
 					conv->segmentsIr[0],
 					conv->fftComplexSize, conv->scale);
 		} else {
-			fft_convolve(conv->fft, conv->conv,
+			dsp_ops_fft_cmul(dsp, conv->fft,
+					conv->conv,
 					conv->segments[conv->current],
 					conv->segmentsIr[0],
 					conv->fftComplexSize, conv->scale);
 		}
 
-		ifft_run(conv->ifft, conv->conv, conv->fft_buffer);
+		dsp_ops_fft_run(dsp, conv->ifft, -1, conv->conv, conv->fft_buffer);
 
 		dsp_ops_sum(dsp, output + processed, conv->fft_buffer + inputBufferPos,
 				conv->overlap + inputBufferPos, processing);

@@ -29,9 +29,9 @@
 
 #include "biquad.h"
 
-struct dsp_ops {
-	uint32_t cpu_flags;
+struct dsp_ops;
 
+struct dsp_ops_funcs {
 	void (*clear) (struct dsp_ops *ops, void * SPA_RESTRICT dst, uint32_t n_samples);
 	void (*copy) (struct dsp_ops *ops,
 			void * SPA_RESTRICT dst,
@@ -42,19 +42,29 @@ struct dsp_ops {
 			float gain[], uint32_t n_src, uint32_t n_samples);
 	void (*biquad_run) (struct dsp_ops *ops, struct biquad *bq,
 			float *out, const float *in, uint32_t n_samples);
+};
+
+struct dsp_ops {
+	uint32_t cpu_flags;
+
 	void (*free) (struct dsp_ops *ops);
+
+	struct dsp_ops_funcs funcs;
 
 	const void *priv;
 };
 
 int dsp_ops_init(struct dsp_ops *ops);
 
-#define dsp_ops_copy(ops,...)		(ops)->copy(ops, __VA_ARGS__)
-#define dsp_ops_mix_gain(ops,...)	(ops)->mix_gain(ops, __VA_ARGS__)
-#define dsp_ops_biquad_run(ops,...)	(ops)->biquad_run(ops, __VA_ARGS__)
 #define dsp_ops_free(ops)		(ops)->free(ops)
 
+#define dsp_ops_clear(ops,...)		(ops)->funcs.clear(ops, __VA_ARGS__)
+#define dsp_ops_copy(ops,...)		(ops)->funcs.copy(ops, __VA_ARGS__)
+#define dsp_ops_mix_gain(ops,...)	(ops)->funcs.mix_gain(ops, __VA_ARGS__)
+#define dsp_ops_biquad_run(ops,...)	(ops)->funcs.biquad_run(ops, __VA_ARGS__)
 
+#define MAKE_CLEAR_FUNC(arch) \
+void dsp_clear_##arch(struct dsp_ops *ops, void * SPA_RESTRICT dst, uint32_t n_samples)
 #define MAKE_COPY_FUNC(arch) \
 void dsp_copy_##arch(struct dsp_ops *ops, void * SPA_RESTRICT dst, \
 	const void * SPA_RESTRICT src, uint32_t n_samples)
@@ -66,6 +76,7 @@ void dsp_biquad_run_##arch (struct dsp_ops *ops, struct biquad *bq,	\
 	float *out, const float *in, uint32_t n_samples)
 
 
+MAKE_CLEAR_FUNC(c);
 MAKE_COPY_FUNC(c);
 MAKE_MIX_GAIN_FUNC(c);
 MAKE_BIQUAD_RUN_FUNC(c);

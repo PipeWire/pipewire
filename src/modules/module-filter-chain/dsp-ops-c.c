@@ -31,7 +31,7 @@
 
 #include "dsp-ops.h"
 
-static inline void dsp_clear_c(struct dsp_ops *ops, void * SPA_RESTRICT dst, uint32_t n_samples)
+void dsp_clear_c(struct dsp_ops *ops, void * SPA_RESTRICT dst, uint32_t n_samples)
 {
 	memset(dst, 0, sizeof(float) * n_samples);
 }

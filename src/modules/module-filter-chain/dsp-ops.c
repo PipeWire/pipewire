@@ -35,30 +35,24 @@
 struct dsp_info {
 	uint32_t cpu_flags;
 
-	void (*copy) (struct dsp_ops *ops,
-			void * SPA_RESTRICT dst,
-			const void * SPA_RESTRICT src, uint32_t n_samples);
-	void (*mix_gain) (struct dsp_ops *ops,
-			void * SPA_RESTRICT dst,
-			const void * SPA_RESTRICT src[],
-			float gain[], uint32_t n_src, uint32_t n_samples);
-	void (*biquad_run) (struct dsp_ops *ops, struct biquad *bq,
-			float *out, const float *in, uint32_t n_samples);
+	struct dsp_ops_funcs funcs;
 };
 
 static struct dsp_info dsp_table[] =
 {
 #if defined (HAVE_SSE)
 	{ SPA_CPU_FLAG_SSE,
-		.copy = dsp_copy_c,
-		.mix_gain = dsp_mix_gain_sse,
-		.biquad_run = dsp_biquad_run_c,
+		.funcs.clear = dsp_clear_c,
+		.funcs.copy = dsp_copy_c,
+		.funcs.mix_gain = dsp_mix_gain_sse,
+		.funcs.biquad_run = dsp_biquad_run_c,
 	},
 #endif
 	{ 0,
-		.copy = dsp_copy_c,
-		.mix_gain = dsp_mix_gain_c,
-		.biquad_run = dsp_biquad_run_c,
+		.funcs.clear = dsp_clear_c,
+		.funcs.copy = dsp_copy_c,
+		.funcs.mix_gain = dsp_mix_gain_c,
+		.funcs.biquad_run = dsp_biquad_run_c,
 	},
 };
 
@@ -88,10 +82,8 @@ int dsp_ops_init(struct dsp_ops *ops)
 
 	ops->priv = info;
 	ops->cpu_flags = info->cpu_flags;
-	ops->copy = info->copy;
-	ops->mix_gain = info->mix_gain;
-	ops->biquad_run = info->biquad_run;
 	ops->free = impl_dsp_ops_free;
+	ops->funcs = info->funcs;
 
 	return 0;
 }

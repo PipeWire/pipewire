@@ -40,12 +40,22 @@ struct dsp_info {
 
 static struct dsp_info dsp_table[] =
 {
+#if defined (HAVE_AVX)
+	{ SPA_CPU_FLAG_AVX,
+		.funcs.clear = dsp_clear_c,
+		.funcs.copy = dsp_copy_c,
+		.funcs.mix_gain = dsp_mix_gain_sse,
+		.funcs.biquad_run = dsp_biquad_run_c,
+		.funcs.sum = dsp_sum_avx,
+	},
+#endif
 #if defined (HAVE_SSE)
 	{ SPA_CPU_FLAG_SSE,
 		.funcs.clear = dsp_clear_c,
 		.funcs.copy = dsp_copy_c,
 		.funcs.mix_gain = dsp_mix_gain_sse,
 		.funcs.biquad_run = dsp_biquad_run_c,
+		.funcs.sum = dsp_sum_sse,
 	},
 #endif
 	{ 0,
@@ -53,6 +63,7 @@ static struct dsp_info dsp_table[] =
 		.funcs.copy = dsp_copy_c,
 		.funcs.mix_gain = dsp_mix_gain_c,
 		.funcs.biquad_run = dsp_biquad_run_c,
+		.funcs.sum = dsp_sum_c,
 	},
 };
 

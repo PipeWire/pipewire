@@ -71,6 +71,16 @@ if have_sse
   simd_cargs += ['-DHAVE_SSE']
   simd_dependencies += filter_chain_sse
 endif
+if have_avx
+  filter_chain_avx = static_library('filter_chain_avx',
+    ['module-filter-chain/dsp-ops-avx.c' ],
+    c_args : [avx_args, fma_args,'-O3', '-DHAVE_AVX'],
+    dependencies : [ spa_dep ],
+    install : false
+    )
+  simd_cargs += ['-DHAVE_AVX']
+  simd_dependencies += filter_chain_avx
+endif
 if have_neon
   filter_chain_neon = static_library('filter_chain_neon',
     ['module-filter-chain/pffft.c' ],

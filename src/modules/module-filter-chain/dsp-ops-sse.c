@@ -89,3 +89,54 @@ void dsp_mix_gain_sse(struct dsp_ops *ops,
 		}
 	}
 }
+
+void dsp_sum_sse(struct dsp_ops *ops, float *r, const float *a, const float *b, uint32_t n_samples)
+{
+	uint32_t n, unrolled;
+	__m128 in[4];
+
+	unrolled = n_samples & ~15;
+
+	if (SPA_LIKELY(SPA_IS_ALIGNED(r, 16)) &&
+	    SPA_LIKELY(SPA_IS_ALIGNED(a, 16)) &&
+	    SPA_LIKELY(SPA_IS_ALIGNED(b, 16))) {
+		for (n = 0; n < unrolled; n += 16) {
+			in[0] = _mm_load_ps(&a[n+ 0]);
+			in[1] = _mm_load_ps(&a[n+ 4]);
+			in[2] = _mm_load_ps(&a[n+ 8]);
+			in[3] = _mm_load_ps(&a[n+12]);
+
+			in[0] = _mm_add_ps(in[0], _mm_load_ps(&b[n+ 0]));
+			in[1] = _mm_add_ps(in[1], _mm_load_ps(&b[n+ 4]));
+			in[2] = _mm_add_ps(in[2], _mm_load_ps(&b[n+ 8]));
+			in[3] = _mm_add_ps(in[3], _mm_load_ps(&b[n+12]));
+
+			_mm_store_ps(&r[n+ 0], in[0]);
+			_mm_store_ps(&r[n+ 4], in[1]);
+			_mm_store_ps(&r[n+ 8], in[2]);
+			_mm_store_ps(&r[n+12], in[3]);
+		}
+	} else {
+		for (n = 0; n < unrolled; n += 16) {
+			in[0] = _mm_loadu_ps(&a[n+ 0]);
+			in[1] = _mm_loadu_ps(&a[n+ 4]);
+			in[2] = _mm_loadu_ps(&a[n+ 8]);
+			in[3] = _mm_loadu_ps(&a[n+12]);
+
+			in[0] = _mm_add_ps(in[0], _mm_loadu_ps(&b[n+ 0]));
+			in[1] = _mm_add_ps(in[1], _mm_loadu_ps(&b[n+ 4]));
+			in[2] = _mm_add_ps(in[2], _mm_loadu_ps(&b[n+ 8]));
+			in[3] = _mm_add_ps(in[3], _mm_loadu_ps(&b[n+12]));
+
+			_mm_storeu_ps(&r[n+ 0], in[0]);
+			_mm_storeu_ps(&r[n+ 4], in[1]);
+			_mm_storeu_ps(&r[n+ 8], in[2]);
+			_mm_storeu_ps(&r[n+12], in[3]);
+		}
+	}
+	for (; n < n_samples; n++) {
+		in[0] = _mm_load_ss(&a[n]);
+		in[0] = _mm_add_ss(in[0], _mm_load_ss(&b[n]));
+		_mm_store_ss(&r[n], in[0]);
+	}
+}

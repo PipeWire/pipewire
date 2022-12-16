@@ -133,3 +133,11 @@ void dsp_biquad_run_c(struct dsp_ops *ops, struct biquad *bq,
 #undef F
 }
 
+void dsp_sum_c(struct dsp_ops *ops, float * dst,
+		const float * SPA_RESTRICT a, const float * SPA_RESTRICT b, uint32_t n_samples)
+{
+	uint32_t i;
+	for (i = 0; i < n_samples; i++)
+		dst[i] = a[i] + b[i];
+}
+

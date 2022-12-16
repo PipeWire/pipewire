@@ -42,6 +42,9 @@ struct dsp_ops_funcs {
 			float gain[], uint32_t n_src, uint32_t n_samples);
 	void (*biquad_run) (struct dsp_ops *ops, struct biquad *bq,
 			float *out, const float *in, uint32_t n_samples);
+	void (*sum) (struct dsp_ops *ops,
+			float * dst, const float * SPA_RESTRICT a,
+			const float * SPA_RESTRICT b, uint32_t n_samples);
 };
 
 struct dsp_ops {
@@ -62,6 +65,7 @@ int dsp_ops_init(struct dsp_ops *ops);
 #define dsp_ops_copy(ops,...)		(ops)->funcs.copy(ops, __VA_ARGS__)
 #define dsp_ops_mix_gain(ops,...)	(ops)->funcs.mix_gain(ops, __VA_ARGS__)
 #define dsp_ops_biquad_run(ops,...)	(ops)->funcs.biquad_run(ops, __VA_ARGS__)
+#define dsp_ops_sum(ops,...)		(ops)->funcs.sum(ops, __VA_ARGS__)
 
 #define MAKE_CLEAR_FUNC(arch) \
 void dsp_clear_##arch(struct dsp_ops *ops, void * SPA_RESTRICT dst, uint32_t n_samples)
@@ -74,14 +78,22 @@ void dsp_mix_gain_##arch(struct dsp_ops *ops, void * SPA_RESTRICT dst,	\
 #define MAKE_BIQUAD_RUN_FUNC(arch) \
 void dsp_biquad_run_##arch (struct dsp_ops *ops, struct biquad *bq,	\
 	float *out, const float *in, uint32_t n_samples)
+#define MAKE_SUM_FUNC(arch) \
+void dsp_sum_##arch (struct dsp_ops *ops, float * SPA_RESTRICT dst, \
+	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b, uint32_t n_samples);
 
 
 MAKE_CLEAR_FUNC(c);
 MAKE_COPY_FUNC(c);
 MAKE_MIX_GAIN_FUNC(c);
 MAKE_BIQUAD_RUN_FUNC(c);
+MAKE_SUM_FUNC(c);
 #if defined (HAVE_SSE)
 MAKE_MIX_GAIN_FUNC(sse);
+MAKE_SUM_FUNC(sse);
+#endif
+#if defined (HAVE_AVX)
+MAKE_SUM_FUNC(avx);
 #endif
 
 #endif /* DSP_OPS_H */

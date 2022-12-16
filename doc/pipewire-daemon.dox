@@ -133,15 +133,14 @@ Allowed configuration file sections are:
 # Logging
 
 The `PIPEWIRE_DEBUG` environment variable can be used to enable
-more debugging. This variable supports one of two formats:
+more debugging. This variable supports the following format:
 
-- `PIPEWIRE_DEBUG=<level>` where `<level>` is either a numerical log level or its
-   respective key, see below.
-- `PIPEWIRE_DEBUG=<glob1>:<level1>,<glob2>:<level2>,...` where the globs are
+- `PIPEWIRE_DEBUG=[<level>][,<glob1>:<level1>][,<glob2>:<level2>,...]` where the globs are
   shell globs to match on log topics and the levels are the respective
   log level to set for that topic. Globs are applied in order and a matching
-  glob overrides an earlier glob for that category. For example,
-  `PIPEWIRE_DEBUG=*:E,mod.*:D,mod.foo:X` enables global error messages,
+  glob overrides an earlier glob for that category. A level without a glob
+  prefix will set the global log level and is a more preformant version of
+  `*:<level>`.  For example, `PIPEWIRE_DEBUG=E,mod.*:D,mod.foo:X` enables global error messages,
   debugging on all modules but no messages on the foo module.
 - `<level>` specifies the log level:
 

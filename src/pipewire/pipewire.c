@@ -530,7 +530,7 @@ parse_pw_debug_env(void)
 	if (!str || (slen = strlen(str)) == 0)
 		return NULL;
 
-	/* String format is PIPEWIRE_DEBUG=<glob>:<level>[,<glob>:<level>,...],
+	/* String format is PIPEWIRE_DEBUG=[<glob>:]<level>,...,
 	 * converted into [{ conn.* = 0}, {glob = level}, {glob = level}, ....] ,
 	 * with the connection namespace disabled by default.
 	 */

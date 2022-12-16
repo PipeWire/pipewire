@@ -25,7 +25,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
-struct convolver *convolver_new(int block, int tail, const float *ir, int irlen);
+#include "dsp-ops.h"
+
+struct convolver *convolver_new(struct dsp_ops *dsp, int block, int tail, const float *ir, int irlen);
 void convolver_free(struct convolver *conv);
 
 void convolver_reset(struct convolver *conv);

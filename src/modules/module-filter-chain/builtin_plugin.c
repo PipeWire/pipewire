@@ -731,7 +731,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 
 	impl->rate = SampleRate;
 
-	impl->conv = convolver_new(blocksize, tailsize, samples, n_samples);
+	impl->conv = convolver_new(dsp_ops, blocksize, tailsize, samples, n_samples);
 	if (impl->conv == NULL)
 		goto error;
 

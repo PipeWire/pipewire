@@ -314,7 +314,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 	snd_pcm_uframes_t try_period_size, try_buffer_size;
 
 	ss.format = PA_SAMPLE_S32LE;
-	ss.rate = DEFAULT_RATE;
+	ss.rate = impl->rate;
 	ss.channels = 64;
 
 	ap = pa_xnew0(pa_alsa_profile, 1);
@@ -1553,6 +1553,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	impl->auto_profile = true;
 	impl->auto_port = true;
 	impl->ignore_dB = false;
+	impl->rate = DEFAULT_RATE;
 
 	if (props) {
 		if ((s = acp_dict_lookup(props, "api.alsa.use-ucm")) != NULL)
@@ -1569,10 +1570,12 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 			impl->auto_profile = spa_atob(s);
 		if ((s = acp_dict_lookup(props, "api.acp.auto-port")) != NULL)
 			impl->auto_port = spa_atob(s);
+		if ((s = acp_dict_lookup(props, "api.acp.probe-rate")) != NULL)
+			impl->rate = atoi(s);
 	}
 
 	impl->ucm.default_sample_spec.format = PA_SAMPLE_S16NE;
-	impl->ucm.default_sample_spec.rate = DEFAULT_RATE;
+	impl->ucm.default_sample_spec.rate = impl->rate;
 	impl->ucm.default_sample_spec.channels = 2;
 	pa_channel_map_init_extend(&impl->ucm.default_channel_map,
 			impl->ucm.default_sample_spec.channels, PA_CHANNEL_MAP_ALSA);

@@ -579,7 +579,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%lu/%u", pw->min_avail, io->rate);
 	if (pw_properties_get(props, PW_KEY_NODE_RATE) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", io->rate);
-	if (pw->target != NULL &&
+	if (pw->target != NULL && !spa_streq(pw->target, "-1") &&
 		pw_properties_get(props, PW_KEY_NODE_TARGET) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_TARGET, "%s", pw->target);
 

@@ -415,6 +415,13 @@ if gio_dep.found()
   ]
   pipewire_module_protocol_pulse_deps += gio_dep
   cdata.set('HAVE_GIO', true)
+  install_data(['module-protocol-pulse/modules/org.freedesktop.pulseaudio.gschema.xml'],
+    install_dir: pipewire_datadir / 'glib-2.0' / 'schemas'
+  )
+  gnome = import('gnome')
+  gnome.post_install(
+    glib_compile_schemas: true
+  )
 endif
 
 if flatpak_support

@@ -1,0 +1,115 @@
+<schemalist gettext-domain="pulseaudio">
+  <!-- The module-groups object is just an entry point to find the individual
+       module-group objects. -->
+  <schema id="org.freedesktop.pulseaudio.module-groups" path="/org/freedesktop/pulseaudio/module-groups/">
+    <child name="combine" schema="org.freedesktop.pulseaudio.module-group"/>
+    <child name="remote-access" schema="org.freedesktop.pulseaudio.module-group"/>
+    <child name="zeroconf-discover" schema="org.freedesktop.pulseaudio.module-group"/>
+    <child name="raop-discover" schema="org.freedesktop.pulseaudio.module-group"/>
+    <child name="rtp-recv" schema="org.freedesktop.pulseaudio.module-group"/>
+    <child name="rtp-send" schema="org.freedesktop.pulseaudio.module-group"/>
+    <child name="upnp-media-server" schema="org.freedesktop.pulseaudio.module-group"/>
+  </schema>
+
+  <!-- Paprefs puts related modules into groups that are enabled or disabled as
+       a whole. One group can contain up to 10 module instances (either of the
+       same module or different modules). A module-group object defines up to
+       10 modules to load. The name0..name9 keys contain the module names and
+       the args0..args9 keys provide the module arguments. -->
+  <schema id="org.freedesktop.pulseaudio.module-group">
+    <key name="name" type="s">
+      <default>''</default>
+      <summary>Module group name</summary>
+      <description>Module group name</description>
+    </key>
+
+    <key name="enabled" type="b">
+      <default>false</default>
+    </key>
+
+    <key name="locked" type="b">
+      <default>false</default>
+    </key>
+
+    <key name="args0" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="args1" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="args2" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="args3" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="args4" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="args5" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="args6" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="args7" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="args8" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="args9" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="name0" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="name1" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="name2" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="name3" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="name4" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="name5" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="name6" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="name7" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="name8" type="s">
+      <default>''</default>
+    </key>
+
+    <key name="name9" type="s">
+      <default>''</default>
+    </key>
+  </schema>
+
+</schemalist>

@@ -336,8 +336,9 @@ static int roc_source_setup(struct module_roc_source_data *data)
 	receiver_config.frame_encoding = ROC_FRAME_ENCODING_PCM_FLOAT;
 	receiver_config.resampler_profile = data->resampler_profile;
 
-	/* Fixed to be the same as ROC receiver config above */
 	info.rate = data->rate;
+
+	/* Fixed to be the same as ROC receiver config above */
 	info.channels = 2;
 	info.format = SPA_AUDIO_FORMAT_F32;
 	info.position[0] = SPA_AUDIO_CHANNEL_FL;

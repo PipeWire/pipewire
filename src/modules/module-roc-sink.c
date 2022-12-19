@@ -315,8 +315,9 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 	sender_config.frame_encoding = ROC_FRAME_ENCODING_PCM_FLOAT;
 	sender_config.fec_code = data->fec_code;
 
-	/* Fixed to be the same as ROC sender config above */
 	info.rate = data->rate;
+
+	/* Fixed to be the same as ROC sender config above */
 	info.channels = 2;
 	info.format = SPA_AUDIO_FORMAT_F32;
 	info.position[0] = SPA_AUDIO_CHANNEL_FL;

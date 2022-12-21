@@ -1754,7 +1754,6 @@ impl_init(const struct spa_handle_factory *factory,
 	port->latency = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
 	port->latency.min_quantum = 1.0f;
 	port->latency.max_quantum = 1.0f;
-	set_latency(this, false);
 
 	spa_list_init(&port->ready);
 
@@ -1799,6 +1798,8 @@ impl_init(const struct spa_handle_factory *factory,
 		this->is_output = true;
 
 	reset_props(this, &this->props);
+
+	set_latency(this, false);
 
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);

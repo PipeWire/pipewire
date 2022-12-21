@@ -74,7 +74,7 @@ enum {
 	HFP_AG_INITIAL_CODEC_SETUP_WAIT
 };
 
-#define CIND_INDICATORS "(\"service\",(0-1)),(\"call\",(0-1)),(\"callsetup\",(0-3)),(\"callheld\",(0-2)),(\"signal\",(0-5)),(\"roam\",(0-1)),\"battchg\",(0-5))"
+#define CIND_INDICATORS "(\"service\",(0-1)),(\"call\",(0-1)),(\"callsetup\",(0-3)),(\"callheld\",(0-2)),(\"signal\",(0-5)),(\"roam\",(0-1)),(\"battchg\",(0-5))"
 enum {
 	CIND_SERVICE = 1,
 	CIND_CALL,

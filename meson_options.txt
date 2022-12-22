@@ -330,3 +330,7 @@ option('libffado',
        description: 'Enable code that depends on libffado',
        type: 'feature',
        value: 'auto')
+option('gsettings-pulse-schema',
+       description: 'Install gsettings schema for pulseaudio',
+       type: 'feature',
+       value: 'auto')

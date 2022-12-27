@@ -28,9 +28,10 @@
 
 #include "config.h"
 
-#include <pipewire/pipewire.h>
-
 #include <gst/gst.h>
+
+#include <pipewire/pipewire.h>
+#include <gst/gstpipewirecore.h>
 
 G_BEGIN_DECLS
 
@@ -82,15 +83,13 @@ struct _GstPipeWireDeviceProvider {
 
   gchar *client_name;
 
-  struct pw_thread_loop *loop;
-
-  struct pw_context *context;
-
-  struct pw_core *core;
+  GstPipeWireCore *core;
+  struct spa_hook core_listener;
+  struct pw_registry *registry;
+  struct spa_hook registry_listener;
+  struct spa_list nodes;
   struct spa_list pending;
   int seq;
-
-  struct pw_registry *registry;
 
   int error;
   gboolean end;

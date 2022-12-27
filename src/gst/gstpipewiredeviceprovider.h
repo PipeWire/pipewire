@@ -58,6 +58,7 @@ struct _GstPipeWireDevice {
   GstPipeWireDeviceType  type;
   uint32_t            id;
   uint64_t            serial;
+  int                 fd;
   const gchar        *element;
 };
 
@@ -82,6 +83,7 @@ struct _GstPipeWireDeviceProvider {
   GstDeviceProvider         parent;
 
   gchar *client_name;
+  int fd;
 
   GstPipeWireCore *core;
   struct spa_hook core_listener;

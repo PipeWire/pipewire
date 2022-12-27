@@ -45,6 +45,7 @@ enum
 {
   PROP_ID = 1,
   PROP_SERIAL,
+  PROP_FD_DEVICE,
 };
 
 static GstElement *
@@ -59,7 +60,8 @@ gst_pipewire_device_create_element (GstDevice * device, const gchar * name)
   /* XXX: eventually only add target-object here */
   id_str = g_strdup_printf ("%u", pipewire_dev->id);
   serial_str = g_strdup_printf ("%"PRIu64, pipewire_dev->serial);
-  g_object_set (elem, "path", id_str, "target-object", serial_str, NULL);
+  g_object_set (elem, "path", id_str, "target-object", serial_str,
+                "fd", pipewire_dev->fd, NULL);
   g_free (id_str);
   g_free (serial_str);
 
@@ -85,7 +87,8 @@ gst_pipewire_device_reconfigure_element (GstDevice * device, GstElement * elemen
   /* XXX: eventually only add target-object here */
   id_str = g_strdup_printf ("%u", pipewire_dev->id);
   serial_str = g_strdup_printf ("%"PRIu64, pipewire_dev->serial);
-  g_object_set (element, "path", id_str, "target-object", serial_str, NULL);
+  g_object_set (element, "path", id_str, "target-object", serial_str,
+                "fd", pipewire_dev->fd, NULL);
   g_free (id_str);
   g_free (serial_str);
 
@@ -108,6 +111,9 @@ gst_pipewire_device_get_property (GObject * object, guint prop_id,
     case PROP_SERIAL:
       g_value_set_uint64 (value, device->serial);
       break;
+    case PROP_FD_DEVICE:
+      g_value_set_int (value, device->fd);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -128,6 +134,9 @@ gst_pipewire_device_set_property (GObject * object, guint prop_id,
       break;
     case PROP_SERIAL:
       device->serial = g_value_get_uint64 (value);
+      break;
+    case PROP_FD_DEVICE:
+      device->fd = g_value_get_int (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -163,6 +172,11 @@ gst_pipewire_device_class_init (GstPipeWireDeviceClass * klass)
       g_param_spec_uint64 ("serial", "Serial",
           "The internal serial of the PipeWire device", 0, G_MAXUINT64, SPA_ID_INVALID,
           G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+
+  g_object_class_install_property (object_class,
+      PROP_FD_DEVICE,
+      g_param_spec_int ("fd", "Fd", "The fd to connect with", -1, G_MAXINT, -1,
+          G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 }
 
 static void
@@ -177,6 +191,7 @@ enum
 {
   PROP_0,
   PROP_CLIENT_NAME,
+  PROP_FD,
   PROP_LAST
 };
 
@@ -248,7 +263,8 @@ new_node (GstPipeWireDeviceProvider *self, struct node_data *data)
 
   gstdev = g_object_new (GST_TYPE_PIPEWIRE_DEVICE,
       "display-name", name, "caps", data->caps, "device-class", klass,
-      "id", data->id, "serial", data->serial, "properties", props, NULL);
+      "id", data->id, "serial", data->serial, "fd", self->fd,
+      "properties", props, NULL);
 
   gstdev->id = data->id;
   gstdev->serial = data->serial;
@@ -544,7 +560,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
 
   GST_DEBUG_OBJECT (self, "starting probe");
 
-  self->core = gst_pipewire_core_get(-1);
+  self->core = gst_pipewire_core_get(self->fd);
   if (self->core == NULL) {
     GST_ERROR_OBJECT (self, "Failed to connect");
     goto failed;
@@ -594,7 +610,7 @@ gst_pipewire_device_provider_start (GstDeviceProvider * provider)
 
   GST_DEBUG_OBJECT (self, "starting provider");
 
-  self->core = gst_pipewire_core_get(-1);
+  self->core = gst_pipewire_core_get(self->fd);
   if (self->core == NULL) {
     GST_ERROR_OBJECT (self, "Failed to connect");
     goto failed;
@@ -662,6 +678,11 @@ gst_pipewire_device_provider_set_property (GObject * object,
       } else
         self->client_name = g_value_dup_string (value);
       break;
+
+    case PROP_FD:
+      self->fd = g_value_get_int (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -678,6 +699,11 @@ gst_pipewire_device_provider_get_property (GObject * object,
     case PROP_CLIENT_NAME:
       g_value_set_string (value, self->client_name);
       break;
+
+    case PROP_FD:
+      g_value_set_int (value, self->fd);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -715,6 +741,11 @@ gst_pipewire_device_provider_class_init (GstPipeWireDeviceProviderClass * klass)
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS |
           GST_PARAM_MUTABLE_READY));
 
+  g_object_class_install_property (gobject_class,
+      PROP_FD,
+      g_param_spec_int ("fd", "Fd", "The fd to connect with", -1, G_MAXINT, -1,
+          G_PARAM_STATIC_STRINGS | G_PARAM_READWRITE));
+
   gst_device_provider_class_set_static_metadata (dm_class,
       "PipeWire Device Provider", "Sink/Source/Audio/Video",
       "List and provide PipeWire source and sink devices",
@@ -725,4 +756,5 @@ static void
 gst_pipewire_device_provider_init (GstPipeWireDeviceProvider * self)
 {
   self->client_name = g_strdup(pw_get_client_name ());
+  self->fd = -1;
 }

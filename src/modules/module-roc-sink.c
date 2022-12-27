@@ -40,6 +40,8 @@
 #include <roc/log.h>
 #include <roc/sender.h>
 
+#include "module-roc/common.h"
+
 /** \page page_module_roc_sink PipeWire Module: ROC sink
  *
  * The `roc-sink` module creates a PipeWire sink that sends samples to
@@ -52,7 +54,6 @@
  *
  * - `sink.props = {}`: properties to be passed to the sink stream
  * - `sink.name = <str>`: node.name of the sink
- * - `local.ip = <str>`: local sender ip
  * - `remote.ip = <str>`: remote receiver ip
  * - `remote.source.port = <str>`: remote receiver TCP/UDP port for source packets
  * - `remote.repair.port = <str>`: remote receiver TCP/UDP port for receiver packets
@@ -92,11 +93,6 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define ROC_DEFAULT_IP "0.0.0.0"
-#define ROC_DEFAULT_SOURCE_PORT 10001
-#define ROC_DEFAULT_REPAIR_PORT 10002
-#define ROC_DEFAULT_RATE 44100
-
 struct module_roc_sink_data {
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
@@ -113,34 +109,17 @@ struct module_roc_sink_data {
 
 	unsigned int do_disconnect:1;
 
-	roc_address local_addr;
-	roc_address remote_source_addr;
-	roc_address remote_repair_addr;
+	roc_endpoint *remote_source_addr;
+	roc_endpoint *remote_repair_addr;
 	roc_context *context;
 	roc_sender *sender;
 
-	roc_fec_code fec_code;
+	roc_fec_encoding fec_code;
 	uint32_t rate;
-	char *local_ip;
 	char *remote_ip;
 	int remote_source_port;
 	int remote_repair_port;
 };
-
-static int roc_parse_fec_code(roc_fec_code *out, const char *str)
-{
-	if (!str || !*str)
-		*out = ROC_FEC_DEFAULT;
-	else if (spa_streq(str, "disable"))
-		*out = ROC_FEC_DISABLE;
-	else if (spa_streq(str, "rs8m"))
-		*out = ROC_FEC_RS8M;
-	else if (spa_streq(str, "ldpc"))
-		*out = ROC_FEC_LDPC_STAIRCASE;
-	else
-		return -EINVAL;
-	return 0;
-}
 
 static void stream_destroy(void *d)
 {
@@ -254,7 +233,11 @@ static void impl_destroy(struct module_roc_sink_data *data)
 	if (data->context)
 		roc_context_close(data->context);
 
-	free(data->local_ip);
+	if (data->remote_source_addr)
+		(void) roc_endpoint_deallocate(data->remote_source_addr);
+	if (data->remote_repair_addr)
+		(void) roc_endpoint_deallocate(data->remote_repair_addr);
+
 	free(data->remote_ip);
 	free(data);
 }
@@ -283,28 +266,11 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 	int res;
 	roc_protocol audio_proto, repair_proto;
 
-	if (roc_address_init(&data->local_addr, ROC_AF_AUTO, data->local_ip, 0)) {
-		pw_log_error("Invalid local IP address");
-		return -EINVAL;
-	}
-
-	if (roc_address_init(&data->remote_source_addr, ROC_AF_AUTO, data->remote_ip,
-				data->remote_source_port)) {
-		pw_log_error("Invalid remote source address");
-		return -EINVAL;
-	}
-
-	if (roc_address_init(&data->remote_repair_addr, ROC_AF_AUTO, data->remote_ip,
-				data->remote_repair_port)) {
-		pw_log_error("Invalid remote repair address");
-		return -EINVAL;
-	}
-
 	memset(&context_config, 0, sizeof(context_config));
 
-	data->context = roc_context_open(&context_config);
-	if (!data->context) {
-		pw_log_error("Failed to create roc context");
+	res = roc_context_open(&context_config, &data->context);
+	if (res) {
+		pw_log_error("failed to create roc context: %d", res);
 		return -EINVAL;
 	}
 
@@ -313,7 +279,7 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 	sender_config.frame_sample_rate = data->rate;
 	sender_config.frame_channels = ROC_CHANNEL_SET_STEREO;
 	sender_config.frame_encoding = ROC_FRAME_ENCODING_PCM_FLOAT;
-	sender_config.fec_code = data->fec_code;
+	sender_config.fec_encoding = data->fec_code;
 
 	info.rate = data->rate;
 
@@ -325,24 +291,19 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 
 	pw_properties_setf(data->capture_props, PW_KEY_NODE_RATE, "1/%d", info.rate);
 
-	data->sender = roc_sender_open(data->context, &sender_config);
-	if (!data->sender) {
-		pw_log_error("Failed to create roc sender");
-		return -EINVAL;
-	}
-
-	if (roc_sender_bind(data->sender, &data->local_addr) != 0) {
-		pw_log_error("Failed to bind sender to local address");
+	res = roc_sender_open(data->context, &sender_config, &data->sender);
+	if (res) {
+		pw_log_error("failed to create roc sender: %d", res);
 		return -EINVAL;
 	}
 
 	switch (data->fec_code) {
-	case ROC_FEC_DEFAULT:
-	case ROC_FEC_RS8M:
+	case ROC_FEC_ENCODING_DEFAULT:
+	case ROC_FEC_ENCODING_RS8M:
 		audio_proto = ROC_PROTO_RTP_RS8M_SOURCE;
 		repair_proto = ROC_PROTO_RS8M_REPAIR;
 		break;
-	case ROC_FEC_LDPC_STAIRCASE:
+	case ROC_FEC_ENCODING_LDPC_STAIRCASE:
 		audio_proto = ROC_PROTO_RTP_LDPC_SOURCE;
 		repair_proto = ROC_PROTO_LDPC_REPAIR;
 		break;
@@ -352,15 +313,27 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 		break;
 	}
 
-	if (roc_sender_connect(data->sender, ROC_PORT_AUDIO_SOURCE, audio_proto,
-				&data->remote_source_addr) != 0) {
+	res = pw_roc_create_endpoint(&data->remote_source_addr, audio_proto, data->remote_ip, data->remote_source_port);
+	if (res < 0) {
+		pw_log_warn("failed to create source endpoint: %s", spa_strerror(res));
+		return res;
+	}
+
+	if (roc_sender_connect(data->sender, ROC_SLOT_DEFAULT, ROC_INTERFACE_AUDIO_SOURCE,
+				data->remote_source_addr) != 0) {
 		pw_log_error("can't connect roc sender to remote source address");
 		return -EINVAL;
 	}
 
 	if (repair_proto != 0) {
-		if (roc_sender_connect(data->sender, ROC_PORT_AUDIO_REPAIR, repair_proto,
-					&data->remote_repair_addr) != 0) {
+		res = pw_roc_create_endpoint(&data->remote_repair_addr, repair_proto, data->remote_ip, data->remote_repair_port);
+		if (res < 0) {
+			pw_log_error("failed to create repair endpoint: %s", spa_strerror(res));
+			return res;
+		}
+
+		if (roc_sender_connect(data->sender, ROC_SLOT_DEFAULT, ROC_INTERFACE_AUDIO_REPAIR,
+					data->remote_repair_addr) != 0) {
 			pw_log_error("can't connect roc sender to remote repair address");
 			return -EINVAL;
 		}
@@ -463,7 +436,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	data->rate = pw_properties_get_uint32(capture_props, PW_KEY_AUDIO_RATE, data->rate);
 	if (data->rate == 0)
-		data->rate = ROC_DEFAULT_RATE;
+		data->rate = PW_ROC_DEFAULT_RATE;
 
 	if ((str = pw_properties_get(props, "remote.ip")) != NULL) {
 		data->remote_ip = strdup(str);
@@ -474,36 +447,30 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto out;
 	}
 
-	if ((str = pw_properties_get(props, "local.ip")) != NULL) {
-		data->local_ip = strdup(str);
-		pw_properties_set(props, "local.ip", NULL);
-	} else {
-		data->local_ip = strdup(ROC_DEFAULT_IP);
-	}
-
 	if ((str = pw_properties_get(props, "remote.source.port")) != NULL) {
 		data->remote_source_port = pw_properties_parse_int(str);
 		pw_properties_set(props, "remote.source.port", NULL);
 	} else {
-		data->remote_source_port = ROC_DEFAULT_SOURCE_PORT;
+		data->remote_source_port = PW_ROC_DEFAULT_SOURCE_PORT;
 	}
 
 	if ((str = pw_properties_get(props, "remote.repair.port")) != NULL) {
 		data->remote_repair_port = pw_properties_parse_int(str);
 		pw_properties_set(props, "remote.repair.port", NULL);
 	} else {
-		data->remote_repair_port = ROC_DEFAULT_REPAIR_PORT;
+		data->remote_repair_port = PW_ROC_DEFAULT_REPAIR_PORT;
 	}
 	if ((str = pw_properties_get(props, "fec.code")) != NULL) {
-		if (roc_parse_fec_code(&data->fec_code, str)) {
+		if (pw_roc_parse_fec_encoding(&data->fec_code, str)) {
 			pw_log_error("Invalid fec code %s, using default", str);
-			data->fec_code = ROC_FEC_DEFAULT;
+			data->fec_code = ROC_FEC_ENCODING_DEFAULT;
 		}
 		pw_log_info("using fec.code %s %d", str, data->fec_code);
 		pw_properties_set(props, "fec.code", NULL);
 	} else {
-		data->fec_code = ROC_FEC_DEFAULT;
+		data->fec_code = ROC_FEC_ENCODING_DEFAULT;
 	}
+
 
 	data->core = pw_context_get_object(data->module_context, PW_TYPE_INTERFACE_Core);
 	if (data->core == NULL) {

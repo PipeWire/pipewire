@@ -116,7 +116,6 @@ static const struct spa_dict_item module_roc_sink_info[] = {
 	{ PW_KEY_MODULE_USAGE, "sink_name=<name for the sink> "
 				"sink_properties=<properties for the sink> "
 				"fec_code=<empty>|disable|rs8m|ldpc "
-				"local_ip=<local sender ip> "
 				"remote_ip=<remote receiver ip> "
 				"remote_source_port=<remote receiver port for source packets> "
 				"remote_repair_port=<remote receiver port for repair packets> " },
@@ -161,11 +160,6 @@ static int module_roc_sink_prepare(struct module * const module)
 		pw_log_error("Remote IP not specified");
 		res = -EINVAL;
 		goto out;
-	}
-
-	if ((str = pw_properties_get(props, "local_ip")) != NULL) {
-		pw_properties_set(roc_props, "local.ip", str);
-		pw_properties_set(props, "local_ip", NULL);
 	}
 
 	if ((str = pw_properties_get(props, "remote_source_port")) != NULL) {

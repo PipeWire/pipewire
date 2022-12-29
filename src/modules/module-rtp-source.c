@@ -272,7 +272,7 @@ static void stream_process(void *data)
 
 			if (sess->rate_match) {
 				SPA_FLAG_SET(sess->rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE);
-				sess->rate_match->rate = corr;
+				sess->rate_match->rate = 1.0f / corr;
 			}
 		}
 		spa_ringbuffer_read_data(&sess->ring,

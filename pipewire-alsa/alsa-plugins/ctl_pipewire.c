@@ -1083,6 +1083,7 @@ static void proxy_destroy(void *data)
 	struct global *g = data;
 	spa_list_remove(&g->link);
 	g->proxy = NULL;
+	pw_properties_free(g->props);
 }
 
 static const struct pw_proxy_events proxy_events = {

@@ -1567,6 +1567,7 @@ int pw_impl_port_use_buffers(struct pw_impl_port *port, struct pw_impl_port_mix 
 		return -EIO;
 
 	if (n_buffers == 0) {
+		mix->have_buffers = false;
 		if (port->n_mix == 1)
 			pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_READY, 0, NULL);
 	}

@@ -804,7 +804,7 @@ static int v4l2_openat(int dirfd, const char *requested_path, int oflag, mode_t 
 			passthrough = false;
 	}
 	if (passthrough)
-		return globals.old_fops.openat(dirfd, path, oflag, mode);
+		return globals.old_fops.openat(dirfd, requested_path, oflag, mode);
 
 	pw_log_info("path:%s oflag:%d mode:%d", path, oflag, mode);
 

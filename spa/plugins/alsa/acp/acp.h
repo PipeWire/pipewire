@@ -237,6 +237,7 @@ struct acp_card_profile {
 #define ACP_PROFILE_ACTIVE	(1<<0)
 #define ACP_PROFILE_OFF		(1<<1)		/* the Off profile */
 #define ACP_PROFILE_SAVE	(1<<2)		/* if the profile needs saving */
+#define ACP_PROFILE_PRO		(1<<3)		/* the Pro profile */
 	uint32_t flags;
 
 	const char *name;

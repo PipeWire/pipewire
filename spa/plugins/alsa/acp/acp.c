@@ -470,10 +470,12 @@ static void add_profiles(pa_card *impl)
 					pa_dynarray_append(&impl->out.devices, dev);
 				}
 				if (impl->use_ucm) {
-					pa_alsa_ucm_add_ports_combination(NULL, &m->ucm_context,
-						true, impl->ports, ap, NULL);
-					pa_alsa_ucm_add_ports(&dev->ports, m->proplist, &m->ucm_context,
-						true, impl, dev->pcm_handle, impl->profile_set->ignore_dB);
+					if (m->ucm_context.ucm_devices) {
+						pa_alsa_ucm_add_ports_combination(NULL, &m->ucm_context,
+							true, impl->ports, ap, NULL);
+						pa_alsa_ucm_add_ports(&dev->ports, m->proplist, &m->ucm_context,
+							true, impl, dev->pcm_handle, impl->profile_set->ignore_dB);
+					}
 				}
 				else
 					pa_alsa_path_set_add_ports(m->output_path_set, ap, impl->ports,
@@ -492,10 +494,12 @@ static void add_profiles(pa_card *impl)
 				}
 
 				if (impl->use_ucm) {
-					pa_alsa_ucm_add_ports_combination(NULL, &m->ucm_context,
-						false, impl->ports, ap, NULL);
-					pa_alsa_ucm_add_ports(&dev->ports, m->proplist, &m->ucm_context,
-						false, impl, dev->pcm_handle, impl->profile_set->ignore_dB);
+					if (m->ucm_context.ucm_devices) {
+						pa_alsa_ucm_add_ports_combination(NULL, &m->ucm_context,
+							false, impl->ports, ap, NULL);
+						pa_alsa_ucm_add_ports(&dev->ports, m->proplist, &m->ucm_context,
+							false, impl, dev->pcm_handle, impl->profile_set->ignore_dB);
+					}
 				} else
 					pa_alsa_path_set_add_ports(m->input_path_set, ap, impl->ports,
 							dev->ports, NULL);
@@ -1454,20 +1458,26 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index, uint32_t fla
 
 	if (np->output_mappings) {
 		PA_IDXSET_FOREACH(am, np->output_mappings, idx) {
-			if (impl->use_ucm)
+			if (impl->use_ucm) {
 				/* Update ports priorities */
-				pa_alsa_ucm_add_ports_combination(am->output.ports, &am->ucm_context,
-					true, impl->ports, np, NULL);
+				if (am->ucm_context.ucm_devices) {
+					pa_alsa_ucm_add_ports_combination(am->output.ports, &am->ucm_context,
+						true, impl->ports, np, NULL);
+				}
+			}
 			device_enable(impl, am, &am->output);
 		}
 	}
 
 	if (np->input_mappings) {
 		PA_IDXSET_FOREACH(am, np->input_mappings, idx) {
-			if (impl->use_ucm)
+			if (impl->use_ucm) {
 				/* Update ports priorities */
-				pa_alsa_ucm_add_ports_combination(am->input.ports, &am->ucm_context,
-					false, impl->ports, np, NULL);
+				if (am->ucm_context.ucm_devices) {
+					pa_alsa_ucm_add_ports_combination(am->input.ports, &am->ucm_context,
+						false, impl->ports, np, NULL);
+				}
+			}
 			device_enable(impl, am, &am->input);
 		}
 	}

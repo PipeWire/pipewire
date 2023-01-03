@@ -2208,6 +2208,79 @@ static int vidioc_g_ctrl(struct file *file, struct v4l2_control *arg)
 	return 0;
 }
 
+static int vidioc_s_ctrl(struct file *file, struct v4l2_control *arg)
+{
+	struct param *p;
+	bool found = false;
+
+	pw_log_info("VIDIOC_S_CTRL: 0x%08" PRIx32 " 0x%08" PRIx32, arg->id, arg->value);
+
+	if (file->node == NULL)
+		return -EIO;
+
+	pw_thread_loop_lock(file->loop);
+
+	spa_list_for_each(p, &file->node->param_list, link) {
+		uint32_t prop_id, ctrl_id, n_vals, choice = SPA_ID_INVALID;
+		const char *prop_description;
+		const struct spa_pod *type, *pod;
+
+		if (p->id != SPA_PARAM_PropInfo || p->param == NULL)
+			continue;
+
+		if (spa_pod_parse_object(p->param,
+			SPA_TYPE_OBJECT_PropInfo, NULL,
+			SPA_PROP_INFO_id,		SPA_POD_Id(&prop_id),
+			SPA_PROP_INFO_description,	SPA_POD_String(&prop_description)) < 0)
+			continue;
+
+		if ((ctrl_id = prop_id_to_control(prop_id)) == SPA_ID_INVALID)
+			continue;
+
+		if (spa_pod_parse_object(p->param,
+			SPA_TYPE_OBJECT_PropInfo, NULL,
+			SPA_PROP_INFO_type, SPA_POD_PodChoice(&type)) < 0)
+			continue;
+
+		if (ctrl_id == arg->id) {
+			char buf[1024];
+			struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+			struct spa_pod_frame f[1];
+			struct spa_pod *param;
+			pod = spa_pod_get_values(type, &n_vals, &choice);
+
+			spa_pod_builder_push_object(&b, &f[0],
+					SPA_TYPE_OBJECT_Props,  SPA_PARAM_Props);
+
+			if (spa_pod_is_int(pod)) {
+				spa_pod_builder_add(&b, prop_id, SPA_POD_Int(arg->value), 0);
+			} else if (spa_pod_is_bool(pod)) {
+				spa_pod_builder_add(&b, prop_id, SPA_POD_Bool(arg->value), 0);
+			} else {
+				// TODO: float and other formats
+				pw_log_info("unknown type");
+				break;
+			}
+
+			param = spa_pod_builder_pop(&b, &f[0]);
+			pw_node_set_param(file->node->proxy, SPA_PARAM_Props, 0, param);
+
+			found = true;
+			pw_log_info("ctrl 0x%08" PRIx32 " set ok", arg->id);
+			break;
+		}
+	}
+
+	pw_thread_loop_unlock(file->loop);
+
+	if (!found) {
+		pw_log_info("not found ctrl 0x%08" PRIx32, arg->id);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int v4l2_ioctl(int fd, unsigned long int request, void *arg)
 {
 	int res;
@@ -2287,6 +2360,9 @@ static int v4l2_ioctl(int fd, unsigned long int request, void *arg)
 		break;
 	case VIDIOC_G_CTRL:
 		res = vidioc_g_ctrl(file, (struct v4l2_control *)arg);
+		break;
+	case VIDIOC_S_CTRL:
+		res = vidioc_s_ctrl(file, (struct v4l2_control *)arg);
 		break;
 	default:
 		res = -ENOTTY;

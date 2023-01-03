@@ -787,24 +787,28 @@ static int v4l2_dup(int oldfd)
 	return do_dup(oldfd, FD_MAP_DUP);
 }
 
-static int v4l2_openat(int dirfd, const char *requested_path, int oflag, mode_t mode)
+static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 {
 	int res, flags;
 	struct file *file;
 	bool passthrough = true;
 	uint32_t dev_id = SPA_ID_INVALID;
-	char *path;
+	char *real_path;
 
-	path = realpath(requested_path, NULL);
-	if (path == NULL)
-		path = (char *)requested_path;
+	real_path = realpath(path, NULL);
+	if (!real_path)
+		real_path = (char *)path;
 
-	if (spa_strstartswith(path, "/dev/video")) {
-		if (spa_atou32(path+10, &dev_id, 10) && dev_id < MAX_DEV)
+	if (spa_strstartswith(real_path, "/dev/video")) {
+		if (spa_atou32(real_path+10, &dev_id, 10) && dev_id < MAX_DEV)
 			passthrough = false;
 	}
+
+	if (real_path && real_path != path)
+		free(real_path);
+
 	if (passthrough)
-		return globals.old_fops.openat(dirfd, requested_path, oflag, mode);
+		return globals.old_fops.openat(dirfd, path, oflag, mode);
 
 	pw_log_info("path:%s oflag:%d mode:%d", path, oflag, mode);
 
@@ -882,9 +886,6 @@ static int v4l2_openat(int dirfd, const char *requested_path, int oflag, mode_t 
 	add_dev_for_serial(file->dev_id, file->serial);
 	unref_file(file);
 
-	if (path != NULL && path != requested_path)
-		free(path);
-
 	return res;
 
 error_unlock:
@@ -897,10 +898,8 @@ error:
 	pw_log_info("path:%s oflag:%d mode:%d -> %d (%s)", path, oflag, mode,
 			-1, spa_strerror(res));
 
-	if (path != NULL && path != requested_path)
-		free(path);
-
 	errno = -res;
+
 	return -1;
 }
 

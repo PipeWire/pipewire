@@ -28,6 +28,7 @@
 #include <fcntl.h>
 #include <dlfcn.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -786,12 +787,16 @@ static int v4l2_dup(int oldfd)
 	return do_dup(oldfd, FD_MAP_DUP);
 }
 
-static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
+static int v4l2_openat(int dirfd, const char *requested_path, int oflag, mode_t mode)
 {
 	int res, flags;
 	struct file *file;
 	bool passthrough = true;
 	uint32_t dev_id = SPA_ID_INVALID;
+
+	char *path = realpath(requested_path, NULL);
+	if (path <= 0)
+		path = (char *)requested_path;
 
 	if (spa_strstartswith(path, "/dev/video")) {
 		if (spa_atou32(path+10, &dev_id, 10) && dev_id < MAX_DEV)
@@ -876,6 +881,9 @@ static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 	add_dev_for_serial(file->dev_id, file->serial);
 	unref_file(file);
 
+	if (path > 0 && path != requested_path)
+		free(path);
+
 	return res;
 
 error_unlock:
@@ -888,6 +896,10 @@ error:
 	pw_log_info("path:%s oflag:%d mode:%d -> %d (%s)", path, oflag, mode,
 			-1, spa_strerror(res));
 	errno = -res;
+
+	if (path > 0 && path != requested_path)
+	  free(path);
+
 	return -1;
 }
 

@@ -322,6 +322,7 @@ static void put_value(struct data *d, const char *key, const char *val)
 static void put_dict(struct data *d, const char *key, struct spa_dict *dict)
 {
 	const struct spa_dict_item *it;
+	spa_dict_qsort(dict);
 	put_begin(d, key, "{", 0);
 	spa_dict_for_each(it, dict)
 		put_value(d, it->key, it->value);

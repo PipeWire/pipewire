@@ -302,6 +302,13 @@ get_nth_rectangle (const GValue *width, const GValue *height, int idx, struct sp
       r->width = gst_value_get_int_range_max (width);
       r->height = gst_value_get_int_range_max (height);
       return true;
+    } else if (idx == 3) {
+      r->width = gst_value_get_int_range_step (width);
+      r->height = gst_value_get_int_range_step (height);
+      if (r->width > 1 || r->height > 1)
+        return true;
+      else
+        return false;
     }
   } else if (wt == GST_TYPE_LIST && ht == GST_TYPE_LIST) {
     GArray *wa = g_value_peek_pointer (width);

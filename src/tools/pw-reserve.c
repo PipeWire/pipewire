@@ -214,21 +214,28 @@ int main(int argc, char *argv[])
 	if (!opt_monitor) {
 		res = rd_device_acquire(impl.device);
 		if (res == -EBUSY) {
-			printf("device %s is busy, use -r to attempt to release\n", opt_name);
+			printf("device %s is busy\n", opt_name);
 			if (opt_release) {
 				printf("doing RequestRelease on %s\n", opt_name);
 				res = rd_device_request_release(impl.device);
+			} else {
+				printf("use -r to attempt to release\n");
 			}
-		} else {
+		} else if (res < 0) {
 			printf("Device %s can not be acquired: %s\n", opt_name,
 					spa_strerror(res));
 		}
 	}
 
-	pw_main_loop_run(impl.mainloop);
+	if (res >= 0)
+		pw_main_loop_run(impl.mainloop);
 
-	if (!opt_monitor)
-		rd_device_release(impl.device);
+	if (!opt_monitor) {
+		if (opt_release) {
+			printf("doing Release on %s\n", opt_name);
+			rd_device_release(impl.device);
+		}
+	}
 
 exit:
 	if (impl.conn)

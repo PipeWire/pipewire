@@ -25,6 +25,7 @@
 #include <stdio.h>
 
 #include <gst/gst.h>
+#include <gst/allocators/gstdmabuf.h>
 #include <gst/video/video.h>
 #include <gst/audio/audio.h>
 
@@ -35,6 +36,14 @@
 #include <spa/pod/builder.h>
 
 #include "gstpipewireformat.h"
+
+#ifndef DRM_FORMAT_MOD_INVALID
+#define DRM_FORMAT_MOD_INVALID ((1ULL << 56) - 1)
+#endif
+
+#ifndef DRM_FORMAT_MOD_LINEAR
+#define DRM_FORMAT_MOD_LINEAR 0
+#endif
 
 struct media_type {
   const char *name;
@@ -626,6 +635,18 @@ convert_1 (ConvertData *d)
   spa_pod_builder_prop (&d->b, SPA_FORMAT_mediaSubtype, 0);
   spa_pod_builder_id(&d->b, d->type->media_subtype);
 
+  if (d->cf && gst_caps_features_contains (d->cf, GST_CAPS_FEATURE_MEMORY_DMABUF)) {
+    struct spa_pod_frame f2;
+
+    spa_pod_builder_prop (&d->b, SPA_FORMAT_VIDEO_modifier,
+                          (SPA_POD_PROP_FLAG_MANDATORY | SPA_POD_PROP_FLAG_DONT_FIXATE));
+    spa_pod_builder_push_choice (&d->b, &f2, SPA_CHOICE_Enum, 0);
+    spa_pod_builder_long (&d->b, DRM_FORMAT_MOD_INVALID);
+    spa_pod_builder_long (&d->b, DRM_FORMAT_MOD_INVALID);
+    spa_pod_builder_long (&d->b, DRM_FORMAT_MOD_LINEAR);
+    spa_pod_builder_pop (&d->b, &f2);
+  }
+
   if (d->type->media_type == SPA_MEDIA_TYPE_video)
     handle_video_fields (d);
   else if (d->type->media_type == SPA_MEDIA_TYPE_audio)
@@ -661,13 +682,19 @@ foreach_func (GstCapsFeatures *features,
               ConvertData     *d)
 {
   struct spa_pod *fmt;
+  int idx;
 
   spa_zero(d->b);
   d->cf = features;
   d->cs = structure;
 
+  if (d->cf && gst_caps_features_contains (d->cf, GST_CAPS_FEATURE_MEMORY_DMABUF))
+    idx = 0;
+  else
+    idx = -1;
+
   if ((fmt = convert_1 (d)))
-    g_ptr_array_insert (d->array, -1, fmt);
+    g_ptr_array_insert (d->array, idx, fmt);
 
   return TRUE;
 }

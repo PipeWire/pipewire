@@ -43,6 +43,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <spa/param/video/format.h>
 #include <spa/pod/builder.h>
 #include <spa/utils/result.h>
 
@@ -949,7 +950,6 @@ on_param_changed (void *data, uint32_t id,
   if (pwsrc->caps)
           gst_caps_unref(pwsrc->caps);
   pwsrc->caps = gst_caps_from_format (param);
-  GST_DEBUG_OBJECT (pwsrc, "we got format %" GST_PTR_FORMAT, pwsrc->caps);
 
   pwsrc->negotiated = pwsrc->caps != NULL;
 
@@ -958,6 +958,19 @@ on_param_changed (void *data, uint32_t id,
     struct spa_pod_builder b = { NULL };
     uint8_t buffer[512];
     uint32_t buffers = CLAMP (16, pwsrc->min_buffers, pwsrc->max_buffers);
+    int buffertypes;
+
+    if (spa_pod_find_prop (param, NULL, SPA_FORMAT_VIDEO_modifier)) {
+      buffertypes = (1<<SPA_DATA_DmaBuf);
+      gst_caps_features_remove (gst_caps_get_features (pwsrc->caps, 0),
+          GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY);
+      gst_caps_features_add (gst_caps_get_features (pwsrc->caps, 0),
+          GST_CAPS_FEATURE_MEMORY_DMABUF);
+    } else {
+      buffertypes = ((1<<SPA_DATA_MemFd) | (1<<SPA_DATA_MemPtr));
+    }
+
+    GST_DEBUG_OBJECT (pwsrc, "we got format %" GST_PTR_FORMAT, pwsrc->caps);
 
     spa_pod_builder_init (&b, buffer, sizeof (buffer));
     params[0] = spa_pod_builder_add_object (&b,
@@ -968,9 +981,7 @@ on_param_changed (void *data, uint32_t id,
         SPA_PARAM_BUFFERS_blocks,  SPA_POD_CHOICE_RANGE_Int(0, 1, INT32_MAX),
         SPA_PARAM_BUFFERS_size,    SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
         SPA_PARAM_BUFFERS_stride,  SPA_POD_CHOICE_RANGE_Int(0, 0, INT32_MAX),
-        SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(
-                                                (1<<SPA_DATA_MemFd) |
-                                                (1<<SPA_DATA_MemPtr)));
+        SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(buffertypes));
 
     params[1] = spa_pod_builder_add_object (&b,
         SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,

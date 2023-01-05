@@ -118,6 +118,9 @@ static int read_mtrk(struct midi_file *mf, struct midi_track *track)
 	track->size = parse_be32(mf->p + 4);
 
 	mf->p = track->data + track->size;
+	if (mf->p > mf->data + mf->size)
+		return -EINVAL;
+
 	return 0;
 }
 

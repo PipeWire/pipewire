@@ -1216,6 +1216,7 @@ again:
 			}
 			if (do_suspend)
 				suspend_driver(context, n);
+
 			/* we're setting the pending rate. This will become the new
 			 * current rate in the next iteration of the graph. */
 			n->current_rate = SPA_FRACTION(1, target_rate);
@@ -1261,7 +1262,7 @@ again:
 
 		if (n->info.state < PW_NODE_STATE_RUNNING && n->current_pending) {
 			/* the driver node is not actually running and we have a
-			 * panding change. Apply the change to the position now so
+			 * pending change. Apply the change to the position now so
 			 * that we have the right values when we change the node
 			 * states of the driver and followers to RUNNING below */
 			pw_log_debug("%p: apply duration:%"PRIu64" rate:%u/%u", context,

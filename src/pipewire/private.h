@@ -719,6 +719,8 @@ struct pw_impl_node {
 	unsigned int current_pending:1;	/**< a quantum/rate update is pending */
 	unsigned int moved:1;		/**< the node was moved drivers */
 	unsigned int added:1;		/**< the node was add to graph */
+	unsigned int pause_on_idle:1;	/**< Pause processing when IDLE */
+	unsigned int suspend_on_idle:1;
 
 	uint32_t port_user_data_size;	/**< extra size for port user data */
 

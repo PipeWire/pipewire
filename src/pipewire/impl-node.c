@@ -59,8 +59,6 @@ struct impl {
 	struct spa_list param_list;
 	struct spa_list pending_list;
 
-	unsigned int pause_on_idle:1;
-	unsigned int suspend_on_idle:1;
 	unsigned int cache_params:1;
 	unsigned int pending_play:1;
 };
@@ -221,12 +219,12 @@ static int idle_node(struct pw_impl_node *this)
 	pw_log_debug("%p: idle node state:%s pending:%s pause-on-idle:%d", this,
 			pw_node_state_as_string(this->info.state),
 			pw_node_state_as_string(impl->pending_state),
-			impl->pause_on_idle);
+			this->pause_on_idle);
 
 	if (impl->pending_state <= PW_NODE_STATE_IDLE)
 		return 0;
 
-	if (!impl->pause_on_idle)
+	if (!this->pause_on_idle)
 		return 0;
 
 	node_deactivate(this);
@@ -385,7 +383,7 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 	case PW_NODE_STATE_IDLE:
 	case PW_NODE_STATE_SUSPENDED:
 	case PW_NODE_STATE_ERROR:
-		if (state != PW_NODE_STATE_IDLE || impl->pause_on_idle)
+		if (state != PW_NODE_STATE_IDLE || node->pause_on_idle)
 			pw_loop_invoke(node->data_loop, do_node_remove, 1, NULL, 0, true, node);
 		break;
 	default:
@@ -422,8 +420,9 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 	}
 	if (old == PW_NODE_STATE_RUNNING &&
 	    state == PW_NODE_STATE_IDLE &&
-	    impl->suspend_on_idle)
-		 pw_impl_node_set_state(node, PW_NODE_STATE_SUSPENDED);
+	    node->suspend_on_idle) {
+		pw_impl_node_set_state(node, PW_NODE_STATE_SUSPENDED);
+	}
 }
 
 static int suspend_node(struct pw_impl_node *this)
@@ -917,10 +916,10 @@ static void check_properties(struct pw_impl_node *node)
 		pw_log_debug("%p: name '%s'", node, node->name);
 	}
 
-	impl->pause_on_idle = pw_properties_get_bool(node->properties, PW_KEY_NODE_PAUSE_ON_IDLE, true);
-	impl->suspend_on_idle = pw_properties_get_bool(node->properties, PW_KEY_NODE_SUSPEND_ON_IDLE, false);
-	impl->cache_params =  pw_properties_get_bool(node->properties, PW_KEY_NODE_CACHE_PARAMS, true);
+	node->pause_on_idle = pw_properties_get_bool(node->properties, PW_KEY_NODE_PAUSE_ON_IDLE, true);
+	node->suspend_on_idle = pw_properties_get_bool(node->properties, PW_KEY_NODE_SUSPEND_ON_IDLE, false);
 	node->transport_sync = pw_properties_get_bool(node->properties, PW_KEY_NODE_TRANSPORT_SYNC, false);
+	impl->cache_params =  pw_properties_get_bool(node->properties, PW_KEY_NODE_CACHE_PARAMS, true);
 	driver = pw_properties_get_bool(node->properties, PW_KEY_NODE_DRIVER, false);
 
 	if (node->driver != driver) {
@@ -2215,7 +2214,7 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 			pw_node_state_as_string(old),
 			pw_node_state_as_string(state),
 			node->active,
-			impl->pause_on_idle);
+			node->pause_on_idle);
 
 	if (old != state)
 		pw_impl_node_emit_state_request(node, state);

@@ -793,9 +793,10 @@ static int v4l2_openat(int dirfd, const char *requested_path, int oflag, mode_t 
 	struct file *file;
 	bool passthrough = true;
 	uint32_t dev_id = SPA_ID_INVALID;
+	char *path;
 
-	char *path = realpath(requested_path, NULL);
-	if (path <= 0)
+	path = realpath(requested_path, NULL);
+	if (path == NULL)
 		path = (char *)requested_path;
 
 	if (spa_strstartswith(path, "/dev/video")) {
@@ -881,7 +882,7 @@ static int v4l2_openat(int dirfd, const char *requested_path, int oflag, mode_t 
 	add_dev_for_serial(file->dev_id, file->serial);
 	unref_file(file);
 
-	if (path > 0 && path != requested_path)
+	if (path != NULL && path != requested_path)
 		free(path);
 
 	return res;
@@ -895,11 +896,11 @@ error:
 
 	pw_log_info("path:%s oflag:%d mode:%d -> %d (%s)", path, oflag, mode,
 			-1, spa_strerror(res));
+
+	if (path != NULL && path != requested_path)
+		free(path);
+
 	errno = -res;
-
-	if (path > 0 && path != requested_path)
-	  free(path);
-
 	return -1;
 }
 

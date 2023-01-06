@@ -93,7 +93,7 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 	const struct pw_properties *old;
 	enum pw_direction direction;
 	struct pw_properties *new;
-	const char *str, *path, *desc, *nick, *name, *node_name, *media_class;
+	const char *str, *path, *desc, *nick, *name, *node_name, *media_class, *prop_port_names;
 	char position[8], *prefix;
 	bool is_monitor, is_device, is_duplex, is_virtual, is_control = false;
 
@@ -177,6 +177,24 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 	else
 		pw_properties_setf(new, PW_KEY_PORT_ALIAS, "%s:%s_%s",
 			node_name, prefix, str);
+
+	prop_port_names = pw_properties_get(n->props, PW_KEY_NODE_CHANNELNAMES);
+	if (prop_port_names) {
+		struct spa_json it[2];
+		char v[256];
+
+		spa_json_init(&it[0], prop_port_names, strlen(prop_port_names));
+		if (spa_json_enter_array(&it[0], &it[1]) <= 0)
+			spa_json_init(&it[1], prop_port_names, strlen(prop_port_names));
+
+		uint32_t i;
+		for (i = 0; i < pw_impl_port_get_id(port) + 1; i++)
+			if (spa_json_get_string(&it[1], v, sizeof(v)) <= 0)
+				break;
+
+		if (i == pw_impl_port_get_id(port) + 1)
+			pw_properties_setf(new, PW_KEY_PORT_NAME, "%s_%s", prefix, v);
+	}
 
 	pw_impl_port_update_properties(port, &new->dict);
 	pw_properties_free(new);

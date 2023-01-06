@@ -197,6 +197,8 @@ extern "C" {
 #define PW_KEY_NODE_TRIGGER		"node.trigger"		/**< the node is not scheduled automatically
 								  *   based on the dependencies in the graph
 								  *   but it will be triggered explicitly. */
+#define PW_KEY_NODE_CHANNELNAMES		"node.channel-names"		/**< names of node's
+									*   channels (unrelated to positions) */
 
 /** Port keys */
 #define PW_KEY_PORT_ID			"port.id"		/**< port id */

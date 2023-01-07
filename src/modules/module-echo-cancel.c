@@ -69,8 +69,10 @@
  *
  * Options specific to the behavior of this module
  *
+ * - `capture.props = {}`: properties to be passed to the capture stream
  * - `source.props = {}`: properties to be passed to the source stream
  * - `sink.props = {}`: properties to be passed to the sink stream
+ * - `playback.props = {}`: properties to be passed to the playback stream
  * - `library.name = <str>`: the echo cancellation library  Currently supported:
  * `aec/libspa-aec-webrtc`. Leave unset to use the default method (`aec/libspa-aec-webrtc`).
  * - `aec.args = <str>`: arguments to pass to the echo cancellation method
@@ -99,11 +101,17 @@
  *      args = {
  *          # library.name  = aec/libspa-aec-webrtc
  *          # node.latency = 1024/48000
+ *          capture.props = {
+ *             node.name = "Echo Cancellation Capture"
+ *          }
  *          source.props = {
  *             node.name = "Echo Cancellation Source"
  *          }
  *          sink.props = {
  *             node.name = "Echo Cancellation Sink"
+ *          }
+ *          playback.props = {
+ *             node.name = "Echo Cancellation Playback"
  *          }
  *      }
  *  }
@@ -147,8 +155,10 @@ static const struct spa_dict_item module_props[] = {
 				"[ buffer.play_delay=<delay as fraction> ] "
 				"[ library.name =<library name> ] "
 				"[ aec.args=<aec arguments> ] "
+				"[ capture.props=<properties> ] "
 				"[ source.props=<properties> ] "
-				"[ sink.props=<properties> ] " },
+				"[ sink.props=<properties> ] "
+				"[ playback.props=<properties> ] " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -164,17 +174,22 @@ struct impl {
 
 	struct spa_audio_info_raw info;
 
+	struct pw_properties *capture_props;
 	struct pw_stream *capture;
 	struct spa_hook capture_listener;
+
 	struct pw_properties *source_props;
 	struct pw_stream *source;
 	struct spa_hook source_listener;
+
 	void *rec_buffer[SPA_AUDIO_MAX_CHANNELS];
 	uint32_t rec_ringsize;
 	struct spa_ringbuffer rec_ring;
 
+	struct pw_properties *playback_props;
 	struct pw_stream *playback;
 	struct spa_hook playback_listener;
+
 	struct pw_properties *sink_props;
 	struct pw_stream *sink;
 	struct spa_hook sink_listener;
@@ -761,32 +776,11 @@ static int setup_streams(struct impl *impl)
 	uint32_t offsets[512];
 	const struct spa_pod *params[512];
 	struct spa_pod_dynamic_builder b;
-	struct pw_properties *props;
-	const char *str;
 	uint32_t index;
 
-	props = pw_properties_new(
-			PW_KEY_NODE_NAME, "echo-cancel-capture",
-			PW_KEY_NODE_VIRTUAL, "true",
-			PW_KEY_NODE_PASSIVE, "true",
-			NULL);
-	if ((str = pw_properties_get(impl->source_props, PW_KEY_NODE_GROUP)) != NULL)
-		pw_properties_set(props, PW_KEY_NODE_GROUP, str);
-	if ((str = pw_properties_get(impl->source_props, PW_KEY_NODE_LINK_GROUP)) != NULL)
-		pw_properties_set(props, PW_KEY_NODE_LINK_GROUP, str);
-	if ((str = pw_properties_get(impl->source_props, PW_KEY_NODE_LATENCY)) != NULL)
-		pw_properties_set(props, PW_KEY_NODE_LATENCY, str);
-	else if (impl->aec->latency)
-		pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec->latency);
-	if ((str = pw_properties_get(impl->source_props, SPA_KEY_AUDIO_CHANNELS)) != NULL)
-		pw_properties_set(props, SPA_KEY_AUDIO_CHANNELS, str);
-	if ((str = pw_properties_get(impl->source_props, SPA_KEY_AUDIO_POSITION)) != NULL)
-		pw_properties_set(props, SPA_KEY_AUDIO_POSITION, str);
-	if ((str = pw_properties_get(impl->source_props, "resample.prefill")) != NULL)
-		pw_properties_set(props, "resample.prefill", str);
-
 	impl->capture = pw_stream_new(impl->core,
-			"Echo-Cancel Capture", props);
+			"Echo-Cancel Capture", impl->capture_props);
+	impl->capture_props = NULL;
 	if (impl->capture == NULL)
 		return -errno;
 
@@ -807,28 +801,9 @@ static int setup_streams(struct impl *impl)
 	if (impl->monitor_mode) {
 		impl->playback = NULL;
 	} else {
-		props = pw_properties_new(
-			PW_KEY_NODE_NAME, "echo-cancel-playback",
-			PW_KEY_NODE_VIRTUAL, "true",
-			PW_KEY_NODE_PASSIVE, "true",
-			NULL);
-		if ((str = pw_properties_get(impl->sink_props, PW_KEY_NODE_GROUP)) != NULL)
-			pw_properties_set(props, PW_KEY_NODE_GROUP, str);
-		if ((str = pw_properties_get(impl->sink_props, PW_KEY_NODE_LINK_GROUP)) != NULL)
-			pw_properties_set(props, PW_KEY_NODE_LINK_GROUP, str);
-		if ((str = pw_properties_get(impl->sink_props, PW_KEY_NODE_LATENCY)) != NULL)
-			pw_properties_set(props, PW_KEY_NODE_LATENCY, str);
-		else if (impl->aec->latency)
-			pw_properties_set(props, PW_KEY_NODE_LATENCY, impl->aec->latency);
-		if ((str = pw_properties_get(impl->sink_props, SPA_KEY_AUDIO_CHANNELS)) != NULL)
-			pw_properties_set(props, SPA_KEY_AUDIO_CHANNELS, str);
-		if ((str = pw_properties_get(impl->sink_props, SPA_KEY_AUDIO_POSITION)) != NULL)
-			pw_properties_set(props, SPA_KEY_AUDIO_POSITION, str);
-		if ((str = pw_properties_get(impl->sink_props, "resample.prefill")) != NULL)
-			pw_properties_set(props, "resample.prefill", str);
-
 		impl->playback = pw_stream_new(impl->core,
-				"Echo-Cancel Playback", props);
+				"Echo-Cancel Playback", impl->playback_props);
+		impl->playback_props = NULL;
 		if (impl->playback == NULL)
 			return -errno;
 
@@ -980,7 +955,9 @@ static void impl_destroy(struct impl *impl)
 		pw_core_disconnect(impl->core);
 	if (impl->spa_handle)
 		spa_plugin_loader_unload(impl->loader, impl->spa_handle);
+	pw_properties_free(impl->capture_props);
 	pw_properties_free(impl->source_props);
+	pw_properties_free(impl->playback_props);
 	pw_properties_free(impl->sink_props);
 
 	for (i = 0; i < impl->info.channels; i++) {
@@ -1055,8 +1032,12 @@ static void copy_props(struct impl *impl, struct pw_properties *props, const cha
 {
 	const char *str;
 	if ((str = pw_properties_get(props, key)) != NULL) {
+		if (pw_properties_get(impl->capture_props, key) == NULL)
+			pw_properties_set(impl->capture_props, key, str);
 		if (pw_properties_get(impl->source_props, key) == NULL)
 			pw_properties_set(impl->source_props, key, str);
+		if (pw_properties_get(impl->playback_props, key) == NULL)
+			pw_properties_set(impl->playback_props, key, str);
 		if (pw_properties_get(impl->sink_props, key) == NULL)
 			pw_properties_set(impl->sink_props, key, str);
 	}
@@ -1094,9 +1075,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto error;
 	}
 
+	impl->capture_props = pw_properties_new(NULL, NULL);
 	impl->source_props = pw_properties_new(NULL, NULL);
+	impl->playback_props = pw_properties_new(NULL, NULL);
 	impl->sink_props = pw_properties_new(NULL, NULL);
-	if (impl->source_props == NULL || impl->sink_props == NULL) {
+	if (impl->source_props == NULL || impl->sink_props == NULL ||
+	    impl->capture_props == NULL || impl->playback_props == NULL) {
 		res = -errno;
 		pw_log_error( "can't create properties: %m");
 		goto error;
@@ -1115,13 +1099,26 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_setf(props, PW_KEY_NODE_LINK_GROUP, "echo-cancel-%u-%u", pid, id);
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
+	if (pw_properties_get(props, "resample.prefill") == NULL)
+		pw_properties_set(props, "resample.prefill", "true");
 
 	parse_audio_info(props, &impl->info);
 
+	if ((str = pw_properties_get(props, "capture.props")) != NULL)
+		pw_properties_update_string(impl->capture_props, str, strlen(str));
 	if ((str = pw_properties_get(props, "source.props")) != NULL)
 		pw_properties_update_string(impl->source_props, str, strlen(str));
 	if ((str = pw_properties_get(props, "sink.props")) != NULL)
 		pw_properties_update_string(impl->sink_props, str, strlen(str));
+	if ((str = pw_properties_get(props, "playback.props")) != NULL)
+		pw_properties_update_string(impl->playback_props, str, strlen(str));
+
+	if (pw_properties_get(impl->capture_props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_set(impl->capture_props, PW_KEY_NODE_NAME, "echo-cancel-capture");
+	if (pw_properties_get(impl->capture_props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_set(impl->capture_props, PW_KEY_NODE_DESCRIPTION, "Echo-Cancel Capture");
+	if (pw_properties_get(impl->capture_props, PW_KEY_NODE_PASSIVE) == NULL)
+		pw_properties_set(impl->capture_props, PW_KEY_NODE_PASSIVE, "true");
 
 	if (pw_properties_get(impl->source_props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_set(impl->source_props, PW_KEY_NODE_NAME, "echo-cancel-source");
@@ -1129,8 +1126,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(impl->source_props, PW_KEY_NODE_DESCRIPTION, "Echo-Cancel Source");
 	if (pw_properties_get(impl->source_props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(impl->source_props, PW_KEY_MEDIA_CLASS, "Audio/Source");
-	if (pw_properties_get(impl->source_props, "resample.prefill") == NULL)
-		pw_properties_set(impl->source_props, "resample.prefill", "true");
+
+	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_NAME) == NULL)
+		pw_properties_set(impl->playback_props, PW_KEY_NODE_NAME, "echo-cancel-playback");
+	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_DESCRIPTION) == NULL)
+		pw_properties_set(impl->playback_props, PW_KEY_NODE_DESCRIPTION, "Echo-Cancel Playback");
+	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_PASSIVE) == NULL)
+		pw_properties_set(impl->playback_props, PW_KEY_NODE_PASSIVE, "true");
 
 	if (pw_properties_get(impl->sink_props, PW_KEY_NODE_NAME) == NULL)
 		pw_properties_set(impl->sink_props, PW_KEY_NODE_NAME, "echo-cancel-sink");
@@ -1139,12 +1141,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(impl->sink_props, PW_KEY_MEDIA_CLASS) == NULL)
 		pw_properties_set(impl->sink_props, PW_KEY_MEDIA_CLASS,
 				impl->monitor_mode ? "Stream/Input/Audio" : "Audio/Sink");
-	if (pw_properties_get(impl->sink_props, "resample.prefill") == NULL)
-		pw_properties_set(impl->sink_props, "resample.prefill", "true");
 	if (impl->monitor_mode) {
-		pw_properties_set(impl->sink_props, PW_KEY_NODE_PASSIVE, "true");
-		pw_properties_set(impl->sink_props, PW_KEY_STREAM_MONITOR, "true");
-		pw_properties_set(impl->sink_props, PW_KEY_STREAM_CAPTURE_SINK, "true");
+		if (pw_properties_get(impl->sink_props, PW_KEY_NODE_PASSIVE) == NULL)
+			pw_properties_set(impl->sink_props, PW_KEY_NODE_PASSIVE, "true");
+		if (pw_properties_get(impl->sink_props, PW_KEY_STREAM_MONITOR) == NULL)
+			pw_properties_set(impl->sink_props, PW_KEY_STREAM_MONITOR, "true");
+		if (pw_properties_get(impl->sink_props, PW_KEY_STREAM_CAPTURE_SINK) == NULL)
+			pw_properties_set(impl->sink_props, PW_KEY_STREAM_CAPTURE_SINK, "true");
 	}
 
 	if ((str = pw_properties_get(props, "aec.method")) != NULL)
@@ -1252,6 +1255,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_LATENCY);
 	copy_props(impl, props, SPA_KEY_AUDIO_CHANNELS);
 	copy_props(impl, props, SPA_KEY_AUDIO_POSITION);
+	copy_props(impl, props, "resample.prefill");
 
 	impl->max_buffer_size = pw_properties_get_uint32(props,"buffer.max_size", MAX_BUFSIZE_MS);
 

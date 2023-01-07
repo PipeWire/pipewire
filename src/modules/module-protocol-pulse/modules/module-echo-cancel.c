@@ -44,8 +44,10 @@ struct module_echo_cancel_data {
 	struct spa_hook mod_listener;
 
 	struct pw_properties *props;
+	struct pw_properties *capture_props;
 	struct pw_properties *source_props;
 	struct pw_properties *sink_props;
+	struct pw_properties *playback_props;
 
 	struct spa_audio_info_raw info;
 };
@@ -94,10 +96,14 @@ static int module_echo_cancel_load(struct module *module)
 			fprintf(f, " ]");
 		}
 	}
-	fprintf(f, " source.props = {");
+	fprintf(f, " capture.props = {");
+	pw_properties_serialize_dict(f, &data->capture_props->dict, 0);
+	fprintf(f, " } source.props = {");
 	pw_properties_serialize_dict(f, &data->source_props->dict, 0);
 	fprintf(f, " } sink.props = {");
 	pw_properties_serialize_dict(f, &data->sink_props->dict, 0);
+	fprintf(f, " } playback.props = {");
+	pw_properties_serialize_dict(f, &data->playback_props->dict, 0);
 	fprintf(f, " } }");
 	fclose(f);
 
@@ -127,8 +133,10 @@ static int module_echo_cancel_unload(struct module *module)
 	}
 
 	pw_properties_free(d->props);
+	pw_properties_free(d->capture_props);
 	pw_properties_free(d->source_props);
 	pw_properties_free(d->sink_props);
+	pw_properties_free(d->playback_props);
 
 	return 0;
 }
@@ -167,6 +175,7 @@ static int module_echo_cancel_prepare(struct module * const module)
 	struct module_echo_cancel_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
 	struct pw_properties *aec_props = NULL, *sink_props = NULL, *source_props = NULL;
+	struct pw_properties *playback_props = NULL, *capture_props = NULL;
 	const char *str;
 	struct spa_audio_info_raw info = { 0 };
 	int res;
@@ -174,9 +183,11 @@ static int module_echo_cancel_prepare(struct module * const module)
 	PW_LOG_TOPIC_INIT(mod_topic);
 
 	aec_props = pw_properties_new(NULL, NULL);
+	capture_props = pw_properties_new(NULL, NULL);
 	source_props = pw_properties_new(NULL, NULL);
 	sink_props = pw_properties_new(NULL, NULL);
-	if (!aec_props || !source_props || !sink_props) {
+	playback_props = pw_properties_new(NULL, NULL);
+	if (!aec_props || !source_props || !sink_props || !capture_props || !playback_props) {
 		res = -EINVAL;
 		goto out;
 	}
@@ -197,18 +208,18 @@ static int module_echo_cancel_prepare(struct module * const module)
 
 	if ((str = pw_properties_get(props, "source_master")) != NULL) {
 		if (spa_strendswith(str, ".monitor")) {
-			pw_properties_setf(source_props, PW_KEY_NODE_TARGET,
+			pw_properties_setf(capture_props, PW_KEY_NODE_TARGET,
 					"%.*s", (int)strlen(str)-8, str);
-			pw_properties_set(source_props, PW_KEY_STREAM_CAPTURE_SINK,
+			pw_properties_set(capture_props, PW_KEY_STREAM_CAPTURE_SINK,
 					"true");
 		} else {
-			pw_properties_set(source_props, PW_KEY_NODE_TARGET, str);
+			pw_properties_set(capture_props, PW_KEY_NODE_TARGET, str);
 		}
 		pw_properties_set(props, "source_master", NULL);
 	}
 
 	if ((str = pw_properties_get(props, "sink_master")) != NULL) {
-		pw_properties_set(sink_props, PW_KEY_NODE_TARGET, str);
+		pw_properties_set(playback_props, PW_KEY_NODE_TARGET, str);
 		pw_properties_set(props, "sink_master", NULL);
 	}
 
@@ -239,15 +250,19 @@ static int module_echo_cancel_prepare(struct module * const module)
 
 	d->module = module;
 	d->props = aec_props;
+	d->capture_props = capture_props;
 	d->source_props = source_props;
 	d->sink_props = sink_props;
+	d->playback_props = playback_props;
 	d->info = info;
 
 	return 0;
 out:
 	pw_properties_free(aec_props);
+	pw_properties_free(playback_props);
 	pw_properties_free(sink_props);
 	pw_properties_free(source_props);
+	pw_properties_free(capture_props);
 
 	return res;
 }

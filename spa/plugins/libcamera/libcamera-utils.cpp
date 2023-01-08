@@ -326,50 +326,60 @@ next_fmt:
 	}
 	port->size_index++;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
-	spa_pod_builder_add(&b,
-			SPA_FORMAT_mediaType,    SPA_POD_Id(info->media_type),
-			SPA_FORMAT_mediaSubtype, SPA_POD_Id(info->media_subtype),
-			0);
+	for (i = 0; i < 2; i++) {
+		if (i > 0)
+			result.index = result.next++;
 
-	if (info->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
-		spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_format, 0);
-		spa_pod_builder_id(&b, info->format);
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+		spa_pod_builder_add(&b,
+				SPA_FORMAT_mediaType,    SPA_POD_Id(info->media_type),
+				SPA_FORMAT_mediaSubtype, SPA_POD_Id(info->media_subtype),
+				0);
+
+		if (info->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
+			spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_format, 0);
+			spa_pod_builder_id(&b, info->format);
+		}
+
+		if (i == 0) {
+			spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_modifier, SPA_POD_PROP_FLAG_MANDATORY);
+			spa_pod_builder_long(&b, info->pix.modifier());
+		}
+
+		spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_size, 0);
+		if (sizeRange.hStep != 0 && sizeRange.vStep != 0) {
+			spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_Step, 0);
+			spa_pod_builder_frame(&b, &f[1]);
+			spa_pod_builder_rectangle(&b,
+					sizeRange.min.width,
+					sizeRange.min.height);
+			spa_pod_builder_rectangle(&b,
+					sizeRange.min.width,
+					sizeRange.min.height);
+			spa_pod_builder_rectangle(&b,
+					sizeRange.max.width,
+					sizeRange.max.height);
+			spa_pod_builder_rectangle(&b,
+					sizeRange.hStep,
+					sizeRange.vStep);
+			spa_pod_builder_pop(&b, &f[1]);
+
+		} else {
+			spa_pod_builder_rectangle(&b, frameSize.width, frameSize.height);
+		}
+
+		fmt = (struct spa_pod*) spa_pod_builder_pop(&b, &f[0]);
+
+		if (spa_pod_filter(&b, &result.param, fmt, filter) < 0) {
+			if (i == 0)
+				continue;
+			else
+				goto next;
+		}
+
+		spa_node_emit_result(&impl->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 	}
-	if (info->pix.modifier()) {
-		spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_modifier, 0);
-		spa_pod_builder_long(&b, info->pix.modifier());
-	}
-	spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_size, 0);
-
-	if (sizeRange.hStep != 0 && sizeRange.vStep != 0) {
-		spa_pod_builder_push_choice(&b, &f[1], SPA_CHOICE_Step, 0);
-		spa_pod_builder_frame(&b, &f[1]);
-		spa_pod_builder_rectangle(&b,
-				sizeRange.min.width,
-				sizeRange.min.height);
-		spa_pod_builder_rectangle(&b,
-				sizeRange.min.width,
-				sizeRange.min.height);
-		spa_pod_builder_rectangle(&b,
-				sizeRange.max.width,
-				sizeRange.max.height);
-		spa_pod_builder_rectangle(&b,
-				sizeRange.hStep,
-				sizeRange.vStep);
-		spa_pod_builder_pop(&b, &f[1]);
-
-	} else {
-		spa_pod_builder_rectangle(&b, frameSize.width, frameSize.height);
-	}
-
-	fmt = (struct spa_pod*) spa_pod_builder_pop(&b, &f[0]);
-
-	if (spa_pod_filter(&b, &result.param, fmt, filter) < 0)
-		goto next;
-
-	spa_node_emit_result(&impl->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
 
 	if (++count != num)
 		goto next;

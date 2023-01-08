@@ -1746,6 +1746,76 @@ static int vidioc_try_fmt(struct file *file, struct v4l2_format *arg)
 	return res;
 }
 
+static int vidioc_g_parm(struct file *file, struct v4l2_streamparm *arg)
+{
+	if (arg->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		return -EINVAL;
+
+	struct param *p;
+
+	pw_thread_loop_lock(file->loop);
+	bool found = false;
+	struct spa_video_info info;
+	int num = 0, denom = 0;
+
+	spa_list_for_each(p, &file->node->param_list, link) {
+		if (p->id != SPA_PARAM_EnumFormat || p->param == NULL)
+			continue;
+
+		if (param_to_info(p->param, &info) < 0)
+			continue;
+
+		switch (info.media_subtype) {
+			case SPA_MEDIA_SUBTYPE_raw:
+				num = info.info.raw.framerate.num;
+				denom = info.info.raw.framerate.denom;
+				break;
+			case SPA_MEDIA_SUBTYPE_mjpg:
+				num = info.info.mjpg.framerate.num;
+				denom = info.info.mjpg.framerate.denom;
+				break;
+			case SPA_MEDIA_SUBTYPE_h264:
+				num = info.info.h264.framerate.num;
+				denom = info.info.h264.framerate.denom;
+				break;
+		}
+
+		if (num == 0 || denom == 0)
+		  continue;
+
+		found = true;
+		break;
+	}
+
+	if (!found) {
+		pw_thread_loop_unlock(file->loop);
+		return -EINVAL;
+	}
+
+	pw_thread_loop_unlock(file->loop);
+
+	spa_zero(*arg);
+	arg->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	arg->parm.capture.capability = V4L2_CAP_TIMEPERFRAME;
+	arg->parm.capture.capturemode = 0;
+	arg->parm.capture.extendedmode = 0;
+	arg->parm.capture.readbuffers = 0;
+	arg->parm.capture.timeperframe.numerator = denom;
+	arg->parm.capture.timeperframe.denominator = num;
+
+	pw_log_info("VIDIOC_G_PARM frametime: %d/%d", num, denom);
+
+	return 0;
+}
+
+// TODO: implement setting parameters
+static int vidioc_s_parm(struct file *file, struct v4l2_streamparm *arg)
+{
+	pw_log_warn("VIDIOC_S_PARM is unimplemented, returning current value");
+	vidioc_g_parm(file, arg);
+	return 0;
+}
+
 static int vidioc_enuminput(struct file *file, struct v4l2_input *arg)
 {
 	uint32_t index = arg->index;
@@ -2321,6 +2391,12 @@ static int v4l2_ioctl(int fd, unsigned long int request, void *arg)
 		break;
 	case VIDIOC_TRY_FMT:
 		res = vidioc_try_fmt(file, (struct v4l2_format *)arg);
+		break;
+	case VIDIOC_G_PARM:
+		res = vidioc_g_parm(file, (struct v4l2_streamparm *)arg);
+		break;
+	case VIDIOC_S_PARM:
+		res = vidioc_s_parm(file, (struct v4l2_streamparm *)arg);
 		break;
 	case VIDIOC_ENUMINPUT:
 		res = vidioc_enuminput(file, (struct v4l2_input *)arg);

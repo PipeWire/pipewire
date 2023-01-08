@@ -269,20 +269,12 @@ struct pw_rtkit_bus *pw_rtkit_bus_get_session(void)
 
 bool pw_rtkit_check_xdg_portal(struct pw_rtkit_bus *system_bus)
 {
-	DBusError error;
-        bool ret = true;
-
-	dbus_error_init(&error);
-
-	if (!dbus_bus_name_has_owner(system_bus->bus, XDG_PORTAL_SERVICE_NAME, &error)) {
-		pw_log_warn("Can't find xdg-portal: %s", error.name);
-		ret = false;
-		goto finish;
+	if (!dbus_bus_name_has_owner(system_bus->bus, XDG_PORTAL_SERVICE_NAME, NULL)) {
+		pw_log_warn("Can't find %s. Is xdg-desktop-portal running?", XDG_PORTAL_SERVICE_NAME);
+		return false;
 	}
-finish:
-	dbus_error_free(&error);
 
-	return ret;
+	return true;
 }
 
 void pw_rtkit_bus_free(struct pw_rtkit_bus *system_bus)

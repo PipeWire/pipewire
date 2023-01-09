@@ -933,7 +933,7 @@ static inline uint32_t *get_rates(struct pw_context *context, uint32_t *def, uin
 		return s->clock_rates;
 	}
 }
-static void suspend_driver(struct pw_context *context, struct pw_impl_node *n)
+static void reconfigure_driver(struct pw_context *context, struct pw_impl_node *n)
 {
 	struct pw_impl_node *s;
 
@@ -1199,7 +1199,7 @@ again:
 		}
 
 		if (target_rate != current_rate) {
-			bool do_suspend = false;
+			bool do_reconfigure = false;
 			/* we doing a rate switch */
 			pw_log_info("(%s-%u) state:%s new rate:%u->%u",
 					n->name, n->info.id,
@@ -1209,13 +1209,13 @@ again:
 
 			if (force_rate) {
 				if (settings->clock_rate_update_mode == CLOCK_RATE_UPDATE_MODE_HARD)
-					do_suspend = true;
+					do_reconfigure = true;
 			} else {
 				if (n->info.state >= PW_NODE_STATE_SUSPENDED)
-					do_suspend = true;
+					do_reconfigure = true;
 			}
-			if (do_suspend)
-				suspend_driver(context, n);
+			if (do_reconfigure)
+				reconfigure_driver(context, n);
 
 			/* we're setting the pending rate. This will become the new
 			 * current rate in the next iteration of the graph. */
@@ -1223,7 +1223,7 @@ again:
 			n->current_pending = true;
 			current_rate = target_rate;
 			/* we might be suspended now and the links need to be prepared again */
-			if (do_suspend)
+			if (do_reconfigure)
 				goto again;
 		}
 

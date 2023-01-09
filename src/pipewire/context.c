@@ -946,6 +946,9 @@ static void reconfigure_driver(struct pw_context *context, struct pw_impl_node *
 	}
 	pw_log_debug("%p: driver %p: '%s' suspend",
 			context, n, n->name);
+
+	if (n->info.state >= PW_NODE_STATE_IDLE)
+		n->reconfigure = true;
 	pw_impl_node_set_state(n, PW_NODE_STATE_SUSPENDED);
 }
 
@@ -1180,8 +1183,11 @@ again:
 		if (force_rate)
 			lock_rate = false;
 
+		if (n->reconfigure)
+			running = true;
+
 		current_rate = n->current_rate.denom;
-		if (lock_rate ||
+		if (lock_rate || n->reconfigure ||
 		    (!force_rate &&
 		    (n->info.state > PW_NODE_STATE_IDLE)))
 			/* when someone wants us to lock the rate of this driver or

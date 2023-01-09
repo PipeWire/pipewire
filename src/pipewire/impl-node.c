@@ -418,6 +418,14 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 		spa_list_for_each(resource, &node->global->resource_list, link)
 			pw_resource_error(resource, res, error);
 	}
+	if (node->reconfigure) {
+		if (state == PW_NODE_STATE_SUSPENDED &&
+		    node->pause_on_idle) {
+			node->reconfigure = false;
+		}
+		if (state == PW_NODE_STATE_RUNNING)
+			node->reconfigure = false;
+	}
 	if (old == PW_NODE_STATE_RUNNING &&
 	    state == PW_NODE_STATE_IDLE &&
 	    node->suspend_on_idle) {

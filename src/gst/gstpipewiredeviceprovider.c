@@ -53,16 +53,13 @@ gst_pipewire_device_create_element (GstDevice * device, const gchar * name)
 {
   GstPipeWireDevice *pipewire_dev = GST_PIPEWIRE_DEVICE (device);
   GstElement *elem;
-  gchar *id_str, *serial_str;
+  gchar *serial_str;
 
   elem = gst_element_factory_make (pipewire_dev->element, name);
 
-  /* XXX: eventually only add target-object here */
-  id_str = g_strdup_printf ("%u", pipewire_dev->id);
   serial_str = g_strdup_printf ("%"PRIu64, pipewire_dev->serial);
-  g_object_set (elem, "path", id_str, "target-object", serial_str,
+  g_object_set (elem, "target-object", serial_str,
                 "fd", pipewire_dev->fd, NULL);
-  g_free (id_str);
   g_free (serial_str);
 
   return elem;
@@ -72,7 +69,7 @@ static gboolean
 gst_pipewire_device_reconfigure_element (GstDevice * device, GstElement * element)
 {
   GstPipeWireDevice *pipewire_dev = GST_PIPEWIRE_DEVICE (device);
-  gchar *id_str, *serial_str;
+  gchar *serial_str;
 
   if (spa_streq(pipewire_dev->element, "pipewiresrc")) {
     if (!GST_IS_PIPEWIRE_SRC (element))
@@ -84,12 +81,9 @@ gst_pipewire_device_reconfigure_element (GstDevice * device, GstElement * elemen
     g_assert_not_reached ();
   }
 
-  /* XXX: eventually only add target-object here */
-  id_str = g_strdup_printf ("%u", pipewire_dev->id);
   serial_str = g_strdup_printf ("%"PRIu64, pipewire_dev->serial);
-  g_object_set (element, "path", id_str, "target-object", serial_str,
+  g_object_set (element, "target-object", serial_str,
                 "fd", pipewire_dev->fd, NULL);
-  g_free (id_str);
   g_free (serial_str);
 
   return TRUE;

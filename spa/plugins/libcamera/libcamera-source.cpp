@@ -676,7 +676,10 @@ static int port_set_format(struct impl *impl, struct port *port,
 			    info.media_subtype == port->current_format->media_subtype &&
 			    info.info.raw.format == port->current_format->info.raw.format &&
 			    info.info.raw.size.width == port->current_format->info.raw.size.width &&
-			    info.info.raw.size.height == port->current_format->info.raw.size.height)
+			    info.info.raw.size.height == port->current_format->info.raw.size.height &&
+			    info.info.raw.use_modifier == port->current_format->info.raw.use_modifier &&
+			    (!info.info.raw.use_modifier ||
+			     info.info.raw.modifier == port->current_format->info.raw.modifier))
 				return 0;
 			break;
 		case SPA_MEDIA_SUBTYPE_mjpg:

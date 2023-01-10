@@ -186,7 +186,9 @@ enum spa_video_interlace_mode {
  */
 struct spa_video_info_raw {
 	enum spa_video_format format;				/**< the format */
-	int64_t modifier;					/**< format modifier
+
+	bool use_modifier;					/**< whether the modifier field has a valid value */
+	uint64_t modifier;					/**< format modifier
 								  * only used with DMA-BUF */
 	struct spa_rectangle size;				/**< the frame size of the video */
 	struct spa_fraction framerate;				/**< the framerate of the video, 0/1 means variable rate */
@@ -210,7 +212,8 @@ struct spa_video_info_raw {
 
 struct spa_video_info_dsp {
 	enum spa_video_format format;
-	int64_t modifier;
+	bool use_modifier;
+	uint64_t modifier;
 };
 
 #define SPA_VIDEO_INFO_DSP_INIT(...)	((struct spa_video_info_dsp) { __VA_ARGS__ })

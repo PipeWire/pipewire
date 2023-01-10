@@ -844,6 +844,8 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   if (pwsrc->target_object) {
       struct spa_dict_item items[2] = {
         SPA_DICT_ITEM_INIT(PW_KEY_TARGET_OBJECT, pwsrc->target_object),
+	/* XXX deprecated but the portal and some example apps only
+	 * provide the object id */
         SPA_DICT_ITEM_INIT(PW_KEY_NODE_TARGET, NULL),
       };
       struct spa_dict dict = SPA_DICT_INIT_ARRAY(items);

@@ -1332,6 +1332,7 @@ static void convert_properties(struct pw_properties *properties)
 		const char *from, *to;
 	} props[] = {
 		{ "pipewire.autoconnect", PW_KEY_NODE_AUTOCONNECT, },
+		/* XXX deprecated */
 		{ "pipewire.target.node", PW_KEY_NODE_TARGET, }
 	};
 

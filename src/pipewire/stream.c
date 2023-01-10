@@ -1892,7 +1892,7 @@ pw_stream_connect(struct pw_stream *stream,
 	stream_set_state(stream, PW_STREAM_STATE_CONNECTING, NULL);
 
 	if (target_id != PW_ID_ANY)
-		/* this is deprecated but still used by the portal and its apps */
+		/* XXX this is deprecated but still used by the portal and its apps */
 		pw_properties_setf(stream->properties, PW_KEY_NODE_TARGET, "%d", target_id);
 	else if ((str = getenv("PIPEWIRE_NODE")) != NULL)
 		pw_properties_set(stream->properties, PW_KEY_TARGET_OBJECT, str);

@@ -66,8 +66,8 @@
  *               for each connected client.
  *  - `playback`: boolean if playback is enabled. This will create a playback
  *               stream for each connected client.
- *  - `capture.node`: an optional node id or name to use for capture.
- *  - `playback.node`: an optional node id or name to use for playback.
+ *  - `capture.node`: an optional node serial or name to use for capture.
+ *  - `playback.node`: an optional node serial or name to use for playback.
  *  - `server.address = []`: an array of server addresses to listen on as
  *                            tcp:<ip>:<port>.
  *
@@ -449,7 +449,7 @@ static int create_streams(struct impl *impl, struct client *client)
 		props = pw_properties_new(
 			PW_KEY_NODE_LATENCY, latency,
 			PW_KEY_NODE_RATE, pw_properties_get(impl->props, PW_KEY_NODE_RATE),
-			PW_KEY_NODE_TARGET, pw_properties_get(impl->props, "capture.node"),
+			PW_KEY_TARGET_OBJECT, pw_properties_get(impl->props, "capture.node"),
 			PW_KEY_STREAM_CAPTURE_SINK, pw_properties_get(impl->props,
 				PW_KEY_STREAM_CAPTURE_SINK),
 			PW_KEY_NODE_NETWORK, "true",
@@ -472,7 +472,7 @@ static int create_streams(struct impl *impl, struct client *client)
 		props = pw_properties_new(
 			PW_KEY_NODE_LATENCY, latency,
 			PW_KEY_NODE_RATE, pw_properties_get(impl->props, PW_KEY_NODE_RATE),
-			PW_KEY_NODE_TARGET, pw_properties_get(impl->props, "playback.node"),
+			PW_KEY_TARGET_OBJECT, pw_properties_get(impl->props, "playback.node"),
 			PW_KEY_NODE_NETWORK, "true",
 			NULL);
 		if (props == NULL)

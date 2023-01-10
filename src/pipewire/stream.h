@@ -85,8 +85,9 @@ extern "C" {
  * \subsection ssec_stream_target Stream target
  *
  * To make the newly connected stream automatically connect to an existing
- * PipeWire node, use the \ref PW_STREAM_FLAG_AUTOCONNECT and the port_path
- * argument while connecting.
+ * PipeWire node, use the \ref PW_STREAM_FLAG_AUTOCONNECT and set the
+ * PW_KEY_OBJECT_SERIAL or the PW_KEY_NODE_NAME value of the target node
+ * in the PW_KEY_TARGET_OBJECT property before connecting.
  *
  * \subsection ssec_stream_formats Stream formats
  *

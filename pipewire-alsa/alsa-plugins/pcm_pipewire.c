@@ -580,8 +580,8 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	if (pw_properties_get(props, PW_KEY_NODE_RATE) == NULL)
 		pw_properties_setf(props, PW_KEY_NODE_RATE, "1/%u", io->rate);
 	if (pw->target != NULL && !spa_streq(pw->target, "-1") &&
-		pw_properties_get(props, PW_KEY_NODE_TARGET) == NULL)
-		pw_properties_setf(props, PW_KEY_NODE_TARGET, "%s", pw->target);
+	    pw_properties_get(props, PW_KEY_TARGET_OBJECT) == NULL)
+		pw_properties_setf(props, PW_KEY_TARGET_OBJECT, "%s", pw->target);
 
 	if (pw_properties_get(props, PW_KEY_MEDIA_TYPE) == NULL)
 		pw_properties_set(props, PW_KEY_MEDIA_TYPE, "Audio");

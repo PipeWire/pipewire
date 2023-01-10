@@ -139,7 +139,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"[ node.latency=<latency as fraction> ] "		\
 			"[ node.name=<name of the nodes> ] "			\
 			"[ node.description=<description of the nodes> ] "	\
-			"[ target.object=<remote node target name> ] "		\
+			"[ target.object=<remote node target name or serial> ] "\
 			"[ audio.format=<sample format> ] "			\
 			"[ audio.rate=<sample rate> ] "				\
 			"[ audio.channels=<number of channels> ] "		\

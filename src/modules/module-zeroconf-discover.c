@@ -195,7 +195,7 @@ static void pw_properties_from_avahi_string(const char *key, const char *value,
 		struct pw_properties *props)
 {
 	if (spa_streq(key, "device")) {
-		pw_properties_set(props, PW_KEY_NODE_TARGET, value);
+		pw_properties_set(props, PW_KEY_TARGET_OBJECT, value);
 	}
 	else if (spa_streq(key, "rate")) {
 		pw_properties_set(props, PW_KEY_AUDIO_RATE, value);
@@ -307,7 +307,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		avahi_free(value);
 	}
 
-	if ((device = pw_properties_get(props, PW_KEY_NODE_TARGET)) != NULL)
+	if ((device = pw_properties_get(props, PW_KEY_TARGET_OBJECT)) != NULL)
 		pw_properties_setf(props, PW_KEY_NODE_NAME,
 				"tunnel.%s.%s", host_name, device);
 	else
@@ -330,7 +330,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	if (desc == NULL)
 		desc = pw_properties_get(props, PW_KEY_DEVICE_PRODUCT_NAME);
 	if (desc == NULL)
-		desc = pw_properties_get(props, PW_KEY_NODE_TARGET);
+		desc = pw_properties_get(props, PW_KEY_TARGET_OBJECT);
 	if (desc == NULL)
 		desc = _("Unknown device");
 

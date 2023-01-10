@@ -1,3 +1,93 @@
+# PipeWire 0.3.64 (2023-01-12)
+
+This is a bugfix release that is API and ABI compatible with previous
+0.3.x releases.
+
+## Highlights
+  - Clear old buffer memory on ports to fix some SIGBUS errors.
+  - It is now possible to assign custom port names to the ports from an
+    adapter. This feature is helpful to those who use a multichannel
+    interface with long-term connections. This way they can label each
+    port with its designation, such as an instrument name or anything else
+    to be displayed in a patchbay or DAW.
+  - Fix some issues with node suspend and quantum and rate calculations.
+  - Fix some regressions in pulse-tunnel and RTP-source adaptive resampling
+    that could cause synchronization problems.
+  - UCM devices now also have a Pro Audio profile.
+  - NODE_TARGET (with the object.id) is now deprecated, use TARGET_OBJECT
+    (with the object.serial, which is not reused and can avoid races).
+
+
+## PipeWire
+  - Clear all peer input port buffers when suspending. This fixes some
+    SIGBUS errors when some plugins were using old memory. (#2914)
+  - Fix a case where nodes that were not supposed to be suspended, were
+    kept suspended on a rate change. (#2929)
+  - Fix an error in the quantum and rate calculations that could cause
+    nodes to run with wrong quantum and rates when multiple rates were
+    allowed. (#2925)
+
+## Tools
+  - pw-dump will now sort dictionaries to make it easier to compare
+    different outputs.
+  - Improve output of pw-reserve.
+  - pw-loopback uses TARGET_OBJECT so you will need to use the serial
+    id (or better the name) as the target instead of the object id.
+
+## modules
+  - The filter-chain modules has seen some cleanups, refactoring and
+    optimizations in the various DSP functions.
+  - The ROC module now supports setting a custom samplerate.
+  - ROC 0.2.X is now required.
+  - The pulse tunnel and RTP source were not updating the rate field
+    correctly which could cause synchronization problems. (#2891)
+  - The filter-chain now supports an arbitrary number of control
+    properties. (#2933)
+  - It is now possible to assign custom port names to the ports from an
+    adapter with the PW_KEY_NODE_CHANNELNAMES.
+  - Support was added for capture and playback props in echo-cancel.
+    (#2939)
+
+## SPA
+  - The ACP code now has an option to set the probe samplerate. (#1599)
+  - UCM devices now also have a Pro Audio profile.
+  - Filtering of Step ranges is now implemented.
+
+## Pulse-Server
+  - The channel-map is now set correctly on the echo-cancel module.
+  - source_master and sink_master are now correctly handled in module
+    echo-cancel.
+  - Fix a regression in DRAIN where resuming after a DRAIN would fail.
+    This caused problems for espeak. (#2928)
+  - TARGET_OBJECT is now used to make it possible to use the indexes
+    as a target.
+  - ladspa-source and remap-source can now also link to monitors.
+
+## ALSA
+  - The ALSA plugin now handles the target.object correctly when set to
+    -1. (#2893)
+
+## V4L2
+  - The v4l2 replacement library now also follows symlinks.
+  - Support for getting and setting controls was added.
+  - Support for G_PARM was added.
+  - The environment variable PIPEWIRE_V4L2_TARGET can be used to force
+    an application onto a specific camera.
+
+## Bluetooth
+  - Fix compilation without ldac_abr.
+  - Fix a missing brace in CIND reply. This could cause some devices to
+    fail.
+  - Fix configuration of the initial latency.
+
+## GStreamer
+  - The device provider now supports setting an fd so that it can connect
+    to PipeWire sessions from the portal.
+  - DMABuf support was re-enabled in gstpipewiresrc.
+
+
+Older versions:
+
 # PipeWire 0.3.63 (2022-12-15)
 
 This is a quick bugfix release that is API and ABI compatible with previous
@@ -38,9 +128,6 @@ This is a quick bugfix release that is API and ABI compatible with previous
   - Add a new pulse.cmd config section to execute pulse commands, currently
     only for loading modules. This removes the dependency on pactl.
   - Improve debug of messages.
-
-
-Older versions:
 
 # PipeWire 0.3.62 (2022-12-09)
 

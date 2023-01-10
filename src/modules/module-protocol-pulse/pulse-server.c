@@ -1541,7 +1541,7 @@ static void stream_drained(void *data)
 		reply_simple_ack(stream->client, stream->drain_tag);
 		stream->drain_tag = 0;
 
-		stream_set_paused(stream, false, "complete drain");
+		pw_stream_set_active(stream->stream, !stream->is_paused);
 	}
 }
 

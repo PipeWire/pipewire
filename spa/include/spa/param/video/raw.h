@@ -158,6 +158,7 @@ enum spa_video_flags {
 	SPA_VIDEO_FLAG_VARIABLE_FPS = (1 << 0),		/**< a variable fps is selected, fps_n and fps_d
 							 *   denote the maximum fps of the video */
 	SPA_VIDEO_FLAG_PREMULTIPLIED_ALPHA = (1 << 1),  /**< Each color has been scaled by the alpha value. */
+	SPA_VIDEO_FLAG_MODIFIER = (1 << 2),		/**< use the format modifier */
 };
 
 /**
@@ -186,7 +187,8 @@ enum spa_video_interlace_mode {
  */
 struct spa_video_info_raw {
 	enum spa_video_format format;				/**< the format */
-	int64_t modifier;					/**< format modifier
+	uint32_t flags;						/**< extra video flags */
+	uint64_t modifier;					/**< format modifier
 								  * only used with DMA-BUF */
 	struct spa_rectangle size;				/**< the frame size of the video */
 	struct spa_fraction framerate;				/**< the framerate of the video, 0/1 means variable rate */
@@ -210,7 +212,8 @@ struct spa_video_info_raw {
 
 struct spa_video_info_dsp {
 	enum spa_video_format format;
-	int64_t modifier;
+	uint32_t flags;
+	uint64_t modifier;
 };
 
 #define SPA_VIDEO_INFO_DSP_INIT(...)	((struct spa_video_info_dsp) { __VA_ARGS__ })

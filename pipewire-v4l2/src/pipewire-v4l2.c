@@ -672,7 +672,7 @@ static void registry_event_global(void *data, uint32_t id,
 	const struct global_info *info = NULL;
 	struct pw_proxy *proxy;
 	const char *str;
-	uint32_t serial = SPA_ID_INVALID, dev;
+	uint32_t serial = SPA_ID_INVALID, dev, req_serial;
 
 	if (spa_streq(type, PW_TYPE_INTERFACE_Node)) {
 
@@ -690,6 +690,11 @@ static void registry_event_global(void *data, uint32_t id,
 
 		if (((str = spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL)) == NULL) ||
 		    !spa_atou32(str, &serial, 10))
+			return;
+
+		if ((str = getenv("PIPEWIRE_V4L2_TARGET")) != NULL
+				&& spa_atou32(str, &req_serial, 10)
+				&& req_serial != serial)
 			return;
 
 		dev = find_dev_for_serial(serial);

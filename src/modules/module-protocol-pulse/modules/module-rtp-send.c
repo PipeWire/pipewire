@@ -163,14 +163,13 @@ static int module_rtp_send_prepare(struct module * const module)
 	}
 
 	if ((str = pw_properties_get(props, "source")) != NULL) {
-		pw_properties_set(stream_props, PW_KEY_NODE_TARGET, str);
 		if (spa_strendswith(str, ".monitor")) {
-			pw_properties_setf(stream_props, PW_KEY_NODE_TARGET,
+			pw_properties_setf(stream_props, PW_KEY_TARGET_OBJECT,
 					"%.*s", (int)strlen(str)-8, str);
 			pw_properties_set(stream_props, PW_KEY_STREAM_CAPTURE_SINK,
 					"true");
 		} else {
-			pw_properties_set(stream_props, PW_KEY_NODE_TARGET, str);
+			pw_properties_set(stream_props, PW_KEY_TARGET_OBJECT, str);
 		}
 	}
 	if (module_args_to_audioinfo(module->impl, props, &info) < 0) {

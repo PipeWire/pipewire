@@ -219,7 +219,7 @@ static int module_ladspa_source_prepare(struct module * const module)
 
 	if ((str = pw_properties_get(props, "master")) != NULL ||
 	    (str = pw_properties_get(props, "source_master")) != NULL) {
-		pw_properties_set(capture_props, PW_KEY_NODE_TARGET, str);
+		pw_properties_set(capture_props, PW_KEY_TARGET_OBJECT, str);
 		pw_properties_set(props, "master", NULL);
 	}
 

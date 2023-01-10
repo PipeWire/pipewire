@@ -208,18 +208,18 @@ static int module_echo_cancel_prepare(struct module * const module)
 
 	if ((str = pw_properties_get(props, "source_master")) != NULL) {
 		if (spa_strendswith(str, ".monitor")) {
-			pw_properties_setf(capture_props, PW_KEY_NODE_TARGET,
+			pw_properties_setf(capture_props, PW_KEY_TARGET_OBJECT,
 					"%.*s", (int)strlen(str)-8, str);
 			pw_properties_set(capture_props, PW_KEY_STREAM_CAPTURE_SINK,
 					"true");
 		} else {
-			pw_properties_set(capture_props, PW_KEY_NODE_TARGET, str);
+			pw_properties_set(capture_props, PW_KEY_TARGET_OBJECT, str);
 		}
 		pw_properties_set(props, "source_master", NULL);
 	}
 
 	if ((str = pw_properties_get(props, "sink_master")) != NULL) {
-		pw_properties_set(playback_props, PW_KEY_NODE_TARGET, str);
+		pw_properties_set(playback_props, PW_KEY_TARGET_OBJECT, str);
 		pw_properties_set(props, "sink_master", NULL);
 	}
 

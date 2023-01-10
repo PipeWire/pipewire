@@ -197,7 +197,7 @@ static int module_remap_sink_prepare(struct module * const module)
 		}
 	}
 	if ((str = pw_properties_get(props, "master")) != NULL) {
-		pw_properties_set(playback_props, PW_KEY_NODE_TARGET, str);
+		pw_properties_set(playback_props, PW_KEY_TARGET_OBJECT, str);
 		pw_properties_set(props, "master", NULL);
 	}
 

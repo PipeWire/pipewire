@@ -168,7 +168,7 @@ static int module_tunnel_source_prepare(struct module * const module)
 
 	remote_source_name = pw_properties_get(props, "source");
 	if (remote_source_name)
-		pw_properties_set(props, PW_KEY_NODE_TARGET, remote_source_name);
+		pw_properties_set(props, PW_KEY_TARGET_OBJECT, remote_source_name);
 
 	if ((server = pw_properties_get(props, "server")) == NULL) {
 		pw_log_error("no server given");

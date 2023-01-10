@@ -135,7 +135,7 @@ static int module_rtp_recv_prepare(struct module * const module)
 		goto out;
 	}
 	if ((str = pw_properties_get(props, "sink")) != NULL)
-		pw_properties_set(stream_props, PW_KEY_NODE_TARGET, str);
+		pw_properties_set(stream_props, PW_KEY_TARGET_OBJECT, str);
 
 	if ((str = pw_properties_get(props, "sap_address")) != NULL)
 		pw_properties_set(global_props, "sap.ip", str);

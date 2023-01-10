@@ -168,7 +168,7 @@ static int module_tunnel_sink_prepare(struct module * const module)
 
 	remote_sink_name = pw_properties_get(props, "sink");
 	if (remote_sink_name)
-		pw_properties_set(props, PW_KEY_NODE_TARGET, remote_sink_name);
+		pw_properties_set(props, PW_KEY_TARGET_OBJECT, remote_sink_name);
 
 	if ((server = pw_properties_get(props, "server")) == NULL) {
 		pw_log_error("no server given");

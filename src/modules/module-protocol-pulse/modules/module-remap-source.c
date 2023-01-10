@@ -197,7 +197,14 @@ static int module_remap_source_prepare(struct module * const module)
 		}
 	}
 	if ((str = pw_properties_get(props, "master")) != NULL) {
-		pw_properties_set(capture_props, PW_KEY_TARGET_OBJECT, str);
+		if (spa_strendswith(str, ".monitor")) {
+			pw_properties_setf(capture_props, PW_KEY_TARGET_OBJECT,
+					"%.*s", (int)strlen(str)-8, str);
+			pw_properties_set(capture_props, PW_KEY_STREAM_CAPTURE_SINK,
+					"true");
+		} else {
+			pw_properties_set(capture_props, PW_KEY_TARGET_OBJECT, str);
+		}
 		pw_properties_set(props, "master", NULL);
 	}
 

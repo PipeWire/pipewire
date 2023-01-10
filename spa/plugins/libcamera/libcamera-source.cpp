@@ -774,14 +774,15 @@ static int impl_node_port_use_buffers(void *object,
 
 	port = GET_PORT(impl, direction, port_id);
 
-	if (!port->current_format)
-		return -EIO;
-
 	if (port->n_buffers) {
 		spa_libcamera_stream_off(impl);
 		if ((res = spa_libcamera_clear_buffers(impl, port)) < 0)
 			return res;
 	}
+	if (n_buffers > 0 && !port->current_format)
+		return -EIO;
+	if (n_buffers > MAX_BUFFERS)
+		return -ENOSPC;
 	if (buffers == NULL)
 		return 0;
 

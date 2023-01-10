@@ -629,14 +629,14 @@ impl_node_port_use_buffers(void *object,
 
 	spa_log_debug(this->log, "%p: use %d buffers", this, n_buffers);
 
-	if (!port->have_format)
-		return -EIO;
-
-	if (n_buffers == 0) {
+	if (port->n_buffers > 0) {
 		spa_avb_pause(this);
 		clear_buffers(this, port);
-		return 0;
 	}
+	if (n_buffers > 0 && !port->have_format)
+		return -EIO;
+	if (n_buffers > MAX_BUFFERS)
+		return -ENOSPC;
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &port->buffers[i];

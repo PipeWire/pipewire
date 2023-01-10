@@ -46,6 +46,7 @@
 #define M_PI_M2 ( M_PI + M_PI )
 
 #define BUFFER_SAMPLES	128
+#define MAX_BUFFERS	32
 
 struct buffer {
 	uint32_t id;
@@ -79,7 +80,7 @@ struct data {
 
 	struct spa_audio_info_raw format;
 
-	struct buffer buffers[32];
+	struct buffer buffers[MAX_BUFFERS];
 	uint32_t n_buffers;
 	struct spa_list empty;
 
@@ -324,6 +325,9 @@ static int impl_port_use_buffers(void *object,
 {
 	struct data *d = object;
 	uint32_t i;
+
+	if (n_buffers > MAX_BUFFERS)
+		return -ENOSPC;
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &d->buffers[i];

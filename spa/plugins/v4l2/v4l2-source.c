@@ -756,14 +756,15 @@ static int impl_node_port_use_buffers(void *object,
 
 	port = GET_PORT(this, direction, port_id);
 
-	if (!port->have_format)
-		return -EIO;
-
 	if (port->n_buffers) {
 		spa_v4l2_stream_off(this);
 		if ((res = spa_v4l2_clear_buffers(this)) < 0)
 			return res;
 	}
+	if (n_buffers > 0 && !port->have_format)
+		return -EIO;
+	if (n_buffers > MAX_BUFFERS)
+		return -ENOSPC;
 	if (buffers == NULL)
 		return 0;
 

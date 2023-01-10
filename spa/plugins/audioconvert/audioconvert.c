@@ -2049,12 +2049,15 @@ impl_node_port_use_buffers(void *object,
 
 	port = GET_PORT(this, direction, port_id);
 
-	spa_return_val_if_fail(port->have_format, -EIO);
-
 	spa_log_debug(this->log, "%p: use buffers %d on port %d:%d",
 			this, n_buffers, direction, port_id);
 
 	clear_buffers(this, port);
+
+	if (n_buffers > 0 && !port->have_format)
+		return -EIO;
+	if (n_buffers > MAX_BUFFERS)
+		return -ENOSPC;
 
 	maxsize = this->quantum_limit * sizeof(float);
 

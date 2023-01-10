@@ -754,7 +754,6 @@ do_port_use_buffers(struct impl *impl,
 	if (n_buffers > MAX_BUFFERS)
 		return -ENOSPC;
 
-
 	spa_log_debug(this->log, "%p: %s port %d.%d use buffers %p %u flags:%08x", this,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
 			port_id, mix_id, buffers, n_buffers, flags);

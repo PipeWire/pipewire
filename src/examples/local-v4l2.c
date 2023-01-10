@@ -34,6 +34,7 @@
 #define WIDTH   640
 #define HEIGHT  480
 #define BPP    3
+#define MAX_BUFFERS	32
 
 #include "sdl.h"
 
@@ -68,7 +69,7 @@ struct data {
 	struct spa_video_info_raw format;
 	int32_t stride;
 
-	struct spa_buffer *buffers[32];
+	struct spa_buffer *buffers[MAX_BUFFERS];
 	int n_buffers;
 
 	struct pw_proxy *out, *in, *link;
@@ -263,6 +264,9 @@ static int impl_port_use_buffers(void *object,
 {
 	struct data *d = object;
 	uint32_t i;
+
+	if (n_buffers > MAX_BUFFERS)
+		return -ENOSPC;
 
 	for (i = 0; i < n_buffers; i++)
 		d->buffers[i] = buffers[i];

@@ -731,6 +731,7 @@ impl_node_port_use_buffers(void *object,
 {
 	struct state *this = object;
 	uint32_t i;
+	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -738,14 +739,15 @@ impl_node_port_use_buffers(void *object,
 
 	spa_log_debug(this->log, "%p: use %d buffers", this, n_buffers);
 
-	if (!this->have_format)
-		return -EIO;
-
-	if (n_buffers == 0) {
+	if (this->n_buffers > 0) {
 		spa_alsa_pause(this);
-		clear_buffers(this);
-		return 0;
+		if ((res = clear_buffers(this)) < 0)
+			return res;
 	}
+	if (n_buffers > 0 && !this->have_format)
+		return -EIO;
+	if (n_buffers > MAX_BUFFERS)
+		return -ENOSPC;
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &this->buffers[i];

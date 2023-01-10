@@ -2219,7 +2219,7 @@ static int client_node_port_use_buffers(void *data,
 
 	if (n_buffers > MAX_BUFFERS) {
 		pw_log_error("%p: too many buffers %u > %u", c, n_buffers, MAX_BUFFERS);
-		return -EINVAL;
+		return -ENOSPC;
 	}
 
 	if (p->object->port.type_id == TYPE_ID_VIDEO && direction == SPA_DIRECTION_INPUT) {

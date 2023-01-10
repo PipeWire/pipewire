@@ -885,16 +885,19 @@ static int impl_port_use_buffers(void *object,
 	pw_log_debug("%p: port:%d.%d buffers:%u disconnecting:%d", impl,
 			direction, port_id, n_buffers, impl->disconnecting);
 
+	if ((port = get_port(impl, direction, port_id)) == NULL)
+		return -EINVAL;
+
 	if (impl->disconnecting && n_buffers > 0)
 		return -EIO;
 
-	if ((port = get_port(impl, direction, port_id)) == NULL)
-		return -EINVAL;
+	clear_buffers(port);
 
 	impl_flags = port->flags;
 	prot = PROT_READ | (direction == SPA_DIRECTION_OUTPUT ? PROT_WRITE : 0);
 
-	clear_buffers(port);
+	if (n_buffers > MAX_BUFFERS)
+		return -ENOSPC;
 
 	for (i = 0; i < n_buffers; i++) {
 		int buf_size = 0;

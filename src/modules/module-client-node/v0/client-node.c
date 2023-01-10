@@ -38,6 +38,8 @@
 #include <spa/pod/filter.h>
 #include <spa/utils/keys.h>
 
+#define PW_ENABLE_DEPRECATED
+
 #include "pipewire/pipewire.h"
 #include "pipewire/private.h"
 

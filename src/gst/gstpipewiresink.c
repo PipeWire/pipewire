@@ -33,6 +33,8 @@
  * </refsect2>
  */
 
+#define PW_ENABLE_DEPRECATED
+
 #include "config.h"
 #include "gstpipewiresink.h"
 

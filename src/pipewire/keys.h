@@ -155,8 +155,6 @@ extern "C" {
 #define PW_KEY_NODE_EXCLUSIVE		"node.exclusive"	/**< node wants exclusive access to resources */
 #define PW_KEY_NODE_AUTOCONNECT		"node.autoconnect"	/**< node wants to be automatically connected
 								  *  to a compatible node */
-#define PW_KEY_NODE_TARGET		"node.target"		/**< node wants to be connected to the target
-								  *  node/session */
 #define PW_KEY_NODE_LATENCY		"node.latency"		/**< the requested latency of the node as
 								  *  a fraction. Ex: 128/48000 */
 #define PW_KEY_NODE_MAX_LATENCY		"node.max-latency"	/**< the maximum supported latency of the
@@ -173,9 +171,9 @@ extern "C" {
 								  *  active */
 
 #define PW_KEY_NODE_DONT_RECONNECT	"node.dont-reconnect"	/**< don't reconnect this node. The node is
-								  *  initially linked to node.target or
-								  *  target.object or the default node. If the
-								  *  targets is removed, the node is destroyed */
+								  *  initially linked to target.object or the
+								  *  default node. If the target is removed,
+								  *  the node is destroyed */
 #define PW_KEY_NODE_ALWAYS_PROCESS	"node.always-process"	/**< process even when unlinked */
 #define PW_KEY_NODE_WANT_DRIVER		"node.want-driver"	/**< the node wants to be grouped with a driver
 								  *  node in order to schedule the graph. */
@@ -338,9 +336,11 @@ extern "C" {
 
 #ifdef PW_ENABLE_DEPRECATED
 #define PW_KEY_PRIORITY_MASTER		"priority.master"	/**< deprecated */
+#define PW_KEY_NODE_TARGET		"node.target"		/**< deprecated since 0.3.64, use target.object. */
 #endif /* PW_ENABLE_DEPRECATED */
 
-#define PW_KEY_TARGET_OBJECT		"target.object"		/**< a target object to link to */
+#define PW_KEY_TARGET_OBJECT		"target.object"		/**< a target object to link to. This can be
+								  * and object name or object.serial */
 
 /** \}
  */

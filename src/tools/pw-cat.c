@@ -790,7 +790,7 @@ static void show_usage(const char *name, bool is_error)
              "      --media-type                      Set media type (default %s)\n"
              "      --media-category                  Set media category (default %s)\n"
              "      --media-role                      Set media role (default %s)\n"
-             "      --target                          Set node target (default %s)\n"
+             "      --target                          Set node target serial or name (default %s)\n"
 	     "                                          0 means don't link\n"
              "      --latency                         Set node latency (default %s)\n"
 	     "                                          Xunit (unit = s, ms, us, ns)\n"

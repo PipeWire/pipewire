@@ -95,9 +95,9 @@ static void show_help(struct data *data, const char *name, bool error)
 		"  -m, --channel-map                     Channel map (default '%s')\n"
 		"  -l, --latency                         Desired latency in ms\n"
 		"  -d, --delay                           Desired delay in float s\n"
-		"  -C  --capture                         Capture source to connect to\n"
+		"  -C  --capture                         Capture source to connect to (name or serial)\n"
 		"      --capture-props                   Capture stream properties\n"
-		"  -P  --playback                        Playback sink to connect to\n"
+		"  -P  --playback                        Playback sink to connect to (name or serial)\n"
 		"      --playback-props                  Playback stream properties\n",
 		name,
 		data->opt_node_name,
@@ -184,10 +184,10 @@ int main(int argc, char *argv[])
 			data.delay = atof(optarg);
 			break;
 		case 'C':
-			pw_properties_set(data.capture_props, PW_KEY_NODE_TARGET, optarg);
+			pw_properties_set(data.capture_props, PW_KEY_TARGET_OBJECT, optarg);
 			break;
 		case 'P':
-			pw_properties_set(data.playback_props, PW_KEY_NODE_TARGET, optarg);
+			pw_properties_set(data.playback_props, PW_KEY_TARGET_OBJECT, optarg);
 			break;
 		case 'i':
 			pw_properties_update_string(data.capture_props, optarg, strlen(optarg));

@@ -5591,16 +5591,13 @@ const char ** jack_get_ports (jack_client_t *client,
 	struct object *o;
 	struct pw_array tmp;
 	const char *str;
-	uint32_t i, count, id;
+	uint32_t i, count;
 	int r;
 	regex_t port_regex, type_regex;
 
 	spa_return_val_if_fail(c != NULL, NULL);
 
-	if ((str = getenv("PIPEWIRE_NODE")) != NULL)
-		id = pw_properties_parse_int(str);
-	else
-		id = SPA_ID_INVALID;
+	str = getenv("PIPEWIRE_NODE");
 
 	if (port_name_pattern && port_name_pattern[0]) {
 		if ((r = regcomp(&port_regex, port_name_pattern, REG_EXTENDED | REG_NOSUB)) != 0) {
@@ -5615,7 +5612,7 @@ const char ** jack_get_ports (jack_client_t *client,
 		}
 	}
 
-	pw_log_debug("%p: ports id:%d name:\"%s\" type:\"%s\" flags:%08lx", c, id,
+	pw_log_debug("%p: ports target:%s name:\"%s\" type:\"%s\" flags:%08lx", c, str,
 			port_name_pattern, type_name_pattern, flags);
 
 	pthread_mutex_lock(&c->context.lock);
@@ -5631,8 +5628,11 @@ const char ** jack_get_ports (jack_client_t *client,
 			continue;
 		if (!SPA_FLAG_IS_SET(o->port.flags, flags))
 			continue;
-		if (id != SPA_ID_INVALID && o->port.node_id != id)
-			continue;
+		if (str != NULL && o->port.node != NULL) {
+			if (!spa_strstartswith(o->port.name, str) &&
+			    o->port.node->serial != atoll(str))
+				continue;
+		}
 
 		if (port_name_pattern && port_name_pattern[0]) {
 			bool match;

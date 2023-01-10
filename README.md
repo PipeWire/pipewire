@@ -55,7 +55,8 @@ applications:
 				   samplerate. This function will attempt to change
 				   the graph samplerate to `denom` and use the
 				   specified `num` as the buffer size.
-* `PIPEWIRE_NODE=<id>`             to request a link to the specified node
+* `PIPEWIRE_NODE=<id>`             to request a link to the specified node. The
+                    id can be a node.name or object.serial of the target node.
 
 ### Using tools
 

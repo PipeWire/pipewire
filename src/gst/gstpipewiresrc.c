@@ -964,14 +964,14 @@ on_param_changed (void *data, uint32_t id,
     uint32_t buffers = CLAMP (16, pwsrc->min_buffers, pwsrc->max_buffers);
     int buffertypes;
 
+    buffertypes = (1<<SPA_DATA_DmaBuf);
     if (spa_pod_find_prop (param, NULL, SPA_FORMAT_VIDEO_modifier)) {
-      buffertypes = (1<<SPA_DATA_DmaBuf);
       gst_caps_features_remove (gst_caps_get_features (pwsrc->caps, 0),
           GST_CAPS_FEATURE_MEMORY_SYSTEM_MEMORY);
       gst_caps_features_add (gst_caps_get_features (pwsrc->caps, 0),
           GST_CAPS_FEATURE_MEMORY_DMABUF);
     } else {
-      buffertypes = ((1<<SPA_DATA_MemFd) | (1<<SPA_DATA_MemPtr));
+      buffertypes |= ((1<<SPA_DATA_MemFd) | (1<<SPA_DATA_MemPtr));
     }
 
     GST_DEBUG_OBJECT (pwsrc, "we got format %" GST_PTR_FORMAT, pwsrc->caps);

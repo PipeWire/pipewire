@@ -42,9 +42,7 @@ static inline int
 spa_format_video_raw_parse(const struct spa_pod *format,
 			   struct spa_video_info_raw *info)
 {
-	int res;
-
-	res = spa_pod_parse_object(format,
+	return spa_pod_parse_object(format,
 		SPA_TYPE_OBJECT_Format, NULL,
 		SPA_FORMAT_VIDEO_format,		SPA_POD_OPT_Id(&info->format),
 		SPA_FORMAT_VIDEO_modifier,		SPA_POD_OPT_Long(&info->modifier),
@@ -61,26 +59,16 @@ spa_format_video_raw_parse(const struct spa_pod *format,
 		SPA_FORMAT_VIDEO_colorMatrix,		SPA_POD_OPT_Id(&info->color_matrix),
 		SPA_FORMAT_VIDEO_transferFunction,	SPA_POD_OPT_Id(&info->transfer_function),
 		SPA_FORMAT_VIDEO_colorPrimaries,	SPA_POD_OPT_Id(&info->color_primaries));
-
-	info->use_modifier = spa_pod_find_prop (format, NULL, SPA_FORMAT_VIDEO_modifier) ? true : false;
-
-	return res;
 }
 
 static inline int
 spa_format_video_dsp_parse(const struct spa_pod *format,
 			   struct spa_video_info_dsp *info)
 {
-	int res;
-
-	res = spa_pod_parse_object(format,
+	return spa_pod_parse_object(format,
 		SPA_TYPE_OBJECT_Format, NULL,
 		SPA_FORMAT_VIDEO_format,		SPA_POD_OPT_Id(&info->format),
 		SPA_FORMAT_VIDEO_modifier,		SPA_POD_OPT_Long(&info->modifier));
-
-	info->use_modifier = spa_pod_find_prop (format, NULL, SPA_FORMAT_VIDEO_modifier) ? true : false;
-
-	return res;
 }
 
 static inline struct spa_pod *
@@ -102,7 +90,7 @@ spa_format_video_raw_build(struct spa_pod_builder *builder, uint32_t id,
 	if (info->framerate.denom != 0)
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_framerate,	SPA_POD_Fraction(&info->framerate), 0);
-	if (info->use_modifier)
+	if (info->modifier != 0)
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_modifier,	SPA_POD_Long(info->modifier), 0);
 	if (info->max_framerate.denom != 0)
@@ -154,7 +142,7 @@ spa_format_video_dsp_build(struct spa_pod_builder *builder, uint32_t id,
 	if (info->format != SPA_VIDEO_FORMAT_UNKNOWN)
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_format,	SPA_POD_Id(info->format), 0);
-	if (info->use_modifier)
+	if (info->modifier)
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_modifier,	SPA_POD_Long(info->modifier), 0);
 	return (struct spa_pod*)spa_pod_builder_pop(builder, &f);

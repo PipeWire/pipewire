@@ -89,16 +89,19 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
 
     GST_LOG_OBJECT (pool, "wrap buffer %d %d", d->mapoffset, d->maxsize);
     if (d->type == SPA_DATA_MemFd) {
+      GST_LOG_OBJECT (pool, "memory type MemFd");
       gmem = gst_fd_allocator_alloc (pool->fd_allocator, dup(d->fd),
                 d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
       gst_memory_resize (gmem, d->mapoffset, d->maxsize);
     }
     else if(d->type == SPA_DATA_DmaBuf) {
+      GST_LOG_OBJECT (pool, "memory type DmaBuf");
       gmem = gst_fd_allocator_alloc (pool->dmabuf_allocator, dup(d->fd),
                 d->mapoffset + d->maxsize, GST_FD_MEMORY_FLAG_NONE);
       gst_memory_resize (gmem, d->mapoffset, d->maxsize);
     }
     else if (d->type == SPA_DATA_MemPtr) {
+      GST_LOG_OBJECT (pool, "memory type MemPtr");
       gmem = gst_memory_new_wrapped (0, d->data, d->maxsize, 0,
                                      d->maxsize, NULL, NULL);
     }

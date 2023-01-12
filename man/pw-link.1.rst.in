@@ -65,7 +65,7 @@ output ports and their links.
 CONNECTING PORTS
 ================
 
-Whithout any list option (-i, -o or -l), the given ports will be linked.
+Without any list option (-i, -o or -l), the given ports will be linked.
 Valid port specifications are:
 
 *port-id*

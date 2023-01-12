@@ -7,7 +7,6 @@ TAB_SIZE               = 8
 OPTIMIZE_OUTPUT_FOR_C  = YES
 EXTRACT_ALL            = YES
 EXTRACT_STATIC         = YES
-FULL_PATH_NAMES        = YES
 STRIP_FROM_PATH        = @path_prefixes@
 STRIP_FROM_INC_PATH    = @path_prefixes@
 SHOW_FILES             = NO

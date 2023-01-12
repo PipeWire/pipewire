@@ -49,37 +49,14 @@ static char *get_cpuinfo_line(char *cpuinfo, const char *tag)
 	return strndup(colon, end - colon);
 }
 
-static char *get_cpuinfo(void)
-{
-	char *cpuinfo;
-	int n, fd;
-
-	cpuinfo = malloc(MAX_BUFFER);
-
-	if ((fd = open("/proc/cpuinfo", O_RDONLY | O_CLOEXEC, 0)) < 0) {
-		free(cpuinfo);
-		return NULL;
-	}
-
-	if ((n = read(fd, cpuinfo, MAX_BUFFER-1)) < 0) {
-		free(cpuinfo);
-		close(fd);
-		return NULL;
-	}
-	cpuinfo[n] = 0;
-	close(fd);
-
-	return cpuinfo;
-}
-
 static int
 arm_init(struct impl *impl)
 {
 	uint32_t flags = 0;
-	char *cpuinfo, *line;
+	char *cpuinfo, *line, buffer[MAX_BUFFER];
 	int arch;
 
-	if (!(cpuinfo = get_cpuinfo())) {
+	if (!(cpuinfo = spa_cpu_read_file("/proc/cpuinfo", buffer, sizeof(buffer)))) {
 		spa_log_warn(impl->log, "%p: Can't read cpuinfo", impl);
 		return 1;
 	}

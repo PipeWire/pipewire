@@ -59,7 +59,7 @@ struct impl {
 	uint32_t vm_type;
 };
 
-static char *read_file(const char *name, char *buffer, size_t len)
+char *spa_cpu_read_file(const char *name, char *buffer, size_t len)
 {
 	int n, fd;
 
@@ -175,7 +175,7 @@ impl_cpu_get_vm_type(void *object)
 	SPA_FOR_EACH_ELEMENT_VAR(dmi_vendors, dv) {
 		char buffer[256], *s;
 
-		if ((s = read_file(*dv, buffer, sizeof(buffer))) == NULL)
+		if ((s = spa_cpu_read_file(*dv, buffer, sizeof(buffer))) == NULL)
 			continue;
 
 		SPA_FOR_EACH_ELEMENT_VAR(dmi_vendor_table, t) {

@@ -135,6 +135,8 @@ static const struct spa_type_info spa_type_format[] = {
 	{ SPA_FORMAT_AUDIO_bitorder, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_AUDIO_BASE "bitorder",
 		spa_type_param_bitorder },
 	{ SPA_FORMAT_AUDIO_interleave, SPA_TYPE_Int, SPA_TYPE_INFO_FORMAT_AUDIO_BASE "interleave", NULL },
+	{ SPA_FORMAT_AUDIO_bitrate, SPA_TYPE_Int, SPA_TYPE_INFO_FORMAT_AUDIO_BASE "bitrate", NULL },
+	{ SPA_FORMAT_AUDIO_blockAlign, SPA_TYPE_Int, SPA_TYPE_INFO_FORMAT_AUDIO_BASE "blockAlign", NULL },
 
 	{ SPA_FORMAT_VIDEO_format, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_VIDEO_BASE "format",
 		spa_type_video_format, },

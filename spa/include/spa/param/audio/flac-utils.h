@@ -1,6 +1,6 @@
 /* Simple Plugin API
  *
- * Copyright © 2018 Wim Taymans
+ * Copyright © 2023 Wim Taymans
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef SPA_PARAM_AUDIO_FORMAT_H
-#define SPA_PARAM_AUDIO_FORMAT_H
+#ifndef SPA_AUDIO_FLAC_UTILS_H
+#define SPA_AUDIO_FLAC_UTILS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,38 +34,39 @@ extern "C" {
  * \{
  */
 
-#include <spa/param/format.h>
-#include <spa/param/audio/raw.h>
-#include <spa/param/audio/dsp.h>
-#include <spa/param/audio/iec958.h>
-#include <spa/param/audio/dsd.h>
-#include <spa/param/audio/mp3.h>
-#include <spa/param/audio/aac.h>
-#include <spa/param/audio/vorbis.h>
-#include <spa/param/audio/wma.h>
-#include <spa/param/audio/ra.h>
-#include <spa/param/audio/amr.h>
-#include <spa/param/audio/alac.h>
-#include <spa/param/audio/flac.h>
+#include <spa/pod/parser.h>
+#include <spa/pod/builder.h>
+#include <spa/param/audio/format.h>
+#include <spa/param/format-utils.h>
 
-struct spa_audio_info {
-	uint32_t media_type;
-	uint32_t media_subtype;
-	union {
-		struct spa_audio_info_raw raw;
-		struct spa_audio_info_dsp dsp;
-		struct spa_audio_info_iec958 iec958;
-		struct spa_audio_info_dsd dsd;
-		struct spa_audio_info_mp3 mp3;
-		struct spa_audio_info_aac aac;
-		struct spa_audio_info_vorbis vorbis;
-		struct spa_audio_info_wma wma;
-		struct spa_audio_info_ra ra;
-		struct spa_audio_info_amr amr;
-		struct spa_audio_info_alac alac;
-		struct spa_audio_info_flac flac;
-	} info;
-};
+static inline int
+spa_format_audio_flac_parse(const struct spa_pod *format, struct spa_audio_info_flac *info)
+{
+	int res;
+	res = spa_pod_parse_object(format,
+			SPA_TYPE_OBJECT_Format, NULL,
+			SPA_FORMAT_AUDIO_rate,		SPA_POD_OPT_Int(&info->rate),
+			SPA_FORMAT_AUDIO_channels,	SPA_POD_OPT_Int(&info->channels));
+	return res;
+}
+
+static inline struct spa_pod *
+spa_format_audio_flac_build(struct spa_pod_builder *builder, uint32_t id, struct spa_audio_info_flac *info)
+{
+	struct spa_pod_frame f;
+	spa_pod_builder_push_object(builder, &f, SPA_TYPE_OBJECT_Format, id);
+	spa_pod_builder_add(builder,
+			SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+			SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_flac),
+			0);
+	if (info->rate != 0)
+		spa_pod_builder_add(builder,
+			SPA_FORMAT_AUDIO_rate,		SPA_POD_Int(info->rate), 0);
+	if (info->channels != 0)
+		spa_pod_builder_add(builder,
+			SPA_FORMAT_AUDIO_channels,	SPA_POD_Int(info->channels), 0);
+	return (struct spa_pod*)spa_pod_builder_pop(builder, &f);
+}
 
 /**
  * \}
@@ -75,4 +76,4 @@ struct spa_audio_info {
 }  /* extern "C" */
 #endif
 
-#endif /* SPA_PARAM_AUDIO_FORMAT_H */
+#endif /* SPA_AUDIO_FLAC_UTILS_H */

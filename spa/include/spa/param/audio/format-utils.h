@@ -45,6 +45,7 @@ extern "C" {
 #include <spa/param/audio/ra-utils.h>
 #include <spa/param/audio/amr-utils.h>
 #include <spa/param/audio/alac-utils.h>
+#include <spa/param/audio/flac-utils.h>
 
 
 /**
@@ -86,6 +87,8 @@ spa_format_audio_parse(const struct spa_pod *format, struct spa_audio_info *info
 		return spa_format_audio_amr_parse(format, &info->info.amr);
 	case SPA_MEDIA_SUBTYPE_alac:
 		return spa_format_audio_alac_parse(format, &info->info.alac);
+	case SPA_MEDIA_SUBTYPE_flac:
+		return spa_format_audio_flac_parse(format, &info->info.flac);
 	}
 	return -ENOTSUP;
 }
@@ -116,6 +119,8 @@ spa_format_audio_build(struct spa_pod_builder *builder, uint32_t id, struct spa_
 		return spa_format_audio_amr_build(builder, id, &info->info.amr);
 	case SPA_MEDIA_SUBTYPE_alac:
 		return spa_format_audio_alac_build(builder, id, &info->info.alac);
+	case SPA_MEDIA_SUBTYPE_flac:
+		return spa_format_audio_flac_build(builder, id, &info->info.flac);
 	}
 	errno = ENOTSUP;
 	return NULL;

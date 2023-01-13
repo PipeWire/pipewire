@@ -56,7 +56,7 @@ spa_format_audio_parse(const struct spa_pod *format, struct spa_audio_info *info
 	if (info->media_type != SPA_MEDIA_TYPE_audio)
 		return -EINVAL;
 
-	switch (info->media_type) {
+	switch (info->media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
 		return spa_format_audio_raw_parse(format, &info->info.raw);
 	case SPA_MEDIA_SUBTYPE_dsp:
@@ -72,7 +72,7 @@ spa_format_audio_parse(const struct spa_pod *format, struct spa_audio_info *info
 static inline struct spa_pod *
 spa_format_audio_build(struct spa_pod_builder *builder, uint32_t id, struct spa_audio_info *info)
 {
-	switch (info->media_type) {
+	switch (info->media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
 		return spa_format_audio_raw_build(builder, id, &info->info.raw);
 	case SPA_MEDIA_SUBTYPE_dsp:

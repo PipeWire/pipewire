@@ -35,6 +35,7 @@ extern "C" {
  */
 
 #include <spa/param/param-types.h>
+#include <spa/node/type-info.h>
 
 #include <spa/param/buffers.h>
 

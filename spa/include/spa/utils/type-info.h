@@ -46,34 +46,12 @@ static inline bool spa_type_is_a(const char *type, const char *parent)
 }
 
 #include <spa/utils/type.h>
-
-/* base for parameter object enumerations */
-#define SPA_TYPE_INFO_Direction			SPA_TYPE_INFO_ENUM_BASE "Direction"
-#define SPA_TYPE_INFO_DIRECTION_BASE		SPA_TYPE_INFO_Direction ":"
-
-static const struct spa_type_info spa_type_direction[] = {
-	{ SPA_DIRECTION_INPUT, SPA_TYPE_Int, SPA_TYPE_INFO_DIRECTION_BASE "Input", NULL  },
-	{ SPA_DIRECTION_OUTPUT, SPA_TYPE_Int, SPA_TYPE_INFO_DIRECTION_BASE "Output", NULL  },
-	{ 0, 0, NULL, NULL }
-};
+#include <spa/utils/enum-types.h>
 
 #include <spa/monitor/type-info.h>
 #include <spa/node/type-info.h>
 #include <spa/param/type-info.h>
 #include <spa/control/type-info.h>
-
-/* base for parameter object enumerations */
-#define SPA_TYPE_INFO_Choice			SPA_TYPE_INFO_ENUM_BASE "Choice"
-#define SPA_TYPE_INFO_CHOICE_BASE		SPA_TYPE_INFO_Choice ":"
-
-static const struct spa_type_info spa_type_choice[] = {
-	{ SPA_CHOICE_None, SPA_TYPE_Int, SPA_TYPE_INFO_CHOICE_BASE "None", NULL  },
-	{ SPA_CHOICE_Range, SPA_TYPE_Int, SPA_TYPE_INFO_CHOICE_BASE "Range", NULL  },
-	{ SPA_CHOICE_Step, SPA_TYPE_Int, SPA_TYPE_INFO_CHOICE_BASE "Step", NULL  },
-	{ SPA_CHOICE_Enum, SPA_TYPE_Int, SPA_TYPE_INFO_CHOICE_BASE "Enum", NULL  },
-	{ SPA_CHOICE_Flags, SPA_TYPE_Int, SPA_TYPE_INFO_CHOICE_BASE "Flags", NULL  },
-	{ 0, 0, NULL, NULL }
-};
 
 static const struct spa_type_info spa_types[] = {
         /* Basic types */

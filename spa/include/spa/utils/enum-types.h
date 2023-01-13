@@ -22,31 +22,36 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef SPA_PARAM_PROFILER_TYPES_H
-#define SPA_PARAM_PROFILER_TYPES_H
+#ifndef SPA_ENUM_TYPES_H
+#define SPA_ENUM_TYPES_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * \addtogroup spa_param
- * \{
- */
+#include <spa/utils/type.h>
 
-#include <spa/param/param-types.h>
-#include <spa/param/profiler.h>
+#define SPA_TYPE_INFO_Direction			SPA_TYPE_INFO_ENUM_BASE "Direction"
+#define SPA_TYPE_INFO_DIRECTION_BASE		SPA_TYPE_INFO_Direction ":"
 
-#define SPA_TYPE_INFO_Profiler		SPA_TYPE_INFO_OBJECT_BASE "Profiler"
-#define SPA_TYPE_INFO_PROFILER_BASE	SPA_TYPE_INFO_Profiler ":"
+static const struct spa_type_info spa_type_direction[] = {
+	{ SPA_DIRECTION_INPUT, SPA_TYPE_Int, SPA_TYPE_INFO_DIRECTION_BASE "Input", NULL  },
+	{ SPA_DIRECTION_OUTPUT, SPA_TYPE_Int, SPA_TYPE_INFO_DIRECTION_BASE "Output", NULL  },
+	{ 0, 0, NULL, NULL }
+};
 
-static const struct spa_type_info spa_type_profiler[] = {
-	{ SPA_PROFILER_START, SPA_TYPE_Id, SPA_TYPE_INFO_PROFILER_BASE, spa_type_param, },
-	{ SPA_PROFILER_info, SPA_TYPE_Struct, SPA_TYPE_INFO_PROFILER_BASE "info", NULL, },
-	{ SPA_PROFILER_clock, SPA_TYPE_Struct, SPA_TYPE_INFO_PROFILER_BASE "clock", NULL, },
-	{ SPA_PROFILER_driverBlock, SPA_TYPE_Struct, SPA_TYPE_INFO_PROFILER_BASE "driverBlock", NULL, },
-	{ SPA_PROFILER_followerBlock, SPA_TYPE_Struct, SPA_TYPE_INFO_PROFILER_BASE "followerBlock", NULL, },
-	{ 0, 0, NULL, NULL },
+#include <spa/pod/pod.h>
+
+#define SPA_TYPE_INFO_Choice			SPA_TYPE_INFO_ENUM_BASE "Choice"
+#define SPA_TYPE_INFO_CHOICE_BASE		SPA_TYPE_INFO_Choice ":"
+
+static const struct spa_type_info spa_type_choice[] = {
+	{ SPA_CHOICE_None, SPA_TYPE_Int, SPA_TYPE_INFO_CHOICE_BASE "None", NULL  },
+	{ SPA_CHOICE_Range, SPA_TYPE_Int, SPA_TYPE_INFO_CHOICE_BASE "Range", NULL  },
+	{ SPA_CHOICE_Step, SPA_TYPE_Int, SPA_TYPE_INFO_CHOICE_BASE "Step", NULL  },
+	{ SPA_CHOICE_Enum, SPA_TYPE_Int, SPA_TYPE_INFO_CHOICE_BASE "Enum", NULL  },
+	{ SPA_CHOICE_Flags, SPA_TYPE_Int, SPA_TYPE_INFO_CHOICE_BASE "Flags", NULL  },
+	{ 0, 0, NULL, NULL }
 };
 
 /**
@@ -57,4 +62,4 @@ static const struct spa_type_info spa_type_profiler[] = {
 }  /* extern "C" */
 #endif
 
-#endif /* SPA_PARAM_PROFILER_TYPES_H */
+#endif /* SPA_TYPE_INFO_H */

@@ -34,7 +34,8 @@ extern "C" {
  * \{
  */
 
-#include <spa/param/video/format-utils.h>
+#include <spa/pod/parser.h>
+#include <spa/pod/builder.h>
 #include <spa/param/video/dsp.h>
 
 static inline int
@@ -79,4 +80,4 @@ spa_format_video_dsp_build(struct spa_pod_builder *builder, uint32_t id,
 } /* extern "C" */
 #endif
 
-#endif /* SPA_VIDEO_DSP_H */
+#endif /* SPA_VIDEO_DSP_UTILS_H */

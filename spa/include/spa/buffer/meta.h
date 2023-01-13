@@ -177,7 +177,8 @@ enum spa_meta_videotransform_value {
 
 /** a transformation of the buffer */
 struct spa_meta_videotransform {
-	uint32_t transform;		/**< orientation transformation that was applied to the buffer */
+	uint32_t transform;			/**< orientation transformation that was applied to the buffer,
+						  *  one of enum spa_meta_videotransform_value */
 };
 
 /**

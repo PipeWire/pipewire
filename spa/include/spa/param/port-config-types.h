@@ -34,6 +34,7 @@ extern "C" {
  * \{
  */
 
+#include <spa/utils/enum-types.h>
 #include <spa/param/param-types.h>
 #include <spa/param/port-config.h>
 

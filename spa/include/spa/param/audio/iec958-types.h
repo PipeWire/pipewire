@@ -29,6 +29,7 @@
 extern "C" {
 #endif
 
+#include <spa/utils/type.h>
 #include <spa/param/audio/iec958.h>
 
 #define SPA_TYPE_INFO_AudioIEC958Codec		SPA_TYPE_INFO_ENUM_BASE "AudioIEC958Codec"

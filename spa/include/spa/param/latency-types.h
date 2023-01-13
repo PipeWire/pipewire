@@ -34,6 +34,8 @@ extern "C" {
  * \{
  */
 
+#include <spa/utils/enum-types.h>
+#include <spa/param/param-types.h>
 #include <spa/param/latency.h>
 
 #define SPA_TYPE_INFO_PARAM_Latency		SPA_TYPE_INFO_PARAM_BASE "Latency"

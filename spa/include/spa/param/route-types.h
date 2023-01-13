@@ -34,7 +34,9 @@ extern "C" {
  * \{
  */
 
+#include <spa/utils/enum-types.h>
 #include <spa/param/param-types.h>
+
 #include <spa/param/route.h>
 
 #define SPA_TYPE_INFO_PARAM_Route		SPA_TYPE_INFO_PARAM_BASE "Route"

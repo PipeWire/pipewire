@@ -34,7 +34,7 @@ extern "C" {
  * \{
  */
 
-#include <spa/utils/type-info.h>
+#include <spa/utils/type.h>
 
 #include <spa/node/command.h>
 #include <spa/node/event.h>

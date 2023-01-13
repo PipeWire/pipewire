@@ -33,6 +33,7 @@ extern "C" {
  * \addtogroup spa_param
  * \{
  */
+#include <spa/utils/type.h>
 #include <spa/param/video/raw.h>
 
 #define SPA_TYPE_INFO_VideoFormat		SPA_TYPE_INFO_ENUM_BASE "VideoFormat"

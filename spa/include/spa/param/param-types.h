@@ -34,7 +34,6 @@ extern "C" {
  * \{
  */
 
-#include <spa/utils/defs.h>
 #include <spa/param/props.h>
 #include <spa/param/format.h>
 #include <spa/buffer/type-info.h>

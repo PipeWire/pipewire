@@ -34,6 +34,7 @@ extern "C" {
  * \{
  */
 
+#include <spa/utils/type.h>
 #include <spa/param/audio/raw.h>
 
 #define SPA_TYPE_INFO_AudioFormat		SPA_TYPE_INFO_ENUM_BASE "AudioFormat"

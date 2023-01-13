@@ -22,47 +22,25 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef SPA_PARAM_AUDIO_FORMAT_H
-#define SPA_PARAM_AUDIO_FORMAT_H
+#ifndef SPA_AUDIO_AMR_TYPES_H
+#define SPA_AUDIO_AMR_TYPES_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * \addtogroup spa_param
- * \{
- */
-
-#include <spa/param/format.h>
-#include <spa/param/audio/raw.h>
-#include <spa/param/audio/dsp.h>
-#include <spa/param/audio/iec958.h>
-#include <spa/param/audio/dsd.h>
-#include <spa/param/audio/mp3.h>
-#include <spa/param/audio/aac.h>
-#include <spa/param/audio/vorbis.h>
-#include <spa/param/audio/wma.h>
-#include <spa/param/audio/ra.h>
+#include <spa/utils/type.h>
 #include <spa/param/audio/amr.h>
 
-struct spa_audio_info {
-	uint32_t media_type;
-	uint32_t media_subtype;
-	union {
-		struct spa_audio_info_raw raw;
-		struct spa_audio_info_dsp dsp;
-		struct spa_audio_info_iec958 iec958;
-		struct spa_audio_info_dsd dsd;
-		struct spa_audio_info_mp3 mp3;
-		struct spa_audio_info_aac aac;
-		struct spa_audio_info_vorbis vorbis;
-		struct spa_audio_info_wma wma;
-		struct spa_audio_info_ra ra;
-		struct spa_audio_info_amr amr;
-	} info;
-};
+#define SPA_TYPE_INFO_AudioAMRBandMode		SPA_TYPE_INFO_ENUM_BASE "AudioAMRBandMode"
+#define SPA_TYPE_INFO_AUDIO_AMR_BAND_MODE_BASE	SPA_TYPE_INFO_AudioAMRBandMode ":"
 
+static const struct spa_type_info spa_type_audio_amr_band_mode[] = {
+	{ SPA_AUDIO_AMR_BAND_MODE_UNKNOWN, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_AMR_BAND_MODE_BASE "UNKNOWN", NULL },
+	{ SPA_AUDIO_AMR_BAND_MODE_NB, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_AMR_BAND_MODE_BASE "NB", NULL },
+	{ SPA_AUDIO_AMR_BAND_MODE_WB, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_AMR_BAND_MODE_BASE "WB", NULL },
+	{ 0, 0, NULL, NULL },
+};
 /**
  * \}
  */
@@ -71,4 +49,4 @@ struct spa_audio_info {
 }  /* extern "C" */
 #endif
 
-#endif /* SPA_PARAM_AUDIO_FORMAT_H */
+#endif /* SPA_AUDIO_AMR_TYPES_H */

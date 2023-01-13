@@ -123,6 +123,8 @@ enum spa_format {
 
 	SPA_FORMAT_AUDIO_WMA_profile,		/**< WMA profile (Id enum spa_audio_wma_profile) */
 
+	SPA_FORMAT_AUDIO_AMR_bandMode,		/**< AMR band mode (Id enum spa_audio_amr_band_mode) */
+
 
 	/* Video Format keys */
 	SPA_FORMAT_START_Video = 0x20000,

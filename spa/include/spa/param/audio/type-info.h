@@ -30,5 +30,6 @@
 #include <spa/param/audio/mp3-types.h>
 #include <spa/param/audio/aac-types.h>
 #include <spa/param/audio/wma-types.h>
+#include <spa/param/audio/amr-types.h>
 
 #endif /* SPA_AUDIO_TYPES_H */

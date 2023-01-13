@@ -163,10 +163,12 @@ ATTRS{idVendor}=="2a70", ATTRS{idProduct}=="1881", ENV{ACP_PROFILE_SET}="simple-
 
 # ID 1395:005e is for Sennheiser GSX 1000
 # ID 1395:00a0 is for Sennheiser GSX 1000
+# ID 1395:00b1 is for Sennheiser GSX 1000 v2
 # ID 1395:005f is for Sennheiser GSX 1200
 # ID 1395:00a1 is for Sennheiser GSX 1200
 ATTRS{idVendor}=="1395", ATTRS{idProduct}=="005e", ENV{ACP_PROFILE_SET}="sennheiser-gsx.conf"
 ATTRS{idVendor}=="1395", ATTRS{idProduct}=="00a0", ENV{ACP_PROFILE_SET}="sennheiser-gsx.conf"
+ATTRS{idVendor}=="1395", ATTRS{idProduct}=="00b1", ENV{ACP_PROFILE_SET}="sennheiser-gsx.conf"
 ATTRS{idVendor}=="1395", ATTRS{idProduct}=="005f", ENV{ACP_PROFILE_SET}="sennheiser-gsx.conf"
 ATTRS{idVendor}=="1395", ATTRS{idProduct}=="00a1", ENV{ACP_PROFILE_SET}="sennheiser-gsx.conf"
 

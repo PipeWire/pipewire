@@ -39,6 +39,7 @@ extern "C" {
 #include <spa/param/audio/iec958-utils.h>
 #include <spa/param/audio/dsd-utils.h>
 #include <spa/param/audio/mp3-utils.h>
+#include <spa/param/audio/aac-utils.h>
 
 
 /**
@@ -68,6 +69,8 @@ spa_format_audio_parse(const struct spa_pod *format, struct spa_audio_info *info
 		return spa_format_audio_dsd_parse(format, &info->info.dsd);
 	case SPA_MEDIA_SUBTYPE_mp3:
 		return spa_format_audio_mp3_parse(format, &info->info.mp3);
+	case SPA_MEDIA_SUBTYPE_aac:
+		return spa_format_audio_aac_parse(format, &info->info.aac);
 	}
 	return -ENOTSUP;
 }
@@ -86,6 +89,8 @@ spa_format_audio_build(struct spa_pod_builder *builder, uint32_t id, struct spa_
 		return spa_format_audio_dsd_build(builder, id, &info->info.dsd);
 	case SPA_MEDIA_SUBTYPE_mp3:
 		return spa_format_audio_mp3_build(builder, id, &info->info.mp3);
+	case SPA_MEDIA_SUBTYPE_aac:
+		return spa_format_audio_aac_build(builder, id, &info->info.aac);
 	}
 	errno = ENOTSUP;
 	return NULL;

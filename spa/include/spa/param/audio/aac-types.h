@@ -22,37 +22,29 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef SPA_PARAM_AUDIO_FORMAT_H
-#define SPA_PARAM_AUDIO_FORMAT_H
+#ifndef SPA_AUDIO_AAC_TYPES_H
+#define SPA_AUDIO_AAC_TYPES_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * \addtogroup spa_param
- * \{
- */
-
-#include <spa/param/format.h>
-#include <spa/param/audio/raw.h>
-#include <spa/param/audio/dsp.h>
-#include <spa/param/audio/iec958.h>
-#include <spa/param/audio/dsd.h>
-#include <spa/param/audio/mp3.h>
+#include <spa/utils/type.h>
 #include <spa/param/audio/aac.h>
 
-struct spa_audio_info {
-	uint32_t media_type;
-	uint32_t media_subtype;
-	union {
-		struct spa_audio_info_raw raw;
-		struct spa_audio_info_dsp dsp;
-		struct spa_audio_info_iec958 iec958;
-		struct spa_audio_info_dsd dsd;
-		struct spa_audio_info_mp3 mp3;
-		struct spa_audio_info_aac aac;
-	} info;
+#define SPA_TYPE_INFO_AudioAACStreamFormat		SPA_TYPE_INFO_ENUM_BASE "AudioAACStreamFormat"
+#define SPA_TYPE_INFO_AUDIO_AAC_STREAM_FORMAT_BASE	SPA_TYPE_INFO_AudioAACStreamFormat ":"
+
+static const struct spa_type_info spa_type_audio_aac_stream_format[] = {
+	{ SPA_AUDIO_AAC_STREAM_FORMAT_UNKNOWN, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_AAC_STREAM_FORMAT_BASE "UNKNOWN", NULL },
+	{ SPA_AUDIO_AAC_STREAM_FORMAT_RAW, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_AAC_STREAM_FORMAT_BASE "RAW", NULL },
+	{ SPA_AUDIO_AAC_STREAM_FORMAT_MP2ADTS, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_AAC_STREAM_FORMAT_BASE "MP2ADTS", NULL },
+	{ SPA_AUDIO_AAC_STREAM_FORMAT_MP4ADTS, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_AAC_STREAM_FORMAT_BASE "MP4ADTS", NULL },
+	{ SPA_AUDIO_AAC_STREAM_FORMAT_MP4LOAS, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_AAC_STREAM_FORMAT_BASE "MP4LOAS", NULL },
+	{ SPA_AUDIO_AAC_STREAM_FORMAT_MP4LATM, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_AAC_STREAM_FORMAT_BASE "MP4LATM", NULL },
+	{ SPA_AUDIO_AAC_STREAM_FORMAT_ADIF, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_AAC_STREAM_FORMAT_BASE "ADIF", NULL },
+	{ SPA_AUDIO_AAC_STREAM_FORMAT_MP4FF, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_AAC_STREAM_FORMAT_BASE "MP4FF", NULL },
+	{ 0, 0, NULL, NULL },
 };
 
 /**
@@ -63,4 +55,4 @@ struct spa_audio_info {
 }  /* extern "C" */
 #endif
 
-#endif /* SPA_PARAM_AUDIO_FORMAT_H */
+#endif /* SPA_AUDIO_AAC_TYPES_H */

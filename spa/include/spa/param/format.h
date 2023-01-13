@@ -119,6 +119,9 @@ enum spa_format {
 	SPA_FORMAT_AUDIO_bitrate,		/**< bit rate (Int) */
 	SPA_FORMAT_AUDIO_blockAlign,    	/**< audio data block alignment (Int) */
 
+	SPA_FORMAT_AUDIO_AAC_streamFormat,	/**< AAC stream format, (Id enum spa_audio_aac_stream_format) */
+
+
 	/* Video Format keys */
 	SPA_FORMAT_START_Video = 0x20000,
 	SPA_FORMAT_VIDEO_format,		/**< video format (Id enum spa_video_format) */

@@ -22,43 +22,30 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef SPA_PARAM_AUDIO_FORMAT_H
-#define SPA_PARAM_AUDIO_FORMAT_H
+#ifndef SPA_AUDIO_WMA_TYPES_H
+#define SPA_AUDIO_WMA_TYPES_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * \addtogroup spa_param
- * \{
- */
-
-#include <spa/param/format.h>
-#include <spa/param/audio/raw.h>
-#include <spa/param/audio/dsp.h>
-#include <spa/param/audio/iec958.h>
-#include <spa/param/audio/dsd.h>
-#include <spa/param/audio/mp3.h>
-#include <spa/param/audio/aac.h>
-#include <spa/param/audio/vorbis.h>
+#include <spa/utils/type.h>
 #include <spa/param/audio/wma.h>
 
-struct spa_audio_info {
-	uint32_t media_type;
-	uint32_t media_subtype;
-	union {
-		struct spa_audio_info_raw raw;
-		struct spa_audio_info_dsp dsp;
-		struct spa_audio_info_iec958 iec958;
-		struct spa_audio_info_dsd dsd;
-		struct spa_audio_info_mp3 mp3;
-		struct spa_audio_info_aac aac;
-		struct spa_audio_info_vorbis vorbis;
-		struct spa_audio_info_wma wma;
-	} info;
-};
+#define SPA_TYPE_INFO_AudioWMAProfile		SPA_TYPE_INFO_ENUM_BASE "AudioWMAProfile"
+#define SPA_TYPE_INFO_AUDIO_WMA_PROFILE_BASE	SPA_TYPE_INFO_AudioWMAProfile ":"
 
+static const struct spa_type_info spa_type_audio_wma_profile[] = {
+	{ SPA_AUDIO_WMA_PROFILE_UNKNOWN, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_WMA_PROFILE_BASE "UNKNOWN", NULL },
+	{ SPA_AUDIO_WMA_PROFILE_WMA7, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_WMA_PROFILE_BASE "WMA7", NULL },
+	{ SPA_AUDIO_WMA_PROFILE_WMA8, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_WMA_PROFILE_BASE "WMA8", NULL },
+	{ SPA_AUDIO_WMA_PROFILE_WMA9, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_WMA_PROFILE_BASE "WMA9", NULL },
+	{ SPA_AUDIO_WMA_PROFILE_WMA10, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_WMA_PROFILE_BASE "WMA10", NULL },
+	{ SPA_AUDIO_WMA_PROFILE_WMA9_PRO, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_WMA_PROFILE_BASE "WMA9-Pro", NULL },
+	{ SPA_AUDIO_WMA_PROFILE_WMA9_LOSSLESS, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_WMA_PROFILE_BASE "WMA9-Lossless", NULL },
+	{ SPA_AUDIO_WMA_PROFILE_WMA10_LOSSLESS, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_WMA_PROFILE_BASE "WMA10-Lossless", NULL },
+	{ 0, 0, NULL, NULL },
+};
 /**
  * \}
  */
@@ -67,4 +54,4 @@ struct spa_audio_info {
 }  /* extern "C" */
 #endif
 
-#endif /* SPA_PARAM_AUDIO_FORMAT_H */
+#endif /* SPA_AUDIO_WMA_TYPES_H */

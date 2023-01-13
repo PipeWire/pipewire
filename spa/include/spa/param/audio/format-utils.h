@@ -41,6 +41,7 @@ extern "C" {
 #include <spa/param/audio/mp3-utils.h>
 #include <spa/param/audio/aac-utils.h>
 #include <spa/param/audio/vorbis-utils.h>
+#include <spa/param/audio/wma-utils.h>
 
 
 /**
@@ -74,6 +75,8 @@ spa_format_audio_parse(const struct spa_pod *format, struct spa_audio_info *info
 		return spa_format_audio_aac_parse(format, &info->info.aac);
 	case SPA_MEDIA_SUBTYPE_vorbis:
 		return spa_format_audio_vorbis_parse(format, &info->info.vorbis);
+	case SPA_MEDIA_SUBTYPE_wma:
+		return spa_format_audio_wma_parse(format, &info->info.wma);
 	}
 	return -ENOTSUP;
 }
@@ -96,6 +99,8 @@ spa_format_audio_build(struct spa_pod_builder *builder, uint32_t id, struct spa_
 		return spa_format_audio_aac_build(builder, id, &info->info.aac);
 	case SPA_MEDIA_SUBTYPE_vorbis:
 		return spa_format_audio_vorbis_build(builder, id, &info->info.vorbis);
+	case SPA_MEDIA_SUBTYPE_wma:
+		return spa_format_audio_wma_build(builder, id, &info->info.wma);
 	}
 	errno = ENOTSUP;
 	return NULL;

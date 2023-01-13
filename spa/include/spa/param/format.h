@@ -121,6 +121,8 @@ enum spa_format {
 
 	SPA_FORMAT_AUDIO_AAC_streamFormat,	/**< AAC stream format, (Id enum spa_audio_aac_stream_format) */
 
+	SPA_FORMAT_AUDIO_WMA_profile,		/**< WMA profile (Id enum spa_audio_wma_profile) */
+
 
 	/* Video Format keys */
 	SPA_FORMAT_START_Video = 0x20000,

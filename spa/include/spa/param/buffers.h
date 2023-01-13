@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef SPA_PARAM_VIDEO_FORMAT_H
-#define SPA_PARAM_VIDEO_FORMAT_H
+#ifndef SPA_PARAM_BUFFERS_H
+#define SPA_PARAM_BUFFERS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,20 +34,31 @@ extern "C" {
  * \{
  */
 
-#include <spa/param/format.h>
-#include <spa/param/video/raw.h>
-#include <spa/param/video/dsp.h>
-#include <spa/param/video/encoded.h>
+#include <spa/param/param.h>
 
-struct spa_video_info {
-	uint32_t media_type;
-	uint32_t media_subtype;
-	union {
-		struct spa_video_info_raw raw;
-		struct spa_video_info_dsp dsp;
-		struct spa_video_info_h264 h264;
-		struct spa_video_info_mjpg mjpg;
-	} info;
+/** properties for SPA_TYPE_OBJECT_ParamBuffers */
+enum spa_param_buffers {
+	SPA_PARAM_BUFFERS_START,
+	SPA_PARAM_BUFFERS_buffers,	/**< number of buffers (Int) */
+	SPA_PARAM_BUFFERS_blocks,	/**< number of data blocks per buffer (Int) */
+	SPA_PARAM_BUFFERS_size,		/**< size of a data block memory (Int)*/
+	SPA_PARAM_BUFFERS_stride,	/**< stride of data block memory (Int) */
+	SPA_PARAM_BUFFERS_align,	/**< alignment of data block memory (Int) */
+	SPA_PARAM_BUFFERS_dataType,	/**< possible memory types (Int, mask of enum spa_data_type) */
+};
+
+/** properties for SPA_TYPE_OBJECT_ParamMeta */
+enum spa_param_meta {
+	SPA_PARAM_META_START,
+	SPA_PARAM_META_type,	/**< the metadata, one of enum spa_meta_type (Id enum spa_meta_type) */
+	SPA_PARAM_META_size,	/**< the expected maximum size the meta (Int) */
+};
+
+/** properties for SPA_TYPE_OBJECT_ParamIO */
+enum spa_param_io {
+	SPA_PARAM_IO_START,
+	SPA_PARAM_IO_id,	/**< type ID, uniquely identifies the io area (Id enum spa_io_type) */
+	SPA_PARAM_IO_size,	/**< size of the io area (Int) */
 };
 
 /**
@@ -55,7 +66,7 @@ struct spa_video_info {
  */
 
 #ifdef __cplusplus
-} /* extern "C" */
+}  /* extern "C" */
 #endif
 
-#endif /* SPA_PARAM_VIDEO_FORMAT_H */
+#endif /* SPA_PARAM_BUFFERS_H */

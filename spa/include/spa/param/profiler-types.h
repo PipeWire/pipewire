@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef SPA_PARAM_VIDEO_FORMAT_H
-#define SPA_PARAM_VIDEO_FORMAT_H
+#ifndef SPA_PARAM_PROFILER_TYPES_H
+#define SPA_PARAM_PROFILER_TYPES_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,20 +34,18 @@ extern "C" {
  * \{
  */
 
-#include <spa/param/format.h>
-#include <spa/param/video/raw.h>
-#include <spa/param/video/dsp.h>
-#include <spa/param/video/encoded.h>
+#include <spa/param/profiler.h>
 
-struct spa_video_info {
-	uint32_t media_type;
-	uint32_t media_subtype;
-	union {
-		struct spa_video_info_raw raw;
-		struct spa_video_info_dsp dsp;
-		struct spa_video_info_h264 h264;
-		struct spa_video_info_mjpg mjpg;
-	} info;
+#define SPA_TYPE_INFO_Profiler		SPA_TYPE_INFO_OBJECT_BASE "Profiler"
+#define SPA_TYPE_INFO_PROFILER_BASE	SPA_TYPE_INFO_Profiler ":"
+
+static const struct spa_type_info spa_type_profiler[] = {
+	{ SPA_PROFILER_START, SPA_TYPE_Id, SPA_TYPE_INFO_PROFILER_BASE, spa_type_param, },
+	{ SPA_PROFILER_info, SPA_TYPE_Struct, SPA_TYPE_INFO_PROFILER_BASE "info", NULL, },
+	{ SPA_PROFILER_clock, SPA_TYPE_Struct, SPA_TYPE_INFO_PROFILER_BASE "clock", NULL, },
+	{ SPA_PROFILER_driverBlock, SPA_TYPE_Struct, SPA_TYPE_INFO_PROFILER_BASE "driverBlock", NULL, },
+	{ SPA_PROFILER_followerBlock, SPA_TYPE_Struct, SPA_TYPE_INFO_PROFILER_BASE "followerBlock", NULL, },
+	{ 0, 0, NULL, NULL },
 };
 
 /**
@@ -55,7 +53,7 @@ struct spa_video_info {
  */
 
 #ifdef __cplusplus
-} /* extern "C" */
+}  /* extern "C" */
 #endif
 
-#endif /* SPA_PARAM_VIDEO_FORMAT_H */
+#endif /* SPA_PARAM_PROFILER_TYPES_H */

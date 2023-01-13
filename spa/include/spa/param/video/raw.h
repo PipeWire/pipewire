@@ -34,7 +34,7 @@ extern "C" {
  * \{
  */
 
-#include <spa/utils/defs.h>
+#include <spa/param/format.h>
 #include <spa/param/video/chroma.h>
 #include <spa/param/video/color.h>
 #include <spa/param/video/multiview.h>
@@ -209,14 +209,6 @@ struct spa_video_info_raw {
 };
 
 #define SPA_VIDEO_INFO_RAW_INIT(...)	((struct spa_video_info_raw) { __VA_ARGS__ })
-
-struct spa_video_info_dsp {
-	enum spa_video_format format;
-	uint32_t flags;
-	uint64_t modifier;
-};
-
-#define SPA_VIDEO_INFO_DSP_INIT(...)	((struct spa_video_info_dsp) { __VA_ARGS__ })
 
 /**
  * \}

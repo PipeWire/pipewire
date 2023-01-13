@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef SPA_PARAM_VIDEO_FORMAT_H
-#define SPA_PARAM_VIDEO_FORMAT_H
+#ifndef SPA_VIDEO_DSP_H
+#define SPA_VIDEO_DSP_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,21 +34,15 @@ extern "C" {
  * \{
  */
 
-#include <spa/param/format.h>
 #include <spa/param/video/raw.h>
-#include <spa/param/video/dsp.h>
-#include <spa/param/video/encoded.h>
 
-struct spa_video_info {
-	uint32_t media_type;
-	uint32_t media_subtype;
-	union {
-		struct spa_video_info_raw raw;
-		struct spa_video_info_dsp dsp;
-		struct spa_video_info_h264 h264;
-		struct spa_video_info_mjpg mjpg;
-	} info;
+struct spa_video_info_dsp {
+	enum spa_video_format format;
+	uint32_t flags;
+	uint64_t modifier;
 };
+
+#define SPA_VIDEO_INFO_DSP_INIT(...)	((struct spa_video_info_dsp) { __VA_ARGS__ })
 
 /**
  * \}
@@ -58,4 +52,4 @@ struct spa_video_info {
 } /* extern "C" */
 #endif
 
-#endif /* SPA_PARAM_VIDEO_FORMAT_H */
+#endif /* SPA_VIDEO_DSP_H */

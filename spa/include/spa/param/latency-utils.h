@@ -38,19 +38,7 @@ extern "C" {
 
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
-#include <spa/param/param.h>
-
-struct spa_latency_info {
-	enum spa_direction direction;
-	float min_quantum;
-	float max_quantum;
-	uint32_t min_rate;
-	uint32_t max_rate;
-	uint64_t min_ns;
-	uint64_t max_ns;
-};
-
-#define SPA_LATENCY_INFO(dir,...) ((struct spa_latency_info) { .direction = (dir), ## __VA_ARGS__ })
+#include <spa/param/latency.h>
 
 static inline int
 spa_latency_info_compare(const struct spa_latency_info *a, struct spa_latency_info *b)
@@ -139,14 +127,6 @@ spa_latency_build(struct spa_pod_builder *builder, uint32_t id, const struct spa
 			SPA_PARAM_LATENCY_minNs, SPA_POD_Long(info->min_ns),
 			SPA_PARAM_LATENCY_maxNs, SPA_POD_Long(info->max_ns));
 }
-
-struct spa_process_latency_info {
-	float quantum;
-	uint32_t rate;
-	uint64_t ns;
-};
-
-#define SPA_PROCESS_LATENCY_INFO_INIT(...)	((struct spa_process_latency_info) { __VA_ARGS__ })
 
 static inline int
 spa_process_latency_parse(const struct spa_pod *latency, struct spa_process_latency_info *info)

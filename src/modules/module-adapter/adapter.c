@@ -192,7 +192,7 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 			if (spa_json_get_string(&it[1], v, sizeof(v)) <= 0)
 				break;
 
-		if (i == pw_impl_port_get_id(port) + 1)
+		if (i == pw_impl_port_get_id(port) + 1 && strlen(v) > 0)
 			pw_properties_setf(new, PW_KEY_PORT_NAME, "%s_%s", prefix, v);
 	}
 

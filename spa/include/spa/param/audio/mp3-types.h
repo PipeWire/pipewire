@@ -22,37 +22,27 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef SPA_PARAM_AUDIO_FORMAT_H
-#define SPA_PARAM_AUDIO_FORMAT_H
+#ifndef SPA_AUDIO_MP3_TYPES_H
+#define SPA_AUDIO_MP3_TYPES_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * \addtogroup spa_param
- * \{
- */
-
-#include <spa/param/format.h>
-#include <spa/param/audio/raw.h>
-#include <spa/param/audio/dsp.h>
-#include <spa/param/audio/iec958.h>
-#include <spa/param/audio/dsd.h>
+#include <spa/utils/type.h>
 #include <spa/param/audio/mp3.h>
 
-struct spa_audio_info {
-	uint32_t media_type;
-	uint32_t media_subtype;
-	union {
-		struct spa_audio_info_raw raw;
-		struct spa_audio_info_dsp dsp;
-		struct spa_audio_info_iec958 iec958;
-		struct spa_audio_info_dsd dsd;
-		struct spa_audio_info_mp3 mp3;
-	} info;
-};
+#define SPA_TYPE_INFO_AudioMP3ChannelMode		SPA_TYPE_INFO_ENUM_BASE "AudioMP3ChannelMode"
+#define SPA_TYPE_INFO_AUDIO_MP3_CHANNEL_MODE_BASE	SPA_TYPE_INFO_AudioMP3ChannelMode ":"
 
+static const struct spa_type_info spa_type_audio_mp3_channel_mode[] = {
+	{ SPA_AUDIO_MP3_CHANNEL_MODE_UNKNOWN, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_MP3_CHANNEL_MODE_BASE "UNKNOWN", NULL },
+	{ SPA_AUDIO_MP3_CHANNEL_MODE_MONO, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_MP3_CHANNEL_MODE_BASE "Mono", NULL },
+	{ SPA_AUDIO_MP3_CHANNEL_MODE_STEREO, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_MP3_CHANNEL_MODE_BASE "Stereo", NULL },
+	{ SPA_AUDIO_MP3_CHANNEL_MODE_JOINTSTEREO, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_MP3_CHANNEL_MODE_BASE "Joint-stereo", NULL },
+	{ SPA_AUDIO_MP3_CHANNEL_MODE_DUAL, SPA_TYPE_Int, SPA_TYPE_INFO_AUDIO_MP3_CHANNEL_MODE_BASE "Dual", NULL },
+	{ 0, 0, NULL, NULL },
+};
 /**
  * \}
  */
@@ -61,4 +51,4 @@ struct spa_audio_info {
 }  /* extern "C" */
 #endif
 
-#endif /* SPA_PARAM_AUDIO_FORMAT_H */
+#endif /* SPA_AUDIO_MP3_TYPES_H */

@@ -1,6 +1,6 @@
 /* Simple Plugin API
  *
- * Copyright © 2018 Wim Taymans
+ * Copyright © 2023 Wim Taymans
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,44 +22,21 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef SPA_PARAM_AUDIO_FORMAT_H
-#define SPA_PARAM_AUDIO_FORMAT_H
+#ifndef SPA_AUDIO_RA_H
+#define SPA_AUDIO_RA_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * \addtogroup spa_param
- * \{
- */
-
-#include <spa/param/format.h>
 #include <spa/param/audio/raw.h>
-#include <spa/param/audio/dsp.h>
-#include <spa/param/audio/iec958.h>
-#include <spa/param/audio/dsd.h>
-#include <spa/param/audio/mp3.h>
-#include <spa/param/audio/aac.h>
-#include <spa/param/audio/vorbis.h>
-#include <spa/param/audio/wma.h>
-#include <spa/param/audio/ra.h>
 
-struct spa_audio_info {
-	uint32_t media_type;
-	uint32_t media_subtype;
-	union {
-		struct spa_audio_info_raw raw;
-		struct spa_audio_info_dsp dsp;
-		struct spa_audio_info_iec958 iec958;
-		struct spa_audio_info_dsd dsd;
-		struct spa_audio_info_mp3 mp3;
-		struct spa_audio_info_aac aac;
-		struct spa_audio_info_vorbis vorbis;
-		struct spa_audio_info_wma wma;
-		struct spa_audio_info_ra ra;
-	} info;
+struct spa_audio_info_ra {
+	uint32_t rate;				/*< sample rate */
+	uint32_t channels;			/*< number of channels */
 };
+
+#define SPA_AUDIO_INFO_RA_INIT(...)		((struct spa_audio_info_ra) { __VA_ARGS__ })
 
 /**
  * \}
@@ -69,4 +46,4 @@ struct spa_audio_info {
 }  /* extern "C" */
 #endif
 
-#endif /* SPA_PARAM_AUDIO_FORMAT_H */
+#endif /* SPA_AUDIO_RA_H */

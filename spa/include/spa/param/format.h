@@ -110,7 +110,7 @@ enum spa_format {
 	SPA_FORMAT_AUDIO_flags,		/**< optional flags (Int) */
 	SPA_FORMAT_AUDIO_rate,		/**< sample rate (Int) */
 	SPA_FORMAT_AUDIO_channels,	/**< number of audio channels (Int) */
-	SPA_FORMAT_AUDIO_position,	/**< channel positions (Id enum spa_audio_position) */
+	SPA_FORMAT_AUDIO_position,	/**< channel positions (Id enum spa_audio_channel) */
 
 	SPA_FORMAT_AUDIO_iec958Codec,	/**< codec used (IEC958) (Id enum spa_audio_iec958_codec) */
 

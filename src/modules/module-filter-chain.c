@@ -2337,6 +2337,18 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	parse_audio_info(impl->capture_props, &impl->capture_info);
 	parse_audio_info(impl->playback_props, &impl->playback_info);
 
+	if (impl->capture_info.rate && !impl->playback_info.rate)
+		impl->playback_info.rate = impl->capture_info.rate;
+	else if (impl->playback_info.rate && !impl->capture_info.rate)
+		impl->capture_info.rate = !impl->playback_info.rate;
+	else if (impl->capture_info.rate != impl->playback_info.rate) {
+		pw_log_warn("Both capture and playback rate are set, but"
+			" they are different. Using the highest of two. This behaviour"
+			" is deprecated, please use equal rates in the module config");
+		impl->playback_info.rate = impl->capture_info.rate =
+			SPA_MAX(impl->playback_info.rate, impl->capture_info.rate);
+	}
+
 	if ((str = pw_properties_get(props, PW_KEY_NODE_NAME)) == NULL) {
 		pw_properties_setf(props, PW_KEY_NODE_NAME,
 				"filter-chain-%u-%u", pid, id);

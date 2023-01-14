@@ -1,6 +1,6 @@
 PROJECT_NAME           = PipeWire
 PROJECT_NUMBER         = @PACKAGE_VERSION@
-OUTPUT_DIRECTORY       = doc
+OUTPUT_DIRECTORY       = "@output_directory@"
 FULL_PATH_NAMES        = NO
 JAVADOC_AUTOBRIEF      = YES
 TAB_SIZE               = 8

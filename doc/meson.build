@@ -3,6 +3,7 @@ doxyfile_conf.set('PACKAGE_NAME', meson.project_name())
 doxyfile_conf.set('PACKAGE_VERSION', meson.project_version())
 doxyfile_conf.set('top_srcdir', meson.project_source_root())
 doxyfile_conf.set('top_builddir', meson.project_build_root())
+doxyfile_conf.set('output_directory', meson.current_build_dir())
 
 dot_found = find_program('dot', required: false).found()
 summary({'dot (used with doxygen)': dot_found}, bool_yn: true, section: 'Optional programs')

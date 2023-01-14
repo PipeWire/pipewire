@@ -94,8 +94,6 @@ arm_init(struct impl *impl)
 		free(line);
 	}
 
-	free(cpuinfo);
-
 	impl->flags = flags;
 
 	return 0;

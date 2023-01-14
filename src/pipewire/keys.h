@@ -197,6 +197,9 @@ extern "C" {
 								  *   but it will be triggered explicitly. */
 #define PW_KEY_NODE_CHANNELNAMES		"node.channel-names"		/**< names of node's
 									*   channels (unrelated to positions) */
+#define PW_KEY_NODE_DEVICE_PORT_NAME_PREFIX			"node.device-port-name-prefix"		/** override
+									*		port name prefix for device ports, like capture and playback
+									*		or disable the prefix completely if an empty string is provided */
 
 /** Port keys */
 #define PW_KEY_PORT_ID			"port.id"		/**< port id */

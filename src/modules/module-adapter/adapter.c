@@ -93,9 +93,9 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 	const struct pw_properties *old;
 	enum pw_direction direction;
 	struct pw_properties *new;
-	const char *str, *path, *desc, *nick, *name, *node_name, *media_class, *prop_port_names;
+	const char *str, *path, *desc, *nick, *name, *node_name, *media_class, *prop_port_names, *override_device_prefix;
 	char position[8], *prefix;
-	bool is_monitor, is_device, is_duplex, is_virtual, is_control = false;
+	bool is_monitor, is_device, is_duplex, is_virtual, is_control = false, no_device_port_prefix;
 
 	direction = pw_impl_port_get_direction(port);
 
@@ -123,6 +123,8 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 
 	new = pw_properties_new(NULL, NULL);
 
+	override_device_prefix = pw_properties_get(n->props, PW_KEY_NODE_DEVICE_PORT_NAME_PREFIX);
+
 	if (is_control)
 		prefix = direction == PW_DIRECTION_INPUT ?
 			"control" : "notify";
@@ -134,7 +136,10 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 			"input" : "capture";
 	else if (is_device)
 		prefix = direction == PW_DIRECTION_INPUT ?
-			"playback" : is_monitor ? "monitor" : "capture";
+			override_device_prefix != NULL ?
+				strdup(override_device_prefix) : "playback"
+				: is_monitor ? "monitor" : override_device_prefix != NULL ?
+					strdup(override_device_prefix) : "capture";
 	else
 		prefix = direction == PW_DIRECTION_INPUT ?
 			"input" : is_monitor ? "monitor" : "output";
@@ -161,9 +166,14 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 
 	pw_properties_setf(new, PW_KEY_OBJECT_PATH, "%s:%s_%d",
 			path ? path : node_name, prefix, pw_impl_port_get_id(port));
+	
+	no_device_port_prefix = is_device && !is_monitor 
+		&& override_device_prefix != NULL && strlen(override_device_prefix) == 0;
 
 	if (is_control)
 		pw_properties_setf(new, PW_KEY_PORT_NAME, "%s", prefix);
+	else if (no_device_port_prefix)
+		pw_properties_setf(new, PW_KEY_PORT_NAME, "%s", str);
 	else
 		pw_properties_setf(new, PW_KEY_PORT_NAME, "%s_%s", prefix, str);
 
@@ -192,8 +202,13 @@ static void node_port_init(void *data, struct pw_impl_port *port)
 			if (spa_json_get_string(&it[1], v, sizeof(v)) <= 0)
 				break;
 
-		if (i == pw_impl_port_get_id(port) + 1 && strlen(v) > 0)
-			pw_properties_setf(new, PW_KEY_PORT_NAME, "%s_%s", prefix, v);
+		if (i == pw_impl_port_get_id(port) + 1 && strlen(v) > 0) {
+			if (no_device_port_prefix) {
+				pw_properties_setf(new, PW_KEY_PORT_NAME, "%s", v);
+			} else {
+				pw_properties_setf(new, PW_KEY_PORT_NAME, "%s_%s", prefix, v);
+			}
+		}
 	}
 
 	pw_impl_port_update_properties(port, &new->dict);

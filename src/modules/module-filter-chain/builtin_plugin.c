@@ -597,6 +597,11 @@ static float *resample_buffer(float *samples, int *n_samples,
 	resample_free(&r);
 
 	*n_samples = total_out;
+
+	float gain = (float)in_rate / (float)out_rate;
+	for (uint32_t i = 0; i < total_out; i++)
+		out_samples[i] = out_samples[i] * gain;
+
 	return out_samples;
 
 error:

@@ -864,6 +864,13 @@ static const struct fc_descriptor convolve_desc = {
 struct spatializer_impl {
   unsigned long rate;
 	float *port[64];
+	float old_coords[3];
+  float coords[3];
+	int n_samples, blocksize, tailsize;
+
+#ifdef HAVE_LIBMYSOFA
+	struct MYSOFA_EASY *sofa;
+#endif
 
 	struct convolver *l_conv;
 	struct convolver *r_conv;
@@ -874,15 +881,10 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 {
 #ifdef HAVE_LIBMYSOFA
 	struct spatializer_impl *impl;
-	float *samples = NULL;
-	int offset = 0, length = 0, n_samples;
 	struct spa_json it[2];
 	const char *val;
 	char key[256];
 	char filename[PATH_MAX] = "";
-	int blocksize = 0, tailsize = 0;
-	float coords[3] = { 0, 0, 1 };
-	struct MYSOFA_EASY *sofa;
 
 	errno = EINVAL;
 	if (config == NULL)
@@ -892,15 +894,19 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
 		return NULL;
 
+	impl = calloc(1, sizeof(*impl));
+	if (impl == NULL)
+		goto error;
+
 	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
 		if (spa_streq(key, "blocksize")) {
-			if (spa_json_get_int(&it[1], &blocksize) <= 0) {
+			if (spa_json_get_int(&it[1], &impl->blocksize) <= 0) {
 				pw_log_error("spatializer:blocksize requires a number");
 				return NULL;
 			}
 		}
 		else if (spa_streq(key, "tailsize")) {
-			if (spa_json_get_int(&it[1], &tailsize) <= 0) {
+			if (spa_json_get_int(&it[1], &impl->tailsize) <= 0) {
 				pw_log_error("spatializer:tailsize requires a number");
 				return NULL;
 			}
@@ -908,36 +914,6 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 		else if (spa_streq(key, "filename")) {
 			if (spa_json_get_string(&it[1], filename, sizeof(filename)) <= 0) {
 				pw_log_error("spatializer:filename requires a string");
-				return NULL;
-			}
-		}
-		else if (spa_streq(key, "offset")) {
-			if (spa_json_get_int(&it[1], &offset) <= 0) {
-				pw_log_error("spatializer:offset requires a number");
-				return NULL;
-			}
-		}
-		else if (spa_streq(key, "length")) {
-			if (spa_json_get_int(&it[1], &length) <= 0) {
-				pw_log_error("spatializer:length requires a number");
-				return NULL;
-			}
-		}
-		else if (spa_streq(key, "azimuth")) {
-			if (spa_json_get_float(&it[1], &coords[0]) <= 0) {
-				pw_log_error("spatializer:azimuth requires a float number");
-				return NULL;
-			}
-		}
-		else if (spa_streq(key, "elevation")) {
-			if (spa_json_get_float(&it[1], &coords[1]) <= 0) {
-				pw_log_error("spatializer:elevation requires a float number");
-				return NULL;
-			}
-		}
-		else if (spa_streq(key, "radius")) {
-			if (spa_json_get_float(&it[1], &coords[2]) <= 0) {
-				pw_log_error("spatializer:radius requires a float number");
 				return NULL;
 			}
 		}
@@ -952,7 +928,7 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 	int ret = MYSOFA_OK;
 
 	pthread_mutex_lock(&libmysofa_mutex);
-	sofa = mysofa_open_cached(filename, SampleRate, &n_samples, &ret);
+	impl->sofa = mysofa_open_cached(filename, SampleRate, &impl->n_samples, &ret);
 	pthread_mutex_unlock(&libmysofa_mutex);
 
 	if (ret != MYSOFA_OK) {
@@ -961,18 +937,23 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 		return NULL;
 	}
 
-	float *left_ir = calloc(n_samples, sizeof(float));
-	float *right_ir = calloc(n_samples, sizeof(float));
+	float *left_ir = calloc(impl->n_samples, sizeof(float));
+	float *right_ir = calloc(impl->n_samples, sizeof(float));
 	float left_delay;
 	float right_delay;
 
-	mysofa_s2c(coords);
+	for (uint8_t i = 0; i < 3; i++) {
+		impl->old_coords[i] = impl->coords[i] =
+			impl->port[3 + i] ? impl->port[3 + i][0] : 0.0f;
+	}
+
+	mysofa_s2c(impl->coords);
 
 	mysofa_getfilter_float(
-		sofa,
-		coords[0],
-		coords[1],
-		coords[2],
+		impl->sofa,
+		impl->coords[0],
+		impl->coords[1],
+		impl->coords[2],
 		left_ir,
 		right_ir,
 		&left_delay,
@@ -982,44 +963,35 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 	// TODO: make use of delay
 	pw_log_info("delay l: %f, r: %f", left_delay, right_delay);
 
-	if (blocksize <= 0)
-		blocksize = SPA_CLAMP(n_samples, 64, 256);
-	if (tailsize <= 0)
-		tailsize = SPA_CLAMP(4096, blocksize, 32768);
+	if (impl->blocksize <= 0)
+		impl->blocksize = SPA_CLAMP(impl->n_samples, 64, 256);
+	if (impl->tailsize <= 0)
+		impl->tailsize = SPA_CLAMP(4096, impl->blocksize, 32768);
 
-	pw_log_info("using n_samples:%u %d:%d blocksize sofa:%s", n_samples,
-		blocksize, tailsize, filename);
-
-	impl = calloc(1, sizeof(*impl));
-	if (impl == NULL)
-		goto error;
+	pw_log_info("using n_samples:%u %d:%d blocksize sofa:%s", impl->n_samples,
+		impl->blocksize, impl->tailsize, filename);
 
 	impl->rate = SampleRate;
 
-	impl->l_conv = convolver_new(dsp_ops, blocksize, tailsize, left_ir, n_samples);
+	impl->l_conv = convolver_new(dsp_ops, impl->blocksize, impl->tailsize, left_ir, impl->n_samples);
 	if (impl->l_conv == NULL)
 		goto error;
 
-	impl->r_conv = convolver_new(dsp_ops, blocksize, tailsize, right_ir, n_samples);
+	free(left_ir);
+
+	impl->r_conv = convolver_new(dsp_ops, impl->blocksize, impl->tailsize, right_ir, impl->n_samples);
 	if (impl->r_conv == NULL)
 		goto error;
 
-	free(samples);
-	if (sofa) {
+	free(right_ir);
+	return impl;
+error:
+	if (impl->sofa) {
 		pthread_mutex_lock(&libmysofa_mutex);
-		mysofa_close_cached(sofa);
+		mysofa_close_cached(impl->sofa);
 		pthread_mutex_unlock(&libmysofa_mutex);
 	}
 
-	return impl;
-error:
-	if (samples)
-		free(samples);
-	if (sofa) {
-		pthread_mutex_lock(&libmysofa_mutex);
-		mysofa_close_cached(sofa);
-		pthread_mutex_unlock(&libmysofa_mutex);
-	}
 	free(impl);
 	return NULL;
 #else
@@ -1033,6 +1005,57 @@ static void spatializer_run(void * Instance, unsigned long SampleCount)
 {
 #ifdef HAVE_LIBMYSOFA
 	struct spatializer_impl *impl = Instance;
+
+	bool reload = false;
+	for (uint8_t i = 0; i < 3; i++) {
+		if (impl->port[3 + i] && impl->old_coords[i] != impl->port[3 + i][0]) {
+			reload = true;
+		}
+		impl->old_coords[i] = impl->coords[i] =
+				impl->port[3 + i][0];
+	}
+
+	if (reload) {
+		float *left_ir = calloc(impl->n_samples, sizeof(float));
+		float *right_ir = calloc(impl->n_samples, sizeof(float));
+		float left_delay;
+		float right_delay;
+
+		mysofa_s2c(impl->coords);
+
+		mysofa_getfilter_float(
+			impl->sofa,
+			impl->coords[0],
+			impl->coords[1],
+			impl->coords[2],
+			left_ir,
+			right_ir,
+			&left_delay,
+			&right_delay
+		);
+
+		// TODO: make use of delay
+		pw_log_info("delay l: %f, r: %f", left_delay, right_delay);
+
+		if (impl->l_conv)
+			convolver_free(impl->l_conv);
+		impl->l_conv = convolver_new(dsp_ops, impl->blocksize, impl->tailsize, left_ir, impl->n_samples);
+		free(left_ir);
+		if (impl->l_conv == NULL) {
+			pw_log_error("reloading left convolver failed");
+			return;
+		}
+
+		if (impl->r_conv)
+			convolver_free(impl->r_conv);
+		impl->r_conv = convolver_new(dsp_ops, impl->blocksize, impl->tailsize, right_ir, impl->n_samples);
+		free(right_ir);
+		if (impl->r_conv == NULL) {
+			pw_log_error("reloading right convolver failed");
+			return;
+		}
+	}
+
 	convolver_run(impl->l_conv, impl->port[2], impl->port[0], SampleCount);
 	convolver_run(impl->r_conv, impl->port[2], impl->port[1], SampleCount);
 #endif
@@ -1075,6 +1098,22 @@ static struct fc_port spatializer_ports[] = {
 	  .name = "In",
 	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
 	},
+
+	{ .index = 3,
+	  .name = "Azimuth",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 0.0f, .min = 0.0f, .max = 360.0f
+	},
+	{ .index = 4,
+	  .name = "Elevation",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 0.0f, .min = -90.0f, .max = 90.0f
+	},
+	{ .index = 5,
+	  .name = "Radius",
+	  .flags = FC_PORT_INPUT | FC_PORT_CONTROL,
+	  .def = 1.0f, .min = 0.0f, .max = 100.0f
+	},
 };
 
 static void spatializer_deactivate(void * Instance)
@@ -1087,7 +1126,7 @@ static void spatializer_deactivate(void * Instance)
 static const struct fc_descriptor spatializer_desc = {
 	.name = "spatializer",
 
-	.n_ports = 3,
+	.n_ports = 6,
 	.ports = spatializer_ports,
 
 	.instantiate = spatializer_instantiate,

@@ -26,8 +26,14 @@
 
 #include <float.h>
 #include <math.h>
+
 #ifdef HAVE_SNDFILE
 #include <sndfile.h>
+#endif
+
+#ifdef HAVE_LIBMYSOFA
+#include <mysofa.h>
+#include <pthread.h>
 #endif
 
 #include <spa/utils/json.h>
@@ -45,6 +51,14 @@
 #include "dsp-ops.h"
 
 #define MAX_RATES	32u
+
+#ifdef HAVE_LIBMYSOFA
+// > If your program is using several threads, you must use
+// > appropriate synchronisation mechanisms so only
+// > a single thread can access the mysofa_open_cached
+// > and mysofa_close_cached functions at a given time.
+static pthread_mutex_t libmysofa_mutex = PTHREAD_MUTEX_INITIALIZER;
+#endif
 
 static struct dsp_ops *dsp_ops;
 
@@ -847,6 +861,242 @@ static const struct fc_descriptor convolve_desc = {
 	.cleanup = convolver_cleanup,
 };
 
+struct spatializer_impl {
+  unsigned long rate;
+	float *port[64];
+
+	struct convolver *l_conv;
+	struct convolver *r_conv;
+};
+
+static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
+		unsigned long SampleRate, int index, const char *config)
+{
+#ifdef HAVE_LIBMYSOFA
+	struct spatializer_impl *impl;
+	float *samples = NULL;
+	int offset = 0, length = 0, n_samples;
+	struct spa_json it[2];
+	const char *val;
+	char key[256];
+	char filename[PATH_MAX] = "";
+	int blocksize = 0, tailsize = 0;
+	float coords[3] = { 0, 0, 1 };
+	struct MYSOFA_EASY *sofa;
+
+	errno = EINVAL;
+	if (config == NULL)
+		return NULL;
+
+	spa_json_init(&it[0], config, strlen(config));
+	if (spa_json_enter_object(&it[0], &it[1]) <= 0)
+		return NULL;
+
+	while (spa_json_get_string(&it[1], key, sizeof(key)) > 0) {
+		if (spa_streq(key, "blocksize")) {
+			if (spa_json_get_int(&it[1], &blocksize) <= 0) {
+				pw_log_error("spatializer:blocksize requires a number");
+				return NULL;
+			}
+		}
+		else if (spa_streq(key, "tailsize")) {
+			if (spa_json_get_int(&it[1], &tailsize) <= 0) {
+				pw_log_error("spatializer:tailsize requires a number");
+				return NULL;
+			}
+		}
+		else if (spa_streq(key, "filename")) {
+			if (spa_json_get_string(&it[1], filename, sizeof(filename)) <= 0) {
+				pw_log_error("spatializer:filename requires a string");
+				return NULL;
+			}
+		}
+		else if (spa_streq(key, "offset")) {
+			if (spa_json_get_int(&it[1], &offset) <= 0) {
+				pw_log_error("spatializer:offset requires a number");
+				return NULL;
+			}
+		}
+		else if (spa_streq(key, "length")) {
+			if (spa_json_get_int(&it[1], &length) <= 0) {
+				pw_log_error("spatializer:length requires a number");
+				return NULL;
+			}
+		}
+		else if (spa_streq(key, "azimuth")) {
+			if (spa_json_get_float(&it[1], &coords[0]) <= 0) {
+				pw_log_error("spatializer:azimuth requires a float number");
+				return NULL;
+			}
+		}
+		else if (spa_streq(key, "elevation")) {
+			if (spa_json_get_float(&it[1], &coords[1]) <= 0) {
+				pw_log_error("spatializer:elevation requires a float number");
+				return NULL;
+			}
+		}
+		else if (spa_streq(key, "radius")) {
+			if (spa_json_get_float(&it[1], &coords[2]) <= 0) {
+				pw_log_error("spatializer:radius requires a float number");
+				return NULL;
+			}
+		}
+		else if (spa_json_next(&it[1], &val) < 0)
+			break;
+	}
+	if (!filename[0]) {
+		pw_log_error("spatializer:filename was not given");
+		return NULL;
+	}
+
+	int ret = MYSOFA_OK;
+
+	pthread_mutex_lock(&libmysofa_mutex);
+	sofa = mysofa_open_cached(filename, SampleRate, &n_samples, &ret);
+	pthread_mutex_unlock(&libmysofa_mutex);
+
+	if (ret != MYSOFA_OK) {
+		pw_log_error("Unable to load HRTF from %s: %d %m", filename, ret);
+		errno = ENOENT;
+		return NULL;
+	}
+
+	float *left_ir = calloc(n_samples, sizeof(float));
+	float *right_ir = calloc(n_samples, sizeof(float));
+	float left_delay;
+	float right_delay;
+
+	mysofa_s2c(coords);
+
+	mysofa_getfilter_float(
+		sofa,
+		coords[0],
+		coords[1],
+		coords[2],
+		left_ir,
+		right_ir,
+		&left_delay,
+		&right_delay
+	);
+
+	// TODO: make use of delay
+	pw_log_info("delay l: %f, r: %f", left_delay, right_delay);
+
+	if (blocksize <= 0)
+		blocksize = SPA_CLAMP(n_samples, 64, 256);
+	if (tailsize <= 0)
+		tailsize = SPA_CLAMP(4096, blocksize, 32768);
+
+	pw_log_info("using n_samples:%u %d:%d blocksize sofa:%s", n_samples,
+		blocksize, tailsize, filename);
+
+	impl = calloc(1, sizeof(*impl));
+	if (impl == NULL)
+		goto error;
+
+	impl->rate = SampleRate;
+
+	impl->l_conv = convolver_new(dsp_ops, blocksize, tailsize, left_ir, n_samples);
+	if (impl->l_conv == NULL)
+		goto error;
+
+	impl->r_conv = convolver_new(dsp_ops, blocksize, tailsize, right_ir, n_samples);
+	if (impl->r_conv == NULL)
+		goto error;
+
+	free(samples);
+	if (sofa) {
+		pthread_mutex_lock(&libmysofa_mutex);
+		mysofa_close_cached(sofa);
+		pthread_mutex_unlock(&libmysofa_mutex);
+	}
+
+	return impl;
+error:
+	if (samples)
+		free(samples);
+	if (sofa) {
+		pthread_mutex_lock(&libmysofa_mutex);
+		mysofa_close_cached(sofa);
+		pthread_mutex_unlock(&libmysofa_mutex);
+	}
+	free(impl);
+	return NULL;
+#else
+	pw_log_error("libmysofa is required for spatializer, but disabled at compile time");
+	errno = EINVAL;
+	return NULL;
+#endif
+}
+
+static void spatializer_run(void * Instance, unsigned long SampleCount)
+{
+#ifdef HAVE_LIBMYSOFA
+	struct spatializer_impl *impl = Instance;
+	convolver_run(impl->l_conv, impl->port[2], impl->port[0], SampleCount);
+	convolver_run(impl->r_conv, impl->port[2], impl->port[1], SampleCount);
+#endif
+}
+
+static void spatializer_connect_port(void * Instance, unsigned long Port,
+                        float * DataLocation)
+{
+	struct spatializer_impl *impl = Instance;
+	impl->port[Port] = DataLocation;
+}
+
+static void spatializer_cleanup(void * Instance)
+{
+	struct spatializer_impl *impl = Instance;
+	if (impl->l_conv)
+		convolver_free(impl->l_conv);
+	if (impl->r_conv)
+		convolver_free(impl->r_conv);
+#ifdef HAVE_LIBMYSOFA
+	if (impl->sofa) {
+		pthread_mutex_lock(&libmysofa_mutex);
+		mysofa_close_cached(impl->sofa);
+		pthread_mutex_unlock(&libmysofa_mutex);
+	}
+#endif
+	free(impl);
+}
+
+static struct fc_port spatializer_ports[] = {
+	{ .index = 0,
+	  .name = "Out L",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "Out R",
+	  .flags = FC_PORT_OUTPUT | FC_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "In",
+	  .flags = FC_PORT_INPUT | FC_PORT_AUDIO,
+	},
+};
+
+static void spatializer_deactivate(void * Instance)
+{
+	struct spatializer_impl *impl = Instance;
+	convolver_reset(impl->l_conv);
+	convolver_reset(impl->r_conv);
+}
+
+static const struct fc_descriptor spatializer_desc = {
+	.name = "spatializer",
+
+	.n_ports = 3,
+	.ports = spatializer_ports,
+
+	.instantiate = spatializer_instantiate,
+	.connect_port = spatializer_connect_port,
+	.deactivate = spatializer_deactivate,
+	.run = spatializer_run,
+	.cleanup = spatializer_cleanup,
+};
+
 /** delay */
 struct delay_impl {
 	unsigned long rate;
@@ -1005,6 +1255,8 @@ static const struct fc_descriptor * builtin_descriptor(unsigned long Index)
 		return &convolve_desc;
 	case 11:
 		return &delay_desc;
+	case 12:
+		return &spatializer_desc;
 	}
 	return NULL;
 }

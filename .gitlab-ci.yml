@@ -25,7 +25,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2022-11-07.0'
+    FDO_DISTRIBUTION_TAG: '2023-01-18.0'
     FDO_DISTRIBUTION_VERSION: '35'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
@@ -46,6 +46,7 @@ include:
       jack-audio-connection-kit-devel
       libcanberra-devel
       libldac-devel
+      libmysofa-devel
       libsndfile-devel
       libusb-devel
       lilv-devel

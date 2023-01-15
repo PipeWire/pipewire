@@ -213,6 +213,10 @@ option('sndfile',
        description: 'Enable code that depends on libsndfile',
        type: 'feature',
        value: 'auto')
+option('libmysofa',
+       description: 'Enable code that depends on libmysofa',
+       type: 'feature',
+       value: 'auto')
 option('libpulse',
        description: 'Enable code that depends on libpulse',
        type: 'feature',

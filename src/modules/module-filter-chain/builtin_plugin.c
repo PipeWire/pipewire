@@ -937,14 +937,10 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 		return NULL;
 	}
 
-	float *left_ir = calloc(impl->n_samples, sizeof(float));
-	float *right_ir = calloc(impl->n_samples, sizeof(float));
-	float left_delay;
-	float right_delay;
-
 	for (uint8_t i = 0; i < 3; i++) {
 		impl->old_coords[i] = impl->coords[i] =
 			impl->port[3 + i] ? impl->port[3 + i][0] : 0.0f;
+		impl->old_coords[i] = impl->coords[i] = NAN;
 	}
 
 	mysofa_s2c(impl->coords);
@@ -961,7 +957,9 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 	);
 
 	// TODO: make use of delay
-	pw_log_info("delay l: %f, r: %f", left_delay, right_delay);
+	if ((left_delay || right_delay) && (!isnan(left_delay) || !isnan(right_delay))) {
+		pw_log_warn("delay dropped l: %f, r: %f", left_delay, right_delay);
+	}
 
 	if (impl->blocksize <= 0)
 		impl->blocksize = SPA_CLAMP(impl->n_samples, 64, 256);
@@ -972,18 +970,6 @@ static void * spatializer_instantiate(const struct fc_descriptor * Descriptor,
 		impl->blocksize, impl->tailsize, filename);
 
 	impl->rate = SampleRate;
-
-	impl->l_conv = convolver_new(dsp_ops, impl->blocksize, impl->tailsize, left_ir, impl->n_samples);
-	if (impl->l_conv == NULL)
-		goto error;
-
-	free(left_ir);
-
-	impl->r_conv = convolver_new(dsp_ops, impl->blocksize, impl->tailsize, right_ir, impl->n_samples);
-	if (impl->r_conv == NULL)
-		goto error;
-
-	free(right_ir);
 	return impl;
 error:
 	if (impl->sofa) {
@@ -1008,7 +994,8 @@ static void spatializer_run(void * Instance, unsigned long SampleCount)
 
 	bool reload = false;
 	for (uint8_t i = 0; i < 3; i++) {
-		if (impl->port[3 + i] && impl->old_coords[i] != impl->port[3 + i][0]) {
+		if ((impl->port[3 + i] && impl->old_coords[i] != impl->port[3 + i][0])
+			|| isnan(impl->old_coords[i])) {
 			reload = true;
 		}
 		impl->old_coords[i] = impl->coords[i] =
@@ -1035,7 +1022,9 @@ static void spatializer_run(void * Instance, unsigned long SampleCount)
 		);
 
 		// TODO: make use of delay
-		pw_log_info("delay l: %f, r: %f", left_delay, right_delay);
+		if ((left_delay || right_delay) && (!isnan(left_delay) || !isnan(right_delay))) {
+			pw_log_warn("delay dropped l: %f, r: %f", left_delay, right_delay);
+		}
 
 		if (impl->l_conv)
 			convolver_free(impl->l_conv);
@@ -1119,8 +1108,10 @@ static struct fc_port spatializer_ports[] = {
 static void spatializer_deactivate(void * Instance)
 {
 	struct spatializer_impl *impl = Instance;
-	convolver_reset(impl->l_conv);
-	convolver_reset(impl->r_conv);
+	if (impl->l_conv)
+		convolver_reset(impl->l_conv);
+	if (impl->r_conv)
+		convolver_reset(impl->r_conv);
 }
 
 static const struct fc_descriptor spatializer_desc = {

@@ -674,14 +674,12 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	const char *val;
 	char key[256], v[256];
 	char filename[PATH_MAX] = "";
-	char *filenames[MAX_RATES];
+	char *filenames[MAX_RATES] = { 0 };
 	int blocksize = 0, tailsize = 0;
 	int delay = 0;
 	int resample_quality = RESAMPLE_DEFAULT_QUALITY;
 	float gain = 1.0f;
 	unsigned long rate;
-
-	spa_zero(filenames);
 
 	errno = EINVAL;
 	if (config == NULL)
@@ -727,9 +725,8 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 				pw_log_error("convolver:filenames requires an array");
 				return NULL;
 			}
-			while (spa_json_get_string(&filenames_json, v, sizeof(v)) > 0 && i < MAX_RATES) {
-				filenames[i] = calloc(strlen(v) + 1, sizeof(char));
-				strncpy(filenames[i], v, strlen(v));
+			while (spa_json_get_string(&filenames_json, v, sizeof(v)) > 0 && i < SPA_N_ELEMENTS(filenames)) {
+				filenames[i] = strdup(v);
 				i++;
 			}
 		}

@@ -274,6 +274,14 @@ struct spa_fraction {
 #define SPA_ROUND_DOWN_N(num,align)	((num) & ~SPA_ROUND_MASK(num, align))
 #define SPA_ROUND_UP_N(num,align)	((((num)-1) | SPA_ROUND_MASK(num, align))+1)
 
+#define SPA_SCALE32_UP(val,num,denom)				\
+({								\
+	uint64_t _val = (val);					\
+	uint64_t _denom = (denom);				\
+	(uint32_t)(((_val) * (num) + (_denom)-1) / (_denom));	\
+})
+
+
 #define SPA_PTR_ALIGNMENT(p,align)	((intptr_t)(p) & ((align)-1))
 #define SPA_IS_ALIGNED(p,align)		(SPA_PTR_ALIGNMENT(p,align) == 0)
 #define SPA_PTR_ALIGN(p,align,type)	((type*)SPA_ROUND_UP_N((intptr_t)(p), (intptr_t)(align)))

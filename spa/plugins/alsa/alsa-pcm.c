@@ -1999,7 +1999,7 @@ static inline void check_position_config(struct state *state)
 	    (state->rate_denom != state->position->clock.rate.denom))) {
 		state->duration = state->position->clock.duration;
 		state->rate_denom = state->position->clock.rate.denom;
-		state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
+		state->threshold = SPA_SCALE32_UP(state->duration, state->rate, state->rate_denom);
 		state->max_error = SPA_MAX(256.0f, state->threshold / 2.0f);
 		state->resample = ((uint32_t)state->rate != state->rate_denom) || state->matching;
 		state->alsa_sync = true;
@@ -2569,7 +2569,7 @@ int spa_alsa_start(struct state *state)
 	setup_matching(state);
 
 	spa_dll_init(&state->dll);
-	state->threshold = (state->duration * state->rate + state->rate_denom-1) / state->rate_denom;
+	state->threshold = SPA_SCALE32_UP(state->duration, state->rate, state->rate_denom);
 	state->last_threshold = state->threshold;
 	state->max_error = SPA_MAX(256.0f, state->threshold / 2.0f);
 

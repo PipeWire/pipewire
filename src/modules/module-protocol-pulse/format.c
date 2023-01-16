@@ -189,6 +189,9 @@ uint32_t sample_spec_frame_size(const struct sample_spec *ss)
 {
 	switch (ss->format) {
 	case SPA_AUDIO_FORMAT_U8:
+	case SPA_AUDIO_FORMAT_U8P:
+	case SPA_AUDIO_FORMAT_S8:
+	case SPA_AUDIO_FORMAT_S8P:
 	case SPA_AUDIO_FORMAT_ULAW:
 	case SPA_AUDIO_FORMAT_ALAW:
 		return ss->channels;
@@ -210,6 +213,10 @@ uint32_t sample_spec_frame_size(const struct sample_spec *ss)
 	case SPA_AUDIO_FORMAT_S24_32_BE:
 	case SPA_AUDIO_FORMAT_S24_32P:
 		return 4 * ss->channels;
+	case SPA_AUDIO_FORMAT_F64_LE:
+	case SPA_AUDIO_FORMAT_F64_BE:
+	case SPA_AUDIO_FORMAT_F64P:
+		return 8 * ss->channels;
 	default:
 		return 0;
 	}

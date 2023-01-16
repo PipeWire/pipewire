@@ -1519,6 +1519,11 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		fmt->info.raw.rate = rrate;
 		match = false;
 	}
+	if (rchannels == 0 || rrate == 0) {
+		spa_log_error(state->log, "%s: invalid channels:%d or rate:%d",
+				state->props.device, rchannels, rrate);
+		return -EIO;
+	}
 
 	state->format = rformat;
 	state->channels = rchannels;
@@ -1563,6 +1568,11 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 	CHECK(snd_pcm_hw_params_set_period_size_near(hndl, params, &period_size, &dir), "set_period_size_near");
 
+	if (period_size == 0) {
+		spa_log_error(state->log, "%s: invalid period_size 0 (driver error?)", state->props.device);
+		return -EIO;
+	}
+
 	state->period_frames = period_size;
 
 	if (state->default_period_num != 0) {
@@ -1577,6 +1587,10 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		CHECK(snd_pcm_hw_params_set_buffer_size_min(hndl, params, &state->buffer_frames), "set_buffer_size_min");
 		CHECK(snd_pcm_hw_params_set_buffer_size_near(hndl, params, &state->buffer_frames), "set_buffer_size_near");
 		periods = state->buffer_frames / period_size;
+	}
+	if (state->buffer_frames == 0) {
+		spa_log_error(state->log, "%s: invalid buffer_frames 0 (driver error?)", state->props.device);
+		return -EIO;
 	}
 
 	state->headroom = state->default_headroom;
@@ -2541,6 +2555,14 @@ int spa_alsa_start(struct state *state)
 				state->props.device);
 		state->duration = 1024;
 		state->rate_denom = state->rate;
+	}
+	if (state->rate_denom == 0) {
+		spa_log_error(state->log, "%s: unset rate_denom", state->props.device);
+		return -EIO;
+	}
+	if (state->duration == 0) {
+		spa_log_error(state->log, "%s: unset duration", state->props.device);
+		return -EIO;
 	}
 
 	state->following = is_following(state);

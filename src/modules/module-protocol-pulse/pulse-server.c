@@ -3746,6 +3746,13 @@ static int fill_sink_info_proplist(struct message *m, const struct spa_dict *sin
 	return 0;
 }
 
+static bool validate_device_info(struct device_info *dev_info)
+{
+	return sample_spec_valid(&dev_info->ss) &&
+	       channel_map_valid(&dev_info->map) &&
+	       volume_valid(&dev_info->volume_info.volume);
+}
+
 static int fill_sink_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
@@ -3796,9 +3803,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 
 	collect_device_info(o, card, &dev_info, false, &impl->defs);
 
-	if (!sample_spec_valid(&dev_info.ss) ||
-	    !channel_map_valid(&dev_info.map) ||
-	    !volume_valid(&dev_info.volume_info.volume)) {
+	if (!validate_device_info(&dev_info)) {
 		pw_log_warn("%d: sink not ready: sample:%d map:%d volume:%d",
 				o->id, sample_spec_valid(&dev_info.ss),
 				channel_map_valid(&dev_info.map),
@@ -4011,9 +4016,7 @@ static int fill_source_info(struct client *client, struct message *m,
 
 	collect_device_info(o, card, &dev_info, is_monitor, &impl->defs);
 
-	if (!sample_spec_valid(&dev_info.ss) ||
-	    !channel_map_valid(&dev_info.map) ||
-	    !volume_valid(&dev_info.volume_info.volume)) {
+	if (!validate_device_info(&dev_info)) {
 		pw_log_warn("%d: source not ready: sample:%d map:%d volume:%d",
 				o->id, sample_spec_valid(&dev_info.ss),
 				channel_map_valid(&dev_info.map),
@@ -4154,9 +4157,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 
 	collect_device_info(o, NULL, &dev_info, false, &impl->defs);
 
-	if (!sample_spec_valid(&dev_info.ss) ||
-	    !channel_map_valid(&dev_info.map) ||
-	    !volume_valid(&dev_info.volume_info.volume))
+	if (!validate_device_info(&dev_info))
 		return -ENOENT;
 
 	peer_index = get_temporary_move_target(client, o);
@@ -4237,9 +4238,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 
 	collect_device_info(o, NULL, &dev_info, false, &impl->defs);
 
-	if (!sample_spec_valid(&dev_info.ss) ||
-	    !channel_map_valid(&dev_info.map) ||
-	    !volume_valid(&dev_info.volume_info.volume))
+	if (!validate_device_info(&dev_info))
 		return -ENOENT;
 
 	peer_index = get_temporary_move_target(client, o);

@@ -133,7 +133,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define IS_VALID_NICE_LEVEL(l)	((l)>=-20 && (l)<=19)
 
-#define DEFAULT_NICE_LEVEL      20
+#define DEFAULT_NICE_LEVEL	20
+#define DEFAULT_RT_PRIO_MIN	11
 #define DEFAULT_RT_PRIO		88
 #define DEFAULT_RT_TIME_SOFT	-1
 #define DEFAULT_RT_TIME_HARD	-1
@@ -550,42 +551,82 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy,
 };
 
+static int get_rt_priority_range(int *out_min, int *out_max)
+{
+	int min, max;
+
+	if ((min = sched_get_priority_min(REALTIME_POLICY)) < 0)
+		return -errno;
+	if ((max = sched_get_priority_max(REALTIME_POLICY)) < 0)
+		return -errno;
+
+	if (out_min)
+		*out_min = min;
+	if (out_max)
+		*out_max = max;
+
+	return 0;
+}
 /**
  * Check if the current user has permissions to use realtime scheduling at the
  * specified priority.
  */
-static bool check_realtime_privileges(rlim_t priority)
+static bool check_realtime_privileges(struct impl *impl)
 {
-	int err, old_policy, new_policy = REALTIME_POLICY;
+	rlim_t priority = impl->rt_prio;
+	int err, old_policy, new_policy, min, max;
 	struct sched_param old_sched_params;
 	struct sched_param new_sched_params;
+	int try = 0;
 
-	/* We could check `RLIMIT_RTPRIO`, but the BSDs generally don't have
-	 * that available, and there are also other ways to use realtime
-	 * scheduling without that rlimit being set such as `CAP_SYS_NICE` or
-	 * running as root. Instead of checking a bunch of preconditions, we
-	 * just try if setting realtime scheduling works or not. */
-	if ((err = pthread_getschedparam(pthread_self(),&old_policy,&old_sched_params)) != 0) {
-		pw_log_warn("Failed to check RLIMIT_RTPRIO: %s", strerror(err));
-		return false;
+	while (try++ < 2) {
+		/* We could check `RLIMIT_RTPRIO`, but the BSDs generally don't have
+		 * that available, and there are also other ways to use realtime
+		 * scheduling without that rlimit being set such as `CAP_SYS_NICE` or
+		 * running as root. Instead of checking a bunch of preconditions, we
+		 * just try if setting realtime scheduling works or not. */
+		if ((err = pthread_getschedparam(pthread_self(), &old_policy, &old_sched_params)) != 0) {
+			pw_log_warn("Failed to check RLIMIT_RTPRIO: %s", strerror(err));
+			return false;
+		}
+		if ((err = get_rt_priority_range(&min, &max)) < 0) {
+			pw_log_warn("Failed to get priority range: %s", strerror(err));
+			return false;
+		}
+		if (try == 2) {
+			struct rlimit rlim;
+			/* second try, try to clamp to RLIMIT_RTPRIO */
+			if (getrlimit(RLIMIT_RTPRIO, &rlim) == 0 && max > (int)rlim.rlim_max) {
+				pw_log_info("Clamp rtprio %d to %d", (int)priority, (int)rlim.rlim_max);
+				max = (int)rlim.rlim_max;
+			}
+			else
+				break;
+		}
+		if (max < DEFAULT_RT_PRIO_MIN) {
+			pw_log_info("Priority max (%d) must be at least %d", max, DEFAULT_RT_PRIO_MIN);
+			return false;
+		}
+
+		/* If the current scheduling policy has `SCHED_RESET_ON_FORK` set, then
+		 * this also needs to be set here or `pthread_setschedparam()` will return
+		 * an error code. Similarly, if it is not set, then we don't want to set
+		 * it here as it would irreversible change the current thread's
+		 * scheduling policy. */
+		spa_zero(new_sched_params);
+		new_sched_params.sched_priority = SPA_CLAMP((int)priority, min, max);
+		new_policy = REALTIME_POLICY;
+		if ((old_policy & PW_SCHED_RESET_ON_FORK) != 0)
+			new_policy |= PW_SCHED_RESET_ON_FORK;
+
+		if (pthread_setschedparam(pthread_self(), new_policy, &new_sched_params) == 0) {
+			impl->rt_prio = new_sched_params.sched_priority;
+			pthread_setschedparam(pthread_self(), old_policy, &old_sched_params);
+			return true;
+		}
 	}
-
-	/* If the current scheduling policy has `SCHED_RESET_ON_FORK` set, then
-	 * this also needs to be set here or `pthread_setschedparam()` will return
-	 * an error code. Similarly, if it is not set, then we don't want to set
-	 * it here as it would irreversible change the current thread's
-	 * scheduling policy. */
-	spa_zero(new_sched_params);
-	new_sched_params.sched_priority = priority;
-	if ((old_policy & PW_SCHED_RESET_ON_FORK) != 0)
-		new_policy |= PW_SCHED_RESET_ON_FORK;
-
-	if (pthread_setschedparam(pthread_self(), new_policy, &new_sched_params) == 0) {
-		pthread_setschedparam(pthread_self(), old_policy, &old_sched_params);
-		return true;
-	} else {
-		return false;
-	}
+	pw_log_info("Can't set rt prio to %d: %m (try increasing rlimits)", (int)priority);
+	return false;
 }
 
 static int sched_set_nice(int nice_level)
@@ -657,16 +698,19 @@ static int set_rlimit(struct impl *impl)
 	return res;
 }
 
-static int impl_acquire_rt_sched(struct spa_thread *thread, int priority)
+static int acquire_rt_sched(struct spa_thread *thread, int priority)
 {
-	int err;
+	int err, min, max;
 	struct sched_param sp;
 	pthread_t pt = (pthread_t)thread;
 
-	if (priority < sched_get_priority_min(REALTIME_POLICY) ||
-	    priority > sched_get_priority_max(REALTIME_POLICY)) {
-		pw_log_warn("invalid priority %d for policy %d", priority, REALTIME_POLICY);
-		return -EINVAL;
+	if ((err = get_rt_priority_range(&min, &max)) < 0)
+		return err;
+
+	if (priority < min || priority > max) {
+		pw_log_info("clamping priority %d to range %d - %d for policy %d",
+				priority, min, max, REALTIME_POLICY);
+		priority = SPA_CLAMP(priority, min, max);
 	}
 
 	spa_zero(sp);
@@ -769,23 +813,30 @@ static int impl_join(void *object, struct spa_thread *thread, void **retval)
 	return pthread_join(pt, retval);
 }
 
+
+static int get_rtkit_priority_range(struct impl *impl, int *min, int *max)
+{
+	if (min)
+		*min = 1;
+	if (max) {
+		if ((*max = pw_rtkit_get_max_realtime_priority(impl)) < 0)
+			return *max;
+		if (*max < 1)
+			*max = 1;
+	}
+	return 0;
+}
+
 static int impl_get_rt_range(void *object, const struct spa_dict *props,
 		int *min, int *max)
 {
 	struct impl *impl = object;
-	if (impl->use_rtkit) {
-		if (min)
-			*min = 1;
-		if (max)
-			*max = pw_rtkit_get_max_realtime_priority(impl);
-	} else {
-		if (min)
-			*min = sched_get_priority_min(REALTIME_POLICY);
-		if (max)
-			*max = sched_get_priority_max(REALTIME_POLICY);
-	}
-
-	return 0;
+	int res;
+	if (impl->use_rtkit)
+		res = get_rtkit_priority_range(impl, min, max);
+	else
+		res = get_rt_priority_range(min, max);
+	return res;
 }
 
 static pid_t impl_gettid(struct impl *impl, pthread_t pt)
@@ -807,7 +858,7 @@ static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority
 {
 	struct impl *impl = object;
 	struct sched_param sp;
-	int err, rtprio_limit;
+	int err;
 	pthread_t pt = (pthread_t)thread;
 	pid_t pid;
 
@@ -817,11 +868,17 @@ static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority
 	}
 
 	if (impl->use_rtkit) {
+		int min, max;
+
+		if ((err = get_rtkit_priority_range(impl, &min, &max)) < 0)
+			return err;
+
 		pid = impl_gettid(impl, pt);
-		rtprio_limit = pw_rtkit_get_max_realtime_priority(impl);
-		if (rtprio_limit >= 0 && rtprio_limit < priority) {
-			pw_log_info("dropping requested priority %d for thread %d down to %d because of RTKit limits", priority, pid, rtprio_limit);
-			priority = rtprio_limit;
+
+		if (priority < min || priority > max) {
+			pw_log_info("clamping requested priority %d for thread %d "
+					"between %d  and %d", priority, pid, min, max);
+			priority = SPA_CLAMP(priority, min, max);
 		}
 
 		spa_zero(sp);
@@ -839,7 +896,7 @@ static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority
 		pw_log_info("acquired realtime priority %d for thread %d using RTKit", priority, pid);
 		return 0;
 	} else {
-		return impl_acquire_rt_sched(thread, priority);
+		return acquire_rt_sched(thread, priority);
 	}
 }
 
@@ -868,11 +925,7 @@ static int impl_join(void *object, struct spa_thread *thread, void **retval)
 static int impl_get_rt_range(void *object, const struct spa_dict *props,
 		int *min, int *max)
 {
-	if (min)
-		*min = sched_get_priority_min(REALTIME_POLICY);
-	if (max)
-		*max = sched_get_priority_max(REALTIME_POLICY);
-	return 0;
+	return get_rt_priority_range(min, max);
 }
 
 static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority)
@@ -880,11 +933,10 @@ static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority
 	struct impl *impl = object;
 
 	/* See the docstring on `spa_thread_utils_methods::acquire_rt` */
-	if (priority == -1) {
+	if (priority == -1)
 		priority = impl->rt_prio;
-	}
 
-	return impl_acquire_rt_sched(thread, priority);
+	return acquire_rt_sched(thread, priority);
 }
 
 static const struct spa_thread_utils_methods impl_thread_utils = {
@@ -955,7 +1007,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 #endif
 	/* If the user has permissions to use regular realtime scheduling, as well as
 	 * the nice level we want, then we'll use that instead of RTKit */
-	if (!check_realtime_privileges(impl->rt_prio)) {
+	if (!check_realtime_privileges(impl)) {
 		if (!can_use_rtkit) {
 			res = -ENOTSUP;
 			pw_log_warn("regular realtime scheduling not available (RTKit fallback disabled)");

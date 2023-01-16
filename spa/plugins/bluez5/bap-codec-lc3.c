@@ -39,6 +39,8 @@
 #include "media-codecs.h"
 #include "bap-codec-caps.h"
 
+#define MAX_PACS	64
+
 struct impl {
 	lc3_encoder_t enc[LC3_MAX_CHANNELS];
 	lc3_decoder_t dec[LC3_MAX_CHANNELS];
@@ -52,11 +54,16 @@ struct impl {
 	unsigned int codesize;
 };
 
-struct ltv {
+struct __attribute__((packed)) ltv {
 	uint8_t  len;
 	uint8_t  type;
-	uint8_t  value[0];
-} __packed;
+	uint8_t  value[];
+};
+
+struct pac_data {
+	const uint8_t *data;
+	size_t size;
+};
 
 static int write_ltv(uint8_t *dest, uint8_t type, void* value, size_t len)
 {
@@ -100,6 +107,38 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 	return data - caps;
 }
 
+static int parse_bluez_pacs(const uint8_t *data, size_t data_size, struct pac_data pacs[MAX_PACS])
+{
+	/*
+	 * BlueZ capabilites for the same codec may contain multiple
+	 * PACs separated by zero-length LTV (see BlueZ b907befc2d80)
+	 */
+	int pac = 0;
+
+	pacs[pac] = (struct pac_data){ data, 0 };
+
+	while (data_size > 0) {
+		struct ltv *ltv = (struct ltv *)data;
+
+		if (ltv->len == 0) {
+			/* delimiter */
+			if (pac + 1 >= MAX_PACS)
+				break;
+
+			++pac;
+			pacs[pac] = (struct pac_data){ data + 1, 0 };
+		} else if (ltv->len >= data_size) {
+			return -EINVAL;
+		} else {
+			pacs[pac].size += ltv->len + 1;
+		}
+		data_size -= ltv->len + 1;
+		data += ltv->len + 1;
+	}
+
+	return pac + 1;
+}
+
 static bool parse_capabilities(bap_lc3_t *conf, const uint8_t *data, size_t data_size)
 {
 	uint16_t framelen_min = 0, framelen_max = 0;
@@ -113,7 +152,7 @@ static bool parse_capabilities(bap_lc3_t *conf, const uint8_t *data, size_t data
 	while (data_size > 0) {
 		struct ltv *ltv = (struct ltv *)data;
 
-		if (ltv->len > data_size)
+		if (ltv->len < sizeof(struct ltv) || ltv->len >= data_size)
 			return false;
 
 		switch (ltv->type) {
@@ -227,7 +266,7 @@ static bool parse_conf(bap_lc3_t *conf, const uint8_t *data, size_t data_size)
 	while (data_size > 0) {
 		struct ltv *ltv = (struct ltv *)data;
 
-		if (ltv->len > data_size)
+		if (ltv->len < sizeof(struct ltv) || ltv->len >= data_size)
 			return false;
 
 		switch (ltv->type) {
@@ -266,46 +305,16 @@ static bool parse_conf(bap_lc3_t *conf, const uint8_t *data, size_t data_size)
 	return true;
 }
 
-static int codec_select_config(const struct media_codec *codec, uint32_t flags,
-		const void *caps, size_t caps_size,
-		const struct media_codec_audio_info *info,
-		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
+static int conf_cmp(const bap_lc3_t *conf1, int res1, const bap_lc3_t *conf2, int res2)
 {
-	bap_lc3_t conf;
-	uint8_t *data = config;
-
-	if (caps == NULL)
-		return -EINVAL;
-
-	if (!parse_capabilities(&conf, caps, caps_size))
-		return -ENOTSUP;
-
-	data += write_ltv_uint8(data, LC3_TYPE_FREQ, conf.rate);
-	data += write_ltv_uint8(data, LC3_TYPE_DUR, conf.frame_duration);
-	data += write_ltv_uint32(data, LC3_TYPE_CHAN, htobl(conf.channels));
-	data += write_ltv_uint16(data, LC3_TYPE_FRAMELEN, htobs(conf.framelen));
-	data += write_ltv_uint8(data, LC3_TYPE_BLKS, conf.n_blks);
-
-	return data - config;
-}
-
-static int codec_caps_preference_cmp(const struct media_codec *codec, uint32_t flags, const void *caps1, size_t caps1_size,
-		const void *caps2, size_t caps2_size, const struct media_codec_audio_info *info, const struct spa_dict *global_settings)
-{
-	bap_lc3_t conf1, conf2;
-	bap_lc3_t *conf;
-	int res1, res2;
+	const bap_lc3_t *conf;
 	int a, b;
-
-	/* Order selected configurations by preference */
-	res1 = codec->select_config(codec, 0, caps1, caps1_size, info, NULL, (uint8_t *)&conf1);
-	res2 = codec->select_config(codec, 0, caps2, caps2_size, info , NULL, (uint8_t *)&conf2);
 
 #define PREFER_EXPR(expr)			\
 		do {				\
-			conf = &conf1; 		\
+			conf = conf1; 		\
 			a = (expr);		\
-			conf = &conf2;		\
+			conf = conf2;		\
 			b = (expr);		\
 			if (a != b)		\
 				return b - a;	\
@@ -327,6 +336,66 @@ static int codec_caps_preference_cmp(const struct media_codec *codec, uint32_t f
 
 #undef PREFER_EXPR
 #undef PREFER_BOOL
+}
+
+static int pac_cmp(const void *p1, const void *p2)
+{
+	const struct pac_data *pac1 = p1;
+	const struct pac_data *pac2 = p2;
+	bap_lc3_t conf1, conf2;
+	int res1, res2;
+
+	res1 = parse_capabilities(&conf1, pac1->data, pac1->size) ? (int)sizeof(bap_lc3_t) : -EINVAL;
+	res2 = parse_capabilities(&conf2, pac2->data, pac2->size) ? (int)sizeof(bap_lc3_t) : -EINVAL;
+
+	return conf_cmp(&conf1, res1, &conf2, res2);
+}
+
+static int codec_select_config(const struct media_codec *codec, uint32_t flags,
+		const void *caps, size_t caps_size,
+		const struct media_codec_audio_info *info,
+		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
+{
+	struct pac_data pacs[MAX_PACS];
+	int npacs;
+	bap_lc3_t conf;
+	uint8_t *data = config;
+
+	if (caps == NULL)
+		return -EINVAL;
+
+	/* Select best conf from those possible */
+	npacs = parse_bluez_pacs(caps, caps_size, pacs);
+	if (npacs < 0)
+		return npacs;
+	else if (npacs == 0)
+		return -EINVAL;
+
+	qsort(pacs, npacs, sizeof(struct pac_data), pac_cmp);
+
+	if (!parse_capabilities(&conf, pacs[0].data, pacs[0].size))
+		return -ENOTSUP;
+
+	data += write_ltv_uint8(data, LC3_TYPE_FREQ, conf.rate);
+	data += write_ltv_uint8(data, LC3_TYPE_DUR, conf.frame_duration);
+	data += write_ltv_uint32(data, LC3_TYPE_CHAN, htobl(conf.channels));
+	data += write_ltv_uint16(data, LC3_TYPE_FRAMELEN, htobs(conf.framelen));
+	data += write_ltv_uint8(data, LC3_TYPE_BLKS, conf.n_blks);
+
+	return data - config;
+}
+
+static int codec_caps_preference_cmp(const struct media_codec *codec, uint32_t flags, const void *caps1, size_t caps1_size,
+		const void *caps2, size_t caps2_size, const struct media_codec_audio_info *info, const struct spa_dict *global_settings)
+{
+	bap_lc3_t conf1, conf2;
+	int res1, res2;
+
+	/* Order selected configurations by preference */
+	res1 = codec->select_config(codec, 0, caps1, caps1_size, info, NULL, (uint8_t *)&conf1);
+	res2 = codec->select_config(codec, 0, caps2, caps2_size, info , NULL, (uint8_t *)&conf2);
+
+	return conf_cmp(&conf1, res1, &conf2, res2);
 }
 
 static uint8_t channels_to_positions(uint32_t channels, uint8_t n_channels, uint32_t *position)

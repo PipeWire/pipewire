@@ -59,7 +59,7 @@ void dsp_sum_avx(struct dsp_ops *ops, float *r, const float *a, const float *b, 
 			_mm256_store_ps(&r[n+24], in[3]);
 		}
 	} else {
-		for (n = 0; n < unrolled; n += 16) {
+		for (n = 0; n < unrolled; n += 32) {
 			in[0] = _mm256_loadu_ps(&a[n+ 0]);
 			in[1] = _mm256_loadu_ps(&a[n+ 8]);
 			in[2] = _mm256_loadu_ps(&a[n+16]);

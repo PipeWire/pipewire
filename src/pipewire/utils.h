@@ -94,6 +94,12 @@ ssize_t pw_getrandom(void *buf, size_t buflen, unsigned int flags);
 
 void* pw_reallocarray(void *ptr, size_t nmemb, size_t size);
 
+#ifdef PW_ENABLE_DEPRECATED
+#define PW_DEPRECATED(v)        (v)
+#else
+#define PW_DEPRECATED(v)	({ __typeof__(v) _v SPA_DEPRECATED = (v); (void)_v; (v); })
+#endif /* PW_ENABLE_DEPRECATED */
+
 /**
  * \}
  */

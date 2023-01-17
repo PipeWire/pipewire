@@ -29,6 +29,7 @@
 extern "C" {
 #endif
 
+#include <pipewire/utils.h>
 /**
  * \defgroup pw_keys Key Names
  *
@@ -337,13 +338,13 @@ extern "C" {
 #define PW_KEY_VIDEO_FORMAT		"video.format"		/**< a video format */
 #define PW_KEY_VIDEO_SIZE		"video.size"		/**< a video size as "<width>x<height" */
 
-#ifdef PW_ENABLE_DEPRECATED
-#define PW_KEY_PRIORITY_MASTER		"priority.master"	/**< deprecated */
-#define PW_KEY_NODE_TARGET		"node.target"		/**< deprecated since 0.3.64, use target.object. */
-#endif /* PW_ENABLE_DEPRECATED */
-
 #define PW_KEY_TARGET_OBJECT		"target.object"		/**< a target object to link to. This can be
 								  * and object name or object.serial */
+
+#ifndef PW_REMOVE_DEPRECATED
+#define PW_KEY_PRIORITY_MASTER		PW_DEPRECATED("priority.master")	/**< deprecated, use priority.driver */
+#define PW_KEY_NODE_TARGET		PW_DEPRECATED("node.target")		/**< deprecated since 0.3.64, use target.object. */
+#endif /* PW_REMOVE_DEPRECATED */
 
 /** \}
  */

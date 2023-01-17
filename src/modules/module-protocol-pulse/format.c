@@ -198,10 +198,22 @@ uint32_t sample_spec_frame_size(const struct sample_spec *ss)
 	case SPA_AUDIO_FORMAT_S16_LE:
 	case SPA_AUDIO_FORMAT_S16_BE:
 	case SPA_AUDIO_FORMAT_S16P:
+	case SPA_AUDIO_FORMAT_U16_LE:
+	case SPA_AUDIO_FORMAT_U16_BE:
 		return 2 * ss->channels;
 	case SPA_AUDIO_FORMAT_S24_LE:
 	case SPA_AUDIO_FORMAT_S24_BE:
 	case SPA_AUDIO_FORMAT_S24P:
+	case SPA_AUDIO_FORMAT_U24_LE:
+	case SPA_AUDIO_FORMAT_U24_BE:
+	case SPA_AUDIO_FORMAT_S20_LE:
+	case SPA_AUDIO_FORMAT_S20_BE:
+	case SPA_AUDIO_FORMAT_U20_LE:
+	case SPA_AUDIO_FORMAT_U20_BE:
+	case SPA_AUDIO_FORMAT_S18_LE:
+	case SPA_AUDIO_FORMAT_S18_BE:
+	case SPA_AUDIO_FORMAT_U18_LE:
+	case SPA_AUDIO_FORMAT_U18_BE:
 		return 3 * ss->channels;
 	case SPA_AUDIO_FORMAT_F32_LE:
 	case SPA_AUDIO_FORMAT_F32_BE:
@@ -209,9 +221,13 @@ uint32_t sample_spec_frame_size(const struct sample_spec *ss)
 	case SPA_AUDIO_FORMAT_S32_LE:
 	case SPA_AUDIO_FORMAT_S32_BE:
 	case SPA_AUDIO_FORMAT_S32P:
+	case SPA_AUDIO_FORMAT_U32_LE:
+	case SPA_AUDIO_FORMAT_U32_BE:
 	case SPA_AUDIO_FORMAT_S24_32_LE:
 	case SPA_AUDIO_FORMAT_S24_32_BE:
 	case SPA_AUDIO_FORMAT_S24_32P:
+	case SPA_AUDIO_FORMAT_U24_32_LE:
+	case SPA_AUDIO_FORMAT_U24_32_BE:
 		return 4 * ss->channels;
 	case SPA_AUDIO_FORMAT_F64_LE:
 	case SPA_AUDIO_FORMAT_F64_BE:

@@ -76,6 +76,8 @@
  * - `library.name = <str>`: the echo cancellation library  Currently supported:
  * `aec/libspa-aec-webrtc`. Leave unset to use the default method (`aec/libspa-aec-webrtc`).
  * - `aec.args = <str>`: arguments to pass to the echo cancellation method
+ * - `monitor.mode`: Instead of making a sink, make a stream that captures from
+ *                   the monitor ports of the default sink.
  *
  * ## General options
  *
@@ -101,6 +103,7 @@
  *      args = {
  *          # library.name  = aec/libspa-aec-webrtc
  *          # node.latency = 1024/48000
+ *          # monitor.mode = false
  *          capture.props = {
  *             node.name = "Echo Cancellation Capture"
  *          }

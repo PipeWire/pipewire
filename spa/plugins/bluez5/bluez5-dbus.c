@@ -3811,7 +3811,9 @@ static int adapter_register_endpoints(struct spa_bt_adapter *a)
 	 * */
 	spa_log_warn(monitor->log,
 		     "Using legacy bluez5 API for A2DP - only SBC will be supported. "
-		     "Please upgrade bluez5.");
+		     "No LE Audio. Please upgrade bluez5.");
+
+	monitor->le_audio_supported = false;
 
 	for (i = 0; media_codecs[i]; i++) {
 		const struct media_codec *codec = media_codecs[i];

@@ -667,10 +667,9 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 {
 	struct convolver_impl *impl;
 	float *samples;
-	int offset = 0, length = 0, channel = index, n_samples;
+	int offset = 0, length = 0, channel = index, n_samples, len;
 	uint32_t i = 0;
 	struct spa_json it[2];
-	struct spa_json filenames_json;
 	const char *val;
 	char key[256], v[256];
 	char filename[PATH_MAX] = "";
@@ -715,19 +714,21 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 			}
 		}
 		else if (spa_streq(key, "filename")) {
-			if (spa_json_get_string(&it[1], filename, sizeof(filename)) <= 0) {
-				pw_log_error("convolver:filename requires a string");
+			if ((len = spa_json_next(&it[1], &val)) <= 0) {
+				pw_log_error("convolver:filename requires a string or an array");
 				return NULL;
 			}
-		}
-		else if (spa_streq(key, "filenames")) {
-			if (spa_json_enter_array(&it[1], &filenames_json) <= 0) {
-				pw_log_error("convolver:filenames requires an array");
-				return NULL;
+			if (spa_json_is_array(val, len)) {
+				spa_json_enter(&it[1], &it[2]);
+				while (spa_json_get_string(&it[2], v, sizeof(v)) > 0 &&
+					i < SPA_N_ELEMENTS(filenames)) {
+						filenames[i] = strdup(v);
+						i++;
+				}
 			}
-			while (spa_json_get_string(&filenames_json, v, sizeof(v)) > 0 && i < SPA_N_ELEMENTS(filenames)) {
-				filenames[i] = strdup(v);
-				i++;
+			else if (spa_json_parse_stringn(val, len, filename, sizeof(filename)) <= 0) {
+				pw_log_error("convolver:filename requires a string or an array");
+				return NULL;
 			}
 		}
 		else if (spa_streq(key, "offset")) {
@@ -758,7 +759,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 			break;
 	}
 	if (!filename[0] && !filenames[0]) {
-		pw_log_error("convolver:filename nor filenames was given");
+		pw_log_error("convolver:filename was not given");
 		return NULL;
 	}
 

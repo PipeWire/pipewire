@@ -1150,8 +1150,15 @@ static uint32_t get_index_from_profile(struct impl *this, uint32_t profile, enum
 	if (profile == DEVICE_PROFILE_OFF || profile == DEVICE_PROFILE_AG)
 		return profile;
 
-	if (profile == DEVICE_PROFILE_A2DP || profile == DEVICE_PROFILE_BAP) {
+	if (profile == DEVICE_PROFILE_A2DP) {
 		if (codec == 0 || (this->bt_dev->connected_profiles & SPA_BT_PROFILE_MEDIA_SOURCE))
+			return profile;
+
+		return codec + DEVICE_PROFILE_LAST;
+	}
+
+	if (profile == DEVICE_PROFILE_BAP) {
+		if (codec == 0)
 			return profile;
 
 		return codec + DEVICE_PROFILE_LAST;

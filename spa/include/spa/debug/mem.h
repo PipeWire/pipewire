@@ -38,7 +38,7 @@ extern "C" {
 
 #include <spa/debug/log.h>
 
-static inline int spa_debug_mem(int indent, const void *data, size_t size)
+static inline int spa_debugc_mem(void *ctx, int indent, const void *data, size_t size)
 {
 	const uint8_t *t = (const uint8_t*)data;
 	char buffer[512];
@@ -50,12 +50,16 @@ static inline int spa_debug_mem(int indent, const void *data, size_t size)
 			pos = sprintf(buffer, "%p: ", &t[i]);
 		pos += sprintf(buffer + pos, "%02x ", t[i]);
 		if (i % 16 == 15 || i == size - 1) {
-			spa_debug("%*s" "%s", indent, "", buffer);
+			spa_debugc(ctx, "%*s" "%s", indent, "", buffer);
 		}
 	}
 	return 0;
 }
 
+static inline int spa_debug_mem(int indent, const void *data, size_t size)
+{
+	return spa_debugc_mem(NULL, indent, data, size);
+}
 /**
  * \}
  */

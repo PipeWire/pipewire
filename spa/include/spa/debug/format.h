@@ -127,7 +127,7 @@ spa_debug_format_value(const struct spa_type_info *info,
 	return 0;
 }
 
-static inline int spa_debug_format(int indent,
+static inline int spa_debugc_format(void *ctx, int indent,
 		const struct spa_type_info *info, const struct spa_pod *format)
 {
 	const char *media_type;
@@ -147,7 +147,7 @@ static inline int spa_debug_format(int indent,
 	media_type = spa_debug_type_find_name(spa_type_media_type, mtype);
 	media_subtype = spa_debug_type_find_name(spa_type_media_subtype, mstype);
 
-	spa_debug("%*s %s/%s", indent, "",
+	spa_debugc(ctx, "%*s %s/%s", indent, "",
 		media_type ? spa_debug_type_short_name(media_type) : "unknown",
 		media_subtype ? spa_debug_type_short_name(media_subtype) : "unknown");
 
@@ -212,11 +212,16 @@ static inline int spa_debug_format(int indent,
 			}
 			spa_debug_buffer_append(&buf, "%s", esep);
 		}
-		spa_debug("%s", buffer);
+		spa_debugc(ctx, "%s", buffer);
 	}
 	return 0;
 }
 
+static inline int spa_debug_format(int indent,
+		const struct spa_type_info *info, const struct spa_pod *format)
+{
+	return spa_debugc_format(NULL, indent, info, format);
+}
 /**
  * \}
  */

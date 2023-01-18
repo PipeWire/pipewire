@@ -38,11 +38,14 @@ extern "C" {
  * \{
  */
 
-#ifndef spa_debug
-#define spa_debug(fmt,...)	({ printf((fmt"\n"), ## __VA_ARGS__); })
-#endif
 #ifndef spa_debugn
-#define spa_debugn(fmt,...)	({ printf((fmt), ## __VA_ARGS__); })
+#define spa_debugn(_fmt,...)	printf((_fmt), ## __VA_ARGS__)
+#endif
+#ifndef spa_debug
+#define spa_debug(_fmt,...)	spa_debugn(_fmt"\n", ## __VA_ARGS__)
+#endif
+#ifndef spa_debugc
+#define spa_debugc(_c,_fmt,...)	spa_debug(_fmt, ## __VA_ARGS__)
 #endif
 
 struct spa_debug_buffer {

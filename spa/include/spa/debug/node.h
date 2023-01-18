@@ -38,19 +38,23 @@ extern "C" {
 #include <spa/debug/log.h>
 #include <spa/debug/dict.h>
 
-static inline int spa_debug_port_info(int indent, const struct spa_port_info *info)
+static inline int spa_debugc_port_info(void *ctx, int indent, const struct spa_port_info *info)
 {
-        spa_debug("%*s" "struct spa_port_info %p:", indent, "", info);
-        spa_debug("%*s" " flags: \t%08" PRIx64, indent, "", info->flags);
-        spa_debug("%*s" " rate: \t%d/%d", indent, "", info->rate.num, info->rate.denom);
-        spa_debug("%*s" " props:", indent, "");
+        spa_debugc(ctx, "%*s" "struct spa_port_info %p:", indent, "", info);
+        spa_debugc(ctx, "%*s" " flags: \t%08" PRIx64, indent, "", info->flags);
+        spa_debugc(ctx, "%*s" " rate: \t%d/%d", indent, "", info->rate.num, info->rate.denom);
+        spa_debugc(ctx, "%*s" " props:", indent, "");
         if (info->props)
-                spa_debug_dict(indent + 2, info->props);
+                spa_debugc_dict(ctx, indent + 2, info->props);
         else
-                spa_debug("%*s" "  none", indent, "");
+                spa_debugc(ctx, "%*s" "  none", indent, "");
         return 0;
 }
 
+static inline int spa_debug_port_info(int indent, const struct spa_port_info *info)
+{
+	return spa_debugc_port_info(NULL, indent, info);
+}
 /**
  * \}
  */

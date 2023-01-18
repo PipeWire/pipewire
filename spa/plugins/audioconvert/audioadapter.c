@@ -45,10 +45,8 @@
 #define SPA_LOG_TOPIC_DEFAULT log_topic
 static struct spa_log_topic *log_topic = &SPA_LOG_TOPIC(0, "spa.audioadapter");
 
-static struct spa_log *global_log;
-
-#undef spa_debug
-#define spa_debug(...) spa_log_debug(global_log, __VA_ARGS__)
+#undef spa_debugc
+#define spa_debugc(l,...) spa_log_debug(l, __VA_ARGS__)
 #include <spa/debug/format.h>
 #include <spa/debug/pod.h>
 
@@ -338,7 +336,7 @@ static int debug_params(struct impl *this, struct spa_node *node,
 
 	if (filter) {
 		spa_log_error(this->log, "with this filter:");
-		spa_debug_pod(2, NULL, filter);
+		spa_debugc_pod(this->log, 2, NULL, filter);
 	} else {
 		spa_log_error(this->log, "there was no filter");
 	}
@@ -356,7 +354,7 @@ static int debug_params(struct impl *this, struct spa_node *node,
 			break;
 		}
 		spa_log_error(this->log, "unmatched %s %d:", debug, count);
-		spa_debug_pod(2, NULL, param);
+		spa_debugc_pod(this->log, 2, NULL, param);
 		count++;
 	}
 	if (count == 0)
@@ -486,7 +484,7 @@ static int configure_format(struct impl *this, uint32_t flags, const struct spa_
 
 	spa_log_debug(this->log, "%p: configure format:", this);
 	if (format && spa_log_level_enabled(this->log, SPA_LOG_LEVEL_DEBUG))
-		spa_debug_format(0, NULL, format);
+		spa_debugc_format(this->log, 0, NULL, format);
 
 	if ((res = spa_node_port_set_param(this->follower,
 					   this->direction, 0,
@@ -1644,7 +1642,6 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	spa_log_topic_init(this->log, log_topic);
-	global_log = this->log;
 
 	this->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
 

@@ -412,6 +412,42 @@ static int av_codec_params_to_audio_info(struct data *data, AVCodecParameters *c
 		info->info.amr.channels = data->channels;
 		info->info.amr.band_mode = SPA_AUDIO_AMR_BAND_MODE_WB;
 		break;
+	case AV_CODEC_ID_AC3:
+		info->media_subtype = SPA_MEDIA_SUBTYPE_ac3;
+		info->info.ac3.rate = data->rate;
+		info->info.ac3.channels = data->channels;
+		break;
+	case AV_CODEC_ID_EAC3:
+		info->media_subtype = SPA_MEDIA_SUBTYPE_eac3;
+		info->info.eac3.rate = data->rate;
+		info->info.eac3.channels = data->channels;
+		break;
+	case AV_CODEC_ID_TRUEHD:
+		info->media_subtype = SPA_MEDIA_SUBTYPE_truehd;
+		info->info.truehd.rate = data->rate;
+		info->info.truehd.channels = data->channels;
+		break;
+	case AV_CODEC_ID_DTS:
+		info->media_subtype = SPA_MEDIA_SUBTYPE_dts;
+		info->info.dts.rate = data->rate;
+		info->info.dts.channels = data->channels;
+		switch (codec_params->profile) {
+		case FF_PROFILE_DTS_HD_MA:
+			info->info.dts.ext_type = SPA_AUDIO_DTS_EXT_HD_MA;
+			break;
+		case FF_PROFILE_DTS_HD_HRA:
+			info->info.dts.ext_type = SPA_AUDIO_DTS_EXT_HD_HRA;
+			break;
+		default:
+			info->info.dts.ext_type = SPA_AUDIO_DTS_EXT_NONE;
+			break;
+		}
+		break;
+	case AV_CODEC_ID_MPEGH_3D_AUDIO:
+		info->media_subtype = SPA_MEDIA_SUBTYPE_mpegh;
+		info->info.mpegh.rate = data->rate;
+		info->info.mpegh.channels = data->channels;
+		break;
 	default:
 		fprintf(stderr, "Unsupported encoded media subtype\n");
 		return -EINVAL;

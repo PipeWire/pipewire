@@ -108,6 +108,7 @@ filter_chain_sources = [
   'module-filter-chain/biquad.c',
   'module-filter-chain/ladspa_plugin.c',
   'module-filter-chain/builtin_plugin.c',
+  'module-filter-chain/sofa_plugin.c',
   'module-filter-chain/convolver.c'
 ]
 filter_chain_dependencies = [

@@ -108,5 +108,7 @@ struct fc_plugin *load_lv2_plugin(const struct spa_support *support, uint32_t n_
 		struct dsp_ops *dsp, const char *path, const char *config);
 struct fc_plugin *load_builtin_plugin(const struct spa_support *support, uint32_t n_support,
 		struct dsp_ops *dsp, const char *path, const char *config);
+struct fc_plugin *load_sofa_plugin(const struct spa_support *support, uint32_t n_support,
+		struct dsp_ops *dsp, const char *path, const char *config);
 
 #endif /* PLUGIN_H */

@@ -1205,6 +1205,9 @@ static struct plugin *plugin_load(struct impl *impl, const char *type, const cha
 	if (spa_streq(type, "builtin")) {
 		pl = load_builtin_plugin(support, n_support, &impl->dsp, path, NULL);
 	}
+	else if (spa_streq(type, "sofa")) {
+		pl = load_sofa_plugin(support, n_support, &impl->dsp, path, NULL);
+	}
 	else if (spa_streq(type, "ladspa")) {
 		pl = load_ladspa_plugin(support, n_support, &impl->dsp, path, NULL);
 	}

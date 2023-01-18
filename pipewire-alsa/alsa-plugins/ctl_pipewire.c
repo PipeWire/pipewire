@@ -38,6 +38,25 @@ PW_LOG_TOPIC_STATIC(alsa_log_topic, "alsa.ctl");
 #define PW_LOG_TOPIC_DEFAULT alsa_log_topic
 
 #define VOLUME_MAX 65536
+#define VOLUME_MUTED ((uint32_t) 0U)
+#define VOLUME_NORM ((uint32_t) 0x10000U)
+
+static inline uint32_t volume_from_linear(float vol)
+{
+	uint32_t v;
+	if (vol <= 0.0f)
+		v = VOLUME_MUTED;
+	else
+		v = SPA_CLAMP((uint64_t) lround(cbrt(vol) * VOLUME_NORM),
+				VOLUME_MUTED, VOLUME_MAX);
+	return v;
+}
+
+static inline float volume_to_linear(uint32_t vol)
+{
+	float v = ((float)vol) / VOLUME_NORM;
+	return v * v * v;
+}
 
 struct volume {
 	uint32_t channels;
@@ -490,7 +509,7 @@ static struct spa_pod *build_volume_mute(struct spa_pod_builder *b, struct volum
 
 		n_volumes = volume->channels;
 		for (i = 0; i < n_volumes; i++)
-			volumes[i] = volume->values[i] / (float) VOLUME_MAX;
+			volumes[i] = volume_to_linear(volume->values[i]);
 
 		spa_pod_builder_prop(b, SPA_PROP_channelVolumes, 0);
 		spa_pod_builder_array(b, sizeof(float),
@@ -844,7 +863,7 @@ static void parse_props(struct global *g, const struct spa_pod *param, bool devi
 
 			g->node.channel_volume.channels = n_volumes;
 			for (i = 0; i < n_volumes; i++)
-				g->node.channel_volume.values[i] = volumes[i] * VOLUME_MAX;
+				g->node.channel_volume.values[i] = volume_from_linear(volumes[i]);
 
 			SPA_FLAG_UPDATE(g->node.flags, NODE_FLAG_DEVICE_VOLUME, device);
 			pw_log_debug("update node %d channelVolumes", g->id);

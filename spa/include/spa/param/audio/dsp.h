@@ -32,7 +32,7 @@ extern "C" {
 #include <spa/param/audio/raw.h>
 
 struct spa_audio_info_dsp {
-	enum spa_audio_format format;		/*< format, one of the DSP formats in enum spa_audio_format_dsp */
+	enum spa_audio_format format;		/*< format, one of the DSP formats in enum spa_audio_format */
 };
 
 #define SPA_AUDIO_INFO_DSP_INIT(...)		((struct spa_audio_info_dsp) { __VA_ARGS__ })

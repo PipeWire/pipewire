@@ -669,7 +669,7 @@ static void * convolver_instantiate(const struct fc_descriptor * Descriptor,
 	float *samples;
 	int offset = 0, length = 0, channel = index, n_samples, len;
 	uint32_t i = 0;
-	struct spa_json it[2];
+	struct spa_json it[3];
 	const char *val;
 	char key[256], v[256];
 	char filename[PATH_MAX] = "";

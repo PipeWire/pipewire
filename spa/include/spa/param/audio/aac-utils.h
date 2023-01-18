@@ -61,6 +61,7 @@ spa_format_audio_aac_build(struct spa_pod_builder *builder, uint32_t id, struct 
 	spa_pod_builder_add(builder,
 			SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 			SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_aac),
+			SPA_FORMAT_AUDIO_format,	SPA_POD_Id(SPA_AUDIO_FORMAT_ENCODED),
 			0);
 	if (info->rate != 0)
 		spa_pod_builder_add(builder,

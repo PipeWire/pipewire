@@ -21,7 +21,7 @@ pipewire_alsa_ctl_plugin = shared_library('asound_module_ctl_pipewire',
     pipewire_alsa_plugin_ctl_sources,
     c_args : pipewire_alsa_plugin_c_args,
     include_directories : [configinc],
-    dependencies : [pipewire_dep, alsa_dep],
+    dependencies : [pipewire_dep, alsa_dep, mathlib],
     install : true,
     install_dir : pipewire_libdir / 'alsa-lib',
 )
